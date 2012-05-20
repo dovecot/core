@@ -603,6 +603,9 @@ driver_pgsql_sync_query(struct pgsql_db *db, const char *query)
 		/* we don't end up in pgsql's free function, so sync_result
 		   won't be set to NULL if we don't do it here. */
 		db->sync_result = NULL;
+	} else if (result == NULL) {
+		result = &sql_not_connected_result;
+		result->refcount++;
 	}
 
 	i_assert(db->io == NULL);

@@ -230,7 +230,8 @@ dsync_brain_subs_list_init(struct dsync_brain *brain,
 	struct dsync_brain_subs_list *list;
 	pool_t pool;
 
-	pool = pool_alloconly_create("dsync brain subs list", 1024*4);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"dsync brain subs list",
+				     1024*4);
 	list = p_new(pool, struct dsync_brain_subs_list, 1);
 	list->pool = pool;
 	list->brain = brain;
@@ -724,7 +725,8 @@ static bool dsync_brain_sync_msgs(struct dsync_brain *brain)
 	pool_t pool;
 	bool ret;
 
-	pool = pool_alloconly_create("dsync changed mailboxes", 10240);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"dsync changed mailboxes",
+				     10240);
 	p_array_init(&mailboxes, pool, 128);
 	dsync_brain_get_changed_mailboxes(brain, &mailboxes,
 		(brain->flags & DSYNC_BRAIN_FLAG_FULL_SYNC) != 0);

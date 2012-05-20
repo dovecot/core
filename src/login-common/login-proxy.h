@@ -1,6 +1,8 @@
 #ifndef LOGIN_PROXY_H
 #define LOGIN_PROXY_H
 
+#include "network.h"
+
 /* Max. number of embedded proxying connections until proxying fails.
    This is intended to avoid an accidental configuration where two proxies
    keep connecting to each others, both thinking the other one is supposed to
@@ -22,6 +24,7 @@ enum login_proxy_ssl_flags {
 
 struct login_proxy_settings {
 	const char *host;
+	struct ip_addr ip;
 	unsigned int port;
 	unsigned int connect_timeout_msecs;
 	/* send a notification about proxy connection to proxy-notify pipe

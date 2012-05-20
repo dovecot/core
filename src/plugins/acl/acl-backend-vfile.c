@@ -184,10 +184,9 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 static const char *
 get_parent_mailbox(struct acl_backend *backend, const char *name)
 {
-	struct mail_namespace *ns = mailbox_list_get_namespace(backend->list);
 	const char *p;
 
-	p = strrchr(name, mail_namespace_get_sep(ns));
+	p = strrchr(name, mailbox_list_get_hierarchy_sep(backend->list));
 	return p == NULL ? NULL : t_strdup_until(name, p);
 }
 

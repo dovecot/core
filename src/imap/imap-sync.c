@@ -669,8 +669,11 @@ static bool cmd_sync_drop_fast(struct client *client)
 	for (; cmd != NULL; cmd = prev) {
 		prev = cmd->next;
 
-		if (cmd->state == CLIENT_COMMAND_STATE_WAIT_SYNC &&
-		    (cmd->sync->flags & MAILBOX_SYNC_FLAG_FAST) != 0) {
+		if (cmd->state != CLIENT_COMMAND_STATE_WAIT_SYNC)
+			continue;
+
+		i_assert(cmd->sync != NULL);
+		if ((cmd->sync->flags & MAILBOX_SYNC_FLAG_FAST) != 0) {
 			if (cmd_finish_sync(cmd)) {
 				client_command_free(&cmd);
 				ret = TRUE;

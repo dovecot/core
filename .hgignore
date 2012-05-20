@@ -85,6 +85,8 @@ src/stats/stats
 src/plugins/fts-squat/squat-test
 src/pop3-login/pop3-login
 src/pop3/pop3
+src/replication/replicator/replicator
+src/replication/aggregator/aggregator
 src/util/gdbhelper
 src/util/listview
 src/util/maildirlock

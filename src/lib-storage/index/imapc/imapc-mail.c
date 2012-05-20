@@ -2,6 +2,8 @@
 
 #include "lib.h"
 #include "str.h"
+#include "hex-binary.h"
+#include "sha1.h"
 #include "istream.h"
 #include "imap-envelope.h"
 #include "imapc-msgmap.h"
@@ -107,29 +109,50 @@ static int imapc_mail_get_save_date(struct mail *_mail, time_t *date_r)
 
 static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct istream *input;
 	uoff_t old_offset;
 	int ret;
 
-	if (data->physical_size == (uoff_t)-1)
-		(void)index_mail_get_physical_size(_mail, size_r);
 	if (data->physical_size == (uoff_t)-1) {
-		old_offset = data->stream == NULL ? 0 : data->stream->v_offset;
-		if (mail_get_stream(_mail, NULL, NULL, &input) < 0)
-			return -1;
-		i_stream_seek(data->stream, old_offset);
-
-		ret = i_stream_get_size(data->stream, TRUE,
-					&data->physical_size);
-		if (ret <= 0) {
-			i_assert(ret != 0);
-			mail_storage_set_critical(_mail->box->storage,
-				"imapc: stat(%s) failed: %m",
-				i_stream_get_name(data->stream));
-			return -1;
+		(void)index_mail_get_physical_size(_mail, size_r);
+		if (data->physical_size != (uoff_t)-1) {
+			*size_r = data->physical_size;
+			return 0;
 		}
+	}
+
+	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE) &&
+	    data->stream == NULL) {
+		/* trust RFC822.SIZE to be correct */
+		if (imapc_mail_fetch(_mail, MAIL_FETCH_PHYSICAL_SIZE) < 0)
+			return -1;
+		if (data->physical_size == (uoff_t)-1) {
+			if (imapc_mail_failed(_mail, "RFC822.SIZE") < 0)
+				return -1;
+			/* assume that the server never returns RFC822.SIZE
+			   for this mail (see BODY[] failure handling) */
+			data->physical_size = 0;
+		}
+		*size_r = data->physical_size;
+		return 0;
+	}
+
+	old_offset = data->stream == NULL ? 0 : data->stream->v_offset;
+	if (mail_get_stream(_mail, NULL, NULL, &input) < 0)
+		return -1;
+	i_stream_seek(data->stream, old_offset);
+
+	ret = i_stream_get_size(data->stream, TRUE,
+				&data->physical_size);
+	if (ret <= 0) {
+		i_assert(ret != 0);
+		mail_storage_set_critical(_mail->box->storage,
+					  "imapc: stat(%s) failed: %m",
+					  i_stream_get_name(data->stream));
+		return -1;
 	}
 	*size_r = data->physical_size;
 	return 0;
@@ -200,6 +223,7 @@ imapc_mail_has_headers_in_cache(struct index_mail *mail,
 static void index_mail_update_access_parts(struct index_mail *mail)
 {
 	struct mail *_mail = &mail->mail.mail;
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
 	struct index_mail_data *data = &mail->data;
 	struct mailbox_header_lookup_ctx *header_ctx;
 	time_t date;
@@ -208,7 +232,8 @@ static void index_mail_update_access_parts(struct index_mail *mail)
 	if ((data->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0)
 		(void)index_mail_get_received_date(_mail, &date);
 	if ((data->wanted_fields & MAIL_FETCH_PHYSICAL_SIZE) != 0) {
-		if (index_mail_get_physical_size(_mail, &size) < 0)
+		if (index_mail_get_physical_size(_mail, &size) < 0 &&
+		    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE))
 			data->access_part |= READ_HDR | READ_BODY;
 	}
 
@@ -284,6 +309,33 @@ static void imapc_mail_close(struct mail *_mail)
 		buffer_free(&mail->body);
 }
 
+static int imapc_mail_get_hdr_hash(struct index_mail *imail)
+{
+	struct istream *input;
+	const unsigned char *data;
+	size_t size;
+	uoff_t old_offset;
+	struct sha1_ctxt sha1_ctx;
+	unsigned char sha1_output[SHA1_RESULTLEN];
+	const char *sha1_str;
+
+	sha1_init(&sha1_ctx);
+	old_offset = imail->data.stream == NULL ? 0 :
+		imail->data.stream->v_offset;
+	if (mail_get_hdr_stream(&imail->mail.mail, NULL, &input) < 0)
+		return -1;
+	while (i_stream_read_data(input, &data, &size, 0) > 0) {
+		sha1_loop(&sha1_ctx, data, size);
+		i_stream_skip(input, size);
+	}
+	i_stream_seek(imail->data.stream, old_offset);
+	sha1_result(&sha1_ctx, sha1_output);
+
+	sha1_str = binary_to_hex(sha1_output, sizeof(sha1_output));
+	imail->data.guid = p_strdup(imail->data_pool, sha1_str);
+	return 0;
+}
+
 static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
 {
 	struct index_mail *imail = (struct index_mail *)_mail;
@@ -305,11 +357,17 @@ static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
 	}
 
 	/* GUID not in cache, fetch it */
-	if (imapc_mail_fetch(_mail, MAIL_FETCH_GUID) < 0)
-		return -1;
-	if (imail->data.guid == NULL) {
-		(void)imapc_mail_failed(_mail, mbox->guid_fetch_field_name);
-		return -1;
+	if (mbox->guid_fetch_field_name != NULL) {
+		if (imapc_mail_fetch(_mail, MAIL_FETCH_GUID) < 0)
+			return -1;
+		if (imail->data.guid == NULL) {
+			(void)imapc_mail_failed(_mail, mbox->guid_fetch_field_name);
+			return -1;
+		}
+	} else {
+		/* use hash of message headers as the GUID */
+		if (imapc_mail_get_hdr_hash(imail) < 0)
+			return -1;
 	}
 
 	index_mail_cache_add_idx(imail, cache_idx,
@@ -326,7 +384,8 @@ imapc_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 
 	switch (field) {
 	case MAIL_FETCH_GUID:
-		if (mbox->guid_fetch_field_name == NULL) {
+		if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GUID_FORCED) &&
+		    mbox->guid_fetch_field_name == NULL) {
 			/* GUIDs not supported by server */
 			break;
 		}

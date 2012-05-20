@@ -52,6 +52,8 @@ void mail_index_transaction_unref(struct mail_index_transaction **_t)
 
 	array_free(&t->module_contexts);
 	mail_index_view_transaction_unref(t->view);
+	if (t->latest_view != NULL)
+		mail_index_view_close(&t->latest_view);
 	mail_index_view_close(&t->view);
 	i_free(t);
 }
@@ -87,6 +89,21 @@ uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t)
 			next_uid = hdr->next_uid;
 	}
 	return next_uid;
+}
+
+void mail_index_transaction_lookup_latest_keywords(struct mail_index_transaction *t,
+						   uint32_t seq,
+						   ARRAY_TYPE(keyword_indexes) *keywords)
+{
+	uint32_t uid, latest_seq;
+
+	if (t->latest_view == NULL) {
+		(void)mail_index_refresh(t->view->index);
+		t->latest_view = mail_index_view_open(t->view->index);
+	}
+	mail_index_lookup_uid(t->view, seq, &uid);
+	if (mail_index_lookup_seq(t->view, uid, &latest_seq))
+		mail_index_lookup_keywords(t->view, latest_seq, keywords);
 }
 
 static int

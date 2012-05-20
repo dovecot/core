@@ -147,15 +147,18 @@ static bool
 dbox_cleanup_if_exists(struct mailbox_list *list, const char *path)
 {
 	struct stat st;
+	unsigned int interval = list->mail_set->mail_temp_scan_interval;
 
 	if (stat(path, &st) < 0)
 		return FALSE;
 
 	/* check once in a while if there are temp files to clean up */
-	if (st.st_atime > st.st_ctime + DBOX_TMP_DELETE_SECS) {
+	if (interval == 0) {
+		/* disabled */
+	} else if (st.st_atime > st.st_ctime + DBOX_TMP_DELETE_SECS) {
 		/* there haven't been any changes to this directory since we
 		   last checked it. */
-	} else if (st.st_atime < ioloop_time - DBOX_TMP_SCAN_SECS) {
+	} else if (st.st_atime < ioloop_time - interval) {
 		/* time to scan */
 		const char *prefix =
 			mailbox_list_get_global_temp_prefix(list);
@@ -172,7 +175,7 @@ int dbox_mailbox_open(struct mailbox *box)
 
 	if (dbox_cleanup_if_exists(box->list, box_path))
 		;
-	else if (errno == ENOENT) {
+	else if (errno == ENOENT || errno == ENAMETOOLONG) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
 		return -1;

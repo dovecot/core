@@ -272,6 +272,9 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 
 	box->opened = TRUE;
 
+	if ((box->enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0)
+		mail_index_modseq_enable(box->index);
+
 	index_thread_mailbox_opened(box);
 	hook_mailbox_opened(box);
 	return 0;
@@ -315,11 +318,8 @@ int index_storage_mailbox_enable(struct mailbox *box,
 {
 	if ((feature & MAILBOX_FEATURE_CONDSTORE) != 0) {
 		box->enabled_features |= MAILBOX_FEATURE_CONDSTORE;
-		if (mailbox_open(box) < 0)
-			return -1;
-		T_BEGIN {
+		if (box->opened)
 			mail_index_modseq_enable(box->index);
-		} T_END;
 	}
 	return 0;
 }
@@ -519,10 +519,13 @@ int index_storage_mailbox_delete(struct mailbox *box)
 		return index_storage_mailbox_delete_dir(box, FALSE);
 	}
 
-	/* specifically support symlinked shared mailboxes. a deletion will
-	   simply remove the symlink, not actually expunge any mails */
-	if (mailbox_list_delete_symlink(box->list, box->name) == 0)
-		return 0;
+	if ((box->list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0) {
+		/* specifically support symlinked shared mailboxes. a deletion
+		   will simply remove the symlink, not actually expunge any
+		   mails */
+		if (mailbox_list_delete_symlink(box->list, box->name) == 0)
+			return 0;
+	}
 
 	/* we can't easily atomically delete all mails and the mailbox. so:
 	   1) expunge all mails
@@ -532,8 +535,10 @@ int index_storage_mailbox_delete(struct mailbox *box)
 	     no) finish deleting the mailbox
 	*/
 
-	if (mailbox_expunge_all_mails(box) < 0)
-		return -1;
+	if (!box->deleting_must_be_empty) {
+		if (mailbox_expunge_all_mails(box) < 0)
+			return -1;
+	}
 	if (mailbox_mark_index_deleted(box, TRUE) < 0)
 		return -1;
 

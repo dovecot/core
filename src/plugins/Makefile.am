@@ -23,6 +23,8 @@ SUBDIRS = \
 	mail-log \
 	quota \
 	imap-quota \
+	pop3-migration \
+	replication \
 	snarf \
 	stats \
 	imap-stats \

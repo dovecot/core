@@ -136,9 +136,9 @@ static void penalty_add_checksum(struct penalty_rec *rec, unsigned int checksum)
 		rec->checksum_is_pointer = TRUE;
 	}
 
-	memcpy(rec->checksum.value_ptr + 1, rec->checksum.value_ptr,
-	       sizeof(rec->checksum.value_ptr[0]) *
-	       (CHECKSUM_VALUE_PTR_COUNT-1));
+	memmove(rec->checksum.value_ptr + 1, rec->checksum.value_ptr,
+		sizeof(rec->checksum.value_ptr[0]) *
+		(CHECKSUM_VALUE_PTR_COUNT-1));
 	rec->checksum.value_ptr[0] = checksum;
 }
 

@@ -913,10 +913,10 @@ static int preparsed_parse_next_header_init(struct message_parser_ctx *ctx,
 	return preparsed_parse_next_header(ctx, block_r);
 }
 
-struct message_parser_ctx *
-message_parser_init(pool_t part_pool, struct istream *input,
-		    enum message_header_parser_flags hdr_flags,
-		    enum message_parser_flags flags)
+static struct message_parser_ctx *
+message_parser_init_int(struct istream *input,
+			enum message_header_parser_flags hdr_flags,
+			enum message_parser_flags flags)
 {
 	struct message_parser_ctx *ctx;
 	pool_t pool;
@@ -924,14 +924,24 @@ message_parser_init(pool_t part_pool, struct istream *input,
 	pool = pool_alloconly_create("Message Parser", 1024);
 	ctx = p_new(pool, struct message_parser_ctx, 1);
 	ctx->parser_pool = pool;
-	ctx->part_pool = part_pool;
 	ctx->hdr_flags = hdr_flags;
 	ctx->flags = flags;
 	ctx->input = input;
-	ctx->parts = ctx->part = part_pool == NULL ? NULL :
-		p_new(part_pool, struct message_part, 1);
-	ctx->parse_next_block = parse_next_header_init;
 	i_stream_ref(input);
+	return ctx;
+}
+
+struct message_parser_ctx *
+message_parser_init(pool_t part_pool, struct istream *input,
+		    enum message_header_parser_flags hdr_flags,
+		    enum message_parser_flags flags)
+{
+	struct message_parser_ctx *ctx;
+
+	ctx = message_parser_init_int(input, hdr_flags, flags);
+	ctx->part_pool = part_pool;
+	ctx->parts = ctx->part = p_new(part_pool, struct message_part, 1);
+	ctx->parse_next_block = parse_next_header_init;
 	return ctx;
 }
 
@@ -943,7 +953,7 @@ message_parser_init_from_parts(struct message_part *parts,
 {
 	struct message_parser_ctx *ctx;
 
-	ctx = message_parser_init(NULL, input, hdr_flags, flags);
+	ctx = message_parser_init_int(input, hdr_flags, flags);
 	ctx->parts = ctx->part = parts;
 	ctx->parse_next_block = preparsed_parse_next_header_init;
 	return ctx;
@@ -1017,6 +1027,7 @@ void message_parser_parse_header(struct message_parser_ctx *ctx,
 			break;
 	}
 	i_assert(ret != 0);
+	i_assert(ctx->part != NULL);
 
 	if (ret < 0) {
 		/* well, can't return error so fake end of headers */

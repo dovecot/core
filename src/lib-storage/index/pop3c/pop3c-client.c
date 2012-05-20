@@ -669,7 +669,7 @@ int pop3c_client_cmd_line(struct pop3c_client *client, const char *cmd,
 		*reply_r = line + 3;
 		ret = 0;
 	} else if (strncasecmp(line, "-ERR", 4) == 0) {
-		*reply_r = line + 3;
+		*reply_r = line + 4;
 		ret = -1;
 	} else {
 		*reply_r = line;

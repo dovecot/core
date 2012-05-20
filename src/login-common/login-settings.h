@@ -6,6 +6,7 @@ struct login_settings {
 	const char *login_greeting;
 	const char *login_log_format_elements, *login_log_format;
 	const char *login_access_sockets;
+	const char *director_username_hash;
 
 	const char *ssl;
 	const char *ssl_ca;
@@ -19,6 +20,7 @@ struct login_settings {
 	const char *ssl_client_key;
 	const char *ssl_crypto_device;
 	bool ssl_verify_client_cert;
+	bool ssl_require_crl;
 	bool auth_ssl_require_client_cert;
 	bool auth_ssl_username_from_cert;
 	bool verbose_ssl;

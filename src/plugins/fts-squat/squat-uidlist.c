@@ -332,6 +332,7 @@ static int squat_uidlist_map_blocks(struct squat_uidlist *uidlist)
 		return 0;
 	}
 
+	i_assert(uidlist->data != NULL);
 	base = CONST_PTR_OFFSET(uidlist->data, hdr->block_list_offset);
 	memcpy(&block_count, base, sizeof(block_count));
 
@@ -346,6 +347,8 @@ static int squat_uidlist_map_blocks(struct squat_uidlist *uidlist)
 
 	uidlist->cur_block_count = block_count;
 	squat_uidlist_map_blocks_set_pointers(uidlist);
+
+	i_assert(uidlist->cur_block_end_indexes != NULL);
 
 	/* verify just a couple of the end indexes to make sure they
 	   look correct */

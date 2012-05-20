@@ -436,6 +436,7 @@ fts_backend_squat_lookup(struct fts_backend *_backend, struct mailbox *box,
 {
 	struct squat_fts_backend *backend =
 		(struct squat_fts_backend *)_backend;
+	bool first = TRUE;
 	int ret;
 
 	fts_backend_squat_set_box(backend, box);
@@ -446,14 +447,14 @@ fts_backend_squat_lookup(struct fts_backend *_backend, struct mailbox *box,
 	}
 
 	for (; args != NULL; args = args->next) {
-		ret = squat_lookup_arg(backend, args, and_args,
+		ret = squat_lookup_arg(backend, args, first ? FALSE : and_args,
 				       &result->definite_uids,
 				       &result->maybe_uids);
 		if (ret < 0)
 			return -1;
 		if (ret > 0)
 			args->match_always = TRUE;
-
+		first = FALSE;
 	}
 	return 0;
 }

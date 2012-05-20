@@ -244,7 +244,8 @@ int i_my_clock_gettime(int clk_id, struct timespec *tp);
 #endif
 
 #define ENOTFOUND(errno) \
-	((errno) == ENOENT || (errno) == ENOTDIR || (errno) == ELOOP)
+	((errno) == ENOENT || (errno) == ENOTDIR || \
+	 (errno) == ELOOP || (errno) == ENAMETOOLONG)
 
 #define ECANTLINK(errno) \
 	((errno) == EXDEV || (errno) == EMLINK || (errno) == EPERM)

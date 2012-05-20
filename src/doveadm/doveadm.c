@@ -331,6 +331,7 @@ int main(int argc, char *argv[])
 		doveadm_register_cmd(doveadm_commands[i]);
 
 	if (cmd_name != NULL && (quick_init ||
+				 strcmp(cmd_name, "config") == 0 ||
 				 strcmp(cmd_name, "stop") == 0 ||
 				 strcmp(cmd_name, "reload") == 0)) {
 		/* special case commands: even if there is something wrong

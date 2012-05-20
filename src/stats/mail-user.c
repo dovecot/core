@@ -118,7 +118,8 @@ void mail_users_free_memory(void)
 	while (mail_users_head != NULL && mail_users_head->refcount == 0) {
 		mail_user_free(mail_users_head);
 
-		if (global_used_memory < stats_settings->memory_limit)
+		if (global_used_memory < stats_settings->memory_limit ||
+		    mail_users_head == NULL)
 			break;
 
 		diff = ioloop_time - mail_users_head->last_update.tv_sec;

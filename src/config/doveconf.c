@@ -434,7 +434,7 @@ config_dump_human(const struct config_filter *filter, const char *module,
 	ret = config_dump_human_output(ctx, output, 0, setting_name_filter);
 	config_dump_human_deinit(ctx);
 
-	if (ret == 0 && setting_name_filter == NULL)
+	if (setting_name_filter == NULL)
 		ret = config_dump_human_sections(output, filter, module);
 
 	o_stream_uncork(output);

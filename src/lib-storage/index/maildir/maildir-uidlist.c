@@ -97,6 +97,7 @@ struct maildir_uidlist {
 	unsigned int locked_refresh:1;
 	unsigned int unsorted:1;
 	unsigned int have_mailbox_guid:1;
+	unsigned int opened_readonly:1;
 };
 
 struct maildir_uidlist_sync_ctx {
@@ -702,11 +703,16 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 	struct stat st;
 	uoff_t last_read_offset;
 	int fd, ret;
+	bool readonly = FALSE;
 
 	*retry_r = FALSE;
 
 	if (uidlist->fd == -1) {
 		fd = nfs_safe_open(uidlist->path, O_RDWR);
+		if (fd == -1 && errno == EACCES) {
+			fd = nfs_safe_open(uidlist->path, O_RDONLY);
+			readonly = TRUE;
+		}
 		if (fd == -1) {
 			if (errno != ENOENT) {
 				mail_storage_set_critical(storage,
@@ -807,6 +813,8 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
                 (void)unlink(uidlist->path);
         } else if (ret > 0) {
                 /* success */
+		if (readonly)
+			uidlist->recreate_on_change = TRUE;
 		uidlist->fd = fd;
 		uidlist->fd_dev = st.st_dev;
 		uidlist->fd_ino = st.st_ino;
@@ -917,6 +925,10 @@ static int maildir_uidlist_open_latest(struct maildir_uidlist *uidlist)
 	}
 
 	uidlist->fd = nfs_safe_open(uidlist->path, O_RDWR);
+	if (uidlist->fd == -1 && errno == EACCES) {
+		uidlist->fd = nfs_safe_open(uidlist->path, O_RDONLY);
+		uidlist->recreate_on_change = TRUE;
+	}
 	if (uidlist->fd == -1 && errno != ENOENT) {
 		mail_storage_set_critical(uidlist->box->storage,
 			"open(%s) failed: %m", uidlist->path);
@@ -1510,6 +1522,8 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 		i_assert(uidlist->initial_hdr_read);
 		if (maildir_uidlist_open_latest(uidlist) < 0)
 			return -1;
+		if (uidlist->recreate_on_change)
+			return maildir_uidlist_recreate(uidlist);
 	}
 	i_assert(ctx->first_unwritten_pos != (unsigned int)-1);
 

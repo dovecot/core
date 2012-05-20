@@ -6,6 +6,7 @@
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "crc32.h"
 #include "str.h"
 #include "llist.h"
 #include "hostpid.h"
@@ -192,6 +193,7 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 			array_free(&msgnum_to_seq_map);
 		return ret;
 	}
+	i_assert(msgnum == client->messages_count);
 
 	client->trans = t;
 	client->message_sizes =
@@ -274,7 +276,8 @@ static enum uidl_keys parse_uidl_keymask(const char *format)
 	return mask;
 }
 
-struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
+struct client *client_create(int fd_in, int fd_out, const char *session_id,
+			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set)
 {
@@ -297,6 +300,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	client->service_user = service_user;
 	client->v = pop3_client_vfuncs;
 	client->set = set;
+	client->session_id = p_strdup(pool, session_id);
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
 	client->input = i_stream_create_fd(fd_in, MAX_INBUF_SIZE, FALSE);
@@ -350,14 +354,19 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 		return NULL;
 	}
 
-	if (var_has_key(set->pop3_logout_format, 'u', "uidl_change") &&
-	    client->messages_count > 0)
-		client->message_uidl_hashes_save = TRUE;
-
 	client->uidl_keymask =
 		parse_uidl_keymask(client->mail_set->pop3_uidl_format);
 	if (client->uidl_keymask == 0)
 		i_fatal("Invalid pop3_uidl_format");
+
+	if (var_has_key(set->pop3_logout_format, 'u', "uidl_change")) {
+		/* logging uidl_change. we need hashes of the UIDLs */
+		client->message_uidls_save = TRUE;
+	} else if (strcmp(set->pop3_uidl_duplicates, "allow") != 0) {
+		/* UIDL duplicates aren't allowed, so we'll need to
+		   keep track of them */
+		client->message_uidls_save = TRUE;
+	}
 
 	if (!set->pop3_no_flag_updates && client->messages_count > 0)
 		client->seen_bitmask = i_malloc(MSGS_BITMASK_SIZE(client));
@@ -381,12 +390,8 @@ static const char *client_build_uidl_change_string(struct client *client)
 	uint32_t i, old_hash, new_hash;
 	unsigned int old_msg_count, new_msg_count;
 
-	if (client->message_uidl_hashes == NULL) {
-		/* UIDL command not given or %u not actually used in format */
-		return "";
-	}
-	if (client->message_uidl_hashes_save) {
-		/* UIDL command not finished */
+	if (client->message_uidls == NULL) {
+		/* UIDL command not given */
 		return "";
 	}
 
@@ -394,18 +399,18 @@ static const char *client_build_uidl_change_string(struct client *client)
 	old_msg_count = client->lowest_retr_pop3_msn > 0 ?
 		client->lowest_retr_pop3_msn - 1 : client->messages_count;
 	for (i = 0, old_hash = 0; i < old_msg_count; i++)
-		old_hash ^= client->message_uidl_hashes[i];
+		old_hash ^= crc32_str(client->message_uidls[i]);
 
 	/* assume all except deleted messages were sent to POP3 client */
 	if (!client->deleted) {
 		for (i = 0, new_hash = 0; i < client->messages_count; i++)
-			new_hash ^= client->message_uidl_hashes[i];
+			new_hash ^= crc32_str(client->message_uidls[i]);
 	} else {
 		for (i = 0, new_hash = 0; i < client->messages_count; i++) {
 			if (client->deleted_bitmask[i / CHAR_BIT] &
 			    (1 << (i % CHAR_BIT)))
 				continue;
-			new_hash ^= client->message_uidl_hashes[i];
+			new_hash ^= crc32_str(client->message_uidls[i]);
 		}
 	}
 
@@ -432,6 +437,7 @@ static const char *client_stats(struct client *client)
 		{ 'i', NULL, "input" },
 		{ 'o', NULL, "output" },
 		{ 'u', NULL, "uidl_change" },
+		{ '\0', NULL, "session" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -449,7 +455,12 @@ static const char *client_stats(struct client *client)
 	tab[6].value = dec2str(client->total_size);
 	tab[7].value = dec2str(client->input->v_offset);
 	tab[8].value = dec2str(client->output->offset);
-	tab[9].value = client_build_uidl_change_string(client);
+	if (var_has_key(client->set->pop3_logout_format,
+			tab[9].key, tab[9].long_key))
+		tab[9].value = client_build_uidl_change_string(client);
+	else
+		tab[9].value = "";
+	tab[10].value = client->session_id;
 
 	str = t_str_new(128);
 	var_expand(str, client->set->pop3_logout_format, tab);
@@ -507,8 +518,9 @@ static void client_default_destroy(struct client *client, const char *reason)
 	}
 	mail_user_unref(&client->user);
 
+	if (client->uidl_pool != NULL)
+		pool_unref(&client->uidl_pool);
 	i_free(client->message_sizes);
-	i_free(client->message_uidl_hashes);
 	i_free(client->deleted_bitmask);
 	i_free(client->seen_bitmask);
 	i_free(client->msgnum_to_seq_map);

@@ -113,7 +113,7 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 		if (get_body || (capa & POP3C_CAPABILITY_TOP) == 0)
 			cmd = t_strdup_printf("RETR %u\r\n", _mail->seq);
 		else
-			cmd = t_strdup_printf("TOP %u\r\n", _mail->seq);
+			cmd = t_strdup_printf("TOP %u 0\r\n", _mail->seq);
 		if (pop3c_client_cmd_stream(mbox->client, cmd,
 					    &input, &error) < 0) {
 			mail_storage_set_error(mbox->box.storage,

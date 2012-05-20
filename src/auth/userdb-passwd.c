@@ -137,6 +137,25 @@ passwd_iterate_init(struct auth_request *auth_request,
 	return &ctx->ctx;
 }
 
+static bool
+passwd_iterate_want_pw(struct passwd *pw, const struct auth_settings *set)
+{
+	/* skip entries not in valid UID range.
+	   they're users for daemons and such. */
+	if (pw->pw_uid < (uid_t)set->first_valid_uid)
+		return FALSE;
+	if (pw->pw_uid > (uid_t)set->last_valid_uid && set->last_valid_uid != 0)
+		return FALSE;
+
+	/* skip entries that don't have a valid shell.
+	   they're again probably not real users. */
+	if (strcmp(pw->pw_shell, "/bin/false") == 0 ||
+	    strcmp(pw->pw_shell, "/sbin/nologin") == 0 ||
+	    strcmp(pw->pw_shell, "/usr/sbin/nologin") == 0)
+		return FALSE;
+	return TRUE;
+}
+
 static void passwd_iterate_next(struct userdb_iterate_context *_ctx)
 {
 	struct passwd_userdb_iterate_context *ctx =
@@ -154,11 +173,7 @@ static void passwd_iterate_next(struct userdb_iterate_context *_ctx)
 
 	errno = 0;
 	while ((pw = getpwent()) != NULL) {
-		/* skip entries not in valid UID range.
-		   they're users for daemons and such. */
-		if (pw->pw_uid >= (uid_t)set->first_valid_uid &&
-		    (set->last_valid_uid == 0 ||
-		     pw->pw_uid <= (uid_t)set->last_valid_uid)) {
+		if (passwd_iterate_want_pw(pw, set)) {
 			_ctx->callback(pw->pw_name, _ctx->context);
 			return;
 		}

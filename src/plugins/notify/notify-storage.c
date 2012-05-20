@@ -102,8 +102,15 @@ notify_copy(struct mail_save_context *ctx, struct mail *mail)
 		ctx->dest_mail = lt->tmp_mail;
 	}
 
-	if ((ret = lbox->super.copy(ctx, mail)) == 0)
+	if ((ret = lbox->super.copy(ctx, mail)) < 0)
+		return -1;
+
+	if (ctx->saving) {
+		/* we came from mailbox_save_using_mail() */
+		notify_contexts_mail_save(ctx->dest_mail);
+	} else {
 		notify_contexts_mail_copy(mail, ctx->dest_mail);
+	}
 	return ret;
 }
 

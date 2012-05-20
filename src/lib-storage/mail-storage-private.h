@@ -212,7 +212,7 @@ struct mailbox {
 
         struct mailbox_vfuncs v, *vlast;
 /* private: */
-	pool_t pool;
+	pool_t pool, metadata_pool;
 	/* Linked list of all mailboxes in this storage */
 	struct mailbox *prev, *next;
 
@@ -240,6 +240,8 @@ struct mailbox {
 	unsigned int transaction_count;
 	enum mailbox_feature enabled_features;
 
+	struct mail_index_view *tmp_sync_view;
+
 	/* Mailbox notification settings: */
 	mailbox_notify_callback_t *notify_callback;
 	void *notify_context;
@@ -262,6 +264,8 @@ struct mailbox {
 	unsigned int creating:1;
 	/* Mailbox is being deleted */
 	unsigned int deleting:1;
+	/* Delete mailbox only if it's empty */
+	unsigned int deleting_must_be_empty:1;
 	/* Mailbox was already marked as deleted within this allocation. */
 	unsigned int marked_deleted:1;
 	/* TRUE if this is an INBOX for this user */
@@ -274,6 +278,8 @@ struct mailbox {
 	unsigned int disable_reflink_copy_to:1;
 	/* Don't allow creating any new keywords */
 	unsigned int disallow_new_keywords:1;
+	/* Mailbox has been synced at least once */
+	unsigned int synced:1;
 };
 
 struct mail_vfuncs {
@@ -394,6 +400,8 @@ struct mailbox_transaction_context {
 	struct mailbox_transaction_stats stats;
 	/* Set to TRUE to update stats_* fields */
 	unsigned int stats_track:1;
+	/* We've done some non-transactional (e.g. dovecot-uidlist updates) */
+	unsigned int nontransactional_changes:1;
 };
 
 union mail_search_module_context {
@@ -439,6 +447,7 @@ struct mail_save_context {
 	uint32_t uid;
 	char *guid, *pop3_uidl, *from_envelope;
 	struct ostream *output;
+	unsigned int pop3_order;
 
 	struct mail_save_attachment *attach;
 

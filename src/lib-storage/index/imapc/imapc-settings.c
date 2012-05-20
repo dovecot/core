@@ -25,7 +25,9 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(SET_STR, imapc_ssl_ca_dir),
 	DEF(SET_BOOL, imapc_ssl_verify),
 
+	DEF(SET_STR, imapc_features),
 	DEF(SET_STR, imapc_rawlog_dir),
+	DEF(SET_STR, imapc_list_prefix),
 	DEF(SET_STR, ssl_crypto_device),
 
 	SETTING_DEFINE_LIST_END
@@ -43,7 +45,9 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_ssl_ca_dir = "",
 	.imapc_ssl_verify = TRUE,
 
+	.imapc_features = "",
 	.imapc_rawlog_dir = "",
+	.imapc_list_prefix = "",
 	.ssl_crypto_device = ""
 };
 
@@ -67,6 +71,44 @@ const struct setting_parser_info *imapc_get_setting_parser_info(void)
 }
 
 /* <settings checks> */
+struct imapc_feature_list {
+	const char *name;
+	enum imapc_features num;
+};
+
+static const struct imapc_feature_list imapc_feature_list[] = {
+	{ "rfc822.size", IMAPC_FEATURE_RFC822_SIZE },
+	{ "guid-forced", IMAPC_FEATURE_GUID_FORCED },
+	{ NULL, 0 }
+};
+
+static int
+imapc_settings_parse_features(struct imapc_settings *set,
+			      const char **error_r)
+{
+        enum imapc_features features = 0;
+        const struct imapc_feature_list *list;
+	const char *const *str;
+
+        str = t_strsplit_spaces(set->imapc_features, " ,");
+	for (; *str != NULL; str++) {
+		list = imapc_feature_list;
+		for (; list->name != NULL; list++) {
+			if (strcasecmp(*str, list->name) == 0) {
+				features |= list->num;
+				break;
+			}
+		}
+		if (list->name == NULL) {
+			*error_r = t_strdup_printf("imapc_features: "
+				"Unknown feature: %s", *str);
+			return -1;
+		}
+	}
+	set->parsed_features = features;
+	return 0;
+}
+
 static bool imapc_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				 const char **error_r)
 {
@@ -85,5 +127,7 @@ static bool imapc_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 #endif
+	if (imapc_settings_parse_features(set, error_r) < 0)
+		return FALSE;
 	return TRUE;
 }

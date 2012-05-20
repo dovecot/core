@@ -552,7 +552,8 @@ static void fts_backend_lucene_lookup_done(struct fts_backend *_backend)
 
 struct fts_backend fts_backend_lucene = {
 	.name = "lucene",
-	.flags = FTS_BACKEND_FLAG_BUILD_FULL_WORDS,
+	.flags = FTS_BACKEND_FLAG_BUILD_FULL_WORDS |
+		FTS_BACKEND_FLAG_FUZZY_SEARCH,
 
 	{
 		fts_backend_lucene_alloc,

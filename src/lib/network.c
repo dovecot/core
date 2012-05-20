@@ -410,7 +410,7 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 	if (ret < 0) {
 		if (errno != EADDRINUSE) {
 			i_error("bind(%s, %u) failed: %m",
-				net_ip2addr(my_ip), *port);
+				my_ip == NULL ? "" : net_ip2addr(my_ip), *port);
 		}
 	} else {
 		/* get the actual port we started listen */
@@ -757,7 +757,7 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r)
 	return 0;
 #elif defined(HAVE_GETPEERUCRED)
 	/* Solaris */
-	ucred_t *ucred;
+	ucred_t *ucred = NULL;
 
 	if (getpeerucred(fd, &ucred) < 0) {
 		i_error("getpeerucred() failed: %m");

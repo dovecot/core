@@ -49,9 +49,12 @@ void file_cache_set_fd(struct file_cache *cache, int fd)
 int file_cache_set_size(struct file_cache *cache, uoff_t size)
 {
 	size_t page_size = mmap_get_page_size();
-	uoff_t diff = size % page_size;
+	uoff_t diff;
 	void *new_base;
 
+	i_assert(page_size > 0);
+
+	diff = size % page_size;
 	if (diff != 0)
 		size += page_size - diff;
 
@@ -94,6 +97,8 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 	size_t poffset, psize, dest_offset, dest_size;
 	unsigned char *bits, *dest;
 	ssize_t ret;
+
+	i_assert(page_size > 0);
 
 	if (size > SSIZE_T_MAX) {
 		/* make sure our calculations won't overflow. most likely
@@ -225,6 +230,7 @@ void file_cache_write(struct file_cache *cache, const void *data, size_t size,
 	unsigned char *bits;
 	unsigned int first_page, last_page;
 
+	i_assert(page_size > 0);
 	i_assert((uoff_t)-1 - offset > size);
 
 	if (file_cache_set_size(cache, offset + size) < 0) {
@@ -269,6 +275,8 @@ void file_cache_invalidate(struct file_cache *cache, uoff_t offset, uoff_t size)
 
 	if (offset >= cache->read_highwater || size == 0)
 		return;
+
+	i_assert(page_size > 0);
 
 	if (size > cache->read_highwater - offset) {
 		/* ignore anything after read highwater */

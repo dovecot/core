@@ -115,11 +115,13 @@ static int dbox_sync_mark_expunges(struct mdbox_sync_context *ctx)
 
 	if (box->v.sync_notify != NULL) {
 		/* do notifications after commit finished successfully */
+		box->tmp_sync_view = ctx->sync_view;
 		seq_range_array_iter_init(&iter, &ctx->expunged_seqs); n = 0;
 		while (seq_range_array_iter_nth(&iter, n++, &seq)) {
 			mail_index_lookup_uid(ctx->sync_view, seq, &uid);
 			box->v.sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
 		}
+		box->tmp_sync_view = NULL;
 	}
 	return 0;
 }
@@ -274,6 +276,12 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 		/* we'll need to rebuild storage.
 		   try again from the beginning. */
 		mdbox_storage_set_corrupted(mbox->storage);
+		if ((flags & MDBOX_SYNC_FLAG_NO_REBUILD) != 0) {
+			mail_storage_set_critical(storage,
+				"mdbox %s: Can't rebuild storage",
+				mailbox_get_path(&mbox->box));
+			return -1;
+		}
 		return mdbox_sync_begin(mbox, flags, atomic, ctx_r);
 	}
 

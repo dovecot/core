@@ -40,7 +40,7 @@ anvil_connection_next_line(struct anvil_connection *conn)
 	const char *line;
 
 	line = i_stream_next_line(conn->input);
-	return line == NULL ? NULL : t_strsplit(line, "\t");
+	return line == NULL ? NULL : t_strsplit_tab(line);
 }
 
 static int

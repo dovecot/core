@@ -2,57 +2,28 @@
 #define CHECKPASSWORD_COMMON_H
 
 #include "auth-request.h"
-#include "lib-signals.h"
-#include "buffer.h"
-#include "str.h"
-#include "ioloop.h"
-#include "hash.h"
-#include "env-util.h"
-#include "safe-memset.h"
-#include "child-wait.h"
 
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/wait.h>
-
-
-struct chkpw_auth_request {
-	int fd_out, fd_in;
-	struct io *io_out, *io_in;
-	pid_t pid;
-
-	string_t *input_buf;
-	char *password;
-	unsigned int write_pos;
-
-	struct auth_request *request;
-	void *callback;
-	void (*half_finish_callback)();
-	void (*finish_callback)();
-        int internal_failure_code;
-
-	int exit_status;
-	unsigned int exited:1;
+enum db_checkpassword_status {
+	DB_CHECKPASSWORD_STATUS_INTERNAL_FAILURE = -1,
+	/* auth unsuccessful / user not found */
+	DB_CHECKPASSWORD_STATUS_FAILURE = 0,
+	DB_CHECKPASSWORD_STATUS_OK = 1
 };
 
-enum checkpassword_sigchld_handler_result {
-	SIGCHLD_RESULT_UNKNOWN_CHILD = -1,
-	SIGCHLD_RESULT_DEAD_CHILD = -2,
-	SIGCHLD_RESULT_UNKNOWN_ERROR = -3,
-	SIGCHLD_RESULT_OK = 1,
-};
+typedef void db_checkpassword_callback_t(struct auth_request *request,
+					 enum db_checkpassword_status status,
+					 const char *const *extra_fields,
+					 void (*request_callback)());
 
-
-void checkpassword_request_free(struct chkpw_auth_request *request);
-enum checkpassword_sigchld_handler_result
-checkpassword_sigchld_handler(const struct child_wait_status *child_wait_status,
-			      struct chkpw_auth_request *request);
-void checkpassword_setup_env(struct auth_request *request);
-const char *
-checkpassword_get_cmd(struct auth_request *request, const char *args,
+struct db_checkpassword *
+db_checkpassword_init(const char *checkpassword_path,
 		      const char *checkpassword_reply_path);
+void db_checkpassword_deinit(struct db_checkpassword **db);
 
-void checkpassword_child_input(struct chkpw_auth_request *request);
-void checkpassword_child_output(struct chkpw_auth_request *request);
+void db_checkpassword_call(struct db_checkpassword *db,
+			   struct auth_request *request,
+			   const char *auth_password,
+			   db_checkpassword_callback_t *callback,
+			   void (*request_callback)());
 
 #endif

@@ -427,6 +427,13 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 	list_sep = mailbox_list_get_hierarchy_sep(list);
 	ns_sep = mail_namespace_get_sep(ns);
 
+	if (*storage_name == '\0' && ns->type == NAMESPACE_SHARED &&
+	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
+	    !list->mail_set->mail_shared_explicit_inbox) {
+		/* opening shared/$user. it's the same as INBOX. */
+		storage_name = "INBOX";
+	}
+
 	if (list_sep == ns_sep)
 		return storage_name;
 	if (ns->type == NAMESPACE_SHARED &&
@@ -457,6 +464,11 @@ mailbox_list_unescape_name(struct mailbox_list *list, const char *src)
 	char list_sep = mailbox_list_get_hierarchy_sep(list);
 	string_t *dest = t_str_new(strlen(src));
 	unsigned int num;
+
+	if (strncmp(src, list->ns->prefix, list->ns->prefix_len) == 0) {
+		str_append_n(dest, src, list->ns->prefix_len);
+		src += list->ns->prefix_len;
+	}
 
 	for (; *src != '\0'; src++) {
 		if (*src == list->set.escape_char &&
@@ -495,6 +507,13 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 		   comparison, otherwise we can't differentiate between INBOX
 		   and <ns prefix>/inBox. */
 		return vname;
+	}
+	if (strcmp(vname, "INBOX") == 0 && list->ns->type == NAMESPACE_SHARED &&
+	    (list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
+	    !list->mail_set->mail_shared_explicit_inbox) {
+		/* convert to shared/$user, we don't really care about the
+		   INBOX suffix here. */
+		vname = "";
 	}
 	if (*vname == '\0') {
 		/* return namespace prefix without the separator */

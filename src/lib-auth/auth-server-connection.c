@@ -207,7 +207,7 @@ auth_server_connection_input_line(struct auth_server_connection *conn,
 	if (conn->client->debug)
 		i_debug("auth input: %s", line);
 
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	if (args[0] == NULL) {
 		i_error("Auth server sent empty line");
 		return -1;

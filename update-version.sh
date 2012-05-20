@@ -64,4 +64,4 @@ fi
 
 cmp -s "${BUILDDIR}/${VERSION_H}" "${BUILDDIR}/${VERSION_HT}" && \
 	rm -f "${BUILDDIR}/${VERSION_HT}" || \
-	mv "${BUILDDIR}/${VERSION_HT}" "${BUILDDIR}/${VERSION_H}"
+	mv -f "${BUILDDIR}/${VERSION_HT}" "${BUILDDIR}/${VERSION_H}"

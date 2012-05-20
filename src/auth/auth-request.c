@@ -245,6 +245,8 @@ bool auth_request_import_info(struct auth_request *request,
 		request->local_port = atoi(value);
 	else if (strcmp(key, "rport") == 0)
 		request->remote_port = atoi(value);
+	else if (strcmp(key, "session") == 0)
+		request->session_id = p_strdup(request->pool, value);
 	else
 		return FALSE;
 	return TRUE;
@@ -525,6 +527,10 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
                 request->passdb = request->passdb->next;
 		request->passdb_password = NULL;
 
+		request->proxy = FALSE;
+		request->proxy_maybe = FALSE;
+		request->proxy_always = FALSE;
+
 		if (*result == PASSDB_RESULT_USER_UNKNOWN) {
 			/* remember that we did at least one successful
 			   passdb lookup */
@@ -559,6 +565,7 @@ auth_request_verify_plain_callback_finish(enum passdb_result result,
 			request->private_callback.verify_plain);
 	} else {
 		auth_request_ref(request);
+		request->passdb_result = result;
 		request->private_callback.verify_plain(result, request);
 		auth_request_unref(&request);
 	}
@@ -610,6 +617,20 @@ static bool password_has_illegal_chars(const char *password)
 	return FALSE;
 }
 
+static bool auth_request_is_disabled_master_user(struct auth_request *request)
+{
+	if (request->passdb != NULL)
+		return FALSE;
+
+	/* no masterdbs, master logins not supported */
+	i_assert(request->requested_login_user != NULL);
+	auth_request_log_info(request, "passdb",
+			      "Attempted master login with no master passdbs "
+			      "(trying to log in as user: %s)",
+			      request->requested_login_user);
+	return TRUE;
+}
+
 void auth_request_verify_plain(struct auth_request *request,
 			       const char *password,
 			       verify_plain_callback_t *callback)
@@ -620,13 +641,7 @@ void auth_request_verify_plain(struct auth_request *request,
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-        if (request->passdb == NULL) {
-                /* no masterdbs, master logins not supported */
-                i_assert(request->requested_login_user != NULL);
-		auth_request_log_info(request, "passdb",
-			"Attempted master login with no master passdbs "
-			"(trying to log in as user: %s)",
-			request->requested_login_user);
+	if (auth_request_is_disabled_master_user(request)) {
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}
@@ -693,6 +708,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 			   but the user was unknown there */
 			result = PASSDB_RESULT_USER_UNKNOWN;
 		}
+		request->passdb_result = result;
 		request->private_callback.
 			lookup_credentials(result, credentials, size, request);
 	}
@@ -745,6 +761,11 @@ void auth_request_lookup_credentials(struct auth_request *request,
 	enum passdb_result result;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
+
+	if (auth_request_is_disabled_master_user(request)) {
+		callback(PASSDB_RESULT_USER_UNKNOWN, NULL, 0, request);
+		return;
+	}
 
 	request->credentials_scheme = p_strdup(request->pool, scheme);
 	request->private_callback.lookup_credentials = callback;
@@ -1295,25 +1316,31 @@ void auth_request_set_field(struct auth_request *request,
 	}
 }
 
+void auth_request_set_field_keyvalue(struct auth_request *request,
+				     const char *field,
+				     const char *default_scheme)
+{
+	const char *key, *value;
+
+	value = strchr(field, '=');
+	if (value == NULL) {
+		key = field;
+		value = "";
+	} else {
+		key = t_strdup_until(field, value);
+		value++;
+	}
+	auth_request_set_field(request, key, value, default_scheme);
+}
+
 void auth_request_set_fields(struct auth_request *request,
 			     const char *const *fields,
 			     const char *default_scheme)
 {
-	const char *key, *value;
-
 	for (; *fields != NULL; fields++) {
 		if (**fields == '\0')
 			continue;
-
-		value = strchr(*fields, '=');
-		if (value == NULL) {
-			key = *fields;
-			value = "";
-		} else {
-			key = t_strdup_until(*fields, value);
-			value++;
-		}
-		auth_request_set_field(request, key, value, default_scheme);
+		auth_request_set_field_keyvalue(request, *fields, default_scheme);
 	}
 }
 
@@ -1484,11 +1511,14 @@ static void auth_request_proxy_finish_ip(struct auth_request *request)
 	} else {
 		/* proxying to ourself - log in without proxying by dropping
 		   all the proxying fields. */
+		bool proxy_always = request->proxy_always;
+
 		auth_request_proxy_finish_failure(request);
-		if (request->proxy_always) {
+		if (proxy_always) {
 			/* director adds the host */
 			auth_stream_reply_add(request->extra_fields,
 					      "proxy", NULL);
+			request->proxy = TRUE;
 		}
 	}
 }
@@ -1518,8 +1548,8 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 				"DNS lookup for %s took %u.%03u s",
 				host, result->msecs/1000, result->msecs % 1000);
 		}
-		auth_stream_reply_remove(request->extra_fields, "host");
-		auth_stream_reply_add(request->extra_fields, "host",
+		auth_stream_reply_remove(request->extra_fields, "hostip");
+		auth_stream_reply_add(request->extra_fields, "hostip",
 				      net_ip2addr(&result->ips[0]));
 		for (i = 0; i < result->ips_count; i++) {
 			if (auth_request_proxy_ip_is_self(request,
@@ -1606,6 +1636,10 @@ void auth_request_proxy_finish_failure(struct auth_request *request)
 	auth_stream_reply_remove(request->extra_fields, "host");
 	auth_stream_reply_remove(request->extra_fields, "port");
 	auth_stream_reply_remove(request->extra_fields, "destuser");
+
+	request->proxy = FALSE;
+	request->proxy_maybe = FALSE;
+	request->proxy_always = FALSE;
 }
 
 static void log_password_failure(struct auth_request *request,
@@ -1745,38 +1779,41 @@ auth_request_str_escape(const char *string,
 	return str_escape(string);
 }
 
+const struct var_expand_table auth_request_var_expand_static_tab[] = {
+	{ 'u', NULL, "user" },
+	{ 'n', NULL, "username" },
+	{ 'd', NULL, "domain" },
+	{ 's', NULL, "service" },
+	{ 'h', NULL, "home" },
+	{ 'l', NULL, "lip" },
+	{ 'r', NULL, "rip" },
+	{ 'p', NULL, "pid" },
+	{ 'w', NULL, "password" },
+	{ '!', NULL, NULL },
+	{ 'm', NULL, "mech" },
+	{ 'c', NULL, "secured" },
+	{ 'a', NULL, "lport" },
+	{ 'b', NULL, "rport" },
+	{ 'k', NULL, "cert" },
+	{ '\0', NULL, "login_user" },
+	{ '\0', NULL, "login_username" },
+	{ '\0', NULL, "login_domain" },
+	{ '\0', NULL, "session" },
+	{ '\0', NULL, NULL }
+};
+
 const struct var_expand_table *
 auth_request_get_var_expand_table(const struct auth_request *auth_request,
 				  auth_request_escape_func_t *escape_func)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL, "user" },
-		{ 'n', NULL, "username" },
-		{ 'd', NULL, "domain" },
-		{ 's', NULL, "service" },
-		{ 'h', NULL, "home" },
-		{ 'l', NULL, "lip" },
-		{ 'r', NULL, "rip" },
-		{ 'p', NULL, "pid" },
-		{ 'w', NULL, "password" },
-		{ '!', NULL, NULL },
-		{ 'm', NULL, "mech" },
-		{ 'c', NULL, "secured" },
-		{ 'a', NULL, "lport" },
-		{ 'b', NULL, "rport" },
-		{ 'k', NULL, "cert" },
-		{ '\0', NULL, "login_user" },
-		{ '\0', NULL, "login_username" },
-		{ '\0', NULL, "login_domain" },
-		{ '\0', NULL, NULL }
-	};
 	struct var_expand_table *tab;
 
 	if (escape_func == NULL)
 		escape_func = escape_none;
 
-	tab = t_malloc(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
+	tab = t_malloc(sizeof(auth_request_var_expand_static_tab));
+	memcpy(tab, auth_request_var_expand_static_tab,
+	       sizeof(auth_request_var_expand_static_tab));
 
 	tab[0].value = escape_func(auth_request->user, auth_request);
 	tab[1].value = escape_func(t_strcut(auth_request->user, '@'),
@@ -1821,6 +1858,8 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 						    auth_request);
 		}
 	}
+	tab[18].value = auth_request->session_id == NULL ? NULL :
+		escape_func(auth_request->session_id, auth_request);
 	return tab;
 }
 
@@ -1847,6 +1886,8 @@ static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 	}
 	if (auth_request->requested_login_user != NULL)
 		str_append(str, ",master");
+	if (auth_request->session_id != NULL)
+		str_printfa(str, ",<%s>", auth_request->session_id);
 	str_append(str, "): ");
 }
 

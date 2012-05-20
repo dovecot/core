@@ -107,7 +107,8 @@ mdbox_file_metadata_copy(struct dbox_file *file, struct ostream *output)
 
 	o_stream_send(output, &meta_hdr, sizeof(meta_hdr));
 	buf_size = i_stream_get_max_buffer_size(file->input);
-	i_stream_set_max_buffer_size(file->input, 0);
+	/* use unlimited line length for metadata */
+	i_stream_set_max_buffer_size(file->input, (size_t)-1);
 	while ((line = i_stream_read_next_line(file->input)) != NULL) {
 		if (*line == '\0') {
 			/* end of metadata */
@@ -140,7 +141,8 @@ mdbox_metadata_get_extrefs(struct dbox_file *file, pool_t ext_refs_pool,
 		return ret;
 
 	buf_size = i_stream_get_max_buffer_size(file->input);
-	i_stream_set_max_buffer_size(file->input, 0);
+	/* use unlimited line length for metadata */
+	i_stream_set_max_buffer_size(file->input, (size_t)-1);
 	while ((line = i_stream_read_next_line(file->input)) != NULL) {
 		if (*line == '\0') {
 			/* end of metadata */

@@ -116,18 +116,18 @@ imap_search_##_func(struct mail_search_build_context *ctx) \
 	sarg->match_not = _not; \
 	return sarg; \
 }
-CALLBACK_FLAG(answered, MAIL_ANSWERED, FALSE);
-CALLBACK_FLAG(unanswered, MAIL_ANSWERED, TRUE);
-CALLBACK_FLAG(deleted, MAIL_DELETED, FALSE);
-CALLBACK_FLAG(undeleted, MAIL_DELETED, TRUE);
-CALLBACK_FLAG(draft, MAIL_DRAFT, FALSE);
-CALLBACK_FLAG(undraft, MAIL_DRAFT, TRUE);
-CALLBACK_FLAG(flagged, MAIL_FLAGGED, FALSE);
-CALLBACK_FLAG(unflagged, MAIL_FLAGGED, TRUE);
-CALLBACK_FLAG(seen, MAIL_SEEN, FALSE);
-CALLBACK_FLAG(unseen, MAIL_SEEN, TRUE);
-CALLBACK_FLAG(recent, MAIL_RECENT, FALSE);
-CALLBACK_FLAG(old, MAIL_RECENT, TRUE);
+CALLBACK_FLAG(answered, MAIL_ANSWERED, FALSE)
+CALLBACK_FLAG(unanswered, MAIL_ANSWERED, TRUE)
+CALLBACK_FLAG(deleted, MAIL_DELETED, FALSE)
+CALLBACK_FLAG(undeleted, MAIL_DELETED, TRUE)
+CALLBACK_FLAG(draft, MAIL_DRAFT, FALSE)
+CALLBACK_FLAG(undraft, MAIL_DRAFT, TRUE)
+CALLBACK_FLAG(flagged, MAIL_FLAGGED, FALSE)
+CALLBACK_FLAG(unflagged, MAIL_FLAGGED, TRUE)
+CALLBACK_FLAG(seen, MAIL_SEEN, FALSE)
+CALLBACK_FLAG(unseen, MAIL_SEEN, TRUE)
+CALLBACK_FLAG(recent, MAIL_RECENT, FALSE)
+CALLBACK_FLAG(old, MAIL_RECENT, TRUE)
 
 static struct mail_search_arg *
 imap_search_new(struct mail_search_build_context *ctx)
@@ -141,7 +141,7 @@ imap_search_new(struct mail_search_build_context *ctx)
 	return sarg;
 }
 
-CALLBACK_STR(keyword, SEARCH_KEYWORDS);
+CALLBACK_STR(keyword, SEARCH_KEYWORDS)
 
 static struct mail_search_arg *
 imap_search_unkeyword(struct mail_search_build_context *ctx)
@@ -179,17 +179,17 @@ imap_search_##_func(struct mail_search_build_context *ctx) \
 { \
 	return arg_new_date(ctx, _type, _date_type); \
 }
-CALLBACK_DATE(before, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_RECEIVED);
-CALLBACK_DATE(on, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_RECEIVED);
-CALLBACK_DATE(since, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_RECEIVED);
+CALLBACK_DATE(before, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_RECEIVED)
+CALLBACK_DATE(on, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_RECEIVED)
+CALLBACK_DATE(since, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_RECEIVED)
 
-CALLBACK_DATE(sentbefore, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_SENT);
-CALLBACK_DATE(senton, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_SENT);
-CALLBACK_DATE(sentsince, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_SENT);
+CALLBACK_DATE(sentbefore, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_SENT)
+CALLBACK_DATE(senton, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_SENT)
+CALLBACK_DATE(sentsince, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_SENT)
 
-CALLBACK_DATE(x_savedbefore, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_SAVED);
-CALLBACK_DATE(x_savedon, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_SAVED);
-CALLBACK_DATE(x_savedsince, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_SAVED);
+CALLBACK_DATE(x_savedbefore, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_SAVED)
+CALLBACK_DATE(x_savedon, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_SAVED)
+CALLBACK_DATE(x_savedsince, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_SAVED)
 
 static struct mail_search_arg *
 arg_new_size(struct mail_search_build_context *ctx,
@@ -245,11 +245,11 @@ imap_search_##_name(struct mail_search_build_context *ctx) \
 { \
 	return arg_new_header(ctx, _type, #_name); \
 }
-CALLBACK_HDR(bcc, SEARCH_HEADER_ADDRESS);
-CALLBACK_HDR(cc, SEARCH_HEADER_ADDRESS);
-CALLBACK_HDR(from, SEARCH_HEADER_ADDRESS);
-CALLBACK_HDR(to, SEARCH_HEADER_ADDRESS);
-CALLBACK_HDR(subject, SEARCH_HEADER_COMPRESS_LWSP);
+CALLBACK_HDR(bcc, SEARCH_HEADER_ADDRESS)
+CALLBACK_HDR(cc, SEARCH_HEADER_ADDRESS)
+CALLBACK_HDR(from, SEARCH_HEADER_ADDRESS)
+CALLBACK_HDR(to, SEARCH_HEADER_ADDRESS)
+CALLBACK_HDR(subject, SEARCH_HEADER_COMPRESS_LWSP)
 
 static struct mail_search_arg *
 imap_search_header(struct mail_search_build_context *ctx)
@@ -291,8 +291,8 @@ imap_search_##_func(struct mail_search_build_context *ctx) \
 { \
 	return arg_new_body(ctx, _type); \
 }
-CALLBACK_BODY(body, SEARCH_BODY);
-CALLBACK_BODY(text, SEARCH_TEXT);
+CALLBACK_BODY(body, SEARCH_BODY)
+CALLBACK_BODY(text, SEARCH_TEXT)
 
 static struct mail_search_arg *
 arg_new_interval(struct mail_search_build_context *ctx,
@@ -478,7 +478,7 @@ imap_search_inthread(struct mail_search_build_context *ctx)
 	return sarg;
 }
 
-CALLBACK_STR(x_guid, SEARCH_GUID);
+CALLBACK_STR(x_guid, SEARCH_GUID)
 
 static struct mail_search_arg *
 imap_search_x_mailbox(struct mail_search_build_context *ctx)

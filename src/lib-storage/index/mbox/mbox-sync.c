@@ -45,6 +45,7 @@
 #include "istream-raw-mbox.h"
 #include "mbox-storage.h"
 #include "index-sync-changes.h"
+#include "mailbox-uidvalidity.h"
 #include "mbox-from.h"
 #include "mbox-file.h"
 #include "mbox-lock.h"
@@ -1394,10 +1395,27 @@ mbox_sync_index_update_ext_header(struct mbox_mailbox *mbox,
 				  &data, &data_size);
 	if (data_size != sizeof(mbox->mbox_hdr) ||
 	    memcmp(data, &mbox->mbox_hdr, data_size) != 0) {
+		if (data_size != sizeof(mbox->mbox_hdr)) {
+			/* upgrading from v1.x */
+			mail_index_ext_resize(trans, mbox->mbox_ext_idx,
+					      sizeof(mbox->mbox_hdr),
+					      sizeof(uint64_t),
+					      sizeof(uint64_t));
+		}
 		mail_index_update_header_ext(trans, mbox->mbox_ext_idx,
 					     0, &mbox->mbox_hdr,
 					     sizeof(mbox->mbox_hdr));
 	}
+}
+
+static uint32_t mbox_get_uidvalidity_next(struct mailbox_list *list)
+{
+	const char *path;
+
+	path = mailbox_list_get_path(list, NULL,
+				     MAILBOX_LIST_PATH_TYPE_CONTROL);
+	path = t_strconcat(path, "/"MBOX_UIDVALIDITY_FNAME, NULL);
+	return mailbox_uidvalidity_next(list, path);
 }
 
 static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
@@ -1455,7 +1473,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 	if (sync_ctx->base_uid_validity == 0) {
 		sync_ctx->base_uid_validity = sync_ctx->hdr->uid_validity != 0 ?
 			sync_ctx->hdr->uid_validity :
-			I_MAX((unsigned int)ioloop_time, 1);
+			mbox_get_uidvalidity_next(sync_ctx->mbox->box.list);
 	}
 	if (sync_ctx->base_uid_validity != sync_ctx->hdr->uid_validity) {
 		mail_index_update_header(sync_ctx->t,

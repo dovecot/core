@@ -2,6 +2,7 @@
 #define IMAPC_STORAGE_H
 
 #include "index-storage.h"
+#include "imapc-settings.h"
 
 #define IMAPC_STORAGE_NAME "imapc"
 #define IMAPC_INDEX_PREFIX "dovecot.index"
@@ -27,6 +28,11 @@ struct imapc_mailbox_event_callback {
 	const char *name;
 	imapc_mailbox_callback_t *callback;
 };
+
+#define IMAPC_HAS_FEATURE(mstorage, feature) \
+	(((mstorage)->set->parsed_features & feature) != 0)
+#define IMAPC_BOX_HAS_FEATURE(mbox, feature) \
+	(((mbox)->storage->set->parsed_features & feature) != 0)
 
 struct imapc_storage {
 	struct mail_storage storage;
@@ -124,7 +130,7 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 				       bool *changes_r);
 void imapc_mailbox_noop(struct imapc_mailbox *mbox);
 void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
-				 const char *reason, ...);
+				 const char *reason, ...) ATTR_FORMAT(2, 3);
 
 void imapc_storage_register_untagged(struct imapc_storage *storage,
 				     const char *name,

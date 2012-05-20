@@ -124,6 +124,7 @@ static void master_send_request(struct anvil_request *anvil_request)
 	const unsigned char *data;
 	size_t size;
 	buffer_t *buf;
+	const char *session_id = client_get_session_id(client);
 
 	memset(&req, 0, sizeof(req));
 	req.auth_pid = anvil_request->auth_pid;
@@ -137,13 +138,17 @@ static void master_send_request(struct anvil_request *anvil_request)
 	memcpy(req.cookie, anvil_request->cookie, sizeof(req.cookie));
 
 	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	/* session ID */
+	buffer_append(buf, session_id, strlen(session_id)+1);
+	/* protocol specific data (e.g. IMAP tag) */
 	buffer_append(buf, client->master_data_prefix,
 		      client->master_data_prefix_len);
-
+	/* buffered client input */
 	data = i_stream_get_data(client->input, &size);
 	buffer_append(buf, data, size);
 	req.data_size = buf->used;
 
+	client->auth_finished = ioloop_time;
 	client->master_auth_id = req.auth_id;
 	master_auth_request(master_auth, client->fd, &req, buf->data,
 			    master_auth_callback, client, &client->master_tag);
@@ -313,6 +318,7 @@ void sasl_server_auth_begin(struct client *client,
 	memset(&info, 0, sizeof(info));
 	info.mech = mech->name;
 	info.service = service;
+	info.session_id = client_get_session_id(client);
 	info.cert_username = client->ssl_proxy == NULL ? NULL :
 		ssl_proxy_get_peer_name(client->ssl_proxy);
 	info.flags = client_get_auth_flags(client);

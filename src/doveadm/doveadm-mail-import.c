@@ -91,6 +91,7 @@ cmd_import_box_contents(struct doveadm_mail_iter *iter, struct mail *src_mail,
 				mailbox, src_mail->uid);
 		}
 		save_ctx = mailbox_save_alloc(dest_trans);
+		mailbox_save_copy_flags(save_ctx, src_mail);
 		if (mailbox_copy(&save_ctx, src_mail) < 0) {
 			i_error("Copying box=%s uid=%u failed: %s",
 				mailbox, src_mail->uid,

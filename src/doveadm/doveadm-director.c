@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "md5.h"
 #include "hash.h"
+#include "str.h"
 #include "network.h"
 #include "istream.h"
 #include "write-full.h"
@@ -120,7 +121,7 @@ cmd_director_status_user(struct director_context *ctx, const char *user)
 		return;
 	}
 
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	if (str_array_length(args) != 4 ||
 	    str_to_uint(args[1], &expires) < 0) {
 		i_error("Invalid reply from director");
@@ -162,7 +163,7 @@ static void cmd_director_status(int argc, char *argv[])
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			args = t_strsplit(line, "\t");
+			args = t_strsplit_tab(line);
 			if (str_array_length(args) >= 3) {
 				doveadm_print(args[0]);
 				doveadm_print(args[1]);
@@ -315,7 +316,7 @@ static void cmd_director_map(int argc, char *argv[])
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			args = t_strsplit(line, "\t");
+			args = t_strsplit_tab(line);
 			if (str_array_length(args) < 3 ||
 			    str_to_uint(args[0], &user_hash) < 0 ||
 			    str_to_uint(args[1], &expires) < 0 ||
@@ -559,7 +560,7 @@ static void cmd_director_dump(int argc, char *argv[])
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			args = t_strsplit(line, "\t");
+			args = t_strsplit_tab(line);
 			if (str_array_length(args) >= 2) {
 				director_dump_cmd(ctx, "add", "%s %s",
 						  args[0], args[1]);
@@ -577,6 +578,68 @@ static void cmd_director_dump(int argc, char *argv[])
 		i_error("Director disconnected unexpectedly");
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
+	director_disconnect(ctx);
+}
+
+
+static void director_read_ok_reply(struct director_context *ctx)
+{
+	const char *line;
+
+	line = i_stream_read_next_line(ctx->input);
+	if (line == NULL) {
+		i_error("Director disconnected unexpectedly");
+		doveadm_exit_code = EX_TEMPFAIL;
+	} else if (strcmp(line, "NOTFOUND") == 0) {
+		i_error("Not found");
+		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
+	} else if (strcmp(line, "OK") != 0) {
+		i_error("Failed: %s", line);
+		doveadm_exit_code = EX_TEMPFAIL;
+	}
+}
+
+static void cmd_director_ring_add(int argc, char *argv[])
+{
+	struct director_context *ctx;
+	struct ip_addr ip;
+	string_t *str = t_str_new(64);
+	unsigned int port = 0;
+
+	ctx = cmd_director_init(argc, argv, "a:", cmd_director_ring_add);
+	if (argv[optind] == NULL ||
+	    net_addr2ip(argv[optind], &ip) < 0 ||
+	    (argv[optind+1] != NULL && str_to_uint(argv[optind+1], &port) < 0))
+		director_cmd_help(cmd_director_ring_add);
+
+	str_printfa(str, "DIRECTOR-ADD\t%s", net_ip2addr(&ip));
+	if (port != 0)
+		str_printfa(str, "\t%u", port);
+	str_append_c(str, '\n');
+	director_send(ctx, str_c(str));
+	director_read_ok_reply(ctx);
+	director_disconnect(ctx);
+}
+
+static void cmd_director_ring_remove(int argc, char *argv[])
+{
+	struct director_context *ctx;
+	struct ip_addr ip;
+	string_t *str = t_str_new(64);
+	unsigned int port = 0;
+
+	ctx = cmd_director_init(argc, argv, "a:", cmd_director_ring_remove);
+	if (argv[optind] == NULL ||
+	    net_addr2ip(argv[optind], &ip) < 0 ||
+	    (argv[optind+1] != NULL && str_to_uint(argv[optind+1], &port) < 0))
+		director_cmd_help(cmd_director_ring_remove);
+
+	str_printfa(str, "DIRECTOR-REMOVE\t%s", net_ip2addr(&ip));
+	if (port != 0)
+		str_printfa(str, "\t%u", port);
+	str_append_c(str, '\n');
+	director_send(ctx, str_c(str));
+	director_read_ok_reply(ctx);
 	director_disconnect(ctx);
 }
 
@@ -599,7 +662,7 @@ static void cmd_director_ring_status(int argc, char *argv[])
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			args = t_strsplit(line, "\t");
+			args = t_strsplit_tab(line);
 			if (str_array_length(args) >= 4 &&
 			    str_to_ulong(args[3], &l) == 0) {
 				doveadm_print(args[0]);
@@ -634,6 +697,10 @@ struct doveadm_cmd doveadm_cmd_director[] = {
 	  "[-a <director socket path>] <host>|all" },
 	{ cmd_director_dump, "director dump",
 	  "[-a <director socket path>]" },
+	{ cmd_director_ring_add, "director ring add",
+	  "[-a <director socket path>] <ip> [<port>]" },
+	{ cmd_director_ring_remove, "director ring remove",
+	  "[-a <director socket path>] <ip> [<port>]" },
 	{ cmd_director_ring_status, "director ring status",
 	  "[-a <director socket path>]" }
 };

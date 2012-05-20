@@ -162,15 +162,14 @@ static void get_client_extra_fields(struct auth_request *request,
 
 	extra_fields = auth_stream_reply_export(request->extra_fields);
 
-	if (!request->proxy) {
-		/* we only wish to remove all fields prefixed with "userdb_" */
-		if (strstr(extra_fields, "userdb_") == NULL) {
-			auth_stream_reply_import(reply, extra_fields);
-			return;
-		}
+	if (!request->proxy && strstr(extra_fields, "userdb_") == NULL) {
+		/* optimization: there are no userdb_* fields, we can just
+		   import */
+		auth_stream_reply_import(reply, extra_fields);
+		return;
 	}
 
-	fields = t_strsplit(extra_fields, "\t");
+	fields = t_strsplit_tab(extra_fields);
 	for (src = 0; fields[src] != NULL; src++) {
 		if (strncmp(fields[src], "userdb_", 7) != 0) {
 			if (!seen_pass && strncmp(fields[src], "pass=", 5) == 0)
@@ -287,6 +286,21 @@ auth_request_handler_reply_failure_finish(struct auth_request *request)
 	if (request->no_failure_delay)
 		auth_stream_reply_add(reply, "nodelay", NULL);
 	get_client_extra_fields(request, reply);
+
+	switch (request->passdb_result) {
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
+	case PASSDB_RESULT_USER_UNKNOWN:
+	case PASSDB_RESULT_PASSWORD_MISMATCH:
+	case PASSDB_RESULT_OK:
+		break;
+	case PASSDB_RESULT_USER_DISABLED:
+		auth_stream_reply_add(reply, "user_disabled", NULL);
+		break;
+	case PASSDB_RESULT_PASS_EXPIRED:
+		auth_stream_reply_add(reply, "pass_expired", NULL);
+		break;
+	}
 
 	auth_request_handle_failure(request, reply);
 }
@@ -439,7 +453,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	i_assert(!handler->destroyed);
 
 	/* <id> <mechanism> [...] */
-	list = t_strsplit(args, "\t");
+	list = t_strsplit_tab(args);
 	if (list[0] == NULL || list[1] == NULL ||
 	    str_to_uint(list[0], &id) < 0) {
 		i_error("BUG: Authentication client %u "

@@ -201,13 +201,14 @@ mkdir_verify(struct mail_storage *storage, struct mail_namespace *ns,
 
 static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 {
+	unsigned int interval = storage->set->mail_temp_scan_interval;
 	const char *path;
 	struct stat st;
 
 	/* if tmp/ directory exists, we need to clean it up once in a while */
 	path = t_strconcat(dir, "/tmp", NULL);
 	if (stat(path, &st) < 0) {
-		if (errno == ENOENT)
+		if (errno == ENOENT || errno == ENAMETOOLONG)
 			return 0;
 		if (errno == EACCES) {
 			mail_storage_set_critical(storage, "%s",
@@ -218,10 +219,12 @@ static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 		return -1;
 	}
 
-	if (st.st_atime > st.st_ctime + MAILDIR_TMP_DELETE_SECS) {
+	if (interval == 0) {
+		/* disabled */
+	} else if (st.st_atime > st.st_ctime + MAILDIR_TMP_DELETE_SECS) {
 		/* the directory should be empty. we won't do anything
 		   until ctime changes. */
-	} else if (st.st_atime < ioloop_time - MAILDIR_TMP_SCAN_SECS) {
+	} else if (st.st_atime < ioloop_time - interval) {
 		/* time to scan */
 		(void)unlink_old_files(path, "",
 				       ioloop_time - MAILDIR_TMP_DELETE_SECS);
@@ -361,7 +364,7 @@ static int maildir_mailbox_open(struct mailbox *box)
 		return maildir_mailbox_open_existing(box);
 	}
 
-	if (errno == ENOENT) {
+	if (errno == ENOENT || errno == ENAMETOOLONG) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
 		return -1;

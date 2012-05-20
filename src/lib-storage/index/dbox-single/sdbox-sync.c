@@ -150,10 +150,12 @@ static void dbox_sync_expunge_files(struct sdbox_sync_context *ctx)
 
 	/* NOTE: Index is no longer locked. Multiple processes may be unlinking
 	   the files at the same time. */
+	ctx->mbox->box.tmp_sync_view = ctx->sync_view;
 	array_foreach(&ctx->expunged_uids, uidp)
 		dbox_sync_file_expunge(ctx, *uidp);
 	if (ctx->mbox->box.v.sync_notify != NULL)
 		ctx->mbox->box.v.sync_notify(&ctx->mbox->box, 0, 0);
+	ctx->mbox->box.tmp_sync_view = NULL;
 }
 
 static int
@@ -235,8 +237,6 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 				ret = -1;
 			} else {
 				/* do a full resync and try again. */
-				i_warning("sdbox %s: Rebuilding index",
-					  mailbox_get_path(&ctx->mbox->box));
 				rebuild = FALSE;
 				ret = sdbox_sync_index_rebuild(mbox,
 							       force_rebuild);
@@ -262,11 +262,13 @@ int sdbox_sync_finish(struct sdbox_sync_context **_ctx, bool success)
 	*_ctx = NULL;
 
 	if (success) {
+		mail_index_view_ref(ctx->sync_view);
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
 			mail_storage_set_index_error(&ctx->mbox->box);
 			ret = -1;
 		} else {
 			dbox_sync_expunge_files(ctx);
+			mail_index_view_close(&ctx->sync_view);
 		}
 	} else {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);

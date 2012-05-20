@@ -17,7 +17,8 @@ void mailbox_list_set_subscription_flags(struct mailbox_list *list,
 
 /* Add subscriptions matching the iteration to the given tree */
 void mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
-				     struct mailbox_tree_context *tree);
+				     struct mailbox_tree_context *tree,
+				     bool default_nonexistent);
 
 /* Iterate through subscriptions, call mailbox_list.get_mailbox_flags()
    if necessary for mailboxes to get their flags. */

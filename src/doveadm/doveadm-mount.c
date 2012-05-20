@@ -77,8 +77,10 @@ static void cmd_mount_add(int argc, char *argv[])
 
 	mountpoints = mountpoint_list_get();
 	if (argv[1] == NULL) {
-		mountpoint_list_add_missing(mountpoints, MOUNTPOINT_STATE_DEFAULT,
-					    mountpoint_list_default_ignore_types);
+		mountpoint_list_add_missing(mountpoints,
+			MOUNTPOINT_STATE_DEFAULT,
+			mountpoint_list_default_ignore_prefixes,
+			mountpoint_list_default_ignore_types);
 	} else {
 		memset(&rec, 0, sizeof(rec));
 		rec.mount_path = argv[1];

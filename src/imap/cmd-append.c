@@ -227,11 +227,11 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	enum mail_flags flags;
 	const char *const *keywords_list;
 	struct mail_keywords *keywords;
-	const char *internal_date_str;
+	const char *internal_date_str, *msg;
 	time_t internal_date;
 	int ret, timezone_offset;
 	unsigned int save_count;
-	bool nonsync;
+	bool nonsync, fatal;
 
 	if (cmd->cancel) {
 		cmd_append_finish(ctx);
@@ -245,8 +245,13 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	ret = imap_parser_read_args(ctx->save_parser, 0,
 				    IMAP_PARSE_FLAG_LITERAL_SIZE, &args);
 	if (ret == -1) {
-		if (!ctx->failed)
-			client_send_command_error(cmd, NULL);
+		if (!ctx->failed) {
+			msg = imap_parser_get_error(ctx->save_parser, &fatal);
+			if (fatal)
+				client_disconnect_with_error(client, msg);
+			else
+				client_send_command_error(cmd, msg);
+		}
 		cmd_append_finish(ctx);
 		return TRUE;
 	}

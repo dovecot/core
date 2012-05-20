@@ -187,8 +187,10 @@ static void master_login_client_free(struct master_login_client **_client)
 
 	/* FIXME: currently we create a separate connection for each request,
 	   so close the connection after we're done with this client */
-	if (!master_login_conn_is_closed(client->conn))
-		master_login_conn_unref(&client->conn);
+	if (!master_login_conn_is_closed(client->conn)) {
+		i_assert(client->conn->refcount > 1);
+		client->conn->refcount--;
+	}
 	master_login_conn_unref(&client->conn);
 	i_free(client);
 }
@@ -274,7 +276,7 @@ static void master_login_postlogin_input(struct master_login_postlogin *pl)
 		return;
 	}
 
-	auth_args = t_strsplit(str_c(pl->input), "\t");
+	auth_args = t_strsplit_tab(str_c(pl->input));
 	for (p = auth_args; *p != NULL; p++)
 		*p = str_tabunescape(t_strdup_noconst(*p));
 
@@ -392,6 +394,7 @@ static void master_login_conn_input(struct master_login_connection *conn)
 	struct master_login_client *client;
 	struct master_login *login = conn->login;
 	unsigned char data[MASTER_AUTH_MAX_DATA_SIZE];
+	unsigned int i, session_len = 0;
 	int ret, client_fd;
 
 	ret = master_login_conn_read_request(conn, &req, data, &client_fd);
@@ -408,12 +411,26 @@ static void master_login_conn_input(struct master_login_connection *conn)
 	}
 	fd_close_on_exec(client_fd, TRUE);
 
+	/* extract the session ID from the request data */
+	for (i = 0; i < req.data_size; i++) {
+		if (data[i] == '\0') {
+			session_len = i++;
+			break;
+		}
+	}
+	if (session_len >= sizeof(client->session_id)) {
+		i_error("login client: Session ID too long");
+		session_len = 0;
+	}
+
 	/* @UNSAFE: we have a request. do userdb lookup for it. */
+	req.data_size -= i;
 	client = i_malloc(sizeof(struct master_login_client) + req.data_size);
 	client->conn = conn;
 	client->fd = client_fd;
 	client->auth_req = req;
-	memcpy(client->data, data, req.data_size);
+	memcpy(client->session_id, data, session_len);
+	memcpy(client->data, data+i, req.data_size);
 	conn->refcount++;
 
 	master_login_auth_request(login->auth, &req,

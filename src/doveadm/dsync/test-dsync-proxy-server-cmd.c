@@ -30,6 +30,8 @@ static int run_more(void)
 {
 	int ret;
 
+	i_assert(cur_cmd != NULL);
+
 	ret = cur_cmd->func(server, cur_cmd_args);
 	if (ret == 0)
 		return 0;

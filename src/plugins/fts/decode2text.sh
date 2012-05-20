@@ -52,7 +52,7 @@ fi
 # most decoders can't handle stdin directly, so write the attachment
 # to a temp file
 path=`mktemp`
-trap "rm -f $path" 0 1 2 3 15
+trap "rm -f $path" 0 1 2 3 14 15
 cat > $path
 
 xmlunzip() {
@@ -62,23 +62,33 @@ xmlunzip() {
   if [ "$tempdir" = "" ]; then 
     exit 1
   fi
-  trap "rm -rf $tempdir" 0 1 2 3 15
+  trap "rm -rf $path $tempdir" 0 1 2 3 14 15
   cd $tempdir || exit 1
   unzip -q "$path" 2>/dev/null || exit 0
   find . -name "$name" -print0 | xargs -0 cat |
     /usr/local/libexec/dovecot/xml2text
 }
 
+wait_timeout() {
+  childpid=$!
+  trap "kill -9 $childpid; rm -f $path" 1 2 3 14 15
+  wait $childpid
+}
+
 LANG=en_US.UTF-8
 export LANG
 if [ $fmt = "pdf" ]; then
-  /usr/bin/pdftotext $path - 2>/dev/null
+  /usr/bin/pdftotext $path - 2>/dev/null&
+  wait_timeout 2>/dev/null
 elif [ $fmt = "doc" ]; then
-  (/usr/bin/catdoc $path; true) 2>/dev/null
+  (/usr/bin/catdoc $path; true) 2>/dev/null&
+  wait_timeout 2>/dev/null
 elif [ $fmt = "ppt" ]; then
-  (/usr/bin/catppt $path; true) 2>/dev/null
+  (/usr/bin/catppt $path; true) 2>/dev/null&
+  wait_timeout 2>/dev/null
 elif [ $fmt = "xls" ]; then
-  (/usr/bin/xls2csv $path; true) 2>/dev/null
+  (/usr/bin/xls2csv $path; true) 2>/dev/null&
+  wait_timeout 2>/dev/null
 elif [ $fmt = "odt" -o $fmt = "ods" -o $fmt = "odp" ]; then
   xmlunzip "content.xml"
 elif [ $fmt = "docx" ]; then

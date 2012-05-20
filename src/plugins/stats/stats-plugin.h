@@ -6,6 +6,8 @@
 #include "mail-user.h"
 #include "mail-storage-private.h"
 
+#include <sys/time.h>
+
 #define STATS_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, stats_user_module)
 
@@ -33,6 +35,7 @@ struct stats_user {
 
 	unsigned int refresh_secs;
 	bool track_commands;
+	unsigned int refresh_check_counter;
 
 	/* current session statistics */
 	struct mail_stats session_stats;

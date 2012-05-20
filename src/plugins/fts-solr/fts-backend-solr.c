@@ -511,9 +511,11 @@ fts_backend_solr_update_build_more(struct fts_backend_update_context *_ctx,
 						  SOLR_CMDBUF_FLUSH_SIZE -
 						  str_len(ctx->cmd));
 			i_assert(len > 0);
+			i_assert(len <= size);
 			data += len;
 			size -= len;
 		}
+		xml_encode_data(ctx->cmd, data, size);
 	} else {
 		xml_encode_data(ctx->cur_value, data, size);
 		if (ctx->cur_value2 != NULL)
@@ -541,6 +543,34 @@ fts_backend_solr_update_build_more(struct fts_backend_update_context *_ctx,
 static int fts_backend_solr_refresh(struct fts_backend *backend ATTR_UNUSED)
 {
 	return 0;
+}
+
+static int fts_backend_solr_rescan(struct fts_backend *backend)
+{
+	struct mailbox_list_iterate_context *iter;
+	const struct mailbox_info *info;
+	struct mailbox *box;
+	int ret = 0;
+
+	/* FIXME: proper rescan needed. for now we'll just reset the
+	   last-uids */
+	iter = mailbox_list_iter_init(backend->ns->list, "*",
+				      MAILBOX_LIST_ITER_NO_AUTO_BOXES);
+	while ((info = mailbox_list_iter_next(iter)) != NULL) {
+		if ((info->flags &
+		     (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) != 0)
+			continue;
+
+		box = mailbox_alloc(info->ns->list, info->name, 0);
+		if (mailbox_open(box) == 0) {
+			if (fts_index_set_last_uid(box, 0) < 0)
+				ret = -1;
+		}
+		mailbox_free(&box);
+	}
+	if (mailbox_list_iter_deinit(&iter) < 0)
+		ret = -1;
+	return ret;
 }
 
 static int fts_backend_solr_optimize(struct fts_backend *backend ATTR_UNUSED)
@@ -833,7 +863,7 @@ fts_backend_solr_lookup_multi(struct fts_backend *backend,
 
 struct fts_backend fts_backend_solr = {
 	.name = "solr",
-	.flags = 0,
+	.flags = FTS_BACKEND_FLAG_FUZZY_SEARCH,
 
 	{
 		fts_backend_solr_alloc,
@@ -848,7 +878,7 @@ struct fts_backend fts_backend_solr = {
 		fts_backend_solr_update_unset_build_key,
 		fts_backend_solr_update_build_more,
 		fts_backend_solr_refresh,
-		NULL,
+		fts_backend_solr_rescan,
 		fts_backend_solr_optimize,
 		fts_backend_default_can_lookup,
 		fts_backend_solr_lookup,

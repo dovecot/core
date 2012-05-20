@@ -325,6 +325,7 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 	if (seq1 == 0) {
 		/* nothing is missing */
 		mail_index_strmap_view_sync_commit(&ctx->strmap_sync);
+		mailbox_header_lookup_unref(&headers_ctx);
 		return 0;
 	}
 
@@ -332,6 +333,8 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 	mail_search_build_add_seqset(search_args, seq1, seq2);
 	search_ctx = mailbox_search_init(ctx->t, search_args, NULL,
 					 0, headers_ctx);
+	mailbox_header_lookup_unref(&headers_ctx);
+	mail_search_args_unref(&search_args);
 
 	while (mailbox_search_next(search_ctx, &mail)) {
 		if (mail_thread_map_add_mail(ctx, mail) < 0) {

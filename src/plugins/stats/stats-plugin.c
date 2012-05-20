@@ -18,7 +18,9 @@
 /* If session isn't refreshed every 15 minutes, it's dropped.
    Must be smaller than MAIL_SESSION_IDLE_TIMEOUT_MSECS in stats server */
 #define SESSION_STATS_FORCE_REFRESH_SECS (5*60)
+#define REFRESH_CHECK_INTERVAL 100
 #define MAIL_STATS_SOCKET_NAME "stats-mail"
+#define PROC_IO_PATH "/proc/self/io"
 
 #define USECS_PER_SEC 1000000
 
@@ -41,6 +43,9 @@ struct stats_user_module stats_user_module =
 	MODULE_CONTEXT_INIT(&mail_user_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(stats_storage_module,
 				  &mail_storage_module_register);
+
+static bool proc_io_disabled = FALSE;
+static int proc_io_fd = -1;
 
 static struct stats_connection *global_stats_conn = NULL;
 static struct mail_user *stats_global_user = NULL;
@@ -105,44 +110,50 @@ process_io_buffer_parse(const char *buf, struct mail_stats *stats)
 	return 0;
 }
 
+static int process_io_open(void)
+{
+	if (proc_io_fd == -1) {
+		if (proc_io_disabled)
+			return -1;
+		proc_io_fd = open(PROC_IO_PATH, O_RDONLY);
+		if (proc_io_fd == -1) {
+			if (errno != ENOENT)
+				i_error("open(%s) failed: %m", PROC_IO_PATH);
+			proc_io_disabled = TRUE;
+			return -1;
+		}
+	}
+	return proc_io_fd;
+}
+
 static void process_read_io_stats(struct mail_stats *stats)
 {
-	const char *path = "/proc/self/io";
-	static bool io_disabled = FALSE;
 	char buf[1024];
 	int fd, ret;
 
-	if (io_disabled)
+	if ((fd = process_io_open()) == -1)
 		return;
 
-	fd = open(path, O_RDONLY);
-	if (fd == -1) {
-		if (errno != ENOENT)
-			i_error("open(%s) failed: %m", path);
-		io_disabled = TRUE;
-		return;
-	}
-	ret = read(fd, buf, sizeof(buf));
+	ret = pread(fd, buf, sizeof(buf), 0);
 	if (ret <= 0) {
 		if (ret == -1)
-			i_error("read(%s) failed: %m", path);
+			i_error("read(%s) failed: %m", PROC_IO_PATH);
 		else
-			i_error("read(%s) returned EOF", path);
+			i_error("read(%s) returned EOF", PROC_IO_PATH);
 	} else if (ret == sizeof(buf)) {
 		/* just shouldn't happen.. */
-		i_error("%s is larger than expected", path);
-		io_disabled = TRUE;
+		i_error("%s is larger than expected", PROC_IO_PATH);
+		proc_io_disabled = TRUE;
 	} else {
 		buf[ret] = '\0';
 		T_BEGIN {
 			if (process_io_buffer_parse(buf, stats) < 0) {
-				i_error("Invalid input in file %s", path);
-				io_disabled = TRUE;
+				i_error("Invalid input in file %s",
+					PROC_IO_PATH);
+				proc_io_disabled = TRUE;
 			}
 		} T_END;
 	}
-	if (close(fd) < 0)
-		i_error("close(%s) failed: %m", path);
 }
 
 void mail_stats_get(struct stats_user *suser, struct mail_stats *stats_r)
@@ -163,77 +174,6 @@ void mail_stats_get(struct stats_user *suser, struct mail_stats *stats_r)
 	stats_r->disk_output = (unsigned long long)usage.ru_oublock * 512ULL;
 	process_read_io_stats(stats_r);
 	user_trans_stats_get(suser, &stats_r->trans_stats);
-}
-
-static struct mailbox_transaction_context *
-stats_transaction_begin(struct mailbox *box,
-			enum mailbox_transaction_flags flags)
-{
-	struct stats_user *suser = STATS_USER_CONTEXT(box->storage->user);
-	struct stats_mailbox *sbox = STATS_CONTEXT(box);
-	struct mailbox_transaction_context *trans;
-	struct stats_transaction_context *strans;
-
-	trans = sbox->module_ctx.super.transaction_begin(box, flags);
-	trans->stats_track = TRUE;
-
-	strans = i_new(struct stats_transaction_context, 1);
-	strans->trans = trans;
-	DLLIST_PREPEND(&suser->transactions, strans);
-
-	MODULE_CONTEXT_SET(trans, stats_storage_module, strans);
-	return trans;
-}
-
-static void stats_transaction_free(struct stats_user *suser,
-				   struct stats_transaction_context *strans)
-{
-	DLLIST_REMOVE(&suser->transactions, strans);
-
-	trans_stats_add(&suser->session_stats.trans_stats,
-			&strans->trans->stats);
-}
-
-static int
-stats_transaction_commit(struct mailbox_transaction_context *ctx,
-			 struct mail_transaction_commit_changes *changes_r)
-{
-	struct stats_transaction_context *strans = STATS_CONTEXT(ctx);
-	struct stats_mailbox *sbox = STATS_CONTEXT(ctx->box);
-	struct stats_user *suser = STATS_USER_CONTEXT(ctx->box->storage->user);
-
-	stats_transaction_free(suser, strans);
-	return sbox->module_ctx.super.transaction_commit(ctx, changes_r);
-}
-
-static void
-stats_transaction_rollback(struct mailbox_transaction_context *ctx)
-{
-	struct stats_transaction_context *strans = STATS_CONTEXT(ctx);
-	struct stats_mailbox *sbox = STATS_CONTEXT(ctx->box);
-	struct stats_user *suser = STATS_USER_CONTEXT(ctx->box->storage->user);
-
-	stats_transaction_free(suser, strans);
-	sbox->module_ctx.super.transaction_rollback(ctx);
-}
-
-static void stats_mailbox_allocated(struct mailbox *box)
-{
-	struct mailbox_vfuncs *v = box->vlast;
-	struct stats_mailbox *sbox;
-	struct stats_user *suser = STATS_USER_CONTEXT(box->storage->user);
-
-	if (suser == NULL)
-		return;
-
-	sbox = p_new(box->pool, struct stats_mailbox, 1);
-	sbox->module_ctx.super = *v;
-	box->vlast = &sbox->module_ctx.super;
-
-	v->transaction_begin = stats_transaction_begin;
-	v->transaction_commit = stats_transaction_commit;
-	v->transaction_rollback = stats_transaction_rollback;
-	MODULE_CONTEXT_SET(box, stats_storage_module, sbox);
 }
 
 static void stats_io_activate(void *context)
@@ -358,8 +298,9 @@ static bool session_has_changed(const struct mail_stats *prev,
 	return FALSE;
 }
 
-static bool session_stats_need_send(struct stats_user *suser, bool *changed_r,
-				    unsigned int *to_next_secs_r)
+static bool
+session_stats_need_send(struct stats_user *suser, time_t now,
+			bool *changed_r, unsigned int *to_next_secs_r)
 {
 	unsigned int diff;
 
@@ -374,7 +315,7 @@ static bool session_stats_need_send(struct stats_user *suser, bool *changed_r,
 	*changed_r = FALSE;
 
 	if (!suser->session_sent_duplicate) {
-		if (suser->last_session_update != ioloop_time) {
+		if (suser->last_session_update != now) {
 			/* send one duplicate notification so stats reader
 			   knows that this session is idle now */
 			return TRUE;
@@ -383,7 +324,7 @@ static bool session_stats_need_send(struct stats_user *suser, bool *changed_r,
 		return FALSE;
 	}
 
-	diff = ioloop_time - suser->last_session_update;
+	diff = now - suser->last_session_update;
 	if (diff < SESSION_STATS_FORCE_REFRESH_SECS) {
 		*to_next_secs_r = SESSION_STATS_FORCE_REFRESH_SECS - diff;
 		return FALSE;
@@ -395,11 +336,12 @@ static void session_stats_refresh(struct mail_user *user)
 {
 	struct stats_user *suser = STATS_USER_CONTEXT(user);
 	unsigned int to_next_secs;
+	time_t now = time(NULL);
 	bool changed;
 
-	if (session_stats_need_send(suser, &changed, &to_next_secs)) {
+	if (session_stats_need_send(suser, now, &changed, &to_next_secs)) {
 		suser->session_sent_duplicate = !changed;
-		suser->last_session_update = ioloop_time;
+		suser->last_session_update = now;
 		suser->last_sent_session_stats = suser->session_stats;
 		stats_connection_send_session(suser->stats_conn, user,
 					      &suser->session_stats);
@@ -410,6 +352,103 @@ static void session_stats_refresh(struct mail_user *user)
 	suser->to_stats_timeout =
 		timeout_add(to_next_secs*1000,
 			    session_stats_refresh_timeout, user);
+}
+
+static struct mailbox_transaction_context *
+stats_transaction_begin(struct mailbox *box,
+			enum mailbox_transaction_flags flags)
+{
+	struct stats_user *suser = STATS_USER_CONTEXT(box->storage->user);
+	struct stats_mailbox *sbox = STATS_CONTEXT(box);
+	struct mailbox_transaction_context *trans;
+	struct stats_transaction_context *strans;
+
+	trans = sbox->module_ctx.super.transaction_begin(box, flags);
+	trans->stats_track = TRUE;
+
+	strans = i_new(struct stats_transaction_context, 1);
+	strans->trans = trans;
+	DLLIST_PREPEND(&suser->transactions, strans);
+
+	MODULE_CONTEXT_SET(trans, stats_storage_module, strans);
+	return trans;
+}
+
+static void stats_transaction_free(struct stats_user *suser,
+				   struct stats_transaction_context *strans)
+{
+	DLLIST_REMOVE(&suser->transactions, strans);
+
+	trans_stats_add(&suser->session_stats.trans_stats,
+			&strans->trans->stats);
+}
+
+static int
+stats_transaction_commit(struct mailbox_transaction_context *ctx,
+			 struct mail_transaction_commit_changes *changes_r)
+{
+	struct stats_transaction_context *strans = STATS_CONTEXT(ctx);
+	struct stats_mailbox *sbox = STATS_CONTEXT(ctx->box);
+	struct stats_user *suser = STATS_USER_CONTEXT(ctx->box->storage->user);
+
+	stats_transaction_free(suser, strans);
+	return sbox->module_ctx.super.transaction_commit(ctx, changes_r);
+}
+
+static void
+stats_transaction_rollback(struct mailbox_transaction_context *ctx)
+{
+	struct stats_transaction_context *strans = STATS_CONTEXT(ctx);
+	struct stats_mailbox *sbox = STATS_CONTEXT(ctx->box);
+	struct stats_user *suser = STATS_USER_CONTEXT(ctx->box->storage->user);
+
+	stats_transaction_free(suser, strans);
+	sbox->module_ctx.super.transaction_rollback(ctx);
+}
+
+static bool stats_search_next_nonblock(struct mail_search_context *ctx,
+				       struct mail **mail_r, bool *tryagain_r)
+{
+	struct stats_mailbox *sbox = STATS_CONTEXT(ctx->transaction->box);
+	struct mail_user *user = ctx->transaction->box->storage->user;
+	struct stats_user *suser = STATS_USER_CONTEXT(user);
+	bool ret;
+
+	ret = sbox->module_ctx.super.
+		search_next_nonblock(ctx, mail_r, tryagain_r);
+	if (!ret && !*tryagain_r) {
+		/* end of search */
+		return FALSE;
+	}
+
+	if (*tryagain_r ||
+	    ++suser->refresh_check_counter % REFRESH_CHECK_INTERVAL == 0) {
+		/* a) retrying, so this is a long running search.
+		   b) we've returned enough matches */
+		if (time(NULL) != suser->last_session_update)
+			session_stats_refresh(user);
+	}
+	return ret;
+}
+
+static void stats_mailbox_allocated(struct mailbox *box)
+{
+	struct mailbox_vfuncs *v = box->vlast;
+	struct stats_mailbox *sbox;
+	struct stats_user *suser = STATS_USER_CONTEXT(box->storage->user);
+
+	if (suser == NULL)
+		return;
+
+	sbox = p_new(box->pool, struct stats_mailbox, 1);
+	sbox->module_ctx.super = *v;
+	box->vlast = &sbox->module_ctx.super;
+
+	v->transaction_begin = stats_transaction_begin;
+	v->transaction_commit = stats_transaction_commit;
+	v->transaction_rollback = stats_transaction_rollback;
+	v->search_next_nonblock = stats_search_next_nonblock;
+	MODULE_CONTEXT_SET(box, stats_storage_module, sbox);
 }
 
 static void session_stats_refresh_timeout(struct mail_user *user)
@@ -428,7 +467,7 @@ static void stats_io_deactivate(void *context)
 	if (stats_global_user == NULL)
 		stats_add_session(user);
 
-	last_update_secs = ioloop_time - suser->last_session_update;
+	last_update_secs = time(NULL) - suser->last_session_update;
 	if (last_update_secs >= suser->refresh_secs) {
 		if (stats_global_user != NULL)
 			stats_add_session(user);
@@ -530,7 +569,7 @@ static void stats_user_created(struct mail_user *user)
 
 	suser->stats_conn = global_stats_conn;
 	guid_128_generate(suser->session_guid);
-	suser->last_session_update = ioloop_time;
+	suser->last_session_update = time(NULL);
 
 	suser->ioloop_ctx = ioloop_ctx;
 	io_loop_context_add_callbacks(ioloop_ctx,

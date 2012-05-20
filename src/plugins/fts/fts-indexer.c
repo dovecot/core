@@ -7,6 +7,7 @@
 #include "write-full.h"
 #include "strescape.h"
 #include "time-util.h"
+#include "settings-parser.h"
 #include "mail-user.h"
 #include "mail-storage-private.h"
 #include "fts-api.h"
@@ -23,6 +24,7 @@ struct fts_indexer_context {
 
 	struct timeval search_start_time, last_notify;
 	unsigned int percentage;
+	unsigned int timeout_secs;
 
 	char *path;
 	int fd;
@@ -93,7 +95,7 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 	struct fts_indexer_context *ctx;
 	struct mailbox_status status;
 	uint32_t last_uid, seq1, seq2;
-	const char *path, *cmd;
+	const char *path, *cmd, *value, *error;
 	int fd;
 
 	if (fts_backend_get_last_uid(backend, box, &last_uid) < 0)
@@ -125,6 +127,13 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 	ctx->fd = fd;
 	ctx->input = i_stream_create_fd(fd, 128, FALSE);
 	ctx->search_start_time = ioloop_timeval;
+
+	value = mail_user_plugin_getenv(box->storage->user, "fts_index_timeout");
+	if (value != NULL) {
+		if (settings_get_time(value, &ctx->timeout_secs, &error) < 0)
+			i_error("Invalid fts_index_timeout setting: %s", error);
+	}
+
 
 	*ctx_r = ctx;
 	return 1;
@@ -214,11 +223,23 @@ static int fts_indexer_more_int(struct fts_indexer_context *ctx)
 
 int fts_indexer_more(struct fts_indexer_context *ctx)
 {
-	int ret;
+	int ret, diff;
 
 	if ((ret = fts_indexer_more_int(ctx)) < 0) {
+		mail_storage_set_internal_error(ctx->box->storage);
 		ctx->failed = TRUE;
 		return -1;
+	}
+
+	if (ctx->timeout_secs > 0) {
+		diff = ioloop_time - ctx->search_start_time.tv_sec;
+		if (diff > (int)ctx->timeout_secs) {
+			mail_storage_set_error(ctx->box->storage,
+				MAIL_ERROR_INUSE,
+				"Timeout while waiting for indexing to finish");
+			ctx->failed = TRUE;
+			return -1;
+		}
 	}
 	if (ret == 0)
 		fts_indexer_notify(ctx);

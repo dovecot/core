@@ -140,7 +140,7 @@ bool auth_stream_is_empty(struct auth_stream_reply *reply)
 
 const char *const *auth_stream_split(struct auth_stream_reply *reply)
 {
-	return t_strsplit(str_c(reply->str), "\t");
+	return t_strsplit_tab(str_c(reply->str));
 }
 
 string_t *auth_stream_reply_get_str(struct auth_stream_reply *reply)

@@ -517,6 +517,8 @@ int openssl_cert_match_name(SSL *ssl, const char *verify_name)
 		}
 	}
 	sk_GENERAL_NAME_pop_free(gnames, GENERAL_NAME_free);
+	X509_free(cert);
+
 	/* verify against CommonName only when there wasn't any DNS
 	   SubjectAltNames */
 	if (dns_names)

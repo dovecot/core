@@ -58,7 +58,9 @@ int index_storage_get_status(struct mailbox *box,
 	status_r->uidvalidity = hdr->uid_validity;
 	status_r->uidnext = hdr->next_uid;
 	status_r->first_recent_uid = hdr->first_recent_uid;
-	status_r->nonpermanent_modseqs = mail_index_is_in_memory(box->index);
+	status_r->nonpermanent_modseqs =
+		mail_index_is_in_memory(box->index) ||
+		!mail_index_have_modseq_tracking(box->index);
 	if ((items & STATUS_HIGHESTMODSEQ) != 0) {
 		status_r->highest_modseq =
 			mail_index_modseq_get_highest(box->view);
@@ -98,11 +100,17 @@ get_metadata_cache_fields(struct mailbox *box,
 	struct mailbox_cache_field *cf;
 	unsigned int i, count;
 
-	fields = mail_cache_register_get_list(box->cache,
-					      pool_datastack_create(), &count);
+	if (box->metadata_pool == NULL) {
+		box->metadata_pool =
+			pool_alloconly_create("mailbox metadata", 2048);
+	}
 
-	cache_fields = t_new(ARRAY_TYPE(mailbox_cache_field), 1);
-	t_array_init(cache_fields, count);
+	fields = mail_cache_register_get_list(box->cache,
+					      box->metadata_pool, &count);
+
+	cache_fields = p_new(box->metadata_pool,
+			     ARRAY_TYPE(mailbox_cache_field), 1);
+	p_array_init(cache_fields, box->metadata_pool, count);
 	for (i = 0; i < count; i++) {
 		dec = fields[i].decision & ~MAIL_CACHE_DECISION_FORCED;
 		if (dec != MAIL_CACHE_DECISION_NO) {

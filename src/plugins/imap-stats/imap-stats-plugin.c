@@ -56,7 +56,6 @@ static void stats_command_post(struct client_command_context *cmd)
 	struct mail_stats stats, pre_trans_stats, trans_stats;
 	unsigned int args_pos = 0;
 	string_t *str;
-	bool done;
 
 	if (scmd == NULL)
 		return;
@@ -76,11 +75,13 @@ static void stats_command_post(struct client_command_context *cmd)
 	str_append(str, "UPDATE-CMD\t");
 	str_append(str, guid_128_to_string(suser->session_guid));
 
-	done = cmd->state == CLIENT_COMMAND_STATE_DONE;
-	str_printfa(str, "\t%u\t%d\t", scmd->id, done);
+	str_printfa(str, "\t%u\t", scmd->id);
+	if (cmd->state == CLIENT_COMMAND_STATE_DONE)
+		str_append_c(str, 'd');
 	if (scmd->continued)
-		str_append_c(str, '\t');
+		str_append_c(str, 'c');
 	else {
+		str_append_c(str, '\t');
 		str_append(str, cmd->name);
 		str_append_c(str, '\t');
 		args_pos = str_len(str);

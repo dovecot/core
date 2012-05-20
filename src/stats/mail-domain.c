@@ -100,7 +100,8 @@ void mail_domains_free_memory(void)
 	while (mail_domains_head != NULL && mail_domains_head->refcount == 0) {
 		mail_domain_free(mail_domains_head);
 
-		if (global_used_memory < stats_settings->memory_limit)
+		if (global_used_memory < stats_settings->memory_limit ||
+		    mail_domains_head == NULL)
 			break;
 
 		diff = ioloop_time - mail_domains_head->last_update.tv_sec;

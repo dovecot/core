@@ -31,8 +31,6 @@
    calculating file's virtual size (added missing CRs). */
 #define MAILDIR_EXTRA_VIRTUAL_SIZE 'W'
 
-/* How often to scan tmp/ directory for old files (based on dir's atime) */
-#define MAILDIR_TMP_SCAN_SECS (8*60*60)
 /* Delete files having ctime older than this from tmp/. 36h is standard. */
 #define MAILDIR_TMP_DELETE_SECS (36*60*60)
 

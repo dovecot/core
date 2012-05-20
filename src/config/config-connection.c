@@ -42,7 +42,7 @@ config_connection_next_line(struct config_connection *conn)
 	if (line == NULL)
 		return NULL;
 
-	return t_strsplit(line, "\t");
+	return t_strsplit_tab(line);
 }
 
 static void

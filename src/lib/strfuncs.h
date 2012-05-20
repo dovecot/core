@@ -66,6 +66,8 @@ char **p_strsplit_spaces(pool_t pool, const char *data, const char *separators)
 const char **t_strsplit_spaces(const char *data, const char *separators)
 	ATTR_MALLOC;
 void p_strsplit_free(pool_t pool, char **arr);
+/* Optimized version of t_strsplit(data, "\t") */
+const char **t_strsplit_tab(const char *data);
 
 const char *dec2str(uintmax_t number);
 
@@ -86,7 +88,7 @@ const char **p_strarray_dup(pool_t pool, const char *const *arr);
 
 /* INTERNAL */
 char *t_noalloc_strdup_vprintf(const char *format, va_list args,
-			       unsigned int *size_r);
+			       unsigned int *size_r) ATTR_FORMAT(1, 0);
 char *vstrconcat(const char *str1, va_list args, size_t *ret_len) ATTR_MALLOC;
 
 #endif

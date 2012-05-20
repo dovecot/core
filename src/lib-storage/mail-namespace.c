@@ -189,6 +189,7 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 {
 	struct mail_namespace *ns, *inbox_ns = NULL;
 	unsigned int subscriptions_count = 0;
+	bool visible_namespaces = FALSE;
 	char ns_sep, list_sep = '\0';
 
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
@@ -201,6 +202,8 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 		}
 		if (namespace_set_alias_for(ns, namespaces, error_r) < 0)
 			return FALSE;
+		if ((ns->flags & NAMESPACE_FLAG_HIDDEN) == 0)
+			visible_namespaces = TRUE;
 		if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 			if (inbox_ns != NULL) {
 				*error_r = "There can be only one namespace with "
@@ -247,6 +250,10 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 	}
 	if (list_sep == '\0') {
 		*error_r = "no list=yes namespaces";
+		return FALSE;
+	}
+	if (!visible_namespaces) {
+		*error_r = "no hidden=no namespaces";
 		return FALSE;
 	}
 	if (subscriptions_count == 0) {

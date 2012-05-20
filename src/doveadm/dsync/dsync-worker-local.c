@@ -94,7 +94,7 @@ struct local_dsync_worker {
 	struct hash_table *dir_changes_hash;
 
 	char alt_char;
-	ARRAY_DEFINE(wanted_namespaces, struct mail_namespace *);
+	const char *namespace_prefix;
 
 	mailbox_guid_t selected_box_guid;
 	struct mailbox *selected_box;
@@ -151,18 +151,33 @@ static unsigned int mailbox_guid_hash(const void *p)
 	return h;
 }
 
-static bool local_worker_want_namespace(struct mail_namespace *ns)
+static bool local_worker_want_namespace(struct local_dsync_worker *worker,
+					struct mail_namespace *ns)
 {
-	return strcmp(ns->unexpanded_set->location,
-		      SETTING_STRVAR_UNEXPANDED) == 0;
+	if (worker->namespace_prefix == NULL) {
+		return strcmp(ns->unexpanded_set->location,
+			      SETTING_STRVAR_UNEXPANDED) == 0;
+	} else {
+		return strcmp(ns->prefix, worker->namespace_prefix) == 0;
+	}
 }
 
 static void dsync_check_namespaces(struct local_dsync_worker *worker)
 {
 	struct mail_namespace *ns;
 
+	if (worker->namespace_prefix != NULL) {
+		ns = mail_namespace_find_prefix(worker->user->namespaces,
+						worker->namespace_prefix);
+		if (ns == NULL) {
+			i_fatal("Namespace prefix '%s' not found",
+				worker->namespace_prefix);
+		}
+		return;
+	}
+
 	for (ns = worker->user->namespaces; ns != NULL; ns = ns->next) {
-		if (local_worker_want_namespace(ns))
+		if (local_worker_want_namespace(worker, ns))
 			return;
 	}
 	i_fatal("All your namespaces have a location setting. "
@@ -171,7 +186,8 @@ static void dsync_check_namespaces(struct local_dsync_worker *worker)
 }
 
 struct dsync_worker *
-dsync_worker_init_local(struct mail_user *user, char alt_char)
+dsync_worker_init_local(struct mail_user *user, const char *namespace_prefix,
+			char alt_char)
 {
 	struct local_dsync_worker *worker;
 	pool_t pool;
@@ -181,13 +197,13 @@ dsync_worker_init_local(struct mail_user *user, char alt_char)
 	worker->worker.v = local_dsync_worker;
 	worker->user = user;
 	worker->pool = pool;
+	worker->namespace_prefix = p_strdup(pool, namespace_prefix);
 	worker->alt_char = alt_char;
 	worker->mailbox_hash =
 		hash_table_create(default_pool, pool, 0,
 				  mailbox_guid_hash, mailbox_guid_cmp);
 	i_array_init(&worker->saved_uids, 128);
 	i_array_init(&worker->msg_get_queue, 32);
-	p_array_init(&worker->wanted_namespaces, pool, 8);
 	dsync_check_namespaces(worker);
 
 	mail_user_ref(worker->user);
@@ -382,7 +398,8 @@ static int dsync_worker_get_mailbox_log(struct local_dsync_worker *worker)
 		hash_table_create(default_pool, worker->pool, 0,
 				  dir_change_hash, dir_change_cmp);
 	for (ns = worker->user->namespaces; ns != NULL; ns = ns->next) {
-		if (ns->alias_for != NULL || !local_worker_want_namespace(ns))
+		if (ns->alias_for != NULL ||
+		    !local_worker_want_namespace(worker, ns))
 			continue;
 
 		if (dsync_worker_get_list_mailbox_log(worker, ns->list) < 0)
@@ -503,7 +520,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	memset(dsync_box_r, 0, sizeof(*dsync_box_r));
 
 	while ((info = mailbox_list_iter_next(iter->list_iter)) != NULL) {
-		if (local_worker_want_namespace(info->ns))
+		if (local_worker_want_namespace(worker, info->ns))
 			break;
 	}
 	if (info == NULL)
@@ -526,7 +543,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 		dsync_box_r->last_change = dir_change->last_rename;
 	}
 
-	if ((info->flags & MAILBOX_NOSELECT) != 0) {
+	if ((info->flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0) {
 		dsync_box_r->flags |= DSYNC_MAILBOX_FLAG_NOSELECT;
 		local_dsync_worker_add_mailbox(worker, info->ns, info->name,
 					       &dsync_box_r->name_sha1);
@@ -646,7 +663,7 @@ local_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
 	memset(rec_r, 0, sizeof(*rec_r));
 
 	while ((info = mailbox_list_iter_next(iter->list_iter)) != NULL) {
-		if (local_worker_want_namespace(info->ns) ||
+		if (local_worker_want_namespace(worker, info->ns) ||
 		    (info->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0)
 			break;
 	}
@@ -833,6 +850,7 @@ static int iter_local_mailbox_open(struct local_dsync_worker_msg_iter *iter)
 static void
 iter_local_mailbox_close(struct local_dsync_worker_msg_iter *iter)
 {
+	iter->prev_uid = 0;
 	iter->expunges_set = FALSE;
 	if (mailbox_search_deinit(&iter->search_ctx) < 0) {
 		i_error("msg search failed: %s",
@@ -1699,6 +1717,8 @@ local_worker_msg_save(struct dsync_worker *_worker,
 					   save_ctx, msg);
 	if (*data->pop3_uidl != '\0')
 		mailbox_save_set_pop3_uidl(save_ctx, data->pop3_uidl);
+	if (data->pop3_order > 0)
+		mailbox_save_set_pop3_order(save_ctx, data->pop3_order);
 
 	mailbox_save_set_received_date(save_ctx, data->received_date, 0);
 
@@ -1775,6 +1795,7 @@ local_worker_msg_get_next(struct local_dsync_worker *worker,
 	struct dsync_msg_static_data data;
 	struct mailbox_transaction_context *trans;
 	struct mailbox *box;
+	const char *value;
 
 	i_assert(!worker->reading_mail);
 
@@ -1806,6 +1827,9 @@ local_worker_msg_get_next(struct local_dsync_worker *worker,
 		data.pop3_uidl = "";
 	else
 		data.pop3_uidl = t_strdup(data.pop3_uidl);
+	if (mail_get_special(worker->get_mail, MAIL_FETCH_POP3_ORDER, &value) < 0 ||
+	    str_to_uint(value, &data.pop3_order) < 0)
+		data.pop3_order = 0;
 	if (mail_get_received_date(worker->get_mail, &data.received_date) < 0 ||
 	    mail_get_stream(worker->get_mail, NULL, NULL, &data.input) < 0) {
 		get->callback(worker->get_mail->expunged ?

@@ -4,6 +4,7 @@
 #include "network.h"
 #include "login-proxy.h"
 #include "sasl-server.h"
+#include "master-login.h" /* for LOGIN_MAX_SESSION_ID_LEN */
 
 #define LOGIN_MAX_MASTER_PREFIX_LEN 128
 
@@ -14,7 +15,8 @@
    POP3: Max. length of a command line (spec says 512 would be enough)
 */
 #define LOGIN_MAX_INBUF_SIZE \
-	(MASTER_AUTH_MAX_DATA_SIZE - LOGIN_MAX_MASTER_PREFIX_LEN)
+	(MASTER_AUTH_MAX_DATA_SIZE - LOGIN_MAX_MASTER_PREFIX_LEN - \
+	 LOGIN_MAX_SESSION_ID_LEN)
 /* max. size of output buffer. if it gets full, the client is disconnected.
    SASL authentication gives the largest output. */
 #define LOGIN_MAX_OUTBUF_SIZE 4096
@@ -53,7 +55,7 @@ enum client_auth_result {
 struct client_auth_reply {
 	const char *master_user, *reason;
 	/* for proxying */
-	const char *host, *destuser, *password;
+	const char *host, *hostip, *destuser, *password;
 	unsigned int port;
 	unsigned int proxy_timeout_msecs;
 	unsigned int proxy_refresh_secs;
@@ -103,6 +105,7 @@ struct client {
 	unsigned int local_port, remote_port;
 	struct ssl_proxy *ssl_proxy;
 	const struct login_settings *set;
+	const char *session_id;
 
 	int fd;
 	struct istream *input;
@@ -122,7 +125,7 @@ struct client {
 	char *auth_mech_name;
 	struct auth_client_request *auth_request;
 	string_t *auth_response;
-	time_t auth_first_started;
+	time_t auth_first_started, auth_finished;
 	const char *sasl_final_resp;
 
 	unsigned int master_auth_id;
@@ -150,6 +153,8 @@ struct client {
 	unsigned int auth_process_comm_fail:1;
 	unsigned int proxy_auth_failed:1;
 	unsigned int auth_waiting:1;
+	unsigned int auth_user_disabled:1;
+	unsigned int auth_pass_expired:1;
 	unsigned int notified_auth_ready:1;
 	unsigned int notified_disconnect:1;
 	/* ... */
@@ -181,6 +186,7 @@ const char *client_get_extra_disconnect_reason(struct client *client);
 void client_auth_respond(struct client *client, const char *response);
 void client_auth_abort(struct client *client);
 void client_auth_fail(struct client *client, const char *text);
+const char *client_get_session_id(struct client *client);
 
 bool client_read(struct client *client);
 void client_input(struct client *client);

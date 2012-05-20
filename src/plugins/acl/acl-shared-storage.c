@@ -12,6 +12,24 @@
 
 #define SHARED_NS_RETRY_SECS (60*60)
 
+static bool acl_ns_prefix_exists(struct mail_namespace *ns)
+{
+	struct mailbox *box;
+	const char *vname;
+	enum mailbox_existence existence;
+	bool ret;
+
+	if (ns->list->mail_set->mail_shared_explicit_inbox)
+		return FALSE;
+
+	vname = t_strndup(ns->prefix, ns->prefix_len-1);
+	box = mailbox_alloc(ns->list, vname, 0);
+	ret = mailbox_exists(box, FALSE, &existence) == 0 &&
+		existence == MAILBOX_EXISTENCE_SELECT;
+	mailbox_free(&box);
+	return ret;
+}
+
 static void
 acl_shared_namespace_add(struct mail_namespace *ns,
 			 struct mail_storage *storage, const char *userdomain)
@@ -56,7 +74,7 @@ acl_shared_namespace_add(struct mail_namespace *ns,
 		break;
 	(void)mailbox_list_iter_deinit(&iter);
 
-	if (info == NULL) {
+	if (info == NULL && !acl_ns_prefix_exists(new_ns)) {
 		/* no visible mailboxes, remove the namespace */
 		mail_namespace_destroy(new_ns);
 	}

@@ -35,22 +35,22 @@ struct client_connection {
 	unsigned int authenticated:1;
 };
 
-static bool
-doveadm_mail_cmd_server(const char *cmd_name,
-			const struct doveadm_settings *set,
-			const struct mail_storage_service_input *input,
-			int argc, char *argv[])
+static struct doveadm_mail_cmd_context *
+doveadm_mail_cmd_server_parse(const char *cmd_name,
+			      const struct doveadm_settings *set,
+			      const struct mail_storage_service_input *input,
+			      int argc, char *argv[])
 {
 	struct doveadm_mail_cmd_context *ctx;
 	const struct doveadm_mail_cmd *cmd;
 	const char *getopt_args;
-	bool ret, add_username_header = FALSE;
+	bool add_username_header = FALSE;
 	int c;
 
 	cmd = doveadm_mail_cmd_find(cmd_name);
 	if (cmd == NULL) {
 		i_error("doveadm: Client sent unknown command: %s", cmd_name);
-		return FALSE;
+		return NULL;
 	}
 
 	ctx = doveadm_mail_cmd_init(cmd, set);
@@ -83,7 +83,7 @@ doveadm_mail_cmd_server(const char *cmd_name,
 					"Client sent unknown parameter: %c",
 					cmd->name, c);
 				ctx->v.deinit(ctx);
-				return FALSE;
+				return NULL;
 			}
 		}
 	}
@@ -95,8 +95,9 @@ doveadm_mail_cmd_server(const char *cmd_name,
 		i_error("doveadm %s: Client sent unknown parameter: %s",
 			cmd->name, argv[0]);
 		ctx->v.deinit(ctx);
-		return FALSE;
+		return NULL;
 	}
+	ctx->args = (const void *)argv;
 
 	if (doveadm_print_is_initialized() && add_username_header) {
 		doveadm_print_header("username", "Username",
@@ -104,20 +105,38 @@ doveadm_mail_cmd_server(const char *cmd_name,
 				     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 		doveadm_print_sticky("username", input->username);
 	}
+	return ctx;
+}
 
-	ctx->args = (const void *)argv;
+static void
+doveadm_mail_cmd_server_run(struct client_connection *conn,
+			    struct doveadm_mail_cmd_context *ctx,
+			    const struct mail_storage_service_input *input)
+{
+	const char *error;
+	int ret;
+
 	if (ctx->v.preinit != NULL)
 		ctx->v.preinit(ctx);
 
-	doveadm_mail_single_user(ctx, input);
+	ret = doveadm_mail_single_user(ctx, input, &error);
 	doveadm_mail_server_flush();
 	ctx->v.deinit(ctx);
 	doveadm_print_flush();
 	mail_storage_service_deinit(&ctx->storage_service);
-	ret = ctx->exit_code == 0;
-	pool_unref(&ctx->pool);
 
-	return ret;
+	if (ret < 0) {
+		i_error("%s: %s", ctx->cmd->name, error);
+		o_stream_send(conn->output, "\n-\n", 3);
+	} else if (ret == 0) {
+		o_stream_send_str(conn->output, "\n-NOUSER\n");
+	} else if (ctx->exit_code != 0) {
+		/* maybe not an error, but not a full success either */
+		o_stream_send(conn->output, "\n-\n", 3);
+	} else {
+		o_stream_send(conn->output, "\n+\n", 3);
+	}
+	pool_unref(&ctx->pool);
 }
 
 static bool client_is_allowed_command(const struct doveadm_settings *set,
@@ -144,9 +163,9 @@ static bool client_is_allowed_command(const struct doveadm_settings *set,
 static bool client_handle_command(struct client_connection *conn, char **args)
 {
 	struct mail_storage_service_input input;
+	struct doveadm_mail_cmd_context *ctx;
 	const char *flags, *cmd_name;
 	unsigned int argc;
-	bool ret;
 
 	memset(&input, 0, sizeof(input));
 	input.service = "doveadm";
@@ -190,11 +209,11 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 	}
 
 	o_stream_cork(conn->output);
-	ret = doveadm_mail_cmd_server(cmd_name, conn->set, &input, argc, args);
-	if (ret)
-		o_stream_send(conn->output, "\n+\n", 3);
-	else
+	ctx = doveadm_mail_cmd_server_parse(cmd_name, conn->set, &input, argc, args);
+	if (ctx == NULL)
 		o_stream_send(conn->output, "\n-\n", 3);
+	else
+		doveadm_mail_cmd_server_run(conn, ctx, &input);
 	o_stream_uncork(conn->output);
 
 	/* flush the output and disconnect */
@@ -345,7 +364,7 @@ struct client_connection *client_connection_create(int fd, int listen_fd)
 	   fstat() always returns mode as 0777 */
 	if (net_getunixname(listen_fd, &listen_path) == 0 &&
 	    stat(listen_path, &st) == 0 && S_ISSOCK(st.st_mode) &&
-	    (st.st_mode & 0777) == 0600 && st.st_uid == geteuid()) {
+	    (st.st_mode & 0777) == 0600) {
 		/* no need for client to authenticate */
 		conn->authenticated = TRUE;
 		o_stream_send(conn->output, "+\n", 2);

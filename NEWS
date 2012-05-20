@@ -1,3 +1,96 @@
+v2.1.6 2012-05-07  Timo Sirainen <tss@iki.fi>
+
+	* Session ID is now included by default in auth and login process
+	  log lines. It can be added to mail processes also by adding
+	  %{session} to mail_log_prefix.
+
+	+ Added ssl_require_crl setting, which specifies if CRL check must
+	  be successful when verifying client certificates.
+	+ Added mail_shared_explicit_inbox setting to specify if a shared INBOX
+	  should be accessible as "shared/$user" or "shared/$user/INBOX".
+	- v2.1.5: Using "~/" as mail_location or elsewhere failed to actually
+	  expand it to home directory.
+	- dbox: Fixed potential assert-crash when reading dbox files.
+	- trash plugin: Fixed behavior when quota is already over limit.
+	- mail_log plugin: Logging "copy" event didn't work.
+	- Proxying to backend server with SSL: Verifying server certificate
+	  name always failed, because it was compared to an IP address.
+
+v2.1.5 2012-04-23  Timo Sirainen <tss@iki.fi>
+
+	* IMAP: When neither the session nor the mailbox has modseq tracking
+	  enabled, return the mailbox as having NOMODSEQ in SELECT/EXAMINE
+	  reply. Old versions in this situation always simply returned
+	  HIGHESTMODSEQ as 1, which could have broken some clients.
+
+	+ dict file: Added optional fcntl/flock locking (default is dotlock)
+	+ fts-solr: doveadm fts rescan now resets indexes, which allows
+	  reindexing mails. (This isn't a full rescan implementation like
+	  fts-lucene has.)
+	+ doveadm expunge: Added -d parameter to delete mailbox if it's
+	  empty after expunging.
+	- IMAP: Several fixes related to mailbox listing in some configs
+	- director: A lot of fixes and performance improvements
+	- v2.1.4 didn't work without a mail home directory set
+	- mbox: Deleting a mailbox didn't delete its index files.
+	- pop3c: TOP command was sent incorrectly
+	- trash plugin didn't work properly
+	- LMTP: Don't add a duplicate Return-Path: header when proxying.
+	- listescape: Don't unescape namespace prefixes.
+
+v2.1.4 2012-04-09  Timo Sirainen <tss@iki.fi>
+
+	+ Added mail_temp_scan_interval setting and changed its default value
+	  from 8 hours to 1 week.
+	+ Added pop3-migration plugin for easily doing a transparent IMAP+POP3
+	  migration to Dovecot: http://wiki2.dovecot.org/Migration/Dsync
+	+ doveadm user: Added -m parameter to show some of the mail settings.
+	- Proxying SSL connections crashed in v2.1.[23]
+	- fts-solr: Indexing mail bodies was broken.
+	- director: Several changes to significantly improve error handling
+	- doveadm import didn't import messages' flags
+	- mail_full_filesystem_access=yes was broken
+	- Make sure IMAP clients can't create directories when accessing
+	  nonexistent users' mailboxes via shared namespace.
+	- Dovecot auth clients authenticating via TCP socket could have failed
+	  with bogus "PID already in use" errors.
+
+v2.1.3 2012-03-16  Timo Sirainen <tss@iki.fi>
+
+	- mdbox was broken in v2.1.2
+
+v2.1.2 2012-03-15  Timo Sirainen <tss@iki.fi>
+
+	+ Initial implementation of dsync-based replication. For now this
+	  should be used only on non-critical systems.
+	+ Proxying: POP3 now supports sending remote IP+port from proxy to
+	  backend server via Dovecot-specific XCLIENT extension.
+	+ Proxying: proxy_maybe=yes with host=<hostname> (instead of IP)
+	  works now properly.
+	+ Proxying: Added auth_proxy_self setting
+	+ Proxying: Added proxy_always extra field (see wiki docs)
+	+ Added director_username_hash setting to specify what part of the
+	  username is hashed. This can be used to implement per-domain
+	  backends (which allows safely accessing shared mailboxes within
+	  domain).
+	+ Added a "session ID" string for imap/pop3 connections, available
+	  in %{session} variable. The session ID passes through Dovecot
+	  IMAP/POP3 proxying to backend server. The same session ID is can be
+	  reused after a long time (currently a bit under 9 years). 
+	+ passdb checkpassword: Support "credentials lookups" (for
+	  non-plaintext auth and for lmtp_proxy lookups)
+	+ fts: Added fts_index_timeout setting to abort search if indexing
+	  hasn't finished by then (default is to wait forever). 
+	- doveadm sync: If mailbox was expunged empty, messages may have
+	  become back instead of also being expunged in the other side.
+	- director: If user logged into two directors while near user
+	  expiration, the directors might have redirected the user to two
+	  different backends.
+	- imap_id_* settings were ignored before login.
+	- Several fixes to mailbox_list_index=yes
+	- Previous v2.1.x didn't log all messages at shutdown.
+	- mbox: Fixed accessing Dovecot v1.x mbox index files without errors.
+
 v2.1.1 2012-02-23  Timo Sirainen <tss@iki.fi>
 
 	+ dsync: If message with same GUID is saved multiple times in session,

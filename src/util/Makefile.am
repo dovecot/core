@@ -27,8 +27,13 @@ rawlog_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 rawlog_SOURCES = \
 	rawlog.c
 
-script_login_LDADD = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT) $(MODULE_LIBS)
-script_login_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT_DEPS)
+script_login_LDADD = \
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT) \
+	$(MODULE_LIBS)
+script_login_DEPENDENCIES = \
+	$(LIBDOVECOT_STORAGE_DEPS) \
+	$(LIBDOVECOT_DEPS)
 script_login_SOURCES = \
 	script-login.c
 

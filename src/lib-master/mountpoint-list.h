@@ -21,6 +21,9 @@ struct mountpoint_list_rec {
 /* A default known good list of mountpoint types that don't contain emails
    (e.g. proc, tmpfs, etc.) */
 extern const char *const mountpoint_list_default_ignore_types[];
+/* A default known good list of directories which shouldn't contain emails
+   (e.g. /media) */
+extern const char *const mountpoint_list_default_ignore_prefixes[];
 
 struct mountpoint_list *
 mountpoint_list_init(const char *perm_path, const char *state_path);
@@ -43,10 +46,12 @@ bool mountpoint_list_remove(struct mountpoint_list *list,
 			    const char *mount_path);
 /* Add all currently mounted missing mountpoints to the list and update all
    mountpoints' mounted state. The mountpoints that match existing wildcards
-   aren't added. Mountpoints with type in ignore_types list also aren't added.
+   aren't added. Mountpoints with paths under ignore_prefixes aren't added.
+   Mountpoints with type in ignore_types list also aren't added.
    Returns 0 if we successfully iterated through all mountpoints, -1 if not. */
 int mountpoint_list_add_missing(struct mountpoint_list *list,
 				const char *default_state,
+				const char *const *ignore_prefixes,
 				const char *const *ignore_types);
 /* Update "mounted" status for all mountpoints. */
 int mountpoint_list_update_mounted(struct mountpoint_list *list);

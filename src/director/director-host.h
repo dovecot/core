@@ -6,6 +6,9 @@
 struct director;
 
 struct director_host {
+	struct director *dir;
+	int refcount;
+
 	struct ip_addr ip;
 	unsigned int port;
 
@@ -17,16 +20,21 @@ struct director_host {
 	   it can be ignored (or: it must be ignored to avoid potential command
 	   loops) */
 	unsigned int last_seq;
-	/* Last time host was detected to be down/broken */
-	time_t last_failed;
+	/* Last time host was detected to be down */
+	time_t last_network_failure;
+	time_t last_protocol_failure;
 	/* we are this director */
 	unsigned int self:1;
+	unsigned int removed:1;
 };
 
 struct director_host *
 director_host_add(struct director *dir, const struct ip_addr *ip,
 		  unsigned int port);
-void director_host_free(struct director_host *host);
+void director_host_free(struct director_host **host);
+
+void director_host_ref(struct director_host *host);
+void director_host_unref(struct director_host *host);
 
 struct director_host *
 director_host_get(struct director *dir, const struct ip_addr *ip,

@@ -19,12 +19,15 @@ unused_objects = \
 	../lib/mountpoint.o
 endif
 
-libs = \
+imap_LDADD = \
+	$(unused_objects) \
 	$(LIBDOVECOT_STORAGE) \
-	$(unused_objects)
-
-imap_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
-imap_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
+	$(LIBDOVECOT) \
+	$(MODULE_LIBS)
+imap_DEPENDENCIES = \
+	$(unused_objects) \
+	$(LIBDOVECOT_STORAGE_DEPS) \
+	$(LIBDOVECOT_DEPS)
 
 cmds = \
 	cmd-append.c \

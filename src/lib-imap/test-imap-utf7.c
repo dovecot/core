@@ -12,7 +12,7 @@ static void test_imap_utf7(void)
 		"&&x&&", "&-&-x&-&-",
 		"~peter/mail/台北/日本語", "~peter/mail/&U,BTFw-/&ZeVnLIqe-",
 		"tietäjä", "tiet&AOQ-j&AOQ-",
-		"p��", NULL,
+		"p\xe4\xe4", NULL,
 		NULL
 	};
 	static const char *invalid_utf7[] = {

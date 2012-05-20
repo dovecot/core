@@ -99,6 +99,7 @@ static void doveadm_cmd_director_list(struct doveadm_connection *conn)
 	string_t *str = t_str_new(1024);
 	const char *type;
 	bool left, right;
+	time_t last_failed;
 
 	array_foreach(&dir->dir_hosts, hostp) {
 		const struct director_host *host = *hostp;
@@ -108,7 +109,9 @@ static void doveadm_cmd_director_list(struct doveadm_connection *conn)
 		right = dir->right != NULL &&
 			 director_connection_get_host(dir->right) == host;
 
-		if (dir->self_host == host)
+		if (host->removed)
+			type = "removed";
+		else if (dir->self_host == host)
 			type = "self";
 		else if (left)
 			type = right ? "l+r" : "left";
@@ -116,12 +119,67 @@ static void doveadm_cmd_director_list(struct doveadm_connection *conn)
 			type = "right";
 		else
 			type = "";
+
+		last_failed = I_MAX(host->last_network_failure,
+				    host->last_protocol_failure);
 		str_printfa(str, "%s\t%u\t%s\t%lu\n",
 			    net_ip2addr(&host->ip), host->port, type,
-			    (unsigned long)host->last_failed);
+			    (unsigned long)last_failed);
 	}
 	str_append_c(str, '\n');
 	o_stream_send(conn->output, str_data(str), str_len(str));
+}
+
+static bool
+doveadm_cmd_director_add(struct doveadm_connection *conn, const char *line)
+{
+	const char *const *args;
+	struct director_host *host;
+	struct ip_addr ip;
+	unsigned int port = conn->dir->self_port;
+
+	args = t_strsplit_tab(line);
+	if (args[0] == NULL ||
+	    net_addr2ip(line, &ip) < 0 ||
+	    (args[1] != NULL && str_to_uint(args[1], &port) < 0)) {
+		i_error("doveadm sent invalid DIRECTOR-ADD parameters");
+		return FALSE;
+	}
+
+	if (director_host_lookup(conn->dir, &ip, port) == NULL) {
+		host = director_host_add(conn->dir, &ip, port);
+		director_notify_ring_added(host, conn->dir->self_host);
+	}
+	o_stream_send(conn->output, "OK\n", 3);
+	return TRUE;
+}
+
+static bool
+doveadm_cmd_director_remove(struct doveadm_connection *conn, const char *line)
+{
+	const char *const *args;
+	struct director_host *host;
+	struct ip_addr ip;
+	unsigned int port = 0;
+
+	args = t_strsplit_tab(line);
+	if (args[0] == NULL ||
+	    net_addr2ip(line, &ip) < 0 ||
+	    (args[1] != NULL && str_to_uint(args[1], &port) < 0)) {
+		i_error("doveadm sent invalid DIRECTOR-REMOVE parameters");
+		return FALSE;
+	}
+
+	host = port != 0 ?
+		director_host_lookup(conn->dir, &ip, port) :
+		director_host_lookup_ip(conn->dir, &ip);
+	if (host == NULL)
+		o_stream_send_str(conn->output, "NOTFOUND\n");
+	else {
+		director_ring_remove(host, conn->dir->self_host);
+		o_stream_send(conn->output, "OK\n", 3);
+	}
+	return TRUE;
 }
 
 static bool
@@ -133,7 +191,7 @@ doveadm_cmd_host_set(struct doveadm_connection *conn, const char *line)
 	struct ip_addr ip;
 	unsigned int vhost_count = -1U;
 
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	if (args[0] == NULL ||
 	    net_addr2ip(args[0], &ip) < 0 ||
 	    (args[1] != NULL && str_to_uint(args[1], &vhost_count) < 0)) {
@@ -223,7 +281,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 	string_t *str = t_str_new(256);
 
 	if (str_to_uint(line, &username_hash) < 0)
-		username_hash = user_directory_get_username_hash(line);
+		username_hash = user_directory_get_username_hash(conn->dir->users, line);
 
 	/* get user's current host */
 	user = user_directory_lookup(conn->dir->users, username_hash);
@@ -296,7 +354,7 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *line)
 	struct mail_host *host;
 	struct ip_addr ip;
 
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	if (args[0] == NULL || args[1] == NULL ||
 	    net_addr2ip(args[1], &ip) < 0) {
 		i_error("doveadm sent invalid USER-MOVE parameters: %s", line);
@@ -309,7 +367,7 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *line)
 	}
 
 	if (str_to_uint(args[0], &username_hash) < 0)
-		username_hash = user_directory_get_username_hash(line);
+		username_hash = user_directory_get_username_hash(conn->dir->users, line);
 	user = user_directory_lookup(conn->dir->users, username_hash);
 	if (user != NULL && user->kill_state != USER_KILL_STATE_NONE) {
 		o_stream_send_str(conn->output, "TRYAGAIN\n");
@@ -360,6 +418,10 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 			doveadm_cmd_host_list_removed(conn);
 		else if (strcmp(cmd, "DIRECTOR-LIST") == 0)
 			doveadm_cmd_director_list(conn);
+		else if (strcmp(cmd, "DIRECTOR-ADD") == 0)
+			doveadm_cmd_director_add(conn, args);
+		else if (strcmp(cmd, "DIRECTOR-REMOVE") == 0)
+			doveadm_cmd_director_remove(conn, args);
 		else if (strcmp(cmd, "HOST-SET") == 0)
 			ret = doveadm_cmd_host_set(conn, args);
 		else if (strcmp(cmd, "HOST-REMOVE") == 0)

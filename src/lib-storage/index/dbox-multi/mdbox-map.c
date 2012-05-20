@@ -133,16 +133,20 @@ static int mdbox_map_mkdir_storage(struct mdbox_map *map)
 
 static void mdbox_map_cleanup(struct mdbox_map *map)
 {
+	unsigned int interval =
+		MAP_STORAGE(map)->set->mail_temp_scan_interval;
 	struct stat st;
 
 	if (stat(map->path, &st) < 0)
 		return;
 
 	/* check once in a while if there are temp files to clean up */
-	if (st.st_atime > st.st_ctime + DBOX_TMP_DELETE_SECS) {
+	if (interval == 0) {
+		/* disabled */
+	} else if (st.st_atime > st.st_ctime + DBOX_TMP_DELETE_SECS) {
 		/* there haven't been any changes to this directory since we
 		   last checked it. */
-	} else if (st.st_atime < ioloop_time - DBOX_TMP_SCAN_SECS) {
+	} else if (st.st_atime < ioloop_time - interval) {
 		/* time to scan */
 		(void)unlink_old_files(map->path, DBOX_TEMP_FILE_PREFIX,
 				       ioloop_time - DBOX_TMP_DELETE_SECS);

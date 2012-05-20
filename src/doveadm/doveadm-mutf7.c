@@ -40,11 +40,13 @@ static void cmd_mailbox_mutf7(int argc, char *argv[])
 			if (imap_utf8_to_utf7(argv[i], str) < 0) {
 				i_error("Mailbox name not valid UTF-8: %s",
 					argv[i]);
+				doveadm_exit_code = EX_DATAERR;
 			}
 		} else {
 			if (imap_utf7_to_utf8(argv[i], str) < 0) {
 				i_error("Mailbox name not valid mUTF-7: %s",
 					argv[i]);
+				doveadm_exit_code = EX_DATAERR;
 			}
 		}
 		printf("%s\n", str_c(str));

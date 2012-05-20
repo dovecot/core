@@ -228,6 +228,8 @@ mail_log_update_wanted_fields(struct mail *mail, enum mail_log_field fields)
 		wanted_fields |= MAIL_FETCH_VIRTUAL_SIZE;
 
 	mail_add_temp_wanted_fields(mail, wanted_fields, wanted_headers);
+	if (wanted_headers != NULL)
+		mailbox_header_lookup_unref(&wanted_headers);
 }
 
 static void
@@ -360,17 +362,11 @@ static void mail_log_mail_copy(void *txn, struct mail *src, struct mail *dst)
 		(struct mail_log_mail_txn_context *)txn;
 	const char *desc;
 
-	if (dst->saving) {
-		/* we came from mailbox_save_using_mail() */
-		mail_log_append_mail_message(ctx, dst,
-					     MAIL_LOG_EVENT_SAVE, "save");
-	} else {
-		desc = t_strdup_printf("copy from %s",
-				       str_sanitize(mailbox_get_name(src->box),
-						    MAILBOX_NAME_LOG_LEN));
-		mail_log_append_mail_message(ctx, dst,
-					     MAIL_LOG_EVENT_COPY, desc);
-	}
+	desc = t_strdup_printf("copy from %s",
+			       str_sanitize(mailbox_get_name(src->box),
+					    MAILBOX_NAME_LOG_LEN));
+	mail_log_append_mail_message(ctx, dst,
+				     MAIL_LOG_EVENT_COPY, desc);
 }
 
 static void mail_log_mail_expunge(void *txn, struct mail *mail)

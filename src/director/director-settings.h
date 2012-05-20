@@ -6,6 +6,7 @@ struct director_settings {
 
 	const char *director_servers;
 	const char *director_mail_servers;
+	const char *director_username_hash;
 	unsigned int director_user_expire;
 	unsigned int director_doveadm_port;
 };

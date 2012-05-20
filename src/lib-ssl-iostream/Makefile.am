@@ -30,6 +30,6 @@ pkginc_lib_HEADERS = $(headers)
 
 pkglib_LTLIBRARIES = libdovecot-ssl.la
 libdovecot_ssl_la_SOURCES = 
-libdovecot_ssl_la_LIBADD = libssl_iostream.la ../lib/liblib.la $(MODULE_LIBS)
+libdovecot_ssl_la_LIBADD = libssl_iostream.la ../lib/liblib.la $(MODULE_LIBS) $(SSL_LIBS)
 libdovecot_ssl_la_DEPENDENCIES = libssl_iostream.la
 libdovecot_ssl_la_LDFLAGS = -export-dynamic

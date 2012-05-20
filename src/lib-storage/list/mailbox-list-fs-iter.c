@@ -2,12 +2,16 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
+#include "unichar.h"
 #include "imap-match.h"
+#include "imap-utf7.h"
 #include "mail-storage.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-subscriptions.h"
 #include "mailbox-list-fs.h"
 
+#include <stdio.h>
 #include <ctype.h>
 #include <dirent.h>
 #include <sys/stat.h>
@@ -81,6 +85,49 @@ fs_get_existence_info_flag(struct fs_list_iterate_context *ctx,
 	return 0;
 }
 
+static void
+fs_list_rename_invalid(struct fs_list_iterate_context *ctx,
+		       const char *storage_name)
+{
+	/* the storage_name is completely invalid, rename it to
+	   something more sensible. we could do this for all names that
+	   aren't valid mUTF-7, but that might lead to accidents in
+	   future when UTF-8 storage names are used */
+	string_t *destname = t_str_new(128);
+	string_t *dest = t_str_new(128);
+	const char *root, *src;
+
+	root = mailbox_list_get_path(ctx->ctx.list, NULL,
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	src = t_strconcat(root, "/", storage_name, NULL);
+
+	(void)uni_utf8_get_valid_data((const void *)storage_name,
+				      strlen(storage_name), destname);
+
+	str_append(dest, root);
+	str_append_c(dest, '/');
+	(void)imap_utf8_to_utf7(str_c(destname), dest);
+
+	if (rename(src, str_c(dest)) < 0 && errno != ENOENT)
+		i_error("rename(%s, %s) failed: %m", src, str_c(dest));
+}
+
+static const char *
+dir_get_storage_name(struct list_dir_context *dir, const char *fname)
+{
+	if (*dir->storage_name == '\0') {
+		/* regular root */
+		return fname;
+	} else if (strcmp(dir->storage_name, "/") == 0) {
+		/* full_filesystem_access=yes "/" root */
+		return t_strconcat("/", fname, NULL);
+	} else {
+		/* child */
+		return *fname == '\0' ? dir->storage_name :
+			t_strconcat(dir->storage_name, "/", fname, NULL);
+	}
+}
+
 static int
 dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 	      struct list_dir_context *dir, const struct dirent *d)
@@ -113,9 +160,15 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 	}
 
 	/* check the pattern */
-	storage_name = *dir->storage_name == '\0' ? d->d_name :
-		t_strconcat(dir->storage_name, "/", d->d_name, NULL);
+	storage_name = dir_get_storage_name(dir, d->d_name);
 	vname = mailbox_list_get_vname(ctx->ctx.list, storage_name);
+	if (!uni_utf8_str_is_valid(vname)) {
+		fs_list_rename_invalid(ctx, storage_name);
+		/* just skip this in this iteration, we'll see it on the
+		   next list */
+		return 0;
+	}
+
 	match = imap_match(ctx->ctx.glob, vname);
 
 	if ((dir->info_flags & (MAILBOX_CHILDREN | MAILBOX_NOCHILDREN |
@@ -167,8 +220,9 @@ fs_list_get_storage_path(struct fs_list_iterate_context *ctx,
 
 	if (*path == '~') {
 		if (!mailbox_list_try_get_absolute_path(ctx->ctx.list, &path)) {
-			/* couldn't expand ~user/ */
-			return FALSE;
+			/* a) couldn't expand ~user/
+			   b) mailbox is under our mail root, we changed
+			   path to storage_name */
 		}
 		/* NOTE: the path may have been translated to a storage_name
 		   instead of path */
@@ -196,6 +250,10 @@ fs_list_dir_read(struct fs_list_iterate_context *ctx,
 
 	if (!fs_list_get_storage_path(ctx, dir->storage_name, &path))
 		return 0;
+	if (path == NULL) {
+		/* no mailbox root dir */
+		return 0;
+	}
 
 	fsdir = opendir(path);
 	if (fsdir == NULL) {
@@ -266,13 +324,14 @@ fs_list_read_dir(struct fs_list_iterate_context *ctx, const char *storage_name,
 	dir->info_flags = info_flags;
 	p_array_init(&dir->entries, pool, 16);
 
-	if ((dir->info_flags & MAILBOX_CHILDREN) == 0) {
-		/* start with the assumption of not having children */
-		dir->info_flags |= MAILBOX_NOCHILDREN;
-	}
-
 	if (fs_list_dir_read(ctx, dir) < 0)
 		ctx->ctx.failed = TRUE;
+
+	if ((dir->info_flags & (MAILBOX_CHILDREN | MAILBOX_NOCHILDREN |
+				MAILBOX_NOINFERIORS)) == 0) {
+		/* assume this directory has no children */
+		dir->info_flags |= MAILBOX_NOCHILDREN;
+	}
 	return dir;
 }
 
@@ -313,10 +372,12 @@ fs_list_get_valid_patterns(struct fs_list_iterate_context *ctx,
 
 static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 {
+	struct mail_namespace *ns = ctx->ctx.list->ns;
+	char ns_sep = mail_namespace_get_sep(ns);
 	bool full_fs_access =
 		ctx->ctx.list->mail_set->mail_full_filesystem_access;
 	const char *const *patterns, *pattern, *const *parentp, *const *childp;
-	const char *p, *last, *root;
+	const char *p, *last, *root, *prefix_vname;
 	unsigned int i, parentlen;
 
 	i_assert(*ctx->valid_patterns != NULL);
@@ -329,14 +390,28 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 		for (p = last = pattern; *p != '\0'; p++) {
 			if (*p == '%' || *p == '*')
 				break;
-			if (*p == '/')
+			if (*p == ns_sep)
 				last = p;
 		}
-		if (p == last && *pattern == '/')
+		prefix_vname = t_strdup_until(pattern, last);
+
+		if (p == last+1 && *pattern == ns_sep)
 			root = "/";
-		else {
+		else if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+			 strcasecmp(prefix_vname, "INBOX") == 0 &&
+			 strncasecmp(ns->prefix, pattern, ns->prefix_len) == 0) {
+			/* special case: Namespace prefix is INBOX/ and
+			   we just want to see its contents (not the
+			   INBOX's children). */
+			root = "";
+		} else if (*prefix_vname == '\0') {
+			/* we need to handle "" explicitly here, because getting
+			   storage name with mail_shared_explicit_inbox=no
+			   would return root=INBOX. */
+			root = "";
+		} else {
 			root = mailbox_list_get_storage_name(ctx->ctx.list,
-						t_strdup_until(pattern, last));
+							     prefix_vname);
 		}
 
 		if (*root == '/') {
@@ -360,7 +435,8 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 		childp = array_idx(&ctx->roots, i);
 		parentlen = strlen(*parentp);
 		if (strncmp(*parentp, *childp, parentlen) == 0 &&
-		    ((*childp)[parentlen] == ctx->sep ||
+		    (parentlen == 0 ||
+		     (*childp)[parentlen] == ctx->sep ||
 		     (*childp)[parentlen] == '\0'))
 			array_delete(&ctx->roots, i, 1);
 	}
@@ -514,14 +590,13 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 	struct mail_namespace *ns = ctx->ctx.list->ns;
 	struct list_dir_context *dir, *subdir = NULL;
 	enum imap_match_result match, child_dir_match;
-	const char *storage_name, *child_dir_name;
+	const char *storage_name, *vname, *child_dir_name;
 
 	dir = ctx->dir;
-	storage_name = *dir->storage_name == '\0' ? entry->fname :
-		t_strconcat(dir->storage_name, "/", entry->fname, NULL);
+	storage_name = dir_get_storage_name(dir, entry->fname);
 
-	ctx->info.name = mailbox_list_get_vname(ctx->ctx.list, storage_name);
-	ctx->info.name = p_strdup(ctx->info_pool, ctx->info.name);
+	vname = mailbox_list_get_vname(ctx->ctx.list, storage_name);
+	ctx->info.name = p_strdup(ctx->info_pool, vname);
 	ctx->info.flags = entry->info_flags;
 
 	match = imap_match(ctx->ctx.glob, ctx->info.name);

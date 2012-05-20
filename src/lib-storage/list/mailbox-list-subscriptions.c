@@ -185,7 +185,8 @@ void mailbox_list_set_subscription_flags(struct mailbox_list *list,
 }
 
 void mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
-				     struct mailbox_tree_context *tree)
+				     struct mailbox_tree_context *tree,
+				     bool default_nonexistent)
 {
 	struct mailbox_list_iter_update_context update_ctx;
 	struct mailbox_tree_iterate_context *iter;
@@ -197,6 +198,8 @@ void mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 	update_ctx.tree_ctx = tree;
 	update_ctx.glob = ctx->glob;
 	update_ctx.leaf_flags = MAILBOX_SUBSCRIBED;
+	if (default_nonexistent)
+		update_ctx.leaf_flags |= MAILBOX_NONEXISTENT;
 	update_ctx.parent_flags = MAILBOX_CHILD_SUBSCRIBED;
 	update_ctx.match_parents =
 		(ctx->flags & MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH) != 0;
@@ -226,7 +229,7 @@ mailbox_list_subscriptions_iter_init(struct mailbox_list *list,
 	array_create(&ctx->ctx.module_contexts, pool, sizeof(void *), 5);
 
 	ctx->tree = mailbox_tree_init(sep);
-	mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree);
+	mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree, FALSE);
 
 	ctx->info.ns = list->ns;
 	/* the tree usually has only those entries we want to iterate through,

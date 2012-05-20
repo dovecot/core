@@ -2,6 +2,7 @@
 #define AUTH_REQUEST_H
 
 #include "network.h"
+#include "var-expand.h"
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
@@ -56,6 +57,8 @@ struct auth_request {
 	/* the whole userdb result reply */
 	struct auth_stream_reply *userdb_reply;
 	struct auth_request_proxy_dns_lookup_ctx *dns_lookup_ctx;
+	/* Result of passdb lookup */
+	enum passdb_result passdb_result;
 
 	const struct mech_module *mech;
 	const struct auth_settings *set;
@@ -71,7 +74,7 @@ struct auth_request {
 	unsigned int id;
 	time_t last_access;
 
-	const char *service, *mech_name;
+	const char *service, *mech_name, *session_id;
 	struct ip_addr local_ip, remote_ip;
 	unsigned int local_port, remote_port;
 
@@ -123,6 +126,7 @@ struct auth_request {
 typedef void auth_request_proxy_cb_t(bool success, struct auth_request *);
 
 extern unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
+extern const struct var_expand_table auth_request_var_expand_static_tab[];
 
 struct auth_request *
 auth_request_new(const struct mech_module *mech);
@@ -172,6 +176,9 @@ bool auth_request_set_login_username(struct auth_request *request,
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme);
+void auth_request_set_field_keyvalue(struct auth_request *request,
+				     const char *field,
+				     const char *default_scheme);
 void auth_request_set_fields(struct auth_request *request,
 			     const char *const *fields,
 			     const char *default_scheme);
@@ -208,7 +215,7 @@ void auth_request_log_info(struct auth_request *auth_request,
 			   const char *format, ...) ATTR_FORMAT(3, 4);
 void auth_request_log_warning(struct auth_request *auth_request,
 			      const char *subsystem,
-			      const char *format, ...);
+			      const char *format, ...) ATTR_FORMAT(3, 4);
 void auth_request_log_error(struct auth_request *auth_request,
 			    const char *subsystem,
 			    const char *format, ...) ATTR_FORMAT(3, 4);

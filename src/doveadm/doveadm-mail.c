@@ -292,6 +292,13 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		return ret;
 	}
 
+	if (ctx->v.prerun != NULL) {
+		if (ctx->v.prerun(ctx, ctx->cur_service_user, error_r) < 0) {
+			mail_storage_service_user_free(&ctx->cur_service_user);
+			return -1;
+		}
+	}
+
 	ret = mail_storage_service_next(ctx->storage_service,
 					ctx->cur_service_user,
 					&ctx->cur_mail_user);
@@ -309,12 +316,10 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 	return 1;
 }
 
-void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
-			      const struct mail_storage_service_input *input)
+int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
+			     const struct mail_storage_service_input *input,
+			     const char **error_r)
 {
-	const char *error;
-	int ret;
-
 	i_assert(input->username != NULL);
 
 	ctx->cur_username = input->username;
@@ -324,11 +329,7 @@ void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
 
-	ret = doveadm_mail_next_user(ctx, input, &error);
-	if (ret < 0)
-		i_fatal("%s", error);
-	else if (ret == 0)
-		i_fatal_status(EX_NOUSER, "User doesn't exist");
+	return doveadm_mail_next_user(ctx, input, error_r);
 }
 
 static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
@@ -372,6 +373,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 				continue;
 		}
 		input.username = user;
+		ctx->cur_username = user;
 		doveadm_print_sticky("username", user);
 		T_BEGIN {
 			ret = doveadm_mail_next_user(ctx, &input, &error);
@@ -445,8 +447,8 @@ static void
 doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 {
 	struct doveadm_mail_cmd_context *ctx;
-	const char *getopt_args, *wildcard_user;
-	int c;
+	const char *getopt_args, *wildcard_user, *error;
+	int ret, c;
 
 	ctx = doveadm_mail_cmd_init(cmd, doveadm_settings);
 	ctx->full_args = (const void *)(argv + 1);
@@ -455,7 +457,10 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	if (doveadm_debug)
 		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
-	getopt_args = t_strconcat("AS:u:", ctx->getopt_args, NULL);
+	getopt_args = "AS:u:";
+	/* keep context's getopt_args first in case it contains '+' */
+	if (ctx->getopt_args != NULL)
+		getopt_args = t_strconcat(ctx->getopt_args, getopt_args, NULL);
 	ctx->cur_username = getenv("USER");
 	wildcard_user = NULL;
 	while ((c = getopt(argc, argv, getopt_args)) > 0) {
@@ -510,7 +515,11 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 		memset(&input, 0, sizeof(input));
 		input.service = "doveadm";
 		input.username = ctx->cur_username;
-		doveadm_mail_single_user(ctx, &input);
+		ret = doveadm_mail_single_user(ctx, &input, &error);
+		if (ret < 0)
+			i_fatal("%s", error);
+		else if (ret == 0)
+			i_fatal_status(EX_NOUSER, "User doesn't exist");
 	} else {
 		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
 		doveadm_mail_all_users(ctx, argv, wildcard_user);

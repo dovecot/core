@@ -95,7 +95,16 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 		return FALSE;
 	}
 
-	old = auth_client_connection_lookup(pid);
+	if (conn->login_requests)
+		old = auth_client_connection_lookup(pid);
+	else {
+		/* the client is only authenticating, not logging in.
+		   the PID isn't necessary, and since we allow authentication
+		   via TCP sockets the PIDs may conflict, so ignore them. */
+		old = NULL;
+		pid = 0;
+	}
+
 	if (old != NULL) {
 		/* already exists. it's possible that it just reconnected,
 		   see if the old connection is still there. */

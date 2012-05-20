@@ -723,7 +723,7 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 		return -1;
 
 	warning = array_append_space(&root_set->warning_rules);
-	warning->command = i_strdup(p+1);
+	warning->command = p_strdup(root_set->set->pool, p+1);
 	warning->rule = rule;
 	warning->reverse = reverse;
 
@@ -940,7 +940,7 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 	struct quota_root *const *roots;
 	const char *mailbox_name;
 	unsigned int i, count;
-	uint64_t bytes_limit, count_limit, current, limit, ceil;
+	uint64_t bytes_limit, count_limit, current, limit, diff;
 	int ret;
 
 	ctx->limits_set = TRUE;
@@ -964,9 +964,16 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 						 QUOTA_NAME_STORAGE_BYTES,
 						 &current, &limit);
 			if (ret > 0) {
-				ceil = limit < current ? 0 : limit - current;
-				if (ctx->bytes_ceil > ceil)
-					ctx->bytes_ceil = ceil;
+				if (limit < current) {
+					ctx->bytes_ceil = 0;
+					diff = current - limit;
+					if (ctx->bytes_over < diff)
+						ctx->bytes_over = diff;
+				} else {
+					diff = limit - current;
+					if (ctx->bytes_ceil > diff)
+						ctx->bytes_ceil = diff;
+				}
 			} else if (ret < 0) {
 				ctx->failed = TRUE;
 				return -1;
@@ -978,9 +985,16 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 						 QUOTA_NAME_MESSAGES,
 						 &current, &limit);
 			if (ret > 0) {
-				ceil = limit < current ? 0 : limit - current;
-				if (ctx->count_ceil > ceil)
-					ctx->count_ceil = ceil;
+				if (limit < current) {
+					ctx->count_ceil = 0;
+					diff = current - limit;
+					if (ctx->count_over < diff)
+						ctx->count_over = diff;
+				} else {
+					diff = limit - current;
+					if (ctx->count_ceil > diff)
+						ctx->count_ceil = diff;
+				}
 			} else if (ret < 0) {
 				ctx->failed = TRUE;
 				return -1;

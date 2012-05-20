@@ -185,7 +185,7 @@ void test_out_reason(const char *name, bool success, const char *reason)
 	total_count++;
 }
 
-static void
+static void ATTR_FORMAT(2, 0)
 test_error_handler(const struct failure_context *ctx,
 		   const char *format, va_list args)
 {

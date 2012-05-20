@@ -71,7 +71,7 @@ bool array_cmp_i(const struct array *array1, const struct array *array2)
 
 void array_reverse_i(struct array *array)
 {
-	const unsigned int element_size = array->element_size;
+	const size_t element_size = array->element_size;
 	unsigned int i, count = array_count_i(array);
 	size_t size;
 	void *data, *tmp;
@@ -92,7 +92,7 @@ void array_sort_i(struct array *array, int (*cmp)(const void *, const void *))
 {
 	unsigned int count;
 
-	count = array->buffer->used / array->element_size;
+	count = array_count_i(array);
 	qsort(buffer_get_modifiable_data(array->buffer, NULL),
 	      count, array->element_size, cmp);
 }
@@ -102,7 +102,7 @@ void *array_bsearch_i(struct array *array, const void *key,
 {
 	unsigned int count;
 
-	count = array->buffer->used / array->element_size;
+	count = array_count_i(array);
 	return bsearch(key, array->buffer->data,
 		       count, array->element_size, cmp);
 }

@@ -29,11 +29,17 @@ endif
 
 libs = \
 	$(unused_objects) \
-	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT_LDA)
 
-lmtp_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
-lmtp_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
+lmtp_LDADD = \
+	$(libs) \
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT) \
+	$(MODULE_LIBS)
+lmtp_DEPENDENCIES = \
+	$(libs) \
+	$(LIBDOVECOT_STORAGE_DEPS) \
+	$(LIBDOVECOT_DEPS)
 
 lmtp_SOURCES = \
 	main.c \

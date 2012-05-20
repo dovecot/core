@@ -265,6 +265,9 @@ struct mail_transaction_commit_changes {
 
 	/* number of modseq changes that couldn't be changed as requested */
 	unsigned int ignored_modseq_changes;
+
+	/* TRUE if anything actually changed with this commit */
+	bool changed;
 };
 
 struct mailbox_sync_rec {
@@ -414,6 +417,9 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 int mailbox_update(struct mailbox *box, const struct mailbox_update *update);
 /* Delete mailbox (and its parent directory, if it has no siblings) */
 int mailbox_delete(struct mailbox *box);
+/* Delete mailbox, but only if it's empty. If it's not, fails with
+   MAIL_ERROR_EXISTS. */
+int mailbox_delete_empty(struct mailbox *box);
 /* Rename mailbox. Renaming across different mailbox lists is possible only
    between private namespaces and storages of the same type. If the rename
    fails, the error is set to src's storage. */
@@ -644,6 +650,10 @@ void mailbox_save_set_guid(struct mail_save_context *ctx, const char *guid);
 /* Set message's POP3 UIDL, if the backend supports it. */
 void mailbox_save_set_pop3_uidl(struct mail_save_context *ctx,
 				const char *uidl);
+/* Specify ordering for POP3 messages. The default is to add them to the end
+   of the mailbox. Not all backends support this. */
+void mailbox_save_set_pop3_order(struct mail_save_context *ctx,
+				 unsigned int order);
 /* If dest_mail is set, the saved message can be accessed using it. Note that
    setting it may require mailbox syncing, so don't set it unless you need
    it. Also you shouldn't try to access it before mailbox_save_finish() is

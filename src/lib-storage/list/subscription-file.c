@@ -57,8 +57,6 @@ static const char *next_line(struct mailbox_list *list, const char *path,
 	const char *line;
 
 	*failed_r = FALSE;
-	if (input == NULL)
-		return NULL;
 
 	while ((line = i_stream_next_line(input)) == NULL) {
                 switch (i_stream_read(input)) {
@@ -138,24 +136,26 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 		return -1;
 	}
 
-	input = fd_in == -1 ? NULL :
-		i_stream_create_fd(fd_in, list->mailbox_name_max_length+1,
-				   TRUE);
+	found = FALSE;
 	output = o_stream_create_fd_file(fd_out, 0, FALSE);
 	o_stream_cork(output);
-	found = FALSE;
-	while ((line = next_line(list, path, input,
-				 &failed, FALSE)) != NULL) {
-		if (strcmp(line, name) == 0) {
-			found = TRUE;
-			if (!set) {
-				changed = TRUE;
-				continue;
+	if (fd_in != -1) {
+		input = i_stream_create_fd(fd_in, list->mailbox_name_max_length+1,
+					   TRUE);
+		while ((line = next_line(list, path, input,
+					 &failed, FALSE)) != NULL) {
+			if (strcmp(line, name) == 0) {
+				found = TRUE;
+				if (!set) {
+					changed = TRUE;
+					continue;
+				}
 			}
-		}
 
-		(void)o_stream_send_str(output, line);
-		(void)o_stream_send(output, "\n", 1);
+			(void)o_stream_send_str(output, line);
+			(void)o_stream_send(output, "\n", 1);
+		}
+		i_stream_destroy(&input);
 	}
 
 	if (!failed && set && !found) {
@@ -178,8 +178,6 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 		}
 	}
 
-	if (input != NULL)
-		i_stream_destroy(&input);
 	o_stream_destroy(&output);
 
 	if (failed || !changed) {

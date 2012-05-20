@@ -115,9 +115,10 @@ parse_select_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 				MAILBOX_LIST_ITER_RETURN_SUBSCRIBED;
 		} else if (strcasecmp(str, "RECURSIVEMATCH") == 0)
 			list_flags |= MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH;
-		else if (strcasecmp(str, "SPECIAL-USE") == 0)
-			list_flags |= MAILBOX_LIST_ITER_SELECT_SPECIALUSE;
-		else if (strcasecmp(str, "REMOTE") == 0) {
+		else if (strcasecmp(str, "SPECIAL-USE") == 0) {
+			list_flags |= MAILBOX_LIST_ITER_SELECT_SPECIALUSE |
+				MAILBOX_LIST_ITER_RETURN_SPECIALUSE;
+		} else if (strcasecmp(str, "REMOTE") == 0) {
 			/* not supported, ignore */
 		} else {
 			/* skip also optional list value */
@@ -273,6 +274,8 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 {
 	struct mail_namespace *const *listed;
 	const struct mailbox_settings *mailbox_set;
+	struct mailbox *box;
+	enum mailbox_existence existence;
 	unsigned int len;
 	enum mailbox_info_flags flags;
 	const char *name;
@@ -307,11 +310,18 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 
 		ctx->inbox_found = TRUE;
 		flags = list_get_inbox_flags(ctx);
-	} else if (same_ns &&
-		   mailbox_list_mailbox(ctx->ns->list, "", &flags) > 0) {
-		/* mailbox with namespace prefix exists */
-	} else {
+	} else if (!same_ns) {
+		/* parent */
 		flags = MAILBOX_NONEXISTENT;
+	} else {
+		/* see if namespace prefix is selectable */
+		box = mailbox_alloc(ctx->ns->list, name, 0);
+		if (mailbox_exists(box, TRUE, &existence) == 0 &&
+		    existence == MAILBOX_EXISTENCE_SELECT)
+			flags = MAILBOX_SELECT;
+		else
+			flags = MAILBOX_NONEXISTENT;
+		mailbox_free(&box);
 	}
 
 	if ((flags & MAILBOX_CHILDREN) == 0) {

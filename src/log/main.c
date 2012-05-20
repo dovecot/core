@@ -37,9 +37,13 @@ static void main_deinit(void)
 
 static void client_connected(struct master_service_connection *conn)
 {
-	if (conn->fifo)
+	if (conn->fifo) {
 		log_connection_create(errorbuf, conn->fd, conn->listen_fd);
-	else if (strcmp(conn->name, "log-errors") == 0)
+		/* kludge: normally FIFOs aren't counted as connections,
+		   but here we want log process to stay open until all writers
+		   have closed */
+		conn->fifo = FALSE;
+	} else if (strcmp(conn->name, "log-errors") == 0)
 		doveadm_connection_create(errorbuf, conn->fd);
 	else {
 		i_error("Unknown listener name: %s", conn->name);

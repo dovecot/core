@@ -249,6 +249,7 @@ static int mdbox_write_index_header(struct mailbox *box,
 {
 	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
 	struct mail_index_transaction *new_trans = NULL;
+	struct mail_index_view *view;
 	const struct mail_index_header *hdr;
 	uint32_t uid_validity, uid_next;
 
@@ -260,7 +261,8 @@ static int mdbox_write_index_header(struct mailbox *box,
 		trans = new_trans;
 	}
 
-	hdr = mail_index_get_header(box->view);
+	view = mail_index_view_open(box->index);
+	hdr = mail_index_get_header(view);
 	uid_validity = hdr->uid_validity;
 	if (update != NULL && update->uid_validity != 0)
 		uid_validity = update->uid_validity;
@@ -293,12 +295,12 @@ static int mdbox_write_index_header(struct mailbox *box,
 			&first_recent_uid, sizeof(first_recent_uid), FALSE);
 	}
 	if (update != NULL && update->min_highest_modseq != 0 &&
-	    mail_index_modseq_get_highest(box->view) <
-	    					update->min_highest_modseq) {
+	    mail_index_modseq_get_highest(view) < update->min_highest_modseq) {
 		mail_index_modseq_enable(box->index);
 		mail_index_update_highest_modseq(trans,
 						 update->min_highest_modseq);
 	}
+	mail_index_view_close(&view);
 
 	mdbox_update_header(mbox, trans, update);
 	if (new_trans != NULL) {

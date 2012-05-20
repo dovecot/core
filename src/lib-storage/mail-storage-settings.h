@@ -22,6 +22,7 @@ struct mail_storage_settings {
 	unsigned int mailbox_idle_check_interval;
 	unsigned int mail_max_keyword_length;
 	unsigned int mail_max_lock_timeout;
+	unsigned int mail_temp_scan_interval;
 	bool mail_save_crlf;
 	const char *mail_fsync;
 	bool mmap_disable;
@@ -32,6 +33,7 @@ struct mail_storage_settings {
 	bool mail_debug;
 	bool mail_full_filesystem_access;
 	bool maildir_stat_dirs;
+	bool mail_shared_explicit_inbox;
 	const char *lock_method;
 	const char *pop3_uidl_format;
 

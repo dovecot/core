@@ -11,9 +11,6 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/doveadm
 
-libs = \
-	$(LIBDOVECOT_STORAGE)
-
 libdsync_a_SOURCES = \
 	doveadm-dsync.c \
 	dsync-brain.c \

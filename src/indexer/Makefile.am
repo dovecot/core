@@ -27,12 +27,15 @@ unused_objects = \
 	../lib-storage/mail-search-parser-imap.o
 endif
 
-libs = \
+indexer_worker_LDADD = \
+	$(unused_objects) \
 	$(LIBDOVECOT_STORAGE) \
-	$(unused_objects)
-
-indexer_worker_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
-indexer_worker_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
+	$(LIBDOVECOT) \
+	$(MODULE_LIBS)
+indexer_worker_DEPENDENCIES = \
+	$(unused_objects) \
+	$(LIBDOVECOT_STORAGE_DEPS) \
+	$(LIBDOVECOT_DEPS)
 indexer_worker_SOURCES = \
 	indexer-worker.c \
 	indexer-worker-settings.c \

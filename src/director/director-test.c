@@ -492,7 +492,7 @@ static void admin_read_hosts(struct admin_connection *conn)
 			break;
 		/* ip vhost-count user-count */
 		T_BEGIN {
-			const char *const *args = t_strsplit(line, "\t");
+			const char *const *args = t_strsplit_tab(line);
 			struct host *host;
 
 			host = i_new(struct host, 1);

@@ -297,7 +297,7 @@ config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
 	}
 
 	T_BEGIN {
-		const char *const *arg = t_strsplit(line, "\t");
+		const char *const *arg = t_strsplit_tab(line);
 		ARRAY_TYPE(const_string) services;
 
 		p_array_init(&services, pool, 8);

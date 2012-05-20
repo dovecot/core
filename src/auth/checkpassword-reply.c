@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "strescape.h"
 #include "write-full.h"
 
 #include <stdlib.h>
@@ -23,7 +24,9 @@ int main(void)
 			i_error("checkpassword: USER contains TAB");
 			return 1;
 		}
-		str_printfa(str, "user=%s\t", user);
+		str_printfa(str, "user=");
+		str_tabescape_write(str, user);
+		str_append_c(str, '\t');
 	}
 
 	home = getenv("HOME");
@@ -32,7 +35,9 @@ int main(void)
 			i_error("checkpassword: HOME contains TAB");
 			return 1;
 		}
-		str_printfa(str, "userdb_home=%s\t", home);
+		str_printfa(str, "userdb_home=");
+		str_tabescape_write(str, home);
+		str_append_c(str, '\t');
 	}
 
 	extra_env = getenv("EXTRA");
@@ -45,7 +50,10 @@ int main(void)
 					uid_found = TRUE;
 				else if (strcmp(key, "userdb_gid") == 0)
 					gid_found = TRUE;
-				str_printfa(str, "%s=%s\t", key, value);
+				str_tabescape_write(str, key);
+				str_append_c(str, '=');
+				str_tabescape_write(str, value);
+				str_append_c(str, '\t');
 			}
 		}
 	}
@@ -54,10 +62,21 @@ int main(void)
 	if (!gid_found)
 		str_printfa(str, "userdb_gid=%s\t",  dec2str(getgid()));
 
+	i_assert(str_len(str) > 0);
+
 	if (write_full(4, str_data(str), str_len(str)) < 0) {
 		i_error("checkpassword: write_full() failed: %m");
 		exit(111);
 	}
 	authorized = getenv("AUTHORIZED");
-	return authorized != NULL && strcmp(authorized, "2") == 0 ? 2 : 0;
+	if (authorized == NULL) {
+		/* authentication */
+		return 0;
+	} else if (strcmp(authorized, "2") == 0) {
+		/* successful passdb/userdb lookup */
+		return 2;
+	} else {
+		i_error("checkpassword: Script doesn't support passdb/userdb lookup");
+		return 111;
+	}
 }

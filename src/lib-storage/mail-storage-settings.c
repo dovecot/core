@@ -37,6 +37,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_TIME, mailbox_idle_check_interval),
 	DEF(SET_UINT, mail_max_keyword_length),
 	DEF(SET_TIME, mail_max_lock_timeout),
+	DEF(SET_TIME, mail_temp_scan_interval),
 	DEF(SET_BOOL, mail_save_crlf),
 	DEF(SET_ENUM, mail_fsync),
 	DEF(SET_BOOL, mmap_disable),
@@ -47,6 +48,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_BOOL, mail_debug),
 	DEF(SET_BOOL, mail_full_filesystem_access),
 	DEF(SET_BOOL, maildir_stat_dirs),
+	DEF(SET_BOOL, mail_shared_explicit_inbox),
 	DEF(SET_ENUM, lock_method),
 	DEF(SET_STR, pop3_uidl_format),
 
@@ -66,6 +68,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mailbox_idle_check_interval = 30,
 	.mail_max_keyword_length = 50,
 	.mail_max_lock_timeout = 0,
+	.mail_temp_scan_interval = 7*24*60*60,
 	.mail_save_crlf = FALSE,
 	.mail_fsync = "optimized:never:always",
 	.mmap_disable = FALSE,
@@ -76,6 +79,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mail_debug = FALSE,
 	.mail_full_filesystem_access = FALSE,
 	.maildir_stat_dirs = FALSE,
+	.mail_shared_explicit_inbox = TRUE,
 	.lock_method = "fcntl:flock:dotlock",
 	.pop3_uidl_format = "%08Xu%08Xv"
 };

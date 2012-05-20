@@ -203,21 +203,29 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 static bool fts_mailbox_build_continue(struct mail_search_context *ctx)
 {
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
+	enum mail_error error;
 	int ret;
 
-	if (fctx == NULL)
-		return TRUE;
+	ret = fts_indexer_more(fctx->indexer_ctx);
+	if (ret == 0)
+		return FALSE;
 
-	if (fctx->indexer_ctx != NULL) {
-		/* this command is still building the indexes */
-		ret = fts_indexer_more(fctx->indexer_ctx);
-		if (ret == 0)
-			return FALSE;
-		ctx->progress_hidden = FALSE;
-		if (fts_indexer_deinit(&fctx->indexer_ctx) < 0)
-			ret = -1;
-		if (ret > 0)
-			fts_search_lookup(fctx);
+	/* indexing finished */
+	ctx->progress_hidden = FALSE;
+	if (fts_indexer_deinit(&fctx->indexer_ctx) < 0)
+		ret = -1;
+	if (ret > 0)
+		fts_search_lookup(fctx);
+	if (ret < 0) {
+		/* if indexing timed out, it probably means that
+		   the mailbox is still being indexed, but it's a large
+		   mailbox and it takes a while. in this situation
+		   we'll simply abort the search.
+
+		   if indexing failed for any other reason, just
+		   fallback to searching the slow way. */
+		(void)mailbox_get_last_error(fctx->box, &error);
+		fctx->indexing_timed_out = error == MAIL_ERROR_INUSE;
 	}
 	return TRUE;
 }
@@ -227,10 +235,18 @@ fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 				 struct mail **mail_r, bool *tryagain_r)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
+	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
 
-	if (!fts_mailbox_build_continue(ctx)) {
-		*tryagain_r = TRUE;
-		return FALSE;
+	if (fctx != NULL && fctx->indexer_ctx != NULL) {
+		/* this command is still building the indexes */
+		if (!fts_mailbox_build_continue(ctx)) {
+			*tryagain_r = TRUE;
+			return FALSE;
+		}
+		if (fctx->indexing_timed_out) {
+			*tryagain_r = FALSE;
+			return FALSE;
+		}
 	}
 
 	return fbox->module_ctx.super.
@@ -270,6 +286,8 @@ static bool fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 
 	if (fctx == NULL || !fctx->fts_lookup_success) {
 		/* fts lookup not done for this search */
+		if (fctx != NULL && fctx->indexing_timed_out)
+			return FALSE;
 		return fbox->module_ctx.super.search_next_update_seq(ctx);
 	}
 
@@ -295,12 +313,15 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
 	struct fts_transaction_context *ft = FTS_CONTEXT(ctx->transaction);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
+	int ret = 0;
 
 	if (fctx != NULL) {
 		if (fctx->indexer_ctx != NULL) {
 			if (fts_indexer_deinit(&fctx->indexer_ctx) < 0)
 				ft->failed = TRUE;
 		}
+		if (fctx->indexing_timed_out)
+			ret = -1;
 
 		buffer_free(&fctx->orig_matches);
 		array_free(&fctx->levels);
@@ -308,7 +329,9 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 		fts_scores_unref(&fctx->scores);
 		i_free(fctx);
 	}
-	return fbox->module_ctx.super.search_deinit(ctx);
+	if (fbox->module_ctx.super.search_deinit(ctx) < 0)
+		ret = -1;
+	return ret;
 }
 
 static int fts_score_cmp(const uint32_t *uid, const struct fts_score_map *score)
@@ -636,6 +659,9 @@ void fts_mailbox_list_created(struct mailbox_list *list)
 	} else {
 		struct fts_mailbox_list *flist;
 		struct mailbox_list_vfuncs *v = list->vlast;
+
+		if ((backend->flags & FTS_BACKEND_FLAG_FUZZY_SEARCH) != 0)
+			list->ns->user->fuzzy_search = TRUE;
 
 		flist = p_new(list->pool, struct fts_mailbox_list, 1);
 		flist->module_ctx.super = *v;

@@ -24,6 +24,7 @@ struct client {
 	struct client *prev, *next;
 
 	struct pop3_client_vfuncs v;
+	const char *session_id;
 
 	int fd_in, fd_out;
 	struct io *io;
@@ -62,7 +63,7 @@ struct client {
 	unsigned int retr_count;
 
 	/* [msgnum] */
-	uint32_t *message_uidl_hashes;
+	const char **message_uidls;
 	uoff_t *message_sizes;
 	/* [msgnum/8] & msgnum%8 */
 	unsigned char *deleted_bitmask;
@@ -71,6 +72,7 @@ struct client {
 	/* settings: */
 	const struct pop3_settings *set;
 	const struct mail_storage_settings *mail_set;
+	pool_t uidl_pool;
 	enum uidl_keys uidl_keymask;
 
 	/* Module-specific contexts. */
@@ -80,7 +82,7 @@ struct client {
 	unsigned int deleted:1;
 	unsigned int waiting_input:1;
 	unsigned int anvil_sent:1;
-	unsigned int message_uidl_hashes_save:1;
+	unsigned int message_uidls_save:1;
 };
 
 struct pop3_module_register {
@@ -98,7 +100,8 @@ extern unsigned int pop3_client_count;
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
+struct client *client_create(int fd_in, int fd_out, const char *session_id,
+			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set);
 void client_destroy(struct client *client, const char *reason);

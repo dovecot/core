@@ -83,7 +83,12 @@ quota_count_namespace(struct quota_root *root, struct mail_namespace *ns,
 	}
 	if (mailbox_list_iter_deinit(&ctx) < 0)
 		ret = -1;
-
+	if (ns->prefix_len > 0 && ret == 0 &&
+	    (ns->prefix_len != 6 || strncasecmp(ns->prefix, "INBOX", 5) != 0)) {
+		/* if the namespace prefix itself exists, count it also */
+		const char *name = t_strndup(ns->prefix, ns->prefix_len-1);
+		ret = quota_count_mailbox(root, ns, name, bytes, count);
+	}
 	return ret;
 }
 

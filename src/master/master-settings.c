@@ -203,7 +203,7 @@ static const struct setting_define master_setting_defines[] = {
 #  define ENV_SYSTEMD ""
 #endif
 #ifdef DEBUG
-#  define ENV_GDB " GDB"
+#  define ENV_GDB " GDB DEBUG_SILENT"
 #else
 #  define ENV_GDB ""
 #endif

@@ -58,6 +58,8 @@ void dsync_brain_guid_add(struct dsync_brain_msg_iter *iter,
 
 	if ((msg->flags & DSYNC_MAIL_FLAG_EXPUNGED) != 0)
 		return;
+	if (*msg->guid == '\0')
+		return;
 
 	inst = p_new(iter->sync->pool, struct dsync_brain_guid_instance, 1);
 	inst->mailbox_idx = mailbox_idx;

@@ -123,6 +123,10 @@ client_update_info(struct imap_client *client, const struct imap_arg *args)
 			client->common.local_port = atoi(value);
 		else if (strcasecmp(key, "x-proxy-ttl") == 0)
 			client->common.proxy_ttl = atoi(value);
+		else if (strcasecmp(key, "x-session-id") == 0) {
+			client->common.session_id =
+				p_strdup(client->common.pool, value);
+		}
 		args += 2;
 	}
 }

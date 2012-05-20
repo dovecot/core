@@ -81,7 +81,7 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 	path = acl_list_get_path(backend);
 	if (path == NULL) {
 		/* we're never going to build acllist for this namespace. */
-		i_array_init(&backend->acllist, 1);
+		acllist_clear(backend, 0);
 		return 0;
 	}
 

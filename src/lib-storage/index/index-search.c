@@ -1220,17 +1220,12 @@ search_get_cost(struct mailbox_transaction_context *trans)
 
 static int search_match_once(struct index_search_context *ctx)
 {
-	unsigned long long cost1, cost2;
 	int ret;
 
-	cost1 = search_get_cost(ctx->cur_mail->transaction);
 	ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
 				       search_cached_arg, ctx);
 	if (ret < 0)
 		ret = search_arg_match_text(ctx->mail_ctx.args->args, ctx);
-
-	cost2 = search_get_cost(ctx->cur_mail->transaction);
-	ctx->cost += cost2 - cost1;
 	return ret;
 }
 
@@ -1423,7 +1418,8 @@ static int search_more_with_mail(struct index_search_context *ctx,
 	struct mail_search_context *_ctx = &ctx->mail_ctx;
 	struct mailbox *box = _ctx->transaction->box;
 	struct index_mail *imail = (struct index_mail *)mail;
-	int match;
+	unsigned long long cost1, cost2;
+	int match, ret;
 
 	if (search_would_block(ctx)) {
 		/* this lookup is useful when a large number of
@@ -1437,6 +1433,8 @@ static int search_more_with_mail(struct index_search_context *ctx,
 
 	mail_search_args_reset(_ctx->args->args, FALSE);
 
+	cost1 = search_get_cost(mail->transaction);
+	ret = -1;
 	while (box->v.search_next_update_seq(_ctx)) {
 		mail_set_seq(mail, _ctx->seq);
 
@@ -1458,12 +1456,23 @@ static int search_more_with_mail(struct index_search_context *ctx,
 
 		mail_search_args_reset(_ctx->args->args, FALSE);
 
-		if (match != 0)
-			return 1;
-		if (search_would_block(ctx))
-			return 0;
+		if (match != 0) {
+			ret = 1;
+			break;
+		}
+
+		cost2 = search_get_cost(mail->transaction);
+		ctx->cost += cost2 - cost1;
+		cost1 = cost2;
+
+		if (search_would_block(ctx)) {
+			ret = 0;
+			break;
+		}
 	}
-	return -1;
+	cost2 = search_get_cost(mail->transaction);
+	ctx->cost += cost2 - cost1;
+	return ret;
 }
 
 struct mail *index_search_get_mail(struct index_search_context *ctx)
@@ -1501,6 +1510,14 @@ static int search_more_with_prefetching(struct index_search_context *ctx,
 		ret = search_more_with_mail(ctx, mail);
 		if (ret <= 0)
 			break;
+
+		if (ctx->mail_ctx.sort_program != NULL) {
+			/* don't prefetch when using a sort program,
+			   since the mails' access order will change */
+			i_assert(ctx->unused_mail_idx == 0);
+			*mail_r = mail;
+			return 1;
+		}
 		if (mail_prefetch(mail) && ctx->unused_mail_idx == 0) {
 			/* no prefetching done, return it immediately */
 			*mail_r = mail;

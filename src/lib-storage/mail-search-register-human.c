@@ -83,17 +83,17 @@ human_search_##_func(struct mail_search_build_context *ctx) \
 { \
 	return arg_new_human_date(ctx, _type, _date_type); \
 }
-CALLBACK_DATE(before, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_RECEIVED);
-CALLBACK_DATE(on, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_RECEIVED);
-CALLBACK_DATE(since, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_RECEIVED);
+CALLBACK_DATE(before, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_RECEIVED)
+CALLBACK_DATE(on, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_RECEIVED)
+CALLBACK_DATE(since, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_RECEIVED)
 
-CALLBACK_DATE(sentbefore, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_SENT);
-CALLBACK_DATE(senton, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_SENT);
-CALLBACK_DATE(sentsince, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_SENT);
+CALLBACK_DATE(sentbefore, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_SENT)
+CALLBACK_DATE(senton, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_SENT)
+CALLBACK_DATE(sentsince, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_SENT)
 
-CALLBACK_DATE(savedbefore, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_SAVED);
-CALLBACK_DATE(savedon, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_SAVED);
-CALLBACK_DATE(savedsince, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_SAVED);
+CALLBACK_DATE(savedbefore, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_SAVED)
+CALLBACK_DATE(savedon, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_SAVED)
+CALLBACK_DATE(savedsince, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_SAVED)
 
 static struct mail_search_arg *
 arg_new_human_size(struct mail_search_build_context *ctx,
@@ -136,9 +136,13 @@ human_search_mailbox(struct mail_search_build_context *ctx)
 {
 	struct mail_search_arg *sarg;
 
-	sarg = mail_search_build_str(ctx, SEARCH_MAILBOX_GLOB);
+	sarg = mail_search_build_str(ctx, SEARCH_MAILBOX);
 	if (sarg == NULL)
 		return NULL;
+
+	if (strchr(sarg->value.str, '*') != NULL ||
+	    strchr(sarg->value.str, '%') != NULL)
+		sarg->type = SEARCH_MAILBOX_GLOB;
 
 	if (!uni_utf8_str_is_valid(sarg->value.str)) {
 		ctx->_error = p_strconcat(ctx->pool,

@@ -3,12 +3,14 @@
 #include "lib.h"
 #include "array.h"
 #include "hash.h"
+#include "file-lock.h"
 #include "file-dotlock.h"
 #include "nfs-workarounds.h"
 #include "istream.h"
 #include "ostream.h"
 #include "dict-private.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -17,10 +19,13 @@
 struct file_dict {
 	struct dict dict;
 	pool_t hash_pool;
+	enum file_lock_method lock_method;
 
 	char *path;
 	struct hash_table *hash;
 	int fd;
+
+	bool refreshed;
 };
 
 struct file_dict_iterate_path {
@@ -75,10 +80,25 @@ static struct dict *file_dict_init(struct dict *driver, const char *uri,
 				   const char *base_dir ATTR_UNUSED)
 {
 	struct file_dict *dict;
-	
+	const char *p;
+
 	dict = i_new(struct file_dict, 1);
+	dict->lock_method = FILE_LOCK_METHOD_DOTLOCK;
+
+	p = strchr(uri, ':');
+	if (p == NULL) {
+		/* no parameters */
+		dict->path = i_strdup(uri);
+	} else {
+		dict->path = i_strdup_until(uri, p++);
+		if (strcmp(p, "lock=fcntl") == 0)
+			dict->lock_method = FILE_LOCK_METHOD_FCNTL;
+		else if (strcmp(p, "lock=flock") == 0)
+			dict->lock_method = FILE_LOCK_METHOD_FLOCK;
+		else
+			i_error("dict file: Invalid parameter: %s", p+1);
+	}
 	dict->dict = *driver;
-	dict->path = i_strdup(uri);
 	dict->hash_pool = pool_alloconly_create("file dict", 1024);
 	dict->hash = hash_table_create(default_pool, dict->hash_pool, 0,
 				       str_hash, (hash_cmp_callback_t *)strcmp);
@@ -126,10 +146,9 @@ static bool file_dict_need_refresh(struct file_dict *dict)
 	return FALSE;
 }
 
-static int file_dict_refresh(struct file_dict *dict)
+static int file_dict_open_latest(struct file_dict *dict)
 {
-	struct istream *input;
-	char *key, *value;
+	int open_type;
 
 	if (!file_dict_need_refresh(dict))
 		return 0;
@@ -138,25 +157,44 @@ static int file_dict_refresh(struct file_dict *dict)
 		if (close(dict->fd) < 0)
 			i_error("close(%s) failed: %m", dict->path);
 	}
-	dict->fd = open(dict->path, O_RDONLY);
+
+	open_type = dict->lock_method == FILE_LOCK_METHOD_DOTLOCK ?
+		O_RDONLY : O_RDWR;
+	dict->fd = open(dict->path, open_type);
 	if (dict->fd == -1) {
 		if (errno == ENOENT)
 			return 0;
 		i_error("open(%s) failed: %m", dict->path);
 		return -1;
 	}
+	dict->refreshed = FALSE;
+	return 1;
+}
+
+static int file_dict_refresh(struct file_dict *dict)
+{
+	struct istream *input;
+	char *key, *value;
+
+	if (file_dict_open_latest(dict) < 0)
+		return -1;
+	if (dict->refreshed)
+		return 0;
 
 	hash_table_clear(dict->hash, TRUE);
 	p_clear(dict->hash_pool);
 
-	input = i_stream_create_fd(dict->fd, (size_t)-1, FALSE);
-	while ((key = i_stream_read_next_line(input)) != NULL &&
-	       (value = i_stream_read_next_line(input)) != NULL) {
-		key = p_strdup(dict->hash_pool, key);
-		value = p_strdup(dict->hash_pool, value);
-		hash_table_insert(dict->hash, key, value);
+	if (dict->fd != -1) {
+		input = i_stream_create_fd(dict->fd, (size_t)-1, FALSE);
+		while ((key = i_stream_read_next_line(input)) != NULL &&
+		       (value = i_stream_read_next_line(input)) != NULL) {
+			key = p_strdup(dict->hash_pool, key);
+			value = p_strdup(dict->hash_pool, value);
+			hash_table_insert(dict->hash, key, value);
+		}
+		i_stream_destroy(&input);
 	}
-	i_stream_destroy(&input);
+	dict->refreshed = TRUE;
 	return 0;
 }
 
@@ -254,7 +292,7 @@ file_dict_transaction_init(struct dict *_dict)
 	struct file_dict_transaction_context *ctx;
 	pool_t pool;
 
-	pool = pool_alloconly_create("file dict transaction", 1024);
+	pool = pool_alloconly_create("file dict transaction", 2048);
 	ctx = p_new(pool, struct file_dict_transaction_context, 1);
 	ctx->ctx.dict = _dict;
 	ctx->pool = pool;
@@ -381,35 +419,92 @@ fd_copy_parent_dir_permissions(const char *src_path, int dest_fd,
 	return fd_copy_stat_permissions(&src_st, dest_fd, dest_path);
 }
 
+static int
+file_dict_lock(struct file_dict *dict, struct file_lock **lock_r)
+{
+	int ret;
+
+	if (file_dict_open_latest(dict) < 0)
+		return -1;
+
+	if (dict->fd == -1) {
+		/* quota file doesn't exist yet, we need to create it */
+		dict->fd = open(dict->path, O_CREAT | O_RDWR, 0600);
+		if (dict->fd == -1) {
+			i_error("creat(%s) failed: %m", dict->path);
+			return -1;
+		}
+		(void)fd_copy_parent_dir_permissions(dict->path, dict->fd,
+						     dict->path);
+	}
+
+	do {
+		if (file_wait_lock(dict->fd, dict->path, F_WRLCK,
+				   dict->lock_method,
+				   file_dict_dotlock_settings.timeout,
+				   lock_r) <= 0) {
+			i_error("file_wait_lock(%s) failed: %m", dict->path);
+			return -1;
+		}
+		/* check again if we need to reopen the file because it was
+		   just replaced */
+	} while ((ret = file_dict_open_latest(dict)) > 0);
+
+	return ret < 0 ? -1 : 0;
+}
+
 static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 {
 	struct file_dict *dict = (struct file_dict *)ctx->ctx.dict;
-	struct dotlock *dotlock;
+	struct dotlock *dotlock = NULL;
+	struct file_lock *lock = NULL;
+	const char *temp_path = NULL;
 	struct hash_iterate_context *iter;
 	struct ostream *output;
 	void *key, *value;
-	int fd;
+	int fd = -1;
 
-	fd = file_dotlock_open(&file_dict_dotlock_settings, dict->path, 0,
-			       &dotlock);
-	if (fd == -1) {
-		i_error("file dict commit: file_dotlock_open(%s) failed: %m",
-			dict->path);
-		return -1;
+	switch (dict->lock_method) {
+	case FILE_LOCK_METHOD_FCNTL:
+	case FILE_LOCK_METHOD_FLOCK:
+		if (file_dict_lock(dict, &lock) < 0)
+			return -1;
+		temp_path = t_strdup_printf("%s.tmp", dict->path);
+		fd = creat(temp_path, 0600);
+		if (fd == -1) {
+			i_error("file dict commit: creat(%s) failed: %m",
+				temp_path);
+			return -1;
+		}
+		break;
+	case FILE_LOCK_METHOD_DOTLOCK:
+		fd = file_dotlock_open(&file_dict_dotlock_settings, dict->path, 0,
+				       &dotlock);
+		if (fd == -1) {
+			i_error("file dict commit: file_dotlock_open(%s) failed: %m",
+				dict->path);
+			return -1;
+		}
+		temp_path = file_dotlock_get_lock_path(dotlock);
+		break;
 	}
+
 	/* refresh once more now that we're locked */
 	if (file_dict_refresh(dict) < 0) {
-		file_dotlock_delete(&dotlock);
+		if (dotlock != NULL)
+			file_dotlock_delete(&dotlock);
+		else {
+			(void)close(fd);
+			file_unlock(&lock);
+		}
 		return -1;
 	}
 	if (dict->fd != -1) {
 		/* preserve the permissions */
-		(void)fd_copy_permissions(dict->fd, dict->path, fd,
-					  file_dotlock_get_lock_path(dotlock));
+		(void)fd_copy_permissions(dict->fd, dict->path, fd, temp_path);
 	} else {
 		/* get initial permissions from parent directory */
-		(void)fd_copy_parent_dir_permissions(dict->path, fd,
-					file_dotlock_get_lock_path(dotlock));
+		(void)fd_copy_parent_dir_permissions(dict->path, fd, temp_path);
 	}
 	file_dict_apply_changes(ctx);
 
@@ -425,10 +520,21 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 	hash_table_iterate_deinit(&iter);
 	o_stream_destroy(&output);
 
-	if (file_dotlock_replace(&dotlock,
-				 DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) < 0) {
-		(void)close(fd);
-		return -1;
+	if (dotlock != NULL) {
+		if (file_dotlock_replace(&dotlock,
+				DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) < 0) {
+			(void)close(fd);
+			return -1;
+		}
+	} else {
+		if (rename(temp_path, dict->path) < 0) {
+			i_error("rename(%s, %s) failed: %m",
+				temp_path, dict->path);
+			file_unlock(&lock);
+			(void)close(fd);
+			return -1;
+		}
+		file_lock_free(&lock);
 	}
 
 	if (dict->fd != -1)

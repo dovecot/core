@@ -595,6 +595,8 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 	struct stat new_st, cur_st;
 	bool refreshed = FALSE, check_new = FALSE, check_cur = FALSE;
 
+	*why_r = 0;
+
 	if (mbox->maildir_hdr.new_mtime == 0) {
 		maildir_sync_get_header(mbox);
 		if (mbox->maildir_hdr.new_mtime == 0) {
@@ -710,6 +712,8 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 	enum mail_index_sync_flags flags = 0;
 	bool undirty = (ctx->flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0;
 
+	*why_r = 0;
+
 	if (maildir_sync_quick_check(mbox, undirty, ctx->new_dir, ctx->cur_dir,
 				     new_changed_r, cur_changed_r, why_r) < 0)
 		return -1;
@@ -752,7 +756,7 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	enum maildir_uidlist_rec_flag flags;
 	bool new_changed, cur_changed, lock_failure;
 	const char *fname;
-	enum maildir_scan_why why = 0;
+	enum maildir_scan_why why;
 	int ret;
 
 	*lost_files_r = FALSE;
@@ -989,6 +993,34 @@ int maildir_storage_sync_force(struct maildir_mailbox *mbox, uint32_t uid)
 	return ret;
 }
 
+int maildir_sync_refresh_flags_view(struct maildir_mailbox *mbox)
+{
+	struct mail_index_view_sync_ctx *sync_ctx;
+	bool delayed_expunges;
+
+	(void)mail_index_refresh(mbox->box.index);
+	if (mbox->flags_view == NULL)
+		mbox->flags_view = mail_index_view_open(mbox->box.index);
+
+	sync_ctx = mail_index_view_sync_begin(mbox->flags_view,
+			MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
+	if (mail_index_view_sync_commit(&sync_ctx, &delayed_expunges) < 0) {
+		mail_storage_set_index_error(&mbox->box);
+		return -1;
+	}
+	/* make sure the map stays in private memory */
+	if (mbox->flags_view->map->refcount > 1) {
+		struct mail_index_map *map;
+
+		map = mail_index_map_clone(mbox->flags_view->map);
+		mail_index_unmap(&mbox->flags_view->map);
+		mbox->flags_view->map = map;
+	}
+	mail_index_record_map_move_to_private(mbox->flags_view->map);
+	mail_index_map_move_to_memory(mbox->flags_view->map);
+	return 0;
+}
+
 struct mailbox_sync_context *
 maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
@@ -1021,29 +1053,8 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	}
 
 	if (mbox->storage->set->maildir_very_dirty_syncs) {
-		struct mail_index_view_sync_ctx *sync_ctx;
-		bool b;
-
-		if (mbox->flags_view == NULL) {
-			mbox->flags_view =
-				mail_index_view_open(mbox->box.index);
-		}
-		sync_ctx = mail_index_view_sync_begin(mbox->flags_view,
-				MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
-		if (mail_index_view_sync_commit(&sync_ctx, &b) < 0) {
-			mail_storage_set_index_error(&mbox->box);
+		if (maildir_sync_refresh_flags_view(mbox) < 0)
 			ret = -1;
-		}
-		/* make sure the map stays in private memory */
-		if (mbox->flags_view->map->refcount > 1) {
-			struct mail_index_map *map;
-
-			map = mail_index_map_clone(mbox->flags_view->map);
-			mail_index_unmap(&mbox->flags_view->map);
-			mbox->flags_view->map = map;
-		}
-		mail_index_record_map_move_to_private(mbox->flags_view->map);
-		mail_index_map_move_to_memory(mbox->flags_view->map);
 		maildir_uidlist_set_all_nonsynced(mbox->uidlist);
 	}
 	mbox->synced = TRUE;

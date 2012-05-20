@@ -25,7 +25,7 @@ static_save_fields(struct auth_request *request, const char **password_r)
 	passdb_template_export(module->tmpl, request);
 
 	if (module->static_password_tmpl == NULL)
-		*password_r = NULL;
+		*password_r = "";
 	else {
 		table = auth_request_get_var_expand_table(request, NULL);
 		var_expand(str, module->static_password_tmpl, table);

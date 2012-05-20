@@ -4,10 +4,12 @@ pkglibexec_PROGRAMS = director
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-settings \
-	-I$(top_srcdir)/src/lib-master
+	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-mail
 
 director_LDADD = $(LIBDOVECOT)
 director_DEPENDENCIES = $(LIBDOVECOT_DEPS)
@@ -39,10 +41,27 @@ noinst_HEADERS = \
 	notify-connection.h \
 	user-directory.h
 
-noinst_PROGRAMS = director-test
+noinst_PROGRAMS = director-test $(test_programs)
 
 director_test_LDADD = $(LIBDOVECOT)
 director_test_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 director_test_SOURCES = \
 	director-test.c
+
+test_programs = \
+	test-user-directory
+
+test_libs = \
+	../lib-test/libtest.la \
+	../lib/liblib.la
+
+test_user_directory_SOURCES = test-user-directory.c
+test_user_directory_LDADD = user-directory.o $(test_libs)
+test_user_directory_DEPENDENCIES = user-directory.o $(test_libs)
+
+check: check-am check-test
+check-test: all-am
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done

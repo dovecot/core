@@ -19,6 +19,7 @@
 
 #define CLIENT_STATE_HANDSHAKE "handshaking"
 #define CLIENT_STATE_IDLE "idling"
+#define CLIENT_STATE_STOP "waiting for shutdown"
 
 struct auth_worker_client {
 	int refcount;
@@ -546,7 +547,7 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 	unsigned int id;
 	bool ret = FALSE;
 
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	if (args[0] == NULL || args[1] == NULL || args[2] == NULL ||
 	    str_to_uint(args[0], &id) < 0) {
 		i_error("BUG: Invalid input: %s", line);
@@ -594,9 +595,6 @@ static void auth_worker_input(struct auth_worker_client *client)
 {
 	char *line;
 	bool ret;
-
-	if (client->to_idle != NULL)
-		timeout_reset(client->to_idle);
 
 	switch (i_stream_read(client->input)) {
 	case 0:
@@ -655,6 +653,8 @@ static void auth_worker_input(struct auth_worker_client *client)
 			break;
 		}
 	}
+	if (client->to_idle != NULL)
+		timeout_reset(client->to_idle);
 	auth_worker_client_unref(&client);
 }
 
@@ -776,4 +776,5 @@ void auth_worker_client_send_shutdown(void)
 {
 	if (auth_worker_client != NULL)
 		o_stream_send_str(auth_worker_client->output, "SHUTDOWN\n");
+	auth_worker_refresh_proctitle(CLIENT_STATE_STOP);
 }

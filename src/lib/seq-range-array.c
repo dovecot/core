@@ -86,16 +86,20 @@ bool seq_range_array_add(ARRAY_TYPE(seq_range) *array,
 			data[idx-1].seq2 = data[idx].seq2;
 			array_delete(array, idx, 1);
 		}
-	} else if (data[idx].seq2 == seq-1) {
-		i_assert(idx+1 < count); /* already handled above */
-		data[idx].seq2 = seq;
-		if (data[idx+1].seq1 == seq+1) {
-			/* merge */
-			data[idx+1].seq1 = data[idx].seq1;
-			array_delete(array, idx, 1);
-		}
 	} else {
-		array_insert(array, idx, &value, 1);
+		if (idx > 0 && data[idx-1].seq2 == seq-1)
+			idx--;
+		if (data[idx].seq2 == seq-1) {
+			i_assert(idx+1 < count); /* already handled above */
+			data[idx].seq2 = seq;
+			if (data[idx+1].seq1 == seq+1) {
+				/* merge */
+				data[idx+1].seq1 = data[idx].seq1;
+				array_delete(array, idx, 1);
+			}
+		} else {
+			array_insert(array, idx, &value, 1);
+		}
 	}
 	return FALSE;
 }

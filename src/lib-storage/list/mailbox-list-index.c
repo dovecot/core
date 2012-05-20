@@ -30,6 +30,34 @@ void mailbox_list_index_reset(struct mailbox_list_index *ilist)
 	ilist->sync_log_file_offset = 0;
 }
 
+static void mailbox_list_index_index_open(struct mailbox_list *list)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	const struct mail_storage_settings *set = list->mail_set;
+	enum mail_index_open_flags index_flags;
+	unsigned int lock_timeout;
+
+	if (ilist->opened)
+		return;
+	ilist->opened = TRUE;
+
+	index_flags = mail_storage_settings_to_index_flags(set);
+	lock_timeout = set->mail_max_lock_timeout == 0 ? -1U :
+		set->mail_max_lock_timeout;
+
+	mail_index_set_lock_method(ilist->index, set->parsed_lock_method,
+				   lock_timeout);
+	if (mail_index_open_or_create(ilist->index, index_flags) < 0) {
+		if (mail_index_move_to_memory(ilist->index) < 0) {
+			/* try opening once more. it should be created
+			   directly into memory now. */
+			if (mail_index_open_or_create(ilist->index,
+						      index_flags) < 0)
+				i_panic("in-memory index creation failed");
+		}
+	}
+}
+
 struct mailbox_list_index_node *
 mailbox_list_index_node_find_sibling(struct mailbox_list_index_node *node,
 				     const char *name)
@@ -197,9 +225,8 @@ int mailbox_list_index_parse(struct mailbox_list_index *ilist,
 	return 0;
 }
 
-static bool
-mailbox_list_index_need_refresh(struct mailbox_list_index *ilist,
-				struct mail_index_view *view)
+bool mailbox_list_index_need_refresh(struct mailbox_list_index *ilist,
+				     struct mail_index_view *view)
 {
 	const struct mailbox_list_index_header *hdr;
 	const void *data;
@@ -221,6 +248,7 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 		return 0;
 	}
 
+	mailbox_list_index_index_open(list);
 	if (mail_index_refresh(ilist->index) < 0) {
 		mailbox_list_index_set_index_error(list);
 		return -1;
@@ -245,6 +273,8 @@ void mailbox_list_index_refresh_later(struct mailbox_list *list)
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
 
+	mailbox_list_index_index_open(list);
+
 	view = mail_index_view_open(ilist->index);
 	if (!mailbox_list_index_need_refresh(ilist, view)) {
 		new_hdr.refresh_flag = 1;
@@ -268,34 +298,10 @@ static void mailbox_list_index_deinit(struct mailbox_list *list)
 	hash_table_destroy(&ilist->mailbox_hash);
 	hash_table_destroy(&ilist->mailbox_names);
 	pool_unref(&ilist->mailbox_pool);
-	mail_index_close(ilist->index);
+	if (ilist->opened)
+		mail_index_close(ilist->index);
 	mail_index_free(&ilist->index);
 	ilist->module_ctx.super.deinit(list);
-}
-
-static int mailbox_list_index_index_open(struct mailbox_list *list)
-{
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
-	const struct mail_storage_settings *set = list->mail_set;
-	enum mail_index_open_flags index_flags;
-	unsigned int lock_timeout;
-
-	index_flags = mail_storage_settings_to_index_flags(set);
-	lock_timeout = set->mail_max_lock_timeout == 0 ? -1U :
-		set->mail_max_lock_timeout;
-
-	mail_index_set_lock_method(ilist->index, set->parsed_lock_method,
-				   lock_timeout);
-	if (mail_index_open_or_create(ilist->index, index_flags) < 0) {
-		if (mail_index_move_to_memory(ilist->index) < 0) {
-			/* try opening once more. it should be created
-			   directly into memory now. */
-			if (mail_index_open_or_create(ilist->index,
-						      index_flags) < 0)
-				i_panic("in-memory index creation failed");
-		}
-	}
-	return 0;
 }
 
 static int
@@ -399,11 +405,6 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 		hash_table_create(default_pool, ilist->mailbox_pool,
 				  0, NULL, NULL);
 
-	if (mailbox_list_index_index_open(list) < 0) {
-		list->v = ilist->module_ctx.super;
-		mail_index_free(&ilist->index);
-		MODULE_CONTEXT_UNSET(list, mailbox_list_index_module);
-	}
 	mailbox_list_index_status_init_list(list);
 }
 

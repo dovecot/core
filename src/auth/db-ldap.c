@@ -1032,9 +1032,12 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		}
 
 		templ = strchr(name, '=');
-		if (templ == NULL)
-			templ = "";
-		else {
+		if (templ == NULL) {
+			if (*ldap_attr == '\0') {
+				/* =foo static value */
+				templ = "";
+			}
+		} else {
 			*templ++ = '\0';
 			str_truncate(tmp_str, 0);
 			var_expand_with_funcs(tmp_str, templ, NULL,
@@ -1245,10 +1248,15 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 		values = ctx->val_1_arr;
 	}
 
-	if (*field->value == '\0') {
+	if (field->value == NULL) {
 		/* use the LDAP attribute's value */
 	} else {
 		/* template */
+		if (values[0] == NULL && *field->ldap_attr_name != '\0') {
+			/* ldapAttr=key=template%$, but ldapAttr doesn't
+			   exist. */
+			return values;
+		}
 		if (values[0] != NULL && values[1] != NULL) {
 			auth_request_log_warning(ctx->auth_request, "ldap",
 				"Multiple values found for '%s', "
@@ -1459,33 +1467,6 @@ void db_ldap_unref(struct ldap_connection **_conn)
 	aqueue_deinit(&conn->request_queue);
 
 	pool_unref(&conn->pool);
-}
-
-void db_ldap_check_userdb_warning(struct ldap_connection *conn)
-{
-	const struct ldap_settings *def = &default_ldap_settings;
-	const char *set_name;
-
-	if (worker || conn->userdb_used || conn->set.userdb_warning_disable)
-		return;
-
-	if (strcmp(conn->set.user_attrs, def->user_attrs) != 0)
-		set_name = "user_attrs";
-	else if (strcmp(conn->set.user_filter, def->user_filter) != 0)
-		set_name = "user_filter";
-	else if (strcmp(conn->set.iterate_attrs, def->iterate_attrs) != 0)
-		set_name = "iterate_attrs";
-	else if (strcmp(conn->set.iterate_filter, def->iterate_filter) != 0)
-		set_name = "iterate_filter";
-	else
-		set_name = NULL;
-
-	if (set_name != NULL) {
-		i_warning("ldap: Ignoring changed %s in %s, "
-			  "because userdb ldap not used. "
-			  "(If this is intentional, set userdb_warning_disable=yes)",
-			  set_name, conn->config_path);
-	}
 }
 
 #ifndef BUILTIN_LDAP

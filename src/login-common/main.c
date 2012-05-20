@@ -123,7 +123,7 @@ client_connected_finish(const struct master_service_connection *conn)
 		client = client_create(conn->fd, FALSE, pool, set, other_sets,
 				       &local_ip, &conn->remote_ip);
 	} else {
-		fd_ssl = ssl_proxy_alloc(conn->fd, &conn->remote_ip, set,
+		fd_ssl = ssl_proxy_alloc(conn->fd, &conn->remote_ip, pool, set,
 					 &proxy);
 		if (fd_ssl == -1) {
 			net_disconnect(conn->fd);

@@ -120,6 +120,19 @@ get_nonexistent_user_location(struct shared_storage *storage,
 	str_append(location, username);
 }
 
+static bool shared_namespace_exists(struct mail_namespace *ns)
+{
+	const char *path;
+	struct stat st;
+
+	path = mailbox_list_get_path(ns->list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
+	if (path == NULL) {
+		/* we can't know if this exists */
+		return TRUE;
+	}
+	return stat(path, &st) == 0;
+}
+
 int shared_storage_get_namespace(struct mail_namespace **_ns,
 				 const char **_name)
 {
@@ -243,6 +256,13 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	owner = mail_user_alloc(userdomain, user->set_info,
 				user->unexpanded_set);
 	owner->autocreated = TRUE;
+	if (mail_user_init(owner, &error) < 0) {
+		mailbox_list_set_critical(list,
+			"Couldn't create namespace '%s' for user %s: %s",
+			ns->prefix, userdomain, error);
+		mail_user_unref(&owner);
+		return -1;
+	}
 	if (!var_has_key(storage->location, 'h', "home"))
 		ret = 1;
 	else {
@@ -254,13 +274,6 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 			mail_user_unref(&owner);
 			return -1;
 		}
-	}
-	if (mail_user_init(owner, &error) < 0) {
-		mailbox_list_set_critical(list,
-			"Couldn't create namespace '%s' for user %s: %s",
-			ns->prefix, userdomain, error);
-		mail_user_unref(&owner);
-		return -1;
 	}
 
 	/* create the new namespace */
@@ -310,6 +323,13 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		mail_namespace_destroy(new_ns);
 		return -1;
 	}
+	if ((new_ns->flags & NAMESPACE_FLAG_UNUSABLE) == 0 &&
+	    !shared_namespace_exists(new_ns)) {
+		/* this user doesn't have a usable storage */
+		new_ns->flags |= NAMESPACE_FLAG_UNUSABLE;
+	}
+	/* mark the shared namespace root as usable, since it now has
+	   child namespaces */
 	ns->flags |= NAMESPACE_FLAG_USABLE;
 	*_name = mailbox_list_get_storage_name(new_ns->list,
 				t_strconcat(new_ns->prefix, name, NULL));

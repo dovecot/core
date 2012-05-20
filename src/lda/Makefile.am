@@ -26,11 +26,17 @@ endif
 
 libs = \
 	$(unused_objects) \
-	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT_LDA)
 
-dovecot_lda_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
-dovecot_lda_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
+dovecot_lda_LDADD = \
+	$(libs) \
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT) \
+	$(MODULE_LIBS)
+dovecot_lda_DEPENDENCIES = \
+	$(libs) \
+	$(LIBDOVECOT_STORAGE_DEPS) \
+	$(LIBDOVECOT_DEPS)
 
 dovecot_lda_SOURCES = \
 	main.c

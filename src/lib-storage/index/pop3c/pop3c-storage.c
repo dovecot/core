@@ -162,7 +162,7 @@ static int pop3c_mailbox_open(struct mailbox *box)
 {
 	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)box;
 
-	if (!box->inbox_any) {
+	if (strcmp(box->name, "INBOX") != 0) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 				       T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
 		return -1;

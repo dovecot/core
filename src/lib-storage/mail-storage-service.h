@@ -40,6 +40,7 @@ struct mail_storage_service_input {
 	const char *module;
 	const char *service;
 	const char *username;
+	const char *session_id;
 	struct ip_addr local_ip, remote_ip;
 	unsigned int local_port, remote_port;
 

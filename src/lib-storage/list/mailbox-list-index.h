@@ -102,6 +102,8 @@ struct mailbox_list_index {
 	/* uint32_t uid => struct mailbox_list_index_node* */
 	struct hash_table *mailbox_hash;
 	struct mailbox_list_index_node *mailbox_tree;
+
+	unsigned int opened:1;
 };
 
 struct mailbox_list_index_iterate_context {
@@ -109,6 +111,8 @@ struct mailbox_list_index_iterate_context {
 	struct mailbox_list_iterate_context *backend_ctx;
 
 	struct mailbox_info info;
+	pool_t info_pool;
+
 	unsigned int parent_len;
 	string_t *path;
 	struct mailbox_list_index_node *next_node;
@@ -124,6 +128,8 @@ void mailbox_list_index_set_index_error(struct mailbox_list *list);
 struct mailbox_list_index_node *
 mailbox_list_index_lookup(struct mailbox_list *list, const char *name);
 
+bool mailbox_list_index_need_refresh(struct mailbox_list_index *ilist,
+				     struct mail_index_view *view);
 int mailbox_list_index_refresh(struct mailbox_list *list);
 void mailbox_list_index_refresh_later(struct mailbox_list *list);
 

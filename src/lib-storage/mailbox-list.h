@@ -73,9 +73,6 @@ enum mailbox_list_iter_flags {
 	   namespace prefixes, if there exists a parent namespace whose children
 	   it matches. */
 	MAILBOX_LIST_ITER_STAR_WITHIN_NS	= 0x000010,
-	/* For mailbox_list_iter_init_namespaces(): List also namespace
-	   prefixes if they match */
-	MAILBOX_LIST_ITER_LIST_PREFIXES		= 0x000020,
 
 	/* List only subscribed mailboxes */
 	MAILBOX_LIST_ITER_SELECT_SUBSCRIBED	= 0x000100,
@@ -232,6 +229,10 @@ bool mailbox_list_is_valid_existing_name(struct mailbox_list *list,
 					 const char *name);
 bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
 				       const char *name);
+
+const char *mailbox_list_get_storage_name(struct mailbox_list *list,
+					  const char *vname);
+const char *mailbox_list_get_vname(struct mailbox_list *list, const char *name);
 
 /* Return full path for the given mailbox name. The name must be a valid
    existing mailbox name, or NULL to get the root directory.

@@ -53,7 +53,7 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		return TRUE;
 	}
 
-	list = t_strsplit(value, "\t");
+	list = t_strsplit_tab(value);
 
 	cached_pw = list[0];
 	if (*cached_pw == '\0') {
@@ -117,7 +117,7 @@ bool passdb_cache_lookup_credentials(struct auth_request *request,
 		return TRUE;
 	}
 
-	list = t_strsplit(value, "\t");
+	list = t_strsplit_tab(value);
 	auth_request_set_fields(request, list + 1, NULL);
 
 	*result_r = PASSDB_RESULT_OK;

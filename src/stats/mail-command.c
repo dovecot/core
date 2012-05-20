@@ -100,11 +100,12 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 	struct mail_command *cmd;
 	struct mail_stats stats, diff_stats;
 	const char *error;
-	unsigned int cmd_id;
-	bool done;
+	unsigned int i, cmd_id;
+	bool done = FALSE, continued = FALSE;
 
-	/* <session guid> <cmd id> <done> <name> <args> [key=value ..] */
-	if (str_array_length(args) < 4) {
+	/* <session guid> <cmd id> [d] <name> <args> [key=value ..]
+	   <session guid> <cmd id> c[d] [key=value ..] */
+	if (str_array_length(args) < 3) {
 		*error_r = "UPDATE-CMD: Too few parameters";
 		return -1;
 	}
@@ -115,39 +116,62 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 		*error_r = "UPDATE-CMD: Invalid command id";
 		return -1;
 	}
-	if (strcmp(args[2], "0") != 0 &&
-	    strcmp(args[2], "1") != 0) {
-		*error_r = "UPDATE-CMD: Invalid done parameter";
-		return -1;
-	}
-	done = args[2][0] == '1';
-	if (mail_stats_parse(args+5, &stats, error_r) < 0) {
-		*error_r = t_strconcat("UPDATE-CMD: ", *error_r, NULL);
-		return -1;
+	for (i = 0; args[2][i] != '\0'; i++) {
+		switch (args[2][i]) {
+		case 'd':
+			done = TRUE;
+			break;
+		case 'c':
+			continued = TRUE;
+			break;
+		default:
+			*error_r = "UPDATE-CMD: Invalid flags parameter";
+			return -1;
+		}
 	}
 
 	cmd = mail_command_find(session, cmd_id);
-	if (cmd == NULL) {
+	if (!continued) {
+		/* new command */
+		if (cmd != NULL) {
+			*error_r = "UPDATE-CMD: Duplicate new command id";
+			return -1;
+		}
+		if (str_array_length(args) < 5) {
+			*error_r = "UPDATE-CMD: Too few parameters";
+			return -1;
+		}
 		cmd = mail_command_add(session, args[3], args[4]);
 		cmd->id = cmd_id;
-		cmd->stats = stats;
-		diff_stats = stats;
 
+		session->highest_cmd_id =
+			I_MAX(session->highest_cmd_id, cmd_id);
 		session->num_cmds++;
 		session->user->num_cmds++;
 		session->user->domain->num_cmds++;
 		if (session->ip != NULL)
 			session->ip->num_cmds++;
+		args += 5;
 	} else {
-		if (!mail_stats_diff(&cmd->stats, &stats, &diff_stats,
-				     &error)) {
-			*error_r = t_strconcat("UPDATE-CMD: stats shrank: ",
-					       error, NULL);
-			return -1;
+		if (cmd == NULL) {
+			/* already expired command, ignore */
+			i_warning("UPDATE-CMD: Already expired");
+			return 0;
 		}
+		args += 3;
 		cmd->last_update = ioloop_timeval;
-		mail_stats_add(&session->stats, &diff_stats);
 	}
+	if (mail_stats_parse(args, &stats, error_r) < 0) {
+		*error_r = t_strconcat("UPDATE-CMD: ", *error_r, NULL);
+		return -1;
+	}
+	if (!mail_stats_diff(&cmd->stats, &stats, &diff_stats, &error)) {
+		*error_r = t_strconcat("UPDATE-CMD: stats shrank: ",
+				       error, NULL);
+		return -1;
+	}
+	mail_stats_add(&cmd->stats, &diff_stats);
+
 	if (done) {
 		cmd->id = 0;
 		mail_command_unref(&cmd);
@@ -182,7 +206,8 @@ void mail_commands_free_memory(void)
 		}
 		mail_command_free(stable_mail_commands_head);
 
-		if (global_used_memory < stats_settings->memory_limit)
+		if (global_used_memory < stats_settings->memory_limit ||
+		    stable_mail_commands_head == NULL)
 			break;
 
 		diff = ioloop_time - stable_mail_commands_head->last_update.tv_sec;

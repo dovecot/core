@@ -83,14 +83,22 @@ static void doveadm_cmd_callback(enum server_cmd_reply reply, void *context)
 	struct server_connection *conn = context;
 	struct doveadm_server *server;
 
-	if (reply == SERVER_CMD_REPLY_INTERNAL_FAILURE) {
+	switch (reply) {
+	case SERVER_CMD_REPLY_INTERNAL_FAILURE:
 		internal_failure = TRUE;
 		master_service_stop(master_service);
 		return;
-	}
-
-	if (reply != SERVER_CMD_REPLY_OK)
+	case SERVER_CMD_REPLY_UNKNOWN_USER:
+		i_error("No such user");
+		if (cmd_ctx->exit_code == 0)
+			cmd_ctx->exit_code = EX_NOUSER;
+		break;
+	case SERVER_CMD_REPLY_FAIL:
 		doveadm_mail_failed_error(cmd_ctx, MAIL_ERROR_TEMP);
+		break;
+	case SERVER_CMD_REPLY_OK:
+		break;
+	}
 
 	server = server_connection_get_server(conn);
 	if (array_count(&server->queue) > 0) {
