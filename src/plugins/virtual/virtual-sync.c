@@ -353,7 +353,6 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 	case MAIL_INDEX_SYNC_TYPE_FLAGS:
 	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 		break;
 	}
 	if (!mail_index_lookup_seq_range(ctx->sync_view,
@@ -406,14 +405,6 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 				MODIFY_ADD : MODIFY_REMOVE;
 			mail_update_keywords(bbox->sync_mail,
 					     modify_type, keywords);
-			mailbox_keywords_unref(&keywords);
-			break;
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-			kw_names[0] = NULL;
-			keywords = mailbox_keywords_create_valid(bbox->box,
-								 kw_names);
-			mail_update_keywords(bbox->sync_mail, MODIFY_REPLACE,
-					     keywords);
 			mailbox_keywords_unref(&keywords);
 			break;
 		case MAIL_INDEX_SYNC_TYPE_APPEND:

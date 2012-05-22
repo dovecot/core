@@ -128,26 +128,6 @@ imapc_sync_index_keyword(struct imapc_sync_context *ctx,
 	imapc_sync_cmd(ctx, str_c(str));
 }
 
-static void
-imapc_sync_index_keyword_reset(struct imapc_sync_context *ctx,
-			       uint32_t seq1, uint32_t seq2)
-{
-	const struct mail_index_record *rec;
-	string_t *str = t_str_new(128);
-	uint32_t seq;
-
-	for (seq = seq1; seq <= seq2; seq++) {
-		rec = mail_index_lookup(ctx->sync_view, seq);
-		i_assert((rec->flags & MAIL_RECENT) == 0);
-
-		str_truncate(str, 0);
-		str_printfa(str, "UID STORE %u FLAGS (", rec->uid);
-		imap_write_flags(str, rec->flags, NULL);
-		str_append_c(str, ')');
-		imapc_sync_cmd(ctx, str_c(str));
-	}
-}
-
 static void imapc_sync_expunge_finish(struct imapc_sync_context *ctx)
 {
 	string_t *str;
@@ -322,9 +302,6 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
 			imapc_sync_index_keyword(ctx, &sync_rec);
-			break;
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-			imapc_sync_index_keyword_reset(ctx, seq1, seq2);
 			break;
 		}
 	} T_END;

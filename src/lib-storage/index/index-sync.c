@@ -437,8 +437,7 @@ enum mailbox_sync_type index_sync_type_convert(enum mail_index_sync_type type)
 		ret |= MAILBOX_SYNC_TYPE_EXPUNGE;
 	if ((type & (MAIL_INDEX_SYNC_TYPE_FLAGS |
 		     MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD |
-		     MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE |
-		     MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET)) != 0)
+		     MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE)) != 0)
 		ret |= MAILBOX_SYNC_TYPE_FLAGS;
 	return ret;
 }

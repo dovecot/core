@@ -242,12 +242,6 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 		synclist->array = (void *)&sync_trans->updates;
 	}
 
-	/* we must return resets before keyword additions or they get lost */
-	if (array_is_created(&sync_trans->keyword_resets)) {
-		synclist = array_append_space(&ctx->sync_list);
-		synclist->array = (void *)&sync_trans->keyword_resets;
-	}
-
 	keyword_updates = keyword_count == 0 ? NULL :
 		array_idx(&sync_trans->keyword_updates, 0);
 	for (i = 0; i < keyword_count; i++) {
@@ -655,14 +649,6 @@ mail_index_sync_get_keyword_update(struct mail_index_sync_rec *rec,
 	rec->keyword_idx = sync_list->keyword_idx;
 }
 
-static void mail_index_sync_get_keyword_reset(struct mail_index_sync_rec *rec,
-					       const struct uid_range *range)
-{
-	rec->type = MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET;
-	rec->uid1 = range->uid1;
-	rec->uid2 = range->uid2;
-}
-
 bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			  struct mail_index_sync_rec *sync_rec)
 {
@@ -720,8 +706,6 @@ bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	} else if (sync_list[i].array == (void *)&sync_trans->updates) {
 		mail_index_sync_get_update(sync_rec,
 			(const struct mail_transaction_flag_update *)uid_range);
-	} else if (sync_list[i].array == (void *)&sync_trans->keyword_resets) {
-		mail_index_sync_get_keyword_reset(sync_rec, uid_range);
 	} else {
 		mail_index_sync_get_keyword_update(sync_rec, uid_range,
 						   &sync_list[i]);
@@ -921,12 +905,6 @@ bool mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
 			}
 		}
 		return FALSE;
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-		if (array_count(keywords) == 0)
-			return FALSE;
-
-		array_clear(keywords);
-		return TRUE;
 	default:
 		i_unreached();
 		return FALSE;

@@ -106,24 +106,20 @@ mail_index_transaction_sort_appends_keywords(struct mail_index_transaction *t,
 {
 	struct mail_index_transaction_keyword_update *update;
 
-	if (array_is_created(&t->keyword_updates)) {
-		array_foreach_modifiable(&t->keyword_updates, update) {
-			if (array_is_created(&update->add_seq)) {
-				sort_appends_seq_range(&update->add_seq,
-						       t->first_new_seq,
-						       old_to_newseq_map);
-			}
-			if (array_is_created(&update->remove_seq)) {
-				sort_appends_seq_range(&update->remove_seq,
-						       t->first_new_seq,
-						       old_to_newseq_map);
-			}
-		}
-	}
+	if (!array_is_created(&t->keyword_updates))
+		return;
 
-	if (array_is_created(&t->keyword_resets)) {
-		sort_appends_seq_range(&t->keyword_resets, t->first_new_seq,
-				       old_to_newseq_map);
+	array_foreach_modifiable(&t->keyword_updates, update) {
+		if (array_is_created(&update->add_seq)) {
+			sort_appends_seq_range(&update->add_seq,
+					       t->first_new_seq,
+					       old_to_newseq_map);
+		}
+		if (array_is_created(&update->remove_seq)) {
+			sort_appends_seq_range(&update->remove_seq,
+					       t->first_new_seq,
+					       old_to_newseq_map);
+		}
 	}
 }
 

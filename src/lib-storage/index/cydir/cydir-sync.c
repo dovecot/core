@@ -96,7 +96,6 @@ static void cydir_sync_index(struct cydir_sync_context *ctx)
 		case MAIL_INDEX_SYNC_TYPE_FLAGS:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 			/* FIXME: should be bother calling sync_notify()? */
 			break;
 		}

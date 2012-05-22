@@ -127,7 +127,6 @@ void index_sync_changes_read(struct index_sync_changes_context *ctx,
 		case MAIL_INDEX_SYNC_TYPE_FLAGS:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 			if (!ctx->dirty_flag_updates)
 				break;
 
@@ -184,7 +183,6 @@ void index_sync_changes_apply(struct index_sync_changes_context *ctx,
 			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 			if (!array_is_created(keywords)) {
 				/* no existing keywords */
 				if (syncs[i].type !=

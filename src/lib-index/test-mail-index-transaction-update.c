@@ -49,6 +49,14 @@ void mail_index_transaction_lookup_latest_keywords(struct mail_index_transaction
 {
 }
 
+struct mail_keywords *
+mail_index_keywords_create_from_indexes(struct mail_index *index ATTR_UNUSED,
+					const ARRAY_TYPE(keyword_indexes)
+						*keyword_indexes ATTR_UNUSED)
+{
+	return NULL;
+}
+
 static struct mail_index_transaction *
 mail_index_transaction_new(void)
 {

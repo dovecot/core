@@ -386,12 +386,6 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 				    MAIL_TRANSACTION_EXT_ATOMIC_INC);
 	}
 
-	/* keyword resets before updates */
-	if (array_is_created(&t->keyword_resets)) {
-		change_mask |= MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET;
-		log_append_buffer(&ctx, t->keyword_resets.arr.buffer,
-				  MAIL_TRANSACTION_KEYWORD_RESET);
-	}
 	if (array_is_created(&t->keyword_updates))
 		change_mask |= log_append_keyword_updates(&ctx);
 	/* keep modseq updates almost last */

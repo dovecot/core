@@ -297,12 +297,6 @@ static void tview_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 		return;
 	}
 
-	/* apply any keyword updates in this transaction */
-	if (array_is_created(&t->keyword_resets)) {
-		if (seq_range_exists(&t->keyword_resets, seq))
-			array_clear(keyword_idx);
-	}
-
 	if (array_is_created(&t->keyword_updates))
 		updates = array_get(&t->keyword_updates, &count);
 	else {
