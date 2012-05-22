@@ -272,10 +272,6 @@ static int mdbox_write_index_header(struct mailbox *box,
 	}
 
 	if (hdr->uid_validity != uid_validity) {
-		if (hdr->uid_validity != 0) {
-			/* UIDVALIDITY change requires index to be reset */
-			mail_index_reset(trans);
-		}
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity), TRUE);
