@@ -280,6 +280,48 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	return 1;
 }
 
+int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view)
+{
+	struct mail_transaction_log_file *file, *first = view->log->files;
+
+	/* make sure .log.2 file is opened */
+	(void)mail_transaction_log_find_file(view->log, 1, FALSE, &file);
+
+	for (file = view->log->files; file != NULL; file = file->next) {
+		if (mail_transaction_log_file_map(file, file->hdr.hdr_size,
+						  (uoff_t)-1) < 0)
+			return -1;
+		if (file->hdr.prev_file_seq == 0) {
+			/* this file resets the index. skip the old ones. */
+			first = file;
+		}
+	}
+
+	mail_transaction_log_view_unref_all(view);
+	for (file = first; file != NULL; file = file->next) {
+		array_append(&view->file_refs, &file, 1);
+		file->refcount++;
+	}
+
+	view->tail = first;
+	view->cur = view->tail;
+	view->cur_offset = view->tail->hdr.hdr_size;
+
+	view->prev_file_seq = view->cur->hdr.file_seq;
+	view->prev_file_offset = view->cur_offset;
+
+	view->min_file_seq = view->cur->hdr.file_seq;
+	view->min_file_offset = view->cur_offset;
+	view->max_file_seq = view->head->hdr.file_seq;
+	view->max_file_offset = view->head->sync_offset;
+	view->broken = FALSE;
+
+	if (mail_transaction_log_file_get_highest_modseq_at(view->cur,
+				view->cur_offset, &view->prev_modseq) < 0)
+		return -1;
+	return 0;
+}
+
 void mail_transaction_log_view_clear(struct mail_transaction_log_view *view,
 				     uint32_t oldest_file_seq)
 {
