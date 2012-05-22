@@ -1,148 +1,99 @@
 #ifndef DSYNC_BRAIN_PRIVATE_H
 #define DSYNC_BRAIN_PRIVATE_H
 
-#include "dsync-data.h"
 #include "dsync-brain.h"
+#include "dsync-mailbox.h"
+#include "dsync-mailbox-state.h"
+
+struct dsync_mailbox_tree_sync_change;
 
 enum dsync_state {
-	DSYNC_STATE_GET_MAILBOXES = 0,
-	DSYNC_STATE_GET_SUBSCRIPTIONS,
-	DSYNC_STATE_SYNC_MAILBOXES,
-	DSYNC_STATE_SYNC_SUBSCRIPTIONS,
-	DSYNC_STATE_SYNC_MSGS,
-	DSYNC_STATE_SYNC_MSGS_FLUSH,
-	DSYNC_STATE_SYNC_MSGS_FLUSH2,
-	DSYNC_STATE_SYNC_UPDATE_MAILBOXES,
-	DSYNC_STATE_SYNC_FLUSH,
-	DSYNC_STATE_SYNC_FLUSH2,
-	DSYNC_STATE_SYNC_END
+	DSYNC_STATE_SLAVE_RECV_HANDSHAKE,
+	DSYNC_STATE_MASTER_SEND_LAST_COMMON,
+	DSYNC_STATE_SLAVE_RECV_LAST_COMMON,
+	DSYNC_STATE_SEND_MAILBOX_TREE,
+	DSYNC_STATE_SEND_MAILBOX_TREE_DELETES,
+	DSYNC_STATE_RECV_MAILBOX_TREE,
+	DSYNC_STATE_RECV_MAILBOX_TREE_DELETES,
+	DSYNC_STATE_MASTER_SEND_MAILBOX,
+	DSYNC_STATE_SLAVE_RECV_MAILBOX,
+	DSYNC_STATE_SYNC_MAILS,
+	DSYNC_STATE_DONE
 };
 
-struct dsync_brain_mailbox_list {
-	pool_t pool;
-	struct dsync_brain *brain;
-	struct dsync_worker *worker;
-	struct dsync_worker_mailbox_iter *iter;
-	ARRAY_TYPE(dsync_mailbox) mailboxes;
-	ARRAY_TYPE(dsync_mailbox) dirs;
-};
-
-struct dsync_brain_subs_list {
-	pool_t pool;
-	struct dsync_brain *brain;
-	struct dsync_worker *worker;
-	struct dsync_worker_subs_iter *iter;
-	ARRAY_DEFINE(subscriptions, struct dsync_worker_subscription);
-	ARRAY_DEFINE(unsubscriptions, struct dsync_worker_unsubscription);
-};
-
-struct dsync_brain_guid_instance {
-	struct dsync_brain_guid_instance *next;
-	uint32_t uid;
-	/* mailbox index in dsync_brain_mailbox_list.mailboxes */
-	unsigned int mailbox_idx:31;
-	unsigned int failed:1;
-};
-
-struct dsync_brain_msg_iter {
-	struct dsync_brain_mailbox_sync *sync;
-	struct dsync_worker *worker;
-
-	struct dsync_worker_msg_iter *iter;
-	struct dsync_message msg;
-
-	unsigned int mailbox_idx;
-
-	/* char *guid -> struct dsync_brain_guid_instance* */
-	struct hash_table *guid_hash;
-
-	ARRAY_DEFINE(new_msgs, struct dsync_brain_new_msg);
-	ARRAY_DEFINE(uid_conflicts, struct dsync_brain_uid_conflict);
-	unsigned int next_new_msg, next_conflict;
-
-	/* copy operations that failed. indexes point to new_msgs array */
-	unsigned int copy_results_left;
-	unsigned int save_results_left;
-
-	unsigned int msgs_sent:1;
-	unsigned int adding_msgs:1;
-};
-
-struct dsync_brain_uid_conflict {
-	uint32_t mailbox_idx;
-	uint32_t old_uid, new_uid;
-};
-
-struct dsync_brain_new_msg {
-	unsigned int mailbox_idx:30;
-	/* TRUE if it currently looks like message has been saved/copied.
-	   if copying fails, it sets this back to FALSE and updates
-	   iter->next_new_msg. */
-	unsigned int saved:1;
-	uint32_t orig_uid;
-	struct dsync_message *msg;
-};
-
-struct dsync_brain_mailbox {
-	struct dsync_mailbox box;
-	struct dsync_mailbox *src;
-	struct dsync_mailbox *dest;
-};
-ARRAY_DEFINE_TYPE(dsync_brain_mailbox, struct dsync_brain_mailbox);
-
-struct dsync_brain_mailbox_sync {
-	struct dsync_brain *brain;
-	pool_t pool;
-
-	ARRAY_TYPE(dsync_brain_mailbox) mailboxes;
-	unsigned int wanted_mailbox_idx;
-
-	struct dsync_worker *src_worker;
-	struct dsync_worker *dest_worker;
-
-	struct dsync_brain_msg_iter *src_msg_iter;
-	struct dsync_brain_msg_iter *dest_msg_iter;
-
-	unsigned int uid_conflict:1;
-	unsigned int skip_mailbox:1;
+enum dsync_box_state {
+	DSYNC_BOX_STATE_MAILBOX,
+	DSYNC_BOX_STATE_CHANGES,
+	DSYNC_BOX_STATE_MAIL_REQUESTS,
+	DSYNC_BOX_STATE_MAILS,
+	DSYNC_BOX_STATE_RECV_LAST_COMMON,
+	DSYNC_BOX_STATE_DONE
 };
 
 struct dsync_brain {
-	struct dsync_worker *src_worker;
-	struct dsync_worker *dest_worker;
-	char *mailbox;
-	enum dsync_brain_flags flags;
+	pool_t pool;
+	struct mail_user *user;
+	struct dsync_slave *slave;
+	struct mail_namespace *sync_ns;
+	enum dsync_brain_sync_type sync_type;
 
-	enum dsync_state state;
+	char hierarchy_sep;
+	struct dsync_mailbox_tree *local_mailbox_tree;
+	struct dsync_mailbox_tree *remote_mailbox_tree;
+	struct dsync_mailbox_tree_iter *local_tree_iter;
 
-	struct dsync_brain_mailbox_list *src_mailbox_list;
-	struct dsync_brain_mailbox_list *dest_mailbox_list;
+	enum dsync_state state, pre_box_state;
+	enum dsync_box_state box_recv_state;
+	enum dsync_box_state box_send_state;
 
-	struct dsync_brain_subs_list *src_subs_list;
-	struct dsync_brain_subs_list *dest_subs_list;
+	struct dsync_transaction_log_scan *log_scan;
+	struct dsync_mailbox_importer *box_importer;
+	struct dsync_mailbox_exporter *box_exporter;
 
-	struct dsync_brain_mailbox_sync *mailbox_sync;
-	struct timeout *to;
+	struct mailbox *box;
+	struct dsync_mailbox local_dsync_box, remote_dsync_box;
+	/* list of mailbox states
+	   for master brain: given to brain at init and
+	   for slave brain: received from DSYNC_STATE_SLAVE_RECV_LAST_COMMON */
+	ARRAY_TYPE(dsync_mailbox_state) mailbox_states;
+	/* DSYNC_STATE_MASTER_SEND_LAST_COMMON: current send position */
+	unsigned int mailbox_state_idx;
+	/* state of the mailbox we're currently syncing, changed at
+	   init and deinit */
+	struct dsync_mailbox_state mailbox_state;
+	/* GUID -> dsync_mailbox_state for mailboxes that have already
+	   been synced */
+	struct hash_table *remote_mailbox_states;
 
+	unsigned int master_brain:1;
+	unsigned int guid_requests:1;
+	unsigned int mails_have_guids:1;
+	unsigned int changes_during_sync:1;
 	unsigned int failed:1;
-	unsigned int verbose:1;
-	unsigned int backup:1;
-	unsigned int unexpected_changes:1;
-	unsigned int stdout_tty:1;
 };
 
-void dsync_brain_fail(struct dsync_brain *brain);
+void dsync_brain_mailbox_trees_init(struct dsync_brain *brain);
+void dsync_brain_send_mailbox_tree(struct dsync_brain *brain);
+void dsync_brain_send_mailbox_tree_deletes(struct dsync_brain *brain);
+bool dsync_brain_recv_mailbox_tree(struct dsync_brain *brain);
+bool dsync_brain_recv_mailbox_tree_deletes(struct dsync_brain *brain);
+int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
+			const struct dsync_mailbox_tree_sync_change *change);
 
-struct dsync_brain_mailbox_sync *
-dsync_brain_msg_sync_init(struct dsync_brain *brain,
-			  const ARRAY_TYPE(dsync_brain_mailbox) *mailboxes);
-void dsync_brain_msg_sync_more(struct dsync_brain_mailbox_sync *sync);
-void dsync_brain_msg_sync_deinit(struct dsync_brain_mailbox_sync **_sync);
+void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain);
+int dsync_brain_mailbox_alloc(struct dsync_brain *brain, const guid_128_t guid,
+			      struct mailbox **box_r);
+void dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
+				    struct mailbox *box,
+				    const struct dsync_mailbox *local_box,
+				    const struct dsync_mailbox *remote_box);
+bool dsync_boxes_need_sync(const struct dsync_mailbox *box1,
+			   const struct dsync_mailbox *box2);
 
-void dsync_brain_msg_sync_new_msgs(struct dsync_brain_mailbox_sync *sync);
-
-void dsync_brain_guid_add(struct dsync_brain_msg_iter *iter,
-			  unsigned int mailbox_idx,
-			  const struct dsync_message *msg);
+void dsync_brain_master_send_mailbox(struct dsync_brain *brain);
+bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain);
+void dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
+					  const struct dsync_mailbox *remote_dsync_box);
+bool dsync_brain_sync_mails(struct dsync_brain *brain);
 
 #endif
