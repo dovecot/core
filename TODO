@@ -1,3 +1,11 @@
+ - GSSAPI auth patch
+ - FIFOs maybe should be counted as connections, but unlisten should
+   unlink+reopen it in master?
+ - mailbox list indexes + imaptest test=tests fails
+ - mailbox_enable() -> mail_user_enable()?
+ - mailbox_info.name -> vname
+ - change proxy TTL so it stops at 1?
+ - istream-concat
  - lmtp client/proxy: Handle multiline replies better
  - lib-ssl-iostream: Support ssl_protocols setting
  - recreate mailbox -> existing sessions log "indexid changed" error
@@ -22,7 +30,6 @@
    where we started, and stuff would break
  - imap: append/copy could trigger indexing (optionally)
  - fuzzy: be fuzzy about date/size
- - fix proxy_maybe=fqdn
  - mailbox list index:
     - with in-memory indexes be sure to refresh it more often
     - refreshing could refresh only the parts that are actually requested,
