@@ -456,7 +456,6 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 	struct mail_index_map *map = ctx->view->map;
 	uint32_t orig_log_file_tail_offset = map->hdr.log_file_tail_offset;
 	uint32_t orig_next_uid = map->hdr.next_uid;
-	uint32_t orig_uid_validity = map->hdr.uid_validity;
 
 	if (u->offset >= map->hdr.base_header_size ||
 	    u->offset + u->size > map->hdr.base_header_size) {
@@ -479,15 +478,6 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 		       u + 1, sizeof(map->hdr) - u->offset);
 	}
 
-	/* UIDVALIDITY can be changed only by resetting the index */
-	if (orig_uid_validity != 0 &&
-	    MAIL_INDEX_HEADER_UPDATE_FIELD_IN_RANGE(u, uid_validity)) {
-		mail_index_sync_set_corrupted(ctx,
-			"uid_validity updated unexpectedly: %u -> %u",
-			orig_uid_validity, map->hdr.uid_validity);
-		/* let it through anyway, although this could give wrong
-		   "next_uid shrank" errors if the value actually changed.. */
-	}
 	if (map->hdr.next_uid < orig_next_uid) {
 		mail_index_sync_set_corrupted(ctx,
 			"next_uid shrank ignored: %u -> %u",
