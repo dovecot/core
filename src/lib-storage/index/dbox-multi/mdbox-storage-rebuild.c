@@ -605,6 +605,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 	if (ret > 0 && !deleted && dbox_file_metadata_read(file) > 0) {
 		mailbox = dbox_file_metadata_get(file,
 						 DBOX_METADATA_ORIG_MAILBOX);
+		mailbox = mailbox_list_get_vname(ctx->default_list, mailbox);
 		mailbox = t_strdup(mailbox);
 	}
 	dbox_file_unref(&file);
@@ -623,7 +624,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 	   there. */
 	created = FALSE;
 	box = ctx->prev_msg.box != NULL &&
-		strcmp(mailbox, ctx->prev_msg.box->name) == 0 ?
+		strcmp(mailbox, ctx->prev_msg.box->vname) == 0 ?
 		ctx->prev_msg.box : NULL;
 	while (box == NULL) {
 		box = mailbox_alloc(ctx->default_list, mailbox,
