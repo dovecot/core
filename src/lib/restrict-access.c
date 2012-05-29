@@ -126,7 +126,7 @@ gid_t *restrict_get_groups_list(unsigned int *gid_count_r)
 		i_fatal("getgroups() failed: %m");
 
 	/* @UNSAFE */
-	gid_list = t_new(gid_t, gid_count);
+	gid_list = t_new(gid_t, gid_count+1); /* +1 in case gid_count=0 */
 	if ((ret = getgroups(gid_count, gid_list)) < 0)
 		i_fatal("getgroups() failed: %m");
 
