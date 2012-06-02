@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
+	-I$(top_srcdir)/src/lib-imap-storage \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage
 
@@ -77,7 +78,6 @@ imap_SOURCES = \
 	imap-sync.c \
 	mail-storage-callbacks.c \
 	main.c
-
 
 headers = \
 	imap-client.h \

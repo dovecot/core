@@ -11,6 +11,7 @@
 #include "message-send.h"
 #include "mail-storage-private.h"
 #include "imap-parser.h"
+#include "imap-msgpart.h"
 #include "imap-fetch.h"
 
 #include <stdlib.h>
@@ -464,63 +465,13 @@ fetch_body_header_fields(struct imap_fetch_context *ctx, struct mail *mail,
 	return fetch_data(ctx, body, &size);
 }
 
-/* Find message_part for section (eg. 1.3.4) */
-static int part_find(struct mail *mail, const struct imap_fetch_body_data *body,
-		     const struct message_part **part_r, const char **section_r)
-{
-	struct message_part *part;
-	const char *path;
-	unsigned int num;
-
-	if (mail_get_parts(mail, &part) < 0)
-		return -1;
-
-	path = body->section;
-	while (*path >= '0' && *path <= '9' && part != NULL) {
-		/* get part number, we have already verified its validity */
-		num = 0;
-		while (*path != '\0' && *path != '.') {
-			i_assert(*path >= '0' && *path <= '9');
-
-			num = num*10 + (*path - '0');
-			path++;
-		}
-
-		if (*path == '.')
-			path++;
-
-		if (part->flags & MESSAGE_PART_FLAG_MULTIPART) {
-			/* find the part */
-			part = part->children;
-			for (; num > 1 && part != NULL; num--)
-				part = part->next;
-		} else {
-			/* only 1 allowed with non-multipart messages */
-			if (num != 1)
-				part = NULL;
-		}
-
-		if (part != NULL &&
-		    (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) &&
-		    (*path >= '0' && *path <= '9')) {
-			/* if we continue inside the message/rfc822, skip this
-			   body part */
-			part = part->children;
-		}
-	}
-
-	*part_r = part;
-	*section_r = path;
-	return 0;
-}
-
 static int fetch_body_mime(struct imap_fetch_context *ctx, struct mail *mail,
 			   const struct imap_fetch_body_data *body)
 {
 	const struct message_part *part;
 	const char *section;
 
-	if (part_find(mail, body, &part, &section) < 0)
+	if (imap_msgpart_find(mail, body->section, &part, &section) < 0)
 		return -1;
 
 	if (part == NULL) {

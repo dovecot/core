@@ -6,6 +6,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-fs \
 	lib-mail \
 	lib-imap \
+	lib-imap-storage \
 	lib-master \
 	lib-dict \
 	lib-settings

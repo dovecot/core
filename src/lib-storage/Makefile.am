@@ -82,6 +82,7 @@ shlibs = \
 	index/libstorage_index.la \
 	register/libstorage_register.la \
 	../lib-index/libindex.la \
+	../lib-imap-storage/libimap-storage.la \
 	../lib-dovecot/libdovecot.la
 
 pkglib_LTLIBRARIES = libdovecot-storage.la
