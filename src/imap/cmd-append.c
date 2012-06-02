@@ -6,6 +6,7 @@
 #include "istream-chain.h"
 #include "ostream.h"
 #include "str.h"
+#include "mail-storage-private.h"
 #include "imap-parser.h"
 #include "imap-date.h"
 #include "imap-util.h"
@@ -196,17 +197,115 @@ static bool cmd_append_cancel(struct cmd_append_context *ctx, bool nonsync)
 }
 
 static int
+cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
+{
+	struct cmd_append_context *ctx = cmd->context;
+	struct imap_msgpart_url *mpurl;
+	struct istream *input;
+	uoff_t size, newsize;
+	const char *error;
+	int ret;
+
+	ret = imap_msgpart_url_parse(cmd->client->user, cmd->client->mailbox,
+				     caturl, &mpurl, &error);
+	if (ret < 0) {
+		client_send_storage_error(cmd, ctx->storage);
+		return -1;
+	}
+	if (ret == 0) {
+		/* invalid url, abort */
+		client_send_tagline(cmd,
+			t_strdup_printf("NO [BADURL %s] %s.", caturl, error));
+		return -1;
+	}
+
+	/* catenate URL */
+	ret = imap_msgpart_url_read_part(mpurl, &input, &size, &error);
+	if (ret < 0) {
+		client_send_storage_error(cmd, ctx->storage);
+		return -1;
+	}
+	if (ret == 0) {
+		/* invalid url, abort */
+		client_send_tagline(cmd,
+			t_strdup_printf("NO [BADURL %s] %s.", caturl, error));
+		return -1;
+	}
+	if (size == 0) {
+		/* empty input */
+		imap_msgpart_url_free(&mpurl);
+		return 0;
+	}
+
+	newsize = ctx->cat_msg_size + size;
+	if (newsize < ctx->cat_msg_size) {
+		client_send_tagline(cmd,
+			"NO [TOOBIG] Composed message grows too big.");
+		imap_msgpart_url_free(&mpurl);
+		return -1;
+	}
+
+	ctx->cat_msg_size = newsize;
+	/* add this input stream to chain */
+	i_stream_chain_append(ctx->catchain, input);
+	input = NULL;
+	/* save by reading the chain stream */
+	while (!i_stream_is_eof(ctx->input)) {
+		ret = i_stream_read(ctx->input);
+		i_assert(ret != 0); /* we can handle only blocking input here */
+		if (mailbox_save_continue(ctx->save_ctx) < 0 || ret == -1)
+			break;
+	}
+
+	if (ctx->input->stream_errno != 0) {
+		errno = ctx->input->stream_errno;
+		mail_storage_set_critical(ctx->box->storage,
+			"read(%s) failed: %m (for CATENATE URL %s)",
+			i_stream_get_name(input), caturl);
+		client_send_storage_error(cmd, ctx->storage);
+		ret = -1;
+	} else if (!input->eof) {
+		/* save failed */
+		client_send_storage_error(cmd, ctx->storage);
+		ret = -1;
+	} else {
+		ret = 0;
+	}
+	imap_msgpart_url_free(&mpurl);
+	return 0;
+}
+
+static int cmd_append_catenate_text(struct client_command_context *cmd)
+{
+	struct cmd_append_context *ctx = cmd->context;
+	uoff_t newsize;
+
+	newsize = ctx->cat_msg_size + ctx->literal_size;
+	if (newsize < ctx->cat_msg_size) {
+		client_send_tagline(cmd,
+			"NO [TOOBIG] Composed message grows too big.");
+		return -1;
+	}
+
+	/* save the mail */
+	ctx->cat_msg_size = newsize;
+	ctx->litinput = i_stream_create_limit(cmd->client->input,
+					      ctx->literal_size);
+	i_stream_chain_append(ctx->catchain, ctx->litinput);
+	return 0;
+}
+
+static int
 cmd_append_catenate(struct client_command_context *cmd,
 		    const struct imap_arg *args, bool *nonsync_r)
 {
-	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
-	struct imap_msgpart_url *mpurl;
-	const char *catpart, *error;
-	uoff_t newsize;
-	int ret;
+	const char *catpart;
 
 	*nonsync_r = FALSE;
+
+	if (ctx->failed)
+		return -1;
 
 	/* Handle URLs until a TEXT literal is encountered */
 	while (imap_arg_get_atom(args, &catpart)) {
@@ -217,103 +316,15 @@ cmd_append_catenate(struct client_command_context *cmd,
 			args++;
 			if (!imap_arg_get_astring(args, &caturl))
 				break;
-			if (ctx->failed)
+			if (cmd_append_catenate_url(cmd, caturl) < 0)
 				return -1;
-
-			ret = imap_msgpart_url_parse(client->user, client->mailbox,
-						     caturl, &mpurl, &error);
-			if (ret < 0) {
-				client_send_storage_error(cmd, ctx->storage);
-				return -1;
-			}
-			if (ret == 0) {
-				/* invalid url, abort */
-				client_send_tagline(cmd,
-					t_strdup_printf("NO [BADURL %s] %s.", caturl, error));
-				return -1;
-			}
-
-			if (cmd->cancel) {
-				imap_msgpart_url_free(&mpurl);
-				cmd_append_finish(ctx);
-				return 1;
-			}
-
-			/* catenate URL */
-			if (ctx->save_ctx != NULL) {
-				struct istream *input = NULL;
-				uoff_t size;
-
-				ret = imap_msgpart_url_read_part(mpurl, &input, &size, &error);
-				if (ret < 0) {
-					client_send_storage_error(cmd, ctx->storage);
-					return -1;
-				}
-				if (ret == 0) {
-					/* invalid url, abort */
-					client_send_tagline(cmd,
-						t_strdup_printf("NO [BADURL %s] %s.", caturl, error));
-					return -1;
-				}
-
-				newsize = ctx->cat_msg_size + size;
-				if (newsize < ctx->cat_msg_size) {
-					client_send_tagline(cmd,
-						"NO [TOOBIG] Composed message grows too big.");
-					imap_msgpart_url_free(&mpurl);
-					return -1;
-				}
-
-				if (input != NULL) {
-					ctx->cat_msg_size = newsize;
-					i_stream_chain_append(ctx->catchain, input);
-
-					while (!input->eof) {
-						ret = i_stream_read(ctx->input);
-						if (mailbox_save_continue(ctx->save_ctx) < 0) {
-							/* we still have to finish reading the message
-							   from client */
-							mailbox_save_cancel(&ctx->save_ctx);
-							break;
-						}
-						if (ret == -1 || ret == 0)
-							break;
-					}
-
-					if (!input->eof) {
-						client_send_tagline(cmd, t_strdup_printf(
-							"NO [BADURL %s] Failed to read all data.", caturl));
-						imap_msgpart_url_free(&mpurl);
-						return -1;
-					}
-				}
-			}
-			imap_msgpart_url_free(&mpurl);
 		} else if (strcasecmp(catpart, "TEXT") == 0) {
 			/* TEXT <literal> */
 			args++;
 			if (!imap_arg_get_literal_size(args, &ctx->literal_size))
 				break;
-
 			*nonsync_r = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
-			if (ctx->failed) {
-				/* we failed earlier, make sure we just eat
-				   nonsync-literal if it's given. */
-				return -1;
-			}
-
-			newsize = ctx->cat_msg_size + ctx->literal_size;
-			if (newsize < ctx->cat_msg_size) {
-				client_send_tagline(cmd,
-					"NO [TOOBIG] Composed message grows too big.");
-				return -1;
-			}
-
-			/* save the mail */
-			ctx->cat_msg_size = newsize;
-			ctx->litinput = i_stream_create_limit(client->input, ctx->literal_size);
-			i_stream_chain_append(ctx->catchain, ctx->litinput);
-			return 1;
+			return cmd_append_catenate_text(cmd) < 0 ? -1 : 1;
 		} else {
 			break;
 		}
@@ -334,7 +345,6 @@ static void cmd_append_finish_catenate(struct client_command_context *cmd)
 
 	i_stream_chain_append(ctx->catchain, NULL);
 	i_stream_unref(&ctx->input);
-	ctx->input = NULL;
 	ctx->catenate = FALSE;
 
 	if (mailbox_save_finish(&ctx->save_ctx) < 0) {
@@ -515,27 +525,30 @@ cmd_append_handle_args(struct client_command_context *cmd,
 	/* save the mail */
 	ctx->save_ctx = mailbox_save_alloc(ctx->t);
 	mailbox_save_set_flags(ctx->save_ctx, flags, keywords);
-	mailbox_save_set_received_date(ctx->save_ctx,
-				       internal_date, timezone_offset);
-	ret = mailbox_save_begin(&ctx->save_ctx, ctx->input);
-	ctx->count++;
-
-	if (cat_list != NULL &&
-	    (ret = cmd_append_catenate(cmd, cat_list, nonsync_r)) <= 0) {
-		if (ret < 0)
-			client->input_skip_line = TRUE;
-		return ret;
-	}
-
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
-
-	if (ret < 0) {
+	mailbox_save_set_received_date(ctx->save_ctx,
+				       internal_date, timezone_offset);
+	if (mailbox_save_begin(&ctx->save_ctx, ctx->input) < 0) {
 		/* save initialization failed */
 		client_send_storage_error(cmd, ctx->storage);
 		return -1;
 	}
-	return 1;
+	ctx->count++;
+
+	if (cat_list == NULL) {
+		/* normal APPEND */
+		return 1;
+	} else if ((ret = cmd_append_catenate(cmd, cat_list, nonsync_r)) < 0) {
+		client->input_skip_line = TRUE;
+		return -1;
+	} else if (ret == 0) {
+		/* CATENATE consisted only of URLs */
+		return 0;
+	} else {
+		/* TEXT part found from CATENATE */
+		return 1;
+	}
 }
 
 static bool cmd_append_finish_parsing(struct client_command_context *cmd)
@@ -637,8 +650,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		return cmd_append_finish_parsing(cmd);
 	}
 
-	/* Handle multiple messages (IMAP URLs) while no literals are
-	   encountered) */
+	/* Handle MULTIAPPEND messages while CATENATE contains only URLs */
 	while ((ret = cmd_append_handle_args(cmd, &args, &nonsync)) == 0) {
 		cmd_append_finish_catenate(cmd);
 
