@@ -16,6 +16,7 @@ libimap_la_SOURCES = \
 	imap-match.c \
 	imap-parser.c \
 	imap-quote.c \
+	imap-url.c \
 	imap-seqset.c \
 	imap-utf7.c \
 	imap-util.c
@@ -31,6 +32,7 @@ headers = \
 	imap-parser.h \
 	imap-resp-code.h \
 	imap-quote.h \
+	imap-url.h \
 	imap-seqset.h \
 	imap-utf7.h \
 	imap-util.h
@@ -41,6 +43,7 @@ pkginc_lib_HEADERS = $(headers)
 test_programs = \
 	test-imap-match \
 	test-imap-parser \
+	test-imap-url \
 	test-imap-utf7 \
 	test-imap-util
 
@@ -57,6 +60,10 @@ test_imap_match_DEPENDENCIES = imap-match.lo $(test_libs)
 test_imap_parser_SOURCES = test-imap-parser.c
 test_imap_parser_LDADD = imap-parser.lo imap-arg.lo $(test_libs)
 test_imap_parser_DEPENDENCIES = imap-parser.lo imap-arg.lo $(test_libs)
+
+test_imap_url_SOURCES = test-imap-url.c
+test_imap_url_LDADD = imap-url.lo  $(test_libs)
+test_imap_url_DEPENDENCIES = imap-url.lo $(test_libs)
 
 test_imap_utf7_SOURCES = test-imap-utf7.c
 test_imap_utf7_LDADD = imap-utf7.lo $(test_libs)
