@@ -55,6 +55,7 @@ liblib_la_SOURCES = \
 	iso8601-date.c \
 	istream.c \
 	istream-base64-encoder.c \
+	istream-chain.c \
 	istream-concat.c \
 	istream-crlf.c \
 	istream-data.c \
@@ -176,6 +177,7 @@ headers = \
 	iso8601-date.h \
 	istream.h \
 	istream-base64-encoder.h \
+	istream-chain.h \
 	istream-concat.h \
 	istream-crlf.h \
 	istream-private.h \
