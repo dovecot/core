@@ -121,6 +121,7 @@ liblib_la_SOURCES = \
 	unlink-directory.c \
 	unlink-old-files.c \
 	unichar.c \
+	uri-util.c \
 	utc-offset.c \
 	utc-mktime.c \
 	var-expand.c \
@@ -228,6 +229,7 @@ headers = \
 	unlink-directory.h \
 	unlink-old-files.h \
 	unichar.h \
+	uri-util.h \
 	utc-offset.h \
 	utc-mktime.h \
 	var-expand.h \
