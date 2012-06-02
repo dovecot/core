@@ -171,6 +171,11 @@ static int imap_parser_close_list(struct imap_parser *parser)
 
 	if (parser->list_arg == NULL) {
 		/* we're not inside list */
+		if ((parser->flags & IMAP_PARSE_FLAG_INSIDE_LIST) != 0) {
+			parser->eol = TRUE;
+			parser->cur_type = ARG_PARSE_NONE;
+			return TRUE;
+		}
 		parser->error = "Unexpected ')'";
 		return FALSE;
 	}
@@ -289,7 +294,8 @@ static int imap_parser_read_atom(struct imap_parser *parser,
 			imap_parser_save_arg(parser, data, i);
 			break;
 		} else if (data[i] == ')') {
-			if (parser->list_arg != NULL) {
+			if (parser->list_arg != NULL ||
+			    (parser->flags & IMAP_PARSE_FLAG_INSIDE_LIST) != 0) {
 				imap_parser_save_arg(parser, data, i);
 				break;
 			} else if ((parser->flags &
@@ -498,6 +504,10 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 			/* fall through */
 		case '\n':
 			/* unexpected end of line */
+			if ((parser->flags & IMAP_PARSE_FLAG_INSIDE_LIST) != 0) {
+				parser->error = "Missing ')'";
+				return FALSE;
+			}
 			parser->eol = TRUE;
 			return FALSE;
 		case '"':
