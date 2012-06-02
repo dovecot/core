@@ -518,6 +518,8 @@ void auth_user_fields_parse(const char *const *fields, pool_t pool,
 			reply_r->home = p_strdup(pool, *fields + 5);
 		else if (strncmp(*fields, "chroot=", 7) == 0)
 			reply_r->chroot = p_strdup(pool, *fields + 7);
+		else if (strcmp(*fields, "anonymous") == 0)
+			reply_r->anonymous = TRUE;
 		else {
 			const char *field = p_strdup(pool, *fields);
 			array_append(&reply_r->extra_fields, &field, 1);

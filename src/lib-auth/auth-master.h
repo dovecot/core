@@ -21,6 +21,7 @@ struct auth_user_reply {
 	gid_t gid;
 	const char *home, *chroot;
 	ARRAY_TYPE(const_string) extra_fields;
+	unsigned int anonymous:1;
 };
 
 struct auth_master_connection *

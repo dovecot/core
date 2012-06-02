@@ -77,6 +77,8 @@ struct mail_storage_service_user {
 	const struct mail_user_settings *user_set;
 	const struct setting_parser_info *user_info;
 	struct setting_parser_context *set_parser;
+
+	unsigned int anonymous:1;
 };
 
 struct module *mail_storage_service_modules = NULL;
@@ -251,6 +253,8 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 		}
 		set_keyval(ctx, user, "mail_chroot", chroot);
 	}
+
+	user->anonymous = reply->anonymous;
 
 	str = array_get(&reply->extra_fields, &count);
 	for (i = 0; i < count; i++) {
@@ -600,7 +604,8 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 			   &user->input.local_ip, &user->input.remote_ip);
 	mail_user->uid = priv->uid == (uid_t)-1 ? geteuid() : priv->uid;
 	mail_user->gid = priv->gid == (gid_t)-1 ? getegid() : priv->gid;
-
+	mail_user->anonymous = user->anonymous;
+	
 	mail_set = mail_user_set_get_storage_set(mail_user);
 
 	if (mail_set->mail_debug) {

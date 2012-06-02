@@ -45,6 +45,8 @@ struct mail_user {
 	/* User is an administrator. Allow operations not normally allowed
 	   for other people. */
 	unsigned int admin:1;
+	/* User is anonymous */
+	unsigned int anonymous:1;
 	/* This is an autocreated user (e.g. for shared namespace or
 	   lda raw storage) */
 	unsigned int autocreated:1;
