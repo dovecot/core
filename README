@@ -40,6 +40,7 @@ RFCs conformed
  3691       - IMAP4 UNSELECT command
  4314       - IMAP4 Access Control List (ACL) Extension
  4315       - IMAP UIDPLUS extension
+ 4469       - IMAP CATENATE Extension
  4551       - IMAP Extension for Conditional STORE Operation
               or Quick Flag Changes Resynchronization
  4731       - IMAP4 Extension to SEARCH Command for Controlling
