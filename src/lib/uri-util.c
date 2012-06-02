@@ -202,10 +202,9 @@ bool uri_data_decode(struct uri_parser *parser, const char *data,
 	return TRUE;
 }
 
-const char *uri_cut_scheme(const char **uri_p)
+int uri_cut_scheme(const char **uri_p, const char **scheme_r)
 {
 	const char *p = *uri_p;
-	const char *scheme;
 	size_t len = 1;
 	
 	/* RFC 3968:
@@ -213,7 +212,7 @@ const char *uri_cut_scheme(const char **uri_p)
 	 */
 	
 	if (!i_isalpha(*p))
-		return NULL;		
+		return -1;
 	p++;
 		
 	while (len < URI_MAX_SCHEME_NAME_LEN && *p != '\0') {			
@@ -224,12 +223,11 @@ const char *uri_cut_scheme(const char **uri_p)
 	}
 	
 	if (*p != ':')
-		return NULL;
+		return -1;
 	
-	scheme = t_strdup_until(*uri_p, p);
+	*scheme_r = t_strdup_until(*uri_p, p);
 	*uri_p = p + 1;
-
-	return scheme;
+	return 0;
 }
 
 int uri_parse_scheme(struct uri_parser *parser, const char **scheme_r)
@@ -240,8 +238,8 @@ int uri_parse_scheme(struct uri_parser *parser, const char **scheme_r)
 		return 0;
 
 	p = (const char *)parser->cur;
-	if ((*scheme_r = uri_cut_scheme(&p)) == NULL)
-		return 0;
+	if (uri_cut_scheme(&p, scheme_r) < 0)
+		return -1;
 
 	parser->cur = (const unsigned char *)p;
 	return 1;
@@ -266,7 +264,7 @@ uri_parse_dec_octet(struct uri_parser *parser, string_t *literal,
 	while (parser->cur < parser->end && i_isdigit(*parser->cur)) {
 		uint8_t prev = octet;
 
-		octet = octet * 10 + (uint8_t)(parser->cur[0] - '0');
+		octet = octet * 10 + (parser->cur[0] - '0');
 		if (octet < prev)
 			return -1;
 
@@ -671,8 +669,7 @@ int uri_parse_query(struct uri_parser *parser, const char **query_r)
 	return 1;
 }
 
-int uri_parse_fragment
-(struct uri_parser *parser, const char **fragment_r)
+int uri_parse_fragment(struct uri_parser *parser, const char **fragment_r)
 {
 	const unsigned char *p = parser->cur;
 

@@ -44,9 +44,9 @@ imap_msgpart_url_create(struct mail_user *user, const struct imap_url *url)
 	return mpurl;
 }
 
-struct imap_msgpart_url *
-imap_msgpart_url_parse(struct mail_user *user, struct mailbox *selected_box,
-		       const char *urlstr, const char **error_r)
+int imap_msgpart_url_parse(struct mail_user *user, struct mailbox *selected_box,
+			   const char *urlstr, struct imap_msgpart_url **url_r,
+			   const char **error_r)
 {
 	struct mailbox_status box_status;
 	struct imap_url base_url, *url;
@@ -62,21 +62,21 @@ imap_msgpart_url_parse(struct mail_user *user, struct mailbox *selected_box,
 	}
 
 	/* parse url */
-	url = imap_url_parse(urlstr, NULL, &base_url,
-			     IMAP_URL_PARSE_REQUIRE_RELATIVE, &error);
-	if (url == NULL) {
+	if (imap_url_parse(urlstr, &base_url,
+			   IMAP_URL_PARSE_REQUIRE_RELATIVE, &url, &error) < 0) {
 		*error_r = t_strconcat("Invalid IMAP URL: ", error, NULL);
-		return NULL;
+		return -1;
 	}
 	if (url->mailbox == NULL) {
 		*error_r = "Mailbox-relative IMAP URL, but no mailbox selected";
-		return NULL;
+		return -1;
 	}
 	if (url->uid == 0 || url->search_program != NULL) {
 		*error_r = "Invalid messagepart IMAP URL";
-		return NULL;
+		return -1;
 	}
-	return imap_msgpart_url_create(user, url);
+	*url_r = imap_msgpart_url_create(user, url);
+	return 0;
 }
 
 struct mailbox *imap_msgpart_url_get_mailbox(struct imap_msgpart_url *mpurl)
@@ -84,9 +84,8 @@ struct mailbox *imap_msgpart_url_get_mailbox(struct imap_msgpart_url *mpurl)
 	return mpurl->box;
 }
 
-struct mailbox *
-imap_msgpart_url_open_mailbox(struct imap_msgpart_url *mpurl,
-			      const char **error_r)
+int imap_msgpart_url_open_mailbox(struct imap_msgpart_url *mpurl,
+				  struct mailbox **box_r, const char **error_r)
 {
 	struct mailbox_status box_status;
 	enum mail_error error_code;
@@ -94,14 +93,16 @@ imap_msgpart_url_open_mailbox(struct imap_msgpart_url *mpurl,
 	struct mail_namespace *ns;
 	struct mailbox *box;
 
-	if (mpurl->box != NULL)
-		return mpurl->box;
+	if (mpurl->box != NULL) {
+		*box_r = mpurl->box;
+		return 1;
+	}
 
 	/* find mailbox namespace */
 	ns = mail_namespace_find(mpurl->user->namespaces, mpurl->mailbox);
 	if (ns == NULL) {
 		*error_r = "Nonexistent mailbox namespace";
-		return NULL;
+		return 0;
 	}
 
 	/* open mailbox */
@@ -110,7 +111,7 @@ imap_msgpart_url_open_mailbox(struct imap_msgpart_url *mpurl,
 		*error_r = mail_storage_get_last_error(mailbox_get_storage(box),
 						       &error_code);
 		mailbox_free(&box);
-		return NULL;
+		return error_code == MAIL_ERROR_TEMP ? -1 : 0;
 	}
 
 	/* verify UIDVALIDITY */
@@ -119,29 +120,32 @@ imap_msgpart_url_open_mailbox(struct imap_msgpart_url *mpurl,
 	    box_status.uidvalidity != mpurl->uidvalidity) {
 		*error_r = "Invalid UIDVALIDITY";
 		mailbox_free(&box);
-		return NULL;
+		return 0;
 	}
 	mpurl->box = box;
-	return box;
+	*box_r = box;
+	return 1;
 }
 
-struct mail *
-imap_msgpart_url_open_mail(struct imap_msgpart_url *mpurl, const char **error_r)
+int imap_msgpart_url_open_mail(struct imap_msgpart_url *mpurl,
+			       struct mail **mail_r, const char **error_r)
 {
 	struct mailbox_transaction_context *t;
+	struct mailbox *box;
 	struct mail *mail;
+	int ret;
 
-	if (mpurl->mail != NULL)
-		return mpurl->mail;
-
-	/* open mailbox if it is not yet open */
-	if (mpurl->box == NULL) {
-		if (imap_msgpart_url_open_mailbox(mpurl, error_r) == NULL)
-			return NULL;
+	if (mpurl->mail != NULL) {
+		*mail_r = mpurl->mail;
+		return 1;
 	}
 
+	/* open mailbox if it is not yet open */
+	if ((ret = imap_msgpart_url_open_mailbox(mpurl, &box, error_r)) <= 0)
+		return ret;
+
 	/* start transaction */
-	t = mailbox_transaction_begin(mpurl->box, 0);
+	t = mailbox_transaction_begin(box, 0);
 	mail = mail_alloc(t, 0, NULL);
 
 	/* find the message */
@@ -149,64 +153,64 @@ imap_msgpart_url_open_mail(struct imap_msgpart_url *mpurl, const char **error_r)
 		*error_r = "Message not found";
 		mail_free(&mail);
 		mailbox_transaction_rollback(&t);	
-		return NULL;
+		return 0;
 	}
 
 	mpurl->trans = t;
 	mpurl->mail = mail;
-	return mail;
+	*mail_r = mail;
+	return 1;
 }
 
-bool imap_msgpart_url_read_part(struct imap_msgpart_url *mpurl,
-				struct istream **stream_r, uoff_t *size_r,
-				const char **error_r)
+int imap_msgpart_url_read_part(struct imap_msgpart_url *mpurl,
+			       struct istream **stream_r, uoff_t *size_r,
+			       const char **error_r)
 {
+	struct mail *mail;
 	struct istream *input;
 	uoff_t part_size;
+	int ret;
 
 	if (mpurl->input != NULL) {
 		i_stream_seek(mpurl->input, 0);
 		*stream_r = mpurl->input;
 		*size_r = mpurl->part_size;
-		return TRUE;
+		return 1;
 	}
 
-	/* open mailbox if it is not yet open */
-	if (mpurl->mail == NULL) {
-		if (imap_msgpart_url_open_mail(mpurl, error_r) == NULL)
-			return FALSE;
-	}
+	/* open mail if it is not yet open */
+	if ((ret = imap_msgpart_url_open_mail(mpurl, &mail, error_r)) <= 0)
+		return ret;
 
 	/* open the referenced part as a stream */
-	if (!imap_msgpart_open(mpurl->mail, mpurl->section,
-			       mpurl->partial_offset, mpurl->partial_size,
-			       &input, &part_size, error_r))
-		return FALSE;
+	if ((ret = imap_msgpart_open(mail, mpurl->section,
+				     mpurl->partial_offset, mpurl->partial_size,
+				     &input, &part_size, error_r)) <= 0)
+		return ret;
 
 	mpurl->input = input;
 	mpurl->part_size = part_size;
 
 	*stream_r = input;
 	*size_r = part_size;
-	return TRUE;
+	return 1;
 }
 
-bool imap_msgpart_url_verify(struct imap_msgpart_url *mpurl,
-			     const char **error_r)
+int imap_msgpart_url_verify(struct imap_msgpart_url *mpurl,
+			    const char **error_r)
 {
-	if (mpurl->input != NULL)
-		return TRUE;
+	struct mail *mail;
+	int ret;
 
-	/* open mailbox if it is not yet open */
-	if (mpurl->mail == NULL) {
-		if (imap_msgpart_url_open_mail(mpurl, error_r) == NULL)
-			return FALSE;
-	}
+	if (mpurl->input != NULL)
+		return 1;
+
+	/* open mail if it is not yet open */
+	if ((ret = imap_msgpart_url_open_mail(mpurl, &mail, error_r)) <= 0)
+		return ret;
 
 	/* open the referenced part as a stream */
-	if (!imap_msgpart_verify(mpurl->mail, mpurl->section, error_r))
-		return FALSE;
-	return TRUE;
+	return imap_msgpart_verify(mail, mpurl->section, error_r);
 }
 
 void imap_msgpart_url_free(struct imap_msgpart_url **_mpurl)

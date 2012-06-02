@@ -562,7 +562,8 @@ static void test_imap_url_valid(void)
 		test_begin(t_strdup_printf("imap url valid [%d]", i));
 
 		if (urlb->host_name == NULL) urlb = NULL;
-		urlp=imap_url_parse(url, NULL, urlb, flags, &error);
+		if (imap_url_parse(url, urlb, flags, &urlp, &error) < 0)
+			urlp = NULL;
 
 		test_out_reason(t_strdup_printf("imap_url_parse(%s)",
 			valid_url_tests[i].url), urlp != NULL, error);
@@ -881,7 +882,8 @@ static void test_imap_url_invalid(void)
 
 		test_begin(t_strdup_printf("imap url invalid [%d]", i));
 
-		urlp = imap_url_parse(url, NULL, urlb, flags, &error);
+		if (imap_url_parse(url, urlb, flags, &urlp, &error) < 0)
+			urlp = NULL;
 		test_out_reason(t_strdup_printf("parse %s", url), urlp == NULL, error);
 
 		test_end();

@@ -55,10 +55,10 @@ enum imap_url_parse_flags {
 	IMAP_URL_PARSE_ALLOW_URLAUTH	= 0x04
 };
 
-/* Parses full IMAP URL */
-struct imap_url *
-imap_url_parse(const char *url, pool_t pool, struct imap_url *base,
-	       enum imap_url_parse_flags flags, const char **error_r);
+/* Parses full IMAP URL. The returned URL is allocated from data stack. */
+int imap_url_parse(const char *url, struct imap_url *base,
+		   enum imap_url_parse_flags flags,
+		   struct imap_url **url_r, const char **error_r);
 
 /*
  * IMAP URL construction

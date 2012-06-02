@@ -220,8 +220,13 @@ cmd_append_catenate(struct client_command_context *cmd,
 			if (ctx->failed)
 				return -1;
 
-			mpurl = imap_msgpart_url_parse(client->user, client->mailbox, caturl, &error);
-			if (mpurl == NULL) {
+			ret = imap_msgpart_url_parse(client->user, client->mailbox,
+						     caturl, &mpurl, &error);
+			if (ret < 0) {
+				client_send_storage_error(cmd, ctx->storage);
+				return -1;
+			}
+			if (ret == 0) {
 				/* invalid url, abort */
 				client_send_tagline(cmd,
 					t_strdup_printf("NO [BADURL %s] %s.", caturl, error));
@@ -239,7 +244,12 @@ cmd_append_catenate(struct client_command_context *cmd,
 				struct istream *input = NULL;
 				uoff_t size;
 
-				if (!imap_msgpart_url_read_part(mpurl, &input, &size, &error)) {
+				ret = imap_msgpart_url_read_part(mpurl, &input, &size, &error);
+				if (ret < 0) {
+					client_send_storage_error(cmd, ctx->storage);
+					return -1;
+				}
+				if (ret == 0) {
 					/* invalid url, abort */
 					client_send_tagline(cmd,
 						t_strdup_printf("NO [BADURL %s] %s.", caturl, error));

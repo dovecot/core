@@ -893,14 +893,11 @@ static bool imap_url_do_parse(struct imap_url_parser *url_parser)
 
 /* Public API */
 
-struct imap_url *
-imap_url_parse(const char *url, pool_t pool, struct imap_url *base,
-	       enum imap_url_parse_flags flags, const char **error_r)
+int imap_url_parse(const char *url, struct imap_url *base,
+		   enum imap_url_parse_flags flags,
+		   struct imap_url **url_r, const char **error_r)
 {
 	struct imap_url_parser url_parser;
-
-	if (pool == NULL)
-		pool = pool_datastack_create();
 
 	/* base != NULL indicates whether relative URLs are allowed. However, certain
 	   flags may also dictate whether relative URLs are allowed/required. */
@@ -908,19 +905,19 @@ imap_url_parse(const char *url, pool_t pool, struct imap_url *base,
 	i_assert((flags & IMAP_URL_PARSE_SCHEME_EXTERNAL) == 0 || base == NULL);
 
 	memset(&url_parser, '\0', sizeof(url_parser));
-	uri_parser_init(&url_parser.parser, pool, url);
+	uri_parser_init(&url_parser.parser, pool_datastack_create(), url);
 
-	url_parser.url = p_new(pool, struct imap_url, 1);
+	url_parser.url = t_new(struct imap_url, 1);
 	url_parser.url->uauth_expire = (time_t)-1;
 	url_parser.base = base;
 	url_parser.flags = flags;
 
 	if (!imap_url_do_parse(&url_parser)) {
-		if (error_r != NULL)
-			*error_r = url_parser.parser.error;
-		return NULL;
+		*error_r = url_parser.parser.error;
+		return -1;
 	}
-	return url_parser.url;
+	*url_r = url_parser.url;
+	return 0;
 }
 
 /*

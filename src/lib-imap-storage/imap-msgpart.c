@@ -59,7 +59,7 @@ int imap_msgpart_find(struct mail *mail, const char *section,
 	return 0;
 }
 
-static bool
+static int
 imap_msgpart_get_header_fields(const char *header_list,
 			       const char *const **fields_r, size_t *count_r)
 {
@@ -69,7 +69,7 @@ imap_msgpart_get_header_fields(const char *header_list,
 	unsigned int list_count;
 	ARRAY_TYPE(const_string) fields = ARRAY_INIT;
 	unsigned int i;
-	bool result = TRUE;
+	int result = 0;
 
 	input = i_stream_create_from_data(header_list, strlen(header_list));
 	parser = imap_parser_create(input, NULL, (size_t)-1);
@@ -84,7 +84,7 @@ imap_msgpart_get_header_fields(const char *header_list,
 
 		for (i = 0; i < list_count; i++) {
 			if (!imap_arg_get_astring(&hdr_list[i], &value)) {
-				result = FALSE;
+				result = -1;
 				break;
 			}
 
@@ -99,24 +99,23 @@ imap_msgpart_get_header_fields(const char *header_list,
 			*count_r = list_count;
 		}
 	} else {
-		result = FALSE;
+		result = -1;
 	}
 
 	imap_parser_unref(&parser);
 	i_stream_unref(&input);
-
 	return result;
 }
 
-static bool
+static int
 imap_msgpart_verify_header_fields(const char *header_list, const char **error_r)
 {
 	/* HEADER.FIELDS (list), HEADER.FIELDS.NOT (list) */
-	if (!imap_msgpart_get_header_fields(header_list, NULL, NULL)) {
+	if (imap_msgpart_get_header_fields(header_list, NULL, NULL) < 0) {
 		*error_r = "Invalid header fields";
-		return FALSE;
+		return 0;
 	}
-	return TRUE;
+	return 1;
 }
 
 static struct istream *
@@ -131,7 +130,8 @@ imap_msgpart_get_partial_header(struct istream *mail_input, bool exclude,
 	uoff_t old_offset;
 
 	/* HEADER.FIELDS (list), HEADER.FIELDS.NOT (list) */
-	if (!imap_msgpart_get_header_fields(header_list, &hdr_fields, &hdr_count)) {
+	if (imap_msgpart_get_header_fields(header_list,
+					   &hdr_fields, &hdr_count) < 0) {
 		*error_r = "Invalid header fields";
 		return NULL;
 	}
@@ -158,8 +158,8 @@ imap_msgpart_get_partial_header(struct istream *mail_input, bool exclude,
 	return input;
 }
 
-static bool
-imap_msgpart_get_partial(struct istream *input, struct message_size part_size,
+static void
+imap_msgpart_get_partial(struct istream **input, struct message_size part_size,
 			 uoff_t partial_offset, uoff_t partial_size,
 			 struct istream **stream_r, uoff_t *size_r)
 {
@@ -167,35 +167,34 @@ imap_msgpart_get_partial(struct istream *input, struct message_size part_size,
 	uoff_t size = part_size.virtual_size;
 
 	if (partial_offset >= size) {
-		i_stream_unref(&input);
+		i_stream_unref(input);
 		*size_r = 0;
 		*stream_r = NULL;
-		return TRUE;
+		return;
 	}
 
 	if (size != part_size.physical_size) {
-		result = i_stream_create_crlf(input);
-		i_stream_unref(&input);
-		input = result;
+		result = i_stream_create_crlf(*input);
+		i_stream_unref(input);
+		*input = result;
 	}
 
 	if (partial_offset > 0)
-		i_stream_seek(input, input->v_offset + partial_offset);
+		i_stream_seek(*input, (*input)->v_offset + partial_offset);
 
 	size = partial_size > 0 && (size - partial_offset) > partial_size ?
 		partial_size : (size - partial_offset);
-	result = i_stream_create_limit(input, size);
-	i_stream_unref(&input);
+	result = i_stream_create_limit(*input, size);
+	i_stream_unref(input);
 	
 	*size_r = size;
 	*stream_r = result;
-	return TRUE;
 }
 
-bool imap_msgpart_open(struct mail *mail, const char *section,
-		       uoff_t partial_offset, uoff_t partial_size,
-		       struct istream **stream_r,
-		       uoff_t *size_r, const char **error_r)
+int imap_msgpart_open(struct mail *mail, const char *section,
+		      uoff_t partial_offset, uoff_t partial_size,
+		      struct istream **stream_r,
+		      uoff_t *size_r, const char **error_r)
 {
 	struct message_size hdr_size, body_size, part_size;
 	struct istream *input = NULL;
@@ -204,14 +203,14 @@ bool imap_msgpart_open(struct mail *mail, const char *section,
 	if (stream_r != NULL) {
 		if (mail_get_stream(mail, &hdr_size, &body_size, &input) < 0) {
 			*error_r = "Failed to read message";
-			return FALSE;
+			return -1;
 		}
 	}
 
 	if (section == NULL || *section == '\0') {
 		/* full message */
 		if (stream_r == NULL)
-			return TRUE;
+			return 1;
 
 		part_size.physical_size =
 			hdr_size.physical_size + body_size.physical_size;
@@ -220,9 +219,10 @@ bool imap_msgpart_open(struct mail *mail, const char *section,
 
 		i_stream_seek(input, 0);
 		i_stream_ref(input);
-		return imap_msgpart_get_partial(input, part_size,
-						partial_offset, partial_size,
-						stream_r, size_r);
+		imap_msgpart_get_partial(&input, part_size,
+					 partial_offset, partial_size,
+					 stream_r, size_r);
+		return 1;
 	}
 
 	section = t_str_ucase(section);
@@ -230,20 +230,21 @@ bool imap_msgpart_open(struct mail *mail, const char *section,
 	if (strcmp(section, "TEXT") == 0) {
 		/* message body */
 		if (stream_r == NULL)
-			return TRUE;
-		
+			return 1;
+
 		i_stream_seek(input, hdr_size.physical_size);
 		i_stream_ref(input);
-		return imap_msgpart_get_partial(input, body_size,
-						partial_offset, partial_size,
-						stream_r, size_r);
+		imap_msgpart_get_partial(&input, body_size,
+					 partial_offset, partial_size,
+					 stream_r, size_r);
+		return 1;
 	}
 
 	if (strncmp(section, "HEADER", 6) == 0) {
 		/* header */
 		if (stream_r == NULL) {
 			if (section[6] == '\0') {
-				return TRUE;
+				return 1;
 			} else if (strncmp(section, "HEADER.FIELDS ", 14) == 0) {
 				return imap_msgpart_verify_header_fields(section+14, error_r);
 			} else if (strncmp(section, "HEADER.FIELDS.NOT ", 18) == 0) {
@@ -265,53 +266,57 @@ bool imap_msgpart_open(struct mail *mail, const char *section,
 			}
 
 			if (input != NULL) {
-				return imap_msgpart_get_partial(input,
-					hdr_size, partial_offset, partial_size,
+				imap_msgpart_get_partial(&input, hdr_size,
+					partial_offset, partial_size,
 					stream_r, size_r);
+				return 1;
 			}
 		}
-
 	} else if (*section >= '0' && *section <= '9') {
 		const struct message_part *part;
 		const char *subsection;
 
 		if (imap_msgpart_find(mail, section, &part, &subsection) < 0) {
 			*error_r = "Cannot read message part";
-			return FALSE;
+			return -1;
 		}
 
 		if (part == NULL) {
 			*error_r = "Unknown message part";
-			return FALSE;
+			return 0;
 		}
 
 		if (*subsection == '\0') {
 			if (stream_r == NULL)
-				return TRUE;
+				return 1;
 		
 			/* fetch the whole section */
 			i_stream_seek(input, part->physical_pos +
 				      part->header_size.physical_size);
 			i_stream_ref(input);
-			return imap_msgpart_get_partial(input, part->body_size, partial_offset,
-					partial_size, stream_r, size_r);
+			imap_msgpart_get_partial(&input, part->body_size,
+						 partial_offset, partial_size,
+						 stream_r, size_r);
+			return 1;
 		}
 
 		if (strcmp(subsection, "MIME") == 0) {
 			if (stream_r == NULL)
-				return TRUE;
+				return 1;
 
 			/* fetch section's MIME header */
 			i_stream_seek(input, part->physical_pos);
 			i_stream_ref(input);
-			return imap_msgpart_get_partial(input, part->header_size,
-				partial_offset, partial_size, stream_r, size_r);
+			imap_msgpart_get_partial(&input, part->header_size,
+						 partial_offset, partial_size,
+						 stream_r, size_r);
+			return 1;
 		}
 
 		/* TEXT and HEADER are only for message/rfc822 parts */
 		if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) == 0) {
 			*error_r = "Invalid section";
-			return FALSE;
+			return 0;
 		}
 
 		i_assert(part->children != NULL && part->children->next == NULL);
@@ -319,20 +324,22 @@ bool imap_msgpart_open(struct mail *mail, const char *section,
 
 		if (strcmp(subsection, "TEXT") == 0) {
 			if (stream_r == NULL)
-				return TRUE;
+				return 1;
 
 			/* sub-message body */
 			i_stream_seek(input, part->physical_pos +
 				      part->header_size.physical_size);
 			i_stream_ref(input);
-			return imap_msgpart_get_partial(input, part->body_size,
-				partial_offset, partial_size, stream_r, size_r);
+			imap_msgpart_get_partial(&input, part->body_size,
+						 partial_offset, partial_size,
+						 stream_r, size_r);
+			return 1;
 		}	
 
 		if (strncmp(subsection, "HEADER", 6) == 0) {
 			if (stream_r == NULL) {
 				if (section[6] == '\0') {
-					return TRUE;
+					return 1;
 				} else if (strncmp(subsection, "HEADER.FIELDS ", 14) == 0) {
 					return imap_msgpart_verify_header_fields(subsection+14, error_r);
 				} else if (strncmp(subsection, "HEADER.FIELDS.NOT ", 18) == 0) {
@@ -358,14 +365,15 @@ bool imap_msgpart_open(struct mail *mail, const char *section,
 				}
 
 				if (input != NULL) {
-					return imap_msgpart_get_partial(input,
-						hdr_size, partial_offset,
-						partial_size, stream_r, size_r);
+					imap_msgpart_get_partial(&input, hdr_size,
+						partial_offset, partial_size,
+						stream_r, size_r);
+					return 1;
 				}
 			}
 		}
 	}
 
 	*error_r = "Invalid section";
-	return FALSE;
+	return 0;
 }

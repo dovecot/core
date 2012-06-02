@@ -31,7 +31,7 @@ int uri_parse_unreserved(struct uri_parser *parser, string_t *part);
 bool uri_data_decode(struct uri_parser *parser, const char *data,
 		     const char *until, const char **decoded_r);
 
-const char *uri_cut_scheme(const char **uri_p);
+int uri_cut_scheme(const char **uri_p, const char **scheme_r);
 int uri_parse_scheme(struct uri_parser *parser, const char **scheme_r);
 int uri_parse_authority(struct uri_parser *parser, struct uri_authority *auth);
 
