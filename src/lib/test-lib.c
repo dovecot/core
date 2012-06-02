@@ -13,6 +13,7 @@ int main(void)
 		test_crc32,
 		test_hash_format,
 		test_hex_binary,
+		test_iso8601_date,
 		test_istream_base64_encoder,
 		test_istream_concat,
 		test_istream_crlf,

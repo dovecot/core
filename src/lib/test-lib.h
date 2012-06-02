@@ -12,6 +12,7 @@ void test_buffer(void);
 void test_crc32(void);
 void test_hash_format(void);
 void test_hex_binary(void);
+void test_iso8601_date(void);
 void test_istream_base64_encoder(void);
 void test_istream_concat(void);
 void test_istream_crlf(void);

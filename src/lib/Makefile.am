@@ -52,6 +52,7 @@ liblib_la_SOURCES = \
 	ipwd.c \
 	iostream.c \
 	iostream-rawlog.c \
+	iso8601-date.c \
 	istream.c \
 	istream-base64-encoder.c \
 	istream-concat.c \
@@ -171,6 +172,7 @@ headers = \
 	iostream-private.h \
 	iostream-rawlog.h \
 	iostream-rawlog-private.h \
+	iso8601-date.h \
 	istream.h \
 	istream-base64-encoder.h \
 	istream-concat.h \
@@ -252,6 +254,7 @@ test_lib_SOURCES = \
 	test-crc32.c \
 	test-hash-format.c \
 	test-hex-binary.c \
+	test-iso8601-date.c \
 	test-istream-base64-encoder.c \
 	test-istream-concat.c \
 	test-istream-crlf.c \
