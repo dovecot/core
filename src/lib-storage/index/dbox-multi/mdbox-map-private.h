@@ -57,6 +57,7 @@ struct mdbox_map_atomic_context {
 	unsigned int map_refreshed:1;
 	unsigned int locked:1;
 	unsigned int success:1;
+	unsigned int failed:1;
 };
 
 int mdbox_map_view_lookup_rec(struct mdbox_map *map,

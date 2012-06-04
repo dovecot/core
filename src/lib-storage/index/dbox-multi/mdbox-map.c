@@ -519,11 +519,13 @@ bool mdbox_map_atomic_is_locked(struct mdbox_map_atomic_context *atomic)
 void mdbox_map_atomic_set_failed(struct mdbox_map_atomic_context *atomic)
 {
 	atomic->success = FALSE;
+	atomic->failed = TRUE;
 }
 
 void mdbox_map_atomic_set_success(struct mdbox_map_atomic_context *atomic)
 {
-	atomic->success = TRUE;
+	if (!atomic->failed)
+		atomic->success = TRUE;
 }
 
 int mdbox_map_atomic_finish(struct mdbox_map_atomic_context **_atomic)
@@ -595,7 +597,7 @@ int mdbox_map_transaction_commit(struct mdbox_map_transaction_context *ctx)
 		mail_index_reset_error(ctx->atomic->map->index);
 		return -1;
 	}
-	ctx->atomic->success = TRUE;
+	mdbox_map_atomic_set_success(ctx->atomic);
 	return 0;
 }
 
@@ -1379,7 +1381,7 @@ int mdbox_map_append_commit(struct mdbox_map_append_context *ctx)
 		if (dbox_file_append_commit(&file_appends[i]) < 0)
 			return -1;
 	}
-	ctx->atomic->success = TRUE;
+	mdbox_map_atomic_set_success(ctx->atomic);
 	return 0;
 }
 
