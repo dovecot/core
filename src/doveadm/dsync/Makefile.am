@@ -36,6 +36,7 @@ noinst_HEADERS = \
 	doveadm-dsync.h \
 	dsync-brain.h \
 	dsync-brain-private.h \
+	dsync-mailbox.h \
 	dsync-mailbox-import.h \
 	dsync-mailbox-export.h \
 	dsync-mailbox-state.h \
