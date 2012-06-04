@@ -115,6 +115,8 @@ int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 int mdbox_map_append_move(struct mdbox_map_append_context *ctx,
 			  const ARRAY_TYPE(uint32_t) *map_uids,
 			  const ARRAY_TYPE(seq_range) *expunge_map_uids);
+/* Flush/fsync appends. */
+int mdbox_map_append_flush(struct mdbox_map_append_context *ctx);
 /* Returns 0 if ok, -1 if error. */
 int mdbox_map_append_commit(struct mdbox_map_append_context *ctx);
 void mdbox_map_append_free(struct mdbox_map_append_context **ctx);

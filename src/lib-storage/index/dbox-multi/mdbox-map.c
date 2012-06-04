@@ -1369,6 +1369,21 @@ int mdbox_map_append_move(struct mdbox_map_append_context *ctx,
 	return 0;
 }
 
+int mdbox_map_append_flush(struct mdbox_map_append_context *ctx)
+{
+	struct dbox_file_append_context **file_appends;
+	unsigned int i, count;
+
+	i_assert(ctx->trans == NULL);
+
+	file_appends = array_get_modifiable(&ctx->file_appends, &count);
+	for (i = 0; i < count; i++) {
+		if (dbox_file_append_flush(file_appends[i]) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 int mdbox_map_append_commit(struct mdbox_map_append_context *ctx)
 {
 	struct dbox_file_append_context **file_appends;
