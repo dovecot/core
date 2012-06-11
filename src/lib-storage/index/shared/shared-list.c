@@ -43,8 +43,12 @@ shared_get_storage(struct mailbox_list **list, const char *vname,
 	const char *name;
 
 	name = mailbox_list_get_storage_name(*list, vname);
-	if (shared_storage_get_namespace(&ns, &name) < 0)
-		return -1;
+	if (*name == '\0' && (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
+		/* trying to access the shared/ prefix itself */
+	} else {
+		if (shared_storage_get_namespace(&ns, &name) < 0)
+			return -1;
+	}
 	*list = ns->list;
 	*storage_r = ns->storage;
 	return 0;
