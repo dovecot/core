@@ -363,6 +363,11 @@ static void director_sync(struct director *dir)
 {
 	/* we're synced again when we receive this SYNC back */
 	dir->sync_seq++;
+	if (dir->right == NULL && dir->left == NULL) {
+		/* we're alone. if we're already synced,
+		   don't become unsynced. */
+		return;
+	}
 	director_set_ring_unsynced(dir);
 
 	if (dir->sync_frozen) {
