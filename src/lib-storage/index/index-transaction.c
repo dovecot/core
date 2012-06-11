@@ -7,6 +7,8 @@
 
 static void index_transaction_free(struct mailbox_transaction_context *t)
 {
+	if (t->view_pvt != NULL)
+		mail_index_view_close(&t->view_pvt);
 	mail_cache_view_close(&t->cache_view);
 	mail_index_view_close(&t->view);
 	array_free(&t->module_contexts);
@@ -67,26 +69,48 @@ index_transaction_index_rollback(struct mail_index_transaction *index_trans)
 	index_transaction_free(t);
 }
 
+static enum mail_index_transaction_flags
+index_transaction_flags_get(enum mailbox_transaction_flags flags)
+{
+	enum mail_index_transaction_flags itrans_flags;
+
+	itrans_flags = MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES;
+	if ((flags & MAILBOX_TRANSACTION_FLAG_HIDE) != 0)
+		itrans_flags |= MAIL_INDEX_TRANSACTION_FLAG_HIDE;
+	if ((flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0)
+		itrans_flags |= MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
+	if ((flags & MAILBOX_TRANSACTION_FLAG_SYNC) != 0)
+		itrans_flags |= MAIL_INDEX_TRANSACTION_FLAG_SYNC;
+	return itrans_flags;
+}
+
+void index_transaction_init_pvt(struct mailbox_transaction_context *t)
+{
+	enum mail_index_transaction_flags itrans_flags;
+
+	if (t->box->view_pvt == NULL || t->itrans_pvt != NULL)
+		return;
+
+	itrans_flags = index_transaction_flags_get(t->flags);
+	t->itrans_pvt = mail_index_transaction_begin(t->box->view_pvt,
+						     itrans_flags);
+	t->view_pvt = mail_index_transaction_open_updated_view(t->itrans_pvt);
+}
+
 void index_transaction_init(struct mailbox_transaction_context *t,
 			    struct mailbox *box,
 			    enum mailbox_transaction_flags flags)
 {
-	enum mail_index_transaction_flags trans_flags;
+	enum mail_index_transaction_flags itrans_flags;
 
 	i_assert(box->opened);
 
-	trans_flags = MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES;
-	if ((flags & MAILBOX_TRANSACTION_FLAG_HIDE) != 0)
-		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_HIDE;
-	if ((flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0)
-		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
-	if ((flags & MAILBOX_TRANSACTION_FLAG_SYNC) != 0)
-		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_SYNC;
+	itrans_flags = index_transaction_flags_get(flags);
 	if ((flags & MAILBOX_TRANSACTION_FLAG_REFRESH) != 0)
 		(void)mail_index_refresh(box->index);
 
 	t->box = box;
-	t->itrans = mail_index_transaction_begin(box->view, trans_flags);
+	t->itrans = mail_index_transaction_begin(box->view, itrans_flags);
 	t->view = mail_index_transaction_open_updated_view(t->itrans);
 
 	array_create(&t->module_contexts, default_pool,
@@ -123,7 +147,7 @@ int index_transaction_commit(struct mailbox_transaction_context *t,
 	struct mailbox *box = t->box;
 	struct mail_index_transaction *itrans = t->itrans;
 	struct mail_index_transaction_commit_result result;
-	int ret;
+	int ret = 0;
 
 	memset(changes_r, 0, sizeof(*changes_r));
 	changes_r->pool = pool_alloconly_create(MEMPOOL_GROWING
@@ -131,7 +155,10 @@ int index_transaction_commit(struct mailbox_transaction_context *t,
 	p_array_init(&changes_r->saved_uids, changes_r->pool, 32);
 	t->changes = changes_r;
 
-	ret = mail_index_transaction_commit_full(&itrans, &result);
+	if (t->itrans_pvt != NULL)
+		ret = mail_index_transaction_commit(&t->itrans_pvt);
+	if (mail_index_transaction_commit_full(&itrans, &result) < 0)
+		ret = -1;
 	t = NULL;
 
 	if (ret < 0 && mail_index_is_deleted(box->index))
@@ -145,5 +172,7 @@ void index_transaction_rollback(struct mailbox_transaction_context *t)
 {
 	struct mail_index_transaction *itrans = t->itrans;
 
+	if (t->itrans_pvt != NULL)
+		mail_index_transaction_rollback(&t->itrans_pvt);
 	mail_index_transaction_rollback(&itrans);
 }

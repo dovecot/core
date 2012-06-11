@@ -90,7 +90,8 @@ struct mail_transaction_flag_update {
 	uint32_t uid1, uid2;
 	uint8_t add_flags;
 	uint8_t remove_flags;
-	uint16_t padding;
+	uint8_t modseq_inc_flag;
+	uint8_t padding;
 };
 
 struct mail_transaction_keyword_update {

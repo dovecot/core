@@ -193,6 +193,11 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 					       set->mailbox_dir_name, name);
 		}
 		break;
+	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
+		if (set->index_pvt_dir == NULL)
+			return NULL;
+		return t_strdup_printf("%s/%s%s", set->index_pvt_dir,
+				       set->mailbox_dir_name, name);
 	}
 
 	if (type == MAILBOX_LIST_PATH_TYPE_ALT_DIR ||

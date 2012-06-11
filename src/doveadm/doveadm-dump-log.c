@@ -284,8 +284,8 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		const struct mail_transaction_flag_update *u = data;
 
 		for (; size > 0; size -= sizeof(*u), u++) {
-			printf(" - uids=%u-%u (flags +%x-%x)\n",
-			       u->uid1, u->uid2, u->add_flags, u->remove_flags);
+			printf(" - uids=%u-%u (flags +%x-%x, modseq_inc_flag=%d)\n",
+			       u->uid1, u->uid2, u->add_flags, u->remove_flags, u->modseq_inc_flag);
 		}
 		break;
 	}

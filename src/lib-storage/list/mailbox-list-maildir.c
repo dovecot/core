@@ -225,6 +225,11 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 						_list->set.index_dir, name);
 		}
 		break;
+	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
+		if (_list->set.index_pvt_dir == NULL)
+			return NULL;
+		return maildir_list_get_dirname_path(_list,
+					_list->set.index_pvt_dir, name);
 	}
 
 	if (type == MAILBOX_LIST_PATH_TYPE_ALT_DIR ||

@@ -220,6 +220,11 @@ struct mailbox {
 	struct mail_index *index;
 	struct mail_index_view *view;
 	struct mail_cache *cache;
+	/* Private per-user index/view for shared mailboxes. These are synced
+	   against the primary index and used to store per-user flags.
+	   These are non-NULL only when mailbox has per-user flags. */
+	struct mail_index *index_pvt;
+	struct mail_index_view *view_pvt;
 	/* Filled lazily by mailbox_get_permissions() */
 	struct mailbox_permissions _perm;
 	/* Filled lazily by mailbox_get_path() */
@@ -345,6 +350,8 @@ struct mail_private {
 	struct mail mail;
 	struct mail_vfuncs v, *vlast;
 
+	uint32_t seq_pvt;
+
 	/* initial wanted fields/headers, set by mail_alloc(): */
 	enum mail_fetch_field wanted_fields;
 	struct mailbox_header_lookup_ctx *wanted_headers;
@@ -386,6 +393,10 @@ struct mailbox_transaction_context {
 	struct mail_index_transaction *itrans;
 	/* view contains all changes done within this transaction */
 	struct mail_index_view *view;
+
+	/* for private index updates: */
+	struct mail_index_transaction *itrans_pvt;
+	struct mail_index_view *view_pvt;
 
 	struct mail_cache_view *cache_view;
 	struct mail_cache_transaction_ctx *cache_trans;

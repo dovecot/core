@@ -129,6 +129,7 @@ index_transaction_begin(struct mailbox *box,
 void index_transaction_init(struct mailbox_transaction_context *t,
 			    struct mailbox *box,
 			    enum mailbox_transaction_flags flags);
+void index_transaction_init_pvt(struct mailbox_transaction_context *t);
 int index_transaction_commit(struct mailbox_transaction_context *t,
 			     struct mail_transaction_commit_changes *changes_r);
 void index_transaction_rollback(struct mailbox_transaction_context *t);

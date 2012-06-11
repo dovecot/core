@@ -26,6 +26,7 @@ libstorage_index_la_SOURCES = \
 	index-storage.c \
 	index-sync.c \
 	index-sync-changes.c \
+	index-sync-pvt.c \
 	index-sync-search.c \
 	index-thread.c \
 	index-thread-finish.c \

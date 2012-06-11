@@ -20,6 +20,34 @@ log_append_buffer(struct mail_index_export_context *ctx,
 					buf->data, buf->used);
 }
 
+static void log_append_flag_updates(struct mail_index_export_context *ctx,
+				    struct mail_index_transaction *t)
+{
+	ARRAY_DEFINE(log_updates, struct mail_transaction_flag_update);
+	const struct mail_index_flag_update *updates;
+	struct mail_transaction_flag_update *log_update;
+	unsigned int i, count;
+
+	updates = array_get(&t->updates, &count);
+	if (count == 0)
+		return;
+
+	i_array_init(&log_updates, count);
+
+	for (i = 0; i < count; i++) {
+		log_update = array_append_space(&log_updates);
+		log_update->uid1 = updates[i].uid1;
+		log_update->uid2 = updates[i].uid2;
+		log_update->add_flags = updates[i].add_flags & 0xff;
+		log_update->remove_flags = updates[i].remove_flags & 0xff;
+		if ((updates[i].add_flags & MAIL_INDEX_MAIL_FLAG_UPDATE_MODSEQ) != 0)
+			log_update->modseq_inc_flag = 1;
+	}
+	log_append_buffer(ctx, log_updates.arr.buffer,
+			  MAIL_TRANSACTION_FLAG_UPDATE);
+	array_free(&log_updates);
+}
+
 static const buffer_t *
 log_get_hdr_update_buffer(struct mail_index_transaction *t, bool prepend)
 {
@@ -373,8 +401,7 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 
 	if (array_is_created(&t->updates)) {
 		change_mask |= MAIL_INDEX_SYNC_TYPE_FLAGS;
-		log_append_buffer(&ctx, t->updates.arr.buffer, 
-				  MAIL_TRANSACTION_FLAG_UPDATE);
+		log_append_flag_updates(&ctx, t);
 	}
 
 	if (array_is_created(&t->ext_rec_updates)) {

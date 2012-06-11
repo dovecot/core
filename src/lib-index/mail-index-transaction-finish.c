@@ -80,7 +80,7 @@ transaction_update_atomic_reset_ids(struct mail_index_transaction *t)
 
 static unsigned int
 mail_transaction_drop_range(struct mail_index_transaction *t,
-			    struct mail_transaction_flag_update update,
+			    struct mail_index_flag_update update,
 			    unsigned int update_idx,
 			    ARRAY_TYPE(seq_range) *keeps)
 {
@@ -109,7 +109,7 @@ mail_transaction_drop_range(struct mail_index_transaction *t,
 static void
 mail_index_transaction_finish_flag_updates(struct mail_index_transaction *t)
 {
-	const struct mail_transaction_flag_update *updates, *u;
+	const struct mail_index_flag_update *updates, *u;
 	const struct mail_index_record *rec;
 	unsigned int i, count;
 	ARRAY_TYPE(seq_range) keeps;

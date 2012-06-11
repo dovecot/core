@@ -332,6 +332,10 @@ void index_storage_mailbox_close(struct mailbox *box)
 	if (box->input != NULL)
 		i_stream_unref(&box->input);
 
+	if (box->view_pvt != NULL)
+		mail_index_view_close(&box->view_pvt);
+	if (box->index_pvt != NULL)
+		mail_index_close(box->index_pvt);
 	mail_index_view_close(&box->view);
 	mail_index_close(box->index);
 	box->cache = NULL;
@@ -349,6 +353,8 @@ void index_storage_mailbox_close(struct mailbox *box)
 
 void index_storage_mailbox_free(struct mailbox *box)
 {
+	if (box->index_pvt != NULL)
+		mail_index_alloc_cache_unref(&box->index_pvt);
 	if (box->index != NULL)
 		mail_index_alloc_cache_unref(&box->index);
 }

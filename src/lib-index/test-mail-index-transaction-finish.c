@@ -60,8 +60,8 @@ uint64_t mail_index_modseq_get_highest(struct mail_index_view *view ATTR_UNUSED)
 static void test_mail_index_transaction_finish_flag_updates(void)
 {
 	struct mail_index_transaction *t;
-	const struct mail_transaction_flag_update *updates;
-	struct mail_transaction_flag_update u;
+	const struct mail_index_flag_update *updates;
+	struct mail_index_flag_update u;
 	unsigned int count;
 
 	t = t_new(struct mail_index_transaction, 1);

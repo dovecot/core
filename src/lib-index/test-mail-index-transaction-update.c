@@ -139,7 +139,7 @@ static void test_mail_index_append(void)
 static void test_mail_index_flag_update_fastpath(void)
 {
 	struct mail_index_transaction *t;
-	const struct mail_transaction_flag_update *updates;
+	const struct mail_index_flag_update *updates;
 	unsigned int count;
 
 	hdr.messages_count = 20;
@@ -168,12 +168,10 @@ static void test_mail_index_flag_update_fastpath(void)
 	test_assert(updates[0].add_flags == MAIL_DELETED);
 	test_assert(updates[0].remove_flags ==
 		    (MAIL_ANSWERED | MAIL_FLAGGED | MAIL_SEEN | MAIL_DRAFT));
-	test_assert(updates[0].padding == 0);
 	test_assert(updates[1].uid1 == 16);
 	test_assert(updates[1].uid2 == 16);
 	test_assert(updates[1].add_flags == MAIL_DELETED);
 	test_assert(updates[1].remove_flags == 0);
-	test_assert(updates[1].padding == 0);
 	test_assert(!t->log_updates);
 	test_end();
 }
@@ -181,7 +179,7 @@ static void test_mail_index_flag_update_fastpath(void)
 static void test_mail_index_flag_update_simple_merges(void)
 {
 	struct mail_index_transaction *t;
-	const struct mail_transaction_flag_update *updates;
+	const struct mail_index_flag_update *updates;
 	unsigned int count;
 
 	hdr.messages_count = 20;
@@ -224,7 +222,7 @@ static void test_mail_index_flag_update_simple_merges(void)
 static void test_mail_index_flag_update_complex_merges(void)
 {
 	struct mail_index_transaction *t;
-	const struct mail_transaction_flag_update *updates;
+	const struct mail_index_flag_update *updates;
 	unsigned int count;
 
 	hdr.messages_count = 20;
@@ -283,7 +281,7 @@ static bool
 flags_array_check(struct mail_index_transaction *t,
 		  const enum mail_flags *flags, unsigned int msg_count)
 {
-	const struct mail_transaction_flag_update *updates;
+	const struct mail_index_flag_update *updates;
 	unsigned int i, count, seq;
 
 	if (array_is_created(&t->updates))
@@ -357,7 +355,7 @@ static void test_mail_index_flag_update_random(void)
 static void test_mail_index_cancel_flag_updates(void)
 {
 	struct mail_index_transaction *t;
-	const struct mail_transaction_flag_update *updates;
+	const struct mail_index_flag_update *updates;
 	unsigned int count;
 
 	hdr.messages_count = 20;
@@ -390,7 +388,7 @@ static void test_mail_index_flag_update_appends(void)
 {
 	struct mail_index_transaction *t;
 	const struct mail_index_record *appends;
-	const struct mail_transaction_flag_update *updates;
+	const struct mail_index_flag_update *updates;
 	unsigned int count;
 	uint32_t seq;
 

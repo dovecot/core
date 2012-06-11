@@ -42,9 +42,11 @@ enum mail_index_header_flag {
 
 enum mail_index_mail_flags {
 	/* For private use by backend. Replacing flags doesn't change this. */
-	MAIL_INDEX_MAIL_FLAG_BACKEND	= 0x40,
+	MAIL_INDEX_MAIL_FLAG_BACKEND		= 0x40,
 	/* Message flags haven't been written to backend */
-	MAIL_INDEX_MAIL_FLAG_DIRTY	= 0x80
+	MAIL_INDEX_MAIL_FLAG_DIRTY		= 0x80,
+	/* Force updating this message's modseq via a flag update record */
+	MAIL_INDEX_MAIL_FLAG_UPDATE_MODSEQ	= 0x100
 };
 
 #define MAIL_INDEX_FLAGS_MASK \

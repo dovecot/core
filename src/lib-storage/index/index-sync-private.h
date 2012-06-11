@@ -22,4 +22,6 @@ void index_sync_search_results_uidify(struct index_mailbox_sync_context *ctx);
 void index_sync_search_results_update(struct index_mailbox_sync_context *ctx);
 void index_sync_search_results_expunge(struct index_mailbox_sync_context *ctx);
 
+int index_storage_mailbox_sync_pvt(struct mailbox *box);
+
 #endif

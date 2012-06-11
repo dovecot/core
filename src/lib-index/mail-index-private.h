@@ -39,8 +39,8 @@ struct mail_index_sync_map_ctx;
 	 PTR_OFFSET((map)->rec_map->records, (idx) * (map)->hdr.record_size))
 
 #define MAIL_TRANSACTION_FLAG_UPDATE_IS_INTERNAL(u) \
-	((((u)->add_flags | (u)->remove_flags) & \
-	  MAIL_INDEX_FLAGS_MASK) == 0)
+	((((u)->add_flags | (u)->remove_flags) & MAIL_INDEX_FLAGS_MASK) == 0 && \
+	 (u)->modseq_inc_flag == 0)
 
 #define MAIL_INDEX_EXT_KEYWORDS "keywords"
 

@@ -101,8 +101,10 @@ enum mailbox_list_path_type {
 	MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX,
 	/* Return control directory */
 	MAILBOX_LIST_PATH_TYPE_CONTROL,
-	/* Return index file directory */
-	MAILBOX_LIST_PATH_TYPE_INDEX
+	/* Return index directory ("" for in-memory) */
+	MAILBOX_LIST_PATH_TYPE_INDEX,
+	/* Return the private index directory (NULL if none) */
+	MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE
 };
 
 enum mailbox_list_file_type {
@@ -117,6 +119,7 @@ struct mailbox_list_settings {
 	const char *layout; /* FIXME: shouldn't be here */
 	const char *root_dir;
 	const char *index_dir;
+	const char *index_pvt_dir;
 	const char *control_dir;
 	const char *alt_dir; /* FIXME: dbox-specific.. */
 

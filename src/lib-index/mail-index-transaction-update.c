@@ -388,7 +388,7 @@ mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
 					   unsigned int right_idx,
 					   uint32_t seq)
 {
-	const struct mail_transaction_flag_update *updates;
+	const struct mail_index_flag_update *updates;
 	unsigned int idx, count;
 
 	updates = array_get(&t->updates, &count);
@@ -414,10 +414,10 @@ mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
 
 static void
 mail_index_insert_flag_update(struct mail_index_transaction *t,
-			      struct mail_transaction_flag_update u,
+			      struct mail_index_flag_update u,
 			      unsigned int idx)
 {
-	struct mail_transaction_flag_update *updates, tmp_update;
+	struct mail_index_flag_update *updates, tmp_update;
 	unsigned int count, first_idx, max;
 
 	updates = array_get_modifiable(&t->updates, &count);
@@ -543,7 +543,7 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 				   enum mail_flags flags)
 {
 	struct mail_index_record *rec;
-	struct mail_transaction_flag_update u, *last_update;
+	struct mail_index_flag_update u, *last_update;
 	unsigned int idx, first_idx, count;
 
 	update_minmax_flagupdate_seq(t, seq1, seq2);
@@ -1108,7 +1108,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 bool mail_index_cancel_flag_updates(struct mail_index_transaction *t,
 				    uint32_t seq)
 {
-	struct mail_transaction_flag_update *updates, tmp_update;
+	struct mail_index_flag_update *updates, tmp_update;
 	unsigned int i, count;
 
 	if (!array_is_created(&t->updates))
