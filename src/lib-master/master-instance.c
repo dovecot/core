@@ -257,6 +257,7 @@ int master_instance_list_set_name(struct master_instance_list *list,
 	    strcmp(orig_inst->base_dir, base_dir) != 0) {
 		/* name already used */
 		(void)file_dotlock_delete(&dotlock);
+		list->locked = FALSE;
 		return 0;
 	}
 
@@ -292,6 +293,7 @@ int master_instance_list_remove(struct master_instance_list *list,
 
 	if (i == count) {
 		(void)file_dotlock_delete(&dotlock);
+		list->locked = FALSE;
 		return 0;
 	}
 	return master_instance_write_finish(list, fd, &dotlock) < 0 ? -1 : 1;
