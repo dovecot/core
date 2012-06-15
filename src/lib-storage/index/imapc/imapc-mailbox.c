@@ -338,7 +338,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		mail_index_update_flags(mbox->delayed_sync_trans, lseq,
 					MODIFY_REPLACE, flags);
 	}
-	if (seen_flags) T_BEGIN {
+	if (seen_flags) {
 		ARRAY_TYPE(keyword_indexes) old_kws;
 		struct mail_keywords *kw;
 
@@ -354,7 +354,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 						   lseq, MODIFY_REPLACE, kw);
 		}
 		mail_index_keywords_unref(&kw);
-	} T_END;
+	}
 	imapc_mailbox_idle_notify(mbox);
 }
 
