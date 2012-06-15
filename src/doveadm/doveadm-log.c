@@ -350,7 +350,7 @@ struct doveadm_cmd doveadm_cmd_log[] = {
 	{ cmd_log_test, "log test", "" },
 	{ cmd_log_reopen, "log reopen", "" },
 	{ cmd_log_find, "log find", "[<dir>]" },
-	{ cmd_log_errors, "log errors", "[-s <timestamp>]" }
+	{ cmd_log_errors, "log errors", "[-s <min_timestamp>]" }
 };
 
 void doveadm_register_log_commands(void)
