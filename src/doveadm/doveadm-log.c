@@ -23,6 +23,8 @@
 #define LOG_ERRORS_FNAME "log-errors"
 #define LOG_TIMESTAMP_FORMAT "%b %d %H:%M:%S"
 
+extern struct doveadm_cmd doveadm_cmd_log[];
+
 static void cmd_log_test(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 {
 	struct failure_context ctx;
@@ -278,7 +280,7 @@ static void cmd_log_find(int argc, char *argv[])
 	}
 }
 
-static void cmd_log_error_write(const char *const *args)
+static void cmd_log_error_write(const char *const *args, time_t min_timestamp)
 {
 	/* <type> <timestamp> <prefix> <text> */
 	const char *type_prefix = "?";
@@ -297,16 +299,32 @@ static void cmd_log_error_write(const char *const *args)
 		i_error("Invalid timestamp: %s", args[1]);
 		t = 0;
 	}
-
-	printf("%s %s%s%s\n", t_strflocaltime(LOG_TIMESTAMP_FORMAT, t),
-	       args[2], type_prefix, args[3]);
+	if (t >= min_timestamp) {
+		printf("%s %s%s%s\n", t_strflocaltime(LOG_TIMESTAMP_FORMAT, t),
+		       args[2], type_prefix, args[3]);
+	}
 }
 
-static void cmd_log_errors(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
+static void cmd_log_errors(int argc, char *argv[])
 {
 	struct istream *input;
 	const char *path, *line, *const *args;
-	int fd;
+	time_t min_timestamp = 0;
+	int c, fd;
+
+	while ((c = getopt(argc, argv, "s:")) > 0) {
+		switch (c) {
+		case 's':
+			if (str_to_time(optarg, &min_timestamp) < 0)
+				i_fatal("Invalid timestamp: %s", optarg);
+			break;
+		default:
+			help(&doveadm_cmd_log[3]);
+		}
+	}
+	argv += optind - 1;
+	if (argv[1] != NULL)
+		help(&doveadm_cmd_log[3]);
 
 	path = t_strconcat(doveadm_settings->base_dir,
 			   "/"LOG_ERRORS_FNAME, NULL);
@@ -319,7 +337,7 @@ static void cmd_log_errors(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 	while ((line = i_stream_read_next_line(input)) != NULL) T_BEGIN {
 		args = t_strsplit_tabescaped(line);
 		if (str_array_length(args) == 4)
-			cmd_log_error_write(args);
+			cmd_log_error_write(args, min_timestamp);
 		else {
 			i_error("Invalid input from log: %s", line);
 			doveadm_exit_code = EX_PROTOCOL;
@@ -332,7 +350,7 @@ struct doveadm_cmd doveadm_cmd_log[] = {
 	{ cmd_log_test, "log test", "" },
 	{ cmd_log_reopen, "log reopen", "" },
 	{ cmd_log_find, "log find", "[<dir>]" },
-	{ cmd_log_errors, "log errors", "" }
+	{ cmd_log_errors, "log errors", "[-s <timestamp>]" }
 };
 
 void doveadm_register_log_commands(void)
