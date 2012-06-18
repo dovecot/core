@@ -452,9 +452,10 @@ fts_backend_squat_lookup(struct fts_backend *_backend, struct mailbox *box,
 				       &result->maybe_uids);
 		if (ret < 0)
 			return -1;
-		if (ret > 0)
+		if (ret > 0) {
 			args->match_always = TRUE;
-		first = FALSE;
+			first = FALSE;
+		}
 	}
 	return 0;
 }
