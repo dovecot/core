@@ -388,7 +388,8 @@ ssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
 			return 0;
 		}
 		if (ssl_io->closed) {
-			errno = ssl_io->plain_stream_errno;
+			errno = ssl_io->plain_stream_errno != 0 ?
+				ssl_io->plain_stream_errno : EPIPE;
 			return -1;
 		}
 		return 1;
@@ -396,7 +397,8 @@ ssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
 		ssl_io->want_read = TRUE;
 		(void)ssl_iostream_bio_sync(ssl_io);
 		if (ssl_io->closed) {
-			errno = ssl_io->plain_stream_errno;
+			errno = ssl_io->plain_stream_errno != 0 ?
+				ssl_io->plain_stream_errno : EPIPE;
 			return -1;
 		}
 		return ssl_io->want_read ? 0 : 1;
@@ -406,6 +408,7 @@ ssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
 			errstr = ssl_iostream_error();
 			errno = EINVAL;
 		} else if (ret != 0) {
+			i_assert(errno != 0);
 			errstr = strerror(errno);
 		} else {
 			/* EOF. */

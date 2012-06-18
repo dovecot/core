@@ -38,6 +38,7 @@ static ssize_t i_stream_ssl_read(struct istream_private *stream)
 	if (ret <= 0) {
 		if (ret < 0) {
 			/* handshake failed */
+			i_assert(errno != 0);
 			stream->istream.stream_errno = errno;
 		}
 		return ret;
