@@ -153,7 +153,10 @@ static int message_parser_read_more(struct message_parser_ctx *ctx,
 		}
 	}
 
-	ctx->want_count = 1;
+	if (!*full_r) {
+		/* reset number of wanted characters if we actually got them */
+		ctx->want_count = 1;
+	}
 	return 1;
 }
 
