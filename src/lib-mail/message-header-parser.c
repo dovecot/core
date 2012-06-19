@@ -159,6 +159,17 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 						break;
 					}
 				}
+				if (i == min_pos && (msg[size-1] == '\r' ||
+						     msg[size-1] == '\n')) {
+					/* we may or may not have a full header,
+					   but we don't know until we get the
+					   next character. leave out the
+					   linefeed and finish the header on
+					   the next run. */
+					size--;
+					if (size > 0 && msg[size-1] == '\r')
+						size--;
+				}
 
 				continues = TRUE;
 			}
@@ -201,7 +212,10 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			}
 		}
 
-		if (i < parse_size) {
+		if (i < parse_size && i+1 == size && ret == -2) {
+			/* we don't know if the line continues. */
+			i++;
+		} else if (i < parse_size) {
 			/* got a line */
 			if (ctx->skip_line) {
 				/* skipping a line with a huge header name */
