@@ -291,6 +291,7 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 			     struct message_block *block_r, bool first_line)
 {
 	struct message_part *part;
+	size_t line_size;
 
 	/* get back to parent MIME part, summing the child MIME part sizes
 	   into parent's body sizes */
@@ -310,12 +311,21 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 
 	/* the boundary itself should already be in buffer. add that. */
 	block_r->data = i_stream_get_data(ctx->input, &block_r->size);
-	i_assert(block_r->size >= ctx->skip + 2 + boundary->len +
-		 (first_line ? 0 : 1));
+	i_assert(block_r->size >= ctx->skip);
 	block_r->data += ctx->skip;
-	/* [\n]--<boundary>[--] */
-	block_r->size = (first_line ? 0 : 1) + 2 + boundary->len +
-		(boundary->epilogue_found ? 2 : 0);
+	/* [[\r]\n]--<boundary>[--] */
+	if (first_line)
+		line_size = 0;
+	else if (block_r->data[0] == '\r') {
+		i_assert(block_r->data[1] == '\n');
+		line_size = 2;
+	} else {
+		i_assert(block_r->data[0] == '\n');
+		line_size = 1;
+	}
+	line_size += 2 + boundary->len + (boundary->epilogue_found ? 2 : 0);
+	i_assert(block_r->size >= ctx->skip + line_size);
+	block_r->size = line_size;
 	parse_body_add_block(ctx, block_r);
 
 	ctx->parse_next_block = parse_next_body_skip_boundary_line;
@@ -382,6 +392,10 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 	} else if (boundary_start == 0) {
 		/* no linefeeds in this block. we can just skip it. */
 		ret = 0;
+		if (block_r->data[block_r->size-1] == '\r') {
+			/* this may be the beginning of the \r\n--boundary */
+			block_r->size--;
+		}
 		boundary_start = block_r->size;
 	} else {
 		/* the boundary wasn't found from this data block,
