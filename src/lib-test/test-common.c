@@ -17,7 +17,7 @@ static unsigned int total_count;
 struct test_istream {
 	struct istream_private istream;
 	unsigned int skip_diff;
-	size_t max_pos, max_buffer_size;
+	size_t max_pos;
 	bool allow_eof;
 };
 
@@ -29,7 +29,7 @@ static ssize_t test_read(struct istream_private *stream)
 
 	i_assert(stream->skip <= stream->pos);
 
-	if (stream->pos - stream->skip >= tstream->max_buffer_size)
+	if (stream->pos - stream->skip >= tstream->istream.max_buffer_size)
 		return -2;
 
 	if (tstream->max_pos < stream->pos) {
@@ -88,7 +88,7 @@ struct istream *test_istream_create_data(const void *data, size_t size)
 	(void)i_stream_create(&tstream->istream, NULL, -1);
 	tstream->istream.statbuf.st_size = tstream->max_pos = size;
 	tstream->allow_eof = TRUE;
-	tstream->max_buffer_size = (size_t)-1;
+	tstream->istream.max_buffer_size = (size_t)-1;
 	return &tstream->istream.istream;
 }
 
@@ -110,7 +110,7 @@ void test_istream_set_max_buffer_size(struct istream *input, size_t size)
 	struct test_istream *tstream =
 		(struct test_istream *)input->real_stream;
 
-	tstream->max_buffer_size = size;
+	tstream->istream.max_buffer_size = size;
 }
 
 void test_istream_set_size(struct istream *input, uoff_t size)
