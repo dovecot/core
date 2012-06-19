@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-charset
 
 libmail_la_SOURCES = \
+	istream-binary-converter.c \
 	istream-dot.c \
 	istream-header-filter.c \
 	mail-user-hash.c \
@@ -27,6 +28,7 @@ libmail_la_SOURCES = \
 	rfc822-parser.c
 
 headers = \
+	istream-binary-converter.h \
 	istream-dot.h \
 	istream-header-filter.h \
 	mail-user-hash.h \
@@ -53,6 +55,7 @@ pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	test-istream-dot \
+	test-istream-binary-converter \
 	test-istream-header-filter \
 	test-mbox-from \
 	test-message-address \
@@ -75,6 +78,10 @@ test_libs = \
 test_istream_dot_SOURCES = test-istream-dot.c
 test_istream_dot_LDADD = istream-dot.lo $(test_libs)
 test_istream_dot_DEPENDENCIES = istream-dot.lo $(test_libs)
+
+test_istream_binary_converter_SOURCES = test-istream-binary-converter.c
+test_istream_binary_converter_LDADD = istream-binary-converter.lo message-parser.lo message-header-parser.lo message-size.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
+test_istream_binary_converter_DEPENDENCIES = istream-binary-converter.lo message-parser.lo message-header-parser.lo message-size.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
 
 test_istream_header_filter_SOURCES = test-istream-header-filter.c
 test_istream_header_filter_LDADD = istream-header-filter.lo message-header-parser.lo $(test_libs)
