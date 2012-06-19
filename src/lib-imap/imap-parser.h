@@ -18,7 +18,9 @@ enum imap_parser_flags {
 	/* Allow strings to contain CRLFs */
 	IMAP_PARSE_FLAG_MULTILINE_STR	= 0x10,
 	/* Parse in list context; ')' parses as EOL */
-	IMAP_PARSE_FLAG_INSIDE_LIST	= 0x20
+	IMAP_PARSE_FLAG_INSIDE_LIST	= 0x20,
+	/* Parse literal8 and set it as flag to imap_arg. */
+	IMAP_PARSE_FLAG_LITERAL8	= 0x40
 };
 
 struct imap_parser;

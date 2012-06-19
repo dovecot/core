@@ -16,6 +16,7 @@ enum arg_parse_type {
 	ARG_PARSE_ATOM,
 	ARG_PARSE_STRING,
 	ARG_PARSE_LITERAL,
+	ARG_PARSE_LITERAL8,
 	ARG_PARSE_LITERAL_DATA,
 	ARG_PARSE_LITERAL_DATA_FORCED
 };
@@ -45,6 +46,7 @@ struct imap_parser {
 
 	unsigned int literal_skip_crlf:1;
 	unsigned int literal_nonsync:1;
+	unsigned int literal8:1;
 	unsigned int literal_size_return:1;
 	unsigned int eol:1;
 	unsigned int fatal_error:1;
@@ -248,6 +250,7 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 				IMAP_ARG_LITERAL_SIZE_NONSYNC :
 				IMAP_ARG_LITERAL_SIZE;
 			arg->_data.literal_size = parser->literal_size;
+			arg->literal8 = parser->literal8;
 			break;
 		}
 		/* fall through */
@@ -257,6 +260,7 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 		else
 			arg->type = IMAP_ARG_STRING;
 		arg->_data.str = imap_parser_strdup(parser, data, size);
+		arg->literal8 = parser->literal8;
 		arg->str_len = size;
 		break;
 	default:
@@ -514,10 +518,21 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 			parser->cur_type = ARG_PARSE_STRING;
 			parser->str_first_escape = -1;
 			break;
+		case '~':
+			if ((parser->flags & IMAP_PARSE_FLAG_LITERAL8) != 0) {
+				parser->error = "literal8 not allowed here";
+				return FALSE;
+			}
+			parser->cur_type = ARG_PARSE_LITERAL8;
+			parser->literal_size = 0;
+			parser->literal_nonsync = FALSE;
+			parser->literal8 = TRUE;
+			break;
 		case '{':
 			parser->cur_type = ARG_PARSE_LITERAL;
 			parser->literal_size = 0;
 			parser->literal_nonsync = FALSE;
+			parser->literal8 = FALSE;
 			break;
 		case '(':
 			imap_parser_open_list(parser);
@@ -553,6 +568,16 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 		if (!imap_parser_read_string(parser, data, data_size))
 			return FALSE;
 		break;
+	case ARG_PARSE_LITERAL8:
+		if (parser->cur_pos == data_size)
+			return FALSE;
+		if (data[parser->cur_pos] != '{') {
+			parser->error = "Expected '{'";
+			return FALSE;
+		}
+		parser->cur_type = ARG_PARSE_LITERAL8;
+		parser->cur_pos++;
+		/* fall through */
 	case ARG_PARSE_LITERAL:
 		if (!imap_parser_read_literal(parser, data, data_size))
 			return FALSE;
