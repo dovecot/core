@@ -269,7 +269,10 @@ static int parse_next_body_skip_boundary_line(struct message_parser_ctx *ctx,
 	ptr = memchr(block_r->data, '\n', block_r->size);
 	if (ptr == NULL) {
 		parse_body_add_block(ctx, block_r);
-		return 1;
+		if (block_r->size > 0 &&
+		    (ctx->flags & MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES) != 0)
+			return 1;
+		return 0;
 	}
 
 	/* found the LF */
@@ -286,6 +289,9 @@ static int parse_next_body_skip_boundary_line(struct message_parser_ctx *ctx,
 		/* a new MIME part begins */
 		ctx->parse_next_block = parse_next_mime_header_init;
 	}
+	if (block_r->size > 0 &&
+	    (ctx->flags & MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES) != 0)
+		return 1;
 	return ctx->parse_next_block(ctx, block_r);
 }
 
@@ -333,6 +339,8 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 
 	ctx->parse_next_block = parse_next_body_skip_boundary_line;
 
+	if ((ctx->flags & MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES) != 0)
+		return 1;
 	return ctx->parse_next_block(ctx, block_r);
 }
 

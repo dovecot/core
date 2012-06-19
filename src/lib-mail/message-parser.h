@@ -6,13 +6,15 @@
 
 enum message_parser_flags {
 	/* Don't return message bodies in message_blocks. */
-	MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK	= 0x01,
+	MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK		= 0x01,
 	/* Buggy software creates Content-Type: headers without Mime-Version:
 	   header. By default we allow this and assume message is MIME if
 	   Content-Type: is found. This flag disables this. */
-	MESSAGE_PARSER_FLAG_MIME_VERSION_STRICT	= 0x02,
+	MESSAGE_PARSER_FLAG_MIME_VERSION_STRICT		= 0x02,
 	/* Return multipart (preamble and epilogue) blocks */
-	MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS = 0x04
+	MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS	= 0x04,
+	/* Return --boundary lines */
+	MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES		= 0x08
 };
 
 /* Note that these flags are used directly by message-parser-serialize, so
