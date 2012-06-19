@@ -6,6 +6,7 @@
 #include "istream-chain.h"
 #include "ostream.h"
 #include "str.h"
+#include "istream-binary-converter.h"
 #include "mail-storage-private.h"
 #include "imap-parser.h"
 #include "imap-date.h"
@@ -41,6 +42,7 @@ struct cmd_append_context {
 	unsigned int count;
 
 	unsigned int message_input:1;
+	unsigned int binary_input:1;
 	unsigned int catenate:1;
 	unsigned int failed:1;
 };
@@ -369,6 +371,7 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 
 	ret = imap_parser_read_args(ctx->save_parser, 0,
 				    IMAP_PARSE_FLAG_LITERAL_SIZE |
+				    IMAP_PARSE_FLAG_LITERAL8 |
 				    IMAP_PARSE_FLAG_INSIDE_LIST, &args);
 	if (ret == -1) {
 		if (!ctx->failed) {
@@ -430,6 +433,7 @@ cmd_append_handle_args(struct client_command_context *cmd,
 	enum mail_flags flags;
 	const char *const *keywords_list;
 	struct mail_keywords *keywords;
+	struct istream *input;
 	const char *internal_date_str;
 	time_t internal_date;
 	int ret, timezone_offset;
@@ -458,8 +462,15 @@ cmd_append_handle_args(struct client_command_context *cmd,
 			valid = TRUE;
 			ctx->catenate = TRUE;
 		}
+		/* We'll do BINARY conversion only if the CATENATE's first
+		   part is a literal8. If it doesn't and a literal8 is seen
+		   later we'll abort the append with UNKNOWN-CTE. */
+		ctx->binary_input = imap_arg_atom_equals(&cat_list[0], "TEXT") &&
+			cat_list[1].literal8;
+
 	} else if (imap_arg_get_literal_size(*args, &ctx->literal_size)) {
 		*nonsync_r = (*args)->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
+		ctx->binary_input = (*args)->literal8;
 		valid = TRUE;
 	}
 
@@ -520,6 +531,11 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		ctx->litinput = i_stream_create_limit(client->input, ctx->literal_size);
 		ctx->input = ctx->litinput;
 		i_stream_ref(ctx->input);
+	}
+	if (ctx->binary_input) {
+		input = i_stream_create_binary_converter(ctx->input);
+		i_stream_unref(&ctx->input);
+		ctx->input = input;
 	}
 
 	/* save the mail */
