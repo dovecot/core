@@ -392,6 +392,12 @@ acl_copy(struct mail_save_context *ctx, struct mail *mail)
 	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
 	enum acl_storage_rights save_right;
 
+	if (ctx->moving) {
+		if (acl_mailbox_right_lookup(mail->box,
+					     ACL_STORAGE_RIGHT_EXPUNGE) <= 0)
+			return -1;
+	}
+
 	save_right = (t->box->flags & MAILBOX_FLAG_POST_SESSION) != 0 ?
 		ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
 	if (acl_mailbox_right_lookup(t->box, save_right) <= 0)
