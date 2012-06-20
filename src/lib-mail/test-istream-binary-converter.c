@@ -27,8 +27,8 @@ static const char mail_input[] =
 "\r\n"
 "mime header\r\n"
 "\r\n--bound\r\n"
-"Content-Type: text/plain\r\n"
 "Content-Transfer-Encoding: binary\r\n"
+"Content-Type: text/plain\r\n"
 "\r\n"
 BINARY_TEXT_LONG
 "\r\n--bound\r\n"
@@ -48,8 +48,8 @@ static const char mail_output[] =
 "\r\n"
 "mime header\r\n"
 "\r\n--bound\r\n"
-"Content-Type: text/plain\r\n"
 "Content-Transfer-Encoding: base64\r\n"
+"Content-Type: text/plain\r\n"
 "\r\n"
 BINARY_TEXT_LONG_BASE64
 "\r\n--bound\r\n"

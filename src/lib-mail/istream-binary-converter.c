@@ -10,6 +10,7 @@
 #define BASE64_BLOCK_INPUT_SIZE 3
 #define BASE64_BLOCK_SIZE 4
 #define BASE64_BLOCKS_PER_LINE (76/BASE64_BLOCK_SIZE)
+#define MAX_HDR_BUFFER_SIZE (1024*32)
 
 struct binary_converter_istream {
 	struct istream_private istream;
@@ -25,6 +26,9 @@ struct binary_converter_istream {
 	unsigned int cte_header_len;
 	unsigned int content_type_seen:1;
 };
+
+static void stream_add_data(struct binary_converter_istream *bstream,
+			    const void *data, size_t size);
 
 static void *
 stream_alloc_data(struct binary_converter_istream *bstream, size_t size)
@@ -45,15 +49,51 @@ stream_alloc_data(struct binary_converter_istream *bstream, size_t size)
 	return stream->w_buffer + stream->pos;
 }
 
+static bool part_can_convert(const struct message_part *part)
+{
+	/* some MUAs use "c-t-e: binary" for multiparts.
+	   we don't want to convert them. */
+	return (part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0;
+}
+
+static void
+stream_finish_convert_decision(struct binary_converter_istream *bstream)
+{
+	buffer_t *buf = bstream->hdr_buf;
+	const unsigned char *data;
+
+	bstream->hdr_buf = NULL;
+	if (!part_can_convert(bstream->convert_part)) {
+		bstream->convert_part = NULL;
+		stream_add_data(bstream, buf->data, buf->used);
+	} else {
+		stream_add_data(bstream,
+			"Content-Transfer-Encoding: base64\r\n", 35);
+
+		data = CONST_PTR_OFFSET(buf->data, bstream->cte_header_len);
+		stream_add_data(bstream, data,
+				buf->used - bstream->cte_header_len);
+	}
+	buffer_free(&buf);
+}
+
 static void stream_add_data(struct binary_converter_istream *bstream,
 			    const void *data, size_t size)
 {
+	if (size == 0)
+		return;
+
 	if (bstream->hdr_buf != NULL) {
-		buffer_append(bstream->hdr_buf, data, size);
-	} else if (size > 0) {
-		memcpy(stream_alloc_data(bstream, size), data, size);
-		bstream->istream.pos += size;
+		if (bstream->hdr_buf->used + size <= MAX_HDR_BUFFER_SIZE) {
+			buffer_append(bstream->hdr_buf, data, size);
+			return;
+		}
+		/* buffer is getting too large. just finish the decision. */
+		stream_finish_convert_decision(bstream);
 	}
+
+	memcpy(stream_alloc_data(bstream, size), data, size);
+	bstream->istream.pos += size;
 }
 
 static void stream_encode_base64(struct binary_converter_istream *bstream,
@@ -137,13 +177,6 @@ static void stream_encode_base64(struct binary_converter_istream *bstream,
 	}
 }
 
-static bool part_can_convert(const struct message_part *part)
-{
-	/* some MUAs use "c-t-e: binary" for multiparts.
-	   we don't want to convert them. */
-	return (part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0;
-}
-
 static void stream_add_hdr(struct binary_converter_istream *bstream,
 			   const struct message_header_line *hdr)
 {
@@ -218,24 +251,8 @@ static ssize_t i_stream_binary_converter_read(struct istream_private *stream)
 			}
 		} else if (block.hdr->eoh && bstream->hdr_buf != NULL) {
 			/* finish the decision about decoding */
-			buffer_t *buf = bstream->hdr_buf;
-			const unsigned char *data;
-
-			bstream->hdr_buf = NULL;
-			if (!part_can_convert(block.part)) {
-				bstream->convert_part = NULL;
-				stream_add_data(bstream, buf->data, buf->used);
-			} else {
-				stream_add_data(bstream,
-					"Content-Transfer-Encoding: base64\r\n", 35);
-
-				data = CONST_PTR_OFFSET(buf->data,
-							bstream->cte_header_len);
-				stream_add_data(bstream, data,
-					buf->used - bstream->cte_header_len);
-			}
+			stream_finish_convert_decision(bstream);
 			stream_add_data(bstream, "\r\n", 2);
-			buffer_free(&buf);
 		} else {
 			stream_add_hdr(bstream, block.hdr);
 		}
