@@ -325,6 +325,11 @@ cmd_append_catenate(struct client_command_context *cmd,
 			args++;
 			if (!imap_arg_get_literal_size(args, &ctx->literal_size))
 				break;
+			if (args->literal8 && !ctx->binary_input) {
+				client_send_tagline(cmd,
+					"NO [UNKNOWN-CTE] Binary input allowed only when the first part is binary.");
+				return -1;
+			}
 			*nonsync_r = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
 			return cmd_append_catenate_text(cmd) < 0 ? -1 : 1;
 		} else {
@@ -644,7 +649,8 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 
 	/* [<flags>] [<internal date>] <message literal> */
 	ret = imap_parser_read_args(ctx->save_parser, 0,
-				    IMAP_PARSE_FLAG_LITERAL_SIZE, &args);
+				    IMAP_PARSE_FLAG_LITERAL_SIZE |
+				    IMAP_PARSE_FLAG_LITERAL8, &args);
 	if (ret == -1) {
 		if (!ctx->failed) {
 			msg = imap_parser_get_error(ctx->save_parser, &fatal);
