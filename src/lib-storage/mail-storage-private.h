@@ -470,6 +470,8 @@ struct mail_save_context {
 	unsigned int copying_via_save:1;
 	/* mail is being saved, not copied */
 	unsigned int saving:1;
+	/* mail is being moved - ignore quota */
+	unsigned int moving:1;
 };
 
 struct mailbox_sync_context {

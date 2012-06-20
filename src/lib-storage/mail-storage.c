@@ -1711,6 +1711,18 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 	return ret;
 }
 
+int mailbox_move(struct mail_save_context **_ctx, struct mail *mail)
+{
+	struct mail_save_context *ctx = *_ctx;
+
+	ctx->moving = TRUE;
+	if (mailbox_copy(_ctx, mail) < 0)
+		return -1;
+
+	mail_expunge(mail);
+	return 0;
+}
+
 int mailbox_save_using_mail(struct mail_save_context **ctx, struct mail *mail)
 {
 	(*ctx)->saving = TRUE;

@@ -679,6 +679,9 @@ mailbox_save_get_transaction(struct mail_save_context *ctx);
 /* Copy the given message. You'll need to specify the flags etc. using the
    mailbox_save_*() functions. */
 int mailbox_copy(struct mail_save_context **ctx, struct mail *mail);
+/* Move the given message. This is usually equivalent to copy+expunge,
+   but without enforcing quota. */
+int mailbox_move(struct mail_save_context **ctx, struct mail *mail);
 /* Same as mailbox_copy(), but treat the message as if it's being saved,
    not copied. (For example: New mail delivered to multiple maildirs, with
    each mails being hard link copies.) */
