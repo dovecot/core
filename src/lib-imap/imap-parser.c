@@ -519,7 +519,7 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 			parser->str_first_escape = -1;
 			break;
 		case '~':
-			if ((parser->flags & IMAP_PARSE_FLAG_LITERAL8) != 0) {
+			if ((parser->flags & IMAP_PARSE_FLAG_LITERAL8) == 0) {
 				parser->error = "literal8 not allowed here";
 				return FALSE;
 			}
