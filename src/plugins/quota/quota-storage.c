@@ -170,8 +170,17 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 	if (qbox->module_ctx.super.copy(ctx, mail) < 0)
 		return -1;
 
-	/* if copying used saving internally, we already checked the quota */
-	return ctx->copying_via_save ? 0 : quota_check(t, ctx->dest_mail);
+	if (ctx->copying_via_save) {
+		/* copying used saving internally, we already checked the
+		   quota */
+		return 0;
+	}
+	if (ctx->moving) {
+		/* the mail is being moved. the quota won't increase, so allow
+		   this even if user is currently over quota */
+		return 0;
+	}
+	return quota_check(t, ctx->dest_mail);
 }
 
 static int
@@ -183,7 +192,7 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 	uoff_t size;
 	int ret;
 
-	if (i_stream_get_size(input, TRUE, &size) > 0) {
+	if (i_stream_get_size(input, TRUE, &size) > 0 && !ctx->moving) {
 		/* Input size is known, check for quota immediately. This
 		   check isn't perfect, especially because input stream's
 		   linefeeds may contain CR+LFs while physical message would
@@ -227,6 +236,11 @@ static int quota_save_finish(struct mail_save_context *ctx)
 	if (qbox->module_ctx.super.save_finish(ctx) < 0)
 		return -1;
 
+	if (ctx->moving) {
+		/* the mail is being moved. the quota won't increase, so allow
+		   this even if user is currently over quota */
+		return 0;
+	}
 	return quota_check(ctx->transaction, ctx->dest_mail);
 }
 
