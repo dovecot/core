@@ -686,14 +686,14 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		/* after literal comes CRLF, if we fail make sure
 		   we eat it away */
 		client->input_skip_line = TRUE;
-
-		if (!nonsync) {
-			o_stream_send(client->output, "+ OK\r\n", 6);
-			o_stream_flush(client->output);
-			o_stream_uncork(client->output);
-			o_stream_cork(client->output);
-		}
 		ctx->message_input = TRUE;
+	}
+
+	if (!nonsync) {
+		o_stream_send(client->output, "+ OK\r\n", 6);
+		o_stream_flush(client->output);
+		o_stream_uncork(client->output);
+		o_stream_cork(client->output);
 	}
 
 	cmd->func = cmd_append_continue_message;
