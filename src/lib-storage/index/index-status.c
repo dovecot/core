@@ -33,7 +33,7 @@ int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status_r)
 {
-	const struct mail_index_header *hdr;
+	const struct mail_index_header *hdr, *hdr_pvt;
 
 	memset(status_r, 0, sizeof(struct mailbox_status));
 
@@ -46,6 +46,8 @@ int index_storage_get_status(struct mailbox *box,
 
 	/* we can get most of the status items without any trouble */
 	hdr = mail_index_get_header(box->view);
+	hdr_pvt = box->view_pvt == NULL ? NULL :
+		mail_index_get_header(box->view_pvt);
 	status_r->messages = hdr->messages_count;
 	if ((items & STATUS_RECENT) != 0) {
 		/* make sure recent count is set, in case syncing hasn't
@@ -54,7 +56,14 @@ int index_storage_get_status(struct mailbox *box,
 		status_r->recent = index_mailbox_get_recent_count(box);
 		i_assert(status_r->recent <= status_r->messages);
 	}
-	status_r->unseen = hdr->messages_count - hdr->seen_messages_count;
+	if (hdr_pvt == NULL ||
+	    (mailbox_get_private_flags_mask(box) & MAIL_SEEN) == 0) {
+		status_r->unseen = hdr->messages_count -
+			hdr->seen_messages_count;
+	} else {
+		status_r->unseen = hdr_pvt->messages_count -
+			hdr_pvt->seen_messages_count;
+	}
 	status_r->uidvalidity = hdr->uid_validity;
 	status_r->uidnext = hdr->next_uid;
 	status_r->first_recent_uid = hdr->first_recent_uid;
