@@ -9,6 +9,7 @@ libmail_la_SOURCES = \
 	istream-binary-converter.c \
 	istream-dot.c \
 	istream-header-filter.c \
+	istream-nonuls.c \
 	mail-user-hash.c \
 	mbox-from.c \
 	message-address.c \
@@ -31,6 +32,7 @@ headers = \
 	istream-binary-converter.h \
 	istream-dot.h \
 	istream-header-filter.h \
+	istream-nonuls.h \
 	mail-user-hash.h \
 	mbox-from.h \
 	mail-types.h \
@@ -43,6 +45,7 @@ headers = \
 	message-id.h \
 	message-parser.h \
 	message-part-serialize.h \
+	message-binary-part.h \
 	message-search.h \
 	message-send.h \
 	message-size.h \
