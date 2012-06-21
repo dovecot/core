@@ -1,3 +1,5 @@
+/* Copyright (c) 2012 Dovecot authors, see the included COPYING file */
+
 #include "lib.h"
 #include "network.h"
 #include "istream.h"
@@ -162,13 +164,32 @@ int imap_msgpart_url_open_mail(struct imap_msgpart_url *mpurl,
 	return 1;
 }
 
+static int
+imap_msgpart_url_open_part(struct imap_msgpart_url *mpurl, struct mail **mail_r,
+			   struct imap_msgpart **msgpart_r, const char **error_r)
+{
+	int ret;
+
+	if ((ret = imap_msgpart_url_open_mail(mpurl, mail_r, error_r)) <= 0)
+		return ret;
+
+	if (imap_msgpart_parse((*mail_r)->box, mpurl->section, msgpart_r) < 0) {
+		*error_r = "Invalid section";
+		return 0;
+	}
+	imap_msgpart_set_partial(*msgpart_r, mpurl->partial_offset,
+				 mpurl->partial_size == 0 ? (uoff_t)-1 :
+				 mpurl->partial_size);
+	return 1;
+}
+
 int imap_msgpart_url_read_part(struct imap_msgpart_url *mpurl,
 			       struct istream **stream_r, uoff_t *size_r,
 			       const char **error_r)
 {
 	struct mail *mail;
-	struct istream *input;
-	uoff_t part_size;
+	struct imap_msgpart *msgpart;
+	struct imap_msgpart_open_result result;
 	int ret;
 
 	if (mpurl->input != NULL) {
@@ -179,20 +200,20 @@ int imap_msgpart_url_read_part(struct imap_msgpart_url *mpurl,
 	}
 
 	/* open mail if it is not yet open */
-	if ((ret = imap_msgpart_url_open_mail(mpurl, &mail, error_r)) <= 0)
+	ret = imap_msgpart_url_open_part(mpurl, &mail, &msgpart, error_r);
+	if (ret <= 0)
 		return ret;
 
 	/* open the referenced part as a stream */
-	if ((ret = imap_msgpart_open(mail, mpurl->section,
-				     mpurl->partial_offset, mpurl->partial_size,
-				     &input, &part_size, error_r)) <= 0)
+	ret = imap_msgpart_open(mail, msgpart, &result);
+	imap_msgpart_free(&msgpart);
+	if (ret < 0) {
+		*error_r = mailbox_get_last_error(mail->box, NULL);
 		return ret;
+	}
 
-	mpurl->input = input;
-	mpurl->part_size = part_size;
-
-	*stream_r = input;
-	*size_r = part_size;
+	*stream_r = mpurl->input = result.input;
+	*size_r = mpurl->part_size = result.size;
 	return 1;
 }
 
@@ -200,17 +221,17 @@ int imap_msgpart_url_verify(struct imap_msgpart_url *mpurl,
 			    const char **error_r)
 {
 	struct mail *mail;
+	struct imap_msgpart *msgpart;
 	int ret;
 
 	if (mpurl->input != NULL)
 		return 1;
 
 	/* open mail if it is not yet open */
-	if ((ret = imap_msgpart_url_open_mail(mpurl, &mail, error_r)) <= 0)
-		return ret;
-
-	/* open the referenced part as a stream */
-	return imap_msgpart_verify(mail, mpurl->section, error_r);
+	ret = imap_msgpart_url_open_part(mpurl, &mail, &msgpart, error_r);
+	if (ret > 0)
+		imap_msgpart_free(&msgpart);
+	return ret;
 }
 
 void imap_msgpart_url_free(struct imap_msgpart_url **_mpurl)

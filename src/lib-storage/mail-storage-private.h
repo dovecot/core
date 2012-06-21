@@ -203,6 +203,12 @@ union mailbox_module_context {
 	struct mail_storage_module_register *reg;
 };
 
+struct mail_msgpart_partial_cache {
+	uint32_t uid;
+	uoff_t physical_start;
+	uoff_t physical_pos, virtual_pos;
+};
+
 struct mailbox {
 	const char *name;
 	/* mailbox's virtual name (from mail_namespace_get_vname()) */
@@ -244,6 +250,7 @@ struct mailbox {
 	enum mailbox_flags flags;
 	unsigned int transaction_count;
 	enum mailbox_feature enabled_features;
+	struct mail_msgpart_partial_cache partial_cache;
 
 	struct mail_index_view *tmp_sync_view;
 
