@@ -78,15 +78,6 @@ struct client_command_context {
 	unsigned int temp_executed:1; /* temporary execution state tracking */
 };
 
-struct partial_fetch_cache {
-	unsigned int select_counter;
-	unsigned int uid;
-
-	uoff_t physical_start;
-	bool cr_skipped;
-	struct message_size pos;
-};
-
 struct imap_client_vfuncs {
 	void (*destroy)(struct client *client, const char *reason);
 };
@@ -111,7 +102,6 @@ struct client {
         struct mail_user *user;
 	struct mailbox *mailbox;
         struct mailbox_keywords keywords;
-	unsigned int select_counter; /* increased when mailbox is changed */
 	unsigned int sync_counter;
 	uint32_t messages_count, recent_count, uidvalidity;
 	enum mailbox_feature enabled_features;
@@ -129,8 +119,6 @@ struct client {
 
 	uint64_t sync_last_full_modseq;
 	uint64_t highest_fetch_modseq;
-
-	struct partial_fetch_cache last_partial;
 
 	/* SEARCHRES extension: Last saved SEARCH result */
 	ARRAY_TYPE(seq_range) search_saved_uidset;

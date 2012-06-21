@@ -69,18 +69,15 @@ struct imap_fetch_context {
 	const ARRAY_TYPE(uint32_t) *qresync_sample_uidset;
 
 	ARRAY_TYPE(keywords) tmp_keywords;
-	unsigned int select_counter;
 
 	unsigned int flags_have_handler:1;
 	unsigned int flags_update_seen:1;
 	unsigned int seen_flags_changed:1;
 	unsigned int flags_show_only_seen_changes:1;
-	unsigned int update_partial:1;
-	unsigned int cur_append_eoh:1;
 	unsigned int first:1;
 	unsigned int line_partial:1;
 	unsigned int line_finished:1;
-	unsigned int partial_fetch:1;
+	unsigned int skipped_expunged_msgs:1;
 	unsigned int send_vanished:1;
 	unsigned int failed:1;
 };

@@ -10,6 +10,7 @@
 #include "message-parser.h"
 #include "message-send.h"
 #include "mail-storage-private.h"
+#include "imap-quote.h"
 #include "imap-parser.h"
 #include "imap-msgpart.h"
 #include "imap-fetch.h"
@@ -19,17 +20,10 @@
 #include <unistd.h>
 
 struct imap_fetch_body_data {
-	struct imap_fetch_body_data *next;
-
-        struct mailbox_header_lookup_ctx *header_ctx;
 	const char *section; /* NOTE: always uppercased */
-	uoff_t skip, max_size; /* if you don't want max_size,
-	                          set it to (uoff_t)-1 */
+	struct imap_msgpart *msgpart;
 
-	const char *const *fields;
-	size_t fields_count;
-
-	unsigned int skip_set:1;
+	unsigned int partial:1;
 	unsigned int peek:1;
 };
 
@@ -42,54 +36,16 @@ static void fetch_read_error(struct imap_fetch_context *ctx)
 		mailbox_get_vname(ctx->cur_mail->box), ctx->cur_mail->uid);
 }
 
-static int seek_partial(unsigned int select_counter, unsigned int uid,
-			struct partial_fetch_cache *partial,
-			struct istream *stream,
-			uoff_t virtual_skip, bool *cr_skipped_r)
-{
-	if (select_counter == partial->select_counter && uid == partial->uid &&
-	    stream->v_offset == partial->physical_start &&
-	    virtual_skip >= partial->pos.virtual_size) {
-		/* we can use the cache */
-		virtual_skip -= partial->pos.virtual_size;
-	} else {
-		partial->select_counter = select_counter;
-		partial->uid = uid;
-		partial->physical_start = stream->v_offset;
-		partial->cr_skipped = FALSE;
-		memset(&partial->pos, 0, sizeof(partial->pos));
-	}
-
-	i_stream_seek(stream, partial->physical_start +
-		      partial->pos.physical_size);
-	if (message_skip_virtual(stream, virtual_skip, &partial->pos,
-				 partial->cr_skipped, cr_skipped_r) < 0)
-		return -1;
-
-	partial->cr_skipped = FALSE;
-	return 0;
-}
-
-static uoff_t get_send_size(const struct imap_fetch_body_data *body,
-			    uoff_t max_size)
-{
-	uoff_t size;
-
-	if (body->skip >= max_size)
-		return 0;
-
-	size = max_size - body->skip;
-	return size <= body->max_size ? size : body->max_size;
-}
-
 static const char *get_body_name(const struct imap_fetch_body_data *body)
 {
 	string_t *str;
 
 	str = t_str_new(128);
 	str_printfa(str, "BODY[%s]", body->section);
-	if (body->skip_set)
-		str_printfa(str, "<%"PRIuUOFF_T">", body->skip);
+	if (body->partial) {
+		str_printfa(str, "<%"PRIuUOFF_T">",
+			    imap_msgpart_get_partial_offset(body->msgpart));
+	}
 	return str_c(str);
 }
 
@@ -114,131 +70,7 @@ static string_t *get_prefix(struct imap_fetch_context *ctx,
 	return str;
 }
 
-static off_t imap_fetch_send(struct imap_fetch_context *ctx,
-			     struct ostream *output, struct istream *input,
-			     bool cr_skipped, uoff_t virtual_size,
-			     bool add_missing_eoh, bool *last_cr)
-{
-	const unsigned char *msg;
-	size_t i, size;
-	uoff_t vsize_left, sent;
-	off_t ret;
-	unsigned char add;
-	bool blocks = FALSE;
-
-	/* go through the message data and insert CRs where needed.  */
-	sent = 0; vsize_left = virtual_size;
-	while (vsize_left > 0 && !blocks &&
-	       i_stream_read_data(input, &msg, &size, 0) > 0) {
-		add = '\0';
-		for (i = 0; i < size && vsize_left > 0; i++) {
-			vsize_left--;
-
-			if (msg[i] == '\n') {
-				if ((i > 0 && msg[i-1] != '\r') ||
-				    (i == 0 && !cr_skipped)) {
-					/* missing CR */
-					add = '\r';
-					break;
-				}
-			} else if (msg[i] == '\0') {
-				add = 128;
-				break;
-			}
-		}
-
-		if ((ret = o_stream_send(output, msg, i)) < 0)
-			return -1;
-		if ((uoff_t)ret < i) {
-			add = '\0';
-			blocks = TRUE;
-		}
-
-		if (ret > 0)
-			cr_skipped = msg[ret-1] == '\r';
-
-		i_stream_skip(input, ret);
-		sent += ret;
-
-		if (add != '\0') {
-			if ((ret = o_stream_send(output, &add, 1)) < 0)
-				return -1;
-			if (ret == 0)
-				blocks = TRUE;
-			else {
-				sent++;
-				cr_skipped = add == '\r';
-				if (add == 128)
-					i_stream_skip(input, 1);
-			}
-		}
-	}
-	if (input->stream_errno != 0) {
-		fetch_read_error(ctx);
-		return -1;
-	}
-
-	if (add_missing_eoh && sent + 2 == virtual_size) {
-		/* Netscape missing EOH workaround. */
-		o_stream_set_max_buffer_size(output, (size_t)-1);
-		if (o_stream_send(output, "\r\n", 2) < 0)
-			return -1;
-		sent += 2;
-	}
-
-	if ((uoff_t)sent != virtual_size && !blocks) {
-		/* Input stream gave less data than we expected. Two choices
-		   here: either we fill the missing data with spaces or we
-		   disconnect the client.
-
-		   We shouldn't really ever get here. One reason is if mail
-		   was deleted from NFS server while we were reading it.
-		   Another is some temporary disk error.
-
-		   If we filled the missing data the client could cache it,
-		   and if it was just a temporary error the message would be
-		   permanently left corrupted in client's local cache. So, we
-		   disconnect the client and hope that next try works. */
-		i_error("FETCH %s for mailbox %s UID %u got too little data: "
-			"%"PRIuUOFF_T" vs %"PRIuUOFF_T, ctx->cur_name,
-			mailbox_get_vname(ctx->cur_mail->box),
-			ctx->cur_mail->uid, (uoff_t)sent, virtual_size);
-		mail_set_cache_corrupted(ctx->cur_mail, ctx->cur_size_field);
-		client_disconnect(ctx->client, "FETCH failed");
-		return -1;
-	}
-
-	*last_cr = cr_skipped;
-	return sent;
-}
-
-static int fetch_stream_send(struct imap_fetch_context *ctx)
-{
-	off_t ret;
-
-	o_stream_set_max_buffer_size(ctx->client->output, 4096);
-	ret = imap_fetch_send(ctx, ctx->client->output, ctx->cur_input,
-			      ctx->skip_cr, ctx->cur_size - ctx->cur_offset,
-			      ctx->cur_append_eoh, &ctx->skip_cr);
-	o_stream_set_max_buffer_size(ctx->client->output, (size_t)-1);
-
-	if (ret < 0)
-		return -1;
-
-	ctx->cur_offset += ret;
-	if (ctx->update_partial) {
-		struct partial_fetch_cache *p = &ctx->client->last_partial;
-
-		p->cr_skipped = ctx->skip_cr != 0;
-		p->pos.physical_size =
-			ctx->cur_input->v_offset - p->physical_start;
-		p->pos.virtual_size += ret;
-	}
-
-	return ctx->cur_offset == ctx->cur_size;
-}
-
-static int fetch_stream_send_direct(struct imap_fetch_context *ctx)
+static int fetch_stream_continue(struct imap_fetch_context *ctx)
 {
 	off_t ret;
 
@@ -246,31 +78,30 @@ static int fetch_stream_send_direct(struct imap_fetch_context *ctx)
 	ret = o_stream_send_istream(ctx->client->output, ctx->cur_input);
 	o_stream_set_max_buffer_size(ctx->client->output, (size_t)-1);
 
-	if (ret < 0)
-		return -1;
-
-	ctx->cur_offset += ret;
-
-	if (ctx->cur_append_eoh && ctx->cur_offset + 2 == ctx->cur_size) {
-		/* Netscape missing EOH workaround. */
-		if (o_stream_send(ctx->client->output, "\r\n", 2) < 0)
-			return -1;
-		ctx->cur_offset += 2;
-		ctx->cur_append_eoh = FALSE;
-	}
+	if (ret > 0)
+		ctx->cur_offset += ret;
 
 	if (ctx->cur_offset != ctx->cur_size) {
 		/* unfinished */
+		if (ctx->cur_input->stream_errno != 0) {
+			fetch_read_error(ctx);
+			client_disconnect(ctx->client, "FETCH failed");
+			return -1;
+		}
 		if (!i_stream_have_bytes_left(ctx->cur_input)) {
 			/* Input stream gave less data than expected */
 			i_error("FETCH %s for mailbox %s UID %u "
-				"got too little data (copying): "
+				"got too little data: "
 				"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
 				ctx->cur_name, mailbox_get_vname(ctx->cur_mail->box),
 				ctx->cur_mail->uid, ctx->cur_offset, ctx->cur_size);
 			mail_set_cache_corrupted(ctx->cur_mail,
 						 ctx->cur_size_field);
 			client_disconnect(ctx->client, "FETCH failed");
+			return -1;
+		}
+		if (ret < 0) {
+			/* client probably disconnected */
 			return -1;
 		}
 
@@ -280,379 +111,30 @@ static int fetch_stream_send_direct(struct imap_fetch_context *ctx)
 	return 1;
 }
 
-static int fetch_stream(struct imap_fetch_context *ctx,
-			const struct message_size *size)
+static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
+			      const struct imap_fetch_body_data *body)
 {
-	struct istream *input;
+	struct imap_msgpart_open_result result;
+	string_t *str;
 
-	if (size->physical_size == size->virtual_size &&
-	    ctx->cur_mail->has_no_nuls) {
-		/* no need to kludge with CRs, we can use sendfile() */
-		input = i_stream_create_limit(ctx->cur_input, ctx->cur_size);
-		i_stream_unref(&ctx->cur_input);
-		ctx->cur_input = input;
+	if (imap_msgpart_open(mail, body->msgpart, &result) < 0)
+		return -1;
+	ctx->cur_input = result.input;
+	ctx->cur_size = result.size;
+	ctx->cur_size_field = result.size_field;
+	ctx->cur_name = p_strconcat(ctx->pool, "[", body->section, "]", NULL);
 
-		ctx->cont_handler = fetch_stream_send_direct;
-	} else {
-                ctx->cont_handler = fetch_stream_send;
-	}
+	str = get_prefix(ctx, body, ctx->cur_size);
+	if (o_stream_send(ctx->client->output, str_data(str), str_len(str)) < 0)
+		return -1;
 
+	ctx->cont_handler = fetch_stream_continue;
 	return ctx->cont_handler(ctx);
 }
 
-static int fetch_data(struct imap_fetch_context *ctx,
-		      const struct imap_fetch_body_data *body,
-		      const struct message_size *size)
-{
-	string_t *str;
-
-	ctx->cur_name = p_strconcat(ctx->pool,
-				    "[", body->section, "]", NULL);
-	ctx->cur_size = get_send_size(body, size->virtual_size);
-
-	str = get_prefix(ctx, body, ctx->cur_size);
-	if (o_stream_send(ctx->client->output,
-			  str_data(str), str_len(str)) < 0)
-		return -1;
-
-	if (!ctx->update_partial) {
-		if (message_skip_virtual(ctx->cur_input, body->skip, NULL,
-					 FALSE, &ctx->skip_cr) < 0) {
-			fetch_read_error(ctx);
-			return -1;
-		}
-	} else {
-		if (seek_partial(ctx->select_counter, ctx->cur_mail->uid,
-				 &ctx->client->last_partial, ctx->cur_input,
-				 body->skip, &ctx->skip_cr) < 0) {
-			fetch_read_error(ctx);
-			return -1;
-		}
-	}
-
-	return fetch_stream(ctx, size);
-}
-
-static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
-		      const struct imap_fetch_body_data *body)
-{
-	const struct message_size *fetch_size;
-	struct istream *input;
-	struct message_size hdr_size, body_size;
-
-	switch (body->section[0]) {
-	case '\0':
-		/* BODY[] - fetch everything */
-		if (mail_get_stream(mail, NULL, NULL, &input) < 0 ||
-		    mail_get_virtual_size(mail, &body_size.virtual_size) < 0 ||
-		    mail_get_physical_size(mail, &body_size.physical_size) < 0)
-			return -1;
-		fetch_size = &body_size;
-		ctx->cur_size_field = MAIL_FETCH_VIRTUAL_SIZE;
-		break;
-	case 'H':
-		/* BODY[HEADER] - fetch only header */
-		if (mail_get_hdr_stream(mail, &hdr_size, &input) < 0)
-			return -1;
-                fetch_size = &hdr_size;
-		ctx->cur_size_field = MAIL_FETCH_MESSAGE_PARTS;
-		break;
-	case 'T':
-		/* BODY[TEXT] - skip header */
-		if (mail_get_stream(mail, &hdr_size, &body_size, &input) < 0)
-			return -1;
-		i_stream_skip(input, hdr_size.physical_size);
-                fetch_size = &body_size;
-		ctx->cur_size_field = MAIL_FETCH_VIRTUAL_SIZE;
-		break;
-	default:
-		i_unreached();
-	}
-
-	ctx->cur_input = input;
-	i_stream_ref(ctx->cur_input);
-	ctx->update_partial = TRUE;
-
-	return fetch_data(ctx, body, fetch_size);
-}
-
-static int fetch_header_partial_from(struct imap_fetch_context *ctx,
-				     const struct imap_fetch_body_data *body,
-				     const char *header_section)
-{
-	struct message_size msg_size;
-	struct istream *input;
-	uoff_t old_offset;
-
-	/* MIME, HEADER.FIELDS (list), HEADER.FIELDS.NOT (list) */
-
-	if (strncmp(header_section, "HEADER.FIELDS ", 14) == 0) {
-		input = i_stream_create_header_filter(ctx->cur_input,
-					HEADER_FILTER_INCLUDE,
-					body->fields, body->fields_count,
-					null_header_filter_callback, NULL);
-	} else if (strncmp(header_section, "HEADER.FIELDS.NOT ", 18) == 0) {
-		input = i_stream_create_header_filter(ctx->cur_input,
-					HEADER_FILTER_EXCLUDE,
-					body->fields, body->fields_count,
-					null_header_filter_callback, NULL);
-	} else {
-		i_error("BUG: Accepted invalid section from user: '%s'",
-			header_section);
-		return -1;
-	}
-
-	i_stream_unref(&ctx->cur_input);
-	ctx->cur_input = input;
-	ctx->update_partial = FALSE;
-
-	old_offset = ctx->cur_input->v_offset;
-	if (message_get_header_size(ctx->cur_input, &msg_size, NULL) < 0) {
-		fetch_read_error(ctx);
-		return -1;
-	}
-	i_stream_seek(ctx->cur_input, old_offset);
-
-	ctx->cur_size_field = 0;
-	return fetch_data(ctx, body, &msg_size);
-}
-
-static int
-fetch_body_header_partial(struct imap_fetch_context *ctx, struct mail *mail,
-			  const struct imap_fetch_body_data *body)
-{
-	if (mail_get_hdr_stream(mail, NULL, &ctx->cur_input) < 0)
-		return -1;
-
-	i_stream_ref(ctx->cur_input);
-	ctx->update_partial = FALSE;
-
-	return fetch_header_partial_from(ctx, body, body->section);
-}
-
-static int
-fetch_body_header_fields(struct imap_fetch_context *ctx, struct mail *mail,
-			 struct imap_fetch_body_data *body)
-{
-	struct message_size size;
-	uoff_t old_offset;
-
-	if (mail == NULL) {
-		/* deinit */
-		mailbox_header_lookup_unref(&body->header_ctx);
-		return 0;
-	}
-
-	if (mail_get_header_stream(mail, body->header_ctx, &ctx->cur_input) < 0)
-		return -1;
-
-	i_stream_ref(ctx->cur_input);
-	ctx->update_partial = FALSE;
-
-	old_offset = ctx->cur_input->v_offset;
-	if (message_get_body_size(ctx->cur_input, &size, NULL) < 0) {
-		fetch_read_error(ctx);
-		return -1;
-	}
-	i_stream_seek(ctx->cur_input, old_offset);
-
-	/* FIXME: We'll just always add the end of headers line now.
-	   ideally mail-storage would have a way to tell us if it exists. */
-	size.virtual_size += 2;
-	ctx->cur_append_eoh = TRUE;
-
-	ctx->cur_size_field = 0;
-	return fetch_data(ctx, body, &size);
-}
-
-static int fetch_body_mime(struct imap_fetch_context *ctx, struct mail *mail,
-			   const struct imap_fetch_body_data *body)
-{
-	const struct message_part *part;
-	const char *section;
-
-	if (imap_msgpart_find(mail, body->section, &part, &section) < 0)
-		return -1;
-
-	if (part == NULL) {
-		/* part doesn't exist */
-		string_t *str = get_prefix(ctx, body, (uoff_t)-1);
-		if (o_stream_send(ctx->client->output,
-				  str_data(str), str_len(str)) < 0)
-			return -1;
-		return 1;
-	}
-
-	if (mail_get_stream(mail, NULL, NULL, &ctx->cur_input) < 0)
-		return -1;
-
-	i_stream_ref(ctx->cur_input);
-	ctx->update_partial = TRUE;
-	ctx->cur_size_field = MAIL_FETCH_MESSAGE_PARTS;
-
-	if (*section == '\0') {
-		/* fetch the whole section */
-		i_stream_seek(ctx->cur_input, part->physical_pos +
-			      part->header_size.physical_size);
-		return fetch_data(ctx, body, &part->body_size);
-	}
-
-	if (strcmp(section, "MIME") == 0) {
-		/* fetch section's MIME header */
-		i_stream_seek(ctx->cur_input, part->physical_pos);
-		return fetch_data(ctx, body, &part->header_size);
-	}
-
-	/* TEXT and HEADER are only for message/rfc822 parts */
-	if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) == 0) {
-		string_t *str = get_prefix(ctx, body, 0);
-		if (o_stream_send(ctx->client->output,
-				  str_data(str), str_len(str)) < 0)
-			return -1;
-		return 1;
-	}
-
-	i_assert(part->children != NULL && part->children->next == NULL);
-	part = part->children;
-
-	if (strcmp(section, "TEXT") == 0) {
-		i_stream_seek(ctx->cur_input, part->physical_pos +
-			      part->header_size.physical_size);
-		return fetch_data(ctx, body, &part->body_size);
-	}
-
-	if (strcmp(section, "HEADER") == 0) {
-		/* all headers */
-		i_stream_seek(ctx->cur_input, part->physical_pos);
-		return fetch_data(ctx, body, &part->header_size);
-	}
-
-	if (strncmp(section, "HEADER", 6) == 0) {
-		i_stream_seek(ctx->cur_input, part->physical_pos);
-		return fetch_header_partial_from(ctx, body, section);
-	}
-
-	i_error("BUG: Accepted invalid section from user: '%s'", body->section);
-	return 1;
-}
-
-static bool fetch_body_header_fields_check(const char *section)
-{
-	if (*section++ != '(')
-		return FALSE;
-
-	if (*section == ')')
-		return FALSE; /* has to be at least one field */
-
-	while (*section != '\0' && *section != ')') {
-		if (*section == '(')
-			return FALSE;
-		section++;
-	}
-
-	if (*section++ != ')')
-		return FALSE;
-
-	if (*section != '\0')
-		return FALSE;
-	return TRUE;
-}
-
-static bool fetch_body_header_fields_init(struct imap_fetch_init_context *ctx,
-					  struct imap_fetch_body_data *body,
-					  const char *section)
-{
-	const char *const *arr;
-
-	if (!fetch_body_header_fields_check(section))
-		return FALSE;
-
-	if ((ctx->fetch_ctx->fetch_data & (MAIL_FETCH_STREAM_HEADER |
-					   MAIL_FETCH_STREAM_BODY)) != 0) {
-		/* we'll need to open the file anyway, don't try to get the
-		   headers from cache. */
-		imap_fetch_add_handler(ctx, 0, "NIL",
-				       fetch_body_header_partial, body);
-		return TRUE;
-	}
-
-	for (arr = body->fields; *arr != NULL; arr++) {
-		const char *hdr = p_strdup(ctx->fetch_ctx->pool, *arr);
-		array_append(&ctx->fetch_ctx->all_headers, &hdr, 1);
-	}
-
-	body->header_ctx = mailbox_header_lookup_init(ctx->fetch_ctx->box,
-						      body->fields);
-	imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_WANT_DEINIT, "NIL",
-			       fetch_body_header_fields, body);
-	return TRUE;
-}
-
-static bool
-fetch_body_section_name_init(struct imap_fetch_init_context *ctx,
-			     struct imap_fetch_body_data *body)
-{
-	const char *section = body->section;
-
-	if (*section == '\0') {
-		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER |
-			MAIL_FETCH_STREAM_BODY;
-		imap_fetch_add_handler(ctx, 0, "NIL", fetch_body, body);
-		return TRUE;
-	}
-
-	if (strcmp(section, "TEXT") == 0) {
-		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_BODY;
-		imap_fetch_add_handler(ctx, 0, "NIL", fetch_body, body);
-		return TRUE;
-	}
-
-	if (strncmp(section, "HEADER", 6) == 0) {
-		/* exact header matches could be cached */
-		if (section[6] == '\0') {
-			ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER;
-			imap_fetch_add_handler(ctx, 0, "NIL", fetch_body, body);
-			return TRUE;
-		}
-
-		if (strncmp(section, "HEADER.FIELDS ", 14) == 0 &&
-		    fetch_body_header_fields_init(ctx, body, section+14))
-			return TRUE;
-
-		if (strncmp(section, "HEADER.FIELDS.NOT ", 18) == 0 &&
-		    fetch_body_header_fields_check(section+18)) {
-			imap_fetch_add_handler(ctx, 0, "NIL",
-					       fetch_body_header_partial, body);
-			return TRUE;
-		}
-	} else if (*section >= '0' && *section <= '9') {
-		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_BODY |
-			MAIL_FETCH_MESSAGE_PARTS;
-
-		while ((*section >= '0' && *section <= '9') ||
-		       *section == '.') section++;
-
-		if (*section == '\0' ||
-		    strcmp(section, "MIME") == 0 ||
-		    strcmp(section, "TEXT") == 0 ||
-		    strcmp(section, "HEADER") == 0 ||
-		    (strncmp(section, "HEADER.FIELDS ", 14) == 0 &&
-		     fetch_body_header_fields_check(section+14)) ||
-		    (strncmp(section, "HEADER.FIELDS.NOT ", 18) == 0 &&
-		     fetch_body_header_fields_check(section+18))) {
-			imap_fetch_add_handler(ctx, 0, "NIL",
-					       fetch_body_mime, body);
-			return TRUE;
-		}
-	}
-
-	ctx->error = "Invalid BODY[..] parameter: Unknown or broken section";
-	return FALSE;
-}
-
-/* Parse next digits in string into integer. Returns FALSE if the integer
+/* Parse next digits in string into integer. Returns -1 if the integer
    becomes too big and wraps. */
-static bool read_uoff_t(const char **p, uoff_t *value)
+static int read_uoff_t(const char **p, uoff_t *value)
 {
 	uoff_t prev;
 
@@ -662,70 +144,104 @@ static bool read_uoff_t(const char **p, uoff_t *value)
 		*value = *value * 10 + (**p - '0');
 
 		if (*value < prev)
-			return FALSE;
+			return -1;
 
 		(*p)++;
 	}
-
-	return TRUE;
+	return 0;
 }
 
-static bool
-body_section_build(struct imap_fetch_init_context *ctx,
-		   struct imap_fetch_body_data *body, const char *prefix,
-		   const struct imap_arg *args, unsigned int args_count)
+static int
+body_header_fields_parse(struct imap_fetch_init_context *ctx,
+			 struct imap_fetch_body_data *body, const char *prefix,
+			 const struct imap_arg *args, unsigned int args_count)
 {
 	string_t *str;
-	const char **arr, *value;
+	const char *value;
 	size_t i;
 
 	str = str_new(ctx->fetch_ctx->pool, 128);
 	str_append(str, prefix);
 	str_append(str, " (");
 
-	/* @UNSAFE: NULL-terminated list of headers */
-	arr = p_new(ctx->fetch_ctx->pool, const char *, args_count + 1);
-
 	for (i = 0; i < args_count; i++) {
 		if (!imap_arg_get_astring(&args[i], &value)) {
 			ctx->error = "Invalid BODY[..] parameter: "
 				"Header list contains non-strings";
-			return FALSE;
+			return -1;
 		}
+		value = t_str_ucase(value);
 
 		if (i != 0)
 			str_append_c(str, ' ');
-		arr[i] = p_strdup(ctx->fetch_ctx->pool, t_str_ucase(value));
 
 		if (args[i].type == IMAP_ARG_ATOM)
-			str_append(str, arr[i]);
+			str_append(str, value);
 		else {
 			str_append_c(str, '"');
-			str_append(str, str_escape(arr[i]));
+			imap_dquote_append(str, value);
 			str_append_c(str, '"');
 		}
 	}
 	str_append_c(str, ')');
-
-	qsort(arr, args_count, sizeof(*arr), i_strcasecmp_p);
-	body->fields = arr;
-	body->fields_count = args_count;
 	body->section = str_c(str);
-	return TRUE;
+	return 0;
 }
-  
+
+static int body_parse_partial(struct imap_fetch_body_data *body,
+			      const char *p, const char **error_r)
+{
+	uoff_t offset, size = (uoff_t)-1;
+
+	if (*p == '\0')
+		return 0;
+	/* <start.end> */
+	if (*p != '<') {
+		*error_r = "Unexpected data after ']'";
+		return -1;
+	}
+
+	p++;
+	body->partial = TRUE;
+
+	if (read_uoff_t(&p, &offset) < 0 || offset > OFF_T_MAX) {
+		/* wrapped */
+		*error_r = "Too big partial start";
+		return -1;
+	}
+
+	if (*p == '.') {
+		p++;
+		if (read_uoff_t(&p, &size) < 0 || size > OFF_T_MAX) {
+			/* wrapped */
+			*error_r = "Too big partial end";
+			return -1;
+		}
+	}
+
+	if (*p != '>') {
+		*error_r = "Missing '>' in partial";
+		return -1;
+	}
+	if (p[1] != '\0') {
+		*error_r = "Unexpected data after '>'";
+		return -1;
+	}
+	imap_msgpart_set_partial(body->msgpart, offset, size);
+	return 0;
+}
+
 bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 {
 	struct imap_fetch_body_data *body;
 	const struct imap_arg *list_args;
 	unsigned int list_count;
-	const char *partial, *str, *p;
+	const char *str, *p, *error;
 
 	i_assert(strncmp(ctx->name, "BODY", 4) == 0);
 	p = ctx->name + 4;
 
 	body = p_new(ctx->fetch_ctx->pool, struct imap_fetch_body_data, 1);
-	body->max_size = (uoff_t)-1;
 
 	if (strncmp(p, ".PEEK", 5) == 0) {
 		body->peek = TRUE;
@@ -746,9 +262,10 @@ bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 			ctx->error = "Invalid BODY[..] parameter: Missing ']'";
 			return FALSE;
 		}
-		if (!body_section_build(ctx, body, p+1, list_args, list_count))
+		if (body_header_fields_parse(ctx, body, p+1,
+					     list_args, list_count) < 0)
 			return FALSE;
-		p = str;
+		p = str+1;
 		ctx->args += 2;
 	} else {
 		/* no headers list */
@@ -760,43 +277,26 @@ bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 		}
 		body->section = p_strdup_until(ctx->fetch_ctx->pool,
 					       body->section, p);
-	}
-
-	if (*++p == '<') {
-		/* <start.end> */
-		partial = p;
 		p++;
-		body->skip_set = TRUE;
+	}
+	if (imap_msgpart_parse(ctx->fetch_ctx->box, body->section,
+			       &body->msgpart) < 0) {
+		ctx->error = "Invalid BODY[..] section";
+		return -1;
+	}
+	ctx->fetch_ctx->fetch_data |=
+		imap_msgpart_get_fetch_data(body->msgpart);
 
-		if (!read_uoff_t(&p, &body->skip) || body->skip > OFF_T_MAX) {
-			/* wrapped */
-			ctx->error = "Invalid BODY[..] parameter: "
-				"Too big partial start";
-			return FALSE;
-		}
-
-		if (*p == '.') {
-			p++;
-			if (!read_uoff_t(&p, &body->max_size) ||
-			    body->max_size > OFF_T_MAX) {
-				/* wrapped */
-				ctx->error = "Invalid BODY[..] parameter: "
-					"Too big partial end";
-				return FALSE;
-			}
-		}
-
-		if (*p != '>') {
-			ctx->error = t_strdup_printf(
-				"Invalid BODY[..] parameter: "
-				"Missing '>' in '%s'", partial);
-			return FALSE;
-		}
+	if (body_parse_partial(body, p, &error) < 0) {
+		ctx->error = p_strdup_printf(ctx->fetch_ctx->pool,
+			"Invalid BODY[..] parameter: %s", error);
+		return FALSE;
 	}
 
-	/* sanitize the name */
-	ctx->name = get_body_name(body);
-	return fetch_body_section_name_init(ctx, body);
+	/* update the section name for the imap_fetch_add_handler() */
+	ctx->name = p_strdup(ctx->fetch_ctx->pool, get_body_name(body));
+	imap_fetch_add_handler(ctx, 0, "NIL", fetch_body_msgpart, body);
+	return TRUE;
 }
 
 static int fetch_rfc822_size(struct imap_fetch_context *ctx, struct mail *mail,
@@ -811,52 +311,55 @@ static int fetch_rfc822_size(struct imap_fetch_context *ctx, struct mail *mail,
 	return 1;
 }
 
+static int
+fetch_and_free_msgpart(struct imap_fetch_context *ctx,
+		       struct mail *mail, struct imap_msgpart **_msgpart)
+{
+	struct imap_msgpart_open_result result;
+	int ret;
+
+	ret = imap_msgpart_open(mail, *_msgpart, &result);
+	imap_msgpart_free(_msgpart);
+	if (ret < 0)
+		return -1;
+	ctx->cur_input = result.input;
+	ctx->cur_size = result.size;
+	ctx->cur_size_field = result.size_field;
+	ctx->cont_handler = fetch_stream_continue;
+	return 0;
+}
+
 static int fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 			void *context ATTR_UNUSED)
 {
-	struct message_size size;
+	struct imap_msgpart *msgpart;
 	const char *str;
-	struct istream *input;
 
-	if (mail_get_stream(mail, NULL, NULL, &input) < 0 ||
-	    mail_get_virtual_size(mail, &size.virtual_size) < 0 ||
-	    mail_get_physical_size(mail, &size.physical_size) < 0)
+	msgpart = imap_msgpart_full();
+	fetch_and_free_msgpart(ctx, mail, &msgpart);
+
+	str = t_strdup_printf(" RFC822 {%"PRIuUOFF_T"}\r\n", ctx->cur_size);
+	if (ctx->first) {
+		str++; ctx->first = FALSE;
+	}
+	if (o_stream_send_str(ctx->client->output, str) < 0)
 		return -1;
 
-	ctx->cur_input = input;
-	i_stream_ref(ctx->cur_input);
-	ctx->update_partial = FALSE;
-
-	if (ctx->cur_offset == 0) {
-		str = t_strdup_printf(" RFC822 {%"PRIuUOFF_T"}\r\n",
-				      size.virtual_size);
-		if (ctx->first) {
-			str++; ctx->first = FALSE;
-		}
-		if (o_stream_send_str(ctx->client->output, str) < 0)
-			return -1;
-	}
-
 	ctx->cur_name = "RFC822";
-        ctx->cur_size = size.virtual_size;
-	ctx->cur_size_field = MAIL_FETCH_VIRTUAL_SIZE;
-	return fetch_stream(ctx, &size);
+	return ctx->cont_handler(ctx);
 }
 
 static int fetch_rfc822_header(struct imap_fetch_context *ctx,
 			       struct mail *mail, void *context ATTR_UNUSED)
 {
-	struct message_size hdr_size;
+	struct imap_msgpart *msgpart;
 	const char *str;
 
-	if (mail_get_hdr_stream(mail, &hdr_size, &ctx->cur_input) < 0)
-		return -1;
-
-	i_stream_ref(ctx->cur_input);
-	ctx->update_partial = FALSE;
+	msgpart = imap_msgpart_header();
+	fetch_and_free_msgpart(ctx, mail, &msgpart);
 
 	str = t_strdup_printf(" RFC822.HEADER {%"PRIuUOFF_T"}\r\n",
-			      hdr_size.virtual_size);
+			      ctx->cur_size);
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
@@ -864,36 +367,28 @@ static int fetch_rfc822_header(struct imap_fetch_context *ctx,
 		return -1;
 
 	ctx->cur_name = "RFC822.HEADER";
-        ctx->cur_size = hdr_size.virtual_size;
-	ctx->cur_size_field = MAIL_FETCH_MESSAGE_PARTS;
-	return fetch_stream(ctx, &hdr_size);
+	return ctx->cont_handler(ctx);
 }
 
 static int fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 			     void *context ATTR_UNUSED)
 {
-	struct message_size hdr_size, body_size;
+	struct imap_msgpart *msgpart;
 	const char *str;
 
-	if (mail_get_stream(mail, &hdr_size, &body_size, &ctx->cur_input) < 0)
-		return -1;
-
-	i_stream_ref(ctx->cur_input);
-	ctx->update_partial = FALSE;
+	msgpart = imap_msgpart_body();
+	fetch_and_free_msgpart(ctx, mail, &msgpart);
 
 	str = t_strdup_printf(" RFC822.TEXT {%"PRIuUOFF_T"}\r\n",
-			      body_size.virtual_size);
+			      ctx->cur_size);
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
 	if (o_stream_send_str(ctx->client->output, str) < 0)
 		return -1;
 
-	i_stream_seek(ctx->cur_input, hdr_size.physical_size);
 	ctx->cur_name = "RFC822.TEXT";
-        ctx->cur_size = body_size.virtual_size;
-	ctx->cur_size_field = MAIL_FETCH_VIRTUAL_SIZE;
-	return fetch_stream(ctx, &body_size);
+	return ctx->cont_handler(ctx);
 }
 
 bool imap_fetch_rfc822_init(struct imap_fetch_init_context *ctx)

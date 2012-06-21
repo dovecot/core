@@ -362,7 +362,6 @@ int imap_fetch_begin(struct imap_fetch_context *ctx)
 	ctx->trans = mailbox_transaction_begin(ctx->box,
 		MAILBOX_TRANSACTION_FLAG_HIDE |
 		MAILBOX_TRANSACTION_FLAG_REFRESH);
-	ctx->select_counter = ctx->client->select_counter;
 
 	/* Delayed uidset -> seqset conversion. VANISHED needs the uidset. */
 	mail_search_args_init(ctx->search_args, ctx->box, TRUE,
@@ -435,7 +434,7 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx,
 
 			if (ctx->cur_mail->expunged) {
 				/* not an error, just lost it. */
-				ctx->partial_fetch = TRUE;
+				ctx->skipped_expunged_msgs = TRUE;
 				if (imap_fetch_send_nil_reply(ctx) < 0)
 					return -1;
 			} else {
@@ -498,7 +497,7 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx,
 			if (ret < 0) {
 				if (ctx->cur_mail->expunged) {
 					/* not an error, just lost it. */
-					ctx->partial_fetch = TRUE;
+					ctx->skipped_expunged_msgs = TRUE;
 					if (imap_fetch_send_nil_reply(ctx) < 0)
 						return -1;
 				} else {
