@@ -121,6 +121,10 @@ void imap_dquote_append(string_t *dest, const char *src)
 	str_append_c(dest, '"');
 	for (; *src != '\0'; src++) {
 		switch (*src) {
+		case '\r':
+		case '\n':
+			/* not allowed */
+			break;
 		case '"':
 		case '\\':
 			str_append_c(dest, '\\');
