@@ -24,7 +24,6 @@ struct imap_fetch_body_data {
 	struct imap_msgpart *msgpart;
 
 	unsigned int partial:1;
-	unsigned int peek:1;
 };
 
 static void fetch_read_error(struct imap_fetch_context *ctx)
@@ -243,13 +242,10 @@ bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 
 	body = p_new(ctx->fetch_ctx->pool, struct imap_fetch_body_data, 1);
 
-	if (strncmp(p, ".PEEK", 5) == 0) {
-		body->peek = TRUE;
+	if (strncmp(p, ".PEEK", 5) == 0)
 		p += 5;
-	} else {
+	else
 		ctx->fetch_ctx->flags_update_seen = TRUE;
-	}
-
 	if (*p != '[') {
 		ctx->error = "Invalid BODY[..] parameter: Missing '['";
 		return FALSE;
