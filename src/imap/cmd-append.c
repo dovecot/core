@@ -6,6 +6,7 @@
 #include "istream-chain.h"
 #include "ostream.h"
 #include "str.h"
+#include "imap-resp-code.h"
 #include "istream-binary-converter.h"
 #include "mail-storage-private.h"
 #include "imap-parser.h"
@@ -327,7 +328,8 @@ cmd_append_catenate(struct client_command_context *cmd,
 				break;
 			if (args->literal8 && !ctx->binary_input) {
 				client_send_tagline(cmd,
-					"NO [UNKNOWN-CTE] Binary input allowed only when the first part is binary.");
+					"NO ["IMAP_RESP_CODE_UNKNOWN_CTE"] "
+					"Binary input allowed only when the first part is binary.");
 				return -1;
 			}
 			*nonsync_r = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
