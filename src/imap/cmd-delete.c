@@ -8,7 +8,8 @@ bool cmd_delete(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct mail_namespace *ns;
 	struct mailbox *box;
-	const char *name;
+	const char *name, *errstr;
+	enum mail_error error;
 
 	/* <mailbox> */
 	if (!client_read_string_args(cmd, 1, &name))
@@ -32,10 +33,17 @@ bool cmd_delete(struct client_command_context *cmd)
 		mailbox_free(&client->mailbox);
 	}
 
-	if (mailbox_delete(box) < 0)
-		client_send_storage_error(cmd, mailbox_get_storage(box));
-	else
+	if (mailbox_delete(box) == 0)
 		client_send_tagline(cmd, "OK Delete completed.");
+	else {
+		errstr = mailbox_get_last_error(box, &error);
+		if (error != MAIL_ERROR_EXISTS)
+			client_send_storage_error(cmd, mailbox_get_storage(box));
+		else {
+			/* mailbox has children */
+			client_send_tagline(cmd, t_strdup_printf("NO %s", errstr));
+		}
+	}
 	mailbox_free(&box);
 	return TRUE;
 }
