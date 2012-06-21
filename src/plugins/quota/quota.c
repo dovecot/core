@@ -639,7 +639,7 @@ void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns)
 		for (i = 0; i < count; i++) {
 			path2 = mailbox_list_get_path(namespaces[i]->list, NULL,
 				     	MAILBOX_LIST_PATH_TYPE_MAILBOX);
-			if (strcmp(path, path2) == 0) {
+			if (path2 != NULL && strcmp(path, path2) == 0) {
 				/* duplicate */
 				return;
 			}
