@@ -144,7 +144,7 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 	static const char *ok_message = "OK Fetch completed.";
 	const char *tagged_reply = ok_message;
 
-	if (ctx->partial_fetch) {
+	if (ctx->skipped_expunged_msgs) {
 		tagged_reply = "OK ["IMAP_RESP_CODE_EXPUNGEISSUED"] "
 			"Some messages were already expunged.";
 	}
