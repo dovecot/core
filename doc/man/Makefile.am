@@ -86,12 +86,3 @@ CLEANFILES = $(nodist_man1_MANS)
 .1.in.1: $(man_includefiles) Makefile
 	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
 		< $(srcdir)/$< > $@
-
-doveadm-instance.1: $(srcdir)/doveadm-instance.1.in $(man_includefiles) Makefile
-	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
-		< $(srcdir)/doveadm-instance.1.in > doveadm-instance.1
-
-
-doveadm-mount.1: $(srcdir)/doveadm-mount.1.in $(man_includefiles) Makefile
-	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
-		< $(srcdir)/doveadm-mount.1.in > doveadm-mount.1
