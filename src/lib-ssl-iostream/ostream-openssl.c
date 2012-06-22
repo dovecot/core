@@ -24,7 +24,8 @@ static void o_stream_ssl_destroy(struct iostream_private *stream)
 
 	sstream->ssl_io->ssl_output = NULL;
 	ssl_iostream_unref(&sstream->ssl_io);
-	i_free(sstream->buffer);
+	if (sstream->buffer != NULL)
+		buffer_free(&sstream->buffer);
 }
 
 static size_t

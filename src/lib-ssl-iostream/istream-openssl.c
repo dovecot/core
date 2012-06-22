@@ -21,6 +21,7 @@ static void i_stream_ssl_destroy(struct iostream_private *stream)
 {
 	struct ssl_istream *sstream = (struct ssl_istream *)stream;
 
+	i_free(sstream->istream.w_buffer);
 	ssl_iostream_unref(&sstream->ssl_io);
 }
 

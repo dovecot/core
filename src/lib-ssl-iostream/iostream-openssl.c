@@ -246,7 +246,7 @@ void ssl_iostream_unref(struct ssl_iostream **_ssl_io)
 	*_ssl_io = NULL;
 
 	i_assert(ssl_io->refcount > 0);
-	if (--ssl_io->refcount >= 0)
+	if (--ssl_io->refcount > 0)
 		return;
 
 	ssl_iostream_free(ssl_io);
@@ -503,6 +503,7 @@ int openssl_cert_match_name(SSL *ssl, const char *verify_name)
 	const char *dnsname;
 	bool dns_names = FALSE;
 	unsigned int i, count;
+	int ret;
 
 	cert = SSL_get_peer_certificate(ssl);
 	i_assert(cert != NULL);
@@ -520,14 +521,15 @@ int openssl_cert_match_name(SSL *ssl, const char *verify_name)
 		}
 	}
 	sk_GENERAL_NAME_pop_free(gnames, GENERAL_NAME_free);
-	X509_free(cert);
 
 	/* verify against CommonName only when there wasn't any DNS
 	   SubjectAltNames */
 	if (dns_names)
-		return i < count ? 0 : -1;
-
-	return strcmp(get_cname(cert), verify_name) == 0 ? 0 : -1;
+		ret = i < count ? 0 : -1;
+	else
+		ret = strcmp(get_cname(cert), verify_name) == 0 ? 0 : -1;
+	X509_free(cert);
+	return ret;
 }
 
 int ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
