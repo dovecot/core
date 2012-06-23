@@ -33,7 +33,7 @@ time_t utc_mktime(const struct tm *tm)
 #ifdef TIME_T_SIGNED
 	t = 0;
 #else
-	t = 1 << (TIME_T_MAX_BITS - 1);
+	t = (time_t)1 << (TIME_T_MAX_BITS - 1);
 #endif
 	for (bits = TIME_T_MAX_BITS - 2;; bits--) {
 		try_tm = gmtime(&t);

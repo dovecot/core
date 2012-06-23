@@ -110,7 +110,7 @@ mail_hosts_add_range(struct mail_host_list *list,
 	i2 = htonl(ip2_arr[i]);
 
 	for (j = last_bits; j < 32; j++) {
-		if ((i1 & (1 << j)) != (i2 & (1 << j))) {
+		if ((i1 & (1U << j)) != (i2 & (1U << j))) {
 			i_error("IP address range too large: %s-%s",
 				net_ip2addr(&ip1), net_ip2addr(&ip2));
 			return -1;
