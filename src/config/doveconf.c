@@ -163,7 +163,7 @@ static bool value_need_quote(const char *value)
 	return FALSE;
 }
 
-static int
+static int ATTR_NULL(4)
 config_dump_human_output(struct config_dump_human_context *ctx,
 			 struct ostream *output, unsigned int indent,
 			 const char *setting_name_filter)
@@ -418,7 +418,7 @@ config_dump_human_sections(struct ostream *output,
 	return ret;
 }
 
-static int
+static int ATTR_NULL(4)
 config_dump_human(const struct config_filter *filter, const char *module,
 		  enum config_dump_scope scope, const char *setting_name_filter)
 {

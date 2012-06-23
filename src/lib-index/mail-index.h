@@ -485,7 +485,7 @@ const ARRAY_TYPE(keywords) *mail_index_get_keywords(struct mail_index *index);
 /* Create a keyword list structure. */
 struct mail_keywords *
 mail_index_keywords_create(struct mail_index *index,
-			   const char *const keywords[]);
+			   const char *const keywords[]) ATTR_NULL(2);
 struct mail_keywords *
 mail_index_keywords_create_from_indexes(struct mail_index *index,
 					const ARRAY_TYPE(keyword_indexes)
@@ -573,8 +573,7 @@ void mail_index_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 				const void **data_r, bool *expunged_r);
 /* Get current extension sizes. Returns 1 if ok, 0 if extension doesn't exist
    in view. Any of the _r parameters may be NULL. */
-void mail_index_ext_get_size(struct mail_index_view *view,
-			     uint32_t ext_id, struct mail_index_map *map,
+void mail_index_ext_get_size(struct mail_index_map *map, uint32_t ext_id,
 			     uint32_t *hdr_size_r, uint16_t *record_size_r,
 			     uint16_t *record_align_r);
 /* Update extension header field. */
@@ -585,7 +584,8 @@ void mail_index_update_header_ext(struct mail_index_transaction *t,
    was already updated in this transaction, it's set to contain the data it's
    now overwriting. */
 void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
-			   uint32_t ext_id, const void *data, void *old_data);
+			   uint32_t ext_id, const void *data, void *old_data)
+	ATTR_NULL(5);
 /* Increase/decrease number in extension atomically. Returns the sum of the
    diffs for this seq. */
 int mail_index_atomic_inc_ext(struct mail_index_transaction *t,

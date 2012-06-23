@@ -22,7 +22,7 @@ void var_expand(string_t *dest, const char *str,
 void var_expand_with_funcs(string_t *dest, const char *str,
 			   const struct var_expand_table *table,
 			   const struct var_expand_func_table *func_table,
-			   void *func_context);
+			   void *func_context) ATTR_NULL(3, 4, 5);
 
 /* Returns the actual key character for given string, ie. skip any modifiers
    that are before it. The string should be the data after the '%' character. */

@@ -295,8 +295,9 @@ bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 	return TRUE;
 }
 
-static int fetch_rfc822_size(struct imap_fetch_context *ctx, struct mail *mail,
-			     void *context ATTR_UNUSED)
+static int ATTR_NULL(3)
+fetch_rfc822_size(struct imap_fetch_context *ctx, struct mail *mail,
+		  void *context ATTR_UNUSED)
 {
 	uoff_t size;
 
@@ -325,8 +326,9 @@ fetch_and_free_msgpart(struct imap_fetch_context *ctx,
 	return 0;
 }
 
-static int fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
-			void *context ATTR_UNUSED)
+static int ATTR_NULL(3)
+fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
+	     void *context ATTR_UNUSED)
 {
 	struct imap_msgpart *msgpart;
 	const char *str;
@@ -345,8 +347,9 @@ static int fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 	return ctx->cont_handler(ctx);
 }
 
-static int fetch_rfc822_header(struct imap_fetch_context *ctx,
-			       struct mail *mail, void *context ATTR_UNUSED)
+static int ATTR_NULL(3)
+fetch_rfc822_header(struct imap_fetch_context *ctx,
+		    struct mail *mail, void *context ATTR_UNUSED)
 {
 	struct imap_msgpart *msgpart;
 	const char *str;
@@ -366,8 +369,9 @@ static int fetch_rfc822_header(struct imap_fetch_context *ctx,
 	return ctx->cont_handler(ctx);
 }
 
-static int fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
-			     void *context ATTR_UNUSED)
+static int ATTR_NULL(3)
+fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
+		  void *context ATTR_UNUSED)
 {
 	struct imap_msgpart *msgpart;
 	const char *str;

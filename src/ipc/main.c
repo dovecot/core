@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 	const char *error;
 
 	master_service = master_service_init("ipc", service_flags,
-					     &argc, &argv, NULL);
+					     &argc, &argv, "");
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 	if (master_service_settings_read_simple(master_service,

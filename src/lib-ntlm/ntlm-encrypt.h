@@ -20,6 +20,7 @@ void ntlmssp_v2_response(const char *user, const char *target,
 			 const unsigned char *hash_v1,
 			 const unsigned char *challenge,
 			 const unsigned char *blob, size_t blob_size,
-			 unsigned char response[NTLMSSP_V2_RESPONSE_SIZE]);
+			 unsigned char response[NTLMSSP_V2_RESPONSE_SIZE])
+	ATTR_NULL(2);
 
 #endif

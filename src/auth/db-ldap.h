@@ -167,7 +167,7 @@ void db_ldap_request(struct ldap_connection *conn,
 
 void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, ARRAY_TYPE(ldap_field) *attr_map,
-		       const char *skip_attr);
+		       const char *skip_attr) ATTR_NULL(5);
 
 struct ldap_connection *db_ldap_init(const char *config_path, bool userdb);
 void db_ldap_unref(struct ldap_connection **conn);

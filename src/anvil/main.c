@@ -29,7 +29,8 @@ static void client_connected(struct master_service_connection *conn)
 	anvil_connection_create(conn->fd, master, conn->fifo);
 }
 
-static void log_fdpass_input(void *context ATTR_UNUSED)
+static void ATTR_NULL(1)
+log_fdpass_input(void *context ATTR_UNUSED)
 {
 	int fd;
 	char c;
@@ -57,7 +58,7 @@ int main(int argc, char *argv[])
 	const char *error;
 
 	master_service = master_service_init("anvil", service_flags,
-					     &argc, &argv, NULL);
+					     &argc, &argv, "");
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 	if (master_service_settings_read_simple(master_service,

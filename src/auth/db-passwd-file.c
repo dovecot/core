@@ -25,8 +25,9 @@
 
 static struct db_passwd_file *passwd_files;
 
-static void passwd_file_add(struct passwd_file *pw, const char *username,
-			    const char *pass, const char *const *args)
+static void ATTR_NULL(3)
+passwd_file_add(struct passwd_file *pw, const char *username,
+		const char *pass, const char *const *args)
 {
 	/* args = uid, gid, user info, home dir, shell, extra_fields */
 	struct passwd_user *pu;

@@ -193,7 +193,7 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 
 	if (name == NULL) {
 		/* return root directories */
-		return mailbox_list_get_root_path(&_list->set, type);
+		return mailbox_list_set_get_root_path(&_list->set, type);
 	}
 
 	if (_list->mail_set->mail_full_filesystem_access &&
@@ -334,8 +334,7 @@ maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 		path = t_strdup_until(path, p);
 	}
 
-	root_dir = mailbox_list_get_path(list, NULL,
-					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	root_dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	mailbox_list_get_permissions(list, name, &perm);
 	if (mkdir_parents_chgrp(path, perm.dir_create_mode,
 				perm.file_create_gid,
@@ -375,8 +374,7 @@ mailbox_list_maildir_get_trash_dir(struct mailbox_list *_list)
 		(struct maildir_mailbox_list *)_list;
 	const char *root_dir;
 
-	root_dir = mailbox_list_get_path(_list, NULL,
-					 MAILBOX_LIST_PATH_TYPE_DIR);
+	root_dir = mailbox_list_get_root_path(_list, MAILBOX_LIST_PATH_TYPE_DIR);
 	return t_strdup_printf("%s/%c%c"MAILBOX_LIST_MAILDIR_TRASH_DIR_NAME,
 			       root_dir, list->sep, list->sep);
 }
@@ -571,8 +569,8 @@ maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 	newpath = mailbox_list_get_path(newlist, newname,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
-	root_path = mailbox_list_get_path(oldlist, NULL,
-					  MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	root_path = mailbox_list_get_root_path(oldlist,
+					       MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (strcmp(oldpath, root_path) == 0) {
 		/* most likely INBOX */
 		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,

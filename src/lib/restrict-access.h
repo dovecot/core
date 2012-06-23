@@ -32,7 +32,7 @@ void restrict_access_init(struct restrict_access_settings *set);
 /* Restrict access as specified by the settings. If home is not NULL,
    it's chdir()ed after chrooting, otherwise it chdirs to / (the chroot). */
 void restrict_access(const struct restrict_access_settings *set,
-		     const char *home, bool disallow_root);
+		     const char *home, bool disallow_root) ATTR_NULL(2);
 /* Set environment variables so they can be read with
    restrict_access_by_env(). */
 void restrict_access_set_env(const struct restrict_access_settings *set);
@@ -41,7 +41,7 @@ void restrict_access_get_env(struct restrict_access_settings *set_r);
 /* Read restrictions from environment and call restrict_access().
    If disallow_roots is TRUE, we'll kill ourself if we didn't have the
    environment settings. */
-void restrict_access_by_env(const char *home, bool disallow_root);
+void restrict_access_by_env(const char *home, bool disallow_root) ATTR_NULL(1);
 
 /* Return the chrooted directory if restrict_access*() chrooted,
    otherwise NULL. */

@@ -312,6 +312,7 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 	const char *const *hdr_fields = msgpart->headers;
 	unsigned int hdr_count = str_array_length(hdr_fields);
 	struct istream *input;
+	bool has_nuls;
 
 	if (msgpart->fetch_type == FETCH_HEADER_FIELDS) {
 		input = i_stream_create_header_filter(mail_input,
@@ -328,7 +329,7 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 						      null_header_filter_callback, NULL);
 	}
 
-	if (message_get_header_size(input, hdr_size_r, NULL) < 0) {
+	if (message_get_header_size(input, hdr_size_r, &has_nuls) < 0) {
 		errno = input->stream_errno;
 		mail_storage_set_critical(mail->box->storage,
 			"read(%s) failed: %m", i_stream_get_name(mail_input));

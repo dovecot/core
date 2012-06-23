@@ -10,10 +10,10 @@ struct message_size {
 /* Calculate size of message header. Leave the input point to first
    character in body. */
 int message_get_header_size(struct istream *input, struct message_size *hdr,
-			    bool *has_nuls);
+			    bool *has_nuls_r);
 /* Calculate size of message body. */
 int message_get_body_size(struct istream *input, struct message_size *body,
-			  bool *has_nuls);
+			  bool *has_nuls_r);
 
 /* Sum contents of src into dest. */
 void message_size_add(struct message_size *dest,

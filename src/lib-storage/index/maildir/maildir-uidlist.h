@@ -99,10 +99,12 @@ void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
 void maildir_uidlist_set_next_uid(struct maildir_uidlist *uidlist,
 				  uint32_t next_uid, bool force);
 
-/* Update extended record. value=NULL removes the key. */
+/* Update extended record. */
 void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 			     enum maildir_uidlist_rec_ext_key key,
 			     const char *value);
+void maildir_uidlist_unset_ext(struct maildir_uidlist *uidlist, uint32_t uid,
+			       enum maildir_uidlist_rec_ext_key key);
 
 /* If uidlist has changed, update it. This is mostly meant to be used with
    maildir_uidlist_set_ext() */

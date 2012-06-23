@@ -30,7 +30,8 @@ i_stream_create_header_filter(struct istream *input,
 			      enum header_filter_flags flags,
 			      const char *const *headers,
 			      unsigned int headers_count,
-			      header_filter_callback *callback, void *context);
+			      header_filter_callback *callback, void *context)
+	ATTR_NULL(6);
 #ifdef CONTEXT_TYPE_SAFETY
 #  define i_stream_create_header_filter(input, flags, headers, headers_count, \
 				        callback, context) \

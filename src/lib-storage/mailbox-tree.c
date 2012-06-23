@@ -62,7 +62,7 @@ void mailbox_tree_clear(struct mailbox_tree_context *tree)
 	tree->nodes = NULL;
 }
 
-static struct mailbox_node *
+static struct mailbox_node * ATTR_NULL(2)
 mailbox_tree_traverse(struct mailbox_tree_context *tree, const char *path,
 		      bool create, bool *created_r)
 {
@@ -138,8 +138,7 @@ mailbox_tree_get(struct mailbox_tree_context *tree, const char *path,
 	if (created && tree->parents_nonexistent)
 		node->flags = 0;
 
-	if (created_r != NULL)
-		*created_r = created;
+	*created_r = created;
 	return node;
 }
 
@@ -163,7 +162,7 @@ mailbox_tree_iterate_init(struct mailbox_tree_context *tree,
 
 	ctx = i_new(struct mailbox_tree_iterate_context, 1);
 	ctx->separator = tree->separator;
-	ctx->root = root != NULL ? root : mailbox_tree_get(tree, NULL, NULL);
+	ctx->root = root != NULL ? root : tree->nodes;
 	ctx->flags_mask = flags_mask;
 	ctx->path_str = str_new(default_pool, 256);
 	i_array_init(&ctx->node_path, 16);

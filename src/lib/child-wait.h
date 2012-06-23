@@ -13,7 +13,7 @@ typedef void child_wait_callback_t(const struct child_wait_status *status,
 
 struct child_wait *
 child_wait_new_with_pid(pid_t pid, child_wait_callback_t *callback,
-			void *context);
+			void *context) ATTR_NULL(3);
 #ifdef CONTEXT_TYPE_SAFETY
 #  define child_wait_new_with_pid(pid, callback, context) \
 	({(void)(1 ? 0 : callback((const struct child_wait_status *)0, \

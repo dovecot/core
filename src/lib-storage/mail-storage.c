@@ -234,8 +234,7 @@ mail_storage_create_root(struct mailbox_list *list,
 	bool autocreate;
 	int ret;
 
-	root_dir = mailbox_list_get_path(list, NULL,
-					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	root_dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (root_dir == NULL) {
 		/* storage doesn't use directories (e.g. shared root) */
 		return 0;
@@ -860,7 +859,8 @@ static int mailbox_autocreate_and_reopen(struct mailbox *box)
 	return ret;
 }
 
-static int mailbox_open_full(struct mailbox *box, struct istream *input)
+static int ATTR_NULL(2)
+mailbox_open_full(struct mailbox *box, struct istream *input)
 {
 	int ret;
 
@@ -1383,7 +1383,10 @@ void mailbox_notify_changes(struct mailbox *box,
 
 void mailbox_notify_changes_stop(struct mailbox *box)
 {
-	mailbox_notify_changes(box, NULL, NULL);
+	box->notify_callback = NULL;
+	box->notify_context = NULL;
+
+	box->v.notify_changes(box);
 }
 
 struct mail_search_context *

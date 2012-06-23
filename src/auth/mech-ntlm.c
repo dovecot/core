@@ -68,7 +68,7 @@ lm_credentials_callback(enum passdb_result result,
 	switch (result) {
 	case PASSDB_RESULT_OK:
 		if (lm_verify_credentials(request, credentials, size))
-			auth_request_success(auth_request, NULL, 0);
+			auth_request_success(auth_request, "", 0);
 		else
 			auth_request_fail(auth_request);
 		break;
@@ -151,7 +151,7 @@ ntlm_credentials_callback(enum passdb_result result,
 	case PASSDB_RESULT_OK:
 		ret = ntlm_verify_credentials(request, credentials, size);
 		if (ret > 0) {
-			auth_request_success(auth_request, NULL, 0);
+			auth_request_success(auth_request, "", 0);
 			return;
 		}
 		if (ret < 0) {

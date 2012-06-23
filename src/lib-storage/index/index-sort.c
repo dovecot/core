@@ -57,10 +57,11 @@ index_sort_list_add_date(struct mail_search_sort_program *program,
 {
 	ARRAY_TYPE(mail_sort_node_date) *nodes = program->context;
 	struct mail_sort_node_date *node;
+	int tz;
 
 	node = array_append_space(nodes);
 	node->seq = mail->seq;
-	if (mail_get_date(mail, &node->date, NULL) < 0)
+	if (mail_get_date(mail, &node->date, &tz) < 0)
 		node->date = 0;
 	else if (node->date == 0) {
 		if (mail_get_received_date(mail, &node->date) < 0)
@@ -410,6 +411,7 @@ int index_sort_header_get(struct mail *mail, uint32_t seq,
 {
 	const char *str;
 	int ret;
+	bool reply_or_fw;
 
 	mail_set_seq(mail, seq);
 	str_truncate(dest, 0);
@@ -419,7 +421,7 @@ int index_sort_header_get(struct mail *mail, uint32_t seq,
 		if ((ret = mail_get_first_header(mail, "Subject", &str)) <= 0)
 			return ret;
 		str = imap_get_base_subject_cased(pool_datastack_create(),
-						  str, NULL);
+						  str, &reply_or_fw);
 		str_append(dest, str);
 		return 0;
 	case MAIL_SORT_CC:
@@ -453,7 +455,7 @@ int index_sort_node_cmp_type(struct mail *mail,
 	time_t time1, time2;
 	uoff_t size1, size2;
 	float float1, float2;
-	int ret = 0;
+	int tz, ret = 0;
 
 	sort_type = *sort_program & MAIL_SORT_MASK;
 	switch (sort_type) {
@@ -488,7 +490,7 @@ int index_sort_node_cmp_type(struct mail *mail,
 		break;
 	case MAIL_SORT_DATE:
 		mail_set_seq(mail, seq1);
-		if (mail_get_date(mail, &time1, NULL) < 0)
+		if (mail_get_date(mail, &time1, &tz) < 0)
 			time1 = 0;
 		else if (time1 == 0) {
 			if (mail_get_received_date(mail, &time1) < 0)
@@ -496,7 +498,7 @@ int index_sort_node_cmp_type(struct mail *mail,
 		}
 
 		mail_set_seq(mail, seq2);
-		if (mail_get_date(mail, &time2, NULL) < 0)
+		if (mail_get_date(mail, &time2, &tz) < 0)
 			time2 = 0;
 		else if (time2 == 0) {
 			if (mail_get_received_date(mail, &time2) < 0)

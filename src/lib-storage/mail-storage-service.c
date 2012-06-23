@@ -1208,7 +1208,7 @@ mail_storage_service_all_init(struct mail_storage_service_ctx *ctx)
 		(void)auth_master_user_list_deinit(&ctx->auth_list);
 	mail_storage_service_init_settings(ctx, NULL);
 
-	ctx->auth_list = auth_master_user_list_init(ctx->conn, NULL, NULL);
+	ctx->auth_list = auth_master_user_list_init(ctx->conn, "", NULL);
 	return auth_master_user_list_count(ctx->auth_list);
 }
 

@@ -110,10 +110,6 @@ int mail_get_parts(struct mail *mail, struct message_part **parts_r)
 int mail_get_date(struct mail *mail, time_t *date_r, int *timezone_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
-	int tz;
-
-	if (timezone_r == NULL)
-		timezone_r = &tz;
 
 	return p->v.get_date(mail, date_r, timezone_r);
 }

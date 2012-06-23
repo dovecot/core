@@ -57,7 +57,7 @@ void o_stream_close(struct ostream *stream);
    finishes when the buffer is empty.  */
 void o_stream_set_flush_callback(struct ostream *stream,
 				 stream_flush_callback_t *callback,
-				 void *context);
+				 void *context) ATTR_NULL(3);
 #define o_stream_set_flush_callback(stream, callback, context) \
 	CONTEXT_CALLBACK(o_stream_set_flush_callback, stream_flush_callback_t, \
 			 callback, context, stream)

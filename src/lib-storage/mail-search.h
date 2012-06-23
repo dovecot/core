@@ -123,7 +123,8 @@ typedef void mail_search_foreach_callback_t(struct mail_search_arg *arg,
    change uidsets to seqsets. */
 void mail_search_args_init(struct mail_search_args *args,
 			   struct mailbox *box, bool change_uidsets,
-			   const ARRAY_TYPE(seq_range) *search_saved_uidset);
+			   const ARRAY_TYPE(seq_range) *search_saved_uidset)
+	ATTR_NULL(4);
 /* Free keywords. The args can initialized afterwards again if needed.
    The args can be reused for other queries after calling this. */
 void mail_search_args_deinit(struct mail_search_args *args);
@@ -149,7 +150,7 @@ void mail_search_args_reset(struct mail_search_arg *args, bool full_reset);
    Returns 1 = search matched, 0 = search unmatched, -1 = don't know yet */
 int mail_search_args_foreach(struct mail_search_arg *args,
 			     mail_search_foreach_callback_t *callback,
-			     void *context);
+			     void *context) ATTR_NULL(3);
 #ifdef CONTEXT_TYPE_SAFETY
 #  define mail_search_args_foreach(args, callback, context) \
 	({(void)(1 ? 0 : callback((struct mail_search_arg *)NULL, context)); \

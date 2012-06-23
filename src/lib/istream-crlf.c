@@ -14,7 +14,7 @@ struct crlf_istream {
 static int i_stream_crlf_read_common(struct crlf_istream *cstream)
 {
 	struct istream_private *stream = &cstream->istream;
-	size_t size;
+	size_t size, avail;
 	ssize_t ret;
 
 	(void)i_stream_get_data(stream->parent, &size);
@@ -30,7 +30,7 @@ static int i_stream_crlf_read_common(struct crlf_istream *cstream)
 		i_assert(size != 0);
 	}
 
-	if (!i_stream_get_buffer_space(stream, size, NULL))
+	if (!i_stream_get_buffer_space(stream, size, &avail))
 		return -2;
 	return 1;
 }

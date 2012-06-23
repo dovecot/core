@@ -97,7 +97,7 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 void message_parser_parse_header(struct message_parser_ctx *ctx,
 				 struct message_size *hdr_size,
 				 message_part_header_callback_t *callback,
-				 void *context);
+				 void *context) ATTR_NULL(4);
 #ifdef CONTEXT_TYPE_SAFETY
 #  define message_parser_parse_header(ctx, hdr_size, callback, context) \
 	({(void)(1 ? 0 : callback((struct message_part *)0, \
@@ -115,7 +115,7 @@ void message_parser_parse_header(struct message_parser_ctx *ctx,
    for the body content. */
 void message_parser_parse_body(struct message_parser_ctx *ctx,
 			       message_part_header_callback_t *hdr_callback,
-			       void *context);
+			       void *context) ATTR_NULL(3);
 #ifdef CONTEXT_TYPE_SAFETY
 #  define message_parser_parse_body(ctx, callback, context) \
 	({(void)(1 ? 0 : callback((struct message_part *)0, \

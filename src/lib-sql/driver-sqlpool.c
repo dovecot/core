@@ -80,7 +80,7 @@ static void
 driver_sqlpool_commit_callback(const char *error,
 			       struct sqlpool_transaction_context *ctx);
 
-static struct sqlpool_request *
+static struct sqlpool_request * ATTR_NULL(2)
 sqlpool_request_new(struct sqlpool_db *db, const char *query)
 {
 	struct sqlpool_request *request;
@@ -639,8 +639,9 @@ driver_sqlpool_query_callback(struct sql_result *result,
 	}
 }
 
-static void driver_sqlpool_query(struct sql_db *_db, const char *query,
-				 sql_query_callback_t *callback, void *context)
+static void ATTR_NULL(3, 4)
+driver_sqlpool_query(struct sql_db *_db, const char *query,
+		     sql_query_callback_t *callback, void *context)
 {
         struct sqlpool_db *db = (struct sqlpool_db *)_db;
 	struct sqlpool_request *request;

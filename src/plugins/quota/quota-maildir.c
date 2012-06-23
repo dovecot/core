@@ -795,8 +795,7 @@ maildir_quota_root_namespace_added(struct quota_root *_root,
 	if (root->maildirsize_path != NULL)
 		return;
 
-	control_dir = mailbox_list_get_path(ns->list, NULL,
-					    MAILBOX_LIST_PATH_TYPE_CONTROL);
+	control_dir = mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_CONTROL);
 	root->maildirsize_ns = ns;
 	root->maildirsize_path =
 		p_strconcat(_root->pool, control_dir,

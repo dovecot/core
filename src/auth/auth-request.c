@@ -141,8 +141,7 @@ void auth_request_fail(struct auth_request *request)
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
-	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_FAILURE,
-				   NULL, 0);
+	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_FAILURE, "", 0);
 }
 
 void auth_request_internal_failure(struct auth_request *request)
@@ -325,7 +324,7 @@ void auth_request_continue(struct auth_request *request,
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
 	if (request->successful) {
-		auth_request_success(request, NULL, 0);
+		auth_request_success(request, "", 0);
 		return;
 	}
 
@@ -790,7 +789,8 @@ void auth_request_lookup_credentials(struct auth_request *request,
 		auth_request_log_debug(request, "password",
 			"passdb doesn't support credential lookups");
 		auth_request_lookup_credentials_callback(
-			PASSDB_RESULT_SCHEME_NOT_AVAILABLE, NULL, 0, request);
+					PASSDB_RESULT_SCHEME_NOT_AVAILABLE,
+					&uchar_nul, 0, request);
 	} else if (passdb->blocking) {
 		passdb_blocking_lookup_credentials(request);
 	} else {

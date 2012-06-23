@@ -508,7 +508,7 @@ static void admin_read_hosts(struct admin_connection *conn)
 	net_set_nonblock(admin->fd, TRUE);
 }
 
-static void
+static void ATTR_NULL(1)
 director_connection_disconnect_timeout(void *context ATTR_UNUSED)
 {
 	struct director_connection *conn;
@@ -586,7 +586,7 @@ int main(int argc, char *argv[])
 	const char *admin_path;
 
 	master_service = master_service_init("director-test", 0,
-					     &argc, &argv, NULL);
+					     &argc, &argv, "");
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 	admin_path = argv[optind];

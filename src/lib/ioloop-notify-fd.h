@@ -16,8 +16,9 @@ struct ioloop_notify_fd_context {
 	struct io_notify *notifies;
 };
 
-struct io *io_notify_fd_add(struct ioloop_notify_fd_context *ctx, int fd,
-			    io_callback_t *callback, void *context);
+struct io *
+io_notify_fd_add(struct ioloop_notify_fd_context *ctx, int fd,
+		 io_callback_t *callback, void *context) ATTR_NULL(4);
 void io_notify_fd_free(struct ioloop_notify_fd_context *ctx,
 		       struct io_notify *io);
 

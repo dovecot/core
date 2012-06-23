@@ -524,7 +524,7 @@ mech_rpa_auth_phase3(struct auth_request *auth_request,
 			"invalid token 5 or client rejects us");
 		auth_request_fail(auth_request);
 	} else {
-		auth_request_success(auth_request, NULL, 0);
+		auth_request_success(auth_request, "", 0);
 	}
 }
 

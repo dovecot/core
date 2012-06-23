@@ -57,7 +57,7 @@ static const char *worker_socket_path;
 
 static void worker_input(struct auth_worker_connection *conn);
 static void auth_worker_destroy(struct auth_worker_connection **conn,
-				const char *reason, bool restart);
+				const char *reason, bool restart) ATTR_NULL(2);
 
 static void auth_worker_idle_timeout(struct auth_worker_connection *conn)
 {

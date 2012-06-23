@@ -800,7 +800,7 @@ int file_dotlock_open(const struct dotlock_settings *set, const char *path,
 	return dotlock->fd;
 }
 
-static int
+static int ATTR_NULL(7)
 file_dotlock_open_mode_full(const struct dotlock_settings *set, const char *path,
 			    enum dotlock_create_flags flags,
 			    mode_t mode, uid_t uid, gid_t gid,

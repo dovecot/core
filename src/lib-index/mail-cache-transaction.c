@@ -594,8 +594,7 @@ mail_cache_transaction_get_space(struct mail_cache_transaction_ctx *ctx,
 	*offset_r = ctx->reserved_space_offset;
 	ctx->reserved_space_offset += size;
 	ctx->reserved_space -= size;
-	if (available_space_r != NULL)
-		*available_space_r = size;
+	*available_space_r = size;
 	i_assert((size & 3) == 0);
 
 	if (size == max_size && commit) {
@@ -829,11 +828,11 @@ mail_cache_header_fields_write(struct mail_cache_transaction_ctx *ctx,
 			       const buffer_t *buffer)
 {
 	struct mail_cache *cache = ctx->cache;
-	size_t size = buffer->used;
+	size_t max_size, size = buffer->used;
 	uint32_t offset, hdr_offset;
 
 	if (mail_cache_transaction_get_space(ctx, size, size,
-					     &offset, NULL, TRUE) <= 0)
+					     &offset, &max_size, TRUE) <= 0)
 		return -1;
 
 	if (mail_cache_write(cache, buffer->data, size, offset) < 0)

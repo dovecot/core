@@ -49,7 +49,8 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 void client_send_mailbox_flags(struct client *client, bool selecting);
 /* Update client->keywords array. Use keywords=NULL when unselecting. */
 void client_update_mailbox_flags(struct client *client,
-				 const ARRAY_TYPE(keywords) *keywords);
+				 const ARRAY_TYPE(keywords) *keywords)
+	ATTR_NULL(2);
 /* Convert keyword indexes to keyword names in selected mailbox. */
 const char *const *
 client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,

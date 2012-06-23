@@ -500,7 +500,7 @@ driver_mysql_transaction_commit(struct sql_transaction_context *ctx,
 		callback(NULL, context);
 }
 
-static int
+static int ATTR_NULL(3)
 transaction_send_query(struct mysql_transaction_context *ctx, const char *query,
 		       unsigned int *affected_rows_r)
 {

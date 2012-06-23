@@ -67,7 +67,7 @@ int dict_transaction_commit(struct dict_transaction_context **ctx);
    result. */
 void dict_transaction_commit_async(struct dict_transaction_context **ctx,
 				   dict_transaction_commit_callback_t *callback,
-				   void *context);
+				   void *context) ATTR_NULL(2, 3);
 /* Rollback all changes made in transaction. */
 void dict_transaction_rollback(struct dict_transaction_context **ctx);
 

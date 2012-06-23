@@ -43,7 +43,7 @@ i_stream_base64_try_encode_line(struct base64_encoder_istream *bstream)
 {
 	struct istream_private *stream = &bstream->istream;
 	const unsigned char *data;
-	size_t size, buffer_avail;
+	size_t size, avail, buffer_avail;
 	buffer_t buf;
 
 	data = i_stream_get_data(stream->parent, &size);
@@ -53,7 +53,7 @@ i_stream_base64_try_encode_line(struct base64_encoder_istream *bstream)
 	if (bstream->cur_line_len == bstream->chars_per_line) {
 		/* @UNSAFE: end of line, add newline */
 		if (!i_stream_get_buffer_space(stream,
-					       bstream->crlf ? 2 : 1, NULL))
+					       bstream->crlf ? 2 : 1, &avail))
 			return FALSE;
 
 		if (bstream->crlf)
@@ -62,7 +62,7 @@ i_stream_base64_try_encode_line(struct base64_encoder_istream *bstream)
 		bstream->cur_line_len = 0;
 	}
 
-	i_stream_get_buffer_space(stream, (size+2)/3*4, NULL);
+	(void)i_stream_get_buffer_space(stream, (size+2)/3*4, &avail);
 	buffer_avail = stream->buffer_size - stream->pos;
 
 	if ((size + 2) / 3 * 4 > buffer_avail) {

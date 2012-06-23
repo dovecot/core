@@ -355,7 +355,7 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 	struct mailbox_list_index *ilist;
 	const char *dir;
 
-	dir = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
+	dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (!list->mail_set->mailbox_list_index) {
 		/* reserve the module context anyway, so syncing code knows
 		   that the index is disabled */

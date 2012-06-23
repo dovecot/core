@@ -38,7 +38,7 @@ struct imap_parser;
    2 * max_line_size. */
 struct imap_parser *
 imap_parser_create(struct istream *input, struct ostream *output,
-		   size_t max_line_size);
+		   size_t max_line_size) ATTR_NULL(2);
 void imap_parser_ref(struct imap_parser *parser);
 void imap_parser_unref(struct imap_parser **parser);
 
@@ -47,7 +47,7 @@ void imap_parser_reset(struct imap_parser *parser);
 
 /* Change parser's input and output streams */
 void imap_parser_set_streams(struct imap_parser *parser, struct istream *input,
-			     struct ostream *output);
+			     struct ostream *output) ATTR_NULL(3);
 
 /* Return the last error in parser. fatal is set to TRUE if there's no way to
    continue parsing, currently only if too large non-sync literal size was

@@ -79,9 +79,10 @@ static void status_parse_fields(struct status_cmd_context *ctx,
 	}
 }
 
-static void status_output(struct status_cmd_context *ctx, struct mailbox *box,
-			  const struct mailbox_status *status,
-			  const struct mailbox_metadata *metadata)
+static void ATTR_NULL(2)
+status_output(struct status_cmd_context *ctx, struct mailbox *box,
+	      const struct mailbox_status *status,
+	      const struct mailbox_metadata *metadata)
 {
 	if (box != NULL)
 		doveadm_print(mailbox_get_vname(box));

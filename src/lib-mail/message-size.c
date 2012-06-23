@@ -6,22 +6,21 @@
 #include "message-size.h"
 
 int message_get_header_size(struct istream *input, struct message_size *hdr,
-			    bool *has_nuls)
+			    bool *has_nuls_r)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos, missing_cr_count;
 	int ret;
 
 	memset(hdr, 0, sizeof(struct message_size));
-	if (has_nuls != NULL)
-		*has_nuls = FALSE;
+	*has_nuls_r = FALSE;
 
 	missing_cr_count = 0; startpos = 0;
 	while (i_stream_read_data(input, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] != '\n') {
-				if (msg[i] == '\0' && has_nuls != NULL)
-					*has_nuls = TRUE;
+				if (msg[i] == '\0')
+					*has_nuls_r = TRUE;
 				continue;
 			}
 
@@ -65,15 +64,14 @@ int message_get_header_size(struct istream *input, struct message_size *hdr,
 }
 
 int message_get_body_size(struct istream *input, struct message_size *body,
-			  bool *has_nuls)
+			  bool *has_nuls_r)
 {
 	const unsigned char *msg;
 	size_t i, size, missing_cr_count;
 	int ret;
 
 	memset(body, 0, sizeof(struct message_size));
-	if (has_nuls != NULL)
-		*has_nuls = FALSE;
+	*has_nuls_r = FALSE;
 
 	missing_cr_count = 0;
 	if ((ret = i_stream_read_data(input, &msg, &size, 0)) <= 0)
@@ -97,8 +95,7 @@ int message_get_body_size(struct istream *input, struct message_size *body,
 				   at virtual \r */
 				body->lines++;
 			} else if (msg[i] == '\0') {
-				if (has_nuls != NULL)
-					*has_nuls = TRUE;
+				*has_nuls_r = TRUE;
 			}
 		}
 

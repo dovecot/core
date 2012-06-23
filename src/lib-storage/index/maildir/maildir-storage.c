@@ -60,12 +60,10 @@ maildir_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		/* put the temp files into tmp/ directory preferrably */
 		storage->temp_prefix = p_strconcat(_storage->pool, "tmp/",
 						   storage->temp_prefix, NULL);
-		dir = mailbox_list_get_path(list, NULL,
-					    MAILBOX_LIST_PATH_TYPE_DIR);
+		dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_DIR);
 	} else {
 		/* control dir should also be writable */
-		dir = mailbox_list_get_path(list, NULL,
-					    MAILBOX_LIST_PATH_TYPE_CONTROL);
+		dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_CONTROL);
 	}
 	_storage->temp_path_prefix = p_strconcat(_storage->pool, dir, "/",
 						 storage->temp_prefix, NULL);
@@ -351,8 +349,7 @@ static int maildir_mailbox_open(struct mailbox *box)
 		return -1;
 
 	/* tmp/ directory doesn't exist. does the maildir? */
-	root_dir = mailbox_list_get_path(box->list, NULL,
-					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	root_dir = mailbox_list_get_root_path(box->list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (strcmp(box_path, root_dir) == 0) {
 		/* root directory. either INBOX or some other namespace root */
 		errno = ENOENT;
@@ -465,8 +462,7 @@ maildir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 
 	/* if dovecot-shared exists in the root dir, copy it to newly
 	   created mailboxes */
-	root_dir = mailbox_list_get_path(box->list, NULL,
-					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	root_dir = mailbox_list_get_root_path(box->list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	shared_path = t_strconcat(root_dir, "/dovecot-shared", NULL);
 	if (stat(shared_path, &st) == 0) {
 		if (maildir_create_shared(box) < 0)
@@ -552,8 +548,7 @@ uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list)
 {
 	const char *path;
 
-	path = mailbox_list_get_path(list, NULL,
-				     MAILBOX_LIST_PATH_TYPE_CONTROL);
+	path = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_CONTROL);
 	path = t_strconcat(path, "/"MAILDIR_UIDVALIDITY_FNAME, NULL);
 	return mailbox_uidvalidity_next(list, path);
 }
@@ -568,10 +563,8 @@ static enum mail_flags maildir_get_private_flags_mask(struct mailbox *box)
 		return mbox->_private_flags_mask;
 	mbox->private_flags_mask_set = TRUE;
 
-	path = mailbox_list_get_path(box->list, NULL,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	path2 = mailbox_list_get_path(box->list, NULL,
-				      MAILBOX_LIST_PATH_TYPE_INDEX);
+	path = mailbox_list_get_root_path(box->list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	path2 = mailbox_list_get_root_path(box->list, MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (strcmp(path, path2) == 0) {
 		/* no separate index directory. we can't have private flags,
 		   so don't even bother checking if dovecot-shared exists */

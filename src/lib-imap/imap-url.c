@@ -284,6 +284,7 @@ imap_url_parse_urlauth(struct imap_url_parser *url_parser, const char *urlext)
 	const char *p, *q, *data;
 	buffer_t *uauth_token;
 	time_t expire = (time_t)-1;
+	int tz;
 
 	/* iurlauth         = iurlauth-rump iua-verifier
 	 * enc-urlauth      = 32*HEXDIG
@@ -306,7 +307,7 @@ imap_url_parse_urlauth(struct imap_url_parser *url_parser, const char *urlext)
 
 		if ((p = strchr(urlext+8, ';')) != NULL) {
 			if (!iso8601_date_parse((const unsigned char *)urlext+8,
-						p-urlext-8, &expire, NULL)) {
+						p-urlext-8, &expire, &tz)) {
 				parser->error = "invalid date-time for `;EXPIRE='";
 				return -1;
 			}

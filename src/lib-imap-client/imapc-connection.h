@@ -23,7 +23,7 @@ void imapc_connection_deinit(struct imapc_connection **conn);
 
 void imapc_connection_connect(struct imapc_connection *conn,
 			      imapc_command_callback_t *login_callback,
-			      void *login_context);
+			      void *login_context) ATTR_NULL(2, 3);
 void imapc_connection_disconnect(struct imapc_connection *conn);
 void imapc_connection_abort_commands(struct imapc_connection *conn,
 				     bool disconnected, bool keep_retriable);
@@ -32,7 +32,8 @@ void imapc_connection_input_pending(struct imapc_connection *conn);
 
 struct imapc_command *
 imapc_connection_cmd(struct imapc_connection *conn,
-		     imapc_command_callback_t *callback, void *context);
+		     imapc_command_callback_t *callback, void *context)
+	ATTR_NULL(3);
 
 void imapc_connection_unselect(struct imapc_client_mailbox *box);
 

@@ -3,6 +3,8 @@
 
 #define MAX_INT_STRLEN ((sizeof(uintmax_t) * CHAR_BIT + 2) / 3 + 1)
 
+extern const unsigned char uchar_nul; /* (const unsigned char *)"" */
+
 /* Returns -1 if dest wasn't large enough, 0 if not. */
 int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 	ATTR_FORMAT(3, 4);

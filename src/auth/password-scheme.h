@@ -76,8 +76,9 @@ void password_set_encryption_rounds(unsigned int rounds);
 /* INTERNAL: */
 const char *password_generate_salt(size_t len);
 const char *password_generate_md5_crypt(const char *pw, const char *salt);
-int password_generate_otp(const char *pw, const char *state,
-			  unsigned int algo, const char **result_r);
+int password_generate_otp(const char *pw, const char *state_data,
+			  unsigned int algo, const char **result_r)
+	ATTR_NULL(2);
 void password_generate_rpa(const char *pw, unsigned char result[]);
 
 int crypt_verify(const char *plaintext, const char *user,

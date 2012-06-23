@@ -104,7 +104,7 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set);
-void client_destroy(struct client *client, const char *reason);
+void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 
 /* Disconnect client connection */
 void client_disconnect(struct client *client, const char *reason);

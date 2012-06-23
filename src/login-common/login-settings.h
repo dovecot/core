@@ -45,7 +45,7 @@ login_settings_read(pool_t pool,
 		    const struct ip_addr *local_ip,
 		    const struct ip_addr *remote_ip,
 		    const char *local_name,
-		    void ***other_settings_r);
+		    void ***other_settings_r) ATTR_NULL(2, 3, 4);
 void login_settings_deinit(void);
 
 #endif

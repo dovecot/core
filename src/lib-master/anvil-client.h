@@ -13,7 +13,7 @@ typedef void anvil_callback_t(const char *reply, void *context);
    If the callback returns FALSE, reconnection isn't attempted. */
 struct anvil_client *
 anvil_client_init(const char *path, bool (*reconnect_callback)(void),
-		  enum anvil_client_flags flags);
+		  enum anvil_client_flags flags) ATTR_NULL(2);
 void anvil_client_deinit(struct anvil_client **client);
 
 /* Connect to anvil. If retry=TRUE, try connecting for a while */

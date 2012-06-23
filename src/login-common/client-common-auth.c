@@ -324,7 +324,7 @@ static int proxy_start(struct client *client,
 	return 0;
 }
 
-static void
+static void ATTR_NULL(3, 4)
 client_auth_result(struct client *client, enum client_auth_result result,
 		   const struct client_auth_reply *reply, const char *text)
 {

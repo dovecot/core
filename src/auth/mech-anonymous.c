@@ -20,7 +20,7 @@ mech_anonymous_auth_continue(struct auth_request *request,
 	request->user = p_strdup(request->pool,
 				 request->set->anonymous_username);
 
-	auth_request_success(request, NULL, 0);
+	auth_request_success(request, "", 0);
 }
 
 static struct auth_request *mech_anonymous_auth_new(void)

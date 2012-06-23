@@ -501,8 +501,7 @@ bool i_stream_get_buffer_space(struct istream_private *stream,
 		}
 	}
 
-	if (size_r != NULL)
-		*size_r = stream->buffer_size - stream->pos;
+	*size_r = stream->buffer_size - stream->pos;
 	return stream->pos != stream->buffer_size;
 }
 

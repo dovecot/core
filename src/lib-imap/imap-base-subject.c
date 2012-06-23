@@ -65,8 +65,7 @@ static void remove_subj_trailers(buffer_t *buf, size_t start_pos,
 			size--;
 		else if (size >= 5 &&
 			 memcmp(data + size - 5, "(FWD)", 5) == 0) {
-			if (is_reply_or_forward_r != NULL)
-				*is_reply_or_forward_r = TRUE;
+			*is_reply_or_forward_r = TRUE;
 			size -= 5;
 		} else {
 			break;
@@ -150,8 +149,7 @@ static bool remove_subj_leader(buffer_t *buf, size_t *start_pos,
 
 	data++;
 	*start_pos += (size_t)(data - orig_data);
-	if (is_reply_or_forward_r != NULL)
-		*is_reply_or_forward_r = TRUE;
+	*is_reply_or_forward_r = TRUE;
 	return TRUE;
 }
 
@@ -187,8 +185,7 @@ static bool remove_subj_fwd_hdr(buffer_t *buf, size_t *start_pos,
 	if (data[size-2] != ']')
 		return FALSE;
 
-	if (is_reply_or_forward_r != NULL)
-		*is_reply_or_forward_r = TRUE;
+	*is_reply_or_forward_r = TRUE;
 
 	buffer_set_used_size(buf, size-2);
 	buffer_append_c(buf, '\0');
@@ -204,8 +201,7 @@ const char *imap_get_base_subject_cased(pool_t pool, const char *subject,
 	size_t start_pos, subject_len;
 	bool found;
 
-	if (is_reply_or_forward_r != NULL)
-		*is_reply_or_forward_r = FALSE;
+	*is_reply_or_forward_r = FALSE;
 
 	subject_len = strlen(subject);
 	buf = buffer_create_dynamic(pool, subject_len);

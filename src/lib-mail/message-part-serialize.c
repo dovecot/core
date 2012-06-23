@@ -115,7 +115,7 @@ static bool read_next(struct deserialize_context *ctx,
 	return TRUE;
 }
 
-static bool
+static bool ATTR_NULL(2)
 message_part_deserialize_part(struct deserialize_context *ctx,
 			      struct message_part *parent,
 			      unsigned int siblings,

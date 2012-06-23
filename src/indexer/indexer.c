@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
 {
 	const char *error;
 
-	master_service = master_service_init("indexer", 0, &argc, &argv, NULL);
+	master_service = master_service_init("indexer", 0, &argc, &argv, "");
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 

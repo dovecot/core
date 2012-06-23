@@ -427,7 +427,7 @@ static void imap_client_starttls(struct client *client)
 	imap_client->skip_line = FALSE;
 }
 
-static void
+static void ATTR_NULL(3)
 client_send_reply_raw(struct client *client,
 		      const char *prefix, const char *resp_code,
 		      const char *text, bool tagged)

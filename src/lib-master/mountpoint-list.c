@@ -58,8 +58,8 @@ const char *const mountpoint_list_default_ignore_prefixes[] = {
 	NULL
 };
 
-struct mountpoint_list *
-mountpoint_list_init(const char *perm_path, const char *state_path)
+static struct mountpoint_list * ATTR_NULL(1)
+mountpoint_list_init_internal(const char *perm_path, const char *state_path)
 {
 	struct mountpoint_list *list;
 	pool_t pool;
@@ -76,9 +76,15 @@ mountpoint_list_init(const char *perm_path, const char *state_path)
 }
 
 struct mountpoint_list *
+mountpoint_list_init(const char *perm_path, const char *state_path)
+{
+	return mountpoint_list_init_internal(perm_path, state_path);
+}
+
+struct mountpoint_list *
 mountpoint_list_init_readonly(const char *state_path)
 {
-	return mountpoint_list_init(NULL, state_path);
+	return mountpoint_list_init_internal(NULL, state_path);
 }
 
 void mountpoint_list_deinit(struct mountpoint_list **_list)

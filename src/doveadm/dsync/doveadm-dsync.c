@@ -257,10 +257,10 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 			"virtual mailbox hierarchy separator "
 			"(specify separator for the default namespace)");
 	}
-	path1 = mailbox_list_get_path(user->namespaces->list, NULL,
-				      MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	path2 = mailbox_list_get_path(user2->namespaces->list, NULL,
-				      MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	path1 = mailbox_list_get_root_path(user->namespaces->list,
+					   MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	path2 = mailbox_list_get_root_path(user2->namespaces->list,
+					   MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (path1 != NULL && path2 != NULL &&
 	    strcmp(path1, path2) == 0) {
 		i_fatal("Both source and destination mail_location "
@@ -347,7 +347,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 					ctx->sync_type,
 					DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS |
 					DSYNC_BRAIN_FLAG_SEND_REQUESTS,
-					NULL);
+					"");
 
 	if (!ctx->remote)
 		cmd_dsync_run_local(ctx, user, brain, slave2);

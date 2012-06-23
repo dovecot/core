@@ -246,9 +246,10 @@ static bool dotlock_callback(unsigned int secs_left, bool stale, void *context)
 	return TRUE;
 }
 
-static int mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
-				      struct dotlock_settings *set,
-				      enum mbox_dotlock_op op)
+static int ATTR_NULL(2)
+mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
+			   struct dotlock_settings *set,
+			   enum mbox_dotlock_op op)
 {
 	const char *box_path, *dir, *fname;
 	int ret = -1, orig_dir_fd, orig_errno;
@@ -357,8 +358,8 @@ mbox_dotlock_log_eacces_error(struct mbox_mailbox *mbox, const char *path)
 		mail_storage_set_critical(&mbox->storage->storage,
 			"%s (not INBOX -> no privileged locking)", errmsg);
 	} else if (!mbox->mbox_privileged_locking) {
-		dir = mailbox_list_get_path(mbox->box.list, NULL,
-					    MAILBOX_LIST_PATH_TYPE_DIR);
+		dir = mailbox_list_get_root_path(mbox->box.list,
+						 MAILBOX_LIST_PATH_TYPE_DIR);
 		mail_storage_set_critical(&mbox->storage->storage,
 			"%s (under root dir %s -> no privileged locking)",
 			errmsg, dir);

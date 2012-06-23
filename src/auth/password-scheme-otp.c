@@ -12,13 +12,13 @@
 #include "randgen.h"
 #include "otp.h"
 
-int password_generate_otp(const char *pw, const char *data,
+int password_generate_otp(const char *pw, const char *state_data,
 			  unsigned int algo, const char **result_r)
 {
 	struct otp_state state;
 
-	if (data != NULL) {
-		if (otp_parse_dbentry(data, &state) != 0)
+	if (state_data != NULL) {
+		if (otp_parse_dbentry(state_data, &state) != 0)
 			return -1;
 	} else {
 		/* Generate new OTP credentials from plaintext */

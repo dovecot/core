@@ -50,6 +50,6 @@ int cmd_search_parse_return_if_found(struct imap_search_context *ctx,
 
 bool imap_search_start(struct imap_search_context *ctx,
 		       struct mail_search_args *sargs,
-		       const enum mail_sort_type *sort_program);
+		       const enum mail_sort_type *sort_program) ATTR_NULL(3);
 
 #endif

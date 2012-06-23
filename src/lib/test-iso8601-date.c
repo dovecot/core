@@ -124,6 +124,8 @@ static void test_iso8601_date_invalid(void)
 
 	for (i = 0; i < invalid_date_test_count; i++) T_BEGIN {
 		const char *date_in;
+		struct tm tm;
+		int tz;
 		bool result;
 
 		date_in = invalid_date_tests[i];
@@ -131,7 +133,7 @@ static void test_iso8601_date_invalid(void)
 		test_begin(t_strdup_printf("iso8601 date invalid [%d]", i));
 
 		result = iso8601_date_parse_tm
-			((const unsigned char *)date_in, strlen(date_in), NULL, NULL);
+			((const unsigned char *)date_in, strlen(date_in), &tm, &tz);
 		test_out(t_strdup_printf("parse %s", date_in), !result);
 
 		test_end();

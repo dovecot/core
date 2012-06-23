@@ -65,8 +65,10 @@ struct userdb_module_interface {
 	int (*iterate_deinit)(struct userdb_iterate_context *ctx);
 };
 
-uid_t userdb_parse_uid(struct auth_request *request, const char *str);
-gid_t userdb_parse_gid(struct auth_request *request, const char *str);
+uid_t userdb_parse_uid(struct auth_request *request, const char *str)
+	ATTR_NULL(1);
+gid_t userdb_parse_gid(struct auth_request *request, const char *str)
+	ATTR_NULL(1);
 
 struct userdb_module *
 userdb_preinit(pool_t pool, const struct auth_userdb_settings *set);

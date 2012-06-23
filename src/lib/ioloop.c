@@ -189,7 +189,7 @@ void timeout_remove(struct timeout **_timeout)
 	timeout_free(timeout);
 }
 
-static void
+static void ATTR_NULL(2)
 timeout_reset_timeval(struct timeout *timeout, struct timeval *tv_now)
 {
 	timeout_update_next(timeout, tv_now);

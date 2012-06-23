@@ -27,7 +27,7 @@ mailbox_tree_get(struct mailbox_tree_context *tree, const char *path,
 struct mailbox_node *
 mailbox_tree_lookup(struct mailbox_tree_context *tree, const char *path);
 
-struct mailbox_tree_iterate_context *
+struct mailbox_tree_iterate_context * ATTR_NULL(2)
 mailbox_tree_iterate_init(struct mailbox_tree_context *tree,
 			  struct mailbox_node *root, unsigned int flags_mask);
 struct mailbox_node *

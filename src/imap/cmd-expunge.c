@@ -19,8 +19,9 @@ static bool cmd_expunge_callback(struct client_command_context *cmd)
 	return TRUE;
 }
 
-static bool cmd_expunge_finish(struct client_command_context *cmd,
-			       struct mail_search_args *search_args)
+static bool ATTR_NULL(2)
+cmd_expunge_finish(struct client_command_context *cmd,
+		   struct mail_search_args *search_args)
 {
 	struct client *client = cmd->client;
 	int ret;

@@ -15,6 +15,6 @@ bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,
 				 uint32_t seq, unsigned int *idx_r);
 bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,
 			      const void *record, size_t record_size,
-			      void *old_record);
+			      void *old_record) ATTR_NULL(5);
 
 #endif

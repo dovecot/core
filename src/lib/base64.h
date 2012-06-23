@@ -15,7 +15,7 @@ void base64_encode(const void *src, size_t src_size, buffer_t *dest);
    If src_pos is non-NULL, it's updated to first non-translated character in
    src. */
 int base64_decode(const void *src, size_t src_size,
-		  size_t *src_pos_r, buffer_t *dest);
+		  size_t *src_pos_r, buffer_t *dest) ATTR_NULL(3);
 
 /* Decode given string to a buffer allocated from data stack. */
 buffer_t *t_base64_decode_str(const char *str);

@@ -367,8 +367,9 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 	return remote_saved;
 }
 
-static bool dsync_mailbox_try_save(struct dsync_mailbox_importer *importer,
-				   struct dsync_mail_change *save_change)
+static bool ATTR_NULL(2)
+dsync_mailbox_try_save(struct dsync_mailbox_importer *importer,
+		       struct dsync_mail_change *save_change)
 {
 	if (importer->cur_mail_saved) {
 		if (!importer_next_mail(importer, 0) && save_change == NULL)

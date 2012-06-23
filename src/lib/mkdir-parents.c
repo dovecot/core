@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static int
+static int ATTR_NULL(5)
 mkdir_chown_full(const char *path, mode_t mode, uid_t uid,
 		 gid_t gid, const char *gid_origin)
 {
@@ -79,7 +79,7 @@ int mkdir_chgrp(const char *path, mode_t mode,
 	return mkdir_chown_full(path, mode, (uid_t)-1, gid, gid_origin);
 }
 
-static int
+static int ATTR_NULL(5)
 mkdir_parents_chown_full(const char *path, mode_t mode, uid_t uid, gid_t gid,
 			 const char *gid_origin)
 {

@@ -251,13 +251,13 @@ void mail_index_unregister_sync_lost_handler(struct mail_index *index,
 bool mail_index_keyword_lookup(struct mail_index *index,
 			       const char *keyword, unsigned int *idx_r)
 {
-	void *value;
+	void *key, *value;
 
 	/* keywords_hash keeps a name => index mapping of keywords.
 	   Keywords are never removed from it, so the index values are valid
 	   for the lifetime of the mail_index. */
 	if (hash_table_lookup_full(index->keywords_hash, keyword,
-				   NULL, &value)) {
+				   &key, &value)) {
 		*idx_r = POINTER_CAST_TO(value, unsigned int);
 		return TRUE;
 	}

@@ -59,7 +59,7 @@ extern struct module *mail_storage_service_modules;
 struct mail_storage_service_ctx *
 mail_storage_service_init(struct master_service *service,
 			  const struct setting_parser_info *set_roots[],
-			  enum mail_storage_service_flags flags);
+			  enum mail_storage_service_flags flags) ATTR_NULL(2);
 struct auth_master_connection *
 mail_storage_service_get_auth_conn(struct mail_storage_service_ctx *ctx);
 int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
@@ -67,12 +67,13 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       pool_t pool,
 				       const struct setting_parser_info **user_info_r,
 				       const struct setting_parser_context **parser_r,
-				       const char **error_r);
+				       const char **error_r) ATTR_NULL(2);
 /* Read settings and initialize context to use them. Do nothing if service is
    already initialized. This is mainly necessary when calling _get_auth_conn()
    or _all_init(). */
 void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
-					const struct mail_storage_service_input *input);
+					const struct mail_storage_service_input *input)
+	ATTR_NULL(2);
 /* Returns 1 if ok, 0 if user wasn't found, -1 if fatal error,
    -2 if error is user-specific (e.g. invalid settings).
    Error can be safely shown to untrusted users. */

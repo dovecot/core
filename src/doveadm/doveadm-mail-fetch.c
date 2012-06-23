@@ -126,7 +126,7 @@ static int fetch_hdr(struct fetch_cmd_context *ctx)
 		ret = -1;
 	}
 	i_stream_unref(&input);
-	doveadm_print_stream(NULL, 0);
+	doveadm_print_stream("", 0);
 	return ret;
 }
 
@@ -220,7 +220,7 @@ static int fetch_body(struct fetch_cmd_context *ctx)
 		i_error("read() failed: %m");
 		ret = -1;
 	}
-	doveadm_print_stream(NULL, 0);
+	doveadm_print_stream("", 0);
 	return ret;
 }
 
@@ -246,7 +246,7 @@ static int fetch_text(struct fetch_cmd_context *ctx)
 		i_error("read() failed: %m");
 		ret = -1;
 	}
-	doveadm_print_stream(NULL, 0);
+	doveadm_print_stream("", 0);
 	return ret;
 }
 
@@ -293,7 +293,7 @@ static int fetch_text_utf8(struct fetch_cmd_context *ctx)
 	message_decoder_deinit(&decoder);
 	(void)message_parser_deinit(&parser, &parts);
 
-	doveadm_print_stream(NULL, 0);
+	doveadm_print_stream("", 0);
 	if (input->stream_errno != 0) {
 		i_error("read() failed: %m");
 		return -1;

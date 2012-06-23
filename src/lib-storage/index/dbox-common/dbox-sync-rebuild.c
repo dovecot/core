@@ -207,8 +207,7 @@ int dbox_sync_rebuild_verify_alt_storage(struct mailbox_list *list)
 	const char *alt_path, *error;
 	struct stat st;
 
-	alt_path = mailbox_list_get_path(list, NULL,
-					 MAILBOX_LIST_PATH_TYPE_ALT_DIR);
+	alt_path = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_ALT_DIR);
 	if (alt_path == NULL)
 		return 0;
 

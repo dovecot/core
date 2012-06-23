@@ -383,14 +383,14 @@ master_input_pass(struct auth_master_connection *conn, const char *args)
 			return FALSE;
 		auth_request_log_info(auth_request, "passdb", "%s", error);
 		pass_callback(PASSDB_RESULT_USER_UNKNOWN,
-			      NULL, 0, auth_request);
+			      &uchar_nul, 0, auth_request);
 	} else if (conn->userdb_restricted_uid != 0) {
 		/* no permissions to do this lookup */
 		auth_request_log_error(auth_request, "passdb",
 			"Auth client doesn't have permissions to do "
 			"a PASS lookup: %s", auth_restricted_reason(conn));
 		pass_callback(PASSDB_RESULT_INTERNAL_FAILURE,
-			      NULL, 0, auth_request);
+			      &uchar_nul, 0, auth_request);
 	} else {
 		auth_request_set_state(auth_request,
 				       AUTH_REQUEST_STATE_MECH_CONTINUE);

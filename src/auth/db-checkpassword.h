@@ -24,6 +24,6 @@ void db_checkpassword_call(struct db_checkpassword *db,
 			   struct auth_request *request,
 			   const char *auth_password,
 			   db_checkpassword_callback_t *callback,
-			   void (*request_callback)());
+			   void (*request_callback)()) ATTR_NULL(3);
 
 #endif

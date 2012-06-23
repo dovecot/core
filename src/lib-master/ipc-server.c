@@ -176,7 +176,7 @@ static void ipc_cmd_finish(struct ipc_cmd *cmd, const char *line)
 
 void ipc_cmd_success(struct ipc_cmd **_cmd)
 {
-	ipc_cmd_success_reply(_cmd, NULL);
+	ipc_cmd_success_reply(_cmd, "");
 }
 
 void ipc_cmd_success_reply(struct ipc_cmd **_cmd, const char *data)

@@ -55,7 +55,9 @@ void o_stream_set_flush_callback(struct ostream *stream,
 
 void o_stream_unset_flush_callback(struct ostream *stream)
 {
-	o_stream_set_flush_callback(stream, NULL, NULL);
+	struct ostream_private *_stream = stream->real_stream;
+
+	_stream->set_flush_callback(_stream, NULL, NULL);
 }
 
 void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size)

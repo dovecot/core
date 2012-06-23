@@ -24,7 +24,7 @@ struct dot_istream {
 static int i_stream_dot_read_some(struct dot_istream *dstream)
 {
 	struct istream_private *stream = &dstream->istream;
-	size_t size;
+	size_t size, avail;
 	ssize_t ret;
 
 	(void)i_stream_get_data(stream->parent, &size);
@@ -44,7 +44,7 @@ static int i_stream_dot_read_some(struct dot_istream *dstream)
 		i_assert(size != 0);
 	}
 
-	if (!i_stream_get_buffer_space(stream, size, NULL))
+	if (!i_stream_get_buffer_space(stream, size, &avail))
 		return -2;
 	return 1;
 }
@@ -109,11 +109,11 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 	/* @UNSAFE */
 	struct dot_istream *dstream = (struct dot_istream *)stream;
 	const unsigned char *data;
-	size_t i, dest, size;
+	size_t i, dest, size, avail;
 	ssize_t ret, ret1;
 
 	if (dstream->pending[0] != '\0') {
-		if (!i_stream_get_buffer_space(stream, 1, NULL))
+		if (!i_stream_get_buffer_space(stream, 1, &avail))
 			return -2;
 		dest = stream->pos;
 		(void)flush_pending(dstream, &dest);

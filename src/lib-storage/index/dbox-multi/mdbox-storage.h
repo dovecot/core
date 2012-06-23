@@ -72,7 +72,7 @@ int mdbox_read_header(struct mdbox_mailbox *mbox,
 		      struct mdbox_index_header *hdr);
 void mdbox_update_header(struct mdbox_mailbox *mbox,
 			 struct mail_index_transaction *trans,
-			 const struct mailbox_update *update);
+			 const struct mailbox_update *update) ATTR_NULL(3);
 
 struct mail_save_context *
 mdbox_save_alloc(struct mailbox_transaction_context *_t);

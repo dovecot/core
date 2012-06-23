@@ -74,7 +74,7 @@ hmac_md5_ucs2le_string_ucase(struct hmac_md5_context *ctx, const char *str)
 	hmac_md5_update(ctx, wstr, len);
 }
 
-static void
+static void ATTR_NULL(2)
 ntlm_v2_hash(const char *user, const char *target,
 	     const unsigned char *hash_v1,
 	     unsigned char hash[NTLMSSP_V2_HASH_SIZE])
@@ -83,7 +83,7 @@ ntlm_v2_hash(const char *user, const char *target,
 
 	hmac_md5_init(&ctx, hash_v1, NTLMSSP_HASH_SIZE);
 	hmac_md5_ucs2le_string_ucase(&ctx, user);
-	if (target)
+	if (target != NULL)
 		hmac_md5_ucs2le_string_ucase(&ctx, target);
 	hmac_md5_final(&ctx, hash);
 }

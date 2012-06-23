@@ -28,7 +28,9 @@ struct chain_istream {
 	struct istream_chain chain;
 };
 
-void i_stream_chain_append(struct istream_chain *chain, struct istream *stream)
+static void ATTR_NULL(2)
+i_stream_chain_append_internal(struct istream_chain *chain,
+			       struct istream *stream)
 {
 	struct istream_chain_link *link;
 
@@ -53,6 +55,16 @@ void i_stream_chain_append(struct istream_chain *chain, struct istream *stream)
 		}
 	}
 	DLLIST2_APPEND(&chain->head, &chain->tail, link);
+}
+
+void i_stream_chain_append(struct istream_chain *chain, struct istream *stream)
+{
+	return i_stream_chain_append_internal(chain, stream);
+}
+
+void i_stream_chain_append_eof(struct istream_chain *chain)
+{
+	return i_stream_chain_append_internal(chain, NULL);
 }
 
 static void

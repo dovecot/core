@@ -48,7 +48,8 @@ struct istream_private {
 };
 
 struct istream *
-i_stream_create(struct istream_private *stream, struct istream *parent, int fd);
+i_stream_create(struct istream_private *stream, struct istream *parent, int fd)
+	ATTR_NULL(2);
 
 void i_stream_compress(struct istream_private *stream);
 void i_stream_grow_buffer(struct istream_private *stream, size_t bytes);

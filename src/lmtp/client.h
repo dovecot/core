@@ -72,7 +72,7 @@ extern unsigned int clients_count;
 struct client *client_create(int fd_in, int fd_out,
 			     const struct master_service_connection *conn);
 void client_destroy(struct client *client, const char *prefix,
-		    const char *reason);
+		    const char *reason) ATTR_NULL(2, 3);
 void client_disconnect(struct client *client, const char *prefix,
 		       const char *reason);
 void client_io_reset(struct client *client);

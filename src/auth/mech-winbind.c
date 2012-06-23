@@ -264,7 +264,7 @@ do_auth_continue(struct auth_request *auth_request,
 			auth_request_success(&request->auth_request,
 					     buf->data, buf->used);
 		} else {
-			auth_request_success(&request->auth_request, NULL, 0);
+			auth_request_success(&request->auth_request, "", 0);
 		}
 		return HR_OK;
 	} else if (strcmp(token[0], "BH") == 0) {

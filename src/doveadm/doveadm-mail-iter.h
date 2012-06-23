@@ -10,7 +10,7 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 			   enum mail_fetch_field wanted_fields,
 			   const char *const *wanted_headers,
 			   struct mailbox_transaction_context **trans_r,
-			   struct doveadm_mail_iter **iter_r);
+			   struct doveadm_mail_iter **iter_r) ATTR_NULL(5);
 int doveadm_mail_iter_deinit(struct doveadm_mail_iter **iter);
 int doveadm_mail_iter_deinit_sync(struct doveadm_mail_iter **iter);
 int doveadm_mail_iter_deinit_keep_box(struct doveadm_mail_iter **iter,

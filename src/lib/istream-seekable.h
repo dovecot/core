@@ -11,6 +11,6 @@ struct istream *
 i_stream_create_seekable(struct istream *input[],
 			 size_t max_buffer_size,
 			 int (*fd_callback)(const char **path_r, void *context),
-			 void *context);
+			 void *context) ATTR_NULL(4);
 
 #endif

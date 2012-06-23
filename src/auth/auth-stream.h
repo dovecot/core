@@ -5,7 +5,7 @@ struct auth_request;
 
 struct auth_stream_reply *auth_stream_reply_init(pool_t pool);
 void auth_stream_reply_add(struct auth_stream_reply *reply,
-			   const char *key, const char *value);
+			   const char *key, const char *value) ATTR_NULL(2, 3);
 void auth_stream_reply_reset(struct auth_stream_reply *reply);
 void auth_stream_reply_remove(struct auth_stream_reply *reply, const char *key);
 

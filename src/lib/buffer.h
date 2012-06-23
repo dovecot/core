@@ -73,7 +73,8 @@ void *buffer_append_space_unsafe(buffer_t *buf, size_t size);
 /* Like buffer_get_data(), but don't return it as const. Returns NULL if the
    buffer is non-modifiable. WARNING: The returned address may become invalid
    if you add more data to buffer. */
-void *buffer_get_modifiable_data(const buffer_t *buf, size_t *used_size_r);
+void *buffer_get_modifiable_data(const buffer_t *buf, size_t *used_size_r)
+	ATTR_NULL(2);
 
 /* Set the "used size" of buffer, ie. 0 would set the buffer empty.
    Must not be used to grow buffer. */
@@ -87,7 +88,7 @@ bool buffer_cmp(const buffer_t *buf1, const buffer_t *buf2);
 
 /* Returns pointer to beginning of buffer data. Current used size of buffer is
    stored in used_size if it's non-NULL. */
-static inline const void *
+static inline const void * ATTR_NULL(2)
 buffer_get_data(const buffer_t *buf, size_t *used_size_r)
 {
 	if (used_size_r != NULL)

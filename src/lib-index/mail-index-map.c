@@ -50,10 +50,7 @@ bool mail_index_map_lookup_ext(struct mail_index_map *map, const char *name,
 
 	array_foreach(&map->extensions, ext) {
 		if (strcmp(ext->name, name) == 0) {
-			if (idx_r != NULL) {
-				*idx_r = array_foreach_idx(&map->extensions,
-							   ext);
-			}
+			*idx_r = array_foreach_idx(&map->extensions, ext);
 			return TRUE;
 		}
 	}
@@ -72,7 +69,7 @@ mail_index_map_register_ext(struct mail_index_map *map,
 			    const struct mail_index_ext_header *ext_hdr)
 {
 	struct mail_index_ext *ext;
-	uint32_t idx, empty_idx = (uint32_t)-1;
+	uint32_t idx, ext_map_idx, empty_idx = (uint32_t)-1;
 
 	if (!array_is_created(&map->extensions)) {
                 mail_index_map_init_extbufs(map, 5);
@@ -80,7 +77,7 @@ mail_index_map_register_ext(struct mail_index_map *map,
 	} else {
 		idx = array_count(&map->extensions);
 	}
-	i_assert(!mail_index_map_lookup_ext(map, name, NULL));
+	i_assert(!mail_index_map_lookup_ext(map, name, &ext_map_idx));
 
 	ext = array_append_space(&map->extensions);
 	ext->name = p_strdup(map->extension_pool, name);

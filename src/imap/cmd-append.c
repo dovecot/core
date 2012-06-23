@@ -352,7 +352,7 @@ static void cmd_append_finish_catenate(struct client_command_context *cmd)
 {
 	struct cmd_append_context *ctx = cmd->context;
 
-	i_stream_chain_append(ctx->catchain, NULL);
+	i_stream_chain_append_eof(ctx->catchain);
 	i_stream_unref(&ctx->input);
 	ctx->catenate = FALSE;
 

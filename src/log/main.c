@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 {
 	const char *error;
 
-	master_service = master_service_init("log", 0, &argc, &argv, NULL);
+	master_service = master_service_init("log", 0, &argc, &argv, "");
 
 	/* use log prefix and log to stderr until we've configured the real
 	   logging */

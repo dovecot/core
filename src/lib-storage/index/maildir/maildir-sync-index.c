@@ -132,8 +132,8 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	ctx->flags = flags8;
 
 	/* and try renaming with the new name */
-	newfname = maildir_filename_flags_set(ctx->keywords_sync_ctx, fname,
-					      ctx->flags, &ctx->keywords);
+	newfname = maildir_filename_flags_kw_set(ctx->keywords_sync_ctx, fname,
+						 ctx->flags, &ctx->keywords);
 	newpath = t_strconcat(dir, newfname, NULL);
 	if (strcmp(path, newpath) == 0) {
 		/* just make sure that the file still exists. avoid rename()

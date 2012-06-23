@@ -8,7 +8,7 @@ void plain_verify_callback(enum passdb_result result,
 {
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		auth_request_success(request, NULL, 0);
+		auth_request_success(request, "", 0);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(request);

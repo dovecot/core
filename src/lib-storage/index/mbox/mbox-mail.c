@@ -153,6 +153,7 @@ mbox_mail_get_md5_header(struct index_mail *mail, const char **value_r)
 		{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->mail.mail.box;
 	const void *ext_data;
+	bool expunged;
 
 	if (mail->data.guid != NULL) {
 		*value_r = mail->data.guid;
@@ -161,7 +162,7 @@ mbox_mail_get_md5_header(struct index_mail *mail, const char **value_r)
 
 	mail_index_lookup_ext(mail->mail.mail.transaction->view,
 			      mail->mail.mail.seq, mbox->md5hdr_ext_idx,
-			      &ext_data, NULL);
+			      &ext_data, &expunged);
 	if (ext_data != NULL && memcmp(ext_data, empty_md5, 16) != 0) {
 		mail->data.guid = p_strdup(mail->data_pool,
 					   binary_to_hex(ext_data, 16));

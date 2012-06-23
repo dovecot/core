@@ -109,26 +109,27 @@ void director_ring_remove(struct director_host *removed_host,
 
 void director_update_host(struct director *dir, struct director_host *src,
 			  struct director_host *orig_src,
-			  struct mail_host *host);
+			  struct mail_host *host) ATTR_NULL(3);
 void director_remove_host(struct director *dir, struct director_host *src,
 			  struct director_host *orig_src,
-			  struct mail_host *host);
+			  struct mail_host *host) ATTR_NULL(2, 3);
 void director_flush_host(struct director *dir, struct director_host *src,
 			 struct director_host *orig_src,
-			 struct mail_host *host);
+			 struct mail_host *host) ATTR_NULL(3);
 void director_update_user(struct director *dir, struct director_host *src,
 			  struct user *user);
 void director_update_user_weak(struct director *dir, struct director_host *src,
 			       struct director_host *orig_src,
-			       struct user *user);
+			       struct user *user) ATTR_NULL(3);
 void director_move_user(struct director *dir, struct director_host *src,
 			struct director_host *orig_src,
-			unsigned int username_hash, struct mail_host *host);
+			unsigned int username_hash, struct mail_host *host)
+	ATTR_NULL(3);
 void director_user_killed(struct director *dir, unsigned int username_hash);
 void director_user_killed_everywhere(struct director *dir,
 				     struct director_host *src,
 				     struct director_host *orig_src,
-				     unsigned int username_hash);
+				     unsigned int username_hash) ATTR_NULL(3);
 void director_user_weak(struct director *dir, struct user *user);
 
 void director_sync_freeze(struct director *dir);

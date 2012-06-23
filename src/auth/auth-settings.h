@@ -67,6 +67,7 @@ extern struct auth_settings *global_auth_settings;
 
 struct auth_settings *
 auth_settings_read(const char *service, pool_t pool,
-		   struct master_service_settings_output *output_r);
+		   struct master_service_settings_output *output_r)
+	ATTR_NULL(1);
 
 #endif

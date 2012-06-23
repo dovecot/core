@@ -171,10 +171,8 @@ bool hash_table_lookup_full(const struct hash_table *table,
 	if (node == NULL)
 		return FALSE;
 
-	if (orig_key != NULL)
-		*orig_key = node->key;
-	if (value != NULL)
-		*value = node->value;
+	*orig_key = node->key;
+	*value = node->value;
 	return TRUE;
 }
 

@@ -615,7 +615,7 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 	str = t_str_new(128);
 	str_printfa(str, "LIST\t%u",
 		    auth_master_next_request_id(conn));
-	if (user_mask != NULL && *user_mask != '\0')
+	if (*user_mask != '\0')
 		str_printfa(str, "\tuser=%s", user_mask);
 	if (info != NULL)
 		auth_user_info_export(str, info);

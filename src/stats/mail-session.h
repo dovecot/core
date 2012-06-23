@@ -19,7 +19,7 @@ int mail_session_lookup(const char *guid, struct mail_session **session_r,
 int mail_session_get(const char *guid, struct mail_session **session_r,
 		     const char **error_r);
 void mail_session_refresh(struct mail_session *session,
-			  const struct mail_stats *diff_stats);
+			  const struct mail_stats *diff_stats) ATTR_NULL(2);
 
 void mail_sessions_free_memory(void);
 void mail_sessions_init(void);

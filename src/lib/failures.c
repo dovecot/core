@@ -342,29 +342,21 @@ void i_debug(const char *format, ...)
 
 void i_set_fatal_handler(failure_callback_t *callback ATTR_NORETURN)
 {
-	if (callback == NULL)
-		callback = default_fatal_handler;
         fatal_handler = callback;
 }
 
 void i_set_error_handler(failure_callback_t *callback)
 {
-	if (callback == NULL)
-		callback = default_error_handler;
 	error_handler = callback;
 }
 
 void i_set_info_handler(failure_callback_t *callback)
 {
-	if (callback == NULL)
-		callback = default_error_handler;
 	info_handler = callback;
 }
 
 void i_set_debug_handler(failure_callback_t *callback)
 {
-	if (callback == NULL)
-		callback = default_error_handler;
 	debug_handler = callback;
 }
 
@@ -504,10 +496,10 @@ void i_set_failure_file(const char *path, const char *prefix)
 	log_info_fd = log_fd;
 	log_debug_fd = log_fd;
 
-	i_set_fatal_handler(NULL);
-	i_set_error_handler(NULL);
-	i_set_info_handler(NULL);
-	i_set_debug_handler(NULL);
+	i_set_fatal_handler(default_fatal_handler);
+	i_set_error_handler(default_error_handler);
+	i_set_info_handler(default_error_handler);
+	i_set_debug_handler(default_error_handler);
 }
 
 static void i_failure_send_option(const char *key, const char *value)
@@ -680,7 +672,7 @@ void i_set_info_file(const char *path)
 	/* write debug-level messages to the info_log_path,
 	  until i_set_debug_file() was called */
 	log_debug_fd = log_info_fd;
-	i_set_debug_handler(NULL);
+	i_set_debug_handler(default_error_handler);
 }
 
 void i_set_debug_file(const char *path)

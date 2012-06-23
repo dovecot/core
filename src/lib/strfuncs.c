@@ -12,6 +12,8 @@
 
 #define STRCONCAT_BUFSIZE 512
 
+const unsigned char uchar_nul = '\0';
+
 int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 {
 	va_list args;

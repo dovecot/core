@@ -178,9 +178,10 @@ static void sdbox_update_header(struct sdbox_mailbox *mbox,
 	       sizeof(mbox->mailbox_guid));
 }
 
-static int sdbox_mailbox_create_indexes(struct mailbox *box,
-					const struct mailbox_update *update,
-					struct mail_index_transaction *trans)
+static int ATTR_NULL(2, 3)
+sdbox_mailbox_create_indexes(struct mailbox *box,
+			     const struct mailbox_update *update,
+			     struct mail_index_transaction *trans)
 {
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
 	struct mail_index_transaction *new_trans = NULL;

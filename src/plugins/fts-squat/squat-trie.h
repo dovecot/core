@@ -37,7 +37,8 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx,
 /* if expunged_uids is non-NULL, they may be removed from the index if they
    still exist. */
 int squat_trie_build_deinit(struct squat_trie_build_context **ctx,
-			    const ARRAY_TYPE(seq_range) *expunged_uids);
+			    const ARRAY_TYPE(seq_range) *expunged_uids)
+	ATTR_NULL(2);
 
 int squat_trie_get_last_uid(struct squat_trie *trie, uint32_t *last_uid_r);
 /* type specifies if we're looking at header, body or both */

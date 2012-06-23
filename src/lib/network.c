@@ -500,7 +500,7 @@ int net_listen_unix_unlink_stale(const char *path, int backlog)
 	return fd;
 }
 
-int net_accept(int fd, struct ip_addr *addr, unsigned int *port)
+int net_accept(int fd, struct ip_addr *addr_r, unsigned int *port_r)
 {
 	union sockaddr_union so;
 	int ret;
@@ -518,12 +518,12 @@ int net_accept(int fd, struct ip_addr *addr, unsigned int *port)
 			return -2;
 	}
 	if (so.sin.sin_family == AF_UNIX) {
-		if (addr != NULL)
-			memset(addr, 0, sizeof(*addr));
-		if (port != NULL) *port = 0;
+		if (addr_r != NULL)
+			memset(addr_r, 0, sizeof(*addr_r));
+		if (port_r != NULL) *port_r = 0;
 	} else {
-		if (addr != NULL) sin_get_ip(&so, addr);
-		if (port != NULL) *port = sin_get_port(&so);
+		if (addr_r != NULL) sin_get_ip(&so, addr_r);
+		if (port_r != NULL) *port_r = sin_get_port(&so);
 	}
 	return ret;
 }

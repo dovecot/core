@@ -249,26 +249,28 @@ iso8601_date_do_parse(const unsigned char *data, size_t size, struct tm *tm_r,
 	if (timestamp == (time_t)-1)
 		return FALSE;
 
-	if (timezone_offset_r != NULL)
-		*timezone_offset_r = parser.timezone_offset;
-	if (tm_r != NULL)
-		*tm_r = parser.tm;
-	if (timestamp_r != NULL)
-		*timestamp_r = timestamp - parser.timezone_offset * 60;
+	*timezone_offset_r = parser.timezone_offset;
+	*tm_r = parser.tm;
+	*timestamp_r = timestamp - parser.timezone_offset * 60;
 	return TRUE;
 }
 
 bool iso8601_date_parse(const unsigned char *data, size_t size,
 			time_t *timestamp_r, int *timezone_offset_r)
 {
-	return iso8601_date_do_parse(data, size, NULL,
+	struct tm tm;
+
+	return iso8601_date_do_parse(data, size, &tm,
 				     timestamp_r, timezone_offset_r);
 }
 
 bool iso8601_date_parse_tm(const unsigned char *data, size_t size,
 			   struct tm *tm_r, int *timezone_offset_r)
 {
-	return iso8601_date_do_parse(data, size, tm_r, NULL, timezone_offset_r);
+	time_t timestamp;
+
+	return iso8601_date_do_parse(data, size, tm_r,
+				     &timestamp, timezone_offset_r);
 }
 
 const char *iso8601_date_create_tm(struct tm *tm, int timezone_offset)

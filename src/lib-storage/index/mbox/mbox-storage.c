@@ -136,8 +136,7 @@ mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 
 	storage->set = mail_storage_get_driver_settings(_storage);
 
-	dir = mailbox_list_get_path(ns->list, NULL,
-				    MAILBOX_LIST_PATH_TYPE_INDEX);
+	dir = mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (*dir != '\0') {
 		_storage->temp_path_prefix = p_strconcat(_storage->pool, dir,
 			"/", mailbox_list_get_temp_prefix(ns->list), NULL);
@@ -411,8 +410,8 @@ static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 	if (box->inbox_any || strcmp(box->name, "INBOX") == 0) {
 		/* if INBOX isn't under the root directory, it's probably in
 		   /var/mail and we want to allow privileged dotlocking */
-		rootdir = mailbox_list_get_path(box->list, NULL,
-						MAILBOX_LIST_PATH_TYPE_DIR);
+		rootdir = mailbox_list_get_root_path(box->list,
+						     MAILBOX_LIST_PATH_TYPE_DIR);
 		if (strncmp(box_path, rootdir, strlen(rootdir)) != 0)
 			mbox->mbox_privileged_locking = TRUE;
 	}

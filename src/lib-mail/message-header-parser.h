@@ -45,7 +45,7 @@ typedef void message_header_callback_t(struct message_header_line *hdr,
 
 struct message_header_parser_ctx *
 message_parse_header_init(struct istream *input, struct message_size *hdr_size,
-			  enum message_header_parser_flags flags);
+			  enum message_header_parser_flags flags) ATTR_NULL(2);
 void message_parse_header_deinit(struct message_header_parser_ctx **ctx);
 
 /* Read and return next header line. Returns 1 if header is returned, 0 if
@@ -61,7 +61,8 @@ bool message_parse_header_has_nuls(const struct message_header_parser_ctx *ctx)
 /* Read and parse the header from the given stream. */
 void message_parse_header(struct istream *input, struct message_size *hdr_size,
 			  enum message_header_parser_flags flags,
-			  message_header_callback_t *callback, void *context);
+			  message_header_callback_t *callback, void *context)
+	ATTR_NULL(2);
 #ifdef CONTEXT_TYPE_SAFETY
 #  define message_parse_header(input, hdr_size, flags, callback, context) \
 	({(void)(1 ? 0 : callback((struct message_header_line *)0, context)); \

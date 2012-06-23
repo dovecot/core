@@ -77,7 +77,7 @@ client_get_auth_flags(struct client *client)
 	return auth_flags;
 }
 
-static void
+static void ATTR_NULL(3, 4)
 call_client_callback(struct client *client, enum sasl_server_reply reply,
 		     const char *data, const char *const *args)
 {
@@ -154,7 +154,8 @@ static void master_send_request(struct anvil_request *anvil_request)
 			    master_auth_callback, client, &client->master_tag);
 }
 
-static void anvil_lookup_callback(const char *reply, void *context)
+static void ATTR_NULL(1)
+anvil_lookup_callback(const char *reply, void *context)
 {
 	struct anvil_request *req = context;
 	struct client *client = req->client;
@@ -333,8 +334,9 @@ void sasl_server_auth_begin(struct client *client,
 					authenticate_callback, client);
 }
 
-static void sasl_server_auth_cancel(struct client *client, const char *reason,
-				    enum sasl_server_reply reply)
+static void ATTR_NULL(2)
+sasl_server_auth_cancel(struct client *client, const char *reason,
+			enum sasl_server_reply reply)
 {
 	i_assert(client->authenticating);
 

@@ -66,7 +66,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_slave *slave,
 	const char *error;
 
 	i_assert(sync_type != DSYNC_BRAIN_SYNC_TYPE_UNKNOWN);
-	i_assert(sync_type != DSYNC_BRAIN_SYNC_TYPE_STATE || state != NULL);
+	i_assert(sync_type != DSYNC_BRAIN_SYNC_TYPE_STATE || *state != '\0');
 
 	brain = dsync_brain_common_init(user, slave);
 	brain->sync_type = sync_type;

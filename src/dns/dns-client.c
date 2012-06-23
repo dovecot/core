@@ -128,8 +128,7 @@ static void client_connected(struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
-	master_service = master_service_init("dns-client", 0,
-					     &argc, &argv, NULL);
+	master_service = master_service_init("dns-client", 0, &argc, &argv, "");
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 

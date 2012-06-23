@@ -23,7 +23,8 @@
 #define LOG_ERRORS_FNAME "log-errors"
 #define LOG_TIMESTAMP_FORMAT "%b %d %H:%M:%S"
 
-static void cmd_log_test(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
+static void ATTR_NULL(2)
+cmd_log_test(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 {
 	struct failure_context ctx;
 	unsigned int i;

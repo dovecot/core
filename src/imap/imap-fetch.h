@@ -88,7 +88,8 @@ void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 void imap_fetch_add_handler(struct imap_fetch_init_context *ctx,
 			    enum imap_fetch_handler_flags flags,
 			    const char *nil_reply,
-			    imap_fetch_handler_t *handler, void *context);
+			    imap_fetch_handler_t *handler, void *context)
+	ATTR_NULL(3, 5);
 #ifdef CONTEXT_TYPE_SAFETY
 #  define imap_fetch_add_handler(ctx, flags, nil_reply, handler, context) \
 	({(void)(1 ? 0 : handler((struct imap_fetch_context *)NULL, \

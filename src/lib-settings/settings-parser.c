@@ -493,9 +493,10 @@ setting_link_init_set_struct(struct setting_parser_context *ctx,
 	}
 }
 
-static int setting_link_add(struct setting_parser_context *ctx,
-			    const struct setting_define *def,
-			    const struct setting_link *link_copy, char *key)
+static int ATTR_NULL(2)
+setting_link_add(struct setting_parser_context *ctx,
+		 const struct setting_define *def,
+		 const struct setting_link *link_copy, char *key)
 {
 	struct setting_link *link;
 
@@ -520,7 +521,7 @@ static int setting_link_add(struct setting_parser_context *ctx,
 	return 0;
 }
 
-static int
+static int ATTR_NULL(3, 8)
 get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
 	    const struct setting_define *def,
 	    const struct setting_parser_info *info,
@@ -1183,19 +1184,9 @@ void settings_parse_set_keys_expandeded(struct setting_parser_context *ctx,
 		settings_parse_set_key_expandeded(ctx, pool, *keys);
 }
 
-void settings_parse_var_skip(struct setting_parser_context *ctx)
-{
-	unsigned int i;
-
-	for (i = 0; i < ctx->root_count; i++) {
-		settings_var_expand(ctx->roots[i].info,
-				    ctx->roots[i].set_struct, NULL, NULL);
-	}
-}
-
-static void
-settings_var_expand_info(const struct setting_parser_info *info,
-			 pool_t pool, void *set,
+static void ATTR_NULL(3, 4, 5)
+settings_var_expand_info(const struct setting_parser_info *info, void *set,
+			 pool_t pool,
 			 const struct var_expand_table *table, string_t *str)
 {
 	const struct setting_define *def;
@@ -1245,7 +1236,7 @@ settings_var_expand_info(const struct setting_parser_info *info,
 			children = array_get(val, &count);
 			for (i = 0; i < count; i++) {
 				settings_var_expand_info(def->list_info,
-							 pool, children[i],
+							 children[i], pool,
 							 table, str);
 			}
 			break;
@@ -1262,8 +1253,19 @@ void settings_var_expand(const struct setting_parser_info *info,
 
 	T_BEGIN {
 		str = t_str_new(256);
-		settings_var_expand_info(info, pool, set, table, str);
+		settings_var_expand_info(info, set, pool, table, str);
 	} T_END;
+}
+
+void settings_parse_var_skip(struct setting_parser_context *ctx)
+{
+	unsigned int i;
+
+	for (i = 0; i < ctx->root_count; i++) {
+		settings_var_expand_info(ctx->roots[i].info,
+					 ctx->roots[i].set_struct,
+					 NULL, NULL, NULL);
+	}
 }
 
 bool settings_vars_have_key(const struct setting_parser_info *info, void *set,

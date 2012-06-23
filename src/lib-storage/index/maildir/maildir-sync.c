@@ -749,8 +749,9 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 	return mail_index_sync_have_any(mbox->box.index, flags) ? 1 : 0;
 }
 
-static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
-				uint32_t *find_uid, bool *lost_files_r)
+static int ATTR_NULL(3)
+maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
+		     uint32_t *find_uid, bool *lost_files_r)
 {
 	enum maildir_uidlist_sync_flags sync_flags;
 	enum maildir_uidlist_rec_flag flags;

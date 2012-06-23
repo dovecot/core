@@ -7,8 +7,9 @@
 #include "istream-header-filter.h"
 #include "test-common.h"
 
-static void filter_callback(struct message_header_line *hdr,
-			    bool *matched, void *context ATTR_UNUSED)
+static void ATTR_NULL(3)
+filter_callback(struct message_header_line *hdr,
+		bool *matched, void *context ATTR_UNUSED)
 {
 	if (hdr != NULL && hdr->name_offset == 0) {
 		/* drop first header */
@@ -67,6 +68,7 @@ static void test_istream_filter(void)
 
 static void test_istream_end_body_with_lf(void)
 {
+	static const char *empty_strarray[] = { NULL };
 	const char *input = "From: foo\n\nhello world";
 	const char *output = "From: foo\n\nhello world\n";
 	struct istream *istream, *filter;
@@ -82,7 +84,7 @@ static void test_istream_end_body_with_lf(void)
 					       HEADER_FILTER_EXCLUDE |
 					       HEADER_FILTER_NO_CR |
 					       HEADER_FILTER_END_BODY_WITH_LF,
-					       NULL, 0,
+					       empty_strarray, 0,
 					       null_header_filter_callback, NULL);
 
 	for (i = 1; i < input_len; i++) {

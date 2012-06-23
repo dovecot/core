@@ -30,7 +30,7 @@ typedef void dns_lookup_callback_t(const struct dns_lookup_result *result,
    function. */
 int dns_lookup(const char *host, const struct dns_lookup_settings *set,
 	       struct dns_lookup **lookup_r,
-	       dns_lookup_callback_t *callback, void *context);
+	       dns_lookup_callback_t *callback, void *context) ATTR_NULL(5);
 #define dns_lookup(host, set, callback, context, lookup_r) \
 	CONTEXT_CALLBACK2(dns_lookup, dns_lookup_callback_t, \
 			  callback, const struct dns_lookup_result *, \

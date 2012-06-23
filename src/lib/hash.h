@@ -14,7 +14,8 @@ typedef int hash_cmp_callback_t(const void *p1, const void *p2);
    be free'd before hash_table_destroy() is called. */
 struct hash_table *
 hash_table_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
-		  hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb);
+		  hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb)
+	ATTR_NULL(4, 5);
 void hash_table_destroy(struct hash_table **table);
 /* Remove all nodes from hash table. If free_collisions is TRUE, the
    memory allocated from node_pool is freed, or discarded with

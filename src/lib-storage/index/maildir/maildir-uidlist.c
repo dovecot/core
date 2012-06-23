@@ -1165,9 +1165,10 @@ maildir_uidlist_rec_set_ext(struct maildir_uidlist_rec *rec, pool_t pool,
 	memcpy(rec->extensions, buf->data, buf->used);
 }
 
-void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
-			     enum maildir_uidlist_rec_ext_key key,
-			     const char *value)
+static void ATTR_NULL(4)
+maildir_uidlist_set_ext_internal(struct maildir_uidlist *uidlist, uint32_t uid,
+				 enum maildir_uidlist_rec_ext_key key,
+				 const char *value)
 {
 	struct maildir_uidlist_rec *rec;
 	int ret;
@@ -1197,6 +1198,19 @@ void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 		/* message already exists in uidlist, need to recreate it */
 		uidlist->recreate = TRUE;
 	}
+}
+
+void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
+			     enum maildir_uidlist_rec_ext_key key,
+			     const char *value)
+{
+	return maildir_uidlist_set_ext_internal(uidlist, uid, key, value);
+}
+
+void maildir_uidlist_unset_ext(struct maildir_uidlist *uidlist, uint32_t uid,
+			       enum maildir_uidlist_rec_ext_key key)
+{
+	return maildir_uidlist_set_ext_internal(uidlist, uid, key, NULL);
 }
 
 static void

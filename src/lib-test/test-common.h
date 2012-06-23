@@ -15,7 +15,8 @@ void test_assert_failed(const char *code, const char *file, unsigned int line);
 void test_end(void);
 
 void test_out(const char *name, bool success);
-void test_out_reason(const char *name, bool success, const char *reason);
+void test_out_reason(const char *name, bool success, const char *reason)
+	ATTR_NULL(3);
 
 int test_run(void (*test_functions[])(void));
 

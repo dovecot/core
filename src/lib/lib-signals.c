@@ -151,7 +151,8 @@ static void sig_ignore(int signo ATTR_UNUSED)
 	   the system call might be restarted */
 }
 
-static void signal_read(void *context ATTR_UNUSED)
+static void ATTR_NULL(1)
+signal_read(void *context ATTR_UNUSED)
 {
 	siginfo_t signals[MAX_SIGNAL_VALUE+1];
 	sigset_t fullset, oldset;

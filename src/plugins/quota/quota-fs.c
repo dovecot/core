@@ -276,8 +276,7 @@ static void fs_quota_namespace_added(struct quota *quota,
 	struct fs_quota_root *root;
 	const char *dir;
 
-	dir = mailbox_list_get_path(ns->list, NULL,
-				    MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	dir = mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	mount = dir == NULL ? NULL :
 		fs_quota_mountpoint_get(dir);
 	if (mount != NULL) {

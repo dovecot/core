@@ -275,7 +275,7 @@ static void dsync_slave_io_init(struct dsync_slave_io *slave)
 	slave->io = io_add(slave->fd_in, IO_READ, dsync_slave_io_input, slave);
 	o_stream_set_flush_callback(slave->output, dsync_slave_io_output, slave);
 	slave->to = timeout_add(DSYNC_SLAVE_IO_TIMEOUT_MSECS,
-				dsync_slave_io_timeout, NULL);
+				dsync_slave_io_timeout, slave);
 	o_stream_cork(slave->output);
 	o_stream_send_str(slave->output, DSYNC_HANDSHAKE_VERSION);
 
@@ -362,7 +362,7 @@ static int dsync_slave_io_next_line(struct dsync_slave_io *slave,
 	return 1;
 }
 
-static void ATTR_FORMAT(3, 4)
+static void ATTR_FORMAT(3, 4) ATTR_NULL(2)
 dsync_slave_input_error(struct dsync_slave_io *slave,
 			struct dsync_deserializer_decoder *decoder,
 			const char *fmt, ...)

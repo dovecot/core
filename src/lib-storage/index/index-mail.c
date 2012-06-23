@@ -872,6 +872,7 @@ int index_mail_init_stream(struct index_mail *mail,
 	struct mail *_mail = &mail->mail.mail;
 	struct index_mail_data *data = &mail->data;
 	struct istream *input;
+	bool has_nuls;
 	int ret;
 
 	if (!data->initialized_wrapper_stream &&
@@ -903,7 +904,8 @@ int index_mail_init_stream(struct index_mail *mail,
 					return -1;
 			} else {
 				message_get_header_size(data->stream,
-							&data->hdr_size, NULL);
+							&data->hdr_size,
+							&has_nuls);
 				data->hdr_size_set = TRUE;
 			}
 		}
@@ -923,7 +925,8 @@ int index_mail_init_stream(struct index_mail *mail,
 					return -1;
 			} else {
 				message_get_body_size(data->stream,
-						      &data->body_size, NULL);
+						      &data->body_size,
+						      &has_nuls);
 				data->body_size_set = TRUE;
 			}
 		}

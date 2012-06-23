@@ -60,7 +60,7 @@ index_list_open_view(struct mailbox *box, struct mail_index_view **view_r,
 	return 1;
 }
 
-static bool
+static bool ATTR_NULL(6)
 index_list_get_view_status(struct mailbox *box, struct mail_index_view *view,
 			   uint32_t seq, enum mailbox_status_items items,
 			   struct mailbox_status *status_r,

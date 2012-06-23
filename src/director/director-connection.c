@@ -746,7 +746,7 @@ director_cmd_user_weak(struct director_connection *conn,
 	return TRUE;
 }
 
-static bool
+static bool ATTR_NULL(3)
 director_cmd_host_int(struct director_connection *conn, const char *const *args,
 		      struct director_host *dir_host)
 {

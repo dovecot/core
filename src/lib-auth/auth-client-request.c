@@ -124,10 +124,11 @@ void auth_client_request_continue(struct auth_client_request *request,
 		i_error("Error sending continue request to auth server: %m");
 }
 
-static void call_callback(struct auth_client_request *request,
-			  enum auth_request_status status,
-			  const char *data_base64,
-			  const char *const *args)
+static void ATTR_NULL(3, 4)
+call_callback(struct auth_client_request *request,
+	      enum auth_request_status status,
+	      const char *data_base64,
+	      const char *const *args)
 {
 	auth_request_callback_t *callback = request->callback;
 

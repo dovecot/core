@@ -12,7 +12,8 @@ extern const char *ssl_manual_key_password;
 extern int null_fd, global_master_dead_pipe_fd[2];
 extern struct service_list *services;
 
-void process_exec(const char *cmd, const char *extra_args[]) ATTR_NORETURN;
+void process_exec(const char *cmd, const char *extra_args[])
+	ATTR_NORETURN ATTR_NULL(2);
 
 int get_uidgid(const char *user, uid_t *uid_r, gid_t *gid_r,
 	       const char **error_r);

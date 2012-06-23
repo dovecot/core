@@ -33,7 +33,7 @@ struct master_connection {
 	unsigned int version_received:1;
 };
 
-static void
+static void ATTR_NULL(1, 2)
 indexer_worker_refresh_proctitle(const char *username, const char *mailbox,
 				 uint32_t seq1, uint32_t seq2)
 {

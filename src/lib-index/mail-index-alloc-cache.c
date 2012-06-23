@@ -174,7 +174,8 @@ static void destroy_unrefed(bool all)
 		timeout_remove(&to_index);
 }
 
-static void index_removal_timeout(void *context ATTR_UNUSED)
+static void ATTR_NULL(1)
+index_removal_timeout(void *context ATTR_UNUSED)
 {
 	destroy_unrefed(FALSE);
 }

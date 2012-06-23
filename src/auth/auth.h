@@ -33,6 +33,7 @@ struct auth {
 extern struct auth_penalty *auth_penalty;
 
 struct auth *auth_find_service(const char *name);
+struct auth *auth_default_service(void);
 
 void auths_preinit(const struct auth_settings *set, pool_t pool,
 		   const struct mechanisms_register *reg,

@@ -59,7 +59,8 @@ static struct ipc_server *login_proxy_ipc_server;
 static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line);
 
 static void
-login_proxy_free_reason(struct login_proxy **_proxy, const char *reason);
+login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
+	ATTR_NULL(2);
 
 static void login_proxy_free_errno(struct login_proxy **proxy,
 				   int err, const char *who)
@@ -316,7 +317,7 @@ int login_proxy_new(struct client *client,
 	return 0;
 }
 
-static void
+static void ATTR_NULL(2)
 login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
 {
 	struct login_proxy *proxy = *_proxy;

@@ -16,7 +16,7 @@ typedef bool hash2_cmp_callback_t(const void *key, const void *value,
 struct hash2_table *
 hash2_create(unsigned int initial_size, unsigned int value_size,
 	     hash2_key_callback_t *key_hash_cb,
-	     hash2_cmp_callback_t *key_compare_cb, void *context);
+	     hash2_cmp_callback_t *key_compare_cb, void *context) ATTR_NULL(5);
 void hash2_destroy(struct hash2_table **hash);
 /* Remove all nodes from hash table. */
 void hash2_clear(struct hash2_table *hash);

@@ -37,7 +37,7 @@ static ARRAY_DEFINE(auth_failures_arr, struct auth_request *);
 static struct aqueue *auth_failures;
 static struct timeout *to_auth_failures;
 
-static void auth_failure_timeout(void *context);
+static void auth_failure_timeout(void *context) ATTR_NULL(1);
 
 #undef auth_request_handler_create
 struct auth_request_handler *
@@ -762,7 +762,8 @@ void auth_request_handler_flush_failures(bool flush_all)
 
 		i_assert(auth_request->state == AUTH_REQUEST_STATE_FINISHED);
 		auth_request_handler_reply(auth_request,
-					   AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
+					   AUTH_CLIENT_RESULT_FAILURE,
+					   &uchar_nul, 0);
 		auth_request_unref(&auth_request);
 	}
 }

@@ -44,13 +44,13 @@ maildir_filename_guess(struct maildir_mailbox *mbox, uint32_t uid,
 	mail_index_lookup_view_flags(view, seq, &flags, &keywords);
 	if (array_count(&keywords) == 0) {
 		*have_flags_r = (flags & MAIL_FLAGS_NONRECENT) != 0;
-		fname = maildir_filename_flags_set(NULL, fname, flags, NULL);
+		fname = maildir_filename_flags_set(fname, flags);
 	} else {
 		*have_flags_r = TRUE;
 		kw_ctx = maildir_keywords_sync_init_readonly(mbox->keywords,
 							     mbox->box.index);
-		fname = maildir_filename_flags_set(kw_ctx, fname,
-						   flags, &keywords);
+		fname = maildir_filename_flags_kw_set(kw_ctx, fname,
+						      flags, &keywords);
 		maildir_keywords_sync_deinit(&kw_ctx);
 	}
 

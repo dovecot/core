@@ -50,7 +50,8 @@ void i_stream_ref(struct istream *stream);
 void i_stream_unref(struct istream **stream);
 /* Call the given callback function when stream is destroyed. */
 void i_stream_set_destroy_callback(struct istream *stream,
-				   istream_callback_t *callback, void *context);
+				   istream_callback_t *callback, void *context)
+	ATTR_NULL(3);
 #define i_stream_set_destroy_callback(stream, callback, context) \
 	CONTEXT_CALLBACK(i_stream_set_destroy_callback, istream_callback_t, \
 			 callback, context, stream)

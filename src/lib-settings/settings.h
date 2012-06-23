@@ -42,7 +42,8 @@ parse_setting_from_defs(pool_t pool, const struct setting_def *defs, void *base,
 
 bool settings_read(const char *path, const char *section,
 		   settings_callback_t *callback,
-		   settings_section_callback_t *sect_callback, void *context);
+		   settings_section_callback_t *sect_callback, void *context)
+	ATTR_NULL(2, 4, 5);
 #ifdef CONTEXT_TYPE_SAFETY
 #  define settings_read(path, section, callback, sect_callback, context) \
 	({(void)(1 ? 0 : callback((const char *)0, (const char *)0, context)); \

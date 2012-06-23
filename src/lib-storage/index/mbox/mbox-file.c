@@ -77,7 +77,7 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 
 		if (mbox->mbox_writeonly) {
 			mbox->mbox_file_stream =
-				i_stream_create_from_data(NULL, 0);
+				i_stream_create_from_data("", 0);
 		} else {
 			mbox->mbox_file_stream =
 				i_stream_create_fd(mbox->mbox_fd,

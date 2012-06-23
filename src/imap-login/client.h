@@ -40,6 +40,6 @@ void client_send_reply(struct client *client,
 
 void client_send_reply_code(struct client *client,
 			    enum imap_cmd_reply reply, const char *resp_code,
-			    const char *text);
+			    const char *text) ATTR_NULL(3);
 
 #endif

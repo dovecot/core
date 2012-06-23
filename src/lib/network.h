@@ -57,10 +57,10 @@ unsigned int net_ip_hash(const struct ip_addr *ip);
 /* Connect to socket with ip address. The socket and connect() is
    non-blocking. */
 int net_connect_ip(const struct ip_addr *ip, unsigned int port,
-		   const struct ip_addr *my_ip);
+		   const struct ip_addr *my_ip) ATTR_NULL(3);
 /* Like net_connect_ip(), but do a blocking connect(). */
 int net_connect_ip_blocking(const struct ip_addr *ip, unsigned int port,
-			    const struct ip_addr *my_ip);
+			    const struct ip_addr *my_ip) ATTR_NULL(3);
 /* Returns 0 if we can bind() as given IP, -1 if not. */
 int net_try_bind(const struct ip_addr *ip);
 /* Connect to named UNIX socket */
@@ -91,8 +91,9 @@ int net_listen_unix(const char *path, int backlog);
    again. */
 int net_listen_unix_unlink_stale(const char *path, int backlog);
 /* Accept a connection on a socket. Returns -1 if the connection got closed,
-   -2 for other failures. For UNIX sockets addr->family=port=0. */
-int net_accept(int fd, struct ip_addr *addr, unsigned int *port);
+   -2 for other failures. For UNIX sockets addr_r->family=port=0. */
+int net_accept(int fd, struct ip_addr *addr_r, unsigned int *port_r)
+	ATTR_NULL(2, 3);
 
 /* Read data from socket, return number of bytes read,
    -1 = error, -2 = disconnected */
@@ -111,9 +112,11 @@ const char *net_gethosterror(int error) ATTR_CONST;
 int net_hosterror_notfound(int error) ATTR_CONST;
 
 /* Get socket local address/port. For UNIX sockets addr->family=port=0. */
-int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port);
+int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port)
+	ATTR_NULL(2, 3);
 /* Get socket remote address/port. For UNIX sockets addr->family=port=0. */
-int net_getpeername(int fd, struct ip_addr *addr, unsigned int *port);
+int net_getpeername(int fd, struct ip_addr *addr, unsigned int *port)
+	ATTR_NULL(2, 3);
 /* Get UNIX socket name. */
 int net_getunixname(int fd, const char **name_r);
 /* Get UNIX socket peer process's credentials. The pid may be (pid_t)-1 if

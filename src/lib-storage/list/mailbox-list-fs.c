@@ -150,7 +150,7 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 
 	if (name == NULL) {
 		/* return root directories */
-		return mailbox_list_get_root_path(set, type);
+		return mailbox_list_set_get_root_path(set, type);
 	}
 
 	i_assert(mailbox_list_is_valid_pattern(_list, name));
@@ -318,8 +318,7 @@ static const char *mailbox_list_fs_get_trash_dir(struct mailbox_list *list)
 {
 	const char *root_dir;
 
-	root_dir = mailbox_list_get_path(list, NULL,
-					 MAILBOX_LIST_PATH_TYPE_DIR);
+	root_dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_DIR);
 	return t_strdup_printf("%s/"MAILBOX_LIST_FS_TRASH_DIR_NAME, root_dir);
 }
 
@@ -514,8 +513,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 	newpath = mailbox_list_get_path(newlist, newname, path_type);
 	alt_newpath = mailbox_list_get_path(newlist, newname, alt_path_type);
 
-	root_path = mailbox_list_get_path(oldlist, NULL,
-					  MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	root_path = mailbox_list_get_root_path(oldlist, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (strcmp(oldpath, root_path) == 0) {
 		/* most likely INBOX */
 		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,

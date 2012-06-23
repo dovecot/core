@@ -82,7 +82,7 @@ static inline int _decode_hex_digit(const unsigned char digit)
 	return -1;
 }
 
-static int
+static int ATTR_NULL(3)
 uri_parse_pct_encoded(struct uri_parser *parser, const unsigned char **p,
 		      const unsigned char *pend, unsigned char *ch_r)
 {

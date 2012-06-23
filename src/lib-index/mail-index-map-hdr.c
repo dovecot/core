@@ -10,7 +10,7 @@ int mail_index_map_parse_extensions(struct mail_index_map *map)
 	const struct mail_index_ext_header *ext_hdr;
 	unsigned int i, old_count, offset;
 	const char *name, *error;
-	uint32_t ext_id, ext_offset;
+	uint32_t ext_id, ext_map_idx, ext_offset;
 
 	/* extension headers always start from 64bit offsets, so if base header
 	   doesn't happen to be 64bit aligned we'll skip some bytes */
@@ -45,7 +45,7 @@ int mail_index_map_parse_extensions(struct mail_index_map *map)
 					     index->filepath, i, name, error);
 			return -1;
 		}
-		if (mail_index_map_lookup_ext(map, name, NULL)) {
+		if (mail_index_map_lookup_ext(map, name, &ext_map_idx)) {
 			mail_index_set_error(index, "Corrupted index file %s: "
 				"Duplicate header extension %s",
 				index->filepath, name);

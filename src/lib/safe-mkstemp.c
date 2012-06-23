@@ -12,7 +12,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-static int
+static int ATTR_NULL(5)
 safe_mkstemp_full(string_t *prefix, mode_t mode, uid_t uid, gid_t gid,
 		  const char *gid_origin)
 {

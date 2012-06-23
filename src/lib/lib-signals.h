@@ -30,11 +30,13 @@ const char *lib_signal_code_to_str(int signo, int sicode);
 
 /* Set signal handler for specific signal. */
 void lib_signals_set_handler(int signo, enum libsig_flags flags,
-			     signal_handler_t *handler, void *context);
+			     signal_handler_t *handler, void *context)
+	ATTR_NULL(4);
 /* Ignore given signal. */
 void lib_signals_ignore(int signo, bool restart_syscalls);
 void lib_signals_unset_handler(int signo,
-			       signal_handler_t *handler, void *context);
+			       signal_handler_t *handler, void *context)
+	ATTR_NULL(3);
 
 /* Remove and add the internal I/O handler back. This is necessary to get
    the delayed signals to work when using multiple I/O loops. */

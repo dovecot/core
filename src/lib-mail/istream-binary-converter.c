@@ -219,7 +219,7 @@ static ssize_t i_stream_binary_converter_read(struct istream_private *stream)
 	if (block.part != bstream->convert_part &&
 	    bstream->convert_part != NULL) {
 		/* end of base64 encoded part */
-		stream_encode_base64(bstream, NULL, 0);
+		stream_encode_base64(bstream, "", 0);
 	}
 
 	if (block.hdr != NULL) {

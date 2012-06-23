@@ -504,8 +504,8 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 				"Maildir %s: Corrupted dovecot-uidlist: "
 				"UID %u had empty GUID, clearing it",
 				mailbox_get_path(_mail->box), _mail->uid);
-			maildir_uidlist_set_ext(mbox->uidlist, _mail->uid,
-				MAILDIR_UIDLIST_REC_EXT_GUID, NULL);
+			maildir_uidlist_unset_ext(mbox->uidlist, _mail->uid,
+				MAILDIR_UIDLIST_REC_EXT_GUID);
 		}
 
 		/* default to base filename: */
@@ -617,13 +617,13 @@ static void maildir_mail_remove_sizes_from_uidlist(struct mail *mail)
 
 	if (maildir_uidlist_lookup_ext(mbox->uidlist, mail->uid,
 				       MAILDIR_UIDLIST_REC_EXT_VSIZE) != NULL) {
-		maildir_uidlist_set_ext(mbox->uidlist, mail->uid,
-					MAILDIR_UIDLIST_REC_EXT_VSIZE, NULL);
+		maildir_uidlist_unset_ext(mbox->uidlist, mail->uid,
+					  MAILDIR_UIDLIST_REC_EXT_VSIZE);
 	}
 	if (maildir_uidlist_lookup_ext(mbox->uidlist, mail->uid,
 				       MAILDIR_UIDLIST_REC_EXT_PSIZE) != NULL) {
-		maildir_uidlist_set_ext(mbox->uidlist, mail->uid,
-					MAILDIR_UIDLIST_REC_EXT_PSIZE, NULL);
+		maildir_uidlist_unset_ext(mbox->uidlist, mail->uid,
+					  MAILDIR_UIDLIST_REC_EXT_PSIZE);
 	}
 }
 

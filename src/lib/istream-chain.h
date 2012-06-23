@@ -11,8 +11,10 @@ struct istream_chain;
    argument returns a pointer to the chain object. */
 struct istream *i_stream_create_chain(struct istream_chain **chain_r);
 
-/* Append an input stream to the chain. A NULL stream marks the end of the chain
-   and only then reads from the chain stream can return EOF. */
+/* Append an input stream to the chain. */
 void i_stream_chain_append(struct istream_chain *chain, struct istream *stream);
+/* Mark the end of the chain. Only then reads from the chain stream can
+   return EOF. */
+void i_stream_chain_append_eof(struct istream_chain *chain);
 
 #endif

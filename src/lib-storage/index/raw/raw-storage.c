@@ -40,7 +40,7 @@ raw_storage_create_from_set(const struct setting_parser_info *set_info,
 	return user;
 }
 
-static int
+static int ATTR_NULL(2, 3)
 raw_mailbox_alloc_common(struct mail_user *user, struct istream *input,
 			 const char *path, time_t received_time,
 			 const char *envelope_sender, struct mailbox **box_r)
@@ -125,7 +125,7 @@ raw_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &raw_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, vname, flags, NULL);
+	index_storage_mailbox_alloc(&mbox->box, vname, flags, "dovecot.index");
 
 	mbox->mtime = mbox->ctime = (time_t)-1;
 	mbox->storage = (struct raw_storage *)storage;

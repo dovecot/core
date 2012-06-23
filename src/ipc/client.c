@@ -83,8 +83,7 @@ static void client_input(struct client *client)
 		if (strcmp(id, "*") == 0) {
 			/* send to everyone */
 			if (group == NULL) {
-				client_cmd_input(IPC_CMD_STATUS_OK,
-						 NULL, client);
+				client_cmd_input(IPC_CMD_STATUS_OK, "", client);
 			} else {
 				ret = ipc_group_cmd(group, data,
 						    client_cmd_input, client);

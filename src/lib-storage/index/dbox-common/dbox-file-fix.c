@@ -164,6 +164,7 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 	uoff_t offset, msg_size, hdr_offset, body_offset;
 	bool pre, write_header, have_guid;
 	struct message_size body;
+	bool has_nuls;
 	struct istream *body_input;
 	guid_128_t guid_128;
 	int ret;
@@ -248,7 +249,7 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 		/* get message body size */
 		i_stream_seek(file->input, body_offset);
 		body_input = i_stream_create_limit(file->input, msg_size);
-		ret = message_get_body_size(body_input, &body, NULL);
+		ret = message_get_body_size(body_input, &body, &has_nuls);
 		i_stream_unref(&body_input);
 		if (ret < 0) {
 			errno = output->stream_errno;

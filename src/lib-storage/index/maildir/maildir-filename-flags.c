@@ -88,9 +88,10 @@ maildir_filename_append_keywords(struct maildir_keywords_sync_ctx *ctx,
 	      char_cmp);
 }
 
-const char *maildir_filename_flags_set(struct maildir_keywords_sync_ctx *ctx,
-				       const char *fname, enum mail_flags flags,
-				       ARRAY_TYPE(keyword_indexes) *keywords)
+static const char * ATTR_NULL(1, 4)
+maildir_filename_flags_full_set(struct maildir_keywords_sync_ctx *ctx,
+				const char *fname, enum mail_flags flags,
+				ARRAY_TYPE(keyword_indexes) *keywords)
 {
 	string_t *flags_str;
 	enum mail_flags flags_left;
@@ -169,4 +170,16 @@ const char *maildir_filename_flags_set(struct maildir_keywords_sync_ctx *ctx,
 	}
 
 	return str_c(flags_str);
+}
+
+const char *maildir_filename_flags_set(const char *fname, enum mail_flags flags)
+{
+	return maildir_filename_flags_full_set(NULL, fname, flags, NULL);
+}
+
+const char *maildir_filename_flags_kw_set(struct maildir_keywords_sync_ctx *ctx,
+					  const char *fname, enum mail_flags flags,
+					  ARRAY_TYPE(keyword_indexes) *keywords)
+{
+	return maildir_filename_flags_full_set(ctx, fname, flags, keywords);
 }

@@ -16,9 +16,10 @@ struct lucene_index_record {
 	uint32_t uid;
 };
 
-struct lucene_index *lucene_index_init(const char *path,
-				       struct mailbox_list *list,
-				       const struct fts_lucene_settings *set);
+struct lucene_index *
+lucene_index_init(const char *path, struct mailbox_list *list,
+		  const struct fts_lucene_settings *set)
+	ATTR_NULL(2, 3);
 void lucene_index_deinit(struct lucene_index *index);
 
 void lucene_index_select_mailbox(struct lucene_index *index,

@@ -19,8 +19,7 @@ mailbox_list_check_root_delete(struct mailbox_list *list, const char *name,
 {
 	const char *root_dir;
 
-	root_dir = mailbox_list_get_path(list, NULL,
-					 MAILBOX_LIST_PATH_TYPE_DIR);
+	root_dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_DIR);
 	if (strcmp(root_dir, path) != 0)
 		return 0;
 
@@ -242,7 +241,7 @@ void mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
 	const char *root_dir, *p;
 	unsigned int len;
 
-	root_dir = mailbox_list_get_path(list, NULL, type);
+	root_dir = mailbox_list_get_root_path(list, type);
 	if (strncmp(path, root_dir, strlen(root_dir)) != 0) {
 		/* mbox workaround: name=child/box, root_dir=mail/.imap/,
 		   path=mail/child/.imap/box. we'll want to try to delete

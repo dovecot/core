@@ -121,7 +121,8 @@ const char *master_service_get_name(struct master_service *service);
 
 /* Start the service. Blocks until finished */
 void master_service_run(struct master_service *service,
-			master_service_connection_callback_t *callback);
+			master_service_connection_callback_t *callback)
+	ATTR_NULL(2);
 /* Stop a running service. */
 void master_service_stop(struct master_service *service);
 /* Stop once we're done serving existing new connections, but don't accept

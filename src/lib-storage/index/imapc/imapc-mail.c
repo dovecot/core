@@ -196,7 +196,7 @@ imapc_mail_get_stream(struct mail *_mail, bool get_body,
 			   return them as empty mails instead of disconnecting
 			   the client. */
 			mail->body_fetched = TRUE;
-			data->stream = i_stream_create_from_data(NULL, 0);
+			data->stream = i_stream_create_from_data(&uchar_nul, 0);
 			imapc_mail_init_stream(mail, TRUE);
 		}
 	}

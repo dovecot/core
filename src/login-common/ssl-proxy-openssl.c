@@ -1026,7 +1026,7 @@ static const char *ssl_proxy_get_use_certificate_error(const char *cert)
 	}
 }
 
-static EVP_PKEY *
+static EVP_PKEY * ATTR_NULL(2)
 ssl_proxy_load_key(const char *key, const char *password)
 {
 	EVP_PKEY *pkey;

@@ -42,7 +42,7 @@ static void replication_add_users(struct replicator_queue *queue)
 
 	/* add all users into replication queue, so that we can start doing
 	   full syncs for everyone whose state can't be found */
-	ctx = auth_master_user_list_init(auth_conn, NULL, &user_info);
+	ctx = auth_master_user_list_init(auth_conn, "", &user_info);
 	while ((username = auth_master_user_list_next(ctx)) != NULL) {
 		user = replicator_queue_add(queue, username,
 					    REPLICATION_PRIORITY_NONE);
@@ -56,7 +56,8 @@ static void replication_add_users(struct replicator_queue *queue)
 	(void)replicator_queue_import(queue, REPLICATOR_DB_PATH);
 }
 
-static void replicator_dump_timeout(void *context ATTR_UNUSED)
+static void ATTR_NULL(1)
+replicator_dump_timeout(void *context ATTR_UNUSED)
 {
 	(void)replicator_queue_export(queue, REPLICATOR_DB_PATH);
 }
@@ -95,7 +96,7 @@ int main(int argc, char *argv[])
 	const char *error;
 
 	master_service = master_service_init("replicator", service_flags,
-					     &argc, &argv, NULL);
+					     &argc, &argv, "");
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 

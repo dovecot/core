@@ -632,12 +632,11 @@ void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns)
 
 	/* first check if there already exists a namespace with the exact same
 	   path. we don't want to count them twice. */
-	path = mailbox_list_get_path(ns->list, NULL,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	path = mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (path != NULL) {
 		namespaces = array_get(&quota->namespaces, &count);
 		for (i = 0; i < count; i++) {
-			path2 = mailbox_list_get_path(namespaces[i]->list, NULL,
+			path2 = mailbox_list_get_root_path(namespaces[i]->list,
 				     	MAILBOX_LIST_PATH_TYPE_MAILBOX);
 			if (strcmp(path, path2) == 0) {
 				/* duplicate */

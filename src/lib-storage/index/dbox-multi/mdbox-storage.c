@@ -52,7 +52,7 @@ mdbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	_storage->unique_root_dir =
 		p_strdup(_storage->pool, ns->list->set.root_dir);
 
-	dir = mailbox_list_get_path(ns->list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
+	dir = mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_DIR);
 	storage->storage_dir = p_strconcat(_storage->pool, dir,
 					   "/"MDBOX_GLOBAL_DIR_NAME, NULL);
 	storage->alt_storage_dir = p_strconcat(_storage->pool,
@@ -243,9 +243,10 @@ void mdbox_update_header(struct mdbox_mailbox *mbox,
 	}
 }
 
-static int mdbox_write_index_header(struct mailbox *box,
-				    const struct mailbox_update *update,
-				    struct mail_index_transaction *trans)
+static int ATTR_NULL(2, 3)
+mdbox_write_index_header(struct mailbox *box,
+			 const struct mailbox_update *update,
+			 struct mail_index_transaction *trans)
 {
 	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
 	struct mail_index_transaction *new_trans = NULL;

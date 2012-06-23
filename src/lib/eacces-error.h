@@ -8,6 +8,7 @@ const char *eacces_error_get_creating(const char *func, const char *path);
    failures when only the group is being changed. gid_origin specifies why
    exactly this group is being used. */
 const char *eperm_error_get_chgrp(const char *func, const char *path,
-				  gid_t gid, const char *gid_origin);
+				  gid_t gid, const char *gid_origin)
+	ATTR_NULL(4);
 
 #endif

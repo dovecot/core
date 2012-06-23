@@ -28,7 +28,7 @@ bool mail_thread_type_parse(const char *str, enum mail_thread_type *type_r);
 
 /* Build thread from given search arguments. args=NULL searches everything. */
 int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
-		     struct mail_thread_context **ctx_r);
+		     struct mail_thread_context **ctx_r) ATTR_NULL(2);
 void mail_thread_deinit(struct mail_thread_context **ctx);
 
 /* Iterate through thread tree. If write_seqs=TRUE, sequences are returned in

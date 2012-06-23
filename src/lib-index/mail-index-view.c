@@ -275,16 +275,17 @@ mail_index_data_lookup_keywords(struct mail_index_map *map,
 {
 	const unsigned int *keyword_idx_map;
 	unsigned int i, j, keyword_count, index_idx;
-	uint32_t idx;
-	uint16_t record_size;
+	uint32_t idx, hdr_size;
+	uint16_t record_size, record_align;
 
 	array_clear(keyword_idx);
 	if (data == NULL) {
 		/* no keywords at all in index */
 		return;
 	}
-	(void)mail_index_ext_get_size(NULL, map->index->keywords_ext_id,
-				      map, NULL, &record_size, NULL);
+	(void)mail_index_ext_get_size(map, map->index->keywords_ext_id,
+				      &hdr_size, &record_size,
+				      &record_align);
 
 	/* keyword_idx_map[] contains file => index keyword mapping */
 	if (!array_is_created(&map->keyword_idx_map))
@@ -318,9 +319,10 @@ static void view_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 {
 	struct mail_index_map *map;
 	const void *data;
+	bool expunged;
 
 	mail_index_lookup_ext_full(view, seq, view->index->keywords_ext_id,
-				   &map, &data, NULL);
+				   &map, &data, &expunged);
 	mail_index_data_lookup_keywords(map, data, keyword_idx);
 }
 
@@ -523,11 +525,6 @@ void mail_index_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 				uint32_t ext_id, struct mail_index_map **map_r,
 				const void **data_r, bool *expunged_r)
 {
-	bool expunged;
-
-	if (expunged_r == NULL)
-		expunged_r = &expunged;
-
 	view->v.lookup_ext_full(view, seq, ext_id, map_r, data_r, expunged_r);
 }
 
@@ -551,8 +548,7 @@ bool mail_index_ext_get_reset_id(struct mail_index_view *view,
 	return view->v.ext_get_reset_id(view, map, ext_id, reset_id_r);
 }
 
-void mail_index_ext_get_size(struct mail_index_view *view ATTR_UNUSED,
-			     uint32_t ext_id, struct mail_index_map *map,
+void mail_index_ext_get_size(struct mail_index_map *map, uint32_t ext_id,
 			     uint32_t *hdr_size_r, uint16_t *record_size_r,
 			     uint16_t *record_align_r)
 {
@@ -563,22 +559,16 @@ void mail_index_ext_get_size(struct mail_index_view *view ATTR_UNUSED,
 
 	if (!mail_index_map_get_ext_idx(map, ext_id, &idx)) {
 		/* extension doesn't exist in this index file */
-		if (hdr_size_r != NULL)
-			*hdr_size_r = 0;
-		if (record_size_r != NULL)
-			*record_size_r = 0;
-		if (record_align_r != NULL)
-			*record_align_r = 0;
+		*hdr_size_r = 0;
+		*record_size_r = 0;
+		*record_align_r = 0;
 		return;
 	}
 
 	ext = array_idx(&map->extensions, idx);
-	if (hdr_size_r != NULL)
-		*hdr_size_r = ext->hdr_size;
-	if (record_size_r != NULL)
-		*record_size_r = ext->record_size;
-	if (record_align_r != NULL)
-		*record_align_r = ext->record_align;
+	*hdr_size_r = ext->hdr_size;
+	*record_size_r = ext->record_size;
+	*record_align_r = ext->record_align;
 }
 
 static struct mail_index_view_vfuncs view_vfuncs = {

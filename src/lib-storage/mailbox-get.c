@@ -150,7 +150,7 @@ mailbox_get_expunged_guids(struct mail_transaction_log_view *log_view,
 	}
 }
 
-static bool
+static bool ATTR_NULL(4, 5)
 mailbox_get_expunges_full(struct mailbox *box, uint64_t prev_modseq,
 			  const ARRAY_TYPE(seq_range) *uids_filter,
 			  ARRAY_TYPE(seq_range) *expunged_uids,

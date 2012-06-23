@@ -59,12 +59,10 @@ static void dbox_verify_alt_path(struct mailbox_list *list)
 {
 	const char *root_dir, *alt_symlink_path, *alt_path;
 
-	root_dir = mailbox_list_get_path(list, NULL,
-					 MAILBOX_LIST_PATH_TYPE_DIR);
+	root_dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_DIR);
 	alt_symlink_path =
 		t_strconcat(root_dir, "/"DBOX_ALT_SYMLINK_NAME, NULL);
-	alt_path = mailbox_list_get_path(list, NULL,
-					 MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
+	alt_path = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
 	if (!dbox_alt_path_has_changed(root_dir, alt_path, alt_symlink_path))
 		return;
 
@@ -123,8 +121,7 @@ uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list)
 {
 	const char *path;
 
-	path = mailbox_list_get_path(list, NULL,
-				     MAILBOX_LIST_PATH_TYPE_CONTROL);
+	path = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_CONTROL);
 	path = t_strconcat(path, "/"DBOX_UIDVALIDITY_FILE_NAME, NULL);
 	return mailbox_uidvalidity_next(list, path);
 }

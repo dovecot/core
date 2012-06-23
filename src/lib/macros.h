@@ -109,6 +109,11 @@
 #  define ATTR_CONST
 #  define ATTR_PURE
 #endif
+#ifdef HAVE_ATTR_NULL
+#  define ATTR_NULL(...) __attribute__((null(__VA_ARGS__)))
+#else
+#  define ATTR_NULL(...)
+#endif
 #if __GNUC__ > 2
 #  define ATTR_MALLOC __attribute__((malloc))
 #else

@@ -607,7 +607,7 @@ static bool cmd_sync_client(struct client_command_context *sync_cmd)
 	return TRUE;
 }
 
-static bool
+static bool ATTR_NULL(4, 5)
 cmd_sync_full(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	      enum imap_sync_flags imap_flags, const char *tagline,
 	      imap_sync_callback_t *callback)

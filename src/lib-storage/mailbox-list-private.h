@@ -181,8 +181,8 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 					     enum mailbox_list_path_type type);
 const char *
-mailbox_list_get_root_path(const struct mailbox_list_settings *set,
-			   enum mailbox_list_path_type type);
+mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
+			       enum mailbox_list_path_type type);
 
 int mailbox_list_delete_index_control(struct mailbox_list *list,
 				      const char *name);
@@ -195,7 +195,7 @@ enum mailbox_list_file_type mailbox_list_get_file_type(const struct dirent *d);
 bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 					const char **name);
 int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
-					  const char *name);
+					  const char *name) ATTR_NULL(2);
 int mailbox_list_create_missing_index_pvt_dir(struct mailbox_list *list,
 					      const char *name);
 
