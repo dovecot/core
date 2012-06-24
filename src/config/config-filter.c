@@ -221,12 +221,12 @@ config_filter_find_all(struct config_filter_context *ctx, const char *module,
 		}
 	}
 	if (filter->service == NULL) {
-		(void)array_append_space(&service_names);
+		array_append_zero(&service_names);
 		output_r->specific_services = array_idx(&service_names, 0);
 	}
 
 	array_sort(&matches, config_filter_parser_cmp);
-	(void)array_append_space(&matches);
+	array_append_zero(&matches);
 	return array_idx(&matches, 0);
 }
 
@@ -259,7 +259,7 @@ config_filter_find_subset(struct config_filter_context *ctx,
 			array_append(&matches, &ctx->parsers[i], 1);
 	}
 	array_sort(&matches, config_filter_parser_cmp_rev);
-	(void)array_append_space(&matches);
+	array_append_zero(&matches);
 	return array_idx(&matches, 0);
 }
 

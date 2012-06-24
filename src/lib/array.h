@@ -235,6 +235,8 @@ array_append_space_i(struct array *array)
 }
 #define array_append_space(array) \
 	ARRAY_TYPE_CAST_MODIFIABLE(array)array_append_space_i(&(array)->arr)
+#define array_append_zero(array) \
+	(void)array_append_space_i(&(array)->arr)
 
 void *array_insert_space_i(struct array *array, unsigned int idx);
 #define array_insert_space(array, idx) \

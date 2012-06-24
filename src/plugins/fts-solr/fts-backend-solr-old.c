@@ -778,7 +778,7 @@ solr_search_multi(struct solr_fts_backend *backend, string_t *str,
 		fts_result->scores = solr_results[i]->scores;
 		fts_result->scores_sorted = TRUE;
 	}
-	(void)array_append_space(&fts_results);
+	array_append_zero(&fts_results);
 	result->box_results = array_idx_modifiable(&fts_results, 0);
 	hash_table_destroy(&mailboxes);
 	return 0;

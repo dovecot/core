@@ -99,7 +99,7 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 
 	if (array_count(&rfc2231_params_arr) == 0) {
 		/* No RFC 2231 parameters */
-		(void)array_append_space(&result); /* NULL-terminate */
+		array_append_zero(&result); /* NULL-terminate */
 		*result_r = array_idx(&result, 0);
 		return broken ? -1 : 0;
 	}
@@ -166,7 +166,7 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 			array_append(&result, &value, 1);
 		}
 	}
-	(void)array_append_space(&result); /* NULL-terminate */
+	array_append_zero(&result); /* NULL-terminate */
 	*result_r = array_idx(&result, 0);
 	return broken ? -1 : 0;
 }

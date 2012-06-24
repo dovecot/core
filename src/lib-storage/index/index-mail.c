@@ -218,7 +218,7 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 	}
 
 	/* end with NULL */
-	(void)array_append_space(&data->keywords);
+	array_append_zero(&data->keywords);
 	return array_idx(&data->keywords, 0);
 }
 
@@ -1527,7 +1527,7 @@ void index_mail_add_temp_wanted_fields(struct mail *_mail,
 			array_append(&names, &data->wanted_headers->name[i], 1);
 		for (i = 0; i < headers->count; i++)
 			array_append(&names, &headers->name[i], 1);
-		(void)array_append_space(&names);
+		array_append_zero(&names);
 		data->wanted_headers =
 			mailbox_header_lookup_init(_mail->box,
 						   array_idx(&names, 0));

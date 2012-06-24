@@ -234,7 +234,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	i_array_init(ext_offsets, message_count);
 	for (seq = 1; seq <= message_count; seq++) {
 		if (mail_index_transaction_is_expunged(trans, seq)) {
-			(void)array_append_space(ext_offsets);
+			array_append_zero(ext_offsets);
 			continue;
 		}
 

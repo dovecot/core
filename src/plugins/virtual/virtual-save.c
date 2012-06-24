@@ -58,7 +58,7 @@ virtual_copy_keywords(struct mailbox *src_box,
 		kwp = array_idx(status.keywords, src_keywords->idx[i]);
 		array_append(&kw_strings, kwp, 1);
 	}
-	(void)array_append_space(&kw_strings);
+	array_append_zero(&kw_strings);
 	return mailbox_keywords_create_valid(dest_box,
 					     array_idx(&kw_strings, 0));
 }

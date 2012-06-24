@@ -100,7 +100,7 @@ doveadm_mailbox_list_iter_init_nsmask(struct doveadm_mail_cmd_context *ctx,
 		   without lookup ACL right */
 		return iter;
 	}
-	(void)array_append_space(&iter->patterns);
+	array_append_zero(&iter->patterns);
 
 	iter->only_selectable = TRUE;
 	iter->iter_flags = iter_flags;

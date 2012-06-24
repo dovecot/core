@@ -175,7 +175,7 @@ imap_msgpart_parse_header_fields(struct mailbox *box,
 					   &fields) < 0)
 		return -1;
 
-	(void)array_append_space(&fields);
+	array_append_zero(&fields);
 	msgpart->headers = array_idx(&fields, 0);
 	msgpart->header_ctx = mailbox_header_lookup_init(box, msgpart->headers);
 	return 0;

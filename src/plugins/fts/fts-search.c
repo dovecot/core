@@ -181,7 +181,7 @@ static int fts_search_lookup_level_multi(struct fts_search_context *fctx,
 				break;
 			array_append(&tmp_mailboxes, &mailboxes[j], 1);
 		}
-		(void)array_append_space(&tmp_mailboxes);
+		array_append_zero(&tmp_mailboxes);
 
 		mail_search_args_reset(args, TRUE);
 		if (fts_backend_lookup_multi(backend,

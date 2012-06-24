@@ -364,7 +364,7 @@ fs_list_get_valid_patterns(struct fs_list_iterate_context *ctx,
 			array_append(&valid_patterns, &pattern, 1);
 		}
 	}
-	(void)array_append_space(&valid_patterns); /* NULL-terminate */
+	array_append_zero(&valid_patterns); /* NULL-terminate */
 	ctx->valid_patterns = array_idx(&valid_patterns, 0);
 
 	return array_count(&valid_patterns) > 1;

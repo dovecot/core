@@ -1102,7 +1102,7 @@ wanted_sort_fields_get(struct mailbox *box,
 	}
 
 	if (array_count(&headers) > 0) {
-		(void)array_append_space(&headers);
+		array_append_zero(&headers);
 		*headers_ctx_r = mailbox_header_lookup_init(box,
 							array_idx(&headers, 0));
 	}

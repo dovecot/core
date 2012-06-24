@@ -232,7 +232,7 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 	if (array_count(&keywords) == 0)
 		*keywords_r = NULL;
 	else {
-		(void)array_append_space(&keywords); /* NULL-terminate */
+		array_append_zero(&keywords); /* NULL-terminate */
 		*keywords_r = array_idx(&keywords, 0);
 	}
 	return TRUE;
@@ -309,7 +309,7 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 		array_append(dest, &all_names[kw_index], 1);
 	}
 
-	(void)array_append_space(dest);
+	array_append_zero(dest);
 	return array_idx(dest, 0);
 }
 

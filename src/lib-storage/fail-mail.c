@@ -88,7 +88,7 @@ fail_mail_get_keyword_indexes(struct mail *mail ATTR_UNUSED)
 
 	kw_indexes = t_new(ARRAY_TYPE(keyword_indexes), 1);
 	t_array_init(kw_indexes, 1);
-	(void)array_append_space(kw_indexes);
+	array_append_zero(kw_indexes);
 	return kw_indexes;
 }
 

@@ -19,7 +19,7 @@ mailbox_keywords_create_skip(struct mailbox *box,
 			if (mailbox_keyword_is_valid(box, *keywords, &error))
 				array_append(&valid_keywords, keywords, 1);
 		}
-		(void)array_append_space(&valid_keywords); /* NULL-terminate */
+		array_append_zero(&valid_keywords); /* NULL-terminate */
 		kw = mail_index_keywords_create(box->index, keywords);
 	} T_END;
 	return kw;

@@ -54,7 +54,7 @@ exec_child(struct master_service_connection *conn, const char *const *args)
 
 	for (; *args != NULL; args++)
 		array_append(&exec_args, args, 1);
-	(void)array_append_space(&exec_args);
+	array_append_zero(&exec_args);
 
 	env_clean();
 	args = array_idx(&exec_args, 0);

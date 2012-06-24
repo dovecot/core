@@ -456,6 +456,6 @@ var_expand_table_build(char key, const char *value, char key2, ...)
 	va_end(args);
 
 	/* 0, NULL entry */
-	(void)array_append_space(&variables);
+	array_append_zero(&variables);
 	return array_idx(&variables, 0);
 }

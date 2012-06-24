@@ -295,13 +295,13 @@ cmd_acl_set_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		}
 	}
 	if (array_count(&dest_rights) > 0) {
-		(void)array_append_space(&dest_rights);
+		array_append_zero(&dest_rights);
 		update.rights.rights = array_idx(&dest_rights, 0);
 	} else if (update.modify_mode == ACL_MODIFY_MODE_REPLACE) {
 		update.modify_mode = ACL_MODIFY_MODE_CLEAR;
 	}
 	if (array_count(&dest_neg_rights) > 0) {
-		(void)array_append_space(&dest_neg_rights);
+		array_append_zero(&dest_neg_rights);
 		update.rights.neg_rights = array_idx(&dest_neg_rights, 0);
 	} else if (update.neg_modify_mode == ACL_MODIFY_MODE_REPLACE) {
 		update.neg_modify_mode = ACL_MODIFY_MODE_CLEAR;

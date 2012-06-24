@@ -803,7 +803,7 @@ void mail_index_strmap_view_sync_add_unique(struct mail_index_strmap_view_sync *
 	rec.ref_index = ref_index;
 	rec.str_idx = view->next_str_idx++;
 	array_append(&view->recs, &rec, 1);
-	(void)array_append_space(&view->recs_crc32);
+	array_append_zero(&view->recs_crc32);
 
 	view->last_added_uid = uid;
 	view->last_ref_index = ref_index;
@@ -813,7 +813,7 @@ static void
 mail_index_strmap_zero_terminate(struct mail_index_strmap_view *view)
 {
 	/* zero-terminate the records array */
-	(void)array_append_space(&view->recs);
+	array_append_zero(&view->recs);
 	array_delete(&view->recs, array_count(&view->recs)-1, 1);
 }
 
@@ -1238,7 +1238,7 @@ void mail_index_strmap_view_sync_commit(struct mail_index_strmap_view_sync **_sy
 	mail_index_strmap_zero_terminate(view);
 
 	/* zero-terminate the records array */
-	(void)array_append_space(&view->recs);
+	array_append_zero(&view->recs);
 	array_delete(&view->recs, array_count(&view->recs)-1, 1);
 }
 

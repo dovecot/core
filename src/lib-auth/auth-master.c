@@ -186,7 +186,7 @@ static const char *const *args_hide_passwords(const char *const *args)
 			array_append(&new_args, &args[i], 1);
 		}
 	}
-	(void)array_append_space(&new_args);
+	array_append_zero(&new_args);
 	return array_idx(&new_args, 0);
 }
 

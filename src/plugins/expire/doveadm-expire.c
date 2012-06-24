@@ -178,7 +178,7 @@ static const char *const *doveadm_expire_get_patterns(void)
 			i_unreached();
 		str = doveadm_plugin_getenv(set_name);
 	}
-	(void)array_append_space(&patterns);
+	array_append_zero(&patterns);
 	return array_idx(&patterns, 0);
 }
 

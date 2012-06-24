@@ -212,7 +212,7 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 
 			input = i_stream_create_limit(*stream, trailer_size);
 			array_append(&streams, &input, 1);
-			(void)array_append_space(&streams);
+			array_append_zero(&streams);
 		}
 	}
 

@@ -348,7 +348,7 @@ int imap_fetch_begin(struct imap_fetch_context *ctx)
 	if (array_count(&ctx->all_headers) > 0 &&
 	    ((ctx->fetch_data & (MAIL_FETCH_STREAM_HEADER |
 				 MAIL_FETCH_STREAM_BODY)) == 0)) {
-		(void)array_append_space(&ctx->all_headers);
+		array_append_zero(&ctx->all_headers);
 
 		data = array_idx(&ctx->all_headers, 0);
 		ctx->all_headers_ctx =

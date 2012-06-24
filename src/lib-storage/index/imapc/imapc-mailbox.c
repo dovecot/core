@@ -346,7 +346,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		mail_index_lookup_keywords(mbox->delayed_sync_view, lseq,
 					   &old_kws);
 
-		(void)array_append_space(&keywords);
+		array_append_zero(&keywords);
 		kw = mail_index_keywords_create(mbox->box.index,
 						array_idx(&keywords, 0));
 		if (!keywords_are_equal(kw, &old_kws)) {

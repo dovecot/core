@@ -316,7 +316,7 @@ config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
 			 }
 		}
 		if (input->service == NULL) {
-			(void)array_append_space(&services);
+			array_append_zero(&services);
 			output_r->specific_services = array_idx(&services, 0);
 		}
 	} T_END;

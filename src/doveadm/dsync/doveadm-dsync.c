@@ -125,7 +125,7 @@ mirror_get_remote_cmd_line(const char *const *argv,
 		p = "dsync-server";
 	}
 	array_append(&cmd_args, &p, 1);
-	(void)array_append_space(&cmd_args);
+	array_append_zero(&cmd_args);
 	*cmd_args_r = array_idx(&cmd_args, 0);
 }
 
@@ -177,7 +177,7 @@ get_ssh_cmd_args(struct dsync_cmd_context *ctx,
 		}
 		array_append(&cmd_args, &value, 1);
 	}
-	(void)array_append_space(&cmd_args);
+	array_append_zero(&cmd_args);
 	return array_idx(&cmd_args, 0);
 }
 

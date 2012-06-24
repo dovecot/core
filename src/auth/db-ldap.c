@@ -1063,7 +1063,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 				array_append(&ctx.attr_names, &ldap_attr, 1);
 		}
 	}
-	(void)array_append_space(&ctx.attr_names);
+	array_append_zero(&ctx.attr_names);
 	*attr_names_r = array_idx_modifiable(&ctx.attr_names, 0);
 }
 

@@ -318,7 +318,7 @@ static const char *const *expire_get_patterns(struct mail_user *user)
 			i_unreached();
 		str = mail_user_set_plugin_getenv(user->set, set_name);
 	}
-	(void)array_append_space(&patterns);
+	array_append_zero(&patterns);
 	return array_idx(&patterns, 0);
 }
 

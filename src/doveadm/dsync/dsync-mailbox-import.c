@@ -619,14 +619,14 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 
 	/* apply changes */
 	if (array_count(&add_keywords) > 0) {
-		(void)array_append_space(&add_keywords);
+		array_append_zero(&add_keywords);
 		kw = mailbox_keywords_create_valid(mail->box,
 			array_idx(&add_keywords, 0));
 		mail_update_keywords(mail, MODIFY_ADD, kw);
 		mailbox_keywords_unref(&kw);
 	}
 	if (array_count(&remove_keywords) > 0) {
-		(void)array_append_space(&remove_keywords);
+		array_append_zero(&remove_keywords);
 		kw = mailbox_keywords_create_valid(mail->box,
 			array_idx(&remove_keywords, 0));
 		mail_update_keywords(mail, MODIFY_REMOVE, kw);
@@ -1068,7 +1068,7 @@ dsync_mailbox_get_final_keywords(const struct dsync_mail_change *change)
 	if (array_count(&keywords) == 0)
 		return NULL;
 
-	(void)array_append_space(&keywords);
+	array_append_zero(&keywords);
 	return array_idx(&keywords, 0);
 }
 

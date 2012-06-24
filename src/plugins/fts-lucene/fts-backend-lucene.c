@@ -513,7 +513,7 @@ mailboxes_get_guids(struct mailbox *const boxes[],
 		hash_table_insert(guids, guid_dup, box_result);
 	}
 
-	(void)array_append_space(&box_results);
+	array_append_zero(&box_results);
 	result->box_results = array_idx_modifiable(&box_results, 0);
 	return 0;
 }

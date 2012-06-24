@@ -681,7 +681,7 @@ static int config_parse_finish(struct config_parser_context *ctx, const char **e
 	int ret;
 
 	new_filter = config_filter_init(ctx->pool);
-	(void)array_append_space(&ctx->all_parsers);
+	array_append_zero(&ctx->all_parsers);
 	config_filter_add_all(new_filter, array_idx(&ctx->all_parsers, 0));
 
 	if (ctx->hide_errors)
@@ -1007,7 +1007,7 @@ void config_parse_load_modules(void)
 		   using the new list. */
 		for (i = 0; all_roots[i] != NULL; i++)
 			array_append(&new_roots, &all_roots[i], 1);
-		(void)array_append_space(&new_roots);
+		array_append_zero(&new_roots);
 		all_roots = array_idx(&new_roots, 0);
 	}
 	if (array_count(&new_services) > 0) {

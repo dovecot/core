@@ -474,7 +474,7 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
 			array_append(&ctx->fields, field, 1);
 		}
 	}
-	(void)array_append_space(&ctx->header_fields);
+	array_append_zero(&ctx->header_fields);
 }
 
 static int cmd_fetch_mail(struct fetch_cmd_context *ctx)

@@ -422,7 +422,7 @@ imap_acl_letters_parse(const char *letters, const char *const **rights_r,
 			}
 		}
 	}
-	(void)array_append_space(&rights);
+	array_append_zero(&rights);
 	*rights_r = array_idx(&rights, 0);
 	return 0;
 }
@@ -527,7 +527,7 @@ static void imap_acl_update_ensure_keep_admins(struct acl_backend *backend,
 	default:
 		return;
 	}
-	(void)array_append_space(&new_rights);
+	array_append_zero(&new_rights);
 	update->rights.rights = array_idx(&new_rights, 0);
 }
 

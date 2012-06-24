@@ -285,7 +285,7 @@ void mail_index_keyword_lookup_or_create(struct mail_index *index,
 	array_append(&index->keywords, &keyword, 1);
 
 	/* keep the array NULL-terminated, but the NULL itself invisible */
-	(void)array_append_space(&index->keywords);
+	array_append_zero(&index->keywords);
 	array_delete(&index->keywords, array_count(&index->keywords)-1, 1);
 }
 

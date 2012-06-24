@@ -632,7 +632,7 @@ int uri_parse_path(struct uri_parser *parser,
 			return -1;
 	}
 
-	(void)array_append_space(&segments);
+	array_append_zero(&segments);
 	*path_r = array_get(&segments, &count);
 	*relative_r = relative;
 	return 1;

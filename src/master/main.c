@@ -474,7 +474,7 @@ static void master_set_import_environment(const struct master_settings *set)
 		}
 		array_append(&keys, &key, 1);
 	}
-	(void)array_append_space(&keys);
+	array_append_zero(&keys);
 
 	value = t_strarray_join(array_idx(&keys, 0), " ");
 	env_put(t_strconcat(DOVECOT_PRESERVE_ENVS_ENV"=", value, NULL));

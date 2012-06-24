@@ -77,7 +77,7 @@ void io_loop_handle_add(struct io_file *io)
 	if (ctx->deleted_count > 0)
 		ctx->deleted_count--;
 	else
-		(void)array_append_space(&ctx->events);
+		array_append_zero(&ctx->events);
 }
 
 void io_loop_handle_remove(struct io_file *io, bool closed)
