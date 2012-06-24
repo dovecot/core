@@ -107,7 +107,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				return -1;
 			}
 
-			if (size > 0 && !ctx->skip_line &&
+			if (size > 0 && !ctx->skip_line && !continued &&
 			    (msg[0] == '\n' ||
 			     (msg[0] == '\r' && size > 1 && msg[1] == '\n'))) {
 				/* end of headers - this mostly happens just
@@ -154,6 +154,9 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 					if (size > 0 && msg[size-1] == '\r')
 						size--;
 				}
+				/* the buffer really has to be more than 2 to
+				   avoid CRLF looping forever */
+				i_assert(size > 0);
 
 				continues = TRUE;
 			}
@@ -249,7 +252,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 	line->continued = continued;
 	line->crlf_newline = crlf_newline;
 	line->no_newline = no_newline;
-	if (size == 0) {
+	if (size == 0 && !continued) {
 		/* end of headers */
 		line->eoh = TRUE;
 		line->name_len = line->value_len = line->full_value_len = 0;
