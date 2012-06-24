@@ -399,6 +399,16 @@ i_stream_get_data(const struct istream *stream, size_t *size_r)
         return _stream->buffer + _stream->skip;
 }
 
+size_t i_stream_get_data_size(const struct istream *stream)
+{
+	const struct istream_private *_stream = stream->real_stream;
+
+	if (_stream->skip >= _stream->pos)
+		return 0;
+	else
+		return _stream->pos - _stream->skip;
+}
+
 unsigned char *i_stream_get_modifiable_data(const struct istream *stream,
 					    size_t *size_r)
 {

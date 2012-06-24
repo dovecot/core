@@ -27,7 +27,7 @@ static int i_stream_dot_read_some(struct dot_istream *dstream)
 	size_t size, avail;
 	ssize_t ret;
 
-	(void)i_stream_get_data(stream->parent, &size);
+	size = i_stream_get_data_size(stream->parent);
 	if (size == 0) {
 		ret = i_stream_read(stream->parent);
 		if (ret <= 0 && (ret != -2 || stream->skip == 0)) {
@@ -40,7 +40,7 @@ static int i_stream_dot_read_some(struct dot_istream *dstream)
 			}
 			return ret;
 		}
-		(void)i_stream_get_data(stream->parent, &size);
+		size = i_stream_get_data_size(stream->parent);
 		i_assert(size != 0);
 	}
 

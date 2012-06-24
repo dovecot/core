@@ -407,7 +407,7 @@ static void skip_header(struct header_filter_istream *mstream)
 
 	while (!mstream->header_read &&
 	       i_stream_read(&mstream->istream.istream) != -1) {
-		(void)i_stream_get_data(&mstream->istream.istream, &pos);
+		pos = i_stream_get_data_size(&mstream->istream.istream);
 		i_stream_skip(&mstream->istream.istream, pos);
 	}
 }

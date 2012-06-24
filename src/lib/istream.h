@@ -126,6 +126,7 @@ char *i_stream_read_next_line(struct istream *stream);
    buffered. */
 const unsigned char *
 i_stream_get_data(const struct istream *stream, size_t *size_r);
+size_t i_stream_get_data_size(const struct istream *stream);
 /* Like i_stream_get_data(), but returns non-const data. This only works with
    buffered streams (currently only file), others return NULL. */
 unsigned char *i_stream_get_modifiable_data(const struct istream *stream,

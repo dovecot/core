@@ -1275,10 +1275,7 @@ static void director_connection_input(struct director_connection *conn)
 		/* just read everything the remote sends, and wait for it
 		   to disconnect. we mainly just want the remote to read the
 		   CONNECT we sent it. */
-		size_t size;
-
-		(void)i_stream_get_data(conn->input, &size);
-		i_stream_skip(conn->input, size);
+		i_stream_skip(conn->input, i_stream_get_data_size(conn->input));
 		return;
 	}
 

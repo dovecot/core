@@ -669,15 +669,13 @@ client_dict_transaction_init(struct dict *_dict)
 static void dict_async_input(struct client_dict *dict)
 {
 	char *line;
-	size_t size;
 	int ret;
 
 	i_assert(!dict->in_iteration);
 
 	do {
 		ret = client_dict_read_one_line(dict, &line);
-		(void)i_stream_get_data(dict->input, &size);
-	} while (ret == 0 && size > 0);
+	} while (ret == 0 && i_stream_get_data_size(dict->input) > 0);
 
 	if (ret < 0)
 		io_remove(&dict->io);

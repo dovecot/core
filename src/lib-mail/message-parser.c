@@ -505,7 +505,6 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 {
 	struct message_part *part = ctx->part;
 	struct message_header_line *hdr;
-	size_t size;
 	int ret;
 
 	if (ctx->skip > 0) {
@@ -515,8 +514,7 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 
 	ret = message_parse_header_next(ctx->hdr_parser_ctx, &hdr);
 	if (ret == 0 || (ret < 0 && ctx->input->stream_errno != 0)) {
-		(void)i_stream_get_data(ctx->input, &size);
-		ctx->want_count = size + 1;
+		ctx->want_count = i_stream_get_data_size(ctx->input) + 1;
 		return ret;
 	}
 
@@ -890,13 +888,11 @@ static int preparsed_parse_next_header(struct message_parser_ctx *ctx,
 				       struct message_block *block_r)
 {
 	struct message_header_line *hdr;
-	size_t size;
 	int ret;
 
 	ret = message_parse_header_next(ctx->hdr_parser_ctx, &hdr);
 	if (ret == 0 || (ret < 0 && ctx->input->stream_errno != 0)) {
-		(void)i_stream_get_data(ctx->input, &size);
-		ctx->want_count = size + 1;
+		ctx->want_count = i_stream_get_data_size(ctx->input) + 1;
 		return ret;
 	}
 

@@ -600,8 +600,6 @@ static void client_add_missing_io(struct client *client)
 
 void client_continue_pending_input(struct client *client)
 {
-	size_t size;
-
 	i_assert(!client->handling_input);
 
 	if (client->input_lock != NULL) {
@@ -626,8 +624,8 @@ void client_continue_pending_input(struct client *client)
 	client_add_missing_io(client);
 
 	/* if there's unread data in buffer, handle it. */
-	(void)i_stream_get_data(client->input, &size);
-	if (size > 0 && !client->disconnected) {
+	if (i_stream_get_data_size(client->input) > 0 &&
+	    !client->disconnected) {
 		if (client_handle_input(client))
 			client_continue_pending_input(client);
 	}
@@ -750,8 +748,6 @@ static bool client_command_input(struct client_command_context *cmd)
 
 static bool client_handle_next_command(struct client *client, bool *remove_io_r)
 {
-	size_t size;
-
 	*remove_io_r = FALSE;
 
 	if (client->input_lock != NULL) {
@@ -772,8 +768,7 @@ static bool client_handle_next_command(struct client *client, bool *remove_io_r)
 
 	/* don't bother creating a new client command before there's at least
 	   some input */
-	(void)i_stream_get_data(client->input, &size);
-	if (size == 0)
+	if (i_stream_get_data_size(client->input) == 0)
 		return FALSE;
 
 	/* beginning a new command */

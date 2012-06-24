@@ -527,7 +527,6 @@ uoff_t istream_raw_mbox_get_body_offset(struct istream *stream)
 	struct raw_mbox_istream *rstream =
 		(struct raw_mbox_istream *)stream->real_stream;
 	uoff_t offset;
-	size_t pos;
 
 	i_assert(rstream->seeked);
 
@@ -537,8 +536,7 @@ uoff_t istream_raw_mbox_get_body_offset(struct istream *stream)
 	offset = stream->v_offset;
 	i_stream_seek(stream, rstream->hdr_offset);
 	while (rstream->body_offset == (uoff_t)-1) {
-		(void)i_stream_get_data(stream, &pos);
-		i_stream_skip(stream, pos);
+		i_stream_skip(stream, i_stream_get_data_size(stream));
 
 		if (i_stream_raw_mbox_read(&rstream->istream) < 0) {
 			if (rstream->corrupted) {

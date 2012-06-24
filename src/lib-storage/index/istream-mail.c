@@ -65,7 +65,7 @@ i_stream_mail_read(struct istream_private *stream)
 		      stream->istream.v_offset);
 
 	ret = i_stream_read_copy_from_parent(&stream->istream);
-	(void)i_stream_get_data(&stream->istream, &size);
+	size = i_stream_get_data_size(&stream->istream);
 	if (ret > 0) {
 		mstream->mail->transaction->stats.files_read_bytes += ret;
 		if (!mstream->files_read_increased) {

@@ -144,8 +144,6 @@ static void dsync_slave_io_stop(struct dsync_slave_io *slave)
 
 static int dsync_slave_io_read_mail_stream(struct dsync_slave_io *slave)
 {
-	size_t size;
-
 	if (i_stream_read(slave->mail_input) < 0) {
 		if (slave->mail_input->stream_errno != 0) {
 			errno = slave->mail_input->stream_errno;
@@ -159,8 +157,8 @@ static int dsync_slave_io_read_mail_stream(struct dsync_slave_io *slave)
 		slave->mail_input = NULL;
 		return 1;
 	}
-	(void)i_stream_get_data(slave->mail_input, &size);
-	i_stream_skip(slave->mail_input, size);
+	i_stream_skip(slave->mail_input,
+		      i_stream_get_data_size(slave->mail_input));
 	return 0;
 }
 

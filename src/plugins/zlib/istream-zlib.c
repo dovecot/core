@@ -446,7 +446,7 @@ i_stream_zlib_stat(struct istream_private *stream, bool exact)
 		uoff_t old_offset = stream->istream.v_offset;
 
 		do {
-			(void)i_stream_get_data(&stream->istream, &size);
+			size = i_stream_get_data_size(&stream->istream);
 			i_stream_skip(&stream->istream, size);
 		} while (i_stream_read(&stream->istream) > 0);
 

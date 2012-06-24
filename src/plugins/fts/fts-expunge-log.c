@@ -368,7 +368,7 @@ fts_expunge_log_read_failure(struct fts_expunge_log_read_ctx *ctx,
 		ctx->failed = TRUE;
 		i_error("read(%s) failed: %m", ctx->log->path);
 	} else {
-		(void)i_stream_get_data(ctx->input, &size);
+		size = i_stream_get_data_size(ctx->input);
 		ctx->corrupted = TRUE;
 		i_error("Corrupted fts expunge log %s: "
 			"Unexpected EOF (read %"PRIuSIZE_T" / %u bytes)",

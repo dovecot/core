@@ -727,15 +727,13 @@ static int seekable_fd_callback(const char **path_r, void *context)
 static void pop3c_client_dot_input(struct pop3c_client *client)
 {
 	ssize_t ret;
-	size_t size;
 
 	if (client->to != NULL)
 		timeout_reset(client->to);
 	while ((ret = i_stream_read(client->dot_input)) > 0 || ret == -2) {
-		(void)i_stream_get_data(client->dot_input, &size);
-		i_stream_skip(client->dot_input, size);
+		i_stream_skip(client->dot_input,
+			      i_stream_get_data_size(client->dot_input));
 	}
-	(void)i_stream_get_data(client->dot_input, &size);
 	if (ret != 0) {
 		i_assert(ret == -1);
 		if (client->dot_input->stream_errno != 0) {

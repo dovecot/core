@@ -147,7 +147,7 @@ static ssize_t read_more(struct seekable_istream *sstream)
 		}
 
 		/* see if stream has pending data */
-		(void)i_stream_get_data(sstream->cur_input, &size);
+		size = i_stream_get_data_size(sstream->cur_input);
 		if (size != 0)
 			return size;
 	}
@@ -167,10 +167,8 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 		if (sstream->buffer->used >= stream->max_buffer_size)
 			return FALSE;
 
-		if (sstream->cur_input == NULL)
-			size = 0;
-		else
-			(void)i_stream_get_data(sstream->cur_input, &size);
+		size = sstream->cur_input == NULL ? 0 :
+			i_stream_get_data_size(sstream->cur_input);
 		if (size == 0) {
 			/* read more to buffer */
 			*ret_r = read_more(sstream);

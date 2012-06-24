@@ -138,7 +138,7 @@ static ssize_t i_stream_tee_read(struct istream_private *stream)
 		tee_streams_skip(tstream->tee);
 		ret = i_stream_read(input);
 		if (ret <= 0) {
-			(void)i_stream_get_data(input, &size);
+			size = i_stream_get_data_size(input);
 			if (ret == -2 && stream->skip != 0) {
 				/* someone else is holding the data,
 				   wait for it */
@@ -176,11 +176,9 @@ i_stream_tee_stat(struct istream_private *stream, bool exact)
 static void i_stream_tee_sync(struct istream_private *stream)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
-	size_t size;
 
 	tee_streams_skip(tstream->tee);
-	(void)i_stream_get_data(tstream->tee->input, &size);
-	if (size != 0) {
+	if (i_stream_get_data_size(tstream->tee->input) != 0) {
 		i_panic("tee-istream: i_stream_sync() called "
 			"with data still buffered");
 	}

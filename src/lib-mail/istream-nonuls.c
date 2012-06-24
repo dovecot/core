@@ -11,11 +11,9 @@ struct nonuls_istream {
 
 static int i_stream_read_parent(struct istream_private *stream)
 {
-	size_t size;
 	ssize_t ret;
 
-	(void)i_stream_get_data(stream->parent, &size);
-	if (size > 0)
+	if (i_stream_get_data_size(stream->parent) > 0)
 		return 1;
 
 	ret = i_stream_read(stream->parent);
@@ -24,8 +22,7 @@ static int i_stream_read_parent(struct istream_private *stream)
 		stream->istream.eof = stream->parent->eof;
 		return ret;
 	}
-	(void)i_stream_get_data(stream->parent, &size);
-	i_assert(size != 0);
+	i_assert(i_stream_get_data_size(stream->parent) != 0);
 	return 1;
 }
 

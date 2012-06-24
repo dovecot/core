@@ -86,7 +86,7 @@ static void test_istream_concat_random(void)
 				}
 			}
 		}
-		(void)i_stream_get_data(input, &size);
+		size = i_stream_get_data_size(input);
 	}
 	for (i = 0; i < stream_count; i++)
 		i_stream_unref(&streams[i]);

@@ -150,7 +150,6 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 static bool cmd_append_continue_cancel(struct client_command_context *cmd)
 {
 	struct cmd_append_context *ctx = cmd->context;
-	size_t size;
 
 	if (cmd->cancel) {
 		cmd_append_finish(ctx);
@@ -158,8 +157,7 @@ static bool cmd_append_continue_cancel(struct client_command_context *cmd)
 	}
 
 	(void)i_stream_read(ctx->input);
-	(void)i_stream_get_data(ctx->input, &size);
-	i_stream_skip(ctx->input, size);
+	i_stream_skip(ctx->input, i_stream_get_data_size(ctx->input));
 
 	if (cmd->client->input->closed) {
 		cmd_append_finish(ctx);
@@ -712,7 +710,6 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
-	size_t size;
 	int ret = 0;
 
 	if (cmd->cancel) {
@@ -736,8 +733,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 
 	if (ctx->save_ctx == NULL) {
 		(void)i_stream_read(ctx->input);
-		(void)i_stream_get_data(ctx->input, &size);
-		i_stream_skip(ctx->input, size);
+		i_stream_skip(ctx->input, i_stream_get_data_size(ctx->input));
 	}
 
 	if (ctx->litinput->eof || client->input->closed) {

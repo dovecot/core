@@ -90,7 +90,7 @@ static void test_istream_seekable_random(void)
 
 	/* first read it through */
 	while (i_stream_read(input) > 0) {
-		(void)i_stream_get_data(input, &size);
+		size = i_stream_get_data_size(input);
 		i_stream_skip(input, size);
 	}
 
@@ -115,7 +115,7 @@ static void test_istream_seekable_random(void)
 				}
 			}
 		}
-		(void)i_stream_get_data(input, &size);
+		size = i_stream_get_data_size(input);
 	}
 	for (i = 0; i < stream_count; i++)
 		i_stream_unref(&streams[i]);

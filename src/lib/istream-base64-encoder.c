@@ -21,7 +21,7 @@ static int i_stream_read_parent(struct istream_private *stream)
 	size_t size;
 	ssize_t ret;
 
-	(void)i_stream_get_data(stream->parent, &size);
+	size = i_stream_get_data_size(stream->parent);
 	if (size >= 4)
 		return 1;
 
@@ -33,7 +33,7 @@ static int i_stream_read_parent(struct istream_private *stream)
 		stream->istream.eof = stream->parent->eof;
 		return size > 0 ? 1 : ret;
 	}
-	(void)i_stream_get_data(stream->parent, &size);
+	size = i_stream_get_data_size(stream->parent);
 	i_assert(size != 0);
 	return 1;
 }
@@ -104,7 +104,7 @@ static ssize_t i_stream_base64_encoder_read(struct istream_private *stream)
 		ret = i_stream_read_parent(stream);
 		if (ret <= 0)
 			return ret;
-		(void)i_stream_get_data(stream->parent, &size);
+		size = i_stream_get_data_size(stream->parent);
 	} while (size < 4 && !stream->parent->eof);
 
 	/* encode as many lines as fits into destination buffer */
