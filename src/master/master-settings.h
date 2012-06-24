@@ -29,6 +29,6 @@ struct master_settings {
 
 extern const struct setting_parser_info master_setting_parser_info;
 
-bool master_settings_do_fixes(const struct master_settings *set);
+void master_settings_do_fixes(const struct master_settings *set);
 
 #endif
