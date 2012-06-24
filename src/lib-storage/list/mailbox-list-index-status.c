@@ -81,7 +81,8 @@ index_list_get_view_status(struct mailbox *box, struct mail_index_view *view,
 			ret = FALSE;
 		else {
 			status_r->uidvalidity = rec->uid_validity;
-			memcpy(mailbox_guid, rec->guid, GUID_128_SIZE);
+			if (mailbox_guid != NULL)
+				memcpy(mailbox_guid, rec->guid, GUID_128_SIZE);
 		}
 	}
 
