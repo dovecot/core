@@ -44,8 +44,8 @@ client_cmd_input(enum ipc_cmd_status status, const char *line, void *context)
 	}
 
 	T_BEGIN {
-		o_stream_send_str(client->output,
-				  t_strdup_printf("%c%s\n", chr, line));
+		o_stream_nsend_str(client->output,
+				   t_strdup_printf("%c%s\n", chr, line));
 	} T_END;
 
 	if (status != IPC_CMD_STATUS_REPLY && client->io == NULL) {
@@ -72,7 +72,7 @@ static void client_input(struct client *client)
 			data = strchr(id, '\t');
 		}
 		if (data == NULL || data[1] == '\0') {
-			o_stream_send_str(client->output, "-Invalid input\n");
+			o_stream_nsend_str(client->output, "-Invalid input\n");
 			continue;
 		}
 		*data++ = '\0';
@@ -89,14 +89,14 @@ static void client_input(struct client *client)
 						    client_cmd_input, client);
 			}
 		} else if (str_to_uint(id, &id_num) < 0) {
-			o_stream_send_str(client->output,
+			o_stream_nsend_str(client->output,
 				t_strdup_printf("-Invalid IPC connection id: %s\n", id));
 			continue;
 		} else if (group == NULL) {
-			o_stream_send_str(client->output,
+			o_stream_nsend_str(client->output,
 				t_strdup_printf("-Unknown IPC group: %s\n", line));
 		} else if ((conn = ipc_connection_lookup_id(group, id_num)) == NULL) {
-			o_stream_send_str(client->output,
+			o_stream_nsend_str(client->output,
 				t_strdup_printf("-Unknown IPC connection id: %u\n", id_num));
 			continue;
 		} else {
@@ -124,6 +124,7 @@ struct client *client_create(int fd)
 	client->io = io_add(fd, IO_READ, client_input, client);
 	client->input = i_stream_create_fd(fd, (size_t)-1, FALSE);
 	client->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 
 	DLLIST_PREPEND(&clients, client);
 	return client;

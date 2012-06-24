@@ -177,8 +177,9 @@ struct ipc_connection *ipc_connection_create(int listen_fd, int fd)
 	conn->io = io_add(fd, IO_READ, ipc_connection_input, conn);
 	conn->input = i_stream_create_fd(fd, (size_t)-1, FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 	i_array_init(&conn->cmds, 8);
-	o_stream_send_str(conn->output, IPC_SERVER_HANDSHAKE);
+	o_stream_nsend_str(conn->output, IPC_SERVER_HANDSHAKE);
 
 	DLLIST_PREPEND(&conn->group->connections, conn);
 	return conn;
@@ -236,7 +237,7 @@ void ipc_connection_cmd(struct ipc_connection *conn, const char *cmd,
 	array_append(&conn->cmds, &ipc_cmd, 1);
 
 	T_BEGIN {
-		o_stream_send_str(conn->output,
+		o_stream_nsend_str(conn->output,
 			t_strdup_printf("%u\t%s\n", ipc_cmd->tag, cmd));
 	} T_END;
 }

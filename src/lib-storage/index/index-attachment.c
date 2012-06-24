@@ -133,14 +133,14 @@ static void index_attachment_save_mail_header(struct mail_save_context *ctx,
 	else if (strcasecmp(hdr->name, "Content-Disposition") == 0)
 		parse_content_disposition(ctx, hdr);
 
-	o_stream_send(ctx->output, hdr->name, hdr->name_len);
-	o_stream_send(ctx->output, hdr->middle, hdr->middle_len);
-	o_stream_send(ctx->output, hdr->full_value, hdr->full_value_len);
+	o_stream_nsend(ctx->output, hdr->name, hdr->name_len);
+	o_stream_nsend(ctx->output, hdr->middle, hdr->middle_len);
+	o_stream_nsend(ctx->output, hdr->full_value, hdr->full_value_len);
 	if (!hdr->no_newline) {
 		if (hdr->crlf_newline)
-			o_stream_send(ctx->output, "\r\n", 2);
+			o_stream_nsend(ctx->output, "\r\n", 2);
 		else
-			o_stream_send(ctx->output, "\n", 1);
+			o_stream_nsend(ctx->output, "\n", 1);
 	}
 }
 
@@ -221,10 +221,9 @@ static int index_attachment_save_temp_open(struct mail_save_context *ctx)
 static int save_check_write_error(struct mail_storage *storage,
 				  struct ostream *output)
 {
-	if (output->last_failed_errno == 0)
+	if (o_stream_nfinish(output) == 0)
 		return 0;
 
-	errno = output->last_failed_errno;
 	if (!mail_storage_set_error_from_errno(storage)) {
 		mail_storage_set_critical(storage, "write(%s) failed: %m",
 					  o_stream_get_name(output));
@@ -282,7 +281,7 @@ static int index_attachment_base64_decode(struct mail_save_context *ctx)
 			break;
 		}
 		i_stream_skip(base64_input, size);
-		o_stream_send(output, buf->data, buf->used);
+		o_stream_nsend(output, buf->data, buf->used);
 		hash_format_loop(hash, buf->data, buf->used);
 	}
 	if (ret != -1) {
@@ -293,7 +292,6 @@ static int index_attachment_base64_decode(struct mail_save_context *ctx)
 
 		failed = TRUE;
 	}
-	(void)o_stream_flush(output);
 	if (save_check_write_error(storage, output) < 0)
 		failed = TRUE;
 
@@ -335,7 +333,7 @@ static int index_attachment_base64_decode(struct mail_save_context *ctx)
 	part->temp_fd = outfd;
 
 	if (extra_buf != NULL) {
-		o_stream_send(ctx->output, extra_buf->data, extra_buf->used);
+		o_stream_nsend(ctx->output, extra_buf->data, extra_buf->used);
 		buffer_free(&extra_buf);
 	}
 	hash_format_deinit_free(&part->part_hash);
@@ -359,10 +357,8 @@ static int index_attachment_save_finish_part(struct mail_save_context *ctx)
 	enum fs_open_flags flags = FS_OPEN_FLAG_MKDIR;
 	int ret = 0;
 
-	if (o_stream_flush(part->output) < 0) {
-		save_check_write_error(storage, part->output);
+	if (save_check_write_error(storage, part->output) < 0)
 		return -1;
-	}
 
 	if (!part->base64_failed) {
 		if (part->base64_state == BASE64_STATE_0 &&
@@ -410,7 +406,7 @@ static int index_attachment_save_finish_part(struct mail_save_context *ctx)
 	input = i_stream_create_fd(part->temp_fd, IO_BLOCK_SIZE, FALSE);
 	output = fs_write_stream(file);
 	while (i_stream_read_data(input, &data, &size, 0) > 0) {
-		o_stream_send(output, data, size);
+		o_stream_nsend(output, data, size);
 		i_stream_skip(input, size);
 	}
 
@@ -557,7 +553,7 @@ static void index_attachment_save_body(struct mail_save_context *ctx,
 
 	switch (part->state) {
 	case MAIL_ATTACHMENT_STATE_NO:
-		o_stream_send(ctx->output, block->data, block->size);
+		o_stream_nsend(ctx->output, block->data, block->size);
 		break;
 	case MAIL_ATTACHMENT_STATE_MAYBE:
 		if (part->part_buf == NULL) {
@@ -576,9 +572,9 @@ static void index_attachment_save_body(struct mail_save_context *ctx,
 		if (index_attachment_save_temp_open(ctx) < 0) {
 			/* failed, fallback to just saving it inline */
 			part->state = MAIL_ATTACHMENT_STATE_NO;
-			o_stream_send(ctx->output, part_buf->data,
-				      part_buf->used);
-			o_stream_send(ctx->output, block->data, block->size);
+			o_stream_nsend(ctx->output, part_buf->data,
+				       part_buf->used);
+			o_stream_nsend(ctx->output, block->data, block->size);
 			break;
 		}
 		part->state = MAIL_ATTACHMENT_STATE_YES;
@@ -586,14 +582,14 @@ static void index_attachment_save_body(struct mail_save_context *ctx,
 						   part_buf->used);
 		hash_format_loop(part->part_hash,
 				 part_buf->data, part_buf->used);
-		o_stream_send(part->output, part_buf->data, part_buf->used);
+		o_stream_nsend(part->output, part_buf->data, part_buf->used);
 		buffer_set_used_size(part_buf, 0);
 		/* fall through */
 	case MAIL_ATTACHMENT_STATE_YES:
 		index_attachment_try_base64_decode(part, block->data,
 						   block->size);
 		hash_format_loop(part->part_hash, block->data, block->size);
-		o_stream_send(part->output, block->data, block->size);
+		o_stream_nsend(part->output, block->data, block->size);
 		break;
 	}
 }
@@ -626,8 +622,8 @@ index_attachment_save_body_part_changed(struct mail_save_context *ctx)
 	case MAIL_ATTACHMENT_STATE_MAYBE:
 		/* body part wasn't large enough. write to main file. */
 		if (part->part_buf != NULL) {
-			o_stream_send(ctx->output, part->part_buf->data,
-				      part->part_buf->used);
+			o_stream_nsend(ctx->output, part->part_buf->data,
+				       part->part_buf->used);
 		}
 		break;
 	case MAIL_ATTACHMENT_STATE_YES:

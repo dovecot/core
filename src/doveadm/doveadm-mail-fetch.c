@@ -562,6 +562,7 @@ static void cmd_fetch_init(struct doveadm_mail_cmd_context *_ctx,
 	_ctx->search_args = doveadm_mail_build_search_args(args + 1);
 
 	ctx->output = o_stream_create_fd(STDOUT_FILENO, 0, FALSE);
+	o_stream_set_no_error_handling(ctx->output, TRUE);
 }
 
 static struct doveadm_mail_cmd_context *cmd_fetch_alloc(void)

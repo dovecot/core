@@ -55,9 +55,8 @@ void dbox_save_begin(struct dbox_save_context *ctx, struct istream *input)
 	o_stream_cork(ctx->dbox_output);
 	if (o_stream_send(ctx->dbox_output, &dbox_msg_hdr,
 			  sizeof(dbox_msg_hdr)) < 0) {
-		mail_storage_set_critical(_storage,
-			"o_stream_send(%s) failed: %m", 
-			ctx->cur_file->cur_path);
+		mail_storage_set_critical(_storage, "write(%s) failed: %m",
+					  o_stream_get_name(ctx->dbox_output));
 		ctx->failed = TRUE;
 	}
 	_ctx->output = ctx->dbox_output;
@@ -82,8 +81,8 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 		if (o_stream_send_istream(_ctx->output, ctx->input) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
-					"o_stream_send_istream(%s) failed: %m",
-					ctx->cur_file->cur_path);
+					"write(%s) failed: %m",
+					o_stream_get_name(_ctx->output));
 			}
 			ctx->failed = TRUE;
 			return -1;
@@ -128,7 +127,7 @@ void dbox_save_write_metadata(struct mail_save_context *_ctx,
 	memset(&metadata_hdr, 0, sizeof(metadata_hdr));
 	memcpy(metadata_hdr.magic_post, DBOX_MAGIC_POST,
 	       sizeof(metadata_hdr.magic_post));
-	o_stream_send(output, &metadata_hdr, sizeof(metadata_hdr));
+	o_stream_nsend(output, &metadata_hdr, sizeof(metadata_hdr));
 
 	str = t_str_new(256);
 	if (output_msg_size != ctx->input->v_offset) {
@@ -173,5 +172,5 @@ void dbox_save_write_metadata(struct mail_save_context *_ctx,
 	dbox_attachment_save_write_metadata(_ctx, str);
 
 	str_append_c(str, '\n');
-	o_stream_send(output, str_data(str), str_len(str));
+	o_stream_nsend(output, str_data(str), str_len(str));
 }

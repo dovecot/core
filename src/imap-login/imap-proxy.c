@@ -130,7 +130,7 @@ static int proxy_input_banner(struct imap_client *client,
 		proxy_write_login(client, str);
 	}
 
-	(void)o_stream_send(output, str_data(str), str_len(str));
+	o_stream_nsend(output, str_data(str), str_len(str));
 	return 0;
 }
 
@@ -201,7 +201,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		str_append(str, "\r\n");
 		proxy_free_password(client);
 
-		(void)o_stream_send(output, str_data(str), str_len(str));
+		o_stream_nsend(output, str_data(str), str_len(str));
 		return 0;
 	} else if (strncmp(line, "S ", 2) == 0) {
 		if (strncmp(line, "S OK ", 5) != 0) {
@@ -222,15 +222,14 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		output = login_proxy_get_ostream(client->login_proxy);
 		str = t_str_new(128);
 		proxy_write_login(imap_client, str);
-		(void)o_stream_send(output, str_data(str), str_len(str));
+		o_stream_nsend(output, str_data(str), str_len(str));
 		return 1;
 	} else if (strncmp(line, "L OK ", 5) == 0) {
 		/* Login successful. Send this line to client. */
 		client->proxy_state = IMAP_PROXY_STATE_LOGIN;
 		str = t_str_new(128);
 		client_send_login_reply(imap_client, str, line + 5);
-		(void)o_stream_send(client->output,
-				    str_data(str), str_len(str));
+		o_stream_nsend(client->output, str_data(str), str_len(str));
 
 		(void)client_skip_line(imap_client);
 		client_proxy_finish_destroy_client(client);

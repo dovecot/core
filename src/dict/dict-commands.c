@@ -34,12 +34,12 @@ static int cmd_lookup(struct dict_connection *conn, const char *line)
 	if (ret > 0) {
 		reply = t_strdup_printf("%c%s\n",
 					DICT_PROTOCOL_REPLY_OK, value);
-		o_stream_send_str(conn->output, reply);
+		o_stream_nsend_str(conn->output, reply);
 	} else {
 		reply = t_strdup_printf("%c\n", ret == 0 ?
 					DICT_PROTOCOL_REPLY_NOTFOUND :
 					DICT_PROTOCOL_REPLY_FAIL);
-		o_stream_send_str(conn->output, reply);
+		o_stream_nsend_str(conn->output, reply);
 	}
 	return 0;
 }
@@ -55,7 +55,7 @@ static int cmd_iterate_flush(struct dict_connection *conn)
 		str_truncate(str, 0);
 		str_printfa(str, "%c%s\t%s\n", DICT_PROTOCOL_REPLY_OK,
 			    key, value);
-		o_stream_send(conn->output, str_data(str), str_len(str));
+		o_stream_nsend(conn->output, str_data(str), str_len(str));
 
 		if (o_stream_get_buffer_used_size(conn->output) >
 		    DICT_OUTPUT_OPTIMAL_SIZE) {
@@ -75,7 +75,7 @@ static int cmd_iterate_flush(struct dict_connection *conn)
 	if (dict_iterate_deinit(&conn->iter_ctx) < 0)
 		str_append_c(str, DICT_PROTOCOL_REPLY_FAIL);
 	str_append_c(str, '\n');
-	o_stream_send(conn->output, str_data(str), str_len(str));
+	o_stream_nsend(conn->output, str_data(str), str_len(str));
 	o_stream_uncork(conn->output);
 	return 1;
 }
@@ -207,7 +207,7 @@ static int cmd_commit(struct dict_connection *conn, const char *line)
 		chr = DICT_PROTOCOL_REPLY_FAIL;
 		break;
 	}
-	o_stream_send_str(conn->output, t_strdup_printf("%c\n", chr));
+	o_stream_nsend_str(conn->output, t_strdup_printf("%c\n", chr));
 	dict_connection_transaction_array_remove(conn, trans);
 	return 0;
 }
@@ -231,7 +231,7 @@ static void cmd_commit_async_callback(int ret, void *context)
 	}
 	reply = t_strdup_printf("%c%c%u\n", DICT_PROTOCOL_REPLY_ASYNC_COMMIT,
 				chr, trans->id);
-	o_stream_send_str(trans->conn->output, reply);
+	o_stream_nsend_str(trans->conn->output, reply);
 
 	dict_connection_transaction_array_remove(trans->conn, trans);
 }

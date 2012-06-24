@@ -127,14 +127,14 @@ doveadm_mail_cmd_server_run(struct client_connection *conn,
 
 	if (ret < 0) {
 		i_error("%s: %s", ctx->cmd->name, error);
-		o_stream_send(conn->output, "\n-\n", 3);
+		o_stream_nsend(conn->output, "\n-\n", 3);
 	} else if (ret == 0) {
-		o_stream_send_str(conn->output, "\n-NOUSER\n");
+		o_stream_nsend_str(conn->output, "\n-NOUSER\n");
 	} else if (ctx->exit_code != 0) {
 		/* maybe not an error, but not a full success either */
-		o_stream_send(conn->output, "\n-\n", 3);
+		o_stream_nsend(conn->output, "\n-\n", 3);
 	} else {
-		o_stream_send(conn->output, "\n+\n", 3);
+		o_stream_nsend(conn->output, "\n+\n", 3);
 	}
 	pool_unref(&ctx->pool);
 }
@@ -211,7 +211,7 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 	o_stream_cork(conn->output);
 	ctx = doveadm_mail_cmd_server_parse(cmd_name, conn->set, &input, argc, args);
 	if (ctx == NULL)
-		o_stream_send(conn->output, "\n-\n", 3);
+		o_stream_nsend(conn->output, "\n-\n", 3);
 	else
 		doveadm_mail_cmd_server_run(conn, ctx, &input);
 	o_stream_uncork(conn->output);
@@ -293,12 +293,12 @@ static void client_connection_input(struct client_connection *conn)
 	if (!conn->authenticated) {
 		if ((ret = client_connection_authenticate(conn)) <= 0) {
 			if (ret < 0) {
-				o_stream_send(conn->output, "-\n", 2);
+				o_stream_nsend(conn->output, "-\n", 2);
 				client_connection_destroy(&conn);
 			}
 			return;
 		}
-		o_stream_send(conn->output, "+\n", 2);
+		o_stream_nsend(conn->output, "+\n", 2);
 		conn->authenticated = TRUE;
 	}
 
@@ -356,6 +356,7 @@ struct client_connection *client_connection_create(int fd, int listen_fd)
 	conn->io = io_add(fd, IO_READ, client_connection_input, conn);
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 
 	(void)net_getsockname(fd, &conn->local_ip, &port);
 	(void)net_getpeername(fd, &conn->remote_ip, &port);
@@ -367,9 +368,9 @@ struct client_connection *client_connection_create(int fd, int listen_fd)
 	    (st.st_mode & 0777) == 0600) {
 		/* no need for client to authenticate */
 		conn->authenticated = TRUE;
-		o_stream_send(conn->output, "+\n", 2);
+		o_stream_nsend(conn->output, "+\n", 2);
 	} else {
-		o_stream_send(conn->output, "-\n", 2);
+		o_stream_nsend(conn->output, "-\n", 2);
 	}
 	if (client_connection_read_settings(conn) < 0)
 		client_connection_destroy(&conn);

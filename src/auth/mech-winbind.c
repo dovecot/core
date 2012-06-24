@@ -177,7 +177,8 @@ do_auth_continue(struct auth_request *auth_request,
 	base64_encode(data, data_size, str);
 	str_append_c(str, '\n');
 
-	if (o_stream_send_str(request->winbind->out_pipe, str_c(str)) < 0 ||
+	if (o_stream_send(request->winbind->out_pipe,
+			  str_data(str), str_len(str)) < 0 ||
 	    o_stream_flush(request->winbind->out_pipe) < 0) {
 		auth_request_log_error(auth_request, "winbind",
 				       "write(out_pipe) failed: %m");

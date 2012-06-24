@@ -256,7 +256,7 @@ static int smtp_client_send(struct smtp_client *smtp_client)
 		}
 	}
 
-	if (o_stream_flush(smtp_client->output) < 0) {
+	if (o_stream_nfinish(smtp_client->output) < 0) {
 		i_error("write(%s) failed: %m", smtp_client->temp_path);
 		return -1;
 	}

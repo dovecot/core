@@ -102,8 +102,8 @@ static void auth_worker_send_reply(struct auth_worker_client *client,
 				   string_t *str)
 {
 	if (worker_restart_request)
-		o_stream_send_str(client->output, "RESTART\n");
-	o_stream_send(client->output, str_data(str), str_len(str));
+		o_stream_nsend_str(client->output, "RESTART\n");
+	o_stream_nsend(client->output, str_data(str), str_len(str));
 }
 
 static void verify_plain_callback(enum passdb_result result,
@@ -464,7 +464,7 @@ static void list_iter_callback(const char *user, void *context)
 	T_BEGIN {
 		str = t_str_new(128);
 		str_printfa(str, "%u\t*\t%s\n", ctx->auth_request->id, user);
-		o_stream_send(ctx->client->output, str_data(str), str_len(str));
+		o_stream_nsend(ctx->client->output, str_data(str), str_len(str));
 	} T_END;
 
 	if (ctx->sending) {
@@ -694,6 +694,7 @@ auth_worker_client_create(struct auth *auth, int fd)
 	client->input = i_stream_create_fd(fd, AUTH_WORKER_MAX_LINE_LENGTH,
 					   FALSE);
 	client->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 	o_stream_set_flush_callback(client->output, auth_worker_output, client);
 	client->io = io_add(fd, IO_READ, auth_worker_input, client);
 	auth_worker_refresh_proctitle(CLIENT_STATE_HANDSHAKE);
@@ -755,7 +756,7 @@ void auth_worker_client_send_error(void)
 	auth_worker_client_error = TRUE;
 	if (auth_worker_client != NULL &&
 	    !auth_worker_client->error_sent) {
-		o_stream_send_str(auth_worker_client->output, "ERROR\n");
+		o_stream_nsend_str(auth_worker_client->output, "ERROR\n");
 		auth_worker_client->error_sent = TRUE;
 	}
 	auth_worker_refresh_proctitle("");
@@ -766,7 +767,7 @@ void auth_worker_client_send_success(void)
 	auth_worker_client_error = FALSE;
 	if (auth_worker_client != NULL &&
 	    auth_worker_client->error_sent) {
-		o_stream_send_str(auth_worker_client->output, "SUCCESS\n");
+		o_stream_nsend_str(auth_worker_client->output, "SUCCESS\n");
 		auth_worker_client->error_sent = FALSE;
 	}
 	auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
@@ -775,6 +776,6 @@ void auth_worker_client_send_success(void)
 void auth_worker_client_send_shutdown(void)
 {
 	if (auth_worker_client != NULL)
-		o_stream_send_str(auth_worker_client->output, "SHUTDOWN\n");
+		o_stream_nsend_str(auth_worker_client->output, "SHUTDOWN\n");
 	auth_worker_refresh_proctitle(CLIENT_STATE_STOP);
 }

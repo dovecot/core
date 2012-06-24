@@ -252,7 +252,7 @@ static int lmtp_client_send_data_cmd(struct lmtp_client *client)
 		return -1;
 	} else {
 		client->input_state++;
-		o_stream_send_str(client->output, "DATA\r\n");
+		o_stream_nsend_str(client->output, "DATA\r\n");
 		return 0;
 	}
 }
@@ -349,9 +349,9 @@ static void lmtp_client_send_data(struct lmtp_client *client)
 
 	if (client->output_last != '\n') {
 		/* didn't end with CRLF */
-		(void)o_stream_send(client->output, "\r\n", 2);
+		o_stream_nsend(client->output, "\r\n", 2);
 	}
-	(void)o_stream_send(client->output, ".\r\n", 3);
+	o_stream_nsend(client->output, ".\r\n", 3);
 	client->output_finished = TRUE;
 }
 
@@ -359,12 +359,12 @@ static void lmtp_client_send_handshake(struct lmtp_client *client)
 {
 	switch (client->protocol) {
 	case LMTP_CLIENT_PROTOCOL_LMTP:
-		o_stream_send_str(client->output,
+		o_stream_nsend_str(client->output,
 			t_strdup_printf("LHLO %s\r\n",
 					client->set.my_hostname));
 		break;
 	case LMTP_CLIENT_PROTOCOL_SMTP:
-		o_stream_send_str(client->output,
+		o_stream_nsend_str(client->output,
 			t_strdup_printf("EHLO %s\r\n",
 					client->set.my_hostname));
 		break;
@@ -440,7 +440,7 @@ static bool lmtp_client_send_xclient(struct lmtp_client *client)
 		return FALSE;
 
 	str_append(str, "\r\n");
-	o_stream_send(client->output, str_data(str), str_len(str));
+	o_stream_nsend(client->output, str_data(str), str_len(str));
 	return TRUE;
 }
 
@@ -482,7 +482,7 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 			break;
 		}
 		if (client->input_state == LMTP_INPUT_STATE_LHLO) {
-			o_stream_send_str(client->output,
+			o_stream_nsend_str(client->output,
 				t_strdup_printf("MAIL FROM:%s\r\n",
 						client->set.mail_from));
 		}
@@ -504,7 +504,7 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 		}
 		client->input_state++;
 		if (client->data_header != NULL)
-			o_stream_send_str(client->output, client->data_header);
+			o_stream_nsend_str(client->output, client->data_header);
 		lmtp_client_send_data(client);
 		break;
 	case LMTP_INPUT_STATE_DATA:
@@ -593,6 +593,7 @@ static int lmtp_client_connect(struct lmtp_client *client)
 	client->input =
 		i_stream_create_fd(client->fd, LMTP_MAX_LINE_LEN, FALSE);
 	client->output = o_stream_create_fd(client->fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 	o_stream_set_flush_callback(client->output, lmtp_client_output, client);
 	/* we're already sending data in ostream, so can't use IO_WRITE here */
 	client->io = io_add(client->fd, IO_READ,
@@ -679,7 +680,7 @@ static void lmtp_client_send_rcpts(struct lmtp_client *client)
 
 	rcpt = array_get(&client->recipients, &count);
 	for (i = client->rcpt_next_send_idx; i < count; i++) {
-		o_stream_send_str(client->output,
+		o_stream_nsend_str(client->output,
 			t_strdup_printf("RCPT TO:<%s>\r\n", rcpt[i].address));
 	}
 	client->rcpt_next_send_idx = i;

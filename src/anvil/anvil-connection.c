@@ -90,15 +90,15 @@ anvil_connection_request(struct anvil_connection *conn,
 			return -1;
 		}
 		value = connect_limit_lookup(connect_limit, args[0]);
-		(void)o_stream_send_str(conn->output,
-					t_strdup_printf("%u\n", value));
+		o_stream_nsend_str(conn->output,
+				   t_strdup_printf("%u\n", value));
 	} else if (strcmp(cmd, "PENALTY-GET") == 0) {
 		if (args[0] == NULL) {
 			*error_r = "PENALTY-GET: Not enough parameters";
 			return -1;
 		}
 		value = penalty_get(penalty, args[0], &stamp);
-		(void)o_stream_send_str(conn->output,
+		o_stream_nsend_str(conn->output,
 			t_strdup_printf("%u %s\n", value, dec2str(stamp)));
 	} else if (strcmp(cmd, "PENALTY-INC") == 0) {
 		if (args[0] == NULL || args[1] == NULL || args[2] == NULL) {
@@ -183,8 +183,10 @@ anvil_connection_create(int fd, bool master, bool fifo)
 	conn = i_new(struct anvil_connection, 1);
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
-	if (!fifo)
+	if (!fifo) {
 		conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+		o_stream_set_no_error_handling(conn->output, TRUE);
+	}
 	conn->io = io_add(fd, IO_READ, anvil_connection_input, conn);
 	conn->master = master;
 	conn->fifo = fifo;

@@ -52,15 +52,15 @@ config_request_output(const char *key, const char *value,
 	struct ostream *output = context;
 	const char *p;
 
-	o_stream_send_str(output, key);
-	o_stream_send_str(output, "=");
+	o_stream_nsend_str(output, key);
+	o_stream_nsend_str(output, "=");
 	while ((p = strchr(value, '\n')) != NULL) {
-		o_stream_send(output, value, p-value);
-		o_stream_send(output, SETTING_STREAM_LF_CHAR, 1);
+		o_stream_nsend(output, value, p-value);
+		o_stream_nsend(output, SETTING_STREAM_LF_CHAR, 1);
 		value = p+1;
 	}
-	o_stream_send_str(output, value);
-	o_stream_send_str(output, "\n");
+	o_stream_nsend_str(output, value);
+	o_stream_nsend_str(output, "\n");
 }
 
 static int config_connection_request(struct config_connection *conn,
@@ -99,7 +99,7 @@ static int config_connection_request(struct config_connection *conn,
 		/* master reads configuration only when reloading settings */
 		path = master_service_get_config_path(master_service);
 		if (config_parse_file(path, TRUE, "", &error) <= 0) {
-			o_stream_send_str(conn->output,
+			o_stream_nsend_str(conn->output,
 				t_strconcat("ERROR ", error, "\n", NULL));
 			config_connection_destroy(conn);
 			return -1;
@@ -117,25 +117,25 @@ static int config_connection_request(struct config_connection *conn,
 		const char *const *s;
 
 		for (s = output.specific_services; *s != NULL; s++) {
-			o_stream_send_str(conn->output,
+			o_stream_nsend_str(conn->output,
 				t_strdup_printf("service=%s\t", *s));
 		}
 	}
 	if (output.service_uses_local)
-		o_stream_send_str(conn->output, "service-uses-local\t");
+		o_stream_nsend_str(conn->output, "service-uses-local\t");
 	if (output.service_uses_remote)
-		o_stream_send_str(conn->output, "service-uses-remote\t");
+		o_stream_nsend_str(conn->output, "service-uses-remote\t");
 	if (output.used_local)
-		o_stream_send_str(conn->output, "used-local\t");
+		o_stream_nsend_str(conn->output, "used-local\t");
 	if (output.used_remote)
-		o_stream_send_str(conn->output, "used-remote\t");
-	o_stream_send_str(conn->output, "\n");
+		o_stream_nsend_str(conn->output, "used-remote\t");
+	o_stream_nsend_str(conn->output, "\n");
 
 	if (config_export_finish(&ctx) < 0) {
 		config_connection_destroy(conn);
 		return -1;
 	}
-	o_stream_send_str(conn->output, "\n");
+	o_stream_nsend_str(conn->output, "\n");
 	o_stream_uncork(conn->output);
 	return 0;
 }
@@ -188,6 +188,7 @@ struct config_connection *config_connection_create(int fd)
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(fd, IO_READ, config_connection_input, conn);
 	DLLIST_PREPEND(&config_connections, conn);
 	return conn;

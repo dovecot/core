@@ -1294,6 +1294,7 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	conn->fd = fd;
 	conn->input = conn->raw_input = i_stream_create_fd(fd, (size_t)-1, FALSE);
 	conn->output = conn->raw_output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 
 	if (*conn->client->set.rawlog_dir != '\0' &&
 	    conn->client->set.ssl_mode != IMAPC_CLIENT_SSL_MODE_IMMEDIATE &&
@@ -1627,7 +1628,7 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 
 	data = CONST_PTR_OFFSET(cmd->data->data, cmd->send_pos);
 	size = end_pos - cmd->send_pos;
-	o_stream_send(conn->output, data, size);
+	o_stream_nsend(conn->output, data, size);
 	cmd->send_pos = end_pos;
 
 	if (cmd->send_pos == cmd->data->used) {
@@ -1656,7 +1657,7 @@ static void imapc_connection_send_idle_done(struct imapc_connection *conn)
 {
 	if ((conn->idling || conn->idle_plus_waiting) && !conn->idle_stopping) {
 		conn->idle_stopping = TRUE;
-		o_stream_send_str(conn->output, "DONE\r\n");
+		o_stream_nsend_str(conn->output, "DONE\r\n");
 	}
 }
 

@@ -268,5 +268,5 @@ void penalty_dump(struct penalty *penalty, struct ostream *output)
 		if (o_stream_send(output, str_data(str), str_len(str)) < 0)
 			break;
 	}
-	(void)o_stream_send(output, "\n", 1);
+	o_stream_nsend(output, "\n", 1);
 }

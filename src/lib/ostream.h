@@ -88,6 +88,26 @@ ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size);
 ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 		       unsigned int iov_count);
 ssize_t o_stream_send_str(struct ostream *stream, const char *str);
+/* Send with delayed error handling. o_stream_has_errors() or
+   o_stream_ignore_errors() must be called after these functions before the
+   stream is destroyed. */
+void o_stream_nsend(struct ostream *stream, const void *data, size_t size);
+void o_stream_nsendv(struct ostream *stream, const struct const_iovec *iov,
+		     unsigned int iov_count);
+void o_stream_nsend_str(struct ostream *stream, const char *str);
+void o_stream_nflush(struct ostream *stream);
+/* Flushes the stream and returns -1 if stream->last_failed_errno is
+   non-zero. Marks the stream's error handling as completed. errno is also set
+   to last_failed_errno. */
+int o_stream_nfinish(struct ostream *stream);
+/* Marks the stream's error handling as completed to avoid i_panic() on
+   destroy. */
+void o_stream_ignore_last_errors(struct ostream *stream);
+/* If error handling is disabled, the i_panic() on destroy is never called.
+   This function can be called immediately after the stream is created.
+   When creating wrapper streams, they copy this behavior from the parent
+   stream. */
+void o_stream_set_no_error_handling(struct ostream *stream, bool set);
 /* Send data from input stream. Returns number of bytes sent, or -1 if error.
    Note that this function may block if either instream or outstream is
    blocking.

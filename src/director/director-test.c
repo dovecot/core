@@ -194,22 +194,22 @@ static int imap_client_parse_input(struct imap_client *client)
 		if (!imap_arg_get_astring(args, &str))
 			return -1;
 
-		o_stream_send_str(client->output,
+		o_stream_nsend_str(client->output,
 			t_strconcat(tag, " OK Logged in.\r\n", NULL));
 		client->username = i_strdup(str);
 		client_username_check(client);
 	} else if (strcasecmp(cmd, "logout") == 0) {
-		o_stream_send_str(client->output, t_strconcat(
+		o_stream_nsend_str(client->output, t_strconcat(
 			"* BYE Out.\r\n",
 			tag, " OK Logged out.\r\n", NULL));
 		imap_client_destroy(&client);
 		return 0;
 	} else if (strcasecmp(cmd, "capability") == 0) {
-		o_stream_send_str(client->output,
+		o_stream_nsend_str(client->output,
 			t_strconcat("* CAPABILITY IMAP4rev1\r\n",
 				    tag, " OK Done.\r\n", NULL));
 	} else {
-		o_stream_send_str(client->output,
+		o_stream_nsend_str(client->output,
 			t_strconcat(tag, " BAD Not supported.\r\n", NULL));
 	}
 
@@ -249,10 +249,11 @@ static void imap_client_create(int fd)
 	client->fd = fd;
 	client->input = i_stream_create_fd(fd, 4096, FALSE);
 	client->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 	client->io = io_add(fd, IO_READ, imap_client_input, client);
 	client->parser =
 		imap_parser_create(client->input, client->output, 4096);
-	o_stream_send_str(client->output,
+	o_stream_nsend_str(client->output,
 		"* OK [CAPABILITY IMAP4rev1] director-test ready.\r\n");
 	DLLIST_PREPEND(&imap_clients, client);
 }
@@ -277,8 +278,8 @@ static void imap_client_destroy(struct imap_client **_client)
 	DLLIST_REMOVE(&imap_clients, client);
 	imap_parser_unref(&client->parser);
 	io_remove(&client->io);
-	i_stream_unref(&client->input);
-	o_stream_unref(&client->output);
+	i_stream_destroy(&client->input);
+	o_stream_destroy(&client->output);
 	net_disconnect(client->fd);
 	i_free(client->username);
 	i_free(client);
@@ -298,7 +299,7 @@ director_connection_input(struct director_connection *conn,
 		return;
 	}
 
-	o_stream_send(output, data, size);
+	o_stream_nsend(output, data, size);
 	i_stream_skip(input, size);
 
 	if (rand() % 3 == 0 && conn->to_delay == NULL) {
@@ -345,12 +346,14 @@ director_connection_create(int in_fd, const struct ip_addr *local_ip)
 	conn->in_fd = in_fd;
 	conn->in_input = i_stream_create_fd(conn->in_fd, (size_t)-1, FALSE);
 	conn->in_output = o_stream_create_fd(conn->in_fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->in_output, TRUE);
 	conn->in_io = io_add(conn->in_fd, IO_READ,
 			     director_connection_in_input, conn);
 
 	conn->out_fd = out_fd;
 	conn->out_input = i_stream_create_fd(conn->out_fd, (size_t)-1, FALSE);
 	conn->out_output = o_stream_create_fd(conn->out_fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->out_output, TRUE);
 	conn->out_io = io_add(conn->out_fd, IO_READ,
 			      director_connection_out_input, conn);
 

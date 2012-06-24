@@ -101,7 +101,7 @@ static void auth_worker_request_send(struct auth_worker_connection *conn,
 	iov[2].iov_base = "\n";
 	iov[2].iov_len = 1;
 
-	o_stream_sendv(conn->output, iov, 3);
+	o_stream_nsendv(conn->output, iov, 3);
 
 	i_assert(conn->request == NULL);
 	conn->request = request;
@@ -145,7 +145,7 @@ static void auth_worker_send_handshake(struct auth_worker_connection *conn)
 	binary_to_hex_append(str, userdb_md5, sizeof(userdb_md5));
 	str_append_c(str, '\n');
 
-	o_stream_send(conn->output, str_data(str), str_len(str));
+	o_stream_nsend(conn->output, str_data(str), str_len(str));
 }
 
 static struct auth_worker_connection *auth_worker_create(void)
@@ -173,6 +173,7 @@ static struct auth_worker_connection *auth_worker_create(void)
 	conn->input = i_stream_create_fd(fd, AUTH_WORKER_MAX_LINE_LENGTH,
 					 FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(fd, IO_READ, worker_input, conn);
 	conn->to = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
 			       auth_worker_idle_timeout, conn);

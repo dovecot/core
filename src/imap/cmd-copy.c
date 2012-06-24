@@ -22,8 +22,8 @@ static void client_send_sendalive_if_needed(struct client *client)
 	now = time(NULL);
 	last_io = I_MAX(client->last_input, client->last_output);
 	if (now - last_io > MAIL_STORAGE_STAYALIVE_SECS) {
-		o_stream_send_str(client->output, "* OK Hang in there..\r\n");
-		o_stream_flush(client->output);
+		o_stream_nsend_str(client->output, "* OK Hang in there..\r\n");
+		o_stream_nflush(client->output);
 		client->last_output = now;
 	}
 }

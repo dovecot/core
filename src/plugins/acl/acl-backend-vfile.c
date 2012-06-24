@@ -1072,17 +1072,17 @@ acl_backend_vfile_update_write(struct acl_object_vfile *aclobj,
 	for (i = 0; i < count && !rights[i].global; i++) {
 		if (rights[i].rights != NULL) {
 			vfile_write_right(str, &rights[i], FALSE);
-			o_stream_send(output, str_data(str), str_len(str));
+			o_stream_nsend(output, str_data(str), str_len(str));
 			str_truncate(str, 0);
 		}
 		if (rights[i].neg_rights != NULL) {
 			vfile_write_right(str, &rights[i], TRUE);
-			o_stream_send(output, str_data(str), str_len(str));
+			o_stream_nsend(output, str_data(str), str_len(str));
 			str_truncate(str, 0);
 		}
 	}
 	str_free(&str);
-	if (o_stream_flush(output) < 0) {
+	if (o_stream_nfinish(output) < 0) {
 		i_error("write(%s) failed: %m", path);
 		ret = -1;
 	}

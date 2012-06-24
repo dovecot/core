@@ -141,7 +141,7 @@ int cydir_save_continue(struct mail_save_context *_ctx)
 		if (o_stream_send_istream(_ctx->output, ctx->input) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
-					"o_stream_send_istream(%s) failed: %m",
+					"write(%s) failed: %m",
 					cydir_get_save_path(ctx, ctx->mail_count));
 			}
 			ctx->failed = TRUE;
@@ -162,9 +162,8 @@ static int cydir_save_flush(struct cydir_save_context *ctx, const char *path)
 	struct stat st;
 	int ret = 0;
 
-	if (o_stream_flush(ctx->ctx.output) < 0) {
-		mail_storage_set_critical(storage,
-			"o_stream_flush(%s) failed: %m", path);
+	if (o_stream_nfinish(ctx->ctx.output) < 0) {
+		mail_storage_set_critical(storage, "write(%s) failed: %m", path);
 		ret = -1;
 	}
 

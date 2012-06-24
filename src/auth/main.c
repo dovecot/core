@@ -326,10 +326,10 @@ static void client_connected(struct master_service_connection *conn)
 		(void)auth_postfix_connection_create(auth, conn->fd);
 		break;
 	case AUTH_SOCKET_LOGIN_CLIENT:
-		(void)auth_client_connection_create(auth, conn->fd, TRUE);
+		auth_client_connection_create(auth, conn->fd, TRUE);
 		break;
 	case AUTH_SOCKET_CLIENT:
-		(void)auth_client_connection_create(auth, conn->fd, FALSE);
+		auth_client_connection_create(auth, conn->fd, FALSE);
 		break;
 	default:
 		i_unreached();

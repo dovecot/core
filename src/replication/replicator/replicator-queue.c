@@ -342,7 +342,7 @@ int replicator_queue_export(struct replicator_queue *queue, const char *path)
 	struct priorityq_item *const *items;
 	unsigned int i, count;
 	string_t *str;
-	int fd, ret;
+	int fd, ret = 0;
 
 	fd = creat(path, 0600);
 	if (fd == -1) {
@@ -364,8 +364,10 @@ int replicator_queue_export(struct replicator_queue *queue, const char *path)
 		if (o_stream_send(output, str_data(str), str_len(str)) < 0)
 			break;
 	}
-
-	ret = output->last_failed_errno != 0 ? -1 : 0;
+	if (o_stream_nfinish(output) < 0) {
+		i_error("write(%s) failed: %m", path);
+		ret = -1;
+	}
 	o_stream_destroy(&output);
 	return ret;
 }

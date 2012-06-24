@@ -76,13 +76,13 @@ static int mail_index_recreate(struct mail_index *index)
 	o_stream_cork(output);
 
 	base_size = I_MIN(map->hdr.base_header_size, sizeof(map->hdr));
-	if (o_stream_send(output, &map->hdr, base_size) < 0 ||
-	    o_stream_send(output, CONST_PTR_OFFSET(map->hdr_base, base_size),
-			  map->hdr.header_size - base_size) < 0 ||
-	    o_stream_send(output, map->rec_map->records,
-			  map->rec_map->records_count *
-			  map->hdr.record_size) < 0 ||
-	    o_stream_flush(output) < 0) {
+	o_stream_nsend(output, &map->hdr, base_size);
+	o_stream_nsend(output, CONST_PTR_OFFSET(map->hdr_base, base_size),
+		       map->hdr.header_size - base_size);
+	o_stream_nsend(output, map->rec_map->records,
+		       map->rec_map->records_count * map->hdr.record_size);
+	o_stream_nflush(output);
+	if (o_stream_nfinish(output) < 0) {
 		mail_index_file_set_syscall_error(index, path, "write()");
 		ret = -1;
 	}

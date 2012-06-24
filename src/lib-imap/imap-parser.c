@@ -372,8 +372,8 @@ static int imap_parser_literal_end(struct imap_parser *parser)
 		}
 
 		if (parser->output != NULL && !parser->literal_nonsync) {
-			o_stream_send(parser->output, "+ OK\r\n", 6);
-			o_stream_flush(parser->output);
+			o_stream_nsend(parser->output, "+ OK\r\n", 6);
+			o_stream_nflush(parser->output);
 		}
 	}
 

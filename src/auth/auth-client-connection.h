@@ -22,8 +22,8 @@ struct auth_client_connection {
 	unsigned int version_received:1;
 };
 
-struct auth_client_connection *
-auth_client_connection_create(struct auth *auth, int fd, bool login_requests);
+void auth_client_connection_create(struct auth *auth, int fd,
+				   bool login_requests);
 void auth_client_connection_destroy(struct auth_client_connection **conn);
 
 struct auth_client_connection *

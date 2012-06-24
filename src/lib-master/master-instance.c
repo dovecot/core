@@ -130,6 +130,7 @@ master_instance_list_write(struct master_instance_list *list,
 	struct ostream *output;
 	const struct master_instance *inst;
 	string_t *str = t_str_new(128);
+	int ret = 0;
 
 	output = o_stream_create_fd(fd, 0, FALSE);
 	o_stream_cork(output);
@@ -143,16 +144,14 @@ master_instance_list_write(struct master_instance_list *list,
 		if (inst->config_path != NULL)
 			str_tabescape_write(str, inst->config_path);
 		str_append_c(str, '\n');
-		(void)o_stream_send(output, str_data(str), str_len(str));
+		o_stream_nsend(output, str_data(str), str_len(str));
 	}
-	o_stream_uncork(output);
-	(void)o_stream_flush(output);
-	if (output->last_failed_errno != 0) {
-		errno = output->last_failed_errno;
+	if (o_stream_nfinish(output) < 0) {
 		i_error("write(%s) failed: %m", path);
-		return -1;
+		ret = -1;
 	}
-	return 0;
+	o_stream_destroy(&output);
+	return ret;
 }
 
 static int master_instance_write_init(struct master_instance_list *list,

@@ -31,7 +31,7 @@ static void o_stream_zlib_close(struct iostream_private *stream)
 {
 	struct zlib_ostream *zstream = (struct zlib_ostream *)stream;
 
-	o_stream_flush(&zstream->ostream.ostream);
+	(void)o_stream_flush(&zstream->ostream.ostream);
 	(void)deflateEnd(&zstream->zs);
 }
 

@@ -44,7 +44,7 @@ void notify_connection_sync_callback(bool success, void *context)
 {
 	struct notify_connection *conn = context;
 
-	o_stream_send_str(conn->output, success ? "+\n" : "-\n");
+	o_stream_nsend_str(conn->output, success ? "+\n" : "-\n");
 	notify_connection_unref(conn);
 }
 
@@ -110,8 +110,10 @@ void notify_connection_create(int fd, bool fifo)
 	conn->fd = fd;
 	conn->io = io_add(fd, IO_READ, notify_input, conn);
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
-	if (!fifo)
+	if (!fifo) {
 		conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+		o_stream_set_no_error_handling(conn->output, TRUE);
+	}
 
 	DLLIST_PREPEND(&conns, conn);
 }

@@ -94,10 +94,8 @@ static int imap_thread(struct client_command_context *cmd,
 		mail_thread_deinit(&ctx);
 	}
 
-	if (ret == 0) {
-		(void)o_stream_send(cmd->client->output,
-				    str_data(str), str_len(str));
-	}
+	if (ret == 0)
+		o_stream_nsend(cmd->client->output, str_data(str), str_len(str));
 	str_free(&str);
 	return ret;
 }

@@ -51,7 +51,7 @@ static void doveadm_cmd_host_list(struct doveadm_connection *conn)
 			    (*hostp)->user_count);
 	}
 	str_append_c(str, '\n');
-	o_stream_send(conn->output, str_data(str), str_len(str));
+	o_stream_nsend(conn->output, str_data(str), str_len(str));
 }
 
 static void doveadm_cmd_host_list_removed(struct doveadm_connection *conn)
@@ -87,7 +87,7 @@ static void doveadm_cmd_host_list_removed(struct doveadm_connection *conn)
 	for (; i < orig_hosts_count; i++)
 		str_printfa(str, "%s\n", net_ip2addr(&orig_hosts[i]->ip));
 	str_append_c(str, '\n');
-	o_stream_send(conn->output, str_data(str), str_len(str));
+	o_stream_nsend(conn->output, str_data(str), str_len(str));
 
 	mail_hosts_deinit(&orig_hosts_list);
 }
@@ -127,7 +127,7 @@ static void doveadm_cmd_director_list(struct doveadm_connection *conn)
 			    (unsigned long)last_failed);
 	}
 	str_append_c(str, '\n');
-	o_stream_send(conn->output, str_data(str), str_len(str));
+	o_stream_nsend(conn->output, str_data(str), str_len(str));
 }
 
 static bool
@@ -150,7 +150,7 @@ doveadm_cmd_director_add(struct doveadm_connection *conn, const char *line)
 		host = director_host_add(conn->dir, &ip, port);
 		director_notify_ring_added(host, conn->dir->self_host);
 	}
-	o_stream_send(conn->output, "OK\n", 3);
+	o_stream_nsend(conn->output, "OK\n", 3);
 	return TRUE;
 }
 
@@ -174,10 +174,10 @@ doveadm_cmd_director_remove(struct doveadm_connection *conn, const char *line)
 		director_host_lookup(conn->dir, &ip, port) :
 		director_host_lookup_ip(conn->dir, &ip);
 	if (host == NULL)
-		o_stream_send_str(conn->output, "NOTFOUND\n");
+		o_stream_nsend_str(conn->output, "NOTFOUND\n");
 	else {
 		director_ring_remove(host, conn->dir->self_host);
-		o_stream_send(conn->output, "OK\n", 3);
+		o_stream_nsend(conn->output, "OK\n", 3);
 	}
 	return TRUE;
 }
@@ -199,7 +199,7 @@ doveadm_cmd_host_set(struct doveadm_connection *conn, const char *line)
 		return FALSE;
 	}
 	if (vhost_count > MAX_VALID_VHOST_COUNT && vhost_count != -1U) {
-		o_stream_send_str(conn->output, "vhost count too large\n");
+		o_stream_nsend_str(conn->output, "vhost count too large\n");
 		return TRUE;
 	}
 	host = mail_host_lookup(dir->mail_hosts, &ip);
@@ -209,7 +209,7 @@ doveadm_cmd_host_set(struct doveadm_connection *conn, const char *line)
 		mail_host_set_vhost_count(dir->mail_hosts, host, vhost_count);
 	director_update_host(dir, dir->self_host, NULL, host);
 
-	o_stream_send(conn->output, "OK\n", 3);
+	o_stream_nsend(conn->output, "OK\n", 3);
 	return TRUE;
 }
 
@@ -225,11 +225,11 @@ doveadm_cmd_host_remove(struct doveadm_connection *conn, const char *line)
 	}
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL)
-		o_stream_send_str(conn->output, "NOTFOUND\n");
+		o_stream_nsend_str(conn->output, "NOTFOUND\n");
 	else {
 		director_remove_host(conn->dir, conn->dir->self_host,
 				     NULL, host);
-		o_stream_send(conn->output, "OK\n", 3);
+		o_stream_nsend(conn->output, "OK\n", 3);
 	}
 	return TRUE;
 }
@@ -243,7 +243,7 @@ doveadm_cmd_host_flush_all(struct doveadm_connection *conn)
 		director_flush_host(conn->dir, conn->dir->self_host,
 				    NULL, *hostp);
 	}
-	o_stream_send(conn->output, "OK\n", 3);
+	o_stream_nsend(conn->output, "OK\n", 3);
 }
 
 static bool
@@ -263,11 +263,11 @@ doveadm_cmd_host_flush(struct doveadm_connection *conn, const char *line)
 	}
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL)
-		o_stream_send_str(conn->output, "NOTFOUND\n");
+		o_stream_nsend_str(conn->output, "NOTFOUND\n");
 	else {
 		director_flush_host(conn->dir, conn->dir->self_host,
 				    NULL, host);
-		o_stream_send(conn->output, "OK\n", 3);
+		o_stream_nsend(conn->output, "OK\n", 3);
 	}
 	return TRUE;
 }
@@ -307,7 +307,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 		str_append(str, "\t");
 	else
 		str_printfa(str, "\t%s\n", net_ip2addr(&host->ip));
-	o_stream_send(conn->output, str_data(str), str_len(str));
+	o_stream_nsend(conn->output, str_data(str), str_len(str));
 	return TRUE;
 }
 
@@ -334,14 +334,14 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *line)
 			unsigned int expire_time = user->timestamp +
 				conn->dir->set->director_user_expire;
 
-			o_stream_send_str(conn->output, t_strdup_printf(
+			o_stream_nsend_str(conn->output, t_strdup_printf(
 				"%u\t%u\t%s\n",
 				user->username_hash, expire_time,
 				net_ip2addr(&user->host->ip)));
 		} T_END;
 	}
 	user_directory_iter_deinit(&iter);
-	o_stream_send(conn->output, "\n", 1);
+	o_stream_nsend(conn->output, "\n", 1);
 	return TRUE;
 }
 
@@ -362,7 +362,7 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *line)
 	}
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL) {
-		o_stream_send_str(conn->output, "NOTFOUND\n");
+		o_stream_nsend_str(conn->output, "NOTFOUND\n");
 		return TRUE;
 	}
 
@@ -370,13 +370,13 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *line)
 		username_hash = user_directory_get_username_hash(conn->dir->users, line);
 	user = user_directory_lookup(conn->dir->users, username_hash);
 	if (user != NULL && user->kill_state != USER_KILL_STATE_NONE) {
-		o_stream_send_str(conn->output, "TRYAGAIN\n");
+		o_stream_nsend_str(conn->output, "TRYAGAIN\n");
 		return TRUE;
 	}
 
 	director_move_user(conn->dir, conn->dir->self_host, NULL,
 			   username_hash, host);
-	o_stream_send(conn->output, "OK\n", 3);
+	o_stream_nsend(conn->output, "OK\n", 3);
 	return TRUE;
 }
 
@@ -453,8 +453,9 @@ doveadm_connection_init(struct director *dir, int fd)
 	conn->dir = dir;
 	conn->input = i_stream_create_fd(conn->fd, 1024, FALSE);
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(conn->fd, IO_READ, doveadm_connection_input, conn);
-	o_stream_send_str(conn->output, DOVEADM_HANDSHAKE);
+	o_stream_nsend_str(conn->output, DOVEADM_HANDSHAKE);
 
 	DLLIST_PREPEND(&doveadm_connections, conn);
 	return conn;

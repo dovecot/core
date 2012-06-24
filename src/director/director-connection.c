@@ -183,7 +183,6 @@ static void director_connection_send_connect(struct director_connection *conn,
 	connect_str = t_strdup_printf("CONNECT\t%s\t%u\n",
 				      net_ip2addr(&host->ip), host->port);
 	director_connection_send(conn, connect_str);
-	(void)o_stream_flush(conn->output);
 	o_stream_uncork(conn->output);
 
 	conn->to_disconnect =
@@ -1388,6 +1387,7 @@ director_connection_init_common(struct director *dir, int fd)
 	conn->dir = dir;
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(conn->fd, MAX_OUTBUF_SIZE, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS,
 				    director_connection_init_timeout, conn);
 	array_append(&dir->connections, &conn, 1);

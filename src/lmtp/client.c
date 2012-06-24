@@ -217,6 +217,7 @@ struct client *client_create(int fd_in, int fd_out,
 
 	client->input = i_stream_create_fd(fd_in, CLIENT_MAX_INPUT_SIZE, FALSE);
 	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 
 	client_io_reset(client);
 	client->state_pool = pool_alloconly_create("client state", 4096);
@@ -340,7 +341,7 @@ void client_send_line(struct client *client, const char *fmt, ...)
 		str = t_str_new(256);
 		str_vprintfa(str, fmt, args);
 		str_append(str, "\r\n");
-		o_stream_send(client->output, str_data(str), str_len(str));
+		o_stream_nsend(client->output, str_data(str), str_len(str));
 	} T_END;
 	va_end(args);
 }

@@ -92,6 +92,7 @@ static int ipc_client_connect(struct ipc_client *client)
 	client->io = io_add(client->fd, IO_READ, ipc_client_input, client);
 	client->input = i_stream_create_fd(client->fd, (size_t)-1, FALSE);
 	client->output = o_stream_create_fd(client->fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 	return 0;
 }
 
@@ -156,7 +157,7 @@ void ipc_client_cmd(struct ipc_client *client, const char *cmd,
 	iov[0].iov_len = strlen(cmd);
 	iov[1].iov_base = "\n";
 	iov[1].iov_len = 1;
-	o_stream_sendv(client->output, iov, N_ELEMENTS(iov));
+	o_stream_nsendv(client->output, iov, N_ELEMENTS(iov));
 
 	ipc_cmd = array_append_space(&client->cmds);
 	ipc_cmd->callback = callback;

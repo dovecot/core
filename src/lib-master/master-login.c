@@ -359,7 +359,7 @@ master_login_auth_callback(const char *const *auth_args, const char *errormsg,
 	reply.status = errormsg == NULL ? MASTER_AUTH_STATUS_OK :
 		MASTER_AUTH_STATUS_INTERNAL_ERROR;
 	reply.mail_pid = getpid();
-	o_stream_send(conn->output, &reply, sizeof(reply));
+	o_stream_nsend(conn->output, &reply, sizeof(reply));
 
 	if (errormsg != NULL || auth_args[0] == NULL) {
 		if (auth_args != NULL) {
@@ -447,6 +447,7 @@ void master_login_add(struct master_login *login, int fd)
 	conn->fd = fd;
 	conn->io = io_add(conn->fd, IO_READ, master_login_conn_input, conn);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 
 	DLLIST_PREPEND(&login->conns, conn);
 

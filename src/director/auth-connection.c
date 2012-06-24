@@ -88,6 +88,7 @@ int auth_connection_connect(struct auth_connection *conn)
 	conn->input = i_stream_create_fd(conn->fd, AUTH_CLIENT_MAX_LINE_LENGTH,
 					 FALSE);
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(conn->fd, IO_READ, auth_connection_input, conn);
 	return 0;
 }
@@ -125,7 +126,7 @@ void auth_connection_send(struct auth_connection *conn,
 {
 	i_assert(conn->fd != -1);
 
-	(void)o_stream_send(conn->output, data, size);
+	o_stream_nsend(conn->output, data, size);
 }
 
 void auth_connections_deinit(void)

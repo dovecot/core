@@ -16,7 +16,6 @@
 struct mail_server_connection {
 	int fd;
 	struct istream *input;
-	struct ostream *output;
 	struct io *io;
 };
 
@@ -88,7 +87,6 @@ struct mail_server_connection *mail_server_connection_create(int fd)
 	conn = i_new(struct mail_server_connection, 1);
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
-	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	conn->io = io_add(fd, IO_READ, mail_server_connection_input, conn);
 	return conn;
 }
@@ -101,7 +99,6 @@ void mail_server_connection_destroy(struct mail_server_connection **_conn)
 
 	io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
-	o_stream_destroy(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(conn) failed: %m");
 	i_free(conn);

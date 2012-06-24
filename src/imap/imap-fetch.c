@@ -318,7 +318,7 @@ imap_fetch_send_vanished(struct imap_fetch_context *ctx)
 		str_append(str, "* VANISHED (EARLIER) ");
 		imap_write_seq_range(str, &expunged_uids_range);
 		str_append(str, "\r\n");
-		o_stream_send(ctx->client->output, str_data(str), str_len(str));
+		o_stream_nsend(ctx->client->output, str_data(str), str_len(str));
 		str_free(&str);
 	}
 	array_free(&expunged_uids_range);
@@ -521,8 +521,7 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx,
 
 		ctx->line_finished = TRUE;
 		ctx->line_partial = FALSE;
-		if (o_stream_send(client->output, ")\r\n", 3) < 0)
-			return -1;
+		o_stream_nsend(client->output, ")\r\n", 3);
 		client->last_output = ioloop_time;
 
 		ctx->cur_mail = NULL;

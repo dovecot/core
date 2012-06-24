@@ -154,7 +154,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 
     /* original message's headers */
     str_printfa(str, "--%s\r\nContent-Type: message/rfc822\r\n\r\n", boundary);
-    o_stream_send(output, str_data(str), str_len(str));
+    o_stream_nsend(output, str_data(str), str_len(str));
 
     if (mail_get_hdr_stream(mail, NULL, &input) == 0) {
 	    /* Note: If you add more headers, they need to be sorted.
@@ -179,7 +179,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 
     str_truncate(str, 0);
     str_printfa(str, "\r\n\r\n--%s--\r\n", boundary);
-    o_stream_send(output, str_data(str), str_len(str));
+    o_stream_nsend(output, str_data(str), str_len(str));
     return smtp_client_close(smtp_client);
 }
 
@@ -209,7 +209,7 @@ int mail_send_forward(struct mail_deliver_context *ctx, const char *forwardto)
                                           N_ELEMENTS(hide_headers),
 					  null_header_filter_callback, NULL);
 
-    o_stream_send_istream(output, input);
+    (void)o_stream_send_istream(output, input);
     i_stream_unref(&input);
 
     return smtp_client_close(smtp_client);

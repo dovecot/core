@@ -149,6 +149,7 @@ struct dict_connection *dict_connection_create(int fd)
 	conn->input = i_stream_create_fd(fd, DICT_CLIENT_MAX_LINE_LENGTH,
 					 FALSE);
 	conn->output = o_stream_create_fd(fd, 128*1024, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(fd, IO_READ, dict_connection_input, conn);
 	DLLIST_PREPEND(&dict_connections, conn);
 	return conn;

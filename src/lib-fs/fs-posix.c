@@ -349,9 +349,7 @@ static int fs_posix_write_stream_finish(struct fs_file *_file, bool success)
 	struct posix_fs_file *file = (struct posix_fs_file *)_file;
 	int ret = success ? 0 : -1;
 
-	(void)o_stream_flush(_file->output);
-	if (_file->output->last_failed_errno < 0) {
-		errno = _file->output->last_failed_errno;
+	if (o_stream_nfinish(_file->output) < 0) {
 		fs_set_error(_file->fs, "write(%s) failed: %m",
 			     o_stream_get_name(_file->output));
 		ret = -1;

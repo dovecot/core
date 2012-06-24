@@ -66,6 +66,7 @@ static void client_open_streams(struct client *client)
 		i_stream_create_fd(client->fd, LOGIN_MAX_INBUF_SIZE, FALSE);
 	client->output =
 		o_stream_create_fd(client->fd, LOGIN_MAX_OUTBUF_SIZE, FALSE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 
 	if (login_rawlog_dir != NULL) {
 		if (iostream_rawlog_create(login_rawlog_dir, &client->input,

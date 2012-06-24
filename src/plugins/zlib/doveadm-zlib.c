@@ -118,7 +118,7 @@ static void client_input(struct client *client)
 	if (ret < 0)
 		i_fatal("read(stdin) failed: %m");
 
-	o_stream_send(client->output, buf, ret);
+	o_stream_nsend(client->output, buf, ret);
 }
 
 static void server_input(struct client *client)
@@ -170,6 +170,7 @@ static void cmd_zlibconnect(int argc ATTR_UNUSED, char *argv[])
 	client.fd = fd;
 	client.input = i_stream_create_fd(fd, (size_t)-1, FALSE);
 	client.output = o_stream_create_fd(fd, 0, FALSE);
+	o_stream_set_no_error_handling(client.output, TRUE);
 	client.io_client = io_add(STDIN_FILENO, IO_READ, client_input, &client);
 	client.io_server = io_add(fd, IO_READ, server_input, &client);
 	master_service_run(master_service, NULL);

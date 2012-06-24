@@ -391,13 +391,13 @@ static void fetch_callback(struct client *client)
 
 	if (ctx->last != '\n') {
 		/* didn't end with CRLF */
-		(void)o_stream_send(client->output, "\r\n", 2);
+		o_stream_nsend(client->output, "\r\n", 2);
 	}
 
 	if (!ctx->in_body &&
 	    (client->set->parsed_workarounds & WORKAROUND_OE_NS_EOH) != 0) {
 		/* Add the missing end of headers line. */
-		(void)o_stream_send(client->output, "\r\n", 2);
+		o_stream_nsend(client->output, "\r\n", 2);
 	}
 
 	*ctx->byte_counter +=

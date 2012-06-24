@@ -884,9 +884,9 @@ static void mail_index_strmap_view_renumber(struct mail_index_strmap_view *view)
 	i_free(renumber_map);
 }
 
-static int mail_index_strmap_write_block(struct mail_index_strmap_view *view,
-					 struct ostream *output,
-					 unsigned int i, uint32_t base_uid)
+static void mail_index_strmap_write_block(struct mail_index_strmap_view *view,
+					  struct ostream *output,
+					  unsigned int i, uint32_t base_uid)
 {
 	const struct mail_index_strmap_rec *recs;
 	const uint32_t *crc32;
@@ -898,7 +898,7 @@ static int mail_index_strmap_write_block(struct mail_index_strmap_view *view,
 	/* skip over the block size for now, we don't know it yet */
 	block_offset = output->offset;
 	block_size = 0;
-	o_stream_send(output, &block_size, sizeof(block_size));
+	o_stream_nsend(output, &block_size, sizeof(block_size));
 
 	/* write records */
 	recs = array_get(&view->recs, &count);
@@ -936,13 +936,13 @@ static int mail_index_strmap_write_block(struct mail_index_strmap_view *view,
 		}
 
 		mail_index_pack_num(&p, n);
-		o_stream_send(output, packed, p-packed);
+		o_stream_nsend(output, packed, p-packed);
 		for (j = 0; j < uid_rec_count; j++)
-			o_stream_send(output, &crc32[i+j], sizeof(crc32[i+j]));
+			o_stream_nsend(output, &crc32[i+j], sizeof(crc32[i+j]));
 		for (j = 0; j < uid_rec_count; j++) {
 			i_assert(j < 2 || recs[i+j].ref_index == j+1);
-			o_stream_send(output, &recs[i+j].str_idx,
-				      sizeof(recs[i+j].str_idx));
+			o_stream_nsend(output, &recs[i+j].str_idx,
+				       sizeof(recs[i+j].str_idx));
 		}
 		i += uid_rec_count;
 	}
@@ -954,17 +954,15 @@ static int mail_index_strmap_write_block(struct mail_index_strmap_view *view,
 
 	end_offset = output->offset;
 	o_stream_seek(output, block_offset);
-	o_stream_send(output, &block_size, sizeof(block_size));
+	o_stream_nsend(output, &block_size, sizeof(block_size));
 	o_stream_seek(output, end_offset);
 
 	if (output->last_failed_errno != 0)
-		return -1;
-	else {
-		i_assert(view->last_added_uid == recs[count-1].uid);
-		view->last_read_uid = recs[count-1].uid;
-		view->last_read_block_offset = output->offset;
-		return 0;
-	}
+		return;
+
+	i_assert(view->last_added_uid == recs[count-1].uid);
+	view->last_read_uid = recs[count-1].uid;
+	view->last_read_block_offset = output->offset;
 }
 
 static void
@@ -980,10 +978,10 @@ mail_index_strmap_recreate_write(struct mail_index_strmap_view *view,
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.version = MAIL_INDEX_STRMAP_VERSION;
 	hdr.uid_validity = idx_hdr->uid_validity;
-	o_stream_send(output, &hdr, sizeof(hdr));
+	o_stream_nsend(output, &hdr, sizeof(hdr));
 
 	view->total_ref_count = 0;
-	(void)mail_index_strmap_write_block(view, output, 0, 1);
+	mail_index_strmap_write_block(view, output, 0, 1);
 }
 
 static int mail_index_strmap_recreate(struct mail_index_strmap_view *view)
@@ -1017,8 +1015,7 @@ static int mail_index_strmap_recreate(struct mail_index_strmap_view *view)
 	output = o_stream_create_fd(fd, 0, FALSE);
 	o_stream_cork(output);
 	mail_index_strmap_recreate_write(view, output);
-	if (output->last_failed_errno != 0) {
-		errno = output->last_failed_errno;
+	if (o_stream_nfinish(output) < 0) {
 		mail_index_set_error(strmap->index,
 				     "write(%s) failed: %m", temp_path);
 		ret = -1;
@@ -1172,9 +1169,9 @@ mail_index_strmap_write_append(struct mail_index_strmap_view *view)
 	output = o_stream_create_fd(view->strmap->fd, 0, FALSE);
 	o_stream_seek(output, view->last_read_block_offset);
 	o_stream_cork(output);
-	if (mail_index_strmap_write_block(view, output, i,
-					  view->last_read_uid + 1) < 0) {
-		errno = output->last_failed_errno;
+	mail_index_strmap_write_block(view, output, i,
+				      view->last_read_uid + 1);
+	if (o_stream_nfinish(output) < 0) {
 		mail_index_strmap_set_syscall_error(view->strmap, "write()");
 		ret = -1;
 	}

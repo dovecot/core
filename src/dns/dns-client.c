@@ -38,20 +38,20 @@ static int dns_client_input_line(struct dns_client *client, const char *line)
 			ret = NO_ADDRESS;
 		}
 		if (ret != 0) {
-			o_stream_send_str(client->output,
+			o_stream_nsend_str(client->output,
 				t_strdup_printf("%d\n", ret));
 		} else {
-			o_stream_send_str(client->output,
+			o_stream_nsend_str(client->output,
 				t_strdup_printf("0 %u\n", ips_count));
 			for (i = 0; i < ips_count; i++) {
-				o_stream_send_str(client->output, t_strconcat(
+				o_stream_nsend_str(client->output, t_strconcat(
 					net_ip2addr(&ips[i]), "\n", NULL));
 			}
 		}
 	} else if (strcmp(line, "QUIT") == 0) {
 		return -1;
 	} else {
-		o_stream_send_str(client->output, "Unknown command\n");
+		o_stream_nsend_str(client->output, "Unknown command\n");
 	}
 
 	if (client->output->overflow)
@@ -91,6 +91,7 @@ static struct dns_client *dns_client_create(int fd)
 	client->fd = fd;
 	client->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 	client->output = o_stream_create_fd(fd, MAX_OUTBUF_SIZE, FALSE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 	client->io = io_add(fd, IO_READ, dns_client_input, client);
 	client->to = timeout_add(INPUT_TIMEOUT_MSECS, dns_client_timeout,
 				 client);

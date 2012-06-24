@@ -59,6 +59,7 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	client->input = i_stream_create_fd(fd_in,
 					   set->imap_max_line_length, FALSE);
 	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 
 	o_stream_set_flush_callback(client->output, client_output, client);
 
@@ -267,7 +268,7 @@ void client_disconnect(struct client *client, const char *reason)
 
 	i_info("Disconnected: %s %s", reason, client_stats(client));
 	client->disconnected = TRUE;
-	(void)o_stream_flush(client->output);
+	o_stream_nflush(client->output);
 	o_stream_uncork(client->output);
 
 	i_stream_close(client->input);
@@ -319,10 +320,10 @@ void client_send_tagline(struct client_command_context *cmd, const char *data)
 	if (tag == NULL || *tag == '\0')
 		tag = "*";
 
-	(void)o_stream_send_str(client->output, tag);
-	(void)o_stream_send(client->output, " ", 1);
-	(void)o_stream_send_str(client->output, data);
-	(void)o_stream_send(client->output, "\r\n", 2);
+	o_stream_nsend_str(client->output, tag);
+	o_stream_nsend(client->output, " ", 1);
+	o_stream_nsend_str(client->output, data);
+	o_stream_nsend(client->output, "\r\n", 2);
 
 	client->last_output = ioloop_time;
 }

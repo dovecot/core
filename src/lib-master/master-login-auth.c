@@ -388,6 +388,7 @@ master_login_auth_connect(struct master_login_auth *auth)
 	auth->fd = fd;
 	auth->input = i_stream_create_fd(fd, AUTH_MAX_INBUF_SIZE, FALSE);
 	auth->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(auth->output, TRUE);
 	auth->io = io_add(fd, IO_READ, master_login_auth_input, auth);
 	return 0;
 }
@@ -436,7 +437,7 @@ master_login_auth_send_request(struct master_login_auth *auth,
 		    req->client_pid, req->auth_id);
 	binary_to_hex_append(str, req->cookie, sizeof(req->cookie));
 	str_append_c(str, '\n');
-	o_stream_send(auth->output, str_data(str), str_len(str));
+	o_stream_nsend(auth->output, str_data(str), str_len(str));
 }
 
 void master_login_auth_request(struct master_login_auth *auth,
@@ -456,7 +457,7 @@ void master_login_auth_request(struct master_login_auth *auth,
 				 context);
 			return;
 		}
-		o_stream_send_str(auth->output,
+		o_stream_nsend_str(auth->output,
 			t_strdup_printf("VERSION\t%u\t%u\n",
 					AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
 					AUTH_MASTER_PROTOCOL_MINOR_VERSION));

@@ -24,7 +24,7 @@ static void o_stream_bzlib_close(struct iostream_private *stream)
 {
 	struct bzlib_ostream *zstream = (struct bzlib_ostream *)stream;
 
-	o_stream_flush(&zstream->ostream.ostream);
+	(void)o_stream_flush(&zstream->ostream.ostream);
 	(void)BZ2_bzCompressEnd(&zstream->zs);
 }
 

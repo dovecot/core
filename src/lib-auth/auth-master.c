@@ -397,15 +397,14 @@ static int auth_master_run_cmd(struct auth_master_connection *conn,
 	if (!conn->sent_handshake) {
 		str = t_strdup_printf("VERSION\t%d\t%d\n",
 				      AUTH_PROTOCOL_MAJOR, AUTH_PROTOCOL_MINOR);
-		o_stream_send_str(conn->output, str);
+		o_stream_nsend_str(conn->output, str);
 		conn->sent_handshake = TRUE;
 	}
 
-	o_stream_send_str(conn->output, cmd);
+	o_stream_nsend_str(conn->output, cmd);
 	o_stream_uncork(conn->output);
 
-	if (conn->output->stream_errno != 0) {
-		errno = conn->output->stream_errno;
+	if (o_stream_nfinish(conn->output) < 0) {
 		i_error("write(auth socket) failed: %m");
 		conn->aborted = TRUE;
 	} else {

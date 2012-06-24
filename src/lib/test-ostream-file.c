@@ -32,7 +32,7 @@ static void test_ostream_file_random(void)
 	size = (rand() % MAX_BUFSIZE) + 1;
 	random_fill_weak(randbuf, size);
 	memcpy(buf, randbuf, size);
-	o_stream_send(output, buf, size);
+	(void)o_stream_send(output, buf, size);
 
 	for (i = 0; i < 10; i++) {
 		offset = rand() % (MAX_BUFSIZE*3);
@@ -41,10 +41,10 @@ static void test_ostream_file_random(void)
 		memcpy(buf + offset, randbuf, size);
 		o_stream_pwrite(output, randbuf, size, offset);
 		if (rand() % 10 == 0)
-			o_stream_flush(output);
+			(void)o_stream_flush(output);
 	}
 
-	o_stream_flush(output);
+	(void)o_stream_flush(output);
 	o_stream_uncork(output);
 	ret = pread(fd, buf2, sizeof(buf2), 0);
 	if (ret < 0)

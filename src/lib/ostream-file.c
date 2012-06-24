@@ -72,7 +72,7 @@ static void o_stream_file_close(struct iostream_private *stream)
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
 	/* flush output before really closing it */
-	o_stream_flush(&fstream->ostream.ostream);
+	(void)o_stream_flush(&fstream->ostream.ostream);
 
 	stream_closed(fstream);
 }

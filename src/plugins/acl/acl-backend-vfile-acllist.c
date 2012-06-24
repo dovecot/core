@@ -187,7 +187,7 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 			const char *line;
 			line = t_strdup_printf("%s %s\n",
 					       dec2str(acllist.mtime), name);
-			o_stream_send_str(output, line);
+			o_stream_nsend_str(output, line);
 		} T_END;
 	}
 	acl_object_deinit(&aclobj);
@@ -246,6 +246,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 		return -1;
 	}
 	output = o_stream_create_fd_file(fd, 0, FALSE);
+	o_stream_cork(output);
 
 	ret = 0;
 	acllist_clear(backend, 0);
@@ -261,7 +262,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 		}
 	}
 
-	if (output->stream_errno != 0) {
+	if (o_stream_nfinish(output) < 0) {
 		i_error("write(%s) failed: %m", str_c(path));
 		ret = -1;
 	}

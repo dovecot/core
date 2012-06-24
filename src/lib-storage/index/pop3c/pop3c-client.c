@@ -256,12 +256,12 @@ static void pop3c_client_authenticate1(struct pop3c_client *client)
 	}
 
 	if (set->master_user == NULL) {
-		o_stream_send_str(client->output,
+		o_stream_nsend_str(client->output,
 			t_strdup_printf("USER %s\r\n", set->username));
 		client->state = POP3C_CLIENT_STATE_USER;
 	} else {
 		client->state = POP3C_CLIENT_STATE_AUTH;
-		o_stream_send_str(client->output, "AUTH PLAIN\r\n");
+		o_stream_nsend_str(client->output, "AUTH PLAIN\r\n");
 	}
 }
 
@@ -320,7 +320,7 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 				client->set.host, line);
 			return -1;
 		}
-		o_stream_send_str(client->output,
+		o_stream_nsend_str(client->output,
 			t_strdup_printf("PASS %s\r\n", client->set.password));
 		client->state = POP3C_CLIENT_STATE_PASS;
 		break;
@@ -330,7 +330,7 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 				client->set.host, line);
 			return -1;
 		}
-		o_stream_send_str(client->output,
+		o_stream_nsend_str(client->output,
 			pop3c_client_get_sasl_plain_request(client));
 		client->state = POP3C_CLIENT_STATE_PASS;
 		break;
@@ -349,7 +349,7 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		if (!success)
 			return -1;
 
-		o_stream_send_str(client->output, "CAPA\r\n");
+		o_stream_nsend_str(client->output, "CAPA\r\n");
 		client->state = POP3C_CLIENT_STATE_CAPA;
 		break;
 	case POP3C_CLIENT_STATE_CAPA:
@@ -529,6 +529,7 @@ static void pop3c_client_connect_ip(struct pop3c_client *client)
 		i_stream_create_fd(client->fd, POP3C_MAX_INBUF_SIZE, FALSE);
 	client->output = client->raw_output =
 		o_stream_create_fd(client->fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 
 	if (*client->set.rawlog_dir != '\0' &&
 	    client->set.ssl_mode != POP3C_CLIENT_SSL_MODE_IMMEDIATE &&
@@ -662,7 +663,7 @@ int pop3c_client_cmd_line(struct pop3c_client *client, const char *cmd,
 
 	if (pop3c_client_flush_asyncs(client, reply_r) < 0)
 		return -1;
-	o_stream_send_str(client->output, cmd);
+	o_stream_nsend_str(client->output, cmd);
 	if (pop3c_client_read_line(client, &line, reply_r) < 0)
 		return -1;
 	if (strncasecmp(line, "+OK", 3) == 0) {
@@ -693,7 +694,7 @@ void pop3c_client_cmd_line_async(struct pop3c_client *client, const char *cmd)
 		if (pop3c_client_flush_asyncs(client, &error) < 0)
 			return;
 	}
-	o_stream_send_str(client->output, cmd);
+	o_stream_nsend_str(client->output, cmd);
 	client->async_commands++;
 }
 

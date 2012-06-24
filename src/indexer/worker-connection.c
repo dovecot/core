@@ -198,7 +198,8 @@ int worker_connection_connect(struct worker_connection *conn)
 	conn->io = io_add(conn->fd, IO_READ, worker_connection_input, conn);
 	conn->input = i_stream_create_fd(conn->fd, (size_t)-1, FALSE);
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
-	o_stream_send_str(conn->output, INDEXER_MASTER_HANDSHAKE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
+	o_stream_nsend_str(conn->output, INDEXER_MASTER_HANDSHAKE);
 	return 0;
 }
 
@@ -246,7 +247,7 @@ void worker_connection_request(struct worker_connection *conn,
 		if (request->optimize)
 			str_append_c(str, 'o');
 		str_append_c(str, '\n');
-		o_stream_send(conn->output, str_data(str), str_len(str));
+		o_stream_nsend(conn->output, str_data(str), str_len(str));
 	} T_END;
 }
 

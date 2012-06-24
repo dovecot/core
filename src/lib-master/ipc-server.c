@@ -111,7 +111,8 @@ static void ipc_server_connect(struct ipc_server *server)
 	server->io = io_add(server->fd, IO_READ, ipc_server_input, server);
 	server->input = i_stream_create_fd(server->fd, (size_t)-1, FALSE);
 	server->output = o_stream_create_fd(server->fd, (size_t)-1, FALSE);
-	o_stream_send_str(server->output,
+	o_stream_set_no_error_handling(server->output, TRUE);
+	o_stream_nsend_str(server->output,
 		t_strdup_printf(IPC_SERVER_HANDSHAKE, server->name, my_pid));
 	o_stream_cork(server->output);
 }
@@ -160,14 +161,14 @@ void ipc_server_deinit(struct ipc_server **_server)
 
 void ipc_cmd_send(struct ipc_cmd *cmd, const char *data)
 {
-	o_stream_send_str(cmd->server->output,
-			  t_strdup_printf("%u\t:%s\n", cmd->tag, data));
+	o_stream_nsend_str(cmd->server->output,
+			   t_strdup_printf("%u\t:%s\n", cmd->tag, data));
 }
 
 static void ipc_cmd_finish(struct ipc_cmd *cmd, const char *line)
 {
-	o_stream_send_str(cmd->server->output,
-			  t_strdup_printf("%u\t%s\n", cmd->tag, line));
+	o_stream_nsend_str(cmd->server->output,
+			   t_strdup_printf("%u\t%s\n", cmd->tag, line));
 	o_stream_uncork(cmd->server->output);
 
 	i_assert(cmd->server->ipc_cmd_refcount > 0);

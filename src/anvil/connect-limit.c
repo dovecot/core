@@ -185,5 +185,5 @@ void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
 			break;
 	}
 	hash_table_iterate_deinit(&iter);
-	(void)o_stream_send(output, "\n", 1);
+	o_stream_nsend(output, "\n", 1);
 }

@@ -519,8 +519,10 @@ void dbox_file_append_rollback(struct dbox_file_append_context **_ctx)
 		if (ftruncate(file->fd, ctx->first_append_offset) < 0)
 			dbox_file_set_syscall_error(file, "ftruncate()");
 	}
-	if (ctx->output != NULL)
+	if (ctx->output != NULL) {
+		o_stream_ignore_last_errors(ctx->output);
 		o_stream_unref(&ctx->output);
+	}
 	i_free(ctx);
 
 	if (close_file)
@@ -535,7 +537,7 @@ int dbox_file_append_flush(struct dbox_file_append_context *ctx)
 	if (ctx->last_flush_offset == ctx->output->offset)
 		return 0;
 
-	if (o_stream_flush(ctx->output) < 0) {
+	if (o_stream_nfinish(ctx->output) < 0) {
 		dbox_file_set_syscall_error(ctx->file, "write()");
 		return -1;
 	}

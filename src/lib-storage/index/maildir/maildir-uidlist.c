@@ -1241,7 +1241,6 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 	const unsigned char *p;
 	const char *strp;
 	unsigned int len;
-	int ret;
 
 	i_assert(fd != -1);
 
@@ -1271,7 +1270,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 			str_append_str(str, uidlist->hdr_extensions);
 		}
 		str_append_c(str, '\n');
-		o_stream_send(output, str_data(str), str_len(str));
+		o_stream_nsend(output, str_data(str), str_len(str));
 	}
 
 	iter = maildir_uidlist_iter_init(uidlist);
@@ -1298,21 +1297,18 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 		else
 			str_append_n(str, rec->filename, strp - rec->filename);
 		str_append_c(str, '\n');
-		o_stream_send(output, str_data(str), str_len(str));
+		o_stream_nsend(output, str_data(str), str_len(str));
 	}
 	maildir_uidlist_iter_deinit(&iter);
-	o_stream_flush(output);
 
-	ret = output->stream_errno == 0 ? 0 : -1;
+	if (o_stream_nfinish(output) < 0) {
+		mail_storage_set_critical(storage, "write(%s) failed: %m", path);
+		o_stream_unref(&output);
+		return -1;
+	}
 
 	*file_size_r = output->offset;
 	o_stream_unref(&output);
-
-	if (ret < 0) {
-		mail_storage_set_critical(storage,
-			"o_stream_send(%s) failed: %m", path);
-		return -1;
-	}
 
 	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
 		if (fdatasync(fd) < 0) {

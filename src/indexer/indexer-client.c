@@ -94,7 +94,7 @@ indexer_client_request_queue(struct indexer_client *client, bool append,
 
 	indexer_queue_append(client->queue, append, args[1], args[2],
 			     max_recent_msgs, ctx);
-	o_stream_send_str(client->output, t_strdup_printf("%u\tOK\n", tag));
+	o_stream_nsend_str(client->output, t_strdup_printf("%u\tOK\n", tag));
 	return 0;
 }
 
@@ -123,7 +123,7 @@ indexer_client_request_optimize(struct indexer_client *client,
 	}
 
 	indexer_queue_append_optimize(client->queue, args[1], args[2], ctx);
-	o_stream_send_str(client->output, t_strdup_printf("%u\tOK\n", tag));
+	o_stream_nsend_str(client->output, t_strdup_printf("%u\tOK\n", tag));
 	return 0;
 }
 
@@ -192,7 +192,7 @@ void indexer_client_status_callback(int percentage, void *context)
 	struct indexer_client_request *ctx = context;
 
 	T_BEGIN {
-		o_stream_send_str(ctx->client->output,
+		o_stream_nsend_str(ctx->client->output,
 			t_strdup_printf("%u\t%d\n", ctx->tag, percentage));
 	} T_END;
 	if (percentage < 0 || percentage == 100) {
@@ -212,6 +212,7 @@ indexer_client_create(int fd, struct indexer_queue *queue)
 	client->fd = fd;
 	client->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 	client->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 	client->io = io_add(fd, IO_READ, indexer_client_input, client);
 
 	DLLIST_PREPEND(&clients, client);

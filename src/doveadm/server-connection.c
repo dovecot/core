@@ -162,7 +162,7 @@ static void server_connection_authenticated(struct server_connection *conn)
 {
 	conn->authenticated = TRUE;
 	if (conn->delayed_cmd != NULL) {
-		o_stream_send_str(conn->output, conn->delayed_cmd);
+		o_stream_nsend_str(conn->output, conn->delayed_cmd);
 		conn->delayed_cmd = NULL;
 	}
 }
@@ -188,7 +188,7 @@ server_connection_authenticate(struct server_connection *conn)
 	base64_encode(plain->data, plain->used, cmd);
 	str_append_c(cmd, '\n');
 
-	o_stream_send(conn->output, cmd->data, cmd->used);
+	o_stream_nsend(conn->output, cmd->data, cmd->used);
 	return 0;
 }
 
@@ -319,8 +319,9 @@ server_connection_create(struct doveadm_server *server)
 	conn->io = io_add(conn->fd, IO_READ, server_connection_input, conn);
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->state = SERVER_REPLY_STATE_DONE;
-	o_stream_send_str(conn->output, DOVEADM_SERVER_HANDSHAKE);
+	o_stream_nsend_str(conn->output, DOVEADM_SERVER_HANDSHAKE);
 
 	array_append(&conn->server->connections, &conn, 1);
 	server_connection_read_settings(conn);
@@ -372,7 +373,7 @@ void server_connection_cmd(struct server_connection *conn, const char *line,
 
 	conn->state = SERVER_REPLY_STATE_PRINT;
 	if (conn->authenticated)
-		o_stream_send_str(conn->output, line);
+		o_stream_nsend_str(conn->output, line);
 	else
 		conn->delayed_cmd = p_strdup(conn->pool, line);
 	conn->callback = callback;

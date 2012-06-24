@@ -164,8 +164,8 @@ static bool lmtp_proxy_send_data_replies(struct lmtp_proxy *proxy)
 	for (i = proxy->next_data_reply_idx; i < count; i++) {
 		if (!(rcpt[i]->rcpt_to_failed || rcpt[i]->data_reply_received))
 			break;
-		o_stream_send_str(proxy->client_output,
-				  t_strconcat(rcpt[i]->reply, "\r\n", NULL));
+		o_stream_nsend_str(proxy->client_output,
+				   t_strconcat(rcpt[i]->reply, "\r\n", NULL));
 	}
 	o_stream_uncork(proxy->client_output);
 	proxy->next_data_reply_idx = i;

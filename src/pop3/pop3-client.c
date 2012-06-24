@@ -305,6 +305,7 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	client->fd_out = fd_out;
 	client->input = i_stream_create_fd(fd_in, MAX_INBUF_SIZE, FALSE);
 	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 	o_stream_set_flush_callback(client->output, client_output, client);
 
 	p_array_init(&client->module_contexts, client->pool, 5);

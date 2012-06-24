@@ -201,7 +201,7 @@ static int dsync_slave_io_send_mail_stream(struct dsync_slave_io *slave)
 		}
 
 		if (i > 0) {
-			(void)o_stream_send(slave->output, data, i);
+			o_stream_nsend(slave->output, data, i);
 			slave->mail_output_last = data[i-1];
 			i_stream_skip(slave->mail_output, i);
 		}
@@ -219,7 +219,7 @@ static int dsync_slave_io_send_mail_stream(struct dsync_slave_io *slave)
 		}
 
 		if (add != '\0') {
-			(void)o_stream_send(slave->output, &add, 1);
+			o_stream_nsend(slave->output, &add, 1);
 			slave->mail_output_last = add;
 		}
 	}
@@ -233,7 +233,7 @@ static int dsync_slave_io_send_mail_stream(struct dsync_slave_io *slave)
 	}
 
 	/* finished sending the stream */
-	(void)o_stream_send_str(slave->output, "\r\n.\r\n");
+	o_stream_nsend_str(slave->output, "\r\n.\r\n");
 	i_stream_unref(&slave->mail_output);
 	return 1;
 }
@@ -273,11 +273,12 @@ static void dsync_slave_io_init(struct dsync_slave_io *slave)
 	slave->input = i_stream_create_fd(slave->fd_in, (size_t)-1, FALSE);
 	slave->output = o_stream_create_fd(slave->fd_out, (size_t)-1, FALSE);
 	slave->io = io_add(slave->fd_in, IO_READ, dsync_slave_io_input, slave);
+	o_stream_set_no_error_handling(slave->output, TRUE);
 	o_stream_set_flush_callback(slave->output, dsync_slave_io_output, slave);
 	slave->to = timeout_add(DSYNC_SLAVE_IO_TIMEOUT_MSECS,
 				dsync_slave_io_timeout, slave);
 	o_stream_cork(slave->output);
-	o_stream_send_str(slave->output, DSYNC_HANDSHAKE_VERSION);
+	o_stream_nsend_str(slave->output, DSYNC_HANDSHAKE_VERSION);
 
 	/* initialize serializers and send their headers to remote */
 	for (i = 1; i < ITEM_END_OF_LIST; i++) T_BEGIN {
@@ -291,12 +292,12 @@ static void dsync_slave_io_init(struct dsync_slave_io *slave)
 
 			slave->serializers[i] =
 				dsync_serializer_init(t_strsplit_spaces(keys, " "));
-			o_stream_send(slave->output, &items[i].chr, 1);
-			o_stream_send_str(slave->output,
+			o_stream_nsend(slave->output, &items[i].chr, 1);
+			o_stream_nsend_str(slave->output,
 				dsync_serializer_encode_header_line(slave->serializers[i]));
 		}
 	} T_END;
-	o_stream_send_str(slave->output, ".\n");
+	o_stream_nsend_str(slave->output, ".\n");
 
 	dsync_slave_flush(&slave->slave);
 }
@@ -387,7 +388,7 @@ static void
 dsync_slave_io_send_string(struct dsync_slave_io *slave, const string_t *str)
 {
 	i_assert(slave->mail_output == NULL);
-	o_stream_send(slave->output, str_data(str), str_len(str));
+	o_stream_nsend(slave->output, str_data(str), str_len(str));
 }
 
 static int dsync_slave_check_missing_deserializers(struct dsync_slave_io *slave)
@@ -607,7 +608,7 @@ dsync_slave_io_send_end_of_list(struct dsync_slave *_slave)
 
 	i_assert(slave->mail_output == NULL);
 
-	o_stream_send_str(slave->output, END_OF_LIST_LINE"\n");
+	o_stream_nsend_str(slave->output, END_OF_LIST_LINE"\n");
 }
 
 static void

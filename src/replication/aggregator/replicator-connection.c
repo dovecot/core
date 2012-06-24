@@ -172,7 +172,8 @@ static void replicator_connection_connect(struct replicator_connection *conn)
 	conn->io = io_add(fd, IO_READ, replicator_input, conn);
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
-	(void)o_stream_send_str(conn->output, REPLICATOR_HANDSHAKE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
+	o_stream_nsend_str(conn->output, REPLICATOR_HANDSHAKE);
 	o_stream_set_flush_callback(conn->output, replicator_output, conn);
 }
 
@@ -269,7 +270,7 @@ replicator_send(struct replicator_connection *conn,
 	if (conn->fd != -1 &&
 	    o_stream_get_buffer_used_size(conn->output) == 0) {
 		/* we can send data immediately */
-		o_stream_send(conn->output, data, data_len);
+		o_stream_nsend(conn->output, data, data_len);
 	} else if (conn->queue[priority]->used + data_len >=
 		   	REPLICATOR_MEMBUF_MAX_SIZE) {
 		/* FIXME: compress duplicates, start writing to file */

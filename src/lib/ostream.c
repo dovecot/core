@@ -31,10 +31,19 @@ void o_stream_ref(struct ostream *stream)
 	io_stream_ref(&stream->real_stream->iostream);
 }
 
-void o_stream_unref(struct ostream **stream)
+void o_stream_unref(struct ostream **_stream)
 {
-	io_stream_unref(&(*stream)->real_stream->iostream);
-	*stream = NULL;
+	struct ostream *stream = *_stream;
+
+	if (!stream->real_stream->last_errors_not_checked &&
+	    !stream->real_stream->error_handling_disabled &&
+	    stream->real_stream->iostream.refcount == 1) {
+		i_panic("output stream %s is missing error handling",
+			o_stream_get_name(stream));
+	}
+
+	io_stream_unref(&stream->real_stream->iostream);
+	*_stream = NULL;
 }
 
 void o_stream_close(struct ostream *stream)
@@ -194,6 +203,57 @@ ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 ssize_t o_stream_send_str(struct ostream *stream, const char *str)
 {
 	return o_stream_send(stream, str, strlen(str));
+}
+
+void o_stream_nsend(struct ostream *stream, const void *data, size_t size)
+{
+	struct const_iovec iov;
+
+	memset(&iov, 0, sizeof(iov));
+	iov.iov_base = data;
+	iov.iov_len = size;
+
+	(void)o_stream_nsendv(stream, &iov, 1);
+}
+
+void o_stream_nsendv(struct ostream *stream, const struct const_iovec *iov,
+		     unsigned int iov_count)
+{
+	if (unlikely(stream->closed))
+		return;
+	(void)o_stream_sendv(stream, iov, iov_count);
+	stream->real_stream->last_errors_not_checked = TRUE;
+}
+
+void o_stream_nsend_str(struct ostream *stream, const char *str)
+{
+	o_stream_nsend(stream, str, strlen(str));
+}
+
+void o_stream_nflush(struct ostream *stream)
+{
+	if (unlikely(stream->closed))
+		return;
+	(void)o_stream_flush(stream);
+	stream->real_stream->last_errors_not_checked = TRUE;
+}
+
+int o_stream_nfinish(struct ostream *stream)
+{
+	o_stream_nflush(stream);
+	stream->real_stream->last_errors_not_checked = FALSE;
+	errno = stream->last_failed_errno;
+	return stream->last_failed_errno != 0 ? -1 : 0;
+}
+
+void o_stream_ignore_last_errors(struct ostream *stream)
+{
+	stream->real_stream->last_errors_not_checked = FALSE;
+}
+
+void o_stream_set_no_error_handling(struct ostream *stream, bool set)
+{
+	stream->real_stream->error_handling_disabled = set;
 }
 
 off_t o_stream_send_istream(struct ostream *outstream,
@@ -406,6 +466,8 @@ o_stream_create(struct ostream_private *_stream, struct ostream *parent)
 		_stream->callback = parent->real_stream->callback;
 		_stream->context = parent->real_stream->context;
 		_stream->max_buffer_size = parent->real_stream->max_buffer_size;
+		_stream->error_handling_disabled =
+			parent->real_stream->error_handling_disabled;
 	}
 
 	if (_stream->iostream.close == NULL)

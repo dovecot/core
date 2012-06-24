@@ -486,7 +486,7 @@ void client_auth_send_challenge(struct client *client, const char *data)
 	iov[2].iov_base = "\r\n";
 	iov[2].iov_len = 2;
 
-	(void)o_stream_sendv(client->output, iov, 3);
+	o_stream_nsendv(client->output, iov, 3);
 }
 
 static void

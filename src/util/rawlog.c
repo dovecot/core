@@ -162,7 +162,7 @@ static void server_input(struct rawlog_proxy *proxy)
 
 	ret = net_receive(proxy->server_fd, buf, sizeof(buf));
 	if (ret > 0) {
-		(void)o_stream_send(proxy->client_output, buf, ret);
+		o_stream_nsend(proxy->client_output, buf, ret);
 		proxy_write_out(proxy, buf, ret);
 	} else if (ret <= 0)
 		rawlog_proxy_destroy(proxy);
@@ -183,7 +183,7 @@ static void client_input(struct rawlog_proxy *proxy)
 
 	ret = net_receive(proxy->client_in_fd, buf, sizeof(buf));
 	if (ret > 0) {
-		(void)o_stream_send(proxy->server_output, buf, ret);
+		o_stream_nsend(proxy->server_output, buf, ret);
 		proxy_write_in(proxy, buf, ret);
 	} else if (ret < 0)
 		rawlog_proxy_destroy(proxy);
@@ -263,13 +263,15 @@ rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
 	proxy = i_new(struct rawlog_proxy, 1);
 	proxy->server_fd = server_fd;
 	proxy->server_output = o_stream_create_fd(server_fd, (size_t)-1, FALSE);
-	proxy->server_io = io_add(server_fd, IO_READ, server_input, proxy);
+	o_stream_set_no_error_handling(proxy->server_output, TRUE);
 	o_stream_set_flush_callback(proxy->server_output, server_output, proxy);
+	proxy->server_io = io_add(server_fd, IO_READ, server_input, proxy);
 
 	proxy->client_in_fd = client_in_fd;
 	proxy->client_out_fd = client_out_fd;
 	proxy->client_output =
 		o_stream_create_fd(client_out_fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(proxy->client_output, TRUE);
 	proxy->client_io = io_add(proxy->client_in_fd, IO_READ,
 				  client_input, proxy);
 	o_stream_set_flush_callback(proxy->client_output, client_output, proxy);

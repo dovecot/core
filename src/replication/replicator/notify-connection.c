@@ -43,7 +43,7 @@ static void notify_sync_callback(bool success, void *context)
 {
 	struct notify_sync_request *request = context;
 
-	o_stream_send_str(request->conn->output, t_strdup_printf(
+	o_stream_nsend_str(request->conn->output, t_strdup_printf(
 		"%c\t%u\n", success ? '+' : '-', request->id));
 
 	notify_connection_unref(&request->conn);
@@ -141,6 +141,7 @@ notify_connection_create(int fd, struct replicator_queue *queue)
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(fd, IO_READ, notify_connection_input, conn);
 	conn->queue = queue;
 

@@ -40,7 +40,7 @@ static void proxy_send_login(struct pop3_client *client, struct ostream *output)
 	i_assert(client->common.proxy_ttl > 0);
 	if (client->proxy_xclient) {
 		/* remote supports XCLIENT, send it */
-		(void)o_stream_send_str(output, t_strdup_printf(
+		o_stream_nsend_str(output, t_strdup_printf(
 			"XCLIENT ADDR=%s PORT=%u SESSION=%s TTL=%u\r\n",
 			net_ip2addr(&client->common.ip),
 			client->common.remote_port,
@@ -61,7 +61,7 @@ static void proxy_send_login(struct pop3_client *client, struct ostream *output)
 		/* master user login - use AUTH PLAIN. */
 		str_append(str, "AUTH PLAIN\r\n");
 	}
-	(void)o_stream_send(output, str_data(str), str_len(str));
+	o_stream_nsend(output, str_data(str), str_len(str));
 }
 
 int pop3_proxy_parse_line(struct client *client, const char *line)
@@ -91,7 +91,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0) {
 			proxy_send_login(pop3_client, output);
 		} else {
-			(void)o_stream_send_str(output, "STLS\r\n");
+			o_stream_nsend_str(output, "STLS\r\n");
 			client->proxy_state = POP3_PROXY_STARTTLS;
 		}
 		return 0;
@@ -138,7 +138,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 			get_plain_auth(client, str);
 			str_append(str, "\r\n");
 		}
-		(void)o_stream_send(output, str_data(str), str_len(str));
+		o_stream_nsend(output, str_data(str), str_len(str));
 		proxy_free_password(client);
 		client->proxy_state = POP3_PROXY_LOGIN2;
 		return 0;
@@ -148,7 +148,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 
 		/* Login successful. Send this line to client. */
 		line = t_strconcat(line, "\r\n", NULL);
-		(void)o_stream_send_str(client->output, line);
+		o_stream_nsend_str(client->output, line);
 
 		client_proxy_finish_destroy_client(client);
 		return 1;

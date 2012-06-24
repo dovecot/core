@@ -242,8 +242,8 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 				if (prefix.str_pos != -1U)
 					str_truncate(ctx->list_prefix, prefix.str_pos);
 				else {
-					o_stream_send(output, indent_str, indent*2);
-					o_stream_send_str(output, "}\n");
+					o_stream_nsend(output, indent_str, indent*2);
+					o_stream_nsend_str(output, "}\n");
 				}
 				prefix_idx = prefix.prefix_idx;
 			} else {
@@ -285,7 +285,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 					goto again;
 			}
 		}
-		o_stream_send(output, str_data(ctx->list_prefix), str_len(ctx->list_prefix));
+		o_stream_nsend(output, str_data(ctx->list_prefix), str_len(ctx->list_prefix));
 		str_truncate(ctx->list_prefix, 0);
 		prefix_stack_reset_str(&prefix_stack);
 		ctx->list_prefix_sent = TRUE;
@@ -293,20 +293,20 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		skip_len = prefix_idx == -1U ? 0 : strlen(prefixes[prefix_idx]);
 		i_assert(skip_len == 0 ||
 			 strncmp(prefixes[prefix_idx], strings[i], skip_len) == 0);
-		o_stream_send(output, indent_str, indent*2);
+		o_stream_nsend(output, indent_str, indent*2);
 		key = strings[i] + skip_len;
 		if (unique_key) key++;
 		value = strchr(key, '=');
-		o_stream_send(output, key, value-key);
-		o_stream_send_str(output, " = ");
+		o_stream_nsend(output, key, value-key);
+		o_stream_nsend_str(output, " = ");
 		if (!value_need_quote(value+1))
-			o_stream_send_str(output, value+1);
+			o_stream_nsend_str(output, value+1);
 		else {
-			o_stream_send(output, "\"", 1);
-			o_stream_send_str(output, str_escape(value+1));
-			o_stream_send(output, "\"", 1);
+			o_stream_nsend(output, "\"", 1);
+			o_stream_nsend_str(output, str_escape(value+1));
+			o_stream_nsend(output, "\"", 1);
 		}
-		o_stream_send(output, "\n", 1);
+		o_stream_nsend(output, "\n", 1);
 	end: ;
 	} T_END;
 
@@ -316,8 +316,8 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			break;
 		prefix_idx = prefix.prefix_idx;
 		indent--;
-		o_stream_send(output, indent_str, indent*2);
-		o_stream_send_str(output, "}\n");
+		o_stream_nsend(output, indent_str, indent*2);
+		o_stream_nsend_str(output, "}\n");
 	}
 
 	/* flush output before writing errors */
@@ -382,8 +382,8 @@ config_dump_filter_end(struct ostream *output, unsigned int indent)
 {
 	while (indent > 0) {
 		indent--;
-		o_stream_send(output, indent_str, indent*2);
-		o_stream_send(output, "}\n", 2);
+		o_stream_nsend(output, indent_str, indent*2);
+		o_stream_nsend(output, "}\n", 2);
 	}
 }
 
@@ -427,6 +427,7 @@ config_dump_human(const struct config_filter *filter, const char *module,
 	int ret;
 
 	output = o_stream_create_fd(STDOUT_FILENO, 0, FALSE);
+	o_stream_set_no_error_handling(output, TRUE);
 	o_stream_cork(output);
 
 	ctx = config_dump_human_init(module, scope, TRUE);
@@ -438,7 +439,7 @@ config_dump_human(const struct config_filter *filter, const char *module,
 		ret = config_dump_human_sections(output, filter, module);
 
 	o_stream_uncork(output);
-	o_stream_unref(&output);
+	o_stream_destroy(&output);
 	return ret;
 }
 

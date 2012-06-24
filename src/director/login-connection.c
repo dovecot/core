@@ -67,7 +67,7 @@ login_connection_send_line(struct login_connection *conn, const char *line)
 	iov[0].iov_len = strlen(line);
 	iov[1].iov_base = "\n";
 	iov[1].iov_len = 1;
-	(void)o_stream_sendv(conn->output, iov, N_ELEMENTS(iov));
+	o_stream_nsendv(conn->output, iov, N_ELEMENTS(iov));
 }
 
 static void
@@ -175,6 +175,7 @@ login_connection_init(struct director *dir, int fd,
 	conn->auth = auth;
 	conn->dir = dir;
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(conn->fd, IO_READ, login_connection_input, conn);
 	conn->userdb = userdb;
 
@@ -195,7 +196,7 @@ void login_connection_deinit(struct login_connection **_conn)
 
 	DLLIST_REMOVE(&login_connections, conn);
 	io_remove(&conn->io);
-	o_stream_unref(&conn->output);
+	o_stream_destroy(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(login connection) failed: %m");
 	conn->fd = -1;

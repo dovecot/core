@@ -105,7 +105,7 @@ mdbox_file_metadata_copy(struct dbox_file *file, struct ostream *output)
 	if ((ret = mdbox_file_read_metadata_hdr(file, &meta_hdr)) <= 0)
 		return ret;
 
-	o_stream_send(output, &meta_hdr, sizeof(meta_hdr));
+	o_stream_nsend(output, &meta_hdr, sizeof(meta_hdr));
 	buf_size = i_stream_get_max_buffer_size(file->input);
 	/* use unlimited line length for metadata */
 	i_stream_set_max_buffer_size(file->input, (size_t)-1);
@@ -114,8 +114,8 @@ mdbox_file_metadata_copy(struct dbox_file *file, struct ostream *output)
 			/* end of metadata */
 			break;
 		}
-		o_stream_send_str(output, line);
-		o_stream_send(output, "\n", 1);
+		o_stream_nsend_str(output, line);
+		o_stream_nsend(output, "\n", 1);
 	}
 	i_stream_set_max_buffer_size(file->input, buf_size);
 
@@ -123,7 +123,7 @@ mdbox_file_metadata_copy(struct dbox_file *file, struct ostream *output)
 		dbox_file_set_corrupted(file, "missing end-of-metadata line");
 		return 0;
 	}
-	o_stream_send(output, "\n", 1);
+	o_stream_nsend(output, "\n", 1);
 	return 1;
 }
 
@@ -217,8 +217,7 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 			"read(%s) failed: %m", file->cur_path);
 		return -1;
 	}
-	if (output->stream_errno != 0) {
-		errno = output->stream_errno;
+	if (o_stream_nfinish(output) < 0) {
 		mail_storage_set_critical(&file->storage->storage,
 					  "write(%s) failed: %m",
 					  out_file_append->file->cur_path);

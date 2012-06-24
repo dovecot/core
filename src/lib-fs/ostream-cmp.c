@@ -20,7 +20,7 @@ static void o_stream_cmp_close(struct iostream_private *stream)
 		return;
 
 	i_stream_unref(&cstream->input);
-	o_stream_flush(&cstream->ostream.ostream);
+	(void)o_stream_flush(&cstream->ostream.ostream);
 }
 
 bool stream_cmp_block(struct istream *input,

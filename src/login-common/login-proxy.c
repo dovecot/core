@@ -175,6 +175,7 @@ static void proxy_plain_connected(struct login_proxy *proxy)
 				   FALSE);
 	proxy->server_output =
 		o_stream_create_fd(proxy->server_fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(proxy->server_output, TRUE);
 
 	proxy->server_io =
 		io_add(proxy->server_fd, IO_READ, proxy_prelogin_input, proxy);
@@ -456,7 +457,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 	/* send all pending client input to proxy and get rid of the stream */
 	data = i_stream_get_data(client->input, &size);
 	if (size != 0)
-		(void)o_stream_send(proxy->server_output, data, size);
+		o_stream_nsend(proxy->server_output, data, size);
 
 	/* from now on, just do dummy proxying */
 	io_remove(&proxy->server_io);

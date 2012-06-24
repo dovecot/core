@@ -124,8 +124,7 @@ static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 	ctx->cur_name = p_strconcat(ctx->pool, "[", body->section, "]", NULL);
 
 	str = get_prefix(ctx, body, ctx->cur_size);
-	if (o_stream_send(ctx->client->output, str_data(str), str_len(str)) < 0)
-		return -1;
+	o_stream_nsend(ctx->client->output, str_data(str), str_len(str));
 
 	ctx->cont_handler = fetch_stream_continue;
 	return ctx->cont_handler(ctx);
@@ -340,8 +339,7 @@ fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
-	if (o_stream_send_str(ctx->client->output, str) < 0)
-		return -1;
+	o_stream_nsend_str(ctx->client->output, str);
 
 	ctx->cur_name = "RFC822";
 	return ctx->cont_handler(ctx);
@@ -362,8 +360,7 @@ fetch_rfc822_header(struct imap_fetch_context *ctx,
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
-	if (o_stream_send_str(ctx->client->output, str) < 0)
-		return -1;
+	o_stream_nsend_str(ctx->client->output, str);
 
 	ctx->cur_name = "RFC822.HEADER";
 	return ctx->cont_handler(ctx);
@@ -384,8 +381,7 @@ fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
-	if (o_stream_send_str(ctx->client->output, str) < 0)
-		return -1;
+	o_stream_nsend_str(ctx->client->output, str);
 
 	ctx->cur_name = "RFC822.TEXT";
 	return ctx->cont_handler(ctx);

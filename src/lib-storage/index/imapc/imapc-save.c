@@ -241,11 +241,10 @@ int imapc_save_finish(struct mail_save_context *_ctx)
 	ctx->finished = TRUE;
 
 	if (!ctx->failed) {
-		if (o_stream_flush(_ctx->output) < 0) {
+		if (o_stream_nfinish(_ctx->output) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
-					"o_stream_flush(%s) failed: %m",
-					ctx->temp_path);
+					"write(%s) failed: %m", ctx->temp_path);
 			}
 			ctx->failed = TRUE;
 		}

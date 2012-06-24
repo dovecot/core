@@ -102,7 +102,7 @@ imap_sync_send_search_update(struct imap_sync_context *ctx,
 		str_append_c(cmd, ')');
 	}
 	str_append(cmd, "\r\n");
-	o_stream_send(ctx->client->output, str_data(cmd), str_len(cmd));
+	o_stream_nsend(ctx->client->output, str_data(cmd), str_len(cmd));
 }
 
 static void imap_sync_send_search_updates(struct imap_sync_context *ctx)
@@ -366,7 +366,7 @@ static void imap_sync_vanished(struct imap_sync_context *ctx)
 			str_printfa(line, ":%u", prev_uid);
 	}
 	str_append(line, "\r\n");
-	o_stream_send(ctx->client->output, str_data(line), str_len(line));
+	o_stream_nsend(ctx->client->output, str_data(line), str_len(line));
 }
 
 int imap_sync_more(struct imap_sync_context *ctx)

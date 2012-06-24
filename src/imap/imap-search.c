@@ -177,8 +177,8 @@ static void imap_search_send_result_standard(struct imap_search_context *ctx)
 		for (seq = range->seq1; seq <= range->seq2; seq++)
 			str_printfa(str, " %u", seq);
 		if (str_len(str) >= 1024-32) {
-			o_stream_send(ctx->cmd->client->output,
-				      str_data(str), str_len(str));
+			o_stream_nsend(ctx->cmd->client->output,
+				       str_data(str), str_len(str));
 			str_truncate(str, 0);
 		}
 	}
@@ -188,8 +188,7 @@ static void imap_search_send_result_standard(struct imap_search_context *ctx)
 			    (unsigned long long)ctx->highest_seen_modseq);
 	}
 	str_append(str, "\r\n");
-	o_stream_send(ctx->cmd->client->output,
-		      str_data(str), str_len(str));
+	o_stream_nsend(ctx->cmd->client->output, str_data(str), str_len(str));
 }
 
 static void
@@ -318,7 +317,7 @@ static void imap_search_send_result(struct imap_search_context *ctx)
 			    (unsigned long long)ctx->highest_seen_modseq);
 	}
 	str_append(str, "\r\n");
-	o_stream_send(client->output, str_data(str), str_len(str));
+	o_stream_nsend(client->output, str_data(str), str_len(str));
 	str_free(&str);
 }
 

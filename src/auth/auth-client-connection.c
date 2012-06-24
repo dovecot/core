@@ -54,7 +54,7 @@ static void auth_client_send(struct auth_client_connection *conn,
 	iov[0].iov_len = strlen(cmd);
 	iov[1].iov_base = "\n";
 	iov[1].iov_len = 1;
-	(void)o_stream_sendv(conn->output, iov, 2);
+	o_stream_nsendv(conn->output, iov, 2);
 
 	if (o_stream_get_buffer_used_size(conn->output) >=
 	    OUTBUF_THROTTLE_SIZE) {
@@ -292,8 +292,8 @@ static void auth_client_input(struct auth_client_connection *conn)
 	auth_client_connection_unref(&conn);
 }
 
-struct auth_client_connection *
-auth_client_connection_create(struct auth *auth, int fd, bool login_requests)
+void auth_client_connection_create(struct auth *auth, int fd,
+				   bool login_requests)
 {
 	static unsigned int connect_uid_counter = 0;
 	struct auth_client_connection *conn;
@@ -310,6 +310,7 @@ auth_client_connection_create(struct auth *auth, int fd, bool login_requests)
 	conn->input = i_stream_create_fd(fd, AUTH_CLIENT_MAX_LINE_LENGTH,
 					 FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_no_error_handling(conn->output, TRUE);
 	o_stream_set_flush_callback(conn->output, auth_client_output, conn);
 	conn->io = io_add(fd, IO_READ, auth_client_input, conn);
 
@@ -325,8 +326,6 @@ auth_client_connection_create(struct auth *auth, int fd, bool login_requests)
 
 	if (o_stream_send(conn->output, str_data(str), str_len(str)) < 0)
 		auth_client_disconnected(&conn);
-
-	return conn;
 }
 
 void auth_client_connection_destroy(struct auth_client_connection **_conn)

@@ -176,7 +176,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	hdr.compat_sizeof_uoff_t = sizeof(uoff_t);
 	hdr.indexid = cache->index->indexid;
 	hdr.file_seq = get_next_file_seq(cache, view);
-	o_stream_send(output, &hdr, sizeof(hdr));
+	o_stream_nsend(output, &hdr, sizeof(hdr));
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.cache = cache;
@@ -262,7 +262,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 			ext_offset = output->offset;
 			buffer_write(ctx.buffer, 0, &cache_rec,
 				     sizeof(cache_rec));
-			o_stream_send(output, ctx.buffer->data, cache_rec.size);
+			o_stream_nsend(output, ctx.buffer->data, cache_rec.size);
 		}
 
 		array_append(ext_offsets, &ext_offset, 1);
@@ -271,20 +271,19 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 
 	hdr.field_header_offset = mail_index_uint32_to_offset(output->offset);
 	mail_cache_compress_get_fields(&ctx, used_fields_count);
-	o_stream_send(output, ctx.buffer->data, ctx.buffer->used);
+	o_stream_nsend(output, ctx.buffer->data, ctx.buffer->used);
 
 	hdr.used_file_size = output->offset;
 	buffer_free(&ctx.buffer);
 	buffer_free(&ctx.field_seen);
 
 	o_stream_seek(output, 0);
-	o_stream_send(output, &hdr, sizeof(hdr));
+	o_stream_nsend(output, &hdr, sizeof(hdr));
 
 	mail_cache_view_close(&cache_view);
 
-	if (o_stream_flush(output) < 0) {
-		errno = output->stream_errno;
-		mail_cache_set_syscall_error(cache, "o_stream_flush()");
+	if (o_stream_nfinish(output) < 0) {
+		mail_cache_set_syscall_error(cache, "write()");
 		o_stream_destroy(&output);
 		array_free(ext_offsets);
 		return -1;
