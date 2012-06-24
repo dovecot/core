@@ -666,6 +666,7 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 
 	ctx->finished = TRUE;
 	if (!ctx->failed) {
+		i_assert(ctx->output != NULL);
 		T_BEGIN {
 			if (mbox_write_content_length(ctx) < 0 ||
 			    mbox_append_lf(ctx) < 0)

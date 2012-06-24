@@ -1416,6 +1416,7 @@ squat_uidlist_get_offset(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 		squat_uidlist_set_corrupted(uidlist, "uidlist not found");
 		return -1;
 	}
+	i_assert(uidlist->cur_block_end_indexes != NULL);
 	if (unlikely(idx > 0 &&
 		     uidlist->cur_block_end_indexes[idx-1] > uid_list_idx)) {
 		squat_uidlist_set_corrupted(uidlist, "broken block list");
@@ -1430,6 +1431,7 @@ squat_uidlist_get_offset(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 		return -1;
 
 	/* find the uidlist inside the block */
+	i_assert(uidlist->cur_block_offsets != NULL);
 	p = CONST_PTR_OFFSET(uidlist->data, uidlist->cur_block_offsets[idx]);
 	end = CONST_PTR_OFFSET(uidlist->data, uidlist->data_size);
 
