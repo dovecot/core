@@ -296,7 +296,8 @@ void duplicate_flush(struct duplicate_context *ctx)
 	hdr.version = DUPLICATE_VERSION;
 
 	output = o_stream_create_fd_file(file->new_fd, 0, FALSE);
-	o_stream_send(output, &hdr, sizeof(hdr));
+	o_stream_cork(output);
+	(void)o_stream_send(output, &hdr, sizeof(hdr));
 
 	memset(&rec, 0, sizeof(rec));
 	iter = hash_table_iterate_init(file->hash);
@@ -307,11 +308,21 @@ void duplicate_flush(struct duplicate_context *ctx)
 		rec.id_size = d->id_size;
 		rec.user_size = strlen(d->user);
 
-		o_stream_send(output, &rec, sizeof(rec));
-		o_stream_send(output, d->id, rec.id_size);
-		o_stream_send(output, d->user, rec.user_size);
+		(void)o_stream_send(output, &rec, sizeof(rec));
+		(void)o_stream_send(output, d->id, rec.id_size);
+		(void)o_stream_send(output, d->user, rec.user_size);
 	}
+	o_stream_uncork(output);
 	hash_table_iterate_deinit(&iter);
+
+	if (output->last_failed_errno != 0) {
+		errno = output->last_failed_errno;
+		i_error("write(%s) failed: %m", file->path);
+		o_stream_unref(&output);
+		file_dotlock_delete(&file->dotlock);
+		file->new_fd = -1;
+		return;
+	}
 	o_stream_unref(&output);
 
 	file->changed = FALSE;
