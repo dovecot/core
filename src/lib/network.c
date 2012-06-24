@@ -334,8 +334,7 @@ void net_disconnect(int fd)
 
 void net_set_nonblock(int fd, bool nonblock)
 {
-	if (fd_set_nonblock(fd, nonblock) < 0)
-		i_fatal("fd_set_nonblock(%d) failed: %m", fd);
+	fd_set_nonblock(fd, nonblock);
 }
 
 int net_set_cork(int fd ATTR_UNUSED, bool cork ATTR_UNUSED)

@@ -5,24 +5,19 @@
 
 #include <fcntl.h>
 
-int fd_set_nonblock(int fd, bool nonblock)
+void fd_set_nonblock(int fd, bool nonblock)
 {
 	int flags;
 
 	flags = fcntl(fd, F_GETFL, 0);
-	if (flags < 0) {
-		i_error("fcntl(%d, F_GETFL) failed: %m", fd);
-		return -1;
-	}
+	if (flags < 0)
+		i_fatal("fcntl(%d, F_GETFL) failed: %m", fd);
 
 	if (nonblock)
 		flags |= O_NONBLOCK;
 	else
 		flags &= ~O_NONBLOCK;
 
-	if (fcntl(fd, F_SETFL, flags) < 0) {
-		i_error("fcntl(%d, F_SETFL) failed: %m", fd);
-		return -1;
-	}
-	return 0;
+	if (fcntl(fd, F_SETFL, flags) < 0)
+		i_fatal("fcntl(%d, F_SETFL) failed: %m", fd);
 }
