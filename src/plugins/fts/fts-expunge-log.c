@@ -214,7 +214,7 @@ void fts_expunge_log_append_next(struct fts_expunge_log_append_ctx *ctx,
 			mailbox = fts_expunge_log_mailbox_alloc(ctx, mailbox_guid);
 		ctx->prev_mailbox = mailbox;
 	}
-	if (!seq_range_array_try_add(&mailbox->uids, uid))
+	if (!seq_range_array_add(&mailbox->uids, uid))
 		mailbox->uids_count++;
 }
 

@@ -47,12 +47,12 @@ static void test_seq_range_array_random(void)
 			memset(shadowbuf + seq1, 1, seq2 - seq1 + 1);
 			break;
 		case 2:
-			ret = seq_range_array_try_remove(&range, seq1) ? 1 : 0;
+			ret = seq_range_array_remove(&range, seq1) ? 1 : 0;
 			ret2 = shadowbuf[seq1] != 0 ? 1 : 0;
 			shadowbuf[seq1] = 0;
 			break;
 		case 3:
-			ret = seq_range_array_remove_range_count(&range, seq1, seq2);
+			ret = seq_range_array_remove_range(&range, seq1, seq2);
 			for (ret2 = 0; seq1 <= seq2; seq1++) {
 				if (shadowbuf[seq1] != 0) {
 					ret2++;

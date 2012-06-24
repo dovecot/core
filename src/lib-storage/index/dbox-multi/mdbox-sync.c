@@ -52,7 +52,7 @@ static int mdbox_sync_expunge(struct mdbox_sync_context *ctx, uint32_t seq,
 {
 	uint32_t map_uid;
 
-	if (seq_range_array_try_add(&ctx->expunged_seqs, seq)) {
+	if (seq_range_array_add(&ctx->expunged_seqs, seq)) {
 		/* already marked as expunged in this sync */
 		return 0;
 	}

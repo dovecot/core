@@ -129,7 +129,7 @@ index_mailbox_expunge_recent(struct mailbox *box, uint32_t seq1, uint32_t seq2)
 
 	for (; seq1 <= seq2; seq1++) {
 		mail_index_lookup_uid(box->view, seq1, &uid);
-		if (seq_range_array_try_remove(&ibox->recent_flags, uid))
+		if (seq_range_array_remove(&ibox->recent_flags, uid))
 			ibox->recent_flags_count--;
 	}
 }
@@ -305,15 +305,15 @@ index_mailbox_expunge_unseen_recent(struct index_mailbox_sync_context *ctx)
 			continue;
 
 		ibox->recent_flags_count -=
-			seq_range_array_remove_range_count(&ibox->recent_flags,
-							   start_uid + 1, uid - 1);
+			seq_range_array_remove_range(&ibox->recent_flags,
+						     start_uid + 1, uid - 1);
 	}
 
 	if (uid + 1 < hdr->next_uid) {
 		ibox->recent_flags_count -=
-			seq_range_array_remove_range_count(&ibox->recent_flags,
-							   uid + 1,
-							   hdr->next_uid - 1);
+			seq_range_array_remove_range(&ibox->recent_flags,
+						     uid + 1,
+						     hdr->next_uid - 1);
 	}
 #ifdef DEBUG
 	if (!mail_index_view_is_inconsistent(view)) {
