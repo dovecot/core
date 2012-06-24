@@ -358,6 +358,9 @@ int dsync_transaction_log_scan_init(struct mail_index_view *view,
 	max_seq = view->log_file_expunge_seq;
 	max_offset = view->log_file_expunge_offset;
 
+	mail_transaction_log_view_get_prev_pos(log_view, &file_seq,
+					       &file_offset);
+
 	while (mail_transaction_log_view_next(log_view, &hdr, &data) > 0) {
 		mail_transaction_log_view_get_prev_pos(log_view, &file_seq,
 						       &file_offset);
