@@ -275,7 +275,7 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 		ret = 0;
 	}
 	imap_msgpart_url_free(&mpurl);
-	return 0;
+	return ret;
 }
 
 static int cmd_append_catenate_text(struct client_command_context *cmd)
