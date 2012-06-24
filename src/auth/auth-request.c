@@ -1258,6 +1258,8 @@ void auth_request_set_field(struct auth_request *request,
 	i_assert(*name != '\0');
 	i_assert(value != NULL);
 
+	i_assert(request->passdb != NULL);
+
 	if (strcmp(name, "password") == 0) {
 		auth_request_set_password(request, value,
 					  default_scheme, FALSE);

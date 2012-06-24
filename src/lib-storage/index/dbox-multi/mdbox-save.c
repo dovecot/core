@@ -287,6 +287,12 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 
 	i_assert(ctx->ctx.finished);
 
+	/* flush/fsync writes to m.* files before locking the map */
+	if (mdbox_map_append_flush(ctx->append_ctx) < 0) {
+		mdbox_transaction_save_rollback(_ctx);
+		return -1;
+	}
+
 	/* make sure the map gets locked */
 	if (mdbox_map_atomic_lock(ctx->atomic) < 0) {
 		mdbox_transaction_save_rollback(_ctx);

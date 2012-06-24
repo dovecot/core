@@ -1,3 +1,22 @@
+v2.1.7 2012-05-29  Timo Sirainen <tss@iki.fi>
+
+	* LDAP: Compatibility fix for v2.0: ldap: If attributes contain
+	  ldapAttr=key=template%$ and ldapAttr doesn't exist, skip the key
+	  instead of using "template" value with empty %$ part for the key.
+
+	+ pop3: Added pop3_uidl_duplicates setting for changing the behavior
+	  for duplicate UIDLs.
+	+ director: Added "doveadm director ring remove" command.
+	- director: Don't crash with quickly disconnecting incoming director
+	  connections.
+	- mdbox: If mail was originally saved to non-INBOX, and namespace
+	  prefix is non-empty, don't assert-crash when rebuilding indexes.
+	- sdbox: Don't use more fds than necessary when copying mails.
+	- auth: Fixed crash with DIGEST-MD5 when attempting to do master user
+	  login without master passdbs. 
+	- Several fixes to mail_shared_explicit_inbox=no
+	- imapc: Use imapc_list_prefix also for listing subscriptions.
+
 v2.1.6 2012-05-07  Timo Sirainen <tss@iki.fi>
 
 	* Session ID is now included by default in auth and login process

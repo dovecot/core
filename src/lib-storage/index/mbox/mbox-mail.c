@@ -241,6 +241,8 @@ mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 	int trailer_size;
 	int ret = 1;
 
+	*next_offset_r = (uoff_t)-1;
+
 	hdr = mail_index_get_header(mail->mail.mail.transaction->view);
 	if (mail->mail.mail.seq > hdr->messages_count) {
 		/* we're appending a new message */
@@ -342,8 +344,6 @@ static int mbox_mail_init_stream(struct index_mail *mail)
 				  mail->mail.mail.uid);
 		}
 	}
-	if (ret <= 0)
-		next_offset = (uoff_t)-1;
 
 	raw_stream = mbox->mbox_stream;
 	hdr_offset = istream_raw_mbox_get_header_offset(raw_stream);

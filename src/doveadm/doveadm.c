@@ -5,7 +5,7 @@
 #include "str.h"
 #include "env-util.h"
 #include "execv-const.h"
-#include "master-service.h"
+#include "master-service-private.h"
 #include "master-service-settings.h"
 #include "settings-parser.h"
 #include "doveadm-print-private.h"
@@ -163,6 +163,8 @@ static struct doveadm_cmd doveadm_cmd_help = {
 
 static void cmd_config(int argc ATTR_UNUSED, char *argv[])
 {
+	env_put(t_strconcat(MASTER_CONFIG_FILE_ENV"=",
+		master_service_get_config_path(master_service), NULL));
 	argv[0] = BINDIR"/doveconf";
 	(void)execv(argv[0], argv);
 	i_fatal("execv(%s) failed: %m", argv[0]);

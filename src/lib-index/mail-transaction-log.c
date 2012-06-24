@@ -463,6 +463,7 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 		/* try again */
 	}
 
+	i_assert(ret < 0 || log->head != NULL);
 	return ret;
 }
 

@@ -259,6 +259,8 @@ imap_search_header(struct mail_search_build_context *ctx)
 	/* <hdr-name> <string> */
 	if (mail_search_parse_string(ctx->parser, &hdr_name) < 0)
 		return NULL;
+	if (mail_search_build_get_utf8(ctx, hdr_name, &hdr_name) < 0)
+		return NULL;
 
 	return arg_new_header(ctx, SEARCH_HEADER, t_str_ucase(hdr_name));
 }

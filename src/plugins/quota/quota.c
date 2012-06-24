@@ -638,7 +638,7 @@ void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns)
 		for (i = 0; i < count; i++) {
 			path2 = mailbox_list_get_root_path(namespaces[i]->list,
 				     	MAILBOX_LIST_PATH_TYPE_MAILBOX);
-			if (strcmp(path, path2) == 0) {
+			if (path2 != NULL && strcmp(path, path2) == 0) {
 				/* duplicate */
 				return;
 			}

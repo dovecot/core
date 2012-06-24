@@ -9,6 +9,7 @@ struct master_instance {
 	time_t last_used;
 	const char *name;
 	const char *base_dir;
+	const char *config_path;
 };
 
 struct master_instance_list *master_instance_list_init(const char *path);

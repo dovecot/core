@@ -53,6 +53,20 @@ void charset_to_utf8_reset(struct charset_translation *t)
 		(void)iconv(t->cd, NULL, NULL, NULL, NULL);
 }
 
+static int
+charset_append_utf8(const void *src, size_t src_size,
+		    buffer_t *dest, bool dtcase)
+{
+	if (dtcase)
+		return uni_utf8_to_decomposed_titlecase(src, src_size, dest);
+	if (!uni_utf8_get_valid_data(src, src_size, dest))
+		return -1;
+	else {
+		buffer_append(dest, src, src_size);
+		return 0;
+	}
+}
+
 static bool
 charset_to_utf8_try(struct charset_translation *t,
 		    const unsigned char *src, size_t *src_size, buffer_t *dest,
@@ -65,30 +79,15 @@ charset_to_utf8_try(struct charset_translation *t,
 	bool ret = TRUE;
 
 	if (t->cd == (iconv_t)-1) {
-		/* no translation needed - just copy it to outbuf uppercased */
-		*result = CHARSET_RET_OK;
-		if (!dtcase) {
-			buffer_append(dest, src, *src_size);
-			return TRUE;
-		}
-
-		if (uni_utf8_to_decomposed_titlecase(src, *src_size, dest) < 0)
+		/* input is already supposed to be UTF-8 */
+		if (charset_append_utf8(src, *src_size, dest, dtcase) < 0)
 			*result = CHARSET_RET_INVALID_INPUT;
+		else
+			*result = CHARSET_RET_OK;
 		return TRUE;
 	}
-	if (!dtcase) {
-		destleft = buffer_get_size(dest) - dest->used;
-		if (destleft < *src_size) {
-			/* The buffer is most likely too small to hold the
-			   output, so increase it at least to the input size. */
-			destleft = *src_size;
-		}
-		ic_destbuf = buffer_append_space_unsafe(dest, destleft);
-	} else {
-		destleft = sizeof(tmpbuf);
-		ic_destbuf = tmpbuf;
-	}
-
+	destleft = sizeof(tmpbuf);
+	ic_destbuf = tmpbuf;
 	srcleft = *src_size;
 	ic_srcbuf = (ICONV_CONST char *) src;
 
@@ -108,17 +107,12 @@ charset_to_utf8_try(struct charset_translation *t,
 	}
 	*src_size -= srcleft;
 
-	if (!dtcase) {
-		/* give back the memory we didn't use */
-		buffer_set_used_size(dest, dest->used - destleft);
-	} else {
-		size_t tmpsize = sizeof(tmpbuf) - destleft;
-
-		/* we just converted data to UTF-8. it shouldn't be invalid,
-		   but Solaris iconv appears to pass invalid data through
-		   sometimes (e.g. 8 bit characters with UTF-7) */
-		(void)uni_utf8_to_decomposed_titlecase(tmpbuf, tmpsize, dest);
-	}
+	/* we just converted data to UTF-8. it shouldn't be invalid, but
+	   Solaris iconv appears to pass invalid data through sometimes
+	   (e.g. 8 bit characters with UTF-7) */
+	if (charset_append_utf8(tmpbuf, sizeof(tmpbuf) - destleft,
+				dest, dtcase) < 0)
+		*result = CHARSET_RET_INVALID_INPUT;
 	return ret;
 }
 

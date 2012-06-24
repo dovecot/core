@@ -367,7 +367,7 @@ md5_verify(const char *plaintext, const char *user,
 		str = password_generate_md5_crypt(plaintext, password);
 		return strcmp(str, password) == 0 ? 1 : 0;
 	} else if (password_decode(password, "PLAIN-MD5",
-				   &md5_password, &md5_size, &error) < 0) {
+				   &md5_password, &md5_size, &error) <= 0) {
 		*error_r = "Not a valid MD5-CRYPT or PLAIN-MD5 password";
 		return -1;
 	} else {

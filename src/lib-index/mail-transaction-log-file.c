@@ -1673,6 +1673,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 				file->filepath);
 			return 0;
 		}
+		i_assert(file->buffer != NULL);
 		return log_file_map_check_offsets(file, start_offset,
 						  end_offset);
 	}
@@ -1695,9 +1696,11 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 
 	i_assert(file->buffer == NULL || file->mmap_base != NULL ||
 		 file->sync_offset >= file->buffer_offset + file->buffer->used);
+	if (ret <= 0)
+		return ret;
 
-	return ret <= 0 ? ret :
-		log_file_map_check_offsets(file, start_offset, end_offset);
+	i_assert(file->buffer != NULL);
+	return log_file_map_check_offsets(file, start_offset, end_offset);
 }
 
 void mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file

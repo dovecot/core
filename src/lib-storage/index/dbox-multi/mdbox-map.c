@@ -517,11 +517,13 @@ bool mdbox_map_atomic_is_locked(struct mdbox_map_atomic_context *atomic)
 void mdbox_map_atomic_set_failed(struct mdbox_map_atomic_context *atomic)
 {
 	atomic->success = FALSE;
+	atomic->failed = TRUE;
 }
 
 void mdbox_map_atomic_set_success(struct mdbox_map_atomic_context *atomic)
 {
-	atomic->success = TRUE;
+	if (!atomic->failed)
+		atomic->success = TRUE;
 }
 
 int mdbox_map_atomic_finish(struct mdbox_map_atomic_context **_atomic)
@@ -593,7 +595,7 @@ int mdbox_map_transaction_commit(struct mdbox_map_transaction_context *ctx)
 		mail_index_reset_error(ctx->atomic->map->index);
 		return -1;
 	}
-	ctx->atomic->success = TRUE;
+	mdbox_map_atomic_set_success(ctx->atomic);
 	return 0;
 }
 
@@ -1365,6 +1367,21 @@ int mdbox_map_append_move(struct mdbox_map_append_context *ctx,
 	return 0;
 }
 
+int mdbox_map_append_flush(struct mdbox_map_append_context *ctx)
+{
+	struct dbox_file_append_context **file_appends;
+	unsigned int i, count;
+
+	i_assert(ctx->trans == NULL);
+
+	file_appends = array_get_modifiable(&ctx->file_appends, &count);
+	for (i = 0; i < count; i++) {
+		if (dbox_file_append_flush(file_appends[i]) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 int mdbox_map_append_commit(struct mdbox_map_append_context *ctx)
 {
 	struct dbox_file_append_context **file_appends;
@@ -1377,7 +1394,7 @@ int mdbox_map_append_commit(struct mdbox_map_append_context *ctx)
 		if (dbox_file_append_commit(&file_appends[i]) < 0)
 			return -1;
 	}
-	ctx->atomic->success = TRUE;
+	mdbox_map_atomic_set_success(ctx->atomic);
 	return 0;
 }
 

@@ -492,7 +492,7 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 	/* refresh once more now that we're locked */
 	if (file_dict_refresh(dict) < 0) {
 		if (dotlock != NULL)
-			file_dotlock_delete(&dotlock);
+			(void)file_dotlock_delete(&dotlock);
 		else {
 			(void)close(fd);
 			file_unlock(&lock);
@@ -512,12 +512,20 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 	o_stream_cork(output);
 	iter = hash_table_iterate_init(dict->hash);
 	while (hash_table_iterate(iter, &key, &value)) {
-		o_stream_send_str(output, key);
-		o_stream_send(output, "\n", 1);
-		o_stream_send_str(output, value);
-		o_stream_send(output, "\n", 1);
+		(void)o_stream_send_str(output, key);
+		(void)o_stream_send(output, "\n", 1);
+		(void)o_stream_send_str(output, value);
+		(void)o_stream_send(output, "\n", 1);
 	}
+	o_stream_uncork(output);
 	hash_table_iterate_deinit(&iter);
+
+	if (output->stream_errno != 0) {
+		i_error("write(%s) failed: %m", temp_path);
+		o_stream_destroy(&output);
+		(void)close(fd);
+		return -1;
+	}
 	o_stream_destroy(&output);
 
 	if (dotlock != NULL) {

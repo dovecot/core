@@ -18,6 +18,7 @@ struct doveadm_print_context {
 	const struct doveadm_print_vfuncs *v;
 
 	unsigned int header_idx;
+	bool print_stream_open;
 };
 
 static struct doveadm_print_context *ctx;
@@ -52,7 +53,7 @@ void doveadm_print_header_simple(const char *key_title)
 	doveadm_print_header(key_title, key_title, 0);
 }
 
-void doveadm_print(const char *value)
+static void doveadm_print_sticky_headers(void)
 {
 	const struct doveadm_print_header_context *headers;
 	unsigned int count;
@@ -68,7 +69,13 @@ void doveadm_print(const char *value)
 			break;
 		}
 	}
+}
 
+void doveadm_print(const char *value)
+{
+	i_assert(!ctx->print_stream_open);
+
+	doveadm_print_sticky_headers();
 	ctx->v->print(value);
 	ctx->header_idx++;
 }
@@ -82,9 +89,15 @@ void doveadm_print_num(uintmax_t value)
 
 void doveadm_print_stream(const void *value, size_t size)
 {
+	if (!ctx->print_stream_open) {
+		doveadm_print_sticky_headers();
+		ctx->print_stream_open = TRUE;
+	}
 	ctx->v->print_stream(value, size);
-	if (size == 0)
+	if (size == 0) {
 		ctx->header_idx++;
+		ctx->print_stream_open = FALSE;
+	}
 }
 
 void doveadm_print_sticky(const char *key, const char *value)
