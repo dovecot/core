@@ -144,7 +144,7 @@ int dns_lookup(const char *host, const struct dns_lookup_settings *set,
 	if (write_full(fd, cmd, strlen(cmd)) < 0) {
 		result.error = t_strdup_printf("write(%s) failed: %m",
 					       set->dns_client_socket_path);
-		(void)close(fd);
+		i_close_fd(fd);
 		callback(&result, context);
 		return -1;
 	}

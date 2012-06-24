@@ -109,7 +109,7 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 	}
 	if (fstat(fd, &st) < 0) {
 		i_error("fstat(%s) failed: %m", path);
-		(void)close(fd);
+		i_close_fd(fd);
 		return -1;
 	}
 	backend->acllist_mtime = st.st_mtime;

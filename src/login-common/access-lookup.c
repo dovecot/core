@@ -82,7 +82,7 @@ access_lookup(const char *path, int client_fd, const char *daemon_name,
 			i_error("fd_send(%s) failed: %m", path);
 		else
 			i_error("fd_send(%s) didn't write enough bytes", path);
-		(void)close(fd);
+		i_close_fd(fd);
 		return NULL;
 	}
 

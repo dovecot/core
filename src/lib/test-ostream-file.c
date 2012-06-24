@@ -54,7 +54,7 @@ static void test_ostream_file_random(void)
 		test_assert(memcmp(buf, buf2, ret) == 0);
 	}
 	o_stream_unref(&output);
-	(void)close(fd);
+	i_close_fd(fd);
 }
 
 void test_ostream_file(void)

@@ -99,7 +99,7 @@ static int fts_expunge_log_open(struct fts_expunge_log *log, bool create)
 	}
 	if (fstat(fd, &log->st) < 0) {
 		i_error("fstat(%s) failed: %m", log->path);
-		(void)close(fd);
+		i_close_fd(fd);
 		return -1;
 	}
 	log->fd = fd;

@@ -833,7 +833,7 @@ static int client_input_add_file(struct client *client,
 	if (unlink(str_c(path)) < 0) {
 		/* shouldn't happen.. */
 		i_error("unlink(%s) failed: %m", str_c(path));
-		(void)close(fd);
+		i_close_fd(fd);
 		return -1;
 	}
 

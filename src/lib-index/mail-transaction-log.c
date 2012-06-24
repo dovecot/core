@@ -5,7 +5,6 @@
 #include "buffer.h"
 #include "file-dotlock.h"
 #include "nfs-workarounds.h"
-#include "close-keep-errno.h"
 #include "mmap-util.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log-private.h"

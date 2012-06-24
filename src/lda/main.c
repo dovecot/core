@@ -4,7 +4,6 @@
 #include "lib-signals.h"
 #include "env-util.h"
 #include "fd-set-nonblock.h"
-#include "close-keep-errno.h"
 #include "istream.h"
 #include "istream-seekable.h"
 #include "abspath.h"
@@ -102,7 +101,7 @@ static int seekable_fd_callback(const char **path_r, void *context)
 	if (unlink(str_c(path)) < 0) {
 		/* shouldn't happen.. */
 		i_error("unlink(%s) failed: %m", str_c(path));
-		close_keep_errno(fd);
+		i_close_fd(fd);
 		return -1;
 	}
 

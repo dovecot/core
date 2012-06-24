@@ -320,7 +320,7 @@ static int zlib_mailbox_open_input(struct mailbox *box)
 			return 0;
 		}
 		if (fstat(fd, &st) == 0 && S_ISDIR(st.st_mode)) {
-			(void)close(fd);
+			i_close_fd(fd);
 			return 0;
 		}
 		input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);

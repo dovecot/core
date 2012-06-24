@@ -592,7 +592,7 @@ static int maildirsize_read(struct maildir_quota_root *root, bool *retry)
 
 	if (ret < 0 && size == 0) {
 		/* the read failed and there's no usable header, fail. */
-		(void)close(root->fd);
+		i_close_fd(root->fd);
 		root->fd = -1;
 		return -1;
 	}
@@ -609,7 +609,7 @@ static int maildirsize_read(struct maildir_quota_root *root, bool *retry)
 		ret = 1;
 	else {
 		/* broken file / need recalculation */
-		(void)close(root->fd);
+		i_close_fd(root->fd);
 		root->fd = -1;
 		ret = 0;
 	}
@@ -766,7 +766,7 @@ static void maildir_quota_deinit(struct quota_root *_root)
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
 
 	if (root->fd != -1)
-		(void)close(root->fd);
+		i_close_fd(root->fd);
 	i_free(root);
 }
 
@@ -885,12 +885,12 @@ maildir_quota_update(struct quota_root *_root,
 	} else if (root->fd == -1)
 		(void)maildirsize_recalculate(root);
 	else if (ctx->recalculate) {
-		(void)close(root->fd);
+		i_close_fd(root->fd);
 		root->fd = -1;
 		(void)maildirsize_recalculate(root);
 	} else if (maildirsize_update(root, ctx->count_used, ctx->bytes_used) < 0) {
 		if (root->fd != -1) {
-			(void)close(root->fd);
+			i_close_fd(root->fd);
 			root->fd = -1;
 		}
 		maildirsize_rebuild_later(root);

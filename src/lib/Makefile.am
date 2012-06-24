@@ -20,7 +20,6 @@ liblib_la_SOURCES = \
 	bsearch-insert-pos.c \
 	buffer.c \
 	child-wait.c \
-	close-keep-errno.c \
 	compat.c \
 	crc32.c \
 	data-stack.c \
@@ -140,7 +139,6 @@ headers = \
 	bsearch-insert-pos.h \
 	buffer.h \
 	child-wait.h \
-	close-keep-errno.h \
 	compat.h \
 	crc32.h \
 	data-stack.h \

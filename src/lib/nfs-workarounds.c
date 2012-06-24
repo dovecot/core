@@ -259,7 +259,7 @@ void nfs_flush_attr_cache_unlocked(const char *path)
 	/* Try to flush the attribute cache the nice way first. */
 	fd = open(path, O_RDONLY);
 	if (fd != -1)
-		(void)close(fd);
+		i_close_fd(fd);
 	else if (errno == ESTALE) {
 		/* this already flushed the cache */
 	} else {
@@ -326,7 +326,7 @@ nfs_flush_file_handle_cache_dir(const char *path, bool try_parent ATTR_UNUSED)
 		if (t_get_current_dir(&cur_path) < 0) {
 			i_error("nfs_flush_file_handle_cache_dir: "
 				"getcwd() failed");
-			(void)close(cur_dir_fd);
+			i_close_fd(cur_dir_fd);
 			return TRUE;
 		}
 		p = strrchr(cur_path, '/');
@@ -341,7 +341,7 @@ nfs_flush_file_handle_cache_dir(const char *path, bool try_parent ATTR_UNUSED)
 		ret = nfs_flush_file_handle_cache_dir(path, FALSE);
 		if (fchdir(cur_dir_fd) < 0)
 			i_error("fchdir() failed: %m");
-		(void)close(cur_dir_fd);
+		i_close_fd(cur_dir_fd);
 		return ret;
 	} else {
 		i_error("nfs_flush_file_handle_cache_dir: "

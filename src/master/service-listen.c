@@ -86,7 +86,7 @@ static int service_unix_listener_listen(struct service_listener *l)
 		fd = net_connect_unix(set->path);
 		if (fd != -1 || errno != ECONNREFUSED || i >= 3) {
 			if (fd != -1)
-				(void)close(fd);
+				i_close_fd(fd);
 			service_error(service, "Socket already exists: %s",
 				      set->path);
 			return 0;
@@ -104,7 +104,7 @@ static int service_unix_listener_listen(struct service_listener *l)
 	i_assert(fd != -1);
 
 	if (service_file_chown(l) < 0) {
-		(void)close(fd);
+		i_close_fd(fd);
 		return -1;
 	}
 	net_set_nonblock(fd, TRUE);

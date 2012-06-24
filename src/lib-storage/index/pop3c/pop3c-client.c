@@ -9,7 +9,6 @@
 #include "ostream.h"
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
-#include "close-keep-errno.h"
 #include "safe-mkstemp.h"
 #include "base64.h"
 #include "str.h"
@@ -716,7 +715,7 @@ static int seekable_fd_callback(const char **path_r, void *context)
 	if (unlink(str_c(path)) < 0) {
 		/* shouldn't happen.. */
 		i_error("unlink(%s) failed: %m", str_c(path));
-		close_keep_errno(fd);
+		i_close_fd(fd);
 		return -1;
 	}
 

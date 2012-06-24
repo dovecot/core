@@ -100,7 +100,7 @@ static bool test_dump_mailboxlog(const char *path)
 			break;
 		}
 	}
-	(void)close(fd);
+	i_close_fd(fd);
 	return ret;
 }
 

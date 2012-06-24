@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "array.h"
-#include "close-keep-errno.h"
 #include "fd-set-nonblock.h"
 #include "safe-mkstemp.h"
 #include "ioloop.h"
@@ -1366,7 +1365,7 @@ static int seekable_fd_callback(const char **path_r, void *context)
 	if (unlink(str_c(path)) < 0) {
 		/* shouldn't happen.. */
 		i_error("unlink(%s) failed: %m", str_c(path));
-		close_keep_errno(fd);
+		i_close_fd(fd);
 		return -1;
 	}
 

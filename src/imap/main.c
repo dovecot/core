@@ -277,7 +277,7 @@ login_client_connected(const struct master_login_client *client,
 				i_error("write(client) failed: %m");
 		}
 		i_error("%s", error);
-		(void)close(client->fd);
+		i_close_fd(client->fd);
 		master_service_client_connection_destroyed(master_service);
 	}
 }

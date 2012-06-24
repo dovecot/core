@@ -33,7 +33,6 @@
 #define _GNU_SOURCE /* for O_NOFOLLOW with Linux */
 
 #include "lib.h"
-#include "close-keep-errno.h"
 #include "unlink-directory.h"
 
 #include <fcntl.h>
@@ -73,26 +72,26 @@ static int unlink_directory_r(const char *dir)
 		return -1;
 
 	if (fstat(dir_fd, &st2) < 0) {
-		close_keep_errno(dir_fd);
+		i_close_fd(dir_fd);
 		return -1;
 	}
 
 	if (st.st_ino != st2.st_ino ||
 	    !CMP_DEV_T(st.st_dev, st2.st_dev)) {
 		/* directory was just replaced with something else. */
-		(void)close(dir_fd);
+		i_close_fd(dir_fd);
 		errno = ENOTDIR;
 		return -1;
 	}
 #endif
 	if (fchdir(dir_fd) < 0) {
-                close_keep_errno(dir_fd);
+                i_close_fd(dir_fd);
 		return -1;
 	}
 
 	dirp = opendir(".");
 	if (dirp == NULL) {
-		close_keep_errno(dir_fd);
+		i_close_fd(dir_fd);
 		return -1;
 	}
 
@@ -148,7 +147,7 @@ static int unlink_directory_r(const char *dir)
 	}
 	old_errno = errno;
 
-	(void)close(dir_fd);
+	i_close_fd(dir_fd);
 	if (closedir(dirp) < 0)
 		return -1;
 
@@ -177,7 +176,7 @@ int unlink_directory(const char *dir, bool unlink_dir)
 		i_fatal("unlink_directory(%s): "
 			"Can't fchdir() back to our original dir: %m", dir);
 	}
-	(void)close(fd);
+	i_close_fd(fd);
 
 	if (ret < 0) {
 		errno = old_errno;

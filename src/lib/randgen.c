@@ -63,7 +63,7 @@ void random_deinit(void)
 	if (--init_refcount > 0)
 		return;
 
-	(void)close(urandom_fd);
+	i_close_fd(urandom_fd);
 	urandom_fd = -1;
 }
 

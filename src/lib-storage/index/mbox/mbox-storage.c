@@ -512,7 +512,7 @@ static int create_inbox(struct mailbox *box)
 		restrict_access_drop_priv_gid();
 	}
 	if (fd != -1) {
-		(void)close(fd);
+		i_close_fd(fd);
 		return 0;
 	} else if (errno == EACCES) {
 		mail_storage_set_critical(box->storage, "%s",
@@ -553,7 +553,7 @@ mbox_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 					       "Mailbox already exists");
 			return -1;
 		}
-		(void)close(fd);
+		i_close_fd(fd);
 	}
 	return update == NULL ? 0 : mbox_mailbox_update(box, update);
 }

@@ -26,6 +26,6 @@ int fdatasync_path(const char *path)
 			ret = -1;
 		}
 	}
-	(void)close(fd);
+	i_close_fd(fd);
 	return ret;
 }

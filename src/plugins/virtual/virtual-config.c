@@ -427,7 +427,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	if (ret == 0)
 		virtual_config_search_args_dup(mbox);
 	i_stream_unref(&ctx.input);
-	(void)close(fd);
+	i_close_fd(fd);
 	return ret;
 }
 

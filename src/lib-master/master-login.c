@@ -330,7 +330,7 @@ static int master_login_postlogin(struct master_login_client *client,
 			i_error("write(%s) failed: partial write",
 				login->postlogin_socket_path);
 		}
-		(void)close(fd);
+		i_close_fd(fd);
 		return -1;
 	}
 	net_set_nonblock(fd, TRUE);

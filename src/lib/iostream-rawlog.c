@@ -101,7 +101,7 @@ int iostream_rawlog_create(const char *dir, struct istream **input,
 	out_fd = open(out_path, O_CREAT | O_APPEND | O_WRONLY, 0600);
 	if (out_fd == -1) {
 		i_error("creat(%s) failed: %m", out_path);
-		(void)close(in_fd);
+		i_close_fd(in_fd);
 		(void)unlink(in_path);
 		return -1;
 	}

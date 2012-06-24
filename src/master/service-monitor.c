@@ -398,7 +398,7 @@ static int service_login_create_notify_fd(struct service *service)
 	} T_END;
 
 	if (fd != service->login_notify_fd)
-		(void)close(fd);
+		i_close_fd(fd);
 	return fd == -1 ? -1 : 0;
 }
 

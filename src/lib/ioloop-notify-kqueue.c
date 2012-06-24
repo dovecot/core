@@ -141,7 +141,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 		  NOTE_DELETE | NOTE_WRITE | NOTE_EXTEND | NOTE_REVOKE, 0, io);
 	if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0) {
 		i_error("kevent(%d, %s) for notify failed: %m", fd, path);
-		(void)close(fd);
+		i_close_fd(fd);
 		i_free(io);
 		return IO_NOTIFY_NOSUPPORT;
 	}

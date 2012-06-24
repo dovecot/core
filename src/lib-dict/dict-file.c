@@ -494,7 +494,7 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 		if (dotlock != NULL)
 			(void)file_dotlock_delete(&dotlock);
 		else {
-			(void)close(fd);
+			i_close_fd(fd);
 			file_unlock(&lock);
 		}
 		return -1;
@@ -522,7 +522,7 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 	if (o_stream_nfinish(output) < 0) {
 		i_error("write(%s) failed: %m", temp_path);
 		o_stream_destroy(&output);
-		(void)close(fd);
+		i_close_fd(fd);
 		return -1;
 	}
 	o_stream_destroy(&output);
@@ -530,7 +530,7 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 	if (dotlock != NULL) {
 		if (file_dotlock_replace(&dotlock,
 				DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) < 0) {
-			(void)close(fd);
+			i_close_fd(fd);
 			return -1;
 		}
 	} else {
@@ -538,14 +538,14 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 			i_error("rename(%s, %s) failed: %m",
 				temp_path, dict->path);
 			file_unlock(&lock);
-			(void)close(fd);
+			i_close_fd(fd);
 			return -1;
 		}
 		file_lock_free(&lock);
 	}
 
 	if (dict->fd != -1)
-		(void)close(dict->fd);
+		i_close_fd(dict->fd);
 	dict->fd = fd;
 	return 0;
 }

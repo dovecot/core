@@ -21,7 +21,7 @@ static bool readfile(const char *path, const char **data_r)
 	if (fd == -1)
 		return FALSE;
 	ret = read(fd, buf, sizeof(buf));
-	(void)close(fd);
+	i_close_fd(fd);
 	if (ret <= 0)
 		return FALSE;
 

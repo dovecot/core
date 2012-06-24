@@ -130,7 +130,7 @@ static void proxy_write_in(struct rawlog_proxy *proxy,
 			     data, size) < 0) {
 		/* failed, disable logging */
 		i_error("write(in) failed: %m");
-		(void)close(proxy->fd_in);
+		i_close_fd(proxy->fd_in);
 		proxy->fd_in = -1;
 	}
 }
@@ -142,7 +142,7 @@ static void proxy_write_out(struct rawlog_proxy *proxy,
 			     data, size) < 0) {
 		/* failed, disable logging */
 		i_error("write(out) failed: %m");
-		(void)close(proxy->fd_out);
+		i_close_fd(proxy->fd_out);
 		proxy->fd_out = -1;
 	}
 }
@@ -247,7 +247,7 @@ static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path)
 		proxy->fd_out = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
 		if (proxy->fd_out == -1) {
 			i_error("rawlog_open: open() failed for %s: %m", fname);
-			(void)close(proxy->fd_in);
+			i_close_fd(proxy->fd_in);
 			proxy->fd_in = -1;
 			return;
 		}
@@ -336,11 +336,11 @@ static void rawlog_open(enum rawlog_flags flags)
 			i_fatal("dup2(sfd, 0)");
 		if (dup2(sfd[1], 1) < 0)
 			i_fatal("dup2(sfd, 1)");
-		(void)close(sfd[0]);
-		(void)close(sfd[1]);
+		i_close_fd(sfd[0]);
+		i_close_fd(sfd[1]);
 		return;
 	}
-	(void)close(sfd[1]);
+	i_close_fd(sfd[1]);
 
 	restrict_access_by_env(getenv("HOME"), TRUE);
 

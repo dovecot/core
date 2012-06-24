@@ -31,7 +31,6 @@
 #include "ostream.h"
 #include "str.h"
 #include "file-dotlock.h"
-#include "close-keep-errno.h"
 #include "nfs-workarounds.h"
 #include "eacces-error.h"
 #include "maildir-storage.h"
@@ -741,7 +740,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 	}
 
 	if (fstat(fd, &st) < 0) {
-                close_keep_errno(fd);
+                i_close_fd(fd);
                 if (errno == ESTALE && try_retry) {
                         *retry_r = TRUE;
                         return -1;
@@ -1469,7 +1468,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		maildir_uidlist_update_hdr(uidlist, &st);
 	}
 	if (ret < 0)
-		(void)close(fd);
+		i_close_fd(fd);
 	return ret;
 }
 

@@ -304,7 +304,7 @@ maildir_list_create_maildirfolder_file(struct mailbox_list *list,
 				"fchown(%s) failed: %m", path);
 		}
 	}
-	(void)close(fd);
+	i_close_fd(fd);
 	return 0;
 }
 

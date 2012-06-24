@@ -184,7 +184,7 @@ static bool passwd_file_open(struct passwd_file *pw, bool startup)
 
 	if (fstat(fd, &st) != 0) {
 		i_error("passwd-file %s: fstat() failed: %m", pw->path);
-		(void)close(fd);
+		i_close_fd(fd);
 		return FALSE;
 	}
 

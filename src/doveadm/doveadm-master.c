@@ -41,7 +41,7 @@ static bool pid_file_read(const char *path, pid_t *pid_r)
 				  (kill(*pid_r, 0) < 0 && errno == ESRCH));
 		}
 	}
-	(void)close(fd);
+	i_close_fd(fd);
 	return found;
 }
 

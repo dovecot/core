@@ -172,7 +172,7 @@ login_client_connected(const struct master_login_client *client,
 	if (client_create_from_input(&input, client->fd, client->fd,
 				     &input_buf, &error) < 0) {
 		i_error("%s", error);
-		(void)close(client->fd);
+		i_close_fd(client->fd);
 		master_service_client_connection_destroyed(master_service);
 	}
 }
