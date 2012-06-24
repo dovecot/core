@@ -9,11 +9,10 @@
 #include "message-decoder.h"
 #include "test-common.h"
 
-bool message_header_decode_utf8(const unsigned char *data, size_t size,
+void message_header_decode_utf8(const unsigned char *data, size_t size,
 				buffer_t *dest, bool dtcase ATTR_UNUSED)
 {
 	buffer_append(dest, data, size);
-	return FALSE;
 }
 
 void quoted_printable_decode(const unsigned char *src, size_t src_size,

@@ -136,7 +136,6 @@ void message_header_decode(const unsigned char *data, size_t size,
 struct decode_utf8_context {
 	buffer_t *dest;
 	unsigned int changed:1;
-	unsigned int called:1;
 	unsigned int dtcase:1;
 };
 
@@ -147,12 +146,6 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 	struct decode_utf8_context *ctx = context;
 	struct charset_translation *t;
 	enum charset_flags flags;
-
-	/* one call with charset=NULL means nothing changed */
-	if (!ctx->called && charset == NULL)
-		ctx->called = TRUE;
-	else
-		ctx->changed = TRUE;
 
 	if (charset == NULL || charset_is_utf8(charset)) {
 		/* ASCII / UTF-8 */
@@ -181,7 +174,7 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 	return TRUE;
 }
 
-bool message_header_decode_utf8(const unsigned char *data, size_t size,
+void message_header_decode_utf8(const unsigned char *data, size_t size,
 				buffer_t *dest, bool dtcase)
 {
 	struct decode_utf8_context ctx;
@@ -191,5 +184,4 @@ bool message_header_decode_utf8(const unsigned char *data, size_t size,
 	ctx.dest = dest;
 	ctx.dtcase = dtcase;
 	message_header_decode(data, size, decode_utf8_callback, &ctx);
-	return ctx.changed || (dest->used - used != size);
 }

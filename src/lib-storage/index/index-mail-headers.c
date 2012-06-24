@@ -715,8 +715,9 @@ index_mail_headers_decode(struct index_mail *mail, const char *const **_list,
 			return -1;
 
 		/* decode MIME encoded-words. decoding may also add new LFs. */
-		if (message_header_decode_utf8((const unsigned char *)input,
-					       strlen(input), str, FALSE))
+		message_header_decode_utf8((const unsigned char *)input,
+					   strlen(input), str, FALSE);
+		if (strcmp(str_c(str), input) != 0)
 			input = p_strdup(mail->data_pool, str_c(str));
 		decoded_list[i] = input;
 	}

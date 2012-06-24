@@ -40,9 +40,8 @@ static void test_message_header_decode(void)
 	dest = t_str_new(256);
 	for (i = 0; i < N_ELEMENTS(data); i += 2) {
 		str_truncate(dest, 0);
-		test_assert(message_header_decode_utf8((const unsigned char *)data[i],
-						       strlen(data[i]),
-						       dest, FALSE));
+		message_header_decode_utf8((const unsigned char *)data[i],
+					   strlen(data[i]), dest, FALSE);
 		test_assert(strcmp(str_c(dest), data[i+1]) == 0);
 	}
 	test_end();
