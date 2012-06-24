@@ -331,6 +331,7 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 	diff = importer_mail_cmp(&m1, &m2);
 	if (diff < 0) {
 		/* add a record for local mail */
+		i_assert(importer->cur_mail != NULL);
 		newmail->guid = p_strdup(importer->pool, importer->cur_guid);
 		newmail->uid = importer->cur_mail->uid;
 		newmail->uid_in_local = TRUE;
@@ -338,6 +339,7 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 			newmail->uid >= importer->remote_uid_next;
 		remote_saved = FALSE;
 	} else if (diff > 0) {
+		i_assert(save_change != NULL);
 		newmail->guid = save_change->guid;
 		newmail->uid = save_change->uid;
 		newmail->uid_in_local = FALSE;
@@ -346,6 +348,8 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 		remote_saved = TRUE;
 	} else {
 		/* identical */
+		i_assert(importer->cur_mail != NULL);
+		i_assert(save_change != NULL);
 		newmail->guid = save_change->guid;
 		newmail->uid = importer->cur_mail->uid;
 		newmail->uid_in_local = TRUE;

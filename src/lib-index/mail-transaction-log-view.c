@@ -284,6 +284,8 @@ int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view)
 {
 	struct mail_transaction_log_file *file, *first = view->log->files;
 
+	i_assert(first != NULL);
+
 	/* make sure .log.2 file is opened */
 	(void)mail_transaction_log_find_file(view->log, 1, FALSE, &file);
 
