@@ -131,7 +131,7 @@ void mailbox_search_result_add(struct mail_search_result *result, uint32_t uid)
 void mailbox_search_result_remove(struct mail_search_result *result,
 				  uint32_t uid)
 {
-	if (seq_range_array_remove(&result->uids, uid)) {
+	if (seq_range_array_try_remove(&result->uids, uid)) {
 		if (array_is_created(&result->removed_uids)) {
 			seq_range_array_add(&result->removed_uids, uid);
 			seq_range_array_remove(&result->added_uids, uid);

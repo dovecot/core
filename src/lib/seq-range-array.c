@@ -166,7 +166,12 @@ void seq_range_array_merge(ARRAY_TYPE(seq_range) *dest,
 		seq_range_array_add_range(dest, range->seq1, range->seq2);
 }
 
-bool seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
+void seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
+{
+	(void)seq_range_array_remove(array, seq);
+}
+
+bool seq_range_array_try_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 {
 	struct seq_range *data, value;
 	unsigned int idx, left_idx, right_idx, count;
@@ -249,13 +254,13 @@ unsigned int seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
 
 	   FIXME: it would be faster if we did only one binary lookup here
 	   and handled the splitting ourself.. */
-	if (seq_range_array_remove(array, seq1))
+	if (seq_range_array_try_remove(array, seq1))
 		remove_count++;
 	if (seq1 == seq2)
 		return remove_count;
 	seq1++;
 
-	if (seq_range_array_remove(array, seq2--))
+	if (seq_range_array_try_remove(array, seq2--))
 		remove_count++;
 	if (seq1 > seq2)
 		return remove_count;

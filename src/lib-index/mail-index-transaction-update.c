@@ -1149,7 +1149,7 @@ bool mail_index_cancel_flag_updates(struct mail_index_transaction *t,
 static bool mail_index_cancel_array(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 {
 	if (array_is_created(array)) {
-		if (seq_range_array_remove(array, seq)) {
+		if (seq_range_array_try_remove(array, seq)) {
 			if (array_count(array) == 0)
 				array_free(array);
 			return TRUE;

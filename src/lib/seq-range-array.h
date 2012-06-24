@@ -25,8 +25,10 @@ void seq_range_array_add_range(ARRAY_TYPE(seq_range) *array,
 			       uint32_t seq1, uint32_t seq2);
 void seq_range_array_merge(ARRAY_TYPE(seq_range) *dest,
 			   const ARRAY_TYPE(seq_range) *src);
-/* Remove given sequrence from range. Returns TRUE if it was found. */
-bool seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq);
+/* Remove the given sequrence from range. */
+void seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq);
+/* Remove the given sequrence from range. Returns TRUE if it was found. */
+bool seq_range_array_try_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq);
 /* Remove a sequence range. Returns number of sequences actually removed. */
 unsigned int seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
 					  uint32_t seq1, uint32_t seq2);

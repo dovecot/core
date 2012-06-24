@@ -129,7 +129,7 @@ index_mailbox_expunge_recent(struct mailbox *box, uint32_t seq1, uint32_t seq2)
 
 	for (; seq1 <= seq2; seq1++) {
 		mail_index_lookup_uid(box->view, seq1, &uid);
-		if (seq_range_array_remove(&ibox->recent_flags, uid))
+		if (seq_range_array_try_remove(&ibox->recent_flags, uid))
 			ibox->recent_flags_count--;
 	}
 }
