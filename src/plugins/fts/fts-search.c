@@ -72,7 +72,7 @@ level_scores_add_vuids(struct virtual_mailbox *vbox,
 	t_array_init(&vuids_arr, count);
 	t_array_init(&backend_uids, 64);
 	for (i = 0; i < count; i++)
-		seq_range_array_add(&backend_uids, 0, scores[i].uid);
+		seq_range_array_add(&backend_uids, scores[i].uid);
 	vbox->vfuncs.get_virtual_uid_map(&vbox->box, br->box,
 					 &backend_uids, &vuids_arr);
 

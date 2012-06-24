@@ -444,7 +444,7 @@ int mdbox_map_get_zero_ref_files(struct mdbox_map *map,
 				      &data, &expunged);
 		if (data != NULL && !expunged) {
 			rec = data;
-			seq_range_array_add(file_ids_r, 0, rec->file_id);
+			seq_range_array_add(file_ids_r, rec->file_id);
 		}
 	}
 	return 0;
@@ -971,7 +971,7 @@ mdbox_map_find_primary_files(struct mdbox_map_append_context *ctx,
 				  &file_id) < 0)
 			continue;
 
-		seq_range_array_add(file_ids_r, 0, file_id);
+		seq_range_array_add(file_ids_r, file_id);
 	}
 	if (errno != 0) {
 		mail_storage_set_critical(storage,
@@ -1023,7 +1023,7 @@ mdbox_map_find_appendable_file(struct mdbox_map_append_context *ctx,
 
 		if (seq_range_exists(&checked_file_ids, rec->file_id))
 			continue;
-		seq_range_array_add(&checked_file_ids, 0, rec->file_id);
+		seq_range_array_add(&checked_file_ids, rec->file_id);
 
 		if (++backwards_lookup_count > MAX_BACKWARDS_LOOKUPS) {
 			/* we've wasted enough time here */

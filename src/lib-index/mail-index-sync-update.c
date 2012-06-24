@@ -545,7 +545,7 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 					rec->uid);
 				break;
 			}
-			seq_range_array_add(&uids, 0, rec->uid);
+			seq_range_array_add(&uids, rec->uid);
 		}
 
 		/* do this in reverse so the memmove()s are smaller */

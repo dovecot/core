@@ -199,7 +199,7 @@ importer_next_mail(struct dsync_mailbox_importer *importer, uint32_t wanted_uid)
 			/* this message exists locally, but remote didn't send
 			   expunge-change for it. if the message's
 			   uid <= last-common-uid, it should be deleted */
-			seq_range_array_add(&importer->maybe_expunge_uids, 0,
+			seq_range_array_add(&importer->maybe_expunge_uids, 
 					    importer->cur_mail->uid);
 		}
 
@@ -751,8 +751,7 @@ dsync_mailbox_import_expunge(struct dsync_mailbox_importer *importer,
 		/* we don't know yet if we should expunge this
 		   message or not. queue it until we do. */
 		i_assert(change->uid > importer->last_common_uid);
-		seq_range_array_add(&importer->maybe_expunge_uids, 0,
-				    change->uid);
+		seq_range_array_add(&importer->maybe_expunge_uids, change->uid);
 	}
 }
 

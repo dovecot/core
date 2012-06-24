@@ -53,7 +53,7 @@ void index_mailbox_set_recent_uid(struct mailbox *box, uint32_t uid)
 	}
 	ibox->recent_flags_prev_uid = uid;
 
-	seq_range_array_add(&ibox->recent_flags, 64, uid);
+	seq_range_array_add_with_init(&ibox->recent_flags, 64, uid);
 	ibox->recent_flags_count++;
 }
 

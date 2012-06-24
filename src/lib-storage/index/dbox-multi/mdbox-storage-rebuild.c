@@ -262,7 +262,7 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 		if (rebuild_rename_file(ctx, dir, &fname, &file_id) < 0)
 			return -1;
 	}
-	seq_range_array_add(&ctx->seen_file_ids, 0, file_id);
+	seq_range_array_add(&ctx->seen_file_ids, file_id);
 
 	file = mdbox_file_init(ctx->storage, file_id);
 	if ((ret = dbox_file_open(file, &deleted)) > 0 && !deleted)

@@ -659,10 +659,10 @@ virtual_sync_backend_handle_old_vmsgs(struct virtual_sync_context *ctx,
 
 			if (mail_index_lookup_seq(bbox->box->view,
 						  vrec->real_uid, &seq)) {
-				seq_range_array_add(&result->uids, 0,
+				seq_range_array_add(&result->uids, 
 						    vrec->real_uid);
 			} else {
-				seq_range_array_add(&result->removed_uids, 0,
+				seq_range_array_add(&result->removed_uids,
 						    vrec->real_uid);
 			}
 		}
@@ -705,7 +705,7 @@ static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
 			modseq = mail_index_modseq_lookup(view, seq);
 			if (modseq > bbox->sync_highest_modseq) {
 				mail_index_lookup_uid(view, seq, &uid);
-				seq_range_array_add(&flag_update_uids, 0, uid);
+				seq_range_array_add(&flag_update_uids, uid);
 			}
 		}
 	}
@@ -755,7 +755,7 @@ static void virtual_sync_drop_existing(struct virtual_backend_box *bbox,
 			continue;
 		}
 		if (uidmap[i].real_uid == add_uid) {
-			seq_range_array_add(&drop_uids, 0, add_uid);
+			seq_range_array_add(&drop_uids, add_uid);
 			i++;
 		}
 		if (!seq_range_array_iter_nth(&iter, n++, &add_uid))
@@ -789,7 +789,7 @@ static void virtual_sync_drop_nonexistent(struct virtual_backend_box *bbox,
 			continue;
 		}
 		if (uidmap[i].real_uid != remove_uid)
-			seq_range_array_add(&drop_uids, 0, remove_uid);
+			seq_range_array_add(&drop_uids, remove_uid);
 		else
 			i++;
 		if (!seq_range_array_iter_nth(&iter, n++, &remove_uid)) {
@@ -799,7 +799,7 @@ static void virtual_sync_drop_nonexistent(struct virtual_backend_box *bbox,
 	}
 	if (!iter_done) {
 		do {
-			seq_range_array_add(&drop_uids, 0, remove_uid);
+			seq_range_array_add(&drop_uids, remove_uid);
 		} while (seq_range_array_iter_nth(&iter, n++, &remove_uid));
 	}
 	seq_range_array_remove_seq_range(removed_uids, &drop_uids);
@@ -913,7 +913,7 @@ static void virtual_sync_expunge_add(struct virtual_sync_context *ctx,
 	for (i = idx1; i < count; i++) {
 		if (uidmap[i].real_uid > uid2)
 			break;
-		seq_range_array_add(&ctx->sync_expunges, 0, uidmap[i].real_uid);
+		seq_range_array_add(&ctx->sync_expunges, uidmap[i].real_uid);
 	}
 }
 
@@ -1371,7 +1371,7 @@ virtual_sync_apply_existing_expunges(struct virtual_mailbox *mbox,
 			if (!array_is_created(&bbox->sync_outside_expunges))
 				i_array_init(&bbox->sync_outside_expunges, 32);
 		}
-		seq_range_array_add(&bbox->sync_outside_expunges, 0,
+		seq_range_array_add(&bbox->sync_outside_expunges, 
 				    vrec->real_uid);
 	}
 }

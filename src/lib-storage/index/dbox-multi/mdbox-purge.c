@@ -369,7 +369,7 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file,
 							 &ext_refs);
 			if (ret <= 0)
 				break;
-			seq_range_array_add(&expunged_map_uids, 0,
+			seq_range_array_add(&expunged_map_uids,
 					    msgs[i].map_uid);
 		} else {
 			/* non-expunged message. write it to output file. */
@@ -534,7 +534,7 @@ static int mdbox_purge_get_primary_files(struct mdbox_purge_context *ctx)
 
 		str_truncate(path, dir_len);
 		str_append(path, d->d_name);
-		seq_range_array_add(&ctx->primary_file_ids, 0, file_id);
+		seq_range_array_add(&ctx->primary_file_ids, file_id);
 	}
 	if (array_count(&ctx->primary_file_ids) > 0) {
 		const struct seq_range *range =
@@ -602,7 +602,7 @@ static int mdbox_altmove_add_files(struct mdbox_purge_context *ctx)
 			hash_table_insert(ctx->altmoves,
 				POINTER_CAST(cur_map_uid),
 				POINTER_CAST(MDBOX_MSG_ACTION_MOVE_TO_ALT));
-			seq_range_array_add(&ctx->purge_file_ids, 0,
+			seq_range_array_add(&ctx->purge_file_ids,
 					    cur_rec.file_id);
 		}
 	}
@@ -634,7 +634,7 @@ static int mdbox_altmove_add_files(struct mdbox_purge_context *ctx)
 
 		hash_table_insert(ctx->altmoves, POINTER_CAST(cur_map_uid),
 				  POINTER_CAST(MDBOX_MSG_ACTION_MOVE_FROM_ALT));
-		seq_range_array_add(&ctx->purge_file_ids, 0, cur_rec.file_id);
+		seq_range_array_add(&ctx->purge_file_ids, cur_rec.file_id);
 	}
 	ctx->have_altmoves = hash_table_count(ctx->altmoves) > 0;
 	return ret;

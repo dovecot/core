@@ -717,7 +717,7 @@ search_msgset_fix_limits(unsigned int messages_count,
 		if (range[count-1].seq2 == (uint32_t)-1) {
 			/* "*" used, make sure the last message is in the range
 			   (e.g. with count+1:* we still want to include it) */
-			seq_range_array_add(seqset, 0, messages_count);
+			seq_range_array_add(seqset, messages_count);
 		}
 		/* remove all nonexistent messages */
 		seq_range_array_remove_range(seqset, messages_count + 1,
@@ -969,7 +969,7 @@ static int search_build_subthread(struct mail_thread_iterate_context *iter,
 			if (search_build_subthread(child_iter, uids) < 0)
 				ret = -1;
 		}
-		seq_range_array_add(uids, 0, node->uid);
+		seq_range_array_add(uids, node->uid);
 	}
 	if (mail_thread_iterate_deinit(&iter) < 0)
 		ret = -1;
@@ -1010,7 +1010,7 @@ static int search_build_inthread_result(struct index_search_context *ctx,
 	iter = mail_thread_iterate_init(ctx->thread_ctx,
 					arg->value.thread_type, FALSE);
 	while ((node = mail_thread_iterate_next(iter, &child_iter)) != NULL) {
-		seq_range_array_add(&thread_uids, 0, node->uid);
+		seq_range_array_add(&thread_uids, node->uid);
 		if (child_iter != NULL) {
 			if (search_build_subthread(child_iter,
 						   &thread_uids) < 0)

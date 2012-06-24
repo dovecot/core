@@ -1237,7 +1237,7 @@ lucene_index_search(struct lucene_index *index,
 				score->uid = uid;
 				score->score = hits->score(i);
 			}
-			seq_range_array_add(uids_r, 0, uid);
+			seq_range_array_add(uids_r, uid);
 		}
 		_CLDELETE(hits);
 		return ret;
@@ -1346,7 +1346,7 @@ lucene_index_search_multi(struct lucene_index *index, struct hash_table *guids,
 				p_array_init(&br->definite_uids, result->pool, 32);
 				p_array_init(&br->scores, result->pool, 32);
 			}
-			seq_range_array_add(&br->definite_uids, 0, uid);
+			seq_range_array_add(&br->definite_uids, uid);
 			score = array_append_space(&br->scores);
 			score->uid = uid;
 			score->score = hits->score(i);

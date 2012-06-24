@@ -95,7 +95,7 @@ sort_appends_seq_range(ARRAY_TYPE(seq_range) *array, uint32_t first_new_seq,
 		idx1 = range[i].seq1 - first_new_seq;
 		idx2 = range[i].seq2 - first_new_seq;
 		for (idx = idx1; idx <= idx2; idx++)
-			seq_range_array_add(array, 0, old_to_newseq_map[idx]);
+			seq_range_array_add(array, old_to_newseq_map[idx]);
 	}
 	array_free(&old_seqs);
 }

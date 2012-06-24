@@ -12,9 +12,15 @@ struct seq_range_iter {
 };
 
 /* Add sequrence to range. If the array isn't created yet, create it with
-   initial size of init_count. Returns TRUE if seq was already in the array. */
-bool seq_range_array_add(ARRAY_TYPE(seq_range) *array, unsigned int init_count,
-			 uint32_t seq);
+   initial size of init_count. */
+void seq_range_array_add(ARRAY_TYPE(seq_range) *array, uint32_t seq);
+/* Like seq_range_array_add(), but reutrn TRUE if seq was already in the
+   array. */
+bool seq_range_array_try_add(ARRAY_TYPE(seq_range) *array, uint32_t seq);
+/* Like seq_range_array_add(), but if the array isn't already initialized do
+   it with i_array_init(). */
+void seq_range_array_add_with_init(ARRAY_TYPE(seq_range) *array,
+				   unsigned int init_count, uint32_t seq);
 void seq_range_array_add_range(ARRAY_TYPE(seq_range) *array,
 			       uint32_t seq1, uint32_t seq2);
 void seq_range_array_merge(ARRAY_TYPE(seq_range) *dest,

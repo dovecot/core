@@ -12,9 +12,9 @@ static void test_seq_range_array_add_merge(void)
 
 	test_begin("seq_range_array_add() merging");
 	t_array_init(&range, 8);
-	seq_range_array_add(&range, 0, 4);
-	seq_range_array_add(&range, 0, 1);
-	seq_range_array_add(&range, 0, 2);
+	seq_range_array_add(&range, 4);
+	seq_range_array_add(&range, 1);
+	seq_range_array_add(&range, 2);
 	test_assert(array_count(&range) == 2);
 	test_end();
 }
@@ -39,7 +39,7 @@ static void test_seq_range_array_random(void)
 		test = rand() % 4;
 		switch (test) {
 		case 0:
-			seq_range_array_add(&range, 0, seq1);
+			seq_range_array_add(&range, seq1);
 			shadowbuf[seq1] = 1;
 			break;
 		case 1:
@@ -112,7 +112,7 @@ static void test_seq_range_array_invert(void)
 		success = TRUE;
 		start = i;
 		for (; input[i] != -1U; i++) {
-			seq_range_array_add(&range, 32, input[i]);
+			seq_range_array_add_with_init(&range, 32, input[i]);
 			for (j = start; j < i; j++) {
 				if (!seq_range_exists(&range, input[j]))
 					success = FALSE;
@@ -142,7 +142,7 @@ static void test_seq_range_create(ARRAY_TYPE(seq_range) *array, uint8_t byte)
 	array_clear(array);
 	for (i = 0; i < 8; i++) {
 		if ((byte & (1 << i)) != 0)
-			seq_range_array_add(array, 0, i + 1);
+			seq_range_array_add(array, i + 1);
 	}
 }
 

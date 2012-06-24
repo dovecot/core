@@ -1089,15 +1089,17 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 			seq_range_array_remove(&u->add_seq, seq);
 			/* Don't bother updating remove_seq for new messages,
 			   since their initial state is "no keyword" anyway */
-			if (seq < t->first_new_seq)
-				seq_range_array_add(&u->remove_seq, 16, seq);
+			if (seq < t->first_new_seq) {
+				seq_range_array_add_with_init(&u->remove_seq,
+							      16, seq);
+			}
 		}
 	}
 	if (add_keywords != NULL) {
 		for (i = 0; i < add_keywords->count; i++) {
 			u = array_idx_modifiable(&t->keyword_updates,
 						 add_keywords->idx[i]);
-			seq_range_array_add(&u->add_seq, 16, seq);
+			seq_range_array_add_with_init(&u->add_seq, 16, seq);
 			seq_range_array_remove(&u->remove_seq, seq);
 		}
 	}

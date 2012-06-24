@@ -129,7 +129,7 @@ mail_index_transaction_finish_flag_updates(struct mail_index_transaction *t)
 			if ((rec->flags & u->add_flags) != u->add_flags ||
 			    (rec->flags & u->remove_flags) != 0) {
 				/* keep this change */
-				seq_range_array_add(&keeps, 0, seq);
+				seq_range_array_add(&keeps, seq);
 			}
 		}
 		i = mail_transaction_drop_range(t, updates[i], i, &keeps);
@@ -163,7 +163,7 @@ mail_index_transaction_check_conflicts(struct mail_index_transaction *t)
 			ret1 = mail_index_cancel_flag_updates(t, seq);
 			ret2 = mail_index_cancel_keyword_updates(t, seq);
 			if (ret1 || ret2)
-				seq_range_array_add(t->conflict_seqs, 0, seq);
+				seq_range_array_add(t->conflict_seqs, seq);
 		}
 	}
 	mail_index_transaction_set_log_updates(t);

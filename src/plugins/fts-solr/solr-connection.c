@@ -317,7 +317,7 @@ static void solr_lookup_add_doc(struct solr_lookup_xml_context *ctx)
 	}
 	result = solr_result_get(ctx, box_id);
 
-	seq_range_array_add(&result->uids, 0, ctx->uid);
+	seq_range_array_add(&result->uids, ctx->uid);
 	if (ctx->score != 0) {
 		score = array_append_space(&result->scores);
 		score->uid = ctx->uid;

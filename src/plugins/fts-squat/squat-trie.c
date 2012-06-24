@@ -1884,7 +1884,7 @@ squat_trie_filter_type(enum squat_index_type type,
 	for (i = 0; i < count; i++) {
 		for (uid = src_range[i].seq1; uid <= src_range[i].seq2; uid++) {
 			if ((uid & 1) == mask)
-				seq_range_array_add(dest, 0, uid/2);
+				seq_range_array_add(dest, uid/2);
 		}
 	}
 }

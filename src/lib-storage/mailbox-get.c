@@ -29,7 +29,7 @@ void mailbox_get_uid_range(struct mailbox *box,
 		}
 		for (seq = range[i].seq1; seq <= range[i].seq2; seq++) {
 			mail_index_lookup_uid(box->view, seq, &uid);
-			seq_range_array_add(uids, 0, uid);
+			seq_range_array_add(uids, uid);
 		}
 	}
 }
@@ -59,7 +59,7 @@ add_guid_expunges(ARRAY_TYPE(seq_range) *expunged_uids, uint32_t min_uid,
 	end = src + src_size / sizeof(*src);
 	for (; src != end; src++) {
 		if (src->uid >= min_uid)
-			seq_range_array_add(expunged_uids, 0, src->uid);
+			seq_range_array_add(expunged_uids, src->uid);
 	}
 }
 

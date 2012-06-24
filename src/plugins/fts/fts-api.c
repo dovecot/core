@@ -235,7 +235,7 @@ fts_merge_maybies(ARRAY_TYPE(seq_range) *dest_maybe,
 	for (i = 0; i < count; i++) {
 		for (seq = range[i].seq1; seq <= range[i].seq2; seq++) {
 			if (seq_range_exists(src_maybe, seq))
-				seq_range_array_add(dest_maybe, 0, seq);
+				seq_range_array_add(dest_maybe, seq);
 		}
 	}
 }

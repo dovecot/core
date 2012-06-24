@@ -212,7 +212,7 @@ export_add_mail_instance(struct dsync_mailbox_exporter *exporter,
 
 	if (exporter->auto_export_mails && !exporter->mails_have_guids) {
 		/* GUIDs not supported, mail is requested by UIDs */
-		seq_range_array_add(&exporter->requested_uids, 0, change->uid);
+		seq_range_array_add(&exporter->requested_uids, change->uid);
 		return;
 	}
 	if (*change->guid == '\0') {
@@ -232,7 +232,7 @@ export_add_mail_instance(struct dsync_mailbox_exporter *exporter,
 		if (exporter->auto_export_mails)
 			instances->requested = TRUE;
 	}
-	seq_range_array_add(&instances->seqs, 0, seq);
+	seq_range_array_add(&instances->seqs, seq);
 }
 
 static int
@@ -273,7 +273,7 @@ dsync_mailbox_export_add_flagchange_uids(struct dsync_mailbox_exporter *exporter
 		const struct dsync_mail_change *change = value;
 
 		if (change->type == DSYNC_MAIL_CHANGE_TYPE_FLAG_CHANGE)
-			seq_range_array_add(uids, 0, change->uid);
+			seq_range_array_add(uids, change->uid);
 	}
 	hash_table_iterate_deinit(&iter);
 }
@@ -494,7 +494,7 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 		seq = uids[0].seq1;
 		if (!instances->searched) {
 			instances->searched = TRUE;
-			seq_range_array_add(&sarg->value.seqset, 0, seq);
+			seq_range_array_add(&sarg->value.seqset, seq);
 		} else if (seq_range_exists(&exporter->expunged_seqs, seq)) {
 			/* we're on a second round, refetching expunged
 			   messages */
@@ -508,7 +508,7 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 			}
 			uids = array_idx(&instances->seqs, 0);
 			seq = uids[0].seq1;
-			seq_range_array_add(&sarg->value.seqset, 0, seq);
+			seq_range_array_add(&sarg->value.seqset, seq);
 		}
 	}
 	hash_table_iterate_deinit(&iter);
@@ -608,7 +608,7 @@ void dsync_mailbox_export_want_mail(struct dsync_mailbox_exporter *exporter,
 
 	if (*request->guid == '\0') {
 		i_assert(request->uid > 0);
-		seq_range_array_add(&exporter->requested_uids, 0, request->uid);
+		seq_range_array_add(&exporter->requested_uids, request->uid);
 		return;
 	}
 
@@ -648,7 +648,7 @@ dsync_mailbox_export_next_mail(struct dsync_mailbox_exporter *exporter)
 		}
 		/* the message was expunged. if the GUID has another instance,
 		   try sending it later. */
-		seq_range_array_add(&exporter->expunged_seqs, 0, mail->seq);
+		seq_range_array_add(&exporter->expunged_seqs, mail->seq);
 	}
 	/* if some instances of messages were expunged, retry fetching them
 	   with other instances */

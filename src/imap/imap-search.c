@@ -334,7 +334,7 @@ search_update_mail(struct imap_search_context *ctx, struct mail *mail)
 	}
 	if ((ctx->return_options & SEARCH_RETURN_SAVE) != 0) {
 		seq_range_array_add(&ctx->cmd->client->search_saved_uidset,
-				    0, mail->uid);
+				    mail->uid);
 	}
 	if ((ctx->return_options & SEARCH_RETURN_RELEVANCY) != 0) {
 		const char *str;

@@ -1594,7 +1594,7 @@ int squat_uidlist_filter(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 				ret = -1;
 				break;
 			}
-			seq_range_array_add(&dest_uids, 0, parent_uid);
+			seq_range_array_add(&dest_uids, parent_uid);
 			for (; parent_idx < parent_count; parent_idx++) {
 				if (parent_range[parent_idx].seq2 <= parent_uid)
 					continue;

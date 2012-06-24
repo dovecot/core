@@ -79,7 +79,7 @@ static void virtual_search_get_records(struct mail_search_context *ctx,
 		i_assert(result != 0);
 		if (result > 0) {
 			/* full match, no need to check this any further */
-			seq_range_array_add(&vctx->result, 0, ctx->seq);
+			seq_range_array_add(&vctx->result, ctx->seq);
 		} else {
 			/* possible match, save and check later */
 			mail_index_lookup_ext(mbox->box.view, ctx->seq,
@@ -153,7 +153,7 @@ bool virtual_search_next_nonblock(struct mail_search_context *ctx,
 		/* the messages won't be returned sorted, so we'll have to
 		   do it ourself */
 		while (index_storage_search_next_nonblock(ctx, mail_r, tryagain_r))
-			seq_range_array_add(&vctx->result, 0, (*mail_r)->seq);
+			seq_range_array_add(&vctx->result, (*mail_r)->seq);
 		if (*tryagain_r)
 			return FALSE;
 

@@ -145,7 +145,7 @@ view_sync_add_expunge_guids(ARRAY_TYPE(seq_range) *dest,
 
 	src_count = src_size / sizeof(*src);
 	for (i = 0; i < src_count; i++)
-		seq_range_array_add(dest, 0, src[i].uid);
+		seq_range_array_add(dest, src[i].uid);
 }
 
 static int
@@ -394,7 +394,7 @@ static int view_sync_apply_lost_changes(struct mail_index_view_sync_ctx *ctx,
 	   be avoided by always keeping a private copy of the map in the view,
 	   but that's a waste of memory for as rare of a problem as this. */
 	if (changed)
-		seq_range_array_add(&ctx->lost_flags, 0, new_rec->uid);
+		seq_range_array_add(&ctx->lost_flags, new_rec->uid);
 	return 0;
 }
 
@@ -437,7 +437,7 @@ view_sync_get_log_lost_changes(struct mail_index_view_sync_ctx *ctx,
 			i++; j++;
 		} else if (old_rec->uid < new_rec->uid) {
 			/* message expunged */
-			seq_range_array_add(&ctx->expunges, 0, old_rec->uid);
+			seq_range_array_add(&ctx->expunges, old_rec->uid);
 			i++;
 		} else {
 			/* new message appeared out of nowhere */
@@ -451,7 +451,7 @@ view_sync_get_log_lost_changes(struct mail_index_view_sync_ctx *ctx,
 	/* if there are old messages left, they're all expunged */
 	for (; i < old_count; i++) {
 		old_rec = MAIL_INDEX_MAP_IDX(old_map, i);
-		seq_range_array_add(&ctx->expunges, 0, old_rec->uid);
+		seq_range_array_add(&ctx->expunges, old_rec->uid);
 	}
 	/* if there are new messages left, they're all new messages */
 	thdr.type = MAIL_TRANSACTION_APPEND | MAIL_TRANSACTION_EXTERNAL;

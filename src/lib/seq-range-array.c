@@ -33,16 +33,12 @@ static bool seq_range_lookup(const ARRAY_TYPE(seq_range) *array,
 	return FALSE;
 }
 
-bool seq_range_array_add(ARRAY_TYPE(seq_range) *array,
-			 unsigned int init_count, uint32_t seq)
+bool seq_range_array_try_add(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 {
 	struct seq_range *data, value;
 	unsigned int idx, count;
 
 	value.seq1 = value.seq2 = seq;
-
-	if (!array_is_created(array))
-		i_array_init(array, init_count);
 
 	data = array_get_modifiable(array, &count);
 	if (count == 0) {
@@ -102,6 +98,19 @@ bool seq_range_array_add(ARRAY_TYPE(seq_range) *array,
 		}
 	}
 	return FALSE;
+}
+
+void seq_range_array_add(ARRAY_TYPE(seq_range) *array, uint32_t seq)
+{
+	(void)seq_range_array_try_add(array, seq);
+}
+
+void seq_range_array_add_with_init(ARRAY_TYPE(seq_range) *array,
+				   unsigned int init_count, uint32_t seq)
+{
+	if (!array_is_created(array))
+		i_array_init(array, init_count);
+	(void)seq_range_array_try_add(array, seq);
 }
 
 void seq_range_array_add_range(ARRAY_TYPE(seq_range) *array,
