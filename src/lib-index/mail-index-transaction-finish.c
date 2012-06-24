@@ -162,8 +162,10 @@ mail_index_transaction_check_conflicts(struct mail_index_transaction *t)
 		if (mail_index_modseq_lookup(t->view, seq) > t->max_modseq) {
 			ret1 = mail_index_cancel_flag_updates(t, seq);
 			ret2 = mail_index_cancel_keyword_updates(t, seq);
-			if (ret1 || ret2)
-				seq_range_array_add(t->conflict_seqs, seq);
+			if (ret1 || ret2) {
+				seq_range_array_add_with_init(t->conflict_seqs,
+							      16, seq);
+			}
 		}
 	}
 	mail_index_transaction_set_log_updates(t);
