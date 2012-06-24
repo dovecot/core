@@ -419,9 +419,9 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 		else if (strcmp(cmd, "DIRECTOR-LIST") == 0)
 			doveadm_cmd_director_list(conn);
 		else if (strcmp(cmd, "DIRECTOR-ADD") == 0)
-			doveadm_cmd_director_add(conn, args);
+			ret = doveadm_cmd_director_add(conn, args);
 		else if (strcmp(cmd, "DIRECTOR-REMOVE") == 0)
-			doveadm_cmd_director_remove(conn, args);
+			ret = doveadm_cmd_director_remove(conn, args);
 		else if (strcmp(cmd, "HOST-SET") == 0)
 			ret = doveadm_cmd_host_set(conn, args);
 		else if (strcmp(cmd, "HOST-REMOVE") == 0)

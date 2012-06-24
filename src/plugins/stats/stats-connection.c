@@ -40,7 +40,7 @@ stats_connection_create(const char *path)
 	conn = i_new(struct stats_connection, 1);
 	conn->refcount = 1;
 	conn->path = i_strdup(path);
-	stats_connection_open(conn);
+	(void)stats_connection_open(conn);
 	return conn;
 }
 

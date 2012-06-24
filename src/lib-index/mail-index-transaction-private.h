@@ -147,7 +147,7 @@ mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
 					   unsigned int right_idx,
 					   uint32_t seq);
 
-bool mail_index_ext_using_reset_id(struct mail_index_transaction *t,
+void mail_index_ext_using_reset_id(struct mail_index_transaction *t,
 				   uint32_t ext_id, uint32_t reset_id);
 
 #endif

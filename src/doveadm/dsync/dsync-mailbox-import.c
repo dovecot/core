@@ -170,19 +170,18 @@ dsync_mailbox_import_init(struct mailbox *box,
 	return importer;
 }
 
-static int dsync_mail_error(struct dsync_mailbox_importer *importer,
-			    struct mail *mail, const char *field)
+static void dsync_mail_error(struct dsync_mailbox_importer *importer,
+			     struct mail *mail, const char *field)
 {
 	const char *errstr;
 	enum mail_error error;
 
 	errstr = mailbox_get_last_error(importer->box, &error);
 	if (error == MAIL_ERROR_EXPUNGED)
-		return 0;
+		return;
 
 	i_error("Can't lookup %s for UID=%u: %s", field, mail->uid, errstr);
 	importer->failed = TRUE;
-	return -1;
 }
 
 static bool
@@ -768,7 +767,7 @@ dsync_mailbox_rewind_search(struct dsync_mailbox_importer *importer)
 	importer->cur_guid = NULL;
 	importer->next_local_seq = 0;
 
-	mailbox_search_deinit(&importer->search_ctx);
+	(void)mailbox_search_deinit(&importer->search_ctx);
 	dsync_mailbox_import_search_init(importer);
 }
 
@@ -1026,10 +1025,10 @@ void dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer
 		dsync_mailbox_common_uid_found(importer);
 	}
 	/* skip common local mails */
-	importer_next_mail(importer, importer->last_common_uid+1);
+	(void)importer_next_mail(importer, importer->last_common_uid+1);
 	/* if there are any local mails left, add them to newmails list */
 	while (importer->cur_mail != NULL)
-		dsync_mailbox_try_save(importer, NULL);
+		(void)dsync_mailbox_try_save(importer, NULL);
 
 	dsync_mailbox_import_assign_new_uids(importer);
 }
@@ -1431,8 +1430,10 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 			mailbox_get_vname(importer->box), msgs_left);
 	}
 
-	if (importer->search_ctx != NULL)
-		mailbox_search_deinit(&importer->search_ctx);
+	if (importer->search_ctx != NULL) {
+		if (mailbox_search_deinit(&importer->search_ctx) < 0)
+			importer->failed = TRUE;
+	}
 	mail_free(&importer->mail);
 	mail_free(&importer->ext_mail);
 

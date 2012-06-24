@@ -372,7 +372,7 @@ static int squat_uidlist_map_header(struct squat_uidlist *uidlist)
 	}
 	if (uidlist->hdr.indexid != uidlist->trie->hdr.indexid) {
 		/* see if trie was recreated */
-		squat_trie_refresh(uidlist->trie);
+		(void)squat_trie_refresh(uidlist->trie);
 	}
 	if (uidlist->hdr.indexid != uidlist->trie->hdr.indexid) {
 		squat_uidlist_set_corrupted(uidlist, "wrong indexid");
@@ -855,10 +855,10 @@ int squat_uidlist_build_finish(struct squat_uidlist_build_context *ctx)
 		return -1;
 
 	if (!ctx->output->closed) {
-		o_stream_seek(ctx->output, 0);
+		(void)o_stream_seek(ctx->output, 0);
 		o_stream_nsend(ctx->output,
 			       &ctx->build_hdr, sizeof(ctx->build_hdr));
-		o_stream_seek(ctx->output, ctx->build_hdr.used_file_size);
+		(void)o_stream_seek(ctx->output, ctx->build_hdr.used_file_size);
 	}
 
 	if (o_stream_nfinish(ctx->output) < 0) {
@@ -1056,11 +1056,11 @@ int squat_uidlist_rebuild_finish(struct squat_uidlist_rebuild_context *ctx,
 						    &ctx->new_block_offsets,
 						    &ctx->new_block_end_indexes,
 						    FALSE);
-		o_stream_seek(ctx->output, 0);
+		(void)o_stream_seek(ctx->output, 0);
 		o_stream_nsend(ctx->output, &ctx->build_ctx->build_hdr,
 			       sizeof(ctx->build_ctx->build_hdr));
-		o_stream_seek(ctx->output,
-			      ctx->build_ctx->build_hdr.used_file_size);
+		(void)o_stream_seek(ctx->output,
+				    ctx->build_ctx->build_hdr.used_file_size);
 
 		if (ctx->uidlist->corrupted)
 			ret = -1;
@@ -1176,8 +1176,8 @@ uint32_t squat_uidlist_build_add_uid(struct squat_uidlist_build_context *ctx,
 		}
 		for (; mask <= 128; mask <<= 1, idx++) {
 			if ((old_list_idx & mask) != 0) {
-				squat_uidlist_build_add_uid(ctx,
-							    uid_list_idx, idx);
+				(void)squat_uidlist_build_add_uid(ctx,
+							uid_list_idx, idx);
 			}
 		}
 	}
@@ -1548,7 +1548,8 @@ int squat_uidlist_filter(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 
 	i_array_init(&relative_uids, 128);
 	i_array_init(&dest_uids, 128);
-	squat_uidlist_get(uidlist, uid_list_idx, &relative_uids);
+	if (squat_uidlist_get(uidlist, uid_list_idx, &relative_uids) < 0)
+		ret = -1;
 
 	parent_idx = 0;
 	rel_range = array_get(&relative_uids, &rel_count);

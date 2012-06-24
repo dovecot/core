@@ -178,7 +178,6 @@ void message_header_decode_utf8(const unsigned char *data, size_t size,
 				buffer_t *dest, bool dtcase)
 {
 	struct decode_utf8_context ctx;
-	size_t used = dest->used;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.dest = dest;

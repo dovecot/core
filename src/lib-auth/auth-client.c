@@ -34,7 +34,7 @@ void auth_client_deinit(struct auth_client **_client)
 void auth_client_connect(struct auth_client *client)
 {
 	if (client->conn->fd == -1)
-		auth_server_connection_connect(client->conn);
+		(void)auth_server_connection_connect(client->conn);
 }
 
 void auth_client_disconnect(struct auth_client *client, const char *reason)

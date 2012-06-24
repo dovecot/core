@@ -26,7 +26,7 @@ static void client_connected(struct master_service_connection *conn)
 		}
 		mail_server_conn = mail_server_connection_create(conn->fd);
 	} else {
-		client_create(conn->fd);
+		(void)client_create(conn->fd);
 	}
 	master_service_client_connection_accept(conn);
 }

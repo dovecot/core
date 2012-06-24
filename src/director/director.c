@@ -121,7 +121,7 @@ int director_connect_host(struct director *dir, struct director_host *host)
 	   while we're still trying to connect to it */
 	host->last_network_failure = 0;
 
-	director_connection_init_out(dir, fd, host);
+	(void)director_connection_init_out(dir, fd, host);
 	return 0;
 }
 

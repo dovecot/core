@@ -548,7 +548,8 @@ static void search_header(struct message_header_line *hdr,
 {
 	if (hdr == NULL) {
 		/* end of headers, mark all unknown SEARCH_HEADERs unmatched */
-		mail_search_args_foreach(ctx->args, search_header_unmatch, ctx);
+		(void)mail_search_args_foreach(ctx->args, search_header_unmatch,
+					       ctx);
 		return;
 	}
 
@@ -562,7 +563,7 @@ static void search_header(struct message_header_line *hdr,
 		ctx->hdr = hdr;
 
 		ctx->custom_header = FALSE;
-		mail_search_args_foreach(ctx->args, search_header_arg, ctx);
+		(void)mail_search_args_foreach(ctx->args, search_header_arg, ctx);
 	}
 }
 
@@ -859,8 +860,8 @@ static void search_limit_lowwater(struct index_search_context *ctx,
 	if (uid_lowwater == 0)
 		return;
 
-	mail_index_lookup_seq_range(ctx->view, uid_lowwater, (uint32_t)-1,
-				    &seq1, &seq2);
+	(void)mail_index_lookup_seq_range(ctx->view, uid_lowwater, (uint32_t)-1,
+					  &seq1, &seq2);
 	if (*first_seq < seq1)
 		*first_seq = seq1;
 }

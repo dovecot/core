@@ -306,7 +306,7 @@ static const char *const *expire_get_patterns(struct mail_user *user)
 {
 	ARRAY_TYPE(const_string) patterns;
 	const char *str;
-	char set_name[20];
+	char set_name[6+MAX_INT_STRLEN+1];
 	unsigned int i;
 
 	t_array_init(&patterns, 16);
@@ -314,7 +314,8 @@ static const char *const *expire_get_patterns(struct mail_user *user)
 	for (i = 2; str != NULL; i++) {
 		array_append(&patterns, &str, 1);
 
-		i_snprintf(set_name, sizeof(set_name), "expire%u", i);
+		if (i_snprintf(set_name, sizeof(set_name), "expire%u", i) < 0)
+			i_unreached();
 		str = mail_user_set_plugin_getenv(user->set, set_name);
 	}
 	(void)array_append_space(&patterns);

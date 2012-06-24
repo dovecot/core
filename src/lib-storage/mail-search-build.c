@@ -207,7 +207,7 @@ mail_search_build_add(struct mail_search_args *args,
 
 void mail_search_build_add_all(struct mail_search_args *args)
 {
-	mail_search_build_add(args, SEARCH_ALL);
+	(void)mail_search_build_add(args, SEARCH_ALL);
 }
 
 void mail_search_build_add_seqset(struct mail_search_args *args,

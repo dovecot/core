@@ -371,7 +371,7 @@ static void imap_client_input(struct client *client)
 		}
 	}
 	o_stream_uncork(imap_client->common.output);
-	client_unref(&client);
+	(void)client_unref(&client);
 }
 
 static struct client *imap_client_alloc(pool_t pool)

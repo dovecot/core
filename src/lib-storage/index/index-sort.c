@@ -470,8 +470,8 @@ int index_sort_node_cmp_type(struct mail *mail,
 
 			str1 = t_str_new(256);
 			str2 = t_str_new(256);
-			index_sort_header_get(mail, seq1, sort_type, str1);
-			index_sort_header_get(mail, seq2, sort_type, str2);
+			(void)index_sort_header_get(mail, seq1, sort_type, str1);
+			(void)index_sort_header_get(mail, seq2, sort_type, str2);
 
 			ret = strcmp(str_c(str1), str_c(str2));
 		} T_END;

@@ -11,7 +11,7 @@
 static void client_connected(struct master_service_connection *conn)
 {
 	master_service_client_connection_accept(conn);
-	config_connection_create(conn->fd);
+	(void)config_connection_create(conn->fd);
 }
 
 int main(int argc, char *argv[])

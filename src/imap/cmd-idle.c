@@ -143,7 +143,7 @@ static void idle_sync_now(struct mailbox *box, struct cmd_idle_context *ctx)
 
 	ctx->sync_pending = FALSE;
 	ctx->sync_ctx = imap_sync_init(ctx->client, box, 0, 0);
-	cmd_idle_continue(ctx->cmd);
+	(void)cmd_idle_continue(ctx->cmd);
 }
 
 static void idle_callback(struct mailbox *box, struct cmd_idle_context *ctx)

@@ -589,9 +589,8 @@ des_cbc_encrypt(unsigned char *dest, const unsigned char *src,
 	PUT_32BIT_MSB_FIRST(dest + 4, out[1]);
 }
 
-unsigned char *
-deshash(unsigned char *dst, const unsigned char *key,
-	const unsigned char *src)
+void deshash(unsigned char *dst, const unsigned char *key,
+	     const unsigned char *src)
 {
 	struct des_context ctx;
 
@@ -599,6 +598,4 @@ deshash(unsigned char *dst, const unsigned char *key,
 		      GET_32BIT_MSB_FIRST(key + 3), &ctx);
 
 	des_cbc_encrypt(dst, src, &ctx);
-
-	return dst;
 }

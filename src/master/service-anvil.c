@@ -98,7 +98,7 @@ void service_anvil_monitor_start(struct service_list *service_list)
 		service_list_anvil_discard_input(service_anvil_global);
 	else {
 		service = service_lookup_type(service_list, SERVICE_TYPE_ANVIL);
-		service_process_create(service);
+		(void)service_process_create(service);
 	}
 }
 

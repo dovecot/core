@@ -14,8 +14,10 @@ static int raw_mail_stat(struct mail *mail)
 	struct raw_mailbox *mbox = (struct raw_mailbox *)mail->box;
 	const struct stat *st;
 
-	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE)
-		return mail_set_aborted(mail);
+	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
+		mail_set_aborted(mail);
+		return -1;
+	}
 
 	mail->transaction->stats.fstat_lookup_count++;
 	st = i_stream_stat(mail->box->input, TRUE);

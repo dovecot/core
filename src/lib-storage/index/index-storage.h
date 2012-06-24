@@ -109,6 +109,9 @@ void index_sync_update_recent_count(struct mailbox *box);
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status_r);
+void index_storage_get_open_status(struct mailbox *box,
+				   enum mailbox_status_items items,
+				   struct mailbox_status *status_r);
 int index_mailbox_get_metadata(struct mailbox *box,
 			       enum mailbox_metadata_items items,
 			       struct mailbox_metadata *metadata_r);

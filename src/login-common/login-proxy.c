@@ -383,7 +383,7 @@ login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
 	i_free(proxy);
 
 	client->login_proxy = NULL;
-	client_unref(&client);
+	(void)client_unref(&client);
 }
 
 void login_proxy_free(struct login_proxy **_proxy)

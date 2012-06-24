@@ -102,7 +102,7 @@ static int mail_index_recreate(struct mail_index *index)
 	}
 
 	if ((index->flags & MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS) != 0)
-		mail_index_create_backup(index);
+		(void)mail_index_create_backup(index);
 
 	if (ret == 0 && rename(path, index->filepath) < 0) {
 		mail_index_set_error(index, "rename(%s, %s) failed: %m",
@@ -134,7 +134,7 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 
 	if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
 		if (mail_index_recreate(index) < 0) {
-			mail_index_move_to_memory(index);
+			(void)mail_index_move_to_memory(index);
 			return;
 		}
 	}

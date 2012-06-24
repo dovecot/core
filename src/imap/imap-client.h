@@ -176,9 +176,12 @@ void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 void client_disconnect(struct client *client, const char *reason);
 void client_disconnect_with_error(struct client *client, const char *msg);
 
+/* Send a line of data to client. */
+void client_send_line(struct client *client, const char *data);
 /* Send a line of data to client. Returns 1 if ok, 0 if buffer is getting full,
-   -1 if error */
-int client_send_line(struct client *client, const char *data);
+   -1 if error. This should be used when you're (potentially) sending a lot of
+   lines to client. */
+int client_send_line_next(struct client *client, const char *data);
 /* Send line of data to client, prefixed with client->tag. You need to prefix
    the data with "OK ", "NO " or "BAD ". */
 void client_send_tagline(struct client_command_context *cmd, const char *data);

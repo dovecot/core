@@ -33,9 +33,10 @@ static void rawlog_write_timestamp(struct rawlog_iostream *rstream)
 {
 	char buf[MAX_INT_STRLEN + 6 + 2];
 
-	i_snprintf(buf, sizeof(buf), "%lu.%06u ",
-		   (unsigned long)ioloop_timeval.tv_sec,
-		   (unsigned int)ioloop_timeval.tv_usec);
+	if (i_snprintf(buf, sizeof(buf), "%lu.%06u ",
+		       (unsigned long)ioloop_timeval.tv_sec,
+		       (unsigned int)ioloop_timeval.tv_usec) < 0)
+		i_unreached();
 	rawlog_write(rstream, buf, strlen(buf));
 }
 

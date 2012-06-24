@@ -73,7 +73,9 @@ mail_index_transaction_cache_commit(struct mail_index_transaction *t,
 	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT(t);
 	struct mail_index_transaction_vfuncs super = ctx->super;
 
-	mail_cache_transaction_commit(&ctx);
+	/* a failed cache commit isn't important enough to fail the entire
+	   index transaction, so we'll just ignore it */
+	(void)mail_cache_transaction_commit(&ctx);
 	return super.commit(t, result_r);
 }
 

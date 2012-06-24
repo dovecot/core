@@ -75,7 +75,7 @@ static bool test_dump_imapzlib(const char *path)
 	ret = read(fd, buf, sizeof(buf)-1);
 	if (ret > 0) {
 		buf[ret] = '\0';
-		str_lcase(buf);
+		(void)str_lcase(buf);
 		match = strstr(buf, " ok begin compression.") != NULL ||
 			strstr(buf, " compress deflate") != NULL;
 	}

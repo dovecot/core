@@ -115,8 +115,10 @@ o_stream_zlib_send_chunk(struct zlib_ostream *zstream,
 	flush = zstream->ostream.corked || zstream->gz ?
 		Z_NO_FLUSH : Z_SYNC_FLUSH;
 
-	if (!zstream->header_sent)
-		o_stream_zlib_send_gz_header(zstream);
+	if (!zstream->header_sent) {
+		if (o_stream_zlib_send_gz_header(zstream) < 0)
+			return -1;
+	}
 
 	zs->next_in = (void *)data;
 	zs->avail_in = size;
@@ -169,8 +171,10 @@ static int o_stream_zlib_send_flush(struct zlib_ostream *zstream)
 
 	if (zstream->flushed)
 		return 0;
-	if (!zstream->header_sent)
-		o_stream_zlib_send_gz_header(zstream);
+	if (!zstream->header_sent) {
+		if (o_stream_zlib_send_gz_header(zstream) < 0)
+			return -1;
+	}
 
 	if ((ret = o_stream_zlib_send_outbuf(zstream)) <= 0)
 		return ret;

@@ -6,6 +6,8 @@
 #include "config-parser-private.h"
 #include "old-set-parser.h"
 
+#define config_apply_line (void)config_apply_line
+
 struct socket_set {
 	const char *path, *mode, *user, *group;
 	bool master;

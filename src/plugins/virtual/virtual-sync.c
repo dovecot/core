@@ -835,7 +835,7 @@ static void virtual_sync_mailbox_box_update(struct virtual_sync_context *ctx,
 	if (count1 > 0 && count2 > 0) {
 		t_array_init(&temp_uids, count1);
 		array_append_array(&temp_uids, &bbox->sync_pending_removes);
-		if (seq_range_array_remove_seq_range(
+		if (seq_range_array_remove_seq_range_count(
 				&bbox->sync_pending_removes, &added_uids) > 0) {
 			seq_range_array_remove_seq_range(&added_uids,
 							 &temp_uids);

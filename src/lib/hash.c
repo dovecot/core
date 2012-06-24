@@ -438,16 +438,16 @@ static bool hash_table_resize(struct hash_table *table, bool grow)
 	for (i = 0; i < old_size; i++) {
 		node = &old_nodes[i];
 		if (node->key != NULL) {
-			hash_table_insert_node(table, node->key,
-					       node->value, FALSE);
+			(void)hash_table_insert_node(table, node->key,
+						     node->value, FALSE);
 		}
 
 		for (node = node->next; node != NULL; node = next) {
 			next = node->next;
 
 			if (node->key != NULL) {
-				hash_table_insert_node(table, node->key,
-						       node->value, FALSE);
+				(void)hash_table_insert_node(table, node->key,
+							     node->value, FALSE);
 			}
 			free_node(table, node);
 		}

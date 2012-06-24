@@ -26,7 +26,7 @@ static void client_connected(struct master_service_connection *conn)
 	bool master = conn->listen_fd == MASTER_LISTEN_FD_FIRST;
 
 	master_service_client_connection_accept(conn);
-	anvil_connection_create(conn->fd, master, conn->fifo);
+	(void)anvil_connection_create(conn->fd, master, conn->fifo);
 }
 
 static void ATTR_NULL(1)

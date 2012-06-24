@@ -833,7 +833,7 @@ mail_index_ext_reset_changes(struct mail_index_transaction *t, uint32_t ext_id)
 	t->log_ext_updates = mail_index_transaction_has_ext_changes(t);
 }
 
-bool mail_index_ext_using_reset_id(struct mail_index_transaction *t,
+void mail_index_ext_using_reset_id(struct mail_index_transaction *t,
 				   uint32_t ext_id, uint32_t reset_id)
 {
 	uint32_t *reset_id_p;
@@ -848,7 +848,6 @@ bool mail_index_ext_using_reset_id(struct mail_index_transaction *t,
 		/* reset_id changed, clear existing changes */
 		mail_index_ext_reset_changes(t, ext_id);
 	}
-	return changed;
 }
 
 void mail_index_ext_set_reset_id(struct mail_index_transaction *t,
@@ -953,8 +952,8 @@ int mail_index_atomic_inc_ext(struct mail_index_transaction *t,
 				     &old_diff32)) {
 		/* already incremented this sequence in this transaction */
 		diff32 += old_diff32;
-		mail_index_seq_array_add(array, seq, &diff32, sizeof(diff32),
-					 NULL);
+		(void)mail_index_seq_array_add(array, seq, &diff32,
+					       sizeof(diff32), NULL);
 	}
 	return diff32;
 }

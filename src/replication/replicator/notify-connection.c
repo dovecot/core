@@ -73,7 +73,7 @@ notify_connection_input_line(struct notify_connection *conn, const char *line)
 		return -1;
 	}
 	if (priority != REPLICATION_PRIORITY_SYNC)
-		replicator_queue_add(conn->queue, args[1], priority);
+		(void)replicator_queue_add(conn->queue, args[1], priority);
 	else if (args[3] == NULL || str_to_uint(args[3], &id) < 0) {
 		i_error("notify client sent invalid sync id: %s", line);
 		return -1;

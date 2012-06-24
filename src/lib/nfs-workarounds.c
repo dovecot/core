@@ -274,16 +274,15 @@ void nfs_flush_attr_cache_maybe_locked(const char *path)
 	nfs_flush_chown_uid(path);
 }
 
-bool nfs_flush_attr_cache_fd_locked(const char *path ATTR_UNUSED,
+void nfs_flush_attr_cache_fd_locked(const char *path ATTR_UNUSED,
 				    int fd ATTR_UNUSED)
 {
 #ifdef __FreeBSD__
 	/* FreeBSD doesn't flush attribute cache with fcntl(), so we have
 	   to do it ourself. */
-	return nfs_flush_fchown_uid(path, fd);
+	(void)nfs_flush_fchown_uid(path, fd);
 #else
 	/* Linux and Solaris are fine. */
-	return TRUE;
 #endif
 }
 
@@ -359,10 +358,10 @@ static void nfs_flush_file_handle_cache_parent_dir(const char *path)
 	p = strrchr(path, '/');
 	T_BEGIN {
 		if (p == NULL)
-			nfs_flush_file_handle_cache_dir(".", TRUE);
+			(void)nfs_flush_file_handle_cache_dir(".", TRUE);
 		else
-			nfs_flush_file_handle_cache_dir(t_strdup_until(path, p),
-							TRUE);
+			(void)nfs_flush_file_handle_cache_dir(t_strdup_until(path, p),
+							      TRUE);
 	} T_END;
 }
 

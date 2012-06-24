@@ -248,8 +248,10 @@ fts_backend_lucene_update_deinit(struct fts_backend_update_context *_ctx)
 	i_assert(backend->updating);
 
 	backend->updating = FALSE;
-	if (ctx->lucene_opened)
-		lucene_index_build_deinit(backend->index);
+	if (ctx->lucene_opened) {
+		if (lucene_index_build_deinit(backend->index) < 0)
+			ret = -1;
+	}
 
 	if (ctx->expunge_ctx != NULL) {
 		if (fts_expunge_log_append_commit(&ctx->expunge_ctx) < 0)
@@ -547,7 +549,7 @@ static void fts_backend_lucene_lookup_done(struct fts_backend *_backend)
 {
 	/* the next refresh is going to close the index anyway, so we might as
 	   well do it now */
-	fts_backend_lucene_refresh(_backend);
+	(void)fts_backend_lucene_refresh(_backend);
 }
 
 struct fts_backend fts_backend_lucene = {

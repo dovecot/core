@@ -687,7 +687,7 @@ void imap_acl_plugin_deinit(void)
 	command_unregister("DELETEACL");
 	command_unregister("LISTRIGHTS");
 
-	imap_client_created_hook_set(next_hook_client_created);
+	(void)imap_client_created_hook_set(next_hook_client_created);
 }
 
 const char *imap_acl_plugin_dependencies[] = { "acl", NULL };

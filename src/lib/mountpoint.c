@@ -123,7 +123,8 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
                 point_r->dev = mnt->dev;
                 point_r->block_size = st.st_blksize;
         }
-	mountpoint_iter_deinit(&iter);
+	if (mountpoint_iter_deinit(&iter) < 0 && mnt == NULL)
+		return -1;
         return mnt != NULL ? 1 : 0;
 #endif
 }

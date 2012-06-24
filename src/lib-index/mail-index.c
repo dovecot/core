@@ -403,8 +403,10 @@ int mail_index_try_open_only(struct mail_index *index)
 	}
 
 	if (index->fd == -1) {
-		if (errno != ENOENT)
-			return mail_index_set_syscall_error(index, "open()");
+		if (errno != ENOENT) {
+			mail_index_set_syscall_error(index, "open()");
+			return -1;
+		}
 
 		/* have to create it */
 		return 0;
@@ -705,12 +707,15 @@ int mail_index_reopen_if_changed(struct mail_index *index)
 	if (nfs_safe_stat(index->filepath, &st2) < 0) {
 		if (errno == ENOENT)
 			return 0;
-		return mail_index_set_syscall_error(index, "stat()");
+		mail_index_set_syscall_error(index, "stat()");
+		return -1;
 	}
 
 	if (fstat(index->fd, &st1) < 0) {
-		if (!ESTALE_FSTAT(errno))
-			return mail_index_set_syscall_error(index, "fstat()");
+		if (!ESTALE_FSTAT(errno)) {
+			mail_index_set_syscall_error(index, "fstat()");
+			return -1;
+		}
 		/* deleted/recreated, reopen */
 	} else if (st1.st_ino == st2.st_ino &&
 		   CMP_DEV_T(st1.st_dev, st2.st_dev)) {
@@ -738,7 +743,7 @@ struct mail_cache *mail_index_get_cache(struct mail_index *index)
 	return index->cache;
 }
 
-int mail_index_set_error(struct mail_index *index, const char *fmt, ...)
+void mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 {
 	va_list va;
 
@@ -753,8 +758,6 @@ int mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 
 		i_error("%s", index->error);
 	}
-
-	return -1;
 }
 
 bool mail_index_is_in_memory(struct mail_index *index)
@@ -875,16 +878,15 @@ void mail_index_fchown(struct mail_index *index, int fd, const char *path)
 		mail_index_file_set_syscall_error(index, path, "fchmod()");
 }
 
-int mail_index_set_syscall_error(struct mail_index *index,
-				 const char *function)
+void mail_index_set_syscall_error(struct mail_index *index,
+				  const char *function)
 {
-	return mail_index_file_set_syscall_error(index, index->filepath,
-						 function);
+	mail_index_file_set_syscall_error(index, index->filepath, function);
 }
 
-int mail_index_file_set_syscall_error(struct mail_index *index,
-				      const char *filepath,
-				      const char *function)
+void mail_index_file_set_syscall_error(struct mail_index *index,
+				       const char *filepath,
+				       const char *function)
 {
 	const char *errstr;
 
@@ -894,7 +896,7 @@ int mail_index_file_set_syscall_error(struct mail_index *index,
 	if (ENOSPACE(errno)) {
 		index->nodiskspace = TRUE;
 		if ((index->flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) == 0)
-			return -1;
+			return;
 	}
 
 	if (errno == EACCES) {
@@ -904,12 +906,12 @@ int mail_index_file_set_syscall_error(struct mail_index *index,
 			errstr = eacces_error_get_creating(function, filepath);
 		else
 			errstr = eacces_error_get(function, filepath);
-		return mail_index_set_error(index, "%s", errstr);
+		mail_index_set_error(index, "%s", errstr);
 	} else {
 		const char *suffix = errno != EFBIG ? "" :
 			" (process was started with ulimit -f limit)";
-		return mail_index_set_error(index, "%s failed with file %s: "
-					    "%m%s", function, filepath, suffix);
+		mail_index_set_error(index, "%s failed with file %s: "
+				     "%m%s", function, filepath, suffix);
 	}
 }
 

@@ -38,7 +38,7 @@ struct service_process *service_process_create(struct service *service);
 void service_process_destroy(struct service_process *process);
 
 void service_process_ref(struct service_process *process);
-int service_process_unref(struct service_process *process);
+void service_process_unref(struct service_process *process);
 
 void service_process_log_status_error(struct service_process *process,
 				      int status);

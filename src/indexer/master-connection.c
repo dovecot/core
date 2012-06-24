@@ -89,9 +89,10 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 			percentage = counter*100 / max;
 			if (percentage != percentage_sent && percentage < 100) {
 				percentage_sent = percentage;
-				i_snprintf(percentage_str,
-					   sizeof(percentage_str), "%u\n",
-					   percentage);
+				if (i_snprintf(percentage_str,
+					       sizeof(percentage_str), "%u\n",
+					       percentage) < 0)
+					i_unreached();
 				(void)write_full(conn->fd, percentage_str,
 						 strlen(percentage_str));
 			}
@@ -169,7 +170,8 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 		}
 		ret = -1;
 	} else if (strchr(what, 'i') != NULL) {
-		index_mailbox_precache(conn, box);
+		if (index_mailbox_precache(conn, box) < 0)
+			ret = -1;
 	}
 	mailbox_free(&box);
 	return ret;

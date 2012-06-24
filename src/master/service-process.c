@@ -365,17 +365,15 @@ void service_process_ref(struct service_process *process)
 	process->refcount++;
 }
 
-int service_process_unref(struct service_process *process)
+void service_process_unref(struct service_process *process)
 {
 	i_assert(process->refcount > 0);
 
 	if (--process->refcount > 0)
-		return TRUE;
+		return;
 
 	i_assert(process->destroyed);
-
 	i_free(process);
-	return FALSE;
 }
 
 static const char *

@@ -32,8 +32,7 @@ t_unicode_str(const char *src, bool ucase, size_t *size)
 	return buffer_free_without_data(&wstr);
 }
 
-const unsigned char *
-lm_hash(const char *passwd, unsigned char hash[LM_HASH_SIZE])
+void lm_hash(const char *passwd, unsigned char hash[LM_HASH_SIZE])
 {
 	static const unsigned char lm_magic[8] = "KGS!@#$%";
 	unsigned char buffer[14];
@@ -48,12 +47,9 @@ lm_hash(const char *passwd, unsigned char hash[LM_HASH_SIZE])
 	deshash(hash + 8, buffer + 7, lm_magic);
 
 	safe_memset(buffer, 0, sizeof(buffer));
-
-	return hash;
 }
 
-const unsigned char *
-ntlm_v1_hash(const char *passwd, unsigned char hash[NTLMSSP_HASH_SIZE])
+void ntlm_v1_hash(const char *passwd, unsigned char hash[NTLMSSP_HASH_SIZE])
 {
 	size_t len;
 	void *wpwd = t_unicode_str(passwd, 0, &len);
@@ -61,8 +57,6 @@ ntlm_v1_hash(const char *passwd, unsigned char hash[NTLMSSP_HASH_SIZE])
 	md4_get_digest(wpwd, len, hash);
 
 	safe_memset(wpwd, 0, len);
-
-	return hash;
 }
 
 static void

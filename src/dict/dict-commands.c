@@ -101,7 +101,7 @@ static int cmd_iterate(struct dict_connection *conn, const char *line)
 	conn->iter_ctx = dict_iterate_init_multiple(conn->dict, args+1, flags);
 
 	o_stream_set_flush_callback(conn->output, cmd_iterate_flush, conn);
-	cmd_iterate_flush(conn);
+	(void)cmd_iterate_flush(conn);
 	return 0;
 }
 

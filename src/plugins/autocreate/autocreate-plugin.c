@@ -66,15 +66,16 @@ read_autobox_settings(struct mail_user *user, const char *env_name_base,
 		      bool subscriptions)
 {
 	const char *value;
-	char env_name[20];
+	char env_name[13+MAX_INT_STRLEN+1];
 	unsigned int i = 1;
 
 	value = mail_user_plugin_getenv(user, env_name_base);
 	while (value != NULL) {
 		add_autobox(user, value, subscriptions);
 
-		i_snprintf(env_name, sizeof(env_name), "%s%d",
-			   env_name_base, ++i);
+		if (i_snprintf(env_name, sizeof(env_name), "%s%u",
+			       env_name_base, ++i) < 0)
+			i_unreached();
 		value = mail_user_plugin_getenv(user, env_name);
 	}
 }

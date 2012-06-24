@@ -123,7 +123,7 @@ sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 	ret = sdbox_file_copy_attachments((struct sdbox_file *)src_file,
 					  (struct sdbox_file *)dest_file);
 	if (ret <= 0) {
-		sdbox_file_unlink_aborted_save((struct sdbox_file *)dest_file);
+		(void)sdbox_file_unlink_aborted_save((struct sdbox_file *)dest_file);
 		dbox_file_unref(&src_file);
 		dbox_file_unref(&dest_file);
 		return ret;

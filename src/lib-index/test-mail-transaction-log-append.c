@@ -11,11 +11,10 @@
 
 static bool log_lock_failure = FALSE;
 
-int mail_index_file_set_syscall_error(struct mail_index *index ATTR_UNUSED,
-				      const char *filepath ATTR_UNUSED,
-				      const char *function ATTR_UNUSED)
+void mail_index_file_set_syscall_error(struct mail_index *index ATTR_UNUSED,
+				       const char *filepath ATTR_UNUSED,
+				       const char *function ATTR_UNUSED)
 {
-	return -1;
 }
 
 int mail_transaction_log_lock_head(struct mail_transaction_log *log ATTR_UNUSED)

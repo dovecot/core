@@ -155,7 +155,7 @@ static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 		if (changes_during_sync)
 			brain->changes_during_sync = TRUE;
 	}
-	dsync_slave_send_mailbox_state(brain->slave, &state);
+	(void)dsync_slave_send_mailbox_state(brain->slave, &state);
 }
 
 static bool dsync_brain_recv_mail(struct dsync_brain *brain)

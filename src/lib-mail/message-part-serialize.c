@@ -39,8 +39,8 @@ struct deserialize_context {
 	const char *error;
 };
 
-static unsigned int
-part_serialize(struct message_part *part, buffer_t *dest)
+static void part_serialize(struct message_part *part, buffer_t *dest,
+			   unsigned int *children_count_r)
 {
 	unsigned int count, children_count;
 	size_t children_offset;
@@ -79,8 +79,8 @@ part_serialize(struct message_part *part, buffer_t *dest)
 				      sizeof(children_count));
 
 			if (part->children != NULL) {
-				children_count =
-					part_serialize(part->children, dest);
+				part_serialize(part->children, dest,
+					       &children_count);
 
 				buffer_write(dest, children_offset,
 					     &children_count,
@@ -94,12 +94,14 @@ part_serialize(struct message_part *part, buffer_t *dest)
 		part = part->next;
 	}
 
-	return count;
+	*children_count_r = count;
 }
 
 void message_part_serialize(struct message_part *part, buffer_t *dest)
 {
-	part_serialize(part, dest);
+	unsigned int children_count;
+
+	part_serialize(part, dest, &children_count);
 }
 
 static bool read_next(struct deserialize_context *ctx,

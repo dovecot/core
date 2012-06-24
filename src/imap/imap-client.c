@@ -285,7 +285,12 @@ void client_disconnect_with_error(struct client *client, const char *msg)
 	client_disconnect(client, msg);
 }
 
-int client_send_line(struct client *client, const char *data)
+void client_send_line(struct client *client, const char *data)
+{
+	(void)client_send_line_next(client, data);
+}
+
+int client_send_line_next(struct client *client, const char *data)
 {
 	struct const_iovec iov[2];
 
@@ -807,7 +812,7 @@ bool client_handle_input(struct client *client)
 		return FALSE;
 
 	if (client->input_lock == NULL)
-		cmd_sync_delayed(client);
+		(void)cmd_sync_delayed(client);
 	return TRUE;
 }
 

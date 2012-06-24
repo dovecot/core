@@ -27,7 +27,7 @@ void nfs_flush_attr_cache_maybe_locked(const char *path);
 /* Flush attribute cache for a fcntl locked file descriptor. If locking flushes
    the attribute cache with the running OS, this function does nothing.
    The given path is used only for logging. */
-bool nfs_flush_attr_cache_fd_locked(const char *path, int fd);
+void nfs_flush_attr_cache_fd_locked(const char *path, int fd);
 /* Flush file handle cache for given file. */
 void nfs_flush_file_handle_cache(const char *path);
 

@@ -953,9 +953,9 @@ static void mail_index_strmap_write_block(struct mail_index_strmap_view *view,
 	i_assert(block_size != 0);
 
 	end_offset = output->offset;
-	o_stream_seek(output, block_offset);
+	(void)o_stream_seek(output, block_offset);
 	o_stream_nsend(output, &block_size, sizeof(block_size));
-	o_stream_seek(output, end_offset);
+	(void)o_stream_seek(output, end_offset);
 
 	if (output->last_failed_errno != 0)
 		return;
@@ -1167,7 +1167,7 @@ mail_index_strmap_write_append(struct mail_index_strmap_view *view)
 
 	/* write the new records */
 	output = o_stream_create_fd(view->strmap->fd, 0, FALSE);
-	o_stream_seek(output, view->last_read_block_offset);
+	(void)o_stream_seek(output, view->last_read_block_offset);
 	o_stream_cork(output);
 	mail_index_strmap_write_block(view, output, i,
 				      view->last_read_uid + 1);

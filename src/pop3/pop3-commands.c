@@ -130,10 +130,9 @@ struct cmd_list_context {
 static void cmd_list_callback(struct client *client)
 {
 	struct cmd_list_context *ctx = client->cmd_context;
-	int ret = 1;
 
 	for (; ctx->msgnum != client->messages_count; ctx->msgnum++) {
-		if (ret == 0) {
+		if (POP3_CLIENT_OUTPUT_FULL(client)) {
 			/* buffer full */
 			return;
 		}
@@ -144,9 +143,9 @@ static void cmd_list_callback(struct client *client)
 				continue;
 		}
 
-		ret = client_send_line(client, "%u %"PRIuUOFF_T, ctx->msgnum+1,
-				       client->message_sizes[ctx->msgnum]);
-		if (ret < 0)
+		client_send_line(client, "%u %"PRIuUOFF_T, ctx->msgnum+1,
+				 client->message_sizes[ctx->msgnum]);
+		if (client->output->closed)
 			break;
 	}
 
@@ -512,7 +511,7 @@ static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 			mail_update_flags(mail, MODIFY_REMOVE, MAIL_SEEN);
 		(void)mailbox_search_deinit(&search_ctx);
 
-		mailbox_transaction_commit(&client->trans);
+		(void)mailbox_transaction_commit(&client->trans);
 		client->trans = mailbox_transaction_begin(client->mailbox, 0);
 	}
 
@@ -587,8 +586,9 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 	tab[0].value = t_strdup_printf("%u", client->uid_validity);
 
 	if ((client->uidl_keymask & UIDL_UID) != 0) {
-		i_snprintf(uid_str, sizeof(uid_str), "%u",
-			   mail->uid);
+		if (i_snprintf(uid_str, sizeof(uid_str), "%u",
+			       mail->uid) < 0)
+			i_unreached();
 		tab[1].value = uid_str;
 	}
 	if ((client->uidl_keymask & UIDL_MD5) != 0) {
@@ -625,7 +625,6 @@ static bool
 list_uidls_saved_iter(struct client *client, struct cmd_uidl_context *ctx)
 {
 	bool found = FALSE;
-	int ret;
 
 	while (ctx->msgnum < client->messages_count) {
 		uint32_t msgnum = ctx->msgnum++;
@@ -637,12 +636,12 @@ list_uidls_saved_iter(struct client *client, struct cmd_uidl_context *ctx)
 		}
 		found = TRUE;
 
-		ret = client_send_line(client,
-				       ctx->list_all ? "%u %s" : "+OK %u %s",
-				       msgnum+1, client->message_uidls[msgnum]);
-		if (ret < 0 || !ctx->list_all)
+		client_send_line(client,
+				 ctx->list_all ? "%u %s" : "+OK %u %s",
+				 msgnum+1, client->message_uidls[msgnum]);
+		if (client->output->closed || !ctx->list_all)
 			break;
-		if (ret == 0) {
+		if (POP3_CLIENT_OUTPUT_FULL(client)) {
 			/* output is being buffered, continue when there's
 			   more space */
 			return FALSE;
@@ -660,7 +659,6 @@ list_uidls_saved_iter(struct client *client, struct cmd_uidl_context *ctx)
 static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 {
 	string_t *str;
-	int ret;
 	bool permanent_uidl, found = FALSE;
 
 	if (client->message_uidls != NULL)
@@ -684,12 +682,11 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		if (client->set->pop3_save_uidl && !permanent_uidl)
 			mail_update_pop3_uidl(ctx->mail, str_c(str));
 
-		ret = client_send_line(client,
-				       ctx->list_all ? "%u %s" : "+OK %u %s",
-				       msgnum+1, str_c(str));
-		if (ret < 0)
+		client_send_line(client, ctx->list_all ? "%u %s" : "+OK %u %s",
+				 msgnum+1, str_c(str));
+		if (client->output->closed)
 			break;
-		if (ret == 0 && ctx->list_all) {
+		if (POP3_CLIENT_OUTPUT_FULL(client) && ctx->list_all) {
 			/* output is being buffered, continue when there's
 			   more space */
 			return FALSE;

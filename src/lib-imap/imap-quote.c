@@ -95,24 +95,31 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 		str_append_c(str, '"');
 }
 
+static const char *
+imap_quote_internal(pool_t pool, const unsigned char *value,
+		    size_t value_len, bool fix_text)
+{
+	string_t *str;
+
+	str = t_str_new(value_len + MAX_INT_STRLEN + 5);
+	imap_quote_append(str, value, value_len, fix_text);
+	return pool->datastack_pool ? str_c(str) :
+		p_strndup(pool, str_data(str), str_len(str));
+}
+
 const char *imap_quote(pool_t pool, const unsigned char *value,
 		       size_t value_len, bool fix_text)
 {
-	string_t *str;
-	char *ret;
+	const char *ret;
 
 	if (value == NULL)
 		return "NIL";
 
 	if (!pool->datastack_pool)
-		t_push();
-
-	str = t_str_new(value_len + MAX_INT_STRLEN + 5);
-	imap_quote_append(str, value, value_len, fix_text);
-	ret = p_strndup(pool, str_data(str), str_len(str));
-
-	if (!pool->datastack_pool)
-		t_pop();
+		ret = imap_quote_internal(pool, value, value_len, fix_text);
+	else T_BEGIN {
+		ret = imap_quote_internal(pool, value, value_len, fix_text);
+	} T_END;
 	return ret;
 }
 

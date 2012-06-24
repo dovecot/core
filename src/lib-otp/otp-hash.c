@@ -107,14 +107,12 @@ int digest_find(const char *name)
 	return -1;
 }
 
-int digest_init(struct digest_context *ctx, const unsigned int algo)
+void digest_init(struct digest_context *ctx, const unsigned int algo)
 {
 	i_assert(algo < N_ELEMENTS(digests));
 
 	ctx->digest = digests + algo;
 	ctx->digest->init(&ctx->ctx);
-
-	return 0;
 }
 
 void digest_update(struct digest_context *ctx, const void *data,

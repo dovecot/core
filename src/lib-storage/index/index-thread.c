@@ -387,8 +387,9 @@ static bool mail_thread_cache_update_removes(struct mail_thread_mailbox *tbox,
 	uids = array_get(&removed_uids, &uid_count);
 	for (i = j = 0; i < uid_count; i++) {
 		/* find and remove from the map */
-		bsearch_insert_pos(&uids[i].seq1, &msgid_map[j], map_count - j,
-				   sizeof(*msgid_map), msgid_map_cmp, &idx);
+		(void)bsearch_insert_pos(&uids[i].seq1, &msgid_map[j],
+					 map_count - j, sizeof(*msgid_map),
+					 msgid_map_cmp, &idx);
 		j += idx;
 		if (j == map_count) {
 			/* all removals after this are about messages we never

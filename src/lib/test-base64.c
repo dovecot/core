@@ -95,7 +95,7 @@ static void test_base64_random(void)
 		str_truncate(str, 0);
 		str_truncate(dest, 0);
 		base64_encode(buf, max, str);
-		base64_decode(str_data(str), str_len(str), NULL, dest);
+		test_assert(base64_decode(str_data(str), str_len(str), NULL, dest) >= 0);
 		test_assert(str_len(dest) == max &&
 			    memcmp(buf, str_data(dest), max) == 0);
 	}

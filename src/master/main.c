@@ -155,7 +155,7 @@ master_fatal_callback(const struct failure_context *ctx,
 		if (fd != -1) {
 			VA_COPY(args2, args);
 			str = t_strdup_vprintf(format, args2);
-			write_full(fd, str, strlen(str));
+			(void)write_full(fd, str, strlen(str));
 			(void)close(fd);
 		}
 	}
@@ -332,7 +332,7 @@ static void instance_update_now(struct master_instance_list *list)
 					    services->set->instance_name);
 	if (ret == 0) {
 		/* duplicate instance names. allow without warning.. */
-		master_instance_list_update(list, services->set->base_dir);
+		(void)master_instance_list_update(list, services->set->base_dir);
 	}
 	
 	if (to_instance != NULL)

@@ -9,6 +9,9 @@ typedef void command_func_t(struct client *client);
 #define MSGS_BITMASK_SIZE(client) \
 	(((client)->messages_count + (CHAR_BIT-1)) / CHAR_BIT)
 
+#define POP3_CLIENT_OUTPUT_FULL(client) \
+	((client)->io == NULL)
+
 struct pop3_client_vfuncs {
 	void (*destroy)(struct client *client, const char *reason);
 
@@ -110,7 +113,7 @@ void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 void client_disconnect(struct client *client, const char *reason);
 
 /* Send a line of data to client */
-int client_send_line(struct client *client, const char *fmt, ...)
+void client_send_line(struct client *client, const char *fmt, ...)
 	ATTR_FORMAT(2, 3);
 void client_send_storage_error(struct client *client);
 

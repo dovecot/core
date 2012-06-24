@@ -8,7 +8,7 @@
 void mailbox_get_seq_range(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 			   uint32_t *seq1_r, uint32_t *seq2_r)
 {
-	mail_index_lookup_seq_range(box->view, uid1, uid2, seq1_r, seq2_r);
+	(void)mail_index_lookup_seq_range(box->view, uid1, uid2, seq1_r, seq2_r);
 }
 
 void mailbox_get_uid_range(struct mailbox *box,

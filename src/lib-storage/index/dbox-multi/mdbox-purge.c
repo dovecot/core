@@ -423,7 +423,8 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file,
 	   temporarily vanished */
 	if (ret > 0) {
 		(void)dbox_file_unlink(file);
-		mdbox_map_remove_file_id(ctx->storage->map, file_id);
+		if (mdbox_map_remove_file_id(ctx->storage->map, file_id) < 0)
+			ret = -1;
 	} else {
 		dbox_file_unlock(file);
 	}
@@ -670,7 +671,8 @@ int mdbox_purge(struct mail_storage *_storage)
 			if (mdbox_file_purge(ctx, file, file_id) < 0)
 				ret = -1;
 		} else {
-			mdbox_map_remove_file_id(storage->map, file_id);
+			if (mdbox_map_remove_file_id(storage->map, file_id) < 0)
+				ret = -1;
 		}
 		dbox_file_unref(&file);
 	} T_END;

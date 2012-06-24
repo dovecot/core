@@ -1658,7 +1658,7 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 		o_stream_cork(output);
 
 		if (trie->hdr.used_file_size != 0)
-			o_stream_seek(output, trie->hdr.used_file_size);
+			(void)o_stream_seek(output, trie->hdr.used_file_size);
 		else
 			o_stream_nsend(output, &trie->hdr, sizeof(trie->hdr));
 	}
@@ -1677,7 +1677,7 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 		ret = squat_trie_write_lock(ctx);
 	if (ret == 0) {
 		trie->hdr.used_file_size = output->offset;
-		o_stream_seek(output, 0);
+		(void)o_stream_seek(output, 0);
 		o_stream_nsend(output, &trie->hdr, sizeof(trie->hdr));
 	}
 	if (o_stream_nfinish(output) < 0) {

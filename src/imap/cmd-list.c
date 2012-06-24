@@ -479,7 +479,7 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 		imap_quote_append_string(str, str_c(mutf7_name), FALSE);
 		mailbox_childinfo2str(ctx, str, flags);
 
-		ret = client_send_line(ctx->cmd->client, str_c(str));
+		ret = client_send_line_next(ctx->cmd->client, str_c(str));
 		if (ctx->used_status) T_BEGIN {
 			list_send_status(ctx, name, flags);
 		} T_END;

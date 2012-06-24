@@ -43,6 +43,8 @@ struct log_connection {
 static struct log_connection *log_connections = NULL;
 static ARRAY_DEFINE(logs_by_fd, struct log_connection *);
 
+static void log_connection_destroy(struct log_connection *log);
+
 static struct log_client *log_client_get(struct log_connection *log, pid_t pid)
 {
 	struct log_client *client;
@@ -304,8 +306,8 @@ static void log_connection_input(struct log_connection *log)
 	}
 }
 
-struct log_connection *
-log_connection_create(struct log_error_buffer *errorbuf, int fd, int listen_fd)
+void log_connection_create(struct log_error_buffer *errorbuf,
+			   int fd, int listen_fd)
 {
 	struct log_connection *log;
 
@@ -321,10 +323,9 @@ log_connection_create(struct log_error_buffer *errorbuf, int fd, int listen_fd)
 
 	DLLIST_PREPEND(&log_connections, log);
 	log_connection_input(log);
-	return log;
 }
 
-void log_connection_destroy(struct log_connection *log)
+static void log_connection_destroy(struct log_connection *log)
 {
 	struct hash_iterate_context *iter;
 	void *key, *value;

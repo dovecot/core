@@ -44,10 +44,10 @@ static void test_user_directory_ascending(void)
 
 	test_begin("user directory ascending");
 	dir = user_directory_init(USER_DIR_TIMEOUT, "%u");
-	user_directory_add(dir, 1, host, ioloop_time + count+1);
+	(void)user_directory_add(dir, 1, host, ioloop_time + count+1);
 
 	for (i = 0; i < count; i++)
-		user_directory_add(dir, i+2, host, ioloop_time + i);
+		(void)user_directory_add(dir, i+2, host, ioloop_time + i);
 	verify_user_directory(dir, count+1);
 	user_directory_deinit(&dir);
 	test_end();
@@ -64,7 +64,7 @@ static void test_user_directory_descending(void)
 	dir = user_directory_init(USER_DIR_TIMEOUT, "%u");
 
 	for (i = 0; i < count; i++)
-		user_directory_add(dir, i+1, host, ioloop_time - i);
+		(void)user_directory_add(dir, i+1, host, ioloop_time - i);
 	verify_user_directory(dir, count);
 	user_directory_deinit(&dir);
 	test_end();
@@ -84,7 +84,7 @@ static void test_user_directory_random(void)
 			timestamp = ioloop_time;
 		else
 			timestamp = ioloop_time-rand()%100;
-		user_directory_add(dir, i+1, host, timestamp);
+		(void)user_directory_add(dir, i+1, host, timestamp);
 	}
 	verify_user_directory(dir, count);
 	user_directory_deinit(&dir);

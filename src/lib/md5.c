@@ -208,7 +208,7 @@ void md5_update(struct md5_context *ctx, const void *data, size_t size)
 		memcpy(&ctx->buffer[used], data, free);
 		data = (const unsigned char *) data + free;
 		size -= free;
-		body(ctx, ctx->buffer, 64);
+		(void)body(ctx, ctx->buffer, 64);
 	}
 
 	if (size >= 64) {
@@ -232,7 +232,7 @@ void md5_final(struct md5_context *ctx, unsigned char result[MD5_RESULTLEN])
 
 	if (free < 8) {
 		memset(&ctx->buffer[used], 0, free);
-		body(ctx, ctx->buffer, 64);
+		(void)body(ctx, ctx->buffer, 64);
 		used = 0;
 		free = 64;
 	}
@@ -249,7 +249,7 @@ void md5_final(struct md5_context *ctx, unsigned char result[MD5_RESULTLEN])
 	ctx->buffer[62] = ctx->hi >> 16;
 	ctx->buffer[63] = ctx->hi >> 24;
 
-	body(ctx, ctx->buffer, 64);
+	(void)body(ctx, ctx->buffer, 64);
 
 	result[0] = ctx->a;
 	result[1] = ctx->a >> 8;

@@ -10,7 +10,7 @@ enum {
 };
 
 int digest_find(const char *name);
-int digest_init(struct digest_context *ctx, const unsigned int algo);
+void digest_init(struct digest_context *ctx, const unsigned int algo);
 void digest_update(struct digest_context *ctx, const void *data,
 		   const size_t size);
 void digest_final(struct digest_context *ctx, unsigned char *result);

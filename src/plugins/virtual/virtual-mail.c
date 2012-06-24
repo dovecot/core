@@ -124,7 +124,7 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq, bool saving)
 	bbox = virtual_backend_box_lookup(mbox, vrec->mailbox_id);
 	vmail->backend_mail = backend_mail_find(vmail, bbox->box);
 	if (vmail->backend_mail == NULL)
-		virtual_mail_set_backend_mail(mail, bbox);
+		(void)virtual_mail_set_backend_mail(mail, bbox);
 	vmail->lost = !mail_set_uid(vmail->backend_mail, vrec->real_uid);
 	memset(&vmail->imail.data, 0, sizeof(vmail->imail.data));
 	p_clear(vmail->imail.data_pool);

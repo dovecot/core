@@ -158,7 +158,7 @@ dbox_sync_index_rebuild_init(struct mailbox *box,
 	ctx->trans = trans;
 	mail_index_reset(ctx->trans);
 	index_mailbox_reset_uidvalidity(box);
-	mail_index_ext_lookup(box->index, "cache", &ctx->cache_ext_id);
+	(void)mail_index_ext_lookup(box->index, "cache", &ctx->cache_ext_id);
 
 	/* open cache and read the caching decisions. we'll reset the cache in
 	   case it contains any invalid data, but we want to preserve the

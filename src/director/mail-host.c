@@ -59,7 +59,7 @@ static int mail_host_add(struct mail_host_list *list, const char *host)
 	}
 
 	for (i = 0; i < ips_count; i++)
-		mail_host_add_ip(list, &ips[i]);
+		(void)mail_host_add_ip(list, &ips[i]);
 	return 0;
 }
 
@@ -120,7 +120,7 @@ mail_hosts_add_range(struct mail_host_list *list,
 	/* create hosts from the final bits */
 	do {
 		ip1_arr[i] = ntohl(i1);
-		mail_host_add_ip(list, &ip1);
+		(void)mail_host_add_ip(list, &ip1);
 		i1++;
 	} while (ip1_arr[i] != ip2_arr[i]);
 	return 0;

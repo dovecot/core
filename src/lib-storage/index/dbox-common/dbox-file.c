@@ -601,7 +601,10 @@ int dbox_file_get_append_stream(struct dbox_file_append_context *ctx,
 				"dbox file size too small");
 			return 0;
 		}
-		o_stream_seek(ctx->output, st.st_size);
+		if (o_stream_seek(ctx->output, st.st_size) < 0) {
+			dbox_file_set_syscall_error(file, "lseek()");
+			return -1;
+		}
 	}
 	*output_r = ctx->output;
 	return 1;

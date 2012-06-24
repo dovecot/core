@@ -526,7 +526,7 @@ void mail_storage_copy_list_error(struct mail_storage *storage,
 
 /* Returns TRUE if everything should already be in memory after this call. */
 bool mail_prefetch(struct mail *mail);
-int mail_set_aborted(struct mail *mail);
+void mail_set_aborted(struct mail *mail);
 void mail_set_expunged(struct mail *mail);
 void mail_set_seq_saving(struct mail *mail, uint32_t seq);
 void mailbox_set_deleted(struct mailbox *box);

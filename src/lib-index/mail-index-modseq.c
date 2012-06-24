@@ -344,8 +344,7 @@ mail_index_modseq_update_old_rec(struct mail_index_modseq_sync *ctx,
 		for (i = 0; i < count; i++) {
 			if (mail_index_lookup_seq(ctx->view,
 						  appends[i].uid, &seq1)) {
-				mail_index_modseq_update_to_highest(ctx, seq1,
-								    seq1);
+				(void)mail_index_modseq_update_to_highest(ctx, seq1, seq1);
 			}
 		}
 		return;
@@ -385,7 +384,7 @@ mail_index_modseq_update_old_rec(struct mail_index_modseq_sync *ctx,
 		rec = array_idx(&uids, i);
 		if (mail_index_lookup_seq_range(ctx->view, rec->seq1, rec->seq2,
 						&seq1, &seq2))
-			mail_index_modseq_update_to_highest(ctx, seq1, seq2);
+			(void)mail_index_modseq_update_to_highest(ctx, seq1, seq2);
 	}
 }
 
@@ -547,7 +546,7 @@ void mail_index_modseq_hdr_update(struct mail_index_modseq_sync *ctx)
 
 void mail_index_modseq_append(struct mail_index_modseq_sync *ctx, uint32_t seq)
 {
-	mail_index_modseq_update_to_highest(ctx, seq, seq);
+	(void)mail_index_modseq_update_to_highest(ctx, seq, seq);
 }
 
 void mail_index_modseq_expunge(struct mail_index_modseq_sync *ctx,

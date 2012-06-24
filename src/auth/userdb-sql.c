@@ -136,7 +136,7 @@ static void sql_iter_query_callback(struct sql_result *sql_result,
 	sql_result_ref(sql_result);
 
 	if (ctx->freed)
-		userdb_sql_iterate_deinit(&ctx->ctx);
+		(void)userdb_sql_iterate_deinit(&ctx->ctx);
 	else if (ctx->call_iter)
 		userdb_sql_iterate_next(&ctx->ctx);
 }

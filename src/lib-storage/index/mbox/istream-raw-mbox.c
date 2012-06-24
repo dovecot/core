@@ -537,7 +537,7 @@ uoff_t istream_raw_mbox_get_body_offset(struct istream *stream)
 	offset = stream->v_offset;
 	i_stream_seek(stream, rstream->hdr_offset);
 	while (rstream->body_offset == (uoff_t)-1) {
-		i_stream_get_data(stream, &pos);
+		(void)i_stream_get_data(stream, &pos);
 		i_stream_skip(stream, pos);
 
 		if (i_stream_raw_mbox_read(&rstream->istream) < 0) {

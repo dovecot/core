@@ -476,13 +476,13 @@ void t_buffer_alloc(size_t size)
 	i_assert(current_block->left >= size);
 
 	/* we've already reserved the space, now we just mark it used */
-	t_malloc_real(size, TRUE);
+	(void)t_malloc_real(size, TRUE);
 }
 
 void t_buffer_alloc_last_full(void)
 {
 	if (last_buffer_block != NULL)
-		t_malloc_real(last_buffer_size, TRUE);
+		(void)t_malloc_real(last_buffer_size, TRUE);
 }
 
 void data_stack_set_clean_after_pop(bool enable ATTR_UNUSED)
@@ -515,12 +515,12 @@ void data_stack_init(void)
 	last_buffer_block = NULL;
 	last_buffer_size = 0;
 
-	t_push();
+	(void)t_push();
 }
 
 void data_stack_deinit(void)
 {
-	t_pop();
+	(void)t_pop();
 
 	if (frame_pos != BLOCK_FRAME_COUNT-1)
 		i_panic("Missing t_pop() call");

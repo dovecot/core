@@ -9,11 +9,12 @@ enum server_cmd_reply {
 };
 
 struct doveadm_server;
+struct server_connection;
 
 typedef void server_cmd_callback_t(enum server_cmd_reply reply, void *context);
 
-struct server_connection *
-server_connection_create(struct doveadm_server *server);
+int server_connection_create(struct doveadm_server *server,
+			     struct server_connection **conn_r);
 void server_connection_destroy(struct server_connection **conn);
 
 /* Return the server given to create() */

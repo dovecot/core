@@ -33,16 +33,23 @@ int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status_r)
 {
-	const struct mail_index_header *hdr, *hdr_pvt;
-
-	memset(status_r, 0, sizeof(struct mailbox_status));
-
 	if (!box->opened) {
 		if (mailbox_open(box) < 0)
 			return -1;
 		if (mailbox_sync(box, 0) < 0)
 			return -1;
 	}
+	index_storage_get_open_status(box, items, status_r);
+	return 0;
+}
+
+void index_storage_get_open_status(struct mailbox *box,
+				   enum mailbox_status_items items,
+				   struct mailbox_status *status_r)
+{
+	const struct mail_index_header *hdr, *hdr_pvt;
+
+	memset(status_r, 0, sizeof(struct mailbox_status));
 
 	/* we can get most of the status items without any trouble */
 	hdr = mail_index_get_header(box->view);
@@ -96,7 +103,6 @@ int index_storage_get_status(struct mailbox *box,
 				!box->disallow_new_keywords;
 		}
 	}
-	return 0;
 }
 
 static void

@@ -328,7 +328,7 @@ void maildir_uidlist_deinit(struct maildir_uidlist **_uidlist)
 	i_assert(!UIDLIST_IS_LOCKED(uidlist));
 
 	*_uidlist = NULL;
-	maildir_uidlist_update(uidlist);
+	(void)maildir_uidlist_update(uidlist);
 	maildir_uidlist_close(uidlist);
 
 	hash_table_destroy(&uidlist->files);
@@ -553,7 +553,7 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 		if (uidlist->retry_rewind)
 			return FALSE;
 		/* Delete the old UID */
-		maildir_uidlist_records_array_delete(uidlist, old_rec);
+		(void)maildir_uidlist_records_array_delete(uidlist, old_rec);
 		/* Replace the old record with this new one */
 		*old_rec = *rec;
 		rec = old_rec;
@@ -1336,7 +1336,7 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 	if (!uidlist->box->opened)
 		return;
 
-	mail_index_refresh(uidlist->box->index);
+	(void)mail_index_refresh(uidlist->box->index);
 	view = mail_index_view_open(uidlist->box->index);
 	count = array_count(&uidlist->records);
 	hdr = mail_index_get_header(view);

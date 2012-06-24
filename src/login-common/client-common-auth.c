@@ -574,7 +574,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		return;
 	}
 
-	client_unref(&client);
+	(void)client_unref(&client);
 }
 
 int client_auth_begin(struct client *client, const char *mech_name,

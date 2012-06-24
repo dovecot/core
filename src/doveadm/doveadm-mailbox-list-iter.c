@@ -24,7 +24,7 @@ struct doveadm_mailbox_list_iter {
 	bool only_selectable;
 };
 
-static int
+static bool
 search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 				 ARRAY_TYPE(const_string) *patterns,
 				 bool *have_guid, bool *have_wildcards)
@@ -43,7 +43,7 @@ search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 				if (!search_args_get_mailbox_patterns(subargs,
 							patterns, have_guid,
 							have_wildcards))
-					return 0;
+					return FALSE;
 			}
 			break;
 		case SEARCH_MAILBOX_GLOB:
@@ -52,7 +52,7 @@ search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 		case SEARCH_MAILBOX:
 			if (args->match_not) {
 				array_clear(patterns);
-				return 0;
+				return FALSE;
 			}
 			array_append(patterns, &args->value.str, 1);
 			break;
@@ -63,7 +63,7 @@ search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 			break;
 		}
 	}
-	return 1;
+	return TRUE;
 }
 
 static struct doveadm_mailbox_list_iter *
@@ -82,8 +82,9 @@ doveadm_mailbox_list_iter_init_nsmask(struct doveadm_mail_cmd_context *ctx,
 	iter->search_args = search_args;
 	iter->user = user;
 	i_array_init(&iter->patterns, 16);
-	search_args_get_mailbox_patterns(search_args->args, &iter->patterns,
-					 &have_guid, &have_wildcards);
+	(void)search_args_get_mailbox_patterns(search_args->args,
+					       &iter->patterns,
+					       &have_guid, &have_wildcards);
 
 	if (array_count(&iter->patterns) == 0) {
 		iter_flags |= MAILBOX_LIST_ITER_SKIP_ALIASES;

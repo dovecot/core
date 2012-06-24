@@ -300,7 +300,7 @@ int dsync_mailbox_tree_build_guid_hash(struct dsync_mailbox_tree *tree)
 					    guid_128_hash, guid_128_cmp);
 	iter = dsync_mailbox_tree_iter_init(tree);
 	while (dsync_mailbox_tree_iter_next(iter, &name, &node))
-		dsync_mailbox_tree_guid_hash_add(tree, node);
+		(void)dsync_mailbox_tree_guid_hash_add(tree, node);
 	dsync_mailbox_tree_iter_deinit(&iter);
 	return ret;
 }

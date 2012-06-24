@@ -237,9 +237,9 @@ bool auth_request_import_info(struct auth_request *request,
 	if (strcmp(key, "service") == 0)
 		request->service = p_strdup(request->pool, value);
 	else if (strcmp(key, "lip") == 0)
-		net_addr2ip(value, &request->local_ip);
+		(void)net_addr2ip(value, &request->local_ip);
 	else if (strcmp(key, "rip") == 0)
-		net_addr2ip(value, &request->remote_ip);
+		(void)net_addr2ip(value, &request->remote_ip);
 	else if (strcmp(key, "lport") == 0)
 		request->local_port = atoi(value);
 	else if (strcmp(key, "rport") == 0)

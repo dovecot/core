@@ -277,7 +277,7 @@ static void test_mail_index_flag_update_complex_merges(void)
 	test_end();
 }
 
-static bool
+static void
 flags_array_check(struct mail_index_transaction *t,
 		  const enum mail_flags *flags, unsigned int msg_count)
 {
@@ -304,7 +304,6 @@ flags_array_check(struct mail_index_transaction *t,
 	}
 	for (; seq <= msg_count; seq++)
 		test_assert(flags[seq] == 0);
-	return TRUE;
 }
 
 static void test_mail_index_flag_update_random(void)
@@ -367,15 +366,15 @@ static void test_mail_index_cancel_flag_updates(void)
 	updates = array_get(&t->updates, &count);
 	test_assert(count == 1);
 	test_assert(updates[0].uid1 == 5 && updates[0].uid2 == 7);
-	mail_index_cancel_flag_updates(t, 5);
+	test_assert(mail_index_cancel_flag_updates(t, 5));
 	test_assert(updates[0].uid1 == 6 && updates[0].uid2 == 7);
-	mail_index_cancel_flag_updates(t, 7);
+	test_assert(mail_index_cancel_flag_updates(t, 7));
 	test_assert(updates[0].uid1 == 6 && updates[0].uid2 == 6);
-	mail_index_cancel_flag_updates(t, 6);
+	test_assert(mail_index_cancel_flag_updates(t, 6));
 	test_assert(!array_is_created(&t->updates));
 
 	mail_index_update_flags_range(t, 5, 7, MODIFY_REPLACE, 0);
-	mail_index_cancel_flag_updates(t, 6);
+	test_assert(mail_index_cancel_flag_updates(t, 6));
 	updates = array_get(&t->updates, &count);
 	test_assert(count == 2);
 	test_assert(updates[0].uid1 == 5 && updates[0].uid2 == 5);

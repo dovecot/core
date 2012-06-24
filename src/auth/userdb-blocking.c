@@ -58,7 +58,7 @@ void userdb_blocking_lookup(struct auth_request *request)
 	auth_request_export(request, reply);
 
 	auth_request_ref(request);
-	auth_worker_call(request->pool, reply, user_callback, request);
+	(void)auth_worker_call(request->pool, reply, user_callback, request);
 }
 
 static bool iter_callback(const char *reply, void *context)

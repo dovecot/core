@@ -333,7 +333,8 @@ fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 	const char *str;
 
 	msgpart = imap_msgpart_full();
-	fetch_and_free_msgpart(ctx, mail, &msgpart);
+	if (fetch_and_free_msgpart(ctx, mail, &msgpart) < 0)
+		return -1;
 
 	str = t_strdup_printf(" RFC822 {%"PRIuUOFF_T"}\r\n", ctx->cur_size);
 	if (ctx->first) {
@@ -353,7 +354,8 @@ fetch_rfc822_header(struct imap_fetch_context *ctx,
 	const char *str;
 
 	msgpart = imap_msgpart_header();
-	fetch_and_free_msgpart(ctx, mail, &msgpart);
+	if (fetch_and_free_msgpart(ctx, mail, &msgpart) < 0)
+		return -1;
 
 	str = t_strdup_printf(" RFC822.HEADER {%"PRIuUOFF_T"}\r\n",
 			      ctx->cur_size);
@@ -374,7 +376,8 @@ fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 	const char *str;
 
 	msgpart = imap_msgpart_body();
-	fetch_and_free_msgpart(ctx, mail, &msgpart);
+	if (fetch_and_free_msgpart(ctx, mail, &msgpart) < 0)
+		return -1;
 
 	str = t_strdup_printf(" RFC822.TEXT {%"PRIuUOFF_T"}\r\n",
 			      ctx->cur_size);

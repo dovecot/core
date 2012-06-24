@@ -160,5 +160,5 @@ void login_proxy_state_notify(struct login_proxy_state *state,
 			      const char *user)
 {
 	if (!login_proxy_state_try_notify(state, user))
-		login_proxy_state_try_notify(state, user);
+		(void)login_proxy_state_try_notify(state, user);
 }

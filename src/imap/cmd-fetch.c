@@ -224,7 +224,7 @@ bool cmd_fetch(struct client_command_context *cmd)
 	if (!fetch_parse_args(ctx, cmd, &args[1], &next_arg) ||
 	    (imap_arg_get_list(next_arg, &list_arg) &&
 	     !fetch_parse_modifiers(ctx, cmd, list_arg))) {
-		imap_fetch_deinit(ctx);
+		(void)imap_fetch_deinit(ctx);
 		return TRUE;
 	}
 

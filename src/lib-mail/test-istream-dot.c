@@ -71,7 +71,7 @@ static void test_istream_dot_one(const struct dot_test *test,
 			}
 		}
 		test_istream_set_size(test_input, input_len);
-		i_stream_read(test_input);
+		(void)i_stream_read(test_input);
 	} else {
 		test_istream_set_size(test_input, input_len);
 		size = 0;

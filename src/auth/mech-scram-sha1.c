@@ -328,7 +328,7 @@ static bool parse_scram_client_final(struct scram_auth_request *request,
 		return FALSE;
 	}
 
-	str_array_remove(fields, fields[field_count-1]);
+	(void)str_array_remove(fields, fields[field_count-1]);
 	request->client_final_message_without_proof =
 		p_strdup(request->pool, t_strarray_join(fields, ","));
 

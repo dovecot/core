@@ -158,7 +158,7 @@ static void director_host_add_string(struct director *dir, const char *host)
 		i_fatal("Unknown director host: %s", host);
 
 	for (i = 0; i < ips_count; i++)
-		director_host_add(dir, &ips[i], port);
+		(void)director_host_add(dir, &ips[i], port);
 }
 
 void director_host_add_from_string(struct director *dir, const char *hosts)
@@ -175,7 +175,8 @@ void director_host_add_from_string(struct director *dir, const char *hosts)
 		/* standalone director */
 		struct ip_addr ip;
 
-		net_addr2ip("127.0.0.1", &ip);
+		if (net_addr2ip("127.0.0.1", &ip) < 0)
+			i_unreached();
 		dir->self_host = director_host_add(dir, &ip, 0);
 		dir->self_host->self = TRUE;
 	}

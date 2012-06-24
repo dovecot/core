@@ -183,11 +183,10 @@ int mail_get_header_stream(struct mail *mail,
 	return p->v.get_header_stream(mail, headers, stream_r);
 }
 
-int mail_set_aborted(struct mail *mail)
+void mail_set_aborted(struct mail *mail)
 {
 	mail_storage_set_error(mail->box->storage, MAIL_ERROR_NOTPOSSIBLE,
 			       "Mail field not cached");
-	return -1;
 }
 
 int mail_get_stream(struct mail *mail, struct message_size *hdr_size,
@@ -195,8 +194,10 @@ int mail_get_stream(struct mail *mail, struct message_size *hdr_size,
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER)
-		return mail_set_aborted(mail);
+	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
+		mail_set_aborted(mail);
+		return -1;
+	}
 	return p->v.get_stream(mail, TRUE, hdr_size, body_size, stream_r);
 }
 
@@ -205,8 +206,10 @@ int mail_get_hdr_stream(struct mail *mail, struct message_size *hdr_size,
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER)
-		return mail_set_aborted(mail);
+	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
+		mail_set_aborted(mail);
+		return -1;
+	}
 	return p->v.get_stream(mail, FALSE, hdr_size, NULL, stream_r);
 }
 

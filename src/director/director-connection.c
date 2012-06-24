@@ -538,7 +538,8 @@ director_handshake_cmd_user(struct director_connection *conn,
 		return FALSE;
 	}
 
-	director_user_refresh(conn, username_hash, host, timestamp, weak, &user);
+	(void)director_user_refresh(conn, username_hash, host,
+				    timestamp, weak, &user);
 	return TRUE;
 }
 
@@ -1081,7 +1082,7 @@ static bool director_connection_sync(struct director_connection *conn,
 	}
 
 	if (host == NULL || !host->self)
-		director_resend_sync(dir);
+		(void)director_resend_sync(dir);
 	return TRUE;
 }
 

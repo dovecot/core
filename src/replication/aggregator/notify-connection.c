@@ -82,7 +82,7 @@ static void notify_input(struct notify_connection *conn)
 	case -2:
 		/* buffer full */
 		i_error("Client sent too long line");
-		notify_input_error(conn);
+		(void)notify_input_error(conn);
 		return;
 	case -1:
 		/* disconnected */

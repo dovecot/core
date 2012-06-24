@@ -68,7 +68,7 @@ extern struct mailbox mbox_mailbox;
 static MODULE_CONTEXT_DEFINE_INIT(mbox_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
+void mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 {
 	i_assert(function != NULL);
 
@@ -82,7 +82,6 @@ int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 			"%s failed with mbox file %s: %m%s", function,
 			mailbox_get_path(&mbox->box), toobig_error);
 	}
-	return -1;
 }
 
 static const char *

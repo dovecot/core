@@ -370,7 +370,8 @@ static int view_sync_apply_lost_changes(struct mail_index_view_sync_ctx *ctx,
 					   &kw_reset) < 0)
 			return -1;
 
-		view_sync_update_keywords(ctx, new_rec->uid);
+		if (view_sync_update_keywords(ctx, new_rec->uid) < 0)
+			return -1;
 		changed = TRUE;
 	}
 
@@ -463,7 +464,8 @@ view_sync_get_log_lost_changes(struct mail_index_view_sync_ctx *ctx,
 			return -1;
 		mail_index_map_lookup_keywords(new_map, j + 1,
 					       &ctx->lost_new_kw);
-		view_sync_update_keywords(ctx, new_rec->uid);
+		if (view_sync_update_keywords(ctx, new_rec->uid) < 0)
+			return -1;
 	}
 	*expunge_count_r = view_sync_expunges2seqs(ctx);
 

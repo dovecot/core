@@ -52,7 +52,7 @@ int mail_index_map_parse_extensions(struct mail_index_map *map)
 			return -1;
 		}
 
-		mail_index_map_register_ext(map, name, ext_offset, ext_hdr);
+		(void)mail_index_map_register_ext(map, name, ext_offset, ext_hdr);
 	}
 	return 0;
 }

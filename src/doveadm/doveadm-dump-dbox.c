@@ -152,10 +152,10 @@ static void dump_msg_metadata(struct istream *input)
 			dump_timestamp(input, "msg.received", line + 1);
 			break;
 		case DBOX_METADATA_PHYSICAL_SIZE:
-			dump_size(input, "msg.physical-size", line + 1);
+			(void)dump_size(input, "msg.physical-size", line + 1);
 			break;
 		case DBOX_METADATA_VIRTUAL_SIZE:
-			dump_size(input, "msg.virtual-size", line + 1);
+			(void)dump_size(input, "msg.virtual-size", line + 1);
 			break;
 		case DBOX_METADATA_EXT_REF:
 			printf("msg.ext-ref = %s\n", line + 1);

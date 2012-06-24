@@ -176,7 +176,8 @@ imapc_mail_get_stream(struct mail *_mail, bool get_body,
 	if (data->stream == NULL) {
 		if (!data->initialized) {
 			/* coming here from mail_set_seq() */
-			return mail_set_aborted(_mail);
+			mail_set_aborted(_mail);
+			return -1;
 		}
 		fetch_field = get_body ||
 			(data->access_part & READ_BODY) != 0 ?

@@ -283,7 +283,7 @@ static bool auth_handle_response(struct digest_auth_request *request,
 {
 	unsigned int i;
 
-	str_lcase(key);
+	(void)str_lcase(key);
 
 	if (strcmp(key, "realm") == 0) {
 		if (request->auth_request.realm == NULL && *value != '\0')

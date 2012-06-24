@@ -61,7 +61,8 @@ static void mailbox_uidvalidity_write(struct mailbox_list *list,
 		}
 	}
 
-	i_snprintf(buf, sizeof(buf), "%08x", uid_validity);
+	if (i_snprintf(buf, sizeof(buf), "%08x", uid_validity) < 0)
+		i_unreached();
 	if (pwrite_full(fd, buf, strlen(buf), 0) < 0)
 		i_error("write(%s) failed: %m", path);
 	if (close(fd) < 0)
@@ -217,7 +218,8 @@ uint32_t mailbox_uidvalidity_next(struct mailbox_list *list, const char *path)
 
 	/* fast path succeeded. write the current value to the main
 	   uidvalidity file. */
-	i_snprintf(buf, sizeof(buf), "%08x", cur_value);
+	if (i_snprintf(buf, sizeof(buf), "%08x", cur_value) < 0)
+		i_unreached();
 	if (pwrite_full(fd, buf, strlen(buf), 0) < 0)
 		i_error("write(%s) failed: %m", path);
 	if (close(fd) < 0)

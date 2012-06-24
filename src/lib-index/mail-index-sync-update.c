@@ -92,7 +92,7 @@ mail_index_sync_move_to_private_memory(struct mail_index_sync_map_ctx *ctx)
 struct mail_index_map *
 mail_index_sync_get_atomic_map(struct mail_index_sync_map_ctx *ctx)
 {
-	mail_index_sync_move_to_private_memory(ctx);
+	(void)mail_index_sync_move_to_private_memory(ctx);
 	mail_index_record_map_move_to_private(ctx->view->map);
 	mail_index_modseq_sync_map_replaced(ctx->modseq_ctx);
 	return ctx->view->map;

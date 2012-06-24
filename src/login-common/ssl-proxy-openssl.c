@@ -311,15 +311,15 @@ static void plain_read(struct ssl_proxy *proxy)
 		} else {
 			proxy->sslout_size += ret;
 			if (!corked) {
-				net_set_cork(proxy->fd_ssl, TRUE);
-				corked = TRUE;
+				if (net_set_cork(proxy->fd_ssl, TRUE) == 0)
+					corked = TRUE;
 			}
 			ssl_write(proxy);
 		}
 	}
 
 	if (corked)
-		net_set_cork(proxy->fd_ssl, FALSE);
+		(void)net_set_cork(proxy->fd_ssl, FALSE);
 
 	ssl_proxy_unref(proxy);
 }
@@ -536,9 +536,9 @@ static void ssl_step(struct ssl_proxy *proxy)
 		if (proxy->sslout_size == 0)
 			ssl_set_io(proxy, SSL_REMOVE_OUTPUT);
 		else {
-			net_set_cork(proxy->fd_ssl, TRUE);
+			(void)net_set_cork(proxy->fd_ssl, TRUE);
 			ssl_write(proxy);
-			net_set_cork(proxy->fd_ssl, FALSE);
+			(void)net_set_cork(proxy->fd_ssl, FALSE);
 		}
 	}
 
@@ -806,7 +806,7 @@ static void ssl_proxy_destroy(struct ssl_proxy *proxy)
 	(void)net_disconnect(proxy->fd_plain);
 
 	if (proxy->client != NULL)
-		client_unref(&proxy->client);
+		(void)client_unref(&proxy->client);
 	ssl_proxy_unref(proxy);
 }
 

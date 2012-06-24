@@ -40,11 +40,9 @@ dsync_slave_send_ret(struct dsync_slave *slave)
 		DSYNC_SLAVE_SEND_RET_OK;
 }
 
-enum dsync_slave_send_ret
-dsync_slave_send_end_of_list(struct dsync_slave *slave)
+void dsync_slave_send_end_of_list(struct dsync_slave *slave)
 {
 	slave->v.send_end_of_list(slave);
-	return dsync_slave_send_ret(slave);
 }
 
 enum dsync_slave_send_ret

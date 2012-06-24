@@ -170,7 +170,7 @@ void pop3c_client_deinit(struct pop3c_client **_client)
 static void pop3c_client_ioloop_changed(struct pop3c_client *client)
 {
 	if (client->to != NULL)
-		io_loop_move_timeout(&client->to);
+		client->to = io_loop_move_timeout(&client->to);
 	if (client->io != NULL)
 		client->io = io_loop_move_io(&client->io);
 	if (client->output != NULL)

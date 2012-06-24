@@ -275,8 +275,8 @@ static void index_sort_zeroes(struct sort_string_context *ctx)
 		i_assert(nodes[i].seq <= ctx->last_seq);
 
 		T_BEGIN {
-			index_sort_header_get(mail, nodes[i].seq,
-					      sort_type, str);
+			(void)index_sort_header_get(mail, nodes[i].seq,
+						    sort_type, str);
 			ctx->sort_strings[nodes[i].seq] =
 				str_len(str) == 0 ? "" :
 				p_strdup(pool, str_c(str));

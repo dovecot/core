@@ -353,7 +353,7 @@ static bool get_cached_msgpart_sizes(struct index_mail *mail)
 	struct index_mail_data *data = &mail->data;
 
 	if (data->parts == NULL)
-		get_cached_parts(mail);
+		(void)get_cached_parts(mail);
 
 	if (data->parts != NULL) {
 		data->hdr_size_set = TRUE;
@@ -903,9 +903,14 @@ int index_mail_init_stream(struct index_mail *mail,
 				if (index_mail_parse_headers(mail, NULL) < 0)
 					return -1;
 			} else {
-				message_get_header_size(data->stream,
-							&data->hdr_size,
-							&has_nuls);
+				if (message_get_header_size(data->stream,
+							    &data->hdr_size,
+							    &has_nuls) < 0) {
+					mail_storage_set_critical(_mail->box->storage,
+						"read(%s) failed: %m",
+						i_stream_get_name(data->stream));
+					return -1;
+				}
 				data->hdr_size_set = TRUE;
 			}
 		}
@@ -924,9 +929,14 @@ int index_mail_init_stream(struct index_mail *mail,
 				if (index_mail_parse_body(mail, 0) < 0)
 					return -1;
 			} else {
-				message_get_body_size(data->stream,
-						      &data->body_size,
-						      &has_nuls);
+				if (message_get_body_size(data->stream,
+							  &data->body_size,
+							  &has_nuls) < 0) {
+					mail_storage_set_critical(_mail->box->storage,
+						"read(%s) failed: %m",
+						i_stream_get_name(data->stream));
+					return -1;
+				}
 				data->body_size_set = TRUE;
 			}
 		}

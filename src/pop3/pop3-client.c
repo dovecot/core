@@ -485,7 +485,7 @@ void client_destroy(struct client *client, const char *reason)
 static void client_default_destroy(struct client *client, const char *reason)
 {
 	if (client->seen_change_count > 0)
-		client_update_mails(client);
+		(void)client_update_mails(client);
 
 	if (!client->disconnected) {
 		if (reason == NULL)
@@ -568,13 +568,13 @@ void client_disconnect(struct client *client, const char *reason)
 	client->to_idle = timeout_add(0, client_destroy_timeout, client);
 }
 
-int client_send_line(struct client *client, const char *fmt, ...)
+void client_send_line(struct client *client, const char *fmt, ...)
 {
 	va_list va;
 	ssize_t ret;
 
 	if (client->output->closed)
-		return -1;
+		return;
 
 	va_start(va, fmt);
 
@@ -592,10 +592,8 @@ int client_send_line(struct client *client, const char *fmt, ...)
 	if (ret >= 0) {
 		if (o_stream_get_buffer_used_size(client->output) <
 		    OUTBUF_THROTTLE_SIZE) {
-			ret = 1;
 			client->last_output = ioloop_time;
 		} else {
-			ret = 0;
 			if (client->io != NULL) {
 				/* no more input until client has read
 				   our output */
@@ -609,9 +607,7 @@ int client_send_line(struct client *client, const char *fmt, ...)
 			}
 		}
 	}
-
 	va_end(va);
-	return (int)ret;
 }
 
 void client_send_storage_error(struct client *client)

@@ -348,7 +348,7 @@ static void rawlog_open(enum rawlog_flags flags)
 					  dec2str(getppid())));
 
 	ioloop = io_loop_create();
-	rawlog_proxy_create(0, 1, sfd[0], path, flags);
+	(void)rawlog_proxy_create(0, 1, sfd[0], path, flags);
 	io_loop_run(ioloop);
 	io_loop_destroy(&ioloop);
 

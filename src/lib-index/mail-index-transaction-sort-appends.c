@@ -51,9 +51,9 @@ mail_index_transaction_sort_appends_ext(ARRAY_TYPE(seq_array_array) *updates,
 
 			seq = *ext_rec < first_new_seq ? *ext_rec :
 				old_to_newseq_map[*ext_rec - first_new_seq];
-			mail_index_seq_array_add(&new_array, seq, ext_rec+1,
-						 old_array->arr.element_size -
-						 sizeof(*ext_rec), NULL);
+			(void)mail_index_seq_array_add(&new_array, seq, ext_rec+1,
+						       old_array->arr.element_size -
+						       sizeof(*ext_rec), NULL);
 		}
 		array_free(old_array);
 		ext_rec_arrays[j] = new_array;

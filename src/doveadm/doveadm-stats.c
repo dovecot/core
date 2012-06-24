@@ -388,17 +388,19 @@ stats_top_output_diff(struct top_context *ctx,
 
 	if (str_to_uint64(line->prev_values[i], &prev_num) == 0 &&
 	    str_to_uint64(line->cur_values[i], &cur_num) == 0) {
-		i_snprintf(numstr, sizeof(numstr), "%llu",
-			   (unsigned long long)(cur_num - prev_num));
+		if (i_snprintf(numstr, sizeof(numstr), "%llu",
+			       (unsigned long long)(cur_num - prev_num)) < 0)
+			i_unreached();
 		doveadm_print(numstr);
 	} else if (get_double(line->prev_values[i], &prev_double) == 0 &&
 		   get_double(line->cur_values[i], &cur_double) == 0 &&
 		   get_double(line->prev_values[ctx->last_update_idx], &prev_time) == 0 &&
 		   get_double(line->cur_values[ctx->last_update_idx], &cur_time) == 0) {
 		/* %CPU */
-		i_snprintf(numstr, sizeof(numstr), "%d",
-			   (int)((cur_double - prev_double) *
-				 (cur_time - prev_time) * 100));
+		if (i_snprintf(numstr, sizeof(numstr), "%d",
+			       (int)((cur_double - prev_double) *
+				     (cur_time - prev_time) * 100)) < 0)
+			i_unreached();
 		doveadm_print(numstr);
 	} else {
 		doveadm_print(line->cur_values[i]);

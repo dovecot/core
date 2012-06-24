@@ -306,7 +306,7 @@ static int imap_sync_send_flags(struct imap_sync_context *ctx, string_t *str)
 	str_append(str, "FLAGS (");
 	imap_write_flags(str, flags, keywords);
 	str_append(str, "))");
-	return client_send_line(ctx->client, str_c(str));
+	return client_send_line_next(ctx->client, str_c(str));
 }
 
 static int imap_sync_send_modseq(struct imap_sync_context *ctx, string_t *str)
@@ -319,7 +319,7 @@ static int imap_sync_send_modseq(struct imap_sync_context *ctx, string_t *str)
 		str_printfa(str, "UID %u ", ctx->mail->uid);
 	imap_sync_add_modseq(ctx, str);
 	str_append_c(str, ')');
-	return client_send_line(ctx->client, str_c(str));
+	return client_send_line_next(ctx->client, str_c(str));
 }
 
 static void imap_sync_vanished(struct imap_sync_context *ctx)
@@ -437,7 +437,7 @@ int imap_sync_more(struct imap_sync_context *ctx)
 
 				str_truncate(str, 0);
 				str_printfa(str, "* %u EXPUNGE", ctx->seq);
-				ret = client_send_line(ctx->client, str_c(str));
+				ret = client_send_line_next(ctx->client, str_c(str));
 			}
 			if (ctx->seq < ctx->sync_rec.seq1) {
 				/* update only after we're finished, so that

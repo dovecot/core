@@ -30,7 +30,7 @@ dbox_file_find_next_magic(struct dbox_file *file, uoff_t *offset_r, bool *pre_r)
 	/* \n isn't part of the DBOX_MAGIC_PRE, but it always preceds it.
 	   assume that at this point we've already just read the \n. when
 	   scanning for it later we'll need to find the \n though. */
-	str_find_more(pre_ctx, (const unsigned char *)"\n", 1);
+	(void)str_find_more(pre_ctx, (const unsigned char *)"\n", 1);
 
 	orig_offset = input->v_offset;
 	while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {

@@ -226,7 +226,7 @@ static bool mirror_get_remote_cmd(struct dsync_cmd_context *ctx,
 	return TRUE;
 }
 
-static struct dsync_slave *
+static int
 cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		    struct dsync_brain *brain, struct dsync_slave *slave2)
 {
@@ -281,8 +281,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		brain2_running = dsync_brain_run(brain2, &changed2);
 	}
 	mail_user_unref(&user2);
-	dsync_brain_deinit(&brain2);
-	return slave2;
+	return dsync_brain_deinit(&brain2);
 }
 
 static void
@@ -349,10 +348,12 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 					DSYNC_BRAIN_FLAG_SEND_REQUESTS,
 					"");
 
-	if (!ctx->remote)
-		cmd_dsync_run_local(ctx, user, brain, slave2);
-	else
+	if (!ctx->remote) {
+		if (cmd_dsync_run_local(ctx, user, brain, slave2) < 0)
+			_ctx->exit_code = EX_TEMPFAIL;
+	} else {
 		cmd_dsync_run_remote(user);
+	}
 
 	if (dsync_brain_deinit(&brain) < 0)
 		_ctx->exit_code = EX_TEMPFAIL;

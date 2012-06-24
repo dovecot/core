@@ -138,9 +138,9 @@ static void main_stdio_run(const char *username)
 	if (input.username == NULL)
 		i_fatal("USER environment missing");
 	if ((value = getenv("IP")) != NULL)
-		net_addr2ip(value, &input.remote_ip);
+		(void)net_addr2ip(value, &input.remote_ip);
 	if ((value = getenv("LOCAL_IP")) != NULL)
-		net_addr2ip(value, &input.local_ip);
+		(void)net_addr2ip(value, &input.local_ip);
 
 	input_base64 = getenv("CLIENT_INPUT");
 	input_buf = input_base64 == NULL ? NULL :

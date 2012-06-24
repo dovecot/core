@@ -478,7 +478,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 	config_dump_human_deinit(ctx);
 
 	if (dump_section)
-		config_dump_human(filter, "", scope, setting_name_filter);
+		(void)config_dump_human(filter, "", scope, setting_name_filter);
 	return 0;
 }
 

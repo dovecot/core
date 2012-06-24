@@ -15,8 +15,10 @@ void hostpid_init(void)
 {
 	static char hostname[256], pid[MAX_INT_STRLEN];
 
-	if (gethostname(hostname, sizeof(hostname)-1) == -1)
-		i_strocpy(hostname, "unknown", sizeof(hostname));
+	if (gethostname(hostname, sizeof(hostname)-1) == -1) {
+		if (i_strocpy(hostname, "unknown", sizeof(hostname)) < 0)
+			i_unreached();
+	}
 	hostname[sizeof(hostname)-1] = '\0';
 	my_hostname = hostname;
 
@@ -26,7 +28,8 @@ void hostpid_init(void)
 	/* allow calling hostpid_init() multiple times to reset hostname */
 	i_free_and_null(my_domain);
 
-	i_strocpy(pid, dec2str(getpid()), sizeof(pid));
+	if (i_strocpy(pid, dec2str(getpid()), sizeof(pid)) < 0)
+		i_unreached();
 	my_pid = pid;
 }
 

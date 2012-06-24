@@ -1687,9 +1687,8 @@ int mbox_sync_get_guid(struct mbox_mailbox *mbox)
 		mbox_sync_index_update_ext_header(mbox, trans);
 		ret = mail_index_transaction_commit(&trans);
 	}
-	mbox_unlock(mbox, lock_id);
+	(void)mbox_unlock(mbox, lock_id);
 	return ret;
-
 }
 
 int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)

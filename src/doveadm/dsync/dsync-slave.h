@@ -54,8 +54,7 @@ enum dsync_slave_recv_ret
 dsync_slave_recv_handshake(struct dsync_slave *slave,
 			   const struct dsync_slave_settings **set_r);
 
-enum dsync_slave_send_ret
-dsync_slave_send_end_of_list(struct dsync_slave *slave);
+void dsync_slave_send_end_of_list(struct dsync_slave *slave);
 
 enum dsync_slave_send_ret
 dsync_slave_send_mailbox_state(struct dsync_slave *slave,

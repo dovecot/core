@@ -131,10 +131,10 @@ void index_sync_changes_read(struct index_sync_changes_context *ctx,
 				break;
 
 			/* mark the changes as dirty */
-			mail_index_lookup_seq_range(ctx->sync_view,
-						    sync_rec->uid1,
-						    sync_rec->uid2,
-						    &seq1, &seq2);
+			(void)mail_index_lookup_seq_range(ctx->sync_view,
+							  sync_rec->uid1,
+							  sync_rec->uid2,
+							  &seq1, &seq2);
 			memset(sync_rec, 0, sizeof(*sync_rec));
 
 			if (seq1 == 0)

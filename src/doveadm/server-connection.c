@@ -303,8 +303,8 @@ static int server_connection_read_settings(struct server_connection *conn)
 	return 0;
 }
 
-struct server_connection *
-server_connection_create(struct doveadm_server *server)
+int server_connection_create(struct doveadm_server *server,
+			     struct server_connection **conn_r)
 {
 #define DOVEADM_SERVER_HANDSHAKE "VERSION\tdoveadm-server\t1\t0\n"
 	struct server_connection *conn;
@@ -324,8 +324,12 @@ server_connection_create(struct doveadm_server *server)
 	o_stream_nsend_str(conn->output, DOVEADM_SERVER_HANDSHAKE);
 
 	array_append(&conn->server->connections, &conn, 1);
-	server_connection_read_settings(conn);
-	return conn;
+	if (server_connection_read_settings(conn) < 0) {
+		server_connection_destroy(&conn);
+		return -1;
+	}
+	*conn_r = conn;
+	return 0;
 }
 
 void server_connection_destroy(struct server_connection **_conn)

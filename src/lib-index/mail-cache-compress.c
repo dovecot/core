@@ -277,7 +277,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	buffer_free(&ctx.buffer);
 	buffer_free(&ctx.field_seen);
 
-	o_stream_seek(output, 0);
+	(void)o_stream_seek(output, 0);
 	o_stream_nsend(output, &hdr, sizeof(hdr));
 
 	mail_cache_view_close(&cache_view);

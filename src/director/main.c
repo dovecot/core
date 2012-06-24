@@ -37,7 +37,7 @@ static int director_client_connected(int fd, const struct ip_addr *ip)
 		return -1;
 	}
 
-	director_connection_init_in(director, fd, ip);
+	(void)director_connection_init_in(director, fd, ip);
 	return 0;
 }
 
@@ -90,7 +90,7 @@ static void client_connected(struct master_service_connection *conn)
 	auth = auth_connection_init(socket_path);
 	if (auth_connection_connect(auth) == 0) {
 		master_service_client_connection_accept(conn);
-		login_connection_init(director, conn->fd, auth, userdb);
+		(void)login_connection_init(director, conn->fd, auth, userdb);
 	} else {
 		auth_connection_deinit(&auth);
 	}

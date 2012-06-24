@@ -603,7 +603,7 @@ static void imapc_mailbox_get_selected_status(struct imapc_mailbox *mbox,
 					      enum mailbox_status_items items,
 					      struct mailbox_status *status_r)
 {
-	index_storage_get_status(&mbox->box, items, status_r);
+	index_storage_get_open_status(&mbox->box, items, status_r);
 	if ((items & STATUS_PERMANENT_FLAGS) != 0)
 		status_r->permanent_flags = mbox->permanent_flags;
 }

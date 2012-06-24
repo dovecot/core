@@ -32,19 +32,19 @@ static void test_ostream_file_random(void)
 	size = (rand() % MAX_BUFSIZE) + 1;
 	random_fill_weak(randbuf, size);
 	memcpy(buf, randbuf, size);
-	(void)o_stream_send(output, buf, size);
+	test_assert(o_stream_send(output, buf, size) > 0);
 
 	for (i = 0; i < 10; i++) {
 		offset = rand() % (MAX_BUFSIZE*3);
 		size = (rand() % MAX_BUFSIZE) + 1;
 		random_fill_weak(randbuf, size);
 		memcpy(buf + offset, randbuf, size);
-		o_stream_pwrite(output, randbuf, size, offset);
+		test_assert(o_stream_pwrite(output, randbuf, size, offset) == 0);
 		if (rand() % 10 == 0)
-			(void)o_stream_flush(output);
+			test_assert(o_stream_flush(output) > 0);
 	}
 
-	(void)o_stream_flush(output);
+	test_assert(o_stream_flush(output) > 0);
 	o_stream_uncork(output);
 	ret = pread(fd, buf2, sizeof(buf2), 0);
 	if (ret < 0)
