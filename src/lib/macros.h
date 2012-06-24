@@ -114,6 +114,11 @@
 #else
 #  define ATTR_NULL(...)
 #endif
+#ifdef HAVE_ATTR_NOWARN_UNUSED_RESULT
+#  define ATTR_NOWARN_UNUSED_RESULT __attribute__((nowarn_unused_result))
+#else
+#  define ATTR_NOWARN_UNUSED_RESULT
+#endif
 #if __GNUC__ > 2
 #  define ATTR_MALLOC __attribute__((malloc))
 #else
