@@ -144,7 +144,7 @@ static int master_instance_write_init(struct master_instance_list *list,
 		return -1;
 	}
 	if (master_instance_list_refresh(list) < 0) {
-		(void)file_dotlock_delete(dotlock_r);
+		file_dotlock_delete(dotlock_r);
 		return -1;
 	}
 	return fd;
@@ -160,12 +160,12 @@ static int master_instance_write_finish(struct master_instance_list *list,
 		ret = master_instance_list_write(list, fd, lock_path);
 	} T_END;
 	if (ret < 0) {
-		(void)file_dotlock_delete(dotlock);
+		file_dotlock_delete(dotlock);
 		return -1;
 	}
 	if (fdatasync(fd) < 0) {
 		i_error("fdatasync(%s) failed: %m", lock_path);
-		(void)file_dotlock_delete(dotlock);
+		file_dotlock_delete(dotlock);
 		return -1;
 	}
 	return file_dotlock_replace(dotlock, 0);
@@ -222,7 +222,7 @@ int master_instance_list_set_name(struct master_instance_list *list,
 	if (orig_inst != NULL &&
 	    strcmp(orig_inst->base_dir, base_dir) != 0) {
 		/* name already used */
-		(void)file_dotlock_delete(&dotlock);
+		file_dotlock_delete(&dotlock);
 		return 0;
 	}
 
@@ -257,7 +257,7 @@ int master_instance_list_remove(struct master_instance_list *list,
 	}
 
 	if (i == count) {
-		(void)file_dotlock_delete(&dotlock);
+		file_dotlock_delete(&dotlock);
 		return 0;
 	}
 	return master_instance_write_finish(list, fd, &dotlock) < 0 ? -1 : 1;

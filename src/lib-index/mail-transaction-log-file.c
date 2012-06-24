@@ -317,7 +317,7 @@ mail_transaction_log_file_undotlock(struct mail_transaction_log_file *file)
 	if (--file->log->dotlock_count > 0)
 		return 0;
 
-	ret = file_dotlock_delete(&file->log->dotlock);
+	ret = file_dotlock_delete_verified(&file->log->dotlock);
 	if (ret < 0) {
 		log_file_set_syscall_error(file, "file_dotlock_delete()");
 		return -1;
@@ -680,7 +680,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 							       FALSE) > 0 &&
 			    mail_transaction_log_file_stat(file, FALSE) == 0) {
 				/* yes, it was ok */
-				(void)file_dotlock_delete(dotlock);
+				file_dotlock_delete(dotlock);
 				mail_transaction_log_file_add_to_list(file);
 				return 0;
 			}
@@ -803,7 +803,7 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
            is for the existing file */
         if (mail_transaction_log_file_create2(file, fd, reset, &dotlock) < 0) {
 		if (dotlock != NULL)
-			(void)file_dotlock_delete(&dotlock);
+			file_dotlock_delete(&dotlock);
 		return -1;
 	}
 	return 0;

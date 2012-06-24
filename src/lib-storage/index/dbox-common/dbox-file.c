@@ -328,7 +328,7 @@ void dbox_file_unlock(struct dbox_file *file)
 #ifdef DBOX_FILE_LOCK_METHOD_FLOCK
 		file_unlock(&file->lock);
 #else
-		(void)file_dotlock_delete(&file->lock);
+		file_dotlock_delete(&file->lock);
 #endif
 	}
 	if (file->input != NULL)

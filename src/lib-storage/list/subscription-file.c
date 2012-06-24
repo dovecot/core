@@ -132,7 +132,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	fd_in = nfs_safe_open(path, O_RDONLY);
 	if (fd_in == -1 && errno != ENOENT) {
 		subswrite_set_syscall_error(list, "open()", path);
-		(void)file_dotlock_delete(&dotlock);
+		file_dotlock_delete(&dotlock);
 		return -1;
 	}
 
@@ -181,7 +181,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	o_stream_destroy(&output);
 
 	if (failed || !changed) {
-		if (file_dotlock_delete(&dotlock) < 0) {
+		if (file_dotlock_delete_verified(&dotlock) < 0) {
 			subswrite_set_syscall_error(list,
 				"file_dotlock_delete()", path);
 			failed = TRUE;

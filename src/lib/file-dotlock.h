@@ -58,9 +58,11 @@ int file_dotlock_create(const struct dotlock_settings *set, const char *path,
 			enum dotlock_create_flags flags,
 			struct dotlock **dotlock_r);
 
-/* Delete the dotlock file. Returns 1 if successful, 0 if the file was already
-   been deleted or reused by someone else, -1 if error. */
-int file_dotlock_delete(struct dotlock **dotlock);
+/* Delete the dotlock file, ignoring any potential errors. */
+void file_dotlock_delete(struct dotlock **dotlock);
+/* Delete the dotlock file. Returns 1 if successful, 0 if the file had already
+   been deleted or reused by someone else, -1 if I/O error. */
+int file_dotlock_delete_verified(struct dotlock **dotlock);
 
 /* Use dotlock as the new content for file. This provides read safety without
    locks, but it's not very good for large files. Returns fd for lock file.

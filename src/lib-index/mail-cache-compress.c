@@ -395,13 +395,13 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		   reverse those changes by re-reading them from file. */
 		if (mail_cache_header_fields_read(cache) < 0)
 			return -1;
-		(void)file_dotlock_delete(&dotlock);
+		file_dotlock_delete(&dotlock);
 		return -1;
 	}
 
 	if (fstat(fd, &st) < 0) {
 		mail_cache_set_syscall_error(cache, "fstat()");
-		(void)file_dotlock_delete(&dotlock);
+		file_dotlock_delete(&dotlock);
 		return -1;
 	}
 

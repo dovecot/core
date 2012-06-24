@@ -542,7 +542,7 @@ static void mail_cache_unlock_file(struct mail_cache *cache)
 	if (cache->index->lock_method != FILE_LOCK_METHOD_DOTLOCK)
 		file_unlock(&cache->file_lock);
 	else
-		(void)file_dotlock_delete(&cache->dotlock);
+		file_dotlock_delete(&cache->dotlock);
 }
 
 static int

@@ -243,7 +243,7 @@ void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
 		return;
 
 	uidlist->locked_refresh = FALSE;
-	(void)file_dotlock_delete(&uidlist->dotlock);
+	file_dotlock_delete(&uidlist->dotlock);
 }
 
 static bool dotlock_callback(unsigned int secs_left, bool stale, void *context)

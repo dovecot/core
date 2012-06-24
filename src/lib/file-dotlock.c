@@ -721,7 +721,12 @@ static bool file_dotlock_has_mtime_changed(time_t t1, time_t t2)
 	return diff > FILE_DOTLOCK_MAX_STAT_MTIME_DIFF;
 }
 
-int file_dotlock_delete(struct dotlock **dotlock_p)
+void file_dotlock_delete(struct dotlock **dotlock_p)
+{
+	(void)file_dotlock_delete_verified(dotlock_p);
+}
+
+int file_dotlock_delete_verified(struct dotlock **dotlock_p)
 {
 	struct dotlock *dotlock;
 	const char *lock_path;

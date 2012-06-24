@@ -315,7 +315,7 @@ mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 		break;
 	case MBOX_DOTLOCK_OP_UNLOCK:
 		/* we're now privileged - avoid doing as much as possible */
-		ret = file_dotlock_delete(&mbox->mbox_dotlock);
+		ret = file_dotlock_delete_verified(&mbox->mbox_dotlock);
 		if (ret < 0)
 			mbox_set_syscall_error(mbox, "file_dotlock_delete()");
 		mbox->mbox_used_privileges = FALSE;
@@ -391,7 +391,7 @@ mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
 			return 1;
 
 		if (!mbox->mbox_used_privileges) {
-			if (file_dotlock_delete(&mbox->mbox_dotlock) <= 0) {
+			if (file_dotlock_delete_verified(&mbox->mbox_dotlock) <= 0) {
 				mbox_set_syscall_error(mbox,
 						       "file_dotlock_delete()");
 			}

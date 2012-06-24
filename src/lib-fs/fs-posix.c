@@ -445,7 +445,7 @@ static void fs_posix_unlock(struct fs_lock *_lock)
 	if (lock->file_lock != NULL)
 		file_unlock(&lock->file_lock);
 	if (lock->dotlock != NULL)
-		(void)file_dotlock_delete(&lock->dotlock);
+		file_dotlock_delete(&lock->dotlock);
 	i_free(lock);
 }
 
