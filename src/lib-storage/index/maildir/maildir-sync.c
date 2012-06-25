@@ -744,7 +744,7 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 	if (mbox->synced) {
 		/* refresh index only after the first sync, i.e. avoid wasting
 		   time on refreshing it immediately after it was just opened */
-		(void)mail_index_refresh(mbox->box.index);
+		mail_index_refresh(mbox->box.index);
 	}
 	return mail_index_sync_have_any(mbox->box.index, flags) ? 1 : 0;
 }
@@ -999,7 +999,7 @@ int maildir_sync_refresh_flags_view(struct maildir_mailbox *mbox)
 	struct mail_index_view_sync_ctx *sync_ctx;
 	bool delayed_expunges;
 
-	(void)mail_index_refresh(mbox->box.index);
+	mail_index_refresh(mbox->box.index);
 	if (mbox->flags_view == NULL)
 		mbox->flags_view = mail_index_view_open(mbox->box.index);
 

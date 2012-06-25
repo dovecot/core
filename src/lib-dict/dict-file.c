@@ -492,7 +492,7 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 	/* refresh once more now that we're locked */
 	if (file_dict_refresh(dict) < 0) {
 		if (dotlock != NULL)
-			(void)file_dotlock_delete(&dotlock);
+			file_dotlock_delete(&dotlock);
 		else {
 			i_close_fd(fd);
 			file_unlock(&lock);

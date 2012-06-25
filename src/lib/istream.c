@@ -521,7 +521,7 @@ bool i_stream_add_data(struct istream *_stream, const unsigned char *data,
 	struct istream_private *stream = _stream->real_stream;
 	size_t size2;
 
-	(void)i_stream_get_buffer_space(stream, size, &size2);
+	i_stream_get_buffer_space(stream, size, &size2);
 	if (size > size2)
 		return FALSE;
 

@@ -149,8 +149,8 @@ static int ssl_proxy_destroy(struct ssl_proxy *proxy)
 	if (proxy->io_plain != NULL)
 		io_remove(proxy->io_plain);
 
-	(void)net_disconnect(proxy->fd_ssl);
-	(void)net_disconnect(proxy->fd_plain);
+	net_disconnect(proxy->fd_ssl);
+	net_disconnect(proxy->fd_plain);
 
 	i_free(proxy);
 

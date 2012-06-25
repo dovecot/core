@@ -19,7 +19,7 @@ struct dsync_transaction_log_scan {
 	bool returned_all_changes;
 };
 
-static bool
+static bool ATTR_NOWARN_UNUSED_RESULT
 export_change_get(struct dsync_transaction_log_scan *ctx, uint32_t uid,
 		  enum dsync_mail_change_type type,
 		  struct dsync_mail_change **change_r)
@@ -74,9 +74,9 @@ log_add_expunge(struct dsync_transaction_log_scan *ctx, const void *data,
 	end = CONST_PTR_OFFSET(data, hdr->size);
 	for (; rec != end; rec++) {
 		for (uid = rec->uid1; uid <= rec->uid2; uid++) {
-			(void)export_change_get(ctx, uid,
-						DSYNC_MAIL_CHANGE_TYPE_EXPUNGE,
-						&change);
+			export_change_get(ctx, uid,
+					  DSYNC_MAIL_CHANGE_TYPE_EXPUNGE,
+					  &change);
 		}
 	}
 }
@@ -95,9 +95,9 @@ log_add_expunge_uid(struct dsync_transaction_log_scan *ctx, const void *data,
 	end = CONST_PTR_OFFSET(data, hdr->size);
 	for (; rec != end; rec++) {
 		if (uid >= rec->uid1 && uid <= rec->uid2) {
-			(void)export_change_get(ctx, uid,
-						DSYNC_MAIL_CHANGE_TYPE_EXPUNGE,
-						&change);
+			export_change_get(ctx, uid,
+					  DSYNC_MAIL_CHANGE_TYPE_EXPUNGE,
+					  &change);
 			return TRUE;
 		}
 	}

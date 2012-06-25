@@ -62,7 +62,7 @@ i_stream_base64_try_encode_line(struct base64_encoder_istream *bstream)
 		bstream->cur_line_len = 0;
 	}
 
-	(void)i_stream_get_buffer_space(stream, (size+2)/3*4, &avail);
+	i_stream_get_buffer_space(stream, (size+2)/3*4, &avail);
 	buffer_avail = stream->buffer_size - stream->pos;
 
 	if ((size + 2) / 3 * 4 > buffer_avail) {

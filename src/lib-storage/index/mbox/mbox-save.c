@@ -203,7 +203,7 @@ static void mbox_save_init_sync(struct mailbox_transaction_context *t)
 
 	/* open a new view to get the header. this is required if we just
 	   synced the mailbox so we can get updated next_uid. */
-	(void)mail_index_refresh(mbox->box.index);
+	mail_index_refresh(mbox->box.index);
 	view = mail_index_view_open(mbox->box.index);
 	hdr = mail_index_get_header(view);
 

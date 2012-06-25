@@ -86,9 +86,11 @@ static struct mbox_lock_data lock_data[] = {
 	{ 0, NULL, NULL }
 };
 
-static int mbox_lock_list(struct mbox_lock_context *ctx, int lock_type,
-			  time_t max_wait_time, int idx);
-static int mbox_unlock_files(struct mbox_lock_context *ctx);
+static int ATTR_NOWARN_UNUSED_RESULT
+mbox_lock_list(struct mbox_lock_context *ctx, int lock_type,
+	       time_t max_wait_time, int idx);
+static int ATTR_NOWARN_UNUSED_RESULT
+mbox_unlock_files(struct mbox_lock_context *ctx);
 
 static void mbox_read_lock_methods(const char *str, const char *env,
 				   enum mbox_lock_type *locks)
@@ -228,7 +230,7 @@ static bool dotlock_callback(unsigned int secs_left, bool stale, void *context)
 				ctx->dotlock_last_stale = TRUE;
 				return FALSE;
 			}
-			(void)mbox_lock_list(ctx, F_UNLCK, 0, i);
+			mbox_lock_list(ctx, F_UNLCK, 0, i);
 		}
 	}
 	ctx->dotlock_last_stale = stale;
@@ -246,7 +248,7 @@ static bool dotlock_callback(unsigned int secs_left, bool stale, void *context)
 	return TRUE;
 }
 
-static int ATTR_NULL(2)
+static int ATTR_NULL(2) ATTR_NOWARN_UNUSED_RESULT
 mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 			   struct dotlock_settings *set,
 			   enum mbox_dotlock_op op)
@@ -315,7 +317,7 @@ mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 		break;
 	case MBOX_DOTLOCK_OP_UNLOCK:
 		/* we're now privileged - avoid doing as much as possible */
-		ret = file_dotlock_delete_verified(&mbox->mbox_dotlock);
+		ret = file_dotlock_delete(&mbox->mbox_dotlock);
 		if (ret < 0)
 			mbox_set_syscall_error(mbox, "file_dotlock_delete()");
 		mbox->mbox_used_privileges = FALSE;
@@ -391,14 +393,14 @@ mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
 			return 1;
 
 		if (!mbox->mbox_used_privileges) {
-			if (file_dotlock_delete_verified(&mbox->mbox_dotlock) <= 0) {
+			if (file_dotlock_delete(&mbox->mbox_dotlock) <= 0) {
 				mbox_set_syscall_error(mbox,
 						       "file_dotlock_delete()");
 			}
 		} else {
 			ctx->using_privileges = TRUE;
-			(void)mbox_dotlock_privileged_op(mbox, NULL,
-							 MBOX_DOTLOCK_OP_UNLOCK);
+			mbox_dotlock_privileged_op(mbox, NULL,
+						   MBOX_DOTLOCK_OP_UNLOCK);
 			ctx->using_privileges = FALSE;
 		}
                 mbox->mbox_dotlocked = FALSE;
@@ -666,8 +668,9 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 	return 1;
 }
 
-static int mbox_lock_list(struct mbox_lock_context *ctx, int lock_type,
-			  time_t max_wait_time, int idx)
+static int ATTR_NOWARN_UNUSED_RESULT
+mbox_lock_list(struct mbox_lock_context *ctx, int lock_type,
+	       time_t max_wait_time, int idx)
 {
 	enum mbox_lock_type *lock_types;
         enum mbox_lock_type type;
@@ -742,7 +745,7 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
 	ret = mbox_lock_list(&ctx, lock_type, max_wait_time, 0);
 	if (ret <= 0) {
 		if (!drop_locks)
-			(void)mbox_unlock_files(&ctx);
+			mbox_unlock_files(&ctx);
 		if (ret == 0) {
 			mail_storage_set_error(&mbox->storage->storage,
 				MAIL_ERROR_TEMP, MAIL_ERRSTR_LOCK_TIMEOUT);
@@ -765,7 +768,7 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
 			ctx.lock_status[read_locks[i]] = 0;
 
 		mbox->mbox_lock_type = F_WRLCK;
-		(void)mbox_lock_list(&ctx, F_UNLCK, 0, 0);
+		mbox_lock_list(&ctx, F_UNLCK, 0, 0);
 		mbox->mbox_lock_type = F_RDLCK;
 	}
 
@@ -883,7 +886,7 @@ void mbox_dotlock_touch(struct mbox_mailbox *mbox)
 	if (!mbox->mbox_used_privileges)
 		(void)file_dotlock_touch(mbox->mbox_dotlock);
 	else {
-		(void)mbox_dotlock_privileged_op(mbox, NULL,
+		mbox_dotlock_privileged_op(mbox, NULL,
 						 MBOX_DOTLOCK_OP_TOUCH);
 	}
 }

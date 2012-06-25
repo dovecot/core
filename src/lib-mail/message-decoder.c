@@ -142,7 +142,7 @@ parse_content_type(struct message_decoder_context *ctx,
 	if (rfc822_parse_content_type(&parser, str) <= 0)
 		return;
 
-	(void)rfc2231_parse(&parser, &results);
+	rfc2231_parse(&parser, &results);
 	for (; *results != NULL; results += 2) {
 		if (strcasecmp(results[0], "charset") == 0) {
 			ctx->content_charset = i_strdup(results[1]);

@@ -107,7 +107,7 @@ void index_transaction_init(struct mailbox_transaction_context *t,
 
 	itrans_flags = index_transaction_flags_get(flags);
 	if ((flags & MAILBOX_TRANSACTION_FLAG_REFRESH) != 0)
-		(void)mail_index_refresh(box->index);
+		mail_index_refresh(box->index);
 
 	t->box = box;
 	t->itrans = mail_index_transaction_begin(box->view, itrans_flags);

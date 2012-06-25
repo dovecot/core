@@ -349,7 +349,7 @@ fts_backend_solr_get_last_uid(struct fts_backend *_backend,
 	if (fts_backend_solr_get_last_uid_fallback(backend, box, last_uid_r) < 0)
 		return -1;
 
-	(void)fts_index_set_last_uid(box, *last_uid_r);
+	fts_index_set_last_uid(box, *last_uid_r);
 	return 0;
 }
 
@@ -468,7 +468,7 @@ fts_backend_solr_update_set_mailbox(struct fts_backend_update_context *_ctx,
 	struct mail_namespace *ns;
 
 	if (ctx->prev_uid != 0) {
-		(void)fts_index_set_last_uid(ctx->cur_box, ctx->prev_uid);
+		fts_index_set_last_uid(ctx->cur_box, ctx->prev_uid);
 		ctx->prev_uid = 0;
 	}
 

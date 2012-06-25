@@ -372,7 +372,7 @@ void dsync_brain_master_send_mailbox(struct dsync_brain *brain)
 	}
 
 	/* start exporting this mailbox (wait for remote to start importing) */
-	(void)dsync_slave_send_mailbox(brain->slave, &dsync_box);
+	dsync_slave_send_mailbox(brain->slave, &dsync_box);
 	(void)dsync_brain_sync_mailbox_init(brain, box, &dsync_box,
 					    DSYNC_BOX_STATE_MAILBOX);
 	brain->state = DSYNC_STATE_SYNC_MAILS;
@@ -560,13 +560,13 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 		memcpy(delete_box.mailbox_guid, dsync_box->mailbox_guid,
 		       sizeof(delete_box.mailbox_guid));
 		delete_box.mailbox_lost = TRUE;
-		(void)dsync_slave_send_mailbox(brain->slave, &delete_box);
+		dsync_slave_send_mailbox(brain->slave, &delete_box);
 		return TRUE;
 	}
 	i_assert(local_dsync_box.uid_validity != 0);
 	i_assert(memcmp(dsync_box->mailbox_guid, local_dsync_box.mailbox_guid,
 			sizeof(dsync_box->mailbox_guid)) == 0);
-	(void)dsync_slave_send_mailbox(brain->slave, &local_dsync_box);
+	dsync_slave_send_mailbox(brain->slave, &local_dsync_box);
 
 	dsync_brain_mailbox_update_pre(brain, box, &local_dsync_box, dsync_box);
 

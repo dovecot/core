@@ -1687,7 +1687,7 @@ int mbox_sync_get_guid(struct mbox_mailbox *mbox)
 		mbox_sync_index_update_ext_header(mbox, trans);
 		ret = mail_index_transaction_commit(&trans);
 	}
-	(void)mbox_unlock(mbox, lock_id);
+	mbox_unlock(mbox, lock_id);
 	return ret;
 }
 
@@ -1804,7 +1804,7 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags,
 			return 0;
 
 		/* have to sync to make sure offsets have stayed the same */
-		(void)mbox_unlock(mbox, *lock_id);
+		mbox_unlock(mbox, *lock_id);
 		*lock_id = 0;
 	}
 
@@ -1989,7 +1989,7 @@ int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 	if (lock_id != 0) {
 		if (ret < 0) {
 			/* syncing failed, don't leave it locked */
-			(void)mbox_unlock(mbox, lock_id);
+			mbox_unlock(mbox, lock_id);
 		} else if ((flags & MBOX_SYNC_LOCK_READING) == 0) {
 			if (mbox_unlock(mbox, lock_id) < 0)
 				ret = -1;

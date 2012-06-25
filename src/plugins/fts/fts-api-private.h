@@ -105,7 +105,8 @@ void fts_filter_uids(ARRAY_TYPE(seq_range) *definite_dest,
 bool fts_index_get_header(struct mailbox *box, struct fts_index_header *hdr_r);
 int fts_index_set_header(struct mailbox *box,
 			 const struct fts_index_header *hdr);
-int fts_index_set_last_uid(struct mailbox *box, uint32_t last_uid);
+int ATTR_NOWARN_UNUSED_RESULT
+fts_index_set_last_uid(struct mailbox *box, uint32_t last_uid);
 int fts_index_have_compatible_settings(struct mailbox_list *list,
 				       uint32_t checksum);
 

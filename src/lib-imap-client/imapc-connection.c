@@ -1202,8 +1202,8 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 
 	if (*conn->client->set.rawlog_dir != '\0' &&
 	    stat(conn->client->set.rawlog_dir, &st) == 0) {
-		(void)iostream_rawlog_create(conn->client->set.rawlog_dir,
-					     &conn->input, &conn->output);
+		iostream_rawlog_create(conn->client->set.rawlog_dir,
+				       &conn->input, &conn->output);
 	}
 
 	imap_parser_set_streams(conn->parser, conn->input, NULL);
@@ -1299,8 +1299,8 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	if (*conn->client->set.rawlog_dir != '\0' &&
 	    conn->client->set.ssl_mode != IMAPC_CLIENT_SSL_MODE_IMMEDIATE &&
 	    stat(conn->client->set.rawlog_dir, &st) == 0) {
-		(void)iostream_rawlog_create(conn->client->set.rawlog_dir,
-					     &conn->input, &conn->output);
+		iostream_rawlog_create(conn->client->set.rawlog_dir,
+				       &conn->input, &conn->output);
 	}
 
 	o_stream_set_flush_callback(conn->output, imapc_connection_output,

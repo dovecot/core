@@ -68,7 +68,7 @@ static pool_t dsync_slave_pipe_get_pool(struct dsync_slave_pipe *pipe)
 	return ret;
 }
 
-static struct item *
+static struct item * ATTR_NOWARN_UNUSED_RESULT
 dsync_slave_pipe_push_item(struct dsync_slave_pipe *pipe, enum item_type type)
 {
 	struct item *item;
@@ -193,7 +193,7 @@ dsync_slave_pipe_send_end_of_list(struct dsync_slave *slave)
 {
 	struct dsync_slave_pipe *pipe = (struct dsync_slave_pipe *)slave;
 
-	(void)dsync_slave_pipe_push_item(pipe->remote, ITEM_END_OF_LIST);
+	dsync_slave_pipe_push_item(pipe->remote, ITEM_END_OF_LIST);
 }
 
 static void

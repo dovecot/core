@@ -561,7 +561,7 @@ enum mail_error mailbox_get_last_mail_error(struct mailbox *box)
 {
 	enum mail_error error;
 
-	(void)mail_storage_get_last_error(box->storage, &error);
+	mail_storage_get_last_error(box->storage, &error);
 	return error;
 }
 

@@ -122,8 +122,8 @@ void dsync_brain_send_mailbox_tree_deletes(struct dsync_brain *brain)
 
 	deletes = dsync_mailbox_tree_get_deletes(brain->local_mailbox_tree,
 						 &count);
-	(void)dsync_slave_send_mailbox_deletes(brain->slave, deletes, count,
-					       brain->hierarchy_sep);
+	dsync_slave_send_mailbox_deletes(brain->slave, deletes, count,
+					 brain->hierarchy_sep);
 
 	brain->state = DSYNC_STATE_RECV_MAILBOX_TREE;
 }

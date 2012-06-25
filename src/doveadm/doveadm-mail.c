@@ -76,7 +76,7 @@ void doveadm_mail_failed_storage(struct doveadm_mail_cmd_context *ctx,
 {
 	enum mail_error error;
 
-	(void)mail_storage_get_last_error(storage, &error);
+	mail_storage_get_last_error(storage, &error);
 	doveadm_mail_failed_error(ctx, error);
 }
 

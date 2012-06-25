@@ -60,7 +60,7 @@ static void dbox_mail_set_expunged(struct dbox_mail *mail, uint32_t map_uid)
 	struct mail *_mail = &mail->imail.mail.mail;
 	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)_mail->box;
 
-	(void)mail_index_refresh(_mail->box->index);
+	mail_index_refresh(_mail->box->index);
 	if (mail_index_is_expunged(_mail->transaction->view, _mail->seq)) {
 		mail_set_expunged(_mail);
 		return;

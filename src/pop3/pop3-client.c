@@ -77,7 +77,6 @@ static void client_idle_timeout(struct client *client)
 static int
 pop3_mail_get_size(struct client *client, struct mail *mail, uoff_t *size_r)
 {
-	enum mail_error error;
 	int ret;
 
 	if (!client->set->pop3_fast_size_lookups)
@@ -90,8 +89,7 @@ pop3_mail_get_size(struct client *client, struct mail *mail, uoff_t *size_r)
 	if (ret == 0)
 		return 0;
 
-	(void)mailbox_get_last_error(mail->box, &error);
-	if (error != MAIL_ERROR_NOTPOSSIBLE)
+	if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_NOTPOSSIBLE)
 		return -1;
 
 	/* virtual size not available with a fast lookup.
@@ -102,8 +100,7 @@ pop3_mail_get_size(struct client *client, struct mail *mail, uoff_t *size_r)
 	if (ret == 0)
 		return 0;
 
-	(void)mailbox_get_last_error(mail->box, &error);
-	if (error != MAIL_ERROR_NOTPOSSIBLE)
+	if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_NOTPOSSIBLE)
 		return -1;
 
 	/* no way to quickly get the size. fallback to doing a slow virtual

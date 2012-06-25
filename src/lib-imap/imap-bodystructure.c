@@ -64,7 +64,7 @@ static void parse_content_type(struct message_part_body_data *data,
 
 	/* parse parameters and save them */
 	str_truncate(str, 0);
-	(void)rfc2231_parse(&parser, &results);
+	rfc2231_parse(&parser, &results);
 	for (; *results != NULL; results += 2) {
 		if (strcasecmp(results[0], "charset") == 0)
 			charset_found = TRUE;
@@ -122,7 +122,7 @@ static void parse_content_disposition(struct message_part_body_data *data,
 
 	/* parse parameters and save them */
 	str_truncate(str, 0);
-	(void)rfc2231_parse(&parser, &results);
+	rfc2231_parse(&parser, &results);
 	for (; *results != NULL; results += 2) {
 		str_append_c(str, ' ');
 		imap_quote_append_string(str, results[0], TRUE);

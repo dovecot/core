@@ -26,6 +26,6 @@ bool cmd_sync_callback(struct client_command_context *cmd,
 		       enum mailbox_sync_flags flags,
 		       enum imap_sync_flags imap_flags,
 		       imap_sync_callback_t *callback);
-bool cmd_sync_delayed(struct client *client);
+bool cmd_sync_delayed(struct client *client) ATTR_NOWARN_UNUSED_RESULT;
 
 #endif

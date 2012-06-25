@@ -201,7 +201,7 @@ maildir_mail_get_fname(struct maildir_mailbox *mbox, struct mail *mail,
 	/* one reason this could happen is if we delayed opening
 	   dovecot-uidlist and we're trying to open a mail that got recently
 	   expunged. Let's test this theory first: */
-	(void)mail_index_refresh(mbox->box.index);
+	mail_index_refresh(mbox->box.index);
 	view = mail_index_view_open(mbox->box.index);
 	exists = mail_index_lookup_seq(view, mail->uid, &seq);
 	mail_index_view_close(&view);

@@ -114,7 +114,7 @@ static void client_input_append(struct client_command_context *cmd)
 		(void)client_handle_unfinished_cmd(cmd);
 	else
 		client_command_free(&cmd);
-	(void)cmd_sync_delayed(client);
+	cmd_sync_delayed(client);
 	o_stream_uncork(client->output);
 
 	if (client->disconnected)

@@ -88,8 +88,7 @@ void passdb_blocking_verify_plain(struct auth_request *request)
 	auth_request_export(request, reply);
 
 	auth_request_ref(request);
-	(void)auth_worker_call(request->pool, reply,
-			       verify_plain_callback, request);
+	auth_worker_call(request->pool, reply, verify_plain_callback, request);
 }
 
 static bool lookup_credentials_callback(const char *reply, void *context)
@@ -131,8 +130,8 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 	auth_request_export(request, reply);
 
 	auth_request_ref(request);
-	(void)auth_worker_call(request->pool, reply,
-			       lookup_credentials_callback, request);
+	auth_worker_call(request->pool, reply,
+			 lookup_credentials_callback, request);
 }
 
 static bool
@@ -159,6 +158,6 @@ void passdb_blocking_set_credentials(struct auth_request *request,
 	auth_request_export(request, reply);
 
 	auth_request_ref(request);
-	(void)auth_worker_call(request->pool, reply,
-			       set_credentials_callback, request);
+	auth_worker_call(request->pool, reply,
+			 set_credentials_callback, request);
 }

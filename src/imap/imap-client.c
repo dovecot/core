@@ -807,7 +807,7 @@ bool client_handle_input(struct client *client)
 		return FALSE;
 
 	if (client->input_lock == NULL)
-		(void)cmd_sync_delayed(client);
+		cmd_sync_delayed(client);
 	return TRUE;
 }
 
@@ -912,7 +912,7 @@ int client_output(struct client *client)
 		}
 	}
 
-	(void)cmd_sync_delayed(client);
+	cmd_sync_delayed(client);
 	o_stream_uncork(client->output);
 	if (client->disconnected)
 		client_destroy(client, NULL);

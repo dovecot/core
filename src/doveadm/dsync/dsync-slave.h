@@ -54,16 +54,17 @@ enum dsync_slave_recv_ret
 dsync_slave_recv_handshake(struct dsync_slave *slave,
 			   const struct dsync_slave_settings **set_r);
 
-void dsync_slave_send_end_of_list(struct dsync_slave *slave);
+enum dsync_slave_send_ret ATTR_NOWARN_UNUSED_RESULT
+dsync_slave_send_end_of_list(struct dsync_slave *slave);
 
-enum dsync_slave_send_ret
+enum dsync_slave_send_ret ATTR_NOWARN_UNUSED_RESULT
 dsync_slave_send_mailbox_state(struct dsync_slave *slave,
 			       const struct dsync_mailbox_state *state);
 enum dsync_slave_recv_ret
 dsync_slave_recv_mailbox_state(struct dsync_slave *slave,
 			       struct dsync_mailbox_state *state_r);
 
-enum dsync_slave_send_ret
+enum dsync_slave_send_ret ATTR_NOWARN_UNUSED_RESULT
 dsync_slave_send_mailbox_tree_node(struct dsync_slave *slave,
 				   const char *const *name,
 				   const struct dsync_mailbox_node *node);
@@ -72,7 +73,7 @@ dsync_slave_recv_mailbox_tree_node(struct dsync_slave *slave,
 				   const char *const **name_r,
 				   const struct dsync_mailbox_node **node_r);
 
-enum dsync_slave_send_ret
+enum dsync_slave_send_ret ATTR_NOWARN_UNUSED_RESULT
 dsync_slave_send_mailbox_deletes(struct dsync_slave *slave,
 				 const struct dsync_mailbox_delete *deletes,
 				 unsigned int count, char hierarchy_sep);
@@ -81,28 +82,28 @@ dsync_slave_recv_mailbox_deletes(struct dsync_slave *slave,
 				 const struct dsync_mailbox_delete **deletes_r,
 				 unsigned int *count_r, char *hierarchy_sep_r);
 
-enum dsync_slave_send_ret
+enum dsync_slave_send_ret ATTR_NOWARN_UNUSED_RESULT
 dsync_slave_send_mailbox(struct dsync_slave *slave,
 			 const struct dsync_mailbox *dsync_box);
 enum dsync_slave_recv_ret
 dsync_slave_recv_mailbox(struct dsync_slave *slave,
 			 const struct dsync_mailbox **dsync_box_r);
 
-enum dsync_slave_send_ret
+enum dsync_slave_send_ret ATTR_NOWARN_UNUSED_RESULT
 dsync_slave_send_change(struct dsync_slave *slave,
 			const struct dsync_mail_change *change);
 enum dsync_slave_recv_ret
 dsync_slave_recv_change(struct dsync_slave *slave,
 			const struct dsync_mail_change **change_r);
 
-enum dsync_slave_send_ret
+enum dsync_slave_send_ret ATTR_NOWARN_UNUSED_RESULT
 dsync_slave_send_mail_request(struct dsync_slave *slave,
 			      const struct dsync_mail_request *request);
 enum dsync_slave_recv_ret
 dsync_slave_recv_mail_request(struct dsync_slave *slave,
 			      const struct dsync_mail_request **request_r);
 
-enum dsync_slave_send_ret
+enum dsync_slave_send_ret ATTR_NOWARN_UNUSED_RESULT
 dsync_slave_send_mail(struct dsync_slave *slave,
 		      const struct dsync_mail *mail);
 enum dsync_slave_recv_ret

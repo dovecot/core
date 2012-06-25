@@ -1335,7 +1335,7 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 	if (!uidlist->box->opened)
 		return;
 
-	(void)mail_index_refresh(uidlist->box->index);
+	mail_index_refresh(uidlist->box->index);
 	view = mail_index_view_open(uidlist->box->index);
 	count = array_count(&uidlist->records);
 	hdr = mail_index_get_header(view);

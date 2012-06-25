@@ -23,13 +23,15 @@
 /* If key is found, returns TRUE and sets idx_r to the position where the key
    was found. If key isn't found, returns FALSE and sets idx_r to the position
    where the key should be inserted. */
-bool bsearch_insert_pos(const void *key, const void *base, unsigned int nmemb,
+bool ATTR_NOWARN_UNUSED_RESULT
+bsearch_insert_pos(const void *key, const void *base, unsigned int nmemb,
 			size_t size, int (*cmp)(const void *, const void *),
 			unsigned int *idx_r);
 
-bool array_bsearch_insert_pos_i(const struct array *array, const void *key,
-				int (*cmp)(const void *, const void *),
-				unsigned int *idx_r);
+bool ATTR_NOWARN_UNUSED_RESULT
+array_bsearch_insert_pos_i(const struct array *array, const void *key,
+			   int (*cmp)(const void *, const void *),
+			   unsigned int *idx_r);
 #ifdef CONTEXT_TYPE_SAFETY
 #define array_bsearch_insert_pos(array, key, cmp, idx_r) \
 	({(void)(1 ? 0 : cmp(key, ARRAY_TYPE_CAST_CONST(array)NULL)); \

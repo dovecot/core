@@ -181,7 +181,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	o_stream_destroy(&output);
 
 	if (failed || !changed) {
-		if (file_dotlock_delete_verified(&dotlock) < 0) {
+		if (file_dotlock_delete(&dotlock) < 0) {
 			subswrite_set_syscall_error(list,
 				"file_dotlock_delete()", path);
 			failed = TRUE;

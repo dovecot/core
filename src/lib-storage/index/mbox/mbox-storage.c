@@ -583,7 +583,7 @@ static void mbox_mailbox_close(struct mailbox *box)
 		(void)mbox_sync(mbox, sync_flags);
 
 	if (mbox->mbox_global_lock_id != 0)
-		(void)mbox_unlock(mbox, mbox->mbox_global_lock_id);
+		mbox_unlock(mbox, mbox->mbox_global_lock_id);
 	if (mbox->keep_lock_to != NULL)
 		timeout_remove(&mbox->keep_lock_to);
 
@@ -703,7 +703,7 @@ static void mbox_transaction_unlock(struct mailbox *box, unsigned int lock_id)
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 
 	if (lock_id != 0)
-		(void)mbox_unlock(mbox, lock_id);
+		mbox_unlock(mbox, lock_id);
 	if (mbox->mbox_global_lock_id == 0) {
 		i_assert(mbox->box.transaction_count > 0 ||
 			 mbox->mbox_lock_type == F_UNLCK);

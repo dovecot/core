@@ -403,7 +403,7 @@ mail_index_strmap_uid_exists(struct mail_index_strmap_read_context *ctx,
 		   see if it's because the strmap is corrupted or because
 		   our current view is a bit stale and the message has already
 		   been expunged. */
-		(void)mail_index_refresh(ctx->view->view->index);
+		mail_index_refresh(ctx->view->view->index);
 		if (mail_index_is_expunged(ctx->view->view,
 					   ctx->uid_lookup_idx + 1))
 			ctx->lost_expunged_uid = rec->uid;

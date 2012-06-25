@@ -487,7 +487,7 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 	    ctx->last_boundary != NULL)
 		return;
 
-	(void)rfc2231_parse(&parser, &results);
+	rfc2231_parse(&parser, &results);
 	for (; *results != NULL; results += 2) {
 		if (strcasecmp(results[0], "boundary") == 0) {
 			ctx->last_boundary =

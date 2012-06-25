@@ -490,7 +490,7 @@ static void cmd_search_more_callback(struct client_command_context *cmd)
 		(void)client_handle_unfinished_cmd(cmd);
 	else
 		client_command_free(&cmd);
-	(void)cmd_sync_delayed(client);
+	cmd_sync_delayed(client);
 
 	if (client->disconnected)
 		client_destroy(client, NULL);

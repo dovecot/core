@@ -203,7 +203,6 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 static bool fts_mailbox_build_continue(struct mail_search_context *ctx)
 {
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
-	enum mail_error error;
 	int ret;
 
 	ret = fts_indexer_more(fctx->indexer_ctx);
@@ -224,8 +223,8 @@ static bool fts_mailbox_build_continue(struct mail_search_context *ctx)
 
 		   if indexing failed for any other reason, just
 		   fallback to searching the slow way. */
-		(void)mailbox_get_last_error(fctx->box, &error);
-		fctx->indexing_timed_out = error == MAIL_ERROR_INUSE;
+		fctx->indexing_timed_out =
+			mailbox_get_last_mail_error(fctx->box) == MAIL_ERROR_INUSE;
 	}
 	return TRUE;
 }

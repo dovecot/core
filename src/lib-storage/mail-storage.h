@@ -374,11 +374,13 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
 int mail_storage_purge(struct mail_storage *storage);
 
 /* Returns the error message of last occurred error. */
-const char *mail_storage_get_last_error(struct mail_storage *storage,
-					enum mail_error *error_r) ATTR_NULL(2);
+const char * ATTR_NOWARN_UNUSED_RESULT
+mail_storage_get_last_error(struct mail_storage *storage,
+			    enum mail_error *error_r) ATTR_NULL(2);
 /* Wrapper for mail_storage_get_last_error(); */
-const char *mailbox_get_last_error(struct mailbox *box,
-				   enum mail_error *error_r) ATTR_NULL(2);
+const char * ATTR_NOWARN_UNUSED_RESULT
+mailbox_get_last_error(struct mailbox *box, enum mail_error *error_r)
+	ATTR_NULL(2);
 /* Wrapper for mail_storage_get_last_error(); */
 enum mail_error mailbox_get_last_mail_error(struct mailbox *box);
 

@@ -169,7 +169,7 @@ static void parse_content_disposition(const char *content_disposition,
 	if (rfc822_parse_mime_token(&parser, str) < 0)
 		return;
 
-	(void)rfc2231_parse(&parser, &results);
+	rfc2231_parse(&parser, &results);
 	filename2 = NULL;
 	for (; *results != NULL; results += 2) {
 		if (strcasecmp(results[0], "filename") == 0) {

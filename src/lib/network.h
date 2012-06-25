@@ -75,7 +75,7 @@ void net_disconnect(int fd);
 void net_set_nonblock(int fd, bool nonblock);
 /* Set TCP_CORK if supported, ie. don't send out partial frames.
    Returns 0 if ok, -1 if failed. */
-int net_set_cork(int fd, bool cork);
+int net_set_cork(int fd, bool cork) ATTR_NOWARN_UNUSED_RESULT;
 
 /* Set IP to contain INADDR_ANY for IPv4 or IPv6. The IPv6 any address may
    include IPv4 depending on the system (Linux yes, BSD no). */

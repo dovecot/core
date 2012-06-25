@@ -48,7 +48,7 @@ cmd_expunge_box(struct doveadm_mail_cmd_context *_ctx,
 
 	if (ctx->delete_empty_mailbox && ret == 0) {
 		if (mailbox_delete_empty(box) < 0) {
-			(void)mailbox_get_last_error(box, &error);
+			error = mailbox_get_last_mail_error(box);
 			if (error != MAIL_ERROR_EXISTS) {
 				doveadm_mail_failed_mailbox(_ctx, box);
 				ret = -1;

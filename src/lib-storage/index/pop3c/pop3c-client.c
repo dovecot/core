@@ -486,8 +486,8 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 
 	if (*client->set.rawlog_dir != '\0' &&
 	    stat(client->set.rawlog_dir, &st) == 0) {
-		(void)iostream_rawlog_create(client->set.rawlog_dir,
-					     &client->input, &client->output);
+		iostream_rawlog_create(client->set.rawlog_dir,
+				       &client->input, &client->output);
 	}
 	return 0;
 }
@@ -533,8 +533,8 @@ static void pop3c_client_connect_ip(struct pop3c_client *client)
 	if (*client->set.rawlog_dir != '\0' &&
 	    client->set.ssl_mode != POP3C_CLIENT_SSL_MODE_IMMEDIATE &&
 	    stat(client->set.rawlog_dir, &st) == 0) {
-		(void)iostream_rawlog_create(client->set.rawlog_dir,
-					     &client->input, &client->output);
+		iostream_rawlog_create(client->set.rawlog_dir,
+				       &client->input, &client->output);
 	}
 	client->io = io_add(client->fd, IO_WRITE,
 			    pop3c_client_connected, client);

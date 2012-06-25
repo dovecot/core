@@ -317,7 +317,7 @@ mail_transaction_log_file_undotlock(struct mail_transaction_log_file *file)
 	if (--file->log->dotlock_count > 0)
 		return 0;
 
-	ret = file_dotlock_delete_verified(&file->log->dotlock);
+	ret = file_dotlock_delete(&file->log->dotlock);
 	if (ret < 0) {
 		log_file_set_syscall_error(file, "file_dotlock_delete()");
 		return -1;

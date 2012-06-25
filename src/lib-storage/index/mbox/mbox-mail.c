@@ -25,7 +25,7 @@ static void mbox_prepare_resync(struct mail *mail)
 	if (mbox->mbox_lock_type == F_RDLCK) {
 		if (mbox->mbox_lock_id == t->mbox_lock_id)
 			t->mbox_lock_id = 0;
-		(void)mbox_unlock(mbox, mbox->mbox_lock_id);
+		mbox_unlock(mbox, mbox->mbox_lock_id);
 		i_assert(mbox->mbox_lock_type == F_UNLCK);
 	}
 }

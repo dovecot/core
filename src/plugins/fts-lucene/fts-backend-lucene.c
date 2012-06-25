@@ -198,7 +198,7 @@ fts_backend_lucene_get_last_uid(struct fts_backend *_backend,
 	if (lucene_index_get_last_uid(backend->index, last_uid_r) < 0)
 		return -1;
 
-	(void)fts_index_set_last_uid(box, *last_uid_r);
+	fts_index_set_last_uid(box, *last_uid_r);
 	return 0;
 }
 
@@ -290,7 +290,7 @@ fts_backend_lucene_update_set_mailbox(struct fts_backend_update_context *_ctx,
 		(struct lucene_fts_backend_update_context *)_ctx;
 
 	if (ctx->last_uid != 0) {
-		(void)fts_index_set_last_uid(ctx->box, ctx->last_uid);
+		fts_index_set_last_uid(ctx->box, ctx->last_uid);
 		ctx->last_uid = 0;
 	}
 	if (ctx->first_box_vname == NULL)

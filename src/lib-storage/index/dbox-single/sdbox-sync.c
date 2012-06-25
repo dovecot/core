@@ -170,7 +170,7 @@ sdbox_refresh_header(struct sdbox_mailbox *mbox, bool retry, bool log_error)
 	mail_index_view_close(&view);
 
 	if (ret < 0 && retry) {
-		(void)mail_index_refresh(mbox->box.index);
+		mail_index_refresh(mbox->box.index);
 		return sdbox_refresh_header(mbox, FALSE, log_error);
 	}
 	return ret;

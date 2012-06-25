@@ -310,7 +310,8 @@ int mailbox_list_delete_dir(struct mailbox_list *list, const char *name);
 int mailbox_list_delete_symlink(struct mailbox_list *list, const char *name);
 
 /* Returns the error message of last occurred error. */
-const char *mailbox_list_get_last_error(struct mailbox_list *list,
-					enum mail_error *error_r);
+const char * ATTR_NOWARN_UNUSED_RESULT
+mailbox_list_get_last_error(struct mailbox_list *list,
+			    enum mail_error *error_r);
 
 #endif

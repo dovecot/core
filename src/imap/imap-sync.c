@@ -603,7 +603,7 @@ static bool cmd_sync_client(struct client_command_context *sync_cmd)
 	}
 
 	client_command_free(&sync_cmd);
-	(void)cmd_sync_delayed(client);
+	cmd_sync_delayed(client);
 	return TRUE;
 }
 

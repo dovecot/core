@@ -98,7 +98,7 @@ void mail_index_transaction_lookup_latest_keywords(struct mail_index_transaction
 	uint32_t uid, latest_seq;
 
 	if (t->latest_view == NULL) {
-		(void)mail_index_refresh(t->view->index);
+		mail_index_refresh(t->view->index);
 		t->latest_view = mail_index_view_open(t->view->index);
 	}
 	mail_index_lookup_uid(t->view, seq, &uid);
@@ -210,7 +210,7 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 		   expunge handlers get run for the newly expunged messages
 		   (and sync handlers that require HANDLER_FILE as well). */
 		index->sync_commit_result = result_r;
-		(void)mail_index_refresh(index);
+		mail_index_refresh(index);
 		index->sync_commit_result = NULL;
 	}
 
