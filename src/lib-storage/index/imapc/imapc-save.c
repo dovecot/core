@@ -165,7 +165,8 @@ static void imapc_save_callback(const struct imapc_command_reply *reply,
 	uint32_t uid = 0;
 
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
-		if (strcasecmp(reply->resp_text_key, "APPENDUID") == 0)
+		if (reply->resp_text_key != NULL &&
+		    strcasecmp(reply->resp_text_key, "APPENDUID") == 0)
 			imapc_save_appenduid(ctx->ctx, reply, &uid);
 		imapc_save_add_to_index(ctx->ctx, uid);
 		ctx->ret = 0;
@@ -354,7 +355,8 @@ static void imapc_copy_callback(const struct imapc_command_reply *reply,
 	uint32_t uid = 0;
 
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
-		if (strcasecmp(reply->resp_text_key, "COPYUID") == 0)
+		if (reply->resp_text_key != NULL &&
+		    strcasecmp(reply->resp_text_key, "COPYUID") == 0)
 			imapc_save_copyuid(ctx->ctx, reply, &uid);
 		imapc_save_add_to_index(ctx->ctx, uid);
 		ctx->ret = 0;
