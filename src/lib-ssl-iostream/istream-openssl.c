@@ -45,7 +45,7 @@ static ssize_t i_stream_ssl_read(struct istream_private *stream)
 		return ret;
 	}
 
-	if (!i_stream_get_buffer_space(stream, 1, &size))
+	if (!i_stream_try_alloc(stream, 1, &size))
 		return -2;
 
 	while ((ret = SSL_read(sstream->ssl_io->ssl,

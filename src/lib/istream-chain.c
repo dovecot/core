@@ -122,7 +122,7 @@ static void i_stream_chain_read_next(struct chain_istream *cstream)
 	   maximum buffer size */
 	cstream->istream.pos = 0;
 	if (data_size > 0) {
-		if (!i_stream_get_buffer_space(&cstream->istream, data_size, &size))
+		if (!i_stream_try_alloc(&cstream->istream, data_size, &size))
 			i_unreached();
 		i_assert(size >= data_size);
 	}
@@ -217,7 +217,7 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 		stream->buffer = stream->w_buffer;
 	} else {
 		stream->buffer = stream->w_buffer;
-		if (!i_stream_get_buffer_space(stream, pos - cur_pos, &size))
+		if (!i_stream_try_alloc(stream, pos - cur_pos, &size))
 			return -2;
 
 		if (pos > size)

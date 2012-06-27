@@ -44,7 +44,7 @@ static int i_stream_dot_read_some(struct dot_istream *dstream)
 		i_assert(size != 0);
 	}
 
-	if (!i_stream_get_buffer_space(stream, size, &avail))
+	if (!i_stream_try_alloc(stream, size, &avail))
 		return -2;
 	return 1;
 }
@@ -113,7 +113,7 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 	ssize_t ret, ret1;
 
 	if (dstream->pending[0] != '\0') {
-		if (!i_stream_get_buffer_space(stream, 1, &avail))
+		if (!i_stream_try_alloc(stream, 1, &avail))
 			return -2;
 		dest = stream->pos;
 		(void)flush_pending(dstream, &dest);

@@ -36,14 +36,14 @@ stream_alloc_data(struct binary_converter_istream *bstream, size_t size)
 	struct istream_private *stream = &bstream->istream;
 	size_t old_size, avail_size;
 
-	i_stream_get_buffer_space(stream, size, &avail_size);
+	i_stream_try_alloc(stream, size, &avail_size);
 	if (avail_size < size) {
 		old_size = stream->buffer_size;
 		stream->buffer_size = nearest_power(stream->pos + size);
 		stream->w_buffer = i_realloc(stream->w_buffer, old_size,
 					     stream->buffer_size);
 		stream->buffer = stream->w_buffer;
-		i_stream_get_buffer_space(stream, size, &avail_size);
+		i_stream_try_alloc(stream, size, &avail_size);
 		i_assert(avail_size >= size);
 	}
 	return stream->w_buffer + stream->pos;

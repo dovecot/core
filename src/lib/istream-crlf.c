@@ -30,7 +30,7 @@ static int i_stream_crlf_read_common(struct crlf_istream *cstream)
 		i_assert(size != 0);
 	}
 
-	if (!i_stream_get_buffer_space(stream, size, &avail))
+	if (!i_stream_try_alloc(stream, size, &avail))
 		return -2;
 	return 1;
 }

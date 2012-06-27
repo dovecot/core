@@ -495,8 +495,8 @@ void i_stream_grow_buffer(struct istream_private *stream, size_t bytes)
 	}
 }
 
-bool i_stream_get_buffer_space(struct istream_private *stream,
-			       size_t wanted_size, size_t *size_r)
+bool i_stream_try_alloc(struct istream_private *stream,
+			size_t wanted_size, size_t *size_r)
 {
 	i_assert(wanted_size > 0);
 
@@ -521,7 +521,7 @@ bool i_stream_add_data(struct istream *_stream, const unsigned char *data,
 	struct istream_private *stream = _stream->real_stream;
 	size_t size2;
 
-	i_stream_get_buffer_space(stream, size, &size2);
+	i_stream_try_alloc(stream, size, &size2);
 	if (size > size2)
 		return FALSE;
 

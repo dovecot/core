@@ -37,7 +37,7 @@ static ssize_t i_stream_nonuls_read(struct istream_private *stream)
 		return ret;
 
 	data = i_stream_get_data(stream->parent, &size);
-	if (!i_stream_get_buffer_space(stream, size, &avail_size))
+	if (!i_stream_try_alloc(stream, size, &avail_size))
 		return -2;
 	if (size > avail_size)
 		size = avail_size;

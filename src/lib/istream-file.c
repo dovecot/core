@@ -55,7 +55,7 @@ static ssize_t i_stream_file_read(struct istream_private *stream)
 	size_t size;
 	ssize_t ret;
 
-	if (!i_stream_get_buffer_space(stream, 1, &size))
+	if (!i_stream_try_alloc(stream, 1, &size))
 		return -2;
 
 	if (stream->fd == -1) {
