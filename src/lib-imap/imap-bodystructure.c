@@ -44,7 +44,7 @@ static void parse_content_type(struct message_part_body_data *data,
 	bool charset_found = FALSE;
 
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
-	(void)rfc822_skip_lwsp(&parser);
+	rfc822_skip_lwsp(&parser);
 
 	str = t_str_new(256);
 	if (rfc822_parse_content_type(&parser, str) < 0)
@@ -94,7 +94,7 @@ static void parse_content_transfer_encoding(struct message_part_body_data *data,
 	string_t *str;
 
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
-	(void)rfc822_skip_lwsp(&parser);
+	rfc822_skip_lwsp(&parser);
 
 	str = t_str_new(256);
 	if (rfc822_parse_mime_token(&parser, str) >= 0) {
@@ -112,7 +112,7 @@ static void parse_content_disposition(struct message_part_body_data *data,
 	string_t *str;
 
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
-	(void)rfc822_skip_lwsp(&parser);
+	rfc822_skip_lwsp(&parser);
 
 	str = t_str_new(256);
 	if (rfc822_parse_mime_token(&parser, str) < 0)
@@ -151,14 +151,14 @@ static void parse_content_language(const unsigned char *value, size_t value_len,
 	str = t_str_new(128);
 	str_append_c(str, '"');
 
-	(void)rfc822_skip_lwsp(&parser);
+	rfc822_skip_lwsp(&parser);
 	while (rfc822_parse_atom(&parser, str) >= 0) {
 		str_append(str, "\" \"");
 
 		if (parser.data == parser.end || *parser.data != ',')
 			break;
 		parser.data++;
-		(void)rfc822_skip_lwsp(&parser);
+		rfc822_skip_lwsp(&parser);
 	}
 
 	if (str_len(str) > 1) {

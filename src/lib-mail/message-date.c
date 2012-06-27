@@ -123,7 +123,7 @@ message_date_parser_tokens(struct message_date_parser_context *ctx,
 	/* [weekday_name "," ] dd month_name [yy]yy hh:mi[:ss] timezone */
 	memset(&tm, 0, sizeof(tm));
 
-        (void)rfc822_skip_lwsp(&ctx->parser);
+        rfc822_skip_lwsp(&ctx->parser);
 
 	/* skip the optional weekday */
 	if (next_token(ctx, &value, &len) <= 0)
@@ -132,7 +132,7 @@ message_date_parser_tokens(struct message_date_parser_context *ctx,
 		if (*ctx->parser.data != ',')
 			return FALSE;
 		ctx->parser.data++;
-		(void)rfc822_skip_lwsp(&ctx->parser);
+		rfc822_skip_lwsp(&ctx->parser);
 
 		if (next_token(ctx, &value, &len) <= 0)
 			return FALSE;
@@ -197,7 +197,7 @@ message_date_parser_tokens(struct message_date_parser_context *ctx,
 	if (!IS_TIME_SEP(*ctx->parser.data))
 		return FALSE;
 	ctx->parser.data++;
-	(void)rfc822_skip_lwsp(&ctx->parser);
+	rfc822_skip_lwsp(&ctx->parser);
 
 	if (next_token(ctx, &value, &len) < 0 || len != 2 ||
 	    !i_isdigit(value[0]) || !i_isdigit(value[1]))
@@ -208,7 +208,7 @@ message_date_parser_tokens(struct message_date_parser_context *ctx,
 	if (ctx->parser.data != ctx->parser.end &&
 	    IS_TIME_SEP(*ctx->parser.data)) {
 		ctx->parser.data++;
-		(void)rfc822_skip_lwsp(&ctx->parser);
+		rfc822_skip_lwsp(&ctx->parser);
 
 		if (next_token(ctx, &value, &len) <= 0 || len != 2 ||
 		    !i_isdigit(value[0]) || !i_isdigit(value[1]))

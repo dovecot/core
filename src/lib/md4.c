@@ -62,7 +62,8 @@
  * This processes one or more 64-byte data blocks, but does NOT update
  * the bit counters.  There're no alignment requirements.
  */
-static const void *body(struct md4_context *ctx, const void *data, size_t size)
+static const void * ATTR_NOWARN_UNUSED_RESULT
+body(struct md4_context *ctx, const void *data, size_t size)
 {
 	const unsigned char *ptr;
 	uint32_t a, b, c, d;
@@ -193,7 +194,7 @@ void md4_update(struct md4_context *ctx, const void *data, size_t size)
 		memcpy(&ctx->buffer[used], data, free);
 		data = (const unsigned char *) data + free;
 		size -= free;
-		(void)body(ctx, ctx->buffer, 64);
+		body(ctx, ctx->buffer, 64);
 	}
 
 	if (size >= 64) {
@@ -217,7 +218,7 @@ void md4_final(struct md4_context *ctx, unsigned char result[MD4_RESULTLEN])
 
 	if (free < 8) {
 		memset(&ctx->buffer[used], 0, free);
-		(void)body(ctx, ctx->buffer, 64);
+		body(ctx, ctx->buffer, 64);
 		used = 0;
 		free = 64;
 	}
@@ -234,7 +235,7 @@ void md4_final(struct md4_context *ctx, unsigned char result[MD4_RESULTLEN])
 	ctx->buffer[62] = ctx->hi >> 16;
 	ctx->buffer[63] = ctx->hi >> 24;
 
-	(void)body(ctx, ctx->buffer, 64);
+	body(ctx, ctx->buffer, 64);
 
 	result[0] = ctx->a;
 	result[1] = ctx->a >> 8;

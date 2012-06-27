@@ -98,7 +98,7 @@ static void parse_content_type(struct mail_save_context *ctx,
 	string_t *content_type;
 
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
-	(void)rfc822_skip_lwsp(&parser);
+	rfc822_skip_lwsp(&parser);
 
 	T_BEGIN {
 		content_type = t_str_new(64);

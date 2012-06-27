@@ -162,7 +162,7 @@ static void parse_content_disposition(const char *content_disposition,
 
 	rfc822_parser_init(&parser, (const unsigned char *)content_disposition,
 			   strlen(content_disposition), NULL);
-	(void)rfc822_skip_lwsp(&parser);
+	rfc822_skip_lwsp(&parser);
 
 	/* type; param; param; .. */
 	str = t_str_new(32);

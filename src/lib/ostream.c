@@ -213,7 +213,7 @@ void o_stream_nsend(struct ostream *stream, const void *data, size_t size)
 	iov.iov_base = data;
 	iov.iov_len = size;
 
-	(void)o_stream_nsendv(stream, &iov, 1);
+	o_stream_nsendv(stream, &iov, 1);
 }
 
 void o_stream_nsendv(struct ostream *stream, const struct const_iovec *iov,

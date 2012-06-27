@@ -464,7 +464,7 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 	ctx->part_seen_content_type = TRUE;
 
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
-	(void)rfc822_skip_lwsp(&parser);
+	rfc822_skip_lwsp(&parser);
 
 	content_type = t_str_new(64);
 	if (rfc822_parse_content_type(&parser, content_type) < 0)

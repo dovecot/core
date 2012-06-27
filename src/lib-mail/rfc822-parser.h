@@ -26,7 +26,8 @@ void rfc822_parser_init(struct rfc822_parser_context *ctx,
 /* Parse comment. Assumes parser's data points to '(' */
 int rfc822_skip_comment(struct rfc822_parser_context *ctx);
 /* Skip LWSP if there is any */
-int rfc822_skip_lwsp(struct rfc822_parser_context *ctx);
+int ATTR_NOWARN_UNUSED_RESULT
+rfc822_skip_lwsp(struct rfc822_parser_context *ctx);
 /* Stop at next non-atext char */
 int rfc822_parse_atom(struct rfc822_parser_context *ctx, string_t *str);
 /* Like parse_atom() but don't stop at '.' */

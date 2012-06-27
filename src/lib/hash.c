@@ -176,7 +176,7 @@ bool hash_table_lookup_full(const struct hash_table *table,
 	return TRUE;
 }
 
-static struct hash_node *
+static struct hash_node * ATTR_NOWARN_UNUSED_RESULT
 hash_table_insert_node(struct hash_table *table, void *key, void *value,
 		       bool check_existing)
 {
@@ -265,7 +265,7 @@ void hash_table_insert(struct hash_table *table, void *key, void *value)
 
 void hash_table_update(struct hash_table *table, void *key, void *value)
 {
-	(void)hash_table_insert_node(table, key, value, TRUE);
+	hash_table_insert_node(table, key, value, TRUE);
 }
 
 static void
@@ -438,16 +438,16 @@ static bool hash_table_resize(struct hash_table *table, bool grow)
 	for (i = 0; i < old_size; i++) {
 		node = &old_nodes[i];
 		if (node->key != NULL) {
-			(void)hash_table_insert_node(table, node->key,
-						     node->value, FALSE);
+			hash_table_insert_node(table, node->key,
+					       node->value, FALSE);
 		}
 
 		for (node = node->next; node != NULL; node = next) {
 			next = node->next;
 
 			if (node->key != NULL) {
-				(void)hash_table_insert_node(table, node->key,
-							     node->value, FALSE);
+				hash_table_insert_node(table, node->key,
+						       node->value, FALSE);
 			}
 			free_node(table, node);
 		}
