@@ -338,7 +338,7 @@ director_connection_create(int in_fd, const struct ip_addr *local_ip)
 
 	out_fd = net_connect_ip(local_ip, DIRECTOR_OUT_PORT, NULL);
 	if (out_fd == -1) {
-		i_close_fd(in_fd);
+		i_close_fd(&in_fd);
 		return;
 	}
 

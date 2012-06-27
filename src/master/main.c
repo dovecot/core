@@ -156,7 +156,7 @@ master_fatal_callback(const struct failure_context *ctx,
 			VA_COPY(args2, args);
 			str = t_strdup_vprintf(format, args2);
 			(void)write_full(fd, str, strlen(str));
-			i_close_fd(fd);
+			i_close_fd(&fd);
 		}
 	}
 
@@ -245,7 +245,7 @@ static bool pid_file_read(const char *path, pid_t *pid_r)
 		found = !(*pid_r == getpid() ||
 			  (kill(*pid_r, 0) < 0 && errno == ESRCH));
 	}
-	i_close_fd(fd);
+	i_close_fd(&fd);
 	return found;
 }
 
@@ -272,7 +272,7 @@ static void create_pid_file(const char *path)
 		i_fatal("open(%s) failed: %m", path);
 	if (write_full(fd, pid, strlen(pid)) < 0)
 		i_fatal("write() failed in %s: %m", path);
-	i_close_fd(fd);
+	i_close_fd(&fd);
 }
 
 static void create_config_symlink(const struct master_settings *set)

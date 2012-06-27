@@ -405,7 +405,7 @@ int imapc_client_create_temp_fd(struct imapc_client *client,
 	if (unlink(str_c(path)) < 0) {
 		/* shouldn't happen.. */
 		i_error("unlink(%s) failed: %m", str_c(path));
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return -1;
 	}
 	*path_r = str_c(path);

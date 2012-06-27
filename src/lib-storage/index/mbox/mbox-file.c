@@ -39,7 +39,7 @@ int mbox_file_open(struct mbox_mailbox *mbox)
 
 	if (fstat(fd, &st) < 0) {
 		mbox_set_syscall_error(mbox, "fstat()");
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return -1;
 	}
 

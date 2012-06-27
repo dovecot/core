@@ -324,7 +324,7 @@ static int mail_cache_compress_has_file_changed(struct mail_cache *cache)
 		}
 
 		ret = read_full(fd, &hdr, sizeof(hdr));
-		i_close_fd(fd);
+		i_close_fd(&fd);
 
 		if (ret >= 0) {
 			if (ret == 0)
@@ -407,7 +407,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 				 DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) < 0) {
 		mail_cache_set_syscall_error(cache,
 					     "file_dotlock_replace()");
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		array_free(&ext_offsets);
 		return -1;
 	}

@@ -347,7 +347,7 @@ int master_service_settings_read(struct master_service *service,
 			return -1;
 
 		if (config_send_request(input, fd, path, error_r) < 0) {
-			i_close_fd(fd);
+			i_close_fd(&fd);
 			config_exec_fallback(service, input);
 			return -1;
 		}
@@ -405,7 +405,7 @@ int master_service_settings_read(struct master_service *service,
 				*error_r = t_strdup_printf(
 					"Timeout reading config from %s", path);
 			}
-			i_close_fd(fd);
+			i_close_fd(&fd);
 			config_exec_fallback(service, input);
 			return -1;
 		}
@@ -414,7 +414,7 @@ int master_service_settings_read(struct master_service *service,
 		    service->config_fd == -1 && input->config_path == NULL)
 			service->config_fd = fd;
 		else
-			i_close_fd(fd);
+			i_close_fd(&fd);
 	}
 
 	if (fd == -1 || service->keep_environment) {

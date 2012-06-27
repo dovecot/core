@@ -209,7 +209,7 @@ static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
 		sin_set_ip(&so, my_ip);
 		if (bind(fd, &so.sa, SIZEOF_SOCKADDR(so)) == -1) {
 			i_error("bind(%s) failed: %m", net_ip2addr(my_ip));
-			i_close_fd(fd);
+			i_close_fd(&fd);
 			return -1;
 		}
 	}
@@ -225,7 +225,7 @@ static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
 	if (ret < 0 && WSAGetLastError() != WSAEWOULDBLOCK)
 #endif
 	{
-                i_close_fd(fd);
+                i_close_fd(&fd);
 		return -1;
 	}
 
@@ -263,10 +263,10 @@ int net_try_bind(const struct ip_addr *ip)
 
 	sin_set_ip(&so, ip);
 	if (bind(fd, &so.sa, SIZEOF_SOCKADDR(so)) == -1) {
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return -1;
 	}
-	i_close_fd(fd);
+	i_close_fd(&fd);
 	return 0;
 }
 
@@ -295,7 +295,7 @@ int net_connect_unix(const char *path)
 	/* connect */
 	ret = connect(fd, &sa.sa, sizeof(sa));
 	if (ret < 0 && errno != EINPROGRESS) {
-                i_close_fd(fd);
+                i_close_fd(&fd);
 		return -1;
 	}
 
@@ -427,7 +427,7 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 	}
 
         /* error */
-	i_close_fd(fd);
+	i_close_fd(&fd);
 	return -1;
 }
 
@@ -467,7 +467,7 @@ int net_listen_unix(const char *path, int backlog)
 			i_error("listen() failed: %m");
 	}
 
-	i_close_fd(fd);
+	i_close_fd(&fd);
 	return -1;
 }
 
@@ -483,7 +483,7 @@ int net_listen_unix_unlink_stale(const char *path, int backlog)
 		/* see if it really exists */
 		fd = net_connect_unix(path);
 		if (fd != -1 || errno != ECONNREFUSED) {
-			if (fd != -1) i_close_fd(fd);
+			if (fd != -1) i_close_fd(&fd);
 			errno = EADDRINUSE;
 			return -1;
 		}

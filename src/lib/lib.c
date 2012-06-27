@@ -33,6 +33,18 @@ void lib_init(void)
 	hostpid_init();
 }
 
+int close_keep_errno(int *fd)
+{
+	int ret, old_errno = errno;
+
+	i_assert(*fd != -1);
+
+	ret = close(*fd);
+	*fd = -1;
+	errno = old_errno;
+	return ret;
+}
+
 void lib_deinit(void)
 {
 	ipwd_deinit();

@@ -105,7 +105,7 @@ static pid_t read_local_pid(const char *lock_path)
 
 	/* read line */
 	ret = read(fd, buf, sizeof(buf)-1);
-	i_close_fd(fd);
+	i_close_fd(&fd);
 	if (ret <= 0)
 		return -1;
 
@@ -364,8 +364,7 @@ static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
 			if (file_write_pid(lock_info->fd,
 					   str_c(tmp_path),
 					   lock_info->set->nfs_flush) < 0) {
-				i_close_fd(lock_info->fd);
-				lock_info->fd = -1;
+				i_close_fd(&lock_info->fd);
 				return -1;
 			}
 		}
@@ -418,7 +417,7 @@ static int try_create_lock_excl(struct lock_info *lock_info, bool write_pid)
 	if (write_pid) {
 		if (file_write_pid(fd, lock_info->lock_path,
 				   lock_info->set->nfs_flush) < 0) {
-			i_close_fd(fd);
+			i_close_fd(&fd);
 			return -1;
 		}
 	}

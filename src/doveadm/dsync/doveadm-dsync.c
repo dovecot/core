@@ -79,12 +79,12 @@ run_cmd(struct dsync_cmd_context *ctx, const char *const *args)
 		    dup2(fd_err[1], STDERR_FILENO) < 0)
 			i_fatal("dup2() failed: %m");
 
-		i_close_fd(fd_in[0]);
-		i_close_fd(fd_in[1]);
-		i_close_fd(fd_out[0]);
-		i_close_fd(fd_out[1]);
-		i_close_fd(fd_err[0]);
-		i_close_fd(fd_err[1]);
+		i_close_fd(&fd_in[0]);
+		i_close_fd(&fd_in[1]);
+		i_close_fd(&fd_out[0]);
+		i_close_fd(&fd_out[1]);
+		i_close_fd(&fd_err[0]);
+		i_close_fd(&fd_err[1]);
 
 		execvp_const(args[0], args);
 	default:
@@ -92,9 +92,9 @@ run_cmd(struct dsync_cmd_context *ctx, const char *const *args)
 		break;
 	}
 
-	i_close_fd(fd_in[0]);
-	i_close_fd(fd_out[1]);
-	i_close_fd(fd_err[1]);
+	i_close_fd(&fd_in[0]);
+	i_close_fd(&fd_out[1]);
+	i_close_fd(&fd_err[1]);
 	ctx->fd_in = fd_out[0];
 	ctx->fd_out = fd_in[1];
 	ctx->fd_err = fd_err[0];
@@ -362,10 +362,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		dsync_slave_deinit(&slave2);
 	if (ctx->io_err != NULL)
 		io_remove(&ctx->io_err);
-	if (ctx->fd_err != -1) {
-		i_close_fd(ctx->fd_err);
-		ctx->fd_err = -1;
-	}
+	if (ctx->fd_err != -1)
+		i_close_fd(&ctx->fd_err);
 	return ret;
 }
 

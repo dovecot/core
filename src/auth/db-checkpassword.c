@@ -473,8 +473,8 @@ void db_checkpassword_call(struct db_checkpassword *db,
 		auth_request_log_error(request, "checkpassword",
 				       "pipe() failed: %m");
 		if (fd_in[0] != -1) {
-			i_close_fd(fd_in[0]);
-			i_close_fd(fd_in[1]);
+			i_close_fd(&fd_in[0]);
+			i_close_fd(&fd_in[1]);
 		}
 		callback(request, DB_CHECKPASSWORD_STATUS_INTERNAL_FAILURE,
 			 NULL, request_callback);
@@ -485,10 +485,10 @@ void db_checkpassword_call(struct db_checkpassword *db,
 	if (pid == -1) {
 		auth_request_log_error(request, "checkpassword",
 				       "fork() failed: %m");
-		i_close_fd(fd_in[0]);
-		i_close_fd(fd_in[1]);
-		i_close_fd(fd_out[0]);
-		i_close_fd(fd_out[1]);
+		i_close_fd(&fd_in[0]);
+		i_close_fd(&fd_in[1]);
+		i_close_fd(&fd_out[0]);
+		i_close_fd(&fd_out[1]);
 		callback(request, DB_CHECKPASSWORD_STATUS_INTERNAL_FAILURE,
 			 NULL, request_callback);
 		return;
@@ -496,8 +496,8 @@ void db_checkpassword_call(struct db_checkpassword *db,
 
 	if (pid == 0) {
 		/* child */
-		i_close_fd(fd_in[0]);
-		i_close_fd(fd_out[1]);
+		i_close_fd(&fd_in[0]);
+		i_close_fd(&fd_out[1]);
 		checkpassword_exec(db, request, fd_in[1], fd_out[0],
 				   auth_password != NULL);
 		/* not reached */

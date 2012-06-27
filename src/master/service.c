@@ -690,7 +690,7 @@ static void service_drop_listener_connections(struct service *service)
 			}
 			while ((fd = net_accept((*listenerp)->fd,
 						NULL, NULL)) >= 0)
-				i_close_fd(fd);
+				i_close_fd(&fd);
 			break;
 		case SERVICE_LISTENER_FIFO:
 			break;

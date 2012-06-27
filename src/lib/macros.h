@@ -204,11 +204,9 @@
 #endif
 
 #define i_close_fd(fd) STMT_START {  \
-	int old_errno = errno; \
-	if (unlikely(close(fd)) < 0) \
+	if (unlikely(close_keep_errno(fd)) < 0) \
 		i_error("close(%d[%s:%d]) failed: %m", \
-			fd, __FILE__, __LINE__); \
-	errno = old_errno; \
+			*(fd), __FILE__, __LINE__); \
 	} STMT_END
 
 #define i_unreached() \

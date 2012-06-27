@@ -87,7 +87,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 	if (write_full(fd, sstream->buffer->data, sstream->buffer->used) < 0) {
 		if (!ENOSPACE(errno))
 			i_error("write_full(%s) failed: %m", path);
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return -1;
 	}
 	sstream->temp_path = i_strdup(path);
@@ -209,8 +209,7 @@ static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
 		return -1;
 	}
 	i_stream_destroy(&sstream->fd_input);
-	i_close_fd(sstream->fd);
-	sstream->fd = -1;
+	i_close_fd(&sstream->fd);
 
 	stream->max_buffer_size = (size_t)-1;
 	i_free_and_null(sstream->temp_path);

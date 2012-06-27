@@ -509,7 +509,7 @@ static bool test_dump_log(const char *path)
 	    hdr.major_version == MAIL_TRANSACTION_LOG_MAJOR_VERSION &&
 	    hdr.hdr_size >= MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE)
 		ret = TRUE;
-	i_close_fd(fd);
+	i_close_fd(&fd);
 	return ret;
 }
 

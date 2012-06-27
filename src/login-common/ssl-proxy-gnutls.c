@@ -463,7 +463,7 @@ static void read_parameters(const char *fname)
 	read_dh_parameters(fd, fname);
 	read_rsa_parameters(fd, fname);
 
-	i_close_fd(fd);
+	i_close_fd(&fd);
 }
 
 static void gcrypt_log_handler(void *context ATTR_UNUSED, int level,

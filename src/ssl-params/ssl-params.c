@@ -78,14 +78,14 @@ static void ssl_params_if_unchanged(const char *path, time_t mtime)
 	}
 	if (st.st_ino != st2.st_ino) {
 		/* nope. so someone else just generated the file. */
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return;
 	}
 
 	/* check that the parameters file is still the same */
 	if (stat(path, &st) == 0) {
 		if (st.st_mtime != mtime) {
-			i_close_fd(fd);
+			i_close_fd(&fd);
 			return;
 		}
 	} else if (errno != ENOENT)
@@ -165,7 +165,7 @@ static int ssl_params_read(struct ssl_params *param)
 
 	if (fstat(fd, &st) < 0) {
 		i_error("fstat(%s) failed: %m", param->path);
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return -1;
 	}
 	if (st.st_size == 0 || st.st_size > MAX_PARAM_FILE_SIZE) {

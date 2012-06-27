@@ -371,7 +371,7 @@ void service_monitor_listen_stop(struct service *service)
 
 static int service_login_create_notify_fd(struct service *service)
 {
-	int fd;
+	int fd, ret;
 
 	if (service->login_notify_fd != -1)
 		return 0;
@@ -397,9 +397,10 @@ static int service_login_create_notify_fd(struct service *service)
 		}
 	} T_END;
 
+	ret = fd == -1 ? -1 : 0;
 	if (fd != service->login_notify_fd)
-		i_close_fd(fd);
-	return fd == -1 ? -1 : 0;
+		i_close_fd(&fd);
+	return ret;
 }
 
 void services_monitor_start(struct service_list *service_list)

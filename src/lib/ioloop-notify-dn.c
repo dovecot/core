@@ -120,7 +120,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 		if (errno != EINVAL)
 			i_error("fcntl(F_SETSIG) failed: %m");
 		ioloop_dnotify_disable(ctx);
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return IO_NOTIFY_NOSUPPORT;
 	}
 	if (fcntl(fd, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME |
@@ -135,7 +135,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 			ioloop_dnotify_disable(ctx);
 		}
 		(void)fcntl(fd, F_SETSIG, 0);
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return IO_NOTIFY_NOSUPPORT;
 	}
 

@@ -111,15 +111,15 @@ winbind_helper_connect(const struct auth_settings *set,
 		return;
 	}
 	if (pipe(outfd) < 0) {
-		i_close_fd(infd[0]); i_close_fd(infd[1]);
+		i_close_fd(&infd[0]); i_close_fd(&infd[1]);
 		return;
 	}
 
 	pid = fork();
 	if (pid < 0) {
 		i_error("fork() failed: %m");
-		i_close_fd(infd[0]); i_close_fd(infd[1]);
-		i_close_fd(outfd[0]); i_close_fd(outfd[1]);
+		i_close_fd(&infd[0]); i_close_fd(&infd[1]);
+		i_close_fd(&outfd[0]); i_close_fd(&outfd[1]);
 		return;
 	}
 
@@ -127,8 +127,8 @@ winbind_helper_connect(const struct auth_settings *set,
 		/* child */
 		const char *args[3];
 
-		i_close_fd(infd[0]);
-		i_close_fd(outfd[1]);
+		i_close_fd(&infd[0]);
+		i_close_fd(&outfd[1]);
 
 		if (dup2(outfd[0], STDIN_FILENO) < 0 ||
 		    dup2(infd[1], STDOUT_FILENO) < 0)
@@ -141,8 +141,8 @@ winbind_helper_connect(const struct auth_settings *set,
 	}
 
 	/* parent */
-	i_close_fd(infd[1]);
-	i_close_fd(outfd[0]);
+	i_close_fd(&infd[1]);
+	i_close_fd(&outfd[0]);
 
 	winbind->pid = pid;
 	winbind->in_pipe =

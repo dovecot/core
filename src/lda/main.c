@@ -101,7 +101,7 @@ static int seekable_fd_callback(const char **path_r, void *context)
 	if (unlink(str_c(path)) < 0) {
 		/* shouldn't happen.. */
 		i_error("unlink(%s) failed: %m", str_c(path));
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return -1;
 	}
 

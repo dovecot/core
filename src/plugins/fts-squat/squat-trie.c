@@ -1635,7 +1635,7 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 					i_error("file_wait_lock(%s) failed: %m",
 						path);
 				}
-				i_close_fd(fd);
+				i_close_fd(&fd);
 				return -1;
 			}
 		}

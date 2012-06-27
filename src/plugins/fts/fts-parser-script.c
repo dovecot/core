@@ -79,7 +79,7 @@ static int script_contents_read(struct mail_user *user)
 	cmd = t_strdup_printf(SCRIPT_HANDSHAKE"\n");
 	if (write_full(fd, cmd, strlen(cmd)) < 0) {
 		i_error("write(%s) failed: %m", path);
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return -1;
 	}
 	input = i_stream_create_fd(fd, 1024, TRUE);
@@ -205,7 +205,7 @@ fts_parser_script_try_init(struct mail_user *user,
 	cmd = t_strdup_printf(SCRIPT_HANDSHAKE"%s\n\n", content_type);
 	if (write_full(fd, cmd, strlen(cmd)) < 0) {
 		i_error("write(%s) failed: %m", path);
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return NULL;
 	}
 

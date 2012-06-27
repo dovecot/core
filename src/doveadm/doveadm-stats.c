@@ -496,7 +496,7 @@ static void stats_top(const char *path, const char *sort_type)
 	array_free(&ctx.lines);
 	pool_unref(&ctx.prev_pool);
 	pool_unref(&ctx.cur_pool);
-	i_close_fd(ctx.fd);
+	i_close_fd(&ctx.fd);
 }
 
 static void cmd_stats_top(int argc, char *argv[])

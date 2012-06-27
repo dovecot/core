@@ -203,10 +203,10 @@ mountpoint_list_save_to(struct mountpoint_list *list, const char *path)
 	}
 	if (write_full(fd, str_data(data), str_len(data)) < 0) {
 		i_error("write(%s) failed: %m", str_c(temp_path));
-		i_close_fd(fd);
+		i_close_fd(&fd);
 	} else if (fdatasync(fd) < 0) {
 		i_error("fdatasync(%s) failed: %m", str_c(temp_path));
-		i_close_fd(fd);
+		i_close_fd(&fd);
 	} else if (close(fd) < 0) {
 		i_error("close(%s) failed: %m", str_c(temp_path));
 	} else if (rename(str_c(temp_path), path) < 0) {

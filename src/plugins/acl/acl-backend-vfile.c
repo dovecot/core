@@ -482,18 +482,18 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj,
 
 	if (fstat(fd, &st) < 0) {
 		if (errno == ESTALE && try_retry) {
-			i_close_fd(fd);
+			i_close_fd(&fd);
 			return 0;
 		}
 
 		i_error("fstat(%s) failed: %m", path);
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return -1;
 	}
 	if (S_ISDIR(st.st_mode)) {
 		/* we opened a directory. */
 		*is_dir_r = TRUE;
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return 0;
 	}
 

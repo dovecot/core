@@ -740,7 +740,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 	}
 
 	if (fstat(fd, &st) < 0) {
-                i_close_fd(fd);
+                i_close_fd(&fd);
                 if (errno == ESTALE && try_retry) {
                         *retry_r = TRUE;
                         return -1;
@@ -1468,7 +1468,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		maildir_uidlist_update_hdr(uidlist, &st);
 	}
 	if (ret < 0)
-		i_close_fd(fd);
+		i_close_fd(&fd);
 	return ret;
 }
 

@@ -714,17 +714,17 @@ void failures_deinit(void)
 		log_info_fd = STDERR_FILENO;
 
 	if (log_fd != STDERR_FILENO) {
-		i_close_fd(log_fd);
+		i_close_fd(&log_fd);
 		log_fd = STDERR_FILENO;
 	}
 
 	if (log_info_fd != STDERR_FILENO) {
-		i_close_fd(log_info_fd);
+		i_close_fd(&log_info_fd);
 		log_info_fd = STDERR_FILENO;
 	}
 
 	if (log_debug_fd != STDERR_FILENO) {
-		i_close_fd(log_debug_fd);
+		i_close_fd(&log_debug_fd);
 		log_debug_fd = STDERR_FILENO;
 	}
 

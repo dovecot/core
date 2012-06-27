@@ -273,7 +273,7 @@ fts_backend_lucene_update_deinit(struct fts_backend_update_context *_ctx)
 				str_tabescape(ctx->first_box_vname));
 			fd = fts_indexer_cmd(user, cmd, &path);
 			if (fd != -1)
-				i_close_fd(fd);
+				i_close_fd(&fd);
 		}
 	}
 

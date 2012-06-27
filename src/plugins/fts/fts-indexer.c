@@ -51,7 +51,7 @@ int fts_indexer_cmd(struct mail_user *user, const char *cmd,
 	cmd = t_strconcat(INDEXER_HANDSHAKE, cmd, NULL);
 	if (write_full(fd, cmd, strlen(cmd)) < 0) {
 		i_error("write(%s) failed: %m", path);
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return -1;
 	}
 	*path_r = path;

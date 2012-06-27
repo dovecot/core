@@ -271,13 +271,15 @@ login_client_connected(const struct master_login_client *client,
 				 client->auth_req.data_size);
 	if (client_create_from_input(&input, client, client->fd, client->fd,
 				     &input_buf, &error) < 0) {
-		if (write(client->fd, MSG_BYE_INTERNAL_ERROR,
+		int fd = client->fd;
+
+		if (write(fd, MSG_BYE_INTERNAL_ERROR,
 			  strlen(MSG_BYE_INTERNAL_ERROR)) < 0) {
 			if (errno != EAGAIN && errno != EPIPE)
 				i_error("write(client) failed: %m");
 		}
 		i_error("%s", error);
-		i_close_fd(client->fd);
+		i_close_fd(&fd);
 		master_service_client_connection_destroyed(master_service);
 	}
 }

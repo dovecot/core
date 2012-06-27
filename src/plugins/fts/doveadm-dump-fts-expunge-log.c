@@ -84,7 +84,7 @@ static void cmd_dump_fts_expunge_log(int argc ATTR_UNUSED, char *argv[])
 		} T_END;
 	} while (ret > 0);
 	buffer_free(&buf);
-	i_close_fd(fd);
+	i_close_fd(&fd);
 }
 
 static bool test_dump_fts_expunge_log(const char *path)

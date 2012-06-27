@@ -401,7 +401,7 @@ static int maildir_create_shared(struct mailbox *box)
 				"fchown(%s) failed: %m", path);
 		}
 	}
-	i_close_fd(fd);
+	i_close_fd(&fd);
 	return 0;
 }
 

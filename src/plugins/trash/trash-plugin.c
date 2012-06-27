@@ -311,7 +311,7 @@ static int read_configuration(struct mail_user *user, const char *path)
 		}
 	}
 	i_stream_destroy(&input);
-	i_close_fd(fd);
+	i_close_fd(&fd);
 
 	array_sort(&tuser->trash_boxes, trash_mailbox_priority_cmp);
 	return ret;

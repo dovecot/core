@@ -94,15 +94,15 @@ smtp_client_open_sendmail(const struct lda_settings *set,
 
 	if ((pid = fork()) == (pid_t)-1) {
 		i_error("fork() failed: %m");
-		i_close_fd(fd[0]); i_close_fd(fd[1]);
+		i_close_fd(&fd[0]); i_close_fd(&fd[1]);
 		return smtp_client_devnull(output_r);
 	}
 	if (pid == 0) {
 		/* child */
-		i_close_fd(fd[1]);
+		i_close_fd(&fd[1]);
 		smtp_client_run_sendmail(set, destination, return_path, fd[0]);
 	}
-	i_close_fd(fd[0]);
+	i_close_fd(&fd[0]);
 
 	client = i_new(struct smtp_client, 1);
 	client->output = o_stream_create_fd(fd[1], IO_BLOCK_SIZE, TRUE);
@@ -132,7 +132,7 @@ static int create_temp_file(const char **path_r)
 	if (unlink(str_c(path)) < 0) {
 		/* shouldn't happen.. */
 		i_error("unlink(%s) failed: %m", str_c(path));
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return -1;
 	}
 

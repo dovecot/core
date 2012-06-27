@@ -439,7 +439,7 @@ str_append_file(string_t *str, const char *key, const char *path,
 		*error_r = t_strdup_printf("%s: read(%s) failed: %m",
 					   key, path);
 	}
-	i_close_fd(fd);
+	i_close_fd(&fd);
 	return ret < 0 ? -1 : 0;
 }
 

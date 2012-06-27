@@ -1046,8 +1046,8 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 	pid = fork();
 	if (pid == (pid_t)-1) {
 		i_error("fork() failed: %m");
-		i_close_fd(fd[0]);
-		i_close_fd(fd[1]);
+		i_close_fd(&fd[0]);
+		i_close_fd(&fd[1]);
 		return -1;
 	}
 	if (pid == 0) {
@@ -1061,13 +1061,13 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 		argv[0] = bin_path;
 		argv[2] = config_path;
 		argv[4] = service;
-		i_close_fd(fd[0]);
+		i_close_fd(&fd[0]);
 		if (dup2(fd[1], STDOUT_FILENO) < 0)
 			i_fatal("dup2() failed: %m");
 
 		execv_const(argv[0], argv);
 	}
-	i_close_fd(fd[1]);
+	i_close_fd(&fd[1]);
 
 	input = i_stream_create_fd(fd[0], (size_t)-1, TRUE);
 	ret = settings_parse_stream_read(ctx, input);

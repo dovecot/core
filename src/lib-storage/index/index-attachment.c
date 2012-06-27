@@ -180,7 +180,7 @@ static int index_attachment_save_temp_open_fd(struct mail_storage *storage)
 	if (unlink(str_c(temp_path)) < 0) {
 		mail_storage_set_critical(storage,
 			"unlink(%s) failed: %m", str_c(temp_path));
-		i_close_fd(fd);
+		i_close_fd(&fd);
 		return -1;
 	}
 	return fd;

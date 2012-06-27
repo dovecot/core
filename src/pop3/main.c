@@ -171,8 +171,10 @@ login_client_connected(const struct master_login_client *client,
 				 client->auth_req.data_size);
 	if (client_create_from_input(&input, client->fd, client->fd,
 				     &input_buf, &error) < 0) {
+		int fd = client->fd;
+
 		i_error("%s", error);
-		i_close_fd(client->fd);
+		i_close_fd(&fd);
 		master_service_client_connection_destroyed(master_service);
 	}
 }

@@ -50,7 +50,7 @@ static void askpass_str(const char *prompt, buffer_t *pass)
 			(void)tcsetattr(fd, TCSAFLUSH, &old_tio);
 
 		fputs("\n", stderr); fflush(stderr);
-		i_close_fd(fd);
+		i_close_fd(&fd);
 	}
 }
 

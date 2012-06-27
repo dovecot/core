@@ -79,7 +79,7 @@ static bool test_dump_imapzlib(const char *path)
 		match = strstr(buf, " ok begin compression.") != NULL ||
 			strstr(buf, " compress deflate") != NULL;
 	}
-	i_close_fd(fd);
+	i_close_fd(&fd);
 	return match;
 }
 
