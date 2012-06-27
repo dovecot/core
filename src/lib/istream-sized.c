@@ -2,29 +2,29 @@
 
 #include "lib.h"
 #include "istream-private.h"
-#include "istream-attachment.h"
+#include "istream-sized.h"
 
-struct attachment_istream {
+struct sized_istream {
 	struct istream_private istream;
 
 	uoff_t size;
 };
 
-static ssize_t i_stream_attachment_read(struct istream_private *stream)
+static ssize_t i_stream_sized_read(struct istream_private *stream)
 {
-	struct attachment_istream *astream =
-		(struct attachment_istream *)stream;
+	struct sized_istream *sstream =
+		(struct sized_istream *)stream;
 	uoff_t left;
 	ssize_t ret;
 	size_t pos;
 
 	if (stream->istream.v_offset +
-	    (stream->pos - stream->skip) >= astream->size) {
+	    (stream->pos - stream->skip) >= sstream->size) {
 		stream->istream.eof = TRUE;
 		return -1;
 	}
 
-	i_stream_seek(stream->parent, astream->istream.parent_start_offset +
+	i_stream_seek(stream->parent, sstream->istream.parent_start_offset +
 		      stream->istream.v_offset);
 
 	stream->pos -= stream->skip;
@@ -42,13 +42,12 @@ static ssize_t i_stream_attachment_read(struct istream_private *stream)
 		stream->buffer = i_stream_get_data(stream->parent, &pos);
 	} while (pos <= stream->pos && ret > 0);
 
-	left = astream->size - stream->istream.v_offset;
+	left = sstream->size - stream->istream.v_offset;
 	if (pos == left)
 		stream->istream.eof = TRUE;
 	else if (pos > left) {
-		i_error("Attachment file %s larger than expected "
-			"(%"PRIuUOFF_T")", i_stream_get_name(stream->parent),
-			astream->size);
+		i_error("%s is larger than expected (%"PRIuUOFF_T")",
+			i_stream_get_name(stream->parent), sstream->size);
 		pos = left;
 		stream->istream.eof = TRUE;
 	} else if (!stream->istream.eof) {
@@ -56,10 +55,10 @@ static ssize_t i_stream_attachment_read(struct istream_private *stream)
 	} else if (stream->istream.stream_errno == ENOENT) {
 		/* lost the file */
 	} else {
-		i_error("Attachment file %s smaller than expected "
+		i_error("%s smaller than expected "
 			"(%"PRIuUOFF_T" < %"PRIuUOFF_T")",
 			i_stream_get_name(stream->parent),
-			stream->istream.v_offset, astream->size);
+			stream->istream.v_offset, sstream->size);
 		stream->istream.stream_errno = EIO;
 	}
 
@@ -72,23 +71,21 @@ static ssize_t i_stream_attachment_read(struct istream_private *stream)
 }
 
 static void
-i_stream_attachment_seek(struct istream_private *stream,
-			 uoff_t v_offset, bool mark ATTR_UNUSED)
+i_stream_sized_seek(struct istream_private *stream,
+		    uoff_t v_offset, bool mark ATTR_UNUSED)
 {
-	struct attachment_istream *astream =
-		(struct attachment_istream *)stream;
+	struct sized_istream *sstream = (struct sized_istream *)stream;
 
-	i_assert(v_offset <= astream->size);
+	i_assert(v_offset <= sstream->size);
 
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
 }
 
 static const struct stat *
-i_stream_attachment_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
+i_stream_sized_stat(struct istream_private *stream, bool sized ATTR_UNUSED)
 {
-	struct attachment_istream *astream =
-		(struct attachment_istream *)stream;
+	struct sized_istream *sstream = (struct sized_istream *)stream;
 	const struct stat *st;
 
 	/* parent stream may be base64-decoder. don't waste time decoding the
@@ -99,26 +96,26 @@ i_stream_attachment_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 		return NULL;
 
 	stream->statbuf = *st;
-	stream->statbuf.st_size = astream->size;
+	stream->statbuf.st_size = sstream->size;
 	return &stream->statbuf;
 }
 
-struct istream *i_stream_create_attachment(struct istream *input, uoff_t size)
+struct istream *i_stream_create_sized(struct istream *input, uoff_t size)
 {
-	struct attachment_istream *astream;
+	struct sized_istream *sstream;
 
-	astream = i_new(struct attachment_istream, 1);
-	astream->size = size;
-	astream->istream.max_buffer_size = input->real_stream->max_buffer_size;
+	sstream = i_new(struct sized_istream, 1);
+	sstream->size = size;
+	sstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
-	astream->istream.parent = input;
-	astream->istream.read = i_stream_attachment_read;
-	astream->istream.seek = i_stream_attachment_seek;
-	astream->istream.stat = i_stream_attachment_stat;
+	sstream->istream.parent = input;
+	sstream->istream.read = i_stream_sized_read;
+	sstream->istream.seek = i_stream_sized_seek;
+	sstream->istream.stat = i_stream_sized_stat;
 
-	astream->istream.istream.readable_fd = input->readable_fd;
-	astream->istream.istream.blocking = input->blocking;
-	astream->istream.istream.seekable = input->seekable;
-	return i_stream_create(&astream->istream, input,
+	sstream->istream.istream.readable_fd = input->readable_fd;
+	sstream->istream.istream.blocking = input->blocking;
+	sstream->istream.istream.seekable = input->seekable;
+	return i_stream_create(&sstream->istream, input,
 			       i_stream_get_fd(input));
 }

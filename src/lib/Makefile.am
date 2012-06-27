@@ -63,6 +63,7 @@ liblib_la_SOURCES = \
 	istream-mmap.c \
 	istream-rawlog.c \
 	istream-seekable.c \
+	istream-sized.c \
 	istream-tee.c \
 	ioloop.c \
 	ioloop-iolist.c \
@@ -181,6 +182,7 @@ headers = \
 	istream-private.h \
 	istream-rawlog.h \
 	istream-seekable.h \
+	istream-sized.h \
 	istream-tee.h \
 	ioloop.h \
 	ioloop-iolist.h \

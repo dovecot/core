@@ -4,7 +4,7 @@
 #include "istream.h"
 #include "istream-concat.h"
 #include "str.h"
-#include "istream-attachment.h"
+#include "istream-sized.h"
 #include "istream-base64-encoder.h"
 #include "dbox-file.h"
 #include "dbox-save.h"
@@ -195,7 +195,7 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 			input2 = input;
 		}
 
-		input = i_stream_create_attachment(input2, extref->size);
+		input = i_stream_create_sized(input2, extref->size);
 		i_stream_unref(&input2);
 		array_append(&streams, &input, 1);
 	}
