@@ -6,6 +6,7 @@ struct pop3c_settings {
 	unsigned int pop3c_port;
 
 	const char *pop3c_user;
+	const char *pop3c_master_user;
 	const char *pop3c_password;
 
 	const char *pop3c_ssl;

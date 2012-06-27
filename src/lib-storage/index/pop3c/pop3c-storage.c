@@ -60,6 +60,7 @@ pop3c_client_create_from_set(struct mail_user *user,
 	client_set.host = set->pop3c_host;
 	client_set.port = set->pop3c_port;
 	client_set.username = set->pop3c_user;
+	client_set.master_user = set->pop3c_master_user;
 	client_set.password = set->pop3c_password;
 	client_set.dns_client_socket_path =
 		t_strconcat(user->set->base_dir, "/",
