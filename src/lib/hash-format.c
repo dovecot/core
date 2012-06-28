@@ -27,6 +27,7 @@ struct hash_format {
 	const char *str;
 
 	struct hash_format_list *list, **pos;
+	unsigned char *digest;
 };
 
 static int
@@ -148,6 +149,16 @@ void hash_format_loop(struct hash_format *format,
 		list->method->loop(list->context, data, size);
 }
 
+void hash_format_reset(struct hash_format *format)
+{
+	struct hash_format_list *list;
+
+	for (list = format->list; list != NULL; list = list->next) {
+		memset(list->context, 0, list->method->context_size);
+		list->method->init(list->context);
+	}
+}
+
 static void
 hash_format_digest(string_t *dest, const struct hash_format_list *list,
 		   const unsigned char *digest)
@@ -182,21 +193,18 @@ hash_format_digest(string_t *dest, const struct hash_format_list *list,
 	}
 }
 
-void hash_format_deinit(struct hash_format **_format, string_t *dest)
+void hash_format_write(struct hash_format *format, string_t *dest)
 {
-	struct hash_format *format = *_format;
 	struct hash_format_list *list;
 	const char *p;
-	unsigned char *digest;
 	unsigned int i, max_digest_size = 0;
-
-	*_format = NULL;
 
 	for (list = format->list; list != NULL; list = list->next) {
 		if (max_digest_size < list->method->digest_size)
 			max_digest_size = list->method->digest_size;
 	}
-	digest = p_malloc(format->pool, max_digest_size);
+	if (format->digest == NULL)
+		format->digest = p_malloc(format->pool, max_digest_size);
 
 	list = format->list;
 	for (i = 0; format->str[i] != '\0'; i++) {
@@ -207,15 +215,23 @@ void hash_format_deinit(struct hash_format **_format, string_t *dest)
 
 		/* we already verified that the string is ok */
 		i_assert(list != NULL);
-		list->method->result(list->context, digest);
-		hash_format_digest(dest, list, digest);
+		list->method->result(list->context, format->digest);
+		hash_format_digest(dest, list, format->digest);
 		list = list->next;
 
 		p = strchr(format->str+i, '}');
 		i_assert(p != NULL);
 		i = p - format->str;
 	}
+}
 
+void hash_format_deinit(struct hash_format **_format, string_t *dest)
+{
+	struct hash_format *format = *_format;
+
+	*_format = NULL;
+
+	hash_format_write(format, dest);
 	pool_unref(&format->pool);
 }
 
