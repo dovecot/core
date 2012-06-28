@@ -30,25 +30,6 @@ struct binary_converter_istream {
 static void stream_add_data(struct binary_converter_istream *bstream,
 			    const void *data, size_t size);
 
-static void *
-stream_alloc_data(struct binary_converter_istream *bstream, size_t size)
-{
-	struct istream_private *stream = &bstream->istream;
-	size_t old_size, avail_size;
-
-	i_stream_try_alloc(stream, size, &avail_size);
-	if (avail_size < size) {
-		old_size = stream->buffer_size;
-		stream->buffer_size = nearest_power(stream->pos + size);
-		stream->w_buffer = i_realloc(stream->w_buffer, old_size,
-					     stream->buffer_size);
-		stream->buffer = stream->w_buffer;
-		i_stream_try_alloc(stream, size, &avail_size);
-		i_assert(avail_size >= size);
-	}
-	return stream->w_buffer + stream->pos;
-}
-
 static bool part_can_convert(const struct message_part *part)
 {
 	/* some MUAs use "c-t-e: binary" for multiparts.
@@ -92,13 +73,14 @@ static void stream_add_data(struct binary_converter_istream *bstream,
 		stream_finish_convert_decision(bstream);
 	}
 
-	memcpy(stream_alloc_data(bstream, size), data, size);
+	memcpy(i_stream_alloc(&bstream->istream, size), data, size);
 	bstream->istream.pos += size;
 }
 
 static void stream_encode_base64(struct binary_converter_istream *bstream,
 				 const void *_data, size_t size)
 {
+	struct istream_private *stream = &bstream->istream;
 	const unsigned char *data = _data;
 	buffer_t buf;
 	void *dest;
@@ -128,23 +110,23 @@ static void stream_encode_base64(struct binary_converter_istream *bstream,
 		}
 
 		if (bstream->base64_block_pos == BASE64_BLOCKS_PER_LINE) {
-			memcpy(stream_alloc_data(bstream, 2), "\r\n", 2);
-			bstream->istream.pos += 2;
+			memcpy(i_stream_alloc(stream, 2), "\r\n", 2);
+			stream->pos += 2;
 			bstream->base64_block_pos = 0;
 		}
 
-		dest = stream_alloc_data(bstream, BASE64_BLOCK_SIZE);
+		dest = i_stream_alloc(stream, BASE64_BLOCK_SIZE);
 		buffer_create_data(&buf, dest, BASE64_BLOCK_SIZE);
 		base64_encode(base64_block, base64_block_len, &buf);
-		bstream->istream.pos += buf.used;
+		stream->pos += buf.used;
 		bstream->base64_block_pos++;
 		bstream->base64_delayed_len = 0;
 	}
 
 	while (size >= BASE64_BLOCK_INPUT_SIZE) {
 		if (bstream->base64_block_pos == BASE64_BLOCKS_PER_LINE) {
-			memcpy(stream_alloc_data(bstream, 2), "\r\n", 2);
-			bstream->istream.pos += 2;
+			memcpy(i_stream_alloc(stream, 2), "\r\n", 2);
+			stream->pos += 2;
 			bstream->base64_block_pos = 0;
 		}
 
@@ -160,10 +142,10 @@ static void stream_encode_base64(struct binary_converter_istream *bstream,
 		}
 
 		max_encoded_size = MAX_BASE64_ENCODED_SIZE(encode_size);
-		dest = stream_alloc_data(bstream, max_encoded_size);
+		dest = i_stream_alloc(stream, max_encoded_size);
 		buffer_create_data(&buf, dest, max_encoded_size);
 		base64_encode(data, encode_size, &buf);
-		bstream->istream.pos += buf.used;
+		stream->pos += buf.used;
 		bstream->base64_block_pos += encode_blocks;
 
 		data += encode_size;

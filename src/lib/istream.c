@@ -515,6 +515,23 @@ bool i_stream_try_alloc(struct istream_private *stream,
 	return stream->pos != stream->buffer_size;
 }
 
+void *i_stream_alloc(struct istream_private *stream, size_t size)
+{
+	size_t old_size, avail_size;
+
+	i_stream_try_alloc(stream, size, &avail_size);
+	if (avail_size < size) {
+		old_size = stream->buffer_size;
+		stream->buffer_size = nearest_power(stream->pos + size);
+		stream->w_buffer = i_realloc(stream->w_buffer, old_size,
+					     stream->buffer_size);
+		stream->buffer = stream->w_buffer;
+		i_stream_try_alloc(stream, size, &avail_size);
+		i_assert(avail_size >= size);
+	}
+	return stream->w_buffer + stream->pos;
+}
+
 bool i_stream_add_data(struct istream *_stream, const unsigned char *data,
 		       size_t size)
 {
