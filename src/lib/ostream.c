@@ -35,7 +35,7 @@ void o_stream_unref(struct ostream **_stream)
 {
 	struct ostream *stream = *_stream;
 
-	if (!stream->real_stream->last_errors_not_checked &&
+	if (stream->real_stream->last_errors_not_checked &&
 	    !stream->real_stream->error_handling_disabled &&
 	    stream->real_stream->iostream.refcount == 1) {
 		i_panic("output stream %s is missing error handling",
