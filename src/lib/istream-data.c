@@ -33,5 +33,6 @@ struct istream *i_stream_create_from_data(const void *data, size_t size)
 	stream->istream.seekable = TRUE;
 	i_stream_create(stream, NULL, -1);
 	stream->statbuf.st_size = size;
+	i_stream_set_name(&stream->istream, "(buffer)");
 	return &stream->istream;
 }

@@ -51,6 +51,7 @@ o_stream_buffer_sendv(struct ostream_private *stream,
 struct ostream *o_stream_create_buffer(buffer_t *buf)
 {
 	struct buffer_ostream *bstream;
+	struct ostream *output;
 
 	bstream = i_new(struct buffer_ostream, 1);
 	bstream->ostream.max_buffer_size = (size_t)-1;
@@ -59,5 +60,7 @@ struct ostream *o_stream_create_buffer(buffer_t *buf)
 	bstream->ostream.write_at = o_stream_buffer_write_at;
 
 	bstream->buf = buf;
-	return o_stream_create(&bstream->ostream, NULL);
+	output = o_stream_create(&bstream->ostream, NULL);
+	o_stream_set_name(output, "(buffer)");
+	return output;
 }
