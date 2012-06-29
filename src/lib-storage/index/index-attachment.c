@@ -448,6 +448,28 @@ static int index_attachment_save_finish_part(struct mail_save_context *ctx)
 }
 
 static int
+index_attachment_base64_decode_lf(struct mail_save_attachment_part *part)
+{
+	part->base64_state = BASE64_STATE_0;
+	if (part->cur_base64_blocks < part->base64_line_blocks) {
+		/* last line */
+		part->base64_state = BASE64_STATE_EOM;
+		return 0;
+	} else if (part->base64_line_blocks == 0) {
+		/* first line */
+		if (part->cur_base64_blocks == 0)
+			return -1;
+		part->base64_line_blocks = part->cur_base64_blocks;
+	} else if (part->cur_base64_blocks == part->base64_line_blocks) {
+		/* line is ok */
+	} else {
+		return -1;
+	}
+	part->cur_base64_blocks = 0;
+	return 1;
+}
+
+static int
 index_attachment_try_base64_decode_char(struct mail_save_attachment_part *part,
 					size_t pos, char chr)
 {
@@ -458,25 +480,7 @@ index_attachment_try_base64_decode_char(struct mail_save_attachment_part *part,
 		else if (chr == '\r')
 			part->base64_state = BASE64_STATE_CR;
 		else if (chr == '\n') {
-			part->base64_state = BASE64_STATE_0;
-			if (part->cur_base64_blocks <
-			    part->base64_line_blocks) {
-				/* last line */
-				part->base64_state = BASE64_STATE_EOM;
-				return 0;
-			} else if (part->base64_line_blocks == 0) {
-				/* first line */
-				if (part->cur_base64_blocks == 0)
-					return -1;
-				part->base64_line_blocks =
-					part->cur_base64_blocks;
-			} else if (part->cur_base64_blocks ==
-				   part->base64_line_blocks) {
-				/* line is ok */
-			} else {
-				return -1;
-			}
-			part->cur_base64_blocks = 0;
+			return index_attachment_base64_decode_lf(part);
 		} else {
 			return -1;
 		}
@@ -511,7 +515,7 @@ index_attachment_try_base64_decode_char(struct mail_save_attachment_part *part,
 		if (chr != '\n')
 			return -1;
 		part->base64_have_crlf = TRUE;
-		break;
+		return index_attachment_base64_decode_lf(part);
 	case BASE64_STATE_EOB:
 		if (chr != '=')
 			return -1;
