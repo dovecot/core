@@ -619,12 +619,6 @@ static ssize_t i_stream_attachment_read(struct istream_private *stream)
 	return ret;
 }
 
-static const struct stat *
-i_stream_attachment_stat(struct istream_private *stream, bool exact)
-{
-	return i_stream_stat(stream->parent, exact);
-}
-
 static void i_stream_attachment_close(struct iostream_private *stream)
 {
 	struct attachment_istream *astream =
@@ -665,7 +659,6 @@ i_stream_create_attachment_extractor(struct istream *input,
 	astream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	astream->istream.read = i_stream_attachment_read;
-	astream->istream.stat = i_stream_attachment_stat;
 	astream->istream.iostream.close = i_stream_attachment_close;
 
 	astream->istream.istream.readable_fd = FALSE;

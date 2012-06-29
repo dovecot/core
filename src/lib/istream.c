@@ -601,9 +601,16 @@ void i_stream_default_seek_nonseekable(struct istream_private *stream,
 }
 
 static const struct stat *
-i_stream_default_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
+i_stream_default_stat(struct istream_private *stream, bool exact)
 {
-	return &stream->statbuf;
+	if (stream->parent == NULL)
+		return &stream->statbuf;
+
+	if (exact && !stream->stream_size_passthrough) {
+		i_panic("istream %s: stat() doesn't support getting exact size",
+			i_stream_get_name(&stream->istream));
+	}
+	return i_stream_stat(stream->parent, exact);
 }
 
 static int

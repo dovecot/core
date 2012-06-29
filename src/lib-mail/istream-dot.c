@@ -211,21 +211,13 @@ end:
 	return ret;
 }
 
-static const struct stat *
-i_stream_dot_stat(struct istream_private *stream, bool exact)
-{
-	return i_stream_stat(stream->parent, exact);
-}
-
 struct istream *i_stream_create_dot(struct istream *input, bool send_last_lf)
 {
 	struct dot_istream *dstream;
 
 	dstream = i_new(struct dot_istream, 1);
 	dstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
-
 	dstream->istream.read = i_stream_dot_read;
-	dstream->istream.stat = i_stream_dot_stat;
 
 	dstream->istream.istream.readable_fd = FALSE;
 	dstream->istream.istream.blocking = input->blocking;

@@ -69,12 +69,6 @@ static ssize_t i_stream_rawlog_read(struct istream_private *stream)
 	return ret;
 }
 
-static const struct stat *
-i_stream_rawlog_stat(struct istream_private *stream, bool exact)
-{
-	return i_stream_stat(stream->parent, exact);
-}
-
 struct istream *
 i_stream_create_rawlog(struct istream *input, const char *rawlog_path,
 		       int rawlog_fd, bool autoclose_fd)
@@ -86,13 +80,14 @@ i_stream_create_rawlog(struct istream *input, const char *rawlog_path,
 
 	rstream = i_new(struct rawlog_istream, 1);
 	rstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
+	rstream->istream.stream_size_passthrough = TRUE;
+
 	rstream->riostream.rawlog_path = i_strdup(rawlog_path);
 	rstream->riostream.rawlog_fd = rawlog_fd;
 	rstream->riostream.autoclose_fd = autoclose_fd;
 	rstream->riostream.write_timestamp = TRUE;
 
 	rstream->istream.read = i_stream_rawlog_read;
-	rstream->istream.stat = i_stream_rawlog_stat;
 	rstream->istream.iostream.close = i_stream_rawlog_close;
 	rstream->istream.iostream.destroy = i_stream_rawlog_destroy;
 

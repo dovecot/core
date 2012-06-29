@@ -60,21 +60,15 @@ static ssize_t i_stream_nonuls_read(struct istream_private *stream)
 	return size;
 }
 
-static const struct stat *
-i_stream_nonuls_stat(struct istream_private *stream, bool exact)
-{
-	return i_stream_stat(stream->parent, exact);
-}
-
 struct istream *i_stream_create_nonuls(struct istream *input, char replace_chr)
 {
 	struct nonuls_istream *nstream;
 
 	nstream = i_new(struct nonuls_istream, 1);
 	nstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
+	nstream->istream.stream_size_passthrough = TRUE;
 
 	nstream->istream.read = i_stream_nonuls_read;
-	nstream->istream.stat = i_stream_nonuls_stat;
 
 	nstream->istream.istream.readable_fd = FALSE;
 	nstream->istream.istream.blocking = input->blocking;

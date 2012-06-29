@@ -260,12 +260,6 @@ static ssize_t i_stream_binary_converter_read(struct istream_private *stream)
 	return new_size - old_size;
 }
 
-static const struct stat *
-i_stream_binary_converter_stat(struct istream_private *stream, bool exact)
-{
-	return i_stream_stat(stream->parent, exact);
-}
-
 static void i_stream_binary_converter_close(struct iostream_private *stream)
 {
 	struct binary_converter_istream *bstream =
@@ -286,7 +280,6 @@ struct istream *i_stream_create_binary_converter(struct istream *input)
 	bstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	bstream->istream.read = i_stream_binary_converter_read;
-	bstream->istream.stat = i_stream_binary_converter_stat;
 	bstream->istream.iostream.close = i_stream_binary_converter_close;
 
 	bstream->istream.istream.readable_fd = FALSE;

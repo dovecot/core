@@ -120,17 +120,6 @@ static ssize_t i_stream_base64_encoder_read(struct istream_private *stream)
 	return post_count - pre_count;
 }
 
-static const struct stat *
-i_stream_base64_encoder_stat(struct istream_private *stream, bool exact)
-{
-	if (exact) {
-		/* too much trouble to implement until it's actually needed */
-		i_panic("istream-base64-encoder: "
-			"stat() doesn't support getting exact size");
-	}
-	return i_stream_stat(stream->parent, exact);
-}
-
 static void
 i_stream_base64_encoder_seek(struct istream_private *stream,
 			     uoff_t v_offset, bool mark)
@@ -163,9 +152,7 @@ i_stream_create_base64_encoder(struct istream *input,
 	bstream->crlf = crlf;
 	bstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
-	bstream->istream.parent = input;
 	bstream->istream.read = i_stream_base64_encoder_read;
-	bstream->istream.stat = i_stream_base64_encoder_stat;
 	bstream->istream.seek = i_stream_base64_encoder_seek;
 
 	bstream->istream.istream.readable_fd = FALSE;

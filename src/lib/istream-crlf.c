@@ -172,12 +172,6 @@ static ssize_t i_stream_crlf_read_lf(struct istream_private *stream)
 	return ret;
 }
 
-static const struct stat *
-i_stream_crlf_stat(struct istream_private *stream, bool exact)
-{
-	return i_stream_stat(stream->parent, exact);
-}
-
 static struct istream *
 i_stream_create_crlf_full(struct istream *input, bool crlf)
 {
@@ -185,10 +179,8 @@ i_stream_create_crlf_full(struct istream *input, bool crlf)
 
 	cstream = i_new(struct crlf_istream, 1);
 	cstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
-
 	cstream->istream.read = crlf ? i_stream_crlf_read_crlf :
 		i_stream_crlf_read_lf;
-	cstream->istream.stat = i_stream_crlf_stat;
 
 	cstream->istream.istream.readable_fd = FALSE;
 	cstream->istream.istream.blocking = input->blocking;

@@ -45,6 +45,7 @@ struct istream_private {
 
 	string_t *line_str; /* for i_stream_next_line() if w_buffer == NULL */
 	unsigned int return_nolf_line:1;
+	unsigned int stream_size_passthrough:1; /* stream is parent's size */
 };
 
 struct istream * ATTR_NOWARN_UNUSED_RESULT

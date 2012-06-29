@@ -71,7 +71,7 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 }
 
 static const struct stat *
-i_stream_sized_stat(struct istream_private *stream, bool sized ATTR_UNUSED)
+i_stream_sized_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	struct sized_istream *sstream = (struct sized_istream *)stream;
 	const struct stat *st;
@@ -96,7 +96,6 @@ struct istream *i_stream_create_sized(struct istream *input, uoff_t size)
 	sstream->size = size;
 	sstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
-	sstream->istream.parent = input;
 	sstream->istream.read = i_stream_sized_read;
 	sstream->istream.stat = i_stream_sized_stat;
 
