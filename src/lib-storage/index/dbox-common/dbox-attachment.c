@@ -2,10 +2,8 @@
 
 #include "lib.h"
 #include "istream.h"
-#include "istream-concat.h"
 #include "str.h"
-#include "istream-sized.h"
-#include "istream-base64-encoder.h"
+#include "istream-attachment-connector.h"
 #include "dbox-file.h"
 #include "dbox-save.h"
 #include "dbox-attachment.h"
@@ -143,13 +141,12 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 				     const char **error_r)
 {
 	ARRAY_TYPE(mail_attachment_extref) extrefs_arr;
-	ARRAY_DEFINE(streams, struct istream *);
 	const struct mail_attachment_extref *extref;
-	struct istream **inputs, *input, *input2;
+	struct istream_attachment_connector *conn;
+	struct istream *input;
 	const char *path, *path_suffix;
-	uoff_t psize, last_voffset = 0;
-	unsigned int i;
-	int ret = 1;
+	uoff_t msg_size;
+	int ret;
 
 	*error_r = NULL;
 
@@ -159,69 +156,30 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 		*error_r = "Broken ext-refs string";
 		return 0;
 	}
-	psize = dbox_file_get_plaintext_size(file);
+	msg_size = dbox_file_get_plaintext_size(file);
+	conn = istream_attachment_connector_begin(*stream, msg_size);
 
-	t_array_init(&streams, 8);
+	path_suffix = file->storage->v.get_attachment_path_suffix(file);
 	array_foreach(&extrefs_arr, extref) {
-		path_suffix = file->storage->v.get_attachment_path_suffix(file);
 		path = t_strdup_printf("%s/%s%s", file->storage->attachment_dir,
 				       extref->path, path_suffix);
+		input = i_stream_create_file(path, IO_BLOCK_SIZE);
 
-		if (extref->start_offset != last_voffset) {
-			uoff_t part_size = extref->start_offset - last_voffset;
-
-			if ((*stream)->v_offset + part_size > psize) {
-				*error_r = t_strdup_printf(
-					"ext-refs point outside message "
-					"(%"PRIuUOFF_T" + %"PRIuUOFF_T" > %"PRIuUOFF_T")",
-					(*stream)->v_offset, part_size, psize);
-				ret = 0;
-			}
-
-			input = i_stream_create_limit(*stream, part_size);
-			array_append(&streams, &input, 1);
-			i_stream_seek(*stream, (*stream)->v_offset + part_size);
-			last_voffset += part_size;
-		}
-
-		last_voffset += extref->size;
-		input2 = i_stream_create_file(path, IO_BLOCK_SIZE);
-
-		if (extref->base64_blocks_per_line > 0) {
-			input = i_stream_create_base64_encoder(input2,
-					extref->base64_blocks_per_line*4,
-					extref->base64_have_crlf);
-			i_stream_unref(&input2);
-			input2 = input;
-		}
-
-		input = i_stream_create_sized(input2, extref->size);
-		i_stream_unref(&input2);
-		array_append(&streams, &input, 1);
-	}
-
-	if (psize != (*stream)->v_offset) {
-		if ((*stream)->v_offset > psize) {
-			*error_r = t_strdup_printf(
-				"ext-refs point outside message "
-				"(%"PRIuUOFF_T" > %"PRIuUOFF_T")",
-				(*stream)->v_offset, psize);
-			ret = 0;
-		} else {
-			uoff_t trailer_size = psize - last_voffset;
-
-			input = i_stream_create_limit(*stream, trailer_size);
-			array_append(&streams, &input, 1);
-			array_append_zero(&streams);
+		ret = istream_attachment_connector_add(conn, input,
+					extref->start_offset, extref->size,
+					extref->base64_blocks_per_line,
+					extref->base64_have_crlf, error_r);
+		i_stream_unref(&input);
+		if (ret < 0) {
+			istream_attachment_connector_abort(&conn);
+			return 0;
 		}
 	}
 
-	inputs = array_idx_modifiable(&streams, 0);
+	input = istream_attachment_connector_finish(&conn);
 	i_stream_unref(stream);
-	*stream = i_stream_create_concat(inputs);
-	for (i = 0; inputs[i] != NULL; i++)
-		i_stream_unref(&inputs[i]);
-	return ret;
+	*stream = input;
+	return 1;
 }
 
 int dbox_attachment_file_get_stream(struct dbox_file *file,
