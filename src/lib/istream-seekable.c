@@ -286,13 +286,6 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 	return ret;
 }
 
-static void i_stream_seekable_seek(struct istream_private *stream,
-				   uoff_t v_offset, bool mark ATTR_UNUSED)
-{
-	stream->istream.v_offset = v_offset;
-	stream->skip = stream->pos = 0;
-}
-
 static const struct stat *
 i_stream_seekable_stat(struct istream_private *stream, bool exact)
 {
@@ -388,7 +381,6 @@ i_stream_create_seekable(struct istream *input[],
 		i_stream_seekable_set_max_buffer_size;
 
 	sstream->istream.read = i_stream_seekable_read;
-	sstream->istream.seek = i_stream_seekable_seek;
 	sstream->istream.stat = i_stream_seekable_stat;
 
 	sstream->istream.istream.readable_fd = FALSE;

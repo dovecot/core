@@ -567,8 +567,16 @@ static void i_stream_default_destroy(struct iostream_private *stream)
 		i_stream_unref(&_stream->parent);
 }
 
-void i_stream_default_seek(struct istream_private *stream,
-			   uoff_t v_offset, bool mark ATTR_UNUSED)
+static void
+i_stream_default_seek_seekable(struct istream_private *stream,
+			       uoff_t v_offset, bool mark ATTR_UNUSED)
+{
+	stream->istream.v_offset = v_offset;
+	stream->skip = stream->pos = 0;
+}
+
+void i_stream_default_seek_nonseekable(struct istream_private *stream,
+				       uoff_t v_offset, bool mark ATTR_UNUSED)
 {
 	size_t available;
 
@@ -632,8 +640,9 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 	if (_stream->iostream.destroy == NULL)
 		_stream->iostream.destroy = i_stream_default_destroy;
 	if (_stream->seek == NULL) {
-		i_assert(!_stream->istream.seekable);
-		_stream->seek = i_stream_default_seek;
+		_stream->seek = _stream->istream.seekable ?
+			i_stream_default_seek_seekable :
+			i_stream_default_seek_nonseekable;
 	}
 	if (_stream->stat == NULL)
 		_stream->stat = i_stream_default_stat;

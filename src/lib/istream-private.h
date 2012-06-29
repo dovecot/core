@@ -58,7 +58,7 @@ i_stream_try_alloc(struct istream_private *stream,
 		   size_t wanted_size, size_t *size_r);
 void *i_stream_alloc(struct istream_private *stream, size_t size);
 ssize_t i_stream_read_copy_from_parent(struct istream *istream);
-void i_stream_default_seek(struct istream_private *stream,
-			   uoff_t v_offset, bool mark);
+void i_stream_default_seek_nonseekable(struct istream_private *stream,
+				       uoff_t v_offset, bool mark);
 
 #endif

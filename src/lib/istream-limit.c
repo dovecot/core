@@ -71,13 +71,6 @@ static ssize_t i_stream_limit_read(struct istream_private *stream)
 	return ret;
 }
 
-static void i_stream_limit_seek(struct istream_private *stream, uoff_t v_offset,
-				bool mark ATTR_UNUSED)
-{
-	stream->istream.v_offset = v_offset;
-	stream->skip = stream->pos = 0;
-}
-
 static const struct stat *
 i_stream_limit_stat(struct istream_private *stream, bool exact)
 {
@@ -126,7 +119,6 @@ struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size)
 	lstream->istream.iostream.destroy = i_stream_limit_destroy;
 	lstream->istream.parent = input;
 	lstream->istream.read = i_stream_limit_read;
-	lstream->istream.seek = i_stream_limit_seek;
 	lstream->istream.stat = i_stream_limit_stat;
 	lstream->istream.get_size = i_stream_limit_get_size;
 

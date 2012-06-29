@@ -93,14 +93,6 @@ i_stream_mail_read(struct istream_private *stream)
 	return ret;
 }
 
-static void
-i_stream_mail_seek(struct istream_private *stream,
-		   uoff_t v_offset, bool mark ATTR_UNUSED)
-{
-	stream->istream.v_offset = v_offset;
-	stream->skip = stream->pos = 0;
-}
-
 static const struct stat *
 i_stream_mail_stat(struct istream_private *stream, bool exact)
 {
@@ -121,7 +113,6 @@ struct istream *i_stream_create_mail(struct mail *mail, struct istream *input,
 
 	mstream->istream.parent = input;
 	mstream->istream.read = i_stream_mail_read;
-	mstream->istream.seek = i_stream_mail_seek;
 	mstream->istream.stat = i_stream_mail_stat;
 
 	mstream->istream.istream.blocking = input->blocking;
