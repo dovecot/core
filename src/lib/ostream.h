@@ -89,8 +89,8 @@ ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 		       unsigned int iov_count);
 ssize_t o_stream_send_str(struct ostream *stream, const char *str);
 /* Send with delayed error handling. o_stream_has_errors() or
-   o_stream_ignore_errors() must be called after these functions before the
-   stream is destroyed. */
+   o_stream_ignore_last_errors() must be called after these functions before
+   the stream is destroyed. */
 void o_stream_nsend(struct ostream *stream, const void *data, size_t size);
 void o_stream_nsendv(struct ostream *stream, const struct const_iovec *iov,
 		     unsigned int iov_count);
