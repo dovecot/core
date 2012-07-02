@@ -74,12 +74,13 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	struct mailbox *box;
 	struct quota_root_iter *iter;
         struct quota_root *root;
-	const char *mailbox, *name;
+	const char *mailbox, *orig_mailbox, *name;
 	string_t *quotaroot_reply, *quota_reply;
 
 	/* <mailbox> */
 	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
+	orig_mailbox = mailbox;
 
 	ns = client_find_namespace(cmd, &mailbox);
 	if (ns == NULL)
@@ -101,7 +102,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	quotaroot_reply = t_str_new(128);
 	quota_reply = t_str_new(256);
 	str_append(quotaroot_reply, "* QUOTAROOT ");
-	imap_quote_append_string(quotaroot_reply, mailbox, FALSE);
+	imap_quote_append_string(quotaroot_reply, orig_mailbox, FALSE);
 
 	iter = quota_root_iter_init(box);
 	while ((root = quota_root_iter_next(iter)) != NULL) {
