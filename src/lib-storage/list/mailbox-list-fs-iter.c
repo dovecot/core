@@ -404,10 +404,18 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 			   we just want to see its contents (not the
 			   INBOX's children). */
 			root = "";
-		} else if (*prefix_vname == '\0') {
-			/* we need to handle "" explicitly here, because getting
-			   storage name with mail_shared_explicit_inbox=no
-			   would return root=INBOX. */
+		} else if ((ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
+			   ns->type == NAMESPACE_SHARED &&
+			   !ctx->ctx.list->mail_set->mail_shared_explicit_inbox &&
+			   (prefix_vname[0] == '\0' ||
+			    (strncmp(ns->prefix, prefix_vname, ns->prefix_len-1) == 0 &&
+			     prefix_vname[ns->prefix_len-1] == '\0'))) {
+			/* we need to handle ns prefix explicitly here, because
+			   getting storage name with
+			   mail_shared_explicit_inbox=no would return
+			   root=INBOX. (e.g. LIST "" shared/user/box has to
+			   return the box when it doesn't exist but
+			   shared/user/box/child exists) */
 			root = "";
 		} else {
 			root = mailbox_list_get_storage_name(ctx->ctx.list,
