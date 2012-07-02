@@ -148,12 +148,29 @@ static int search_arg_match_keywords(struct index_search_context *ctx,
 	return 1;
 }
 
+static bool
+index_search_get_pvt(struct index_search_context *ctx, uint32_t uid)
+{
+	if (ctx->pvt_uid == uid)
+		return ctx->pvt_seq != 0;
+	ctx->pvt_uid = uid;
+	ctx->pvt_seq = uid;
+
+	if (ctx->box->view_pvt == NULL) {
+		/* no private view (set by view syncing) -> no private flags */
+		return FALSE;
+	}
+
+	return mail_index_lookup_seq(ctx->mail_ctx.transaction->view_pvt,
+				     uid, &ctx->pvt_seq);
+}
+
 /* Returns >0 = matched, 0 = not matched, -1 = unknown */
 static int search_arg_match_index(struct index_search_context *ctx,
 				  struct mail_search_arg *arg,
 				  const struct mail_index_record *rec)
 {
-	enum mail_flags flags;
+	enum mail_flags flags, pvt_flags_mask;
 	uint64_t modseq;
 	int ret;
 
@@ -168,6 +185,13 @@ static int search_arg_match_index(struct index_search_context *ctx,
 		if ((arg->value.flags & MAIL_RECENT) != 0 &&
 		    index_mailbox_is_recent(ctx->box, rec->uid))
 			flags |= MAIL_RECENT;
+		if (index_search_get_pvt(ctx, rec->uid)) {
+			pvt_flags_mask = mailbox_get_private_flags_mask(ctx->box);
+			flags &= ~pvt_flags_mask;
+			rec = mail_index_lookup(ctx->mail_ctx.transaction->view_pvt,
+						ctx->pvt_seq);
+			flags |= rec->flags & pvt_flags_mask;
+		}
 		return (flags & arg->value.flags) == arg->value.flags;
 	case SEARCH_KEYWORDS:
 		T_BEGIN {
@@ -870,9 +894,21 @@ static bool search_limit_by_flags(struct index_search_context *ctx,
 				  struct mail_search_arg *args,
 				  uint32_t *seq1, uint32_t *seq2)
 {
-	const struct mail_index_header *hdr;
+	const struct mail_index_header *hdr_seen, *hdr_del, *hdr_pvt;
+	enum mail_flags pvt_flags_mask;
 
-	hdr = mail_index_get_header(ctx->view);
+	hdr_seen = hdr_del = mail_index_get_header(ctx->view);
+
+	if (ctx->box->view_pvt != NULL) {
+		pvt_flags_mask = mailbox_get_private_flags_mask(ctx->box);
+		index_transaction_init_pvt(ctx->mail_ctx.transaction);
+		hdr_pvt = mail_index_get_header(ctx->mail_ctx.transaction->view_pvt);
+		if ((pvt_flags_mask & MAIL_SEEN) != 0)
+			hdr_seen = hdr_pvt;
+		if ((pvt_flags_mask & MAIL_DELETED) != 0)
+			hdr_del = hdr_pvt;
+	}
+
 	for (; args != NULL; args = args->next) {
 		if (args->type != SEARCH_FLAGS) {
 			if (args->type == SEARCH_ALL) {
@@ -883,10 +919,11 @@ static bool search_limit_by_flags(struct index_search_context *ctx,
 		}
 		if ((args->value.flags & MAIL_SEEN) != 0) {
 			/* SEEN with 0 seen? */
-			if (!args->match_not && hdr->seen_messages_count == 0)
+			if (!args->match_not && hdr_seen->seen_messages_count == 0)
 				return FALSE;
 
-			if (hdr->seen_messages_count == hdr->messages_count) {
+			if (hdr_seen->seen_messages_count ==
+			    hdr_seen->messages_count) {
 				/* UNSEEN with all seen? */
 				if (args->match_not)
 					return FALSE;
@@ -896,17 +933,17 @@ static bool search_limit_by_flags(struct index_search_context *ctx,
 			} else if (args->match_not) {
 				/* UNSEEN with lowwater limiting */
 				search_limit_lowwater(ctx,
-                                	hdr->first_unseen_uid_lowwater, seq1);
+                                	hdr_seen->first_unseen_uid_lowwater, seq1);
 			}
 		}
 		if ((args->value.flags & MAIL_DELETED) != 0) {
 			/* DELETED with 0 deleted? */
 			if (!args->match_not &&
-			    hdr->deleted_messages_count == 0)
+			    hdr_del->deleted_messages_count == 0)
 				return FALSE;
 
-			if (hdr->deleted_messages_count ==
-			    hdr->messages_count) {
+			if (hdr_del->deleted_messages_count ==
+			    hdr_del->messages_count) {
 				/* UNDELETED with all deleted? */
 				if (args->match_not)
 					return FALSE;
@@ -916,7 +953,7 @@ static bool search_limit_by_flags(struct index_search_context *ctx,
 			} else if (!args->match_not) {
 				/* DELETED with lowwater limiting */
 				search_limit_lowwater(ctx,
-                                	hdr->first_deleted_uid_lowwater, seq1);
+                                	hdr_del->first_deleted_uid_lowwater, seq1);
 			}
 		}
 	}
