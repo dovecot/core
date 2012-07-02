@@ -771,6 +771,9 @@ static bool client_input_data_write(struct client *client)
 	struct istream *input;
 	bool ret = TRUE;
 
+	/* stop handling client input until saving/proxying is finished */
+	if (client->to_idle != NULL)
+		timeout_remove(&client->to_idle);
 	io_remove(&client->io);
 	i_stream_destroy(&client->dot_input);
 
