@@ -18,7 +18,7 @@ int imap_status_get(struct client_command_context *cmd,
 		    struct mail_namespace *ns,
 		    const char *mailbox, const struct imap_status_items *items,
 		    struct imap_status_result *result_r, const char **error_r);
-void imap_status_send(struct client *client, const char *mailbox,
+void imap_status_send(struct client *client, const char *mailbox_mutf7,
 		      const struct imap_status_items *items,
 		      const struct imap_status_result *result);
 

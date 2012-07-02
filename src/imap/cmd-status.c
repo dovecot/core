@@ -13,7 +13,7 @@ bool cmd_status(struct client_command_context *cmd)
 	struct imap_status_items items;
 	struct imap_status_result result;
 	struct mail_namespace *ns;
-	const char *mailbox, *error;
+	const char *mailbox, *orig_mailbox, *error;
 	bool selected_mailbox;
 
 	/* <mailbox> <status items> */
@@ -30,6 +30,7 @@ bool cmd_status(struct client_command_context *cmd)
 	if (imap_status_parse_items(cmd, list_args, &items) < 0)
 		return TRUE;
 
+	orig_mailbox = mailbox;
 	ns = client_find_namespace(cmd, &mailbox);
 	if (ns == NULL)
 		return TRUE;
@@ -42,7 +43,7 @@ bool cmd_status(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	imap_status_send(client, mailbox, &items, &result);
+	imap_status_send(client, orig_mailbox, &items, &result);
 	if (!selected_mailbox)
 		client_send_tagline(cmd, "OK Status completed.");
 	else {

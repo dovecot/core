@@ -96,7 +96,7 @@ int imap_status_get(struct client_command_context *cmd,
 	return ret;
 }
 
-void imap_status_send(struct client *client, const char *mailbox,
+void imap_status_send(struct client *client, const char *mailbox_mutf7,
 		      const struct imap_status_items *items,
 		      const struct imap_status_result *result)
 {
@@ -106,7 +106,7 @@ void imap_status_send(struct client *client, const char *mailbox,
 
 	str = t_str_new(128);
 	str_append(str, "* STATUS ");
-        imap_quote_append_string(str, mailbox, FALSE);
+        imap_quote_append_string(str, mailbox_mutf7, FALSE);
 	str_append(str, " (");
 
 	prefix_len = str_len(str);

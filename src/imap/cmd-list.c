@@ -364,8 +364,9 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 	client_send_line(ctx->cmd->client, str_c(str));
 }
 
-static void list_send_status(struct cmd_list_context *ctx, const char *name,
-			     enum mailbox_info_flags flags)
+static void
+list_send_status(struct cmd_list_context *ctx, const char *name,
+		 const char *mutf7_name, enum mailbox_info_flags flags)
 {
 	struct imap_status_result result;
 	struct mail_namespace *ns;
@@ -391,7 +392,8 @@ static void list_send_status(struct cmd_list_context *ctx, const char *name,
 		return;
 	}
 
-	imap_status_send(ctx->cmd->client, name, &ctx->status_items, &result);
+	imap_status_send(ctx->cmd->client, mutf7_name,
+			 &ctx->status_items, &result);
 }
 
 static bool list_has_empty_prefix_ns(struct mail_user *user)
@@ -481,7 +483,7 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 
 		ret = client_send_line(ctx->cmd->client, str_c(str));
 		if (ctx->used_status) T_BEGIN {
-			list_send_status(ctx, name, flags);
+			list_send_status(ctx, name, str_c(mutf7_name), flags);
 		} T_END;
 		if (ret == 0) {
 			/* buffer is full, continue later */
