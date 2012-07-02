@@ -309,12 +309,13 @@ static bool cmd_myrights(struct client_command_context *cmd)
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
-	const char *mailbox;
+	const char *mailbox, *orig_mailbox;
 	const char *const *rights;
 	string_t *str;
 
 	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
+	orig_mailbox = mailbox;
 
 	if (ACL_USER_CONTEXT(cmd->client->user) == NULL) {
 		client_send_command_error(cmd, "ACLs disabled.");
@@ -346,7 +347,7 @@ static bool cmd_myrights(struct client_command_context *cmd)
 
 	str = t_str_new(128);
 	str_append(str, "* MYRIGHTS ");
-	imap_quote_append_string(str, mailbox, FALSE);
+	imap_quote_append_string(str, orig_mailbox, FALSE);
 	str_append_c(str,' ');
 	imap_acl_write_rights_list(str, rights);
 
