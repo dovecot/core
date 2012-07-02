@@ -87,8 +87,14 @@ void index_storage_get_open_status(struct mailbox *box,
 	}
 
 	if ((items & STATUS_FIRST_UNSEEN_SEQ) != 0) {
-		mail_index_lookup_first(box->view, 0, MAIL_SEEN,
-					&status_r->first_unseen_seq);
+		if (hdr_pvt == NULL ||
+		    (mailbox_get_private_flags_mask(box) & MAIL_SEEN) == 0) {
+			mail_index_lookup_first(box->view, 0, MAIL_SEEN,
+						&status_r->first_unseen_seq);
+		} else {
+			mail_index_lookup_first(box->view_pvt, 0, MAIL_SEEN,
+						&status_r->first_unseen_seq);
+		}
 	}
 	if ((items & STATUS_LAST_CACHED_SEQ) != 0)
 		get_last_cached_seq(box, &status_r->last_cached_seq);
