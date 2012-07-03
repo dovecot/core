@@ -75,6 +75,7 @@ static void sql_db_cache_free_tail(struct sql_db_cache *cache)
 	db = cache->unused_tail;
 	ctx = SQL_DB_CACHE_CONTEXT(db);
 	sql_db_cache_unlink(ctx);
+	hash_table_remove(cache->dbs, ctx->key);
 
 	i_free(ctx->key);
 	ctx->orig_deinit(db);
