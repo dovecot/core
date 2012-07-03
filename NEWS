@@ -1,3 +1,18 @@
+v2.1.8 2012-07-03  Timo Sirainen <tss@iki.fi>
+
+	+ pop3c: Added pop3c_master_user setting.
+	- imap: Mailbox names were accidentally sent as UTF-8 instead of mUTF-7
+	  in previous v2.1.x releases for STATUS, MYRIGHTS and GETQUOTAROOT
+	  commands.
+	- lmtp proxy: Don't timeout connections too early when mail has a lot
+	  of RCPT TOs.
+	- director: Don't crash if the director is working alone.
+	- shared mailboxes: Avoid doing "@domain" userdb lookups.
+	- doveadm: Fixed crash with proxying some commands.
+	- fts-squat: Fixed handling multiple SEARCH parameters.
+	- imapc: Fixed a crash when message had more than 8 keywords.
+	- imapc: Don't crash on APPEND/COPY if server doesn't support UIDPLUS.
+
 v2.1.7 2012-05-29  Timo Sirainen <tss@iki.fi>
 
 	* LDAP: Compatibility fix for v2.0: ldap: If attributes contain
