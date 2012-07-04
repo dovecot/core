@@ -337,6 +337,7 @@ int master_service_settings_read(struct master_service *service,
 	unsigned int i;
 	int ret, fd = -1;
 	time_t now, timeout;
+	bool use_environment;
 
 	memset(output_r, 0, sizeof(*output_r));
 
@@ -415,9 +416,12 @@ int master_service_settings_read(struct master_service *service,
 			service->config_fd = fd;
 		else
 			i_close_fd(&fd);
+		use_environment = FALSE;
+	} else {
+		use_environment = TRUE;
 	}
 
-	if (fd == -1 || service->keep_environment) {
+	if (use_environment || service->keep_environment) {
 		if (settings_parse_environ(parser) < 0) {
 			*error_r = settings_parser_get_error(parser);
 			return -1;
