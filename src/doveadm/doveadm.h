@@ -22,8 +22,6 @@ extern int doveadm_exit_code;
 
 extern struct doveadm_cmd doveadm_cmd_stop;
 extern struct doveadm_cmd doveadm_cmd_reload;
-extern struct doveadm_cmd doveadm_cmd_auth;
-extern struct doveadm_cmd doveadm_cmd_user;
 extern struct doveadm_cmd doveadm_cmd_dump;
 extern struct doveadm_cmd doveadm_cmd_pw;
 extern struct doveadm_cmd doveadm_cmd_who;
@@ -41,6 +39,7 @@ void usage(void) ATTR_NORETURN;
 void help(const struct doveadm_cmd *cmd) ATTR_NORETURN;
 void doveadm_master_send_signal(int signo);
 
+void doveadm_register_auth_commands(void);
 void doveadm_register_director_commands(void);
 void doveadm_register_proxy_commands(void);
 void doveadm_register_log_commands(void);

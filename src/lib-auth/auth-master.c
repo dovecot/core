@@ -9,6 +9,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "strescape.h"
 #include "master-interface.h"
 #include "auth-master.h"
 
@@ -561,6 +562,48 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 	*fields_r = ctx.fields != NULL ? ctx.fields :
 		p_new(pool, const char *, 1);
 	return ctx.return_value;
+}
+
+static bool
+auth_cache_flush_reply_callback(const char *cmd, const char *const *args,
+				void *context)
+{
+	unsigned int *countp = context;
+
+	if (strcmp(cmd, "OK") != 0)
+		*countp = -1U;
+	else if (args[0] == NULL || str_to_uint(args[0], countp) < 0)
+		*countp = -1U;
+
+	io_loop_stop(current_ioloop);
+	return TRUE;
+}
+
+int auth_master_cache_flush(struct auth_master_connection *conn,
+			    const char *const *users, unsigned int *count_r)
+{
+	string_t *str;
+
+	*count_r = -1U;
+
+	conn->reply_callback = auth_cache_flush_reply_callback;
+	conn->reply_context = count_r;
+
+	str = t_str_new(128);
+	str_printfa(str, "CACHE-FLUSH\t%u", auth_master_next_request_id(conn));
+	if (users != NULL) {
+		for (; *users != NULL; users++) {
+			str_append_c(str, '\t');
+			str_tabescape_write(str, *users);
+		}
+	}
+	str_append_c(str, '\n');
+
+	conn->prefix = "auth cache flush";
+	(void)auth_master_run_cmd(conn, str_c(str));
+	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
+
+	return *count_r == -1U ? -1 : 0;
 }
 
 static bool
