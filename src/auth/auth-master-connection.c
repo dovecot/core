@@ -18,6 +18,7 @@
 #include "userdb.h"
 #include "userdb-blocking.h"
 #include "master-interface.h"
+#include "passdb-cache.h"
 #include "auth-request-handler.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
@@ -133,6 +134,30 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 		(void)o_stream_send_str(conn->output,
 					t_strdup_printf("FAIL\t%u\n", id));
 	}
+	return TRUE;
+}
+
+static int
+master_input_cache_flush(struct auth_master_connection *conn, const char *args)
+{
+	const char *const *list;
+	unsigned int count;
+
+	/* <id> [<user> [<user> [..]] */
+	list = t_strsplit_tab(args);
+	if (list[0] == NULL) {
+		i_error("BUG: doveadm sent broken CACHE-FLUSH");
+		return FALSE;
+	}
+
+	if (list[1] == NULL) {
+		/* flush the whole cache */
+		count = auth_cache_clear(passdb_cache);
+	} else {
+		count = auth_cache_clear_users(passdb_cache, list+1);
+	}
+	(void)o_stream_send_str(conn->output,
+		t_strdup_printf("OK\t%s\t%u\n", list[0], count));
 	return TRUE;
 }
 
@@ -566,6 +591,8 @@ auth_master_input_line(struct auth_master_connection *conn, const char *line)
 		i_assert(conn->userdb_restricted_uid == 0);
 		if (strncmp(line, "REQUEST\t", 8) == 0)
 			return master_input_request(conn, line + 8);
+		if (strncmp(line, "CACHE-FLUSH\t", 12) == 0)
+			return master_input_cache_flush(conn, line + 12);
 		if (strncmp(line, "CPID\t", 5) == 0) {
 			i_error("Authentication client trying to connect to "
 				"master socket");

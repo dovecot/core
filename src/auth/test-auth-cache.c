@@ -6,6 +6,11 @@
 #include "test-common.h"
 
 const struct var_expand_table auth_request_var_expand_static_tab[] = {
+	/* these 3 must be in this order */
+	{ 'u', NULL, "user" },
+	{ 'n', NULL, "username" },
+	{ 'd', NULL, "domain" },
+
 	{ 'a', NULL, NULL },
 	{ '\0', NULL, "longb" },
 	{ 'c', NULL, "longc" },
@@ -24,14 +29,21 @@ static void test_auth_cache_parse_key(void)
 	struct {
 		const char *in, *out;
 	} tests[] = {
+		{ "%n@%d", "%u" },
+		{ "%{username}@%{domain}", "%u" },
+		{ "%n%d%u", "%u" },
+		{ "%n", "%n" },
+		{ "%d", "%d" },
+		{ "%a%b%u", "%u\t%a\t%b" },
+
 		{ "foo%5.5Mabar", "%a" },
 		{ "foo%5.5M{longb}bar", "%{longb}" },
 		{ "foo%5.5Mcbar", "%c" },
-		{ "foo%5.5M{longc}bar", "%{longc}" },
+		{ "foo%5.5M{longc}bar", "%c" },
 		{ "%a%b", "%a\t%b" },
 		{ "%a%{longb}%a", "%a\t%{longb}" },
-		{ "%{longc}%c", "%{longc}" },
-		{ "%c%a%{longc}%c", "%c\t%a" },
+		{ "%{longc}%c", "%c" },
+		{ "%c%a%{longc}%c", "%a\t%c" },
 		{ "%a%{env:foo}%{env:foo}%a", "%a\t%{env:foo}\t%{env:foo}" }
 	};
 	const char *cache_key;
