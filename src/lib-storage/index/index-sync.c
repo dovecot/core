@@ -184,13 +184,13 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 	ctx->ctx.box = box;
 	ctx->ctx.flags = flags;
 
-	/* sync private index if needed */
-	(void)index_storage_mailbox_sync_pvt(box);
-
 	if (failed) {
 		ctx->failed = TRUE;
 		return &ctx->ctx;
 	}
+
+	/* sync private index if needed */
+	(void)index_storage_mailbox_sync_pvt(box);
 
 	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0)
 		sync_flags |= MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES;
