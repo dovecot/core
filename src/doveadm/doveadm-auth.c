@@ -426,7 +426,7 @@ struct doveadm_cmd doveadm_cmd_auth[] = {
 	{ cmd_auth, "auth",
 	  "[-a <auth socket path>] [-x <auth info>] <user> [<password>]" },
 	{ cmd_auth_cache_flush, "auth cache flush",
-	  "[-a <master socket path>] [<user>]" },
+	  "[-a <master socket path>] [<user> [...]]" },
 	{ cmd_user, "user",
 	  "[-a <userdb socket path>] [-x <auth info>] [-f field] [-m] <user mask> [...]" }
 };
