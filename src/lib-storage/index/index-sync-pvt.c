@@ -132,8 +132,9 @@ index_storage_mailbox_sync_pvt_index(struct mailbox *box)
 		return 0;
 	}
 	hdr_pvt = mail_index_get_header(box->view_pvt);
-	if (hdr_pvt->next_uid == hdr_shared->next_uid) {
-		/* no new mails, don't bother syncing */
+	if (hdr_pvt->next_uid == hdr_shared->next_uid &&
+	    hdr_pvt->messages_count == hdr_shared->messages_count) {
+		/* no new or expunged mails, don't bother syncing */
 		mail_index_view_close(&view_shared);
 		return 0;
 	}
