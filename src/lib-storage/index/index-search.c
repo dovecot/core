@@ -160,7 +160,6 @@ index_search_get_pvt(struct index_search_context *ctx, uint32_t uid)
 	}
 
 	ctx->pvt_uid = uid;
-	ctx->pvt_seq = uid;
 	return mail_index_lookup_seq(ctx->mail_ctx.transaction->view_pvt,
 				     uid, &ctx->pvt_seq);
 }
