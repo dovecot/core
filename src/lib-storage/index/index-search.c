@@ -153,14 +153,14 @@ index_search_get_pvt(struct index_search_context *ctx, uint32_t uid)
 {
 	if (ctx->pvt_uid == uid)
 		return ctx->pvt_seq != 0;
-	ctx->pvt_uid = uid;
-	ctx->pvt_seq = uid;
 
 	if (ctx->box->view_pvt == NULL) {
 		/* no private view (set by view syncing) -> no private flags */
 		return FALSE;
 	}
 
+	ctx->pvt_uid = uid;
+	ctx->pvt_seq = uid;
 	return mail_index_lookup_seq(ctx->mail_ctx.transaction->view_pvt,
 				     uid, &ctx->pvt_seq);
 }
