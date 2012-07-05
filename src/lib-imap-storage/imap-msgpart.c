@@ -55,6 +55,7 @@ static struct imap_msgpart *imap_msgpart_type(enum fetch_type fetch_type)
 	msgpart->pool = pool;
 	msgpart->partial_size = (uoff_t)-1;
 	msgpart->fetch_type = fetch_type;
+	msgpart->section_number = "";
 	if (fetch_type == FETCH_HEADER || fetch_type == FETCH_FULL)
 		msgpart->wanted_fields |= MAIL_FETCH_STREAM_HEADER;
 	if (fetch_type == FETCH_BODY || fetch_type == FETCH_FULL)
@@ -190,7 +191,7 @@ int imap_msgpart_parse(struct mailbox *box, const char *section,
 	bool next_digit;
 	int ret;
 
-	pool = pool_alloconly_create("imap msgpart", 512);
+	pool = pool_alloconly_create("imap msgpart", 1024);
 	msgpart = *msgpart_r = p_new(pool, struct imap_msgpart, 1);
 	msgpart->pool = pool;
 	msgpart->partial_size = (uoff_t)-1;
