@@ -100,7 +100,7 @@ int file_preallocate(int fd ATTR_UNUSED, off_t size ATTR_UNUSED)
 	fs.fst_bytesalloc = 0;
 	if (fcntl(fd, F_PREALLOCATE, &fs) < 0)
 		return -1;
-	return 0;
+	return fs.fst_bytesalloc > 0 ? 1 : 0;
 #else
 	return 0;
 #endif
