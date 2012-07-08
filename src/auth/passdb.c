@@ -278,6 +278,7 @@ void passdbs_generate_md5(unsigned char md5[MD5_RESULTLEN])
 
 extern struct passdb_module_interface passdb_passwd;
 extern struct passdb_module_interface passdb_bsdauth;
+extern struct passdb_module_interface passdb_dict;
 extern struct passdb_module_interface passdb_shadow;
 extern struct passdb_module_interface passdb_passwd_file;
 extern struct passdb_module_interface passdb_pam;
@@ -294,6 +295,7 @@ void passdbs_init(void)
 	i_array_init(&passdb_modules, 16);
 	passdb_register_module(&passdb_passwd);
 	passdb_register_module(&passdb_bsdauth);
+	passdb_register_module(&passdb_dict);
 	passdb_register_module(&passdb_passwd_file);
 	passdb_register_module(&passdb_pam);
 	passdb_register_module(&passdb_checkpassword);

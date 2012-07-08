@@ -230,6 +230,7 @@ extern struct userdb_module_interface userdb_ldap;
 extern struct userdb_module_interface userdb_sql;
 extern struct userdb_module_interface userdb_nss;
 extern struct userdb_module_interface userdb_checkpassword;
+extern struct userdb_module_interface userdb_dict;
 
 void userdbs_init(void)
 {
@@ -244,6 +245,7 @@ void userdbs_init(void)
 	userdb_register_module(&userdb_sql);
 	userdb_register_module(&userdb_nss);
 	userdb_register_module(&userdb_checkpassword);
+	userdb_register_module(&userdb_dict);
 }
 
 void userdbs_deinit(void)
