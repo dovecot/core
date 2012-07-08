@@ -84,7 +84,7 @@ pop3c_client_init(const struct pop3c_client_settings *set)
 	client->set.debug = set->debug;
 	client->set.host = p_strdup(pool, set->host);
 	client->set.port = set->port;
-	client->set.master_user = p_strdup(pool, set->master_user);
+	client->set.master_user = p_strdup_empty(pool, set->master_user);
 	client->set.username = p_strdup(pool, set->username);
 	client->set.password = p_strdup(pool, set->password);
 	client->set.dns_client_socket_path =
