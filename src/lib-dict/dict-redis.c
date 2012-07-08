@@ -28,11 +28,7 @@ struct redis_dict {
 
 	struct ioloop *ioloop;
 	struct redis_connection conn;
-};
-
-struct redis_dict_iterate_context {
-	struct dict_iterate_context ctx;
-	struct redis_connection *conn;
+	bool connected;
 };
 
 static struct connection_list *redis_connections;
@@ -41,6 +37,7 @@ static void redis_conn_destroy(struct connection *_conn)
 {
 	struct redis_connection *conn = (struct redis_connection *)_conn;
 
+	conn->dict->connected = FALSE;
 	connection_disconnect(_conn);
 	if (conn->dict->ioloop != NULL)
 		io_loop_stop(conn->dict->ioloop);
@@ -101,6 +98,20 @@ static void redis_conn_input(struct connection *_conn)
 	}
 }
 
+static void redis_conn_connected(struct connection *_conn)
+{
+	struct redis_connection *conn = (struct redis_connection *)_conn;
+
+	if ((errno = net_geterror(_conn->fd_in)) != 0) {
+		i_error("redis: connect(%s, %u) failed: %m",
+			net_ip2addr(&conn->dict->ip), conn->dict->port);
+	} else {
+		conn->dict->connected = TRUE;
+	}
+	if (conn->dict->ioloop != NULL)
+		io_loop_stop(conn->dict->ioloop);
+}
+
 static const struct connection_settings redis_conn_set = {
 	.input_max_size = (size_t)-1,
 	.output_max_size = (size_t)-1,
@@ -109,7 +120,8 @@ static const struct connection_settings redis_conn_set = {
 
 static const struct connection_vfuncs redis_conn_vfuncs = {
 	.destroy = redis_conn_destroy,
-	.input = redis_conn_input
+	.input = redis_conn_input,
+	.connected = redis_conn_connected
 };
 
 static struct dict *
@@ -171,7 +183,8 @@ static void redis_dict_deinit(struct dict *_dict)
 
 static void redis_dict_lookup_timeout(struct redis_dict *dict)
 {
-	i_error("redis: Lookup timed out in %u secs", dict->timeout_msecs);
+	i_error("redis: Lookup timed out in %u.%03u secs",
+		dict->timeout_msecs/1000, dict->timeout_msecs%1000);
 	io_loop_stop(dict->ioloop);
 }
 
@@ -203,12 +216,19 @@ static int redis_dict_lookup(struct dict *_dict, pool_t pool,
 	} else {
 		to = timeout_add(dict->timeout_msecs,
 				 redis_dict_lookup_timeout, dict);
-		cmd = t_strdup_printf("*2\r\n$3\r\nGET\r\n$%d\r\n%s\r\n",
-				      (int)strlen(key), key);
-		o_stream_send_str(dict->conn.conn.output, cmd);
+		if (!dict->connected) {
+			/* wait for connection */
+			io_loop_run(dict->ioloop);
+		}
 
-		str_truncate(dict->conn.last_reply, 0);
-		io_loop_run(dict->ioloop);
+		if (dict->connected) {
+			cmd = t_strdup_printf("*2\r\n$3\r\nGET\r\n$%d\r\n%s\r\n",
+					      (int)strlen(key), key);
+			o_stream_send_str(dict->conn.conn.output, cmd);
+
+			str_truncate(dict->conn.last_reply, 0);
+			io_loop_run(dict->ioloop);
+		}
 		timeout_remove(&to);
 	}
 

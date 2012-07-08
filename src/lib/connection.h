@@ -27,6 +27,7 @@ enum connection_disconnect_reason {
 
 struct connection_vfuncs {
 	void (*destroy)(struct connection *conn);
+	void (*connected)(struct connection *conn);
 
 	/* implement one of the input*() methods.
 	   They return 0 = ok, -1 = error, disconnect the client */

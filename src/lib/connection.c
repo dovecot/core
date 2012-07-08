@@ -105,6 +105,7 @@ static void connection_init_streams(struct connection *conn)
 {
 	const struct connection_settings *set = &conn->list->set;
 
+	i_assert(conn->io == NULL);
 	i_assert(conn->input == NULL);
 	i_assert(conn->output == NULL);
 	i_assert(conn->to == NULL);
@@ -119,6 +120,7 @@ static void connection_init_streams(struct connection *conn)
 		conn->output = o_stream_create_fd(conn->fd_out,
 						  set->output_max_size, FALSE);
 	}
+	conn->io = io_add(conn->fd_in, IO_READ, conn->list->v.input, conn);
 	if (set->input_idle_timeout_secs != 0) {
 		conn->to = timeout_add(set->input_idle_timeout_secs*1000,
 				       connection_idle_timeout, conn);
@@ -128,12 +130,8 @@ static void connection_init_streams(struct connection *conn)
 			"VERSION\t%s\t%u\t%u\n", set->service_name_out,
 			set->major_version, set->minor_version));
 	}
-}
-
-static void connection_init_io(struct connection *conn)
-{
-	i_assert(conn->io == NULL);
-	conn->io = io_add(conn->fd_in, IO_READ, conn->list->v.input, conn);
+	if (conn->list->v.connected != NULL)
+		conn->list->v.connected(conn);
 }
 
 void connection_init_server(struct connection_list *list,
@@ -147,7 +145,6 @@ void connection_init_server(struct connection_list *list,
 	conn->name = i_strdup(name);
 	conn->fd_in = fd_in;
 	conn->fd_out = fd_out;
-	connection_init_io(conn);
 	connection_init_streams(conn);
 
 	DLLIST_PREPEND(&list->connections, conn);
@@ -187,7 +184,7 @@ static void connection_connected(struct connection *conn)
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
 
-	connection_init_io(conn);
+	connection_init_streams(conn);
 }
 
 int connection_client_connect(struct connection *conn)
@@ -214,9 +211,8 @@ int connection_client_connect(struct connection *conn)
 					       connection_connect_timeout, conn);
 		}
 	} else {
-		connection_init_io(conn);
+		connection_init_streams(conn);
 	}
-	connection_init_streams(conn);
 	return 0;
 }
 
