@@ -74,6 +74,7 @@ liblib_la_SOURCES = \
 	ioloop-select.c \
 	ioloop-epoll.c \
 	ioloop-kqueue.c \
+	json-parser.c \
 	lib.c \
 	lib-signals.c \
 	md4.c \
@@ -183,6 +184,7 @@ headers = \
 	ioloop-iolist.h \
 	ioloop-private.h \
 	ioloop-notify-fd.h \
+	json-parser.h \
 	lib.h \
 	lib-signals.h \
 	llist.h \
