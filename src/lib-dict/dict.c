@@ -55,12 +55,14 @@ void dict_drivers_register_builtin(void)
 {
 	dict_driver_register(&dict_driver_client);
 	dict_driver_register(&dict_driver_file);
+	dict_driver_register(&dict_driver_redis);
 }
 
 void dict_drivers_unregister_builtin(void)
 {
 	dict_driver_unregister(&dict_driver_client);
 	dict_driver_unregister(&dict_driver_file);
+	dict_driver_unregister(&dict_driver_redis);
 }
 
 struct dict *dict_init(const char *uri, enum dict_data_type value_type,

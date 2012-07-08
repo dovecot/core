@@ -51,7 +51,8 @@ struct dict_transaction_context {
 	unsigned int changed:1;
 };
 
-extern struct dict dict_driver_file;
 extern struct dict dict_driver_client;
+extern struct dict dict_driver_file;
+extern struct dict dict_driver_redis;
 
 #endif
