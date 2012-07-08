@@ -22,6 +22,7 @@ liblib_la_SOURCES = \
 	child-wait.c \
 	close-keep-errno.c \
 	compat.c \
+	connection.c \
 	crc32.c \
 	data-stack.c \
 	eacces-error.c \
@@ -140,6 +141,7 @@ headers = \
 	child-wait.h \
 	close-keep-errno.h \
 	compat.h \
+	connection.h \
 	crc32.h \
 	data-stack.h \
 	eacces-error.h \
