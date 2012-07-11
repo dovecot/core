@@ -18,6 +18,10 @@ extern "C" {
 #include <sys/stat.h>
 #ifdef HAVE_LUCENE_TEXTCAT
 #  include <libtextcat/textcat.h>
+#else
+#ifdef HAVE_LUCENE_EXTTEXTCAT
+#  include <libexttextcat/textcat.h>
+#endif
 #endif
 };
 #include <CLucene.h>

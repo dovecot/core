@@ -2665,6 +2665,11 @@ if test "$want_lucene" = "yes"; then
       AC_CHECK_LIB(textcat, special_textcat_Init, [
 	have_lucene_textcat=yes
 	AC_DEFINE(HAVE_LUCENE_TEXTCAT,, Define if you want textcat support for CLucene)
+      ], [
+        AC_CHECK_LIB(exttextcat, special_textcat_Init, [
+          have_lucene_exttextcat=yes
+          AC_DEFINE(HAVE_LUCENE_EXTTEXTCAT,, Define if you want textcat (Debian version) support for CLucene)
+        ])
       ])
     ], [
       if test $want_stemmer = yes; then
@@ -2677,6 +2682,7 @@ if test "$want_lucene" = "yes"; then
 fi
 AM_CONDITIONAL(BUILD_LUCENE_STEMMER, test "$have_lucene_stemmer" = "yes")
 AM_CONDITIONAL(BUILD_LUCENE_TEXTCAT, test "$have_lucene_textcat" = "yes")
+AM_CONDITIONAL(BUILD_LUCENE_EXTTEXTCAT, test "$have_lucene_exttextcat" = "yes")
 
 if test $have_lucene = no; then
   not_fts="$not_fts lucene"
