@@ -451,7 +451,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 	unsigned int len;
 	bool dump_section = FALSE;
 
-	ctx = config_dump_human_init("", scope, TRUE);
+	ctx = config_dump_human_init("", scope, FALSE);
 	config_export_by_filter(ctx->export_ctx, filter);
 	if (config_export_finish(&ctx->export_ctx) < 0)
 		return -1;
@@ -693,6 +693,11 @@ int main(int argc, char *argv[])
 		ret2 = config_export_finish(&ctx);
 	} else if (setting_name_filters != NULL) {
 		ret2 = 0;
+		/* ignore settings-check failures in configuration. this allows
+		   using doveconf to lookup settings for things like install or
+		   uninstall scripts where the configuration might
+		   (temporarily) not be fully usable */
+		ret = 0;
 		for (i = 0; setting_name_filters[i] != NULL; i++) {
 			if (config_dump_one(&filter, hide_key, scope,
 					    setting_name_filters[i]) < 0)
