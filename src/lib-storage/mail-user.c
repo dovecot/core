@@ -201,7 +201,9 @@ mail_user_var_expand_table(struct mail_user *user)
 	};
 	struct var_expand_table *tab;
 
-	if (user->var_expand_table != NULL)
+	/* use a cached table, unless home directory has been set afterwards */
+	if (user->var_expand_table != NULL &&
+	    user->var_expand_table[4].value == user->_home)
 		return user->var_expand_table;
 
 	tab = p_malloc(user->pool, sizeof(static_tab));
