@@ -137,16 +137,25 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 		str_append(msg, move ? "OK Move completed." :
 			   "OK Copy completed.");
 		pool_unref(&changes.pool);
+	} else if (move) {
+		i_assert(copy_count == seq_range_count(&changes.saved_uids));
+
+		str_printfa(msg, "* OK [COPYUID %u %s",
+			    changes.uid_validity, src_uidset);
+		imap_write_seq_range(msg, &changes.saved_uids);
+		str_append(msg, "] Moved UIDs.");
+		client_send_line(client, str_c(msg));
+
+		str_truncate(msg, 0);
+		str_append(msg, "OK Move completed.");
+		pool_unref(&changes.pool);
 	} else {
 		i_assert(copy_count == seq_range_count(&changes.saved_uids));
 
 		str_printfa(msg, "OK [COPYUID %u %s ", changes.uid_validity,
 			    src_uidset);
 		imap_write_seq_range(msg, &changes.saved_uids);
-		if (move)
-			str_append(msg, "] Move completed.");
-		else
-			str_append(msg, "] Copy completed.");
+		str_append(msg, "] Copy completed.");
 		pool_unref(&changes.pool);
 	}
 
@@ -183,7 +192,7 @@ bool cmd_copy(struct client_command_context *cmd)
 	return cmd_copy_full(cmd, FALSE);
 }
 
-bool cmd_uid_move(struct client_command_context *cmd)
+bool cmd_move(struct client_command_context *cmd)
 {
 	return cmd_copy_full(cmd, TRUE);
 }
