@@ -151,14 +151,13 @@ static int search_arg_match_keywords(struct index_search_context *ctx,
 static bool
 index_search_get_pvt(struct index_search_context *ctx, uint32_t uid)
 {
-	if (ctx->pvt_uid == uid)
-		return ctx->pvt_seq != 0;
-
 	if (ctx->box->view_pvt == NULL) {
 		/* no private view (set by view syncing) -> no private flags */
 		return FALSE;
 	}
 
+	if (ctx->pvt_uid == uid)
+		return ctx->pvt_seq != 0;
 	ctx->pvt_uid = uid;
 	return mail_index_lookup_seq(ctx->mail_ctx.transaction->view_pvt,
 				     uid, &ctx->pvt_seq);
