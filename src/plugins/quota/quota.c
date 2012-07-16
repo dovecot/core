@@ -769,7 +769,7 @@ bool quota_root_is_namespace_visible(struct quota_root *root,
 	    (storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0)
 		return FALSE;
 
-	if (root->ns != NULL) {
+	if (root->ns_prefix != NULL) {
 		if (root->ns != ns)
 			return FALSE;
 	} else {
