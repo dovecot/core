@@ -731,7 +731,7 @@ void master_settings_do_fixes(const struct master_settings *set)
 	}
 
 	/* Make sure our permanent state directory exists */
-	if (mkdir_parents(PKG_STATEDIR, 0750) < 0 && errno != EEXIST)
+	if (mkdir_parents(PKG_STATEDIR, 0755) < 0 && errno != EEXIST)
 		i_fatal("mkdir(%s) failed: %m", PKG_STATEDIR);
 
 	login_dir = t_strconcat(set->base_dir, "/login", NULL);
