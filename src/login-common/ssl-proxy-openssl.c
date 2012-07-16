@@ -1026,6 +1026,17 @@ static const char *ssl_proxy_get_use_certificate_error(const char *cert)
 	}
 }
 
+static const char *ssl_key_load_error(void)
+{
+	unsigned long err = ERR_peek_error();
+
+	if (ERR_GET_LIB(err) == ERR_LIB_X509 &&
+	    ERR_GET_REASON(err) == X509_R_KEY_VALUES_MISMATCH)
+		return "Key is for a different cert than ssl_cert";
+	else
+		return ssl_last_error();
+}
+
 static EVP_PKEY *
 ssl_proxy_load_key(const char *key, const char *password)
 {
@@ -1040,21 +1051,12 @@ ssl_proxy_load_key(const char *key, const char *password)
 	dup_password = t_strdup_noconst(password);
 	pkey = PEM_read_bio_PrivateKey(bio, NULL, pem_password_callback,
 				       dup_password);
-	if (pkey == NULL)
-		i_fatal("Couldn't parse private ssl_key");
+	if (pkey == NULL) {
+		i_fatal("Couldn't parse private ssl_key: %s",
+			ssl_key_load_error());
+	}
 	BIO_free(bio);
 	return pkey;
-}
-
-static const char *ssl_key_load_error(void)
-{
-	unsigned long err = ERR_peek_error();
-
-	if (ERR_GET_LIB(err) == ERR_LIB_X509 &&
-	    ERR_GET_REASON(err) == X509_R_KEY_VALUES_MISMATCH)
-		return "Key is for a different cert than ssl_cert";
-	else
-		return ssl_last_error();
 }
 
 static void ssl_proxy_ctx_use_key(SSL_CTX *ctx, const struct login_settings *set)
