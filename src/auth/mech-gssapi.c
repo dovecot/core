@@ -416,8 +416,8 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 	bool ret = FALSE;
 
 	/* Parse out the principal's username */
-	if (!get_display_name(&request->auth_request, name, &name_type,
-			      &princ_display_name) < 0)
+	if (get_display_name(&request->auth_request, name, &name_type,
+			     &princ_display_name) < 0)
 		return FALSE;
 
 	if (!mech_gssapi_oid_cmp(name_type, GSS_KRB5_NT_PRINCIPAL_NAME) &&
