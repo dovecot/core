@@ -168,6 +168,7 @@ void client_log_warn(struct client *client, const char *msg);
 const char *client_get_extra_disconnect_reason(struct client *client);
 bool client_is_trusted(struct client *client);
 void client_auth_failed(struct client *client);
+bool client_is_tls_enabled(struct client *client);
 const char *client_get_session_id(struct client *client);
 
 bool client_read(struct client *client);

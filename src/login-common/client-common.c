@@ -346,7 +346,7 @@ void client_cmd_starttls(struct client *client)
 		return;
 	}
 
-	if (!ssl_initialized) {
+	if (!client_is_tls_enabled(client)) {
 		client_send_line(client, CLIENT_CMD_REPLY_BAD,
 				 "TLS support isn't enabled.");
 		return;
@@ -589,6 +589,11 @@ bool client_is_trusted(struct client *client)
 			return TRUE;
 	}
 	return FALSE;
+}
+
+bool client_is_tls_enabled(struct client *client)
+{
+	return ssl_initialized && strcmp(client->set->ssl, "no") != 0;
 }
 
 const char *client_get_extra_disconnect_reason(struct client *client)
