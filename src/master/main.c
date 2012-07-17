@@ -299,8 +299,7 @@ static void mountpoints_warn_missing(struct mountpoint_list *mountpoints)
 	while ((rec = mountpoint_list_iter_next(iter)) != NULL) {
 		if (MOUNTPOINT_WRONGLY_NOT_MOUNTED(rec)) {
 			i_warning("%s is no longer mounted. "
-				  "If this is intentional, "
-				  "remove it with doveadm mount",
+				  "See http://wiki2.dovecot.org/Mountpoints",
 				  rec->mount_path);
 		}
 	}
