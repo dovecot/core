@@ -21,6 +21,12 @@ unsigned int mail_user_hash(const char *username, const char *format)
 	if (strcmp(format, "%u") == 0) {
 		/* fast path */
 		md5_get_digest(username, strlen(username), md5);
+	} else if (strcmp(format, "%Lu") == 0) {
+		/* almost as fast path */
+		T_BEGIN {
+			md5_get_digest(t_str_lcase(username),
+				       strlen(username), md5);
+		} T_END;
 	} else T_BEGIN {
 		string_t *str = t_str_new(128);
 
