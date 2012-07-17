@@ -566,9 +566,15 @@ fs_quota_get_linux(struct fs_quota_root *root, bool group, bool bytes,
 			/* values always returned in 512 byte blocks */
 			*value_r = xdqblk.d_bcount * 512;
 			*limit_r = xdqblk.d_blk_softlimit * 512;
+			if (*limit_r == 0) {
+				*limit_r = xdqblk.d_blk_hardlimit * 512;
+			}
 		} else {
 			*value_r = xdqblk.d_icount;
 			*limit_r = xdqblk.d_ino_softlimit;
+			if (*limit_r == 0) {
+				*limit_r = xdqblk.d_ino_hardlimit;
+			}
 		}
 	} else
 #endif
@@ -600,9 +606,15 @@ fs_quota_get_linux(struct fs_quota_root *root, bool group, bool bytes,
 			*value_r = dqblk.dqb_curblocks;
 #endif
 			*limit_r = dqblk.dqb_bsoftlimit * 1024;
+			if (*limit_r == 0) {
+				*limit_r = dqblk.dqb_bhardlimit * 1024;
+			}
 		} else {
 			*value_r = dqblk.dqb_curinodes;
 			*limit_r = dqblk.dqb_isoftlimit;
+			if (*limit_r == 0) {
+				*limit_r = dqblk.dqb_ihardlimit;
+			}
 		}
 	}
 	return 1;
@@ -633,9 +645,15 @@ fs_quota_get_bsdaix(struct fs_quota_root *root, bool group, bool bytes,
 	if (bytes) {
 		*value_r = (uint64_t)dqblk.dqb_curblocks * DEV_BSIZE;
 		*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
+		if (*limit_r == 0) {
+			*limit_r = (uint64_t)dqblk.dqb_bhardlimit * DEV_BSIZE;
+		}
 	} else {
 		*value_r = dqblk.dqb_curinodes;
 		*limit_r = dqblk.dqb_isoftlimit;
+		if (*limit_r == 0) {
+			*limit_r = dqblk.dqb_ihardlimit;
+		}
 	}
 	return 1;
 }
@@ -664,9 +682,16 @@ fs_quota_get_hpux(struct fs_quota_root *root, bool bytes,
 			root->mount->block_size;
 		*limit_r = (uint64_t)dqblk.dqb_bsoftlimit *
 			root->mount->block_size;
+		if (*limit_r == 0) {
+			*limit_r = (uint64_t)dqblk.dqb_bhardlimit *
+				root->mount->block_size;
+		}
 	} else {
 		*value_r = dqblk.dqb_curfiles;
 		*limit_r = dqblk.dqb_fsoftlimit;
+		if (*limit_r == 0) {
+			*limit_r = dqblk.dqb_fhardlimit;
+		}
 	}
 	return 1;
 }
@@ -693,9 +718,15 @@ fs_quota_get_solaris(struct fs_quota_root *root, bool bytes,
 	if (bytes) {
 		*value_r = (uint64_t)dqblk.dqb_curblocks * DEV_BSIZE;
 		*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
+		if (*limit_r == 0) {
+			*limit_r = (uint64_t)dqblk.dqb_bhardlimit * DEV_BSIZE;
+		}
 	} else {
 		*value_r = dqblk.dqb_curfiles;
 		*limit_r = dqblk.dqb_fsoftlimit;
+		if (*limit_r == 0) {
+			*limit_r = dqblk.dqb_fhardlimit;
+		}
 	}
 	return 1;
 }
