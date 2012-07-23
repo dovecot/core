@@ -25,6 +25,7 @@ struct quota_settings {
 			  uoff_t size, bool *too_large_r);
 
 	const char *quota_exceeded_msg;
+	unsigned int ignore_save_errors:1;
 	unsigned int debug:1;
 };
 

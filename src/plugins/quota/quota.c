@@ -195,6 +195,8 @@ int quota_user_read_settings(struct mail_user *user,
 	quota_set->debug = user->mail_debug;
 	quota_set->quota_exceeded_msg =
 		mail_user_plugin_getenv(user, "quota_exceeded_message");
+	quota_set->ignore_save_errors =
+		mail_user_plugin_getenv(user, "quota_ignore_save_errors") != NULL;
 	if (quota_set->quota_exceeded_msg == NULL)
 		quota_set->quota_exceeded_msg = DEFAULT_QUOTA_EXCEEDED_MSG;
 

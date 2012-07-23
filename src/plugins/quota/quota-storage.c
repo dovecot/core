@@ -147,7 +147,7 @@ static int quota_check(struct mailbox_transaction_context *t, struct mail *mail)
 	} else {
 		mail_storage_set_critical(t->box->storage,
 					  "Internal quota calculation error");
-		return -1;
+		return qt->quota->set->ignore_save_errors ? 0 : -1;
 	}
 }
 
@@ -204,7 +204,8 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 		} else if (ret < 0) {
 			mail_storage_set_critical(t->box->storage,
 				"Internal quota calculation error");
-			return -1;
+			if (!qt->quota->set->ignore_save_errors)
+				return -1;
 		}
 	}
 
