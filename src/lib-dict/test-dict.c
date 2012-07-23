@@ -6,6 +6,7 @@
 
 struct dict dict_driver_client;
 struct dict dict_driver_file;
+struct dict dict_driver_memcached;
 struct dict dict_driver_redis;
 
 static void test_dict_escape(void)

@@ -14,6 +14,7 @@ base_sources = \
 	dict.c \
 	dict-client.c \
 	dict-file.c \
+	dict-memcached.c \
 	dict-redis.c
 
 libdict_la_SOURCES = \
