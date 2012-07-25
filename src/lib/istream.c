@@ -140,6 +140,7 @@ ssize_t i_stream_read(struct istream *stream)
 			errno = stream->stream_errno;
 		} else {
 			i_assert(stream->eof);
+			i_assert(old_size == _stream->pos - _stream->skip);
 		}
 		break;
 	case 0:
