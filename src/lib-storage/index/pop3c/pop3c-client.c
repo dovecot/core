@@ -348,8 +348,13 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		client->state = POP3C_CLIENT_STATE_CAPA;
 		break;
 	case POP3C_CLIENT_STATE_CAPA:
-		if (strncasecmp(line, "-ERR", 4) == 0 ||
-		    strcmp(line, ".") == 0) {
+		if (strncasecmp(line, "-ERR", 4) == 0) {
+			/* CAPA command not supported. some commands still
+			   support UIDL though. */
+			client->capabilities |= POP3C_CAPABILITY_UIDL;
+			pop3c_client_login_finished(client);
+			break;
+		} else if (strcmp(line, ".") == 0) {
 			pop3c_client_login_finished(client);
 			break;
 		}
