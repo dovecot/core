@@ -535,6 +535,7 @@ astream_end_of_part(struct attachment_istream *astream)
 		if (part->part_buf != NULL) {
 			stream_add_data(astream, part->part_buf->data,
 					part->part_buf->used);
+			ret = part->part_buf->used > 0 ? 1 : 0;
 		}
 		break;
 	case MAIL_ATTACHMENT_STATE_YES:
@@ -553,19 +554,27 @@ i_stream_attachment_read_next(struct attachment_istream *astream, bool *retry_r)
 	struct istream_private *stream = &astream->istream;
 	struct message_block block;
 	size_t old_size, new_size;
+	int ret;
 
 	*retry_r = FALSE;
 
 	if (stream->pos - stream->skip >= stream->max_buffer_size)
 		return -2;
 
+	old_size = stream->pos - stream->skip;
 	switch (message_parser_parse_next_block(astream->parser, &block)) {
 	case -1:
 		/* done / error */
+		ret = astream_end_of_part(astream);
+		if (ret > 0) {
+			/* final data */
+			new_size = stream->pos - stream->skip;
+			return new_size - old_size;
+		}
 		stream->istream.eof = TRUE;
 		stream->istream.stream_errno = stream->parent->stream_errno;
 
-		if (astream_end_of_part(astream) < 0)
+		if (ret < 0)
 			stream->istream.stream_errno = EIO;
 		astream->cur_part = NULL;
 		return -1;
@@ -575,8 +584,6 @@ i_stream_attachment_read_next(struct attachment_istream *astream, bool *retry_r)
 	default:
 		break;
 	}
-
-	old_size = stream->pos - stream->skip;
 
 	if (block.part != astream->cur_part && astream->cur_part != NULL) {
 		/* end of a MIME part */
