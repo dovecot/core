@@ -9,12 +9,12 @@ LIBDOVECOT_SUBDIRS = \
 	lib-imap-storage \
 	lib-master \
 	lib-dict \
-	lib-settings
+	lib-settings \
+	lib-ssl-iostream
 
 SUBDIRS = \
 	lib-test \
 	$(LIBDOVECOT_SUBDIRS) \
-	lib-ssl-iostream \
 	lib-imap-client \
 	lib-dovecot \
 	lib-index \
