@@ -1098,7 +1098,7 @@ lucene_add_definite_query(struct lucene_index *index,
 			return false;
 
 		q = lucene_get_query(index,
-				     t_lucene_utf8_to_tchar(index, arg->hdr_field_name, FALSE),
+				     t_lucene_utf8_to_tchar(index, t_str_lcase(arg->hdr_field_name), FALSE),
 				     arg);
 		break;
 	default:
@@ -1141,7 +1141,7 @@ lucene_add_maybe_query(struct lucene_index *index,
 		if (*arg->value.str == '\0') {
 			/* checking potential existence of the header name */
 			q = lucene_get_query_str(index, _T("hdr"),
-						 arg->hdr_field_name, FALSE);
+				t_str_lcase(arg->hdr_field_name), FALSE);
 			break;
 		}
 
