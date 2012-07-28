@@ -6,6 +6,7 @@
 #include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
+#include "master-service-ssl-settings.h"
 #include "master-service-settings-cache.h"
 #include "login-settings.h"
 
@@ -26,22 +27,11 @@ static const struct setting_define login_setting_defines[] = {
 	DEF(SET_STR, login_access_sockets),
 	DEF(SET_STR, director_username_hash),
 
-	DEF(SET_ENUM, ssl),
-	DEF(SET_STR, ssl_ca),
-	DEF(SET_STR, ssl_cert),
-	DEF(SET_STR, ssl_key),
-	DEF(SET_STR, ssl_key_password),
-	DEF(SET_STR, ssl_cipher_list),
-	DEF(SET_STR, ssl_protocols),
-	DEF(SET_STR, ssl_cert_username_field),
 	DEF(SET_STR, ssl_client_cert),
 	DEF(SET_STR, ssl_client_key),
-	DEF(SET_STR, ssl_crypto_device),
-	DEF(SET_BOOL, ssl_verify_client_cert),
 	DEF(SET_BOOL, ssl_require_crl),
 	DEF(SET_BOOL, auth_ssl_require_client_cert),
 	DEF(SET_BOOL, auth_ssl_username_from_cert),
-	DEF(SET_BOOL, verbose_ssl),
 
 	DEF(SET_BOOL, disable_plaintext_auth),
 	DEF(SET_BOOL, auth_verbose),
@@ -61,22 +51,11 @@ static const struct login_settings login_default_settings = {
 	.login_access_sockets = "",
 	.director_username_hash = "%u",
 
-	.ssl = "yes:no:required",
-	.ssl_ca = "",
-	.ssl_cert = "",
-	.ssl_key = "",
-	.ssl_key_password = "",
-	.ssl_cipher_list = "ALL:!LOW:!SSLv2:!EXP:!aNULL",
-	.ssl_protocols = "!SSLv2",
-	.ssl_cert_username_field = "commonName",
 	.ssl_client_cert = "",
 	.ssl_client_key = "",
-	.ssl_crypto_device = "",
-	.ssl_verify_client_cert = FALSE,
 	.ssl_require_crl = TRUE,
 	.auth_ssl_require_client_cert = FALSE,
 	.auth_ssl_username_from_cert = FALSE,
-	.verbose_ssl = FALSE,
 
 	.disable_plaintext_auth = TRUE,
 	.auth_verbose = FALSE,
@@ -109,63 +88,18 @@ const struct setting_parser_info **login_set_roots = default_login_set_roots;
 static struct master_service_settings_cache *set_cache;
 
 /* <settings checks> */
-static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
-{
-	struct login_settings *set = _set;
-
-#ifndef HAVE_SSL
-	*error_r = t_strdup_printf("SSL support not compiled in but ssl=%s",
-				   set->ssl);
-	return FALSE;
-#else
-	if (*set->ssl_cert == '\0') {
-		*error_r = "ssl enabled, but ssl_cert not set";
-		return FALSE;
-	}
-	if (*set->ssl_key == '\0') {
-		*error_r = "ssl enabled, but ssl_key not set";
-		return FALSE;
-	}
-	if (set->ssl_verify_client_cert && *set->ssl_ca == '\0') {
-		*error_r = "ssl_verify_client_cert set, but ssl_ca not";
-		return FALSE;
-	}
-	return TRUE;
-#endif
-}
-
-static bool login_settings_check(void *_set, pool_t pool, const char **error_r)
+static bool login_settings_check(void *_set, pool_t pool,
+				 const char **error_r ATTR_UNUSED)
 {
 	struct login_settings *set = _set;
 
 	set->log_format_elements_split =
 		p_strsplit(pool, set->login_log_format_elements, " ");
 
-	if (set->auth_ssl_require_client_cert ||
-	    set->auth_ssl_username_from_cert) {
-		/* if we require valid cert, make sure we also ask for it */
-		set->ssl_verify_client_cert = TRUE;
-	}
-
 	if (set->auth_debug_passwords)
 		set->auth_debug = TRUE;
 	if (set->auth_debug)
 		set->auth_verbose = TRUE;
-
-	if (strcmp(set->ssl, "no") == 0) {
-		/* disabled */
-	} else if (strcmp(set->ssl, "yes") == 0) {
-		if (!ssl_settings_check(set, error_r))
-			return FALSE;
-	} else if (strcmp(set->ssl, "required") == 0) {
-		if (!ssl_settings_check(set, error_r))
-			return FALSE;
-		set->disable_plaintext_auth = TRUE;
-	} else {
-		*error_r = t_strdup_printf("Unknown ssl setting value: %s",
-					   set->ssl);
-		return FALSE;
-	}
 	return TRUE;
 }
 /* </settings checks> */
@@ -192,11 +126,29 @@ login_set_var_expand_table(const struct master_service_settings_input *input)
 	return tab;
 }
 
+static void *
+login_setting_dup(pool_t pool, const struct setting_parser_info *info,
+		  const void *src_set)
+{
+	const char *error;
+	void *dest;
+
+	dest = settings_dup(info, src_set, pool);
+	if (!settings_check(info, pool, dest, &error)) {
+		const char *name = info->module_name;
+
+		i_fatal("settings_check(%s) failed: %s",
+			name != NULL ? name : "unknown", error);
+	}
+	return dest;
+}
+
 struct login_settings *
 login_settings_read(pool_t pool,
 		    const struct ip_addr *local_ip,
 		    const struct ip_addr *remote_ip,
 		    const char *local_name,
+		    const struct master_service_ssl_settings **ssl_set_r,
 		    void ***other_settings_r)
 {
 	struct master_service_settings_input input;
@@ -232,18 +184,15 @@ login_settings_read(pool_t pool,
 	for (count = 0; input.roots[count] != NULL; count++) ;
 	i_assert(cache_sets[count] == NULL);
 	sets = p_new(pool, void *, count + 1);
-	for (i = 0; i < count; i++) {
-		sets[i] = settings_dup(input.roots[i], cache_sets[i], pool);
-		if (!settings_check(input.roots[i], pool, sets[i], &error)) {
-			const char *name = input.roots[i]->module_name;
-			i_fatal("settings_check(%s) failed: %s",
-				name != NULL ? name : "unknown", error);
-		}
-	}
+	for (i = 0; i < count; i++)
+		sets[i] = login_setting_dup(pool, input.roots[i], cache_sets[i]);
 
 	settings_var_expand(&login_setting_parser_info, sets[0], pool,
 			    login_set_var_expand_table(&input));
 
+	*ssl_set_r =
+		login_setting_dup(pool, &master_service_ssl_setting_parser_info,
+				  settings_parser_get_list(parser)[1]);
 	*other_settings_r = sets + 1;
 	return sets[0];
 }

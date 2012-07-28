@@ -105,6 +105,7 @@ struct client {
 	unsigned int local_port, remote_port;
 	struct ssl_proxy *ssl_proxy;
 	const struct login_settings *set;
+	const struct master_service_ssl_settings *ssl_set;
 	const char *session_id;
 
 	int fd;
@@ -164,7 +165,9 @@ extern struct client *clients;
 
 struct client *
 client_create(int fd, bool ssl, pool_t pool,
-	      const struct login_settings *set, void **other_sets,
+	      const struct login_settings *set,
+	      const struct master_service_ssl_settings *ssl_set,
+	      void **other_sets,
 	      const struct ip_addr *local_ip, const struct ip_addr *remote_ip);
 void client_destroy(struct client *client, const char *reason);
 void client_destroy_success(struct client *client, const char *reason);

@@ -100,7 +100,9 @@ static bool client_is_trusted(struct client *client)
 
 struct client *
 client_create(int fd, bool ssl, pool_t pool,
-	      const struct login_settings *set, void **other_sets,
+	      const struct login_settings *set,
+	      const struct master_service_ssl_settings *ssl_set,
+	      void **other_sets,
 	      const struct ip_addr *local_ip, const struct ip_addr *remote_ip)
 {
 	struct client *client;
@@ -119,6 +121,7 @@ client_create(int fd, bool ssl, pool_t pool,
 
 	client->pool = pool;
 	client->set = set;
+	client->ssl_set = ssl_set;
 	client->local_ip = *local_ip;
 	client->ip = *remote_ip;
 	client->fd = fd;
@@ -326,7 +329,8 @@ static void client_start_tls(struct client *client)
 		return;
 
 	fd_ssl = ssl_proxy_alloc(client->fd, &client->ip, client->pool,
-				 client->set, &client->ssl_proxy);
+				 client->set, client->ssl_set,
+				 &client->ssl_proxy);
 	if (fd_ssl == -1) {
 		client_notify_disconnect(client,
 			CLIENT_DISCONNECT_INTERNAL_ERROR,

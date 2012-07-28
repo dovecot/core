@@ -11,6 +11,7 @@
 #include "execv-const.h"
 #include "settings-parser.h"
 #include "master-service-private.h"
+#include "master-service-ssl-settings.h"
 #include "master-service-settings.h"
 
 #include <stddef.h>
@@ -367,6 +368,8 @@ int master_service_settings_read(struct master_service *service,
 
 	p_array_init(&all_roots, service->set_pool, 8);
 	tmp_root = &master_service_setting_parser_info;
+	array_append(&all_roots, &tmp_root, 1);
+	tmp_root = &master_service_ssl_setting_parser_info;
 	array_append(&all_roots, &tmp_root, 1);
 	if (input->roots != NULL) {
 		for (i = 0; input->roots[i] != NULL; i++)

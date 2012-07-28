@@ -21,6 +21,7 @@ libmaster_la_SOURCES = \
 	master-service.c \
 	master-service-settings.c \
 	master-service-settings-cache.c \
+	master-service-ssl-settings.c \
 	mountpoint-list.c \
 	syslog-util.c
 
@@ -37,6 +38,7 @@ headers = \
 	master-service-private.h \
 	master-service-settings.h \
 	master-service-settings-cache.h \
+	master-service-ssl-settings.h \
 	service-settings.h \
 	mountpoint-list.h \
 	syslog-util.h

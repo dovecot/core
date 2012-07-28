@@ -11,7 +11,8 @@ bool ssl_initialized = FALSE;
 
 int ssl_proxy_alloc(int fd ATTR_UNUSED, const struct ip_addr *ip ATTR_UNUSED,
 		    pool_t set_pool ATTR_UNUSED,
-		    const struct login_settings *set ATTR_UNUSED,
+		    const struct login_settings *login_set ATTR_UNUSED,
+		    const struct master_service_ssl_settings *ssl_set ATTR_UNUSED,
 		    struct ssl_proxy **proxy_r ATTR_UNUSED)
 {
 	i_error("Dovecot wasn't built with SSL support");
@@ -20,7 +21,8 @@ int ssl_proxy_alloc(int fd ATTR_UNUSED, const struct ip_addr *ip ATTR_UNUSED,
 
 int ssl_proxy_client_alloc(int fd ATTR_UNUSED, struct ip_addr *ip ATTR_UNUSED,
 			   pool_t set_pool ATTR_UNUSED,
-			   const struct login_settings *set ATTR_UNUSED,
+			   const struct login_settings *login_set ATTR_UNUSED,
+			   const struct master_service_ssl_settings *ssl_set ATTR_UNUSED,
 			   ssl_handshake_callback_t *callback ATTR_UNUSED,
 			   void *context ATTR_UNUSED,
 			   struct ssl_proxy **proxy_r ATTR_UNUSED)

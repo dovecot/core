@@ -530,6 +530,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 
 	fd = ssl_proxy_client_alloc(proxy->server_fd, &proxy->client->ip,
 				    proxy->client->pool, proxy->client->set,
+				    proxy->client->ssl_set,
 				    login_proxy_ssl_handshaked, proxy,
 				    &proxy->ssl_server_proxy);
 	if (fd < 0) {

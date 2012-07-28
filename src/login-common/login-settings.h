@@ -1,6 +1,8 @@
 #ifndef LOGIN_SETTINGS_H
 #define LOGIN_SETTINGS_H
 
+struct master_service_ssl_settings;
+
 struct login_settings {
 	const char *login_trusted_networks;
 	const char *login_greeting;
@@ -8,22 +10,11 @@ struct login_settings {
 	const char *login_access_sockets;
 	const char *director_username_hash;
 
-	const char *ssl;
-	const char *ssl_ca;
-	const char *ssl_cert;
-	const char *ssl_key;
-	const char *ssl_key_password;
-	const char *ssl_cipher_list;
-	const char *ssl_protocols;
-	const char *ssl_cert_username_field;
 	const char *ssl_client_cert;
 	const char *ssl_client_key;
-	const char *ssl_crypto_device;
-	bool ssl_verify_client_cert;
 	bool ssl_require_crl;
 	bool auth_ssl_require_client_cert;
 	bool auth_ssl_username_from_cert;
-	bool verbose_ssl;
 
 	bool disable_plaintext_auth;
 	bool auth_verbose;
@@ -45,6 +36,7 @@ login_settings_read(pool_t pool,
 		    const struct ip_addr *local_ip,
 		    const struct ip_addr *remote_ip,
 		    const char *local_name,
+		    const struct master_service_ssl_settings **ssl_set_r,
 		    void ***other_settings_r) ATTR_NULL(2, 3, 4);
 void login_settings_deinit(void);
 

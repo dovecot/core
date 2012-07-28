@@ -40,6 +40,7 @@ extern const char *login_rawlog_dir;
 extern unsigned int initial_service_count;
 
 extern const struct login_settings *global_login_settings;
+extern const struct master_service_ssl_settings *global_ssl_settings;
 extern void **global_other_settings;
 
 void login_refresh_proctitle(void);

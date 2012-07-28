@@ -11,6 +11,7 @@
 #include "service-settings.h"
 #include "master-service.h"
 #include "master-service-settings.h"
+#include "master-service-ssl-settings.h"
 #include "all-settings.h"
 #include "old-set-parser.h"
 #include "config-request.h"
@@ -1056,7 +1057,8 @@ bool config_module_want_parser(struct config_module_parser *parsers,
 
 	if (strcmp(root->module_name, module) == 0)
 		return TRUE;
-	if (root == &master_service_setting_parser_info) {
+	if (root == &master_service_setting_parser_info ||
+	    root == &master_service_ssl_setting_parser_info) {
 		/* everyone wants master service settings */
 		return TRUE;
 	}

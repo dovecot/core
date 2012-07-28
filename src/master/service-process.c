@@ -208,6 +208,7 @@ static void service_process_setup_config_environment(struct service *service)
 		env_put(t_strconcat("DEBUG_LOG_PATH=", set->debug_log_path, NULL));
 		env_put(t_strconcat("LOG_TIMESTAMP=", set->log_timestamp, NULL));
 		env_put(t_strconcat("SYSLOG_FACILITY=", set->syslog_facility, NULL));
+		env_put("SSL=no");
 		break;
 	default:
 		env_put(t_strconcat(MASTER_CONFIG_FILE_ENV"=",

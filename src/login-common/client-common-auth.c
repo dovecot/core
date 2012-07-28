@@ -9,6 +9,7 @@
 #include "time-util.h"
 #include "login-proxy.h"
 #include "auth-client.h"
+#include "master-service-ssl-settings.h"
 #include "client-common.h"
 
 #include <stdlib.h>
@@ -580,7 +581,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 int client_auth_begin(struct client *client, const char *mech_name,
 		      const char *init_resp)
 {
-	if (!client->secured && strcmp(client->set->ssl, "required") == 0) {
+	if (!client->secured && strcmp(client->ssl_set->ssl, "required") == 0) {
 		if (client->set->auth_verbose) {
 			client_log(client, "Login failed: "
 				   "SSL required for authentication");

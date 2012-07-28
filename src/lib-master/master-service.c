@@ -869,6 +869,19 @@ void master_service_io_listeners_remove(struct master_service *service)
 	}
 }
 
+void master_service_ssl_io_listeners_remove(struct master_service *service)
+{
+	unsigned int i;
+
+	if (service->listeners != NULL) {
+		for (i = 0; i < service->socket_count; i++) {
+			if (service->listeners[i].io != NULL &&
+			    service->listeners[i].ssl)
+				io_remove(&service->listeners[i].io);
+		}
+	}
+}
+
 static void master_service_io_listeners_close(struct master_service *service)
 {
 	unsigned int i;

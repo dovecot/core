@@ -3,6 +3,7 @@
 
 struct ip_addr;
 struct ssl_proxy;
+struct master_service_ssl_settings;
 struct login_settings;
 struct client;
 
@@ -14,10 +15,12 @@ typedef int ssl_handshake_callback_t(void *context);
    must use from now on, or -1 if error occurred. Unless -1 is returned,
    the given fd must be simply forgotten. */
 int ssl_proxy_alloc(int fd, const struct ip_addr *ip, pool_t set_pool,
-		    const struct login_settings *set,
+		    const struct login_settings *login_set,
+		    const struct master_service_ssl_settings *ssl_set,
 		    struct ssl_proxy **proxy_r);
 int ssl_proxy_client_alloc(int fd, struct ip_addr *ip, pool_t set_pool,
-			   const struct login_settings *set,
+			   const struct login_settings *login_set,
+			   const struct master_service_ssl_settings *ssl_set,
 			   ssl_handshake_callback_t *callback, void *context,
 			   struct ssl_proxy **proxy_r);
 void ssl_proxy_start(struct ssl_proxy *proxy);
