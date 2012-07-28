@@ -731,7 +731,8 @@ static void index_mail_cache_dates(struct index_mail *mail)
 	uint32_t t;
 
 	dates[0] = mail->data.received_date;
-	dates[1] = mail->data.save_date;
+	dates[1] = mail->mail.mail.saving ? ioloop_time :
+		mail->data.save_date;
 
 	for (i = 0; i < N_ELEMENTS(date_fields); i++) {
 		if (dates[i] != (time_t)-1 &&
