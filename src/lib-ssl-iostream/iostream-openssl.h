@@ -61,6 +61,9 @@ int ssl_iostream_load_key(const struct ssl_iostream_settings *set,
 			  const char *key_source, EVP_PKEY **pkey_r);
 const char *ssl_iostream_get_use_certificate_error(const char *cert);
 int openssl_cert_match_name(SSL *ssl, const char *verify_name);
+int openssl_get_protocol_options(const char *protocols);
+#define OPENSSL_ALL_PROTOCOL_OPTIONS \
+	(SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1)
 
 /* Sync plain_input/plain_output streams with BIOs. Returns TRUE if at least
    one byte was read/written. */

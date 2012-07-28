@@ -278,6 +278,7 @@ ssl_iostream_settings_dup(pool_t pool,
 	struct ssl_iostream_settings *new_set;
 
 	new_set = p_new(pool, struct ssl_iostream_settings, 1);
+	new_set->protocols = p_strdup(pool, old_set->protocols);
 	new_set->cipher_list = p_strdup(pool, old_set->cipher_list);
 	new_set->cert = p_strdup(pool, old_set->cert);
 	new_set->key = p_strdup(pool, old_set->key);
@@ -285,6 +286,55 @@ ssl_iostream_settings_dup(pool_t pool,
 
 	new_set->verbose = old_set->verbose;
 	return new_set;
+}
+
+enum {
+	DOVECOT_SSL_PROTO_SSLv2	= 0x01,
+	DOVECOT_SSL_PROTO_SSLv3	= 0x02,
+	DOVECOT_SSL_PROTO_TLSv1	= 0x04,
+	DOVECOT_SSL_PROTO_ALL	= 0x07
+};
+
+int openssl_get_protocol_options(const char *protocols)
+{
+	const char *const *tmp;
+	int proto, op = 0, include = 0, exclude = 0;
+	bool neg;
+
+	tmp = t_strsplit_spaces(protocols, " ");
+	for (; *tmp != NULL; tmp++) {
+		const char *name = *tmp;
+
+		if (*name != '!')
+			neg = FALSE;
+		else {
+			name++;
+			neg = TRUE;
+		}
+		if (strcasecmp(name, SSL_TXT_SSLV2) == 0)
+			proto = DOVECOT_SSL_PROTO_SSLv2;
+		else if (strcasecmp(name, SSL_TXT_SSLV3) == 0)
+			proto = DOVECOT_SSL_PROTO_SSLv3;
+		else if (strcasecmp(name, SSL_TXT_TLSV1) == 0)
+			proto = DOVECOT_SSL_PROTO_TLSv1;
+		else {
+			i_fatal("Invalid ssl_protocols setting: "
+				"Unknown protocol '%s'", name);
+		}
+		if (neg)
+			exclude |= proto;
+		else
+			include |= proto;
+	}
+	if (include != 0) {
+		/* exclude everything, except those that are included
+		   (and let excludes still override those) */
+		exclude |= DOVECOT_SSL_PROTO_ALL & ~include;
+	}
+	if ((exclude & DOVECOT_SSL_PROTO_SSLv2) != 0) op |= SSL_OP_NO_SSLv2;
+	if ((exclude & DOVECOT_SSL_PROTO_SSLv3) != 0) op |= SSL_OP_NO_SSLv3;
+	if ((exclude & DOVECOT_SSL_PROTO_TLSv1) != 0) op |= SSL_OP_NO_TLSv1;
+	return op;
 }
 
 static int
@@ -302,6 +352,8 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			ssl_iostream_error());
 		return -1;
 	}
+	SSL_CTX_set_options(ctx->ssl_ctx,
+			    openssl_get_protocol_options(ctx->set->protocols));
 
 	if (set->cert != NULL &&
 	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->cert) < 0) {

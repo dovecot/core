@@ -133,8 +133,13 @@ ssl_iostream_set(struct ssl_iostream *ssl_io,
 				ssl_iostream_error());
 		}
 		return -1;
-
 	}
+	if (set->protocols != NULL) {
+		SSL_clear_options(ssl_io->ssl, OPENSSL_ALL_PROTOCOL_OPTIONS);
+		SSL_set_options(ssl_io->ssl,
+				openssl_get_protocol_options(set->protocols));
+	}
+
 	if (set->cert != NULL && strcmp(ctx_set->cert, set->cert) != 0) {
 		if (ssl_iostream_use_certificate(ssl_io, set->cert) < 0)
 			return -1;
