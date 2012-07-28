@@ -1149,57 +1149,6 @@ static void ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 }
 #endif
 
-enum {
-	DOVECOT_SSL_PROTO_SSLv2	= 0x01,
-	DOVECOT_SSL_PROTO_SSLv3	= 0x02,
-	DOVECOT_SSL_PROTO_TLSv1	= 0x04,
-	DOVECOT_SSL_PROTO_ALL	= 0x07
-};
-
-static void
-ssl_proxy_ctx_set_protocols(struct ssl_server_context *ssl_ctx,
-			    const char *protocols)
-{
-	const char *const *tmp;
-	int proto, op = 0, include = 0, exclude = 0;
-	bool neg;
-
-	tmp = t_strsplit_spaces(protocols, " ");
-	for (; *tmp != NULL; tmp++) {
-		const char *name = *tmp;
-
-		if (*name != '!')
-			neg = FALSE;
-		else {
-			name++;
-			neg = TRUE;
-		}
-		if (strcasecmp(name, SSL_TXT_SSLV2) == 0)
-			proto = DOVECOT_SSL_PROTO_SSLv2;
-		else if (strcasecmp(name, SSL_TXT_SSLV3) == 0)
-			proto = DOVECOT_SSL_PROTO_SSLv3;
-		else if (strcasecmp(name, SSL_TXT_TLSV1) == 0)
-			proto = DOVECOT_SSL_PROTO_TLSv1;
-		else {
-			i_fatal("Invalid ssl_protocols setting: "
-				"Unknown protocol '%s'", name);
-		}
-		if (neg)
-			exclude |= proto;
-		else
-			include |= proto;
-	}
-	if (include != 0) {
-		/* exclude everything, except those that are included
-		   (and let excludes still override those) */
-		exclude |= DOVECOT_SSL_PROTO_ALL & ~include;
-	}
-	if ((exclude & DOVECOT_SSL_PROTO_SSLv2) != 0) op |= SSL_OP_NO_SSLv2;
-	if ((exclude & DOVECOT_SSL_PROTO_SSLv3) != 0) op |= SSL_OP_NO_SSLv3;
-	if ((exclude & DOVECOT_SSL_PROTO_TLSv1) != 0) op |= SSL_OP_NO_TLSv1;
-	SSL_CTX_set_options(ssl_ctx->ctx, op);
-}
-
 static struct ssl_server_context *
 ssl_server_context_init(const struct login_settings *set)
 {
@@ -1227,7 +1176,7 @@ ssl_server_context_init(const struct login_settings *set)
 		i_fatal("Can't set cipher list to '%s': %s",
 			ctx->cipher_list, ssl_last_error());
 	}
-	ssl_proxy_ctx_set_protocols(ctx, ctx->protocols);
+	SSL_CTX_set_options(ssl_ctx, openssl_get_protocol_options(ctx->protocols));
 
 	if (ssl_proxy_ctx_use_certificate_chain(ctx->ctx, ctx->cert) != 1) {
 		i_fatal("Can't load ssl_cert: %s",
