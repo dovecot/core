@@ -13,6 +13,7 @@
 
 /* <settings checks> */
 static struct file_listener_settings ssl_params_unix_listeners_array[] = {
+	{ "ssl-params", 0666, "", "" },
 	{ "login/ssl-params", 0666, "", "" }
 };
 static struct file_listener_settings *ssl_params_unix_listeners[] = {
