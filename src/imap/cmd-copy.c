@@ -140,7 +140,7 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 	} else if (move) {
 		i_assert(copy_count == seq_range_count(&changes.saved_uids));
 
-		str_printfa(msg, "* OK [COPYUID %u %s",
+		str_printfa(msg, "* OK [COPYUID %u %s ",
 			    changes.uid_validity, src_uidset);
 		imap_write_seq_range(msg, &changes.saved_uids);
 		str_append(msg, "] Moved UIDs.");
