@@ -18,6 +18,10 @@ void ssl_iostream_unref(struct ssl_iostream **ssl_io ATTR_UNUSED)
 {
 }
 
+void ssl_iostream_destroy(struct ssl_iostream **ssl_io ATTR_UNUSED)
+{
+}
+
 int ssl_iostream_handshake(struct ssl_iostream *ssl_io ATTR_UNUSED)
 {
 	return -1;

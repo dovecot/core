@@ -24,6 +24,8 @@ int io_stream_create_ssl(struct ssl_iostream_context *ctx, const char *source,
 			 struct ssl_iostream **iostream_r);
 /* returned input and output streams must also be unreferenced */
 void ssl_iostream_unref(struct ssl_iostream **ssl_io);
+/* shutdown SSL connection and unreference ssl iostream */
+void ssl_iostream_destroy(struct ssl_iostream **ssl_io);
 
 int ssl_iostream_handshake(struct ssl_iostream *ssl_io);
 void ssl_iostream_set_handshake_callback(struct ssl_iostream *ssl_io,

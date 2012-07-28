@@ -252,6 +252,19 @@ void ssl_iostream_unref(struct ssl_iostream **_ssl_io)
 	ssl_iostream_free(ssl_io);
 }
 
+void ssl_iostream_destroy(struct ssl_iostream **_ssl_io)
+{
+	struct ssl_iostream *ssl_io = *_ssl_io;
+
+	*_ssl_io = NULL;
+
+	(void)SSL_shutdown(ssl_io->ssl);
+	(void)ssl_iostream_more(ssl_io);
+	(void)o_stream_flush(ssl_io->plain_output);
+
+	ssl_iostream_unref(&ssl_io);
+}
+
 static bool ssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 {
 	size_t bytes, max_bytes;
