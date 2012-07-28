@@ -846,9 +846,9 @@ static void ssl_info_callback(const SSL *ssl, int where, int ret)
 			  where, SSL_state_string_long(ssl),
 			  net_ip2addr(&proxy->ip));
 	} else {
-		i_warning("SSL: where=0x%x, ret=%d: %s [%s]",
-			  where, ret, SSL_state_string_long(ssl),
-			  net_ip2addr(&proxy->ip));
+		i_info("SSL: where=0x%x, ret=%d: %s [%s]",
+		       where, ret, SSL_state_string_long(ssl),
+		       net_ip2addr(&proxy->ip));
 	}
 }
 

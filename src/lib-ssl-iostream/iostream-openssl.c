@@ -24,9 +24,9 @@ static void ssl_info_callback(const SSL *ssl, int where, int ret)
 		i_warning("%s: SSL failed: where=0x%x: %s",
 			  ssl_io->source, where, SSL_state_string_long(ssl));
 	} else {
-		i_warning("%s: SSL: where=0x%x, ret=%d: %s",
-			  ssl_io->source, where, ret,
-			  SSL_state_string_long(ssl));
+		i_debug("%s: SSL: where=0x%x, ret=%d: %s",
+			ssl_io->source, where, ret,
+			SSL_state_string_long(ssl));
 	}
 }
 
