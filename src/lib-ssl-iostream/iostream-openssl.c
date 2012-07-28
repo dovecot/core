@@ -222,6 +222,10 @@ int io_stream_create_ssl(struct ssl_iostream_context *ctx, const char *source,
 
 	*input = i_stream_create_ssl(ssl_io);
 	*output = o_stream_create_ssl(ssl_io);
+	i_stream_set_name(*input, t_strconcat("SSL ",
+		i_stream_get_name(ssl_io->plain_input), NULL));
+	o_stream_set_name(*output, t_strconcat("SSL ",
+		o_stream_get_name(ssl_io->plain_output), NULL));
 
 	if (ssl_io->plain_output->real_stream->error_handling_disabled)
 		o_stream_set_no_error_handling(*output, TRUE);
