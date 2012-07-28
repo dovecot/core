@@ -491,7 +491,8 @@ master_service_settings_get(struct master_service *service)
 
 void **master_service_settings_get_others(struct master_service *service)
 {
-	return settings_parser_get_list(service->set_parser) + 1;
+	return settings_parser_get_list(service->set_parser) +
+		MASTER_SERVICE_INTERNAL_SET_PARSERS;
 }
 
 struct setting_parser_context *

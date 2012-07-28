@@ -227,7 +227,8 @@ login_settings_read(pool_t pool,
 					       &parser, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	cache_sets = settings_parser_get_list(parser) + 1;
+	cache_sets = settings_parser_get_list(parser) +
+		MASTER_SERVICE_INTERNAL_SET_PARSERS;
 	for (count = 0; input.roots[count] != NULL; count++) ;
 	i_assert(cache_sets[count] == NULL);
 	sets = p_new(pool, void *, count + 1);

@@ -406,7 +406,7 @@ auth_settings_read(const char *service, pool_t pool,
 	if (!settings_parser_check(set_parser, pool, &error))
 		i_unreached();
 
-	set = settings_parser_get_list(set_parser)[1];
+	set = settings_parser_get_list(set_parser)[MASTER_SERVICE_INTERNAL_SET_PARSERS];
 	settings_parser_deinit(&set_parser);
 	return set;
 }

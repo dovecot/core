@@ -3,6 +3,10 @@
 
 #include "network.h"
 
+/* Number of settings roots used by lib-master internally. Typically you should
+   use master_service_settings_get_others() to avoid knowing about this. */
+#define MASTER_SERVICE_INTERNAL_SET_PARSERS 1
+
 struct setting_parser_info;
 struct master_service;
 
