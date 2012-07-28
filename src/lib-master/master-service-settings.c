@@ -33,6 +33,7 @@ static bool
 master_service_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define master_service_setting_defines[] = {
+	DEF(SET_STR, base_dir),
 	DEF(SET_STR, log_path),
 	DEF(SET_STR, info_log_path),
 	DEF(SET_STR, debug_log_path),
@@ -47,6 +48,7 @@ static const struct setting_define master_service_setting_defines[] = {
 };
 
 static const struct master_service_settings master_service_default_settings = {
+	.base_dir = PKG_RUNDIR,
 	.log_path = "syslog",
 	.info_log_path = "",
 	.debug_log_path = "",

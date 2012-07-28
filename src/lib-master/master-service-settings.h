@@ -11,6 +11,7 @@ struct setting_parser_info;
 struct master_service;
 
 struct master_service_settings {
+	const char *base_dir;
 	const char *log_path;
 	const char *info_log_path;
 	const char *debug_log_path;
