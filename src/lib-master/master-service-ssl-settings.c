@@ -32,7 +32,11 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 };
 
 static const struct master_service_ssl_settings master_service_ssl_default_settings = {
+#ifdef HAVE_SSL
 	.ssl = "yes:no:required",
+#else
+	.ssl = "no:yes:required",
+#endif
 	.ssl_ca = "",
 	.ssl_cert = "",
 	.ssl_key = "",
@@ -74,6 +78,11 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				   set->ssl);
 	return FALSE;
 #else
+	/* we get called from many different tools, possibly with -O parameter,
+	   and few of those tools care about SSL settings. so don't check
+	   ssl_cert/ssl_key/etc validity here except in doveconf, because it
+	   usually is just an extra annoyance. */
+#ifdef CONFIG
 	if (*set->ssl_cert == '\0') {
 		*error_r = "ssl enabled, but ssl_cert not set";
 		return FALSE;
@@ -82,6 +91,7 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		*error_r = "ssl enabled, but ssl_key not set";
 		return FALSE;
 	}
+#endif
 	if (set->ssl_verify_client_cert && *set->ssl_ca == '\0') {
 		*error_r = "ssl_verify_client_cert set, but ssl_ca not";
 		return FALSE;
