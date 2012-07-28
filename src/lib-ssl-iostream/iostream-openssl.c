@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
-#include "ostream.h"
+#include "ostream-private.h"
 #include "iostream-openssl.h"
 
 #include <openssl/err.h>
@@ -222,6 +222,9 @@ int io_stream_create_ssl(struct ssl_iostream_context *ctx, const char *source,
 
 	*input = i_stream_create_ssl(ssl_io);
 	*output = o_stream_create_ssl(ssl_io);
+
+	if (ssl_io->plain_output->real_stream->error_handling_disabled)
+		o_stream_set_no_error_handling(*output, TRUE);
 
 	ssl_io->ssl_output = *output;
 	*iostream_r = ssl_io;
