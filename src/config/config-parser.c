@@ -997,10 +997,17 @@ void config_parse_load_modules(void)
 				array_append(&new_roots, &roots[i], 1);
 		}
 
-		service_set = module_get_symbol_quiet(m,
-			t_strdup_printf("%s_service_settings", m->name));
-		if (service_set != NULL)
-			array_append(&new_services, &service_set, 1);
+		services = module_get_symbol_quiet(m,
+			t_strdup_printf("%s_service_settings_array", m->name));
+		if (services != NULL) {
+			for (count = 0; services[count] != NULL; count++) ;
+			array_append(&new_services, services, count);
+		} else {
+			service_set = module_get_symbol_quiet(m,
+				t_strdup_printf("%s_service_settings", m->name));
+			if (service_set != NULL)
+				array_append(&new_services, &service_set, 1);
+		}
 	}
 	if (array_count(&new_roots) > 0) {
 		/* modules added new settings. add the defaults and start
