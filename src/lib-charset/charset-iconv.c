@@ -120,9 +120,8 @@ enum charset_result
 charset_to_utf8(struct charset_translation *t,
 		const unsigned char *src, size_t *src_size, buffer_t *dest)
 {
-	bool dtcase = (t->flags & CHARSET_FLAG_DECOMP_TITLECASE) != 0;
 	enum charset_result result;
-	size_t pos, used, size, prev_pos = 0, prev_used = 0;
+	size_t pos, size;
 	size_t prev_invalid_pos = (size_t)-1;
 	bool ret;
 
@@ -141,16 +140,6 @@ charset_to_utf8(struct charset_translation *t,
 				prev_invalid_pos = dest->used;
 			}
 			pos++;
-		} else if (!dtcase) {
-			/* force buffer to grow */
-			used = dest->used;
-			size = buffer_get_size(dest) - used + 1;
-			(void)buffer_append_space_unsafe(dest, size);
-			buffer_set_used_size(dest, used);
-		} else {
-			i_assert(dest->used != prev_used || pos != prev_pos);
-			prev_pos = pos;
-			prev_used = dest->used;
 		}
 	}
 
