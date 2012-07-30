@@ -59,9 +59,9 @@ static const char *get_disconnect_reason(struct cmd_append_context *ctx)
 
 	str_printfa(str, "Disconnected in APPEND (%u msgs, %u secs",
 		    ctx->count, secs);
-	if (ctx->input != NULL) {
+	if (ctx->litinput != NULL) {
 		str_printfa(str, ", %"PRIuUOFF_T"/%"PRIuUOFF_T" bytes",
-			    ctx->input->v_offset, ctx->literal_size);
+			    ctx->litinput->v_offset, ctx->literal_size);
 	}
 	str_append_c(str, ')');
 	return str_c(str);
@@ -156,8 +156,8 @@ static bool cmd_append_continue_cancel(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	(void)i_stream_read(ctx->input);
-	i_stream_skip(ctx->input, i_stream_get_data_size(ctx->input));
+	(void)i_stream_read(ctx->litinput);
+	i_stream_skip(ctx->litinput, i_stream_get_data_size(ctx->litinput));
 
 	if (cmd->client->input->closed) {
 		cmd_append_finish(ctx);
@@ -189,7 +189,7 @@ static bool cmd_append_cancel(struct cmd_append_context *ctx, bool nonsync)
 
 	/* we have to read the nonsynced literal so we don't treat the message
 	   data as commands. */
-	ctx->input = i_stream_create_limit(ctx->client->input, ctx->literal_size);
+	ctx->litinput = i_stream_create_limit(ctx->client->input, ctx->literal_size);
 
 	ctx->message_input = TRUE;
 	ctx->cmd->func = cmd_append_continue_cancel;
@@ -249,17 +249,16 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 	ctx->cat_msg_size = newsize;
 	/* add this input stream to chain */
 	i_stream_chain_append(ctx->catchain, input);
-	input = NULL;
 	/* save by reading the chain stream */
-	while (!i_stream_is_eof(ctx->input)) {
-		ret = i_stream_read(ctx->input);
+	while (!i_stream_is_eof(input)) {
+		ret = i_stream_read(input);
 		i_assert(ret != 0); /* we can handle only blocking input here */
 		if (mailbox_save_continue(ctx->save_ctx) < 0 || ret == -1)
 			break;
 	}
 
-	if (ctx->input->stream_errno != 0) {
-		errno = ctx->input->stream_errno;
+	if (input->stream_errno != 0) {
+		errno = input->stream_errno;
 		mail_storage_set_critical(ctx->box->storage,
 			"read(%s) failed: %m (for CATENATE URL %s)",
 			i_stream_get_name(input), caturl);
@@ -719,7 +718,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 
 	if (ctx->save_ctx != NULL) {
 		while (ctx->litinput->v_offset != ctx->literal_size) {
-			ret = i_stream_read(ctx->input);
+			ret = i_stream_read(ctx->litinput);
 			if (mailbox_save_continue(ctx->save_ctx) < 0) {
 				/* we still have to finish reading the message
 				   from client */
@@ -732,8 +731,8 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 	}
 
 	if (ctx->save_ctx == NULL) {
-		(void)i_stream_read(ctx->input);
-		i_stream_skip(ctx->input, i_stream_get_data_size(ctx->input));
+		(void)i_stream_read(ctx->litinput);
+		i_stream_skip(ctx->litinput, i_stream_get_data_size(ctx->litinput));
 	}
 
 	if (ctx->litinput->eof || client->input->closed) {

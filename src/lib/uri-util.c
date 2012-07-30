@@ -239,7 +239,7 @@ int uri_parse_scheme(struct uri_parser *parser, const char **scheme_r)
 
 	p = (const char *)parser->cur;
 	if (uri_cut_scheme(&p, scheme_r) < 0)
-		return -1;
+		return 0;
 
 	parser->cur = (const unsigned char *)p;
 	return 1;

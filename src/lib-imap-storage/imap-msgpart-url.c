@@ -67,18 +67,18 @@ int imap_msgpart_url_parse(struct mail_user *user, struct mailbox *selected_box,
 	if (imap_url_parse(urlstr, &base_url,
 			   IMAP_URL_PARSE_REQUIRE_RELATIVE, &url, &error) < 0) {
 		*error_r = t_strconcat("Invalid IMAP URL: ", error, NULL);
-		return -1;
+		return 0;
 	}
 	if (url->mailbox == NULL) {
 		*error_r = "Mailbox-relative IMAP URL, but no mailbox selected";
-		return -1;
+		return 0;
 	}
 	if (url->uid == 0 || url->search_program != NULL) {
 		*error_r = "Invalid messagepart IMAP URL";
-		return -1;
+		return 0;
 	}
 	*url_r = imap_msgpart_url_create(user, url);
-	return 0;
+	return 1;
 }
 
 struct mailbox *imap_msgpart_url_get_mailbox(struct imap_msgpart_url *mpurl)
@@ -168,12 +168,13 @@ static int
 imap_msgpart_url_open_part(struct imap_msgpart_url *mpurl, struct mail **mail_r,
 			   struct imap_msgpart **msgpart_r, const char **error_r)
 {
+	const char *section = mpurl->section == NULL ? "" : mpurl->section;
 	int ret;
 
 	if ((ret = imap_msgpart_url_open_mail(mpurl, mail_r, error_r)) <= 0)
 		return ret;
 
-	if (imap_msgpart_parse((*mail_r)->box, mpurl->section, msgpart_r) < 0) {
+	if (imap_msgpart_parse((*mail_r)->box, section, msgpart_r) < 0) {
 		*error_r = "Invalid section";
 		return 0;
 	}
