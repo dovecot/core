@@ -21,6 +21,7 @@ liblib_la_SOURCES = \
 	buffer.c \
 	child-wait.c \
 	compat.c \
+	connection.c \
 	crc32.c \
 	data-stack.c \
 	eacces-error.c \
@@ -141,6 +142,7 @@ headers = \
 	buffer.h \
 	child-wait.h \
 	compat.h \
+	connection.h \
 	crc32.h \
 	data-stack.h \
 	eacces-error.h \
