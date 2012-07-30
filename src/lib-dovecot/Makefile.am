@@ -11,7 +11,7 @@ libs = \
 	../lib/liblib.la
 
 ssl_libs = \
-	../lib-master/libmaster_ssl.la
+	../lib-master/libmaster_ssl.la \
 	../lib-ssl-iostream/libssl_iostream.la
 
 pkglib_LTLIBRARIES = libdovecot.la libdovecot-ssl.la
