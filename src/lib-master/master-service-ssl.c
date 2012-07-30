@@ -99,7 +99,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 
 	/* must be called after master_service_init_finish() so that if
 	   initialization fails we can close the SSL listeners */
-	i_assert(service->listeners != NULL);
+	i_assert(service->listeners != NULL || service->socket_count == 0);
 
 	set = master_service_ssl_settings_get(service);
 
