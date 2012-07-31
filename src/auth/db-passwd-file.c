@@ -7,6 +7,7 @@
 #include "userdb.h"
 #include "db-passwd-file.h"
 
+#include "array.h"
 #include "buffer.h"
 #include "istream.h"
 #include "hash.h"
@@ -90,7 +91,7 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 	}
 
 	if (*args == NULL) {
-		if (pw->db->userdb) {
+		if (pw->db->userdb_warn_missing) {
 			i_error("passwd-file %s: User %s is missing "
 				"userdb info", pw->path, username);
 		}
@@ -290,6 +291,15 @@ static struct db_passwd_file *db_passwd_file_find(const char *path)
 	return NULL;
 }
 
+static void db_passwd_file_set_userdb(struct db_passwd_file *db)
+{
+	db->userdb = TRUE;
+	/* warn about missing userdb fields only when there aren't any other
+	   userdbs. */
+	db->userdb_warn_missing =
+		array_count(&global_auth_settings->userdbs) == 1;
+}
+
 struct db_passwd_file *
 db_passwd_file_init(const char *path, bool userdb, bool debug)
 {
@@ -300,13 +310,15 @@ db_passwd_file_init(const char *path, bool userdb, bool debug)
 	db = db_passwd_file_find(path);
 	if (db != NULL) {
 		db->refcount++;
-		db->userdb = TRUE;
+		if (userdb)
+			db_passwd_file_set_userdb(db);
 		return db;
 	}
 
 	db = i_new(struct db_passwd_file, 1);
 	db->refcount = 1;
-	db->userdb = userdb;
+	if (userdb)
+		db_passwd_file_set_userdb(db);
 	db->debug = debug;
 
 	for (p = path; *p != '\0'; p++) {
