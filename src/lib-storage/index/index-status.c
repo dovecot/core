@@ -43,18 +43,72 @@ int index_storage_get_status(struct mailbox *box,
 	return 0;
 }
 
+static unsigned int index_storage_count_pvt_unseen(struct mailbox *box)
+{
+	const struct mail_index_record *pvt_rec;
+	uint32_t shared_seq, pvt_seq, shared_count, pvt_count;
+	uint32_t shared_uid;
+	unsigned int unseen_count = 0;
+
+	/* we can't trust private index to be up to date. we'll need to go
+	   through the shared index and for each existing mail lookup its
+	   private flags. if a mail doesn't exist in private index then its
+	   flags are 0. */
+	shared_count = mail_index_view_get_messages_count(box->view);
+	pvt_count = mail_index_view_get_messages_count(box->view_pvt);
+	shared_seq = pvt_seq = 1;
+	while (shared_seq <= shared_count && pvt_seq <= pvt_count) {
+		mail_index_lookup_uid(box->view, shared_seq, &shared_uid);
+		pvt_rec = mail_index_lookup(box->view_pvt, pvt_seq);
+
+		if (shared_uid == pvt_rec->uid) {
+			if ((pvt_rec->flags & MAIL_SEEN) == 0)
+				unseen_count++;
+			shared_seq++; pvt_seq++;
+		} else if (shared_uid < pvt_rec->uid) {
+			shared_seq++;
+		} else {
+			pvt_seq++;
+		}
+	}
+	unseen_count += (shared_count+1) - shared_seq;
+	return unseen_count;
+}
+
+static uint32_t index_storage_find_first_pvt_unseen_seq(struct mailbox *box)
+{
+	const struct mail_index_header *pvt_hdr;
+	const struct mail_index_record *pvt_rec;
+	uint32_t pvt_seq, pvt_count, shared_seq, seq2;
+
+	pvt_count = mail_index_view_get_messages_count(box->view_pvt);
+	mail_index_lookup_first(box->view_pvt, 0, MAIL_SEEN, &pvt_seq);
+	for (; pvt_seq <= pvt_count; pvt_seq++) {
+		pvt_rec = mail_index_lookup(box->view_pvt, pvt_seq);
+		if ((pvt_rec->flags & MAIL_SEEN) == 0 &&
+		    mail_index_lookup_seq(box->view, pvt_rec->uid, &shared_seq))
+			return shared_seq;
+	}
+	/* if shared index has any messages that don't exist in private index,
+	   the first of them is the first unseen message */
+	pvt_hdr = mail_index_get_header(box->view_pvt);
+	if (mail_index_lookup_seq_range(box->view,
+					pvt_hdr->next_uid, (uint32_t)-1,
+					&shared_seq, &seq2))
+		return shared_seq;
+	return 0;
+}
+
 void index_storage_get_open_status(struct mailbox *box,
 				   enum mailbox_status_items items,
 				   struct mailbox_status *status_r)
 {
-	const struct mail_index_header *hdr, *hdr_pvt;
+	const struct mail_index_header *hdr;
 
 	memset(status_r, 0, sizeof(struct mailbox_status));
 
 	/* we can get most of the status items without any trouble */
 	hdr = mail_index_get_header(box->view);
-	hdr_pvt = box->view_pvt == NULL ? NULL :
-		mail_index_get_header(box->view_pvt);
 	status_r->messages = hdr->messages_count;
 	if ((items & STATUS_RECENT) != 0) {
 		/* make sure recent count is set, in case syncing hasn't
@@ -63,13 +117,14 @@ void index_storage_get_open_status(struct mailbox *box,
 		status_r->recent = index_mailbox_get_recent_count(box);
 		i_assert(status_r->recent <= status_r->messages);
 	}
-	if (hdr_pvt == NULL ||
-	    (mailbox_get_private_flags_mask(box) & MAIL_SEEN) == 0) {
-		status_r->unseen = hdr->messages_count -
-			hdr->seen_messages_count;
-	} else {
-		status_r->unseen = hdr_pvt->messages_count -
-			hdr_pvt->seen_messages_count;
+	if ((items & STATUS_UNSEEN) != 0) {
+		if (box->view_pvt == NULL ||
+		    (mailbox_get_private_flags_mask(box) & MAIL_SEEN) == 0) {
+			status_r->unseen = hdr->messages_count -
+				hdr->seen_messages_count;
+		} else {
+			status_r->unseen = index_storage_count_pvt_unseen(box);
+		}
 	}
 	status_r->uidvalidity = hdr->uid_validity;
 	status_r->uidnext = hdr->next_uid;
@@ -87,13 +142,13 @@ void index_storage_get_open_status(struct mailbox *box,
 	}
 
 	if ((items & STATUS_FIRST_UNSEEN_SEQ) != 0) {
-		if (hdr_pvt == NULL ||
+		if (box->view_pvt == NULL ||
 		    (mailbox_get_private_flags_mask(box) & MAIL_SEEN) == 0) {
 			mail_index_lookup_first(box->view, 0, MAIL_SEEN,
 						&status_r->first_unseen_seq);
 		} else {
-			mail_index_lookup_first(box->view_pvt, 0, MAIL_SEEN,
-						&status_r->first_unseen_seq);
+			status_r->first_unseen_seq =
+				index_storage_find_first_pvt_unseen_seq(box);
 		}
 	}
 	if ((items & STATUS_LAST_CACHED_SEQ) != 0)

@@ -178,6 +178,7 @@ index_storage_mailbox_sync_pvt_index(struct mailbox *box)
 		seq_shared = 1;
 	}
 
+	uid = 0;
 	for (; seq_shared <= count_shared; seq_shared++) {
 		mail_index_lookup_uid(view_shared, seq_shared, &uid);
 		mail_index_append(trans_pvt, uid, &seq_pvt);
@@ -189,6 +190,14 @@ index_storage_mailbox_sync_pvt_index(struct mailbox *box)
 						 seq_old_pvt, seq_pvt);
 		}
 	}
+
+	if (uid < hdr_shared->next_uid) {
+		mail_index_update_header(trans_pvt,
+			offsetof(struct mail_index_header, next_uid),
+			&hdr_shared->next_uid,
+			sizeof(hdr_shared->next_uid), FALSE);
+	}
+
 	if ((ret = mail_index_sync_commit(&sync_ctx)) < 0)
 		mail_storage_set_index_error(box);
 	mail_index_view_close(&view_shared);

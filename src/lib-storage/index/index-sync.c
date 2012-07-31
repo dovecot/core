@@ -189,9 +189,6 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 		return &ctx->ctx;
 	}
 
-	/* sync private index if needed */
-	(void)index_storage_mailbox_sync_pvt(box);
-
 	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0)
 		sync_flags |= MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES;
 
@@ -394,6 +391,10 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	if (array_is_created(&ctx->all_flag_update_uids))
 		array_free(&ctx->all_flag_update_uids);
 
+	/* sync private index if needed. do this last to make sure that all
+	   the new messages are added to the private index, so their flags can
+	   be updated. */
+	(void)index_storage_mailbox_sync_pvt(_ctx->box);
 	i_free(ctx);
 	return ret;
 }
