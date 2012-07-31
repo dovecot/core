@@ -88,7 +88,7 @@ static int solr_xml_parse(struct solr_connection *conn,
 			  const void *data, size_t size, bool done)
 {
 	enum XML_Error err;
-	int line;
+	int line, col;
 
 	if (conn->xml_failed)
 		return -1;
@@ -99,8 +99,10 @@ static int solr_xml_parse(struct solr_connection *conn,
 	err = XML_GetErrorCode(conn->xml_parser);
 	if (err != XML_ERROR_FINISHED) {
 		line = XML_GetCurrentLineNumber(conn->xml_parser);
-		i_error("fts_solr: Invalid XML input at line %d: %s",
-			line, XML_ErrorString(err));
+		col = XML_GetCurrentColumnNumber(conn->xml_parser);
+		i_error("fts_solr: Invalid XML input at %d:%d: %s "
+			"(near: %.*s)", line, col, XML_ErrorString(err),
+			(int)I_MIN(size, 128), data);
 		conn->xml_failed = TRUE;
 		return -1;
 	}
