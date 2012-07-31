@@ -249,15 +249,15 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 		return FALSE;
 	}
 	if (list_sep == '\0') {
-		*error_r = "no list=yes namespaces";
+		*error_r = "list=yes namespace missing";
 		return FALSE;
 	}
 	if (!visible_namespaces) {
-		*error_r = "no hidden=no namespaces";
+		*error_r = "hidden=no namespace missing";
 		return FALSE;
 	}
 	if (subscriptions_count == 0) {
-		*error_r = "no subscriptions=yes namespaces";
+		*error_r = "subscriptions=yes namespace missing";
 		return FALSE;
 	}
 	return TRUE;
