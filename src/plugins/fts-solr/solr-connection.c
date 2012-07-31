@@ -102,7 +102,7 @@ static int solr_xml_parse(struct solr_connection *conn,
 		col = XML_GetCurrentColumnNumber(conn->xml_parser);
 		i_error("fts_solr: Invalid XML input at %d:%d: %s "
 			"(near: %.*s)", line, col, XML_ErrorString(err),
-			(int)I_MIN(size, 128), data);
+			(int)I_MIN(size, 128), (const char *)data);
 		conn->xml_failed = TRUE;
 		return -1;
 	}
