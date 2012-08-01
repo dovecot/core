@@ -305,7 +305,7 @@ unsigned int auth_cache_clear_users(struct auth_cache *cache,
 	for (node = cache->tail; node != NULL; node = next) {
 		next = node->next;
 		if (auth_cache_node_is_one_of_users(node, usernames)) {
-			auth_cache_node_destroy(cache, cache->tail);
+			auth_cache_node_destroy(cache, node);
 			ret++;
 		}
 	}
