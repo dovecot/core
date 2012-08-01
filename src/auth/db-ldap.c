@@ -314,7 +314,8 @@ static int db_ldap_request_search(struct ldap_connection *conn,
 	i_assert(request->msgid == -1);
 
 	request->msgid =
-		ldap_search(conn->ld, srequest->base, conn->set.ldap_scope,
+		ldap_search(conn->ld, *srequest->base == '\0' ? NULL :
+			    srequest->base, conn->set.ldap_scope,
 			    srequest->filter, srequest->attributes, 0);
 	if (request->msgid == -1) {
 		auth_request_log_error(request->auth_request, "ldap",
