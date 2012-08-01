@@ -21,6 +21,8 @@
 
 #define MAX_INBUF_SIZE 1024
 
+static void client_connection_input(struct client_connection *conn);
+
 struct client_connection {
 	pool_t pool;
 
@@ -208,6 +210,10 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 		return FALSE;
 	}
 
+	/* make sure client_connection_input() isn't called by the ioloop that
+	   is going to be run by doveadm_mail_cmd_server_run() */
+	io_remove(&conn->io);
+
 	o_stream_cork(conn->output);
 	ctx = doveadm_mail_cmd_server_parse(cmd_name, conn->set, &input, argc, args);
 	if (ctx == NULL)
@@ -220,6 +226,8 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 	net_set_nonblock(conn->fd, FALSE);
 	(void)o_stream_flush(conn->output);
 	net_set_nonblock(conn->fd, TRUE);
+
+	conn->io = io_add(conn->fd, IO_READ, client_connection_input, conn);
 	return TRUE;
 }
 
