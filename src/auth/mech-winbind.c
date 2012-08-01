@@ -240,7 +240,7 @@ do_auth_continue(struct auth_request *auth_request,
 	} else if (strcmp(token[0], "AF") == 0) {
 		const char *user, *p, *error;
 
-		user = gss_spnego ? token[2] : token[1];
+		user = t_strarray_join(gss_spnego ? token+2 : token+1, " ");
 		i_assert(user != NULL);
 
 		p = strchr(user, '\\');
