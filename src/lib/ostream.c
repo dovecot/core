@@ -241,14 +241,17 @@ void o_stream_nflush(struct ostream *stream)
 int o_stream_nfinish(struct ostream *stream)
 {
 	o_stream_nflush(stream);
-	stream->real_stream->last_errors_not_checked = FALSE;
+	o_stream_ignore_last_errors(stream);
 	errno = stream->last_failed_errno;
 	return stream->last_failed_errno != 0 ? -1 : 0;
 }
 
 void o_stream_ignore_last_errors(struct ostream *stream)
 {
-	stream->real_stream->last_errors_not_checked = FALSE;
+	while (stream != NULL) {
+		stream->real_stream->last_errors_not_checked = FALSE;
+		stream = stream->real_stream->parent;
+	}
 }
 
 void o_stream_set_no_error_handling(struct ostream *stream, bool set)
