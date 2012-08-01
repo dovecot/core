@@ -323,8 +323,14 @@ int fts_backend_lookup_multi(struct fts_backend *backend,
 	i_assert(boxes[0] != NULL);
 
 	if (backend->v.lookup_multi != NULL) {
-		return backend->v.lookup_multi(backend, boxes, args,
-					       and_args, result);
+		if (backend->v.lookup_multi(backend, boxes, args,
+					    and_args, result) < 0)
+			return -1;
+		if (result->box_results == NULL) {
+			result->box_results = p_new(result->pool,
+						    struct fts_result, 1);
+		}
+		return 0;
 	}
 
 	for (i = 0; boxes[i] != NULL; i++) ;
