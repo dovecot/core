@@ -16,6 +16,7 @@ SUBDIRS = \
 	lib-test \
 	$(LIBDOVECOT_SUBDIRS) \
 	lib-imap-client \
+	lib-compression \
 	lib-dovecot \
 	lib-index \
 	lib-storage \

@@ -10,8 +10,7 @@
 #include "maildir/maildir-storage.h"
 #include "index-storage.h"
 #include "index-mail.h"
-#include "istream-zlib.h"
-#include "ostream-zlib.h"
+#include "compression.h"
 #include "zlib-plugin.h"
 
 #include <stdlib.h>
@@ -26,15 +25,6 @@
 #define ZLIB_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, zlib_user_module)
 
-#ifndef HAVE_ZLIB
-#  define i_stream_create_gz NULL
-#  define o_stream_create_gz NULL
-#endif
-#ifndef HAVE_BZLIB
-#  define i_stream_create_bz2 NULL
-#  define o_stream_create_bz2 NULL
-#endif
-
 #define MAX_INBUF_SIZE (1024*1024)
 
 struct zlib_transaction_context {
@@ -46,7 +36,7 @@ struct zlib_transaction_context {
 struct zlib_user {
 	union mail_user_module_context module_ctx;
 
-	const struct zlib_handler *save_handler;
+	const struct compression_handler *save_handler;
 	unsigned int save_level;
 };
 
@@ -58,84 +48,13 @@ static MODULE_CONTEXT_DEFINE_INIT(zlib_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(zlib_mail_module, &mail_module_register);
 
-static bool is_compressed_zlib(struct istream *input)
-{
-	const unsigned char *data;
-	size_t size;
-
-	/* Peek in to the stream and see if it looks like it's compressed
-	   (based on its header). This also means that users can try to exploit
-	   security holes in the uncompression library by APPENDing a specially
-	   crafted mail. So let's hope zlib is free of holes. */
-	if (i_stream_read_data(input, &data, &size, 1) <= 0)
-		return FALSE;
-	i_assert(size >= 2);
-
-	return data[0] == 31 && data[1] == 139;
-}
-
-static bool is_compressed_bzlib(struct istream *input)
-{
-	const unsigned char *data;
-	size_t size;
-
-	if (i_stream_read_data(input, &data, &size, 4+6 - 1) <= 0)
-		return FALSE;
-	if (data[0] != 'B' || data[1] != 'Z')
-		return FALSE;
-	if (data[2] != 'h' && data[2] != '0')
-		return FALSE;
-	if (data[3] < '1' || data[3] > '9')
-		return FALSE;
-	return memcmp(data + 4, "\x31\x41\x59\x26\x53\x59", 6) == 0;
-}
-
-const struct zlib_handler *zlib_find_zlib_handler(const char *name)
-{
-	unsigned int i;
-
-	for (i = 0; zlib_handlers[i].name != NULL; i++) {
-		if (strcmp(name, zlib_handlers[i].name) == 0)
-			return &zlib_handlers[i];
-	}
-	return NULL;
-}
-
-static const struct zlib_handler *zlib_get_zlib_handler(struct istream *input)
-{
-	unsigned int i;
-
-	for (i = 0; zlib_handlers[i].name != NULL; i++) {
-		if (zlib_handlers[i].is_compressed != NULL &&
-		    zlib_handlers[i].is_compressed(input))
-			return &zlib_handlers[i];
-	}
-	return NULL;
-}
-
-static const struct zlib_handler *zlib_get_zlib_handler_ext(const char *name)
-{
-	unsigned int i, len, name_len = strlen(name);
-
-	for (i = 0; zlib_handlers[i].name != NULL; i++) {
-		if (zlib_handlers[i].ext == NULL)
-			continue;
-
-		len = strlen(zlib_handlers[i].ext);
-		if (name_len > len &&
-		    strcmp(name + name_len - len, zlib_handlers[i].ext) == 0)
-			return &zlib_handlers[i];
-	}
-	return NULL;
-}
-
 static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 {
 	struct zlib_user *zuser = ZLIB_USER_CONTEXT(_mail->box->storage->user);
 	struct mail_private *mail = (struct mail_private *)_mail;
 	union mail_module_context *zmail = ZLIB_MAIL_CONTEXT(mail);
 	struct istream *input;
-	const struct zlib_handler *handler;
+	const struct compression_handler *handler;
 
 	/* don't uncompress input when we are reading a mail that we're just
 	   in the middle of saving, and we didn't do the compression ourself.
@@ -144,7 +63,7 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 	if (_mail->saving && zuser->save_handler == NULL)
 		return zmail->super.istream_opened(_mail, stream);
 
-	handler = zlib_get_zlib_handler(*stream);
+	handler = compression_detect_handler(*stream);
 	if (handler != NULL) {
 		if (handler->create_istream == NULL) {
 			mail_storage_set_critical(_mail->box->storage,
@@ -253,7 +172,7 @@ static int zlib_mail_save_finish(struct mail_save_context *ctx)
 	if (mail_get_stream(ctx->dest_mail, NULL, NULL, &input) < 0)
 		return -1;
 
-	if (zlib_get_zlib_handler(input) != NULL) {
+	if (compression_detect_handler(input) != NULL) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
 			"Saving mails compressed by client isn't supported");
 		return -1;
@@ -299,12 +218,12 @@ zlib_permail_alloc_init(struct mailbox *box, struct mailbox_vfuncs *v)
 
 static int zlib_mailbox_open_input(struct mailbox *box)
 {
-	const struct zlib_handler *handler;
+	const struct compression_handler *handler;
 	struct istream *input;
 	struct stat st;
 	int fd;
 
-	handler = zlib_get_zlib_handler_ext(box->name);
+	handler = compression_lookup_handler_from_ext(box->name);
 	if (handler == NULL || handler->create_istream == NULL)
 		return 0;
 
@@ -373,7 +292,7 @@ static void zlib_mail_user_created(struct mail_user *user)
 
 	name = mail_user_plugin_getenv(user, "zlib_save");
 	if (name != NULL && *name != '\0') {
-		zuser->save_handler = zlib_find_zlib_handler(name);
+		zuser->save_handler = compression_lookup_handler(name);
 		if (zuser->save_handler == NULL)
 			i_error("zlib_save: Unknown handler: %s", name);
 	}
@@ -405,13 +324,3 @@ void zlib_plugin_deinit(void)
 {
 	mail_storage_hooks_remove(&zlib_mail_storage_hooks);
 }
-
-const struct zlib_handler zlib_handlers[] = {
-	{ "gz", ".gz", is_compressed_zlib,
-	  i_stream_create_gz, o_stream_create_gz },
-	{ "bz2", ".bz2", is_compressed_bzlib,
-	  i_stream_create_bz2, o_stream_create_bz2 },
-	{ "deflate", NULL, NULL,
-	  i_stream_create_deflate, o_stream_create_deflate },
-	{ NULL, NULL, NULL, NULL, NULL }
-};

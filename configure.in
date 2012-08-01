@@ -2515,6 +2515,7 @@ if test "$want_shared_libs" = "yes"; then
   LIBDOVECOT_STORAGE_DEPS='$(top_builddir)/src/lib-storage/libdovecot-storage.la $(top_builddir)/src/lib-imap-storage/libimap-storage.la'
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/libdovecot-login.la'
   LIBDOVECOT_SSL='$(top_builddir)/src/lib-master/libmaster_ssl.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la'
+  LIBDOVECOT_COMPRESS='$(top_builddir)/src/lib-compression/libcompression.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/libdovecot-lda.la'
 else
   LIBDOVECOT_DEPS='$(top_builddir)/src/lib-master/libmaster.la $(top_builddir)/src/lib-settings/libsettings.la $(top_builddir)/src/lib-dict/libdict.la $(top_builddir)/src/lib-dns/libdns.la $(top_builddir)/src/lib-fs/libfs.la $(top_builddir)/src/lib-imap/libimap.la $(top_builddir)/src/lib-mail/libmail.la $(top_builddir)/src/lib-auth/libauth.la $(top_builddir)/src/lib-charset/libcharset.la $(top_builddir)/src/lib/liblib.la'
@@ -2524,6 +2525,7 @@ else
   LIBDOVECOT_STORAGE_DEPS="$LIBDOVECOT_STORAGE_FIRST $LINKED_STORAGE_LIBS $LIBDOVECOT_STORAGE_LAST"
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/liblogin.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la'
   LIBDOVECOT_SSL='$(top_builddir)/src/lib-master/libmaster_ssl.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la'
+  LIBDOVECOT_COMPRESS='$(top_builddir)/src/lib-compression/libcompression.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/liblda.la'
 fi
 LIBDOVECOT_STORAGE="$LIBDOVECOT_STORAGE_DEPS $LINKED_STORAGE_LDADD"
@@ -2535,6 +2537,7 @@ AC_SUBST(LIBDOVECOT_STORAGE_DEPS)
 AC_SUBST(LIBDOVECOT_LOGIN)
 AC_SUBST(LIBDOVECOT_SQL)
 AC_SUBST(LIBDOVECOT_SSL)
+AC_SUBST(LIBDOVECOT_COMPRESS)
 AC_SUBST(LIBDOVECOT_LDA)
 
 dnl **
@@ -2576,25 +2579,27 @@ dnl **
 dnl ** Plugins
 dnl **
 
+COMPRESS_LIBS=
 if test "$want_zlib" != "no"; then
   AC_CHECK_HEADER(zlib.h, [
     have_zlib=yes
-    have_zlib_plugin=yes
+    have_compress_lib=yes
     AC_DEFINE(HAVE_ZLIB,, Define if you have zlib library)
+    COMPRESS_LIBS="$COMPRESS_LIBS -lz"
   ], [
     if test "$want_zlib" = "yes"; then
       AC_ERROR([Can't build with zlib support: zlib.h not found])
     fi
   ])
 fi
-AM_CONDITIONAL(BUILD_ZLIB, test "$have_zlib" = "yes")
 
 if test "$want_bzlib" != "no"; then
   AC_CHECK_HEADER(bzlib.h, [
     AC_CHECK_LIB(bz2, BZ2_bzdopen, [
       have_bzlib=yes
-      have_zlib_plugin=yes
+      have_compress_lib=yes
       AC_DEFINE(HAVE_BZLIB,, Define if you have bzlib library)
+      COMPRESS_LIBS="$COMPRESS_LIBS -lbz2"
     ], [
       if test "$want_bzlib" = "yes"; then
 	AC_ERROR([Can't build with bzlib support: libbz2 not found])
@@ -2606,8 +2611,8 @@ if test "$want_bzlib" != "no"; then
     fi
   ])
 fi
-AM_CONDITIONAL(BUILD_BZLIB, test "$have_bzlib" = "yes")
-AM_CONDITIONAL(BUILD_ZLIB_PLUGIN, test "$have_zlib_plugin" = "yes")
+AC_SUBST(COMPRESS_LIBS)
+AM_CONDITIONAL(BUILD_ZLIB_PLUGIN, test "$have_compress_lib" = "yes")
 
 RPCGEN=${RPCGEN-rpcgen}
 if ! $RPCGEN -c /dev/null > /dev/null; then
@@ -2747,6 +2752,7 @@ src/lib/Makefile
 src/lib-sql/Makefile
 src/lib-auth/Makefile
 src/lib-charset/Makefile
+src/lib-compression/Makefile
 src/lib-dict/Makefile
 src/lib-dns/Makefile
 src/lib-fs/Makefile

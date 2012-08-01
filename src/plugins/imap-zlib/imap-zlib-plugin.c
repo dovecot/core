@@ -6,7 +6,7 @@
 #include "ostream.h"
 #include "module-context.h"
 #include "imap-commands.h"
-#include "zlib-plugin.h"
+#include "compression.h"
 #include "imap-zlib-plugin.h"
 
 #include <stdlib.h>
@@ -19,7 +19,7 @@
 struct zlib_client {
 	union imap_module_context module_ctx;
 
-	const struct zlib_handler *handler;
+	const struct compression_handler *handler;
 };
 
 const char *imap_zlib_plugin_version = DOVECOT_VERSION;
@@ -65,7 +65,7 @@ static bool cmd_compress(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct zlib_client *zclient = IMAP_ZLIB_IMAP_CONTEXT(client);
-	const struct zlib_handler *handler;
+	const struct compression_handler *handler;
 	const struct imap_arg *args;
 	struct istream *old_input;
 	struct ostream *old_output;
@@ -93,7 +93,7 @@ static bool cmd_compress(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	handler = zlib_find_zlib_handler(t_str_lcase(mechanism));
+	handler = compression_lookup_handler(t_str_lcase(mechanism));
 	if (handler == NULL || handler->create_istream == NULL) {
 		client_send_tagline(cmd, "NO Unknown compression mechanism.");
 		return TRUE;
@@ -129,7 +129,7 @@ static void imap_zlib_client_created(struct client **clientp)
 	struct zlib_client *zclient;
 
 	if (mail_user_is_plugin_loaded(client->user, imap_zlib_module) &&
-	    zlib_find_zlib_handler("deflate") != NULL) {
+	    compression_lookup_handler("deflate") != NULL) {
 		zclient = p_new(client->pool, struct zlib_client, 1);
 		MODULE_CONTEXT_SET(client, imap_zlib_imap_module, zclient);
 
@@ -156,5 +156,4 @@ void imap_zlib_plugin_deinit(void)
 	imap_client_created_hook_set(next_hook_client_created);
 }
 
-const char *imap_zlib_plugin_dependencies[] = { "zlib", NULL };
 const char imap_zlib_plugin_binary_dependency[] = "imap";
