@@ -25,6 +25,8 @@ libdovecot_la_LIBADD = \
 	$(LTLIBICONV)
 
 libdovecot_ssl_la_LIBADD = \
+	../lib/liblib.la \
+	$(MODULE_LIBS) \
 	$(ssl_libs) \
 	$(SSL_LIBS)
 
