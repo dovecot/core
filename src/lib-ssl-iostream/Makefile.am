@@ -21,6 +21,6 @@ libssl_iostream_la_SOURCES = \
 libssl_iostream_la_LIBADD = \
 	$(SSL_LIBS)
 
-headers = \
+noinst_HEADERS = \
 	iostream-openssl.h \
 	iostream-ssl.h
