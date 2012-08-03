@@ -66,7 +66,7 @@ install-exec-hook:
 	-e "s|^\(LIBDOVECOT_LOGIN\)=.*$$|\1=-ldovecot-login|" \
 	-e "s|^\(LIBDOVECOT_SQL\)=.*$$|\1=-ldovecot-sql|" \
 	-e "s|^\(LIBDOVECOT_SSL\)=.*$$|\1=-ldovecot-ssl|" \
-	-e "s|^\(LIBDOVECOT_COMPRESS\)=.*$$|\1=-ldovecot-compress|" \
+	-e "s|^\(LIBDOVECOT_COMPRESS\)=.*$$|\1=-ldovecot-compression|" \
 	-e "s|^\(LIBDOVECOT_LDA\)=.*$$|\1=-ldovecot-lda|" \
 	-e "s|^\(LIBDOVECOT_STORAGE\)=.*$$|\1=-ldovecot-storage|" \
 	-e "s|^\(LIBDOVECOT_INCLUDE\)=.*$$|\1=-I$(pkgincludedir)|" \
