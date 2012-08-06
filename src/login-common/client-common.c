@@ -650,7 +650,7 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	if (client->proxy_auth_failed)
 		return "(proxy dest auth failed)";
 	if (client->auth_successes > 0) {
-		return t_strdup_printf("(internal failure, %u succesful auths)",
+		return t_strdup_printf("(internal failure, %u successful auths)",
 				       client->auth_successes);
 	}
 	if (client->auth_user_disabled)
