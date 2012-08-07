@@ -99,7 +99,8 @@ static int test_open_attachment_ostream(struct istream_attachment_info *info,
 	a->base64_blocks_per_line = info->base64_blocks_per_line;
 
 	*output_r = o_stream_create_buffer(attachment_data);
-	o_stream_seek(*output_r, a->buffer_offset);
+	if (o_stream_seek(*output_r, a->buffer_offset) < 0)
+		i_unreached();
 	return 0;
 }
 

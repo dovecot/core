@@ -49,7 +49,7 @@ struct istream_attachment_settings {
 struct istream *
 i_stream_create_attachment_extractor(struct istream *input,
 				     struct istream_attachment_settings *set,
-				     void *context);
+				     void *context) ATTR_NULL(3);
 
 /* Returns TRUE if the last read returned 0 only because
    drain_parent_input=FALSE and we didn't have anything to return, but
