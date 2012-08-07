@@ -145,6 +145,8 @@ cache_find(struct master_service_settings_cache *cache,
 	}
 
 	if (entry != NULL) {
+		DLLIST2_REMOVE(&cache->oldest, &cache->newest, entry);
+		DLLIST2_APPEND(&cache->oldest, &cache->newest, entry);
 		*parser_r = entry->parser;
 		return TRUE;
 	}
@@ -195,31 +197,29 @@ static void cache_add(struct master_service_settings_cache *cache,
 		/* use global settings, but add local_ip/host to hash tables
 		   so we'll find them */
 		pool = pool_alloconly_create("settings global entry", 256);
-		entry = p_new(pool, struct settings_entry, 1);
 	} else if (cache->cache_malloc_size >= cache->max_cache_size) {
 		/* free the oldest and reuse its pool */
-		entry = cache->oldest;
-		pool = entry->pool;
-		setting_entry_detach(cache, entry);
-		p_clear(pool);
+		pool = cache->oldest->pool;
+		setting_entry_detach(cache, cache->oldest);
+		p_clear(pool); /* note: frees also entry */
 	} else {
 		pool_size = cache->approx_entry_pool_size != 0 ?
 			cache->approx_entry_pool_size :
 			CACHE_INITIAL_ENTRY_POOL_SIZE;
 		pool = pool_alloconly_create("settings entry", pool_size);
-		entry = p_new(pool, struct settings_entry, 1);
 	}
+	entry = p_new(pool, struct settings_entry, 1);
 	entry->pool = pool;
 	entry_local_name = p_strdup(pool, input->local_name);
 	entry->local_name = entry_local_name;
 	entry->local_ip = input->local_ip;
 	if (!output->used_local) {
 		entry->parser = cache->global_parser;
-		DLLIST2_PREPEND(&cache->oldest_global, &cache->newest_global,
-				entry);
+		DLLIST2_APPEND(&cache->oldest_global, &cache->newest_global,
+			       entry);
 	} else {
 		entry->parser = settings_parser_dup(parser, entry->pool);
-		DLLIST2_PREPEND(&cache->oldest, &cache->newest, entry);
+		DLLIST2_APPEND(&cache->oldest, &cache->newest, entry);
 
 		pool_size = pool_alloconly_get_total_used_size(pool);
 		if (pool_size > cache->approx_entry_pool_size) {
