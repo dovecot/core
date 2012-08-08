@@ -496,6 +496,13 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	for (i = 0; i < count; i++) {
 		struct service_settings *service = services[i];
 
+		if (*service->protocol != '\0' &&
+		    !str_array_find((const char **)set->protocols_split,
+				    service->protocol)) {
+			/* protocol not enabled, ignore its settings */
+			continue;
+		}
+
 		if (*service->executable == '\0') {
 			*error_r = t_strdup_printf("service(%s): "
 				"executable is empty", service->name);
@@ -550,9 +557,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		}
 #endif
 
-		if (*service->protocol != '\0' &&
-		    str_array_find((const char **)set->protocols_split,
-				   service->protocol)) {
+		if (*service->protocol != '\0') {
 			/* each imap/pop3/lmtp process can use up a connection,
 			   although if service_count=1 it's only temporary */
 			if (service->service_count != 1 ||
