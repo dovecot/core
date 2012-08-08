@@ -178,9 +178,16 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	msecs = io_loop_get_wait_time(ioloop, &tv);
 
 	events = array_get_modifiable(&ctx->events, &events_count);
-	ret = epoll_wait(ctx->epfd, events, events_count, msecs);
-	if (ret < 0 && errno != EINTR)
-		i_fatal("epoll_wait(): %m");
+	if (events_count > 0) {
+		ret = epoll_wait(ctx->epfd, events, events_count, msecs);
+		if (ret < 0 && errno != EINTR)
+			i_fatal("epoll_wait(): %m");
+	} else {
+		/* no I/Os, but we should have some timeouts.
+		   just wait for them. */
+		if (msecs > 0)
+			usleep(msecs*1000);
+	}
 
 	/* execute timeout handlers */
         io_loop_handle_timeouts(ioloop);
