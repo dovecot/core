@@ -1,4 +1,5 @@
 LIBDOVECOT_SUBDIRS = \
+	lib-test \
 	lib \
 	lib-auth \
 	lib-charset \
@@ -13,7 +14,6 @@ LIBDOVECOT_SUBDIRS = \
 	lib-ssl-iostream
 
 SUBDIRS = \
-	lib-test \
 	$(LIBDOVECOT_SUBDIRS) \
 	lib-imap-client \
 	lib-compression \

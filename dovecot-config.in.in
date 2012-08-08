@@ -20,7 +20,7 @@ LIBDOVECOT_COMPRESS_DEPS="@LIBDOVECOT_COMPRESS@"
 LIBDOVECOT_LDA_DEPS="@LIBDOVECOT_LDA@"
 LIBDOVECOT_STORAGE_DEPS="@LIBDOVECOT_STORAGE_DEPS@"
 
-LIBDOVECOT_INCLUDE="-I$(incdir) -I$(incdir)/src/lib -I$(incdir)/src/lib-dict -I$(incdir)/src/lib-dns -I$(incdir)/src/lib-mail -I$(incdir)/src/lib-imap -I$(incdir)/src/lib-fs -I$(incdir)/src/lib-charset -I$(incdir)/src/lib-auth -I$(incdir)/src/lib-master -I$(incdir)/src/lib-ssl-iostream -I$(incdir)/src/lib-compression -I$(incdir)/src/lib-settings"
+LIBDOVECOT_INCLUDE="-I$(incdir) -I$(incdir)/src/lib -I$(incdir)/src/lib-dict -I$(incdir)/src/lib-dns -I$(incdir)/src/lib-mail -I$(incdir)/src/lib-imap -I$(incdir)/src/lib-fs -I$(incdir)/src/lib-charset -I$(incdir)/src/lib-auth -I$(incdir)/src/lib-master -I$(incdir)/src/lib-ssl-iostream -I$(incdir)/src/lib-compression -I$(incdir)/src/lib-settings -I$(incdir)/src/lib-test"
 LIBDOVECOT_LDA_INCLUDE="-I$(incdir)/src/lib-lda -I$(incdir)/src/lda"
 LIBDOVECOT_STORAGE_INCLUDE="-I$(incdir)/src/lib-index -I$(incdir)/src/lib-storage -I$(incdir)/src/lib-storage/index -I$(incdir)/src/lib-storage/index/raw"
 LIBDOVECOT_LOGIN_INCLUDE="-I$(incdir)/src/login-common"
