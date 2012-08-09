@@ -168,10 +168,11 @@ setting_entry_detach(struct master_service_settings_cache *cache,
 	settings_parser_deinit(&entry->parser);
 }
 
-static void cache_add(struct master_service_settings_cache *cache,
-		      const struct master_service_settings_input *input,
-		      const struct master_service_settings_output *output,
-		      struct setting_parser_context *parser)
+static struct setting_parser_context *
+cache_add(struct master_service_settings_cache *cache,
+	  const struct master_service_settings_input *input,
+	  const struct master_service_settings_output *output,
+	  struct setting_parser_context *parser)
 {
 	struct settings_entry *entry;
 	pool_t pool;
@@ -187,17 +188,17 @@ static void cache_add(struct master_service_settings_cache *cache,
 	}
 	if (cache->service_uses_remote) {
 		/* for now we don't try to handle caching remote IPs */
-		return;
+		return parser;
 	}
 
 	if (input->local_name == NULL && input->local_ip.family == 0)
-		return;
+		return parser;
 
 	if (!output->used_local) {
 		/* use global settings, but add local_ip/host to hash tables
 		   so we'll find them */
 		pool = pool_alloconly_create("settings global entry", 256);
-	} else if (cache->cache_malloc_size >= cache->max_cache_size) {
+	} else if (cache->cache_malloc_size >= /*cache->max_cache_size*/1) {
 		/* free the oldest and reuse its pool */
 		pool = cache->oldest->pool;
 		setting_entry_detach(cache, cache->oldest);
@@ -249,6 +250,7 @@ static void cache_add(struct master_service_settings_cache *cache,
 		hash_table_insert(cache->local_ip_hash,
 				  &entry->local_ip, entry);
 	}
+	return entry->parser;
 }
 
 int master_service_settings_cache_read(struct master_service_settings_cache *cache,
@@ -294,7 +296,7 @@ int master_service_settings_cache_read(struct master_service_settings_cache *cac
 		return -1;
 	}
 
-	cache_add(cache, &new_input, &output, cache->service->set_parser);
-	*parser_r = cache->service->set_parser;
+	*parser_r = cache_add(cache, &new_input, &output,
+			      cache->service->set_parser);
 	return 0;
 }
