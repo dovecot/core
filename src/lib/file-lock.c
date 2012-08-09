@@ -28,6 +28,19 @@ bool file_lock_method_parse(const char *name, enum file_lock_method *method_r)
 	return TRUE;
 }
 
+const char *file_lock_method_to_str(enum file_lock_method method)
+{
+	switch (method) {
+	case FILE_LOCK_METHOD_FCNTL:
+		return "fcntl";
+	case FILE_LOCK_METHOD_FLOCK:
+		return "flock";
+	case FILE_LOCK_METHOD_DOTLOCK:
+		return "dotlock";
+	}
+	i_unreached();
+}
+
 int file_try_lock(int fd, const char *path, int lock_type,
 		  enum file_lock_method lock_method,
 		  struct file_lock **lock_r)
