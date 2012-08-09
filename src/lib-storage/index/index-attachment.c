@@ -41,8 +41,12 @@ static bool index_attachment_want(const struct istream_attachment_header *hdr,
 	apart.content_type = hdr->content_type;
 	apart.content_disposition = hdr->content_disposition;
 
-	return ctx->part_is_attachment == NULL ? TRUE :
-		ctx->part_is_attachment(ctx, &apart);
+	if (ctx->part_is_attachment != NULL)
+		return ctx->part_is_attachment(ctx, &apart);
+
+	/* don't treat text/ parts as attachments */
+	return hdr->content_type != NULL &&
+		strncasecmp(hdr->content_type, "text/", 5) != 0;
 }
 
 static int index_attachment_open_temp_fd(void *context)
