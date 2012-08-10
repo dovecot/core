@@ -4,7 +4,7 @@
 #include "buffer.h"
 #include "base64.h"
 #include "istream-private.h"
-#include "istream-base64-encoder.h"
+#include "istream-base64.h"
 
 struct base64_encoder_istream {
 	struct istream_private istream;

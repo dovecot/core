@@ -3,7 +3,7 @@
 #include "test-lib.h"
 #include "str.h"
 #include "istream-private.h"
-#include "istream-base64-encoder.h"
+#include "istream-base64.h"
 
 static const char *hello = "hello world";
 
