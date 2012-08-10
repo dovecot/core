@@ -575,7 +575,7 @@ i_stream_attachment_read_next(struct attachment_istream *astream, bool *retry_r)
 		stream->istream.stream_errno = stream->parent->stream_errno;
 
 		if (ret < 0)
-			stream->istream.stream_errno = EIO;
+			stream->istream.stream_errno = EINVAL;
 		astream->cur_part = NULL;
 		return -1;
 	case 0:
@@ -588,7 +588,7 @@ i_stream_attachment_read_next(struct attachment_istream *astream, bool *retry_r)
 	if (block.part != astream->cur_part && astream->cur_part != NULL) {
 		/* end of a MIME part */
 		if (astream_end_of_part(astream) < 0) {
-			stream->istream.stream_errno = EIO;
+			stream->istream.stream_errno = EINVAL;
 			return -1;
 		}
 	}

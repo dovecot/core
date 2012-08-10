@@ -59,7 +59,7 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 			"(%"PRIuUOFF_T" < %"PRIuUOFF_T")",
 			i_stream_get_name(stream->parent),
 			stream->istream.v_offset, sstream->size);
-		stream->istream.stream_errno = EIO;
+		stream->istream.stream_errno = EINVAL;
 	}
 
 	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
