@@ -5,7 +5,7 @@
 #include "istream.h"
 #include "istream-concat.h"
 #include "istream-sized.h"
-#include "istream-base64-encoder.h"
+#include "istream-base64.h"
 #include "istream-attachment-connector.h"
 
 struct istream_attachment_connector {
