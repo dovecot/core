@@ -80,7 +80,8 @@ o_stream_create_cmp(struct ostream *output, struct istream *input)
 	cstream->equals = TRUE;
 	i_stream_ref(input);
 
-	return o_stream_create(&cstream->ostream, output);
+	return o_stream_create(&cstream->ostream, output,
+			       o_stream_get_fd(output));
 }
 
 bool o_stream_cmp_equals(struct ostream *_output)

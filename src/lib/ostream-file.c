@@ -933,7 +933,7 @@ o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd)
 
 	fstream = o_stream_create_fd_common(fd, autoclose_fd);
 	fstream->ostream.max_buffer_size = max_buffer_size;
-	ostream = o_stream_create(&fstream->ostream, NULL);
+	ostream = o_stream_create(&fstream->ostream, NULL, fd);
 
 	offset = lseek(fd, 0, SEEK_CUR);
 	if (offset >= 0) {
@@ -969,7 +969,7 @@ o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd)
 	fstream->real_offset = offset;
 	fstream->buffer_offset = offset;
 
-	ostream = o_stream_create(&fstream->ostream, NULL);
+	ostream = o_stream_create(&fstream->ostream, NULL, fd);
 	ostream->offset = offset;
 	return ostream;
 }

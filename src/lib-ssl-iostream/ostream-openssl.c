@@ -256,5 +256,6 @@ struct ostream *o_stream_create_ssl(struct ssl_iostream *ssl_io)
 	o_stream_set_flush_callback(ssl_io->plain_output,
 				    plain_flush_callback, sstream);
 
-	return o_stream_create(&sstream->ostream, NULL);
+	return o_stream_create(&sstream->ostream, NULL,
+			       o_stream_get_fd(ssl_io->plain_output));
 }

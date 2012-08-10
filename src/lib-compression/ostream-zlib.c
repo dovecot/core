@@ -310,7 +310,8 @@ o_stream_create_zlib(struct ostream *output, int level, bool gz)
 
 	zstream->zs.next_out = zstream->outbuf;
 	zstream->zs.avail_out = sizeof(zstream->outbuf);
-	return o_stream_create(&zstream->ostream, output);
+	return o_stream_create(&zstream->ostream, output,
+			       o_stream_get_fd(output));
 }
 
 struct ostream *o_stream_create_gz(struct ostream *output, int level)

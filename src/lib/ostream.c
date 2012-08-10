@@ -20,6 +20,11 @@ const char *o_stream_get_name(struct ostream *stream)
 	return stream->real_stream->iostream.name;
 }
 
+int o_stream_get_fd(struct ostream *stream)
+{
+	return stream->real_stream->fd;
+}
+
 void o_stream_destroy(struct ostream **stream)
 {
 	o_stream_close(*stream);
@@ -459,8 +464,9 @@ static void o_stream_default_switch_ioloop(struct ostream_private *_stream)
 }
 
 struct ostream *
-o_stream_create(struct ostream_private *_stream, struct ostream *parent)
+o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 {
+	_stream->fd = fd;
 	_stream->ostream.real_stream = _stream;
 	if (parent != NULL) {
 		_stream->parent = parent;

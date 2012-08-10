@@ -42,6 +42,9 @@ void o_stream_set_name(struct ostream *stream, const char *name);
 /* Get output stream's name. Returns "" if stream has no name. */
 const char *o_stream_get_name(struct ostream *stream);
 
+/* Return file descriptor for stream, or -1 if none is available. */
+int o_stream_get_fd(struct ostream *stream);
+
 /* o_stream_close() + o_stream_unref() */
 void o_stream_destroy(struct ostream **stream);
 /* Reference counting. References start from 1, so calling o_stream_unref()

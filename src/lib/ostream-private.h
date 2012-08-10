@@ -32,6 +32,7 @@ struct ostream_private {
 
 	struct ostream *parent; /* for filter streams */
 
+	int fd;
 	stream_flush_callback_t *callback;
 	void *context;
 
@@ -41,7 +42,7 @@ struct ostream_private {
 };
 
 struct ostream *
-o_stream_create(struct ostream_private *_stream, struct ostream *parent)
+o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 	ATTR_NULL(2);
 
 off_t io_stream_copy(struct ostream *outstream, struct istream *instream,

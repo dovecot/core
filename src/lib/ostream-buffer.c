@@ -60,7 +60,7 @@ struct ostream *o_stream_create_buffer(buffer_t *buf)
 	bstream->ostream.write_at = o_stream_buffer_write_at;
 
 	bstream->buf = buf;
-	output = o_stream_create(&bstream->ostream, NULL);
+	output = o_stream_create(&bstream->ostream, NULL, -1);
 	o_stream_set_name(output, "(buffer)");
 	return output;
 }

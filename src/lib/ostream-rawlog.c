@@ -58,5 +58,5 @@ o_stream_create_rawlog(struct ostream *output, const char *rawlog_path,
 	rstream->riostream.autoclose_fd = autoclose_fd;
 	rstream->riostream.write_timestamp = TRUE;
 
-	return o_stream_create(&rstream->ostream, output);
+	return o_stream_create(&rstream->ostream, output, -1);
 }
