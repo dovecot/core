@@ -1,4 +1,13 @@
- - GSSAPI auth patch
+ - Unfinished extensions: MOVE, NOTIFY, BINARY
+ - indexer-worker and maybe others (doveadm?) could support dropping privileges
+   permanently when service_count=1. Note that LMTP can't with multiple RCPT
+   TOs.
+ - after reading whole message text, update has_nul-state to cache
+ - if indexpvt is enabled, mailbox_list_indexes should go there? at least
+   private flags are otherwise problematic.. possibly only for shared/public
+   mailboxes?..
+ - catenate: {1234} and {1234+} error handling is wrong for both
+ - index_mail_parse_headers() etc. message_parsers don't check for stream errors
  - FIFOs maybe should be counted as connections, but unlisten should
    unlink+reopen it in master?
  - mailbox list indexes + imaptest test=tests fails
@@ -7,7 +16,6 @@
  - change proxy TTL so it stops at 1?
  - istream-concat
  - lmtp client/proxy: Handle multiline replies better
- - lib-ssl-iostream: Support ssl_protocols setting
  - recreate mailbox -> existing sessions log "indexid changed" error
  - add message/mime limits
  - imapc:
