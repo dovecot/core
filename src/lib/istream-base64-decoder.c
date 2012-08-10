@@ -88,7 +88,7 @@ static ssize_t i_stream_base64_decoder_read(struct istream_private *stream)
 		pre_count = stream->pos - stream->skip;
 		while ((ret = i_stream_base64_try_decode_block(bstream)) > 0) ;
 		post_count = stream->pos - stream->skip;
-	} while (ret == 0);
+	} while (ret == 0 && pre_count == post_count);
 
 	if (ret < 0)
 		return ret;

@@ -31,14 +31,14 @@ static int i_stream_read_parent(struct istream_private *stream)
 	if (ret <= 0) {
 		stream->istream.stream_errno = stream->parent->stream_errno;
 		stream->istream.eof = stream->parent->eof;
-		return size > 0 ? 1 : ret;
+		return ret;
 	}
 	size = i_stream_get_data_size(stream->parent);
 	i_assert(size != 0);
 	return 1;
 }
 
-static bool
+static int
 i_stream_base64_try_encode_line(struct base64_encoder_istream *bstream)
 {
 	struct istream_private *stream = &bstream->istream;
@@ -47,13 +47,13 @@ i_stream_base64_try_encode_line(struct base64_encoder_istream *bstream)
 	buffer_t buf;
 
 	data = i_stream_get_data(stream->parent, &size);
-	if (size == 0)
-		return FALSE;
+	if (size == 0 || (size < 3 && !stream->parent->eof))
+		return 0;
 
 	if (bstream->cur_line_len == bstream->chars_per_line) {
 		/* @UNSAFE: end of line, add newline */
 		if (!i_stream_try_alloc(stream, bstream->crlf ? 2 : 1, &avail))
-			return FALSE;
+			return -2;
 
 		if (bstream->crlf)
 			stream->w_buffer[stream->pos++] = '\r';
@@ -68,13 +68,14 @@ i_stream_base64_try_encode_line(struct base64_encoder_istream *bstream)
 		/* can't fit everything to destination buffer.
 		   write as much as we can. */
 		size = (buffer_avail / 4) * 3;
+		if (size == 0)
+			return -2;
 	} else if (!stream->parent->eof && size % 3 != 0) {
 		/* encode 3 chars at a time, so base64_encode() doesn't
 		   add '=' characters in the middle of the stream */
 		size -= (size % 3);
 	}
-	if (size == 0)
-		return FALSE;
+	i_assert(size != 0);
 
 	if (bstream->cur_line_len + (size+2)/3*4 > bstream->chars_per_line) {
 		size = (bstream->chars_per_line - bstream->cur_line_len)/4 * 3;
@@ -89,32 +90,34 @@ i_stream_base64_try_encode_line(struct base64_encoder_istream *bstream)
 	i_assert(bstream->cur_line_len <= bstream->chars_per_line);
 	stream->pos += buf.used;
 	i_stream_skip(stream->parent, size);
-	return TRUE;
+	return 1;
 }
 
 static ssize_t i_stream_base64_encoder_read(struct istream_private *stream)
 {
 	struct base64_encoder_istream *bstream =
 		(struct base64_encoder_istream *)stream;
-	size_t pre_count, post_count, size;
+	size_t pre_count, post_count;
 	int ret;
 
 	do {
 		ret = i_stream_read_parent(stream);
-		if (ret <= 0)
-			return ret;
-		size = i_stream_get_data_size(stream->parent);
-	} while (size < 3 && !stream->parent->eof);
+		if (ret == 0)
+			return 0;
+		if (ret < 0) {
+			if (i_stream_get_data_size(stream->parent) == 0)
+				return -1;
+			/* add the final partial block */
+		}
 
-	/* encode as many lines as fits into destination buffer */
-	pre_count = stream->pos - stream->skip;
-	while (i_stream_base64_try_encode_line(bstream)) ;
-	post_count = stream->pos - stream->skip;
+		/* encode as many lines as fits into destination buffer */
+		pre_count = stream->pos - stream->skip;
+		while ((ret = i_stream_base64_try_encode_line(bstream)) > 0) ;
+		post_count = stream->pos - stream->skip;
+	} while (ret == 0 && pre_count == post_count);
 
-	if (pre_count == post_count) {
-		i_assert(stream->buffer_size - stream->pos < 4);
-		return -2;
-	}
+	if (ret < 0)
+		return ret;
 
 	i_assert(post_count > pre_count);
 	return post_count - pre_count;

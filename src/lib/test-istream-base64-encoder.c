@@ -5,28 +5,46 @@
 #include "istream-private.h"
 #include "istream-base64.h"
 
+static struct test {
+	const char *input;
+	unsigned int chars_per_line;
+	bool crlf;
+	const char *output;
+} tests[] = {
+	{ "hello world", 80, FALSE, "aGVsbG8gd29ybGQ=" },
+	{ "hello world", 4, FALSE, "aGVs\nbG8g\nd29y\nbGQ=" },
+	{ "hello world", 4, TRUE, "aGVs\r\nbG8g\r\nd29y\r\nbGQ=", },
+};
+
 static const char *hello = "hello world";
 
-static const char *
-encode(const char *text, unsigned int chars_per_line, bool crlf)
+static void encode_test(const char *text, unsigned int chars_per_line,
+			bool crlf, const char *output)
 {
+	unsigned int i, text_len = strlen(text);
 	struct istream *input, *input_data;
-	const char *reply;
 	const unsigned char *data;
 	size_t size;
 	ssize_t ret;
 
-	input_data = i_stream_create_from_data(text, strlen(text));
+	input_data = test_istream_create_data(text, text_len);
+	test_istream_set_allow_eof(input_data, FALSE);
 	input = i_stream_create_base64_encoder(input_data, chars_per_line, crlf);
+
+	for (i = 1; i <= text_len; i++) {
+		test_istream_set_size(input_data, i);
+		while ((ret = i_stream_read(input)) > 0) ;
+		test_assert(ret == 0);
+	}
+	test_istream_set_allow_eof(input_data, TRUE);
 	while ((ret = i_stream_read(input)) > 0) ;
 	test_assert(ret == -1);
 
 	data = i_stream_get_data(input, &size);
-	reply = t_strndup(data, size);
+	test_assert(size == strlen(output) && memcmp(data, output, size) == 0);
 
 	i_stream_unref(&input);
 	i_stream_unref(&input_data);
-	return reply;
 }
 
 static void
@@ -61,10 +79,15 @@ test_istream_base64_encoder_seek(const char *textin, const char *textout)
 
 void test_istream_base64_encoder(void)
 {
-	test_begin("istream base64 encoder");
-	test_assert(strcmp(encode(hello, 80, FALSE), "aGVsbG8gd29ybGQ=") == 0);
-	test_assert(strcmp(encode(hello, 4, FALSE), "aGVs\nbG8g\nd29y\nbGQ=") == 0);
-	test_assert(strcmp(encode(hello, 4, TRUE), "aGVs\r\nbG8g\r\nd29y\r\nbGQ=") == 0);
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		test_begin(t_strdup_printf("istream base64 decoder %u", i+1));
+		encode_test(tests[i].input, tests[i].chars_per_line,
+			    tests[i].crlf, tests[i].output);
+		test_end();
+	}
+	test_begin("istream base64 encoder seek");
 	test_istream_base64_encoder_seek(hello, "aGVs\r\nbG8g\r\nd29y\r\nbGQ=");
 	test_end();
 }
