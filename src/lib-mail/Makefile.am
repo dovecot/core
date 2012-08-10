@@ -12,6 +12,7 @@ libmail_la_SOURCES = \
 	istream-dot.c \
 	istream-header-filter.c \
 	istream-nonuls.c \
+	istream-qp-decoder.c \
 	mail-user-hash.c \
 	mbox-from.c \
 	message-address.c \
@@ -37,6 +38,7 @@ headers = \
 	istream-dot.h \
 	istream-header-filter.h \
 	istream-nonuls.h \
+	istream-qp.h \
 	mail-user-hash.h \
 	mbox-from.h \
 	mail-types.h \
@@ -64,6 +66,7 @@ test_programs = \
 	test-istream-attachment \
 	test-istream-binary-converter \
 	test-istream-header-filter \
+	test-istream-qp-decoder \
 	test-mbox-from \
 	test-message-address \
 	test-message-date \
@@ -85,6 +88,10 @@ test_libs = \
 test_istream_dot_SOURCES = test-istream-dot.c
 test_istream_dot_LDADD = istream-dot.lo $(test_libs)
 test_istream_dot_DEPENDENCIES = istream-dot.lo $(test_libs)
+
+test_istream_qp_decoder_SOURCES = test-istream-qp-decoder.c
+test_istream_qp_decoder_LDADD = istream-qp-decoder.lo quoted-printable.lo $(test_libs)
+test_istream_qp_decoder_DEPENDENCIES = istream-qp-decoder.lo quoted-printable.lo $(test_libs)
 
 message_parser_objects = \
 	message-parser.lo \
