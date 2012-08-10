@@ -249,18 +249,11 @@ static void cmd_auth_cache_flush(int argc, char *argv[])
 	auth_master_deinit(&conn);
 }
 
-static void cmd_auth(int argc, char *argv[])
+static void cmd_auth_test(int argc, char *argv[])
 {
 	const char *auth_socket_path = NULL;
 	struct authtest_input input;
 	int c;
-
-	if (null_strcmp(argv[1], "cache") == 0 &&
-	    null_strcmp(argv[2], "flush") == 0) {
-		/* kludgy: handle "doveadm auth cache" command instead */
-		cmd_auth_cache_flush(argc-2, argv+2);
-		return;
-	}
 
 	memset(&input, 0, sizeof(input));
 	input.info.service = "doveadm";
@@ -274,12 +267,12 @@ static void cmd_auth(int argc, char *argv[])
 			auth_user_info_parse(&input.info, optarg);
 			break;
 		default:
-			auth_cmd_help(cmd_auth);
+			auth_cmd_help(cmd_auth_test);
 		}
 	}
 
 	if (optind == argc)
-		auth_cmd_help(cmd_auth);
+		auth_cmd_help(cmd_auth_test);
 
 	input.username = argv[optind++];
 	input.password = argv[optind] != NULL ? argv[optind++] :
@@ -423,7 +416,7 @@ static void cmd_user(int argc, char *argv[])
 }
 
 struct doveadm_cmd doveadm_cmd_auth[] = {
-	{ cmd_auth, "auth",
+	{ cmd_auth_test, "auth test",
 	  "[-a <auth socket path>] [-x <auth info>] <user> [<password>]" },
 	{ cmd_auth_cache_flush, "auth cache flush",
 	  "[-a <master socket path>] [<user> [...]]" },
