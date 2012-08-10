@@ -187,6 +187,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		   just wait for them. */
 		if (msecs > 0)
 			usleep(msecs*1000);
+		ret = 0;
 	}
 
 	/* execute timeout handlers */
