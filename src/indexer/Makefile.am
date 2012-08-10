@@ -22,7 +22,6 @@ indexer_SOURCES = \
 
 if !BUILD_SHARED_LIBS
 unused_objects = \
-	../lib/mountpoint.o \
 	../lib-imap/imap-util.o \
 	../lib-storage/mail-search-parser-imap.o
 endif
