@@ -59,6 +59,7 @@ struct service_settings lmtp_service_settings = {
 static const struct setting_define lmtp_setting_defines[] = {
 	DEF(SET_BOOL, lmtp_proxy),
 	DEF(SET_BOOL, lmtp_save_to_detail_mailbox),
+	DEF(SET_STR, lmtp_address_translate),
 	DEF(SET_STR_VARS, login_greeting),
 	DEF(SET_STR, login_trusted_networks),
 
@@ -68,6 +69,7 @@ static const struct setting_define lmtp_setting_defines[] = {
 static const struct lmtp_settings lmtp_default_settings = {
 	.lmtp_proxy = FALSE,
 	.lmtp_save_to_detail_mailbox = FALSE,
+	.lmtp_address_translate = "",
 	.login_greeting = PACKAGE_NAME" ready.",
 	.login_trusted_networks = ""
 };

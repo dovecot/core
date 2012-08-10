@@ -27,6 +27,8 @@ struct authtest_input {
 	bool success;
 };
 
+static void auth_cmd_help(doveadm_command_t *cmd);
+
 static int
 cmd_user_input(const char *auth_socket_path, const struct authtest_input *input,
 	       const char *show_field)
@@ -214,11 +216,51 @@ cmd_user_list(const char *auth_socket_path, const struct authtest_input *input,
 	auth_master_deinit(&conn);
 }
 
+static void cmd_auth_cache_flush(int argc, char *argv[])
+{
+	const char *auth_socket_path = NULL;
+	struct auth_master_connection *conn;
+	unsigned int count;
+	int c;
+
+	while ((c = getopt(argc, argv, "a:")) > 0) {
+		switch (c) {
+		case 'a':
+			auth_socket_path = optarg;
+			break;
+		default:
+			auth_cmd_help(cmd_auth_cache_flush);
+		}
+	}
+	argv += optind;
+
+	if (auth_socket_path == NULL) {
+		auth_socket_path = t_strconcat(doveadm_settings->base_dir,
+					       "/auth-master", NULL);
+	}
+
+	conn = auth_master_init(auth_socket_path, 0);
+	if (auth_master_cache_flush(conn, (void *)argv, &count) < 0) {
+		i_error("Cache flush failed");
+		doveadm_exit_code = EX_TEMPFAIL;
+	} else {
+		printf("%u cache entries flushed\n", count);
+	}
+	auth_master_deinit(&conn);
+}
+
 static void cmd_auth(int argc, char *argv[])
 {
 	const char *auth_socket_path = NULL;
 	struct authtest_input input;
 	int c;
+
+	if (null_strcmp(argv[1], "cache") == 0 &&
+	    null_strcmp(argv[2], "flush") == 0) {
+		/* kludgy: handle "doveadm auth cache" command instead */
+		cmd_auth_cache_flush(argc-2, argv+2);
+		return;
+	}
 
 	memset(&input, 0, sizeof(input));
 	input.info.service = "doveadm";
@@ -232,12 +274,12 @@ static void cmd_auth(int argc, char *argv[])
 			auth_user_info_parse(&input.info, optarg);
 			break;
 		default:
-			help(&doveadm_cmd_auth);
+			auth_cmd_help(cmd_auth);
 		}
 	}
 
 	if (optind == argc)
-		help(&doveadm_cmd_auth);
+		auth_cmd_help(cmd_auth);
 
 	input.username = argv[optind++];
 	input.password = argv[optind] != NULL ? argv[optind++] :
@@ -331,12 +373,12 @@ static void cmd_user(int argc, char *argv[])
 			auth_user_info_parse(&input.info, optarg);
 			break;
 		default:
-			help(&doveadm_cmd_user);
+			auth_cmd_help(cmd_user);
 		}
 	}
 
 	if (optind == argc)
-		help(&doveadm_cmd_user);
+		auth_cmd_help(cmd_user);
 
 	have_wildcards = FALSE;
 	for (i = optind; argv[i] != NULL; i++) {
@@ -380,12 +422,30 @@ static void cmd_user(int argc, char *argv[])
 		mail_storage_service_deinit(&storage_service);
 }
 
-struct doveadm_cmd doveadm_cmd_auth = {
-	cmd_auth, "auth",
-	"[-a <auth socket path>] [-x <auth info>] <user> [<password>]"
+struct doveadm_cmd doveadm_cmd_auth[] = {
+	{ cmd_auth, "auth",
+	  "[-a <auth socket path>] [-x <auth info>] <user> [<password>]" },
+	{ cmd_auth_cache_flush, "auth cache flush",
+	  "[-a <master socket path>] [<user> [...]]" },
+	{ cmd_user, "user",
+	  "[-a <userdb socket path>] [-x <auth info>] [-f field] [-m] <user mask> [...]" }
 };
 
-struct doveadm_cmd doveadm_cmd_user = {
-	cmd_user, "user",
-	"[-a <userdb socket path>] [-x <auth info>] [-f field] [-m] <user mask> [...]"
-};
+static void auth_cmd_help(doveadm_command_t *cmd)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(doveadm_cmd_auth); i++) {
+		if (doveadm_cmd_auth[i].cmd == cmd)
+			help(&doveadm_cmd_auth[i]);
+	}
+	i_unreached();
+}
+
+void doveadm_register_auth_commands(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(doveadm_cmd_auth); i++)
+		doveadm_register_cmd(&doveadm_cmd_auth[i]);
+}

@@ -37,6 +37,7 @@ struct db_passwd_file {
 
 	unsigned int vars:1;
 	unsigned int userdb:1;
+	unsigned int userdb_warn_missing:1;
 	unsigned int debug:1;
 };
 

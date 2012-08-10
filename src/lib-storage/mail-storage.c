@@ -818,17 +818,18 @@ static int mailbox_check_mismatching_separators(struct mailbox *box)
 	return 0;
 }
 
-static void mailbox_autocreate(struct mailbox *box)
+static int mailbox_autocreate(struct mailbox *box)
 {
 	const char *errstr;
 	enum mail_error error;
 
 	if (mailbox_create(box, NULL, FALSE) < 0) {
 		errstr = mailbox_get_last_error(box, &error);
-		if (error != MAIL_ERROR_NOTFOUND && !box->inbox_user) {
+		if (error != MAIL_ERROR_NOTFOUND) {
 			mail_storage_set_critical(box->storage,
 				"Failed to autocreate mailbox %s: %s",
 				box->vname, errstr);
+			return -1;
 		}
 	} else if (box->set != NULL &&
 		   strcmp(box->set->autocreate,
@@ -837,15 +838,18 @@ static void mailbox_autocreate(struct mailbox *box)
 			mail_storage_set_critical(box->storage,
 				"Failed to autosubscribe to mailbox %s: %s",
 				box->vname, mailbox_get_last_error(box, NULL));
+			return -1;
 		}
 	}
+	return 0;
 }
 
 static int mailbox_autocreate_and_reopen(struct mailbox *box)
 {
 	int ret;
 
-	mailbox_autocreate(box);
+	if (mailbox_autocreate(box) < 0)
+		return -1;
 	mailbox_close(box);
 
 	ret = box->v.open(box);

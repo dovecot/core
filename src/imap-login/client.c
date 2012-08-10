@@ -62,7 +62,7 @@ static const char *get_capability(struct client *client)
 		str_append(cap_str, imap_client->set->imap_capability + 1);
 	}
 
-	if (ssl_initialized && !client->tls)
+	if (client_is_tls_enabled(client) && !client->tls)
 		str_append(cap_str, " STARTTLS");
 	if (client->set->disable_plaintext_auth && !client->secured)
 		str_append(cap_str, " LOGINDISABLED");

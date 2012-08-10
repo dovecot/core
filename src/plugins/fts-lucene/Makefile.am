@@ -21,6 +21,10 @@ SHOWBALL_SOURCES = Snowball.cc
 endif
 if BUILD_LUCENE_TEXTCAT
 TEXTCAT_LIBS = -ltextcat
+else
+if BUILD_LUCENE_EXTTEXTCAT
+TEXTCAT_LIBS = -lexttextcat
+endif
 endif
 
 lib21_fts_lucene_plugin_la_LIBADD = \

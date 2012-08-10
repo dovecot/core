@@ -398,6 +398,69 @@ static void rcpt_address_parse(struct client *client, const char *address,
 	}
 }
 
+static void lmtp_address_translate(struct client *client, const char **address)
+{
+	const char *transpos = client->lmtp_set->lmtp_address_translate;
+	const char *p, *nextstr, *addrpos = *address;
+	unsigned int len;
+	string_t *username, *domain, *dest = NULL;
+
+	if (*transpos == '\0')
+		return;
+
+	username = t_str_new(64);
+	domain = t_str_new(64);
+
+	/* check that string matches up to the first '%' */
+	p = strchr(transpos, '%');
+	if (p == NULL)
+		len = strlen(transpos);
+	else
+		len = p-transpos;
+	if (strncmp(transpos, addrpos, len) != 0)
+		return;
+	transpos += len;
+	addrpos += len;
+
+	while (*transpos != '\0') {
+		switch (transpos[1]) {
+		case 'n':
+		case 'u':
+			dest = username;
+			break;
+		case 'd':
+			dest = domain;
+			break;
+		default:
+			return;
+		}
+		transpos += 2;
+
+		/* find where the next string starts */
+		if (*transpos == '\0') {
+			str_append(dest, addrpos);
+			break;
+		}
+		p = strchr(transpos, '%');
+		if (p == NULL)
+			nextstr = transpos;
+		else
+			nextstr = t_strdup_until(transpos, p);
+		p = strstr(addrpos, nextstr);
+		if (p == NULL)
+			return;
+		str_append_n(dest, addrpos, p-addrpos);
+
+		len = strlen(nextstr);
+		transpos += len;
+		addrpos = p + len;
+	}
+	str_append_c(username, '@');
+	if (domain != NULL)
+		str_append_str(username, domain);
+	*address = str_c(username);
+}
+
 int cmd_rcpt(struct client *client, const char *args)
 {
 	struct mail_recipient rcpt;
@@ -466,6 +529,8 @@ int cmd_rcpt(struct client *client, const char *args)
 				 address, username);
 		return 0;
 	}
+
+	lmtp_address_translate(client, &address);
 
 	rcpt.address = p_strdup(client->state_pool, address);
 	rcpt.detail = p_strdup(client->state_pool, detail);
@@ -789,6 +854,9 @@ static bool client_input_data_write(struct client *client)
 	struct istream *input;
 	bool ret = TRUE;
 
+	/* stop handling client input until saving/proxying is finished */
+	if (client->to_idle != NULL)
+		timeout_remove(&client->to_idle);
 	io_remove(&client->io);
 	i_stream_destroy(&client->dot_input);
 

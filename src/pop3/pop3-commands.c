@@ -756,7 +756,7 @@ static void client_uidls_save(struct client *client)
 				      str_hash, (hash_cmp_callback_t *)strcmp);
 	client->uidl_pool = pool_alloconly_create("message uidls", 1024);
 	client->message_uidls = p_new(client->uidl_pool, const char *,
-				      client->messages_count);
+				      client->messages_count+1);
 
 	str = t_str_new(128); msgnum = 0;
 	while (mailbox_search_next(search_ctx, &mail)) {

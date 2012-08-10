@@ -195,6 +195,8 @@ int quota_user_read_settings(struct mail_user *user,
 	quota_set->debug = user->mail_debug;
 	quota_set->quota_exceeded_msg =
 		mail_user_plugin_getenv(user, "quota_exceeded_message");
+	quota_set->ignore_save_errors =
+		mail_user_plugin_getenv(user, "quota_ignore_save_errors") != NULL;
 	if (quota_set->quota_exceeded_msg == NULL)
 		quota_set->quota_exceeded_msg = DEFAULT_QUOTA_EXCEEDED_MSG;
 
@@ -770,7 +772,7 @@ bool quota_root_is_namespace_visible(struct quota_root *root,
 	    (storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0)
 		return FALSE;
 
-	if (root->ns != NULL) {
+	if (root->ns_prefix != NULL) {
 		if (root->ns != ns)
 			return FALSE;
 	} else {

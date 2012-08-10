@@ -133,8 +133,8 @@ static bool client_exec_script(struct master_service_connection *conn)
 	}
 	alarm(0);
 
-	/* drop the last LF */
-	buffer_set_used_size(input, scanpos-1);
+	/* drop the last two LFs */
+	buffer_set_used_size(input, scanpos-2);
 
 	args = t_strsplit(str_c(input), "\n");
 	script_verify_version(*args); args++;
@@ -148,7 +148,7 @@ static bool client_exec_script(struct master_service_connection *conn)
 			exec_child(conn, args + 1);
 			i_unreached();
 		}
-		if (*args == '\0')
+		if (**args == '\0')
 			i_fatal("empty options");
 		args++;
 	}

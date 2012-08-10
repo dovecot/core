@@ -472,8 +472,13 @@ static int pop3_migration_uidl_sync(struct mailbox *box)
 
 	if (pop3_mailbox_open(box->storage) < 0)
 		return -1;
+	/* the POP3 server isn't connected to yet. handle all IMAP traffic
+	   first before connecting, so POP3 server won't disconnect us due to
+	   idling. */
+	if (imap_map_read(box) < 0)
+		return -1;
 
-	if (pop3_map_read(box->storage) < 0 || imap_map_read(box) < 0)
+	if (pop3_map_read(box->storage) < 0)
 		return -1;
 
 	if (!pop3_uidl_assign_by_size(box)) {

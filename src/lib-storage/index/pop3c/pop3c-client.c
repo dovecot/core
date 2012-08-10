@@ -85,7 +85,7 @@ pop3c_client_init(const struct pop3c_client_settings *set)
 	client->set.debug = set->debug;
 	client->set.host = p_strdup(pool, set->host);
 	client->set.port = set->port;
-	client->set.master_user = p_strdup(pool, set->master_user);
+	client->set.master_user = p_strdup_empty(pool, set->master_user);
 	client->set.username = p_strdup(pool, set->username);
 	client->set.password = p_strdup(pool, set->password);
 	client->set.dns_client_socket_path =
@@ -352,8 +352,13 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		client->state = POP3C_CLIENT_STATE_CAPA;
 		break;
 	case POP3C_CLIENT_STATE_CAPA:
-		if (strncasecmp(line, "-ERR", 4) == 0 ||
-		    strcmp(line, ".") == 0) {
+		if (strncasecmp(line, "-ERR", 4) == 0) {
+			/* CAPA command not supported. some commands still
+			   support UIDL though. */
+			client->capabilities |= POP3C_CAPABILITY_UIDL;
+			pop3c_client_login_finished(client);
+			break;
+		} else if (strcmp(line, ".") == 0) {
 			pop3c_client_login_finished(client);
 			break;
 		}

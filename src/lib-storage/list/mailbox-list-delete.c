@@ -340,11 +340,12 @@ int mailbox_list_delete_symlink_default(struct mailbox_list *list,
 	if (errno == ENOENT) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-	} else if (errno == EISDIR) {
+	} else if (errno == EISDIR ||
+		   errno == EPERM) { /* Solaris */
 		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
 				       "Mailbox isn't a symlink");
 	} else {
-		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
+		mailbox_list_set_critical(list, "unlink(%s) failed: %m", path);
 	}
 	return -1;
 }

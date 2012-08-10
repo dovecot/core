@@ -154,6 +154,7 @@ cmd_mailbox_status_run(struct doveadm_mail_cmd_context *_ctx,
 	int ret = 0;
 
 	memset(&ctx->total_status, 0, sizeof(ctx->total_status));
+	memset(&ctx->total_metadata, 0, sizeof(ctx->total_metadata));
 
 	iter = doveadm_mailbox_list_iter_init(_ctx, user, ctx->search_args,
 					      iter_flags);

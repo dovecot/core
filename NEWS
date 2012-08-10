@@ -1,3 +1,42 @@
+v2.1.9 2012-08-01  Timo Sirainen <tss@iki.fi>
+
+	* mail-log plugin: Log mailbox names with UTF-8 everywhere 
+	  (instead of mUTF-7 in some places and UTF-8 in other places)
+	* director: Changed director_username_hash setting's default from %u
+	  to %Lu (= lowercase usernames). This doesn't break any existing
+	  installations, but might fix some of them.
+
+	+ doveadm: Added "auth cache flush [<username>]" command.
+	+ Implemented dict passdb/userdb
+	+ Implemented Redis and memcached dict backends, which can be used as
+	  auth backends. Redis can also be used as dict-quota backend.
+	+ Added plugin { quota_ignore_save_errors=yes } setting to allow saving
+	  a mail when quota lookup fails with temporary failure.
+	- Full text search indexing might have failed for some messages,
+	  always causing indexer-worker process to run out of memory.
+	- fts-lucene: Fixed handling SEARCH HEADER FROM/TO/SUBJECT/CC/BCC when
+	  the header wasn't lowercased.
+	- fts-squat: Fixed crash when searching a virtual mailbox.
+	- pop3: Fixed assert crash when doing UIDL on empty mailbox on some
+	  setups. 
+	- auth: GSSAPI RFC compliancy and error handling fixes.
+	- Various fixes related to handling shared namespaces
+
+v2.1.8 2012-07-03  Timo Sirainen <tss@iki.fi>
+
+	+ pop3c: Added pop3c_master_user setting.
+	- imap: Mailbox names were accidentally sent as UTF-8 instead of mUTF-7
+	  in previous v2.1.x releases for STATUS, MYRIGHTS and GETQUOTAROOT
+	  commands.
+	- lmtp proxy: Don't timeout connections too early when mail has a lot
+	  of RCPT TOs.
+	- director: Don't crash if the director is working alone.
+	- shared mailboxes: Avoid doing "@domain" userdb lookups.
+	- doveadm: Fixed crash with proxying some commands.
+	- fts-squat: Fixed handling multiple SEARCH parameters.
+	- imapc: Fixed a crash when message had more than 8 keywords.
+	- imapc: Don't crash on APPEND/COPY if server doesn't support UIDPLUS.
+
 v2.1.7 2012-05-29  Timo Sirainen <tss@iki.fi>
 
 	* LDAP: Compatibility fix for v2.0: ldap: If attributes contain

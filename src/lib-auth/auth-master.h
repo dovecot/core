@@ -39,6 +39,10 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 int auth_master_pass_lookup(struct auth_master_connection *conn,
 			    const char *user, const struct auth_user_info *info,
 			    pool_t pool, const char *const **fields_r);
+/* Flush authentication cache for everyone (users=NULL) or only for specified
+   users. Returns number of users flushed from cache. */
+int auth_master_cache_flush(struct auth_master_connection *conn,
+			    const char *const *users, unsigned int *count_r);
 
 /* Parse userdb extra fields into auth_user_reply structure. */
 void auth_user_fields_parse(const char *const *fields, pool_t pool,

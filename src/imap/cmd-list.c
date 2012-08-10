@@ -236,17 +236,22 @@ static const char *ns_get_listed_prefix(struct cmd_list_context *ctx)
 	enum imap_match_result match;
 	const char *ns_prefix, *p;
 	bool inboxcase;
+	unsigned int skip_len;
+
+	skip_len = strlen(ctx->ref);
+	if (strncmp(ctx->ns->prefix, ctx->ref, skip_len) != 0)
+		skip_len = 0;
 
 	inboxcase = strncasecmp(ctx->ns->prefix, "INBOX", 5) == 0 &&
 		ctx->ns->prefix[5] == mail_namespace_get_sep(ctx->ns);
 	glob = imap_match_init_multiple(pool_datastack_create(),
 					ctx->patterns, inboxcase,
 					mail_namespace_get_sep(ctx->ns));
-	ns_prefix = ctx->ns->prefix;
+	ns_prefix = ctx->ns->prefix + skip_len;
 	match = imap_match(glob, ns_prefix);
 	if (match == IMAP_MATCH_YES) {
-		return !ctx->cur_ns_skip_trailing_sep ? ns_prefix :
-			t_strndup(ns_prefix, strlen(ns_prefix)-1);
+		return !ctx->cur_ns_skip_trailing_sep ? ctx->ns->prefix :
+			t_strndup(ctx->ns->prefix, strlen(ctx->ns->prefix)-1);
 	}
 
 	while ((match & IMAP_MATCH_PARENT) != 0) {
@@ -256,7 +261,8 @@ static const char *ns_get_listed_prefix(struct cmd_list_context *ctx)
 		match = imap_match(glob, ns_prefix);
 	}
 	i_assert(match == IMAP_MATCH_YES);
-	return ns_prefix;
+	return t_strconcat(t_strndup(ctx->ns->prefix, skip_len),
+			   ns_prefix, NULL);
 }
 
 static void list_reply_append_ns_sep_param(string_t *str, char sep)
@@ -364,8 +370,9 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 	client_send_line(ctx->cmd->client, str_c(str));
 }
 
-static void list_send_status(struct cmd_list_context *ctx, const char *name,
-			     enum mailbox_info_flags flags)
+static void
+list_send_status(struct cmd_list_context *ctx, const char *name,
+		 const char *mutf7_name, enum mailbox_info_flags flags)
 {
 	struct imap_status_result result;
 	struct mail_namespace *ns;
@@ -391,7 +398,8 @@ static void list_send_status(struct cmd_list_context *ctx, const char *name,
 		return;
 	}
 
-	imap_status_send(ctx->cmd->client, name, &ctx->status_items, &result);
+	imap_status_send(ctx->cmd->client, mutf7_name,
+			 &ctx->status_items, &result);
 }
 
 static bool list_has_empty_prefix_ns(struct mail_user *user)
@@ -481,7 +489,7 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 
 		ret = client_send_line_next(ctx->cmd->client, str_c(str));
 		if (ctx->used_status) T_BEGIN {
-			list_send_status(ctx, name, flags);
+			list_send_status(ctx, name, str_c(mutf7_name), flags);
 		} T_END;
 		if (ret == 0) {
 			/* buffer is full, continue later */
@@ -508,18 +516,14 @@ static void
 skip_namespace_prefix(const char **prefix, const char **pattern,
 		      bool inbox_check, char sep)
 {
-	size_t pattern_len, prefix_len;
+	size_t pattern_len, prefix_len, min_len;
 	bool match;
 
 	prefix_len = strlen(*prefix);
 	pattern_len = strlen(*pattern);
+	min_len = I_MIN(prefix_len, pattern_len);
 
-	if (pattern_len < prefix_len) {
-		/* eg. namespace prefix = "INBOX.", pattern = "INBOX" */
-		return;
-	}
-
-	match = strncmp(*prefix, *pattern, prefix_len) == 0;
+	match = strncmp(*prefix, *pattern, min_len) == 0;
 	if (!match && inbox_check) {
 		/* try INBOX check. */
 		match = prefix_len >= 5 &&
@@ -531,8 +535,8 @@ skip_namespace_prefix(const char **prefix, const char **pattern,
 	}
 
 	if (match) {
-		*prefix += prefix_len;
-		*pattern += prefix_len;
+		*prefix += min_len;
+		*pattern += min_len;
 	}
 }
 

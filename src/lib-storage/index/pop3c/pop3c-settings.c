@@ -18,6 +18,7 @@ static const struct setting_define pop3c_setting_defines[] = {
 	DEF(SET_UINT, pop3c_port),
 
 	DEF(SET_STR_VARS, pop3c_user),
+	DEF(SET_STR_VARS, pop3c_master_user),
 	DEF(SET_STR, pop3c_password),
 
 	DEF(SET_ENUM, pop3c_ssl),
@@ -35,6 +36,7 @@ static const struct pop3c_settings pop3c_default_settings = {
 	.pop3c_port = 110,
 
 	.pop3c_user = "%u",
+	.pop3c_master_user = "",
 	.pop3c_password = "",
 
 	.pop3c_ssl = "no:pop3s:starttls",

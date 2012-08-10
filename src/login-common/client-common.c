@@ -15,6 +15,7 @@
 #include "var-expand.h"
 #include "master-interface.h"
 #include "master-service.h"
+#include "master-service-ssl-settings.h"
 #include "master-auth.h"
 #include "auth-client.h"
 #include "login-proxy.h"
@@ -379,7 +380,7 @@ void client_cmd_starttls(struct client *client)
 		return;
 	}
 
-	if (!ssl_initialized) {
+	if (!client_is_tls_enabled(client)) {
 		client->v.notify_starttls(client, FALSE, "TLS support isn't enabled.");
 		return;
 	}
@@ -597,6 +598,11 @@ void client_log_warn(struct client *client, const char *msg)
 	T_BEGIN {
 		i_warning("%s", client_get_log_str(client, msg));
 	} T_END;
+}
+
+bool client_is_tls_enabled(struct client *client)
+{
+	return ssl_initialized && strcmp(client->ssl_set->ssl, "no") != 0;
 }
 
 const char *client_get_extra_disconnect_reason(struct client *client)

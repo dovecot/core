@@ -100,7 +100,7 @@ static int config_connection_request(struct config_connection *conn,
 		path = master_service_get_config_path(master_service);
 		if (config_parse_file(path, TRUE, "", &error) <= 0) {
 			o_stream_nsend_str(conn->output,
-				t_strconcat("ERROR ", error, "\n", NULL));
+				t_strconcat("\nERROR ", error, "\n", NULL));
 			config_connection_destroy(conn);
 			return -1;
 		}

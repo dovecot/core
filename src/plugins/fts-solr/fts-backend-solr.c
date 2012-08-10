@@ -38,6 +38,7 @@ struct solr_fts_backend_update_context {
 	struct solr_connection_post *post;
 	uint32_t prev_uid;
 	string_t *cmd, *cur_value, *cur_value2;
+	string_t *cmd_expunge;
 	ARRAY_DEFINE(fields, struct solr_fts_field);
 
 	uint32_t last_indexed_uid;
@@ -240,7 +241,6 @@ fts_backend_solr_update_init(struct fts_backend *_backend)
 
 	ctx = i_new(struct solr_fts_backend_update_context, 1);
 	ctx->ctx.backend = _backend;
-	ctx->cmd = str_new(default_pool, SOLR_CMDBUF_SIZE);
 	i_array_init(&ctx->fields, 16);
 	return &ctx->ctx;
 }
@@ -326,6 +326,15 @@ fts_backed_solr_build_commit(struct solr_fts_backend_update_context *ctx)
 	return solr_connection_post_end(ctx->post);
 }
 
+static void
+fts_backend_solr_expunge_flush(struct solr_fts_backend_update_context *ctx)
+{
+	str_append(ctx->cmd_expunge, "</delete>");
+	(void)solr_connection_post(solr_conn, str_c(ctx->cmd_expunge));
+	str_truncate(ctx->cmd_expunge, 0);
+	str_append(ctx->cmd_expunge, "<delete>");
+}
+
 static int
 fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 {
@@ -341,6 +350,8 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 	if (ctx->documents_added || ctx->expunges) {
 		/* commit and wait until the documents we just indexed are
 		   visible to the following search */
+		if (ctx->expunges)
+			fts_backend_solr_expunge_flush(ctx);
 		str = t_strdup_printf("<commit waitFlush=\"false\" "
 				      "waitSearcher=\"%s\"/>",
 				      ctx->documents_added ? "true" : "false");
@@ -348,7 +359,10 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 			ret = -1;
 	}
 
-	str_free(&ctx->cmd);
+	if (ctx->cmd != NULL)
+		str_free(&ctx->cmd);
+	if (ctx->cmd_expunge != NULL)
+		str_free(&ctx->cmd_expunge);
 	array_foreach_modifiable(&ctx->fields, field) {
 		str_free(&field->value);
 		i_free(field->key);
@@ -404,18 +418,18 @@ fts_backend_solr_update_expunge(struct fts_backend_update_context *_ctx,
 		   highly unlikely to be indexed at this time. */
 		return;
 	}
-	ctx->expunges = TRUE;
+	if (!ctx->expunges) {
+		ctx->expunges = TRUE;
+		ctx->cmd_expunge = str_new(default_pool, 1024);
+		str_append(ctx->cmd_expunge, "<delete>");
+	}
 
-	T_BEGIN {
-		string_t *cmd;
+	if (str_len(ctx->cmd_expunge) >= SOLR_CMDBUF_FLUSH_SIZE)
+		fts_backend_solr_expunge_flush(ctx);
 
-		cmd = t_str_new(256);
-		str_append(cmd, "<delete><id>");
-		xml_encode_id(ctx, cmd, uid);
-		str_append(cmd, "</id></delete>");
-
-		(void)solr_connection_post(solr_conn, str_c(cmd));
-	} T_END;
+	str_append(ctx->cmd_expunge, "<id>");
+	xml_encode_id(ctx, ctx->cmd_expunge, uid);
+	str_append(ctx->cmd_expunge, "</id>");
 }
 
 static void
@@ -425,6 +439,7 @@ fts_backend_solr_uid_changed(struct solr_fts_backend_update_context *ctx,
 	if (ctx->post == NULL) {
 		i_assert(ctx->prev_uid == 0);
 
+		ctx->cmd = str_new(default_pool, SOLR_CMDBUF_SIZE);
 		ctx->post = solr_connection_post_begin(solr_conn);
 		str_append(ctx->cmd, "<add>");
 	} else {

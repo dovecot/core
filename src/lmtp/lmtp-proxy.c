@@ -236,6 +236,10 @@ lmtp_proxy_conn_data(bool success ATTR_UNUSED, const char *reply, void *context)
 	i_assert(!rcpt->rcpt_to_failed);
 	i_assert(rcpt->reply != NULL);
 
+	/* reset timeout in case there are a lot of RCPT TOs */
+	if (conn->to != NULL)
+		timeout_reset(conn->to);
+
 	rcpt->reply = p_strdup(conn->proxy->pool, reply);
 	rcpt->data_reply_received = TRUE;
 

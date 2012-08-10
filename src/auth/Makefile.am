@@ -25,6 +25,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
@@ -73,6 +74,7 @@ auth_SOURCES = \
 	auth-worker-client.c \
 	auth-worker-server.c \
 	db-checkpassword.c \
+	db-dict.c \
 	db-sql.c \
 	db-passwd-file.c \
 	main.c \
@@ -96,6 +98,7 @@ auth_SOURCES = \
 	passdb-bsdauth.c \
 	passdb-cache.c \
 	passdb-checkpassword.c \
+	passdb-dict.c \
 	passdb-passwd.c \
 	passdb-passwd-file.c \
 	passdb-pam.c \
@@ -108,6 +111,7 @@ auth_SOURCES = \
 	userdb.c \
 	userdb-blocking.c \
 	userdb-checkpassword.c \
+	userdb-dict.c \
 	userdb-nss.c \
 	userdb-passwd.c \
 	userdb-passwd-file.c \
@@ -134,6 +138,7 @@ headers = \
 	auth-stream.h \
 	auth-worker-client.h \
 	auth-worker-server.h \
+	db-dict.h \
 	db-ldap.h \
 	db-sql.h \
 	db-passwd-file.h \

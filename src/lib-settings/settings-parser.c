@@ -946,6 +946,8 @@ int settings_parse_stream_read(struct setting_parser_context *ctx,
 
 	switch (ret) {
 	case -1:
+		if (ctx->error != NULL)
+			break;
 		if (input->stream_errno != 0) {
 			ctx->error = p_strdup_printf(ctx->parser_pool,
 						     "read() failed: %m");

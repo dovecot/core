@@ -271,8 +271,6 @@ static struct doveadm_cmd *doveadm_commands[] = {
 	&doveadm_cmd_config,
 	&doveadm_cmd_stop,
 	&doveadm_cmd_reload,
-	&doveadm_cmd_auth,
-	&doveadm_cmd_user,
 	&doveadm_cmd_dump,
 	&doveadm_cmd_pw,
 	&doveadm_cmd_who,
@@ -342,6 +340,7 @@ int main(int argc, char *argv[])
 		quick_init = TRUE;
 	} else {
 		quick_init = FALSE;
+		doveadm_register_auth_commands();
 		doveadm_register_director_commands();
 		doveadm_register_instance_commands();
 		doveadm_register_mount_commands();

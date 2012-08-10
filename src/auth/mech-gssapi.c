@@ -78,6 +78,9 @@ static bool gssapi_initialized = FALSE;
 static gss_OID_desc mech_gssapi_krb5_oid =
 	{ 9, "\x2a\x86\x48\x86\xf7\x12\x01\x02\x02" };
 
+static int
+mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf);
+
 static void mech_gssapi_log_error(struct auth_request *request,
 				  OM_uint32 status_value, int status_type,
 				  const char *description)
@@ -214,6 +217,21 @@ import_name(struct auth_request *request, void *str, size_t len)
 	return name;
 }
 
+static gss_name_t
+duplicate_name(struct auth_request *request, gss_name_t old)
+{
+	OM_uint32 major_status, minor_status;
+	gss_name_t new;
+
+	major_status = gss_duplicate_name(&minor_status, old, &new);
+	if (GSS_ERROR(major_status)) {
+		mech_gssapi_log_error(request, major_status, GSS_C_GSS_CODE,
+				      "gss_duplicate_name");
+		return GSS_C_NO_NAME;
+	}
+	return new;
+}
+
 static bool data_has_nuls(const void *data, unsigned int len)
 {
 	const unsigned char *c = data;
@@ -328,9 +346,15 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 	}
 
 	if (ret == 0) {
-		auth_request_handler_reply_continue(auth_request,
-						    output_token.value,
-						    output_token.length);
+		if (output_token.length > 0) {
+			auth_request_handler_reply_continue(auth_request,
+							    output_token.value,
+							    output_token.length);
+		} else {
+			/* If there is no output token, go straight to wrap,
+			   which is expecting an empty input token. */
+			ret = mech_gssapi_wrap(request, output_token);
+		}
 	}
 	(void)gss_release_buffer(&minor_status, &output_token);
 	return ret;
@@ -415,8 +439,8 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 	bool authorized = FALSE;
 
 	/* Parse out the principal's username */
-	if (!get_display_name(&request->auth_request, name, &name_type,
-			      &princ_display_name) < 0)
+	if (get_display_name(&request->auth_request, name, &name_type,
+			     &princ_display_name) < 0)
 		return FALSE;
 
 	if (!mech_gssapi_oid_cmp(name_type, GSS_KRB5_NT_PRINCIPAL_NAME) &&
@@ -574,22 +598,32 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 
 	/* outbuf[0] contains bitmask for selected security layer,
 	   outbuf[1..3] contains maximum output_message size */
-	if (outbuf.length <= 4) {
+	if (outbuf.length < 4) {
 		auth_request_log_error(auth_request, "gssapi",
 				       "Invalid response length");
 		return -1;
 	}
-	name = (unsigned char *)outbuf.value + 4;
-	name_len = outbuf.length - 4;
 
-	if (data_has_nuls(name, name_len)) {
-		auth_request_log_info(auth_request, "gssapi",
-				      "authz_name has NULs");
-		return -1;
+	if (outbuf.length > 4) {
+		name = (unsigned char *)outbuf.value + 4;
+		name_len = outbuf.length - 4;
+
+		if (data_has_nuls(name, name_len)) {
+			auth_request_log_info(auth_request, "gssapi",
+					      "authz_name has NULs");
+			return -1;
+		}
+
+		login_user = p_strndup(auth_request->pool, name, name_len);
+		request->authz_name = import_name(auth_request, name, name_len);
+	} else {
+		request->authz_name = duplicate_name(auth_request,
+						     request->authn_name);
+		if (get_display_name(auth_request, request->authz_name,
+				     NULL, &login_user) < 0)
+			return -1;
 	}
 
-	login_user = p_strndup(auth_request->pool, name, name_len);
-	request->authz_name = import_name(auth_request, name, name_len);
 	if (request->authz_name == GSS_C_NO_NAME) {
 		auth_request_log_info(auth_request, "gssapi", "no authz_name");
 		return -1;

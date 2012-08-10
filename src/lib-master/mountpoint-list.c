@@ -55,6 +55,8 @@ const char *const mountpoint_list_default_ignore_prefixes[] = {
 	"/media",
 	"/sys",
 	"/proc",
+	"/var/run",
+	"/run",
 	NULL
 };
 

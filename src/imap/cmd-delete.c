@@ -10,6 +10,7 @@ bool cmd_delete(struct client_command_context *cmd)
 	struct mailbox *box;
 	const char *name, *errstr;
 	enum mail_error error;
+	bool disconnect = FALSE;
 
 	/* <mailbox> */
 	if (!client_read_string_args(cmd, 1, &name))
@@ -31,6 +32,7 @@ bool cmd_delete(struct client_command_context *cmd)
 		/* deleting selected mailbox. close it first */
 		client_search_updates_free(client);
 		mailbox_free(&client->mailbox);
+		disconnect = TRUE;
 	}
 
 	if (mailbox_delete(box) == 0)
@@ -45,5 +47,10 @@ bool cmd_delete(struct client_command_context *cmd)
 		}
 	}
 	mailbox_free(&box);
+
+	if (disconnect) {
+		client_disconnect_with_error(cmd->client,
+			"Selected mailbox was deleted, have to disconnect.");
+	}
 	return TRUE;
 }

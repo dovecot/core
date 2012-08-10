@@ -110,10 +110,12 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 
 	if (mail->data.stream == NULL) {
 		capa = pop3c_client_get_capabilities(mbox->client);
-		if (get_body || (capa & POP3C_CAPABILITY_TOP) == 0)
+		if (get_body || (capa & POP3C_CAPABILITY_TOP) == 0) {
 			cmd = t_strdup_printf("RETR %u\r\n", _mail->seq);
-		else
+			get_body = TRUE;
+		} else {
 			cmd = t_strdup_printf("TOP %u 0\r\n", _mail->seq);
+		}
 		if (pop3c_client_cmd_stream(mbox->client, cmd,
 					    &input, &error) < 0) {
 			mail_storage_set_error(mbox->box.storage,
@@ -130,7 +132,8 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 			}
 		}
 		i_stream_set_name(mail->data.stream, t_strcut(cmd, '\r'));
-		pop3c_mail_cache_size(mail);
+		if (get_body)
+			pop3c_mail_cache_size(mail);
 	}
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }

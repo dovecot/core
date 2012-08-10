@@ -80,7 +80,7 @@ const struct director_settings director_default_settings = {
 
 	.director_servers = "",
 	.director_mail_servers = "",
-	.director_username_hash = "%u",
+	.director_username_hash = "%Lu",
 	.director_user_expire = 60*15,
 	.director_doveadm_port = 0
 };

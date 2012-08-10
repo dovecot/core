@@ -199,13 +199,15 @@ static int fts_search_lookup_level(struct fts_search_context *fctx,
 				   struct mail_search_arg *args,
 				   bool and_args)
 {
-	if (!fctx->virtual_mailbox) {
-		if (fts_search_lookup_level_single(fctx, args, and_args) < 0)
-			return -1;
-	} else T_BEGIN {
-		if (fts_search_lookup_level_multi(fctx, args, and_args) < 0)
-			return -1;
+	int ret;
+
+	T_BEGIN {
+		ret = !fctx->virtual_mailbox ?
+			fts_search_lookup_level_single(fctx, args, and_args) :
+			fts_search_lookup_level_multi(fctx, args, and_args);
 	} T_END;
+	if (ret < 0)
+		return -1;
 
 	for (; args != NULL; args = args->next) {
 		if (args->type != SEARCH_OR && args->type != SEARCH_SUB)

@@ -16,6 +16,7 @@
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "master-interface.h"
+#include "dict.h"
 #include "password-scheme.h"
 #include "passdb-cache.h"
 #include "mech.h"
@@ -192,6 +193,7 @@ static void main_preinit(void)
 		auth_penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
 	mech_init(global_auth_settings);
 	mech_reg = mech_register_init(global_auth_settings);
+	dict_drivers_register_builtin();
 	auths_preinit(global_auth_settings, auth_set_pool,
 		      mech_reg, services);
 
@@ -260,6 +262,7 @@ static void main_deinit(void)
 	auth_request_handler_deinit();
 	/* there are no more auth requests */
 	auths_free();
+	dict_drivers_unregister_builtin();
 
 	auth_client_connections_destroy_all();
 	auth_master_connections_destroy_all();

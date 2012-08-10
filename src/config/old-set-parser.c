@@ -307,7 +307,7 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 			return TRUE;
 		}
 		p = strrchr(value, ':');
-		if (p != NULL) {
+		if (p != NULL && listen_has_port(value)) {
 			obsolete(ctx, "%s=..:port has been replaced by service { inet_listener { port } }", key);
 			value = t_strdup_until(value, p++);
 			if (config_filter_match(&old_section->filter, &imap_filter)) {

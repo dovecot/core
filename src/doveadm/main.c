@@ -68,9 +68,12 @@ int main(int argc, char *argv[])
 		&doveadm_setting_parser_info,
 		NULL
 	};
+	enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
 	const char *error;
 
-	master_service = master_service_init("doveadm", 0, &argc, &argv, "");
+	master_service = master_service_init("doveadm", service_flags,
+					     &argc, &argv, "");
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 
