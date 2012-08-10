@@ -8,11 +8,31 @@
 #define QP_IS_TRAILING_SPACE(c) \
 	((c) == ' ' || (c) == '\t')
 
+static int
+qp_is_end_of_line(const unsigned char *src, size_t *src_pos, size_t size)
+{
+	size_t i = *src_pos;
+
+	i_assert(src[i] == '=');
+	for (i++; i < size; i++) {
+		if (QP_IS_TRAILING_SPACE(src[i]) || src[i] == '\r')
+			continue;
+
+		if (src[i] != '\n')
+			return 0;
+
+		*src_pos = i;
+		return 1;
+	}
+	return -1;
+}
+
 void quoted_printable_decode(const unsigned char *src, size_t src_size,
 			     size_t *src_pos_r, buffer_t *dest)
 {
 	char hexbuf[3];
 	size_t src_pos, pos, next;
+	int ret;
 
 	hexbuf[2] = '\0';
 
@@ -38,25 +58,17 @@ void quoted_printable_decode(const unsigned char *src, size_t src_size,
 		buffer_append(dest, src + next, src_pos - next);
 		next = src_pos;
 
-		if (src_pos+1 >= src_size)
-			break;
-
-		if (src[src_pos+1] == '\n') {
-			/* =\n -> skip both */
-			src_pos++;
-			next += 2;
+		if ((ret = qp_is_end_of_line(src, &src_pos, src_size)) > 0) {
+			/* =[whitespace][\r]\n */
+			next = src_pos+1;
 			continue;
 		}
-
+		if (ret < 0) {
+			/* unknown yet if this is end of line */
+			break;
+		}
 		if (src_pos+2 >= src_size)
 			break;
-
-		if (src[src_pos+1] == '\r' && src[src_pos+2] == '\n') {
-			/* =\r\n -> skip both */
-			src_pos += 2;
-			next += 3;
-			continue;
-		}
 
 		/* =<hex> */
 		hexbuf[0] = src[src_pos+1];

@@ -16,9 +16,9 @@ static void test_quoted_printable_decode(void)
 {
 	static struct test_quoted_printable_decode_data data[] = {
 		{ "foo  \r\nbar=", "foo\r\nbar", 1 },
-		{ "foo =\nbar", "foo bar", 0 },
-		{ "foo =\n=01", "foo \001", 0 },
-		{ "foo =\r\nbar", "foo bar", 0 },
+		{ "foo\t=\nbar", "foo\tbar", 0 },
+		{ "foo = \n=01", "foo \001", 0 },
+		{ "foo =\t\r\nbar", "foo bar", 0 },
 		{ "foo =\r\n=01", "foo \001", 0 },
 		{ "foo  \nbar=", "foo\r\nbar", 1 },
 		{ "=0A=0D  ", "\n\r", 2 },
