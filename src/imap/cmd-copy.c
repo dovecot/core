@@ -169,7 +169,10 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 
  	dest_storage = mailbox_get_storage(destbox);
 	if (destbox != client->mailbox) {
-		sync_flags |= MAILBOX_SYNC_FLAG_FAST;
+		if (move)
+			sync_flags |= MAILBOX_SYNC_FLAG_EXPUNGE;
+		else
+			sync_flags |= MAILBOX_SYNC_FLAG_FAST;
 		imap_flags |= IMAP_SYNC_FLAG_SAFE;
 		mailbox_free(&destbox);
 	}
