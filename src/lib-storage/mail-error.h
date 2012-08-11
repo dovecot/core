@@ -40,7 +40,10 @@ enum mail_error {
 	MAIL_ERROR_EXPUNGED,
 	/* Operation cannot be done because another session prevents it
 	   (e.g. lock timeout) */
-	MAIL_ERROR_INUSE
+	MAIL_ERROR_INUSE,
+	/* Can't do the requested data conversion (e.g. IMAP BINARY's
+	   UNKNOWN-CTE code) */
+	MAIL_ERROR_CONVERSION
 };
 
 /* Convert errno to mail_error and an error string. Returns TRUE if successful,

@@ -15,6 +15,7 @@ libstorage_index_la_SOURCES = \
 	istream-mail.c \
 	index-attachment.c \
 	index-mail.c \
+	index-mail-binary.c \
 	index-mail-headers.c \
 	index-mailbox-check.c \
 	index-search.c \

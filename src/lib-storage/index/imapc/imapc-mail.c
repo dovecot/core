@@ -423,6 +423,7 @@ struct mail_vfuncs imapc_mail_vfuncs = {
 	index_mail_get_headers,
 	index_mail_get_header_stream,
 	imapc_mail_get_stream,
+	index_mail_get_binary_stream,
 	imapc_mail_get_special,
 	index_mail_get_real_mail,
 	index_mail_update_flags,

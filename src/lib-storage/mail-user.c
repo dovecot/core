@@ -6,6 +6,7 @@
 #include "network.h"
 #include "module-dir.h"
 #include "home-expand.h"
+#include "safe-mkstemp.h"
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"

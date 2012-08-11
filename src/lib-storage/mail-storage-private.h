@@ -63,6 +63,17 @@ enum mail_storage_class_flags {
 	MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG	= 0x20
 };
 
+struct mail_binary_cache {
+	struct timeout *to;
+	struct mailbox *box;
+	uint32_t uid;
+
+	uoff_t orig_physical_pos;
+	bool include_hdr;
+	struct istream *input;
+	uoff_t size;
+};
+
 struct mail_storage {
 	const char *name;
 	enum mail_storage_class_flags class_flags;
@@ -94,6 +105,8 @@ struct mail_storage {
 
 	struct mail_storage_callbacks callbacks;
 	void *callback_context;
+
+	struct mail_binary_cache binary_cache;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, union mail_storage_module_context *);
@@ -331,6 +344,10 @@ struct mail_vfuncs {
 			  struct message_size *hdr_size,
 			  struct message_size *body_size,
 			  struct istream **stream_r);
+	int (*get_binary_stream)(struct mail *mail,
+				 const struct message_part *part,
+				 bool include_hdr, uoff_t *size_r,
+				 bool *binary_r, struct istream **stream_r);
 
 	int (*get_special)(struct mail *mail, enum mail_fetch_field field,
 			   const char **value_r);
@@ -543,5 +560,6 @@ int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 		      int *fd_r);
 unsigned int mail_storage_get_lock_timeout(struct mail_storage *storage,
 					   unsigned int secs);
+void mail_storage_free_binary_cache(struct mail_storage *storage);
 
 #endif

@@ -143,6 +143,7 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 {
 	static const char *ok_message = "OK Fetch completed.";
 	const char *tagged_reply = ok_message;
+	enum mail_error error;
 
 	if (ctx->skipped_expunged_msgs) {
 		tagged_reply = "OK ["IMAP_RESP_CODE_EXPUNGEISSUED"] "
@@ -160,12 +161,17 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 			return TRUE;
 		}
 
-		errstr = mailbox_get_last_error(cmd->client->mailbox, NULL);
-
-		/* We never want to reply NO to FETCH requests,
-		   BYE is preferrable (see imap-ml for reasons). */
-		client_disconnect_with_error(cmd->client, errstr);
-		return TRUE;
+		errstr = mailbox_get_last_error(cmd->client->mailbox, &error);
+		if (error == MAIL_ERROR_CONVERSION) {
+			/* BINARY found unsupported Content-Transfer-Encoding */
+			tagged_reply = "NO ["IMAP_RESP_CODE_UNKNOWN_CTE"] "
+				"Unknown Content-Transfer-Encoding.";
+		} else {
+			/* We never want to reply NO to FETCH requests,
+			   BYE is preferrable (see imap-ml for reasons). */
+			client_disconnect_with_error(cmd->client, errstr);
+			return TRUE;
+		}
 	}
 
 	return cmd_sync(cmd,

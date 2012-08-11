@@ -4,9 +4,15 @@
 struct imap_msgpart;
 
 struct imap_msgpart_open_result {
+	/* message contents with CRLF linefeeds */
 	struct istream *input;
+	/* size of input */
 	uoff_t size;
+	/* if size was looked up using cache and it ends up being wrong,
+	   this field can be used to log about cache corruption */
 	enum mail_fetch_field size_field;
+	/* TRUE if BINARY decoded content contains NUL characters */
+	bool binary_decoded_input_has_nuls;
 };
 
 struct imap_msgpart *imap_msgpart_full(void);
@@ -18,6 +24,11 @@ struct imap_msgpart *imap_msgpart_body(void);
 int imap_msgpart_parse(struct mailbox *box, const char *section,
 		       struct imap_msgpart **msgpart_r);
 void imap_msgpart_free(struct imap_msgpart **msgpart);
+
+/* Decode MIME parts with Content-Transfer-Encoding: base64/quoted-printable
+   to binary data (IMAP BINARY extension). If something can't be decoded, fails
+   with storage error set to MAIL_ERROR_CONVERSION. */
+void imap_msgpart_set_decode_to_binary(struct imap_msgpart *msgpart);
 
 /* Set the fetch to be partial. For unlimited size use (uoff_t)-1. */
 void imap_msgpart_set_partial(struct imap_msgpart *msgpart,
@@ -31,5 +42,8 @@ enum mail_fetch_field imap_msgpart_get_fetch_data(struct imap_msgpart *msgpart);
    so i_stream_unref() must be called for it. */
 int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 		      struct imap_msgpart_open_result *result_r);
+/* Return msgpart's size without actually opening the stream (if possible). */
+int imap_msgpart_size(struct mail *mail, struct imap_msgpart *msgpart,
+		      size_t *size_r);
 
 #endif

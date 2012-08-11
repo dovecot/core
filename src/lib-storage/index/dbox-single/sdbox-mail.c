@@ -116,6 +116,7 @@ struct mail_vfuncs sdbox_mail_vfuncs = {
 	index_mail_get_headers,
 	index_mail_get_header_stream,
 	dbox_mail_get_stream,
+	index_mail_get_binary_stream,
 	dbox_mail_get_special,
 	index_mail_get_real_mail,
 	index_mail_update_flags,

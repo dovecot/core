@@ -439,6 +439,7 @@ struct mail_vfuncs virtual_mail_vfuncs = {
 	virtual_mail_get_headers,
 	virtual_mail_get_header_stream,
 	virtual_mail_get_stream,
+	index_mail_get_binary_stream,
 	virtual_mail_get_special,
 	virtual_mail_get_real_mail,
 	index_mail_update_flags,

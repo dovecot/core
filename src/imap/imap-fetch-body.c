@@ -24,6 +24,8 @@ struct imap_fetch_body_data {
 	struct imap_msgpart *msgpart;
 
 	unsigned int partial:1;
+	unsigned int binary:1;
+	unsigned int binary_size:1;
 };
 
 static void fetch_read_error(struct imap_fetch_context *ctx)
@@ -40,7 +42,13 @@ static const char *get_body_name(const struct imap_fetch_body_data *body)
 	string_t *str;
 
 	str = t_str_new(128);
-	str_printfa(str, "BODY[%s]", body->section);
+	if (body->binary_size)
+		str_append(str, "BINARY.SIZE");
+	else if (body->binary)
+		str_append(str, "BINARY");
+	else
+		str_append(str, "BODY");
+	str_printfa(str, "[%s]", body->section);
 	if (body->partial) {
 		str_printfa(str, "<%"PRIuUOFF_T">",
 			    imap_msgpart_get_partial_offset(body->msgpart));
@@ -128,6 +136,27 @@ static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 
 	ctx->cont_handler = fetch_stream_continue;
 	return ctx->cont_handler(ctx);
+}
+
+static int fetch_binary_size(struct imap_fetch_context *ctx, struct mail *mail,
+			     const struct imap_fetch_body_data *body)
+{
+	string_t *str;
+	size_t size;
+
+	if (imap_msgpart_size(mail, body->msgpart, &size) < 0)
+		return -1;
+
+	str = t_str_new(128);
+	if (ctx->first)
+		ctx->first = FALSE;
+	else
+		str_append_c(str, ' ');
+	str_printfa(str, "%s %"PRIuUOFF_T, get_body_name(body), size);
+
+	if (o_stream_send(ctx->client->output, str_data(str), str_len(str)) < 0)
+		return -1;
+	return 1;
 }
 
 /* Parse next digits in string into integer. Returns -1 if the integer
@@ -291,6 +320,83 @@ bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 	/* update the section name for the imap_fetch_add_handler() */
 	ctx->name = p_strdup(ctx->fetch_ctx->pool, get_body_name(body));
 	imap_fetch_add_handler(ctx, 0, "NIL", fetch_body_msgpart, body);
+	return TRUE;
+}
+
+bool imap_fetch_binary_init(struct imap_fetch_init_context *ctx)
+{
+	struct imap_fetch_body_data *body;
+	const struct imap_arg *list_args;
+	unsigned int list_count;
+	const char *str, *p, *error;
+
+	i_assert(strncmp(ctx->name, "BINARY", 6) == 0);
+	p = ctx->name + 6;
+
+	body = p_new(ctx->fetch_ctx->pool, struct imap_fetch_body_data, 1);
+	body->binary = TRUE;
+
+	if (strncmp(p, ".SIZE", 5) == 0) {
+		/* fetch decoded size of the section */
+		p += 5;
+		body->binary_size = TRUE;
+	} else if (strncmp(p, ".PEEK", 5) == 0) {
+		p += 5;
+	} else {
+		ctx->fetch_ctx->flags_update_seen = TRUE;
+	}
+	if (*p != '[') {
+		ctx->error = "Invalid BINARY[..] parameter: Missing '['";
+		return FALSE;
+	}
+
+	if (imap_arg_get_list_full(&ctx->args[0], &list_args, &list_count)) {
+		/* BINARY[HEADER.FIELDS.. (headers list)] */
+		if (!imap_arg_get_atom(&ctx->args[1], &str) ||
+		    str[0] != ']') {
+			ctx->error = "Invalid BINARY[..] parameter: Missing ']'";
+			return FALSE;
+		}
+		if (body_header_fields_parse(ctx, body, p+1,
+					     list_args, list_count) < 0)
+			return FALSE;
+		p = str+1;
+		ctx->args += 2;
+	} else {
+		/* no headers list */
+		body->section = p+1;
+		p = strchr(body->section, ']');
+		if (p == NULL) {
+			ctx->error = "Invalid BINARY[..] parameter: Missing ']'";
+			return FALSE;
+		}
+		body->section = p_strdup_until(ctx->fetch_ctx->pool,
+					       body->section, p);
+		p++;
+	}
+	if (imap_msgpart_parse(ctx->fetch_ctx->box, body->section,
+			       &body->msgpart) < 0) {
+		ctx->error = "Invalid BINARY[..] section";
+		return -1;
+	}
+	imap_msgpart_set_decode_to_binary(body->msgpart);
+	ctx->fetch_ctx->fetch_data |=
+		imap_msgpart_get_fetch_data(body->msgpart);
+
+	if (!body->binary_size) {
+		if (body_parse_partial(body, p, &error) < 0) {
+			ctx->error = p_strdup_printf(ctx->fetch_ctx->pool,
+				"Invalid BINARY[..] parameter: %s", error);
+			return FALSE;
+		}
+	}
+
+	/* update the section name for the imap_fetch_add_handler() */
+	ctx->name = p_strdup(ctx->fetch_ctx->pool, get_body_name(body));
+	if (body->binary_size)
+		imap_fetch_add_handler(ctx, 0, "NIL", fetch_binary_size, body);
+	else
+		imap_fetch_add_handler(ctx, 0, "NIL", fetch_body_msgpart, body);
 	return TRUE;
 }
 

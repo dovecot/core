@@ -125,6 +125,7 @@ bool imap_fetch_uid_init(struct imap_fetch_init_context *ctx);
 
 bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx);
 bool imap_fetch_rfc822_init(struct imap_fetch_init_context *ctx);
+bool imap_fetch_binary_init(struct imap_fetch_init_context *ctx);
 
 void imap_fetch_handlers_init(void);
 void imap_fetch_handlers_deinit(void);

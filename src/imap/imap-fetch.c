@@ -860,6 +860,7 @@ static bool fetch_x_savedate_init(struct imap_fetch_init_context *ctx)
 
 static const struct imap_fetch_handler
 imap_fetch_default_handlers[] = {
+	{ "BINARY", imap_fetch_binary_init },
 	{ "BODY", fetch_body_init },
 	{ "BODYSTRUCTURE", fetch_bodystructure_init },
 	{ "ENVELOPE", fetch_envelope_init },

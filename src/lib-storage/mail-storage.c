@@ -970,6 +970,16 @@ enum mailbox_feature mailbox_get_enabled_features(struct mailbox *box)
 	return box->enabled_features;
 }
 
+void mail_storage_free_binary_cache(struct mail_storage *storage)
+{
+	if (storage->binary_cache.box == NULL)
+		return;
+
+	timeout_remove(&storage->binary_cache.to);
+	i_stream_destroy(&storage->binary_cache.input);
+	memset(&storage->binary_cache, 0, sizeof(storage->binary_cache));
+}
+
 void mailbox_close(struct mailbox *box)
 {
 	if (!box->opened)
@@ -981,6 +991,8 @@ void mailbox_close(struct mailbox *box)
 	}
 	box->v.close(box);
 
+	if (box->storage->binary_cache.box == box)
+		mail_storage_free_binary_cache(box->storage);
 	box->opened = FALSE;
 	box->mailbox_deleted = FALSE;
 	array_clear(&box->search_results);

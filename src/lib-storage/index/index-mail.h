@@ -204,6 +204,10 @@ int index_mail_init_stream(struct index_mail *mail,
 			   struct message_size *hdr_size,
 			   struct message_size *body_size,
 			   struct istream **stream_r) ATTR_NULL(2, 3);
+int index_mail_get_binary_stream(struct mail *_mail,
+				 const struct message_part *part,
+				 bool include_hdr, uoff_t *size_r,
+				 bool *binary_r, struct istream **stream_r);
 int index_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			   const char **value_r);
 struct mail *index_mail_get_real_mail(struct mail *mail);

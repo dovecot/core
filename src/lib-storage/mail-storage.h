@@ -130,6 +130,8 @@ enum mail_fetch_field {
 	/* Set has_nuls / has_no_nuls fields */
 	MAIL_FETCH_NUL_STATE		= 0x00000200,
 
+	MAIL_FETCH_STREAM_BINARY	= 0x00000400,
+
 	/* specials: */
 	MAIL_FETCH_IMAP_BODY		= 0x00001000,
 	MAIL_FETCH_IMAP_BODYSTRUCTURE	= 0x00002000,
@@ -770,6 +772,16 @@ int mail_get_stream(struct mail *mail, struct message_size *hdr_size,
    message body. */
 int mail_get_hdr_stream(struct mail *mail, struct message_size *hdr_size,
 			struct istream **stream_r) ATTR_NULL(2);
+/* Returns the message part's body decoded to 8bit binary. If the
+   Content-Transfer-Encoding isn't supported, returns -1 and sets error to
+   MAIL_ERROR_CONVERSION. If the part refers to a multipart, all of its
+   children are returned decoded. */
+int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
+			   bool include_hdr, uoff_t *size_r, bool *binary_r,
+			   struct istream **stream_r);
+/* Like mail_get_binary_stream(), but only return the size. */
+int mail_get_binary_size(struct mail *mail, const struct message_part *part,
+			 bool include_hdr, uoff_t *size_r);
 
 /* Get any of the "special" fields. Unhandled specials are returned as "". */
 int mail_get_special(struct mail *mail, enum mail_fetch_field field,

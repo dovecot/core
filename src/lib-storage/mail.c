@@ -213,6 +213,30 @@ int mail_get_hdr_stream(struct mail *mail, struct message_size *hdr_size,
 	return p->v.get_stream(mail, FALSE, hdr_size, NULL, stream_r);
 }
 
+int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
+			   bool include_hdr, uoff_t *size_r, bool *binary_r,
+			   struct istream **stream_r)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
+		mail_set_aborted(mail);
+		return -1;
+	}
+	return p->v.get_binary_stream(mail, part, include_hdr,
+				      size_r, binary_r, stream_r);
+}
+
+int mail_get_binary_size(struct mail *mail, const struct message_part *part,
+			 bool include_hdr, uoff_t *size_r)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+	bool binary;
+
+	return p->v.get_binary_stream(mail, part, include_hdr,
+				      size_r, &binary, NULL);
+}
+
 int mail_get_special(struct mail *mail, enum mail_fetch_field field,
 		     const char **value_r)
 {
