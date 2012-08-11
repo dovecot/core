@@ -665,6 +665,9 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 		use_partial_cache = TRUE;
 	}
 
+	if (binary && msgpart->decode_cte_to_binary)
+		result_r->binary_decoded_input_has_nuls = TRUE;
+
 	imap_msgpart_get_partial(mail, msgpart, !binary, use_partial_cache,
 				 &part_size, result_r);
 	return 0;

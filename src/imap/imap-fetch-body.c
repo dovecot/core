@@ -58,7 +58,7 @@ static const char *get_body_name(const struct imap_fetch_body_data *body)
 
 static string_t *get_prefix(struct imap_fetch_context *ctx,
 			    const struct imap_fetch_body_data *body,
-			    uoff_t size)
+			    uoff_t size, bool has_nuls)
 {
 	string_t *str;
 
@@ -70,10 +70,12 @@ static string_t *get_prefix(struct imap_fetch_context *ctx,
 
 	str_append(str, get_body_name(body));
 
-	if (size != (uoff_t)-1)
-		str_printfa(str, " {%"PRIuUOFF_T"}\r\n", size);
-	else
+	if (size == (uoff_t)-1)
 		str_append(str, " NIL");
+	else if (has_nuls && body->binary)
+		str_printfa(str, " ~{%"PRIuUOFF_T"}\r\n", size);
+	else
+		str_printfa(str, " {%"PRIuUOFF_T"}\r\n", size);
 	return str;
 }
 
@@ -131,7 +133,8 @@ static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 	ctx->cur_size_field = result.size_field;
 	ctx->cur_name = p_strconcat(ctx->pool, "[", body->section, "]", NULL);
 
-	str = get_prefix(ctx, body, ctx->cur_size);
+	str = get_prefix(ctx, body, ctx->cur_size,
+			 result.binary_decoded_input_has_nuls);
 	o_stream_nsend(ctx->client->output, str_data(str), str_len(str));
 
 	ctx->cont_handler = fetch_stream_continue;
