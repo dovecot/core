@@ -544,7 +544,6 @@ imap_msgpart_open_normal(struct mail *mail, const struct imap_msgpart *msgpart,
 	struct message_size hdr_size, body_size;
 	struct istream *input = NULL;
 
-	memset(result_r, 0, sizeof(*result_r));
 	memset(&hdr_size, 0, sizeof(hdr_size));
 	memset(&body_size, 0, sizeof(body_size));
 	memset(part_size_r, 0, sizeof(*part_size_r));
@@ -632,6 +631,8 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 	uoff_t size;
 	bool include_hdr, binary, use_partial_cache;
 	int ret;
+
+	memset(result_r, 0, sizeof(*result_r));
 
 	if ((ret = imap_msgpart_find_part(mail, msgpart, &part)) < 0)
 		return -1;
