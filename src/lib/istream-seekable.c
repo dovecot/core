@@ -41,17 +41,23 @@ static void i_stream_seekable_close(struct iostream_private *stream)
 		i_stream_close(sstream->input[i]);
 }
 
+static void unref_streams(struct seekable_istream *sstream)
+{
+	unsigned int i;
+
+	for (i = 0; sstream->input[i] != NULL; i++)
+		i_stream_unref(&sstream->input[i]);
+}
+
 static void i_stream_seekable_destroy(struct iostream_private *stream)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
-	unsigned int i;
 
 	if (sstream->membuf != NULL)
 		buffer_free(&sstream->membuf);
 	if (sstream->fd_input != NULL)
 		i_stream_unref(&sstream->fd_input);
-	for (i = 0; sstream->input[i] != NULL; i++)
-		i_stream_unref(&sstream->input[i]);
+	unref_streams(sstream);
 
 	i_free(sstream->temp_path);
 	i_free(sstream->input);
@@ -159,8 +165,6 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 	const unsigned char *data;
 	size_t size, pos, offset;
 
-	i_assert(stream->skip == 0);
-
 	if (stream->istream.v_offset + stream->pos >= sstream->membuf->used) {
 		/* need to read more */
 		if (sstream->membuf->used >= stream->max_buffer_size)
@@ -189,6 +193,7 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 	*ret_r = pos - stream->pos;
 	i_assert(*ret_r > 0);
 	stream->pos = pos;
+	stream->skip = 0;
 	return TRUE;
 }
 
@@ -222,10 +227,6 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 	const unsigned char *data;
 	size_t size, pos;
 	ssize_t ret;
-
-	stream->buffer = CONST_PTR_OFFSET(stream->buffer, stream->skip);
-	stream->pos -= stream->skip;
-	stream->skip = 0;
 
 	if (sstream->membuf != NULL) {
 		if (read_from_buffer(sstream, &ret))
@@ -316,6 +317,7 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 		}
 		i_stream_skip(&stream->istream, stream->pos - stream->skip);
 		i_stream_seek(&stream->istream, old_offset);
+		unref_streams(sstream);
 	}
 
 	if (sstream->fd_input != NULL) {
