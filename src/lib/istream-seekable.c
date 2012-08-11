@@ -333,24 +333,15 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 }
 
 struct istream *
-i_stream_create_seekable(struct istream *input[],
-			 size_t max_buffer_size,
-			 int (*fd_callback)(const char **path_r, void *context),
-			 void *context)
+i_streams_merge(struct istream *input[], size_t max_buffer_size,
+		int (*fd_callback)(const char **path_r, void *context),
+		void *context) ATTR_NULL(4)
 {
 	struct seekable_istream *sstream;
 	const unsigned char *data;
 	unsigned int count;
 	size_t size;
 	bool blocking = TRUE;
-
-	/* If all input streams are seekable, use concat istream instead */
-	for (count = 0; input[count] != NULL; count++) {
-		if (!input[count]->seekable)
-			break;
-	}
-	if (input[count] == NULL)
-		return i_stream_create_concat(input);
 
 	/* if any of the streams isn't blocking, set ourself also nonblocking */
 	for (count = 0; input[count] != NULL; count++) {
@@ -389,4 +380,23 @@ i_stream_create_seekable(struct istream *input[],
 	sstream->istream.istream.blocking = blocking;
 	sstream->istream.istream.seekable = TRUE;
 	return i_stream_create(&sstream->istream, NULL, -1);
+}
+
+struct istream *
+i_stream_create_seekable(struct istream *input[],
+			 size_t max_buffer_size,
+			 int (*fd_callback)(const char **path_r, void *context),
+			 void *context)
+{
+	unsigned int count;
+
+	/* If all input streams are seekable, use concat istream instead */
+	for (count = 0; input[count] != NULL; count++) {
+		if (!input[count]->seekable)
+			break;
+	}
+	if (input[count] == NULL)
+		return i_stream_create_concat(input);
+
+	return i_streams_merge(input, max_buffer_size, fd_callback, context);
 }
