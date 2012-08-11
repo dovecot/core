@@ -362,7 +362,7 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 
 static void
 skip_using_parts(struct mail *mail, struct istream *input,
-		 uoff_t *virtual_skip)
+		 uoff_t physical_start, uoff_t *virtual_skip)
 {
 	enum mail_lookup_abort old_lookup_abort;
 	struct message_part *parts, *part;
@@ -382,14 +382,15 @@ skip_using_parts(struct mail *mail, struct istream *input,
 		/* skip header */
 		vpos += part->header_size.virtual_size;
 		*virtual_skip -= part->header_size.virtual_size;
-		i_stream_seek(input, part->physical_pos +
+		i_stream_seek(input, physical_start + part->physical_pos +
 			      part->header_size.physical_size);
 
 		if (vpos + part->body_size.virtual_size <= *virtual_skip) {
 			/* skip body */
 			vpos += part->body_size.virtual_size;
 			*virtual_skip -= part->body_size.virtual_size;
-			i_stream_seek(input, part->physical_pos +
+			i_stream_seek(input, physical_start +
+				      part->physical_pos +
 				      part->header_size.physical_size +
 				      part->body_size.physical_size);
 			part = part->next;
@@ -419,12 +420,12 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 		   cache->physical_start == physical_start &&
 		   cache->virtual_pos < virtual_skip) {
 		/* use cache */
-		i_stream_seek(input, cache->physical_pos);
+		i_stream_seek(input, physical_start + cache->physical_pos);
 		virtual_skip -= cache->virtual_pos;
 	} else {
 		/* can't use cache, but maybe we can skip faster using the
 		   message parts. */
-		skip_using_parts(mail, input, &virtual_skip);
+		skip_using_parts(mail, input, physical_start, &virtual_skip);
 	}
 	crlf_input = i_stream_create_crlf(input);
 	i_stream_unref(&input);
