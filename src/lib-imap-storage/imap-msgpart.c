@@ -15,6 +15,7 @@
 enum fetch_type {
 	FETCH_FULL,
 	FETCH_MIME,
+	FETCH_MIME_BODY,
 	FETCH_HEADER,
 	FETCH_HEADER_FIELDS,
 	FETCH_HEADER_FIELDS_NOT,
@@ -230,10 +231,13 @@ int imap_msgpart_parse(struct mailbox *box, const char *section,
 
 	if (*section == '\0') {
 		/* full message/MIME part */
-		msgpart->fetch_type = FETCH_FULL;
 		msgpart->wanted_fields |= MAIL_FETCH_STREAM_BODY;
-		if (*msgpart->section_number == '\0')
+		if (*msgpart->section_number == '\0') {
+			msgpart->fetch_type = FETCH_FULL;
 			msgpart->wanted_fields |= MAIL_FETCH_STREAM_HEADER;
+		} else {
+			msgpart->fetch_type = FETCH_MIME_BODY;
+		}
 		return 0;
 	}
 	section = t_str_ucase(section);
@@ -242,11 +246,11 @@ int imap_msgpart_parse(struct mailbox *box, const char *section,
 		msgpart->fetch_type = FETCH_MIME;
 		msgpart->wanted_fields |= MAIL_FETCH_STREAM_BODY;
 	} else if (strcmp(section, "TEXT") == 0) {
-		/* message body */
+		/* body (for root or for message/rfc822) */
 		msgpart->fetch_type = FETCH_BODY;
 		msgpart->wanted_fields |= MAIL_FETCH_STREAM_BODY;
 	} else if (strncmp(section, "HEADER", 6) == 0) {
-		/* header */
+		/* header (for root or for message/rfc822) */
 		if (section[6] == '\0') {
 			msgpart->fetch_type = FETCH_HEADER;
 			ret = 0;
@@ -272,6 +276,8 @@ int imap_msgpart_parse(struct mailbox *box, const char *section,
 			msgpart->wanted_fields |= MAIL_FETCH_STREAM_HEADER;
 		else
 			msgpart->wanted_fields |= MAIL_FETCH_STREAM_BODY;
+	} else {
+		i_unreached();
 	}
 	return 0;
 }
@@ -529,6 +535,7 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 		result_r->size_field = MAIL_FETCH_VIRTUAL_SIZE;
 		break;
 	case FETCH_MIME:
+	case FETCH_MIME_BODY:
 		i_unreached();
 	case FETCH_HEADER:
 	case FETCH_HEADER_FIELDS_NOT:
@@ -577,6 +584,7 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 	case FETCH_HEADER_FIELDS_NOT:
 		i_unreached();
 	case FETCH_BODY:
+	case FETCH_MIME_BODY:
 		i_stream_skip(input, hdr_size.physical_size);
 		part_size.physical_size += body_size.physical_size;
 		part_size.virtual_size += body_size.virtual_size;
