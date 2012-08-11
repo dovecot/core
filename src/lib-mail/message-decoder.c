@@ -13,13 +13,6 @@
 #include "message-header-decode.h"
 #include "message-decoder.h"
 
-enum content_type {
-	CONTENT_TYPE_UNKNOWN = 0,
-	CONTENT_TYPE_BINARY,
-	CONTENT_TYPE_QP,
-	CONTENT_TYPE_BASE64
-};
-
 /* base64 takes max 4 bytes per character, q-p takes max 3. */
 #define MAX_ENCODING_BUF_SIZE 3
 
@@ -42,7 +35,7 @@ struct message_decoder_context {
 	buffer_t *encoding_buf;
 
 	char *content_charset;
-	enum content_type content_type;
+	enum message_cte message_cte;
 
 	unsigned int charset_utf8:1;
 	unsigned int binary_input:1;
@@ -92,11 +85,10 @@ void message_decoder_set_return_binary(struct message_decoder_context *ctx,
 	message_decode_body_init_charset(ctx, ctx->prev_part);
 }
 
-static void
-parse_content_transfer_encoding(struct message_decoder_context *ctx,
-				struct message_header_line *hdr)
+enum message_cte message_decoder_parse_cte(struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
+	enum message_cte message_cte;
 	string_t *value;
 
 	value = t_str_new(64);
@@ -105,24 +97,25 @@ parse_content_transfer_encoding(struct message_decoder_context *ctx,
 	rfc822_skip_lwsp(&parser);
 	(void)rfc822_parse_mime_token(&parser, value);
 
-	ctx->content_type = CONTENT_TYPE_UNKNOWN;
+	message_cte = MESSAGE_CTE_UNKNOWN;
 	switch (str_len(value)) {
 	case 4:
 		if (i_memcasecmp(str_data(value), "7bit", 4) == 0 ||
 		    i_memcasecmp(str_data(value), "8bit", 4) == 0)
-			ctx->content_type = CONTENT_TYPE_BINARY;
+			message_cte = MESSAGE_CTE_78BIT;
 		break;
 	case 6:
 		if (i_memcasecmp(str_data(value), "base64", 6) == 0)
-			ctx->content_type = CONTENT_TYPE_BASE64;
+			message_cte = MESSAGE_CTE_BASE64;
 		else if (i_memcasecmp(str_data(value), "binary", 6) == 0)
-			ctx->content_type = CONTENT_TYPE_BINARY;
+			message_cte = MESSAGE_CTE_BINARY;
 		break;
 	case 16:
 		if (i_memcasecmp(str_data(value), "quoted-printable", 16) == 0)
-			ctx->content_type = CONTENT_TYPE_QP;
+			message_cte = MESSAGE_CTE_QP;
 		break;
 	}
+	return message_cte;
 }
 
 static void
@@ -170,7 +163,7 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 			parse_content_type(ctx, hdr);
 		if (hdr->name_len == 25 &&
 		    strcasecmp(hdr->name, "Content-Transfer-Encoding") == 0)
-			parse_content_transfer_encoding(ctx, hdr);
+			ctx->message_cte = message_decoder_parse_cte(hdr);
 	} T_END;
 
 	buffer_set_used_size(ctx->buf, 0);
@@ -278,16 +271,17 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 		buffer_append(ctx->encoding_buf, input->data, input->size);
 	}
 
-	switch (ctx->content_type) {
-	case CONTENT_TYPE_UNKNOWN:
+	switch (ctx->message_cte) {
+	case MESSAGE_CTE_UNKNOWN:
 		/* just skip this body */
 		return FALSE;
 
-	case CONTENT_TYPE_BINARY:
+	case MESSAGE_CTE_78BIT:
+	case MESSAGE_CTE_BINARY:
 		data = input->data;
 		size = pos = input->size;
 		break;
-	case CONTENT_TYPE_QP:
+	case MESSAGE_CTE_QP:
 		buffer_set_used_size(ctx->buf, 0);
 		if (ctx->encoding_buf->used != 0) {
 			quoted_printable_decode(ctx->encoding_buf->data,
@@ -300,7 +294,7 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 		data = ctx->buf->data;
 		size = ctx->buf->used;
 		break;
-	case CONTENT_TYPE_BASE64:
+	case MESSAGE_CTE_BASE64:
 		buffer_set_used_size(ctx->buf, 0);
 		if (ctx->encoding_buf->used != 0) {
 			ret = base64_decode(ctx->encoding_buf->data,
@@ -409,7 +403,7 @@ bool message_decoder_decode_next_block(struct message_decoder_context *ctx,
 void message_decoder_decode_reset(struct message_decoder_context *ctx)
 {
 	i_free_and_null(ctx->content_charset);
-	ctx->content_type = CONTENT_TYPE_BINARY;
+	ctx->message_cte = MESSAGE_CTE_78BIT;
 	ctx->charset_utf8 = TRUE;
 	buffer_set_used_size(ctx->encoding_buf, 0);
 }

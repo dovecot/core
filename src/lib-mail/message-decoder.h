@@ -1,6 +1,16 @@
 #ifndef MESSAGE_DECODER_H
 #define MESSAGE_DECODER_H
 
+struct message_header_line;
+
+enum message_cte {
+	MESSAGE_CTE_UNKNOWN = 0,
+	MESSAGE_CTE_78BIT,
+	MESSAGE_CTE_BINARY,
+	MESSAGE_CTE_QP,
+	MESSAGE_CTE_BASE64
+};
+
 enum message_decoder_flags {
 	/* Return all headers and parts through
 	   uni_utf8_to_decomposed_titlecase() */
@@ -32,5 +42,8 @@ bool message_decoder_decode_next_block(struct message_decoder_context *ctx,
 
 /* Call whenever message changes */
 void message_decoder_decode_reset(struct message_decoder_context *ctx);
+
+/* Decode Content-Transfer-Encoding header. */
+enum message_cte message_decoder_parse_cte(struct message_header_line *hdr);
 
 #endif
