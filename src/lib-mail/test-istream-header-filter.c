@@ -8,7 +8,8 @@
 #include "test-common.h"
 
 static void ATTR_NULL(3)
-filter_callback(struct message_header_line *hdr,
+filter_callback(struct header_filter_istream *input ATTR_UNUSED,
+		struct message_header_line *hdr,
 		bool *matched, void *context ATTR_UNUSED)
 {
 	if (hdr != NULL && hdr->name_offset == 0) {

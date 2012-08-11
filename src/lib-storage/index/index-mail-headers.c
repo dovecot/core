@@ -779,8 +779,10 @@ int index_mail_get_first_header(struct mail *_mail, const char *field,
 	return ret < 0 ? -1 : (list[0] != NULL ? 1 : 0);
 }
 
-static void header_cache_callback(struct message_header_line *hdr,
-				  bool *matched, struct index_mail *mail)
+static void
+header_cache_callback(struct header_filter_istream *input ATTR_UNUSED,
+		      struct message_header_line *hdr,
+		      bool *matched, struct index_mail *mail)
 {
 	if (hdr != NULL && hdr->eoh)
 		*matched = FALSE;

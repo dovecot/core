@@ -177,7 +177,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			matched = TRUE;
 			if (!mstream->header_parsed &&
 			    mstream->callback != NULL) {
-				mstream->callback(hdr, &matched,
+				mstream->callback(mstream, hdr, &matched,
 						  mstream->context);
 			}
 
@@ -200,7 +200,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			bool orig_matched = matched;
 
 			mstream->parsed_lines = mstream->cur_line;
-			mstream->callback(hdr, &matched, mstream->context);
+			mstream->callback(mstream, hdr, &matched,
+					  mstream->context);
 			if (matched != orig_matched) {
 				i_array_init(&mstream->match_change_lines, 8);
 				array_append(&mstream->match_change_lines,
@@ -275,7 +276,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		mstream->hdr_ctx = NULL;
 
 		if (!mstream->header_parsed && mstream->callback != NULL)
-			mstream->callback(NULL, &matched, mstream->context);
+			mstream->callback(mstream, NULL,
+					  &matched, mstream->context);
 		mstream->header_parsed = TRUE;
 		mstream->header_read = TRUE;
 
@@ -547,4 +549,10 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->istream.istream.seekable = input->seekable;
 
 	return i_stream_create(&mstream->istream, input, -1);
+}
+
+void i_stream_header_filter_add(struct header_filter_istream *input,
+				const void *data, size_t size)
+{
+	buffer_append(input->hdr_buf, data, size);
 }

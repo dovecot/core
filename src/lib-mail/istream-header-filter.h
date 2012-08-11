@@ -1,6 +1,8 @@
 #ifndef ISTREAM_HEADER_FILTER_H
 #define ISTREAM_HEADER_FILTER_H
 
+struct header_filter_istream;
+
 enum header_filter_flags {
 	/* Include only specified headers in output.*/
 	HEADER_FILTER_INCLUDE		= 0x01,
@@ -19,7 +21,8 @@ enum header_filter_flags {
 
 struct message_header_line;
 
-typedef void header_filter_callback(struct message_header_line *hdr,
+typedef void header_filter_callback(struct header_filter_istream *input,
+				    struct message_header_line *hdr,
 				    bool *matched, void *context);
 
 extern header_filter_callback *null_header_filter_callback;
@@ -35,7 +38,8 @@ i_stream_create_header_filter(struct istream *input,
 #ifdef CONTEXT_TYPE_SAFETY
 #  define i_stream_create_header_filter(input, flags, headers, headers_count, \
 				        callback, context) \
-	({(void)(1 ? 0 : callback((struct message_header_line *)0, \
+	({(void)(1 ? 0 : callback((struct header_filter_istream *)0, \
+				  (struct message_header_line *)0, \
 				  (bool *)0, context)); \
 	  i_stream_create_header_filter(input, flags, headers, headers_count, \
 			(header_filter_callback *)callback, context); })
@@ -45,5 +49,9 @@ i_stream_create_header_filter(struct istream *input,
 	  i_stream_create_header_filter(input, flags, headers, headers_count, \
 			(header_filter_callback *)callback, context)
 #endif
+
+/* Add more data to headers. Should called from the filter callback. */
+void i_stream_header_filter_add(struct header_filter_istream *input,
+				const void *data, size_t size);
 
 #endif

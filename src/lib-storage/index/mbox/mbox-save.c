@@ -341,8 +341,10 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 	return 0;
 }
 
-static void save_header_callback(struct message_header_line *hdr,
-				 bool *matched, struct mbox_save_context *ctx)
+static void
+save_header_callback(struct header_filter_istream *input ATTR_UNUSED,
+		     struct message_header_line *hdr,
+		     bool *matched, struct mbox_save_context *ctx)
 {
 	if (hdr != NULL) {
 		if (strncmp(hdr->name, "From ", 5) == 0) {
