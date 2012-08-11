@@ -782,11 +782,8 @@ int index_mail_get_first_header(struct mail *_mail, const char *field,
 static void
 header_cache_callback(struct header_filter_istream *input ATTR_UNUSED,
 		      struct message_header_line *hdr,
-		      bool *matched, struct index_mail *mail)
+		      bool *matched ATTR_UNUSED, struct index_mail *mail)
 {
-	if (hdr != NULL && hdr->eoh)
-		*matched = FALSE;
-
 	index_mail_parse_header(NULL, hdr, mail);
 }
 
@@ -810,6 +807,7 @@ int index_mail_get_header_stream(struct mail *_mail,
 	if (mail_cache_lookup_headers(_mail->transaction->cache_view, dest,
 				      _mail->seq, headers->idx,
 				      headers->count) > 0) {
+		str_append(dest, "\n");
 		_mail->transaction->stats.cache_hit_count++;
 		if (mail->data.filter_stream != NULL)
 			i_stream_destroy(&mail->data.filter_stream);
@@ -832,6 +830,7 @@ int index_mail_get_header_stream(struct mail *_mail,
 	mail->data.filter_stream =
 		i_stream_create_header_filter(mail->data.stream,
 					      HEADER_FILTER_INCLUDE |
+					      HEADER_FILTER_ADD_MISSING_EOH |
 					      HEADER_FILTER_HIDE_BODY,
 					      headers->name, headers->count,
 					      header_cache_callback, mail);
