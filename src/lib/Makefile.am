@@ -95,6 +95,7 @@ liblib_la_SOURCES = \
 	mountpoint.c \
 	network.c \
 	nfs-workarounds.c \
+	numpack.c \
 	ostream.c \
 	ostream-file.c \
 	ostream-buffer.c \
@@ -207,6 +208,7 @@ headers = \
 	mountpoint.h \
 	network.h \
 	nfs-workarounds.h \
+	numpack.h \
 	ostream.h \
 	ostream-private.h \
 	ostream-rawlog.h \
@@ -273,6 +275,7 @@ test_lib_SOURCES = \
 	test-llist.c \
 	test-mempool-alloconly.c \
 	test-network.c \
+	test-numpack.c \
 	test-ostream-file.c \
 	test-primes.c \
 	test-priorityq.c \

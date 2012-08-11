@@ -22,6 +22,7 @@ void test_istream_tee(void);
 void test_llist(void);
 void test_mempool_alloconly(void);
 void test_network(void);
+void test_numpack(void);
 void test_ostream_file(void);
 void test_primes(void);
 void test_priorityq(void);
