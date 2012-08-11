@@ -125,7 +125,7 @@ status_mailbox(struct status_cmd_context *ctx, const struct mailbox_info *info)
 	struct mailbox_status status;
 	struct mailbox_metadata metadata;
 
-	box = doveadm_mailbox_find(ctx->ctx.cur_mail_user, info->name);
+	box = doveadm_mailbox_find(ctx->ctx.cur_mail_user, info->vname);
 	if (mailbox_get_status(box, ctx->status_items, &status) < 0 ||
 	    mailbox_get_metadata(box, ctx->metadata_items, &metadata) < 0) {
 		doveadm_mail_failed_mailbox(&ctx->ctx, box);

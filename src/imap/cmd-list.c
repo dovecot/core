@@ -200,7 +200,7 @@ list_get_inbox_flags(struct cmd_list_context *ctx)
 	list_iter = mailbox_list_iter_init(ns->list, "INBOX", 0);
 	info = mailbox_list_iter_next(list_iter);
 	if (info != NULL) {
-		i_assert(strcasecmp(info->name, "INBOX") == 0);
+		i_assert(strcasecmp(info->vname, "INBOX") == 0);
 		flags = info->flags;
 	}
 	(void)mailbox_list_iter_deinit(&list_iter);
@@ -424,7 +424,7 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 	str = t_str_new(256);
 	mutf7_name = t_str_new(128);
 	while ((info = mailbox_list_iter_next(ctx->list_iter)) != NULL) {
-		name = info->name;
+		name = info->vname;
 		flags = info->flags;
 
 		if (strcasecmp(name, "INBOX") == 0) {

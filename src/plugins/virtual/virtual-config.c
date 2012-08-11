@@ -271,13 +271,13 @@ static bool virtual_config_match(const struct mailbox_info *info,
 		if (boxes[i]->glob != NULL) {
 			if (virtual_ns_match(boxes[i]->ns, info->ns) &&
 			    imap_match(boxes[i]->glob,
-				       info->name) == IMAP_MATCH_YES) {
+				       info->vname) == IMAP_MATCH_YES) {
 				*idx_r = i;
 				return TRUE;
 			}
 		} else {
 			i_assert(boxes[i]->name[0] == '-');
-			if (strcmp(boxes[i]->name + 1, info->name) == 0) {
+			if (strcmp(boxes[i]->name + 1, info->vname) == 0) {
 				*idx_r = i;
 				return TRUE;
 			}
@@ -325,9 +325,9 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 		if (virtual_config_match(info, &wildcard_boxes, &i) &&
 		    !virtual_config_match(info, &neg_boxes, &j) &&
 		    virtual_backend_box_lookup_name(ctx->mbox,
-						    info->name) == NULL) {
+						    info->vname) == NULL) {
 			virtual_config_copy_expanded(ctx, wboxes[i],
-						     info->name);
+						     info->vname);
 		}
 	}
 	for (i = 0; i < count; i++)

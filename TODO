@@ -1,4 +1,4 @@
- - Unfinished extensions: MOVE, NOTIFY, BINARY
+ - Unfinished extensions: MOVE, NOTIFY
  - indexer-worker and maybe others (doveadm?) could support dropping privileges
    permanently when service_count=1. Note that LMTP can't with multiple RCPT
    TOs.
@@ -11,10 +11,7 @@
  - FIFOs maybe should be counted as connections, but unlisten should
    unlink+reopen it in master?
  - mailbox list indexes + imaptest test=tests fails
- - mailbox_enable() -> mail_user_enable()?
- - mailbox_info.name -> vname
  - change proxy TTL so it stops at 1?
- - istream-concat
  - lmtp client/proxy: Handle multiline replies better
  - recreate mailbox -> existing sessions log "indexid changed" error
  - add message/mime limits

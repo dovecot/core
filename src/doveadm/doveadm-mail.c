@@ -202,17 +202,17 @@ static int cmd_force_resync_box(struct doveadm_mail_cmd_context *ctx,
 	struct mailbox *box;
 	int ret = 0;
 
-	box = mailbox_alloc(info->ns->list, info->name,
+	box = mailbox_alloc(info->ns->list, info->vname,
 			    MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) < 0) {
-		i_error("Opening mailbox %s failed: %s", info->name,
+		i_error("Opening mailbox %s failed: %s", info->vname,
 			mailbox_get_last_error(box, NULL));
 		doveadm_mail_failed_mailbox(ctx, box);
 		ret = -1;
 	} else if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FORCE_RESYNC |
 				MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) < 0) {
 		i_error("Forcing a resync on mailbox %s failed: %s",
-			info->name, mailbox_get_last_error(box, NULL));
+			info->vname, mailbox_get_last_error(box, NULL));
 		doveadm_mail_failed_mailbox(ctx, box);
 		ret = -1;
 	}

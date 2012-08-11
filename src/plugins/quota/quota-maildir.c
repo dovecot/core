@@ -148,7 +148,7 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 				return NULL;
 
 			rule = quota_root_rule_find(ctx->root->root.set,
-						    ctx->info->name);
+						    ctx->info->vname);
 			if (rule != NULL && rule->ignore) {
 				/* mailbox not included in quota */
 				continue;
@@ -159,7 +159,7 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 			const char *path, *storage_name;
 
 			storage_name = mailbox_list_get_storage_name(
-				ctx->info->ns->list, ctx->info->name);
+				ctx->info->ns->list, ctx->info->vname);
 			path = mailbox_list_get_path(ctx->list, storage_name,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);
 			str_truncate(ctx->path, 0);

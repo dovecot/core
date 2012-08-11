@@ -32,7 +32,7 @@ cmd_altmove_box(struct doveadm_mail_cmd_context *ctx,
 	while (doveadm_mail_iter_next(iter, &mail)) {
 		if (doveadm_debug) {
 			i_debug("altmove: box=%s uid=%u",
-				info->name, mail->uid);
+				info->vname, mail->uid);
 		}
 		mail_update_flags(mail, modify_type,
 			(enum mail_flags)MAIL_INDEX_MAIL_FLAG_BACKEND);

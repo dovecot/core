@@ -34,7 +34,7 @@ cmd_expunge_box(struct doveadm_mail_cmd_context *_ctx,
 	while (doveadm_mail_iter_next(iter, &mail)) {
 		if (doveadm_debug) {
 			i_debug("expunge: box=%s uid=%u",
-				info->name, mail->uid);
+				info->vname, mail->uid);
 		}
 		mail_expunge(mail);
 	}

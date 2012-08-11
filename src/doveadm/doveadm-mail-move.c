@@ -44,7 +44,7 @@ cmd_move_box(struct move_cmd_context *ctx, struct mailbox *destbox,
 			mail_expunge(mail);
 		else {
 			i_error("Copying message UID %u from '%s' failed: %s",
-				mail->uid, info->name,
+				mail->uid, info->vname,
 				mailbox_get_last_error(destbox, NULL));
 			doveadm_mail_failed_mailbox(&ctx->ctx, destbox);
 			ret = -1;

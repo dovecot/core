@@ -209,11 +209,11 @@ acl_mailbox_list_iter_next_info(struct acl_mailbox_list_iterate_context *ctx)
 		   mailboxes not in the list (since we know they can't be
 		   visible to us). */
 		if (ctx->lookup_boxes == NULL ||
-		    mailbox_tree_lookup(ctx->lookup_boxes, info->name) != NULL)
+		    mailbox_tree_lookup(ctx->lookup_boxes, info->vname) != NULL)
 			break;
 		if (ctx->ctx.list->ns->user->mail_debug) {
 			i_debug("acl: Mailbox not in dovecot-acl-list: %s",
-				info->name);
+				info->vname);
 		}
 	}
 
@@ -246,7 +246,7 @@ iter_is_listing_all_children(struct acl_mailbox_list_iterate_context *ctx)
 	/* If all patterns (with '.' separator) are in "name*", "name.*" or
 	   "%.*" style format, simple_star_glob=TRUE and we can easily test
 	   this by simply checking if name/child mailbox matches. */
-	child = t_strdup_printf("%s%cx", ctx->info.name, ctx->sep);
+	child = t_strdup_printf("%s%cx", ctx->info.vname, ctx->sep);
 	return ctx->simple_star_glob &&
 		imap_match(ctx->ctx.glob, child) == IMAP_MATCH_YES;
 }
@@ -270,7 +270,7 @@ iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx,
 		   if there even are any children with LOOKUP rights. */
 		struct mailbox_node *node;
 
-		node = mailbox_tree_lookup(ctx->lookup_boxes, ctx->info.name);
+		node = mailbox_tree_lookup(ctx->lookup_boxes, ctx->info.vname);
 		i_assert(node != NULL);
 		if (node->children == NULL)
 			return FALSE;
@@ -280,15 +280,15 @@ iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx,
 	   LIST wildcard. replace then with '%' and verify later that all
 	   results have the correct prefix. */
 	pattern = t_str_new(128);
-	for (i = 0; ctx->info.name[i] != '\0'; i++) {
-		if (ctx->info.name[i] != '*')
-			str_append_c(pattern, ctx->info.name[i]);
+	for (i = 0; ctx->info.vname[i] != '\0'; i++) {
+		if (ctx->info.vname[i] != '*')
+			str_append_c(pattern, ctx->info.vname[i]);
 		else {
 			stars = TRUE;
 			str_append_c(pattern, '%');
 		}
 	}
-	if (i > 0 && ctx->info.name[i-1] != ctx->sep)
+	if (i > 0 && ctx->info.vname[i-1] != ctx->sep)
 		str_append_c(pattern, ctx->sep);
 	str_append_c(pattern, '*');
 	prefix = str_c(pattern);
@@ -298,13 +298,13 @@ iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx,
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if (only_nonpatterns &&
-		    imap_match(ctx->ctx.glob, info->name) == IMAP_MATCH_YES) {
+		    imap_match(ctx->ctx.glob, info->vname) == IMAP_MATCH_YES) {
 			/* at least one child matches also the original list
 			   patterns. we don't need to show this mailbox. */
 			ret = FALSE;
 			break;
 		}
-		if (!stars || strncmp(info->name, prefix, prefix_len) == 0)
+		if (!stars || strncmp(info->vname, prefix, prefix_len) == 0)
 			ret = TRUE;
 	}
 	(void)mailbox_list_iter_deinit(&iter);
@@ -332,7 +332,7 @@ acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx)
 		return 1;
 	}
 
-	acl_name = acl_mailbox_list_iter_get_name(&ctx->ctx, info->name);
+	acl_name = acl_mailbox_list_iter_get_name(&ctx->ctx, info->vname);
 	ret = acl_mailbox_list_have_right(ctx->ctx.list, acl_name, FALSE,
 					  ACL_STORAGE_RIGHT_LOOKUP,
 					  NULL);
@@ -394,7 +394,7 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		/* skip to next one */
 		if (ctx->ctx.list->ns->user->mail_debug) {
 			i_debug("acl: No lookup right to mailbox: %s",
-				info->name);
+				info->vname);
 		}
 	}
 	return info == NULL ? NULL : &ctx->info;

@@ -561,7 +561,7 @@ static bool
 list_file_unfound_inbox(struct fs_list_iterate_context *ctx)
 {
 	ctx->info.flags = 0;
-	ctx->info.name = fs_list_get_inbox_vname(ctx);
+	ctx->info.vname = fs_list_get_inbox_vname(ctx);
 
 	if (mailbox_list_mailbox(ctx->ctx.list, "INBOX", &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;
@@ -604,12 +604,12 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 	storage_name = dir_get_storage_name(dir, entry->fname);
 
 	vname = mailbox_list_get_vname(ctx->ctx.list, storage_name);
-	ctx->info.name = p_strdup(ctx->info_pool, vname);
+	ctx->info.vname = p_strdup(ctx->info_pool, vname);
 	ctx->info.flags = entry->info_flags;
 
-	match = imap_match(ctx->ctx.glob, ctx->info.name);
+	match = imap_match(ctx->ctx.glob, ctx->info.vname);
 
-	child_dir_name = t_strdup_printf("%s%c", ctx->info.name, ctx->sep);
+	child_dir_name = t_strdup_printf("%s%c", ctx->info.vname, ctx->sep);
 	child_dir_match = imap_match(ctx->ctx.glob, child_dir_name);
 	if (child_dir_match == IMAP_MATCH_YES)
 		child_dir_match |= IMAP_MATCH_CHILDREN;
@@ -634,7 +634,7 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 	}
 
 	/* handle INBOXes correctly */
-	if (strcasecmp(ctx->info.name, "INBOX") == 0 &&
+	if (strcasecmp(ctx->info.vname, "INBOX") == 0 &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* either this is user's INBOX, or it's a naming conflict */
 		if (!list_file_is_any_inbox(ctx, storage_name)) {
@@ -737,9 +737,9 @@ fs_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 
 	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0) {
 		mailbox_list_set_subscription_flags(ctx->ctx.list,
-						    ctx->info.name,
+						    ctx->info.vname,
 						    &ctx->info.flags);
 	}
-	i_assert(ctx->info.name != NULL);
+	i_assert(ctx->info.vname != NULL);
 	return &ctx->info;
 }

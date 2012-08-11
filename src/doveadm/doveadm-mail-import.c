@@ -125,7 +125,7 @@ cmd_import_box(struct import_cmd_context *ctx, struct mail_user *dest_user,
 
 	if (doveadm_mail_iter_next(iter, &mail)) {
 		/* at least one mail matches in this mailbox */
-		if (dest_mailbox_open_or_create(ctx, dest_user, info->name,
+		if (dest_mailbox_open_or_create(ctx, dest_user, info->vname,
 						&box) < 0)
 			ret = -1;
 		else {

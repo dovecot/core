@@ -168,9 +168,9 @@ doveadm_mailbox_list_iter_next(struct doveadm_mailbox_list_iter *iter)
 		if (iter->pattern_idx == count)
 			return NULL;
 
-		iter->info.name = patterns[iter->pattern_idx++];
+		iter->info.vname = patterns[iter->pattern_idx++];
 		iter->info.ns = mail_namespace_find(iter->user->namespaces,
-						    iter->info.name);
+						    iter->info.vname);
 		if (iter->info.ns != NULL)
 			return &iter->info;
 		/* FIXME: maybe fail?.. or just wait for v2.2 to get rid of
@@ -187,7 +187,7 @@ doveadm_mailbox_list_iter_next(struct doveadm_mailbox_list_iter *iter)
 		}
 
 		if (mail_search_args_match_mailbox(iter->search_args,
-						   info->name, sep))
+						   info->vname, sep))
 			break;
 	}
 	return info;

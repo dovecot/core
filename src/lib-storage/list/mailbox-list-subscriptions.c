@@ -254,7 +254,7 @@ mailbox_list_subscriptions_iter_next(struct mailbox_list_iterate_context *_ctx)
 	if (node == NULL)
 		return NULL;
 
-	ctx->info.name = vname;
+	ctx->info.vname = vname;
 	subs_flags = node->flags & (MAILBOX_SUBSCRIBED |
 				    MAILBOX_CHILD_SUBSCRIBED);
 

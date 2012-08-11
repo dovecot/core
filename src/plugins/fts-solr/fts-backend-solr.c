@@ -576,7 +576,7 @@ static int fts_backend_solr_rescan(struct fts_backend *backend)
 		     (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) != 0)
 			continue;
 
-		box = mailbox_alloc(info->ns->list, info->name, 0);
+		box = mailbox_alloc(info->ns->list, info->vname, 0);
 		if (mailbox_open(box) == 0) {
 			if (fts_index_set_last_uid(box, 0) < 0)
 				ret = -1;

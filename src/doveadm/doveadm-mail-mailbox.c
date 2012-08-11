@@ -121,10 +121,10 @@ cmd_mailbox_list_run(struct doveadm_mail_cmd_context *_ctx,
 						   iter_flags);
 	while ((info = doveadm_mailbox_list_iter_next(iter)) != NULL) {
 		if (!ctx->mutf7)
-			doveadm_print(info->name);
+			doveadm_print(info->vname);
 		else {
 			str_truncate(str, 0);
-			if (imap_utf8_to_utf7(info->name, str) < 0)
+			if (imap_utf8_to_utf7(info->vname, str) < 0)
 				i_unreached();
 			doveadm_print(str_c(str));
 		}
@@ -285,7 +285,7 @@ get_child_mailboxes(struct mail_user *user, ARRAY_TYPE(const_string) *mailboxes,
 	iter = mailbox_list_iter_init(ns->list, pattern,
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		child_name = t_strdup(info->name);
+		child_name = t_strdup(info->vname);
 		array_append(mailboxes, &child_name, 1);
 	}
 	return mailbox_list_iter_deinit(&iter);

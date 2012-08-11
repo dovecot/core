@@ -87,14 +87,14 @@ cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 	struct mailbox_status status;
 	int ret = 0;
 
-	box = mailbox_alloc(info->ns->list, info->name,
+	box = mailbox_alloc(info->ns->list, info->vname,
 			    MAILBOX_FLAG_IGNORE_ACLS);
 	if (ctx->max_recent_msgs != 0) {
 		/* index only if there aren't too many recent messages.
 		   don't bother syncing the mailbox, that alone can take a
 		   while with large maildirs. */
 		if (mailbox_open(box) < 0) {
-			i_error("Opening mailbox %s failed: %s", info->name,
+			i_error("Opening mailbox %s failed: %s", info->vname,
 				mail_storage_get_last_error(mailbox_get_storage(box), NULL));
 			doveadm_mail_failed_mailbox(&ctx->ctx, box);
 			mailbox_free(&box);
@@ -109,7 +109,7 @@ cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 	}
 
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		i_error("Syncing mailbox %s failed: %s", info->name,
+		i_error("Syncing mailbox %s failed: %s", info->vname,
 			mail_storage_get_last_error(mailbox_get_storage(box), NULL));
 		doveadm_mail_failed_mailbox(&ctx->ctx, box);
 		ret = -1;
@@ -185,7 +185,7 @@ cmd_index_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		if ((info->flags & (MAILBOX_NOSELECT |
 				    MAILBOX_NONEXISTENT)) == 0) T_BEGIN {
 			if (ctx->queue)
-				cmd_index_queue(ctx, user, info->name);
+				cmd_index_queue(ctx, user, info->vname);
 			else {
 				if (cmd_index_box(ctx, info) < 0)
 					ret = -1;

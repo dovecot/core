@@ -256,7 +256,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 				      MAILBOX_LIST_ITER_RAW_LIST |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		if (acllist_append(backend, output, info->name) < 0) {
+		if (acllist_append(backend, output, info->vname) < 0) {
 			ret = -1;
 			break;
 		}

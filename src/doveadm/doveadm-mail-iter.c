@@ -29,12 +29,12 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 
 	iter = i_new(struct doveadm_mail_iter, 1);
 	iter->ctx = ctx;
-	iter->box = mailbox_alloc(info->ns->list, info->name,
+	iter->box = mailbox_alloc(info->ns->list, info->vname,
 				  MAILBOX_FLAG_IGNORE_ACLS);
 	iter->search_args = search_args;
 
 	if (mailbox_sync(iter->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		i_error("Syncing mailbox %s failed: %s", info->name,
+		i_error("Syncing mailbox %s failed: %s", info->vname,
 			mailbox_get_last_error(iter->box, NULL));
 		doveadm_mail_failed_mailbox(ctx, iter->box);
 		mailbox_free(&iter->box);

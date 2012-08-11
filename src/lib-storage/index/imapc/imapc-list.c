@@ -332,9 +332,9 @@ static void imapc_list_delete_unused_indexes(struct imapc_mailbox_list *list)
 				      MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		if (mailbox_tree_lookup(list->mailboxes, info->name) == NULL) {
+		if (mailbox_tree_lookup(list->mailboxes, info->vname) == NULL) {
 			fs_name = mailbox_list_get_storage_name(fs_list,
-								info->name);
+								info->vname);
 			(void)fs_list->v.delete_mailbox(fs_list, fs_name);
 		}
 	}
@@ -467,7 +467,7 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	struct imapc_mailbox_list_iterate_context *ctx =
 		(struct imapc_mailbox_list_iterate_context *)_ctx;
 	struct mailbox_node *node;
-	const char *name;
+	const char *vname;
 
 	if (_ctx->failed)
 		return NULL;
@@ -476,12 +476,12 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		return mailbox_list_subscriptions_iter_next(_ctx);
 
 	do {
-		node = mailbox_tree_iterate_next(ctx->iter, &name);
+		node = mailbox_tree_iterate_next(ctx->iter, &vname);
 		if (node == NULL)
 			return NULL;
 	} while ((node->flags & MAILBOX_MATCHED) == 0);
 
-	ctx->info.name = name;
+	ctx->info.vname = vname;
 	ctx->info.flags = node->flags;
 	return &ctx->info;
 }

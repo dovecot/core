@@ -147,7 +147,7 @@ none_list_iter_init(struct mailbox_list *list,
 	    imap_match(ctx->ctx.glob, "INBOX") == IMAP_MATCH_YES) {
 		ctx->list_inbox = TRUE;
 		ctx->inbox_info.ns = list->ns;
-		ctx->inbox_info.name = "INBOX";
+		ctx->inbox_info.vname = "INBOX";
 	}
 	return &ctx->ctx;
 }

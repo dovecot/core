@@ -18,12 +18,12 @@ dsync_mailbox_tree_add_node(struct dsync_mailbox_tree *tree,
 {
 	struct dsync_mailbox_node *node;
 
-	node = dsync_mailbox_tree_get(tree, info->name);
+	node = dsync_mailbox_tree_get(tree, info->vname);
 	if (node->ns != info->ns) {
 		i_assert(node->ns != NULL);
 
 		i_error("Mailbox '%s' exists in two namespaces: '%s' and '%s'",
-			info->name, node->ns->prefix, info->ns->prefix);
+			info->vname, node->ns->prefix, info->ns->prefix);
 		return -1;
 	}
 	*node_r = node;
@@ -51,7 +51,7 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 		return 0;
 
 	/* get GUID and UIDVALIDITY for selectable mailbox */
-	box = mailbox_alloc(info->ns->list, info->name, 0);
+	box = mailbox_alloc(info->ns->list, info->vname, 0);
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0 ||
 	    mailbox_get_status(box, STATUS_UIDVALIDITY, &status) < 0) {
 		errstr = mailbox_get_last_error(box, &error);
@@ -64,7 +64,7 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 			break;
 		default:
 			i_error("Failed to access mailbox %s: %s",
-				info->name, errstr);
+				info->vname, errstr);
 			mailbox_free(&box);
 			return -1;
 		}

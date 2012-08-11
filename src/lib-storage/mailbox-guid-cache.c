@@ -62,17 +62,17 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 		     (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0)
 			continue;
 
-		box = mailbox_alloc(list, info->name, 0);
+		box = mailbox_alloc(list, info->vname, 0);
 		if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
 					 &metadata) < 0) {
 			i_error("Couldn't get mailbox %s GUID: %s",
-				info->name, mailbox_get_last_error(box, NULL));
+				info->vname, mailbox_get_last_error(box, NULL));
 			list->guid_cache_errors = TRUE;
 		} else {
 			rec = p_new(list->guid_cache_pool,
 				    struct mailbox_guid_cache_rec, 1);
 			memcpy(rec->guid, metadata.guid, sizeof(rec->guid));
-			rec->vname = p_strdup(list->guid_cache_pool, info->name);
+			rec->vname = p_strdup(list->guid_cache_pool, info->vname);
 			hash_table_insert(list->guid_cache, rec->guid, rec);
 		}
 		mailbox_free(&box);

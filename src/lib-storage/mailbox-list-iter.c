@@ -364,8 +364,8 @@ mailbox_list_ns_iter_next(struct mailbox_list_iterate_context *_ctx)
 		ctx->iter_namespaces = ns->next;
 		if (ns->prefix_len > 0 && iter_next_try_prefix(ctx, ns)) {
 			ctx->ns_info.ns = ns;
-			ctx->ns_info.name = p_strndup(ctx->pool, ns->prefix,
-						      ns->prefix_len-1);
+			ctx->ns_info.vname = p_strndup(ctx->pool, ns->prefix,
+						       ns->prefix_len-1);
 			return &ctx->ns_info;
 		}
 	}
@@ -511,7 +511,7 @@ autocreate_iter_existing(struct mailbox_list_iterate_context *ctx)
 	unsigned int idx;
 
 	match = autocreate_box_match(&actx->box_sets, ctx->list->ns,
-				     info->name, FALSE, &idx);
+				     info->vname, FALSE, &idx);
 
 	if ((match & AUTOCREATE_MATCH_RESULT_YES) != 0) {
 		/* we have an exact match in the list.
@@ -534,7 +534,7 @@ autocreate_iter_existing(struct mailbox_list_iterate_context *ctx)
 		match2 = match;
 	else {
 		match2 = autocreate_box_match(&actx->all_ns_box_sets,
-					      ctx->list->ns, info->name,
+					      ctx->list->ns, info->vname,
 					      FALSE, &idx);
 	}
 	if ((match2 & AUTOCREATE_MATCH_RESULT_YES) != 0)
@@ -548,7 +548,7 @@ autocreate_iter_existing(struct mailbox_list_iterate_context *ctx)
 	    (ctx->flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0) {
 		/* we're listing all mailboxes and want \Subscribed flag */
 		match2 = autocreate_box_match(&actx->all_ns_box_sets,
-					      ctx->list->ns, info->name,
+					      ctx->list->ns, info->vname,
 					      TRUE, &idx);
 		if ((match2 & AUTOCREATE_MATCH_RESULT_YES) != 0) {
 			/* mailbox is also marked as autosubscribe */
@@ -570,8 +570,8 @@ autocreate_iter_existing(struct mailbox_list_iterate_context *ctx)
 
 		array_foreach_modifiable(&actx->boxes, autobox) {
 			name_len = strlen(autobox->name);
-			if (strncmp(info->name, autobox->name, name_len) != 0 ||
-			    info->name[name_len] != sep)
+			if (strncmp(info->vname, autobox->name, name_len) != 0 ||
+			    info->vname[name_len] != sep)
 				continue;
 
 			if ((info->flags & MAILBOX_NONEXISTENT) == 0)
@@ -593,7 +593,7 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 
 	memset(&actx->new_info, 0, sizeof(actx->new_info));
 	actx->new_info.ns = ctx->list->ns;
-	actx->new_info.name = autobox->name;
+	actx->new_info.vname = autobox->name;
 	actx->new_info.flags = autobox->flags;
 
 	if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
@@ -602,7 +602,7 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 	if ((actx->new_info.flags & MAILBOX_CHILDREN) == 0)
 		actx->new_info.flags |= MAILBOX_NOCHILDREN;
 
-	match = imap_match(ctx->glob, actx->new_info.name);
+	match = imap_match(ctx->glob, actx->new_info.vname);
 	if (match == IMAP_MATCH_YES) {
 		actx->new_info.special_use =
 			*autobox->set->special_use == '\0' ? NULL :
@@ -625,11 +625,11 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 		if ((old_flags & MAILBOX_SUBSCRIBED) != 0)
 			actx->new_info.flags |= MAILBOX_CHILD_SUBSCRIBED;
 		do {
-			p = strrchr(actx->new_info.name, sep);
+			p = strrchr(actx->new_info.vname, sep);
 			i_assert(p != NULL);
-			actx->new_info.name =
-				t_strdup_until(actx->new_info.name, p);
-			match = imap_match(ctx->glob, actx->new_info.name);
+			actx->new_info.vname =
+				t_strdup_until(actx->new_info.vname, p);
+			match = imap_match(ctx->glob, actx->new_info.vname);
 		} while (match != IMAP_MATCH_YES);
 		return TRUE;
 	}
@@ -648,7 +648,7 @@ mailbox_list_iter_next_call(struct mailbox_list_iterate_context *ctx)
 
 	ctx->list->ns->flags |= NAMESPACE_FLAG_USABLE;
 	if ((ctx->flags & MAILBOX_LIST_ITER_RETURN_SPECIALUSE) != 0) {
-		set = mailbox_settings_find(ctx->list->ns->user, info->name);
+		set = mailbox_settings_find(ctx->list->ns->user, info->vname);
 		if (set != NULL && *set->special_use != '\0') {
 			ctx->specialuse_info = *info;
 			ctx->specialuse_info.special_use =

@@ -543,7 +543,7 @@ rebuild_namespace_mailboxes(struct mdbox_storage_rebuild_context *ctx,
 		if ((info->flags & (MAILBOX_NONEXISTENT |
 				    MAILBOX_NOSELECT)) == 0) {
 			T_BEGIN {
-				ret = rebuild_mailbox(ctx, ns, info->name);
+				ret = rebuild_mailbox(ctx, ns, info->vname);
 			} T_END;
 			if (ret < 0) {
 				ret = -1;

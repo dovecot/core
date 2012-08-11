@@ -149,7 +149,7 @@ struct mailbox_list_settings {
 };
 
 struct mailbox_info {
-	const char *name;
+	const char *vname;
 	const char *special_use;
 	enum mailbox_info_flags flags;
 

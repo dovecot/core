@@ -496,9 +496,9 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 
 		/* verify that the prefix matches, otherwise we could have
 		   problems with mailbox names containing '%' and '*' chars */
-		if (strncmp(info->name, old_vname, old_vnamelen) == 0 &&
-		    info->name[old_vnamelen] == old_ns_sep) {
-			name = p_strdup(pool, info->name + old_vnamelen);
+		if (strncmp(info->vname, old_vname, old_vnamelen) == 0 &&
+		    info->vname[old_vnamelen] == old_ns_sep) {
+			name = p_strdup(pool, info->vname + old_vnamelen);
 			array_append(&names_arr, &name, 1);
 		}
 	}

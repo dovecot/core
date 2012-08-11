@@ -284,7 +284,7 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 		T_BEGIN {
 			const char *name =
 				mailbox_list_get_storage_name(info->ns->list,
-							      info->name);
+							      info->vname);
 			seq = mailbox_list_index_sync_name(&sync_ctx,
 							   name, flags);
 		} T_END;
