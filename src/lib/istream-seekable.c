@@ -165,6 +165,8 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 	const unsigned char *data;
 	size_t size, pos, offset;
 
+	i_assert(stream->skip == 0);
+
 	if (stream->istream.v_offset + stream->pos >= sstream->membuf->used) {
 		/* need to read more */
 		if (sstream->membuf->used >= stream->max_buffer_size)
@@ -193,7 +195,6 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 	*ret_r = pos - stream->pos;
 	i_assert(*ret_r > 0);
 	stream->pos = pos;
-	stream->skip = 0;
 	return TRUE;
 }
 
@@ -227,6 +228,10 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 	const unsigned char *data;
 	size_t size, pos;
 	ssize_t ret;
+
+	stream->buffer = CONST_PTR_OFFSET(stream->buffer, stream->skip);
+	stream->pos -= stream->skip;
+	stream->skip = 0;
 
 	if (sstream->membuf != NULL) {
 		if (read_from_buffer(sstream, &ret))
