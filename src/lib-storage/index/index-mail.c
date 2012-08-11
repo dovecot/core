@@ -49,6 +49,8 @@ struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 	{ .name = "guid",
 	  .type = MAIL_CACHE_FIELD_STRING },
 	{ .name = "mime.parts",
+	  .type = MAIL_CACHE_FIELD_VARIABLE_SIZE },
+	{ .name = "binary.parts",
 	  .type = MAIL_CACHE_FIELD_VARIABLE_SIZE }
 };
 
@@ -85,7 +87,7 @@ static struct message_part *get_unserialized_parts(struct index_mail *mail)
 					 part_buf->used, &error);
 	if (parts == NULL) {
 		mail_cache_set_corrupted(mail->mail.mail.box->cache,
-			"Corrupted cached message_part data (%s)", error);
+			"Corrupted cached mime.parts data (%s)", error);
 	}
 	return parts;
 }
@@ -1202,7 +1204,7 @@ static void index_mail_close_streams_full(struct index_mail *mail, bool closing)
 			i_stream_unset_destroy_callback(data->stream);
 		}
 		i_stream_unref(&data->stream);
-		if (closing) {
+ 		if (closing) {
 			/* there must be no references to the mail when the
 			   mail is being closed. */
 			i_assert(!mail->data.destroying_stream);

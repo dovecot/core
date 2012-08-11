@@ -193,24 +193,32 @@ int mail_get_stream(struct mail *mail, struct message_size *hdr_size,
 		    struct message_size *body_size, struct istream **stream_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
 	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
 		mail_set_aborted(mail);
 		return -1;
 	}
-	return p->v.get_stream(mail, TRUE, hdr_size, body_size, stream_r);
+	T_BEGIN {
+		ret = p->v.get_stream(mail, TRUE, hdr_size, body_size, stream_r);
+	} T_END;
+	return ret;
 }
 
 int mail_get_hdr_stream(struct mail *mail, struct message_size *hdr_size,
 			struct istream **stream_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
 	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
 		mail_set_aborted(mail);
 		return -1;
 	}
-	return p->v.get_stream(mail, FALSE, hdr_size, NULL, stream_r);
+	T_BEGIN {
+		ret = p->v.get_stream(mail, FALSE, hdr_size, NULL, stream_r);
+	} T_END;
+	return ret;
 }
 
 int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
@@ -218,13 +226,17 @@ int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
 			   struct istream **stream_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
 	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
 		mail_set_aborted(mail);
 		return -1;
 	}
-	return p->v.get_binary_stream(mail, part, include_hdr,
-				      size_r, binary_r, stream_r);
+	T_BEGIN {
+		ret = p->v.get_binary_stream(mail, part, include_hdr,
+					     size_r, binary_r, stream_r);
+	} T_END;
+	return ret;
 }
 
 int mail_get_binary_size(struct mail *mail, const struct message_part *part,
@@ -232,9 +244,13 @@ int mail_get_binary_size(struct mail *mail, const struct message_part *part,
 {
 	struct mail_private *p = (struct mail_private *)mail;
 	bool binary;
+	int ret;
 
-	return p->v.get_binary_stream(mail, part, include_hdr,
-				      size_r, &binary, NULL);
+	T_BEGIN {
+		ret = p->v.get_binary_stream(mail, part, include_hdr,
+					     size_r, &binary, NULL);
+	} T_END;
+	return ret;
 }
 
 int mail_get_special(struct mail *mail, enum mail_fetch_field field,

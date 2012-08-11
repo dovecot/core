@@ -21,6 +21,7 @@ enum index_cache_field {
 	MAIL_CACHE_POP3_UIDL,
 	MAIL_CACHE_GUID,
 	MAIL_CACHE_MESSAGE_PARTS,
+	MAIL_CACHE_BINARY_PARTS,
 
 	MAIL_INDEX_CACHE_FIELD_COUNT
 };
@@ -77,6 +78,7 @@ struct index_mail_data {
 	uint32_t parse_line_num;
 
 	struct message_part *parts;
+	struct message_binary_part *bin_parts;
 	const char *envelope, *body, *bodystructure, *guid, *filename;
 	const char *from_envelope;
 	struct message_part_envelope_data *envelope_data;

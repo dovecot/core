@@ -10,24 +10,36 @@
 #include "istream-qp.h"
 #include "istream-header-filter.h"
 #include "ostream.h"
+#include "message-binary-part.h"
 #include "message-parser.h"
 #include "message-decoder.h"
 #include "mail-user.h"
+#include "index-storage.h"
 #include "index-mail.h"
 
 #define MAIL_BINARY_CACHE_EXPIRE_MSECS (60*1000)
+
+#define IS_CONVERTED_CTE(cte) \
+	((cte) == MESSAGE_CTE_QP || (cte) == MESSAGE_CTE_BASE64)
+
+struct binary_block {
+	struct istream *input;
+	struct message_binary_part bin_part;
+	bool converted, converted_hdr;
+};
 
 struct binary_ctx {
 	struct mail *mail;
 	struct istream *input;
 	bool has_nuls, converted;
-	ARRAY_DEFINE(streams, struct istream *);
+	ARRAY_DEFINE(blocks, struct binary_block);
 
 	uoff_t copy_start_offset;
 };
 
 static void binary_copy_to(struct binary_ctx *ctx, uoff_t end_offset)
 {
+	struct binary_block *block;
 	struct istream *linput, *cinput;
 	uoff_t orig_offset, size;
 
@@ -43,7 +55,9 @@ static void binary_copy_to(struct binary_ctx *ctx, uoff_t end_offset)
 	linput = i_stream_create_limit(ctx->input, size);
 	cinput = i_stream_create_crlf(linput);
 	i_stream_unref(&linput);
-	array_append(&ctx->streams, &cinput, 1);
+
+	block = array_append_space(&ctx->blocks);
+	block->input = cinput;
 
 	i_stream_seek(ctx->input, orig_offset);
 }
@@ -72,7 +86,8 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 	struct message_header_line *hdr;
 	struct message_part *child;
 	struct message_size hdr_size;
-	struct istream *linput, *cinput;
+	struct istream *linput;
+	struct binary_block *block;
 	enum message_cte cte;
 	int ret;
 
@@ -109,17 +124,21 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 	i_stream_seek(ctx->input, part->physical_pos);
 	if (!include_hdr) {
 		/* body only */
-	} else if (cte == MESSAGE_CTE_QP || cte == MESSAGE_CTE_BASE64) {
+	} else if (IS_CONVERTED_CTE(cte)) {
 		/* write header with modified content-type */
 		if (ctx->copy_start_offset != 0)
 			binary_copy_to(ctx, part->physical_pos);
+		block = array_append_space(&ctx->blocks);
+		block->bin_part.physical_pos = part->physical_pos;
+		block->converted = TRUE;
+		block->converted_hdr = TRUE;
+
 		linput = i_stream_create_limit(ctx->input, (uoff_t)-1);
-		cinput = i_stream_create_header_filter(linput,
+		block->input = i_stream_create_header_filter(linput,
 				HEADER_FILTER_EXCLUDE | HEADER_FILTER_HIDE_BODY,
 				filter_headers, N_ELEMENTS(filter_headers),
 				binary_cte_filter_callback, ctx);
 		i_stream_unref(&linput);
-		array_append(&ctx->streams, &cinput, 1);
 	} else {
 		/* copy everything as-is until the end of this header */
 		binary_copy_to(ctx, part->physical_pos +
@@ -141,6 +160,9 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 	}
 
 	/* single part - write decoded data */
+	block = array_append_space(&ctx->blocks);
+	block->bin_part.physical_pos = part->physical_pos;
+
 	i_stream_seek(ctx->input, part->physical_pos +
 		      part->header_size.physical_size);
 	linput = i_stream_create_limit(ctx->input, part->body_size.physical_size);
@@ -152,20 +174,18 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 		/* no conversion necessary */
 		if ((part->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0)
 			ctx->has_nuls = TRUE;
-		cinput = linput;
-		i_stream_ref(cinput);
+		block->input = i_stream_create_crlf(linput);
 		break;
 	case MESSAGE_CTE_QP:
-		cinput = i_stream_create_qp_decoder(linput);
-		ctx->converted = TRUE;
+		block->input = i_stream_create_qp_decoder(linput);
+		ctx->converted = block->converted = TRUE;
 		break;
 	case MESSAGE_CTE_BASE64:
-		cinput = i_stream_create_base64_decoder(linput);
-		ctx->converted = TRUE;
+		block->input = i_stream_create_base64_decoder(linput);
+		ctx->converted = block->converted = TRUE;
 		break;
 	}
 	i_stream_unref(&linput);
-	array_append(&ctx->streams, &cinput, 1);
 
 	ctx->copy_start_offset = part->physical_pos +
 		part->header_size.physical_size +
@@ -200,12 +220,223 @@ static int fd_callback(const char **path_r, void *context)
 
 static void binary_streams_free(struct binary_ctx *ctx)
 {
-	struct istream **input;
+	struct binary_block *block;
 
-	array_foreach_modifiable(&ctx->streams, input) {
-		if (*input != NULL)
-			i_stream_unref(input);
+	array_foreach_modifiable(&ctx->blocks, block)
+		i_stream_unref(&block->input);
+}
+
+static void
+binary_parts_update(struct binary_ctx *ctx, const struct message_part *part,
+		    struct message_binary_part **msg_bin_parts)
+{
+	struct index_mail *mail = (struct index_mail *)ctx->mail;
+	struct binary_block *blocks;
+	struct message_binary_part bin_part;
+	unsigned int i, count;
+	uoff_t size;
+	bool found;
+
+	blocks = array_get_modifiable(&ctx->blocks, &count);
+	for (; part != NULL; part = part->next) {
+		binary_parts_update(ctx, part->children, msg_bin_parts);
+
+		memset(&bin_part, 0, sizeof(bin_part));
+		/* default to unchanged header */
+		bin_part.binary_hdr_size = part->header_size.virtual_size;
+		bin_part.physical_pos = part->physical_pos;
+		found = FALSE;
+		for (i = 0; i < count; i++) {
+			if (blocks[i].bin_part.physical_pos != part->physical_pos ||
+			    !blocks[i].converted)
+				continue;
+
+			size = blocks[i].input->v_offset;
+			if (blocks[i].converted_hdr)
+				bin_part.binary_hdr_size = size;
+			else
+				bin_part.binary_body_size = size;
+			found = TRUE;
+		}
+		if (found) {
+			bin_part.next = *msg_bin_parts;
+			*msg_bin_parts = p_new(mail->data_pool,
+					       struct message_binary_part, 1);
+			**msg_bin_parts = bin_part;
+		}
 	}
+}
+
+static void binary_parts_cache(struct binary_ctx *ctx)
+{
+	struct index_mail *mail = (struct index_mail *)ctx->mail;
+	buffer_t *buf;
+
+	buf = buffer_create_dynamic(pool_datastack_create(), 128);
+	message_binary_part_serialize(mail->data.bin_parts, buf);
+	index_mail_cache_add(mail, MAIL_CACHE_BINARY_PARTS,
+			     buf->data, buf->used);
+}
+
+static struct istream **blocks_get_streams(struct binary_ctx *ctx)
+{
+	struct istream **streams;
+	const struct binary_block *blocks;
+	unsigned int i, count;
+
+	blocks = array_get(&ctx->blocks, &count);
+	streams = t_new(struct istream *, count+1);
+	for (i = 0; i < count; i++)
+		streams[i] = blocks[i].input;
+	return streams;
+}
+
+static int
+index_mail_read_binary_to_cache(struct mail *_mail,
+				const struct message_part *part,
+				bool include_hdr, bool *binary_r,
+				bool *converted_r)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct mail_binary_cache *cache = &_mail->box->storage->binary_cache;
+	struct binary_ctx ctx;
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.mail = _mail;
+	t_array_init(&ctx.blocks, 8);
+
+	mail_storage_free_binary_cache(_mail->box->storage);
+	if (mail_get_stream(_mail, NULL, NULL, &ctx.input) < 0)
+		return -1;
+
+	if (add_binary_part(&ctx, part, include_hdr) < 0) {
+		binary_streams_free(&ctx);
+		return -1;
+	}
+
+	cache->to = timeout_add(MAIL_BINARY_CACHE_EXPIRE_MSECS,
+				mail_storage_free_binary_cache,
+				_mail->box->storage);
+	cache->box = _mail->box;
+	cache->uid = _mail->uid;
+	cache->orig_physical_pos = part->physical_pos;
+	cache->include_hdr = include_hdr;
+
+	cache->input = i_streams_merge(blocks_get_streams(&ctx),
+				       IO_BLOCK_SIZE, fd_callback, _mail);
+
+	if (i_stream_get_size(cache->input, TRUE, &cache->size) < 0) {
+		mail_storage_set_critical(_mail->box->storage,
+					  "read(%s) failed: %m",
+					  i_stream_get_name(cache->input));
+		mail_storage_free_binary_cache(_mail->box->storage);
+		binary_streams_free(&ctx);
+		return -1;
+	}
+
+	if (part->parent == NULL && include_hdr &&
+	    mail->data.bin_parts == NULL) {
+		binary_parts_update(&ctx, part, &mail->data.bin_parts);
+		binary_parts_cache(&ctx);
+	}
+	binary_streams_free(&ctx);
+
+	*binary_r = ctx.converted ? TRUE : ctx.has_nuls;
+	*converted_r = ctx.converted;
+	return 0;
+}
+
+static bool get_cached_binary_parts(struct index_mail *mail)
+{
+	const unsigned int field_idx =
+		mail->ibox->cache_fields[MAIL_CACHE_BINARY_PARTS].idx;
+	buffer_t *part_buf;
+	int ret;
+
+	if (mail->data.bin_parts != NULL)
+		return TRUE;
+
+	part_buf = buffer_create_dynamic(pool_datastack_create(), 128);
+	ret = index_mail_cache_lookup_field(mail, part_buf, field_idx);
+	if (ret <= 0)
+		return FALSE;
+
+	if (message_binary_part_deserialize(mail->data_pool, part_buf->data,
+					    part_buf->used,
+					    &mail->data.bin_parts) < 0) {
+		mail_cache_set_corrupted(mail->mail.mail.box->cache,
+			"Corrupted cached binary.parts data");
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static struct message_part *
+msg_part_find(struct message_part *parts, uoff_t physical_pos)
+{
+	struct message_part *part, *child;
+
+	for (part = parts; part != NULL; part = part->next) {
+		if (part->physical_pos == physical_pos)
+			return part;
+		child = msg_part_find(part->children, physical_pos);
+		if (child != NULL)
+			return child;
+	}
+	return NULL;
+}
+
+static int
+index_mail_get_binary_size(struct mail *_mail,
+			   const struct message_part *part,
+			   bool include_hdr, uoff_t *size_r)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct message_part *all_parts, *msg_part;
+	const struct message_binary_part *bin_part, *root_bin_part;
+	uoff_t size, end_offset;
+	bool binary, converted;
+
+	if (mail_get_parts(_mail, &all_parts) < 0)
+		return -1;
+
+	/* first lookup from cache */
+	if (!get_cached_binary_parts(mail)) {
+		/* not found. parse the whole message */
+		if (index_mail_read_binary_to_cache(_mail, all_parts, TRUE,
+						    &binary, &converted) < 0)
+			return -1;
+	}
+
+	size = part->header_size.virtual_size +
+		part->body_size.virtual_size;
+	end_offset = part->physical_pos + size;
+
+	bin_part = mail->data.bin_parts; root_bin_part = NULL;
+	for (; bin_part != NULL; bin_part = bin_part->next) {
+		msg_part = msg_part_find(all_parts, bin_part->physical_pos);
+		if (msg_part == NULL) {
+			mail_set_cache_corrupted(_mail, MAIL_FETCH_MESSAGE_PARTS);
+			return -1;
+		}
+		if (msg_part->physical_pos >= part->physical_pos &&
+		    msg_part->physical_pos < end_offset) {
+			if (msg_part->physical_pos == part->physical_pos)
+				root_bin_part = bin_part;
+			size -= msg_part->header_size.virtual_size +
+				msg_part->body_size.virtual_size;
+			size += bin_part->binary_hdr_size +
+				bin_part->binary_body_size;
+		}
+	}
+	if (!include_hdr) {
+		if (root_bin_part != NULL)
+			size -= root_bin_part->binary_hdr_size;
+		else
+			size -= part->header_size.virtual_size;
+	}
+	*size_r = size;
+	return 0;
 }
 
 int index_mail_get_binary_stream(struct mail *_mail,
@@ -215,99 +446,48 @@ int index_mail_get_binary_stream(struct mail *_mail,
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct mail_binary_cache *cache = &_mail->box->storage->binary_cache;
-	struct binary_ctx ctx;
+	struct istream *input;
+	bool binary, converted;
 
-	/* FIXME: if stream_r=NULL try to lookup the size from cache. */
+	if (stream_r == NULL) {
+		return index_mail_get_binary_size(_mail, part,
+						  include_hdr, size_r);
+	}
 
-	memset(&ctx, 0, sizeof(ctx));
+	/* FIXME: always put the header to temp file. skip it when needed. */
 	if (cache->box == _mail->box && cache->uid == _mail->uid &&
 	    cache->orig_physical_pos == part->physical_pos &&
 	    cache->include_hdr == include_hdr) {
 		/* we have this cached already */
 		i_stream_seek(cache->input, 0);
 		timeout_reset(cache->to);
-		ctx.converted = TRUE;
+		binary = TRUE;
+		converted = TRUE;
 	} else {
+		if (index_mail_read_binary_to_cache(_mail, part, include_hdr,
+						    &binary, &converted) < 0)
+			return -1;
 		mail->data.cache_fetch_fields |= MAIL_FETCH_STREAM_BINARY;
-
-		ctx.mail = _mail;
-		t_array_init(&ctx.streams, 8);
-
-		mail_storage_free_binary_cache(_mail->box->storage);
-		if (mail_get_stream(_mail, NULL, NULL, &ctx.input) < 0)
-			return -1;
-
-		if (add_binary_part(&ctx, part, include_hdr) < 0) {
-			binary_streams_free(&ctx);
-			return -1;
-		}
-
-		cache->to = timeout_add(MAIL_BINARY_CACHE_EXPIRE_MSECS,
-					mail_storage_free_binary_cache,
-					_mail->box->storage);
-		cache->box = _mail->box;
-		cache->uid = _mail->uid;
-		cache->orig_physical_pos = part->physical_pos;
-		cache->include_hdr = include_hdr;
-
-		(void)array_append_space(&ctx.streams);
-		cache->input = i_streams_merge(
-					array_idx_modifiable(&ctx.streams, 0),
-					IO_BLOCK_SIZE, fd_callback, _mail);
-		binary_streams_free(&ctx);
-
-		if (i_stream_get_size(cache->input, TRUE, &cache->size) < 0) {
-			mail_storage_set_critical(_mail->box->storage,
-					"read(%s) failed: %m",
-					i_stream_get_name(cache->input));
-			mail_storage_free_binary_cache(_mail->box->storage);
-			return -1;
-		}
 	}
 	*size_r = cache->size;
-	*binary_r = ctx.converted ? TRUE : ctx.has_nuls;
+	*binary_r = binary;
 	if (stream_r != NULL) {
 		i_stream_ref(cache->input);
 		*stream_r = cache->input;
 	}
-	if (!ctx.converted) {
-		/* don't keep this cached. it's the original stream. */
+	if (!converted) {
+		/* don't keep this cached. it's exactly the same as
+		   the original stream */
 		mail_storage_free_binary_cache(_mail->box->storage);
 		if (stream_r != NULL) {
 			i_stream_unref(stream_r);
-			i_stream_seek(ctx.input, part->physical_pos +
+			i_stream_seek(mail->data.stream, part->physical_pos +
 				      (include_hdr ? 0 :
 				       part->header_size.physical_size));
-			*stream_r = i_stream_create_limit(ctx.input, *size_r);
+			input = i_stream_create_crlf(mail->data.stream);
+			*stream_r = i_stream_create_limit(input, *size_r);
+			i_stream_unref(&input);
 		}
 	}
 	return 0;
 }
-
-#if 0
-static struct message_binary_part *
-get_cached_binary_parts(struct index_mail *mail)
-{
-	const unsigned int field_idx =
-		mail->ibox->cache_fields[MAIL_CACHE_BINARY_PARTS].idx;
-	struct message_binary_part *parts;
-	buffer_t *part_buf;
-	const char *error;
-	int ret;
-
-	if (mail->data.bin_parts != NULL)
-		return mail->data.bin_parts;
-
-	part_buf = buffer_create_dynamic(pool_datastack_create(), 128);
-	ret = index_mail_cache_lookup_field(mail, part_buf, field_idx);
-	if (ret <= 0)
-		return NULL;
-
-	if (message_binary_part_deserialize(mail->data_pool, part_buf->data,
-					    part_buf->used, &parts, &error) < 0) {
-		mail_cache_set_corrupted(mail->mail.mail.box->cache,
-			"Corrupted cached binary.parts data (%s)", error);
-	}
-	return parts;
-}
-#endif

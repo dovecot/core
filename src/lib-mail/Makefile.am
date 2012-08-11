@@ -16,6 +16,7 @@ libmail_la_SOURCES = \
 	mail-user-hash.c \
 	mbox-from.c \
 	message-address.c \
+	message-binary-part.c \
 	message-date.c \
 	message-decoder.c \
 	message-header-decode.c \
@@ -43,6 +44,7 @@ headers = \
 	mbox-from.h \
 	mail-types.h \
 	message-address.h \
+	message-binary-part.h \
 	message-date.h \
 	message-decoder.h \
 	message-header-decode.h \
