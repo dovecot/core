@@ -86,9 +86,10 @@ stream_copy(struct dbox_file *file, struct ostream *output,
 
 	input = i_stream_create_limit(file->input, count);
 	bytes = o_stream_send_istream(output, input);
+	errno = input->stream_errno;
 	i_stream_unref(&input);
 
-	if (input->stream_errno != 0) {
+	if (errno != 0) {
 		mail_storage_set_critical(&file->storage->storage,
 			"read(%s) failed: %m", file->cur_path);
 		return -1;

@@ -104,6 +104,12 @@ void dbox_save_end(struct dbox_save_context *ctx)
 		if (index_attachment_save_finish(&ctx->ctx) < 0)
 			ctx->failed = TRUE;
 	}
+	if (o_stream_nfinish(ctx->ctx.output) < 0) {
+		mail_storage_set_critical(ctx->ctx.transaction->box->storage,
+					  "write(%s) failed: %m",
+					  o_stream_get_name(ctx->ctx.output));
+		ctx->failed = TRUE;
+	}
 	if (ctx->ctx.output == dbox_output)
 		return;
 
