@@ -626,7 +626,7 @@ mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,
 
 static void
 mail_index_sync_get_update(struct mail_index_sync_rec *rec,
-			   const struct mail_transaction_flag_update *update)
+			   const struct mail_index_flag_update *update)
 {
 	rec->type = MAIL_INDEX_SYNC_TYPE_FLAGS;
 	rec->uid1 = update->uid1;
@@ -705,7 +705,7 @@ bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			(const struct mail_transaction_expunge_guid *)uid_range);
 	} else if (sync_list[i].array == (void *)&sync_trans->updates) {
 		mail_index_sync_get_update(sync_rec,
-			(const struct mail_transaction_flag_update *)uid_range);
+			(const struct mail_index_flag_update *)uid_range);
 	} else {
 		mail_index_sync_get_keyword_update(sync_rec, uid_range,
 						   &sync_list[i]);
