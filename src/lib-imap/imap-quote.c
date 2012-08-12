@@ -115,7 +115,7 @@ const char *imap_quote(pool_t pool, const unsigned char *value,
 	if (value == NULL)
 		return "NIL";
 
-	if (!pool->datastack_pool)
+	if (pool->datastack_pool)
 		ret = imap_quote_internal(pool, value, value_len, fix_text);
 	else T_BEGIN {
 		ret = imap_quote_internal(pool, value, value_len, fix_text);
