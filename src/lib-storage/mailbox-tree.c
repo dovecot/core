@@ -9,6 +9,7 @@ struct mailbox_tree_context {
 	pool_t pool;
 	char separator;
 	bool parents_nonexistent;
+	unsigned int node_size;
 
 	struct mailbox_node *nodes;
 };
@@ -28,11 +29,20 @@ struct mailbox_tree_iterate_context {
 
 struct mailbox_tree_context *mailbox_tree_init(char separator)
 {
+	return mailbox_tree_init_size(separator, sizeof(struct mailbox_node));
+}
+
+struct mailbox_tree_context *
+mailbox_tree_init_size(char separator, unsigned int mailbox_node_size)
+{
 	struct mailbox_tree_context *tree;
+
+	i_assert(mailbox_node_size >= sizeof(struct mailbox_node));
 
 	tree = i_new(struct mailbox_tree_context, 1);
 	tree->pool = pool_alloconly_create(MEMPOOL_GROWING"mailbox_tree", 10240);
 	tree->separator = separator;
+	tree->node_size = mailbox_node_size;
 	return tree;
 }
 
@@ -104,7 +114,7 @@ mailbox_tree_traverse(struct mailbox_tree_context *tree, const char *path,
 			if (!create)
 				break;
 
-			*node = p_new(tree->pool, struct mailbox_node, 1);
+			*node = p_malloc(tree->pool, tree->node_size);
 			(*node)->parent = parent;
 			(*node)->name = p_strdup(tree->pool, name);
 			if (tree->parents_nonexistent)
