@@ -58,13 +58,13 @@ int imap_status_parse_items(struct client_command_context *cmd,
 }
 
 int imap_status_get(struct client_command_context *cmd,
-		    struct mail_namespace *ns,
-		    const char *mailbox, const struct imap_status_items *items,
-		    struct imap_status_result *result_r, const char **error_r)
+		    struct mail_namespace *ns, const char *mailbox,
+		    const struct imap_status_items *items,
+		    struct imap_status_result *result_r)
 {
 	struct client *client = cmd->client;
 	struct mailbox *box;
-	enum mail_error error;
+	const char *errstr;
 	int ret = 0;
 
 	if (client->mailbox != NULL &&
@@ -88,17 +88,18 @@ int imap_status_get(struct client_command_context *cmd,
 	}
 
 	if (ret < 0) {
-		*error_r = mailbox_get_last_error(box, &error);
-		*error_r = imap_get_error_string(cmd, *error_r, error);
+		errstr = mailbox_get_last_error(box, &result_r->error);
+		result_r->errstr = imap_get_error_string(cmd, errstr,
+							 result_r->error);
 	}
 	if (box != client->mailbox)
 		mailbox_free(&box);
 	return ret;
 }
 
-void imap_status_send(struct client *client, const char *mailbox_mutf7,
-		      const struct imap_status_items *items,
-		      const struct imap_status_result *result)
+int imap_status_send(struct client *client, const char *mailbox_mutf7,
+		     const struct imap_status_items *items,
+		     const struct imap_status_result *result)
 {
 	const struct mailbox_status *status = &result->status;
 	string_t *str;
@@ -137,5 +138,5 @@ void imap_status_send(struct client *client, const char *mailbox_mutf7,
 		str_truncate(str, str_len(str)-1);
 	str_append_c(str, ')');
 
-	client_send_line(client, str_c(str));
+	return client_send_line_next(client, str_c(str));
 }

@@ -376,7 +376,6 @@ list_send_status(struct cmd_list_context *ctx, const char *name,
 {
 	struct imap_status_result result;
 	struct mail_namespace *ns;
-	const char *error;
 
 	if ((flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) != 0) {
 		/* doesn't exist, don't even try to get STATUS */
@@ -392,9 +391,9 @@ list_send_status(struct cmd_list_context *ctx, const char *name,
 	   namespaces, ctx->ns may not point to correct one */
 	ns = mail_namespace_find(ctx->ns->user->namespaces, name);
 	if (imap_status_get(ctx->cmd, ns, name,
-			    &ctx->status_items, &result, &error) < 0) {
+			    &ctx->status_items, &result) < 0) {
 		client_send_line(ctx->cmd->client,
-				 t_strconcat("* ", error, NULL));
+				 t_strconcat("* ", result.errstr, NULL));
 		return;
 	}
 
