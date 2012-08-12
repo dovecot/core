@@ -352,8 +352,10 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			ssl_iostream_error());
 		return -1;
 	}
-	SSL_CTX_set_options(ctx->ssl_ctx,
+	if (ctx->set->protocols != NULL) {
+		SSL_CTX_set_options(ctx->ssl_ctx,
 			    openssl_get_protocol_options(ctx->set->protocols));
+	}
 
 	if (set->cert != NULL &&
 	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->cert) < 0) {
