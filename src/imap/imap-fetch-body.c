@@ -33,7 +33,7 @@ static void fetch_read_error(struct imap_fetch_context *ctx)
 	struct imap_fetch_state *state = &ctx->state;
 
 	errno = state->cur_input->stream_errno;
-	mail_storage_set_critical(ctx->box->storage,
+	mail_storage_set_critical(state->cur_mail->box->storage,
 		"read(%s) failed: %m (FETCH for mailbox %s UID %u)",
 		i_stream_get_name(state->cur_input),
 		mailbox_get_vname(state->cur_mail->box), state->cur_mail->uid);
@@ -58,15 +58,15 @@ static const char *get_body_name(const struct imap_fetch_body_data *body)
 	return str_c(str);
 }
 
-static string_t *get_prefix(struct imap_fetch_context *ctx,
+static string_t *get_prefix(struct imap_fetch_state *state,
 			    const struct imap_fetch_body_data *body,
 			    uoff_t size, bool has_nuls)
 {
 	string_t *str;
 
 	str = t_str_new(128);
-	if (ctx->state.cur_first)
-		ctx->state.cur_first = FALSE;
+	if (state->cur_first)
+		state->cur_first = FALSE;
 	else
 		str_append_c(str, ' ');
 
@@ -136,10 +136,9 @@ static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 	ctx->state.cur_input = result.input;
 	ctx->state.cur_size = result.size;
 	ctx->state.cur_size_field = result.size_field;
-	ctx->state.cur_human_name =
-		p_strconcat(ctx->pool, "[", body->section, "]", NULL);
+	ctx->state.cur_human_name = body->section;
 
-	str = get_prefix(ctx, body, ctx->state.cur_size,
+	str = get_prefix(&ctx->state, body, ctx->state.cur_size,
 			 result.binary_decoded_input_has_nuls);
 	o_stream_nsend(ctx->client->output, str_data(str), str_len(str));
 
@@ -196,7 +195,7 @@ body_header_fields_parse(struct imap_fetch_init_context *ctx,
 	const char *value;
 	size_t i;
 
-	str = str_new(ctx->fetch_ctx->pool, 128);
+	str = str_new(ctx->pool, 128);
 	str_append(str, prefix);
 	str_append(str, " (");
 
@@ -277,7 +276,7 @@ bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 	i_assert(strncmp(ctx->name, "BODY", 4) == 0);
 	p = ctx->name + 4;
 
-	body = p_new(ctx->fetch_ctx->pool, struct imap_fetch_body_data, 1);
+	body = p_new(ctx->pool, struct imap_fetch_body_data, 1);
 
 	if (strncmp(p, ".PEEK", 5) == 0)
 		p += 5;
@@ -308,8 +307,7 @@ bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 			ctx->error = "Invalid BODY[..] parameter: Missing ']'";
 			return FALSE;
 		}
-		body->section = p_strdup_until(ctx->fetch_ctx->pool,
-					       body->section, p);
+		body->section = p_strdup_until(ctx->pool, body->section, p);
 		p++;
 	}
 	if (imap_msgpart_parse(body->section, &body->msgpart) < 0) {
@@ -320,13 +318,13 @@ bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 		imap_msgpart_get_fetch_data(body->msgpart);
 
 	if (body_parse_partial(body, p, &error) < 0) {
-		ctx->error = p_strdup_printf(ctx->fetch_ctx->pool,
+		ctx->error = p_strdup_printf(ctx->pool,
 			"Invalid BODY[..] parameter: %s", error);
 		return FALSE;
 	}
 
 	/* update the section name for the imap_fetch_add_handler() */
-	ctx->name = p_strdup(ctx->fetch_ctx->pool, get_body_name(body));
+	ctx->name = p_strdup(ctx->pool, get_body_name(body));
 	imap_fetch_add_handler(ctx, 0, "NIL", fetch_body_msgpart, body);
 	return TRUE;
 }
@@ -341,7 +339,7 @@ bool imap_fetch_binary_init(struct imap_fetch_init_context *ctx)
 	i_assert(strncmp(ctx->name, "BINARY", 6) == 0);
 	p = ctx->name + 6;
 
-	body = p_new(ctx->fetch_ctx->pool, struct imap_fetch_body_data, 1);
+	body = p_new(ctx->pool, struct imap_fetch_body_data, 1);
 	body->binary = TRUE;
 
 	if (strncmp(p, ".SIZE", 5) == 0) {
@@ -378,8 +376,7 @@ bool imap_fetch_binary_init(struct imap_fetch_init_context *ctx)
 			ctx->error = "Invalid BINARY[..] parameter: Missing ']'";
 			return FALSE;
 		}
-		body->section = p_strdup_until(ctx->fetch_ctx->pool,
-					       body->section, p);
+		body->section = p_strdup_until(ctx->pool, body->section, p);
 		p++;
 	}
 	if (imap_msgpart_parse(body->section, &body->msgpart) < 0) {
@@ -392,14 +389,14 @@ bool imap_fetch_binary_init(struct imap_fetch_init_context *ctx)
 
 	if (!body->binary_size) {
 		if (body_parse_partial(body, p, &error) < 0) {
-			ctx->error = p_strdup_printf(ctx->fetch_ctx->pool,
+			ctx->error = p_strdup_printf(ctx->pool,
 				"Invalid BINARY[..] parameter: %s", error);
 			return FALSE;
 		}
 	}
 
 	/* update the section name for the imap_fetch_add_handler() */
-	ctx->name = p_strdup(ctx->fetch_ctx->pool, get_body_name(body));
+	ctx->name = p_strdup(ctx->pool, get_body_name(body));
 	if (body->binary_size)
 		imap_fetch_add_handler(ctx, 0, "NIL", fetch_binary_size, body);
 	else

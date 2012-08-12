@@ -15,6 +15,8 @@ typedef int imap_fetch_handler_t(struct imap_fetch_context *ctx,
 
 struct imap_fetch_init_context {
 	struct imap_fetch_context *fetch_ctx;
+	pool_t pool;
+
 	const char *name;
 	const struct imap_arg *args;
 
@@ -39,6 +41,11 @@ struct imap_fetch_context_handler {
 	unsigned int want_deinit:1;
 };
 
+struct imap_fetch_qresync_args {
+	const ARRAY_TYPE(uint32_t) *qresync_sample_seqset;
+	const ARRAY_TYPE(uint32_t) *qresync_sample_uidset;
+};
+
 struct imap_fetch_state {
 	struct mailbox_transaction_context *trans;
 	struct mail_search_context *search_ctx;
@@ -53,6 +60,7 @@ struct imap_fetch_state {
 	bool skip_cr;
 	int (*cont_handler)(struct imap_fetch_context *ctx);
 
+	unsigned int fetching:1;
 	unsigned int seen_flags_changed:1;
 	unsigned int cur_first:1;
 	unsigned int line_partial:1;
@@ -63,8 +71,7 @@ struct imap_fetch_state {
 
 struct imap_fetch_context {
 	struct client *client;
-	struct mailbox *box;
-	pool_t pool;
+	pool_t ctx_pool;
 
 	struct mail_search_args *search_args;
 
@@ -74,17 +81,14 @@ struct imap_fetch_context {
 	ARRAY_DEFINE(handlers, struct imap_fetch_context_handler);
 	unsigned int buffered_handlers_count;
 
-	const ARRAY_TYPE(uint32_t) *qresync_sample_seqset;
-	const ARRAY_TYPE(uint32_t) *qresync_sample_uidset;
-
 	ARRAY_TYPE(keywords) tmp_keywords;
 
 	struct imap_fetch_state state;
 
+	unsigned int initialized:1;
 	unsigned int flags_have_handler:1;
 	unsigned int flags_update_seen:1;
 	unsigned int flags_show_only_seen_changes:1;
-	unsigned int send_vanished:1;
 };
 
 void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
@@ -108,19 +112,29 @@ void imap_fetch_add_handler(struct imap_fetch_init_context *ctx,
 #endif
 
 struct imap_fetch_context *
-imap_fetch_init(struct client_command_context *cmd, struct mailbox *box);
-int imap_fetch_deinit(struct imap_fetch_context *ctx);
+imap_fetch_alloc(struct client *client, pool_t pool);
+void imap_fetch_free(struct imap_fetch_context **ctx);
 bool imap_fetch_init_handler(struct imap_fetch_init_context *init_ctx);
 void imap_fetch_init_nofail_handler(struct imap_fetch_context *ctx,
 				    bool (*init)(struct imap_fetch_init_context *));
-bool imap_fetch_cmd_init_handler(struct imap_fetch_context *ctx,
-				 struct client_command_context *cmd,
-				 const char *name, const struct imap_arg **args);
 
 void imap_fetch_add_changed_since(struct imap_fetch_context *ctx,
 				  uint64_t modseq);
 
-int imap_fetch_begin(struct imap_fetch_context *ctx);
+void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box);
+void imap_fetch_begin_once(struct imap_fetch_context *ctx, struct mailbox *box);
+int imap_fetch_send_vanished(struct client *client, struct mailbox *box,
+			     const struct mail_search_args *search_args,
+			     const struct imap_fetch_qresync_args *qresync_args);
+/* Returns 1 if finished, 0 if more data is needed, -1 if error.
+   When 0 is returned, line_partial=TRUE if literal is open and must be
+   finished before anything else to client. */
+int imap_fetch_more(struct imap_fetch_context *ctx,
+		    struct client_command_context *cmd);
+/* Like imap_fetch_more(), but don't check/update output_lock.
+   The caller must handle this itself. */
+int imap_fetch_more_no_lock_update(struct imap_fetch_context *ctx);
+int imap_fetch_end(struct imap_fetch_context *ctx);
 int imap_fetch_more(struct imap_fetch_context *ctx,
 		    struct client_command_context *cmd);
 

@@ -21,6 +21,28 @@ static const char *full_macro[] = {
 };
 
 static bool
+imap_fetch_cmd_init_handler(struct imap_fetch_context *ctx,
+			    struct client_command_context *cmd,
+			    const char *name, const struct imap_arg **args)
+{
+	struct imap_fetch_init_context init_ctx;
+
+	memset(&init_ctx, 0, sizeof(init_ctx));
+	init_ctx.fetch_ctx = ctx;
+	init_ctx.pool = ctx->ctx_pool;
+	init_ctx.name = name;
+	init_ctx.args = *args;
+
+	if (!imap_fetch_init_handler(&init_ctx)) {
+		i_assert(init_ctx.error != NULL);
+		client_send_command_error(cmd, init_ctx.error);
+		return FALSE;
+	}
+	*args = init_ctx.args;
+	return TRUE;
+}
+
+static bool
 fetch_parse_args(struct imap_fetch_context *ctx,
 		 struct client_command_context *cmd,
 		 const struct imap_arg *arg, const struct imap_arg **next_arg_r)
@@ -81,7 +103,8 @@ fetch_parse_args(struct imap_fetch_context *ctx,
 static bool
 fetch_parse_modifier(struct imap_fetch_context *ctx,
 		     struct client_command_context *cmd,
-		     const char *name, const struct imap_arg **args)
+		     const char *name, const struct imap_arg **args,
+		     bool *send_vanished)
 {
 	const char *str;
 	uint64_t modseq;
@@ -103,7 +126,7 @@ fetch_parse_modifier(struct imap_fetch_context *ctx,
 			client_send_command_error(cmd, "QRESYNC not enabled");
 			return FALSE;
 		}
-		ctx->send_vanished = TRUE;
+		*send_vanished = TRUE;
 		return TRUE;
 	}
 
@@ -114,9 +137,11 @@ fetch_parse_modifier(struct imap_fetch_context *ctx,
 static bool
 fetch_parse_modifiers(struct imap_fetch_context *ctx,
 		      struct client_command_context *cmd,
-		      const struct imap_arg *args)
+		      const struct imap_arg *args, bool *send_vanished_r)
 {
 	const char *name;
+
+	*send_vanished_r = FALSE;
 
 	while (!IMAP_ARG_IS_EOL(args)) {
 		if (!imap_arg_get_atom(args, &name)) {
@@ -125,10 +150,11 @@ fetch_parse_modifiers(struct imap_fetch_context *ctx,
 			return FALSE;
 		}
 		args++;
-		if (!fetch_parse_modifier(ctx, cmd, t_str_ucase(name), &args))
+		if (!fetch_parse_modifier(ctx, cmd, t_str_ucase(name),
+					  &args, send_vanished_r))
 			return FALSE;
 	}
-	if (ctx->send_vanished &&
+	if (*send_vanished_r &&
 	    (ctx->search_args->args->next == NULL ||
 	     ctx->search_args->args->next->type != SEARCH_MODSEQ)) {
 		client_send_command_error(cmd,
@@ -144,17 +170,17 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 	static const char *ok_message = "OK Fetch completed.";
 	const char *tagged_reply = ok_message;
 	enum mail_error error;
-	bool seen_flags_changed = ctx->state.seen_flags_changed;
+	bool failed, seen_flags_changed = ctx->state.seen_flags_changed;
 
 	if (ctx->state.skipped_expunged_msgs) {
 		tagged_reply = "OK ["IMAP_RESP_CODE_EXPUNGEISSUED"] "
 			"Some messages were already expunged.";
 	}
 
-	if (imap_fetch_deinit(ctx) < 0)
-		ctx->state.failed = TRUE;
+	failed = imap_fetch_end(ctx) < 0;
+	imap_fetch_free(&ctx);
 
-	if (ctx->state.failed) {
+	if (failed) {
 		const char *errstr;
 
 		if (cmd->client->output->closed) {
@@ -198,7 +224,9 @@ bool cmd_fetch(struct client_command_context *cmd)
 	struct imap_fetch_context *ctx;
 	const struct imap_arg *args, *next_arg, *list_arg;
 	struct mail_search_args *search_args;
+	struct imap_fetch_qresync_args qresync_args;
 	const char *messageset;
+	bool send_vanished = FALSE;
 	int ret;
 
 	if (!client_read_args(cmd, 0, 0, &args))
@@ -221,29 +249,32 @@ bool cmd_fetch(struct client_command_context *cmd)
 	if (ret <= 0)
 		return ret < 0;
 
-	ctx = imap_fetch_init(cmd, client->mailbox);
-	if (ctx == NULL) {
-		mail_search_args_unref(&search_args);
-		return TRUE;
-	}
+	ctx = imap_fetch_alloc(client, cmd->pool);
 	ctx->search_args = search_args;
 
 	if (!fetch_parse_args(ctx, cmd, &args[1], &next_arg) ||
 	    (imap_arg_get_list(next_arg, &list_arg) &&
-	     !fetch_parse_modifiers(ctx, cmd, list_arg))) {
-		(void)imap_fetch_deinit(ctx);
+	     !fetch_parse_modifiers(ctx, cmd, list_arg, &send_vanished))) {
+		imap_fetch_free(&ctx);
 		return TRUE;
 	}
 
-	if (imap_fetch_begin(ctx) == 0) {
-		if (imap_fetch_more(ctx, cmd) == 0) {
-			/* unfinished */
-			cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;
+	if (send_vanished) {
+		memset(&qresync_args, 0, sizeof(qresync_args));
+		if (imap_fetch_send_vanished(client, client->mailbox,
+					     search_args, &qresync_args) < 0)
+			return cmd_fetch_finish(ctx, cmd);
+	}
 
-			cmd->func = cmd_fetch_continue;
-			cmd->context = ctx;
-			return FALSE;
-		}
+	imap_fetch_begin_once(ctx, client->mailbox);
+
+	if (imap_fetch_more(ctx, cmd) == 0) {
+		/* unfinished */
+		cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;
+
+		cmd->func = cmd_fetch_continue;
+		cmd->context = ctx;
+		return FALSE;
 	}
 	return cmd_fetch_finish(ctx, cmd);
 }
