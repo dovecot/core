@@ -121,6 +121,9 @@ char *i_stream_next_line(struct istream *stream);
 /* Like i_stream_next_line(), but reads for more data if needed. Returns NULL
    if more data is needed or error occurred. */
 char *i_stream_read_next_line(struct istream *stream);
+/* Returns TRUE if the last line read with i_stream_next_line() ended with
+   CRLF (instead of LF). */
+bool i_stream_last_line_crlf(struct istream *stream);
 
 /* Returns pointer to beginning of read data, or NULL if there's no data
    buffered. */

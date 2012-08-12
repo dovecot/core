@@ -315,10 +315,13 @@ static char *i_stream_next_line_finish(struct istream_private *stream, size_t i)
 	char *ret;
 	size_t end;
 
-	if (i > 0 && stream->buffer[i-1] == '\r')
+	if (i > 0 && stream->buffer[i-1] == '\r') {
 		end = i - 1;
-	else
+		stream->line_crlf = TRUE;
+	} else {
 		end = i;
+		stream->line_crlf = FALSE;
+	}
 
 	if (stream->w_buffer != NULL) {
 		/* modify the buffer directly */
@@ -384,6 +387,11 @@ char *i_stream_read_next_line(struct istream *stream)
 			return i_stream_last_line(stream->real_stream);
 	}
 	return line;
+}
+
+bool i_stream_last_line_crlf(struct istream *stream)
+{
+	return stream->real_stream->line_crlf;
 }
 
 const unsigned char *

@@ -44,6 +44,7 @@ struct istream_private {
 	unsigned int access_counter;
 
 	string_t *line_str; /* for i_stream_next_line() if w_buffer == NULL */
+	unsigned int line_crlf:1;
 	unsigned int return_nolf_line:1;
 	unsigned int stream_size_passthrough:1; /* stream is parent's size */
 };
