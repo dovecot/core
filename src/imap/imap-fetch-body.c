@@ -312,8 +312,7 @@ bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 					       body->section, p);
 		p++;
 	}
-	if (imap_msgpart_parse(ctx->fetch_ctx->box, body->section,
-			       &body->msgpart) < 0) {
+	if (imap_msgpart_parse(body->section, &body->msgpart) < 0) {
 		ctx->error = "Invalid BODY[..] section";
 		return -1;
 	}
@@ -383,8 +382,7 @@ bool imap_fetch_binary_init(struct imap_fetch_init_context *ctx)
 					       body->section, p);
 		p++;
 	}
-	if (imap_msgpart_parse(ctx->fetch_ctx->box, body->section,
-			       &body->msgpart) < 0) {
+	if (imap_msgpart_parse(body->section, &body->msgpart) < 0) {
 		ctx->error = "Invalid BINARY[..] section";
 		return -1;
 	}

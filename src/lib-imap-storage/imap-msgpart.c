@@ -172,8 +172,7 @@ imap_msgpart_get_header_fields(pool_t pool, const char *header_list,
 }
 
 static int
-imap_msgpart_parse_header_fields(struct mailbox *box,
-				 struct imap_msgpart *msgpart,
+imap_msgpart_parse_header_fields(struct imap_msgpart *msgpart,
 				 const char *header_list)
 {
 	ARRAY_TYPE(const_string) fields;
@@ -185,12 +184,10 @@ imap_msgpart_parse_header_fields(struct mailbox *box,
 
 	array_append_zero(&fields);
 	msgpart->headers = array_idx(&fields, 0);
-	msgpart->header_ctx = mailbox_header_lookup_init(box, msgpart->headers);
 	return 0;
 }
 
-int imap_msgpart_parse(struct mailbox *box, const char *section,
-		       struct imap_msgpart **msgpart_r)
+int imap_msgpart_parse(const char *section, struct imap_msgpart **msgpart_r)
 {
 	struct imap_msgpart *msgpart;
 	pool_t pool;
@@ -263,11 +260,11 @@ int imap_msgpart_parse(struct mailbox *box, const char *section,
 			ret = 0;
 		} else if (strncmp(section, "HEADER.FIELDS ", 14) == 0) {
 			msgpart->fetch_type = FETCH_HEADER_FIELDS;
-			ret = imap_msgpart_parse_header_fields(box, msgpart,
+			ret = imap_msgpart_parse_header_fields(msgpart,
 							       section+14);
 		} else if (strncmp(section, "HEADER.FIELDS.NOT ", 18) == 0) {
 			msgpart->fetch_type = FETCH_HEADER_FIELDS_NOT;
-			ret = imap_msgpart_parse_header_fields(box, msgpart,
+			ret = imap_msgpart_parse_header_fields(msgpart,
 							       section+18);
 		} else {
 			ret = -1;
@@ -295,8 +292,7 @@ void imap_msgpart_free(struct imap_msgpart **_msgpart)
 
 	*_msgpart = NULL;
 
-	if (msgpart->header_ctx != NULL)
-		mailbox_header_lookup_unref(&msgpart->header_ctx);
+	imap_msgpart_close_mailbox(msgpart);
 	pool_unref(&msgpart->pool);
 }
 
@@ -547,7 +543,7 @@ imap_msgpart_find_part(struct mail *mail, const struct imap_msgpart *msgpart,
 }
 
 static int
-imap_msgpart_open_normal(struct mail *mail, const struct imap_msgpart *msgpart,
+imap_msgpart_open_normal(struct mail *mail, struct imap_msgpart *msgpart,
 			 const struct message_part *part,
 			 struct message_size *part_size_r,
 			 struct imap_msgpart_open_result *result_r)
@@ -588,7 +584,11 @@ imap_msgpart_open_normal(struct mail *mail, const struct imap_msgpart *msgpart,
 		break;
 	case FETCH_HEADER_FIELDS:
 		/* try to lookup the headers from cache */
-		i_assert(msgpart->header_ctx != NULL);
+		if (msgpart->header_ctx == NULL) {
+			msgpart->header_ctx =
+				mailbox_header_lookup_init(mail->box,
+							   msgpart->headers);
+		}
 		if (mail_get_header_stream(mail, msgpart->header_ctx,
 					   &input) < 0)
 			return -1;
@@ -719,4 +719,10 @@ int imap_msgpart_size(struct mail *mail, struct imap_msgpart *msgpart,
 	}
 	include_hdr = msgpart->fetch_type == FETCH_FULL;
 	return mail_get_binary_size(mail, part, include_hdr, size_r);
+}
+
+void imap_msgpart_close_mailbox(struct imap_msgpart *msgpart)
+{
+	if (msgpart->header_ctx != NULL)
+		mailbox_header_lookup_unref(&msgpart->header_ctx);
 }

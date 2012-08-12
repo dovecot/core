@@ -174,7 +174,7 @@ imap_msgpart_url_open_part(struct imap_msgpart_url *mpurl, struct mail **mail_r,
 	if ((ret = imap_msgpart_url_open_mail(mpurl, mail_r, error_r)) <= 0)
 		return ret;
 
-	if (imap_msgpart_parse((*mail_r)->box, section, msgpart_r) < 0) {
+	if (imap_msgpart_parse(section, msgpart_r) < 0) {
 		*error_r = "Invalid section";
 		return 0;
 	}

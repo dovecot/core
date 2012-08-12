@@ -21,8 +21,7 @@ struct imap_msgpart *imap_msgpart_body(void);
 /* Parse section into imap_msgpart. Returns 0 and msgpart_r on success,
    -1 if the section isn't valid. The same imap_msgpart can be used to open
    multiple messages. */
-int imap_msgpart_parse(struct mailbox *box, const char *section,
-		       struct imap_msgpart **msgpart_r);
+int imap_msgpart_parse(const char *section, struct imap_msgpart **msgpart_r);
 void imap_msgpart_free(struct imap_msgpart **msgpart);
 
 /* Decode MIME parts with Content-Transfer-Encoding: base64/quoted-printable
@@ -45,5 +44,10 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 /* Return msgpart's size without actually opening the stream (if possible). */
 int imap_msgpart_size(struct mail *mail, struct imap_msgpart *msgpart,
 		      size_t *size_r);
+
+/* Header context is automatically created by imap_msgpart_open() and destroyed
+   by imap_msgpart_free(), but if you want to use the same imap_msgpart across
+   multiple mailboxes, you need to close the part before closing the mailbox. */
+void imap_msgpart_close_mailbox(struct imap_msgpart *msgpart);
 
 #endif
