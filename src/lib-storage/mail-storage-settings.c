@@ -352,6 +352,11 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	bool uidl_format_ok;
 	char c;
 
+	if (set->mailbox_idle_check_interval == 0) {
+		*error_r = "mailbox_idle_check_interval must not be 0";
+		return FALSE;
+	}
+
 	if (strcmp(set->mail_fsync, "optimized") == 0)
 		set->parsed_fsync_mode = FSYNC_MODE_OPTIMIZED;
 	else if (strcmp(set->mail_fsync, "never") == 0)
