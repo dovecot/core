@@ -539,12 +539,7 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 		t_array_init(&uids, 64);
 		end = CONST_PTR_OFFSET(data, hdr->size);
 		for (; rec != end; rec++) {
-			if (rec->uid == 0) {
-				mail_index_sync_set_corrupted(ctx,
-					"Expunge-guid for invalid uid=%u",
-					rec->uid);
-				break;
-			}
+			i_assert(rec->uid != 0);
 			seq_range_array_add(&uids, rec->uid);
 		}
 
@@ -601,12 +596,8 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 			}
 
 			rec = CONST_PTR_OFFSET(data, i);
-			if (i + sizeof(*rec) + rec->name_size > hdr->size) {
-				mail_index_sync_set_corrupted(ctx,
-					"ext intro: name_size too large");
-				ret = -1;
-				break;
-			}
+			/* name_size checked by _log_view_next() */
+			i_assert(i + sizeof(*rec) + rec->name_size <= hdr->size);
 
 			ret = mail_index_sync_ext_intro(ctx, rec);
 			if (ret <= 0)
