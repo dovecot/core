@@ -330,7 +330,8 @@ void mail_transaction_log_view_clear(struct mail_transaction_log_view *view,
 	struct mail_transaction_log_file *file;
 
 	mail_transaction_log_view_unref_all(view);
-	if (mail_transaction_log_find_file(view->log, oldest_file_seq, FALSE,
+	if (oldest_file_seq != 0 &&
+	    mail_transaction_log_find_file(view->log, oldest_file_seq, FALSE,
 					   &file) > 0) {
 		for (; file != NULL; file = file->next) {
 			array_append(&view->file_refs, &file, 1);

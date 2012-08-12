@@ -225,8 +225,8 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 /* Scan through all of the log files that we can find.
    Returns -1 if error, 0 if ok. */
 int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view);
-/* Clear the view. Keep oldest_file_seq and newer log files referenced so we
-   don't get desynced. */
+/* Clear the view. If oldest_file_seq > 0, keep it and newer log files
+   referenced so we don't get desynced. */
 void mail_transaction_log_view_clear(struct mail_transaction_log_view *view,
 				     uint32_t oldest_file_seq);
 
