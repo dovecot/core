@@ -89,6 +89,7 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 	struct istream *linput;
 	struct binary_block *block;
 	enum message_cte cte;
+	uoff_t part_end_offset;
 	int ret;
 
 	/* first parse the header to find c-t-e. */
@@ -146,6 +147,9 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 	}
 	ctx->copy_start_offset = part->physical_pos +
 		part->header_size.physical_size;
+	part_end_offset = part->physical_pos +
+		part->header_size.physical_size +
+		part->body_size.physical_size;
 
 	if (part->children != NULL) {
 		/* multipart */
@@ -153,9 +157,8 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 			if (add_binary_part(ctx, child, TRUE) < 0)
 				return -1;
 		}
-		binary_copy_to(ctx, part->physical_pos +
-			       part->header_size.physical_size +
-			       part->body_size.physical_size);
+		binary_copy_to(ctx, part_end_offset);
+		ctx->copy_start_offset = part_end_offset;
 		return 0;
 	}
 
@@ -187,9 +190,7 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 	}
 	i_stream_unref(&linput);
 
-	ctx->copy_start_offset = part->physical_pos +
-		part->header_size.physical_size +
-		part->body_size.physical_size;
+	ctx->copy_start_offset = part_end_offset;
 	return 0;
 }
 
