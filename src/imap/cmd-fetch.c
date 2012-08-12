@@ -144,19 +144,20 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 	static const char *ok_message = "OK Fetch completed.";
 	const char *tagged_reply = ok_message;
 	enum mail_error error;
+	bool seen_flags_changed = ctx->state.seen_flags_changed;
 
-	if (ctx->skipped_expunged_msgs) {
+	if (ctx->state.skipped_expunged_msgs) {
 		tagged_reply = "OK ["IMAP_RESP_CODE_EXPUNGEISSUED"] "
 			"Some messages were already expunged.";
 	}
 
 	if (imap_fetch_deinit(ctx) < 0)
-		ctx->failed = TRUE;
+		ctx->state.failed = TRUE;
 
-	if (ctx->failed) {
+	if (ctx->state.failed) {
 		const char *errstr;
 
-		if (ctx->client->output->closed) {
+		if (cmd->client->output->closed) {
 			client_disconnect(cmd->client, "Disconnected");
 			return TRUE;
 		}
@@ -175,7 +176,7 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 	}
 
 	return cmd_sync(cmd,
-			(ctx->seen_flags_changed ? 0 : MAILBOX_SYNC_FLAG_FAST) |
+			(seen_flags_changed ? 0 : MAILBOX_SYNC_FLAG_FAST) |
 			(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES), 0,
 			tagged_reply);
 }

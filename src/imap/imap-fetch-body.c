@@ -30,11 +30,13 @@ struct imap_fetch_body_data {
 
 static void fetch_read_error(struct imap_fetch_context *ctx)
 {
-	errno = ctx->cur_input->stream_errno;
+	struct imap_fetch_state *state = &ctx->state;
+
+	errno = state->cur_input->stream_errno;
 	mail_storage_set_critical(ctx->box->storage,
 		"read(%s) failed: %m (FETCH for mailbox %s UID %u)",
-		i_stream_get_name(ctx->cur_input),
-		mailbox_get_vname(ctx->cur_mail->box), ctx->cur_mail->uid);
+		i_stream_get_name(state->cur_input),
+		mailbox_get_vname(state->cur_mail->box), state->cur_mail->uid);
 }
 
 static const char *get_body_name(const struct imap_fetch_body_data *body)
@@ -63,8 +65,8 @@ static string_t *get_prefix(struct imap_fetch_context *ctx,
 	string_t *str;
 
 	str = t_str_new(128);
-	if (ctx->first)
-		ctx->first = FALSE;
+	if (ctx->state.cur_first)
+		ctx->state.cur_first = FALSE;
 	else
 		str_append_c(str, ' ');
 
@@ -81,31 +83,34 @@ static string_t *get_prefix(struct imap_fetch_context *ctx,
 
 static int fetch_stream_continue(struct imap_fetch_context *ctx)
 {
+	struct imap_fetch_state *state = &ctx->state;
 	off_t ret;
 
 	o_stream_set_max_buffer_size(ctx->client->output, 0);
-	ret = o_stream_send_istream(ctx->client->output, ctx->cur_input);
+	ret = o_stream_send_istream(ctx->client->output, state->cur_input);
 	o_stream_set_max_buffer_size(ctx->client->output, (size_t)-1);
 
 	if (ret > 0)
-		ctx->cur_offset += ret;
+		state->cur_offset += ret;
 
-	if (ctx->cur_offset != ctx->cur_size) {
+	if (state->cur_offset != state->cur_size) {
 		/* unfinished */
-		if (ctx->cur_input->stream_errno != 0) {
+		if (state->cur_input->stream_errno != 0) {
 			fetch_read_error(ctx);
 			client_disconnect(ctx->client, "FETCH failed");
 			return -1;
 		}
-		if (!i_stream_have_bytes_left(ctx->cur_input)) {
+		if (!i_stream_have_bytes_left(state->cur_input)) {
 			/* Input stream gave less data than expected */
 			i_error("FETCH %s for mailbox %s UID %u "
 				"got too little data: "
 				"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
-				ctx->cur_name, mailbox_get_vname(ctx->cur_mail->box),
-				ctx->cur_mail->uid, ctx->cur_offset, ctx->cur_size);
-			mail_set_cache_corrupted(ctx->cur_mail,
-						 ctx->cur_size_field);
+				state->cur_human_name,
+				mailbox_get_vname(state->cur_mail->box),
+				state->cur_mail->uid,
+				state->cur_offset, state->cur_size);
+			mail_set_cache_corrupted(state->cur_mail,
+						 state->cur_size_field);
 			client_disconnect(ctx->client, "FETCH failed");
 			return -1;
 		}
@@ -128,17 +133,18 @@ static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 
 	if (imap_msgpart_open(mail, body->msgpart, &result) < 0)
 		return -1;
-	ctx->cur_input = result.input;
-	ctx->cur_size = result.size;
-	ctx->cur_size_field = result.size_field;
-	ctx->cur_name = p_strconcat(ctx->pool, "[", body->section, "]", NULL);
+	ctx->state.cur_input = result.input;
+	ctx->state.cur_size = result.size;
+	ctx->state.cur_size_field = result.size_field;
+	ctx->state.cur_human_name =
+		p_strconcat(ctx->pool, "[", body->section, "]", NULL);
 
-	str = get_prefix(ctx, body, ctx->cur_size,
+	str = get_prefix(ctx, body, ctx->state.cur_size,
 			 result.binary_decoded_input_has_nuls);
 	o_stream_nsend(ctx->client->output, str_data(str), str_len(str));
 
-	ctx->cont_handler = fetch_stream_continue;
-	return ctx->cont_handler(ctx);
+	ctx->state.cont_handler = fetch_stream_continue;
+	return ctx->state.cont_handler(ctx);
 }
 
 static int fetch_binary_size(struct imap_fetch_context *ctx, struct mail *mail,
@@ -151,8 +157,8 @@ static int fetch_binary_size(struct imap_fetch_context *ctx, struct mail *mail,
 		return -1;
 
 	str = t_str_new(128);
-	if (ctx->first)
-		ctx->first = FALSE;
+	if (ctx->state.cur_first)
+		ctx->state.cur_first = FALSE;
 	else
 		str_append_c(str, ' ');
 	str_printfa(str, "%s %"PRIuUOFF_T, get_body_name(body), size);
@@ -412,7 +418,7 @@ fetch_rfc822_size(struct imap_fetch_context *ctx, struct mail *mail,
 	if (mail_get_virtual_size(mail, &size) < 0)
 		return -1;
 
-	str_printfa(ctx->cur_str, "RFC822.SIZE %"PRIuUOFF_T" ", size);
+	str_printfa(ctx->state.cur_str, "RFC822.SIZE %"PRIuUOFF_T" ", size);
 	return 1;
 }
 
@@ -427,10 +433,10 @@ fetch_and_free_msgpart(struct imap_fetch_context *ctx,
 	imap_msgpart_free(_msgpart);
 	if (ret < 0)
 		return -1;
-	ctx->cur_input = result.input;
-	ctx->cur_size = result.size;
-	ctx->cur_size_field = result.size_field;
-	ctx->cont_handler = fetch_stream_continue;
+	ctx->state.cur_input = result.input;
+	ctx->state.cur_size = result.size;
+	ctx->state.cur_size_field = result.size_field;
+	ctx->state.cont_handler = fetch_stream_continue;
 	return 0;
 }
 
@@ -445,14 +451,15 @@ fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 	if (fetch_and_free_msgpart(ctx, mail, &msgpart) < 0)
 		return -1;
 
-	str = t_strdup_printf(" RFC822 {%"PRIuUOFF_T"}\r\n", ctx->cur_size);
-	if (ctx->first) {
-		str++; ctx->first = FALSE;
+	str = t_strdup_printf(" RFC822 {%"PRIuUOFF_T"}\r\n",
+			      ctx->state.cur_size);
+	if (ctx->state.cur_first) {
+		str++; ctx->state.cur_first = FALSE;
 	}
 	o_stream_nsend_str(ctx->client->output, str);
 
-	ctx->cur_name = "RFC822";
-	return ctx->cont_handler(ctx);
+	ctx->state.cur_human_name = "RFC822";
+	return ctx->state.cont_handler(ctx);
 }
 
 static int ATTR_NULL(3)
@@ -467,14 +474,14 @@ fetch_rfc822_header(struct imap_fetch_context *ctx,
 		return -1;
 
 	str = t_strdup_printf(" RFC822.HEADER {%"PRIuUOFF_T"}\r\n",
-			      ctx->cur_size);
-	if (ctx->first) {
-		str++; ctx->first = FALSE;
+			      ctx->state.cur_size);
+	if (ctx->state.cur_first) {
+		str++; ctx->state.cur_first = FALSE;
 	}
 	o_stream_nsend_str(ctx->client->output, str);
 
-	ctx->cur_name = "RFC822.HEADER";
-	return ctx->cont_handler(ctx);
+	ctx->state.cur_human_name = "RFC822.HEADER";
+	return ctx->state.cont_handler(ctx);
 }
 
 static int ATTR_NULL(3)
@@ -489,14 +496,14 @@ fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 		return -1;
 
 	str = t_strdup_printf(" RFC822.TEXT {%"PRIuUOFF_T"}\r\n",
-			      ctx->cur_size);
-	if (ctx->first) {
-		str++; ctx->first = FALSE;
+			      ctx->state.cur_size);
+	if (ctx->state.cur_first) {
+		str++; ctx->state.cur_first = FALSE;
 	}
 	o_stream_nsend_str(ctx->client->output, str);
 
-	ctx->cur_name = "RFC822.TEXT";
-	return ctx->cont_handler(ctx);
+	ctx->state.cur_human_name = "RFC822.TEXT";
+	return ctx->state.cont_handler(ctx);
 }
 
 bool imap_fetch_rfc822_init(struct imap_fetch_init_context *ctx)

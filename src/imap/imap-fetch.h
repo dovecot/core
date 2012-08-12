@@ -39,25 +39,13 @@ struct imap_fetch_context_handler {
 	unsigned int want_deinit:1;
 };
 
-struct imap_fetch_context {
-	struct client *client;
-	struct mailbox *box;
-	pool_t pool;
-
+struct imap_fetch_state {
 	struct mailbox_transaction_context *trans;
-	struct mail_search_args *search_args;
 	struct mail_search_context *search_ctx;
-
-	enum mail_fetch_field fetch_data;
-	ARRAY_TYPE(const_string) all_headers;
-        struct mailbox_header_lookup_ctx *all_headers_ctx;
-
-	ARRAY_DEFINE(handlers, struct imap_fetch_context_handler);
-	unsigned int buffered_handlers_count;
 
 	struct mail *cur_mail;
 	unsigned int cur_handler;
-	const char *cur_name;
+	const char *cur_human_name;
 	uoff_t cur_size, cur_offset;
 	enum mail_fetch_field cur_size_field;
 	string_t *cur_str;
@@ -65,21 +53,38 @@ struct imap_fetch_context {
 	bool skip_cr;
 	int (*cont_handler)(struct imap_fetch_context *ctx);
 
+	unsigned int seen_flags_changed:1;
+	unsigned int cur_first:1;
+	unsigned int line_partial:1;
+	unsigned int line_finished:1;
+	unsigned int skipped_expunged_msgs:1;
+	unsigned int failed:1;
+};
+
+struct imap_fetch_context {
+	struct client *client;
+	struct mailbox *box;
+	pool_t pool;
+
+	struct mail_search_args *search_args;
+
+	enum mail_fetch_field fetch_data;
+	ARRAY_TYPE(const_string) all_headers;
+
+	ARRAY_DEFINE(handlers, struct imap_fetch_context_handler);
+	unsigned int buffered_handlers_count;
+
 	const ARRAY_TYPE(uint32_t) *qresync_sample_seqset;
 	const ARRAY_TYPE(uint32_t) *qresync_sample_uidset;
 
 	ARRAY_TYPE(keywords) tmp_keywords;
 
+	struct imap_fetch_state state;
+
 	unsigned int flags_have_handler:1;
 	unsigned int flags_update_seen:1;
-	unsigned int seen_flags_changed:1;
 	unsigned int flags_show_only_seen_changes:1;
-	unsigned int first:1;
-	unsigned int line_partial:1;
-	unsigned int line_finished:1;
-	unsigned int skipped_expunged_msgs:1;
 	unsigned int send_vanished:1;
-	unsigned int failed:1;
 };
 
 void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
