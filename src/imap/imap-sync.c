@@ -369,6 +369,32 @@ static void imap_sync_vanished(struct imap_sync_context *ctx)
 	o_stream_nsend(ctx->client->output, str_data(line), str_len(line));
 }
 
+static int imap_sync_send_expunges(struct imap_sync_context *ctx, string_t *str)
+{
+	int ret = 1;
+
+	if (array_is_created(&ctx->expunges)) {
+		/* Use a single VANISHED line */
+		seq_range_array_add_range(&ctx->expunges,
+					  ctx->sync_rec.seq1,
+					  ctx->sync_rec.seq2);
+		return 1;
+	}
+	if (ctx->seq == 0)
+		ctx->seq = ctx->sync_rec.seq2;
+	for (; ctx->seq >= ctx->sync_rec.seq1; ctx->seq--) {
+		if (ret == 0) {
+			/* buffer full, continue later */
+			break;
+		}
+
+		str_truncate(str, 0);
+		str_printfa(str, "* %u EXPUNGE", ctx->seq);
+		ret = client_send_line_next(ctx->client, str_c(str));
+	}
+	return ret;
+}
+
 int imap_sync_more(struct imap_sync_context *ctx)
 {
 	string_t *str;
@@ -418,28 +444,8 @@ int imap_sync_more(struct imap_sync_context *ctx)
 			break;
 		case MAILBOX_SYNC_TYPE_EXPUNGE:
 			ctx->client->sync_seen_expunges = TRUE;
-			if (array_is_created(&ctx->expunges)) {
-				/* Use a single VANISHED line */
-				seq_range_array_add_range(&ctx->expunges,
-							  ctx->sync_rec.seq1,
-							  ctx->sync_rec.seq2);
-				ctx->messages_count -=
-					ctx->sync_rec.seq2 -
-					ctx->sync_rec.seq1 + 1;
-				break;
-			}
-			if (ctx->seq == 0)
-				ctx->seq = ctx->sync_rec.seq2;
-			ret = 1;
-			for (; ctx->seq >= ctx->sync_rec.seq1; ctx->seq--) {
-				if (ret == 0)
-					break;
-
-				str_truncate(str, 0);
-				str_printfa(str, "* %u EXPUNGE", ctx->seq);
-				ret = client_send_line_next(ctx->client, str_c(str));
-			}
-			if (ctx->seq < ctx->sync_rec.seq1) {
+			ret = imap_sync_send_expunges(ctx, str);
+			if (ret > 0) {
 				/* update only after we're finished, so that
 				   the seq2 > messages_count check above
 				   doesn't break */
