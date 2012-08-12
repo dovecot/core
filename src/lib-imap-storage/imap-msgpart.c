@@ -236,12 +236,13 @@ int imap_msgpart_parse(struct mailbox *box, const char *section,
 	}
 
 	if (*section == '\0') {
-		/* full message/MIME part */
 		msgpart->wanted_fields |= MAIL_FETCH_STREAM_BODY;
 		if (*msgpart->section_number == '\0') {
+			/* BODY[] - header+body */
 			msgpart->fetch_type = FETCH_FULL;
 			msgpart->wanted_fields |= MAIL_FETCH_STREAM_HEADER;
 		} else {
+			/* BODY[1] - body only */
 			msgpart->fetch_type = FETCH_MIME_BODY;
 		}
 		return 0;
@@ -516,21 +517,30 @@ imap_msgpart_find_part(struct mail *mail, const struct imap_msgpart *msgpart,
 	if (mail_get_parts(mail, &parts) < 0)
 		return -1;
 	part = imap_msgpart_find(parts, msgpart->section_number);
-	if (part != NULL && (msgpart->fetch_type == FETCH_HEADER ||
-			     msgpart->fetch_type == FETCH_BODY)) {
-		/* fetching message/rfc822 part's header/body */
-		if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) == 0)
-			part = NULL;
-		else {
-			i_assert(part->children != NULL &&
-				 part->children->next == NULL);
-			part = part->children;
-		}
-	}
 	if (part == NULL) {
 		/* MIME part not found. */
 		*part_r = NULL;
 		return 0;
+	}
+
+	switch (msgpart->fetch_type) {
+	case FETCH_FULL:
+	case FETCH_MIME:
+	case FETCH_MIME_BODY:
+		break;
+	case FETCH_HEADER:
+	case FETCH_HEADER_FIELDS:
+	case FETCH_HEADER_FIELDS_NOT:
+	case FETCH_BODY:
+		/* fetching message/rfc822 part's header/body */
+		if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) == 0) {
+			*part_r = NULL;
+			return 0;
+		}
+		i_assert(part->children != NULL &&
+			 part->children->next == NULL);
+		part = part->children;
+		break;
 	}
 	*part_r = part;
 	return 1;
