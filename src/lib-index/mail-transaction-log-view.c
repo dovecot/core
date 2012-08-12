@@ -586,6 +586,27 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		array_create_from_buffer(&uids, &uid_buf,
 			sizeof(struct mail_transaction_keyword_reset));
 		break;
+	case MAIL_TRANSACTION_EXT_INTRO: {
+		const struct mail_transaction_ext_intro *rec;
+		unsigned int i;
+
+		for (i = 0; i < rec_size; ) {
+			if (i + sizeof(*rec) > rec_size) {
+				/* should be just extra padding */
+				break;
+			}
+
+			rec = CONST_PTR_OFFSET(data, i);
+			if (i + sizeof(*rec) + rec->name_size > rec_size) {
+				mail_transaction_log_file_set_corrupted(file,
+					"ext intro: name_size too large");
+				return FALSE;
+			}
+			i += sizeof(*rec) + rec->name_size;
+			if ((i % 4) != 0)
+				i += 4 - (i % 4);
+		}
+	}
 	default:
 		break;
 	}
