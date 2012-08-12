@@ -17,7 +17,8 @@ static struct file_listener_settings ssl_params_unix_listeners_array[] = {
 	{ "login/ssl-params", 0666, "", "" }
 };
 static struct file_listener_settings *ssl_params_unix_listeners[] = {
-	&ssl_params_unix_listeners_array[0]
+	&ssl_params_unix_listeners_array[0],
+	&ssl_params_unix_listeners_array[1]
 };
 static buffer_t ssl_params_unix_listeners_buf = {
 	ssl_params_unix_listeners, sizeof(ssl_params_unix_listeners), { 0, }
