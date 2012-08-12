@@ -176,8 +176,9 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 				failed = TRUE;
 			}
 		}
+	} else {
+		o_stream_ignore_last_errors(output);
 	}
-
 	o_stream_destroy(&output);
 
 	if (failed || !changed) {
