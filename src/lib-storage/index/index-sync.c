@@ -382,6 +382,12 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	if (status_r != NULL)
 		status_r->sync_delayed_expunges = delayed_expunges;
 
+	/* sync private index if needed. do this after real sync to make sure
+	   that all the new messages are added to the private index, so their
+	   flags can be updated. */
+	(void)index_storage_mailbox_sync_pvt(_ctx->box);
+
+	/* update search results after private index is updated */
 	index_sync_search_results_update(ctx);
 
 	if (array_is_created(&ctx->flag_updates))
@@ -391,10 +397,6 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	if (array_is_created(&ctx->all_flag_update_uids))
 		array_free(&ctx->all_flag_update_uids);
 
-	/* sync private index if needed. do this last to make sure that all
-	   the new messages are added to the private index, so their flags can
-	   be updated. */
-	(void)index_storage_mailbox_sync_pvt(_ctx->box);
 	i_free(ctx);
 	return ret;
 }
