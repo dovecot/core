@@ -6,6 +6,21 @@
 #include "mail-index-view-private.h"
 #include "mail-transaction-log.h"
 
+struct mail_index_view *
+mail_index_view_dup_private(const struct mail_index_view *src)
+{
+	struct mail_index_view *view;
+	struct mail_index_map *map;
+
+	view = i_new(struct mail_index_view, 1);
+	mail_index_view_clone(view, src);
+
+	map = mail_index_map_clone(view->map);
+	mail_index_unmap(&view->map);
+	view->map = map;
+	return view;
+}
+
 void mail_index_view_clone(struct mail_index_view *dest,
 			   const struct mail_index_view *src)
 {
