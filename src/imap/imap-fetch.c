@@ -80,6 +80,38 @@ void imap_fetch_init_nofail_handler(struct imap_fetch_context *ctx,
 		i_unreached();
 }
 
+int imap_fetch_att_list_parse(struct client *client, pool_t pool,
+			      const struct imap_arg *list,
+			      struct imap_fetch_context **fetch_ctx_r,
+			      const char **error_r)
+{
+	struct imap_fetch_init_context init_ctx;
+	const char *str;
+
+	memset(&init_ctx, 0, sizeof(init_ctx));
+	init_ctx.fetch_ctx = imap_fetch_alloc(client, pool);
+	init_ctx.pool = pool;
+	init_ctx.args = list;
+
+	while (imap_arg_get_atom(init_ctx.args, &str)) {
+		init_ctx.name = t_str_ucase(str);
+		init_ctx.args++;
+		if (!imap_fetch_init_handler(&init_ctx)) {
+			*error_r = t_strconcat("Invalid fetch-att list: ",
+					       init_ctx.error, NULL);
+			imap_fetch_free(&init_ctx.fetch_ctx);
+			return -1;
+		}
+	}
+	if (!IMAP_ARG_IS_EOL(init_ctx.args)) {
+		*error_r = "fetch-att list contains non-atoms.";
+		imap_fetch_free(&init_ctx.fetch_ctx);
+		return -1;
+	}
+	*fetch_ctx_r = init_ctx.fetch_ctx;
+	return 0;
+}
+
 struct imap_fetch_context *
 imap_fetch_alloc(struct client *client, pool_t pool)
 {
@@ -98,18 +130,19 @@ imap_fetch_alloc(struct client *client, pool_t pool)
 }
 
 void imap_fetch_add_changed_since(struct imap_fetch_context *ctx,
+				  struct mail_search_args *search_args,
 				  uint64_t modseq)
 {
 	struct mail_search_arg *search_arg;
 
-	search_arg = p_new(ctx->search_args->pool, struct mail_search_arg, 1);
+	search_arg = p_new(search_args->pool, struct mail_search_arg, 1);
 	search_arg->type = SEARCH_MODSEQ;
 	search_arg->value.modseq =
-		p_new(ctx->search_args->pool, struct mail_search_modseq, 1);
+		p_new(search_args->pool, struct mail_search_modseq, 1);
 	search_arg->value.modseq->modseq = modseq + 1;
 
-	search_arg->next = ctx->search_args->args->next;
-	ctx->search_args->args->next = search_arg;
+	search_arg->next = search_args->args->next;
+	search_args->args->next = search_arg;
 
 	imap_fetch_init_nofail_handler(ctx, imap_fetch_modseq_init);
 }
@@ -333,12 +366,10 @@ static void imap_fetch_init(struct imap_fetch_context *ctx)
 		ctx->fetch_data |= MAIL_FETCH_NUL_STATE;
 }
 
-static void
-imap_fetch_begin_full(struct imap_fetch_context *ctx,
-	              struct mailbox *box, bool once)
+void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
+		      struct mail_search_args *search_args)
 {
 	struct mailbox_header_lookup_ctx *wanted_headers = NULL;
-	struct mail_search_args *search_args;
 	const char *const *headers;
 
 	i_assert(!ctx->state.fetching);
@@ -361,14 +392,6 @@ imap_fetch_begin_full(struct imap_fetch_context *ctx,
 		MAILBOX_TRANSACTION_FLAG_HIDE |
 		MAILBOX_TRANSACTION_FLAG_REFRESH);
 
-	if (!once) {
-		/* fetch can be executed multiple times.
-		   clone the search args for this fetch */
-		search_args = mail_search_args_dup(ctx->search_args);
-	} else {
-		search_args = ctx->search_args;
-		ctx->search_args = NULL;
-	}
 	mail_search_args_init(search_args, box, TRUE,
 			      &ctx->client->search_saved_uidset);
 	ctx->state.search_ctx =
@@ -380,17 +403,6 @@ imap_fetch_begin_full(struct imap_fetch_context *ctx,
 
 	if (wanted_headers != NULL)
 		mailbox_header_lookup_unref(&wanted_headers);
-	mail_search_args_unref(&search_args);
-}
-
-void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box)
-{
-	imap_fetch_begin_full(ctx, box, FALSE);
-}
-
-void imap_fetch_begin_once(struct imap_fetch_context *ctx, struct mailbox *box)
-{
-	imap_fetch_begin_full(ctx, box, TRUE);
 }
 
 static int imap_fetch_flush_buffer(struct imap_fetch_context *ctx)
@@ -557,15 +569,38 @@ int imap_fetch_more(struct imap_fetch_context *ctx,
 {
 	int ret;
 
-	i_assert(ctx->client->output_lock == NULL ||
-		 ctx->client->output_lock == cmd);
+	i_assert(!ctx->client->output_locked ||
+		 ctx->client->output_cmd_lock == cmd);
 
 	ret = imap_fetch_more_int(ctx, cmd->cancel);
 	if (ret < 0)
 		ctx->state.failed = TRUE;
 	if (ctx->state.line_partial) {
 		/* nothing can be sent until FETCH is finished */
-		ctx->client->output_lock = cmd;
+		ctx->client->output_cmd_lock = cmd;
+	}
+	if (cmd->cancel && ctx->client->output_cmd_lock != NULL) {
+		/* canceling didn't really work. we must not output
+		   anything anymore. */
+		if (!ctx->client->destroyed)
+			client_disconnect(ctx->client, "Failed to cancel FETCH");
+		ctx->client->output_cmd_lock = NULL;
+	}
+	ctx->client->output_locked = ctx->client->output_cmd_lock != NULL;
+	return ret;
+}
+
+int imap_fetch_more_no_lock_update(struct imap_fetch_context *ctx)
+{
+	int ret;
+
+	ret = imap_fetch_more_int(ctx, FALSE);
+	if (ret < 0) {
+		ctx->state.failed = TRUE;
+		if (!ctx->state.line_finished) {
+			client_disconnect(ctx->client,
+				"NOTIFY failed in the middle of FETCH reply");
+		}
 	}
 	return ret;
 }
@@ -617,8 +652,6 @@ void imap_fetch_free(struct imap_fetch_context **_ctx)
 		if (handler->want_deinit)
 			handler->handler(ctx, NULL, handler->context);
 	}
-	if (ctx->search_args != NULL)
-		mail_search_args_unref(&ctx->search_args);
 	pool_unref(&ctx->ctx_pool);
 }
 

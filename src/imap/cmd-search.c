@@ -31,6 +31,7 @@ bool cmd_search(struct client_command_context *cmd)
 		if (!imap_arg_get_astring(&args[1], &charset)) {
 			client_send_command_error(cmd,
 				"Invalid charset argument.");
+			imap_search_context_free(ctx);
 			return TRUE;
 		}
 		args += 2;
@@ -39,8 +40,10 @@ bool cmd_search(struct client_command_context *cmd)
 	}
 
 	ret = imap_search_args_build(cmd, args, charset, &sargs);
-	if (ret <= 0)
+	if (ret <= 0) {
+		imap_search_context_free(ctx);
 		return ret < 0;
+	}
 
 	return imap_search_start(ctx, sargs, NULL);
 }

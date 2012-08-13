@@ -73,8 +73,6 @@ struct imap_fetch_context {
 	struct client *client;
 	pool_t ctx_pool;
 
-	struct mail_search_args *search_args;
-
 	enum mail_fetch_field fetch_data;
 	ARRAY_TYPE(const_string) all_headers;
 
@@ -111,6 +109,11 @@ void imap_fetch_add_handler(struct imap_fetch_init_context *ctx,
 		(imap_fetch_handler_t *)handler, context)
 #endif
 
+int imap_fetch_att_list_parse(struct client *client, pool_t pool,
+			      const struct imap_arg *list,
+			      struct imap_fetch_context **fetch_ctx_r,
+			      const char **error_r);
+
 struct imap_fetch_context *
 imap_fetch_alloc(struct client *client, pool_t pool);
 void imap_fetch_free(struct imap_fetch_context **ctx);
@@ -119,10 +122,11 @@ void imap_fetch_init_nofail_handler(struct imap_fetch_context *ctx,
 				    bool (*init)(struct imap_fetch_init_context *));
 
 void imap_fetch_add_changed_since(struct imap_fetch_context *ctx,
+				  struct mail_search_args *search_args,
 				  uint64_t modseq);
 
-void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box);
-void imap_fetch_begin_once(struct imap_fetch_context *ctx, struct mailbox *box);
+void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
+		      struct mail_search_args *search_args);
 int imap_fetch_send_vanished(struct client *client, struct mailbox *box,
 			     const struct mail_search_args *search_args,
 			     const struct imap_fetch_qresync_args *qresync_args);

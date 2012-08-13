@@ -251,14 +251,16 @@ static int select_qresync(struct imap_select_context *ctx)
 	}
 
 	fetch_ctx = imap_fetch_alloc(ctx->cmd->client, ctx->cmd->pool);
-	fetch_ctx->search_args = search_args;
 
-	imap_fetch_add_changed_since(fetch_ctx, ctx->qresync_modseq);
+	imap_fetch_add_changed_since(fetch_ctx, search_args,
+				     ctx->qresync_modseq);
 	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_uid_init);
 	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_flags_init);
 	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_modseq_init);
 
-	imap_fetch_begin_once(fetch_ctx, ctx->box);
+	imap_fetch_begin(fetch_ctx, ctx->box, search_args);
+	mail_search_args_unref(&search_args);
+
 	if (imap_fetch_more(fetch_ctx, ctx->cmd) == 0) {
 		/* unfinished */
 		ctx->fetch_ctx = fetch_ctx;
@@ -312,6 +314,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	client->messages_count = status.messages;
 	client->recent_count = status.recent;
 	client->uidvalidity = status.uidvalidity;
+	client->notify_uidnext = status.uidnext;
 
 	client_update_mailbox_flags(client, status.keywords);
 	client_send_mailbox_flags(client, TRUE);

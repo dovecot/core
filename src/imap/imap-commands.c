@@ -53,6 +53,7 @@ static const struct command imap_ext_commands[] = {
 	{ "IDLE",		cmd_idle,        COMMAND_FLAG_BREAKS_SEQS |
 						 COMMAND_FLAG_REQUIRES_SYNC },
 	{ "NAMESPACE",		cmd_namespace,   0 },
+	{ "NOTIFY",		cmd_notify,      COMMAND_FLAG_BREAKS_SEQS },
 	{ "SORT",		cmd_sort,        COMMAND_FLAG_USES_SEQS },
 	{ "THREAD",		cmd_thread,      COMMAND_FLAG_USES_SEQS },
 	{ "UID EXPUNGE",	cmd_uid_expunge, COMMAND_FLAG_BREAKS_SEQS },

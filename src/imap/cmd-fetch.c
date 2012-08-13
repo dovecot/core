@@ -103,6 +103,7 @@ fetch_parse_args(struct imap_fetch_context *ctx,
 static bool
 fetch_parse_modifier(struct imap_fetch_context *ctx,
 		     struct client_command_context *cmd,
+		     struct mail_search_args *search_args,
 		     const char *name, const struct imap_arg **args,
 		     bool *send_vanished)
 {
@@ -117,7 +118,7 @@ fetch_parse_modifier(struct imap_fetch_context *ctx,
 			return FALSE;
 		}
 		*args += 1;
-		imap_fetch_add_changed_since(ctx, modseq);
+		imap_fetch_add_changed_since(ctx, search_args, modseq);
 		return TRUE;
 	}
 	if (strcmp(name, "VANISHED") == 0 && cmd->uid) {
@@ -137,6 +138,7 @@ fetch_parse_modifier(struct imap_fetch_context *ctx,
 static bool
 fetch_parse_modifiers(struct imap_fetch_context *ctx,
 		      struct client_command_context *cmd,
+		      struct mail_search_args *search_args,
 		      const struct imap_arg *args, bool *send_vanished_r)
 {
 	const char *name;
@@ -150,13 +152,14 @@ fetch_parse_modifiers(struct imap_fetch_context *ctx,
 			return FALSE;
 		}
 		args++;
-		if (!fetch_parse_modifier(ctx, cmd, t_str_ucase(name),
+		if (!fetch_parse_modifier(ctx, cmd, search_args,
+					  t_str_ucase(name),
 					  &args, send_vanished_r))
 			return FALSE;
 	}
 	if (*send_vanished_r &&
-	    (ctx->search_args->args->next == NULL ||
-	     ctx->search_args->args->next->type != SEARCH_MODSEQ)) {
+	    (search_args->args->next == NULL ||
+	     search_args->args->next->type != SEARCH_MODSEQ)) {
 		client_send_command_error(cmd,
 			"VANISHED used without CHANGEDSINCE");
 		return FALSE;
@@ -250,23 +253,27 @@ bool cmd_fetch(struct client_command_context *cmd)
 		return ret < 0;
 
 	ctx = imap_fetch_alloc(client, cmd->pool);
-	ctx->search_args = search_args;
 
 	if (!fetch_parse_args(ctx, cmd, &args[1], &next_arg) ||
 	    (imap_arg_get_list(next_arg, &list_arg) &&
-	     !fetch_parse_modifiers(ctx, cmd, list_arg, &send_vanished))) {
+	     !fetch_parse_modifiers(ctx, cmd, search_args, list_arg,
+				    &send_vanished))) {
 		imap_fetch_free(&ctx);
+		mail_search_args_unref(&search_args);
 		return TRUE;
 	}
 
 	if (send_vanished) {
 		memset(&qresync_args, 0, sizeof(qresync_args));
 		if (imap_fetch_send_vanished(client, client->mailbox,
-					     search_args, &qresync_args) < 0)
+					     search_args, &qresync_args) < 0) {
+			mail_search_args_unref(&search_args);
 			return cmd_fetch_finish(ctx, cmd);
+		}
 	}
 
-	imap_fetch_begin_once(ctx, client->mailbox);
+	imap_fetch_begin(ctx, client->mailbox, search_args);
+	mail_search_args_unref(&search_args);
 
 	if (imap_fetch_more(ctx, cmd) == 0) {
 		/* unfinished */

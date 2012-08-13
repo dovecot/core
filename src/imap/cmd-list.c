@@ -9,6 +9,7 @@
 #include "imap-match.h"
 #include "imap-status.h"
 #include "imap-commands.h"
+#include "imap-list.h"
 #include "mail-namespace.h"
 
 struct cmd_list_context {
@@ -49,40 +50,22 @@ mailbox_flags2str(struct cmd_list_context *ctx, string_t *str,
 	if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_CHILDREN) == 0)
 		flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
 
-	if ((flags & MAILBOX_SUBSCRIBED) != 0 &&
-	    (ctx->list_flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0)
-		str_append(str, "\\Subscribed ");
+	if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) == 0)
+		flags &= ~MAILBOX_SUBSCRIBED;
 
 	if ((flags & MAILBOX_CHILD_SUBSCRIBED) != 0 &&
 	    (flags & MAILBOX_SUBSCRIBED) == 0 && !ctx->used_listext) {
 		/* LSUB uses \Noselect for this */
 		flags |= MAILBOX_NOSELECT;
 	}
-
-	if ((flags & MAILBOX_NOSELECT) != 0)
-		str_append(str, "\\Noselect ");
-	if ((flags & MAILBOX_NONEXISTENT) != 0)
-		str_append(str, "\\NonExistent ");
-
-	if ((flags & MAILBOX_CHILDREN) != 0)
-		str_append(str, "\\HasChildren ");
-	else if ((flags & MAILBOX_NOINFERIORS) != 0)
-		str_append(str, "\\NoInferiors ");
-	else if ((flags & MAILBOX_NOCHILDREN) != 0)
-		str_append(str, "\\HasNoChildren ");
-
-	if ((flags & MAILBOX_MARKED) != 0)
-		str_append(str, "\\Marked ");
-	if ((flags & MAILBOX_UNMARKED) != 0)
-		str_append(str, "\\UnMarked ");
+	imap_mailbox_flags2str(str, flags);
 
 	if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_SPECIALUSE) != 0 &&
 	    special_use != NULL) {
+		if (str_len(str) != orig_len)
+			str_append_c(str, ' ');
 		str_append(str, special_use);
-		str_append_c(str, ' ');
 	}
-	if (str_len(str) != orig_len)
-		str_truncate(str, str_len(str)-1);
 }
 
 static void

@@ -114,23 +114,29 @@ bool cmd_sort(struct client_command_context *cmd)
 	/* sort program */
 	if (!imap_arg_get_list(args, &list_args)) {
 		client_send_command_error(cmd, "Invalid sort argument.");
+		imap_search_context_free(ctx);
 		return TRUE;
 	}
 
-	if (get_sort_program(cmd, list_args, sort_program) < 0)
+	if (get_sort_program(cmd, list_args, sort_program) < 0) {
+		imap_search_context_free(ctx);
 		return TRUE;
+	}
 	args++;
 
 	/* charset */
 	if (!imap_arg_get_astring(args, &charset)) {
 		client_send_command_error(cmd, "Invalid charset argument.");
+		imap_search_context_free(ctx);
 		return TRUE;
 	}
 	args++;
 
 	ret = imap_search_args_build(cmd, args, charset, &sargs);
-	if (ret <= 0)
+	if (ret <= 0) {
+		imap_search_context_free(ctx);
 		return ret < 0;
+	}
 
 	return imap_search_start(ctx, sargs, sort_program);
 }

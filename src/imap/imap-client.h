@@ -29,6 +29,9 @@ struct imap_search_update {
 	char *tag;
 	struct mail_search_result *result;
 	bool return_uids;
+
+	pool_t fetch_pool;
+	struct imap_fetch_context *fetch_ctx;
 };
 
 enum client_command_state {
@@ -124,10 +127,13 @@ struct client {
 	ARRAY_TYPE(seq_range) search_saved_uidset;
 	/* SEARCH=CONTEXT extension: Searches that get updated */
 	ARRAY_DEFINE(search_updates, struct imap_search_update);
+	/* NOTIFY extension */
+	struct imap_notify_context *notify_ctx;
+	uint32_t notify_uidnext;
 
 	/* client input/output is locked by this command */
 	struct client_command_context *input_lock;
-	struct client_command_context *output_lock;
+	struct client_command_context *output_cmd_lock;
 	/* command changing the mailbox */
 	struct client_command_context *mailbox_change_lock;
 
@@ -146,9 +152,13 @@ struct client {
 	unsigned int mailbox_examined:1;
 	unsigned int anvil_sent:1;
 	unsigned int tls_compression:1;
+	unsigned int output_locked:1;
 	unsigned int input_skip_line:1; /* skip all the data until we've
 					   found a new line */
 	unsigned int modseqs_sent_since_sync:1;
+	unsigned int notify_immediate_expunges:1;
+	unsigned int notify_count_changes:1;
+	unsigned int notify_flag_changes:1;
 };
 
 struct imap_module_register {
@@ -212,6 +222,7 @@ client_search_update_lookup(struct client *client, const char *tag,
 			    unsigned int *idx_r);
 void client_search_updates_free(struct client *client);
 
+struct client_command_context *client_command_alloc(struct client *client);
 void client_command_cancel(struct client_command_context **cmd);
 void client_command_free(struct client_command_context **cmd);
 

@@ -115,7 +115,7 @@ static void idle_client_input(struct cmd_idle_context *ctx)
 
 static void keepalive_timeout(struct cmd_idle_context *ctx)
 {
-	if (ctx->client->output_lock != NULL) {
+	if (ctx->client->output_locked) {
 		/* it's busy sending output */
 		return;
 	}

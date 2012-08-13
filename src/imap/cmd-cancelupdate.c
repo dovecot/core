@@ -1,6 +1,7 @@
 /* Copyright (c) 2008-2012 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
+#include "imap-search.h"
 #include "imap-commands.h"
 
 static bool client_search_update_cancel(struct client *client, const char *tag)
@@ -12,8 +13,7 @@ static bool client_search_update_cancel(struct client *client, const char *tag)
 	if (update == NULL)
 		return FALSE;
 
-	i_free(update->tag);
-	mailbox_search_result_free(&update->result);
+	imap_search_update_free(update);
 	array_delete(&client->search_updates, idx, 1);
 	return TRUE;
 }

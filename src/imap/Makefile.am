@@ -43,6 +43,7 @@ cmds = \
 	cmd-lsub.c \
 	cmd-namespace.c \
 	cmd-noop.c \
+	cmd-notify.c \
 	cmd-rename.c \
 	cmd-search.c \
 	cmd-select.c \
@@ -64,6 +65,8 @@ imap_SOURCES = \
 	imap-expunge.c \
 	imap-fetch.c \
 	imap-fetch-body.c \
+	imap-list.c \
+	imap-notify.c \
 	imap-search.c \
 	imap-search-args.c \
 	imap-settings.c \
@@ -79,6 +82,8 @@ headers = \
 	imap-common.h \
 	imap-expunge.h \
 	imap-fetch.h \
+	imap-list.h \
+	imap-notify.h \
 	imap-search.h \
 	imap-search-args.h \
 	imap-settings.h \
