@@ -296,6 +296,8 @@ dsync_brain_try_next_mailbox(struct dsync_brain *brain, struct mailbox **box_r,
 	bool synced = FALSE;
 	int ret;
 
+	*box_r = NULL;
+
 	while (dsync_mailbox_tree_iter_next(brain->local_tree_iter, &vname, &node)) {
 		if (node->existence == DSYNC_MAILBOX_NODE_EXISTS &&
 		    !guid_128_is_empty(node->mailbox_guid))

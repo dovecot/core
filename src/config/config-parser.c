@@ -428,6 +428,8 @@ str_append_file(string_t *str, const char *key, const char *path,
 	int fd;
 	ssize_t ret;
 
+	*error_r = NULL;
+
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
 		*error_r = t_strdup_printf("%s: Can't open file %s: %m",

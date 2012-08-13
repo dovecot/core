@@ -222,6 +222,8 @@ static bool pid_file_read(const char *path, pid_t *pid_r)
 	ssize_t ret;
 	bool found;
 
+	*pid_r = (pid_t)-1;
+
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno == ENOENT)
