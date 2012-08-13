@@ -573,22 +573,15 @@ int imap_fetch_more(struct imap_fetch_context *ctx,
 int imap_fetch_end(struct imap_fetch_context *ctx)
 {
 	struct imap_fetch_state *state = &ctx->state;
-	const struct imap_fetch_context_handler *handler;
 
-	if (!ctx->state.fetching)
-		return 0;
-	ctx->state.fetching = FALSE;
-
-	array_foreach(&ctx->handlers, handler) {
-		if (handler->want_deinit)
-			handler->handler(ctx, NULL, handler->context);
-	}
-
-	if (!state->line_finished) {
-		if (imap_fetch_flush_buffer(ctx) < 0)
-			state->failed = TRUE;
-		if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0)
-			state->failed = TRUE;
+	if (ctx->state.fetching) {
+		ctx->state.fetching = FALSE;
+		if (!state->line_finished) {
+			if (imap_fetch_flush_buffer(ctx) < 0)
+				state->failed = TRUE;
+			if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0)
+				state->failed = TRUE;
+		}
 	}
 	if (state->cur_str != NULL)
 		str_free(&state->cur_str);
@@ -614,10 +607,16 @@ int imap_fetch_end(struct imap_fetch_context *ctx)
 void imap_fetch_free(struct imap_fetch_context **_ctx)
 {
 	struct imap_fetch_context *ctx = *_ctx;
+	const struct imap_fetch_context_handler *handler;
 
 	*_ctx = NULL;
 
 	(void)imap_fetch_end(ctx);
+
+	array_foreach(&ctx->handlers, handler) {
+		if (handler->want_deinit)
+			handler->handler(ctx, NULL, handler->context);
+	}
 	if (ctx->search_args != NULL)
 		mail_search_args_unref(&ctx->search_args);
 	pool_unref(&ctx->ctx_pool);

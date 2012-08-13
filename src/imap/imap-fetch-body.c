@@ -126,10 +126,15 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 }
 
 static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
-			      const struct imap_fetch_body_data *body)
+			      struct imap_fetch_body_data *body)
 {
 	struct imap_msgpart_open_result result;
 	string_t *str;
+
+	if (mail == NULL) {
+		imap_msgpart_free(&body->msgpart);
+		return 1;
+	}
 
 	if (imap_msgpart_open(mail, body->msgpart, &result) < 0)
 		return -1;
@@ -147,10 +152,15 @@ static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 }
 
 static int fetch_binary_size(struct imap_fetch_context *ctx, struct mail *mail,
-			     const struct imap_fetch_body_data *body)
+			     struct imap_fetch_body_data *body)
 {
 	string_t *str;
 	size_t size;
+
+	if (mail == NULL) {
+		imap_msgpart_free(&body->msgpart);
+		return 1;
+	}
 
 	if (imap_msgpart_size(mail, body->msgpart, &size) < 0)
 		return -1;
@@ -325,7 +335,8 @@ bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 
 	/* update the section name for the imap_fetch_add_handler() */
 	ctx->name = p_strdup(ctx->pool, get_body_name(body));
-	imap_fetch_add_handler(ctx, 0, "NIL", fetch_body_msgpart, body);
+	imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_WANT_DEINIT,
+			       "NIL", fetch_body_msgpart, body);
 	return TRUE;
 }
 
@@ -397,10 +408,13 @@ bool imap_fetch_binary_init(struct imap_fetch_init_context *ctx)
 
 	/* update the section name for the imap_fetch_add_handler() */
 	ctx->name = p_strdup(ctx->pool, get_body_name(body));
-	if (body->binary_size)
-		imap_fetch_add_handler(ctx, 0, "NIL", fetch_binary_size, body);
-	else
-		imap_fetch_add_handler(ctx, 0, "NIL", fetch_body_msgpart, body);
+	if (body->binary_size) {
+		imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_WANT_DEINIT,
+				       "NIL", fetch_binary_size, body);
+	} else {
+		imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_WANT_DEINIT,
+				       "NIL", fetch_body_msgpart, body);
+	}
 	return TRUE;
 }
 
