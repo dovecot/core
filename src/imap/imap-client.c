@@ -42,6 +42,7 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	struct client *client;
 	const char *ident;
 	pool_t pool;
+	bool explicit_capability = FALSE;
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd_in, TRUE);
@@ -84,11 +85,12 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	else if (*set->imap_capability != '+')
 		str_append(client->capability_string, set->imap_capability);
 	else {
+		explicit_capability = TRUE;
 		str_append(client->capability_string, CAPABILITY_STRING);
 		str_append_c(client->capability_string, ' ');
 		str_append(client->capability_string, set->imap_capability + 1);
 	}
-	if (user->fuzzy_search) {
+	if (user->fuzzy_search && !explicit_capability) {
 		/* Enable FUZZY capability only when it actually has
 		   a chance of working */
 		str_append(client->capability_string, " SEARCH=FUZZY");
