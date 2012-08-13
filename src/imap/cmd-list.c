@@ -456,10 +456,12 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 		if (ctx->cur_ns_send_prefix)
 			list_namespace_send_prefix(ctx, TRUE);
 
-		/* if there's a namespace with this name, list it as
+		/* if there's a list=yes namespace with this name, list it as
 		   having children */
 		ns = mail_namespace_find_prefix_nosep(ctx->ns, name);
-		if (ns != NULL) {
+		if (ns != NULL &&
+		    (ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+				  NAMESPACE_FLAG_LIST_CHILDREN)) != 0) {
 			flags |= MAILBOX_CHILDREN;
 			flags &= ~MAILBOX_NOCHILDREN;
 			array_append(&ctx->ns_prefixes_listed, &ns, 1);
