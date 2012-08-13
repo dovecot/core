@@ -720,6 +720,7 @@ struct mailbox_list imapc_mailbox_list = {
 		imapc_list_delete_mailbox,
 		imapc_list_delete_dir,
 		imapc_list_delete_symlink,
-		imapc_list_rename_mailbox
+		imapc_list_rename_mailbox,
+		NULL, NULL, NULL, NULL
 	}
 };

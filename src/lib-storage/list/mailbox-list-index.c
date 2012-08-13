@@ -1,10 +1,14 @@
 /* Copyright (c) 2006-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "hash.h"
-#include "mail-index.h"
+#include "str.h"
+#include "mail-index-view-private.h"
 #include "mail-storage-hooks.h"
 #include "mailbox-list-index.h"
+
+#define MAILBOX_LIST_INDEX_REFRESH_DELAY_MSECS 1000
 
 struct mailbox_list_index_module mailbox_list_index_module =
 	MODULE_CONTEXT_INIT(&mailbox_list_module_register);
@@ -104,6 +108,22 @@ mailbox_list_index_lookup(struct mailbox_list *list, const char *name)
 	return node;
 }
 
+struct mailbox_list_index_node *
+mailbox_list_index_lookup_uid(struct mailbox_list_index *ilist, uint32_t uid)
+{
+	return hash_table_lookup(ilist->mailbox_hash, POINTER_CAST(uid));
+}
+
+void mailbox_list_index_node_get_path(const struct mailbox_list_index_node *node,
+				      char sep, string_t *str)
+{
+	if (node->parent != NULL) {
+		mailbox_list_index_node_get_path(node->parent, sep, str);
+		str_append_c(str, sep);
+	}
+	str_append(str, node->name);
+}
+
 static int mailbox_list_index_parse_header(struct mailbox_list_index *ilist,
 					   struct mail_index_view *view)
 {
@@ -112,7 +132,7 @@ static int mailbox_list_index_parse_header(struct mailbox_list_index *ilist,
 	uint32_t id, prev_id = 0;
 	char *name;
 
-	mail_index_get_header_ext(view, ilist->ext_id, &data, &size);
+	mail_index_map_get_header_ext(view, view->map, ilist->ext_id, &data, &size);
 	if (size == 0)
 		return 0;
 
@@ -178,8 +198,8 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			return -1;
 
 		if (irec->parent_uid != 0) {
-			node->parent = hash_table_lookup(ilist->mailbox_hash,
-					POINTER_CAST(irec->parent_uid));
+			node->parent = mailbox_list_index_lookup_uid(ilist,
+							irec->parent_uid);
 			if (node->parent == NULL)
 				return -1;
 			node->next = node->parent->children;
@@ -266,6 +286,14 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 	return ret;
 }
 
+static void mailbox_list_index_refresh_timeout(struct mailbox_list *list)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+
+	timeout_remove(&ilist->to_refresh);
+	(void)mailbox_list_index_refresh(list);
+}
+
 void mailbox_list_index_refresh_later(struct mailbox_list *list)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
@@ -289,12 +317,20 @@ void mailbox_list_index_refresh_later(struct mailbox_list *list)
 
 	}
 	mail_index_view_close(&view);
+
+	if (ilist->to_refresh == NULL) {
+		ilist->to_refresh =
+			timeout_add(MAILBOX_LIST_INDEX_REFRESH_DELAY_MSECS,
+				    mailbox_list_index_refresh_timeout, list);
+	}
 }
 
 static void mailbox_list_index_deinit(struct mailbox_list *list)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 
+	if (ilist->to_refresh != NULL)
+		timeout_remove(&ilist->to_refresh);
 	hash_table_destroy(&ilist->mailbox_hash);
 	hash_table_destroy(&ilist->mailbox_names);
 	pool_unref(&ilist->mailbox_pool);
@@ -385,6 +421,11 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 	list->v.delete_mailbox = mailbox_list_index_delete_mailbox;
 	list->v.delete_dir = mailbox_list_index_delete_dir;
 	list->v.rename_mailbox = mailbox_list_index_rename_mailbox;
+
+	list->v.notify_init = mailbox_list_index_notify_init;
+	list->v.notify_next = mailbox_list_index_notify_next;
+	list->v.notify_deinit = mailbox_list_index_notify_deinit;
+	list->v.notify_wait = mailbox_list_index_notify_wait;
 
 	MODULE_CONTEXT_SET(list, mailbox_list_index_module, ilist);
 

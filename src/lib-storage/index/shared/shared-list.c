@@ -359,6 +359,7 @@ struct mailbox_list shared_mailbox_list = {
 		shared_list_delete_mailbox,
 		shared_list_delete_dir,
 		shared_list_delete_symlink,
-		shared_list_rename_mailbox
+		shared_list_rename_mailbox,
+		NULL, NULL, NULL, NULL
 	}
 };

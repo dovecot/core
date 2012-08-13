@@ -3,10 +3,13 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "hash.h"
+#include "str.h"
 #include "mail-index.h"
+#include "mail-storage.h"
 #include "mailbox-list-index.h"
 
 struct mailbox_list_index_sync_context {
+	struct mailbox_list *list;
 	struct mailbox_list_index *ilist;
 	char sep[2];
 	uint32_t next_uid;
@@ -15,6 +18,25 @@ struct mailbox_list_index_sync_context {
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
 };
+
+static void
+node_lookup_guid(struct mailbox_list_index_sync_context *ctx,
+		 const struct mailbox_list_index_node *node, guid_128_t guid_r)
+{
+	struct mailbox *box;
+	struct mailbox_metadata metadata;
+	const char *vname;
+	string_t *str = t_str_new(128);
+	char ns_sep = mailbox_list_get_hierarchy_sep(ctx->list);
+
+	mailbox_list_index_node_get_path(node, ns_sep, str);
+
+	vname = mailbox_list_get_vname(ctx->list, str_c(str));
+	box = mailbox_alloc(ctx->list, vname, 0);
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) == 0)
+		memcpy(guid_r, metadata.guid, GUID_128_SIZE);
+	mailbox_free(&box);
+}
 
 static void
 node_add_to_index(struct mailbox_list_index_sync_context *ctx,
@@ -27,6 +49,12 @@ node_add_to_index(struct mailbox_list_index_sync_context *ctx,
 	irec.name_id = node->name_id;
 	if (node->parent != NULL)
 		irec.parent_uid = node->parent->uid;
+
+	/* get mailbox GUID if possible. we need to do this early in here to
+	   make mailbox rename detection work in NOTIFY */
+	T_BEGIN {
+		node_lookup_guid(ctx, node, irec.guid);
+	} T_END;
 
 	mail_index_append(ctx->trans, node->uid, &seq);
 	mail_index_update_flags(ctx->trans, seq, MODIFY_REPLACE,
@@ -237,6 +265,7 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 	mailbox_list_index_reset(ilist);
 
 	memset(&sync_ctx, 0, sizeof(sync_ctx));
+	sync_ctx.list = list;
 	sync_ctx.ilist = ilist;
 	sync_ctx.sep[0] = mailbox_list_get_hierarchy_sep(list);
 	if (mail_index_sync_begin(ilist->index, &sync_ctx.sync_ctx,
@@ -269,6 +298,7 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 
 	/* don't include autocreated mailboxes in index until they're
 	   actually created. */
+	ilist->syncing = TRUE;
 	patterns[0] = "*"; patterns[1] = NULL;
 	iter = ilist->module_ctx.super.
 		iter_init(list, patterns, MAILBOX_LIST_ITER_NO_AUTO_BOXES);
@@ -294,6 +324,7 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 	}
 	if (ilist->module_ctx.super.iter_deinit(iter) < 0) {
 		mail_index_sync_rollback(&sync_ctx.sync_ctx);
+		ilist->syncing = FALSE;
 		return -1;
 	}
 
@@ -313,6 +344,7 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 			offsetof(struct mailbox_list_index_header, refresh_flag),
 			&new_hdr.refresh_flag, sizeof(new_hdr.refresh_flag));
 	}
+	ilist->syncing = FALSE;
 
 	if (mail_index_sync_commit(&sync_ctx.sync_ctx) < 0) {
 		mailbox_list_index_set_index_error(list);

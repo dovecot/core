@@ -12,10 +12,13 @@
 #define MAILBOX_LOG_FILE_NAME "dovecot.mailbox.log"
 
 enum mailbox_log_record_type;
+enum mailbox_list_notify_event;
 struct stat;
 struct dirent;
 struct imap_match_glob;
 struct mailbox_tree_context;
+struct mailbox_list_notify;
+struct mailbox_list_notify_rec;
 
 #define MAILBOX_INFO_FLAGS_FINISHED(flags) \
 	(((flags) & (MAILBOX_SELECT | MAILBOX_NOSELECT | \
@@ -85,6 +88,15 @@ struct mailbox_list_vfuncs {
 	int (*rename_mailbox)(struct mailbox_list *oldlist, const char *oldname,
 			      struct mailbox_list *newlist, const char *newname,
 			      bool rename_children);
+
+	int (*notify_init)(struct mailbox_list *list,
+			   enum mailbox_list_notify_event mask,
+			   struct mailbox_list_notify **notify_r);
+	int (*notify_next)(struct mailbox_list_notify *notify,
+			   const struct mailbox_list_notify_rec **rec_r);
+	void (*notify_deinit)(struct mailbox_list_notify *notify);
+	void (*notify_wait)(struct mailbox_list_notify *notify,
+			    void (*callback)(void *context), void *context);
 };
 
 struct mailbox_list_module_register {

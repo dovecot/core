@@ -664,7 +664,8 @@ struct mailbox_list maildir_mailbox_list = {
 		maildir_list_delete_mailbox,
 		maildir_list_delete_dir,
 		mailbox_list_delete_symlink_default,
-		maildir_list_rename_mailbox
+		maildir_list_rename_mailbox,
+		NULL, NULL, NULL, NULL
 	}
 };
 
@@ -699,6 +700,7 @@ struct mailbox_list imapdir_mailbox_list = {
 		maildir_list_delete_mailbox,
 		maildir_list_delete_dir,
 		mailbox_list_delete_symlink_default,
-		maildir_list_rename_mailbox
+		maildir_list_rename_mailbox,
+		NULL, NULL, NULL, NULL
 	}
 };
