@@ -489,6 +489,8 @@ int index_storage_list_index_has_changed(struct mailbox *box,
 				    MAILBOX_LIST_PATH_TYPE_INDEX);
 	path = t_strconcat(dir, "/", box->index_prefix, ".log", NULL);
 	if (stat(path, &st) < 0) {
+		if (errno == ENOENT)
+			return 1;
 		mail_storage_set_critical(box->storage,
 					  "stat(%s) failed: %m", path);
 		return -1;
