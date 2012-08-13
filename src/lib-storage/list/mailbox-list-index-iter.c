@@ -27,7 +27,8 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 	ctx->sep = ns_sep;
 	ctx->info_pool = pool_alloconly_create("mailbox list index iter info", 128);
 
-	if (mailbox_list_index_refresh(ctx->ctx.list) < 0) {
+	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) != 0 ||
+	    mailbox_list_index_refresh(ctx->ctx.list) < 0) {
 		/* no indexing */
 		ctx->backend_ctx = ilist->module_ctx.super.
 			iter_init(list, patterns, flags);
