@@ -31,6 +31,8 @@ struct dict_vfuncs {
 		    const char *key, const char *value);
 	void (*unset)(struct dict_transaction_context *ctx,
 		      const char *key);
+	void (*append)(struct dict_transaction_context *ctx,
+		       const char *key, const char *value);
 	void (*atomic_inc)(struct dict_transaction_context *ctx,
 			   const char *key, long long diff);
 };

@@ -785,6 +785,23 @@ static void client_dict_unset(struct dict_transaction_context *_ctx,
 	} T_END;
 }
 
+static void client_dict_append(struct dict_transaction_context *_ctx,
+			       const char *key, const char *value)
+{
+	struct client_dict_transaction_context *ctx =
+		(struct client_dict_transaction_context *)_ctx;
+
+	T_BEGIN {
+		const char *query;
+
+		query = t_strdup_printf("%c%u\t%s\t%s\n",
+					DICT_PROTOCOL_CMD_APPEND, ctx->id,
+					dict_client_escape(key),
+					dict_client_escape(value));
+		client_dict_send_transaction_query(ctx, query);
+	} T_END;
+}
+
 static void client_dict_atomic_inc(struct dict_transaction_context *_ctx,
 				   const char *key, long long diff)
 {
@@ -816,6 +833,7 @@ struct dict dict_driver_client = {
 		client_dict_transaction_rollback,
 		client_dict_set,
 		client_dict_unset,
+		client_dict_append,
 		client_dict_atomic_inc
 	}
 };

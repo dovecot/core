@@ -730,6 +730,17 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 	} T_END;
 }
 
+static void
+sql_dict_append(struct dict_transaction_context *_ctx,
+		const char *key ATTR_UNUSED, const char *value ATTR_UNUSED)
+{
+	struct sql_dict_transaction_context *ctx =
+		(struct sql_dict_transaction_context *)_ctx;
+
+	i_error("sql dict: Append command not implemented currently");
+	ctx->failed = TRUE;
+}
+
 static unsigned int *
 sql_dict_next_inc_row(struct sql_dict_transaction_context *ctx)
 {
@@ -890,6 +901,7 @@ static struct dict sql_dict = {
 		sql_dict_transaction_rollback,
 		sql_dict_set,
 		sql_dict_unset,
+		sql_dict_append,
 		sql_dict_atomic_inc
 	}
 };

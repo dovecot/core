@@ -47,6 +47,7 @@ struct file_dict_iterate_context {
 enum file_dict_change_type {
 	FILE_DICT_CHANGE_TYPE_SET,
 	FILE_DICT_CHANGE_TYPE_UNSET,
+	FILE_DICT_CHANGE_TYPE_APPEND,
 	FILE_DICT_CHANGE_TYPE_INC
 };
 
@@ -347,6 +348,18 @@ static void file_dict_apply_changes(struct file_dict_transaction_context *ctx)
 			}
 			hash_table_update(dict->hash, key, value);
 			break;
+		case FILE_DICT_CHANGE_TYPE_APPEND:
+			if (key == NULL)
+				key = p_strdup(dict->hash_pool, change->key);
+			if (old_value == NULL) {
+				value = p_strdup(dict->hash_pool,
+						 change->value.str);
+			} else {
+				value = p_strconcat(dict->hash_pool, old_value,
+						    change->value.str, NULL);
+			}
+			hash_table_update(dict->hash, key, value);
+			break;
 		case FILE_DICT_CHANGE_TYPE_UNSET:
 			if (old_value != NULL)
 				hash_table_remove(dict->hash, key);
@@ -606,6 +619,19 @@ static void file_dict_unset(struct dict_transaction_context *_ctx,
 	change->key = p_strdup(ctx->pool, key);
 }
 
+static void file_dict_append(struct dict_transaction_context *_ctx,
+			     const char *key, const char *value)
+{
+	struct file_dict_transaction_context *ctx =
+		(struct file_dict_transaction_context *)_ctx;
+	struct file_dict_change *change;
+
+	change = array_append_space(&ctx->changes);
+	change->type = FILE_DICT_CHANGE_TYPE_APPEND;
+	change->key = p_strdup(ctx->pool, key);
+	change->value.str = p_strdup(ctx->pool, value);
+}
+
 static void
 file_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		     const char *key, long long diff)
@@ -635,6 +661,7 @@ struct dict dict_driver_file = {
 		file_dict_transaction_rollback,
 		file_dict_set,
 		file_dict_unset,
+		file_dict_append,
 		file_dict_atomic_inc
 	}
 };

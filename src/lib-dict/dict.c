@@ -212,6 +212,15 @@ void dict_unset(struct dict_transaction_context *ctx,
 	ctx->changed = TRUE;
 }
 
+void dict_append(struct dict_transaction_context *ctx,
+		 const char *key, const char *value)
+{
+	i_assert(dict_key_prefix_is_valid(key));
+
+	ctx->dict->v.append(ctx, key, value);
+	ctx->changed = TRUE;
+}
+
 void dict_atomic_inc(struct dict_transaction_context *ctx,
 		     const char *key, long long diff)
 {

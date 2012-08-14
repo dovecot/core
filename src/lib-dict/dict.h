@@ -77,6 +77,9 @@ void dict_set(struct dict_transaction_context *ctx,
 /* Unset a record in dictionary, identified by key*/
 void dict_unset(struct dict_transaction_context *ctx,
 		const char *key);
+/* Append to an existing key in dictionary. Preferably an atomic operation. */
+void dict_append(struct dict_transaction_context *ctx,
+		 const char *key, const char *value);
 /* Increase/decrease a numeric value in dictionary. Note that the value is
    changed when transaction is being committed, so you can't know beforehand
    what the value will become. The value is updated only if it already exists,

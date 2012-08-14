@@ -624,6 +624,27 @@ static void redis_unset(struct dict_transaction_context *_ctx,
 	ctx->cmd_count++;
 }
 
+static void redis_append(struct dict_transaction_context *_ctx,
+			 const char *key, const char *value)
+{
+	struct redis_dict_transaction_context *ctx =
+		(struct redis_dict_transaction_context *)_ctx;
+	struct redis_dict *dict = (struct redis_dict *)_ctx->dict;
+	const char *cmd;
+
+	if (redis_check_transaction(ctx) < 0)
+		return;
+
+	key = redis_dict_get_full_key(dict, key);
+	cmd = t_strdup_printf("*3\r\n$6\r\nAPPEND\r\n$%u\r\n%s\r\n$%u\r\n%s\r\n",
+			      (unsigned int)strlen(key), key,
+			      (unsigned int)strlen(value), value);
+	if (o_stream_send_str(dict->conn.conn.output, cmd) < 0)
+		ctx->failed = TRUE;
+	redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
+	ctx->cmd_count++;
+}
+
 static void redis_atomic_inc(struct dict_transaction_context *_ctx,
 			     const char *key, long long diff)
 {
@@ -661,6 +682,7 @@ struct dict dict_driver_redis = {
 		redis_transaction_rollback,
 		redis_set,
 		redis_unset,
+		redis_append,
 		redis_atomic_inc
 	}
 };
