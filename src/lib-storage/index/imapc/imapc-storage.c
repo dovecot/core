@@ -228,6 +228,7 @@ imapc_storage_create(struct mail_storage *_storage,
 		*error_r = "missing imapc_password";
 		return -1;
 	}
+	set.max_idle_time = storage->set->imapc_max_idle_time;
 	set.dns_client_socket_path =
 		*_storage->user->set->base_dir == '\0' ? "" :
 		t_strconcat(_storage->user->set->base_dir, "/",
