@@ -12,8 +12,9 @@ enum namespace_type {
 };
 
 enum namespace_flags {
-	/* Namespace contains the user's INBOX mailbox (there can be only
-	   one) */
+	/* Namespace contains the user's INBOX mailbox. Normally only a single
+	   namespace has this flag set, but when using alias_for for the INBOX
+	   namespace the flag gets copied to the alias namespace as well */
 	NAMESPACE_FLAG_INBOX_USER	= 0x01,
 	/* Namespace contains someone's INBOX. This is set for both user's
 	   INBOX namespace and also for any other users' shared namespaces. */
