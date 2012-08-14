@@ -284,6 +284,8 @@ const char *connection_disconnect_reason(struct connection *conn)
 		errno = conn->input->stream_errno;
 	else if (conn->output != NULL && conn->output->stream_errno != 0)
 		errno = conn->output->stream_errno;
+	else
+		errno = 0;
 
 	return errno == 0 || errno == EPIPE ? "Connection closed" :
 		t_strdup_printf("Connection closed: %m");
