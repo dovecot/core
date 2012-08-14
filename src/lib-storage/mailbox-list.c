@@ -397,12 +397,14 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 	string_t *str;
 	char list_sep, ns_sep, *ret, *p;
 
-	if (strcasecmp(storage_name, "INBOX") == 0)
+	if (strcasecmp(storage_name, "INBOX") == 0 &&
+	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0)
 		storage_name = "INBOX";
 	else if (list->set.escape_char != '\0')
 		storage_name = mailbox_list_escape_name(list, vname);
 
-	if (prefix_len > 0 && strcmp(storage_name, "INBOX") != 0) {
+	if (prefix_len > 0 && (strcmp(storage_name, "INBOX") != 0 ||
+			       (ns->flags & NAMESPACE_FLAG_INBOX_USER) == 0)) {
 		/* skip namespace prefix, except if this is INBOX */
 		if (strncmp(ns->prefix, storage_name, prefix_len) == 0)
 			storage_name += prefix_len;
