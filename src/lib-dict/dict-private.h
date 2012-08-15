@@ -56,6 +56,7 @@ struct dict_transaction_context {
 extern struct dict dict_driver_client;
 extern struct dict dict_driver_file;
 extern struct dict dict_driver_memcached;
+extern struct dict dict_driver_memcached_ascii;
 extern struct dict dict_driver_redis;
 
 #endif

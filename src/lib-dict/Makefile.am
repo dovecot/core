@@ -15,6 +15,7 @@ base_sources = \
 	dict-client.c \
 	dict-file.c \
 	dict-memcached.c \
+	dict-memcached-ascii.c \
 	dict-redis.c \
 	dict-transaction-memory.c
 
