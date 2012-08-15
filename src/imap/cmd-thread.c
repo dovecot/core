@@ -3,6 +3,7 @@
 #include "imap-common.h"
 #include "str.h"
 #include "ostream.h"
+#include "imap-base-subject.h"
 #include "imap-commands.h"
 #include "imap-search-args.h"
 #include "mail-thread.h"
@@ -102,6 +103,148 @@ static int imap_thread(struct client_command_context *cmd,
 	return ret;
 }
 
+struct orderedsubject_thread {
+	time_t timestamp;
+	ARRAY_TYPE(uint32_t) msgs;
+};
+
+static int orderedsubject_thread_cmp(const struct orderedsubject_thread *t1,
+				     const struct orderedsubject_thread *t2)
+{
+	const uint32_t *m1, *m2;
+
+	if (t1->timestamp < t2->timestamp)
+		return -1;
+	if (t1->timestamp > t2->timestamp)
+		return 1;
+
+	m1 = array_idx(&t1->msgs, 0);
+	m2 = array_idx(&t2->msgs, 0);
+	if (*m1 < *m2)
+		return -1;
+	if (*m1 > *m2)
+		return 1;
+	i_unreached();
+}
+
+static void
+imap_orderedsubject_thread_write(struct ostream *output, string_t *reply,
+				 const struct orderedsubject_thread *thread)
+{
+	const uint32_t *msgs;
+	unsigned int i, count;
+
+	if (str_len(reply) > 128-10) {
+		o_stream_send(output, str_data(reply), str_len(reply));
+		str_truncate(reply, 0);
+	}
+
+	msgs = array_get(&thread->msgs, &count);
+	switch (count) {
+	case 1:
+		str_printfa(reply, "(%u)", msgs[0]);
+		break;
+	case 2:
+		str_printfa(reply, "(%u %u)", msgs[0], msgs[1]);
+		break;
+	default:
+		/* (1 (2)(3)) */
+		str_printfa(reply, "(%u ", msgs[0]);
+		for (i = 1; i < count; i++) {
+			if (str_len(reply) > 128-10) {
+				o_stream_send(output, str_data(reply),
+					      str_len(reply));
+				str_truncate(reply, 0);
+			}
+			str_printfa(reply, "(%u)", msgs[i]);
+		}
+		str_append_c(reply, ')');
+	}
+}
+
+static int imap_thread_orderedsubject(struct client_command_context *cmd,
+				      struct mail_search_args *search_args)
+{
+	static const enum mail_sort_type sort_program[] = {
+		MAIL_SORT_SUBJECT,
+		MAIL_SORT_DATE,
+		0
+	};
+	struct mailbox_transaction_context *trans;
+	struct mail_search_context *search_ctx;
+	struct mail *mail;
+	string_t *prev_subject, *reply;
+	const char *subject, *base_subject;
+	pool_t pool;
+	ARRAY_DEFINE(threads, struct orderedsubject_thread);
+	const struct orderedsubject_thread *thread;
+	struct orderedsubject_thread *cur_thread = NULL;
+	uint32_t num;
+	int ret;
+
+	prev_subject = str_new(default_pool, 128);
+
+	/* first read all of the threads into memory */
+	pool = pool_alloconly_create("orderedsubject thread", 1024);
+	i_array_init(&threads, 128);
+	trans = mailbox_transaction_begin(cmd->client->mailbox, 0);
+	search_ctx = mailbox_search_init(trans, search_args, sort_program,
+					 0, NULL);
+	while (mailbox_search_next(search_ctx, &mail)) {
+		if (mail_get_first_header(mail, "Subject", &subject) <= 0)
+			subject = "";
+		T_BEGIN {
+			base_subject = imap_get_base_subject_cased(
+					pool_datastack_create(), subject, NULL);
+			if (strcmp(str_c(prev_subject), base_subject) != 0) {
+				/* thread changed */
+				cur_thread = NULL;
+			}
+			str_truncate(prev_subject, 0);
+			str_append(prev_subject, base_subject);
+		} T_END;
+
+		if (cur_thread == NULL) {
+			/* starting a new thread. get the first message's
+			   date */
+			cur_thread = array_append_space(&threads);
+			if (mail_get_date(mail, &cur_thread->timestamp, NULL) == 0 &&
+			    cur_thread->timestamp == 0) {
+				(void)mail_get_received_date(mail,
+					&cur_thread->timestamp);
+			}
+			p_array_init(&cur_thread->msgs, pool, 4);
+		}
+		num = cmd->uid ? mail->uid : mail->seq;
+		array_append(&cur_thread->msgs, &num, 1);
+	}
+	str_free(&prev_subject);
+	ret = mailbox_search_deinit(&search_ctx);
+	(void)mailbox_transaction_commit(&trans);
+	if (ret < 0) {
+		array_free(&threads);
+		pool_unref(&pool);
+		return -1;
+	}
+
+	/* sort the threads by their first message's timestamp */
+	array_sort(&threads, orderedsubject_thread_cmp);
+
+	/* write the threads to client */
+	reply = t_str_new(128);
+	str_append(reply, "* THREAD ");
+	array_foreach(&threads, thread) {
+		imap_orderedsubject_thread_write(cmd->client->output,
+						 reply, thread);
+	}
+	str_append(reply, "\r\n");
+	o_stream_send(cmd->client->output, str_data(reply), str_len(reply));
+
+	array_free(&threads);
+	pool_unref(&pool);
+	return 0;
+}
+
 bool cmd_thread(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
@@ -133,7 +276,10 @@ bool cmd_thread(struct client_command_context *cmd)
 	if (ret <= 0)
 		return ret < 0;
 
-	ret = imap_thread(cmd, sargs, thread_type);
+	if (thread_type != MAIL_THREAD_ORDEREDSUBJECT)
+		ret = imap_thread(cmd, sargs, thread_type);
+	else
+		ret = imap_thread_orderedsubject(cmd, sargs);
 	mail_search_args_unref(&sargs);
 	if (ret < 0) {
 		client_send_storage_error(cmd,
