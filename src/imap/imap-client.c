@@ -574,7 +574,10 @@ void client_command_free(struct client_command_context **_cmd)
 
 	*_cmd = NULL;
 
-	i_assert(client->output_cmd_lock != cmd);
+	if (client->output_cmd_lock == cmd) {
+		i_assert(client->disconnected);
+		client->output_cmd_lock = NULL;
+	}
 
 	/* reset input idle time because command output might have taken a
 	   long time and we don't want to disconnect client immediately then */
