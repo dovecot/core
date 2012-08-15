@@ -304,6 +304,25 @@ static int cmd_unset(struct dict_connection *conn, const char *line)
 	return 0;
 }
 
+static int cmd_append(struct dict_connection *conn, const char *line)
+{
+	struct dict_connection_transaction *trans;
+	const char *const *args;
+
+	/* <id> <key> <value> */
+	args = t_strsplit_tab(line);
+	if (str_array_length(args) != 3) {
+		i_error("dict client: APPEND: broken input");
+		return -1;
+	}
+
+	if (dict_connection_transaction_lookup_parse(conn, args[0], &trans) < 0)
+		return -1;
+
+        dict_append(trans->ctx, args[1], args[2]);
+	return 0;
+}
+
 static int cmd_atomic_inc(struct dict_connection *conn, const char *line)
 {
 	struct dict_connection_transaction *trans;
@@ -334,6 +353,7 @@ static struct dict_client_cmd cmds[] = {
 	{ DICT_PROTOCOL_CMD_ROLLBACK, cmd_rollback },
 	{ DICT_PROTOCOL_CMD_SET, cmd_set },
 	{ DICT_PROTOCOL_CMD_UNSET, cmd_unset },
+	{ DICT_PROTOCOL_CMD_APPEND, cmd_append },
 	{ DICT_PROTOCOL_CMD_ATOMIC_INC, cmd_atomic_inc },
 
 	{ 0, NULL }
