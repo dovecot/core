@@ -255,11 +255,11 @@ static void redis_conn_input(struct connection *_conn)
 		redis_conn_destroy(_conn);
 }
 
-static void redis_conn_connected(struct connection *_conn)
+static void redis_conn_connected(struct connection *_conn, bool success)
 {
 	struct redis_connection *conn = (struct redis_connection *)_conn;
 
-	if ((errno = net_geterror(_conn->fd_in)) != 0) {
+	if (!success) {
 		i_error("redis: connect(%s, %u) failed: %m",
 			net_ip2addr(&conn->dict->ip), conn->dict->port);
 	} else {
@@ -278,7 +278,7 @@ static const struct connection_settings redis_conn_set = {
 static const struct connection_vfuncs redis_conn_vfuncs = {
 	.destroy = redis_conn_destroy,
 	.input = redis_conn_input,
-	.connected = redis_conn_connected
+	.client_connected = redis_conn_connected
 };
 
 static const char *redis_escape_username(const char *username)

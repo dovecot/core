@@ -285,11 +285,12 @@ static int memcached_ascii_wait(struct memcached_ascii_dict *dict)
 	return 0;
 }
 
-static void memcached_ascii_conn_connected(struct connection *_conn)
+static void
+memcached_ascii_conn_connected(struct connection *_conn, bool success)
 {
 	struct memcached_ascii_connection *conn = (struct memcached_ascii_connection *)_conn;
 
-	if ((errno = net_geterror(_conn->fd_in)) != 0) {
+	if (!success) {
 		i_error("memcached_ascii: connect(%s, %u) failed: %m",
 			net_ip2addr(&conn->dict->ip), conn->dict->port);
 	}
@@ -306,7 +307,7 @@ static const struct connection_settings memcached_ascii_conn_set = {
 static const struct connection_vfuncs memcached_ascii_conn_vfuncs = {
 	.destroy = memcached_ascii_conn_destroy,
 	.input = memcached_ascii_conn_input,
-	.connected = memcached_ascii_conn_connected
+	.client_connected = memcached_ascii_conn_connected
 };
 
 static const char *memcached_ascii_escape_username(const char *username)

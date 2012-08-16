@@ -140,11 +140,12 @@ static void memcached_conn_input(struct connection *_conn)
 		memcached_conn_destroy(_conn);
 }
 
-static void memcached_conn_connected(struct connection *_conn)
+static void memcached_conn_connected(struct connection *_conn, bool success)
 {
-	struct memcached_connection *conn = (struct memcached_connection *)_conn;
+	struct memcached_connection *conn =
+		(struct memcached_connection *)_conn;
 
-	if ((errno = net_geterror(_conn->fd_in)) != 0) {
+	if (!success) {
 		i_error("memcached: connect(%s, %u) failed: %m",
 			net_ip2addr(&conn->dict->ip), conn->dict->port);
 	} else {
@@ -163,7 +164,7 @@ static const struct connection_settings memcached_conn_set = {
 static const struct connection_vfuncs memcached_conn_vfuncs = {
 	.destroy = memcached_conn_destroy,
 	.input = memcached_conn_input,
-	.connected = memcached_conn_connected
+	.client_connected = memcached_conn_connected
 };
 
 static struct dict *

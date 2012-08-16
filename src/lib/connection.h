@@ -27,7 +27,13 @@ enum connection_disconnect_reason {
 
 struct connection_vfuncs {
 	void (*destroy)(struct connection *conn);
-	void (*connected)(struct connection *conn);
+	/* For UNIX socket clients this gets called immediately with
+	   success=TRUE, for IP connections it gets called later:
+
+	   If connect() fails, sets success=FALSE and errno. Streams aren't
+	   initialized in that situation either. destroy() is called after
+	   the callback. */
+	void (*client_connected)(struct connection *conn, bool success);
 
 	/* implement one of the input*() methods.
 	   They return 0 = ok, -1 = error, disconnect the client */

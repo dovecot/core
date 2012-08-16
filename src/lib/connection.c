@@ -132,8 +132,21 @@ static void connection_init_streams(struct connection *conn)
 			"VERSION\t%s\t%u\t%u\n", set->service_name_out,
 			set->major_version, set->minor_version));
 	}
-	if (conn->list->v.connected != NULL)
-		conn->list->v.connected(conn);
+}
+
+static void connection_client_connected(struct connection *conn, bool success)
+{
+	i_assert(conn->list->set.client);
+
+	if (success)
+		connection_init_streams(conn);
+	if (conn->list->v.client_connected != NULL)
+		conn->list->v.client_connected(conn, success);
+	if (!success) {
+		conn->disconnect_reason =
+			CONNECTION_DISCONNECT_CONN_CLOSED;
+		conn->list->v.destroy(conn);
+	}
 }
 
 void connection_init_server(struct connection_list *list,
@@ -180,13 +193,14 @@ void connection_init_client_unix(struct connection_list *list,
 	DLLIST_PREPEND(&list->connections, conn);
 }
 
-static void connection_connected(struct connection *conn)
+static void connection_ip_connected(struct connection *conn)
 {
 	io_remove(&conn->io);
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
 
-	connection_init_streams(conn);
+	errno = net_geterror(conn->fd_in);
+	connection_client_connected(conn, errno == 0);
 }
 
 int connection_client_connect(struct connection *conn)
@@ -207,13 +221,13 @@ int connection_client_connect(struct connection *conn)
 
 	if (conn->port != 0) {
 		conn->io = io_add(conn->fd_out, IO_WRITE,
-				  connection_connected, conn);
+				  connection_ip_connected, conn);
 		if (set->client_connect_timeout_msecs != 0) {
 			conn->to = timeout_add(set->client_connect_timeout_msecs,
 					       connection_connect_timeout, conn);
 		}
 	} else {
-		connection_init_streams(conn);
+		connection_client_connected(conn, TRUE);
 	}
 	return 0;
 }
