@@ -197,6 +197,7 @@ static void memcached_ascii_conn_input(struct connection *_conn)
 {
 	struct memcached_ascii_connection *conn =
 		(struct memcached_ascii_connection *)_conn;
+	int ret;
 
 	switch (i_stream_read(_conn->input)) {
 	case 0:
@@ -208,12 +209,9 @@ static void memcached_ascii_conn_input(struct connection *_conn)
 		break;
 	}
 
-	while (array_count(&conn->dict->input_states) > 0) {
-		if (memcached_ascii_input_reply(conn->dict) < 0) {
-			memcached_ascii_conn_destroy(_conn);
-			break;
-		}
-	}
+	while ((ret = memcached_ascii_input_reply(conn->dict)) > 0) ;
+	if (ret < 0)
+		memcached_ascii_conn_destroy(_conn);
 	io_loop_stop(conn->dict->ioloop);
 }
 
@@ -244,7 +242,7 @@ static void memcached_ascii_input_timeout(struct memcached_ascii_dict *dict)
 
 static int memcached_ascii_wait_replies(struct memcached_ascii_dict *dict)
 {
-	int ret;
+	int ret = 0;
 
 	dict->to = timeout_add(dict->timeout_msecs,
 			       memcached_ascii_input_timeout, dict);
