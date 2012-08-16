@@ -21,6 +21,9 @@ libssl_iostream_la_SOURCES = \
 libssl_iostream_la_LIBADD = \
 	$(SSL_LIBS)
 
-noinst_HEADERS = \
+headers = \
 	iostream-openssl.h \
 	iostream-ssl.h
+
+pkginc_libdir=$(pkgincludedir)
+pkginc_lib_HEADERS = $(headers)
