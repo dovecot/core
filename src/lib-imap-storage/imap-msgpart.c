@@ -112,8 +112,13 @@ imap_msgpart_find(struct message_part *parts, const char *section)
 			for (; num > 1 && part != NULL; num--)
 				part = part->next;
 		} else {
-			/* only 1 allowed with non-multipart messages */
+			/* only 1 allowed with non-multipart messages.
+			   if the child isn't message/rfc822, the path must be
+			   finished after this. */
 			if (num != 1)
+				part = NULL;
+			else if (*path != '\0' &&
+				 (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) == 0)
 				part = NULL;
 		}
 
@@ -520,8 +525,14 @@ imap_msgpart_find_part(struct mail *mail, const struct imap_msgpart *msgpart,
 	}
 
 	switch (msgpart->fetch_type) {
-	case FETCH_FULL:
 	case FETCH_MIME:
+		if (part->parent == NULL) {
+			/* root message has no MIME headers */
+			*part_r = NULL;
+			return 0;
+		}
+		break;
+	case FETCH_FULL:
 	case FETCH_MIME_BODY:
 		break;
 	case FETCH_HEADER:
