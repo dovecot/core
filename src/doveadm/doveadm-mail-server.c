@@ -183,6 +183,9 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	if (ret < 0) {
 		*error_r = fields[0] != NULL ?
 			t_strdup(fields[0]) : "passdb lookup failed";
+		*error_r = t_strdup_printf("%s (to see if user is proxied, "
+					   "because doveadm_proxy_port is set)",
+					   *error_r);
 	} else if (ret == 0) {
 		/* user not found from passdb. it could be in userdb though,
 		   so just continue with the default host */
