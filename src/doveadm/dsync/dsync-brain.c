@@ -313,7 +313,7 @@ dsync_mailbox_list_is_empty(const ARRAY_TYPE(dsync_mailbox) *boxes_arr)
 	if (count == 0)
 		return TRUE;
 	if (count == 1 && strcasecmp(boxes[0]->name, "INBOX") == 0 &&
-	    boxes[0]->message_count == 0)
+	    boxes[0]->message_count == 0 && boxes[0]->uid_next == 1)
 		return TRUE;
 	return FALSE;
 }
