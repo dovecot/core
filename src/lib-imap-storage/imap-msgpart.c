@@ -526,8 +526,9 @@ imap_msgpart_find_part(struct mail *mail, const struct imap_msgpart *msgpart,
 
 	switch (msgpart->fetch_type) {
 	case FETCH_MIME:
-		if (part->parent == NULL) {
-			/* root message has no MIME headers */
+		if (part->parent == NULL ||
+		    (part->parent->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0) {
+			/* message/rfc822 itself has no MIME headers */
 			*part_r = NULL;
 			return 0;
 		}
