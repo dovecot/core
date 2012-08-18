@@ -31,8 +31,8 @@ void connection_input_default(struct connection *conn)
 
 	switch (connection_input_read(conn)) {
 	case -1:
-	case 0:
 		return;
+	case 0: /* allow calling this function for buffered input */
 	case 1:
 		break;
 	default:
