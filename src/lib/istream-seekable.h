@@ -20,4 +20,9 @@ i_stream_create_seekable(struct istream *input[],
 			 int (*fd_callback)(const char **path_r, void *context),
 			 void *context) ATTR_NULL(4);
 
+struct istream *
+i_stream_create_seekable_path(struct istream *input[],
+			      size_t max_buffer_size,
+			      const char *temp_path_prefix);
+
 #endif

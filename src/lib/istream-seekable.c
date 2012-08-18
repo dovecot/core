@@ -2,8 +2,10 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "str.h"
 #include "read-full.h"
 #include "write-full.h"
+#include "safe-mkstemp.h"
 #include "istream-private.h"
 #include "istream-concat.h"
 #include "istream-seekable.h"
@@ -27,6 +29,7 @@ struct seekable_istream {
 	struct istream *fd_input;
 	unsigned int cur_idx;
 	int fd;
+	bool free_context;
 };
 
 static void i_stream_seekable_close(struct iostream_private *stream)
@@ -59,6 +62,8 @@ static void i_stream_seekable_destroy(struct iostream_private *stream)
 		i_stream_unref(&sstream->fd_input);
 	unref_streams(sstream);
 
+	if (sstream->free_context)
+		i_free(sstream->context);
 	i_free(sstream->temp_path);
 	i_free(sstream->input);
 }
@@ -404,4 +409,46 @@ i_stream_create_seekable(struct istream *input[],
 		return i_stream_create_concat(input);
 
 	return i_streams_merge(input, max_buffer_size, fd_callback, context);
+}
+
+static int seekable_fd_callback(const char **path_r, void *context)
+{
+	char *temp_path_prefix = context;
+	string_t *path;
+	int fd;
+
+	path = t_str_new(128);
+	str_append(path, temp_path_prefix);
+	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
+	if (fd == -1) {
+		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
+		return -1;
+	}
+
+	/* we just want the fd, unlink it */
+	if (unlink(str_c(path)) < 0) {
+		/* shouldn't happen.. */
+		i_error("unlink(%s) failed: %m", str_c(path));
+		i_close_fd(&fd);
+		return -1;
+	}
+
+	*path_r = str_c(path);
+	return fd;
+}
+
+struct istream *
+i_stream_create_seekable_path(struct istream *input[],
+			      size_t max_buffer_size,
+			      const char *temp_path_prefix)
+{
+	struct seekable_istream *sstream;
+	struct istream *stream;
+
+	stream = i_stream_create_seekable(input, max_buffer_size,
+					  seekable_fd_callback,
+					  i_strdup(temp_path_prefix));
+	sstream = (struct seekable_istream *)stream;
+	sstream->free_context = TRUE;
+	return stream;
 }
