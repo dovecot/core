@@ -174,6 +174,8 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 
 	o_stream_socket_cork(fstream);
 	if (iov_size == 1) {
+		i_assert(iov->iov_len > 0);
+
 		if (!fstream->file ||
 		    fstream->real_offset == fstream->buffer_offset) {
 			ret = write(fstream->fd, iov->iov_base, iov->iov_len);
@@ -505,7 +507,8 @@ static size_t o_stream_add(struct file_ostream *fstream,
 		if (fstream->tail == fstream->buffer_size)
 			fstream->tail = 0;
 
-		if (fstream->head == fstream->tail)
+		if (fstream->head == fstream->tail &&
+		    fstream->buffer_size > 0)
 			fstream->full = TRUE;
 	}
 
