@@ -54,7 +54,7 @@ replicator_input_line(struct replicator_connection *conn, const char *line)
 		i_error("Replicator sent invalid ID: %u", id);
 		return -1;
 	}
-	hash_table_remove(conn->requests, context);
+	hash_table_remove(conn->requests, POINTER_CAST(id));
 	conn->callback(line[0] == '+', context);
 	return 0;
 }
