@@ -375,8 +375,8 @@ int services_listen_using(struct service_list *new_service_list,
 			  struct service_list *old_service_list)
 {
 	struct service *const *services, *old_service, *new_service;
-	ARRAY_DEFINE(new_listeners_arr, struct service_listener *);
-	ARRAY_DEFINE(old_listeners_arr, struct service_listener *);
+	ARRAY(struct service_listener *) new_listeners_arr;
+	ARRAY(struct service_listener *) old_listeners_arr;
 	struct service_listener *const *new_listeners, *const *old_listeners;
 	unsigned int i, j, count, new_count, old_count;
 

@@ -79,7 +79,7 @@ struct client {
 	enum uidl_keys uidl_keymask;
 
 	/* Module-specific contexts. */
-	ARRAY_DEFINE(module_contexts, union pop3_module_context *);
+	ARRAY(union pop3_module_context *) module_contexts;
 
 	unsigned int disconnected:1;
 	unsigned int deleted:1;

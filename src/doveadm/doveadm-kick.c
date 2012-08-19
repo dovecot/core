@@ -21,7 +21,7 @@ struct kick_user {
 
 struct kick_pid {
 	pid_t pid;
-	ARRAY_DEFINE(users, struct kick_user);
+	ARRAY(struct kick_user) users;
 	bool kick;
 };
 
@@ -29,7 +29,7 @@ struct kick_context {
 	struct who_context who;
 	HASH_TABLE(pid_t, struct kick_pid *) pids;
 	bool force_kick;
-	ARRAY_DEFINE(kicked_users, const char *);
+	ARRAY(const char *) kicked_users;
 };
 
 static void

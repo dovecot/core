@@ -35,7 +35,7 @@ struct virtual_sync_context {
 	/* messages expunged within this sync */
 	ARRAY_TYPE(seq_range) sync_expunges;
 
-	ARRAY_DEFINE(all_adds, struct virtual_add_record);
+	ARRAY(struct virtual_add_record) all_adds;
 	enum mailbox_sync_flags flags;
 	uint32_t uid_validity;
 

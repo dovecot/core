@@ -46,7 +46,7 @@ struct maildir_keywords_sync_ctx {
 	struct mail_index *index;
 
 	const ARRAY_TYPE(keywords) *keywords;
-	ARRAY_DEFINE(idx_to_chr, char);
+	ARRAY(char) idx_to_chr;
 	unsigned int chridx_to_idx[MAILDIR_MAX_KEYWORDS];
 	bool readonly;
 };

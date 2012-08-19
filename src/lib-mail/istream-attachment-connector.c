@@ -14,7 +14,7 @@ struct istream_attachment_connector {
 	uoff_t msg_size;
 
 	uoff_t encoded_offset;
-	ARRAY_DEFINE(streams, struct istream *);
+	ARRAY(struct istream *) streams;
 };
 
 struct istream_attachment_connector *

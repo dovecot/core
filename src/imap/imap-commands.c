@@ -70,7 +70,7 @@ static const struct command imap_ext_commands[] = {
 
 ARRAY_TYPE(command) imap_commands;
 static bool commands_unsorted;
-static ARRAY_DEFINE(command_hooks, struct command_hook);
+static ARRAY(struct command_hook) command_hooks;
 
 void command_register(const char *name, command_func_t *func,
 		      enum command_flags flags)

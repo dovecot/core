@@ -38,7 +38,7 @@ struct top_context {
 	pool_t prev_pool, cur_pool;
 	/* id => struct top_line. */
 	HASH_TABLE(char *, struct top_line *) sessions;
-	ARRAY_DEFINE(lines, struct top_line *);
+	ARRAY(struct top_line *) lines;
 	int (*lines_sort)(struct top_line *const *, struct top_line *const *);
 
 	unsigned int last_update_idx, user_idx;

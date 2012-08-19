@@ -46,7 +46,7 @@ struct mdbox_storage_rebuild_context {
 
 	struct mdbox_map_mail_index_header orig_map_hdr;
 	HASH_TABLE(uint8_t *, struct mdbox_rebuild_msg *) guid_hash;
-	ARRAY_DEFINE(msgs, struct mdbox_rebuild_msg *);
+	ARRAY(struct mdbox_rebuild_msg *) msgs;
 	ARRAY_TYPE(seq_range) seen_file_ids;
 
 	uint32_t rebuild_count;

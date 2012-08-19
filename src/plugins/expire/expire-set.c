@@ -9,7 +9,7 @@
 
 struct expire_set {
 	pool_t pool;
-	ARRAY_DEFINE(globs, struct imap_match_glob *);
+	ARRAY(struct imap_match_glob *) globs;
 };
 
 struct expire_set *expire_set_init(const char *const *patterns)

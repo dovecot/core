@@ -18,7 +18,7 @@ struct imapc_client {
 	imapc_untagged_callback_t *untagged_callback;
 	void *untagged_context;
 
-	ARRAY_DEFINE(conns, struct imapc_client_connection *);
+	ARRAY(struct imapc_client_connection *) conns;
 
 	struct ioloop *ioloop;
 };

@@ -76,7 +76,7 @@ struct imap_fetch_context {
 	enum mail_fetch_field fetch_data;
 	ARRAY_TYPE(const_string) all_headers;
 
-	ARRAY_DEFINE(handlers, struct imap_fetch_context_handler);
+	ARRAY(struct imap_fetch_context_handler) handlers;
 	unsigned int buffered_handlers_count;
 
 	ARRAY_TYPE(keywords) tmp_keywords;

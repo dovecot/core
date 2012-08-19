@@ -41,7 +41,7 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 		  const char *const **result_r)
 {
 	ARRAY_TYPE(const_string) result;
-	ARRAY_DEFINE(rfc2231_params_arr, struct rfc2231_parameter);
+	ARRAY(struct rfc2231_parameter) rfc2231_params_arr;
 	struct rfc2231_parameter rfc2231_param;
 	const struct rfc2231_parameter *rfc2231_params;
 	const char *key, *value, *p, *p2;

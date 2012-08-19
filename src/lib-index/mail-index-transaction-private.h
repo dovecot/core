@@ -45,15 +45,15 @@ struct mail_index_transaction {
 
 	/* NOTE: If you add anything new, remember to update
 	   mail_index_transaction_reset_v() to reset it. */
-        ARRAY_DEFINE(appends, struct mail_index_record);
+        ARRAY(struct mail_index_record) appends;
 	uint32_t first_new_seq, last_new_seq;
 	uint32_t highest_append_uid;
 	/* lowest/highest sequence that updates flags/keywords */
 	uint32_t min_flagupdate_seq, max_flagupdate_seq;
 
-	ARRAY_DEFINE(modseq_updates, struct mail_transaction_modseq_update);
-	ARRAY_DEFINE(expunges, struct mail_transaction_expunge_guid);
-	ARRAY_DEFINE(updates, struct mail_index_flag_update);
+	ARRAY(struct mail_transaction_modseq_update) modseq_updates;
+	ARRAY(struct mail_transaction_expunge_guid) expunges;
+	ARRAY(struct mail_index_flag_update) updates;
 	size_t last_update_idx;
 
 	unsigned char pre_hdr_change[sizeof(struct mail_index_header)];
@@ -61,25 +61,22 @@ struct mail_index_transaction {
 	unsigned char post_hdr_change[sizeof(struct mail_index_header)];
 	unsigned char post_hdr_mask[sizeof(struct mail_index_header)];
 
-	ARRAY_DEFINE(ext_hdr_updates,
-		     struct mail_index_transaction_ext_hdr_update);
+	ARRAY(struct mail_index_transaction_ext_hdr_update) ext_hdr_updates;
 	ARRAY_TYPE(seq_array_array) ext_rec_updates;
 	ARRAY_TYPE(seq_array_array) ext_rec_atomics;
-	ARRAY_DEFINE(ext_resizes, struct mail_transaction_ext_intro);
-	ARRAY_DEFINE(ext_resets, struct mail_transaction_ext_reset);
-	ARRAY_DEFINE(ext_reset_ids, uint32_t);
-	ARRAY_DEFINE(ext_reset_atomic, uint32_t);
+	ARRAY(struct mail_transaction_ext_intro) ext_resizes;
+	ARRAY(struct mail_transaction_ext_reset) ext_resets;
+	ARRAY(uint32_t) ext_reset_ids;
+	ARRAY(uint32_t) ext_reset_atomic;
 
-	ARRAY_DEFINE(keyword_updates,
-		     struct mail_index_transaction_keyword_update);
+	ARRAY(struct mail_index_transaction_keyword_update) keyword_updates;
 
 	uint64_t min_highest_modseq;
 	uint64_t max_modseq;
 	ARRAY_TYPE(seq_range) *conflict_seqs;
 
 	/* Module-specific contexts. */
-	ARRAY_DEFINE(module_contexts,
-		     union mail_index_transaction_module_context *);
+	ARRAY(union mail_index_transaction_module_context *) module_contexts;
 
 	unsigned int no_appends:1;
 

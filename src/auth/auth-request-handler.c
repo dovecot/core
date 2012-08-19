@@ -33,7 +33,7 @@ struct auth_request_handler {
 	unsigned int destroyed:1;
 };
 
-static ARRAY_DEFINE(auth_failures_arr, struct auth_request *);
+static ARRAY(struct auth_request *) auth_failures_arr;
 static struct aqueue *auth_failures;
 static struct timeout *to_auth_failures;
 

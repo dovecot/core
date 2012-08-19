@@ -52,7 +52,7 @@ struct squat_trie_iterate_node {
 struct squat_trie_iterate_context {
 	struct squat_trie *trie;
 	struct squat_trie_iterate_node cur;
-	ARRAY_DEFINE(parents, struct squat_trie_iterate_node);
+	ARRAY(struct squat_trie_iterate_node) parents;
 	bool failed;
 };
 

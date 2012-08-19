@@ -28,9 +28,9 @@ struct sqlpool_db {
 	const struct sql_db *driver;
 	unsigned int connection_limit;
 
-	ARRAY_DEFINE(hosts, struct sqlpool_host);
+	ARRAY(struct sqlpool_host) hosts;
 	/* all connections from all hosts */
-	ARRAY_DEFINE(all_connections, struct sqlpool_connection);
+	ARRAY(struct sqlpool_connection) all_connections;
 	/* index of last connection in all_connections that was used to
 	   send a query. */
 	unsigned int last_query_conn_idx;

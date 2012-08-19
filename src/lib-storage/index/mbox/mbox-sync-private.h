@@ -121,7 +121,7 @@ struct mbox_sync_context {
 	uoff_t base_uid_last_offset;
 
 	/* mail state: */
-	ARRAY_DEFINE(mails, struct mbox_sync_mail);
+	ARRAY(struct mbox_sync_mail) mails;
 	struct index_sync_changes_context *sync_changes;
 
 	/* per-mail pool */

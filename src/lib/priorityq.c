@@ -16,7 +16,7 @@
 struct priorityq {
 	priorityq_cmp_callback_t *cmp_callback;
 
-	ARRAY_DEFINE(items, struct priorityq_item *);
+	ARRAY(struct priorityq_item *) items;
 };
 
 struct priorityq *

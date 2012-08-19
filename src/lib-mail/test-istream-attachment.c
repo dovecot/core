@@ -67,7 +67,7 @@ struct attachment {
 };
 
 static buffer_t *attachment_data;
-static ARRAY_DEFINE(attachments, struct attachment);
+static ARRAY(struct attachment) attachments;
 
 static int test_open_temp_fd(void *context ATTR_UNUSED)
 {

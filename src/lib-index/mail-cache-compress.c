@@ -16,7 +16,7 @@ struct mail_cache_copy_context {
 	struct mail_cache *cache;
 
 	buffer_t *buffer, *field_seen;
-	ARRAY_DEFINE(bitmask_pos, unsigned int);
+	ARRAY(unsigned int) bitmask_pos;
 	uint32_t *field_file_map;
 
 	uint8_t field_seen_value;

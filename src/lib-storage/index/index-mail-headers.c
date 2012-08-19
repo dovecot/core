@@ -544,7 +544,7 @@ static bool skip_header(const unsigned char **data, size_t len)
 static const char *const *
 index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 {
-	ARRAY_DEFINE(header_values, const char *);
+	ARRAY(const char *) header_values;
         const struct index_mail_line *lines;
 	const unsigned char *header, *value_start, *value_end;
 	const unsigned int *line_idx;
@@ -591,7 +591,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 	string_t *dest;
 	size_t i, len;
 	int ret;
-	ARRAY_DEFINE(header_values, const char *);
+	ARRAY(const char *) header_values;
 
 	i_assert(field != NULL);
 

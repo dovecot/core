@@ -65,7 +65,7 @@ struct squat_uidlist_build_context {
 	ARRAY_TYPE(uint32_t) block_offsets;
 	ARRAY_TYPE(uint32_t) block_end_indexes;
 
-	ARRAY_DEFINE(lists, struct uidlist_list);
+	ARRAY(struct uidlist_list) lists;
 	uint32_t list_start_idx;
 
 	struct squat_uidlist_file_header build_hdr;

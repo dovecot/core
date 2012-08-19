@@ -57,7 +57,7 @@ struct mail_index_view {
 	struct mail_index_map *map;
 	/* All mappings where we have returned records. They need to be kept
 	   valid until view is synchronized. */
-	ARRAY_DEFINE(map_refs, struct mail_index_map *);
+	ARRAY(struct mail_index_map *) map_refs;
 
 	/* expunge <= head */
 	uint32_t log_file_expunge_seq, log_file_head_seq;
@@ -67,7 +67,7 @@ struct mail_index_view {
 	ARRAY_TYPE(view_log_sync_area) syncs_hidden;
 
 	/* Module-specific contexts. */
-	ARRAY_DEFINE(module_contexts, union mail_index_view_module_context *);
+	ARRAY(union mail_index_view_module_context *) module_contexts;
 
 	int transactions;
 

@@ -39,7 +39,7 @@ struct director {
 	   is long. */
 	struct director_connection *left, *right;
 	/* all director connections */
-	ARRAY_DEFINE(connections, struct director_connection *);
+	ARRAY(struct director_connection *) connections;
 	struct timeout *to_reconnect;
 	struct timeout *to_sync;
 
@@ -52,14 +52,14 @@ struct director {
 	struct user_directory *users;
 
 	/* these requests are waiting for directors to be in synced */
-	ARRAY_DEFINE(pending_requests, struct director_request *);
+	ARRAY(struct director_request *) pending_requests;
 	struct timeout *to_request;
 	struct timeout *to_handshake_warning;
 
 	director_state_change_callback_t *state_change_callback;
 
 	/* director hosts are sorted by IP (and port) */
-	ARRAY_DEFINE(dir_hosts, struct director_host *);
+	ARRAY(struct director_host *) dir_hosts;
 	struct timeout *to_remove_dirs;
 
 	struct ipc_client *ipc_proxy;

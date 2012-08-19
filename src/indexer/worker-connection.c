@@ -32,7 +32,7 @@ struct worker_connection {
 	struct ostream *output;
 
 	char *request_username;
-	ARRAY_DEFINE(request_contexts, void *);
+	ARRAY(void *) request_contexts;
 	struct aqueue *request_queue;
 
 	unsigned int process_limit;

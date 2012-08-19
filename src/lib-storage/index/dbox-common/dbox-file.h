@@ -113,7 +113,7 @@ struct dbox_file {
 
 	/* Metadata for the currently seeked metadata block. */
 	pool_t metadata_pool;
-	ARRAY_DEFINE(metadata, const char *);
+	ARRAY(const char *) metadata;
 	uoff_t metadata_read_offset;
 
 	unsigned int appending:1;

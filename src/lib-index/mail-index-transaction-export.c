@@ -23,7 +23,7 @@ log_append_buffer(struct mail_index_export_context *ctx,
 static void log_append_flag_updates(struct mail_index_export_context *ctx,
 				    struct mail_index_transaction *t)
 {
-	ARRAY_DEFINE(log_updates, struct mail_transaction_flag_update);
+	ARRAY(struct mail_transaction_flag_update) log_updates;
 	const struct mail_index_flag_update *updates;
 	struct mail_transaction_flag_update *log_update;
 	unsigned int i, count;

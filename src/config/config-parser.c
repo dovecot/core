@@ -980,7 +980,7 @@ void config_parse_load_modules(void)
 	struct module_dir_load_settings mod_set;
 	struct module *m;
 	const struct setting_parser_info **roots;
-	ARRAY_DEFINE(new_roots, const struct setting_parser_info *);
+	ARRAY(const struct setting_parser_info *) new_roots;
 	ARRAY_TYPE(service_settings) new_services;
 	struct service_settings *const *services, *service_set;
 	unsigned int i, count;

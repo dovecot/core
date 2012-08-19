@@ -6,7 +6,7 @@
 #include "dict-sql.h"
 #include "dict-private.h"
 
-static ARRAY_DEFINE(dict_drivers, struct dict *);
+static ARRAY(struct dict *) dict_drivers;
 static struct dict_iterate_context dict_iter_unsupported;
 
 static struct dict *dict_driver_lookup(const char *name)

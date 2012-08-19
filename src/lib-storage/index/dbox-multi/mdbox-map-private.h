@@ -37,9 +37,9 @@ struct mdbox_map_append_context {
 	struct mdbox_map_atomic_context *atomic;
 	struct mail_index_transaction *trans;
 
-	ARRAY_DEFINE(file_appends, struct dbox_file_append_context *);
-	ARRAY_DEFINE(files, struct dbox_file *);
-	ARRAY_DEFINE(appends, struct mdbox_map_append);
+	ARRAY(struct dbox_file_append_context *) file_appends;
+	ARRAY(struct dbox_file *) files;
+	ARRAY(struct mdbox_map_append) appends;
 
 	uint32_t first_new_file_id;
 

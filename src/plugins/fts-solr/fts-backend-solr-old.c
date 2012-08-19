@@ -721,7 +721,7 @@ solr_search_multi(struct solr_fts_backend *backend, string_t *str,
 {
 	struct solr_result **solr_results;
 	struct fts_result *fts_result;
-	ARRAY_DEFINE(fts_results, struct fts_result);
+	ARRAY(struct fts_result) fts_results;
 	struct mail_namespace *ns;
 	struct mailbox_status status;
 	HASH_TABLE(char *, struct mailbox *) mailboxes;

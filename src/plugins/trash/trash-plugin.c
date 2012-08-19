@@ -37,7 +37,7 @@ struct trash_user {
 	union mail_user_module_context module_ctx;
 
 	/* ordered by priority, highest first */
-	ARRAY_DEFINE(trash_boxes, struct trash_mailbox);
+	ARRAY(struct trash_mailbox) trash_boxes;
 };
 
 const char *trash_plugin_version = DOVECOT_VERSION;

@@ -26,7 +26,7 @@ struct metadata_modseqs {
 
 struct mail_index_map_modseq {
 	/* indexes use enum modseq_metadata_idx */
-	ARRAY_DEFINE(metadata_modseqs, struct metadata_modseqs);
+	ARRAY(struct metadata_modseqs) metadata_modseqs;
 };
 
 struct mail_index_modseq_sync {

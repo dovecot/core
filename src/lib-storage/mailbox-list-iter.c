@@ -27,7 +27,7 @@ ARRAY_DEFINE_TYPE(mailbox_settings, struct mailbox_settings *);
 struct mailbox_list_autocreate_iterate_context {
 	unsigned int idx;
 	struct mailbox_info new_info;
-	ARRAY_DEFINE(boxes, struct autocreate_box);
+	ARRAY(struct autocreate_box) boxes;
 	ARRAY_TYPE(mailbox_settings) box_sets;
 	ARRAY_TYPE(mailbox_settings) all_ns_box_sets;
 };

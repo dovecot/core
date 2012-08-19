@@ -28,7 +28,7 @@ struct sdbox_save_context {
 	struct dbox_file_append_context *append_ctx;
 
 	uint32_t first_saved_seq;
-	ARRAY_DEFINE(files, struct dbox_file *);
+	ARRAY(struct dbox_file *) files;
 };
 
 struct dbox_file *

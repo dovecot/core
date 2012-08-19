@@ -19,7 +19,7 @@ struct replicator_brain {
 	const struct replicator_settings *set;
 	struct timeout *to;
 
-	ARRAY_DEFINE(doveadm_conns, struct doveadm_connection *);
+	ARRAY(struct doveadm_connection *) doveadm_conns;
 };
 
 static void replicator_brain_fill(struct replicator_brain *brain);

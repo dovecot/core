@@ -10,7 +10,7 @@
 #include "../virtual/virtual-storage.h"
 #include "fts-api-private.h"
 
-static ARRAY_DEFINE(backends, const struct fts_backend *);
+static ARRAY(const struct fts_backend *) backends;
 
 void fts_backend_register(const struct fts_backend *backend)
 {

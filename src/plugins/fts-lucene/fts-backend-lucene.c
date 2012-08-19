@@ -492,7 +492,7 @@ mailboxes_get_guids(struct mailbox *const boxes[],
 		    HASH_TABLE_TYPE(wguid_result) guids,
 		    struct fts_multi_result *result)
 {
-	ARRAY_DEFINE(box_results, struct fts_result);
+	ARRAY(struct fts_result) box_results;
 	struct fts_result *box_result;
 	const char *guid;
 	wchar_t *guid_dup;

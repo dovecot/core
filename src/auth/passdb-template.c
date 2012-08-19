@@ -8,7 +8,7 @@
 #include "passdb-template.h"
 
 struct passdb_template {
-	ARRAY_DEFINE(args, const char *);
+	ARRAY(const char *) args;
 };
 
 struct passdb_template *passdb_template_build(pool_t pool, const char *args)

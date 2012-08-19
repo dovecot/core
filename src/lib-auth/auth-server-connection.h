@@ -17,7 +17,7 @@ struct auth_server_connection {
 	unsigned int connect_uid;
 	char *cookie;
 
-	ARRAY_DEFINE(available_auth_mechs, struct auth_mech_desc);
+	ARRAY(struct auth_mech_desc) available_auth_mechs;
 
 	HASH_TABLE(unsigned int, struct auth_client_request *) requests;
 

@@ -36,8 +36,8 @@ struct lmtp_proxy {
 	const char *mail_from;
 	struct lmtp_proxy_settings set;
 
-	ARRAY_DEFINE(connections, struct lmtp_proxy_connection *);
-	ARRAY_DEFINE(rcpt_to, struct lmtp_proxy_recipient *);
+	ARRAY(struct lmtp_proxy_connection *) connections;
+	ARRAY(struct lmtp_proxy_recipient *) rcpt_to;
 	unsigned int next_data_reply_idx;
 
 	struct timeout *to_finish;

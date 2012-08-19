@@ -136,13 +136,13 @@ struct index_mail {
 	/* per-mail variables, here for performance reasons: */
 	uint32_t header_seq;
 	string_t *header_data;
-	ARRAY_DEFINE(header_lines, struct index_mail_line);
+	ARRAY(struct index_mail_line) header_lines;
 #define HEADER_MATCH_FLAG_FOUND 1
 #define HEADER_MATCH_SKIP_COUNT 2
 #define HEADER_MATCH_USABLE(mail, num) \
 	((num & ~1) == (mail)->header_match_value)
-	ARRAY_DEFINE(header_match, uint8_t);
-	ARRAY_DEFINE(header_match_lines, unsigned int);
+	ARRAY(uint8_t) header_match;
+	ARRAY(unsigned int) header_match_lines;
 	uint8_t header_match_value;
 
 	unsigned int pop3_state_set:1;

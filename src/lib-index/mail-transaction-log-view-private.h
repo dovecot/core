@@ -15,7 +15,7 @@ struct mail_transaction_log_view {
 	/* a list of log files we've referenced. we have to keep this list
 	   explicitly because more files may be added into the linked list
 	   at any time. */
-	ARRAY_DEFINE(file_refs, struct mail_transaction_log_file *);
+	ARRAY(struct mail_transaction_log_file *) file_refs;
         struct mail_transaction_log_file *cur, *head, *tail;
 	uoff_t cur_offset;
 

@@ -24,7 +24,7 @@ struct fts_search_context {
 	struct mail_search_args *args;
 
 	pool_t result_pool;
-	ARRAY_DEFINE(levels, struct fts_search_level);
+	ARRAY(struct fts_search_level) levels;
 	buffer_t *orig_matches;
 
 	uint32_t first_unindexed_seq;

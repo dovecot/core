@@ -23,7 +23,7 @@ struct cmd_list_context {
 	struct mail_namespace *ns;
 	struct mailbox_list_iterate_context *list_iter;
 
-	ARRAY_DEFINE(ns_prefixes_listed, struct mail_namespace *);
+	ARRAY(struct mail_namespace *) ns_prefixes_listed;
 
 	unsigned int lsub:1;
 	unsigned int lsub_no_unsubscribed:1;
@@ -726,7 +726,7 @@ static void list_namespace_init(struct cmd_list_context *ctx)
 	struct mail_namespace *ns = ctx->ns;
 	const char *cur_ns_prefix, *cur_ref, *const *pat, *pattern;
 	enum imap_match_result inbox_match;
-	ARRAY_DEFINE(used_patterns, const char *);
+	ARRAY(const char *) used_patterns;
 	bool inboxcase;
 
 	cur_ns_prefix = ns->prefix;
@@ -889,7 +889,7 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 	const struct imap_arg *args, *list_args;
 	unsigned int arg_count;
 	struct cmd_list_context *ctx;
-	ARRAY_DEFINE(patterns, const char *) = ARRAY_INIT;
+	ARRAY(const char *) patterns = ARRAY_INIT;
 	const char *pattern, *const *patterns_strarr;
 	string_t *str;
 

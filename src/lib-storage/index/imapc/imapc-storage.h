@@ -46,7 +46,7 @@ struct imapc_storage {
 	struct mailbox_status *cur_status;
 	unsigned int reopen_count;
 
-	ARRAY_DEFINE(untagged_callbacks, struct imapc_storage_event_callback);
+	ARRAY(struct imapc_storage_event_callback) untagged_callbacks;
 };
 
 struct imapc_mail_cache {
@@ -66,10 +66,10 @@ struct imapc_mailbox {
 	struct mail_index_view *sync_view, *delayed_sync_view;
 	struct timeout *to_idle_check, *to_idle_delay;
 
-	ARRAY_DEFINE(fetch_mails, struct imapc_mail *);
+	ARRAY(struct imapc_mail *) fetch_mails;
 
-	ARRAY_DEFINE(untagged_callbacks, struct imapc_mailbox_event_callback);
-	ARRAY_DEFINE(resp_text_callbacks, struct imapc_mailbox_event_callback);
+	ARRAY(struct imapc_mailbox_event_callback) untagged_callbacks;
+	ARRAY(struct imapc_mailbox_event_callback) resp_text_callbacks;
 
 	enum mail_flags permanent_flags;
 

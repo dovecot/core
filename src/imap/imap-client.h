@@ -66,7 +66,7 @@ struct client_command_context {
 	void *context;
 
 	/* Module-specific contexts. */
-	ARRAY_DEFINE(module_contexts, union imap_module_context *);
+	ARRAY(union imap_module_context *) module_contexts;
 
 	struct imap_parser *parser;
 	enum client_command_state state;
@@ -126,7 +126,7 @@ struct client {
 	/* SEARCHRES extension: Last saved SEARCH result */
 	ARRAY_TYPE(seq_range) search_saved_uidset;
 	/* SEARCH=CONTEXT extension: Searches that get updated */
-	ARRAY_DEFINE(search_updates, struct imap_search_update);
+	ARRAY(struct imap_search_update) search_updates;
 	/* NOTIFY extension */
 	struct imap_notify_context *notify_ctx;
 	uint32_t notify_uidnext;
@@ -138,7 +138,7 @@ struct client {
 	struct client_command_context *mailbox_change_lock;
 
 	/* Module-specific contexts. */
-	ARRAY_DEFINE(module_contexts, union imap_module_context *);
+	ARRAY(union imap_module_context *) module_contexts;
 
 	/* syncing marks this TRUE when it sees \Deleted flags. this is by
 	   EXPUNGE for Outlook-workaround. */

@@ -436,7 +436,7 @@ bool var_has_key(const char *str, char key, const char *long_key)
 const struct var_expand_table *
 var_expand_table_build(char key, const char *value, char key2, ...)
 {
-	ARRAY_DEFINE(variables, struct var_expand_table);
+	ARRAY(struct var_expand_table) variables;
 	struct var_expand_table *var;
 	va_list args;
 

@@ -26,7 +26,7 @@ struct virtual_search_context {
 
 	ARRAY_TYPE(seq_range) result;
 	struct seq_range_iter result_iter;
-	ARRAY_DEFINE(records, struct virtual_search_record);
+	ARRAY(struct virtual_search_record) records;
 
 	enum virtual_search_state search_state;
 	unsigned int next_result_n;

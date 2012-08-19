@@ -83,7 +83,7 @@ struct sql_db {
 	enum sql_db_flags flags;
 
 	struct sql_db_vfuncs v;
-	ARRAY_DEFINE(module_contexts, union sql_db_module_context *);
+	ARRAY(union sql_db_module_context *) module_contexts;
 
 	void (*state_change_callback)(struct sql_db *db,
 				      enum sql_db_state prev_state,

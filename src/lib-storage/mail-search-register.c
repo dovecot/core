@@ -6,7 +6,7 @@
 #include "mail-search-register.h"
 
 struct mail_search_register {
-	ARRAY_DEFINE(args, struct mail_search_register_arg);
+	ARRAY(struct mail_search_register_arg) args;
 	mail_search_register_fallback_t *fallback;
 
 	unsigned int args_sorted:1;

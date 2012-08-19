@@ -24,7 +24,7 @@ struct anvil_client {
 	struct timeout *to_reconnect;
 	time_t last_reconnect;
 
-	ARRAY_DEFINE(queries_arr, struct anvil_query);
+	ARRAY(struct anvil_query) queries_arr;
 	struct aqueue *queries;
 
 	bool (*reconnect_callback)(void);

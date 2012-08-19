@@ -9,7 +9,7 @@
    Example usage:
 
    struct foo {
-	ARRAY_DEFINE(bars, struct bar);
+	ARRAY(struct bar) bars;
 	...
    };
 

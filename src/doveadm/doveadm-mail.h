@@ -56,7 +56,7 @@ struct doveadm_mail_cmd_context {
 	struct mail_user *cur_mail_user;
 	struct doveadm_mail_cmd_vfuncs v;
 
-	ARRAY_DEFINE(module_contexts, union doveadm_mail_cmd_module_context *);
+	ARRAY(union doveadm_mail_cmd_module_context *) module_contexts;
 
 	/* if non-zero, exit with this code */
 	int exit_code;

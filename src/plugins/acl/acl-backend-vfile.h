@@ -10,7 +10,7 @@ struct acl_object_vfile {
 	struct acl_object aclobj;
 
 	pool_t rights_pool;
-	ARRAY_DEFINE(rights, struct acl_rights);
+	ARRAY(struct acl_rights) rights;
 
 	char *global_path, *local_path;
 };
@@ -25,7 +25,7 @@ struct acl_backend_vfile {
 	const char *global_dir;
 
 	pool_t acllist_pool;
-	ARRAY_DEFINE(acllist, struct acl_backend_vfile_acllist);
+	ARRAY(struct acl_backend_vfile_acllist) acllist;
 
 	time_t acllist_last_check;
 	time_t acllist_mtime;

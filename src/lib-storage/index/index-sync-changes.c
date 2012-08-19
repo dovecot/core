@@ -10,7 +10,7 @@ struct index_sync_changes_context {
 	struct mail_index_view *sync_view;
 	struct mail_index_transaction *sync_trans;
 
-	ARRAY_DEFINE(syncs, struct mail_index_sync_rec);
+	ARRAY(struct mail_index_sync_rec) syncs;
 	struct mail_index_sync_rec sync_rec;
 	bool dirty_flag_updates;
 };

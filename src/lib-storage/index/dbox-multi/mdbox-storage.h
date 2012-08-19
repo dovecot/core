@@ -27,7 +27,7 @@ struct mdbox_storage {
 	const char *storage_dir, *alt_storage_dir;
 	struct mdbox_map *map;
 
-	ARRAY_DEFINE(open_files, struct mdbox_file *);
+	ARRAY(struct mdbox_file *) open_files;
 	struct timeout *to_close_unused_files;
 
 	ARRAY_TYPE(uint32_t) move_to_alt_map_uids;

@@ -198,7 +198,7 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 {
 	const char *atom;
 	enum mail_flags flag;
-	ARRAY_DEFINE(keywords, const char *);
+	ARRAY(const char *) keywords;
 
 	*flags_r = 0;
 	*keywords_r = NULL;

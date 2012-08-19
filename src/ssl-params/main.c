@@ -19,7 +19,7 @@ struct client {
 	struct ostream *output;
 };
 
-static ARRAY_DEFINE(delayed_fds, int);
+static ARRAY(int) delayed_fds;
 struct ssl_params *param;
 static buffer_t *ssl_params;
 static struct timeout *to_startup;

@@ -36,10 +36,8 @@ struct hook_build_context {
 	struct hook_stack *head, *tail;
 };
 
-static ARRAY_DEFINE(module_hooks,
-		    struct mail_storage_module_hooks) = ARRAY_INIT;
-static ARRAY_DEFINE(internal_hooks,
-		    const struct mail_storage_hooks *) = ARRAY_INIT;
+static ARRAY(struct mail_storage_module_hooks) module_hooks = ARRAY_INIT;
+static ARRAY(const struct mail_storage_hooks *) internal_hooks = ARRAY_INIT;
 
 void mail_storage_hooks_init(void)
 {
@@ -119,7 +117,7 @@ mail_storage_module_hooks_cmp(const struct mail_storage_module_hooks *h1,
 static void mail_user_add_plugin_hooks(struct mail_user *user)
 {
 	const struct mail_storage_module_hooks *module_hook;
-	ARRAY_DEFINE(tmp_hooks, struct mail_storage_module_hooks);
+	ARRAY(struct mail_storage_module_hooks) tmp_hooks;
 	const char *const *plugins, *name;
 
 	/* first get all hooks wanted by the user */

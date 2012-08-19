@@ -27,7 +27,7 @@ struct dict_connection {
 
 	/* There are only a few transactions per client, so keeping them in
 	   array is fast enough */
-	ARRAY_DEFINE(transactions, struct dict_connection_transaction);
+	ARRAY(struct dict_connection_transaction) transactions;
 };
 
 struct dict_connection *dict_connection_create(int fd);

@@ -8,7 +8,7 @@
 #include "userdb-template.h"
 
 struct userdb_template {
-	ARRAY_DEFINE(args, const char *);
+	ARRAY(const char *) args;
 };
 
 struct userdb_template *

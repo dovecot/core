@@ -9,7 +9,7 @@ extern struct doveadm_print_vfuncs doveadm_print_server_vfuncs;
 struct doveadm_server {
 	const char *name;
 
-	ARRAY_DEFINE(connections, struct server_connection *);
+	ARRAY(struct server_connection *) connections;
 	ARRAY_TYPE(string) queue;
 };
 

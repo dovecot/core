@@ -363,7 +363,7 @@ void index_storage_mailbox_update_cache(struct mailbox *box,
 					const struct mailbox_update *update)
 {
 	const struct mailbox_cache_field *updates = update->cache_updates;
-	ARRAY_DEFINE(new_fields, struct mail_cache_field);
+	ARRAY(struct mail_cache_field) new_fields;
 	const struct mail_cache_field *old_fields;
 	struct mail_cache_field field;
 	unsigned int i, j, old_count;

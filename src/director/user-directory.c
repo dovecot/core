@@ -26,7 +26,7 @@ struct user_directory {
 	struct user *head, *tail;
 	struct user *prev_insert_pos;
 
-	ARRAY_DEFINE(iters, struct user_directory_iter *);
+	ARRAY(struct user_directory_iter *) iters;
 
 	char *username_hash_fmt;
 	unsigned int timeout_secs;

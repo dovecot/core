@@ -55,7 +55,7 @@ struct mail_namespace_settings {
 	bool subscriptions;
 	bool ignore_on_failure;
 
-	ARRAY_DEFINE(mailboxes, struct mailbox_settings *);
+	ARRAY(struct mailbox_settings *) mailboxes;
 	struct mail_user_settings *user_set;
 };
 
@@ -91,8 +91,8 @@ struct mail_user_settings {
 
 	const char *mail_log_prefix;
 
-	ARRAY_DEFINE(namespaces, struct mail_namespace_settings *);
-	ARRAY_DEFINE(plugin_envs, const char *);
+	ARRAY(struct mail_namespace_settings *) namespaces;
+	ARRAY(const char *) plugin_envs;
 };
 
 extern const struct setting_parser_info mail_user_setting_parser_info;

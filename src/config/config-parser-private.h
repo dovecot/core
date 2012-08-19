@@ -41,7 +41,7 @@ struct config_parser_context {
 	const char *path;
 	const char *module;
 
-	ARRAY_DEFINE(all_parsers, struct config_filter_parser *);
+	ARRAY(struct config_filter_parser *) all_parsers;
 	struct config_module_parser *root_parsers;
 	struct config_section_stack *cur_section;
 	struct input_stack *cur_input;

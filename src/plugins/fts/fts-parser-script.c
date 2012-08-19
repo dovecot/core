@@ -25,7 +25,7 @@ struct content {
 struct fts_parser_script_user {
 	union mail_user_module_context module_ctx;
 
-	ARRAY_DEFINE(content, struct content);
+	ARRAY(struct content) content;
 };
 
 struct script_fts_parser {

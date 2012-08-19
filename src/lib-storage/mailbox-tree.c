@@ -20,7 +20,7 @@ struct mailbox_tree_iterate_context {
 
 	char separator;
 
-	ARRAY_DEFINE(node_path, struct mailbox_node *);
+	ARRAY(struct mailbox_node *) node_path;
 	string_t *path_str;
 	size_t parent_pos;
 

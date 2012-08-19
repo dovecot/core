@@ -8,7 +8,7 @@
 
 struct mail_host_list {
 	ARRAY_TYPE(mail_host) hosts;
-	ARRAY_DEFINE(vhosts, struct mail_host *);
+	ARRAY(struct mail_host *) vhosts;
 	bool hosts_unsorted;
 };
 

@@ -39,8 +39,8 @@ struct thread_finish_context {
 	struct mail *tmp_mail;
 	struct mail_thread_cache *cache;
 
-	ARRAY_DEFINE(roots, struct mail_thread_root_node);
-	ARRAY_DEFINE(shadow_nodes, struct mail_thread_shadow_node);
+	ARRAY(struct mail_thread_root_node) roots;
+	ARRAY(struct mail_thread_shadow_node) shadow_nodes;
 	unsigned int next_new_root_idx;
 
 	unsigned int use_sent_date:1;

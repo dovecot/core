@@ -32,7 +32,7 @@ struct ioloop_handler_context {
 	int kq;
 
 	unsigned int deleted_count;
-	ARRAY_DEFINE(events, struct kevent);
+	ARRAY(struct kevent) events;
 };
 
 void io_loop_handler_init(struct ioloop *ioloop, unsigned int initial_fd_count)

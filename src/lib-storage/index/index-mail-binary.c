@@ -32,7 +32,7 @@ struct binary_ctx {
 	struct mail *mail;
 	struct istream *input;
 	bool has_nuls, converted;
-	ARRAY_DEFINE(blocks, struct binary_block);
+	ARRAY(struct binary_block) blocks;
 
 	uoff_t copy_start_offset;
 };

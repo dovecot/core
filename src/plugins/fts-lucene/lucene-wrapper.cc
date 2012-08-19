@@ -66,7 +66,7 @@ struct lucene_index {
 	IndexSearcher *searcher;
 
 	Analyzer *default_analyzer, *cur_analyzer;
-	ARRAY_DEFINE(analyzers, struct lucene_analyzer);
+	ARRAY(struct lucene_analyzer) analyzers;
 
 	Document *doc;
 	uint32_t prev_uid;

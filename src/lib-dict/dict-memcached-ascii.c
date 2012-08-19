@@ -60,8 +60,8 @@ struct memcached_ascii_dict {
 	struct timeout *to;
 	struct memcached_ascii_connection conn;
 
-	ARRAY_DEFINE(input_states, enum memcached_ascii_input_state);
-	ARRAY_DEFINE(replies, struct memcached_ascii_dict_reply);
+	ARRAY(enum memcached_ascii_input_state) input_states;
+	ARRAY(struct memcached_ascii_dict_reply) replies;
 };
 
 static struct connection_list *memcached_ascii_connections;

@@ -30,7 +30,7 @@ struct list_dir_context {
 	enum mailbox_info_flags info_flags;
 
 	/* all files in this directory */
-	ARRAY_DEFINE(entries, struct list_dir_entry);
+	ARRAY(struct list_dir_entry) entries;
 	unsigned int entry_idx;
 };
 
@@ -39,7 +39,7 @@ struct fs_list_iterate_context {
 
 	const char *const *valid_patterns;
 	/* roots can be either /foo, ~user/bar or baz */
-	ARRAY_DEFINE(roots, const char *);
+	ARRAY(const char *) roots;
 	unsigned int root_idx;
 	char sep;
 
@@ -340,7 +340,7 @@ fs_list_get_valid_patterns(struct fs_list_iterate_context *ctx,
 			   const char *const *patterns)
 {
 	struct mailbox_list *_list = ctx->ctx.list;
-	ARRAY_DEFINE(valid_patterns, const char *);
+	ARRAY(const char *) valid_patterns;
 	const char *pattern, *test_pattern, *real_pattern;
 	unsigned int prefix_len;
 

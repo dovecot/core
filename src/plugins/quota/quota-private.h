@@ -13,14 +13,14 @@ struct quota {
 	struct mail_user *user;
 	struct quota_settings *set;
 
-	ARRAY_DEFINE(roots, struct quota_root *);
-	ARRAY_DEFINE(namespaces, struct mail_namespace *);
+	ARRAY(struct quota_root *) roots;
+	ARRAY(struct mail_namespace *) namespaces;
 };
 
 struct quota_settings {
 	pool_t pool;
 
-	ARRAY_DEFINE(root_sets, struct quota_root_settings *);
+	ARRAY(struct quota_root_settings *) root_sets;
 	int (*test_alloc)(struct quota_transaction_context *ctx,
 			  uoff_t size, bool *too_large_r);
 
@@ -85,8 +85,8 @@ struct quota_root_settings {
 
 	const struct quota_backend *backend;
 	struct quota_rule default_rule;
-	ARRAY_DEFINE(rules, struct quota_rule);
-	ARRAY_DEFINE(warning_rules, struct quota_warning_rule);
+	ARRAY(struct quota_rule) rules;
+	ARRAY(struct quota_warning_rule) warning_rules;
 
 	/* Limits in default_rule override backend's quota limits */
 	unsigned int force_default_rule:1;
@@ -117,7 +117,7 @@ struct quota_root {
 	int resource_ret;
 
 	/* Module-specific contexts. See quota_module_id. */
-	ARRAY_DEFINE(quota_module_contexts, void);
+	ARRAY(void) quota_module_contexts;
 
 	/* don't enforce quota when saving */
 	unsigned int no_enforcing:1;

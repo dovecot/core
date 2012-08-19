@@ -45,7 +45,7 @@ struct pgsql_result {
 	const char **fields;
 	const char **values;
 
-	ARRAY_DEFINE(binary_values, struct pgsql_binary_value);
+	ARRAY(struct pgsql_binary_value) binary_values;
 
 	sql_query_callback_t *callback;
 	void *context;

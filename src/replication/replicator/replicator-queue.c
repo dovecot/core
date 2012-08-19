@@ -27,7 +27,7 @@ struct replicator_queue {
 	/* username => struct replicator_user* */
 	HASH_TABLE(char *, struct replicator_user *) user_hash;
 
-	ARRAY_DEFINE(sync_lookups, struct replicator_sync_lookup);
+	ARRAY(struct replicator_sync_lookup) sync_lookups;
 
 	unsigned int full_sync_interval;
 
@@ -214,7 +214,7 @@ replicator_queue_handle_sync_lookups(struct replicator_queue *queue,
 				     struct replicator_user *user)
 {
 	struct replicator_sync_lookup *lookups;
-	ARRAY_DEFINE(callbacks, struct replicator_sync_lookup);
+	ARRAY(struct replicator_sync_lookup) callbacks;
 	unsigned int i, count;
 	bool success = !user->last_sync_failed;
 

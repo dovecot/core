@@ -37,7 +37,7 @@ struct imap_search_context {
 	ARRAY_TYPE(seq_range) result;
 	unsigned int result_count;
 
-	ARRAY_DEFINE(relevancy_scores, float);
+	ARRAY(float) relevancy_scores;
 	float min_relevancy, max_relevancy;
 
 	uint64_t highest_seen_modseq;

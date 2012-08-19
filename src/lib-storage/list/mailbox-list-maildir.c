@@ -464,7 +464,7 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 {
 	struct mailbox_list_iterate_context *iter;
         const struct mailbox_info *info;
-	ARRAY_DEFINE(names_arr, const char *);
+	ARRAY(const char *) names_arr;
 	const char *pattern, *oldpath, *newpath, *old_childname, *new_childname;
 	const char *const *names, *old_vname, *new_vname;
 	unsigned int i, count, old_vnamelen;

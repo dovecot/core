@@ -24,7 +24,7 @@ struct setting_parser_ctx {
 	enum section_type type;
 
 	struct dict_sql_map cur_map;
-	ARRAY_DEFINE(cur_fields, struct dict_sql_map_field);
+	ARRAY(struct dict_sql_map_field) cur_fields;
 };
 
 #define DEF_STR(name) DEF_STRUCT_STR(name, dict_sql_map)

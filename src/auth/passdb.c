@@ -9,8 +9,8 @@
 
 #include <stdlib.h>
 
-static ARRAY_DEFINE(passdb_interfaces, struct passdb_module_interface *);
-static ARRAY_DEFINE(passdb_modules, struct passdb_module *);
+static ARRAY(struct passdb_module_interface *) passdb_interfaces;
+static ARRAY(struct passdb_module *) passdb_modules;
 
 static const struct passdb_module_interface passdb_iface_deinit = {
 	.name = "deinit"

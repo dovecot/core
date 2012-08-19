@@ -22,7 +22,7 @@ struct dict_transaction_memory_change {
 struct dict_transaction_memory_context {
 	struct dict_transaction_context ctx;
 	pool_t pool;
-	ARRAY_DEFINE(changes, struct dict_transaction_memory_change);
+	ARRAY(struct dict_transaction_memory_change) changes;
 };
 
 void dict_transaction_memory_init(struct dict_transaction_memory_context *ctx,

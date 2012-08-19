@@ -33,12 +33,12 @@ struct mail_user {
 	struct mail_user_settings *set;
 	struct mail_namespace *namespaces;
 	struct mail_storage *storages;
-	ARRAY_DEFINE(hooks, const struct mail_storage_hooks *);
+	ARRAY(const struct mail_storage_hooks *) hooks;
 
 	struct mountpoint_list *mountpoints;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
-	ARRAY_DEFINE(module_contexts, union mail_user_module_context *);
+	ARRAY(union mail_user_module_context *) module_contexts;
 
 	/* Either home is set or there is no home for the user. */
 	unsigned int home_looked_up:1;

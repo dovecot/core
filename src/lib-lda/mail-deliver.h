@@ -13,7 +13,7 @@ struct mail_deliver_session {
 	pool_t pool;
 
 	/* List of INBOX GUIDs where this mail has already been saved to */
-	ARRAY_DEFINE(inbox_guids, guid_128_t);
+	ARRAY(guid_128_t) inbox_guids;
 };
 
 struct mail_deliver_context {

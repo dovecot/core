@@ -852,7 +852,7 @@ maildir_filename_dest_basename_cmp(struct maildir_filename *const *f1,
 static int
 maildir_save_move_files_to_newcur(struct maildir_save_context *ctx)
 {
-	ARRAY_DEFINE(files, struct maildir_filename *);
+	ARRAY(struct maildir_filename *) files;
 	struct maildir_filename *mf, *const *mfp, *prev_mf;
 	bool newdir, new_changed, cur_changed;
 	int ret;

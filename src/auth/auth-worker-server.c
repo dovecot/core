@@ -46,9 +46,9 @@ struct auth_worker_connection {
 	unsigned int shutdown:1;
 };
 
-static ARRAY_DEFINE(connections, struct auth_worker_connection *) = ARRAY_INIT;
+static ARRAY(struct auth_worker_connection *) connections = ARRAY_INIT;
 static unsigned int idle_count = 0, auth_workers_with_errors = 0;
-static ARRAY_DEFINE(worker_request_array, struct auth_worker_request *);
+static ARRAY(struct auth_worker_request *) worker_request_array;
 static struct aqueue *worker_request_queue;
 static time_t auth_worker_last_warn;
 static unsigned int auth_workers_throttle_count;

@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-static ARRAY_DEFINE(dumps, const struct doveadm_cmd_dump *);
+static ARRAY(const struct doveadm_cmd_dump *) dumps;
 
 void doveadm_dump_register(const struct doveadm_cmd_dump *dump)
 {

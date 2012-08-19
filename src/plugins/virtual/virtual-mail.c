@@ -15,7 +15,7 @@ struct virtual_mail {
 	/* currently active mail */
 	struct mail *backend_mail;
 	/* all allocated mails */
-	ARRAY_DEFINE(backend_mails, struct mail *);
+	ARRAY(struct mail *) backend_mails;
 
 	/* mail is lost if backend_mail doesn't point to correct mail */
 	unsigned int lost:1;

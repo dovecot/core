@@ -24,7 +24,7 @@
 #define ENVELOPE_NIL_REPLY \
 	"(NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL)"
 
-static ARRAY_DEFINE(fetch_handlers, struct imap_fetch_handler);
+static ARRAY(struct imap_fetch_handler) fetch_handlers;
 
 static int imap_fetch_handler_cmp(const struct imap_fetch_handler *h1,
 				  const struct imap_fetch_handler *h2)

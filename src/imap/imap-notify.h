@@ -33,7 +33,7 @@ struct imap_notify_namespace {
 	struct mail_namespace *ns;
 
 	struct mailbox_list_notify *notify;
-	ARRAY_DEFINE(mailboxes, struct imap_notify_mailboxes);
+	ARRAY(struct imap_notify_mailboxes) mailboxes;
 };
 
 struct imap_notify_context {
@@ -41,7 +41,7 @@ struct imap_notify_context {
 	struct client *client;
 	const char *error;
 
-	ARRAY_DEFINE(namespaces, struct imap_notify_namespace);
+	ARRAY(struct imap_notify_namespace) namespaces;
 	enum imap_notify_event selected_events;
 	enum imap_notify_event global_used_events;
 	unsigned int global_max_mailbox_names;

@@ -559,7 +559,7 @@ struct dict_sql_build_query_field {
 struct dict_sql_build_query {
 	struct sql_dict *dict;
 
-	ARRAY_DEFINE(fields, struct dict_sql_build_query_field);
+	ARRAY(struct dict_sql_build_query_field) fields;
 	const ARRAY_TYPE(const_string) *extra_values;
 	char key1;
 	bool inc;

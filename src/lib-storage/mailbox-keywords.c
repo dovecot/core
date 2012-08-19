@@ -11,7 +11,7 @@ mailbox_keywords_create_skip(struct mailbox *box,
 	struct mail_keywords *kw;
 
 	T_BEGIN {
-		ARRAY_DEFINE(valid_keywords, const char *);
+		ARRAY(const char *) valid_keywords;
 		const char *error;
 
 		t_array_init(&valid_keywords, 32);

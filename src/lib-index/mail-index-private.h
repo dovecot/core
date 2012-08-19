@@ -115,7 +115,7 @@ struct mail_index_registered_ext {
 };
 
 struct mail_index_record_map {
-	ARRAY_DEFINE(maps, struct mail_index_map *);
+	ARRAY(struct mail_index_map *) maps;
 
 	void *mmap_base;
 	size_t mmap_size, mmap_used_size;
@@ -142,10 +142,10 @@ struct mail_index_map {
 	buffer_t *hdr_copy_buf;
 
 	pool_t extension_pool;
-	ARRAY_DEFINE(extensions, struct mail_index_ext);
-	ARRAY_DEFINE(ext_id_map, uint32_t); /* index -> file */
+	ARRAY(struct mail_index_ext) extensions;
+	ARRAY(uint32_t) ext_id_map; /* index -> file */
 
-	ARRAY_DEFINE(keyword_idx_map, unsigned int); /* file -> index */
+	ARRAY(unsigned int) keyword_idx_map; /* file -> index */
 
 	struct mail_index_record_map *rec_map;
 
@@ -175,12 +175,12 @@ struct mail_index {
 	char *gid_origin;
 
 	pool_t extension_pool;
-	ARRAY_DEFINE(extensions, struct mail_index_registered_ext);
+	ARRAY(struct mail_index_registered_ext) extensions;
 
 	uint32_t ext_hdr_init_id;
 	void *ext_hdr_init_data;
 
-	ARRAY_DEFINE(sync_lost_handlers, mail_index_sync_lost_handler_t *);
+	ARRAY(mail_index_sync_lost_handler_t *) sync_lost_handlers;
 
 	char *filepath;
 	int fd;
@@ -223,7 +223,7 @@ struct mail_index {
 	unsigned int view_count;
 
 	/* Module-specific contexts. */
-	ARRAY_DEFINE(module_contexts, union mail_index_module_context *);
+	ARRAY(union mail_index_module_context *) module_contexts;
 
 	char *error;
 	unsigned int nodiskspace:1;

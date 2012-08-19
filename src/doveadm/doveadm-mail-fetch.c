@@ -28,7 +28,7 @@ struct fetch_cmd_context {
 	struct ostream *output;
 	struct mail *mail;
 
-	ARRAY_DEFINE(fields, const struct fetch_field);
+	ARRAY(const struct fetch_field) fields;
 	ARRAY_TYPE(const_string) header_fields;
 	enum mail_fetch_field wanted_fields;
 

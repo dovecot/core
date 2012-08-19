@@ -26,7 +26,7 @@ struct ipc_client {
 	struct timeout *to;
 	struct istream *input;
 	struct ostream *output;
-	ARRAY_DEFINE(cmds, struct ipc_client_cmd);
+	ARRAY(struct ipc_client_cmd) cmds;
 };
 
 static void ipc_client_disconnect(struct ipc_client *client);

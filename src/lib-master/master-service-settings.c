@@ -331,7 +331,7 @@ int master_service_settings_read(struct master_service *service,
 				 struct master_service_settings_output *output_r,
 				 const char **error_r)
 {
-	ARRAY_DEFINE(all_roots, const struct setting_parser_info *);
+	ARRAY(const struct setting_parser_info *) all_roots;
 	const struct setting_parser_info *tmp_root;
 	struct setting_parser_context *parser;
 	struct istream *istream;

@@ -56,17 +56,17 @@ struct dsync_mailbox_importer {
 	HASH_TABLE_TYPE(dsync_uid_mail_change) local_changes;
 
 	ARRAY_TYPE(seq_range) maybe_expunge_uids;
-	ARRAY_DEFINE(maybe_saves, struct dsync_mail_change *);
+	ARRAY(struct dsync_mail_change *) maybe_saves;
 
 	/* GUID => struct importer_new_mail */
 	HASH_TABLE_TYPE(guid_new_mail) import_guids;
 	/* UID => struct importer_new_mail */
 	HASH_TABLE_TYPE(uid_new_mail) import_uids;
 
-	ARRAY_DEFINE(newmails, struct importer_new_mail *);
+	ARRAY(struct importer_new_mail *) newmails;
 	ARRAY_TYPE(uint32_t) wanted_uids;
 
-	ARRAY_DEFINE(mail_requests, struct dsync_mail_request);
+	ARRAY(struct dsync_mail_request) mail_requests;
 	unsigned int mail_request_idx;
 
 	uint32_t prev_uid, next_local_seq, local_uid_next;

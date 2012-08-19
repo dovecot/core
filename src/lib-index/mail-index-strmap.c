@@ -31,7 +31,7 @@ struct mail_index_strmap_view {
 	struct mail_index_view *view;
 
 	ARRAY_TYPE(mail_index_strmap_rec) recs;
-	ARRAY_DEFINE(recs_crc32, uint32_t);
+	ARRAY(uint32_t) recs_crc32;
 	struct hash2_table *hash;
 
 	mail_index_strmap_key_cmp_t *key_compare;

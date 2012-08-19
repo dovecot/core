@@ -27,7 +27,7 @@ struct ipc_connection {
 	unsigned int cmd_tag_counter;
 
 	/* running commands */
-	ARRAY_DEFINE(cmds, struct ipc_connection_cmd *);
+	ARRAY(struct ipc_connection_cmd *) cmds;
 
 	unsigned int version_received:1;
 	unsigned int handshake_received:1;

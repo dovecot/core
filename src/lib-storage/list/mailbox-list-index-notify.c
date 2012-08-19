@@ -47,7 +47,7 @@ struct mailbox_list_notify_index {
 	struct timeout *to_wait, *to_notify;
 
 	ARRAY_TYPE(seq_range) new_uids, expunged_uids, changed_uids;
-	ARRAY_DEFINE(renames, struct mailbox_list_notify_rename);
+	ARRAY(struct mailbox_list_notify_rename) renames;
 	struct seq_range_iter new_uids_iter, expunged_uids_iter;
 	struct seq_range_iter changed_uids_iter;
 	unsigned int new_uids_n, expunged_uids_n, changed_uids_n;
@@ -343,7 +343,7 @@ mailbox_list_index_notify_find_renames(struct mailbox_list_notify_index *inotify
 {
 	struct mailbox_list_index *ilist =
 		INDEX_LIST_CONTEXT(inotify->notify.list);
-	ARRAY_DEFINE(entries, struct mailbox_list_inotify_entry);
+	ARRAY(struct mailbox_list_inotify_entry) entries;
 	struct mailbox_status status;
 	struct mailbox_list_notify_rename *rename;
 	struct mailbox_list_inotify_entry *entry;

@@ -16,7 +16,7 @@ struct auth_userdb_settings userdb_dummy_set = {
 	.override_fields = ""
 };
 
-static ARRAY_DEFINE(auths, struct auth *);
+static ARRAY(struct auth *) auths;
 
 static void
 auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,

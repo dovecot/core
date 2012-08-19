@@ -1114,7 +1114,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 		ret = -1;
 	else if (ctx->bytes_used != 0 || ctx->count_used != 0 ||
 		 ctx->recalculate) T_BEGIN {
-		ARRAY_DEFINE(warn_roots, struct quota_root *);
+		ARRAY(struct quota_root *) warn_roots;
 
 		mailbox_name = mailbox_get_vname(ctx->box);
 		(void)mail_namespace_find_unalias(

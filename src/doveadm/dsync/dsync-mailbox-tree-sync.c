@@ -9,7 +9,7 @@
 struct dsync_mailbox_tree_bfs_iter {
 	struct dsync_mailbox_tree *tree;
 
-	ARRAY_DEFINE(queue_arr, struct dsync_mailbox_node *);
+	ARRAY(struct dsync_mailbox_node *) queue_arr;
 	struct aqueue *queue;
 	struct dsync_mailbox_node *cur;
 };
@@ -18,7 +18,7 @@ struct dsync_mailbox_tree_sync_ctx {
 	pool_t pool;
 	struct dsync_mailbox_tree *local_tree, *remote_tree;
 
-	ARRAY_DEFINE(changes, struct dsync_mailbox_tree_sync_change);
+	ARRAY(struct dsync_mailbox_tree_sync_change) changes;
 	unsigned int change_idx;
 };
 

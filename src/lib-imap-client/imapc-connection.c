@@ -53,7 +53,7 @@ struct imapc_command {
 	   executed */
 	struct imapc_client_mailbox *box;
 
-	ARRAY_DEFINE(streams, struct imapc_command_stream);
+	ARRAY(struct imapc_command_stream) streams;
 
 	imapc_command_callback_t *callback;
 	void *context;
@@ -113,7 +113,7 @@ struct imapc_connection {
 	struct ip_addr *ips;
 
 	struct imapc_connection_literal literal;
-	ARRAY_DEFINE(literal_files, struct imapc_arg_file);
+	ARRAY(struct imapc_arg_file) literal_files;
 
 	unsigned int idling:1;
 	unsigned int idle_stopping:1;

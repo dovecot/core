@@ -17,7 +17,7 @@ struct master_instance_list {
 	pool_t pool;
 	const char *path;
 
-	ARRAY_DEFINE(instances, struct master_instance);
+	ARRAY(struct master_instance) instances;
 
 	unsigned int locked:1;
 	unsigned int config_paths_changed:1;

@@ -20,7 +20,7 @@ struct index_search_context {
 	struct index_mail *cur_imail;
 	struct mail_thread_context *thread_ctx;
 
-	ARRAY_DEFINE(mails, struct mail *);
+	ARRAY(struct mail *) mails;
 	unsigned int unused_mail_idx;
 	unsigned int max_mails;
 

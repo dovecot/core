@@ -18,8 +18,8 @@
 struct who_user {
 	const char *username;
 	const char *service;
-	ARRAY_DEFINE(ips, struct ip_addr);
-	ARRAY_DEFINE(pids, pid_t);
+	ARRAY(struct ip_addr) ips;
+	ARRAY(pid_t) pids;
 	unsigned int connection_count;
 };
 

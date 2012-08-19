@@ -37,11 +37,11 @@ struct mail_cache_transaction_ctx {
 	uint32_t first_new_seq;
 
 	buffer_t *cache_data;
-	ARRAY_DEFINE(cache_data_seq, uint32_t);
+	ARRAY(uint32_t) cache_data_seq;
 	uint32_t prev_seq;
 	size_t prev_pos;
 
-        ARRAY_DEFINE(reservations, struct mail_cache_reservation);
+        ARRAY(struct mail_cache_reservation) reservations;
 	uint32_t reserved_space_offset, reserved_space;
 	uint32_t last_grow_size;
 

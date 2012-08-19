@@ -28,8 +28,8 @@ struct quota_mailbox {
 
 	struct mailbox_transaction_context *expunge_trans;
 	struct quota_transaction_context *expunge_qt;
-	ARRAY_DEFINE(expunge_uids, uint32_t);
-	ARRAY_DEFINE(expunge_sizes, uoff_t);
+	ARRAY(uint32_t) expunge_uids;
+	ARRAY(uoff_t) expunge_sizes;
 
 	unsigned int recalculate:1;
 };

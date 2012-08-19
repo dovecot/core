@@ -10,7 +10,7 @@ struct dsync_mailbox_tree {
 
 	unsigned int iter_count;
 
-	ARRAY_DEFINE(deletes, struct dsync_mailbox_delete);
+	ARRAY(struct dsync_mailbox_delete) deletes;
 
 	/* guid_128_t => struct dsync_mailbox_node */
 	HASH_TABLE(uint8_t *, struct dsync_mailbox_node *) name128_hash;

@@ -34,7 +34,7 @@ struct doveadm_expire_mail_cmd_context {
 	struct dict_iterate_context *iter;
 
 	HASH_TABLE(char *, enum expire_user_state) user_states;
-	ARRAY_DEFINE(queries, struct expire_query);
+	ARRAY(struct expire_query) queries;
 	time_t oldest_before_time;
 	bool delete_nonexistent_users;
 };

@@ -19,7 +19,7 @@
 	   // for example: struct STRUCT_NAME_vfuncs super;
    };
    struct STRUCT_NAME {
-	ARRAY_DEFINE(module_contexts, union STRUCT_NAME_module_context *);
+	ARRAY(union STRUCT_NAME_module_context *) module_contexts;
    };
    extern struct STRUCT_NAME_module_register STRUCT_NAME_module_register;
 

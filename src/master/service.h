@@ -55,7 +55,7 @@ struct service {
 	const char *extra_gids; /* comma-separated list */
 
 	/* all listeners, even those that aren't currently listening */
-	ARRAY_DEFINE(listeners, struct service_listener *);
+	ARRAY(struct service_listener *) listeners;
 	/* linked list of all processes belonging to this service */
 	struct service_process *processes;
 
@@ -134,7 +134,7 @@ struct service_list {
 
 	int master_dead_pipe_fd[2];
 
-	ARRAY_DEFINE(services, struct service *);
+	ARRAY(struct service *) services;
 
 	unsigned int destroying:1;
 	unsigned int destroyed:1;

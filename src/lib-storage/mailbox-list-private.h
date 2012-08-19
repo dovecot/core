@@ -142,7 +142,7 @@ struct mailbox_list {
 	enum mail_error error;
 	bool temporary_error;
 
-	ARRAY_DEFINE(module_contexts, union mailbox_list_module_context *);
+	ARRAY(union mailbox_list_module_context *) module_contexts;
 
 	unsigned int index_root_dir_created:1;
 };
@@ -161,8 +161,7 @@ struct mailbox_list_iterate_context {
 	struct mailbox_list_autocreate_iterate_context *autocreate_ctx;
 	struct mailbox_info specialuse_info;
 
-	ARRAY_DEFINE(module_contexts,
-		     union mailbox_list_iterate_module_context *);
+	ARRAY(union mailbox_list_iterate_module_context *) module_contexts;
 };
 
 struct mailbox_list_iter_update_context {

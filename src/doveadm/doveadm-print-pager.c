@@ -12,7 +12,7 @@ struct doveadm_print_pager_header {
 
 struct doveadm_print_pager_context {
 	pool_t pool;
-	ARRAY_DEFINE(headers, struct doveadm_print_pager_header);
+	ARRAY(struct doveadm_print_pager_header) headers;
 	unsigned int header_idx;
 
 	unsigned int streaming:1;

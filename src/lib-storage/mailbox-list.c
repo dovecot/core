@@ -34,7 +34,7 @@
 
 struct mailbox_list_module_register mailbox_list_module_register = { 0 };
 
-static ARRAY_DEFINE(mailbox_list_drivers, const struct mailbox_list *);
+static ARRAY(const struct mailbox_list *) mailbox_list_drivers;
 
 void mailbox_lists_init(void)
 {

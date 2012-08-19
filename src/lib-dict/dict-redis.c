@@ -51,8 +51,8 @@ struct redis_dict {
 	struct ioloop *ioloop;
 	struct redis_connection conn;
 
-	ARRAY_DEFINE(input_states, enum redis_input_state);
-	ARRAY_DEFINE(replies, struct redis_dict_reply);
+	ARRAY(enum redis_input_state) input_states;
+	ARRAY(struct redis_dict_reply) replies;
 
 	bool connected;
 	bool transaction_open;

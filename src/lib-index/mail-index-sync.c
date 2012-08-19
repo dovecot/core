@@ -21,7 +21,7 @@ struct mail_index_sync_ctx {
 	const struct mail_transaction_header *hdr;
 	const void *data;
 
-	ARRAY_DEFINE(sync_list, struct mail_index_sync_list);
+	ARRAY(struct mail_index_sync_list) sync_list;
 	uint32_t next_uid;
 	uint32_t last_tail_seq, last_tail_offset;
 

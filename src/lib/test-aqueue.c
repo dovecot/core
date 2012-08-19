@@ -23,7 +23,7 @@ static bool aqueue_is_ok(struct aqueue *aqueue, unsigned int deleted_n)
 static const unsigned int aqueue_input[] = { 1, 2, 3, 4, 5, 6 };
 static const char *test_aqueue2(unsigned int initial_size)
 {
-	ARRAY_DEFINE(aqueue_array, unsigned int);
+	ARRAY(unsigned int) aqueue_array;
 	unsigned int i, j, k;
 	struct aqueue *aqueue;
 

@@ -28,7 +28,7 @@ const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 
 int doveadm_exit_code = 0;
 
-static ARRAY_DEFINE(doveadm_cmds, struct doveadm_cmd);
+static ARRAY(struct doveadm_cmd) doveadm_cmds;
 
 static void failure_exit_callback(int *status)
 {

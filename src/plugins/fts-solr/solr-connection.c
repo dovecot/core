@@ -41,7 +41,7 @@ struct solr_lookup_xml_context {
 	pool_t result_pool;
 	/* box_id -> solr_result */
 	HASH_TABLE(char *, struct solr_result *) mailboxes;
-	ARRAY_DEFINE(results, struct solr_result *);
+	ARRAY(struct solr_result *) results;
 };
 
 struct solr_connection_post {

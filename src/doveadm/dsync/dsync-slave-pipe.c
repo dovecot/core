@@ -45,8 +45,8 @@ struct item {
 struct dsync_slave_pipe {
 	struct dsync_slave slave;
 
-	ARRAY_DEFINE(pools, pool_t);
-	ARRAY_DEFINE(item_queue, struct item);
+	ARRAY(pool_t) pools;
+	ARRAY(struct item) item_queue;
 	struct dsync_slave_pipe *remote;
 
 	pool_t pop_pool;

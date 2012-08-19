@@ -38,7 +38,7 @@ struct dsync_mailbox_exporter {
 	/* UID => struct dsync_mail_change */
 	HASH_TABLE(uint32_t, struct dsync_mail_change *) changes;
 	/* changes sorted by UID */
-	ARRAY_DEFINE(sorted_changes, struct dsync_mail_change *);
+	ARRAY(struct dsync_mail_change *) sorted_changes;
 	unsigned int change_idx;
 	uint32_t highest_changed_uid;
 

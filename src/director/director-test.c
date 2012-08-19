@@ -91,7 +91,7 @@ static struct imap_client *imap_clients;
 static struct director_connection *director_connections;
 static HASH_TABLE(char *, struct user *) users;
 static HASH_TABLE(struct ip_addr *, struct host *) hosts;
-static ARRAY_DEFINE(hosts_array, struct host *);
+static ARRAY(struct host *) hosts_array;
 static struct admin_connection *admin;
 static struct timeout *to_disconnect;
 

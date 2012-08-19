@@ -39,7 +39,7 @@ struct mdbox_save_context {
 	struct mdbox_map_atomic_context *atomic;
 	struct mdbox_map_transaction_context *map_trans;
 
-	ARRAY_DEFINE(mails, struct dbox_save_mail);
+	ARRAY(struct dbox_save_mail) mails;
 };
 
 static struct dbox_file *

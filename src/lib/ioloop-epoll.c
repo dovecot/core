@@ -21,8 +21,8 @@ struct ioloop_handler_context {
 	int epfd;
 
 	unsigned int deleted_count;
-	ARRAY_DEFINE(fd_index, struct io_list *);
-	ARRAY_DEFINE(events, struct epoll_event);
+	ARRAY(struct io_list *) fd_index;
+	ARRAY(struct epoll_event) events;
 };
 
 void io_loop_handler_init(struct ioloop *ioloop, unsigned int initial_fd_count)

@@ -9,8 +9,8 @@
 
 #include <stdlib.h>
 
-static ARRAY_DEFINE(userdb_interfaces, struct userdb_module_interface *);
-static ARRAY_DEFINE(userdb_modules, struct userdb_module *);
+static ARRAY(struct userdb_module_interface *) userdb_interfaces;
+static ARRAY(struct userdb_module *) userdb_modules;
 
 static const struct userdb_module_interface userdb_iface_deinit = {
 	.name = "deinit"

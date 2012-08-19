@@ -22,7 +22,7 @@ struct mail_index_view_transaction {
 	unsigned int record_size;
 	unsigned int recs_count;
 	void *recs;
-	ARRAY_DEFINE(all_recs, void *);
+	ARRAY(void *) all_recs;
 };
 
 static void tview_close(struct mail_index_view *view)

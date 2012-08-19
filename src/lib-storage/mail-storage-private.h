@@ -109,7 +109,7 @@ struct mail_storage {
 	struct mail_binary_cache binary_cache;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
-	ARRAY_DEFINE(module_contexts, union mail_storage_module_context *);
+	ARRAY(union mail_storage_module_context *) module_contexts;
 };
 
 struct mail_attachment_part {
@@ -275,10 +275,10 @@ struct mailbox {
 	unsigned int generation_sequence;
 
 	/* Saved search results */
-	ARRAY_DEFINE(search_results, struct mail_search_result *);
+	ARRAY(struct mail_search_result *) search_results;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
-	ARRAY_DEFINE(module_contexts, union mailbox_module_context *);
+	ARRAY(union mailbox_module_context *) module_contexts;
 
 	/* When FAST open flag is used, the mailbox isn't actually opened until
 	   it's synced for the first time. */
@@ -381,7 +381,7 @@ struct mail_private {
 	struct mailbox_header_lookup_ctx *wanted_headers;
 
 	pool_t pool;
-	ARRAY_DEFINE(module_contexts, union mail_module_context *);
+	ARRAY(union mail_module_context *) module_contexts;
 };
 
 struct mailbox_list_context {
@@ -426,8 +426,7 @@ struct mailbox_transaction_context {
 	struct mail_cache_transaction_ctx *cache_trans;
 
 	struct mail_transaction_commit_changes *changes;
-	ARRAY_DEFINE(module_contexts,
-		     union mailbox_transaction_module_context *);
+	ARRAY(union mailbox_transaction_module_context *) module_contexts;
 
 	struct mail_save_context *save_ctx;
 
@@ -457,12 +456,12 @@ struct mail_search_context {
 	   static data matches. */
 	struct mail_search_result *update_result;
 	/* add matches to these search results */
-	ARRAY_DEFINE(results, struct mail_search_result *);
+	ARRAY(struct mail_search_result *) results;
 
 	uint32_t seq;
 	uint32_t progress_cur, progress_max;
 
-	ARRAY_DEFINE(module_contexts, union mail_search_module_context *);
+	ARRAY(union mail_search_module_context *) module_contexts;
 
 	unsigned int seen_lost_data:1;
 	unsigned int progress_hidden:1;

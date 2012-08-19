@@ -149,7 +149,7 @@ struct ldap_connection {
 	/* Request queue contains sent requests at tail (msgid != -1) and
 	   queued requests at head (msgid == -1). */
 	struct aqueue *request_queue;
-	ARRAY_DEFINE(request_array, struct ldap_request *);
+	ARRAY(struct ldap_request *) request_array;
 	/* Number of messages in queue with msgid != -1 */
 	unsigned int pending_count;
 

@@ -39,7 +39,7 @@ struct solr_fts_backend_update_context {
 	uint32_t prev_uid;
 	string_t *cmd, *cur_value, *cur_value2;
 	string_t *cmd_expunge;
-	ARRAY_DEFINE(fields, struct solr_fts_field);
+	ARRAY(struct solr_fts_field) fields;
 
 	uint32_t last_indexed_uid;
 	uint32_t size_warned_uid;
@@ -800,7 +800,7 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 {
 	struct solr_result **solr_results;
 	struct fts_result *fts_result;
-	ARRAY_DEFINE(fts_results, struct fts_result);
+	ARRAY(struct fts_result) fts_results;
 	HASH_TABLE(char *, struct mailbox *) mailboxes;
 	struct mailbox *box;
 	const char *box_guid;

@@ -278,7 +278,7 @@ auth_settings_set_self_ips(struct auth_settings *set, pool_t pool,
 			   const char **error_r)
 {
 	const char *const *tmp;
-	ARRAY_DEFINE(ips_array, struct ip_addr);
+	ARRAY(struct ip_addr) ips_array;
 	struct ip_addr *ips;
 	unsigned int ips_count;
 	int ret;

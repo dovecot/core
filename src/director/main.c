@@ -116,7 +116,7 @@ find_inet_listener_port(struct ip_addr *ip_r,
 static void director_state_changed(struct director *dir)
 {
 	struct director_request *const *requestp;
-	ARRAY_DEFINE(new_requests, struct director_request *);
+	ARRAY(struct director_request *) new_requests;
 	bool ret;
 
 	if (!dir->ring_synced ||

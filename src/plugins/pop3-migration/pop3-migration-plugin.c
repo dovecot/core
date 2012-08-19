@@ -44,7 +44,7 @@ struct pop3_migration_mail_storage {
 
 	const char *pop3_box_vname;
 	struct mailbox *pop3_box;
-	ARRAY_DEFINE(pop3_uidl_map, struct pop3_uidl_map);
+	ARRAY(struct pop3_uidl_map) pop3_uidl_map;
 
 	unsigned int all_mailboxes:1;
 	unsigned int pop3_all_hdr_sha1_set:1;
@@ -53,7 +53,7 @@ struct pop3_migration_mail_storage {
 struct pop3_migration_mailbox {
 	union mailbox_module_context module_ctx;
 
-	ARRAY_DEFINE(imap_msg_map, struct imap_msg_map);
+	ARRAY(struct imap_msg_map) imap_msg_map;
 	unsigned int first_unfound_idx;
 
 	unsigned int uidl_synced:1;

@@ -14,7 +14,7 @@ struct doveadm_print_header_context {
 
 struct doveadm_print_context {
 	pool_t pool;
-	ARRAY_DEFINE(headers, struct doveadm_print_header_context);
+	ARRAY(struct doveadm_print_header_context) headers;
 	const struct doveadm_print_vfuncs *v;
 
 	unsigned int header_idx;

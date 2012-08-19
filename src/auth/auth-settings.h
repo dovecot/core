@@ -49,8 +49,8 @@ struct auth_settings {
 
 	unsigned int worker_max_count;
 
-	ARRAY_DEFINE(passdbs, struct auth_passdb_settings *);
-	ARRAY_DEFINE(userdbs, struct auth_userdb_settings *);
+	ARRAY(struct auth_passdb_settings *) passdbs;
+	ARRAY(struct auth_userdb_settings *) userdbs;
 
 	const char *base_dir;
 	bool verbose_proctitle;

@@ -63,7 +63,7 @@ cmd_altmove_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	struct doveadm_mailbox_list_iter *iter;
 	const struct mailbox_info *info;
 	struct mail_namespace *ns, *prev_ns = NULL;
-	ARRAY_DEFINE(purged_storages, struct mail_storage *);
+	ARRAY(struct mail_storage *) purged_storages;
 	struct mail_storage *const *storages;
 	unsigned int i, count;
 	int ret = 0;

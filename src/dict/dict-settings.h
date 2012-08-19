@@ -4,7 +4,7 @@
 struct dict_settings {
 	const char *base_dir;
 	const char *dict_db_config;
-	ARRAY_DEFINE(dicts, const char *);
+	ARRAY(const char *) dicts;
 };
 
 extern const struct setting_parser_info dict_setting_parser_info;

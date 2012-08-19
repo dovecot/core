@@ -40,7 +40,7 @@ struct log_connection {
 };
 
 static struct log_connection *log_connections = NULL;
-static ARRAY_DEFINE(logs_by_fd, struct log_connection *);
+static ARRAY(struct log_connection *) logs_by_fd;
 
 static void log_connection_destroy(struct log_connection *log);
 

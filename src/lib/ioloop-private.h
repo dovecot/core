@@ -71,7 +71,7 @@ struct ioloop_context_callback {
 struct ioloop_context {
 	int refcount;
 	struct ioloop *ioloop;
-	ARRAY_DEFINE(callbacks, struct ioloop_context_callback);
+	ARRAY(struct ioloop_context_callback) callbacks;
 };
 
 int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r);

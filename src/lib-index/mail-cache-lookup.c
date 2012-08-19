@@ -418,7 +418,7 @@ struct header_lookup_line {
 
 struct header_lookup_context {
 	struct mail_cache_view *view;
-	ARRAY_DEFINE(lines, struct header_lookup_line);
+	ARRAY(struct header_lookup_line) lines;
 };
 
 enum {

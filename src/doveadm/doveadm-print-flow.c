@@ -13,7 +13,7 @@ struct doveadm_print_flow_header {
 
 struct doveadm_print_flow_context {
 	pool_t pool;
-	ARRAY_DEFINE(headers, struct doveadm_print_flow_header);
+	ARRAY(struct doveadm_print_flow_header) headers;
 	unsigned int header_idx;
 
 	unsigned int streaming:1;

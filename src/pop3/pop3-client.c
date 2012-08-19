@@ -137,7 +137,7 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	uoff_t size;
-	ARRAY_DEFINE(message_sizes, uoff_t);
+	ARRAY(uoff_t) message_sizes;
 	ARRAY_TYPE(uint32_t) msgnum_to_seq_map = ARRAY_INIT;
 	unsigned int msgnum;
 	int ret = 1;

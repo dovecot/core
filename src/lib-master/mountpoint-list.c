@@ -17,7 +17,7 @@
 struct mountpoint_list {
 	pool_t pool;
 	const char *perm_path, *state_path;
-	ARRAY_DEFINE(recs, struct mountpoint_list_rec *);
+	ARRAY(struct mountpoint_list_rec *) recs;
 	struct stat load_st;
 	bool load_failed;
 };

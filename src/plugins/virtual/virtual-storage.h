@@ -79,7 +79,7 @@ struct virtual_backend_box {
 	struct mailbox *box;
 	/* Messages currently included in the virtual mailbox,
 	   sorted by real_uid */
-	ARRAY_DEFINE(uids, struct virtual_backend_uidmap);
+	ARRAY(struct virtual_backend_uidmap) uids;
 
 	/* temporary mail used while syncing */
 	struct mail *sync_mail;

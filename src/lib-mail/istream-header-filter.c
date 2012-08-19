@@ -26,7 +26,7 @@ struct header_filter_istream {
 	uoff_t last_lf_offset;
 
 	unsigned int cur_line, parsed_lines;
-	ARRAY_DEFINE(match_change_lines, unsigned int);
+	ARRAY(unsigned int) match_change_lines;
 
 	unsigned int header_read:1;
 	unsigned int seen_eoh:1;

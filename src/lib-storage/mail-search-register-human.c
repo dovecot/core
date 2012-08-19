@@ -191,7 +191,7 @@ mail_search_register_init_human(struct mail_search_register *imap_register)
 {
 	struct mail_search_register *reg;
 	mail_search_register_fallback_t *fallback;
-	ARRAY_DEFINE(copy_args, const struct mail_search_register_arg);
+	ARRAY(const struct mail_search_register_arg) copy_args;
 	const struct mail_search_register_arg *human_args, *imap_args;
 	unsigned int i, j, human_count, imap_count;
 	int ret;

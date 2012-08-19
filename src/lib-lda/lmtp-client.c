@@ -62,7 +62,7 @@ struct lmtp_client {
 	void *finish_context;
 
 	const char *data_header;
-	ARRAY_DEFINE(recipients, struct lmtp_rcpt);
+	ARRAY(struct lmtp_rcpt) recipients;
 	unsigned int rcpt_next_receive_idx;
 	unsigned int rcpt_next_data_idx;
 	unsigned int rcpt_next_send_idx;

@@ -56,7 +56,7 @@ struct auth_penalty *auth_penalty;
 static pool_t auth_set_pool;
 static struct module *modules = NULL;
 static struct mechanisms_register *mech_reg;
-static ARRAY_DEFINE(listeners, struct auth_socket_listener);
+static ARRAY(struct auth_socket_listener) listeners;
 
 void auth_refresh_proctitle(void)
 {

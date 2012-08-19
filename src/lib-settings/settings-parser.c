@@ -1523,7 +1523,7 @@ info_update_real(pool_t pool, struct setting_parser_info *parent,
 		 const struct dynamic_settings_parser *parsers)
 {
 	/* @UNSAFE */
-	ARRAY_DEFINE(defines, struct setting_define);
+	ARRAY(struct setting_define) defines;
 	ARRAY_TYPE(dynamic_settings_parser) dynamic_parsers;
 	struct dynamic_settings_parser new_parser;
 	const struct setting_define *cur_defines;
