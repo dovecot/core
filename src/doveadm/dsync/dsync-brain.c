@@ -48,8 +48,7 @@ dsync_brain_common_init(struct mail_user *user, struct dsync_slave *slave)
 	brain->slave = slave;
 	brain->sync_type = DSYNC_BRAIN_SYNC_TYPE_UNKNOWN;
 	brain->remote_mailbox_states =
-		hash_table_create(default_pool, brain->pool, 0,
-				  guid_128_hash, guid_128_cmp);
+		hash_table_create(brain->pool, 0, guid_128_hash, guid_128_cmp);
 	p_array_init(&brain->mailbox_states, pool, 64);
 	return brain;
 }

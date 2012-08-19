@@ -317,8 +317,7 @@ void log_connection_create(struct log_error_buffer *errorbuf,
 	log->listen_fd = listen_fd;
 	log->io = io_add(fd, IO_READ, log_connection_input, log);
 	log->input = i_stream_create_fd(fd, PIPE_BUF, FALSE);
-	log->clients = hash_table_create(default_pool, default_pool, 0,
-					 NULL, NULL);
+	log->clients = hash_table_create(default_pool, 0, NULL, NULL);
 	array_idx_set(&logs_by_fd, listen_fd, &log);
 
 	DLLIST_PREPEND(&log_connections, log);

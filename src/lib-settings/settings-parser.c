@@ -206,7 +206,7 @@ settings_parser_init_list(pool_t set_pool,
 	ctx->set_pool = set_pool;
 	ctx->parser_pool = parser_pool;
 	ctx->flags = flags;
-	ctx->links = hash_table_create(default_pool, ctx->parser_pool, 0,
+	ctx->links = hash_table_create(ctx->parser_pool, 0,
 				       str_hash, (hash_cmp_callback_t *)strcmp);
 
 	ctx->root_count = count;
@@ -1753,8 +1753,7 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 	new_ctx->error = p_strdup(new_ctx->parser_pool, old_ctx->error);
 	new_ctx->prev_info = old_ctx->prev_info;
 
-	links = hash_table_create(default_pool, new_ctx->parser_pool,
-				  0, NULL, NULL);
+	links = hash_table_create(new_ctx->parser_pool, 0, NULL, NULL);
 
 	new_ctx->root_count = old_ctx->root_count;
 	new_ctx->roots = p_new(new_ctx->parser_pool, struct setting_link,
@@ -1777,7 +1776,7 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 	}
 
 	new_ctx->links =
-		hash_table_create(default_pool, new_ctx->parser_pool, 0,
+		hash_table_create(new_ctx->parser_pool, 0,
 				  str_hash, (hash_cmp_callback_t *)strcmp);
 
 	iter = hash_table_iterate_init(old_ctx->links);

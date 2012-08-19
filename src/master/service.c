@@ -726,7 +726,7 @@ void services_throttle_time_sensitives(struct service_list *list,
 
 void service_pids_init(void)
 {
-	service_pids = hash_table_create(default_pool, default_pool, 0,
+	service_pids = hash_table_create(default_pool, 0,
 					 pid_hash, pid_hash_cmp);
 }
 

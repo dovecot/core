@@ -177,9 +177,7 @@ fts_expunge_log_append_begin(struct fts_expunge_log *log)
 	ctx = p_new(pool, struct fts_expunge_log_append_ctx, 1);
 	ctx->log = log;
 	ctx->pool = pool;
-	ctx->mailboxes =
-		hash_table_create(default_pool, pool, 0,
-				  guid_128_hash, guid_128_cmp);
+	ctx->mailboxes = hash_table_create(pool, 0, guid_128_hash, guid_128_cmp);
 
 	if (fts_expunge_log_reopen_if_needed(log, TRUE) < 0)
 		ctx->failed = TRUE;

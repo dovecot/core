@@ -343,8 +343,7 @@ int dsync_transaction_log_scan_init(struct mail_index_view *view,
 				     10240);
 	ctx = p_new(pool, struct dsync_transaction_log_scan, 1);
 	ctx->pool = pool;
-	ctx->changes =
-		hash_table_create(default_pool, pool, 0, NULL, NULL);
+	ctx->changes = hash_table_create(pool, 0, NULL, NULL);
 	ctx->view = view;
 	ctx->highest_wanted_uid = highest_wanted_uid;
 

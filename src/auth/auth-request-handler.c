@@ -52,7 +52,7 @@ auth_request_handler_create(auth_request_callback_t *callback, void *context,
 	handler = p_new(pool, struct auth_request_handler, 1);
 	handler->refcount = 1;
 	handler->pool = pool;
-	handler->requests = hash_table_create(default_pool, pool, 0, NULL, NULL);
+	handler->requests = hash_table_create(pool, 0, NULL, NULL);
 	handler->callback = callback;
 	handler->context = context;
 	handler->master_callback = master_callback;

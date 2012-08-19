@@ -411,7 +411,7 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 		i_strconcat(index->filepath, MAIL_CACHE_FILE_SUFFIX, NULL);
 	cache->field_pool = pool_alloconly_create("Cache fields", 2048);
 	cache->field_name_hash =
-		hash_table_create(default_pool, cache->field_pool, 0,
+		hash_table_create(cache->field_pool, 0,
 				  strcase_hash, (hash_cmp_callback_t *)strcasecmp);
 
 	cache->dotlock_settings.use_excl_lock =

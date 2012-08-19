@@ -392,7 +392,7 @@ dsync_mailbox_export_log_scan(struct dsync_mailbox_exporter *exporter,
 
 	/* clone the hash table, since we're changing it. */
 	exporter->changes =
-		hash_table_create(default_pool, exporter->pool,
+		hash_table_create(exporter->pool,
 				  hash_table_count(log_changes), NULL, NULL);
 	iter = hash_table_iterate_init(log_changes);
 	while (hash_table_iterate(iter, &key, &value)) {
@@ -431,7 +431,7 @@ dsync_mailbox_export_init(struct mailbox *box,
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_MAILS_HAVE_GUIDS) != 0;
 	p_array_init(&exporter->requested_uids, pool, 16);
 	exporter->export_guids =
-		hash_table_create(default_pool, pool, 0,
+		hash_table_create(pool, 0,
 				  str_hash, (hash_cmp_callback_t *)strcmp);
 	p_array_init(&exporter->expunged_seqs, pool, 16);
 	p_array_init(&exporter->expunged_guids, pool, 16);

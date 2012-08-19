@@ -440,11 +440,9 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 
 	ilist->mailbox_pool = pool_alloconly_create("mailbox list index", 4096);
 	ilist->mailbox_names =
-		hash_table_create(default_pool, ilist->mailbox_pool,
-				  0, NULL, NULL);
+		hash_table_create(ilist->mailbox_pool, 0, NULL, NULL);
 	ilist->mailbox_hash =
-		hash_table_create(default_pool, ilist->mailbox_pool,
-				  0, NULL, NULL);
+		hash_table_create(ilist->mailbox_pool, 0, NULL, NULL);
 
 	mailbox_list_index_status_init_list(list);
 }

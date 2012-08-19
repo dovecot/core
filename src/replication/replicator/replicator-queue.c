@@ -67,9 +67,8 @@ struct replicator_queue *replicator_queue_init(unsigned int full_sync_interval)
 	queue = i_new(struct replicator_queue, 1);
 	queue->full_sync_interval = full_sync_interval;
 	queue->user_queue = priorityq_init(user_priority_cmp, 1024);
-	queue->user_hash =
-		hash_table_create(default_pool, default_pool, 1024,
-				  str_hash, (hash_cmp_callback_t *)strcmp);
+	queue->user_hash = hash_table_create(default_pool, 1024, str_hash,
+					     (hash_cmp_callback_t *)strcmp);
 	i_array_init(&queue->sync_lookups, 32);
 	return queue;
 }

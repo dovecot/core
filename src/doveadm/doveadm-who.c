@@ -274,7 +274,7 @@ static void cmd_who(int argc, char *argv[])
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
 	ctx.pool = pool_alloconly_create("who users", 10240);
-	ctx.users = hash_table_create(default_pool, ctx.pool, 0,
+	ctx.users = hash_table_create(ctx.pool, 0,
 				      who_user_hash, who_user_cmp);
 
 	while ((c = getopt(argc, argv, "1a:")) > 0) {

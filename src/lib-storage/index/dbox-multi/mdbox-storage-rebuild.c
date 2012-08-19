@@ -69,7 +69,7 @@ mdbox_storage_rebuild_init(struct mdbox_storage *storage,
 	ctx->storage = storage;
 	ctx->atomic = atomic;
 	ctx->pool = pool_alloconly_create("dbox map rebuild", 1024*256);
-	ctx->guid_hash = hash_table_create(default_pool, ctx->pool, 0,
+	ctx->guid_hash = hash_table_create(ctx->pool, 0,
 					   guid_128_hash, guid_128_cmp);
 	i_array_init(&ctx->msgs, 512);
 	i_array_init(&ctx->seen_file_ids, 128);

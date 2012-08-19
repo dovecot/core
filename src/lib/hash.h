@@ -13,7 +13,7 @@ typedef int hash_cmp_callback_t(const void *p1, const void *p2);
    for smaller allocations and can also be alloconly pool. The pools must not
    be free'd before hash_table_destroy() is called. */
 struct hash_table *
-hash_table_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
+hash_table_create(pool_t node_pool, unsigned int initial_size,
 		  hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb)
 	ATTR_NULL(4, 5);
 void hash_table_destroy(struct hash_table **table);

@@ -303,7 +303,7 @@ auth_server_connection_init(struct auth_client *client)
 
 	conn->client = client;
 	conn->fd = -1;
-	conn->requests = hash_table_create(default_pool, pool, 100, NULL, NULL);
+	conn->requests = hash_table_create(pool, 100, NULL, NULL);
 	i_array_init(&conn->available_auth_mechs, 8);
 	return conn;
 }

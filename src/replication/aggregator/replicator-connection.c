@@ -209,8 +209,7 @@ static struct replicator_connection *replicator_connection_create(void)
 
 	conn = i_new(struct replicator_connection, 1);
 	conn->fd = -1;
-	conn->requests = hash_table_create(default_pool, default_pool,
-					   0, NULL, NULL);
+	conn->requests = hash_table_create(default_pool, 0, NULL, NULL);
 	for (i = REPLICATION_PRIORITY_LOW; i <= REPLICATION_PRIORITY_SYNC; i++)
 		conn->queue[i] = buffer_create_dynamic(default_pool, 1024);
 	return conn;

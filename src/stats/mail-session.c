@@ -292,7 +292,7 @@ void mail_sessions_init(void)
 	session_guid_warn_hide_until =
 		ioloop_time + SESSION_GUID_WARN_HIDE_SECS;
 	mail_sessions_hash =
-		hash_table_create(default_pool, default_pool, 0,
+		hash_table_create(default_pool, 0,
 				  guid_128_hash, guid_128_cmp);
 }
 

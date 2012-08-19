@@ -225,8 +225,7 @@ user_directory_init(unsigned int timeout_secs, const char *username_hash_fmt)
 		I_MAX(dir->user_near_expiring_secs, 1);
 
 	dir->username_hash_fmt = i_strdup(username_hash_fmt);
-	dir->hash = hash_table_create(default_pool, default_pool,
-				      0, NULL, NULL);
+	dir->hash = hash_table_create(default_pool, 0, NULL, NULL);
 	i_array_init(&dir->iters, 8);
 	return dir;
 }

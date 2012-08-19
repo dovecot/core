@@ -478,7 +478,7 @@ static void stats_top(const char *path, const char *sort_type)
 	ctx.cur_pool = pool_alloconly_create("stats top", 1024*16);
 	i_array_init(&ctx.lines, 128);
 	ctx.sessions =
-		hash_table_create(default_pool, default_pool, 0,
+		hash_table_create(default_pool, 0,
 				  str_hash, (hash_cmp_callback_t *)strcmp);
 	net_set_nonblock(ctx.fd, FALSE);
 

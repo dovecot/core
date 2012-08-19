@@ -113,7 +113,7 @@ void mail_domains_free_memory(void)
 void mail_domains_init(void)
 {
 	mail_domains_hash =
-		hash_table_create(default_pool, default_pool, 0,
+		hash_table_create(default_pool, 0,
 				  str_hash, (hash_cmp_callback_t *)strcmp);
 }
 

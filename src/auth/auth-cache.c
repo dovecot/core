@@ -221,7 +221,7 @@ struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs,
 	struct auth_cache *cache;
 
 	cache = i_new(struct auth_cache, 1);
-	cache->hash = hash_table_create(default_pool, default_pool, 0, str_hash,
+	cache->hash = hash_table_create(default_pool, 0, str_hash,
 					(hash_cmp_callback_t *)strcmp);
 	cache->size_left = max_size;
 	cache->ttl_secs = ttl_secs;

@@ -271,7 +271,7 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox)
 	uidlist->fd = -1;
 	uidlist->path = i_strconcat(control_dir, "/"MAILDIR_UIDLIST_NAME, NULL);
 	i_array_init(&uidlist->records, 128);
-	uidlist->files = hash_table_create(default_pool, default_pool, 4096,
+	uidlist->files = hash_table_create(default_pool, 4096,
 					   maildir_filename_base_hash,
 					   maildir_filename_base_cmp);
 	uidlist->next_uid = 1;
@@ -1650,7 +1650,7 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 
 	ctx->record_pool = pool_alloconly_create(MEMPOOL_GROWING
 						 "maildir_uidlist_sync", 16384);
-	ctx->files = hash_table_create(default_pool, ctx->record_pool, 4096,
+	ctx->files = hash_table_create(ctx->record_pool, 4096,
 				       maildir_filename_base_hash,
 				       maildir_filename_base_cmp);
 

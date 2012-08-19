@@ -48,7 +48,7 @@ struct login_proxy_state *login_proxy_state_init(const char *notify_path)
 
 	state = i_new(struct login_proxy_state, 1);
 	state->pool = pool_alloconly_create("login proxy state", 1024);
-	state->hash = hash_table_create(default_pool, state->pool, 0,
+	state->hash = hash_table_create(state->pool, 0,
 					login_proxy_record_hash,
 					login_proxy_record_cmp);
 	state->notify_path = p_strdup(state->pool, notify_path);

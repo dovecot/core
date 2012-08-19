@@ -233,7 +233,7 @@ cache_add(struct master_service_settings_cache *cache,
 	if (input->local_name != NULL) {
 		if (cache->local_name_hash == NULL) {
 			cache->local_name_hash =
-				hash_table_create(default_pool, cache->pool, 0,
+				hash_table_create(cache->pool, 0,
 						  str_hash,
 						  (hash_cmp_callback_t *)strcmp);
 		}
@@ -243,7 +243,7 @@ cache_add(struct master_service_settings_cache *cache,
 	if (input->local_ip.family != 0) {
 		if (cache->local_ip_hash == NULL) {
 			cache->local_ip_hash =
-				hash_table_create(default_pool, cache->pool, 0,
+				hash_table_create(cache->pool, 0,
 						  (hash_callback_t *)net_ip_hash,
 						  (hash_cmp_callback_t *)net_ip_cmp);
 		}

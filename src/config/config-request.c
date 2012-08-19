@@ -361,8 +361,8 @@ config_export_init(const char *module, enum config_dump_scope scope,
 	ctx->scope = scope;
 	ctx->value = t_str_new(256);
 	ctx->prefix = t_str_new(64);
-	ctx->keys = hash_table_create(default_pool, ctx->pool, 0,
-				      str_hash, (hash_cmp_callback_t *)strcmp);
+	ctx->keys = hash_table_create(ctx->pool, 0, str_hash,
+				      (hash_cmp_callback_t *)strcmp);
 	return ctx;
 }
 

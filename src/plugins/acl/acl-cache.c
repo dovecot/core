@@ -47,10 +47,10 @@ struct acl_cache *acl_cache_init(struct acl_backend *backend,
 	cache->validity_rec_size = validity_rec_size;
 	cache->right_names_pool =
 		pool_alloconly_create("ACL right names", 1024);
-	cache->objects = hash_table_create(default_pool, default_pool, 0,
+	cache->objects = hash_table_create(default_pool, 0,
 					   str_hash, (hash_cmp_callback_t *)strcmp);
 	cache->right_name_idx_map =
-		hash_table_create(default_pool, cache->right_names_pool, 0,
+		hash_table_create(cache->right_names_pool, 0,
 				  str_hash, (hash_cmp_callback_t *)strcmp);
 	i_array_init(&cache->right_idx_name_map, DEFAULT_ACL_RIGHTS_COUNT);
 	return cache;

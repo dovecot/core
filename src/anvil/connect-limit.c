@@ -46,10 +46,10 @@ struct connect_limit *connect_limit_init(void)
 
 	limit = i_new(struct connect_limit, 1);
 	limit->ident_hash =
-		hash_table_create(default_pool, default_pool, 0,
+		hash_table_create(default_pool, 0,
 				  str_hash, (hash_cmp_callback_t *)strcmp);
 	limit->ident_pid_hash =
-		hash_table_create(default_pool, default_pool, 0,
+		hash_table_create(default_pool, 0,
 				  ident_pid_hash, ident_pid_cmp);
 	return limit;
 }

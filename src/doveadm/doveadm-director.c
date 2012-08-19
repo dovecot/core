@@ -295,7 +295,7 @@ static void cmd_director_map(int argc, char *argv[])
 		director_get_host(argv[optind], &ips, &ips_count);
 
 	pool = pool_alloconly_create("director map users", 1024*128);
-	users = hash_table_create(default_pool, pool, 0, NULL, NULL);
+	users = hash_table_create(pool, 0, NULL, NULL);
 	if (ctx->users_path == NULL)
 		userdb_get_user_list(NULL, pool, users);
 	else

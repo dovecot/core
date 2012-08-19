@@ -45,8 +45,7 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 	if (list->guid_cache == NULL) {
 		list->guid_cache_pool =
 			pool_alloconly_create("guid cache", 1024*16);
-		list->guid_cache = hash_table_create(default_pool,
-						     list->guid_cache_pool, 0,
+		list->guid_cache = hash_table_create(list->guid_cache_pool, 0,
 						     guid_128_hash,
 						     guid_128_cmp);
 	} else {

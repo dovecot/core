@@ -135,10 +135,10 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer->remote_highest_modseq = remote_highest_modseq;
 
 	importer->import_guids =
-		hash_table_create(default_pool, pool, 0,
+		hash_table_create(pool, 0,
 				  str_hash, (hash_cmp_callback_t *)strcmp);
 	importer->import_uids =
-		hash_table_create(default_pool, pool, 0, NULL, NULL);
+		hash_table_create(pool, 0, NULL, NULL);
 	i_array_init(&importer->maybe_expunge_uids, 16);
 	i_array_init(&importer->maybe_saves, 128);
 	i_array_init(&importer->newmails, 128);

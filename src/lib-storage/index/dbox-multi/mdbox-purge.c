@@ -475,7 +475,7 @@ mdbox_purge_alloc(struct mdbox_storage *storage)
 	ctx->lowest_primary_file_id = (uint32_t)-1;
 	i_array_init(&ctx->primary_file_ids, 64);
 	i_array_init(&ctx->purge_file_ids, 64);
-	ctx->altmoves = hash_table_create(default_pool, pool, 0, NULL, NULL);
+	ctx->altmoves = hash_table_create(pool, 0, NULL, NULL);
 	return ctx;
 }
 

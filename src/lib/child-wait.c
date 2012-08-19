@@ -88,8 +88,7 @@ sigchld_handler(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 
 void child_wait_init(void)
 {
-	child_pids = hash_table_create(default_pool, default_pool, 0,
-				       NULL, NULL);
+	child_pids = hash_table_create(default_pool, 0, NULL, NULL);
 
 	lib_signals_set_handler(SIGCHLD, LIBSIG_FLAGS_SAFE,
 				sigchld_handler, NULL);

@@ -214,7 +214,7 @@ static struct duplicate_file *duplicate_file_new(struct duplicate_context *ctx)
 					 &file->dotlock);
 	if (file->new_fd == -1)
 		i_error("file_dotlock_create(%s) failed: %m", file->path);
-	file->hash = hash_table_create(default_pool, pool, 0,
+	file->hash = hash_table_create(pool, 0,
 				       duplicate_hash, duplicate_cmp);
 	(void)duplicate_read(file);
 	return file;

@@ -194,7 +194,7 @@ static bool passwd_file_open(struct passwd_file *pw, bool startup)
 	pw->size = st.st_size;
 
 	pw->pool = pool_alloconly_create(MEMPOOL_GROWING"passwd_file", 10240);
-	pw->users = hash_table_create(default_pool, pw->pool, 100,
+	pw->users = hash_table_create(pw->pool, 100,
 				      str_hash, (hash_cmp_callback_t *)strcmp);
 
 	start_time = time(NULL);
@@ -344,8 +344,7 @@ db_passwd_file_init(const char *path, bool userdb, bool debug)
 
 	db->path = i_strdup(path);
 	if (db->vars) {
-		db->files = hash_table_create(default_pool, default_pool, 100,
-					      str_hash,
+		db->files = hash_table_create(default_pool, 100, str_hash,
 					      (hash_cmp_callback_t *)strcmp);
 	} else {
 		db->default_file = passwd_file_new(db, path);

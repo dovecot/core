@@ -128,7 +128,7 @@ struct sql_db_cache *sql_db_cache_init(unsigned int max_unused_connections)
 	struct sql_db_cache *cache;
 
 	cache = i_new(struct sql_db_cache, 1);
-	cache->dbs = hash_table_create(default_pool, default_pool, 0, str_hash,
+	cache->dbs = hash_table_create(default_pool, 0, str_hash,
 				       (hash_cmp_callback_t *)strcmp);
 	cache->max_unused_connections = max_unused_connections;
 	return cache;

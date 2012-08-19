@@ -779,8 +779,7 @@ int lucene_index_rescan(struct lucene_index *index)
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.index = index;
 	ctx.pool = pool_alloconly_create("guids", 1024);
-	ctx.guids = hash_table_create(default_pool, ctx.pool, 0,
-				      guid_128_hash, guid_128_cmp);
+	ctx.guids = hash_table_create(ctx.pool, 0, guid_128_hash, guid_128_cmp);
 	i_array_init(&ctx.uids, 128);
 
 	if (ret > 0) try {

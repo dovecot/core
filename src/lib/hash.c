@@ -17,7 +17,7 @@ struct hash_node {
 };
 
 struct hash_table {
-	pool_t table_pool, node_pool;
+	pool_t node_pool;
 
 	int frozen;
 	unsigned int initial_size, nodes_count, removed_count;
@@ -50,13 +50,12 @@ static unsigned int direct_hash(const void *p)
 }
 
 struct hash_table *
-hash_table_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
+hash_table_create(pool_t node_pool, unsigned int initial_size,
 		  hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb)
 {
 	struct hash_table *table;
 
-	table = p_new(table_pool, struct hash_table, 1);
-        table->table_pool = table_pool;
+	table = i_new(struct hash_table, 1);
 	table->node_pool = node_pool;
 	table->initial_size =
 		I_MAX(primes_closest(initial_size), HASH_TABLE_MIN_SIZE);
@@ -66,7 +65,7 @@ hash_table_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size
 		direct_cmp : key_compare_cb;
 
 	table->size = table->initial_size;
-	table->nodes = p_new(table_pool, struct hash_node, table->size);
+	table->nodes = i_new(struct hash_node, table->size);
 	return table;
 }
 
@@ -112,8 +111,8 @@ void hash_table_destroy(struct hash_table **_table)
 		destroy_node_list(table, table->free_nodes);
 	}
 
-	p_free(table->table_pool, table->nodes);
-	p_free(table->table_pool, table);
+	i_free(table->nodes);
+	i_free(table);
 }
 
 void hash_table_clear(struct hash_table *table, bool free_nodes)
@@ -427,7 +426,7 @@ static bool hash_table_resize(struct hash_table *table, bool grow)
 	old_nodes = table->nodes;
 
 	table->size = I_MAX(next_size, HASH_TABLE_MIN_SIZE);
-	table->nodes = p_new(table->table_pool, struct hash_node, table->size);
+	table->nodes = i_new(struct hash_node, table->size);
 
 	table->nodes_count = 0;
 	table->removed_count = 0;
@@ -455,7 +454,7 @@ static bool hash_table_resize(struct hash_table *table, bool grow)
 
 	table->frozen--;
 
-	p_free(table->table_pool, old_nodes);
+	i_free(old_nodes);
 	return TRUE;
 }
 

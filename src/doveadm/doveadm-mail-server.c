@@ -38,8 +38,7 @@ doveadm_server_get(struct doveadm_mail_cmd_context *ctx, const char *name)
 
 	if (servers == NULL) {
 		server_pool = pool_alloconly_create("doveadm servers", 1024*16);
-		servers = hash_table_create(default_pool, server_pool, 0,
-					    str_hash,
+		servers = hash_table_create(server_pool, 0, str_hash,
 					    (hash_cmp_callback_t *)strcmp);
 	}
 	server = hash_table_lookup(servers, name);

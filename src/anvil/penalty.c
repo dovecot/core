@@ -51,7 +51,7 @@ struct penalty *penalty_init(void)
 
 	penalty = i_new(struct penalty, 1);
 	penalty->hash =
-		hash_table_create(default_pool, default_pool, 0,
+		hash_table_create(default_pool, 0,
 				  str_hash, (hash_cmp_callback_t *)strcmp);
 	penalty->expire_secs = PENALTY_DEFAULT_EXPIRE_SECS;
 	return penalty;

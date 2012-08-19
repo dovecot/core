@@ -531,8 +531,7 @@ fts_backend_lucene_lookup_multi(struct fts_backend *_backend,
 	T_BEGIN {
 		struct hash_table *guids;
 
-		guids = hash_table_create(default_pool, default_pool, 0,
-					  wstr_hash,
+		guids = hash_table_create(default_pool, 0, wstr_hash,
 					  (hash_cmp_callback_t *)wcscmp);
 		ret = mailboxes_get_guids(boxes, guids, result);
 		if (ret == 0) {

@@ -36,7 +36,7 @@ indexer_queue_init(indexer_status_callback_t *callback)
 	
 	queue = i_new(struct indexer_queue, 1);
 	queue->callback = callback;
-	queue->requests = hash_table_create(default_pool, default_pool, 0,
+	queue->requests = hash_table_create(default_pool, 0,
 					    indexer_request_hash,
 					    indexer_request_cmp);
 	return queue;

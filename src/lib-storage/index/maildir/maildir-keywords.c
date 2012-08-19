@@ -74,8 +74,8 @@ maildir_keywords_init_readonly(struct mailbox *box)
 	mk->path = i_strconcat(dir, "/" MAILDIR_KEYWORDS_NAME, NULL);
 	mk->pool = pool_alloconly_create("maildir keywords", 512);
 	i_array_init(&mk->list, MAILDIR_MAX_KEYWORDS);
-	mk->hash = hash_table_create(default_pool, mk->pool, 0,
-				     strcase_hash, (hash_cmp_callback_t *)strcasecmp);
+	mk->hash = hash_table_create(mk->pool, 0, strcase_hash,
+				     (hash_cmp_callback_t *)strcasecmp);
 
 	mk->dotlock_settings.use_excl_lock =
 		box->storage->set->dotlock_use_excl;

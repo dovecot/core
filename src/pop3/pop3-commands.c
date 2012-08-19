@@ -752,8 +752,8 @@ static void client_uidls_save(struct client *client)
 
 	uidl_duplicates_rename =
 		strcmp(client->set->pop3_uidl_duplicates, "rename") == 0;
-	prev_uidls = hash_table_create(default_pool, default_pool, 0,
-				      str_hash, (hash_cmp_callback_t *)strcmp);
+	prev_uidls = hash_table_create(default_pool, 0,
+				       str_hash, (hash_cmp_callback_t *)strcmp);
 	client->uidl_pool = pool_alloconly_create("message uidls", 1024);
 	client->message_uidls = p_new(client->uidl_pool, const char *,
 				      client->messages_count+1);

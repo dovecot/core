@@ -738,7 +738,7 @@ solr_search_multi(struct solr_fts_backend *backend, string_t *str,
 	else
 		str_append(str, "%22%22");
 
-	mailboxes = hash_table_create(default_pool, default_pool, 0,
+	mailboxes = hash_table_create(default_pool, 0,
 				      str_hash, (hash_cmp_callback_t *)strcmp);
 	str_append(str, "%2B(");
 	len = str_len(str);

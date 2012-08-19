@@ -532,9 +532,9 @@ director_connection_disconnect_timeout(void *context ATTR_UNUSED)
 
 static void main_init(const char *admin_path)
 {
-	users = hash_table_create(default_pool, default_pool, 0,
-				  str_hash, (hash_cmp_callback_t *)strcmp);
-	hosts = hash_table_create(default_pool, default_pool, 0,
+	users = hash_table_create(default_pool, 0, str_hash,
+				  (hash_cmp_callback_t *)strcmp);
+	hosts = hash_table_create(default_pool, 0,
 				  (hash_callback_t *)net_ip_hash,
 				  (hash_cmp_callback_t *)net_ip_cmp);
 	i_array_init(&hosts_array, 256);

@@ -77,7 +77,7 @@ static struct dict *file_dict_init(struct dict *driver, const char *uri,
 	}
 	dict->dict = *driver;
 	dict->hash_pool = pool_alloconly_create("file dict", 1024);
-	dict->hash = hash_table_create(default_pool, dict->hash_pool, 0,
+	dict->hash = hash_table_create(dict->hash_pool, 0,
 				       str_hash, (hash_cmp_callback_t *)strcmp);
 	dict->fd = -1;
 	return &dict->dict;

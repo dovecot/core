@@ -519,8 +519,7 @@ void ssl_proxy_init(void)
         gnutls_certificate_set_dh_params(x509_cred, dh_params);
         gnutls_certificate_set_rsa_export_params(x509_cred, rsa_params);
 
-	ssl_proxies = hash_table_create(system_pool, system_pool, 0,
-					NULL, NULL);
+	ssl_proxies = hash_table_create(default_pool, 0, NULL, NULL);
 	ssl_initialized = TRUE;
 }
 

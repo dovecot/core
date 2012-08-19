@@ -545,7 +545,7 @@ db_checkpassword_init(const char *checkpassword_path,
 	db = i_new(struct db_checkpassword, 1);
 	db->checkpassword_path = i_strdup(checkpassword_path);
 	db->checkpassword_reply_path = i_strdup(checkpassword_reply_path);
-	db->clients = hash_table_create(default_pool, default_pool, 0,
+	db->clients = hash_table_create(default_pool, 0,
 					NULL, NULL);
 	db->child_wait =
 		child_wait_new_with_pid((pid_t)-1, sigchld_handler, db);

@@ -109,7 +109,7 @@ void mail_ips_free_memory(void)
 void mail_ips_init(void)
 {
 	mail_ips_hash =
-		hash_table_create(default_pool, default_pool, 0,
+		hash_table_create(default_pool, 0,
 				  (hash_callback_t *)net_ip_hash,
 				  (hash_cmp_callback_t *)net_ip_cmp);
 }

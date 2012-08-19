@@ -20,8 +20,7 @@ void otp_lock_init(void)
 	if (otp_lock_table != NULL)
 		return;
 
-	otp_lock_table = hash_table_create(system_pool, system_pool,
-					   128, strcase_hash,
+	otp_lock_table = hash_table_create(default_pool, 128, strcase_hash,
 					   (hash_cmp_callback_t *)strcasecmp);
 }
 

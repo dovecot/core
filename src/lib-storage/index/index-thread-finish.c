@@ -223,7 +223,7 @@ static void gather_base_subjects(struct thread_finish_context *ctx)
 		pool_alloconly_create(MEMPOOL_GROWING"base subjects",
 				      nearest_power(count * 20));
 	gather_ctx.subject_hash =
-		hash_table_create(default_pool, gather_ctx.subject_pool,
+		hash_table_create(gather_ctx.subject_pool,
 				  count * 2, str_hash,
 				  (hash_cmp_callback_t *)strcmp);
 

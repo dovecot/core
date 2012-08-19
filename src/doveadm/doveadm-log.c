@@ -222,7 +222,7 @@ static void cmd_log_find(int argc, char *argv[])
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool_alloconly_create("log file", 1024*32);
-	ctx.files = hash_table_create(default_pool, ctx.pool, 0,
+	ctx.files = hash_table_create(ctx.pool, 0,
 				      str_hash, (hash_cmp_callback_t *)strcmp);
 
 	/* first get the paths that we know are used */

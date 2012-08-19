@@ -1196,7 +1196,7 @@ db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
 	ctx->auth_request = auth_request;
 	ctx->attr_map = attr_map;
 	ctx->ldap_attrs =
-		hash_table_create(default_pool, pool, 0, strcase_hash,
+		hash_table_create(pool, 0, strcase_hash,
 				  (hash_cmp_callback_t *)strcasecmp);
 	if (auth_request->set->debug)
 		ctx->debug = t_str_new(256);

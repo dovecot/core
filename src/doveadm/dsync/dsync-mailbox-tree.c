@@ -211,7 +211,7 @@ void dsync_mailbox_tree_build_name128_hash(struct dsync_mailbox_tree *tree)
 
 	i_assert(tree->name128_hash == NULL);
 
-	tree->name128_hash = hash_table_create(default_pool, tree->pool, 0,
+	tree->name128_hash = hash_table_create(tree->pool, 0,
 					       guid_128_hash, guid_128_cmp);
 	iter = dsync_mailbox_tree_iter_init(tree);
 	while (dsync_mailbox_tree_iter_next(iter, &name, &node)) {
@@ -251,7 +251,7 @@ dsync_mailbox_tree_build_name128_remotesep_hash(struct dsync_mailbox_tree *tree)
 	i_assert(tree->name128_remotesep_hash == NULL);
 
 	tree->name128_remotesep_hash =
-		hash_table_create(default_pool, tree->pool, 0,
+		hash_table_create(tree->pool, 0,
 				  guid_128_hash, guid_128_cmp);
 	iter = dsync_mailbox_tree_iter_init(tree);
 	while (dsync_mailbox_tree_iter_next(iter, &name, &node)) {
@@ -296,7 +296,7 @@ int dsync_mailbox_tree_build_guid_hash(struct dsync_mailbox_tree *tree)
 
 	i_assert(tree->guid_hash == NULL);
 
-	tree->guid_hash = hash_table_create(default_pool, tree->pool, 0,
+	tree->guid_hash = hash_table_create(tree->pool, 0,
 					    guid_128_hash, guid_128_cmp);
 	iter = dsync_mailbox_tree_iter_init(tree);
 	while (dsync_mailbox_tree_iter_next(iter, &name, &node))

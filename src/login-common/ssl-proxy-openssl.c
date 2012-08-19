@@ -1292,7 +1292,7 @@ void ssl_proxy_init(void)
 
 	extdata_index = SSL_get_ex_new_index(0, dovecot, NULL, NULL, NULL);
 
-	ssl_servers = hash_table_create(default_pool, default_pool, 0,
+	ssl_servers = hash_table_create(default_pool, 0,
 					ssl_server_context_hash,
 					ssl_server_context_cmp);
 	(void)ssl_server_context_init(login_set, ssl_set);

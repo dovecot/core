@@ -416,9 +416,8 @@ static void doveadm_expire_mail_init(struct doveadm_mail_cmd_context *ctx)
 	ctx->v.deinit = doveadm_expire_mail_cmd_deinit;
 	ctx->v.get_next_user = doveadm_expire_mail_cmd_get_next_user;
 
-	ectx->users =
-		hash_table_create(default_pool, ctx->pool, 0,
-				  str_hash, (hash_cmp_callback_t *)strcmp);
+	ectx->users = hash_table_create(ctx->pool, 0, str_hash,
+					(hash_cmp_callback_t *)strcmp);
 	while (mail_storage_service_all_next(ctx->storage_service, &username) > 0) {
 		username_dup = p_strdup(ctx->pool, username);
 		hash_table_insert(ectx->users, username_dup,

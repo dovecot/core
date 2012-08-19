@@ -51,8 +51,7 @@ master_auth_init(struct master_service *service, const char *path)
 	auth->pool = pool;
 	auth->service = service;
 	auth->path = p_strdup(pool, path);
-	auth->connections = hash_table_create(default_pool, pool,
-					      0, NULL, NULL);
+	auth->connections = hash_table_create(pool, 0, NULL, NULL);
 	return auth;
 }
 
