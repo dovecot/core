@@ -36,6 +36,7 @@ struct istream;
 struct ostream;
 
 #include "array-decl.h" /* ARRAY_DEFINE()s may exist in any header */
+#include "hash-decl.h" /* HASH_TABLE*()s may exist in any header */
 #include "strfuncs.h"
 #include "strnum.h"
 

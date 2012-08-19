@@ -59,6 +59,9 @@ struct maildir_uidlist_rec {
 };
 ARRAY_DEFINE_TYPE(maildir_uidlist_rec_p, struct maildir_uidlist_rec *);
 
+HASH_TABLE_DEFINE_TYPE(path_to_maildir_uidlist_rec,
+		       char *, struct maildir_uidlist_rec *);
+
 struct maildir_uidlist {
 	struct mailbox *box;
 	char *path;
@@ -76,7 +79,7 @@ struct maildir_uidlist {
 
 	pool_t record_pool;
 	ARRAY_TYPE(maildir_uidlist_rec_p) records;
-	struct hash_table *files;
+	HASH_TABLE_TYPE(path_to_maildir_uidlist_rec) files;
 	unsigned int change_counter;
 
 	unsigned int version;
@@ -105,7 +108,7 @@ struct maildir_uidlist_sync_ctx {
 
 	pool_t record_pool;
 	ARRAY_TYPE(maildir_uidlist_rec_p) records;
-	struct hash_table *files;
+	HASH_TABLE_TYPE(path_to_maildir_uidlist_rec) files;
 
 	unsigned int first_unwritten_pos, first_new_pos;
 	unsigned int new_files_count;
@@ -271,9 +274,9 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox)
 	uidlist->fd = -1;
 	uidlist->path = i_strconcat(control_dir, "/"MAILDIR_UIDLIST_NAME, NULL);
 	i_array_init(&uidlist->records, 128);
-	uidlist->files = hash_table_create(default_pool, 4096,
-					   maildir_filename_base_hash,
-					   maildir_filename_base_cmp);
+	hash_table_create(&uidlist->files, default_pool, 4096,
+			  maildir_filename_base_hash,
+			  maildir_filename_base_cmp);
 	uidlist->next_uid = 1;
 	uidlist->hdr_extensions = str_new(default_pool, 128);
 
@@ -1650,9 +1653,9 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 
 	ctx->record_pool = pool_alloconly_create(MEMPOOL_GROWING
 						 "maildir_uidlist_sync", 16384);
-	ctx->files = hash_table_create(ctx->record_pool, 4096,
-				       maildir_filename_base_hash,
-				       maildir_filename_base_cmp);
+	hash_table_create(&ctx->files, ctx->record_pool, 4096,
+			  maildir_filename_base_hash,
+			  maildir_filename_base_cmp);
 
 	i_array_init(&ctx->records, array_count(&uidlist->records));
 	return 1;
@@ -1978,7 +1981,7 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 
 	hash_table_destroy(&uidlist->files);
 	uidlist->files = ctx->files;
-	ctx->files = NULL;
+	memset(&ctx->files, 0, sizeof(ctx->files));
 
 	if (uidlist->record_pool != NULL)
 		pool_unref(&uidlist->record_pool);
@@ -2049,7 +2052,7 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx,
 	if (ctx->locked)
 		maildir_uidlist_unlock(ctx->uidlist);
 
-	if (ctx->files != NULL)
+	if (hash_table_is_created(ctx->files))
 		hash_table_destroy(&ctx->files);
 	if (ctx->record_pool != NULL)
 		pool_unref(&ctx->record_pool);

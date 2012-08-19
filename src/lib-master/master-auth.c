@@ -37,7 +37,7 @@ struct master_auth {
 	const char *path;
 
 	unsigned int tag_counter;
-	struct hash_table *connections;
+	HASH_TABLE(unsigned int, struct master_auth_connection *) connections;
 };
 
 struct master_auth *
@@ -51,7 +51,7 @@ master_auth_init(struct master_service *service, const char *path)
 	auth->pool = pool;
 	auth->service = service;
 	auth->path = p_strdup(pool, path);
-	auth->connections = hash_table_create(pool, 0, NULL, NULL);
+	hash_table_create_direct(&auth->connections, pool, 0);
 	return auth;
 }
 
@@ -62,10 +62,8 @@ master_auth_connection_deinit(struct master_auth_connection **_conn)
 
 	*_conn = NULL;
 
-	if (conn->tag != 0) {
-		hash_table_remove(conn->auth->connections,
-				  POINTER_CAST(conn->tag));
-	}
+	if (conn->tag != 0)
+		hash_table_remove(conn->auth->connections, conn->tag);
 
 	if (conn->callback != NULL)
 		conn->callback(NULL, conn->context);
@@ -211,7 +209,7 @@ void master_auth_request(struct master_auth *auth, int fd,
 			       master_auth_connection_timeout, conn);
 	conn->io = io_add(conn->fd, IO_READ,
 			  master_auth_connection_input, conn);
-	hash_table_insert(auth->connections, POINTER_CAST(req.tag), conn);
+	hash_table_insert(auth->connections, req.tag, conn);
 	*tag_r = req.tag;
 }
 
@@ -219,7 +217,7 @@ void master_auth_request_abort(struct master_auth *auth, unsigned int tag)
 {
         struct master_auth_connection *conn;
 
-	conn = hash_table_lookup(auth->connections, POINTER_CAST(tag));
+	conn = hash_table_lookup(auth->connections, tag);
 	if (conn == NULL)
 		i_panic("master_auth_request_abort(): tag %u not found", tag);
 

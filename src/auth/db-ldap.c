@@ -61,8 +61,8 @@ struct db_ldap_result_iterate_context {
 	const ARRAY_TYPE(ldap_field) *attr_map;
 	unsigned int attr_idx;
 
-	/* ldap_attr_name => struct db_ldap_value */
-	struct hash_table *ldap_attrs;
+	/* attribute name => value */
+	HASH_TABLE(char *, struct db_ldap_value *) ldap_attrs;
 	struct var_expand_table *var_table;
 
 	const char *val_1_arr[2];
@@ -1195,9 +1195,7 @@ db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
 	ctx->pool = pool;
 	ctx->auth_request = auth_request;
 	ctx->attr_map = attr_map;
-	ctx->ldap_attrs =
-		hash_table_create(pool, 0, strcase_hash,
-				  (hash_cmp_callback_t *)strcasecmp);
+	hash_table_create(&ctx->ldap_attrs, pool, 0, strcase_hash, strcasecmp);
 	if (auth_request->set->debug)
 		ctx->debug = t_str_new(256);
 
@@ -1312,7 +1310,8 @@ static void
 db_ldap_result_finish_debug(struct db_ldap_result_iterate_context *ctx)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	char *name;
+	struct db_ldap_value *value;
 	unsigned int orig_len, unused_count = 0;
 
 	orig_len = str_len(ctx->debug);
@@ -1325,11 +1324,8 @@ db_ldap_result_finish_debug(struct db_ldap_result_iterate_context *ctx)
 	str_append(ctx->debug, "; ");
 
 	iter = hash_table_iterate_init(ctx->ldap_attrs);
-	while (hash_table_iterate(iter, &key, &value)) {
-		const char *name = key;
-		struct db_ldap_value *ldap_value = value;
-
-		if (!ldap_value->used) {
+	while (hash_table_iterate_t(iter, ctx->ldap_attrs, &name, &value)) {
+		if (!value->used) {
 			str_printfa(ctx->debug, "%s,", name);
 			unused_count++;
 		}

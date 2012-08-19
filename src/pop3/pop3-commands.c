@@ -711,15 +711,21 @@ static void cmd_uidl_callback(struct client *client)
         (void)list_uids_iter(client, ctx);
 }
 
-static void uidl_rename_duplicate(string_t *uidl, struct hash_table *prev_uidls)
+HASH_TABLE_DEFINE_TYPE(uidl_counter, char *, unsigned int);
+
+static void
+uidl_rename_duplicate(string_t *uidl, HASH_TABLE_TYPE(uidl_counter) prev_uidls)
 {
-	void *key, *value;
+	void *orig_key, *orig_value;
+	char *key;
 	unsigned int counter;
 
-	while (hash_table_lookup_full(prev_uidls, str_c(uidl), &key, &value)) {
+	while (hash_table_lookup_full(prev_uidls, str_c(uidl),
+				      &orig_key, &orig_value)) {
 		/* duplicate. the value contains the number of duplicates. */
-		counter = POINTER_CAST_TO(value, unsigned int) + 1;
-		hash_table_update(prev_uidls, key, POINTER_CAST(counter));
+		key = orig_key;
+		counter = POINTER_CAST_TO(orig_value, unsigned int) + 1;
+		hash_table_update(prev_uidls, key, counter);
 		str_printfa(uidl, "-%u", counter);
 		/* the second lookup really should return NULL, but just in
 		   case of some weird UIDLs do this as many times as needed */
@@ -731,7 +737,7 @@ static void client_uidls_save(struct client *client)
 	struct mail_search_context *search_ctx;
 	struct mail_search_args *search_args;
 	struct mail *mail;
-	struct hash_table *prev_uidls;
+	HASH_TABLE_TYPE(uidl_counter) prev_uidls;
 	string_t *str;
 	char *uidl;
 	enum mail_fetch_field wanted_fields;
@@ -752,8 +758,7 @@ static void client_uidls_save(struct client *client)
 
 	uidl_duplicates_rename =
 		strcmp(client->set->pop3_uidl_duplicates, "rename") == 0;
-	prev_uidls = hash_table_create(default_pool, 0,
-				       str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&prev_uidls, default_pool, 0, str_hash, strcmp);
 	client->uidl_pool = pool_alloconly_create("message uidls", 1024);
 	client->message_uidls = p_new(client->uidl_pool, const char *,
 				      client->messages_count+1);
@@ -772,7 +777,7 @@ static void client_uidls_save(struct client *client)
 			uidl_rename_duplicate(str, prev_uidls);
 		uidl = p_strdup(client->uidl_pool, str_c(str));
 		client->message_uidls[msgnum] = uidl;
-		hash_table_insert(prev_uidls, uidl, POINTER_CAST(1));
+		hash_table_insert(prev_uidls, uidl, 1U);
 		msgnum++;
 	}
 	(void)mailbox_search_deinit(&search_ctx);

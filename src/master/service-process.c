@@ -322,7 +322,7 @@ struct service_process *service_process_create(struct service *service)
 	DLLIST_PREPEND(&service->processes, process);
 
 	service_list_ref(service->list);
-	hash_table_insert(service_pids, &process->pid, process);
+	hash_table_insert(service_pids, process->pid, process);
 
 	if (service->type == SERVICE_TYPE_ANVIL && process_forked)
 		service_anvil_process_created(process);
@@ -335,7 +335,7 @@ void service_process_destroy(struct service_process *process)
 	struct service_list *service_list = service->list;
 
 	DLLIST_REMOVE(&service->processes, process);
-	hash_table_remove(service_pids, &process->pid);
+	hash_table_remove(service_pids, process->pid);
 
 	if (process->available_count > 0)
 		service->process_avail--;

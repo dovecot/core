@@ -14,7 +14,8 @@
 #define NOTIFY_RETRY_REOPEN_MSECS (60*1000)
 
 struct login_proxy_state {
-	struct hash_table *hash;
+	HASH_TABLE(struct login_proxy_record *,
+		   struct login_proxy_record *) hash;
 	pool_t pool;
 
 	const char *notify_path;
@@ -25,17 +26,15 @@ struct login_proxy_state {
 
 static int login_proxy_state_notify_open(struct login_proxy_state *state);
 
-static unsigned int login_proxy_record_hash(const void *p)
+static unsigned int
+login_proxy_record_hash(const struct login_proxy_record *rec)
 {
-	const struct login_proxy_record *rec = p;
-
 	return net_ip_hash(&rec->ip) ^ rec->port;
 }
 
-static int login_proxy_record_cmp(const void *p1, const void *p2)
+static int login_proxy_record_cmp(struct login_proxy_record *rec1,
+				  struct login_proxy_record *rec2)
 {
-	const struct login_proxy_record *rec1 = p1, *rec2 = p2;
-
 	if (!net_ip_compare(&rec1->ip, &rec2->ip))
 		return 1;
 
@@ -48,9 +47,8 @@ struct login_proxy_state *login_proxy_state_init(const char *notify_path)
 
 	state = i_new(struct login_proxy_state, 1);
 	state->pool = pool_alloconly_create("login proxy state", 1024);
-	state->hash = hash_table_create(state->pool, 0,
-					login_proxy_record_hash,
-					login_proxy_record_cmp);
+	hash_table_create(&state->hash, state->pool, 0,
+			  login_proxy_record_hash, login_proxy_record_cmp);
 	state->notify_path = p_strdup(state->pool, notify_path);
 	state->notify_fd = -1;
 	return state;

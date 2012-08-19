@@ -98,7 +98,8 @@ struct ssl_server_context {
 };
 
 static int extdata_index;
-static struct hash_table *ssl_servers;
+static HASH_TABLE(struct ssl_server_context *,
+		  struct ssl_server_context *) ssl_servers;
 static SSL_CTX *ssl_client_ctx;
 static unsigned int ssl_proxy_count;
 static struct ssl_proxy *ssl_proxies;
@@ -118,9 +119,8 @@ ssl_server_context_init(const struct login_settings *login_set,
 			const struct master_service_ssl_settings *ssl_set);
 static void ssl_server_context_deinit(struct ssl_server_context **_ctx);
 
-static unsigned int ssl_server_context_hash(const void *p)
+static unsigned int ssl_server_context_hash(const struct ssl_server_context *ctx)
 {
-	const struct ssl_server_context *ctx = p;
 	unsigned int i, g, h = 0;
 
 	/* checking for different certs is typically good enough,
@@ -135,10 +135,9 @@ static unsigned int ssl_server_context_hash(const void *p)
 	return h;
 }
 
-static int ssl_server_context_cmp(const void *p1, const void *p2)
+static int ssl_server_context_cmp(const struct ssl_server_context *ctx1,
+				  const struct ssl_server_context *ctx2)
 {
-	const struct ssl_server_context *ctx1 = p1, *ctx2 = p2;
-
 	if (strcmp(ctx1->cert, ctx2->cert) != 0)
 		return 1;
 	if (strcmp(ctx1->key, ctx2->key) != 0)
@@ -1292,9 +1291,8 @@ void ssl_proxy_init(void)
 
 	extdata_index = SSL_get_ex_new_index(0, dovecot, NULL, NULL, NULL);
 
-	ssl_servers = hash_table_create(default_pool, 0,
-					ssl_server_context_hash,
-					ssl_server_context_cmp);
+	hash_table_create(&ssl_servers, default_pool, 0,
+			  ssl_server_context_hash, ssl_server_context_cmp);
 	(void)ssl_server_context_init(login_set, ssl_set);
 
 	ssl_proxy_init_client(login_set, ssl_set);
@@ -1321,7 +1319,7 @@ void ssl_proxy_init(void)
 void ssl_proxy_deinit(void)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	struct ssl_server_context *ctx;
 
 	if (!ssl_initialized)
 		return;
@@ -1330,11 +1328,8 @@ void ssl_proxy_deinit(void)
 		ssl_proxy_destroy(ssl_proxies);
 
 	iter = hash_table_iterate_init(ssl_servers);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct ssl_server_context *ctx = value;
-
+	while (hash_table_iterate_t(iter, ssl_servers, &ctx, &ctx))
 		ssl_server_context_deinit(&ctx);
-	}
 	hash_table_iterate_deinit(&iter);
 	hash_table_destroy(&ssl_servers);
 

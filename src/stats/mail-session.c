@@ -23,7 +23,7 @@
    flooding the error log with hundreds of warnings.) */
 #define SESSION_GUID_WARN_HIDE_SECS (60*5)
 
-static struct hash_table *mail_sessions_hash;
+static HASH_TABLE(uint8_t *, struct mail_session *) mail_sessions_hash;
 /* sessions are sorted by their last_update timestamp, oldest first */
 static struct mail_session *mail_sessions_head, *mail_sessions_tail;
 static time_t session_guid_warn_hide_until;
@@ -38,7 +38,9 @@ static size_t mail_session_memsize(const struct mail_session *session)
 
 static void mail_session_disconnect(struct mail_session *session)
 {
-	hash_table_remove(mail_sessions_hash, session->guid);
+	uint8_t *guid_p = session->guid;
+
+	hash_table_remove(mail_sessions_hash, guid_p);
 	session->disconnected = TRUE;
 	timeout_remove(&session->to_idle);
 	mail_session_unref(&session);
@@ -57,6 +59,7 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 {
 	struct mail_session *session;
 	guid_128_t session_guid;
+	uint8_t *guid_p;
 	pid_t pid;
 	struct ip_addr ip;
 	unsigned int i;
@@ -75,7 +78,8 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 		return -1;
 	}
 
-	session = hash_table_lookup(mail_sessions_hash, session_guid);
+	guid_p = session_guid;
+	session = hash_table_lookup(mail_sessions_hash, guid_p);
 	if (session != NULL) {
 		*error_r = "CONNECT: Duplicate session GUID";
 		return -1;
@@ -96,7 +100,8 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 			session->ip = mail_ip_login(&ip);
 	}
 
-	hash_table_insert(mail_sessions_hash, session->guid, session);
+	guid_p = session->guid;
+	hash_table_insert(mail_sessions_hash, guid_p, session);
 	DLLIST_PREPEND_FULL(&stable_mail_sessions, session,
 			    stable_prev, stable_next);
 	DLLIST2_APPEND_FULL(&mail_sessions_head, &mail_sessions_tail, session,
@@ -130,6 +135,8 @@ void mail_session_unref(struct mail_session **_session)
 
 static void mail_session_free(struct mail_session *session)
 {
+	uint8_t *guid_p = session->guid;
+
 	i_assert(session->refcount == 0);
 
 	global_memory_free(mail_session_memsize(session));
@@ -137,7 +144,7 @@ static void mail_session_free(struct mail_session *session)
 	if (session->to_idle != NULL)
 		timeout_remove(&session->to_idle);
 	if (!session->disconnected)
-		hash_table_remove(mail_sessions_hash, session->guid);
+		hash_table_remove(mail_sessions_hash, guid_p);
 	DLLIST_REMOVE_FULL(&stable_mail_sessions, session,
 			   stable_prev, stable_next);
 	DLLIST2_REMOVE_FULL(&mail_sessions_head, &mail_sessions_tail, session,
@@ -174,6 +181,7 @@ int mail_session_lookup(const char *guid, struct mail_session **session_r,
 			const char **error_r)
 {
 	guid_128_t session_guid;
+	uint8_t *guid_p;
 
 	if (guid == NULL) {
 		*error_r = "Too few parameters";
@@ -183,7 +191,8 @@ int mail_session_lookup(const char *guid, struct mail_session **session_r,
 		*error_r = "Invalid GUID";
 		return -1;
 	}
-	*session_r = hash_table_lookup(mail_sessions_hash, session_guid);
+	guid_p = session_guid;
+	*session_r = hash_table_lookup(mail_sessions_hash, guid_p);
 	if (*session_r == NULL) {
 		mail_session_guid_lost(session_guid);
 		return 0;
@@ -291,9 +300,8 @@ void mail_sessions_init(void)
 {
 	session_guid_warn_hide_until =
 		ioloop_time + SESSION_GUID_WARN_HIDE_SECS;
-	mail_sessions_hash =
-		hash_table_create(default_pool, 0,
-				  guid_128_hash, guid_128_cmp);
+	hash_table_create(&mail_sessions_hash, default_pool, 0,
+			  guid_128_hash, guid_128_cmp);
 }
 
 void mail_sessions_deinit(void)

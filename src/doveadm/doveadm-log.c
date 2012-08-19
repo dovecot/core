@@ -62,7 +62,7 @@ struct log_find_file {
 
 struct log_find_context {
 	pool_t pool;
-	struct hash_table *files;
+	HASH_TABLE(char *, struct log_find_file *) files;
 };
 
 static void cmd_log_find_add(struct log_find_context *ctx,
@@ -222,8 +222,7 @@ static void cmd_log_find(int argc, char *argv[])
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool_alloconly_create("log file", 1024*32);
-	ctx.files = hash_table_create(ctx.pool, 0,
-				      str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&ctx.files, ctx.pool, 0, str_hash, strcmp);
 
 	/* first get the paths that we know are used */
 	set = master_service_settings_get(master_service);

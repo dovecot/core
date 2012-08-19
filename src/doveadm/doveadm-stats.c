@@ -37,7 +37,7 @@ struct top_context {
 
 	pool_t prev_pool, cur_pool;
 	/* id => struct top_line. */
-	struct hash_table *sessions;
+	HASH_TABLE(char *, struct top_line *) sessions;
 	ARRAY_DEFINE(lines, struct top_line *);
 	int (*lines_sort)(struct top_line *const *, struct top_line *const *);
 
@@ -203,14 +203,13 @@ static void stats_read(struct top_context *ctx)
 static void stats_drop_stale(struct top_context *ctx)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	char *id;
+	struct top_line *line;
 
 	iter = hash_table_iterate_init(ctx->sessions);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct top_line *line = value;
-
+	while (hash_table_iterate_t(iter, ctx->sessions, &id, &line)) {
 		if (line->flip != ctx->flip)
-			hash_table_remove(ctx->sessions, key);
+			hash_table_remove(ctx->sessions, id);
 	}
 	hash_table_iterate_deinit(&iter);
 }
@@ -477,9 +476,7 @@ static void stats_top(const char *path, const char *sort_type)
 	ctx.prev_pool = pool_alloconly_create("stats top", 1024*16);
 	ctx.cur_pool = pool_alloconly_create("stats top", 1024*16);
 	i_array_init(&ctx.lines, 128);
-	ctx.sessions =
-		hash_table_create(default_pool, 0,
-				  str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&ctx.sessions, default_pool, 0, str_hash, strcmp);
 	net_set_nonblock(ctx.fd, FALSE);
 
 	ctx.input = i_stream_create_fd(ctx.fd, (size_t)-1, TRUE);

@@ -22,7 +22,7 @@
 #define DOVEADM_MAIL_SERVER_FAILED() \
 	(internal_failure || master_service_is_killed(master_service))
 
-static struct hash_table *servers;
+static HASH_TABLE(char *, struct doveadm_server *) servers;
 static pool_t server_pool;
 static struct doveadm_mail_cmd_context *cmd_ctx;
 static bool internal_failure = FALSE;
@@ -36,10 +36,9 @@ doveadm_server_get(struct doveadm_mail_cmd_context *ctx, const char *name)
 	struct doveadm_server *server;
 	char *dup_name;
 
-	if (servers == NULL) {
+	if (!hash_table_is_created(servers)) {
 		server_pool = pool_alloconly_create("doveadm servers", 1024*16);
-		servers = hash_table_create(server_pool, 0, str_hash,
-					    (hash_cmp_callback_t *)strcmp);
+		hash_table_create(&servers, server_pool, 0, str_hash, strcmp);
 	}
 	server = hash_table_lookup(servers, name);
 	if (server == NULL) {
@@ -277,12 +276,11 @@ static struct doveadm_server *doveadm_server_find_used(void)
 static void doveadm_servers_destroy_all_connections(void)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	char *key;
+	struct doveadm_server *server;
 
 	iter = hash_table_iterate_init(servers);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct doveadm_server *server = value;
-
+	while (hash_table_iterate_t(iter, servers, &key, &server)) {
 		while (array_count(&server->connections) > 0) {
 			struct server_connection *const *connp, *conn;
 
@@ -298,7 +296,7 @@ void doveadm_mail_server_flush(void)
 {
 	struct doveadm_server *server;
 
-	if (servers == NULL) {
+	if (!hash_table_is_created(servers)) {
 		cmd_ctx = NULL;
 		return;
 	}

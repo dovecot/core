@@ -19,7 +19,7 @@
 #define SERVICE_DIE_TIMEOUT_MSECS (1000*60)
 #define SERVICE_LOGIN_NOTIFY_MIN_INTERVAL_SECS 2
 
-struct hash_table *service_pids;
+HASH_TABLE_TYPE(pid_process) service_pids;
 
 void service_error(struct service *service, const char *format, ...)
 {
@@ -376,21 +376,6 @@ service_create(pool_t pool, const struct service_settings *set,
 	return service;
 }
 
-static unsigned int pid_hash(const void *p)
-{
-	const pid_t *pid = p;
-
-	return (unsigned int)*pid;
-}
-
-static int pid_hash_cmp(const void *p1, const void *p2)
-{
-	const pid_t *pid1 = p1, *pid2 = p2;
-
-	return *pid1 < *pid2 ? -1 :
-		*pid1 > *pid2 ? 1 : 0;
-}
-
 struct service *
 service_lookup(struct service_list *service_list, const char *name)
 {
@@ -726,8 +711,7 @@ void services_throttle_time_sensitives(struct service_list *list,
 
 void service_pids_init(void)
 {
-	service_pids = hash_table_create(default_pool, 0,
-					 pid_hash, pid_hash_cmp);
+	hash_table_create_direct(&service_pids, default_pool, 0);
 }
 
 void service_pids_deinit(void)

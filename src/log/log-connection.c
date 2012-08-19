@@ -33,8 +33,7 @@ struct log_connection {
 	struct istream *input;
 
 	char *default_prefix;
-	/* pid -> struct log_client* */
-	struct hash_table *clients;
+	HASH_TABLE(pid_t, struct log_client *) clients;
 
 	unsigned int master:1;
 	unsigned int handshaked:1;
@@ -49,10 +48,10 @@ static struct log_client *log_client_get(struct log_connection *log, pid_t pid)
 {
 	struct log_client *client;
 
-	client = hash_table_lookup(log->clients, POINTER_CAST(pid));
+	client = hash_table_lookup(log->clients, pid);
 	if (client == NULL) {
 		client = i_new(struct log_client, 1);
-		hash_table_insert(log->clients, POINTER_CAST(pid), client);
+		hash_table_insert(log->clients, pid, client);
 	}
 	return client;
 }
@@ -60,7 +59,7 @@ static struct log_client *log_client_get(struct log_connection *log, pid_t pid)
 static void log_client_free(struct log_connection *log,
 			    struct log_client *client, pid_t pid)
 {
-	hash_table_remove(log->clients, POINTER_CAST(pid));
+	hash_table_remove(log->clients, pid);
 
 	i_free(client->prefix);
 	i_free(client);
@@ -141,7 +140,7 @@ log_parse_master_line(const char *line, time_t log_time, const struct tm *tm)
 	const char *p, *p2, *cmd;
 	unsigned int count;
 	int service_fd;
-	long pid;
+	pid_t pid;
 
 	p = strchr(line, ' ');
 	if (p == NULL || (p2 = strchr(++p, ' ')) == NULL) {
@@ -164,7 +163,7 @@ log_parse_master_line(const char *line, time_t log_time, const struct tm *tm)
 		return;
 	}
 	log = logs[service_fd];
-	client = hash_table_lookup(log->clients, POINTER_CAST(pid));
+	client = hash_table_lookup(log->clients, pid);
 
 	if (strcmp(cmd, "BYE") == 0) {
 		if (client == NULL) {
@@ -212,8 +211,7 @@ log_it(struct log_connection *log, const char *line,
 		log_parse_option(log, &failure);
 		return;
 	default:
-		client = hash_table_lookup(log->clients,
-					   POINTER_CAST(failure.pid));
+		client = hash_table_lookup(log->clients, failure.pid);
 		break;
 	}
 	i_assert(failure.log_type < LOG_TYPE_COUNT);
@@ -317,7 +315,7 @@ void log_connection_create(struct log_error_buffer *errorbuf,
 	log->listen_fd = listen_fd;
 	log->io = io_add(fd, IO_READ, log_connection_input, log);
 	log->input = i_stream_create_fd(fd, PIPE_BUF, FALSE);
-	log->clients = hash_table_create(default_pool, 0, NULL, NULL);
+	hash_table_create_direct(&log->clients, default_pool, 0);
 	array_idx_set(&logs_by_fd, listen_fd, &log);
 
 	DLLIST_PREPEND(&log_connections, log);

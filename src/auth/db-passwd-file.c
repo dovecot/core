@@ -156,7 +156,7 @@ passwd_file_new(struct db_passwd_file *db, const char *expanded_path)
 	pw->path = i_strdup(expanded_path);
 	pw->fd = -1;
 
-	if (db->files != NULL)
+	if (hash_table_is_created(db->files))
 		hash_table_insert(db->files, pw->path, pw);
 	return pw;
 }
@@ -194,8 +194,7 @@ static bool passwd_file_open(struct passwd_file *pw, bool startup)
 	pw->size = st.st_size;
 
 	pw->pool = pool_alloconly_create(MEMPOOL_GROWING"passwd_file", 10240);
-	pw->users = hash_table_create(pw->pool, 100,
-				      str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&pw->users, pw->pool, 0, str_hash, strcmp);
 
 	start_time = time(NULL);
 	input = i_stream_create_fd(pw->fd, 4096, FALSE);
@@ -238,7 +237,7 @@ static void passwd_file_close(struct passwd_file *pw)
 		pw->fd = -1;
 	}
 
-	if (pw->users != NULL)
+	if (hash_table_is_created(pw->users))
 		hash_table_destroy(&pw->users);
 	if (pw->pool != NULL)
 		pool_unref(&pw->pool);
@@ -246,7 +245,7 @@ static void passwd_file_close(struct passwd_file *pw)
 
 static void passwd_file_free(struct passwd_file *pw)
 {
-	if (pw->db->files != NULL)
+	if (hash_table_is_created(pw->db->files))
 		hash_table_remove(pw->db->files, pw->path);
 
 	passwd_file_close(pw);
@@ -344,8 +343,8 @@ db_passwd_file_init(const char *path, bool userdb, bool debug)
 
 	db->path = i_strdup(path);
 	if (db->vars) {
-		db->files = hash_table_create(default_pool, 100, str_hash,
-					      (hash_cmp_callback_t *)strcmp);
+		hash_table_create(&db->files, default_pool, 0,
+				  str_hash, strcmp);
 	} else {
 		db->default_file = passwd_file_new(db, path);
 	}
@@ -368,7 +367,8 @@ void db_passwd_file_unref(struct db_passwd_file **_db)
         struct db_passwd_file *db = *_db;
         struct db_passwd_file **p;
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	char *path;
+	struct passwd_file *file;
 
 	*_db = NULL;
 	i_assert(db->refcount >= 0);
@@ -386,11 +386,8 @@ void db_passwd_file_unref(struct db_passwd_file **_db)
 		passwd_file_free(db->default_file);
 	else {
 		iter = hash_table_iterate_init(db->files);
-		while (hash_table_iterate(iter, &key, &value)) {
-			struct passwd_file *file = value;
-
+		while (hash_table_iterate_t(iter, db->files, &path, &file))
 			passwd_file_free(file);
-		}
 		hash_table_iterate_deinit(&iter);
 		hash_table_destroy(&db->files);
 	}

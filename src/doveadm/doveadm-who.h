@@ -21,7 +21,7 @@ struct who_context {
 	struct who_filter filter;
 
 	pool_t pool;
-	struct hash_table *users; /* username -> who_user */
+	HASH_TABLE(struct who_user *, struct who_user *) users;
 };
 
 typedef void who_callback_t(struct who_context *ctx,

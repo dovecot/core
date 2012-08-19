@@ -36,9 +36,9 @@ void dsync_mailbox_tree_deinit(struct dsync_mailbox_tree **_tree)
 	struct dsync_mailbox_tree *tree = *_tree;
 
 	*_tree = NULL;
-	if (tree->name128_hash != NULL)
+	if (hash_table_is_created(tree->name128_hash))
 		hash_table_destroy(&tree->name128_hash);
-	if (tree->guid_hash != NULL)
+	if (hash_table_is_created(tree->guid_hash))
 		hash_table_destroy(&tree->guid_hash);
 	array_free(&tree->deletes);
 	pool_unref(&tree->pool);
@@ -208,16 +208,18 @@ void dsync_mailbox_tree_build_name128_hash(struct dsync_mailbox_tree *tree)
 	struct dsync_mailbox_node *node;
 	const char *name;
 	guid_128_t *sha128;
+	uint8_t *guid_p;
 
-	i_assert(tree->name128_hash == NULL);
+	i_assert(!hash_table_is_created(tree->name128_hash));
 
-	tree->name128_hash = hash_table_create(tree->pool, 0,
-					       guid_128_hash, guid_128_cmp);
+	hash_table_create(&tree->name128_hash,
+			  tree->pool, 0, guid_128_hash, guid_128_cmp);
 	iter = dsync_mailbox_tree_iter_init(tree);
 	while (dsync_mailbox_tree_iter_next(iter, &name, &node)) {
 		sha128 = p_new(tree->pool, guid_128_t, 1);
 		mailbox_name_get_sha128(name, *sha128);
-		hash_table_insert(tree->name128_hash, *sha128, node);
+		guid_p = *sha128;
+		hash_table_insert(tree->name128_hash, guid_p, node);
 	}
 	dsync_mailbox_tree_iter_deinit(&iter);
 }
@@ -246,13 +248,13 @@ dsync_mailbox_tree_build_name128_remotesep_hash(struct dsync_mailbox_tree *tree)
 	struct dsync_mailbox_node *node;
 	const char *name;
 	guid_128_t *sha128;
+	uint8_t *guid_p;
 
 	i_assert(tree->sep != tree->remote_sep);
-	i_assert(tree->name128_remotesep_hash == NULL);
+	i_assert(!hash_table_is_created(tree->name128_remotesep_hash));
 
-	tree->name128_remotesep_hash =
-		hash_table_create(tree->pool, 0,
-				  guid_128_hash, guid_128_cmp);
+	hash_table_create(&tree->name128_remotesep_hash, tree->pool, 0,
+			  guid_128_hash, guid_128_cmp);
 	iter = dsync_mailbox_tree_iter_init(tree);
 	while (dsync_mailbox_tree_iter_next(iter, &name, &node)) {
 		sha128 = p_new(tree->pool, guid_128_t, 1);
@@ -261,7 +263,8 @@ dsync_mailbox_tree_build_name128_remotesep_hash(struct dsync_mailbox_tree *tree)
 				convert_name_to_remote_sep(tree, name);
 			mailbox_name_get_sha128(remote_name, *sha128);
 		} T_END;
-		hash_table_insert(tree->name128_remotesep_hash, *sha128, node);
+		guid_p = *sha128;
+		hash_table_insert(tree->name128_remotesep_hash, guid_p, node);
 	}
 	dsync_mailbox_tree_iter_deinit(&iter);
 }
@@ -270,11 +273,12 @@ int dsync_mailbox_tree_guid_hash_add(struct dsync_mailbox_tree *tree,
 				     struct dsync_mailbox_node *node)
 {
 	struct dsync_mailbox_node *old_node;
+	uint8_t *guid = node->mailbox_guid;
 
 	if (guid_128_is_empty(node->mailbox_guid))
 		return 0;
 
-	old_node = hash_table_lookup(tree->guid_hash, node->mailbox_guid);
+	old_node = hash_table_lookup(tree->guid_hash, guid);
 	if (old_node != NULL) {
 		i_error("Duplicate mailbox GUID %s "
 			"for mailboxes %s and %s",
@@ -283,7 +287,7 @@ int dsync_mailbox_tree_guid_hash_add(struct dsync_mailbox_tree *tree,
 			dsync_mailbox_node_get_full_name(tree, node));
 		return -1;
 	}
-	hash_table_insert(tree->guid_hash, node->mailbox_guid, node);
+	hash_table_insert(tree->guid_hash, guid, node);
 	return 0;
 }
 
@@ -294,10 +298,10 @@ int dsync_mailbox_tree_build_guid_hash(struct dsync_mailbox_tree *tree)
 	const char *name;
 	int ret = 0;
 
-	i_assert(tree->guid_hash == NULL);
+	i_assert(!hash_table_is_created(tree->guid_hash));
 
-	tree->guid_hash = hash_table_create(tree->pool, 0,
-					    guid_128_hash, guid_128_cmp);
+	hash_table_create(&tree->guid_hash, tree->pool, 0,
+			  guid_128_hash, guid_128_cmp);
 	iter = dsync_mailbox_tree_iter_init(tree);
 	while (dsync_mailbox_tree_iter_next(iter, &name, &node))
 		(void)dsync_mailbox_tree_guid_hash_add(tree, node);
@@ -316,28 +320,27 @@ struct dsync_mailbox_node *
 dsync_mailbox_tree_find_delete(struct dsync_mailbox_tree *tree,
 			       const struct dsync_mailbox_delete *del)
 {
-	struct hash_table *hash;
+	const uint8_t *guid_p = del->guid;
 
-	i_assert(tree->guid_hash != NULL);
+	i_assert(hash_table_is_created(tree->guid_hash));
 	i_assert(tree->remote_sep != '\0');
 
 	if (del->delete_mailbox) {
 		/* find node by GUID */
-		return hash_table_lookup(tree->guid_hash, del->guid);
+		return hash_table_lookup(tree->guid_hash, guid_p);
 	}
 
 	/* find node by name. this is a bit tricky, since the hierarchy
 	   separator may differ from ours. */
 	if (tree->sep == tree->remote_sep) {
-		if (tree->name128_hash == NULL)
+		if (!hash_table_is_created(tree->name128_hash))
 			dsync_mailbox_tree_build_name128_hash(tree);
-		hash = tree->name128_hash;
+		return hash_table_lookup(tree->name128_hash, guid_p);
 	} else {
-		if (tree->name128_remotesep_hash == NULL)
+		if (!hash_table_is_created(tree->name128_remotesep_hash))
 			dsync_mailbox_tree_build_name128_remotesep_hash(tree);
-		hash = tree->name128_remotesep_hash;
+		return hash_table_lookup(tree->name128_remotesep_hash, guid_p);
 	}
-	return hash_table_lookup(hash, del->guid);
 }
 
 void dsync_mailbox_tree_set_remote_sep(struct dsync_mailbox_tree *tree,

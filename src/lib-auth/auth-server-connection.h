@@ -19,7 +19,7 @@ struct auth_server_connection {
 
 	ARRAY_DEFINE(available_auth_mechs, struct auth_mech_desc);
 
-        struct hash_table *requests;
+	HASH_TABLE(unsigned int, struct auth_client_request *) requests;
 
 	unsigned int version_received:1;
 	unsigned int handshake_received:1;

@@ -12,7 +12,7 @@
 #include <time.h>
 
 struct auth_cache {
-	struct hash_table *hash;
+	HASH_TABLE(char *, struct auth_cache_node *) hash;
 	struct auth_cache_node *head, *tail;
 
 	size_t size_left;
@@ -178,10 +178,12 @@ auth_cache_node_link_head(struct auth_cache *cache,
 static void
 auth_cache_node_destroy(struct auth_cache *cache, struct auth_cache_node *node)
 {
+	char *key = node->data;
+
 	auth_cache_node_unlink(cache, node);
 
 	cache->size_left += node->alloc_size;
-	hash_table_remove(cache->hash, node->data);
+	hash_table_remove(cache->hash, key);
 	i_free(node);
 }
 
@@ -221,8 +223,7 @@ struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs,
 	struct auth_cache *cache;
 
 	cache = i_new(struct auth_cache, 1);
-	cache->hash = hash_table_create(default_pool, 0, str_hash,
-					(hash_cmp_callback_t *)strcmp);
+	hash_table_create(&cache->hash, default_pool, 0, str_hash, strcmp);
 	cache->size_left = max_size;
 	cache->ttl_secs = ttl_secs;
 	cache->neg_ttl_secs = neg_ttl_secs;
@@ -386,7 +387,7 @@ void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 {
         struct auth_cache_node *node;
 	size_t data_size, alloc_size, key_len, value_len = strlen(value);
-	char *current_username;
+	char *hash_key, *current_username;
 
 	if (*value == '\0' && cache->neg_ttl_secs == 0) {
 		/* we're not caching negative entries */
@@ -430,7 +431,8 @@ void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 	auth_cache_node_link_head(cache, node);
 
 	cache->size_left -= alloc_size;
-	hash_table_insert(cache->hash, node->data, node);
+	hash_key = node->data;
+	hash_table_insert(cache->hash, hash_key, node);
 
 	if (*value != '\0') {
 		cache->pos_entries++;

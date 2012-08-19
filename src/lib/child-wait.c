@@ -14,7 +14,7 @@ struct child_wait {
 	void *context;
 };
 
-struct hash_table *child_pids;
+HASH_TABLE(pid_t, struct child_wait *) child_pids;
 
 #undef child_wait_new_with_pid
 struct child_wait *
@@ -37,6 +37,7 @@ void child_wait_free(struct child_wait **_wait)
 	struct child_wait *wait = *_wait;
 	struct hash_iterate_context *iter;
 	void *key, *value;
+	pid_t pid;
 
 	*_wait = NULL;
 
@@ -45,7 +46,8 @@ void child_wait_free(struct child_wait **_wait)
 		iter = hash_table_iterate_init(child_pids);
 		while (hash_table_iterate(iter, &key, &value)) {
 			if (value == wait) {
-				hash_table_remove(child_pids, key);
+				pid = POINTER_CAST_TO(key, pid_t);
+				hash_table_remove(child_pids, pid);
 				if (--wait->pid_count == 0)
 					break;
 			}
@@ -59,13 +61,13 @@ void child_wait_free(struct child_wait **_wait)
 void child_wait_add_pid(struct child_wait *wait, pid_t pid)
 {
 	wait->pid_count++;
-	hash_table_insert(child_pids, POINTER_CAST(pid), wait);
+	hash_table_insert(child_pids, pid, wait);
 }
 
 void child_wait_remove_pid(struct child_wait *wait, pid_t pid)
 {
 	wait->pid_count--;
-	hash_table_remove(child_pids, POINTER_CAST(pid));
+	hash_table_remove(child_pids, pid);
 }
 
 static void
@@ -74,8 +76,7 @@ sigchld_handler(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 	struct child_wait_status status;
 
 	while ((status.pid = waitpid(-1, &status.status, WNOHANG)) > 0) {
-		status.wait = hash_table_lookup(child_pids,
-						POINTER_CAST(status.pid));
+		status.wait = hash_table_lookup(child_pids, status.pid);
 		if (status.wait != NULL) {
 			child_wait_remove_pid(status.wait, status.pid);
 			status.wait->callback(&status, status.wait->context);
@@ -88,7 +89,7 @@ sigchld_handler(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 
 void child_wait_init(void)
 {
-	child_pids = hash_table_create(default_pool, 0, NULL, NULL);
+	hash_table_create_direct(&child_pids, default_pool, 0);
 
 	lib_signals_set_handler(SIGCHLD, LIBSIG_FLAGS_SAFE,
 				sigchld_handler, NULL);

@@ -106,11 +106,12 @@ sync_delete_mailbox(struct dsync_mailbox_tree_sync_ctx *ctx,
 	struct dsync_mailbox_node *other_node;
 	struct dsync_mailbox_tree_sync_change *change;
 	const char *name;
+	const uint8_t *guid_p;
 
 	other_tree = tree == ctx->local_tree ?
 		ctx->remote_tree : ctx->local_tree;
-	other_node = hash_table_lookup(other_tree->guid_hash,
-				       node->mailbox_guid);
+	guid_p = node->mailbox_guid;
+	other_node = hash_table_lookup(other_tree->guid_hash, guid_p);
 	if (other_node == NULL) {
 		/* doesn't exist / already deleted */
 	} else if (other_tree == ctx->local_tree) {
@@ -165,10 +166,11 @@ sync_find_node(struct dsync_mailbox_tree *tree,
 	       struct dsync_mailbox_node *other_node)
 {
 	struct dsync_mailbox_node *n1, *n2;
+	const uint8_t *guid_p;
 
 	if (!guid_128_is_empty(other_node->mailbox_guid)) {
-		return hash_table_lookup(tree->guid_hash,
-					 other_node->mailbox_guid);
+		guid_p = other_node->mailbox_guid;
+		return hash_table_lookup(tree->guid_hash, guid_p);
 	}
 	/* if we can find a node that has all of the same mailboxes as children,
 	   return it. */
@@ -178,7 +180,8 @@ sync_find_node(struct dsync_mailbox_tree *tree,
 	}
 	if (n1 == NULL)
 		return NULL;
-	n2 = hash_table_lookup(tree->guid_hash, n1->mailbox_guid);
+	guid_p = n1->mailbox_guid;
+	n2 = hash_table_lookup(tree->guid_hash, guid_p);
 	if (n2 == NULL)
 		return NULL;
 
@@ -400,6 +403,7 @@ static void sync_create_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 	struct dsync_mailbox_tree_iter *iter;
 	struct dsync_mailbox_node *node, *other_node;
 	const char *name;
+	const uint8_t *guid_p;
 
 	other_tree = tree == ctx->local_tree ?
 		ctx->remote_tree : ctx->local_tree;
@@ -411,8 +415,8 @@ static void sync_create_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 
 		i_assert(node->existence == DSYNC_MAILBOX_NODE_EXISTS);
 
-		other_node = hash_table_lookup(other_tree->guid_hash,
-					       node->mailbox_guid);
+		guid_p = node->mailbox_guid;
+		other_node = hash_table_lookup(other_tree->guid_hash, guid_p);
 		if (other_node == NULL)
 			other_node = sorted_tree_get(other_tree, name);
 		if (!guid_128_is_empty(other_node->mailbox_guid)) {
@@ -564,8 +568,8 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 	struct dsync_mailbox_tree_sync_ctx *ctx;
 	pool_t pool;
 
-	i_assert(local_tree->guid_hash != NULL);
-	i_assert(remote_tree->guid_hash != NULL);
+	i_assert(hash_table_is_created(local_tree->guid_hash));
+	i_assert(hash_table_is_created(remote_tree->guid_hash));
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"dsync mailbox trees sync",
 				     1024*64);

@@ -9,7 +9,7 @@
 #include "mail-stats.h"
 #include "mail-ip.h"
 
-static struct hash_table *mail_ips_hash;
+static HASH_TABLE(struct ip_addr *, struct mail_ip *) mail_ips_hash;
 /* ips are sorted by their last_update timestamp, oldest first */
 static struct mail_ip *mail_ips_head, *mail_ips_tail;
 struct mail_ip *stable_mail_ips;
@@ -108,10 +108,8 @@ void mail_ips_free_memory(void)
 
 void mail_ips_init(void)
 {
-	mail_ips_hash =
-		hash_table_create(default_pool, 0,
-				  (hash_callback_t *)net_ip_hash,
-				  (hash_cmp_callback_t *)net_ip_cmp);
+	hash_table_create(&mail_ips_hash, default_pool, 0,
+			  net_ip_hash, net_ip_cmp);
 }
 
 void mail_ips_deinit(void)

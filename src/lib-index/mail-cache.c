@@ -410,9 +410,8 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 	cache->filepath =
 		i_strconcat(index->filepath, MAIL_CACHE_FILE_SUFFIX, NULL);
 	cache->field_pool = pool_alloconly_create("Cache fields", 2048);
-	cache->field_name_hash =
-		hash_table_create(cache->field_pool, 0,
-				  strcase_hash, (hash_cmp_callback_t *)strcasecmp);
+	hash_table_create(&cache->field_name_hash, cache->field_pool, 0,
+			  strcase_hash, strcasecmp);
 
 	cache->dotlock_settings.use_excl_lock =
 		(index->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;

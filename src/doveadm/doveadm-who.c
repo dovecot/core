@@ -23,17 +23,14 @@ struct who_user {
 	unsigned int connection_count;
 };
 
-static unsigned int who_user_hash(const void *p)
+static unsigned int who_user_hash(const struct who_user *user)
 {
-	const struct who_user *user = p;
-
 	return str_hash(user->username) + str_hash(user->service);
 }
 
-static int who_user_cmp(const void *p1, const void *p2)
+static int who_user_cmp(const struct who_user *user1,
+			const struct who_user *user2)
 {
-	const struct who_user *user1 = p1, *user2 = p2;
-
 	if (strcmp(user1->username, user2->username) != 0)
 		return 1;
 	if (strcmp(user1->service, user2->service) != 0)
@@ -274,8 +271,7 @@ static void cmd_who(int argc, char *argv[])
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
 	ctx.pool = pool_alloconly_create("who users", 10240);
-	ctx.users = hash_table_create(ctx.pool, 0,
-				      who_user_hash, who_user_cmp);
+	hash_table_create(&ctx.users, ctx.pool, 0, who_user_hash, who_user_cmp);
 
 	while ((c = getopt(argc, argv, "1a:")) > 0) {
 		switch (c) {

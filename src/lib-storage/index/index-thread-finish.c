@@ -59,7 +59,7 @@ struct subject_gather_context {
 	struct thread_finish_context *ctx;
 
 	pool_t subject_pool;
-	struct hash_table *subject_hash;
+	HASH_TABLE(char *, struct mail_thread_root_node *) subject_hash;
 };
 
 static void
@@ -68,7 +68,6 @@ add_base_subject(struct subject_gather_context *ctx, const char *subject,
 {
 	struct mail_thread_root_node *hash_node;
 	char *hash_subject;
-	void *key, *value;
 	bool is_reply_or_forward;
 
 	subject = imap_get_base_subject_cased(pool_datastack_create(), subject,
@@ -79,16 +78,14 @@ add_base_subject(struct subject_gather_context *ctx, const char *subject,
 
 	/* (iii) Look up the message associated with the thread
 	   subject in the subject table. */
-	if (!hash_table_lookup_full(ctx->subject_hash, subject, &key, &value)) {
+	if (!hash_table_lookup_full_t(ctx->subject_hash, subject, &hash_subject,
+				      &hash_node)) {
 		/* (iv) If there is no message in the subject table with the
 		   thread subject, add the current message and the thread
 		   subject to the subject table. */
 		hash_subject = p_strdup(ctx->subject_pool, subject);
 		hash_table_insert(ctx->subject_hash, hash_subject, node);
 	} else {
-		hash_subject = key;
-		hash_node = value;
-
 		/* Otherwise, if the message in the subject table is not a
 		   dummy, AND either of the following criteria are true:
 
@@ -222,10 +219,8 @@ static void gather_base_subjects(struct thread_finish_context *ctx)
 	gather_ctx.subject_pool =
 		pool_alloconly_create(MEMPOOL_GROWING"base subjects",
 				      nearest_power(count * 20));
-	gather_ctx.subject_hash =
-		hash_table_create(gather_ctx.subject_pool,
-				  count * 2, str_hash,
-				  (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&gather_ctx.subject_hash, gather_ctx.subject_pool,
+			  count * 2, str_hash, strcmp);
 
 	i_array_init(&sorted_children, 64);
 	for (i = 0; i < count; i++) {

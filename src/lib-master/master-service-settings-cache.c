@@ -38,8 +38,8 @@ struct master_service_settings_cache {
 	/* separate list for entries whose parser=global_parser */
 	struct settings_entry *oldest_global, *newest_global;
 	/* local_name, local_ip => struct settings_entry */
-	struct hash_table *local_name_hash;
-	struct hash_table *local_ip_hash;
+	HASH_TABLE(char *, struct settings_entry *) local_name_hash;
+	HASH_TABLE(struct ip_addr *, struct settings_entry *) local_ip_hash;
 
 	/* Initial size for new settings entry pools */
 	size_t approx_entry_pool_size;
@@ -85,9 +85,9 @@ void master_service_settings_cache_deinit(struct master_service_settings_cache *
 		settings_parser_deinit(&entry->parser);
 		pool_unref(&entry->pool);
 	}
-	if (cache->local_name_hash != NULL)
+	if (hash_table_is_created(cache->local_name_hash))
 		hash_table_destroy(&cache->local_name_hash);
-	if (cache->local_ip_hash != NULL)
+	if (hash_table_is_created(cache->local_ip_hash))
 		hash_table_destroy(&cache->local_ip_hash);
 	if (cache->global_parser != NULL)
 		settings_parser_deinit(&cache->global_parser);
@@ -134,11 +134,11 @@ cache_find(struct master_service_settings_cache *cache,
 	   don't even try to use local_ip (even though we have it), because
 	   there may be different settings specifically for local_name */
 	if (input->local_name != NULL) {
-		if (cache->local_name_hash != NULL) {
+		if (hash_table_is_created(cache->local_name_hash)) {
 			entry = hash_table_lookup(cache->local_name_hash,
 						  input->local_name);
 		}
-	} else if (cache->local_ip_hash != NULL &&
+	} else if (hash_table_is_created(cache->local_ip_hash) &&
 		   input->local_ip.family != 0) {
 		entry = hash_table_lookup(cache->local_ip_hash,
 					  &input->local_ip);
@@ -231,21 +231,17 @@ cache_add(struct master_service_settings_cache *cache,
 	cache->cache_malloc_size += pool_alloconly_get_total_alloc_size(pool);
 
 	if (input->local_name != NULL) {
-		if (cache->local_name_hash == NULL) {
-			cache->local_name_hash =
-				hash_table_create(cache->pool, 0,
-						  str_hash,
-						  (hash_cmp_callback_t *)strcmp);
+		if (!hash_table_is_created(cache->local_name_hash)) {
+			hash_table_create(&cache->local_name_hash,
+					  cache->pool, 0, str_hash, strcmp);
 		}
 		hash_table_insert(cache->local_name_hash,
 				  entry_local_name, entry);
 	}
 	if (input->local_ip.family != 0) {
-		if (cache->local_ip_hash == NULL) {
-			cache->local_ip_hash =
-				hash_table_create(cache->pool, 0,
-						  (hash_callback_t *)net_ip_hash,
-						  (hash_cmp_callback_t *)net_ip_cmp);
+		if (!hash_table_is_created(cache->local_ip_hash)) {
+			hash_table_create(&cache->local_ip_hash, cache->pool, 0,
+					  net_ip_hash, net_ip_cmp);
 		}
 		hash_table_insert(cache->local_ip_hash,
 				  &entry->local_ip, entry);

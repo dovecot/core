@@ -83,7 +83,7 @@ dsync_mailbox_tree_find_sha(struct dsync_mailbox_tree *tree,
 {
 	struct dsync_mailbox_node *node;
 
-	if (tree->name128_hash == NULL)
+	if (!hash_table_is_created(tree->name128_hash))
 		dsync_mailbox_tree_build_name128_hash(tree);
 
 	node = hash_table_lookup(tree->name128_hash, sha128);
@@ -99,6 +99,7 @@ dsync_mailbox_tree_add_change_timestamps(struct dsync_mailbox_tree *tree,
 	struct mailbox_log *log;
 	struct mailbox_log_iter *iter;
 	const struct mailbox_log_record *rec;
+	const uint8_t *guid_p;
 	time_t timestamp;
 
 	log = mailbox_list_get_changelog(ns->list);
@@ -112,8 +113,8 @@ dsync_mailbox_tree_add_change_timestamps(struct dsync_mailbox_tree *tree,
 
 		switch (rec->type) {
 		case MAILBOX_LOG_RECORD_DELETE_MAILBOX:
-			if (hash_table_lookup(tree->guid_hash,
-					      rec->mailbox_guid) != NULL) {
+			guid_p = rec->mailbox_guid;
+			if (hash_table_lookup(tree->guid_hash, guid_p) != NULL) {
 				/* mailbox still exists. maybe it was restored
 				   from backup or something. */
 				break;

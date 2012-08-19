@@ -45,7 +45,7 @@ struct chkpw_auth_request {
 struct db_checkpassword {
 	char *checkpassword_path, *checkpassword_reply_path;
 
-	struct hash_table *clients;
+	HASH_TABLE(pid_t, struct chkpw_auth_request *) clients;
 	struct child_wait *child_wait;
 };
 
@@ -89,8 +89,7 @@ static void checkpassword_request_free(struct chkpw_auth_request **_request)
 	*_request = NULL;
 
 	if (!request->exited) {
-		hash_table_remove(request->db->clients,
-				  POINTER_CAST(request->pid));
+		hash_table_remove(request->db->clients, request->pid);
 		child_wait_remove_pid(request->db->child_wait, request->pid);
 	}
 	checkpassword_request_close(request);
@@ -416,11 +415,11 @@ static void sigchld_handler(const struct child_wait_status *status,
 			    struct db_checkpassword *db)
 {
 	struct chkpw_auth_request *request = 
-		hash_table_lookup(db->clients, POINTER_CAST(status->pid));
+		hash_table_lookup(db->clients, status->pid);
 
 	i_assert(request != NULL);
 
-	hash_table_remove(db->clients, POINTER_CAST(status->pid));
+	hash_table_remove(db->clients, status->pid);
 	request->exited = TRUE;
 
 	if (WIFSIGNALED(status->status)) {
@@ -532,7 +531,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 		io_add(fd_out[1], IO_WRITE, checkpassword_child_output,
 		       chkpw_auth_request);
 
-	hash_table_insert(db->clients, POINTER_CAST(pid), chkpw_auth_request);
+	hash_table_insert(db->clients, pid, chkpw_auth_request);
 	child_wait_add_pid(db->child_wait, pid);
 }
 
@@ -545,8 +544,7 @@ db_checkpassword_init(const char *checkpassword_path,
 	db = i_new(struct db_checkpassword, 1);
 	db->checkpassword_path = i_strdup(checkpassword_path);
 	db->checkpassword_reply_path = i_strdup(checkpassword_reply_path);
-	db->clients = hash_table_create(default_pool, 0,
-					NULL, NULL);
+	hash_table_create_direct(&db->clients, default_pool, 0);
 	db->child_wait =
 		child_wait_new_with_pid((pid_t)-1, sigchld_handler, db);
 	return db;

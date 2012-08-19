@@ -1,6 +1,7 @@
 #ifndef DSYNC_BRAIN_PRIVATE_H
 #define DSYNC_BRAIN_PRIVATE_H
 
+#include "hash.h"
 #include "dsync-brain.h"
 #include "dsync-mailbox.h"
 #include "dsync-mailbox-state.h"
@@ -63,7 +64,7 @@ struct dsync_brain {
 	struct dsync_mailbox_state mailbox_state;
 	/* GUID -> dsync_mailbox_state for mailboxes that have already
 	   been synced */
-	struct hash_table *remote_mailbox_states;
+	HASH_TABLE(uint8_t *, struct dsync_mailbox_state *) remote_mailbox_states;
 
 	unsigned int master_brain:1;
 	unsigned int guid_requests:1;

@@ -52,9 +52,8 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 					128, 2, 1);
 	index->keywords_pool = pool_alloconly_create("keywords", 512);
 	i_array_init(&index->keywords, 16);
-	index->keywords_hash =
-		hash_table_create(index->keywords_pool, 0,
-				  strcase_hash, (hash_cmp_callback_t *)strcasecmp);
+	hash_table_create(&index->keywords_hash, index->keywords_pool, 0,
+			  strcase_hash, strcasecmp);
 	index->log = mail_transaction_log_alloc(index);
 	mail_index_modseq_init(index);
 	return index;
@@ -262,7 +261,7 @@ bool mail_index_keyword_lookup(struct mail_index *index,
 		return TRUE;
 	}
 
-	*idx_r = (unsigned int)-1;
+	*idx_r = -1U;
 	return FALSE;
 }
 
@@ -280,8 +279,7 @@ void mail_index_keyword_lookup_or_create(struct mail_index *index,
 	keyword = keyword_dup = p_strdup(index->keywords_pool, keyword);
 	*idx_r = array_count(&index->keywords);
 
-	hash_table_insert(index->keywords_hash,
-			  keyword_dup, POINTER_CAST(*idx_r));
+	hash_table_insert(index->keywords_hash, keyword_dup, *idx_r);
 	array_append(&index->keywords, &keyword, 1);
 
 	/* keep the array NULL-terminated, but the NULL itself invisible */

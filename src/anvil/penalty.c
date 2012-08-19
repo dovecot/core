@@ -38,7 +38,7 @@ struct penalty_rec {
 
 struct penalty {
 	/* ident => penalty_rec */
-	struct hash_table *hash;
+	HASH_TABLE(char *, struct penalty_rec *) hash;
 	struct penalty_rec *oldest, *newest;
 
 	unsigned int expire_secs;
@@ -50,9 +50,7 @@ struct penalty *penalty_init(void)
 	struct penalty *penalty;
 
 	penalty = i_new(struct penalty, 1);
-	penalty->hash =
-		hash_table_create(default_pool, 0,
-				  str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&penalty->hash, default_pool, 0, str_hash, strcmp);
 	penalty->expire_secs = PENALTY_DEFAULT_EXPIRE_SECS;
 	return penalty;
 }

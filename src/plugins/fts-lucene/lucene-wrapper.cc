@@ -80,7 +80,7 @@ struct rescan_context {
 	int box_ret;
 
 	pool_t pool;
-	struct hash_table *guids;
+	HASH_TABLE(uint8_t *, uint8_t *) seen_mailbox_guids;
 
 	ARRAY_TYPE(seq_range) uids;
 	struct seq_range_iter uids_iter;
@@ -95,7 +95,7 @@ static bool textcat_broken = FALSE;
 static int textcat_refcount = 0;
 
 static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
-					  struct hash_table *guids);
+					  struct rescan_context *rescan_ctx);
 
 struct lucene_index *lucene_index_init(const char *path,
 				       struct mailbox_list *list,
@@ -647,7 +647,7 @@ rescan_open_mailbox(struct rescan_context *ctx, Document *doc)
 
 	guidp = p_new(ctx->pool, guid_128_t, 1);
 	memcpy(guidp, guid, sizeof(*guidp));
-	hash_table_insert(ctx->guids, guidp, guidp);
+	hash_table_insert(ctx->seen_mailbox_guids, guidp, guidp);
 
 	if (ctx->box != NULL)
 		rescan_finish(ctx);
@@ -727,7 +727,7 @@ rescan_next(struct rescan_context *ctx, Document *doc)
 }
 
 static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
-					  struct hash_table *guids)
+					  struct rescan_context *rescan_ctx)
 {
 	const enum mailbox_list_iter_flags iter_flags =
 		(enum mailbox_list_iter_flags)
@@ -748,8 +748,9 @@ static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 				    (enum mailbox_flags)0);
 		if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
 					 &metadata) == 0 &&
-		    (guids == NULL ||
-		     hash_table_lookup(guids, metadata.guid) == NULL)) {
+		    (rescan_ctx == NULL ||
+		     hash_table_lookup(rescan_ctx->seen_mailbox_guids,
+				       metadata.guid) == NULL)) {
 			/* this mailbox had no records in lucene index.
 			   make sure its last indexed uid is 0 */
 			(void)fts_index_set_header(box, &hdr);
@@ -779,7 +780,8 @@ int lucene_index_rescan(struct lucene_index *index)
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.index = index;
 	ctx.pool = pool_alloconly_create("guids", 1024);
-	ctx.guids = hash_table_create(ctx.pool, 0, guid_128_hash, guid_128_cmp);
+	hash_table_create(&ctx.seen_mailbox_guids, ctx.pool, 0,
+			  guid_128_hash, guid_128_cmp);
 	i_array_init(&ctx.uids, 128);
 
 	if (ret > 0) try {
@@ -805,8 +807,8 @@ int lucene_index_rescan(struct lucene_index *index)
 		rescan_finish(&ctx);
 	array_free(&ctx.uids);
 
-	rescan_clear_unseen_mailboxes(index, ctx.guids);
-	hash_table_destroy(&ctx.guids);
+	rescan_clear_unseen_mailboxes(index, &ctx);
+	hash_table_destroy(&ctx.seen_mailbox_guids);
 	pool_unref(&ctx.pool);
 	return failed ? -1 : 0;
 }
@@ -1296,7 +1298,8 @@ int lucene_index_lookup(struct lucene_index *index,
 }
 
 static int
-lucene_index_search_multi(struct lucene_index *index, struct hash_table *guids,
+lucene_index_search_multi(struct lucene_index *index,
+			  HASH_TABLE_TYPE(wguid_result) guids,
 			  ARRAY_TYPE(lucene_query) &queries,
 			  struct fts_multi_result *result)
 {
@@ -1308,10 +1311,11 @@ lucene_index_search_multi(struct lucene_index *index, struct hash_table *guids,
 
 	BooleanQuery mailbox_query;
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	wchar_t *key;
+	struct fts_result *value;
 	iter = hash_table_iterate_init(guids);
-	while (hash_table_iterate(iter, &key, &value)) {
-		Term *term = _CLNEW Term(_T("box"), (wchar_t *)key);
+	while (hash_table_iterate_t(iter, guids, &key, &value)) {
+		Term *term = _CLNEW Term(_T("box"), key);
 		TermQuery *q = _CLNEW TermQuery(term);
 		mailbox_query.add(q, true, BooleanClause::SHOULD);
 	}
@@ -1332,8 +1336,8 @@ lucene_index_search_multi(struct lucene_index *index, struct hash_table *guids,
 				ret = -1;
 				break;
 			}
-			struct fts_result *br = (struct fts_result *)
-				hash_table_lookup(guids, (const void *)box_guid);
+			struct fts_result *br =
+				hash_table_lookup(guids, box_guid);
 			if (br == NULL) {
 				i_warning("lucene: Returned unexpected mailbox with GUID %ls", box_guid);
 				continue;
@@ -1363,7 +1367,7 @@ lucene_index_search_multi(struct lucene_index *index, struct hash_table *guids,
 }
 
 int lucene_index_lookup_multi(struct lucene_index *index,
-			      struct hash_table *guids,
+			      HASH_TABLE_TYPE(wguid_result) guids,
 			      struct mail_search_arg *args, bool and_args,
 			      struct fts_multi_result *result)
 {

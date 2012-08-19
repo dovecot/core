@@ -27,7 +27,7 @@ struct dsync_mailbox_exporter {
 	struct mail_search_context *search_ctx;
 
 	/* GUID => instances */
-	struct hash_table *export_guids;
+	HASH_TABLE(char *, struct dsync_mail_guid_instances *) export_guids;
 	ARRAY_TYPE(seq_range) requested_uids;
 	unsigned int requested_uid_search_idx;
 
@@ -36,7 +36,7 @@ struct dsync_mailbox_exporter {
 	unsigned int expunged_guid_idx;
 
 	/* UID => struct dsync_mail_change */
-	struct hash_table *changes;
+	HASH_TABLE(uint32_t, struct dsync_mail_change *) changes;
 	/* changes sorted by UID */
 	ARRAY_DEFINE(sorted_changes, struct dsync_mail_change *);
 	unsigned int change_idx;
@@ -156,8 +156,7 @@ search_update_flag_change_guid(struct dsync_mailbox_exporter *exporter,
 	const char *guid, *hdr_hash;
 	int ret;
 
-	change = hash_table_lookup(exporter->changes,
-				   POINTER_CAST(mail->uid));
+	change = hash_table_lookup(exporter->changes, mail->uid);
 	i_assert(change != NULL);
 	i_assert(change->type == DSYNC_MAIL_CHANGE_TYPE_FLAG_CHANGE);
 
@@ -188,11 +187,11 @@ export_save_change_get(struct dsync_mailbox_exporter *exporter, uint32_t uid)
 {
 	struct dsync_mail_change *change;
 
-	change = hash_table_lookup(exporter->changes, POINTER_CAST(uid));
+	change = hash_table_lookup(exporter->changes, uid);
 	if (change == NULL) {
 		change = p_new(exporter->pool, struct dsync_mail_change, 1);
 		change->uid = uid;
-		hash_table_insert(exporter->changes, POINTER_CAST(uid), change);
+		hash_table_insert(exporter->changes, uid, change);
 	} else {
 		/* move flag changes into a save. this happens only when
 		   last_common_uid isn't known */
@@ -294,7 +293,7 @@ dsync_mailbox_export_drop_expunged_flag_changes(struct dsync_mailbox_exporter *e
 
 		if (change->type == DSYNC_MAIL_CHANGE_TYPE_FLAG_CHANGE &&
 		    change->uid > exporter->last_common_uid)
-			hash_table_remove(exporter->changes, key);
+			hash_table_remove(exporter->changes, change->uid);
 	}
 	hash_table_iterate_deinit(&iter);
 }
@@ -381,7 +380,7 @@ static void
 dsync_mailbox_export_log_scan(struct dsync_mailbox_exporter *exporter,
 			      struct dsync_transaction_log_scan *log_scan)
 {
-	struct hash_table *log_changes;
+	HASH_TABLE_TYPE(dsync_uid_mail_change) log_changes;
 	struct hash_iterate_context *iter;
 	void *key, *value;
 	struct dsync_mail_change *dup_change;
@@ -391,16 +390,15 @@ dsync_mailbox_export_log_scan(struct dsync_mailbox_exporter *exporter,
 		exporter->return_all_mails = TRUE;
 
 	/* clone the hash table, since we're changing it. */
-	exporter->changes =
-		hash_table_create(exporter->pool,
-				  hash_table_count(log_changes), NULL, NULL);
+	hash_table_create_direct(&exporter->changes, exporter->pool,
+				 hash_table_count(log_changes));
 	iter = hash_table_iterate_init(log_changes);
 	while (hash_table_iterate(iter, &key, &value)) {
 		const struct dsync_mail_change *change = value;
 
 		dup_change = p_new(exporter->pool, struct dsync_mail_change, 1);
 		*dup_change = *change;
-		hash_table_insert(exporter->changes, key, dup_change);
+		hash_table_insert(exporter->changes, change->uid, dup_change);
 		if (exporter->highest_changed_uid < change->uid)
 			exporter->highest_changed_uid = change->uid;
 	}
@@ -430,9 +428,7 @@ dsync_mailbox_export_init(struct mailbox *box,
 	exporter->mails_have_guids =
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_MAILS_HAVE_GUIDS) != 0;
 	p_array_init(&exporter->requested_uids, pool, 16);
-	exporter->export_guids =
-		hash_table_create(pool, 0,
-				  str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&exporter->export_guids, pool, 0, str_hash, strcmp);
 	p_array_init(&exporter->expunged_seqs, pool, 16);
 	p_array_init(&exporter->expunged_guids, pool, 16);
 

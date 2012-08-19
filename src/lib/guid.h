@@ -17,7 +17,7 @@ const char *guid_128_to_string(const guid_128_t guid);
 int guid_128_from_string(const char *str, guid_128_t guid_r);
 
 /* guid_128 hash/cmp functions for hash.h */
-unsigned int guid_128_hash(const void *p);
-int guid_128_cmp(const void *p1, const void *p2);
+unsigned int guid_128_hash(const uint8_t *guid);
+int guid_128_cmp(const uint8_t *guid1, const uint8_t *guid2);
 
 #endif

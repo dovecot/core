@@ -40,7 +40,7 @@ struct duplicate_record_header {
 
 struct duplicate_file {
 	pool_t pool;
-	struct hash_table *hash;
+	HASH_TABLE(struct duplicate *, struct duplicate *) hash;
 	const char *path;
 
 	int new_fd;
@@ -59,19 +59,16 @@ static const struct dotlock_settings default_duplicate_dotlock_set = {
 	.stale_timeout = 10,
 };
 
-static int duplicate_cmp(const void *p1, const void *p2)
+static int duplicate_cmp(const struct duplicate *d1, const struct duplicate *d2)
 {
-	const struct duplicate *d1 = p1, *d2 = p2;
-
 	return (d1->id_size == d2->id_size &&
 		memcmp(d1->id, d2->id, d1->id_size) == 0 &&
 		strcasecmp(d1->user, d2->user) == 0) ? 0 : 1;
 }
 
-static unsigned int duplicate_hash(const void *p)
+static unsigned int duplicate_hash(const struct duplicate *d)
 {
 	/* a char* hash function from ASU -- from glib */
-	const struct duplicate *d = p;
         const unsigned char *s = d->id, *end = s + d->id_size;
 	unsigned int g, h = 0;
 
@@ -214,8 +211,7 @@ static struct duplicate_file *duplicate_file_new(struct duplicate_context *ctx)
 					 &file->dotlock);
 	if (file->new_fd == -1)
 		i_error("file_dotlock_create(%s) failed: %m", file->path);
-	file->hash = hash_table_create(pool, 0,
-				       duplicate_hash, duplicate_cmp);
+	hash_table_create(&file->hash, pool, 0, duplicate_hash, duplicate_cmp);
 	(void)duplicate_read(file);
 	return file;
 }
@@ -287,7 +283,7 @@ void duplicate_flush(struct duplicate_context *ctx)
 	struct duplicate_record_header rec;
 	struct ostream *output;
         struct hash_iterate_context *iter;
-	void *key, *value;
+	struct duplicate *d;
 
 	if (file == NULL || !file->changed || file->new_fd == -1)
 		return;
@@ -301,9 +297,7 @@ void duplicate_flush(struct duplicate_context *ctx)
 
 	memset(&rec, 0, sizeof(rec));
 	iter = hash_table_iterate_init(file->hash);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct duplicate *d = value;
-
+	while (hash_table_iterate_t(iter, file->hash, &d, &d)) {
 		rec.stamp = d->time;
 		rec.id_size = d->id_size;
 		rec.user_size = strlen(d->user);

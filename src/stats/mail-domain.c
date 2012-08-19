@@ -9,7 +9,7 @@
 #include "mail-stats.h"
 #include "mail-domain.h"
 
-static struct hash_table *mail_domains_hash;
+static HASH_TABLE(char *, struct mail_domain *) mail_domains_hash;
 /* domains are sorted by their last_update timestamp, oldest first */
 static struct mail_domain *mail_domains_head, *mail_domains_tail;
 struct mail_domain *stable_mail_domains;
@@ -112,9 +112,7 @@ void mail_domains_free_memory(void)
 
 void mail_domains_init(void)
 {
-	mail_domains_hash =
-		hash_table_create(default_pool, 0,
-				  str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&mail_domains_hash, default_pool, 0, str_hash, strcmp);
 }
 
 void mail_domains_deinit(void)

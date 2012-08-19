@@ -29,6 +29,8 @@ struct user_list {
 	const char *name;
 };
 
+HASH_TABLE_DEFINE_TYPE(user_list, unsigned int, struct user_list *);
+
 extern struct doveadm_cmd doveadm_cmd_director[];
 
 static void director_cmd_help(doveadm_command_t *cmd) ATTR_NORETURN;
@@ -190,7 +192,8 @@ static unsigned int director_username_hash(const char *username)
 }
 
 static void
-user_list_add(const char *username, pool_t pool, struct hash_table *users)
+user_list_add(const char *username, pool_t pool,
+	      HASH_TABLE_TYPE(user_list) users)
 {
 	struct user_list *user, *old_user;
 	unsigned int user_hash;
@@ -199,15 +202,15 @@ user_list_add(const char *username, pool_t pool, struct hash_table *users)
 	user->name = p_strdup(pool, username);
 	user_hash = director_username_hash(username);
 
-	old_user = hash_table_lookup(users, POINTER_CAST(user_hash));
+	old_user = hash_table_lookup(users, user_hash);
 	if (old_user != NULL)
 		user->next = old_user;
-	hash_table_insert(users, POINTER_CAST(user_hash), user);
+	hash_table_insert(users, user_hash, user);
 }
 
 static void ATTR_NULL(1)
 userdb_get_user_list(const char *auth_socket_path, pool_t pool,
-		     struct hash_table *users)
+		     HASH_TABLE_TYPE(user_list) users)
 {
 	struct auth_master_user_list_ctx *ctx;
 	struct auth_master_connection *conn;
@@ -230,7 +233,8 @@ userdb_get_user_list(const char *auth_socket_path, pool_t pool,
 }
 
 static void
-user_file_get_user_list(const char *path, pool_t pool, struct hash_table *users)
+user_file_get_user_list(const char *path, pool_t pool,
+			HASH_TABLE_TYPE(user_list) users)
 {
 	struct istream *input;
 	const char *username;
@@ -282,7 +286,7 @@ static void cmd_director_map(int argc, char *argv[])
 	const char *line, *const *args;
 	struct ip_addr *ips, user_ip;
 	pool_t pool;
-	struct hash_table *users;
+	HASH_TABLE_TYPE(user_list) users;
 	struct user_list *user;
 	unsigned int ips_count, user_hash, expires;
 
@@ -295,7 +299,7 @@ static void cmd_director_map(int argc, char *argv[])
 		director_get_host(argv[optind], &ips, &ips_count);
 
 	pool = pool_alloconly_create("director map users", 1024*128);
-	users = hash_table_create(pool, 0, NULL, NULL);
+	hash_table_create_direct(&users, pool, 0);
 	if (ctx->users_path == NULL)
 		userdb_get_user_list(NULL, pool, users);
 	else
@@ -325,8 +329,7 @@ static void cmd_director_map(int argc, char *argv[])
 				doveadm_exit_code = EX_PROTOCOL;
 			} else if (ips_count == 0 ||
 				 ip_find(ips, ips_count, &user_ip)) {
-				user = hash_table_lookup(users,
-						POINTER_CAST(user_hash));
+				user = hash_table_lookup(users, user_hash);
 				if (user == NULL) {
 					doveadm_print("<unknown>");
 					doveadm_print(args[2]);

@@ -1,6 +1,8 @@
 #ifndef DB_PASSWD_FILE_H
 #define DB_PASSWD_FILE_H
 
+#include "hash.h"
+
 #define PASSWD_FILE_DEFAULT_USERNAME_FORMAT "%u"
 #define PASSWD_FILE_DEFAULT_SCHEME "CRYPT"
 
@@ -23,7 +25,7 @@ struct passwd_file {
 	off_t size;
 	int fd;
 
-	struct hash_table *users;
+	HASH_TABLE(char *, struct passwd_user *) users;
 };
 
 struct db_passwd_file {
@@ -32,7 +34,7 @@ struct db_passwd_file {
 	int refcount;
 
 	char *path;
-	struct hash_table *files;
+	HASH_TABLE(char *, struct passwd_file *) files;
         struct passwd_file *default_file;
 
 	unsigned int vars:1;

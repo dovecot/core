@@ -135,7 +135,7 @@ struct mailbox_list {
 	time_t changelog_timestamp;
 
 	pool_t guid_cache_pool;
-	struct hash_table *guid_cache;
+	HASH_TABLE(uint8_t *, struct mailbox_guid_cache_rec *) guid_cache;
 	bool guid_cache_errors;
 
 	char *error_string;

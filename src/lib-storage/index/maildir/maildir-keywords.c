@@ -32,7 +32,7 @@ struct maildir_keywords {
 
 	pool_t pool;
 	ARRAY_TYPE(keywords) list;
-	struct hash_table *hash; /* name -> idx+1 */
+	HASH_TABLE(char *, unsigned int) hash; /* name -> idx+1 */
 
         struct dotlock_settings dotlock_settings;
 
@@ -74,8 +74,7 @@ maildir_keywords_init_readonly(struct mailbox *box)
 	mk->path = i_strconcat(dir, "/" MAILDIR_KEYWORDS_NAME, NULL);
 	mk->pool = pool_alloconly_create("maildir keywords", 512);
 	i_array_init(&mk->list, MAILDIR_MAX_KEYWORDS);
-	mk->hash = hash_table_create(mk->pool, 0, strcase_hash,
-				     (hash_cmp_callback_t *)strcasecmp);
+	hash_table_create(&mk->hash, mk->pool, 0, strcase_hash, strcasecmp);
 
 	mk->dotlock_settings.use_excl_lock =
 		box->storage->set->dotlock_use_excl;
@@ -177,7 +176,7 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 
 		/* save it */
 		new_name = p_strdup(mk->pool, p);
-		hash_table_insert(mk->hash, new_name, POINTER_CAST(idx + 1));
+		hash_table_insert(mk->hash, new_name, idx + 1);
 
 		strp = array_idx_modifiable(&mk->list, idx);
 		*strp = new_name;
@@ -198,10 +197,10 @@ static int
 maildir_keywords_lookup(struct maildir_keywords *mk, const char *name,
 			unsigned int *chridx_r)
 {
-	void *p;
+	unsigned int num;
 
-	p = hash_table_lookup(mk->hash, name);
-	if (p == NULL) {
+	num = hash_table_lookup(mk->hash, name);
+	if (num == 0) {
 		if (mk->synced)
 			return 0;
 
@@ -209,12 +208,12 @@ maildir_keywords_lookup(struct maildir_keywords *mk, const char *name,
 			return -1;
 		i_assert(mk->synced);
 
-		p = hash_table_lookup(mk->hash, name);
-		if (p == NULL)
+		num = hash_table_lookup(mk->hash, name);
+		if (num == 0)
 			return 0;
 	}
 
-	*chridx_r = POINTER_CAST_TO(p, int)-1;
+	*chridx_r = num-1;
 	return 1;
 }
 
@@ -228,7 +227,7 @@ maildir_keywords_create(struct maildir_keywords *mk, const char *name,
 	i_assert(chridx < MAILDIR_MAX_KEYWORDS);
 
 	new_name = p_strdup(mk->pool, name);
-	hash_table_insert(mk->hash, new_name, POINTER_CAST(chridx + 1));
+	hash_table_insert(mk->hash, new_name, chridx + 1);
 
 	strp = array_idx_modifiable(&mk->list, chridx);
 	*strp = new_name;

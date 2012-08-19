@@ -801,7 +801,7 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 	struct solr_result **solr_results;
 	struct fts_result *fts_result;
 	ARRAY_DEFINE(fts_results, struct fts_result);
-	struct hash_table *mailboxes;
+	HASH_TABLE(char *, struct mailbox *) mailboxes;
 	struct mailbox *box;
 	const char *box_guid;
 	unsigned int i, len;
@@ -814,8 +814,7 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 	else
 		str_append(str, "%22%22");
 
-	mailboxes = hash_table_create(default_pool, 0,
-				      str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&mailboxes, default_pool, 0, str_hash, strcmp);
 	str_append(str, "%2B(");
 	len = str_len(str);
 	for (i = 0; boxes[i] != NULL; i++) {

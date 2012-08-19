@@ -23,7 +23,7 @@ struct file_dict {
 	enum file_lock_method lock_method;
 
 	char *path;
-	struct hash_table *hash;
+	HASH_TABLE(char *, char *) hash;
 	int fd;
 
 	bool refreshed;
@@ -77,8 +77,7 @@ static struct dict *file_dict_init(struct dict *driver, const char *uri,
 	}
 	dict->dict = *driver;
 	dict->hash_pool = pool_alloconly_create("file dict", 1024);
-	dict->hash = hash_table_create(dict->hash_pool, 0,
-				       str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&dict->hash, dict->hash_pool, 0, str_hash, strcmp);
 	dict->fd = -1;
 	return &dict->dict;
 }
@@ -233,16 +232,17 @@ static bool file_dict_iterate(struct dict_iterate_context *_ctx,
 {
 	struct file_dict_iterate_context *ctx =
 		(struct file_dict_iterate_context *)_ctx;
+	struct file_dict *dict = (struct file_dict *)_ctx->dict;
 	const struct file_dict_iterate_path *path;
-	void *key, *value;
+	char *key, *value;
 
-	while (hash_table_iterate(ctx->iter, &key, &value)) {
+	while (hash_table_iterate_t(ctx->iter, dict->hash, &key, &value)) {
 		path = file_dict_iterate_find_path(ctx, key);
 		if (path == NULL)
 			continue;
 
 		if ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 &&
-		    strchr((char *)key + path->len, '/') != NULL)
+		    strchr(key + path->len, '/') != NULL)
 			continue;
 
 		*key_r = key;
@@ -281,14 +281,14 @@ static void file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
 	struct file_dict *dict = (struct file_dict *)ctx->ctx.dict;
 	const char *tmp;
 	char *key, *value, *old_value;
-	void *orig_key, *orig_value;
+	char *orig_key, *orig_value;
 	const struct dict_transaction_memory_change *change;
 	unsigned int new_len;
 	long long diff;
 
 	array_foreach(&ctx->changes, change) {
-		if (hash_table_lookup_full(dict->hash, change->key,
-					   &orig_key, &orig_value)) {
+		if (hash_table_lookup_full_t(dict->hash, change->key,
+					     &orig_key, &orig_value)) {
 			key = orig_key;
 			old_value = orig_value;
 		} else {
@@ -450,7 +450,7 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	const char *temp_path = NULL;
 	struct hash_iterate_context *iter;
 	struct ostream *output;
-	void *key, *value;
+	char *key, *value;
 	int fd = -1;
 
 	*atomic_inc_not_found_r = FALSE;
@@ -502,7 +502,7 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	output = o_stream_create_fd(fd, 0, FALSE);
 	o_stream_cork(output);
 	iter = hash_table_iterate_init(dict->hash);
-	while (hash_table_iterate(iter, &key, &value)) {
+	while (hash_table_iterate_t(iter, dict->hash, &key, &value)) {
 		o_stream_nsend_str(output, key);
 		o_stream_nsend(output, "\n", 1);
 		o_stream_nsend_str(output, value);

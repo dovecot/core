@@ -10,21 +10,19 @@ struct indexer_queue {
 	void (*listen_callback)(struct indexer_queue *);
 
 	/* username+mailbox -> indexer_request */
-	struct hash_table *requests;
+	HASH_TABLE(struct indexer_request *, struct indexer_request *) requests;
 	struct indexer_request *head, *tail;
 };
 
-static unsigned int indexer_request_hash(const void *p)
+static unsigned int
+indexer_request_hash(const struct indexer_request *request)
 {
-	const struct indexer_request *request = p;
-
 	return str_hash(request->username) ^ str_hash(request->mailbox);
 }
 
-static int indexer_request_cmp(const void *p1, const void *p2)
+static int indexer_request_cmp(const struct indexer_request *r1,
+			       const struct indexer_request *r2)
 {
-	const struct indexer_request *r1 = p1, *r2 = p2;
-
 	return strcmp(r1->username, r2->username) == 0 &&
 		strcmp(r1->mailbox, r2->mailbox) == 0 ? 0 : 1;
 }
@@ -36,9 +34,8 @@ indexer_queue_init(indexer_status_callback_t *callback)
 	
 	queue = i_new(struct indexer_queue, 1);
 	queue->callback = callback;
-	queue->requests = hash_table_create(default_pool, 0,
-					    indexer_request_hash,
-					    indexer_request_cmp);
+	hash_table_create(&queue->requests, default_pool, 0,
+			  indexer_request_hash, indexer_request_cmp);
 	return queue;
 }
 

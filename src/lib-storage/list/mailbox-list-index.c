@@ -111,7 +111,7 @@ mailbox_list_index_lookup(struct mailbox_list *list, const char *name)
 struct mailbox_list_index_node *
 mailbox_list_index_lookup_uid(struct mailbox_list_index *ilist, uint32_t uid)
 {
-	return hash_table_lookup(ilist->mailbox_hash, POINTER_CAST(uid));
+	return hash_table_lookup(ilist->mailbox_hash, uid);
 }
 
 void mailbox_list_index_node_get_path(const struct mailbox_list_index_node *node,
@@ -160,7 +160,7 @@ static int mailbox_list_index_parse_header(struct mailbox_list_index *ilist,
 		i += len + 1;
 
 		/* add id => name to hash table */
-		hash_table_insert(ilist->mailbox_names, POINTER_CAST(id), name);
+		hash_table_insert(ilist->mailbox_names, id, name);
 		ilist->highest_name_id = id;
 	}
 	i_assert(i == size);
@@ -193,7 +193,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 
 		node->name_id = irec->name_id;
 		node->name = hash_table_lookup(ilist->mailbox_names,
-					       POINTER_CAST(irec->name_id));
+					       irec->name_id);
 		if (node->name == NULL)
 			return -1;
 
@@ -208,8 +208,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			node->next = ilist->mailbox_tree;
 			ilist->mailbox_tree = node;
 		}
-		hash_table_insert(ilist->mailbox_hash,
-				  POINTER_CAST(node->uid), node);
+		hash_table_insert(ilist->mailbox_hash, node->uid, node);
 	}
 	return 0;
 }
@@ -439,10 +438,8 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 				sizeof(uint32_t));
 
 	ilist->mailbox_pool = pool_alloconly_create("mailbox list index", 4096);
-	ilist->mailbox_names =
-		hash_table_create(ilist->mailbox_pool, 0, NULL, NULL);
-	ilist->mailbox_hash =
-		hash_table_create(ilist->mailbox_pool, 0, NULL, NULL);
+	hash_table_create_direct(&ilist->mailbox_names, ilist->mailbox_pool, 0);
+	hash_table_create_direct(&ilist->mailbox_hash, ilist->mailbox_pool, 0);
 
 	mailbox_list_index_status_init_list(list);
 }

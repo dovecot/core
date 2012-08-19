@@ -13,9 +13,9 @@ struct dsync_mailbox_tree {
 	ARRAY_DEFINE(deletes, struct dsync_mailbox_delete);
 
 	/* guid_128_t => struct dsync_mailbox_node */
-	struct hash_table *name128_hash;
-	struct hash_table *name128_remotesep_hash;
-	struct hash_table *guid_hash;
+	HASH_TABLE(uint8_t *, struct dsync_mailbox_node *) name128_hash;
+	HASH_TABLE(uint8_t *, struct dsync_mailbox_node *) name128_remotesep_hash;
+	HASH_TABLE(uint8_t *, struct dsync_mailbox_node *) guid_hash;
 };
 
 void dsync_mailbox_tree_build_name128_hash(struct dsync_mailbox_tree *tree);

@@ -89,8 +89,8 @@ struct admin_connection {
 
 static struct imap_client *imap_clients;
 static struct director_connection *director_connections;
-static struct hash_table *users;
-static struct hash_table *hosts;
+static HASH_TABLE(char *, struct user *) users;
+static HASH_TABLE(struct ip_addr *, struct host *) hosts;
 static ARRAY_DEFINE(hosts_array, struct host *);
 static struct admin_connection *admin;
 static struct timeout *to_disconnect;
@@ -532,11 +532,8 @@ director_connection_disconnect_timeout(void *context ATTR_UNUSED)
 
 static void main_init(const char *admin_path)
 {
-	users = hash_table_create(default_pool, 0, str_hash,
-				  (hash_cmp_callback_t *)strcmp);
-	hosts = hash_table_create(default_pool, 0,
-				  (hash_callback_t *)net_ip_hash,
-				  (hash_cmp_callback_t *)net_ip_cmp);
+	hash_table_create(&users, default_pool, 0, str_hash, strcmp);
+	hash_table_create(&hosts, default_pool, 0, net_ip_hash, net_ip_cmp);
 	i_array_init(&hosts_array, 256);
 
 	admin = admin_connect(admin_path);

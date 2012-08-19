@@ -151,8 +151,7 @@ void mail_cache_register_fields(struct mail_cache *cache,
 		if (!field_has_fixed_size(cache->fields[idx].field.type))
 			cache->fields[idx].field.field_size = (unsigned int)-1;
 
-		hash_table_insert(cache->field_name_hash,
-				  name, POINTER_CAST(idx));
+		hash_table_insert(cache->field_name_hash, name, idx);
 	}
 	cache->fields_count = new_idx;
 }
@@ -166,7 +165,7 @@ mail_cache_register_lookup(struct mail_cache *cache, const char *name)
 				   &orig_key, &orig_value))
 		return POINTER_CAST_TO(orig_value, unsigned int);
 	else
-		return (unsigned int)-1;
+		return -1U;
 }
 
 const struct mail_cache_field *

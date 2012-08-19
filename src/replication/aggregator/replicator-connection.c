@@ -29,7 +29,7 @@ struct replicator_connection {
 
 	buffer_t *queue[REPLICATION_PRIORITY_SYNC + 1];
 
-	struct hash_table *requests;
+	HASH_TABLE(unsigned int, void *) requests;
 	unsigned int request_id_counter;
 	replicator_sync_callback_t *callback;
 };
@@ -49,12 +49,12 @@ replicator_input_line(struct replicator_connection *conn, const char *line)
 		return -1;
 	}
 
-	context = hash_table_lookup(conn->requests, POINTER_CAST(id));
+	context = hash_table_lookup(conn->requests, id);
 	if (context == NULL) {
 		i_error("Replicator sent invalid ID: %u", id);
 		return -1;
 	}
-	hash_table_remove(conn->requests, context);
+	hash_table_remove(conn->requests, id);
 	conn->callback(line[0] == '+', context);
 	return 0;
 }
@@ -209,7 +209,7 @@ static struct replicator_connection *replicator_connection_create(void)
 
 	conn = i_new(struct replicator_connection, 1);
 	conn->fd = -1;
-	conn->requests = hash_table_create(default_pool, 0, NULL, NULL);
+	hash_table_create_direct(&conn->requests, default_pool, 0);
 	for (i = REPLICATION_PRIORITY_LOW; i <= REPLICATION_PRIORITY_SYNC; i++)
 		conn->queue[i] = buffer_create_dynamic(default_pool, 1024);
 	return conn;
@@ -316,7 +316,7 @@ void replicator_connection_notify_sync(struct replicator_connection *conn,
 
 	id = ++conn->request_id_counter;
 	if (id == 0) id++;
-	hash_table_insert(conn->requests, POINTER_CAST(id), context);
+	hash_table_insert(conn->requests, id, context);
 
 	T_BEGIN {
 		replicator_send(conn, REPLICATION_PRIORITY_SYNC, t_strdup_printf(

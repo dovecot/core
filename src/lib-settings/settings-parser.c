@@ -48,7 +48,7 @@ struct setting_parser_context {
 
 	struct setting_link *roots;
 	unsigned int root_count;
-	struct hash_table *links;
+	HASH_TABLE(char *, struct setting_link *) links;
 
 	unsigned int linenum;
 	const char *error;
@@ -65,6 +65,9 @@ static const struct setting_parser_info strlist_info = {
 
 	.parent_offset = (size_t)-1
 };
+
+HASH_TABLE_DEFINE_TYPE(setting_link, struct setting_link *,
+		       struct setting_link *);
 
 static int settings_parse_keyvalue(struct setting_parser_context *ctx,
 				   const char *key, const char *value);
@@ -206,8 +209,7 @@ settings_parser_init_list(pool_t set_pool,
 	ctx->set_pool = set_pool;
 	ctx->parser_pool = parser_pool;
 	ctx->flags = flags;
-	ctx->links = hash_table_create(ctx->parser_pool, 0,
-				       str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&ctx->links, ctx->parser_pool, 0, str_hash, strcmp);
 
 	ctx->root_count = count;
 	ctx->roots = p_new(ctx->parser_pool, struct setting_link, count);
@@ -1687,7 +1689,7 @@ const void *settings_find_dynamic(const struct setting_parser_info *info,
 
 static struct setting_link *
 settings_link_get_new(struct setting_parser_context *new_ctx,
-		      struct hash_table *links,
+		      HASH_TABLE_TYPE(setting_link) links,
 		      struct setting_link *old_link)
 {
 	struct setting_link *new_link;
@@ -1735,9 +1737,9 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 {
 	struct setting_parser_context *new_ctx;
 	struct hash_iterate_context *iter;
-	struct setting_link *new_link;
-	struct hash_table *links;
-	void *key, *value;
+	HASH_TABLE_TYPE(setting_link) links;
+	struct setting_link *new_link, *value;
+	char *key;
 	unsigned int i;
 	pool_t parser_pool;
 
@@ -1753,7 +1755,7 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 	new_ctx->error = p_strdup(new_ctx->parser_pool, old_ctx->error);
 	new_ctx->prev_info = old_ctx->prev_info;
 
-	links = hash_table_create(new_ctx->parser_pool, 0, NULL, NULL);
+	hash_table_create_direct(&links, new_ctx->parser_pool, 0);
 
 	new_ctx->root_count = old_ctx->root_count;
 	new_ctx->roots = p_new(new_ctx->parser_pool, struct setting_link,
@@ -1775,12 +1777,11 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 				  &new_ctx->roots[i]);
 	}
 
-	new_ctx->links =
-		hash_table_create(new_ctx->parser_pool, 0,
-				  str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&new_ctx->links, new_ctx->parser_pool, 0,
+			  str_hash, strcmp);
 
 	iter = hash_table_iterate_init(old_ctx->links);
-	while (hash_table_iterate(iter, &key, &value)) {
+	while (hash_table_iterate_t(iter, old_ctx->links, &key, &value)) {
 		new_link = settings_link_get_new(new_ctx, links, value);
 		hash_table_insert(new_ctx->links,
 				  p_strdup(new_ctx->parser_pool, key),

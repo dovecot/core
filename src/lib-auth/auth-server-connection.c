@@ -144,13 +144,13 @@ auth_server_lookup_request(struct auth_server_connection *conn,
 		return -1;
 	}
 
-	request = hash_table_lookup(conn->requests, POINTER_CAST(id));
+	request = hash_table_lookup(conn->requests, id);
 	if (request == NULL) {
 		i_error("BUG: Authentication server sent unknown id %u", id);
 		return -1;
 	}
 	if (remove || auth_client_request_is_aborted(request))
-		hash_table_remove(conn->requests, POINTER_CAST(id));
+		hash_table_remove(conn->requests, id);
 
 	*request_r = request;
 	return 0;
@@ -303,7 +303,7 @@ auth_server_connection_init(struct auth_client *client)
 
 	conn->client = client;
 	conn->fd = -1;
-	conn->requests = hash_table_create(pool, 100, NULL, NULL);
+	hash_table_create_direct(&conn->requests, pool, 100);
 	i_array_init(&conn->available_auth_mechs, 8);
 	return conn;
 }
@@ -477,6 +477,6 @@ auth_server_connection_add_request(struct auth_server_connection *conn,
 		/* wrapped - ID 0 not allowed */
 		id = ++conn->client->request_id_counter;
 	}
-	hash_table_insert(conn->requests, POINTER_CAST(id), request);
+	hash_table_insert(conn->requests, id, request);
 	return id;
 }

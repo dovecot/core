@@ -193,13 +193,14 @@ void dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 {
 	struct dsync_mailbox_state *state;
+	uint8_t *guid_p;
 
 	i_assert(brain->box != NULL);
 
 	state = p_new(brain->pool, struct dsync_mailbox_state, 1);
 	*state = brain->mailbox_state;
-	hash_table_insert(brain->remote_mailbox_states,
-			  state->mailbox_guid, state);
+	guid_p = state->mailbox_guid;
+	hash_table_insert(brain->remote_mailbox_states, guid_p, state);
 
 	if (brain->box_exporter != NULL) {
 		const char *error;

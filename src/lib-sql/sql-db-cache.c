@@ -20,7 +20,7 @@ struct sql_db_cache_context {
 };
 
 struct sql_db_cache {
-	struct hash_table *dbs;
+	HASH_TABLE(char *, struct sql_db *) dbs;
 	unsigned int unused_count, max_unused_connections;
 	struct sql_db *unused_tail, *unused_head;
 };
@@ -128,8 +128,7 @@ struct sql_db_cache *sql_db_cache_init(unsigned int max_unused_connections)
 	struct sql_db_cache *cache;
 
 	cache = i_new(struct sql_db_cache, 1);
-	cache->dbs = hash_table_create(default_pool, 0, str_hash,
-				       (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&cache->dbs, default_pool, 0, str_hash, strcmp);
 	cache->max_unused_connections = max_unused_connections;
 	return cache;
 }

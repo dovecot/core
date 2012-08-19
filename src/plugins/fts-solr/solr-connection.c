@@ -40,7 +40,7 @@ struct solr_lookup_xml_context {
 
 	pool_t result_pool;
 	/* box_id -> solr_result */
-	struct hash_table *mailboxes;
+	HASH_TABLE(char *, struct solr_result *) mailboxes;
 	ARRAY_DEFINE(results, struct solr_result *);
 };
 
@@ -419,9 +419,8 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 
 	memset(&solr_lookup_context, 0, sizeof(solr_lookup_context));
 	solr_lookup_context.result_pool = pool;
-	solr_lookup_context.mailboxes =
-		hash_table_create(default_pool, 0,
-				  str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&solr_lookup_context.mailboxes, default_pool, 0,
+			  str_hash, strcmp);
 	p_array_init(&solr_lookup_context.results, pool, 32);
 
 	i_free_and_null(conn->http_failure);

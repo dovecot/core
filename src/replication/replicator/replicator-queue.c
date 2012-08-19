@@ -25,7 +25,7 @@ struct replicator_sync_lookup {
 struct replicator_queue {
 	struct priorityq *user_queue;
 	/* username => struct replicator_user* */
-	struct hash_table *user_hash;
+	HASH_TABLE(char *, struct replicator_user *) user_hash;
 
 	ARRAY_DEFINE(sync_lookups, struct replicator_sync_lookup);
 
@@ -67,8 +67,8 @@ struct replicator_queue *replicator_queue_init(unsigned int full_sync_interval)
 	queue = i_new(struct replicator_queue, 1);
 	queue->full_sync_interval = full_sync_interval;
 	queue->user_queue = priorityq_init(user_priority_cmp, 1024);
-	queue->user_hash = hash_table_create(default_pool, 1024, str_hash,
-					     (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&queue->user_hash, default_pool, 1024,
+			  str_hash, strcmp);
 	i_array_init(&queue->sync_lookups, 32);
 	return queue;
 }

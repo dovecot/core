@@ -21,7 +21,8 @@ struct acl_object_cache {
 
 struct acl_cache {
 	struct acl_backend *backend;
-	struct hash_table *objects; /* name => struct acl_object_cache* */
+	/* name => object */
+	HASH_TABLE(char *, struct acl_object_cache *) objects;
 
 	size_t validity_rec_size;
 
@@ -31,8 +32,8 @@ struct acl_cache {
 	pool_t right_names_pool;
 	/* idx => right name. */
 	ARRAY_DEFINE(right_idx_name_map, const char *);
-	/* name => idx */
-	struct hash_table *right_name_idx_map;
+	/* name => idx+1 */
+	HASH_TABLE(char *, unsigned int) right_name_idx_map;
 };
 
 static struct acl_mask negative_cache_entry;
@@ -47,11 +48,9 @@ struct acl_cache *acl_cache_init(struct acl_backend *backend,
 	cache->validity_rec_size = validity_rec_size;
 	cache->right_names_pool =
 		pool_alloconly_create("ACL right names", 1024);
-	cache->objects = hash_table_create(default_pool, 0,
-					   str_hash, (hash_cmp_callback_t *)strcmp);
-	cache->right_name_idx_map =
-		hash_table_create(cache->right_names_pool, 0,
-				  str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&cache->objects, default_pool, 0, str_hash, strcmp);
+	hash_table_create(&cache->right_name_idx_map,
+			  cache->right_names_pool, 0, str_hash, strcmp);
 	i_array_init(&cache->right_idx_name_map, DEFAULT_ACL_RIGHTS_COUNT);
 	return cache;
 }
@@ -143,23 +142,21 @@ void acl_cache_mask_deinit(struct acl_mask **_mask)
 unsigned int acl_cache_right_lookup(struct acl_cache *cache, const char *right)
 {
 	unsigned int idx;
-	void *idx_p;
 	char *name;
 	const char *const_name;
 
 	/* use +1 for right_name_idx_map values because we can't add NULL
 	   values. */
-	idx_p = hash_table_lookup(cache->right_name_idx_map, right);
-	if (idx_p == NULL) {
+	idx = hash_table_lookup(cache->right_name_idx_map, right);
+	if (idx == 0) {
 		/* new right name, add it */
 		const_name = name = p_strdup(cache->right_names_pool, right);
 
 		idx = array_count(&cache->right_idx_name_map);
 		array_append(&cache->right_idx_name_map, &const_name, 1);
-		hash_table_insert(cache->right_name_idx_map, name,
-				  POINTER_CAST(idx + 1));
+		hash_table_insert(cache->right_name_idx_map, name, idx + 1);
 	} else {
-		idx = POINTER_CAST_TO(idx_p, unsigned int)-1;
+		idx--;
 	}
 	return idx;
 }
@@ -178,14 +175,12 @@ void acl_cache_flush(struct acl_cache *cache, const char *objname)
 void acl_cache_flush_all(struct acl_cache *cache)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	char *key;
+	struct acl_object_cache *obj_cache;
 
 	iter = hash_table_iterate_init(cache->objects);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct acl_object_cache *obj_cache = value;
-
+	while (hash_table_iterate_t(iter, cache->objects, &key, &obj_cache))
 		acl_cache_free_object_cache(obj_cache);
-	}
 	hash_table_iterate_deinit(&iter);
 
 	hash_table_clear(cache->objects, FALSE);

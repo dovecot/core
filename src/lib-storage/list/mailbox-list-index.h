@@ -93,8 +93,8 @@ struct mailbox_list_index {
 	int iter_refcount;
 
 	pool_t mailbox_pool;
-	/* uint32_t id => const char *name */
-	struct hash_table *mailbox_names;
+	/* id => name */
+	HASH_TABLE(uint32_t, char *) mailbox_names;
 	uint32_t highest_name_id;
 
 	uint32_t sync_log_file_seq;
@@ -102,8 +102,8 @@ struct mailbox_list_index {
 	uint32_t sync_stamp;
 	struct timeout *to_refresh;
 
-	/* uint32_t uid => struct mailbox_list_index_node* */
-	struct hash_table *mailbox_hash;
+	/* uid => node */
+	HASH_TABLE(uint32_t, struct mailbox_list_index_node *) mailbox_hash;
 	struct mailbox_list_index_node *mailbox_tree;
 
 	unsigned int opened:1;

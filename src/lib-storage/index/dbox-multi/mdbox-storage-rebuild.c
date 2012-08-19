@@ -45,7 +45,7 @@ struct mdbox_storage_rebuild_context {
 	pool_t pool;
 
 	struct mdbox_map_mail_index_header orig_map_hdr;
-	struct hash_table *guid_hash;
+	HASH_TABLE(uint8_t *, struct mdbox_rebuild_msg *) guid_hash;
 	ARRAY_DEFINE(msgs, struct mdbox_rebuild_msg *);
 	ARRAY_TYPE(seq_range) seen_file_ids;
 
@@ -69,8 +69,8 @@ mdbox_storage_rebuild_init(struct mdbox_storage *storage,
 	ctx->storage = storage;
 	ctx->atomic = atomic;
 	ctx->pool = pool_alloconly_create("dbox map rebuild", 1024*256);
-	ctx->guid_hash = hash_table_create(ctx->pool, 0,
-					   guid_128_hash, guid_128_cmp);
+	hash_table_create(&ctx->guid_hash, ctx->pool, 0,
+			  guid_128_hash, guid_128_cmp);
 	i_array_init(&ctx->msgs, 512);
 	i_array_init(&ctx->seen_file_ids, 128);
 
@@ -127,6 +127,7 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 			      struct dbox_file *file, uint32_t file_id)
 {
 	const char *guid;
+	uint8_t *guid_p;
 	struct mdbox_rebuild_msg *rec, *old_rec;
 	uoff_t offset, prev_offset;
 	bool last, first, fixed = FALSE;
@@ -180,9 +181,10 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 		i_assert(!guid_128_is_empty(rec->guid_128));
 		array_append(&ctx->msgs, &rec, 1);
 
-		old_rec = hash_table_lookup(ctx->guid_hash, rec->guid_128);
+		guid_p = rec->guid_128;
+		old_rec = hash_table_lookup(ctx->guid_hash, guid_p);
 		if (old_rec == NULL)
-			hash_table_insert(ctx->guid_hash, rec->guid_128, rec);
+			hash_table_insert(ctx->guid_hash, guid_p, rec);
 		else if (rec->size == old_rec->size) {
 			/* duplicate. save this as a refcount=0 to map,
 			   so it will eventually be deleted. */
@@ -372,6 +374,7 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 	const struct mail_index_header *hdr;
 	struct mdbox_rebuild_msg *rec;
 	const void *data;
+	const uint8_t *guid_p;
 	bool expunged;
 	uint32_t old_seq, new_seq, uid, map_uid;
 
@@ -392,11 +395,12 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 
 		mail_index_lookup_ext(view, old_seq, mbox->guid_ext_id,
 				      &data, &expunged);
+		guid_p = data;
 
 		/* see if we can find this message based on
 		   1) GUID, 2) map_uid */
-		rec = data == NULL ? NULL :
-			hash_table_lookup(ctx->guid_hash, data);
+		rec = guid_p == NULL ? NULL :
+			hash_table_lookup(ctx->guid_hash, guid_p);
 		if (rec == NULL) {
 			/* multi-dbox message that wasn't found with GUID.
 			   either it's lost or GUID has been corrupted. we can

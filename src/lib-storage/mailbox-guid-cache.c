@@ -15,15 +15,16 @@ int mailbox_guid_cache_find(struct mailbox_list *list,
 			    const guid_128_t guid, const char **vname_r)
 {
 	const struct mailbox_guid_cache_rec *rec;
+	const uint8_t *guid_p = guid;
 
-	if (list->guid_cache == NULL) {
+	if (!hash_table_is_created(list->guid_cache)) {
 		mailbox_guid_cache_refresh(list);
-		rec = hash_table_lookup(list->guid_cache, guid);
+		rec = hash_table_lookup(list->guid_cache, guid_p);
 	} else {
-		rec = hash_table_lookup(list->guid_cache, guid);
+		rec = hash_table_lookup(list->guid_cache, guid_p);
 		if (rec == NULL) {
 			mailbox_guid_cache_refresh(list);
-			rec = hash_table_lookup(list->guid_cache, guid);
+			rec = hash_table_lookup(list->guid_cache, guid_p);
 		}
 	}
 	if (rec == NULL) {
@@ -41,13 +42,13 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 	struct mailbox *box;
 	struct mailbox_metadata metadata;
 	struct mailbox_guid_cache_rec *rec;
+	uint8_t *guid_p;
 
-	if (list->guid_cache == NULL) {
+	if (!hash_table_is_created(list->guid_cache)) {
 		list->guid_cache_pool =
 			pool_alloconly_create("guid cache", 1024*16);
-		list->guid_cache = hash_table_create(list->guid_cache_pool, 0,
-						     guid_128_hash,
-						     guid_128_cmp);
+		hash_table_create(&list->guid_cache, list->guid_cache_pool, 0,
+				  guid_128_hash, guid_128_cmp);
 	} else {
 		hash_table_clear(list->guid_cache, TRUE);
 		p_clear(list->guid_cache_pool);
@@ -72,7 +73,8 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 				    struct mailbox_guid_cache_rec, 1);
 			memcpy(rec->guid, metadata.guid, sizeof(rec->guid));
 			rec->vname = p_strdup(list->guid_cache_pool, info->vname);
-			hash_table_insert(list->guid_cache, rec->guid, rec);
+			guid_p = rec->guid;
+			hash_table_insert(list->guid_cache, guid_p, rec);
 		}
 		mailbox_free(&box);
 	}

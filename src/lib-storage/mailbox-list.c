@@ -569,7 +569,7 @@ void mailbox_list_destroy(struct mailbox_list **_list)
 	*_list = NULL;
 	i_free_and_null(list->error_string);
 
-	if (list->guid_cache != NULL) {
+	if (hash_table_is_created(list->guid_cache)) {
 		hash_table_destroy(&list->guid_cache);
 		pool_unref(&list->guid_cache_pool);
 	}

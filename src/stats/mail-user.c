@@ -10,7 +10,7 @@
 #include "mail-domain.h"
 #include "mail-user.h"
 
-static struct hash_table *mail_users_hash;
+static HASH_TABLE(char *, struct mail_user *) mail_users_hash;
 /* users are sorted by their last_update timestamp, oldest first */
 static struct mail_user *mail_users_head, *mail_users_tail;
 struct mail_user *stable_mail_users;
@@ -130,9 +130,7 @@ void mail_users_free_memory(void)
 
 void mail_users_init(void)
 {
-	mail_users_hash =
-		hash_table_create(default_pool, 0,
-				  str_hash, (hash_cmp_callback_t *)strcmp);
+	hash_table_create(&mail_users_hash, default_pool, 0, str_hash, strcmp);
 }
 
 void mail_users_deinit(void)

@@ -471,9 +471,8 @@ fts_backend_lucene_lookup(struct fts_backend *_backend, struct mailbox *box,
 }
 
 /* a char* hash function from ASU -- from glib */
-static unsigned int wstr_hash(const void *p)
+static unsigned int wstr_hash(const wchar_t *s)
 {
-        const wchar_t *s = p;
 	unsigned int g, h = 0;
 
 	while (*s != '\0') {
@@ -490,7 +489,8 @@ static unsigned int wstr_hash(const void *p)
 
 static int
 mailboxes_get_guids(struct mailbox *const boxes[],
-		    struct hash_table *guids, struct fts_multi_result *result)
+		    HASH_TABLE_TYPE(wguid_result) guids,
+		    struct fts_multi_result *result)
 {
 	ARRAY_DEFINE(box_results, struct fts_result);
 	struct fts_result *box_result;
@@ -529,10 +529,9 @@ fts_backend_lucene_lookup_multi(struct fts_backend *_backend,
 	int ret;
 
 	T_BEGIN {
-		struct hash_table *guids;
+		HASH_TABLE_TYPE(wguid_result) guids;
 
-		guids = hash_table_create(default_pool, 0, wstr_hash,
-					  (hash_cmp_callback_t *)wcscmp);
+		hash_table_create(&guids, default_pool, 0, wstr_hash, wcscmp);
 		ret = mailboxes_get_guids(boxes, guids, result);
 		if (ret == 0) {
 			ret = lucene_index_lookup_multi(backend->index,
