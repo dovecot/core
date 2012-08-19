@@ -1385,11 +1385,9 @@ squat_uidlist_get_at_offset(struct squat_uidlist *uidlist, uoff_t offset,
 	return 0;
 }
 
-static int uint32_cmp(const void *key, const void *data)
+static int uint32_cmp(const uint32_t *key, const uint32_t *data)
 {
-	const uint32_t *i1 = key, *i2 = data;
-
-	return (int)*i1 - (int)*i2;
+	return (int)*key - (int)*data;
 }
 
 static int

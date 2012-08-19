@@ -59,8 +59,7 @@ static void search_parse_msgset_args(unsigned int messages_count,
 				     uint32_t *seq1_r, uint32_t *seq2_r);
 
 static void ATTR_NULL(2)
-search_none(struct mail_search_arg *arg ATTR_UNUSED,
-	    struct search_body_context *ctx ATTR_UNUSED)
+search_none(struct mail_search_arg *arg ATTR_UNUSED, void *ctx ATTR_UNUSED)
 {
 }
 
@@ -542,7 +541,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 }
 
 static void search_header_unmatch(struct mail_search_arg *arg,
-				  void *context ATTR_UNUSED)
+				  struct search_header_context *ctx ATTR_UNUSED)
 {
 	switch (arg->type) {
 	case SEARCH_BEFORE:
@@ -698,7 +697,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 
 	if (have_headers) {
 		/* see if the header search succeeded in finishing the search */
-		ret = mail_search_args_foreach(args, search_none, NULL);
+		ret = mail_search_args_foreach(args, search_none, (void *)NULL);
 		if (ret >= 0 || !have_body)
 			return ret;
 	}

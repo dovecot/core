@@ -91,10 +91,9 @@ void index_sort_list_init_string(struct mail_search_sort_program *program)
 	i_array_init(&ctx->nonzero_nodes, 128);
 }
 
-static int sort_node_seq_cmp(const void *p1, const void *p2)
+static int sort_node_seq_cmp(const struct mail_sort_node *n1,
+			     const struct mail_sort_node *n2)
 {
-	const struct mail_sort_node *n1 = p1, *n2 = p2;
-
 	if (n1->seq < n2->seq)
 		return -1;
 	if (n1->seq > n2->seq)

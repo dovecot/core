@@ -129,9 +129,8 @@ anvil_connection_request(struct anvil_connection *conn,
 	return 0;
 }
 
-static void anvil_connection_input(void *context)
+static void anvil_connection_input(struct anvil_connection *conn)
 {
-	struct anvil_connection *conn = context;
 	const char *line, *const *args, *error;
 
 	switch (i_stream_read(conn->input)) {
@@ -153,7 +152,7 @@ static void anvil_connection_input(void *context)
 			if (anvil_restarted && (conn->master || conn->fifo)) {
 				/* old pending data. ignore input until we get
 				   the handshake. */
-				anvil_connection_input(context);
+				anvil_connection_input(conn);
 				return;
 			}
 			i_error("Anvil client not compatible with this server "

@@ -98,17 +98,12 @@ void message_parser_parse_header(struct message_parser_ctx *ctx,
 				 struct message_size *hdr_size,
 				 message_part_header_callback_t *callback,
 				 void *context) ATTR_NULL(4);
-#ifdef CONTEXT_TYPE_SAFETY
-#  define message_parser_parse_header(ctx, hdr_size, callback, context) \
-	({(void)(1 ? 0 : callback((struct message_part *)0, \
-				  (struct message_header_line *)0, context)); \
-	  message_parser_parse_header(ctx, hdr_size, \
-		(message_part_header_callback_t *)callback, context); })
-#else
-#  define message_parser_parse_header(ctx, hdr_size, callback, context) \
-	  message_parser_parse_header(ctx, hdr_size, \
+#define message_parser_parse_header(ctx, hdr_size, callback, context) \
+	  message_parser_parse_header(ctx, hdr_size + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			struct message_part *, \
+			struct message_header_line *, typeof(context))), \
 		(message_part_header_callback_t *)callback, context)
-#endif
 
 /* Read and parse body. If message is a MIME multipart or message/rfc822
    message, hdr_callback is called for all headers. body_callback is called
@@ -116,16 +111,11 @@ void message_parser_parse_header(struct message_parser_ctx *ctx,
 void message_parser_parse_body(struct message_parser_ctx *ctx,
 			       message_part_header_callback_t *hdr_callback,
 			       void *context) ATTR_NULL(3);
-#ifdef CONTEXT_TYPE_SAFETY
-#  define message_parser_parse_body(ctx, callback, context) \
-	({(void)(1 ? 0 : callback((struct message_part *)0, \
-				  (struct message_header_line *)0, context)); \
+#define message_parser_parse_body(ctx, callback, context) \
 	  message_parser_parse_body(ctx, \
-		(message_part_header_callback_t *)callback, context); })
-#else
-#  define message_parser_parse_body(ctx, callback, context) \
-	  message_parser_parse_body(ctx, \
-		(message_part_header_callback_t *)callback, context)
-#endif
+		(message_part_header_callback_t *)callback, \
+		(void *)((char *)context + CALLBACK_TYPECHECK(callback, \
+			void (*)(struct message_part *, \
+				struct message_header_line *, typeof(context)))))
 
 #endif

@@ -51,10 +51,9 @@ struct mdbox_purge_context {
 	struct mdbox_map_append_context *append_ctx;
 };
 
-static int mdbox_map_file_msg_offset_cmp(const void *p1, const void *p2)
+static int mdbox_map_file_msg_offset_cmp(const struct mdbox_map_file_msg *m1,
+					 const struct mdbox_map_file_msg *m2)
 {
-	const struct mdbox_map_file_msg *m1 = p1, *m2 = p2;
-
 	if (m1->offset < m2->offset)
 		return -1;
 	else if (m1->offset > m2->offset)

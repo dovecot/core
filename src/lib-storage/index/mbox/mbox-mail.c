@@ -359,7 +359,7 @@ static int mbox_mail_init_stream(struct index_mail *mail)
 		i_stream_create_header_filter(raw_stream,
 				HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
 				mbox_hide_headers, mbox_hide_headers_count,
-				null_header_filter_callback, NULL);
+				*null_header_filter_callback, (void *)NULL);
 	i_stream_unref(&raw_stream);
 	return 0;
 }

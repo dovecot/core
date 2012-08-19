@@ -169,7 +169,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	    		HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR |
 			HEADER_FILTER_HIDE_BODY, exclude_headers,
 			N_ELEMENTS(exclude_headers),
-			null_header_filter_callback, NULL);
+			*null_header_filter_callback, (void *)NULL);
 
 	    ret = o_stream_send_istream(output, input);
 	    i_stream_unref(&input);
@@ -207,7 +207,8 @@ int mail_send_forward(struct mail_deliver_context *ctx, const char *forwardto)
     input = i_stream_create_header_filter(input, HEADER_FILTER_EXCLUDE |
                                           HEADER_FILTER_NO_CR, hide_headers,
                                           N_ELEMENTS(hide_headers),
-					  null_header_filter_callback, NULL);
+					  *null_header_filter_callback,
+					  (void *)NULL);
 
     (void)o_stream_send_istream(output, input);
     i_stream_unref(&input);

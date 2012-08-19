@@ -327,7 +327,7 @@ static void module_names_fix(const char **module_names)
 		module_names[i] = module_file_get_name(module_names[i]);
 
 	/* @UNSAFE: drop duplicates */
-	qsort(module_names, i, sizeof(*module_names), i_strcmp_p);
+	i_qsort(module_names, i, sizeof(*module_names), i_strcmp_p);
 	for (i = j = 1; module_names[i] != NULL; i++) {
 		if (strcmp(module_names[i-1], module_names[i]) != 0)
 			module_names[j++] = module_names[i];

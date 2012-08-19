@@ -267,7 +267,7 @@ static void imapc_stream_filter(struct istream **input)
 	filter_input = i_stream_create_header_filter(*input,
 		HEADER_FILTER_EXCLUDE,
 		imapc_hide_headers, N_ELEMENTS(imapc_hide_headers),
-		null_header_filter_callback, NULL);
+		*null_header_filter_callback, (void *)NULL);
 	i_stream_unref(input);
 	*input = filter_input;
 }

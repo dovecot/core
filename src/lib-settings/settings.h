@@ -40,21 +40,23 @@ const char *
 parse_setting_from_defs(pool_t pool, const struct setting_def *defs, void *base,
 			const char *key, const char *value);
 
-bool settings_read(const char *path, const char *section,
-		   settings_callback_t *callback,
-		   settings_section_callback_t *sect_callback, void *context)
+bool settings_read_i(const char *path, const char *section,
+		     settings_callback_t *callback,
+		     settings_section_callback_t *sect_callback, void *context)
 	ATTR_NULL(2, 4, 5);
-#ifdef CONTEXT_TYPE_SAFETY
-#  define settings_read(path, section, callback, sect_callback, context) \
-	({(void)(1 ? 0 : callback((const char *)0, (const char *)0, context)); \
-	  (void)(1 ? 0 : sect_callback((const char *)0, (const char *)0, \
-				       context, (const char **)0)); \
-	  settings_read(path, section, (settings_callback_t *)callback, \
-		(settings_section_callback_t *)sect_callback, context); })
-#else
-#  define settings_read(path, section, callback, sect_callback, context) \
-	  settings_read(path, section, (settings_callback_t *)callback, \
+#define settings_read(path, section, callback, sect_callback, context) \
+	  settings_read_i(path + \
+		CALLBACK_TYPECHECK(callback, const char *(*)( \
+			const char *, const char *, typeof(context))) + \
+		CALLBACK_TYPECHECK(sect_callback, bool (*)( \
+			const char *, const char *, typeof(context), \
+			const char **)), \
+		section, (settings_callback_t *)callback, \
 		(settings_section_callback_t *)sect_callback, context)
-#endif
+#define settings_read_nosection(path, callback, context) \
+	  settings_read_i(path + \
+		CALLBACK_TYPECHECK(callback, const char *(*)( \
+			const char *, const char *, typeof(context))), \
+		NULL, (settings_callback_t *)callback, NULL, context)
 
 #endif

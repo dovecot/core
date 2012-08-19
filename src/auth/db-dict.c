@@ -81,8 +81,7 @@ struct dict_connection *db_dict_init(const char *config_path)
 
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_dict_settings;
-	if (!settings_read(config_path, NULL, parse_setting,
-			   null_settings_section_callback, conn))
+	if (!settings_read_nosection(config_path, parse_setting, conn))
 		exit(FATAL_DEFAULT);
 
 	if (conn->set.uri == NULL)

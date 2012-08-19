@@ -339,14 +339,16 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 						      HEADER_FILTER_INCLUDE |
 						      HEADER_FILTER_HIDE_BODY,
 						      hdr_fields, hdr_count,
-						      null_header_filter_callback, NULL);
+						      *null_header_filter_callback,
+						      (void *)NULL);
 	} else {
 		i_assert(msgpart->fetch_type == FETCH_HEADER_FIELDS_NOT);
 		input = i_stream_create_header_filter(mail_input,
 						      HEADER_FILTER_EXCLUDE |
 						      HEADER_FILTER_HIDE_BODY,
 						      hdr_fields, hdr_count,
-						      null_header_filter_callback, NULL);
+						      *null_header_filter_callback,
+						      (void *)NULL);
 	}
 
 	if (message_get_header_size(input, hdr_size_r, &has_nuls) < 0) {

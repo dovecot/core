@@ -151,16 +151,11 @@ void mail_search_args_reset(struct mail_search_arg *args, bool full_reset);
 int mail_search_args_foreach(struct mail_search_arg *args,
 			     mail_search_foreach_callback_t *callback,
 			     void *context) ATTR_NULL(3);
-#ifdef CONTEXT_TYPE_SAFETY
-#  define mail_search_args_foreach(args, callback, context) \
-	({(void)(1 ? 0 : callback((struct mail_search_arg *)NULL, context)); \
-	  mail_search_args_foreach(args, \
-		(mail_search_foreach_callback_t *)callback, context); })
-#else
-#  define mail_search_args_foreach(args, callback, context) \
-	  mail_search_args_foreach(args, \
+#define mail_search_args_foreach(args, callback, context) \
+	  mail_search_args_foreach(args + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			struct mail_search_arg *, typeof(context))), \
 		(mail_search_foreach_callback_t *)callback, context)
-#endif
 
 /* Fills have_headers and have_body based on if such search argument exists
    that needs to be checked. Returns the headers that we're searching for, or

@@ -352,11 +352,9 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 	return ret;
 }
 
-static int msgid_map_cmp(const void *key, const void *value)
+static int msgid_map_cmp(const uint32_t *uid,
+			 const struct mail_index_strmap_rec *rec)
 {
-	const uint32_t *uid = key;
-	const struct mail_index_strmap_rec *rec = value;
-
 	return *uid < rec->uid ? -1 :
 		(*uid > rec->uid ? 1 : 0);
 }

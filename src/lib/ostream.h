@@ -62,8 +62,9 @@ void o_stream_set_flush_callback(struct ostream *stream,
 				 stream_flush_callback_t *callback,
 				 void *context) ATTR_NULL(3);
 #define o_stream_set_flush_callback(stream, callback, context) \
-	CONTEXT_CALLBACK(o_stream_set_flush_callback, stream_flush_callback_t, \
-			 callback, context, stream)
+	o_stream_set_flush_callback(stream + \
+		CALLBACK_TYPECHECK(callback, int (*)(typeof(context))), \
+		(stream_flush_callback_t *)callback, context)
 void o_stream_unset_flush_callback(struct ostream *stream);
 /* Change the maximum size for stream's output buffer to grow. */
 void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size);

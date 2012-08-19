@@ -121,8 +121,8 @@ static void dns_lookup_timeout(struct dns_lookup *lookup)
 
 #undef dns_lookup
 int dns_lookup(const char *host, const struct dns_lookup_settings *set,
-	       struct dns_lookup **lookup_r,
-	       dns_lookup_callback_t *callback, void *context)
+	       dns_lookup_callback_t *callback, void *context,
+	       struct dns_lookup **lookup_r)
 {
 	struct dns_lookup *lookup;
 	struct dns_lookup_result result;

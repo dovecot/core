@@ -29,12 +29,13 @@ typedef void dns_lookup_callback_t(const struct dns_lookup_result *result,
    When failing with -1, the callback is called before returning from the
    function. */
 int dns_lookup(const char *host, const struct dns_lookup_settings *set,
-	       struct dns_lookup **lookup_r,
-	       dns_lookup_callback_t *callback, void *context) ATTR_NULL(5);
+	       dns_lookup_callback_t *callback, void *context,
+	       struct dns_lookup **lookup_r) ATTR_NULL(4);
 #define dns_lookup(host, set, callback, context, lookup_r) \
-	CONTEXT_CALLBACK2(dns_lookup, dns_lookup_callback_t, \
-			  callback, const struct dns_lookup_result *, \
-			  context, host, set, lookup_r)
+	dns_lookup(host + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			const struct dns_lookup_result *, typeof(context))), \
+		set, (dns_lookup_callback_t *)callback, context, lookup_r)
 /* Abort the DNS lookup without calling the callback. */
 void dns_lookup_abort(struct dns_lookup **lookup);
 

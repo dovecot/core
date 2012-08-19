@@ -17,18 +17,14 @@ auth_request_callback_t(struct auth_stream_reply *reply, void *context);
 struct auth_request_handler *
 auth_request_handler_create(auth_request_callback_t *callback, void *context,
 			    auth_request_callback_t *master_callback);
-#ifdef CONTEXT_TYPE_SAFETY
-#  define auth_request_handler_create(callback, context, master_callback)\
-	({(void)(1 ? 0 : callback((struct auth_stream_reply *)NULL, context)); \
+#define auth_request_handler_create(callback, context, master_callback)\
 	  auth_request_handler_create( \
-		(auth_request_callback_t *)callback, context, \
-		master_callback); })
-#else
-#  define auth_request_handler_create(callback, context, master_callback)\
-	  auth_request_handler_create( \
-		(auth_request_callback_t *)callback, context, \
+		(auth_request_callback_t *)callback, \
+		(void *)((char*)context + \
+			CALLBACK_TYPECHECK(callback, void (*)( \
+				struct auth_stream_reply *, typeof(context)))), \
 		master_callback)
-#endif
+
 void auth_request_handler_destroy(struct auth_request_handler **handler);
 void auth_request_handler_unref(struct auth_request_handler **handler);
 void auth_request_handler_abort_requests(struct auth_request_handler *handler);

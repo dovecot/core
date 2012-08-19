@@ -97,17 +97,12 @@ void imap_fetch_add_handler(struct imap_fetch_init_context *ctx,
 			    const char *nil_reply,
 			    imap_fetch_handler_t *handler, void *context)
 	ATTR_NULL(3, 5);
-#ifdef CONTEXT_TYPE_SAFETY
-#  define imap_fetch_add_handler(ctx, flags, nil_reply, handler, context) \
-	({(void)(1 ? 0 : handler((struct imap_fetch_context *)NULL, \
-				 (struct mail *)NULL, context)); \
-	  imap_fetch_add_handler(ctx, flags, nil_reply, \
-		(imap_fetch_handler_t *)handler, context); })
-#else
-#  define imap_fetch_add_handler(ctx, flags, nil_reply, handler, context) \
-	  imap_fetch_add_handler(ctx, flags, nil_reply, \
+#define imap_fetch_add_handler(ctx, flags, nil_reply, handler, context) \
+	  imap_fetch_add_handler(ctx, flags, nil_reply + \
+		CALLBACK_TYPECHECK(handler, int (*)( \
+			struct imap_fetch_context *, struct mail *, \
+			typeof(context))), \
 		(imap_fetch_handler_t *)handler, context)
-#endif
 
 int imap_fetch_att_list_parse(struct client *client, pool_t pool,
 			      const struct imap_arg *list,

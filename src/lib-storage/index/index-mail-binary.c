@@ -138,7 +138,7 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 		block->input = i_stream_create_header_filter(linput,
 				HEADER_FILTER_EXCLUDE | HEADER_FILTER_HIDE_BODY,
 				filter_headers, N_ELEMENTS(filter_headers),
-				binary_cte_filter_callback, ctx);
+				binary_cte_filter_callback, (void *)NULL);
 		i_stream_unref(&linput);
 	} else {
 		/* copy everything as-is until the end of this header */

@@ -356,10 +356,8 @@ void maildir_sync_index_rollback(struct maildir_index_sync_context **_ctx)
 	(void)maildir_sync_index_finish(ctx, FALSE);
 }
 
-static int uint_cmp(const void *p1, const void *p2)
+static int uint_cmp(const unsigned int *i1, const unsigned int *i2)
 {
-	const unsigned int *i1 = p1, *i2 = p2;
-
 	if (*i1 < *i2)
 		return -1;
 	else if (*i1 > *i2)

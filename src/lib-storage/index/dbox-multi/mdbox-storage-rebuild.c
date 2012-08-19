@@ -92,10 +92,10 @@ mdbox_storage_rebuild_deinit(struct mdbox_storage_rebuild_context *ctx)
 	i_free(ctx);
 }
 
-static int mdbox_rebuild_msg_offset_cmp(const void *p1, const void *p2)
+static int
+mdbox_rebuild_msg_offset_cmp(struct mdbox_rebuild_msg *const *m1,
+			     struct mdbox_rebuild_msg *const *m2)
 {
-	const struct mdbox_rebuild_msg *const *m1 = p1, *const *m2 = p2;
-
 	if ((*m1)->file_id < (*m2)->file_id)
 		return -1;
 	if ((*m1)->file_id > (*m2)->file_id)
@@ -307,17 +307,15 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 {
 	struct mdbox_map *map = ctx->storage->map;
 	const struct mail_index_header *hdr;
-	struct mdbox_rebuild_msg *const *msgs, **pos;
+	struct mdbox_rebuild_msg **pos;
 	struct mdbox_rebuild_msg search_msg, *search_msgp = &search_msg;
 	struct dbox_mail_lookup_rec rec;
 	uint32_t seq;
-	unsigned int count;
 
 	array_sort(&ctx->msgs, mdbox_rebuild_msg_offset_cmp);
 	/* msgs now contains a list of all messages that exists in m.* files,
 	   sorted by file_id,offset */
 
-	msgs = array_get_modifiable(&ctx->msgs, &count);
 	hdr = mail_index_get_header(ctx->atomic->sync_view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		if (mdbox_map_view_lookup_rec(map, ctx->atomic->sync_view,
@@ -329,8 +327,8 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 		search_msg.file_id = rec.rec.file_id;
 		search_msg.offset = rec.rec.offset;
 		search_msg.size = rec.rec.size;
-		pos = bsearch(&search_msgp, msgs, count, sizeof(*msgs),
-			      mdbox_rebuild_msg_offset_cmp);
+		pos = array_bsearch(&ctx->msgs, &search_msgp,
+				    mdbox_rebuild_msg_offset_cmp);
 		if (pos == NULL || (*pos)->map_uid != 0) {
 			/* map record points to nonexistent or
 			   a duplicate message. */

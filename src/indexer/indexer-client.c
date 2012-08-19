@@ -147,9 +147,8 @@ indexer_client_request(struct indexer_client *client,
 	}
 }
 
-static void indexer_client_input(void *context)
+static void indexer_client_input(struct indexer_client *client)
 {
-	struct indexer_client *client = context;
 	const char *line, *const *args, *error;
 
 	switch (i_stream_read(client->input)) {

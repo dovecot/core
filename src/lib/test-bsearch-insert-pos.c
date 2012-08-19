@@ -3,10 +3,8 @@
 #include "test-lib.h"
 #include "bsearch-insert-pos.h"
 
-static int cmp_uint(const void *p1, const void *p2)
+static int cmp_uint(const unsigned int *i1, const unsigned int *i2)
 {
-	const unsigned int *i1 = p1, *i2 = p2;
-
 	return *i1 - *i2;
 }
 

@@ -35,12 +35,13 @@ static void test_istream_filter(void)
 					       HEADER_FILTER_EXCLUDE |
 					       HEADER_FILTER_NO_CR,
 					       exclude_headers, 2,
-					       filter_callback, NULL);
+					       filter_callback, (void *)NULL);
 	filter2 = i_stream_create_header_filter(filter,
 						HEADER_FILTER_EXCLUDE |
 						HEADER_FILTER_NO_CR,
 						exclude_headers, 2,
-						null_header_filter_callback, NULL);
+						*null_header_filter_callback,
+						(void *)NULL);
 	i_stream_unref(&filter);
 	filter = filter2;
 
@@ -86,7 +87,8 @@ static void test_istream_end_body_with_lf(void)
 					       HEADER_FILTER_NO_CR |
 					       HEADER_FILTER_END_BODY_WITH_LF,
 					       empty_strarray, 0,
-					       null_header_filter_callback, NULL);
+					       *null_header_filter_callback,
+					       (void *)NULL);
 
 	for (i = 1; i < input_len; i++) {
 		test_istream_set_size(istream, i);

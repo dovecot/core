@@ -50,11 +50,11 @@ const char *t_str_lcase(const char *str);
 const char *t_str_ucase(const char *str);
 
 int null_strcmp(const char *s1, const char *s2) ATTR_PURE;
-int bsearch_strcmp(const void *p1, const void *p2) ATTR_PURE;
-int bsearch_strcasecmp(const void *p1, const void *p2) ATTR_PURE;
+int bsearch_strcmp(const char *p1, const char *const *member) ATTR_PURE;
+int bsearch_strcasecmp(const char *key, const char *const *member) ATTR_PURE;
 int i_memcasecmp(const void *p1, const void *p2, size_t size) ATTR_PURE;
-int i_strcmp_p(const void *p1, const void *p2) ATTR_PURE;
-int i_strcasecmp_p(const void *p1, const void *p2) ATTR_PURE;
+int i_strcmp_p(const char *const *p1, const char *const *p2) ATTR_PURE;
+int i_strcasecmp_p(const char *const *p1, const char *const *p2) ATTR_PURE;
 
 /* separators is an array of separator characters, not a separator string. */
 char **p_strsplit(pool_t pool, const char *data, const char *separators)
@@ -87,6 +87,18 @@ bool str_array_icase_find(const char *const *arr, const char *value);
 /* Duplicate array of strings. The memory can be freed by freeing the
    return value. */
 const char **p_strarray_dup(pool_t pool, const char *const *arr);
+
+#define i_qsort(base, nmemb, size, cmp) \
+	qsort(base, nmemb, size + \
+		CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*base) *), \
+						typeof(const typeof(*base) *))), \
+		(int (*)(const void *, const void *))cmp)
+#define i_bsearch(key, base, nmemb, size, cmp) \
+	bsearch(key, base, nmemb, size + \
+		CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
+						typeof(const typeof(*base) *))), \
+		(int (*)(const void *, const void *))cmp)
+
 
 /* INTERNAL */
 char *t_noalloc_strdup_vprintf(const char *format, va_list args,

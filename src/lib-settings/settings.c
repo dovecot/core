@@ -386,10 +386,9 @@ prevfile:
 	return errormsg == NULL;
 }
 
-#undef settings_read
-bool settings_read(const char *path, const char *section,
-		   settings_callback_t *callback,
-		   settings_section_callback_t *sect_callback, void *context)
+bool settings_read_i(const char *path, const char *section,
+		     settings_callback_t *callback,
+		     settings_section_callback_t *sect_callback, void *context)
 {
 	bool ret;
 

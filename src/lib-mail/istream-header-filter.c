@@ -202,10 +202,10 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		}
 
 		matched = mstream->headers_count == 0 ? FALSE :
-			bsearch(hdr->name, mstream->headers,
-				mstream->headers_count,
-				sizeof(*mstream->headers),
-				bsearch_strcasecmp) != NULL;
+			i_bsearch(hdr->name, mstream->headers,
+				  mstream->headers_count,
+				  sizeof(*mstream->headers),
+				  bsearch_strcasecmp) != NULL;
 		if (mstream->callback == NULL) {
 			/* nothing gets excluded */
 		} else if (mstream->cur_line > mstream->parsed_lines) {

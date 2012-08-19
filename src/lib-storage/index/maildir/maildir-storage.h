@@ -101,16 +101,11 @@ typedef int maildir_file_do_func(struct maildir_mailbox *mbox,
 
 int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 		    maildir_file_do_func *callback, void *context);
-#ifdef CONTEXT_TYPE_SAFETY
-#  define maildir_file_do(mbox, seq, callback, context) \
-	({(void)(1 ? 0 : callback((struct maildir_mailbox *)NULL, \
-				  (const char *)NULL, context)); \
-	  maildir_file_do(mbox, seq, \
-		(maildir_file_do_func *)callback, context); })
-#else
-#  define maildir_file_do(mbox, seq, callback, context) \
-	maildir_file_do(mbox, seq, (maildir_file_do_func *)callback, context)
-#endif
+#define maildir_file_do(mbox, seq, callback, context) \
+	maildir_file_do(mbox, seq + \
+		CALLBACK_TYPECHECK(callback, int (*)( \
+			struct maildir_mailbox *, const char *, typeof(context))), \
+		(maildir_file_do_func *)callback, context)
 
 bool maildir_set_deleted(struct mailbox *box);
 uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list);

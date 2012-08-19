@@ -49,19 +49,16 @@ struct io *io_add(int fd, enum io_condition condition,
 		  unsigned int source_linenum,
 		  io_callback_t *callback, void *context) ATTR_NULL(5);
 #define io_add(fd, condition, callback, context) \
-	CONTEXT_CALLBACK(io_add, io_callback_t, \
-			 callback, context, fd, condition, __LINE__)
+	io_add(fd, condition, __LINE__ + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+		(io_callback_t *)callback, context)
 enum io_notify_result
 io_add_notify(const char *path, io_callback_t *callback,
 	      void *context, struct io **io_r) ATTR_NULL(3);
-#ifdef CONTEXT_TYPE_SAFETY
-#  define io_add_notify(path, callback, context, io_r) \
-	({(void)(1 ? 0 : callback(context)); \
-	io_add_notify(path, (io_callback_t *)callback, context, io_r); })
-#else
-#  define io_add_notify(path, callback, context, io_r) \
-	io_add_notify(path, (io_callback_t *)callback, context, io_r)
-#endif
+#define io_add_notify(path, callback, context, io_r) \
+	io_add_notify(path + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+		(io_callback_t *)callback, context, io_r)
 
 /* Remove I/O handler, and set io pointer to NULL. */
 void io_remove(struct io **io);
@@ -74,15 +71,18 @@ struct timeout *
 timeout_add(unsigned int msecs, unsigned int source_linenum,
 	    timeout_callback_t *callback, void *context) ATTR_NULL(4);
 #define timeout_add(msecs, callback, context) \
-	CONTEXT_CALLBACK(timeout_add, timeout_callback_t, \
-			 callback, context, msecs, __LINE__), \
-	(void)COMPILE_ERROR_IF_TRUE(__builtin_constant_p(msecs) && (msecs > 0 && msecs < 1000))
+	timeout_add(msecs, __LINE__ + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))) + \
+		COMPILE_ERROR_IF_TRUE(__builtin_constant_p(msecs) && \
+				      (msecs > 0 && msecs < 1000)), \
+		(io_callback_t *)callback, context)
 struct timeout *
 timeout_add_short(unsigned int msecs, unsigned int source_linenum,
 		  timeout_callback_t *callback, void *context) ATTR_NULL(4);
 #define timeout_add_short(msecs, callback, context) \
-	CONTEXT_CALLBACK(timeout_add_short, timeout_callback_t, \
-			 callback, context, msecs, __LINE__)
+	timeout_add_short(msecs, __LINE__ + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+		(io_callback_t *)callback, context)
 /* Remove timeout handler, and set timeout pointer to NULL. */
 void timeout_remove(struct timeout **timeout);
 /* Reset timeout so it's next run after now+msecs. */

@@ -130,7 +130,7 @@ static int get_hdr_sha1(struct mail *mail, unsigned char sha1[SHA1_RESULTLEN])
 				HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
 				hdr_hash_skip_headers,
 				N_ELEMENTS(hdr_hash_skip_headers),
-				null_header_filter_callback, NULL);
+				*null_header_filter_callback, (void *)NULL);
 	i_stream_unref(&input2);
 
 	sha1_init(&sha1_ctx);

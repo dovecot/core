@@ -628,8 +628,7 @@ static void maildir_mail_remove_sizes_from_uidlist(struct mail *mail)
 }
 
 static int
-do_fix_size(struct maildir_mailbox *mbox, const char *path,
-	    const char *wrong_key_p)
+do_fix_size(struct maildir_mailbox *mbox, const char *path, char *wrong_key_p)
 {
 	const char *fname, *newpath, *extra, *info, *dir;
 	struct stat st;

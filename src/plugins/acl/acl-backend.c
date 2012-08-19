@@ -67,8 +67,8 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 			p_new(backend->pool, const char *, group_count);
 		for (i = 0; i < group_count; i++)
 			backend->groups[i] = p_strdup(backend->pool, groups[i]);
-		qsort(backend->groups, group_count, sizeof(const char *),
-		      i_strcmp_p);
+		i_qsort(backend->groups, group_count, sizeof(const char *),
+			i_strcmp_p);
 	}
 
 	T_BEGIN {
@@ -127,8 +127,8 @@ bool acl_backend_user_name_equals(struct acl_backend *backend,
 bool acl_backend_user_is_in_group(struct acl_backend *backend,
 				  const char *group_name)
 {
-	return bsearch(group_name, backend->groups, backend->group_count,
-		       sizeof(const char *), bsearch_strcmp) != NULL;
+	return i_bsearch(group_name, backend->groups, backend->group_count,
+			 sizeof(const char *), bsearch_strcmp) != NULL;
 }
 
 bool acl_backend_rights_match_me(struct acl_backend *backend,

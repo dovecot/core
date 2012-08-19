@@ -140,9 +140,8 @@ static int config_connection_request(struct config_connection *conn,
 	return 0;
 }
 
-static void config_connection_input(void *context)
+static void config_connection_input(struct config_connection *conn)
 {
-	struct config_connection *conn = context;
 	const char *const *args, *line;
 
 	switch (i_stream_read(conn->input)) {

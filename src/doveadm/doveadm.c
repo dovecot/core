@@ -55,15 +55,15 @@ static void
 doveadm_usage_compress_lines(FILE *out, const char *str, const char *prefix)
 {
 	const char *cmd, *args, *p, *short_name, *prev_name = "";
-	char **lines;
+	const char **lines;
 	unsigned int i, count, prefix_len = strlen(prefix);
 
 	/* split lines */
-	lines = p_strsplit(pool_datastack_create(), str, "\n");
+	lines = (void *)p_strsplit(pool_datastack_create(), str, "\n");
 	for (count = 0; lines[count] != NULL; count++) ;
 
 	/* sort lines */
-	qsort(lines, count, sizeof(*lines), i_strcmp_p);
+	i_qsort(lines, count, sizeof(*lines), i_strcmp_p);
 
 	/* print lines, compress subcommands into a single line */
 	for (i = 0; i < count; i++) {

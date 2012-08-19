@@ -143,20 +143,11 @@
 
 /* Macros to provide type safety for callback functions' context parameters */
 #ifdef __GNUC__
-#  define CONTEXT_TYPE_SAFETY
-#endif
-#ifdef CONTEXT_TYPE_SAFETY
-#  define CONTEXT_CALLBACK(name, callback_type, callback, context, ...) \
-	({(void)(1 ? 0 : callback(context)); \
-	name(__VA_ARGS__, (callback_type *)callback, context); })
-#  define CONTEXT_CALLBACK2(name, callback_type, callback, arg1_type, context, ...) \
-	({(void)(1 ? 0 : callback((arg1_type)0, context)); \
-	name(__VA_ARGS__, (callback_type *)callback, context); })
+#  define CALLBACK_TYPECHECK(callback, type) \
+	(COMPILE_ERROR_IF_TRUE(!__builtin_types_compatible_p( \
+		typeof(&callback), type)) ? 1 : 0)
 #else
-#  define CONTEXT_CALLBACK(name, callback_type, callback, context, ...) \
-	name(__VA_ARGS__, (callback_type *)callback, context)
-#  define CONTEXT_CALLBACK2(name, callback_type, callback, arg1_type, context, ...) \
-	name(__VA_ARGS__, (callback_type *)callback, context)
+#  define CALLBACK_TYPECHECK(callback, type) 0
 #endif
 
 #if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 0)) && !defined(__cplusplus)

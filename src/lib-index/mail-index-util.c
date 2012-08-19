@@ -103,23 +103,17 @@ int mail_index_unpack_num(const uint8_t **p, const uint8_t *end,
 	return 0;
 }
 
-static int mail_index_seq_record_cmp(const void *key, const void *data)
+static int mail_index_seq_record_cmp(const uint32_t *key_seq,
+				     const uint32_t *data_seq)
 {
-	const uint32_t *seq_p = key;
-	const uint32_t *data_seq = data;
-
-	return *seq_p - *data_seq;
+	return *key_seq - *data_seq;
 }
 
 bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,
 				 uint32_t seq, unsigned int *idx_r)
 {
-	const void *base;
-	unsigned int count;
-
-	base = array_get(array, &count);
-	return bsearch_insert_pos(&seq, base, count, array->arr.element_size,
-				  mail_index_seq_record_cmp, idx_r);
+	return array_bsearch_insert_pos(array, &seq,
+					mail_index_seq_record_cmp, idx_r);
 }
 
 bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,

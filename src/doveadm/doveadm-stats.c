@@ -372,7 +372,7 @@ static bool stats_top_round(struct top_context *ctx)
 	stats_drop_stale(ctx);
 
 	sort_ctx = ctx;
-	array_sort(&ctx->lines, ctx->lines_sort);
+	array_sort(&ctx->lines, *ctx->lines_sort);
 	sort_ctx = NULL;
 	return TRUE;
 }

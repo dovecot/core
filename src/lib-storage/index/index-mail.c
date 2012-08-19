@@ -839,7 +839,7 @@ static int index_mail_parse_body(struct index_mail *mail,
 		data->parsed_bodystructure = TRUE;
 	} else {
 		message_parser_parse_body(data->parser_ctx,
-			null_message_part_header_callback, NULL);
+			*null_message_part_header_callback, (void *)NULL);
 	}
 	ret = index_mail_stream_check_failure(mail);
 	if (index_mail_parse_body_finish(mail, field) < 0)

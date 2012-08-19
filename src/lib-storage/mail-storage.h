@@ -502,16 +502,10 @@ int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags);
 void mailbox_notify_changes(struct mailbox *box,
 			    mailbox_notify_callback_t *callback, void *context)
 	ATTR_NULL(3);
-#ifdef CONTEXT_TYPE_SAFETY
-#  define mailbox_notify_changes(box, callback, context) \
-	({(void)(1 ? 0 : callback((struct mailbox *)NULL, context)); \
-	  mailbox_notify_changes(box, \
-		(mailbox_notify_callback_t *)callback, context); })
-#else
-#  define mailbox_notify_changes(box, callback, context) \
-	  mailbox_notify_changes(box, \
-		(mailbox_notify_callback_t *)callback, context)
-#endif
+#define mailbox_notify_changes(box, callback, context) \
+	  mailbox_notify_changes(box, (mailbox_notify_callback_t *)callback, \
+		(void *)((char *)context + CALLBACK_TYPECHECK(callback, \
+			void (*)(struct mailbox *, typeof(context)))))
 void mailbox_notify_changes_stop(struct mailbox *box);
 
 struct mailbox_transaction_context *

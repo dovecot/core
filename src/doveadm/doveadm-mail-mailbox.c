@@ -261,10 +261,8 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_create_alloc(void)
 	return &ctx->ctx.ctx;
 }
 
-static int i_strcmp_reverse_p(const void *p1, const void *p2)
+static int i_strcmp_reverse_p(const char *const *s1, const char *const *s2)
 {
-	const char *const *s1 = p1, *const *s2 = p2;
-
 	return -strcmp(*s1, *s2);
 }
 

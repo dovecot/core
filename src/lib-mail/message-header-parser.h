@@ -63,15 +63,10 @@ void message_parse_header(struct istream *input, struct message_size *hdr_size,
 			  enum message_header_parser_flags flags,
 			  message_header_callback_t *callback, void *context)
 	ATTR_NULL(2);
-#ifdef CONTEXT_TYPE_SAFETY
-#  define message_parse_header(input, hdr_size, flags, callback, context) \
-	({(void)(1 ? 0 : callback((struct message_header_line *)0, context)); \
-	  message_parse_header(input, hdr_size, flags, \
-		(message_header_callback_t *)callback, context); })
-#else
-#  define message_parse_header(input, hdr_size, flags, callback, context) \
-	  message_parse_header(input, hdr_size, flags, \
-		(message_header_callback_t *)callback, context)
-#endif
+#define message_parse_header(input, hdr_size, flags, callback, context) \
+	  message_parse_header(input, hdr_size, flags + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			struct message_header_line *hdr, typeof(context))), \
+ 		(message_header_callback_t *)callback, context)
 
 #endif

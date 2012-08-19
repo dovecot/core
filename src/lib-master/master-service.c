@@ -397,10 +397,8 @@ static void master_service_error(struct master_service *service)
 	}
 }
 
-static void master_status_error(void *context)
+static void master_status_error(struct master_service *service)
 {
-	struct master_service *service = context;
-
 	/* status fd is a write-only pipe, so if we're here it means the
 	   master wants us to die (or died itself). don't die until all
 	   service connections are finished. */

@@ -35,20 +35,13 @@ i_stream_create_header_filter(struct istream *input,
 			      unsigned int headers_count,
 			      header_filter_callback *callback, void *context)
 	ATTR_NULL(6);
-#ifdef CONTEXT_TYPE_SAFETY
-#  define i_stream_create_header_filter(input, flags, headers, headers_count, \
+#define i_stream_create_header_filter(input, flags, headers, headers_count, \
 				        callback, context) \
-	({(void)(1 ? 0 : callback((struct header_filter_istream *)0, \
-				  (struct message_header_line *)0, \
-				  (bool *)0, context)); \
-	  i_stream_create_header_filter(input, flags, headers, headers_count, \
-			(header_filter_callback *)callback, context); })
-#else
-#  define i_stream_create_header_filter(input, flags, headers, headers_count, \
-				        callback, context) \
-	  i_stream_create_header_filter(input, flags, headers, headers_count, \
-			(header_filter_callback *)callback, context)
-#endif
+	  i_stream_create_header_filter(input, flags, headers, headers_count + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			struct header_filter_istream *, \
+			struct message_header_line *, bool *, typeof(context))), \
+		(header_filter_callback *)callback, context)
 
 /* Add more data to headers. Should called from the filter callback. */
 void i_stream_header_filter_add(struct header_filter_istream *input,
