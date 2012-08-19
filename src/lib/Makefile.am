@@ -164,6 +164,7 @@ headers = \
 	fsync-mode.h \
 	guid.h \
 	hash.h \
+	hash-decl.h \
 	hash-format.h \
 	hash-method.h \
 	hash2.h \
