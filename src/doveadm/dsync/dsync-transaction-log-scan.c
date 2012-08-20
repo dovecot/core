@@ -406,10 +406,10 @@ int dsync_transaction_log_scan_init(struct mail_index_view *view,
 	return 0;
 }
 
-HASH_TABLE_TYPE(dsync_uid_mail_change)
-dsync_transaction_log_scan_get_hash(struct dsync_transaction_log_scan *scan)
+void dsync_transaction_log_scan_get_hash(struct dsync_transaction_log_scan *scan,
+					 HASH_TABLE_TYPE(dsync_uid_mail_change) *hash_r)
 {
-	return scan->changes;
+	hash_r->_table = scan->changes._table;
 }
 
 bool

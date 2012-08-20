@@ -385,7 +385,7 @@ dsync_mailbox_export_log_scan(struct dsync_mailbox_exporter *exporter,
 	void *key, *value;
 	struct dsync_mail_change *dup_change;
 
-	log_changes = dsync_transaction_log_scan_get_hash(log_scan);
+	dsync_transaction_log_scan_get_hash(log_scan, &log_changes);
 	if (dsync_transaction_log_scan_has_all_changes(log_scan))
 		exporter->return_all_mails = TRUE;
 
