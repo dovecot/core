@@ -32,7 +32,7 @@ struct maildir_keywords {
 
 	pool_t pool;
 	ARRAY_TYPE(keywords) list;
-	HASH_TABLE(char *, unsigned int) hash; /* name -> idx+1 */
+	HASH_TABLE(char *, void *) hash; /* name -> idx+1 */
 
         struct dotlock_settings dotlock_settings;
 
@@ -176,7 +176,7 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 
 		/* save it */
 		new_name = p_strdup(mk->pool, p);
-		hash_table_insert(mk->hash, new_name, idx + 1);
+		hash_table_insert(mk->hash, new_name, POINTER_CAST(idx + 1));
 
 		strp = array_idx_modifiable(&mk->list, idx);
 		*strp = new_name;
@@ -197,10 +197,10 @@ static int
 maildir_keywords_lookup(struct maildir_keywords *mk, const char *name,
 			unsigned int *chridx_r)
 {
-	unsigned int num;
+	void *value;
 
-	num = hash_table_lookup(mk->hash, name);
-	if (num == 0) {
+	value = hash_table_lookup(mk->hash, name);
+	if (value == 0) {
 		if (mk->synced)
 			return 0;
 
@@ -208,12 +208,12 @@ maildir_keywords_lookup(struct maildir_keywords *mk, const char *name,
 			return -1;
 		i_assert(mk->synced);
 
-		num = hash_table_lookup(mk->hash, name);
-		if (num == 0)
+		value = hash_table_lookup(mk->hash, name);
+		if (value == 0)
 			return 0;
 	}
 
-	*chridx_r = num-1;
+	*chridx_r = POINTER_CAST_TO(value, unsigned int)-1;
 	return 1;
 }
 
@@ -227,7 +227,7 @@ maildir_keywords_create(struct maildir_keywords *mk, const char *name,
 	i_assert(chridx < MAILDIR_MAX_KEYWORDS);
 
 	new_name = p_strdup(mk->pool, name);
-	hash_table_insert(mk->hash, new_name, chridx + 1);
+	hash_table_insert(mk->hash, new_name, POINTER_CAST(chridx + 1));
 
 	strp = array_idx_modifiable(&mk->list, chridx);
 	*strp = new_name;

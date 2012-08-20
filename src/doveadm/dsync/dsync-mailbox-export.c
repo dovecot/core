@@ -35,8 +35,8 @@ struct dsync_mailbox_exporter {
 	ARRAY_TYPE(const_string) expunged_guids;
 	unsigned int expunged_guid_idx;
 
-	/* UID => struct dsync_mail_change */
-	HASH_TABLE(uint32_t, struct dsync_mail_change *) changes;
+	/* uint32_t UID => struct dsync_mail_change */
+	HASH_TABLE(void *, struct dsync_mail_change *) changes;
 	/* changes sorted by UID */
 	ARRAY(struct dsync_mail_change *) sorted_changes;
 	unsigned int change_idx;
@@ -156,7 +156,7 @@ search_update_flag_change_guid(struct dsync_mailbox_exporter *exporter,
 	const char *guid, *hdr_hash;
 	int ret;
 
-	change = hash_table_lookup(exporter->changes, mail->uid);
+	change = hash_table_lookup(exporter->changes, POINTER_CAST(mail->uid));
 	i_assert(change != NULL);
 	i_assert(change->type == DSYNC_MAIL_CHANGE_TYPE_FLAG_CHANGE);
 
@@ -187,11 +187,11 @@ export_save_change_get(struct dsync_mailbox_exporter *exporter, uint32_t uid)
 {
 	struct dsync_mail_change *change;
 
-	change = hash_table_lookup(exporter->changes, uid);
+	change = hash_table_lookup(exporter->changes, POINTER_CAST(uid));
 	if (change == NULL) {
 		change = p_new(exporter->pool, struct dsync_mail_change, 1);
 		change->uid = uid;
-		hash_table_insert(exporter->changes, uid, change);
+		hash_table_insert(exporter->changes, POINTER_CAST(uid), change);
 	} else {
 		/* move flag changes into a save. this happens only when
 		   last_common_uid isn't known */
@@ -265,12 +265,11 @@ dsync_mailbox_export_add_flagchange_uids(struct dsync_mailbox_exporter *exporter
 					 ARRAY_TYPE(seq_range) *uids)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	void *key;
+	struct dsync_mail_change *change;
 
 	iter = hash_table_iterate_init(exporter->changes);
-	while (hash_table_iterate(iter, &key, &value)) {
-		const struct dsync_mail_change *change = value;
-
+	while (hash_table_iterate(iter, exporter->changes, &key, &change)) {
 		if (change->type == DSYNC_MAIL_CHANGE_TYPE_FLAG_CHANGE)
 			seq_range_array_add(uids, change->uid);
 	}
@@ -281,19 +280,18 @@ static void
 dsync_mailbox_export_drop_expunged_flag_changes(struct dsync_mailbox_exporter *exporter)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	void *key;
+	struct dsync_mail_change *change;
 
 	/* any flag changes for UIDs above last_common_uid weren't found by
 	   mailbox search, which means they were already expunged. for some
 	   reason the log scanner found flag changes for the message, but not
 	   the expunge. just remove these. */
 	iter = hash_table_iterate_init(exporter->changes);
-	while (hash_table_iterate(iter, &key, &value)) {
-		const struct dsync_mail_change *change = value;
-
+	while (hash_table_iterate(iter, exporter->changes, &key, &change)) {
 		if (change->type == DSYNC_MAIL_CHANGE_TYPE_FLAG_CHANGE &&
 		    change->uid > exporter->last_common_uid)
-			hash_table_remove(exporter->changes, change->uid);
+			hash_table_remove(exporter->changes, key);
 	}
 	hash_table_iterate_deinit(&iter);
 }
@@ -362,16 +360,15 @@ static void
 dsync_mailbox_export_sort_changes(struct dsync_mailbox_exporter *exporter)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	void *key;
+	struct dsync_mail_change *change;
 
 	p_array_init(&exporter->sorted_changes, exporter->pool,
 		     hash_table_count(exporter->changes));
 
 	iter = hash_table_iterate_init(exporter->changes);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct dsync_mail_change *change = value;
+	while (hash_table_iterate(iter, exporter->changes, &key, &change))
 		array_append(&exporter->sorted_changes, &change, 1);
-	}
 	hash_table_iterate_deinit(&iter);
 	array_sort(&exporter->sorted_changes, dsync_mail_change_p_uid_cmp);
 }
@@ -382,8 +379,8 @@ dsync_mailbox_export_log_scan(struct dsync_mailbox_exporter *exporter,
 {
 	HASH_TABLE_TYPE(dsync_uid_mail_change) log_changes;
 	struct hash_iterate_context *iter;
-	void *key, *value;
-	struct dsync_mail_change *dup_change;
+	void *key;
+	struct dsync_mail_change *change, *dup_change;
 
 	dsync_transaction_log_scan_get_hash(log_scan, &log_changes);
 	if (dsync_transaction_log_scan_has_all_changes(log_scan))
@@ -393,12 +390,10 @@ dsync_mailbox_export_log_scan(struct dsync_mailbox_exporter *exporter,
 	hash_table_create_direct(&exporter->changes, exporter->pool,
 				 hash_table_count(log_changes));
 	iter = hash_table_iterate_init(log_changes);
-	while (hash_table_iterate(iter, &key, &value)) {
-		const struct dsync_mail_change *change = value;
-
+	while (hash_table_iterate(iter, log_changes, &key, &change)) {
 		dup_change = p_new(exporter->pool, struct dsync_mail_change, 1);
 		*dup_change = *change;
-		hash_table_insert(exporter->changes, change->uid, dup_change);
+		hash_table_insert(exporter->changes, key, dup_change);
 		if (exporter->highest_changed_uid < change->uid)
 			exporter->highest_changed_uid = change->uid;
 	}
@@ -464,7 +459,9 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 	struct mail_search_arg *sarg;
 	struct hash_iterate_context *iter;
 	const struct seq_range *uids;
-	void *key, *value;
+	char *guid;
+	const char *const_guid;
+	struct dsync_mail_guid_instances *instances;
 	const struct seq_range *range;
 	unsigned int i, count;
 	uint32_t seq, seq1, seq2;
@@ -478,10 +475,8 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 	/* get a list of messages we want to fetch. if there are more than one
 	   instance for a GUID, use the first one. */
 	iter = hash_table_iterate_init(exporter->export_guids);
-	while (hash_table_iterate(iter, &key, &value)) {
-		const char *guid = key;
-		struct dsync_mail_guid_instances *instances = value;
-
+	while (hash_table_iterate(iter, exporter->export_guids,
+				  &guid, &instances)) {
 		if (!instances->requested ||
 		    array_count(&instances->seqs) == 0)
 			continue;
@@ -498,8 +493,9 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 			seq_range_array_remove(&exporter->expunged_seqs, seq);
 			if (array_count(&instances->seqs) == 0) {
 				/* no instances left */
+				const_guid = guid;
 				array_append(&exporter->expunged_guids,
-					     &guid, 1);
+					     &const_guid, 1);
 				continue;
 			}
 			uids = array_idx(&instances->seqs, 0);

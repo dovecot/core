@@ -90,8 +90,10 @@ mailbox_list_index_node_add(struct mailbox_list_index_sync_context *ctx,
 		node->next = ctx->ilist->mailbox_tree;
 		ctx->ilist->mailbox_tree = node;
 	}
-	hash_table_insert(ctx->ilist->mailbox_hash, node->uid, node);
-	hash_table_insert(ctx->ilist->mailbox_names, node->name_id, dup_name);
+	hash_table_insert(ctx->ilist->mailbox_hash,
+			  POINTER_CAST(node->uid), node);
+	hash_table_insert(ctx->ilist->mailbox_names,
+			  POINTER_CAST(node->name_id), dup_name);
 
 	node_add_to_index(ctx, node, seq_r);
 	return node;
@@ -182,7 +184,8 @@ mailbox_list_index_sync_names(struct mailbox_list_index_sync_context *ctx)
 	array_foreach(&existing_name_ids, id_p) {
 		if (*id_p != prev_id) {
 			buffer_append(hdr_buf, id_p, sizeof(*id_p));
-			name = hash_table_lookup(ilist->mailbox_names, *id_p);
+			name = hash_table_lookup(ilist->mailbox_names,
+						 POINTER_CAST(*id_p));
 			buffer_append(hdr_buf, name, strlen(name) + 1);
 			prev_id = *id_p;
 		}

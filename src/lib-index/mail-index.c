@@ -250,7 +250,8 @@ void mail_index_unregister_sync_lost_handler(struct mail_index *index,
 bool mail_index_keyword_lookup(struct mail_index *index,
 			       const char *keyword, unsigned int *idx_r)
 {
-	void *key, *value;
+	char *key;
+	void *value;
 
 	/* keywords_hash keeps a name => index mapping of keywords.
 	   Keywords are never removed from it, so the index values are valid
@@ -279,7 +280,8 @@ void mail_index_keyword_lookup_or_create(struct mail_index *index,
 	keyword = keyword_dup = p_strdup(index->keywords_pool, keyword);
 	*idx_r = array_count(&index->keywords);
 
-	hash_table_insert(index->keywords_hash, keyword_dup, *idx_r);
+	hash_table_insert(index->keywords_hash, keyword_dup,
+			  POINTER_CAST(*idx_r));
 	array_append(&index->keywords, &keyword, 1);
 
 	/* keep the array NULL-terminated, but the NULL itself invisible */

@@ -111,7 +111,7 @@ mailbox_list_index_lookup(struct mailbox_list *list, const char *name)
 struct mailbox_list_index_node *
 mailbox_list_index_lookup_uid(struct mailbox_list_index *ilist, uint32_t uid)
 {
-	return hash_table_lookup(ilist->mailbox_hash, uid);
+	return hash_table_lookup(ilist->mailbox_hash, POINTER_CAST(uid));
 }
 
 void mailbox_list_index_node_get_path(const struct mailbox_list_index_node *node,
@@ -160,7 +160,7 @@ static int mailbox_list_index_parse_header(struct mailbox_list_index *ilist,
 		i += len + 1;
 
 		/* add id => name to hash table */
-		hash_table_insert(ilist->mailbox_names, id, name);
+		hash_table_insert(ilist->mailbox_names, POINTER_CAST(id), name);
 		ilist->highest_name_id = id;
 	}
 	i_assert(i == size);
@@ -193,7 +193,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 
 		node->name_id = irec->name_id;
 		node->name = hash_table_lookup(ilist->mailbox_names,
-					       irec->name_id);
+					       POINTER_CAST(irec->name_id));
 		if (node->name == NULL)
 			return -1;
 
@@ -208,7 +208,8 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			node->next = ilist->mailbox_tree;
 			ilist->mailbox_tree = node;
 		}
-		hash_table_insert(ilist->mailbox_hash, node->uid, node);
+		hash_table_insert(ilist->mailbox_hash,
+				  POINTER_CAST(node->uid), node);
 	}
 	return 0;
 }

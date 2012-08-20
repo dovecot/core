@@ -2,7 +2,7 @@
 #define DSYNC_TRANSACTION_LOG_SCAN_H
 
 HASH_TABLE_DEFINE_TYPE(dsync_uid_mail_change,
-		       uint32_t, struct dsync_mail_change*);
+		       void *, struct dsync_mail_change *);
 
 struct mail_index_view;
 struct dsync_transaction_log_scan;

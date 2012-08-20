@@ -142,7 +142,7 @@ struct service_list {
 	unsigned int sigterm_sent_to_log:1;
 };
 
-HASH_TABLE_DEFINE_TYPE(pid_process, pid_t, struct service_process *);
+HASH_TABLE_DEFINE_TYPE(pid_process, void *, struct service_process *);
 extern HASH_TABLE_TYPE(pid_process) service_pids;
 
 /* Create all services from settings */

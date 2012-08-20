@@ -548,7 +548,10 @@ static void main_init(const char *admin_path)
 static void main_deinit(void)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	char *username;
+	struct ip_addr *ip;
+	struct user *user;
+	struct host *host;
 
 	while (imap_clients != NULL) {
 		struct imap_client *client = imap_clients;
@@ -562,18 +565,14 @@ static void main_deinit(void)
 	}
 
 	iter = hash_table_iterate_init(users);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct user *user = value;
+	while (hash_table_iterate(iter, users, &username, &user))
 		user_free(user);
-	}
 	hash_table_iterate_deinit(&iter);
 	hash_table_destroy(&users);
 
 	iter = hash_table_iterate_init(hosts);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct host *host = value;
+	while (hash_table_iterate(iter, hosts, &ip, &host))
 		host_unref(&host);
-	}
 	hash_table_iterate_deinit(&iter);
 	hash_table_destroy(&hosts);
 	array_free(&hosts_array);

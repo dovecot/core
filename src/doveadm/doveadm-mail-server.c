@@ -258,12 +258,11 @@ static struct doveadm_server *doveadm_server_find_used(void)
 {
 	struct hash_iterate_context *iter;
 	struct doveadm_server *ret = NULL;
-	void *key, *value;
+	char *key;
+	struct doveadm_server *server;
 
 	iter = hash_table_iterate_init(servers);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct doveadm_server *server = value;
-
+	while (hash_table_iterate(iter, servers, &key, &server)) {
 		if (doveadm_server_have_used_connections(server)) {
 			ret = server;
 			break;
@@ -280,7 +279,7 @@ static void doveadm_servers_destroy_all_connections(void)
 	struct doveadm_server *server;
 
 	iter = hash_table_iterate_init(servers);
-	while (hash_table_iterate_t(iter, servers, &key, &server)) {
+	while (hash_table_iterate(iter, servers, &key, &server)) {
 		while (array_count(&server->connections) > 0) {
 			struct server_connection *const *connp, *conn;
 

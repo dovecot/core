@@ -155,7 +155,7 @@ void client_command_cancel(struct client_command_context **_cmd)
 		if (cmd->client->output->closed)
 			i_panic("command didn't cancel itself: %s", cmd->name);
 	} else {
-		client_command_free(_cmd);
+		client_command_free(*_cmd != NULL ? _cmd : &cmd);
 	}
 }
 

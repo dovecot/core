@@ -1324,7 +1324,7 @@ db_ldap_result_finish_debug(struct db_ldap_result_iterate_context *ctx)
 	str_append(ctx->debug, "; ");
 
 	iter = hash_table_iterate_init(ctx->ldap_attrs);
-	while (hash_table_iterate_t(iter, ctx->ldap_attrs, &name, &value)) {
+	while (hash_table_iterate(iter, ctx->ldap_attrs, &name, &value)) {
 		if (!value->used) {
 			str_printfa(ctx->debug, "%s,", name);
 			unused_count++;

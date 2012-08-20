@@ -236,7 +236,7 @@ static bool file_dict_iterate(struct dict_iterate_context *_ctx,
 	const struct file_dict_iterate_path *path;
 	char *key, *value;
 
-	while (hash_table_iterate_t(ctx->iter, dict->hash, &key, &value)) {
+	while (hash_table_iterate(ctx->iter, dict->hash, &key, &value)) {
 		path = file_dict_iterate_find_path(ctx, key);
 		if (path == NULL)
 			continue;
@@ -287,8 +287,8 @@ static void file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
 	long long diff;
 
 	array_foreach(&ctx->changes, change) {
-		if (hash_table_lookup_full_t(dict->hash, change->key,
-					     &orig_key, &orig_value)) {
+		if (hash_table_lookup_full(dict->hash, change->key,
+					   &orig_key, &orig_value)) {
 			key = orig_key;
 			old_value = orig_value;
 		} else {
@@ -502,7 +502,7 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	output = o_stream_create_fd(fd, 0, FALSE);
 	o_stream_cork(output);
 	iter = hash_table_iterate_init(dict->hash);
-	while (hash_table_iterate_t(iter, dict->hash, &key, &value)) {
+	while (hash_table_iterate(iter, dict->hash, &key, &value)) {
 		o_stream_nsend_str(output, key);
 		o_stream_nsend(output, "\n", 1);
 		o_stream_nsend_str(output, value);

@@ -27,7 +27,7 @@ struct kick_pid {
 
 struct kick_context {
 	struct who_context who;
-	HASH_TABLE(pid_t, struct kick_pid *) pids;
+	HASH_TABLE(void *, struct kick_pid *) pids;
 	bool force_kick;
 	ARRAY(const char *) kicked_users;
 };
@@ -42,12 +42,12 @@ kick_aggregate_line(struct who_context *_ctx, const struct who_line *line)
 
 	memset(&new_user, 0, sizeof(new_user));
 
-	k_pid = hash_table_lookup(ctx->pids, line->pid);
+	k_pid = hash_table_lookup(ctx->pids, POINTER_CAST(line->pid));
 	if (k_pid == NULL) {
 		k_pid = p_new(ctx->who.pool, struct kick_pid, 1);
 		k_pid->pid = line->pid;
 		p_array_init(&k_pid->users, ctx->who.pool, 5);
-		hash_table_insert(ctx->pids, line->pid, k_pid);
+		hash_table_insert(ctx->pids, POINTER_CAST(line->pid), k_pid);
 	}
 
 	array_foreach_modifiable(&k_pid->users, user) {
@@ -130,15 +130,14 @@ static void kick_users(struct kick_context *ctx)
 {
 	bool show_enforce_warning = FALSE;
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	void *key;
+	struct kick_pid *k_pid;
 	const struct kick_user *user;
 
 	p_array_init(&ctx->kicked_users, ctx->who.pool, 10);
 
 	iter = hash_table_iterate_init(ctx->pids);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct kick_pid *k_pid = value;
-
+	while (hash_table_iterate(iter, ctx->pids, &key, &k_pid)) {
 		if (kick_pid_want_kicked(ctx, k_pid, &show_enforce_warning))
 			k_pid->kick = TRUE;
 	}
@@ -150,9 +149,7 @@ static void kick_users(struct kick_context *ctx)
 	}
 
 	iter = hash_table_iterate_init(ctx->pids);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct kick_pid *k_pid = value;
-
+	while (hash_table_iterate(iter, ctx->pids, &key, &k_pid)) {
 		if (!k_pid->kick)
 			continue;
 

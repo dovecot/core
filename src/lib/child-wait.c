@@ -14,7 +14,8 @@ struct child_wait {
 	void *context;
 };
 
-HASH_TABLE(pid_t, struct child_wait *) child_pids;
+/* pid_t => wait */
+HASH_TABLE(void *, struct child_wait *) child_pids;
 
 #undef child_wait_new_with_pid
 struct child_wait *
@@ -36,18 +37,17 @@ void child_wait_free(struct child_wait **_wait)
 {
 	struct child_wait *wait = *_wait;
 	struct hash_iterate_context *iter;
-	void *key, *value;
-	pid_t pid;
+	void *key;
+	struct child_wait *value;
 
 	*_wait = NULL;
 
 	if (wait->pid_count > 0) {
 		/* this should be rare, so iterating hash is fast enough */
 		iter = hash_table_iterate_init(child_pids);
-		while (hash_table_iterate(iter, &key, &value)) {
+		while (hash_table_iterate(iter, child_pids, &key, &value)) {
 			if (value == wait) {
-				pid = POINTER_CAST_TO(key, pid_t);
-				hash_table_remove(child_pids, pid);
+				hash_table_remove(child_pids, key);
 				if (--wait->pid_count == 0)
 					break;
 			}
@@ -61,13 +61,13 @@ void child_wait_free(struct child_wait **_wait)
 void child_wait_add_pid(struct child_wait *wait, pid_t pid)
 {
 	wait->pid_count++;
-	hash_table_insert(child_pids, pid, wait);
+	hash_table_insert(child_pids, POINTER_CAST(pid), wait);
 }
 
 void child_wait_remove_pid(struct child_wait *wait, pid_t pid)
 {
 	wait->pid_count--;
-	hash_table_remove(child_pids, pid);
+	hash_table_remove(child_pids, POINTER_CAST(pid));
 }
 
 static void
@@ -76,7 +76,8 @@ sigchld_handler(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 	struct child_wait_status status;
 
 	while ((status.pid = waitpid(-1, &status.status, WNOHANG)) > 0) {
-		status.wait = hash_table_lookup(child_pids, status.pid);
+		status.wait = hash_table_lookup(child_pids,
+						POINTER_CAST(status.pid));
 		if (status.wait != NULL) {
 			child_wait_remove_pid(status.wait, status.pid);
 			status.wait->callback(&status, status.wait->context);
@@ -98,12 +99,13 @@ void child_wait_init(void)
 void child_wait_deinit(void)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	void *key;
+	struct child_wait *value;
 
 	lib_signals_unset_handler(SIGCHLD, sigchld_handler, NULL);
 
 	iter = hash_table_iterate_init(child_pids);
-	while (hash_table_iterate(iter, &key, &value))
+	while (hash_table_iterate(iter, child_pids, &key, &value))
 		i_free(value);
 	hash_table_iterate_deinit(&iter);
 

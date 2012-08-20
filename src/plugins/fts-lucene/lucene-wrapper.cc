@@ -1314,7 +1314,7 @@ lucene_index_search_multi(struct lucene_index *index,
 	wchar_t *key;
 	struct fts_result *value;
 	iter = hash_table_iterate_init(guids);
-	while (hash_table_iterate_t(iter, guids, &key, &value)) {
+	while (hash_table_iterate(iter, guids, &key, &value)) {
 		Term *term = _CLNEW Term(_T("box"), key);
 		TermQuery *q = _CLNEW TermQuery(term);
 		mailbox_query.add(q, true, BooleanClause::SHOULD);

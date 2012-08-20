@@ -29,7 +29,7 @@ struct user_list {
 	const char *name;
 };
 
-HASH_TABLE_DEFINE_TYPE(user_list, unsigned int, struct user_list *);
+HASH_TABLE_DEFINE_TYPE(user_list, void *, struct user_list *);
 
 extern struct doveadm_cmd doveadm_cmd_director[];
 
@@ -202,10 +202,10 @@ user_list_add(const char *username, pool_t pool,
 	user->name = p_strdup(pool, username);
 	user_hash = director_username_hash(username);
 
-	old_user = hash_table_lookup(users, user_hash);
+	old_user = hash_table_lookup(users, POINTER_CAST(user_hash));
 	if (old_user != NULL)
 		user->next = old_user;
-	hash_table_insert(users, user_hash, user);
+	hash_table_insert(users, POINTER_CAST(user_hash), user);
 }
 
 static void ATTR_NULL(1)
@@ -329,7 +329,8 @@ static void cmd_director_map(int argc, char *argv[])
 				doveadm_exit_code = EX_PROTOCOL;
 			} else if (ips_count == 0 ||
 				 ip_find(ips, ips_count, &user_ip)) {
-				user = hash_table_lookup(users, user_hash);
+				user = hash_table_lookup(users,
+							 POINTER_CAST(user_hash));
 				if (user == NULL) {
 					doveadm_print("<unknown>");
 					doveadm_print(args[2]);

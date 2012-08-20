@@ -35,13 +35,13 @@ export_change_get(struct dsync_transaction_log_scan *ctx, uint32_t uid,
 	if (uid > ctx->highest_wanted_uid)
 		return FALSE;
 
-	change = hash_table_lookup(ctx->changes, uid);
+	change = hash_table_lookup(ctx->changes, POINTER_CAST(uid));
 	if (change == NULL) {
 		/* first change for this UID */
 		change = p_new(ctx->pool, struct dsync_mail_change, 1);
 		change->uid = uid;
 		change->type = type;
-		hash_table_insert(ctx->changes, uid, change);
+		hash_table_insert(ctx->changes, POINTER_CAST(uid), change);
 	} else if (type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE) {
 		/* expunge overrides flag changes */
 		orig_guid = change->guid;
@@ -454,7 +454,8 @@ dsync_transaction_log_scan_find_new_expunge(struct dsync_transaction_log_scan *s
 	}
 	mail_transaction_log_view_close(&log_view);
 
-	return !found ? NULL : hash_table_lookup(scan->changes, uid);
+	return !found ? NULL :
+		hash_table_lookup(scan->changes, POINTER_CAST(uid));
 }
 
 void dsync_transaction_log_scan_deinit(struct dsync_transaction_log_scan **_scan)

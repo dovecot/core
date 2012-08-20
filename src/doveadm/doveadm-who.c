@@ -211,7 +211,7 @@ static void who_print_user(const struct who_user *user)
 static void who_print(struct who_context *ctx)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	struct who_user *user;
 
 	doveadm_print_header("username", "username", 0);
 	doveadm_print_header("connections", "#",
@@ -221,9 +221,7 @@ static void who_print(struct who_context *ctx)
 	doveadm_print_header("ips", "(ips)", 0);
 
 	iter = hash_table_iterate_init(ctx->users);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct who_user *user = value;
-
+	while (hash_table_iterate(iter, ctx->users, &user, &user)) {
 		if (who_user_filter_match(user, &ctx->filter)) T_BEGIN {
 			who_print_user(user);
 		} T_END;

@@ -386,7 +386,7 @@ void db_passwd_file_unref(struct db_passwd_file **_db)
 		passwd_file_free(db->default_file);
 	else {
 		iter = hash_table_iterate_init(db->files);
-		while (hash_table_iterate_t(iter, db->files, &path, &file))
+		while (hash_table_iterate(iter, db->files, &path, &file))
 			passwd_file_free(file);
 		hash_table_iterate_deinit(&iter);
 		hash_table_destroy(&db->files);

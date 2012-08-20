@@ -122,7 +122,7 @@ service_status_input_one(struct service *service,
 {
         struct service_process *process;
 
-	process = hash_table_lookup(service_pids, status->pid);
+	process = hash_table_lookup(service_pids, POINTER_CAST(status->pid));
 	if (process == NULL) {
 		/* we've probably wait()ed it away already. ignore */
 		return;
@@ -574,7 +574,7 @@ void services_monitor_reap_children(void)
 	bool service_stopped, throttle;
 
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-		process = hash_table_lookup(service_pids, pid);
+		process = hash_table_lookup(service_pids, POINTER_CAST(pid));
 		if (process == NULL) {
 			i_error("waitpid() returned unknown PID %s",
 				dec2str(pid));

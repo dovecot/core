@@ -297,7 +297,7 @@ void duplicate_flush(struct duplicate_context *ctx)
 
 	memset(&rec, 0, sizeof(rec));
 	iter = hash_table_iterate_init(file->hash);
-	while (hash_table_iterate_t(iter, file->hash, &d, &d)) {
+	while (hash_table_iterate(iter, file->hash, &d, &d)) {
 		rec.stamp = d->time;
 		rec.id_size = d->id_size;
 		rec.user_size = strlen(d->user);

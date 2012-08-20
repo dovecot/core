@@ -144,13 +144,13 @@ auth_server_lookup_request(struct auth_server_connection *conn,
 		return -1;
 	}
 
-	request = hash_table_lookup(conn->requests, id);
+	request = hash_table_lookup(conn->requests, POINTER_CAST(id));
 	if (request == NULL) {
 		i_error("BUG: Authentication server sent unknown id %u", id);
 		return -1;
 	}
 	if (remove || auth_client_request_is_aborted(request))
-		hash_table_remove(conn->requests, id);
+		hash_table_remove(conn->requests, POINTER_CAST(id));
 
 	*request_r = request;
 	return 0;
@@ -314,7 +314,8 @@ auth_server_connection_remove_requests(struct auth_server_connection *conn,
 {
 	static const char *const temp_failure_args[] = { "temp", NULL };
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	void *key;
+	struct auth_client_request *request;
 	time_t created, oldest = 0;
 	unsigned int request_count = 0;
 
@@ -322,9 +323,7 @@ auth_server_connection_remove_requests(struct auth_server_connection *conn,
 		return;
 
 	iter = hash_table_iterate_init(conn->requests);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct auth_client_request *request = value;
-
+	while (hash_table_iterate(iter, conn->requests, &key, &request)) {
 		if (!auth_client_request_is_aborted(request)) {
 			request_count++;
 			created = auth_client_request_get_create_time(request);
@@ -477,6 +476,6 @@ auth_server_connection_add_request(struct auth_server_connection *conn,
 		/* wrapped - ID 0 not allowed */
 		id = ++conn->client->request_id_counter;
 	}
-	hash_table_insert(conn->requests, id, request);
+	hash_table_insert(conn->requests, POINTER_CAST(id), request);
 	return id;
 }

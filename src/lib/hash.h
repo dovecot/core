@@ -25,8 +25,8 @@ void hash_table_create(struct hash_table **table_r, pool_t node_pool,
 #if defined (__GNUC__) && !defined(__cplusplus)
 #  define hash_table_create(table, pool, size, hash_cb, key_cmp_cb) \
 	({(void)COMPILE_ERROR_IF_TRUE( \
-		sizeof((*table)._key) > sizeof(void *) || \
-		sizeof((*table)._value) > sizeof(void *)); \
+		sizeof((*table)._key) != sizeof(void *) || \
+		sizeof((*table)._value) != sizeof(void *)); \
 	(void)COMPILE_ERROR_IF_TRUE( \
 		!__builtin_types_compatible_p(typeof(&key_cmp_cb), \
 			int (*)(typeof((*table)._key), typeof((*table)._key))) && \
@@ -53,8 +53,8 @@ void hash_table_create_direct(struct hash_table **table_r, pool_t node_pool,
 #if defined (__GNUC__) && !defined(__cplusplus)
 #  define hash_table_create_direct(table, pool, size) \
 	({(void)COMPILE_ERROR_IF_TRUE( \
-		sizeof((*table)._key) > sizeof(void *) || \
-		sizeof((*table)._value) > sizeof(void *)); \
+		sizeof((*table)._key) != sizeof(void *) || \
+		sizeof((*table)._value) != sizeof(void *)); \
 	hash_table_create_direct(&(*table)._table, pool, size);})
 #else
 #  define hash_table_create_direct(table, pool, size) \
@@ -79,20 +79,16 @@ void *hash_table_lookup(const struct hash_table *table, const void *key) ATTR_PU
 	HASH_VALUE_CAST(table)hash_table_lookup((table)._table, \
 		(const void *)((const char *)(key) + COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE((table)._key, (table)._const_key, key)))
 
-bool hash_table_lookup_full_i(const struct hash_table *table,
-			      const void *lookup_key,
-			      void **orig_key_r, void **value_r);
-/* Type-safe lookup_full requires that key and value types are pointers. */
-#define hash_table_lookup_full_t(table, lookup_key, orig_key_r, value_r) \
-	hash_table_lookup_full_i((table)._table, \
+bool hash_table_lookup_full(const struct hash_table *table,
+			    const void *lookup_key,
+			    void **orig_key_r, void **value_r);
+#define hash_table_lookup_full(table, lookup_key, orig_key_r, value_r) \
+	hash_table_lookup_full((table)._table, \
 		(void *)((const char *)(lookup_key) + COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE((table)._const_key, (table)._key, lookup_key)), \
 		(void **)(orig_key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, orig_key_r) + \
 			COMPILE_ERROR_IF_TRUE(sizeof(*orig_key_r) != sizeof(void *)), \
 		(void **)(value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r) + \
 			COMPILE_ERROR_IF_TRUE(sizeof(*value_r) != sizeof(void *)))
-/* Type-unsafe lookup_full works for all types. */
-#define hash_table_lookup_full(table, lookup_key, orig_key_r, value_r) \
-	hash_table_lookup_full_i((table)._table, lookup_key, orig_key_r, value_r)
 
 /* Insert/update node in hash table. The difference is that hash_table_insert()
    replaces the key in table to given one, while hash_table_update() doesnt. */
@@ -121,11 +117,9 @@ unsigned int hash_table_count(const struct hash_table *table) ATTR_PURE;
 struct hash_iterate_context *hash_table_iterate_init(struct hash_table *table);
 #define hash_table_iterate_init(table) \
 	hash_table_iterate_init((table)._table)
-/* Type-unsafe iterate works for all types. */
 bool hash_table_iterate(struct hash_iterate_context *ctx,
 			void **key_r, void **value_r);
-/* Type-safe iterate requires that key and value types are pointers. */
-#define hash_table_iterate_t(ctx, table, key_r, value_r) \
+#define hash_table_iterate(ctx, table, key_r, value_r) \
 	hash_table_iterate(ctx, \
 		(void **)(key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, key_r) + \
 			COMPILE_ERROR_IF_TRUE(sizeof(*key_r) != sizeof(void *)) + \

@@ -231,7 +231,7 @@ fts_expunge_log_export(struct fts_expunge_log_append_ctx *ctx,
 	size_t rec_offset;
 
 	iter = hash_table_iterate_init(ctx->mailboxes);
-	while (hash_table_iterate_t(iter, ctx->mailboxes, &guid_p, &mailbox)) {
+	while (hash_table_iterate(iter, ctx->mailboxes, &guid_p, &mailbox)) {
 		rec_offset = output->used;
 		rec = buffer_append_space_unsafe(output, sizeof(*rec));
 		memcpy(rec->guid, mailbox->guid, sizeof(rec->guid));

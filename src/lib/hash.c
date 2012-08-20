@@ -183,9 +183,9 @@ void *hash_table_lookup(const struct hash_table *table, const void *key)
 	return node != NULL ? node->value : NULL;
 }
 
-bool hash_table_lookup_full_i(const struct hash_table *table,
-			      const void *lookup_key,
-			      void **orig_key, void **value)
+bool hash_table_lookup_full(const struct hash_table *table,
+			    const void *lookup_key,
+			    void **orig_key, void **value)
 {
 	struct hash_node *node;
 

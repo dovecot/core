@@ -717,12 +717,13 @@ void service_pids_init(void)
 void service_pids_deinit(void)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	void *key;
+	struct service_process *process;
 
 	/* free all child process information */
 	iter = hash_table_iterate_init(service_pids);
-	while (hash_table_iterate(iter, &key, &value))
-		service_process_destroy(value);
+	while (hash_table_iterate(iter, service_pids, &key, &process))
+		service_process_destroy(process);
 	hash_table_iterate_deinit(&iter);
 	hash_table_destroy(&service_pids);
 }

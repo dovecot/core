@@ -1328,7 +1328,7 @@ void ssl_proxy_deinit(void)
 		ssl_proxy_destroy(ssl_proxies);
 
 	iter = hash_table_iterate_init(ssl_servers);
-	while (hash_table_iterate_t(iter, ssl_servers, &ctx, &ctx))
+	while (hash_table_iterate(iter, ssl_servers, &ctx, &ctx))
 		ssl_server_context_deinit(&ctx);
 	hash_table_iterate_deinit(&iter);
 	hash_table_destroy(&ssl_servers);

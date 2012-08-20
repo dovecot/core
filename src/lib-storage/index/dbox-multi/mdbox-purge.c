@@ -43,8 +43,8 @@ struct mdbox_purge_context {
 	/* list of file_ids that we need to purge */
 	ARRAY_TYPE(seq_range) purge_file_ids;
 
-	/* map_uid => action */
-	HASH_TABLE(uint32_t, enum mdbox_msg_action) altmoves;
+	/* uint32_t map_uid => enum mdbox_msg_action action */
+	HASH_TABLE(void *, void *) altmoves;
 	bool have_altmoves;
 
 	struct mdbox_map_atomic_context *atomic;
@@ -168,11 +168,13 @@ static bool
 mdbox_purge_want_altpath(struct mdbox_purge_context *ctx, uint32_t map_uid)
 {
 	enum mdbox_msg_action action;
+	void *value;
 
 	if (!ctx->have_altmoves)
 		return FALSE;
 
-	action = hash_table_lookup(ctx->altmoves, map_uid);
+	value = hash_table_lookup(ctx->altmoves, POINTER_CAST(map_uid));
+	action = POINTER_CAST_TO(value, enum mdbox_msg_action);
 	return action == MDBOX_MSG_ACTION_MOVE_TO_ALT;
 }
 
@@ -595,7 +597,9 @@ static int mdbox_altmove_add_files(struct mdbox_purge_context *ctx)
 		    seq_range_exists(&ctx->primary_file_ids, cur_rec.file_id)) {
 			/* all instances marked as moved to alt storage */
 			action = MDBOX_MSG_ACTION_MOVE_TO_ALT;
-			hash_table_insert(ctx->altmoves, cur_map_uid, action);
+			hash_table_insert(ctx->altmoves,
+					  POINTER_CAST(cur_map_uid),
+					  POINTER_CAST(action));
 			seq_range_array_add(&ctx->purge_file_ids,
 					    cur_rec.file_id);
 		}
@@ -627,7 +631,8 @@ static int mdbox_altmove_add_files(struct mdbox_purge_context *ctx)
 		}
 
 		action = MDBOX_MSG_ACTION_MOVE_FROM_ALT;
-		hash_table_insert(ctx->altmoves, cur_map_uid, action);
+		hash_table_insert(ctx->altmoves, POINTER_CAST(cur_map_uid),
+				  POINTER_CAST(action));
 		seq_range_array_add(&ctx->purge_file_ids, cur_rec.file_id);
 	}
 	ctx->have_altmoves = hash_table_count(ctx->altmoves) > 0;

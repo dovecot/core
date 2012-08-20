@@ -21,7 +21,7 @@
 struct auth_request_handler {
 	int refcount;
 	pool_t pool;
-	HASH_TABLE(unsigned int, struct auth_request *) requests;
+	HASH_TABLE(void *, struct auth_request *) requests;
 
         unsigned int connect_uid, client_pid;
 
@@ -68,19 +68,17 @@ auth_request_handler_get_request_count(struct auth_request_handler *handler)
 void auth_request_handler_abort_requests(struct auth_request_handler *handler)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	void *key;
+	struct auth_request *auth_request;
 
 	iter = hash_table_iterate_init(handler->requests);
-	while (hash_table_iterate(iter, &key, &value)) {
-		unsigned int id = POINTER_CAST_TO(key, unsigned int);
-		struct auth_request *auth_request = value;
-
+	while (hash_table_iterate(iter, handler->requests, &key, &auth_request)) {
 		switch (auth_request->state) {
 		case AUTH_REQUEST_STATE_NEW:
 		case AUTH_REQUEST_STATE_MECH_CONTINUE:
 		case AUTH_REQUEST_STATE_FINISHED:
 			auth_request_unref(&auth_request);
-			hash_table_remove(handler->requests, id);
+			hash_table_remove(handler->requests, key);
 			break;
 		case AUTH_REQUEST_STATE_PASSDB:
 		case AUTH_REQUEST_STATE_USERDB:
@@ -147,7 +145,7 @@ static void auth_request_handler_remove(struct auth_request_handler *handler,
 	   request, so make sure we don't get back here. */
 	timeout_remove(&request->to_abort);
 
-	hash_table_remove(handler->requests, request->id);
+	hash_table_remove(handler->requests, POINTER_CAST(request->id));
 	auth_request_unref(&request);
 }
 
@@ -514,7 +512,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		auth_request_unref(&request);
 		return FALSE;
 	}
-	if (hash_table_lookup(handler->requests, id) != NULL) {
+	if (hash_table_lookup(handler->requests, POINTER_CAST(id)) != NULL) {
 		i_error("BUG: Authentication client %u "
 			"sent a duplicate ID %u", handler->client_pid, id);
 		auth_request_unref(&request);
@@ -524,7 +522,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 
 	request->to_abort = timeout_add(MASTER_AUTH_SERVER_TIMEOUT_SECS * 1000,
 					auth_request_timeout, request);
-	hash_table_insert(handler->requests, id, request);
+	hash_table_insert(handler->requests, POINTER_CAST(id), request);
 
 	if (request->set->ssl_require_client_cert &&
 	    !request->valid_client_cert) {
@@ -579,7 +577,7 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	}
 	data++;
 
-	request = hash_table_lookup(handler->requests, id);
+	request = hash_table_lookup(handler->requests, POINTER_CAST(id));
 	if (request == NULL) {
 		struct auth_stream_reply *reply;
 
@@ -686,7 +684,7 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 
 	reply = auth_stream_reply_init(pool_datastack_create());
 
-	request = hash_table_lookup(handler->requests, client_id);
+	request = hash_table_lookup(handler->requests, POINTER_CAST(client_id));
 	if (request == NULL) {
 		i_error("Master request %u.%u not found",
 			handler->client_pid, client_id);
@@ -731,7 +729,7 @@ void auth_request_handler_cancel_request(struct auth_request_handler *handler,
 {
 	struct auth_request *request;
 
-	request = hash_table_lookup(handler->requests, client_id);
+	request = hash_table_lookup(handler->requests, POINTER_CAST(client_id));
 	if (request != NULL)
 		auth_request_handler_remove(handler, request);
 }

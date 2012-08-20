@@ -15,8 +15,8 @@ struct ident_pid {
 };
 
 struct connect_limit {
-	/* ident => refcount */
-	HASH_TABLE(char *, unsigned int) ident_hash;
+	/* ident => unsigned int refcount */
+	HASH_TABLE(char *, void *) ident_hash;
 	/* struct ident_pid => struct ident_pid */
 	HASH_TABLE(struct ident_pid *, struct ident_pid *) ident_pid_hash;
 };
@@ -60,24 +60,26 @@ void connect_limit_deinit(struct connect_limit **_limit)
 unsigned int connect_limit_lookup(struct connect_limit *limit,
 				  const char *ident)
 {
-	return hash_table_lookup(limit->ident_hash, ident);
+	void *value;
+
+	value = hash_table_lookup(limit->ident_hash, ident);
+	return POINTER_CAST_TO(value, unsigned int);
 }
 
 void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 			   const char *ident)
 {
 	struct ident_pid *i, lookup_i;
-	void *orig_key, *orig_value;
 	char *key;
-	unsigned int value;
+	void *value;
 
 	if (!hash_table_lookup_full(limit->ident_hash, ident,
-				    &orig_key, &orig_value)) {
+				    &key, &value)) {
 		key = i_strdup(ident);
-		hash_table_insert(limit->ident_hash, key, 1U);
+		value = POINTER_CAST(1);
+		hash_table_insert(limit->ident_hash, key, value);
 	} else {
-		key = orig_key;
-		value = POINTER_CAST_TO(orig_value, unsigned int) + 1;
+		value = POINTER_CAST(POINTER_CAST_TO(value, unsigned int) + 1);
 		hash_table_update(limit->ident_hash, key, value);
 	}
 
@@ -98,18 +100,17 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 static void
 connect_limit_ident_hash_unref(struct connect_limit *limit, const char *ident)
 {
-	void *orig_key, *orig_value;
 	char *key;
+	void *value;
 	unsigned int new_refcount;
 
-	if (!hash_table_lookup_full(limit->ident_hash, ident,
-				    &orig_key, &orig_value))
+	if (!hash_table_lookup_full(limit->ident_hash, ident, &key, &value))
 		i_panic("connect limit hash tables are inconsistent");
 
-	key = orig_key;
-	new_refcount = POINTER_CAST_TO(orig_value, unsigned int) - 1;
+	new_refcount = POINTER_CAST_TO(value, unsigned int) - 1;
 	if (new_refcount > 0) {
-		hash_table_update(limit->ident_hash, key, new_refcount);
+		value = POINTER_CAST(new_refcount);
+		hash_table_update(limit->ident_hash, key, value);
 	} else {
 		hash_table_remove(limit->ident_hash, key);
 		i_free(key);
@@ -147,7 +148,7 @@ void connect_limit_disconnect_pid(struct connect_limit *limit, pid_t pid)
 	/* this should happen rarely (or never), so this slow implementation
 	   should be fine. */
 	iter = hash_table_iterate_init(limit->ident_pid_hash);
-	while (hash_table_iterate_t(iter, limit->ident_pid_hash, &i, &value)) {
+	while (hash_table_iterate(iter, limit->ident_pid_hash, &i, &value)) {
 		if (i->pid == pid) {
 			hash_table_remove(limit->ident_pid_hash, i);
 			for (; i->refcount > 0; i->refcount--)
@@ -165,7 +166,7 @@ void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
 	string_t *str = t_str_new(256);
 
 	iter = hash_table_iterate_init(limit->ident_pid_hash);
-	while (hash_table_iterate_t(iter, limit->ident_pid_hash, &i, &value)) {
+	while (hash_table_iterate(iter, limit->ident_pid_hash, &i, &value)) {
 		str_truncate(str, 0);
 		str_tabescape_write(str, i->ident);
 		str_printfa(str, "\t%ld\t%u\n", (long)i->pid, i->refcount);

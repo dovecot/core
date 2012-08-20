@@ -711,21 +711,19 @@ static void cmd_uidl_callback(struct client *client)
         (void)list_uids_iter(client, ctx);
 }
 
-HASH_TABLE_DEFINE_TYPE(uidl_counter, char *, unsigned int);
+HASH_TABLE_DEFINE_TYPE(uidl_counter, char *, void *);
 
 static void
 uidl_rename_duplicate(string_t *uidl, HASH_TABLE_TYPE(uidl_counter) prev_uidls)
 {
-	void *orig_key, *orig_value;
 	char *key;
+	void *value;
 	unsigned int counter;
 
-	while (hash_table_lookup_full(prev_uidls, str_c(uidl),
-				      &orig_key, &orig_value)) {
+	while (hash_table_lookup_full(prev_uidls, str_c(uidl), &key, &value)) {
 		/* duplicate. the value contains the number of duplicates. */
-		key = orig_key;
-		counter = POINTER_CAST_TO(orig_value, unsigned int) + 1;
-		hash_table_update(prev_uidls, key, counter);
+		counter = POINTER_CAST_TO(value, unsigned int) + 1;
+		hash_table_update(prev_uidls, key, POINTER_CAST(counter));
 		str_printfa(uidl, "-%u", counter);
 		/* the second lookup really should return NULL, but just in
 		   case of some weird UIDLs do this as many times as needed */
@@ -777,7 +775,7 @@ static void client_uidls_save(struct client *client)
 			uidl_rename_duplicate(str, prev_uidls);
 		uidl = p_strdup(client->uidl_pool, str_c(str));
 		client->message_uidls[msgnum] = uidl;
-		hash_table_insert(prev_uidls, uidl, 1U);
+		hash_table_insert(prev_uidls, uidl, POINTER_CAST(1));
 		msgnum++;
 	}
 	(void)mailbox_search_deinit(&search_ctx);

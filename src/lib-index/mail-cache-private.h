@@ -158,7 +158,7 @@ struct mail_cache {
 	struct mail_cache_field_private *fields;
 	uint32_t *field_file_map;
 	unsigned int fields_count;
-	HASH_TABLE(char *, unsigned int) field_name_hash; /* name -> idx */
+	HASH_TABLE(char *, void *) field_name_hash; /* name -> idx */
 	uint32_t last_field_header_offset;
 
 	/* 0 is no need for compression, otherwise the file sequence number

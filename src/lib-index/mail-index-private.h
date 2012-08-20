@@ -215,7 +215,7 @@ struct mail_index {
 
 	pool_t keywords_pool;
 	ARRAY_TYPE(keywords) keywords;
-	HASH_TABLE(char *, unsigned int) keywords_hash; /* name -> idx */
+	HASH_TABLE(char *, void *) keywords_hash; /* name -> unsigned int idx */
 
 	uint32_t keywords_ext_id;
 	uint32_t modseq_ext_id;

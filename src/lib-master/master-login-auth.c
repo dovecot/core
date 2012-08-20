@@ -47,7 +47,7 @@ struct master_login_auth {
 	struct timeout *to;
 
 	unsigned int id_counter;
-	HASH_TABLE(unsigned int, struct master_login_auth_request *) requests;
+	HASH_TABLE(void *, struct master_login_auth_request *) requests;
 	/* linked list of requests, ordered by create_stamp */
 	struct master_login_auth_request *request_head, *request_tail;
 
@@ -158,7 +158,7 @@ static void master_login_auth_timeout(struct master_login_auth *auth)
 		request = auth->request_head;
 		DLLIST2_REMOVE(&auth->request_head,
 			       &auth->request_tail, request);
-		hash_table_remove(auth->requests, request->id);
+		hash_table_remove(auth->requests, POINTER_CAST(request->id));
 
 		reason = t_strdup_printf(
 			"Auth server request timed out after %u secs",
@@ -188,7 +188,7 @@ master_login_auth_request_remove(struct master_login_auth *auth,
 
 	update_timeout = request->prev == NULL;
 
-	hash_table_remove(auth->requests, request->id);
+	hash_table_remove(auth->requests, POINTER_CAST(request->id));
 	DLLIST2_REMOVE(&auth->request_head, &auth->request_tail, request);
 
 	if (update_timeout) {
@@ -203,7 +203,7 @@ master_login_auth_lookup_request(struct master_login_auth *auth,
 {
 	struct master_login_auth_request *request;
 
-	request = hash_table_lookup(auth->requests, id);
+	request = hash_table_lookup(auth->requests, POINTER_CAST(id));
 	if (request == NULL) {
 		i_error("Auth server sent reply with unknown ID %u", id);
 		return NULL;
@@ -476,7 +476,7 @@ void master_login_auth_request(struct master_login_auth *auth,
 	memcpy(login_req->cookie, req->cookie, sizeof(login_req->cookie));
 	login_req->callback = callback;
 	login_req->context = context;
-	hash_table_insert(auth->requests, id, login_req);
+	hash_table_insert(auth->requests, POINTER_CAST(id), login_req);
 	DLLIST2_APPEND(&auth->request_head, &auth->request_tail, login_req);
 
 	if (auth->to == NULL)

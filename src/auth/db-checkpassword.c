@@ -45,7 +45,7 @@ struct chkpw_auth_request {
 struct db_checkpassword {
 	char *checkpassword_path, *checkpassword_reply_path;
 
-	HASH_TABLE(pid_t, struct chkpw_auth_request *) clients;
+	HASH_TABLE(void *, struct chkpw_auth_request *) clients;
 	struct child_wait *child_wait;
 };
 
@@ -89,7 +89,8 @@ static void checkpassword_request_free(struct chkpw_auth_request **_request)
 	*_request = NULL;
 
 	if (!request->exited) {
-		hash_table_remove(request->db->clients, request->pid);
+		hash_table_remove(request->db->clients,
+				  POINTER_CAST(request->pid));
 		child_wait_remove_pid(request->db->child_wait, request->pid);
 	}
 	checkpassword_request_close(request);
@@ -415,11 +416,11 @@ static void sigchld_handler(const struct child_wait_status *status,
 			    struct db_checkpassword *db)
 {
 	struct chkpw_auth_request *request = 
-		hash_table_lookup(db->clients, status->pid);
+		hash_table_lookup(db->clients, POINTER_CAST(status->pid));
 
 	i_assert(request != NULL);
 
-	hash_table_remove(db->clients, status->pid);
+	hash_table_remove(db->clients, POINTER_CAST(status->pid));
 	request->exited = TRUE;
 
 	if (WIFSIGNALED(status->status)) {
@@ -531,7 +532,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 		io_add(fd_out[1], IO_WRITE, checkpassword_child_output,
 		       chkpw_auth_request);
 
-	hash_table_insert(db->clients, pid, chkpw_auth_request);
+	hash_table_insert(db->clients, POINTER_CAST(pid), chkpw_auth_request);
 	child_wait_add_pid(db->child_wait, pid);
 }
 
@@ -554,15 +555,14 @@ void db_checkpassword_deinit(struct db_checkpassword **_db)
 {
 	struct db_checkpassword *db = *_db;
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	void *key;
+	struct chkpw_auth_request *request;
 
 	*_db = NULL;
 
 	iter = hash_table_iterate_init(db->clients);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct chkpw_auth_request *request = value;
+	while (hash_table_iterate(iter, db->clients, &key, &request))
 		checkpassword_internal_failure(&request);
-	}
 	hash_table_iterate_deinit(&iter);
 
 	child_wait_free(&db->child_wait);

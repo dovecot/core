@@ -33,7 +33,8 @@ struct doveadm_expire_mail_cmd_context {
 	struct dict_transaction_context *trans;
 	struct dict_iterate_context *iter;
 
-	HASH_TABLE(char *, enum expire_user_state) user_states;
+	/* username => enum expire_user_state */
+	HASH_TABLE(char *, void *) user_states;
 	ARRAY(struct expire_query) queries;
 	time_t oldest_before_time;
 	bool delete_nonexistent_users;
@@ -78,8 +79,8 @@ doveadm_expire_mail_want(struct doveadm_mail_cmd_context *ctx,
 		DOVEADM_EXPIRE_MAIL_CMD_CONTEXT(ctx);
 	const char *username, *mailbox;
 	enum expire_user_state state;
-	void *key, *value;
 	char *orig_username;
+	void *value;
 
 	/* dict_key = DICT_EXPIRE_PREFIX<user>/<mailbox> */
 	username = dict_key + strlen(DICT_EXPIRE_PREFIX);
@@ -92,7 +93,7 @@ doveadm_expire_mail_want(struct doveadm_mail_cmd_context *ctx,
 	username = t_strdup_until(username, mailbox++);
 
 	if (!hash_table_lookup_full(ectx->user_states, username,
-				    &key, &value)) {
+				    &orig_username, &value)) {
 		/* user no longer exists, delete the record */
 		return -1;
 	}
@@ -113,8 +114,8 @@ doveadm_expire_mail_want(struct doveadm_mail_cmd_context *ctx,
 		return 0;
 	}
 	state = EXPIRE_USER_STATE_SEEN;
-	orig_username = key;
-	hash_table_update(ectx->user_states, orig_username, state);
+	hash_table_update(ectx->user_states, orig_username,
+			  POINTER_CAST(state));
 	*username_r = orig_username;
 	return 1;
 }
@@ -424,7 +425,8 @@ static void doveadm_expire_mail_init(struct doveadm_mail_cmd_context *ctx)
 	while (mail_storage_service_all_next(ctx->storage_service, &username) > 0) {
 		username_dup = p_strdup(ctx->pool, username);
 		state = EXPIRE_USER_STATE_EXISTS;
-		hash_table_insert(ectx->user_states, username_dup, state);
+		hash_table_insert(ectx->user_states, username_dup,
+				  POINTER_CAST(state));
 	}
 
 	ectx->dict = dict;

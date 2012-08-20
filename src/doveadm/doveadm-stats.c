@@ -207,7 +207,7 @@ static void stats_drop_stale(struct top_context *ctx)
 	struct top_line *line;
 
 	iter = hash_table_iterate_init(ctx->sessions);
-	while (hash_table_iterate_t(iter, ctx->sessions, &id, &line)) {
+	while (hash_table_iterate(iter, ctx->sessions, &id, &line)) {
 		if (line->flip != ctx->flip)
 			hash_table_remove(ctx->sessions, id);
 	}

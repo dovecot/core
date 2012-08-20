@@ -174,12 +174,11 @@ static void cmd_log_find_syslog_messages(struct log_find_context *ctx)
 {
 	struct hash_iterate_context *iter;
 	struct stat st;
-	void *key, *value;
+	char *key;
+	struct log_find_file *file;
 
 	iter = hash_table_iterate_init(ctx->files);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct log_find_file *file = value;
-
+	while (hash_table_iterate(iter, ctx->files, &key, &file)) {
 		if (stat(file->path, &st) < 0 ||
 		    (uoff_t)st.st_size <= file->size)
 			continue;
@@ -260,13 +259,12 @@ static void cmd_log_find(int argc, char *argv[])
 	/* print them */
 	for (i = 0; i < LAST_LOG_TYPE; i++) {
 		struct hash_iterate_context *iter;
-		void *key, *value;
+		char *key;
+		struct log_find_file *file;
 		bool found = FALSE;
 
 		iter = hash_table_iterate_init(ctx.files);
-		while (hash_table_iterate(iter, &key, &value)) {
-			struct log_find_file *file = value;
-
+		while (hash_table_iterate(iter, ctx.files, &key, &file)) {
 			if ((file->mask & (1 << i)) != 0) {
 				printf("%s%s\n", failure_log_type_prefixes[i],
 				       file->path);

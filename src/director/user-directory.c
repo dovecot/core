@@ -20,8 +20,8 @@ struct user_directory_iter {
 };
 
 struct user_directory {
-	/* username_hash => user */
-	HASH_TABLE(unsigned int, struct user *) hash;
+	/* unsigned int username_hash => user */
+	HASH_TABLE(void *, struct user *) hash;
 	/* sorted by time */
 	struct user *head, *tail;
 	struct user *prev_insert_pos;
@@ -55,7 +55,7 @@ static void user_free(struct user_directory *dir, struct user *user)
 
 	user_move_iters(dir, user);
 
-	hash_table_remove(dir->hash, user->username_hash);
+	hash_table_remove(dir->hash, POINTER_CAST(user->username_hash));
 	DLLIST2_REMOVE(&dir->head, &dir->tail, user);
 	i_free(user);
 }
@@ -80,7 +80,7 @@ struct user *user_directory_lookup(struct user_directory *dir,
 {
 	user_directory_drop_expired(dir);
 
-	return hash_table_lookup(dir->hash, username_hash);
+	return hash_table_lookup(dir->hash, POINTER_CAST(username_hash));
 }
 
 static void
@@ -162,7 +162,7 @@ user_directory_add(struct user_directory *dir, unsigned int username_hash,
 	}
 
 	dir->prev_insert_pos = user;
-	hash_table_insert(dir->hash, user->username_hash, user);
+	hash_table_insert(dir->hash, POINTER_CAST(user->username_hash), user);
 	return user;
 }
 

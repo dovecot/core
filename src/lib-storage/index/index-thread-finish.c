@@ -78,8 +78,8 @@ add_base_subject(struct subject_gather_context *ctx, const char *subject,
 
 	/* (iii) Look up the message associated with the thread
 	   subject in the subject table. */
-	if (!hash_table_lookup_full_t(ctx->subject_hash, subject, &hash_subject,
-				      &hash_node)) {
+	if (!hash_table_lookup_full(ctx->subject_hash, subject, &hash_subject,
+				    &hash_node)) {
 		/* (iv) If there is no message in the subject table with the
 		   thread subject, add the current message and the thread
 		   subject to the subject table. */

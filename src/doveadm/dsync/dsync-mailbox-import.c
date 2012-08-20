@@ -34,7 +34,7 @@ struct importer_new_mail {
 };
 
 HASH_TABLE_DEFINE_TYPE(guid_new_mail, const char *, struct importer_new_mail *);
-HASH_TABLE_DEFINE_TYPE(uid_new_mail, uint32_t, struct importer_new_mail *);
+HASH_TABLE_DEFINE_TYPE(uid_new_mail, void *, struct importer_new_mail *);
 
 struct dsync_mailbox_importer {
 	pool_t pool;
@@ -279,11 +279,11 @@ static void newmail_link(struct dsync_mailbox_importer *importer,
 			return;
 		}
 		first_mail = hash_table_lookup(importer->import_uids,
-					       newmail->uid);
+					       POINTER_CAST(newmail->uid));
 		if (first_mail == NULL) {
 			/* first mail for this UID */
 			hash_table_insert(importer->import_uids,
-					  newmail->uid, newmail);
+					  POINTER_CAST(newmail->uid), newmail);
 			importer_mail_request(importer, newmail);
 			return;
 		}
@@ -656,7 +656,8 @@ dsync_mailbox_import_flag_change(struct dsync_mailbox_importer *importer,
 		mail = importer->mail;
 	}
 
-	local_change = hash_table_lookup(importer->local_changes, change->uid);
+	local_change = hash_table_lookup(importer->local_changes,
+					 POINTER_CAST(change->uid));
 	if (local_change == NULL) {
 		local_add = local_remove = 0;
 	} else {
@@ -875,7 +876,8 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 	   transaction log and check if the GUIDs match. The GUID in
 	   log is a 128bit GUID, so we may need to convert the remote's
 	   GUID string to 128bit GUID first. */
-	local_change = hash_table_lookup(importer->local_changes, change->uid);
+	local_change = hash_table_lookup(importer->local_changes,
+					 POINTER_CAST(change->uid));
 	if (local_change == NULL || local_change->guid == NULL)
 		return;
 	if (guid_128_from_string(local_change->guid, guid_128) < 0)
@@ -1208,7 +1210,7 @@ void dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
 
 	newmail = *mail->guid != '\0' ?
 		hash_table_lookup(importer->import_guids, mail->guid) :
-		hash_table_lookup(importer->import_uids, mail->uid);
+		hash_table_lookup(importer->import_uids, POINTER_CAST(mail->uid));
 	if (newmail == NULL) {
 		if (importer->want_mail_requests) {
 			i_error("%s: Remote sent unwanted message body for "
@@ -1220,8 +1222,10 @@ void dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
 	}
 	if (*mail->guid != '\0')
 		hash_table_remove(importer->import_guids, mail->guid);
-	else
-		hash_table_remove(importer->import_uids, mail->uid);
+	else {
+		hash_table_remove(importer->import_uids,
+				  POINTER_CAST(mail->uid));
+	}
 
 	/* save all instances of the message */
 	allmails = newmail;
@@ -1390,7 +1394,7 @@ dsync_mailbox_import_count_missing_guid_imports(HASH_TABLE_TYPE(guid_new_mail) i
 	unsigned int msgs_left = 0;
 
 	iter = hash_table_iterate_init(imports);
-	while (hash_table_iterate_t(iter, imports, &key, &mail)) {
+	while (hash_table_iterate(iter, imports, &key, &mail)) {
 		for (; mail != NULL; mail = mail->next) {
 			if (!mail->uid_in_local) {
 				msgs_left++;
@@ -1406,13 +1410,12 @@ static unsigned int
 dsync_mailbox_import_count_missing_uid_imports(HASH_TABLE_TYPE(uid_new_mail) imports)
 {
 	struct hash_iterate_context *iter;
-	void *key, *value;
+	void *key;
+	struct importer_new_mail *mail;
 	unsigned int msgs_left = 0;
 
 	iter = hash_table_iterate_init(imports);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct importer_new_mail *mail = value;
-
+	while (hash_table_iterate(iter, imports, &key, &mail)) {
 		for (; mail != NULL; mail = mail->next) {
 			if (!mail->uid_in_local) {
 				msgs_left++;

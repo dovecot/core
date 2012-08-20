@@ -1781,11 +1781,10 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 			  str_hash, strcmp);
 
 	iter = hash_table_iterate_init(old_ctx->links);
-	while (hash_table_iterate_t(iter, old_ctx->links, &key, &value)) {
+	while (hash_table_iterate(iter, old_ctx->links, &key, &value)) {
 		new_link = settings_link_get_new(new_ctx, links, value);
-		hash_table_insert(new_ctx->links,
-				  p_strdup(new_ctx->parser_pool, key),
-				  new_link);
+		key = p_strdup(new_ctx->parser_pool, key);
+		hash_table_insert(new_ctx->links, key, new_link);
 	}
 	hash_table_iterate_deinit(&iter);
 	hash_table_destroy(&links);
