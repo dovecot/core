@@ -392,20 +392,25 @@ i_streams_merge(struct istream *input[], size_t max_buffer_size,
 	return i_stream_create(&sstream->istream, NULL, -1);
 }
 
+static bool inputs_are_seekable(struct istream *input[])
+{
+	unsigned int count;
+
+	for (count = 0; input[count] != NULL; count++) {
+		if (!input[count]->seekable)
+			return FALSE;
+	}
+	return TRUE;
+}
+
 struct istream *
 i_stream_create_seekable(struct istream *input[],
 			 size_t max_buffer_size,
 			 int (*fd_callback)(const char **path_r, void *context),
 			 void *context)
 {
-	unsigned int count;
-
 	/* If all input streams are seekable, use concat istream instead */
-	for (count = 0; input[count] != NULL; count++) {
-		if (!input[count]->seekable)
-			break;
-	}
-	if (input[count] == NULL)
+	if (inputs_are_seekable(input))
 		return i_stream_create_concat(input);
 
 	return i_streams_merge(input, max_buffer_size, fd_callback, context);
@@ -445,10 +450,13 @@ i_stream_create_seekable_path(struct istream *input[],
 	struct seekable_istream *sstream;
 	struct istream *stream;
 
+	if (inputs_are_seekable(input))
+		return i_stream_create_concat(input);
+
 	stream = i_stream_create_seekable(input, max_buffer_size,
 					  seekable_fd_callback,
 					  i_strdup(temp_path_prefix));
-	sstream = (struct seekable_istream *)stream;
+	sstream = (struct seekable_istream *)stream->real_stream;
 	sstream->free_context = TRUE;
 	return stream;
 }
