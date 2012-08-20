@@ -85,10 +85,10 @@ bool hash_table_lookup_full(const struct hash_table *table,
 #define hash_table_lookup_full(table, lookup_key, orig_key_r, value_r) \
 	hash_table_lookup_full((table)._table, \
 		(void *)((const char *)(lookup_key) + COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE((table)._const_key, (table)._key, lookup_key)), \
-		(void **)(orig_key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, orig_key_r) + \
-			COMPILE_ERROR_IF_TRUE(sizeof(*orig_key_r) != sizeof(void *)), \
-		(void **)(value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r) + \
-			COMPILE_ERROR_IF_TRUE(sizeof(*value_r) != sizeof(void *)))
+		(void **)(void *)((orig_key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, orig_key_r) + \
+			COMPILE_ERROR_IF_TRUE(sizeof(*orig_key_r) != sizeof(void *))), \
+		(void **)(void *)((value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r) + \
+			COMPILE_ERROR_IF_TRUE(sizeof(*value_r) != sizeof(void *))))
 
 /* Insert/update node in hash table. The difference is that hash_table_insert()
    replaces the key in table to given one, while hash_table_update() doesnt. */
@@ -121,10 +121,10 @@ bool hash_table_iterate(struct hash_iterate_context *ctx,
 			void **key_r, void **value_r);
 #define hash_table_iterate(ctx, table, key_r, value_r) \
 	hash_table_iterate(ctx, \
-		(void **)(key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, key_r) + \
+		(void **)(void *)((key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, key_r) + \
 			COMPILE_ERROR_IF_TRUE(sizeof(*key_r) != sizeof(void *)) + \
-			COMPILE_ERROR_IF_TRUE(sizeof(*value_r) != sizeof(void *)), \
-		(void **)(value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r))
+			COMPILE_ERROR_IF_TRUE(sizeof(*value_r) != sizeof(void *))), \
+		(void **)(void *)((value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r)))
 void hash_table_iterate_deinit(struct hash_iterate_context **ctx);
 
 /* Hash table isn't resized, and removed nodes aren't removed from
