@@ -24,8 +24,6 @@
 #define IMAPC_CONNECT_TIMEOUT_MSECS (1000*30)
 #define IMAPC_COMMAND_TIMEOUT_MSECS (1000*60*5)
 #define IMAPC_MAX_INLINE_LITERAL_SIZE (1024*32)
-/* IMAP protocol requires activity at least every 30 minutes */
-#define IMAPC_MAX_IDLE_MSECS (1000*60*29)
 
 enum imapc_input_state {
 	IMAPC_INPUT_STATE_NONE = 0,
@@ -1310,7 +1308,7 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	conn->parser = imap_parser_create(conn->input, NULL, (size_t)-1);
 	conn->to = timeout_add(IMAPC_CONNECT_TIMEOUT_MSECS,
 			       imapc_connection_timeout, conn);
-	conn->to_output = timeout_add(IMAPC_MAX_IDLE_MSECS,
+	conn->to_output = timeout_add(conn->client->set.max_idle_time*1000,
 				      imapc_connection_reset_idle, conn);
 	if (conn->client->set.debug) {
 		i_debug("imapc(%s): Connecting to %s:%u", conn->name,

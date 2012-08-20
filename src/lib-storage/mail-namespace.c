@@ -178,6 +178,11 @@ namespace_set_alias_for(struct mail_namespace *ns,
 		if (!namespace_is_valid_alias_storage(ns, error_r))
 			return -1;
 
+		if ((ns->alias_for->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+			/* copy inbox=yes */
+			ns->flags |= NAMESPACE_FLAG_INBOX_USER;
+		}
+
 		ns->alias_chain_next = ns->alias_for->alias_chain_next;
 		ns->alias_for->alias_chain_next = ns;
 	}
@@ -200,10 +205,9 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 				ns->prefix);
 			return FALSE;
 		}
-		if (namespace_set_alias_for(ns, namespaces, error_r) < 0)
-			return FALSE;
 		if ((ns->flags & NAMESPACE_FLAG_HIDDEN) == 0)
 			visible_namespaces = TRUE;
+		/* check the inbox=yes status before alias_for changes it */
 		if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 			if (inbox_ns != NULL) {
 				*error_r = "There can be only one namespace with "
@@ -212,6 +216,9 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 			}
 			inbox_ns = ns;
 		}
+		if (namespace_set_alias_for(ns, namespaces, error_r) < 0)
+			return FALSE;
+
 		if (*ns->prefix != '\0' &&
 		    (ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
 				  NAMESPACE_FLAG_LIST_CHILDREN)) != 0 &&

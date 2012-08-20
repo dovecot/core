@@ -52,6 +52,7 @@ struct imapc_client_settings {
 	const char *master_user;
 	const char *username;
 	const char *password;
+	unsigned int max_idle_time;
 
 	const char *dns_client_socket_path;
 	const char *temp_path_prefix;

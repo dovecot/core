@@ -365,7 +365,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 				(void *)timeout->callback);
 		}
 		if (ioloop->cur_ctx != NULL)
-			io_loop_context_activate(ioloop->cur_ctx);
+			io_loop_context_deactivate(ioloop->cur_ctx);
 	}
 }
 
@@ -601,6 +601,8 @@ io_loop_context_remove_deleted_callbacks(struct ioloop_context *ctx)
 void io_loop_context_activate(struct ioloop_context *ctx)
 {
 	const struct ioloop_context_callback *cb;
+
+	i_assert(ctx->ioloop->cur_ctx == NULL);
 
 	ctx->ioloop->cur_ctx = ctx;
 	io_loop_context_ref(ctx);

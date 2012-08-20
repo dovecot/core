@@ -93,9 +93,6 @@ enum mailbox_search_result_flags {
 };
 
 enum mail_sort_type {
-/* Maximum size for sort program (each one separately + END) */
-#define MAX_SORT_PROGRAM_SIZE (8 + 1)
-
 	MAIL_SORT_ARRIVAL	= 0x0001,
 	MAIL_SORT_CC		= 0x0002,
 	MAIL_SORT_DATE		= 0x0004,
@@ -107,6 +104,8 @@ enum mail_sort_type {
 	MAIL_SORT_DISPLAYFROM	= 0x0100,
 	MAIL_SORT_DISPLAYTO	= 0x0200,
 	MAIL_SORT_POP3_ORDER	= 0x0400,
+/* Maximum size for sort program (each one separately + END) */
+#define MAX_SORT_PROGRAM_SIZE (11 + 1)
 
 	MAIL_SORT_MASK		= 0x0fff,
 	MAIL_SORT_FLAG_REVERSE	= 0x1000, /* reverse this mask type */

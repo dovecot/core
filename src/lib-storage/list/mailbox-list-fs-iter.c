@@ -49,6 +49,7 @@ struct fs_list_iterate_context {
 	struct list_dir_context *dir;
 
 	unsigned int inbox_found:1;
+	unsigned int list_inbox_inbox:1;
 };
 
 static int
@@ -526,7 +527,8 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	return ret;
 }
 
-static void inbox_flags_set(struct fs_list_iterate_context *ctx)
+static void inbox_flags_set(struct fs_list_iterate_context *ctx,
+			    enum imap_match_result child_dir_match)
 {
 	struct mail_namespace *ns = ctx->ctx.list->ns;
 
@@ -541,8 +543,19 @@ static void inbox_flags_set(struct fs_list_iterate_context *ctx)
 		   with INBOX = /var/inbox/%u/Maildir, root = ~/Maildir:
 		   ~/Maildir/INBOX/foo/ shows up as <prefix>/INBOX/foo and
 		   INBOX can't directly have any children. */
-		ctx->info.flags &= ~MAILBOX_CHILDREN;
-		ctx->info.flags |= MAILBOX_NOINFERIORS;
+		if (ns->prefix_len == 6 &&
+		    strncasecmp(ns->prefix, "INBOX", ns->prefix_len-1) == 0 &&
+		    (ctx->info.flags & MAILBOX_CHILDREN) != 0 &&
+		    (child_dir_match & IMAP_MATCH_CHILDREN) != 0) {
+			/* except, INBOX/ prefix is once again a special case.
+			   we're now listing both the namespace prefix and the
+			   INBOX. we're now doing a LIST INBOX/%, so we'll need
+			   to create a fake \NoSelect INBOX/INBOX */
+			ctx->list_inbox_inbox = TRUE;
+		} else {
+			ctx->info.flags &= ~MAILBOX_CHILDREN;
+			ctx->info.flags |= MAILBOX_NOINFERIORS;
+		}
 	}
 }
 
@@ -570,7 +583,7 @@ list_file_unfound_inbox(struct fs_list_iterate_context *ctx)
 	    (ctx->info.flags & MAILBOX_NONEXISTENT) != 0)
 		return FALSE;
 
-	inbox_flags_set(ctx);
+	inbox_flags_set(ctx, 0);
 	/* we got here because we didn't see INBOX among other mailboxes,
 	   which means it has no children. */
 	ctx->info.flags |= MAILBOX_NOCHILDREN;
@@ -645,7 +658,7 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 			}
 			return 0;
 		}
-		inbox_flags_set(ctx);
+		inbox_flags_set(ctx, child_dir_match);
 		ctx->inbox_found = TRUE;
 	} else if (strcmp(storage_name, "INBOX") == 0 &&
 		   (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
@@ -704,6 +717,15 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 			fs_list_next_root(ctx);
 	}
 
+	if (ctx->list_inbox_inbox) {
+		ctx->info.flags = MAILBOX_CHILDREN | MAILBOX_NOSELECT;
+		ctx->info.vname =
+			p_strconcat(ctx->info_pool,
+				    ctx->ctx.list->ns->prefix, "INBOX", NULL);
+		ctx->list_inbox_inbox = FALSE;
+		if (imap_match(ctx->ctx.glob, ctx->info.vname) == IMAP_MATCH_YES)
+			return 1;
+	}
 	if (!ctx->inbox_found && ctx->ctx.glob != NULL &&
 	    (ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
 	    imap_match(ctx->ctx.glob,
