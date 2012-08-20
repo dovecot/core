@@ -528,13 +528,12 @@ imap_msgpart_find_part(struct mail *mail, const struct imap_msgpart *msgpart,
 
 	switch (msgpart->fetch_type) {
 	case FETCH_MIME:
-		if (part->parent == NULL ||
-		    (part->parent->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0) {
-			/* message/rfc822 itself has no MIME headers */
-			*part_r = NULL;
-			return 0;
-		}
-		break;
+		/* What to do if this is a message/rfc822? Does it have
+		   MIME headers or not? Possibilities are: a) no, return
+		   empty string (UW-IMAP does this), b) return the same as
+		   HEADER. Dovecot has done b) for a long time and it's not
+		   very clear which one is correct, so we'll just continue
+		   with b) */
 	case FETCH_FULL:
 	case FETCH_MIME_BODY:
 		break;
