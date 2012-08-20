@@ -4,10 +4,7 @@
 #define HASH_TABLE_UNION(key_type, value_type) { \
 		struct hash_table *_table; \
 		key_type _key; \
-		key_type *_keyp; \
-		const key_type _const_key; \
 		value_type _value; \
-		value_type *_valuep; \
 	}
 
 #define HASH_TABLE_DEFINE_TYPE(name, key_type, value_type) \

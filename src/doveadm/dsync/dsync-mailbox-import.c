@@ -166,7 +166,7 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer->local_initial_highestmodseq = status.highest_modseq;
 	dsync_mailbox_import_search_init(importer);
 
-	dsync_transaction_log_scan_get_hash(log_scan, &importer->local_changes);
+	importer->local_changes = dsync_transaction_log_scan_get_hash(log_scan);
 	return importer;
 }
 

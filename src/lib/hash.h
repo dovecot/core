@@ -31,12 +31,13 @@ void hash_table_create(struct hash_table **table_r, pool_t node_pool,
 		!__builtin_types_compatible_p(typeof(&key_cmp_cb), \
 			int (*)(typeof((*table)._key), typeof((*table)._key))) && \
 		!__builtin_types_compatible_p(typeof(&key_cmp_cb), \
-			int (*)(typeof((*table)._const_key), typeof((*table)._const_key)))); \
+			int (*)(typeof(const typeof(*(*table)._key) *), \
+				typeof(const typeof(*(*table)._key) *)))); \
 	(void)COMPILE_ERROR_IF_TRUE( \
 		!__builtin_types_compatible_p(typeof(&hash_cb), \
 			unsigned int (*)(typeof((*table)._key))) && \
 		!__builtin_types_compatible_p(typeof(&hash_cb), \
-			unsigned int (*)(typeof((*table)._const_key)))); \
+			unsigned int (*)(typeof(const typeof(*(*table)._key) *)))); \
 	hash_table_create(&(*table)._table, pool, size, \
 		(hash_callback_t *)hash_cb, \
 		(hash_cmp_callback_t *)key_cmp_cb);})
@@ -77,17 +78,17 @@ void hash_table_clear(struct hash_table *table, bool free_collisions);
 void *hash_table_lookup(const struct hash_table *table, const void *key) ATTR_PURE;
 #define hash_table_lookup(table, key) \
 	HASH_VALUE_CAST(table)hash_table_lookup((table)._table, \
-		(const void *)((const char *)(key) + COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE((table)._key, (table)._const_key, key)))
+		(const void *)((const char *)(key) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(*(table)._key, *key)))
 
 bool hash_table_lookup_full(const struct hash_table *table,
 			    const void *lookup_key,
 			    void **orig_key_r, void **value_r);
 #define hash_table_lookup_full(table, lookup_key, orig_key_r, value_r) \
 	hash_table_lookup_full((table)._table, \
-		(void *)((const char *)(lookup_key) + COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE((table)._const_key, (table)._key, lookup_key)), \
-		(void **)(void *)((orig_key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, orig_key_r) + \
+		(void *)((const char *)(lookup_key) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(*(table)._key, *lookup_key)), \
+		(void **)(void *)((orig_key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._key, *orig_key_r) + \
 			COMPILE_ERROR_IF_TRUE(sizeof(*orig_key_r) != sizeof(void *))), \
-		(void **)(void *)((value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r) + \
+		(void **)(void *)((value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._value, *value_r) + \
 			COMPILE_ERROR_IF_TRUE(sizeof(*value_r) != sizeof(void *))))
 
 /* Insert/update node in hash table. The difference is that hash_table_insert()
@@ -106,7 +107,7 @@ void hash_table_update(struct hash_table *table, void *key, void *value);
 void hash_table_remove(struct hash_table *table, const void *key);
 #define hash_table_remove(table, key) \
 	hash_table_remove((table)._table, \
-		(const void *)((const char *)(key) + COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE((table)._const_key, (table)._key, key)))
+		(const void *)((const char *)(key) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(*(table)._key, *key)))
 unsigned int hash_table_count(const struct hash_table *table) ATTR_PURE;
 #define hash_table_count(table) \
 	hash_table_count((table)._table)
@@ -121,10 +122,10 @@ bool hash_table_iterate(struct hash_iterate_context *ctx,
 			void **key_r, void **value_r);
 #define hash_table_iterate(ctx, table, key_r, value_r) \
 	hash_table_iterate(ctx, \
-		(void **)(void *)((key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, key_r) + \
+		(void **)(void *)((key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._key, *key_r) + \
 			COMPILE_ERROR_IF_TRUE(sizeof(*key_r) != sizeof(void *)) + \
 			COMPILE_ERROR_IF_TRUE(sizeof(*value_r) != sizeof(void *))), \
-		(void **)(void *)((value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r)))
+		(void **)(void *)((value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._value, *value_r)))
 void hash_table_iterate_deinit(struct hash_iterate_context **ctx);
 
 /* Hash table isn't resized, and removed nodes aren't removed from
