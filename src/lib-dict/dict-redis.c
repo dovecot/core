@@ -439,7 +439,9 @@ redis_dict_lookup_real(struct redis_dict *dict, pool_t pool,
 
 			str_truncate(dict->conn.last_reply, 0);
 			redis_input_state_add(dict, REDIS_INPUT_STATE_GET);
-			io_loop_run(dict->ioloop);
+			do {
+				io_loop_run(dict->ioloop);
+			} while (array_count(&dict->input_states) > 0);
 		}
 		timeout_remove(&to);
 	}
