@@ -152,7 +152,6 @@ struct client {
 	unsigned int mailbox_examined:1;
 	unsigned int anvil_sent:1;
 	unsigned int tls_compression:1;
-	unsigned int output_locked:1;
 	unsigned int input_skip_line:1; /* skip all the data until we've
 					   found a new line */
 	unsigned int modseqs_sent_since_sync:1;

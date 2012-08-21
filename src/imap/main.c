@@ -85,7 +85,7 @@ void imap_refresh_proctitle(void)
 
 static void client_kill_idle(struct client *client)
 {
-	if (client->output_locked)
+	if (client->output_cmd_lock != NULL)
 		return;
 
 	client_send_line(client, "* BYE Server shutting down.");

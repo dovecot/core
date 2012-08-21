@@ -764,7 +764,7 @@ cmd_sync_full(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 {
 	struct client *client = cmd->client;
 
-	i_assert(!client->output_locked);
+	i_assert(client->output_cmd_lock == NULL);
 
 	if (cmd->cancel)
 		return TRUE;
@@ -837,7 +837,7 @@ static bool cmd_sync_delayed_real(struct client *client)
 {
 	struct client_command_context *cmd, *first_expunge, *first_nonexpunge;
 
-	if (client->output_locked) {
+	if (client->output_cmd_lock != NULL) {
 		/* wait until we can send output to client */
 		return FALSE;
 	}

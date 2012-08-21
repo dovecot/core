@@ -31,7 +31,7 @@ unsigned int imap_client_count = 0;
 
 static void client_idle_timeout(struct client *client)
 {
-	if (!client->output_locked)
+	if (client->output_cmd_lock == NULL)
 		client_send_line(client, "* BYE Disconnected for inactivity.");
 	client_destroy(client, "Disconnected for inactivity");
 }
@@ -574,10 +574,7 @@ void client_command_free(struct client_command_context **_cmd)
 
 	*_cmd = NULL;
 
-	if (client->output_cmd_lock == cmd) {
-		i_assert(client->disconnected);
-		client->output_cmd_lock = NULL;
-	}
+	i_assert(client->output_cmd_lock == NULL);
 
 	/* reset input idle time because command output might have taken a
 	   long time and we don't want to disconnect client immediately then */
@@ -801,7 +798,7 @@ static bool client_handle_next_command(struct client *client, bool *remove_io_r)
 
 	/* beginning a new command */
 	if (client->command_queue_size >= CLIENT_COMMAND_QUEUE_MAX_SIZE ||
-	    client->output_locked) {
+	    client->output_cmd_lock != NULL) {
 		/* wait for some of the commands to finish */
 		*remove_io_r = TRUE;
 		return FALSE;
@@ -907,7 +904,7 @@ static void client_output_commands(struct client *client)
 		client->output_cmd_lock->temp_executed = TRUE;
 		client_output_cmd(client->output_cmd_lock);
 	}
-	while (!client->output_locked) {
+	while (client->output_cmd_lock == NULL) {
 		/* go through the entire commands list every time in case
 		   multiple commands were freed. temp_executed keeps track of
 		   which messages we've called so far */

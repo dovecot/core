@@ -569,7 +569,7 @@ int imap_fetch_more(struct imap_fetch_context *ctx,
 {
 	int ret;
 
-	i_assert(!ctx->client->output_locked ||
+	i_assert(ctx->client->output_cmd_lock == NULL ||
 		 ctx->client->output_cmd_lock == cmd);
 
 	ret = imap_fetch_more_int(ctx, cmd->cancel);
@@ -586,7 +586,6 @@ int imap_fetch_more(struct imap_fetch_context *ctx,
 			client_disconnect(ctx->client, "Failed to cancel FETCH");
 		ctx->client->output_cmd_lock = NULL;
 	}
-	ctx->client->output_locked = ctx->client->output_cmd_lock != NULL;
 	return ret;
 }
 
@@ -618,6 +617,8 @@ int imap_fetch_end(struct imap_fetch_context *ctx)
 				state->failed = TRUE;
 		}
 	}
+	ctx->client->output_cmd_lock = NULL;
+
 	if (state->cur_str != NULL)
 		str_free(&state->cur_str);
 
