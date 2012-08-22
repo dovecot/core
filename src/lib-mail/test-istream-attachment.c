@@ -97,6 +97,7 @@ static int test_open_attachment_ostream(struct istream_attachment_info *info,
 	a->start_offset = info->start_offset;
 	a->encoded_size = info->encoded_size;
 	a->base64_blocks_per_line = info->base64_blocks_per_line;
+	test_assert(strlen(info->hash) == 160/8*2); /* sha1 size */
 
 	*output_r = o_stream_create_buffer(attachment_data);
 	if (o_stream_seek(*output_r, a->buffer_offset) < 0)
