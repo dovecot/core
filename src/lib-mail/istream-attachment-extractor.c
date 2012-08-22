@@ -469,6 +469,7 @@ static int astream_part_finish(struct attachment_istream *astream)
 		info.base64_blocks_per_line = part->base64_line_blocks;
 		info.base64_have_crlf = part->base64_have_crlf;
 		/* base64-decoder updated the hash, use it */
+		str_truncate(digest_str, 0);
 		hash_format_write(astream->set.hash_format, digest_str);
 		info.hash = str_c(digest_str);
 	} else {
