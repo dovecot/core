@@ -11,7 +11,7 @@
 struct istream_attachment_connector {
 	pool_t pool;
 	struct istream *base_input;
-	uoff_t msg_size;
+	uoff_t base_input_offset, msg_size;
 
 	uoff_t encoded_offset;
 	ARRAY(struct istream *) streams;
@@ -27,6 +27,7 @@ istream_attachment_connector_begin(struct istream *base_input, uoff_t msg_size)
 	conn = p_new(pool, struct istream_attachment_connector, 1);
 	conn->pool = pool;
 	conn->base_input = base_input;
+	conn->base_input_offset = base_input->v_offset;
 	conn->msg_size = msg_size;
 	p_array_init(&conn->streams, pool, 8);
 	i_stream_ref(conn->base_input);
@@ -64,10 +65,11 @@ int istream_attachment_connector_add(struct istream_attachment_connector *conn,
 
 	if (base_prefix_size > 0) {
 		/* add a part of the base message before the attachment */
-		input = i_stream_create_limit(conn->base_input,
+		input = i_stream_create_range(conn->base_input,
+					      conn->base_input_offset,
 					      base_prefix_size);
 		array_append(&conn->streams, &input, 1);
-		i_stream_skip(conn->base_input, base_prefix_size);
+		conn->base_input_offset += base_prefix_size;
 		conn->encoded_offset += base_prefix_size;
 	}
 	conn->encoded_offset += encoded_size;
@@ -95,11 +97,13 @@ istream_attachment_connector_finish(struct istream_attachment_connector **_conn)
 
 	*_conn = NULL;
 
-	if (conn->base_input->v_offset != conn->msg_size) {
-		i_assert(conn->base_input->v_offset < conn->msg_size);
+	if (conn->base_input_offset != conn->msg_size) {
+		i_assert(conn->base_input_offset < conn->msg_size);
 
 		trailer_size = conn->msg_size - conn->encoded_offset;
-		input = i_stream_create_limit(conn->base_input, trailer_size);
+		input = i_stream_create_range(conn->base_input,
+					      conn->base_input_offset,
+					      trailer_size);
 		array_append(&conn->streams, &input, 1);
 	}
 	array_append_zero(&conn->streams);
