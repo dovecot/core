@@ -87,7 +87,7 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 {
 	struct concat_istream *cstream = (struct concat_istream *)stream;
 	const unsigned char *data;
-	size_t size, pos, cur_pos, bytes_skipped;
+	size_t size, pos, cur_pos, bytes_skipped, new_bytes_count;
 	ssize_t ret;
 	bool last_stream;
 
@@ -154,17 +154,21 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 		stream->skip = 0;
 	} else if (pos == cur_pos) {
 		stream->buffer = stream->w_buffer;
+		pos = stream->pos;
 	} else {
-		stream->buffer = stream->w_buffer;
-		if (!i_stream_get_buffer_space(stream, pos - cur_pos, &size))
+		new_bytes_count = pos - cur_pos;
+		if (!i_stream_get_buffer_space(stream, new_bytes_count, &size)) {
+			stream->buffer = stream->w_buffer;
 			return -2;
+		}
+		stream->buffer = stream->w_buffer;
 
-		if (pos > size)
-			pos = size;
+		if (new_bytes_count > size)
+			new_bytes_count = size;
 		memcpy(stream->w_buffer + stream->pos,
-		       data + cur_pos, pos - cur_pos);
+		       data + cur_pos, new_bytes_count);
+		pos = stream->pos + new_bytes_count;
 	}
-	pos += stream->skip + cstream->prev_stream_left;
 
 	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
 		(ret == 0 ? 0 : -1);
