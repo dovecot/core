@@ -20,25 +20,11 @@ mail_copy_set_failed(struct mail_save_context *ctx, struct mail *mail,
 			       t_strdup_printf("%s (%s)", errstr, func));
 }
 
-static int
-mail_storage_try_copy(struct mail_save_context **_ctx, struct mail *mail)
+int mail_save_copy_default_metadata(struct mail_save_context *ctx,
+				    struct mail *mail)
 {
-	struct mail_save_context *ctx = *_ctx;
-	struct mail_private *pmail = (struct mail_private *)mail;
-	struct istream *input;
 	const char *from_envelope, *guid;
 	time_t received_date;
-
-	ctx->copying_via_save = TRUE;
-
-	/* we need to open the file in any case. caching metadata is unlikely
-	   to help anything. */
-	pmail->v.set_uid_cache_updates(mail, TRUE);
-
-	if (mail_get_stream(mail, NULL, NULL, &input) < 0) {
-		mail_copy_set_failed(ctx, mail, "stream");
-		return -1;
-	}
 
 	if (ctx->received_date == (time_t)-1) {
 		if (mail_get_received_date(mail, &received_date) < 0) {
@@ -64,6 +50,28 @@ mail_storage_try_copy(struct mail_save_context **_ctx, struct mail *mail)
 		if (*guid != '\0')
 			mailbox_save_set_guid(ctx, guid);
 	}
+	return 0;
+}
+
+static int
+mail_storage_try_copy(struct mail_save_context **_ctx, struct mail *mail)
+{
+	struct mail_save_context *ctx = *_ctx;
+	struct mail_private *pmail = (struct mail_private *)mail;
+	struct istream *input;
+
+	ctx->copying_via_save = TRUE;
+
+	/* we need to open the file in any case. caching metadata is unlikely
+	   to help anything. */
+	pmail->v.set_uid_cache_updates(mail, TRUE);
+
+	if (mail_get_stream(mail, NULL, NULL, &input) < 0) {
+		mail_copy_set_failed(ctx, mail, "stream");
+		return -1;
+	}
+	if (mail_save_copy_default_metadata(ctx, mail) < 0)
+		return -1;
 
 	if (mailbox_save_begin(_ctx, input) < 0)
 		return -1;
