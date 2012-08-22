@@ -116,7 +116,7 @@ static ssize_t i_stream_base64_encoder_read(struct istream_private *stream)
 		post_count = stream->pos - stream->skip;
 	} while (ret == 0 && pre_count == post_count);
 
-	if (ret < 0)
+	if (ret < 0 && pre_count == post_count)
 		return ret;
 
 	i_assert(post_count > pre_count);
