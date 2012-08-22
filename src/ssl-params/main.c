@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "restrict-access.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "ssl-params-settings.h"
 #include "ssl-params.h"
 
@@ -111,11 +112,16 @@ static void sig_chld(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 
 static void main_init(const struct ssl_params_settings *set)
 {
+	const struct master_service_settings *service_set;
+	const char *filename;
+
 	lib_signals_set_handler(SIGCHLD, LIBSIG_FLAGS_SAFE, sig_chld, NULL);
 
 	ssl_params = buffer_create_dynamic(default_pool, 1024);
-	param = ssl_params_init(PKG_STATEDIR"/"SSL_BUILD_PARAM_FNAME,
-				ssl_params_callback, set);
+	service_set = master_service_settings_get(master_service);
+	filename = t_strconcat(service_set->state_dir,
+			       "/"SSL_BUILD_PARAM_FNAME, NULL);
+	param = ssl_params_init(filename, ssl_params_callback, set);
 }
 
 static void main_deinit(void)

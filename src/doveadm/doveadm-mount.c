@@ -1,6 +1,7 @@
 /* Copyright (c) 2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "master-service-settings.h"
 #include "mountpoint-list.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
@@ -13,8 +14,9 @@ static struct mountpoint_list *mountpoint_list_get(void)
 {
 	const char *perm_path, *state_path;
 
-	perm_path = t_strconcat(PKG_STATEDIR"/"MOUNTPOINT_LIST_FNAME, NULL);
-	state_path = t_strconcat(doveadm_settings->base_dir,
+	perm_path = t_strconcat(service_set->state_dir,
+				 "/"MOUNTPOINT_LIST_FNAME, NULL);
+	state_path = t_strconcat(service_set->base_dir,
 				 "/"MOUNTPOINT_LIST_FNAME, NULL);
 	return mountpoint_list_init(perm_path, state_path);
 }

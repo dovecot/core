@@ -154,8 +154,7 @@ static int ssl_server_context_cmp(const struct ssl_server_context *ctx1,
 
 static void ssl_params_corrupted(void)
 {
-	i_fatal("Corrupted SSL parameters file: "
-		PKG_STATEDIR"/ssl-parameters.dat");
+	i_fatal("Corrupted SSL parameters file in state_dir: ssl-parameters.dat");
 }
 
 static void read_next(struct ssl_parameters *params, void *data, size_t size)

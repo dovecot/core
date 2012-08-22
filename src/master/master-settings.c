@@ -171,6 +171,7 @@ const struct setting_parser_info service_setting_parser_info = {
 
 static const struct setting_define master_setting_defines[] = {
 	DEF(SET_STR, base_dir),
+	DEF(SET_STR, state_dir),
 	DEF(SET_STR, libexec_dir),
 	DEF(SET_STR, instance_name),
 	DEF(SET_STR, import_environment),
@@ -211,6 +212,7 @@ static const struct setting_define master_setting_defines[] = {
 
 static const struct master_settings master_default_settings = {
 	.base_dir = PKG_RUNDIR,
+	.state_dir = PKG_STATEDIR,
 	.libexec_dir = PKG_LIBEXECDIR,
 	.instance_name = PACKAGE,
 	.import_environment = "TZ" ENV_SYSTEMD ENV_GDB,
@@ -736,8 +738,8 @@ void master_settings_do_fixes(const struct master_settings *set)
 	}
 
 	/* Make sure our permanent state directory exists */
-	if (mkdir_parents(PKG_STATEDIR, 0755) < 0 && errno != EEXIST)
-		i_fatal("mkdir(%s) failed: %m", PKG_STATEDIR);
+	if (mkdir_parents(set->state_dir, 0755) < 0 && errno != EEXIST)
+		i_fatal("mkdir(%s) failed: %m", set->state_dir);
 
 	login_dir = t_strconcat(set->base_dir, "/login", NULL);
 	if (settings_have_auth_unix_listeners_in(set, login_dir)) {

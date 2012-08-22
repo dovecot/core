@@ -102,6 +102,7 @@ const struct setting_parser_info doveadm_setting_parser_info = {
 };
 
 struct doveadm_settings *doveadm_settings;
+const struct master_service_settings *service_set;
 
 static void
 fix_base_path(struct doveadm_settings *set, pool_t pool, const char **str)

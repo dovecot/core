@@ -261,6 +261,10 @@ static void doveadm_read_settings(void)
 					 &output, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
+	service_set = master_service_settings_get(master_service);
+	service_set = settings_dup(&master_service_setting_parser_info,
+				   service_set, pool_datastack_create());
+
 	set = master_service_settings_get_others(master_service)[0];
 	doveadm_settings = settings_dup(&doveadm_setting_parser_info, set,
 					pool_datastack_create());

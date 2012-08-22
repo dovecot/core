@@ -332,9 +332,11 @@ static bool get_instance_config(const char *name, const char **config_path_r)
 {
 	struct master_instance_list *list;
 	const struct master_instance *inst;
-	const char *path;
+	const char *instance_path, *path;
 
-	list = master_instance_list_init(MASTER_INSTANCE_PATH);
+	instance_path = t_strconcat(master_service->set->state_dir,
+				    "/"MASTER_INSTANCE_FNAME, NULL);
+	list = master_instance_list_init(instance_path);
 	inst = master_instance_list_find_by_name(list, name);
 	if (inst != NULL) {
 		path = t_strdup_printf("%s/dovecot.conf", inst->base_dir);

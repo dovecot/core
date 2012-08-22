@@ -313,7 +313,7 @@ static void mountpoints_update(const struct master_settings *set)
 	struct mountpoint_list *mountpoints;
 	const char *perm_path, *state_path;
 
-	perm_path = t_strconcat(PKG_STATEDIR"/"MOUNTPOINT_LIST_FNAME, NULL);
+	perm_path = t_strconcat(set->state_dir, "/"MOUNTPOINT_LIST_FNAME, NULL);
 	state_path = t_strconcat(set->base_dir, "/"MOUNTPOINT_LIST_FNAME, NULL);
 	mountpoints = mountpoint_list_init(perm_path, state_path);
 
@@ -342,9 +342,12 @@ static void instance_update_now(struct master_instance_list *list)
 				  instance_update_now, list);
 }
 
-static void instance_update(void)
+static void instance_update(const struct master_settings *set)
 {
-	instances = master_instance_list_init(MASTER_INSTANCE_PATH);
+	const char *path;
+
+	path = t_strconcat(set->state_dir, "/"MASTER_INSTANCE_FNAME, NULL);
+	instances = master_instance_list_init(path);
 	instance_update_now(instances);
 }
 
@@ -540,7 +543,7 @@ static void main_init(const struct master_settings *set)
 	create_pid_file(pidfile_path);
 	create_config_symlink(set);
 	mountpoints_update(set);
-	instance_update();
+	instance_update(set);
 
 	services_monitor_start(services);
 }

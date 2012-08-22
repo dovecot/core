@@ -50,8 +50,8 @@ static int ssl_refresh_parameters(struct master_service *service)
 	if (ret < 0)
 		i_error("read(%s) failed: %m", path);
 	else if (ssl_iostream_context_import_params(service->ssl_ctx, buf) < 0) {
-		i_error("Corrupted SSL parameters file: "
-			PKG_STATEDIR"/ssl-parameters.dat - disabling SSL %u", (int)buf->used);
+		i_error("Corrupted SSL parameters file in state_dir: "
+			"ssl-parameters.dat - disabling SSL %u", (int)buf->used);
 		ret = -1;
 	}
 	i_close_fd(&fd);

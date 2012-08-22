@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "master-instance.h"
+#include "master-service-settings.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 
@@ -48,7 +49,7 @@ static void cmd_instance_list(int argc, char *argv[])
 	struct master_instance_list *list;
 	struct master_instance_list_iter *iter;
 	const struct master_instance *inst;
-	const char *pidfile_path;
+	const char *instance_path, *pidfile_path;
 	bool show_config = FALSE;
 	int c;
 
@@ -71,7 +72,9 @@ static void cmd_instance_list(int argc, char *argv[])
 		doveadm_print_header_simple("running");
 	}
 
-	list = master_instance_list_init(MASTER_INSTANCE_PATH);
+	instance_path = t_strconcat(service_set->state_dir,
+				    "/"MASTER_INSTANCE_FNAME, NULL);
+	list = master_instance_list_init(instance_path);
 	iter = master_instance_list_iterate_init(list);
 	while ((inst = master_instance_iterate_list_next(iter)) != NULL) {
 		if (argv[0] != NULL && strcmp(argv[0], inst->name) != 0)
@@ -99,13 +102,15 @@ static void cmd_instance_remove(int argc, char *argv[])
 {
 	struct master_instance_list *list;
 	const struct master_instance *inst;
-	const char *base_dir;
+	const char *base_dir, *instance_path;
 	int ret;
 
 	if (argc != 2)
 		instance_cmd_help(cmd_instance_remove);
 
-	list = master_instance_list_init(MASTER_INSTANCE_PATH);
+	instance_path = t_strconcat(service_set->state_dir,
+				    "/"MASTER_INSTANCE_FNAME, NULL);
+	list = master_instance_list_init(instance_path);
 	inst = master_instance_list_find_by_name(list, argv[1]);
 	base_dir = inst != NULL ? inst->base_dir : argv[1];
 	if ((ret = master_instance_list_remove(list, base_dir)) < 0) {

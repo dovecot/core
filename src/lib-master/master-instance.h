@@ -1,7 +1,7 @@
 #ifndef MASTER_INSTANCE_H
 #define MASTER_INSTANCE_H
 
-#define MASTER_INSTANCE_PATH PKG_STATEDIR"/instances"
+#define MASTER_INSTANCE_FNAME "instances"
 
 struct master_instance_list;
 
