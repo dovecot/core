@@ -205,6 +205,7 @@ void mech_deinit(const struct auth_settings *set)
 #endif
 	}
 	mech_unregister_module(&mech_otp);
+	mech_unregister_module(&mech_scram_sha1);
 	mech_unregister_module(&mech_skey);
 	mech_unregister_module(&mech_rpa);
 	mech_unregister_module(&mech_anonymous);
