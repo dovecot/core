@@ -86,7 +86,8 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 {
 	struct concat_istream *cstream = (struct concat_istream *)stream;
 	const unsigned char *data;
-	size_t size, pos, cur_pos, bytes_skipped;
+	size_t size, data_size, cur_data_pos, new_pos, bytes_skipped;
+	size_t new_bytes_count;
 	ssize_t ret;
 	bool last_stream;
 
@@ -114,13 +115,13 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 	stream->pos -= bytes_skipped;
 	stream->skip -= bytes_skipped;
 
-	cur_pos = stream->pos - stream->skip - cstream->prev_stream_left;
-	data = i_stream_get_data(cstream->cur_input, &pos);
-	if (pos > cur_pos)
-		ret = 0;
-	else {
+	i_assert(stream->pos >= stream->skip + cstream->prev_stream_left);
+	cur_data_pos = stream->pos - (stream->skip + cstream->prev_stream_left);
+
+	data = i_stream_get_data(cstream->cur_input, &data_size);
+	if (data_size <= cur_data_pos) {
 		/* need to read more */
-		i_assert(cur_pos == pos);
+		i_assert(cur_data_pos == data_size);
 		ret = i_stream_read(cstream->cur_input);
 		if (ret == -2 || ret == 0)
 			return ret;
@@ -144,30 +145,41 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 
 		stream->istream.eof = cstream->cur_input->eof && last_stream;
 		i_assert(ret != -1 || stream->istream.eof);
-		data = i_stream_get_data(cstream->cur_input, &pos);
+		data = i_stream_get_data(cstream->cur_input, &data_size);
 	}
 
 	if (cstream->prev_stream_left == 0) {
+		/* we can point directly to the current stream's buffers */
 		stream->buffer = data;
 		stream->pos -= stream->skip;
 		stream->skip = 0;
-	} else if (pos == cur_pos) {
+		new_pos = data_size;
+	} else if (data_size == cur_data_pos) {
+		/* nothing new read */
+		i_assert(ret == 0 || ret == -1);
 		stream->buffer = stream->w_buffer;
+		new_pos = stream->pos;
 	} else {
-		stream->buffer = stream->w_buffer;
-		if (!i_stream_try_alloc(stream, pos - cur_pos, &size))
+		/* we still have some of the previous stream left. merge the
+		   new data with it. */
+		i_assert(data_size > cur_data_pos);
+		new_bytes_count = data_size - cur_data_pos;
+		if (!i_stream_try_alloc(stream, new_bytes_count, &size)) {
+			stream->buffer = stream->w_buffer;
 			return -2;
+		}
+		stream->buffer = stream->w_buffer;
 
-		if (pos > size)
-			pos = size;
+		if (new_bytes_count > size)
+			new_bytes_count = size;
 		memcpy(stream->w_buffer + stream->pos,
-		       data + cur_pos, pos - cur_pos);
+		       data + cur_data_pos, new_bytes_count);
+		new_pos = stream->pos + new_bytes_count;
 	}
-	pos += stream->skip + cstream->prev_stream_left;
 
-	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
+	ret = new_pos > stream->pos ? (ssize_t)(new_pos - stream->pos) :
 		(ret == 0 ? 0 : -1);
-	stream->pos = pos;
+	stream->pos = new_pos;
 	cstream->prev_skip = stream->skip;
 	return ret;
 }
