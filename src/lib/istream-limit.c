@@ -127,3 +127,15 @@ struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size)
 	return i_stream_create(&lstream->istream, input,
 			       i_stream_get_fd(input));
 }
+
+struct istream *i_stream_create_range(struct istream *input,
+				      uoff_t v_offset, uoff_t v_size)
+{
+	uoff_t orig_offset = input->v_offset;
+	struct istream *ret;
+
+	input->v_offset = v_offset;
+	ret = i_stream_create_limit(input, v_size);
+	input->v_offset = orig_offset;
+	return ret;
+}
