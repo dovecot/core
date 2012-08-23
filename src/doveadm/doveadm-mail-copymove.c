@@ -13,6 +13,9 @@
 struct copy_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 
+	struct mail_storage_service_user *source_service_user;
+	struct mail_user *source_user;
+
 	const char *destname;
 	bool move;
 };
@@ -68,6 +71,22 @@ cmd_copy_box(struct copy_cmd_context *ctx, struct mailbox *destbox,
 	return ret;
 }
 
+static void
+cmd_copy_alloc_source_user(struct copy_cmd_context *ctx, const char *username)
+{
+	struct mail_storage_service_input input;
+	const char *error;
+
+	input = ctx->ctx.storage_service_input;
+	input.username = username;
+
+	if (mail_storage_service_lookup_next(ctx->ctx.storage_service, &input,
+					     &ctx->source_service_user,
+					     &ctx->source_user,
+					     &error) < 0)
+		i_fatal("Couldn't lookup user %s: %s", input.username, error);
+}
+
 static int
 cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
@@ -77,6 +96,7 @@ cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	struct doveadm_mailbox_list_iter *iter;
+	struct mail_user *src_user;
 	struct mail_namespace *ns;
 	struct mailbox *destbox;
 	const struct mailbox_info *info;
@@ -97,7 +117,8 @@ cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		return -1;
 	}
 
-	iter = doveadm_mailbox_list_iter_init(_ctx, user, _ctx->search_args,
+	src_user = ctx->source_user != NULL ? ctx->source_user : user;
+	iter = doveadm_mailbox_list_iter_init(_ctx, src_user, _ctx->search_args,
 					      iter_flags);
 	while ((info = doveadm_mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
 		if (cmd_copy_box(ctx, destbox, info) < 0)
@@ -114,7 +135,6 @@ cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	}
 	mailbox_free(&destbox);
 	return ret;
-
 }
 
 static void cmd_copy_init(struct doveadm_mail_cmd_context *_ctx,
@@ -125,10 +145,31 @@ static void cmd_copy_init(struct doveadm_mail_cmd_context *_ctx,
 
 	if (destname == NULL || args[1] == NULL)
 		doveadm_mail_help_name(cmdname);
+	args++;
+
+	if (args[0] != NULL && args[1] != NULL &&
+	    strcasecmp(args[0], "user") == 0) {
+		if ((_ctx->service_flags &
+		     MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0)
+			i_fatal("Use -u parameter to specify destination user");
+
+		cmd_copy_alloc_source_user(ctx, args[1]);
+		args += 2;
+	}
 
 	ctx->destname = p_strdup(ctx->ctx.pool, destname);
-	ctx->ctx.search_args = doveadm_mail_build_search_args(args + 1);
+	_ctx->search_args = doveadm_mail_build_search_args(args);
 	expunge_search_args_check(ctx->ctx.search_args, cmdname);
+}
+
+static void cmd_copy_deinit(struct doveadm_mail_cmd_context *_ctx)
+{
+	struct copy_cmd_context *ctx = (struct copy_cmd_context *)_ctx;
+
+	if (ctx->source_user != NULL) {
+		mail_storage_service_user_free(&ctx->source_service_user);
+		mail_user_unref(&ctx->source_user);
+	}
 }
 
 static struct doveadm_mail_cmd_context *cmd_copy_alloc(void)
@@ -137,6 +178,7 @@ static struct doveadm_mail_cmd_context *cmd_copy_alloc(void)
 
 	ctx = doveadm_mail_cmd_alloc(struct copy_cmd_context);
 	ctx->ctx.v.init = cmd_copy_init;
+	ctx->ctx.v.deinit = cmd_copy_deinit;
 	ctx->ctx.v.run = cmd_copy_run;
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
 	return &ctx->ctx;
@@ -152,8 +194,8 @@ static struct doveadm_mail_cmd_context *cmd_move_alloc(void)
 }
 
 struct doveadm_mail_cmd cmd_copy = {
-	cmd_copy_alloc, "copy", "<destination> <search query>"
+	cmd_copy_alloc, "copy", "<destination> [user <source user>] <search query>"
 };
 struct doveadm_mail_cmd cmd_move = {
-	cmd_move_alloc, "move", "<destination> <search query>"
+	cmd_move_alloc, "move", "<destination> [user <source user>] <search query>"
 };

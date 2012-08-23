@@ -48,6 +48,7 @@ struct doveadm_mail_cmd_context {
 	const struct doveadm_settings *set;
 	enum mail_storage_service_flags service_flags;
 	struct mail_storage_service_ctx *storage_service;
+	struct mail_storage_service_input storage_service_input;
 	/* search args aren't set for all mail commands */
 	struct mail_search_args *search_args;
 
