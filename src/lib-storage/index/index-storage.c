@@ -616,6 +616,14 @@ void index_save_context_free(struct mail_save_context *ctx)
 	i_free_and_null(ctx->guid);
 	i_free_and_null(ctx->pop3_uidl);
 	index_attachment_save_free(ctx);
+
+	ctx->flags = 0;
+	ctx->keywords = NULL;
+	ctx->min_modseq = 0;
+	ctx->received_date = ctx->save_date = 0;
+	ctx->received_tz_offset = 0;
+	ctx->uid = 0;
+	ctx->pop3_order = 0;
 }
 
 static void
