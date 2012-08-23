@@ -119,7 +119,9 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 	cur_data_pos = stream->pos - (stream->skip + cstream->prev_stream_left);
 
 	data = i_stream_get_data(cstream->cur_input, &data_size);
-	if (data_size <= cur_data_pos) {
+	if (data_size <= cur_data_pos)
+		ret = 0;
+	else {
 		/* need to read more */
 		i_assert(cur_data_pos == data_size);
 		ret = i_stream_read(cstream->cur_input);
