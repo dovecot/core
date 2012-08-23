@@ -230,6 +230,19 @@ static bool list_namespace_has_children(struct cmd_list_context *ctx)
 	return ret;
 }
 
+static const char *ns_prefix_mutf7(struct mail_namespace *ns)
+{
+	string_t *str;
+
+	if (*ns->prefix == '\0')
+		return "";
+
+	str = t_str_new(64);
+	if (imap_utf8_to_utf7(ns->prefix, str) < 0)
+		i_panic("Namespace prefix not UTF-8: %s", ns->prefix);
+	return str_c(str);
+}
+
 static const char *ns_get_listed_prefix(struct cmd_list_context *ctx)
 {
 	struct imap_match_glob *glob;
@@ -285,7 +298,7 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 	unsigned int len;
 	enum mailbox_info_flags flags;
 	const char *name;
-	string_t *str;
+	string_t *str, *mutf7_name;
 	bool same_ns, ends_with_sep;
 	char ns_sep = mail_namespace_get_sep(ctx->ns);
 
@@ -364,7 +377,11 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 	str_append(str, ") ");
 	list_reply_append_ns_sep_param(str, ns_sep);
 	str_append_c(str, ' ');
-	imap_quote_append_string(str, name, FALSE);
+
+	mutf7_name = t_str_new(64);
+	if (imap_utf8_to_utf7(name, mutf7_name) < 0)
+		i_panic("Namespace prefix not UTF-8: %s", name);
+	imap_quote_append_string(str, str_c(mutf7_name), FALSE);
 	mailbox_childinfo2str(ctx, str, flags);
 
 	client_send_line(ctx->cmd->client, str_c(str));
@@ -870,7 +887,7 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 	   Otherwise we'll emulate UW-IMAP behavior. */
 	ns = mail_namespace_find_visible(client->user->namespaces, ref);
 	if (ns != NULL) {
-		ns_prefix = ns->prefix;
+		ns_prefix = ns_prefix_mutf7(ns);
 		ns_sep = mail_namespace_get_sep(ns);
 	} else {
 		ns_prefix = "";
@@ -938,6 +955,10 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 		return TRUE;
 	}
 	str = t_str_new(64);
+	if (imap_utf7_to_utf8(ctx->ref, str) == 0)
+		ctx->ref = p_strdup(cmd->pool, str_c(str));
+	str_truncate(str, 0);
+
 	if (imap_arg_get_list_full(&args[1], &list_args, &arg_count)) {
 		ctx->used_listext = TRUE;
 		/* convert pattern list to string array */

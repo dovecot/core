@@ -2,6 +2,7 @@
 
 #include "imap-common.h"
 #include "str.h"
+#include "imap-utf7.h"
 #include "imap-quote.h"
 #include "imap-commands.h"
 #include "mail-namespace.h"
@@ -9,6 +10,7 @@
 static void list_namespaces(struct mail_namespace *ns,
 			    enum namespace_type type, string_t *str)
 {
+	string_t *mutf7_prefix = t_str_new(64);
 	char ns_sep;
 	bool found = FALSE;
 
@@ -21,7 +23,14 @@ static void list_namespaces(struct mail_namespace *ns,
 			}
 			ns_sep = mail_namespace_get_sep(ns);
 			str_append_c(str, '(');
-			imap_quote_append_string(str, ns->prefix, FALSE);
+
+			str_truncate(mutf7_prefix, 0);
+			if (imap_utf8_to_utf7(ns->prefix, mutf7_prefix) < 0) {
+				i_panic("LIST: Namespace prefix not UTF-8: %s",
+					ns->prefix);
+			}
+
+			imap_quote_append_string(str, str_c(mutf7_prefix), FALSE);
 			str_append(str, " \"");
 			if (ns_sep == '\\')
 				str_append_c(str, '\\');
