@@ -467,10 +467,7 @@ struct mail_search_context {
 	unsigned int progress_hidden:1;
 };
 
-struct mail_save_context {
-	struct mailbox_transaction_context *transaction;
-	struct mail *dest_mail;
-
+struct mail_save_data {
 	enum mail_flags flags;
 	struct mail_keywords *keywords;
 	uint64_t min_modseq;
@@ -480,10 +477,18 @@ struct mail_save_context {
 
 	uint32_t uid;
 	char *guid, *pop3_uidl, *from_envelope;
-	struct ostream *output;
 	unsigned int pop3_order;
 
+	struct ostream *output;
 	struct mail_save_attachment *attach;
+};
+
+struct mail_save_context {
+	struct mailbox_transaction_context *transaction;
+	struct mail *dest_mail;
+
+	/* data that changes for each saved mail */
+	struct mail_save_data data;
 
 	/* returns TRUE if message part is an attachment. */
 	bool (*part_is_attachment)(struct mail_save_context *ctx,

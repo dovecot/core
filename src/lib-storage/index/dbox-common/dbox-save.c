@@ -13,19 +13,20 @@
 
 void dbox_save_add_to_index(struct dbox_save_context *ctx)
 {
+	struct mail_save_data *mdata = &ctx->ctx.data;
 	enum mail_flags save_flags;
 
-	save_flags = ctx->ctx.flags & ~MAIL_RECENT;
-	mail_index_append(ctx->trans, ctx->ctx.uid, &ctx->seq);
+	save_flags = mdata->flags & ~MAIL_RECENT;
+	mail_index_append(ctx->trans, mdata->uid, &ctx->seq);
 	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
 				save_flags);
-	if (ctx->ctx.keywords != NULL) {
+	if (mdata->keywords != NULL) {
 		mail_index_update_keywords(ctx->trans, ctx->seq,
-					   MODIFY_REPLACE, ctx->ctx.keywords);
+					   MODIFY_REPLACE, mdata->keywords);
 	}
-	if (ctx->ctx.min_modseq != 0) {
+	if (mdata->min_modseq != 0) {
 		mail_index_update_modseq(ctx->trans, ctx->seq,
-					 ctx->ctx.min_modseq);
+					 mdata->min_modseq);
 	}
 }
 
@@ -59,10 +60,10 @@ void dbox_save_begin(struct dbox_save_context *ctx, struct istream *input)
 					  o_stream_get_name(ctx->dbox_output));
 		ctx->failed = TRUE;
 	}
-	_ctx->output = ctx->dbox_output;
+	_ctx->data.output = ctx->dbox_output;
 
-	if (_ctx->received_date == (time_t)-1)
-		_ctx->received_date = ioloop_time;
+	if (_ctx->data.received_date == (time_t)-1)
+		_ctx->data.received_date = ioloop_time;
 	index_attachment_save_begin(_ctx, storage->attachment_fs, ctx->input);
 }
 
@@ -74,15 +75,15 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 	if (ctx->failed)
 		return -1;
 
-	if (_ctx->attach != NULL)
+	if (_ctx->data.attach != NULL)
 		return index_attachment_save_continue(_ctx);
 
 	do {
-		if (o_stream_send_istream(_ctx->output, ctx->input) < 0) {
+		if (o_stream_send_istream(_ctx->data.output, ctx->input) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
 					"write(%s) failed: %m",
-					o_stream_get_name(_ctx->output));
+					o_stream_get_name(_ctx->data.output));
 			}
 			ctx->failed = TRUE;
 			return -1;
@@ -98,25 +99,26 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 
 void dbox_save_end(struct dbox_save_context *ctx)
 {
+	struct mail_save_data *mdata = &ctx->ctx.data;
 	struct ostream *dbox_output = ctx->dbox_output;
 
-	if (ctx->ctx.attach != NULL) {
+	if (mdata->attach != NULL) {
 		if (index_attachment_save_finish(&ctx->ctx) < 0)
 			ctx->failed = TRUE;
 	}
-	if (o_stream_nfinish(ctx->ctx.output) < 0) {
+	if (o_stream_nfinish(mdata->output) < 0) {
 		mail_storage_set_critical(ctx->ctx.transaction->box->storage,
 					  "write(%s) failed: %m",
-					  o_stream_get_name(ctx->ctx.output));
+					  o_stream_get_name(mdata->output));
 		ctx->failed = TRUE;
 	}
-	if (ctx->ctx.output == dbox_output)
+	if (mdata->output == dbox_output)
 		return;
 
 	/* e.g. zlib plugin had changed this */
 	o_stream_ref(dbox_output);
-	o_stream_destroy(&ctx->ctx.output);
-	ctx->ctx.output = dbox_output;
+	o_stream_destroy(&mdata->output);
+	mdata->output = dbox_output;
 }
 
 void dbox_save_write_metadata(struct mail_save_context *_ctx,
@@ -125,6 +127,7 @@ void dbox_save_write_metadata(struct mail_save_context *_ctx,
 			      guid_128_t guid_128)
 {
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
+	struct mail_save_data *mdata = &ctx->ctx.data;
 	struct dbox_metadata_header metadata_hdr;
 	const char *guid;
 	string_t *str;
@@ -145,18 +148,18 @@ void dbox_save_write_metadata(struct mail_save_context *_ctx,
 			    (unsigned long long)ctx->input->v_offset);
 	}
 	str_printfa(str, "%c%lx\n", DBOX_METADATA_RECEIVED_TIME,
-		    (unsigned long)_ctx->received_date);
+		    (unsigned long)mdata->received_date);
 	if (mail_get_virtual_size(_ctx->dest_mail, &vsize) < 0)
 		i_unreached();
 	str_printfa(str, "%c%llx\n", DBOX_METADATA_VIRTUAL_SIZE,
 		    (unsigned long long)vsize);
-	if (_ctx->pop3_uidl != NULL) {
-		i_assert(strchr(_ctx->pop3_uidl, '\n') == NULL);
+	if (mdata->pop3_uidl != NULL) {
+		i_assert(strchr(mdata->pop3_uidl, '\n') == NULL);
 		str_printfa(str, "%c%s\n", DBOX_METADATA_POP3_UIDL,
-			    _ctx->pop3_uidl);
+			    mdata->pop3_uidl);
 	}
 
-	guid = _ctx->guid;
+	guid = mdata->guid;
 	if (guid != NULL)
 		mail_generate_guid_128_hash(guid, guid_128);
 	else {

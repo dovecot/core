@@ -192,11 +192,11 @@ zlib_mail_save_compress_begin(struct mail_save_context *ctx,
 	if (zbox->super.save_begin(ctx, input) < 0)
 		return -1;
 
-	output = zuser->save_handler->create_ostream(ctx->output,
+	output = zuser->save_handler->create_ostream(ctx->data.output,
 						     zuser->save_level);
-	o_stream_unref(&ctx->output);
-	ctx->output = output;
-	o_stream_cork(ctx->output);
+	o_stream_unref(&ctx->data.output);
+	ctx->data.output = output;
+	o_stream_cork(ctx->data.output);
 	return 0;
 }
 

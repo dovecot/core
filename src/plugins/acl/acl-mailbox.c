@@ -379,7 +379,7 @@ acl_save_begin(struct mail_save_context *ctx, struct istream *input)
 		ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
 	if (acl_mailbox_right_lookup(box, save_right) <= 0)
 		return -1;
-	if (acl_save_get_flags(box, &ctx->flags, &ctx->keywords) < 0)
+	if (acl_save_get_flags(box, &ctx->data.flags, &ctx->data.keywords) < 0)
 		return -1;
 
 	return abox->module_ctx.super.save_begin(ctx, input);
@@ -402,7 +402,7 @@ acl_copy(struct mail_save_context *ctx, struct mail *mail)
 		ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
 	if (acl_mailbox_right_lookup(t->box, save_right) <= 0)
 		return -1;
-	if (acl_save_get_flags(t->box, &ctx->flags, &ctx->keywords) < 0)
+	if (acl_save_get_flags(t->box, &ctx->data.flags, &ctx->data.keywords) < 0)
 		return -1;
 
 	return abox->module_ctx.super.copy(ctx, mail);

@@ -79,8 +79,8 @@ int imapc_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	ctx->finished = FALSE;
 	ctx->temp_path = i_strdup(path);
 	ctx->input = i_stream_create_crlf(input);
-	_ctx->output = o_stream_create_fd_file(ctx->fd, 0, FALSE);
-	o_stream_cork(_ctx->output);
+	_ctx->data.output = o_stream_create_fd_file(ctx->fd, 0, FALSE);
+	o_stream_cork(_ctx->data.output);
 	return 0;
 }
 
@@ -92,7 +92,7 @@ int imapc_save_continue(struct mail_save_context *_ctx)
 	if (ctx->failed)
 		return -1;
 
-	if (o_stream_send_istream(_ctx->output, ctx->input) < 0) {
+	if (o_stream_send_istream(_ctx->data.output, ctx->input) < 0) {
 		if (!mail_storage_set_error_from_errno(storage)) {
 			mail_storage_set_critical(storage,
 				"o_stream_send_istream(%s) failed: %m",
@@ -201,24 +201,25 @@ imapc_append_keywords(string_t *str, struct mail_keywords *kw)
 static int imapc_save_append(struct imapc_save_context *ctx)
 {
 	struct mail_save_context *_ctx = &ctx->ctx;
+	struct mail_save_data *mdata = &_ctx->data;
 	struct imapc_command *cmd;
 	struct imapc_save_cmd_context sctx;
 	struct istream *input;
 	const char *flags = "", *internaldate = "";
 
-	if (_ctx->flags != 0 || _ctx->keywords != NULL) {
+	if (mdata->flags != 0 || mdata->keywords != NULL) {
 		string_t *str = t_str_new(64);
 
 		str_append(str, " (");
-		imap_write_flags(str, _ctx->flags & ~MAIL_RECENT, NULL);
-		if (_ctx->keywords != NULL)
-			imapc_append_keywords(str, _ctx->keywords);
+		imap_write_flags(str, mdata->flags & ~MAIL_RECENT, NULL);
+		if (mdata->keywords != NULL)
+			imapc_append_keywords(str, mdata->keywords);
 		str_append_c(str, ')');
 		flags = str_c(str);
 	}
-	if (_ctx->received_date != (time_t)-1) {
+	if (mdata->received_date != (time_t)-1) {
 		internaldate = t_strdup_printf(" \"%s\"",
-			imap_to_datetime(_ctx->received_date));
+			imap_to_datetime(mdata->received_date));
 	}
 
 	input = i_stream_create_fd(ctx->fd, IO_BLOCK_SIZE, FALSE);
@@ -242,7 +243,7 @@ int imapc_save_finish(struct mail_save_context *_ctx)
 	ctx->finished = TRUE;
 
 	if (!ctx->failed) {
-		if (o_stream_nfinish(_ctx->output) < 0) {
+		if (o_stream_nfinish(_ctx->data.output) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
 					"write(%s) failed: %m", ctx->temp_path);
@@ -256,8 +257,8 @@ int imapc_save_finish(struct mail_save_context *_ctx)
 			ctx->failed = TRUE;
 	}
 
-	if (_ctx->output != NULL)
-		o_stream_unref(&_ctx->output);
+	if (_ctx->data.output != NULL)
+		o_stream_unref(&_ctx->data.output);
 	if (ctx->input != NULL)
 		i_stream_unref(&ctx->input);
 	if (ctx->fd != -1) {

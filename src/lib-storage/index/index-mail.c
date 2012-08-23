@@ -1831,8 +1831,9 @@ void index_mail_save_finish(struct mail_save_context *ctx)
 	if (imail == NULL)
 		return;
 
-	if (ctx->from_envelope != NULL && imail->data.from_envelope == NULL) {
+	if (ctx->data.from_envelope != NULL &&
+	    imail->data.from_envelope == NULL) {
 		imail->data.from_envelope =
-			p_strdup(imail->data_pool, ctx->from_envelope);
+			p_strdup(imail->data_pool, ctx->data.from_envelope);
 	}
 }

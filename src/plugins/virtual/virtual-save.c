@@ -68,6 +68,7 @@ int virtual_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	struct virtual_save_context *ctx = (struct virtual_save_context *)_ctx;
 	struct virtual_mailbox *mbox =
 		(struct virtual_mailbox *)_ctx->transaction->box;
+	struct mail_save_data *mdata = &_ctx->data;
 	struct mail *mail;
 
 	if (ctx->backend_save_ctx == NULL) {
@@ -79,18 +80,18 @@ int virtual_save_begin(struct mail_save_context *_ctx, struct istream *input)
 
 	ctx->backend_box = ctx->backend_save_ctx->transaction->box;
 	ctx->backend_keywords =
-		virtual_copy_keywords(_ctx->transaction->box, _ctx->keywords,
+		virtual_copy_keywords(_ctx->transaction->box, mdata->keywords,
 				      ctx->backend_box);
 
-	mailbox_save_set_flags(ctx->backend_save_ctx, _ctx->flags,
+	mailbox_save_set_flags(ctx->backend_save_ctx, mdata->flags,
 			       ctx->backend_keywords);
 	mailbox_save_set_received_date(ctx->backend_save_ctx,
-				       _ctx->received_date,
-				       _ctx->received_tz_offset);
+				       mdata->received_date,
+				       mdata->received_tz_offset);
 	mailbox_save_set_from_envelope(ctx->backend_save_ctx,
-				       _ctx->from_envelope);
-	mailbox_save_set_guid(ctx->backend_save_ctx, _ctx->guid);
-	mailbox_save_set_min_modseq(ctx->backend_save_ctx, _ctx->min_modseq);
+				       mdata->from_envelope);
+	mailbox_save_set_guid(ctx->backend_save_ctx, mdata->guid);
+	mailbox_save_set_min_modseq(ctx->backend_save_ctx, mdata->min_modseq);
 
 	if (_ctx->dest_mail != NULL) {
 		mail = virtual_mail_set_backend_mail(_ctx->dest_mail,

@@ -285,7 +285,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 	}
 
 	if ((_t->flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0 ||
-	    ctx->ctx.uid != 0)
+	    ctx->ctx.data.uid != 0)
 		want_mail = TRUE;
 
 	if (ctx->append_offset == (uoff_t)-1) {
@@ -459,14 +459,15 @@ mbox_save_alloc(struct mailbox_transaction_context *t)
 int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
+	struct mail_save_data *mdata = &_ctx->data;
 	struct mbox_transaction_context *t =
 		(struct mbox_transaction_context *)_ctx->transaction;
 	enum mail_flags save_flags;
 	uint64_t offset;
 
 	/* FIXME: we could write timezone_offset to From-line.. */
-	if (_ctx->received_date == (time_t)-1)
-		_ctx->received_date = ioloop_time;
+	if (mdata->received_date == (time_t)-1)
+		mdata->received_date = ioloop_time;
 
 	ctx->failed = FALSE;
 	ctx->seq = 0;
@@ -476,16 +477,16 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		return -1;
 	}
 
-	save_flags = _ctx->flags;
-	if (_ctx->uid == 0)
+	save_flags = mdata->flags;
+	if (mdata->uid == 0)
 		save_flags |= MAIL_RECENT;
 	str_truncate(ctx->headers, 0);
 	if (ctx->synced) {
 		if (ctx->mbox->mbox_save_md5)
 			ctx->mbox_md5_ctx = ctx->mbox->md5_v.init();
-		if (ctx->next_uid < _ctx->uid) {
+		if (ctx->next_uid < mdata->uid) {
 			/* we can use the wanted UID */
-			ctx->next_uid = _ctx->uid;
+			ctx->next_uid = mdata->uid;
 		}
 		if (ctx->output->offset == 0) {
 			/* writing the first mail. Insert X-IMAPbase as well. */
@@ -497,14 +498,14 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		mail_index_append(ctx->trans, ctx->next_uid, &ctx->seq);
 		mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
 					save_flags & ~MAIL_RECENT);
-		if (_ctx->keywords != NULL) {
+		if (mdata->keywords != NULL) {
 			mail_index_update_keywords(ctx->trans, ctx->seq,
 						   MODIFY_REPLACE,
-						   _ctx->keywords);
+						   mdata->keywords);
 		}
-		if (_ctx->min_modseq != 0) {
+		if (mdata->min_modseq != 0) {
 			mail_index_update_modseq(ctx->trans, ctx->seq,
-						 _ctx->min_modseq);
+						 mdata->min_modseq);
 		}
 
 		offset = ctx->output->offset == 0 ? 0 :
@@ -524,7 +525,7 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		mail_set_seq_saving(_ctx->dest_mail, ctx->seq);
 	}
 	mbox_save_append_flag_headers(ctx->headers, save_flags);
-	mbox_save_append_keyword_headers(ctx, _ctx->keywords);
+	mbox_save_append_keyword_headers(ctx, mdata->keywords);
 	str_append_c(ctx->headers, '\n');
 
 	i_assert(ctx->mbox->mbox_lock_type == F_WRLCK);
@@ -533,7 +534,7 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	ctx->eoh_offset = (uoff_t)-1;
 	ctx->last_char = '\n';
 
-	if (write_from_line(ctx, _ctx->received_date, _ctx->from_envelope) < 0)
+	if (write_from_line(ctx, mdata->received_date, mdata->from_envelope) < 0)
 		ctx->failed = TRUE;
 	else
 		ctx->input = mbox_save_get_input_stream(ctx, input);
@@ -703,7 +704,7 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 
 	if (ctx->ctx.dest_mail != NULL) {
 		index_mail_cache_parse_deinit(ctx->ctx.dest_mail,
-					      ctx->ctx.received_date,
+					      ctx->ctx.data.received_date,
 					      !ctx->failed);
 	}
 	if (ctx->input != NULL)

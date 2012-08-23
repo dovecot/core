@@ -616,10 +616,11 @@ bool index_storage_is_inconsistent(struct mailbox *box)
 void index_save_context_free(struct mail_save_context *ctx)
 {
 	index_mail_save_finish(ctx);
-	i_free_and_null(ctx->from_envelope);
-	i_free_and_null(ctx->guid);
-	i_free_and_null(ctx->pop3_uidl);
+	i_free_and_null(ctx->data.from_envelope);
+	i_free_and_null(ctx->data.guid);
+	i_free_and_null(ctx->data.pop3_uidl);
 	index_attachment_save_free(ctx);
+	memset(&ctx->data, 0, sizeof(ctx->data));
 }
 
 static void

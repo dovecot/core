@@ -78,13 +78,14 @@ index_attachment_open_ostream(struct istream_attachment_info *info,
 			      struct ostream **output_r, void *context)
 {
 	struct mail_save_context *ctx = context;
+	struct mail_save_attachment *attach = ctx->data.attach;
 	struct mail_storage *storage = ctx->transaction->box->storage;
 	struct mail_attachment_extref *extref;
 	enum fs_open_flags flags = FS_OPEN_FLAG_MKDIR;
 	const char *attachment_dir, *path, *digest = info->hash;
 	guid_128_t guid_128;
 
-	i_assert(ctx->attach->cur_file == NULL);
+	i_assert(attach->cur_file == NULL);
 
 	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER)
 		flags |= FS_OPEN_FLAG_FDATASYNC;
@@ -101,22 +102,22 @@ index_attachment_open_ostream(struct istream_attachment_info *info,
 			       digest[0], digest[1],
 			       digest[2], digest[3], digest,
 			       guid_128_to_string(guid_128));
-	if (fs_open(ctx->attach->fs, path,
-		    FS_OPEN_MODE_CREATE | flags, &ctx->attach->cur_file) < 0) {
+	if (fs_open(attach->fs, path,
+		    FS_OPEN_MODE_CREATE | flags, &attach->cur_file) < 0) {
 		mail_storage_set_critical(storage, "%s",
-			fs_last_error(ctx->attach->fs));
+			fs_last_error(attach->fs));
 		return -1;
 	}
 
-	extref = array_append_space(&ctx->attach->extrefs);
+	extref = array_append_space(&attach->extrefs);
 	extref->start_offset = info->start_offset;
 	extref->size = info->encoded_size;
-	extref->path = p_strdup(ctx->attach->pool,
+	extref->path = p_strdup(attach->pool,
 				path + strlen(attachment_dir) + 1);
 	extref->base64_blocks_per_line = info->base64_blocks_per_line;
 	extref->base64_have_crlf = info->base64_have_crlf;
 
-	*output_r = fs_write_stream(ctx->attach->cur_file);
+	*output_r = fs_write_stream(attach->cur_file);
 	return 0;
 }
 
@@ -125,23 +126,24 @@ index_attachment_close_ostream(struct ostream *output,
 			       bool success, void *context)
 {
 	struct mail_save_context *ctx = context;
+	struct mail_save_attachment *attach = ctx->data.attach;
 	struct mail_storage *storage = ctx->transaction->box->storage;
 	int ret = success ? 0 : -1;
 
-	i_assert(ctx->attach->cur_file != NULL);
+	i_assert(attach->cur_file != NULL);
 
 	if (ret < 0)
-		fs_write_stream_abort(ctx->attach->cur_file, &output);
-	else if (fs_write_stream_finish(ctx->attach->cur_file, &output) < 0) {
+		fs_write_stream_abort(attach->cur_file, &output);
+	else if (fs_write_stream_finish(attach->cur_file, &output) < 0) {
 		mail_storage_set_critical(storage, "%s",
-			fs_file_last_error(ctx->attach->cur_file));
+			fs_file_last_error(attach->cur_file));
 		ret = -1;
 	}
-	fs_close(&ctx->attach->cur_file);
+	fs_close(&attach->cur_file);
 
 	if (ret < 0) {
-		array_delete(&ctx->attach->extrefs,
-			     array_count(&ctx->attach->extrefs)-1, 1);
+		array_delete(&attach->extrefs,
+			     array_count(&attach->extrefs)-1, 1);
 	}
 	return ret;
 }
@@ -150,11 +152,12 @@ void index_attachment_save_begin(struct mail_save_context *ctx,
 				 struct fs *fs, struct istream *input)
 {
 	struct mail_storage *storage = ctx->transaction->box->storage;
+	struct mail_save_attachment *attach;
 	struct istream_attachment_settings set;
 	const char *error;
 	pool_t pool;
 
-	i_assert(ctx->attach == NULL);
+	i_assert(ctx->data.attach == NULL);
 
 	if (*storage->set->mail_attachment_dir == '\0')
 		return;
@@ -173,12 +176,12 @@ void index_attachment_save_begin(struct mail_save_context *ctx,
 	set.close_attachment_ostream = index_attachment_close_ostream;
 
 	pool = pool_alloconly_create("save attachment", 1024);
-	ctx->attach = p_new(pool, struct mail_save_attachment, 1);
-	ctx->attach->pool = pool;
-	ctx->attach->fs = fs;
-	ctx->attach->input =
-		i_stream_create_attachment_extractor(input, &set, ctx);
-	p_array_init(&ctx->attach->extrefs, ctx->attach->pool, 8);
+	attach = p_new(pool, struct mail_save_attachment, 1);
+	attach->pool = pool;
+	attach->fs = fs;
+	attach->input = i_stream_create_attachment_extractor(input, &set, ctx);
+	p_array_init(&attach->extrefs, attach->pool, 8);
+	ctx->data.attach = attach;
 }
 
 static int save_check_write_error(struct mail_storage *storage,
@@ -198,26 +201,27 @@ static int save_check_write_error(struct mail_storage *storage,
 int index_attachment_save_continue(struct mail_save_context *ctx)
 {
 	struct mail_storage *storage = ctx->transaction->box->storage;
+	struct mail_save_attachment *attach = ctx->data.attach;
 	const unsigned char *data;
 	size_t size;
 	ssize_t ret;
 
 	do {
-		ret = i_stream_read(ctx->attach->input);
+		ret = i_stream_read(attach->input);
 		if (ret > 0) {
-			data = i_stream_get_data(ctx->attach->input, &size);
-			o_stream_nsend(ctx->output, data, size);
-			i_stream_skip(ctx->attach->input, size);
+			data = i_stream_get_data(attach->input, &size);
+			o_stream_nsend(ctx->data.output, data, size);
+			i_stream_skip(attach->input, size);
 		}
 		index_mail_cache_parse_continue(ctx->dest_mail);
-		if (ret == 0 && !i_stream_attachment_extractor_can_retry(ctx->attach->input)) {
+		if (ret == 0 && !i_stream_attachment_extractor_can_retry(attach->input)) {
 			/* need more input */
 			return 0;
 		}
 	} while (ret != -1);
 
-	if (ctx->output != NULL) {
-		if (save_check_write_error(storage, ctx->output) < 0)
+	if (ctx->data.output != NULL) {
+		if (save_check_write_error(storage, ctx->data.output) < 0)
 			return -1;
 	}
 	return 0;
@@ -225,25 +229,29 @@ int index_attachment_save_continue(struct mail_save_context *ctx)
 
 int index_attachment_save_finish(struct mail_save_context *ctx)
 {
-	(void)i_stream_read(ctx->attach->input);
-	i_assert(ctx->attach->input->eof);
-	return ctx->attach->input->stream_errno == 0;
+	struct mail_save_attachment *attach = ctx->data.attach;
+
+	(void)i_stream_read(attach->input);
+	i_assert(attach->input->eof);
+	return attach->input->stream_errno == 0;
 }
 
 void index_attachment_save_free(struct mail_save_context *ctx)
 {
-	if (ctx->attach != NULL) {
-		i_stream_unref(&ctx->attach->input);
-		pool_unref(&ctx->attach->pool);
-		ctx->attach = NULL;
+	struct mail_save_attachment *attach = ctx->data.attach;
+
+	if (attach != NULL) {
+		i_stream_unref(&attach->input);
+		pool_unref(&attach->pool);
+		ctx->data.attach = NULL;
 	}
 }
 
 const ARRAY_TYPE(mail_attachment_extref) *
 index_attachment_save_get_extrefs(struct mail_save_context *ctx)
 {
-	return ctx->attach == NULL ? NULL :
-		&ctx->attach->extrefs;
+	return ctx->data.attach == NULL ? NULL :
+		&ctx->data.attach->extrefs;
 }
 
 static int

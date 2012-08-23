@@ -148,7 +148,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 
 	save_ctx = mailbox_save_alloc(lt->dest_trans);
 	mailbox_save_copy_flags(save_ctx, _mail);
-	save_ctx->flags &= ~MAIL_DELETED;
+	save_ctx->data.flags &= ~MAIL_DELETED;
 	if (mailbox_copy(&save_ctx, _mail) < 0 && !_mail->expunged)
 		lt->failed = TRUE;
 	mmail->super.expunge(_mail);
