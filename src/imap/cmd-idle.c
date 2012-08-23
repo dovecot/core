@@ -173,6 +173,8 @@ static bool remote_ip_is_usable(const struct ip_addr *ip)
 			return FALSE; /* 10/8 */
 		if (addr >= 3232235520 && addr <= 3232301055)
 			return FALSE; /* 192.168/16 */
+		if (addr >= 2886729728 && addr <= 2887778303)
+			return FALSE; /* 172.16/12 */
 		if (addr >= 2130706432 && addr <= 2147483647)
 			return FALSE; /* 127/8 */
 	}
