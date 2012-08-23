@@ -49,6 +49,7 @@ struct fs_list_iterate_context {
 	struct list_dir_context *dir;
 
 	unsigned int inbox_found:1;
+	unsigned int inbox_has_children:1;
 	unsigned int list_inbox_inbox:1;
 };
 
@@ -584,9 +585,13 @@ list_file_unfound_inbox(struct fs_list_iterate_context *ctx)
 		return FALSE;
 
 	inbox_flags_set(ctx, 0);
-	/* we got here because we didn't see INBOX among other mailboxes,
-	   which means it has no children. */
-	ctx->info.flags |= MAILBOX_NOCHILDREN;
+	if (ctx->inbox_has_children)
+		ctx->info.flags |= MAILBOX_CHILDREN;
+	else {
+		/* we got here because we didn't see INBOX among other mailboxes,
+		   which means it has no children. */
+		ctx->info.flags |= MAILBOX_NOCHILDREN;
+	}
 	return TRUE;
 }
 
@@ -651,10 +656,18 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* either this is user's INBOX, or it's a naming conflict */
 		if (!list_file_is_any_inbox(ctx, storage_name)) {
-			if (subdir != NULL) {
+			if (subdir == NULL) {
+				/* no children */
+			} else if ((ctx->ctx.list->flags &
+				    MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0) {
 				/* skip its children also */
 				ctx->dir = dir;
 				pool_unref(&subdir->pool);
+			} else if ((ctx->info.flags & MAILBOX_NOINFERIORS) == 0) {
+				/* INBOX itself is \NoInferiors, but this INBOX
+				   is a directory, and we can make INBOX have
+				   children using it. */
+				ctx->inbox_has_children = TRUE;
 			}
 			return 0;
 		}
