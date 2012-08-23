@@ -673,7 +673,7 @@ i_stream_create_attachment_extractor(struct istream *input,
 	astream->istream.istream.blocking = input->blocking;
 	astream->istream.istream.seekable = FALSE;
 
-	astream->pool = pool_alloconly_create("istream attachment", 512);
+	astream->pool = pool_alloconly_create("istream attachment", 1024);
 	astream->parser = message_parser_init(astream->pool, input, 0,
 				MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS |
 				MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES);
