@@ -74,7 +74,7 @@ common = \
 	doveadm-mail-iter.c \
 	doveadm-mail-mailbox.c \
 	doveadm-mail-mailbox-status.c \
-	doveadm-mail-move.c \
+	doveadm-mail-copymove.c \
 	doveadm-mailbox-list-iter.c \
 	doveadm-mail-search.c \
 	doveadm-mail-server.c \
