@@ -444,6 +444,11 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 			name);
 		return FALSE;
 	}
+	if (!uni_utf8_str_is_valid(name)) {
+		*error_r = t_strdup_printf("Namespace prefix not valid UTF8: %s",
+					   name);
+		return FALSE;
+	}
 
 	if (ns->alias_for != NULL) {
 		if (array_is_created(&ns->user_set->namespaces)) {
