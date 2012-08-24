@@ -178,14 +178,6 @@ static bool remote_ip_is_usable(const struct ip_addr *ip)
 		if (addr >= 2130706432 && addr <= 2147483647)
 			return FALSE; /* 127/8 */
 	}
-#ifdef HAVE_IPV6
-	else if (ip->family == AF_INET6) {
-		addr = ip->u.ip6.s6_addr;
-		if (addr >= 334965454937798799971759379190646833152ULL &&
-		    addr <= 337623910929368631717566993311207522303ULL)
-			return FALSE; /* fc00::/7 */
-	}
-#endif
 	return TRUE;
 }
 
