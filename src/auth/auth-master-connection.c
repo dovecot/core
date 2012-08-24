@@ -79,7 +79,7 @@ void auth_master_request_callback(struct auth_stream_reply *reply,
 	reply_str = auth_stream_reply_export(reply);
 
 	if (conn->auth->set->debug) {
-		i_debug("master out: %s",
+		i_debug("master userdb out: %s",
 			auth_master_reply_hide_passwords(conn, reply_str));
 	}
 
@@ -280,7 +280,7 @@ user_callback(enum userdb_result result,
 	}
 
 	if (conn->auth->set->debug) {
-		i_debug("master out: %s",
+		i_debug("userdb out: %s",
 			auth_master_reply_hide_passwords(conn, str_c(str)));
 	}
 
@@ -342,7 +342,7 @@ static void pass_callback_finish(struct auth_request *auth_request,
 	}
 
 	if (conn->auth->set->debug)
-		i_debug("master out: %s", str_c(str));
+		i_debug("passdb out: %s", str_c(str));
 
 	str_append_c(str, '\n');
 	(void)o_stream_send(conn->output, str_data(str), str_len(str));
