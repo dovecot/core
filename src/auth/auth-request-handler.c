@@ -186,7 +186,8 @@ static void get_client_extra_fields(struct auth_request *request,
 			auth_stream_reply_add(reply, "pass",
 					      request->mech_password);
 		}
-		if (request->master_user != NULL) {
+		if (request->master_user != NULL &&
+		    auth_stream_reply_find(reply, "master") == NULL) {
 			/* the master username needs to be forwarded */
 			auth_stream_reply_add(reply, "master",
 					      request->master_user);
