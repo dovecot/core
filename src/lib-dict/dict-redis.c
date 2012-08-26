@@ -115,7 +115,7 @@ static void redis_wait(struct redis_dict *dict)
 	io_loop_destroy(&dict->ioloop);
 }
 
-static void redis_input_get(struct redis_connection *conn)
+static int redis_input_get(struct redis_connection *conn)
 {
 	const unsigned char *data;
 	size_t size;
@@ -125,20 +125,20 @@ static void redis_input_get(struct redis_connection *conn)
 		/* read the size first */
 		line = i_stream_next_line(conn->conn.input);
 		if (line == NULL)
-			return;
+			return 0;
 		if (strcmp(line, "$-1") == 0) {
 			conn->value_received = TRUE;
 			conn->value_not_found = TRUE;
 			if (conn->dict->ioloop != NULL)
 				io_loop_stop(conn->dict->ioloop);
 			redis_input_state_remove(conn->dict);
-			return;
+			return 1;
 		}
 		if (line[0] != '$' || str_to_uint(line+1, &conn->bytes_left) < 0) {
 			i_error("redis: Unexpected input (wanted $size): %s",
 				line);
 			redis_conn_destroy(&conn->conn);
-			return;
+			return 1;
 		}
 		conn->bytes_left += 2; /* include trailing CRLF */
 	}
@@ -151,15 +151,17 @@ static void redis_input_get(struct redis_connection *conn)
 	conn->bytes_left -= size;
 	i_stream_skip(conn->conn.input, size);
 
-	if (conn->bytes_left == 0) {
-		/* reply fully read - drop trailing CRLF */
-		conn->value_received = TRUE;
-		str_truncate(conn->last_reply, str_len(conn->last_reply)-2);
+	if (conn->bytes_left > 0)
+		return 0;
 
-		if (conn->dict->ioloop != NULL)
-			io_loop_stop(conn->dict->ioloop);
-		redis_input_state_remove(conn->dict);
-	}
+	/* reply fully read - drop trailing CRLF */
+	conn->value_received = TRUE;
+	str_truncate(conn->last_reply, str_len(conn->last_reply)-2);
+
+	if (conn->dict->ioloop != NULL)
+		io_loop_stop(conn->dict->ioloop);
+	redis_input_state_remove(conn->dict);
+	return 1;
 }
 
 static int redis_conn_input_more(struct redis_connection *conn)
@@ -174,16 +176,14 @@ static int redis_conn_input_more(struct redis_connection *conn)
 	states = array_get(&dict->input_states, &count);
 	if (count == 0) {
 		line = i_stream_next_line(conn->conn.input);
-		if (line == NULL) line = "";
-		i_error("redis: Unexpected input (expected nothing): %s",
-			line);
+		if (line == NULL)
+			return 0;
+		i_error("redis: Unexpected input (expected nothing): %s", line);
 		return -1;
 	}
 	state = states[0];
-	if (state == REDIS_INPUT_STATE_GET) {
-		redis_input_get(conn);
-		return 1;
-	}
+	if (state == REDIS_INPUT_STATE_GET)
+		return redis_input_get(conn);
 
 	line = i_stream_next_line(conn->conn.input);
 	if (line == NULL)
@@ -235,7 +235,6 @@ static int redis_conn_input_more(struct redis_connection *conn)
 static void redis_conn_input(struct connection *_conn)
 {
 	struct redis_connection *conn = (struct redis_connection *)_conn;
-	size_t size;
 	int ret;
 
 	switch (i_stream_read(_conn->input)) {
@@ -248,11 +247,7 @@ static void redis_conn_input(struct connection *_conn)
 		break;
 	}
 
-	while ((ret = redis_conn_input_more(conn)) > 0) {
-		i_stream_get_data(_conn->input, &size);
-		if (size == 0)
-			break;
-	}
+	while ((ret = redis_conn_input_more(conn)) > 0) ;
 	if (ret < 0)
 		redis_conn_destroy(_conn);
 }
