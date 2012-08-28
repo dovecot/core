@@ -186,9 +186,14 @@ static int file_dict_refresh(struct file_dict *dict)
 
 	if (dict->fd != -1) {
 		input = i_stream_create_fd(dict->fd, (size_t)-1, FALSE);
-		while ((key = i_stream_read_next_line(input)) != NULL &&
-		       (value = i_stream_read_next_line(input)) != NULL) {
+
+		while ((key = i_stream_read_next_line(input)) != NULL) {
+			/* strdup() before the second read */
 			key = p_strdup(dict->hash_pool, key);
+
+			if ((value = i_stream_read_next_line(input)) == NULL)
+				break;
+
 			value = p_strdup(dict->hash_pool, value);
 			hash_table_insert(dict->hash, key, value);
 		}
