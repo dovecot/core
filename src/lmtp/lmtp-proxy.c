@@ -136,6 +136,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	client_set.source_ip = proxy->set.source_ip;
 	client_set.source_port = proxy->set.source_port;
 	client_set.proxy_ttl_plus_1 = proxy->set.proxy_ttl+1;
+	client_set.proxy_timeout_secs = set->timeout_msecs/1000;
 
 	conn = p_new(proxy->pool, struct lmtp_proxy_connection, 1);
 	conn->proxy = proxy;

@@ -12,6 +12,7 @@
 #include "istream-dot.h"
 #include "safe-mkstemp.h"
 #include "restrict-access.h"
+#include "settings-parser.h"
 #include "master-service.h"
 #include "rfc822-parser.h"
 #include "message-date.h"
@@ -69,7 +70,7 @@ int cmd_lhlo(struct client *client, const char *args)
 	client_state_reset(client);
 	client_send_line(client, "250-%s", client->my_domain);
 	if (client_is_trusted(client))
-		client_send_line(client, "250-XCLIENT ADDR PORT TTL");
+		client_send_line(client, "250-XCLIENT ADDR PORT TTL TIMEOUT");
 	client_send_line(client, "250-8BITMIME");
 	client_send_line(client, "250-ENHANCEDSTATUSCODES");
 	client_send_line(client, "250 PIPELINING");
@@ -573,13 +574,27 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	struct mail_storage *storage;
 	const struct mail_storage_service_input *input;
 	struct mail_namespace *ns;
+	struct setting_parser_context *set_parser;
 	void **sets;
-	const char *error, *username;
+	const char *line, *error, *username;
 	enum mail_error mail_error;
 	int ret;
 
 	input = mail_storage_service_user_get_input(rcpt->service_user);
 	username = t_strdup(input->username);
+
+	set_parser = mail_storage_service_user_get_settings_parser(rcpt->service_user);
+	if (client->proxy_timeout_secs > 0) {
+		/* set lock timeout waits to be less than when proxy has
+		   advertised that it's going to timeout the connection.
+		   this avoids duplicate deliveries in case the delivery
+		   succeeds after the proxy has already disconnected from us. */
+		line = t_strdup_printf("mail_max_lock_timeout=%u",
+				       client->proxy_timeout_secs <= 1 ? 1 :
+				       client->proxy_timeout_secs-1);
+		if (settings_parse_line(set_parser, line) < 0)
+			i_unreached();
+	}
 
 	i_set_failure_prefix(t_strdup_printf("lmtp(%s, %s): ",
 					     my_pid, username));
@@ -1000,7 +1015,7 @@ int cmd_xclient(struct client *client, const char *args)
 {
 	const char *const *tmp;
 	struct ip_addr remote_ip;
-	unsigned int remote_port = 0, ttl = -1U;
+	unsigned int remote_port = 0, ttl = -1U, timeout_secs = 0;
 	bool args_ok = TRUE;
 
 	if (!client_is_trusted(client)) {
@@ -1019,6 +1034,9 @@ int cmd_xclient(struct client *client, const char *args)
 		} else if (strncasecmp(*tmp, "TTL=", 4) == 0) {
 			if (str_to_uint(*tmp + 4, &ttl) < 0)
 				args_ok = FALSE;
+		} else if (strncasecmp(*tmp, "TIMEOUT=", 8) == 0) {
+			if (str_to_uint(*tmp + 8, &timeout_secs) < 0)
+				args_ok = FALSE;
 		}
 	}
 	if (!args_ok) {
@@ -1034,6 +1052,7 @@ int cmd_xclient(struct client *client, const char *args)
 		client->remote_port = remote_port;
 	if (ttl != -1U)
 		client->proxy_ttl = ttl;
+	client->proxy_timeout_secs = timeout_secs;
 	client_send_line(client, "220 %s %s", client->my_domain,
 			 client->lmtp_set->login_greeting);
 	return 0;
