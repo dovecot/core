@@ -1280,6 +1280,8 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	struct stat st;
 	int fd;
 
+	i_assert(conn->client->set.max_idle_time > 0);
+
 	conn->prev_connect_idx = (conn->prev_connect_idx+1) % conn->ips_count;
 	ip = &conn->ips[conn->prev_connect_idx];
 	fd = net_connect_ip(ip, conn->client->set.port, NULL);
