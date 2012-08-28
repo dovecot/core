@@ -237,18 +237,9 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 
 static const struct stat *
 i_stream_chain_stat(struct istream_private *stream ATTR_UNUSED,
-		    bool exact ATTR_UNUSED)
+	bool exact ATTR_UNUSED)
 {
-	i_panic("istream_chain(): stat() not supported");
 	return NULL;
-}
-
-static int
-i_stream_chain_get_size(struct istream_private *stream ATTR_UNUSED,
-			bool exact ATTR_UNUSED, uoff_t *size_r ATTR_UNUSED)
-{
-	i_panic("istream_chain(): get_size() not supported");
-	return -1;
 }
 
 struct istream *i_stream_create_chain(struct istream_chain **chain_r)
@@ -265,7 +256,6 @@ struct istream *i_stream_create_chain(struct istream_chain **chain_r)
 
 	cstream->istream.read = i_stream_chain_read;
 	cstream->istream.stat = i_stream_chain_stat;
-	cstream->istream.get_size = i_stream_chain_get_size;
 
 	cstream->istream.istream.readable_fd = FALSE;
 	cstream->istream.istream.blocking = FALSE;
