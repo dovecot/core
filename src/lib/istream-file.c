@@ -144,7 +144,7 @@ static void i_stream_file_sync(struct istream_private *stream)
 	stream->skip = stream->pos = 0;
 }
 
-static const struct stat *
+static int
 i_stream_file_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
@@ -155,16 +155,15 @@ i_stream_file_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 	} else if (stream->fd != -1) {
 		if (fstat(stream->fd, &stream->statbuf) < 0) {
 			i_error("file_istream.fstat(%s) failed: %m", name);
-			return NULL;
+			return -1;
 		}
 	} else {
 		if (stat(name, &stream->statbuf) < 0) {
 			i_error("file_istream.stat(%s) failed: %m", name);
-			return NULL;
+			return -1;
 		}
 	}
-
-	return &stream->statbuf;
+	return 0;
 }
 
 static struct istream *

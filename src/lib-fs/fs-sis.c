@@ -158,7 +158,8 @@ static bool fs_sis_try_link(struct sis_fs_file *file)
 	const struct stat *st;
 	struct stat st2;
 
-	st = i_stream_stat(file->hash_input, FALSE);
+	if (i_stream_stat(file->hash_input, FALSE, &st) < 0)
+		return FALSE;
 
 	/* we can use the existing file */
 	if (fs_link(file->super->fs, file->hash_path, path) < 0) {

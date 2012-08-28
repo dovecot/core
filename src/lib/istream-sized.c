@@ -70,7 +70,7 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 	return ret;
 }
 
-static const struct stat *
+static int
 i_stream_sized_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	struct sized_istream *sstream = (struct sized_istream *)stream;
@@ -79,13 +79,12 @@ i_stream_sized_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 	/* parent stream may be base64-decoder. don't waste time decoding the
 	   entire stream, since we already know what the size is supposed
 	   to be. */
-	st = i_stream_stat(stream->parent, FALSE);
-	if (st == NULL)
-		return NULL;
+	if (i_stream_stat(stream->parent, FALSE, &st) < 0)
+		return -1;
 
 	stream->statbuf = *st;
 	stream->statbuf.st_size = sstream->size;
-	return &stream->statbuf;
+	return 0;
 }
 
 struct istream *i_stream_create_sized(struct istream *input, uoff_t size)

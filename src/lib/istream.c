@@ -269,14 +269,17 @@ void i_stream_sync(struct istream *stream)
 	}
 }
 
-const struct stat *i_stream_stat(struct istream *stream, bool exact)
+int i_stream_stat(struct istream *stream, bool exact, const struct stat **st_r)
 {
 	struct istream_private *_stream = stream->real_stream;
 
 	if (unlikely(stream->closed))
-		return NULL;
+		return -1;
 
-	return _stream->stat(_stream, exact);
+	if (_stream->stat(_stream, exact) < 0)
+		return -1;
+	*st_r = &_stream->statbuf;
+	return 0;
 }
 
 int i_stream_get_size(struct istream *stream, bool exact, uoff_t *size_r)
@@ -609,32 +612,34 @@ void i_stream_default_seek_nonseekable(struct istream_private *stream,
 	}
 }
 
-static const struct stat *
+static int
 i_stream_default_stat(struct istream_private *stream, bool exact)
 {
+	const struct stat *st;
+
 	if (stream->parent == NULL)
-		return &stream->statbuf;
+		return 0;
 
 	if (exact && !stream->stream_size_passthrough) {
 		i_panic("istream %s: stat() doesn't support getting exact size",
 			i_stream_get_name(&stream->istream));
 	}
-	return i_stream_stat(stream->parent, exact);
+	if (i_stream_stat(stream->parent, exact, &st) < 0)
+		return -1;
+	stream->statbuf = *st;
+	return 0;
 }
 
 static int
 i_stream_default_get_size(struct istream_private *stream,
 			  bool exact, uoff_t *size_r)
 {
-	const struct stat *st;
-
-	st = stream->stat(stream, exact);
-	if (st == NULL)
+	if (stream->stat(stream, exact) < 0)
 		return -1;
-	if (st->st_size == -1)
+	if (stream->statbuf.st_size == -1)
 		return 0;
 
-	*size_r = st->st_size;
+	*size_r = stream->statbuf.st_size;
 	return 1;
 }
 

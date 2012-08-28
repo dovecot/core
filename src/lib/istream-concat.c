@@ -199,8 +199,7 @@ find_v_offset(struct concat_istream *cstream, uoff_t *v_offset)
 		}
 		if (i == cstream->unknown_size_idx) {
 			/* we'll need to figure out this stream's size */
-			st = i_stream_stat(cstream->input[i], TRUE);
-			if (st == NULL) {
+			if (i_stream_stat(cstream->input[i], TRUE, &st) < 0) {
 				i_error("istream-concat: "
 					"Failed to get size of stream %s",
 					i_stream_get_name(cstream->input[i]));
@@ -243,7 +242,7 @@ static void i_stream_concat_seek(struct istream_private *stream,
 		i_stream_seek(cstream->cur_input, v_offset);
 }
 
-static const struct stat *
+static int
 i_stream_concat_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	struct concat_istream *cstream = (struct concat_istream *)stream;
@@ -251,12 +250,13 @@ i_stream_concat_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 	unsigned int i;
 
 	/* make sure we have all sizes */
-	(void)find_v_offset(cstream, &v_offset);
+	if (find_v_offset(cstream, &v_offset) == -1U)
+		return -1;
 
 	stream->statbuf.st_size = 0;
 	for (i = 0; i < cstream->unknown_size_idx; i++)
 		stream->statbuf.st_size += cstream->input_size[i];
-	return &stream->statbuf;
+	return 0;
 }
 
 struct istream *i_stream_create_concat(struct istream *input[])

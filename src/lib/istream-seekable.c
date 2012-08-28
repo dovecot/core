@@ -297,17 +297,18 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 	return ret;
 }
 
-static const struct stat *
+static int
 i_stream_seekable_stat(struct istream_private *stream, bool exact)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+	const struct stat *st;
 	uoff_t old_offset;
 	ssize_t ret;
 
 	if (sstream->size != (uoff_t)-1) {
 		/* we've already reached EOF and know the size */
 		stream->statbuf.st_size = sstream->size;
-		return &stream->statbuf;
+		return 0;
 	}
 
 	if (sstream->membuf != NULL) {
@@ -332,14 +333,16 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 
 	if (sstream->fd_input != NULL) {
 		/* using a file backed buffer, we can use real fstat() */
-		return i_stream_stat(sstream->fd_input, exact);
+		if (i_stream_stat(sstream->fd_input, exact, &st) < 0)
+			return -1;
+		stream->statbuf = *st;
 	} else {
 		/* buffer is completely in memory */
 		i_assert(sstream->membuf != NULL);
 
 		stream->statbuf.st_size = sstream->membuf->used;
-		return &stream->statbuf;
 	}
+	return 0;
 }
 
 struct istream *

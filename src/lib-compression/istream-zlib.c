@@ -423,25 +423,24 @@ i_stream_zlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 		zstream->marked = TRUE;
 }
 
-static const struct stat *
+static int
 i_stream_zlib_stat(struct istream_private *stream, bool exact)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *) stream;
 	const struct stat *st;
 	size_t size;
 
-	st = i_stream_stat(stream->parent, exact);
-	if (st == NULL)
-		return NULL;
+	if (i_stream_stat(stream->parent, exact, &st) < 0)
+		return -1;
+	stream->statbuf = *st;
 
 	/* when exact=FALSE always return the parent stat's size, even if we
 	   know the exact value. this is necessary because otherwise e.g. mbox
 	   code can see two different values and think that a compressed mbox
 	   file keeps changing. */
 	if (!exact)
-		return st;
+		return 0;
 
-	stream->statbuf = *st;
 	if (zstream->stream_size == (uoff_t)-1) {
 		uoff_t old_offset = stream->istream.v_offset;
 
@@ -452,10 +451,10 @@ i_stream_zlib_stat(struct istream_private *stream, bool exact)
 
 		i_stream_seek(&stream->istream, old_offset);
 		if (zstream->stream_size == (uoff_t)-1)
-			return NULL;
+			return -1;
 	}
 	stream->statbuf.st_size = zstream->stream_size;
-	return &stream->statbuf;
+	return 0;
 }
 
 static void i_stream_zlib_sync(struct istream_private *stream)
@@ -463,8 +462,7 @@ static void i_stream_zlib_sync(struct istream_private *stream)
 	struct zlib_istream *zstream = (struct zlib_istream *) stream;
 	const struct stat *st;
 
-	st = i_stream_stat(stream->parent, FALSE);
-	if (st != NULL) {
+	if (i_stream_stat(stream->parent, FALSE, &st) < 0) {
 		if (memcmp(&zstream->last_parent_statbuf,
 			   st, sizeof(*st)) == 0) {
 			/* a compressed file doesn't change unexpectedly,

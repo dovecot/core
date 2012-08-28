@@ -235,13 +235,6 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 	return ret;
 }
 
-static const struct stat *
-i_stream_chain_stat(struct istream_private *stream ATTR_UNUSED,
-	bool exact ATTR_UNUSED)
-{
-	return NULL;
-}
-
 struct istream *i_stream_create_chain(struct istream_chain **chain_r)
 {
 	struct chain_istream *cstream;
@@ -255,7 +248,6 @@ struct istream *i_stream_create_chain(struct istream_chain **chain_r)
 		i_stream_chain_set_max_buffer_size;
 
 	cstream->istream.read = i_stream_chain_read;
-	cstream->istream.stat = i_stream_chain_stat;
 
 	cstream->istream.istream.readable_fd = FALSE;
 	cstream->istream.istream.blocking = FALSE;

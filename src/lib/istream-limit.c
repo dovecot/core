@@ -71,20 +71,19 @@ static ssize_t i_stream_limit_read(struct istream_private *stream)
 	return ret;
 }
 
-static const struct stat *
+static int
 i_stream_limit_stat(struct istream_private *stream, bool exact)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 	const struct stat *st;
 
-	st = i_stream_stat(stream->parent, exact);
-	if (st == NULL)
-		return NULL;
+	if (i_stream_stat(stream->parent, exact, &st) < 0)
+		return -1;
 
 	stream->statbuf = *st;
 	if (lstream->v_size != (uoff_t)-1)
 		stream->statbuf.st_size = lstream->v_size;
-	return &stream->statbuf;
+	return 0;
 }
 
 static int i_stream_limit_get_size(struct istream_private *stream,
@@ -98,8 +97,7 @@ static int i_stream_limit_get_size(struct istream_private *stream,
 		return 1;
 	}
 
-	st = i_stream_stat(&stream->istream, exact);
-	if (st == NULL)
+	if (i_stream_stat(&stream->istream, exact, &st) < 0)
 		return -1;
 	if (st->st_size == -1)
 		return 0;

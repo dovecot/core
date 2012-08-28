@@ -125,8 +125,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st_r)
 
 	if (imail->data.stream != NULL) {
 		mail->transaction->stats.fstat_lookup_count++;
-		stp = i_stream_stat(imail->data.stream, FALSE);
-		if (stp == NULL)
+		if (i_stream_stat(imail->data.stream, FALSE, &stp) < 0)
 			return -1;
 		*st_r = *stp;
 	} else if (!mail->saving) {

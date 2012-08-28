@@ -165,12 +165,16 @@ static ssize_t i_stream_tee_read(struct istream_private *stream)
 	return ret;
 }
 
-static const struct stat *
+static int
 i_stream_tee_stat(struct istream_private *stream, bool exact)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
+	const struct stat *st;
 
-	return i_stream_stat(tstream->tee->input, exact);
+	if (i_stream_stat(tstream->tee->input, exact, &st) < 0)
+		return -1;
+	stream->statbuf = *st;
+	return 0;
 }
 
 static void i_stream_tee_sync(struct istream_private *stream)

@@ -1427,8 +1427,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 	const struct stat *st;
 	uint32_t first_recent_uid, seq, seq2;
 
-	st = i_stream_stat(sync_ctx->file_input, FALSE);
-	if (st == NULL) {
+	if (i_stream_stat(sync_ctx->file_input, FALSE, &st) < 0) {
 		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
 		return -1;
 	}
@@ -1456,8 +1455,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 				return -1;
 			}
 
-			st = i_stream_stat(sync_ctx->file_input, FALSE);
-			if (st == NULL) {
+			if (i_stream_stat(sync_ctx->file_input, FALSE, &st) < 0) {
 				mbox_set_syscall_error(sync_ctx->mbox,
 						       "i_stream_stat()");
 				return -1;
@@ -1562,8 +1560,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	unsigned int i;
 	int ret, partial;
 
-	st = i_stream_stat(sync_ctx->file_input, FALSE);
-	if (st == NULL) {
+	if (i_stream_stat(sync_ctx->file_input, FALSE, &st) < 0) {
 		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
 		return -1;
 	}
@@ -1706,8 +1703,7 @@ int mbox_sync_has_changed_full(struct mbox_mailbox *mbox, bool leave_dirty,
 
 	if (mbox->mbox_file_stream != NULL && mbox->mbox_fd == -1) {
 		/* read-only stream */
-		st = i_stream_stat(mbox->mbox_file_stream, FALSE);
-		if (st == NULL) {
+		if (i_stream_stat(mbox->mbox_file_stream, FALSE, &st) < 0) {
 			if (errno == ENOENT) {
 				mailbox_set_deleted(&mbox->box);
 				return 0;

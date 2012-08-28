@@ -406,21 +406,20 @@ static void i_stream_raw_mbox_sync(struct istream_private *stream)
 	rstream->input_peak_offset = 0;
 }
 
-static const struct stat *
+static int
 i_stream_raw_mbox_stat(struct istream_private *stream, bool exact)
 {
 	const struct stat *st;
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
-	st = i_stream_stat(stream->parent, exact);
-	if (st == NULL)
-		return NULL;
+	if (i_stream_stat(stream->parent, exact, &st) < 0)
+		return -1;
 
 	stream->statbuf = *st;
 	stream->statbuf.st_size =
 		!exact && rstream->seeked && rstream->mail_size != (uoff_t)-1 ?
 		(off_t)rstream->mail_size : -1;
-	return &stream->statbuf;
+	return 0;
 }
 
 struct istream *i_stream_create_raw_mbox(struct istream *input)

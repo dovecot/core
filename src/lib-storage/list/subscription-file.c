@@ -244,7 +244,7 @@ int subsfile_list_fstat(struct subsfile_list_context *ctx, struct stat *st_r)
 	if (ctx->failed)
 		return -1;
 
-	if ((st = i_stream_stat(ctx->input, FALSE)) == NULL) {
+	if (i_stream_stat(ctx->input, FALSE, &st) < 0) {
 		ctx->failed = TRUE;
 		return -1;
 	}

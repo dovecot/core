@@ -492,7 +492,7 @@ i_stream_header_filter_sync(struct istream_private *stream ATTR_UNUSED)
 	i_panic("istream-header-filter sync() not implemented");
 }
 
-static const struct stat *
+static int
 i_stream_header_filter_stat(struct istream_private *stream, bool exact)
 {
 	struct header_filter_istream *mstream =
@@ -500,19 +500,21 @@ i_stream_header_filter_stat(struct istream_private *stream, bool exact)
 	const struct stat *st;
 	uoff_t old_offset;
 
-	st = i_stream_stat(stream->parent, exact);
-	if (st == NULL || st->st_size == -1 || !exact)
-		return st;
+	if (i_stream_stat(stream->parent, exact, &st) < 0)
+		return -1;
+	stream->statbuf = *st;
+	if (stream->statbuf.st_size == -1 || !exact)
+		return 0;
 
+	/* fix the filtered header size */
 	old_offset = stream->istream.v_offset;
 	skip_header(mstream);
 
-	stream->statbuf = *st;
 	stream->statbuf.st_size -=
 		(off_t)mstream->header_size.physical_size -
 		(off_t)mstream->header_size.virtual_size;
 	i_stream_seek(&stream->istream, old_offset);
-	return &stream->statbuf;
+	return 0;
 }
 
 #undef i_stream_create_header_filter
