@@ -33,7 +33,7 @@ struct lmtp_proxy_connection {
 
 struct lmtp_proxy {
 	pool_t pool;
-	const char *mail_from, *my_hostname;
+	const char *mail_from, *my_hostname, *session_id;
 	const char *dns_client_socket_path;
 
 	ARRAY_DEFINE(connections, struct lmtp_proxy_connection *);
@@ -56,7 +56,7 @@ static void lmtp_conn_finish(void *context);
 
 struct lmtp_proxy *
 lmtp_proxy_init(const char *my_hostname, const char *dns_client_socket_path,
-		struct ostream *client_output)
+		const char *session_id, struct ostream *client_output)
 {
 	struct lmtp_proxy *proxy;
 	pool_t pool;
@@ -69,6 +69,7 @@ lmtp_proxy_init(const char *my_hostname, const char *dns_client_socket_path,
 	proxy->my_hostname = p_strdup(pool, my_hostname);
 	proxy->client_output = client_output;
 	proxy->dns_client_socket_path = p_strdup(pool, dns_client_socket_path);
+	proxy->session_id = p_strdup(pool, session_id);
 	i_array_init(&proxy->rcpt_to, 32);
 	i_array_init(&proxy->connections, 32);
 	return proxy;
@@ -264,8 +265,9 @@ static void lmtp_proxy_conn_timeout(struct lmtp_proxy_connection *conn)
 	const char *line;
 
 	line = t_strdup_printf(ERRSTR_TEMP_REMOTE_FAILURE
-			       " (timeout while waiting for reply to %s)",
-			       lmtp_client_state_to_string(conn->client));
+			       " (timeout while waiting for reply to %s) <%s>",
+			       lmtp_client_state_to_string(conn->client),
+			       conn->proxy->session_id);
 	lmtp_client_fail(conn->client, line);
 }
 
