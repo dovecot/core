@@ -50,7 +50,7 @@ struct cmd_append_context {
 
 static void cmd_append_finish(struct cmd_append_context *ctx);
 static bool cmd_append_continue_message(struct client_command_context *cmd);
-static bool cmd_append_continue_parsing(struct client_command_context *cmd);
+static bool cmd_append_parse_new_msg(struct client_command_context *cmd);
 
 static const char *get_disconnect_reason(struct cmd_append_context *ctx)
 {
@@ -147,56 +147,6 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 		mailbox_free(&ctx->box);
 }
 
-static bool cmd_append_continue_cancel(struct client_command_context *cmd)
-{
-	struct cmd_append_context *ctx = cmd->context;
-
-	if (cmd->cancel) {
-		cmd_append_finish(ctx);
-		return TRUE;
-	}
-
-	(void)i_stream_read(ctx->litinput);
-	i_stream_skip(ctx->litinput, i_stream_get_data_size(ctx->litinput));
-
-	if (cmd->client->input->closed) {
-		cmd_append_finish(ctx);
-		return TRUE;
-	}
-
-	if (ctx->litinput->v_offset == ctx->literal_size) {
-		/* finished, but with MULTIAPPEND and LITERAL+ we may get
-		   more messages. */
-		i_stream_unref(&ctx->litinput);
-
-		ctx->message_input = FALSE;
-		imap_parser_reset(ctx->save_parser);
-		cmd->func = cmd_append_continue_parsing;
-		return cmd_append_continue_parsing(cmd);
-	}
-
-	return FALSE;
-}
-
-static bool cmd_append_cancel(struct cmd_append_context *ctx, bool nonsync)
-{
-	ctx->failed = TRUE;
-
-	if (!nonsync) {
-		cmd_append_finish(ctx);
-		return TRUE;
-	}
-
-	/* we have to read the nonsynced literal so we don't treat the message
-	   data as commands. */
-	ctx->litinput = i_stream_create_limit(ctx->client->input, ctx->literal_size);
-
-	ctx->message_input = TRUE;
-	ctx->cmd->func = cmd_append_continue_cancel;
-	ctx->cmd->context = ctx;
-	return cmd_append_continue_cancel(ctx->cmd);
-}
-
 static int
 cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 {
@@ -206,6 +156,9 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 	uoff_t size, newsize;
 	const char *error;
 	int ret;
+
+	if (ctx->failed)
+		return -1;
 
 	ret = imap_msgpart_url_parse(cmd->client->user, cmd->client->mailbox,
 				     caturl, &mpurl, &error);
@@ -275,24 +228,22 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 	return ret;
 }
 
-static int cmd_append_catenate_text(struct client_command_context *cmd)
+static void cmd_append_catenate_text(struct client_command_context *cmd)
 {
 	struct cmd_append_context *ctx = cmd->context;
-	uoff_t newsize;
 
-	newsize = ctx->cat_msg_size + ctx->literal_size;
-	if (newsize < ctx->cat_msg_size) {
+	if (ctx->literal_size > (uoff_t)-1 - ctx->cat_msg_size &&
+	    !ctx->failed) {
 		client_send_tagline(cmd,
 			"NO [TOOBIG] Composed message grows too big.");
-		return -1;
+		ctx->failed = TRUE;
 	}
 
 	/* save the mail */
-	ctx->cat_msg_size = newsize;
+	ctx->cat_msg_size += ctx->literal_size;
 	ctx->litinput = i_stream_create_limit(cmd->client->input,
 					      ctx->literal_size);
 	i_stream_chain_append(ctx->catchain, ctx->litinput);
-	return 0;
 }
 
 static int
@@ -304,9 +255,6 @@ cmd_append_catenate(struct client_command_context *cmd,
 
 	*nonsync_r = FALSE;
 
-	if (ctx->failed)
-		return -1;
-
 	/* Handle URLs until a TEXT literal is encountered */
 	while (imap_arg_get_atom(args, &catpart)) {
 		const char *caturl;
@@ -316,21 +264,26 @@ cmd_append_catenate(struct client_command_context *cmd,
 			args++;
 			if (!imap_arg_get_astring(args, &caturl))
 				break;
-			if (cmd_append_catenate_url(cmd, caturl) < 0)
-				return -1;
+			if (cmd_append_catenate_url(cmd, caturl) < 0) {
+				/* delay failure until we can stop
+				   parsing input */
+				ctx->failed = TRUE;
+			}
 		} else if (strcasecmp(catpart, "TEXT") == 0) {
 			/* TEXT <literal> */
 			args++;
 			if (!imap_arg_get_literal_size(args, &ctx->literal_size))
 				break;
-			if (args->literal8 && !ctx->binary_input) {
+			if (args->literal8 && !ctx->binary_input &&
+			    !ctx->failed) {
 				client_send_tagline(cmd,
 					"NO ["IMAP_RESP_CODE_UNKNOWN_CTE"] "
 					"Binary input allowed only when the first part is binary.");
-				return -1;
+				ctx->failed = TRUE;
 			}
 			*nonsync_r = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
-			return cmd_append_catenate_text(cmd) < 0 ? -1 : 1;
+			cmd_append_catenate_text(cmd);
+			return 1;
 		} else {
 			break;
 		}
@@ -342,6 +295,7 @@ cmd_append_catenate(struct client_command_context *cmd,
 		return 0;
 	}
 	client_send_command_error(cmd, "Invalid arguments.");
+	cmd->client->input_skip_line = TRUE;
 	return -1;
 }
 
@@ -352,15 +306,19 @@ static void cmd_append_finish_catenate(struct client_command_context *cmd)
 	i_stream_chain_append_eof(ctx->catchain);
 	i_stream_unref(&ctx->input);
 	ctx->catenate = FALSE;
+	ctx->catchain = NULL;
 
-	/* do mailbox_save_continue() once more after appending EOF,
-	   to finish any pending reads */
-	if (mailbox_save_continue(ctx->save_ctx) < 0) {
-		mailbox_save_cancel(&ctx->save_ctx);
-		ctx->failed = TRUE;
-	} else if (mailbox_save_finish(&ctx->save_ctx) < 0) {
-		ctx->failed = TRUE;
-		client_send_storage_error(cmd, ctx->storage);
+	if (ctx->save_ctx == NULL) {
+		/* APPEND has already failed */
+		i_assert(ctx->failed);
+	} else {
+		/* do mailbox_save_continue() once more after appending EOF,
+		   to finish any pending reads */
+		(void)mailbox_save_continue(ctx->save_ctx);
+		if (mailbox_save_finish(&ctx->save_ctx) < 0) {
+			client_send_storage_error(cmd, ctx->storage);
+			ctx->failed = TRUE;
+		}
 	}
 }
 
@@ -374,22 +332,22 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 	int ret;
 
 	if (cmd->cancel) {
+		/* cancel the command immediately (disconnection) */
 		cmd_append_finish(ctx);
 		return TRUE;
 	}
 
+	/* we're parsing inside CATENATE (..) list after handling a TEXT part */
 	ret = imap_parser_read_args(ctx->save_parser, 0,
 				    IMAP_PARSE_FLAG_LITERAL_SIZE |
 				    IMAP_PARSE_FLAG_LITERAL8 |
 				    IMAP_PARSE_FLAG_INSIDE_LIST, &args);
 	if (ret == -1) {
-		if (!ctx->failed) {
-			msg = imap_parser_get_error(ctx->save_parser, &fatal);
-			if (fatal)
-				client_disconnect_with_error(client, msg);
-			else
-				client_send_command_error(cmd, msg);
-		}
+		msg = imap_parser_get_error(ctx->save_parser, &fatal);
+		if (fatal)
+			client_disconnect_with_error(client, msg);
+		else if (!ctx->failed)
+			client_send_command_error(cmd, msg);
 		client->input_skip_line = TRUE;
 		cmd_append_finish(ctx);
 		return TRUE;
@@ -400,8 +358,9 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 	}
 
 	if ((ret = cmd_append_catenate(cmd, args, &nonsync)) < 0) {
-		client->input_skip_line = TRUE;
-		return cmd_append_cancel(ctx, nonsync);
+		/* invalid parameters, abort immediately */
+		cmd_append_finish(ctx);
+		return TRUE;
 	}
 
 	if (ret == 0) {
@@ -410,8 +369,8 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 
 		/* last catenate part */
 		imap_parser_reset(ctx->save_parser);
-		cmd->func = cmd_append_continue_parsing;
-		return cmd_append_continue_parsing(cmd);
+		cmd->func = cmd_append_parse_new_msg;
+		return cmd_append_parse_new_msg(cmd);
 	}
 
 	/* TEXT <literal> */
@@ -420,12 +379,18 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 	client->input_skip_line = TRUE;
 
 	if (!nonsync) {
+		if (ctx->failed) {
+			/* tagline was already sent, we can abort here */
+			cmd_append_finish(ctx);
+			return TRUE;
+		}
 		o_stream_nsend(client->output, "+ OK\r\n", 6);
 		o_stream_nflush(client->output);
 		o_stream_uncork(client->output);
 		o_stream_cork(client->output);
 	}
 
+	i_assert(ctx->litinput != NULL);
 	ctx->message_input = TRUE;
 	cmd->func = cmd_append_continue_message;
 	return cmd_append_continue_message(cmd);
@@ -462,6 +427,7 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		(*args)++;
 	}
 
+	/* <message literal> | CATENATE (..) */
 	valid = FALSE;
 	*nonsync_r = FALSE;
 	ctx->catenate = FALSE;
@@ -485,17 +451,15 @@ cmd_append_handle_args(struct client_command_context *cmd,
 
 	if (!valid) {
 		client->input_skip_line = TRUE;
-		client_send_command_error(cmd, "Invalid arguments.");
+		if (!ctx->failed)
+			client_send_command_error(cmd, "Invalid arguments.");
 		return -1;
 	}
 
-	if (ctx->failed) {
-		/* we failed earlier, make sure we just eat nonsync-literal
-		   if it's given. */
-		return -1;
-	}
-
-	if (flags_list != NULL) {
+	if (flags_list == NULL || ctx->failed) {
+		flags = 0;
+		keywords = NULL;
+	} else {
 		if (!client_parse_mail_flags(cmd, flags_list,
 					     &flags, &keywords_list))
 			return -1;
@@ -503,21 +467,19 @@ cmd_append_handle_args(struct client_command_context *cmd,
 			keywords = NULL;
 		else if (mailbox_keywords_create(ctx->box, keywords_list,
 						 &keywords) < 0) {
+			/* invalid keywords - delay failure */
 			client_send_storage_error(cmd, ctx->storage);
-			return -1;
+			ctx->failed = TRUE;
 		}
-	} else {
-		flags = 0;
-		keywords = NULL;
 	}
 
-	if (internal_date_str == NULL) {
+	if (internal_date_str == NULL || ctx->failed) {
 		/* no time given, default to now. */
 		internal_date = (time_t)-1;
 		timezone_offset = 0;
 	} else if (!imap_parse_datetime(internal_date_str,
 					&internal_date, &timezone_offset)) {
-		client_send_tagline(cmd, "BAD Invalid internal date.");
+		client_send_command_error(cmd, "Invalid internal date.");
 		return -1;
 	}
 
@@ -534,7 +496,10 @@ cmd_append_handle_args(struct client_command_context *cmd,
 	} else {
 		if (ctx->literal_size == 0) {
 			/* no message data, abort */
-			client_send_tagline(cmd, "NO Can't save a zero byte message.");
+			if (!ctx->failed) {
+				client_send_tagline(cmd,
+					"NO Can't save a zero byte message.");
+			}
 			return -1;
 		}
 		ctx->litinput = i_stream_create_limit(client->input, ctx->literal_size);
@@ -547,17 +512,19 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		ctx->input = input;
 	}
 
-	/* save the mail */
-	ctx->save_ctx = mailbox_save_alloc(ctx->t);
-	mailbox_save_set_flags(ctx->save_ctx, flags, keywords);
-	if (keywords != NULL)
-		mailbox_keywords_unref(&keywords);
-	mailbox_save_set_received_date(ctx->save_ctx,
-				       internal_date, timezone_offset);
-	if (mailbox_save_begin(&ctx->save_ctx, ctx->input) < 0) {
-		/* save initialization failed */
-		client_send_storage_error(cmd, ctx->storage);
-		return -1;
+	if (!ctx->failed) {
+		/* save the mail */
+		ctx->save_ctx = mailbox_save_alloc(ctx->t);
+		mailbox_save_set_flags(ctx->save_ctx, flags, keywords);
+		if (keywords != NULL)
+			mailbox_keywords_unref(&keywords);
+		mailbox_save_set_received_date(ctx->save_ctx,
+					       internal_date, timezone_offset);
+		if (mailbox_save_begin(&ctx->save_ctx, ctx->input) < 0) {
+			/* save initialization failed */
+			client_send_storage_error(cmd, ctx->storage);
+			ctx->failed = TRUE;
+		}
 	}
 	ctx->count++;
 
@@ -565,7 +532,7 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		/* normal APPEND */
 		return 1;
 	} else if ((ret = cmd_append_catenate(cmd, cat_list, nonsync_r)) < 0) {
-		client->input_skip_line = TRUE;
+		/* invalid parameters, abort immediately */
 		return -1;
 	} else if (ret == 0) {
 		/* CATENATE consisted only of URLs */
@@ -596,7 +563,7 @@ static bool cmd_append_finish_parsing(struct client_command_context *cmd)
 		return TRUE;
 	}
 	if (ctx->count == 0) {
-		client_send_tagline(cmd, "BAD Missing message size.");
+		client_send_command_error(cmd, "Missing message size.");
 		cmd_append_finish(ctx);
 		return TRUE;
 	}
@@ -634,7 +601,7 @@ static bool cmd_append_finish_parsing(struct client_command_context *cmd)
 	return cmd_sync(cmd, sync_flags, imap_flags, str_c(msg));
 }
 
-static bool cmd_append_continue_parsing(struct client_command_context *cmd)
+static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
@@ -643,7 +610,11 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	bool fatal, nonsync;
 	int ret;
 
+	/* this function gets called 1) after parsing APPEND <mailbox> and
+	   2) with MULTIAPPEND extension after already saving one or more
+	   mails. */
 	if (cmd->cancel) {
+		/* cancel the command immediately (disconnection) */
 		cmd_append_finish(ctx);
 		return TRUE;
 	}
@@ -651,7 +622,8 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	/* if error occurs, the CRLF is already read. */
 	client->input_skip_line = FALSE;
 
-	/* [<flags>] [<internal date>] <message literal> */
+	/* parse the entire line up to the first message literal
+	   FIXME: we could do with less with CATENATE.. */
 	ret = imap_parser_read_args(ctx->save_parser, 0,
 				    IMAP_PARSE_FLAG_LITERAL_SIZE |
 				    IMAP_PARSE_FLAG_LITERAL8, &args);
@@ -676,12 +648,11 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		return cmd_append_finish_parsing(cmd);
 	}
 
-	/* Handle MULTIAPPEND messages while CATENATE contains only URLs */
+	/* Handle one or more messages (MULTIAPPEND) while they only contain
+	   CATENATE URLs (i.e. no TEXT input from client) */
 	while ((ret = cmd_append_handle_args(cmd, &args, &nonsync)) == 0) {
 		cmd_append_finish_catenate(cmd);
 
-		/* Check for EOL, e.g.:
-		   APPEND <box> ( URL <url> URL <url> URL <url> ) */
 		args++;
 		if (IMAP_ARG_IS_EOL(args)) {
 			/* last message */
@@ -689,23 +660,32 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		}
 	}
 
-	if (ret < 0)
-		return cmd_append_cancel(ctx, nonsync);
+	if (ret < 0) {
+		/* invalid parameters, abort immediately */
+		cmd_append_finish(ctx);
+		return TRUE;
+	}
 
 	if (!ctx->catenate) {
 		/* after literal comes CRLF, if we fail make sure
 		   we eat it away */
 		client->input_skip_line = TRUE;
-		ctx->message_input = TRUE;
 	}
 
 	if (!nonsync) {
+		if (ctx->failed) {
+			/* tagline was already sent, we can abort here */
+			cmd_append_finish(ctx);
+			return TRUE;
+		}
 		o_stream_nsend(client->output, "+ OK\r\n", 6);
 		o_stream_nflush(client->output);
 		o_stream_uncork(client->output);
 		o_stream_cork(client->output);
 	}
 
+	i_assert(ctx->litinput != NULL);
+	ctx->message_input = TRUE;
 	cmd->func = cmd_append_continue_message;
 	return cmd_append_continue_message(cmd);
 }
@@ -717,6 +697,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 	int ret = 0;
 
 	if (cmd->cancel) {
+		/* cancel the command immediately (disconnection) */
 		cmd_append_finish(ctx);
 		return TRUE;
 	}
@@ -736,8 +717,11 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 	}
 
 	if (ctx->save_ctx == NULL) {
+		/* saving has already failed, we're just eating away the
+		   literal */
 		(void)i_stream_read(ctx->litinput);
-		i_stream_skip(ctx->litinput, i_stream_get_data_size(ctx->litinput));
+		i_stream_skip(ctx->litinput,
+			      i_stream_get_data_size(ctx->litinput));
 	}
 
 	if (ctx->litinput->eof || client->input->closed) {
@@ -759,8 +743,8 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 		} else if (ctx->catenate) {
 			/* CATENATE isn't finished yet */
 		} else if (mailbox_save_finish(&ctx->save_ctx) < 0) {
-			ctx->failed = TRUE;
 			client_send_storage_error(cmd, ctx->storage);
+			ctx->failed = TRUE;
 		}
 
 		if (client->input->closed) {
@@ -768,7 +752,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 			return TRUE;
 		}
 
-		/* prepare for next message (part) */
+		/* prepare for the next message (or its part with catenate) */
 		ctx->message_input = FALSE;
 		imap_parser_reset(ctx->save_parser);
 
@@ -778,8 +762,8 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 		}
 
 		i_stream_unref(&ctx->input);
-		cmd->func = cmd_append_continue_parsing;
-		return cmd_append_continue_parsing(cmd);
+		cmd->func = cmd_append_parse_new_msg;
+		return cmd_append_parse_new_msg(cmd);
 	}
 	return FALSE;
 }
@@ -829,7 +813,7 @@ bool cmd_append(struct client_command_context *cmd)
 	ctx->save_parser = imap_parser_create(client->input, client->output,
 					      client->set->imap_max_line_length);
 
-	cmd->func = cmd_append_continue_parsing;
+	cmd->func = cmd_append_parse_new_msg;
 	cmd->context = ctx;
-	return cmd_append_continue_parsing(cmd);
+	return cmd_append_parse_new_msg(cmd);
 }
