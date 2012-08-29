@@ -241,9 +241,17 @@ static void cmd_append_catenate_text(struct client_command_context *cmd)
 
 	/* save the mail */
 	ctx->cat_msg_size += ctx->literal_size;
-	ctx->litinput = i_stream_create_limit(cmd->client->input,
-					      ctx->literal_size);
-	i_stream_chain_append(ctx->catchain, ctx->litinput);
+	if (ctx->literal_size == 0) {
+		/* zero length literal. RFC doesn't explicitly specify
+		   what should be done with this, so we'll simply
+		   handle it by skipping the empty text part. */
+		ctx->litinput = i_stream_create_from_data("", 0);
+		ctx->litinput->eof = TRUE;
+	} else {
+		ctx->litinput = i_stream_create_limit(cmd->client->input,
+						      ctx->literal_size);
+		i_stream_chain_append(ctx->catchain, ctx->litinput);
+	}
 }
 
 static int
