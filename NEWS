@@ -1,3 +1,24 @@
+v2.2.UNSTABLE 2012-xx-xx  Timo Sirainen <tss@iki.fi>
+
+	* "doveadm auth" command was renamed to "doveadm auth test"
+
+	+ Implemented IMAP MOVE and BINARY extensions
+	+ Implemented IMAP CATENATE extension (by Stephan Bosch)
+	+ Implemented IMAP NOTIFY extension. Requires mailbox_list_index=yes
+	  to be enabled.
+	+ Improved mailbox list indexes. They should be usable now, although
+	  still disabled by default.
+	+ Redesigned and rewritten dsync. The new design makes the syncing
+	  faster, more reliable and more featureful. The new dsync protocol
+	  isn't backwards compatible with old dsync versions (but is designed
+	  to be forwards compatible with future versions).
+	+ All mailbox formats now support per-user message flags for shared
+	  mailboxes by using a private index. It can be enabled by adding
+	  :INDEXPVT=<path> to mail location. This should be used instead of
+	  :INDEX also for Maildir/mbox to improve performance.
+	+ LMTP proxy: Implemented XCLIENT extension for passing remote IP
+	  address through proxy.
+
 v2.1.9 2012-08-01  Timo Sirainen <tss@iki.fi>
 
 	* mail-log plugin: Log mailbox names with UTF-8 everywhere 
