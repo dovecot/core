@@ -339,7 +339,10 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	/* we're parsing inside CATENATE (..) list after handling a TEXT part */
+	/* we're parsing inside CATENATE (..) list after handling a TEXT part.
+	   it's fine that this would need to fully fit into input buffer
+	   (although clients attempting to DoS could simply insert an extra
+	   {1+} between the URLs) */
 	ret = imap_parser_read_args(ctx->save_parser, 0,
 				    IMAP_PARSE_FLAG_LITERAL_SIZE |
 				    IMAP_PARSE_FLAG_LITERAL8 |
@@ -603,12 +606,33 @@ static bool cmd_append_finish_parsing(struct client_command_context *cmd)
 	return cmd_sync(cmd, sync_flags, imap_flags, str_c(msg));
 }
 
+static bool cmd_append_args_can_stop(const struct imap_arg *args)
+{
+	if (args->type == IMAP_ARG_EOL)
+		return TRUE;
+
+	/* [(flags)] ["internal date"] <message literal> | CATENATE (..) */
+	if (args->type == IMAP_ARG_LIST)
+		args++;
+	if (args->type == IMAP_ARG_STRING)
+		args++;
+
+	if (args->type == IMAP_ARG_LITERAL_SIZE ||
+	    args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC)
+		return TRUE;
+	if (imap_arg_atom_equals(args, "CATENATE") &&
+	    args[1].type == IMAP_ARG_LIST)
+		return TRUE;
+	return FALSE;
+}
+
 static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
 	const struct imap_arg *args;
 	const char *msg;
+	unsigned int arg_min_count;
 	bool fatal, nonsync;
 	int ret;
 
@@ -624,11 +648,15 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 	/* if error occurs, the CRLF is already read. */
 	client->input_skip_line = FALSE;
 
-	/* parse the entire line up to the first message literal
-	   FIXME: we could do with less with CATENATE.. */
-	ret = imap_parser_read_args(ctx->save_parser, 0,
-				    IMAP_PARSE_FLAG_LITERAL_SIZE |
-				    IMAP_PARSE_FLAG_LITERAL8, &args);
+	/* parse the entire line up to the first message literal, or in case
+	   the input buffer is full of MULTIAPPEND CATENATE URLs, parse at
+	   least until the beginning of the next message */
+	arg_min_count = 1;
+	do {
+		ret = imap_parser_read_args(ctx->save_parser, arg_min_count++,
+					    IMAP_PARSE_FLAG_LITERAL_SIZE |
+					    IMAP_PARSE_FLAG_LITERAL8, &args);
+	} while (ret > 0 && !cmd_append_args_can_stop(args));
 	if (ret == -1) {
 		if (!ctx->failed) {
 			msg = imap_parser_get_error(ctx->save_parser, &fatal);
