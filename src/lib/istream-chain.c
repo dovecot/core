@@ -10,8 +10,8 @@ struct chain_istream;
 struct istream_chain_link {
 	struct istream_chain_link *prev, *next;
 
-	uoff_t start_offset;
 	struct istream *stream;
+	bool eof;
 };
 
 struct istream_chain {
@@ -39,11 +39,10 @@ i_stream_chain_append_internal(struct istream_chain *chain,
 
 	link = i_new(struct istream_chain_link, 1);
 	link->stream = stream;
+	link->eof = stream == NULL;
 
-	if (stream != NULL) {
+	if (stream != NULL)
 		i_stream_ref(stream);	
-		link->start_offset = stream->v_offset;
-	}
 
 	if (chain->head == NULL && stream != NULL) {
 		if (chain->stream->istream.max_buffer_size == 0) {
@@ -113,9 +112,10 @@ static void i_stream_chain_read_next(struct chain_istream *cstream)
 	DLLIST2_REMOVE(&cstream->chain.head, &cstream->chain.tail, link);
 	i_free(link);
 
+	/* a) we have more streams, b) we have EOF, c) we need to wait
+	   for more streams */
 	link = cstream->chain.head;
-	i_assert(link == NULL || link->stream != NULL);
-	if (link != NULL)
+	if (link != NULL && link->stream != NULL)
 		i_stream_seek(link->stream, 0);
 
 	/* we already verified that the data size is less than the
@@ -142,9 +142,8 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 	const unsigned char *data;
 	size_t size, pos, cur_pos, bytes_skipped;
 	ssize_t ret;
-	bool last_stream;
 
-	if (link != NULL && link->stream == NULL) {
+	if (link != NULL && link->eof) {
 		stream->istream.eof = TRUE;
 		return -1;
 	}
@@ -183,29 +182,21 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 		/* need to read more */
 		i_assert(cur_pos == pos);
 		ret = i_stream_read(link->stream);
-		if (ret == -2 || ret == 0) {
+		if (ret == -2 || ret == 0)
 			return ret;
-		}
 
-		if (ret == -1 && link->stream->stream_errno != 0) {
-			stream->istream.stream_errno =
-				link->stream->stream_errno;
-			return -1;
-		}
-
-		/* we either read something or we're at EOF */
-		last_stream = link->next != NULL && link->next->stream == NULL;
-		if (ret == -1 && !last_stream) {
-			if (stream->pos >= stream->max_buffer_size)
-				return -2;
-
+		if (ret == -1) {
+			if (link->stream->stream_errno != 0) {
+				stream->istream.stream_errno =
+					link->stream->stream_errno;
+				return -1;
+			}
+			/* EOF of this stream, go to next stream */
 			i_stream_chain_read_next(cstream);
 			cstream->prev_skip = stream->skip;
 			return i_stream_chain_read(stream);
 		}
-
-		stream->istream.eof = link->stream->eof && last_stream;
-		i_assert(ret != -1 || stream->istream.eof);
+		/* we read something */
 		data = i_stream_get_data(link->stream, &pos);
 	}
 
