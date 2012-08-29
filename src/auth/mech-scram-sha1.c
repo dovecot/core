@@ -9,7 +9,8 @@
 #include "auth-common.h"
 #include "base64.h"
 #include "buffer.h"
-#include "hmac-sha1.h"
+#include "hmac.h"
+#include "sha1.h"
 #include "randgen.h"
 #include "safe-memset.h"
 #include "str.h"
@@ -44,23 +45,23 @@ static void Hi(const unsigned char *str, size_t str_size,
 	       const unsigned char *salt, size_t salt_size, unsigned int i,
 	       unsigned char result[SHA1_RESULTLEN])
 {
-	struct hmac_sha1_context ctx;
+	struct hmac_context ctx;
 	unsigned char U[SHA1_RESULTLEN];
 	unsigned int j, k;
 
 	/* Calculate U1 */
-	hmac_sha1_init(&ctx, str, str_size);
-	hmac_sha1_update(&ctx, salt, salt_size);
-	hmac_sha1_update(&ctx, "\0\0\0\1", 4);
-	hmac_sha1_final(&ctx, U);
+	hmac_init(&ctx, str, str_size, &hash_method_sha1);
+	hmac_update(&ctx, salt, salt_size);
+	hmac_update(&ctx, "\0\0\0\1", 4);
+	hmac_final(&ctx, U);
 
 	memcpy(result, U, SHA1_RESULTLEN);
 
 	/* Calculate U2 to Ui and Hi */
 	for (j = 2; j <= i; j++) {
-		hmac_sha1_init(&ctx, str, str_size);
-		hmac_sha1_update(&ctx, U, sizeof(U));
-		hmac_sha1_final(&ctx, U);
+		hmac_init(&ctx, str, str_size, &hash_method_sha1);
+		hmac_update(&ctx, U, sizeof(U));
+		hmac_final(&ctx, U);
 		for (k = 0; k < SHA1_RESULTLEN; k++)
 			result[k] ^= U[k];
 	}
@@ -94,7 +95,7 @@ static const char *get_scram_server_first(struct scram_auth_request *request)
 
 static const char *get_scram_server_final(struct scram_auth_request *request)
 {
-	struct hmac_sha1_context ctx;
+	struct hmac_context ctx;
 	const char *auth_message;
 	unsigned char server_key[SHA1_RESULTLEN];
 	unsigned char server_signature[SHA1_RESULTLEN];
@@ -104,17 +105,17 @@ static const char *get_scram_server_final(struct scram_auth_request *request)
 			request->server_first_message, ",",
 			request->client_final_message_without_proof, NULL);
 
-	hmac_sha1_init(&ctx, request->salted_password,
-		       sizeof(request->salted_password));
-	hmac_sha1_update(&ctx, "Server Key", 10);
-	hmac_sha1_final(&ctx, server_key);
+	hmac_init(&ctx, request->salted_password,
+		  sizeof(request->salted_password), &hash_method_sha1);
+	hmac_update(&ctx, "Server Key", 10);
+	hmac_final(&ctx, server_key);
 
 	safe_memset(request->salted_password, 0,
 		    sizeof(request->salted_password));
 
-	hmac_sha1_init(&ctx, server_key, sizeof(server_key));
-	hmac_sha1_update(&ctx, auth_message, strlen(auth_message));
-	hmac_sha1_final(&ctx, server_signature);
+	hmac_init(&ctx, server_key, sizeof(server_key), &hash_method_sha1);
+	hmac_update(&ctx, auth_message, strlen(auth_message));
+	hmac_final(&ctx, server_signature);
 
 	str = t_str_new(MAX_BASE64_ENCODED_SIZE(sizeof(server_signature)));
 	str_append(str, "v=");
@@ -213,7 +214,7 @@ static bool parse_scram_client_first(struct scram_auth_request *request,
 static bool verify_credentials(struct scram_auth_request *request,
 			       const unsigned char *credentials, size_t size)
 {
-	struct hmac_sha1_context ctx;
+	struct hmac_context ctx;
 	const char *auth_message;
 	unsigned char client_key[SHA1_RESULTLEN];
 	unsigned char client_signature[SHA1_RESULTLEN];
@@ -224,10 +225,10 @@ static bool verify_credentials(struct scram_auth_request *request,
 	Hi(credentials, size, request->salt, sizeof(request->salt),
 	   SCRAM_ITERATE_COUNT, request->salted_password);
 
-	hmac_sha1_init(&ctx, request->salted_password,
-			sizeof(request->salted_password));
-	hmac_sha1_update(&ctx, "Client Key", 10);
-	hmac_sha1_final(&ctx, client_key);
+	hmac_init(&ctx, request->salted_password,
+		  sizeof(request->salted_password), &hash_method_sha1);
+	hmac_update(&ctx, "Client Key", 10);
+	hmac_final(&ctx, client_key);
 
 	sha1_get_digest(client_key, sizeof(client_key), stored_key);
 
@@ -235,9 +236,9 @@ static bool verify_credentials(struct scram_auth_request *request,
 			request->server_first_message, ",",
 			request->client_final_message_without_proof, NULL);
 
-	hmac_sha1_init(&ctx, stored_key, sizeof(stored_key));
-	hmac_sha1_update(&ctx, auth_message, strlen(auth_message));
-	hmac_sha1_final(&ctx, client_signature);
+	hmac_init(&ctx, stored_key, sizeof(stored_key), &hash_method_sha1);
+	hmac_update(&ctx, auth_message, strlen(auth_message));
+	hmac_final(&ctx, client_signature);
 
 	for (i = 0; i < sizeof(client_signature); i++)
 		client_signature[i] ^= client_key[i];

@@ -3,7 +3,8 @@
 #include "lib.h"
 #include "hostpid.h"
 #include "var-expand.h"
-#include "hmac-sha1.h"
+#include "hmac.h"
+#include "sha1.h"
 #include "randgen.h"
 #include "safe-memset.h"
 #include "mail-storage.h"
@@ -88,15 +89,15 @@ imap_urlauth_internal_generate(const char *rumpurl,
 			       const unsigned char mailbox_key[IMAP_URLAUTH_KEY_LEN],
 			       size_t *token_len_r)
 {
-	struct hmac_sha1_context hmac;
+	struct hmac_context hmac;
 	unsigned char *token;
 
 	token = t_new(unsigned char, SHA1_RESULTLEN + 1);
 	token[0] = IMAP_URLAUTH_MECH_INTERNAL_VERSION;
 
-	hmac_sha1_init(&hmac, mailbox_key, IMAP_URLAUTH_KEY_LEN);
-	hmac_sha1_update(&hmac, rumpurl, strlen(rumpurl));
-	hmac_sha1_final(&hmac, token+1);
+	hmac_init(&hmac, mailbox_key, IMAP_URLAUTH_KEY_LEN, &hash_method_sha1);
+	hmac_update(&hmac, rumpurl, strlen(rumpurl));
+	hmac_final(&hmac, token+1);
 
 	*token_len_r = SHA1_RESULTLEN + 1;
 	return token;

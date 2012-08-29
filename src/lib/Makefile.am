@@ -44,8 +44,8 @@ liblib_la_SOURCES = \
 	hash2.c \
 	hex-binary.c \
 	hex-dec.c \
-	hmac-md5.c \
-	hmac-sha1.c \
+	hmac.c \
+	hmac-cram-md5.c \
 	home-expand.c \
 	hostpid.c \
 	imem.c \
@@ -170,8 +170,8 @@ headers = \
 	hash2.h \
 	hex-binary.h \
 	hex-dec.h \
-	hmac-md5.h \
-	hmac-sha1.h \
+	hmac.h \
+	hmac-cram-md5.h \
 	home-expand.h \
 	hostpid.h \
 	imem.h \

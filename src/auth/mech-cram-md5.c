@@ -7,7 +7,9 @@
 #include "ioloop.h"
 #include "buffer.h"
 #include "hex-binary.h"
-#include "hmac-md5.h"
+#include "hmac-cram-md5.h"
+#include "hmac.h"
+#include "md5.h"
 #include "randgen.h"
 #include "mech.h"
 #include "passdb.h"
@@ -50,7 +52,7 @@ static bool verify_credentials(struct cram_auth_request *request,
 {
 	
 	unsigned char digest[MD5_RESULTLEN];
-        struct hmac_md5_context ctx;
+        struct hmac_context ctx;
 	const char *response_hex;
 
 	if (size != CRAM_MD5_CONTEXTLEN) {
@@ -59,9 +61,10 @@ static bool verify_credentials(struct cram_auth_request *request,
 		return FALSE;
 	}
 
+	hmac_init(&ctx, NULL, 0, &hash_method_md5);
 	hmac_md5_set_cram_context(&ctx, credentials);
-	hmac_md5_update(&ctx, request->challenge, strlen(request->challenge));
-	hmac_md5_final(&ctx, digest);
+	hmac_update(&ctx, request->challenge, strlen(request->challenge));
+	hmac_final(&ctx, digest);
 
 	response_hex = binary_to_hex(digest, sizeof(digest));
 

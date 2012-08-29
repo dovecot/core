@@ -6,7 +6,8 @@
 #include "hex-binary.h"
 #include "md4.h"
 #include "md5.h"
-#include "hmac-md5.h"
+#include "hmac.h"
+#include "hmac-cram-md5.h"
 #include "ntlm.h"
 #include "mycrypt.h"
 #include "randgen.h"
@@ -655,12 +656,12 @@ static void
 cram_md5_generate(const char *plaintext, const char *user ATTR_UNUSED,
 		  const unsigned char **raw_password_r, size_t *size_r)
 {
-	struct hmac_md5_context ctx;
+	struct hmac_context ctx;
 	unsigned char *context_digest;
 
 	context_digest = t_malloc(CRAM_MD5_CONTEXTLEN);
-	hmac_md5_init(&ctx, (const unsigned char *)plaintext,
-		      strlen(plaintext));
+	hmac_init(&ctx, (const unsigned char *)plaintext,
+		  strlen(plaintext), &hash_method_md5);
 	hmac_md5_get_cram_context(&ctx, context_digest);
 
 	*raw_password_r = context_digest;

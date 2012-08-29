@@ -11,7 +11,8 @@
 
 #include "auth-common.h"
 #include "hex-binary.h"
-#include "hmac-sha1.h"
+#include "hmac.h"
+#include "sha1.h"
 #include "randgen.h"
 #include "read-full.h"
 #include "write-full.h"
@@ -168,16 +169,17 @@ void auth_token_deinit(void)
 const char *auth_token_get(const char *service, const char *session_pid,
 			   const char *username, const char *session_id)
 {
-	struct hmac_sha1_context ctx;
+	struct hmac_context ctx;
 	unsigned char result[SHA1_RESULTLEN];
 
-	hmac_sha1_init(&ctx, username, strlen(username));
-	hmac_sha1_update(&ctx, session_pid, strlen(session_pid));
+	hmac_init(&ctx, (const unsigned char*)username, strlen(username),
+		  &hash_method_sha1);
+	hmac_update(&ctx, session_pid, strlen(session_pid));
 	if (session_id != NULL && *session_id != '\0')
-		hmac_sha1_update(&ctx, session_id, strlen(session_id));
-	hmac_sha1_update(&ctx, service, strlen(service));
-	hmac_sha1_update(&ctx, auth_token_secret, sizeof(auth_token_secret));
-	hmac_sha1_final(&ctx, result);
+		hmac_update(&ctx, session_id, strlen(session_id));
+	hmac_update(&ctx, service, strlen(service));
+	hmac_update(&ctx, auth_token_secret, sizeof(auth_token_secret));
+	hmac_final(&ctx, result);
 
 	return binary_to_hex(result, sizeof(result));
 }
