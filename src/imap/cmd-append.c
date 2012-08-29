@@ -147,6 +147,14 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 		mailbox_free(&ctx->box);
 }
 
+static void cmd_append_send_literal_continue(struct client *client)
+{
+	o_stream_nsend(client->output, "+ OK\r\n", 6);
+	o_stream_nflush(client->output);
+	o_stream_uncork(client->output);
+	o_stream_cork(client->output);
+}
+
 static int
 cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 {
@@ -397,10 +405,7 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 			cmd_append_finish(ctx);
 			return TRUE;
 		}
-		o_stream_nsend(client->output, "+ OK\r\n", 6);
-		o_stream_nflush(client->output);
-		o_stream_uncork(client->output);
-		o_stream_cork(client->output);
+		cmd_append_send_literal_continue(client);
 	}
 
 	i_assert(ctx->litinput != NULL);
@@ -716,10 +721,7 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 			cmd_append_finish(ctx);
 			return TRUE;
 		}
-		o_stream_nsend(client->output, "+ OK\r\n", 6);
-		o_stream_nflush(client->output);
-		o_stream_uncork(client->output);
-		o_stream_cork(client->output);
+		cmd_append_send_literal_continue(client);
 	}
 
 	i_assert(ctx->litinput != NULL);
