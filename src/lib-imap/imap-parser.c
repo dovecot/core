@@ -735,6 +735,7 @@ void imap_parser_read_last_literal(struct imap_parser *parser)
 
 	/* delete EOL */
 	array_delete(&parser->root_list, array_count(&parser->root_list)-1, 1);
+	parser->args_added_extra_eol = FALSE;
 
 	/* delete literal size */
 	array_delete(list, array_count(list)-1, 1);
