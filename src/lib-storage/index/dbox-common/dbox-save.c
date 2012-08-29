@@ -102,7 +102,7 @@ void dbox_save_end(struct dbox_save_context *ctx)
 	struct mail_save_data *mdata = &ctx->ctx.data;
 	struct ostream *dbox_output = ctx->dbox_output;
 
-	if (mdata->attach != NULL) {
+	if (mdata->attach != NULL && !ctx->failed) {
 		if (index_attachment_save_finish(&ctx->ctx) < 0)
 			ctx->failed = TRUE;
 	}
