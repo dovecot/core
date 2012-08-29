@@ -71,7 +71,7 @@ static ssize_t i_stream_rawlog_read(struct istream_private *stream)
 
 struct istream *
 i_stream_create_rawlog(struct istream *input, const char *rawlog_path,
-		       int rawlog_fd, bool autoclose_fd)
+		       int rawlog_fd, enum iostream_rawlog_flags flags)
 {
 	struct rawlog_istream *rstream;
 
@@ -84,8 +84,7 @@ i_stream_create_rawlog(struct istream *input, const char *rawlog_path,
 
 	rstream->riostream.rawlog_path = i_strdup(rawlog_path);
 	rstream->riostream.rawlog_fd = rawlog_fd;
-	rstream->riostream.autoclose_fd = autoclose_fd;
-	rstream->riostream.write_timestamp = TRUE;
+	iostream_rawlog_init(&rstream->riostream, flags, TRUE);
 
 	rstream->istream.read = i_stream_rawlog_read;
 	rstream->istream.iostream.close = i_stream_rawlog_close;
