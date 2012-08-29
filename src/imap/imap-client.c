@@ -340,6 +340,9 @@ void client_send_tagline(struct client_command_context *cmd, const char *data)
 	if (client->output->closed || cmd->cancel)
 		return;
 
+	i_assert(!cmd->tagline_sent);
+	cmd->tagline_sent = TRUE;
+
 	if (tag == NULL || *tag == '\0')
 		tag = "*";
 
