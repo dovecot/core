@@ -621,11 +621,6 @@ static int finish_line(struct imap_parser *parser, unsigned int count,
 		return -1;
 	}
 
-	/* fill the missing parameters with NILs */
-	while (count > array_count(&parser->root_list)) {
-		arg = array_append_space(&parser->root_list);
-		arg->type = IMAP_ARG_NIL;
-	}
 	arg = array_append_space(&parser->root_list);
 	arg->type = IMAP_ARG_EOL;
 
