@@ -353,7 +353,12 @@ static void cmd_append_finish_catenate(struct client_command_context *cmd)
 	i_stream_unref(&ctx->input);
 	ctx->catenate = FALSE;
 
-	if (mailbox_save_finish(&ctx->save_ctx) < 0) {
+	/* do mailbox_save_continue() once more after appending EOF,
+	   to finish any pending reads */
+	if (mailbox_save_continue(ctx->save_ctx) < 0) {
+		mailbox_save_cancel(&ctx->save_ctx);
+		ctx->failed = TRUE;
+	} else if (mailbox_save_finish(&ctx->save_ctx) < 0) {
 		ctx->failed = TRUE;
 		client_send_storage_error(cmd, ctx->storage);
 	}
