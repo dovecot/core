@@ -294,7 +294,8 @@ cmd_append_catenate(struct client_command_context *cmd,
 		/* ")" */
 		return 0;
 	}
-	client_send_command_error(cmd, "Invalid arguments.");
+	if (!ctx->failed)
+		client_send_command_error(cmd, "Invalid arguments.");
 	cmd->client->input_skip_line = TRUE;
 	return -1;
 }
@@ -308,9 +309,10 @@ static void cmd_append_finish_catenate(struct client_command_context *cmd)
 	ctx->catenate = FALSE;
 	ctx->catchain = NULL;
 
-	if (ctx->save_ctx == NULL) {
+	if (ctx->failed) {
 		/* APPEND has already failed */
-		i_assert(ctx->failed);
+		if (ctx->save_ctx != NULL)
+			mailbox_save_cancel(&ctx->save_ctx);
 	} else {
 		/* do mailbox_save_continue() once more after appending EOF,
 		   to finish any pending reads */
@@ -730,7 +732,10 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 		/* finished */
 		i_stream_unref(&ctx->litinput);
 
-		if (ctx->save_ctx == NULL) {
+		if (ctx->failed) {
+			if (ctx->save_ctx != NULL)
+				mailbox_save_cancel(&ctx->save_ctx);
+		} else if (ctx->save_ctx == NULL) {
 			/* failed above */
 			client_send_storage_error(cmd, ctx->storage);
 			ctx->failed = TRUE;
