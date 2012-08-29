@@ -178,7 +178,8 @@ static int imap_thread_orderedsubject(struct client_command_context *cmd,
 	const struct orderedsubject_thread *thread;
 	struct orderedsubject_thread *cur_thread = NULL;
 	uint32_t num;
-	int ret;
+	bool reply_or_fw;
+	int ret, tz;
 
 	prev_subject = str_new(default_pool, 128);
 
@@ -193,7 +194,8 @@ static int imap_thread_orderedsubject(struct client_command_context *cmd,
 			subject = "";
 		T_BEGIN {
 			base_subject = imap_get_base_subject_cased(
-					pool_datastack_create(), subject, NULL);
+					pool_datastack_create(), subject,
+					&reply_or_fw);
 			if (strcmp(str_c(prev_subject), base_subject) != 0) {
 				/* thread changed */
 				cur_thread = NULL;
@@ -206,7 +208,8 @@ static int imap_thread_orderedsubject(struct client_command_context *cmd,
 			/* starting a new thread. get the first message's
 			   date */
 			cur_thread = array_append_space(&threads);
-			if (mail_get_date(mail, &cur_thread->timestamp, NULL) == 0 &&
+			if (mail_get_date(mail, &cur_thread->timestamp,
+					  &tz) == 0 &&
 			    cur_thread->timestamp == 0) {
 				(void)mail_get_received_date(mail,
 					&cur_thread->timestamp);
