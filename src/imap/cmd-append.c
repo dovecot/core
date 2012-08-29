@@ -729,7 +729,11 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 	if (ctx->litinput->eof || client->input->closed) {
 		bool all_written = ctx->litinput->v_offset == ctx->literal_size;
 
-		/* finished */
+		/* finished - do one more read, to make sure istream-chain
+		   unreferences its stream, which is needed for litinput's
+		   unreferencing to seek the client->input to correct
+		   position */
+		(void)i_stream_read(ctx->input);
 		i_stream_unref(&ctx->litinput);
 
 		if (ctx->failed) {
