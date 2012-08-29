@@ -15,8 +15,8 @@ bool cmd_uid(struct client_command_context *cmd)
 
 	command = command_find(t_strconcat("UID ", cmd_name, NULL));
 	if (command == NULL) {
-		client_send_tagline(cmd, t_strconcat(
-			"BAD Unknown UID command ", cmd_name, NULL));
+		client_send_command_error(cmd, t_strconcat(
+			"Unknown UID command ", cmd_name, NULL));
 		return TRUE;
 	}
 

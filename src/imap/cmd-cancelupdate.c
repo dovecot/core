@@ -29,13 +29,13 @@ bool cmd_cancelupdate(struct client_command_context *cmd)
 
 	for (i = 0; args[i].type == IMAP_ARG_STRING; i++) ;
 	if (!IMAP_ARG_IS_EOL(&args[i]) || i == 0) {
-		client_send_tagline(cmd, "BAD Invalid parameters.");
+		client_send_command_error(cmd, "Invalid parameters.");
 		return TRUE;
 	}
 
 	while (imap_arg_get_quoted(args, &tag)) {
 		if (!client_search_update_cancel(cmd->client, tag)) {
-			client_send_tagline(cmd, "BAD Unknown tag.");
+			client_send_tagline(cmd, "NO Unknown tag.");
 			return TRUE;
 		}
 		args++;

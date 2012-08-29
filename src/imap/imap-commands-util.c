@@ -218,9 +218,8 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 			if (flag != 0 && flag != MAIL_RECENT)
 				*flags_r |= flag;
 			else {
-				client_send_tagline(cmd, t_strconcat(
-					"BAD Invalid system flag ",
-					atom, NULL));
+				client_send_command_error(cmd, t_strconcat(
+					"Invalid system flag ", atom, NULL));
 				return FALSE;
 			}
 		} else {

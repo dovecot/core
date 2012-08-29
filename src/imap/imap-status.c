@@ -46,8 +46,8 @@ int imap_status_parse_items(struct client_command_context *cmd,
 		else if (strcmp(item, "X-GUID") == 0)
 			metadata |= MAILBOX_METADATA_GUID;
 		else {
-			client_send_tagline(cmd, t_strconcat(
-				"BAD Invalid status item ", item, NULL));
+			client_send_command_error(cmd, t_strconcat(
+				"Invalid status item ", item, NULL));
 			return -1;
 		}
 	}
