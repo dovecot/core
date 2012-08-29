@@ -49,6 +49,7 @@ struct imap_parser {
 	unsigned int literal8:1;
 	unsigned int literal_size_return:1;
 	unsigned int eol:1;
+	unsigned int args_added_extra_eol:1;
 	unsigned int fatal_error:1;
 };
 
@@ -110,6 +111,7 @@ void imap_parser_reset(struct imap_parser *parser)
 
 	parser->literal_skip_crlf = FALSE;
 	parser->eol = FALSE;
+	parser->args_added_extra_eol = FALSE;
 	parser->literal_size_return = FALSE;
 }
 
@@ -624,6 +626,11 @@ static int finish_line(struct imap_parser *parser, unsigned int count,
 	arg = array_append_space(&parser->root_list);
 	arg->type = IMAP_ARG_EOL;
 
+	if (!parser->eol)
+		parser->args_added_extra_eol = TRUE;
+	else
+		i_assert(!parser->literal_size_return);
+
 	*args_r = array_get(&parser->root_list, &count);
 	return ret;
 }
@@ -634,10 +641,11 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 {
 	parser->flags = flags;
 
-	if (parser->literal_size_return) {
+	if (parser->args_added_extra_eol) {
 		/* delete EOL */
 		array_delete(&parser->root_list,
 			     array_count(&parser->root_list)-1, 1);
+		parser->args_added_extra_eol = FALSE;
 		parser->literal_size_return = FALSE;
 	}
 
