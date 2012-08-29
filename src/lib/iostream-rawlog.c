@@ -200,7 +200,6 @@ int iostream_rawlog_create_path(const char *path, struct istream **input,
 	old_input = *input;
 	old_output = *output;
 	*input = i_stream_create_rawlog(old_input, path, fd,
-					IOSTREAM_RAWLOG_FLAG_AUTOCLOSE |
 					IOSTREAM_RAWLOG_FLAG_BUFFERED);
 	*output = o_stream_create_rawlog(old_output, path, fd,
 					 IOSTREAM_RAWLOG_FLAG_AUTOCLOSE |
