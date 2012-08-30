@@ -400,6 +400,7 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 		if (p == last+1 && *pattern == ns_sep)
 			root = "/";
 		else if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+			 ns->prefix_len == 6 &&
 			 strcasecmp(prefix_vname, "INBOX") == 0 &&
 			 strncasecmp(ns->prefix, pattern, ns->prefix_len) == 0) {
 			/* special case: Namespace prefix is INBOX/ and
