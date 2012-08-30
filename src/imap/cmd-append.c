@@ -416,7 +416,7 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 
 static int
 cmd_append_handle_args(struct client_command_context *cmd,
-		       const struct imap_arg **args, bool *nonsync_r)
+		       const struct imap_arg *args, bool *nonsync_r)
 {
 	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
@@ -432,26 +432,26 @@ cmd_append_handle_args(struct client_command_context *cmd,
 	bool valid;
 
 	/* [<flags>] */
-	if (!imap_arg_get_list(*args, &flags_list))
+	if (!imap_arg_get_list(args, &flags_list))
 		flags_list = NULL;
 	else
-		(*args)++;
+		args++;
 
 	/* [<internal date>] */
-	if ((*args)->type != IMAP_ARG_STRING)
+	if (args->type != IMAP_ARG_STRING)
 		internal_date_str = NULL;
 	else {
-		internal_date_str = imap_arg_as_astring(*args);
-		(*args)++;
+		internal_date_str = imap_arg_as_astring(args);
+		args++;
 	}
 
 	/* <message literal> | CATENATE (..) */
 	valid = FALSE;
 	*nonsync_r = FALSE;
 	ctx->catenate = FALSE;
-	if (imap_arg_atom_equals(*args, "CATENATE")) {
-		(*args)++;
-		if (imap_arg_get_list(*args, &cat_list)) {
+	if (imap_arg_atom_equals(args, "CATENATE")) {
+		args++;
+		if (imap_arg_get_list(args, &cat_list)) {
 			valid = TRUE;
 			ctx->catenate = TRUE;
 		}
@@ -461,11 +461,13 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		ctx->binary_input = imap_arg_atom_equals(&cat_list[0], "TEXT") &&
 			cat_list[1].literal8;
 
-	} else if (imap_arg_get_literal_size(*args, &ctx->literal_size)) {
-		*nonsync_r = (*args)->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
-		ctx->binary_input = (*args)->literal8;
+	} else if (imap_arg_get_literal_size(args, &ctx->literal_size)) {
+		*nonsync_r = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
+		ctx->binary_input = args->literal8;
 		valid = TRUE;
 	}
+	/* we parsed the args only up to here. */
+	i_assert(IMAP_ARG_IS_EOL(&args[1]));
 
 	if (!valid) {
 		client->input_skip_line = TRUE;
@@ -691,22 +693,18 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 		return cmd_append_finish_parsing(cmd);
 	}
 
-	/* Handle one or more messages (MULTIAPPEND) while they only contain
-	   CATENATE URLs (i.e. no TEXT input from client) */
-	while ((ret = cmd_append_handle_args(cmd, &args, &nonsync)) == 0) {
-		cmd_append_finish_catenate(cmd);
-
-		args++;
-		if (IMAP_ARG_IS_EOL(args)) {
-			/* last message */
-			return cmd_append_finish_parsing(cmd);
-		}
-	}
-
+	ret = cmd_append_handle_args(cmd, args, &nonsync);
 	if (ret < 0) {
 		/* invalid parameters, abort immediately */
 		cmd_append_finish(ctx);
 		return TRUE;
+	}
+	if (ret == 0) {
+		/* CATENATE contained only URLs. Finish it and see if there
+		   are more messsages. */
+		cmd_append_finish_catenate(cmd);
+		imap_parser_reset(ctx->save_parser);
+		return cmd_append_parse_new_msg(cmd);
 	}
 
 	if (!ctx->catenate) {
