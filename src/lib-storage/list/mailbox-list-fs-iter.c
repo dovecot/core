@@ -245,8 +245,7 @@ fs_list_dir_read(struct fs_list_iterate_context *ctx,
 {
 	DIR *fsdir;
 	struct dirent *d;
-	struct list_dir_entry *entry;
-	const char *path, *vname;
+	const char *path;
 	int ret = 0;
 
 	if (!fs_list_get_storage_path(ctx, dir->storage_name, &path))
@@ -293,20 +292,6 @@ fs_list_dir_read(struct fs_list_iterate_context *ctx,
 		mailbox_list_set_critical(ctx->ctx.list,
 			"closedir(%s) failed: %m", path);
 		ret = -1;
-	}
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SHOW_EXISTING_PARENT) != 0 &&
-	    ctx->dir == NULL && *dir->storage_name != '\0') {
-		/* LIST "" foo/% shows foo/ if it exists */
-		vname = mailbox_list_get_vname(ctx->ctx.list,
-					       dir->storage_name);
-		vname = t_strdup_printf("%s%c", vname, ctx->sep);
-		if (imap_match(ctx->ctx.glob, vname) == IMAP_MATCH_YES) {
-			entry = array_append_space(&dir->entries);
-			entry->fname = "";
-			entry->info_flags = MAILBOX_NOSELECT |
-				(dir->info_flags &
-				 (MAILBOX_CHILDREN | MAILBOX_NOCHILDREN));
-		}
 	}
 	return ret;
 }

@@ -35,13 +35,19 @@ struct mailbox_list_autocreate_iterate_context {
 struct ns_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
 	struct mailbox_list_iterate_context *backend_ctx;
-	struct mail_namespace *namespaces;
+	struct mail_namespace *namespaces, *cur_ns;
+	struct mailbox_list *error_list;
 	pool_t pool;
 	const char **patterns, **patterns_ns_match;
 	enum namespace_type type_mask;
 
-	struct mail_namespace *iter_namespaces;
 	struct mailbox_info ns_info;
+	struct mailbox_info inbox_info;
+	const struct mailbox_info *pending_backend_info;
+
+	unsigned int cur_ns_prefix_sent:1;
+	unsigned int inbox_list:1;
+	unsigned int inbox_listed:1;
 };
 
 static bool ns_match_next(struct ns_list_iterate_context *ctx, 
@@ -177,23 +183,22 @@ ns_match_simple(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
 }
 
 static bool
-ns_match_inbox(struct mail_namespace *ns, const char *pattern)
-{
-	struct imap_match_glob *glob;
-
-	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) == 0)
-		return FALSE;
-
-	glob = imap_match_init(pool_datastack_create(), pattern,
-			       TRUE, mail_namespace_get_sep(ns));
-	return imap_match(glob, "INBOX") == IMAP_MATCH_YES;
-}
-
-static bool
 ns_is_match_within_ns(struct ns_list_iterate_context *ctx, 
 		      struct mail_namespace *ns, const char *prefix_without_sep,
 		      const char *pattern, enum imap_match_result result)
 {
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_STAR_WITHIN_NS) == 0) {
+		switch (result) {
+		case IMAP_MATCH_YES:
+		case IMAP_MATCH_CHILDREN:
+			return TRUE;
+		case IMAP_MATCH_NO:
+		case IMAP_MATCH_PARENT:
+			break;
+		}
+		return FALSE;
+	}
+
 	switch (result) {
 	case IMAP_MATCH_YES:
 		/* allow matching prefix only when it's done without
@@ -253,25 +258,14 @@ static bool ns_match_next(struct ns_list_iterate_context *ctx,
 		result = imap_match(glob, prefix_without_sep);
 	}
 
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_STAR_WITHIN_NS) != 0) {
-		return ns_is_match_within_ns(ctx, ns, prefix_without_sep,
-					     pattern, result);
-	} else {
-		switch (result) {
-		case IMAP_MATCH_YES:
-		case IMAP_MATCH_CHILDREN:
-			return TRUE;
-		case IMAP_MATCH_NO:
-		case IMAP_MATCH_PARENT:
-			break;
-		}
-		return FALSE;
-	}
+	return ns_is_match_within_ns(ctx, ns, prefix_without_sep,
+				     pattern, result);
 }
 
 static bool
-ns_match(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
+mailbox_list_ns_match_patterns(struct ns_list_iterate_context *ctx)
 {
+	struct mail_namespace *ns = ctx->cur_ns;
 	unsigned int i;
 
 	if (!ns_match_simple(ctx, ns))
@@ -282,24 +276,12 @@ ns_match(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
 	   is slower than necessary, but this shouldn't matter much */
 	T_BEGIN {
 		for (i = 0; ctx->patterns_ns_match[i] != NULL; i++) {
-			if (ns_match_inbox(ns, ctx->patterns_ns_match[i]))
-				break;
 			if (ns_match_next(ctx, ns, ctx->patterns_ns_match[i]))
 				break;
 		}
 	} T_END;
 
 	return ctx->patterns_ns_match[i] != NULL;
-}
-
-static struct mail_namespace *
-ns_next(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
-{
-	for (; ns != NULL; ns = ns->next) {
-		if (ns_match(ctx, ns))
-			break;
-	}
-	return ns;
 }
 
 static bool
@@ -328,17 +310,12 @@ iter_next_try_prefix_pattern(struct ns_list_iterate_context *ctx,
 				      pattern, result);
 }
 
-static bool iter_next_try_prefix(struct ns_list_iterate_context *ctx,
-				 struct mail_namespace *ns)
+static bool
+mailbox_list_ns_prefix_match(struct ns_list_iterate_context *ctx,
+			     struct mail_namespace *ns)
 {
 	unsigned int i;
 	bool ret = FALSE;
-
-	if (strncasecmp(ns->prefix, "INBOX", ns->prefix_len-1) == 0) {
-		/* INBOX is going to be listed in any case,
-		   don't duplicate it */
-		return FALSE;
-	}
 
 	for (i = 0; ctx->patterns_ns_match[i] != NULL; i++) {
 		T_BEGIN {
@@ -351,39 +328,260 @@ static bool iter_next_try_prefix(struct ns_list_iterate_context *ctx,
 	return ret;
 }
 
-static const struct mailbox_info *
-mailbox_list_ns_iter_next(struct mailbox_list_iterate_context *_ctx)
+static bool
+ns_prefix_has_child_namespaces(struct mail_namespace *namespaces,
+			       const char *prefix)
 {
-	struct ns_list_iterate_context *ctx =
-		(struct ns_list_iterate_context *)_ctx;
+	struct mail_namespace *ns;
+	unsigned int prefix_len = strlen(prefix);
+
+	for (ns = namespaces; ns != NULL; ns = ns->next) {
+		if (ns->prefix_len > prefix_len &&
+		    strncmp(ns->prefix, prefix, prefix_len) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static bool
+mailbox_ns_prefix_is_shared_inbox(struct mail_namespace *ns)
+{
+	return ns->type == NAMESPACE_SHARED &&
+		(ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
+		!ns->list->mail_set->mail_shared_explicit_inbox;
+}
+
+static bool
+mailbox_is_shared_inbox(struct mail_namespace *ns, const char *vname)
+{
+	return mailbox_ns_prefix_is_shared_inbox(ns) &&
+		strncmp(ns->prefix, vname, ns->prefix_len-1) == 0 &&
+		vname[ns->prefix_len-1] == '\0';
+}
+
+static int
+mailbox_list_match_anything(struct ns_list_iterate_context *ctx,
+			    struct mail_namespace *ns, const char *prefix)
+{
+	enum mailbox_list_iter_flags list_flags =
+		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
+	struct mailbox_list_iterate_context *list_iter;
 	const struct mailbox_info *info;
+	const char *pattern;
+	int ret;
 
-	while (ctx->iter_namespaces != NULL) {
-		struct mail_namespace *ns = ctx->iter_namespaces;
+	if (ns_prefix_has_child_namespaces(ctx->namespaces, prefix))
+		return 1;
 
-		ctx->iter_namespaces = ns->next;
-		if (ns->prefix_len > 0 && iter_next_try_prefix(ctx, ns)) {
-			ctx->ns_info.ns = ns;
-			ctx->ns_info.vname = p_strndup(ctx->pool, ns->prefix,
-						       ns->prefix_len-1);
-			return &ctx->ns_info;
+	pattern = t_strconcat(prefix, "%", NULL);
+	list_iter = mailbox_list_iter_init(ns->list, pattern, list_flags);
+	info = mailbox_list_iter_next(list_iter);
+	if (info != NULL && mailbox_ns_prefix_is_shared_inbox(ns) &&
+	    mailbox_is_shared_inbox(ns, info->vname)) {
+		/* we don't want to see this, try the next one */
+		info = mailbox_list_iter_next(list_iter);
+	}
+	ret = info != NULL ? 1 : 0;
+	if (mailbox_list_iter_deinit(&list_iter) < 0) {
+		if (ret == 0)
+			ret = -1;
+	}
+	return ret;
+}
+
+static bool
+mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
+			      struct mail_namespace *ns, bool has_children)
+{
+	struct mailbox *box;
+	enum mailbox_existence existence;
+	int ret;
+
+	if (strncasecmp(ns->prefix, "INBOX", 5) == 0 &&
+	    ns->prefix[5] == mail_namespace_get_sep(ns)) {
+		/* prefix=INBOX/ (or prefix=INBOX/something/) namespace exists.
+		   so we can create children to INBOX. */
+		ctx->inbox_info.flags &= ~MAILBOX_NOINFERIORS;
+	}
+
+	if (ns->prefix_len == 0 || !mailbox_list_ns_prefix_match(ctx, ns))
+		return FALSE;
+
+	memset(&ctx->ns_info, 0, sizeof(ctx->ns_info));
+	ctx->ns_info.ns = ns;
+	ctx->ns_info.vname = p_strndup(ctx->pool, ns->prefix,
+				       ns->prefix_len-1);
+
+	if (strcasecmp(ctx->ns_info.vname, "INBOX") == 0) {
+		i_assert(!ctx->inbox_listed);
+		ctx->inbox_listed = TRUE;
+		ctx->ns_info.flags |= ctx->inbox_info.flags | MAILBOX_SELECT;
+	}
+
+	/* see if the namespace has children */
+	if (has_children)
+		ctx->ns_info.flags |= MAILBOX_CHILDREN;
+	else if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_CHILDREN) != 0 ||
+		 (ns->flags & NAMESPACE_FLAG_LIST_CHILDREN) != 0) {
+		/* need to check this explicitly */
+		if ((ret = mailbox_list_match_anything(ctx, ns, ns->prefix)) > 0)
+			ctx->ns_info.flags |= MAILBOX_CHILDREN;
+		else if (ret == 0) {
+			if ((ns->flags & NAMESPACE_FLAG_LIST_CHILDREN) != 0 &&
+			    !mailbox_ns_prefix_is_shared_inbox(ns)) {
+				/* no children -> not visible */
+				return FALSE;
+			}
+			ctx->ns_info.flags |= MAILBOX_NOCHILDREN;
 		}
 	}
 
-	info = ctx->backend_ctx == NULL ? NULL :
-		mailbox_list_iter_next(ctx->backend_ctx);
-	if (info == NULL && ctx->namespaces != NULL) {
-		/* go to the next namespace */
-		if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0)
-			_ctx->failed = TRUE;
-		ctx->ctx.list->ns = ctx->namespaces;
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0 &&
+	    (ctx->ns_info.flags & MAILBOX_SELECT) == 0) {
+		/* see if namespace prefix is selectable */
+		box = mailbox_alloc(ns->list, ctx->ns_info.vname, 0);
+		if (mailbox_exists(box, TRUE, &existence) == 0 &&
+		    existence == MAILBOX_EXISTENCE_SELECT)
+			ctx->ns_info.flags |= MAILBOX_SELECT;
+		else
+			ctx->ns_info.flags |= MAILBOX_NONEXISTENT;
+		mailbox_free(&box);
+	}
+	return TRUE;
+}
+
+static void inbox_set_children_flags(struct ns_list_iterate_context *ctx)
+{
+	const char *prefix;
+	int ret;
+
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0)
+		return;
+	if ((ctx->inbox_info.flags & (MAILBOX_CHILDREN | MAILBOX_NOINFERIORS |
+				      MAILBOX_NOCHILDREN)) != 0)
+		return;
+
+	if (mail_namespace_find_prefix(ctx->namespaces, "") == NULL) {
+		/* prefix="" namespace doesn't exist, and neither does
+		   anything beginning with prefix=INBOX/ (we checked this
+		   earlier). there's no way to create children for INBOX. */
+		ctx->inbox_info.flags |= MAILBOX_NOINFERIORS;
+		return;
+	}
+
+ 	/* INBOX namespace doesn't exist and we didn't see any children listed
+	   for INBOX. this could be because there truly aren't any children,
+	   or that the list patterns just didn't match them. */
+	prefix = t_strdup_printf("INBOX%c",
+				 mail_namespace_get_sep(ctx->inbox_info.ns));
+	ret = mailbox_list_match_anything(ctx, ctx->inbox_info.ns, prefix);
+	if (ret > 0)
+		ctx->inbox_info.flags |= MAILBOX_CHILDREN;
+	else if (ret == 0)
+		ctx->inbox_info.flags |= MAILBOX_NOCHILDREN;
+}
+
+static bool
+mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
+			      const struct mailbox_info **info_r)
+{
+	struct ns_list_iterate_context *ctx =
+		(struct ns_list_iterate_context *)_ctx;
+	struct mail_namespace *ns;
+	const struct mailbox_info *info;
+	enum mail_error error;
+	const char *errstr;
+	bool has_children;
+
+	if (ctx->cur_ns == NULL) {
+		if (!ctx->inbox_listed && ctx->inbox_list) {
+			/* send delayed INBOX reply */
+			ctx->inbox_listed = TRUE;
+			inbox_set_children_flags(ctx);
+			*info_r = &ctx->inbox_info;
+			return TRUE;
+		}
+		*info_r = NULL;
+		return TRUE;
+	}
+
+	if (ctx->backend_ctx == NULL) {
+		i_assert(ctx->pending_backend_info == NULL);
+		if (!mailbox_list_ns_match_patterns(ctx)) {
+			/* namespace's children don't match the patterns,
+			   but the namespace prefix itself might */
+			ns = ctx->cur_ns;
+			ctx->cur_ns = ctx->cur_ns->next;
+			if (mailbox_list_ns_prefix_return(ctx, ns, FALSE)) {
+				*info_r = &ctx->ns_info;
+				return TRUE;
+			}
+			return FALSE;
+		}
+		/* start listing this namespace's mailboxes */
 		ctx->backend_ctx =
-			mailbox_list_iter_init_multiple(ctx->namespaces->list,
+			mailbox_list_iter_init_multiple(ctx->cur_ns->list,
 							ctx->patterns,
 							_ctx->flags);
-		ctx->namespaces = ns_next(ctx, ctx->namespaces->next);
-		return mailbox_list_ns_iter_next(_ctx);
+		ctx->cur_ns_prefix_sent = FALSE;
 	}
+	if (ctx->pending_backend_info == NULL)
+		info = mailbox_list_iter_next(ctx->backend_ctx);
+	else {
+		info = ctx->pending_backend_info;
+		ctx->pending_backend_info = NULL;
+	}
+	if (!ctx->cur_ns_prefix_sent) {
+		/* delayed sending of namespace prefix */
+		ctx->cur_ns_prefix_sent = TRUE;
+		has_children = info != NULL &&
+			!mailbox_is_shared_inbox(info->ns, info->vname);
+		if (mailbox_list_ns_prefix_return(ctx, ctx->cur_ns,
+						  has_children)) {
+			ctx->pending_backend_info = info;
+			*info_r = &ctx->ns_info;
+			return TRUE;
+		}
+	}
+	if (info != NULL) {
+		if (strcasecmp(info->vname, "INBOX") == 0 && ctx->inbox_list) {
+			/* delay sending INBOX reply. we already saved its
+			   flags at init stage */
+			return FALSE;
+		}
+		if (strncasecmp(info->vname, "INBOX", 5) == 0 &&
+		    info->vname[5] == mail_namespace_get_sep(info->ns)) {
+			/* we know now that INBOX has children */
+			ctx->inbox_info.flags |= MAILBOX_CHILDREN;
+			ctx->inbox_info.flags &= ~MAILBOX_NOINFERIORS;
+		}
+		if (mailbox_is_shared_inbox(info->ns, info->vname)) {
+			/* listing shared/$user/INBOX as shared/$user, which
+			   we already listed as namespace prefix */
+			return FALSE;
+		}
+
+		*info_r = info;
+		return TRUE;
+	}
+
+	/* finished with this namespace */
+	if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0) {
+		errstr = mailbox_list_get_last_error(ctx->cur_ns->list,
+						     &error);
+		mailbox_list_set_error(ctx->error_list, error, errstr);
+		_ctx->failed = TRUE;
+	}
+	ctx->cur_ns = ctx->cur_ns->next;
+	return FALSE;
+}
+
+static const struct mailbox_info *
+mailbox_list_ns_iter_next(struct mailbox_list_iterate_context *_ctx)
+{
+	const struct mailbox_info *info = NULL;
+
+	while (!mailbox_list_ns_iter_try_next(_ctx, &info)) ;
 	return info;
 }
 
@@ -392,11 +590,17 @@ mailbox_list_ns_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 {
 	struct ns_list_iterate_context *ctx =
 		(struct ns_list_iterate_context *)_ctx;
+	enum mail_error error;
+	const char *errstr;
 	int ret;
 
 	if (ctx->backend_ctx != NULL) {
-		if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0)
+		if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0) {
+			errstr = mailbox_list_get_last_error(ctx->cur_ns->list,
+							     &error);
+			mailbox_list_set_error(ctx->error_list, error, errstr);
 			_ctx->failed = TRUE;
+		}
 	}
 	ret = _ctx->failed ? -1 : 0;
 	pool_unref(&ctx->pool);
@@ -423,6 +627,31 @@ dup_patterns_without_stars(pool_t pool, const char *const *patterns,
 	return dup;
 }
 
+static bool
+patterns_match_inbox(struct mail_namespace *namespaces,
+		     const char *const *patterns)
+{
+	struct mail_namespace *ns = mail_namespace_find_inbox(namespaces);
+	struct imap_match_glob *glob;
+
+	glob = imap_match_init_multiple(pool_datastack_create(), patterns,
+					TRUE, mail_namespace_get_sep(ns));
+	return imap_match(glob, "INBOX") == IMAP_MATCH_YES;
+}
+
+static void inbox_info_init(struct ns_list_iterate_context *ctx,
+			    struct mail_namespace *namespaces)
+{
+	enum mailbox_info_flags flags;
+
+	ctx->inbox_info.vname = "INBOX";
+	ctx->inbox_info.ns = mail_namespace_find_inbox(namespaces);
+	i_assert(ctx->inbox_info.ns != NULL);
+
+	if (mailbox_list_mailbox(ctx->inbox_info.ns->list, "INBOX", &flags) > 0)
+		ctx->inbox_info.flags = flags;
+}
+
 struct mailbox_list_iterate_context *
 mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 				  const char *const *patterns,
@@ -443,29 +672,33 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 	ctx->ctx.list = p_new(pool, struct mailbox_list, 1);
 	ctx->ctx.list->v.iter_next = mailbox_list_ns_iter_next;
 	ctx->ctx.list->v.iter_deinit = mailbox_list_ns_iter_deinit;
-	ctx->iter_namespaces = namespaces;
+	ctx->namespaces = namespaces;
+	ctx->error_list = namespaces->list;
 
 	count = str_array_length(patterns);
 	ctx->patterns = p_new(pool, const char *, count + 1);
 	for (i = 0; i < count; i++)
 		ctx->patterns[i] = p_strdup(pool, patterns[i]);
+	if (patterns_match_inbox(namespaces, ctx->patterns)) {
+		/* we're going to list the INBOX. get its own flags (i.e. not
+		   [no]children) immediately, so if we end up seeing something
+		   else called INBOX (e.g. namespace prefix) we can show it
+		   immediately with the proper flags. */
+		ctx->inbox_list = TRUE;
+		inbox_info_init(ctx, namespaces);
+	}
 
 	if ((flags & MAILBOX_LIST_ITER_STAR_WITHIN_NS) != 0) {
-		/* create copies of patterns with '*' wildcard changed to '%' */
+		/* create copies of patterns with '*' wildcard changed to '%'.
+		   this is used only when checking which namespaces to list */
 		ctx->patterns_ns_match =
 			dup_patterns_without_stars(pool, ctx->patterns, count);
 	} else {
 		ctx->patterns_ns_match = ctx->patterns;
 	}
 
-	namespaces = ns_next(ctx, namespaces);
+	ctx->cur_ns = namespaces;
 	ctx->ctx.list->ns = namespaces;
-	if (namespaces != NULL) {
-		ctx->backend_ctx =
-			mailbox_list_iter_init_multiple(namespaces->list,
-							patterns, flags);
-		ctx->namespaces = ns_next(ctx, namespaces->next);
-	}
 	return &ctx->ctx;
 }
 
