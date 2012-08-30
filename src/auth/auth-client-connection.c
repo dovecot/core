@@ -65,7 +65,8 @@ static void auth_client_send(struct auth_client_connection *conn,
 	}
 
 	if (conn->auth->set->debug) {
-		i_debug("client out: %s", conn->auth->set->debug_passwords ?
+		i_debug("client passdb out: %s",
+			conn->auth->set->debug_passwords ?
 			cmd : reply_line_hide_pass(cmd));
 	}
 }

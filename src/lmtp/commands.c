@@ -319,6 +319,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 		memset(&proxy_set, 0, sizeof(proxy_set));
 		proxy_set.my_hostname = client->set->hostname;
 		proxy_set.dns_client_socket_path = dns_client_socket_path;
+		proxy_set.session_id = client->state.session_id;
 		proxy_set.source_ip = client->remote_ip;
 		proxy_set.source_port = client->remote_port;
 		proxy_set.proxy_ttl = client->proxy_ttl-1;

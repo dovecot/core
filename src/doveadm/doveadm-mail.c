@@ -324,6 +324,7 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	i_assert(input->username != NULL);
 
 	ctx->cur_username = input->username;
+	ctx->storage_service_input = *input;
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 ctx->service_flags);
 	ctx->v.init(ctx, ctx->args);
@@ -352,6 +353,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 	memset(&input, 0, sizeof(input));
 	input.service = "doveadm";
 
+	ctx->storage_service_input = input;
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 ctx->service_flags);
         lib_signals_set_handler(SIGINT, 0, sig_die, NULL);
@@ -676,6 +678,7 @@ static struct doveadm_mail_cmd *mail_commands[] = {
 	&cmd_import,
 	&cmd_index,
 	&cmd_altmove,
+	&cmd_copy,
 	&cmd_move,
 	&cmd_mailbox_list,
 	&cmd_mailbox_create,

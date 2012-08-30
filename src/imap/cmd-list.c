@@ -155,6 +155,19 @@ parse_return_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 	return TRUE;
 }
 
+static const char *ns_prefix_mutf7(struct mail_namespace *ns)
+{
+	string_t *str;
+
+	if (*ns->prefix == '\0')
+		return "";
+
+	str = t_str_new(64);
+	if (imap_utf8_to_utf7(ns->prefix, str) < 0)
+		i_panic("Namespace prefix not UTF-8: %s", ns->prefix);
+	return str_c(str);
+}
+
 static void list_reply_append_ns_sep_param(string_t *str, char sep)
 {
 	str_append_c(str, '"');
@@ -306,7 +319,7 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 	   Otherwise we'll emulate UW-IMAP behavior. */
 	ns = mail_namespace_find_visible(client->user->namespaces, ref);
 	if (ns != NULL) {
-		ns_prefix = ns->prefix;
+		ns_prefix = ns_prefix_mutf7(ns);
 		ns_sep = mail_namespace_get_sep(ns);
 	} else {
 		ns_prefix = "";
@@ -374,6 +387,10 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 		return TRUE;
 	}
 	str = t_str_new(64);
+	if (imap_utf7_to_utf8(ref, str) == 0)
+		ref = p_strdup(cmd->pool, str_c(str));
+	str_truncate(str, 0);
+
 	if (imap_arg_get_list_full(&args[1], &list_args, &arg_count)) {
 		ctx->used_listext = TRUE;
 		/* convert pattern list to string array */

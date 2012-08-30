@@ -70,6 +70,7 @@ lmtp_proxy_init(const struct lmtp_proxy_settings *set,
 	proxy->set.my_hostname = p_strdup(pool, set->my_hostname);
 	proxy->set.dns_client_socket_path =
 		p_strdup(pool, set->dns_client_socket_path);
+	proxy->set.session_id = p_strdup(pool, set->session_id);
 	proxy->set.source_ip = set->source_ip;
 	proxy->set.source_port = set->source_port;
 	proxy->set.proxy_ttl = set->proxy_ttl;
@@ -272,8 +273,9 @@ static void lmtp_proxy_conn_timeout(struct lmtp_proxy_connection *conn)
 	const char *line;
 
 	line = t_strdup_printf(ERRSTR_TEMP_REMOTE_FAILURE
-			       " (timeout while waiting for reply to %s)",
-			       lmtp_client_state_to_string(conn->client));
+			       " (timeout while waiting for reply to %s) <%s>",
+			       lmtp_client_state_to_string(conn->client),
+			       conn->proxy->set.session_id);
 	lmtp_client_fail(conn->client, line);
 }
 

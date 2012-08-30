@@ -19,10 +19,15 @@ client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 {
 	struct mail_namespace *namespaces = cmd->client->user->namespaces;
 	struct mail_namespace *ns;
-	unsigned int name_len;
 	string_t *utf8_name;
 
-	ns = mail_namespace_find(namespaces, *mailbox);
+	utf8_name = t_str_new(64);
+	if (imap_utf7_to_utf8(*mailbox, utf8_name) < 0) {
+		client_send_tagline(cmd, "NO Mailbox name is not valid mUTF-7");
+		return NULL;
+	}
+
+	ns = mail_namespace_find(namespaces, str_c(utf8_name));
 	if (ns == NULL) {
 		client_send_tagline(cmd, t_strdup_printf(
 			"NO Client tried to access nonexistent namespace. "
@@ -31,20 +36,14 @@ client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 		return NULL;
 	}
 
-	name_len = strlen(*mailbox);
 	if ((cmd->client->set->parsed_workarounds &
 	     		WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
-	    name_len > 0 &&
-	    (*mailbox)[name_len-1] == mail_namespace_get_sep(ns)) {
+	    str_len(utf8_name) > 0 &&
+	    str_c(utf8_name)[str_len(utf8_name)-1] == mail_namespace_get_sep(ns)) {
 		/* drop the extra trailing hierarchy separator */
-		*mailbox = t_strndup(*mailbox, name_len-1);
+		str_truncate(utf8_name, str_len(utf8_name)-1);
 	}
 
-	utf8_name = t_str_new(64);
-	if (imap_utf7_to_utf8(*mailbox, utf8_name) < 0) {
-		client_send_tagline(cmd, "NO Mailbox name is not valid mUTF-7");
-		return NULL;
-	}
 	*mailbox = str_c(utf8_name);
 	return ns;
 }
