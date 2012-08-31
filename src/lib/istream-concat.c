@@ -101,7 +101,6 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 
 	if (cstream->prev_stream_left == 0) {
 		/* no need to worry about buffers, skip everything */
-		i_assert(cstream->prev_skip == 0);
 	} else if (bytes_skipped < cstream->prev_stream_left) {
 		/* we're still skipping inside buffer */
 		cstream->prev_stream_left -= bytes_skipped;
@@ -111,9 +110,11 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 		bytes_skipped -= cstream->prev_stream_left;
 		cstream->prev_stream_left = 0;
 	}
-	i_stream_skip(cstream->cur_input, bytes_skipped);
 	stream->pos -= bytes_skipped;
 	stream->skip -= bytes_skipped;
+	stream->buffer += bytes_skipped;
+	cstream->prev_skip = stream->skip;
+	i_stream_skip(cstream->cur_input, bytes_skipped);
 
 	i_assert(stream->pos >= stream->skip + cstream->prev_stream_left);
 	cur_data_pos = stream->pos - (stream->skip + cstream->prev_stream_left);

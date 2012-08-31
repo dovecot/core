@@ -127,12 +127,12 @@ static void i_stream_chain_read_next(struct chain_istream *cstream)
 		i_assert(size >= data_size);
 	}
 
-	cstream->prev_stream_left = data_size;
 	memcpy(cstream->istream.w_buffer, data, data_size);
 	i_stream_skip(prev_input, data_size);
 	i_stream_unref(&prev_input);
 	cstream->istream.skip = 0;
 	cstream->istream.pos = data_size;
+	cstream->prev_stream_left = data_size;
 }
 
 static ssize_t i_stream_chain_read(struct istream_private *stream)
@@ -140,7 +140,8 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 	struct chain_istream *cstream = (struct chain_istream *)stream;
 	struct istream_chain_link *link = cstream->chain.head;
 	const unsigned char *data;
-	size_t size, pos, cur_pos, bytes_skipped;
+	size_t size, data_size, cur_data_pos, new_pos, bytes_skipped;
+	size_t new_bytes_count;
 	ssize_t ret;
 
 	if (link != NULL && link->eof) {
@@ -153,7 +154,6 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 
 	if (cstream->prev_stream_left == 0) {
 		/* no need to worry about buffers, skip everything */
-		i_assert(cstream->prev_skip == 0);
 	} else if (bytes_skipped < cstream->prev_stream_left) {
 		/* we're still skipping inside buffer */
 		cstream->prev_stream_left -= bytes_skipped;
@@ -163,24 +163,26 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 		bytes_skipped -= cstream->prev_stream_left;
 		cstream->prev_stream_left = 0;
 	}
-
 	stream->pos -= bytes_skipped;
 	stream->skip -= bytes_skipped;
+	stream->buffer += bytes_skipped;
+	cstream->prev_skip = stream->skip;
 
 	if (link == NULL) {
 		i_assert(bytes_skipped == 0);
 		return 0;
 	}
-
 	i_stream_skip(link->stream, bytes_skipped);
 
-	cur_pos = stream->pos - stream->skip - cstream->prev_stream_left;
-	data = i_stream_get_data(link->stream, &pos);
-	if (pos > cur_pos)
+	i_assert(stream->pos >= stream->skip + cstream->prev_stream_left);
+	cur_data_pos = stream->pos - (stream->skip + cstream->prev_stream_left);
+
+	data = i_stream_get_data(link->stream, &data_size);
+	if (data_size > cur_data_pos)
 		ret = 0;
 	else {
 		/* need to read more */
-		i_assert(cur_pos == pos);
+		i_assert(cur_data_pos == data_size);
 		ret = i_stream_read(link->stream);
 		if (ret == -2 || ret == 0)
 			return ret;
@@ -197,31 +199,41 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 			return i_stream_chain_read(stream);
 		}
 		/* we read something */
-		data = i_stream_get_data(link->stream, &pos);
+		data = i_stream_get_data(link->stream, &data_size);
 	}
 
 	if (cstream->prev_stream_left == 0) {
+		/* we can point directly to the current stream's buffers */
 		stream->buffer = data;
 		stream->pos -= stream->skip;
 		stream->skip = 0;
-	} else if (pos == cur_pos) {
+		new_pos = data_size;
+	} else if (data_size == cur_data_pos) {
+		/* nothing new read */
+		i_assert(ret == 0 || ret == -1);
 		stream->buffer = stream->w_buffer;
+		new_pos = stream->pos;
 	} else {
-		stream->buffer = stream->w_buffer;
-		if (!i_stream_try_alloc(stream, pos - cur_pos, &size))
+		/* we still have some of the previous stream left. merge the
+		   new data with it. */
+		i_assert(data_size > cur_data_pos);
+		new_bytes_count = data_size - cur_data_pos;
+		if (!i_stream_try_alloc(stream, new_bytes_count, &size)) {
+			stream->buffer = stream->w_buffer;
 			return -2;
+		}
+		stream->buffer = stream->w_buffer;
 
-		if (pos > size)
-			pos = size;
+		if (new_bytes_count > size)
+			new_bytes_count = size;
 		memcpy(stream->w_buffer + stream->pos,
-		       data + cur_pos, pos - cur_pos);
+		       data + cur_data_pos, new_bytes_count);
+		new_pos = stream->pos + new_bytes_count;
 	}
-	pos += stream->skip + cstream->prev_stream_left;
 
-	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
+	ret = new_pos > stream->pos ? (ssize_t)(new_pos - stream->pos) :
 		(ret == 0 ? 0 : -1);
-
-	stream->pos = pos;
+	stream->pos = new_pos;
 	cstream->prev_skip = stream->skip;
 	return ret;
 }
