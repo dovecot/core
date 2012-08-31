@@ -246,7 +246,7 @@ static const char *mbox_storage_find_root_dir(const struct mail_namespace *ns)
 	bool debug = ns->mail_set->mail_debug;
 	const char *home, *path;
 
-	if (ns->owner != NULL &&
+	if (ns->owner == NULL ||
 	    mail_user_get_home(ns->owner, &home) <= 0) {
 		if (debug)
 			i_debug("maildir: Home directory not set");
