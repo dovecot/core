@@ -34,7 +34,8 @@ sdbox_storage_find_root_dir(const struct mail_namespace *ns)
 	bool debug = ns->mail_set->mail_debug;
 	const char *home, *path;
 
-	if (mail_user_get_home(ns->owner, &home) > 0) {
+	if (ns->owner != NULL &&
+	    mail_user_get_home(ns->owner, &home) > 0) {
 		path = t_strconcat(home, "/sdbox", NULL);
 		if (access(path, R_OK|W_OK|X_OK) == 0) {
 			if (debug)
