@@ -412,6 +412,11 @@ void mailbox_close(struct mailbox *box);
 /* Close and free the mailbox. */
 void mailbox_free(struct mailbox **box);
 
+/* Returns TRUE if box1 points to the same mailbox as ns2/vname2. */
+bool mailbox_equals(const struct mailbox *box1,
+		    const struct mail_namespace *ns2,
+		    const char *vname2) ATTR_PURE;
+
 /* Create a mailbox. Returns failure if it already exists. Mailbox name is
    allowed to contain multiple new nonexistent hierarchy levels. If directory
    is TRUE, the mailbox should be created so that it can contain children. The

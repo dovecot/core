@@ -313,23 +313,6 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 	return array_idx(dest, 0);
 }
 
-bool mailbox_equals(const struct mailbox *box1,
-		    const struct mail_namespace *ns2, const char *name2)
-{
-	struct mail_namespace *ns1 = mailbox_get_namespace(box1);
-	const char *name1;
-
-	if (ns1 != ns2)
-		return FALSE;
-
-        name1 = mailbox_get_vname(box1);
-	if (strcmp(name1, name2) == 0)
-		return TRUE;
-
-	return strcasecmp(name1, "INBOX") == 0 &&
-		strcasecmp(name2, "INBOX") == 0;
-}
-
 void msgset_generator_init(struct msgset_generator_context *ctx, string_t *str)
 {
 	memset(ctx, 0, sizeof(*ctx));

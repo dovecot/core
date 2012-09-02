@@ -1014,6 +1014,23 @@ void mailbox_free(struct mailbox **_box)
 	pool_unref(&box->pool);
 }
 
+bool mailbox_equals(const struct mailbox *box1,
+		    const struct mail_namespace *ns2, const char *vname2)
+{
+	struct mail_namespace *ns1 = mailbox_get_namespace(box1);
+	const char *name1;
+
+	if (ns1 != ns2)
+		return FALSE;
+
+        name1 = mailbox_get_vname(box1);
+	if (strcmp(name1, vname2) == 0)
+		return TRUE;
+
+	return strcasecmp(name1, "INBOX") == 0 &&
+		strcasecmp(vname2, "INBOX") == 0;
+}
+
 int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)
 {
