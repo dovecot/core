@@ -691,22 +691,33 @@ static struct mailbox_transaction_context *
 mbox_transaction_begin(struct mailbox *box,
 		       enum mailbox_transaction_flags flags)
 {
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 	struct mbox_transaction_context *mt;
+
+	if ((flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0)
+		mbox->external_transactions++;
 
 	mt = i_new(struct mbox_transaction_context, 1);
 	index_transaction_init(&mt->t, box, flags);
 	return &mt->t;
 }
 
-static void mbox_transaction_unlock(struct mailbox *box, unsigned int lock_id)
+static void
+mbox_transaction_unlock(struct mailbox *box, unsigned int lock_id1,
+			unsigned int lock_id2)
 {
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 
-	if (lock_id != 0)
-		mbox_unlock(mbox, lock_id);
+	if (lock_id1 != 0)
+		mbox_unlock(mbox, lock_id1);
+	if (lock_id2 != 0)
+		mbox_unlock(mbox, lock_id2);
 	if (mbox->mbox_global_lock_id == 0) {
 		i_assert(mbox->box.transaction_count > 0 ||
+			 mbox->external_transactions > 0 ||
 			 mbox->mbox_lock_type == F_UNLCK);
+		i_assert(mbox->external_transactions == 0 ||
+			 mbox->mbox_lock_type == F_WRLCK);
 	} else {
 		/* mailbox opened with MAILBOX_FLAG_KEEP_LOCKED */
 		i_assert(mbox->mbox_lock_type == F_WRLCK);
@@ -720,11 +731,18 @@ mbox_transaction_commit(struct mailbox_transaction_context *t,
 	struct mbox_transaction_context *mt =
 		(struct mbox_transaction_context *)t;
 	struct mailbox *box = t->box;
-	unsigned int lock_id = mt->mbox_lock_id;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	unsigned int read_lock_id = mt->read_lock_id;
+	unsigned int write_lock_id = mt->write_lock_id;
 	int ret;
 
+	if ((t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0) {
+		i_assert(mbox->external_transactions > 0);
+		mbox->external_transactions--;
+	}
+
 	ret = index_transaction_commit(t, changes_r);
-	mbox_transaction_unlock(box, lock_id);
+	mbox_transaction_unlock(box, read_lock_id, write_lock_id);
 	return ret;
 }
 
@@ -734,10 +752,17 @@ mbox_transaction_rollback(struct mailbox_transaction_context *t)
 	struct mbox_transaction_context *mt =
 		(struct mbox_transaction_context *)t;
 	struct mailbox *box = t->box;
-	unsigned int lock_id = mt->mbox_lock_id;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	unsigned int read_lock_id = mt->read_lock_id;
+	unsigned int write_lock_id = mt->write_lock_id;
+
+	if ((t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0) {
+		i_assert(mbox->external_transactions > 0);
+		mbox->external_transactions--;
+	}
 
 	index_transaction_rollback(t);
-	mbox_transaction_unlock(box, lock_id);
+	mbox_transaction_unlock(box, read_lock_id, write_lock_id);
 }
 
 bool mbox_is_backend_readonly(struct mbox_mailbox *mbox)

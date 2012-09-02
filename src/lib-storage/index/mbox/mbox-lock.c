@@ -784,6 +784,14 @@ int mbox_lock(struct mbox_mailbox *mbox, int lock_type,
 	bool fcntl_locked;
 	int ret;
 
+	if (lock_type == F_RDLCK && mbox->external_transactions > 0) {
+		/* we have a transaction open that is going to save mails
+		   and apparently also wants to read from the same mailbox
+		   (copy, move, catenate). we need to write lock the mailbox,
+		   since we can't later upgrade a read lock to write lock. */
+		lock_type = F_WRLCK;
+	}
+
 	/* allow only unlock -> shared/exclusive or exclusive -> shared */
 	i_assert(lock_type == F_RDLCK || lock_type == F_WRLCK);
 	i_assert(lock_type == F_RDLCK || mbox->mbox_lock_type != F_RDLCK);
@@ -876,6 +884,12 @@ int mbox_unlock(struct mbox_mailbox *mbox, unsigned int lock_id)
 		ctx.lock_status[i] = 1;
 
 	return mbox_unlock_files(&ctx);
+}
+
+unsigned int mbox_get_cur_lock_id(struct mbox_mailbox *mbox)
+{
+	return mbox->mbox_lock_id +
+		(mbox->mbox_excl_locks > 0 ? 1 : 0);
 }
 
 void mbox_dotlock_touch(struct mbox_mailbox *mbox)

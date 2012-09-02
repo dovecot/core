@@ -23,8 +23,8 @@ static void mbox_prepare_resync(struct mail *mail)
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->box;
 
 	if (mbox->mbox_lock_type == F_RDLCK) {
-		if (mbox->mbox_lock_id == t->mbox_lock_id)
-			t->mbox_lock_id = 0;
+		if (mbox->mbox_lock_id == t->read_lock_id)
+			t->read_lock_id = 0;
 		mbox_unlock(mbox, mbox->mbox_lock_id);
 		i_assert(mbox->mbox_lock_type == F_UNLCK);
 	}
@@ -60,11 +60,12 @@ static int mbox_mail_seek(struct index_mail *mail)
 			mbox_prepare_resync(_mail);
 		}
 		if (mbox->mbox_lock_type == F_UNLCK) {
+			i_assert(t->read_lock_id == 0);
 			sync_flags |= MBOX_SYNC_LOCK_READING;
 			if (mbox_sync(mbox, sync_flags) < 0)
 				return -1;
-			t->mbox_lock_id = mbox->mbox_lock_id;
-			i_assert(t->mbox_lock_id != 0);
+			t->read_lock_id = mbox_get_cur_lock_id(mbox);
+			i_assert(t->read_lock_id != 0);
 
 			/* refresh index file after mbox has been locked to
 			   make sure we get only up-to-date mbox offsets. */
@@ -74,12 +75,12 @@ static int mbox_mail_seek(struct index_mail *mail)
 			}
 
 			i_assert(mbox->mbox_lock_type != F_UNLCK);
-		} else if (t->mbox_lock_id == 0) {
+		} else if (t->read_lock_id == 0) {
 			/* file is already locked by another transaction, but
 			   we must keep it locked for the entire transaction,
 			   so increase the lock counter. */
 			if (mbox_lock(mbox, mbox->mbox_lock_type,
-				      &t->mbox_lock_id) < 0)
+				      &t->read_lock_id) < 0)
 				i_unreached();
 		}
 
