@@ -771,6 +771,13 @@ fs_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	if (ret <= 0)
 		return NULL;
 
+	if (_ctx->list->ns->type == NAMESPACE_SHARED &&
+	    !_ctx->list->ns->list->mail_set->mail_shared_explicit_inbox &&
+	    strlen(ctx->info.name) < _ctx->list->ns->prefix_len) {
+		/* shared/user INBOX, IMAP code already lists it */
+		return fs_list_iter_next(_ctx);
+	}
+
 	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0) {
 		mailbox_list_set_subscription_flags(ctx->ctx.list,
 						    ctx->info.name,
