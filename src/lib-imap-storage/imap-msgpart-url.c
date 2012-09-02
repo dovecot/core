@@ -18,6 +18,7 @@ struct imap_msgpart_url {
 	uoff_t partial_offset, partial_size;
 
 	struct mail_user *user;
+	struct mailbox *selected_box;
 	struct mailbox *box;
 	struct mailbox_transaction_context *trans;
 	struct mail *mail;
@@ -78,6 +79,7 @@ int imap_msgpart_url_parse(struct mail_user *user, struct mailbox *selected_box,
 		return 0;
 	}
 	*url_r = imap_msgpart_url_create(user, url);
+	(*url_r)->selected_box = selected_box;
 	return 1;
 }
 
@@ -108,11 +110,16 @@ int imap_msgpart_url_open_mailbox(struct imap_msgpart_url *mpurl,
 	}
 
 	/* open mailbox */
-	box = mailbox_alloc(ns->list, mpurl->mailbox, flags);
+	if (mpurl->selected_box != NULL &&
+	    mailbox_equals(mpurl->selected_box, ns, mpurl->mailbox))
+		box = mpurl->selected_box;
+	else
+		box = mailbox_alloc(ns->list, mpurl->mailbox, flags);
 	if (mailbox_open(box) < 0) {
 		*error_r = mail_storage_get_last_error(mailbox_get_storage(box),
 						       &error_code);
-		mailbox_free(&box);
+		if (box != mpurl->selected_box)
+			mailbox_free(&box);
 		return error_code == MAIL_ERROR_TEMP ? -1 : 0;
 	}
 
@@ -121,7 +128,8 @@ int imap_msgpart_url_open_mailbox(struct imap_msgpart_url *mpurl,
 	if (mpurl->uidvalidity > 0 &&
 	    box_status.uidvalidity != mpurl->uidvalidity) {
 		*error_r = "Invalid UIDVALIDITY";
-		mailbox_free(&box);
+		if (box != mpurl->selected_box)
+			mailbox_free(&box);
 		return 0;
 	}
 	mpurl->box = box;
@@ -247,7 +255,7 @@ void imap_msgpart_url_free(struct imap_msgpart_url **_mpurl)
 		mail_free(&mpurl->mail);
 	if (mpurl->trans != NULL)
 		mailbox_transaction_rollback(&mpurl->trans);
-	if (mpurl->box != NULL)
+	if (mpurl->box != NULL && mpurl->box != mpurl->selected_box)
 		mailbox_free(&mpurl->box);	
 	if (mpurl->section != NULL)
 		i_free(mpurl->section);
