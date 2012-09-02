@@ -175,6 +175,9 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 			sync_flags |= MAILBOX_SYNC_FLAG_FAST;
 		imap_flags |= IMAP_SYNC_FLAG_SAFE;
 		mailbox_free(&destbox);
+	} else if (move) {
+		sync_flags |= MAILBOX_SYNC_FLAG_EXPUNGE;
+		imap_flags |= IMAP_SYNC_FLAG_SAFE;
 	}
 
 	if (ret > 0)
