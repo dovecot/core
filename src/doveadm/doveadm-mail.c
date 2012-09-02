@@ -108,7 +108,8 @@ cmd_purge_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 	int ret = 0;
 
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-		if (ns->type != NAMESPACE_PRIVATE || ns->alias_for != NULL)
+		if (ns->type != MAIL_NAMESPACE_TYPE_PRIVATE ||
+		    ns->alias_for != NULL)
 			continue;
 
 		if (mail_storage_purge(ns->storage) < 0) {
@@ -227,8 +228,7 @@ static int cmd_force_resync_run(struct doveadm_mail_cmd_context *ctx,
 		MAILBOX_LIST_ITER_RAW_LIST |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
 		MAILBOX_LIST_ITER_STAR_WITHIN_NS;
-	const enum namespace_type ns_mask =
-		NAMESPACE_PRIVATE | NAMESPACE_SHARED | NAMESPACE_PUBLIC;
+	const enum mail_namespace_type ns_mask = MAIL_NAMESPACE_TYPE_MASK_ALL;
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
 	int ret = 0;

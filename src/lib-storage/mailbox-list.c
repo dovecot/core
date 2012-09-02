@@ -435,7 +435,7 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 	list_sep = mailbox_list_get_hierarchy_sep(list);
 	ns_sep = mail_namespace_get_sep(ns);
 
-	if (*storage_name == '\0' && ns->type == NAMESPACE_SHARED &&
+	if (*storage_name == '\0' && ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
 	    !list->mail_set->mail_shared_explicit_inbox) {
 		/* opening shared/$user. it's the same as INBOX. */
@@ -444,7 +444,7 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 
 	if (list_sep == ns_sep)
 		return storage_name;
-	if (ns->type == NAMESPACE_SHARED &&
+	if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 	    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
 		/* shared namespace root. the backend storage's hierarchy
 		   separator isn't known yet, so do nothing. */
@@ -516,7 +516,8 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 		   and <ns prefix>/inBox. */
 		return vname;
 	}
-	if (strcmp(vname, "INBOX") == 0 && list->ns->type == NAMESPACE_SHARED &&
+	if (strcmp(vname, "INBOX") == 0 &&
+	    list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 	    (list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
 	    !list->mail_set->mail_shared_explicit_inbox) {
 		/* convert to shared/$user, we don't really care about the

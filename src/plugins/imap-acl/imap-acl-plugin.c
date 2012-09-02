@@ -294,7 +294,7 @@ static bool cmd_getacl(struct client_command_context *cmd)
 	backend = acl_mailbox_list_get_backend(ns->list);
 	ret = imap_acl_write_aclobj(str, backend,
 				    acl_mailbox_get_aclobj(box), TRUE,
-				    ns->type == NAMESPACE_PRIVATE);
+				    ns->type == MAIL_NAMESPACE_TYPE_PRIVATE);
 	if (ret == 0) {
 		client_send_line(cmd->client, str_c(str));
 		client_send_tagline(cmd, "OK Getacl completed.");
@@ -588,7 +588,8 @@ static bool cmd_setacl(struct client_command_context *cmd)
 
 	ns = mailbox_get_namespace(box);
 	backend = acl_mailbox_list_get_backend(ns->list);
-	if (ns->type == NAMESPACE_PUBLIC && r->id_type == ACL_ID_OWNER) {
+	if (ns->type == MAIL_NAMESPACE_TYPE_PUBLIC &&
+	    r->id_type == ACL_ID_OWNER) {
 		client_send_tagline(cmd, "NO Public namespaces have no owner");
 		mailbox_free(&box);
 		return TRUE;
@@ -600,7 +601,8 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		update.modify_mode = ACL_MODIFY_MODE_REMOVE;
 		update.rights.neg_rights = update.rights.rights;
 		update.rights.rights = NULL;
-	} else if (ns->type == NAMESPACE_PRIVATE && r->rights != NULL &&
+	} else if (ns->type == MAIL_NAMESPACE_TYPE_PRIVATE &&
+		   r->rights != NULL &&
 		   ((r->id_type == ACL_ID_USER &&
 		     acl_backend_user_name_equals(backend, r->identifier)) ||
 		    (r->id_type == ACL_ID_OWNER &&

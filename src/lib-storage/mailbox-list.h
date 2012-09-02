@@ -10,7 +10,7 @@
 #  define MAILBOX_LIST_NAME_MAX_LENGTH 4096
 #endif
 
-enum namespace_type;
+enum mail_namespace_type;
 struct mail_namespace;
 struct mail_storage;
 struct mailbox_list;
@@ -276,7 +276,7 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 struct mailbox_list_iterate_context *
 mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 				  const char *const *patterns,
-				  enum namespace_type type_mask,
+				  enum mail_namespace_type type_mask,
 				  enum mailbox_list_iter_flags flags);
 /* Get next mailbox. Returns the mailbox name */
 const struct mailbox_info *

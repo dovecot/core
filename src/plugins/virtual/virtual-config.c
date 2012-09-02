@@ -288,8 +288,8 @@ static bool virtual_config_match(const struct mailbox_info *info,
 
 static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 {
-	const enum namespace_type iter_ns_types =
-		NAMESPACE_PRIVATE | NAMESPACE_SHARED | NAMESPACE_PUBLIC;
+	const enum mail_namespace_type iter_ns_types =
+		MAIL_NAMESPACE_TYPE_MASK_ALL;
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	struct mail_user *user = ctx->mbox->storage->storage.user;

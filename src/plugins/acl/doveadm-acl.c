@@ -488,7 +488,7 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 	}
 
 	/* check if mailbox is listable */
-	if (ns->type == NAMESPACE_PRIVATE) {
+	if (ns->type == MAIL_NAMESPACE_TYPE_PRIVATE) {
 		i_info("Mailbox in user's private namespace");
 		return TRUE;
 	}
@@ -511,7 +511,7 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 		i_info("Mailbox found from dovecot-acl-list");
 	}
 
-	if (ns->type == NAMESPACE_PUBLIC) {
+	if (ns->type == MAIL_NAMESPACE_TYPE_PUBLIC) {
 		i_info("Mailbox is in public namespace");
 		return TRUE;
 	}

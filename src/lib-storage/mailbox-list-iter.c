@@ -39,7 +39,7 @@ struct ns_list_iterate_context {
 	struct mailbox_list *error_list;
 	pool_t pool;
 	const char **patterns, **patterns_ns_match;
-	enum namespace_type type_mask;
+	enum mail_namespace_type type_mask;
 
 	struct mailbox_info ns_info;
 	struct mailbox_info inbox_info;
@@ -363,7 +363,7 @@ ns_prefix_has_visible_child_namespace(struct ns_list_iterate_context *ctx,
 static bool
 mailbox_ns_prefix_is_shared_inbox(struct mail_namespace *ns)
 {
-	return ns->type == NAMESPACE_SHARED &&
+	return ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 		(ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
 		!ns->list->mail_set->mail_shared_explicit_inbox;
 }
@@ -672,7 +672,7 @@ static void inbox_info_init(struct ns_list_iterate_context *ctx,
 struct mailbox_list_iterate_context *
 mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 				  const char *const *patterns,
-				  enum namespace_type type_mask,
+				  enum mail_namespace_type type_mask,
 				  enum mailbox_list_iter_flags flags)
 {
 	struct ns_list_iterate_context *ctx;

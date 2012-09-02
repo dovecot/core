@@ -182,7 +182,7 @@ mkdir_verify(struct mail_storage *storage, struct mail_namespace *ns,
 		mail_storage_set_error(storage, MAIL_ERROR_NOTFOUND,
 			"Mailbox was deleted while it was being created");
 	} else if (errno == EACCES) {
-		if (ns->type == NAMESPACE_SHARED) {
+		if (ns->type == MAIL_NAMESPACE_TYPE_SHARED) {
 			/* shared namespace, don't log permission errors */
 			mail_storage_set_error(storage, MAIL_ERROR_PERM,
 					       MAIL_ERRSTR_NO_PERMISSION);

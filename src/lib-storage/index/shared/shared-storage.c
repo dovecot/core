@@ -279,7 +279,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	/* create the new namespace */
 	new_ns = i_new(struct mail_namespace, 1);
 	new_ns->refcount = 1;
-	new_ns->type = NAMESPACE_SHARED;
+	new_ns->type = MAIL_NAMESPACE_TYPE_SHARED;
 	new_ns->user = user;
 	new_ns->prefix = i_strdup(str_c(prefix));
 	new_ns->owner = owner;

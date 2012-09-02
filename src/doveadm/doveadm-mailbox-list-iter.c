@@ -71,7 +71,7 @@ doveadm_mailbox_list_iter_init_nsmask(struct doveadm_mail_cmd_context *ctx,
 				      struct mail_user *user,
 				      struct mail_search_args *search_args,
 				      enum mailbox_list_iter_flags iter_flags,
-				      enum namespace_type ns_mask)
+				      enum mail_namespace_type ns_mask)
 {
 	static const char *all_pattern = "*";
 	struct doveadm_mailbox_list_iter *iter;
@@ -88,12 +88,15 @@ doveadm_mailbox_list_iter_init_nsmask(struct doveadm_mail_cmd_context *ctx,
 
 	if (array_count(&iter->patterns) == 0) {
 		iter_flags |= MAILBOX_LIST_ITER_SKIP_ALIASES;
-		if (have_guid)
-			ns_mask |= NAMESPACE_SHARED | NAMESPACE_PUBLIC;
+		if (have_guid) {
+			ns_mask |= MAIL_NAMESPACE_TYPE_SHARED |
+				MAIL_NAMESPACE_TYPE_PUBLIC;
+		}
 		array_append(&iter->patterns, &all_pattern, 1);
 	} else if (have_wildcards) {
 		iter_flags |= MAILBOX_LIST_ITER_STAR_WITHIN_NS;
-		ns_mask |= NAMESPACE_SHARED | NAMESPACE_PUBLIC;
+		ns_mask |= MAIL_NAMESPACE_TYPE_SHARED |
+			MAIL_NAMESPACE_TYPE_PUBLIC;
 	} else {
 		/* just return the listed mailboxes without actually
 		   iterating through. this also allows accessing mailboxes
@@ -116,7 +119,7 @@ doveadm_mailbox_list_iter_init(struct doveadm_mail_cmd_context *ctx,
 			       struct mail_search_args *search_args,
 			       enum mailbox_list_iter_flags iter_flags)
 {
-	enum namespace_type ns_mask = NAMESPACE_PRIVATE;
+	enum mail_namespace_type ns_mask = MAIL_NAMESPACE_TYPE_PRIVATE;
 
 	return doveadm_mailbox_list_iter_init_nsmask(ctx, user, search_args,
 						     iter_flags, ns_mask);
@@ -128,8 +131,7 @@ doveadm_mailbox_list_iter_full_init(struct doveadm_mail_cmd_context *ctx,
 				    struct mail_search_args *search_args,
 				    enum mailbox_list_iter_flags iter_flags)
 {
-	enum namespace_type ns_mask =
-		NAMESPACE_PRIVATE | NAMESPACE_SHARED | NAMESPACE_PUBLIC;
+	enum mail_namespace_type ns_mask = MAIL_NAMESPACE_TYPE_MASK_ALL;
 	struct doveadm_mailbox_list_iter *iter;
 
 	iter = doveadm_mailbox_list_iter_init_nsmask(ctx, user, search_args,

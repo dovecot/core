@@ -198,7 +198,7 @@ static void cmd_notify_add_personal(struct imap_notify_context *ctx,
 	struct mail_namespace *ns;
 
 	for (ns = ctx->client->user->namespaces; ns != NULL; ns = ns->next) {
-		if (ns->type == NAMESPACE_PRIVATE) {
+		if (ns->type == MAIL_NAMESPACE_TYPE_PRIVATE) {
 			cmd_notify_add_mailbox(ctx, ns, "",
 				IMAP_NOTIFY_TYPE_SUBTREE, events);
 		}

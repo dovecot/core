@@ -298,8 +298,7 @@ list_get_ref_patterns(struct cmd_list_context *ctx, const char *ref,
 static void cmd_list_init(struct cmd_list_context *ctx,
 			  const char *const *patterns)
 {
-	enum namespace_type type_mask =
-		NAMESPACE_PRIVATE | NAMESPACE_SHARED | NAMESPACE_PUBLIC;
+	enum mail_namespace_type type_mask = MAIL_NAMESPACE_TYPE_MASK_ALL;
 
 	ctx->list_iter =
 		mailbox_list_iter_init_namespaces(ctx->user->namespaces,

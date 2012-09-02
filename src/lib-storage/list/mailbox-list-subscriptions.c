@@ -56,7 +56,7 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 	/* When listing shared namespace's subscriptions, we need to
 	   autocreate all the visible child namespaces. their subscriptions
 	   are listed later. */
-	if (ns != NULL && ns->type == NAMESPACE_SHARED &&
+	if (ns != NULL && ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 	    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
 		/* we'll need to get the namespace autocreated.
 		   one easy way is to just ask if a mailbox name under

@@ -289,7 +289,7 @@ static void lazy_expunge_mailbox_list_created(struct mailbox_list *list)
 	if (strcmp(list->ns->prefix, luser->env) == 0)
 		list->ns->flags |= NAMESPACE_FLAG_NOQUOTA;
 
-	if (list->ns->type == NAMESPACE_PRIVATE) {
+	if (list->ns->type == MAIL_NAMESPACE_TYPE_PRIVATE) {
 		llist = p_new(list->pool, struct lazy_expunge_mailbox_list, 1);
 		MODULE_CONTEXT_SET(list, lazy_expunge_mailbox_list_module,
 				   llist);

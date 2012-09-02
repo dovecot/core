@@ -822,7 +822,8 @@ maildir_quota_namespace_added(struct quota *quota, struct mail_namespace *ns)
 	for (i = 0; i < count; i++) {
 		if (roots[i]->backend.name == quota_backend_maildir.name &&
 		    ((roots[i]->ns_prefix == NULL &&
-		      ns->type == NAMESPACE_PRIVATE) || roots[i]->ns == ns))
+		      ns->type == MAIL_NAMESPACE_TYPE_PRIVATE) ||
+		     roots[i]->ns == ns))
 			maildir_quota_root_namespace_added(roots[i], ns);
 	}
 }

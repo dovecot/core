@@ -90,7 +90,7 @@ cmd_altmove_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	/* make sure all private storages have been purged */
 	storages = array_get(&purged_storages, &count);
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-		if (ns->type != NAMESPACE_PRIVATE)
+		if (ns->type != MAIL_NAMESPACE_TYPE_PRIVATE)
 			continue;
 
 		for (i = 0; i < count; i++) {

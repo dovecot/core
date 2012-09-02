@@ -402,7 +402,7 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 	if (*dir == '\0') {
 		/* in-memory indexes */
 		dir = NULL;
-	} else if (list->ns->type != NAMESPACE_PRIVATE) {
+	} else if (list->ns->type != MAIL_NAMESPACE_TYPE_PRIVATE) {
 		/* don't create index files for shared/public mailboxes.
 		   their indexes may be shared between multiple users,
 		   each of which may have different ACLs */

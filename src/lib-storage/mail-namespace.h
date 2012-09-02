@@ -5,10 +5,13 @@
 
 struct mail_storage_callbacks;
 
-enum namespace_type {
-	NAMESPACE_PRIVATE	= 0x01,
-	NAMESPACE_SHARED	= 0x02,
-	NAMESPACE_PUBLIC	= 0x04
+enum mail_namespace_type {
+	MAIL_NAMESPACE_TYPE_PRIVATE	= 0x01,
+	MAIL_NAMESPACE_TYPE_SHARED	= 0x02,
+	MAIL_NAMESPACE_TYPE_PUBLIC	= 0x04
+#define MAIL_NAMESPACE_TYPE_MASK_ALL \
+	(MAIL_NAMESPACE_TYPE_PRIVATE | MAIL_NAMESPACE_TYPE_SHARED | \
+	 MAIL_NAMESPACE_TYPE_PUBLIC)
 };
 
 enum namespace_flags {
@@ -46,7 +49,7 @@ struct mail_namespace {
 	struct mail_namespace *next;
 	int refcount;
 
-        enum namespace_type type;
+        enum mail_namespace_type type;
 	enum namespace_flags flags;
 
 	char *prefix;

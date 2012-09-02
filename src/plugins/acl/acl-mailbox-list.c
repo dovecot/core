@@ -95,7 +95,7 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx)
 			       MAILBOX_LIST_ITER_SELECT_SUBSCRIBED)) != 0)
 		return;
 
-	if (ns->type == NAMESPACE_PUBLIC) {
+	if (ns->type == MAIL_NAMESPACE_TYPE_PUBLIC) {
 		/* mailboxes in public namespace should all be listable to
 		   someone. we don't benefit from fast listing. */
 		return;
@@ -519,7 +519,7 @@ void acl_mail_namespace_storage_added(struct mail_namespace *ns)
 	/* We don't care about the username for non-private mailboxes.
 	   It's used only when checking if we're the mailbox owner. We never
 	   are for shared/public mailboxes. */
-	if (ns->type != NAMESPACE_PRIVATE)
+	if (ns->type != MAIL_NAMESPACE_TYPE_PRIVATE)
 		owner = FALSE;
 
 	/* we need to know the storage when initializing backend */
@@ -538,7 +538,7 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 		/* ACLs disabled for this user */
 	} else if ((list->ns->flags & NAMESPACE_FLAG_NOACL) != 0) {
 		/* no ACL checks for internal namespaces (lda, shared) */
-		if (list->ns->type == NAMESPACE_SHARED)
+		if (list->ns->type == MAIL_NAMESPACE_TYPE_SHARED)
 			acl_mailbox_list_init_shared(list);
 	} else {
 		acl_mailbox_list_init_default(list);

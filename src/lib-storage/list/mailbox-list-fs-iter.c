@@ -393,7 +393,7 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 			   INBOX's children). */
 			root = "";
 		} else if ((ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
-			   ns->type == NAMESPACE_SHARED &&
+			   ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 			   !ctx->ctx.list->mail_set->mail_shared_explicit_inbox &&
 			   (prefix_vname[0] == '\0' ||
 			    (strncmp(ns->prefix, prefix_vname, ns->prefix_len-1) == 0 &&
