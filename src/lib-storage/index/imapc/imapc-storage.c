@@ -52,6 +52,8 @@ static struct imapc_resp_code_map imapc_resp_code_map[] = {
 
 static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
 				  struct imapc_storage *storage);
+static void imapc_untagged_namespace(const struct imapc_untagged_reply *reply,
+				     struct imapc_storage *storage);
 
 static bool
 imap_resp_text_code_parse(const char *str, enum mail_error *error_r)
@@ -255,12 +257,15 @@ imapc_storage_create(struct mail_storage *_storage,
 	storage->list->storage = storage;
 	storage->client = imapc_client_init(&set);
 
+	p_array_init(&storage->remote_namespaces, _storage->pool, 4);
 	p_array_init(&storage->untagged_callbacks, _storage->pool, 16);
 	imapc_client_register_untagged(storage->client,
 				       imapc_storage_untagged_cb, storage);
 	imapc_list_register_callbacks(storage->list);
 	imapc_storage_register_untagged(storage, "STATUS",
 					imapc_untagged_status);
+	imapc_storage_register_untagged(storage, "NAMESPACE",
+					imapc_untagged_namespace);
 	/* connect to imap server and get the hierarchy separator. */
 	if (imapc_storage_get_hierarchy_sep(storage, error_r) < 0) {
 		imapc_client_deinit(&storage->client);
@@ -600,6 +605,40 @@ static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
 	}
 }
 
+static void imapc_untagged_namespace(const struct imapc_untagged_reply *reply,
+				     struct imapc_storage *storage)
+{
+	static enum mail_namespace_type ns_types[] = {
+		MAIL_NAMESPACE_TYPE_PRIVATE,
+		MAIL_NAMESPACE_TYPE_SHARED,
+		MAIL_NAMESPACE_TYPE_PUBLIC
+	};
+	struct imapc_namespace *ns;
+	const struct imap_arg *list, *list2;
+	const char *prefix, *sep;
+	unsigned int i;
+
+	array_clear(&storage->remote_namespaces);
+	for (i = 0; i < N_ELEMENTS(ns_types); i++) {
+		if (reply->args[i].type == IMAP_ARG_NIL)
+			continue;
+		if (!imap_arg_get_list(&reply->args[i], &list))
+			break;
+
+		for (; list->type != IMAP_ARG_EOL; list++) {
+			if (!imap_arg_get_list(list, &list2) ||
+			    !imap_arg_get_astring(&list2[0], &prefix) ||
+			    !imap_arg_get_nstring(&list2[1], &sep))
+				break;
+
+			ns = array_append_space(&storage->remote_namespaces);
+			ns->prefix = p_strdup(storage->storage.pool, prefix);
+			ns->separator = sep == NULL ? '\0' : sep[0];
+			ns->type = ns_types[i];
+		}
+	}
+}
+
 static void imapc_mailbox_get_selected_status(struct imapc_mailbox *mbox,
 					      enum mailbox_status_items items,
 					      struct mailbox_status *status_r)
@@ -664,16 +703,74 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 	return sctx.ret;
 }
 
+static int imapc_mailbox_get_namespaces(struct imapc_storage *storage)
+{
+	enum imapc_capability capa;
+	struct imapc_command *cmd;
+	struct imapc_simple_context sctx;
+
+	if (storage->namespaces_requested)
+		return 0;
+
+	capa = imapc_client_get_capabilities(storage->client);
+	if ((capa & IMAPC_CAPABILITY_NAMESPACE) == 0) {
+		/* NAMESPACE capability not supported */
+		return 0;
+	}
+
+	imapc_simple_context_init(&sctx, storage);
+	cmd = imapc_client_cmd(storage->client,
+			       imapc_simple_callback, &sctx);
+	imapc_command_send(cmd, "NAMESPACE");
+	imapc_simple_run(&sctx);
+
+	if (sctx.ret < 0)
+		return -1;
+	storage->namespaces_requested = TRUE;
+	return 0;
+}
+
+static const struct imapc_namespace *
+imapc_namespace_find_mailbox(struct imapc_storage *storage, const char *name)
+{
+	const struct imapc_namespace *ns, *best_ns = NULL;
+	unsigned int best_len = -1U, len;
+
+	array_foreach(&storage->remote_namespaces, ns) {
+		len = strlen(ns->prefix);
+		if (strncmp(ns->prefix, name, len) == 0) {
+			if (best_len > len) {
+				best_ns = ns;
+				best_len = len;
+			}
+		}
+	}
+	return best_ns;
+}
+
 static int imapc_mailbox_get_metadata(struct mailbox *box,
 				      enum mailbox_metadata_items items,
 				      struct mailbox_metadata *metadata_r)
 {
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	const struct imapc_namespace *ns;
+
 	if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
 		return -1;
 	if ((items & MAILBOX_METADATA_GUID) != 0) {
 		/* a bit ugly way to do this, but better than nothing for now.
 		   FIXME: if indexes are enabled, keep this there. */
 		mail_generate_guid_128_hash(box->name, metadata_r->guid);
+	}
+	if ((items & MAILBOX_METADATA_BACKEND_NAMESPACE) != 0) {
+		if (imapc_mailbox_get_namespaces(mbox->storage) < 0)
+			return -1;
+
+		ns = imapc_namespace_find_mailbox(mbox->storage, box->name);
+		if (ns != NULL) {
+			metadata_r->backend_ns_prefix = ns->prefix;
+			metadata_r->backend_ns_type = ns->type;
+		}
 	}
 	return 0;
 }

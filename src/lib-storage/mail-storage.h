@@ -8,6 +8,7 @@ struct message_size;
 #include "guid.h"
 #include "mail-types.h"
 #include "mail-error.h"
+#include "mail-namespace.h"
 #include "mailbox-list.h"
 
 /* If some operation is taking long, call notify_ok every n seconds. */
@@ -81,7 +82,8 @@ enum mailbox_metadata_items {
 	MAILBOX_METADATA_GUID			= 0x01,
 	MAILBOX_METADATA_VIRTUAL_SIZE		= 0x02,
 	MAILBOX_METADATA_CACHE_FIELDS		= 0x04,
-	MAILBOX_METADATA_PRECACHE_FIELDS	= 0x08
+	MAILBOX_METADATA_PRECACHE_FIELDS	= 0x08,
+	MAILBOX_METADATA_BACKEND_NAMESPACE	= 0x10
 };
 
 enum mailbox_search_result_flags {
@@ -245,6 +247,11 @@ struct mailbox_metadata {
 	const ARRAY_TYPE(mailbox_cache_field) *cache_fields;
 	/* Fields that should be precached */
 	enum mail_fetch_field precache_fields;
+	/* imapc backend returns this based on the remote NAMESPACE reply,
+	   while currently other backends return "" and type the same as the
+	   mailbox's real namespace type */
+	const char *backend_ns_prefix;
+	enum mail_namespace_type backend_ns_type;
 };
 
 struct mailbox_update {

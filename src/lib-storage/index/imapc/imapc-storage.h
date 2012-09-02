@@ -34,6 +34,12 @@ struct imapc_mailbox_event_callback {
 #define IMAPC_BOX_HAS_FEATURE(mbox, feature) \
 	(((mbox)->storage->set->parsed_features & feature) != 0)
 
+struct imapc_namespace {
+	const char *prefix;
+	char separator;
+	enum mail_namespace_type type;
+};
+
 struct imapc_storage {
 	struct mail_storage storage;
 	const struct imapc_settings *set;
@@ -46,7 +52,10 @@ struct imapc_storage {
 	struct mailbox_status *cur_status;
 	unsigned int reopen_count;
 
+	ARRAY(struct imapc_namespace) remote_namespaces;
 	ARRAY(struct imapc_storage_event_callback) untagged_callbacks;
+
+	unsigned int namespaces_requested:1;
 };
 
 struct imapc_mail_cache {

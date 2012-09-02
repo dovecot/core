@@ -4,8 +4,8 @@
 #include "array.h"
 #include "mail-cache.h"
 #include "mail-search-build.h"
-#include "index-storage.h"
 #include "mail-index-modseq.h"
+#include "index-storage.h"
 
 static void
 get_last_cached_seq(struct mailbox *box, uint32_t *last_cached_seq_r)
@@ -365,5 +365,10 @@ int index_mailbox_get_metadata(struct mailbox *box,
 		get_metadata_cache_fields(box, metadata_r);
 	if ((items & MAILBOX_METADATA_PRECACHE_FIELDS) != 0)
 		get_metadata_precache_fields(box, metadata_r);
+	if ((items & MAILBOX_METADATA_BACKEND_NAMESPACE) != 0) {
+		metadata_r->backend_ns_prefix = "";
+		metadata_r->backend_ns_type =
+			mailbox_list_get_namespace(box->list)->type;
+	}
 	return 0;
 }
