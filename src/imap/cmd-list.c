@@ -41,14 +41,12 @@ mailbox_flags2str(struct cmd_list_context *ctx, string_t *str,
 	if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_CHILDREN) == 0)
 		flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
 
-	if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) == 0)
-		flags &= ~MAILBOX_SUBSCRIBED;
-
 	if ((flags & MAILBOX_CHILD_SUBSCRIBED) != 0 &&
 	    (flags & MAILBOX_SUBSCRIBED) == 0 && !ctx->used_listext) {
 		/* LSUB uses \Noselect for this */
 		flags |= MAILBOX_NOSELECT;
-	}
+	} else if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) == 0)
+		flags &= ~MAILBOX_SUBSCRIBED;
 	imap_mailbox_flags2str(str, flags);
 
 	if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_SPECIALUSE) != 0 &&
@@ -69,6 +67,9 @@ mailbox_childinfo2str(struct cmd_list_context *ctx, string_t *str,
 	if ((flags & MAILBOX_CHILD_SUBSCRIBED) != 0 &&
 	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH) != 0)
 		str_append(str, " (CHILDINFO (\"SUBSCRIBED\"))");
+	if ((flags & MAILBOX_CHILD_SPECIALUSE) != 0 &&
+	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH) != 0)
+		str_append(str, " (CHILDINFO (\"SPECIAL-USE\"))");
 }
 
 static bool

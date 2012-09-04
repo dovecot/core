@@ -5,6 +5,7 @@
 #include "imap-match.h"
 #include "mail-storage.h"
 #include "mailbox-tree.h"
+#include "mailbox-list-subscriptions.h"
 #include "mailbox-list-private.h"
 
 enum autocreate_match_result {
@@ -67,7 +68,7 @@ mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
 	return mailbox_list_iter_init_multiple(list, patterns, flags);
 }
 
-static int mailbox_list_subscriptions_refresh(struct mailbox_list *list)
+static int mailbox_list_iter_subscriptions_refresh(struct mailbox_list *list)
 {
 	struct mail_namespace *ns = list->ns;
 
@@ -162,7 +163,7 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 
 	if ((flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0)
-		ret = mailbox_list_subscriptions_refresh(list);
+		ret = mailbox_list_iter_subscriptions_refresh(list);
 
 	ctx = list->v.iter_init(list, patterns, flags);
 	if (ret < 0)
@@ -407,9 +408,24 @@ mailbox_list_match_anything(struct ns_list_iterate_context *ctx,
 }
 
 static bool
+mailbox_ns_prefix_check_selection_criteria(struct ns_list_iterate_context *ctx)
+{
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
+		if ((ctx->ns_info.flags & MAILBOX_SUBSCRIBED) != 0)
+			return TRUE;
+		if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH) != 0 &&
+		    (ctx->ns_info.flags & MAILBOX_CHILD_SUBSCRIBED) != 0)
+			return TRUE;
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static bool
 mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 			      struct mail_namespace *ns, bool has_children)
 {
+	struct mail_namespace *subs_ns;
 	struct mailbox *box;
 	enum mailbox_existence existence;
 	int ret;
@@ -434,6 +450,19 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 		ctx->inbox_listed = TRUE;
 		ctx->ns_info.flags |= ctx->inbox_info.flags | MAILBOX_SELECT;
 	}
+
+	if ((ctx->ctx.flags & (MAILBOX_LIST_ITER_RETURN_SUBSCRIBED |
+			       MAILBOX_LIST_ITER_SELECT_SUBSCRIBED)) != 0) {
+		subs_ns = mail_namespace_find_subscribable(ctx->namespaces,
+							   ns->prefix);
+		if (subs_ns != NULL) {
+			mailbox_list_set_subscription_flags(subs_ns->list,
+							    ctx->ns_info.vname,
+							    &ctx->ns_info.flags);
+		}
+	}
+	if (!mailbox_ns_prefix_check_selection_criteria(ctx))
+		return FALSE;
 
 	/* see if the namespace has children */
 	if (has_children)
@@ -878,7 +907,8 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 			p = strrchr(actx->new_info.vname, sep);
 			i_assert(p != NULL);
 			actx->new_info.vname =
-				t_strdup_until(actx->new_info.vname, p);
+				p_strdup_until(ctx->pool,
+					       actx->new_info.vname, p);
 			match = imap_match(ctx->glob, actx->new_info.vname);
 		} while (match != IMAP_MATCH_YES);
 		return TRUE;
