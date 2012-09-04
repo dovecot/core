@@ -549,8 +549,7 @@ astream_end_of_part(struct attachment_istream *astream)
 	return ret;
 }
 
-static int
-i_stream_attachment_read_next(struct attachment_istream *astream, bool *retry_r)
+static int astream_read_next(struct attachment_istream *astream, bool *retry_r)
 {
 	struct istream_private *stream = &astream->istream;
 	struct message_block block;
@@ -612,7 +611,8 @@ i_stream_attachment_read_next(struct attachment_istream *astream, bool *retry_r)
 	return new_size - old_size;
 }
 
-static ssize_t i_stream_attachment_read(struct istream_private *stream)
+static ssize_t
+i_stream_attachment_extractor_read(struct istream_private *stream)
 {
 	struct attachment_istream *astream =
 		(struct attachment_istream *)stream;
@@ -620,14 +620,14 @@ static ssize_t i_stream_attachment_read(struct istream_private *stream)
 	ssize_t ret;
 
 	do {
-		ret = i_stream_attachment_read_next(astream, &retry);
+		ret = astream_read_next(astream, &retry);
 	} while (retry && astream->set.drain_parent_input);
 
 	astream->retry_read = retry;
 	return ret;
 }
 
-static void i_stream_attachment_close(struct iostream_private *stream)
+static void i_stream_attachment_extractor_close(struct iostream_private *stream)
 {
 	struct attachment_istream *astream =
 		(struct attachment_istream *)stream;
@@ -666,8 +666,8 @@ i_stream_create_attachment_extractor(struct istream *input,
 
 	astream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
-	astream->istream.read = i_stream_attachment_read;
-	astream->istream.iostream.close = i_stream_attachment_close;
+	astream->istream.read = i_stream_attachment_extractor_read;
+	astream->istream.iostream.close = i_stream_attachment_extractor_close;
 
 	astream->istream.istream.readable_fd = FALSE;
 	astream->istream.istream.blocking = input->blocking;
