@@ -1250,6 +1250,14 @@ void **mail_storage_service_user_get_set(struct mail_storage_service_user *user)
 		MASTER_SERVICE_INTERNAL_SET_PARSERS;
 }
 
+const struct mail_storage_settings *
+mail_storage_service_user_get_mail_set(struct mail_storage_service_user *user)
+{
+	return mail_user_set_get_driver_settings(
+				user->user_info, user->user_set,
+				MAIL_STORAGE_SET_DRIVER_NAME);
+}
+
 const struct mail_storage_service_input *
 mail_storage_service_user_get_input(struct mail_storage_service_user *user)
 {
