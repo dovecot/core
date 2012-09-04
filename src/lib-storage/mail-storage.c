@@ -12,6 +12,7 @@
 #include "var-expand.h"
 #include "mail-index-private.h"
 #include "mail-index-alloc-cache.h"
+#include "mailbox-tree.h"
 #include "mailbox-list-private.h"
 #include "mail-storage-private.h"
 #include "mail-storage-settings.h"
@@ -1249,6 +1250,16 @@ int mailbox_set_subscribed(struct mailbox *box, bool set)
 	}
 
 	return box->v.set_subscribed(box, set);
+}
+
+bool mailbox_is_subscribed(struct mailbox *box)
+{
+	struct mailbox_node *node;
+
+	i_assert(box->list->subscriptions != NULL);
+
+	node = mailbox_tree_lookup(box->list->subscriptions, box->vname);
+	return node != NULL && (node->flags & MAILBOX_SUBSCRIBED) != 0;
 }
 
 struct mail_storage *mailbox_get_storage(const struct mailbox *box)

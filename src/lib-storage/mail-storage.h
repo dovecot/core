@@ -447,6 +447,10 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest,
 /* Subscribe/unsubscribe mailbox. Subscribing to
    nonexistent mailboxes is optional. */
 int mailbox_set_subscribed(struct mailbox *box, bool set);
+/* Returns TRUE if mailbox is subscribed, FALSE if not. This function
+   doesn't refresh the subscriptions list, but assumes that it's been done by
+   e.g. mailbox_list_iter*(). */
+bool mailbox_is_subscribed(struct mailbox *box);
 
 /* Enable the given feature for the mailbox. */
 int mailbox_enable(struct mailbox *box, enum mailbox_feature features);
