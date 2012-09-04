@@ -45,6 +45,9 @@ static int dump_record(int fd)
 	case MAILBOX_LOG_RECORD_UNSUBSCRIBE:
 		printf("unsubscribe");
 		break;
+	case MAILBOX_LOG_RECORD_CREATE_DIR:
+		printf("create-dir");
+		break;
 	}
 	printf(" %s", binary_to_hex(rec.mailbox_guid,
 				    sizeof(rec.mailbox_guid)));
@@ -96,6 +99,7 @@ static bool test_dump_mailboxlog(const char *path)
 		case MAILBOX_LOG_RECORD_RENAME:
 		case MAILBOX_LOG_RECORD_SUBSCRIBE:
 		case MAILBOX_LOG_RECORD_UNSUBSCRIBE:
+		case MAILBOX_LOG_RECORD_CREATE_DIR:
 			ret = TRUE;
 			break;
 		}
