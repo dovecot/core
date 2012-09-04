@@ -27,7 +27,11 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 	ctx->sep = ns_sep;
 	ctx->info_pool = pool_alloconly_create("mailbox list index iter info", 128);
 
+	/* for now we don't use indexes when listing subscriptions, because
+	   it needs to list also the nonexistent subscribed mailboxes, which
+	   don't exist in the index. */
 	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) != 0 ||
+	    (flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0 ||
 	    mailbox_list_index_refresh(ctx->ctx.list) < 0) {
 		/* no indexing */
 		ctx->backend_ctx = ilist->module_ctx.super.
