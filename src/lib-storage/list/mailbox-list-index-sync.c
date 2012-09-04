@@ -256,6 +256,7 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 	struct mailbox_list_index_sync_context sync_ctx;
 	struct mailbox_list_iterate_context *iter;
+	struct mail_index_view *view;
 	const struct mail_index_header *hdr;
 	const struct mailbox_info *info;
 	const char *patterns[2];
@@ -269,19 +270,20 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 	sync_ctx.ilist = ilist;
 	sync_ctx.sep[0] = mailbox_list_get_hierarchy_sep(list);
 	if (mail_index_sync_begin(ilist->index, &sync_ctx.sync_ctx,
-				  &sync_ctx.view, &sync_ctx.trans,
+				  &view, &sync_ctx.trans,
 				  MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES) < 0) {
 		mailbox_list_index_set_index_error(list);
 		return -1;
 	}
+
 	/* re-parse mailbox list now that it's refreshed and locked */
-	if (mailbox_list_index_parse(ilist, sync_ctx.view, TRUE) < 0) {
+	if (mailbox_list_index_parse(ilist, view, TRUE) < 0) {
 		mail_index_sync_rollback(&sync_ctx.sync_ctx);
 		return -1;
 	}
 	orig_highest_name_id = ilist->highest_name_id;
 
-	hdr = mail_index_get_header(sync_ctx.view);
+	hdr = mail_index_get_header(view);
 	sync_ctx.next_uid = hdr->next_uid;
 
 	if (hdr->uid_validity == 0) {
@@ -292,6 +294,7 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity), TRUE);
 	}
+	sync_ctx.view = mail_index_transaction_open_updated_view(sync_ctx.trans);
 
 	/* clear EXISTS-flags, so after sync we know what can be expunged */
 	mailbox_list_index_node_clear_exists(ilist->mailbox_tree);
@@ -324,6 +327,7 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 	}
 	if (ilist->module_ctx.super.iter_deinit(iter) < 0) {
 		mail_index_sync_rollback(&sync_ctx.sync_ctx);
+		mail_index_view_close(&sync_ctx.view);
 		ilist->syncing = FALSE;
 		return -1;
 	}
@@ -345,6 +349,7 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 			&new_hdr.refresh_flag, sizeof(new_hdr.refresh_flag));
 	}
 	ilist->syncing = FALSE;
+	mail_index_view_close(&sync_ctx.view);
 
 	if (mail_index_sync_commit(&sync_ctx.sync_ctx) < 0) {
 		mailbox_list_index_set_index_error(list);
