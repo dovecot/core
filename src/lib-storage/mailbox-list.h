@@ -47,6 +47,7 @@ enum mailbox_info_flags {
 	MAILBOX_UNMARKED		= 0x040,
 	MAILBOX_SUBSCRIBED		= 0x080,
 	MAILBOX_CHILD_SUBSCRIBED	= 0x100,
+	MAILBOX_CHILD_SPECIALUSE	= 0x200,
 
 	/* Internally used by lib-storage */
 	MAILBOX_SELECT			= 0x20000000,

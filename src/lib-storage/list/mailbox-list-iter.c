@@ -444,6 +444,8 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 	ctx->ns_info.ns = ns;
 	ctx->ns_info.vname = p_strndup(ctx->pool, ns->prefix,
 				       ns->prefix_len-1);
+	if (ns->special_use_mailboxes)
+		ctx->ns_info.flags |= MAILBOX_CHILD_SPECIALUSE;
 
 	if (strcasecmp(ctx->ns_info.vname, "INBOX") == 0) {
 		i_assert(!ctx->inbox_listed);
@@ -972,6 +974,13 @@ static bool
 special_use_selection(struct mailbox_list_iterate_context *ctx,
 		      const struct mailbox_info *info)
 {
+	if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH) != 0 &&
+	    (ctx->flags & MAILBOX_LIST_ITER_SELECT_SPECIALUSE) != 0) {
+		/* LIST (SPECIAL-USE RECURSIVEMATCH) used. for now we support
+		   this only for namespace prefixes */
+		if ((info->flags & MAILBOX_CHILD_SPECIALUSE) != 0)
+			return TRUE;
+	}
 	return (ctx->flags & MAILBOX_LIST_ITER_SELECT_SPECIALUSE) == 0 ||
 		info->special_use != NULL;
 }
