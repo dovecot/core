@@ -293,6 +293,9 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 		count = 0;
 	}
 	for (i = 0; i < count; i++) {
+		if (ns_set[i]->disabled)
+			continue;
+
 		if (namespace_add(user, ns_set[i], unexpanded_ns_set[i],
 				  mail_set, ns_p, error_r) < 0) {
 			if (!ns_set[i]->ignore_on_failure)
