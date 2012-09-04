@@ -435,7 +435,10 @@ imap_notify_ns_send_status(struct client_command_context *cmd,
 	if (!imap_notify_ns_want_status(notify_ns))
 		return;
 
+	/* set _RETURN_SUBSCRIBED flag just in case IMAP_NOTIFY_TYPE_SUBSCRIBED
+	   is used, which requires refreshing subscriptions */
 	iter = mailbox_list_iter_init(notify_ns->ns->list, "*",
+				      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		array_foreach(&notify_ns->mailboxes, notify_boxes) {

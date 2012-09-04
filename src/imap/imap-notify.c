@@ -201,14 +201,18 @@ bool imap_notify_match_mailbox(struct imap_notify_namespace *notify_ns,
 			       const struct imap_notify_mailboxes *notify_boxes,
 			       const char *vname)
 {
+	struct mailbox *box;
 	const char *const *namep;
 	unsigned int name_len;
 	char ns_sep;
+	bool ret;
 
 	switch (notify_boxes->type) {
 	case IMAP_NOTIFY_TYPE_SUBSCRIBED:
-		// FIXME
-		return TRUE;
+		box = mailbox_alloc(notify_ns->ns->list, vname, 0);
+		ret = mailbox_is_subscribed(box);
+		mailbox_free(&box);
+		return ret;
 	case IMAP_NOTIFY_TYPE_SUBTREE:
 		ns_sep = mail_namespace_get_sep(notify_ns->ns);
 		array_foreach(&notify_boxes->names, namep) {
