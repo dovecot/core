@@ -574,6 +574,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	struct mail_deliver_context dctx;
 	struct mail_storage *storage;
 	const struct mail_storage_service_input *input;
+	const struct mail_storage_settings *mail_set;
 	struct mail_namespace *ns;
 	struct setting_parser_context *set_parser;
 	void **sets;
@@ -584,8 +585,11 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	input = mail_storage_service_user_get_input(rcpt->service_user);
 	username = t_strdup(input->username);
 
+	mail_set = mail_storage_service_user_get_mail_set(rcpt->service_user);
 	set_parser = mail_storage_service_user_get_settings_parser(rcpt->service_user);
-	if (client->proxy_timeout_secs > 0) {
+	if (client->proxy_timeout_secs > 0 &&
+	    (mail_set->mail_max_lock_timeout == 0 ||
+	     mail_set->mail_max_lock_timeout > client->proxy_timeout_secs)) {
 		/* set lock timeout waits to be less than when proxy has
 		   advertised that it's going to timeout the connection.
 		   this avoids duplicate deliveries in case the delivery
