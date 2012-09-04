@@ -386,6 +386,42 @@ mailbox_list_index_rename_mailbox(struct mailbox_list *oldlist,
 			       newlist, newname, rename_children);
 }
 
+static int
+mailbox_list_index_set_subscribed(struct mailbox_list *_list,
+				  const char *name, bool set)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(_list);
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	const void *data;
+	size_t size;
+	uint32_t counter;
+
+	if (ilist->module_ctx.super.set_subscribed(_list, name, set) < 0)
+		return -1;
+
+	/* update the "subscriptions changed" counter/timestamp. its purpose
+	   is to trigger NOTIFY watcher to handle SubscriptionChange events */
+	mailbox_list_index_index_open(_list);
+	view = mail_index_view_open(ilist->index);
+	mail_index_get_header_ext(view, ilist->subs_hdr_ext_id, &data, &size);
+	if (size != sizeof(counter))
+		counter = ioloop_time;
+	else {
+		memcpy(&counter, data, size);
+		if (++counter < ioloop_time)
+			counter = ioloop_time;
+	}
+
+	trans = mail_index_transaction_begin(view,
+					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	mail_index_update_header_ext(trans, ilist->subs_hdr_ext_id,
+				     0, &counter, sizeof(counter));
+	(void)mail_index_transaction_commit(&trans);
+	mail_index_view_close(&view);
+	return 0;
+}
+
 static void mailbox_list_index_created(struct mailbox_list *list)
 {
 	struct mailbox_list_index *ilist;
@@ -421,6 +457,7 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 	list->v.delete_mailbox = mailbox_list_index_delete_mailbox;
 	list->v.delete_dir = mailbox_list_index_delete_dir;
 	list->v.rename_mailbox = mailbox_list_index_rename_mailbox;
+	list->v.set_subscribed = mailbox_list_index_set_subscribed;
 
 	list->v.notify_init = mailbox_list_index_notify_init;
 	list->v.notify_next = mailbox_list_index_notify_next;
@@ -437,6 +474,9 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 				sizeof(struct mailbox_list_index_header),
 				sizeof(struct mailbox_list_index_record),
 				sizeof(uint32_t));
+	ilist->subs_hdr_ext_id = mail_index_ext_register(ilist->index, "subs",
+							 sizeof(uint32_t), 0,
+							 sizeof(uint32_t));
 
 	ilist->mailbox_pool = pool_alloconly_create("mailbox list index", 4096);
 	hash_table_create_direct(&ilist->mailbox_names, ilist->mailbox_pool, 0);

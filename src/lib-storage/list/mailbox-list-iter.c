@@ -68,7 +68,7 @@ mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
 	return mailbox_list_iter_init_multiple(list, patterns, flags);
 }
 
-static int mailbox_list_iter_subscriptions_refresh(struct mailbox_list *list)
+int mailbox_list_iter_subscriptions_refresh(struct mailbox_list *list)
 {
 	struct mail_namespace *ns = list->ns;
 

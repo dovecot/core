@@ -35,6 +35,7 @@ struct mailbox_list_inotify_entry {
 struct mailbox_list_notify_index {
 	struct mailbox_list_notify notify;
 
+	struct mailbox_tree_context *subscriptions;
 	struct mailbox_list_notify_tree *tree;
 	struct mail_index_view *view, *old_view;
 	struct mail_index_view_sync_ctx *sync_ctx;
@@ -47,11 +48,12 @@ struct mailbox_list_notify_index {
 	struct timeout *to_wait, *to_notify;
 
 	ARRAY_TYPE(seq_range) new_uids, expunged_uids, changed_uids;
+	ARRAY_TYPE(const_string) new_subscriptions, new_unsubscriptions;
 	ARRAY(struct mailbox_list_notify_rename) renames;
 	struct seq_range_iter new_uids_iter, expunged_uids_iter;
 	struct seq_range_iter changed_uids_iter;
 	unsigned int new_uids_n, expunged_uids_n, changed_uids_n;
-	unsigned int rename_idx;
+	unsigned int rename_idx, subscription_idx, unsubscription_idx;
 
 	struct mailbox_list_notify_rec notify_rec;
 	string_t *rec_name;
@@ -86,7 +88,15 @@ int mailbox_list_index_notify_init(struct mailbox_list *list,
 	i_array_init(&inotify->expunged_uids, 8);
 	i_array_init(&inotify->changed_uids, 16);
 	i_array_init(&inotify->renames, 16);
+	i_array_init(&inotify->new_subscriptions, 16);
+	i_array_init(&inotify->new_unsubscriptions, 16);
 	inotify->rec_name = str_new(default_pool, 64);
+	if ((mask & (MAILBOX_LIST_NOTIFY_SUBSCRIBE |
+		     MAILBOX_LIST_NOTIFY_UNSUBSCRIBE)) != 0) {
+		(void)mailbox_list_iter_subscriptions_refresh(list);
+		mailbox_tree_sort(list->subscriptions);
+		inotify->subscriptions = mailbox_tree_dup(list->subscriptions);
+	}
 
 	*notify_r = &inotify->notify;
 	return 1;
@@ -98,6 +108,8 @@ void mailbox_list_index_notify_deinit(struct mailbox_list_notify *notify)
 		(struct mailbox_list_notify_index *)notify;
 	bool b;
 
+	if (inotify->subscriptions != NULL)
+		mailbox_tree_deinit(&inotify->subscriptions);
 	if (inotify->io_wait != NULL)
 		io_remove(&inotify->io_wait);
 	if (inotify->to_wait != NULL)
@@ -109,6 +121,8 @@ void mailbox_list_index_notify_deinit(struct mailbox_list_notify *notify)
 	mail_index_view_close(&inotify->view);
 	mail_index_view_close(&inotify->old_view);
 	mailbox_list_notify_tree_deinit(&inotify->tree);
+	array_free(&inotify->new_subscriptions);
+	array_free(&inotify->new_unsubscriptions);
 	array_free(&inotify->new_uids);
 	array_free(&inotify->expunged_uids);
 	array_free(&inotify->changed_uids);
@@ -400,6 +414,66 @@ mailbox_list_index_notify_find_renames(struct mailbox_list_notify_index *inotify
 }
 
 static void
+mailbox_list_index_notify_find_subscribes(struct mailbox_list_notify_index *inotify)
+{
+	struct mailbox_tree_iterate_context *old_iter, *new_iter;
+	struct mailbox_tree_context *old_tree, *new_tree;
+	const char *old_path = NULL, *new_path = NULL;
+	pool_t pool;
+	int ret;
+
+	if (mailbox_list_iter_subscriptions_refresh(inotify->notify.list) < 0)
+		return;
+	mailbox_tree_sort(inotify->notify.list->subscriptions);
+
+	old_tree = inotify->subscriptions;
+	new_tree = mailbox_tree_dup(inotify->notify.list->subscriptions);
+
+	old_iter = mailbox_tree_iterate_init(old_tree, NULL, MAILBOX_SUBSCRIBED);
+	new_iter = mailbox_tree_iterate_init(new_tree, NULL, MAILBOX_SUBSCRIBED);
+
+	pool = mailbox_tree_get_pool(new_tree);
+	for (;;) {
+		if (old_path == NULL) {
+			if (mailbox_tree_iterate_next(old_iter, &old_path) == NULL)
+				old_path = NULL;
+		}
+		if (new_path == NULL) {
+			if (mailbox_tree_iterate_next(new_iter, &new_path) == NULL)
+				new_path = NULL;
+		}
+
+		if (old_path == NULL) {
+			if (new_path == NULL)
+				break;
+			ret = 1;
+		} else if (new_path == NULL)
+			ret = -1;
+		else {
+			ret = strcmp(old_path, new_path);
+		}
+
+		if (ret == 0) {
+			old_path = NULL;
+			new_path = NULL;
+		} else if (ret > 0) {
+			new_path = p_strdup(pool, new_path);
+			array_append(&inotify->new_subscriptions, &new_path, 1);
+			new_path = NULL;
+		} else {
+			old_path = p_strdup(pool, old_path);
+			array_append(&inotify->new_unsubscriptions, &old_path, 1);
+			old_path = NULL;
+		}
+	}
+	mailbox_tree_iterate_deinit(&old_iter);
+	mailbox_tree_iterate_deinit(&new_iter);
+
+	mailbox_tree_deinit(&inotify->subscriptions);
+	inotify->subscriptions = new_tree;
+}
+
+static void
 mailbox_list_index_notify_reset_iters(struct mailbox_list_notify_index *inotify)
 {
 	seq_range_array_iter_init(&inotify->new_uids_iter,
@@ -412,6 +486,8 @@ mailbox_list_index_notify_reset_iters(struct mailbox_list_notify_index *inotify)
 	inotify->new_uids_n = 0;
 	inotify->expunged_uids_n = 0;
 	inotify->rename_idx = 0;
+	inotify->subscription_idx = 0;
+	inotify->unsubscription_idx = 0;
 }
 
 static void
@@ -439,6 +515,8 @@ mailbox_list_index_notify_read_init(struct mailbox_list_notify_index *inotify)
 		mailbox_list_index_notify_find_renames(inotify);
 		mailbox_list_index_notify_reset_iters(inotify);
 	}
+	if (inotify->subscriptions != NULL)
+		mailbox_list_index_notify_find_subscribes(inotify);
 
 	inotify->initialized = TRUE;
 }
@@ -450,6 +528,8 @@ mailbox_list_index_notify_read_deinit(struct mailbox_list_notify_index *inotify)
 	mail_index_view_close(&inotify->old_view);
 	inotify->old_view = mail_index_view_dup_private(inotify->view);
 
+	array_clear(&inotify->new_subscriptions);
+	array_clear(&inotify->new_unsubscriptions);
 	array_clear(&inotify->new_uids);
 	array_clear(&inotify->expunged_uids);
 	array_clear(&inotify->changed_uids);
@@ -512,6 +592,38 @@ mailbox_list_index_notify_rename(struct mailbox_list_notify_index *inotify,
 
 	rec->old_vname = old_vname;
 	rec->event = MAILBOX_LIST_NOTIFY_RENAME;
+	return TRUE;
+}
+
+static bool
+mailbox_list_index_notify_subscribe(struct mailbox_list_notify_index *inotify,
+				    unsigned int idx)
+{
+	struct mailbox_list_notify_rec *rec = &inotify->notify_rec;
+	const char *const *vnamep;
+
+	memset(rec, 0, sizeof(*rec));
+	vnamep = array_idx(&inotify->new_subscriptions, idx);
+	rec->vname = *vnamep;
+	rec->storage_name = mailbox_list_get_storage_name(inotify->notify.list,
+							  rec->vname);
+	rec->event = MAILBOX_LIST_NOTIFY_SUBSCRIBE;
+	return TRUE;
+}
+
+static bool
+mailbox_list_index_notify_unsubscribe(struct mailbox_list_notify_index *inotify,
+				      unsigned int idx)
+{
+	struct mailbox_list_notify_rec *rec = &inotify->notify_rec;
+	const char *const *vnamep;
+
+	memset(rec, 0, sizeof(*rec));
+	vnamep = array_idx(&inotify->new_unsubscriptions, idx);
+	rec->vname = *vnamep;
+	rec->storage_name = mailbox_list_get_storage_name(inotify->notify.list,
+							  rec->vname);
+	rec->event = MAILBOX_LIST_NOTIFY_UNSUBSCRIBE;
 	return TRUE;
 }
 
@@ -607,6 +719,16 @@ mailbox_list_index_notify_try_next(struct mailbox_list_notify_index *inotify)
 	if (seq_range_array_iter_nth(&inotify->new_uids_iter,
 				     inotify->new_uids_n++, &uid))
 		return mailbox_list_index_notify_new(inotify, uid);
+
+	/* subscribes */
+	if (inotify->subscription_idx < array_count(&inotify->new_subscriptions)) {
+		return mailbox_list_index_notify_subscribe(inotify,
+					inotify->subscription_idx++);
+	}
+	if (inotify->unsubscription_idx < array_count(&inotify->new_unsubscriptions)) {
+		return mailbox_list_index_notify_unsubscribe(inotify,
+					inotify->unsubscription_idx++);
+	}
 
 	/* STATUS updates */
 	while (seq_range_array_iter_nth(&inotify->changed_uids_iter,

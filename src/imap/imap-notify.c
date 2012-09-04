@@ -74,7 +74,8 @@ static int imap_notify_status(struct imap_notify_namespace *notify_ns,
 	case MAILBOX_LIST_NOTIFY_CREATE:
 	case MAILBOX_LIST_NOTIFY_DELETE:
 	case MAILBOX_LIST_NOTIFY_RENAME:
-	case MAILBOX_LIST_NOTIFY_SUBSCRIPTION_CHANGE:
+	case MAILBOX_LIST_NOTIFY_SUBSCRIBE:
+	case MAILBOX_LIST_NOTIFY_UNSUBSCRIBE:
 		i_unreached();
 	}
 	if (items.status == 0) {
@@ -116,8 +117,14 @@ imap_notify_next(struct imap_notify_namespace *notify_ns,
 			mailbox_flags = 0;
 		ret = imap_notify_list(notify_ns, rec, mailbox_flags);
 		break;
-	case MAILBOX_LIST_NOTIFY_SUBSCRIPTION_CHANGE:
-		/* FIXME: set \subscribed when needed */
+	case MAILBOX_LIST_NOTIFY_SUBSCRIBE:
+		if (mailbox_list_mailbox(notify_ns->ns->list, rec->storage_name,
+					 &mailbox_flags) < 0)
+			mailbox_flags = 0;
+		ret = imap_notify_list(notify_ns, rec,
+				       mailbox_flags | MAILBOX_SUBSCRIBED);
+		break;
+	case MAILBOX_LIST_NOTIFY_UNSUBSCRIBE:
 		if (mailbox_list_mailbox(notify_ns->ns->list, rec->storage_name,
 					 &mailbox_flags) < 0)
 			mailbox_flags = 0;
@@ -150,7 +157,8 @@ imap_notify_match_event(struct imap_notify_namespace *notify_ns,
 		if ((wanted_events & IMAP_NOTIFY_EVENT_MAILBOX_NAME) == 0)
 			return FALSE;
 		break;
-	case MAILBOX_LIST_NOTIFY_SUBSCRIPTION_CHANGE:
+	case MAILBOX_LIST_NOTIFY_SUBSCRIBE:
+	case MAILBOX_LIST_NOTIFY_UNSUBSCRIBE:
 		if ((wanted_events & IMAP_NOTIFY_EVENT_SUBSCRIPTION_CHANGE) == 0)
 			return FALSE;
 		break;
@@ -378,8 +386,10 @@ imap_events_to_notify(enum imap_notify_event events)
 			MAILBOX_LIST_NOTIFY_DELETE |
 			MAILBOX_LIST_NOTIFY_RENAME;
 	}
-	if ((events & IMAP_NOTIFY_EVENT_SUBSCRIPTION_CHANGE) != 0)
-		ret |= MAILBOX_LIST_NOTIFY_SUBSCRIPTION_CHANGE;
+	if ((events & IMAP_NOTIFY_EVENT_SUBSCRIPTION_CHANGE) != 0) {
+		ret |= MAILBOX_LIST_NOTIFY_SUBSCRIBE |
+			MAILBOX_LIST_NOTIFY_UNSUBSCRIBE;
+	}
 	return ret;
 }
 
