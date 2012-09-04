@@ -42,7 +42,6 @@ libstorage_la_SOURCES = \
 	mailbox-header.c \
 	mailbox-keywords.c \
 	mailbox-list.c \
-	mailbox-list-iter.c \
 	mailbox-list-notify.c \
 	mailbox-search-result.c \
 	mailbox-tree.c \
