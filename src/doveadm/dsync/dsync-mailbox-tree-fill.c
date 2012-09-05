@@ -111,6 +111,7 @@ dsync_mailbox_tree_add_change_timestamps(struct dsync_mailbox_tree *tree,
 		node = rec->type == MAILBOX_LOG_RECORD_DELETE_MAILBOX ? NULL :
 			dsync_mailbox_tree_find_sha(tree, ns, rec->mailbox_guid);
 
+		timestamp = mailbox_log_record_get_timestamp(rec);
 		switch (rec->type) {
 		case MAILBOX_LOG_RECORD_DELETE_MAILBOX:
 			guid_p = rec->mailbox_guid;
@@ -121,26 +122,39 @@ dsync_mailbox_tree_add_change_timestamps(struct dsync_mailbox_tree *tree,
 			}
 			del = array_append_space(&tree->deletes);
 			del->delete_mailbox = TRUE;
+			del->timestamp = timestamp;
 			memcpy(del->guid, rec->mailbox_guid, sizeof(del->guid));
 			break;
 		case MAILBOX_LOG_RECORD_DELETE_DIR:
 			if (node != NULL) {
-				/* mailbox exists again, skip it */
+				/* directory exists again, skip it */
 				break;
 			}
+			/* we don't know what directory name was deleted,
+			   just its hash. if the name still exists on the other
+			   dsync side, it can match this deletion to the
+			   name. */
 			del = array_append_space(&tree->deletes);
+			del->timestamp = timestamp;
 			memcpy(del->guid, rec->mailbox_guid, sizeof(del->guid));
 			break;
+		case MAILBOX_LOG_RECORD_CREATE_DIR:
+			if (node == NULL) {
+				/* directory has been deleted again, skip it */
+				break;
+			}
+			/* notify the remote that we want to keep this
+			   directory created (unless remote has a newer delete
+			   timestamp) */
+			node->last_renamed_or_created = timestamp;
+			break;
 		case MAILBOX_LOG_RECORD_RENAME:
+			if (node != NULL)
+				node->last_renamed_or_created = timestamp;
+			break;
 		case MAILBOX_LOG_RECORD_SUBSCRIBE:
 		case MAILBOX_LOG_RECORD_UNSUBSCRIBE:
-			if (node == NULL)
-				break;
-
-			timestamp = mailbox_log_record_get_timestamp(rec);
-			if (rec->type == MAILBOX_LOG_RECORD_RENAME)
-				node->last_renamed = timestamp;
-			else
+			if (node != NULL)
 				node->last_subscription_change = timestamp;
 			break;
 		}

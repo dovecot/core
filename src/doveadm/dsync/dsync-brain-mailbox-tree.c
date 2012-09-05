@@ -64,10 +64,12 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 	dsync_brain_check_namespaces(brain);
 
 	brain->local_mailbox_tree =
-		dsync_mailbox_tree_init(brain->hierarchy_sep);
+		dsync_mailbox_tree_init(brain->hierarchy_sep,
+					doveadm_settings->dsync_alt_char[0]);
 	/* we'll convert remote mailbox names to use our own separator */
 	brain->remote_mailbox_tree =
-		dsync_mailbox_tree_init(brain->hierarchy_sep);
+		dsync_mailbox_tree_init(brain->hierarchy_sep,
+					doveadm_settings->dsync_alt_char[0]);
 
 	/* fill the local mailbox tree */
 	if (brain->sync_ns != NULL) {
@@ -328,6 +330,13 @@ dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 	node = dsync_mailbox_tree_find_delete(tree, other_del);
 	if (node == NULL)
 		return;
+
+	if (!other_del->delete_mailbox &&
+	    other_del->timestamp <= node->last_renamed_or_created) {
+		/* we don't want to delete this directory, we already have a
+		   newer timestamp for it */
+		return;
+	}
 
 	/* make a node for it in the other mailbox tree */
 	name = dsync_mailbox_node_get_full_name(tree, node);

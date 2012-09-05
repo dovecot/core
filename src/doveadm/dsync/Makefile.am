@@ -49,3 +49,22 @@ noinst_HEADERS = \
 	dsync-slave.h \
 	dsync-slave-private.h \
 	dsync-transaction-log-scan.h
+
+test_programs = \
+	test-dsync-mailbox-tree-sync
+
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	../../lib-test/libtest.la \
+	../../lib/liblib.la
+
+test_dsync_mailbox_tree_sync_SOURCES = test-dsync-mailbox-tree-sync.c
+test_dsync_mailbox_tree_sync_LDADD = dsync-mailbox-tree-sync.lo dsync-mailbox-tree.lo $(test_libs)
+test_dsync_mailbox_tree_sync_DEPENDENCIES = dsync-mailbox-tree-sync.lo dsync-mailbox-tree.lo $(test_libs)
+
+check: check-am check-test
+check-test: all-am
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done

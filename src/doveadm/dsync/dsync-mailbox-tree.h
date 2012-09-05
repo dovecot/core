@@ -32,21 +32,34 @@ struct dsync_mailbox_node {
 	/* existence of this mailbox/directory.
 	   doesn't affect subscription state. */
 	enum dsync_mailbox_node_existence existence;
-	/* last time the mailbox was renamed, 0 if not known */
-	time_t last_renamed;
+	/* last time the mailbox/directory was created/renamed,
+	   0 if not known */
+	time_t last_renamed_or_created;
 
-	/* is this mailbox or directory subscribed? */
-	bool subscribed;
 	/* last time the subscription state was changed, 0 if not known */
 	time_t last_subscription_change;
+	/* is this mailbox or directory subscribed? */
+	unsigned int subscribed:1;
+
+	/* Internal syncing flags: */
+	unsigned int sync_delayed_guid_change:1;
+	unsigned int sync_temporary_name:1;
 };
 ARRAY_DEFINE_TYPE(dsync_mailbox_node, struct dsync_mailbox_node *);
+
+#define dsync_mailbox_node_guids_equal(node1, node2) \
+	(memcmp((node1)->mailbox_guid, (node2)->mailbox_guid, \
+		sizeof(guid_128_t)) == 0)
+
+#define dsync_mailbox_node_is_dir(node) \
+	guid_128_is_empty((node)->mailbox_guid)
 
 struct dsync_mailbox_delete {
 	/* true: guid = mailbox GUID
 	   false: guid = sha1 of directory name */
 	bool delete_mailbox;
 	guid_128_t guid;
+	time_t timestamp;
 };
 
 enum dsync_mailbox_tree_sync_type {
@@ -75,7 +88,7 @@ struct dsync_mailbox_tree_sync_change {
 	const char *rename_dest_name;
 };
 
-struct dsync_mailbox_tree *dsync_mailbox_tree_init(char sep);
+struct dsync_mailbox_tree *dsync_mailbox_tree_init(char sep, char alt_char);
 void dsync_mailbox_tree_deinit(struct dsync_mailbox_tree **tree);
 
 /* Lookup a mailbox node by name. Returns NULL if not known. */

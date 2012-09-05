@@ -8,6 +8,8 @@
 #include "mailbox-list-private.h"
 #include "dsync-mailbox-tree-private.h"
 
+#include <stdlib.h>
+
 struct dsync_mailbox_tree_iter {
 	struct dsync_mailbox_tree *tree;
 
@@ -15,7 +17,7 @@ struct dsync_mailbox_tree_iter {
 	string_t *name;
 };
 
-struct dsync_mailbox_tree *dsync_mailbox_tree_init(char sep)
+struct dsync_mailbox_tree *dsync_mailbox_tree_init(char sep, char alt_char)
 {
 	struct dsync_mailbox_tree *tree;
 	pool_t pool;
@@ -26,6 +28,7 @@ struct dsync_mailbox_tree *dsync_mailbox_tree_init(char sep)
 	tree = p_new(pool, struct dsync_mailbox_tree, 1);
 	tree->pool = pool;
 	tree->sep = tree->sep_str[0] = sep;
+	tree->alt_char = alt_char;
 	tree->root.name = "";
 	i_array_init(&tree->deletes, 32);
 	return tree;
@@ -70,6 +73,27 @@ dsync_mailbox_tree_lookup(struct dsync_mailbox_tree *tree,
 	return node;
 }
 
+void dsync_mailbox_tree_node_attach(struct dsync_mailbox_node *node,
+				    struct dsync_mailbox_node *parent)
+{
+	node->parent = parent;
+	node->next = parent->first_child;
+	parent->first_child = node;
+}
+
+void dsync_mailbox_tree_node_detach(struct dsync_mailbox_node *node)
+{
+	struct dsync_mailbox_node **p;
+
+	for (p = &node->parent->first_child;; p = &(*p)->next) {
+		if (*p == node) {
+			*p = node->next;
+			break;
+		}
+	}
+	node->parent = NULL;
+}
+
 struct dsync_mailbox_node *
 dsync_mailbox_tree_get(struct dsync_mailbox_tree *tree, const char *full_name)
 {
@@ -93,9 +117,7 @@ dsync_mailbox_tree_get(struct dsync_mailbox_tree *tree, const char *full_name)
 			node = p_new(tree->pool, struct dsync_mailbox_node, 1);
 			node->name = p_strdup(tree->pool, *path);
 			node->ns = parent->ns;
-			node->parent = parent;
-			node->next = parent->first_child;
-			parent->first_child = node;
+			dsync_mailbox_tree_node_attach(node, parent);
 			parent = node;
 		}
 	} T_END;
@@ -133,7 +155,7 @@ void dsync_mailbox_node_copy_data(struct dsync_mailbox_node *dest,
 	       sizeof(dest->mailbox_guid));
 	dest->uid_validity = src->uid_validity;
 	dest->existence = src->existence;
-	dest->last_renamed = src->last_renamed;
+	dest->last_renamed_or_created = src->last_renamed_or_created;
 	dest->subscribed = src->subscribed;
 	dest->last_subscription_change = src->last_subscription_change;
 }
@@ -228,13 +250,12 @@ static const char *
 convert_name_to_remote_sep(struct dsync_mailbox_tree *tree, const char *name)
 {
 	string_t *str = t_str_new(128);
-	char alt_char = doveadm_settings->dsync_alt_char[0];
 
 	for (; *name != '\0'; name++) {
 		if (*name == tree->sep)
 			str_append_c(str, tree->remote_sep);
 		else if (*name == tree->remote_sep)
-			str_append_c(str, alt_char);
+			str_append_c(str, tree->alt_char);
 		else
 			str_append_c(str, *name);
 	}
@@ -303,8 +324,10 @@ int dsync_mailbox_tree_build_guid_hash(struct dsync_mailbox_tree *tree)
 	hash_table_create(&tree->guid_hash, tree->pool, 0,
 			  guid_128_hash, guid_128_cmp);
 	iter = dsync_mailbox_tree_iter_init(tree);
-	while (dsync_mailbox_tree_iter_next(iter, &name, &node))
-		(void)dsync_mailbox_tree_guid_hash_add(tree, node);
+	while (dsync_mailbox_tree_iter_next(iter, &name, &node)) {
+		if (dsync_mailbox_tree_guid_hash_add(tree, node) < 0)
+			ret = -1;
+	}
 	dsync_mailbox_tree_iter_deinit(&iter);
 	return ret;
 }
@@ -349,4 +372,114 @@ void dsync_mailbox_tree_set_remote_sep(struct dsync_mailbox_tree *tree,
 	i_assert(tree->remote_sep == '\0');
 
 	tree->remote_sep = remote_sep;
+}
+
+static void
+dsync_mailbox_tree_dup_nodes(struct dsync_mailbox_tree *dest_tree,
+			     const struct dsync_mailbox_node *src,
+			     string_t *path)
+{
+	unsigned int prefix_len = str_len(path);
+	struct dsync_mailbox_node *node;
+
+	if (prefix_len > 0) {
+		str_append_c(path, dest_tree->sep);
+		prefix_len++;
+	}
+	for (; src != NULL; src = src->next) {
+		str_truncate(path, prefix_len);
+		str_append(path, src->name);
+		node = dsync_mailbox_tree_get(dest_tree, str_c(path));
+
+		node->ns = src->ns;
+		memcpy(node->mailbox_guid, src->mailbox_guid,
+		       sizeof(node->mailbox_guid));
+		node->uid_validity = src->uid_validity;
+		node->existence = src->existence;
+		node->last_renamed_or_created = src->last_renamed_or_created;
+		node->subscribed = src->subscribed;
+		node->last_subscription_change = src->last_subscription_change;
+
+		if (src->first_child != NULL) {
+			dsync_mailbox_tree_dup_nodes(dest_tree,
+						     src->first_child, path);
+		}
+	}
+}
+
+struct dsync_mailbox_tree *
+dsync_mailbox_tree_dup(const struct dsync_mailbox_tree *src)
+{
+	struct dsync_mailbox_tree *dest;
+	string_t *str = t_str_new(128);
+
+	dest = dsync_mailbox_tree_init(src->sep, src->alt_char);
+	dsync_mailbox_tree_dup_nodes(dest, &src->root, str);
+	return dest;
+}
+
+int dsync_mailbox_node_name_cmp(struct dsync_mailbox_node *const *n1,
+				struct dsync_mailbox_node *const *n2)
+{
+	return strcmp((*n1)->name, (*n2)->name);
+}
+
+static bool
+dsync_mailbox_nodes_equal(const struct dsync_mailbox_node *node1,
+			  const struct dsync_mailbox_node *node2)
+{
+	return strcmp(node1->name, node2->name) == 0 &&
+		node1->ns == node2->ns &&
+		memcmp(node1->mailbox_guid, node2->mailbox_guid,
+		       sizeof(node1->mailbox_guid)) == 0 &&
+		node1->uid_validity == node2->uid_validity &&
+		node1->existence == node2->existence &&
+		node1->subscribed == node2->subscribed;
+}
+
+static bool
+dsync_mailbox_branches_equal(struct dsync_mailbox_node *node1,
+			     struct dsync_mailbox_node *node2)
+{
+	/* this function is used only for unit tests, so performance doesn't
+	   really matter */
+	struct dsync_mailbox_node *n, **snodes1, **snodes2;
+	unsigned int i, count;
+
+	for (n = node1, count = 0; n != NULL; n = n->next) count++;
+	for (n = node2, i = 0; n != NULL; n = n->next) i++;
+	if (i != count)
+		return FALSE;
+	if (count == 0)
+		return TRUE;
+
+	/* sort the trees by name */
+	snodes1 = t_new(struct dsync_mailbox_node *, count);
+	snodes2 = t_new(struct dsync_mailbox_node *, count);
+	for (n = node1, i = 0; n != NULL; n = n->next, i++)
+		snodes1[i] = n;
+	for (n = node2, i = 0; n != NULL; n = n->next, i++)
+		snodes2[i] = n;
+	i_qsort(snodes1, count, sizeof(*snodes1), dsync_mailbox_node_name_cmp);
+	i_qsort(snodes2, count, sizeof(*snodes2), dsync_mailbox_node_name_cmp);
+
+	for (i = 0; i < count; i++) {
+		if (!dsync_mailbox_nodes_equal(snodes1[i], snodes2[i]))
+			return FALSE;
+		if (!dsync_mailbox_branches_equal(snodes1[i]->first_child,
+						  snodes2[i]->first_child))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+bool dsync_mailbox_trees_equal(struct dsync_mailbox_tree *tree1,
+			       struct dsync_mailbox_tree *tree2)
+{
+	bool ret;
+
+	T_BEGIN {
+		ret = dsync_mailbox_branches_equal(&tree1->root, &tree2->root);
+	} T_END;
+	return ret;
 }

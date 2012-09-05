@@ -72,7 +72,7 @@ static const struct {
 	  .chr = 'N',
 	  .required_keys = "name existence",
 	  .optional_keys = "mailbox_guid uid_validity "
-	  	"last_renamed subscribed last_subscription_change"
+	  	"last_renamed_or_created subscribed last_subscription_change"
 	},
 	{ .name = "mailbox_delete",
 	  .chr = 'D',
@@ -715,9 +715,9 @@ dsync_slave_io_send_mailbox_tree_node(struct dsync_slave *_slave,
 		dsync_serializer_encode_add(encoder, "uid_validity",
 					    dec2str(node->uid_validity));
 	}
-	if (node->last_renamed != 0) {
-		dsync_serializer_encode_add(encoder, "last_renamed",
-					    dec2str(node->last_renamed));
+	if (node->last_renamed_or_created != 0) {
+		dsync_serializer_encode_add(encoder, "last_renamed_or_created",
+					    dec2str(node->last_renamed_or_created));
 	}
 	if (node->last_subscription_change != 0) {
 		dsync_serializer_encode_add(encoder, "last_subscription_change",
@@ -777,9 +777,9 @@ dsync_slave_io_recv_mailbox_tree_node(struct dsync_slave *_slave,
 		dsync_slave_input_error(slave, decoder, "Invalid uid_validity");
 		return DSYNC_SLAVE_RECV_RET_TRYAGAIN;
 	}
-	if (dsync_deserializer_decode_try(decoder, "last_renamed", &value) &&
-	    str_to_time(value, &node->last_renamed) < 0) {
-		dsync_slave_input_error(slave, decoder, "Invalid last_renamed");
+	if (dsync_deserializer_decode_try(decoder, "last_renamed_or_created", &value) &&
+	    str_to_time(value, &node->last_renamed_or_created) < 0) {
+		dsync_slave_input_error(slave, decoder, "Invalid last_renamed_or_created");
 		return DSYNC_SLAVE_RECV_RET_TRYAGAIN;
 	}
 	if (dsync_deserializer_decode_try(decoder, "last_subscription_change", &value) &&
@@ -801,7 +801,7 @@ dsync_slave_io_send_mailbox_deletes(struct dsync_slave *_slave,
 {
 	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
 	struct dsync_serializer_encoder *encoder;
-	string_t *str, *guidstr;
+	string_t *str, *substr;
 	char sep[2];
 	unsigned int i;
 
@@ -812,29 +812,29 @@ dsync_slave_io_send_mailbox_deletes(struct dsync_slave *_slave,
 	sep[0] = hierarchy_sep; sep[1] = '\0';
 	dsync_serializer_encode_add(encoder, "hierarchy_sep", sep);
 
-	guidstr = t_str_new(128);
+	substr = t_str_new(128);
 	for (i = 0; i < count; i++) {
 		if (deletes[i].delete_mailbox) {
-			str_append(guidstr, guid_128_to_string(deletes[i].guid));
-			str_append_c(guidstr, ' ');
+			str_append(substr, guid_128_to_string(deletes[i].guid));
+			str_printfa(substr, " %ld ", (long)deletes[i].timestamp);
 		}
 	}
-	if (str_len(guidstr) > 0) {
-		str_truncate(guidstr, str_len(guidstr)-1);
+	if (str_len(substr) > 0) {
+		str_truncate(substr, str_len(substr)-1);
 		dsync_serializer_encode_add(encoder, "mailboxes",
-					    str_c(guidstr));
+					    str_c(substr));
 	}
 
-	str_truncate(guidstr, 0);
+	str_truncate(substr, 0);
 	for (i = 0; i < count; i++) {
 		if (!deletes[i].delete_mailbox) {
-			str_append(guidstr, guid_128_to_string(deletes[i].guid));
-			str_append_c(guidstr, ' ');
+			str_append(substr, guid_128_to_string(deletes[i].guid));
+			str_printfa(substr, " %ld ", (long)deletes[i].timestamp);
 		}
 	}
-	if (str_len(guidstr) > 0) {
-		str_truncate(guidstr, str_len(guidstr)-1);
-		dsync_serializer_encode_add(encoder, "dirs", str_c(guidstr));
+	if (str_len(substr) > 0) {
+		str_truncate(substr, str_len(substr)-1);
+		dsync_serializer_encode_add(encoder, "dirs", str_c(substr));
 	}
 	dsync_serializer_encode_finish(&encoder, str);
 	dsync_slave_io_send_string(slave, str);
@@ -846,14 +846,17 @@ decode_mailbox_deletes(ARRAY_TYPE(dsync_mailbox_delete) *deletes,
 		       const char *value, bool delete_mailbox)
 {
 	struct dsync_mailbox_delete *del;
-	const char *const *guid_strings;
+	const char *const *tmp;
 	unsigned int i;
 
-	guid_strings = t_strsplit(value, " ");
-	for (i = 0; guid_strings[i] != NULL; i++) {
+	tmp = t_strsplit(value, " ");
+	for (i = 0; tmp[i] != NULL; i += 2) {
 		del = array_append_space(deletes);
 		del->delete_mailbox = delete_mailbox;
-		if (guid_128_from_string(guid_strings[i], del->guid) < 0)
+		if (guid_128_from_string(tmp[i], del->guid) < 0)
+			return -1;
+		if (tmp[i+1] == NULL ||
+		    str_to_time(tmp[i+1], &del->timestamp) < 0)
 			return -1;
 	}
 	return 0;
