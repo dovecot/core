@@ -1564,8 +1564,8 @@ mail_transaction_log_file_mmap(struct mail_transaction_log_file *file)
 			log_file_set_syscall_error(file, "madvise()");
 	}
 
-	buffer_create_const_data(&file->mmap_buffer,
-				 file->mmap_base, file->mmap_size);
+	buffer_create_from_const_data(&file->mmap_buffer,
+				      file->mmap_base, file->mmap_size);
 	file->buffer = &file->mmap_buffer;
 	file->buffer_offset = 0;
 	return 0;

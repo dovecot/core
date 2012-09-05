@@ -135,7 +135,7 @@ maildir_save_transaction_init(struct mailbox_transaction_context *t)
 	ctx->newdir = p_strconcat(pool, path, "/new", NULL);
 	ctx->curdir = p_strconcat(pool, path, "/cur", NULL);
 
-	buffer_create_const_data(&ctx->keywords_buffer, "", 0);
+	buffer_create_from_const_data(&ctx->keywords_buffer, "", 0);
 	array_create_from_buffer(&ctx->keywords_array, &ctx->keywords_buffer,
 				 sizeof(unsigned int));
 	ctx->last_save_finished = TRUE;
@@ -279,8 +279,8 @@ maildir_get_dest_filename(struct maildir_save_context *ctx,
 	}
 
 	i_assert(ctx->keywords_sync_ctx != NULL || mf->keywords_count == 0);
-	buffer_create_const_data(&ctx->keywords_buffer, mf + 1,
-				 mf->keywords_count * sizeof(unsigned int));
+	buffer_create_from_const_data(&ctx->keywords_buffer, mf + 1,
+				      mf->keywords_count * sizeof(unsigned int));
 	*fname_r = maildir_filename_flags_kw_set(ctx->keywords_sync_ctx,
 						 basename,
 						 mf->flags & MAIL_FLAGS_MASK,

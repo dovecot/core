@@ -116,7 +116,7 @@ static void stream_encode_base64(struct binary_converter_istream *bstream,
 		}
 
 		dest = i_stream_alloc(stream, BASE64_BLOCK_SIZE);
-		buffer_create_data(&buf, dest, BASE64_BLOCK_SIZE);
+		buffer_create_from_data(&buf, dest, BASE64_BLOCK_SIZE);
 		base64_encode(base64_block, base64_block_len, &buf);
 		stream->pos += buf.used;
 		bstream->base64_block_pos++;
@@ -143,7 +143,7 @@ static void stream_encode_base64(struct binary_converter_istream *bstream,
 
 		max_encoded_size = MAX_BASE64_ENCODED_SIZE(encode_size);
 		dest = i_stream_alloc(stream, max_encoded_size);
-		buffer_create_data(&buf, dest, max_encoded_size);
+		buffer_create_from_data(&buf, dest, max_encoded_size);
 		base64_encode(data, encode_size, &buf);
 		stream->pos += buf.used;
 		bstream->base64_block_pos += encode_blocks;

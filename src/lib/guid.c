@@ -91,7 +91,7 @@ int guid_128_from_string(const char *str, guid_128_t guid_r)
 {
 	buffer_t buf;
 
-	buffer_create_data(&buf, guid_r, GUID_128_SIZE);
+	buffer_create_from_data(&buf, guid_r, GUID_128_SIZE);
 	return strlen(str) == GUID_128_SIZE*2 &&
 		hex_to_binary(str, &buf) == 0 &&
 		buf.used == GUID_128_SIZE ? 0 : -1;

@@ -39,7 +39,7 @@ rawlog_write_timestamp(struct rawlog_iostream *rstream, bool line_ends)
 	unsigned char data[MAX_INT_STRLEN + 6 + 1 + 3];
 	buffer_t buf;
 
-	buffer_create_data(&buf, data, sizeof(data));
+	buffer_create_from_data(&buf, data, sizeof(data));
 	str_printfa(&buf, "%lu.%06u ",
 		    (unsigned long)ioloop_timeval.tv_sec,
 		    (unsigned int)ioloop_timeval.tv_usec);

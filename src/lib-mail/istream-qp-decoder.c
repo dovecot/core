@@ -57,7 +57,8 @@ i_stream_qp_try_decode_block(struct qp_decoder_istream *bstream)
 			return -2;
 	}
 
-	buffer_create_data(&buf, stream->w_buffer + stream->pos, buffer_avail);
+	buffer_create_from_data(&buf, stream->w_buffer + stream->pos,
+				buffer_avail);
 	quoted_printable_decode(data, size, &pos, &buf);
 
 	stream->pos += buf.used;

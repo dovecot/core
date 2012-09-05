@@ -189,7 +189,7 @@ anvil_check_too_many_connections(struct client *client,
 	req->auth_pid = auth_client_request_get_server_pid(request);
 	req->auth_id = auth_client_request_get_id(request);
 
-	buffer_create_data(&buf, req->cookie, sizeof(req->cookie));
+	buffer_create_from_data(&buf, req->cookie, sizeof(req->cookie));
 	cookie = auth_client_request_get_cookie(request);
 	if (strlen(cookie) == MASTER_AUTH_COOKIE_SIZE*2)
 		(void)hex_to_binary(cookie, &buf);

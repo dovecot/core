@@ -170,7 +170,7 @@ log_append_sync_offset_if_needed(struct mail_transaction_log_append_ctx *ctx)
 		return;
 	i_assert(offset > file->saved_tail_offset);
 
-	buffer_create_data(&buf, update_data, sizeof(update_data));
+	buffer_create_from_data(&buf, update_data, sizeof(update_data));
 	u = buffer_append_space_unsafe(&buf, sizeof(*u));
 	u->offset = offsetof(struct mail_index_header, log_file_tail_offset);
 	u->size = sizeof(offset);

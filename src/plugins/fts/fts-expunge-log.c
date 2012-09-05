@@ -444,7 +444,7 @@ fts_expunge_log_read_next(struct fts_expunge_log_read_ctx *ctx)
 	       sizeof(ctx->read_rec.mailbox_guid));
 	/* create the UIDs array by pointing it directly into input
 	   stream's buffer */
-	buffer_create_const_data(&ctx->buffer, rec + 1, uids_size);
+	buffer_create_from_const_data(&ctx->buffer, rec + 1, uids_size);
 	array_create_from_buffer(&ctx->read_rec.uids, &ctx->buffer,
 				 sizeof(struct seq_range));
 

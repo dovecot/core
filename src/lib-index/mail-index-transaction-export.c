@@ -245,7 +245,7 @@ mail_transaction_log_append_ext_intros(struct mail_index_export_context *ctx)
 	}
 
 	memset(&ext_reset, 0, sizeof(ext_reset));
-	buffer_create_data(&reset_buf, &ext_reset, sizeof(ext_reset));
+	buffer_create_from_data(&reset_buf, &ext_reset, sizeof(ext_reset));
 	buffer_set_used_size(&reset_buf, sizeof(ext_reset));
 
 	for (ext_id = 0; ext_id < ext_count; ext_id++) {

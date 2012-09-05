@@ -55,7 +55,8 @@ i_stream_base64_try_decode_block(struct base64_decoder_istream *bstream)
 			return -2;
 	}
 
-	buffer_create_data(&buf, stream->w_buffer + stream->pos, buffer_avail);
+	buffer_create_from_data(&buf, stream->w_buffer + stream->pos,
+				buffer_avail);
 	if (base64_decode(data, size, &pos, &buf) < 0) {
 		stream->istream.stream_errno = EINVAL;
 		return -1;

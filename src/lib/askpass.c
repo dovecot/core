@@ -58,7 +58,7 @@ void askpass(const char *prompt, char *buf, size_t buf_size)
 {
 	buffer_t str;
 
-	buffer_create_data(&str, buf, buf_size);
+	buffer_create_from_data(&str, buf, buf_size);
 	askpass_str(prompt, &str);
 	buffer_append_c(&str, '\0');
 }

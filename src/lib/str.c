@@ -19,7 +19,7 @@ string_t *str_new_const(pool_t pool, const char *str, size_t len)
 	i_assert(str[len] == '\0');
 
 	ret = p_new(pool, buffer_t, 1);
-	buffer_create_const_data(ret, str, len + 1);
+	buffer_create_from_const_data(ret, str, len + 1);
 	str_truncate(ret, len);
 	return ret;
 }

@@ -176,7 +176,7 @@ void lucene_utf8_n_to_tchar(const unsigned char *src, size_t srcsize,
 
 	i_assert(sizeof(wchar_t) == sizeof(unichar_t));
 
-	buffer_create_data(&buf, dest, sizeof(wchar_t) * destsize);
+	buffer_create_from_data(&buf, dest, sizeof(wchar_t) * destsize);
 	array_create_from_buffer(&dest_arr, &buf, sizeof(wchar_t));
 	if (uni_utf8_to_ucs4_n(src, srcsize, &dest_arr) < 0)
 		i_unreached();
@@ -579,7 +579,7 @@ wcharguid_to_guid(guid_128_t dest, const wchar_t *src)
 		return -1;
 	src_chars[i] = '\0';
 
-	buffer_create_data(&buf, dest, GUID_128_SIZE);
+	buffer_create_from_data(&buf, dest, GUID_128_SIZE);
 	return hex_to_binary(src_chars, &buf);
 }
 
@@ -820,7 +820,7 @@ static void guid128_to_wguid(const guid_128_t guid,
 	unsigned char guid_hex[MAILBOX_GUID_HEX_LENGTH];
 	unsigned int i;
 
-	buffer_create_data(&buf, guid_hex, MAILBOX_GUID_HEX_LENGTH);
+	buffer_create_from_data(&buf, guid_hex, MAILBOX_GUID_HEX_LENGTH);
 	binary_to_hex_append(&buf, guid, GUID_128_SIZE);
 	for (i = 0; i < MAILBOX_GUID_HEX_LENGTH; i++)
 		wguid_hex[i] = guid_hex[i];

@@ -83,8 +83,8 @@ static void keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
 
 	i_assert(keywords_count > 0);
 
-	buffer_create_data(&ext_intro_buf, ext_intro_data,
-			   sizeof(ext_intro_data));
+	buffer_create_from_data(&ext_intro_buf, ext_intro_data,
+				sizeof(ext_intro_data));
 
 	u = buffer_append_space_unsafe(&ext_intro_buf, sizeof(*u));
 	u->ext_id = ext_map_idx;

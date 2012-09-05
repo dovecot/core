@@ -82,7 +82,8 @@ i_stream_base64_try_encode_line(struct base64_encoder_istream *bstream)
 		i_assert(size != 0);
 	}
 
-	buffer_create_data(&buf, stream->w_buffer + stream->pos, buffer_avail);
+	buffer_create_from_data(&buf, stream->w_buffer + stream->pos,
+				buffer_avail);
 	base64_encode(data, size, &buf);
 	i_assert(buf.used > 0);
 

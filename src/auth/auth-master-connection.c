@@ -110,7 +110,7 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 		return FALSE;
 	}
 
-	buffer_create_data(&buf, cookie, sizeof(cookie));
+	buffer_create_from_data(&buf, cookie, sizeof(cookie));
 	if (hex_to_binary(list[3], &buf) < 0) {
 		i_error("BUG: Master sent broken REQUEST cookie");
 		return FALSE;

@@ -14,9 +14,10 @@ struct buffer {
 
 /* Create a modifiable buffer from given data. Writes past this size will
    i_panic(). */
-void buffer_create_data(buffer_t *buffer, void *data, size_t size);
+void buffer_create_from_data(buffer_t *buffer, void *data, size_t size);
 /* Create a non-modifiable buffer from given data. */
-void buffer_create_const_data(buffer_t *buffer, const void *data, size_t size);
+void buffer_create_from_const_data(buffer_t *buffer,
+				   const void *data, size_t size);
 /* Creates a dynamically growing buffer. Whenever write would exceed the
    current size it's grown. */
 buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size);

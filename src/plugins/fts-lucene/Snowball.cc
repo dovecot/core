@@ -111,7 +111,7 @@ CL_NS_DEF2(analysis,snowball)
 
 	buffer_t buf = { 0, 0, { 0, 0, 0, 0, 0 } };
 	i_assert(sizeof(wchar_t) == sizeof(unichar_t));
-	buffer_create_data(&buf, utf8text, sizeof(utf8text));
+	buffer_create_from_data(&buf, utf8text, sizeof(utf8text));
 	uni_ucs4_to_utf8((const unichar_t *)token->termBuffer(), len, &buf);
 
     const sb_symbol* stemmed = sb_stemmer_stem(stemmer, utf8text, buf.used);

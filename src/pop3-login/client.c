@@ -177,7 +177,7 @@ static char *get_apop_challenge(struct pop3_client *client)
 				   &client->apop_connect_uid);
 
 	random_fill(buffer, sizeof(buffer));
-	buffer_create_data(&buf, buffer_base64, sizeof(buffer_base64));
+	buffer_create_from_data(&buf, buffer_base64, sizeof(buffer_base64));
 	base64_encode(buffer, sizeof(buffer), &buf);
 	buffer_append_c(&buf, '\0');
 

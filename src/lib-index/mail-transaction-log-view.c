@@ -528,7 +528,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		}
 		break;
 	case MAIL_TRANSACTION_EXPUNGE:
-		buffer_create_const_data(&uid_buf, data, rec_size);
+		buffer_create_from_const_data(&uid_buf, data, rec_size);
 		array_create_from_buffer(&uids, &uid_buf,
 			sizeof(struct mail_transaction_expunge));
 		break;
@@ -552,7 +552,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		break;
 	}
 	case MAIL_TRANSACTION_FLAG_UPDATE:
-		buffer_create_const_data(&uid_buf, data, rec_size);
+		buffer_create_from_const_data(&uid_buf, data, rec_size);
 		array_create_from_buffer(&uids, &uid_buf,
 			sizeof(struct mail_transaction_flag_update));
 		break;
@@ -575,7 +575,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 			return FALSE;
 		}
 
-		buffer_create_const_data(&uid_buf,
+		buffer_create_from_const_data(&uid_buf,
 					 CONST_PTR_OFFSET(data, seqset_offset),
 					 rec_size - seqset_offset);
 		array_create_from_buffer(&uids, &uid_buf,
@@ -583,7 +583,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		break;
 	}
 	case MAIL_TRANSACTION_KEYWORD_RESET:
-		buffer_create_const_data(&uid_buf, data, rec_size);
+		buffer_create_from_const_data(&uid_buf, data, rec_size);
 		array_create_from_buffer(&uids, &uid_buf,
 			sizeof(struct mail_transaction_keyword_reset));
 		break;

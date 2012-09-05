@@ -334,7 +334,7 @@ void mail_generate_guid_128_hash(const char *guid, guid_128_t guid_128_r)
 
 	if (guid_128_from_string(guid, guid_128_r) < 0) {
 		/* not 128bit hex. use a hash of it instead. */
-		buffer_create_data(&buf, guid_128_r, GUID_128_SIZE);
+		buffer_create_from_data(&buf, guid_128_r, GUID_128_SIZE);
 		buffer_set_used_size(&buf, 0);
 		sha1_get_digest(guid, strlen(guid), sha1_sum);
 #if SHA1_RESULTLEN < DBOX_GUID_BIN_LEN
