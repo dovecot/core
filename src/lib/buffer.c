@@ -96,6 +96,10 @@ void buffer_create_data(buffer_t *buffer, void *data, size_t size)
 	memset(buf, 0, sizeof(*buf));
 	buf->alloc = size;
 	buf->r_buffer = buf->w_buffer = data;
+	/* clear the whole memory area. unnecessary usually, but if the
+	   buffer is used by e.g. str_c() it tries to access uninitialized
+	   memory */
+	memset(data, 0, size);
 }
 
 void buffer_create_const_data(buffer_t *buffer, const void *data, size_t size)
