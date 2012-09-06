@@ -174,6 +174,21 @@ static struct doveadm_cmd doveadm_cmd_config = {
 	cmd_config, "config", "[doveconf parameters]"
 };
 
+static void cmd_exec(int argc ATTR_UNUSED, char *argv[])
+{
+	const char *path, *binary = argv[1];
+
+	path = t_strdup_printf("%s/%s", doveadm_settings->libexec_dir, binary);
+	argv++;
+	argv[0] = t_strdup_noconst(path);
+	(void)execv(argv[0], argv);
+	i_fatal("execv(%s) failed: %m", argv[0]);
+}
+
+static struct doveadm_cmd doveadm_cmd_exec = {
+	cmd_exec, "exec", "<binary> [binary parameters]"
+};
+
 static bool
 doveadm_try_run_multi_word(const struct doveadm_cmd *cmd,
 			   const char *cmdname, int argc, char *argv[])
@@ -269,6 +284,7 @@ static void doveadm_read_settings(void)
 static struct doveadm_cmd *doveadm_commands[] = {
 	&doveadm_cmd_help,
 	&doveadm_cmd_config,
+	&doveadm_cmd_exec,
 	&doveadm_cmd_stop,
 	&doveadm_cmd_reload,
 	&doveadm_cmd_dump,

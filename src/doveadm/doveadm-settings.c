@@ -53,6 +53,7 @@ struct service_settings doveadm_service_settings = {
 
 static const struct setting_define doveadm_setting_defines[] = {
 	DEF(SET_STR, base_dir),
+	DEF(SET_STR, libexec_dir),
 	DEF(SET_STR, mail_plugins),
 	DEF(SET_STR, mail_plugin_dir),
 	DEF(SET_STR, doveadm_socket_path),
@@ -70,6 +71,7 @@ static const struct setting_define doveadm_setting_defines[] = {
 
 const struct doveadm_settings doveadm_default_settings = {
 	.base_dir = PKG_RUNDIR,
+	.libexec_dir = PKG_LIBEXECDIR,
 	.mail_plugins = "",
 	.mail_plugin_dir = MODULEDIR,
 	.doveadm_socket_path = "doveadm-server",
