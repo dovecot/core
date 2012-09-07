@@ -24,8 +24,8 @@
 
 #include <stdlib.h>
 
-#define DSYNC_SLAVE_IO_TIMEOUT_MSECS (60*10*1000)
-#define DSYNC_SLAVE_IO_OUTBUF_THROTTLE_SIZE (1024*128)
+#define DSYNC_SLAVE_STREAM_TIMEOUT_MSECS (60*10*1000)
+#define DSYNC_SLAVE_STREAM_OUTBUF_THROTTLE_SIZE (1024*128)
 
 #define DSYNC_PROTOCOL_VERSION_MAJOR 3
 #define DSYNC_HANDSHAKE_VERSION "VERSION\tdsync\t3\t0\n"
@@ -109,7 +109,7 @@ static const struct {
 	{ "end_of_list", '\0', NULL, NULL }
 };
 
-struct dsync_slave_io {
+struct dsync_slave_stream {
 	struct dsync_slave slave;
 
 	char *name, *temp_path_prefix;
@@ -134,20 +134,20 @@ struct dsync_slave_io {
 	unsigned int has_pending_data:1;
 };
 
-static void dsync_slave_io_stop(struct dsync_slave_io *slave)
+static void dsync_slave_stream_stop(struct dsync_slave_stream *slave)
 {
 	i_stream_close(slave->input);
 	o_stream_close(slave->output);
 	io_loop_stop(current_ioloop);
 }
 
-static int dsync_slave_io_read_mail_stream(struct dsync_slave_io *slave)
+static int dsync_slave_stream_read_mail_stream(struct dsync_slave_stream *slave)
 {
 	if (i_stream_read(slave->mail_input) < 0) {
 		if (slave->mail_input->stream_errno != 0) {
 			errno = slave->mail_input->stream_errno;
 			i_error("dsync(%s): read() failed: %m", slave->name);
-			dsync_slave_io_stop(slave);
+			dsync_slave_stream_stop(slave);
 			return -1;
 		}
 		/* finished reading the mail stream */
@@ -161,16 +161,16 @@ static int dsync_slave_io_read_mail_stream(struct dsync_slave_io *slave)
 	return 0;
 }
 
-static void dsync_slave_io_input(struct dsync_slave_io *slave)
+static void dsync_slave_stream_input(struct dsync_slave_stream *slave)
 {
 	if (slave->mail_input != NULL) {
-		if (dsync_slave_io_read_mail_stream(slave) == 0)
+		if (dsync_slave_stream_read_mail_stream(slave) == 0)
 			return;
 	}
 	slave->slave.io_callback(slave->slave.io_context);
 }
 
-static int dsync_slave_io_send_mail_stream(struct dsync_slave_io *slave)
+static int dsync_slave_stream_send_mail_stream(struct dsync_slave_stream *slave)
 {
 	const unsigned char *data;
 	unsigned char add;
@@ -205,7 +205,7 @@ static int dsync_slave_io_send_mail_stream(struct dsync_slave_io *slave)
 
 		if (o_stream_get_buffer_used_size(slave->output) >= 4096) {
 			if ((ret = o_stream_flush(slave->output)) < 0) {
-				dsync_slave_io_stop(slave);
+				dsync_slave_stream_stop(slave);
 				return -1;
 			}
 			if (ret == 0) {
@@ -225,7 +225,7 @@ static int dsync_slave_io_send_mail_stream(struct dsync_slave_io *slave)
 	if (slave->mail_output->stream_errno != 0) {
 		i_error("dsync(%s): read(%s) failed: %m",
 			slave->name, i_stream_get_name(slave->mail_output));
-		dsync_slave_io_stop(slave);
+		dsync_slave_stream_stop(slave);
 		return -1;
 	}
 
@@ -235,7 +235,7 @@ static int dsync_slave_io_send_mail_stream(struct dsync_slave_io *slave)
 	return 1;
 }
 
-static int dsync_slave_io_output(struct dsync_slave_io *slave)
+static int dsync_slave_stream_output(struct dsync_slave_stream *slave)
 {
 	struct ostream *output = slave->output;
 	int ret;
@@ -243,7 +243,7 @@ static int dsync_slave_io_output(struct dsync_slave_io *slave)
 	if ((ret = o_stream_flush(output)) < 0)
 		ret = 1;
 	else if (slave->mail_output != NULL) {
-		if (dsync_slave_io_send_mail_stream(slave) < 0)
+		if (dsync_slave_stream_send_mail_stream(slave) < 0)
 			ret = 1;
 	}
 	timeout_reset(slave->to);
@@ -253,14 +253,14 @@ static int dsync_slave_io_output(struct dsync_slave_io *slave)
 	return ret;
 }
 
-static void dsync_slave_io_timeout(struct dsync_slave_io *slave)
+static void dsync_slave_stream_timeout(struct dsync_slave_stream *slave)
 {
 	i_error("dsync(%s): I/O has stalled, no activity for %u seconds",
-		slave->name, DSYNC_SLAVE_IO_TIMEOUT_MSECS/1000);
-	dsync_slave_io_stop(slave);
+		slave->name, DSYNC_SLAVE_STREAM_TIMEOUT_MSECS/1000);
+	dsync_slave_stream_stop(slave);
 }
 
-static void dsync_slave_io_init(struct dsync_slave_io *slave)
+static void dsync_slave_stream_init(struct dsync_slave_stream *slave)
 {
 	unsigned int i;
 
@@ -269,11 +269,13 @@ static void dsync_slave_io_init(struct dsync_slave_io *slave)
 
 	slave->input = i_stream_create_fd(slave->fd_in, (size_t)-1, FALSE);
 	slave->output = o_stream_create_fd(slave->fd_out, (size_t)-1, FALSE);
-	slave->io = io_add(slave->fd_in, IO_READ, dsync_slave_io_input, slave);
+	slave->io = io_add(slave->fd_in, IO_READ,
+			   dsync_slave_stream_input, slave);
 	o_stream_set_no_error_handling(slave->output, TRUE);
-	o_stream_set_flush_callback(slave->output, dsync_slave_io_output, slave);
-	slave->to = timeout_add(DSYNC_SLAVE_IO_TIMEOUT_MSECS,
-				dsync_slave_io_timeout, slave);
+	o_stream_set_flush_callback(slave->output, dsync_slave_stream_output,
+				    slave);
+	slave->to = timeout_add(DSYNC_SLAVE_STREAM_TIMEOUT_MSECS,
+				dsync_slave_stream_timeout, slave);
 	o_stream_cork(slave->output);
 	o_stream_nsend_str(slave->output, DSYNC_HANDSHAKE_VERSION);
 
@@ -299,9 +301,9 @@ static void dsync_slave_io_init(struct dsync_slave_io *slave)
 	dsync_slave_flush(&slave->slave);
 }
 
-static void dsync_slave_io_deinit(struct dsync_slave *_slave)
+static void dsync_slave_stream_deinit(struct dsync_slave *_slave)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 
 	if (slave->cur_decoder != NULL)
 		dsync_deserializer_decode_finish(&slave->cur_decoder);
@@ -325,8 +327,8 @@ static void dsync_slave_io_deinit(struct dsync_slave *_slave)
 	i_free(slave);
 }
 
-static int dsync_slave_io_next_line(struct dsync_slave_io *slave,
-				    const char **line_r)
+static int dsync_slave_stream_next_line(struct dsync_slave_stream *slave,
+					const char **line_r)
 {
 	const char *line;
 
@@ -346,7 +348,7 @@ static int dsync_slave_io_next_line(struct dsync_slave_io *slave,
 			i_assert(slave->input->eof);
 			i_error("read(%s) failed: EOF", slave->name);
 		}
-		dsync_slave_io_stop(slave);
+		dsync_slave_stream_stop(slave);
 		return -1;
 	case 0:
 		return 0;
@@ -361,7 +363,7 @@ static int dsync_slave_io_next_line(struct dsync_slave_io *slave,
 }
 
 static void ATTR_FORMAT(3, 4) ATTR_NULL(2)
-dsync_slave_input_error(struct dsync_slave_io *slave,
+dsync_slave_input_error(struct dsync_slave_stream *slave,
 			struct dsync_deserializer_decoder *decoder,
 			const char *fmt, ...)
 {
@@ -378,17 +380,19 @@ dsync_slave_input_error(struct dsync_slave_io *slave,
 	}
 	va_end(args);
 
-	dsync_slave_io_stop(slave);
+	dsync_slave_stream_stop(slave);
 }
 
 static void
-dsync_slave_io_send_string(struct dsync_slave_io *slave, const string_t *str)
+dsync_slave_stream_send_string(struct dsync_slave_stream *slave,
+			       const string_t *str)
 {
 	i_assert(slave->mail_output == NULL);
 	o_stream_nsend(slave->output, str_data(str), str_len(str));
 }
 
-static int dsync_slave_check_missing_deserializers(struct dsync_slave_io *slave)
+static int
+dsync_slave_check_missing_deserializers(struct dsync_slave_stream *slave)
 {
 	unsigned int i;
 	int ret = 0;
@@ -407,7 +411,7 @@ static int dsync_slave_check_missing_deserializers(struct dsync_slave_io *slave)
 }
 
 static bool
-dsync_slave_io_handshake(struct dsync_slave_io *slave, const char *line)
+dsync_slave_stream_handshake(struct dsync_slave_stream *slave, const char *line)
 {
 	enum item_type item = ITEM_NONE;
 	const char *const *required_keys, *error;
@@ -459,8 +463,8 @@ dsync_slave_io_handshake(struct dsync_slave_io *slave, const char *line)
 }
 
 static enum dsync_slave_recv_ret
-dsync_slave_io_input_next(struct dsync_slave_io *slave, enum item_type item,
-			  struct dsync_deserializer_decoder **decoder_r)
+dsync_slave_stream_input_next(struct dsync_slave_stream *slave, enum item_type item,
+			      struct dsync_deserializer_decoder **decoder_r)
 {
 	enum item_type line_item = ITEM_NONE;
 	const char *line, *error;
@@ -471,9 +475,9 @@ dsync_slave_io_input_next(struct dsync_slave_io *slave, enum item_type item,
 	timeout_reset(slave->to);
 
 	do {
-		if (dsync_slave_io_next_line(slave, &line) <= 0)
+		if (dsync_slave_stream_next_line(slave, &line) <= 0)
 			return DSYNC_SLAVE_RECV_RET_TRYAGAIN;
-	} while (!dsync_slave_io_handshake(slave, line));
+	} while (!dsync_slave_stream_handshake(slave, line));
 
 	if (strcmp(line, END_OF_LIST_LINE) == 0) {
 		/* end of this list */
@@ -506,10 +510,10 @@ dsync_slave_io_input_next(struct dsync_slave_io *slave, enum item_type item,
 }
 
 static void
-dsync_slave_io_send_handshake(struct dsync_slave *_slave,
-			      const struct dsync_slave_settings *set)
+dsync_slave_stream_send_handshake(struct dsync_slave *_slave,
+				  const struct dsync_slave_settings *set)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	struct dsync_serializer_encoder *encoder;
 	string_t *str = t_str_new(128);
 	char sync_type[2];
@@ -543,26 +547,26 @@ dsync_slave_io_send_handshake(struct dsync_slave *_slave,
 		dsync_serializer_encode_add(encoder, "mails_have_guids", "");
 
 	dsync_serializer_encode_finish(&encoder, str);
-	dsync_slave_io_send_string(slave, str);
+	dsync_slave_stream_send_string(slave, str);
 }
 
 static enum dsync_slave_recv_ret
-dsync_slave_io_recv_handshake(struct dsync_slave *_slave,
-			      const struct dsync_slave_settings **set_r)
+dsync_slave_stream_recv_handshake(struct dsync_slave *_slave,
+				  const struct dsync_slave_settings **set_r)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	struct dsync_deserializer_decoder *decoder;
 	struct dsync_slave_settings *set;
 	const char *value;
 	pool_t pool = slave->ret_pool;
 	enum dsync_slave_recv_ret ret;
 
-	ret = dsync_slave_io_input_next(slave, ITEM_HANDSHAKE, &decoder);
+	ret = dsync_slave_stream_input_next(slave, ITEM_HANDSHAKE, &decoder);
 	if (ret != DSYNC_SLAVE_RECV_RET_OK) {
 		if (ret != DSYNC_SLAVE_RECV_RET_TRYAGAIN) {
 			i_error("dsync(%s): Unexpected input in handshake",
 				slave->name);
-			dsync_slave_io_stop(slave);
+			dsync_slave_stream_stop(slave);
 		}
 		return DSYNC_SLAVE_RECV_RET_TRYAGAIN;
 	}
@@ -599,9 +603,9 @@ dsync_slave_io_recv_handshake(struct dsync_slave *_slave,
 }
 
 static void
-dsync_slave_io_send_end_of_list(struct dsync_slave *_slave)
+dsync_slave_stream_send_end_of_list(struct dsync_slave *_slave)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 
 	i_assert(slave->mail_output == NULL);
 
@@ -609,10 +613,10 @@ dsync_slave_io_send_end_of_list(struct dsync_slave *_slave)
 }
 
 static void
-dsync_slave_io_send_mailbox_state(struct dsync_slave *_slave,
-				  const struct dsync_mailbox_state *state)
+dsync_slave_stream_send_mailbox_state(struct dsync_slave *_slave,
+				      const struct dsync_mailbox_state *state)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	struct dsync_serializer_encoder *encoder;
 	string_t *str = t_str_new(128);
 
@@ -628,21 +632,21 @@ dsync_slave_io_send_mailbox_state(struct dsync_slave *_slave,
 				    dec2str(state->last_common_modseq));
 
 	dsync_serializer_encode_finish(&encoder, str);
-	dsync_slave_io_send_string(slave, str);
+	dsync_slave_stream_send_string(slave, str);
 }
 
 static enum dsync_slave_recv_ret
-dsync_slave_io_recv_mailbox_state(struct dsync_slave *_slave,
-				  struct dsync_mailbox_state *state_r)
+dsync_slave_stream_recv_mailbox_state(struct dsync_slave *_slave,
+				      struct dsync_mailbox_state *state_r)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	struct dsync_deserializer_decoder *decoder;
 	const char *value;
 	enum dsync_slave_recv_ret ret;
 
 	memset(state_r, 0, sizeof(*state_r));
 
-	ret = dsync_slave_io_input_next(slave, ITEM_MAILBOX_STATE, &decoder);
+	ret = dsync_slave_stream_input_next(slave, ITEM_MAILBOX_STATE, &decoder);
 	if (ret != DSYNC_SLAVE_RECV_RET_OK)
 		return ret;
 
@@ -670,11 +674,11 @@ dsync_slave_io_recv_mailbox_state(struct dsync_slave *_slave,
 }
 
 static void
-dsync_slave_io_send_mailbox_tree_node(struct dsync_slave *_slave,
-				      const char *const *name,
-				      const struct dsync_mailbox_node *node)
+dsync_slave_stream_send_mailbox_tree_node(struct dsync_slave *_slave,
+					  const char *const *name,
+					  const struct dsync_mailbox_node *node)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	struct dsync_serializer_encoder *encoder;
 	string_t *str, *namestr;
 
@@ -726,21 +730,21 @@ dsync_slave_io_send_mailbox_tree_node(struct dsync_slave *_slave,
 	if (node->subscribed)
 		dsync_serializer_encode_add(encoder, "subscribed", "");
 	dsync_serializer_encode_finish(&encoder, str);
-	dsync_slave_io_send_string(slave, str);
+	dsync_slave_stream_send_string(slave, str);
 }
 
 static enum dsync_slave_recv_ret
-dsync_slave_io_recv_mailbox_tree_node(struct dsync_slave *_slave,
-				      const char *const **name_r,
-				      const struct dsync_mailbox_node **node_r)
+dsync_slave_stream_recv_mailbox_tree_node(struct dsync_slave *_slave,
+					  const char *const **name_r,
+					  const struct dsync_mailbox_node **node_r)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	struct dsync_deserializer_decoder *decoder;
 	struct dsync_mailbox_node *node;
 	const char *value;
 	enum dsync_slave_recv_ret ret;
 
-	ret = dsync_slave_io_input_next(slave, ITEM_MAILBOX_TREE_NODE, &decoder);
+	ret = dsync_slave_stream_input_next(slave, ITEM_MAILBOX_TREE_NODE, &decoder);
 	if (ret != DSYNC_SLAVE_RECV_RET_OK)
 		return ret;
 
@@ -795,11 +799,11 @@ dsync_slave_io_recv_mailbox_tree_node(struct dsync_slave *_slave,
 }
 
 static void
-dsync_slave_io_send_mailbox_deletes(struct dsync_slave *_slave,
-				    const struct dsync_mailbox_delete *deletes,
-				    unsigned int count, char hierarchy_sep)
+dsync_slave_stream_send_mailbox_deletes(struct dsync_slave *_slave,
+					const struct dsync_mailbox_delete *deletes,
+					unsigned int count, char hierarchy_sep)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	struct dsync_serializer_encoder *encoder;
 	string_t *str, *substr;
 	char sep[2];
@@ -837,7 +841,7 @@ dsync_slave_io_send_mailbox_deletes(struct dsync_slave *_slave,
 		dsync_serializer_encode_add(encoder, "dirs", str_c(substr));
 	}
 	dsync_serializer_encode_finish(&encoder, str);
-	dsync_slave_io_send_string(slave, str);
+	dsync_slave_stream_send_string(slave, str);
 }
 
 ARRAY_DEFINE_TYPE(dsync_mailbox_delete, struct dsync_mailbox_delete);
@@ -863,17 +867,17 @@ decode_mailbox_deletes(ARRAY_TYPE(dsync_mailbox_delete) *deletes,
 }
 
 static enum dsync_slave_recv_ret
-dsync_slave_io_recv_mailbox_deletes(struct dsync_slave *_slave,
-				    const struct dsync_mailbox_delete **deletes_r,
-				    unsigned int *count_r, char *hierarchy_sep_r)
+dsync_slave_stream_recv_mailbox_deletes(struct dsync_slave *_slave,
+					const struct dsync_mailbox_delete **deletes_r,
+					unsigned int *count_r, char *hierarchy_sep_r)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	struct dsync_deserializer_decoder *decoder;
 	ARRAY_TYPE(dsync_mailbox_delete) deletes;
 	const char *value;
 	enum dsync_slave_recv_ret ret;
 
-	ret = dsync_slave_io_input_next(slave, ITEM_MAILBOX_DELETE, &decoder);
+	ret = dsync_slave_stream_input_next(slave, ITEM_MAILBOX_DELETE, &decoder);
 	if (ret != DSYNC_SLAVE_RECV_RET_OK)
 		return ret;
 
@@ -902,7 +906,7 @@ dsync_slave_io_recv_mailbox_deletes(struct dsync_slave *_slave,
 }
 
 static const char *
-get_cache_fields(struct dsync_slave_io *slave,
+get_cache_fields(struct dsync_slave_stream *slave,
 		 const struct dsync_mailbox *dsync_box)
 {
 	struct dsync_serializer_encoder *encoder;
@@ -952,10 +956,10 @@ get_cache_fields(struct dsync_slave_io *slave,
 }
 
 static void
-dsync_slave_io_send_mailbox(struct dsync_slave *_slave,
-			    const struct dsync_mailbox *dsync_box)
+dsync_slave_stream_send_mailbox(struct dsync_slave *_slave,
+				const struct dsync_mailbox *dsync_box)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	struct dsync_serializer_encoder *encoder;
 	string_t *str = t_str_new(128);
 	const char *value;
@@ -983,11 +987,11 @@ dsync_slave_io_send_mailbox(struct dsync_slave *_slave,
 		dsync_serializer_encode_add(encoder, "cache_fields", value);
 
 	dsync_serializer_encode_finish(&encoder, str);
-	dsync_slave_io_send_string(slave, str);
+	dsync_slave_stream_send_string(slave, str);
 }
 
 static int
-parse_cache_field(struct dsync_slave_io *slave, struct dsync_mailbox *box,
+parse_cache_field(struct dsync_slave_stream *slave, struct dsync_mailbox *box,
 		  const char *value)
 {
 	struct dsync_deserializer_decoder *decoder;
@@ -1038,10 +1042,10 @@ parse_cache_field(struct dsync_slave_io *slave, struct dsync_mailbox *box,
 }
 
 static enum dsync_slave_recv_ret
-dsync_slave_io_recv_mailbox(struct dsync_slave *_slave,
-			    const struct dsync_mailbox **dsync_box_r)
+dsync_slave_stream_recv_mailbox(struct dsync_slave *_slave,
+				const struct dsync_mailbox **dsync_box_r)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	pool_t pool = slave->ret_pool;
 	struct dsync_deserializer_decoder *decoder;
 	struct dsync_mailbox *box;
@@ -1051,7 +1055,7 @@ dsync_slave_io_recv_mailbox(struct dsync_slave *_slave,
 	p_clear(pool);
 	box = p_new(pool, struct dsync_mailbox, 1);
 
-	ret = dsync_slave_io_input_next(slave, ITEM_MAILBOX, &decoder);
+	ret = dsync_slave_stream_input_next(slave, ITEM_MAILBOX, &decoder);
 	if (ret != DSYNC_SLAVE_RECV_RET_OK)
 		return ret;
 
@@ -1103,10 +1107,10 @@ dsync_slave_io_recv_mailbox(struct dsync_slave *_slave,
 }
 
 static void
-dsync_slave_io_send_change(struct dsync_slave *_slave,
-			   const struct dsync_mail_change *change)
+dsync_slave_stream_send_change(struct dsync_slave *_slave,
+			       const struct dsync_mail_change *change)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	struct dsync_serializer_encoder *encoder;
 	string_t *str = t_str_new(128);
 	char type[2];
@@ -1175,14 +1179,14 @@ dsync_slave_io_send_change(struct dsync_slave *_slave,
 	}
 
 	dsync_serializer_encode_finish(&encoder, str);
-	dsync_slave_io_send_string(slave, str);
+	dsync_slave_stream_send_string(slave, str);
 }
 
 static enum dsync_slave_recv_ret
-dsync_slave_io_recv_change(struct dsync_slave *_slave,
-			   const struct dsync_mail_change **change_r)
+dsync_slave_stream_recv_change(struct dsync_slave *_slave,
+			       const struct dsync_mail_change **change_r)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	pool_t pool = slave->ret_pool;
 	struct dsync_deserializer_decoder *decoder;
 	struct dsync_mail_change *change;
@@ -1192,7 +1196,7 @@ dsync_slave_io_recv_change(struct dsync_slave *_slave,
 	p_clear(pool);
 	change = p_new(pool, struct dsync_mail_change, 1);
 
-	ret = dsync_slave_io_input_next(slave, ITEM_MAIL_CHANGE, &decoder);
+	ret = dsync_slave_stream_input_next(slave, ITEM_MAIL_CHANGE, &decoder);
 	if (ret != DSYNC_SLAVE_RECV_RET_OK)
 		return ret;
 
@@ -1260,10 +1264,10 @@ dsync_slave_io_recv_change(struct dsync_slave *_slave,
 }
 
 static void
-dsync_slave_io_send_mail_request(struct dsync_slave *_slave,
-				 const struct dsync_mail_request *request)
+dsync_slave_stream_send_mail_request(struct dsync_slave *_slave,
+				     const struct dsync_mail_request *request)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	struct dsync_serializer_encoder *encoder;
 	string_t *str = t_str_new(128);
 
@@ -1276,14 +1280,14 @@ dsync_slave_io_send_mail_request(struct dsync_slave *_slave,
 					    dec2str(request->uid));
 	}
 	dsync_serializer_encode_finish(&encoder, str);
-	dsync_slave_io_send_string(slave, str);
+	dsync_slave_stream_send_string(slave, str);
 }
 
 static enum dsync_slave_recv_ret
-dsync_slave_io_recv_mail_request(struct dsync_slave *_slave,
-				 const struct dsync_mail_request **request_r)
+dsync_slave_stream_recv_mail_request(struct dsync_slave *_slave,
+				     const struct dsync_mail_request **request_r)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	struct dsync_deserializer_decoder *decoder;
 	struct dsync_mail_request *request;
 	const char *value;
@@ -1292,7 +1296,7 @@ dsync_slave_io_recv_mail_request(struct dsync_slave *_slave,
 	p_clear(slave->ret_pool);
 	request = p_new(slave->ret_pool, struct dsync_mail_request, 1);
 
-	ret = dsync_slave_io_input_next(slave, ITEM_MAIL_REQUEST, &decoder);
+	ret = dsync_slave_stream_input_next(slave, ITEM_MAIL_REQUEST, &decoder);
 	if (ret != DSYNC_SLAVE_RECV_RET_OK)
 		return ret;
 
@@ -1309,10 +1313,10 @@ dsync_slave_io_recv_mail_request(struct dsync_slave *_slave,
 }
 
 static void
-dsync_slave_io_send_mail(struct dsync_slave *_slave,
-			 const struct dsync_mail *mail)
+dsync_slave_stream_send_mail(struct dsync_slave *_slave,
+			     const struct dsync_mail *mail)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	struct dsync_serializer_encoder *encoder;
 	string_t *str = t_str_new(128);
 
@@ -1340,19 +1344,19 @@ dsync_slave_io_send_mail(struct dsync_slave *_slave,
 		dsync_serializer_encode_add(encoder, "stream", "");
 
 	dsync_serializer_encode_finish(&encoder, str);
-	dsync_slave_io_send_string(slave, str);
+	dsync_slave_stream_send_string(slave, str);
 
 	if (mail->input != NULL) {
 		slave->mail_output_last = '\0';
 		slave->mail_output = mail->input;
 		i_stream_ref(slave->mail_output);
-		(void)dsync_slave_io_send_mail_stream(slave);
+		(void)dsync_slave_stream_send_mail_stream(slave);
 	}
 }
 
 static int seekable_fd_callback(const char **path_r, void *context)
 {
-	struct dsync_slave_io *slave = context;
+	struct dsync_slave_stream *slave = context;
 	string_t *path;
 	int fd;
 
@@ -1377,10 +1381,10 @@ static int seekable_fd_callback(const char **path_r, void *context)
 }
 
 static enum dsync_slave_recv_ret
-dsync_slave_io_recv_mail(struct dsync_slave *_slave,
-			 struct dsync_mail **mail_r)
+dsync_slave_stream_recv_mail(struct dsync_slave *_slave,
+			     struct dsync_mail **mail_r)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	pool_t pool = slave->ret_pool;
 	struct dsync_deserializer_decoder *decoder;
 	struct dsync_mail *mail;
@@ -1402,7 +1406,7 @@ dsync_slave_io_recv_mail(struct dsync_slave *_slave,
 	p_clear(pool);
 	mail = p_new(pool, struct dsync_mail, 1);
 
-	ret = dsync_slave_io_input_next(slave, ITEM_MAIL, &decoder);
+	ret = dsync_slave_stream_input_next(slave, ITEM_MAIL, &decoder);
 	if (ret != DSYNC_SLAVE_RECV_RET_OK)
 		return ret;
 
@@ -1433,7 +1437,7 @@ dsync_slave_io_recv_mail(struct dsync_slave *_slave,
 		i_stream_unref(&inputs[0]);
 
 		slave->mail_input = mail->input;
-		if (dsync_slave_io_read_mail_stream(slave) <= 0) {
+		if (dsync_slave_stream_read_mail_stream(slave) <= 0) {
 			slave->cur_mail = mail;
 			return DSYNC_SLAVE_RECV_RET_TRYAGAIN;
 		}
@@ -1445,74 +1449,74 @@ dsync_slave_io_recv_mail(struct dsync_slave *_slave,
 	return DSYNC_SLAVE_RECV_RET_OK;
 }
 
-static void dsync_slave_io_flush(struct dsync_slave *_slave)
+static void dsync_slave_stream_flush(struct dsync_slave *_slave)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 
 	o_stream_uncork(slave->output);
 	o_stream_cork(slave->output);
 }
 
-static bool dsync_slave_io_is_send_queue_full(struct dsync_slave *_slave)
+static bool dsync_slave_stream_is_send_queue_full(struct dsync_slave *_slave)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 	size_t bytes;
 
 	if (slave->mail_output != NULL)
 		return TRUE;
 
 	bytes = o_stream_get_buffer_used_size(slave->output);
-	if (bytes < DSYNC_SLAVE_IO_OUTBUF_THROTTLE_SIZE)
+	if (bytes < DSYNC_SLAVE_STREAM_OUTBUF_THROTTLE_SIZE)
 		return FALSE;
 
 	o_stream_set_flush_pending(slave->output, TRUE);
 	return TRUE;
 }
 
-static bool dsync_slave_io_has_pending_data(struct dsync_slave *_slave)
+static bool dsync_slave_stream_has_pending_data(struct dsync_slave *_slave)
 {
-	struct dsync_slave_io *slave = (struct dsync_slave_io *)_slave;
+	struct dsync_slave_stream *slave = (struct dsync_slave_stream *)_slave;
 
 	return slave->has_pending_data;
 }
 
-static const struct dsync_slave_vfuncs dsync_slave_io_vfuncs = {
-	dsync_slave_io_deinit,
-	dsync_slave_io_send_handshake,
-	dsync_slave_io_recv_handshake,
-	dsync_slave_io_send_end_of_list,
-	dsync_slave_io_send_mailbox_state,
-	dsync_slave_io_recv_mailbox_state,
-	dsync_slave_io_send_mailbox_tree_node,
-	dsync_slave_io_recv_mailbox_tree_node,
-	dsync_slave_io_send_mailbox_deletes,
-	dsync_slave_io_recv_mailbox_deletes,
-	dsync_slave_io_send_mailbox,
-	dsync_slave_io_recv_mailbox,
-	dsync_slave_io_send_change,
-	dsync_slave_io_recv_change,
-	dsync_slave_io_send_mail_request,
-	dsync_slave_io_recv_mail_request,
-	dsync_slave_io_send_mail,
-	dsync_slave_io_recv_mail,
-	dsync_slave_io_flush,
-	dsync_slave_io_is_send_queue_full,
-	dsync_slave_io_has_pending_data
+static const struct dsync_slave_vfuncs dsync_slave_stream_vfuncs = {
+	dsync_slave_stream_deinit,
+	dsync_slave_stream_send_handshake,
+	dsync_slave_stream_recv_handshake,
+	dsync_slave_stream_send_end_of_list,
+	dsync_slave_stream_send_mailbox_state,
+	dsync_slave_stream_recv_mailbox_state,
+	dsync_slave_stream_send_mailbox_tree_node,
+	dsync_slave_stream_recv_mailbox_tree_node,
+	dsync_slave_stream_send_mailbox_deletes,
+	dsync_slave_stream_recv_mailbox_deletes,
+	dsync_slave_stream_send_mailbox,
+	dsync_slave_stream_recv_mailbox,
+	dsync_slave_stream_send_change,
+	dsync_slave_stream_recv_change,
+	dsync_slave_stream_send_mail_request,
+	dsync_slave_stream_recv_mail_request,
+	dsync_slave_stream_send_mail,
+	dsync_slave_stream_recv_mail,
+	dsync_slave_stream_flush,
+	dsync_slave_stream_is_send_queue_full,
+	dsync_slave_stream_has_pending_data
 };
 
 struct dsync_slave *
-dsync_slave_init_io(int fd_in, int fd_out, const char *name,
-		    const char *temp_path_prefix)
+dsync_slave_init_stream(int fd_in, int fd_out, const char *name,
+			const char *temp_path_prefix)
 {
-	struct dsync_slave_io *slave;
+	struct dsync_slave_stream *slave;
 
-	slave = i_new(struct dsync_slave_io, 1);
-	slave->slave.v = dsync_slave_io_vfuncs;
+	slave = i_new(struct dsync_slave_stream, 1);
+	slave->slave.v = dsync_slave_stream_vfuncs;
 	slave->fd_in = fd_in;
 	slave->fd_out = fd_out;
 	slave->name = i_strdup(name);
 	slave->temp_path_prefix = i_strdup(temp_path_prefix);
-	slave->ret_pool = pool_alloconly_create("slave io data", 2048);
-	dsync_slave_io_init(slave);
+	slave->ret_pool = pool_alloconly_create("slave stream data", 2048);
+	dsync_slave_stream_init(slave);
 	return &slave->slave;
 }

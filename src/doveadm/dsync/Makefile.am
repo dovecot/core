@@ -28,7 +28,7 @@ libdsync_a_SOURCES = \
 	dsync-mailbox-tree-sync.c \
 	dsync-serializer.c \
 	dsync-slave.c \
-	dsync-slave-io.c \
+	dsync-slave-stream.c \
 	dsync-slave-pipe.c \
 	dsync-transaction-log-scan.c
 

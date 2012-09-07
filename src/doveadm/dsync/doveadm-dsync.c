@@ -334,9 +334,9 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	else {
 		string_t *temp_prefix = t_str_new(64);
 		mail_user_set_get_temp_prefix(temp_prefix, user->set);
-		slave = dsync_slave_init_io(ctx->fd_in, ctx->fd_out,
-					    ctx->remote_name,
-					    str_c(temp_prefix));
+		slave = dsync_slave_init_stream(ctx->fd_in, ctx->fd_out,
+						ctx->remote_name,
+						str_c(temp_prefix));
 	}
 
 	if (doveadm_debug || doveadm_verbose) {
@@ -520,8 +520,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx ATTR_UNUSED,
 	temp_prefix = t_str_new(64);
 	mail_user_set_get_temp_prefix(temp_prefix, user->set);
 
-	slave = dsync_slave_init_io(STDIN_FILENO, STDOUT_FILENO,
-				    "local", str_c(temp_prefix));
+	slave = dsync_slave_init_stream(STDIN_FILENO, STDOUT_FILENO,
+					"local", str_c(temp_prefix));
 	brain = dsync_brain_slave_init(user, slave);
 
 	io_loop_run(current_ioloop);

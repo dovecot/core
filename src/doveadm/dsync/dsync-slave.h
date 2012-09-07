@@ -39,8 +39,8 @@ struct dsync_slave_settings {
 void dsync_slave_init_pipe(struct dsync_slave **slave1_r,
 			   struct dsync_slave **slave2_r);
 struct dsync_slave *
-dsync_slave_init_io(int fd_in, int fd_out, const char *name,
-		    const char *temp_path_prefix);
+dsync_slave_init_stream(int fd_in, int fd_out, const char *name,
+			const char *temp_path_prefix);
 void dsync_slave_deinit(struct dsync_slave **slave);
 
 /* I/O callback is called whenever new data is available. It's also called on
