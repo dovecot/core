@@ -5,7 +5,7 @@
 #include "hash.h"
 #include "mail-namespace.h"
 #include "dsync-mailbox-tree.h"
-#include "dsync-slave.h"
+#include "dsync-ibc.h"
 #include "dsync-brain-private.h"
 
 static void dsync_brain_run_io(void *context)
@@ -13,7 +13,7 @@ static void dsync_brain_run_io(void *context)
 	struct dsync_brain *brain = context;
 	bool changed, try_pending;
 
-	if (dsync_slave_has_failed(brain->slave)) {
+	if (dsync_ibc_has_failed(brain->ibc)) {
 		io_loop_stop(current_ioloop);
 		brain->failed = TRUE;
 		return;
@@ -28,7 +28,7 @@ static void dsync_brain_run_io(void *context)
 		if (changed)
 			try_pending = TRUE;
 		else if (try_pending) {
-			if (dsync_slave_has_pending_data(brain->slave))
+			if (dsync_ibc_has_pending_data(brain->ibc))
 				changed = TRUE;
 			try_pending = FALSE;
 		}
@@ -36,7 +36,7 @@ static void dsync_brain_run_io(void *context)
 }
 
 static struct dsync_brain *
-dsync_brain_common_init(struct mail_user *user, struct dsync_slave *slave)
+dsync_brain_common_init(struct mail_user *user, struct dsync_ibc *ibc)
 {
 	struct dsync_brain *brain;
 	pool_t pool;
@@ -45,7 +45,7 @@ dsync_brain_common_init(struct mail_user *user, struct dsync_slave *slave)
 	brain = p_new(pool, struct dsync_brain, 1);
 	brain->pool = pool;
 	brain->user = user;
-	brain->slave = slave;
+	brain->ibc = ibc;
 	brain->sync_type = DSYNC_BRAIN_SYNC_TYPE_UNKNOWN;
 	hash_table_create(&brain->remote_mailbox_states,
 			  brain->pool, 0, guid_128_hash, guid_128_cmp);
@@ -54,20 +54,20 @@ dsync_brain_common_init(struct mail_user *user, struct dsync_slave *slave)
 }
 
 struct dsync_brain *
-dsync_brain_master_init(struct mail_user *user, struct dsync_slave *slave,
+dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 			struct mail_namespace *sync_ns,
 			enum dsync_brain_sync_type sync_type,
 			enum dsync_brain_flags flags,
 			const char *state)
 {
-	struct dsync_slave_settings slave_set;
+	struct dsync_ibc_settings ibc_set;
 	struct dsync_brain *brain;
 	const char *error;
 
 	i_assert(sync_type != DSYNC_BRAIN_SYNC_TYPE_UNKNOWN);
 	i_assert(sync_type != DSYNC_BRAIN_SYNC_TYPE_STATE || *state != '\0');
 
-	brain = dsync_brain_common_init(user, slave);
+	brain = dsync_brain_common_init(user, ibc);
 	brain->sync_type = sync_type;
 	if (sync_ns != NULL)
 		brain->sync_ns = sync_ns;
@@ -91,26 +91,26 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_slave *slave,
 	}
 	dsync_brain_mailbox_trees_init(brain);
 
-	memset(&slave_set, 0, sizeof(slave_set));
-	slave_set.sync_ns_prefix = sync_ns == NULL ? NULL : sync_ns->prefix;
-	slave_set.sync_type = sync_type;
-	slave_set.guid_requests = brain->guid_requests;
-	slave_set.mails_have_guids = brain->mails_have_guids;
-	dsync_slave_send_handshake(slave, &slave_set);
+	memset(&ibc_set, 0, sizeof(ibc_set));
+	ibc_set.sync_ns_prefix = sync_ns == NULL ? NULL : sync_ns->prefix;
+	ibc_set.sync_type = sync_type;
+	ibc_set.guid_requests = brain->guid_requests;
+	ibc_set.mails_have_guids = brain->mails_have_guids;
+	dsync_ibc_send_handshake(ibc, &ibc_set);
 
-	dsync_slave_set_io_callback(slave, dsync_brain_run_io, brain);
+	dsync_ibc_set_io_callback(ibc, dsync_brain_run_io, brain);
 	return brain;
 }
 
 struct dsync_brain *
-dsync_brain_slave_init(struct mail_user *user, struct dsync_slave *slave)
+dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc)
 {
 	struct dsync_brain *brain;
 
-	brain = dsync_brain_common_init(user, slave);
+	brain = dsync_brain_common_init(user, ibc);
 	brain->state = DSYNC_STATE_SLAVE_RECV_HANDSHAKE;
 
-	dsync_slave_set_io_callback(slave, dsync_brain_run_io, brain);
+	dsync_ibc_set_io_callback(ibc, dsync_brain_run_io, brain);
 	return brain;
 }
 
@@ -121,7 +121,7 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 
 	*_brain = NULL;
 
-	if (dsync_slave_has_failed(brain->slave) ||
+	if (dsync_ibc_has_failed(brain->ibc) ||
 	    brain->state != DSYNC_STATE_DONE)
 		brain->failed = TRUE;
 
@@ -139,27 +139,27 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 
 static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 {
-	const struct dsync_slave_settings *slave_set;
+	const struct dsync_ibc_settings *ibc_set;
 
 	i_assert(!brain->master_brain);
 
-	if (dsync_slave_recv_handshake(brain->slave, &slave_set) == 0)
+	if (dsync_ibc_recv_handshake(brain->ibc, &ibc_set) == 0)
 		return FALSE;
 
-	if (slave_set->sync_ns_prefix != NULL) {
+	if (ibc_set->sync_ns_prefix != NULL) {
 		brain->sync_ns = mail_namespace_find(brain->user->namespaces,
-						     slave_set->sync_ns_prefix);
+						     ibc_set->sync_ns_prefix);
 		if (brain->sync_ns == NULL) {
 			i_error("Requested sync namespace prefix=%s doesn't exist",
-				slave_set->sync_ns_prefix);
+				ibc_set->sync_ns_prefix);
 			brain->failed = TRUE;
 			return TRUE;
 		}
 	}
 	i_assert(brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_UNKNOWN);
-	brain->sync_type = slave_set->sync_type;
-	brain->guid_requests = slave_set->guid_requests;
-	brain->mails_have_guids = slave_set->mails_have_guids;
+	brain->sync_type = ibc_set->sync_type;
+	brain->guid_requests = ibc_set->guid_requests;
+	brain->mails_have_guids = ibc_set->mails_have_guids;
 
 	dsync_brain_mailbox_trees_init(brain);
 
@@ -174,18 +174,18 @@ static void dsync_brain_master_send_last_common(struct dsync_brain *brain)
 {
 	const struct dsync_mailbox_state *states;
 	unsigned int count;
-	enum dsync_slave_send_ret ret = DSYNC_SLAVE_SEND_RET_OK;
+	enum dsync_ibc_send_ret ret = DSYNC_IBC_SEND_RET_OK;
 
 	i_assert(brain->master_brain);
 
 	states = array_get(&brain->mailbox_states, &count);
 	while (brain->mailbox_state_idx < count) {
-		if (ret == DSYNC_SLAVE_SEND_RET_FULL)
+		if (ret == DSYNC_IBC_SEND_RET_FULL)
 			return;
-		ret = dsync_slave_send_mailbox_state(brain->slave,
+		ret = dsync_ibc_send_mailbox_state(brain->ibc,
 				&states[brain->mailbox_state_idx++]);
 	}
-	dsync_slave_send_end_of_list(brain->slave);
+	dsync_ibc_send_end_of_list(brain->ibc);
 	brain->state = DSYNC_STATE_SEND_MAILBOX_TREE;
 	brain->mailbox_state_idx = 0;
 }
@@ -193,16 +193,16 @@ static void dsync_brain_master_send_last_common(struct dsync_brain *brain)
 static bool dsync_brain_slave_recv_last_common(struct dsync_brain *brain)
 {
 	struct dsync_mailbox_state state;
-	enum dsync_slave_recv_ret ret;
+	enum dsync_ibc_recv_ret ret;
 	bool changed = FALSE;
 
 	i_assert(!brain->master_brain);
 
-	while ((ret = dsync_slave_recv_mailbox_state(brain->slave, &state)) > 0) {
+	while ((ret = dsync_ibc_recv_mailbox_state(brain->ibc, &state)) > 0) {
 		array_append(&brain->mailbox_states, &state, 1);
 		changed = TRUE;
 	}
-	if (ret == DSYNC_SLAVE_RECV_RET_FINISHED) {
+	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
 		brain->state = DSYNC_STATE_SEND_MAILBOX_TREE;
 		changed = TRUE;
 	}
@@ -267,7 +267,7 @@ bool dsync_brain_run(struct dsync_brain *brain, bool *changed_r)
 
 	*changed_r = FALSE;
 
-	if (dsync_slave_has_failed(brain->slave)) {
+	if (dsync_ibc_has_failed(brain->ibc)) {
 		brain->failed = TRUE;
 		return FALSE;
 	}
@@ -276,7 +276,7 @@ bool dsync_brain_run(struct dsync_brain *brain, bool *changed_r)
 		ret = dsync_brain_run_real(brain, changed_r);
 	} T_END;
 	if (!brain->failed)
-		dsync_slave_flush(brain->slave);
+		dsync_ibc_flush(brain->ibc);
 	return ret;
 }
 

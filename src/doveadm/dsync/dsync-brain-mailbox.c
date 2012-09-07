@@ -6,7 +6,7 @@
 #include "mail-cache-private.h"
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
-#include "dsync-slave.h"
+#include "dsync-ibc.h"
 #include "dsync-mailbox-tree.h"
 #include "dsync-mailbox-import.h"
 #include "dsync-mailbox-export.h"
@@ -370,12 +370,12 @@ void dsync_brain_master_send_mailbox(struct dsync_brain *brain)
 
 	if (!dsync_brain_next_mailbox(brain, &box, &dsync_box)) {
 		brain->state = DSYNC_STATE_DONE;
-		dsync_slave_send_end_of_list(brain->slave);
+		dsync_ibc_send_end_of_list(brain->ibc);
 		return;
 	}
 
 	/* start exporting this mailbox (wait for remote to start importing) */
-	dsync_slave_send_mailbox(brain->slave, &dsync_box);
+	dsync_ibc_send_mailbox(brain->ibc, &dsync_box);
 	(void)dsync_brain_sync_mailbox_init(brain, box, &dsync_box,
 					    DSYNC_BOX_STATE_MAILBOX);
 	brain->state = DSYNC_STATE_SYNC_MAILS;
@@ -526,7 +526,7 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	i_assert(!brain->master_brain);
 	i_assert(brain->box == NULL);
 
-	if ((ret = dsync_slave_recv_mailbox(brain->slave, &dsync_box)) == 0)
+	if ((ret = dsync_ibc_recv_mailbox(brain->ibc, &dsync_box)) == 0)
 		return FALSE;
 	if (ret < 0) {
 		brain->state = DSYNC_STATE_DONE;
@@ -563,13 +563,13 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 		memcpy(delete_box.mailbox_guid, dsync_box->mailbox_guid,
 		       sizeof(delete_box.mailbox_guid));
 		delete_box.mailbox_lost = TRUE;
-		dsync_slave_send_mailbox(brain->slave, &delete_box);
+		dsync_ibc_send_mailbox(brain->ibc, &delete_box);
 		return TRUE;
 	}
 	i_assert(local_dsync_box.uid_validity != 0);
 	i_assert(memcmp(dsync_box->mailbox_guid, local_dsync_box.mailbox_guid,
 			sizeof(dsync_box->mailbox_guid)) == 0);
-	dsync_slave_send_mailbox(brain->slave, &local_dsync_box);
+	dsync_ibc_send_mailbox(brain->ibc, &local_dsync_box);
 
 	dsync_brain_mailbox_update_pre(brain, box, &local_dsync_box, dsync_box);
 

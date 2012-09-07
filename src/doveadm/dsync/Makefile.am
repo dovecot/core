@@ -27,9 +27,9 @@ libdsync_a_SOURCES = \
 	dsync-mailbox-tree-fill.c \
 	dsync-mailbox-tree-sync.c \
 	dsync-serializer.c \
-	dsync-slave.c \
-	dsync-slave-stream.c \
-	dsync-slave-pipe.c \
+	dsync-ibc.c \
+	dsync-ibc-stream.c \
+	dsync-ibc-pipe.c \
 	dsync-transaction-log-scan.c
 
 noinst_HEADERS = \
@@ -46,8 +46,8 @@ noinst_HEADERS = \
 	dsync-mailbox-tree-private.h \
 	dsync-serializer.h \
 	dsync-deserializer.h \
-	dsync-slave.h \
-	dsync-slave-private.h \
+	dsync-ibc.h \
+	dsync-ibc-private.h \
 	dsync-transaction-log-scan.h
 
 test_programs = \

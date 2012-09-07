@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
-#include "dsync-slave.h"
+#include "dsync-ibc.h"
 #include "dsync-mail.h"
 #include "dsync-mailbox-import.h"
 #include "dsync-mailbox-export.h"
@@ -11,13 +11,13 @@
 static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 {
 	const struct dsync_mailbox *dsync_box;
-	enum dsync_slave_recv_ret ret;
+	enum dsync_ibc_recv_ret ret;
 
 	i_assert(brain->master_brain);
 
-	if ((ret = dsync_slave_recv_mailbox(brain->slave, &dsync_box)) == 0)
+	if ((ret = dsync_ibc_recv_mailbox(brain->ibc, &dsync_box)) == 0)
 		return FALSE;
-	if (ret == DSYNC_SLAVE_RECV_RET_FINISHED) {
+	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
 		i_error("Remote sent end-of-list instead of a mailbox");
 		brain->failed = TRUE;
 		return TRUE;
@@ -55,11 +55,11 @@ static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 static bool dsync_brain_recv_mail_change(struct dsync_brain *brain)
 {
 	const struct dsync_mail_change *change;
-	enum dsync_slave_recv_ret ret;
+	enum dsync_ibc_recv_ret ret;
 
-	if ((ret = dsync_slave_recv_change(brain->slave, &change)) == 0)
+	if ((ret = dsync_ibc_recv_change(brain->ibc, &change)) == 0)
 		return FALSE;
-	if (ret == DSYNC_SLAVE_RECV_RET_FINISHED) {
+	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
 		dsync_mailbox_import_changes_finish(brain->box_importer);
 		brain->box_recv_state = brain->guid_requests ?
 			DSYNC_BOX_STATE_MAIL_REQUESTS : DSYNC_BOX_STATE_MAILS;
@@ -74,10 +74,10 @@ static void dsync_brain_send_mail_change(struct dsync_brain *brain)
 	const struct dsync_mail_change *change;
 
 	while ((change = dsync_mailbox_export_next(brain->box_exporter)) != NULL) {
-		if (dsync_slave_send_change(brain->slave, change) == 0)
+		if (dsync_ibc_send_change(brain->ibc, change) == 0)
 			return;
 	}
-	dsync_slave_send_end_of_list(brain->slave);
+	dsync_ibc_send_end_of_list(brain->ibc);
 	brain->box_send_state = brain->guid_requests ?
 		DSYNC_BOX_STATE_MAIL_REQUESTS : DSYNC_BOX_STATE_MAILS;
 }
@@ -85,13 +85,13 @@ static void dsync_brain_send_mail_change(struct dsync_brain *brain)
 static bool dsync_brain_recv_mail_request(struct dsync_brain *brain)
 {
 	const struct dsync_mail_request *request;
-	enum dsync_slave_recv_ret ret;
+	enum dsync_ibc_recv_ret ret;
 
 	i_assert(brain->guid_requests);
 
-	if ((ret = dsync_slave_recv_mail_request(brain->slave, &request)) == 0)
+	if ((ret = dsync_ibc_recv_mail_request(brain->ibc, &request)) == 0)
 		return FALSE;
-	if (ret == DSYNC_SLAVE_RECV_RET_FINISHED) {
+	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
 		brain->box_recv_state = DSYNC_BOX_STATE_MAILS;
 		return TRUE;
 	}
@@ -106,11 +106,11 @@ static void dsync_brain_send_mail_request(struct dsync_brain *brain)
 	i_assert(brain->guid_requests);
 
 	while ((request = dsync_mailbox_import_next_request(brain->box_importer)) != NULL) {
-		if (dsync_slave_send_mail_request(brain->slave, request) == 0)
+		if (dsync_ibc_send_mail_request(brain->ibc, request) == 0)
 			return;
 	}
 	if (brain->box_recv_state > DSYNC_BOX_STATE_CHANGES) {
-		dsync_slave_send_end_of_list(brain->slave);
+		dsync_ibc_send_end_of_list(brain->ibc);
 		brain->box_send_state = DSYNC_BOX_STATE_MAILS;
 	}
 }
@@ -155,17 +155,17 @@ static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 		if (changes_during_sync)
 			brain->changes_during_sync = TRUE;
 	}
-	dsync_slave_send_mailbox_state(brain->slave, &state);
+	dsync_ibc_send_mailbox_state(brain->ibc, &state);
 }
 
 static bool dsync_brain_recv_mail(struct dsync_brain *brain)
 {
 	struct dsync_mail *mail;
-	enum dsync_slave_recv_ret ret;
+	enum dsync_ibc_recv_ret ret;
 
-	if ((ret = dsync_slave_recv_mail(brain->slave, &mail)) == 0)
+	if ((ret = dsync_ibc_recv_mail(brain->ibc, &mail)) == 0)
 		return FALSE;
-	if (ret == DSYNC_SLAVE_RECV_RET_FINISHED) {
+	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
 		brain->box_recv_state = DSYNC_BOX_STATE_RECV_LAST_COMMON;
 		dsync_brain_sync_half_finished(brain);
 		return TRUE;
@@ -183,7 +183,7 @@ static bool dsync_brain_send_mail(struct dsync_brain *brain)
 
 	while ((mail = dsync_mailbox_export_next_mail(brain->box_exporter)) != NULL) {
 		changed = TRUE;
-		if (dsync_slave_send_mail(brain->slave, mail) == 0)
+		if (dsync_ibc_send_mail(brain->ibc, mail) == 0)
 			return TRUE;
 	}
 	if (brain->guid_requests &&
@@ -193,7 +193,7 @@ static bool dsync_brain_send_mail(struct dsync_brain *brain)
 	}
 
 	brain->box_send_state = DSYNC_BOX_STATE_DONE;
-	dsync_slave_send_end_of_list(brain->slave);
+	dsync_ibc_send_end_of_list(brain->ibc);
 
 	dsync_brain_sync_half_finished(brain);
 	return TRUE;
@@ -201,12 +201,12 @@ static bool dsync_brain_send_mail(struct dsync_brain *brain)
 
 static bool dsync_brain_recv_last_common(struct dsync_brain *brain)
 {
-	enum dsync_slave_recv_ret ret;
+	enum dsync_ibc_recv_ret ret;
 	struct dsync_mailbox_state state;
 
-	if ((ret = dsync_slave_recv_mailbox_state(brain->slave, &state)) == 0)
+	if ((ret = dsync_ibc_recv_mailbox_state(brain->ibc, &state)) == 0)
 		return FALSE;
-	if (ret == DSYNC_SLAVE_RECV_RET_FINISHED) {
+	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
 		i_error("Remote sent end-of-list instead of a mailbox state");
 		brain->failed = TRUE;
 		return TRUE;
@@ -260,7 +260,7 @@ bool dsync_brain_sync_mails(struct dsync_brain *brain)
 		changed = TRUE;
 		break;
 	case DSYNC_BOX_STATE_MAILS:
-		if (!dsync_slave_is_send_queue_full(brain->slave)) {
+		if (!dsync_ibc_is_send_queue_full(brain->ibc)) {
 			if (dsync_brain_send_mail(brain))
 				changed = TRUE;
 		}

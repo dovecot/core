@@ -15,7 +15,7 @@
 #include "doveadm-settings.h"
 #include "doveadm-mail.h"
 #include "dsync-brain.h"
-#include "dsync-slave.h"
+#include "dsync-ibc.h"
 #include "doveadm-dsync.h"
 
 #include <stdio.h>
@@ -228,7 +228,7 @@ static bool mirror_get_remote_cmd(struct dsync_cmd_context *ctx,
 
 static int
 cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
-		    struct dsync_brain *brain, struct dsync_slave *slave2)
+		    struct dsync_brain *brain, struct dsync_ibc *ibc2)
 {
 	struct dsync_brain *brain2;
 	struct mail_user *user2;
@@ -267,7 +267,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 			"points to same directory: %s", path1);
 	}
 
-	brain2 = dsync_brain_slave_init(user2, slave2);
+	brain2 = dsync_brain_slave_init(user2, ibc2);
 
 	brain1_running = brain2_running = TRUE;
 	changed1 = changed2 = TRUE;
@@ -312,7 +312,7 @@ static int
 cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
-	struct dsync_slave *slave, *slave2 = NULL;
+	struct dsync_ibc *ibc, *ibc2 = NULL;
 	struct dsync_brain *brain;
 	struct mail_namespace *sync_ns = NULL;
 	int ret = 0;
@@ -330,26 +330,26 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	}
 
 	if (!ctx->remote)
-		dsync_slave_init_pipe(&slave, &slave2);
+		dsync_ibc_init_pipe(&ibc, &ibc2);
 	else {
 		string_t *temp_prefix = t_str_new(64);
 		mail_user_set_get_temp_prefix(temp_prefix, user->set);
-		slave = dsync_slave_init_stream(ctx->fd_in, ctx->fd_out,
-						ctx->remote_name,
-						str_c(temp_prefix));
+		ibc = dsync_ibc_init_stream(ctx->fd_in, ctx->fd_out,
+					    ctx->remote_name,
+					    str_c(temp_prefix));
 	}
 
 	if (doveadm_debug || doveadm_verbose) {
 		// FIXME
 	}
-	brain = dsync_brain_master_init(user, slave, sync_ns,
+	brain = dsync_brain_master_init(user, ibc, sync_ns,
 					ctx->sync_type,
 					DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS |
 					DSYNC_BRAIN_FLAG_SEND_REQUESTS,
 					"");
 
 	if (!ctx->remote) {
-		if (cmd_dsync_run_local(ctx, user, brain, slave2) < 0)
+		if (cmd_dsync_run_local(ctx, user, brain, ibc2) < 0)
 			_ctx->exit_code = EX_TEMPFAIL;
 	} else {
 		cmd_dsync_run_remote(user);
@@ -357,9 +357,9 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	if (dsync_brain_deinit(&brain) < 0)
 		_ctx->exit_code = EX_TEMPFAIL;
-	dsync_slave_deinit(&slave);
-	if (slave2 != NULL)
-		dsync_slave_deinit(&slave2);
+	dsync_ibc_deinit(&ibc);
+	if (ibc2 != NULL)
+		dsync_ibc_deinit(&ibc2);
 	if (ctx->io_err != NULL)
 		io_remove(&ctx->io_err);
 	if (ctx->fd_err != -1)
@@ -507,7 +507,7 @@ static int
 cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx ATTR_UNUSED,
 		     struct mail_user *user)
 {
-	struct dsync_slave *slave;
+	struct dsync_ibc *ibc;
 	struct dsync_brain *brain;
 	string_t *temp_prefix;
 
@@ -520,13 +520,13 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx ATTR_UNUSED,
 	temp_prefix = t_str_new(64);
 	mail_user_set_get_temp_prefix(temp_prefix, user->set);
 
-	slave = dsync_slave_init_stream(STDIN_FILENO, STDOUT_FILENO,
-					"local", str_c(temp_prefix));
-	brain = dsync_brain_slave_init(user, slave);
+	ibc = dsync_ibc_init_stream(STDIN_FILENO, STDOUT_FILENO,
+				    "local", str_c(temp_prefix));
+	brain = dsync_brain_slave_init(user, ibc);
 
 	io_loop_run(current_ioloop);
 
-	dsync_slave_deinit(&slave);
+	dsync_ibc_deinit(&ibc);
 	return dsync_brain_deinit(&brain);
 }
 

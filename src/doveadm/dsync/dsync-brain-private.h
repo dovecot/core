@@ -34,7 +34,7 @@ enum dsync_box_state {
 struct dsync_brain {
 	pool_t pool;
 	struct mail_user *user;
-	struct dsync_slave *slave;
+	struct dsync_ibc *ibc;
 	struct mail_namespace *sync_ns;
 	enum dsync_brain_sync_type sync_type;
 

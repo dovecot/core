@@ -3,7 +3,7 @@
 
 struct mail_namespace;
 struct mail_user;
-struct dsync_slave;
+struct dsync_ibc;
 
 enum dsync_brain_flags {
 	DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS	= 0x01,
@@ -23,13 +23,13 @@ enum dsync_brain_sync_type {
 };
 
 struct dsync_brain *
-dsync_brain_master_init(struct mail_user *user, struct dsync_slave *slave,
+dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 			struct mail_namespace *sync_ns,
 			enum dsync_brain_sync_type sync_type,
 			enum dsync_brain_flags flags,
 			const char *state);
 struct dsync_brain *
-dsync_brain_slave_init(struct mail_user *user, struct dsync_slave *slave);
+dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc);
 /* Returns 0 if everything was successful, -1 if syncing failed in some way */
 int dsync_brain_deinit(struct dsync_brain **brain);
 

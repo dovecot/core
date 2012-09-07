@@ -5,7 +5,7 @@
 #include "settings-parser.h"
 #include "mail-namespace.h"
 #include "doveadm-settings.h"
-#include "dsync-slave.h"
+#include "dsync-ibc.h"
 #include "dsync-mailbox-tree.h"
 #include "dsync-brain-private.h"
 
@@ -94,7 +94,7 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 {
 	struct dsync_mailbox_node *node;
-	enum dsync_slave_send_ret ret;
+	enum dsync_ibc_send_ret ret;
 	const char *full_name;
 	char sep[2];
 
@@ -105,14 +105,14 @@ void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 			const char *const *parts;
 
 			parts = t_strsplit(full_name, sep);
-			ret = dsync_slave_send_mailbox_tree_node(brain->slave,
-								 parts, node);
+			ret = dsync_ibc_send_mailbox_tree_node(brain->ibc,
+							       parts, node);
 		} T_END;
-		if (ret == DSYNC_SLAVE_SEND_RET_FULL)
+		if (ret == DSYNC_IBC_SEND_RET_FULL)
 			return;
 	}
 	dsync_mailbox_tree_iter_deinit(&brain->local_tree_iter);
-	dsync_slave_send_end_of_list(brain->slave);
+	dsync_ibc_send_end_of_list(brain->ibc);
 
 	brain->state = DSYNC_STATE_SEND_MAILBOX_TREE_DELETES;
 }
@@ -124,8 +124,8 @@ void dsync_brain_send_mailbox_tree_deletes(struct dsync_brain *brain)
 
 	deletes = dsync_mailbox_tree_get_deletes(brain->local_mailbox_tree,
 						 &count);
-	dsync_slave_send_mailbox_deletes(brain->slave, deletes, count,
-					 brain->hierarchy_sep);
+	dsync_ibc_send_mailbox_deletes(brain->ibc, deletes, count,
+				       brain->hierarchy_sep);
 
 	brain->state = DSYNC_STATE_RECV_MAILBOX_TREE;
 }
@@ -289,12 +289,12 @@ bool dsync_brain_recv_mailbox_tree(struct dsync_brain *brain)
 	struct dsync_mailbox_node *node;
 	const char *const *parts, *name;
 	struct mail_namespace *ns;
-	enum dsync_slave_recv_ret ret;
+	enum dsync_ibc_recv_ret ret;
 	char sep[2];
 	bool changed = FALSE;
 
-	while ((ret = dsync_slave_recv_mailbox_tree_node(brain->slave, &parts,
-							 &remote_node)) > 0) {
+	while ((ret = dsync_ibc_recv_mailbox_tree_node(brain->ibc, &parts,
+						       &remote_node)) > 0) {
 		if (dsync_get_mailbox_name(brain, parts, &name, &ns) < 0) {
 			sep[0] = brain->hierarchy_sep; sep[1] = '\0';
 			i_error("Couldn't find namespace for mailbox %s",
@@ -306,7 +306,7 @@ bool dsync_brain_recv_mailbox_tree(struct dsync_brain *brain)
 		node->ns = ns;
 		dsync_mailbox_node_copy_data(node, remote_node);
 	}
-	if (ret == DSYNC_SLAVE_RECV_RET_FINISHED) {
+	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
 		if (dsync_mailbox_tree_build_guid_hash(brain->remote_mailbox_tree) < 0)
 			brain->failed = TRUE;
 
@@ -369,8 +369,8 @@ bool dsync_brain_recv_mailbox_tree_deletes(struct dsync_brain *brain)
 	unsigned int i, count;
 	char sep;
 
-	if (dsync_slave_recv_mailbox_deletes(brain->slave, &deletes, &count,
-					     &sep) == 0)
+	if (dsync_ibc_recv_mailbox_deletes(brain->ibc, &deletes, &count,
+					   &sep) == 0)
 		return FALSE;
 
 	/* apply remote's mailbox deletions based on our local tree */
