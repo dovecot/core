@@ -70,8 +70,7 @@ static int fail_mailbox_delete(struct mailbox *box)
 }
 
 static int fail_mailbox_rename(struct mailbox *src,
-			       struct mailbox *dest ATTR_UNUSED,
-			       bool rename_children ATTR_UNUSED)
+			       struct mailbox *dest ATTR_UNUSED)
 {
 	mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
 			       "Mailbox can't be renamed");

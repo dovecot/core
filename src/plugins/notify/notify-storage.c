@@ -235,15 +235,14 @@ notify_mailbox_delete(struct mailbox *box)
 }
 
 static int
-notify_mailbox_rename(struct mailbox *src, struct mailbox *dest,
-		      bool rename_children)
+notify_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 {
 	union mailbox_module_context *lbox = NOTIFY_CONTEXT(src);
 
-	if (lbox->super.rename(src, dest, rename_children) < 0)
+	if (lbox->super.rename(src, dest) < 0)
 		return -1;
 
-	notify_contexts_mailbox_rename(src, dest, rename_children);
+	notify_contexts_mailbox_rename(src, dest);
 	return 0;
 }
 

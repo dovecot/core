@@ -373,8 +373,7 @@ static int
 mailbox_list_index_rename_mailbox(struct mailbox_list *oldlist,
 				  const char *oldname,
 				  struct mailbox_list *newlist,
-				  const char *newname,
-				  bool rename_children)
+				  const char *newname)
 {
 	struct mailbox_list_index *oldilist = INDEX_LIST_CONTEXT(oldlist);
 
@@ -382,8 +381,7 @@ mailbox_list_index_rename_mailbox(struct mailbox_list *oldlist,
 	if (oldlist != newlist)
 		mailbox_list_index_refresh_later(newlist);
 	return oldilist->module_ctx.super.
-		rename_mailbox(oldlist, oldname,
-			       newlist, newname, rename_children);
+		rename_mailbox(oldlist, oldname, newlist, newname);
 }
 
 static int

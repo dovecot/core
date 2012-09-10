@@ -555,8 +555,7 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 
 static int
 maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
-			    struct mailbox_list *newlist, const char *newname,
-			    bool rename_children)
+			    struct mailbox_list *newlist, const char *newname)
 {
 	const char *oldpath, *newpath, *root_path;
 	int ret;
@@ -606,9 +605,7 @@ maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 				 MAILBOX_LIST_PATH_TYPE_INDEX);
 
 		found = ret == 0;
-		if (!rename_children)
-			ret = 0;
-		else T_BEGIN {
+		T_BEGIN {
 			ret = maildir_rename_children(oldlist, oldname,
 						      newlist, newname);
 		} T_END;

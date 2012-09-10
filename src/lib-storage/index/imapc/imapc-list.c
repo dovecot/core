@@ -633,19 +633,12 @@ imapc_list_delete_symlink(struct mailbox_list *list,
 
 static int
 imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
-			  struct mailbox_list *newlist, const char *newname,
-			  bool rename_children)
+			  struct mailbox_list *newlist, const char *newname)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)oldlist;
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
 	struct imapc_command *cmd;
 	struct imapc_simple_context ctx;
-
-	if (!rename_children) {
-		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
-			"Renaming without children not supported.");
-		return -1;
-	}
 
 	if (oldlist != newlist) {
 		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
@@ -660,8 +653,7 @@ imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 		oldname = imapc_list_get_fs_name(list, oldname);
 		newname = imapc_list_get_fs_name(list, newname);
 		(void)fs_list->v.rename_mailbox(fs_list, oldname,
-						fs_list, newname,
-						rename_children);
+						fs_list, newname);
 	}
 	return ctx.ret;
 }

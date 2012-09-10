@@ -19,8 +19,7 @@ void notify_contexts_mailbox_update(struct mailbox *box);
 void notify_contexts_mailbox_delete_begin(struct mailbox *box);
 void notify_contexts_mailbox_delete_commit(struct mailbox *box);
 void notify_contexts_mailbox_delete_rollback(void);
-void notify_contexts_mailbox_rename(struct mailbox *src, struct mailbox *dest,
-				    bool rename_children);
+void notify_contexts_mailbox_rename(struct mailbox *src, struct mailbox *dest);
 void notify_contexts_mailbox_set_subscribed(struct mailbox *box,
 					    bool subscribed);
 

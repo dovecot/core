@@ -482,8 +482,7 @@ mail_log_mailbox_delete_commit(void *txn ATTR_UNUSED, struct mailbox *box)
 }
 
 static void
-mail_log_mailbox_rename(struct mailbox *src,
-			struct mailbox *dest, bool rename_children ATTR_UNUSED)
+mail_log_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 {
 	struct mail_log_user *muser = MAIL_LOG_USER_CONTEXT(src->storage->user);
 

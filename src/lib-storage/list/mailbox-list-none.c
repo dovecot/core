@@ -119,8 +119,7 @@ static int
 none_list_rename_mailbox(struct mailbox_list *oldlist,
 			 const char *oldname ATTR_UNUSED,
 			 struct mailbox_list *newlist ATTR_UNUSED,
-			 const char *newname ATTR_UNUSED,
-			 bool rename_children ATTR_UNUSED)
+			 const char *newname ATTR_UNUSED)
 {
 	mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
 			       "Not supported");

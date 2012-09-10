@@ -86,8 +86,7 @@ struct mailbox_list_vfuncs {
 	int (*delete_dir)(struct mailbox_list *list, const char *name);
 	int (*delete_symlink)(struct mailbox_list *list, const char *name);
 	int (*rename_mailbox)(struct mailbox_list *oldlist, const char *oldname,
-			      struct mailbox_list *newlist, const char *newname,
-			      bool rename_children);
+			      struct mailbox_list *newlist, const char *newname);
 
 	int (*notify_init)(struct mailbox_list *list,
 			   enum mailbox_list_notify_event mask,

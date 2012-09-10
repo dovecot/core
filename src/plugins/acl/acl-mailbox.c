@@ -184,8 +184,7 @@ acl_mailbox_delete(struct mailbox *box)
 }
 
 static int
-acl_mailbox_rename(struct mailbox *src, struct mailbox *dest,
-		   bool rename_children)
+acl_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(src);
 	int ret;
@@ -217,7 +216,7 @@ acl_mailbox_rename(struct mailbox *src, struct mailbox *dest,
 		return -1;
 	}
 
-	return abox->module_ctx.super.rename(src, dest, rename_children);
+	return abox->module_ctx.super.rename(src, dest);
 }
 
 static int

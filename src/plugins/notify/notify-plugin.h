@@ -28,8 +28,7 @@ struct notify_vfuncs {
 	void *(*mailbox_delete_begin)(struct mailbox *box);
 	void (*mailbox_delete_commit)(void *txn, struct mailbox *box);
 	void (*mailbox_delete_rollback)(void *txn);
-	void (*mailbox_rename)(struct mailbox *src, struct mailbox *dest,
-			       bool rename_children);
+	void (*mailbox_rename)(struct mailbox *src, struct mailbox *dest);
 	void (*mailbox_set_subscribed)(struct mailbox *box, bool subscribed);
 };
 

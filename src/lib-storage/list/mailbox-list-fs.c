@@ -482,11 +482,10 @@ static int rename_dir(struct mailbox_list *oldlist, const char *oldname,
 static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 				  const char *oldname,
 				  struct mailbox_list *newlist,
-				  const char *newname, bool rename_children)
+				  const char *newname)
 {
 	struct mail_storage *oldstorage;
 	const char *oldvname, *oldpath, *newpath, *alt_newpath, *root_path, *p;
-	enum mailbox_list_path_type path_type, alt_path_type;
 	struct stat st;
 	struct mailbox_permissions old_perm, new_perm;
 	bool rmdir_parent = FALSE;
@@ -495,23 +494,12 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 	if (mailbox_list_get_storage(&oldlist, oldvname, &oldstorage) < 0)
 		return -1;
 
-	if (rename_children) {
-		path_type = MAILBOX_LIST_PATH_TYPE_DIR;
-		alt_path_type = MAILBOX_LIST_PATH_TYPE_ALT_DIR;
-	} else if (mail_storage_is_mailbox_file(oldstorage) ||
-		   *oldlist->set.maildir_name != '\0') {
-		path_type = MAILBOX_LIST_PATH_TYPE_MAILBOX;
-		alt_path_type = MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX;
-	} else {
-		/* we can't do this, our children would get renamed with us */
-		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
-			"Can't rename mailbox without its children.");
-		return -1;
-	}
-
-	oldpath = mailbox_list_get_path(oldlist, oldname, path_type);
-	newpath = mailbox_list_get_path(newlist, newname, path_type);
-	alt_newpath = mailbox_list_get_path(newlist, newname, alt_path_type);
+	oldpath = mailbox_list_get_path(oldlist, oldname,
+					MAILBOX_LIST_PATH_TYPE_DIR);
+	newpath = mailbox_list_get_path(newlist, newname,
+					MAILBOX_LIST_PATH_TYPE_DIR);
+	alt_newpath = mailbox_list_get_path(newlist, newname,
+					    MAILBOX_LIST_PATH_TYPE_ALT_DIR);
 
 	root_path = mailbox_list_get_root_path(oldlist, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (strcmp(oldpath, root_path) == 0) {
@@ -597,23 +585,9 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 		return -1;
 	}
 
-	if (!rename_children) {
-		/* if there are no child mailboxes, get rid of the mailbox
-		   directory entirely. */
-		oldpath = mailbox_list_get_path(oldlist, oldname,
-						MAILBOX_LIST_PATH_TYPE_DIR);
-		if (rmdir(oldpath) == 0)
-			rmdir_parent = TRUE;
-		else if (errno != ENOENT &&
-			 errno != ENOTEMPTY && errno != EEXIST) {
-			mailbox_list_set_critical(oldlist,
-				"rmdir(%s) failed: %m", oldpath);
-		}
-	}
-
 	if (alt_newpath != NULL) {
 		(void)rename_dir(oldlist, oldname, newlist, newname,
-				 alt_path_type, rmdir_parent);
+				 MAILBOX_LIST_PATH_TYPE_ALT_DIR, rmdir_parent);
 	}
 	(void)rename_dir(oldlist, oldname, newlist, newname,
 			 MAILBOX_LIST_PATH_TYPE_CONTROL, rmdir_parent);

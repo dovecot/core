@@ -313,8 +313,7 @@ static int shared_list_rename_get_ns(struct mailbox_list *oldlist,
 
 static int
 shared_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
-			   struct mailbox_list *newlist, const char *newname,
-			   bool rename_children)
+			   struct mailbox_list *newlist, const char *newname)
 {
 	struct mail_namespace *ns;
 	int ret;
@@ -323,8 +322,7 @@ shared_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 				      newlist, &newname, &ns) < 0)
 		return -1;
 
-	ret = ns->list->v.rename_mailbox(ns->list, oldname, ns->list, newname,
-					 rename_children);
+	ret = ns->list->v.rename_mailbox(ns->list, oldname, ns->list, newname);
 	if (ret < 0)
 		shared_list_copy_error(oldlist, ns);
 	return ret;

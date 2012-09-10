@@ -584,14 +584,12 @@ int index_storage_mailbox_delete(struct mailbox *box)
 	return 0;
 }
 
-int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest,
-				 bool rename_children)
+int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 {
 	guid_128_t guid;
 
 	if (src->list->v.rename_mailbox(src->list, src->name,
-					dest->list, dest->name,
-					rename_children) < 0) {
+					dest->list, dest->name) < 0) {
 		mail_storage_copy_list_error(src->storage, src->list);
 		return -1;
 	}

@@ -421,7 +421,7 @@ cmd_mailbox_rename_run(struct doveadm_mail_cmd_context *_ctx,
 
 	oldbox = mailbox_alloc(oldns->list, oldname, 0);
 	newbox = mailbox_alloc(newns->list, newname, 0);
-	if (mailbox_rename(oldbox, newbox, TRUE) < 0) {
+	if (mailbox_rename(oldbox, newbox) < 0) {
 		i_error("Can't rename mailbox %s to %s: %s", oldname, newname,
 			mailbox_get_last_error(oldbox, NULL));
 		doveadm_mail_failed_mailbox(_ctx, oldbox);

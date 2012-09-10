@@ -1206,8 +1206,7 @@ mailbox_lists_rename_compatible(struct mailbox_list *list1,
 	return TRUE;
 }
 
-int mailbox_rename(struct mailbox *src, struct mailbox *dest,
-		   bool rename_children)
+int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 {
 	const char *error = NULL;
 
@@ -1238,7 +1237,7 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest,
 		return -1;
 	}
 
-	return src->v.rename(src, dest, rename_children);
+	return src->v.rename(src, dest);
 }
 
 int mailbox_set_subscribed(struct mailbox *box, bool set)

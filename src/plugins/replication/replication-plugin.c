@@ -273,8 +273,7 @@ replication_mailbox_delete_commit(void *txn ATTR_UNUSED,
 
 static void
 replication_mailbox_rename(struct mailbox *src ATTR_UNUSED,
-			   struct mailbox *dest,
-			   bool rename_children ATTR_UNUSED)
+			   struct mailbox *dest)
 {
 	replication_notify(mailbox_get_namespace(dest),
 			   REPLICATION_PRIORITY_LOW);

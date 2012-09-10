@@ -231,8 +231,7 @@ static void lazy_expunge_mail_allocated(struct mail *_mail)
 }
 
 static int
-lazy_expunge_mailbox_rename(struct mailbox *src, struct mailbox *dest,
-			    bool rename_children)
+lazy_expunge_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 {
 	union mailbox_module_context *lbox = LAZY_EXPUNGE_CONTEXT(src);
 	struct lazy_expunge_mailbox_list *src_llist =
@@ -247,7 +246,7 @@ lazy_expunge_mailbox_rename(struct mailbox *src, struct mailbox *dest,
 			"Can't rename mailboxes to/from expunge namespace.");
 		return -1;
 	}
-	return lbox->super.rename(src, dest, rename_children);
+	return lbox->super.rename(src, dest);
 }
 
 static void lazy_expunge_mailbox_allocated(struct mailbox *box)

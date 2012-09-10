@@ -439,11 +439,10 @@ int mailbox_delete(struct mailbox *box);
 /* Delete mailbox, but only if it's empty. If it's not, fails with
    MAIL_ERROR_EXISTS. */
 int mailbox_delete_empty(struct mailbox *box);
-/* Rename mailbox. Renaming across different mailbox lists is possible only
-   between private namespaces and storages of the same type. If the rename
-   fails, the error is set to src's storage. */
-int mailbox_rename(struct mailbox *src, struct mailbox *dest,
-		   bool rename_children);
+/* Rename mailbox (and its children). Renaming across different mailbox lists
+   is possible only between private namespaces and storages of the same type.
+   If the rename fails, the error is set to src's storage. */
+int mailbox_rename(struct mailbox *src, struct mailbox *dest);
 /* Subscribe/unsubscribe mailbox. Subscribing to
    nonexistent mailboxes is optional. */
 int mailbox_set_subscribed(struct mailbox *box, bool set);

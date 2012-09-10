@@ -202,14 +202,13 @@ void notify_contexts_mailbox_delete_rollback(void)
 	}
 }
 
-void notify_contexts_mailbox_rename(struct mailbox *src, struct mailbox *dest,
-				    bool rename_children)
+void notify_contexts_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 {
 	struct notify_context *ctx;
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
 		if (ctx->v.mailbox_rename != NULL)
-			ctx->v.mailbox_rename(src, dest, rename_children);
+			ctx->v.mailbox_rename(src, dest);
 	}
 }
 

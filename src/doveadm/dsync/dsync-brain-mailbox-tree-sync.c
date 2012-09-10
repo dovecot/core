@@ -119,7 +119,7 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 	case DSYNC_MAILBOX_TREE_SYNC_TYPE_RENAME:
 		destbox = mailbox_alloc(change->ns->list,
 					change->rename_dest_name, 0);
-		ret = mailbox_rename(box, destbox, TRUE);
+		ret = mailbox_rename(box, destbox);
 		func_name = "mailbox_rename";
 		mailbox_free(&destbox);
 		break;
