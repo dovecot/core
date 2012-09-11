@@ -217,6 +217,7 @@ virtual_size_add_new(struct mailbox *box,
 	}
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
+	mail_search_args_unref(&search_args);
 
 	if (ret == 0) {
 		/* success, cache all */
