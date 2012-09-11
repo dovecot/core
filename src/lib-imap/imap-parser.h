@@ -16,7 +16,11 @@ enum imap_parser_flags {
 	/* Don't check if atom contains invalid characters */
 	IMAP_PARSE_FLAG_ATOM_ALLCHARS	= 0x08,
 	/* Allow strings to contain CRLFs */
-	IMAP_PARSE_FLAG_MULTILINE_STR	= 0x10
+	IMAP_PARSE_FLAG_MULTILINE_STR	= 0x10,
+	/* We're parsing IMAP server replies. Parse the "text" after
+	   OK/NO/BAD/BYE replies as a single atom. We assume that the initial
+	   "*" or tag was already skipped over. */
+	IMAP_PARSE_FLAG_SERVER_TEXT	= 0x20
 };
 
 struct imap_parser;

@@ -17,7 +17,8 @@ enum arg_parse_type {
 	ARG_PARSE_STRING,
 	ARG_PARSE_LITERAL,
 	ARG_PARSE_LITERAL_DATA,
-	ARG_PARSE_LITERAL_DATA_FORCED
+	ARG_PARSE_LITERAL_DATA_FORCED,
+	ARG_PARSE_TEXT
 };
 
 struct imap_parser {
@@ -37,6 +38,7 @@ struct imap_parser {
 
 	enum arg_parse_type cur_type;
 	size_t cur_pos; /* parser position in input buffer */
+	bool cur_resp_text; /* we're parsing [resp-text-code] */
 
 	int str_first_escape; /* ARG_PARSE_STRING: index to first '\' */
 	uoff_t literal_size; /* ARG_PARSE_LITERAL: string size */
@@ -100,6 +102,7 @@ void imap_parser_reset(struct imap_parser *parser)
 
 	parser->cur_type = ARG_PARSE_NONE;
 	parser->cur_pos = 0;
+	parser->cur_resp_text = FALSE;
 
 	parser->str_first_escape = 0;
 	parser->literal_size = 0;
@@ -210,6 +213,7 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 
 	switch (parser->cur_type) {
 	case ARG_PARSE_ATOM:
+	case ARG_PARSE_TEXT:
 		if (size == 3 && memcmp(data, "NIL", 3) == 0) {
 			/* NIL argument */
 			arg->type = IMAP_ARG_NIL;
@@ -468,6 +472,56 @@ static int imap_parser_read_literal_data(struct imap_parser *parser,
 	}
 }
 
+static bool imap_parser_is_next_resp_text(struct imap_parser *parser)
+{
+	const struct imap_arg *arg;
+
+	if (parser->cur_list != &parser->root_list ||
+	    array_count(parser->cur_list) != 1)
+		return FALSE;
+
+	arg = array_idx(&parser->root_list, 0);
+	if (arg->type != IMAP_ARG_ATOM)
+		return FALSE;
+
+	return strcasecmp(arg->_data.str, "OK") == 0 ||
+		strcasecmp(arg->_data.str, "NO") == 0 ||
+		strcasecmp(arg->_data.str, "BAD") == 0 ||
+		strcasecmp(arg->_data.str, "BYE") == 0;
+}
+
+static bool imap_parser_is_next_text(struct imap_parser *parser)
+{
+	const struct imap_arg *arg;
+	unsigned int len;
+
+	if (parser->cur_list != &parser->root_list)
+		return FALSE;
+
+	arg = array_idx(&parser->root_list, array_count(&parser->root_list)-1);
+	if (arg->type != IMAP_ARG_ATOM)
+		return FALSE;
+
+	len = strlen(arg->_data.str);
+	return len > 0 && arg->_data.str[len-1] == ']';
+}
+
+static bool imap_parser_read_text(struct imap_parser *parser,
+				  const unsigned char *data, size_t data_size)
+{
+	size_t i;
+
+	/* read until end of line */
+	for (i = parser->cur_pos; i < data_size; i++) {
+		if (is_linebreak(data[i])) {
+			imap_parser_save_arg(parser, data, i);
+			break;
+		}
+	}
+	parser->cur_pos = i;
+	return parser->cur_type == ARG_PARSE_NONE;
+}
+
 /* Returns TRUE if argument was fully processed. Also returns TRUE if
    an argument inside a list was processed. */
 static int imap_parser_read_arg(struct imap_parser *parser)
@@ -484,6 +538,13 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 		if (!imap_parser_skip_to_next(parser, &data, &data_size))
 			return FALSE;
 		i_assert(parser->cur_pos == 0);
+
+		if (parser->cur_resp_text &&
+		    imap_parser_is_next_text(parser)) {
+			/* we just parsed [resp-text-code] */
+			parser->cur_type = ARG_PARSE_TEXT;
+			break;
+		}
 
 		switch (data[0]) {
 		case '\r':
@@ -538,6 +599,16 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 	case ARG_PARSE_ATOM:
 		if (!imap_parser_read_atom(parser, data, data_size))
 			return FALSE;
+		if ((parser->flags & IMAP_PARSE_FLAG_SERVER_TEXT) == 0)
+			break;
+
+		if (imap_parser_is_next_resp_text(parser)) {
+			/* we just parsed OK/NO/BAD/BYE. after parsing the
+			   [resp-text-code] the rest of the message can contain
+			   pretty much any random text, which we can't parse
+			   as if it was valid IMAP input */
+			parser->cur_resp_text = TRUE;
+		}
 		break;
 	case ARG_PARSE_STRING:
 		if (!imap_parser_read_string(parser, data, data_size))
@@ -555,6 +626,10 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 	case ARG_PARSE_LITERAL_DATA:
 	case ARG_PARSE_LITERAL_DATA_FORCED:
 		if (!imap_parser_read_literal_data(parser, data, data_size))
+			return FALSE;
+		break;
+	case ARG_PARSE_TEXT:
+		if (!imap_parser_read_text(parser, data, data_size))
 			return FALSE;
 		break;
 	default:
@@ -579,6 +654,7 @@ static int finish_line(struct imap_parser *parser, unsigned int count,
 	parser->line_size += parser->cur_pos;
 	i_stream_skip(parser->input, parser->cur_pos);
 	parser->cur_pos = 0;
+	parser->cur_resp_text = FALSE;
 
 	if (parser->list_arg != NULL && !parser->literal_size_return) {
 		parser->error = "Missing ')'";
