@@ -6,41 +6,33 @@
 
 #include <unistd.h>
 
-#define DEFAULT_PWBUF_SIZE 16384
-#define DEFAULT_GRBUF_SIZE 16384
+#define PWBUF_MIN_SIZE 128
+#define GRBUF_MIN_SIZE 128
 
 static void *pwbuf = NULL, *grbuf = NULL;
 static size_t pwbuf_size, grbuf_size;
 
 static void pw_init(void)
 {
-	long size;
+	size_t old_pwbuf_size = pwbuf_size;
 
-	if (pwbuf == NULL) {
-		size = sysconf(_SC_GETPW_R_SIZE_MAX);
-		if (size < 0)
-			size = DEFAULT_PWBUF_SIZE;
-
-		pwbuf_size = size;
-		pwbuf = i_malloc(pwbuf_size);
+	if (pwbuf == NULL || errno == ERANGE) {
+		pwbuf_size = nearest_power(old_pwbuf_size + 1);
+		if (pwbuf_size < PWBUF_MIN_SIZE)
+			pwbuf_size = PWBUF_MIN_SIZE;
+		pwbuf = i_realloc(pwbuf, old_pwbuf_size, pwbuf_size);
 	}
 }
 
 static void gr_init(void)
 {
-	long size;
+	size_t old_grbuf_size = grbuf_size;
 
-	if (grbuf == NULL) {
-		size = sysconf(_SC_GETGR_R_SIZE_MAX);
-		/* Some BSDs return too low value for this. instead of trying
-		   to figure out exactly which, just make sure it's at least
-		   a reasonable size. if the real size is smaller, it doesn't
-		   matter much that we waste a few kilobytes of memory. */
-		if (size < DEFAULT_GRBUF_SIZE)
-			size = DEFAULT_GRBUF_SIZE;
-
-		grbuf_size = size;
-		grbuf = i_malloc(grbuf_size);
+	if (grbuf == NULL || errno == ERANGE) {
+		grbuf_size = nearest_power(old_grbuf_size + 1);
+		if (grbuf_size < PWBUF_MIN_SIZE)
+			grbuf_size = PWBUF_MIN_SIZE;
+		grbuf = i_realloc(grbuf, old_grbuf_size, grbuf_size);
 	}
 }
 
@@ -54,8 +46,11 @@ int i_getpwnam(const char *name, struct passwd *pwd_r)
 {
 	struct passwd *result;
 
-	pw_init();
-	errno = getpwnam_r(name, pwd_r, pwbuf, pwbuf_size, &result);
+	errno = 0;
+	do {
+		pw_init();
+		errno = getpwnam_r(name, pwd_r, pwbuf, pwbuf_size, &result);
+	} while (errno == ERANGE);
 	if (result != NULL)
 		return 1;
 	return errno == 0 ? 0 : -1;
@@ -65,8 +60,11 @@ int i_getpwuid(uid_t uid, struct passwd *pwd_r)
 {
 	struct passwd *result;
 
-	pw_init();
-	errno = getpwuid_r(uid, pwd_r, pwbuf, pwbuf_size, &result);
+	errno = 0;
+	do {
+		pw_init();
+		errno = getpwuid_r(uid, pwd_r, pwbuf, pwbuf_size, &result);
+	} while (errno == ERANGE);
 	if (result != NULL)
 		return 1;
 	return errno == 0 ? 0 : -1;
@@ -76,8 +74,11 @@ int i_getgrnam(const char *name, struct group *grp_r)
 {
 	struct group *result;
 
-	gr_init();
-	errno = getgrnam_r(name, grp_r, grbuf, grbuf_size, &result);
+	errno = 0;
+	do {
+		gr_init();
+		errno = getgrnam_r(name, grp_r, grbuf, grbuf_size, &result);
+	} while (errno == ERANGE);
 	if (result != NULL)
 		return 1;
 	return errno == 0 ? 0 : -1;
@@ -87,8 +88,11 @@ int i_getgrgid(gid_t gid, struct group *grp_r)
 {
 	struct group *result;
 
-	gr_init();
-	errno = getgrgid_r(gid, grp_r, grbuf, grbuf_size, &result);
+	errno = 0;
+	do {
+		gr_init();
+		errno = getgrgid_r(gid, grp_r, grbuf, grbuf_size, &result);
+	} while (errno == ERANGE);
 	if (result != NULL)
 		return 1;
 	return errno == 0 ? 0 : -1;
