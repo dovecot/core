@@ -92,6 +92,13 @@ acl_lookup_dict_write_rights_id(string_t *dest, const struct acl_rights *right)
 	}
 }
 
+static bool
+acl_rights_is_same_user(const struct acl_rights *right, struct mail_user *user)
+{
+	return right->id_type == ACL_ID_USER &&
+		strcmp(right->identifier, user->username) == 0;
+}
+
 static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 					       ARRAY_TYPE(const_string) *ids)
 {
@@ -115,7 +122,10 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 
 		iter = acl_object_list_init(aclobj);
 		while ((ret = acl_object_list_next(iter, &rights)) > 0) {
-			if (acl_rights_has_nonowner_lookup_changes(&rights)) {
+			/* avoid pointless user -> user entries,
+			   which some clients do */
+			if (acl_rights_has_nonowner_lookup_changes(&rights) &&
+			    !acl_rights_is_same_user(&rights, ns->owner)) {
 				str_truncate(id, 0);
 				acl_lookup_dict_write_rights_id(id, &rights);
 				str_append_c(id, '/');
