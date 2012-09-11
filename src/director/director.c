@@ -216,7 +216,10 @@ void director_connect(struct director *dir)
 	if (dir->left != NULL) {
 		/* since we couldn't connect to it,
 		   it must have failed recently */
-		director_connection_deinit(&dir->left);
+		i_warning("director: Assuming %s is dead, disconnecting",
+			  director_connection_get_name(dir->left));
+		director_connection_deinit(&dir->left,
+					   "This connection is dead?");
 	}
 	dir->ring_min_version = DIRECTOR_VERSION_MINOR;
 	if (!dir->ring_handshaked)
@@ -482,7 +485,7 @@ void director_ring_remove(struct director_host *removed_host,
 		if (director_connection_get_host(conn) != removed_host)
 			i++;
 		else {
-			director_connection_deinit(&conn);
+			director_connection_deinit(&conn, "Removing from ring");
 			conns = array_get(&dir->connections, &count);
 		}
 	}
@@ -845,7 +848,7 @@ void director_deinit(struct director **_dir)
 	while (array_count(&dir->connections) > 0) {
 		connp = array_idx(&dir->connections, 0);
 		conn = *connp;
-		director_connection_deinit(&conn);
+		director_connection_deinit(&conn, "Shutting down");
 	}
 
 	user_directory_deinit(&dir->users);
