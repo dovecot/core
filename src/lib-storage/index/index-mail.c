@@ -330,6 +330,7 @@ int index_mail_get_date(struct mail *_mail, time_t *date_r, int *timezone_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
+	struct mail_sent_date sentdate;
 
 	data->cache_fetch_fields |= MAIL_FETCH_DATE;
 	if (data->sent_date.time != (uint32_t)-1) {
@@ -338,9 +339,9 @@ int index_mail_get_date(struct mail *_mail, time_t *date_r, int *timezone_r)
 		return 0;
 	}
 
-	(void)index_mail_get_fixed_field(mail, MAIL_CACHE_SENT_DATE,
-					 &data->sent_date,
-					 sizeof(data->sent_date));
+	if (index_mail_get_fixed_field(mail, MAIL_CACHE_SENT_DATE,
+				       &sentdate, sizeof(sentdate)))
+		data->sent_date = sentdate;
 
 	if (index_mail_cache_sent_date(mail) < 0)
 		return -1;
@@ -374,12 +375,15 @@ static bool get_cached_msgpart_sizes(struct index_mail *mail)
 bool index_mail_get_cached_virtual_size(struct index_mail *mail, uoff_t *size_r)
 {
 	struct index_mail_data *data = &mail->data;
+	uoff_t size;
 
 	data->cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
 	if (data->virtual_size == (uoff_t)-1) {
-		if (!index_mail_get_cached_uoff_t(mail,
-						  MAIL_CACHE_VIRTUAL_FULL_SIZE,
-						  &data->virtual_size)) {
+		if (index_mail_get_cached_uoff_t(mail,
+						 MAIL_CACHE_VIRTUAL_FULL_SIZE,
+						 &size))
+			data->virtual_size = size;
+		else {
 			if (!get_cached_msgpart_sizes(mail))
 				return FALSE;
 		}
@@ -442,12 +446,15 @@ int index_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
+	uoff_t size;
 
 	data->cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
 	if (data->physical_size == (uoff_t)-1) {
-		if (!index_mail_get_cached_uoff_t(mail,
-						  MAIL_CACHE_PHYSICAL_FULL_SIZE,
-						  &data->physical_size))
+		if (index_mail_get_cached_uoff_t(mail,
+						 MAIL_CACHE_PHYSICAL_FULL_SIZE,
+						 &size))
+			data->physical_size = size;
+		else
 			(void)get_cached_msgpart_sizes(mail);
 	}
 	*size_r = data->physical_size;
