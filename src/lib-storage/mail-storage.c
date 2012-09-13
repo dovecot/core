@@ -1056,7 +1056,7 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	mailbox_refresh_permissions(box);
 
 	box->creating = TRUE;
-	ret = box->v.create(box, update, directory);
+	ret = box->v.create_box(box, update, directory);
 	box->creating = FALSE;
 	return ret;
 }
@@ -1067,7 +1067,7 @@ int mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 		 update->min_first_recent_uid == 0 ||
 		 update->min_first_recent_uid <= update->min_next_uid);
 
-	return box->v.update(box, update);
+	return box->v.update_box(box, update);
 }
 
 int mailbox_mark_index_deleted(struct mailbox *box, bool del)
@@ -1133,7 +1133,7 @@ int mailbox_delete(struct mailbox *box)
 		/* \noselect mailbox */
 	}
 
-	ret = box->v.delete(box);
+	ret = box->v.delete_box(box);
 	if (ret < 0 && box->marked_deleted) {
 		/* deletion failed. revert the mark so it can maybe be
 		   tried again later. */
@@ -1237,7 +1237,7 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 		return -1;
 	}
 
-	return src->v.rename(src, dest);
+	return src->v.rename_box(src, dest);
 }
 
 int mailbox_set_subscribed(struct mailbox *box, bool set)

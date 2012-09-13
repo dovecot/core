@@ -127,11 +127,12 @@ struct mailbox_vfuncs {
 	void (*close)(struct mailbox *box);
 	void (*free)(struct mailbox *box);
 
-	int (*create)(struct mailbox *box, const struct mailbox_update *update,
-		      bool directory);
-	int (*update)(struct mailbox *box, const struct mailbox_update *update);
-	int (*delete)(struct mailbox *box);
-	int (*rename)(struct mailbox *src, struct mailbox *dest);
+	int (*create_box)(struct mailbox *box,
+			  const struct mailbox_update *update, bool directory);
+	int (*update_box)(struct mailbox *box,
+			  const struct mailbox_update *update);
+	int (*delete_box)(struct mailbox *box);
+	int (*rename_box)(struct mailbox *src, struct mailbox *dest);
 
 	int (*get_status)(struct mailbox *box, enum mailbox_status_items items,
 			  struct mailbox_status *status_r);

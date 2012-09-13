@@ -201,7 +201,7 @@ notify_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 {
 	union mailbox_module_context *lbox = NOTIFY_CONTEXT(box);
 
-	if (lbox->super.create(box, update, directory) < 0)
+	if (lbox->super.create_box(box, update, directory) < 0)
 		return -1;
 
 	notify_contexts_mailbox_create(box);
@@ -213,7 +213,7 @@ notify_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 {
 	union mailbox_module_context *lbox = NOTIFY_CONTEXT(box);
 
-	if (lbox->super.update(box, update) < 0)
+	if (lbox->super.update_box(box, update) < 0)
 		return -1;
 
 	notify_contexts_mailbox_update(box);
@@ -226,7 +226,7 @@ notify_mailbox_delete(struct mailbox *box)
 	union mailbox_module_context *lbox = NOTIFY_CONTEXT(box);
 
 	notify_contexts_mailbox_delete_begin(box);
-	if (lbox->super.delete(box) < 0) {
+	if (lbox->super.delete_box(box) < 0) {
 		notify_contexts_mailbox_delete_rollback();
 		return -1;
 	}
@@ -239,7 +239,7 @@ notify_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 {
 	union mailbox_module_context *lbox = NOTIFY_CONTEXT(src);
 
-	if (lbox->super.rename(src, dest) < 0)
+	if (lbox->super.rename_box(src, dest) < 0)
 		return -1;
 
 	notify_contexts_mailbox_rename(src, dest);
@@ -273,10 +273,10 @@ static void notify_mailbox_allocated(struct mailbox *box)
 	v->transaction_begin = notify_transaction_begin;
 	v->transaction_commit = notify_transaction_commit;
 	v->transaction_rollback = notify_transaction_rollback;
-	v->create = notify_mailbox_create;
-	v->update = notify_mailbox_update;
-	v->delete = notify_mailbox_delete;
-	v->rename = notify_mailbox_rename;
+	v->create_box = notify_mailbox_create;
+	v->update_box = notify_mailbox_update;
+	v->delete_box = notify_mailbox_delete;
+	v->rename_box = notify_mailbox_rename;
 	v->set_subscribed = notify_mailbox_set_subscribed;
 	MODULE_CONTEXT_SET_SELF(box, notify_storage_module, lbox);
 }

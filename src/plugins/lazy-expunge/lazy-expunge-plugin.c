@@ -246,7 +246,7 @@ lazy_expunge_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 			"Can't rename mailboxes to/from expunge namespace.");
 		return -1;
 	}
-	return lbox->super.rename(src, dest);
+	return lbox->super.rename_box(src, dest);
 }
 
 static void lazy_expunge_mailbox_allocated(struct mailbox *box)
@@ -268,9 +268,9 @@ static void lazy_expunge_mailbox_allocated(struct mailbox *box)
 		v->transaction_begin = lazy_expunge_transaction_begin;
 		v->transaction_commit = lazy_expunge_transaction_commit;
 		v->transaction_rollback = lazy_expunge_transaction_rollback;
-		v->rename = lazy_expunge_mailbox_rename;
+		v->rename_box = lazy_expunge_mailbox_rename;
 	} else {
-		v->rename = lazy_expunge_mailbox_rename;
+		v->rename_box = lazy_expunge_mailbox_rename;
 	}
 }
 

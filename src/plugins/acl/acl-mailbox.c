@@ -129,7 +129,7 @@ acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	   super.create() may call e.g. mailbox_open() which will fail since
 	   we haven't yet copied ACLs to this mailbox. */
 	abox->skip_acl_checks = TRUE;
-	ret = abox->module_ctx.super.create(box, update, directory);
+	ret = abox->module_ctx.super.create_box(box, update, directory);
 	abox->skip_acl_checks = FALSE;
 	if (ret == 0)
 		acl_mailbox_copy_acls_from_parent(box);
@@ -145,7 +145,7 @@ acl_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	ret = acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_ADMIN);
 	if (ret <= 0)
 		return -1;
-	return abox->module_ctx.super.update(box, update);
+	return abox->module_ctx.super.update_box(box, update);
 }
 
 static void acl_mailbox_fail_not_found(struct mailbox *box)
@@ -178,7 +178,7 @@ acl_mailbox_delete(struct mailbox *box)
 	/* deletion might internally open the mailbox. let it succeed even if
 	   we don't have READ permission. */
 	abox->skip_acl_checks = TRUE;
-	ret = abox->module_ctx.super.delete(box);
+	ret = abox->module_ctx.super.delete_box(box);
 	abox->skip_acl_checks = FALSE;
 	return ret;
 }
@@ -216,7 +216,7 @@ acl_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 		return -1;
 	}
 
-	return abox->module_ctx.super.rename(src, dest);
+	return abox->module_ctx.super.rename_box(src, dest);
 }
 
 static int
@@ -540,10 +540,10 @@ void acl_mailbox_allocated(struct mailbox *box)
 		v->exists = acl_mailbox_exists;
 		v->open = acl_mailbox_open;
 		v->get_status = acl_mailbox_get_status;
-		v->create = acl_mailbox_create;
-		v->update = acl_mailbox_update;
-		v->delete = acl_mailbox_delete;
-		v->rename = acl_mailbox_rename;
+		v->create_box = acl_mailbox_create;
+		v->update_box = acl_mailbox_update;
+		v->delete_box = acl_mailbox_delete;
+		v->rename_box = acl_mailbox_rename;
 		v->save_begin = acl_save_begin;
 		v->copy = acl_copy;
 		v->transaction_commit = acl_transaction_commit;
