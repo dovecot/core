@@ -1,6 +1,8 @@
 #ifndef MAILBOX_LIST_PRIVATE_H
 #define MAILBOX_LIST_PRIVATE_H
 
+#include "mailbox-log.h"
+#include "mailbox-list-notify.h"
 #include "mail-namespace.h"
 #include "mailbox-list.h"
 #include "mail-storage-settings.h"
@@ -11,8 +13,6 @@
 
 #define MAILBOX_LOG_FILE_NAME "dovecot.mailbox.log"
 
-enum mailbox_log_record_type;
-enum mailbox_list_notify_event;
 struct stat;
 struct dirent;
 struct imap_match_glob;
