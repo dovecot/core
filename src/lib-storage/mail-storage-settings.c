@@ -298,22 +298,6 @@ const void *mail_storage_get_driver_settings(struct mail_storage *storage)
 						 storage->name);
 }
 
-enum mail_index_open_flags
-mail_storage_settings_to_index_flags(const struct mail_storage_settings *set)
-{
-	enum mail_index_open_flags index_flags = 0;
-
-#ifndef MMAP_CONFLICTS_WRITE
-	if (set->mmap_disable)
-#endif
-		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
-	if (set->dotlock_use_excl)
-		index_flags |= MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL;
-	if (set->mail_nfs_index)
-		index_flags |= MAIL_INDEX_OPEN_FLAG_NFS_FLUSH;
-	return index_flags;
-}
-
 const struct dynamic_settings_parser *
 mail_storage_get_dynamic_parsers(pool_t pool)
 {

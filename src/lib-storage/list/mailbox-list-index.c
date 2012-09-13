@@ -6,6 +6,7 @@
 #include "str.h"
 #include "mail-index-view-private.h"
 #include "mail-storage-hooks.h"
+#include "mail-storage-private.h"
 #include "mailbox-list-index.h"
 
 #define MAILBOX_LIST_INDEX_REFRESH_DELAY_MSECS 1000

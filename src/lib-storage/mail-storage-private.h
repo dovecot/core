@@ -565,4 +565,7 @@ unsigned int mail_storage_get_lock_timeout(struct mail_storage *storage,
 					   unsigned int secs);
 void mail_storage_free_binary_cache(struct mail_storage *storage);
 
+enum mail_index_open_flags
+mail_storage_settings_to_index_flags(const struct mail_storage_settings *set);
+
 #endif
