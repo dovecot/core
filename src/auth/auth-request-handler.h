@@ -15,10 +15,10 @@ typedef void
 auth_request_callback_t(struct auth_stream_reply *reply, void *context);
 
 struct auth_request_handler *
-auth_request_handler_create(auth_request_callback_t *callback, void *context,
-			    auth_request_callback_t *master_callback);
-#define auth_request_handler_create(callback, context, master_callback)\
-	  auth_request_handler_create( \
+auth_request_handler_create(bool token_auth, auth_request_callback_t *callback,
+			    void *context, auth_request_callback_t *master_callback);
+#define auth_request_handler_create(token_auth, callback, context, master_callback)\
+	  auth_request_handler_create(token_auth, \
 		(auth_request_callback_t *)callback, \
 		(void *)((char*)context + \
 			CALLBACK_TYPECHECK(callback, void (*)( \
@@ -46,8 +46,8 @@ unsigned int
 auth_request_handler_get_request_count(struct auth_request_handler *handler);
 bool auth_request_handler_master_request(struct auth_request_handler *handler,
 					 struct auth_master_connection *master,
-					 unsigned int id,
-					 unsigned int client_id);
+					 unsigned int id, unsigned int client_id,
+					 const char *const *params);
 void auth_request_handler_cancel_request(struct auth_request_handler *handler,
 					 unsigned int client_id);
 

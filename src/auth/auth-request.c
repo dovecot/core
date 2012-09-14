@@ -56,6 +56,7 @@ auth_request_new(const struct mech_module *mech)
 
 	request->refcount = 1;
 	request->last_access = ioloop_time;
+	request->session_pid = (pid_t)-1;
 
 	request->set = global_auth_settings;
 	request->mech = mech;
@@ -77,6 +78,7 @@ struct auth_request *auth_request_new_dummy(void)
 
 	request->refcount = 1;
 	request->last_access = ioloop_time;
+	request->session_pid = (pid_t)-1;
 	request->set = global_auth_settings;
 	return request;
 }
@@ -276,6 +278,20 @@ bool auth_request_import_auth(struct auth_request *request,
 	} else {
 		return FALSE;
 	}
+	return TRUE;
+}
+
+bool auth_request_import_master(struct auth_request *request,
+				const char *key, const char *value)
+{
+	pid_t pid;
+
+	/* master request lookups may set these */
+	if (strcmp(key, "session_pid") == 0) {
+		if (str_to_pid(value, &pid) == 0)
+			request->session_pid = pid;
+	} else
+		return FALSE;
 	return TRUE;
 }
 

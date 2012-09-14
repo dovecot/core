@@ -70,7 +70,8 @@ master_login_init(struct master_service *service,
 	login->service = service;
 	login->callback = set->callback;
 	login->failure_callback = set->failure_callback;
-	login->auth = master_login_auth_init(set->auth_socket_path);
+	login->auth = master_login_auth_init(set->auth_socket_path,
+					     set->request_auth_token);
 	login->postlogin_socket_path = i_strdup(set->postlogin_socket_path);
 	login->postlogin_timeout_secs = set->postlogin_timeout_secs;
 

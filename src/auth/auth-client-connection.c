@@ -125,7 +125,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 	/* handshake complete, we can now actually start serving requests */
         conn->refcount++;
 	conn->request_handler =
-		auth_request_handler_create(auth_callback, conn,
+		auth_request_handler_create(conn->token_auth, auth_callback, conn,
 					    !conn->login_requests ? NULL :
 					    auth_master_request_callback);
 	auth_request_handler_set(conn->request_handler, conn->connect_uid, pid);
@@ -294,10 +294,11 @@ static void auth_client_input(struct auth_client_connection *conn)
 }
 
 void auth_client_connection_create(struct auth *auth, int fd,
-				   bool login_requests)
+				   bool login_requests, bool token_auth)
 {
 	static unsigned int connect_uid_counter = 0;
 	struct auth_client_connection *conn;
+	const char *mechanisms;
 	string_t *str;
 
 	conn = i_new(struct auth_client_connection, 1);
@@ -305,6 +306,7 @@ void auth_client_connection_create(struct auth *auth, int fd,
 	conn->refcount = 1;
 	conn->connect_uid = ++connect_uid_counter;
 	conn->login_requests = login_requests;
+	conn->token_auth = token_auth;
 	random_fill(conn->cookie, sizeof(conn->cookie));
 
 	conn->fd = fd;
@@ -317,11 +319,18 @@ void auth_client_connection_create(struct auth *auth, int fd,
 
 	DLLIST_PREPEND(&auth_client_connections, conn);
 
+	if (token_auth) {
+		mechanisms = t_strconcat("MECH\t",
+			mech_dovecot_token.mech_name, "\n", NULL);
+	} else {
+		mechanisms = str_c(auth->reg->handshake);
+	}
+
 	str = t_str_new(128);
 	str_printfa(str, "VERSION\t%u\t%u\n%sSPID\t%s\nCUID\t%u\nCOOKIE\t",
                     AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
                     AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
-		    str_c(auth->reg->handshake), my_pid, conn->connect_uid);
+		    mechanisms, my_pid, conn->connect_uid);
 	binary_to_hex_append(str, conn->cookie, sizeof(conn->cookie));
 	str_append(str, "\nDONE\n");
 

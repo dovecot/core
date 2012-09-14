@@ -6,11 +6,13 @@
 #include "aqueue.h"
 #include "base64.h"
 #include "hash.h"
+#include "network.h"
 #include "str.h"
 #include "str-sanitize.h"
 #include "master-interface.h"
 #include "auth-penalty.h"
 #include "auth-request.h"
+#include "auth-token.h"
 #include "auth-master-connection.h"
 #include "auth-request-handler.h"
 
@@ -31,6 +33,7 @@ struct auth_request_handler {
 	auth_request_callback_t *master_callback;
 
 	unsigned int destroyed:1;
+	unsigned int token_auth:1;
 };
 
 static ARRAY(struct auth_request *) auth_failures_arr;
@@ -41,8 +44,8 @@ static void auth_failure_timeout(void *context) ATTR_NULL(1);
 
 #undef auth_request_handler_create
 struct auth_request_handler *
-auth_request_handler_create(auth_request_callback_t *callback, void *context,
-			    auth_request_callback_t *master_callback)
+auth_request_handler_create(bool token_auth, auth_request_callback_t *callback,
+			    void *context, auth_request_callback_t *master_callback)
 {
 	struct auth_request_handler *handler;
 	pool_t pool;
@@ -56,6 +59,7 @@ auth_request_handler_create(auth_request_callback_t *callback, void *context,
 	handler->callback = callback;
 	handler->context = context;
 	handler->master_callback = master_callback;
+	handler->token_auth = token_auth;
 	return handler;
 }
 
@@ -461,13 +465,24 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return FALSE;
 	}
 
-	mech = mech_module_find(list[1]);
-	if (mech == NULL) {
-		/* unsupported mechanism */
-		i_error("BUG: Authentication client %u requested unsupported "
-			"authentication mechanism %s", handler->client_pid,
-			str_sanitize(list[1], MAX_MECH_NAME_LEN));
-		return FALSE;
+	if (handler->token_auth) {
+		mech = &mech_dovecot_token;
+		if (strcmp(list[1], mech->mech_name) != 0) {
+			/* unsupported mechanism */
+			i_error("BUG: Authentication client %u requested invalid "
+				"authentication mechanism %s (DOVECOT-TOKEN required)",
+				handler->client_pid, str_sanitize(list[1], MAX_MECH_NAME_LEN));
+			return FALSE;
+		}
+	} else {		 
+		mech = mech_module_find(list[1]);
+		if (mech == NULL) {
+			/* unsupported mechanism */
+			i_error("BUG: Authentication client %u requested unsupported "
+				"authentication mechanism %s", handler->client_pid,
+				str_sanitize(list[1], MAX_MECH_NAME_LEN));
+			return FALSE;
+		}
 	}
 
 	request = auth_request_new(mech);
@@ -664,8 +679,19 @@ static void userdb_callback(enum userdb_result result,
 			auth_stream_reply_add(request->userdb_reply,
 					      "anonymous", NULL);
 		}
+
 		auth_stream_reply_import(reply,
 			auth_stream_reply_export(request->userdb_reply));
+
+		/* generate auth_token when master service provided session_pid */
+		if (request->session_pid != (pid_t)-1) {
+			const char *auth_token =
+				auth_token_get(request->service,
+					       dec2str(request->session_pid),
+					       request->user,
+					       request->session_id);
+			auth_stream_reply_add(reply, "auth_token", auth_token);
+		}
 		break;
 	}
 	handler->master_callback(reply, request->master);
@@ -675,13 +701,27 @@ static void userdb_callback(enum userdb_result result,
         auth_request_handler_unref(&handler);
 }
 
+static bool
+auth_master_request_failed(struct auth_request_handler *handler,
+			   struct auth_master_connection *master,
+			   struct auth_stream_reply *reply, unsigned int id)
+{
+	auth_stream_reply_add(reply, "FAIL", NULL);
+	auth_stream_reply_add(reply, NULL, dec2str(id));
+	if (handler->master_callback == NULL)
+		return FALSE;
+	handler->master_callback(reply, master);
+	return TRUE;
+}
+
 bool auth_request_handler_master_request(struct auth_request_handler *handler,
 					 struct auth_master_connection *master,
-					 unsigned int id,
-					 unsigned int client_id)
+					 unsigned int id, unsigned int client_id,
+					 const char *const *params)
 {
 	struct auth_request *request;
 	struct auth_stream_reply *reply;
+	struct net_unix_cred cred;
 
 	reply = auth_stream_reply_init(pool_datastack_create());
 
@@ -689,16 +729,37 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 	if (request == NULL) {
 		i_error("Master request %u.%u not found",
 			handler->client_pid, client_id);
-		auth_stream_reply_add(reply, "FAIL", NULL);
-		auth_stream_reply_add(reply, NULL, dec2str(id));
-		if (handler->master_callback == NULL)
-			return FALSE;
-		handler->master_callback(reply, master);
-		return TRUE;
+		return auth_master_request_failed(handler, master, reply, id);
 	}
 
 	auth_request_ref(request);
 	auth_request_handler_remove(handler, request);
+
+	for (; *params != NULL; params++) {
+		const char *name, *param = strchr(*params, '=');
+
+		if (param == NULL) {
+			name = *params;
+			param = "";
+		} else {
+			name = t_strdup_until(*params, param);
+			param++;
+		}
+
+		(void)auth_request_import_master(request, name, param);
+	}
+
+	/* verify session pid if specified and possible */
+	if (request->session_pid != (pid_t)-1 &&
+	    net_getunixcred(master->fd, &cred) == 0 &&
+	    cred.pid != (pid_t)-1 && request->session_pid != cred.pid) {
+		i_error("Session pid %ld provided by master for request %u.%u "
+			"did not match peer credentials (pid=%ld, uid=%ld)",
+			(long)request->session_pid,
+			handler->client_pid, client_id,
+			(long)cred.pid, (long)cred.uid);
+		return auth_master_request_failed(handler, master, reply, id);
+	}
 
 	if (request->state != AUTH_REQUEST_STATE_FINISHED ||
 	    !request->successful) {

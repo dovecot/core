@@ -211,7 +211,8 @@ void client_destroy(struct client *client, const char *reason)
 
 	if (client->login_proxy != NULL)
 		login_proxy_free(&client->login_proxy);
-	client->v.destroy(client);
+	if (client->v.destroy != NULL)
+		client->v.destroy(client);
 	if (client_unref(&client) && initial_service_count == 1) {
 		/* as soon as this connection is done with proxying
 		   (or whatever), the process will die. there's no need for
@@ -672,7 +673,8 @@ void client_notify_disconnect(struct client *client,
 			      const char *text)
 {
 	if (!client->notified_disconnect) {
-		client->v.notify_disconnect(client, reason, text);
+		if (client->v.notify_disconnect != NULL)
+			client->v.notify_disconnect(client, reason, text);
 		client->notified_disconnect = TRUE;
 	}
 }
@@ -680,7 +682,8 @@ void client_notify_disconnect(struct client *client,
 void client_notify_auth_ready(struct client *client)
 {
 	if (!client->notified_auth_ready) {
-		client->v.notify_auth_ready(client);
+		if (client->v.notify_auth_ready != NULL)
+			client->v.notify_auth_ready(client);
 		client->notified_auth_ready = TRUE;
 	}
 }

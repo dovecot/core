@@ -23,6 +23,8 @@ struct mail_user {
 	gid_t gid;
 	const char *service;
 	struct ip_addr *local_ip, *remote_ip;
+	const char *auth_token;
+
 	const struct var_expand_table *var_expand_table;
 	/* If non-NULL, fail the user initialization with this error.
 	   This could be set by plugins that need to fail the initialization. */

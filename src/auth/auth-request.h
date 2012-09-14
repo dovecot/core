@@ -73,6 +73,7 @@ struct auth_request {
 	unsigned int client_pid;
 	unsigned int id;
 	time_t last_access;
+	pid_t session_pid;
 
 	const char *service, *mech_name, *session_id;
 	struct ip_addr local_ip, remote_ip;
@@ -157,6 +158,8 @@ bool auth_request_import_info(struct auth_request *request,
 			      const char *key, const char *value);
 bool auth_request_import_auth(struct auth_request *request,
 			      const char *key, const char *value);
+bool auth_request_import_master(struct auth_request *request,
+				const char *key, const char *value);
 
 void auth_request_initial(struct auth_request *request);
 void auth_request_continue(struct auth_request *request,

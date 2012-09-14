@@ -22,6 +22,7 @@
 #include "mech.h"
 #include "auth.h"
 #include "auth-penalty.h"
+#include "auth-token.h"
 #include "auth-request-handler.h"
 #include "auth-worker-server.h"
 #include "auth-worker-client.h"
@@ -40,7 +41,9 @@ enum auth_socket_type {
 	AUTH_SOCKET_LOGIN_CLIENT,
 	AUTH_SOCKET_MASTER,
 	AUTH_SOCKET_USERDB,
-	AUTH_SOCKET_POSTFIX
+	AUTH_SOCKET_POSTFIX,
+	AUTH_SOCKET_TOKEN,
+	AUTH_SOCKET_TOKEN_LOGIN
 };
 
 struct auth_socket_listener {
@@ -118,6 +121,10 @@ auth_socket_type_get(const char *path)
 		return AUTH_SOCKET_USERDB;
 	else if (strcmp(suffix, "postmap") == 0)
 		return AUTH_SOCKET_POSTFIX;
+	else if (strcmp(suffix, "token") == 0)
+		return AUTH_SOCKET_TOKEN;
+	else if (strcmp(suffix, "tokenlogin") == 0)
+		return AUTH_SOCKET_TOKEN_LOGIN;
 	else
 		return AUTH_SOCKET_CLIENT;
 }
@@ -198,6 +205,7 @@ static void main_preinit(void)
 		      mech_reg, services);
 
 	listeners_init();
+	auth_token_init();
 
 	/* Password lookups etc. may require roots, allow it. */
 	restrict_access_by_env(NULL, FALSE);
@@ -264,6 +272,8 @@ static void main_deinit(void)
 	auths_free();
 	dict_drivers_unregister_builtin();
 
+	auth_token_deinit();
+
 	auth_client_connections_destroy_all();
 	auth_master_connections_destroy_all();
 	auth_postfix_connections_destroy_all();
@@ -329,10 +339,16 @@ static void client_connected(struct master_service_connection *conn)
 		(void)auth_postfix_connection_create(auth, conn->fd);
 		break;
 	case AUTH_SOCKET_LOGIN_CLIENT:
-		auth_client_connection_create(auth, conn->fd, TRUE);
+		auth_client_connection_create(auth, conn->fd, TRUE, FALSE);
 		break;
 	case AUTH_SOCKET_CLIENT:
-		auth_client_connection_create(auth, conn->fd, FALSE);
+		auth_client_connection_create(auth, conn->fd, FALSE, FALSE);
+		break;
+	case AUTH_SOCKET_TOKEN_LOGIN:
+		auth_client_connection_create(auth, conn->fd, TRUE, TRUE);
+		break;
+	case AUTH_SOCKET_TOKEN:
+		auth_client_connection_create(auth, conn->fd, FALSE, TRUE);
 		break;
 	default:
 		i_unreached();

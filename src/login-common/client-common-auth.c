@@ -473,6 +473,7 @@ void client_auth_parse_response(struct client *client)
 
 static void client_auth_input(struct client *client)
 {
+	i_assert(client->v.auth_parse_response != NULL);
 	client->v.auth_parse_response(client);
 }
 
@@ -559,6 +560,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 			client_destroy_success(client, data);
 		break;
 	case SASL_SERVER_REPLY_CONTINUE:
+		i_assert(client->v.auth_send_challenge != NULL);
 		client->v.auth_send_challenge(client, data);
 
 		if (client->to_auth_waiting != NULL)

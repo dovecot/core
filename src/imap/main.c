@@ -321,6 +321,7 @@ int main(int argc, char *argv[])
 
 	memset(&login_set, 0, sizeof(login_set));
 	login_set.postlogin_timeout_secs = MASTER_POSTLOGIN_TIMEOUT_DEFAULT;
+	login_set.request_auth_token = TRUE;
 
 	if (IS_STANDALONE() && getuid() == 0 &&
 	    net_getpeername(1, NULL, NULL) == 0) {

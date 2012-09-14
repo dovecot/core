@@ -71,6 +71,7 @@ auth_SOURCES = \
 	auth-request-handler.c \
 	auth-settings.c \
 	auth-stream.c \
+	auth-token.c \
 	auth-worker-client.c \
 	auth-worker-server.c \
 	db-checkpassword.c \
@@ -93,6 +94,7 @@ auth_SOURCES = \
 	mech-rpa.c \
 	mech-apop.c \
 	mech-winbind.c \
+	mech-dovecot-token.c \
 	passdb.c \
 	passdb-blocking.c \
 	passdb-bsdauth.c \
@@ -136,6 +138,7 @@ headers = \
 	auth-request-handler.h \
 	auth-settings.h \
 	auth-stream.h \
+	auth-token.h \
 	auth-worker-client.h \
 	auth-worker-server.h \
 	db-dict.h \

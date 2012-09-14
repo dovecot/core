@@ -95,12 +95,12 @@ static bool
 master_input_request(struct auth_master_connection *conn, const char *args)
 {
 	struct auth_client_connection *client_conn;
-	const char *const *list;
+	const char *const *list, *const *params;
 	unsigned int id, client_pid, client_id;
 	uint8_t cookie[MASTER_AUTH_COOKIE_SIZE];
 	buffer_t buf;
 
-	/* <id> <client-pid> <client-id> <cookie> */
+	/* <id> <client-pid> <client-id> <cookie> [<parameters>] */
 	list = t_strsplit_tab(args);
 	if (str_array_length(list) < 4 ||
 	    str_to_uint(list[0], &id) < 0 ||
@@ -115,6 +115,7 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 		i_error("BUG: Master sent broken REQUEST cookie");
 		return FALSE;
 	}
+	params = list + 4;
 
 	client_conn = auth_client_connection_lookup(client_pid);
 	if (client_conn == NULL) {
@@ -128,7 +129,7 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 		o_stream_nsend_str(conn->output,
 				   t_strdup_printf("FAIL\t%u\n", id));
 	} else if (!auth_request_handler_master_request(
-			client_conn->request_handler, conn, id, client_id)) {
+			client_conn->request_handler, conn, id, client_id, params)) {
 		i_error("Master requested auth for non-login client %u",
 			client_pid);
 		o_stream_nsend_str(conn->output,

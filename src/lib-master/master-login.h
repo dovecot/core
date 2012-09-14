@@ -30,6 +30,8 @@ struct master_login_settings {
 
 	master_login_callback_t *callback;
 	master_login_failure_callback_t *failure_callback;
+
+	unsigned int request_auth_token:1;
 };
 
 struct master_login *

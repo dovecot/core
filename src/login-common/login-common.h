@@ -12,6 +12,9 @@
 #define AUTH_PLAINTEXT_DISABLED_MSG \
 	"Plaintext authentication disallowed on non-secure (SSL/TLS) connections."
 
+#define LOGIN_DEFAULT_SOCKET "login"
+#define LOGIN_TOKEN_DEFAULT_SOCKET "token-login"
+
 struct login_binary {
 	/* e.g. imap, pop3 */
 	const char *protocol;
@@ -22,6 +25,9 @@ struct login_binary {
 	unsigned int default_port;
 	/* e.g. 993, 995. if there is no ssl port, use 0. */
 	unsigned int default_ssl_port;
+
+	/* if value is NULL, LOGIN_DEFAULT_SOCKET is used as the default */
+	const char *default_login_socket;
 
 	const struct client_vfuncs *client_vfuncs;
 	void (*preinit)(void);

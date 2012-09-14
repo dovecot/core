@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "network.h"
 #include "ioloop.h"
+#include "hostpid.h"
 #include "istream.h"
 #include "ostream.h"
 #include "llist.h"
@@ -53,6 +54,7 @@ struct master_login_auth {
 
 	pid_t auth_server_pid;
 
+	unsigned int request_auth_token:1;
 	unsigned int version_received:1;
 	unsigned int spid_received:1;
 };
@@ -60,7 +62,8 @@ struct master_login_auth {
 static void master_login_auth_set_timeout(struct master_login_auth *auth);
 static void master_login_auth_check_spids(struct master_login_auth *auth);
 
-struct master_login_auth *master_login_auth_init(const char *auth_socket_path)
+struct master_login_auth *
+master_login_auth_init(const char *auth_socket_path, bool request_auth_token)
 {
 	struct master_login_auth *auth;
 	pool_t pool;
@@ -69,6 +72,7 @@ struct master_login_auth *master_login_auth_init(const char *auth_socket_path)
 	auth = p_new(pool, struct master_login_auth, 1);
 	auth->pool = pool;
 	auth->auth_socket_path = p_strdup(pool, auth_socket_path);
+	auth->request_auth_token = request_auth_token;
 	auth->refcount = 1;
 	auth->fd = -1;
 	hash_table_create_direct(&auth->requests, pool, 0);
@@ -436,6 +440,8 @@ master_login_auth_send_request(struct master_login_auth *auth,
 	str_printfa(str, "REQUEST\t%u\t%u\t%u\t", req->id,
 		    req->client_pid, req->auth_id);
 	binary_to_hex_append(str, req->cookie, sizeof(req->cookie));
+	if (auth->request_auth_token)
+		str_printfa(str, "\tsession_pid=%s", my_pid);
 	str_append_c(str, '\n');
 	o_stream_nsend(auth->output, str_data(str), str_len(str));
 }

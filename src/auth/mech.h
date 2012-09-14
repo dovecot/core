@@ -55,6 +55,8 @@ struct mechanisms_register {
 	buffer_t *handshake;
 };
 
+extern const struct mech_module mech_dovecot_token;
+
 void mech_register_module(const struct mech_module *module);
 void mech_unregister_module(const struct mech_module *module);
 const struct mech_module *mech_module_find(const char *name);

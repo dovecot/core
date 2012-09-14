@@ -21,7 +21,6 @@
 #include <unistd.h>
 #include <syslog.h>
 
-#define DEFAULT_LOGIN_SOCKET "login"
 #define AUTH_CLIENT_IDLE_TIMEOUT_MSECS (1000*60)
 
 struct login_access_lookup {
@@ -368,10 +367,12 @@ int login_binary_run(const struct login_binary *binary,
 		MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE;
 	pool_t set_pool;
 	bool allow_core_dumps = FALSE;
-	const char *login_socket = DEFAULT_LOGIN_SOCKET;
+	const char *login_socket;
 	int c;
 
 	login_binary = binary;
+	login_socket = binary->default_login_socket != NULL ?
+		binary->default_login_socket : LOGIN_DEFAULT_SOCKET;
 
 	master_service = master_service_init(login_binary->process_name,
 					     service_flags, &argc, &argv,

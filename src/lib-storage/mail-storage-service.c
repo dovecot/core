@@ -71,7 +71,7 @@ struct mail_storage_service_user {
 	enum mail_storage_service_flags flags;
 
 	struct ioloop_context *ioloop_ctx;
-	const char *log_prefix;
+	const char *log_prefix, *auth_token;
 
 	const char *system_groups_user, *uid_source, *gid_source;
 	const struct mail_user_settings *user_set;
@@ -271,6 +271,8 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 					i_error("setpriority(%d) failed: %m", n);
 			}
 #endif
+		} else if (strncmp(line, "auth_token=", 11) == 0) {
+			user->auth_token = p_strdup(user->pool, line+11);
 		} else T_BEGIN {
 			ret = set_line(ctx, user, line);
 		} T_END;
@@ -605,6 +607,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_user->uid = priv->uid == (uid_t)-1 ? geteuid() : priv->uid;
 	mail_user->gid = priv->gid == (gid_t)-1 ? getegid() : priv->gid;
 	mail_user->anonymous = user->anonymous;
+	mail_user->auth_token = p_strdup(mail_user->pool, user->auth_token);
 	
 	mail_set = mail_user_set_get_storage_set(mail_user);
 

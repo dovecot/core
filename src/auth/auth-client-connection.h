@@ -20,10 +20,11 @@ struct auth_client_connection {
 
 	unsigned int login_requests:1;
 	unsigned int version_received:1;
+	unsigned int token_auth:1;
 };
 
 void auth_client_connection_create(struct auth *auth, int fd,
-				   bool login_requests);
+				   bool login_requests, bool token_auth);
 void auth_client_connection_destroy(struct auth_client_connection **conn);
 
 struct auth_client_connection *

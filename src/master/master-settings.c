@@ -715,11 +715,36 @@ static void unlink_sockets(const char *path, const char *prefix)
 	(void)closedir(dirp);
 }
 
+static void
+mkdir_login_dir(const struct master_settings *set, const char *login_dir)
+{
+	mode_t mode;
+	gid_t gid;
+
+	if (settings_have_auth_unix_listeners_in(set, login_dir)) {
+		/* we are not using external authentication, so make sure the
+		   login directory exists with correct permissions and it's
+		   empty. with external auth we wouldn't want to delete
+		   existing sockets or break the permissions required by the
+		   auth server. */
+		mode = login_want_core_dumps(set, &gid) ? 0770 : 0750;
+		if (safe_mkdir(login_dir, mode, master_uid, gid) == 0) {
+			i_warning("Corrected permissions for login directory "
+				  "%s", login_dir);
+		}
+
+		unlink_sockets(login_dir, "");
+	} else {
+		/* still make sure that login directory exists */
+		if (mkdir(login_dir, 0755) < 0 && errno != EEXIST)
+			i_fatal("mkdir(%s) failed: %m", login_dir);
+	}
+}
+
 void master_settings_do_fixes(const struct master_settings *set)
 {
-	const char *login_dir, *empty_dir;
+	const char *empty_dir;
 	struct stat st;
-	gid_t gid;
 
 	/* since base dir is under /var/run by default, it may have been
 	   deleted. */
@@ -741,25 +766,8 @@ void master_settings_do_fixes(const struct master_settings *set)
 	if (mkdir_parents(set->state_dir, 0755) < 0 && errno != EEXIST)
 		i_fatal("mkdir(%s) failed: %m", set->state_dir);
 
-	login_dir = t_strconcat(set->base_dir, "/login", NULL);
-	if (settings_have_auth_unix_listeners_in(set, login_dir)) {
-		/* we are not using external authentication, so make sure the
-		   login directory exists with correct permissions and it's
-		   empty. with external auth we wouldn't want to delete
-		   existing sockets or break the permissions required by the
-		   auth server. */
-		mode_t mode = login_want_core_dumps(set, &gid) ? 0770 : 0750;
-		if (safe_mkdir(login_dir, mode, master_uid, gid) == 0) {
-			i_warning("Corrected permissions for login directory "
-				  "%s", login_dir);
-		}
-
-		unlink_sockets(login_dir, "");
-	} else {
-		/* still make sure that login directory exists */
-		if (mkdir(login_dir, 0755) < 0 && errno != EEXIST)
-			i_fatal("mkdir(%s) failed: %m", login_dir);
-	}
+	mkdir_login_dir(set, t_strconcat(set->base_dir, "/login", NULL));
+	mkdir_login_dir(set, t_strconcat(set->base_dir, "/token-login", NULL));
 
 	empty_dir = t_strconcat(set->base_dir, "/empty", NULL);
 	if (safe_mkdir(empty_dir, 0755, master_uid, getegid()) == 0) {
