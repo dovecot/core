@@ -205,7 +205,8 @@ static void main_preinit(void)
 		      mech_reg, services);
 
 	listeners_init();
-	auth_token_init();
+	if (!worker)
+		auth_token_init();
 
 	/* Password lookups etc. may require roots, allow it. */
 	restrict_access_by_env(NULL, FALSE);
