@@ -12,7 +12,7 @@
 #include "safe-memset.h"
 
 void hmac_sha1_init(struct hmac_sha1_context *ctx,
-		   const unsigned char *key, size_t key_len)
+		    const void *key, size_t key_len)
 {
 	int i;
 	unsigned char sha1key[20];

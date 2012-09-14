@@ -8,9 +8,9 @@ struct hmac_sha1_context {
 };
 
 void hmac_sha1_init(struct hmac_sha1_context *ctx,
-		   const unsigned char *key, size_t key_len);
+		    const void *key, size_t key_len);
 void hmac_sha1_final(struct hmac_sha1_context *ctx,
-		    unsigned char digest[SHA1_RESULTLEN]);
+		     unsigned char digest[SHA1_RESULTLEN]);
 
 
 static inline void
