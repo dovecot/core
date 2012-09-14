@@ -160,8 +160,8 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 {
 	struct cmd_append_context *ctx = cmd->context;
 	struct imap_msgpart_url *mpurl;
-	struct istream *input;
-	uoff_t size, newsize;
+	struct imap_msgpart_open_result mpresult;
+	uoff_t newsize;
 	const char *error;
 	int ret;
 
@@ -182,7 +182,7 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 	}
 
 	/* catenate URL */
-	ret = imap_msgpart_url_read_part(mpurl, &input, &size, &error);
+	ret = imap_msgpart_url_read_part(mpurl, &mpresult, &error);
 	if (ret < 0) {
 		client_send_storage_error(cmd, ctx->storage);
 		return -1;
@@ -193,13 +193,13 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 			t_strdup_printf("NO [BADURL %s] %s.", caturl, error));
 		return -1;
 	}
-	if (size == 0) {
+	if (mpresult.size == 0) {
 		/* empty input */
 		imap_msgpart_url_free(&mpurl);
 		return 0;
 	}
 
-	newsize = ctx->cat_msg_size + size;
+	newsize = ctx->cat_msg_size + mpresult.size;
 	if (newsize < ctx->cat_msg_size) {
 		client_send_tagline(cmd,
 			"NO [TOOBIG] Composed message grows too big.");
@@ -209,23 +209,23 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 
 	ctx->cat_msg_size = newsize;
 	/* add this input stream to chain */
-	i_stream_chain_append(ctx->catchain, input);
+	i_stream_chain_append(ctx->catchain, mpresult.input);
 	/* save by reading the chain stream */
-	while (!i_stream_is_eof(input)) {
-		ret = i_stream_read(input);
+	while (!i_stream_is_eof(mpresult.input)) {
+		ret = i_stream_read(mpresult.input);
 		i_assert(ret != 0); /* we can handle only blocking input here */
 		if (mailbox_save_continue(ctx->save_ctx) < 0 || ret == -1)
 			break;
 	}
 
-	if (input->stream_errno != 0) {
-		errno = input->stream_errno;
+	if (mpresult.input->stream_errno != 0) {
+		errno = mpresult.input->stream_errno;
 		mail_storage_set_critical(ctx->box->storage,
 			"read(%s) failed: %m (for CATENATE URL %s)",
-			i_stream_get_name(input), caturl);
+			i_stream_get_name(mpresult.input), caturl);
 		client_send_storage_error(cmd, ctx->storage);
 		ret = -1;
-	} else if (!input->eof) {
+	} else if (!mpresult.input->eof) {
 		/* save failed */
 		client_send_storage_error(cmd, ctx->storage);
 		ret = -1;
