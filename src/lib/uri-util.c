@@ -50,16 +50,25 @@
  *               / "*" / "+" / "," / ";" / "="               [bit1]
  * gen-delims    = ":" / "/" / "?" / "#" / "[" / "]" / "@"   [bit2]
  * pchar         = unreserved / sub-delims / ":" / "@"       [bit0|bit1|bit3]
+ * 'pfchar'      = unreserved / sub-delims / ":" / "@" / "/" 
+ *                                                      [bit0|bit1|bit3|bit5]
  * 'uchar'       = unreserved / sub-delims / ":"             [bit0|bit1|bit4]
- * 'fchar'       = pchar / "/" / "?"                    [bit0|bit1|bit3|bit5]
+ * 'qchar'       = pchar / "/" / "?"               [bit0|bit1|bit3|bit5|bit6]
  *
  */
+
+#define CHAR_MASK_UNRESERVED (1<<0)
+#define CHAR_MASK_SUB_DELIMS (1<<1)
+#define CHAR_MASK_PCHAR ((1<<0)|(1<<1)|(1<<3))
+#define CHAR_MASK_PFCHAR ((1<<0)|(1<<1)|(1<<3)|(1<<5))
+#define CHAR_MASK_UCHAR ((1<<0)|(1<<1)|(1<<4))
+#define CHAR_MASK_QCHAR ((1<<0)|(1<<1)|(1<<3)|(1<<5)|(1<<6))
 
 static unsigned const char _uri_char_lookup[256] = {
 	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  // 00
 	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  // 10
 	 0,  2,  0,  4,  2,  0,  2,  2,  2,  2,  2,  2,  2,  1,  1, 36,  // 20
-	 1,  1,  1,  1,  1,  1,  1,  1,  1,  1, 28,  2,  0,  2,  0, 36,  // 30
+	 1,  1,  1,  1,  1,  1,  1,  1,  1,  1, 28,  2,  0,  2,  0, 68,  // 30
 	12,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  // 40
 	 1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  4,  0,  4,  0,  1,  // 50
 	 0,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  // 60
@@ -133,7 +142,7 @@ uri_parse_unreserved_char(struct uri_parser *parser, unsigned char *ch_r)
 	if ((*parser->cur & 0x80) != 0)
 		return 0;
 
-	if (_uri_char_lookup[*parser->cur] & 0x01) {
+	if ((_uri_char_lookup[*parser->cur] & CHAR_MASK_UNRESERVED) != 0) {
 		*ch_r = *parser->cur;
 		parser->cur++;
 		return 1;
@@ -344,7 +353,7 @@ static int uri_parse_reg_name(struct uri_parser *parser, string_t *reg_name)
 
 		/* sub-delims */
 		c = *parser->cur;
-		if ((c & 0x80) == 0 && (_uri_char_lookup[c] & 0x02) != 0) {
+		if ((c & 0x80) == 0 && (_uri_char_lookup[c] & CHAR_MASK_SUB_DELIMS) != 0) {
 			if (reg_name != NULL)
 				str_append_c(reg_name, *parser->cur);
 			parser->cur++;
@@ -384,7 +393,7 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 	}
 
 	if (literal != NULL)
-		str_append_n(literal, parser->cur, parser->end-parser->cur+1);	
+		str_append_n(literal, parser->cur, p-parser->cur+1);
 	address = t_strdup_until(parser->cur+1, p);
 	parser->cur = p + 1;	
 
@@ -526,7 +535,7 @@ int uri_parse_authority(struct uri_parser *parser, struct uri_authority *auth)
 			break;
 
 		/* break at first delimiter */
-		if (*p != '%' && (_uri_char_lookup[*p] & 0x13) == 0)
+		if (*p != '%' && (_uri_char_lookup[*p] & CHAR_MASK_UCHAR) == 0)
 			break;
 	}
 
@@ -567,7 +576,7 @@ int uri_parse_path_segment(struct uri_parser *parser, const char **segment_r)
 			continue;
 		}
 
-		if ((*p & 0x80) != 0 || (_uri_char_lookup[*p] & 0x0B) == 0)
+		if ((*p & 0x80) != 0 || (_uri_char_lookup[*p] & CHAR_MASK_PCHAR) == 0)
 			break;
 
 		p++;
@@ -658,7 +667,7 @@ int uri_parse_query(struct uri_parser *parser, const char **query_r)
 			continue;
 		}
 
-		if ((*p & 0x80) != 0 || (_uri_char_lookup[*p] & 0x2B) == 0)
+		if ((*p & 0x80) != 0 || (_uri_char_lookup[*p] & CHAR_MASK_QCHAR) == 0)
 			break;
 		p++;
 	}
@@ -690,7 +699,7 @@ int uri_parse_fragment(struct uri_parser *parser, const char **fragment_r)
 			continue;
 		}
 
-		if ((*p & 0x80) != 0 || (_uri_char_lookup[*p] & 0x2B) == 0)
+		if ((*p & 0x80) != 0 || (_uri_char_lookup[*p] & CHAR_MASK_QCHAR) == 0)
 			break;
 		p++;
 	}
@@ -717,4 +726,123 @@ string_t *uri_parser_get_tmpbuf(struct uri_parser *parser, size_t size)
 	else
 		str_truncate(parser->tmpbuf, 0);
 	return parser->tmpbuf;
+}
+
+/*
+ * Generic URI construction
+ */
+
+static void
+uri_data_encode(string_t *out, const unsigned char esc_table[256],
+		unsigned char esc_mask, const char *esc_extra, const char *data)
+{
+	const unsigned char *p = (const unsigned char *)data;
+
+	while (*p != '\0') {
+		if ((*p & 0x80) != 0 || (esc_table[*p] & esc_mask) == 0 ||
+		    strchr(esc_extra, (char)*p) != NULL) {
+			str_printfa(out, "%%%2x", *p);
+		} else {
+			str_append_c(out, *p);
+		}
+		p++;
+	}
+}
+
+void uri_append_scheme(string_t *out, const char *scheme)
+{
+	str_append(out, scheme);
+	str_append_c(out, ':');
+}
+
+void uri_append_user_data(string_t *out, const char *esc,
+	const char *data)
+{
+	uri_data_encode(out, _uri_char_lookup, CHAR_MASK_UCHAR, esc, data);
+}
+
+void uri_append_userinfo(string_t *out, const char *userinfo)
+{
+	uri_append_user_data(out, "", userinfo);
+	str_append_c(out, '@');
+}
+
+void uri_append_host_name(string_t *out, const char *name)
+{
+	uri_data_encode(out, _uri_char_lookup,
+			CHAR_MASK_UNRESERVED | CHAR_MASK_SUB_DELIMS, "", name);
+}
+
+void uri_append_host_ip(string_t *out, const struct ip_addr *host_ip)
+{
+	const char *addr = net_ip2addr(host_ip);
+
+	i_assert(addr != NULL);
+
+	if (host_ip->family == AF_INET) {
+		str_append(out, addr);
+		return;
+	}
+
+	i_assert(host_ip->family == AF_INET6);
+	str_append_c(out, '[');
+	str_append(out, addr);
+	str_append_c(out, ']');
+}
+
+void uri_append_port(string_t *out, in_port_t port)
+{
+	str_printfa(out, ":%u", port);
+}
+
+void uri_append_path_segment_data(string_t *out, const char *esc,
+				  const char *data)
+{
+	uri_data_encode(out, _uri_char_lookup, CHAR_MASK_PCHAR, esc, data);
+}
+
+void uri_append_path_segment(string_t *out, const char *segment)
+{
+	str_append_c(out, '/');
+	if (*segment != '\0')
+		uri_append_path_data(out, "", segment);
+}
+
+void uri_append_path_data(string_t *out, const char *esc,
+			  const char *data)
+{
+	uri_data_encode(out, _uri_char_lookup, CHAR_MASK_PFCHAR, esc, data);
+}
+
+void uri_append_path(string_t *out, const char *path)
+{
+	str_append_c(out, '/');
+	if (*path != '\0')
+		uri_append_path_data(out, "", path);
+}
+
+void uri_append_query_data(string_t *out, const char *esc,
+			   const char *data)
+{
+	uri_data_encode(out, _uri_char_lookup, CHAR_MASK_QCHAR, esc, data);
+}
+
+void uri_append_query(string_t *out, const char *query)
+{
+	str_append_c(out, '?');
+	if (*query != '\0')
+		uri_append_query_data(out, "", query);
+}
+
+void uri_append_fragment_data(string_t *out, const char *esc,
+			      const char *data)
+{
+	uri_data_encode(out, _uri_char_lookup, CHAR_MASK_QCHAR, esc, data);
+}
+
+void uri_append_fragment(string_t *out, const char *fragment)
+{
+	str_append_c(out, '#');
+	if (*fragment != '\0')
+		uri_append_fragment_data(out, "", fragment);
 }

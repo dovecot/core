@@ -53,12 +53,14 @@ struct valid_imap_url_test valid_url_tests[] = {
 			.host_name = "127.0.0.1",
 			.userid = "user",
 			.have_host_ip = TRUE }
+#ifdef HAVE_IPV6
 	},{
 		.url = "imap://user@[::1]",
 		.url_parsed = {
 			.host_name = "[::1]",
 			.userid = "user",
 			.have_host_ip = TRUE }
+#endif
 	},{
 		.url = "imap://user@4example.com:423",
 		.url_parsed = {
@@ -738,8 +740,10 @@ struct invalid_imap_url_test invalid_url_tests[] = {
 		.url = "imap://[]/INBOX"
 	},{
 		.url = "imap://[v08.234:232:234:234:2221]/INBOX"
+#ifdef HAVE_IPV6
 	},{
 		.url = "imap://[1::34a:34:234::6]/INBOX"
+#endif
 	},{
 		.url = "imap://example%a.com/INBOX"
 	},{
@@ -891,11 +895,74 @@ static void test_imap_url_invalid(void)
 
 }
 
+const char *parse_create_url_tests[] = {
+	"imap://host.example.com/",
+	"imap://[::1]/",
+	"imap://10.0.0.1/",
+	"imap://user@host.example.com/",
+	"imap://user@host.example.com:993/",
+	"imap://user;AUTH=PLAIN@host.example.com/",
+	"imap://user;AUTH=PLAIN@host.example.com/INBOX",
+	"imap://user;AUTH=PLAIN@host.example.com/INBOX/;UID=5",
+	"imap://user;AUTH=PLAIN@host.example.com/INBOX;UIDVALIDITY=15/;UID=5",
+	"imap://user;AUTH=PLAIN@host.example.com/INBOX;UIDVALIDITY=15/;UID=5"
+		"/;SECTION=TEXT",
+	"imap://user;AUTH=PLAIN@host.example.com/INBOX;UIDVALIDITY=15/;UID=5"
+		"/;SECTION=TEXT/;PARTIAL=1",
+	"imap://user;AUTH=PLAIN@host.example.com/INBOX;UIDVALIDITY=15/;UID=5"
+		"/;SECTION=TEXT/;PARTIAL=1.14",
+	"imap://user;AUTH=PLAIN@host.example.com/INBOX;UIDVALIDITY=15/;UID=5"
+		"/;SECTION=TEXT/;PARTIAL=1.14;URLAUTH=anonymous",
+	"imap://user;AUTH=PLAIN@host.example.com/INBOX;UIDVALIDITY=15/;UID=5"
+		"/;SECTION=TEXT/;PARTIAL=1.14;URLAUTH=user+username",
+	"imap://user;AUTH=PLAIN@host.example.com/INBOX/?SUBJECT%20%22Frop?%22",
+	"imap://host.%23example.com/",
+	"imap://user%3ba@host.example.com/",
+	"imap://user%40example.com@host.example.com/",
+	"imap://user%40example.com;AUTH=STR%23ANGE@host.example.com/",
+	"imap://user;AUTH=PLAIN@host.example.com/INBOX/Important%3bWork",
+	"imap://user@host.example.com/%23shared/news",
+	"imap://user@host.example.com/INBOX;UIDVALIDITY=15/;UID=5"
+		"/;SECTION=HEADER.FIELDS%20(DATE%20FROM)",
+	"imap://user@host.example.com/INBOX;UIDVALIDITY=15/;UID=5"
+		"/;SECTION=TEXT/;PARTIAL=1.14;URLAUTH=user+user%3bname",
+};
+
+unsigned int parse_create_url_test_count = N_ELEMENTS(parse_create_url_tests);
+
+static void test_imap_url_parse_create(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < parse_create_url_test_count; i++) T_BEGIN {
+		const char *url = parse_create_url_tests[i];
+		struct imap_url *urlp;
+		const char *error = NULL;
+
+		test_begin(t_strdup_printf("imap url parse/create [%d]", i));
+
+		if (imap_url_parse
+			(url, NULL, IMAP_URL_PARSE_ALLOW_URLAUTH, &urlp, &error) < 0)
+			urlp = NULL;
+		test_out_reason(t_strdup_printf("parse  %s", url), urlp != NULL, error);
+		if (urlp != NULL) {
+			const char *urlnew = imap_url_create(urlp);
+			test_out(t_strdup_printf
+				("create %s", urlnew), strcmp(url, urlnew) == 0);
+		}
+
+		test_end();
+	} T_END;
+
+}
+
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_imap_url_valid,
 		test_imap_url_invalid,
+		test_imap_url_parse_create,
 		NULL
 	};
 	return test_run(test_functions);

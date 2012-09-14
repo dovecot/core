@@ -19,7 +19,7 @@ struct imap_url {
 	uint32_t uid;
 	const char *section;
 	uoff_t partial_offset;
-	uoff_t partial_size;
+	uoff_t partial_size; /* 0 if not set */
 
 	/* message list (uid == 0) */
 	const char *search_program;
@@ -31,9 +31,9 @@ struct imap_url {
 	const char *uauth_mechanism;
 	const unsigned char *uauth_token;
 	size_t uauth_token_size;
-	time_t uauth_expire;
+	time_t uauth_expire; /* (time_t)-1 if not set */
 
-	unsigned int have_host_ip:1;
+	unsigned int have_host_ip:1; /* url uses IP address */
 	unsigned int have_port:1;
 	unsigned int have_partial:1;
 };
@@ -63,6 +63,8 @@ int imap_url_parse(const char *url, struct imap_url *base,
 /*
  * IMAP URL construction
  */
+
+const char *imap_url_create(const struct imap_url *url);
 
 const char *imap_url_add_urlauth(const char *rumpurl, const char *mechanism,
 				 const unsigned char *token, size_t token_len);

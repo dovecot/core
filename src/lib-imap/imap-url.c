@@ -689,6 +689,8 @@ imap_url_parse_path(struct imap_url_parser *url_parser,
 		/* [ipartial] */
 		if (*segment != NULL &&
 		    strncasecmp(*segment, ";PARTIAL=", 9) == 0) {
+			have_partial = TRUE;
+
 			/* ";PARTIAL=" partial-range */
 			value = (*segment) + 9;
 			if ((p = strchr(value,';')) != NULL) {
@@ -754,6 +756,7 @@ imap_url_parse_path(struct imap_url_parser *url_parser,
 		url->uid = uid;
 		if (section != NULL)
 			url->section = p_strdup(parser->pool, str_c(section));
+		url->have_partial = have_partial;
 		url->partial_offset = partial_offset;
 		url->partial_size = partial_size;
 	}
@@ -924,6 +927,96 @@ int imap_url_parse(const char *url, struct imap_url *base,
 /*
  * IMAP URL construction
  */
+
+static void
+imap_url_append_mailbox(const struct imap_url *url, string_t *urlstr)
+{
+	uri_append_path_data(urlstr, ";", url->mailbox);
+	if (url->uidvalidity != 0)
+		str_printfa(urlstr, ";UIDVALIDITY=%u", url->uidvalidity);
+	if (url->uid == 0) {
+		/* message list */
+		if (url->search_program != NULL) {
+			str_append_c(urlstr, '?');
+			uri_append_query_data(urlstr, ";", url->search_program);
+		}
+	} else {
+		/* message part */
+		str_printfa(urlstr, "/;UID=%u", url->uid);
+		if (url->section != NULL) {
+			str_append(urlstr, "/;SECTION=");
+			uri_append_path_data(urlstr, ";", url->section);
+		}
+		if (url->have_partial) {
+			str_append(urlstr, "/;PARTIAL=");
+			if (url->partial_size == 0) {
+				str_printfa(urlstr, "%"PRIuUOFF_T,
+					    url->partial_offset);
+			} else {
+				str_printfa(urlstr, "%"PRIuUOFF_T".%"PRIuUOFF_T,
+					    url->partial_offset,
+					    url->partial_size);
+			}
+		}
+
+		/* urlauth */
+		if (url->uauth_access_application != NULL) {
+			if (url->uauth_expire != (time_t)-1) {
+				str_append(urlstr, ";EXPIRE=");
+				str_append(urlstr, iso8601_date_create(url->uauth_expire));
+			}
+			str_append(urlstr, ";URLAUTH=");
+			str_append(urlstr, url->uauth_access_application);
+			if (url->uauth_access_user != NULL) {
+				str_append_c(urlstr, '+');
+				uri_append_user_data(urlstr, ";",
+						     url->uauth_access_user);
+			}
+		}
+	}
+}
+
+const char *imap_url_create(const struct imap_url *url)
+{
+	string_t *urlstr = t_str_new(512);
+
+	/* scheme */
+	uri_append_scheme(urlstr, "imap");
+	str_append(urlstr, "//");
+
+	/* user */
+	if (url->userid != NULL || url->auth_type != NULL) {
+		if (url->userid != NULL)
+			uri_append_user_data(urlstr, ";", url->userid);
+		if (url->auth_type != NULL) {
+			str_append(urlstr, ";AUTH=");
+			uri_append_user_data(urlstr, ";", url->auth_type);
+		}
+		str_append_c(urlstr, '@');
+	}
+
+	/* server */
+	if (url->host_name != NULL) {
+		/* assume IPv6 literal if starts with '['; avoid encoding */
+		if (*url->host_name == '[')
+			str_append(urlstr, url->host_name);
+		else
+			uri_append_host_name(urlstr, url->host_name);
+	} else if (url->have_host_ip) {
+		uri_append_host_ip(urlstr, &url->host_ip);
+	} else
+		i_unreached();
+	if (url->have_port)
+		uri_append_port(urlstr, url->port);
+
+	/* Older syntax (RFC 2192) requires this slash at all times */
+	str_append_c(urlstr, '/');
+
+	/* mailbox */
+	if (url->mailbox != NULL)
+		imap_url_append_mailbox(url, urlstr);
+	return str_c(urlstr);
+}
 
 const char *
 imap_url_add_urlauth(const char *rumpurl, const char *mechanism,
