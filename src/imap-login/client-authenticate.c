@@ -9,8 +9,10 @@
 #include "safe-memset.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "network.h"
 #include "imap-resp-code.h"
 #include "imap-parser.h"
+#include "imap-url.h"
 #include "auth-client.h"
 #include "client.h"
 #include "client-authenticate.h"
@@ -36,6 +38,7 @@ void imap_client_auth_result(struct client *client,
 			     const struct client_auth_reply *reply,
 			     const char *text)
 {
+	struct imap_url url;
 	string_t *referral;
 
 	switch (result) {
@@ -54,12 +57,17 @@ void imap_client_auth_result(struct client *client,
 		   .. [REFERRAL ..] (Reason from auth server)
 		*/
 		referral = t_str_new(128);
-		str_printfa(referral, "REFERRAL imap://%s;AUTH=%s@%s",
-			    reply->destuser, client->auth_mech_name,
-			    reply->host);
-		if (reply->port != 143)
-			str_printfa(referral, ":%u", reply->port);
-		str_append(referral, "/");
+
+		memset(&url, 0, sizeof(url));
+		url.userid = reply->destuser;
+		url.auth_type = client->auth_mech_name;
+		url.host_name = reply->host;
+		if (reply->port != 143) {
+			url.have_port = TRUE;
+			url.port = reply->port;
+		}
+		str_append(referral, "REFERRAL ");
+		str_append(referral, imap_url_create(&url));
 
 		if (result == CLIENT_AUTH_RESULT_REFERRAL_SUCCESS) {
 			client_send_reply_code(client, IMAP_CMD_REPLY_OK,
