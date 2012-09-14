@@ -13,7 +13,7 @@
 	"Plaintext authentication disallowed on non-secure (SSL/TLS) connections."
 
 #define LOGIN_DEFAULT_SOCKET "login"
-#define LOGIN_TOKEN_DEFAULT_SOCKET "token-login"
+#define LOGIN_TOKEN_DEFAULT_SOCKET "tokenlogin"
 
 struct login_binary {
 	/* e.g. imap, pop3 */
