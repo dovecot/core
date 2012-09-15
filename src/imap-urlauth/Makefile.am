@@ -17,7 +17,7 @@ imap_urlauth_login_LDADD = \
 	$(LIBDOVECOT) \
 	$(SSL_LIBS)
 imap_urlauth_login_DEPENDENCIES = \
-	$(LIBDOVECOT_LOGIN) \
+	$(LIBDOVECOT_LOGIN_DEPS) \
 	$(LIBDOVECOT_DEPS)
 
 imap_urlauth_login_SOURCES = \
