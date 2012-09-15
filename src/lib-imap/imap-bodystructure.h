@@ -13,7 +13,7 @@ struct message_part_body_data {
 	const char *content_disposition;
 	const char *content_disposition_params; /* "key" "value" "key2" "value2" .. */
 	const char *content_md5;
-	const char *content_language; /* "key" "value" "key2" "value2" .. */
+	const char *content_language; /* "lang1" "lang2" "lang3" .. */
 	const char *content_location;
 
 	/* either one of these is set, but not both: */
