@@ -41,6 +41,7 @@ pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
+	test-imap-bodystructure \
 	test-imap-match \
 	test-imap-parser \
 	test-imap-url \
@@ -52,6 +53,10 @@ noinst_PROGRAMS = $(test_programs)
 test_libs = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
+
+test_imap_bodystructure_SOURCES = test-imap-bodystructure.c
+test_imap_bodystructure_LDADD = imap-bodystructure.lo imap-envelope.lo imap-quote.lo imap-parser.lo imap-arg.lo ../lib-mail/libmail.la $(test_libs)
+test_imap_bodystructure_DEPENDENCIES = imap-bodystructure.lo imap-envelope.lo imap-quote.lo imap-parser.lo imap-arg.lo ../lib-mail/libmail.la $(test_libs)
 
 test_imap_match_SOURCES = test-imap-match.c
 test_imap_match_LDADD = imap-match.lo $(test_libs)
