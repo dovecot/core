@@ -495,7 +495,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		if (guid != NULL) {
 			if (*guid != '\0') {
 				*value_r = mail->data.guid =
-					p_strdup(mail->data_pool, guid);
+					p_strdup(mail->mail.data_pool, guid);
 				return 0;
 			}
 
@@ -532,8 +532,8 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		}
 		end = strchr(fname, MAILDIR_INFO_SEP);
 		mail->data.filename = end == NULL ?
-			p_strdup(mail->data_pool, fname) :
-			p_strdup_until(mail->data_pool, fname, end);
+			p_strdup(mail->mail.data_pool, fname) :
+			p_strdup_until(mail->mail.data_pool, fname, end);
 		*value_r = mail->data.filename;
 		return 0;
 	case MAIL_FETCH_UIDL_BACKEND:
@@ -547,7 +547,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			return maildir_mail_get_special(_mail,
 					MAIL_FETCH_UIDL_FILE_NAME, value_r);
 		} else {
-			*value_r = p_strdup(mail->data_pool, uidl);
+			*value_r = p_strdup(mail->mail.data_pool, uidl);
 		}
 		return 0;
 	case MAIL_FETCH_POP3_ORDER:
@@ -556,7 +556,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		if (order == NULL) {
 			*value_r = "";
 		} else {
-			*value_r = p_strdup(mail->data_pool, order);
+			*value_r = p_strdup(mail->mail.data_pool, order);
 		}
 		return 0;
 	default:

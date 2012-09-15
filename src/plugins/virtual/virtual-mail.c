@@ -33,14 +33,14 @@ virtual_mail_alloc(struct mailbox_transaction_context *t,
 	pool = pool_alloconly_create("vmail", 1024);
 	vmail = p_new(pool, struct virtual_mail, 1);
 	vmail->imail.mail.pool = pool;
+	vmail->imail.mail.data_pool =
+		pool_alloconly_create("virtual index_mail", 512);
 	vmail->imail.mail.v = virtual_mail_vfuncs;
 	vmail->imail.mail.mail.box = t->box;
 	vmail->imail.mail.mail.transaction = t;
 	array_create(&vmail->imail.mail.module_contexts, pool,
 		     sizeof(void *), 5);
 
-	vmail->imail.data_pool =
-		pool_alloconly_create("virtual index_mail", 512);
 	vmail->imail.ibox = INDEX_STORAGE_CONTEXT(t->box);
 
 	vmail->wanted_fields = wanted_fields;
@@ -67,7 +67,7 @@ static void virtual_mail_free(struct mail *mail)
 	if (vmail->wanted_headers != NULL)
 		mailbox_header_lookup_unref(&vmail->wanted_headers);
 
-	pool_unref(&vmail->imail.data_pool);
+	pool_unref(&vmail->imail.mail.data_pool);
 	pool_unref(&vmail->imail.mail.pool);
 }
 
@@ -127,7 +127,7 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq, bool saving)
 		(void)virtual_mail_set_backend_mail(mail, bbox);
 	vmail->lost = !mail_set_uid(vmail->backend_mail, vrec->real_uid);
 	memset(&vmail->imail.data, 0, sizeof(vmail->imail.data));
-	p_clear(vmail->imail.data_pool);
+	p_clear(vmail->imail.mail.data_pool);
 
 	vmail->imail.data.seq = seq;
 	mail->seq = seq;

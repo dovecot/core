@@ -166,7 +166,7 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 	const char *value;
 	string_t *str;
 
-	str = str_new(imail->data_pool, 64);
+	str = str_new(imail->mail.data_pool, 64);
 	if (mail_cache_lookup_field(imail->mail.mail.transaction->cache_view,
 				    str, imail->mail.mail.seq,
 				    ibox->cache_fields[cache_field].idx) > 0) {

@@ -167,7 +167,7 @@ mbox_mail_get_md5_header(struct index_mail *mail, const char **value_r)
 			      mail->mail.mail.seq, mbox->md5hdr_ext_idx,
 			      &ext_data, &expunged);
 	if (ext_data != NULL && memcmp(ext_data, empty_md5, 16) != 0) {
-		mail->data.guid = p_strdup(mail->data_pool,
+		mail->data.guid = p_strdup(mail->mail.data_pool,
 					   binary_to_hex(ext_data, 16));
 		*value_r = mail->data.guid;
 		return TRUE;

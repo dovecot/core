@@ -129,8 +129,6 @@ struct index_mail {
 	struct index_mail_data data;
 	struct index_mailbox_context *ibox;
 
-	pool_t data_pool;
-
 	int pop3_state;
 
 	/* per-mail variables, here for performance reasons: */

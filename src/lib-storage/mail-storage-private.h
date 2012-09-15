@@ -381,7 +381,7 @@ struct mail_private {
 	enum mail_fetch_field wanted_fields;
 	struct mailbox_header_lookup_ctx *wanted_headers;
 
-	pool_t pool;
+	pool_t pool, data_pool;
 	ARRAY(union mail_module_context *) module_contexts;
 };
 

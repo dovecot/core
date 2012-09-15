@@ -333,7 +333,7 @@ static int imapc_mail_get_hdr_hash(struct index_mail *imail)
 	sha1_result(&sha1_ctx, sha1_output);
 
 	sha1_str = binary_to_hex(sha1_output, sizeof(sha1_output));
-	imail->data.guid = p_strdup(imail->data_pool, sha1_str);
+	imail->data.guid = p_strdup(imail->mail.data_pool, sha1_str);
 	return 0;
 }
 
@@ -350,7 +350,7 @@ static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
 		return 0;
 	}
 
-	str = str_new(imail->data_pool, 64);
+	str = str_new(imail->mail.data_pool, 64);
 	if (mail_cache_lookup_field(_mail->transaction->cache_view,
 				    str, imail->mail.mail.seq, cache_idx) > 0) {
 		*value_r = str_c(str);

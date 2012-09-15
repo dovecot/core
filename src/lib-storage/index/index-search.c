@@ -1489,7 +1489,7 @@ static int search_more_with_mail(struct index_search_context *ctx,
 			/* result isn't known yet, do a prefetch and
 			   finish later */
 			imail->data.search_results =
-				buffer_create_dynamic(imail->data_pool, 64);
+				buffer_create_dynamic(imail->mail.data_pool, 64);
 			mail_search_args_result_serialize(_ctx->args,
 				imail->data.search_results);
 		}

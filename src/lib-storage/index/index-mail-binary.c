@@ -261,7 +261,7 @@ binary_parts_update(struct binary_ctx *ctx, const struct message_part *part,
 		}
 		if (found) {
 			bin_part.next = *msg_bin_parts;
-			*msg_bin_parts = p_new(mail->data_pool,
+			*msg_bin_parts = p_new(mail->mail.data_pool,
 					       struct message_binary_part, 1);
 			**msg_bin_parts = bin_part;
 		}
@@ -362,8 +362,8 @@ static bool get_cached_binary_parts(struct index_mail *mail)
 	if (ret <= 0)
 		return FALSE;
 
-	if (message_binary_part_deserialize(mail->data_pool, part_buf->data,
-					    part_buf->used,
+	if (message_binary_part_deserialize(mail->mail.data_pool,
+					    part_buf->data, part_buf->used,
 					    &mail->data.bin_parts) < 0) {
 		mail_cache_set_corrupted(mail->mail.mail.box->cache,
 			"Corrupted cached binary.parts data");
