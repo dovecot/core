@@ -69,7 +69,7 @@ unichar_t uni_ucs4_to_titlecase(unichar_t chr) ATTR_CONST;
    output buffer. Returns 0 if ok, -1 if input was invalid. This generates
    output that's compatible with i;unicode-casemap comparator. Invalid input
    is replaced with unicode replacement character (0xfffd). */
-int uni_utf8_to_decomposed_titlecase(const void *input, size_t max_len,
+int uni_utf8_to_decomposed_titlecase(const void *input, size_t size,
 				     buffer_t *output);
 
 /* If input contains only valid UTF-8 characters, return TRUE without updating

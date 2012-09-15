@@ -307,7 +307,7 @@ static void output_add_replacement_char(buffer_t *output)
 	buffer_append(output, utf8_replacement_char, UTF8_REPLACEMENT_CHAR_LEN);
 }
 
-int uni_utf8_to_decomposed_titlecase(const void *_input, size_t max_len,
+int uni_utf8_to_decomposed_titlecase(const void *_input, size_t size,
 				     buffer_t *output)
 {
 	const unsigned char *input = _input;
@@ -315,17 +315,17 @@ int uni_utf8_to_decomposed_titlecase(const void *_input, size_t max_len,
 	unichar_t chr;
 	int ret = 0;
 
-	while (max_len > 0 && *input != '\0') {
-		if (uni_utf8_get_char_n(input, max_len, &chr) <= 0) {
+	while (size > 0) {
+		if (uni_utf8_get_char_n(input, size, &chr) <= 0) {
 			/* invalid input. try the next byte. */
 			ret = -1;
-			input++; max_len--;
+			input++; size--;
 			output_add_replacement_char(output);
 			continue;
 		}
 		bytes = uni_utf8_char_bytes(*input);
 		input += bytes;
-		max_len -= bytes;
+		size -= bytes;
 
 		chr = uni_ucs4_to_titlecase(chr);
 		if (chr >= HANGUL_FIRST && chr <= HANGUL_LAST)

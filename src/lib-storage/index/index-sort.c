@@ -443,7 +443,7 @@ int index_sort_header_get(struct mail *mail, uint32_t seq,
 		i_unreached();
 	}
 
-	(void)uni_utf8_to_decomposed_titlecase(str, (size_t)-1, dest);
+	(void)uni_utf8_to_decomposed_titlecase(str, strlen(str), dest);
 	return ret;
 }
 
