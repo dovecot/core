@@ -169,7 +169,7 @@ struct mail_index {
 	unsigned int open_count;
 	enum mail_index_open_flags flags;
 	enum fsync_mode fsync_mode;
-	enum mail_index_sync_type fsync_mask;
+	enum mail_index_fsync_mask fsync_mask;
 	mode_t mode;
 	gid_t gid;
 	char *gid_origin;

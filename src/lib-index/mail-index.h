@@ -136,6 +136,13 @@ enum mail_index_sync_type {
 	MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE	= 0x10
 };
 
+enum mail_index_fsync_mask {
+	MAIL_INDEX_FSYNC_MASK_APPENDS	= 0x01,
+	MAIL_INDEX_FSYNC_MASK_EXPUNGES	= 0x02,
+	MAIL_INDEX_FSYNC_MASK_FLAGS	= 0x04,
+	MAIL_INDEX_FSYNC_MASK_KEYWORDS	= 0x08
+};
+
 enum mail_index_sync_flags {
 	/* Resync all dirty messages' flags. */
 	MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY	= 0x01,
@@ -214,7 +221,7 @@ void mail_index_free(struct mail_index **index);
 /* Specify how often to do fsyncs. If mode is FSYNC_MODE_OPTIMIZED, the mask
    can be used to specify which transaction types to fsync. */
 void mail_index_set_fsync_mode(struct mail_index *index, enum fsync_mode mode,
-			       enum mail_index_sync_type mask);
+			       enum mail_index_fsync_mask mask);
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid, const char *gid_origin);
 /* Set locking method and maximum time to wait for a lock (-1U = default). */

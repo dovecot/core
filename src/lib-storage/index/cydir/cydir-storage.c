@@ -83,8 +83,8 @@ static int cydir_mailbox_open(struct mailbox *box)
 		return -1;
 	mail_index_set_fsync_mode(box->index,
 				  box->storage->set->parsed_fsync_mode,
-				  MAIL_INDEX_SYNC_TYPE_APPEND |
-				  MAIL_INDEX_SYNC_TYPE_EXPUNGE);
+				  MAIL_INDEX_FSYNC_MASK_APPENDS |
+				  MAIL_INDEX_FSYNC_MASK_EXPUNGES);
 	return 0;
 }
 

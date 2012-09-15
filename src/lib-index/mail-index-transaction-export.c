@@ -333,13 +333,13 @@ log_append_keyword_update(struct mail_index_export_context *ctx,
 	log_append_buffer(ctx, tmp_buf, MAIL_TRANSACTION_KEYWORD_UPDATE);
 }
 
-static enum mail_index_sync_type
+static enum mail_index_fsync_mask
 log_append_keyword_updates(struct mail_index_export_context *ctx)
 {
         const struct mail_index_transaction_keyword_update *updates;
 	const char *const *keywords;
 	buffer_t *tmp_buf;
-	enum mail_index_sync_type change_mask = 0;
+	enum mail_index_fsync_mask change_mask = 0;
 	unsigned int i, count, keywords_count;
 
 	tmp_buf = buffer_create_dynamic(pool_datastack_create(), 64);
@@ -352,14 +352,14 @@ log_append_keyword_updates(struct mail_index_export_context *ctx)
 	for (i = 0; i < count; i++) {
 		if (array_is_created(&updates[i].add_seq) &&
 		    array_count(&updates[i].add_seq) > 0) {
-			change_mask |= MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD;
+			change_mask |= MAIL_INDEX_FSYNC_MASK_KEYWORDS;
 			log_append_keyword_update(ctx, tmp_buf,
 					MODIFY_ADD, keywords[i],
 					updates[i].add_seq.arr.buffer);
 		}
 		if (array_is_created(&updates[i].remove_seq) &&
 		    array_count(&updates[i].remove_seq) > 0) {
-			change_mask |= MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE;
+			change_mask |= MAIL_INDEX_FSYNC_MASK_KEYWORDS;
 			log_append_keyword_update(ctx, tmp_buf,
 					MODIFY_REMOVE, keywords[i],
 					updates[i].remove_seq.arr.buffer);
@@ -372,7 +372,7 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 				   struct mail_transaction_log_append_ctx *append_ctx)
 {
 	static uint8_t null4[4] = { 0, 0, 0, 0 };
-	enum mail_index_sync_type change_mask = 0;
+	enum mail_index_fsync_mask change_mask = 0;
 	struct mail_index_export_context ctx;
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -394,13 +394,13 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 				  MAIL_TRANSACTION_HEADER_UPDATE);
 	}
 	if (array_is_created(&t->appends)) {
-		change_mask |= MAIL_INDEX_SYNC_TYPE_APPEND;
+		change_mask |= MAIL_INDEX_FSYNC_MASK_APPENDS;
 		log_append_buffer(&ctx, t->appends.arr.buffer,
 				  MAIL_TRANSACTION_APPEND);
 	}
 
 	if (array_is_created(&t->updates)) {
-		change_mask |= MAIL_INDEX_SYNC_TYPE_FLAGS;
+		change_mask |= MAIL_INDEX_FSYNC_MASK_FLAGS;
 		log_append_flag_updates(&ctx, t);
 	}
 
@@ -425,7 +425,7 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 		/* non-external expunges are only requests, ignore them when
 		   checking fsync_mask */
 		if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0)
-			change_mask |= MAIL_INDEX_SYNC_TYPE_EXPUNGE;
+			change_mask |= MAIL_INDEX_FSYNC_MASK_EXPUNGES;
 		log_append_buffer(&ctx, t->expunges.arr.buffer,
 				  MAIL_TRANSACTION_EXPUNGE_GUID);
 	}

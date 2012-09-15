@@ -86,7 +86,7 @@ void mail_index_free(struct mail_index **_index)
 
 void mail_index_set_fsync_mode(struct mail_index *index,
 			       enum fsync_mode mode,
-			       enum mail_index_sync_type mask)
+			       enum mail_index_fsync_mask mask)
 {
 	index->fsync_mode = mode;
 	index->fsync_mask = mask;
