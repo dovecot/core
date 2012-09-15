@@ -20,7 +20,7 @@ static const char testmsg[] =
 "Content-Type: text/x-myown; charset=us-ascii; foo=\"quoted\\\"string\"\n"
 "Content-ID: <foo@example.com>\n"
 "Content-MD5: Q2hlY2sgSW50ZWdyaXR5IQ==\n"
-"Content-Disposition: inline\n"
+"Content-Disposition: inline; foo=bar\n"
 "Content-Description: hellodescription\n"
 "Content-Language: en, fi\n"
 "Content-Location: http://example.com/test.txt\n"
@@ -55,7 +55,7 @@ static const char testmsg[] =
 
 static const char testmsg_bodystructure[] =
 "(\"text\" \"x-myown\" (\"charset\" \"us-ascii\" \"foo\" {13}\r\n"
-"quoted\"string) \"<foo@example.com>\" \"hellodescription\" \"7bit\" 7 1 \"Q2hlY2sgSW50ZWdyaXR5IQ==\" (\"inline\" NIL) (\"en\" \"fi\") \"http://example.com/test.txt\")(\"message\" \"rfc822\" NIL NIL NIL \"7bit\" 331 (\"Sun, 12 Aug 2012 12:34:56 +0300\" \"submsg\" ((NIL NIL \"sub\" \"domain.org\")) ((NIL NIL \"sub\" \"domain.org\")) ((NIL NIL \"sub\" \"domain.org\")) NIL NIL NIL NIL NIL) ((\"text\" \"html\" (\"charset\" \"us-ascii\") NIL NIL \"8bit\" 20 1 NIL NIL NIL NIL)(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 21 1 NIL NIL NIL NIL) \"alternative\" (\"boundary\" \"sub1\") NIL NIL NIL) 19 NIL NIL NIL NIL) \"mixed\" (\"boundary\" \"foo bar\") NIL NIL NIL";
+"quoted\"string) \"<foo@example.com>\" \"hellodescription\" \"7bit\" 7 1 \"Q2hlY2sgSW50ZWdyaXR5IQ==\" (\"inline\" (\"foo\" \"bar\")) (\"en\" \"fi\") \"http://example.com/test.txt\")(\"message\" \"rfc822\" NIL NIL NIL \"7bit\" 331 (\"Sun, 12 Aug 2012 12:34:56 +0300\" \"submsg\" ((NIL NIL \"sub\" \"domain.org\")) ((NIL NIL \"sub\" \"domain.org\")) ((NIL NIL \"sub\" \"domain.org\")) NIL NIL NIL NIL NIL) ((\"text\" \"html\" (\"charset\" \"us-ascii\") NIL NIL \"8bit\" 20 1 NIL NIL NIL NIL)(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 21 1 NIL NIL NIL NIL) \"alternative\" (\"boundary\" \"sub1\") NIL NIL NIL) 19 NIL NIL NIL NIL) \"mixed\" (\"boundary\" \"foo bar\") NIL NIL NIL";
 
 static const char testmsg_body[] =
 "(\"text\" \"x-myown\" (\"charset\" \"us-ascii\" \"foo\" {13}\r\n"
