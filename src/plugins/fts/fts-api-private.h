@@ -1,6 +1,7 @@
 #ifndef FTS_API_PRIVATE_H
 #define FTS_API_PRIVATE_H
 
+#include "unichar.h"
 #include "fts-api.h"
 
 struct mail_user;
@@ -53,9 +54,9 @@ struct fts_backend_vfuncs {
 enum fts_backend_flags {
 	/* Backend supports indexing binary MIME parts */
 	FTS_BACKEND_FLAG_BINARY_MIME_PARTS	= 0x01,
-	/* Send built text to backend as decomposed titlecase rather than
+	/* Send built text to backend normalized rather than
 	   preserving original case */
-	FTS_BACKEND_FLAG_BUILD_DTCASE		= 0x02,
+	FTS_BACKEND_FLAG_NORMALIZE_INPUT	= 0x02,
 	/* Send only fully indexable words rather than randomly sized blocks */
 	FTS_BACKEND_FLAG_BUILD_FULL_WORDS	= 0x04,
 	/* Fuzzy search works */
@@ -74,6 +75,7 @@ struct fts_backend {
 
 struct fts_backend_update_context {
 	struct fts_backend *backend;
+	normalizer_func_t *normalizer;
 
 	struct mailbox *cur_box, *backend_box;
 

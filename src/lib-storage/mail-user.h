@@ -1,6 +1,7 @@
 #ifndef MAIL_USER_H
 #define MAIL_USER_H
 
+#include "unichar.h"
 #include "mail-storage-settings.h"
 
 struct module;
@@ -38,6 +39,7 @@ struct mail_user {
 	ARRAY(const struct mail_storage_hooks *) hooks;
 
 	struct mountpoint_list *mountpoints;
+	normalizer_func_t *default_normalizer;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY(union mail_user_module_context *) module_contexts;

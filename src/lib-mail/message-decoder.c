@@ -22,6 +22,7 @@
 
 struct message_decoder_context {
 	enum message_decoder_flags flags;
+	normalizer_func_t *normalizer;
 	struct message_part *prev_part;
 
 	struct message_header_line hdr;
@@ -46,12 +47,14 @@ message_decode_body_init_charset(struct message_decoder_context *ctx,
 				 struct message_part *part);
 
 struct message_decoder_context *
-message_decoder_init(enum message_decoder_flags flags)
+message_decoder_init(normalizer_func_t *normalizer,
+		     enum message_decoder_flags flags)
 {
 	struct message_decoder_context *ctx;
 
 	ctx = i_new(struct message_decoder_context, 1);
 	ctx->flags = flags;
+	ctx->normalizer = normalizer;
 	ctx->buf = buffer_create_dynamic(default_pool, 8192);
 	ctx->buf2 = buffer_create_dynamic(default_pool, 8192);
 	ctx->encoding_buf = buffer_create_dynamic(default_pool, 128);
@@ -149,7 +152,6 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 				  struct message_header_line *hdr,
 				  struct message_block *output)
 {
-	bool dtcase = (ctx->flags & MESSAGE_DECODER_FLAG_DTCASE) != 0;
 	size_t value_len;
 
 	if (hdr->continues) {
@@ -168,12 +170,11 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 
 	buffer_set_used_size(ctx->buf, 0);
 	message_header_decode_utf8(hdr->full_value, hdr->full_value_len,
-				   ctx->buf, dtcase);
+				   ctx->buf, ctx->normalizer);
 	value_len = ctx->buf->used;
 
-	if (dtcase) {
-		(void)uni_utf8_to_decomposed_titlecase(hdr->name, hdr->name_len,
-						       ctx->buf);
+	if (ctx->normalizer != NULL) {
+		(void)ctx->normalizer(hdr->name, hdr->name_len, ctx->buf);
 		buffer_append_c(ctx->buf, '\0');
 	} else {
 		if (!uni_utf8_get_valid_data((const unsigned char *)hdr->name,
@@ -229,8 +230,6 @@ static void
 message_decode_body_init_charset(struct message_decoder_context *ctx,
 				 struct message_part *part)
 {
-	enum charset_flags flags;
-
 	ctx->binary_input = ctx->content_charset == NULL &&
 		(ctx->flags & MESSAGE_DECODER_FLAG_RETURN_BINARY) != 0 &&
 		(part->flags & (MESSAGE_PART_FLAG_TEXT |
@@ -249,12 +248,10 @@ message_decode_body_init_charset(struct message_decoder_context *ctx,
 		charset_to_utf8_end(&ctx->charset_trans);
 	i_free_and_null(ctx->charset_trans_charset);
 
-	flags = (ctx->flags & MESSAGE_DECODER_FLAG_DTCASE) != 0 ?
-		CHARSET_FLAG_DECOMP_TITLECASE : 0;
 	ctx->charset_trans_charset = i_strdup(ctx->content_charset != NULL ?
 					      ctx->content_charset : "UTF-8");
-	if (charset_to_utf8_begin(ctx->charset_trans_charset,
-				  flags, &ctx->charset_trans) < 0)
+	if (charset_to_utf8_begin(ctx->charset_trans_charset, ctx->normalizer,
+				  &ctx->charset_trans) < 0)
 		ctx->charset_trans = NULL;
 }
 
@@ -331,9 +328,8 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 		output->size = size;
 	} else if (ctx->charset_utf8) {
 		buffer_set_used_size(ctx->buf2, 0);
-		if ((ctx->flags & MESSAGE_DECODER_FLAG_DTCASE) != 0) {
-			(void)uni_utf8_to_decomposed_titlecase(data, size,
-							       ctx->buf2);
+		if (ctx->normalizer != NULL) {
+			(void)ctx->normalizer(data, size, ctx->buf2);
 			output->data = ctx->buf2->data;
 			output->size = ctx->buf2->used;
 		} else if (uni_utf8_get_valid_data(data, size, ctx->buf2)) {

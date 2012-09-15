@@ -265,7 +265,7 @@ static int fetch_text_utf8(struct fetch_cmd_context *ctx)
 	parser = message_parser_init(pool_datastack_create(), input,
 				     MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE,
 				     0);
-	decoder = message_decoder_init(0);
+	decoder = message_decoder_init(NULL, 0);
 
 	while ((ret = message_parser_parse_next_block(parser, &raw_block)) > 0) {
 		if (!message_decoder_decode_next_block(decoder, &raw_block,

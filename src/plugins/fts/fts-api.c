@@ -110,10 +110,15 @@ bool fts_backend_is_updating(struct fts_backend *backend)
 struct fts_backend_update_context *
 fts_backend_update_init(struct fts_backend *backend)
 {
+	struct fts_backend_update_context *ctx;
+
 	i_assert(!backend->updating);
 
 	backend->updating = TRUE;
-	return backend->v.update_init(backend);
+	ctx = backend->v.update_init(backend);
+	if ((backend->flags & FTS_BACKEND_FLAG_NORMALIZE_INPUT) != 0)
+		ctx->normalizer = backend->ns->user->default_normalizer;
+	return ctx;
 }
 
 static void fts_backend_set_cur_mailbox(struct fts_backend_update_context *ctx)

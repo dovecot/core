@@ -1,12 +1,9 @@
 #ifndef CHARSET_UTF8_H
 #define CHARSET_UTF8_H
 
-struct charset_translation;
+#include "unichar.h"
 
-enum charset_flags {
-	/* Translate the output to decomposed titlecase */
-	CHARSET_FLAG_DECOMP_TITLECASE	= 0x01
-};
+struct charset_translation;
 
 enum charset_result {
 	CHARSET_RET_OK = 1,
@@ -15,8 +12,9 @@ enum charset_result {
 };
 
 /* Begin translation to UTF-8. Returns -1 if charset is unknown. */
-int charset_to_utf8_begin(const char *charset, enum charset_flags flags,
-			  struct charset_translation **t_r);
+int charset_to_utf8_begin(const char *charset, normalizer_func_t *normalizer,
+			  struct charset_translation **t_r)
+	ATTR_NULL(2);
 void charset_to_utf8_end(struct charset_translation **t);
 void charset_to_utf8_reset(struct charset_translation *t);
 
@@ -30,8 +28,8 @@ charset_to_utf8(struct charset_translation *t,
 		const unsigned char *src, size_t *src_size, buffer_t *dest);
 
 /* Translate a single string to UTF8. */
-int charset_to_utf8_str(const char *charset, enum charset_flags flags,
+int charset_to_utf8_str(const char *charset, normalizer_func_t *normalizer,
 			const char *input, string_t *output,
-			enum charset_result *result_r);
+			enum charset_result *result_r) ATTR_NULL(2);
 
 #endif

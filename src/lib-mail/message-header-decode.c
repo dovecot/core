@@ -135,8 +135,8 @@ void message_header_decode(const unsigned char *data, size_t size,
 
 struct decode_utf8_context {
 	buffer_t *dest;
+	normalizer_func_t *normalizer;
 	unsigned int changed:1;
-	unsigned int dtcase:1;
 };
 
 static bool
@@ -145,13 +145,11 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 {
 	struct decode_utf8_context *ctx = context;
 	struct charset_translation *t;
-	enum charset_flags flags;
 
 	if (charset == NULL || charset_is_utf8(charset)) {
 		/* ASCII / UTF-8 */
-		if (ctx->dtcase) {
-			(void)uni_utf8_to_decomposed_titlecase(data, size,
-							       ctx->dest);
+		if (ctx->normalizer != NULL) {
+			(void)ctx->normalizer(data, size, ctx->dest);
 		} else {
 			if (uni_utf8_get_valid_data(data, size, ctx->dest))
 				buffer_append(ctx->dest, data, size);
@@ -159,8 +157,7 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 		return TRUE;
 	}
 
-	flags = ctx->dtcase ? CHARSET_FLAG_DECOMP_TITLECASE : 0;
-	if (charset_to_utf8_begin(charset, flags, &t) < 0) {
+	if (charset_to_utf8_begin(charset, ctx->normalizer, &t) < 0) {
 		/* data probably still contains some valid ASCII characters.
 		   append them. */
 		if (uni_utf8_get_valid_data(data, size, ctx->dest))
@@ -175,12 +172,12 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 }
 
 void message_header_decode_utf8(const unsigned char *data, size_t size,
-				buffer_t *dest, bool dtcase)
+				buffer_t *dest, normalizer_func_t *normalizer)
 {
 	struct decode_utf8_context ctx;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.dest = dest;
-	ctx.dtcase = dtcase;
+	ctx.normalizer = normalizer;
 	message_header_decode(data, size, decode_utf8_callback, &ctx);
 }

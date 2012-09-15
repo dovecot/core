@@ -1,6 +1,8 @@
 #ifndef MESSAGE_DECODER_H
 #define MESSAGE_DECODER_H
 
+#include "unichar.h"
+
 struct message_header_line;
 
 enum message_cte {
@@ -12,9 +14,6 @@ enum message_cte {
 };
 
 enum message_decoder_flags {
-	/* Return all headers and parts through
-	   uni_utf8_to_decomposed_titlecase() */
-	MESSAGE_DECODER_FLAG_DTCASE		= 0x01,
 	/* Return binary MIME parts as-is without any conversion. */
 	MESSAGE_DECODER_FLAG_RETURN_BINARY	= 0x02
 };
@@ -24,7 +23,8 @@ struct message_block;
 /* Decode message's contents as UTF-8, both the headers and the MIME bodies.
    The bodies are decoded from quoted-printable and base64 formats if needed. */
 struct message_decoder_context *
-message_decoder_init(enum message_decoder_flags flags);
+message_decoder_init(normalizer_func_t *normalizer,
+		     enum message_decoder_flags flags);
 void message_decoder_deinit(struct message_decoder_context **ctx);
 
 /* Change the MESSAGE_DECODER_FLAG_RETURN_BINARY flag */

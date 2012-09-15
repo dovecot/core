@@ -10,7 +10,8 @@
 #include "test-common.h"
 
 void message_header_decode_utf8(const unsigned char *data, size_t size,
-				buffer_t *dest, bool dtcase ATTR_UNUSED)
+				buffer_t *dest,
+				normalizer_func_t *normalizer ATTR_UNUSED)
 {
 	buffer_append(dest, data, size);
 }
@@ -25,7 +26,7 @@ void quoted_printable_decode(const unsigned char *src, size_t src_size,
 }
 
 int charset_to_utf8_begin(const char *charset ATTR_UNUSED,
-			  enum charset_flags flags ATTR_UNUSED,
+			  normalizer_func_t *normalizer ATTR_UNUSED,
 			  struct charset_translation **t_r)
 {
 	*t_r = NULL;
@@ -56,7 +57,7 @@ static void test_message_decoder(void)
 	memset(&output, 0, sizeof(output));
 	input.part = &part;
 
-	ctx = message_decoder_init(0);
+	ctx = message_decoder_init(NULL, 0);
 
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.name = "Content-Transfer-Encoding";

@@ -210,7 +210,7 @@ const char *imap_get_base_subject_cased(pool_t pool, const char *subject,
 	   UTF-8.  Convert all tabs and continuations to space.
 	   Convert all multiple spaces to a single space. */
 	message_header_decode_utf8((const unsigned char *)subject, subject_len,
-				   buf, TRUE);
+				   buf, uni_utf8_to_decomposed_titlecase);
 	buffer_append_c(buf, '\0');
 
 	pack_whitespace(buf);

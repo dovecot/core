@@ -12,6 +12,8 @@
 
 struct message_search_context {
 	enum message_search_flags flags;
+	normalizer_func_t *normalizer;
+
 	struct str_find_context *str_find_ctx;
 	struct message_part *prev_part;
 
@@ -20,21 +22,18 @@ struct message_search_context {
 };
 
 struct message_search_context *
-message_search_init(const char *key_utf8,
+message_search_init(const char *normalized_key_utf8,
+		    normalizer_func_t *normalizer,
 		    enum message_search_flags flags)
 {
-	enum message_decoder_flags decoder_flags = 0;
 	struct message_search_context *ctx;
 
-	i_assert(*key_utf8 != '\0');
-
-	if ((flags & MESSAGE_SEARCH_FLAG_DTCASE) != 0)
-		decoder_flags |= MESSAGE_DECODER_FLAG_DTCASE;
+	i_assert(*normalized_key_utf8 != '\0');
 
 	ctx = i_new(struct message_search_context, 1);
 	ctx->flags = flags;
-	ctx->decoder = message_decoder_init(decoder_flags);
-	ctx->str_find_ctx = str_find_init(default_pool, key_utf8);
+	ctx->decoder = message_decoder_init(normalizer, 0);
+	ctx->str_find_ctx = str_find_init(default_pool, normalized_key_utf8);
 	return ctx;
 }
 

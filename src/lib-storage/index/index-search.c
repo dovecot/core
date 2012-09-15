@@ -38,6 +38,7 @@
 #define SEARCH_RECALC_MIN_USECS 50000
 
 struct search_header_context {
+        struct index_search_context *index_ctx;
         struct index_mail *imail;
 	struct mail_search_arg *args;
 
@@ -396,16 +397,16 @@ static int search_sent(enum mail_search_arg_type type, time_t search_time,
 }
 
 static struct message_search_context *
-msg_search_arg_context(struct mail_search_arg *arg)
+msg_search_arg_context(struct index_search_context *ctx,
+		       struct mail_search_arg *arg)
 {
-	enum message_search_flags flags = MESSAGE_SEARCH_FLAG_DTCASE;
+	enum message_search_flags flags = 0;
 
 	if (arg->context == NULL) T_BEGIN {
 		string_t *dtc = t_str_new(128);
 
-		if (uni_utf8_to_decomposed_titlecase(arg->value.str,
-						     strlen(arg->value.str),
-						     dtc) < 0)
+		if (ctx->mail_ctx.normalizer(arg->value.str,
+					     strlen(arg->value.str), dtc) < 0)
 			i_panic("search key not utf8: %s", arg->value.str);
 
 		if (arg->type == SEARCH_BODY)
@@ -413,8 +414,12 @@ msg_search_arg_context(struct mail_search_arg *arg)
 		/* we don't get here if arg is "", but dtc can be "" if it
 		   only contains characters that we need to ignore. handle
 		   those searches by returning them as non-matched. */
-		if (str_len(dtc) > 0)
-			arg->context = message_search_init(str_c(dtc), flags);
+		if (str_len(dtc) > 0) {
+			arg->context =
+				message_search_init(str_c(dtc),
+						    ctx->mail_ctx.normalizer,
+						    flags);
+		}
 	} T_END;
 	return arg->context;
 }
@@ -499,7 +504,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 	hdr.middle_len = 0;
 	block.hdr = &hdr;
 
-	msg_search_ctx = msg_search_arg_context(arg);
+	msg_search_ctx = msg_search_arg_context(ctx->index_ctx, arg);
 	if (msg_search_ctx == NULL)
 		return;
 
@@ -604,7 +609,7 @@ static void search_body(struct mail_search_arg *arg,
 		return;
 	}
 
-	msg_search_ctx = msg_search_arg_context(arg);
+	msg_search_ctx = msg_search_arg_context(ctx->index_ctx, arg);
 	if (msg_search_ctx == NULL) {
 		ARG_SET_RESULT(arg, 0);
 		return;
@@ -645,6 +650,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 		return -1;
 
 	memset(&hdr_ctx, 0, sizeof(hdr_ctx));
+	hdr_ctx.index_ctx = ctx;
 	/* hdr_ctx.imail is different from imail for mails in
 	   virtual mailboxes */
 	hdr_ctx.imail = (struct index_mail *)mail_get_real_mail(ctx->cur_mail);
@@ -1150,6 +1156,7 @@ index_storage_search_init(struct mailbox_transaction_context *t,
 
 	ctx = i_new(struct index_search_context, 1);
 	ctx->mail_ctx.transaction = t;
+	ctx->mail_ctx.normalizer = t->box->storage->user->default_normalizer;
 	ctx->box = t->box;
 	ctx->view = t->view;
 	ctx->mail_ctx.args = args;

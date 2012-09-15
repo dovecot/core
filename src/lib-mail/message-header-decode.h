@@ -1,6 +1,8 @@
 #ifndef MESSAGE_HEADER_DECODE_H
 #define MESSAGE_HEADER_DECODE_H
 
+#include "unichar.h"
+
 /* Return FALSE if you wish to stop decoding. charset is NULL when it's not
    RFC2047-encoded. */
 typedef bool message_header_decode_callback_t(const unsigned char *data,
@@ -13,9 +15,8 @@ void message_header_decode(const unsigned char *data, size_t size,
 			   message_header_decode_callback_t *callback,
 			   void *context);
 
-/* Append decoded RFC2047 header as UTF-8 to given buffer. If dtcase=TRUE,
-   the header is appended through uni_utf8_to_decomposed_titlecase(). */
+/* Append decoded RFC2047 header as UTF-8 to given buffer. */
 void message_header_decode_utf8(const unsigned char *data, size_t size,
-				buffer_t *dest, bool dtcase);
+				buffer_t *dest, normalizer_func_t *normalizer);
 
 #endif

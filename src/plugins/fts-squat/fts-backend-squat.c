@@ -374,8 +374,8 @@ static int squat_lookup_arg(struct squat_fts_backend *backend,
 	i_array_init(&tmp_maybe_uids, 128);
 
 	dtc = t_str_new(128);
-	if (uni_utf8_to_decomposed_titlecase(arg->value.str,
-					     strlen(arg->value.str), dtc) < 0)
+	if (backend->backend.ns->user->
+	    default_normalizer(arg->value.str, strlen(arg->value.str), dtc) < 0)
 		i_panic("squat: search key not utf8");
 
 	ret = squat_trie_lookup(backend->trie, str_c(dtc), squat_type,
@@ -462,7 +462,7 @@ fts_backend_squat_lookup(struct fts_backend *_backend, struct mailbox *box,
 
 struct fts_backend fts_backend_squat = {
 	.name = "squat",
-	.flags = FTS_BACKEND_FLAG_BUILD_DTCASE,
+	.flags = FTS_BACKEND_FLAG_NORMALIZE_INPUT,
 
 	{
 		fts_backend_squat_alloc,
