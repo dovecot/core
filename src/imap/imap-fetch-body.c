@@ -155,7 +155,7 @@ static int fetch_binary_size(struct imap_fetch_context *ctx, struct mail *mail,
 			     struct imap_fetch_body_data *body)
 {
 	string_t *str;
-	size_t size;
+	uoff_t size;
 
 	if (mail == NULL) {
 		imap_msgpart_free(&body->msgpart);

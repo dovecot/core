@@ -43,7 +43,7 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 		      struct imap_msgpart_open_result *result_r);
 /* Return msgpart's size without actually opening the stream (if possible). */
 int imap_msgpart_size(struct mail *mail, struct imap_msgpart *msgpart,
-		      size_t *size_r);
+		      uoff_t *size_r);
 
 /* Return msgpart's IMAP BODYPARTSTRUCTURE */
 int imap_msgpart_bodypartstructure(struct mail *mail,

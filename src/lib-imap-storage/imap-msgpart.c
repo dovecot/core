@@ -701,7 +701,7 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 }
 
 int imap_msgpart_size(struct mail *mail, struct imap_msgpart *msgpart,
-		      size_t *size_r)
+		      uoff_t *size_r)
 {
 	struct imap_msgpart_open_result result;
 	struct message_part *part;
