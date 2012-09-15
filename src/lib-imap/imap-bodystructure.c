@@ -533,7 +533,7 @@ void imap_bodystructure_write(const struct message_part *part,
 	}
 }
 
-static bool str_append_imap_arg(string_t *str, const struct imap_arg *arg)
+static bool str_append_nstring(string_t *str, const struct imap_arg *arg)
 {
 	const char *cstr;
 
@@ -566,19 +566,20 @@ static bool str_append_imap_arg(string_t *str, const struct imap_arg *arg)
 	return TRUE;
 }
 
-static bool imap_write_list(const struct imap_arg *args, string_t *str)
+static void imap_write_list(const struct imap_arg *args, string_t *str)
 {
 	const struct imap_arg *children;
 
 	/* don't do any typechecking, just write it out */
 	str_append_c(str, '(');
 	while (!IMAP_ARG_IS_EOL(args)) {
-		if (!str_append_imap_arg(str, args)) {
-			if (!imap_arg_get_list(args, &children))
-				return FALSE;
+		if (!str_append_nstring(str, args)) {
+			if (!imap_arg_get_list(args, &children)) {
+				/* everything is either nstring or list */
+				i_unreached();
+			}
 
-			if (!imap_write_list(children, str))
-				return FALSE;
+			imap_write_list(children, str);
 		}
 		args++;
 
@@ -586,11 +587,10 @@ static bool imap_write_list(const struct imap_arg *args, string_t *str)
 			str_append_c(str, ' ');
 	}
 	str_append_c(str, ')');
-	return TRUE;
 }
 
-static bool imap_parse_bodystructure_args(const struct imap_arg *args,
-					  string_t *str)
+static int imap_parse_bodystructure_args(const struct imap_arg *args,
+					 string_t *str, const char **error_r)
 {
 	const struct imap_arg *subargs;
 	const struct imap_arg *list_args;
@@ -602,8 +602,8 @@ static bool imap_parse_bodystructure_args(const struct imap_arg *args,
 	while (args->type == IMAP_ARG_LIST) {
 		str_append_c(str, '(');
 		list_args = imap_arg_as_list(args);
-		if (!imap_parse_bodystructure_args(list_args, str))
-			return FALSE;
+		if (imap_parse_bodystructure_args(list_args, str, error_r) < 0)
+			return -1;
 		str_append_c(str, ')');
 
 		multipart = TRUE;
@@ -613,19 +613,25 @@ static bool imap_parse_bodystructure_args(const struct imap_arg *args,
 	if (multipart) {
 		/* next is subtype of Content-Type. rest is skipped. */
 		str_append_c(str, ' ');
-		return str_append_imap_arg(str, args);
+		if (!str_append_nstring(str, args)) {
+			*error_r = "Invalid multipart content-type";
+			return -1;
+		}
+		return 0;
 	}
 
 	/* "content type" "subtype" */
 	if (!imap_arg_get_astring(&args[0], &content_type) ||
-	    !imap_arg_get_astring(&args[1], &subtype))
-		return FALSE;
+	    !imap_arg_get_astring(&args[1], &subtype)) {
+		*error_r = "Invalid content-type";
+		return -1;
+	}
 
-	if (!str_append_imap_arg(str, &args[0]))
-		return FALSE;
+	if (!str_append_nstring(str, &args[0]))
+		i_unreached();
 	str_append_c(str, ' ');
-	if (!str_append_imap_arg(str, &args[1]))
-		return FALSE;
+	if (!str_append_nstring(str, &args[1]))
+		i_unreached();
 
 	text = strcasecmp(content_type, "text") == 0;
 	message_rfc822 = strcasecmp(content_type, "message") == 0 &&
@@ -637,11 +643,15 @@ static bool imap_parse_bodystructure_args(const struct imap_arg *args,
 	if (imap_arg_get_list(args, &subargs)) {
 		str_append(str, " (");
 		while (!IMAP_ARG_IS_EOL(subargs)) {
-			if (!str_append_imap_arg(str, &subargs[0]))
-				return FALSE;
+			if (!str_append_nstring(str, &subargs[0])) {
+				*error_r = "Invalid content param key";
+				return -1;
+			}
 			str_append_c(str, ' ');
-			if (!str_append_imap_arg(str, &subargs[1]))
-				return FALSE;
+			if (!str_append_nstring(str, &subargs[1])) {
+				*error_r = "Invalid content param value";
+				return -1;
+			}
 
 			subargs += 2;
 			if (IMAP_ARG_IS_EOL(subargs))
@@ -652,7 +662,8 @@ static bool imap_parse_bodystructure_args(const struct imap_arg *args,
 	} else if (args->type == IMAP_ARG_NIL) {
 		str_append(str, " NIL");
 	} else {
-		return FALSE;
+		*error_r = "list/NIL expected";
+		return -1;
 	}
 	args++;
 
@@ -660,14 +671,18 @@ static bool imap_parse_bodystructure_args(const struct imap_arg *args,
 	for (i = 0; i < 4; i++, args++) {
 		str_append_c(str, ' ');
 
-		if (!str_append_imap_arg(str, args))
-			return FALSE;
+		if (!str_append_nstring(str, args)) {
+			*error_r = "nstring expected";
+			return -1;
+		}
 	}
 
 	if (text) {
 		/* text/xxx - text lines */
-		if (!imap_arg_get_atom(args, &value))
-			return FALSE;
+		if (!imap_arg_get_atom(args, &value)) {
+			*error_r = "Text lines expected";
+			return -1;
+		}
 
 		str_append_c(str, ' ');
 		str_append(str, value);
@@ -675,33 +690,37 @@ static bool imap_parse_bodystructure_args(const struct imap_arg *args,
 		/* message/rfc822 - envelope + bodystructure + text lines */
 		str_append_c(str, ' ');
 
-		if (!imap_arg_get_list(&args[0], &list_args))
-			return FALSE;
-		if (!imap_write_list(list_args, str))
-			return FALSE;
-
+		if (!imap_arg_get_list(&args[0], &list_args)) {
+			*error_r = "Envelope list expected";
+			return -1;
+		}
+		imap_write_list(list_args, str);
 		str_append(str, " (");
 
-		if (!imap_arg_get_list(&args[1], &list_args))
-			return FALSE;
-		if (!imap_parse_bodystructure_args(list_args, str))
-			return FALSE;
+		if (!imap_arg_get_list(&args[1], &list_args)) {
+			*error_r = "Child bodystructure list expected";
+			return -1;
+		}
+		if (imap_parse_bodystructure_args(list_args, str, error_r) < 0)
+			return -1;
 
 		str_append(str, ") ");
-		if (!imap_arg_get_atom(&args[2], &value))
-			return FALSE;
+		if (!imap_arg_get_atom(&args[2], &value)) {
+			*error_r = "Text lines expected";
+			return -1;
+		}
 		str_append(str, value);
 	}
-
-	return TRUE;
+	return 0;
 }
 
-bool imap_body_parse_from_bodystructure(const char *bodystructure,
-					string_t *dest)
+int imap_body_parse_from_bodystructure(const char *bodystructure,
+				       string_t *dest, const char **error_r)
 {
 	struct istream *input;
 	struct imap_parser *parser;
 	const struct imap_arg *args;
+	bool fatal;
 	int ret;
 
 	input = i_stream_create_from_data(bodystructure, strlen(bodystructure));
@@ -710,12 +729,16 @@ bool imap_body_parse_from_bodystructure(const char *bodystructure,
 	parser = imap_parser_create(input, NULL, (size_t)-1);
 	ret = imap_parser_finish_line(parser, 0, IMAP_PARSE_FLAG_NO_UNESCAPE |
 				      IMAP_PARSE_FLAG_LITERAL_TYPE, &args);
-	ret = ret > 0 && imap_parse_bodystructure_args(args, dest);
-
-	if (!ret)
-		i_error("Error parsing IMAP bodystructure: %s", bodystructure);
+	if (ret < 0) {
+		*error_r = t_strdup_printf("IMAP parser failed: %s",
+					   imap_parser_get_error(parser, &fatal));
+	} else if (ret == 0) {
+		*error_r = "Empty bodystructure";
+	} else {
+		ret = imap_parse_bodystructure_args(args, dest, error_r);
+	}
 
 	imap_parser_unref(&parser);
 	i_stream_destroy(&input);
-	return ret;
+	return ret <= 0 ? -1 : 0;
 }

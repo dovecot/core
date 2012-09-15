@@ -16,8 +16,9 @@ bool imap_bodystructure_is_plain_7bit(const struct message_part *part)
 void imap_bodystructure_write(const struct message_part *part,
 			      string_t *dest, bool extended);
 
-/* Return BODY part from BODYSTRUCTURE */
-bool imap_body_parse_from_bodystructure(const char *bodystructure,
-					string_t *dest);
+/* Get BODY part from BODYSTRUCTURE and write it to dest.
+   Returns 0 if ok, -1 if bodystructure wasn't valid. */
+int imap_body_parse_from_bodystructure(const char *bodystructure,
+				       string_t *dest, const char **error_r);
 
 #endif

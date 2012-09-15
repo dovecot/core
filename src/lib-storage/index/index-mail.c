@@ -1035,6 +1035,7 @@ int index_mail_get_special(struct mail *_mail,
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	const struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
+	const char *error;
 	string_t *str;
 
 	switch (field) {
@@ -1071,12 +1072,15 @@ int index_mail_get_special(struct mail *_mail,
 			str_truncate(str, 0);
 
 			if (imap_body_parse_from_bodystructure(
-						data->bodystructure, str))
-				data->body = str_c(str);
-			else {
+					data->bodystructure, str, &error) < 0) {
 				/* broken, continue.. */
+				mail_storage_set_critical(_mail->box->storage,
+					"Invalid BODYSTRUCTURE %s: %s",
+					data->bodystructure, error);
 				mail_set_cache_corrupted(_mail,
 					MAIL_FETCH_IMAP_BODYSTRUCTURE);
+			} else {
+				data->body = str_c(str);
 			}
 		}
 
