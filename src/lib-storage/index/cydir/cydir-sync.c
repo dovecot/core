@@ -87,9 +87,6 @@ static void cydir_sync_index(struct cydir_sync_context *ctx)
 		}
 
 		switch (sync_rec.type) {
-		case MAIL_INDEX_SYNC_TYPE_APPEND:
-			/* don't care */
-			break;
 		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
 			cydir_sync_expunge(ctx, seq1, seq2);
 			break;

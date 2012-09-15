@@ -24,10 +24,6 @@ struct mail_index_sync_ctx {
 	ARRAY(struct mail_index_sync_list) sync_list;
 	uint32_t next_uid;
 	uint32_t last_tail_seq, last_tail_offset;
-
-	uint32_t append_uid_first, append_uid_last;
-
-	unsigned int sync_appends:1;
 };
 
 static void mail_index_sync_add_expunge(struct mail_index_sync_ctx *ctx)
@@ -123,20 +119,6 @@ static void mail_index_sync_add_keyword_reset(struct mail_index_sync_ctx *ctx)
 	mail_index_keywords_unref(&keywords);
 }
 
-static void mail_index_sync_add_append(struct mail_index_sync_ctx *ctx)
-{
-	const struct mail_index_record *rec = ctx->data;
-
-	if (ctx->append_uid_first == 0 || rec->uid < ctx->append_uid_first)
-		ctx->append_uid_first = rec->uid;
-
-	rec = CONST_PTR_OFFSET(ctx->data, ctx->hdr->size - sizeof(*rec));
-	if (rec->uid > ctx->append_uid_last)
-		ctx->append_uid_last = rec->uid;
-
-	ctx->sync_appends = TRUE;
-}
-
 static bool mail_index_sync_add_transaction(struct mail_index_sync_ctx *ctx)
 {
 	switch (ctx->hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
@@ -154,9 +136,6 @@ static bool mail_index_sync_add_transaction(struct mail_index_sync_ctx *ctx)
 		break;
 	case MAIL_TRANSACTION_KEYWORD_RESET:
                 mail_index_sync_add_keyword_reset(ctx);
-		break;
-	case MAIL_TRANSACTION_APPEND:
-		mail_index_sync_add_append(ctx);
 		break;
 	default:
 		return FALSE;
@@ -686,13 +665,6 @@ bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	if (i == count) {
 		if (next_i == (unsigned int)-1) {
 			/* nothing left in sync_list */
-			if (ctx->sync_appends) {
-				ctx->sync_appends = FALSE;
-				sync_rec->type = MAIL_INDEX_SYNC_TYPE_APPEND;
-				sync_rec->uid1 = ctx->append_uid_first;
-				sync_rec->uid2 = ctx->append_uid_last;
-				return TRUE;
-			}
 			return FALSE;
 		}
                 ctx->next_uid = next_found_uid;
@@ -717,9 +689,6 @@ bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 bool mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
 {
 	const struct mail_index_sync_list *sync_list;
-
-	if (ctx->sync_appends)
-		return TRUE;
 
 	array_foreach(&ctx->sync_list, sync_list) {
 		if (array_is_created(sync_list->array) &&

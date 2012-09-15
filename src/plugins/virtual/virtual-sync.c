@@ -346,9 +346,6 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 	bool expunged;
 
 	switch (sync_rec->type) {
-	case MAIL_INDEX_SYNC_TYPE_APPEND:
-		/* don't care */
-		return;
 	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
 	case MAIL_INDEX_SYNC_TYPE_FLAGS:
 	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
@@ -407,8 +404,6 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 					     modify_type, keywords);
 			mailbox_keywords_unref(&keywords);
 			break;
-		case MAIL_INDEX_SYNC_TYPE_APPEND:
-			i_unreached();
 		}
 	}
 }

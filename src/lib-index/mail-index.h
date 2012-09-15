@@ -129,7 +129,6 @@ enum mail_index_transaction_flags {
 };
 
 enum mail_index_sync_type {
-	MAIL_INDEX_SYNC_TYPE_APPEND		= 0x01,
 	MAIL_INDEX_SYNC_TYPE_EXPUNGE		= 0x02,
 	MAIL_INDEX_SYNC_TYPE_FLAGS		= 0x04,
 	MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD	= 0x08,

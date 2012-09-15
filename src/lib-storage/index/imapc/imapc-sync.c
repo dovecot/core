@@ -288,9 +288,6 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 						 &seq1, &seq2)) {
 			/* already expunged, nothing to do. */
 		} else switch (sync_rec.type) {
-		case MAIL_INDEX_SYNC_TYPE_APPEND:
-			/* don't care */
-			break;
 		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
 			imapc_sync_add_missing_deleted_flags(ctx, seq1, seq2);
 			seq_range_array_add_range(&ctx->expunged_uids,
