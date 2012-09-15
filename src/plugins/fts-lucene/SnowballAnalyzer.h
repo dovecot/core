@@ -7,6 +7,10 @@
 #ifndef _lucene_analysis_snowball_analyser_
 #define _lucene_analysis_snowball_analyser_
 
+extern "C" {
+#include "lib.h"
+#include "unichar.h"
+};
 #include "CLucene/analysis/AnalysisHeader.h"
 
 CL_CLASS_DEF(util,BufferedReader)
@@ -21,12 +25,13 @@ CL_NS_DEF2(analysis,snowball)
  */
 class CLUCENE_CONTRIBS_EXPORT SnowballAnalyzer: public Analyzer {
   char* language;
+  normalizer_func_t *normalizer;
   CLTCSetList* stopSet;
   TokenStream *prevstream;
 
 public:
   /** Builds the named analyzer with no stop words. */
-  SnowballAnalyzer(const char* language="english");
+  SnowballAnalyzer(normalizer_func_t *normalizer, const char* language="english");
 
   /** Builds the named analyzer with the given stop words.
   */

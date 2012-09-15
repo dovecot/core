@@ -26,8 +26,9 @@ CL_NS_USE2(analysis,standard)
 CL_NS_DEF2(analysis,snowball)
 
   /** Builds the named analyzer with no stop words. */
-  SnowballAnalyzer::SnowballAnalyzer(const char* language) {
+  SnowballAnalyzer::SnowballAnalyzer(normalizer_func_t *normalizer, const char* language) {
     this->language = strdup(language);
+	this->normalizer = normalizer;
 	stopSet = NULL;
     prevstream = NULL;
   }
@@ -67,7 +68,7 @@ CL_NS_DEF2(analysis,snowball)
     result = _CLNEW CL_NS(analysis)::LowerCaseFilter(result, true);
     if (stopSet != NULL)
       result = _CLNEW CL_NS(analysis)::StopFilter(result, true, stopSet);
-    result = _CLNEW SnowballFilter(result, language, true);
+    result = _CLNEW SnowballFilter(result, normalizer, language, true);
     return result;
   }
   
@@ -87,10 +88,11 @@ CL_NS_DEF2(analysis,snowball)
    * @param in the input tokens to stem
    * @param name the name of a stemmer
    */
-	SnowballFilter::SnowballFilter(TokenStream* in, const char* language, bool deleteTS):
+	SnowballFilter::SnowballFilter(TokenStream* in, normalizer_func_t *normalizer, const char* language, bool deleteTS):
 		TokenFilter(in,deleteTS)
 	{
 		stemmer = sb_stemmer_new(language, NULL); //use utf8 encoding
+		this->normalizer = normalizer;
 
 		if ( stemmer == NULL ){
 			_CLTHROWA(CL_ERR_IllegalArgument, "language not available for stemming\n"); //todo: richer error
@@ -120,10 +122,24 @@ CL_NS_DEF2(analysis,snowball)
 
 	int stemmedLen=sb_stemmer_length(stemmer);
 
-	unsigned int tchartext_size = uni_utf8_strlen_n(stemmed, stemmedLen) + 1;
-	TCHAR tchartext[tchartext_size];
-	lucene_utf8_n_to_tchar(stemmed,stemmedLen,tchartext,tchartext_size);
-	token->set(tchartext,token->startOffset(), token->endOffset(), token->type());
+	if (normalizer == NULL) {
+	  unsigned int tchartext_size =
+			  uni_utf8_strlen_n(stemmed, stemmedLen) + 1;
+	  TCHAR tchartext[tchartext_size];
+	  lucene_utf8_n_to_tchar(stemmed, stemmedLen, tchartext, tchartext_size);
+	  token->set(tchartext,token->startOffset(), token->endOffset(), token->type());
+	} else T_BEGIN {
+	  buffer_t *norm_buf = buffer_create_dynamic(pool_datastack_create(),
+												 stemmedLen);
+	  normalizer(stemmed, stemmedLen, norm_buf);
+
+	  unsigned int tchartext_size =
+			  uni_utf8_strlen_n(norm_buf->data, norm_buf->used) + 1;
+	  TCHAR tchartext[tchartext_size];
+	  lucene_utf8_n_to_tchar((const unsigned char *)norm_buf->data,
+							 norm_buf->used, tchartext, tchartext_size);
+	  token->set(tchartext,token->startOffset(), token->endOffset(), token->type());
+	} T_END;
 	return token;
   }
 

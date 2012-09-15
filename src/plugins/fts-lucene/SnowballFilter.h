@@ -22,6 +22,7 @@ CL_NS_DEF2(analysis,snowball)
  */
 class CLUCENE_CONTRIBS_EXPORT SnowballFilter: public TokenFilter {
 	struct sb_stemmer * stemmer;
+	normalizer_func_t *normalizer;
 public:
 
   /** Construct the named stemming filter.
@@ -29,7 +30,7 @@ public:
    * @param in the input tokens to stem
    * @param name the name of a stemmer
    */
-	SnowballFilter(TokenStream* in, const char* language, bool deleteTS);
+	SnowballFilter(TokenStream* in, normalizer_func_t *normalizer, const char* language, bool deleteTS);
 
 	~SnowballFilter();
 
