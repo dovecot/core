@@ -51,10 +51,11 @@ static struct dotlock_settings file_dict_dotlock_settings = {
 	.use_io_notify = TRUE
 };
 
-static struct dict *file_dict_init(struct dict *driver, const char *uri,
-				   enum dict_data_type value_type ATTR_UNUSED,
-				   const char *username ATTR_UNUSED,
-				   const char *base_dir ATTR_UNUSED)
+static int
+file_dict_init(struct dict *driver, const char *uri,
+	       enum dict_data_type value_type ATTR_UNUSED,
+	       const char *username ATTR_UNUSED,
+	       const char *base_dir ATTR_UNUSED, struct dict **dict_r)
 {
 	struct file_dict *dict;
 	const char *p;
@@ -79,7 +80,8 @@ static struct dict *file_dict_init(struct dict *driver, const char *uri,
 	dict->hash_pool = pool_alloconly_create("file dict", 1024);
 	hash_table_create(&dict->hash, dict->hash_pool, 0, str_hash, strcmp);
 	dict->fd = -1;
-	return &dict->dict;
+	*dict_r = &dict->dict;
+	return -1;
 }
 
 static void file_dict_deinit(struct dict *_dict)

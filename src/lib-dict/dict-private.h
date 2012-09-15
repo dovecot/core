@@ -4,9 +4,10 @@
 #include "dict.h"
 
 struct dict_vfuncs {
-	struct dict *(*init)(struct dict *dict_driver, const char *uri,
-			     enum dict_data_type value_type,
-			     const char *username, const char *base_dir);
+	int (*init)(struct dict *dict_driver, const char *uri,
+		    enum dict_data_type value_type,
+		    const char *username, const char *base_dir,
+		    struct dict **dict_r);
 	void (*deinit)(struct dict *dict);
 	int (*wait)(struct dict *dict);
 

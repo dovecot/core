@@ -71,10 +71,11 @@ static struct sql_db_cache *dict_sql_db_cache;
 
 static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx);
 
-static struct dict *
+static int
 sql_dict_init(struct dict *driver, const char *uri,
 	      enum dict_data_type value_type ATTR_UNUSED,
-	      const char *username, const char *base_dir ATTR_UNUSED)
+	      const char *username, const char *base_dir ATTR_UNUSED,
+	      struct dict **dict_r)
 {
 	struct sql_dict *dict;
 	pool_t pool;
@@ -87,7 +88,7 @@ sql_dict_init(struct dict *driver, const char *uri,
 	dict->set = dict_sql_settings_read(pool, uri);
 	if (dict->set == NULL) {
 		pool_unref(&pool);
-		return NULL;
+		return -1;
 	}
 
 	/* currently pgsql and sqlite don't support "ON DUPLICATE KEY" */
@@ -95,7 +96,8 @@ sql_dict_init(struct dict *driver, const char *uri,
 
 	dict->db = sql_db_cache_new(dict_sql_db_cache, driver->name,
 				    dict->set->connect);
-	return &dict->dict;
+	*dict_r = &dict->dict;
+	return 0;
 }
 
 static void sql_dict_deinit(struct dict *_dict)

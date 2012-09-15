@@ -345,9 +345,8 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 		euser->set = expire_set_init(expire_get_patterns(user));
 		/* we're using only shared dictionary, the username
 		   doesn't matter. */
-		euser->db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "",
-				      user->set->base_dir);
-		if (euser->db == NULL)
+		if (dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "",
+			      user->set->base_dir, &euser->db) < 0)
 			i_error("expire plugin: dict_init(%s) failed", dict_uri);
 		else
 			MODULE_CONTEXT_SET(user, expire_mail_user_module, euser);

@@ -404,9 +404,8 @@ static void doveadm_expire_mail_init(struct doveadm_mail_cmd_context *ctx)
 	if (doveadm_debug)
 		i_debug("expire: Searching only users listed in expire database");
 
-	dict = dict_init(expire_dict, DICT_DATA_TYPE_UINT32, "",
-			 doveadm_settings->base_dir);
-	if (dict == NULL) {
+	if (dict_init(expire_dict, DICT_DATA_TYPE_UINT32, "",
+		      doveadm_settings->base_dir, &dict) < 0) {
 		i_error("dict_init(%s) failed, not using it", expire_dict);
 		return;
 	}

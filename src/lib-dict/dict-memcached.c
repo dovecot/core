@@ -167,11 +167,11 @@ static const struct connection_vfuncs memcached_conn_vfuncs = {
 	.client_connected = memcached_conn_connected
 };
 
-static struct dict *
+static int
 memcached_dict_init(struct dict *driver, const char *uri,
 		    enum dict_data_type value_type ATTR_UNUSED,
 		    const char *username ATTR_UNUSED,
-		    const char *base_dir ATTR_UNUSED)
+		    const char *base_dir ATTR_UNUSED, struct dict **dict_r)
 {
 	struct memcached_dict *dict;
 	const char *const *args;
@@ -213,7 +213,8 @@ memcached_dict_init(struct dict *driver, const char *uri,
 	dict->dict = *driver;
 	dict->conn.cmd = buffer_create_dynamic(default_pool, 256);
 	dict->conn.dict = dict;
-	return &dict->dict;
+	*dict_r = &dict->dict;
+	return 0;
 }
 
 static void memcached_dict_deinit(struct dict *_dict)

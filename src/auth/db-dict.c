@@ -90,8 +90,9 @@ struct dict_connection *db_dict_init(const char *config_path)
 		i_fatal("dict %s: Unsupported value_format %s in ",
 			config_path, conn->set.value_format);
 	}
-	conn->dict = dict_init(conn->set.uri, DICT_DATA_TYPE_STRING, "",
-			       global_auth_settings->base_dir);
+	if (dict_init(conn->set.uri, DICT_DATA_TYPE_STRING, "",
+		      global_auth_settings->base_dir, &conn->dict) < 0)
+		i_fatal("dict %s: Failed to init dict", config_path);
 
 	conn->next = connections;
 	connections = conn;

@@ -298,11 +298,11 @@ static const char *redis_escape_username(const char *username)
 	return str_c(str);
 }
 
-static struct dict *
+static int
 redis_dict_init(struct dict *driver, const char *uri,
 		enum dict_data_type value_type ATTR_UNUSED,
 		const char *username,
-		const char *base_dir ATTR_UNUSED)
+		const char *base_dir ATTR_UNUSED, struct dict **dict_r)
 {
 	struct redis_dict *dict;
 	const char *const *args;
@@ -352,7 +352,8 @@ redis_dict_init(struct dict *driver, const char *uri,
 	dict->dict = *driver;
 	dict->conn.last_reply = str_new(default_pool, 256);
 	dict->conn.dict = dict;
-	return &dict->dict;
+	*dict_r = &dict->dict;
+	return -1;
 }
 
 static void redis_dict_deinit(struct dict *_dict)

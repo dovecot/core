@@ -330,11 +330,12 @@ static const char *memcached_ascii_escape_username(const char *username)
 	return str_c(str);
 }
 
-static struct dict *
+static int
 memcached_ascii_dict_init(struct dict *driver, const char *uri,
 			  enum dict_data_type value_type ATTR_UNUSED,
 			  const char *username,
-			  const char *base_dir ATTR_UNUSED)
+			  const char *base_dir ATTR_UNUSED,
+			  struct dict **dict_r)
 {
 	struct memcached_ascii_dict *dict;
 	const char *const *args;
@@ -388,7 +389,8 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 
 	dict->ioloop = io_loop_create();
 	current_ioloop = old_ioloop;
-	return &dict->dict;
+	*dict_r = &dict->dict;
+	return 0;
 }
 
 static void memcached_ascii_dict_deinit(struct dict *_dict)

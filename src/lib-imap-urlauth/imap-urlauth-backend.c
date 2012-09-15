@@ -26,9 +26,8 @@ int imap_urlauth_backend_create(struct mail_user *user, const char *dict_uri,
 	if (user->mail_debug)
 		i_debug("imap-urlauth backend: opening backend dict URI %s", dict_uri);
 
-	dict = dict_init(dict_uri, DICT_DATA_TYPE_STRING,
-			 user->username, user->set->base_dir);
-	if (dict == NULL)
+	if (dict_init(dict_uri, DICT_DATA_TYPE_STRING,
+		      user->username, user->set->base_dir, &dict) < 0)
 		return -1;
 
 	backend = i_new(struct imap_urlauth_backend, 1);

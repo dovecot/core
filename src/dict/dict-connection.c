@@ -83,9 +83,8 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	}
 	uri = strlist[i+1];
 
-	conn->dict = dict_init(uri, conn->value_type, conn->username,
-			       dict_settings->base_dir);
-	if (conn->dict == NULL) {
+	if (dict_init(uri, conn->value_type, conn->username,
+		      dict_settings->base_dir, &conn->dict) < 0) {
 		/* dictionary initialization failed */
 		i_error("Failed to initialize dictionary '%s'", conn->name);
 		return -1;

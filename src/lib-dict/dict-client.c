@@ -463,10 +463,10 @@ static void client_dict_disconnect(struct client_dict *dict)
 	}
 }
 
-static struct dict *
+static int
 client_dict_init(struct dict *driver, const char *uri,
 		 enum dict_data_type value_type, const char *username,
-		 const char *base_dir)
+		 const char *base_dir, struct dict **dict_r)
 {
 	struct client_dict *dict;
 	const char *dest_uri;
@@ -476,7 +476,7 @@ client_dict_init(struct dict *driver, const char *uri,
 	dest_uri = strchr(uri, ':');
 	if (dest_uri == NULL) {
 		i_error("dict-client: Invalid URI: %s", uri);
-		return NULL;
+		return -1;
 	}
 
 	pool = pool_alloconly_create("client dict", 1024);
@@ -496,7 +496,8 @@ client_dict_init(struct dict *driver, const char *uri,
 				"/"DEFAULT_DICT_SERVER_SOCKET_FNAME, NULL);
 	}
 	dict->uri = p_strdup(pool, dest_uri + 1);
-	return &dict->dict;
+	*dict_r = &dict->dict;
+	return -1;
 }
 
 static void client_dict_deinit(struct dict *_dict)

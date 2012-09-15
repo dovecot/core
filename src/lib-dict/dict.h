@@ -29,9 +29,9 @@ void dict_drivers_register_all(void);
 void dict_drivers_unregister_all(void);
 
 /* Open dictionary with given URI (type:data).
-   If URI is invalid, returns NULL. */
-struct dict *dict_init(const char *uri, enum dict_data_type value_type,
-		       const char *username, const char *base_dir);
+   Returns 0 if ok, -1 if URI is invalid. */
+int dict_init(const char *uri, enum dict_data_type value_type,
+	      const char *username, const char *base_dir, struct dict **dict_r);
 /* Close dictionary. */
 void dict_deinit(struct dict **dict);
 /* Wait for all pending asynchronous transaction commits to finish.

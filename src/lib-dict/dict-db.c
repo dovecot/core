@@ -140,10 +140,11 @@ static int db_dict_open(struct db_dict *dict, const char *uri,
 	return 0;
 }
 
-static struct dict *
+static int
 db_dict_init(struct dict *driver, const char *uri,
 	     enum dict_data_type value_type,
-	     const char *username, const char *base_dir ATTR_UNUSED)
+	     const char *username, const char *base_dir ATTR_UNUSED,
+	     struct dict **dict_r)
 {
 	struct db_dict *dict;
 	pool_t pool;
@@ -156,7 +157,7 @@ db_dict_init(struct dict *driver, const char *uri,
 			"run-time linked against %d.%d.%d library",
 			DB_VERSION_MAJOR, DB_VERSION_MINOR, DB_VERSION_PATCH,
 			major, minor, patch);
-		return NULL;
+		return -1;
 	}
 
 	pool = pool_alloconly_create("db dict", 1024);
@@ -170,15 +171,16 @@ db_dict_init(struct dict *driver, const char *uri,
 	if (ret != 0) {
 		i_error("db_env_create() failed: %s\n", db_strerror(ret));
 		pool_unref(&pool);
-		return NULL;
+		return -1;
 	}
 
 	if (db_dict_open(dict, uri, username) < 0) {
 		i_error("db(%s) open failed", uri);
 		db_dict_deinit(&dict->dict);
-		return NULL;
+		return -1;
 	}
-	return &dict->dict;
+	*dict_r = &dict->dict;
+	return 0;
 }
 
 static void db_dict_deinit(struct dict *_dict)
