@@ -609,6 +609,14 @@ client_command_new(struct client *client)
 	return cmd;
 }
 
+static void client_add_missing_io(struct client *client)
+{
+	if (client->io == NULL && !client->disconnected) {
+		client->io = io_add(client->fd_in,
+				    IO_READ, client_input, client);
+	}
+}
+
 void client_command_free(struct client_command_context **_cmd)
 {
 	struct client_command_context *cmd = *_cmd;
@@ -661,15 +669,12 @@ void client_command_free(struct client_command_context **_cmd)
 	   unhandled commands since we may not be executing from client_input
 	   or client_output. */
 	if (state == CLIENT_COMMAND_STATE_WAIT_EXTERNAL &&
-	    !client->disconnected && client->to_delayed_input == NULL)
-		client->to_delayed_input = timeout_add(0, client_input, client);
-}
-
-static void client_add_missing_io(struct client *client)
-{
-	if (client->io == NULL && !client->disconnected) {
-		client->io = io_add(client->fd_in,
-				    IO_READ, client_input, client);
+	    !client->disconnected) {
+		client_add_missing_io(client);
+		if (client->to_delayed_input == NULL) {
+			client->to_delayed_input =
+				timeout_add(0, client_input, client);
+		}
 	}
 }
 
