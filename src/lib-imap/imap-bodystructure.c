@@ -567,11 +567,7 @@ static int imap_write_nstring_list(const struct imap_arg *args, string_t *str)
 	while (!IMAP_ARG_IS_EOL(args)) {
 		if (!str_append_nstring(str, &args[0]))
 			return -1;
-		str_append_c(str, ' ');
-		if (!str_append_nstring(str, &args[1]))
-			return -1;
-
-		args += 2;
+		args++;
 		if (IMAP_ARG_IS_EOL(args))
 			break;
 		str_append_c(str, ' ');
@@ -580,15 +576,19 @@ static int imap_write_nstring_list(const struct imap_arg *args, string_t *str)
 }
 
 static int imap_write_params(const struct imap_arg *arg, pool_t pool,
-			     string_t *tmpstr, const char **value_r)
+			     string_t *tmpstr, unsigned int divisible,
+			     const char **value_r)
 {
 	const struct imap_arg *list_args;
+	unsigned int list_count;
 
 	if (arg->type == IMAP_ARG_NIL) {
 		*value_r = NULL;
 		return 0;
 	}
-	if (!imap_arg_get_list(arg, &list_args))
+	if (!imap_arg_get_list_full(arg, &list_args, &list_count))
+		return -1;
+	if ((list_count % divisible) != 0)
 		return -1;
 
 	if (imap_write_nstring_list(list_args, tmpstr) < 0)
@@ -636,14 +636,14 @@ imap_bodystructure_parse_args_common(struct message_part_body_data *data,
 			*error_r = "Invalid content-disposition";
 			return -1;
 		}
-		if (imap_write_params(list_args, pool, tmpstr,
+		if (imap_write_params(list_args, pool, tmpstr, 2,
 				      &data->content_disposition_params) < 0) {
 			*error_r = "Invalid content-disposition params";
 			return -1;
 		}
 		args++;
 	}
-	if (imap_write_params(args++, pool, tmpstr,
+	if (imap_write_params(args++, pool, tmpstr, 1,
 			      &data->content_language) < 0) {
 		*error_r = "Invalid content-language";
 		return -1;
@@ -703,7 +703,7 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 			*error_r = "Invalid multipart content-type";
 			return -1;
 		}
-		if (imap_write_params(args++, pool, tmpstr,
+		if (imap_write_params(args++, pool, tmpstr, 2,
 				      &data->content_type_params) < 0) {
 			*error_r = "Invalid content params";
 			return -1;
@@ -741,7 +741,7 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 	}
 
 	/* ("content type param key" "value" ...) | NIL */
-	if (imap_write_params(args++, pool, tmpstr,
+	if (imap_write_params(args++, pool, tmpstr, 2,
 			      &data->content_type_params) < 0) {
 		*error_r = "Invalid content params";
 		return -1;
