@@ -16,6 +16,7 @@ LIBDOVECOT_SUBDIRS = \
 SUBDIRS = \
 	$(LIBDOVECOT_SUBDIRS) \
 	lib-imap-client \
+	lib-imap-urlauth \
 	lib-compression \
 	lib-dovecot \
 	lib-index \
@@ -34,6 +35,7 @@ SUBDIRS = \
 	login-common \
 	imap-login \
 	imap \
+	imap-urlauth \
 	pop3-login \
 	pop3 \
 	lda \

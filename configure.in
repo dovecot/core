@@ -2757,6 +2757,7 @@ src/lib-fs/Makefile
 src/lib-imap/Makefile
 src/lib-imap-storage/Makefile
 src/lib-imap-client/Makefile
+src/lib-imap-urlauth/Makefile
 src/lib-index/Makefile
 src/lib-lda/Makefile
 src/lib-mail/Makefile
@@ -2796,6 +2797,7 @@ src/indexer/Makefile
 src/ipc/Makefile
 src/imap/Makefile
 src/imap-login/Makefile
+src/imap-urlauth/Makefile
 src/login-common/Makefile
 src/master/Makefile
 src/pop3/Makefile

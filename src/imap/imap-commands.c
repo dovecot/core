@@ -47,6 +47,7 @@ static const struct command imap4rev1_commands[] = {
 #define IMAP4REV1_COMMANDS_COUNT N_ELEMENTS(imap4rev1_commands)
 
 static const struct command imap_ext_commands[] = {
+	/* IMAP extensions: */
 	{ "CANCELUPDATE",	cmd_cancelupdate,0 },
 	{ "ENABLE",		cmd_enable,      0 },
 	{ "ID",			cmd_id,          0 },
@@ -64,7 +65,11 @@ static const struct command imap_ext_commands[] = {
 	{ "UID THREAD",		cmd_thread,      COMMAND_FLAG_BREAKS_SEQS },
 	{ "UNSELECT",		cmd_unselect,    COMMAND_FLAG_BREAKS_MAILBOX },
 	{ "X-CANCEL",		cmd_x_cancel,    0 },
-	{ "XLIST",		cmd_list,        0 }
+	{ "XLIST",		cmd_list,        0 },
+	/* IMAP URLAUTH (RFC4467): */
+	{ "GENURLAUTH",		cmd_genurlauth,  0 },
+	{ "RESETKEY",		cmd_resetkey,    0 },
+	{ "URLFETCH",		cmd_urlfetch,    0 }
 };
 #define IMAP_EXT_COMMANDS_COUNT N_ELEMENTS(imap_ext_commands)
 

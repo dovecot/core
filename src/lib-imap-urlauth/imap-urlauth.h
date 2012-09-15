@@ -1,0 +1,49 @@
+#ifndef IMAP_URLAUTH_H
+#define IMAP_URLAUTH_H
+
+#define IMAP_URLAUTH_SOCKET_NAME "imap-urlauth"
+
+struct imap_url;
+struct imap_msgpart_url;
+struct imap_urlauth_context;
+
+struct imap_urlauth_config {
+	const char *dict_uri;
+
+	const char *url_host;
+	unsigned int url_port;
+
+	const char *socket_path;
+	const char *session_id;
+
+	const char *access_user;
+	const char *const *access_applications;
+};
+
+int imap_urlauth_init(struct mail_user *user,
+		      const struct imap_urlauth_config *config,
+		      struct imap_urlauth_context **ctx_r);
+void imap_urlauth_deinit(struct imap_urlauth_context **_uctx);
+
+int imap_urlauth_generate(struct imap_urlauth_context *uctx,
+			  const char *mechanism, const char *rumpurl,
+			  const char **urlauth_r, const char **error_r);
+
+bool imap_urlauth_check(struct imap_urlauth_context *uctx,
+			struct imap_url *url, bool ignore_unknown_access,
+			const char **error_r);
+
+int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
+			      struct imap_url *url,
+			      struct imap_msgpart_url **mpurl_r,
+			      enum mail_error *error_code_r,
+			      const char **error_r);
+int imap_urlauth_fetch(struct imap_urlauth_context *uctx,
+		       const char *urlauth, struct imap_msgpart_url **mpurl_r,
+		       enum mail_error *error_code_r, const char **error_r);
+
+int imap_urlauth_reset_mailbox_key(struct imap_urlauth_context *uctx,
+				   struct mailbox *box);
+int imap_urlauth_reset_all_keys(struct imap_urlauth_context *uctx);
+
+#endif

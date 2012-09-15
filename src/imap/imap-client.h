@@ -14,6 +14,7 @@ struct client;
 struct mail_storage;
 struct imap_parser;
 struct imap_arg;
+struct imap_urlauth_context;
 
 struct mailbox_keywords {
 	/* All keyword names. The array itself exists in mail_index.
@@ -39,6 +40,8 @@ enum client_command_state {
 	CLIENT_COMMAND_STATE_WAIT_INPUT,
 	/* Waiting to be able to send more output */
 	CLIENT_COMMAND_STATE_WAIT_OUTPUT,
+	/* Waiting for external interaction */
+	CLIENT_COMMAND_STATE_WAIT_EXTERNAL,
 	/* Wait for other commands to finish execution */
 	CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY,
 	/* Waiting for other commands to finish so we can sync */
@@ -96,7 +99,7 @@ struct client {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
-	struct timeout *to_idle, *to_idle_output;
+	struct timeout *to_idle, *to_idle_output, *to_delayed_input;
 
 	pool_t pool;
 	struct mail_storage_service_user *service_user;
@@ -137,6 +140,9 @@ struct client {
 	struct client_command_context *output_cmd_lock;
 	/* command changing the mailbox */
 	struct client_command_context *mailbox_change_lock;
+
+	/* IMAP URLAUTH context (RFC4467) */
+	struct imap_urlauth_context *urlauth_ctx;	
 
 	/* Module-specific contexts. */
 	ARRAY(union imap_module_context *) module_contexts;
@@ -201,6 +207,10 @@ void client_send_tagline(struct client_command_context *cmd, const char *data);
    in which case the error is looked up from imap_parser. */
 void client_send_command_error(struct client_command_context *cmd,
 			       const char *msg);
+
+/* Send a NO command reply with the default internal error message to client
+   via client_send_tagline(). */
+void client_send_internal_error(struct client_command_context *cmd);
 
 /* Read a number of arguments. Returns TRUE if everything was read or
    FALSE if either needs more data or error occurred. */

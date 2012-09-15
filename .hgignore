@@ -67,6 +67,9 @@ src/dns/dns-client
 src/doveadm/doveadm
 src/doveadm/doveadm-server
 src/imap-login/imap-login
+src/imap-urlauth/imap-urlauth
+src/imap-urlauth/imap-urlauth-login
+src/imap-urlauth/imap-urlauth-worker
 src/imap/imap
 src/indexer/indexer
 src/indexer/indexer-worker

@@ -10,6 +10,7 @@
 #include "process-title.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
+#include "settings-parser.h"
 #include "master-interface.h"
 #include "master-service.h"
 #include "master-login.h"
@@ -196,7 +197,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
 	struct client *client;
-	const struct imap_settings *set;
+	struct imap_settings *set;
 	enum mail_auth_request_flags flags;
 
 	if (mail_storage_service_lookup_next(storage_service, input,
@@ -207,6 +208,9 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	set = mail_storage_service_user_get_set(user)[1];
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
+
+	settings_var_expand(&imap_setting_parser_info, set, mail_user->pool,
+			    mail_user_var_expand_table(mail_user));
 
 	client = client_create(fd_in, fd_out, input->session_id,
 			       mail_user, user, set);

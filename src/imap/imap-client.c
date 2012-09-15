@@ -8,10 +8,13 @@
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "time-util.h"
 #include "var-expand.h"
 #include "master-service.h"
 #include "imap-resp-code.h"
 #include "imap-util.h"
+#include "imap-urlauth.h"
+#include "mail-error.h"
 #include "mail-namespace.h"
 #include "mail-storage-service.h"
 #include "imap-search.h"
@@ -34,6 +37,23 @@ static void client_idle_timeout(struct client *client)
 	if (client->output_cmd_lock == NULL)
 		client_send_line(client, "* BYE Disconnected for inactivity.");
 	client_destroy(client, "Disconnected for inactivity");
+}
+
+static int client_init_urlauth(struct client *client)
+{
+	struct imap_urlauth_config config;
+
+	memset(&config, 0, sizeof(config));
+	config.dict_uri = client->set->imap_urlauth_dict;
+	config.url_host = client->set->imap_urlauth_host;
+	config.url_port = client->set->imap_urlauth_port;
+	config.socket_path = t_strconcat(client->user->set->base_dir,
+					 "/"IMAP_URLAUTH_SOCKET_NAME, NULL);
+	config.session_id = client->session_id;
+	config.access_user = client->user->anonymous ? NULL :
+		client->user->username;
+
+	return imap_urlauth_init(client->user, &config, &client->urlauth_ctx);
 }
 
 struct client *client_create(int fd_in, int fd_out, const char *session_id,
@@ -109,6 +129,15 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 		str_append(client->capability_string, " NOTIFY");
 	}
 
+	if (set->imap_urlauth_dict != NULL && *set->imap_urlauth_dict != '\0') {
+		if (client_init_urlauth(client) == 0 &&
+		    !explicit_capability) {
+			/* Enable URLAUTH capability only when dict is
+			   configured correctly */
+			str_append(client->capability_string, " URLAUTH URLAUTH=BINARY");
+		}
+	}
+
 	ident = mail_user_get_anvil_userip_ident(client->user);
 	if (ident != NULL) {
 		master_service_anvil_send(master_service, t_strconcat(
@@ -138,6 +167,7 @@ void client_command_cancel(struct client_command_context **_cmd)
 		if (cmd->context == NULL)
 			break;
 		/* fall through */
+	case CLIENT_COMMAND_STATE_WAIT_EXTERNAL:
 	case CLIENT_COMMAND_STATE_WAIT_OUTPUT:
 		cmd->cancel = TRUE;
 		break;
@@ -236,7 +266,8 @@ static void client_default_destroy(struct client *client, const char *reason)
 	}
 	if (client->notify_ctx != NULL)
 		imap_notify_deinit(&client->notify_ctx);
-
+	if (client->urlauth_ctx != NULL)
+		imap_urlauth_deinit(&client->urlauth_ctx);
 	if (client->anvil_sent) {
 		master_service_anvil_send(master_service, t_strconcat(
 			"DISCONNECT\t", my_pid, "\timap/",
@@ -251,6 +282,8 @@ static void client_default_destroy(struct client *client, const char *reason)
 		io_remove(&client->io);
 	if (client->to_idle_output != NULL)
 		timeout_remove(&client->to_idle_output);
+	if (client->to_delayed_input != NULL)
+		timeout_remove(&client->to_delayed_input);
 	timeout_remove(&client->to_idle);
 
 	i_stream_destroy(&client->input);
@@ -391,6 +424,12 @@ void client_send_command_error(struct client_command_context *cmd,
 	   command processing is stopped even while command function returns
 	   FALSE. */
 	cmd->state = CLIENT_COMMAND_STATE_DONE;
+}
+
+void client_send_internal_error(struct client_command_context *cmd)
+{
+	client_send_tagline(cmd,
+		t_strflocaltime("NO "MAIL_ERRSTR_CRITICAL_MSG_STAMP, ioloop_time));
 }
 
 bool client_read_args(struct client_command_context *cmd, unsigned int count,
@@ -574,6 +613,7 @@ void client_command_free(struct client_command_context **_cmd)
 {
 	struct client_command_context *cmd = *_cmd;
 	struct client *client = cmd->client;
+	enum client_command_state state = cmd->state;
 
 	*_cmd = NULL;
 
@@ -616,6 +656,13 @@ void client_command_free(struct client_command_context **_cmd)
 	}
 	imap_client_notify_command_freed(client);
 	imap_refresh_proctitle();
+
+	/* if command finished from external event, check input for more
+	   unhandled commands since we may not be executing from client_input
+	   or client_output. */
+	if (state == CLIENT_COMMAND_STATE_WAIT_EXTERNAL &&
+	    !client->disconnected && client->to_delayed_input == NULL)
+		client->to_delayed_input = timeout_add(0, client_input, client);
 }
 
 static void client_add_missing_io(struct client *client)
@@ -849,6 +896,9 @@ void client_input(struct client *client)
 
 	client->last_input = ioloop_time;
 	timeout_reset(client->to_idle);
+
+	if (client->to_delayed_input != NULL)
+		timeout_remove(&client->to_delayed_input);
 
 	bytes = i_stream_read(client->input);
 	if (bytes == -1) {

@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
+	-I$(top_srcdir)/src/lib-imap-urlauth \
 	-I$(top_srcdir)/src/lib-imap-storage \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage
@@ -16,10 +17,12 @@ AM_CPPFLAGS = \
 imap_LDFLAGS = -export-dynamic
 
 imap_LDADD = \
+	../lib-imap-urlauth/libimap-urlauth.la \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS)
 imap_DEPENDENCIES = \
+	../lib-imap-urlauth/libimap-urlauth.la \
 	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
 
@@ -36,6 +39,7 @@ cmds = \
 	cmd-examine.c \
 	cmd-expunge.c \
 	cmd-fetch.c \
+	cmd-genurlauth.c \
 	cmd-id.c \
 	cmd-idle.c \
 	cmd-list.c \
@@ -45,6 +49,7 @@ cmds = \
 	cmd-noop.c \
 	cmd-notify.c \
 	cmd-rename.c \
+	cmd-resetkey.c \
 	cmd-search.c \
 	cmd-select.c \
 	cmd-sort.c \
@@ -55,6 +60,7 @@ cmds = \
 	cmd-uid.c \
 	cmd-unselect.c \
 	cmd-unsubscribe.c \
+	cmd-urlfetch.c \
 	cmd-x-cancel.c
 
 imap_SOURCES = \
