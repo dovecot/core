@@ -56,7 +56,7 @@ dsync_serializer_encode_header_line(struct dsync_serializer *serializer)
 	for (i = 0; serializer->keys[i] != NULL; i++) {
 		if (i > 0)
 			str_append_c(str, '\t');
-		str_tabescape_write(str, serializer->keys[i]);
+		str_append_tabescaped(str, serializer->keys[i]);
 	}
 	str_append_c(str, '\n');
 	return str_c(str);
@@ -108,7 +108,7 @@ void dsync_serializer_encode_finish(struct dsync_serializer_encoder **_encoder,
 		else  {
 			if (values[i][0] == NULL_CHR)
 				str_append_c(output, NULL_CHR);
-			str_tabescape_write(output, values[i]);
+			str_append_tabescaped(output, values[i]);
 		}
 	}
 	str_append_c(output, '\n');

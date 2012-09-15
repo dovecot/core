@@ -84,7 +84,7 @@ service_dup_fds(struct service *service)
 		if (listeners[i]->fd != -1 &&
 		    (listeners[i]->type != SERVICE_LISTENER_INET ||
 		     !listeners[i]->set.inetset.set->ssl)) {
-			str_tabescape_write(listener_names, listeners[i]->name);
+			str_append_tabescaped(listener_names, listeners[i]->name);
 			str_append_c(listener_names, '\t');
 			dup2_append(&dups, listeners[i]->fd, fd++);
 			socket_listener_count++;
@@ -96,7 +96,7 @@ service_dup_fds(struct service *service)
 		if (listeners[i]->fd != -1 &&
 		    listeners[i]->type == SERVICE_LISTENER_INET &&
 		    listeners[i]->set.inetset.set->ssl) {
-			str_tabescape_write(listener_names, listeners[i]->name);
+			str_append_tabescaped(listener_names, listeners[i]->name);
 			str_append_c(listener_names, '\t');
 			dup2_append(&dups, listeners[i]->fd, fd++);
 			socket_listener_count++;

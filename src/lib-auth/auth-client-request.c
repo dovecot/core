@@ -31,9 +31,9 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 
 	str = t_str_new(512);
 	str_printfa(str, "AUTH\t%u\t", request->id);
-	str_tabescape_write(str, info->mech);
+	str_append_tabescaped(str, info->mech);
 	str_append(str, "\tservice=");
-	str_tabescape_write(str, info->service);
+	str_append_tabescaped(str, info->service);
 
 	if ((info->flags & AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP) != 0)
 		str_append(str, "\tfinal-resp-ok");
@@ -46,11 +46,11 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 
 	if (info->session_id != NULL) {
 		str_append(str, "\tsession=");
-		str_tabescape_write(str, info->session_id);
+		str_append_tabescaped(str, info->session_id);
 	}
 	if (info->cert_username != NULL) {
 		str_append(str, "\tcert_username=");
-		str_tabescape_write(str, info->cert_username);
+		str_append_tabescaped(str, info->cert_username);
 	}
 	if (info->local_ip.family != 0)
 		str_printfa(str, "\tlip=%s", net_ip2addr(&info->local_ip));
@@ -62,7 +62,7 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 		str_printfa(str, "\trport=%u", info->remote_port);
 	if (info->initial_resp_base64 != NULL) {
 		str_append(str, "\tresp=");
-		str_tabescape_write(str, info->initial_resp_base64);
+		str_append_tabescaped(str, info->initial_resp_base64);
 	}
 	str_append_c(str, '\n');
 

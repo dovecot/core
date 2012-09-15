@@ -324,7 +324,7 @@ static void pass_callback_finish(struct auth_request *auth_request,
 	switch (result) {
 	case PASSDB_RESULT_OK:
 		str_printfa(str, "PASS\t%u\tuser=", auth_request->id);
-		str_tabescape_write(str, auth_request->user);
+		str_append_tabescaped(str, auth_request->user);
 		if (reply != NULL) {
 			str_append_c(str, '\t');
 			str_append(str, auth_stream_reply_export(reply));

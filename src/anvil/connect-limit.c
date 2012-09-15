@@ -168,7 +168,7 @@ void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
 	iter = hash_table_iterate_init(limit->ident_pid_hash);
 	while (hash_table_iterate(iter, limit->ident_pid_hash, &i, &value)) {
 		str_truncate(str, 0);
-		str_tabescape_write(str, i->ident);
+		str_append_tabescaped(str, i->ident);
 		str_printfa(str, "\t%ld\t%u\n", (long)i->pid, i->refcount);
 		if (o_stream_send(output, str_data(str), str_len(str)) < 0)
 			break;

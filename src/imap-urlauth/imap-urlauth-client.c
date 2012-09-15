@@ -225,7 +225,7 @@ client_worker_input_line(struct client *client, const char *response)
 		str = t_str_new(256);
 		str_append(str, "ACCESS\t");
 		if (client->username != NULL)
-			str_tabescape_write(str, client->username);
+			str_append_tabescaped(str, client->username);
 		if (client->set->mail_debug)
 			str_append(str, "\tdebug");
 		if (array_count(&client->access_apps) > 0) {
@@ -234,7 +234,7 @@ client_worker_input_line(struct client *client, const char *response)
 			str_append(str, apps[0]);
 			for (i = 1; i < count; i++) {
 				str_append_c(str, ',');
-				str_tabescape_write(str, apps[i]);
+				str_append_tabescaped(str, apps[i]);
 			}
 		}
 		str_append(str, "\n");

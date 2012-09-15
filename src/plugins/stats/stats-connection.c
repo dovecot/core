@@ -108,9 +108,9 @@ void stats_connection_connect(struct stats_connection *conn,
 	/* required fields */
 	str_append(str, guid_128_to_string(suser->session_guid));
 	str_append_c(str, '\t');
-	str_tabescape_write(str, user->username);
+	str_append_tabescaped(str, user->username);
 	str_append_c(str, '\t');
-	str_tabescape_write(str, user->service);
+	str_append_tabescaped(str, user->service);
 	str_printfa(str, "\t%s", my_pid);
 
 	/* optional fields */

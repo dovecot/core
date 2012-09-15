@@ -32,9 +32,9 @@ static int doveadm_connection_send_errors(struct doveadm_connection *conn)
 		str_printfa(str, "%s\t%ld\t",
 			    failure_log_type_names[error->type],
 			    (long)error->timestamp);
-		str_tabescape_write(str, error->prefix);
+		str_append_tabescaped(str, error->prefix);
 		str_append_c(str, '\t');
-		str_tabescape_write(str, error->text);
+		str_append_tabescaped(str, error->text);
 		str_append_c(str, '\n');
 		if (o_stream_send(conn->output,
 				  str_data(str), str_len(str)) < 0) {

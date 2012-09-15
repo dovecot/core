@@ -259,7 +259,7 @@ void penalty_dump(struct penalty *penalty, struct ostream *output)
 
 	for (rec = penalty->oldest; rec != NULL; rec = rec->next) {
 		str_truncate(str, 0);
-		str_tabescape_write(str, rec->ident);
+		str_append_tabescaped(str, rec->ident);
 		str_printfa(str, "\t%u\t%u\t%u\n",
 			    rec->penalty, rec->last_penalty,
 			    rec->last_penalty + rec->last_update);

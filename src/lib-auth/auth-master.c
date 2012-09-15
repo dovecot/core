@@ -595,7 +595,7 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	if (users != NULL) {
 		for (; *users != NULL; users++) {
 			str_append_c(str, '\t');
-			str_tabescape_write(str, *users);
+			str_append_tabescaped(str, *users);
 		}
 	}
 	str_append_c(str, '\n');

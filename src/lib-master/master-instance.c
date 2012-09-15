@@ -137,12 +137,12 @@ master_instance_list_write(struct master_instance_list *list,
 	array_foreach(&list->instances, inst) {
 		str_truncate(str, 0);
 		str_printfa(str, "%ld\t", (long)inst->last_used);
-		str_tabescape_write(str, inst->name);
+		str_append_tabescaped(str, inst->name);
 		str_append_c(str, '\t');
-		str_tabescape_write(str, inst->base_dir);
+		str_append_tabescaped(str, inst->base_dir);
 		str_append_c(str, '\t');
 		if (inst->config_path != NULL)
-			str_tabescape_write(str, inst->config_path);
+			str_append_tabescaped(str, inst->config_path);
 		str_append_c(str, '\n');
 		o_stream_nsend(output, str_data(str), str_len(str));
 	}

@@ -238,9 +238,9 @@ void worker_connection_request(struct worker_connection *conn,
 	T_BEGIN {
 		string_t *str = t_str_new(128);
 
-		str_tabescape_write(str, request->username);
+		str_append_tabescaped(str, request->username);
 		str_append_c(str, '\t');
-		str_tabescape_write(str, request->mailbox);
+		str_append_tabescaped(str, request->mailbox);
 		str_printfa(str, "\t%u\t", request->max_recent_msgs);
 		if (request->index)
 			str_append_c(str, 'i');

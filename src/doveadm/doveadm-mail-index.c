@@ -147,9 +147,9 @@ static void cmd_index_queue(struct index_cmd_context *ctx,
 		string_t *str = t_str_new(256);
 
 		str_append(str, "APPEND\t0\t");
-		str_tabescape_write(str, user->username);
+		str_append_tabescaped(str, user->username);
 		str_append_c(str, '\t');
-		str_tabescape_write(str, mailbox);
+		str_append_tabescaped(str, mailbox);
 		str_printfa(str, "\t%u\n", ctx->max_recent_msgs);
 		if (write_full(ctx->queue_fd, str_data(str), str_len(str)) < 0)
 			i_fatal("write(indexer) failed: %m");

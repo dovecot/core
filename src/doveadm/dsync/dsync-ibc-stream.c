@@ -689,7 +689,7 @@ dsync_ibc_stream_send_mailbox_tree_node(struct dsync_ibc *_ibc,
 	   are. */
 	namestr = t_str_new(128);
 	for (; *name != NULL; name++) {
-		str_tabescape_write(namestr, *name);
+		str_append_tabescaped(namestr, *name);
 		str_append_c(namestr, '\t');
 	}
 	str_truncate(namestr, str_len(namestr)-1);
@@ -1166,10 +1166,10 @@ dsync_ibc_stream_send_change(struct dsync_ibc *_ibc,
 		unsigned int i, count;
 
 		changes = array_get(&change->keyword_changes, &count);
-		str_tabescape_write(kw_str, changes[0]);
+		str_append_tabescaped(kw_str, changes[0]);
 		for (i = 1; i < count; i++) {
 			str_append_c(kw_str, '\t');
-			str_tabescape_write(kw_str, changes[i]);
+			str_append_tabescaped(kw_str, changes[i]);
 		}
 		dsync_serializer_encode_add(encoder, "keyword_changes",
 					    str_c(kw_str));

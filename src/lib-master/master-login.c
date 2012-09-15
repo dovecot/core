@@ -319,7 +319,7 @@ static int master_login_postlogin(struct master_login_client *client,
 		    net_ip2addr(&client->auth_req.remote_ip));
 	for (i = 0; auth_args[i] != NULL; i++) {
 		str_append_c(str, '\t');
-		str_tabescape_write(str, auth_args[i]);
+		str_append_tabescaped(str, auth_args[i]);
 	}
 	str_append_c(str, '\n');
 	ret = fd_send(fd, client->fd, str_data(str), str_len(str));

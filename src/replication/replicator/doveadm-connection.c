@@ -181,7 +181,7 @@ void doveadm_connection_sync(struct doveadm_connection *conn,
 		/* <flags> <username> <command> [<args>] */
 		cmd = t_str_new(256);
 		str_append_c(cmd, '\t');
-		str_tabescape_write(cmd, username);
+		str_append_tabescaped(cmd, username);
 		str_append(cmd, "\tsync\t-d");
 		if (full)
 			str_append(cmd, "\t-f");

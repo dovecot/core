@@ -66,7 +66,7 @@ replication_fifo_notify(struct mail_user *user,
 	}
 	/* <username> \t <priority> */
 	str = t_str_new(256);
-	str_tabescape_write(str, user->username);
+	str_append_tabescaped(str, user->username);
 	str_append_c(str, '\t');
 	switch (priority) {
 	case REPLICATION_PRIORITY_NONE:
@@ -134,7 +134,7 @@ static int replication_notify_sync(struct mail_user *user)
 
 	/* <username> \t "sync" */
 	str = t_str_new(256);
-	str_tabescape_write(str, user->username);
+	str_append_tabescaped(str, user->username);
 	str_append(str, "\tsync\n");
 	alarm(ruser->sync_secs);
 	if (write_full(fd, str_data(str), str_len(str)) < 0) {

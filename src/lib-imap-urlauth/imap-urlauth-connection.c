@@ -256,7 +256,7 @@ imap_urlauth_connection_send_request(struct imap_urlauth_connection *conn)
 
 	cmd = t_str_new(128);
 	str_append(cmd, "URL\t");
-	str_tabescape_write(cmd, urlreq->url);
+	str_append_tabescaped(cmd, urlreq->url);
 	if ((urlreq->flags & IMAP_URLAUTH_FETCH_FLAG_BODYPARTSTRUCTURE) != 0)
 		str_append(cmd, "\tbpstruct");
 	if ((urlreq->flags & IMAP_URLAUTH_FETCH_FLAG_BINARY) != 0)
@@ -898,12 +898,12 @@ imap_urlauth_connection_do_connect(struct imap_urlauth_connection *conn)
 
 	str = t_str_new(128);
 	str_printfa(str, IMAP_URLAUTH_HANDSHAKE"AUTH\t%s\t", my_pid);
-	str_tabescape_write(str, conn->user->username);
+	str_append_tabescaped(str, conn->user->username);
 	str_append_c(str, '\t');
 	if (conn->session_id != NULL)
-		str_tabescape_write(str, conn->session_id);
+		str_append_tabescaped(str, conn->session_id);
 	str_append_c(str, '\t');
-	str_tabescape_write(str, conn->user->auth_token);
+	str_append_tabescaped(str, conn->user->auth_token);
 	str_append_c(str, '\n');
 	if (o_stream_send(conn->output, str_data(str), str_len(str)) < 0) {
 		i_warning("Error sending handshake to imap-urlauth server: %m");

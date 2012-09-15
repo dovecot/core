@@ -39,7 +39,7 @@ doveadm_print_server_header(const struct doveadm_print_header *hdr ATTR_UNUSED)
 
 static void doveadm_print_server_print(const char *value)
 {
-	str_tabescape_write(ctx.str, value);
+	str_append_tabescaped(ctx.str, value);
 	str_append_c(ctx.str, '\t');
 
 	if (++ctx.header_idx == ctx.header_count) {
@@ -56,7 +56,7 @@ doveadm_print_server_print_stream(const unsigned char *value, size_t size)
 		return;
 	}
 	T_BEGIN {
-		str_tabescape_write(ctx.str, t_strndup(value, size));
+		str_append_tabescaped(ctx.str, t_strndup(value, size));
 	} T_END;
 
 	if (str_len(ctx.str) >= IO_BLOCK_SIZE)

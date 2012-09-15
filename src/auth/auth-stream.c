@@ -36,7 +36,7 @@ void auth_stream_reply_add(struct auth_stream_reply *reply,
 	}
 	if (value != NULL) {
 		/* escape dangerous characters in the value */
-		str_tabescape_write(reply->str, value);
+		str_append_tabescaped(reply->str, value);
 	}
 }
 

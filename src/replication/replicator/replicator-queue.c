@@ -328,7 +328,7 @@ int replicator_queue_import(struct replicator_queue *queue, const char *path)
 static void
 replicator_queue_export_user(struct replicator_user *user, string_t *str)
 {
-	str_tabescape_write(str, user->username);
+	str_append_tabescaped(str, user->username);
 	str_printfa(str, "\t%d\t%lld\t%lld\t%lld", (int)user->priority,
 		    (long long)user->last_update,
 		    (long long)user->last_fast_sync,

@@ -268,16 +268,16 @@ static int client_export_iter_command(struct client *client)
 			continue;
 
 		str_truncate(cmd->str, 0);
-		str_tabescape_write(cmd->str, command->name);
+		str_append_tabescaped(cmd->str, command->name);
 		str_append_c(cmd->str, '\t');
-		str_tabescape_write(cmd->str, command->args);
+		str_append_tabescaped(cmd->str, command->args);
 		str_append_c(cmd->str, '\t');
 		T_BEGIN {
 			str_append(cmd->str,
 				   guid_128_to_string(command->session->guid));
 			str_append_c(cmd->str, '\t');
-			str_tabescape_write(cmd->str,
-					    command->session->user->name);
+			str_append_tabescaped(cmd->str,
+					      command->session->user->name);
 		} T_END;
 		client_export_timeval(cmd->str, &command->last_update);
 		client_export_mail_stats(cmd->str, &command->stats);
@@ -320,14 +320,14 @@ static int client_export_iter_session(struct client *client)
 		T_BEGIN {
 			str_append(cmd->str, guid_128_to_string(session->guid));
 			str_append_c(cmd->str, '\t');
-			str_tabescape_write(cmd->str, session->user->name);
+			str_append_tabescaped(cmd->str, session->user->name);
 			str_append_c(cmd->str, '\t');
 			if (session->ip != NULL) {
 				str_append(cmd->str,
 					   net_ip2addr(&session->ip->ip));
 			}
 			str_append_c(cmd->str, '\t');
-			str_tabescape_write(cmd->str, session->service);
+			str_append_tabescaped(cmd->str, session->service);
 		} T_END;
 		str_printfa(cmd->str, "\t%ld", (long)session->pid);
 		str_printfa(cmd->str, "\t%d", !session->disconnected);
@@ -369,7 +369,7 @@ static int client_export_iter_user(struct client *client)
 			continue;
 
 		str_truncate(cmd->str, 0);
-		str_tabescape_write(cmd->str, user->name);
+		str_append_tabescaped(cmd->str, user->name);
 		str_printfa(cmd->str, "\t%ld", (long)user->reset_timestamp);
 		client_export_timeval(cmd->str, &user->last_update);
 		str_printfa(cmd->str, "\t%u\t%u",
@@ -410,7 +410,7 @@ static int client_export_iter_domain(struct client *client)
 			continue;
 
 		str_truncate(cmd->str, 0);
-		str_tabescape_write(cmd->str, domain->name);
+		str_append_tabescaped(cmd->str, domain->name);
 		str_printfa(cmd->str, "\t%ld", (long)domain->reset_timestamp);
 		client_export_timeval(cmd->str, &domain->last_update);
 		str_printfa(cmd->str, "\t%u\t%u",

@@ -170,7 +170,7 @@ static void script_execute_finish(void)
 		value = getenv(t_str_ucase(*keys));
 		if (value != NULL) {
 			str_append_c(reply, '\t');
-			str_tabescape_write(reply,
+			str_append_tabescaped(reply,
 					    t_strconcat(t_str_lcase(*keys), "=",
 							value, NULL));
 		}

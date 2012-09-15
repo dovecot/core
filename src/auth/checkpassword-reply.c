@@ -25,7 +25,7 @@ int main(void)
 			return 1;
 		}
 		str_printfa(str, "user=");
-		str_tabescape_write(str, user);
+		str_append_tabescaped(str, user);
 		str_append_c(str, '\t');
 	}
 
@@ -36,7 +36,7 @@ int main(void)
 			return 1;
 		}
 		str_printfa(str, "userdb_home=");
-		str_tabescape_write(str, home);
+		str_append_tabescaped(str, home);
 		str_append_c(str, '\t');
 	}
 
@@ -50,9 +50,9 @@ int main(void)
 					uid_found = TRUE;
 				else if (strcmp(key, "userdb_gid") == 0)
 					gid_found = TRUE;
-				str_tabescape_write(str, key);
+				str_append_tabescaped(str, key);
 				str_append_c(str, '=');
-				str_tabescape_write(str, value);
+				str_append_tabescaped(str, value);
 				str_append_c(str, '\t');
 			}
 		}

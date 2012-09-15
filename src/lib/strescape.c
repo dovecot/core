@@ -77,7 +77,7 @@ char *str_unescape(char *str)
 	return start;
 }
 
-void str_tabescape_write(string_t *dest, const char *src)
+void str_append_tabescaped(string_t *dest, const char *src)
 {
 	for (; *src != '\0'; src++) {
 		switch (*src) {
@@ -113,7 +113,7 @@ const char *str_tabescape(const char *str)
 		if (*p <= '\r') {
 			tmp = t_str_new(128);
 			str_append_n(tmp, str, p-str);
-			str_tabescape_write(tmp, p);
+			str_append_tabescaped(tmp, p);
 			return str_c(tmp);
 		}
 	}
