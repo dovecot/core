@@ -815,16 +815,14 @@ int imap_msgpart_bodypartstructure(struct mail *mail,
 	if (part == NULL)
 		part = all_parts;
 
-	T_BEGIN {
-		if (msgpart->decode_cte_to_binary)
-			ret = imap_msgpart_vsizes_to_binary(mail, part, &part);
+	if (msgpart->decode_cte_to_binary)
+		ret = imap_msgpart_vsizes_to_binary(mail, part, &part);
 
-		if (ret >= 0) {
-			bpstruct = t_str_new(256);
-			imap_bodystructure_write(part, bpstruct, TRUE);
-			*bpstruct_r = str_c(bpstruct);
-		}
-	} T_END;
+	if (ret >= 0) {
+		bpstruct = t_str_new(256);
+		imap_bodystructure_write(part, bpstruct, TRUE);
+		*bpstruct_r = str_c(bpstruct);
+	}
 	return ret < 0 ? -1 : 1;
 }
 
