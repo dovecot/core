@@ -45,6 +45,11 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 int imap_msgpart_size(struct mail *mail, struct imap_msgpart *msgpart,
 		      size_t *size_r);
 
+/* Return msgpart's IMAP BODYPARTSTRUCTURE */
+int imap_msgpart_bodypartstructure(struct mail *mail,
+				   struct imap_msgpart *msgpart,
+				   const char **bpstruct_r);
+
 /* Header context is automatically created by imap_msgpart_open() and destroyed
    by imap_msgpart_free(), but if you want to use the same imap_msgpart across
    multiple mailboxes, you need to close the part before closing the mailbox. */

@@ -1,6 +1,7 @@
 /* Copyright (c) 2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "array.h"
 #include "istream.h"
 #include "istream-crlf.h"
@@ -13,6 +14,7 @@
 #include "message-decoder.h"
 #include "mail-storage-private.h"
 #include "mail-namespace.h"
+#include "imap-bodystructure.h"
 #include "imap-parser.h"
 #include "imap-msgpart.h"
 
@@ -733,6 +735,99 @@ int imap_msgpart_size(struct mail *mail, struct imap_msgpart *msgpart,
 	include_hdr = msgpart->fetch_type == FETCH_FULL;
 	return mail_get_binary_size(mail, part, include_hdr, size_r);
 }
+
+static int
+imap_msgpart_parse_bodystructure(struct mail *mail,
+				 struct message_part *all_parts)
+{
+	struct mail_private *pmail = (struct mail_private *)mail;
+	const char *bodystructure, *error;
+
+	if (mail_get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE,
+			     &bodystructure) < 0)
+		return -1;
+	if (all_parts->context != NULL) {
+		/* we just parsed the bodystructure */
+		return 0;
+	}
+
+	if (imap_bodystructure_parse(bodystructure, pmail->data_pool,
+				     all_parts, &error) < 0) {
+		mail_storage_set_critical(mail->box->storage,
+			"Invalid message_part/BODYSTRUCTURE %s: %s",
+			bodystructure, error);
+		mail_set_cache_corrupted(mail, MAIL_FETCH_MESSAGE_PARTS);
+		mail_set_cache_corrupted(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE);
+		return -1;
+	}
+	return 0;
+}
+
+static int
+imap_msgpart_vsizes_to_binary(struct mail *mail, const struct message_part *part,
+			      struct message_part **binpart_r)
+{
+	struct message_part **pos;
+	uoff_t size;
+
+	if (mail_get_binary_size(mail, part, FALSE, &size) < 0)
+		return -1;
+
+	*binpart_r = t_new(struct message_part, 1);
+	**binpart_r = *part;
+	(*binpart_r)->body_size.virtual_size = size;
+
+	pos = &(*binpart_r)->children;
+	for (part = part->children; part != NULL; part = part->next) {
+		if (imap_msgpart_vsizes_to_binary(mail, part, pos) < 0)
+			return -1;
+		pos = &(*pos)->next;
+	}
+	return 0;
+}
+
+int imap_msgpart_bodypartstructure(struct mail *mail,
+				   struct imap_msgpart *msgpart,
+				   const char **bpstruct_r)
+{
+	struct message_part *all_parts, *part;
+	string_t *bpstruct;
+	int ret;
+
+	/* if we start parsing the body in here, make sure we also parse the
+	   BODYSTRUCTURE */
+	mail_add_temp_wanted_fields(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE, NULL);
+
+	if ((ret = imap_msgpart_find_part(mail, msgpart, &part)) < 0)
+		return -1;
+	if (ret == 0) {
+		/* MIME part not found. */
+		*bpstruct_r = NULL;
+		return 0;
+	}
+
+	if (mail_get_parts(mail, &all_parts) < 0)
+		return -1;
+	if (all_parts->context == NULL) {
+		if (imap_msgpart_parse_bodystructure(mail, all_parts) < 0)
+			return -1;
+	}
+	if (part == NULL)
+		part = all_parts;
+
+	T_BEGIN {
+		if (msgpart->decode_cte_to_binary)
+			ret = imap_msgpart_vsizes_to_binary(mail, part, &part);
+
+		if (ret >= 0) {
+			bpstruct = t_str_new(256);
+			imap_bodystructure_write(part, bpstruct, TRUE);
+			*bpstruct_r = str_c(bpstruct);
+		}
+	} T_END;
+	return ret < 0 ? -1 : 1;
+}
+
 
 void imap_msgpart_close_mailbox(struct imap_msgpart *msgpart)
 {

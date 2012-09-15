@@ -37,6 +37,11 @@ void imap_msgpart_url_set_decode_to_binary(struct imap_msgpart_url *mpurl);
 int imap_msgpart_url_read_part(struct imap_msgpart_url *mpurl,
 			       struct imap_msgpart_open_result *result_r,
 			       const char **error_r);
+
+int imap_msgpart_url_get_bodypartstructure(struct imap_msgpart_url *mpurl,
+					   const char **bpstruct_r,
+					   const char **error_r);
+
 int imap_msgpart_url_verify(struct imap_msgpart_url *mpurl,
 			    const char **error_r);
 void imap_msgpart_url_free(struct imap_msgpart_url **mpurl);

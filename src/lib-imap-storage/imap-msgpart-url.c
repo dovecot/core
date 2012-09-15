@@ -180,7 +180,8 @@ int imap_msgpart_url_open_mail(struct imap_msgpart_url *mpurl,
 
 	/* start transaction */
 	t = mailbox_transaction_begin(box, 0);
-	mail = mail_alloc(t, 0, NULL);
+	mail = mail_alloc(t, MAIL_FETCH_MESSAGE_PARTS |
+			  MAIL_FETCH_IMAP_BODYSTRUCTURE, NULL);
 
 	/* find the message */
 	if (!mail_set_uid(mail, mpurl->uid)) {
@@ -247,6 +248,26 @@ int imap_msgpart_url_verify(struct imap_msgpart_url *mpurl,
 
 	/* open mail if it is not yet open */
 	ret = imap_msgpart_url_open_mail(mpurl, &mail, error_r);
+	return ret;
+}
+
+int imap_msgpart_url_get_bodypartstructure(struct imap_msgpart_url *mpurl,
+					   const char **bpstruct_r,
+					   const char **error_r)
+{
+	struct mail *mail;
+	int ret;
+
+	/* open mail if it is not yet open */
+	ret = imap_msgpart_url_open_mail(mpurl, &mail, error_r);
+	if (ret <= 0)
+		return ret;
+
+	ret = imap_msgpart_bodypartstructure(mail, mpurl->part, bpstruct_r);
+	if (ret < 0)
+		*error_r = mailbox_get_last_error(mpurl->box, NULL);
+	else if (ret == 0)
+		*error_r = "Message part not found";
 	return ret;
 }
 
