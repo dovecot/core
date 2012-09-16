@@ -60,8 +60,8 @@ test_libs = \
 	../../lib/liblib.la
 
 test_dsync_mailbox_tree_sync_SOURCES = test-dsync-mailbox-tree-sync.c
-test_dsync_mailbox_tree_sync_LDADD = dsync-mailbox-tree-sync.lo dsync-mailbox-tree.lo $(test_libs)
-test_dsync_mailbox_tree_sync_DEPENDENCIES = dsync-mailbox-tree-sync.lo dsync-mailbox-tree.lo $(test_libs)
+test_dsync_mailbox_tree_sync_LDADD = dsync-mailbox-tree-sync.o dsync-mailbox-tree.o $(test_libs)
+test_dsync_mailbox_tree_sync_DEPENDENCIES = $(noinst_LIBRARIES) $(test_libs)
 
 check: check-am check-test
 check-test: all-am

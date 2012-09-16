@@ -84,8 +84,8 @@ test_libs = \
 	../lib/liblib.la
 
 test_dict_SOURCES = test-dict.c
-test_dict_LDADD = dict.lo $(test_libs)
-test_dict_DEPENDENCIES = dict.lo $(test_libs)
+test_dict_LDADD = dict.o $(test_libs)
+test_dict_DEPENDENCIES = $(noinst_LTLIBRARIES) $(test_libs)
 
 check: check-am check-test
 check-test: all-am

@@ -203,7 +203,7 @@ test_libs = \
 
 test_auth_cache_SOURCES = test-auth-cache.c
 test_auth_cache_LDADD = auth-cache.o $(test_libs)
-test_auth_cache_DEPENDENCIES = auth-cache.o $(test_libs)
+test_auth_cache_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 check: check-am check-test
 check-test: all-am

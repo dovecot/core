@@ -58,7 +58,7 @@ test_libs = \
 
 test_user_directory_SOURCES = test-user-directory.c
 test_user_directory_LDADD = user-directory.o $(test_libs)
-test_user_directory_DEPENDENCIES = user-directory.o $(test_libs)
+test_user_directory_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 check: check-am check-test
 check-test: all-am

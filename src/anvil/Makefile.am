@@ -38,7 +38,7 @@ test_libs = \
 
 test_penalty_SOURCES = test-penalty.c
 test_penalty_LDADD = penalty.o $(test_libs)
-test_penalty_DEPENDENCIES = penalty.o $(test_libs)
+test_penalty_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 check: check-am check-test
 check-test: all-am
