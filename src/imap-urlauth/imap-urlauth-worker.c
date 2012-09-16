@@ -73,9 +73,9 @@ struct client {
 
 	unsigned int debug:1;
 	unsigned int finished:1;
+	unsigned int waiting_input:1;
 	unsigned int version_received:1;
 	unsigned int access_received:1;
-	unsigned int waiting_input:1;
 	unsigned int access_anonymous:1;
 };
 
@@ -639,6 +639,7 @@ client_handle_user_command(struct client *client, const char *cmd,
 	config.url_host = set->imap_urlauth_host;
 	config.url_port = set->imap_urlauth_port;
 	config.access_user = client->access_user;
+	config.access_anonymous = client->access_anonymous;
 	config.access_applications =
 		(const void *)array_get(&client->access_apps, &count);
 		
@@ -873,6 +874,7 @@ static void client_ctrl_input(struct client *client)
 		client->access_user = i_strdup(*args);
 		client->access_anonymous = FALSE;
 	} else {
+		client->access_user = i_strdup("anonymous");
 		client->access_anonymous = TRUE;
 	}
 	i_set_failure_prefix(t_strdup_printf("imap-urlauth[%s](%s): ", my_pid,

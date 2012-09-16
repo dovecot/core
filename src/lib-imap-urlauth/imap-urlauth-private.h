@@ -13,6 +13,8 @@ struct imap_urlauth_context {
 
 	char *access_user;
 	const char **access_applications;
+
+	unsigned int access_anonymous:1;
 };
 
 #endif

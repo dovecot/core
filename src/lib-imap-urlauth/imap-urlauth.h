@@ -18,6 +18,7 @@ struct imap_urlauth_config {
 
 	const char *access_user;
 	const char *const *access_applications;
+	bool access_anonymous;
 };
 
 int imap_urlauth_init(struct mail_user *user,

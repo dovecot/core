@@ -45,8 +45,11 @@ int imap_urlauth_init(struct mail_user *user,
 		uctx->url_host = i_strdup(my_hostdomain());
 	uctx->url_port = config->url_port;
 
-	if (config->access_user != NULL && *config->access_user != '\0')
+	if (config->access_anonymous)
+		uctx->access_user = i_strdup("anonymous");
+	else
 		uctx->access_user = i_strdup(config->access_user);
+	uctx->access_anonymous = config->access_anonymous;
 	if (config->access_applications != NULL &&
 	    *config->access_applications != NULL) {
 		uctx->access_applications =
@@ -160,9 +163,9 @@ imap_urlauth_check_access(struct imap_urlauth_context *uctx,
 
 	if (strcasecmp(url->uauth_access_application, "user") == 0) {
 		/* user+<access_user> */
-		if (uctx->access_user == NULL ||
+		if (uctx->access_anonymous ||
 		    strcasecmp(url->uauth_access_user, uctx->access_user) != 0)  {
-			if (uctx->access_user == NULL) {
+			if (uctx->access_anonymous) {
 				*error_r = t_strdup_printf(
 					"No 'user+%s' access allowed for anonymous user",
 					url->uauth_access_user);
@@ -174,7 +177,7 @@ imap_urlauth_check_access(struct imap_urlauth_context *uctx,
 		}
 	} else if (strcasecmp(url->uauth_access_application, "authuser") == 0) {
 		/* authuser */
-		if (uctx->access_user == NULL) {
+		if (uctx->access_anonymous) {
 			*error_r = "No 'authuser' access allowed for anonymous user";
 			return FALSE;
 		}
@@ -185,7 +188,7 @@ imap_urlauth_check_access(struct imap_urlauth_context *uctx,
 		const char *userid = url->uauth_access_user == NULL ? "" :
 			t_strdup_printf("+%s", url->uauth_access_user);
 
-		if (uctx->access_user == NULL) {
+		if (uctx->access_anonymous) {
 			*error_r = t_strdup_printf(
 				"No '%s%s' access allowed for anonymous user",
 				url->uauth_access_application, userid);
@@ -269,7 +272,7 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 		*error_r = "Invalid URL: Missing user name";
 		return 0;
 	}
-	if (strcmp(url->userid, user->username) != 0) {
+	if (user->anonymous || strcmp(url->userid, user->username) != 0) {
 		*error_r = t_strdup_printf(
 			"Not permitted to generate URLAUTH for user %s",
 			url->userid);
@@ -373,7 +376,7 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 	}
 
 	/* validate target user */
-	if (strcmp(url->userid, user->username) != 0) {
+	if (user->anonymous || strcmp(url->userid, user->username) != 0) {
 		*error_r = t_strdup_printf("Not permitted to fetch URLAUTH for user %s",
 					   url->userid);
 		*error_code_r = MAIL_ERROR_PARAMS;
