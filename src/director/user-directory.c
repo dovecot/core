@@ -88,7 +88,7 @@ user_directory_insert_backwards(struct user_directory *dir,
 				struct user *pos, struct user *user)
 {
 	for (; pos != NULL; pos = pos->prev) {
-		if ((time_t)pos->timestamp <= user->timestamp)
+		if (pos->timestamp <= user->timestamp)
 			break;
 	}
 	if (pos == NULL)
@@ -109,7 +109,7 @@ user_directory_insert_forwards(struct user_directory *dir,
 			       struct user *pos, struct user *user)
 {
 	for (; pos != NULL; pos = pos->next) {
-		if ((time_t)pos->timestamp >= user->timestamp)
+		if (pos->timestamp >= user->timestamp)
 			break;
 	}
 	if (pos == NULL)
@@ -152,7 +152,7 @@ user_directory_add(struct user_directory *dir, unsigned int username_hash,
 		if (dir->prev_insert_pos == NULL) {
 			/* find the position starting from tail */
 			user_directory_insert_backwards(dir, dir->tail, user);
-		} else if (timestamp < dir->prev_insert_pos->timestamp) {
+		} else if (timestamp < (time_t)dir->prev_insert_pos->timestamp) {
 			user_directory_insert_backwards(dir, dir->prev_insert_pos,
 							user);
 		} else {

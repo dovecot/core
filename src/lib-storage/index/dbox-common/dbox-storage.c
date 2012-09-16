@@ -155,7 +155,7 @@ dbox_cleanup_if_exists(struct mailbox_list *list, const char *path)
 	} else if (st.st_atime > st.st_ctime + DBOX_TMP_DELETE_SECS) {
 		/* there haven't been any changes to this directory since we
 		   last checked it. */
-	} else if (st.st_atime < ioloop_time - interval) {
+	} else if (st.st_atime < ioloop_time - (time_t)interval) {
 		/* time to scan */
 		const char *prefix =
 			mailbox_list_get_global_temp_prefix(list);

@@ -222,7 +222,7 @@ static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 	} else if (st.st_atime > st.st_ctime + MAILDIR_TMP_DELETE_SECS) {
 		/* the directory should be empty. we won't do anything
 		   until ctime changes. */
-	} else if (st.st_atime < ioloop_time - interval) {
+	} else if (st.st_atime < ioloop_time - (time_t)interval) {
 		/* time to scan */
 		(void)unlink_old_files(path, "",
 				       ioloop_time - MAILDIR_TMP_DELETE_SECS);

@@ -408,7 +408,7 @@ mailbox_list_index_set_subscribed(struct mailbox_list *_list,
 		counter = ioloop_time;
 	else {
 		memcpy(&counter, data, size);
-		if (++counter < ioloop_time)
+		if (++counter < (uint32_t)ioloop_time)
 			counter = ioloop_time;
 	}
 

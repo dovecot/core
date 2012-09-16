@@ -144,7 +144,7 @@ static void mdbox_map_cleanup(struct mdbox_map *map)
 	} else if (st.st_atime > st.st_ctime + DBOX_TMP_DELETE_SECS) {
 		/* there haven't been any changes to this directory since we
 		   last checked it. */
-	} else if (st.st_atime < ioloop_time - interval) {
+	} else if (st.st_atime < ioloop_time - (time_t)interval) {
 		/* time to scan */
 		(void)unlink_old_files(map->path, DBOX_TEMP_FILE_PREFIX,
 				       ioloop_time - DBOX_TMP_DELETE_SECS);

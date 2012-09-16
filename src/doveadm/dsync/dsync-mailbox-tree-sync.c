@@ -326,7 +326,7 @@ sync_rename_node_to_temp(struct dsync_mailbox_tree_sync_ctx *ctx,
 		 -<suffix> from it */
 		p = strrchr(node->name, '-');
 		i_assert(p != NULL);
-		if (max_prefix_len > p - node->name)
+		if (max_prefix_len > (size_t)(p - node->name))
 			max_prefix_len = p - node->name;
 	}
 	str_append_n(&buf, node->name, max_prefix_len);
@@ -807,7 +807,7 @@ sync_rename_temp_mailbox_node(pool_t pool,
 	i_assert(p != NULL);
 	p++;
 	max_prefix_len = TEMP_MAX_NAME_LEN - strlen(new_suffix) - 1;
-	if (max_prefix_len > p-node->name)
+	if (max_prefix_len > (size_t)(p-node->name))
 		max_prefix_len = p-node->name;
 	str_append_n(str, node->name, max_prefix_len);
 	str_append(str, new_suffix);

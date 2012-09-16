@@ -185,7 +185,7 @@ static int json_parse_atom(struct json_parser *parser, const char *atom)
 {
 	unsigned int len = strlen(atom);
 
-	if (parser->end - parser->data < len)
+	if ((size_t)(parser->end - parser->data) < len)
 		return -1;
 	if (memcmp(parser->data, atom, len) != 0)
 		return -1;
