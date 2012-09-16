@@ -81,7 +81,7 @@ file_dict_init(struct dict *driver, const char *uri,
 	hash_table_create(&dict->hash, dict->hash_pool, 0, str_hash, strcmp);
 	dict->fd = -1;
 	*dict_r = &dict->dict;
-	return -1;
+	return 0;
 }
 
 static void file_dict_deinit(struct dict *_dict)
