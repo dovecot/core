@@ -90,74 +90,74 @@ test_libs = \
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 
 test_istream_dot_SOURCES = test-istream-dot.c
-test_istream_dot_LDADD = istream-dot.o $(test_libs)
+test_istream_dot_LDADD = istream-dot.lo $(test_libs)
 test_istream_dot_DEPENDENCIES = $(test_deps)
 
 test_istream_qp_decoder_SOURCES = test-istream-qp-decoder.c
-test_istream_qp_decoder_LDADD = istream-qp-decoder.o quoted-printable.o $(test_libs)
+test_istream_qp_decoder_LDADD = istream-qp-decoder.lo quoted-printable.lo $(test_libs)
 test_istream_qp_decoder_DEPENDENCIES = $(test_deps)
 
 message_parser_objects = \
-	message-parser.o \
-	message-header-parser.o \
-	message-size.o \
-	rfc822-parser.o \
-	rfc2231-parser.o
+	message-parser.lo \
+	message-header-parser.lo \
+	message-size.lo \
+	rfc822-parser.lo \
+	rfc2231-parser.lo
 
 test_istream_binary_converter_SOURCES = test-istream-binary-converter.c
-test_istream_binary_converter_LDADD = istream-binary-converter.o $(message_parser_objects)  $(test_libs)
+test_istream_binary_converter_LDADD = istream-binary-converter.lo $(message_parser_objects)  $(test_libs)
 test_istream_binary_converter_DEPENDENCIES = $(test_deps)
 
 test_istream_attachment_SOURCES = test-istream-attachment.c
-test_istream_attachment_LDADD = istream-attachment-extractor.o istream-attachment-connector.o $(message_parser_objects) $(test_libs)
+test_istream_attachment_LDADD = istream-attachment-extractor.lo istream-attachment-connector.lo $(message_parser_objects) $(test_libs)
 test_istream_attachment_DEPENDENCIES = $(test_deps)
 
 test_istream_header_filter_SOURCES = test-istream-header-filter.c
-test_istream_header_filter_LDADD = istream-header-filter.o message-header-parser.o $(test_libs)
+test_istream_header_filter_LDADD = istream-header-filter.lo message-header-parser.lo $(test_libs)
 test_istream_header_filter_DEPENDENCIES = $(test_deps)
 
 test_mbox_from_SOURCES = test-mbox-from.c
-test_mbox_from_LDADD = mbox-from.o $(test_libs)
+test_mbox_from_LDADD = mbox-from.lo $(test_libs)
 test_mbox_from_DEPENDENCIES = $(test_deps)
 
 test_message_address_SOURCES = test-message-address.c
-test_message_address_LDADD = message-address.o rfc822-parser.o $(test_libs)
+test_message_address_LDADD = message-address.lo rfc822-parser.lo $(test_libs)
 test_message_address_DEPENDENCIES = $(test_deps)
 
 test_message_date_SOURCES = test-message-date.c
-test_message_date_LDADD = message-date.o rfc822-parser.o $(test_libs)
+test_message_date_LDADD = message-date.lo rfc822-parser.lo $(test_libs)
 test_message_date_DEPENDENCIES = $(test_deps)
 
 test_message_decoder_SOURCES = test-message-decoder.c
-test_message_decoder_LDADD = message-decoder.o rfc822-parser.o rfc2231-parser.o $(test_libs)
+test_message_decoder_LDADD = message-decoder.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
 test_message_decoder_DEPENDENCIES = $(test_deps)
 
 test_message_header_decode_SOURCES = test-message-header-decode.c
-test_message_header_decode_LDADD = message-header-decode.o quoted-printable.o $(test_libs)
+test_message_header_decode_LDADD = message-header-decode.lo quoted-printable.lo $(test_libs)
 test_message_header_decode_DEPENDENCIES = $(test_deps)
 
 test_message_header_encode_SOURCES = test-message-header-encode.c
-test_message_header_encode_LDADD = message-header-encode.o $(test_libs)
+test_message_header_encode_LDADD = message-header-encode.lo $(test_libs)
 test_message_header_encode_DEPENDENCIES = $(test_deps)
 
 test_message_header_parser_SOURCES = test-message-header-parser.c
-test_message_header_parser_LDADD = message-header-parser.o $(test_libs)
+test_message_header_parser_LDADD = message-header-parser.lo $(test_libs)
 test_message_header_parser_DEPENDENCIES = $(test_deps)
 
 test_message_id_SOURCES = test-message-id.c
-test_message_id_LDADD = message-id.o rfc822-parser.o $(test_libs)
+test_message_id_LDADD = message-id.lo rfc822-parser.lo $(test_libs)
 test_message_id_DEPENDENCIES = $(test_deps)
 
 test_message_parser_SOURCES = test-message-parser.c
-test_message_parser_LDADD = message-parser.o message-header-parser.o message-size.o rfc822-parser.o rfc2231-parser.o $(test_libs)
+test_message_parser_LDADD = message-parser.lo message-header-parser.lo message-size.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
 test_message_parser_DEPENDENCIES = $(test_deps)
 
 test_quoted_printable_SOURCES = test-quoted-printable.c
-test_quoted_printable_LDADD = quoted-printable.o $(test_libs)
+test_quoted_printable_LDADD = quoted-printable.lo $(test_libs)
 test_quoted_printable_DEPENDENCIES = $(test_deps)
 
 test_rfc2231_parser_SOURCES = test-rfc2231-parser.c
-test_rfc2231_parser_LDADD = rfc2231-parser.o rfc822-parser.o $(test_libs)
+test_rfc2231_parser_LDADD = rfc2231-parser.lo rfc822-parser.lo $(test_libs)
 test_rfc2231_parser_DEPENDENCIES = $(test_deps)
 
 check: check-am check-test

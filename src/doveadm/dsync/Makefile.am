@@ -1,4 +1,4 @@
-noinst_LIBRARIES = libdsync.a
+noinst_LTLIBRARIES = libdsync.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -11,7 +11,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/doveadm
 
-libdsync_a_SOURCES = \
+libdsync_la_SOURCES = \
 	doveadm-dsync.c \
 	dsync-brain.c \
 	dsync-brain-mailbox.c \
@@ -60,8 +60,8 @@ test_libs = \
 	../../lib/liblib.la
 
 test_dsync_mailbox_tree_sync_SOURCES = test-dsync-mailbox-tree-sync.c
-test_dsync_mailbox_tree_sync_LDADD = dsync-mailbox-tree-sync.o dsync-mailbox-tree.o $(test_libs)
-test_dsync_mailbox_tree_sync_DEPENDENCIES = $(noinst_LIBRARIES) $(test_libs)
+test_dsync_mailbox_tree_sync_LDADD = dsync-mailbox-tree-sync.lo dsync-mailbox-tree.lo $(test_libs)
+test_dsync_mailbox_tree_sync_DEPENDENCIES = $(noinst_LTLIBRARIES) $(test_libs)
 
 check: check-am check-test
 check-test: all-am

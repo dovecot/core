@@ -37,7 +37,7 @@ cmd_pw_libs = \
 	../lib-otp/libotp.a
 
 libs = \
-	dsync/libdsync.a \
+	dsync/libdsync.la \
 	$(unused_objects)
 
 doveadm_LDADD = \

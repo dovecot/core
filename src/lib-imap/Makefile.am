@@ -57,27 +57,27 @@ test_libs = \
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 
 test_imap_bodystructure_SOURCES = test-imap-bodystructure.c
-test_imap_bodystructure_LDADD = imap-bodystructure.o imap-envelope.o imap-quote.o imap-parser.o imap-arg.o ../lib-mail/libmail.la $(test_libs)
+test_imap_bodystructure_LDADD = imap-bodystructure.lo imap-envelope.lo imap-quote.lo imap-parser.lo imap-arg.lo ../lib-mail/libmail.la $(test_libs)
 test_imap_bodystructure_DEPENDENCIES = $(test_deps) ../lib-mail/libmail.la
 
 test_imap_match_SOURCES = test-imap-match.c
-test_imap_match_LDADD = imap-match.o $(test_libs)
+test_imap_match_LDADD = imap-match.lo $(test_libs)
 test_imap_match_DEPENDENCIES = $(test_deps)
 
 test_imap_parser_SOURCES = test-imap-parser.c
-test_imap_parser_LDADD = imap-parser.o imap-arg.o $(test_libs)
+test_imap_parser_LDADD = imap-parser.lo imap-arg.lo $(test_libs)
 test_imap_parser_DEPENDENCIES = $(test_deps)
 
 test_imap_url_SOURCES = test-imap-url.c
-test_imap_url_LDADD = imap-url.o  $(test_libs)
+test_imap_url_LDADD = imap-url.lo  $(test_libs)
 test_imap_url_DEPENDENCIES = $(test_deps)
 
 test_imap_utf7_SOURCES = test-imap-utf7.c
-test_imap_utf7_LDADD = imap-utf7.o $(test_libs)
+test_imap_utf7_LDADD = imap-utf7.lo $(test_libs)
 test_imap_utf7_DEPENDENCIES = $(test_deps)
 
 test_imap_util_SOURCES = test-imap-util.c
-test_imap_util_LDADD = imap-util.o imap-arg.o $(test_libs)
+test_imap_util_LDADD = imap-util.lo imap-arg.lo $(test_libs)
 test_imap_util_DEPENDENCIES = $(test_deps)
 
 check: check-am check-test

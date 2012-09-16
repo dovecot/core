@@ -103,7 +103,7 @@ test_libs = \
 	$(top_builddir)/src/lib/liblib.la
 
 test_mailbox_get_SOURCES = test-mailbox-get.c
-test_mailbox_get_LDADD = mailbox-get.o $(test_libs)
+test_mailbox_get_LDADD = mailbox-get.lo $(test_libs)
 test_mailbox_get_DEPENDENCIES = $(noinst_LTLIBRARIES) $(test_libs)
 
 check: check-am check-test
