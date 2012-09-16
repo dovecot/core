@@ -523,26 +523,28 @@ bool imap_fetch_rfc822_init(struct imap_fetch_init_context *ctx)
 		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER |
 			MAIL_FETCH_STREAM_BODY;
 		ctx->fetch_ctx->flags_update_seen = TRUE;
-		imap_fetch_add_handler(ctx, 0, "NIL", fetch_rfc822, NULL);
+		imap_fetch_add_handler(ctx, 0, "NIL",
+				       fetch_rfc822, (void *)NULL);
 		return TRUE;
 	}
 
 	if (strcmp(name+6, ".SIZE") == 0) {
 		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_VIRTUAL_SIZE;
 		imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_BUFFERED,
-				       "0", fetch_rfc822_size, NULL);
+				       "0", fetch_rfc822_size, (void *)NULL);
 		return TRUE;
 	}
 	if (strcmp(name+6, ".HEADER") == 0) {
 		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER;
 		imap_fetch_add_handler(ctx, 0, "NIL",
-				       fetch_rfc822_header, NULL);
+				       fetch_rfc822_header, (void *)NULL);
 		return TRUE;
 	}
 	if (strcmp(name+6, ".TEXT") == 0) {
 		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_BODY;
 		ctx->fetch_ctx->flags_update_seen = TRUE;
-		imap_fetch_add_handler(ctx, 0, "NIL", fetch_rfc822_text, NULL);
+		imap_fetch_add_handler(ctx, 0, "NIL",
+				       fetch_rfc822_text, (void *)NULL);
 		return TRUE;
 	}
 

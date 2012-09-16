@@ -241,7 +241,7 @@ void lib_signals_set_handler(int signo, enum libsig_flags flags,
 		fd_close_on_exec(sig_pipe_fd[1], TRUE);
 		if (signals_initialized) {
 			io_sig = io_add(sig_pipe_fd[0], IO_READ,
-					signal_read, NULL);
+					signal_read, (void *)NULL);
 		}
 	}
 
@@ -307,7 +307,8 @@ void lib_signals_reset_ioloop(void)
 {
 	if (io_sig != NULL) {
 		io_remove(&io_sig);
-		io_sig = io_add(sig_pipe_fd[0], IO_READ, signal_read, NULL);
+		io_sig = io_add(sig_pipe_fd[0], IO_READ,
+				signal_read, (void *)NULL);
 	}
 }
 
@@ -323,8 +324,10 @@ void lib_signals_init(void)
 			lib_signals_set(i, signal_handlers[i]->flags);
 	}
 
-	if (sig_pipe_fd[0] != -1)
-		io_sig = io_add(sig_pipe_fd[0], IO_READ, signal_read, NULL);
+	if (sig_pipe_fd[0] != -1) {
+		io_sig = io_add(sig_pipe_fd[0], IO_READ,
+				signal_read, (void *)NULL);
+	}
 }
 
 void lib_signals_deinit(void)

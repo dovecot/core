@@ -78,7 +78,7 @@ static void main_init(void)
 	queue = replicator_queue_init(set->replication_full_sync_interval);
 	replication_add_users(queue);
 	to_dump = timeout_add(REPLICATOR_DB_DUMP_INTERVAL_MSECS,
-			      replicator_dump_timeout, NULL);
+			      replicator_dump_timeout, (void *)NULL);
 	brain = replicator_brain_init(queue, set);
 }
 

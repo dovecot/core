@@ -1205,7 +1205,7 @@ index_storage_search_init(struct mailbox_transaction_context *t,
 
 static void ATTR_NULL(2)
 search_arg_deinit(struct mail_search_arg *arg,
-		  void *context ATTR_UNUSED)
+		  struct index_search_context *ctx ATTR_UNUSED)
 {
 	struct message_search_context *search_ctx = arg->context;
 
@@ -1225,7 +1225,7 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 
 	mail_search_args_reset(ctx->mail_ctx.args->args, FALSE);
 	(void)mail_search_args_foreach(ctx->mail_ctx.args->args,
-				       search_arg_deinit, NULL);
+				       search_arg_deinit, ctx);
 
 	if (ctx->mail_ctx.wanted_headers != NULL)
 		mailbox_header_lookup_unref(&ctx->mail_ctx.wanted_headers);
