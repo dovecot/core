@@ -87,7 +87,7 @@ unsigned int imap_urlauth_worker_client_count;
 
 static void client_destroy(struct client *client);
 static void client_abort(struct client *client, const char *reason);
-static void client_run_url(struct client *client);
+static int client_run_url(struct client *client);
 static void client_input(struct client *client);
 static bool client_handle_input(struct client *client);
 static int client_output(struct client *client);
@@ -226,7 +226,7 @@ static void client_destroy(struct client *client)
 		/* deinitialize url */
 		i_stream_close(client->input);
 		o_stream_close(client->output);
-		client_run_url(client);
+		(void)client_run_url(client);
 		i_assert(client->url == NULL);
 	}
 
@@ -277,7 +277,7 @@ static void client_destroy(struct client *client)
 	master_service_client_connection_destroyed(master_service);
 }
 
-static void client_run_url(struct client *client)
+static int client_run_url(struct client *client)
 {
 	const unsigned char *data;
 	size_t size;
@@ -292,20 +292,21 @@ static void client_run_url(struct client *client)
 			if ((ret = o_stream_flush(client->output)) < 0)
 				break;
 			if (ret == 0)
-				return;
+				return 0;
 		}
 	}
 
 	if (client->output->closed || ret < 0) {
 		imap_msgpart_url_free(&client->url);
-		client_destroy(client);
-		return;
+		return -1;
 	}
 
 	if (client->msg_part_input->eof) {
 		o_stream_send(client->output, "\n", 1);
 		imap_msgpart_url_free(&client->url);
+		return 1;
 	}
+	return 0;
 }
 
 static void clients_destroy_all(void)
@@ -480,7 +481,11 @@ static int client_fetch_url(struct client *client, const char *url,
 				"of %smessage data", client->msg_part_size,
 				(binary_with_nuls ? "binary " : ""));
 		}
-		client_run_url(client);
+		if (client_run_url(client) < 0) {
+			client_abort(client,
+				"Session aborted: Fatal failure while transfering URL");
+			return 0;
+		}		
 	}
 
 	if (client->url != NULL) {
@@ -740,7 +745,10 @@ static int client_output(struct client *client)
 	timeout_reset(client->to_idle);
 
 	if (client->url != NULL) {
-		client_run_url(client);
+		if (client_run_url(client) < 0) {
+			client_destroy(client);
+			return 1;
+		}
 
 		if (client->url == NULL && client->waiting_input) {
 			if (!client_handle_input(client)) {
@@ -782,7 +790,7 @@ client_ctrl_read_fds(struct client *client)
 	if (ret == 0) {
 		/* unexpectedly disconnected */
 		client_destroy(client);
-		return -1;
+		return 0;
 	} else if (ret < 0) {
 		if (errno == EAGAIN)
 			return 0;
