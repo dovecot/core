@@ -173,16 +173,13 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 		ret = imap_urlauth_fetch_parsed(ufetch->uctx, imap_url,
 						&mpurl, &error_code, &error);
 	}
-	if (ret < 0) {
-		(void)ufetch->callback(NULL, TRUE, ufetch->context);
-		imap_urlauth_fetch_fail(ufetch);
-		return;
-	}
-	if (ret == 0) {
-		errormsg = t_strdup_printf("Failed to fetch URLAUTH \"%s\": %s",
-					   url, error);
-		if (debug)
-			i_debug("%s", errormsg);
+	if (ret <= 0) {
+		if (ret == 0) {
+			errormsg = t_strdup_printf("Failed to fetch URLAUTH \"%s\": %s",
+						   url, error);
+			if (debug)
+				i_debug("%s", errormsg);
+		}
 		success = FALSE;
 	}
 
@@ -191,12 +188,14 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 		imap_msgpart_url_set_decode_to_binary(mpurl);
 	if (success &&
 	    (url_flags & IMAP_URLAUTH_FETCH_FLAG_BODYPARTSTRUCTURE) != 0) {
-		if (imap_msgpart_url_get_bodypartstructure
-		    (mpurl, &bpstruct, &error) <= 0) {
-			errormsg = t_strdup_printf
-				("Failed to read URLAUTH \"%s\": %s",	url, error);
-			if (debug)
-				i_debug("%s", errormsg);
+		ret = imap_msgpart_url_get_bodypartstructure(mpurl, &bpstruct, &error);
+		if (ret <= 0) {
+			if (ret == 0) {
+				errormsg = t_strdup_printf
+					("Failed to read URLAUTH \"%s\": %s",	url, error);
+				if (debug)
+					i_debug("%s", errormsg);
+			}
 			success = FALSE;
 		}
 	}
@@ -206,11 +205,14 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 	mpresult.input = NULL;
 	if (success && ((url_flags & IMAP_URLAUTH_FETCH_FLAG_BODY) != 0 ||
 			(url_flags & IMAP_URLAUTH_FETCH_FLAG_BINARY) != 0)) {
-		if (imap_msgpart_url_read_part(mpurl, &mpresult, &error) <= 0) {
-			errormsg = t_strdup_printf
-				("Failed to read URLAUTH \"%s\": %s",	url, error);
-			if (debug)
-				i_debug("%s", errormsg);
+		ret = imap_msgpart_url_read_part(mpurl, &mpresult, &error);
+		if (ret <= 0) {
+			if (ret == 0) {
+				errormsg = t_strdup_printf
+					("Failed to read URLAUTH \"%s\": %s",	url, error);
+				if (debug)
+					i_debug("%s", errormsg);
+			}
 			success = FALSE;
 		}
 	}
@@ -225,6 +227,12 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 				"of %smessage data", mpresult.size,
 				(mpresult.binary_decoded_input_has_nuls ? "binary " : ""));
 		}
+	}
+
+	if (!success && ret < 0) {
+		(void)ufetch->callback(NULL, TRUE, ufetch->context);
+		imap_urlauth_fetch_fail(ufetch);
+		return;
 	}
 
 	memset(&reply, 0, sizeof(reply));
