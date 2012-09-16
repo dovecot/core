@@ -26,13 +26,14 @@ libdovecot_la_LIBADD = \
 	$(LTLIBICONV)
 
 libdovecot_ssl_la_LIBADD = \
+	libdovecot.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS) \
 	$(ssl_libs) \
 	$(SSL_LIBS)
 
 libdovecot_la_DEPENDENCIES = $(libs)
-libdovecot_ssl_la_DEPENDENCIES = $(ssl_libs)
+libdovecot_ssl_la_DEPENDENCIES = $(ssl_libs) libdovecot.la
 
 libdovecot_la_LDFLAGS = -export-dynamic
 libdovecot_ssl_la_LDFLAGS = -export-dynamic
