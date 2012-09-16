@@ -1,6 +1,8 @@
 #ifndef DOVEADM_MAILBOX_LIST_ITER_H
 #define DOVEADM_MAILBOX_LIST_ITER_H
 
+#include "mailbox-list-iter.h"
+
 struct doveadm_mail_cmd_context;
 
 /* List only selectable mailboxes */

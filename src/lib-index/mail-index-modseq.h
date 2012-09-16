@@ -1,9 +1,10 @@
 #ifndef MAIL_INDEX_MODSEQ_H
 #define MAIL_INDEX_MODSEQ_H
 
+#include "mail-types.h"
+
 #define MAIL_INDEX_MODSEQ_EXT_NAME "modseq"
 
-enum mail_flags;
 struct mail_keywords;
 struct mail_index;
 struct mail_index_map;

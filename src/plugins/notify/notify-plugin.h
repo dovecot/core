@@ -1,7 +1,8 @@
 #ifndef NOTIFY_PLUGIN_H
 #define NOTIFY_PLUGIN_H
 
-enum mail_flags;
+#include "mail-types.h"
+
 struct mail;
 struct mail_transaction_commit_changes;
 struct mail_storage;

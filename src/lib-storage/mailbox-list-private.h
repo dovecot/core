@@ -5,6 +5,7 @@
 #include "mailbox-list-notify.h"
 #include "mail-namespace.h"
 #include "mailbox-list.h"
+#include "mailbox-list-iter.h"
 #include "mail-storage-settings.h"
 
 #define MAILBOX_LIST_NAME_MAILDIRPLUSPLUS "maildir++"

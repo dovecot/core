@@ -8,7 +8,7 @@
 #include "mailbox-log.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
-#include "mailbox-list.h"
+#include "mailbox-list-iter.h"
 #include "dsync-mailbox-tree-private.h"
 
 static int

@@ -11,6 +11,7 @@
 #include "mail-namespace.h"
 #include "mail-search-build.h"
 #include "mail-search-parser.h"
+#include "mailbox-list-iter.h"
 #include "virtual-storage.h"
 #include "virtual-plugin.h"
 

@@ -2,9 +2,9 @@
 #define MAIL_DELIVER_H
 
 #include "guid.h"
+#include "mail-types.h"
+#include "mail-error.h"
 
-enum mail_flags;
-enum mail_error;
 struct mail_storage;
 struct mail_save_context;
 struct mailbox;

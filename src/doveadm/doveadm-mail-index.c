@@ -8,6 +8,7 @@
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "mail-search-build.h"
+#include "mailbox-list-iter.h"
 #include "doveadm-settings.h"
 #include "doveadm-mail.h"
 

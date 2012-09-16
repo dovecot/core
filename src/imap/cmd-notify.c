@@ -2,6 +2,7 @@
 
 #include "imap-common.h"
 #include "str.h"
+#include "mailbox-list-iter.h"
 #include "imap-quote.h"
 #include "imap-commands.h"
 #include "imap-fetch.h"

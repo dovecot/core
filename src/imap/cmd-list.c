@@ -4,13 +4,13 @@
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
+#include "mailbox-list-iter.h"
 #include "imap-utf7.h"
 #include "imap-quote.h"
 #include "imap-match.h"
 #include "imap-status.h"
 #include "imap-commands.h"
 #include "imap-list.h"
-#include "mail-namespace.h"
 
 struct cmd_list_context {
 	struct client_command_context *cmd;

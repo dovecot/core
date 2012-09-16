@@ -31,7 +31,6 @@
 #define INDEX_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mailbox_list_index_module)
 
-enum mailbox_status_items;
 struct mail_index_view;
 struct mailbox;
 struct mailbox_status;

@@ -4,6 +4,7 @@
 #include "str.h"
 #include "ostream.h"
 #include "imap-quote.h"
+#include "mailbox-list-iter.h"
 #include "mailbox-list-notify.h"
 #include "mail-search.h"
 #include "mail-search-build.h"

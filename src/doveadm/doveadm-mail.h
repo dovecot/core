@@ -5,9 +5,9 @@
 #include "doveadm.h"
 #include "doveadm-util.h"
 #include "module-context.h"
+#include "mail-error.h"
 #include "mail-storage-service.h"
 
-enum mail_error;
 struct mailbox;
 struct mail_storage;
 struct mail_user;

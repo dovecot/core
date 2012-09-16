@@ -5,6 +5,7 @@
 #include "mail-search-build.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
+#include "mailbox-list-iter.h"
 #include "quota-private.h"
 
 static int

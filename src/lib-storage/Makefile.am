@@ -69,6 +69,7 @@ headers = \
 	mail-user.h \
 	mailbox-guid-cache.h \
 	mailbox-list.h \
+	mailbox-list-iter.h \
 	mailbox-list-private.h \
 	mailbox-list-notify.h \
 	mailbox-search-result-private.h \

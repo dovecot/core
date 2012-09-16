@@ -2,8 +2,8 @@
 #define IMAP_UTIL_H
 
 #include "seq-range-array.h"
+#include "mail-types.h"
 
-enum mail_flags;
 struct imap_arg;
 
 /* Write flags as a space separated string. */

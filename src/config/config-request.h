@@ -1,9 +1,9 @@
 #ifndef CONFIG_REQUEST_H
 #define CONFIG_REQUEST_H
 
+#include "settings-parser.h"
 #include "config-filter.h"
 
-enum setting_type;
 struct master_service_settings_output;
 
 enum config_dump_scope {

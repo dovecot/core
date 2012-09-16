@@ -14,8 +14,6 @@
 /* If syncing takes longer than this, log a warning. */
 #define MAILDIR_SYNC_TIME_WARN_SECS 60
 
-enum maildir_uidlist_rec_flag;
-
 struct maildir_mailbox;
 struct maildir_sync_context;
 struct maildir_keywords_sync_ctx;

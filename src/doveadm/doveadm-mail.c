@@ -16,6 +16,7 @@
 #include "mail-storage-service.h"
 #include "mail-search-build.h"
 #include "mail-search-parser.h"
+#include "mailbox-list-iter.h"
 #include "doveadm.h"
 #include "doveadm-settings.h"
 #include "doveadm-print.h"

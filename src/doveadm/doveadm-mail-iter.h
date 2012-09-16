@@ -1,6 +1,8 @@
 #ifndef DOVEADM_MAIL_ITER_H
 #define DOVEADM_MAIL_ITER_H
 
+#include "mailbox-list-iter.h"
+
 struct doveadm_mail_iter;
 struct doveadm_mail_cmd_context;
 

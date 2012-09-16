@@ -1,8 +1,8 @@
 #ifndef MAILBOX_LIST_SUBSCRIPTIONS_H
 #define MAILBOX_LIST_SUBSCRIPTIONS_H
 
-enum mailbox_info_flags;
-enum mailbox_list_iter_flags;
+#include "mailbox-list-iter.h"
+
 struct mailbox_tree_context;
 struct mailbox_list_iterate_context;
 

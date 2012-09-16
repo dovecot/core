@@ -1,7 +1,7 @@
 #ifndef MAILBOX_LIST_DELETE_H
 #define MAILBOX_LIST_DELETE_H
 
-enum mailbox_list_path_type;
+#include "mailbox-list.h"
 
 int mailbox_list_delete_maildir_via_trash(struct mailbox_list *list,
 					  const char *name,
