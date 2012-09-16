@@ -34,8 +34,8 @@ squat_test_SOURCES = \
 	squat-test.c
 
 common_objects = \
-	squat-trie.o \
-	squat-uidlist.o
+	squat-trie.lo \
+	squat-uidlist.lo
 
 squat_test_LDADD = \
 	$(common_objects) \
