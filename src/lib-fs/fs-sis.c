@@ -35,24 +35,35 @@ static void fs_sis_file_copy_error(struct sis_fs_file *file)
 	fs_sis_copy_error(fs);
 }
 
-static struct fs *
-fs_sis_init(const char *args, const struct fs_settings *set)
+static int
+fs_sis_init(const char *args, const struct fs_settings *set,
+	    struct fs **fs_r, const char **error_r)
 {
 	struct sis_fs *fs;
-	const char *p;
+	const char *parent_name, *parent_args, *error;
 
 	fs = i_new(struct sis_fs, 1);
 	fs->fs = fs_class_sis;
 
-	if (*args == '\0')
-		i_fatal("fs-sis: Parent filesystem not given as parameter");
+	if (*args == '\0') {
+		*error_r = "Parent filesystem not given as parameter";
+		return -1;
+	}
 
-	p = strchr(args, ':');
-	if (p == NULL)
-		fs->super = fs_init(args, "", set);
-	else
-		fs->super = fs_init(t_strdup_until(args, p), p+1, set);
-	return &fs->fs;
+	parent_args = strchr(args, ':');
+	if (parent_args == NULL) {
+		parent_name = args;
+		parent_args = "";
+	} else {
+		parent_name = t_strdup_until(args, parent_args);
+		parent_args++;
+	}
+	if (fs_init(parent_name, parent_args, set, &fs->super, &error) < 0) {
+		*error_r = t_strdup_printf("%s: %s", parent_name, error);
+		return -1;
+	}
+	*fs_r = &fs->fs;
+	return 0;
 }
 
 static void fs_sis_deinit(struct fs *_fs)

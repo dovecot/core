@@ -10,27 +10,47 @@ static struct fs *fs_classes[] = {
 	&fs_class_sis_queue
 };
 
-static struct fs *
+static int
 fs_alloc(const struct fs *fs_class, const char *args,
-	 const struct fs_settings *set)
+	 const struct fs_settings *set, struct fs **fs_r, const char **error_r)
 {
 	struct fs *fs;
+	char *error_dup = NULL;
+	int ret;
 
-	fs = fs_class->v.init(args, set);
+	T_BEGIN {
+		const char *error;
+
+		ret = fs_class->v.init(args, set, fs_r, &error);
+		if (ret < 0)
+			error_dup = i_strdup(error);
+	} T_END;
+	if (ret < 0) {
+		/* a bit kludgy way to allow data stack frame usage in normal
+		   conditions but still be able to return error message from
+		   data stack. */
+		*error_r = t_strdup_printf("%s: %s", fs_class->name, error_dup);
+		i_free(error_dup);
+		return -1;
+	}
 	fs->last_error = str_new(default_pool, 64);
-	return fs;
+	return 0;
 }
 
-struct fs *fs_init(const char *driver, const char *args,
-		   const struct fs_settings *set)
+int fs_init(const char *driver, const char *args,
+	    const struct fs_settings *set,
+	    struct fs **fs_r, const char **error_r)
 {
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(fs_classes); i++) {
-		if (strcmp(fs_classes[i]->name, driver) == 0)
-			return fs_alloc(fs_classes[i], args, set);
+		if (strcmp(fs_classes[i]->name, driver) == 0) {
+			return fs_alloc(fs_classes[i], args,
+					set, fs_r, error_r);
+		}
 	}
-	i_fatal("Unknown fs driver: %s", driver);
+	*error_r = t_strdup_printf("Unknown fs driver: %s", driver);
+	return -1;
 }
 
 void fs_deinit(struct fs **_fs)

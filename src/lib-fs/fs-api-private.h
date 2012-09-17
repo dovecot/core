@@ -4,7 +4,8 @@
 #include "fs-api.h"
 
 struct fs_vfuncs {
-	struct fs *(*init)(const char *args, const struct fs_settings *set);
+	int (*init)(const char *args, const struct fs_settings *set,
+		    struct fs **fs_r, const char **error_r);
 	void (*deinit)(struct fs *fs);
 
 	int (*open)(struct fs *fs, const char *path, enum fs_open_mode mode,

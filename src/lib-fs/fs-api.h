@@ -2,6 +2,7 @@
 #define FS_API_H
 
 struct stat;
+struct fs;
 struct fs_file;
 struct fs_lock;
 
@@ -31,8 +32,9 @@ struct fs_settings {
 	const char *temp_file_prefix;
 };
 
-struct fs *fs_init(const char *driver, const char *args,
-		   const struct fs_settings *set);
+int fs_init(const char *driver, const char *args,
+	    const struct fs_settings *set,
+	    struct fs **fs_r, const char **error_r);
 void fs_deinit(struct fs **fs);
 
 /* Returns 0 if opened, -1 if error (errno is set). */

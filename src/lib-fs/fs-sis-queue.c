@@ -30,11 +30,12 @@ static void fs_sis_queue_file_copy_error(struct sis_queue_fs_file *file)
 	fs_sis_queue_copy_error(fs);
 }
 
-static struct fs *
-fs_sis_queue_init(const char *args, const struct fs_settings *set)
+static int
+fs_sis_queue_init(const char *args, const struct fs_settings *set,
+		  struct fs **fs_r, const char **error_r)
 {
 	struct sis_queue_fs *fs;
-	const char *p, *parent_fs;
+	const char *p, *parent_name, *parent_args, *error;
 
 	fs = i_new(struct sis_queue_fs, 1);
 	fs->fs = fs_class_sis_queue;
@@ -42,18 +43,25 @@ fs_sis_queue_init(const char *args, const struct fs_settings *set)
 	/* <queue_dir>:<parent fs>[:<args>] */
 
 	p = strchr(args, ':');
-	if (p == NULL || p[1] == '\0')
-		i_fatal("fs-sis-queue: Parent filesystem not given as parameter");
+	if (p == NULL || p[1] == '\0') {
+		*error_r = "Parent filesystem not given as parameter";
+		return -1;
+	}
 
 	fs->queue_dir = i_strdup_until(args, p);
-	parent_fs = p + 1;
+	parent_name = p + 1;
 
-	p = strchr(parent_fs, ':');
-	if (p == NULL)
-		fs->super = fs_init(parent_fs, "", set);
+	parent_args = strchr(parent_name, ':');
+	if (parent_args == NULL)
+		parent_args = "";
 	else
-		fs->super = fs_init(t_strdup_until(parent_fs, p), p+1, set);
-	return &fs->fs;
+		parent_name = t_strdup_until(parent_name, parent_args++);
+	if (fs_init(parent_name, parent_args, set, &fs->super, &error) < 0) {
+		*error_r = t_strdup_printf("%s: %s", parent_name, error);
+		return -1;
+	}
+	*fs_r = &fs->fs;
+	return 0;
 }
 
 static void fs_sis_queue_deinit(struct fs *_fs)

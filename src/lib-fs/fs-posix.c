@@ -53,10 +53,12 @@ struct posix_fs_lock {
 	struct dotlock *dotlock;
 };
 
-static struct fs *
-fs_posix_init(const char *args, const struct fs_settings *set)
+static int
+fs_posix_init(const char *args, const struct fs_settings *set,
+	      struct fs **fs_r, const char **error_r)
 {
 	struct posix_fs *fs;
+	const char *const *tmp;
 
 	fs = i_new(struct posix_fs, 1);
 	fs->fs = fs_class_posix;
@@ -66,32 +68,34 @@ fs_posix_init(const char *args, const struct fs_settings *set)
 
 	fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
 	fs->mode = FS_DEFAULT_MODE;
-	T_BEGIN {
-		const char *const *tmp = t_strsplit_spaces(args, " ");
 
-		for (; *tmp != NULL; tmp++) {
-			const char *arg = *tmp;
+	tmp = t_strsplit_spaces(args, " ");
+	for (; *tmp != NULL; tmp++) {
+		const char *arg = *tmp;
 
-			if (strcmp(arg, "lock=flock") == 0)
-				fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
-			else if (strcmp(arg, "lock=dotlock") == 0)
-				fs->lock_method = FS_POSIX_LOCK_METHOD_DOTLOCK;
-			else if (strncmp(arg, "mode=", 5) == 0) {
-				fs->mode = strtoul(arg+5, NULL, 8) & 0666;
-				if (fs->mode == 0) {
-					i_fatal("fs-posix: Invalid mode: %s",
-						arg+5);
-				}
-			} else
-				i_fatal("fs-posix: Unknown arg '%s'", arg);
+		if (strcmp(arg, "lock=flock") == 0)
+			fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
+		else if (strcmp(arg, "lock=dotlock") == 0)
+			fs->lock_method = FS_POSIX_LOCK_METHOD_DOTLOCK;
+		else if (strncmp(arg, "mode=", 5) == 0) {
+			fs->mode = strtoul(arg+5, NULL, 8) & 0666;
+			if (fs->mode == 0) {
+				*error_r = t_strdup_printf("Invalid mode: %s",
+							   arg+5);
+				return -1;
+			}
+		} else {
+			*error_r = t_strdup_printf("Unknown arg '%s'", arg);
+			return -1;
 		}
-	} T_END;
+	}
 	fs->dir_mode = fs->mode;
 	if ((fs->dir_mode & 0600) != 0) fs->dir_mode |= 0100;
 	if ((fs->dir_mode & 0060) != 0) fs->dir_mode |= 0010;
 	if ((fs->dir_mode & 0006) != 0) fs->dir_mode |= 0001;
 
-	return &fs->fs;
+	*fs_r = &fs->fs;
+	return 0;
 }
 
 static void fs_posix_deinit(struct fs *_fs)
