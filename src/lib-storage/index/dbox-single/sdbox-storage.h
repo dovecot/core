@@ -36,7 +36,6 @@ extern struct mail_vfuncs sdbox_mail_vfuncs;
 int sdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 		    struct dbox_file **file_r);
 
-uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list);
 int sdbox_read_header(struct sdbox_mailbox *mbox,
 		      struct sdbox_index_header *hdr, bool log_error);
 void sdbox_set_mailbox_corrupted(struct mailbox *box);
