@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "abspath.h"
 #include "ioloop.h"
 #include "mkdir-parents.h"
 #include "str.h"
@@ -1293,7 +1294,7 @@ int mailbox_list_dirent_is_alias_symlink(struct mailbox_list *list,
 		return 1;
 
 	T_BEGIN {
-		const char *path, *readlink;
+		const char *path, *linkpath;
 
 		path = t_strconcat(dir_path, "/", d->d_name, NULL);
 		if (lstat(path, &st) < 0) {
