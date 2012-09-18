@@ -14,7 +14,6 @@ static int
 fs_alloc(const struct fs *fs_class, const char *args,
 	 const struct fs_settings *set, struct fs **fs_r, const char **error_r)
 {
-	struct fs *fs;
 	char *error_dup = NULL;
 	int ret;
 
@@ -33,7 +32,7 @@ fs_alloc(const struct fs *fs_class, const char *args,
 		i_free(error_dup);
 		return -1;
 	}
-	fs->last_error = str_new(default_pool, 64);
+	(*fs_r)->last_error = str_new(default_pool, 64);
 	return 0;
 }
 
