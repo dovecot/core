@@ -51,6 +51,7 @@ struct mail_user *mail_user_alloc(const char *username,
 	user->unexpanded_set = settings_dup(set_info, set, pool);
 	user->set = settings_dup(set_info, set, pool);
 	user->service = master_service_get_name(master_service);
+	user->default_normalizer = uni_utf8_to_decomposed_titlecase;
 
 	/* check settings so that the duplicated structure will again
 	   contain the parsed fields */

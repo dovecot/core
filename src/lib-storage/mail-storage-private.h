@@ -2,6 +2,7 @@
 #define MAIL_STORAGE_PRIVATE_H
 
 #include "module-context.h"
+#include "unichar.h"
 #include "file-lock.h"
 #include "mail-storage.h"
 #include "mail-storage-hooks.h"
@@ -416,6 +417,7 @@ struct mail_search_context {
 	struct mail_search_sort_program *sort_program;
 	enum mail_fetch_field wanted_fields;
 	struct mailbox_header_lookup_ctx *wanted_headers;
+	normalizer_func_t *normalizer;
 
 	/* if non-NULL, specifies that a search resulting is being updated.
 	   this can be used as a search optimization: if searched message

@@ -27,6 +27,12 @@
 typedef uint32_t unichar_t;
 ARRAY_DEFINE_TYPE(unichars, unichar_t);
 
+/* Normalize UTF8 input and append it to output buffer.
+   Returns 0 if ok, -1 if input was invalid. Even if input was invalid,
+   as much as possible should be added to output. */
+typedef int normalizer_func_t(const void *input, size_t size,
+			      buffer_t *output);
+
 extern const unsigned char utf8_replacement_char[UTF8_REPLACEMENT_CHAR_LEN];
 extern const uint8_t *const uni_utf8_non1_bytes;
 
