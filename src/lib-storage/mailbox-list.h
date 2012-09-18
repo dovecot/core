@@ -64,7 +64,9 @@ enum mailbox_list_iter_flags {
 	   physically exist */
 	MAILBOX_LIST_ITER_NO_AUTO_BOXES		= 0x000004,
 
-	/* For mailbox_list_iter_init_namespaces(): Skip namespaces that
+	/* Skip all kinds of mailbox aliases. This typically includes symlinks
+	   that point to the same directory. Also when iterating with
+	   mailbox_list_iter_init_namespaces() skip namespaces that
 	   have alias_for set. */
 	MAILBOX_LIST_ITER_SKIP_ALIASES		= 0x000008,
 	/* For mailbox_list_iter_init_namespaces(): '*' in a pattern doesn't

@@ -183,6 +183,12 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 		/* mailbox doesn't match any patterns, we don't care about it */
 		return 0;
 	}
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SKIP_ALIASES) != 0) {
+		ret = mailbox_list_dirent_is_alias_symlink(ctx->ctx.list,
+							   dir_path, d);
+		if (ret != 0)
+			return ret < 0 ? -1 : 0;
+	}
 	ret = ctx->ctx.list->v.
 		get_mailbox_flags(ctx->ctx.list, dir_path, d->d_name,
 				  mailbox_list_get_file_type(d), &info_flags);

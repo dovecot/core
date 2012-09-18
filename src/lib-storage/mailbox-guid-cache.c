@@ -56,6 +56,7 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 	list->guid_cache_errors = FALSE;
 
 	ctx = mailbox_list_iter_init(list, "*",
+				     MAILBOX_LIST_ITER_SKIP_ALIASES |
 				     MAILBOX_LIST_ITER_NO_AUTO_BOXES);
 	while ((info = mailbox_list_iter_next(ctx)) != NULL) {
 		if ((info->flags &
