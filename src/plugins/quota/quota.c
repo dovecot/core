@@ -361,7 +361,7 @@ quota_rule_parse_percentage(struct quota_root_settings *root_set,
 {
 	int64_t percentage = *limit;
 
-	if (percentage <= 0 || percentage >= -1U) {
+	if (percentage <= -100 || percentage >= -1U) {
 		*error_r = p_strdup_printf(root_set->set->pool,
 			"Invalid rule percentage: %lld", (long long)percentage);
 		return -1;
@@ -385,9 +385,9 @@ static void
 quota_rule_recalculate_relative_rules(struct quota_rule *rule,
 				      int64_t bytes_limit, int64_t count_limit)
 {
-	if (rule->bytes_percent > 0)
+	if (rule->bytes_percent != 0)
 		rule->bytes_limit = bytes_limit * rule->bytes_percent / 100;
-	if (rule->count_percent > 0)
+	if (rule->count_percent != 0)
 		rule->count_limit = count_limit * rule->count_percent / 100;
 }
 
