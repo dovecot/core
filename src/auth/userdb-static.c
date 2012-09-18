@@ -42,6 +42,8 @@ static_credentials_callback(enum passdb_result result,
 {
 	struct static_context *ctx = auth_request->context;
 
+	auth_request->userdb_lookup = TRUE;
+
 	auth_request->private_callback.userdb = ctx->old_callback;
 	auth_request->context = ctx->old_context;
 	auth_request_set_state(auth_request, AUTH_REQUEST_STATE_USERDB);
@@ -92,6 +94,10 @@ static void static_lookup(struct auth_request *auth_request,
 
 		auth_request->context = ctx;
 		if (auth_request->passdb != NULL) {
+			/* kludge: temporarily work as if we weren't doing
+			   a userdb lookup. this is to get auth cache to use
+			   passdb caching instead of userdb caching. */
+			auth_request->userdb_lookup = FALSE;
 			auth_request_lookup_credentials(auth_request, "",
 				static_credentials_callback);
 		} else {
