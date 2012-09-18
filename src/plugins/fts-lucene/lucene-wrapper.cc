@@ -10,7 +10,6 @@ extern "C" {
 #include "mail-index.h"
 #include "mail-search.h"
 #include "mail-namespace.h"
-#include "mailbox-list-private.h"
 #include "mail-storage.h"
 #include "fts-expunge-log.h"
 #include "fts-lucene-plugin.h"
@@ -110,7 +109,7 @@ struct lucene_index *lucene_index_init(const char *path,
 	index->path = i_strdup(path);
 	index->list = list;
 	index->normalizer = !set->normalize ? NULL :
-		list->ns->user->default_normalizer;
+		mailbox_list_get_namespace(list)->user->default_normalizer;
 	if (set != NULL)
 		index->set = *set;
 	else {
