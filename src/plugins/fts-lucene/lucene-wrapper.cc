@@ -10,6 +10,7 @@ extern "C" {
 #include "mail-index.h"
 #include "mail-search.h"
 #include "mail-namespace.h"
+#include "mailbox-list-private.h"
 #include "mail-storage.h"
 #include "fts-expunge-log.h"
 #include "fts-lucene-plugin.h"
@@ -58,6 +59,7 @@ struct lucene_index {
 	char *path;
 	struct mailbox_list *list;
 	struct fts_lucene_settings set;
+	normalizer_func_t *normalizer;
 
 	wchar_t mailbox_guid[MAILBOX_GUID_HEX_LENGTH + 1];
 
@@ -107,6 +109,8 @@ struct lucene_index *lucene_index_init(const char *path,
 	index = i_new(struct lucene_index, 1);
 	index->path = i_strdup(path);
 	index->list = list;
+	index->normalizer = !set->normalize ? NULL :
+		list->ns->user->default_normalizer;
 	if (set != NULL)
 		index->set = *set;
 	else {
@@ -115,9 +119,11 @@ struct lucene_index *lucene_index_init(const char *path,
 	}
 #ifdef HAVE_LUCENE_STEMMER
 	index->default_analyzer =
-		_CLNEW snowball::SnowballAnalyzer(index->set.default_language);
+		_CLNEW snowball::SnowballAnalyzer(index->normalizer,
+						  index->set.default_language);
 #else
 	index->default_analyzer = _CLNEW standard::StandardAnalyzer();
+	i_assert(index->normalizer == NULL);
 #endif
 	i_array_init(&index->analyzers, 32);
 	textcat_refcount++;
@@ -397,6 +403,7 @@ int lucene_index_build_init(struct lucene_index *index)
 #ifdef HAVE_LUCENE_TEXTCAT
 static Analyzer *get_analyzer(struct lucene_index *index, const char *lang)
 {
+	normalizer_func_t *normalizer = index->normalizer;
 	const struct lucene_analyzer *a;
 	struct lucene_analyzer new_analyzer;
 	Analyzer *analyzer;
@@ -408,7 +415,8 @@ static Analyzer *get_analyzer(struct lucene_index *index, const char *lang)
 
 	memset(&new_analyzer, 0, sizeof(new_analyzer));
 	new_analyzer.lang = i_strdup(lang);
-	new_analyzer.analyzer = _CLNEW snowball::SnowballAnalyzer(lang);
+	new_analyzer.analyzer =
+		_CLNEW snowball::SnowballAnalyzer(normalizer, lang);
 	array_append_i(&index->analyzers.arr, &new_analyzer, 1);
 	return new_analyzer.analyzer;
 }
