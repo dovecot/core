@@ -1,6 +1,7 @@
 /* Copyright (c) 2005-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
@@ -69,16 +70,22 @@ static int config_connection_request(struct config_connection *conn,
 	struct config_export_context *ctx;
 	struct master_service_settings_output output;
 	struct config_filter filter;
-	const char *path, *error, *module = "";
+	const char *path, *error, *module;
+	ARRAY(const char *) modules;
+	bool is_master = FALSE;
 
 	/* [<args>] */
+	t_array_init(&modules, 4);
 	memset(&filter, 0, sizeof(filter));
 	for (; *args != NULL; args++) {
 		if (strncmp(*args, "service=", 8) == 0)
 			filter.service = *args + 8;
-		else if (strncmp(*args, "module=", 7) == 0)
+		else if (strncmp(*args, "module=", 7) == 0) {
 			module = *args + 7;
-		else if (strncmp(*args, "lname=", 6) == 0)
+			if (strcmp(module, "master") == 0)
+				is_master = TRUE;
+			array_append(&modules, &module, 1);
+		} else if (strncmp(*args, "lname=", 6) == 0)
 			filter.local_name = *args + 6;
 		else if (strncmp(*args, "lip=", 4) == 0) {
 			if (net_addr2ip(*args + 4, &filter.local_net) == 0) {
@@ -94,11 +101,12 @@ static int config_connection_request(struct config_connection *conn,
 			}
 		}
 	}
+	array_append_zero(&modules);
 
-	if (strcmp(module, "master") == 0) {
+	if (is_master) {
 		/* master reads configuration only when reloading settings */
 		path = master_service_get_config_path(master_service);
-		if (config_parse_file(path, TRUE, "", &error) <= 0) {
+		if (config_parse_file(path, TRUE, NULL, &error) <= 0) {
 			o_stream_nsend_str(conn->output,
 				t_strconcat("\nERROR ", error, "\n", NULL));
 			config_connection_destroy(conn);
@@ -108,7 +116,8 @@ static int config_connection_request(struct config_connection *conn,
 
 	o_stream_cork(conn->output);
 
-	ctx = config_export_init(module, CONFIG_DUMP_SCOPE_SET, 0,
+	ctx = config_export_init(array_idx(&modules, 0),
+				 CONFIG_DUMP_SCOPE_SET, 0,
 				 config_request_output, conn->output);
 	config_export_by_filter(ctx, &filter);
 	config_export_get_output(ctx, &output);

@@ -334,9 +334,8 @@ config_filter_parser_check(struct config_parser_context *ctx,
 {
 	for (; p->root != NULL; p++) {
 		/* skip checking settings we don't care about */
-		if (*ctx->module != '\0' &&
-		    !config_module_want_parser(ctx->root_parsers,
-					       ctx->module, p->root))
+		if (!config_module_want_parser(ctx->root_parsers,
+					       ctx->modules, p->root))
 			continue;
 
 		settings_parse_var_skip(p->parser);
@@ -396,7 +395,7 @@ config_all_parsers_check(struct config_parser_context *ctx,
 
 	global_ssl_set = get_str_setting(parsers[0], "ssl", "");
 	for (i = 0; i < count && ret == 0; i++) {
-		if (config_filter_parsers_get(new_filter, tmp_pool, "",
+		if (config_filter_parsers_get(new_filter, tmp_pool, NULL,
 					      &parsers[i]->filter,
 					      &tmp_parsers, &output,
 					      error_r) < 0) {
@@ -728,12 +727,12 @@ config_require_key(struct config_parser_context *ctx, const char *key)
 {
 	struct config_module_parser *l;
 
-	if (*ctx->module == '\0')
+	if (ctx->modules == NULL)
 		return TRUE;
 
 	for (l = ctx->cur_section->parsers; l->root != NULL; l++) {
 		if (config_module_want_parser(ctx->root_parsers,
-					      ctx->module, l->root) &&
+					      ctx->modules, l->root) &&
 		    settings_parse_is_valid_key(l->parser, key))
 			return TRUE;
 	}
@@ -881,8 +880,8 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 	}
 }
 
-int config_parse_file(const char *path, bool expand_values, const char *module,
-		      const char **error_r)
+int config_parse_file(const char *path, bool expand_values,
+		      const char *const *modules, const char **error_r)
 {
 	struct input_stack root;
 	struct config_parser_context ctx;
@@ -924,7 +923,7 @@ int config_parse_file(const char *path, bool expand_values, const char *module,
 	root.path = path;
 	ctx.cur_input = &root;
 	ctx.expand_values = expand_values;
-	ctx.module = module;
+	ctx.modules = modules;
 
 	p_array_init(&ctx.all_parsers, ctx.pool, 128);
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
@@ -1052,21 +1051,20 @@ static bool parsers_are_connected(const struct setting_parser_info *root,
 }
 
 bool config_module_want_parser(struct config_module_parser *parsers,
-			       const char *module,
+			       const char *const *modules,
 			       const struct setting_parser_info *root)
 {
 	struct config_module_parser *l;
 
-	if (strcmp(root->module_name, module) == 0)
+	if (modules == NULL)
 		return TRUE;
-	if (root == &master_service_setting_parser_info ||
-	    root == &master_service_ssl_setting_parser_info) {
+	if (root == &master_service_setting_parser_info) {
 		/* everyone wants master service settings */
 		return TRUE;
 	}
 
 	for (l = parsers; l->root != NULL; l++) {
-		if (strcmp(l->root->module_name, module) != 0)
+		if (!str_array_find(modules, l->root->module_name))
 			continue;
 
 		/* see if we can find a way to get from the original parser

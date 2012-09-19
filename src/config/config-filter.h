@@ -33,11 +33,11 @@ void config_filter_add_all(struct config_filter_context *ctx,
 
 /* Build new parsers from all existing ones matching the given filter. */
 int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
-			      const char *module,
+			      const char *const *modules,
 			      const struct config_filter *filter,
 			      struct config_module_parser **parsers_r,
 			      struct master_service_settings_output *output_r,
-			      const char **error_r);
+			      const char **error_r) ATTR_NULL(3);
 void config_filter_parsers_free(struct config_module_parser *parsers);
 
 /* Return a list of filters that are a subset of the given filter. */

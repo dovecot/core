@@ -39,7 +39,7 @@ struct input_stack {
 struct config_parser_context {
 	pool_t pool;
 	const char *path;
-	const char *module;
+	const char *const *modules;
 
 	ARRAY(struct config_filter_parser *) all_parsers;
 	struct config_module_parser *root_parsers;

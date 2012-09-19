@@ -18,13 +18,15 @@ extern struct module *modules;
 
 int config_parse_net(const char *value, struct ip_addr *ip_r,
 		     unsigned int *bits_r, const char **error_r);
-int config_parse_file(const char *path, bool expand_values, const char *module,
-		      const char **error_r);
+int config_parse_file(const char *path, bool expand_values,
+		      const char *const *modules, const char **error_r)
+	ATTR_NULL(3);
 
 void config_parse_load_modules(void);
 
 bool config_module_want_parser(struct config_module_parser *parsers,
-			       const char *module,
-			       const struct setting_parser_info *root);
+			       const char *const *modules,
+			       const struct setting_parser_info *root)
+	ATTR_NULL(2);
 
 #endif
