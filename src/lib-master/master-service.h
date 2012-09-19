@@ -22,7 +22,11 @@ enum master_service_flags {
 	MASTER_SERVICE_FLAG_NO_IDLE_DIE		= 0x80,
 	/* Show number of connections in process title
 	   (only if verbose_proctitle setting is enabled) */
-	MASTER_SERVICE_FLAG_UPDATE_PROCTITLE	= 0x100
+	MASTER_SERVICE_FLAG_UPDATE_PROCTITLE	= 0x100,
+	/* SSL settings are always looked up when we have ssl listeners.
+	   This flag enables looking up SSL settings even without ssl
+	   listeners (i.e. the service does STARTTLS). */
+	MASTER_SERVICE_FLAG_USE_SSL_SETTINGS	= 0x200
 };
 
 struct master_service_connection {

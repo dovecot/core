@@ -392,8 +392,8 @@ auth_settings_read(const char *service, pool_t pool,
 	};
  	struct master_service_settings_input input;
 	struct setting_parser_context *set_parser;
-	struct auth_settings *set;
 	const char *error;
+	void **sets;
 
 	memset(&input, 0, sizeof(input));
 	input.roots = set_roots;
@@ -408,7 +408,8 @@ auth_settings_read(const char *service, pool_t pool,
 	if (!settings_parser_check(set_parser, pool, &error))
 		i_unreached();
 
-	set = settings_parser_get_list(set_parser)[MASTER_SERVICE_INTERNAL_SET_PARSERS];
+	sets = master_service_settings_parser_get_others(master_service,
+							 set_parser);
 	settings_parser_deinit(&set_parser);
-	return set;
+	return sets[0];
 }

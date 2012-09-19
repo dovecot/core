@@ -950,6 +950,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	const char *const *userdb_fields, *error;
 	struct auth_user_reply reply;
 	const struct setting_parser_context *set_parser;
+	void **sets;
 	pool_t user_pool, temp_pool;
 	int ret = 1;
 
@@ -973,7 +974,9 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 		master_service_init_log(ctx->service,
 			t_strconcat(ctx->service->name, ": ", NULL));
 	}
-	user_set = settings_parser_get_list(set_parser)[MASTER_SERVICE_INTERNAL_SET_PARSERS];
+	sets = master_service_settings_parser_get_others(master_service,
+							 set_parser);
+	user_set = sets[0];
 
 	if (ctx->conn == NULL)
 		mail_storage_service_first_init(ctx, user_info, user_set);
@@ -1007,7 +1010,9 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	if (!settings_parser_check(user->set_parser, user_pool, &error))
 		i_panic("settings_parser_check() failed: %s", error);
 
-	user->user_set = settings_parser_get_list(user->set_parser)[MASTER_SERVICE_INTERNAL_SET_PARSERS];
+	sets = master_service_settings_parser_get_others(master_service,
+							 user->set_parser);
+	user->user_set = sets[0];
 	user->gid_source = "mail_gid setting";
 	user->uid_source = "mail_uid setting";
 
@@ -1189,6 +1194,7 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 	const struct setting_parser_context *set_parser;
 	const char *error;
 	pool_t temp_pool;
+	void **sets;
 
 	if (ctx->conn != NULL)
 		return;
@@ -1198,7 +1204,9 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 					       &user_info, &set_parser,
 					       &error) < 0)
 		i_fatal("%s", error);
-	user_set = settings_parser_get_list(set_parser)[MASTER_SERVICE_INTERNAL_SET_PARSERS];
+	sets = master_service_settings_parser_get_others(master_service,
+							 set_parser);
+	user_set = sets[0];
 
 	mail_storage_service_first_init(ctx, user_info, user_set);
 	pool_unref(&temp_pool);
@@ -1249,8 +1257,8 @@ void mail_storage_service_deinit(struct mail_storage_service_ctx **_ctx)
 
 void **mail_storage_service_user_get_set(struct mail_storage_service_user *user)
 {
-	return settings_parser_get_list(user->set_parser) +
-		MASTER_SERVICE_INTERNAL_SET_PARSERS;
+	return master_service_settings_parser_get_others(master_service,
+							 user->set_parser);
 }
 
 const struct mail_storage_settings *

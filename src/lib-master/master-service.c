@@ -182,6 +182,8 @@ master_service_init(const char *name, enum master_service_flags flags,
 		service->listener_names_count =
 			str_array_length((void *)service->listener_names);
 	}
+	service->want_ssl_settings = service->ssl_socket_count > 0 ||
+		(flags & MASTER_SERVICE_FLAG_USE_SSL_SETTINGS) != 0;
 
 	/* set up some kind of logging until we know exactly how and where
 	   we want to log */

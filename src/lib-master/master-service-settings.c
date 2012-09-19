@@ -116,7 +116,7 @@ master_service_exec_config(struct master_service *service,
 
 	/* @UNSAFE */
 	i = 0;
-	argv_max_count = 9 + (service->argc + 1) + 1;
+	argv_max_count = 11 + (service->argc + 1) + 1;
 	conf_argv = t_new(const char *, argv_max_count);
 	conf_argv[i++] = DOVECOT_CONFIG_BIN_PATH;
 	conf_argv[i++] = "-f";
@@ -126,6 +126,10 @@ master_service_exec_config(struct master_service *service,
 	if (input->module != NULL) {
 		conf_argv[i++] = "-m";
 		conf_argv[i++] = input->module;
+		if (service->want_ssl_settings) {
+			conf_argv[i++] = "-m";
+			conf_argv[i++] = "ssl";
+		}
 	}
 	if (input->parse_full_config)
 		conf_argv[i++] = "-p";
@@ -216,12 +220,15 @@ master_service_open_config(struct master_service *service,
 }
 
 static void
-config_build_request(string_t *str,
+config_build_request(struct master_service *service, string_t *str,
 		     const struct master_service_settings_input *input)
 {
 	str_append(str, "REQ");
-	if (input->module != NULL)
+	if (input->module != NULL) {
 		str_printfa(str, "\tmodule=%s", input->module);
+		if (service->want_ssl_settings)
+			str_append(str, "\tmodule=ssl");
+	}
 	if (input->service != NULL)
 		str_printfa(str, "\tservice=%s", input->service);
 	if (input->username != NULL)
@@ -236,7 +243,8 @@ config_build_request(string_t *str,
 }
 
 static int
-config_send_request(const struct master_service_settings_input *input,
+config_send_request(struct master_service *service,
+		    const struct master_service_settings_input *input,
 		    int fd, const char *path, const char **error_r)
 {
 	int ret;
@@ -246,7 +254,7 @@ config_send_request(const struct master_service_settings_input *input,
 
 		str = t_str_new(128);
 		str_append(str, CONFIG_HANDSHAKE);
-		config_build_request(str, input);
+		config_build_request(service, str, input);
 		ret = write_full(fd, str_data(str), str_len(str));
 	} T_END;
 	if (ret < 0) {
@@ -352,7 +360,7 @@ int master_service_settings_read(struct master_service *service,
 		if (fd == -1)
 			return -1;
 
-		if (config_send_request(input, fd, path, error_r) < 0) {
+		if (config_send_request(service, input, fd, path, error_r) < 0) {
 			i_close_fd(&fd);
 			config_exec_fallback(service, input);
 			return -1;
@@ -371,8 +379,10 @@ int master_service_settings_read(struct master_service *service,
 	p_array_init(&all_roots, service->set_pool, 8);
 	tmp_root = &master_service_setting_parser_info;
 	array_append(&all_roots, &tmp_root, 1);
-	tmp_root = &master_service_ssl_setting_parser_info;
-	array_append(&all_roots, &tmp_root, 1);
+	if (service->want_ssl_settings) {
+		tmp_root = &master_service_ssl_setting_parser_info;
+		array_append(&all_roots, &tmp_root, 1);
+	}
 	if (input->roots != NULL) {
 		for (i = 0; input->roots[i] != NULL; i++)
 			array_append(&all_roots, &input->roots[i], 1);
@@ -498,8 +508,15 @@ master_service_settings_get(struct master_service *service)
 
 void **master_service_settings_get_others(struct master_service *service)
 {
-	return settings_parser_get_list(service->set_parser) +
-		MASTER_SERVICE_INTERNAL_SET_PARSERS;
+	return master_service_settings_parser_get_others(service,
+							 service->set_parser);
+}
+
+void **master_service_settings_parser_get_others(struct master_service *service,
+						 const struct setting_parser_context *set_parser)
+{
+	return settings_parser_get_list(set_parser) + 1 +
+		(service->want_ssl_settings ? 1 : 0);
 }
 
 struct setting_parser_context *
