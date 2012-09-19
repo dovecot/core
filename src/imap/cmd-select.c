@@ -4,6 +4,7 @@
 #include "seq-range-array.h"
 #include "imap-commands.h"
 #include "mail-search-build.h"
+#include "imap-search-args.h"
 #include "imap-seqset.h"
 #include "imap-fetch.h"
 #include "imap-sync.h"
@@ -239,6 +240,7 @@ static int select_qresync(struct imap_select_context *ctx)
 	search_args->args = p_new(search_args->pool, struct mail_search_arg, 1);
 	search_args->args->type = SEARCH_UIDSET;
 	search_args->args->value.seqset = ctx->qresync_known_uids;
+	imap_search_add_changed_since(search_args, ctx->qresync_modseq);
 
 	memset(&qresync_args, 0, sizeof(qresync_args));
 	qresync_args.qresync_sample_seqset = &ctx->qresync_sample_seqset;
@@ -252,8 +254,6 @@ static int select_qresync(struct imap_select_context *ctx)
 
 	fetch_ctx = imap_fetch_alloc(ctx->cmd->client, ctx->cmd->pool);
 
-	imap_fetch_add_changed_since(fetch_ctx, search_args,
-				     ctx->qresync_modseq);
 	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_uid_init);
 	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_flags_init);
 	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_modseq_init);

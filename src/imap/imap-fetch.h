@@ -116,10 +116,6 @@ bool imap_fetch_init_handler(struct imap_fetch_init_context *init_ctx);
 void imap_fetch_init_nofail_handler(struct imap_fetch_context *ctx,
 				    bool (*init)(struct imap_fetch_init_context *));
 
-void imap_fetch_add_changed_since(struct imap_fetch_context *ctx,
-				  struct mail_search_args *search_args,
-				  uint64_t modseq);
-
 void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 		      struct mail_search_args *search_args);
 int imap_fetch_send_vanished(struct client *client, struct mailbox *box,

@@ -25,4 +25,7 @@ int imap_search_get_seqset(struct client_command_context *cmd,
 			   const char *set, bool uid,
 			   struct mail_search_args **search_args_r);
 
+void imap_search_add_changed_since(struct mail_search_args *search_args,
+				   uint64_t modseq);
+
 #endif

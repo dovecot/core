@@ -118,7 +118,8 @@ fetch_parse_modifier(struct imap_fetch_context *ctx,
 			return FALSE;
 		}
 		*args += 1;
-		imap_fetch_add_changed_since(ctx, search_args, modseq);
+		imap_search_add_changed_since(search_args, modseq);
+		imap_fetch_init_nofail_handler(ctx, imap_fetch_modseq_init);
 		return TRUE;
 	}
 	if (strcmp(name, "VANISHED") == 0 && cmd->uid) {

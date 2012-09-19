@@ -129,24 +129,6 @@ imap_fetch_alloc(struct client *client, pool_t pool)
 	return ctx;
 }
 
-void imap_fetch_add_changed_since(struct imap_fetch_context *ctx,
-				  struct mail_search_args *search_args,
-				  uint64_t modseq)
-{
-	struct mail_search_arg *search_arg;
-
-	search_arg = p_new(search_args->pool, struct mail_search_arg, 1);
-	search_arg->type = SEARCH_MODSEQ;
-	search_arg->value.modseq =
-		p_new(search_args->pool, struct mail_search_modseq, 1);
-	search_arg->value.modseq->modseq = modseq + 1;
-
-	search_arg->next = search_args->args->next;
-	search_args->args->next = search_arg;
-
-	imap_fetch_init_nofail_handler(ctx, imap_fetch_modseq_init);
-}
-
 #undef imap_fetch_add_handler
 void imap_fetch_add_handler(struct imap_fetch_init_context *ctx,
 			    enum imap_fetch_handler_flags flags,
