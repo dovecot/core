@@ -733,8 +733,16 @@ mail_storage_service_init(struct master_service *service,
 			  enum mail_storage_service_flags flags)
 {
 	struct mail_storage_service_ctx *ctx;
+	const char *version;
 	pool_t pool;
 	unsigned int count;
+
+	version = master_service_get_version_string(service);
+	if (version != NULL && strcmp(version, PACKAGE_VERSION) != 0) {
+		i_fatal("Version mismatch: libdovecot-storage.so is '%s', "
+			"while the running Dovecot binary is '%s'",
+			PACKAGE_VERSION, version);
+	}
 
 	(void)umask(0077);
 	io_loop_set_time_moved_callback(current_ioloop,
