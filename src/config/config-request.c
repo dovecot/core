@@ -348,13 +348,11 @@ config_export_init(const char *const *modules, enum config_dump_scope scope,
 	struct config_export_context *ctx;
 	pool_t pool;
 
-	i_assert(modules != NULL);
-
 	pool = pool_alloconly_create(MEMPOOL_GROWING"config export", 1024*64);
 	ctx = p_new(pool, struct config_export_context, 1);
 	ctx->pool = pool;
 
-	ctx->modules = p_strarray_dup(pool, modules);
+	ctx->modules = modules == NULL ? NULL : p_strarray_dup(pool, modules);
 	ctx->flags = flags;
 	ctx->callback = callback;
 	ctx->context = context;

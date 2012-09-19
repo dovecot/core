@@ -592,7 +592,7 @@ int main(int argc, char *argv[])
 	const char *orig_config_path, *config_path, *module;
 	ARRAY(const char *) module_names;
 	struct config_filter filter;
-	const char *error;
+	const char *const *wanted_modules, *error;
 	char **exec_args = NULL, **setting_name_filters = NULL;
 	unsigned int i;
 	int c, ret, ret2;
@@ -654,6 +654,8 @@ int main(int argc, char *argv[])
 		}
 	}
 	array_append_zero(&module_names);
+	wanted_modules = array_count(&module_names) == 1 ? NULL :
+		array_idx(&module_names, 0);
 
 	config_path = master_service_get_config_path(master_service);
 	/* use strcmp() instead of !=, because dovecot -n always gives us
@@ -678,8 +680,7 @@ int main(int argc, char *argv[])
 
 	if ((ret = config_parse_file(dump_defaults ? NULL : config_path,
 				     expand_vars,
-				     parse_full_config ? NULL :
-				     array_idx(&module_names, 0),
+				     parse_full_config ? NULL : wanted_modules,
 				     &error)) == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {
 		i_fatal("%s (copy example configs from "EXAMPLE_CONFIG_DIR"/)",
@@ -692,7 +693,7 @@ int main(int argc, char *argv[])
 	if (simple_output) {
 		struct config_export_context *ctx;
 
-		ctx = config_export_init(array_idx(&module_names, 0), scope,
+		ctx = config_export_init(wanted_modules, scope,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					 config_request_simple_stdout,
 					 setting_name_filters);
@@ -719,14 +720,12 @@ int main(int argc, char *argv[])
 		if (!config_path_specified)
 			check_wrong_config(config_path);
 		fflush(stdout);
-		ret2 = config_dump_human(&filter, array_idx(&module_names, 0),
-					 scope, NULL);
+		ret2 = config_dump_human(&filter, wanted_modules, scope, NULL);
 	} else {
 		struct config_export_context *ctx;
 
 		env_put("DOVECONF_ENV=1");
-		ctx = config_export_init(array_idx(&module_names, 0),
-					 CONFIG_DUMP_SCOPE_SET,
+		ctx = config_export_init(wanted_modules, CONFIG_DUMP_SCOPE_SET,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					 config_request_putenv, NULL);
 		config_export_by_filter(ctx, &filter);

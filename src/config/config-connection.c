@@ -70,7 +70,7 @@ static int config_connection_request(struct config_connection *conn,
 	struct config_export_context *ctx;
 	struct master_service_settings_output output;
 	struct config_filter filter;
-	const char *path, *error, *module;
+	const char *path, *error, *module, *const *wanted_modules;
 	ARRAY(const char *) modules;
 	bool is_master = FALSE;
 
@@ -102,6 +102,8 @@ static int config_connection_request(struct config_connection *conn,
 		}
 	}
 	array_append_zero(&modules);
+	wanted_modules = array_count(&modules) == 1 ? NULL :
+		array_idx(&modules, 0);
 
 	if (is_master) {
 		/* master reads configuration only when reloading settings */
@@ -116,8 +118,7 @@ static int config_connection_request(struct config_connection *conn,
 
 	o_stream_cork(conn->output);
 
-	ctx = config_export_init(array_idx(&modules, 0),
-				 CONFIG_DUMP_SCOPE_SET, 0,
+	ctx = config_export_init(wanted_modules, CONFIG_DUMP_SCOPE_SET, 0,
 				 config_request_output, conn->output);
 	config_export_by_filter(ctx, &filter);
 	config_export_get_output(ctx, &output);
