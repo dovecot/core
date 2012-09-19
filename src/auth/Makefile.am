@@ -44,6 +44,7 @@ libpassword_a_SOURCES = \
 	password-scheme.c \
 	password-scheme-crypt.c \
 	password-scheme-md5crypt.c \
+	password-scheme-scram.c \
 	password-scheme-otp.c \
 	password-scheme-rpa.c
 
