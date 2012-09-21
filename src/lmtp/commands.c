@@ -479,16 +479,6 @@ int cmd_rcpt(struct client *client, const char *args)
 			return 0;
 	}
 
-	if (client->proxy != NULL) {
-		/* NOTE: if this restriction is ever removed, we'll also need
-		   to send different message bodies to local and proxy
-		   (with and without Return-Path: header) */
-		client_send_line(client, "451 4.3.0 <%s> "
-			"Can't handle mixed proxy/non-proxy destinations",
-			address);
-		return 0;
-	}
-
 	memset(&input, 0, sizeof(input));
 	input.module = input.service = "lmtp";
 	input.username = username;
@@ -510,6 +500,15 @@ int cmd_rcpt(struct client *client, const char *args)
 		client_send_line(client,
 				 "550 5.1.1 <%s> User doesn't exist: %s",
 				 address, username);
+		return 0;
+	}
+	if (client->proxy != NULL) {
+		/* NOTE: if this restriction is ever removed, we'll also need
+		   to send different message bodies to local and proxy
+		   (with and without Return-Path: header) */
+		client_send_line(client, "451 4.3.0 <%s> "
+			"Can't handle mixed proxy/non-proxy destinations",
+			address);
 		return 0;
 	}
 
