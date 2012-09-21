@@ -254,10 +254,14 @@ int config_parse_net(const char *value, struct ip_addr *ip_r,
 	}
 
 	max_bits = IPADDR_IS_V4(&ips[0]) ? 32 : 128;
-	if (p == NULL || str_to_uint(p, &bits) < 0 || bits > max_bits)
+	if (p == NULL)
 		*bits_r = max_bits;
-	else
+	else if (str_to_uint(p, &bits) == 0 && bits <= max_bits)
 		*bits_r = bits;
+	else {
+		*error_r = t_strdup_printf("Invalid network mask: %s", p);
+		return -1;
+	}
 	return 0;
 }
 
