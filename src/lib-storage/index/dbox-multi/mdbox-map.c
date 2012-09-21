@@ -50,7 +50,6 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list)
 {
 	struct mdbox_map *map;
 	const char *root, *index_root;
-	mode_t dir_mode;
 
 	root = mailbox_list_get_path(root_list, NULL,
 				     MAILBOX_LIST_PATH_TYPE_DIR);
@@ -77,14 +76,26 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list)
 				sizeof(uint32_t));
 	map->ref_ext_id = mail_index_ext_register(map->index, "ref", 0,
 				sizeof(uint16_t), sizeof(uint16_t));
-
-	mailbox_list_get_root_permissions(root_list,
-					  &map->create_mode, &dir_mode,
-					  &map->create_gid,
-					  &map->create_gid_origin);
-	mail_index_set_permissions(map->index, map->create_mode,
-				   map->create_gid, map->create_gid_origin);
 	return map;
+}
+
+void mdbox_map_get_create_mode(struct mdbox_map *map, mode_t *mode_r, gid_t *gid_r,
+			       const char **gid_origin_r)
+{
+	mode_t dir_mode;
+	const char *gid_origin;
+
+	if (!map->create_mode_set) {
+		mailbox_list_get_root_permissions(map->root_list,
+						  &map->_create_mode, &dir_mode,
+						  &map->_create_gid,
+						  &gid_origin);
+		map->_create_gid_origin = i_strdup(gid_origin);
+		map->create_mode_set = TRUE;
+	}
+	*mode_r = map->_create_mode;
+	*gid_r = map->_create_gid;
+	*gid_origin_r = map->_create_gid_origin;
 }
 
 void mdbox_map_deinit(struct mdbox_map **_map)
@@ -98,6 +109,7 @@ void mdbox_map_deinit(struct mdbox_map **_map)
 		mail_index_close(map->index);
 	}
 	mail_index_free(&map->index);
+	i_free(map->_create_gid_origin);
 	i_free(map->index_path);
 	i_free(map->path);
 	i_free(map);
@@ -156,12 +168,20 @@ static void mdbox_map_cleanup(struct mdbox_map *map)
 static int mdbox_map_open_internal(struct mdbox_map *map, bool create_missing)
 {
 	enum mail_index_open_flags open_flags;
+	mode_t create_mode;
+	gid_t create_gid;
+	const char *create_gid_origin;
 	int ret = 0;
 
 	if (map->view != NULL) {
 		/* already opened */
 		return 1;
 	}
+
+	mdbox_map_get_create_mode(map, &create_mode, &create_gid,
+				  &create_gid_origin);
+	mail_index_set_permissions(map->index, create_mode,
+				   create_gid, create_gid_origin);
 
 	open_flags = MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY |
 		mail_storage_settings_to_index_flags(MAP_STORAGE(map)->set);

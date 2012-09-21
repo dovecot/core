@@ -20,11 +20,12 @@ struct mdbox_map {
 	uint32_t map_ext_id, ref_ext_id;
 
 	struct mailbox_list *root_list;
-	mode_t create_mode;
-	gid_t create_gid;
-	const char *create_gid_origin;
+	mode_t _create_mode;
+	gid_t _create_gid;
+	char *_create_gid_origin;
 
 	unsigned int verify_existing_file_ids:1;
+	unsigned int create_mode_set:1;
 };
 
 struct mdbox_map_append {
@@ -63,5 +64,8 @@ struct mdbox_map_atomic_context {
 int mdbox_map_view_lookup_rec(struct mdbox_map *map,
 			      struct mail_index_view *view, uint32_t seq,
 			      struct dbox_mail_lookup_rec *rec_r);
+
+void mdbox_map_get_create_mode(struct mdbox_map *map, mode_t *mode_r, gid_t *gid_r,
+			       const char **gid_origin_r);
 
 #endif
