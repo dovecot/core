@@ -294,6 +294,9 @@ void client_state_reset(struct client *client)
 {
 	struct mail_recipient *rcpt;
 
+	if (client->proxy != NULL)
+		lmtp_proxy_deinit(&client->proxy);
+
 	if (array_is_created(&client->state.rcpt_to)) {
 		array_foreach_modifiable(&client->state.rcpt_to, rcpt)
 			mail_storage_service_user_free(&rcpt->service_user);
