@@ -205,7 +205,7 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 	}
 
 	/* and try opening again */
-	if (mailbox_sync(box, 0) < 0) {
+	if (mailbox_open(box) < 0) {
 		*error_str_r = mailbox_get_last_error(box, error_r);
 		return -1;
 	}
