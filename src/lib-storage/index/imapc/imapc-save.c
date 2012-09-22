@@ -126,7 +126,8 @@ static void imapc_save_appenduid(struct imapc_save_context *ctx,
 		return;
 
 	if (str_to_uint32(args[1], &dest_uid) == 0) {
-		seq_range_array_add(&ctx->dest_saved_uids, dest_uid);
+		seq_range_array_add_with_init(&ctx->dest_saved_uids,
+					      32, dest_uid);
 		*uid_r = dest_uid;
 	}
 }
@@ -343,7 +344,8 @@ static void imapc_save_copyuid(struct imapc_save_context *ctx,
 		return;
 
 	if (str_to_uint32(args[2], &dest_uid) == 0) {
-		seq_range_array_add(&ctx->dest_saved_uids, dest_uid);
+		seq_range_array_add_with_init(&ctx->dest_saved_uids,
+					      32, dest_uid);
 		*uid_r = dest_uid;
 	}
 }
