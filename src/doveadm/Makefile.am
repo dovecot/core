@@ -125,13 +125,13 @@ pkginc_lib_HEADERS = \
 	doveadm-mailbox-list-iter.h \
 	doveadm-print.h \
 	doveadm-print-private.h \
+	doveadm-settings.h \
 	doveadm-util.h
 
 noinst_HEADERS = \
 	client-connection.h \
 	server-connection.h \
 	doveadm-server.h \
-	doveadm-settings.h \
 	doveadm-who.h
 
 install-exec-local:
