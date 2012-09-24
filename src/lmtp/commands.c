@@ -444,6 +444,42 @@ static void lmtp_address_translate(struct client *client, const char **address)
 	*address = str_c(username);
 }
 
+static int
+lmtp_rcpt_to_is_over_quota(struct client *client,
+			   const struct mail_recipient *rcpt)
+{
+	struct mail_user *user;
+	struct mail_namespace *ns;
+	struct mailbox *box;
+	struct mailbox_status status;
+	const char *errstr;
+	enum mail_error error;
+	int ret;
+
+	if (!client->lmtp_set->lmtp_rcpt_check_quota)
+		return 0;
+
+	ret = mail_storage_service_next(storage_service,
+					rcpt->service_user, &user);
+	if (ret < 0)
+		return -1;
+
+	ns = mail_namespace_find_inbox(user->namespaces);
+	box = mailbox_alloc(ns->list, "INBOX", 0);
+	ret = mailbox_get_status(box, STATUS_CHECK_OVER_QUOTA, &status);
+	if (ret < 0) {
+		errstr = mailbox_get_last_error(box, &error);
+		if (error == MAIL_ERROR_NOSPACE) {
+			client_send_line(client, "552 5.2.2 <%s> %s",
+					 rcpt->address, errstr);
+			ret = 1;
+		}
+	}
+	mailbox_free(&box);
+	mail_user_unref(&user);
+	return ret;
+}
+
 int cmd_rcpt(struct client *client, const char *args)
 {
 	struct mail_recipient rcpt;
@@ -516,9 +552,15 @@ int cmd_rcpt(struct client *client, const char *args)
 
 	rcpt.address = p_strdup(client->state_pool, address);
 	rcpt.detail = p_strdup(client->state_pool, detail);
-	array_append(&client->state.rcpt_to, &rcpt, 1);
-
-	client_send_line(client, "250 2.1.5 OK");
+	if ((ret = lmtp_rcpt_to_is_over_quota(client, &rcpt)) < 0) {
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
+				 rcpt.address);
+		return 0;
+	}
+	if (ret == 0) {
+		array_append(&client->state.rcpt_to, &rcpt, 1);
+		client_send_line(client, "250 2.1.5 OK");
+	}
 	return 0;
 }
 
