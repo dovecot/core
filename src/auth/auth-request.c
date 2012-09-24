@@ -1794,16 +1794,18 @@ const struct var_expand_table auth_request_var_expand_static_tab[] = {
 	{ '\0', NULL, NULL }
 };
 
-const struct var_expand_table *
-auth_request_get_var_expand_table(const struct auth_request *auth_request,
-				  auth_request_escape_func_t *escape_func)
+struct var_expand_table *
+auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
+				       auth_request_escape_func_t *escape_func,
+				       unsigned int *count)
 {
 	struct var_expand_table *tab;
 
 	if (escape_func == NULL)
 		escape_func = escape_none;
 
-	tab = t_malloc(sizeof(auth_request_var_expand_static_tab));
+	*count += N_ELEMENTS(auth_request_var_expand_static_tab);
+	tab = t_malloc(*count * sizeof(struct var_expand_table));
 	memcpy(tab, auth_request_var_expand_static_tab,
 	       sizeof(auth_request_var_expand_static_tab));
 
@@ -1853,6 +1855,16 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 	tab[18].value = auth_request->session_id == NULL ? NULL :
 		escape_func(auth_request->session_id, auth_request);
 	return tab;
+}
+
+const struct var_expand_table *
+auth_request_get_var_expand_table(const struct auth_request *auth_request,
+				  auth_request_escape_func_t *escape_func)
+{
+	unsigned int count = 0;
+
+	return auth_request_get_var_expand_table_full(auth_request, escape_func,
+						      &count);
 }
 
 static void get_log_prefix(string_t *str, struct auth_request *auth_request,

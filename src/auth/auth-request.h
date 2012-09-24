@@ -207,6 +207,10 @@ int auth_request_password_verify(struct auth_request *request,
 const struct var_expand_table *
 auth_request_get_var_expand_table(const struct auth_request *auth_request,
 				  auth_request_escape_func_t *escape_func);
+struct var_expand_table *
+auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
+				       auth_request_escape_func_t *escape_func,
+				       unsigned int *count);
 const char *auth_request_str_escape(const char *string,
 				    const struct auth_request *request);
 
