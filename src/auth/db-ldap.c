@@ -1076,8 +1076,8 @@ db_ldap_value_get_var_expand_table(struct auth_request *auth_request,
 
 	table = auth_request_get_var_expand_table_full(auth_request, NULL,
 						       &count);
-	table[count-1].key = '$';
-	table[count-1].value = ldap_value;
+	table[0].key = '$';
+	table[0].value = ldap_value;
 	return table;
 }
 

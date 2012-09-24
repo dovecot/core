@@ -1799,15 +1799,22 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 				       auth_request_escape_func_t *escape_func,
 				       unsigned int *count)
 {
-	struct var_expand_table *tab;
+	const unsigned int auth_count =
+		N_ELEMENTS(auth_request_var_expand_static_tab);
+	struct var_expand_table *tab, *ret_tab;
 
 	if (escape_func == NULL)
 		escape_func = escape_none;
 
-	*count += N_ELEMENTS(auth_request_var_expand_static_tab);
-	tab = t_malloc(*count * sizeof(struct var_expand_table));
+	/* keep the extra fields at the beginning. the last static_tab field
+	   contains the ending NULL-fields. */
+	tab = ret_tab = t_malloc((*count + auth_count) * sizeof(*tab));
+	memset(tab, 0, *count * sizeof(*tab));
+	tab += *count;
+	*count += auth_count;
+
 	memcpy(tab, auth_request_var_expand_static_tab,
-	       sizeof(auth_request_var_expand_static_tab));
+	       auth_count * sizeof(*tab));
 
 	tab[0].value = escape_func(auth_request->user, auth_request);
 	tab[1].value = escape_func(t_strcut(auth_request->user, '@'),
@@ -1854,7 +1861,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	}
 	tab[18].value = auth_request->session_id == NULL ? NULL :
 		escape_func(auth_request->session_id, auth_request);
-	return tab;
+	return ret_tab;
 }
 
 const struct var_expand_table *
