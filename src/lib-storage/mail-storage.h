@@ -74,7 +74,8 @@ enum mailbox_status_items {
 	STATUS_HIGHESTMODSEQ	= 0x80,
 	STATUS_PERMANENT_FLAGS	= 0x200,
 	STATUS_FIRST_RECENT_UID	= 0x400,
-	STATUS_LAST_CACHED_SEQ	= 0x800
+	STATUS_LAST_CACHED_SEQ	= 0x800,
+	STATUS_CHECK_OVER_QUOTA	= 0x1000 /* return error if over quota */
 };
 
 enum mailbox_metadata_items {

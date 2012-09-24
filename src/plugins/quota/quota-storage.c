@@ -66,6 +66,36 @@ static void quota_mail_expunge(struct mail *_mail)
 	qmail->super.expunge(_mail);
 }
 
+static int
+quota_get_status(struct mailbox *box, enum mailbox_status_items items,
+		 struct mailbox_status *status_r)
+{
+	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
+	struct quota_transaction_context *qt;
+	bool too_large;
+	int ret = 0;
+
+	if ((items & STATUS_CHECK_OVER_QUOTA) != 0) {
+		qt = quota_transaction_begin(box);
+		if ((ret = quota_test_alloc(qt, 1, &too_large)) == 0) {
+			mail_storage_set_error(box->storage, MAIL_ERROR_NOSPACE,
+					       qt->quota->set->quota_exceeded_msg);
+			ret = -1;
+		}
+		quota_transaction_rollback(&qt);
+
+		if ((items & ~STATUS_CHECK_OVER_QUOTA) == 0) {
+			/* don't bother calling parent, it may unnecessarily
+			   try to open the mailbox */
+			return ret;
+		}
+	}
+
+	if (qbox->module_ctx.super.get_status(box, items, status_r) < 0)
+		ret = -1;
+	return ret < 0 ? -1 : 0;
+}
+
 static struct mailbox_transaction_context *
 quota_mailbox_transaction_begin(struct mailbox *box,
 				enum mailbox_transaction_flags flags)
@@ -376,6 +406,7 @@ void quota_mailbox_allocated(struct mailbox *box)
 	qbox->module_ctx.super = *v;
 	box->vlast = &qbox->module_ctx.super;
 
+	v->get_status = quota_get_status;
 	v->transaction_begin = quota_mailbox_transaction_begin;
 	v->transaction_commit = quota_mailbox_transaction_commit;
 	v->transaction_rollback = quota_mailbox_transaction_rollback;
