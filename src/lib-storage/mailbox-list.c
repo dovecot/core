@@ -163,6 +163,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	list->set.mailbox_dir_name =
 		p_strdup(list->pool, set->mailbox_dir_name);
 	list->set.alt_dir = p_strdup(list->pool, set->alt_dir);
+	list->set.alt_dir_nocheck = set->alt_dir_nocheck;
 
 	if (*set->mailbox_dir_name == '\0')
 		list->set.mailbox_dir_name = "";
@@ -294,7 +295,10 @@ int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 			dest = &set_r->control_dir;
 		else if (strcmp(key, "ALT") == 0)
 			dest = &set_r->alt_dir;
-		else if (strcmp(key, "LAYOUT") == 0)
+		else if (strcmp(key, "ALTNOCHECK") == 0) {
+			set_r->alt_dir_nocheck = TRUE;
+			continue;
+		} else if (strcmp(key, "LAYOUT") == 0)
 			dest = &set_r->layout;
 		else if (strcmp(key, "SUBSCRIPTIONS") == 0)
 			dest = &set_r->subscription_fname;

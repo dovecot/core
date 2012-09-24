@@ -107,7 +107,8 @@ int dbox_storage_create(struct mail_storage *_storage,
 		storage->attachment_fs = fs_init(name, args, &fs_set);
 	} T_END;
 
-	dbox_verify_alt_path(ns->list);
+	if (!ns->list->set.alt_dir_nocheck)
+		dbox_verify_alt_path(ns->list);
 	return 0;
 }
 
