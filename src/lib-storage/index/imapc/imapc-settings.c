@@ -50,7 +50,7 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_features = "",
 	.imapc_rawlog_dir = "",
 	.imapc_list_prefix = "",
-	.imapc_max_idle_time = 60*29,
+	.imapc_max_idle_time = IMAPC_DEFAULT_MAX_IDLE_TIME,
 
 	.ssl_crypto_device = ""
 };
@@ -131,6 +131,10 @@ static bool imapc_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 #endif
+	if (set->imapc_max_idle_time == 0) {
+		*error_r = "imapc_max_idle_time must not be 0";
+		return FALSE;
+	}
 	if (imapc_settings_parse_features(set, error_r) < 0)
 		return FALSE;
 	return TRUE;
