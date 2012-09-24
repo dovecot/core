@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "settings-parser.h"
 #include "mail-storage-settings.h"
-#include "imapc-client.h"
 #include "imapc-settings.h"
 
 #include <stddef.h>
@@ -51,7 +50,7 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_features = "",
 	.imapc_rawlog_dir = "",
 	.imapc_list_prefix = "",
-	.imapc_max_idle_time = IMAPC_DEFAULT_MAX_IDLE_TIME,
+	.imapc_max_idle_time = 60*29,
 
 	.ssl_crypto_device = ""
 };
