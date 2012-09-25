@@ -483,6 +483,16 @@ void mail_storage_set_critical(struct mail_storage *storage,
 	mail_storage_set_internal_error(storage);
 }
 
+void mail_storage_copy_error(struct mail_storage *dest,
+			     struct mail_storage *src)
+{
+	const char *str;
+	enum mail_error error;
+
+	str = mail_storage_get_last_error(src, &error);
+	mail_storage_set_error(dest, error, str);
+}
+
 void mail_storage_copy_list_error(struct mail_storage *storage,
 				  struct mailbox_list *list)
 {
