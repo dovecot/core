@@ -231,12 +231,6 @@ maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 	const char *path, *root_dir, *p;
 	bool create_parent_dir;
 
-	if (type == MAILBOX_DIR_CREATE_TYPE_ONLY_NOSELECT) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
-				       "Can't create non-selectable mailbox");
-		return -1;
-	}
-
 	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	create_parent_dir = type == MAILBOX_DIR_CREATE_TYPE_MAILBOX &&

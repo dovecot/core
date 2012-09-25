@@ -29,9 +29,7 @@ enum mailbox_dir_create_type {
 	/* Creating a mailbox */
 	MAILBOX_DIR_CREATE_TYPE_MAILBOX,
 	/* Create a \Noselect or a mailbox */
-	MAILBOX_DIR_CREATE_TYPE_TRY_NOSELECT,
-	/* Create a \Noselect or fail */
-	MAILBOX_DIR_CREATE_TYPE_ONLY_NOSELECT
+	MAILBOX_DIR_CREATE_TYPE_TRY_NOSELECT
 };
 
 struct mailbox_list_vfuncs {
@@ -208,8 +206,6 @@ int mailbox_list_create_missing_index_pvt_dir(struct mailbox_list *list,
 void mailbox_list_add_change(struct mailbox_list *list,
 			     enum mailbox_log_record_type type,
 			     const guid_128_t guid_128);
-int mailbox_list_get_guid_path(struct mailbox_list *list, const char *path,
-			       guid_128_t guid_128_r);
 void mailbox_name_get_sha128(const char *name, guid_128_t guid_128_r);
 
 void mailbox_list_clear_error(struct mailbox_list *list);
