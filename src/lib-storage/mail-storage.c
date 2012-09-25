@@ -1299,6 +1299,8 @@ const char *mailbox_get_vname(const struct mailbox *box)
 
 bool mailbox_is_readonly(struct mailbox *box)
 {
+	i_assert(box->opened);
+
 	return box->v.is_readonly(box);
 }
 
@@ -1354,6 +1356,8 @@ int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
 
 enum mail_flags mailbox_get_private_flags_mask(struct mailbox *box)
 {
+	i_assert(box->opened);
+
 	if (box->v.get_private_flags_mask != NULL)
 		return box->v.get_private_flags_mask(box);
 	else if (box->list->set.index_pvt_dir != NULL)
@@ -1428,6 +1432,8 @@ int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 void mailbox_notify_changes(struct mailbox *box,
 			    mailbox_notify_callback_t *callback, void *context)
 {
+	i_assert(box->opened);
+
 	box->notify_callback = callback;
 	box->notify_context = context;
 
@@ -1436,6 +1442,8 @@ void mailbox_notify_changes(struct mailbox *box,
 
 void mailbox_notify_changes_stop(struct mailbox *box)
 {
+	i_assert(box->opened);
+
 	box->notify_callback = NULL;
 	box->notify_context = NULL;
 
@@ -1524,6 +1532,8 @@ mailbox_transaction_begin(struct mailbox *box,
 			  enum mailbox_transaction_flags flags)
 {
 	struct mailbox_transaction_context *trans;
+
+	i_assert(box->opened);
 
 	box->transaction_count++;
 	trans = box->v.transaction_begin(box, flags);
