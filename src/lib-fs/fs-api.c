@@ -14,13 +14,14 @@ static int
 fs_alloc(const struct fs *fs_class, const char *args,
 	 const struct fs_settings *set, struct fs **fs_r, const char **error_r)
 {
+	struct fs *fs = NULL;
 	char *error_dup = NULL;
 	int ret;
 
 	T_BEGIN {
 		const char *error;
 
-		ret = fs_class->v.init(args, set, fs_r, &error);
+		ret = fs_class->v.init(args, set, &fs, &error);
 		if (ret < 0)
 			error_dup = i_strdup(error);
 	} T_END;
@@ -33,6 +34,7 @@ fs_alloc(const struct fs *fs_class, const char *args,
 		return -1;
 	}
 	(*fs_r)->last_error = str_new(default_pool, 64);
+	*fs_r = fs;
 	return 0;
 }
 
