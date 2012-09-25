@@ -17,6 +17,7 @@
 
 #define MAILDIR_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, maildir_mailbox_list_module)
+#define MAILDIR_SUBFOLDER_FILENAME "maildirfolder"
 
 struct maildir_mailbox_list_context {
 	union mailbox_list_module_context module_ctx;
@@ -436,6 +437,52 @@ maildir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	return ret;
 }
 
+static int maildir_create_maildirfolder_file(struct mailbox *box)
+{
+	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
+	const char *path;
+	mode_t old_mask;
+	int fd;
+
+	/* Maildir++ spec wants that maildirfolder named file is created for
+	   all subfolders. Do this only with Maildir++ layout. */
+	if (strcmp(box->list->name, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) != 0)
+		return 0;
+
+	path = t_strconcat(mailbox_get_path(box),
+			   "/"MAILDIR_SUBFOLDER_FILENAME, NULL);
+	old_mask = umask(0);
+	fd = open(path, O_CREAT | O_WRONLY, perm->file_create_mode);
+	umask(old_mask);
+	if (fd != -1) {
+		/* ok */
+	} else if (errno == ENOENT) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+			"Mailbox was deleted while it was being created");
+		return -1;
+	} else {
+		mail_storage_set_critical(box->storage,
+			"open(%s, O_CREAT) failed: %m", path);
+		return -1;
+	}
+
+	if (perm->file_create_gid != (gid_t)-1) {
+		if (fchown(fd, (uid_t)-1, perm->file_create_gid) == 0) {
+			/* ok */
+		} else if (errno == EPERM) {
+			mail_storage_set_critical(box->storage, "%s",
+				eperm_error_get_chgrp("fchown", path,
+						      perm->file_create_gid,
+						      perm->file_create_gid_origin));
+		} else {
+			mail_storage_set_critical(box->storage,
+				"fchown(%s) failed: %m", path);
+		}
+	}
+	i_close_fd(&fd);
+	return 0;
+}
+
 static int
 maildir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		       bool directory)
@@ -459,6 +506,7 @@ maildir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 
 	if (create_maildir(box, FALSE) < 0)
 		return -1;
+	maildir_create_maildirfolder_file(box);
 
 	/* if dovecot-shared exists in the root dir, copy it to newly
 	   created mailboxes */

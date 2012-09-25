@@ -14,7 +14,6 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
-#define MAILDIR_SUBFOLDER_FILENAME "maildirfolder"
 #define MAILDIR_GLOBAL_TEMP_PREFIX "temp."
 #define IMAPDIR_GLOBAL_TEMP_PREFIX ".temp."
 
@@ -181,49 +180,6 @@ static int maildir_list_set_subscribed(struct mailbox_list *_list,
 }
 
 static int
-maildir_list_create_maildirfolder_file(struct mailbox_list *list,
-				       const char *dir, mode_t file_mode,
-				       gid_t gid, const char *gid_origin)
-{
-	const char *path;
-	mode_t old_mask;
-	int fd;
-
-	/* Maildir++ spec wants that maildirfolder named file is created for
-	   all subfolders. */
-	path = t_strconcat(dir, "/" MAILDIR_SUBFOLDER_FILENAME, NULL);
-	old_mask = umask(0);
-	fd = open(path, O_CREAT | O_WRONLY, file_mode);
-	umask(old_mask);
-	if (fd != -1) {
-		/* ok */
-	} else if (errno == ENOENT) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			"Mailbox was deleted while it was being created");
-		return -1;
-	} else {
-		mailbox_list_set_critical(list,
-			"open(%s, O_CREAT) failed: %m", path);
-		return -1;
-	}
-
-	if (gid != (gid_t)-1) {
-		if (fchown(fd, (uid_t)-1, gid) == 0) {
-			/* ok */
-		} else if (errno == EPERM) {
-			mailbox_list_set_critical(list, "%s",
-				eperm_error_get_chgrp("fchown", path,
-						      gid, gid_origin));
-		} else {
-			mailbox_list_set_critical(list,
-				"fchown(%s) failed: %m", path);
-		}
-	}
-	i_close_fd(&fd);
-	return 0;
-}
-
-static int
 maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 				enum mailbox_dir_create_type type)
 {
@@ -243,7 +199,6 @@ maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 		path = t_strdup_until(path, p);
 	}
 
-	root_dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	mailbox_list_get_permissions(list, name, &perm);
 	if (mkdir_parents_chgrp(path, perm.dir_create_mode,
 				perm.file_create_gid,
@@ -253,6 +208,8 @@ maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 		if (create_parent_dir)
 			return 0;
 		if (type == MAILBOX_DIR_CREATE_TYPE_MAILBOX) {
+			root_dir = mailbox_list_get_root_path(list,
+						MAILBOX_LIST_PATH_TYPE_MAILBOX);
 			if (strcmp(path, root_dir) == 0) {
 				/* even though the root directory exists,
 				   the mailbox might not */
@@ -269,11 +226,7 @@ maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 		mailbox_list_set_critical(list, "mkdir(%s) failed: %m", path);
 		return -1;
 	}
-	return create_parent_dir || strcmp(path, root_dir) == 0 ? 0 :
-		maildir_list_create_maildirfolder_file(list, path,
-						       perm.file_create_mode,
-						       perm.file_create_gid,
-						       perm.file_create_gid_origin);
+	return 0;
 }
 
 static const char *
