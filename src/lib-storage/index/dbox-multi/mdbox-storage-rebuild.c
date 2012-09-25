@@ -7,7 +7,7 @@
 #include "hash.h"
 #include "str.h"
 #include "mail-cache.h"
-#include "dbox-sync-rebuild.h"
+#include "index-rebuild.h"
 #include "mail-namespace.h"
 #include "mailbox-list-private.h"
 #include "mdbox-storage.h"
@@ -363,7 +363,7 @@ rebuild_lookup_map_uid(struct mdbox_storage_rebuild_context *ctx,
 
 static void
 rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
-		      struct dbox_sync_rebuild_context *rebuild_ctx,
+		      struct index_rebuild_context *rebuild_ctx,
 		      struct mdbox_mailbox *mbox,
 		      struct mail_index_view *view,
 		      struct mail_index_transaction *trans)
@@ -420,8 +420,8 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 
 			mail_index_lookup_uid(view, old_seq, &uid);
 			mail_index_append(trans, uid, &new_seq);
-			dbox_sync_rebuild_index_metadata(rebuild_ctx,
-							 new_seq, uid);
+			index_rebuild_index_metadata(rebuild_ctx,
+						     new_seq, uid);
 
 			new_dbox_rec.map_uid = rec->map_uid;
 			mail_index_update_ext(trans, new_seq, mbox->ext_id,
@@ -444,7 +444,7 @@ mdbox_rebuild_get_header(struct mail_index_view *view, uint32_t hdr_ext_id,
 	memcpy(hdr_r, data, I_MIN(data_size, sizeof(*hdr_r)));
 }
 
-static void mdbox_header_update(struct dbox_sync_rebuild_context *rebuild_ctx,
+static void mdbox_header_update(struct index_rebuild_context *rebuild_ctx,
 				struct mdbox_mailbox *mbox)
 {
 	struct mdbox_index_header hdr, backup_hdr;
@@ -484,7 +484,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
         struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
-	struct dbox_sync_rebuild_context *rebuild_ctx;
+	struct index_rebuild_context *rebuild_ctx;
 	enum mail_error error;
 	int ret;
 
@@ -512,10 +512,10 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 		return -1;
 	}
 
-	rebuild_ctx = dbox_sync_index_rebuild_init(&mbox->box, view, trans);
+	rebuild_ctx = index_index_rebuild_init(&mbox->box, view, trans);
 	mdbox_header_update(rebuild_ctx, mbox);
 	rebuild_mailbox_multi(ctx, rebuild_ctx, mbox, view, trans);
-	dbox_sync_index_rebuild_deinit(&rebuild_ctx);
+	index_index_rebuild_deinit(&rebuild_ctx, dbox_get_uidvalidity_next);
 
 	if (mail_index_sync_commit(&sync_ctx) < 0) {
 		mail_storage_set_index_error(box);

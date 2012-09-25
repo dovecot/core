@@ -6,13 +6,12 @@
 #include "mail-index-modseq.h"
 #include "mailbox-list-private.h"
 #include "index-storage.h"
-#include "dbox-storage.h"
-#include "dbox-sync-rebuild.h"
+#include "index-rebuild.h"
 
 static void
-dbox_sync_index_copy_cache(struct dbox_sync_rebuild_context *ctx,
-			   struct mail_index_view *view,
-			   uint32_t old_seq, uint32_t new_seq)
+index_index_copy_cache(struct index_rebuild_context *ctx,
+		       struct mail_index_view *view,
+		       uint32_t old_seq, uint32_t new_seq)
 {
 	struct mail_index_map *map;
 	const void *data;
@@ -45,9 +44,9 @@ dbox_sync_index_copy_cache(struct dbox_sync_rebuild_context *ctx,
 }
 
 static void
-dbox_sync_index_copy_from_old(struct dbox_sync_rebuild_context *ctx,
-			      struct mail_index_view *view,
-			      uint32_t old_seq, uint32_t new_seq)
+index_index_copy_from_old(struct index_rebuild_context *ctx,
+			  struct mail_index_view *view,
+			  uint32_t old_seq, uint32_t new_seq)
 {
 	struct mail_index *index = mail_index_view_get_index(view);
 	const struct mail_index_record *rec;
@@ -71,27 +70,29 @@ dbox_sync_index_copy_from_old(struct dbox_sync_rebuild_context *ctx,
 	modseq = mail_index_modseq_lookup(view, old_seq);
 	mail_index_update_modseq(ctx->trans, new_seq, modseq);
 
-	dbox_sync_index_copy_cache(ctx, view, old_seq, new_seq);
+	index_index_copy_cache(ctx, view, old_seq, new_seq);
 }
 
-void dbox_sync_rebuild_index_metadata(struct dbox_sync_rebuild_context *ctx,
-				      uint32_t new_seq, uint32_t uid)
+void index_rebuild_index_metadata(struct index_rebuild_context *ctx,
+				  uint32_t new_seq, uint32_t uid)
 {
 	uint32_t old_seq;
 
 	if (mail_index_lookup_seq(ctx->view, uid, &old_seq)) {
 		/* the message exists in the old index.
 		   copy the metadata from it. */
-		dbox_sync_index_copy_from_old(ctx, ctx->view, old_seq, new_seq);
+		index_index_copy_from_old(ctx, ctx->view, old_seq, new_seq);
 	} else if (ctx->backup_view != NULL &&
 		   mail_index_lookup_seq(ctx->backup_view, uid, &old_seq)) {
 		/* copy the metadata from backup index. */
-		dbox_sync_index_copy_from_old(ctx, ctx->backup_view,
-					      old_seq, new_seq);
+		index_index_copy_from_old(ctx, ctx->backup_view,
+					  old_seq, new_seq);
 	}
 }
 
-static void dbox_sync_rebuild_header(struct dbox_sync_rebuild_context *ctx)
+static void
+index_rebuild_header(struct index_rebuild_context *ctx,
+		     index_rebuild_generate_uidvalidity_t *gen_uidvalidity)
 {
 	const struct mail_index_header *hdr, *backup_hdr, *trans_hdr;
 	struct mail_index *index = mail_index_view_get_index(ctx->view);
@@ -112,7 +113,7 @@ static void dbox_sync_rebuild_header(struct dbox_sync_rebuild_context *ctx)
 	else if (backup_hdr != NULL && backup_hdr->uid_validity != 0)
 		uid_validity = backup_hdr->uid_validity;
 	else
-		uid_validity = dbox_get_uidvalidity_next(ctx->box->list);
+		uid_validity = gen_uidvalidity(ctx->box->list);
 	mail_index_update_header(ctx->trans,
 		offsetof(struct mail_index_header, uid_validity),
 		&uid_validity, sizeof(uid_validity), TRUE);
@@ -123,7 +124,7 @@ static void dbox_sync_rebuild_header(struct dbox_sync_rebuild_context *ctx)
 	else if (backup_hdr != NULL && backup_hdr->next_uid != 0)
 		next_uid = backup_hdr->next_uid;
 	else
-		next_uid = dbox_get_uidvalidity_next(ctx->box->list);
+		next_uid = gen_uidvalidity(ctx->box->list);
 	if (next_uid > trans_hdr->next_uid) {
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, next_uid),
@@ -143,16 +144,15 @@ static void dbox_sync_rebuild_header(struct dbox_sync_rebuild_context *ctx)
 	mail_index_view_close(&trans_view);
 }
 
-struct dbox_sync_rebuild_context *
-dbox_sync_index_rebuild_init(struct mailbox *box,
-			     struct mail_index_view *view,
-			     struct mail_index_transaction *trans)
+struct index_rebuild_context *
+index_index_rebuild_init(struct mailbox *box, struct mail_index_view *view,
+			 struct mail_index_transaction *trans)
 {
-	struct dbox_sync_rebuild_context *ctx;
-	const char *index_dir;
+	struct index_rebuild_context *ctx;
+	const char *index_dir, *backup_path;
 	enum mail_index_open_flags open_flags = MAIL_INDEX_OPEN_FLAG_READONLY;
 
-	ctx = i_new(struct dbox_sync_rebuild_context, 1);
+	ctx = i_new(struct index_rebuild_context, 1);
 	ctx->box = box;
 	ctx->view = view;
 	ctx->trans = trans;
@@ -169,8 +169,8 @@ dbox_sync_index_rebuild_init(struct mailbox *box,
 	/* if backup index file exists, try to use it */
 	index_dir = mailbox_list_get_path(box->list, box->name,
 					  MAILBOX_LIST_PATH_TYPE_INDEX);
-	ctx->backup_index =
-		mail_index_alloc(index_dir, DBOX_INDEX_PREFIX".backup");
+	backup_path = t_strconcat(box->index_prefix, "/.backup", NULL);
+	ctx->backup_index = mail_index_alloc(index_dir, backup_path);
 
 #ifndef MMAP_CONFLICTS_WRITE
 	if (box->storage->set->mmap_disable)
@@ -185,15 +185,16 @@ dbox_sync_index_rebuild_init(struct mailbox *box,
 	return ctx;
 }
 
-void dbox_sync_index_rebuild_deinit(struct dbox_sync_rebuild_context **_ctx)
+void index_index_rebuild_deinit(struct index_rebuild_context **_ctx,
+				index_rebuild_generate_uidvalidity_t *cb)
 {
-	struct dbox_sync_rebuild_context *ctx = *_ctx;
+	struct index_rebuild_context *ctx = *_ctx;
 
 	*_ctx = NULL;
 
 	/* initialize cache file with the old field decisions */
 	(void)mail_cache_compress(ctx->box->cache, ctx->trans);
-	dbox_sync_rebuild_header(ctx);
+	index_rebuild_header(ctx, cb);
 	if (ctx->backup_index != NULL) {
 		mail_index_view_close(&ctx->backup_view);
 		mail_index_close(ctx->backup_index);

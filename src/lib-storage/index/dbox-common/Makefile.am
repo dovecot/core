@@ -16,16 +16,14 @@ libstorage_dbox_common_la_SOURCES = \
 	dbox-file-fix.c \
 	dbox-mail.c \
 	dbox-save.c \
-	dbox-storage.c \
-	dbox-sync-rebuild.c
+	dbox-storage.c
 
 headers = \
 	dbox-attachment.h \
 	dbox-file.h \
 	dbox-mail.h \
 	dbox-save.h \
-	dbox-storage.h \
-	dbox-sync-rebuild.h
+	dbox-storage.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
