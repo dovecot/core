@@ -1421,13 +1421,21 @@ int mailbox_list_mkdir(struct mailbox_list *list,
 	}
 	if (mkdir_parents_chgrp(path, perm.dir_create_mode,
 				perm.file_create_gid,
-				perm.file_create_gid_origin) < 0 &&
-	    errno != EEXIST) {
+				perm.file_create_gid_origin) == 0)
+		return 1;
+	else if (errno == EEXIST)
+		return 0;
+	else if (errno == ENOTDIR) {
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+			"Mailbox doesn't allow inferior mailboxes");
+		return -1;
+	} else if (mailbox_list_set_error_from_errno(list)) {
+		return -1;
+	} else {
 		mailbox_list_set_critical(list, "mkdir_parents(%s) failed: %m",
 					  path);
 		return -1;
 	}
-	return 0;
 }
 
 int mailbox_list_mkdir_parent(struct mailbox_list *list,

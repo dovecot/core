@@ -162,7 +162,8 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 void mailbox_list_get_root_permissions(struct mailbox_list *list,
 				       mode_t *file_mode_r, mode_t *dir_mode_r,
 				       gid_t *gid_r, const char **gid_origin_r);
-/* Create path's directory with proper permissions. */
+/* Create path's directory with proper permissions. Returns 1 if created,
+   0 if it already existed, -1 if error. */
 int mailbox_list_mkdir(struct mailbox_list *list,
 		       const char *mailbox, const char *path) ATTR_NULL(2);
 /* Like mailbox_list_mkdir(), but create path's parent parent directory.
