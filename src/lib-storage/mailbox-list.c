@@ -1229,24 +1229,6 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 	return 0;
 }
 
-int mailbox_list_create_dir(struct mailbox_list *list, const char *name)
-{
-	guid_128_t guid;
-
-	if (!mailbox_list_is_valid_create_name(list, name) || *name == '\0') {
-		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
-		return -1;
-	}
-	if (list->v.create_mailbox_dir(list, name,
-				       MAILBOX_DIR_CREATE_TYPE_ONLY_NOSELECT) < 0)
-		return -1;
-
-	mailbox_name_get_sha128(name, guid);
-	mailbox_list_add_change(list, MAILBOX_LOG_RECORD_CREATE_DIR, guid);
-	return 0;
-}
-
 int mailbox_list_delete_dir(struct mailbox_list *list, const char *name)
 {
 	if (!mailbox_list_is_valid_existing_name(list, name) || *name == '\0') {

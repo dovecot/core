@@ -217,9 +217,6 @@ const char *mailbox_list_get_global_temp_prefix(struct mailbox_list *list);
 int mailbox_list_set_subscribed(struct mailbox_list *list,
 				const char *name, bool set);
 
-/* Create a non-selectable mailbox. Fail with MAIL_ERROR_NOTPOSSIBLE if only
-   a selectable mailbox can be created. */
-int mailbox_list_create_dir(struct mailbox_list *list, const char *name);
 /* Delete a non-selectable mailbox. Fail if the mailbox is selectable. */
 int mailbox_list_delete_dir(struct mailbox_list *list, const char *name);
 /* Delete a symlinked mailbox. Fail if the mailbox isn't a symlink. */
