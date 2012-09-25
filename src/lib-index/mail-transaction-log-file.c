@@ -609,6 +609,8 @@ static void log_write_ext_hdr_init_data(struct mail_index *index, buffer_t *buf)
 	intro->record_align = rext->record_align;
 	intro->name_size = strlen(rext->name);
 	buffer_append(buf, rext->name, intro->name_size);
+	if (buf->used % 4 != 0)
+		buffer_append_zero(buf, 4 - buf->used % 4);
 
 	hdr = buffer_get_space_unsafe(buf, hdr_offset, sizeof(*hdr));
 	hdr->size = mail_index_uint32_to_offset(buf->used - hdr_offset);
