@@ -534,9 +534,8 @@ mbox_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 {
 	int fd, ret;
 
-	if (directory &&
-	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
-		return 0;
+	if ((ret = index_storage_mailbox_create(box, directory)) <= 0)
+		return ret;
 
 	if (box->inbox_any) {
 		if (create_inbox(box) < 0)

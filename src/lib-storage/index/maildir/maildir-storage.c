@@ -491,19 +491,8 @@ maildir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	struct stat st;
 	int ret;
 
-	if (directory &&
-	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
-		return 0;
-
-	ret = maildir_check_tmp(box->storage, mailbox_get_path(box));
-	if (ret > 0) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
-				       "Mailbox already exists");
-		return -1;
-	}
-	if (ret < 0)
-		return -1;
-
+	if ((ret = index_storage_mailbox_create(box, directory)) <= 0)
+		return ret;
 	/* the maildir is created now. finish the creation as best as we can */
 	if (create_maildir_subdirs(box, FALSE) < 0)
 		ret = -1;

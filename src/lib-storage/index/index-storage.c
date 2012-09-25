@@ -461,6 +461,63 @@ int index_storage_mailbox_update(struct mailbox *box,
 	return ret;
 }
 
+int index_storage_mailbox_create(struct mailbox *box, bool directory)
+{
+	const char *path, *p;
+	enum mailbox_existence existence;
+	bool create_parent_dir;
+	int ret;
+
+	path = mailbox_list_get_path(box->list, box->name,
+				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (path == NULL) {
+		/* layout=none */
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "Mailbox creation not supported");
+		return -1;
+	}
+	create_parent_dir = !directory &&
+		(box->list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0;
+	if (create_parent_dir) {
+		/* we only need to make sure that the parent directory exists */
+		p = strrchr(path, '/');
+		if (p == NULL)
+			return 1;
+		path = t_strdup_until(path, p);
+	}
+
+	if ((ret = mailbox_list_mkdir(box->list, box->name, path)) < 0) {
+		mail_storage_copy_list_error(box->storage, box->list);
+		return -1;
+	}
+	if (ret == 0) {
+		/* directory already exists */
+		if (create_parent_dir)
+			return 1;
+		if (!directory && *box->list->set.mailbox_dir_name == '\0') {
+			/* For example: layout=fs, path=~/Maildir/foo
+			   might itself exist, but does it have the
+			   cur|new|tmp subdirs? */
+			if (mailbox_exists(box, TRUE, &existence) < 0)
+				return -1;
+			if (existence == MAILBOX_EXISTENCE_NONE)
+				return 1;
+		}
+		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
+				       "Mailbox already exists");
+		return -1;
+	}
+
+	if (directory &&
+	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0) {
+		/* we only wanted to create the directory and it's done now */
+		return 0;
+	}
+	/* the caller should still create the mailbox */
+	return 1;
+}
+
 int index_storage_mailbox_delete_dir(struct mailbox *box, bool mailbox_deleted)
 {
 	guid_128_t dir_sha128;

@@ -207,21 +207,6 @@ static int shared_list_set_subscribed(struct mailbox_list *list,
 }
 
 static int
-shared_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
-			       enum mailbox_dir_create_type type)
-{
-	struct mail_namespace *ns = list->ns;
-	int ret;
-
-	if (shared_storage_get_namespace(&ns, &name) < 0)
-		return -1;
-	ret = ns->list->v.create_mailbox_dir(ns->list, name, type);
-	if (ret < 0)
-		shared_list_copy_error(list, ns);
-	return ret;
-}
-
-static int
 shared_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	struct mail_namespace *ns = list->ns;
@@ -322,7 +307,6 @@ struct mailbox_list shared_mailbox_list = {
 		NULL,
 		shared_list_subscriptions_refresh,
 		shared_list_set_subscribed,
-		shared_list_create_mailbox_dir,
 		shared_list_delete_mailbox,
 		shared_list_delete_dir,
 		shared_list_delete_symlink,

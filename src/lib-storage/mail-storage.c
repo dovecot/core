@@ -1110,22 +1110,10 @@ bool mailbox_equals(const struct mailbox *box1,
 int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)
 {
-	enum mailbox_dir_create_type type;
 	int ret;
 
 	if (mailbox_verify_create_name(box) < 0)
 		return -1;
-
-	type = directory ? MAILBOX_DIR_CREATE_TYPE_TRY_NOSELECT :
-		MAILBOX_DIR_CREATE_TYPE_MAILBOX;
-	if (box->list->v.create_mailbox_dir(box->list, box->name, type) < 0) {
-		mail_storage_copy_list_error(box->storage, box->list);
-		if (directory ||
-		    mailbox_get_last_mail_error(box) != MAIL_ERROR_EXISTS)
-			return -1;
-		/* the directory already exists, but the mailbox might not */
-	}
-	mailbox_refresh_permissions(box);
 
 	box->creating = TRUE;
 	ret = box->v.create_box(box, update, directory);

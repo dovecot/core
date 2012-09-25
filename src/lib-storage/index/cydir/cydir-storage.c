@@ -92,9 +92,10 @@ static int
 cydir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		     bool directory)
 {
-	if (directory &&
-	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
-		return 0;
+	int ret;
+
+	if ((ret = index_storage_mailbox_create(box, directory)) <= 0)
+		return ret;
 
 	return update == NULL ? 0 :
 		index_storage_mailbox_update(box, update);

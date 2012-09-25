@@ -71,15 +71,6 @@ static int none_list_set_subscribed(struct mailbox_list *list,
 	return -1;
 }
 
-static int
-none_list_create_mailbox_dir(struct mailbox_list *list,
-			     const char *name ATTR_UNUSED,
-			     enum mailbox_dir_create_type type ATTR_UNUSED)
-{
-	mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE, "Not supported");
-	return -1;
-}
-
 static int none_list_delete_mailbox(struct mailbox_list *list,
 				    const char *name ATTR_UNUSED)
 {
@@ -183,7 +174,6 @@ struct mailbox_list none_mailbox_list = {
 		NULL,
 		none_list_subscriptions_refresh,
 		none_list_set_subscribed,
-		none_list_create_mailbox_dir,
 		none_list_delete_mailbox,
 		none_list_delete_dir,
 		none_list_delete_dir,

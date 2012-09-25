@@ -342,17 +342,6 @@ static void mailbox_list_index_deinit(struct mailbox_list *list)
 }
 
 static int
-mailbox_list_index_create_mailbox_dir(struct mailbox_list *list,
-				      const char *name,
-				      enum mailbox_dir_create_type type)
-{
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
-
-	mailbox_list_index_refresh_later(list);
-	return ilist->module_ctx.super.create_mailbox_dir(list, name, type);
-}
-
-static int
 mailbox_list_index_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
@@ -452,7 +441,6 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 	list->v.iter_deinit = mailbox_list_index_iter_deinit;
 	list->v.iter_next = mailbox_list_index_iter_next;
 
-	list->v.create_mailbox_dir = mailbox_list_index_create_mailbox_dir;
 	list->v.delete_mailbox = mailbox_list_index_delete_mailbox;
 	list->v.delete_dir = mailbox_list_index_delete_dir;
 	list->v.rename_mailbox = mailbox_list_index_rename_mailbox;

@@ -561,16 +561,6 @@ static int imapc_list_set_subscribed(struct mailbox_list *_list,
 }
 
 static int
-imapc_list_create_mailbox_dir(struct mailbox_list *list ATTR_UNUSED,
-			      const char *name ATTR_UNUSED,
-			      enum mailbox_dir_create_type type ATTR_UNUSED)
-{
-	/* this gets called just before mailbox.create().
-	   we don't need to do anything. */
-	return 0;
-}
-
-static int
 imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
@@ -692,7 +682,6 @@ struct mailbox_list imapc_mailbox_list = {
 		NULL,
 		imapc_list_subscriptions_refresh,
 		imapc_list_set_subscribed,
-		imapc_list_create_mailbox_dir,
 		imapc_list_delete_mailbox,
 		imapc_list_delete_dir,
 		imapc_list_delete_symlink,

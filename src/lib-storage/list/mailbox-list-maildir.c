@@ -179,56 +179,6 @@ static int maildir_list_set_subscribed(struct mailbox_list *_list,
 				       name, set);
 }
 
-static int
-maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
-				enum mailbox_dir_create_type type)
-{
-	struct mailbox_permissions perm;
-	const char *path, *root_dir, *p;
-	bool create_parent_dir;
-
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	create_parent_dir = type == MAILBOX_DIR_CREATE_TYPE_MAILBOX &&
-		(list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0;
-	if (create_parent_dir) {
-		/* we only need to make sure that the parent directory exists */
-		p = strrchr(path, '/');
-		if (p == NULL)
-			return 0;
-		path = t_strdup_until(path, p);
-	}
-
-	mailbox_list_get_permissions(list, name, &perm);
-	if (mkdir_parents_chgrp(path, perm.dir_create_mode,
-				perm.file_create_gid,
-				perm.file_create_gid_origin) == 0) {
-		/* ok */
-	} else if (errno == EEXIST) {
-		if (create_parent_dir)
-			return 0;
-		if (type == MAILBOX_DIR_CREATE_TYPE_MAILBOX) {
-			root_dir = mailbox_list_get_root_path(list,
-						MAILBOX_LIST_PATH_TYPE_MAILBOX);
-			if (strcmp(path, root_dir) == 0) {
-				/* even though the root directory exists,
-				   the mailbox might not */
-				return 0;
-			}
-		}
-
-		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
-				       "Mailbox already exists");
-		return -1;
-	} else if (mailbox_list_set_error_from_errno(list)) {
-		return -1;
-	} else {
-		mailbox_list_set_critical(list, "mkdir(%s) failed: %m", path);
-		return -1;
-	}
-	return 0;
-}
-
 static const char *
 mailbox_list_maildir_get_trash_dir(struct mailbox_list *_list)
 {
@@ -516,7 +466,6 @@ struct mailbox_list maildir_mailbox_list = {
 		NULL,
 		mailbox_list_subscriptions_refresh,
 		maildir_list_set_subscribed,
-		maildir_list_create_mailbox_dir,
 		maildir_list_delete_mailbox,
 		maildir_list_delete_dir,
 		mailbox_list_delete_symlink_default,
@@ -549,7 +498,6 @@ struct mailbox_list imapdir_mailbox_list = {
 		NULL,
 		mailbox_list_subscriptions_refresh,
 		maildir_list_set_subscribed,
-		maildir_list_create_mailbox_dir,
 		maildir_list_delete_mailbox,
 		maildir_list_delete_dir,
 		mailbox_list_delete_symlink_default,

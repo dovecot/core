@@ -242,10 +242,8 @@ int dbox_mailbox_create(struct mailbox *box,
 	struct stat st;
 	int ret;
 
-	if (directory &&
-	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
-		return 0;
-
+	if ((ret = index_storage_mailbox_create(box, directory)) <= 0)
+		return ret;
 	if (mailbox_open(box) < 0)
 		return -1;
 

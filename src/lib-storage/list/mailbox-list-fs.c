@@ -163,61 +163,6 @@ static int fs_list_set_subscribed(struct mailbox_list *_list,
 				       name, set);
 }
 
-static int mailbox_is_selectable(struct mailbox_list *list, const char *name)
-{
-	enum mailbox_info_flags flags;
-
-	if (mailbox_list_mailbox(list, name, &flags) < 0)
-		return -1;
-
-	return (flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) == 0 ? 1 : 0;
-}
-
-static int
-fs_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
-			   enum mailbox_dir_create_type type)
-{
-	struct mailbox_permissions perm;
-	const char *path, *p;
-	bool directory, create_parent_dir;
-	int ret;
-
-	directory = type != MAILBOX_DIR_CREATE_TYPE_MAILBOX;
-	path = mailbox_list_get_path(list, name,
-				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	create_parent_dir = !directory &&
-		(list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0;
-	if (create_parent_dir) {
-		/* we only need to make sure that the parent directory exists */
-		p = strrchr(path, '/');
-		if (p == NULL)
-			return 0;
-		path = t_strdup_until(path, p);
-	}
-
-	mailbox_list_get_permissions(list, name, &perm);
-	if (mkdir_parents_chgrp(path, perm.dir_create_mode,
-				perm.file_create_gid,
-				perm.file_create_gid_origin) == 0)
-		return 0;
-	else if (errno == EEXIST) {
-		if (create_parent_dir)
-			return 0;
-		if (!directory && *list->set.mailbox_dir_name == '\0') {
-			if ((ret = mailbox_is_selectable(list, name)) <= 0)
-				return ret;
-		}
-		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
-				       "Mailbox already exists");
-	} else if (errno == ENOTDIR) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
-			"Mailbox doesn't allow inferior mailboxes");
-	} else if (!mailbox_list_set_error_from_errno(list)) {
-		mailbox_list_set_critical(list, "mkdir(%s) failed: %m", path);
-	}
-	return -1;
-}
 
 static const char *mailbox_list_fs_get_trash_dir(struct mailbox_list *list)
 {
@@ -523,7 +468,6 @@ struct mailbox_list fs_mailbox_list = {
 		NULL,
 		mailbox_list_subscriptions_refresh,
 		fs_list_set_subscribed,
-		fs_list_create_mailbox_dir,
 		fs_list_delete_mailbox,
 		fs_list_delete_dir,
 		mailbox_list_delete_symlink_default,

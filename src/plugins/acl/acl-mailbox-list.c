@@ -416,29 +416,6 @@ acl_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	return ret;
 }
 
-static int
-acl_mailbox_list_create_dir(struct mailbox_list *list, const char *name,
-			    enum mailbox_dir_create_type type)
-{
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
-	int ret;
-
-	/* we're looking up CREATE permission from our parent's rights */
-	ret = acl_mailbox_list_have_right(list, name, TRUE,
-					  ACL_STORAGE_RIGHT_CREATE, NULL);
-	if (ret <= 0) {
-		if (ret < 0)
-			return -1;
-		/* Note that if user didn't have LOOKUP permission to parent
-		   mailbox, this may reveal the mailbox's existence to user.
-		   Can't help it. */
-		mailbox_list_set_error(list, MAIL_ERROR_PERM,
-				       MAIL_ERRSTR_NO_PERMISSION);
-		return -1;
-	}
-	return alist->module_ctx.super.create_mailbox_dir(list, name, type);
-}
-
 static void acl_mailbox_list_deinit(struct mailbox_list *list)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
@@ -493,7 +470,6 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	v->iter_init = acl_mailbox_list_iter_init;
 	v->iter_next = acl_mailbox_list_iter_next;
 	v->iter_deinit = acl_mailbox_list_iter_deinit;
-	v->create_mailbox_dir = acl_mailbox_list_create_dir;
 
 	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
 }
