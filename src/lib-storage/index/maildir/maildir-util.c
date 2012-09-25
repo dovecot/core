@@ -217,11 +217,9 @@ static int maildir_create_subdirs(struct mailbox *box)
 				      "/", subdirs[i], NULL);
 	}
 	types[i] = MAILBOX_LIST_PATH_TYPE_CONTROL;
-	dirs[i++] = mailbox_list_get_path(box->list, box->name,
-					  MAILBOX_LIST_PATH_TYPE_CONTROL);
+	dirs[i++] = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_CONTROL);
 	types[i] = MAILBOX_LIST_PATH_TYPE_INDEX;
-	dirs[i++] = mailbox_list_get_path(box->list, box->name,
-					  MAILBOX_LIST_PATH_TYPE_INDEX);
+	dirs[i++] = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX);
 	i_assert(i == N_ELEMENTS(dirs));
 
 	for (i = 0; i < N_ELEMENTS(dirs); i++) {

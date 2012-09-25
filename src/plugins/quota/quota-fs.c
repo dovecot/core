@@ -770,8 +770,7 @@ static bool fs_quota_match_box(struct quota_root *_root, struct mailbox *box)
 	if (root->storage_mount_path == NULL)
 		return TRUE;
 
-	mailbox_path = mailbox_list_get_path(box->list, box->name,
-					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	mailbox_path = mailbox_get_path(box);
 	if (stat(mailbox_path, &mst) < 0) {
 		if (errno != ENOENT)
 			i_error("stat(%s) failed: %m", mailbox_path);

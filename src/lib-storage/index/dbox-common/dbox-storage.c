@@ -139,8 +139,7 @@ void dbox_notify_changes(struct mailbox *box)
 	if (box->notify_callback == NULL)
 		index_mailbox_check_remove_all(box);
 	else {
-		dir = mailbox_list_get_path(box->list, box->name,
-					    MAILBOX_LIST_PATH_TYPE_INDEX);
+		dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX);
 		path = t_strdup_printf("%s/"DBOX_INDEX_PREFIX".log", dir);
 		index_mailbox_check_add(box, path);
 	}
@@ -252,8 +251,7 @@ int dbox_mailbox_create(struct mailbox *box,
 
 	/* if alt path already exists and contains files, rebuild storage so
 	   that we don't start overwriting files. */
-	alt_path = mailbox_list_get_path(box->list, box->name,
-					 MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
+	alt_path = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
 	if (alt_path != NULL && stat(alt_path, &st) == 0) {
 		ret = dir_is_empty(box->storage, alt_path);
 		if (ret < 0)

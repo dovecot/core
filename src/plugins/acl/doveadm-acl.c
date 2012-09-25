@@ -418,8 +418,7 @@ cmd_acl_debug_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) < 0) {
-		path = mailbox_list_get_path(ns->list, box->name,
-					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		path = mailbox_get_path(box);
 		errstr = mail_storage_get_last_error(box->storage, &error);
 		doveadm_mail_failed_error(ctx, error);
 		if (error != MAIL_ERROR_NOTFOUND ||

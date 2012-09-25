@@ -558,6 +558,9 @@ void mailbox_set_deleted(struct mailbox *box);
 int mailbox_mark_index_deleted(struct mailbox *box, bool del);
 /* Easy wrapper for getting mailbox's MAILBOX_LIST_PATH_TYPE_MAILBOX */
 const char *mailbox_get_path(struct mailbox *box) ATTR_PURE;
+/* Returns path to specified type of files in mailbox. */
+const char *
+mailbox_get_path_to(struct mailbox *box, enum mailbox_list_path_type type);
 /* Get mailbox permissions. */
 const struct mailbox_permissions *mailbox_get_permissions(struct mailbox *box);
 /* Force permissions to be refreshed on next lookup */

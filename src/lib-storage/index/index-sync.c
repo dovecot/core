@@ -485,8 +485,7 @@ int index_storage_list_index_has_changed(struct mailbox *box,
 		return 1;
 	}
 
-	dir = mailbox_list_get_path(box->list, box->name,
-				    MAILBOX_LIST_PATH_TYPE_INDEX);
+	dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX);
 	path = t_strconcat(dir, "/", box->index_prefix, ".log", NULL);
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT)
@@ -525,8 +524,7 @@ void index_storage_list_index_update_sync(struct mailbox *box,
 		return;
 	old_rec = data;
 
-	dir = mailbox_list_get_path(box->list, box->name,
-				    MAILBOX_LIST_PATH_TYPE_INDEX);
+	dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX);
 	path = t_strconcat(dir, "/", box->index_prefix, ".log", NULL);
 	if (stat(path, &st) < 0) {
 		mail_storage_set_critical(box->storage,

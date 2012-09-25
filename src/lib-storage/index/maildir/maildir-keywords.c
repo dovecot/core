@@ -66,8 +66,7 @@ maildir_keywords_init_readonly(struct mailbox *box)
 	struct maildir_keywords *mk;
 	const char *dir;
 
-	dir = mailbox_list_get_path(box->list, box->name,
-				    MAILBOX_LIST_PATH_TYPE_CONTROL);
+	dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_CONTROL);
 
 	mk = i_new(struct maildir_keywords, 1);
 	mk->storage = box->storage;

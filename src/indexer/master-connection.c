@@ -9,7 +9,7 @@
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "mail-namespace.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mail-storage-service.h"
 #include "mail-search-build.h"
 #include "master-connection.h"
@@ -130,14 +130,14 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 		return -1;
 	}
 
-	path = mailbox_list_get_path(ns->list, mailbox,
-				     MAILBOX_LIST_PATH_TYPE_INDEX);
+	box = mailbox_alloc(ns->list, mailbox, 0);
+	path = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (*path == '\0') {
 		i_info("Indexes disabled for Mailbox %s, skipping", mailbox);
+		mailbox_free(&box);
 		return 0;
 	}
-
-	box = mailbox_alloc(ns->list, mailbox, 0);
+	
 	if (max_recent_msgs != 0) {
 		/* index only if there aren't too many recent messages.
 		   don't bother syncing the mailbox, that alone can take a

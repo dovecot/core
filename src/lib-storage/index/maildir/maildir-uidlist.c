@@ -154,10 +154,9 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 		return 1;
 	}
 
-        index_storage_lock_notify_reset(uidlist->box);
+        index_storage_lock_notify_reset(box);
 
-	control_dir = mailbox_list_get_path(box->list, box->name,
-					    MAILBOX_LIST_PATH_TYPE_CONTROL);
+	control_dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_CONTROL);
 	path = t_strconcat(control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
 
 	for (i = 0;; i++) {
@@ -265,8 +264,7 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox)
 	struct maildir_uidlist *uidlist;
 	const char *control_dir;
 
-	control_dir = mailbox_list_get_path(box->list, box->name,
-					    MAILBOX_LIST_PATH_TYPE_CONTROL);
+	control_dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_CONTROL);
 
 	uidlist = i_new(struct maildir_uidlist, 1);
 	uidlist->box = box;
@@ -1396,8 +1394,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 
 	maildir_uidlist_records_drop_expunges(uidlist);
 
-	control_dir = mailbox_list_get_path(box->list, box->name,
-					    MAILBOX_LIST_PATH_TYPE_CONTROL);
+	control_dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_CONTROL);
 	temp_path = t_strconcat(control_dir,
 				"/" MAILDIR_UIDLIST_NAME ".tmp", NULL);
 
@@ -1760,7 +1757,7 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 {
 	struct maildir_uidlist *uidlist = ctx->uidlist;
 	struct maildir_uidlist_rec *rec, *old_rec;
-	const char *p, *dir;
+	const char *p;
 
 	*rec_r = NULL;
 
@@ -1768,12 +1765,8 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 		return -1;
 	for (p = filename; *p != '\0'; p++) {
 		if (*p == 13 || *p == 10) {
-			struct mailbox *box = uidlist->box;
-
-			dir = mailbox_list_get_path(box->list, box->name,
-						MAILBOX_LIST_PATH_TYPE_MAILBOX);
 			i_warning("Maildir %s: Ignoring a file with #0x%x: %s",
-				  dir, *p, filename);
+				  mailbox_get_path(uidlist->box), *p, filename);
 			return 1;
 		}
 	}

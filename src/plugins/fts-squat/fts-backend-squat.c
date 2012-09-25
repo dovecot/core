@@ -115,8 +115,7 @@ fts_backend_squat_set_box(struct squat_fts_backend *backend,
 
 	perm = mailbox_get_permissions(box);
 	storage = mailbox_get_storage(box);
-	path = mailbox_list_get_path(box->list, box->name,
-				     MAILBOX_LIST_PATH_TYPE_INDEX);
+	path = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX);
 	i_assert(*path != '\0'); /* fts already checked this */
 
 	mailbox_get_open_status(box, STATUS_UIDVALIDITY, &status);

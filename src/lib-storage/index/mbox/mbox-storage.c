@@ -501,8 +501,7 @@ static int create_inbox(struct mailbox *box)
 	const char *inbox_path;
 	int fd;
 
-	inbox_path = mailbox_list_get_path(box->list, "INBOX",
-					   MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	inbox_path = mailbox_get_path(box);
 
 	fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
 	if (fd == -1 && errno == EACCES) {

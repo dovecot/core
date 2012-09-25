@@ -139,11 +139,9 @@ index_mailbox_alloc_index(struct mailbox *box)
 {
 	const char *index_dir, *mailbox_path;
 
-	mailbox_path = mailbox_list_get_path(box->list, box->name,
-					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	mailbox_path = mailbox_get_path(box);
 	index_dir = (box->flags & MAILBOX_FLAG_NO_INDEX_FILES) != 0 ? "" :
-		mailbox_list_get_path(box->list, box->name,
-				      MAILBOX_LIST_PATH_TYPE_INDEX);
+		mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (*index_dir == '\0')
 		index_dir = NULL;
 
@@ -165,8 +163,7 @@ int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
 	const char *path, *path2;
 
 	/* see if it's selectable */
-	path = mailbox_list_get_path(box->list, box->name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	path = mailbox_get_path(box);
 	if (subdir != NULL)
 		path = t_strconcat(path, "/", subdir, NULL);
 	if (stat(path, &st) == 0) {
@@ -180,8 +177,7 @@ int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
 	}
 
 	/* see if it's non-selectable */
-	path2 = mailbox_list_get_path(box->list, box->name,
-				      MAILBOX_LIST_PATH_TYPE_DIR);
+	path2 = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_DIR);
 	if (strcmp(path, path2) != 0 &&
 	    stat(path2, &st) == 0) {
 		*existence_r = MAILBOX_EXISTENCE_NOSELECT;

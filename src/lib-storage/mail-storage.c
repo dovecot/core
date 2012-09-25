@@ -1797,13 +1797,18 @@ void mailbox_set_deleted(struct mailbox *box)
 	box->mailbox_deleted = TRUE;
 }
 
+const char *
+mailbox_get_path_to(struct mailbox *box, enum mailbox_list_path_type type)
+{
+	return mailbox_list_get_path(box->list, box->name, type);
+}
+
 const char *mailbox_get_path(struct mailbox *box)
 {
 	const char *path;
 
 	if (box->_path == NULL) {
-		path = mailbox_list_get_path(box->list, box->name,
-					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		path = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		box->_path = p_strdup(box->pool, path);
 	}
 	return box->_path;

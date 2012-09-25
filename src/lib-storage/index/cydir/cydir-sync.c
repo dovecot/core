@@ -19,11 +19,8 @@ static void cydir_sync_set_uidvalidity(struct cydir_sync_context *ctx)
 static string_t *cydir_get_path_prefix(struct cydir_mailbox *mbox)
 {
 	string_t *path = str_new(default_pool, 256);
-	const char *dir;
 
-	dir = mailbox_list_get_path(mbox->box.list, mbox->box.name,
-				    MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	str_append(path, dir);
+	str_append(path, mailbox_get_path(&mbox->box));
 	str_append_c(path, '/');
 	return path;
 }

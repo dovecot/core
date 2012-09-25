@@ -159,8 +159,8 @@ sdbox_sync_index_rebuild_singles(struct index_rebuild_context *ctx)
 	int ret = 0;
 
 	path = mailbox_get_path(ctx->box);
-	alt_path = mailbox_list_get_path(ctx->box->list, ctx->box->name,
-					 MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
+	alt_path = mailbox_get_path_to(ctx->box,
+				       MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
 
 	sdbox_sync_set_uidvalidity(ctx);
 	if (sdbox_sync_index_rebuild_dir(ctx, path, TRUE) < 0) {

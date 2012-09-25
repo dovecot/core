@@ -12,8 +12,7 @@ static int index_storage_mailbox_alloc_index_pvt(struct mailbox *box)
 	if (box->index_pvt != NULL)
 		return 1;
 
-	index_dir = mailbox_list_get_path(box->list, box->name,
-					  MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE);
+	index_dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE);
 	if (index_dir == NULL) {
 		/* no private indexes */
 		return 0;

@@ -728,8 +728,7 @@ int maildir_list_index_has_changed(struct mailbox *box,
 		return 1;
 	}
 
-	root_dir = mailbox_list_get_path(box->list, box->name,
-					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	root_dir = mailbox_get_path(box);
 
 	/* check if new/ changed */
 	new_dir = t_strconcat(root_dir, "/new", NULL);
