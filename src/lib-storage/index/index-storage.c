@@ -499,9 +499,9 @@ int index_storage_mailbox_create(struct mailbox *box, bool directory)
 			/* For example: layout=fs, path=~/Maildir/foo
 			   might itself exist, but does it have the
 			   cur|new|tmp subdirs? */
-			if (mailbox_exists(box, TRUE, &existence) < 0)
+			if (mailbox_exists(box, FALSE, &existence) < 0)
 				return -1;
-			if (existence == MAILBOX_EXISTENCE_NONE)
+			if (existence != MAILBOX_EXISTENCE_SELECT)
 				return 1;
 		}
 		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
