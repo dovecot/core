@@ -360,12 +360,32 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 	return mailbox_list_set_get_root_path(&set, type);
 }
 
+static bool need_escape_dirstart(const char *vname, const char *maildir_name)
+{
+	unsigned int len;
+
+	if (vname[0] == '.') {
+		if (vname[1] == '\0' || vname[1] == '/')
+			return TRUE; /* "." */
+		if (vname[1] == '.' && (vname[2] == '\0' || vname[2] == '/'))
+			return TRUE; /* ".." */
+	}
+	if (*maildir_name != '\0') {
+		len = strlen(maildir_name);
+		if (strncmp(maildir_name, vname, len) == 0 &&
+		    (vname[len] == '\0' || vname[len] == '/'))
+			return TRUE; /* e.g. dbox-Mails */
+	}
+	return FALSE;
+}
+
 static const char *
 mailbox_list_escape_name(struct mailbox_list *list, const char *vname)
 {
 	char ns_sep = mail_namespace_get_sep(list->ns);
 	char list_sep = mailbox_list_get_hierarchy_sep(list);
 	string_t *escaped_name = t_str_new(64);
+	char dirstart = TRUE;
 
 	/* no escaping of namespace prefix */
 	if (strncmp(list->ns->prefix, vname, list->ns->prefix_len) == 0) {
@@ -378,18 +398,22 @@ mailbox_list_escape_name(struct mailbox_list *list, const char *vname)
 		str_printfa(escaped_name, "%c%02x",
 			    list->set.escape_char, *vname);
 		vname++;
+		dirstart = FALSE;
 	}
 	for (; *vname != '\0'; vname++) {
 		if (*vname == ns_sep)
 			str_append_c(escaped_name, *vname);
 		else if (*vname == list_sep ||
 			 *vname == list->set.escape_char ||
-			 *vname == '/') {
+			 *vname == '/' ||
+			 (dirstart &&
+			  need_escape_dirstart(vname, list->set.maildir_name))) {
 			str_printfa(escaped_name, "%c%02x",
 				    list->set.escape_char, *vname);
 		} else {
 			str_append_c(escaped_name, *vname);
 		}
+		dirstart = *vname == '/';
 	}
 	return str_c(escaped_name);
 }
