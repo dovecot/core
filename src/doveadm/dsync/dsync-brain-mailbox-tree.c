@@ -173,66 +173,71 @@ dsync_find_namespace(struct dsync_brain *brain, const char *const *name_parts)
 	return best_ns;
 }
 
-static const char *
-mailbox_name_cleanup(const char *input, char real_sep, char alt_char)
+static bool
+dsync_is_valid_name(struct mail_namespace *ns, const char *vname)
 {
-	char *output, *p;
+	struct mailbox *box;
+	bool ret;
 
-	output = t_strdup_noconst(input);
-	for (p = output; *p != '\0'; p++) {
-		if (*p == real_sep || (uint8_t)*input < 32 ||
-		    (uint8_t)*input >= 0x80)
-			*p = alt_char;
-	}
-	return output;
+	box = mailbox_alloc(ns->list, vname, 0);
+	ret = mailbox_verify_create_name(box) == 0;
+	mailbox_free(&box);
+	return ret;
 }
 
-static const char *mailbox_name_force_cleanup(const char *input, char alt_char)
-{
-	char *output, *p;
-
-	output = t_strdup_noconst(input);
-	for (p = output; *p != '\0'; p++) {
-		if (!i_isalnum(*p))
-			*p = alt_char;
-	}
-	return output;
-}
-
-static const char *
-dsync_fix_mailbox_name(struct mail_namespace *ns, const char *vname,
+static void
+dsync_fix_mailbox_name(struct mail_namespace *ns, string_t *vname,
 		       char alt_char)
 {
-	const char *name;
-	char list_sep;
+	const char *old_vname;
+	char *p, list_sep = mailbox_list_get_hierarchy_sep(ns->list);
+	guid_128_t guid;
 
-	name = mailbox_list_get_storage_name(ns->list, vname);
+	/* replace control chars */
+	for (p = str_c_modifiable(vname); *p != '\0'; p++) {
+		if ((unsigned char)*p < ' ')
+			*p = alt_char;
+	}
+	/* make it valid UTF8 */
+	if (!uni_utf8_str_is_valid(str_c(vname))) {
+		old_vname = t_strdup(str_c(vname));
+		str_truncate(vname, 0);
+		if (uni_utf8_get_valid_data((const void *)old_vname,
+					    strlen(old_vname), vname))
+			i_unreached();
+	}
+	if (dsync_is_valid_name(ns, str_c(vname)))
+		return;
 
-	list_sep = mailbox_list_get_hierarchy_sep(ns->list);
-	if (!mailbox_list_is_valid_create_name(ns->list, name)) {
-		/* change any real separators to alt separators,
-		   drop any potentially invalid characters */
-		name = mailbox_name_cleanup(name, list_sep, alt_char);
+	/* 1) change any real separators to alt separators (this wouldn't
+	   be necessary with listescape, but don't bother detecting it) */
+	if (list_sep != mail_namespace_get_sep(ns)) {
+		for (p = str_c_modifiable(vname); *p != '\0'; p++) {
+			if (*p == list_sep)
+				*p = alt_char;
+		}
+		if (dsync_is_valid_name(ns, str_c(vname)))
+			return;
 	}
-	if (!mailbox_list_is_valid_create_name(ns->list, name)) {
-		/* still not working, apparently it's not valid mUTF-7.
-		   just drop all non-alphanumeric characters. */
-		name = mailbox_name_force_cleanup(name, alt_char);
+	/* 2) '/' characters aren't valid without listescape */
+	if (mail_namespace_get_sep(ns) != '/' && list_sep != '/') {
+		for (p = str_c_modifiable(vname); *p != '\0'; p++) {
+			if (*p == '/')
+				*p = alt_char;
+		}
+		if (dsync_is_valid_name(ns, str_c(vname)))
+			return;
 	}
-	if (!mailbox_list_is_valid_create_name(ns->list, name)) {
-		/* probably some reserved name (e.g. dbox-Mails) */
-		name = t_strconcat("_", name, NULL);
-	}
-	if (!mailbox_list_is_valid_create_name(ns->list, name)) {
-		/* name is too long? just give up and generate a
-		   unique name */
-		guid_128_t guid;
+	/* 3) probably some reserved name (e.g. dbox-Mails) */
+	str_insert(vname, 0, "_");
+	if (dsync_is_valid_name(ns, str_c(vname)))
+		return;
 
-		guid_128_generate(guid);
-		name = guid_128_to_string(guid);
-	}
-	i_assert(mailbox_list_is_valid_create_name(ns->list, name));
-	return mailbox_list_get_vname(ns->list, name);
+	/* 4) name is too long? just give up and generate a unique name */
+	guid_128_generate(guid);
+	str_truncate(vname, 0);
+	str_append(vname, guid_128_to_string(guid));
+	i_assert(dsync_is_valid_name(ns, str_c(vname)));
 }
 
 static int
@@ -264,7 +269,8 @@ dsync_get_mailbox_name(struct dsync_brain *brain, const char *const *name_parts,
 	}
 	str_truncate(vname, str_len(vname)-1);
 
-	*name_r = dsync_fix_mailbox_name(ns, str_c(vname), alt_char);
+	dsync_fix_mailbox_name(ns, vname, alt_char);
+	*name_r = str_c(vname);
 	*ns_r = ns;
 	return 0;
 }

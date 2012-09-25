@@ -51,14 +51,14 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 		 enum mailbox_list_path_type type)
 {
 	const struct mailbox_list_settings *set = &_list->set;
-	const char *root_dir;
+	const char *root_dir, *error;
 
 	if (name == NULL) {
 		/* return root directories */
 		return mailbox_list_set_get_root_path(set, type);
 	}
 
-	i_assert(mailbox_list_is_valid_pattern(_list, name));
+	i_assert(mailbox_list_is_valid_name(_list, name, &error));
 
 	if (mailbox_list_try_get_absolute_path(_list, &name))
 		return name;

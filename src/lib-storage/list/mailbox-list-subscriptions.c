@@ -27,7 +27,7 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 	struct mail_namespace *ns, *default_ns = list->ns;
 	struct mail_namespace *namespaces = default_ns->user->namespaces;
 	struct mailbox_node *node;
-	const char *vname, *ns_name;
+	const char *vname, *ns_name, *error;
 	unsigned int len;
 	bool created;
 
@@ -87,7 +87,7 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 		name = t_strndup(name, len-1);
 	}
 
-	if (!mailbox_list_is_valid_existing_name(list, name)) {
+	if (!mailbox_list_is_valid_name(list, name, &error)) {
 		/* we'll only get into trouble if we show this */
 		return -1;
 	} else {
@@ -246,7 +246,7 @@ mailbox_list_subscriptions_iter_next(struct mailbox_list_iterate_context *_ctx)
 	struct mailbox_list *list = _ctx->list;
 	struct mailbox_node *node;
 	enum mailbox_info_flags subs_flags;
-	const char *vname, *storage_name;
+	const char *vname, *storage_name, *error;
 	int ret;
 
 	node = mailbox_tree_iterate_next(ctx->iter, &vname);
@@ -265,7 +265,7 @@ mailbox_list_subscriptions_iter_next(struct mailbox_list_iterate_context *_ctx)
 	}
 
 	storage_name = mailbox_list_get_storage_name(list, vname);
-	if (!mailbox_list_is_valid_pattern(list, storage_name)) {
+	if (!mailbox_list_is_valid_name(list, storage_name, &error)) {
 		/* broken entry in subscriptions file */
 		ctx->info.flags = MAILBOX_NONEXISTENT;
 	} else if (mailbox_list_mailbox(list, storage_name,

@@ -328,7 +328,7 @@ fs_list_get_valid_patterns(struct fs_list_iterate_context *ctx,
 {
 	struct mailbox_list *_list = ctx->ctx.list;
 	ARRAY(const char *) valid_patterns;
-	const char *pattern, *test_pattern, *real_pattern;
+	const char *pattern, *test_pattern, *real_pattern, *error;
 	unsigned int prefix_len;
 
 	prefix_len = strlen(_list->ns->prefix);
@@ -345,8 +345,8 @@ fs_list_get_valid_patterns(struct fs_list_iterate_context *ctx,
 		   separators. */
 		real_pattern =
 			mailbox_list_get_storage_name(_list, test_pattern);
-		if (mailbox_list_is_valid_pattern(_list, test_pattern) &&
-		    mailbox_list_is_valid_pattern(_list, real_pattern)) {
+		if (mailbox_list_is_valid_name(_list, test_pattern, &error) &&
+		    mailbox_list_is_valid_name(_list, real_pattern, &error)) {
 			pattern = p_strdup(ctx->ctx.pool, *patterns);
 			array_append(&valid_patterns, &pattern, 1);
 		}

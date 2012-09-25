@@ -709,31 +709,42 @@ struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 	return box;
 }
 
-static bool mailbox_name_verify_separators(const char *vname, char sep)
+static bool
+mailbox_name_verify_separators(const char *vname, char sep,
+			       const char **error_r)
 {
 	unsigned int i;
-	bool prev_sep = TRUE;
+	bool prev_sep = FALSE;
+
+	if (vname[0] == sep) {
+		*error_r = "Begins with hierarchy separator";
+		return FALSE;
+	}
 
 	/* Make sure the vname is correct: non-empty, doesn't begin or end
 	   with separator and no adjacent separators */
-	for (i = 0; vname[i] != '\0'; i++) {
+	for (i = 1; vname[i] != '\0'; i++) {
 		if (vname[i] == sep) {
-			if (prev_sep)
+			if (prev_sep) {
+				*error_r = "Has adjacent hierarchy separators";
 				return FALSE;
+			}
 			prev_sep = TRUE;
 		} else {
 			prev_sep = FALSE;
 		}
 	}
-	if (prev_sep)
+	if (prev_sep) {
+		*error_r = "Ends with hierarchy separator";
 		return FALSE;
+	}
 	return TRUE;
 }
 
 static int mailbox_verify_name(struct mailbox *box)
 {
 	struct mail_namespace *ns = box->list->ns;
-	const char *vname = box->vname;
+	const char *error, *vname = box->vname;
 	char list_sep, ns_sep;
 
 	if (box->inbox_user) {
@@ -768,24 +779,40 @@ static int mailbox_verify_name(struct mailbox *box)
 			"Character not allowed in mailbox name: '%c'", list_sep));
 		return -1;
 	}
-	if (!mailbox_name_verify_separators(box->vname, ns_sep) ||
-	    !mailbox_list_is_valid_existing_name(box->list, box->name)) {
+	if (!mailbox_name_verify_separators(vname, ns_sep, &error) ||
+	    !mailbox_list_is_valid_name(box->list, box->name, &error)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
+			t_strdup_printf("Invalid mailbox name: %s", error));
 		return -1;
 	}
 	return 0;
 }
 
-static int mailbox_verify_create_name(struct mailbox *box)
+static bool mailbox_name_has_control_chars(const char *name)
+{
+	const char *p;
+
+	for (p = name; *p != '\0'; p++) {
+		if ((unsigned char)*p < ' ')
+			return TRUE;
+	}
+	return FALSE;
+}
+
+int mailbox_verify_create_name(struct mailbox *box)
 {
 	char sep = mail_namespace_get_sep(box->list->ns);
 
+	/* mailbox_alloc() already checks that vname is valid UTF8,
+	   so we don't need to verify that.
+
+	   check vname instead of storage name, because vname is what is
+	   visible to users, while storage name may be a fixed length GUID. */
 	if (mailbox_verify_name(box) < 0)
 		return -1;
-	if (!mailbox_list_is_valid_create_name(box->list, box->name)) {
+	if (mailbox_name_has_control_chars(box->vname)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
+			"Control characters not allowed in new mailbox names");
 		return -1;
 	}
 	if (mailbox_list_name_is_too_large(box->vname, sep)) {

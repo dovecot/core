@@ -424,6 +424,9 @@ bool mailbox_equals(const struct mailbox *box1,
 		    const struct mail_namespace *ns2,
 		    const char *vname2) ATTR_PURE;
 
+/* Returns -1 if mailbox_create() is guaranteed to fail because the mailbox
+   name is invalid, 0 not. The error message contains a reason. */
+int mailbox_verify_create_name(struct mailbox *box);
 /* Create a mailbox. Returns failure if it already exists. Mailbox name is
    allowed to contain multiple new nonexistent hierarchy levels. If directory
    is TRUE, the mailbox should be created so that it can contain children. The

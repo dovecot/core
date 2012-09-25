@@ -176,14 +176,10 @@ int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
 			    enum mailbox_list_path_type type,
 			    const char **error_r);
 
-/* Returns TRUE if the name doesn't contain any invalid characters.
-   The create name check can be more strict. */
-bool mailbox_list_is_valid_pattern(struct mailbox_list *list,
-				   const char *pattern);
-bool mailbox_list_is_valid_existing_name(struct mailbox_list *list,
-					 const char *name);
-bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
-				       const char *name);
+/* Returns TRUE if name is ok, FALSE if it can't be safely passed to
+   mailbox_list_*() functions */
+bool mailbox_list_is_valid_name(struct mailbox_list *list,
+				const char *name, const char **error_r);
 
 const char *mailbox_list_get_storage_name(struct mailbox_list *list,
 					  const char *vname);

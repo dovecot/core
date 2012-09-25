@@ -925,23 +925,26 @@ int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
 	return 0;
 }
 
-bool mailbox_list_is_valid_pattern(struct mailbox_list *list,
-				   const char *pattern)
-{
-	return mailbox_list_is_valid_existing_name(list, pattern);
-}
-
 static bool
-mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name)
+mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name,
+			      const char **error_r)
 {
 	bool ret, allow_internal_dirs;
+
+	*error_r = NULL;
 
 	if (list->mail_set->mail_full_filesystem_access)
 		return TRUE;
 
 	/* make sure it's not absolute path */
-	if (*name == '/' || *name == '~')
+	if (*name == '/') {
+		*error_r = "Begins with '/'";
 		return FALSE;
+	}
+	if (*name == '~') {
+		*error_r = "Begins with '~'";
+		return FALSE;
+	}
 
 	/* make sure the mailbox name doesn't contain any foolishness:
 	   "../" could give access outside the mailbox directory.
@@ -955,23 +958,32 @@ mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name)
 		for (; *names != NULL; names++) {
 			const char *n = *names;
 
-			if (*n == '\0')
+			if (*n == '\0') {
+				*error_r = "Has adjacent '/' chars";
 				break; /* // */
+			}
 			if (*n == '.') {
-				if (n[1] == '\0')
+				if (n[1] == '\0') {
+					*error_r = "Contains '.' part";
 					break; /* ./ */
-				if (n[1] == '.' && n[2] == '\0')
+				}
+				if (n[1] == '.' && n[2] == '\0') {
+					*error_r = "Contains '..' part";
 					break; /* ../ */
+				}
 			}
 			if (*list->set.maildir_name != '\0' &&
 			    strcmp(list->set.maildir_name, n) == 0) {
 				/* don't allow maildir_name to be used as part
 				   of the mailbox name */
+				*error_r = "Contains reserved name";
 				break;
 			}
 			if (!allow_internal_dirs &&
-			    list->v.is_internal_name(list, n))
+			    list->v.is_internal_name(list, n)) {
+				*error_r = "Contains reserved name";
 				break;
+			}
 		}
 		ret = *names == NULL;
 	} T_END;
@@ -980,42 +992,16 @@ mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name)
 }
 
 
-bool mailbox_list_is_valid_existing_name(struct mailbox_list *list,
-					 const char *name)
+bool mailbox_list_is_valid_name(struct mailbox_list *list,
+				const char *name, const char **error_r)
 {
-	bool ret;
-
 	if (*name == '\0' && *list->ns->prefix != '\0') {
 		/* an ugly way to get to mailbox root (e.g. Maildir/ when
 		   it's not the INBOX) */
 		return TRUE;
 	}
 
-	T_BEGIN {
-		ret = mailbox_list_is_valid_fs_name(list, name);
-	} T_END;
-	return ret;
-}
-
-bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
-				       const char *name)
-{
-	const char *p;
-	int ret;
-
-	/* safer to just disallow all control characters */
-	for (p = name; *p != '\0'; p++) {
-		if ((unsigned char)*p < ' ')
-			return FALSE;
-	}
-
-	if (list->set.utf8)
-		ret = uni_utf8_str_is_valid(name) ? 0 : -1;
-	else T_BEGIN {
-		string_t *str = t_str_new(256);
-		ret = imap_utf7_to_utf8(name, str);
-	} T_END;
-	return ret == 0;
+	return mailbox_list_is_valid_fs_name(list, name, error_r);
 }
 
 const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
@@ -1274,7 +1260,9 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 
 int mailbox_list_delete_dir(struct mailbox_list *list, const char *name)
 {
-	if (!mailbox_list_is_valid_existing_name(list, name) || *name == '\0') {
+	const char *error;
+
+	if (!mailbox_list_is_valid_name(list, name, &error) || *name == '\0') {
 		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
 		return -1;
@@ -1284,7 +1272,9 @@ int mailbox_list_delete_dir(struct mailbox_list *list, const char *name)
 
 int mailbox_list_delete_symlink(struct mailbox_list *list, const char *name)
 {
-	if (!mailbox_list_is_valid_existing_name(list, name) || *name == '\0') {
+	const char *error;
+
+	if (!mailbox_list_is_valid_name(list, name, &error) || *name == '\0') {
 		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
 		return -1;
