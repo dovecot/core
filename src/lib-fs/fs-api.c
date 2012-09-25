@@ -33,7 +33,7 @@ fs_alloc(const struct fs *fs_class, const char *args,
 		i_free(error_dup);
 		return -1;
 	}
-	(*fs_r)->last_error = str_new(default_pool, 64);
+	fs->last_error = str_new(default_pool, 64);
 	*fs_r = fs;
 	return 0;
 }
