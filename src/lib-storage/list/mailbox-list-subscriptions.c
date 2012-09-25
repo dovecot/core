@@ -150,7 +150,7 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 			i_warning("Subscriptions file %s: "
 				  "Removing invalid entry: %s",
 				  path, name);
-			(void)subsfile_set_subscribed(dest_list, path,
+			(void)subsfile_set_subscribed(src_list, path,
 				mailbox_list_get_temp_prefix(dest_list),
 				name, FALSE);
 
