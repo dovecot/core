@@ -27,7 +27,7 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 	struct mail_namespace *ns, *default_ns = list->ns;
 	struct mail_namespace *namespaces = default_ns->user->namespaces;
 	struct mailbox_node *node;
-	const char *vname, *ns_name, *list_name;
+	const char *vname, *ns_name;
 	unsigned int len;
 	bool created;
 
@@ -59,10 +59,9 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 	if (ns != NULL && ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 	    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
 		/* we'll need to get the namespace autocreated.
-		   one easy way is to just ask if a mailbox name under
-		   it is valid, and it gets created */
-		list_name = ns_name + ns->prefix_len;
-		(void)mailbox_list_is_valid_existing_name(list, list_name);
+		   one easy way is to just ask to join a reference and
+		   pattern */
+		(void)mailbox_list_join_refpattern(ns->list, ns_name, "");
 	}
 
 	/* When listing pub/ namespace, skip over the namespace

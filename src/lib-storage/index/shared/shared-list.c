@@ -120,6 +120,7 @@ static void
 shared_list_create_missing_namespaces(struct mailbox_list *list,
 				      const char *const *patterns)
 {
+	struct mail_namespace *ns;
 	char sep = mail_namespace_get_sep(list->ns);
 	const char *list_pat, *name;
 	unsigned int i;
@@ -142,8 +143,9 @@ shared_list_create_missing_namespaces(struct mailbox_list *list,
 				last = p;
 		}
 		if (last != NULL) {
+			ns = list->ns;
 			name = t_strdup_until(list_pat, last);
-			(void)mailbox_list_is_valid_existing_name(list, name);
+			(void)shared_storage_get_namespace(&ns, &name);
 		}
 	}
 }
