@@ -491,6 +491,7 @@ int index_storage_mailbox_create(struct mailbox *box, bool directory)
 		mail_storage_copy_list_error(box->storage, box->list);
 		return -1;
 	}
+	mailbox_refresh_permissions(box);
 	if (ret == 0) {
 		/* directory already exists */
 		if (create_parent_dir)
