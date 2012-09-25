@@ -879,7 +879,7 @@ int mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
 	struct mdbox_storage_rebuild_context *ctx;
 	int ret;
 
-	if (dbox_sync_rebuild_verify_alt_storage(storage->map->root_list) < 0) {
+	if (dbox_verify_alt_storage(storage->map->root_list) < 0) {
 		mail_storage_set_critical(&storage->storage.storage,
 			"mdbox rebuild: Alt storage %s not mounted, aborting",
 			storage->alt_storage_dir);
