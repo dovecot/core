@@ -88,12 +88,11 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	const struct mail_storage_settings *mail_set = list->mail_set;
 	struct dotlock_settings dotlock_set;
 	struct dotlock *dotlock;
-	const char *line, *origin;
+	struct mailbox_permissions perm;
+	const char *line;
 	struct istream *input;
 	struct ostream *output;
 	int fd_in, fd_out;
-	mode_t file_mode, dir_mode;
-	gid_t gid;
 	bool found, changed = FALSE, failed = FALSE;
 
 	if (strcasecmp(name, "INBOX") == 0)
@@ -106,17 +105,20 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	dotlock_set.timeout = SUBSCRIPTION_FILE_LOCK_TIMEOUT;
 	dotlock_set.stale_timeout = SUBSCRIPTION_FILE_CHANGE_TIMEOUT;
 
-	mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
-					  &gid, &origin);
+	mailbox_list_get_root_permissions(list, &perm);
 	fd_out = file_dotlock_open_group(&dotlock_set, path, 0,
-					 file_mode, gid, origin, &dotlock);
+					 perm.file_create_mode,
+					 perm.file_create_gid,
+					 perm.file_create_gid_origin, &dotlock);
 	if (fd_out == -1 && errno == ENOENT) {
 		/* directory hasn't been created yet. */
 		if (mailbox_list_mkdir_parent(list, NULL, path) < 0)
 			return -1;
 		fd_out = file_dotlock_open_group(&dotlock_set, path, 0,
-						 file_mode, gid,
-						 origin, &dotlock);
+						 perm.file_create_mode,
+						 perm.file_create_gid,
+						 perm.file_create_gid_origin,
+						 &dotlock);
 	}
 	if (fd_out == -1) {
 		if (errno == EAGAIN) {

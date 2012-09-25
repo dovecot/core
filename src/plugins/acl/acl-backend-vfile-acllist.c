@@ -201,12 +201,11 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 	struct mail_namespace *ns;
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
-	const char *rootdir, *origin, *acllist_path;
+	const char *rootdir, *acllist_path;
 	struct ostream *output;
 	struct stat st;
+	struct mailbox_permissions perm;
 	string_t *path;
-	mode_t file_mode, dir_mode;
-	gid_t gid;
 	int fd, ret;
 
 	i_assert(!backend->rebuilding_acllist);
@@ -227,14 +226,17 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 	/* Build it into a temporary file and rename() over. There's no need
 	   to use locking, because even if multiple processes are rebuilding
 	   the file at the same time the result should be the same. */
-	mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
-					  &gid, &origin);
-	fd = safe_mkstemp_group(path, file_mode, gid, origin);
+	mailbox_list_get_root_permissions(list, &perm);
+	fd = safe_mkstemp_group(path, perm.file_create_mode,
+				perm.file_create_gid,
+				perm.file_create_gid_origin);
 	if (fd == -1 && errno == ENOENT) {
 		if (mailbox_list_mkdir_parent(backend->backend.list, NULL,
 					      str_c(path)) < 0)
 			return -1;
-		fd = safe_mkstemp_group(path, file_mode, gid, origin);
+		fd = safe_mkstemp_group(path, perm.file_create_mode,
+					perm.file_create_gid,
+					perm.file_create_gid_origin);
 	}
 	if (fd == -1) {
 		if (errno == EACCES) {

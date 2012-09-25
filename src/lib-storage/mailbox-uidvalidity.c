@@ -37,27 +37,27 @@ static void mailbox_uidvalidity_write(struct mailbox_list *list,
 {
 	char buf[8+1];
 	int fd;
-	mode_t file_mode, dir_mode, old_mask;
-	gid_t gid;
-	const char *gid_origin;
+	struct mailbox_permissions perm;
+	mode_t old_mask;
 
-	mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
-					  &gid, &gid_origin);
+	mailbox_list_get_root_permissions(list, &perm);
 
-	old_mask = umask(0666 & ~file_mode);
+	old_mask = umask(0666 & ~perm.file_create_mode);
 	fd = open(path, O_RDWR | O_CREAT, 0666);
 	umask(old_mask);
 	if (fd == -1) {
 		i_error("open(%s) failed: %m", path);
 		return;
 	}
-	if (gid != (gid_t)-1 && fchown(fd, (uid_t)-1, gid) < 0) {
+	if (perm.file_create_gid != (gid_t)-1 &&
+	    fchown(fd, (uid_t)-1, perm.file_create_gid) < 0) {
 		if (errno == EPERM) {
 			i_error("%s", eperm_error_get_chgrp("fchown", path,
-							    gid, gid_origin));
+						perm.file_create_gid,
+						perm.file_create_gid_origin));
 		} else {
 			i_error("fchown(%s, -1, %ld) failed: %m",
-				path, (long)gid);
+				path, (long)perm.file_create_gid);
 		}
 	}
 

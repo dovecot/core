@@ -293,13 +293,12 @@ static int rename_dir(struct mailbox_list *oldlist, const char *oldname,
 
 	if (strcmp(oldparent, newparent) != 0 && stat(oldpath, &st) == 0) {
 		/* make sure the newparent exists */
-		mode_t file_mode, dir_mode;
-		gid_t gid;
-		const char *origin;
+		struct mailbox_permissions perm;
 
-		mailbox_list_get_root_permissions(newlist, &file_mode,
-						  &dir_mode, &gid, &origin);
-		if (mkdir_parents_chgrp(newparent, dir_mode, gid, origin) < 0 &&
+		mailbox_list_get_root_permissions(newlist, &perm);
+		if (mkdir_parents_chgrp(newparent, perm.dir_create_mode,
+					perm.file_create_gid,
+					perm.file_create_gid_origin) < 0 &&
 		    errno != EEXIST) {
 			if (mailbox_list_set_error_from_errno(oldlist))
 				return -1;

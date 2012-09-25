@@ -222,18 +222,18 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	struct mail_namespace *const *namespaces;
 	unsigned int i, count;
 	struct dotlock *dotlock;
-	const char *p, *dir, *gid_origin;
+	struct mailbox_permissions perm;
+	const char *p, *dir;
 	string_t *str;
-	mode_t file_mode, dir_mode;
-	gid_t gid;
 	int fd;
 
 	i_assert(root->fd == -1);
 
 	/* figure out what permissions we should use for maildirsize.
 	   use the inbox namespace's permissions if possible. */
-	file_mode = 0600; dir_mode = 0700; gid_origin = "default";
-	gid = (gid_t)-1;
+	perm.file_create_mode = 0600; perm.dir_create_mode = 0700;
+	perm.file_create_gid = (gid_t)-1;
+	perm.file_create_gid_origin = "default";
 	namespaces = array_get(&root->root.quota->namespaces, &count);
 	i_assert(count > 0);
 	for (i = 0; i < count; i++) {
@@ -241,8 +241,7 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 			continue;
 
 		mailbox_list_get_root_permissions(namespaces[i]->list,
-						  &file_mode, &dir_mode,
-						  &gid, &gid_origin);
+						  &perm);
 		break;
 	}
 
@@ -250,19 +249,25 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	dotlock_settings.nfs_flush = set->mail_nfs_storage;
 	fd = file_dotlock_open_group(&dotlock_settings, path,
 				     DOTLOCK_CREATE_FLAG_NONBLOCK,
-				     file_mode, gid, gid_origin, &dotlock);
+				     perm.file_create_mode,
+				     perm.file_create_gid,
+				     perm.file_create_gid_origin, &dotlock);
 	if (fd == -1 && errno == ENOENT) {
 		/* the control directory doesn't exist yet? create it */
 		p = strrchr(path, '/');
 		dir = t_strdup_until(path, p);
-		if (mkdir_parents_chgrp(dir, dir_mode, gid, gid_origin) < 0 &&
+		if (mkdir_parents_chgrp(dir, perm.dir_create_mode,
+					perm.file_create_gid,
+					perm.file_create_gid_origin) < 0 &&
 		    errno != EEXIST) {
 			i_error("mkdir_parents(%s) failed: %m", dir);
 			return -1;
 		}
 		fd = file_dotlock_open_group(&dotlock_settings, path,
 					     DOTLOCK_CREATE_FLAG_NONBLOCK,
-					     file_mode, gid, gid_origin,
+					     perm.file_create_mode,
+					     perm.file_create_gid,
+					     perm.file_create_gid_origin,
 					     &dotlock);
 	}
 	if (fd == -1) {

@@ -105,11 +105,8 @@ struct mailbox_list {
 	const struct mail_storage_settings *mail_set;
 	enum mailbox_list_flags flags;
 
-	/* -1 if not set yet. use mailbox_list_get_permissions() to set them */
-	mode_t file_create_mode, dir_create_mode;
-	gid_t file_create_gid;
-	/* origin (e.g. path) where the file_create_gid was got from */
-	const char *file_create_gid_origin;
+	/* may not be set yet, use mailbox_list_get_permissions() to access */
+	struct mailbox_permissions root_permissions;
 
 	struct mailbox_tree_context *subscriptions;
 	time_t subscriptions_mtime, subscriptions_read_time;

@@ -20,9 +20,7 @@ struct mdbox_map {
 	uint32_t map_ext_id, ref_ext_id;
 
 	struct mailbox_list *root_list;
-	mode_t create_mode;
-	gid_t create_gid;
-	const char *create_gid_origin;
+	struct mailbox_permissions perm;
 
 	unsigned int verify_existing_file_ids:1;
 };
