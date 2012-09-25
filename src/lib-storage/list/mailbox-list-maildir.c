@@ -92,91 +92,6 @@ maildir_list_get_absolute_path(struct mailbox_list *list, const char *name)
 					     p+1);
 }
 
-static bool
-maildir_list_is_valid_common(struct maildir_mailbox_list *list,
-			     const char *name, size_t *len_r)
-{
-	size_t len;
-
-	/* check that there are no adjacent hierarchy separators */
-	for (len = 0; name[len] != '\0'; len++) {
-		if (name[len] == list->sep &&
-		    name[len+1] == list->sep)
-			return FALSE;
-	}
-
-	if (len == 0 || name[len-1] == '/')
-		return FALSE;
-
-	if (name[0] == list->sep ||
-	    name[len-1] == list->sep)
-		return FALSE;
-
-	*len_r = len;
-	return TRUE;
-}
-
-static bool maildir_list_is_valid_common_nonfs(const char *name)
-{
-	if (*name == '~' || strchr(name, '/') != NULL)
-		return FALSE;
-
-	if (name[0] == '.' && (name[1] == '\0' ||
-			       (name[1] == '.' && name[2] == '\0'))) {
-		/* "." and ".." aren't allowed. */
-		return FALSE;
-	}
-	return TRUE;
-}
-
-static bool
-maildir_is_valid_existing_name(struct mailbox_list *_list, const char *name)
-{
-	struct maildir_mailbox_list *list =
-		(struct maildir_mailbox_list *)_list;
-	size_t len;
-
-	if (!maildir_list_is_valid_common(list, name, &len))
-		return FALSE;
-
-	if (_list->mail_set->mail_full_filesystem_access)
-		return TRUE;
-
-	return maildir_list_is_valid_common_nonfs(name);
-}
-
-static bool
-maildir_is_valid_pattern(struct mailbox_list *list, const char *pattern)
-{
-	/* maildir code itself doesn't care about this, but we may get here
-	   from listing subscriptions to LAYOUT=fs namespace containing
-	   entries for a subscriptions=no LAYOUT=maildir++ namespace */
-	return maildir_is_valid_existing_name(list, pattern);
-}
-
-static bool
-maildir_is_valid_create_name(struct mailbox_list *_list, const char *name)
-{
-	struct maildir_mailbox_list *list =
-		(struct maildir_mailbox_list *)_list;
-	size_t len;
-
-	if (!maildir_list_is_valid_common(list, name, &len))
-		return FALSE;
-	if (len > MAILDIR_MAX_CREATE_MAILBOX_NAME_LENGTH)
-		return FALSE;
-
-	if (_list->mail_set->mail_full_filesystem_access)
-		return TRUE;
-
-	if (!maildir_list_is_valid_common_nonfs(name))
-		return FALSE;
-	if (mailbox_list_name_is_too_large(name, list->sep))
-		return FALSE;
-
-	return TRUE;
-}
-
 static char maildir_list_get_hierarchy_sep(struct mailbox_list *_list)
 {
 	struct maildir_mailbox_list *list =
@@ -641,9 +556,6 @@ struct mailbox_list maildir_mailbox_list = {
 		maildir_list_alloc,
 		maildir_list_deinit,
 		NULL,
-		maildir_is_valid_pattern,
-		maildir_is_valid_existing_name,
-		maildir_is_valid_create_name,
 		maildir_list_get_hierarchy_sep,
 		mailbox_list_default_get_vname,
 		mailbox_list_default_get_storage_name,
@@ -677,9 +589,6 @@ struct mailbox_list imapdir_mailbox_list = {
 		imapdir_list_alloc,
 		maildir_list_deinit,
 		NULL,
-		maildir_is_valid_pattern,
-		maildir_is_valid_existing_name,
-		maildir_is_valid_create_name,
 		maildir_list_get_hierarchy_sep,
 		mailbox_list_default_get_vname,
 		mailbox_list_default_get_storage_name,

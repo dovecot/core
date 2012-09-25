@@ -54,36 +54,6 @@ shared_get_storage(struct mailbox_list **list, const char *vname,
 	return 0;
 }
 
-static bool
-shared_is_valid_pattern(struct mailbox_list *list, const char *pattern)
-{
-	struct mail_namespace *ns = list->ns;
-
-	if (shared_storage_get_namespace(&ns, &pattern) < 0)
-		return FALSE;
-	return mailbox_list_is_valid_pattern(ns->list, pattern);
-}
-
-static bool
-shared_is_valid_existing_name(struct mailbox_list *list, const char *name)
-{
-	struct mail_namespace *ns = list->ns;
-
-	if (shared_storage_get_namespace(&ns, &name) < 0)
-		return FALSE;
-	return mailbox_list_is_valid_existing_name(ns->list, name);
-}
-
-static bool
-shared_is_valid_create_name(struct mailbox_list *list, const char *name)
-{
-	struct mail_namespace *ns = list->ns;
-
-	if (shared_storage_get_namespace(&ns, &name) < 0)
-		return FALSE;
-	return mailbox_list_is_valid_create_name(ns->list, name);
-}
-
 static char shared_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
 {
 	return '/';
@@ -337,9 +307,6 @@ struct mailbox_list shared_mailbox_list = {
 		shared_list_alloc,
 		shared_list_deinit,
 		shared_get_storage,
-		shared_is_valid_pattern,
-		shared_is_valid_existing_name,
-		shared_is_valid_create_name,
 		shared_list_get_hierarchy_sep,
 		mailbox_list_default_get_vname,
 		mailbox_list_default_get_storage_name,

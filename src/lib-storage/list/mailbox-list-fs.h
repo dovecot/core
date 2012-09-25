@@ -3,10 +3,6 @@
 
 #include "mailbox-list-private.h"
 
-/* Don't allow creating too long mailbox names. They could start causing
-   problems when they reach the limit. */
-#define FS_MAX_CREATE_MAILBOX_NAME_LENGTH (MAILBOX_LIST_NAME_MAX_LENGTH/2)
-
 /* When doing deletion via renaming it first to trash directory, use this as
    the trash directory name */
 #define MAILBOX_LIST_FS_TRASH_DIR_NAME "..DOVECOT-TrasH"

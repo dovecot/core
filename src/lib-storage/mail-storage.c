@@ -709,6 +709,93 @@ struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 	return box;
 }
 
+static bool mailbox_name_verify_separators(const char *vname, char sep)
+{
+	unsigned int i;
+	bool prev_sep = TRUE;
+
+	/* Make sure the vname is correct: non-empty, doesn't begin or end
+	   with separator and no adjacent separators */
+	for (i = 0; vname[i] != '\0'; i++) {
+		if (vname[i] == sep) {
+			if (prev_sep)
+				return FALSE;
+			prev_sep = TRUE;
+		} else {
+			prev_sep = FALSE;
+		}
+	}
+	if (prev_sep)
+		return FALSE;
+	return TRUE;
+}
+
+static int mailbox_verify_name(struct mailbox *box)
+{
+	struct mail_namespace *ns = box->list->ns;
+	const char *vname = box->vname;
+	char list_sep, ns_sep;
+
+	if (box->inbox_user) {
+		/* this is INBOX - don't bother with further checks */
+		return 0;
+	}
+
+	list_sep = mailbox_list_get_hierarchy_sep(box->list);
+	ns_sep = mail_namespace_get_sep(ns);
+
+	if (ns->prefix_len > 0) {
+		/* vname is either "namespace/box" or "namespace" */
+		i_assert(strncmp(vname, ns->prefix, ns->prefix_len-1) == 0);
+		vname += ns->prefix_len - 1;
+		if (vname[0] != '\0') {
+			i_assert(vname[0] == ns->prefix[ns->prefix_len-1]);
+			vname++;
+
+			if (vname[0] == '\0') {
+				/* "namespace/" isn't a valid mailbox name. */
+				mail_storage_set_error(box->storage,
+						       MAIL_ERROR_PARAMS,
+						       "Invalid mailbox name");
+				return -1;
+			}
+		}
+	}
+
+	if (ns_sep != list_sep && box->list->set.escape_char == '\0' &&
+	    strchr(vname, list_sep) != NULL) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS, t_strdup_printf(
+			"Character not allowed in mailbox name: '%c'", list_sep));
+		return -1;
+	}
+	if (!mailbox_name_verify_separators(box->vname, ns_sep) ||
+	    !mailbox_list_is_valid_existing_name(box->list, box->name)) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+				       "Invalid mailbox name");
+		return -1;
+	}
+	return 0;
+}
+
+static int mailbox_verify_create_name(struct mailbox *box)
+{
+	char sep = mail_namespace_get_sep(box->list->ns);
+
+	if (mailbox_verify_name(box) < 0)
+		return -1;
+	if (!mailbox_list_is_valid_create_name(box->list, box->name)) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+				       "Invalid mailbox name");
+		return -1;
+	}
+	if (mailbox_list_name_is_too_large(box->vname, sep)) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+				       "Mailbox name too long");
+		return -1;
+	}
+	return 0;
+}
+
 static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 					   const char *name)
 {
@@ -752,10 +839,11 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 		/* unsure if this exists or not */
 		return -1;
 	}
-	if (!mailbox_list_is_valid_existing_name(box->list, box->name)) {
-		/* report it as not selectable, since it exists but we won't
-		   let it be opened. */
-		*existence_r = MAILBOX_EXISTENCE_NOSELECT;
+	if (mailbox_verify_name(box) < 0) {
+		/* we don't currently know if this mailbox exists or not, but
+		   since it can never be accessed in any way report it as if it
+		   didn't exist. */
+		*existence_r = MAILBOX_EXISTENCE_NONE;
 		return 0;
 	}
 
@@ -779,53 +867,6 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 	   mail_shared_explicit_inbox=no, we'll need to mark the namespace as
 	   usable here since nothing else will. */
 	box->list->ns->flags |= NAMESPACE_FLAG_USABLE;
-	return 0;
-}
-
-static int mailbox_check_mismatching_separators(struct mailbox *box)
-{
-	struct mail_namespace *ns = box->list->ns;
-	const char *p, *vname = box->vname;
-	char list_sep, ns_sep;
-
-	if (box->inbox_user) {
-		/* this is INBOX - don't bother with further checks */
-		return 0;
-	}
-
-	list_sep = mailbox_list_get_hierarchy_sep(box->list);
-	ns_sep = mail_namespace_get_sep(ns);
-
-	if (ns->prefix_len > 0) {
-		/* vname is either "namespace/box" or "namespace" */
-		i_assert(strncmp(vname, ns->prefix, ns->prefix_len-1) == 0);
-		vname += ns->prefix_len - 1;
-		if (vname[0] != '\0') {
-			i_assert(vname[0] == ns->prefix[ns->prefix_len-1]);
-			vname++;
-
-			if (vname[0] == '\0') {
-				/* "namespace/" isn't a valid mailbox name. */
-				mail_storage_set_error(box->storage,
-						       MAIL_ERROR_PARAMS,
-						       "Invalid mailbox name");
-				return -1;
-			}
-		}
-	}
-
-	if (ns_sep == list_sep || box->list->set.escape_char != '\0')
-		return 0;
-
-	for (p = vname; *p != '\0'; p++) {
-		if (*p == list_sep) {
-			mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
-				t_strdup_printf("Character not allowed "
-						"in mailbox name: '%c'",
-						list_sep));
-			return -1;
-		}
-	}
 	return 0;
 }
 
@@ -894,13 +935,8 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 		return -1;
 	}
 
-	if (mailbox_check_mismatching_separators(box) < 0)
+	if (mailbox_verify_name(box) < 0)
 		return -1;
-	if (!mailbox_list_is_valid_existing_name(box->list, box->name)) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
-		return -1;
-	}
 
 	if (input != NULL) {
 		if ((box->storage->class_flags &
@@ -973,6 +1009,8 @@ int mailbox_open_stream(struct mailbox *box, struct istream *input)
 
 int mailbox_enable(struct mailbox *box, enum mailbox_feature features)
 {
+	if (mailbox_verify_name(box) < 0)
+		return -1;
 	return box->v.enable(box, features);
 }
 
@@ -1048,11 +1086,8 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	enum mailbox_dir_create_type type;
 	int ret;
 
-	if (!mailbox_list_is_valid_create_name(box->list, box->name)) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
+	if (mailbox_verify_create_name(box) < 0)
 		return -1;
-	}
 
 	type = directory ? MAILBOX_DIR_CREATE_TYPE_TRY_NOSELECT :
 		MAILBOX_DIR_CREATE_TYPE_MAILBOX;
@@ -1077,6 +1112,8 @@ int mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 		 update->min_first_recent_uid == 0 ||
 		 update->min_first_recent_uid <= update->min_next_uid);
 
+	if (mailbox_verify_name(box) < 0)
+		return -1;
 	return box->v.update_box(box, update);
 }
 
@@ -1220,11 +1257,15 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 {
 	const char *error = NULL;
 
-	if (!mailbox_list_is_valid_existing_name(src->list, src->name) ||
-	    *src->name == '\0' ||
-	    !mailbox_list_is_valid_create_name(dest->list, dest->name)) {
+	if (mailbox_verify_name(src) < 0)
+		return -1;
+	if (*src->name == '\0') {
 		mail_storage_set_error(src->storage, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
+				       "Can't rename mailbox root");
+		return -1;
+	}
+	if (mailbox_verify_create_name(dest) < 0) {
+		mail_storage_copy_error(dest->storage, src->storage);
 		return -1;
 	}
 	if (!mail_storages_rename_compatible(src->storage,
@@ -1252,12 +1293,8 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 
 int mailbox_set_subscribed(struct mailbox *box, bool set)
 {
-	if (!mailbox_list_is_valid_existing_name(box->list, box->name)) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
+	if (mailbox_verify_name(box) < 0)
 		return -1;
-	}
-
 	return box->v.set_subscribed(box, set);
 }
 
@@ -1324,6 +1361,8 @@ int mailbox_get_status(struct mailbox *box,
 		       struct mailbox_status *status_r)
 {
 	memset(status_r, 0, sizeof(*status_r));
+	if (mailbox_verify_name(box) < 0)
+		return -1;
 	return box->v.get_status(box, items, status_r);
 }
 
@@ -1342,6 +1381,8 @@ int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
 			 struct mailbox_metadata *metadata_r)
 {
 	memset(metadata_r, 0, sizeof(*metadata_r));
+	if (mailbox_verify_name(box) < 0)
+		return -1;
 
 	if (box->metadata_pool != NULL)
 		p_clear(box->metadata_pool);

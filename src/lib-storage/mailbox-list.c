@@ -928,13 +928,57 @@ int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
 bool mailbox_list_is_valid_pattern(struct mailbox_list *list,
 				   const char *pattern)
 {
-	bool ret;
+	return mailbox_list_is_valid_existing_name(list, pattern);
+}
 
+static bool
+mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name)
+{
+	bool ret, allow_internal_dirs;
+
+	if (list->mail_set->mail_full_filesystem_access)
+		return TRUE;
+
+	/* make sure it's not absolute path */
+	if (*name == '/' || *name == '~')
+		return FALSE;
+
+	/* make sure the mailbox name doesn't contain any foolishness:
+	   "../" could give access outside the mailbox directory.
+	   "./" and "//" could fool ACL checks. */
+	allow_internal_dirs = list->v.is_internal_name == NULL ||
+		*list->set.maildir_name != '\0';
 	T_BEGIN {
-		ret = list->v.is_valid_pattern(list, pattern);
+		const char *const *names;
+
+		names = t_strsplit(name, "/");
+		for (; *names != NULL; names++) {
+			const char *n = *names;
+
+			if (*n == '\0')
+				break; /* // */
+			if (*n == '.') {
+				if (n[1] == '\0')
+					break; /* ./ */
+				if (n[1] == '.' && n[2] == '\0')
+					break; /* ../ */
+			}
+			if (*list->set.maildir_name != '\0' &&
+			    strcmp(list->set.maildir_name, n) == 0) {
+				/* don't allow maildir_name to be used as part
+				   of the mailbox name */
+				break;
+			}
+			if (!allow_internal_dirs &&
+			    list->v.is_internal_name(list, n))
+				break;
+		}
+		ret = *names == NULL;
 	} T_END;
+
 	return ret;
 }
+
 
 bool mailbox_list_is_valid_existing_name(struct mailbox_list *list,
 					 const char *name)
@@ -948,7 +992,7 @@ bool mailbox_list_is_valid_existing_name(struct mailbox_list *list,
 	}
 
 	T_BEGIN {
-		ret = list->v.is_valid_existing_name(list, name);
+		ret = mailbox_list_is_valid_fs_name(list, name);
 	} T_END;
 	return ret;
 }
@@ -971,8 +1015,7 @@ bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
 		string_t *str = t_str_new(256);
 		ret = imap_utf7_to_utf8(name, str);
 	} T_END;
-	return ret < 0 ? FALSE :
-		list->v.is_valid_create_name(list, name);
+	return ret == 0;
 }
 
 const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,

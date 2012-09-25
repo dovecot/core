@@ -40,12 +40,6 @@ struct mailbox_list_vfuncs {
 
 	int (*get_storage)(struct mailbox_list **list, const char *vname,
 			   struct mail_storage **storage_r);
-	bool (*is_valid_pattern)(struct mailbox_list *list,
-				 const char *pattern);
-	bool (*is_valid_existing_name)(struct mailbox_list *list,
-				       const char *name);
-	bool (*is_valid_create_name)(struct mailbox_list *list,
-				     const char *name);
 
 	char (*get_hierarchy_sep)(struct mailbox_list *list);
 	const char *(*get_vname)(struct mailbox_list *list,

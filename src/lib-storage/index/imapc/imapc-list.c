@@ -161,27 +161,6 @@ void imapc_list_register_callbacks(struct imapc_mailbox_list *list)
 					imapc_untagged_lsub);
 }
 
-static bool
-imapc_is_valid_pattern(struct mailbox_list *list ATTR_UNUSED,
-		       const char *pattern ATTR_UNUSED)
-{
-	return TRUE;
-}
-
-static bool
-imapc_is_valid_existing_name(struct mailbox_list *list ATTR_UNUSED,
-			     const char *name ATTR_UNUSED)
-{
-	return TRUE;
-}
-
-static bool
-imapc_is_valid_create_name(struct mailbox_list *list ATTR_UNUSED,
-			   const char *name ATTR_UNUSED)
-{
-	return TRUE;
-}
-
 static char imapc_list_get_hierarchy_sep(struct mailbox_list *_list)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
@@ -700,9 +679,6 @@ struct mailbox_list imapc_mailbox_list = {
 		imapc_list_alloc,
 		imapc_list_deinit,
 		NULL,
-		imapc_is_valid_pattern,
-		imapc_is_valid_existing_name,
-		imapc_is_valid_create_name,
 		imapc_list_get_hierarchy_sep,
 		imapc_list_get_vname,
 		imapc_list_get_storage_name,

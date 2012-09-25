@@ -34,27 +34,6 @@ static void none_list_deinit(struct mailbox_list *list)
 	pool_unref(&list->pool);
 }
 
-static bool
-none_is_valid_pattern(struct mailbox_list *list ATTR_UNUSED,
-		      const char *pattern ATTR_UNUSED)
-{
-	return TRUE;
-}
-
-static bool
-none_is_valid_existing_name(struct mailbox_list *list ATTR_UNUSED,
-			    const char *name ATTR_UNUSED)
-{
-	return TRUE;
-}
-
-static bool
-none_is_valid_create_name(struct mailbox_list *list ATTR_UNUSED,
-			  const char *name ATTR_UNUSED)
-{
-	return FALSE;
-}
-
 static char none_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
 {
 	return '/';
@@ -191,9 +170,6 @@ struct mailbox_list none_mailbox_list = {
 		none_list_alloc,
 		none_list_deinit,
 		NULL,
-		none_is_valid_pattern,
-		none_is_valid_existing_name,
-		none_is_valid_create_name,
 		none_list_get_hierarchy_sep,
 		mailbox_list_default_get_vname,
 		mailbox_list_default_get_storage_name,

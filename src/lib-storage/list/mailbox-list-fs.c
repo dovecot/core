@@ -41,101 +41,6 @@ static void fs_list_deinit(struct mailbox_list *_list)
 	pool_unref(&list->list.pool);
 }
 
-static bool fs_list_is_valid_common(const char *name, size_t *len_r)
-{
-	*len_r = strlen(name);
-
-	if (name[0] == '\0' || name[*len_r-1] == '/')
-		return FALSE;
-	return TRUE;
-}
-
-static bool
-fs_list_is_valid_common_nonfs(struct mailbox_list *list, const char *name)
-{
-	bool ret, allow_internal_dirs;
-
-	/* make sure it's not absolute path */
-	if (*name == '/' || *name == '~')
-		return FALSE;
-
-	/* make sure the mailbox name doesn't contain any foolishness:
-	   "../" could give access outside the mailbox directory.
-	   "./" and "//" could fool ACL checks. */
-	allow_internal_dirs = list->v.is_internal_name == NULL ||
-		*list->set.maildir_name != '\0';
-	T_BEGIN {
-		const char *const *names;
-
-		names = t_strsplit(name, "/");
-		for (; *names != NULL; names++) {
-			const char *n = *names;
-
-			if (*n == '\0')
-				break; /* // */
-			if (*n == '.') {
-				if (n[1] == '\0')
-					break; /* ./ */
-				if (n[1] == '.' && n[2] == '\0')
-					break; /* ../ */
-			}
-			if (*list->set.maildir_name != '\0' &&
-			    strcmp(list->set.maildir_name, n) == 0) {
-				/* don't allow maildir_name to be used as part
-				   of the mailbox name */
-				break;
-			}
-			if (!allow_internal_dirs &&
-			    list->v.is_internal_name(list, n))
-				break;
-		}
-		ret = *names == NULL;
-	} T_END;
-
-	return ret;
-}
-
-static bool
-fs_is_valid_pattern(struct mailbox_list *list, const char *pattern)
-{
-	if (list->mail_set->mail_full_filesystem_access)
-		return TRUE;
-
-	return fs_list_is_valid_common_nonfs(list, pattern);
-}
-
-static bool
-fs_is_valid_existing_name(struct mailbox_list *list, const char *name)
-{
-	size_t len;
-
-	if (!fs_list_is_valid_common(name, &len))
-		return FALSE;
-
-	if (list->mail_set->mail_full_filesystem_access)
-		return TRUE;
-
-	return fs_list_is_valid_common_nonfs(list, name);
-}
-
-static bool
-fs_is_valid_create_name(struct mailbox_list *list, const char *name)
-{
-	size_t len;
-
-	if (!fs_list_is_valid_common(name, &len))
-		return FALSE;
-	if (len > FS_MAX_CREATE_MAILBOX_NAME_LENGTH)
-		return FALSE;
-
-	if (list->mail_set->mail_full_filesystem_access)
-		return TRUE;
-
-	if (mailbox_list_name_is_too_large(name, '/'))
-		return FALSE;
-	return fs_list_is_valid_common_nonfs(list, name);
-}
-
 static char fs_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
 {
 	return '/';
@@ -605,9 +510,6 @@ struct mailbox_list fs_mailbox_list = {
 		fs_list_alloc,
 		fs_list_deinit,
 		NULL,
-		fs_is_valid_pattern,
-		fs_is_valid_existing_name,
-		fs_is_valid_create_name,
 		fs_list_get_hierarchy_sep,
 		mailbox_list_default_get_vname,
 		mailbox_list_default_get_storage_name,
