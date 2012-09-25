@@ -716,14 +716,9 @@ mailbox_name_verify_separators(const char *vname, char sep,
 	unsigned int i;
 	bool prev_sep = FALSE;
 
-	if (vname[0] == sep) {
-		*error_r = "Begins with hierarchy separator";
-		return FALSE;
-	}
-
 	/* Make sure the vname is correct: non-empty, doesn't begin or end
 	   with separator and no adjacent separators */
-	for (i = 1; vname[i] != '\0'; i++) {
+	for (i = 0; vname[i] != '\0'; i++) {
 		if (vname[i] == sep) {
 			if (prev_sep) {
 				*error_r = "Has adjacent hierarchy separators";
@@ -734,7 +729,7 @@ mailbox_name_verify_separators(const char *vname, char sep,
 			prev_sep = FALSE;
 		}
 	}
-	if (prev_sep) {
+	if (prev_sep && i > 0) {
 		*error_r = "Ends with hierarchy separator";
 		return FALSE;
 	}
@@ -779,6 +774,13 @@ static int mailbox_verify_name(struct mailbox *box)
 			"Character not allowed in mailbox name: '%c'", list_sep));
 		return -1;
 	}
+	if (vname[0] == ns_sep &&
+	    !box->storage->set->mail_full_filesystem_access) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+			"Invalid mailbox name: Begins with hierarchy separator");
+		return -1;
+	}
+
 	if (!mailbox_name_verify_separators(vname, ns_sep, &error) ||
 	    !mailbox_list_is_valid_name(box->list, box->name, &error)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
