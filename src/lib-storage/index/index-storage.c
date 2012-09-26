@@ -471,7 +471,7 @@ int index_storage_mailbox_create(struct mailbox *box, bool directory)
 
 	type = directory ? MAILBOX_LIST_PATH_TYPE_DIR :
 		MAILBOX_LIST_PATH_TYPE_MAILBOX;
-	path = mailbox_list_get_path(box->list, box->name, type);
+	path = mailbox_get_path_to(box, type);
 	if (path == NULL) {
 		/* layout=none */
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,

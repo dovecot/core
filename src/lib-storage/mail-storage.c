@@ -1976,11 +1976,10 @@ int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 int mailbox_mkdir(struct mailbox *box, const char *path,
 		  enum mailbox_list_path_type type)
 {
-	struct mailbox_permissions perm;
+	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
 	const char *root_dir;
 
-	mailbox_list_get_permissions(box->list, box->name, &perm);
-	if (!perm.gid_origin_is_mailbox_path) {
+	if (!perm->gid_origin_is_mailbox_path) {
 		/* mailbox root directory doesn't exist, create it */
 		root_dir = mailbox_list_get_root_path(box->list, type);
 		if (mailbox_list_mkdir_root(box->list, root_dir, type) < 0) {
@@ -1989,9 +1988,9 @@ int mailbox_mkdir(struct mailbox *box, const char *path,
 		}
 	}
 
-	if (mkdir_parents_chgrp(path, perm.dir_create_mode,
-				perm.file_create_gid,
-				perm.file_create_gid_origin) == 0)
+	if (mkdir_parents_chgrp(path, perm->dir_create_mode,
+				perm->file_create_gid,
+				perm->file_create_gid_origin) == 0)
 		return 1;
 	else if (errno == EEXIST)
 		return 0;
