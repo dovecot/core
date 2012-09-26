@@ -119,6 +119,7 @@ struct mailbox_permissions {
 	/* origin (e.g. path) where the file_create_gid was got from */
 	const char *file_create_gid_origin;
 
+	bool gid_origin_is_mailbox_path;
 	bool mail_index_permissions_set;
 };
 
@@ -161,20 +162,14 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
    mail root directory (or even the root dir itself). */
 void mailbox_list_get_root_permissions(struct mailbox_list *list,
 				       struct mailbox_permissions *permissions_r);
-/* Create path's directory with proper permissions. Returns 1 if created,
-   0 if it already existed, -1 if error. */
-int mailbox_list_mkdir(struct mailbox_list *list,
-		       const char *mailbox, const char *path) ATTR_NULL(2);
-/* Like mailbox_list_mkdir(), but create path's parent parent directory.
-   Since most directories are created lazily, this function can be used to
-   easily create them whenever file creation fails with ENOENT. */
-int mailbox_list_mkdir_parent(struct mailbox_list *list,
-			      const char *mailbox, const char *path)
-	ATTR_NULL(2);
-/* mkdir() a root directory of given type with proper permissions. */
+/* mkdir() a root directory of given type with proper permissions. The path can
+   be either the root itself or point to a directory under the root. */
 int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
-			    enum mailbox_list_path_type type,
-			    const char **error_r);
+			    enum mailbox_list_path_type type);
+/* Like mailbox_list_mkdir_root(), but don't log an error if it fails. */
+int mailbox_list_try_mkdir_root(struct mailbox_list *list, const char *path,
+				enum mailbox_list_path_type type,
+				const char **error_r);
 
 /* Returns TRUE if name is ok, FALSE if it can't be safely passed to
    mailbox_list_*() functions */

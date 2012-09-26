@@ -38,13 +38,15 @@ acllist_clear(struct acl_backend_vfile *backend, uoff_t file_size)
 	}
 }
 
-static const char *acl_list_get_root_dir(struct acl_backend_vfile *backend)
+static const char *acl_list_get_root_dir(struct acl_backend_vfile *backend,
+					 enum mailbox_list_path_type *type_r)
 {
 	struct mail_storage *storage;
 	const char *rootdir, *maildir;
 
 	rootdir = mailbox_list_get_root_path(backend->backend.list,
 					     MAILBOX_LIST_PATH_TYPE_DIR);
+	*type_r = MAILBOX_LIST_PATH_TYPE_DIR;
 
 	storage = mailbox_list_get_namespace(backend->backend.list)->storage;
 	if (mail_storage_is_mailbox_file(storage)) {
@@ -57,6 +59,7 @@ static const char *acl_list_get_root_dir(struct acl_backend_vfile *backend)
 			   dir */
 			rootdir = mailbox_list_get_root_path(backend->backend.list,
 					MAILBOX_LIST_PATH_TYPE_CONTROL);
+			*type_r = MAILBOX_LIST_PATH_TYPE_CONTROL;
 		}
 	}
 	return rootdir;
@@ -64,7 +67,9 @@ static const char *acl_list_get_root_dir(struct acl_backend_vfile *backend)
 
 static const char *acl_list_get_path(struct acl_backend_vfile *backend)
 {
-	return t_strconcat(acl_list_get_root_dir(backend),
+	enum mailbox_list_path_type type;
+
+	return t_strconcat(acl_list_get_root_dir(backend, &type),
 			   "/"ACLLIST_FILENAME, NULL);
 }
 
@@ -200,6 +205,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 	struct mailbox_list *list = backend->backend.list;
 	struct mail_namespace *ns;
 	struct mailbox_list_iterate_context *iter;
+	enum mailbox_list_path_type type;
 	const struct mailbox_info *info;
 	const char *rootdir, *acllist_path;
 	struct ostream *output;
@@ -210,7 +216,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 
 	i_assert(!backend->rebuilding_acllist);
 
-	rootdir = acl_list_get_root_dir(backend);
+	rootdir = acl_list_get_root_dir(backend, &type);
 	if (rootdir == NULL)
 		return 0;
 
@@ -231,8 +237,8 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 				perm.file_create_gid,
 				perm.file_create_gid_origin);
 	if (fd == -1 && errno == ENOENT) {
-		if (mailbox_list_mkdir_parent(backend->backend.list, NULL,
-					      str_c(path)) < 0)
+		if (mailbox_list_mkdir_root(backend->backend.list,
+					    rootdir, type) < 0)
 			return -1;
 		fd = safe_mkstemp_group(path, perm.file_create_mode,
 					perm.file_create_gid,

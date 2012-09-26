@@ -89,10 +89,11 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	struct dotlock_settings dotlock_set;
 	struct dotlock *dotlock;
 	struct mailbox_permissions perm;
-	const char *line;
+	const char *line, *dir, *fname;
 	struct istream *input;
 	struct ostream *output;
 	int fd_in, fd_out;
+	enum mailbox_list_path_type type;
 	bool found, changed = FALSE, failed = FALSE;
 
 	if (strcasecmp(name, "INBOX") == 0)
@@ -112,8 +113,15 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 					 perm.file_create_gid_origin, &dotlock);
 	if (fd_out == -1 && errno == ENOENT) {
 		/* directory hasn't been created yet. */
-		if (mailbox_list_mkdir_parent(list, NULL, path) < 0)
-			return -1;
+		type = list->set.control_dir != NULL ?
+			MAILBOX_LIST_PATH_TYPE_CONTROL :
+			MAILBOX_LIST_PATH_TYPE_DIR;
+		fname = strrchr(path, '/');
+		if (fname != NULL) {
+			dir = t_strdup_until(path, fname);
+			if (mailbox_list_mkdir_root(list, dir, type) < 0)
+				return -1;
+		}
 		fd_out = file_dotlock_open_group(&dotlock_set, path, 0,
 						 perm.file_create_mode,
 						 perm.file_create_gid,

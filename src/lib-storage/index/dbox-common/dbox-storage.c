@@ -285,7 +285,7 @@ int dbox_mailbox_create(struct mailbox *box,
 
 int dbox_verify_alt_storage(struct mailbox_list *list)
 {
-	const char *alt_path, *error;
+	const char *alt_path;
 	struct stat st;
 
 	alt_path = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_ALT_DIR);
@@ -303,11 +303,7 @@ int dbox_verify_alt_storage(struct mailbox_list *list)
 	/* try to create the alt directory. if it fails, it means alt
 	   storage isn't mounted. */
 	if (mailbox_list_mkdir_root(list, alt_path,
-				    MAILBOX_LIST_PATH_TYPE_ALT_DIR,
-				    &error) < 0) {
-		i_error("Couldn't create dbox alt root dir %s: %s",
-			alt_path, error);
+				    MAILBOX_LIST_PATH_TYPE_ALT_DIR) < 0)
 		return -1;
-	}
 	return 0;
 }

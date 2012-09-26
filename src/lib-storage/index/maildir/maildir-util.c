@@ -167,7 +167,7 @@ static int maildir_create_path(struct mailbox *box, const char *path,
 			       enum mailbox_list_path_type type, bool retry)
 {
 	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
-	const char *p, *parent, *error;
+	const char *p, *parent;
 
 	if (mkdir_chgrp(path, perm->dir_create_mode, perm->file_create_gid,
 			perm->file_create_gid_origin) == 0)
@@ -186,14 +186,12 @@ static int maildir_create_path(struct mailbox *box, const char *path,
 		}
 		/* create index/control root directory */
 		parent = t_strdup_until(path, p);
-		if (mailbox_list_mkdir_root(box->list, parent, type, &error) == 0) {
-			/* should work now, try again */
-			return maildir_create_path(box, path, type, FALSE);
+		if (mailbox_list_mkdir_root(box->list, parent, type) < 0) {
+			mail_storage_copy_list_error(box->storage, box->list);
+			return -1;
 		}
-		/* fall through */
-		mail_storage_set_critical(box->storage,
-			"Couldn't create %s: %s", parent, error);
-		path = parent;
+		/* should work now, try again */
+		return maildir_create_path(box, path, type, FALSE);
 	default:
 		mail_storage_set_critical(box->storage,
 					  "mkdir(%s) failed: %m", path);

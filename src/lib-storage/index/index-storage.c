@@ -192,7 +192,7 @@ int index_storage_mailbox_alloc_index(struct mailbox *box)
 	if (box->index != NULL)
 		return 0;
 
-	if (mailbox_list_create_missing_index_dir(box->list, box->name) < 0) {
+	if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX) < 0) {
 		mail_storage_set_internal_error(box->storage);
 		return -1;
 	}
@@ -464,13 +464,14 @@ int index_storage_mailbox_update(struct mailbox *box,
 int index_storage_mailbox_create(struct mailbox *box, bool directory)
 {
 	const char *path, *p;
+	enum mailbox_list_path_type type;
 	enum mailbox_existence existence;
 	bool create_parent_dir;
 	int ret;
 
-	path = mailbox_list_get_path(box->list, box->name,
-				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	type = directory ? MAILBOX_LIST_PATH_TYPE_DIR :
+		MAILBOX_LIST_PATH_TYPE_MAILBOX;
+	path = mailbox_list_get_path(box->list, box->name, type);
 	if (path == NULL) {
 		/* layout=none */
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
@@ -487,7 +488,7 @@ int index_storage_mailbox_create(struct mailbox *box, bool directory)
 		path = t_strdup_until(path, p);
 	}
 
-	if ((ret = mailbox_list_mkdir(box->list, box->name, path)) < 0) {
+	if ((ret = mailbox_mkdir(box, path, type)) < 0) {
 		mail_storage_copy_list_error(box->storage, box->list);
 		return -1;
 	}

@@ -98,32 +98,21 @@ void mdbox_map_deinit(struct mdbox_map **_map)
 	i_free(map);
 }
 
-static int mdbox_map_mkdir_storage_path(struct mdbox_map *map, const char *path)
+static int mdbox_map_mkdir_storage(struct mdbox_map *map)
 {
-	struct stat st;
+	if (mailbox_list_mkdir_root(map->root_list, map->path,
+				    MAILBOX_LIST_PATH_TYPE_DIR) < 0) {
+		mail_storage_copy_list_error(MAP_STORAGE(map), map->root_list);
+		return -1;
+	}
 
-	if (stat(path, &st) == 0)
-		return 1;
-
-	if (mailbox_list_mkdir(map->root_list, NULL, path) < 0) {
+	if (strcmp(map->path, map->index_path) != 0 &&
+	    mailbox_list_mkdir_root(map->root_list, map->index_path,
+				    MAILBOX_LIST_PATH_TYPE_INDEX) < 0) {
 		mail_storage_copy_list_error(MAP_STORAGE(map), map->root_list);
 		return -1;
 	}
 	return 0;
-}
-
-static int mdbox_map_mkdir_storage(struct mdbox_map *map)
-{
-	int ret;
-
-	if ((ret = mdbox_map_mkdir_storage_path(map, map->path)) < 0)
-		return -1;
-
-	if (strcmp(map->path, map->index_path) != 0) {
-		if (mdbox_map_mkdir_storage_path(map, map->index_path) < 0)
-			return -1;
-	}
-	return ret;
 }
 
 static void mdbox_map_cleanup(struct mdbox_map *map)

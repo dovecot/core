@@ -186,10 +186,6 @@ bool mailbox_list_name_is_too_large(const char *name, char sep);
 enum mailbox_list_file_type mailbox_list_get_file_type(const struct dirent *d);
 bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 					const char **name);
-int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
-					  const char *name) ATTR_NULL(2);
-int mailbox_list_create_missing_index_pvt_dir(struct mailbox_list *list,
-					      const char *name);
 
 void mailbox_list_add_change(struct mailbox_list *list,
 			     enum mailbox_log_record_type type,

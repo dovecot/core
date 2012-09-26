@@ -18,7 +18,7 @@ static int index_storage_mailbox_alloc_index_pvt(struct mailbox *box)
 		return 0;
 	}
 
-	if (mailbox_list_create_missing_index_pvt_dir(box->list, box->name) < 0) {
+	if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE) < 0) {
 		mail_storage_set_internal_error(box->storage);
 		return -1;
 	}

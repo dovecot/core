@@ -257,9 +257,9 @@ mail_storage_create_root(struct mailbox_list *list,
 	autocreate = (flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) == 0;
 	ret = mail_storage_verify_root(root_dir, autocreate, error_r);
 	if (ret == 0) {
-		ret = mailbox_list_mkdir_root(list, root_dir,
-					      MAILBOX_LIST_PATH_TYPE_MAILBOX,
-					      error_r);
+		ret = mailbox_list_try_mkdir_root(list, root_dir,
+						  MAILBOX_LIST_PATH_TYPE_MAILBOX,
+						  error_r);
 	}
 	return ret < 0 ? -1 : 0;
 }
@@ -1971,6 +1971,65 @@ int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 	}
 	*fd_r = fd;
 	return 1;
+}
+
+int mailbox_mkdir(struct mailbox *box, const char *path,
+		  enum mailbox_list_path_type type)
+{
+	struct mailbox_permissions perm;
+	const char *root_dir;
+
+	mailbox_list_get_permissions(box->list, box->name, &perm);
+	if (!perm.gid_origin_is_mailbox_path) {
+		/* mailbox root directory doesn't exist, create it */
+		root_dir = mailbox_list_get_root_path(box->list, type);
+		if (mailbox_list_mkdir_root(box->list, root_dir, type) < 0) {
+			mail_storage_copy_list_error(box->storage, box->list);
+			return -1;
+		}
+	}
+
+	if (mkdir_parents_chgrp(path, perm.dir_create_mode,
+				perm.file_create_gid,
+				perm.file_create_gid_origin) == 0)
+		return 1;
+	else if (errno == EEXIST)
+		return 0;
+	else if (errno == ENOTDIR) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+			"Mailbox doesn't allow inferior mailboxes");
+		return -1;
+	} else if (mail_storage_set_error_from_errno(box->storage)) {
+		return -1;
+	} else {
+		mail_storage_set_critical(box->storage,
+					  "mkdir_parents(%s) failed: %m", path);
+		return -1;
+	}
+}
+
+int mailbox_create_missing_dir(struct mailbox *box,
+			       enum mailbox_list_path_type type)
+{
+	const char *mail_dir, *dir;
+	struct stat st;
+
+	dir = mailbox_get_path_to(box, type);
+	mail_dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (dir == NULL || *dir == '\0')
+		return 0;
+	if (strcmp(dir, mail_dir) == 0) {
+		if ((box->list->props & MAILBOX_LIST_PROP_AUTOCREATE_DIRS) == 0)
+			return 0;
+		/* the directory might not have been created yet */
+	}
+
+	/* we call this function even when the directory exists, so first do a
+	   quick check to see if we need to mkdir anything */
+	if (stat(dir, &st) == 0)
+		return 0;
+
+	return mailbox_mkdir(box, dir, type);
 }
 
 unsigned int mail_storage_get_lock_timeout(struct mail_storage *storage,

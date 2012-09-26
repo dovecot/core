@@ -566,6 +566,16 @@ const struct mailbox_permissions *mailbox_get_permissions(struct mailbox *box);
 /* Force permissions to be refreshed on next lookup */
 void mailbox_refresh_permissions(struct mailbox *box);
 
+/* Create path's directory with proper permissions. The root directory is also
+   created if necessary. Returns 1 if created, 0 if it already existed,
+   -1 if error. */
+int mailbox_mkdir(struct mailbox *box, const char *path,
+		  enum mailbox_list_path_type type);
+/* Create a non-mailbox type directory for mailbox if it's missing (e.g. index).
+   Optimized for case where the directory usually exists. */
+int mailbox_create_missing_dir(struct mailbox *box,
+			       enum mailbox_list_path_type type);
+
 /* Returns -1 if error, 0 if failed with EEXIST, 1 if ok */
 int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 		      int *fd_r);
