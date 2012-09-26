@@ -472,6 +472,7 @@ int index_storage_list_index_has_changed(struct mailbox *box,
 	struct stat st;
 	uint32_t ext_id;
 	bool expunged;
+	int ret;
 
 	if (mail_index_is_in_memory(mail_index_view_get_index(list_view)))
 		return 1;
@@ -485,7 +486,11 @@ int index_storage_list_index_has_changed(struct mailbox *box,
 		return 1;
 	}
 
-	dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX);
+	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &dir);
+	if (ret < 0)
+		return -1;
+	i_assert(ret > 0);
+
 	path = t_strconcat(dir, "/", box->index_prefix, ".log", NULL);
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT)
@@ -512,6 +517,7 @@ void index_storage_list_index_update_sync(struct mailbox *box,
 	struct stat st;
 	uint32_t ext_id;
 	bool expunged;
+	int ret;
 
 	list_view = mail_index_transaction_get_view(trans);
 	if (mail_index_is_in_memory(mail_index_view_get_index(list_view)))
@@ -524,7 +530,11 @@ void index_storage_list_index_update_sync(struct mailbox *box,
 		return;
 	old_rec = data;
 
-	dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX);
+	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &dir);
+	if (ret < 0)
+		return;
+	i_assert(ret > 0);
+
 	path = t_strconcat(dir, "/", box->index_prefix, ".log", NULL);
 	if (stat(path, &st) < 0) {
 		mail_storage_set_critical(box->storage,

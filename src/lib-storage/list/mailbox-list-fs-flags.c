@@ -101,8 +101,10 @@ is_inbox_file(struct mailbox_list *list, const char *path, const char *fname)
 	if (strcasecmp(fname, "INBOX") != 0)
 		return FALSE;
 
-	inbox_path = mailbox_list_get_path(list, "INBOX",
-					   MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (mailbox_list_get_path(list, "INBOX",
+				  MAILBOX_LIST_PATH_TYPE_MAILBOX,
+				  &inbox_path) <= 0)
+		i_unreached();
 	return strcmp(inbox_path, path) == 0;
 }
 

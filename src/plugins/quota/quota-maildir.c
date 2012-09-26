@@ -136,6 +136,26 @@ maildir_list_init(struct maildir_quota_root *root, struct mailbox_list *list)
 	return ctx;
 }
 
+static bool maildir_set_next_path(struct maildir_list_context *ctx)
+{
+	T_BEGIN {
+		const char *path, *storage_name;
+
+		str_truncate(ctx->path, 0);
+
+		storage_name = mailbox_list_get_storage_name(
+					ctx->info->ns->list, ctx->info->vname);
+		if (mailbox_list_get_path(ctx->list, storage_name,
+					  MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					  &path) > 0) {
+			str_append(ctx->path, path);
+			str_append(ctx->path, ctx->state == 0 ?
+				   "/new" : "/cur");
+		}
+	} T_END;
+	return str_len(ctx->path) > 0;
+}
+
 static const char *
 maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 {
@@ -156,18 +176,10 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 			}
 		}
 
-		T_BEGIN {
-			const char *path, *storage_name;
-
-			storage_name = mailbox_list_get_storage_name(
-				ctx->info->ns->list, ctx->info->vname);
-			path = mailbox_list_get_path(ctx->list, storage_name,
-					MAILBOX_LIST_PATH_TYPE_MAILBOX);
-			str_truncate(ctx->path, 0);
-			str_append(ctx->path, path);
-			str_append(ctx->path, ctx->state == 0 ?
-				   "/new" : "/cur");
-		} T_END;
+		if (!maildir_set_next_path(ctx)) {
+			ctx->state = 0;
+			continue;
+		}
 
 		if (++ctx->state == 2)
 			ctx->state = 0;
@@ -811,7 +823,9 @@ maildir_quota_root_namespace_added(struct quota_root *_root,
 	if (root->maildirsize_path != NULL)
 		return;
 
-	control_dir = mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_CONTROL);
+	if (!mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_CONTROL,
+					&control_dir))
+		i_unreached();
 	root->maildirsize_ns = ns;
 	root->maildirsize_path =
 		p_strconcat(_root->pool, control_dir,

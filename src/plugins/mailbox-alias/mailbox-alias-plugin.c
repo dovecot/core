@@ -67,10 +67,15 @@ static int mailbox_symlink_exists(struct mailbox_list *list, const char *vname,
 		MAILBOX_ALIAS_LIST_CONTEXT(list);
 	struct stat st;
 	const char *symlink_name, *symlink_path;
+	int ret;
 
 	symlink_name = alist->module_ctx.super.get_storage_name(list, vname);
-	symlink_path = mailbox_list_get_path(list, symlink_name,
-					     MAILBOX_LIST_PATH_TYPE_DIR);
+	ret = mailbox_list_get_path(list, symlink_name,
+				    MAILBOX_LIST_PATH_TYPE_DIR, &symlink_path);
+	if (ret < 0)
+		return -1;
+	i_assert(ret > 0);
+
 	if (lstat(symlink_path, &st) < 0) {
 		if (errno == ENOENT) {
 			*existence_r = MAILBOX_SYMLINK_EXISTENCE_NONEXISTENT;
@@ -126,11 +131,22 @@ mailbox_alias_create_symlink(struct mailbox *box,
 			     const char *old_name, const char *new_name)
 {
 	const char *old_path, *new_path, *fname;
+	int ret;
 
-	old_path = mailbox_list_get_path(box->list, old_name,
-					 MAILBOX_LIST_PATH_TYPE_DIR);
-	new_path = mailbox_list_get_path(box->list, new_name,
-					 MAILBOX_LIST_PATH_TYPE_DIR);
+	ret = mailbox_list_get_path(box->list, old_name,
+				    MAILBOX_LIST_PATH_TYPE_DIR, &old_path);
+	if (ret > 0) {
+		ret = mailbox_list_get_path(box->list, new_name,
+					    MAILBOX_LIST_PATH_TYPE_DIR,
+					    &new_path);
+	}
+	if (ret < 0)
+		return -1;
+	if (ret == 0) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+			"Mailbox aliases not supported by storage");
+		return -1;
+	}
 	fname = strrchr(old_path, '/');
 	i_assert(fname != NULL);
 	fname++;

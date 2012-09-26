@@ -139,9 +139,9 @@ fts_backend_lucene_init(struct fts_backend *_backend, const char **error_r)
 		return -1;
 	}
 
-	path = mailbox_list_get_root_path(_backend->ns->list,
-					  MAILBOX_LIST_PATH_TYPE_INDEX);
-	i_assert(path != NULL); /* fts already checked this */
+	/* fts already checked that index exists */
+	path = mailbox_list_get_root_forced(_backend->ns->list,
+					    MAILBOX_LIST_PATH_TYPE_INDEX);
 
 	backend->dir_path = i_strconcat(path, "/"LUCENE_INDEX_DIR_NAME, NULL);
 	backend->index = lucene_index_init(backend->dir_path,

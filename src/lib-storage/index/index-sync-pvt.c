@@ -8,15 +8,15 @@
 static int index_storage_mailbox_alloc_index_pvt(struct mailbox *box)
 {
 	const char *index_dir;
+	int ret;
 
 	if (box->index_pvt != NULL)
 		return 1;
 
-	index_dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE);
-	if (index_dir == NULL) {
-		/* no private indexes */
-		return 0;
-	}
+	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE,
+				  &index_dir);
+	if (ret <= 0)
+		return ret; /* error / no private indexes */
 
 	if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE) < 0) {
 		mail_storage_set_internal_error(box->storage);

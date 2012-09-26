@@ -46,63 +46,73 @@ static char fs_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
 	return '/';
 }
 
-static const char *
+static int
 fs_list_get_path(struct mailbox_list *_list, const char *name,
-		 enum mailbox_list_path_type type)
+		 enum mailbox_list_path_type type, const char **path_r)
 {
 	const struct mailbox_list_settings *set = &_list->set;
 	const char *root_dir, *error;
 
 	if (name == NULL) {
 		/* return root directories */
-		return mailbox_list_set_get_root_path(set, type);
+		return mailbox_list_set_get_root_path(set, type, path_r) ? 1 : 0;
 	}
 
 	i_assert(mailbox_list_is_valid_name(_list, name, &error));
 
-	if (mailbox_list_try_get_absolute_path(_list, &name))
-		return name;
+	if (mailbox_list_try_get_absolute_path(_list, &name)) {
+		*path_r = name;
+		return 1;
+	}
 
 	root_dir = set->root_dir;
 	switch (type) {
 	case MAILBOX_LIST_PATH_TYPE_DIR:
-		if (*set->maildir_name != '\0')
-			return t_strdup_printf("%s/%s%s", set->root_dir,
-					       set->mailbox_dir_name, name);
+		if (*set->maildir_name != '\0') {
+			*path_r = t_strdup_printf("%s/%s%s", set->root_dir,
+						  set->mailbox_dir_name, name);
+			return 1;
+		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
 		if (set->alt_dir == NULL)
-			return NULL;
-		if (*set->maildir_name != '\0')
-			return t_strdup_printf("%s/%s%s", set->alt_dir,
-					       set->mailbox_dir_name, name);
+			return 0;
+		if (*set->maildir_name != '\0') {
+			*path_r = t_strdup_printf("%s/%s%s", set->alt_dir,
+						  set->mailbox_dir_name, name);
+			return 1;
+		}
 		root_dir = set->alt_dir;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_MAILBOX:
 		break;
 	case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
 		if (set->alt_dir == NULL)
-			return NULL;
+			return 0;
 		root_dir = set->alt_dir;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
-		if (set->control_dir != NULL)
-			return t_strdup_printf("%s/%s%s", set->control_dir,
-					       set->mailbox_dir_name, name);
+		if (set->control_dir != NULL) {
+			*path_r = t_strdup_printf("%s/%s%s", set->control_dir,
+						  set->mailbox_dir_name, name);
+			return 1;
+		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
 		if (set->index_dir != NULL) {
 			if (*set->index_dir == '\0')
-				return "";
-			return t_strdup_printf("%s/%s%s", set->index_dir,
-					       set->mailbox_dir_name, name);
+				return 0;
+			*path_r = t_strdup_printf("%s/%s%s", set->index_dir,
+						  set->mailbox_dir_name, name);
+			return 1;
 		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
 		if (set->index_pvt_dir == NULL)
-			return NULL;
-		return t_strdup_printf("%s/%s%s", set->index_pvt_dir,
-				       set->mailbox_dir_name, name);
+			return 0;
+		*path_r = t_strdup_printf("%s/%s%s", set->index_pvt_dir,
+					  set->mailbox_dir_name, name);
+		return 1;
 	}
 
 	if (type == MAILBOX_LIST_PATH_TYPE_ALT_DIR ||
@@ -113,20 +123,23 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 		   located in root directory. */
 		if ((_list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0 ||
 		    type == MAILBOX_LIST_PATH_TYPE_MAILBOX ||
-		    type == MAILBOX_LIST_PATH_TYPE_DIR)
-			return set->inbox_path;
+		    type == MAILBOX_LIST_PATH_TYPE_DIR) {
+			*path_r = set->inbox_path;
+			return 1;
+		}
 	}
 
 	if (root_dir == NULL)
-		return type == MAILBOX_LIST_PATH_TYPE_INDEX ? "" : NULL;
+		return 0;
 	if (*set->maildir_name == '\0') {
-		return t_strdup_printf("%s/%s%s", root_dir,
-				       set->mailbox_dir_name, name);
+		*path_r = t_strdup_printf("%s/%s%s", root_dir,
+					  set->mailbox_dir_name, name);
 	} else {
-		return t_strdup_printf("%s/%s%s/%s", root_dir,
-				       set->mailbox_dir_name, name,
-				       set->maildir_name);
+		*path_r = t_strdup_printf("%s/%s%s/%s", root_dir,
+					  set->mailbox_dir_name, name,
+					  set->maildir_name);
 	}
+	return 1;
 }
 
 static const char *
@@ -168,7 +181,7 @@ static const char *mailbox_list_fs_get_trash_dir(struct mailbox_list *list)
 {
 	const char *root_dir;
 
-	root_dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_DIR);
+	root_dir = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_DIR);
 	return t_strdup_printf("%s/"MAILBOX_LIST_FS_TRASH_DIR_NAME, root_dir);
 }
 
@@ -189,8 +202,10 @@ fs_list_delete_maildir(struct mailbox_list *list, const char *name)
 
 		if (ret > 0) {
 			/* try to delete the parent directory */
-			path = mailbox_list_get_path(list, name,
-						     MAILBOX_LIST_PATH_TYPE_DIR);
+			if (mailbox_list_get_path(list, name,
+						  MAILBOX_LIST_PATH_TYPE_DIR,
+						  &path) <= 0)
+				i_unreached();
 			if (rmdir(path) < 0 && errno != ENOENT &&
 			    errno != ENOTEMPTY && errno != EEXIST) {
 				mailbox_list_set_critical(list,
@@ -201,8 +216,9 @@ fs_list_delete_maildir(struct mailbox_list *list, const char *name)
 	}
 
 	rmdir_path = *list->set.maildir_name != '\0';
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+				  &path) <= 0)
+		i_unreached();
 	return mailbox_list_delete_mailbox_nonrecursive(list, name, path,
 							rmdir_path);
 }
@@ -241,7 +257,9 @@ static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
 	const char *path, *child_name, *child_path, *p;
 	char sep;
 
-	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
+	if (mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR,
+				  &path) <= 0)
+		i_unreached();
 	if (fs_list_rmdir(list, name, path) == 0)
 		return 0;
 
@@ -253,9 +271,10 @@ static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
 		   deletion, remove it */
 		sep = mailbox_list_get_hierarchy_sep(list);
 		child_name = t_strdup_printf("%s%cchild", name, sep);
-		child_path = mailbox_list_get_path(list, child_name,
-						   MAILBOX_LIST_PATH_TYPE_INDEX);
-		if (strncmp(path, child_path, strlen(path)) == 0) {
+		if (mailbox_list_get_path(list, child_name,
+					  MAILBOX_LIST_PATH_TYPE_INDEX,
+					  &child_path) > 0 &&
+		    strncmp(path, child_path, strlen(path)) == 0) {
 			/* drop the "/child" part out. */
 			p = strrchr(child_path, '/');
 			if (rmdir(t_strdup_until(child_path, p)) == 0) {
@@ -280,8 +299,9 @@ static int rename_dir(struct mailbox_list *oldlist, const char *oldname,
 	struct stat st;
 	const char *oldpath, *newpath, *p, *oldparent, *newparent;
 
-	oldpath = mailbox_list_get_path(oldlist, oldname, type);
-	newpath = mailbox_list_get_path(newlist, newname, type);
+	if (mailbox_list_get_path(oldlist, oldname, type, &oldpath) <= 0 ||
+	    mailbox_list_get_path(newlist, newname, type, &newpath) <= 0)
+		return 0;
 
 	if (strcmp(oldpath, newpath) == 0)
 		return 0;
@@ -343,14 +363,16 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 	if (mailbox_list_get_storage(&oldlist, oldvname, &oldstorage) < 0)
 		return -1;
 
-	oldpath = mailbox_list_get_path(oldlist, oldname,
-					MAILBOX_LIST_PATH_TYPE_DIR);
-	newpath = mailbox_list_get_path(newlist, newname,
-					MAILBOX_LIST_PATH_TYPE_DIR);
-	alt_newpath = mailbox_list_get_path(newlist, newname,
-					    MAILBOX_LIST_PATH_TYPE_ALT_DIR);
+	if (mailbox_list_get_path(oldlist, oldname,
+				  MAILBOX_LIST_PATH_TYPE_DIR, &oldpath) <= 0 ||
+	    mailbox_list_get_path(newlist, newname,
+				  MAILBOX_LIST_PATH_TYPE_DIR, &newpath) <= 0)
+		i_unreached();
+	if (mailbox_list_get_path(newlist, newname, MAILBOX_LIST_PATH_TYPE_ALT_DIR,
+				  &alt_newpath) < 0)
+		i_unreached();
 
-	root_path = mailbox_list_get_root_path(oldlist, MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	root_path = mailbox_list_get_root_forced(oldlist, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (strcmp(oldpath, root_path) == 0) {
 		/* most likely INBOX */
 		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,

@@ -182,13 +182,22 @@ const char *mailbox_list_get_storage_name(struct mailbox_list *list,
 					  const char *vname);
 const char *mailbox_list_get_vname(struct mailbox_list *list, const char *name);
 
-/* Return full path for the given mailbox name. The name must be a valid
-   existing mailbox name. For INDEX=MEMORY it returns "" as the path. */
-const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
-				  enum mailbox_list_path_type type);
-/* Returns root directory path for given type. */
-const char *mailbox_list_get_root_path(struct mailbox_list *list,
-				       enum mailbox_list_path_type type);
+/* Get path to specified type of files in mailbox. Returns -1 if an error
+   occurred (e.g. mailbox no longer exists), 0 if there are no files of this
+   type (in-memory index, no alt dir, storage with no files), 1 if path was
+   returned successfully. The path is set to NULL when returning -1/0. */
+int mailbox_list_get_path(struct mailbox_list *list, const char *name,
+			  enum mailbox_list_path_type type,
+			  const char **path_r);
+/* Get path to the root directory for files of specified type. Returns TRUE
+   if path was returned, FALSE if there are no files of this type. */
+bool mailbox_list_get_root_path(struct mailbox_list *list,
+				enum mailbox_list_path_type type,
+				const char **path_r);
+/* Like mailbox_list_get_root_path(), but assume that the root directory
+   exists (assert crash if not) */
+const char *mailbox_list_get_root_forced(struct mailbox_list *list,
+					 enum mailbox_list_path_type type);
 /* Returns mailbox's change log, or NULL if it doesn't have one. */
 struct mailbox_log *mailbox_list_get_changelog(struct mailbox_list *list);
 /* Specify timestamp to use when writing mailbox changes to changelog.

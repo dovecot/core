@@ -59,30 +59,19 @@ static char shared_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
 	return '/';
 }
 
-static const char *
+static int
 shared_list_get_path(struct mailbox_list *list, const char *name,
-		     enum mailbox_list_path_type type)
+		     enum mailbox_list_path_type type, const char **path_r)
 {
 	struct mail_namespace *ns = list->ns;
 
 	if (list->ns->storage == NULL || name == NULL ||
 	    shared_storage_get_namespace(&ns, &name) < 0) {
-		switch (type) {
-		case MAILBOX_LIST_PATH_TYPE_DIR:
-		case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
-		case MAILBOX_LIST_PATH_TYPE_MAILBOX:
-		case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
-		case MAILBOX_LIST_PATH_TYPE_CONTROL:
-		case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
-			break;
-		case MAILBOX_LIST_PATH_TYPE_INDEX:
-			/* we can safely say we don't use indexes */
-			return "";
-		}
 		/* we don't have a directory we can use. */
-		return NULL;
+		*path_r = NULL;
+		return 0;
 	}
-	return mailbox_list_get_path(ns->list, name, type);
+	return mailbox_list_get_path(ns->list, name, type, path_r);
 }
 
 static const char *

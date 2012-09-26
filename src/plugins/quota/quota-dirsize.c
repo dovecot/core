@@ -162,14 +162,14 @@ get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
 			continue;
 
 		is_file = mail_storage_is_mailbox_file(namespaces[i]->storage);
-		path = mailbox_list_get_root_path(namespaces[i]->list,
-						  MAILBOX_LIST_PATH_TYPE_DIR);
-		quota_count_path_add(&paths, path, FALSE);
+		if (mailbox_list_get_root_path(namespaces[i]->list,
+					       MAILBOX_LIST_PATH_TYPE_DIR, &path))
+			quota_count_path_add(&paths, path, FALSE);
 
 		/* INBOX may be in different path. */
-		path = mailbox_list_get_path(namespaces[i]->list, "INBOX",
-					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		quota_count_path_add(&paths, path, is_file);
+		if (mailbox_list_get_path(namespaces[i]->list, "INBOX",
+					  MAILBOX_LIST_PATH_TYPE_MAILBOX, &path) > 0)
+			quota_count_path_add(&paths, path, is_file);
 	}
 
 	/* now sum up the found paths */

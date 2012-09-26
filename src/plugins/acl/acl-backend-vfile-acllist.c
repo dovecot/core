@@ -44,20 +44,20 @@ static const char *acl_list_get_root_dir(struct acl_backend_vfile *backend,
 	struct mail_storage *storage;
 	const char *rootdir, *maildir;
 
-	rootdir = mailbox_list_get_root_path(backend->backend.list,
-					     MAILBOX_LIST_PATH_TYPE_DIR);
+	rootdir = mailbox_list_get_root_forced(backend->backend.list,
+					       MAILBOX_LIST_PATH_TYPE_DIR);
 	*type_r = MAILBOX_LIST_PATH_TYPE_DIR;
 
 	storage = mailbox_list_get_namespace(backend->backend.list)->storage;
 	if (mail_storage_is_mailbox_file(storage)) {
-		maildir = mailbox_list_get_root_path(backend->backend.list,
-						     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		maildir = mailbox_list_get_root_forced(backend->backend.list,
+						       MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		if (strcmp(maildir, rootdir) == 0) {
 			/* dovecot-acl-list would show up as a mailbox if we
 			   created it to root dir. since we don't really have
 			   any other good alternatives, place it to control
 			   dir */
-			rootdir = mailbox_list_get_root_path(backend->backend.list,
+			rootdir = mailbox_list_get_root_forced(backend->backend.list,
 					MAILBOX_LIST_PATH_TYPE_CONTROL);
 			*type_r = MAILBOX_LIST_PATH_TYPE_CONTROL;
 		}

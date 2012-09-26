@@ -84,27 +84,37 @@ void mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 	}
 }
 
-static const char *
+static int
 mbox_list_get_path(struct mailbox_list *list, const char *name,
-		   enum mailbox_list_path_type type)
+		   enum mailbox_list_path_type type, const char **path_r)
 {
 	struct mbox_mailbox_list *mlist = MBOX_LIST_CONTEXT(list);
 	const char *path, *p;
+	int ret;
 
-	path = mlist->module_ctx.super.get_path(list, name, type);
+	*path_r = NULL;
+
+	ret = mlist->module_ctx.super.get_path(list, name, type, &path);
+	if (ret <= 0)
+		return ret;
+
 	if (type == MAILBOX_LIST_PATH_TYPE_CONTROL ||
 	    type == MAILBOX_LIST_PATH_TYPE_INDEX) {
-		if (name == NULL)
-			return t_strconcat(path, "/"MBOX_INDEX_DIR_NAME, NULL);
+		if (name == NULL) {
+			*path_r = t_strconcat(path, "/"MBOX_INDEX_DIR_NAME, NULL);
+			return 1;
+		}
 
 		p = strrchr(path, '/');
 		if (p == NULL)
-			return "";
+			return 0;
 
-		return t_strconcat(t_strdup_until(path, p),
-				   "/"MBOX_INDEX_DIR_NAME"/", p+1, NULL);
+		*path_r = t_strconcat(t_strdup_until(path, p),
+				      "/"MBOX_INDEX_DIR_NAME"/", p+1, NULL);
+	} else {
+		*path_r = path;
 	}
-	return path;
+	return 1;
 }
 
 static struct mail_storage *mbox_storage_alloc(void)
@@ -135,8 +145,7 @@ mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 
 	storage->set = mail_storage_get_driver_settings(_storage);
 
-	dir = mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*dir != '\0') {
+	if (mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_INDEX, &dir)) {
 		_storage->temp_path_prefix = p_strconcat(_storage->pool, dir,
 			"/", mailbox_list_get_temp_prefix(ns->list), NULL);
 	}
@@ -410,8 +419,8 @@ static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 	if (box->inbox_any || strcmp(box->name, "INBOX") == 0) {
 		/* if INBOX isn't under the root directory, it's probably in
 		   /var/mail and we want to allow privileged dotlocking */
-		rootdir = mailbox_list_get_root_path(box->list,
-						     MAILBOX_LIST_PATH_TYPE_DIR);
+		rootdir = mailbox_list_get_root_forced(box->list,
+						       MAILBOX_LIST_PATH_TYPE_DIR);
 		if (strncmp(box_path, rootdir, strlen(rootdir)) != 0)
 			mbox->mbox_privileged_locking = TRUE;
 	}

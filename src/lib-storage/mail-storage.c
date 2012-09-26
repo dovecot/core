@@ -235,8 +235,8 @@ mail_storage_create_root(struct mailbox_list *list,
 	bool autocreate;
 	int ret;
 
-	root_dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (root_dir == NULL) {
+	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					&root_dir)) {
 		/* storage doesn't use directories (e.g. shared root) */
 		return 0;
 	}
@@ -790,6 +790,21 @@ static int mailbox_verify_name(struct mailbox *box)
 	return 0;
 }
 
+static int mailbox_verify_existing_name(struct mailbox *box)
+{
+	const char *path;
+
+	if (mailbox_verify_name(box) < 0)
+		return -1;
+
+	/* Make sure box->_path is set, so mailbox_get_path() works from
+	   now on. Note that this may also fail with some backends if the
+	   mailbox doesn't exist. */
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX, &path) < 0)
+		return -1;
+	return 0;
+}
+
 static bool mailbox_name_has_control_chars(const char *name)
 {
 	const char *p;
@@ -868,10 +883,11 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 		/* unsure if this exists or not */
 		return -1;
 	}
-	if (mailbox_verify_name(box) < 0) {
-		/* we don't currently know if this mailbox exists or not, but
-		   since it can never be accessed in any way report it as if it
-		   didn't exist. */
+	if (mailbox_verify_existing_name(box) < 0) {
+		/* either the name is invalid or the mailbox doesn't exist.
+		   if it's invalid we don't currently know if the mailbox
+		   exists or not, but since it can never be accessed in any way
+		   report it as if it didn't exist. */
 		*existence_r = MAILBOX_EXISTENCE_NONE;
 		return 0;
 	}
@@ -964,7 +980,7 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 		return -1;
 	}
 
-	if (mailbox_verify_name(box) < 0)
+	if (mailbox_verify_existing_name(box) < 0)
 		return -1;
 
 	if (input != NULL) {
@@ -1129,7 +1145,7 @@ int mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 		 update->min_first_recent_uid == 0 ||
 		 update->min_first_recent_uid <= update->min_next_uid);
 
-	if (mailbox_verify_name(box) < 0)
+	if (mailbox_verify_existing_name(box) < 0)
 		return -1;
 	return box->v.update_box(box, update);
 }
@@ -1274,7 +1290,7 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 {
 	const char *error = NULL;
 
-	if (mailbox_verify_name(src) < 0)
+	if (mailbox_verify_existing_name(src) < 0)
 		return -1;
 	if (*src->name == '\0') {
 		mail_storage_set_error(src->storage, MAIL_ERROR_PARAMS,
@@ -1378,7 +1394,7 @@ int mailbox_get_status(struct mailbox *box,
 		       struct mailbox_status *status_r)
 {
 	memset(status_r, 0, sizeof(*status_r));
-	if (mailbox_verify_name(box) < 0)
+	if (mailbox_verify_existing_name(box) < 0)
 		return -1;
 	return box->v.get_status(box, items, status_r);
 }
@@ -1398,7 +1414,7 @@ int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
 			 struct mailbox_metadata *metadata_r)
 {
 	memset(metadata_r, 0, sizeof(*metadata_r));
-	if (mailbox_verify_name(box) < 0)
+	if (mailbox_verify_existing_name(box) < 0)
 		return -1;
 
 	if (box->metadata_pool != NULL)
@@ -1865,20 +1881,33 @@ void mailbox_set_deleted(struct mailbox *box)
 	box->mailbox_deleted = TRUE;
 }
 
-const char *
-mailbox_get_path_to(struct mailbox *box, enum mailbox_list_path_type type)
+int mailbox_get_path_to(struct mailbox *box, enum mailbox_list_path_type type,
+			const char **path_r)
 {
-	return mailbox_list_get_path(box->list, box->name, type);
+	int ret;
+
+	if (type == MAILBOX_LIST_PATH_TYPE_MAILBOX && box->_path != NULL) {
+		if (box->_path[0] == '\0') {
+			*path_r = NULL;
+			return 0;
+		}
+		*path_r = box->_path;
+		return 1;
+	}
+	ret = mailbox_list_get_path(box->list, box->name, type, path_r);
+	if (ret < 0) {
+		mail_storage_copy_list_error(box->storage, box->list);
+		return -1;
+	}
+	if (type == MAILBOX_LIST_PATH_TYPE_MAILBOX && box->_path == NULL)
+		box->_path = ret == 0 ? "" : p_strdup(box->pool, *path_r);
+	return ret;
 }
 
 const char *mailbox_get_path(struct mailbox *box)
 {
-	const char *path;
-
-	if (box->_path == NULL) {
-		path = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		box->_path = p_strdup(box->pool, path);
-	}
+	i_assert(box->_path != NULL);
+	i_assert(box->_path[0] != '\0');
 	return box->_path;
 }
 
@@ -1981,7 +2010,7 @@ int mailbox_mkdir(struct mailbox *box, const char *path,
 
 	if (!perm->gid_origin_is_mailbox_path) {
 		/* mailbox root directory doesn't exist, create it */
-		root_dir = mailbox_list_get_root_path(box->list, type);
+		root_dir = mailbox_list_get_root_forced(box->list, type);
 		if (mailbox_list_mkdir_root(box->list, root_dir, type) < 0) {
 			mail_storage_copy_list_error(box->storage, box->list);
 			return -1;
@@ -2012,12 +2041,14 @@ int mailbox_create_missing_dir(struct mailbox *box,
 {
 	const char *mail_dir, *dir;
 	struct stat st;
+	int ret;
 
-	dir = mailbox_get_path_to(box, type);
-	mail_dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (dir == NULL || *dir == '\0')
-		return 0;
-	if (strcmp(dir, mail_dir) == 0) {
+	if ((ret = mailbox_get_path_to(box, type, &dir)) <= 0)
+		return ret;
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+				&mail_dir) < 0)
+		return -1;
+	if (null_strcmp(dir, mail_dir) == 0) {
 		if ((box->list->props & MAILBOX_LIST_PROP_AUTOCREATE_DIRS) == 0)
 			return 0;
 		/* the directory might not have been created yet */

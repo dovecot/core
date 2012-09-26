@@ -247,7 +247,8 @@ struct mailbox {
 	struct mail_index_view *view_pvt;
 	/* Filled lazily by mailbox_get_permissions() */
 	struct mailbox_permissions _perm;
-	/* Filled lazily by mailbox_get_path() */
+	/* Filled lazily when mailbox is opened, use mailbox_get_path()
+	   to access it */
 	const char *_path;
 
 	/* default vfuncs for new struct mails. */
@@ -556,11 +557,13 @@ void mail_set_expunged(struct mail *mail);
 void mail_set_seq_saving(struct mail *mail, uint32_t seq);
 void mailbox_set_deleted(struct mailbox *box);
 int mailbox_mark_index_deleted(struct mailbox *box, bool del);
-/* Easy wrapper for getting mailbox's MAILBOX_LIST_PATH_TYPE_MAILBOX */
+/* Easy wrapper for getting mailbox's MAILBOX_LIST_PATH_TYPE_MAILBOX.
+   The mailbox must already be opened and the caller must know that the
+   storage has mailbox files (i.e. NULL/empty path is never returned). */
 const char *mailbox_get_path(struct mailbox *box) ATTR_PURE;
-/* Returns path to specified type of files in mailbox. */
-const char *
-mailbox_get_path_to(struct mailbox *box, enum mailbox_list_path_type type);
+/* Wrapper to mailbox_list_get_path() */
+int mailbox_get_path_to(struct mailbox *box, enum mailbox_list_path_type type,
+			const char **path_r);
 /* Get mailbox permissions. */
 const struct mailbox_permissions *mailbox_get_permissions(struct mailbox *box);
 /* Force permissions to be refreshed on next lookup */

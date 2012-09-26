@@ -276,9 +276,11 @@ static void fs_quota_namespace_added(struct quota *quota,
 	struct fs_quota_root *root;
 	const char *dir;
 
-	dir = mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	mount = dir == NULL ? NULL :
-		fs_quota_mountpoint_get(dir);
+	if (!mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					&dir))
+		mount = NULL;
+	else
+		mount = fs_quota_mountpoint_get(dir);
 	if (mount != NULL) {
 		root = fs_quota_root_find_mountpoint(quota, mount);
 		if (root != NULL && root->mount == NULL)
@@ -770,7 +772,9 @@ static bool fs_quota_match_box(struct quota_root *_root, struct mailbox *box)
 	if (root->storage_mount_path == NULL)
 		return TRUE;
 
-	mailbox_path = mailbox_get_path(box);
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+				&mailbox_path) <= 0)
+		return FALSE;
 	if (stat(mailbox_path, &mst) < 0) {
 		if (errno != ENOENT)
 			i_error("stat(%s) failed: %m", mailbox_path);

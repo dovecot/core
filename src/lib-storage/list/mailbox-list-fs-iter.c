@@ -99,7 +99,7 @@ fs_list_rename_invalid(struct fs_list_iterate_context *ctx,
 	string_t *dest = t_str_new(128);
 	const char *root, *src;
 
-	root = mailbox_list_get_root_path(ctx->ctx.list,
+	root = mailbox_list_get_root_forced(ctx->ctx.list,
 					  MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	src = t_strconcat(root, "/", storage_name, NULL);
 
@@ -155,8 +155,8 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 	}
 	if (strcmp(d->d_name, ctx->ctx.list->set.subscription_fname) == 0) {
 		/* if this is the subscriptions file, skip it */
-		root_dir = mailbox_list_get_root_path(ctx->ctx.list,
-						      MAILBOX_LIST_PATH_TYPE_DIR);
+		root_dir = mailbox_list_get_root_forced(ctx->ctx.list,
+							MAILBOX_LIST_PATH_TYPE_DIR);
 		if (strcmp(root_dir, dir_path) == 0)
 			return 0;
 	}
@@ -237,8 +237,8 @@ fs_list_get_storage_path(struct fs_list_iterate_context *ctx,
 	}
 	if (*path != '/') {
 		/* non-absolute path. add the mailbox root dir as prefix. */
-		root = mailbox_list_get_root_path(ctx->ctx.list,
-						  MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		root = mailbox_list_get_root_forced(ctx->ctx.list,
+						    MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		path = *path == '\0' ? root :
 			t_strconcat(root, "/", path, NULL);
 	}
@@ -596,8 +596,9 @@ list_file_is_any_inbox(struct fs_list_iterate_context *ctx,
 	if (!fs_list_get_storage_path(ctx, storage_name, &path))
 		return FALSE;
 
-	inbox_path = mailbox_list_get_path(ctx->ctx.list, "INBOX",
-					   MAILBOX_LIST_PATH_TYPE_DIR);
+	if (mailbox_list_get_path(ctx->ctx.list, "INBOX",
+				  MAILBOX_LIST_PATH_TYPE_DIR, &inbox_path) <= 0)
+		i_unreached();
 	return strcmp(path, inbox_path) == 0;
 }
 

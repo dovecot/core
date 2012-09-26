@@ -59,10 +59,11 @@ static void dbox_verify_alt_path(struct mailbox_list *list)
 {
 	const char *root_dir, *alt_symlink_path, *alt_path;
 
-	root_dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_DIR);
+	root_dir = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_DIR);
 	alt_symlink_path =
 		t_strconcat(root_dir, "/"DBOX_ALT_SYMLINK_NAME, NULL);
-	alt_path = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
+	(void)mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX,
+					 &alt_path);
 	if (!dbox_alt_path_has_changed(root_dir, alt_path, alt_symlink_path))
 		return;
 
@@ -128,7 +129,7 @@ uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list)
 {
 	const char *path;
 
-	path = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_CONTROL);
+	path = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_CONTROL);
 	path = t_strconcat(path, "/"DBOX_UIDVALIDITY_FILE_NAME, NULL);
 	return mailbox_uidvalidity_next(list, path);
 }
@@ -140,7 +141,9 @@ void dbox_notify_changes(struct mailbox *box)
 	if (box->notify_callback == NULL)
 		index_mailbox_check_remove_all(box);
 	else {
-		dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX);
+		if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX,
+					&dir) <= 0)
+			return;
 		path = t_strdup_printf("%s/"DBOX_INDEX_PREFIX".log", dir);
 		index_mailbox_check_add(box, path);
 	}
@@ -250,8 +253,8 @@ int dbox_mailbox_create(struct mailbox *box,
 
 	/* if alt path already exists and contains files, rebuild storage so
 	   that we don't start overwriting files. */
-	alt_path = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
-	if (alt_path != NULL && stat(alt_path, &st) == 0) {
+	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX, &alt_path);
+	if (ret > 0 && stat(alt_path, &st) == 0) {
 		ret = dir_is_empty(box->storage, alt_path);
 		if (ret < 0)
 			return -1;
@@ -289,8 +292,8 @@ int dbox_verify_alt_storage(struct mailbox_list *list)
 	const char *alt_path;
 	struct stat st;
 
-	alt_path = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_ALT_DIR);
-	if (alt_path == NULL)
+	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_ALT_DIR,
+					&alt_path))
 		return 0;
 
 	/* make sure alt storage is mounted. if it's not, abort the rebuild. */

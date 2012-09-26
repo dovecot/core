@@ -51,8 +51,8 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list)
 	struct mdbox_map *map;
 	const char *root, *index_root;
 
-	root = mailbox_list_get_root_path(root_list, MAILBOX_LIST_PATH_TYPE_DIR);
-	index_root = mailbox_list_get_root_path(root_list, MAILBOX_LIST_PATH_TYPE_INDEX);
+	root = mailbox_list_get_root_forced(root_list, MAILBOX_LIST_PATH_TYPE_DIR);
+	index_root = mailbox_list_get_root_forced(root_list, MAILBOX_LIST_PATH_TYPE_INDEX);
 
 	map = i_new(struct mdbox_map, 1);
 	map->storage = storage;

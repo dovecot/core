@@ -25,8 +25,8 @@ static void sdbox_file_init_paths(struct sdbox_file *file, const char *fname)
 	file->file.primary_path =
 		i_strdup_printf("%s/%s", mailbox_get_path(box), fname);
 
-	alt_path = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
-	if (alt_path != NULL)
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX,
+				&alt_path) > 0)
 		file->file.alt_path = i_strdup_printf("%s/%s", alt_path, fname);
 }
 

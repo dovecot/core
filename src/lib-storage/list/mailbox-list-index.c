@@ -415,7 +415,6 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 	struct mailbox_list_index *ilist;
 	const char *dir;
 
-	dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (!list->mail_set->mailbox_list_index) {
 		/* reserve the module context anyway, so syncing code knows
 		   that the index is disabled */
@@ -423,7 +422,8 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 		MODULE_CONTEXT_SET(list, mailbox_list_index_module, ilist);
 		return;
 	}
-	if (*dir == '\0') {
+	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
+					&dir)) {
 		/* in-memory indexes */
 		dir = NULL;
 	} else if (list->ns->type != MAIL_NAMESPACE_TYPE_PRIVATE) {

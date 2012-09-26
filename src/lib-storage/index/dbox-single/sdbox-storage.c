@@ -124,6 +124,8 @@ int sdbox_read_header(struct sdbox_mailbox *mbox,
 	size_t data_size;
 	int ret = 0;
 
+	i_assert(mbox->box.opened);
+
 	view = mail_index_view_open(mbox->box.index);
 	mail_index_get_header_ext(view, mbox->hdr_ext_id,
 				  &data, &data_size);

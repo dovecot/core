@@ -167,7 +167,9 @@ index_index_rebuild_init(struct mailbox *box, struct mail_index_view *view,
 	mail_cache_reset(box->cache);
 
 	/* if backup index file exists, try to use it */
-	index_dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX,
+				&index_dir) <= 0)
+		i_unreached();
 	backup_path = t_strconcat(box->index_prefix, "/.backup", NULL);
 	ctx->backup_index = mail_index_alloc(index_dir, backup_path);
 

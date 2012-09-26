@@ -643,8 +643,7 @@ void fts_mailbox_list_created(struct mailbox_list *list)
 		return;
 	}
 
-	path = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*path == '\0') {
+	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX, &path)) {
 		if (list->mail_set->mail_debug) {
 			i_debug("fts: Indexes disabled for namespace '%s'",
 				list->ns->prefix);

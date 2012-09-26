@@ -134,19 +134,21 @@ void index_storage_lock_notify_reset(struct mailbox *box)
 	ibox->last_notify_type = MAILBOX_LOCK_NOTIFY_NONE;
 }
 
-static struct mail_index *
-index_mailbox_alloc_index(struct mailbox *box)
+static int
+index_mailbox_alloc_index(struct mailbox *box, struct mail_index **index_r)
 {
 	const char *index_dir, *mailbox_path;
 
-	mailbox_path = mailbox_get_path(box);
-	index_dir = (box->flags & MAILBOX_FLAG_NO_INDEX_FILES) != 0 ? "" :
-		mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*index_dir == '\0')
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+				&mailbox_path) < 0)
+		return -1;
+	if ((box->flags & MAILBOX_FLAG_NO_INDEX_FILES) != 0 ||
+	    mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX,
+				&index_dir) <= 0)
 		index_dir = NULL;
-
-	return mail_index_alloc_cache_get(mailbox_path, index_dir,
-					  box->index_prefix);
+	*index_r = mail_index_alloc_cache_get(mailbox_path, index_dir,
+					      box->index_prefix);
+	return 0;
 }
 
 int index_storage_mailbox_exists(struct mailbox *box,
@@ -161,9 +163,17 @@ int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
 {
 	struct stat st;
 	const char *path, *path2;
+	int ret;
 
 	/* see if it's selectable */
-	path = mailbox_get_path(box);
+	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX, &path);
+	if (ret < 0)
+		return -1;
+	if (ret == 0) {
+		/* no mailboxes in this storage? */
+		*existence_r = MAILBOX_EXISTENCE_NONE;
+		return 0;
+	}
 	if (subdir != NULL)
 		path = t_strconcat(path, "/", subdir, NULL);
 	if (stat(path, &st) == 0) {
@@ -177,9 +187,8 @@ int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
 	}
 
 	/* see if it's non-selectable */
-	path2 = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_DIR);
-	if (strcmp(path, path2) != 0 &&
-	    stat(path2, &st) == 0) {
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_DIR, &path2) <= 0 ||
+	    (strcmp(path, path2) != 0 && stat(path2, &st) == 0)) {
 		*existence_r = MAILBOX_EXISTENCE_NOSELECT;
 		return 0;
 	}
@@ -197,7 +206,8 @@ int index_storage_mailbox_alloc_index(struct mailbox *box)
 		return -1;
 	}
 
-	box->index = index_mailbox_alloc_index(box);
+	if (index_mailbox_alloc_index(box, &box->index) < 0)
+		return -1;
 	mail_index_set_fsync_mode(box->index,
 				  box->storage->set->parsed_fsync_mode, 0);
 	mail_index_set_lock_method(box->index,
@@ -471,8 +481,9 @@ int index_storage_mailbox_create(struct mailbox *box, bool directory)
 
 	type = directory ? MAILBOX_LIST_PATH_TYPE_DIR :
 		MAILBOX_LIST_PATH_TYPE_MAILBOX;
-	path = mailbox_get_path_to(box, type);
-	if (path == NULL) {
+	if ((ret = mailbox_get_path_to(box, type, &path)) < 0)
+		return -1;
+	if (ret == 0) {
 		/* layout=none */
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Mailbox creation not supported");

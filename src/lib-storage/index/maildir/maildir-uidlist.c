@@ -139,7 +139,7 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 {
 	struct mailbox *box = uidlist->box;
 	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
-	const char *control_dir, *path;
+	const char *path = uidlist->path;
 	mode_t old_mask;
 	const enum dotlock_create_flags dotlock_flags =
 		nonblock ? DOTLOCK_CREATE_FLAG_NONBLOCK : 0;
@@ -155,9 +155,6 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 	}
 
         index_storage_lock_notify_reset(box);
-
-	control_dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_CONTROL);
-	path = t_strconcat(control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
 
 	for (i = 0;; i++) {
 		old_mask = umask(0777 & ~perm->file_create_mode);
@@ -264,7 +261,9 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox)
 	struct maildir_uidlist *uidlist;
 	const char *control_dir;
 
-	control_dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_CONTROL);
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_CONTROL,
+				&control_dir) <= 0)
+		i_unreached();
 
 	uidlist = i_new(struct maildir_uidlist, 1);
 	uidlist->box = box;
@@ -1394,7 +1393,9 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 
 	maildir_uidlist_records_drop_expunges(uidlist);
 
-	control_dir = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_CONTROL);
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_CONTROL,
+				&control_dir) <= 0)
+		i_unreached();
 	temp_path = t_strconcat(control_dir,
 				"/" MAILDIR_UIDLIST_NAME ".tmp", NULL);
 

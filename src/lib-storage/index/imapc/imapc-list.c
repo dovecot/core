@@ -245,9 +245,9 @@ imapc_list_get_fs_name(struct imapc_mailbox_list *list, const char *name)
 	return mailbox_list_get_storage_name(fs_list, vname);
 }
 
-static const char *
+static int
 imapc_list_get_path(struct mailbox_list *_list, const char *name,
-		    enum mailbox_list_path_type type)
+		    enum mailbox_list_path_type type, const char **path_r)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
@@ -255,11 +255,10 @@ imapc_list_get_path(struct mailbox_list *_list, const char *name,
 
 	if (fs_list != NULL) {
 		fs_name = imapc_list_get_fs_name(list, name);
-		return mailbox_list_get_path(fs_list, fs_name, type);
+		return mailbox_list_get_path(fs_list, fs_name, type, path_r);
 	} else {
-		if (type == MAILBOX_LIST_PATH_TYPE_INDEX)
-			return "";
-		return NULL;
+		*path_r = NULL;
+		return 0;
 	}
 }
 

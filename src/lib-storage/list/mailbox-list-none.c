@@ -39,14 +39,13 @@ static char none_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
 	return '/';
 }
 
-static const char *
+static int
 none_list_get_path(struct mailbox_list *list ATTR_UNUSED,
 		   const char *name ATTR_UNUSED,
-		   enum mailbox_list_path_type type ATTR_UNUSED)
+		   enum mailbox_list_path_type type ATTR_UNUSED,
+		   const char **path_r ATTR_UNUSED)
 {
-	if (type == MAILBOX_LIST_PATH_TYPE_INDEX)
-		return "";
-	return NULL;
+	return 0;
 }
 
 static const char *

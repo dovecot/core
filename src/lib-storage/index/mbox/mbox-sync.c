@@ -1416,7 +1416,7 @@ static uint32_t mbox_get_uidvalidity_next(struct mailbox_list *list)
 {
 	const char *path;
 
-	path = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_CONTROL);
+	path = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_CONTROL);
 	path = t_strconcat(path, "/"MBOX_UIDVALIDITY_FNAME, NULL);
 	return mailbox_uidvalidity_next(list, path);
 }

@@ -334,7 +334,7 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 	const char *location = list->ns->unexpanded_set->location;
 	struct mail_user *user = list->ns->user;
 	struct mailbox_list_settings set;
-	const char *p, *error;
+	const char *p, *path, *error;
 
 	if (*location == SETTING_STRVAR_EXPANDED[0]) {
 		/* set using -o or userdb lookup. */
@@ -362,7 +362,9 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 
 	if (mailbox_list_settings_parse(user, p + 1, &set, &error) < 0)
 		return "";
-	return mailbox_list_set_get_root_path(&set, type);
+	if (mailbox_list_set_get_root_path(&set, type, &path) <= 0)
+		return "";
+	return path;
 }
 
 static bool need_escape_dirstart(const char *vname, const char *maildir_name)
@@ -684,9 +686,15 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 	permissions_r->file_create_gid = (gid_t)-1;
 	permissions_r->file_create_gid_origin = "defaults";
 
-	path = name == NULL ?
-		mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_DIR) :
-		mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
+	if (name != NULL) {
+		if (mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR,
+					  &path) < 0)
+			name = NULL;
+	}
+	if (name == NULL) {
+		(void)mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_DIR,
+						 &path);
+	}
 	if (path == NULL) {
 		/* no filesystem support in storage */
 	} else if (stat(path, &st) < 0) {
@@ -864,7 +872,8 @@ mailbox_list_try_mkdir_root_parent(struct mailbox_list *list,
 		if (p == unexpanded)
 			expanded = "";
 		else {
-			expanded = mailbox_list_get_root_path(list, type);
+			if (!mailbox_list_get_root_path(list, type, &expanded))
+				i_unreached();
 			expanded = get_expanded_path(unexpanded, p, expanded);
 		}
 	}
@@ -912,7 +921,8 @@ int mailbox_list_try_mkdir_root(struct mailbox_list *list, const char *path,
 
 	mailbox_list_get_root_permissions(list, &perm);
 
-	root_dir = mailbox_list_get_root_path(list, type);
+	if (!mailbox_list_get_root_path(list, type, &root_dir))
+		i_unreached();
 	i_assert(strncmp(root_dir, path, strlen(root_dir)) == 0);
 	if (strcmp(root_dir, path) != 0 && stat(root_dir, &st) == 0) {
 		/* creating a subdirectory under an already existing root dir.
@@ -1033,51 +1043,89 @@ bool mailbox_list_is_valid_name(struct mailbox_list *list,
 	return mailbox_list_is_valid_fs_name(list, name, error_r);
 }
 
-const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
-				  enum mailbox_list_path_type type)
+int mailbox_list_get_path(struct mailbox_list *list, const char *name,
+			  enum mailbox_list_path_type type,
+			  const char **path_r)
 {
-	return list->v.get_path(list, name, type);
+	int ret;
+
+	if ((ret = list->v.get_path(list, name, type, path_r)) <= 0)
+		*path_r = NULL;
+	else
+		i_assert(*path_r != NULL);
+	return ret;
 }
 
-const char *mailbox_list_get_root_path(struct mailbox_list *list,
-				       enum mailbox_list_path_type type)
+bool mailbox_list_get_root_path(struct mailbox_list *list,
+				enum mailbox_list_path_type type,
+				const char **path_r)
 {
-	return list->v.get_path(list, NULL, type);
+	int ret;
+
+	if ((ret = list->v.get_path(list, NULL, type, path_r)) < 0)
+		i_unreached();
+	if (ret == 0)
+		*path_r = NULL;
+	else
+		i_assert(*path_r != NULL);
+	return ret > 0;
 }
 
-const char *
-mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
-			       enum mailbox_list_path_type type)
+const char *mailbox_list_get_root_forced(struct mailbox_list *list,
+					 enum mailbox_list_path_type type)
 {
 	const char *path;
 
+	if (!mailbox_list_get_root_path(list, type, &path))
+		i_unreached();
+	return path;
+}
+
+bool mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
+				    enum mailbox_list_path_type type,
+				    const char **path_r)
+{
+	const char *path = NULL;
+
 	switch (type) {
 	case MAILBOX_LIST_PATH_TYPE_DIR:
-		return set->root_dir;
+		path = set->root_dir;
+		break;
 	case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
-		return set->alt_dir;
+		path = set->alt_dir;
+		break;
 	case MAILBOX_LIST_PATH_TYPE_MAILBOX:
 		if (*set->mailbox_dir_name == '\0')
-			return set->root_dir;
-		path = t_strconcat(set->root_dir, "/",
-				   set->mailbox_dir_name, NULL);
-		return t_strndup(path, strlen(path)-1);
+			path = set->root_dir;
+		else {
+			path = t_strconcat(set->root_dir, "/",
+					   set->mailbox_dir_name, NULL);
+			path = t_strndup(path, strlen(path)-1);
+		}
+		break;
 	case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
 		if (*set->mailbox_dir_name == '\0')
-			return set->root_dir;
-		path = t_strconcat(set->alt_dir, "/",
-				   set->mailbox_dir_name, NULL);
-		return path == NULL ? NULL : t_strndup(path, strlen(path)-1);
+			path = set->root_dir;
+		else if (set->alt_dir != NULL) {
+			path = t_strconcat(set->alt_dir, "/",
+					   set->mailbox_dir_name, NULL);
+			path = t_strndup(path, strlen(path)-1);
+		}
+		break;
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
-		return set->control_dir != NULL ?
+		path = set->control_dir != NULL ?
 			set->control_dir : set->root_dir;
+		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
-		return set->index_dir != NULL ?
+		path = set->index_dir != NULL ?
 			set->index_dir : set->root_dir;
+		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
-		return set->index_pvt_dir;
+		path = set->index_pvt_dir;
+		break;
 	}
-	i_unreached();
+	*path_r = path;
+	return path != NULL;
 }
 
 const char *mailbox_list_get_temp_prefix(struct mailbox_list *list)
@@ -1174,9 +1222,9 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 		return mailbox_list_iter_deinit(&iter);
 	}
 
-	rootdir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	i_assert(rootdir != NULL);
-	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
+	rootdir = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR, &path) <= 0)
+		i_unreached();
 
 	fname = strrchr(path, '/');
 	if (fname == NULL) {
@@ -1202,8 +1250,10 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 	    (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* if INBOX is in e.g. ~/Maildir, it shouldn't be possible to
 		   access it also via namespace prefix. */
-		inbox = mailbox_list_get_path(list, "INBOX",
-					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		if (mailbox_list_get_path(list, "INBOX",
+					  MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					  &inbox) <= 0)
+			i_unreached();
 		if (strcmp(inbox, dir) == 0) {
 			*flags_r |= MAILBOX_NONEXISTENT;
 			return 0;
@@ -1224,8 +1274,7 @@ static bool mailbox_list_init_changelog(struct mailbox_list *list)
 
 	/* don't do this in mailbox_list_create(), because _get_path() might be
 	   overridden by storage (mbox). */
-	path = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*path == '\0')
+	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX, &path))
 		return FALSE;
 
 	path = t_strconcat(path, "/"MAILBOX_LOG_FILE_NAME, NULL);
@@ -1252,9 +1301,11 @@ void mailbox_list_add_change(struct mailbox_list *list,
 
 	if (!list->index_root_dir_created) {
 		/* if index root dir hasn't been created yet, do it now */
-		root_dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		index_dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX);
-		if (index_dir != NULL && *index_dir != '\0' &&
+		if (mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
+					       &index_dir) <= 0)
+			return;
+		if (mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					       &root_dir) <= 0 ||
 		    strcmp(root_dir, index_dir) != 0) {
 			if (mailbox_list_mkdir_root(list, index_dir,
 						    MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
@@ -1459,12 +1510,14 @@ bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 
 	/* okay, we have an absolute path now. but check first if it points to
 	   same directory as one of our regular mailboxes. */
-	root_dir = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	root_dir = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	len = strlen(root_dir);
 	if (strncmp(root_dir, *name, len) == 0 && (*name)[len] == '/') {
 		mailbox_name = *name + len + 1;
-		path = mailbox_list_get_path(list, mailbox_name,
-					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		if (mailbox_list_get_path(list, mailbox_name,
+					  MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					  &path) <= 0)
+			return FALSE;
 		if (strcmp(path, *name) == 0) {
 			/* yeah, we can replace the full path with mailbox
 			   name. this way we can use indexes. */

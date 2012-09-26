@@ -122,7 +122,7 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 	const char *path, *errstr;
 	enum mail_error error;
 	enum mailbox_sync_flags sync_flags = MAILBOX_SYNC_FLAG_FULL_READ;
-	int ret = 0;
+	int ret;
 
 	ns = mail_namespace_find(user->namespaces, mailbox);
 	if (ns == NULL) {
@@ -131,20 +131,26 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 	}
 
 	box = mailbox_alloc(ns->list, mailbox, 0);
-	path = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*path == '\0') {
-		i_info("Indexes disabled for Mailbox %s, skipping", mailbox);
+	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &path);
+	if (ret <= 0) {
 		mailbox_free(&box);
+		if (ret < 0) {
+			i_error("Getting path to mailbox %s failed: %s",
+				mailbox, mailbox_get_last_error(box, NULL));
+			return -1;
+		}
+		i_info("Indexes disabled for Mailbox %s, skipping", mailbox);
 		return 0;
 	}
-	
+	ret = 0;
+
 	if (max_recent_msgs != 0) {
 		/* index only if there aren't too many recent messages.
 		   don't bother syncing the mailbox, that alone can take a
 		   while with large maildirs. */
 		if (mailbox_open(box) < 0) {
 			i_error("Opening mailbox %s failed: %s", mailbox,
-				mail_storage_get_last_error(mailbox_get_storage(box), NULL));
+				mailbox_get_last_error(box, NULL));
 			ret = -1;
 		} else {
 			mailbox_get_open_status(box, STATUS_RECENT, &status);
@@ -159,8 +165,7 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 		sync_flags |= MAILBOX_SYNC_FLAG_OPTIMIZE;
 
 	if (mailbox_sync(box, sync_flags) < 0) {
-		errstr = mail_storage_get_last_error(mailbox_get_storage(box),
-						     &error);
+		errstr = mailbox_get_last_error(box, &error);
 		if (error != MAIL_ERROR_NOTFOUND) {
 			i_error("Syncing mailbox %s failed: %s",
 				mailbox, errstr);

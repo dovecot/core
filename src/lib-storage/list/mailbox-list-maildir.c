@@ -99,20 +99,23 @@ static char maildir_list_get_hierarchy_sep(struct mailbox_list *_list)
 	return list->sep;
 }
 
-static const char *
+static int
 maildir_list_get_path(struct mailbox_list *_list, const char *name,
-		      enum mailbox_list_path_type type)
+		      enum mailbox_list_path_type type, const char **path_r)
 {
 	const char *root_dir;
 
 	if (name == NULL) {
 		/* return root directories */
-		return mailbox_list_set_get_root_path(&_list->set, type);
+		return mailbox_list_set_get_root_path(&_list->set, type,
+						      path_r) ? 1 : 0;
 	}
 
 	if (_list->mail_set->mail_full_filesystem_access &&
-	    (*name == '/' || *name == '~'))
-		return maildir_list_get_absolute_path(_list, name);
+	    (*name == '/' || *name == '~')) {
+		*path_r = maildir_list_get_absolute_path(_list, name);
+		return 1;
+	}
 
 	root_dir = _list->set.root_dir;
 	switch (type) {
@@ -122,37 +125,43 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 	case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
 	case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
 		if (_list->set.alt_dir == NULL)
-			return NULL;
+			return 0;
 		root_dir = _list->set.alt_dir;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
 		if (_list->set.control_dir != NULL) {
-			return maildir_list_get_dirname_path(_list,
+			*path_r = maildir_list_get_dirname_path(_list,
 					       _list->set.control_dir, name);
+			return 1;
 		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
 		if (_list->set.index_dir != NULL) {
 			if (*_list->set.index_dir == '\0')
-				return "";
-			return maildir_list_get_dirname_path(_list,
+				return 0;
+			*path_r = maildir_list_get_dirname_path(_list,
 						_list->set.index_dir, name);
+			return 1;
 		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
 		if (_list->set.index_pvt_dir == NULL)
-			return NULL;
-		return maildir_list_get_dirname_path(_list,
+			return 0;
+		*path_r = maildir_list_get_dirname_path(_list,
 					_list->set.index_pvt_dir, name);
+		return 1;
 	}
 
 	if (type == MAILBOX_LIST_PATH_TYPE_ALT_DIR ||
 	    type == MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX) {
 		/* don't use inbox_path */
-	} else if (strcmp(name, "INBOX") == 0 && _list->set.inbox_path != NULL)
-		return _list->set.inbox_path;
+	} else if (strcmp(name, "INBOX") == 0 && _list->set.inbox_path != NULL) {
+		*path_r = _list->set.inbox_path;
+		return 1;
+	}
 
-	return maildir_list_get_dirname_path(_list, root_dir, name);
+	*path_r = maildir_list_get_dirname_path(_list, root_dir, name);
+	return 1;
 }
 
 static const char *
@@ -186,7 +195,7 @@ mailbox_list_maildir_get_trash_dir(struct mailbox_list *_list)
 		(struct maildir_mailbox_list *)_list;
 	const char *root_dir;
 
-	root_dir = mailbox_list_get_root_path(_list, MAILBOX_LIST_PATH_TYPE_DIR);
+	root_dir = mailbox_list_get_root_forced(_list, MAILBOX_LIST_PATH_TYPE_DIR);
 	return t_strdup_printf("%s/%c%c"MAILBOX_LIST_MAILDIR_TRASH_DIR_NAME,
 			       root_dir, list->sep, list->sep);
 }
@@ -205,8 +214,10 @@ maildir_list_delete_maildir(struct mailbox_list *list, const char *name)
 	if (ret == 0) {
 		/* we could actually use just unlink_directory()
 		   but error handling is easier this way :) */
-		path = mailbox_list_get_path(list, name,
-					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		if (mailbox_list_get_path(list, name,
+					  MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					  &path) <= 0)
+			i_unreached();
 		if (mailbox_list_delete_mailbox_nonrecursive(list, name,
 							     path, TRUE) < 0)
 			return -1;
@@ -237,7 +248,9 @@ static int maildir_list_delete_dir(struct mailbox_list *list, const char *name)
 
 	/* with maildir++ there aren't any non-selectable mailboxes.
 	   we'll always fail. */
-	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
+	if (mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR,
+				  &path) <= 0)
+		i_unreached();
 	if (stat(path, &st) == 0) {
 		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
 				       "Mailbox exists");
@@ -256,8 +269,9 @@ static int rename_dir(struct mailbox_list *oldlist, const char *oldname,
 {
 	const char *oldpath, *newpath;
 
-	oldpath = mailbox_list_get_path(oldlist, oldname, type);
-	newpath = mailbox_list_get_path(newlist, newname, type);
+	if (mailbox_list_get_path(oldlist, oldname, type, &oldpath) <= 0 ||
+	    mailbox_list_get_path(newlist, newname, type, &newpath) <= 0)
+		return 0;
 
 	if (strcmp(oldpath, newpath) == 0)
 		return 0;
@@ -332,10 +346,13 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 
 		new_childname = mailbox_list_get_storage_name(newlist,
 					t_strconcat(new_vname, names[i], NULL));
-		oldpath = mailbox_list_get_path(oldlist, old_childname,
-						MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		newpath = mailbox_list_get_path(newlist, new_childname,
-						MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		if (mailbox_list_get_path(oldlist, old_childname,
+					  MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					  &oldpath) <= 0 ||
+		    mailbox_list_get_path(newlist, new_childname,
+					  MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					  &newpath) <= 0)
+			i_unreached();
 
 		/* FIXME: it's possible to merge two mailboxes if either one of
 		   them doesn't have existing root mailbox. We could check this
@@ -375,13 +392,14 @@ maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 
 	/* NOTE: it's possible to rename a nonexistent mailbox which has
 	   children. In that case we should ignore the rename() error. */
-	oldpath = mailbox_list_get_path(oldlist, oldname,
-					MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	newpath = mailbox_list_get_path(newlist, newname,
-					MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (mailbox_list_get_path(oldlist, oldname,
+				  MAILBOX_LIST_PATH_TYPE_MAILBOX, &oldpath) <= 0 ||
+	    mailbox_list_get_path(newlist, newname,
+				  MAILBOX_LIST_PATH_TYPE_MAILBOX, &newpath) <= 0)
+		i_unreached();
 
-	root_path = mailbox_list_get_root_path(oldlist,
-					       MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	root_path = mailbox_list_get_root_forced(oldlist,
+						 MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (strcmp(oldpath, root_path) == 0) {
 		/* most likely INBOX */
 		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,

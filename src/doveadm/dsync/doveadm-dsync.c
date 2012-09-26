@@ -257,11 +257,12 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 			"virtual mailbox hierarchy separator "
 			"(specify separator for the default namespace)");
 	}
-	path1 = mailbox_list_get_root_path(user->namespaces->list,
-					   MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	path2 = mailbox_list_get_root_path(user2->namespaces->list,
-					   MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (path1 != NULL && path2 != NULL &&
+	if (mailbox_list_get_root_path(user->namespaces->list,
+				       MAILBOX_LIST_PATH_TYPE_MAILBOX,
+				       &path1) &&
+	    mailbox_list_get_root_path(user2->namespaces->list,
+				       MAILBOX_LIST_PATH_TYPE_MAILBOX,
+				       &path2) &&
 	    strcmp(path1, path2) == 0) {
 		i_fatal("Both source and destination mail_location "
 			"points to same directory: %s", path1);

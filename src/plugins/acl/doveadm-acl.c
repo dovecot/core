@@ -418,11 +418,13 @@ cmd_acl_debug_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) < 0) {
-		path = mailbox_get_path(box);
 		errstr = mail_storage_get_last_error(box->storage, &error);
+		errstr = t_strdup(errstr);
 		doveadm_mail_failed_error(ctx, error);
+
 		if (error != MAIL_ERROR_NOTFOUND ||
-		    path == NULL || *path == '\0')
+		    mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					&path) <= 0)
 			i_error("Can't open mailbox %s: %s", mailbox, errstr);
 		else {
 			i_error("Mailbox '%s' doesn't exist in %s",

@@ -37,8 +37,8 @@ struct mailbox_list_vfuncs {
 				 const char *storage_name);
 	const char *(*get_storage_name)(struct mailbox_list *list,
 					const char *vname);
-	const char *(*get_path)(struct mailbox_list *list, const char *name,
-				enum mailbox_list_path_type type);
+	int (*get_path)(struct mailbox_list *list, const char *name,
+			enum mailbox_list_path_type type, const char **path_r);
 
 	const char *(*get_temp_prefix)(struct mailbox_list *list, bool global);
 	const char *(*join_refpattern)(struct mailbox_list *list,
@@ -171,9 +171,9 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 					   const char *storage_name);
 const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 					     enum mailbox_list_path_type type);
-const char *
-mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
-			       enum mailbox_list_path_type type);
+bool mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
+				    enum mailbox_list_path_type type,
+				    const char **path_r);
 
 int mailbox_list_delete_index_control(struct mailbox_list *list,
 				      const char *name);
