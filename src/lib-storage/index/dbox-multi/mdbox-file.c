@@ -302,11 +302,14 @@ int mdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 {
 	struct mdbox_file *mfile = (struct mdbox_file *)file;
 	struct mdbox_map *map = mfile->storage->map;
+	struct mailbox_permissions perm;
 	mode_t old_mask;
 	const char *p, *dir;
 	int fd;
 
-	old_mask = umask(0666 & ~map->perm.file_create_mode);
+	mailbox_list_get_root_permissions(map->root_list, &perm);
+
+	old_mask = umask(0666 & ~perm.file_create_mode);
 	fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0666);
 	umask(old_mask);
 	if (fd == -1 && errno == ENOENT && parents &&
@@ -321,25 +324,25 @@ int mdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 			return -1;
 		}
 		/* try again */
-		old_mask = umask(0666 & ~map->perm.file_create_mode);
+		old_mask = umask(0666 & ~perm.file_create_mode);
 		fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0666);
 		umask(old_mask);
 	}
 	if (fd == -1) {
 		mail_storage_set_critical(&file->storage->storage,
 			"open(%s, O_CREAT) failed: %m", path);
-	} else if (map->perm.file_create_gid == (gid_t)-1) {
+	} else if (perm.file_create_gid == (gid_t)-1) {
 		/* no group change */
-	} else if (fchown(fd, (uid_t)-1, map->perm.file_create_gid) < 0) {
+	} else if (fchown(fd, (uid_t)-1, perm.file_create_gid) < 0) {
 		if (errno == EPERM) {
 			mail_storage_set_critical(&file->storage->storage, "%s",
 				eperm_error_get_chgrp("fchown", path,
-					map->perm.file_create_gid,
-					map->perm.file_create_gid_origin));
+					perm.file_create_gid,
+					perm.file_create_gid_origin));
 		} else {
 			mail_storage_set_critical(&file->storage->storage,
 				"fchown(%s, -1, %ld) failed: %m",
-				path, (long)map->perm.file_create_gid);
+				path, (long)perm.file_create_gid);
 		}
 		/* continue anyway */
 	}

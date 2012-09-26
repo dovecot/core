@@ -6,12 +6,14 @@
 
 #define DIRECTOR_VERSION_NAME "director"
 #define DIRECTOR_VERSION_MAJOR 1
-#define DIRECTOR_VERSION_MINOR 2
+#define DIRECTOR_VERSION_MINOR 3
 
 /* weak users supported in protocol v1.1+ */
 #define DIRECTOR_VERSION_WEAK_USERS 1
 /* director removes supported in v1.2+ */
 #define DIRECTOR_VERSION_RING_REMOVE 2
+/* quit reason supported in v1.3+ */
+#define DIRECTOR_VERSION_QUIT 3
 
 /* Minimum time between even attempting to communicate with a director that
    failed due to a protocol error. */

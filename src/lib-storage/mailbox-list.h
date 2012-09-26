@@ -105,6 +105,8 @@ struct mailbox_list_settings {
 	char escape_char;
 	/* Use UTF-8 mailbox names on filesystem instead of mUTF-7 */
 	bool utf8;
+	/* Don't check/create the alt-dir symlink. */
+	bool alt_dir_nocheck;
 };
 
 struct mailbox_permissions {

@@ -136,6 +136,15 @@ static bool director_request_existing(struct director *dir, struct user *user)
 		   its existing connections have been killed */
 		return FALSE;
 	}
+	if (dir->right == NULL && dir->ring_synced) {
+		/* looks like all the other directors have died. we can do
+		   whatever we want without breaking anything. remove the
+		   user's weakness just in case it was set to TRUE when we
+		   had more directors. */
+		user->weak = FALSE;
+		return TRUE;
+	}
+
 	if (user->weak) {
 		/* wait for user to become non-weak */
 		return FALSE;

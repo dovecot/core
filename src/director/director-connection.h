@@ -10,7 +10,8 @@ director_connection_init_in(struct director *dir, int fd,
 struct director_connection *
 director_connection_init_out(struct director *dir, int fd,
 			     struct director_host *host);
-void director_connection_deinit(struct director_connection **conn);
+void director_connection_deinit(struct director_connection **conn,
+				const char *remote_reason);
 
 void director_connection_send(struct director_connection *conn,
 			      const char *data);

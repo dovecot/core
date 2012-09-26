@@ -131,6 +131,7 @@ maildir_list_init(struct maildir_quota_root *root, struct mailbox_list *list)
 	ctx->path = str_new(default_pool, 512);
 	ctx->list = list;
 	ctx->iter = mailbox_list_iter_init(list, "*",
+					   MAILBOX_LIST_ITER_SKIP_ALIASES |
 					   MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	return ctx;
 }

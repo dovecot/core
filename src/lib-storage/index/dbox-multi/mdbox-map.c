@@ -74,11 +74,6 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list)
 				sizeof(uint32_t));
 	map->ref_ext_id = mail_index_ext_register(map->index, "ref", 0,
 				sizeof(uint16_t), sizeof(uint16_t));
-
-	mailbox_list_get_root_permissions(root_list, &map->perm);
-	mail_index_set_permissions(map->index, map->perm.file_create_mode,
-				   map->perm.file_create_gid,
-				   map->perm.file_create_gid_origin);
 	return map;
 }
 
@@ -140,12 +135,18 @@ static void mdbox_map_cleanup(struct mdbox_map *map)
 static int mdbox_map_open_internal(struct mdbox_map *map, bool create_missing)
 {
 	enum mail_index_open_flags open_flags;
+	struct mailbox_permissions perm;
 	int ret = 0;
 
 	if (map->view != NULL) {
 		/* already opened */
 		return 1;
 	}
+
+	mailbox_list_get_root_permissions(map->root_list, &perm);
+	mail_index_set_permissions(map->index, perm.file_create_mode,
+				   perm.file_create_gid,
+				   perm.file_create_gid_origin);
 
 	open_flags = MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY |
 		mail_storage_settings_to_index_flags(MAP_STORAGE(map)->set);

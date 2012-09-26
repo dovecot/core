@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "abspath.h"
 #include "ioloop.h"
 #include "mkdir-parents.h"
 #include "str.h"
@@ -165,6 +166,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	list->set.mailbox_dir_name =
 		p_strdup(list->pool, set->mailbox_dir_name);
 	list->set.alt_dir = p_strdup(list->pool, set->alt_dir);
+	list->set.alt_dir_nocheck = set->alt_dir_nocheck;
 
 	if (*set->mailbox_dir_name == '\0')
 		list->set.mailbox_dir_name = "";
@@ -299,7 +301,10 @@ int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 			dest = &set_r->control_dir;
 		else if (strcmp(key, "ALT") == 0)
 			dest = &set_r->alt_dir;
-		else if (strcmp(key, "LAYOUT") == 0)
+		else if (strcmp(key, "ALTNOCHECK") == 0) {
+			set_r->alt_dir_nocheck = TRUE;
+			continue;
+		} else if (strcmp(key, "LAYOUT") == 0)
 			dest = &set_r->layout;
 		else if (strcmp(key, "SUBSCRIPTIONS") == 0)
 			dest = &set_r->subscription_fname;
@@ -1383,6 +1388,39 @@ mailbox_list_get_file_type(const struct dirent *d ATTR_UNUSED)
 #endif
 	return type;
 }
+
+int mailbox_list_dirent_is_alias_symlink(struct mailbox_list *list,
+					 const char *dir_path,
+					 const struct dirent *d)
+{
+	struct stat st;
+	int ret;
+
+	if (mailbox_list_get_file_type(d) == MAILBOX_LIST_FILE_TYPE_SYMLINK)
+		return 1;
+
+	T_BEGIN {
+		const char *path, *linkpath;
+
+		path = t_strconcat(dir_path, "/", d->d_name, NULL);
+		if (lstat(path, &st) < 0) {
+			mailbox_list_set_critical(list,
+						  "lstat(%s) failed: %m", path);
+			ret = -1;
+		} else if (!S_ISLNK(st.st_mode)) {
+			ret = 0;
+		} else if (t_readlink(path, &linkpath) < 0) {
+			i_error("readlink(%s) failed: %m", path);
+			ret = -1;
+		} else {
+			/* it's an alias only if it points to the same
+			   directory */
+			ret = strchr(linkpath, '/') == NULL ? 1 : 0;
+		}
+	} T_END;
+	return ret;
+}
+
 
 static bool
 mailbox_list_try_get_home_path(struct mailbox_list *list, const char **name)

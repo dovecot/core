@@ -570,6 +570,7 @@ static int fts_backend_solr_rescan(struct fts_backend *backend)
 	/* FIXME: proper rescan needed. for now we'll just reset the
 	   last-uids */
 	iter = mailbox_list_iter_init(backend->ns->list, "*",
+				      MAILBOX_LIST_ITER_SKIP_ALIASES |
 				      MAILBOX_LIST_ITER_NO_AUTO_BOXES);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if ((info->flags &

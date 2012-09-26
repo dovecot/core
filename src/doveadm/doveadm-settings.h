@@ -3,6 +3,7 @@
 
 struct doveadm_settings {
 	const char *base_dir;
+	const char *libexec_dir;
 	const char *mail_plugins;
 	const char *mail_plugin_dir;
 	const char *doveadm_socket_path;

@@ -110,7 +110,7 @@ struct lucene_index *lucene_index_init(const char *path,
 	index->path = i_strdup(path);
 	index->list = list;
 	index->normalizer = !set->normalize ? NULL :
-		list->ns->user->default_normalizer;
+		mailbox_list_get_namespace(list)->user->default_normalizer;
 	if (set != NULL)
 		index->set = *set;
 	else {

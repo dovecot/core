@@ -323,6 +323,11 @@ maildir_fill_readdir_entry(struct maildir_list_iterate_context *ctx,
 	if (maildir_delete_trash_dir(ctx, fname))
 		return 0;
 
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SKIP_ALIASES) != 0) {
+		ret = mailbox_list_dirent_is_alias_symlink(list, ctx->dir, d);
+		if (ret != 0)
+			return ret < 0 ? -1 : 0;
+	}
 	T_BEGIN {
 		ret = list->v.get_mailbox_flags(list, ctx->dir, fname,
 				mailbox_list_get_file_type(d), &flags);

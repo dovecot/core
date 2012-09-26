@@ -212,6 +212,10 @@ const struct var_expand_table *
 auth_request_get_var_expand_table(const struct auth_request *auth_request,
 				  auth_request_escape_func_t *escape_func)
 	ATTR_NULL(2);
+struct var_expand_table *
+auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
+				       auth_request_escape_func_t *escape_func,
+				       unsigned int *count) ATTR_NULL(2);
 const char *auth_request_str_escape(const char *string,
 				    const struct auth_request *request);
 

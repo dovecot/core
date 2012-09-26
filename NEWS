@@ -19,6 +19,32 @@ v2.2.UNSTABLE 2012-xx-xx  Timo Sirainen <tss@iki.fi>
 	+ LMTP proxy: Implemented XCLIENT extension for passing remote IP
 	  address through proxy.
 
+v2.1.10 2012-09-18  Timo Sirainen <tss@iki.fi>
+
+	+ imap: Implemented THREAD=ORDEREDSUBJECT extension.
+	+ Added "doveadm exec" command to easily execute commands from
+	  libexec_dir, e.g. "doveadm exec imap -u user@domain"
+	+ Added "doveadm copy" command.
+	+ doveadm copy/move: Added optional user parameter to specify the
+	  source username. This allows easily copying mails between different
+	  users.
+	+ Added namespace { disabled } setting to quickly enable/disable
+	  namespaces. This is especially useful when its value is returned by
+	  userdb.
+	+ Added mailbox_alias plugin. It allows creating mailbox aliases using
+	  symlinks.
+	+ imapc storage: Added imapc_max_idle_time setting to force activity
+	  on connection.
+	+ fts-solr: Expunging multiple messages is now faster.
+	- director: In some conditions director may have disconnected from
+	  another director (without logging about it), thinking it was sending
+	  invalid data.
+	- imap: Various fixes to listing mailboxes.
+	- pop3-migration plugin: Avoid disconnection from POP3 server due
+	  to idling.
+	- login processes crashed if there were a lot of local {} or remote {}
+	  settings blocks.
+
 v2.1.9 2012-08-01  Timo Sirainen <tss@iki.fi>
 
 	* mail-log plugin: Log mailbox names with UTF-8 everywhere 

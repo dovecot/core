@@ -33,7 +33,7 @@ struct quota_rule {
 
 	int64_t bytes_limit, count_limit;
 	/* relative to default_rule */
-	unsigned int bytes_percent, count_percent;
+	int bytes_percent, count_percent;
 
 	/* Don't include this mailbox in quota */
 	unsigned int ignore:1;

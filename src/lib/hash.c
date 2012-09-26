@@ -8,7 +8,7 @@
 
 #include <ctype.h>
 
-#define HASH_TABLE_MIN_SIZE 131
+#define HASH_TABLE_MIN_SIZE 67
 
 #undef hash_table_create
 #undef hash_table_create_direct

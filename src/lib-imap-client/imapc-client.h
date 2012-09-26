@@ -1,6 +1,9 @@
 #ifndef IMAPC_CLIENT_H
 #define IMAPC_CLIENT_H
 
+/* IMAP RFC defines this to be at least 30 minutes. */
+#define IMAPC_DEFAULT_MAX_IDLE_TIME (60*29)
+
 enum imapc_command_state {
 	IMAPC_COMMAND_STATE_OK,
 	IMAPC_COMMAND_STATE_NO,

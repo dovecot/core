@@ -63,7 +63,6 @@ struct db_ldap_result_iterate_context {
 
 	/* attribute name => value */
 	HASH_TABLE(char *, struct db_ldap_value *) ldap_attrs;
-	struct var_expand_table *var_table;
 
 	const char *val_1_arr[2];
 	string_t *var, *debug;
@@ -1068,21 +1067,17 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 	*attr_names_r = array_idx_modifiable(&ctx.attr_names, 0);
 }
 
-static struct var_expand_table *
-db_ldap_value_get_var_expand_table(pool_t pool,
-				   struct auth_request *auth_request)
+static const struct var_expand_table *
+db_ldap_value_get_var_expand_table(struct auth_request *auth_request,
+				   const char *ldap_value)
 {
-	const struct var_expand_table *auth_table = NULL;
 	struct var_expand_table *table;
-	unsigned int count;
+	unsigned int count = 1;
 
-	auth_table = auth_request_get_var_expand_table(auth_request, NULL);
-	for (count = 0; auth_table[count].key != '\0'; count++) ;
-	count++;
-
-	table = p_new(pool, struct var_expand_table, count + 2);
+	table = auth_request_get_var_expand_table_full(auth_request, NULL,
+						       &count);
 	table[0].key = '$';
-	memcpy(table + 1, auth_table, sizeof(*table) * count);
+	table[0].value = ldap_value;
 	return table;
 }
 
@@ -1238,6 +1233,7 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 		{ "ldap", db_ldap_field_expand },
 		{ NULL, NULL }
 	};
+	const struct var_expand_table *var_table;
 	const char *const *values;
 
 	if (ldap_value != NULL)
@@ -1263,14 +1259,18 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 				"using value '%s'",
 				field->name, values[0]);
 		}
-		if (ctx->var_table == NULL) {
-			ctx->var_table = db_ldap_value_get_var_expand_table(
-						ctx->pool, ctx->auth_request);
+
+		/* do this lookup separately for each expansion, because:
+		   1) the values are allocated from data stack
+		   2) if "user" field is updated, we want %u/%n/%d updated
+		      (and less importantly the same for other variables) */
+		var_table = db_ldap_value_get_var_expand_table(ctx->auth_request,
+							       values[0]);
+		if (ctx->var == NULL)
 			ctx->var = str_new(ctx->pool, 256);
-		}
-		ctx->var_table[0].value = values[0];
-		str_truncate(ctx->var, 0);
-		var_expand_with_funcs(ctx->var, field->value, ctx->var_table,
+		else
+			str_truncate(ctx->var, 0);
+		var_expand_with_funcs(ctx->var, field->value, var_table,
 				      var_funcs_table, ctx);
 		ctx->val_1_arr[0] = str_c(ctx->var);
 		values = ctx->val_1_arr;

@@ -59,7 +59,8 @@ master_service_settings_cache_init(struct master_service *service,
 	struct master_service_settings_cache *cache;
 	pool_t pool;
 
-	pool = pool_alloconly_create("master service settings cache", 1024*32);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"master service settings cache",
+				     1024*12);
 	cache = p_new(pool, struct master_service_settings_cache, 1);
 	cache->pool = pool;
 	cache->service = service;

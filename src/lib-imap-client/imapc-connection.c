@@ -496,7 +496,8 @@ imapc_connection_read_line_more(struct imapc_connection *conn,
 
 	ret = imap_parser_read_args(conn->parser, 0,
 				    IMAP_PARSE_FLAG_LITERAL_SIZE |
-				    IMAP_PARSE_FLAG_ATOM_ALLCHARS, imap_args_r);
+				    IMAP_PARSE_FLAG_ATOM_ALLCHARS |
+				    IMAP_PARSE_FLAG_SERVER_TEXT, imap_args_r);
 	if (ret == -2) {
 		/* need more data */
 		return 0;
@@ -816,6 +817,9 @@ static int imapc_connection_input_banner(struct imapc_connection *conn)
 
 	if ((ret = imapc_connection_read_line(conn, &imap_args)) <= 0)
 		return ret;
+	/* we already verified that the banner beigns with OK */
+	i_assert(imap_arg_atom_equals(imap_args, "OK"));
+	imap_args++;
 
 	if (imapc_connection_handle_imap_resp_text(conn, imap_args,
 						   &key, &value) < 0)
@@ -839,6 +843,8 @@ static int imapc_connection_input_banner(struct imapc_connection *conn)
 static int imapc_connection_input_untagged(struct imapc_connection *conn)
 {
 	const struct imap_arg *imap_args;
+	const unsigned char *data;
+	size_t size;
 	const char *name, *value;
 	struct imap_parser *parser;
 	struct imapc_untagged_reply reply;
@@ -846,13 +852,13 @@ static int imapc_connection_input_untagged(struct imapc_connection *conn)
 
 	if (conn->state == IMAPC_CONNECTION_STATE_CONNECTING) {
 		/* input banner */
-		name = imap_parser_read_word(conn->parser);
-		if (name == NULL)
+		data = i_stream_get_data(conn->input, &size);
+		if (size < 3 && memchr(data, '\n', size) == NULL)
 			return 0;
-
-		if (strcasecmp(name, "OK") != 0) {
+		if (i_memcasecmp(data, "OK ", 3) != 0) {
 			imapc_connection_input_error(conn,
-				"Banner doesn't begin with OK: %s", name);
+				"Banner doesn't begin with OK: %s",
+				t_strcut(t_strndup(data, size), '\n'));
 			return -1;
 		}
 		conn->input_callback = imapc_connection_input_banner;
