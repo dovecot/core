@@ -70,11 +70,11 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 	const char *name;
 	char src_sep, dest_sep;
 
-	/* get the storage name, so it doesn't have namespace prefix */
+	/* use the (canonical / unaliased) storage name */
 	name = src_box->name;
-	/* replace hierarchy separators with destination separator */
+	/* replace hierarchy separators with destination virtual separator */
 	src_sep = mailbox_list_get_hierarchy_sep(src_box->list);
-	dest_sep = mailbox_list_get_hierarchy_sep(list);
+	dest_sep = mail_namespace_get_sep(list->ns);
 	if (src_sep != dest_sep) {
 		string_t *str = t_str_new(128);
 		unsigned int i;
@@ -87,7 +87,7 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 		}
 		name = str_c(str);
 	}
-	/* add expunge namespace prefix */
+	/* add expunge namespace prefix. the name is now a proper vname */
 	name = t_strconcat(list->ns->prefix, name, NULL);
 
 	box = mailbox_alloc(list, name, MAILBOX_FLAG_NO_INDEX_FILES);
