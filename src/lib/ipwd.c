@@ -58,6 +58,10 @@ int i_getpwnam(const char *name, struct passwd *pwd_r)
 	errno = getpwnam_r(name, pwd_r, pwbuf, pwbuf_size, &result);
 	if (result != NULL)
 		return 1;
+	if (errno == EINVAL) {
+		/* FreeBSD fails here when name="user@domain" */
+		return 0;
+	}
 	return errno == 0 ? 0 : -1;
 }
 
