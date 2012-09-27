@@ -45,6 +45,12 @@ struct mdbox_mail_index_record {
 	uint32_t map_uid;
 	uint32_t save_date;
 };
+struct mailbox_list_index_record {
+	uint32_t name_id;
+	uint32_t parent_uid;
+	guid_128_t guid;
+	uint32_t uid_validity;
+};
 
 struct fts_index_header {
 	uint32_t last_indexed_uid;
@@ -550,6 +556,12 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 			const struct mdbox_mail_index_record *drec = data;
 			printf("                   : map_uid   = %u\n", drec->map_uid);
 			printf("                   : save_date = %u (%s)\n", drec->save_date, unixdate2str(drec->save_date));
+		} else if (strcmp(ext[i].name, "list") == 0) {
+			const struct mailbox_list_index_record *lrec = data;
+			printf("                   : name_id      = %u\n", lrec->name_id);
+			printf("                   : parent_uid   = %u\n", lrec->parent_uid);
+			printf("                   : guid         = %s\n", guid_128_to_string(lrec->guid));
+			printf("                   : uid_validity = %u\n", lrec->uid_validity);
 		}
 	}
 }
