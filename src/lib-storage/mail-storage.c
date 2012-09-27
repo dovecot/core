@@ -709,6 +709,59 @@ struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 	return box;
 }
 
+static bool mailbox_is_autocreated(struct mailbox *box)
+{
+	if (box->inbox_user)
+		return TRUE;
+	return box->set != NULL &&
+		strcmp(box->set->autocreate, MAILBOX_SET_AUTO_NO) != 0;
+}
+
+static int mailbox_autocreate(struct mailbox *box)
+{
+	const char *errstr;
+	enum mail_error error;
+
+	if (mailbox_create(box, NULL, FALSE) < 0) {
+		errstr = mailbox_get_last_error(box, &error);
+		if (error != MAIL_ERROR_NOTFOUND) {
+			mail_storage_set_critical(box->storage,
+				"Failed to autocreate mailbox %s: %s",
+				box->vname, errstr);
+			return -1;
+		}
+	} else if (box->set != NULL &&
+		   strcmp(box->set->autocreate,
+			  MAILBOX_SET_AUTO_SUBSCRIBE) == 0) {
+		if (mailbox_set_subscribed(box, TRUE) < 0) {
+			mail_storage_set_critical(box->storage,
+				"Failed to autosubscribe to mailbox %s: %s",
+				box->vname, mailbox_get_last_error(box, NULL));
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static int mailbox_autocreate_and_reopen(struct mailbox *box)
+{
+	int ret;
+
+	if (mailbox_autocreate(box) < 0)
+		return -1;
+	mailbox_close(box);
+
+	ret = box->v.open(box);
+	if (ret < 0 && box->inbox_user &&
+	    !box->storage->user->inbox_open_error_logged) {
+		box->storage->user->inbox_open_error_logged = TRUE;
+		mail_storage_set_critical(box->storage,
+			"Opening INBOX failed: %s",
+			mailbox_get_last_error(box, NULL));
+	}
+	return ret;
+}
+
 static bool
 mailbox_name_verify_separators(const char *vname, char sep,
 			       const char **error_r)
@@ -794,14 +847,27 @@ static int mailbox_verify_existing_name(struct mailbox *box)
 {
 	const char *path;
 
+	if (box->opened)
+		return 0;
+
 	if (mailbox_verify_name(box) < 0)
 		return -1;
 
 	/* Make sure box->_path is set, so mailbox_get_path() works from
 	   now on. Note that this may also fail with some backends if the
 	   mailbox doesn't exist. */
-	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX, &path) < 0)
-		return -1;
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX, &path) < 0) {
+		if (box->storage->error != MAIL_ERROR_NOTFOUND ||
+		    !mailbox_is_autocreated(box))
+			return -1;
+		/* if this is an autocreated mailbox, create it now */
+		if (mailbox_autocreate(box) < 0)
+			return -1;
+		mailbox_close(box);
+		if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					&path) < 0)
+			return -1;
+	}
 	return 0;
 }
 
@@ -862,14 +928,6 @@ static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 	return FALSE;
 }
 
-static bool mailbox_is_autocreated(struct mailbox *box)
-{
-	if (box->inbox_user)
-		return TRUE;
-	return box->set != NULL &&
-		strcmp(box->set->autocreate, MAILBOX_SET_AUTO_NO) != 0;
-}
-
 int mailbox_exists(struct mailbox *box, bool auto_boxes,
 		   enum mailbox_existence *existence_r)
 {
@@ -883,9 +941,8 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 		/* unsure if this exists or not */
 		return -1;
 	}
-	if (mailbox_verify_existing_name(box) < 0) {
-		/* either the name is invalid or the mailbox doesn't exist.
-		   if it's invalid we don't currently know if the mailbox
+	if (mailbox_verify_name(box) < 0) {
+		/* the mailbox name is invalid. we don't know if it currently
 		   exists or not, but since it can never be accessed in any way
 		   report it as if it didn't exist. */
 		*existence_r = MAILBOX_EXISTENCE_NONE;
@@ -913,51 +970,6 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 	   usable here since nothing else will. */
 	box->list->ns->flags |= NAMESPACE_FLAG_USABLE;
 	return 0;
-}
-
-static int mailbox_autocreate(struct mailbox *box)
-{
-	const char *errstr;
-	enum mail_error error;
-
-	if (mailbox_create(box, NULL, FALSE) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
-		if (error != MAIL_ERROR_NOTFOUND) {
-			mail_storage_set_critical(box->storage,
-				"Failed to autocreate mailbox %s: %s",
-				box->vname, errstr);
-			return -1;
-		}
-	} else if (box->set != NULL &&
-		   strcmp(box->set->autocreate,
-			  MAILBOX_SET_AUTO_SUBSCRIBE) == 0) {
-		if (mailbox_set_subscribed(box, TRUE) < 0) {
-			mail_storage_set_critical(box->storage,
-				"Failed to autosubscribe to mailbox %s: %s",
-				box->vname, mailbox_get_last_error(box, NULL));
-			return -1;
-		}
-	}
-	return 0;
-}
-
-static int mailbox_autocreate_and_reopen(struct mailbox *box)
-{
-	int ret;
-
-	if (mailbox_autocreate(box) < 0)
-		return -1;
-	mailbox_close(box);
-
-	ret = box->v.open(box);
-	if (ret < 0 && box->inbox_user &&
-	    !box->storage->user->inbox_open_error_logged) {
-		box->storage->user->inbox_open_error_logged = TRUE;
-		mail_storage_set_critical(box->storage,
-			"Opening INBOX failed: %s",
-			mailbox_get_last_error(box, NULL));
-	}
-	return ret;
 }
 
 static int ATTR_NULL(2)
