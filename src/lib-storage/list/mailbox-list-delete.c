@@ -119,17 +119,8 @@ int mailbox_list_delete_maildir_via_trash(struct mailbox_list *list,
 }
 
 int mailbox_list_delete_mailbox_file(struct mailbox_list *list,
-				     const char *name)
+				     const char *name, const char *path)
 {
-	const char *path;
-	int ret;
-
-	ret = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX,
-				    &path);
-	if (ret < 0)
-		return -1;
-	i_assert(ret > 0);
-
 	/* we can simply unlink() the file */
 	if (unlink(path) == 0)
 		return 0;

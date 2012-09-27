@@ -6,18 +6,7 @@
 #include "str.h"
 #include "mail-index.h"
 #include "mail-storage.h"
-#include "mailbox-list-index.h"
-
-struct mailbox_list_index_sync_context {
-	struct mailbox_list *list;
-	struct mailbox_list_index *ilist;
-	char sep[2];
-	uint32_t next_uid;
-
-	struct mail_index_sync_ctx *sync_ctx;
-	struct mail_index_view *view;
-	struct mail_index_transaction *trans;
-};
+#include "mailbox-list-index-sync.h"
 
 static void
 node_lookup_guid(struct mailbox_list_index_sync_context *ctx,
@@ -52,7 +41,7 @@ node_add_to_index(struct mailbox_list_index_sync_context *ctx,
 
 	/* get mailbox GUID if possible. we need to do this early in here to
 	   make mailbox rename detection work in NOTIFY */
-	T_BEGIN {
+	if (ctx->syncing_list) T_BEGIN {
 		node_lookup_guid(ctx, node, irec.guid);
 	} T_END;
 
@@ -99,10 +88,10 @@ mailbox_list_index_node_add(struct mailbox_list_index_sync_context *ctx,
 	return node;
 }
 
-static uint32_t
-mailbox_list_index_sync_name(struct mailbox_list_index_sync_context *ctx,
-			     const char *name,
-			     enum mailbox_list_index_flags flags)
+uint32_t mailbox_list_index_sync_name(struct mailbox_list_index_sync_context *ctx,
+				      const char *name,
+				      struct mailbox_list_index_node **node_r,
+				      bool *created_r)
 {
 	const char *const *path, *empty_path[] = { "", NULL };
 	struct mailbox_list_index_node *node, *parent;
@@ -129,15 +118,17 @@ mailbox_list_index_sync_name(struct mailbox_list_index_sync_context *ctx,
 		i_assert(node != NULL);
 		if (!mail_index_lookup_seq(ctx->view, node->uid, &seq))
 			i_panic("mailbox list index: lost uid=%u", node->uid);
+		*created_r = FALSE;
 	} else {
 		/* create missing parts of the path */
 		for (; path[i] != NULL; i++) {
 			node = mailbox_list_index_node_add(ctx, node, path[i],
 							   &seq);
 		}
+		*created_r = TRUE;
 	}
 
-	node->flags = flags | MAILBOX_LIST_INDEX_FLAG_SYNC_EXISTS;
+	*node_r = node;
 	return seq;
 }
 
@@ -146,11 +137,9 @@ get_existing_name_ids(ARRAY_TYPE(uint32_t) *ids,
 		      const struct mailbox_list_index_node *node)
 {
 	for (; node != NULL; node = node->next) {
-		if ((node->flags & MAILBOX_LIST_INDEX_FLAG_SYNC_EXISTS) != 0) {
-			if (node->children != NULL)
-				get_existing_name_ids(ids, node->children);
-			array_append(ids, &node->name_id, 1);
-		}
+		if (node->children != NULL)
+			get_existing_name_ids(ids, node->children);
+		array_append(ids, &node->name_id, 1);
 	}
 }
 
@@ -218,20 +207,6 @@ mailbox_list_index_node_clear_exists(struct mailbox_list_index_node *node)
 }
 
 static void
-mailbox_list_index_node_unlink(struct mailbox_list_index *ilist,
-			       struct mailbox_list_index_node *node)
-{
-	struct mailbox_list_index_node **prev;
-
-	prev = node->parent == NULL ?
-		&ilist->mailbox_tree : &node->parent->children;
-
-	while (*prev != node)
-		prev = &(*prev)->next;
-	*prev = node->next;
-}
-
-static void
 sync_expunge_nonexistent(struct mailbox_list_index_sync_context *sync_ctx,
 			 struct mailbox_list_index_node *node)
 {
@@ -251,61 +226,78 @@ sync_expunge_nonexistent(struct mailbox_list_index_sync_context *sync_ctx,
 	}
 }
 
-int mailbox_list_index_sync(struct mailbox_list *list)
+int mailbox_list_index_sync_begin(struct mailbox_list *list,
+				  struct mailbox_list_index_sync_context **sync_ctx_r)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
-	struct mailbox_list_index_sync_context sync_ctx;
-	struct mailbox_list_iterate_context *iter;
+	struct mailbox_list_index_sync_context *sync_ctx;
+	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
 	const struct mail_index_header *hdr;
-	const struct mailbox_info *info;
-	const char *patterns[2];
-	enum mailbox_list_index_flags flags;
-	uint32_t seq, orig_highest_name_id;
 
-	mailbox_list_index_reset(ilist);
-
-	memset(&sync_ctx, 0, sizeof(sync_ctx));
-	sync_ctx.list = list;
-	sync_ctx.ilist = ilist;
-	sync_ctx.sep[0] = mailbox_list_get_hierarchy_sep(list);
-	if (mail_index_sync_begin(ilist->index, &sync_ctx.sync_ctx,
-				  &view, &sync_ctx.trans,
+	if (mail_index_sync_begin(ilist->index, &index_sync_ctx, &view, &trans,
 				  MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES) < 0) {
 		mailbox_list_index_set_index_error(list);
 		return -1;
 	}
+	mailbox_list_index_reset(ilist);
 
 	/* re-parse mailbox list now that it's refreshed and locked */
-	if (mailbox_list_index_parse(ilist, view, TRUE) < 0) {
-		mail_index_sync_rollback(&sync_ctx.sync_ctx);
+	if (mailbox_list_index_parse(list, view, TRUE) < 0) {
+		mail_index_sync_rollback(&index_sync_ctx);
 		return -1;
 	}
-	orig_highest_name_id = ilist->highest_name_id;
+
+	sync_ctx = i_new(struct mailbox_list_index_sync_context, 1);
+	sync_ctx->list = list;
+	sync_ctx->ilist = ilist;
+	sync_ctx->sep[0] = mailbox_list_get_hierarchy_sep(list);
+	sync_ctx->orig_highest_name_id = ilist->highest_name_id;
+	sync_ctx->index_sync_ctx = index_sync_ctx;
+	sync_ctx->trans = trans;
 
 	hdr = mail_index_get_header(view);
-	sync_ctx.next_uid = hdr->next_uid;
+	sync_ctx->next_uid = hdr->next_uid;
 
 	if (hdr->uid_validity == 0) {
 		/* first time indexing, set uidvalidity */
 		uint32_t uid_validity = ioloop_time;
 
-		mail_index_update_header(sync_ctx.trans,
+		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity), TRUE);
 	}
-	sync_ctx.view = mail_index_transaction_open_updated_view(sync_ctx.trans);
+	sync_ctx->view = mail_index_transaction_open_updated_view(trans);
+	ilist->syncing = TRUE;
+
+	*sync_ctx_r = sync_ctx;
+	return 0;
+}
+
+static int
+mailbox_list_index_sync_list(struct mailbox_list_index_sync_context *sync_ctx)
+{
+	struct mailbox_list_iterate_context *iter;
+	const struct mailbox_info *info;
+	enum mailbox_list_index_flags flags;
+	const char *patterns[2];
+	struct mailbox_list_index_node *node;
+	uint32_t seq;
+	bool created;
 
 	/* clear EXISTS-flags, so after sync we know what can be expunged */
-	mailbox_list_index_node_clear_exists(ilist->mailbox_tree);
+	mailbox_list_index_node_clear_exists(sync_ctx->ilist->mailbox_tree);
 
 	/* don't include autocreated mailboxes in index until they're
 	   actually created. */
-	ilist->syncing = TRUE;
 	patterns[0] = "*"; patterns[1] = NULL;
-	iter = ilist->module_ctx.super.
-		iter_init(list, patterns, MAILBOX_LIST_ITER_NO_AUTO_BOXES);
-	while ((info = ilist->module_ctx.super.iter_next(iter)) != NULL) {
+	iter = sync_ctx->ilist->module_ctx.super.
+		iter_init(sync_ctx->list, patterns,
+			  MAILBOX_LIST_ITER_NO_AUTO_BOXES);
+
+	sync_ctx->syncing_list = TRUE;
+	while ((info = sync_ctx->ilist->module_ctx.super.iter_next(iter)) != NULL) {
 		flags = 0;
 		if ((info->flags & MAILBOX_NONEXISTENT) != 0)
 			flags |= MAILBOX_LIST_INDEX_FLAG_NONEXISTENT;
@@ -318,42 +310,77 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 			const char *name =
 				mailbox_list_get_storage_name(info->ns->list,
 							      info->vname);
-			seq = mailbox_list_index_sync_name(&sync_ctx,
-							   name, flags);
+			seq = mailbox_list_index_sync_name(sync_ctx, name,
+							   &node, &created);
 		} T_END;
 
-		mail_index_update_flags(sync_ctx.trans, seq,
+		node->flags = flags | MAILBOX_LIST_INDEX_FLAG_SYNC_EXISTS;
+		mail_index_update_flags(sync_ctx->trans, seq,
 					MODIFY_REPLACE, (enum mail_flags)flags);
 	}
-	if (ilist->module_ctx.super.iter_deinit(iter) < 0) {
-		mail_index_sync_rollback(&sync_ctx.sync_ctx);
-		mail_index_view_close(&sync_ctx.view);
-		ilist->syncing = FALSE;
+	sync_ctx->syncing_list = FALSE;
+
+	if (sync_ctx->ilist->module_ctx.super.iter_deinit(iter) < 0)
 		return -1;
-	}
 
-	sync_expunge_nonexistent(&sync_ctx, ilist->mailbox_tree);
+	/* successfully listed everything, expunge any unseen mailboxes */
+	sync_expunge_nonexistent(sync_ctx, sync_ctx->ilist->mailbox_tree);
+	return 0;
+}
 
-	if (orig_highest_name_id != ilist->highest_name_id) {
+static void
+mailbox_list_index_sync_update_hdr(struct mailbox_list_index_sync_context *sync_ctx)
+{
+	if (sync_ctx->orig_highest_name_id != sync_ctx->ilist->highest_name_id) {
 		/* new names added. this implicitly resets refresh flag */
 		T_BEGIN {
-			mailbox_list_index_sync_names(&sync_ctx);
+			mailbox_list_index_sync_names(sync_ctx);
 		} T_END;
-	} else if (mailbox_list_index_need_refresh(ilist, sync_ctx.view)) {
+	} else if (mailbox_list_index_need_refresh(sync_ctx->ilist,
+						   sync_ctx->view)) {
 		/* we're synced, reset refresh flag */
 		struct mailbox_list_index_header new_hdr;
 
 		new_hdr.refresh_flag = 0;
-		mail_index_update_header_ext(sync_ctx.trans, ilist->ext_id,
+		mail_index_update_header_ext(sync_ctx->trans, sync_ctx->ilist->ext_id,
 			offsetof(struct mailbox_list_index_header, refresh_flag),
 			&new_hdr.refresh_flag, sizeof(new_hdr.refresh_flag));
 	}
-	ilist->syncing = FALSE;
-	mail_index_view_close(&sync_ctx.view);
+}
 
-	if (mail_index_sync_commit(&sync_ctx.sync_ctx) < 0) {
-		mailbox_list_index_set_index_error(list);
-		return -1;
+int mailbox_list_index_sync_end(struct mailbox_list_index_sync_context **_sync_ctx,
+				bool success)
+{
+	struct mailbox_list_index_sync_context *sync_ctx = *_sync_ctx;
+	int ret;
+
+	*_sync_ctx = NULL;
+
+	if (success)
+		mailbox_list_index_sync_update_hdr(sync_ctx);
+	mail_index_view_close(&sync_ctx->view);
+
+	if (success) {
+		if ((ret = mail_index_sync_commit(&sync_ctx->index_sync_ctx)) < 0)
+			mailbox_list_index_set_index_error(sync_ctx->list);
+	} else {
+		mail_index_sync_rollback(&sync_ctx->index_sync_ctx);
+		ret = -1;
 	}
-	return 0;
+	sync_ctx->ilist->syncing = FALSE;
+	i_free(sync_ctx);
+	return ret;
+}
+
+int mailbox_list_index_sync(struct mailbox_list *list)
+{
+	struct mailbox_list_index_sync_context *sync_ctx;
+	int ret = 0;
+
+	if (mailbox_list_index_sync_begin(list, &sync_ctx) < 0)
+		return -1;
+
+	if (sync_ctx->ilist->has_backing_store)
+		ret = mailbox_list_index_sync_list(sync_ctx);
+	return mailbox_list_index_sync_end(&sync_ctx, ret == 0);
 }

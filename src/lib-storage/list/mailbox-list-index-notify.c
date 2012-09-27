@@ -149,7 +149,8 @@ notify_lookup_guid(struct mailbox_list_notify_index *inotify,
 	if (index_node == NULL) {
 		/* re-parse the index list using the given view. we could be
 		   jumping here between old and new view. */
-		(void)mailbox_list_index_parse(ilist, view, FALSE);
+		(void)mailbox_list_index_parse(inotify->notify.list,
+					       view, FALSE);
 		index_node = mailbox_list_index_lookup_uid(ilist, uid);
 		if (index_node == NULL)
 			return NULL;
@@ -355,8 +356,6 @@ mailbox_list_inotify_entry_guid_cmp(const struct mailbox_list_inotify_entry *r1,
 static void
 mailbox_list_index_notify_find_renames(struct mailbox_list_notify_index *inotify)
 {
-	struct mailbox_list_index *ilist =
-		INDEX_LIST_CONTEXT(inotify->notify.list);
 	ARRAY(struct mailbox_list_inotify_entry) entries;
 	struct mailbox_status status;
 	struct mailbox_list_notify_rename *rename;
@@ -381,7 +380,8 @@ mailbox_list_index_notify_find_renames(struct mailbox_list_notify_index *inotify
 		}
 	}
 
-	(void)mailbox_list_index_parse(ilist, inotify->view, TRUE);
+	(void)mailbox_list_index_parse(inotify->notify.list,
+				       inotify->view, TRUE);
 	while (seq_range_array_iter_nth(&inotify->new_uids_iter,
 					inotify->new_uids_n++, &uid)) {
 		if (notify_lookup_guid(inotify, inotify->view, uid,

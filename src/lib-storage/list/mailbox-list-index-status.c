@@ -3,22 +3,15 @@
 #include "lib.h"
 #include "array.h"
 #include "mail-index-modseq.h"
-#include "mail-storage-private.h"
+#include "mailbox-list-index-storage.h"
 #include "mailbox-list-index.h"
-
-#define INDEX_LIST_STORAGE_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, index_list_storage_module)
 
 #define CACHED_STATUS_ITEMS \
 	(STATUS_MESSAGES | STATUS_UNSEEN | STATUS_RECENT | \
 	 STATUS_UIDNEXT | STATUS_UIDVALIDITY | STATUS_HIGHESTMODSEQ)
 
-struct index_list_mailbox {
-	union mailbox_module_context module_ctx;
-};
-
-static MODULE_CONTEXT_DEFINE_INIT(index_list_storage_module,
-				  &mail_storage_module_register);
+struct index_list_storage_module index_list_storage_module =
+	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 
 static int
 index_list_open_view(struct mailbox *box, struct mail_index_view **view_r,
@@ -410,22 +403,12 @@ void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 		*flags |= MAILBOX_UNMARKED;
 }
 
-static void index_list_mail_mailbox_allocated(struct mailbox *box)
+void mailbox_list_index_status_init_mailbox(struct mailbox *box)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
-	struct index_list_mailbox *ibox;
-
-	if (ilist == NULL)
-		return;
-
-	ibox = p_new(box->pool, struct index_list_mailbox, 1);
-	ibox->module_ctx.super = box->v;
 	box->v.get_status = index_list_get_status;
 	box->v.get_metadata = index_list_get_metadata;
 	box->v.sync_deinit = index_list_sync_deinit;
 	box->v.transaction_commit = index_list_transaction_commit;
-
-	MODULE_CONTEXT_SET(box, index_list_storage_module, ibox);
 }
 
 void mailbox_list_index_status_init_list(struct mailbox_list *list)
@@ -439,13 +422,4 @@ void mailbox_list_index_status_init_list(struct mailbox_list *list)
 	ilist->hmodseq_ext_id =
 		mail_index_ext_register(ilist->index, "hmodseq", 0,
 					sizeof(uint64_t), sizeof(uint64_t));
-}
-
-static struct mail_storage_hooks mailbox_list_index_status_hooks = {
-	.mailbox_allocated = index_list_mail_mailbox_allocated
-};
-
-void mailbox_list_index_status_init(void)
-{
-	mail_storage_hooks_add_internal(&mailbox_list_index_status_hooks);
 }

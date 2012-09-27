@@ -24,16 +24,17 @@
 
 #include "module-context.h"
 #include "mail-types.h"
+#include "mail-storage.h"
 #include "mailbox-list-private.h"
 
+#define MAILBOX_LIST_NAME_INDEX "index"
+#define MAILBOX_LIST_INDEX_HIERARHCY_SEP '~'
 #define MAILBOX_LIST_INDEX_PREFIX "dovecot.list.index"
 
 #define INDEX_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mailbox_list_index_module)
 
 struct mail_index_view;
-struct mailbox;
-struct mailbox_status;
 
 /* stored in mail_index_record.flags: */
 enum mailbox_list_index_flags {
@@ -107,6 +108,7 @@ struct mailbox_list_index {
 
 	unsigned int opened:1;
 	unsigned int syncing:1;
+	unsigned int has_backing_store:1;
 };
 
 struct mailbox_list_index_iterate_context {
@@ -134,6 +136,8 @@ struct mailbox_list_index_node *
 mailbox_list_index_lookup_uid(struct mailbox_list_index *ilist, uint32_t uid);
 void mailbox_list_index_node_get_path(const struct mailbox_list_index_node *node,
 				      char sep, string_t *str);
+void mailbox_list_index_node_unlink(struct mailbox_list_index *ilist,
+				    struct mailbox_list_index_node *node);
 
 bool mailbox_list_index_need_refresh(struct mailbox_list_index *ilist,
 				     struct mail_index_view *view);
@@ -144,9 +148,8 @@ struct mailbox_list_index_node *
 mailbox_list_index_node_find_sibling(struct mailbox_list_index_node *node,
 				     const char *name);
 void mailbox_list_index_reset(struct mailbox_list_index *ilist);
-int mailbox_list_index_parse(struct mailbox_list_index *ilist,
+int mailbox_list_index_parse(struct mailbox_list *list,
 			     struct mail_index_view *view, bool force);
-int mailbox_list_index_sync(struct mailbox_list *list);
 
 struct mailbox_list_iterate_context *
 mailbox_list_index_iter_init(struct mailbox_list *list,
@@ -174,7 +177,8 @@ void mailbox_list_index_notify_wait(struct mailbox_list_notify *notify,
 				    void (*callback)(void *context),
 				    void *context);
 
-void mailbox_list_index_status_init(void);
+void mailbox_list_index_status_init_mailbox(struct mailbox *box);
+void mailbox_list_index_backend_init_mailbox(struct mailbox *box);
 void mailbox_list_index_status_init_list(struct mailbox_list *list);
 
 #endif

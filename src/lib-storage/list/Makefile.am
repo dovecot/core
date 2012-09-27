@@ -14,6 +14,7 @@ libstorage_list_la_SOURCES = \
 	mailbox-list-fs-flags.c \
 	mailbox-list-fs-iter.c \
 	mailbox-list-index.c \
+	mailbox-list-index-backend.c \
 	mailbox-list-index-iter.c \
 	mailbox-list-index-notify.c \
 	mailbox-list-index-status.c \
@@ -30,6 +31,8 @@ headers = \
 	mailbox-list-delete.h \
 	mailbox-list-fs.h \
 	mailbox-list-index.h \
+	mailbox-list-index-storage.h \
+	mailbox-list-index-sync.h \
 	mailbox-list-maildir.h \
 	mailbox-list-notify-tree.h \
 	mailbox-list-subscriptions.h \

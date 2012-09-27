@@ -7,7 +7,7 @@ int mailbox_list_delete_maildir_via_trash(struct mailbox_list *list,
 					  const char *name,
 					  const char *trash_dir);
 int mailbox_list_delete_mailbox_file(struct mailbox_list *list,
-				     const char *name);
+				     const char *name, const char *path);
 int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 					     const char *name, const char *path,
 					     bool rmdir_path);

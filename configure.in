@@ -2463,7 +2463,7 @@ STORAGE_LIB='$(top_builddir)/src/lib-storage/libdovecot-storage.la'
 
 LINKED_STORAGE_LIBS=
 
-mailbox_list_drivers="maildir imapdir none fs shared"
+mailbox_list_drivers="maildir imapdir fs index none shared"
 have_sdbox=no
 for storage in $mail_storages; do
   LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS `eval echo \\$${storage}_libs`"

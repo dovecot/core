@@ -225,10 +225,17 @@ fs_list_delete_maildir(struct mailbox_list *list, const char *name)
 
 static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
+	const char *path;
 	int ret;
 
 	if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
-		ret = mailbox_list_delete_mailbox_file(list, name);
+		ret = mailbox_list_get_path(list, name,
+					    MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					    &path);
+		if (ret < 0)
+			return -1;
+		i_assert(ret > 0);
+		ret = mailbox_list_delete_mailbox_file(list, name, path);
 	} else {
 		ret = fs_list_delete_maildir(list, name);
 	}
