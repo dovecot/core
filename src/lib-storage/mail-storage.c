@@ -1320,6 +1320,11 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 			"Renaming not supported across non-private namespaces.");
 		return -1;
 	}
+	if (src->list == dest->list && strcmp(src->name, dest->name) == 0) {
+		mail_storage_set_error(src->storage, MAIL_ERROR_EXISTS,
+				       "Can't rename mailbox to itself.");
+		return -1;
+	}
 
 	return src->v.rename_box(src, dest);
 }
