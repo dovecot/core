@@ -172,7 +172,7 @@ mkdir_verify(struct mailbox *box, const char *dir, bool verify)
 	}
 
 	perm = mailbox_get_permissions(box);
-	if (mkdir_parents_chgrp(dir, perm->file_create_mode,
+	if (mkdir_parents_chgrp(dir, perm->dir_create_mode,
 				perm->file_create_gid,
 				perm->file_create_gid_origin) == 0)
 		return 0;
