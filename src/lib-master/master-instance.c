@@ -110,7 +110,7 @@ static int master_instance_list_refresh(struct master_instance_list *list)
 		i_error("open(%s) failed: %m", list->path);
 		return -1;
 	}
-	input = i_stream_create_fd(fd, PATH_MAX, TRUE);
+	input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	while ((line = i_stream_read_next_line(input)) != NULL) T_BEGIN {
 		if (master_instance_list_add_line(list, line) < 0)
 			i_error("Invalid line in %s: %s", list->path, line);

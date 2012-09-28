@@ -31,25 +31,23 @@ static bool
 dbox_alt_path_has_changed(const char *root_dir,
 			  const char *alt_path, const char *alt_symlink_path)
 {
-	char buf[PATH_MAX];
+	const char *linkpath;
 	ssize_t ret;
 
-	ret = readlink(alt_symlink_path, buf, sizeof(buf)-1);
-	if (ret < 0) {
+	if (t_readlink(alt_symlink_path, &linkpath) < 0) {
 		if (errno == ENOENT)
 			return alt_path != NULL;
 		i_error("readlink(%s) failed: %m", alt_symlink_path);
 		return FALSE;
 	}
-	buf[ret] = '\0';
 
 	if (alt_path == NULL) {
 		i_warning("dbox %s: Original ALT=%s, "
-			  "but currently no ALT path set", root_dir, buf);
+			  "but currently no ALT path set", root_dir, linkpath);
 		return TRUE;
-	} else if (strcmp(buf, alt_path) != 0) {
+	} else if (strcmp(linkpath, alt_path) != 0) {
 		i_warning("dbox %s: Original ALT=%s, "
-			  "but currently ALT=%s", root_dir, buf, alt_path);
+			  "but currently ALT=%s", root_dir, linkpath, alt_path);
 		return TRUE;
 	}
 	return FALSE;
