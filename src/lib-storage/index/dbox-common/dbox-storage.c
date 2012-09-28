@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "abspath.h"
 #include "ioloop.h"
 #include "fs-api.h"
 #include "mkdir-parents.h"
@@ -32,7 +33,6 @@ dbox_alt_path_has_changed(const char *root_dir,
 			  const char *alt_path, const char *alt_symlink_path)
 {
 	const char *linkpath;
-	ssize_t ret;
 
 	if (t_readlink(alt_symlink_path, &linkpath) < 0) {
 		if (errno == ENOENT)
