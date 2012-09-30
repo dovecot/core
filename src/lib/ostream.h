@@ -36,6 +36,8 @@ struct ostream *
 o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd);
 /* Create an output stream to a buffer. */
 struct ostream *o_stream_create_buffer(buffer_t *buf);
+/* Create an output streams that always fails the writes. */
+struct ostream *o_stream_create_error(int stream_errno);
 
 /* Set name (e.g. path) for output stream. */
 void o_stream_set_name(struct ostream *stream, const char *name);

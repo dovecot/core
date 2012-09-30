@@ -512,3 +512,17 @@ o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 	io_stream_init(&_stream->iostream);
 	return &_stream->ostream;
 }
+
+struct ostream *o_stream_create_error(int stream_errno)
+{
+	struct ostream_private *stream;
+	struct ostream *output;
+
+	stream = i_new(struct ostream_private, 1);
+	stream->ostream.closed = TRUE;
+	stream->ostream.stream_errno = stream_errno;
+
+	output = o_stream_create(stream, NULL, -1);
+	o_stream_set_name(output, "(error)");
+	return output;
+}

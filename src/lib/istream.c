@@ -685,3 +685,18 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 	io_stream_init(&_stream->iostream);
 	return &_stream->istream;
 }
+
+struct istream *i_stream_create_error(int stream_errno)
+{
+	struct istream_private *stream;
+
+	stream = i_new(struct istream_private, 1);
+	stream->istream.closed = TRUE;
+	stream->istream.readable_fd = FALSE;
+	stream->istream.blocking = TRUE;
+	stream->istream.seekable = TRUE;
+	stream->istream.stream_errno = stream_errno;
+	i_stream_create(stream, NULL, -1);
+	i_stream_set_name(&stream->istream, "(error)");
+	return &stream->istream;
+}
