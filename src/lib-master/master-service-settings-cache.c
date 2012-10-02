@@ -83,6 +83,7 @@ void master_service_settings_cache_deinit(struct master_service_settings_cache *
 	}
 	for (entry = cache->oldest; entry != NULL; entry = next) {
 		next = entry->next;
+		i_assert(entry->parser != cache->global_parser);
 		settings_parser_deinit(&entry->parser);
 		pool_unref(&entry->pool);
 	}
@@ -146,8 +147,10 @@ cache_find(struct master_service_settings_cache *cache,
 	}
 
 	if (entry != NULL) {
-		DLLIST2_REMOVE(&cache->oldest, &cache->newest, entry);
-		DLLIST2_APPEND(&cache->oldest, &cache->newest, entry);
+		if (entry->parser != cache->global_parser) {
+			DLLIST2_REMOVE(&cache->oldest, &cache->newest, entry);
+			DLLIST2_APPEND(&cache->oldest, &cache->newest, entry);
+		}
 		*parser_r = entry->parser;
 		return TRUE;
 	}
