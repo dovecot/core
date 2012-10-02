@@ -168,7 +168,7 @@ static int dbox_save_mail_write_metadata(struct dbox_save_context *ctx,
 static int dbox_save_finish_write(struct mail_save_context *_ctx)
 {
 	struct sdbox_save_context *ctx = (struct sdbox_save_context *)_ctx;
-	struct dbox_file *const *files;
+	struct dbox_file **files;
 
 	ctx->ctx.finished = TRUE;
 	if (ctx->ctx.dbox_output == NULL)
@@ -192,14 +192,17 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 	if (ctx->ctx.failed) {
 		mail_index_expunge(ctx->ctx.trans, ctx->ctx.seq);
 		dbox_file_append_rollback(&ctx->append_ctx);
+		dbox_file_unlink(*files);
+		dbox_file_unref(files);
+		array_delete(&ctx->files, array_count(&ctx->files) - 1, 1);
 	} else {
 		dbox_file_append_checkpoint(ctx->append_ctx);
 		if (dbox_file_append_commit(&ctx->append_ctx) < 0)
 			ctx->ctx.failed = TRUE;
+		dbox_file_close(*files);
 	}
 
 	i_stream_unref(&ctx->ctx.input);
-	dbox_file_close(*files);
 	ctx->ctx.dbox_output = NULL;
 
 	return ctx->ctx.failed ? -1 : 0;
