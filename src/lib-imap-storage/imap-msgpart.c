@@ -413,10 +413,9 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 {
 	struct mail_msgpart_partial_cache *cache = &mail->box->partial_cache;
 	struct istream *crlf_input;
-	const unsigned char *data;
-	size_t size;
 	uoff_t physical_start = input->v_offset;
 	uoff_t virtual_skip = msgpart->partial_offset;
+	bool cr_skipped;
 
 	i_assert(msgpart->headers == NULL); /* HEADER.FIELDS returns CRLFs */
 
@@ -433,27 +432,28 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 		   message parts. */
 		skip_using_parts(mail, input, physical_start, &virtual_skip);
 	}
-	crlf_input = i_stream_create_crlf(input);
-	i_stream_unref(&input);
-	input = crlf_input;
-	i_stream_skip(input, virtual_skip);
+	if (message_skip_virtual(input, virtual_skip, &cr_skipped) < 0)
+		return i_stream_create_error(errno);
 
 	if ((msgpart->partial_offset != 0 ||
-	     msgpart->partial_size != (uoff_t)-1) &&
-	    i_stream_read_data(input, &data, &size, 0) > 0) {
+	     msgpart->partial_size != (uoff_t)-1) && !input->eof) {
 		/* update cache */
 		cache->uid = mail->uid;
 		cache->physical_start = physical_start;
 		cache->physical_pos = input->v_offset;
 		cache->virtual_pos = msgpart->partial_offset;
-		if (data[0] == '\n') {
+		if (cr_skipped) {
 			/* the physical_pos points to virtual CRLF, but
 			   virtual_pos already skipped CR. that can't work,
 			   so seek back the virtual CR */
 			cache->virtual_pos--;
 		}
 	}
-	return input;
+	crlf_input = i_stream_create_crlf(input);
+	if (cr_skipped)
+		i_stream_skip(crlf_input, 1);
+	i_stream_unref(&input);
+	return crlf_input;
 }
 
 static void
