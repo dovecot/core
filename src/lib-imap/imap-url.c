@@ -864,7 +864,7 @@ static bool imap_url_do_parse(struct imap_url_parser *url_parser)
 	/* [ "?" enc-search ] */
 	if ((ret = uri_parse_query(parser, &query)) != 0) {
 		if (ret < 0)
-			return ret;
+			return FALSE;
 
 		if (!is_messagelist) {
 			parser->error =
