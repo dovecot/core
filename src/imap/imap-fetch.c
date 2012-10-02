@@ -6,7 +6,6 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
-#include "message-send.h"
 #include "message-size.h"
 #include "imap-date.h"
 #include "imap-utf7.h"

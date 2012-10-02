@@ -8,7 +8,6 @@
 #include "ostream.h"
 #include "istream-header-filter.h"
 #include "message-parser.h"
-#include "message-send.h"
 #include "mail-storage-private.h"
 #include "imap-quote.h"
 #include "imap-parser.h"
