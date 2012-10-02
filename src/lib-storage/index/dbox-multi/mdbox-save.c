@@ -199,8 +199,6 @@ static int mdbox_save_finish_write(struct mail_save_context *_ctx)
 		return -1;
 
 	dbox_save_end(&ctx->ctx);
-	index_mail_cache_parse_deinit(_ctx->dest_mail,
-				      _ctx->received_date, !ctx->ctx.failed);
 
 	mail = array_idx_modifiable(&ctx->mails, array_count(&ctx->mails) - 1);
 	if (!ctx->ctx.failed) T_BEGIN {

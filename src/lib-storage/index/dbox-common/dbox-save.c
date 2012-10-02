@@ -105,13 +105,14 @@ void dbox_save_end(struct dbox_save_context *ctx)
 		if (index_attachment_save_finish(&ctx->ctx) < 0)
 			ctx->failed = TRUE;
 	}
-	if (ctx->ctx.output == dbox_output)
-		return;
-
-	/* e.g. zlib plugin had changed this */
-	o_stream_ref(dbox_output);
-	o_stream_destroy(&ctx->ctx.output);
-	ctx->ctx.output = dbox_output;
+	if (ctx->ctx.output != dbox_output) {
+		/* e.g. zlib plugin had changed this */
+		o_stream_ref(dbox_output);
+		o_stream_destroy(&ctx->ctx.output);
+		ctx->ctx.output = dbox_output;
+	}
+	index_mail_cache_parse_deinit(ctx->ctx.dest_mail,
+				      ctx->ctx.received_date, !ctx->failed);
 }
 
 void dbox_save_write_metadata(struct mail_save_context *_ctx,

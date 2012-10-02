@@ -181,13 +181,9 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 
 		index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE, &t, sizeof(t));
 	}
-
-	index_mail_cache_parse_deinit(_ctx->dest_mail,
-				      _ctx->received_date, !ctx->ctx.failed);
+	dbox_save_end(&ctx->ctx);
 
 	files = array_idx_modifiable(&ctx->files, array_count(&ctx->files) - 1);
-
-	dbox_save_end(&ctx->ctx);
 	if (!ctx->ctx.failed) T_BEGIN {
 		if (dbox_save_mail_write_metadata(&ctx->ctx, *files) < 0)
 			ctx->ctx.failed = TRUE;
