@@ -300,4 +300,6 @@ void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 		lmtp_client_send(conn->client, conn->data_input);
 		lmtp_client_send_more(conn->client);
 	}
+	/* finish if all of the connections have already failed */
+	lmtp_proxy_try_finish(proxy);
 }
