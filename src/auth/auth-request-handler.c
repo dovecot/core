@@ -181,7 +181,7 @@ static void get_client_extra_fields(struct auth_request *request,
 		}
 	}
 
-	if (request->proxy) {
+	if (request->proxy && !request->auth_only) {
 		/* we're proxying */
 		if (!seen_pass && request->mech_password != NULL) {
 			/* send back the password that was sent by user
@@ -490,6 +490,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	request->connect_uid = handler->connect_uid;
 	request->client_pid = handler->client_pid;
 	request->id = id;
+	request->auth_only = handler->master_callback == NULL;
 
 	/* parse optional parameters */
 	initial_resp = NULL;

@@ -1633,7 +1633,7 @@ int auth_request_proxy_finish(struct auth_request *request,
 {
 	int ret;
 
-	if (!request->proxy)
+	if (!request->proxy || request->auth_only)
 		return 1;
 
 	if ((ret = auth_request_proxy_host_lookup(request, callback)) <= 0)

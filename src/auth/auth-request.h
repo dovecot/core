@@ -101,6 +101,7 @@ struct auth_request {
 	unsigned int passdb_internal_failure:1;
 	unsigned int userdb_internal_failure:1;
 	unsigned int delayed_failure:1;
+	unsigned int auth_only:1;
 	unsigned int domain_is_realm:1;
 	unsigned int accept_input:1;
 	unsigned int no_failure_delay:1;
