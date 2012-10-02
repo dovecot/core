@@ -121,3 +121,48 @@ void message_size_add(struct message_size *dest,
 	dest->physical_size += src->physical_size;
 	dest->lines += src->lines;
 }
+
+int message_skip_virtual(struct istream *input, uoff_t virtual_skip,
+			 bool *last_cr_r)
+{
+	const unsigned char *msg;
+	size_t i, size;
+	bool cr_skipped = FALSE;
+	int ret;
+
+	*last_cr_r = FALSE;
+	if (virtual_skip == 0)
+		return 0;
+
+	while ((ret = i_stream_read_data(input, &msg, &size, 0)) > 0) {
+		for (i = 0; i < size && virtual_skip > 0; i++) {
+			virtual_skip--;
+
+			if (msg[i] == '\r') {
+				/* CR */
+				if (virtual_skip == 0)
+					*last_cr_r = TRUE;
+			} else if (msg[i] == '\n') {
+				/* LF */
+				if ((i == 0 && !cr_skipped) ||
+				    (i > 0 && msg[i-1] != '\r')) {
+					if (virtual_skip == 0) {
+						/* CR/LF boundary */
+						*last_cr_r = TRUE;
+						break;
+					}
+
+					virtual_skip--;
+				}
+			}
+		}
+		i_stream_skip(input, i);
+
+		if (i < size)
+			return 0;
+
+		cr_skipped = msg[i-1] == '\r';
+	}
+	i_assert(ret == -1);
+	return input->stream_errno == 0 ? 0 : -1;
+}

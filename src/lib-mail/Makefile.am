@@ -26,7 +26,6 @@ libmail_la_SOURCES = \
 	message-parser.c \
 	message-part-serialize.c \
 	message-search.c \
-	message-send.c \
 	message-size.c \
 	quoted-printable.c \
 	rfc2231-parser.c \
@@ -54,7 +53,6 @@ headers = \
 	message-parser.h \
 	message-part-serialize.h \
 	message-search.h \
-	message-send.h \
 	message-size.h \
 	quoted-printable.h \
 	rfc2231-parser.h \
