@@ -1461,7 +1461,14 @@ int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
 		if (errno != ENOENT || p == NULL || ++n == 2) {
 			mailbox_list_set_critical(list,
 				"mkdir(%s) failed: %m", index_dir);
-			return -1;
+			if (p == NULL || errno != EPERM ||
+			    perm.dir_create_mode == 0700)
+				return -1;
+			/* we can't use the GID. allow it anyway with more
+			   restricted permissions. */
+			perm.file_create_gid = (gid_t)-1;
+			perm.dir_create_mode = 0700;
+			continue;
 		}
 		/* create the parent directory first */
 		parent_dir = t_strdup_until(index_dir, p);
