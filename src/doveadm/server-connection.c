@@ -100,7 +100,8 @@ static void server_flush_field(struct server_connection *conn, string_t *str,
 {
 	if (conn->streaming) {
 		conn->streaming = FALSE;
-		stream_data(str, data, size);
+		if (size > 0)
+			stream_data(str, data, size);
 		doveadm_print_stream("", 0);
 	} else {
 		const char *text;
