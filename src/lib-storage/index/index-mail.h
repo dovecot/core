@@ -146,6 +146,8 @@ struct index_mail {
 	unsigned int pop3_state_set:1;
 	/* mail created by mailbox_search_*() */
 	unsigned int search_mail:1;
+	/* close() is being called from mail_free() */
+	unsigned int freeing:1;
 };
 
 struct mail *
