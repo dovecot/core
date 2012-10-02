@@ -1680,11 +1680,19 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 {
 	struct mail_save_context *ctx = *_ctx;
 	struct mail_keywords *keywords = ctx->keywords;
+	struct mail_private *mail;
 
 	*_ctx = NULL;
 	ctx->transaction->box->v.save_cancel(ctx);
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
+	if (ctx->dest_mail != NULL) {
+		/* the dest_mail is no longer valid. if we're still saving
+		   more mails, the mail sequence may get reused. make sure
+		   the mail gets reset in between */
+		mail = (struct mail_private *)ctx->dest_mail;
+		mail->v.close(&mail->mail);
+	}
 }
 
 struct mailbox_transaction_context *
