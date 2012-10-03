@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
-#include "network.h"
+#include "net.h"
 #include "hash.h"
 #include "doveadm.h"
 #include "doveadm-who.h"

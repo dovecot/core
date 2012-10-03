@@ -6,7 +6,7 @@
 #include "aqueue.h"
 #include "base64.h"
 #include "hash.h"
-#include "network.h"
+#include "net.h"
 #include "str.h"
 #include "str-sanitize.h"
 #include "master-interface.h"

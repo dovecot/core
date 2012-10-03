@@ -5,7 +5,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "istream-private.h"
-#include "network.h"
+#include "net.h"
 
 #include <time.h>
 #include <unistd.h>

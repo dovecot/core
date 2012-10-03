@@ -1,7 +1,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#include "network.h"
+#include "net.h"
 #include "client-common.h"
 #include "auth-client.h"
 

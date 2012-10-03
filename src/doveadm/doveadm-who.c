@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
-#include "network.h"
+#include "net.h"
 #include "istream.h"
 #include "wildcard-match.h"
 #include "hash.h"

@@ -8,7 +8,7 @@
 #include "ioloop.h"
 #include "safe-mkstemp.h"
 #include "hostpid.h"
-#include "network.h"
+#include "net.h"
 #include "istream.h"
 #include "ostream.h"
 #include "write-full.h"

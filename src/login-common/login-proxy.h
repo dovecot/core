@@ -1,7 +1,7 @@
 #ifndef LOGIN_PROXY_H
 #define LOGIN_PROXY_H
 
-#include "network.h"
+#include "net.h"
 
 /* Max. number of embedded proxying connections until proxying fails.
    This is intended to avoid an accidental configuration where two proxies

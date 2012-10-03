@@ -1,7 +1,7 @@
 /* Copyright (c) 2002-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "network.h"
+#include "net.h"
 #include "fd-close-on-exec.h"
 
 #include <unistd.h>

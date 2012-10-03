@@ -1,7 +1,7 @@
 #ifndef DIRECTOR_H
 #define DIRECTOR_H
 
-#include "network.h"
+#include "net.h"
 #include "director-settings.h"
 
 #define DIRECTOR_VERSION_NAME "director"

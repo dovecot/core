@@ -4,7 +4,7 @@
 #include "array.h"
 #include "hash.h"
 #include "str.h"
-#include "network.h"
+#include "net.h"
 #include "write-full.h"
 #include "eacces-error.h"
 #include "mailbox-list-private.h"

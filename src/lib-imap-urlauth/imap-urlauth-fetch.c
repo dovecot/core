@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "llist.h"
 #include "array.h"
-#include "network.h"
+#include "net.h"
 #include "istream.h"
 #include "mail-user.h"
 #include "mail-error.h"

@@ -4,7 +4,7 @@
 
 #include "ioloop.h"
 #include "fd-set-nonblock.h"
-#include "network.h"
+#include "net.h"
 #include "str.h"
 #include "write-full.h"
 #include "istream.h"

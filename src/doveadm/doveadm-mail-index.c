@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "strescape.h"
-#include "network.h"
+#include "net.h"
 #include "write-full.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"

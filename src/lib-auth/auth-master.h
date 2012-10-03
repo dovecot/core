@@ -1,7 +1,7 @@
 #ifndef AUTH_MASTER_H
 #define AUTH_MASTER_H
 
-#include "network.h"
+#include "net.h"
 
 enum auth_master_flags {
 	/* Enable logging debug information */

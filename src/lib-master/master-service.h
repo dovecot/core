@@ -1,7 +1,7 @@
 #ifndef MASTER_SERVICE_H
 #define MASTER_SERVICE_H
 
-#include "network.h"
+#include "net.h"
 
 enum master_service_flags {
 	/* stdin/stdout already contains a client which we want to serve */

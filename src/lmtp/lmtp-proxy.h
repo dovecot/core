@@ -1,7 +1,7 @@
 #ifndef LMTP_PROXY_H
 #define LMTP_PROXY_H
 
-#include "network.h"
+#include "net.h"
 #include "lmtp-client.h"
 
 #define LMTP_PROXY_DEFAULT_TTL 5

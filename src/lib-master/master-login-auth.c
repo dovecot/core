@@ -1,7 +1,7 @@
 /* Copyright (c) 2009-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "network.h"
+#include "net.h"
 #include "ioloop.h"
 #include "hostpid.h"
 #include "istream.h"

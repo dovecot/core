@@ -1,7 +1,7 @@
 #ifndef CLIENT_COMMON_H
 #define CLIENT_COMMON_H
 
-#include "network.h"
+#include "net.h"
 #include "login-proxy.h"
 #include "sasl-server.h"
 #include "master-login.h" /* for LOGIN_MAX_SESSION_ID_LEN */

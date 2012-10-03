@@ -3,7 +3,7 @@
 #include "auth-common.h"
 #include "base64.h"
 #include "ioloop.h"
-#include "network.h"
+#include "net.h"
 #include "istream.h"
 #include "ostream.h"
 #include "hex-binary.h"

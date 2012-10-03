@@ -1,7 +1,7 @@
 /* Copyright (c) 2002-2012 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
-#include "network.h"
+#include "net.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"

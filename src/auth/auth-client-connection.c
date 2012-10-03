@@ -4,7 +4,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
-#include "network.h"
+#include "net.h"
 #include "hex-binary.h"
 #include "hostpid.h"
 #include "llist.h"

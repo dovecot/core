@@ -10,7 +10,7 @@
 #include "ioloop-private.h"
 #include "ioloop-notify-fd.h"
 #include "buffer.h"
-#include "network.h"
+#include "net.h"
 #include "ipwd.h"
 
 #include <stdio.h>

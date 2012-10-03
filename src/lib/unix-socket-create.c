@@ -1,7 +1,7 @@
 /* Copyright (c) 2005-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "network.h"
+#include "net.h"
 #include "unix-socket-create.h"
 
 #include <unistd.h>

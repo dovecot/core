@@ -1,7 +1,7 @@
 #ifndef DIRECTOR_HOST_H
 #define DIRECTOR_HOST_H
 
-#include "network.h"
+#include "net.h"
 
 struct director;
 

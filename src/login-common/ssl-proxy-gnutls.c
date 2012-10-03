@@ -2,7 +2,7 @@
 
 #include "login-common.h"
 #include "ioloop.h"
-#include "network.h"
+#include "net.h"
 #include "hash.h"
 #include "ssl-proxy.h"
 

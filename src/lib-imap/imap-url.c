@@ -6,7 +6,7 @@
 #include "strfuncs.h"
 #include "str-sanitize.h"
 #include "hex-binary.h"
-#include "network.h"
+#include "net.h"
 #include "iso8601-date.h"
 #include "uri-util.h"
 

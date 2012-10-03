@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "network.h"
+#include "net.h"
 #include "ostream.h"
 #include "llist.h"
 #include "master-service.h"

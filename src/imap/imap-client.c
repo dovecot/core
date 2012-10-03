@@ -5,7 +5,7 @@
 #include "llist.h"
 #include "str.h"
 #include "hostpid.h"
-#include "network.h"
+#include "net.h"
 #include "istream.h"
 #include "ostream.h"
 #include "time-util.h"

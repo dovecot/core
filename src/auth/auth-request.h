@@ -1,7 +1,7 @@
 #ifndef AUTH_REQUEST_H
 #define AUTH_REQUEST_H
 
-#include "network.h"
+#include "net.h"
 #include "var-expand.h"
 #include "mech.h"
 #include "userdb.h"

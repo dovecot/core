@@ -9,7 +9,7 @@
 #include "safe-memset.h"
 #include "str.h"
 #include "str-sanitize.h"
-#include "network.h"
+#include "net.h"
 #include "imap-resp-code.h"
 #include "imap-parser.h"
 #include "imap-url.h"

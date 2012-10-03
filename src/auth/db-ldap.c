@@ -4,7 +4,7 @@
 
 #if defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD)
 
-#include "network.h"
+#include "net.h"
 #include "ioloop.h"
 #include "array.h"
 #include "hash.h"

@@ -3,7 +3,7 @@
 #include "auth-common.h"
 #include "array.h"
 #include "ioloop.h"
-#include "network.h"
+#include "net.h"
 #include "lib-signals.h"
 #include "restrict-access.h"
 #include "child-wait.h"

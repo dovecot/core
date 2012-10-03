@@ -15,7 +15,7 @@
 #include "lib-signals.h"
 #include "str.h"
 #include "var-expand.h"
-#include "network.h"
+#include "net.h"
 #include "safe-memset.h"
 #include "auth-cache.h"
 

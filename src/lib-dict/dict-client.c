@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "llist.h"
 #include "str.h"
-#include "network.h"
+#include "net.h"
 #include "istream.h"
 #include "ostream.h"
 #include "eacces-error.h"

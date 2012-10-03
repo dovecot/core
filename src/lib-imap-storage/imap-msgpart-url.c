@@ -1,7 +1,7 @@
 /* Copyright (c) 2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "network.h"
+#include "net.h"
 #include "istream.h"
 #include "message-parser.h"
 #include "mail-storage.h"

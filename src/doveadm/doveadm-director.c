@@ -4,7 +4,7 @@
 #include "md5.h"
 #include "hash.h"
 #include "str.h"
-#include "network.h"
+#include "net.h"
 #include "istream.h"
 #include "write-full.h"
 #include "master-service.h"

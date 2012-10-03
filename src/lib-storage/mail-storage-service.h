@@ -1,7 +1,7 @@
 #ifndef MAIL_STORAGE_SERVICE_H
 #define MAIL_STORAGE_SERVICE_H
 
-#include "network.h"
+#include "net.h"
 
 struct master_service;
 struct mail_user;

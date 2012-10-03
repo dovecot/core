@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "hostpid.h"
-#include "network.h"
+#include "net.h"
 #include "module-dir.h"
 #include "home-expand.h"
 #include "safe-mkstemp.h"

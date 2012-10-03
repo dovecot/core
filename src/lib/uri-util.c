@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
-#include "network.h"
+#include "net.h"
 #include "uri-util.h"
 
 #include <ctype.h>

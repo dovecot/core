@@ -1,7 +1,7 @@
 #ifndef LMTP_CLIENT_H
 #define LMTP_CLIENT_H
 
-#include "network.h"
+#include "net.h"
 
 #define ERRSTR_TEMP_REMOTE_FAILURE "451 4.4.0 Remote server not answering"
 

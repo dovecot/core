@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "network.h"
+#include "net.h"
 #include "crc32.h"
 #include "master-service.h"
 #include "anvil-client.h"

@@ -4,7 +4,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
-#include "network.h"
+#include "net.h"
 #include "llist.h"
 #include "safe-memset.h"
 #include "auth-client-interface.h"

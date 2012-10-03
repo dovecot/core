@@ -4,7 +4,7 @@
 #include "lib.h"
 #include "fd-set-nonblock.h"
 #include "time-util.h"
-#include "network.h"
+#include "net.h"
 
 #include <stdlib.h>
 #include <unistd.h>

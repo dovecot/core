@@ -5,7 +5,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "write-full.h"
-#include "network.h"
+#include "net.h"
 #include "sendfile-util.h"
 #include "istream.h"
 #include "istream-private.h"

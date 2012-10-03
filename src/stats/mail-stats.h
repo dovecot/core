@@ -1,7 +1,7 @@
 #ifndef MAIL_STATS_H
 #define MAIL_STATS_H
 
-#include "network.h"
+#include "net.h"
 #include "guid.h"
 
 struct mail_stats {

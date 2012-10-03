@@ -1,7 +1,7 @@
 #ifndef SERVICE_H
 #define SERVICE_H
 
-#include "network.h"
+#include "net.h"
 #include "master-settings.h"
 
 /* If a service process doesn't send its first status notification in

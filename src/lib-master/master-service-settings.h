@@ -1,7 +1,7 @@
 #ifndef MASTER_SERVICE_SETTINGS_H
 #define MASTER_SERVICE_SETTINGS_H
 
-#include "network.h"
+#include "net.h"
 
 struct setting_parser_info;
 struct setting_parser_context;

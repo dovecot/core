@@ -3,7 +3,7 @@
 #include "login-common.h"
 #include "array.h"
 #include "ioloop.h"
-#include "network.h"
+#include "net.h"
 #include "ostream.h"
 #include "read-full.h"
 #include "safe-memset.h"

@@ -1,7 +1,7 @@
 #ifndef MASTER_AUTH_H
 #define MASTER_AUTH_H
 
-#include "network.h"
+#include "net.h"
 
 struct master_service;
 

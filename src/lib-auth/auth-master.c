@@ -5,7 +5,7 @@
 #include "array.h"
 #include "ioloop.h"
 #include "eacces-error.h"
-#include "network.h"
+#include "net.h"
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"

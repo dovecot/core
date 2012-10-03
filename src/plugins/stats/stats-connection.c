@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "hostpid.h"
-#include "network.h"
+#include "net.h"
 #include "str.h"
 #include "strescape.h"
 #include "mail-storage.h"

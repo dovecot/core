@@ -1,7 +1,7 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
 
-#include "network.h"
+#include "net.h"
 
 struct connection;
 

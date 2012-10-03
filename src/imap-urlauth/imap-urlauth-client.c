@@ -3,7 +3,7 @@
 #include "imap-urlauth-common.h"
 #include "array.h"
 #include "ioloop.h"
-#include "network.h"
+#include "net.h"
 #include "fdpass.h"
 #include "istream.h"
 #include "ostream.h"

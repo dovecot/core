@@ -3,7 +3,7 @@
 #include "pop3-common.h"
 #include "array.h"
 #include "ioloop.h"
-#include "network.h"
+#include "net.h"
 #include "istream.h"
 #include "ostream.h"
 #include "crc32.h"

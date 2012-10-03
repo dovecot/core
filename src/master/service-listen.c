@@ -4,7 +4,7 @@
 #include "array.h"
 #include "fd-set-nonblock.h"
 #include "fd-close-on-exec.h"
-#include "network.h"
+#include "net.h"
 #ifdef HAVE_SYSTEMD
 #include "sd-daemon.h"
 #endif

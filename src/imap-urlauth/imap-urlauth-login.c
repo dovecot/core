@@ -4,7 +4,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "base64.h"
-#include "network.h"
+#include "net.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"

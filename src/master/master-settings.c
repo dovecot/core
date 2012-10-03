@@ -4,7 +4,7 @@
 #include "array.h"
 #include "env-util.h"
 #include "istream.h"
-#include "network.h"
+#include "net.h"
 #include "str.h"
 #include "ipwd.h"
 #include "mkdir-parents.h"

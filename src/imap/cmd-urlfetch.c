@@ -4,7 +4,7 @@
 #include "strfuncs.h"
 #include "str.h"
 #include "array.h"
-#include "network.h"
+#include "net.h"
 #include "istream.h"
 #include "ostream.h"
 #include "imap-url.h"

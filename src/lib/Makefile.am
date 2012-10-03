@@ -93,7 +93,7 @@ liblib_la_SOURCES = \
 	mmap-util.c \
 	module-dir.c \
 	mountpoint.c \
-	network.c \
+	net.c \
 	nfs-workarounds.c \
 	numpack.c \
 	ostream.c \
@@ -207,7 +207,7 @@ headers = \
 	module-context.h \
 	module-dir.h \
 	mountpoint.h \
-	network.h \
+	net.h \
 	nfs-workarounds.h \
 	numpack.h \
 	ostream.h \

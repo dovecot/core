@@ -1,7 +1,7 @@
 #ifndef MAIL_HOST_H
 #define MAIL_HOST_H
 
-#include "network.h"
+#include "net.h"
 
 struct mail_host_list;
 

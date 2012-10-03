@@ -1,7 +1,7 @@
 /* Copyright (c) 2011-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "network.h"
+#include "net.h"
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"

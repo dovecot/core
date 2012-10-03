@@ -1,7 +1,7 @@
 /* Copyright (c) 2009-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "network.h"
+#include "net.h"
 #include "imap-url.h"
 #include "test-common.h"
 

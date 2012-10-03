@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "hash.h"
-#include "network.h"
+#include "net.h"
 #include "istream.h"
 #include "env-util.h"
 #include "execv-const.h"

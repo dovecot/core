@@ -7,7 +7,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
-#include "network.h"
+#include "net.h"
 #include "eacces-error.h"
 #include "auth-client-private.h"
 #include "auth-client-request.h"

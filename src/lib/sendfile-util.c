@@ -93,7 +93,7 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 #elif defined (HAVE_SOLARIS_SENDFILE)
 
 #include <sys/sendfile.h>
-#include "network.h"
+#include "net.h"
 
 ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 {

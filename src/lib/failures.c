@@ -4,7 +4,7 @@
 #include "ioloop.h"
 #include "str.h"
 #include "hostpid.h"
-#include "network.h"
+#include "net.h"
 #include "lib-signals.h"
 #include "backtrace-string.h"
 #include "printf-format-fix.h"

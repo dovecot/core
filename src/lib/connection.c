@@ -4,7 +4,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
-#include "network.h"
+#include "net.h"
 #include "strescape.h"
 #include "llist.h"
 #include "connection.h"

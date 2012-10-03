@@ -1,7 +1,7 @@
 #ifndef CONFIG_FILTER_H
 #define CONFIG_FILTER_H
 
-#include "network.h"
+#include "net.h"
 
 struct master_service_settings_output;
 

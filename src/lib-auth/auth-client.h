@@ -1,7 +1,7 @@
 #ifndef AUTH_CLIENT_H
 #define AUTH_CLIENT_H
 
-#include "network.h"
+#include "net.h"
 #include "auth-client-interface.h"
 
 struct auth_client;

@@ -1,7 +1,7 @@
 /* Copyright (c) 2007-2012 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
-#include "network.h"
+#include "net.h"
 
 struct test_net_is_in_network_input {
 	const char *ip;
