@@ -137,6 +137,11 @@ mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx)
 			autobox = array_append_space(&actx->boxes);
 			autobox->name = set->name;
 			autobox->set = set;
+			if (strcasecmp(autobox->name, "INBOX") == 0) {
+				/* make sure duplicate INBOX/Inbox/etc.
+				   won't get created */
+				autobox->name = "INBOX";
+			}
 		}
 	}
 }
