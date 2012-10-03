@@ -1,10 +1,4 @@
-/*
- * Linux epoll() based ioloop handler.
- *
- * Copyright (c) 2004 Andrey Panin <pazke@donpac.ru>
- *
- * This software is released under the MIT license.
- */
+/* Copyright (c) 2004-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"

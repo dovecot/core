@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 Jakob Hirsch */
+/* Copyright (c) 2006-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"
