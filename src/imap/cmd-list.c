@@ -878,7 +878,8 @@ static void list_inbox(struct cmd_list_context *ctx)
 	/* INBOX always exists */
 	if (!ctx->inbox_found && ctx->cur_ns_match_inbox &&
 	    (ctx->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
-	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
+	    (ctx->list_flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
+				MAILBOX_LIST_ITER_SELECT_SPECIALUSE)) == 0) {
 		str = t_str_new(64);
 		str_append(str, "* LIST (\\Unmarked) ");
 		list_reply_append_ns_sep_param(str,
