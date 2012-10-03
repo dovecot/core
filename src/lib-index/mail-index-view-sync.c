@@ -767,7 +767,7 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 
 			/* skip internal flag changes */
 			if (ctx->data_offset == ctx->hdr->size)
-				return 0;
+				return FALSE;
 
 			update = CONST_PTR_OFFSET(data, ctx->data_offset);
 		}
@@ -835,6 +835,7 @@ mail_index_view_sync_next_lost(struct mail_index_view_sync_ctx *ctx,
 	sync_rec->type = MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS;
 	sync_rec->uid1 = range[ctx->lost_flag_idx].seq1;
 	sync_rec->uid2 = range[ctx->lost_flag_idx].seq2;
+	sync_rec->hidden = FALSE;
 	ctx->lost_flag_idx++;
 	return TRUE;
 }
