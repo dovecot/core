@@ -272,7 +272,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	mail_cache_compress_get_fields(&ctx, used_fields_count);
 	o_stream_nsend(output, ctx.buffer->data, ctx.buffer->used);
 
-	hdr.used_file_size = output->offset;
+	hdr.backwards_compat_used_file_size = output->offset;
 	buffer_free(&ctx.buffer);
 	buffer_free(&ctx.field_seen);
 
@@ -287,12 +287,6 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		array_free(ext_offsets);
 		return -1;
 	}
-
-	if (hdr.used_file_size < MAIL_CACHE_INITIAL_SIZE) {
-		/* grow the file some more. doesn't matter if it fails */
-		(void)file_set_size(fd, MAIL_CACHE_INITIAL_SIZE);
-	}
-
 	o_stream_destroy(&output);
 
 	if (cache->index->fsync_mode == FSYNC_MODE_ALWAYS) {

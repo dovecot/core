@@ -13,9 +13,6 @@
 /* Never compress the file if it's smaller than this */
 #define MAIL_CACHE_COMPRESS_MIN_SIZE (1024*50)
 
-/* Don't bother remembering holes smaller than this */
-#define MAIL_CACHE_MIN_HOLE_SIZE 1024
-
 /* Compress the file when deleted space reaches n% of total size */
 #define MAIL_CACHE_COMPRESS_PERCENTAGE 20
 
@@ -26,15 +23,6 @@
 /* Compress the file when we need to follow more than n next_offsets to find
    the latest cache header. */
 #define MAIL_CACHE_HEADER_FIELD_CONTINUE_COUNT 4
-
-/* Initial size for the file */
-#define MAIL_CACHE_INITIAL_SIZE (sizeof(struct mail_cache_header) + 10240)
-
-/* When more space is needed, grow the file n% larger than the previous size */
-#define MAIL_CACHE_GROW_PERCENTAGE 10
-
-/* When allocating space for transactions, don't use blocks larger than this. */
-#define MAIL_CACHE_MAX_RESERVED_BLOCK_SIZE (1024*512)
 
 #define MAIL_CACHE_LOCK_TIMEOUT 10
 #define MAIL_CACHE_LOCK_CHANGE_TIMEOUT 300
@@ -58,8 +46,8 @@ struct mail_cache_header {
 
 	uint32_t continued_record_count;
 
-	uint32_t hole_offset;
-	uint32_t used_file_size;
+	uint32_t unused_old_hole_offset;
+	uint32_t backwards_compat_used_file_size;
 	uint32_t deleted_space;
 
 	uint32_t field_header_offset;
@@ -100,17 +88,6 @@ struct mail_cache_record {
 	uint32_t prev_offset;
 	uint32_t size; /* full record size, including this header */
 	/* array of { uint32_t field; [ uint32_t size; ] { .. } } */
-};
-
-struct mail_cache_hole_header {
-	uint32_t next_offset; /* 0 if no holes left */
-	uint32_t size; /* including this header */
-
-	/* make sure we notice if we're treating hole as mail_cache_record.
-	   magic is a large number so if it's treated as size field, it'll
-	   point outside the file */
-#define MAIL_CACHE_HOLE_HEADER_MAGIC 0xffeedeff
-	uint32_t magic;
 };
 
 struct mail_cache_field_private {
@@ -230,6 +207,8 @@ int mail_cache_unlock(struct mail_cache *cache);
 
 int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
 		     uoff_t offset);
+int mail_cache_append(struct mail_cache *cache, const void *data, size_t size,
+		      uint32_t *offset_r);
 
 int mail_cache_header_fields_read(struct mail_cache *cache);
 int mail_cache_header_fields_update(struct mail_cache *cache);
