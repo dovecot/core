@@ -556,9 +556,9 @@ void mail_transaction_log_get_dotlock_set(struct mail_transaction_log *log,
 	struct mail_index *index = log->index;
 
 	memset(set_r, 0, sizeof(*set_r));
-	set_r->timeout = I_MIN(MAIL_TRANSCATION_LOG_LOCK_TIMEOUT,
+	set_r->timeout = I_MIN(MAIL_TRANSACTION_LOG_LOCK_TIMEOUT,
 			       index->max_lock_timeout_secs);
-	set_r->stale_timeout = MAIL_TRANSCATION_LOG_LOCK_CHANGE_TIMEOUT;
+	set_r->stale_timeout = MAIL_TRANSACTION_LOG_LOCK_CHANGE_TIMEOUT;
 	set_r->nfs_flush = (index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
 	set_r->use_excl_lock =
 		(index->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
