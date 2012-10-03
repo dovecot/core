@@ -574,7 +574,6 @@ int imap_sync_more(struct imap_sync_context *ctx)
 			}
 			break;
 		case MAILBOX_SYNC_TYPE_EXPUNGE:
-			ctx->client->sync_seen_expunges = TRUE;
 			ret = imap_sync_send_expunges(ctx, str);
 			if (ret > 0) {
 				/* update only after we're finished, so that
