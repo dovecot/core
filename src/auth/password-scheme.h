@@ -85,6 +85,10 @@ int crypt_verify(const char *plaintext, const char *user,
 		 const unsigned char *raw_password, size_t size,
 		 const char **error_r);
 
+int scram_sha1_scheme_parse(const unsigned char *credentials, size_t size,
+			    unsigned int *iter_count_r, const char **salt_r,
+			    unsigned char stored_key_r[],
+			    unsigned char server_key_r[], const char **error_r);
 int scram_sha1_verify(const char *plaintext, const char *user ATTR_UNUSED,
 		      const unsigned char *raw_password, size_t size,
 		      const char **error_r ATTR_UNUSED);

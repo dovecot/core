@@ -19,10 +19,9 @@
 #include "str.h"
 #include "strfuncs.h"
 #include "strnum.h"
+#include "password-scheme.h"
 #include "mech.h"
 
-/* SCRAM hash iteration count. RFC says it SHOULD be at least 4096 */
-#define SCRAM_ITERATE_COUNT 4096
 /* s-nonce length */
 #define SCRAM_SERVER_NONCE_LEN 64
 
@@ -43,8 +42,8 @@ struct scram_auth_request {
 	buffer_t *proof;
 
 	/* stored */
-	buffer_t *stored_key;
-	buffer_t *server_key;
+	unsigned char stored_key[SHA1_RESULTLEN];
+	unsigned char server_key[SHA1_RESULTLEN];
 };
 
 static const char *get_scram_server_first(struct scram_auth_request *request,
@@ -75,7 +74,6 @@ static const char *get_scram_server_final(struct scram_auth_request *request)
 {
 	struct hmac_context ctx;
 	const char *auth_message;
-	unsigned char server_key[SHA1_RESULTLEN];
 	unsigned char server_signature[SHA1_RESULTLEN];
 	string_t *str;
 
@@ -83,7 +81,7 @@ static const char *get_scram_server_final(struct scram_auth_request *request)
 			request->server_first_message, ",",
 			request->client_final_message_without_proof, NULL);
 
-	hmac_init(&ctx, request->server_key->data, request->server_key->used,
+	hmac_init(&ctx, request->server_key, sizeof(request->server_key),
 		  &hash_method_sha1);
 	hmac_update(&ctx, auth_message, strlen(auth_message));
 	hmac_final(&ctx, server_signature);
@@ -195,7 +193,7 @@ static bool verify_credentials(struct scram_auth_request *request)
 			request->server_first_message, ",",
 			request->client_final_message_without_proof, NULL);
 
-	hmac_init(&ctx, request->stored_key->data, request->stored_key->used,
+	hmac_init(&ctx, request->stored_key, sizeof(request->stored_key),
 		  &hash_method_sha1);
 	hmac_update(&ctx, auth_message, strlen(auth_message));
 	hmac_final(&ctx, client_signature);
@@ -209,68 +207,31 @@ static bool verify_credentials(struct scram_auth_request *request)
 	safe_memset(client_key, 0, sizeof(client_key));
 	safe_memset(client_signature, 0, sizeof(client_signature));
 
-	return memcmp(stored_key, request->stored_key->data,
-		      request->stored_key->used) == 0;
+	return memcmp(stored_key, request->stored_key, sizeof(stored_key)) == 0;
 }
 
 static void credentials_callback(enum passdb_result result,
 				 const unsigned char *credentials, size_t size,
 				 struct auth_request *auth_request)
 {
-	const char *const *fields;
-	size_t len;
-	unsigned int iter;
-	const char *salt;
 	struct scram_auth_request *request =
 		(struct scram_auth_request *)auth_request;
+	const char *salt, *error;
+	unsigned int iter_count;
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		fields = t_strsplit(t_strndup(credentials, size), ",");
-
-		if (str_array_length(fields) != 4) {
+		if (scram_sha1_scheme_parse(credentials, size, &iter_count,
+					    &salt, request->stored_key,
+					    request->server_key, &error) < 0) {
 			auth_request_log_info(auth_request, "scram-sha-1",
-					      "Invalid passdb entry");
-			auth_request_fail(auth_request);
-			break;
-		}
-
-		if (str_to_uint(fields[0], &iter) < 0 || (iter < 4096) ||
-		    (iter > INT_MAX)) {
-			auth_request_log_info(auth_request, "scram-sha-1",
-					      "Invalid iteration count");
-			auth_request_fail(auth_request);
-			break;
-		}
-
-		salt = fields[1];
-
-		len = strlen(fields[2]);
-		request->stored_key = buffer_create_dynamic(request->pool,
-					MAX_BASE64_DECODED_SIZE(len));
-		if (base64_decode(fields[2], len, NULL,
-				  request->stored_key) < 0) {
-			auth_request_log_info(auth_request, "scram-sha-1",
-					      "Invalid base64 encoding"
-					      "of StoredKey in passdb");
-			auth_request_fail(auth_request);
-			break;
-		}
-
-		len = strlen(fields[3]);
-		request->server_key = buffer_create_dynamic(request->pool,
-					MAX_BASE64_DECODED_SIZE(len));
-		if (base64_decode(fields[3], len, NULL,
-				  request->server_key) < 0) {
-			auth_request_log_info(auth_request, "scram-sha-1",
-					      "Invalid base64 encoding"
-					      "of ServerKey in passdb");
+					      "%s", error);
 			auth_request_fail(auth_request);
 			break;
 		}
 
 		request->server_first_message = p_strdup(request->pool,
-			get_scram_server_first(request, iter, salt));
+			get_scram_server_first(request, iter_count, salt));
 
 		auth_request_handler_reply_continue(auth_request,
 					request->server_first_message,
