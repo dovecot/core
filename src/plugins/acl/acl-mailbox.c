@@ -319,8 +319,7 @@ static void acl_mail_expunge(struct mail *_mail)
 		/* if we don't have permission, silently return success so
 		   users won't see annoying error messages in case their
 		   clients try automatic expunging. */
-		if (ret < 0)
-			acl_transaction_set_failure(_mail->transaction);
+		acl_transaction_set_failure(_mail->transaction);
 		return;
 	}
 
