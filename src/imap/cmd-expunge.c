@@ -24,6 +24,8 @@ cmd_expunge_finish(struct client_command_context *cmd,
 		   struct mail_search_args *search_args)
 {
 	struct client *client = cmd->client;
+	const char *errstr;
+	enum mail_error error = MAIL_ERROR_NONE;
 	int ret;
 
 	ret = imap_expunge(client->mailbox, search_args == NULL ? NULL :
@@ -31,9 +33,16 @@ cmd_expunge_finish(struct client_command_context *cmd,
 	if (search_args != NULL)
 		mail_search_args_unref(&search_args);
 	if (ret < 0) {
-		client_send_storage_error(cmd,
-					  mailbox_get_storage(client->mailbox));
-		return TRUE;
+		errstr = mailbox_get_last_error(client->mailbox, &error);
+		if (error != MAIL_ERROR_PERM) {
+			client_send_storage_error(cmd,
+				mailbox_get_storage(client->mailbox));
+			return TRUE;
+		} else {
+			return cmd_sync(cmd, 0, IMAP_SYNC_FLAG_SAFE,
+				t_strdup_printf("OK Expunge ignored: %s.",
+						errstr));
+		}
 	}
 
 	client->sync_seen_deletes = FALSE;
