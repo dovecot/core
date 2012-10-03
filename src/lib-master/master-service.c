@@ -336,8 +336,10 @@ static bool get_instance_config(const char *name, const char **config_path_r)
 	const struct master_instance *inst;
 	const char *instance_path, *path;
 
-	instance_path = t_strconcat(master_service->set->state_dir,
-				    "/"MASTER_INSTANCE_FNAME, NULL);
+	/* note that we don't have any settings yet. we're just finding out
+	   which dovecot.conf we even want to read! so we must use the
+	   hardcoded state_dir path. */
+	instance_path = t_strconcat(PKG_STATEDIR"/"MASTER_INSTANCE_FNAME, NULL);
 	list = master_instance_list_init(instance_path);
 	inst = master_instance_list_find_by_name(list, name);
 	if (inst != NULL) {
