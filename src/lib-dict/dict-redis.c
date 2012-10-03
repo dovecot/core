@@ -306,6 +306,7 @@ redis_dict_init(struct dict *driver, const char *uri,
 {
 	struct redis_dict *dict;
 	const char *const *args;
+	int ret = 0;
 
 	if (redis_connections == NULL) {
 		redis_connections =
@@ -318,42 +319,55 @@ redis_dict_init(struct dict *driver, const char *uri,
 		i_unreached();
 	dict->port = REDIS_DEFAULT_PORT;
 	dict->timeout_msecs = REDIS_DEFAULT_LOOKUP_TIMEOUT_MSECS;
+	dict->key_prefix = i_strdup("");
+
+	args = t_strsplit(uri, ":");
+	for (; *args != NULL; args++) {
+		if (strncmp(*args, "host=", 5) == 0) {
+			if (net_addr2ip(*args+5, &dict->ip) < 0) {
+				i_error("Invalid IP: %s", *args+5);
+				ret = -1;
+			}
+		} else if (strncmp(*args, "port=", 5) == 0) {
+			if (str_to_uint(*args+5, &dict->port) < 0) {
+				i_error("Invalid port: %s", *args+5);
+				ret = -1;
+			}
+		} else if (strncmp(*args, "prefix=", 7) == 0) {
+			i_free(dict->key_prefix);
+			dict->key_prefix = i_strdup(*args + 7);
+		} else if (strncmp(*args, "timeout_msecs=", 14) == 0) {
+			if (str_to_uint(*args+14, &dict->timeout_msecs) < 0) {
+				i_error("Invalid timeout_msecs: %s", *args+14);
+				ret = -1;
+			}
+		} else {
+			i_error("Unknown parameter: %s", *args);
+			ret = -1;
+		}
+	}
+	if (ret < 0) {
+		i_free(dict->key_prefix);
+		i_free(dict);
+		return -1;
+	}
+	connection_init_client_ip(redis_connections, &dict->conn.conn,
+				  &dict->ip, dict->port);
+	dict->dict = *driver;
+	dict->conn.last_reply = str_new(default_pool, 256);
+	dict->conn.dict = dict;
+
+	i_array_init(&dict->input_states, 4);
+	i_array_init(&dict->replies, 4);
 	if (strchr(username, DICT_USERNAME_SEPARATOR) == NULL)
 		dict->username = i_strdup(username);
 	else {
 		/* escape the username */
 		dict->username = i_strdup(redis_escape_username(username));
 	}
-	dict->key_prefix = i_strdup("");
-	i_array_init(&dict->input_states, 4);
-	i_array_init(&dict->replies, 4);
 
-	args = t_strsplit(uri, ":");
-	for (; *args != NULL; args++) {
-		if (strncmp(*args, "host=", 5) == 0) {
-			if (net_addr2ip(*args+5, &dict->ip) < 0)
-				i_error("Invalid IP: %s", *args+5);
-		} else if (strncmp(*args, "port=", 5) == 0) {
-			if (str_to_uint(*args+5, &dict->port) < 0)
-				i_error("Invalid port: %s", *args+5);
-		} else if (strncmp(*args, "prefix=", 7) == 0) {
-			i_free(dict->key_prefix);
-			dict->key_prefix = i_strdup(*args + 7);
-		} else if (strncmp(*args, "timeout_msecs=", 14) == 0) {
-			if (str_to_uint(*args+14, &dict->timeout_msecs) < 0)
-				i_error("Invalid timeout_msecs: %s", *args+14);
-		} else {
-			i_error("Unknown parameter: %s", *args);
-		}
-	}
-	connection_init_client_ip(redis_connections, &dict->conn.conn,
-				  &dict->ip, dict->port);
-
-	dict->dict = *driver;
-	dict->conn.last_reply = str_new(default_pool, 256);
-	dict->conn.dict = dict;
 	*dict_r = &dict->dict;
-	return -1;
+	return 0;
 }
 
 static void redis_dict_deinit(struct dict *_dict)

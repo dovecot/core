@@ -175,6 +175,7 @@ memcached_dict_init(struct dict *driver, const char *uri,
 {
 	struct memcached_dict *dict;
 	const char *const *args;
+	int ret = 0;
 
 	if (memcached_connections == NULL) {
 		memcached_connections =
@@ -192,24 +193,36 @@ memcached_dict_init(struct dict *driver, const char *uri,
 	args = t_strsplit(uri, ":");
 	for (; *args != NULL; args++) {
 		if (strncmp(*args, "host=", 5) == 0) {
-			if (net_addr2ip(*args+5, &dict->ip) < 0)
+			if (net_addr2ip(*args+5, &dict->ip) < 0) {
 				i_error("Invalid IP: %s", *args+5);
+				ret = -1;
+			}
 		} else if (strncmp(*args, "port=", 5) == 0) {
-			if (str_to_uint(*args+5, &dict->port) < 0)
+			if (str_to_uint(*args+5, &dict->port) < 0) {
 				i_error("Invalid port: %s", *args+5);
+				ret = -1;
+			}
 		} else if (strncmp(*args, "prefix=", 7) == 0) {
 			i_free(dict->key_prefix);
 			dict->key_prefix = i_strdup(*args + 7);
 		} else if (strncmp(*args, "timeout_msecs=", 14) == 0) {
-			if (str_to_uint(*args+14, &dict->timeout_msecs) < 0)
+			if (str_to_uint(*args+14, &dict->timeout_msecs) < 0) {
 				i_error("Invalid timeout_msecs: %s", *args+14);
+				ret = -1;
+			}
 		} else {
 			i_error("Unknown parameter: %s", *args);
+			ret = -1;
 		}
 	}
+	if (ret < 0) {
+		i_free(dict->key_prefix);
+		i_free(dict);
+		return -1;
+	}
+
 	connection_init_client_ip(memcached_connections, &dict->conn.conn,
 				  &dict->ip, dict->port);
-
 	dict->dict = *driver;
 	dict->conn.cmd = buffer_create_dynamic(default_pool, 256);
 	dict->conn.dict = dict;
