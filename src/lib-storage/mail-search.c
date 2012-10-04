@@ -586,48 +586,14 @@ bool mail_search_args_match_mailbox(struct mail_search_args *args,
 	return TRUE;
 }
 
-static struct mail_keywords *
-mail_search_keywords_merge(struct mailbox *box,
-			   struct mail_keywords **_kw1,
-			   struct mail_keywords **_kw2)
-{
-	struct mail_keywords *kw1 = *_kw1, *kw2 = *_kw2;
-	struct mail_keywords *new_kw;
-
-	i_assert(kw1->index == kw2->index);
-	T_BEGIN {
-		ARRAY_TYPE(keyword_indexes) new_indexes;
-		unsigned int i, j;
-
-		t_array_init(&new_indexes, kw1->count + kw2->count + 1);
-		array_append(&new_indexes, kw1->idx, kw1->count);
-		for (i = 0; i < kw2->count; i++) {
-			/* don't add duplicates */
-			for (j = 0; j < kw1->count; j++) {
-				if (kw1->idx[j] == kw2->idx[i])
-					break;
-			}
-			if (j == kw1->count)
-				array_append(&new_indexes, kw2->idx+i, 1);
-		}
-		new_kw = mailbox_keywords_create_from_indexes(box,
-							      &new_indexes);
-	} T_END;
-	mailbox_keywords_unref(_kw1);
-	mailbox_keywords_unref(_kw2);
-	return new_kw;
-}
-
 static void
 mail_search_args_simplify_sub(struct mailbox *box,
 			      struct mail_search_arg *args, bool parent_and)
 {
 	struct mail_search_arg *sub, *prev = NULL;
 	struct mail_search_arg *prev_flags_arg, *prev_not_flags_arg;
-	struct mail_search_arg *prev_kw_arg, *prev_not_kw_arg;
 
 	prev_flags_arg = prev_not_flags_arg = NULL;
-	prev_kw_arg = prev_not_kw_arg = NULL;
 	while (args != NULL) {
 		if (args->match_not && (args->type == SEARCH_SUB ||
 					args->type == SEARCH_OR)) {
@@ -683,35 +649,6 @@ mail_search_args_simplify_sub(struct mailbox *box,
 			else {
 				prev_not_flags_arg->value.flags |=
 					args->value.flags;
-				prev->next = args->next;
-				args = args->next;
-				continue;
-			}
-		}
-
-		/* merge all keywords arguments */
-		if (args->type == SEARCH_KEYWORDS &&
-		    !args->match_not && parent_and) {
-			if (prev_kw_arg == NULL)
-				prev_kw_arg = args;
-			else {
-				prev_kw_arg->value.keywords =
-					mail_search_keywords_merge(box,
-						&prev_kw_arg->value.keywords,
-						&args->value.keywords);
-				prev->next = args->next;
-				args = args->next;
-				continue;
-			}
-		} else if (args->type == SEARCH_KEYWORDS &&
-			   args->match_not && !parent_and) {
-			if (prev_not_kw_arg == NULL)
-				prev_not_kw_arg = args;
-			else {
-				prev_not_kw_arg->value.keywords =
-					mail_search_keywords_merge(box,
-					       &prev_not_kw_arg->value.keywords,
-					       &args->value.keywords);
 				prev->next = args->next;
 				args = args->next;
 				continue;
