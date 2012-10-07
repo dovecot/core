@@ -238,7 +238,9 @@ static void lucene_handle_error(struct lucene_index *index, CLuceneError &err,
 	     err.number() == CL_ERR_IO)) {
 		/* delete corrupted index. most IO errors are also about
 		   missing files and other such corruption.. */
-		if (unlink_directory(index->path, TRUE) < 0 && errno != ENOENT)
+		if (unlink_directory(index->path,
+				     UNLINK_DIRECTORY_FLAG_RMDIR) < 0 &&
+		    errno != ENOENT)
 			i_error("unlink_directory(%s) failed: %m", index->path);
 		rescan_clear_unseen_mailboxes(index, NULL);
 	}
@@ -361,7 +363,7 @@ static int lucene_settings_check(struct lucene_index *index)
 		return ret;
 
 	/* settings changed, rebuild index */
-	if (unlink_directory(index->path, TRUE) < 0) {
+	if (unlink_directory(index->path, UNLINK_DIRECTORY_FLAG_RMDIR) < 0) {
 		i_error("unlink_directory(%s) failed: %m", index->path);
 		ret = -1;
 	} else {
