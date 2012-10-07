@@ -313,7 +313,7 @@ void mailbox_list_delete_finish(struct mailbox_list *list, const char *name)
 
 int mailbox_list_delete_trash(const char *path)
 {
-	if (unlink_directory(path, TRUE) < 0) {
+	if (unlink_directory(path, UNLINK_DIRECTORY_FLAG_RMDIR) < 0) {
 		if (errno == ELOOP) {
 			/* it's a symlink? try just deleting it */
 			if (unlink(path) == 0)
