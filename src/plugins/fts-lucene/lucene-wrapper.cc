@@ -753,7 +753,8 @@ static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		box = mailbox_alloc(index->list, info->name,
 				    (enum mailbox_flags)0);
-		if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
+		if (mailbox_open(box) == 0 &&
+		    mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
 					 &metadata) == 0 &&
 		    (guids == NULL ||
 		     hash_table_lookup(guids, metadata.guid) == NULL)) {
