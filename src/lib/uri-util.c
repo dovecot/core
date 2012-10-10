@@ -594,19 +594,24 @@ int uri_parse_path_segment(struct uri_parser *parser, const char **segment_r)
 int uri_parse_path(struct uri_parser *parser,
 		   int *relative_r, const char *const **path_r)
 {
+	const unsigned char *pbegin = parser->cur;
 	ARRAY_TYPE(const_string) segments;
-	const char *segment;
+	const char *segment = NULL;
 	unsigned int count;
 	int relative = 1;
 	int ret;
 
 	t_array_init(&segments, 16);
 
+	/* check for a leading '/' and indicate absolute path
+	   when it is present
+	 */
 	if (parser->cur < parser->end && *parser->cur == '/') {
 		parser->cur++;
 		relative = 0;
 	}
 	
+	/* parse first segment */
 	if ((ret = uri_parse_path_segment(parser, &segment)) < 0)
 		return -1;
 	
@@ -615,32 +620,49 @@ int uri_parse_path(struct uri_parser *parser,
 			/* strip dot segments */
 			if (segment[0] == '.') {
 				if (segment[1] == '.') {
-					/* '..' -> pop last segment (if any) */
-					count = array_count(&segments);
-					if (count > 0) {
-						array_delete(&segments, count-1, 1);
-					} else if ( relative > 0 ) {
-						relative++;
+					if (segment[2] == '\0') {
+						/* '..' -> skip and... */
+						segment = NULL;
+
+						/* ... pop last segment (if any) */
+						count = array_count(&segments);
+						if (count > 0) {
+							array_delete(&segments, count-1, 1);
+						} else if ( relative > 0 ) {
+							relative++;
+						}
 					}
-				} else {
+				} else if (segment[1] == '\0') {
 					/* '.' -> skip */
+					segment = NULL;
 				}
-			} else {
-				array_append(&segments, &segment, 1);
 			}
 		} else {
 			segment = "";
-			array_append(&segments, &segment, 1);
 		}
+
+		if (segment != NULL)
+			array_append(&segments, &segment, 1);
 
 		if (parser->cur >= parser->end || *parser->cur != '/')
 			break;
 		parser->cur++;
 
+		/* parse next path segment */
 		if ((ret = uri_parse_path_segment(parser, &segment)) < 0)
 			return -1;
 	}
 
+	if (parser->cur == pbegin) {
+		/* path part of URI is missing */
+		return 0;
+	}
+
+	/* special treatment for a trailing '..' or '.' */
+	if (segment == NULL) {
+		segment = "";
+		array_append(&segments, &segment, 1);
+	}
 	array_append_zero(&segments);
 	*path_r = array_get(&segments, &count);
 	*relative_r = relative;
