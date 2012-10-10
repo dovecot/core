@@ -7,15 +7,18 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-ssl-iostream
 
 libhttp_la_SOURCES = \
+	http-date.c \
 	http-url.c
 
 headers = \
+	http-date.h \
 	http-url.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
+	test-http-date \
 	test-http-url
 
 noinst_PROGRAMS = $(test_programs)
@@ -29,6 +32,10 @@ test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 test_http_url_SOURCES = test-http-url.c
 test_http_url_LDADD = http-url.lo  $(test_libs)
 test_http_url_DEPENDENCIES = $(test_deps)
+
+test_http_date_SOURCES = test-http-date.c
+test_http_date_LDADD = http-date.lo  $(test_libs)
+test_http_date_DEPENDENCIES = $(test_deps)
 
 check: check-am check-test
 check-test: all-am
