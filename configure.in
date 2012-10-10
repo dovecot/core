@@ -2754,6 +2754,7 @@ src/lib-compression/Makefile
 src/lib-dict/Makefile
 src/lib-dns/Makefile
 src/lib-fs/Makefile
+src/lib-http/Makefile
 src/lib-imap/Makefile
 src/lib-imap-storage/Makefile
 src/lib-imap-client/Makefile

@@ -9,6 +9,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-imap \
 	lib-imap-storage \
 	lib-master \
+	lib-http \
 	lib-dict \
 	lib-settings \
 	lib-ssl-iostream
