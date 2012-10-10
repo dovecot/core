@@ -114,7 +114,7 @@ struct valid_imap_url_test valid_url_tests[] = {
 		.url_parsed = {
 			.host_name = "example.com",
 			.userid = "user",
-			.mailbox = "INBOX" }
+			.mailbox = "INBOX/" }
 	},{
 		.url = "imap://user@example.com/INBOX/Trash/../",
 		.url_parsed = {
@@ -176,7 +176,7 @@ struct valid_imap_url_test valid_url_tests[] = {
 		.url_parsed = {
 			.host_name = "example.com",
 			.userid = "user",
-			.mailbox = "INBOX", .uidvalidity = 0,
+			.mailbox = "INBOX/", .uidvalidity = 0,
 			.uid = 0 }
 	},{
 		.url = "imap://user@example.com/INBOX/Junk;UIDVALIDITY=27667/"
@@ -207,7 +207,7 @@ struct valid_imap_url_test valid_url_tests[] = {
 			.host_name = "example.com",
 			.userid = "user",
 			.mailbox = "INBOX/Important",
-			.uid = 56, .section = "AA" }
+			.uid = 56, .section = "AA/" }
 	},{
 		.url = "imap://user@example.com/INBOX/Important/;UID=56/"
 			";SECTION=AA/BB/../..",
@@ -897,8 +897,10 @@ static void test_imap_url_invalid(void)
 
 const char *parse_create_url_tests[] = {
 	"imap://host.example.com/",
-	"imap://[::1]/",
 	"imap://10.0.0.1/",
+#ifdef HAVE_IPV6
+	"imap://[::1]/",
+#endif
 	"imap://user@host.example.com/",
 	"imap://user@host.example.com:993/",
 	"imap://user;AUTH=PLAIN@host.example.com/",

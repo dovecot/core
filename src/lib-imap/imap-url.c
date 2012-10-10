@@ -726,10 +726,12 @@ imap_url_parse_path(struct imap_url_parser *url_parser,
 	}
 
 	if (*segment != NULL) {
-		parser->error = t_strdup_printf(
-			"Unexpected IMAP URL path segment: %s",
-			str_sanitize(*segment, 80));
-		return -1;
+		if (urlext != NULL || **segment != '\0' || *(segment+1) != NULL ) {
+			parser->error = t_strdup_printf(
+				"Unexpected IMAP URL path segment: `%s'",
+				str_sanitize(*segment, 80));
+			return -1;
+		}
 	}
 
 	/* ";" {...} at end of URL */ 
