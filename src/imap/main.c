@@ -362,12 +362,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	login_set.auth_socket_path = t_abspath("auth-master");
-	if (argv[optind] != NULL)
-		login_set.postlogin_socket_path = t_abspath(argv[optind]);
-	login_set.callback = login_client_connected;
-	login_set.failure_callback = login_client_failed;
-
 	master_service_init_finish(master_service);
 	master_service_set_die_callback(master_service, imap_die);
 
@@ -387,10 +381,18 @@ int main(int argc, char *argv[])
 		T_BEGIN {
 			main_stdio_run(username);
 		} T_END;
-	} else {
+	} else T_BEGIN {
+		login_set.auth_socket_path = t_abspath("auth-master");
+		if (argv[optind] != NULL) {
+			login_set.postlogin_socket_path =
+				t_abspath(argv[optind]);
+		}
+		login_set.callback = login_client_connected;
+		login_set.failure_callback = login_client_failed;
+
 		master_login = master_login_init(master_service, &login_set);
 		io_loop_set_running(current_ioloop);
-	}
+	} T_END;
 
 	if (io_loop_is_running(current_ioloop))
 		master_service_run(master_service, client_connected);
