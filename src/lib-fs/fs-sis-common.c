@@ -30,29 +30,26 @@ int fs_sis_path_parse(struct fs *fs, const char *path,
 	return 0;
 }
 
-void fs_sis_try_unlink_hash_file(struct fs *fs, struct fs *super,
-				 const char *path)
+void fs_sis_try_unlink_hash_file(struct fs *sis_fs, struct fs_file *super_file)
 {
+	struct fs_file *hash_file;
 	struct stat st1, st2;
-	const char *dir, *hash, *hash_path, *hash_dir;
+	const char *dir, *hash, *hash_path;
 
-	if (fs_sis_path_parse(fs, path, &dir, &hash) == 0 &&
-	    fs_stat(super, path, &st1) == 0 && st1.st_nlink == 2) {
+	if (fs_sis_path_parse(sis_fs, super_file->path, &dir, &hash) == 0 &&
+	    fs_stat(super_file, &st1) == 0 && st1.st_nlink == 2) {
 		/* this may be the last link. if hashes/ file is the same,
 		   delete it. */
 		hash_path = t_strdup_printf("%s/"HASH_DIR_NAME"/%s", dir, hash);
-		if (fs_stat(super, hash_path, &st2) == 0 &&
+		hash_file = fs_file_init(super_file->fs, hash_path,
+					 FS_OPEN_MODE_READONLY);
+		if (fs_stat(hash_file, &st2) == 0 &&
 		    st1.st_ino == st2.st_ino &&
 		    CMP_DEV_T(st1.st_dev, st2.st_dev)) {
-			if (fs_unlink(super, hash_path) < 0)
-				i_error("%s", fs_last_error(super));
-			else {
-				/* try to rmdir the hashes/ directory */
-				hash_dir = t_strdup_printf("%s/"HASH_DIR_NAME,
-							   dir);
-				(void)fs_rmdir(super, hash_dir);
-			}
+			if (fs_delete(hash_file) < 0)
+				i_error("%s", fs_last_error(hash_file->fs));
 		}
+		fs_file_deinit(&hash_file);
 	}
 }
 

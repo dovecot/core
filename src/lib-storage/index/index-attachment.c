@@ -81,14 +81,14 @@ index_attachment_open_ostream(struct istream_attachment_info *info,
 	struct mail_save_attachment *attach = ctx->data.attach;
 	struct mail_storage *storage = ctx->transaction->box->storage;
 	struct mail_attachment_extref *extref;
-	enum fs_open_flags flags = FS_OPEN_FLAG_MKDIR;
+	enum fs_open_flags flags = 0;
 	const char *attachment_dir, *path, *digest = info->hash;
 	guid_128_t guid_128;
 
 	i_assert(attach->cur_file == NULL);
 
-	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER)
-		flags |= FS_OPEN_FLAG_FDATASYNC;
+	if (storage->set->parsed_fsync_mode == FSYNC_MODE_NEVER)
+		flags |= FS_OPEN_FLAG_UNIMPORTANT;
 
 	if (strlen(digest) < 4) {
 		/* make sure we can access first 4 bytes without accessing
@@ -102,12 +102,8 @@ index_attachment_open_ostream(struct istream_attachment_info *info,
 			       digest[0], digest[1],
 			       digest[2], digest[3], digest,
 			       guid_128_to_string(guid_128));
-	if (fs_open(attach->fs, path,
-		    FS_OPEN_MODE_CREATE | flags, &attach->cur_file) < 0) {
-		mail_storage_set_critical(storage, "%s",
-			fs_last_error(attach->fs));
-		return -1;
-	}
+	attach->cur_file = fs_file_init(attach->fs, path,
+					FS_OPEN_MODE_CREATE | flags);
 
 	extref = array_append_space(&attach->extrefs);
 	extref->start_offset = info->start_offset;
@@ -139,7 +135,7 @@ index_attachment_close_ostream(struct ostream *output,
 			fs_file_last_error(attach->cur_file));
 		ret = -1;
 	}
-	fs_close(&attach->cur_file);
+	fs_file_deinit(&attach->cur_file);
 
 	if (ret < 0) {
 		array_delete(&attach->extrefs,
@@ -258,32 +254,15 @@ static int
 index_attachment_delete_real(struct mail_storage *storage,
 			     struct fs *fs, const char *name)
 {
-	const char *path, *p, *attachment_dir;
+	struct fs_file *file;
+	const char *path;
 	int ret;
 
 	path = t_strdup_printf("%s/%s", index_attachment_dir_get(storage), name);
-	if ((ret = fs_unlink(fs, path)) < 0)
+	file = fs_file_init(fs, path, FS_OPEN_MODE_READONLY);
+	if ((ret = fs_delete(file)) < 0)
 		mail_storage_set_critical(storage, "%s", fs_last_error(fs));
-
-	/* if the directory is now empty, rmdir it and its parents
-	   until it fails */
-	attachment_dir = index_attachment_dir_get(storage);
-	while ((p = strrchr(path, '/')) != NULL) {
-		path = t_strdup_until(path, p);
-		if (strcmp(path, attachment_dir) == 0)
-			break;
-
-		if (fs_rmdir(fs, path) == 0) {
-			/* success, continue to parent */
-		} else if (errno == ENOTEMPTY || errno == EEXIST) {
-			/* there are other entries in this directory */
-			break;
-		} else {
-			mail_storage_set_critical(storage, "%s",
-				fs_last_error(fs));
-			break;
-		}
-	}
+	fs_file_deinit(&file);
 	return ret;
 }
 

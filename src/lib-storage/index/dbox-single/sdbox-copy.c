@@ -15,6 +15,7 @@ sdbox_file_copy_attachments(struct sdbox_file *src_file,
 {
 	struct dbox_storage *src_storage = src_file->file.storage;
 	struct dbox_storage *dest_storage = dest_file->file.storage;
+	struct fs_file *src_fsfile, *dest_fsfile;
 	ARRAY_TYPE(mail_attachment_extref) extrefs;
 	const struct mail_attachment_extref *extref;
 	const char *extrefs_line, *src, *dest, *dest_relpath;
@@ -61,7 +62,11 @@ sdbox_file_copy_attachments(struct sdbox_file *src_file,
 					   guid_generate(), NULL);
 		dest = t_strdup_printf("%s/%s", dest_storage->attachment_dir,
 				       dest_relpath);
-		if (fs_link(dest_storage->attachment_fs, src, dest) < 0) {
+		src_fsfile = fs_file_init(src_storage->attachment_fs, src,
+					  FS_OPEN_MODE_READONLY);
+		dest_fsfile = fs_file_init(dest_storage->attachment_fs, dest,
+					   FS_OPEN_MODE_READONLY);
+		if (fs_copy(src_fsfile, dest_fsfile) < 0) {
 			mail_storage_set_critical(&dest_storage->storage, "%s",
 				fs_last_error(dest_storage->attachment_fs));
 			ret = -1;
@@ -69,6 +74,8 @@ sdbox_file_copy_attachments(struct sdbox_file *src_file,
 			array_append(&dest_file->attachment_paths,
 				     &dest_relpath, 1);
 		}
+		fs_file_deinit(&src_fsfile);
+		fs_file_deinit(&dest_fsfile);
 	} T_END;
 	pool_unref(&pool);
 	return ret;
