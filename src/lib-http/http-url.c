@@ -123,7 +123,7 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 
 	/* Resolve path */
 	if (ret > 0) {
-		string_t *fullpath;
+		string_t *fullpath = NULL;
 
 		have_path = TRUE;
 
