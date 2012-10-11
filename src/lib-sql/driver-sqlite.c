@@ -444,7 +444,7 @@ const struct sql_result driver_sqlite_error_result = {
 	}
 };
 
-const char *driver_sqlite_version = DOVECOT_VERSION;
+const char *driver_sqlite_version = DOVECOT_ABI_VERSION;
 
 void driver_sqlite_init(void);
 void driver_sqlite_deinit(void);

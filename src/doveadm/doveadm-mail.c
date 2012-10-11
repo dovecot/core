@@ -703,7 +703,7 @@ void doveadm_mail_init(void)
 		doveadm_mail_register_cmd(mail_commands[i]);
 
 	memset(&mod_set, 0, sizeof(mod_set));
-	mod_set.version = master_service_get_version_string(master_service);
+	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = doveadm_debug;
 	mod_set.binary_name = "doveadm";

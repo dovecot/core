@@ -7,7 +7,7 @@
 
 #define DEFAULT_ESCAPE_CHAR '\\'
 
-const char *listescape_plugin_version = DOVECOT_VERSION;
+const char *listescape_plugin_version = DOVECOT_ABI_VERSION;
 
 static void listescape_mailbox_list_created(struct mailbox_list *list)
 {

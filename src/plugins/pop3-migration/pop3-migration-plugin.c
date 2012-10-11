@@ -72,7 +72,7 @@ static const char *hdr_hash_skip_headers[] = {
 	"X-UID",
 	"X-UIDL"
 };
-const char *pop3_migration_plugin_version = DOVECOT_VERSION;
+const char *pop3_migration_plugin_version = DOVECOT_ABI_VERSION;
 
 static MODULE_CONTEXT_DEFINE_INIT(pop3_migration_storage_module,
 				  &mail_storage_module_register);

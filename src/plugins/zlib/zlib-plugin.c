@@ -40,7 +40,7 @@ struct zlib_user {
 	unsigned int save_level;
 };
 
-const char *zlib_plugin_version = DOVECOT_VERSION;
+const char *zlib_plugin_version = DOVECOT_ABI_VERSION;
 
 static MODULE_CONTEXT_DEFINE_INIT(zlib_user_module,
 				  &mail_user_module_register);

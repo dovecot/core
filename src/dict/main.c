@@ -55,7 +55,7 @@ static void main_init(void)
 	}
 
 	memset(&mod_set, 0, sizeof(mod_set));
-	mod_set.version = master_service_get_version_string(master_service);
+	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
 
 	modules = module_dir_load(DICT_MODULE_DIR, NULL, &mod_set);

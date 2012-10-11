@@ -2,9 +2,11 @@
 #define MODULE_DIR_H
 
 struct module_dir_load_settings {
-	/* If version is non-NULL and the module contains a version symbol,
-	   fail the load if they're different. */
-	const char *version;
+	/* If abi_version is non-NULL and the module contains a version symbol,
+	   fail the load if they're different. In both strings ignore anything
+	   after the first '(' character, so the version can be e.g.:
+	   2.2.ABIv1(2.2.15) */
+	const char *abi_version;
 	/* Binary name used for checking if plugin is tried to be loaded for
 	   wrong binary. */
 	const char *binary_name;

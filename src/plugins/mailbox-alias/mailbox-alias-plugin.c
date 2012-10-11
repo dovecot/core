@@ -45,7 +45,7 @@ static MODULE_CONTEXT_DEFINE_INIT(mailbox_alias_storage_module,
 static MODULE_CONTEXT_DEFINE_INIT(mailbox_alias_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-const char *mailbox_alias_plugin_version = DOVECOT_VERSION;
+const char *mailbox_alias_plugin_version = DOVECOT_ABI_VERSION;
 
 static const char *
 mailbox_alias_find_new(struct mail_user *user, const char *new_vname)

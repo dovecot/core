@@ -37,7 +37,7 @@ struct stats_mailbox {
 	union mailbox_module_context module_ctx;
 };
 
-const char *stats_plugin_version = DOVECOT_VERSION;
+const char *stats_plugin_version = DOVECOT_ABI_VERSION;
 
 struct stats_user_module stats_user_module =
 	MODULE_CONTEXT_INIT(&mail_user_module_register);

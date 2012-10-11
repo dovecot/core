@@ -22,7 +22,7 @@ struct zlib_client {
 	const struct compression_handler *handler;
 };
 
-const char *imap_zlib_plugin_version = DOVECOT_VERSION;
+const char *imap_zlib_plugin_version = DOVECOT_ABI_VERSION;
 
 static struct module *imap_zlib_module;
 static imap_client_created_func_t *next_hook_client_created;

@@ -14,7 +14,7 @@
 
 #define QUOTA_USER_SEPARATOR ':'
 
-const char *imap_quota_plugin_version = DOVECOT_VERSION;
+const char *imap_quota_plugin_version = DOVECOT_ABI_VERSION;
 
 static struct module *imap_quota_module;
 static imap_client_created_func_t *next_hook_client_created;

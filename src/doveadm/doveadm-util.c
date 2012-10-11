@@ -25,7 +25,7 @@ void doveadm_load_modules(void)
 	   only those whose dependencies have been loaded earlier, the rest are
 	   ignored. */
 	memset(&mod_set, 0, sizeof(mod_set));
-	mod_set.version = master_service_get_version_string(master_service);
+	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = doveadm_debug;
 	mod_set.ignore_dlopen_errors = TRUE;

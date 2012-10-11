@@ -21,7 +21,7 @@ struct notify_context {
 	void *mailbox_delete_txn;
 };
 
-const char *notify_plugin_version = DOVECOT_VERSION;
+const char *notify_plugin_version = DOVECOT_ABI_VERSION;
 static struct notify_context *ctx_list = NULL;
 
 static struct notify_mail_txn *

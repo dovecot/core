@@ -22,7 +22,7 @@ struct stats_client_command {
 static MODULE_CONTEXT_DEFINE_INIT(imap_stats_imap_module,
 				  &imap_module_register);
 
-const char *imap_stats_plugin_version = DOVECOT_VERSION;
+const char *imap_stats_plugin_version = DOVECOT_ABI_VERSION;
 
 static void stats_command_pre(struct client_command_context *cmd)
 {

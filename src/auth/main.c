@@ -188,7 +188,7 @@ static void main_preinit(void)
 	services = read_global_settings();
 
 	memset(&mod_set, 0, sizeof(mod_set));
-	mod_set.version = master_service_get_version_string(master_service);
+	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = global_auth_settings->debug;
 	mod_set.filter_callback = auth_module_filter;
@@ -218,7 +218,7 @@ void auth_module_load(const char *names)
 	struct module_dir_load_settings mod_set;
 
 	memset(&mod_set, 0, sizeof(mod_set));
-	mod_set.version = master_service_get_version_string(master_service);
+	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = global_auth_settings->debug;
 	mod_set.ignore_missing = TRUE;

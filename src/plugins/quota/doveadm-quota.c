@@ -7,7 +7,7 @@
 #include "doveadm-print.h"
 #include "doveadm-mail.h"
 
-const char *doveadm_quota_plugin_version = DOVECOT_VERSION;
+const char *doveadm_quota_plugin_version = DOVECOT_ABI_VERSION;
 
 void doveadm_quota_plugin_init(struct module *module);
 void doveadm_quota_plugin_deinit(void);

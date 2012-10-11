@@ -40,7 +40,7 @@ struct doveadm_expire_mail_cmd_context {
 	bool delete_nonexistent_users;
 };
 
-const char *doveadm_expire_plugin_version = DOVECOT_VERSION;
+const char *doveadm_expire_plugin_version = DOVECOT_ABI_VERSION;
 
 void doveadm_expire_plugin_init(struct module *module);
 void doveadm_expire_plugin_deinit(void);

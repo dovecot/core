@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "fts-squat-plugin.h"
 
-const char *fts_squat_plugin_version = DOVECOT_VERSION;
+const char *fts_squat_plugin_version = DOVECOT_ABI_VERSION;
 
 void fts_squat_plugin_init(struct module *module ATTR_UNUSED)
 {

@@ -16,7 +16,7 @@ struct doveadm_acl_cmd_context {
 	enum acl_modify_mode modify_mode;
 };
 
-const char *doveadm_acl_plugin_version = DOVECOT_VERSION;
+const char *doveadm_acl_plugin_version = DOVECOT_ABI_VERSION;
 
 void doveadm_acl_plugin_init(struct module *module);
 void doveadm_acl_plugin_deinit(void);

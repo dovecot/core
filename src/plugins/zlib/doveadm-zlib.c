@@ -14,7 +14,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-const char *doveadm_zlib_plugin_version = DOVECOT_VERSION;
+const char *doveadm_zlib_plugin_version = DOVECOT_ABI_VERSION;
 
 extern struct doveadm_cmd doveadm_cmd_zlibconnect;
 

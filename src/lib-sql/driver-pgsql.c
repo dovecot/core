@@ -1087,7 +1087,7 @@ const struct sql_result driver_pgsql_result = {
 	}
 };
 
-const char *driver_pgsql_version = DOVECOT_VERSION;
+const char *driver_pgsql_version = DOVECOT_ABI_VERSION;
 
 void driver_pgsql_init(void);
 void driver_pgsql_deinit(void);
