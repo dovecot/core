@@ -642,8 +642,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 			i_unreached();
 	}
 
-	i_set_failure_prefix(t_strdup_printf("lmtp(%s, %s): ",
-					     my_pid, username));
+	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
 	if (mail_storage_service_next(storage_service, rcpt->service_user,
 				      &client->state.dest_user) < 0) {
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
@@ -720,7 +719,7 @@ static bool client_deliver_next(struct client *client, struct mail *src_mail,
 	while (client->state.rcpt_idx < count) {
 		ret = client_deliver(client, &rcpts[client->state.rcpt_idx],
 				     src_mail, session);
-		i_set_failure_prefix(t_strdup_printf("lmtp(%s): ", my_pid));
+		i_set_failure_prefix("lmtp(%s): ", my_pid);
 
 		client->state.rcpt_idx++;
 		if (ret == 0)

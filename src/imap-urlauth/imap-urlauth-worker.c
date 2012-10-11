@@ -203,9 +203,8 @@ client_create_standalone(const char *access_user,
 	imap_urlauth_worker_client_count++;
 	DLLIST_PREPEND(&imap_urlauth_worker_clients, client);
 
-	i_set_failure_prefix(t_strdup_printf("imap-urlauth[%s](%s): ", my_pid,
-					     client->access_user));
-
+	i_set_failure_prefix("imap-urlauth[%s](%s): ",
+			     my_pid, client->access_user);
 	return client;
 }
 
@@ -219,8 +218,8 @@ static void client_destroy(struct client *client)
 {
 	char **app;
 
-	i_set_failure_prefix(t_strdup_printf("imap-urlauth[%s](%s): ",
-					     my_pid, client->access_user));
+	i_set_failure_prefix("imap-urlauth[%s](%s): ",
+			     my_pid, client->access_user);
 
 	if (client->url != NULL) {
 		/* deinitialize url */
@@ -664,8 +663,8 @@ client_handle_user_command(struct client *client, const char *cmd,
 			mail_user->username, client->access_user);
 	}
 
-	i_set_failure_prefix(t_strdup_printf("imap-urlauth[%s](%s->%s): ",
-		my_pid, client->access_user, mail_user->username));
+	i_set_failure_prefix("imap-urlauth[%s](%s->%s): ",
+			     my_pid, client->access_user, mail_user->username);
 
 	client_send_line(client, "OK");
 	return 1;
@@ -889,8 +888,8 @@ static void client_ctrl_input(struct client *client)
 		client->access_user = i_strdup("anonymous");
 		client->access_anonymous = TRUE;
 	}
-	i_set_failure_prefix(t_strdup_printf("imap-urlauth[%s](%s): ", my_pid,
-					     client->access_user));
+	i_set_failure_prefix("imap-urlauth[%s](%s): ",
+			     my_pid, client->access_user);
 
 	args++;
 	while (*args != NULL) {

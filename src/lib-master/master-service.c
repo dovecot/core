@@ -133,7 +133,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	lib_init();
 	/* Set a logging prefix temporarily. This will be ignored once the log
 	   is properly initialized */
-	i_set_failure_prefix(t_strdup_printf("%s(init): ", name));
+	i_set_failure_prefix("%s(init): ", name);
 
 	/* ignore these signals as early as possible */
         lib_signals_ignore(SIGPIPE, TRUE);
@@ -189,12 +189,10 @@ master_service_init(const char *name, enum master_service_flags flags,
 	   we want to log */
 	if (getenv("LOG_SERVICE") != NULL)
 		i_set_failure_internal();
-	if (getenv("USER") != NULL) {
-		i_set_failure_prefix(t_strdup_printf("%s(%s): ",
-						     name, getenv("USER")));
-	} else {
-		i_set_failure_prefix(t_strdup_printf("%s: ", name));
-	}
+	if (getenv("USER") != NULL)
+		i_set_failure_prefix("%s(%s): ", name, getenv("USER"));
+	else
+		i_set_failure_prefix("%s: ", name);
 
 	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		/* initialize master_status structure */
@@ -262,7 +260,7 @@ void master_service_init_log(struct master_service *service,
 	if (getenv("LOG_SERVICE") != NULL && !service->log_directly) {
 		/* logging via log service */
 		i_set_failure_internal();
-		i_set_failure_prefix(prefix);
+		i_set_failure_prefix("%s", prefix);
 		return;
 	}
 
@@ -287,7 +285,7 @@ void master_service_init_log(struct master_service *service,
 					  &facility))
 			facility = LOG_MAIL;
 		i_set_failure_syslog("dovecot", LOG_NDELAY, facility);
-		i_set_failure_prefix(prefix);
+		i_set_failure_prefix("%s", prefix);
 
 		if (strcmp(service->set->log_path, "syslog") != 0) {
 			/* set error handlers back to file */

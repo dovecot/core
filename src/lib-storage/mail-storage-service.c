@@ -659,14 +659,14 @@ static void mail_storage_service_io_activate(void *context)
 {
 	struct mail_storage_service_user *user = context;
 
-	i_set_failure_prefix(user->log_prefix);
+	i_set_failure_prefix("%s", user->log_prefix);
 }
 
 static void mail_storage_service_io_deactivate(void *context)
 {
 	struct mail_storage_service_user *user = context;
 
-	i_set_failure_prefix(user->service_ctx->default_log_prefix);
+	i_set_failure_prefix("%s", user->service_ctx->default_log_prefix);
 }
 
 static void

@@ -182,8 +182,7 @@ static void master_login_client_free(struct master_login_client **_client)
 			i_error("close(fd_read client) failed: %m");
 		/* this client failed (login callback wasn't called).
 		   reset prefix to default. */
-		i_set_failure_prefix(t_strdup_printf("%s: ",
-			client->conn->login->service->name));
+		i_set_failure_prefix("%s: ", client->conn->login->service->name);
 	}
 
 	/* FIXME: currently we create a separate connection for each request,
@@ -371,8 +370,8 @@ master_login_auth_callback(const char *const *auth_args, const char *errormsg,
 		master_login_client_free(&client);
 		return;
 	}
-	i_set_failure_prefix(t_strdup_printf("%s(%s): ",
-		client->conn->login->service->name, auth_args[0]));
+	i_set_failure_prefix("%s(%s): ", client->conn->login->service->name,
+			     auth_args[0]);
 
 	if (conn->login->postlogin_socket_path == NULL)
 		master_login_auth_finish(client, auth_args);

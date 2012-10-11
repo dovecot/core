@@ -477,7 +477,7 @@ static void open_log_file(int *fd, const char *path)
 
 void i_set_failure_file(const char *path, const char *prefix)
 {
-	i_set_failure_prefix(prefix);
+	i_set_failure_prefix("%s", prefix);
 
 	if (log_info_fd != STDERR_FILENO && log_info_fd != log_fd) {
 		if (close(log_info_fd) < 0)
@@ -514,11 +514,22 @@ static void i_failure_send_option(const char *key, const char *value)
 	(void)write_full(2, str, strlen(str));
 }
 
-void i_set_failure_prefix(const char *prefix)
+void i_set_failure_prefix(const char *prefix_fmt, ...)
+{
+	va_list args;
+
+	va_start(args, prefix_fmt);
+	i_free(log_prefix);
+	log_prefix = i_strdup_vprintf(prefix_fmt, args);
+	va_end(args);
+
+	log_prefix_sent = FALSE;
+}
+
+void i_unset_failure_prefix(void)
 {
 	i_free(log_prefix);
-	log_prefix = i_strdup(prefix);
-
+	log_prefix = i_strdup("");
 	log_prefix_sent = FALSE;
 }
 

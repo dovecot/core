@@ -104,7 +104,7 @@ client_log_ctx(struct log_connection *log,
 		log_error_buffer_add(log->errorbuf, &err);
 		break;
 	}
-	i_set_failure_prefix(prefix);
+	i_set_failure_prefix("%s", prefix);
 	i_log_type(ctx, "%s", text);
 	i_set_failure_prefix("log: ");
 }

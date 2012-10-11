@@ -770,7 +770,7 @@ int main(int argc, char *argv[])
 				MASTER_SERVICE_FLAG_STANDALONE |
 				MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
 				&argc, &argv, "+Fanp");
-	i_set_failure_prefix("");
+	i_unset_failure_prefix();
 
 	io_loop_set_time_moved_callback(current_ioloop, master_time_moved);
 

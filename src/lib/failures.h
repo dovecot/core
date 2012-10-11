@@ -111,7 +111,9 @@ void i_set_info_file(const char *path);
 void i_set_debug_file(const char *path);
 
 /* Set the failure prefix. */
-void i_set_failure_prefix(const char *prefix);
+void i_set_failure_prefix(const char *prefix_fmt, ...) ATTR_FORMAT(1, 2);
+/* Set prefix to "". */
+void i_unset_failure_prefix(void);
 /* Prefix failures with a timestamp. fmt is in strftime() format. */
 void i_set_failure_timestamp_format(const char *fmt);
 /* When logging with internal error protocol, update the process's current

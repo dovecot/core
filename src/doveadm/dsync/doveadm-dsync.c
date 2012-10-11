@@ -238,7 +238,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 
 	i_assert(ctx->local_location != NULL);
 
-	i_set_failure_prefix(t_strdup_printf("dsync(%s): ", user->username));
+	i_set_failure_prefix("dsync(%s): ", user->username);
 
 	/* update mail_location and create another user for the
 	   second location. */
@@ -288,8 +288,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 static void
 cmd_dsync_run_remote(struct mail_user *user)
 {
-	i_set_failure_prefix(t_strdup_printf("dsync-local(%s): ",
-					     user->username));
+	i_set_failure_prefix("dsync-local(%s): ", user->username);
 	io_loop_run(current_ioloop);
 }
 
@@ -515,8 +514,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx ATTR_UNUSED,
 	user->admin = TRUE;
 	user->dsyncing = TRUE;
 
-	i_set_failure_prefix(t_strdup_printf("dsync-remote(%s): ",
-					     user->username));
+	i_set_failure_prefix("dsync-remote(%s): ", user->username);
 
 	temp_prefix = t_str_new(64);
 	mail_user_set_get_temp_prefix(temp_prefix, user->set);

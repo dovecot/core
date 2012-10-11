@@ -324,8 +324,7 @@ void client_worker_input(struct client *client)
 
 void client_destroy(struct client *client, const char *reason)
 {
-	i_set_failure_prefix(t_strdup_printf("%s: ",
-		master_service_get_name(master_service)));
+	i_set_failure_prefix("%s: ", master_service_get_name(master_service));
 
 	if (!client->disconnected) {
 		if (reason == NULL)

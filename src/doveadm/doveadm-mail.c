@@ -276,7 +276,7 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 	const char *error;
 	int ret;
 
-	i_set_failure_prefix(t_strdup_printf("doveadm(%s): ", input->username));
+	i_set_failure_prefix("doveadm(%s): ", input->username);
 
 	/* see if we want to execute this command via (another)
 	   doveadm server */
