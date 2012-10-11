@@ -355,7 +355,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	ctx->last_rec_pos = 0;
 
 	array_clear(&ctx->cache_data_seq);
-	return 0;
+	return ret;
 }
 
 static void
