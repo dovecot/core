@@ -99,6 +99,14 @@ int dbox_storage_create(struct mail_storage *_storage,
 		} else {
 			name = t_strdup_until(set->mail_attachment_fs, args++);
 		}
+		if (strcmp(name, "sis-queue") == 0 &&
+		    (_storage->class_flags & MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG) != 0) {
+			/* FIXME: the deduplication part doesn't work, because
+			   sdbox renames the files.. */
+			*error_r = "mail_attachment_fs: "
+				"sis-queue not currently supported by sdbox";
+			return -1;
+		}
 		dir = mail_user_home_expand(_storage->user,
 					    set->mail_attachment_dir);
 		storage->attachment_dir = p_strdup(_storage->pool, dir);
