@@ -28,8 +28,7 @@ void hostpid_init(void)
 	/* allow calling hostpid_init() multiple times to reset hostname */
 	i_free_and_null(my_domain);
 
-	if (i_strocpy(pid, dec2str(getpid()), sizeof(pid)) < 0)
-		i_unreached();
+	i_snprintf(pid, sizeof(pid), "%lld", (long long)getpid());
 	my_pid = pid;
 }
 
