@@ -216,6 +216,7 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		list_set.layout = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS;
 		list_set.root_dir = dir;
 		list_set.escape_char = IMAPC_LIST_ESCAPE_CHAR;
+		list_set.broken_char = IMAPC_LIST_BROKEN_CHAR;
 		list_set.mailbox_dir_name = "";
 		list_set.maildir_name = "";
 

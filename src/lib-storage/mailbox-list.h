@@ -103,6 +103,11 @@ struct mailbox_list_settings {
 
 	/* Encode "bad" characters in mailbox names as <escape_char><hex> */
 	char escape_char;
+	/* If mailbox name can't be changed reversibly to UTF-8 and back,
+	   encode the problematic parts using <broken_char><hex> in the
+	   user-visible UTF-8 name. The broken_char itself also has to be
+	   encoded the same way. */
+	char broken_char;
 	/* Use UTF-8 mailbox names on filesystem instead of mUTF-7 */
 	bool utf8;
 	/* Don't check/create the alt-dir symlink. */
