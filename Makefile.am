@@ -14,6 +14,7 @@ EXTRA_DIST = \
 	ChangeLog \
 	is-tagged.py \
 	run-test.sh \
+	cc-wrapper.sh.in \
 	update-version.sh \
 	$(conf_DATA)
 
