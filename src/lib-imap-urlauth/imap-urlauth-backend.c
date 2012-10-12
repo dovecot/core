@@ -88,12 +88,24 @@ imap_urlauth_backend_get_key(struct imap_urlauth_backend *backend,
 
 int imap_urlauth_backend_get_mailbox_key(struct imap_urlauth_backend *backend,
 					 struct mailbox *box, bool create,
-					 unsigned char mailbox_key[IMAP_URLAUTH_KEY_LEN])
+					 unsigned char mailbox_key_r[IMAP_URLAUTH_KEY_LEN],
+					 const char **error_r,
+					 enum mail_error *error_code_r)
 {
 	const char *path, *mailbox_key_hex = NULL;
+	struct mailbox_metadata metadata;
 	const char *mailbox = mailbox_get_vname(box);
 	buffer_t key_buf;
 	int ret;
+
+	*error_r = "Internal server error";
+	*error_code_r = MAIL_ERROR_TEMP;
+
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
+		*error_r = mailbox_get_last_error(box, error_code_r);
+		return -1;
+	}
+	mailbox = guid_128_to_string(metadata.guid);
 
 	path = t_strconcat(IMAP_URLAUTH_PATH, dict_escape_string(mailbox), NULL);
 	if ((ret = imap_urlauth_backend_get_key(backend, path,
@@ -110,8 +122,8 @@ int imap_urlauth_backend_get_mailbox_key(struct imap_urlauth_backend *backend,
 			return 0;
 
 		/* create new key */
-		random_fill(mailbox_key, IMAP_URLAUTH_KEY_LEN);
-		mailbox_key_hex = binary_to_hex(mailbox_key,
+		random_fill(mailbox_key_r, IMAP_URLAUTH_KEY_LEN);
+		mailbox_key_hex = binary_to_hex(mailbox_key_r,
 						IMAP_URLAUTH_KEY_LEN);
 		if ((ret = imap_urlauth_backend_set_key(backend, path,
 							mailbox_key_hex)) < 0)
@@ -122,7 +134,7 @@ int imap_urlauth_backend_get_mailbox_key(struct imap_urlauth_backend *backend,
 		}
 	} else {
 		/* read existing key */
-		buffer_create_from_data(&key_buf, mailbox_key,
+		buffer_create_from_data(&key_buf, mailbox_key_r,
 					IMAP_URLAUTH_KEY_LEN);
 		if (strlen(mailbox_key_hex) != 2*IMAP_URLAUTH_KEY_LEN ||
 		    hex_to_binary(mailbox_key_hex, &key_buf) < 0 ||
@@ -131,7 +143,7 @@ int imap_urlauth_backend_get_mailbox_key(struct imap_urlauth_backend *backend,
 				mailbox, path);
 			return -1;
 		}
-		memcpy(mailbox_key, key_buf.data, IMAP_URLAUTH_KEY_LEN);
+		memcpy(mailbox_key_r, key_buf.data, IMAP_URLAUTH_KEY_LEN);
 	}
 	return 1;
 }
@@ -139,7 +151,12 @@ int imap_urlauth_backend_get_mailbox_key(struct imap_urlauth_backend *backend,
 int imap_urlauth_backend_reset_mailbox_key(struct imap_urlauth_backend *backend,
 					   struct mailbox *box)
 {
-	const char *path, *mailbox = mailbox_get_vname(box);
+	const char *path, *mailbox;
+	struct mailbox_metadata metadata;
+
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0)
+		return 0;
+	mailbox = guid_128_to_string(metadata.guid);
 
 	path = t_strconcat(IMAP_URLAUTH_PATH, dict_escape_string(mailbox), NULL);
 	return imap_urlauth_backend_reset_key(backend, path) < 0 ? -1 : 1;

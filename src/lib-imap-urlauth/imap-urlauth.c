@@ -238,6 +238,7 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 	struct imap_msgpart_url *mpurl;
 	struct mailbox *box;
 	const char *error;
+	enum mail_error error_code;
 	unsigned char mailbox_key[IMAP_URLAUTH_KEY_LEN];
 	const unsigned char *token;
 	size_t token_len;
@@ -298,11 +299,11 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 
 	/* obtain mailbox key */
 	ret = imap_urlauth_backend_get_mailbox_key(uctx->backend, box, TRUE,
-						   mailbox_key);
+						   mailbox_key, error_r,
+						   &error_code);
 	if (ret < 0) {
-		*error_r = "Internal server error";
 		imap_msgpart_url_free(&mpurl);
-		return -1;
+		return ret;
 	}
 
 	token = imap_urlauth_internal_generate(rumpurl, mailbox_key, &token_len);
@@ -418,10 +419,9 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 
 	/* obtain mailbox key */
 	ret = imap_urlauth_backend_get_mailbox_key(uctx->backend, box, FALSE,
-						   mailbox_key);
+						   mailbox_key, error_r,
+						   error_code_r);
 	if (ret < 0) {
-		*error_r = "Internal server error";
-		*error_code_r = MAIL_ERROR_TEMP;
 		imap_msgpart_url_free(&mpurl);
 		return -1;
 	}
