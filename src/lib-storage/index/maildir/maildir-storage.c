@@ -614,9 +614,14 @@ static enum mail_flags maildir_get_private_flags_mask(struct mailbox *box)
 	mbox->private_flags_mask_set = TRUE;
 
 	path = mailbox_list_get_root_forced(box->list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (!mailbox_list_get_root_path(box->list, MAILBOX_LIST_PATH_TYPE_INDEX,
-					&path2) ||
-	    strcmp(path, path2) == 0) {
+	if (box->list->set.index_pvt_dir != NULL) {
+		/* private index directory is set. we'll definitely have
+		   private flags. */
+		mbox->_private_flags_mask = MAIL_SEEN;
+	} else if (!mailbox_list_get_root_path(box->list,
+					       MAILBOX_LIST_PATH_TYPE_INDEX,
+					       &path2) ||
+		   strcmp(path, path2) == 0) {
 		/* no separate index directory. we can't have private flags,
 		   so don't even bother checking if dovecot-shared exists */
 	} else {
