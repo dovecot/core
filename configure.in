@@ -243,14 +243,14 @@ AS_HELP_STRING([--with-gc], [Use Boehm garbage collector]),
   want_gc=no)
 
 AC_ARG_WITH(storages,
-AS_HELP_STRING([--with-storages], [Build with specified mail storage formats (mdbox sdbox maildir mbox cydir imapc pop3c)]), [
+AS_HELP_STRING([--with-storages], [Build with specified mail storage formats (mdbox sdbox maildir mbox cydir)]), [
 	if test "$withval" = "yes" || test "$withval" = "no"; then
 		AC_MSG_ERROR([--with-storages needs storage list as parameter])
 	fi
 	mail_storages="shared `echo "$withval"|sed 's/,/ /g'`" ],
-	mail_storages="shared mdbox sdbox maildir mbox cydir imapc pop3c")
+	mail_storages="shared mdbox sdbox maildir mbox cydir")
 AC_SUBST(mail_storages)
-mail_storages="$mail_storages raw"
+mail_storages="$mail_storages imapc_stub pop3c_stub raw"
 # drop duplicates
 duplicates=`(for i in $mail_storages; do echo $i; done)|sort|uniq -d|xargs echo`
 if test "$duplicates" != ""; then
@@ -2454,8 +2454,8 @@ dbox_common_libs='$(top_builddir)/src/lib-storage/index/dbox-common/libstorage_d
 sdbox_libs='$(top_builddir)/src/lib-storage/index/dbox-single/libstorage_dbox_single.la'
 mdbox_libs='$(top_builddir)/src/lib-storage/index/dbox-multi/libstorage_dbox_multi.la'
 cydir_libs='$(top_builddir)/src/lib-storage/index/cydir/libstorage_cydir.la'
-imapc_libs='$(top_builddir)/src/lib-storage/index/imapc/libstorage_imapc.la $(top_builddir)/src/lib-imap-client/libimap_client.la'
-pop3c_libs='$(top_builddir)/src/lib-storage/index/pop3c/libstorage_pop3c.la'
+imapc_stub_libs='$(top_builddir)/src/lib-storage/index/imapc/libstorage_imapc.la'
+pop3c_stub_libs='$(top_builddir)/src/lib-storage/index/pop3c/libstorage_pop3c.la'
 raw_libs='$(top_builddir)/src/lib-storage/index/raw/libstorage_raw.la'
 shared_libs='$(top_builddir)/src/lib-storage/index/shared/libstorage_shared.la'
 
@@ -2475,21 +2475,8 @@ for storage in $mail_storages; do
     LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS $dbox_common_libs"
     dbox_common_libs=""
   fi
-  if test $storage = imapc; then
-    mailbox_list_drivers="$mailbox_list_drivers imapc"
-    want_ssl_libs=yes
-  fi
-  if test $storage = pop3c; then
-    want_ssl_libs=yes
-  fi
 done
-LINKED_STORAGE_LDADD=
-if test "$want_ssl_libs" = yes; then
-  LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS \$(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la"
-  LINKED_STORAGE_LDADD="$SSL_LIBS"
-fi
 AC_SUBST(LINKED_STORAGE_LIBS)
-AC_SUBST(LINKED_STORAGE_LDADD)
 AC_SUBST(mailbox_list_drivers)
 AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
 
@@ -2521,7 +2508,7 @@ else
   LIBDOVECOT_COMPRESS='$(top_builddir)/src/lib-compression/libcompression.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/liblda.la'
 fi
-LIBDOVECOT_STORAGE="$LIBDOVECOT_STORAGE_DEPS $LINKED_STORAGE_LDADD"
+LIBDOVECOT_STORAGE="$LIBDOVECOT_STORAGE_DEPS"
 LIBDOVECOT_SQL='$(top_builddir)/src/lib-sql/libsql.la'
 AC_SUBST(LIBDOVECOT)
 AC_SUBST(LIBDOVECOT_DEPS)

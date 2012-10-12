@@ -27,9 +27,6 @@ struct imapc_resp_code_map {
 	enum mail_error error;
 };
 
-extern struct mail_storage imapc_storage;
-extern struct mailbox imapc_mailbox;
-
 static struct imapc_resp_code_map imapc_resp_code_map[] = {
 	{ IMAP_RESP_CODE_UNAVAILABLE, MAIL_ERROR_TEMP },
 	{ IMAP_RESP_CODE_AUTHFAILED, MAIL_ERROR_PERM },
