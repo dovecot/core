@@ -524,7 +524,10 @@ bool i_stream_try_alloc(struct istream_private *stream,
 	}
 
 	*size_r = stream->buffer_size - stream->pos;
-	return stream->pos != stream->buffer_size;
+	if (stream->try_alloc_limit > 0 &&
+	    *size_r > stream->try_alloc_limit)
+		*size_r = stream->try_alloc_limit;
+	return *size_r > 0;
 }
 
 void *i_stream_alloc(struct istream_private *stream, size_t size)

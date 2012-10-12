@@ -29,7 +29,7 @@ struct istream_private {
 	unsigned char *w_buffer; /* may be NULL */
 
 	size_t buffer_size, max_buffer_size, init_buffer_size;
-	size_t skip, pos;
+	size_t skip, pos, try_alloc_limit;
 
 	struct istream *parent; /* for filter streams */
 	uoff_t parent_start_offset;
