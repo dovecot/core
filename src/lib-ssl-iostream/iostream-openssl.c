@@ -1,7 +1,7 @@
 /* Copyright (c) 2009-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "istream.h"
+#include "istream-private.h"
 #include "ostream-private.h"
 #include "iostream-openssl.h"
 
@@ -326,18 +326,39 @@ static bool ssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 	return bytes_sent;
 }
 
+static ssize_t
+ssl_iostream_read_more(struct ssl_iostream *ssl_io,
+		       const unsigned char **data_r, size_t *size_r)
+{
+	*data_r = i_stream_get_data(ssl_io->plain_input, size_r);
+	if (*size_r > 0)
+		return 0;
+
+	if (!ssl_io->input_handler) {
+		/* read plain_input only when we came here from input handler.
+		   this makes sure that we don't get stuck with some input
+		   unexpectedly buffered. */
+		return 0;
+	}
+
+	if (i_stream_read_data(ssl_io->plain_input, data_r, size_r, 0) < 0)
+		return -1;
+	return 0;
+}
+
 static bool ssl_iostream_bio_input(struct ssl_iostream *ssl_io)
 {
 	const unsigned char *data;
 	size_t bytes, size;
-	bool bytes_read = FALSE;
 	int ret;
+	bool bytes_read = FALSE;
 
 	while ((bytes = BIO_ctrl_get_write_guarantee(ssl_io->bio_ext)) > 0) {
 		/* bytes contains how many bytes we can write to bio_ext */
-		if (i_stream_read_data(ssl_io->plain_input,
-				       &data, &size, 0) == -1 &&
-		    size == 0 && !bytes_read) {
+		ssl_io->plain_input->real_stream->try_alloc_limit = bytes;
+		ret = ssl_iostream_read_more(ssl_io, &data, &size);
+		ssl_io->plain_input->real_stream->try_alloc_limit = 0;
+		if (ret == -1 && size == 0 && !bytes_read) {
 			ssl_io->plain_stream_errno =
 				ssl_io->plain_input->stream_errno;
 			ssl_io->closed = TRUE;
@@ -358,7 +379,16 @@ static bool ssl_iostream_bio_input(struct ssl_iostream *ssl_io)
 	}
 	if (bytes == 0 && !bytes_read && ssl_io->want_read) {
 		/* shouldn't happen */
-		i_panic("SSL BIO buffer size too small");
+		i_error("SSL BIO buffer size too small");
+		ssl_io->plain_stream_errno = EINVAL;
+		ssl_io->closed = TRUE;
+		return FALSE;
+	}
+	if (i_stream_get_data_size(ssl_io->plain_input) > 0) {
+		i_error("SSL: Too much data in buffered plain input buffer");
+		ssl_io->plain_stream_errno = EINVAL;
+		ssl_io->closed = TRUE;
+		return FALSE;
 	}
 	if (bytes_read) {
 		if (ssl_io->ostream_flush_waiting_input) {

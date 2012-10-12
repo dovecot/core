@@ -47,6 +47,7 @@ struct ssl_iostream {
 	unsigned int cert_received:1;
 	unsigned int cert_broken:1;
 	unsigned int want_read:1;
+	unsigned int input_handler:1;
 	unsigned int ostream_flush_waiting_input:1;
 	unsigned int closed:1;
 };
