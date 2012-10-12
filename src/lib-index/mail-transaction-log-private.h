@@ -10,6 +10,7 @@ struct dotlock_settings;
    mails. */
 #define MAIL_TRANSCATION_LOG_LOCK_TIMEOUT (3*60)
 #define MAIL_TRANSCATION_LOG_LOCK_CHANGE_TIMEOUT (3*60)
+#define MAIL_TRANSACTION_LOG_LOCK_WARN_SECS 30
 
 /* Rotate when log is older than ROTATE_TIME and larger than MIN_SIZE */
 #define MAIL_TRANSACTION_LOG_ROTATE_MIN_SIZE (1024*32)
