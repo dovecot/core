@@ -335,7 +335,7 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 			  enum dict_data_type value_type ATTR_UNUSED,
 			  const char *username,
 			  const char *base_dir ATTR_UNUSED,
-			  struct dict **dict_r)
+			  struct dict **dict_r, const char **error_r)
 {
 	struct memcached_ascii_dict *dict;
 	const char *const *args;
@@ -359,12 +359,14 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 	for (; *args != NULL; args++) {
 		if (strncmp(*args, "host=", 5) == 0) {
 			if (net_addr2ip(*args+5, &dict->ip) < 0) {
-				i_error("Invalid IP: %s", *args+5);
+				*error_r = t_strdup_printf("Invalid IP: %s",
+							   *args+5);
 				ret = -1;
 			}
 		} else if (strncmp(*args, "port=", 5) == 0) {
 			if (str_to_uint(*args+5, &dict->port) < 0) {
-				i_error("Invalid port: %s", *args+5);
+				*error_r = t_strdup_printf("Invalid port: %s",
+							   *args+5);
 				ret = -1;
 			}
 		} else if (strncmp(*args, "prefix=", 7) == 0) {
@@ -372,11 +374,13 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 			dict->key_prefix = i_strdup(*args + 7);
 		} else if (strncmp(*args, "timeout_msecs=", 14) == 0) {
 			if (str_to_uint(*args+14, &dict->timeout_msecs) < 0) {
-				i_error("Invalid timeout_msecs: %s", *args+14);
+				*error_r = t_strdup_printf(
+					"Invalid timeout_msecs: %s", *args+14);
 				ret = -1;
 			}
 		} else {
-			i_error("Unknown parameter: %s", *args);
+			*error_r = t_strdup_printf("Unknown parameter: %s",
+						   *args);
 			ret = -1;
 		}
 	}

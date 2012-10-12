@@ -22,13 +22,16 @@ int imap_urlauth_backend_create(struct mail_user *user, const char *dict_uri,
 {
 	struct imap_urlauth_backend *backend;
 	struct dict *dict;
+	const char *error;
 
 	if (user->mail_debug)
 		i_debug("imap-urlauth backend: opening backend dict URI %s", dict_uri);
 
 	if (dict_init(dict_uri, DICT_DATA_TYPE_STRING,
-		      user->username, user->set->base_dir, &dict) < 0)
+		      user->username, user->set->base_dir, &dict, &error) < 0) {
+		i_error("imap_urlauth_dict: Failed to initialize dict: %s", error);
 		return -1;
+	}
 
 	backend = i_new(struct imap_urlauth_backend, 1);
 	backend->user = user;

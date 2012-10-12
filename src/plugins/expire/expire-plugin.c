@@ -326,7 +326,7 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 {
 	struct mail_user *user = ns->user;
 	struct expire_mail_user *euser;
-	const char *dict_uri;
+	const char *dict_uri, *error;
 
 	dict_uri = mail_user_plugin_getenv(user, "expire_dict");
 	if (mail_user_plugin_getenv(user, "expire") == NULL) {
@@ -346,10 +346,12 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 		/* we're using only shared dictionary, the username
 		   doesn't matter. */
 		if (dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "",
-			      user->set->base_dir, &euser->db) < 0)
-			i_error("expire plugin: dict_init(%s) failed", dict_uri);
-		else
+			      user->set->base_dir, &euser->db, &error) < 0) {
+			i_error("expire plugin: dict_init(%s) failed: %s",
+				dict_uri, error);
+		} else {
 			MODULE_CONTEXT_SET(user, expire_mail_user_module, euser);
+		}
 	}
 }
 

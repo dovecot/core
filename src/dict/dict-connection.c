@@ -68,7 +68,7 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 {
 	const char *const *strlist;
 	unsigned int i, count;
-	const char *uri;
+	const char *uri, *error;
 
 	strlist = array_get(&dict_settings->dicts, &count);
 	for (i = 0; i < count; i += 2) {
@@ -84,9 +84,10 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	uri = strlist[i+1];
 
 	if (dict_init(uri, conn->value_type, conn->username,
-		      dict_settings->base_dir, &conn->dict) < 0) {
+		      dict_settings->base_dir, &conn->dict, &error) < 0) {
 		/* dictionary initialization failed */
-		i_error("Failed to initialize dictionary '%s'", conn->name);
+		i_error("Failed to initialize dictionary '%s': %s",
+			conn->name, error);
 		return -1;
 	}
 	return 0;

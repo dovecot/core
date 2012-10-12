@@ -75,7 +75,7 @@ static int
 sql_dict_init(struct dict *driver, const char *uri,
 	      enum dict_data_type value_type ATTR_UNUSED,
 	      const char *username, const char *base_dir ATTR_UNUSED,
-	      struct dict **dict_r)
+	      struct dict **dict_r, const char **error_r)
 {
 	struct sql_dict *dict;
 	pool_t pool;
@@ -85,7 +85,7 @@ sql_dict_init(struct dict *driver, const char *uri,
 	dict->pool = pool;
 	dict->dict = *driver;
 	dict->username = p_strdup(pool, username);
-	dict->set = dict_sql_settings_read(pool, uri);
+	dict->set = dict_sql_settings_read(pool, uri, error_r);
 	if (dict->set == NULL) {
 		pool_unref(&pool);
 		return -1;

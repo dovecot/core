@@ -466,7 +466,8 @@ static void client_dict_disconnect(struct client_dict *dict)
 static int
 client_dict_init(struct dict *driver, const char *uri,
 		 enum dict_data_type value_type, const char *username,
-		 const char *base_dir, struct dict **dict_r)
+		 const char *base_dir, struct dict **dict_r,
+		 const char **error_r)
 {
 	struct client_dict *dict;
 	const char *dest_uri;
@@ -475,7 +476,7 @@ client_dict_init(struct dict *driver, const char *uri,
 	/* uri = [<path>] ":" <uri> */
 	dest_uri = strchr(uri, ':');
 	if (dest_uri == NULL) {
-		i_error("dict-client: Invalid URI: %s", uri);
+		*error_r = t_strdup_printf("Invalid URI: %s", uri);
 		return -1;
 	}
 
@@ -497,7 +498,7 @@ client_dict_init(struct dict *driver, const char *uri,
 	}
 	dict->uri = p_strdup(pool, dest_uri + 1);
 	*dict_r = &dict->dict;
-	return -1;
+	return 0;
 }
 
 static void client_dict_deinit(struct dict *_dict)

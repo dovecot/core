@@ -55,7 +55,8 @@ static int
 file_dict_init(struct dict *driver, const char *uri,
 	       enum dict_data_type value_type ATTR_UNUSED,
 	       const char *username ATTR_UNUSED,
-	       const char *base_dir ATTR_UNUSED, struct dict **dict_r)
+	       const char *base_dir ATTR_UNUSED, struct dict **dict_r,
+	       const char **error_r)
 {
 	struct file_dict *dict;
 	const char *p;
@@ -74,7 +75,7 @@ file_dict_init(struct dict *driver, const char *uri,
 		else if (strcmp(p, "lock=flock") == 0)
 			dict->lock_method = FILE_LOCK_METHOD_FLOCK;
 		else {
-			i_error("dict file: Invalid parameter: %s", p+1);
+			*error_r = t_strdup_printf("Invalid parameter: %s", p+1);
 			i_free(dict->path);
 			i_free(dict);
 			return -1;

@@ -31,7 +31,7 @@ static struct quota_root *dict_quota_alloc(void)
 static int dict_quota_init(struct quota_root *_root, const char *args)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *)_root;
-	const char *username, *p;
+	const char *username, *p, *error;
 
 	p = args == NULL ? NULL : strchr(args, ':');
 	if (p == NULL) {
@@ -78,8 +78,11 @@ static int dict_quota_init(struct quota_root *_root, const char *args)
 	/* FIXME: we should use 64bit integer as datatype instead but before
 	   it can actually be used don't bother */
 	if (dict_init(args, DICT_DATA_TYPE_STRING, username,
-		      _root->quota->user->set->base_dir, &root->dict) < 0)
+		      _root->quota->user->set->base_dir, &root->dict,
+		      &error) < 0) {
+		i_error("dict quota: dict_init(%s) failed: %s", args, error);
 		return -1;
+	}
 	return 0;
 }
 

@@ -71,29 +71,33 @@ void dict_drivers_unregister_builtin(void)
 }
 
 int dict_init(const char *uri, enum dict_data_type value_type,
-	      const char *username, const char *base_dir, struct dict **dict_r)
+	      const char *username, const char *base_dir, struct dict **dict_r,
+	      const char **error_r)
 {
 	struct dict *dict;
-	const char *p, *name;
+	const char *p, *name, *error;
 
 	i_assert(username != NULL);
 
 	p = strchr(uri, ':');
 	if (p == NULL) {
-		i_error("Dictionary URI is missing ':': %s", uri);
+		*error_r = t_strdup_printf("Dictionary URI is missing ':': %s",
+					   uri);
 		return -1;
 	}
 
-	T_BEGIN {
-		name = t_strdup_until(uri, p);
-		dict = dict_driver_lookup(name);
-		if (dict == NULL)
-			i_error("Unknown dict module: %s", name);
-	} T_END;
-
-	if (dict == NULL)
+	name = t_strdup_until(uri, p);
+	dict = dict_driver_lookup(name);
+	if (dict == NULL) {
+		*error_r = t_strdup_printf("Unknown dict module: %s", name);
 		return -1;
-	return dict->v.init(dict, p+1, value_type, username, base_dir, dict_r);
+	}
+	if (dict->v.init(dict, p+1, value_type, username, base_dir,
+			 dict_r, &error) < 0) {
+		*error_r = t_strdup_printf("dict %s: %s", name, error);
+		return -1;
+	}
+	return 0;
 }
 
 void dict_deinit(struct dict **_dict)
