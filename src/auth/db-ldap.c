@@ -1376,7 +1376,7 @@ static struct ldap_connection *ldap_conn_find(const char *config_path)
 struct ldap_connection *db_ldap_init(const char *config_path, bool userdb)
 {
 	struct ldap_connection *conn;
-	const char *str;
+	const char *str, *error;
 	pool_t pool;
 
 	/* see if it already exists */
@@ -1402,8 +1402,8 @@ struct ldap_connection *db_ldap_init(const char *config_path, bool userdb)
 	conn->fd = -1;
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_ldap_settings;
-	if (!settings_read_nosection(config_path, parse_setting, conn))
-		exit(FATAL_DEFAULT);
+	if (!settings_read_nosection(config_path, parse_setting, conn, &error))
+		i_fatal("ldap %s: %s", config_path, error);
 
 	if (conn->set.base == NULL)
 		i_fatal("LDAP: No base given");

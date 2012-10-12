@@ -62,6 +62,7 @@ static const char *parse_setting(const char *key, const char *value,
 struct dict_connection *db_dict_init(const char *config_path)
 {
 	struct dict_connection *conn;
+	const char *error;
 	pool_t pool;
 
 	conn = dict_conn_find(config_path);
@@ -81,8 +82,8 @@ struct dict_connection *db_dict_init(const char *config_path)
 
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_dict_settings;
-	if (!settings_read_nosection(config_path, parse_setting, conn))
-		exit(FATAL_DEFAULT);
+	if (!settings_read_nosection(config_path, parse_setting, conn, &error))
+		i_fatal("dict %s: %s", config_path, error);
 
 	if (conn->set.uri == NULL)
 		i_fatal("dict %s: Empty uri setting", config_path);

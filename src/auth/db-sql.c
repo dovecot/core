@@ -64,6 +64,7 @@ static const char *parse_setting(const char *key, const char *value,
 struct sql_connection *db_sql_init(const char *config_path, bool userdb)
 {
 	struct sql_connection *conn;
+	const char *error;
 	pool_t pool;
 
 	conn = sql_conn_find(config_path);
@@ -86,8 +87,8 @@ struct sql_connection *db_sql_init(const char *config_path, bool userdb)
 
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_sql_settings;
-	if (!settings_read_nosection(config_path, parse_setting, conn))
-		exit(FATAL_DEFAULT);
+	if (!settings_read_nosection(config_path, parse_setting, conn, &error))
+		i_fatal("sql %s: %s", config_path, error);
 
 	if (conn->set.password_query == default_sql_settings.password_query)
 		conn->default_password_query = TRUE;

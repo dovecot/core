@@ -213,6 +213,7 @@ parse_section(const char *type, const char *name ATTR_UNUSED,
 struct dict_sql_settings *dict_sql_settings_read(pool_t pool, const char *path)
 {
 	struct setting_parser_ctx ctx;
+	const char *error;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool;
@@ -220,8 +221,10 @@ struct dict_sql_settings *dict_sql_settings_read(pool_t pool, const char *path)
 	t_array_init(&ctx.cur_fields, 16);
 	p_array_init(&ctx.set->maps, pool, 8);
 
-	if (!settings_read(path, NULL, parse_setting, parse_section, &ctx))
+	if (!settings_read(path, NULL, parse_setting, parse_section, &ctx, &error)) {
+		i_error("Error in configuration file %s: %s", path, error);
 		return NULL;
+	}
 
 	if (ctx.set->connect == NULL) {
 		i_error("Error in configuration file %s: "

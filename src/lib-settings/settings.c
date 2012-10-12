@@ -167,10 +167,10 @@ settings_include(const char *pattern, struct input_stack **inputp,
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
-static bool
-settings_read_real(const char *path, const char *section,
-		   settings_callback_t *callback,
-		   settings_section_callback_t *sect_callback, void *context)
+bool settings_read_i(const char *path, const char *section,
+		     settings_callback_t *callback,
+		     settings_section_callback_t *sect_callback, void *context,
+		     const char **error_r)
 {
 	/* pretty horrible code, but v2.0 will have this rewritten anyway.. */
 	struct input_stack root, *input;
@@ -182,7 +182,8 @@ settings_read_real(const char *path, const char *section,
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
-		i_error("Can't open configuration file %s: %m", path);
+		*error_r = t_strdup_printf(
+			"Can't open configuration file %s: %m", path);
 		return FALSE;
 	}
 
@@ -371,7 +372,8 @@ prevfile:
 		}
 
 		if (errormsg != NULL) {
-			i_error("Error in configuration file %s line %d: %s",
+			*error_r = t_strdup_printf(
+				"Error in configuration file %s line %d: %s",
 				input->path, input->linenum, errormsg);
 			break;
 		}
@@ -384,17 +386,4 @@ prevfile:
 		goto prevfile;
 
 	return errormsg == NULL;
-}
-
-bool settings_read_i(const char *path, const char *section,
-		     settings_callback_t *callback,
-		     settings_section_callback_t *sect_callback, void *context)
-{
-	bool ret;
-
-	T_BEGIN {
-		ret = settings_read_real(path, section, callback,
-					 sect_callback, context);
-	} T_END;
-	return ret;
 }
