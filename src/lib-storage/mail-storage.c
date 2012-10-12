@@ -144,7 +144,7 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 			list_set->root_dir = NULL;
 		}
 	} else {
-		storage_class = mail_storage_find_class(driver);
+		storage_class = mail_user_get_storage_class(ns->user, driver);
 		if (storage_class == NULL) {
 			*error_r = t_strdup_printf(
 				"Unknown mail storage driver %s", driver);

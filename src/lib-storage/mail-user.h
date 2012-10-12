@@ -137,4 +137,9 @@ const char *mail_user_get_anvil_userip_ident(struct mail_user *user);
 bool mail_user_is_path_mounted(struct mail_user *user, const char *path,
 			       const char **error_r);
 
+/* Basically the same as mail_storage_find_class(), except automatically load
+   storage plugins when needed. */
+struct mail_storage *
+mail_user_get_storage_class(struct mail_user *user, const char *name);
+
 #endif

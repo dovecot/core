@@ -16,6 +16,7 @@
 #include "mountpoint-list.h"
 #include "mail-storage-settings.h"
 #include "mail-storage-private.h"
+#include "mail-storage-service.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "mail-user.h"
@@ -429,4 +430,57 @@ bool mail_user_is_path_mounted(struct mail_user *user, const char *path,
 		return FALSE;
 	}
 	return TRUE;
+}
+
+static void
+mail_user_try_load_class_plugin(struct mail_user *user, const char *name)
+{
+	struct module_dir_load_settings mod_set;
+	struct module *module;
+	unsigned int name_len = strlen(name);
+
+	memset(&mod_set, 0, sizeof(mod_set));
+	mod_set.abi_version = DOVECOT_ABI_VERSION;
+	mod_set.binary_name = master_service_get_name(master_service);
+	mod_set.setting_name = "<built-in storage lookup>";
+	mod_set.require_init_funcs = TRUE;
+	mod_set.debug = user->mail_debug;
+
+	mail_storage_service_modules =
+		module_dir_load_missing(mail_storage_service_modules,
+					user->set->mail_plugin_dir,
+					name, &mod_set);
+	/* initialize the module (and only this module!) immediately so that
+	   the class gets registered */
+	for (module = mail_storage_service_modules; module != NULL; module = module->next) {
+		if (strncmp(module->name, name, name_len) == 0 &&
+		    strcmp(module->name + name_len, "_plugin") == 0) {
+			if (!module->initialized) {
+				module->initialized = TRUE;
+				module->init(module);
+			}
+			break;
+		}
+	}
+}
+
+struct mail_storage *
+mail_user_get_storage_class(struct mail_user *user, const char *name)
+{
+	struct mail_storage *storage;
+
+	storage = mail_storage_find_class(name);
+	if (storage == NULL || storage->v.alloc != NULL)
+		return storage;
+
+	/* it's implemented by a plugin. load it and check again. */
+	mail_user_try_load_class_plugin(user, name);
+
+	storage = mail_storage_find_class(name);
+	if (storage != NULL && storage->v.alloc == NULL) {
+		i_error("Storage driver '%s' exists as a stub, "
+			"but its plugin couldn't be loaded", name);
+		return NULL;
+	}
+	return storage;
 }
