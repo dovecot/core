@@ -129,7 +129,7 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 		str_append(client->capability_string, " NOTIFY");
 	}
 
-	if (set->imap_urlauth_dict != NULL && *set->imap_urlauth_dict != '\0') {
+	if (*set->imap_urlauth_host != '\0' && *set->imap_urlauth_dict != '\0') {
 		if (client_init_urlauth(client) == 0 &&
 		    !explicit_capability) {
 			/* Enable URLAUTH capability only when dict is

@@ -26,6 +26,8 @@
 #define IMAP_URLAUTH_NORMAL_TIMEOUT_MSECS     5*1000
 #define IMAP_URLAUTH_SPECIAL_TIMEOUT_MSECS    3*60*1000
 
+#define URL_HOST_ALLOW_ANY "*"
+
 int imap_urlauth_init(struct mail_user *user,
 		      const struct imap_urlauth_config *config,
 		      struct imap_urlauth_context **ctx_r)
@@ -34,16 +36,16 @@ int imap_urlauth_init(struct mail_user *user,
 	struct imap_urlauth_context *uctx;
 	unsigned int timeout;
 
+	i_assert(*config->url_host != '\0');
+	i_assert(*config->dict_uri != '\0');
+
 	if (imap_urlauth_backend_create(user, config->dict_uri, &backend) < 0)
 		return -1;
 
 	uctx = i_new(struct imap_urlauth_context, 1);
 	uctx->user = user;
 	uctx->backend = backend;
-	if (config->url_host != NULL && *config->url_host != '\0')
-		uctx->url_host = i_strdup(config->url_host);
-	else
-		uctx->url_host = i_strdup(my_hostdomain());
+	uctx->url_host = i_strdup(config->url_host);
 	uctx->url_port = config->url_port;
 
 	if (config->access_anonymous)
@@ -210,7 +212,8 @@ imap_urlauth_check_hostport(struct imap_urlauth_context *uctx,
 {
 	/* validate host */
 	/* FIXME: allow host ip/ip6 as well? */
-	if (strcmp(url->host_name, uctx->url_host) != 0) {
+	if (strcmp(uctx->url_host, URL_HOST_ALLOW_ANY) != 0 &&
+	    strcmp(url->host_name, uctx->url_host) != 0) {
 		*error_r = "Invalid URL: Inappropriate host name";
 		return FALSE;
 	}

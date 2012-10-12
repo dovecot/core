@@ -634,8 +634,11 @@ client_handle_user_command(struct client *client, const char *cmd,
 	}
 
 	/* initialize urlauth context */
-	if (set->imap_urlauth_dict == NULL || *set->imap_urlauth_dict == '\0') {
-		i_error("imap_urlauth_dict setting is not configured for user %s",
+	if (*set->imap_urlauth_host == '\0' ||
+	    *set->imap_urlauth_dict == '\0') {
+		i_error("%s setting is not configured for user %s",
+			*set->imap_urlauth_host == '\0' ?
+			"imap_urlauth_host" : "imap_urlauth_dict",
 			mail_user->username);
 		client_send_line(client, "NO");
 		client_abort(client, "Session aborted: URLAUTH not configured");
