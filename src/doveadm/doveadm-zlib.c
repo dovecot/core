@@ -16,11 +16,6 @@
 
 const char *doveadm_zlib_plugin_version = DOVECOT_ABI_VERSION;
 
-extern struct doveadm_cmd doveadm_cmd_zlibconnect;
-
-void doveadm_zlib_plugin_init(struct module *module);
-void doveadm_zlib_plugin_deinit(void);
-
 static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[])
 {
 	struct istream *input, *input2;
@@ -147,11 +142,11 @@ static void cmd_zlibconnect(int argc ATTR_UNUSED, char *argv[])
 {
 	struct client client;
 	struct ip_addr *ips;
-	unsigned int ips_count, port;
+	unsigned int ips_count, port = 143;
 	int fd, ret;
 
-	if (argv[1] == NULL || argv[2] == NULL ||
-	    str_to_uint(argv[2], &port) < 0)
+	if (argv[1] == NULL ||
+	    (argv[2] != NULL && str_to_uint(argv[2], &port) < 0))
 		help(&doveadm_cmd_zlibconnect);
 
 	ret = net_gethostbyname(argv[1], &ips, &ips_count);
@@ -193,13 +188,3 @@ struct doveadm_cmd doveadm_cmd_zlibconnect = {
 	"zlibconnect",
 	"<host> [<port>]"
 };
-
-void doveadm_zlib_plugin_init(struct module *module ATTR_UNUSED)
-{
-	doveadm_dump_register(&doveadm_cmd_dump_zlib);
-	doveadm_register_cmd(&doveadm_cmd_zlibconnect);
-}
-
-void doveadm_zlib_plugin_deinit(void)
-{
-}

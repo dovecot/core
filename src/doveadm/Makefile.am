@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-auth \
+	-I$(top_srcdir)/src/lib-compression \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-fs \
 	-I$(top_srcdir)/src/lib-master \
@@ -32,7 +33,8 @@ cmd_pw_libs = \
 	../lib-otp/libotp.a
 
 libs = \
-	dsync/libdsync.la
+	dsync/libdsync.la \
+	../lib-compression/libcompression.la
 
 doveadm_LDADD = \
 	$(libs) \
@@ -102,7 +104,8 @@ doveadm_SOURCES = \
 	doveadm-pw.c \
 	doveadm-sis.c \
 	doveadm-stats.c \
-	doveadm-who.c
+	doveadm-who.c \
+	doveadm-zlib.c
 
 doveadm_server_SOURCES = \
 	$(common) \
