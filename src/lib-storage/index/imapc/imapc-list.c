@@ -664,6 +664,7 @@ struct mailbox_list imapc_mailbox_list = {
 
 	{
 		imapc_list_alloc,
+		NULL,
 		imapc_list_deinit,
 		NULL,
 		imapc_list_get_hierarchy_sep,

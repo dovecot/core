@@ -281,6 +281,7 @@ struct mailbox_list shared_mailbox_list = {
 
 	{
 		shared_list_alloc,
+		NULL,
 		shared_list_deinit,
 		shared_get_storage,
 		shared_list_get_hierarchy_sep,

@@ -476,6 +476,7 @@ struct mailbox_list maildir_mailbox_list = {
 
 	{
 		maildir_list_alloc,
+		NULL,
 		maildir_list_deinit,
 		NULL,
 		maildir_list_get_hierarchy_sep,
@@ -508,6 +509,7 @@ struct mailbox_list imapdir_mailbox_list = {
 
 	{
 		imapdir_list_alloc,
+		NULL,
 		maildir_list_deinit,
 		NULL,
 		maildir_list_get_hierarchy_sep,

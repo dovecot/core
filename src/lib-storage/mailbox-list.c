@@ -179,6 +179,13 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	}
 	list->set.utf8 = set->utf8;
 
+	if (list->v.init != NULL) {
+		if (list->v.init(list, error_r) < 0) {
+			list->v.deinit(list);
+			return -1;
+		}
+	}
+
 	if (ns->mail_set->mail_debug) {
 		i_debug("%s: root=%s, index=%s, indexpvt=%s, control=%s, inbox=%s, alt=%s",
 			list->name,

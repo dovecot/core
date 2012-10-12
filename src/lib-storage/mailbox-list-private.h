@@ -27,6 +27,7 @@ struct mailbox_list_notify_rec;
 
 struct mailbox_list_vfuncs {
 	struct mailbox_list *(*alloc)(void);
+	int (*init)(struct mailbox_list *list, const char **error_r);
 	void (*deinit)(struct mailbox_list *list);
 
 	int (*get_storage)(struct mailbox_list **list, const char *vname,

@@ -158,6 +158,7 @@ struct mailbox_list none_mailbox_list = {
 
 	{
 		none_list_alloc,
+		NULL,
 		none_list_deinit,
 		NULL,
 		none_list_get_hierarchy_sep,

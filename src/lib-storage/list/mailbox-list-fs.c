@@ -481,6 +481,7 @@ struct mailbox_list fs_mailbox_list = {
 
 	{
 		fs_list_alloc,
+		NULL,
 		fs_list_deinit,
 		NULL,
 		fs_list_get_hierarchy_sep,

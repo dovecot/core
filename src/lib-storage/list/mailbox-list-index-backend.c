@@ -34,6 +34,15 @@ static struct mailbox_list *index_list_alloc(void)
 	return &list->list;
 }
 
+static int index_list_init(struct mailbox_list *_list, const char **error_r)
+{
+	if (!_list->mail_set->mailbox_list_index) {
+		*error_r = "LAYOUT=index requires mailbox_list_index=yes";
+		return -1;
+	}
+	return 0;
+}
+
 static void index_list_deinit(struct mailbox_list *_list)
 {
 	struct index_mailbox_list *list = (struct index_mailbox_list *)_list;
@@ -555,6 +564,7 @@ struct mailbox_list index_mailbox_list = {
 
 	{
 		index_list_alloc,
+		index_list_init,
 		index_list_deinit,
 		NULL,
 		index_list_get_hierarchy_sep,
