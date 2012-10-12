@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if echo "$*" | grep -- -ldl > /dev/null; then
+  # the binary uses plugins. make sure we include everything from .a libs
+  exec @CC@ -Wl,--whole-archive $* -Wl,--no-whole-archive
+else
+  exec @CC@ $*
+fi

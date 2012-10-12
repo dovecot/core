@@ -26,20 +26,13 @@ AM_CPPFLAGS = \
 	-DBINDIR=\""$(bindir)"\" \
 	-DMANDIR=\""$(mandir)"\"
 
-if !BUILD_SHARED_LIBS
-unused_objects = \
-	../lib-imap/imap-util.o \
-	../lib-storage/mail-search-parser-imap.o
-endif
-
 cmd_pw_libs = \
 	../auth/libpassword.a \
 	../lib-ntlm/libntlm.a \
 	../lib-otp/libotp.a
 
 libs = \
-	dsync/libdsync.la \
-	$(unused_objects)
+	dsync/libdsync.la
 
 doveadm_LDADD = \
 	$(libs) \
