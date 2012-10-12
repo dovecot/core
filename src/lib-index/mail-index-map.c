@@ -266,9 +266,6 @@ struct mail_index_map *mail_index_map_alloc(struct mail_index *index)
 static void mail_index_record_map_free(struct mail_index_map *map,
 				       struct mail_index_record_map *rec_map)
 {
-	if (rec_map->lock_id != 0)
-		mail_index_unlock(map->index, &rec_map->lock_id);
-
 	if (rec_map->buffer != NULL) {
 		i_assert(rec_map->mmap_base == NULL);
 		buffer_free(&rec_map->buffer);
@@ -466,8 +463,6 @@ void mail_index_map_move_to_memory(struct mail_index_map *map)
 	if (map->rec_map->mmap_base == NULL)
 		return;
 
-	i_assert(map->rec_map->lock_id != 0);
-
 	if (array_count(&map->rec_map->maps) == 1)
 		new_map = map->rec_map;
 	else {
@@ -484,7 +479,6 @@ void mail_index_map_move_to_memory(struct mail_index_map *map)
 		mail_index_record_map_unlink(map);
 		map->rec_map = new_map;
 	} else {
-		mail_index_unlock(map->index, &new_map->lock_id);
 		if (munmap(new_map->mmap_base, new_map->mmap_size) < 0)
 			mail_index_set_syscall_error(map->index, "munmap()");
 		new_map->mmap_base = NULL;

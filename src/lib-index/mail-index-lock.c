@@ -36,45 +36,6 @@ int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
 			      timeout_secs, lock_r);
 }
 
-static int mail_index_lock(struct mail_index *index,
-			   unsigned int timeout_secs, unsigned int *lock_id_r)
-{
-	int ret;
-
-	if (index->lock_type != F_UNLCK) {
-		/* file is already locked */
-		index->shared_lock_count++;
-		*lock_id_r = index->lock_id_counter;
-		return 1;
-	}
-
-	if (index->lock_method == FILE_LOCK_METHOD_DOTLOCK &&
-	    !MAIL_INDEX_IS_IN_MEMORY(index)) {
-		/* FIXME: exclusive locking will rewrite the index file every
-		   time. shouldn't really be needed.. reading doesn't require
-		   locks then, though */
-		index->shared_lock_count++;
-		index->lock_type = F_RDLCK;
-		*lock_id_r = index->lock_id_counter;
-		return 1;
-	}
-
-	i_assert(index->lock_type == F_UNLCK);
-	ret = mail_index_lock_fd(index, index->filepath, index->fd,
-				 F_RDLCK, timeout_secs,
-				 &index->file_lock);
-	if (ret <= 0)
-		return ret;
-
-	if (index->lock_type == F_UNLCK)
-		index->lock_id_counter += 2;
-	index->lock_type = F_RDLCK;
-
-	index->shared_lock_count++;
-	*lock_id_r = index->lock_id_counter;
-	return 1;
-}
-
 void mail_index_flush_read_cache(struct mail_index *index, const char *path,
 				 int fd, bool locked)
 {
@@ -90,64 +51,4 @@ void mail_index_flush_read_cache(struct mail_index *index, const char *path,
 	} else {
 		nfs_flush_read_cache_unlocked(path, fd);
 	}
-}
-
-int mail_index_lock_shared(struct mail_index *index, unsigned int *lock_id_r)
-{
-	unsigned int timeout_secs;
-	int ret;
-
-	timeout_secs = I_MIN(MAIL_INDEX_SHARED_LOCK_TIMEOUT,
-			     index->max_lock_timeout_secs);
-	ret = mail_index_lock(index, timeout_secs, lock_id_r);
-	if (ret > 0) {
-		mail_index_flush_read_cache(index, index->filepath,
-					    index->fd, TRUE);
-		return 0;
-	}
-	if (ret < 0)
-		return -1;
-
-	mail_index_set_error(index,
-		"Timeout (%us) while waiting for shared lock for index file %s",
-		timeout_secs, index->filepath);
-	index->index_lock_timeout = TRUE;
-	return -1;
-}
-
-void mail_index_unlock(struct mail_index *index, unsigned int *_lock_id)
-{
-	unsigned int lock_id = *_lock_id;
-
-	*_lock_id = 0;
-
-	/* shared lock */
-	if (!mail_index_is_locked(index, lock_id)) {
-		/* unlocking some older generation of the index file.
-		   we've already closed the file so just ignore this. */
-		return;
-	}
-
-	i_assert(index->shared_lock_count > 0);
-	index->shared_lock_count--;
-
-	if (index->shared_lock_count == 0) {
-		index->lock_id_counter += 2;
-		index->lock_type = F_UNLCK;
-		if (index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
-			if (!MAIL_INDEX_IS_IN_MEMORY(index))
-				file_unlock(&index->file_lock);
-		}
-		i_assert(index->file_lock == NULL);
-	}
-}
-
-bool mail_index_is_locked(struct mail_index *index, unsigned int lock_id)
-{
-	if ((index->lock_id_counter ^ lock_id) <= 1 && lock_id != 0) {
-		i_assert(index->lock_type != F_UNLCK);
-		return TRUE;
-	}
-
-	return FALSE;
 }

@@ -119,7 +119,6 @@ struct mail_index_record_map {
 
 	void *mmap_base;
 	size_t mmap_size, mmap_used_size;
-	unsigned int lock_id;
 
 	buffer_t *buffer;
 
@@ -205,7 +204,7 @@ struct mail_index {
 	/* syncing will update this if non-NULL */
 	struct mail_index_transaction_commit_result *sync_commit_result;
 
-	int lock_type, shared_lock_count;
+	int lock_type;
 	unsigned int lock_id_counter;
 	enum file_lock_method lock_method;
 	unsigned int max_lock_timeout_secs;
@@ -272,12 +271,6 @@ void mail_index_write(struct mail_index *index, bool want_rotate);
 
 void mail_index_flush_read_cache(struct mail_index *index, const char *path,
 				 int fd, bool locked);
-
-/* Returns 0 = ok, -1 = error. */
-int mail_index_lock_shared(struct mail_index *index, unsigned int *lock_id_r);
-void mail_index_unlock(struct mail_index *index, unsigned int *lock_id);
-/* Returns TRUE if given lock_id is valid. */
-bool mail_index_is_locked(struct mail_index *index, unsigned int lock_id);
 
 int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
 		       int lock_type, unsigned int timeout_secs,

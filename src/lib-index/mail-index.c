@@ -424,7 +424,6 @@ mail_index_try_open(struct mail_index *index)
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
 		return 0;
 
-	i_assert(index->map == NULL || index->map->rec_map->lock_id == 0);
 	ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD);
 	if (ret == 0) {
 		/* it's corrupted - recreate it */
@@ -571,7 +570,6 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 		i_strdup("(in-memory index)") :
 		i_strconcat(index->dir, "/", index->prefix, NULL);
 
-	index->shared_lock_count = 0;
 	index->lock_type = F_UNLCK;
 	index->lock_id_counter = 2;
 
@@ -629,7 +627,6 @@ void mail_index_close_file(struct mail_index *index)
 
 	index->lock_id_counter += 2;
 	index->lock_type = F_UNLCK;
-	index->shared_lock_count = 0;
 }
 
 void mail_index_close(struct mail_index *index)
@@ -692,9 +689,6 @@ int mail_index_unlink(struct mail_index *index)
 int mail_index_reopen_if_changed(struct mail_index *index)
 {
 	struct stat st1, st2;
-
-	i_assert(index->shared_lock_count == 0 ||
-		 (index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) == 0);
 
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
 		return 0;

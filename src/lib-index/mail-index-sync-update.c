@@ -75,9 +75,6 @@ mail_index_sync_move_to_private_memory(struct mail_index_sync_map_ctx *ctx)
 {
 	struct mail_index_map *map = ctx->view->map;
 
-	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map) ||
-		 map->rec_map->lock_id != 0);
-
 	if (map->refcount > 1) {
 		map = mail_index_map_clone(map);
 		mail_index_sync_replace_map(ctx, map);

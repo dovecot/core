@@ -235,8 +235,7 @@ mail_index_try_read_map(struct mail_index_map *map,
 	return 1;
 }
 
-static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size,
-			       unsigned int *lock_id)
+static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size)
 {
 	struct mail_index *index = map->index;
 	mail_index_sync_lost_handler_t *const *handlerp;
@@ -264,7 +263,6 @@ static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size,
 
 		/* ESTALE - reopen index file */
 		mail_index_close_file(index);
-		*lock_id = 0;
 
                 ret = mail_index_try_open_only(index);
 		if (ret <= 0) {
@@ -275,8 +273,6 @@ static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size,
 			}
 			return -1;
 		}
-		if (mail_index_lock_shared(index, lock_id) < 0)
-			return -1;
 
 		if (fstat(index->fd, &st) == 0)
 			file_size = st.st_size;
@@ -297,7 +293,6 @@ static int mail_index_map_latest_file(struct mail_index *index)
 {
 	struct mail_index_map *old_map, *new_map;
 	struct stat st;
-	unsigned int lock_id;
 	uoff_t file_size;
 	bool use_mmap, unusable = FALSE;
 	int ret, try;
@@ -312,10 +307,6 @@ static int mail_index_map_latest_file(struct mail_index *index)
 		return 1;
 	}
 
-	/* the index file is still open, lock it */
-	if (mail_index_lock_shared(index, &lock_id) < 0)
-		return -1;
-
 	if ((index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0)
 		nfs_flush_attr_cache_fd_locked(index->filepath, index->fd);
 
@@ -324,7 +315,6 @@ static int mail_index_map_latest_file(struct mail_index *index)
 	else {
 		if (!ESTALE_FSTAT(errno)) {
 			mail_index_set_syscall_error(index, "fstat()");
-			mail_index_unlock(index, &lock_id);
 			return -1;
 		}
 		file_size = (uoff_t)-1;
@@ -337,11 +327,9 @@ static int mail_index_map_latest_file(struct mail_index *index)
 
 	new_map = mail_index_map_alloc(index);
 	if (use_mmap) {
-		new_map->rec_map->lock_id = lock_id;
 		ret = mail_index_mmap(new_map, file_size);
 	} else {
-		ret = mail_index_read_map(new_map, file_size, &lock_id);
-		mail_index_unlock(index, &lock_id);
+		ret = mail_index_read_map(new_map, file_size);
 	}
 	if (ret == 0) {
 		/* the index files are unusable */
