@@ -24,6 +24,7 @@ struct dict_connection {
 	struct ostream *output;
 
 	struct dict_iterate_context *iter_ctx;
+	enum dict_iterate_flags iter_flags;
 
 	/* There are only a few transactions per client, so keeping them in
 	   array is fast enough */

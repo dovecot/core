@@ -53,8 +53,10 @@ static int cmd_iterate_flush(struct dict_connection *conn)
 	o_stream_cork(conn->output);
 	while (dict_iterate(conn->iter_ctx, &key, &value)) {
 		str_truncate(str, 0);
-		str_printfa(str, "%c%s\t%s\n", DICT_PROTOCOL_REPLY_OK,
-			    key, value);
+		str_printfa(str, "%c%s\t", DICT_PROTOCOL_REPLY_OK, key);
+		if ((conn->iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
+			str_append(str, value);
+		str_append_c(str, '\n');
 		o_stream_nsend(conn->output, str_data(str), str_len(str));
 
 		if (o_stream_get_buffer_used_size(conn->output) >
@@ -99,6 +101,7 @@ static int cmd_iterate(struct dict_connection *conn, const char *line)
 
 	/* <flags> <path> */
 	conn->iter_ctx = dict_iterate_init_multiple(conn->dict, args+1, flags);
+	conn->iter_flags = flags;
 
 	o_stream_set_flush_callback(conn->output, cmd_iterate_flush, conn);
 	(void)cmd_iterate_flush(conn);
