@@ -116,6 +116,20 @@ int index_mailbox_get_metadata(struct mailbox *box,
 			       enum mailbox_metadata_items items,
 			       struct mailbox_metadata *metadata_r);
 
+int index_storage_attribute_set(struct mailbox *box,
+				enum mail_attribute_type type,
+				const char *key, const char *value);
+int index_storage_attribute_get(struct mailbox *box,
+				enum mail_attribute_type type,
+				const char *key, const char **value_r);
+struct mailbox_attribute_iter *
+index_storage_attribute_iter_init(struct mailbox *box,
+				  enum mail_attribute_type type,
+				  const char *prefix);
+const char *
+index_storage_attribute_iter_next(struct mailbox_attribute_iter *iter);
+int index_storage_attribute_iter_deinit(struct mailbox_attribute_iter *iter);
+
 struct mail_search_context *
 index_storage_search_init(struct mailbox_transaction_context *t,
 			  struct mail_search_args *args,

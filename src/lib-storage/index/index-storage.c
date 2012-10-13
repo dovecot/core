@@ -6,6 +6,7 @@
 #include "ioloop.h"
 #include "str.h"
 #include "mkdir-parents.h"
+#include "dict.h"
 #include "mail-index-alloc-cache.h"
 #include "mail-index-private.h"
 #include "mail-index-modseq.h"
@@ -359,6 +360,10 @@ void index_storage_mailbox_close(struct mailbox *box)
 
 void index_storage_mailbox_free(struct mailbox *box)
 {
+	if (box->_attr_dict != NULL) {
+		(void)dict_wait(box->_attr_dict);
+		dict_deinit(&box->_attr_dict);
+	}
 	if (box->index_pvt != NULL)
 		mail_index_alloc_cache_unref(&box->index_pvt);
 	if (box->index != NULL)
@@ -579,6 +584,23 @@ static int mailbox_expunge_all_mails(struct mailbox *box)
 	return mailbox_transaction_commit(&t);
 }
 
+static int
+mailbox_delete_all_attributes(struct mailbox *box, enum mail_attribute_type type)
+{
+	struct mailbox_attribute_iter *iter;
+	const char *key;
+	int ret = 0;
+
+	iter = mailbox_attribute_iter_init(box, type, "");
+	while ((key = mailbox_attribute_iter_next(iter)) != NULL) {
+		if (mailbox_attribute_unset(box, type, key) < 0)
+			ret = -1;
+	}
+	if (mailbox_attribute_iter_deinit(&iter) < 0)
+		ret = -1;
+	return ret;
+}
+
 int index_storage_mailbox_delete(struct mailbox *box)
 {
 	struct mailbox_metadata metadata;
@@ -608,6 +630,10 @@ int index_storage_mailbox_delete(struct mailbox *box)
 
 	if (!box->deleting_must_be_empty) {
 		if (mailbox_expunge_all_mails(box) < 0)
+			return -1;
+		if (mailbox_delete_all_attributes(box, MAIL_ATTRIBUTE_TYPE_PRIVATE) < 0)
+			return -1;
+		if (mailbox_delete_all_attributes(box, MAIL_ATTRIBUTE_TYPE_SHARED) < 0)
 			return -1;
 	}
 	if (mailbox_mark_index_deleted(box, TRUE) < 0)

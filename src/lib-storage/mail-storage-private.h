@@ -142,6 +142,17 @@ struct mailbox_vfuncs {
 			    struct mailbox_metadata *metadata_r);
 	int (*set_subscribed)(struct mailbox *box, bool set);
 
+	int (*attribute_set)(struct mailbox *box, enum mail_attribute_type type,
+			     const char *key, const char *value);
+	int (*attribute_get)(struct mailbox *box, enum mail_attribute_type type,
+			     const char *key, const char **value_r);
+	struct mailbox_attribute_iter *
+		(*attribute_iter_init)(struct mailbox *box,
+				       enum mail_attribute_type type,
+				       const char *prefix);
+	const char *(*attribute_iter_next)(struct mailbox_attribute_iter *iter);
+	int (*attribute_iter_deinit)(struct mailbox_attribute_iter *iter);
+
 	/* Lookup sync extension record and figure out if it mailbox has
 	   changed since. Returns 1 = yes, 0 = no, -1 = error. */
 	int (*list_index_has_changed)(struct mailbox *box,
@@ -250,6 +261,8 @@ struct mailbox {
 	/* Filled lazily when mailbox is opened, use mailbox_get_path()
 	   to access it */
 	const char *_path;
+	/* Filled lazily by mailbox_attribute_*() */
+	struct dict *_attr_dict;
 
 	/* default vfuncs for new struct mails. */
 	const struct mail_vfuncs *mail_vfuncs;
@@ -307,6 +320,8 @@ struct mailbox {
 	unsigned int disallow_new_keywords:1;
 	/* Mailbox has been synced at least once */
 	unsigned int synced:1;
+	/* Failed to create attribute dict, don't try again */
+	unsigned int attr_dict_failed:1;
 };
 
 struct mail_vfuncs {
@@ -518,6 +533,10 @@ struct mailbox_header_lookup_ctx {
 	unsigned int count;
 	const char *const *name;
 	unsigned int *idx;
+};
+
+struct mailbox_attribute_iter {
+	struct mailbox *box;
 };
 
 /* Modules should use do "my_id = mail_storage_module_id++" and

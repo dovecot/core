@@ -1457,6 +1457,44 @@ enum mail_flags mailbox_get_private_flags_mask(struct mailbox *box)
 		return 0;
 }
 
+int mailbox_attribute_set(struct mailbox *box, enum mail_attribute_type type,
+			  const char *key, const char *value)
+{
+	return box->v.attribute_set(box, type, key, value);
+}
+
+int mailbox_attribute_unset(struct mailbox *box, enum mail_attribute_type type,
+			    const char *key)
+{
+	return box->v.attribute_set(box, type, key, NULL);
+}
+
+int mailbox_attribute_get(struct mailbox *box, enum mail_attribute_type type,
+			  const char *key, const char **value_r)
+{
+	return box->v.attribute_get(box, type, key, value_r);
+}
+
+struct mailbox_attribute_iter *
+mailbox_attribute_iter_init(struct mailbox *box, enum mail_attribute_type type,
+			    const char *prefix)
+{
+	return box->v.attribute_iter_init(box, type, prefix);
+}
+
+const char *mailbox_attribute_iter_next(struct mailbox_attribute_iter *iter)
+{
+	return iter->box->v.attribute_iter_next(iter);
+}
+
+int mailbox_attribute_iter_deinit(struct mailbox_attribute_iter **_iter)
+{
+	struct mailbox_attribute_iter *iter = *_iter;
+
+	*_iter = NULL;
+	return iter->box->v.attribute_iter_deinit(iter);
+}
+
 struct mailbox_sync_context *
 mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {

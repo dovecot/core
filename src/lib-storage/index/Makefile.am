@@ -5,6 +5,7 @@ noinst_LTLIBRARIES = libstorage_index.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-fs \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
@@ -14,6 +15,7 @@ AM_CPPFLAGS = \
 libstorage_index_la_SOURCES = \
 	istream-mail.c \
 	index-attachment.c \
+	index-attribute.c \
 	index-mail.c \
 	index-mail-binary.c \
 	index-mail-headers.c \

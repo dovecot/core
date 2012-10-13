@@ -195,6 +195,11 @@ enum mailbox_sync_type {
 	MAILBOX_SYNC_TYPE_MODSEQ	= 0x04
 };
 
+enum mail_attribute_type {
+	MAIL_ATTRIBUTE_TYPE_PRIVATE,
+	MAIL_ATTRIBUTE_TYPE_SHARED
+};
+
 struct message_part;
 struct mail_namespace;
 struct mail_storage;
@@ -503,6 +508,26 @@ int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
 /* Returns a mask of flags that are private to user in this mailbox
    (as opposed to flags shared between users). */
 enum mail_flags mailbox_get_private_flags_mask(struct mailbox *box);
+
+/* Set mailbox attribute key to value. */
+int mailbox_attribute_set(struct mailbox *box, enum mail_attribute_type type,
+			  const char *key, const char *value);
+/* Delete mailbox attribute key. */
+int mailbox_attribute_unset(struct mailbox *box, enum mail_attribute_type type,
+			    const char *key);
+/* Returns value for mailbox attribute key. Returns 1 if value was returned,
+   0 if value wasn't found (set to NULL), -1 if error */
+int mailbox_attribute_get(struct mailbox *box, enum mail_attribute_type type,
+			  const char *key, const char **value_r);
+
+/* Iterate through mailbox attributes of the given type. The prefix can be used
+   to restrict what attributes are returned. */
+struct mailbox_attribute_iter *
+mailbox_attribute_iter_init(struct mailbox *box, enum mail_attribute_type type,
+			    const char *prefix);
+/* Returns the attribute key or NULL if there are no more attributes. */
+const char *mailbox_attribute_iter_next(struct mailbox_attribute_iter *iter);
+int mailbox_attribute_iter_deinit(struct mailbox_attribute_iter **iter);
 
 /* Synchronize the mailbox. */
 struct mailbox_sync_context *
