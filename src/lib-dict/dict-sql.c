@@ -356,7 +356,10 @@ static bool sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 	T_BEGIN {
 		string_t *query = t_str_new(256);
 
-		str_printfa(query, "SELECT %s", map->value_field);
+		str_append(query, "SELECT ");
+		if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
+			str_printfa(query, "%s,", map->value_field);
+
 		/* get all missing fields */
 		sql_fields = array_get(&map->sql_fields, &count);
 		i = array_count(&values);
@@ -367,7 +370,9 @@ static bool sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 			i--;
 		}
 		for (; i < count; i++)
-			str_printfa(query, ",%s", sql_fields[i]);
+			str_printfa(query, "%s,", sql_fields[i]);
+		str_truncate(query, str_len(query)-1);
+
 		str_printfa(query, " FROM %s", map->table);
 
 		recurse_type = (ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 ?

@@ -9,7 +9,8 @@ struct dict;
 enum dict_iterate_flags {
 	DICT_ITERATE_FLAG_RECURSE             = 0x01,
 	DICT_ITERATE_FLAG_SORT_BY_KEY         = 0x02,
-	DICT_ITERATE_FLAG_SORT_BY_VALUE       = 0x04
+	DICT_ITERATE_FLAG_SORT_BY_VALUE       = 0x04,
+	DICT_ITERATE_FLAG_NO_VALUE            = 0x08
 };
 
 enum dict_data_type {
