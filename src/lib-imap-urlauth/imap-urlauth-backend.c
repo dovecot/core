@@ -4,117 +4,35 @@
 #include "buffer.h"
 #include "hex-binary.h"
 #include "randgen.h"
-#include "dict.h"
 #include "mail-user.h"
 #include "mail-storage.h"
+#include "mailbox-list-iter.h"
 #include "imap-urlauth-private.h"
 #include "imap-urlauth-backend.h"
 
-#define IMAP_URLAUTH_PATH DICT_PATH_PRIVATE"imap-urlauth/"
+#define IMAP_URLAUTH_KEY "imap-urlauth"
 
-struct imap_urlauth_backend {
-	struct mail_user *user;
-	struct dict *dict;
-};
-
-int imap_urlauth_backend_create(struct mail_user *user, const char *dict_uri,
-				struct imap_urlauth_backend **backend_r)
-{
-	struct imap_urlauth_backend *backend;
-	struct dict *dict;
-	const char *error;
-
-	if (user->mail_debug)
-		i_debug("imap-urlauth backend: opening backend dict URI %s", dict_uri);
-
-	if (dict_init(dict_uri, DICT_DATA_TYPE_STRING,
-		      user->username, user->set->base_dir, &dict, &error) < 0) {
-		i_error("imap_urlauth_dict: Failed to initialize dict: %s", error);
-		return -1;
-	}
-
-	backend = i_new(struct imap_urlauth_backend, 1);
-	backend->user = user;
-	backend->dict = dict;
-
-	random_init();
-	*backend_r = backend;
-	return 0;
-}
-
-void imap_urlauth_backend_destroy(struct imap_urlauth_backend **_backend)
-{
-	struct imap_urlauth_backend *backend = *_backend;
-
-	*_backend = NULL;
-
-	if (backend->dict != NULL) {
-		(void)dict_wait(backend->dict);
-		dict_deinit(&backend->dict);
-	}
-	i_free(backend);
-	random_deinit();
-}
-
-static int
-imap_urlauth_backend_set_key(struct imap_urlauth_backend *backend,
-			     const char *path, const char *mailbox_key)
-{
-	struct dict_transaction_context *dtrans;
-
-	dtrans = dict_transaction_begin(backend->dict);
-	dict_set(dtrans, path, mailbox_key);
-	return dict_transaction_commit(&dtrans) < 0 ? -1 : 1;
-}
-
-static int
-imap_urlauth_backend_reset_key(struct imap_urlauth_backend *backend,
-			       const char *path)
-{
-	struct dict_transaction_context *dtrans;
-
-	dtrans = dict_transaction_begin(backend->dict);
-	dict_unset(dtrans, path);
-	return dict_transaction_commit(&dtrans) < 0 ? -1 : 1;
-}
-
-static int
-imap_urlauth_backend_get_key(struct imap_urlauth_backend *backend,
-			     const char *path, const char **mailbox_key_r)
-{
-	return dict_lookup(backend->dict, pool_datastack_create(), path,
-			   mailbox_key_r);
-}
-
-int imap_urlauth_backend_get_mailbox_key(struct imap_urlauth_backend *backend,
-					 struct mailbox *box, bool create,
+int imap_urlauth_backend_get_mailbox_key(struct mailbox *box, bool create,
 					 unsigned char mailbox_key_r[IMAP_URLAUTH_KEY_LEN],
 					 const char **error_r,
 					 enum mail_error *error_code_r)
 {
-	const char *path, *mailbox_key_hex = NULL;
-	struct mailbox_metadata metadata;
-	const char *mailbox = mailbox_get_vname(box);
+	struct mail_user *user = mail_storage_get_user(mailbox_get_storage(box));
+	const char *mailbox_key_hex = NULL;
 	buffer_t key_buf;
 	int ret;
 
 	*error_r = "Internal server error";
 	*error_code_r = MAIL_ERROR_TEMP;
 
-	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
-		*error_r = mailbox_get_last_error(box, error_code_r);
-		return -1;
-	}
-	mailbox = guid_128_to_string(metadata.guid);
-
-	path = t_strconcat(IMAP_URLAUTH_PATH, dict_escape_string(mailbox), NULL);
-	if ((ret = imap_urlauth_backend_get_key(backend, path,
-						&mailbox_key_hex)) < 0)
+	ret = mailbox_attribute_get(box, MAIL_ATTRIBUTE_TYPE_PRIVATE,
+				    IMAP_URLAUTH_KEY, &mailbox_key_hex);
+	if (ret < 0)
 		return -1;
 
-	if (backend->user->mail_debug) {
-		i_debug("imap-urlauth backend: %skey found for mailbox %s at %s",
-			(ret > 0 ? "" : "no "), mailbox, path);
+	if (user->mail_debug) {
+		i_debug("imap-urlauth: %skey found for mailbox %s",
+			(ret > 0 ? "" : "no "), mailbox_get_vname(box));
 	}
 
 	if (ret == 0) {
@@ -125,12 +43,13 @@ int imap_urlauth_backend_get_mailbox_key(struct imap_urlauth_backend *backend,
 		random_fill(mailbox_key_r, IMAP_URLAUTH_KEY_LEN);
 		mailbox_key_hex = binary_to_hex(mailbox_key_r,
 						IMAP_URLAUTH_KEY_LEN);
-		if ((ret = imap_urlauth_backend_set_key(backend, path,
-							mailbox_key_hex)) < 0)
+		ret = mailbox_attribute_set(box, MAIL_ATTRIBUTE_TYPE_PRIVATE,
+					    IMAP_URLAUTH_KEY, mailbox_key_hex);
+		if (ret < 0)
 			return -1;
-		if (backend->user->mail_debug) {
-			i_debug("imap-urlauth backend: created key for mailbox %s at %s",
-				mailbox, path);
+		if (user->mail_debug) {
+			i_debug("imap-urlauth: created key for mailbox %s",
+				mailbox_get_vname(box));
 		}
 	} else {
 		/* read existing key */
@@ -139,8 +58,8 @@ int imap_urlauth_backend_get_mailbox_key(struct imap_urlauth_backend *backend,
 		if (strlen(mailbox_key_hex) != 2*IMAP_URLAUTH_KEY_LEN ||
 		    hex_to_binary(mailbox_key_hex, &key_buf) < 0 ||
 		    key_buf.used != IMAP_URLAUTH_KEY_LEN) {
-			i_error("imap-urlauth backend: key found for mailbox %s at %s is invalid",
-				mailbox, path);
+			i_error("imap-urlauth: key found for mailbox %s is invalid",
+				mailbox_get_vname(box));
 			return -1;
 		}
 		memcpy(mailbox_key_r, key_buf.data, IMAP_URLAUTH_KEY_LEN);
@@ -148,36 +67,33 @@ int imap_urlauth_backend_get_mailbox_key(struct imap_urlauth_backend *backend,
 	return 1;
 }
 
-int imap_urlauth_backend_reset_mailbox_key(struct imap_urlauth_backend *backend,
-					   struct mailbox *box)
+int imap_urlauth_backend_reset_mailbox_key(struct mailbox *box)
 {
-	const char *path, *mailbox;
-	struct mailbox_metadata metadata;
-
-	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0)
-		return 0;
-	mailbox = guid_128_to_string(metadata.guid);
-
-	path = t_strconcat(IMAP_URLAUTH_PATH, dict_escape_string(mailbox), NULL);
-	return imap_urlauth_backend_reset_key(backend, path) < 0 ? -1 : 1;
+	return mailbox_attribute_unset(box, MAIL_ATTRIBUTE_TYPE_PRIVATE,
+				       IMAP_URLAUTH_KEY) < 0 ? -1 : 1;
 }
 
-int imap_urlauth_backend_reset_all_keys(struct imap_urlauth_backend *backend)
+int imap_urlauth_backend_reset_all_keys(struct mail_user *user)
 { 
-	struct dict_transaction_context *dtrans;
-	struct dict_iterate_context *diter;
-	const char *path, *value;
-	int ret = 1;
+	const char *const patterns[] = { "*", NULL };
+	struct mailbox_list_iterate_context *iter;
+	const struct mailbox_info *info;
+	struct mailbox *box;
+	int ret = 0;
 
-	dtrans = dict_transaction_begin(backend->dict);
-	diter = dict_iterate_init(backend->dict, IMAP_URLAUTH_PATH,
-				  DICT_ITERATE_FLAG_RECURSE);
-	while (dict_iterate(diter, &path, &value))
-		dict_unset(dtrans, path);
-	
-	if (dict_iterate_deinit(&diter) < 0)
-		ret = -1;
-	if (dict_transaction_commit(&dtrans) < 0)
+	iter = mailbox_list_iter_init_namespaces(user->namespaces, patterns,
+						 MAIL_NAMESPACE_TYPE_MASK_ALL,
+						 MAILBOX_LIST_ITER_NO_AUTO_BOXES |
+						 MAILBOX_LIST_ITER_SKIP_ALIASES |
+						 MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+	while ((info = mailbox_list_iter_next(iter)) != NULL) {
+		box = mailbox_alloc(info->ns->list, info->vname, 0);
+		if (mailbox_attribute_unset(box, MAIL_ATTRIBUTE_TYPE_PRIVATE,
+					    IMAP_URLAUTH_KEY) < 0)
+			ret = -1;
+		mailbox_free(&box);
+	}
+	if (mailbox_list_iter_deinit(&iter) < 0)
 		ret = -1;
 	return ret;
 }

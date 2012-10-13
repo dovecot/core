@@ -8,8 +8,6 @@ struct imap_msgpart_url;
 struct imap_urlauth_context;
 
 struct imap_urlauth_config {
-	const char *dict_uri;
-
 	const char *url_host;
 	unsigned int url_port;
 
@@ -21,9 +19,9 @@ struct imap_urlauth_config {
 	bool access_anonymous;
 };
 
-int imap_urlauth_init(struct mail_user *user,
-		      const struct imap_urlauth_config *config,
-		      struct imap_urlauth_context **ctx_r);
+struct imap_urlauth_context *
+imap_urlauth_init(struct mail_user *user,
+		  const struct imap_urlauth_config *config);
 void imap_urlauth_deinit(struct imap_urlauth_context **_uctx);
 
 int imap_urlauth_generate(struct imap_urlauth_context *uctx,

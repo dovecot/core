@@ -56,7 +56,6 @@ struct service_settings imap_urlauth_worker_service_settings = {
 static const struct setting_define imap_urlauth_worker_setting_defines[] = {
 	DEF(SET_BOOL, verbose_proctitle),
 
-	DEF(SET_STR_VARS, imap_urlauth_dict),
 	DEF(SET_STR, imap_urlauth_host),
 	DEF(SET_UINT, imap_urlauth_port),
 
@@ -66,7 +65,6 @@ static const struct setting_define imap_urlauth_worker_setting_defines[] = {
 const struct imap_urlauth_worker_settings imap_urlauth_worker_default_settings = {
 	.verbose_proctitle = FALSE,
 
-	.imap_urlauth_dict = "",
 	.imap_urlauth_host = "",
 	.imap_urlauth_port = 143
 };

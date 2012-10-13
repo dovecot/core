@@ -39,12 +39,11 @@ static void client_idle_timeout(struct client *client)
 	client_destroy(client, "Disconnected for inactivity");
 }
 
-static int client_init_urlauth(struct client *client)
+static void client_init_urlauth(struct client *client)
 {
 	struct imap_urlauth_config config;
 
 	memset(&config, 0, sizeof(config));
-	config.dict_uri = client->set->imap_urlauth_dict;
 	config.url_host = client->set->imap_urlauth_host;
 	config.url_port = client->set->imap_urlauth_port;
 	config.socket_path = t_strconcat(client->user->set->base_dir,
@@ -53,7 +52,7 @@ static int client_init_urlauth(struct client *client)
 	config.access_anonymous = client->user->anonymous;
 	config.access_user = client->user->username;
 
-	return imap_urlauth_init(client->user, &config, &client->urlauth_ctx);
+	client->urlauth_ctx = imap_urlauth_init(client->user, &config);
 }
 
 struct client *client_create(int fd_in, int fd_out, const char *session_id,
@@ -129,13 +128,13 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 		str_append(client->capability_string, " NOTIFY");
 	}
 
-	if (*set->imap_urlauth_host != '\0' && *set->imap_urlauth_dict != '\0') {
-		if (client_init_urlauth(client) == 0 &&
-		    !explicit_capability) {
-			/* Enable URLAUTH capability only when dict is
-			   configured correctly */
+	if (*set->imap_urlauth_host != '\0' &&
+	    *mail_set->mail_attribute_dict != '\0') {
+		/* Enable URLAUTH capability only when dict is
+		   configured correctly */
+		client_init_urlauth(client);
+		if (!explicit_capability)
 			str_append(client->capability_string, " URLAUTH URLAUTH=BINARY");
-		}
 	}
 
 	ident = mail_user_get_anvil_userip_ident(client->user);

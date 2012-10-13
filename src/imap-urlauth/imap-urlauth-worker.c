@@ -634,11 +634,8 @@ client_handle_user_command(struct client *client, const char *cmd,
 	}
 
 	/* initialize urlauth context */
-	if (*set->imap_urlauth_host == '\0' ||
-	    *set->imap_urlauth_dict == '\0') {
-		i_error("%s setting is not configured for user %s",
-			*set->imap_urlauth_host == '\0' ?
-			"imap_urlauth_host" : "imap_urlauth_dict",
+	if (*set->imap_urlauth_host == '\0') {
+		i_error("imap_urlauth_host setting is not configured for user %s",
 			mail_user->username);
 		client_send_line(client, "NO");
 		client_abort(client, "Session aborted: URLAUTH not configured");
@@ -646,7 +643,6 @@ client_handle_user_command(struct client *client, const char *cmd,
 	}
 
 	memset(&config, 0, sizeof(config));
-	config.dict_uri = set->imap_urlauth_dict;
 	config.url_host = set->imap_urlauth_host;
 	config.url_port = set->imap_urlauth_port;
 	config.access_user = client->access_user;
@@ -654,13 +650,7 @@ client_handle_user_command(struct client *client, const char *cmd,
 	config.access_applications =
 		(const void *)array_get(&client->access_apps, &count);
 		
-	if (imap_urlauth_init(client->mail_user, &config, &client->urlauth_ctx) < 0) {
-		client_send_line(client, "NO");
-		client_abort(client,
-			"Session aborted: Failed to init URLAUTH context");
-		return 0;
-	}
-
+	client->urlauth_ctx = imap_urlauth_init(client->mail_user, &config);
 	if (client->debug) {
 		i_debug("Providing access to user account `%s' on behalf of `%s'",
 			mail_user->username, client->access_user);

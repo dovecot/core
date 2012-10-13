@@ -7,7 +7,6 @@ struct imap_urlauth_worker_settings {
 	bool verbose_proctitle;
 
 	/* imap_urlauth: */
-	const char *imap_urlauth_dict;
 	const char *imap_urlauth_host;
 	unsigned int imap_urlauth_port;
 };

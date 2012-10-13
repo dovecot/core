@@ -28,23 +28,19 @@
 
 #define URL_HOST_ALLOW_ANY "*"
 
-int imap_urlauth_init(struct mail_user *user,
-		      const struct imap_urlauth_config *config,
-		      struct imap_urlauth_context **ctx_r)
+struct imap_urlauth_context *
+imap_urlauth_init(struct mail_user *user,
+		  const struct imap_urlauth_config *config)
 {
-	struct imap_urlauth_backend *backend;
 	struct imap_urlauth_context *uctx;
 	unsigned int timeout;
 
 	i_assert(*config->url_host != '\0');
-	i_assert(*config->dict_uri != '\0');
 
-	if (imap_urlauth_backend_create(user, config->dict_uri, &backend) < 0)
-		return -1;
+	random_init();
 
 	uctx = i_new(struct imap_urlauth_context, 1);
 	uctx->user = user;
-	uctx->backend = backend;
 	uctx->url_host = i_strdup(config->url_host);
 	uctx->url_port = config->url_port;
 
@@ -67,23 +63,23 @@ int imap_urlauth_init(struct mail_user *user,
 		uctx->conn = imap_urlauth_connection_init(config->socket_path,
 					user, config->session_id, timeout);
 	}
-	*ctx_r = uctx;
-	return 0;
+	return uctx;
 }
 
 void imap_urlauth_deinit(struct imap_urlauth_context **_uctx)
 {
 	struct imap_urlauth_context *uctx = *_uctx;
 
-	if (uctx->backend != NULL)
-		imap_urlauth_backend_destroy(&uctx->backend);
+	*_uctx = NULL;
+
 	if (uctx->conn != NULL)
 		imap_urlauth_connection_deinit(&uctx->conn);
 	i_free(uctx->url_host);
 	i_free(uctx->access_user);
 	i_free(uctx->access_applications);
 	i_free(uctx);
-	*_uctx = uctx;
+
+	random_deinit();
 }
 
 static const unsigned char *
@@ -298,9 +294,8 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 	box = imap_msgpart_url_get_mailbox(mpurl);
 
 	/* obtain mailbox key */
-	ret = imap_urlauth_backend_get_mailbox_key(uctx->backend, box, TRUE,
-						   mailbox_key, error_r,
-						   &error_code);
+	ret = imap_urlauth_backend_get_mailbox_key(box, TRUE, mailbox_key,
+						   error_r, &error_code);
 	if (ret < 0) {
 		imap_msgpart_url_free(&mpurl);
 		return ret;
@@ -418,9 +413,8 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 	}
 
 	/* obtain mailbox key */
-	ret = imap_urlauth_backend_get_mailbox_key(uctx->backend, box, FALSE,
-						   mailbox_key, error_r,
-						   error_code_r);
+	ret = imap_urlauth_backend_get_mailbox_key(box, FALSE, mailbox_key,
+						   error_r, error_code_r);
 	if (ret < 0) {
 		imap_msgpart_url_free(&mpurl);
 		return -1;
@@ -462,13 +456,13 @@ int imap_urlauth_fetch(struct imap_urlauth_context *uctx,
 					 error_code_r, error_r);
 }
 
-int imap_urlauth_reset_mailbox_key(struct imap_urlauth_context *uctx,
+int imap_urlauth_reset_mailbox_key(struct imap_urlauth_context *uctx ATTR_UNUSED,
 				   struct mailbox *box)
 {
-	return imap_urlauth_backend_reset_mailbox_key(uctx->backend, box);
+	return imap_urlauth_backend_reset_mailbox_key(box);
 }
 
 int imap_urlauth_reset_all_keys(struct imap_urlauth_context *uctx)
 {
-	return imap_urlauth_backend_reset_all_keys(uctx->backend);
+	return imap_urlauth_backend_reset_all_keys(uctx->user);
 }
