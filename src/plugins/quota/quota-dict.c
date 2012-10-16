@@ -86,10 +86,8 @@ static void dict_quota_deinit(struct quota_root *_root)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *)_root;
 
-	if (root->dict != NULL) {
-		(void)dict_wait(root->dict);
+	if (root->dict != NULL)
 		dict_deinit(&root->dict);
-	}
 	i_free(root);
 }
 
@@ -208,6 +206,13 @@ dict_quota_update(struct quota_root *_root,
 	return 0;
 }
 
+static void dict_quota_flush(struct quota_root *_root)
+{
+	struct dict_quota_root *root = (struct dict_quota_root *)_root;
+
+	(void)dict_wait(root->dict);
+}
+
 struct quota_backend quota_backend_dict = {
 	"dict",
 
@@ -221,6 +226,7 @@ struct quota_backend quota_backend_dict = {
 		dict_quota_root_get_resources,
 		dict_quota_get_resource,
 		dict_quota_update,
-		NULL
+		NULL,
+		dict_quota_flush
 	}
 };

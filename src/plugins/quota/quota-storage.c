@@ -366,13 +366,33 @@ static int quota_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 	return ret;
 }
 
+static void quota_roots_flush(struct quota *quota)
+{
+	struct quota_root *const *roots;
+	unsigned int i, count;
+
+	roots = array_get(&quota->roots, &count);
+	for (i = 0; i < count; i++) {
+		if (roots[i]->backend.v.flush != NULL)
+			roots[i]->backend.v.flush(roots[i]);
+	}
+}
+
 static void quota_mailbox_close(struct mailbox *box)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
+	struct quota_user *quser = QUOTA_USER_CONTEXT(box->storage->user);
 
 	/* sync_notify() may be called outside sync_begin()..sync_deinit().
 	   make sure we apply changes at close time at latest. */
 	quota_mailbox_sync_commit(qbox);
+
+	/* make sure quota backend flushes all data. this could also be done
+	   somewhat later, but user.deinit() is too late, since the flushing
+	   can trigger quota recalculation which isn't safe to do anymore
+	   at user.deinit() when most of the loaded plugins have already been
+	   deinitialized. */
+	quota_roots_flush(quser->quota);
 
 	qbox->module_ctx.super.close(box);
 }

@@ -913,6 +913,7 @@ struct quota_backend quota_backend_maildir = {
 		maildir_quota_root_get_resources,
 		maildir_quota_get_resource,
 		maildir_quota_update,
+		NULL,
 		NULL
 	}
 };

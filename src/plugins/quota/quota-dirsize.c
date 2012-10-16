@@ -219,6 +219,7 @@ struct quota_backend quota_backend_dirsize = {
 		dirsize_quota_root_get_resources,
 		dirsize_quota_get_resource,
 		dirsize_quota_update,
+		NULL,
 		NULL
 	}
 };
