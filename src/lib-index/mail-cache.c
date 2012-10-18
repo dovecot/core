@@ -145,6 +145,7 @@ int mail_cache_reopen(struct mail_cache *cache)
 {
 	struct mail_index_view *view;
 	const struct mail_index_ext *ext;
+	const void *data;
 
 	i_assert(!cache->locked);
 
@@ -167,7 +168,7 @@ int mail_cache_reopen(struct mail_cache *cache)
 
 	mail_cache_init_file_cache(cache);
 
-	if (mail_cache_map(cache, 0, 0) < 0)
+	if (mail_cache_map(cache, 0, 0, &data) < 0)
 		return -1;
 
 	if (mail_cache_header_fields_read(cache) < 0)
@@ -265,8 +266,10 @@ static bool mail_cache_verify_header(struct mail_cache *cache)
 	return TRUE;
 }
 
-int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
+int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
+		   const void **data_r)
 {
+	const void *data;
 	ssize_t ret;
 
 	cache->remap_counter++;
@@ -309,13 +312,22 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 		cache->hdr = &cache->hdr_ro_copy;
 		if (offset == 0)
 			mail_cache_update_need_compress(cache);
-		return 0;
+
+		data = file_cache_get_map(cache->file_cache,
+					  &cache->mmap_length);
+		if (offset > cache->mmap_length) {
+			*data_r = NULL;
+			return 0;
+		}
+		*data_r = CONST_PTR_OFFSET(data, offset);
+		return offset + size > cache->mmap_length ? 0 : 1;
 	}
 
 	if (offset < cache->mmap_length &&
 	    size <= cache->mmap_length - offset) {
 		/* already mapped */
-		return 0;
+		*data_r = CONST_PTR_OFFSET(cache->mmap_base, offset);
+		return 1;
 	}
 
 	if (cache->mmap_base != NULL) {
@@ -355,11 +367,18 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 	cache->hdr = cache->data;
 	if (offset == 0)
 		mail_cache_update_need_compress(cache);
-	return 0;
+	if (offset > cache->mmap_length) {
+		*data_r = NULL;
+		return 0;
+	}
+	*data_r = CONST_PTR_OFFSET(cache->mmap_base, offset);
+	return offset + size > cache->mmap_length ? 0 : 1;
 }
 
 static int mail_cache_try_open(struct mail_cache *cache)
 {
+	const void *data;
+
 	cache->opened = TRUE;
 
 	if (MAIL_INDEX_IS_IN_MEMORY(cache->index))
@@ -379,9 +398,9 @@ static int mail_cache_try_open(struct mail_cache *cache)
 
 	mail_cache_init_file_cache(cache);
 
-	if (mail_cache_map(cache, 0, sizeof(struct mail_cache_header)) < 0)
+	if (mail_cache_map(cache, 0, sizeof(struct mail_cache_header),
+			   &data) < 0)
 		return -1;
-
 	return 1;
 }
 
@@ -550,6 +569,7 @@ mail_cache_lock_full(struct mail_cache *cache, bool require_same_reset_id,
 		     bool nonblock)
 {
 	const struct mail_index_ext *ext;
+	const void *data;
 	struct mail_index_view *iview;
 	uint32_t reset_id;
 	int i, ret;
@@ -613,7 +633,7 @@ mail_cache_lock_full(struct mail_cache *cache, bool require_same_reset_id,
 			file_cache_invalidate(cache->file_cache, 0,
 					      sizeof(struct mail_cache_header));
 		}
-		if (mail_cache_map(cache, 0, 0) == 0)
+		if (mail_cache_map(cache, 0, 0, &data) == 0)
 			cache->hdr_copy = *cache->hdr;
 		else {
 			(void)mail_cache_unlock(cache);

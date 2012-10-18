@@ -353,6 +353,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	uint32_t file_seq, old_offset;
 	ARRAY_TYPE(uint32_t) ext_offsets;
 	const uint32_t *offsets;
+	const void *data;
 	unsigned int i, count;
 	int fd, ret;
 
@@ -440,7 +441,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	if (cache->file_cache != NULL)
 		file_cache_set_fd(cache->file_cache, cache->fd);
 
-	if (mail_cache_map(cache, 0, 0) < 0)
+	if (mail_cache_map(cache, 0, 0, &data) < 0)
 		return -1;
 	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;

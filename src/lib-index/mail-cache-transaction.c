@@ -1091,6 +1091,8 @@ int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 		    uint32_t new_offset)
 {
 	const struct mail_cache_record *rec;
+	const void *data;
+	int ret;
 
 	i_assert(cache->locked);
 
@@ -1107,15 +1109,16 @@ int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 	   records at the same time. we'd rather not lose those additions, so
 	   force the linking order to be new_offset -> old_offset if it isn't
 	   already. */
-	if (mail_cache_map(cache, new_offset, sizeof(*rec)) < 0)
-		return -1;
-	if (new_offset + sizeof(*rec) > cache->mmap_length) {
-		mail_cache_set_corrupted(cache,
-			"Cache record offset %u points outside file",
-			new_offset);
+	ret = mail_cache_map(cache, new_offset, sizeof(*rec), &data);
+	if (ret <= 0) {
+		if (ret == 0) {
+			mail_cache_set_corrupted(cache,
+				"Cache record offset %u points outside file",
+				new_offset);
+		}
 		return -1;
 	}
-	rec = CACHE_RECORD(cache, new_offset);
+	rec = data;
 	if (rec->prev_offset == old_offset) {
 		/* link is already correct */
 		return 0;

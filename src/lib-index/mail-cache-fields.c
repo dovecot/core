@@ -198,11 +198,14 @@ mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 	return list;
 }
 
-static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
-					       uint32_t *offset_r, bool map)
+static int
+mail_cache_header_fields_get_offset(struct mail_cache *cache,
+				    uint32_t *offset_r,
+				    const struct mail_cache_header_fields **field_hdr_r)
 {
 	const struct mail_cache_header_fields *field_hdr;
 	struct mail_cache_header_fields tmp_field_hdr;
+	const void *data;
 	uint32_t offset = 0, next_offset;
 	unsigned int next_count = 0;
 	bool invalidate = FALSE;
@@ -210,6 +213,8 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
 		*offset_r = 0;
+		if (field_hdr_r != NULL)
+			*field_hdr_r = NULL;
 		return 0;
 	}
 
@@ -228,16 +233,16 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 		invalidate = TRUE;
 
 		if (cache->mmap_base != NULL) {
-			if (mail_cache_map(cache, offset,
-					   sizeof(*field_hdr)) < 0)
-				return -1;
-			if (offset >= cache->mmap_length) {
+			ret = mail_cache_map(cache, offset, sizeof(*field_hdr),
+					     &data);
+			if (ret <= 0) {
+				if (ret < 0)
+					return -1;
 				mail_cache_set_corrupted(cache,
 					"header field next_offset points outside file");
 				return -1;
 			}
-
-			field_hdr = CONST_PTR_OFFSET(cache->data, offset);
+			field_hdr = data;
 		} else {
 			/* if we need to follow multiple offsets to get to
 			   the last one, it's faster to just pread() the file
@@ -270,7 +275,7 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 	if (next_count > MAIL_CACHE_HEADER_FIELD_CONTINUE_COUNT)
 		cache->need_compress_file_seq = cache->hdr->file_seq;
 
-	if (map) {
+	if (field_hdr_r != NULL) {
 		if (cache->file_cache != NULL && invalidate) {
 			/* if this isn't the first header in file and we hadn't
 			   read this before, we can't trust that the cached
@@ -278,17 +283,23 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 			file_cache_invalidate(cache->file_cache, offset,
 					      field_hdr->size);
 		}
-		if (mail_cache_map(cache, offset, field_hdr->size) < 0)
+		ret = mail_cache_map(cache, offset, field_hdr->size, &data);
+		if (ret < 0)
 			return -1;
+		if (ret == 0) {
+			mail_cache_set_corrupted(cache,
+				"header field size outside file");
+			return -1;
+		}
+		*field_hdr_r = data;
 	}
-
 	*offset_r = offset;
 	return 0;
 }
 
 int mail_cache_header_fields_read(struct mail_cache *cache)
 {
-	const struct mail_cache_header_fields *field_hdr = NULL;
+	const struct mail_cache_header_fields *field_hdr;
 	struct mail_cache_field field;
 	const uint32_t *last_used, *sizes;
 	const uint8_t *types, *decisions;
@@ -299,19 +310,12 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	time_t max_drop_time;
 	uint32_t offset, i;
 
-	if (mail_cache_header_fields_get_offset(cache, &offset, TRUE) < 0)
+	if (mail_cache_header_fields_get_offset(cache, &offset, &field_hdr) < 0)
 		return -1;
 
 	if (offset == 0) {
 		/* no fields - the file is empty */
 		return 0;
-	}
-
-	field_hdr = CONST_PTR_OFFSET(cache->data, offset);
-	if (offset + field_hdr->size > cache->mmap_length) {
-		mail_cache_set_corrupted(cache,
-					 "field header points outside file");
-		return -1;
 	}
 
 	/* check the fixed size of the header. name[] has to be checked
@@ -322,9 +326,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		return -1;
 	}
 
-	field_hdr = CONST_PTR_OFFSET(cache->data, offset);
 	new_fields_count = field_hdr->fields_count;
-
 	if (new_fields_count != 0) {
 		cache->file_field_map =
 			i_realloc(cache->file_field_map,

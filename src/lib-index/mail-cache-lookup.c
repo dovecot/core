@@ -14,6 +14,7 @@ int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 			  const struct mail_cache_record **rec_r)
 {
 	const struct mail_cache_record *rec;
+	const void *data;
 
 	i_assert(offset != 0);
 
@@ -24,14 +25,15 @@ int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 	}
 
 	/* we don't know yet how large the record is, so just guess */
-	if (mail_cache_map(cache, offset, sizeof(*rec) + CACHE_PREFETCH) < 0)
+	if (mail_cache_map(cache, offset, sizeof(*rec) + CACHE_PREFETCH,
+			   &data) < 0)
 		return -1;
 
 	if (offset + sizeof(*rec) > cache->mmap_length) {
 		mail_cache_set_corrupted(cache, "record points outside file");
 		return -1;
 	}
-	rec = CACHE_RECORD(cache, offset);
+	rec = data;
 
 	if (rec->size < sizeof(*rec)) {
 		mail_cache_set_corrupted(cache, "invalid record size");
@@ -39,9 +41,9 @@ int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 	}
 	if (rec->size > CACHE_PREFETCH) {
 		/* larger than we guessed. map the rest of the record. */
-		if (mail_cache_map(cache, offset, rec->size) < 0)
+		if (mail_cache_map(cache, offset, rec->size, &data) < 0)
 			return -1;
-		rec = CACHE_RECORD(cache, offset);
+		rec = data;
 	}
 
 	if (rec->size > cache->mmap_length ||
