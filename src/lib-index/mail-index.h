@@ -27,7 +27,10 @@ enum mail_index_open_flags {
 	MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS	= 0x100,
 	/* If we run out of disk space, fail modifications instead of moving
 	   indexes to memory. */
-	MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY	= 0x200
+	MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY	= 0x200,
+	/* We're only going to save new messages to the index.
+	   Avoid unnecessary reads. */
+	MAIL_INDEX_OPEN_FLAG_SAVEONLY		= 0x400
 };
 
 enum mail_index_header_compat_flags {

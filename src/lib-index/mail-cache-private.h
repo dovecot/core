@@ -130,9 +130,14 @@ struct mail_cache {
 	ino_t st_ino;
 	dev_t st_dev;
 
-	void *mmap_base;
 	size_t mmap_length;
+	/* a) mmaping the whole file */
+	void *mmap_base;
+	/* b) using file cache */
 	struct file_cache *file_cache;
+	/* c) using small read() calls with MAIL_INDEX_OPEN_FLAG_SAVEONLY */
+	uoff_t read_offset;
+	buffer_t *read_buf;
 	/* mail_cache_map() increases this always. */
 	unsigned int remap_counter;
 
@@ -169,6 +174,7 @@ struct mail_cache {
 	unsigned int hdr_modified:1;
 	unsigned int field_header_write_pending:1;
 	unsigned int compressing:1;
+	unsigned int map_with_read:1;
 };
 
 struct mail_cache_loop_track {

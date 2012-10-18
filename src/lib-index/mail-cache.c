@@ -7,6 +7,7 @@
 #include "nfs-workarounds.h"
 #include "file-cache.h"
 #include "mmap-util.h"
+#include "read-full.h"
 #include "write-full.h"
 #include "mail-cache-private.h"
 
@@ -264,16 +265,86 @@ static bool mail_cache_verify_header(struct mail_cache *cache,
 	return TRUE;
 }
 
+static int
+mail_cache_map_finish(struct mail_cache *cache, uoff_t offset, size_t size,
+		      const void *data, bool copy_hdr)
+{
+	if (offset == 0) {
+		const struct mail_cache_header *hdr = data;
+
+		if (!mail_cache_verify_header(cache, hdr)) {
+			cache->need_compress_file_seq =
+				!MAIL_CACHE_IS_UNUSABLE(cache) &&
+				cache->hdr->file_seq != 0 ?
+				cache->hdr->file_seq : 0;
+			return -1;
+		}
+		if (!copy_hdr)
+			cache->hdr = data;
+		else {
+			memcpy(&cache->hdr_ro_copy, data,
+			       sizeof(cache->hdr_ro_copy));
+			cache->hdr = &cache->hdr_ro_copy;
+		}
+		mail_cache_update_need_compress(cache);
+	}
+
+	if (offset + size > cache->mmap_length)
+		return 0;
+	return 1;
+}
+
+static int
+mail_cache_map_with_read(struct mail_cache *cache, size_t offset, size_t size,
+			 const void **data_r)
+{
+	void *data;
+	ssize_t ret;
+
+	if (cache->read_buf == NULL) {
+		cache->read_buf =
+			buffer_create_dynamic(default_pool, size);
+	} else if (cache->read_offset <= offset &&
+		   cache->read_offset + cache->read_buf->used >= offset+size) {
+		/* already mapped */
+		*data_r = CONST_PTR_OFFSET(cache->mmap_base,
+					   offset - cache->read_offset);
+		return mail_cache_map_finish(cache, offset, size, *data_r, TRUE);
+	} else {
+		buffer_set_used_size(cache->read_buf, 0);
+	}
+	data = buffer_append_space_unsafe(cache->read_buf, size);
+	ret = pread(cache->fd, data, size, offset);
+	if (ret < 0) {
+		if (errno != ESTALE)
+			mail_cache_set_syscall_error(cache, "read()");
+
+		buffer_set_used_size(cache->read_buf, 0);
+		cache->hdr = NULL;
+		cache->mmap_length = 0;
+		return -1;
+	}
+	buffer_set_used_size(cache->read_buf, ret);
+
+	cache->read_offset = offset;
+	cache->mmap_length = offset + size;
+
+	*data_r = data;
+	return mail_cache_map_finish(cache, offset, size, data, TRUE);
+}
+
 int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 		   const void **data_r)
 {
 	const void *data;
 	ssize_t ret;
 
-	cache->remap_counter++;
-
 	if (size == 0)
 		size = sizeof(struct mail_cache_header);
+
+	cache->remap_counter++;
+	if (cache->map_with_read)
+		return mail_cache_map_with_read(cache, offset, size, data_r);
 
 	if (cache->file_cache != NULL) {
 		cache->hdr = NULL;
@@ -294,28 +365,9 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 
 		data = file_cache_get_map(cache->file_cache,
 					  &cache->mmap_length);
-
-		if (offset == 0) {
-			if (!mail_cache_verify_header(cache, data)) {
-				cache->need_compress_file_seq =
-					!MAIL_CACHE_IS_UNUSABLE(cache) &&
-					cache->hdr->file_seq != 0 ?
-					cache->hdr->file_seq : 0;
-				return -1;
-			}
-			memcpy(&cache->hdr_ro_copy, data,
-			       sizeof(cache->hdr_ro_copy));
-		}
-		cache->hdr = &cache->hdr_ro_copy;
-		if (offset == 0)
-			mail_cache_update_need_compress(cache);
-
-		if (offset > cache->mmap_length) {
-			*data_r = NULL;
-			return 0;
-		}
-		*data_r = CONST_PTR_OFFSET(data, offset);
-		return offset + size > cache->mmap_length ? 0 : 1;
+		*data_r = offset > cache->mmap_length ? NULL :
+			CONST_PTR_OFFSET(data, offset);
+		return mail_cache_map_finish(cache, offset, size, *data_r, TRUE);
 	}
 
 	if (offset < cache->mmap_length &&
@@ -348,24 +400,9 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 		mail_cache_set_syscall_error(cache, "mmap()");
 		return -1;
 	}
-
-	if (!mail_cache_verify_header(cache, cache->mmap_base)) {
-		cache->need_compress_file_seq =
-			!MAIL_CACHE_IS_UNUSABLE(cache) &&
-			cache->hdr->file_seq != 0 ?
-			cache->hdr->file_seq : 0;
-		return -1;
-	}
-
-	cache->hdr = cache->mmap_base;
-	if (offset == 0)
-		mail_cache_update_need_compress(cache);
-	if (offset > cache->mmap_length) {
-		*data_r = NULL;
-		return 0;
-	}
-	*data_r = CONST_PTR_OFFSET(cache->mmap_base, offset);
-	return offset + size > cache->mmap_length ? 0 : 1;
+	*data_r = offset > cache->mmap_length ? NULL :
+		CONST_PTR_OFFSET(cache->mmap_base, offset);
+	return mail_cache_map_finish(cache, offset, size, *data_r, FALSE);
 }
 
 static int mail_cache_try_open(struct mail_cache *cache)
@@ -437,6 +474,8 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 	if (!MAIL_INDEX_IS_IN_MEMORY(index) &&
 	    (index->flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) != 0)
 		cache->file_cache = file_cache_new(-1);
+	cache->map_with_read =
+		(cache->index->flags & MAIL_INDEX_OPEN_FLAG_SAVEONLY) != 0;
 
 	cache->ext_id =
 		mail_index_ext_register(index, "cache", 0,
