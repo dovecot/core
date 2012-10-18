@@ -399,7 +399,7 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 		   random "plausible" keys (selected by the server) as needed,
 		   before returning a validation failure. This prevents timing
 		   attacks aimed at identifying mailbox names.' */
-		random_fill_weak(mailbox_key, sizeof(mailbox_key));
+		random_fill(mailbox_key, sizeof(mailbox_key));
 		(void)imap_urlauth_internal_verify(url->uauth_rumpurl,
 			mailbox_key, url->uauth_token, url->uauth_token_size);
 
