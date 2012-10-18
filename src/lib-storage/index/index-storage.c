@@ -304,6 +304,8 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 	ibox->list_index_sync_ext_id = (uint32_t)-1;
 	ibox->index_flags = MAIL_INDEX_OPEN_FLAG_CREATE |
 		mail_storage_settings_to_index_flags(box->storage->set);
+	if ((box->flags & MAILBOX_FLAG_SAVEONLY) != 0)
+		ibox->index_flags |= MAIL_INDEX_OPEN_FLAG_SAVEONLY;
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	MODULE_CONTEXT_SET(box, index_storage_module, ibox);
 
