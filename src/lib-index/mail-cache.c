@@ -307,7 +307,7 @@ mail_cache_map_with_read(struct mail_cache *cache, size_t offset, size_t size,
 	} else if (cache->read_offset <= offset &&
 		   cache->read_offset + cache->read_buf->used >= offset+size) {
 		/* already mapped */
-		*data_r = CONST_PTR_OFFSET(cache->mmap_base,
+		*data_r = CONST_PTR_OFFSET(cache->read_buf->data,
 					   offset - cache->read_offset);
 		return mail_cache_map_finish(cache, offset, size, *data_r, TRUE);
 	} else {
