@@ -756,6 +756,9 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 			   second log file and we're going to overwrite this
 			   first one. */
 		}
+		/* NOTE: here's a race condition where both .log and .log.2
+		   point to the same file. our reading code should ignore that
+		   though by comparing the inodes. */
 	}
 
 	if (file_dotlock_replace(dotlock,
@@ -809,8 +812,7 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 	return 0;
 }
 
-int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
-				   bool check_existing)
+int mail_transaction_log_file_open(struct mail_transaction_log_file *file)
 {
 	struct mail_index *index = file->log->index;
         unsigned int i;
@@ -834,10 +836,13 @@ int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
 		ignore_estale = i < MAIL_INDEX_ESTALE_RETRY_COUNT;
 		if (mail_transaction_log_file_stat(file, ignore_estale) < 0)
 			ret = -1;
-		else if (check_existing &&
-			 mail_transaction_log_file_is_dupe(file))
+		else if (mail_transaction_log_file_is_dupe(file)) {
+			/* probably our already opened .log file has been
+			   renamed to .log.2 and we're trying to reopen it.
+			   also possible that hit a race condition where .log
+			   and .log.2 are linked. */
 			return 0;
-		else {
+		} else {
 			ret = mail_transaction_log_file_read_hdr(file,
 								 ignore_estale);
 		}

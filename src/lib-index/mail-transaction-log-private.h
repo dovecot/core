@@ -117,8 +117,7 @@ mail_transaction_log_file_alloc(struct mail_transaction_log *log,
 				const char *path);
 void mail_transaction_log_file_free(struct mail_transaction_log_file **file);
 
-int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
-				   bool check_existing);
+int mail_transaction_log_file_open(struct mail_transaction_log_file *file);
 int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 				     bool reset);
 int mail_transaction_log_file_lock(struct mail_transaction_log_file *file);

@@ -84,7 +84,7 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 		return 0;
 
 	file = mail_transaction_log_file_alloc(log, log->filepath);
-	if ((ret = mail_transaction_log_file_open(file, FALSE)) <= 0) {
+	if ((ret = mail_transaction_log_file_open(file)) <= 0) {
 		/* leave the file for _create() */
 		log->open_file = file;
 		return ret;
@@ -322,7 +322,7 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 	}
 
 	file = mail_transaction_log_file_alloc(log, log->filepath);
-	if (mail_transaction_log_file_open(file, FALSE) <= 0) {
+	if (mail_transaction_log_file_open(file) <= 0) {
 		mail_transaction_log_file_free(&file);
 		return -1;
 	}
@@ -400,7 +400,7 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 
 	/* see if we have it in log.2 file */
 	file = mail_transaction_log_file_alloc(log, log->filepath2);
-	if ((ret = mail_transaction_log_file_open(file, TRUE)) <= 0) {
+	if ((ret = mail_transaction_log_file_open(file)) <= 0) {
 		mail_transaction_log_file_free(&file);
 		return ret;
 	}
