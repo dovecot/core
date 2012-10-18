@@ -443,6 +443,32 @@ mail_transaction_log_file_read_header(struct mail_transaction_log_file *file)
 }
 
 static int
+mail_transaction_log_file_fail_dupe(struct mail_transaction_log_file *file)
+{
+	int ret;
+
+	/* mark the old file corrupted. we can't safely remove
+	   it from the list however, so return failure. */
+	file->hdr.indexid = 0;
+	if (strcmp(file->filepath, file->log->head->filepath) != 0) {
+		/* only mark .2 corrupted, just to make sure we don't lose any
+		   changes from .log in case we're somehow wrong */
+		mail_transaction_log_mark_corrupted(file);
+		ret = 0;
+	} else {
+		ret = -1;
+	}
+	if (!file->corrupted) {
+		file->corrupted = TRUE;
+		mail_index_set_error(file->log->index,
+				     "Transaction log %s: "
+				     "duplicate transaction log sequence (%u)",
+				     file->filepath, file->hdr.file_seq);
+	}
+	return ret;
+}
+
+static int
 mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 				   bool ignore_estale)
 {
@@ -528,26 +554,13 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 	   corrupted. */
 	for (f = file->log->files; f != NULL; f = f->next) {
 		if (f->hdr.file_seq == file->hdr.file_seq) {
-			/* mark the old file corrupted. we can't safely remove
-			   it from the list however, so return failure. */
-			f->hdr.indexid = 0;
 			if (strcmp(f->filepath, f->log->head->filepath) != 0) {
-				/* only mark .2 corrupted, just to make sure
-				   we don't lose any changes from .log in case
-				   we're somehow wrong */
-				mail_transaction_log_mark_corrupted(f);
-				ret = 0;
+				/* old "f" is the .log.2 */
+				return mail_transaction_log_file_fail_dupe(f);
 			} else {
-				ret = -1;
+				/* new "file" is probably the .log.2 */
+				return mail_transaction_log_file_fail_dupe(file);
 			}
-			if (!f->corrupted) {
-				f->corrupted = TRUE;
-				mail_index_set_error(f->log->index,
-					"Transaction log %s: "
-					"duplicate transaction log sequence (%u)",
-					f->filepath, f->hdr.file_seq);
-			}
-			return ret;
 		}
 	}
 
