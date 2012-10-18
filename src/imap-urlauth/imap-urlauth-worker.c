@@ -14,6 +14,7 @@
 #include "hostpid.h"
 #include "var-expand.h"
 #include "process-title.h"
+#include "randgen.h"
 #include "restrict-access.h"
 #include "settings-parser.h"
 #include "master-service.h"
@@ -1011,6 +1012,7 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 	master_service_set_die_callback(master_service, imap_urlauth_worker_die);
 
+	random_init();
 	storage_service =
 		mail_storage_service_init(master_service,
 					  set_roots, storage_service_flags);
@@ -1037,6 +1039,7 @@ int main(int argc, char *argv[])
 	clients_destroy_all();
 
 	mail_storage_service_deinit(&storage_service);
+	random_deinit();
 	master_service_deinit(&master_service);
 	return 0;
 }

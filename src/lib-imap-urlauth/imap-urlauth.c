@@ -37,8 +37,6 @@ imap_urlauth_init(struct mail_user *user,
 
 	i_assert(*config->url_host != '\0');
 
-	random_init();
-
 	uctx = i_new(struct imap_urlauth_context, 1);
 	uctx->user = user;
 	uctx->url_host = i_strdup(config->url_host);
@@ -78,8 +76,6 @@ void imap_urlauth_deinit(struct imap_urlauth_context **_uctx)
 	i_free(uctx->access_user);
 	i_free(uctx->access_applications);
 	i_free(uctx);
-
-	random_deinit();
 }
 
 static const unsigned char *
