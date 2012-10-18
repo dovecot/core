@@ -88,6 +88,7 @@ struct client {
 
 	struct ip_addr local_ip;
 	struct ip_addr ip;
+	struct ip_addr real_ip;
 	unsigned int local_port, remote_port;
 	struct ssl_proxy *ssl_proxy;
 	const struct login_settings *set;
