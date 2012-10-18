@@ -59,7 +59,6 @@ void mail_cache_file_close(struct mail_cache *cache)
 		file_cache_set_fd(cache->file_cache, -1);
 
 	cache->mmap_base = NULL;
-	cache->data = NULL;
 	cache->hdr = NULL;
 	cache->mmap_length = 0;
 	cache->last_field_header_offset = 0;
@@ -214,10 +213,9 @@ static void mail_cache_update_need_compress(struct mail_cache *cache)
 		cache->need_compress_file_seq = hdr->file_seq;
 }
 
-static bool mail_cache_verify_header(struct mail_cache *cache)
+static bool mail_cache_verify_header(struct mail_cache *cache,
+				     const struct mail_cache_header *hdr)
 {
-	const struct mail_cache_header *hdr = cache->data;
-
 	/* check that the header is still ok */
 	if (cache->mmap_length < sizeof(struct mail_cache_header)) {
 		mail_cache_set_corrupted(cache, "File too small");
@@ -278,7 +276,6 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 		size = sizeof(struct mail_cache_header);
 
 	if (cache->file_cache != NULL) {
-		cache->data = NULL;
 		cache->hdr = NULL;
 
 		ret = file_cache_read(cache->file_cache, offset, size);
@@ -295,26 +292,24 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 			return -1;
 		}
 
-		cache->data = file_cache_get_map(cache->file_cache,
-						 &cache->mmap_length);
+		data = file_cache_get_map(cache->file_cache,
+					  &cache->mmap_length);
 
 		if (offset == 0) {
-			if (!mail_cache_verify_header(cache)) {
+			if (!mail_cache_verify_header(cache, data)) {
 				cache->need_compress_file_seq =
 					!MAIL_CACHE_IS_UNUSABLE(cache) &&
 					cache->hdr->file_seq != 0 ?
 					cache->hdr->file_seq : 0;
 				return -1;
 			}
-			memcpy(&cache->hdr_ro_copy, cache->data,
+			memcpy(&cache->hdr_ro_copy, data,
 			       sizeof(cache->hdr_ro_copy));
 		}
 		cache->hdr = &cache->hdr_ro_copy;
 		if (offset == 0)
 			mail_cache_update_need_compress(cache);
 
-		data = file_cache_get_map(cache->file_cache,
-					  &cache->mmap_length);
 		if (offset > cache->mmap_length) {
 			*data_r = NULL;
 			return 0;
@@ -350,13 +345,11 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 	cache->mmap_base = mmap_ro_file(cache->fd, &cache->mmap_length);
 	if (cache->mmap_base == MAP_FAILED) {
 		cache->mmap_base = NULL;
-		cache->data = NULL;
 		mail_cache_set_syscall_error(cache, "mmap()");
 		return -1;
 	}
-	cache->data = cache->mmap_base;
 
-	if (!mail_cache_verify_header(cache)) {
+	if (!mail_cache_verify_header(cache, cache->mmap_base)) {
 		cache->need_compress_file_seq =
 			!MAIL_CACHE_IS_UNUSABLE(cache) &&
 			cache->hdr->file_seq != 0 ?
@@ -364,7 +357,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 		return -1;
 	}
 
-	cache->hdr = cache->data;
+	cache->hdr = cache->mmap_base;
 	if (offset == 0)
 		mail_cache_update_need_compress(cache);
 	if (offset > cache->mmap_length) {
@@ -698,13 +691,8 @@ int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
 		return -1;
 	}
 
-	if (cache->file_cache != NULL) {
+	if (cache->file_cache != NULL)
 		file_cache_write(cache->file_cache, data, size, offset);
-
-		/* data pointer may change if file cache was grown */
-		cache->data = file_cache_get_map(cache->file_cache,
-						 &cache->mmap_length);
-	}
 	return 0;
 }
 

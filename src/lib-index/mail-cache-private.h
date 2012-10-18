@@ -39,10 +39,6 @@
 #define MAIL_CACHE_LOCK_TIMEOUT 10
 #define MAIL_CACHE_LOCK_CHANGE_TIMEOUT 300
 
-#define CACHE_RECORD(cache, offset) \
-	((const struct mail_cache_record *) \
-	 ((const char *) (cache)->data + offset))
-
 #define MAIL_CACHE_IS_UNUSABLE(cache) \
 	((cache)->hdr == NULL)
 
@@ -135,7 +131,6 @@ struct mail_cache {
 	dev_t st_dev;
 
 	void *mmap_base;
-	const void *data;
 	size_t mmap_length;
 	struct file_cache *file_cache;
 	/* mail_cache_map() increases this always. */
@@ -203,8 +198,9 @@ struct mail_cache_view {
 
 struct mail_cache_iterate_field {
 	unsigned int field_idx;
-	const void *data;
 	unsigned int size;
+	const void *data;
+	uoff_t offset;
 };
 
 struct mail_cache_lookup_iterate_ctx {

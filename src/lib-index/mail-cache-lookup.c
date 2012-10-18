@@ -272,6 +272,7 @@ int mail_cache_lookup_iter_next(struct mail_cache_lookup_iterate_ctx *ctx,
 	field_r->field_idx = field_idx;
 	field_r->data = CONST_PTR_OFFSET(ctx->rec, ctx->pos);
 	field_r->size = data_size;
+	field_r->offset = ctx->offset + ctx->pos;
 
 	/* each record begins from 32bit aligned position */
 	ctx->pos += (data_size + sizeof(uint32_t)-1) & ~(sizeof(uint32_t)-1);
@@ -446,8 +447,7 @@ static void header_lines_save(struct header_lookup_context *ctx,
 	lines_count = i;
 
 	hdr_data = t_new(struct header_lookup_data, 1);
-	hdr_data->offset = (const char *)&lines[lines_count+1] -
-		(const char *)ctx->view->cache->data;
+	hdr_data->offset = field->offset + (lines_count+1) * sizeof(uint32_t);
 	hdr_data->data_size = data_size;
 
 	for (i = 0; i < lines_count; i++) {
@@ -473,6 +473,7 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 	struct mail_cache_iterate_field field;
 	struct header_lookup_context ctx;
 	struct header_lookup_line *lines;
+	const void *data;
 	const unsigned char *p, *start, *end;
 	uint8_t *field_state;
 	unsigned int i, count, max_field = 0;
@@ -537,7 +538,10 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 
 	/* then start filling dest buffer from the headers */
 	for (i = 0; i < count; i++) {
-		start = CONST_PTR_OFFSET(cache->data, lines[i].data->offset);
+		if (mail_cache_map(cache, lines[i].data->offset,
+				   lines[i].data->data_size, &data) <= 0)
+			return -1;
+		start = data;
 		end = start + lines[i].data->data_size;
 
 		/* find the end of the (multiline) header */
