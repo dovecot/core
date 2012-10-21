@@ -333,6 +333,15 @@ int dsync_mailbox_tree_build_guid_hash(struct dsync_mailbox_tree *tree)
 	return ret;
 }
 
+struct dsync_mailbox_node *
+dsync_mailbox_tree_lookup_guid(struct dsync_mailbox_tree *tree,
+			       const guid_128_t guid)
+{
+	const uint8_t *guid_p = guid;
+
+	return hash_table_lookup(tree->guid_hash, guid_p);
+}
+
 const struct dsync_mailbox_delete *
 dsync_mailbox_tree_get_deletes(struct dsync_mailbox_tree *tree,
 			       unsigned int *count_r)

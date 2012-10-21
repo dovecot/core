@@ -41,7 +41,6 @@ noinst_HEADERS = \
 	dsync-mailbox-import.h \
 	dsync-mailbox-export.h \
 	dsync-mailbox-state.h \
-	dsync-mailbox-state-export.h \
 	dsync-mailbox-tree.h \
 	dsync-mailbox-tree-private.h \
 	dsync-serializer.h \

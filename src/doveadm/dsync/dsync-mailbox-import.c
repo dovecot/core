@@ -1012,7 +1012,7 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 			newmail->link->skip = TRUE;
 		}
 	}
-	importer->last_common_uid = common_uid_next;
+	importer->last_common_uid = common_uid_next-1;
 	importer->new_uids_assigned = TRUE;
 }
 
@@ -1471,7 +1471,7 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 
 	*last_common_uid_r = importer->last_common_uid;
 	if (!*changes_during_sync_r)
-		*last_common_modseq_r = importer->last_common_modseq;
+		*last_common_modseq_r = importer->remote_highest_modseq;
 	else {
 		/* local changes occurred during dsync. we exported changes up
 		   to local_initial_highestmodseq, so all of the changes have

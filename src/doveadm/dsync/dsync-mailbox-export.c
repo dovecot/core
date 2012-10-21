@@ -157,8 +157,17 @@ search_update_flag_change_guid(struct dsync_mailbox_exporter *exporter,
 	int ret;
 
 	change = hash_table_lookup(exporter->changes, POINTER_CAST(mail->uid));
-	i_assert(change != NULL);
-	i_assert(change->type == DSYNC_MAIL_CHANGE_TYPE_FLAG_CHANGE);
+	if (change != NULL) {
+		i_assert(change->type == DSYNC_MAIL_CHANGE_TYPE_FLAG_CHANGE);
+	} else {
+		i_assert(exporter->return_all_mails);
+
+		change = p_new(exporter->pool, struct dsync_mail_change, 1);
+		change->uid = mail->uid;
+		change->type = DSYNC_MAIL_CHANGE_TYPE_FLAG_CHANGE;
+		hash_table_insert(exporter->changes,
+				  POINTER_CAST(mail->uid), change);
+	}
 
 	if ((ret = exporter_get_guids(exporter, mail, &guid, &hdr_hash)) < 0)
 		return -1;
@@ -309,7 +318,7 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 	sarg = mail_search_build_add(search_args, SEARCH_UIDSET);
 	p_array_init(&sarg->value.seqset, search_args->pool, 1);
 
-	if (exporter->return_all_mails || exporter->last_common_uid <= 1) {
+	if (exporter->return_all_mails || exporter->last_common_uid == 0) {
 		/* we want to know about all mails */
 		seq_range_array_add_range(&sarg->value.seqset, 1, (uint32_t)-1);
 	} else {
@@ -383,8 +392,11 @@ dsync_mailbox_export_log_scan(struct dsync_mailbox_exporter *exporter,
 	struct dsync_mail_change *change, *dup_change;
 
 	log_changes = dsync_transaction_log_scan_get_hash(log_scan);
-	if (dsync_transaction_log_scan_has_all_changes(log_scan))
+	if (dsync_transaction_log_scan_has_all_changes(log_scan)) {
+		/* we tried to access too old/invalid modseqs. to make sure
+		   no changes get lost, we need to send all of the messages */
 		exporter->return_all_mails = TRUE;
+	}
 
 	/* clone the hash table, since we're changing it. */
 	hash_table_create_direct(&exporter->changes, exporter->pool,

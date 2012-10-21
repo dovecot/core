@@ -23,12 +23,13 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+dEfl:m:n:"
+#define DSYNC_COMMON_GETOPT_ARGS "+dEfl:m:n:s:"
 
 struct dsync_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 	enum dsync_brain_sync_type sync_type;
 	const char *mailbox, *namespace_prefix;
+	const char *state_input;
 
 	const char *remote_name;
 	const char *local_location;
@@ -355,13 +356,21 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_SEND;
 
 	brain = dsync_brain_master_init(user, ibc, sync_ns,
-					ctx->sync_type, brain_flags, "");
+					ctx->sync_type, brain_flags,
+					ctx->state_input == NULL ? "" :
+					ctx->state_input);
 
 	if (!ctx->remote) {
 		if (cmd_dsync_run_local(ctx, user, brain, ibc2) < 0)
 			_ctx->exit_code = EX_TEMPFAIL;
 	} else {
 		cmd_dsync_run_remote(user);
+	}
+
+	if (ctx->state_input != NULL) {
+		string_t *str = t_str_new(128);
+		dsync_brain_get_state(brain, str);
+		printf("%s\n", str_c(str));
 	}
 
 	if (dsync_brain_deinit(&brain) < 0)
@@ -481,6 +490,12 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		if (!ctx->backup)
 			return FALSE;
 		ctx->reverse_backup = TRUE;
+		break;
+	case 's':
+		if (ctx->sync_type != DSYNC_BRAIN_SYNC_TYPE_FULL &&
+		    *optarg != '\0')
+			ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_STATE;
+		ctx->state_input = optarg;
 		break;
 	default:
 		return FALSE;

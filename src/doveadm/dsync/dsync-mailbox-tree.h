@@ -104,6 +104,11 @@ void dsync_mailbox_tree_deinit(struct dsync_mailbox_tree **tree);
 struct dsync_mailbox_node *
 dsync_mailbox_tree_lookup(struct dsync_mailbox_tree *tree,
 			  const char *full_name);
+/* Lookup a mailbox node by GUID. Returns NULL if not known.
+   The mailbox GUID hash must have been build before calling this. */
+struct dsync_mailbox_node *
+dsync_mailbox_tree_lookup_guid(struct dsync_mailbox_tree *tree,
+			       const guid_128_t guid);
 /* Lookup or create a mailbox node by name. */
 struct dsync_mailbox_node *
 dsync_mailbox_tree_get(struct dsync_mailbox_tree *tree, const char *full_name);

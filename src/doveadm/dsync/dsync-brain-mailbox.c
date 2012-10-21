@@ -63,31 +63,21 @@ static const struct dsync_mailbox_state *
 dsync_mailbox_state_find(struct dsync_brain *brain,
 			 const guid_128_t mailbox_guid)
 {
-	const struct dsync_mailbox_state *state;
+	const uint8_t *guid_p;
 
-	array_foreach(&brain->mailbox_states, state) {
-		if (memcmp(state->mailbox_guid, mailbox_guid,
-			   sizeof(state->mailbox_guid)) == 0)
-			return state;
-	}
-	return NULL;
+	guid_p = mailbox_guid;
+	return hash_table_lookup(brain->mailbox_states, guid_p);
 }
 
 static void
 dsync_mailbox_state_remove(struct dsync_brain *brain,
 			   const guid_128_t mailbox_guid)
 {
-	const struct dsync_mailbox_state *states;
-	unsigned int i, count;
+	const uint8_t *guid_p;
 
-	states = array_get(&brain->mailbox_states, &count);
-	for (i = 0; i < count; i++) {
-		if (memcmp(states[i].mailbox_guid, mailbox_guid,
-			   sizeof(states[i].mailbox_guid)) == 0) {
-			array_delete(&brain->mailbox_states, i, 1);
-			break;
-		}
-	}
+	guid_p = mailbox_guid;
+	if (hash_table_lookup(brain->mailbox_states, guid_p) != NULL)
+		hash_table_remove(brain->mailbox_states, guid_p);
 }
 
 void dsync_brain_sync_init_box_states(struct dsync_brain *brain)
@@ -217,16 +207,9 @@ void dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 
 void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 {
-	struct dsync_mailbox_state *state;
-	uint8_t *guid_p;
-
 	i_assert(brain->box != NULL);
 
-	state = p_new(brain->pool, struct dsync_mailbox_state, 1);
-	*state = brain->mailbox_state;
-	guid_p = state->mailbox_guid;
-	hash_table_insert(brain->remote_mailbox_states, guid_p, state);
-
+	array_append(&brain->remote_mailbox_states, &brain->mailbox_state, 1);
 	if (brain->box_exporter != NULL) {
 		const char *error;
 

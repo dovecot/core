@@ -40,5 +40,8 @@ int dsync_brain_deinit(struct dsync_brain **brain);
 bool dsync_brain_run(struct dsync_brain *brain, bool *changed_r);
 /* Returns TRUE if brain has failed, and there's no point in continuing. */
 bool dsync_brain_has_failed(struct dsync_brain *brain);
+/* Returns the current sync state string, which can be given as parameter to
+   dsync_brain_master_init() to quickly sync only the new changes. */
+void dsync_brain_get_state(struct dsync_brain *brain, string_t *output);
 
 #endif

@@ -47,9 +47,9 @@ dsync_brain_common_init(struct mail_user *user, struct dsync_ibc *ibc)
 	brain->user = user;
 	brain->ibc = ibc;
 	brain->sync_type = DSYNC_BRAIN_SYNC_TYPE_UNKNOWN;
-	hash_table_create(&brain->remote_mailbox_states,
-			  brain->pool, 0, guid_128_hash, guid_128_cmp);
-	p_array_init(&brain->mailbox_states, pool, 64);
+	hash_table_create(&brain->mailbox_states, pool, 0,
+			  guid_128_hash, guid_128_cmp);
+	p_array_init(&brain->remote_mailbox_states, pool, 64);
 	return brain;
 }
 
@@ -87,12 +87,14 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 
 	brain->state = DSYNC_STATE_SEND_MAILBOX_TREE;
 	if (sync_type == DSYNC_BRAIN_SYNC_TYPE_STATE) {
-		if (dsync_mailbox_states_import(&brain->mailbox_states, state,
+		if (dsync_mailbox_states_import(brain->mailbox_states,
+						brain->pool, state,
 						&error) < 0) {
-			array_clear(&brain->mailbox_states);
+			hash_table_clear(brain->mailbox_states, FALSE);
 			i_error("Saved sync state is invalid, "
 				"falling back to full sync: %s", error);
-			brain->sync_type = DSYNC_BRAIN_SYNC_TYPE_FULL;
+			brain->sync_type = sync_type =
+				DSYNC_BRAIN_SYNC_TYPE_FULL;
 		} else {
 			brain->state = DSYNC_STATE_MASTER_SEND_LAST_COMMON;
 		}
@@ -142,8 +144,9 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 		dsync_brain_sync_mailbox_deinit(brain);
 	if (brain->local_tree_iter != NULL)
 		dsync_mailbox_tree_iter_deinit(&brain->local_tree_iter);
-
-	hash_table_destroy(&brain->remote_mailbox_states);
+	if (brain->mailbox_states_iter != NULL)
+		hash_table_iterate_deinit(&brain->mailbox_states_iter);
+	hash_table_destroy(&brain->mailbox_states);
 
 	ret = brain->failed ? -1 : 0;
 	pool_unref(&brain->pool);
@@ -184,22 +187,41 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 
 static void dsync_brain_master_send_last_common(struct dsync_brain *brain)
 {
-	const struct dsync_mailbox_state *states;
-	unsigned int count;
+	struct dsync_mailbox_state *state;
+	uint8_t *guid;
 	enum dsync_ibc_send_ret ret = DSYNC_IBC_SEND_RET_OK;
 
 	i_assert(brain->master_brain);
 
-	states = array_get(&brain->mailbox_states, &count);
-	while (brain->mailbox_state_idx < count) {
+	if (brain->mailbox_states_iter == NULL) {
+		brain->mailbox_states_iter =
+			hash_table_iterate_init(brain->mailbox_states);
+	}
+
+	for (;;) {
 		if (ret == DSYNC_IBC_SEND_RET_FULL)
 			return;
-		ret = dsync_ibc_send_mailbox_state(brain->ibc,
-				&states[brain->mailbox_state_idx++]);
+		if (!hash_table_iterate(brain->mailbox_states_iter,
+					brain->mailbox_states, &guid, &state))
+			break;
+		ret = dsync_ibc_send_mailbox_state(brain->ibc, state);
 	}
+	hash_table_iterate_deinit(&brain->mailbox_states_iter);
+
 	dsync_ibc_send_end_of_list(brain->ibc);
 	brain->state = DSYNC_STATE_SEND_MAILBOX_TREE;
-	brain->mailbox_state_idx = 0;
+}
+
+static void dsync_mailbox_state_add(struct dsync_brain *brain,
+				    const struct dsync_mailbox_state *state)
+{
+	struct dsync_mailbox_state *dupstate;
+	uint8_t *guid_p;
+
+	dupstate = p_new(brain->pool, struct dsync_mailbox_state, 1);
+	*dupstate = *state;
+	guid_p = dupstate->mailbox_guid;
+	hash_table_insert(brain->mailbox_states, guid_p, dupstate);
 }
 
 static bool dsync_brain_slave_recv_last_common(struct dsync_brain *brain)
@@ -211,7 +233,7 @@ static bool dsync_brain_slave_recv_last_common(struct dsync_brain *brain)
 	i_assert(!brain->master_brain);
 
 	while ((ret = dsync_ibc_recv_mailbox_state(brain->ibc, &state)) > 0) {
-		array_append(&brain->mailbox_states, &state, 1);
+		dsync_mailbox_state_add(brain, &state);
 		changed = TRUE;
 	}
 	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
@@ -290,6 +312,39 @@ bool dsync_brain_run(struct dsync_brain *brain, bool *changed_r)
 	if (!brain->failed)
 		dsync_ibc_flush(brain->ibc);
 	return ret;
+}
+
+void dsync_brain_get_state(struct dsync_brain *brain, string_t *output)
+{
+	struct hash_iterate_context *iter;
+	struct dsync_mailbox_node *node;
+	const struct dsync_mailbox_state *new_state;
+	struct dsync_mailbox_state *state;
+	const uint8_t *guid_p;
+	uint8_t *guid;
+
+	/* update mailbox states */
+	array_foreach(&brain->remote_mailbox_states, new_state) {
+		guid_p = new_state->mailbox_guid;
+		state = hash_table_lookup(brain->mailbox_states, guid_p);
+		if (state != NULL)
+			*state = *new_state;
+		else
+			dsync_mailbox_state_add(brain, new_state);
+	}
+
+	/* remove nonexistent mailboxes */
+	iter = hash_table_iterate_init(brain->mailbox_states);
+	while (hash_table_iterate(iter, brain->mailbox_states, &guid, &state)) {
+		node = dsync_mailbox_tree_lookup_guid(brain->local_mailbox_tree,
+						      guid);
+		if (node == NULL ||
+		    node->existence != DSYNC_MAILBOX_NODE_EXISTS)
+			hash_table_remove(brain->mailbox_states, guid);
+	}
+	hash_table_iterate_deinit(&iter);
+
+	dsync_mailbox_states_export(brain->mailbox_states, output);
 }
 
 bool dsync_brain_has_failed(struct dsync_brain *brain)

@@ -66,15 +66,14 @@ struct dsync_brain {
 	/* list of mailbox states
 	   for master brain: given to brain at init and
 	   for slave brain: received from DSYNC_STATE_SLAVE_RECV_LAST_COMMON */
-	ARRAY_TYPE(dsync_mailbox_state) mailbox_states;
+	HASH_TABLE_TYPE(dsync_mailbox_state) mailbox_states;
 	/* DSYNC_STATE_MASTER_SEND_LAST_COMMON: current send position */
-	unsigned int mailbox_state_idx;
+	struct hash_iterate_context *mailbox_states_iter;
 	/* state of the mailbox we're currently syncing, changed at
 	   init and deinit */
 	struct dsync_mailbox_state mailbox_state;
-	/* GUID -> dsync_mailbox_state for mailboxes that have already
-	   been synced */
-	HASH_TABLE(uint8_t *, struct dsync_mailbox_state *) remote_mailbox_states;
+	/* new states for synced mailboxes */
+	ARRAY_TYPE(dsync_mailbox_state) remote_mailbox_states;
 
 	unsigned int master_brain:1;
 	unsigned int guid_requests:1;
