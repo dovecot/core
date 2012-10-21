@@ -12,6 +12,7 @@ struct index_storage_attribute_iter {
 	struct dict_iterate_context *diter;
 	char *prefix;
 	unsigned int prefix_len;
+	bool dict_disabled;
 };
 
 static int index_storage_get_dict(struct mailbox *box, struct dict **dict_r,
@@ -126,7 +127,10 @@ index_storage_attribute_iter_init(struct mailbox *box,
 
 	iter = i_new(struct index_storage_attribute_iter, 1);
 	iter->iter.box = box;
-	if (index_storage_get_dict(box, &dict, &mailbox_prefix) == 0) {
+	if (index_storage_get_dict(box, &dict, &mailbox_prefix) < 0) {
+		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTPOSSIBLE)
+			iter->dict_disabled = TRUE;
+	} else {
 		iter->prefix = i_strdup(key_get_prefixed(type, mailbox_prefix,
 							 prefix));
 		iter->prefix_len = strlen(iter->prefix);
@@ -158,10 +162,12 @@ int index_storage_attribute_iter_deinit(struct mailbox_attribute_iter *_iter)
 		(struct index_storage_attribute_iter *)_iter;
 	int ret;
 
-	ret = iter->diter == NULL ? -1 :
-		dict_iterate_deinit(&iter->diter);
-	if (ret < 0)
-		mail_storage_set_internal_error(_iter->box->storage);
+	if (iter->diter == NULL) {
+		ret = iter->dict_disabled ? 0 : -1;
+	} else {
+		if ((ret = dict_iterate_deinit(&iter->diter)) < 0)
+			mail_storage_set_internal_error(_iter->box->storage);
+	}
 	i_free(iter->prefix);
 	i_free(iter);
 	return ret;
