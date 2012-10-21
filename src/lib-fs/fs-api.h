@@ -115,8 +115,9 @@ struct ostream *fs_write_stream(struct fs_file *file);
 /* Finish writing via stream. The file will be created/replaced/appended only
    after this call, same as with fs_write(). Anything written to the stream
    won't be visible earlier. Returns 1 if ok, 0 if async write isn't finished
-   yet (retry calling this), -1 if error */
+   yet (retry calling fs_write_stream_finish_async()), -1 if error */
 int fs_write_stream_finish(struct fs_file *file, struct ostream **output);
+int fs_write_stream_finish_async(struct fs_file *file);
 /* Abort writing via stream. Anything written to the stream is discarded. */
 void fs_write_stream_abort(struct fs_file *file, struct ostream **output);
 
@@ -142,6 +143,8 @@ int fs_stat(struct fs_file *file, struct stat *st_r);
    directories are created automatically. Returns 0 if ok, -1 if error
    occurred. */
 int fs_copy(struct fs_file *src, struct fs_file *dest);
+/* Try to finish asynchronous fs_copy() */
+int fs_copy_finish_async(struct fs_file *dest);
 /* Atomically rename a file. Destination parent directories are created
    automatically. Returns 0 if ok, -1 if error occurred. */
 int fs_rename(struct fs_file *src, struct fs_file *dest);

@@ -167,6 +167,11 @@ int fs_write_stream_finish(struct fs_file *file, struct ostream **output)
 	return file->fs->v.write_stream_finish(file, TRUE);
 }
 
+int fs_write_stream_finish_async(struct fs_file *file)
+{
+	return file->fs->v.write_stream_finish(file, TRUE);
+}
+
 void fs_write_stream_abort(struct fs_file *file, struct ostream **output)
 {
 	i_assert(*output == file->output);
@@ -218,6 +223,11 @@ int fs_copy(struct fs_file *src, struct fs_file *dest)
 {
 	i_assert(src->fs == dest->fs);
 	return src->fs->v.copy(src, dest);
+}
+
+int fs_copy_finish_async(struct fs_file *dest)
+{
+	return dest->fs->v.copy(NULL, dest);
 }
 
 int fs_rename(struct fs_file *src, struct fs_file *dest)
