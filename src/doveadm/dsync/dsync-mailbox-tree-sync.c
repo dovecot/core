@@ -25,6 +25,7 @@ struct dsync_mailbox_tree_bfs_iter {
 struct dsync_mailbox_tree_sync_ctx {
 	pool_t pool;
 	struct dsync_mailbox_tree *local_tree, *remote_tree;
+	enum dsync_mailbox_trees_sync_type sync_type;
 
 	ARRAY(struct dsync_mailbox_tree_sync_change) changes;
 	unsigned int change_idx;
@@ -125,14 +126,49 @@ static void sort_siblings(ARRAY_TYPE(dsync_mailbox_node) *siblings)
 }
 
 static void
+sync_set_node_deleted(struct dsync_mailbox_tree *tree,
+		      struct dsync_mailbox_node *node)
+{
+	const uint8_t *guid_p;
+
+	/* for the rest of this sync assume that the mailbox has
+	   already been deleted */
+	guid_p = node->mailbox_guid;
+	hash_table_remove(tree->guid_hash, guid_p);
+
+	node->existence = DSYNC_MAILBOX_NODE_DELETED;
+	memset(node->mailbox_guid, 0, sizeof(node->mailbox_guid));
+	node->uid_validity = 0;
+}
+
+static void
+sync_delete_mailbox_node(struct dsync_mailbox_tree_sync_ctx *ctx,
+			 struct dsync_mailbox_tree *tree,
+			 struct dsync_mailbox_node *node)
+{
+	struct dsync_mailbox_tree_sync_change *change;
+	const char *name;
+
+	if (tree == ctx->local_tree) {
+		/* delete this mailbox locally */
+		change = array_append_space(&ctx->changes);
+		change->type = DSYNC_MAILBOX_TREE_SYNC_TYPE_DELETE_BOX;
+		change->ns = node->ns;
+		name = dsync_mailbox_node_get_full_name(tree, node);
+		change->full_name = p_strdup(ctx->pool, name);
+		memcpy(change->mailbox_guid, node->mailbox_guid,
+		       sizeof(change->mailbox_guid));
+	}
+	sync_set_node_deleted(tree, node);
+}
+
+static void
 sync_delete_mailbox(struct dsync_mailbox_tree_sync_ctx *ctx,
 		    struct dsync_mailbox_tree *tree,
 		    struct dsync_mailbox_node *node)
 {
 	struct dsync_mailbox_tree *other_tree;
 	struct dsync_mailbox_node *other_node;
-	struct dsync_mailbox_tree_sync_change *change;
-	const char *name;
 	const uint8_t *guid_p;
 
 	other_tree = tree == ctx->local_tree ?
@@ -141,32 +177,16 @@ sync_delete_mailbox(struct dsync_mailbox_tree_sync_ctx *ctx,
 	other_node = hash_table_lookup(other_tree->guid_hash, guid_p);
 	if (other_node == NULL) {
 		/* doesn't exist / already deleted */
-	} else if (other_tree == ctx->local_tree) {
-		/* delete this mailbox locally */
-		change = array_append_space(&ctx->changes);
-		change->type = DSYNC_MAILBOX_TREE_SYNC_TYPE_DELETE_BOX;
-		change->ns = other_node->ns;
-		name = dsync_mailbox_node_get_full_name(other_tree, other_node);
-		change->full_name = p_strdup(ctx->pool, name);
-		memcpy(change->mailbox_guid, node->mailbox_guid,
-		       sizeof(change->mailbox_guid));
+	} else {
+		sync_delete_mailbox_node(ctx, other_tree, other_node);
 	}
-
-	/* for the rest of this sync assume that the mailbox has
-	   already been deleted */
-	if (other_node != NULL) {
-		hash_table_remove(other_tree->guid_hash, guid_p);
-		other_node->existence = DSYNC_MAILBOX_NODE_DELETED;
-		memset(other_node->mailbox_guid, 0,
-		       sizeof(other_node->mailbox_guid));
-	}
-	memset(node->mailbox_guid, 0, sizeof(node->mailbox_guid));
-	node->uid_validity = 0;
+	sync_delete_mailbox_node(ctx, tree, node);
 }
 
 static void
 sync_tree_sort_and_delete_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
-				    struct dsync_mailbox_tree *tree)
+				    struct dsync_mailbox_tree *tree,
+				    bool ignore_deletes)
 {
 	struct dsync_mailbox_tree_bfs_iter *iter;
 	struct dsync_mailbox_node *node, *parent = NULL;
@@ -182,8 +202,17 @@ sync_tree_sort_and_delete_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 			parent = node->parent;
 		}
 		if (node->existence == DSYNC_MAILBOX_NODE_DELETED &&
-		    !dsync_mailbox_node_is_dir(node))
-			sync_delete_mailbox(ctx, tree, node);
+		    !dsync_mailbox_node_is_dir(node)) {
+			if (!ignore_deletes) {
+				/* this mailbox was deleted. delete it from the
+				   other side as well */
+				sync_delete_mailbox(ctx, tree, node);
+			} else {
+				/* we want to restore the mailbox back.
+				   just treat it as if it didn't exist */
+				sync_set_node_deleted(tree, node);
+			}
+		}
 		array_append(&siblings, &node, 1);
 	}
 	sort_siblings(&siblings);
@@ -375,7 +404,7 @@ sync_rename_node(struct dsync_mailbox_tree_sync_ctx *ctx,
 		 struct dsync_mailbox_tree *tree,
 		 struct dsync_mailbox_node *temp_node,
 		 struct dsync_mailbox_node *node,
-		 struct dsync_mailbox_node *other_node)
+		 const struct dsync_mailbox_node *other_node)
 {
 	struct dsync_mailbox_tree_sync_change *change;
 	struct dsync_mailbox_tree *other_tree;
@@ -496,6 +525,11 @@ sync_rename_lower_ts(struct dsync_mailbox_tree_sync_ctx *ctx,
 	local_ts = nodes_get_timestamp(local_node1, local_node2);
 	remote_ts = nodes_get_timestamp(remote_node1, remote_node2);
 
+	if (ctx->sync_type == DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL)
+		local_ts = remote_ts+1;
+	else if (ctx->sync_type == DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE)
+		remote_ts = local_ts+1;
+
 	/* The algorithm must be deterministic regardless of the sync direction,
 	   so in case the timestamps are equal we need to resort to looking at
 	   the other data. We'll start by looking at the nodes' mailbox GUIDs,
@@ -603,13 +637,15 @@ static bool sync_rename_conflict(struct dsync_mailbox_tree_sync_ctx *ctx,
 	 doesn't exist yet */
 	if (local_node2 == NULL &&
 	    remote_node2->existence == DSYNC_MAILBOX_NODE_EXISTS &&
-	    !dsync_mailbox_node_is_dir(remote_node2)) {
+	    !dsync_mailbox_node_is_dir(remote_node2) &&
+	    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL) {
 		add_missing_mailbox(ctx, ctx->local_tree, remote_node2);
 		return TRUE;
 	}
 	if (remote_node1 == NULL &&
 	    local_node1->existence == DSYNC_MAILBOX_NODE_EXISTS &&
-	    !dsync_mailbox_node_is_dir(local_node1)) {
+	    !dsync_mailbox_node_is_dir(local_node1) &&
+	    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE) {
 		add_missing_mailbox(ctx, ctx->remote_tree, local_node1);
 		return TRUE;
 	}
@@ -831,7 +867,8 @@ sync_rename_delete_node_dirs(struct dsync_mailbox_tree_sync_ctx *ctx,
 
 	node->existence = DSYNC_MAILBOX_NODE_NONEXISTENT;
 	node->sync_temporary_name = FALSE;
-	if (tree == ctx->local_tree) {
+	if (tree == ctx->local_tree &&
+	    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL) {
 		sync_add_dir_change(ctx, node,
 				    DSYNC_MAILBOX_TREE_SYNC_TYPE_DELETE_DIR);
 	}
@@ -860,6 +897,75 @@ sync_rename_temp_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 		}
 	}
 	return FALSE;
+}
+
+static bool sync_is_wrong_mailbox(struct dsync_mailbox_node *node,
+				  const struct dsync_mailbox_node *wanted_node)
+{
+	if (wanted_node->existence != DSYNC_MAILBOX_NODE_EXISTS)
+		return TRUE;
+	if (node->uid_validity != wanted_node->uid_validity)
+		return TRUE;
+	if (node->uid_next > wanted_node->uid_next) {
+		/* we can't lower the UIDNEXT */
+		return TRUE;
+	}
+	return memcmp(node->mailbox_guid, wanted_node->mailbox_guid,
+		      sizeof(node->mailbox_guid)) != 0;
+}
+
+static void
+sync_delete_wrong_mailboxes_branch(struct dsync_mailbox_tree_sync_ctx *ctx,
+				   struct dsync_mailbox_tree *tree,
+				   const struct dsync_mailbox_tree *wanted_tree,
+				   struct dsync_mailbox_node *node,
+				   const struct dsync_mailbox_node *wanted_node)
+{
+	int ret;
+
+	while (node != NULL && wanted_node != NULL) {
+		if (node->first_child != NULL) {
+			sync_delete_wrong_mailboxes_branch(ctx,
+				tree, wanted_tree,
+				node->first_child, wanted_node->first_child);
+		}
+		ret = strcmp(node->name, wanted_node->name);
+		if (ret < 0) {
+			/* node shouldn't exist */
+			if (node->existence == DSYNC_MAILBOX_NODE_EXISTS)
+				sync_delete_mailbox_node(ctx, tree, node);
+			node = node->next;
+		} else if (ret > 0) {
+			/* wanted_node doesn't exist. it's created later. */
+			wanted_node = wanted_node->next;
+		} else {
+			if (sync_is_wrong_mailbox(node, wanted_node) &&
+			    node->existence == DSYNC_MAILBOX_NODE_EXISTS)
+				sync_delete_mailbox_node(ctx, tree, node);
+			node = node->next;
+			wanted_node = wanted_node->next;
+		}
+	}
+	for (; node != NULL; node = node->next) {
+		/* node and its children shouldn't exist */
+		if (node->first_child != NULL) {
+			sync_delete_wrong_mailboxes_branch(ctx,
+				tree, wanted_tree,
+				node->first_child, NULL);
+		}
+		if (node->existence == DSYNC_MAILBOX_NODE_EXISTS)
+			sync_delete_mailbox_node(ctx, tree, node);
+	}
+}
+
+static void
+sync_delete_wrong_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
+			    struct dsync_mailbox_tree *tree,
+			    const struct dsync_mailbox_tree *wanted_tree)
+{
+	sync_delete_wrong_mailboxes_branch(ctx, tree, wanted_tree,
+					   tree->root.first_child,
+					   wanted_tree->root.first_child);
 }
 
 static void sync_create_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
@@ -912,8 +1018,9 @@ sync_subscription(struct dsync_mailbox_tree_sync_ctx *ctx,
 		  struct dsync_mailbox_node *local_node,
 		  struct dsync_mailbox_node *remote_node)
 {
-	if (local_node->last_subscription_change >
-	    remote_node->last_subscription_change ||
+	if (ctx->sync_type == DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL ||
+	    local_node->last_subscription_change >
+	    	remote_node->last_subscription_change ||
 	    (local_node->last_subscription_change ==
 	     remote_node->last_subscription_change && local_node->subscribed)) {
 		/* use local subscription state */
@@ -956,12 +1063,14 @@ static void sync_mailbox_child_dirs(struct dsync_mailbox_tree_sync_ctx *ctx,
 		}
 
 		if (local_node->existence == DSYNC_MAILBOX_NODE_EXISTS &&
-		    remote_node->existence == DSYNC_MAILBOX_NODE_NONEXISTENT) {
+		    remote_node->existence == DSYNC_MAILBOX_NODE_NONEXISTENT &&
+		    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE) {
 			/* create to remote */
 			remote_node->existence = DSYNC_MAILBOX_NODE_EXISTS;
 		}
 		if (remote_node->existence == DSYNC_MAILBOX_NODE_EXISTS &&
-		    local_node->existence == DSYNC_MAILBOX_NODE_NONEXISTENT) {
+		    local_node->existence == DSYNC_MAILBOX_NODE_NONEXISTENT &&
+		    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL) {
 			/* create to local */
 			local_node->existence = DSYNC_MAILBOX_NODE_EXISTS;
 			sync_add_dir_change(ctx, local_node,
@@ -976,14 +1085,16 @@ static void sync_mailbox_child_dirs(struct dsync_mailbox_tree_sync_ctx *ctx,
 
 		if (local_node->existence == DSYNC_MAILBOX_NODE_DELETED &&
 		    local_node->first_child == NULL &&
-		    remote_node->existence == DSYNC_MAILBOX_NODE_EXISTS) {
+		    remote_node->existence == DSYNC_MAILBOX_NODE_EXISTS &&
+		    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE) {
 			/* delete from remote */
 			i_assert(remote_node->first_child == NULL);
 			remote_node->existence = DSYNC_MAILBOX_NODE_NONEXISTENT;
 		}
 		if (remote_node->existence == DSYNC_MAILBOX_NODE_DELETED &&
 		    remote_node->first_child == NULL &&
-		    local_node->existence == DSYNC_MAILBOX_NODE_EXISTS) {
+		    local_node->existence == DSYNC_MAILBOX_NODE_EXISTS &&
+		    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL) {
 			/* delete from local */
 			i_assert(local_node->first_child == NULL);
 			local_node->existence = DSYNC_MAILBOX_NODE_NONEXISTENT;
@@ -1012,10 +1123,12 @@ static void sync_mailbox_dirs(struct dsync_mailbox_tree_sync_ctx *ctx)
 
 struct dsync_mailbox_tree_sync_ctx *
 dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
-			      struct dsync_mailbox_tree *remote_tree)
+			      struct dsync_mailbox_tree *remote_tree,
+			      enum dsync_mailbox_trees_sync_type sync_type)
 {
 	struct dsync_mailbox_tree_sync_ctx *ctx;
 	pool_t pool;
+	bool ignore_deletes;
 
 	i_assert(hash_table_is_created(local_tree->guid_hash));
 	i_assert(hash_table_is_created(remote_tree->guid_hash));
@@ -1026,15 +1139,30 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 	ctx->pool = pool;
 	ctx->local_tree = local_tree;
 	ctx->remote_tree = remote_tree;
+	ctx->sync_type = sync_type;
 	i_array_init(&ctx->changes, 128);
 
-	sync_tree_sort_and_delete_mailboxes(ctx, remote_tree);
-	sync_tree_sort_and_delete_mailboxes(ctx, local_tree);
+	ignore_deletes = sync_type == DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL;
+	sync_tree_sort_and_delete_mailboxes(ctx, remote_tree, ignore_deletes);
+	ignore_deletes = sync_type == DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE;
+	sync_tree_sort_and_delete_mailboxes(ctx, local_tree, ignore_deletes);
+
 	while (sync_rename_mailboxes(ctx, &local_tree->root, &remote_tree->root)) ;
 	while (sync_rename_temp_mailboxes(ctx, local_tree, &local_tree->root)) ;
 	while (sync_rename_temp_mailboxes(ctx, remote_tree, &remote_tree->root)) ;
-	sync_create_mailboxes(ctx, remote_tree);
-	sync_create_mailboxes(ctx, local_tree);
+
+	/* if we're not doing a two-way sync, delete now any mailboxes, which
+	   a) shouldn't exist, b) doesn't have a matching GUID/UIDVALIDITY,
+	   c) has a too high UIDNEXT */
+	if (sync_type == DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL)
+		sync_delete_wrong_mailboxes(ctx, remote_tree, local_tree);
+	else if (sync_type == DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE)
+		sync_delete_wrong_mailboxes(ctx, local_tree, remote_tree);
+
+	if (sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL)
+		sync_create_mailboxes(ctx, remote_tree);
+	if (sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE)
+		sync_create_mailboxes(ctx, local_tree);
 	sync_mailbox_dirs(ctx);
 	return ctx;
 }

@@ -61,7 +61,7 @@ static const struct {
 	{ .name = "handshake",
 	  .chr = 'H',
 	  .optional_keys = "sync_ns_prefix sync_type "
-	  	"guid_requests mails_have_guids"
+	  	"mails_have_guids send_guid_requests backup_send backup_recv"
 	},
 	{ .name = "mailbox_state",
 	  .chr = 'S',
@@ -71,7 +71,7 @@ static const struct {
 	{ .name = "mailbox_tree_node",
 	  .chr = 'N',
 	  .required_keys = "name existence",
-	  .optional_keys = "mailbox_guid uid_validity "
+	  .optional_keys = "mailbox_guid uid_validity uid_next "
 	  	"last_renamed_or_created subscribed last_subscription_change"
 	},
 	{ .name = "mailbox_delete",
@@ -538,10 +538,14 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 	}
 	i_assert(sync_type[0] != '\0');
 	dsync_serializer_encode_add(encoder, "sync_type", sync_type);
-	if (set->guid_requests)
-		dsync_serializer_encode_add(encoder, "guid_requests", "");
-	if (set->mails_have_guids)
+	if ((set->brain_flags & DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS) != 0)
 		dsync_serializer_encode_add(encoder, "mails_have_guids", "");
+	if ((set->brain_flags & DSYNC_BRAIN_FLAG_SEND_GUID_REQUESTS) != 0)
+		dsync_serializer_encode_add(encoder, "send_guid_requests", "");
+	if ((set->brain_flags & DSYNC_BRAIN_FLAG_BACKUP_SEND) != 0)
+		dsync_serializer_encode_add(encoder, "backup_send", "");
+	if ((set->brain_flags & DSYNC_BRAIN_FLAG_BACKUP_RECV) != 0)
+		dsync_serializer_encode_add(encoder, "backup_recv", "");
 
 	dsync_serializer_encode_finish(&encoder, str);
 	dsync_ibc_stream_send_string(ibc, str);
@@ -590,10 +594,14 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 			return DSYNC_IBC_RECV_RET_TRYAGAIN;
 		}
 	}
-	if (dsync_deserializer_decode_try(decoder, "guid_requests", &value))
-		set->guid_requests = TRUE;
 	if (dsync_deserializer_decode_try(decoder, "mails_have_guids", &value))
-		set->mails_have_guids = TRUE;
+		set->brain_flags |= DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS;
+	if (dsync_deserializer_decode_try(decoder, "send_guid_requests", &value))
+		set->brain_flags |= DSYNC_BRAIN_FLAG_SEND_GUID_REQUESTS;
+	if (dsync_deserializer_decode_try(decoder, "backup_send", &value))
+		set->brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_SEND;
+	if (dsync_deserializer_decode_try(decoder, "backup_recv", &value))
+		set->brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_RECV;
 
 	*set_r = set;
 	return DSYNC_IBC_RECV_RET_OK;
@@ -716,6 +724,10 @@ dsync_ibc_stream_send_mailbox_tree_node(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "uid_validity",
 					    dec2str(node->uid_validity));
 	}
+	if (node->uid_next != 0) {
+		dsync_serializer_encode_add(encoder, "uid_next",
+					    dec2str(node->uid_next));
+	}
 	if (node->last_renamed_or_created != 0) {
 		dsync_serializer_encode_add(encoder, "last_renamed_or_created",
 					    dec2str(node->last_renamed_or_created));
@@ -776,6 +788,11 @@ dsync_ibc_stream_recv_mailbox_tree_node(struct dsync_ibc *_ibc,
 	if (dsync_deserializer_decode_try(decoder, "uid_validity", &value) &&
 	    str_to_uint32(value, &node->uid_validity) < 0) {
 		dsync_ibc_input_error(ibc, decoder, "Invalid uid_validity");
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
+	if (dsync_deserializer_decode_try(decoder, "uid_next", &value) &&
+	    str_to_uint32(value, &node->uid_next) < 0) {
+		dsync_ibc_input_error(ibc, decoder, "Invalid uid_next");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
 	if (dsync_deserializer_decode_try(decoder, "last_renamed_or_created", &value) &&

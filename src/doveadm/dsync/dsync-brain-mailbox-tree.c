@@ -279,9 +279,18 @@ static void dsync_brain_mailbox_trees_sync(struct dsync_brain *brain)
 {
 	struct dsync_mailbox_tree_sync_ctx *ctx;
 	const struct dsync_mailbox_tree_sync_change *change;
+	enum dsync_mailbox_trees_sync_type sync_type;
+
+	if (brain->backup_send)
+		sync_type = DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL;
+	else if (brain->backup_recv)
+		sync_type = DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE;
+	else
+		sync_type = DSYNC_MAILBOX_TREES_SYNC_TYPE_TWOWAY;
 
 	ctx = dsync_mailbox_trees_sync_init(brain->local_mailbox_tree,
-					    brain->remote_mailbox_tree);
+					    brain->remote_mailbox_tree,
+					    sync_type);
 	while ((change = dsync_mailbox_trees_sync_next(ctx)) != NULL) {
 		if (dsync_brain_mailbox_tree_sync_change(brain, change) < 0)
 			brain->failed = TRUE;

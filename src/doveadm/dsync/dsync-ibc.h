@@ -14,7 +14,6 @@ struct dsync_mailbox_delete;
 struct dsync_mail;
 struct dsync_mail_change;
 struct dsync_mail_request;
-struct dsync_ibc_settings;
 
 enum dsync_ibc_send_ret {
 	DSYNC_IBC_SEND_RET_OK	= 1,
@@ -34,8 +33,7 @@ struct dsync_ibc_settings {
 	const char *sync_ns_prefix;
 
 	enum dsync_brain_sync_type sync_type;
-	bool guid_requests;
-	bool mails_have_guids;
+	enum dsync_brain_flags brain_flags;
 };
 
 void dsync_ibc_init_pipe(struct dsync_ibc **ibc1_r,

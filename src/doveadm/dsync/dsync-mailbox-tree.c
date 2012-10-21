@@ -154,6 +154,7 @@ void dsync_mailbox_node_copy_data(struct dsync_mailbox_node *dest,
 	memcpy(dest->mailbox_guid, src->mailbox_guid,
 	       sizeof(dest->mailbox_guid));
 	dest->uid_validity = src->uid_validity;
+	dest->uid_next = src->uid_next;
 	dest->existence = src->existence;
 	dest->last_renamed_or_created = src->last_renamed_or_created;
 	dest->subscribed = src->subscribed;
@@ -395,6 +396,7 @@ dsync_mailbox_tree_dup_nodes(struct dsync_mailbox_tree *dest_tree,
 		memcpy(node->mailbox_guid, src->mailbox_guid,
 		       sizeof(node->mailbox_guid));
 		node->uid_validity = src->uid_validity;
+		node->uid_next = src->uid_next;
 		node->existence = src->existence;
 		node->last_renamed_or_created = src->last_renamed_or_created;
 		node->subscribed = src->subscribed;

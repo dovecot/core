@@ -72,6 +72,7 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 		memcpy(node->mailbox_guid, metadata.guid,
 		       sizeof(node->mailbox_guid));
 		node->uid_validity = status.uidvalidity;
+		node->uid_next = status.uidnext;
 	}
 	mailbox_free(&box);
 	return 0;

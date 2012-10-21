@@ -90,11 +90,31 @@ dsync_mailbox_state_remove(struct dsync_brain *brain,
 	}
 }
 
+void dsync_brain_sync_init_box_states(struct dsync_brain *brain)
+{
+	if (brain->backup_send) {
+		/* we have an exporter, but no importer. */
+		brain->box_send_state = DSYNC_BOX_STATE_CHANGES;
+		brain->box_recv_state = brain->guid_requests ?
+			DSYNC_BOX_STATE_MAIL_REQUESTS :
+			DSYNC_BOX_STATE_RECV_LAST_COMMON;
+	} else if (brain->backup_recv) {
+		/* we have an importer, but no exporter */
+		brain->box_send_state = brain->guid_requests ?
+			DSYNC_BOX_STATE_MAIL_REQUESTS :
+			DSYNC_BOX_STATE_DONE;
+		brain->box_recv_state = DSYNC_BOX_STATE_CHANGES;
+	} else {
+		brain->box_send_state = DSYNC_BOX_STATE_CHANGES;
+		brain->box_recv_state = DSYNC_BOX_STATE_CHANGES;
+	}
+}
+
 static int
 dsync_brain_sync_mailbox_init(struct dsync_brain *brain,
 			      struct mailbox *box,
 			      const struct dsync_mailbox *local_dsync_box,
-			      enum dsync_box_state box_state)
+			      bool wait_for_remote_box)
 {
 	enum dsync_mailbox_exporter_flags exporter_flags = 0;
 	const struct dsync_mailbox_state *state;
@@ -107,8 +127,12 @@ dsync_brain_sync_mailbox_init(struct dsync_brain *brain,
 
 	brain->box = box;
 	brain->pre_box_state = brain->state;
-	brain->box_recv_state = box_state;
-	brain->box_send_state = box_state;
+	if (wait_for_remote_box) {
+		brain->box_send_state = DSYNC_BOX_STATE_MAILBOX;
+		brain->box_recv_state = DSYNC_BOX_STATE_MAILBOX;
+	} else {
+		dsync_brain_sync_init_box_states(brain);
+	}
 	brain->local_dsync_box = *local_dsync_box;
 	memset(&brain->remote_dsync_box, 0, sizeof(brain->remote_dsync_box));
 
@@ -143,7 +167,8 @@ dsync_brain_sync_mailbox_init(struct dsync_brain *brain,
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_AUTO_EXPORT_MAILS;
 	if (brain->mails_have_guids)
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_MAILS_HAVE_GUIDS;
-	brain->box_exporter =
+
+	brain->box_exporter = brain->backup_recv ? NULL :
 		dsync_mailbox_export_init(box, brain->log_scan, last_common_uid,
 					  last_common_modseq, exporter_flags);
 	return 0;
@@ -181,7 +206,7 @@ void dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 	if (brain->mails_have_guids)
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS;
 
-	brain->box_importer =
+	brain->box_importer = brain->backup_send ? NULL :
 		dsync_mailbox_import_init(brain->box, brain->log_scan,
 					  last_common_uid, last_common_modseq,
 					  remote_dsync_box->uid_next,
@@ -290,6 +315,7 @@ static int
 dsync_brain_try_next_mailbox(struct dsync_brain *brain, struct mailbox **box_r,
 			     struct dsync_mailbox *dsync_box_r)
 {
+	enum mailbox_flags flags = 0;
 	struct dsync_mailbox dsync_box;
 	struct mailbox *box;
 	struct dsync_mailbox_node *node;
@@ -311,7 +337,11 @@ dsync_brain_try_next_mailbox(struct dsync_brain *brain, struct mailbox **box_r,
 		return -1;
 	}
 
-	box = mailbox_alloc(node->ns->list, vname, 0);
+	if (brain->backup_send) {
+		/* make sure mailbox isn't modified */
+		flags |= MAILBOX_FLAG_READONLY;
+	}
+	box = mailbox_alloc(node->ns->list, vname, flags);
 	for (;;) {
 		if ((ret = dsync_box_get(box, &dsync_box)) <= 0) {
 			if (ret < 0)
@@ -376,8 +406,7 @@ void dsync_brain_master_send_mailbox(struct dsync_brain *brain)
 
 	/* start exporting this mailbox (wait for remote to start importing) */
 	dsync_ibc_send_mailbox(brain->ibc, &dsync_box);
-	(void)dsync_brain_sync_mailbox_init(brain, box, &dsync_box,
-					    DSYNC_BOX_STATE_MAILBOX);
+	(void)dsync_brain_sync_mailbox_init(brain, box, &dsync_box, TRUE);
 	brain->state = DSYNC_STATE_SYNC_MAILS;
 }
 
@@ -582,7 +611,7 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 
 	/* start export/import */
 	if (dsync_brain_sync_mailbox_init(brain, box, &local_dsync_box,
-					  DSYNC_BOX_STATE_CHANGES) == 0)
+					  FALSE) == 0)
 		dsync_brain_sync_mailbox_init_remote(brain, dsync_box);
 
 	brain->state = DSYNC_STATE_SYNC_MAILS;

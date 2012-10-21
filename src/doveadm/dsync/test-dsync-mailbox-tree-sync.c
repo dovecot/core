@@ -167,7 +167,8 @@ static void test_trees(struct dsync_mailbox_tree *tree1,
 	/* test tree1 -> tree2 */
 	dsync_mailbox_tree_build_guid_hash(tree1);
 	dsync_mailbox_tree_build_guid_hash(tree2);
-	ctx = dsync_mailbox_trees_sync_init(tree1, tree2);
+	ctx = dsync_mailbox_trees_sync_init(tree1, tree2,
+					    DSYNC_MAILBOX_TREES_SYNC_TYPE_TWOWAY);
 	while ((change = dsync_mailbox_trees_sync_next(ctx)) != NULL) {
 	}
 	dsync_mailbox_trees_sync_deinit(&ctx);
@@ -181,7 +182,8 @@ static void test_trees(struct dsync_mailbox_tree *tree1,
 	/* test tree2 -> tree1 */
 	dsync_mailbox_tree_build_guid_hash(orig_tree1);
 	dsync_mailbox_tree_build_guid_hash(orig_tree2);
-	ctx = dsync_mailbox_trees_sync_init(orig_tree2, orig_tree1);
+	ctx = dsync_mailbox_trees_sync_init(orig_tree2, orig_tree1,
+					    DSYNC_MAILBOX_TREES_SYNC_TYPE_TWOWAY);
 	while ((change = dsync_mailbox_trees_sync_next(ctx)) != NULL) {
 	}
 	dsync_mailbox_trees_sync_deinit(&ctx);

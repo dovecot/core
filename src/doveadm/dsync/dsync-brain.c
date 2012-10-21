@@ -53,6 +53,17 @@ dsync_brain_common_init(struct mail_user *user, struct dsync_ibc *ibc)
 	return brain;
 }
 
+static void
+dsync_brain_set_flags(struct dsync_brain *brain, enum dsync_brain_flags flags)
+{
+	brain->guid_requests =
+		(flags & DSYNC_BRAIN_FLAG_SEND_GUID_REQUESTS) != 0;
+	brain->mails_have_guids =
+		(flags & DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS) != 0;
+	brain->backup_send = (flags & DSYNC_BRAIN_FLAG_BACKUP_SEND) != 0;
+	brain->backup_recv = (flags & DSYNC_BRAIN_FLAG_BACKUP_RECV) != 0;
+}
+
 struct dsync_brain *
 dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 			struct mail_namespace *sync_ns,
@@ -72,10 +83,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	if (sync_ns != NULL)
 		brain->sync_ns = sync_ns;
 	brain->master_brain = TRUE;
-	brain->mails_have_guids =
-		(flags & DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS) != 0;
-	brain->guid_requests =
-		(flags & DSYNC_BRAIN_FLAG_SEND_REQUESTS) != 0;
+	dsync_brain_set_flags(brain, flags);
 
 	brain->state = DSYNC_STATE_SEND_MAILBOX_TREE;
 	if (sync_type == DSYNC_BRAIN_SYNC_TYPE_STATE) {
@@ -94,8 +102,13 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	memset(&ibc_set, 0, sizeof(ibc_set));
 	ibc_set.sync_ns_prefix = sync_ns == NULL ? NULL : sync_ns->prefix;
 	ibc_set.sync_type = sync_type;
-	ibc_set.guid_requests = brain->guid_requests;
-	ibc_set.mails_have_guids = brain->mails_have_guids;
+	/* reverse the backup direction for the slave */
+	ibc_set.brain_flags = flags & ~(DSYNC_BRAIN_FLAG_BACKUP_SEND |
+					DSYNC_BRAIN_FLAG_BACKUP_RECV);
+	if ((flags & DSYNC_BRAIN_FLAG_BACKUP_SEND) != 0)
+		ibc_set.brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_RECV;
+	else if ((flags & DSYNC_BRAIN_FLAG_BACKUP_RECV) != 0)
+		ibc_set.brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_SEND;
 	dsync_ibc_send_handshake(ibc, &ibc_set);
 
 	dsync_ibc_set_io_callback(ibc, dsync_brain_run_io, brain);
@@ -158,8 +171,7 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 	}
 	i_assert(brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_UNKNOWN);
 	brain->sync_type = ibc_set->sync_type;
-	brain->guid_requests = ibc_set->guid_requests;
-	brain->mails_have_guids = ibc_set->mails_have_guids;
+	dsync_brain_set_flags(brain, ibc_set->brain_flags);
 
 	dsync_brain_mailbox_trees_init(brain);
 

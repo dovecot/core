@@ -7,7 +7,9 @@ struct dsync_ibc;
 
 enum dsync_brain_flags {
 	DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS	= 0x01,
-	DSYNC_BRAIN_FLAG_SEND_REQUESTS		= 0x02
+	DSYNC_BRAIN_FLAG_SEND_GUID_REQUESTS	= 0x02,
+	DSYNC_BRAIN_FLAG_BACKUP_SEND		= 0x04,
+	DSYNC_BRAIN_FLAG_BACKUP_RECV		= 0x08
 };
 
 enum dsync_brain_sync_type {

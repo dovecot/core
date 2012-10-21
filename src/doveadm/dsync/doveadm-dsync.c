@@ -23,6 +23,8 @@
 #include <unistd.h>
 #include <ctype.h>
 
+#define DSYNC_COMMON_GETOPT_ARGS "+dEfl:m:n:"
+
 struct dsync_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 	enum dsync_brain_sync_type sync_type;
@@ -38,7 +40,8 @@ struct dsync_cmd_context {
 
 	unsigned int lock:1;
 	unsigned int default_replica_location:1;
-	unsigned int reverse_backup:1; //FIXME
+	unsigned int backup:1;
+	unsigned int reverse_backup:1;
 	unsigned int remote:1;
 };
 
@@ -315,6 +318,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	struct dsync_ibc *ibc, *ibc2 = NULL;
 	struct dsync_brain *brain;
 	struct mail_namespace *sync_ns = NULL;
+	enum dsync_brain_flags brain_flags;
 	int ret = 0;
 
 	user->admin = TRUE;
@@ -342,11 +346,16 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (doveadm_debug || doveadm_verbose) {
 		// FIXME
 	}
+
+	brain_flags = DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS |
+		DSYNC_BRAIN_FLAG_SEND_GUID_REQUESTS;
+	if (ctx->reverse_backup)
+		brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_RECV;
+	else if (ctx->backup)
+		brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_SEND;
+
 	brain = dsync_brain_master_init(user, ibc, sync_ns,
-					ctx->sync_type,
-					DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS |
-					DSYNC_BRAIN_FLAG_SEND_REQUESTS,
-					"");
+					ctx->sync_type, brain_flags, "");
 
 	if (!ctx->remote) {
 		if (cmd_dsync_run_local(ctx, user, brain, ibc2) < 0)
@@ -469,6 +478,8 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		ctx->namespace_prefix = optarg;
 		break;
 	case 'R':
+		if (!ctx->backup)
+			return FALSE;
 		ctx->reverse_backup = TRUE;
 		break;
 	default:
@@ -482,7 +493,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 	struct dsync_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
-	ctx->ctx.getopt_args = "+dEfl:m:n:R";
+	ctx->ctx.getopt_args = DSYNC_COMMON_GETOPT_ARGS;
 	ctx->ctx.v.parse_arg = cmd_mailbox_dsync_parse_arg;
 	ctx->ctx.v.preinit = cmd_dsync_preinit;
 	ctx->ctx.v.init = cmd_dsync_init;
@@ -498,8 +509,9 @@ static struct doveadm_mail_cmd_context *cmd_dsync_backup_alloc(void)
 	struct dsync_cmd_context *ctx;
 
 	_ctx = cmd_dsync_alloc();
+	_ctx->getopt_args = DSYNC_COMMON_GETOPT_ARGS"R";
 	ctx = (struct dsync_cmd_context *)_ctx;
-	//FIXME
+	ctx->backup = TRUE;
 	return _ctx;
 }
 

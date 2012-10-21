@@ -10,15 +10,25 @@ struct dsync_mailbox_tree_sync_change;
 
 enum dsync_state {
 	DSYNC_STATE_SLAVE_RECV_HANDSHAKE,
+	/* if sync_type=STATE, the master brain knows the saved "last common
+	   mailbox state". this state is sent to the slave. */
 	DSYNC_STATE_MASTER_SEND_LAST_COMMON,
 	DSYNC_STATE_SLAVE_RECV_LAST_COMMON,
+
+	/* both sides send their mailbox trees */
 	DSYNC_STATE_SEND_MAILBOX_TREE,
 	DSYNC_STATE_SEND_MAILBOX_TREE_DELETES,
 	DSYNC_STATE_RECV_MAILBOX_TREE,
 	DSYNC_STATE_RECV_MAILBOX_TREE_DELETES,
+
+	/* master decides in which order mailboxes are synced (it knows the
+	   slave's mailboxes by looking at the received mailbox tree) */
 	DSYNC_STATE_MASTER_SEND_MAILBOX,
 	DSYNC_STATE_SLAVE_RECV_MAILBOX,
+	/* once mailbox is selected, the mails inside it are synced.
+	   after the mails are synced, another mailbox is synced. */
 	DSYNC_STATE_SYNC_MAILS,
+
 	DSYNC_STATE_DONE
 };
 
@@ -69,6 +79,8 @@ struct dsync_brain {
 	unsigned int master_brain:1;
 	unsigned int guid_requests:1;
 	unsigned int mails_have_guids:1;
+	unsigned int backup_send:1;
+	unsigned int backup_recv:1;
 	unsigned int changes_during_sync:1;
 	unsigned int failed:1;
 };
@@ -90,6 +102,7 @@ void dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 				    const struct dsync_mailbox *remote_box);
 bool dsync_boxes_need_sync(const struct dsync_mailbox *box1,
 			   const struct dsync_mailbox *box2);
+void dsync_brain_sync_init_box_states(struct dsync_brain *brain);
 
 void dsync_brain_master_send_mailbox(struct dsync_brain *brain);
 bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain);

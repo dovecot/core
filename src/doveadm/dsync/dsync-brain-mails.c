@@ -45,10 +45,7 @@ static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 		return TRUE;
 	}
 	dsync_brain_sync_mailbox_init_remote(brain, dsync_box);
-	brain->box_recv_state = DSYNC_BOX_STATE_CHANGES;
-	brain->box_send_state = DSYNC_BOX_STATE_CHANGES;
-
-	i_assert(brain->box_importer != NULL);
+	dsync_brain_sync_init_box_states(brain);
 	return TRUE;
 }
 
@@ -61,8 +58,10 @@ static bool dsync_brain_recv_mail_change(struct dsync_brain *brain)
 		return FALSE;
 	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
 		dsync_mailbox_import_changes_finish(brain->box_importer);
-		brain->box_recv_state = brain->guid_requests ?
-			DSYNC_BOX_STATE_MAIL_REQUESTS : DSYNC_BOX_STATE_MAILS;
+		if (brain->guid_requests && brain->box_exporter != NULL)
+			brain->box_recv_state = DSYNC_BOX_STATE_MAIL_REQUESTS;
+		else
+			brain->box_recv_state = DSYNC_BOX_STATE_MAILS;
 		return TRUE;
 	}
 	dsync_mailbox_import_change(brain->box_importer, change);
@@ -78,8 +77,10 @@ static void dsync_brain_send_mail_change(struct dsync_brain *brain)
 			return;
 	}
 	dsync_ibc_send_end_of_list(brain->ibc);
-	brain->box_send_state = brain->guid_requests ?
-		DSYNC_BOX_STATE_MAIL_REQUESTS : DSYNC_BOX_STATE_MAILS;
+	if (brain->guid_requests && brain->box_importer != NULL)
+		brain->box_send_state = DSYNC_BOX_STATE_MAIL_REQUESTS;
+	else
+		brain->box_send_state = DSYNC_BOX_STATE_MAILS;
 }
 
 static bool dsync_brain_recv_mail_request(struct dsync_brain *brain)
@@ -88,11 +89,14 @@ static bool dsync_brain_recv_mail_request(struct dsync_brain *brain)
 	enum dsync_ibc_recv_ret ret;
 
 	i_assert(brain->guid_requests);
+	i_assert(brain->box_exporter != NULL);
 
 	if ((ret = dsync_ibc_recv_mail_request(brain->ibc, &request)) == 0)
 		return FALSE;
 	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
-		brain->box_recv_state = DSYNC_BOX_STATE_MAILS;
+		brain->box_recv_state = brain->box_importer != NULL ?
+			DSYNC_BOX_STATE_MAILS :
+			DSYNC_BOX_STATE_RECV_LAST_COMMON;
 		return TRUE;
 	}
 	dsync_mailbox_export_want_mail(brain->box_exporter, request);
@@ -111,7 +115,12 @@ static void dsync_brain_send_mail_request(struct dsync_brain *brain)
 	}
 	if (brain->box_recv_state > DSYNC_BOX_STATE_CHANGES) {
 		dsync_ibc_send_end_of_list(brain->ibc);
-		brain->box_send_state = DSYNC_BOX_STATE_MAILS;
+		if (brain->box_exporter != NULL)
+			brain->box_send_state = DSYNC_BOX_STATE_MAILS;
+		else {
+			i_assert(brain->box_recv_state != DSYNC_BOX_STATE_DONE);
+			brain->box_send_state = DSYNC_BOX_STATE_DONE;
+		}
 	}
 }
 
@@ -126,11 +135,14 @@ static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 		return;
 
 	/* finished with this mailbox */
-	if (dsync_mailbox_export_deinit(&brain->box_exporter, &error) < 0) {
-		i_error("Exporting mailbox %s failed: %s",
-			mailbox_get_vname(brain->box), error);
-		brain->failed = TRUE;
-		return;
+	if (brain->box_exporter != NULL) {
+		if (dsync_mailbox_export_deinit(&brain->box_exporter,
+						&error) < 0) {
+			i_error("Exporting mailbox %s failed: %s",
+				mailbox_get_vname(brain->box), error);
+			brain->failed = TRUE;
+			return;
+		}
 	}
 
 	memset(&state, 0, sizeof(state));

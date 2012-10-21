@@ -5,6 +5,15 @@
 
 struct mail_namespace;
 
+enum dsync_mailbox_trees_sync_type {
+	/* two-way sync for both mailboxes */
+	DSYNC_MAILBOX_TREES_SYNC_TYPE_TWOWAY,
+	/* make remote tree look exactly like the local tree */
+	DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL,
+	/* make local tree look exactly like the remote tree */
+	DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE
+};
+
 enum dsync_mailbox_node_existence {
 	/* this is just a filler node for children or for
 	   subscription deletion */
@@ -26,8 +35,8 @@ struct dsync_mailbox_node {
 	const char *name;
 	/* mailbox GUID, or full of zeros if this is about a directory name */
 	guid_128_t mailbox_guid;
-	/* mailbox's UIDVALIDITY (may be 0 if not assigned yet) */
-	uint32_t uid_validity;
+	/* mailbox's UIDVALIDITY/UIDNEXT (may be 0 if not assigned yet) */
+	uint32_t uid_validity, uid_next;
 
 	/* existence of this mailbox/directory.
 	   doesn't affect subscription state. */
@@ -144,7 +153,8 @@ void dsync_mailbox_tree_iter_deinit(struct dsync_mailbox_tree_iter **iter);
    Return changes done to local tree. */
 struct dsync_mailbox_tree_sync_ctx *
 dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
-			       struct dsync_mailbox_tree *remote_tree);
+			      struct dsync_mailbox_tree *remote_tree,
+			      enum dsync_mailbox_trees_sync_type sync_type);
 const struct dsync_mailbox_tree_sync_change *
 dsync_mailbox_trees_sync_next(struct dsync_mailbox_tree_sync_ctx *ctx);
 void dsync_mailbox_trees_sync_deinit(struct dsync_mailbox_tree_sync_ctx **ctx);
