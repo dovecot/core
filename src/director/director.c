@@ -787,9 +787,20 @@ void director_user_killed_everywhere(struct director *dir,
 		user->username_hash));
 }
 
+static void director_state_callback_timeout(struct director *dir)
+{
+	timeout_remove(&dir->to_callback);
+	dir->state_change_callback(dir);
+}
+
 void director_set_state_changed(struct director *dir)
 {
-	dir->state_change_callback(dir);
+	/* we may get called to here from various places. use a timeout to
+	   make sure the state callback is called with a clean state. */
+	if (dir->to_callback == NULL) {
+		dir->to_callback =
+			timeout_add(0, director_state_callback_timeout, dir);
+	}
 }
 
 void director_update_send(struct director *dir, struct director_host *src,
@@ -866,6 +877,8 @@ void director_deinit(struct director **_dir)
 		timeout_remove(&dir->to_sync);
 	if (dir->to_remove_dirs != NULL)
 		timeout_remove(&dir->to_remove_dirs);
+	if (dir->to_callback != NULL)
+		timeout_remove(&dir->to_callback);
 	while (array_count(&dir->dir_hosts) > 0) {
 		hostp = array_idx(&dir->dir_hosts, 0);
 		host = *hostp;

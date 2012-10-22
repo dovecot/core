@@ -44,6 +44,7 @@ struct director {
 	ARRAY_DEFINE(connections, struct director_connection *);
 	struct timeout *to_reconnect;
 	struct timeout *to_sync;
+	struct timeout *to_callback;
 
 	/* current mail hosts */
 	struct mail_host_list *mail_hosts;
