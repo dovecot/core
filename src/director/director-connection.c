@@ -728,7 +728,7 @@ director_cmd_user_weak(struct director_connection *conn,
 	/* note that unlike other commands we don't want to just ignore
 	   duplicate commands */
 	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) < 0)
-		return ret > 0;
+		return FALSE;
 
 	if (str_array_length(args) != 2 ||
 	    str_to_uint(args[0], &username_hash) < 0 ||
