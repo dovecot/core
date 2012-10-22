@@ -80,8 +80,9 @@ struct director {
 	unsigned int ring_synced:1;
 	unsigned int sync_frozen:1;
 	unsigned int sync_pending:1;
-	unsigned int debug:1;
 };
+
+extern bool director_debug;
 
 /* Create a new director. If listen_ip specifies an actual IP, it's used with
    listen_port for finding ourself from the director_servers setting.
@@ -146,5 +147,7 @@ void director_update_send_version(struct director *dir,
 				  unsigned int min_version, const char *cmd);
 
 int director_connect_host(struct director *dir, struct director_host *host);
+
+void dir_debug(const char *fmt, ...) ATTR_FORMAT(1, 2);
 
 #endif

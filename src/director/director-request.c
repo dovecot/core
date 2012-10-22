@@ -168,6 +168,8 @@ director_request_existing(struct director_request *request, struct user *user)
 		/* delay processing this user's connections until
 		   its existing connections have been killed */
 		request->delay_reason = REQUEST_DELAY_KILL;
+		dir_debug("request: %u waiting for kill to finish",
+			  user->username_hash);
 		return FALSE;
 	}
 	if (dir->right == NULL && dir->ring_synced) {
@@ -182,6 +184,8 @@ director_request_existing(struct director_request *request, struct user *user)
 	if (user->weak) {
 		/* wait for user to become non-weak */
 		request->delay_reason = REQUEST_DELAY_WEAK;
+		dir_debug("request: %u waiting for weakness",
+			  request->username_hash);
 		return FALSE;
 	}
 	if (!user_directory_user_is_near_expiring(dir->users, user))
@@ -193,6 +197,8 @@ director_request_existing(struct director_request *request, struct user *user)
 	if (!dir->ring_synced) {
 		/* try again later once ring is synced */
 		request->delay_reason = REQUEST_DELAY_RINGNOTSYNCED;
+		dir_debug("request: %u waiting for sync for making weak",
+			  request->username_hash);
 		return FALSE;
 	}
 	if (user->host == host) {
@@ -237,6 +243,7 @@ director_request_existing(struct director_request *request, struct user *user)
 		user->weak = TRUE;
 		director_update_user_weak(dir, dir->self_host, NULL, user);
 		request->delay_reason = REQUEST_DELAY_WEAK;
+		dir_debug("request: %u set to weak", request->username_hash);
 		return FALSE;
 	}
 }
@@ -249,6 +256,8 @@ bool director_request_continue(struct director_request *request)
 
 	if (!dir->ring_handshaked) {
 		/* delay requests until ring handshaking is complete */
+		dir_debug("request: %u waiting for handshake",
+			  request->username_hash);
 		ring_log_delayed_warning(dir);
 		request->delay_reason = REQUEST_DELAY_RINGNOTHANDSHAKED;
 		return FALSE;
@@ -259,11 +268,15 @@ bool director_request_continue(struct director_request *request)
 		if (!director_request_existing(request, user))
 			return FALSE;
 		user_directory_refresh(dir->users, user);
+		dir_debug("request: %u refreshed timeout to %u",
+			  request->username_hash, user->timestamp);
 	} else {
 		if (!dir->ring_synced) {
 			/* delay adding new users until ring is again synced */
 			ring_log_delayed_warning(dir);
 			request->delay_reason = REQUEST_DELAY_RINGNOTSYNCED;
+			dir_debug("request: %u waiting for sync for adding",
+				  request->username_hash);
 			return FALSE;
 		}
 		host = mail_host_get_by_hash(dir->mail_hosts,
@@ -271,10 +284,14 @@ bool director_request_continue(struct director_request *request)
 		if (host == NULL) {
 			/* all hosts have been removed */
 			request->delay_reason = REQUEST_DELAY_NOHOSTS;
+			dir_debug("request: %u waiting for hosts",
+				  request->username_hash);
 			return FALSE;
 		}
 		user = user_directory_add(dir->users, request->username_hash,
 					  host, ioloop_time);
+		dir_debug("request: %u added timeout to %u",
+			  request->username_hash, user->timestamp);
 	}
 
 	i_assert(!user->weak);

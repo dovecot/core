@@ -22,6 +22,8 @@
 #define DIRECTOR_QUICK_RECONNECT_TIMEOUT_MSECS 1000
 #define DIRECTOR_DELAYED_DIR_REMOVE_MSECS (1000*30)
 
+bool director_debug;
+
 static bool director_is_self_ip_set(struct director *dir)
 {
 	struct ip_addr ip;
@@ -106,10 +108,8 @@ int director_connect_host(struct director *dir, struct director_host *host)
 	if (director_has_outgoing_connection(dir, host))
 		return 0;
 
-	if (dir->debug) {
-		i_debug("Connecting to %s:%u",
-			net_ip2addr(&host->ip), host->port);
-	}
+	dir_debug("Connecting to %s:%u",
+		  net_ip2addr(&host->ip), host->port);
 	port = dir->test_port != 0 ? dir->test_port : host->port;
 	fd = net_connect_ip(&host->ip, port, &dir->self_ip);
 	if (fd == -1) {
@@ -239,8 +239,7 @@ void director_set_ring_handshaked(struct director *dir)
 			  "continuing delayed requests");
 		dir->ring_handshake_warning_sent = FALSE;
 	}
-	if (dir->debug)
-		i_debug("Director ring handshaked");
+	dir_debug("Director ring handshaked");
 
 	dir->ring_handshaked = TRUE;
 	director_set_ring_synced(dir);
@@ -383,11 +382,9 @@ static void director_sync(struct director *dir)
 		return;
 	}
 
-	if (dir->debug) {
-		i_debug("Ring is desynced (seq=%u, sending SYNC to %s)",
-			dir->sync_seq, dir->right == NULL ? "(nowhere)" :
-			director_connection_get_name(dir->right));
-	}
+	dir_debug("Ring is desynced (seq=%u, sending SYNC to %s)",
+		  dir->sync_seq, dir->right == NULL ? "(nowhere)" :
+		  director_connection_get_name(dir->right));
 
 	/* send PINGs to our connections more rapidly until we've synced again.
 	   if the connection has actually died, we don't need to wait (and
@@ -888,4 +885,18 @@ void director_deinit(struct director **_dir)
 	array_free(&dir->dir_hosts);
 	array_free(&dir->connections);
 	i_free(dir);
+}
+
+void dir_debug(const char *fmt, ...)
+{
+	va_list args;
+
+	if (!director_debug)
+		return;
+
+	va_start(args, fmt);
+	T_BEGIN {
+		i_debug("%s", t_strdup_vprintf(fmt, args));
+	} T_END;
+	va_end(args);
 }
