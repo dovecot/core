@@ -91,6 +91,13 @@ static void director_request_timeout(struct director *dir)
 					     request->username_hash);
 		errormsg = director_request_get_timeout_error(request,
 							      user, str);
+		if (user != NULL &&
+		    request->delay_reason == REQUEST_DELAY_WEAK) {
+			/* weakness appears to have gotten stuck. this is a
+			   bug, but try to fix it for future requests by
+			   removing the weakness. */
+			user->weak = FALSE;
+		}
 
 		array_delete(&dir->pending_requests, 0, 1);
 		T_BEGIN {

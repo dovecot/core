@@ -65,7 +65,22 @@ static bool user_directory_user_has_connections(struct user_directory *dir,
 {
 	time_t expire_timestamp = user->timestamp + dir->timeout_secs;
 
-	return expire_timestamp >= ioloop_time;
+	if (expire_timestamp >= ioloop_time)
+		return TRUE;
+
+	if (user->kill_state != USER_KILL_STATE_NONE) {
+		/* don't free this user until the kill is finished */
+		return TRUE;
+	}
+
+	if (user->weak) {
+		if (expire_timestamp + USER_NEAR_EXPIRING_MAX >= ioloop_time)
+			return TRUE;
+
+		i_warning("User %u weakness appears to be stuck, removing it",
+			  user->username_hash);
+	}
+	return FALSE;
 }
 
 static void user_directory_drop_expired(struct user_directory *dir)
