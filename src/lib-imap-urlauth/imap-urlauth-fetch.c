@@ -58,23 +58,20 @@ static void imap_urlauth_fetch_abort_local(struct imap_urlauth_fetch *ufetch)
 	if (ufetch->local_url != NULL)
 		imap_msgpart_url_free(&ufetch->local_url);
 
-	if (ufetch->pending_reply.url != NULL)
-		i_free(ufetch->pending_reply.url);
+	i_free_and_null(ufetch->pending_reply.url);
+	i_free_and_null(ufetch->pending_reply.bodypartstruct);
+	i_free_and_null(ufetch->pending_reply.error);
 	if (ufetch->pending_reply.input != NULL)
 		i_stream_unref(&ufetch->pending_reply.input);
-	if (ufetch->pending_reply.bodypartstruct != NULL)
-		i_free(ufetch->pending_reply.bodypartstruct);
-	if (ufetch->pending_reply.error != NULL)
-		i_free(ufetch->pending_reply.error);
 
 	url = ufetch->local_urls_head;
-	while (url != NULL) {
+	for (; url != NULL; url = url_next) {
 		url_next = url->next;
 		i_free(url->url);
 		i_free(url);
 		ufetch->pending_requests--;
-		url = url_next;
 	}
+	ufetch->local_urls_head = ufetch->local_urls_tail = NULL;
 }
 
 static void imap_urlauth_fetch_abort(struct imap_urlauth_fetch *ufetch)
@@ -131,7 +128,7 @@ imap_urlauth_fetch_error(struct imap_urlauth_fetch *ufetch, const char *url,
 	reply.flags = url_flags;
 	reply.succeeded = FALSE;
 	reply.error = error;
-	
+
 	T_BEGIN {
 		ret = ufetch->callback(&reply, ufetch->pending_requests == 0,
 				       ufetch->context);
@@ -298,6 +295,8 @@ imap_urlauth_fetch_request_callback(struct imap_urlauth_fetch_reply *reply,
 			imap_urlauth_fetch_abort_local(ufetch);
 		ufetch->failed = TRUE;
 	}
+	if (ret != 0)
+		imap_urlauth_fetch_deinit(&ufetch);
 	return ret;
 }
 

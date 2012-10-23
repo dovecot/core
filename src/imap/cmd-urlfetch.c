@@ -16,6 +16,7 @@
 struct cmd_urlfetch_context {
 	struct imap_urlauth_fetch *ufetch;
 	struct istream *input;
+	uoff_t size;
 
 	unsigned int failed:1;
 	unsigned int finished:1;
@@ -28,8 +29,7 @@ struct cmd_urlfetch_url {
 	enum imap_urlauth_fetch_flags flags;
 };
 
-static void cmd_urlfetch_finish
-(struct client_command_context *cmd)
+static void cmd_urlfetch_finish(struct client_command_context *cmd)
 {
 	struct cmd_urlfetch_context *ctx =
 		(struct cmd_urlfetch_context *)cmd->context;
@@ -72,8 +72,6 @@ static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct cmd_urlfetch_context *ctx =
 		(struct cmd_urlfetch_context *)cmd->context;
-	const unsigned char *data;
-	size_t size;
 	int ret = 1;
 
 	/* are we in the middle of an urlfetch literal? */
@@ -88,25 +86,35 @@ static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 	}
 
 	/* transfer literal to client */
-	o_stream_set_max_buffer_size(client->output, 4096);
-	while (i_stream_read_data(ctx->input, &data, &size, 0) > 0) {
-		if ((ret = o_stream_send(client->output, data, size)) < 0)
-			break;
-		i_stream_skip(ctx->input, ret);
-	}
+	o_stream_set_max_buffer_size(client->output, 0);
+	ret = o_stream_send_istream(client->output, ctx->input);
 	o_stream_set_max_buffer_size(client->output, (size_t)-1);
 
-	if (ret < 0 || ctx->input->stream_errno != 0) {
-		/* fatal error */
+	if (ctx->input->v_offset == ctx->size) {
+		/* finished successfully */
+		i_stream_unref(&ctx->input);
+		return 1;
+	}
+	if (client->output->closed) {
+		/* client disconnected */
 		return -1;
 	}
-
-	if (!ctx->input->eof)
+	if (ctx->input->stream_errno != 0) {
+		errno = ctx->input->stream_errno;
+		i_error("read(%s) failed: %m (URLFETCH)",
+			i_stream_get_name(ctx->input));
+		client_disconnect(client, "URLFETCH failed");
+		return -1;
+	}
+	if (!ctx->input->eof) {
+		o_stream_set_flush_pending(client->output, TRUE);
 		return 0;
+	}
 
-	/* finished */
-	i_stream_unref(&ctx->input);
-	return 1;
+	i_error("URLFETCH got too little data: %"PRIuUOFF_T" vs %"PRIuUOFF_T,
+		ctx->input->v_offset, ctx->size);
+	client_disconnect(client, "FETCH failed");
+	return -1;
 }
 
 static bool cmd_urlfetch_continue(struct client_command_context *cmd)
@@ -208,12 +216,12 @@ static int cmd_urlfetch_url_sucess(struct client_command_context *cmd,
 
 	if (reply->input != NULL) {
 		ctx->input = reply->input;
+		ctx->size = reply->size;
 		i_stream_ref(reply->input);
 
 		ret = cmd_urlfetch_transfer_literal(cmd);
 		if (ret < 0) {
 			ctx->failed = TRUE;
-			cmd_urlfetch_finish(cmd);
 			return -1;
 		}
 		if (ret == 0) {
@@ -240,17 +248,20 @@ cmd_urlfetch_url_callback(struct imap_urlauth_fetch_reply *reply,
 	struct cmd_urlfetch_context *ctx = cmd->context;
 	int ret;
 
-	if (cmd->cancel)
-		return 1;
-
 	if (reply == NULL) {
 		/* fatal failure */
 		last = TRUE;
 		ctx->failed = TRUE;
 	} else if (reply->succeeded) {
 		/* URL fetch succeeded */
-		if ((ret = cmd_urlfetch_url_sucess(cmd, reply)) <= 0)
-			return ret;
+		ret = cmd_urlfetch_url_sucess(cmd, reply);
+		if (ret == 0)
+			return 0;
+		if (ret < 0) {
+			ctx->ufetch = NULL;
+			cmd_urlfetch_finish(cmd);
+			return -1;
+		}
 	} else {
 		/* URL fetch failed */
 		client_send_line(cmd->client,
@@ -262,6 +273,7 @@ cmd_urlfetch_url_callback(struct imap_urlauth_fetch_reply *reply,
 	}
 
 	if (last && cmd->state == CLIENT_COMMAND_STATE_WAIT_EXTERNAL) {
+		ctx->ufetch = NULL;
 		cmd_urlfetch_finish(cmd);
 		client_command_free(&cmd);
 	}

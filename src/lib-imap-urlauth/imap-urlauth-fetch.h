@@ -33,7 +33,8 @@ struct imap_urlauth_fetch_reply {
    for next reply, 0 if not all data was processed, and -1 for error. If a
    callback returns 0, imap_urlauth_connection_continue() must be called once
    new replies may be processed. If this is the last request to yield a reply,
-   argument last is TRUE */
+   argument last is TRUE. The callback must not call
+   imap_urlauth_fetch_deinit(). */
 typedef int
 imap_urlauth_fetch_callback_t(struct imap_urlauth_fetch_reply *reply,
 			      bool last, void *context);
