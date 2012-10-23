@@ -85,6 +85,7 @@ struct connection {
 
 struct connection_list {
 	struct connection *connections;
+	unsigned int connections_count;
 
 	struct connection_settings set;
 	struct connection_vfuncs v;

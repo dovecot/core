@@ -163,6 +163,7 @@ void connection_init_server(struct connection_list *list,
 	connection_init_streams(conn);
 
 	DLLIST_PREPEND(&list->connections, conn);
+	list->connections_count++;
 }
 
 void connection_init_client_ip(struct connection_list *list,
@@ -179,6 +180,7 @@ void connection_init_client_ip(struct connection_list *list,
 	conn->port = port;
 
 	DLLIST_PREPEND(&list->connections, conn);
+	list->connections_count++;
 }
 
 void connection_init_client_unix(struct connection_list *list,
@@ -191,6 +193,7 @@ void connection_init_client_unix(struct connection_list *list,
 	conn->name = i_strdup(path);
 
 	DLLIST_PREPEND(&list->connections, conn);
+	list->connections_count++;
 }
 
 static void connection_ip_connected(struct connection *conn)
@@ -253,6 +256,9 @@ void connection_disconnect(struct connection *conn)
 
 void connection_deinit(struct connection *conn)
 {
+	i_assert(conn->list->connections_count > 0);
+
+	conn->list->connections_count--;
 	DLLIST_REMOVE(&conn->list->connections, conn);
 
 	connection_disconnect(conn);
