@@ -24,7 +24,8 @@
 
 struct binary_block {
 	struct istream *input;
-	struct message_binary_part bin_part;
+	uoff_t physical_pos;
+	unsigned int body_lines_count;
 	bool converted, converted_hdr;
 };
 
@@ -130,7 +131,7 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 		if (ctx->copy_start_offset != 0)
 			binary_copy_to(ctx, part->physical_pos);
 		block = array_append_space(&ctx->blocks);
-		block->bin_part.physical_pos = part->physical_pos;
+		block->physical_pos = part->physical_pos;
 		block->converted = TRUE;
 		block->converted_hdr = TRUE;
 
@@ -164,7 +165,7 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 
 	/* single part - write decoded data */
 	block = array_append_space(&ctx->blocks);
-	block->bin_part.physical_pos = part->physical_pos;
+	block->physical_pos = part->physical_pos;
 
 	i_stream_seek(ctx->input, part->physical_pos +
 		      part->header_size.physical_size);
@@ -248,7 +249,7 @@ binary_parts_update(struct binary_ctx *ctx, const struct message_part *part,
 		bin_part.physical_pos = part->physical_pos;
 		found = FALSE;
 		for (i = 0; i < count; i++) {
-			if (blocks[i].bin_part.physical_pos != part->physical_pos ||
+			if (blocks[i].physical_pos != part->physical_pos ||
 			    !blocks[i].converted)
 				continue;
 
@@ -287,9 +288,59 @@ static struct istream **blocks_get_streams(struct binary_ctx *ctx)
 
 	blocks = array_get(&ctx->blocks, &count);
 	streams = t_new(struct istream *, count+1);
-	for (i = 0; i < count; i++)
+	for (i = 0; i < count; i++) {
 		streams[i] = blocks[i].input;
+		i_assert(streams[i]->v_offset == 0);
+	}
 	return streams;
+}
+
+static int
+blocks_count_lines(struct binary_ctx *ctx, struct istream *full_input)
+{
+	struct binary_block *blocks, *cur_block;
+	unsigned int block_idx, block_count;
+	uoff_t cur_offset, cur_size;
+	const unsigned char *data, *p;
+	size_t size, skip;
+	ssize_t ret;
+
+	blocks = array_get_modifiable(&ctx->blocks, &block_count);
+	cur_block = blocks;
+	cur_offset = 0;
+	block_idx = 0;
+
+	while ((ret = i_stream_read_data(full_input, &data, &size, 0)) > 0) {
+		i_assert(cur_offset <= cur_block->input->v_offset);
+		if (cur_block->input->eof) {
+			cur_size = cur_block->input->v_offset +
+				i_stream_get_data_size(cur_block->input);
+			i_assert(size >= cur_size - cur_offset);
+			size = cur_size - cur_offset;
+		}
+		skip = size;
+		while ((p = memchr(data, '\n', size)) != NULL) {
+			size -= p-data+1;
+			data = p+1;
+			cur_block->body_lines_count++;
+		}
+		i_stream_skip(full_input, skip);
+		cur_offset += skip;
+
+		if (cur_block->input->eof) {
+			if (++block_idx == block_count)
+				cur_block = NULL;
+			else
+				cur_block++;
+			cur_offset = 0;
+		}
+	}
+	i_assert(ret == -1);
+	if (full_input->stream_errno != 0)
+		return -1;
+	i_assert(!i_stream_have_bytes_left(cur_block->input));
+	i_assert(block_idx+1 == block_count);
+	return 0;
 }
 
 static int
@@ -325,8 +376,7 @@ index_mail_read_binary_to_cache(struct mail *_mail,
 
 	cache->input = i_streams_merge(blocks_get_streams(&ctx),
 				       IO_BLOCK_SIZE, fd_callback, _mail);
-
-	if (i_stream_get_size(cache->input, TRUE, &cache->size) < 0) {
+	if (blocks_count_lines(&ctx, cache->input) < 0) {
 		mail_storage_set_critical(_mail->box->storage,
 					  "read(%s) failed: %m",
 					  i_stream_get_name(cache->input));
@@ -334,6 +384,9 @@ index_mail_read_binary_to_cache(struct mail *_mail,
 		binary_streams_free(&ctx);
 		return -1;
 	}
+	i_assert(!i_stream_have_bytes_left(cache->input));
+	cache->size = cache->input->v_offset;
+	i_stream_seek(cache->input, 0);
 
 	if (part->parent == NULL && include_hdr &&
 	    mail->data.bin_parts == NULL) {
@@ -389,13 +442,14 @@ msg_part_find(struct message_part *parts, uoff_t physical_pos)
 
 static int
 index_mail_get_binary_size(struct mail *_mail,
-			   const struct message_part *part,
-			   bool include_hdr, uoff_t *size_r)
+			   const struct message_part *part, bool include_hdr,
+			   uoff_t *size_r, unsigned int *lines_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct message_part *all_parts, *msg_part;
 	const struct message_binary_part *bin_part, *root_bin_part;
 	uoff_t size, end_offset;
+	unsigned int lines;
 	bool binary, converted;
 
 	if (mail_get_parts(_mail, &all_parts) < 0)
@@ -411,6 +465,11 @@ index_mail_get_binary_size(struct mail *_mail,
 
 	size = part->header_size.virtual_size +
 		part->body_size.virtual_size;
+	/* note that we assume here that binary translation doesn't change the
+	   headers' line counts. this isn't true if the original message
+	   contained duplicate Content-Transfer-Encoding lines, but since
+	   that's invalid anyway we don't bother trying to handle it. */
+	lines = part->header_size.lines + part->body_size.lines;
 	end_offset = part->physical_pos + size;
 
 	bin_part = mail->data.bin_parts; root_bin_part = NULL;
@@ -428,6 +487,8 @@ index_mail_get_binary_size(struct mail *_mail,
 				msg_part->body_size.virtual_size;
 			size += bin_part->binary_hdr_size +
 				bin_part->binary_body_size;
+			lines -= msg_part->body_size.lines;
+			lines += bin_part->binary_body_lines_count;
 		}
 	}
 	if (!include_hdr) {
@@ -435,15 +496,18 @@ index_mail_get_binary_size(struct mail *_mail,
 			size -= root_bin_part->binary_hdr_size;
 		else
 			size -= part->header_size.virtual_size;
+		lines -= part->header_size.lines;
 	}
 	*size_r = size;
+	*lines_r = lines;
 	return 0;
 }
 
 int index_mail_get_binary_stream(struct mail *_mail,
 				 const struct message_part *part,
 				 bool include_hdr, uoff_t *size_r,
-				 bool *binary_r, struct istream **stream_r)
+				 unsigned int *lines_r, bool *binary_r,
+				 struct istream **stream_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct mail_binary_cache *cache = &_mail->box->storage->binary_cache;
@@ -451,9 +515,12 @@ int index_mail_get_binary_stream(struct mail *_mail,
 	bool binary, converted;
 
 	if (stream_r == NULL) {
-		return index_mail_get_binary_size(_mail, part,
-						  include_hdr, size_r);
+		return index_mail_get_binary_size(_mail, part, include_hdr,
+						  size_r, lines_r);
 	}
+	/* current implementation doesn't bother implementing this,
+	   because it's not needed by anything. */
+	i_assert(lines_r == NULL);
 
 	/* FIXME: always put the header to temp file. skip it when needed. */
 	if (cache->box == _mail->box && cache->uid == _mail->uid &&

@@ -181,6 +181,7 @@ fail_mail_get_binary_stream(struct mail *_mail ATTR_UNUSED,
 			    const struct message_part *part ATTR_UNUSED,
 			    bool include_hdr ATTR_UNUSED,
 			    uoff_t *size_r ATTR_UNUSED,
+			    unsigned int *body_lines_r ATTR_UNUSED,
 			    bool *binary_r ATTR_UNUSED,
 			    struct istream **stream_r ATTR_UNUSED)
 {

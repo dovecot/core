@@ -706,6 +706,7 @@ int imap_msgpart_size(struct mail *mail, struct imap_msgpart *msgpart,
 	struct imap_msgpart_open_result result;
 	struct message_part *part;
 	bool include_hdr;
+	unsigned int lines;
 	int ret;
 
 	if (!msgpart->decode_cte_to_binary ||
@@ -733,7 +734,7 @@ int imap_msgpart_size(struct mail *mail, struct imap_msgpart *msgpart,
 			return -1;
 	}
 	include_hdr = msgpart->fetch_type == FETCH_FULL;
-	return mail_get_binary_size(mail, part, include_hdr, size_r);
+	return mail_get_binary_size(mail, part, include_hdr, size_r, &lines);
 }
 
 static int
@@ -769,13 +770,15 @@ imap_msgpart_vsizes_to_binary(struct mail *mail, const struct message_part *part
 {
 	struct message_part **pos;
 	uoff_t size;
+	unsigned int lines;
 
-	if (mail_get_binary_size(mail, part, FALSE, &size) < 0)
+	if (mail_get_binary_size(mail, part, FALSE, &size, &lines) < 0)
 		return -1;
 
 	*binpart_r = t_new(struct message_part, 1);
 	**binpart_r = *part;
 	(*binpart_r)->body_size.virtual_size = size;
+	(*binpart_r)->body_size.lines = lines;
 
 	pos = &(*binpart_r)->children;
 	for (part = part->children; part != NULL; part = part->next) {

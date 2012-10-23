@@ -364,7 +364,8 @@ struct mail_vfuncs {
 	int (*get_binary_stream)(struct mail *mail,
 				 const struct message_part *part,
 				 bool include_hdr, uoff_t *size_r,
-				 bool *binary_r, struct istream **stream_r);
+				 unsigned int *lines_r, bool *binary_r,
+				 struct istream **stream_r);
 
 	int (*get_special)(struct mail *mail, enum mail_fetch_field field,
 			   const char **value_r);

@@ -813,11 +813,12 @@ int mail_get_hdr_stream(struct mail *mail, struct message_size *hdr_size,
    MAIL_ERROR_CONVERSION. If the part refers to a multipart, all of its
    children are returned decoded. */
 int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
-			   bool include_hdr, uoff_t *size_r, bool *binary_r,
-			   struct istream **stream_r);
+			   bool include_hdr, uoff_t *size_r,
+			   bool *binary_r, struct istream **stream_r);
 /* Like mail_get_binary_stream(), but only return the size. */
 int mail_get_binary_size(struct mail *mail, const struct message_part *part,
-			 bool include_hdr, uoff_t *size_r);
+			 bool include_hdr, uoff_t *size_r,
+			 unsigned int *lines_r);
 
 /* Get any of the "special" fields. Unhandled specials are returned as "". */
 int mail_get_special(struct mail *mail, enum mail_fetch_field field,

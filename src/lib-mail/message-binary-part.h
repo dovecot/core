@@ -12,6 +12,9 @@ struct message_binary_part {
 	   "binary". */
 	uoff_t binary_hdr_size;
 	uoff_t binary_body_size;
+	/* BODYSTRUCTURE for text/ and message/rfc822 parts includes lines
+	   count. Decoding may change these numbers. */
+	unsigned int binary_body_lines_count;
 };
 
 /* Serialize message binary_part. */

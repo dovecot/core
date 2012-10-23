@@ -222,8 +222,8 @@ int mail_get_hdr_stream(struct mail *mail, struct message_size *hdr_size,
 }
 
 int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
-			   bool include_hdr, uoff_t *size_r, bool *binary_r,
-			   struct istream **stream_r)
+			   bool include_hdr, uoff_t *size_r,
+			   bool *binary_r, struct istream **stream_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 	int ret;
@@ -234,13 +234,14 @@ int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
 	}
 	T_BEGIN {
 		ret = p->v.get_binary_stream(mail, part, include_hdr,
-					     size_r, binary_r, stream_r);
+					     size_r, NULL, binary_r, stream_r);
 	} T_END;
 	return ret;
 }
 
 int mail_get_binary_size(struct mail *mail, const struct message_part *part,
-			 bool include_hdr, uoff_t *size_r)
+			 bool include_hdr, uoff_t *size_r,
+			 unsigned int *lines_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 	bool binary;
@@ -248,7 +249,7 @@ int mail_get_binary_size(struct mail *mail, const struct message_part *part,
 
 	T_BEGIN {
 		ret = p->v.get_binary_stream(mail, part, include_hdr,
-					     size_r, &binary, NULL);
+					     size_r, lines_r, &binary, NULL);
 	} T_END;
 	return ret;
 }
