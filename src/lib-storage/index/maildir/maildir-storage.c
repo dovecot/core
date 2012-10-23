@@ -237,14 +237,17 @@ static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 /* create or fix maildir, ignore if it already exists */
 static int create_maildir_subdirs(struct mailbox *box, bool verify)
 {
-	const char *path;
+	const char *path, *box_path;
 	unsigned int i;
 	enum mail_error error;
 	int ret = 0;
 
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+				&box_path) < 0)
+		return -1;
+
 	for (i = 0; i < N_ELEMENTS(maildir_subdirs); i++) {
-		path = t_strconcat(mailbox_get_path(box), "/",
-				   maildir_subdirs[i], NULL);
+		path = t_strconcat(box_path, "/", maildir_subdirs[i], NULL);
 		if (mkdir_verify(box, path, verify) < 0) {
 			error = mailbox_get_last_mail_error(box);
 			if (error != MAIL_ERROR_EXISTS)
