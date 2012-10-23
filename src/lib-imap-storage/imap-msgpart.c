@@ -440,7 +440,7 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 		/* update cache */
 		cache->uid = mail->uid;
 		cache->physical_start = physical_start;
-		cache->physical_pos = input->v_offset;
+		cache->physical_pos = input->v_offset - physical_start;
 		cache->virtual_pos = msgpart->partial_offset;
 		if (cr_skipped) {
 			/* the physical_pos points to virtual CRLF, but
