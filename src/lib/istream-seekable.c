@@ -153,6 +153,7 @@ static ssize_t read_more(struct seekable_istream *sstream)
 			/* last one, EOF */
 			sstream->size = sstream->istream.istream.v_offset;
 			sstream->istream.istream.eof = TRUE;
+			unref_streams(sstream);
 			return -1;
 		}
 
