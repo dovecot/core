@@ -966,10 +966,8 @@ dsync_msg_update_uid(struct dsync_mailbox_importer *importer,
 	save_ctx = mailbox_save_alloc(importer->ext_trans);
 	mailbox_save_copy_flags(save_ctx, importer->mail);
 	mailbox_save_set_uid(save_ctx, new_uid);
-	if (mailbox_copy(&save_ctx, importer->mail) == 0) {
+	if (mailbox_move(&save_ctx, importer->mail) == 0)
 		array_append(&importer->wanted_uids, &new_uid, 1);
-		mail_expunge(importer->mail);
-	}
 }
 
 static void
@@ -1266,10 +1264,12 @@ reassign_uids_in_seq_range(struct mailbox *box, uint32_t seq1, uint32_t seq2)
 
 		save_ctx = mailbox_save_alloc(trans);
 		mailbox_save_copy_flags(save_ctx, mail);
-		if (mailbox_copy(&save_ctx, mail) < 0)
+		if (mailbox_move(&save_ctx, mail) < 0) {
+			i_error("Couldn't move mail within mailbox %s: %s",
+				mailbox_get_vname(box),
+				mailbox_get_last_error(box, NULL));
 			ret = -1;
-		else
-			mail_expunge(mail);
+		}
 	}
 	mail_free(&mail);
 
