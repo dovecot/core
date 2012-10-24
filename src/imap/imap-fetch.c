@@ -833,7 +833,7 @@ static int fetch_guid(struct imap_fetch_context *ctx, struct mail *mail,
 		return -1;
 
 	str_append(ctx->state.cur_str, "X-GUID ");
-	imap_append_string(ctx->state.cur_str, value);
+	imap_append_astring(ctx->state.cur_str, value);
 	str_append_c(ctx->state.cur_str, ' ');
 	return 1;
 }
@@ -860,7 +860,7 @@ static int fetch_x_mailbox(struct imap_fetch_context *ctx, struct mail *mail,
 		i_panic("FETCH: Mailbox name not UTF-8: %s", name);
 
 	str_append(ctx->state.cur_str, "X-MAILBOX ");
-	imap_append_string(ctx->state.cur_str, str_c(mutf7_name));
+	imap_append_astring(ctx->state.cur_str, str_c(mutf7_name));
 	str_append_c(ctx->state.cur_str, ' ');
 	return 1;
 }
