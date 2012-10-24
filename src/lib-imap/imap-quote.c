@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "imap-arg.h"
 #include "imap-quote.h"
 
 void imap_quote_append(string_t *str, const unsigned char *value,
@@ -128,6 +129,24 @@ void imap_append_string(string_t *dest, const char *src)
 	i_assert(src != NULL);
 
 	imap_append_nstring(dest, src);
+}
+
+void imap_append_astring(string_t *dest, const char *src)
+{
+	unsigned int i;
+
+	i_assert(src != NULL);
+
+	for (i = 0; src[i] != '\0'; i++) {
+		if (!IS_ASTRING_CHAR(src[i])) {
+			imap_append_string(dest, src);
+			return;
+		}
+	}
+	if (i == 0)
+		imap_append_string(dest, src);
+	else
+		str_append(dest, src);
 }
 
 void imap_append_nstring(string_t *dest, const char *src)
