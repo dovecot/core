@@ -33,6 +33,9 @@ raw_storage_create_from_set(const struct setting_parser_info *set_info,
 	ns_set->separator = "/";
 
 	ns = mail_namespaces_init_empty(user);
+	/* raw storage doesn't have INBOX. We especially don't want LIST to
+	   return INBOX. */
+	ns->flags &= ~NAMESPACE_FLAG_INBOX_USER;
 	ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
 	ns->set = ns_set;
 	if (mail_storage_create(ns, "raw", 0, &error) < 0)
