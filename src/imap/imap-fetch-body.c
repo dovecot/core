@@ -221,11 +221,8 @@ body_header_fields_parse(struct imap_fetch_init_context *ctx,
 
 		if (args[i].type == IMAP_ARG_ATOM)
 			str_append(str, value);
-		else {
-			str_append_c(str, '"');
+		else
 			imap_dquote_append(str, value);
-			str_append_c(str, '"');
-		}
 	}
 	str_append_c(str, ')');
 	body->section = str_c(str);
