@@ -1001,6 +1001,7 @@ mailbox_list_try_mkdir_root_parent(struct mailbox_list *list,
 		if (perm->file_create_gid == (gid_t)-1 &&
 		    (perm->dir_create_mode & S_ISGID) == 0) {
 			/* change the group for user directories */
+			perm->dir_create_mode |= S_ISGID;
 			perm->file_create_gid = getegid();
 			perm->file_create_gid_origin = "egid";
 			perm->gid_origin_is_mailbox_path = FALSE;
