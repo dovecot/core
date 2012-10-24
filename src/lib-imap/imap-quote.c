@@ -5,124 +5,15 @@
 #include "imap-arg.h"
 #include "imap-quote.h"
 
-void imap_quote_append(string_t *str, const unsigned char *value,
-		       size_t value_len, bool fix_text)
-{
-	size_t i, extra = 0;
-	bool last_lwsp = TRUE, literal = FALSE, modify = FALSE;
-
-	if (value == NULL) {
-		str_append(str, "NIL");
-		return;
-	}
-
-	if (value_len == (size_t)-1)
-		value_len = strlen((const char *) value);
-
-	for (i = 0; i < value_len; i++) {
-		switch (value[i]) {
-		case 0:
-			/* it's converted to 8bit char */
-			literal = TRUE;
-			last_lwsp = FALSE;
-			modify = TRUE;
-			break;
-		case '\t':
-			modify = TRUE;
-			/* fall through */
-		case ' ':
-			if (last_lwsp && fix_text) {
-				modify = TRUE;
-				extra++;
-			}
-			last_lwsp = TRUE;
-			break;
-		case 13:
-		case 10:
-			if (!fix_text)
-				literal = TRUE;
-			extra++;
-			modify = TRUE;
-			break;
-		default:
-			if ((value[i] & 0x80) != 0 ||
-			    value[i] == '"' || value[i] == '\\')
-				literal = TRUE;
-			last_lwsp = FALSE;
-		}
-	}
-
-	if (!fix_text) {
-		extra = 0;
-		modify = FALSE;
-	}
-
-	if (!literal) {
-		/* no 8bit chars or imapspecials, return as "string" */
-		str_append_c(str, '"');
-	} else {
-		/* return as literal */
-		str_printfa(str, "{%"PRIuSIZE_T"}\r\n", value_len - extra);
-	}
-
-	if (!modify)
-		str_append_n(str, value, value_len);
-	else {
-		last_lwsp = TRUE;
-		for (i = 0; i < value_len; i++) {
-			switch (value[i]) {
-			case 0:
-				str_append_c(str, 128);
-				last_lwsp = FALSE;
-				break;
-			case ' ':
-			case '\t':
-				if (!last_lwsp)
-					str_append_c(str, ' ');
-				last_lwsp = TRUE;
-				break;
-			case 13:
-			case 10:
-				break;
-			default:
-				last_lwsp = FALSE;
-				str_append_c(str, value[i]);
-				break;
-			}
-		}
-	}
-
-	if (!literal)
-		str_append_c(str, '"');
-}
-
-static const char *
-imap_quote_internal(pool_t pool, const unsigned char *value,
-		    size_t value_len, bool fix_text)
-{
-	string_t *str;
-
-	str = t_str_new(value_len + MAX_INT_STRLEN + 5);
-	imap_quote_append(str, value, value_len, fix_text);
-	return pool->datastack_pool ? str_c(str) :
-		p_strndup(pool, str_data(str), str_len(str));
-}
-
-const char *imap_quote(pool_t pool, const unsigned char *value,
-		       size_t value_len, bool fix_text)
-{
-	const char *ret;
-
-	if (value == NULL)
-		return "NIL";
-
-	if (pool->datastack_pool)
-		ret = imap_quote_internal(pool, value, value_len, fix_text);
-	else T_BEGIN {
-		ret = imap_quote_internal(pool, value, value_len, fix_text);
-	} T_END;
-	return ret;
-}
+/* If we have quoted-specials (<">, <\>) in a string, the minimum quoted-string
+   overhead is 3 bytes ("\") while the minimum literal overhead is 5 bytes
+   ("{n}\r\n"). But the literal overhead also depends on the string size. If
+   the string length is less than 10, literal catches up to quoted-string after
+   3 quoted-specials. If the string length is 10..99, it catches up after 4
+   quoted-specials, and so on. We'll assume that the string lengths are usually
+   in double digits, so we'll switch to literals after seeing 4
+   quoted-specials. */
+#define QUOTED_MAX_ESCAPE_CHARS 4
 
 void imap_append_string(string_t *dest, const char *src)
 {
@@ -149,9 +40,52 @@ void imap_append_astring(string_t *dest, const char *src)
 		str_append(dest, src);
 }
 
+static void
+imap_append_literal(string_t *dest, const char *src, unsigned int pos)
+{
+	unsigned int full_len = pos + strlen(src+pos);
+
+	str_printfa(dest, "{%u}\r\n", full_len);
+	buffer_append(dest, src, full_len);
+}
+
 void imap_append_nstring(string_t *dest, const char *src)
 {
-	imap_quote_append_string(dest, src, FALSE);
+	unsigned int i, escape_count = 0;
+
+	if (src == NULL) {
+		str_append(dest, "NIL");
+		return;
+	}
+
+	/* first check if we can (or want to) write this as quoted or
+	   as literal.
+
+	   quoted-specials = DQUOTE / "\"
+	   QUOTED-CHAR     = <any TEXT-CHAR except quoted-specials> /
+	                     "\" quoted-specials
+	   TEXT-CHAR       = <any CHAR except CR and LF>
+	*/
+	for (i = 0; src[i] != '\0'; i++) {
+		switch (src[i]) {
+		case '"':
+		case '\\':
+			if (escape_count++ < QUOTED_MAX_ESCAPE_CHARS)
+				break;
+			/* fall through */
+		case 13:
+		case 10:
+			imap_append_literal(dest, src, i);
+			return;
+		default:
+			if ((unsigned char)src[i] >= 0x80) {
+				imap_append_literal(dest, src, i);
+				return;
+			}
+			break;
+		}
+	}
+	imap_append_quoted(dest, src);
 }
 
 void imap_append_quoted(string_t *dest, const char *src)
@@ -159,8 +93,8 @@ void imap_append_quoted(string_t *dest, const char *src)
 	str_append_c(dest, '"');
 	for (; *src != '\0'; src++) {
 		switch (*src) {
-		case '\r':
-		case '\n':
+		case 13:
+		case 10:
 			/* not allowed */
 			break;
 		case '"':
@@ -179,4 +113,88 @@ void imap_append_quoted(string_t *dest, const char *src)
 		}
 	}
 	str_append_c(dest, '"');
+}
+
+void imap_append_string_for_humans(string_t *dest,
+				   const unsigned char *src, size_t size)
+{
+	size_t i, pos, remove_count = 0;
+	bool last_lwsp = TRUE, modify = FALSE;
+
+	/* first check if there is anything to change */
+	for (i = 0; i < size; i++) {
+		switch (src[i]) {
+		case 0:
+			/* convert NUL to #0x80 */
+			last_lwsp = FALSE;
+			modify = TRUE;
+			break;
+		case '\t':
+			modify = TRUE;
+			/* fall through */
+		case ' ':
+			if (last_lwsp) {
+				modify = TRUE;
+				remove_count++;
+			}
+			last_lwsp = TRUE;
+			break;
+		case 13:
+		case 10:
+			remove_count++;
+			modify = TRUE;
+			break;
+		case '"':
+		case '\\':
+			modify = TRUE;
+			last_lwsp = FALSE;
+			break;
+		default:
+			if ((src[i] & 0x80) != 0)
+				modify = TRUE;
+			last_lwsp = FALSE;
+			break;
+		}
+	}
+	if (last_lwsp) {
+		modify = TRUE;
+		remove_count++;
+	}
+	if (!modify) {
+		/* fast path: we can simply write it as quoted string
+		   without any escaping */
+		str_append_c(dest, '"');
+		str_append_n(dest, src, size);
+		str_append_c(dest, '"');
+		return;
+	}
+
+	str_printfa(dest, "{%"PRIuSIZE_T"}\r\n", size - remove_count);
+	pos = str_len(dest);
+
+	last_lwsp = TRUE;
+	for (i = 0; i < size; i++) {
+		switch (src[i]) {
+		case 0:
+			str_append_c(dest, 128);
+			last_lwsp = FALSE;
+			break;
+		case '\t':
+		case ' ':
+			if (!last_lwsp)
+				str_append_c(dest, ' ');
+			last_lwsp = TRUE;
+			break;
+		case 13:
+		case 10:
+			break;
+		default:
+			last_lwsp = FALSE;
+			str_append_c(dest, src[i]);
+			break;
+		}
+	}
+	if (last_lwsp)
+		str_truncate(dest, str_len(dest)-1);
+	i_assert(str_len(dest) - pos == size - remove_count);
 }
