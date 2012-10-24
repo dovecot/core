@@ -81,6 +81,7 @@ struct dsync_mailbox_importer {
 	unsigned int want_mail_requests:1;
 	unsigned int mails_have_guids:1;
 	unsigned int master_brain:1;
+	unsigned int revert_local_changes:1;
 };
 
 static void
@@ -158,6 +159,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS) != 0;
 	importer->master_brain =
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MASTER_BRAIN) != 0;
+	importer->revert_local_changes =
+		(flags & DSYNC_MAILBOX_IMPORT_FLAG_REVERT_LOCAL_CHANGES) != 0;
 
 	mailbox_get_open_status(importer->box,
 				STATUS_UIDNEXT | STATUS_HIGHESTMODSEQ,
@@ -635,6 +638,44 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 }
 
 static void
+dsync_mailbox_import_replace_flags(struct mail *mail,
+				   const struct dsync_mail_change *change)
+{
+	ARRAY_TYPE(const_string) keywords;
+	struct mail_keywords *kw;
+	const char *const *changes, *name;
+	unsigned int i, count;
+
+	if (array_is_created(&change->keyword_changes))
+		changes = array_get(&change->keyword_changes, &count);
+	else {
+		changes = NULL;
+		count = 0;
+	}
+	t_array_init(&keywords, count+1);
+	for (i = 0; i < count; i++) {
+		switch (changes[i][0]) {
+		case KEYWORD_CHANGE_ADD:
+		case KEYWORD_CHANGE_FINAL:
+			name = changes[i]+1;
+			array_append(&keywords, &name, 1);
+			break;
+		case KEYWORD_CHANGE_REMOVE:
+			break;
+		}
+	}
+	array_append_zero(&keywords);
+
+	kw = mailbox_keywords_create_valid(mail->box, array_idx(&keywords, 0));
+	mail_update_keywords(mail, MODIFY_REPLACE, kw);
+	mailbox_keywords_unref(&kw);
+
+	mail_update_flags(mail, MODIFY_REPLACE,
+			  change->add_flags | change->final_flags);
+	mail_update_modseq(mail, change->modseq);
+}
+
+static void
 dsync_mailbox_import_flag_change(struct dsync_mailbox_importer *importer,
 				 const struct dsync_mail_change *change)
 {
@@ -654,6 +695,12 @@ dsync_mailbox_import_flag_change(struct dsync_mailbox_importer *importer,
 		if (!dsync_import_set_mail(importer, change))
 			return;
 		mail = importer->mail;
+	}
+
+	if (importer->revert_local_changes) {
+		/* dsync backup: just make the local look like remote. */
+		dsync_mailbox_import_replace_flags(mail, change);
+		return;
 	}
 
 	local_change = hash_table_lookup(importer->local_changes,
