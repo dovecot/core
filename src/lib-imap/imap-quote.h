@@ -15,7 +15,11 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 const char *imap_quote(pool_t pool, const unsigned char *value,
 		       size_t value_len, bool fix_text);
 
-/* Append data to destination string quoted using "". */
+/* Append "quoted" or literal. */
+void imap_append_string(string_t *dest, const char *src);
+/* Append NIL, "quoted" or literal. */
+void imap_append_nstring(string_t *dest, const char *src);
+/* Append "quoted". If src has 8bit chars, skip over them. */
 void imap_append_quoted(string_t *dest, const char *src);
 
 #endif
