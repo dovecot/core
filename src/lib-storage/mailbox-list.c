@@ -207,14 +207,16 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	return 0;
 }
 
-static int fix_path(struct mail_user *user, const char *path,
+static int fix_path(struct mail_user *user, const char *path, bool expand_home,
 		    const char **path_r, const char **error_r)
 {
 	size_t len = strlen(path);
 
 	if (len > 1 && path[len-1] == '/')
 		path = t_strndup(path, len-1);
-	if (path[0] == '~' && path[1] != '/' && path[1] != '\0') {
+	if (!expand_home) {
+		/* no ~ expansion */
+	} else if (path[0] == '~' && path[1] != '/' && path[1] != '\0') {
 		/* ~otheruser/dir */
 		if (home_try_expand(&path) < 0) {
 			*error_r = t_strconcat(
@@ -253,9 +255,11 @@ static const char *split_next_arg(const char *const **_args)
 	return str;
 }
 
-int mailbox_list_settings_parse(struct mail_user *user, const char *data,
-				struct mailbox_list_settings *set_r,
-				const char **error_r)
+static int
+mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
+				 bool expand_home,
+				 struct mailbox_list_settings *set_r,
+				 const char **error_r)
 {
 	const char *const *tmp, *key, *value, **dest, *str, *error;
 
@@ -271,7 +275,7 @@ int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 	/* <root dir> */
 	tmp = t_strsplit(data, ":");
 	str = split_next_arg(&tmp);
-	if (fix_path(user, str, &set_r->root_dir, &error) < 0) {
+	if (fix_path(user, str, expand_home, &set_r->root_dir, &error) < 0) {
 		*error_r = t_strconcat(error, "mail root dir in: ", data, NULL);
 		return -1;
 	}
@@ -323,7 +327,7 @@ int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
 		}
-		if (fix_path(user, value, dest, &error) < 0) {
+		if (fix_path(user, value, expand_home, dest, &error) < 0) {
 			*error_r = t_strconcat(error, key, " in: ", data, NULL);
 			return -1;
 		}
@@ -332,6 +336,14 @@ int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 	if (set_r->index_dir != NULL && strcmp(set_r->index_dir, "MEMORY") == 0)
 		set_r->index_dir = "";
 	return 0;
+}
+
+int mailbox_list_settings_parse(struct mail_user *user, const char *data,
+				struct mailbox_list_settings *set_r,
+				const char **error_r)
+{
+	return mailbox_list_settings_parse_full(user, data, TRUE,
+						set_r, error_r);
 }
 
 const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
@@ -367,7 +379,8 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 	if (p == NULL)
 		return "";
 
-	if (mailbox_list_settings_parse(user, p + 1, &set, &error) < 0)
+	if (mailbox_list_settings_parse_full(user, p + 1, FALSE,
+					     &set, &error) < 0)
 		return "";
 	if (mailbox_list_set_get_root_path(&set, type, &path) <= 0)
 		return "";
@@ -963,33 +976,50 @@ mailbox_list_try_mkdir_root_parent(struct mailbox_list *list,
 {
 	const char *expanded, *unexpanded, *root_dir, *p;
 	struct stat st;
+	bool home = FALSE;
 
 	/* get the directory path up to last %variable. for example
 	   unexpanded path may be "/var/mail/%d/%2n/%n/Maildir", and we want
 	   to get expanded="/var/mail/domain/nn" */
 	unexpanded = mailbox_list_get_unexpanded_path(list, type);
 	p = strrchr(unexpanded, '%');
-	if (p == NULL)
-		expanded = "";
-	else {
+	if ((p == unexpanded && p[1] == 'h') ||
+	    (p == NULL && unexpanded[0] == '~')) {
+		/* home directory used */
+		if (!mailbox_list_get_root_path(list, type, &expanded))
+			i_unreached();
+		home = TRUE;
+	} else if (p == NULL) {
+		return 0;
+	} else {
 		while (p != unexpanded && *p != '/') p--;
 		if (p == unexpanded)
-			expanded = "";
-		else {
-			if (!mailbox_list_get_root_path(list, type, &expanded))
-				i_unreached();
-			expanded = get_expanded_path(unexpanded, p, expanded);
-		}
+			return 0;
+
+		if (!mailbox_list_get_root_path(list, type, &expanded))
+			i_unreached();
+		expanded = get_expanded_path(unexpanded, p, expanded);
+		if (*expanded == '\0')
+			return 0;
 	}
 
-	if (*expanded != '\0') {
-		/* up to this directory get the permissions from the first
-		   parent directory that exists, if it has setgid bit
-		   enabled. */
-		if (mailbox_list_stat_parent(expanded, &root_dir, &st,
-					     error_r) < 0)
-			return -1;
-		if ((st.st_mode & S_ISGID) != 0 && root_dir != expanded) {
+	/* get the first existing parent directory's permissions */
+	if (mailbox_list_stat_parent(expanded, &root_dir, &st, error_r) < 0)
+		return -1;
+
+	/* if the parent directory doesn't have setgid-bit enabled, we don't
+	   copy any permissions from it. */
+	if ((st.st_mode & S_ISGID) == 0)
+		return 0;
+
+	if (!home) {
+		/* assuming we have e.g. /var/vmail/%d/%n directory, here we
+		   want to create up to /var/vmail/%d with permissions from
+		   the parent directory. we never want to create the %n
+		   directory itself. */
+		if (root_dir == expanded) {
+			/* this is the %n directory */
+		} else {
 			if (mkdir_parents_chgrp(expanded, st.st_mode,
 						(gid_t)-1, root_dir) < 0 &&
 			    errno != EEXIST) {
@@ -1006,6 +1036,14 @@ mailbox_list_try_mkdir_root_parent(struct mailbox_list *list,
 			perm->file_create_gid_origin = "egid";
 			perm->gid_origin_is_mailbox_path = FALSE;
 		}
+	} else {
+		/* when using %h and the parent has setgid-bit,
+		   copy the permissions from it for the home we're creating */
+		perm->file_create_mode = st.st_mode & 0666;
+		perm->dir_create_mode = st.st_mode;
+		perm->file_create_gid = (gid_t)-1;
+		perm->file_create_gid_origin = "parent";
+		perm->gid_origin_is_mailbox_path = FALSE;
 	}
 	return 0;
 }
