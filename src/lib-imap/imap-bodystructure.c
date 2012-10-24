@@ -20,6 +20,14 @@
 
 #define NVL(str, nullstr) ((str) != NULL ? (str) : (nullstr))
 
+static char *imap_get_string(pool_t pool, const char *value)
+{
+	string_t *str = t_str_new(64);
+
+	imap_append_string(str, value);
+	return p_strdup(pool, str_c(str));
+}
+
 static void parse_content_type(struct message_part_body_data *data,
 			       struct message_header_line *hdr)
 {
@@ -41,12 +49,12 @@ static void parse_content_type(struct message_part_body_data *data,
 	for (i = 0; value[i] != '\0'; i++) {
 		if (value[i] == '/') {
 			data->content_subtype =
-				imap_quote(data->pool, str_data(str) + i + 1,
-					   str_len(str) - (i + 1), TRUE);
+				imap_get_string(data->pool, value + i+1);
 			break;
 		}
 	}
-	data->content_type = imap_quote(data->pool, str_data(str), i, TRUE);
+	str_truncate(str, i);
+	data->content_type = imap_get_string(data->pool, str_c(str));
 
 	/* parse parameters and save them */
 	str_truncate(str, 0);
@@ -56,9 +64,9 @@ static void parse_content_type(struct message_part_body_data *data,
 			charset_found = TRUE;
 
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, results[0], TRUE);
+		imap_append_string(str, results[0]);
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, results[1], TRUE);
+		imap_append_string(str, results[1]);
 	}
 
 	if (!charset_found &&
@@ -85,8 +93,7 @@ static void parse_content_transfer_encoding(struct message_part_body_data *data,
 	str = t_str_new(256);
 	if (rfc822_parse_mime_token(&parser, str) >= 0) {
 		data->content_transfer_encoding =
-			imap_quote(data->pool, str_data(str),
-				   str_len(str), TRUE);
+			imap_get_string(data->pool, str_c(str));
 	}
 }
 
@@ -103,17 +110,16 @@ static void parse_content_disposition(struct message_part_body_data *data,
 	str = t_str_new(256);
 	if (rfc822_parse_mime_token(&parser, str) < 0)
 		return;
-	data->content_disposition =
-		imap_quote(data->pool, str_data(str), str_len(str), TRUE);
+	data->content_disposition = imap_get_string(data->pool, str_c(str));
 
 	/* parse parameters and save them */
 	str_truncate(str, 0);
 	rfc2231_parse(&parser, &results);
 	for (; *results != NULL; results += 2) {
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, results[0], TRUE);
+		imap_append_string(str, results[0]);
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, results[1], TRUE);
+		imap_append_string(str, results[1]);
 	}
 	if (str_len(str) > 0) {
 		data->content_disposition_params =
@@ -158,32 +164,26 @@ static void parse_content_header(struct message_part_body_data *d,
 				 pool_t pool)
 {
 	const char *name = hdr->name + strlen("Content-");
-	const unsigned char *value;
-	size_t value_len;
+	const char *value;
 
 	if (hdr->continues) {
 		hdr->use_full_value = TRUE;
 		return;
 	}
 
-	value = hdr->full_value;
-	value_len = hdr->full_value_len;
+	value = t_strndup(hdr->full_value, hdr->full_value_len);
 
 	switch (*name) {
 	case 'i':
 	case 'I':
-		if (strcasecmp(name, "ID") == 0 && d->content_id == NULL) {
-			d->content_id =
-				imap_quote(pool, value, value_len, TRUE);
-		}
+		if (strcasecmp(name, "ID") == 0 && d->content_id == NULL)
+			d->content_id = imap_get_string(pool, value);
 		break;
 
 	case 'm':
 	case 'M':
-		if (strcasecmp(name, "MD5") == 0 && d->content_md5 == NULL) {
-			d->content_md5 =
-				imap_quote(pool, value, value_len, TRUE);
-		}
+		if (strcasecmp(name, "MD5") == 0 && d->content_md5 == NULL)
+			d->content_md5 = imap_get_string(pool, value);
 		break;
 
 	case 't':
@@ -198,25 +198,23 @@ static void parse_content_header(struct message_part_body_data *d,
 	case 'l':
 	case 'L':
 		if (strcasecmp(name, "Language") == 0 &&
-		    d->content_language == NULL)
-			parse_content_language(value, value_len, d);
-		else if (strcasecmp(name, "Location") == 0 &&
-			 d->content_location == NULL) {
-			d->content_location =
-				imap_quote(pool, value, value_len, TRUE);
+		    d->content_language == NULL) {
+			parse_content_language(hdr->full_value,
+					       hdr->full_value_len, d);
+		} else if (strcasecmp(name, "Location") == 0 &&
+			   d->content_location == NULL) {
+			d->content_location = imap_get_string(pool, value);
 		}
 		break;
 
 	case 'd':
 	case 'D':
 		if (strcasecmp(name, "Description") == 0 &&
-		    d->content_description == NULL) {
-			d->content_description =
-				imap_quote(pool, value, value_len, TRUE);
-		} else if (strcasecmp(name, "Disposition") == 0 &&
-			   d->content_disposition_params == NULL) {
+		    d->content_description == NULL)
+			d->content_description = imap_get_string(pool, value);
+		else if (strcasecmp(name, "Disposition") == 0 &&
+			 d->content_disposition_params == NULL)
 			parse_content_disposition(d, hdr);
-		}
 		break;
 	}
 }
