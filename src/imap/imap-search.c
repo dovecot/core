@@ -178,7 +178,7 @@ static void imap_search_result_save(struct imap_search_context *ctx)
 		/* too many updates */
 		string_t *str = t_str_new(256);
 		str_append(str, "* NO [NOUPDATE ");
-		imap_quote_append_string(str, ctx->cmd->tag, FALSE);
+		imap_append_quoted(str, ctx->cmd->tag);
 		str_append_c(str, ']');
 		client_send_line(client, str_c(str));
 		ctx->return_options &= ~SEARCH_RETURN_UPDATE;
@@ -318,7 +318,7 @@ static void imap_search_send_result(struct imap_search_context *ctx)
 
 	str = str_new(default_pool, 1024);
 	str_append(str, "* ESEARCH (TAG ");
-	imap_quote_append_string(str, ctx->cmd->tag, FALSE);
+	imap_append_string(str, ctx->cmd->tag);
 	str_append_c(str, ')');
 
 	if (ctx->cmd->uid)

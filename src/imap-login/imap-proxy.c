@@ -75,10 +75,9 @@ static void proxy_write_login(struct imap_client *client, string_t *str)
 	if (client->common.proxy_master_user == NULL) {
 		/* logging in normally - use LOGIN command */
 		str_append(str, "L LOGIN ");
-		imap_quote_append_string(str, client->common.proxy_user, FALSE);
+		imap_append_string(str, client->common.proxy_user);
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, client->common.proxy_password,
-					 FALSE);
+		imap_append_string(str, client->common.proxy_password);
 
 		proxy_free_password(&client->common);
 	} else if (client->proxy_sasl_ir) {

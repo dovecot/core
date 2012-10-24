@@ -84,11 +84,7 @@ imap_id_reply_generate_from_imap_args(const struct imap_arg *args)
 				if (strcmp(value, "*") == 0)
 					value = imap_id_get_default(key);
 			}
-
-			if (value == NULL)
-				str_append(str, "NIL");
-			else
-				imap_quote_append_string(str, value, FALSE);
+			imap_append_nstring(str, value);
 		}
 	}
 	if (str_len(str) == 1) {

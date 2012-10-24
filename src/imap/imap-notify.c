@@ -33,10 +33,10 @@ static int imap_notify_list(struct imap_notify_namespace *notify_ns,
 	str_append_c(str, ns_sep);
 	str_append(str, "\" ");
 
-	imap_quote_append_string(str, rec->vname, FALSE);
+	imap_append_string(str, rec->vname);
 	if (rec->old_vname != NULL) {
 		str_append(str, " (\"OLDNAME\" (");
-		imap_quote_append_string(str, rec->old_vname, FALSE);
+		imap_append_string(str, rec->old_vname);
 		str_append(str, "))");
 	}
 	return client_send_line_next(notify_ns->ctx->client, str_c(str));

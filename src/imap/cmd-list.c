@@ -249,7 +249,7 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 		list_reply_append_ns_sep_param(str,
 			mail_namespace_get_sep(info->ns));
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, str_c(mutf7_name), FALSE);
+		imap_append_string(str, str_c(mutf7_name));
 		mailbox_childinfo2str(ctx, str, flags);
 
 		ret = client_send_line_next(ctx->cmd->client, str_c(str));
@@ -333,7 +333,7 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 	str_printfa(str, "%c\" ", ns_sep);
 	if (*ns_prefix != '\0') {
 		/* non-hidden namespace, use it as the root name */
-		imap_quote_append_string(str, ns_prefix, FALSE);
+		imap_append_string(str, ns_prefix);
 	} else {
 		/* Hidden namespace or empty namespace prefix. We could just
 		   return an empty root name, but it's safer to emulate what
@@ -343,11 +343,8 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 
 		if (p == NULL)
 			str_append(str, "\"\"");
-		else {
-			imap_quote_append_string(str,
-						 t_strdup_until(ref, p + 1),
-						 FALSE);
-		}
+		else
+			imap_append_string(str, t_strdup_until(ref, p + 1));
 	}
 	client_send_line(client, str_c(str));
 }

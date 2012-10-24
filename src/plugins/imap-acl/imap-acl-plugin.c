@@ -163,7 +163,7 @@ imap_acl_write_right(string_t *dest, string_t *tmp,
 		i_unreached();
 	}
 
-	imap_quote_append(dest, str_data(tmp), str_len(tmp), FALSE);
+	imap_append_string(dest, str_c(tmp));
 	str_append_c(dest, ' ');
 	imap_acl_write_rights_list(dest, rights);
 }
@@ -288,7 +288,7 @@ static bool cmd_getacl(struct client_command_context *cmd)
 
 	str = t_str_new(128);
 	str_append(str, "* ACL ");
-	imap_quote_append_string(str, mailbox, FALSE);
+	imap_append_string(str, mailbox);
 
 	ns = mailbox_get_namespace(box);
 	backend = acl_mailbox_list_get_backend(ns->list);
@@ -347,7 +347,7 @@ static bool cmd_myrights(struct client_command_context *cmd)
 
 	str = t_str_new(128);
 	str_append(str, "* MYRIGHTS ");
-	imap_quote_append_string(str, orig_mailbox, FALSE);
+	imap_append_string(str, orig_mailbox);
 	str_append_c(str,' ');
 	imap_acl_write_rights_list(str, rights);
 
@@ -372,9 +372,9 @@ static bool cmd_listrights(struct client_command_context *cmd)
 
 	str = t_str_new(128);
 	str_append(str, "* LISTRIGHTS ");
-	imap_quote_append_string(str, mailbox, FALSE);
+	imap_append_string(str, mailbox);
 	str_append_c(str, ' ');
-	imap_quote_append_string(str, identifier, FALSE);
+	imap_append_string(str, identifier);
 	str_append_c(str, ' ');
 	str_append(str, "\"\" l r w s t p i e k x a c d");
 
