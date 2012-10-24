@@ -1,13 +1,15 @@
 v2.2.UNSTABLE 2012-xx-xx  Timo Sirainen <tss@iki.fi>
 
+	* When creating home directories, the permissions are copied from the
+	  parent directory if it has setgid-bit set. For full details, see
+	  http://wiki2.dovecot.org/SharedMailboxes/Permissions
 	* "doveadm auth" command was renamed to "doveadm auth test"
 
 	+ Implemented IMAP MOVE and BINARY extensions
-	+ Implemented IMAP CATENATE extension (by Stephan Bosch)
+	+ Implemented IMAP CATENATE, URLAUTH and URLAUTH=BINARY extensions
+	  (by Stephan Bosch).
 	+ Implemented IMAP NOTIFY extension. Requires mailbox_list_index=yes
 	  to be enabled.
-	+ Improved mailbox list indexes. They should be usable now, although
-	  still disabled by default.
 	+ Redesigned and rewritten dsync. The new design makes the syncing
 	  faster, more reliable and more featureful. The new dsync protocol
 	  isn't backwards compatible with old dsync versions (but is designed
@@ -16,6 +18,11 @@ v2.2.UNSTABLE 2012-xx-xx  Timo Sirainen <tss@iki.fi>
 	  mailboxes by using a private index. It can be enabled by adding
 	  :INDEXPVT=<path> to mail location. This should be used instead of
 	  :INDEX also for Maildir/mbox to improve performance.
+	+ Improved mailbox list indexes. They should be usable now, although
+	  still disabled by default.
+	+ Added LAYOUT=index. The mailbox directories are created using their
+	  GUIDs in the filesystem, while the actual GUID <-> name mapping
+	  exists only in the index.
 	+ LMTP proxy: Implemented XCLIENT extension for passing remote IP
 	  address through proxy.
 
