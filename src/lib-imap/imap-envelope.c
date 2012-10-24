@@ -147,11 +147,17 @@ void imap_envelope_parse_header(pool_t pool,
 		*addr_p = message_address_parse(pool, hdr->full_value,
 						hdr->full_value_len,
 						(unsigned int)-1, TRUE);
-	}
+	} else if (str_p != NULL) {
+		if (str_p != &d->subject) {
+			string_t *str = t_str_new(128);
 
-	if (str_p != NULL) {
-		*str_p = imap_quote(pool, hdr->full_value,
-				    hdr->full_value_len, TRUE);
+			imap_append_string(str,
+				t_strndup(hdr->full_value, hdr->full_value_len));
+			*str_p = p_strdup(pool, str_c(str));
+		} else {
+			*str_p = imap_quote(pool, hdr->full_value,
+					    hdr->full_value_len, TRUE);
+		}
 	}
 }
 
@@ -167,11 +173,11 @@ static void imap_write_address(string_t *str, struct message_address *addr)
 		str_append_c(str, '(');
 		imap_quote_append_string(str, addr->name, TRUE);
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, addr->route, TRUE);
+		imap_append_nstring(str, addr->route);
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, addr->mailbox, TRUE);
+		imap_append_nstring(str, addr->mailbox);
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, addr->domain, TRUE);
+		imap_append_nstring(str, addr->domain);
 		str_append_c(str, ')');
 
 		addr = addr->next;
