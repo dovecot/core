@@ -70,7 +70,7 @@ imap_id_reply_generate_from_imap_args(const struct imap_arg *args)
 			/* key */
 			if (str_len(str) > 1)
 				str_append_c(str, ' ');
-			imap_dquote_append(str, key);
+			imap_append_quoted(str, key);
 			str_append_c(str, ' ');
 			/* value */
 			if (IMAP_ARG_IS_EOL(&args[1])) {

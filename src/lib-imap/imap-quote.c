@@ -123,7 +123,7 @@ const char *imap_quote(pool_t pool, const unsigned char *value,
 	return ret;
 }
 
-void imap_dquote_append(string_t *dest, const char *src)
+void imap_append_quoted(string_t *dest, const char *src)
 {
 	str_append_c(dest, '"');
 	for (; *src != '\0'; src++) {

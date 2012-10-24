@@ -1814,7 +1814,7 @@ void imapc_command_sendvf(struct imapc_command *cmd,
 			const char *arg = va_arg(args, const char *);
 
 			if (!need_literal(arg))
-				imap_dquote_append(cmd->data, arg);
+				imap_append_quoted(cmd->data, arg);
 			else if ((cmd->conn->capabilities &
 				  IMAPC_CAPABILITY_LITERALPLUS) != 0) {
 				str_printfa(cmd->data, "{%"PRIuSIZE_T"+}\r\n%s",

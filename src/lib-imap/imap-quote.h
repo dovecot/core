@@ -16,6 +16,6 @@ const char *imap_quote(pool_t pool, const unsigned char *value,
 		       size_t value_len, bool fix_text);
 
 /* Append data to destination string quoted using "". */
-void imap_dquote_append(string_t *dest, const char *src);
+void imap_append_quoted(string_t *dest, const char *src);
 
 #endif
