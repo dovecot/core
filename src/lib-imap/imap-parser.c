@@ -6,6 +6,16 @@
 #include "strescape.h"
 #include "imap-parser.h"
 
+/* We use this macro to read atoms from input. It should probably contain
+   everything some day, but for now we can't handle some input otherwise:
+
+   ']' is required for parsing section (FETCH BODY[])
+   '%', '*' and ']' are valid list-chars for LIST patterns
+   '\' is used in flags */
+#define IS_ATOM_PARSER_INPUT(c) \
+	((c) == '(' || (c) == ')' || (c) == '{' || \
+	 (c) == '"' || (c) <= 32 || (c) == 0x7f)
+
 #define is_linebreak(c) \
 	((c) == '\r' || (c) == '\n')
 
@@ -280,7 +290,7 @@ static int is_valid_atom_char(struct imap_parser *parser, char chr)
 {
 	const char *error;
 
-	if (IS_ATOM_SPECIAL_INPUT((unsigned char)chr))
+	if (IS_ATOM_PARSER_INPUT((unsigned char)chr))
 		error = "Invalid characters in atom";
 	else if ((chr & 0x80) != 0)
 		error = "8bit data in atom";

@@ -3,19 +3,32 @@
 
 #include "array.h"
 
-/* We use this macro to read atoms from input. It should probably contain
-   everything some day, but for now we can't handle some input otherwise:
+/* ABNF:
 
-   ']' is required for parsing section (FETCH BODY[])
-   '%', '*' and ']' are valid list-chars for LIST patterns
-   '\' is used in flags */
-#define IS_ATOM_SPECIAL_INPUT(c) \
-	((c) == '(' || (c) == ')' || (c) == '{' || \
-	 (c) == '"' || (c) <= 32 || (c) == 0x7f)
+   CHAR           =  %x01-7F
+   CTL            =  %x00-1F / %x7F
+   SP             =  %x20
+   DQUOTE         =  %x22 */
 
+/* ASTRING-CHAR   = ATOM-CHAR / resp-specials */
+#define IS_ASTRING_CHAR(c) (IS_ATOM_CHAR(c) || IS_RESP_SPECIAL(c))
+/* ATOM-CHAR       = <any CHAR except atom-specials> */
+#define IS_ATOM_CHAR(c) (!IS_ATOM_SPECIAL(c))
+/* atom-specials   = "(" / ")" / "{" / SP / CTL / list-wildcards /
+                     quoted-specials / resp-specials
+   Since atoms are only 7bit, we'll also optimize a bit by assuming 8bit chars
+   are also atom-specials. */
 #define IS_ATOM_SPECIAL(c) \
-	(IS_ATOM_SPECIAL_INPUT(c) || \
-	 (c) == ']' || (c) == '%' || (c) == '*' || (c) == '\\')
+	((unsigned char)(c) <= 0x20 || (unsigned char)(c) >= 0x7f || \
+	 (c) == '(' || (c) == ')' || (c) == '{' || IS_LIST_WILDCARD(c) || \
+	 IS_QUOTED_SPECIAL(c) || IS_RESP_SPECIAL(c))
+
+/* list-wildcards  = "%" / "*" */
+#define IS_LIST_WILDCARD(c) ((c) == '%' || (c) == '*')
+/* quoted-specials = DQUOTE / "\" */
+#define IS_QUOTED_SPECIAL(c) ((c) == '\"' || (c) == '\\')
+/* resp-specials   = "]" */
+#define IS_RESP_SPECIAL(c) ((c) == ']')
 
 enum imap_arg_type {
 	IMAP_ARG_NIL = 0,

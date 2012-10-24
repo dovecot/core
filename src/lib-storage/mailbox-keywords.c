@@ -117,12 +117,11 @@ bool mailbox_keyword_is_valid(struct mailbox *box, const char *keyword,
 	/* these are IMAP-specific restrictions, but for now IMAP is all we
 	   care about */
 	for (i = 0; keyword[i] != '\0'; i++) {
-		if (IS_ATOM_SPECIAL((unsigned char)keyword[i])) {
-			*error_r = "Invalid characters in keyword";
-			return FALSE;
-		}
-		if ((unsigned char)keyword[i] >= 0x80) {
-			*error_r = "8bit characters in keyword";
+		if (!IS_ATOM_CHAR(keyword[i])) {
+			if ((unsigned char)keyword[i] < 0x80)
+				*error_r = "Invalid characters in keyword";
+			else
+				*error_r = "8bit characters in keyword";
 			return FALSE;
 		}
 	}
