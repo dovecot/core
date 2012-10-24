@@ -252,7 +252,7 @@ log_add_keyword_update(struct dsync_transaction_log_scan *ctx, const void *data,
 	uids = CONST_PTR_OFFSET(rec, uids_offset);
 	end = CONST_PTR_OFFSET(rec, hdr->size);
 
-	for (; uids <= end; uids += 2) {
+	for (; uids < end; uids += 2) {
 		for (uid = uids[0]; uid <= uids[1]; uid++) {
 			if (!export_change_get(ctx, uid,
 					DSYNC_MAIL_CHANGE_TYPE_FLAG_CHANGE,
