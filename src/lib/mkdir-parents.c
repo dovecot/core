@@ -65,6 +65,18 @@ mkdir_chown_full(const char *path, mode_t mode, uid_t uid,
 		i_error("%s) failed: %m", str_c(str));
 		return -1;
 	}
+	if (gid != (gid_t)-1 && (mode & S_ISGID) == 0) {
+		/* make sure the directory doesn't have setgid bit enabled
+		   (in case its parent had) */
+		if (chmod(path, mode) < 0) {
+			orig_errno = errno;
+			if (rmdir(path) < 0)
+				i_error("rmdir(%s) failed: %m", path);
+			errno = orig_errno;
+			i_error("chmod(%s) failed: %m", path);
+			return -1;
+		}
+	}
 	return 0;
 }
 

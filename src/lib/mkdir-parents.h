@@ -8,7 +8,9 @@ int mkdir_parents(const char *path, mode_t mode);
 
 /* Like mkdir_parents(), but use the given uid/gid for newly created
    directories. (uid_t)-1 or (gid_t)-1 can be used to indicate that it
-   doesn't need to be changed. */
+   doesn't need to be changed. If gid isn't (gid_t)-1 and the parent directory
+   had setgid-bit enabled, it's removed unless explicitly included in the
+   mode. */
 int mkdir_parents_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 /* Like mkdir_parents_chown(), but change only group. If chown() fails with
    EACCES, use gid_origin in the error message. */
