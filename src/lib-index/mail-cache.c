@@ -267,11 +267,13 @@ static bool mail_cache_verify_header(struct mail_cache *cache,
 
 static int
 mail_cache_map_finish(struct mail_cache *cache, uoff_t offset, size_t size,
-		      const void *data, bool copy_hdr)
+		      const void *hdr_data, bool copy_hdr)
 {
-	if (offset == 0) {
-		const struct mail_cache_header *hdr = data;
+	const struct mail_cache_header *hdr = hdr_data;
 
+	if (offset == 0) {
+		/* verify the header validity only with offset=0. this way
+		   we won't waste time re-verifying it all the time */
 		if (!mail_cache_verify_header(cache, hdr)) {
 			cache->need_compress_file_seq =
 				!MAIL_CACHE_IS_UNUSABLE(cache) &&
@@ -279,14 +281,18 @@ mail_cache_map_finish(struct mail_cache *cache, uoff_t offset, size_t size,
 				cache->hdr->file_seq : 0;
 			return -1;
 		}
+	}
+	if (hdr_data != NULL) {
 		if (!copy_hdr)
-			cache->hdr = data;
+			cache->hdr = hdr;
 		else {
-			memcpy(&cache->hdr_ro_copy, data,
+			memcpy(&cache->hdr_ro_copy, hdr,
 			       sizeof(cache->hdr_ro_copy));
 			cache->hdr = &cache->hdr_ro_copy;
 		}
 		mail_cache_update_need_compress(cache);
+	} else {
+		i_assert(cache->hdr != NULL);
 	}
 
 	if (offset + size > cache->mmap_length)
@@ -298,6 +304,7 @@ static int
 mail_cache_map_with_read(struct mail_cache *cache, size_t offset, size_t size,
 			 const void **data_r)
 {
+	const void *hdr_data;
 	void *data;
 	ssize_t ret;
 
@@ -309,7 +316,8 @@ mail_cache_map_with_read(struct mail_cache *cache, size_t offset, size_t size,
 		/* already mapped */
 		*data_r = CONST_PTR_OFFSET(cache->read_buf->data,
 					   offset - cache->read_offset);
-		return mail_cache_map_finish(cache, offset, size, *data_r, TRUE);
+		hdr_data = offset == 0 ? *data_r : NULL;
+		return mail_cache_map_finish(cache, offset, size, hdr_data, TRUE);
 	} else {
 		buffer_set_used_size(cache->read_buf, 0);
 	}
@@ -330,7 +338,8 @@ mail_cache_map_with_read(struct mail_cache *cache, size_t offset, size_t size,
 	cache->mmap_length = offset + size;
 
 	*data_r = data;
-	return mail_cache_map_finish(cache, offset, size, data, TRUE);
+	hdr_data = offset == 0 ? *data_r : NULL;
+	return mail_cache_map_finish(cache, offset, size, hdr_data, TRUE);
 }
 
 int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
@@ -367,7 +376,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 					  &cache->mmap_length);
 		*data_r = offset > cache->mmap_length ? NULL :
 			CONST_PTR_OFFSET(data, offset);
-		return mail_cache_map_finish(cache, offset, size, *data_r, TRUE);
+		return mail_cache_map_finish(cache, offset, size, data, TRUE);
 	}
 
 	if (offset < cache->mmap_length &&
@@ -402,7 +411,8 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 	}
 	*data_r = offset > cache->mmap_length ? NULL :
 		CONST_PTR_OFFSET(cache->mmap_base, offset);
-	return mail_cache_map_finish(cache, offset, size, *data_r, FALSE);
+	return mail_cache_map_finish(cache, offset, size,
+				     cache->mmap_base, FALSE);
 }
 
 static int mail_cache_try_open(struct mail_cache *cache)
