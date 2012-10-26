@@ -150,6 +150,13 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 
 	*error_r = NULL;
 
+	if (*file->storage->attachment_dir == '\0') {
+		mail_storage_set_critical(&file->storage->storage,
+			"%s contains references to external attachments, "
+			"but mail_attachment_dir is unset", file->cur_path);
+		return -1;
+	}
+
 	t_array_init(&extrefs_arr, 16);
 	if (!dbox_attachment_parse_extref_real(ext_refs, pool_datastack_create(),
 					       &extrefs_arr)) {
