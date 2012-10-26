@@ -395,13 +395,24 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 	for (patterns = ctx->valid_patterns; *patterns != NULL; patterns++) {
 		pattern = *patterns;
 
-		for (p = last = pattern; *p != '\0'; p++) {
-			if (*p == '%' || *p == '*')
-				break;
-			if (*p == ns_sep)
-				last = p;
+		if (strncmp(pattern, ns->prefix, ns->prefix_len) != 0) {
+			/* typically e.g. prefix=foo/bar/, pattern=foo/%/%
+			   we'll use root="" for this.
+
+			   it might of course also be pattern=foo/%/prefix/%
+			   where we could optimize with root=prefix, but
+			   probably too much trouble to implement. */
+			prefix_vname = "";
+			p = last = pattern;
+		} else {
+			for (p = last = pattern; *p != '\0'; p++) {
+				if (*p == '%' || *p == '*')
+					break;
+				if (*p == ns_sep)
+					last = p;
+			}
+			prefix_vname = t_strdup_until(pattern, last);
 		}
-		prefix_vname = t_strdup_until(pattern, last);
 
 		if (p == last+1 && *pattern == ns_sep)
 			root = "/";
