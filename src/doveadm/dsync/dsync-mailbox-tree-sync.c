@@ -932,7 +932,8 @@ sync_delete_wrong_mailboxes_branch(struct dsync_mailbox_tree_sync_ctx *ctx,
 		ret = strcmp(node->name, wanted_node->name);
 		if (ret < 0) {
 			/* node shouldn't exist */
-			if (node->existence == DSYNC_MAILBOX_NODE_EXISTS)
+			if (node->existence == DSYNC_MAILBOX_NODE_EXISTS &&
+			    !dsync_mailbox_node_is_dir(node))
 				sync_delete_mailbox_node(ctx, tree, node);
 			node = node->next;
 		} else if (ret > 0) {
@@ -940,7 +941,8 @@ sync_delete_wrong_mailboxes_branch(struct dsync_mailbox_tree_sync_ctx *ctx,
 			wanted_node = wanted_node->next;
 		} else {
 			if (sync_is_wrong_mailbox(node, wanted_node) &&
-			    node->existence == DSYNC_MAILBOX_NODE_EXISTS)
+			    node->existence == DSYNC_MAILBOX_NODE_EXISTS &&
+			    !dsync_mailbox_node_is_dir(node))
 				sync_delete_mailbox_node(ctx, tree, node);
 			node = node->next;
 			wanted_node = wanted_node->next;
@@ -953,7 +955,8 @@ sync_delete_wrong_mailboxes_branch(struct dsync_mailbox_tree_sync_ctx *ctx,
 				tree, wanted_tree,
 				node->first_child, NULL);
 		}
-		if (node->existence == DSYNC_MAILBOX_NODE_EXISTS)
+		if (node->existence == DSYNC_MAILBOX_NODE_EXISTS &&
+		    !dsync_mailbox_node_is_dir(node))
 			sync_delete_mailbox_node(ctx, tree, node);
 	}
 }
