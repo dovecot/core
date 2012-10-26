@@ -232,7 +232,7 @@ mail_cache_header_fields_get_offset(struct mail_cache *cache,
 		offset = next_offset;
 		invalidate = TRUE;
 
-		if (cache->mmap_base != NULL) {
+		if (cache->mmap_base != NULL || cache->map_with_read) {
 			ret = mail_cache_map(cache, offset, sizeof(*field_hdr),
 					     &data);
 			if (ret <= 0) {

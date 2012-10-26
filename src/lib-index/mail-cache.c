@@ -13,6 +13,8 @@
 
 #include <unistd.h>
 
+#define MAIL_CACHE_MIN_HEADER_READ_SIZE 4096
+
 void mail_cache_set_syscall_error(struct mail_cache *cache,
 				  const char *function)
 {
@@ -321,6 +323,13 @@ mail_cache_map_with_read(struct mail_cache *cache, size_t offset, size_t size,
 	} else {
 		buffer_set_used_size(cache->read_buf, 0);
 	}
+	if (offset == 0 && size < MAIL_CACHE_MIN_HEADER_READ_SIZE) {
+		/* we can usually read the fields header after the cache
+		   header. we need them both, so try to read them all with one
+		   pread() call. */
+		size = MAIL_CACHE_MIN_HEADER_READ_SIZE;
+	}
+
 	data = buffer_append_space_unsafe(cache->read_buf, size);
 	ret = pread(cache->fd, data, size, offset);
 	if (ret < 0) {
