@@ -538,9 +538,16 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 
 	/* then start filling dest buffer from the headers */
 	for (i = 0; i < count; i++) {
-		if (mail_cache_map(cache, lines[i].data->offset,
-				   lines[i].data->data_size, &data) <= 0)
+		ret = mail_cache_map(cache, lines[i].data->offset,
+				     lines[i].data->data_size, &data);
+		if (ret <= 0) {
+			if (ret < 0)
+				return -1;
+
+			mail_cache_set_corrupted(cache,
+				"header record unexpectedly points outside file");
 			return -1;
+		}
 		start = data;
 		end = start + lines[i].data->data_size;
 
