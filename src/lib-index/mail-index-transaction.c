@@ -101,9 +101,9 @@ void mail_index_transaction_lookup_latest_keywords(struct mail_index_transaction
 		mail_index_refresh(t->view->index);
 		t->latest_view = mail_index_view_open(t->view->index);
 	}
-	mail_index_lookup_uid(t->view, seq, &uid);
-	if (mail_index_lookup_seq(t->view, uid, &latest_seq))
-		mail_index_lookup_keywords(t->view, latest_seq, keywords);
+	mail_index_lookup_uid(t->latest_view, seq, &uid);
+	if (mail_index_lookup_seq(t->latest_view, uid, &latest_seq))
+		mail_index_lookup_keywords(t->latest_view, latest_seq, keywords);
 }
 
 static int
