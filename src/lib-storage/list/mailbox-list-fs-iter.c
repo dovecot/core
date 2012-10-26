@@ -490,7 +490,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 							    flags);
 	}
 
-	pool = pool_alloconly_create("mailbox list fs iter", 1024);
+	pool = pool_alloconly_create("mailbox list fs iter", 2048);
 	ctx = p_new(pool, struct fs_list_iterate_context, 1);
 	ctx->ctx.pool = pool;
 	ctx->ctx.list = _list;
