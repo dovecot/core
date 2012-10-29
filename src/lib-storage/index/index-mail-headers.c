@@ -484,8 +484,14 @@ int index_mail_headers_get_envelope(struct index_mail *mail)
 		   envelope */
 		message_parse_header(stream, NULL, hdr_parser_flags,
 				     imap_envelope_parse_callback, mail);
-		if (index_mail_stream_check_failure(mail) < 0)
+		if (stream->stream_errno != 0) {
+			errno = stream->stream_errno;
+			mail_storage_set_critical(mail->mail.mail.box->storage,
+				"read(%s) failed: %m (uid=%u)",
+				i_stream_get_name(mail->data.stream),
+				mail->mail.mail.uid);
 			return -1;
+		}
 		mail->data.save_envelope = FALSE;
 	}
 
