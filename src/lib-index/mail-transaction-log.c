@@ -83,7 +83,7 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 		return 0;
 
 	file = mail_transaction_log_file_alloc(log, log->filepath);
-	if ((ret = mail_transaction_log_file_open(file, FALSE)) <= 0) {
+	if ((ret = mail_transaction_log_file_open(file)) <= 0) {
 		/* leave the file for _create() */
 		log->open_file = file;
 		return ret;
@@ -321,7 +321,7 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 	}
 
 	file = mail_transaction_log_file_alloc(log, log->filepath);
-	if (mail_transaction_log_file_open(file, FALSE) <= 0) {
+	if (mail_transaction_log_file_open(file) <= 0) {
 		mail_transaction_log_file_free(&file);
 		return -1;
 	}
@@ -399,7 +399,7 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 
 	/* see if we have it in log.2 file */
 	file = mail_transaction_log_file_alloc(log, log->filepath2);
-	if ((ret = mail_transaction_log_file_open(file, TRUE)) <= 0) {
+	if ((ret = mail_transaction_log_file_open(file)) <= 0) {
 		mail_transaction_log_file_free(&file);
 		return ret;
 	}
@@ -415,6 +415,7 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file *file;
+	time_t lock_wait_started, lock_secs = 0;
 	int ret = 0;
 
 	if (!log->log_2_unlink_checked) {
@@ -436,6 +437,7 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 	   can lock it and don't see another file, we can be sure no-one is
 	   creating a new log at the moment */
 
+	lock_wait_started = time(NULL);
 	for (;;) {
 		file = log->head;
 		if (mail_transaction_log_file_lock(file) < 0)
@@ -450,6 +452,7 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 
 		if (ret == 0 && log->head == file) {
 			/* success */
+			lock_secs = file->lock_created - lock_wait_started;
 			break;
 		}
 
@@ -460,6 +463,10 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 			break;
 
 		/* try again */
+	}
+	if (lock_secs > MAIL_TRANSACTION_LOG_LOCK_WARN_SECS) {
+		i_warning("Locking transaction log file %s took %ld seconds",
+			  log->head->filepath, (long)lock_secs);
 	}
 
 	i_assert(ret < 0 || log->head != NULL);

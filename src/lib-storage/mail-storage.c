@@ -1674,7 +1674,6 @@ int mailbox_transaction_commit(struct mailbox_transaction_context **t)
 
 	/* Store changes temporarily so that plugins overriding
 	   transaction_commit() can look at them. */
-	changes.pool = NULL;
 	ret = mailbox_transaction_commit_get_changes(t, &changes);
 	if (changes.pool != NULL)
 		pool_unref(&changes.pool);
@@ -1689,11 +1688,14 @@ int mailbox_transaction_commit_get_changes(
 	int ret;
 
 	t->box->transaction_count--;
+	changes_r->pool = NULL;
 
 	*_t = NULL;
 	T_BEGIN {
 		ret = t->box->v.transaction_commit(t, changes_r);
 	} T_END;
+	if (ret < 0 && changes_r->pool != NULL)
+		pool_unref(&changes_r->pool);
 	return ret;
 }
 
@@ -1869,11 +1871,19 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 {
 	struct mail_save_context *ctx = *_ctx;
 	struct mail_keywords *keywords = ctx->data.keywords;
+	struct mail_private *mail;
 
 	*_ctx = NULL;
 	ctx->transaction->box->v.save_cancel(ctx);
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
+	if (ctx->dest_mail != NULL) {
+		/* the dest_mail is no longer valid. if we're still saving
+		   more mails, the mail sequence may get reused. make sure
+		   the mail gets reset in between */
+		mail = (struct mail_private *)ctx->dest_mail;
+		mail->v.close(&mail->mail);
+	}
 }
 
 struct mailbox_transaction_context *

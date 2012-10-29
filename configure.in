@@ -2178,6 +2178,7 @@ if test $want_mysql != no; then
   AC_CHECK_PROG(MYSQL_CONFIG, mysql_config, mysql_config, NO)
   if test $MYSQL_CONFIG = NO; then
 	# based on code from PHP
+	MYSQL_LIBS="-lmysqlclient -lz -lm"
 	for i in /usr /usr/local /usr/local/mysql; do
 		for j in include include/mysql ""; do
 			if test -r "$i/$j/mysql.h"; then

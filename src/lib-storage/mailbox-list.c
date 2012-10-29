@@ -790,7 +790,7 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 				      const char *name,
 				      struct mailbox_permissions *permissions_r)
 {
-	const char *path, *parent_name, *p;
+	const char *path, *parent_name, *parent_path, *p;
 	struct stat st;
 
 	memset(permissions_r, 0, sizeof(*permissions_r));
@@ -868,6 +868,21 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 			permissions_r->file_create_gid = (gid_t)-1;
 		} else {
 			permissions_r->file_create_gid = st.st_gid;
+		}
+		if (!S_ISDIR(st.st_mode) &&
+		    permissions_r->file_create_gid != (gid_t)-1) {
+			/* we need to stat() the parent directory to see if
+			   it has setgid-bit set */
+			p = strrchr(path, '/');
+			parent_path = p == NULL ? NULL :
+				t_strdup_until(path, p);
+			if (parent_path != NULL &&
+			    stat(parent_path, &st) == 0 &&
+			    (st.st_mode & S_ISGID) != 0) {
+				/* directory's GID is used automatically for
+				   new files */
+				permissions_r->file_create_gid = (gid_t)-1;
+			}
 		}
 	}
 

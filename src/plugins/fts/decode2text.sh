@@ -17,6 +17,7 @@
 #   }
 # }
 
+libexec_dir=`dirname $0`
 content_type=$1
 
 # The second parameter is the format's filename extension, which is used when
@@ -66,7 +67,7 @@ xmlunzip() {
   cd $tempdir || exit 1
   unzip -q "$path" 2>/dev/null || exit 0
   find . -name "$name" -print0 | xargs -0 cat |
-    /usr/local/libexec/dovecot/xml2text
+    $libexec_dir/xml2text
 }
 
 wait_timeout() {

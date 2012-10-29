@@ -363,6 +363,7 @@ bool master_service_parse_option(struct master_service *service,
 		if (!get_instance_config(arg, &path))
 			i_fatal("Unknown instance name: %s", arg);
 		service->config_path = i_strdup(path);
+		service->config_path_is_default = FALSE;
 		break;
 	case 'k':
 		service->keep_environment = TRUE;

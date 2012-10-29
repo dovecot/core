@@ -270,4 +270,8 @@ int fdatasync(int);
 #  define IO_BLOCK_SIZE 8192
 #endif
 
+#if !defined(PIPE_BUF) && defined(_POSIX_PIPE_BUF)
+#  define PIPE_BUF (8 * _POSIX_PIPE_BUF) /* for HURD */
+#endif
+
 #endif

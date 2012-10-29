@@ -864,7 +864,8 @@ struct quota_backend quota_backend_fs = {
 		fs_quota_get_resource,
 		fs_quota_update,
 
-		fs_quota_match_box
+		fs_quota_match_box,
+		NULL
 	}
 };
 

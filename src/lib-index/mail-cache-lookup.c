@@ -14,6 +14,7 @@ int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 			  const struct mail_cache_record **rec_r)
 {
 	const struct mail_cache_record *rec;
+	const void *data;
 
 	i_assert(offset != 0);
 
@@ -24,14 +25,15 @@ int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 	}
 
 	/* we don't know yet how large the record is, so just guess */
-	if (mail_cache_map(cache, offset, sizeof(*rec) + CACHE_PREFETCH) < 0)
+	if (mail_cache_map(cache, offset, sizeof(*rec) + CACHE_PREFETCH,
+			   &data) < 0)
 		return -1;
 
 	if (offset + sizeof(*rec) > cache->mmap_length) {
 		mail_cache_set_corrupted(cache, "record points outside file");
 		return -1;
 	}
-	rec = CACHE_RECORD(cache, offset);
+	rec = data;
 
 	if (rec->size < sizeof(*rec)) {
 		mail_cache_set_corrupted(cache, "invalid record size");
@@ -39,9 +41,9 @@ int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 	}
 	if (rec->size > CACHE_PREFETCH) {
 		/* larger than we guessed. map the rest of the record. */
-		if (mail_cache_map(cache, offset, rec->size) < 0)
+		if (mail_cache_map(cache, offset, rec->size, &data) < 0)
 			return -1;
-		rec = CACHE_RECORD(cache, offset);
+		rec = data;
 	}
 
 	if (rec->size > cache->mmap_length ||
@@ -271,6 +273,7 @@ int mail_cache_lookup_iter_next(struct mail_cache_lookup_iterate_ctx *ctx,
 	field_r->field_idx = field_idx;
 	field_r->data = CONST_PTR_OFFSET(ctx->rec, ctx->pos);
 	field_r->size = data_size;
+	field_r->offset = ctx->offset + ctx->pos;
 
 	/* each record begins from 32bit aligned position */
 	ctx->pos += (data_size + sizeof(uint32_t)-1) & ~(sizeof(uint32_t)-1);
@@ -445,8 +448,7 @@ static void header_lines_save(struct header_lookup_context *ctx,
 	lines_count = i;
 
 	hdr_data = t_new(struct header_lookup_data, 1);
-	hdr_data->offset = (const char *)&lines[lines_count+1] -
-		(const char *)ctx->view->cache->data;
+	hdr_data->offset = field->offset + (lines_count+1) * sizeof(uint32_t);
 	hdr_data->data_size = data_size;
 
 	for (i = 0; i < lines_count; i++) {
@@ -472,6 +474,7 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 	struct mail_cache_iterate_field field;
 	struct header_lookup_context ctx;
 	struct header_lookup_line *lines;
+	const void *data;
 	const unsigned char *p, *start, *end;
 	uint8_t *field_state;
 	unsigned int i, count, max_field = 0;
@@ -536,7 +539,17 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 
 	/* then start filling dest buffer from the headers */
 	for (i = 0; i < count; i++) {
-		start = CONST_PTR_OFFSET(cache->data, lines[i].data->offset);
+		ret = mail_cache_map(cache, lines[i].data->offset,
+				     lines[i].data->data_size, &data);
+		if (ret <= 0) {
+			if (ret < 0)
+				return -1;
+
+			mail_cache_set_corrupted(cache,
+				"header record unexpectedly points outside file");
+			return -1;
+		}
+		start = data;
 		end = start + lines[i].data->data_size;
 
 		/* find the end of the (multiline) header */

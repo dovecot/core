@@ -72,6 +72,7 @@ struct client_dict_transaction_context {
 
 	unsigned int failed:1;
 	unsigned int sent_begin:1;
+	unsigned int async:1;
 };
 
 static int client_dict_connect(struct client_dict *dict);
@@ -444,8 +445,17 @@ static int client_dict_connect(struct client_dict *dict)
 
 static void client_dict_disconnect(struct client_dict *dict)
 {
+	struct client_dict_transaction_context *ctx, *next;
+
 	dict->connect_counter++;
 	dict->handshaked = FALSE;
+
+	/* abort all pending async commits */
+	for (ctx = dict->transactions; ctx != NULL; ctx = next) {
+		next = ctx->next;
+		if (ctx->async)
+			client_dict_finish_transaction(dict, ctx->id, -1);
+	}
 
 	if (dict->to_idle != NULL)
 		timeout_remove(&dict->to_idle);
@@ -706,6 +716,7 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 		else if (async) {
 			ctx->callback = callback;
 			ctx->context = context;
+			ctx->async = TRUE;
 			if (dict->async_commits++ == 0) {
 				dict->io = io_add(dict->fd, IO_READ,
 						  dict_async_input, dict);

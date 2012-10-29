@@ -1233,31 +1233,9 @@ void index_mail_close_streams(struct index_mail *mail)
 	index_mail_close_streams_full(mail, FALSE);
 }
 
-void index_mail_close(struct mail *_mail)
-{
-	struct index_mail *mail = (struct index_mail *)_mail;
-
-	/* If uid == 0 but seq != 0, we came here from saving a (non-mbox)
-	   message. If that happens, don't bother checking if anything should
-	   be cached since it was already checked. Also by now the transaction
-	   may have already been rollbacked and seq point to a nonexistent
-	   message. */
-	if (mail->mail.mail.uid != 0) {
-		index_mail_cache_sizes(mail);
-		index_mail_cache_dates(mail);
-	}
-
-	index_mail_close_streams_full(mail, TRUE);
-
-	if (mail->data.wanted_headers != NULL)
-		mailbox_header_lookup_unref(&mail->data.wanted_headers);
-}
-
-static void index_mail_reset(struct index_mail *mail)
+static void index_mail_reset_data(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
-
-	mail->mail.v.close(&mail->mail.mail);
 
 	memset(data, 0, sizeof(*data));
 	p_clear(mail->mail.data_pool);
@@ -1282,6 +1260,28 @@ static void index_mail_reset(struct index_mail *mail)
 	mail->mail.mail.has_nuls = FALSE;
 	mail->mail.mail.has_no_nuls = FALSE;
 	mail->mail.mail.saving = FALSE;
+}
+
+void index_mail_close(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+
+	/* If uid == 0 but seq != 0, we came here from saving a (non-mbox)
+	   message. If that happens, don't bother checking if anything should
+	   be cached since it was already checked. Also by now the transaction
+	   may have already been rollbacked and seq point to a nonexistent
+	   message. */
+	if (mail->mail.mail.uid != 0) {
+		index_mail_cache_sizes(mail);
+		index_mail_cache_dates(mail);
+	}
+
+	index_mail_close_streams_full(mail, TRUE);
+
+	if (mail->data.wanted_headers != NULL)
+		mailbox_header_lookup_unref(&mail->data.wanted_headers);
+	if (!mail->freeing)
+		index_mail_reset_data(mail);
 }
 
 static void check_envelope(struct index_mail *mail)
@@ -1444,7 +1444,7 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 	if (mail->data.seq == seq)
 		return;
 
-	index_mail_reset(mail);
+	mail->mail.v.close(&mail->mail.mail);
 
 	mail->data.seq = seq;
 	mail->mail.mail.seq = seq;
@@ -1512,7 +1512,7 @@ bool index_mail_set_uid(struct mail *_mail, uint32_t uid)
 		index_mail_set_seq(_mail, seq, FALSE);
 		return TRUE;
 	} else {
-		index_mail_reset(mail);
+		mail->mail.v.close(&mail->mail.mail);
 		mail->mail.mail.uid = uid;
 		mail_set_expunged(&mail->mail.mail);
 		return FALSE;
@@ -1566,6 +1566,7 @@ void index_mail_free(struct mail *_mail)
 	   directly */
 	i_assert(!mail->search_mail);
 
+	mail->freeing = TRUE;
 	mail->mail.v.close(_mail);
 
 	i_assert(_mail->transaction->mail_ref_count > 0);

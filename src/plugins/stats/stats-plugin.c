@@ -33,6 +33,13 @@ struct stats_transaction_context {
 	struct mailbox_transaction_stats prev_stats;
 };
 
+struct stats_storage {
+	union mail_storage_module_context module_ctx;
+
+	struct mail_storage_callbacks old_callbacks;
+	void *old_context;
+};
+
 struct stats_mailbox {
 	union mailbox_module_context module_ctx;
 };
@@ -431,6 +438,33 @@ static bool stats_search_next_nonblock(struct mail_search_context *ctx,
 	return ret;
 }
 
+static void
+stats_notify_ok(struct mailbox *box, const char *text, void *context)
+{
+	struct stats_storage *sstorage = STATS_CONTEXT(box->storage);
+
+	/* most importantly we want to refresh stats for very long running
+	   mailbox syncs */
+	session_stats_refresh(box->storage->user);
+
+	if (sstorage->old_callbacks.notify_ok != NULL)
+		sstorage->old_callbacks.notify_ok(box, text, context);
+}
+
+static void stats_register_notify_callbacks(struct mail_storage *storage)
+{
+	struct stats_storage *sstorage = STATS_CONTEXT(storage);
+
+	if (sstorage != NULL)
+		return;
+
+	sstorage = p_new(storage->pool, struct stats_storage, 1);
+	sstorage->old_callbacks = storage->callbacks;
+	storage->callbacks.notify_ok = stats_notify_ok;
+
+	MODULE_CONTEXT_SET(storage, stats_storage_module, sstorage);
+}
+
 static void stats_mailbox_allocated(struct mailbox *box)
 {
 	struct mailbox_vfuncs *v = box->vlast;
@@ -439,6 +473,8 @@ static void stats_mailbox_allocated(struct mailbox *box)
 
 	if (suser == NULL)
 		return;
+
+	stats_register_notify_callbacks(box->storage);
 
 	sbox = p_new(box->pool, struct stats_mailbox, 1);
 	sbox->module_ctx.super = *v;

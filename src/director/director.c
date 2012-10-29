@@ -22,6 +22,8 @@
 #define DIRECTOR_QUICK_RECONNECT_TIMEOUT_MSECS 1000
 #define DIRECTOR_DELAYED_DIR_REMOVE_MSECS (1000*30)
 
+bool director_debug;
+
 static bool director_is_self_ip_set(struct director *dir)
 {
 	struct ip_addr ip;
@@ -106,10 +108,8 @@ int director_connect_host(struct director *dir, struct director_host *host)
 	if (director_has_outgoing_connection(dir, host))
 		return 0;
 
-	if (dir->debug) {
-		i_debug("Connecting to %s:%u",
-			net_ip2addr(&host->ip), host->port);
-	}
+	dir_debug("Connecting to %s:%u",
+		  net_ip2addr(&host->ip), host->port);
 	port = dir->test_port != 0 ? dir->test_port : host->port;
 	fd = net_connect_ip(&host->ip, port, &dir->self_ip);
 	if (fd == -1) {
@@ -239,8 +239,7 @@ void director_set_ring_handshaked(struct director *dir)
 			  "continuing delayed requests");
 		dir->ring_handshake_warning_sent = FALSE;
 	}
-	if (dir->debug)
-		i_debug("Director ring handshaked");
+	dir_debug("Director ring handshaked");
 
 	dir->ring_handshaked = TRUE;
 	director_set_ring_synced(dir);
@@ -383,11 +382,9 @@ static void director_sync(struct director *dir)
 		return;
 	}
 
-	if (dir->debug) {
-		i_debug("Ring is desynced (seq=%u, sending SYNC to %s)",
-			dir->sync_seq, dir->right == NULL ? "(nowhere)" :
-			director_connection_get_name(dir->right));
-	}
+	dir_debug("Ring is desynced (seq=%u, sending SYNC to %s)",
+		  dir->sync_seq, dir->right == NULL ? "(nowhere)" :
+		  director_connection_get_name(dir->right));
 
 	/* send PINGs to our connections more rapidly until we've synced again.
 	   if the connection has actually died, we don't need to wait (and
@@ -787,9 +784,20 @@ void director_user_killed_everywhere(struct director *dir,
 		user->username_hash));
 }
 
+static void director_state_callback_timeout(struct director *dir)
+{
+	timeout_remove(&dir->to_callback);
+	dir->state_change_callback(dir);
+}
+
 void director_set_state_changed(struct director *dir)
 {
-	dir->state_change_callback(dir);
+	/* we may get called to here from various places. use a timeout to
+	   make sure the state callback is called with a clean state. */
+	if (dir->to_callback == NULL) {
+		dir->to_callback =
+			timeout_add(0, director_state_callback_timeout, dir);
+	}
 }
 
 void director_update_send(struct director *dir, struct director_host *src,
@@ -866,6 +874,8 @@ void director_deinit(struct director **_dir)
 		timeout_remove(&dir->to_sync);
 	if (dir->to_remove_dirs != NULL)
 		timeout_remove(&dir->to_remove_dirs);
+	if (dir->to_callback != NULL)
+		timeout_remove(&dir->to_callback);
 	while (array_count(&dir->dir_hosts) > 0) {
 		hostp = array_idx(&dir->dir_hosts, 0);
 		host = *hostp;
@@ -875,4 +885,18 @@ void director_deinit(struct director **_dir)
 	array_free(&dir->dir_hosts);
 	array_free(&dir->connections);
 	i_free(dir);
+}
+
+void dir_debug(const char *fmt, ...)
+{
+	va_list args;
+
+	if (!director_debug)
+		return;
+
+	va_start(args, fmt);
+	T_BEGIN {
+		i_debug("%s", t_strdup_vprintf(fmt, args));
+	} T_END;
+	va_end(args);
 }

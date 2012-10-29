@@ -112,13 +112,15 @@ void dbox_save_end(struct dbox_save_context *ctx)
 					  o_stream_get_name(mdata->output));
 		ctx->failed = TRUE;
 	}
-	if (mdata->output == dbox_output)
-		return;
-
-	/* e.g. zlib plugin had changed this */
-	o_stream_ref(dbox_output);
-	o_stream_destroy(&mdata->output);
-	mdata->output = dbox_output;
+	if (mdata->output != dbox_output) {
+		/* e.g. zlib plugin had changed this */
+		o_stream_ref(dbox_output);
+		o_stream_destroy(&mdata->output);
+		mdata->output = dbox_output;
+	}
+	index_mail_cache_parse_deinit(ctx->ctx.dest_mail,
+				      ctx->ctx.data.received_date,
+				      !ctx->failed);
 }
 
 void dbox_save_write_metadata(struct mail_save_context *_ctx,

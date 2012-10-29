@@ -241,6 +241,8 @@ static void redis_conn_input(struct connection *_conn)
 	case 0:
 		return;
 	case -1:
+		if (conn->dict->ioloop != NULL)
+			i_error("redis: Disconnected unexpectedly");
 		redis_conn_destroy(_conn);
 		return;
 	default:

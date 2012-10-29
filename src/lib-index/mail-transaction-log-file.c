@@ -443,6 +443,32 @@ mail_transaction_log_file_read_header(struct mail_transaction_log_file *file)
 }
 
 static int
+mail_transaction_log_file_fail_dupe(struct mail_transaction_log_file *file)
+{
+	int ret;
+
+	/* mark the old file corrupted. we can't safely remove
+	   it from the list however, so return failure. */
+	file->hdr.indexid = 0;
+	if (strcmp(file->filepath, file->log->head->filepath) != 0) {
+		/* only mark .2 corrupted, just to make sure we don't lose any
+		   changes from .log in case we're somehow wrong */
+		mail_transaction_log_mark_corrupted(file);
+		ret = 0;
+	} else {
+		ret = -1;
+	}
+	if (!file->corrupted) {
+		file->corrupted = TRUE;
+		mail_index_set_error(file->log->index,
+				     "Transaction log %s: "
+				     "duplicate transaction log sequence (%u)",
+				     file->filepath, file->hdr.file_seq);
+	}
+	return ret;
+}
+
+static int
 mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 				   bool ignore_estale)
 {
@@ -528,26 +554,13 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 	   corrupted. */
 	for (f = file->log->files; f != NULL; f = f->next) {
 		if (f->hdr.file_seq == file->hdr.file_seq) {
-			/* mark the old file corrupted. we can't safely remove
-			   it from the list however, so return failure. */
-			f->hdr.indexid = 0;
 			if (strcmp(f->filepath, f->log->head->filepath) != 0) {
-				/* only mark .2 corrupted, just to make sure
-				   we don't lose any changes from .log in case
-				   we're somehow wrong */
-				mail_transaction_log_mark_corrupted(f);
-				ret = 0;
+				/* old "f" is the .log.2 */
+				return mail_transaction_log_file_fail_dupe(f);
 			} else {
-				ret = -1;
+				/* new "file" is probably the .log.2 */
+				return mail_transaction_log_file_fail_dupe(file);
 			}
-			if (!f->corrupted) {
-				f->corrupted = TRUE;
-				mail_index_set_error(f->log->index,
-					"Transaction log %s: "
-					"duplicate transaction log sequence (%u)",
-					f->filepath, f->hdr.file_seq);
-			}
-			return ret;
 		}
 	}
 
@@ -764,6 +777,9 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 			   second log file and we're going to overwrite this
 			   first one. */
 		}
+		/* NOTE: here's a race condition where both .log and .log.2
+		   point to the same file. our reading code should ignore that
+		   though by comparing the inodes. */
 	}
 
 	if (file_dotlock_replace(dotlock,
@@ -819,8 +835,7 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 	return 0;
 }
 
-int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
-				   bool check_existing)
+int mail_transaction_log_file_open(struct mail_transaction_log_file *file)
 {
 	struct mail_index *index = file->log->index;
         unsigned int i;
@@ -845,10 +860,13 @@ int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
 		ignore_estale = i < MAIL_INDEX_ESTALE_RETRY_COUNT;
 		if (mail_transaction_log_file_stat(file, ignore_estale) < 0)
 			ret = -1;
-		else if (check_existing &&
-			 mail_transaction_log_file_is_dupe(file))
+		else if (mail_transaction_log_file_is_dupe(file)) {
+			/* probably our already opened .log file has been
+			   renamed to .log.2 and we're trying to reopen it.
+			   also possible that hit a race condition where .log
+			   and .log.2 are linked. */
 			return 0;
-		else {
+		} else {
 			ret = mail_transaction_log_file_read_hdr(file,
 								 ignore_estale);
 		}

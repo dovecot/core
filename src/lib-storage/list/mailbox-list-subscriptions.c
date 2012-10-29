@@ -109,6 +109,8 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 	char sep;
 	int ret;
 
+	/* src_list is subscriptions=yes, dest_list is subscriptions=no
+	   (or the same as src_list) */
 	i_assert((src_list->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) != 0);
 
 	if (dest_list->subscriptions == NULL) {
@@ -151,7 +153,7 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 				  "Removing invalid entry: %s",
 				  path, name);
 			(void)subsfile_set_subscribed(src_list, path,
-				mailbox_list_get_temp_prefix(dest_list),
+				mailbox_list_get_temp_prefix(src_list),
 				name, FALSE);
 
 		}

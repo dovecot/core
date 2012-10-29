@@ -345,6 +345,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	uint32_t file_seq, old_offset;
 	ARRAY_TYPE(uint32_t) ext_offsets;
 	const uint32_t *offsets;
+	const void *data;
 	unsigned int i, count;
 	int fd, ret;
 
@@ -432,7 +433,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	if (cache->file_cache != NULL)
 		file_cache_set_fd(cache->file_cache, cache->fd);
 
-	if (mail_cache_map(cache, 0, 0) < 0)
+	if (mail_cache_map(cache, 0, 0, &data) < 0)
 		return -1;
 	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;
@@ -451,6 +452,9 @@ int mail_cache_compress(struct mail_cache *cache,
 
 	if (MAIL_INDEX_IS_IN_MEMORY(cache->index) || cache->index->readonly)
 		return 0;
+
+	/* compression isn't very efficient with small read()s */
+	cache->map_with_read = FALSE;
 
 	if (cache->index->lock_method == FILE_LOCK_METHOD_DOTLOCK) {
 		/* we're using dotlocking, cache file creation itself creates
@@ -486,5 +490,6 @@ int mail_cache_compress(struct mail_cache *cache,
 bool mail_cache_need_compress(struct mail_cache *cache)
 {
 	return cache->need_compress_file_seq != 0 &&
+		(cache->index->flags & MAIL_INDEX_OPEN_FLAG_SAVEONLY) == 0 &&
 		!cache->index->readonly;
 }

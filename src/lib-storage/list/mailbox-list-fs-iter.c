@@ -380,13 +380,24 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 	for (patterns = ctx->valid_patterns; *patterns != NULL; patterns++) {
 		pattern = *patterns;
 
-		for (p = last = pattern; *p != '\0'; p++) {
-			if (*p == '%' || *p == '*')
-				break;
-			if (*p == ns_sep)
-				last = p;
+		if (strncmp(pattern, ns->prefix, ns->prefix_len) != 0) {
+			/* typically e.g. prefix=foo/bar/, pattern=foo/%/%
+			   we'll use root="" for this.
+
+			   it might of course also be pattern=foo/%/prefix/%
+			   where we could optimize with root=prefix, but
+			   probably too much trouble to implement. */
+			prefix_vname = "";
+			p = last = pattern;
+		} else {
+			for (p = last = pattern; *p != '\0'; p++) {
+				if (*p == '%' || *p == '*')
+					break;
+				if (*p == ns_sep)
+					last = p;
+			}
+			prefix_vname = t_strdup_until(pattern, last);
 		}
-		prefix_vname = t_strdup_until(pattern, last);
 
 		if (p == last+1 && *pattern == ns_sep)
 			root = "/";
@@ -432,7 +443,7 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 	/* sort the root dirs so that /foo is before /foo/bar */
 	array_sort(&ctx->roots, i_strcmp_p);
 	/* remove /foo/bar when there already exists /foo parent */
-	for (i = 1; i < array_count(&ctx->roots); i++) {
+	for (i = 1; i < array_count(&ctx->roots); ) {
 		parentp = array_idx(&ctx->roots, i-1);
 		childp = array_idx(&ctx->roots, i);
 		parentlen = strlen(*parentp);
@@ -441,6 +452,8 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 		     (*childp)[parentlen] == ctx->sep ||
 		     (*childp)[parentlen] == '\0'))
 			array_delete(&ctx->roots, i, 1);
+		else
+			i++;
 	}
 }
 

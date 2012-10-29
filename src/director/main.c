@@ -215,7 +215,7 @@ int main(int argc, char *argv[])
 	main_preinit();
 	master_service_init_finish(master_service);
 	director->test_port = test_port;
-	director->debug = debug;
+	director_debug = debug;
 	director_connect(director);
 
 	if (director->test_port != 0) {

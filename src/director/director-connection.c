@@ -453,12 +453,15 @@ director_user_refresh(struct director_connection *conn,
 		*user_r = user_directory_add(dir->users, username_hash,
 					     host, timestamp);
 		(*user_r)->weak = weak;
+		dir_debug("user refresh: %u added", username_hash);
 		return TRUE;
 	}
 
 	if (user->weak) {
 		if (!weak) {
 			/* removing user's weakness */
+			dir_debug("user refresh: %u weakness removed",
+				  username_hash);
 			unset_weak_user = TRUE;
 			user->weak = FALSE;
 			ret = TRUE;
@@ -468,6 +471,7 @@ director_user_refresh(struct director_connection *conn,
 	} else if (weak &&
 		   !user_directory_user_is_recently_updated(dir->users, user)) {
 		/* mark the user as weak */
+		dir_debug("user refresh: %u set weak", username_hash);
 		user->weak = TRUE;
 		ret = TRUE;
 	} else if (user->host != host) {
@@ -515,6 +519,8 @@ director_user_refresh(struct director_connection *conn,
 		user_directory_refresh(dir->users, user);
 		ret = TRUE;
 	}
+	dir_debug("user refresh: %u refreshed timeout to %ld",
+		  username_hash, (long)user->timestamp);
 
 	if (unset_weak_user) {
 		/* user is no longer weak. handle pending requests for
@@ -725,8 +731,10 @@ director_cmd_user_weak(struct director_connection *conn,
 	bool weak = TRUE;
 	int ret;
 
-	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) != 0)
-		return ret > 0;
+	/* note that unlike other commands we don't want to just ignore
+	   duplicate commands */
+	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) < 0)
+		return FALSE;
 
 	if (str_array_length(args) != 2 ||
 	    str_to_uint(args[0], &username_hash) < 0 ||
@@ -936,7 +944,7 @@ static bool director_handshake_cmd_done(struct director_connection *conn)
 	unsigned int handshake_secs = time(NULL) - conn->created;
 	string_t *str;
 
-	if (handshake_secs >= DIRECTOR_HANDSHAKE_WARN_SECS || dir->debug) {
+	if (handshake_secs >= DIRECTOR_HANDSHAKE_WARN_SECS || director_debug) {
 		str = t_str_new(128);
 		str_printfa(str, "director(%s): Handshake took %u secs, "
 			    "bytes in=%"PRIuUOFF_T" out=%"PRIuUOFF_T,
@@ -1063,10 +1071,8 @@ director_connection_sync_host(struct director_connection *conn,
 			/* duplicate SYNC (which was sent just in case the
 			   previous one got lost) */
 		} else {
-			if (dir->debug) {
-				i_debug("Ring is synced (%s sent seq=%u)",
-					conn->name, seq);
-			}
+			dir_debug("Ring is synced (%s sent seq=%u)",
+				  conn->name, seq);
 			director_set_ring_synced(dir);
 		}
 	} else if (dir->right != NULL) {
@@ -1128,23 +1134,18 @@ static bool director_cmd_connect(struct director_connection *conn,
 	    director_host_cmp_to_self(host, dir->right->host,
 				      dir->self_host) <= 0) {
 		/* the old connection is the correct one */
-		if (dir->debug) {
-			i_debug("Ignoring CONNECT request to %s "
-				"(current right is %s)",
-				host->name, dir->right->name);
-		}
+		dir_debug("Ignoring CONNECT request to %s (current right is %s)",
+			  host->name, dir->right->name);
 		return TRUE;
 	}
 
-	if (dir->debug) {
-		if (dir->right == NULL) {
-			i_debug("Received CONNECT request to %s, "
-				"initializing right", host->name);
-		} else {
-			i_debug("Received CONNECT request to %s, "
-				"replacing current right %s",
-				host->name, dir->right->name);
-		}
+	if (dir->right == NULL) {
+		dir_debug("Received CONNECT request to %s, "
+			  "initializing right", host->name);
+	} else {
+		dir_debug("Received CONNECT request to %s, "
+			  "replacing current right %s",
+			  host->name, dir->right->name);
 	}
 
 	/* connect here */
@@ -1251,6 +1252,8 @@ director_connection_handle_line(struct director_connection *conn,
 {
 	const char *cmd, *const *args;
 	bool ret;
+
+	dir_debug("input: %s: %s", conn->name, line);
 
 	args = t_strsplit_tab(line);
 	cmd = args[0]; args++;
@@ -1531,9 +1534,9 @@ void director_connection_deinit(struct director_connection **_conn,
 
 	*_conn = NULL;
 
-	if (dir->debug && conn->host != NULL) {
-		i_debug("Disconnecting from %s: %s",
-			conn->host->name, remote_reason);
+	if (conn->host != NULL) {
+		dir_debug("Disconnecting from %s: %s",
+			  conn->host->name, remote_reason);
 	}
 	if (*remote_reason != '\0' &&
 	    conn->minor_version >= DIRECTOR_VERSION_QUIT) {
@@ -1625,6 +1628,11 @@ void director_connection_send(struct director_connection *conn,
 	if (conn->output->closed || !conn->connected)
 		return;
 
+	if (director_debug) T_BEGIN {
+		const char *const *lines = t_strsplit(data, "\n");
+		for (; lines[1] != NULL; lines++)
+			dir_debug("output: %s: %s", conn->name, *lines);
+	} T_END;
 	ret = o_stream_send(conn->output, data, len);
 	if (ret != (off_t)len) {
 		if (ret < 0)
