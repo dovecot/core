@@ -1,19 +1,25 @@
- - libssl-iostream read all of file input stream, no buffer limits in ssl
- - finish dsync rewrite
+ - LAYOUT=index:
+    - force-resync should fix the index, finding any missing mailboxes, same
+      for when internally detecting the error
+    - see if there are any race conditions? and check other error handling
+    - after doing a lot of changes the list's memory pool keeps growing.
+      do an occasional re-parsing to clear the pool
+    - mailbox_update() needs to update also uidvalidity/guid
+    - quota recalc + dict-file [+acl?] assert-crashes in !indexing->syncing
+ - URLAUTH: if client tries to access nonexistent user, do a delay in
+   imap-urlauth-client.c (AFTER destroying the worker)
+     - special response in the control connection to make the imap-urlauth
+       master wait before starting a new worker
 
+ - settings parsing is horribly bloaty
  - doveadm: if running via doveadm-server and it fails, say something about
    error being in the log
  - indexer-worker and maybe others (doveadm?) could support dropping privileges
    permanently when service_count=1. Note that LMTP can't with multiple RCPT
    TOs.
  - after reading whole message text, update has_nul-state to cache
- - if indexpvt is enabled, mailbox_list_indexes should go there? at least
-   private flags are otherwise problematic.. possibly only for shared/public
-   mailboxes?..
- - index_mail_parse_headers() etc. message_parsers don't check for stream errors
  - FIFOs maybe should be counted as connections, but unlisten should
    unlink+reopen it in master?
- - change proxy TTL so it stops at 1? (instead of 0)
  - lmtp client/proxy: Handle multiline replies better
  - recreate mailbox -> existing sessions log "indexid changed" error
  - add message/mime limits
@@ -125,7 +131,6 @@
  - ldap: fix multiple-gid support somehow
  - search: use mail_get_parts() only when it's already cached. if it's not,
    add it to cache afterwards.
- - move ssl proxying code to lib-master
  - dict pooling
 
 	/* currently non-external transactions can be applied multiple times,
