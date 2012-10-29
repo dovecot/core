@@ -371,13 +371,13 @@ static void cmd_user(int argc, char *argv[])
 	const char *show_field = NULL;
 	struct mail_storage_service_ctx *storage_service = NULL;
 	unsigned int i;
-	bool have_wildcards, mail_fields = FALSE, first = TRUE;
+	bool have_wildcards, userdb_only = FALSE, first = TRUE;
 	int c, ret;
 
 	memset(&input, 0, sizeof(input));
 	input.info.service = "doveadm";
 
-	while ((c = getopt(argc, argv, "a:f:mx:")) > 0) {
+	while ((c = getopt(argc, argv, "a:f:ux:")) > 0) {
 		switch (c) {
 		case 'a':
 			auth_socket_path = optarg;
@@ -385,8 +385,8 @@ static void cmd_user(int argc, char *argv[])
 		case 'f':
 			show_field = optarg;
 			break;
-		case 'm':
-			mail_fields = TRUE;
+		case 'u':
+			userdb_only = TRUE;
 			break;
 		case 'x':
 			auth_user_info_parse(&input.info, optarg);
@@ -413,7 +413,7 @@ static void cmd_user(int argc, char *argv[])
 		return;
 	}
 
-	if (mail_fields) {
+	if (!userdb_only) {
 		storage_service = mail_storage_service_init(master_service, NULL,
 			MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
 			MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP);
@@ -425,7 +425,7 @@ static void cmd_user(int argc, char *argv[])
 		else
 			putchar('\n');
 
-		ret = mail_fields ?
+		ret = !userdb_only ?
 			cmd_user_mail_input(storage_service, &input, show_field) :
 			cmd_user_input(auth_socket_path, &input, show_field);
 		switch (ret) {
@@ -447,7 +447,7 @@ struct doveadm_cmd doveadm_cmd_auth[] = {
 	{ cmd_auth_cache_flush, "auth cache flush",
 	  "[-a <master socket path>] [<user> [...]]" },
 	{ cmd_user, "user",
-	  "[-a <userdb socket path>] [-x <auth info>] [-f field] [-m] <user mask> [...]" }
+	  "[-a <userdb socket path>] [-x <auth info>] [-f field] [-u] <user mask> [...]" }
 };
 
 static void auth_cmd_help(doveadm_command_t *cmd)
