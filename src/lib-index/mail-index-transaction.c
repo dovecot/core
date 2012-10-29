@@ -97,13 +97,19 @@ void mail_index_transaction_lookup_latest_keywords(struct mail_index_transaction
 {
 	uint32_t uid, latest_seq;
 
+	/* seq points to the transaction's primary view */
+	mail_index_lookup_uid(t->view, seq, &uid);
+
+	/* get the latest keywords from the updated index, or fallback to the
+	   primary view if the message is already expunged */
 	if (t->latest_view == NULL) {
 		mail_index_refresh(t->view->index);
 		t->latest_view = mail_index_view_open(t->view->index);
 	}
-	mail_index_lookup_uid(t->latest_view, seq, &uid);
 	if (mail_index_lookup_seq(t->latest_view, uid, &latest_seq))
 		mail_index_lookup_keywords(t->latest_view, latest_seq, keywords);
+	else
+		mail_index_lookup_keywords(t->view, seq, keywords);
 }
 
 static int
