@@ -72,7 +72,7 @@ static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct cmd_urlfetch_context *ctx =
 		(struct cmd_urlfetch_context *)cmd->context;
-	int ret = 1;
+	int ret;
 
 	/* are we in the middle of an urlfetch literal? */
 	if (ctx->input == NULL)
@@ -87,7 +87,7 @@ static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 
 	/* transfer literal to client */
 	o_stream_set_max_buffer_size(client->output, 0);
-	ret = o_stream_send_istream(client->output, ctx->input);
+	(void)o_stream_send_istream(client->output, ctx->input);
 	o_stream_set_max_buffer_size(client->output, (size_t)-1);
 
 	if (ctx->input->v_offset == ctx->size) {

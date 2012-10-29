@@ -335,6 +335,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 		return -1;
 
 	/* first write the actual data to cache file */
+	i_assert(ctx->cache_data != NULL);
 	i_assert(ctx->last_rec_pos <= ctx->cache_data->used);
 	if (mail_cache_append(ctx->cache, ctx->cache_data->data,
 			      ctx->last_rec_pos, &write_offset) < 0)

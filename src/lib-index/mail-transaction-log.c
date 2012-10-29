@@ -452,7 +452,7 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 
 		if (ret == 0 && log->head == file) {
 			/* success */
-			lock_secs = file->lock_created - lock_wait_started;
+			lock_secs = log->head->lock_created - lock_wait_started;
 			break;
 		}
 

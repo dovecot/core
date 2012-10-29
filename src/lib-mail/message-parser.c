@@ -690,11 +690,13 @@ static int preparsed_parse_body_more(struct message_parser_ctx *ctx,
 static int preparsed_parse_prologue_more(struct message_parser_ctx *ctx,
 					 struct message_block *block_r)
 {
-	uoff_t end_offset = ctx->part->children->physical_pos;
-	uoff_t boundary_min_start;
+	uoff_t boundary_min_start, end_offset;
 	const unsigned char *cur;
 	bool full;
 	int ret;
+
+	i_assert(ctx->part->children != NULL);
+	end_offset = ctx->part->children->physical_pos;
 
 	if ((ret = message_parser_read_more(ctx, block_r, &full)) <= 0)
 		return ret;

@@ -526,6 +526,7 @@ director_connection_disconnect_timeout(void *context ATTR_UNUSED)
 			i_assert(conn != NULL);
 			i++;
 		}
+		i_assert(conn != NULL);
 		director_connection_destroy(&conn);
 	}
 }

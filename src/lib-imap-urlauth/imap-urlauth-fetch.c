@@ -198,8 +198,7 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 	}
 
 	/* if requested, read the message part the URL points to */
-	mpresult.size = 0;
-	mpresult.input = NULL;
+	memset(&mpresult, 0, sizeof(mpresult));
 	if (success && ((url_flags & IMAP_URLAUTH_FETCH_FLAG_BODY) != 0 ||
 			(url_flags & IMAP_URLAUTH_FETCH_FLAG_BINARY) != 0)) {
 		ret = imap_msgpart_url_read_part(mpurl, &mpresult, &error);

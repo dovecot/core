@@ -708,11 +708,11 @@ director_cmd_is_seen(struct director_connection *conn,
 		   ourself. */
 		*host_r = NULL;
 	} else {
+		*host_r = host;
 		if (seq <= host->last_seq) {
 			/* already seen this */
 			return 1;
 		}
-		*host_r = host;
 		host->last_seq = seq;
 	}
 	return 0;
