@@ -93,6 +93,7 @@ static struct mail_storage_hooks autocreate_mail_storage_hooks = {
 
 void autocreate_plugin_init(struct module *module)
 {
+	i_warning("autocreate plugin is deprecated, use mailbox { auto } setting instead");
 	mail_storage_hooks_add(module, &autocreate_mail_storage_hooks);
 }
 
