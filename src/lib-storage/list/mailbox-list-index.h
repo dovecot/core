@@ -108,6 +108,7 @@ struct mailbox_list_index {
 
 	unsigned int opened:1;
 	unsigned int syncing:1;
+	unsigned int updating_status:1;
 	unsigned int has_backing_store:1;
 };
 
