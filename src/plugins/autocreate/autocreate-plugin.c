@@ -28,6 +28,7 @@ add_autobox(struct mail_user *user, const char *vname, bool subscriptions)
 {
 	struct mail_namespace *ns;
 	struct mailbox_settings *set;
+	struct mail_namespace_settings tmp_ns_set;
 
 	if (!uni_utf8_str_is_valid(vname)) {
 		i_error("autocreate: Mailbox name isn't valid UTF-8: %s",
@@ -42,8 +43,15 @@ add_autobox(struct mail_user *user, const char *vname, bool subscriptions)
 		return;
 	}
 
-	if (!array_is_created(&ns->set->mailboxes))
-		p_array_init(&ns->set->mailboxes, user->pool, 16);
+	if (array_is_created(&ns->set->mailboxes))
+		tmp_ns_set.mailboxes = ns->set->mailboxes;
+	else {
+		p_array_init(&tmp_ns_set.mailboxes, user->pool, 16);
+		/* work around ns->set being a const pointer. pretty ugly, but
+		   this plugin is deprecated anyway. */
+		memcpy((void *)&ns->set->mailboxes.arr, &tmp_ns_set.mailboxes.arr,
+		       sizeof(ns->set->mailboxes.arr));
+	}
 
 	if (strncmp(vname, ns->prefix, ns->prefix_len) == 0)
 		vname += ns->prefix_len;
@@ -53,7 +61,7 @@ add_autobox(struct mail_user *user, const char *vname, bool subscriptions)
 		set->name = p_strdup(user->pool, vname);
 		set->autocreate = MAILBOX_SET_AUTO_NO;
 		set->special_use = "";
-		array_append(&ns->set->mailboxes, &set, 1);
+		array_append(&tmp_ns_set.mailboxes, &set, 1);
 	}
 	if (subscriptions)
 		set->autocreate = MAILBOX_SET_AUTO_SUBSCRIBE;
