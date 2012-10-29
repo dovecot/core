@@ -1447,8 +1447,6 @@ int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
 
 enum mail_flags mailbox_get_private_flags_mask(struct mailbox *box)
 {
-	i_assert(box->opened);
-
 	if (box->v.get_private_flags_mask != NULL)
 		return box->v.get_private_flags_mask(box);
 	else if (box->list->set.index_pvt_dir != NULL)
