@@ -206,7 +206,7 @@ static int maildir_create_subdirs(struct mailbox *box)
 	enum mailbox_list_path_type types[N_ELEMENTS(subdirs) + 2];
 	struct stat st;
 	const char *path;
-	unsigned int i;
+	unsigned int i, count;
 
 	/* @UNSAFE: get a list of directories we want to create */
 	for (i = 0; i < N_ELEMENTS(subdirs); i++) {
@@ -222,11 +222,12 @@ static int maildir_create_subdirs(struct mailbox *box)
 		types[i] = MAILBOX_LIST_PATH_TYPE_INDEX;
 		dirs[i++] = path;
 	}
-	i_assert(i <= N_ELEMENTS(dirs));
+	count = i;
+	i_assert(count <= N_ELEMENTS(dirs));
 
-	for (i = 0; i < N_ELEMENTS(dirs); i++) {
+	for (i = 0; i < count; i++) {
 		path = dirs[i];
-		if (path == NULL || stat(path, &st) == 0)
+		if (stat(path, &st) == 0)
 			continue;
 		if (errno != ENOENT) {
 			mail_storage_set_critical(box->storage,
