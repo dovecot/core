@@ -502,7 +502,7 @@ void mail_storage_copy_list_error(struct mail_storage *storage,
 	mail_storage_set_error(storage, error, str);
 }
 
-void mail_storage_set_index_error(struct mailbox *box)
+void mailbox_set_index_error(struct mailbox *box)
 {
 	if (mail_index_is_deleted(box->index))
 		mailbox_set_deleted(box);
@@ -1188,7 +1188,7 @@ int mailbox_mark_index_deleted(struct mailbox *box, bool del)
 	else
 		mail_index_set_undeleted(trans);
 	if (mail_index_transaction_commit(&trans) < 0) {
-		mail_storage_set_index_error(box);
+		mailbox_set_index_error(box);
 		return -1;
 	}
 

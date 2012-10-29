@@ -1419,7 +1419,7 @@ static int virtual_sync_finish(struct virtual_sync_context *ctx, bool success)
 	virtual_sync_backend_boxes_finish(ctx);
 	if (success) {
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->box);
+			mailbox_set_index_error(&ctx->mbox->box);
 			ret = -1;
 		}
 	} else {
@@ -1466,7 +1466,7 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 				    index_sync_flags);
 	if (ret <= 0) {
 		if (ret < 0)
-			mail_storage_set_index_error(&mbox->box);
+			mailbox_set_index_error(&mbox->box);
 		i_free(ctx);
 		return ret;
 	}

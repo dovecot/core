@@ -369,7 +369,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	if (ctx->sync_ctx != NULL) {
 		if (mail_index_view_sync_commit(&ctx->sync_ctx,
 						&delayed_expunges) < 0) {
-			mail_storage_set_index_error(_ctx->box);
+			mailbox_set_index_error(_ctx->box);
 			ret = -1;
 		}
 	}

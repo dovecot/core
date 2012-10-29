@@ -1650,7 +1650,7 @@ int mbox_sync_header_refresh(struct mbox_mailbox *mbox)
 	size_t data_size;
 
 	if (mail_index_refresh(mbox->box.index) < 0) {
-		mail_storage_set_index_error(&mbox->box);
+		mailbox_set_index_error(&mbox->box);
 		return -1;
 	}
 
@@ -1839,7 +1839,7 @@ again:
 				    &sync_view, &trans, sync_flags);
 	if (ret <= 0) {
 		if (ret < 0)
-			mail_storage_set_index_error(&mbox->box);
+			mailbox_set_index_error(&mbox->box);
 		return ret;
 	}
 
@@ -1856,7 +1856,7 @@ again:
 		/* index may need to do internal syncing though, so commit
 		   instead of rollbacking. */
 		if (mail_index_sync_commit(&index_sync_ctx) < 0) {
-			mail_storage_set_index_error(&mbox->box);
+			mailbox_set_index_error(&mbox->box);
 			return -1;
 		}
 		return 0;
@@ -1931,7 +1931,7 @@ again:
 	if (ret < 0)
 		mail_index_sync_rollback(&index_sync_ctx);
 	else if (mail_index_sync_commit(&index_sync_ctx) < 0) {
-		mail_storage_set_index_error(&mbox->box);
+		mailbox_set_index_error(&mbox->box);
 		ret = -1;
 	}
 	sync_ctx.t = NULL;

@@ -70,7 +70,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 			/* refresh index file after mbox has been locked to
 			   make sure we get only up-to-date mbox offsets. */
 			if (mail_index_refresh(mbox->box.index) < 0) {
-				mail_storage_set_index_error(&mbox->box);
+				mailbox_set_index_error(&mbox->box);
 				return -1;
 			}
 

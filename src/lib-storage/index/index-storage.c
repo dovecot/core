@@ -239,7 +239,7 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	if (ret <= 0 || move_to_memory) {
 		if ((index_flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0) {
 			i_assert(ret <= 0);
-			mail_storage_set_index_error(box);
+			mailbox_set_index_error(box);
 			return -1;
 		}
 
@@ -469,7 +469,7 @@ int index_storage_mailbox_update(struct mailbox *box,
 	}
 
 	if ((ret = mail_index_transaction_commit(&trans)) < 0)
-		mail_storage_set_index_error(box);
+		mailbox_set_index_error(box);
 	mail_index_view_close(&view);
 	return ret;
 }

@@ -377,7 +377,7 @@ imapc_sync_begin(struct imapc_mailbox *mbox,
 				    sync_flags);
 	if (ret <= 0) {
 		if (ret < 0)
-			mail_storage_set_index_error(&mbox->box);
+			mailbox_set_index_error(&mbox->box);
 		i_free(ctx);
 		*ctx_r = NULL;
 		return ret;
@@ -412,7 +412,7 @@ static int imapc_sync_finish(struct imapc_sync_context **_ctx)
 	*_ctx = NULL;
 	if (ret == 0) {
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->box);
+			mailbox_set_index_error(&ctx->mbox->box);
 			ret = -1;
 		}
 	} else {

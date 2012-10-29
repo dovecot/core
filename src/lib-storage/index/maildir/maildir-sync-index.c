@@ -229,7 +229,7 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 
 	if (mail_index_sync_begin(_box->index, &sync_ctx, &view,
 				  &trans, sync_flags) < 0) {
-		mail_storage_set_index_error(_box);
+		mailbox_set_index_error(_box);
 		return -1;
 	}
 
@@ -328,7 +328,7 @@ static int maildir_sync_index_finish(struct maildir_index_sync_context *ctx,
 		   start a second index sync and crash. */
 		mbox->syncing_commit = TRUE;
 		if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
-			mail_storage_set_index_error(&mbox->box);
+			mailbox_set_index_error(&mbox->box);
 			ret = -1;
 		}
 		mbox->syncing_commit = FALSE;

@@ -197,7 +197,7 @@ static int mdbox_sync_try_begin(struct mdbox_sync_context *ctx,
 	if (mail_index_reset_fscked(mbox->box.index))
 		mdbox_storage_set_corrupted(mbox->storage);
 	if (ret < 0) {
-		mail_storage_set_index_error(&mbox->box);
+		mailbox_set_index_error(&mbox->box);
 		return -1;
 	}
 	if (ret == 0) {
@@ -300,7 +300,7 @@ int mdbox_sync_finish(struct mdbox_sync_context **_ctx, bool success)
 
 	if (success) {
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->box);
+			mailbox_set_index_error(&ctx->mbox->box);
 			ret = -1;
 		}
 	} else {

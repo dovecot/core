@@ -569,7 +569,7 @@ static void maildir_sync_get_header(struct maildir_mailbox *mbox)
 int maildir_sync_header_refresh(struct maildir_mailbox *mbox)
 {
 	if (mail_index_refresh(mbox->box.index) < 0) {
-		mail_storage_set_index_error(&mbox->box);
+		mailbox_set_index_error(&mbox->box);
 		return -1;
 	}
 	maildir_sync_get_header(mbox);
@@ -1006,7 +1006,7 @@ int maildir_sync_refresh_flags_view(struct maildir_mailbox *mbox)
 	sync_ctx = mail_index_view_sync_begin(mbox->flags_view,
 			MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
 	if (mail_index_view_sync_commit(&sync_ctx, &delayed_expunges) < 0) {
-		mail_storage_set_index_error(&mbox->box);
+		mailbox_set_index_error(&mbox->box);
 		return -1;
 	}
 	/* make sure the map stays in private memory */

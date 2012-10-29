@@ -282,7 +282,7 @@ int dbox_mailbox_create(struct mailbox *box,
 	ret = mail_index_sync_begin(box->index, &sync_ctx, &view, &trans, 0);
 	if (ret <= 0) {
 		i_assert(ret != 0);
-		mail_storage_set_index_error(box);
+		mailbox_set_index_error(box);
 		return -1;
 	}
 

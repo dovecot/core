@@ -119,7 +119,7 @@ int cydir_sync_begin(struct cydir_mailbox *mbox,
 				    sync_flags);
 	if (ret <= 0) {
 		if (ret < 0)
-			mail_storage_set_index_error(&mbox->box);
+			mailbox_set_index_error(&mbox->box);
 		i_free(ctx);
 		*ctx_r = NULL;
 		return ret;
@@ -138,7 +138,7 @@ int cydir_sync_finish(struct cydir_sync_context **_ctx, bool success)
 	*_ctx = NULL;
 	if (success) {
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->box);
+			mailbox_set_index_error(&ctx->mbox->box);
 			ret = -1;
 		}
 	} else {

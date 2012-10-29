@@ -40,7 +40,7 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 		t->super.rollback(index_trans);
 	else {
 		if (t->super.commit(index_trans, result_r) < 0) {
-			mail_storage_set_index_error(t->box);
+			mailbox_set_index_error(t->box);
 			ret = -1;
 		} else if (result_r->commit_size > 0) {
 			/* something was written to the transaction log */

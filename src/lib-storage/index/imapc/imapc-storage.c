@@ -523,7 +523,7 @@ static void imapc_mailbox_close(struct mailbox *box)
 		mail_index_view_close(&mbox->delayed_sync_view);
 	if (mbox->delayed_sync_trans != NULL) {
 		if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0)
-			mail_storage_set_index_error(&mbox->box);
+			mailbox_set_index_error(&mbox->box);
 	}
 	if (mbox->sync_view != NULL)
 		mail_index_view_close(&mbox->sync_view);

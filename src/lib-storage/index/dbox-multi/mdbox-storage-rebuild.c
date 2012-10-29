@@ -507,7 +507,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 				    MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES);
 	if (ret <= 0) {
 		i_assert(ret != 0);
-		mail_storage_set_index_error(box);
+		mailbox_set_index_error(box);
 		mailbox_free(&box);
 		return -1;
 	}
@@ -518,7 +518,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	index_index_rebuild_deinit(&rebuild_ctx, dbox_get_uidvalidity_next);
 
 	if (mail_index_sync_commit(&sync_ctx) < 0) {
-		mail_storage_set_index_error(box);
+		mailbox_set_index_error(box);
 		ret = -1;
 	}
 
@@ -674,7 +674,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 					    &ctx->prev_msg.trans, 0);
 		if (ret <= 0) {
 			i_assert(ret != 0);
-			mail_storage_set_index_error(box);
+			mailbox_set_index_error(box);
 			mailbox_free(&box);
 			return -1;
 		}
