@@ -244,11 +244,12 @@ static bool file_dict_iterate(struct dict_iterate_context *_ctx,
 {
 	struct file_dict_iterate_context *ctx =
 		(struct file_dict_iterate_context *)_ctx;
-	struct file_dict *dict = (struct file_dict *)_ctx->dict;
 	const struct file_dict_iterate_path *path;
 	char *key, *value;
 
-	while (hash_table_iterate(ctx->iter, dict->hash, &key, &value)) {
+	while (hash_table_iterate(ctx->iter,
+				  ((struct file_dict *)_ctx->dict)->hash,
+				  &key, &value)) {
 		path = file_dict_iterate_find_path(ctx, key);
 		if (path == NULL)
 			continue;
