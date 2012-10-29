@@ -108,14 +108,15 @@ struct mail_storage {
 	void *callback_context;
 
 	struct mail_binary_cache binary_cache;
-	/* Filled lazily by mailbox_attribute_*() */
-	struct dict *_attr_dict;
+	/* Filled lazily by mailbox_attribute_*() when accessing shared
+	   attributes. */
+	struct dict *_shared_attr_dict;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY(union mail_storage_module_context *) module_contexts;
 
-	/* Failed to create attribute dict, don't try again */
-	unsigned int attr_dict_failed:1;
+	/* Failed to create shared attribute dict, don't try again */
+	unsigned int shared_attr_dict_failed:1;
 };
 
 struct mail_attachment_part {

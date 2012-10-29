@@ -40,6 +40,8 @@ struct mail_user {
 
 	struct mountpoint_list *mountpoints;
 	normalizer_func_t *default_normalizer;
+	/* Filled lazily by mailbox_attribute_*() when accessing attributes. */
+	struct dict *_attr_dict;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY(union mail_user_module_context *) module_contexts;
@@ -64,6 +66,8 @@ struct mail_user {
 	unsigned int fuzzy_search:1;
 	/* We're running dsync */
 	unsigned int dsyncing:1;
+	/* Failed to create attribute dict, don't try again */
+	unsigned int attr_dict_failed:1;
 };
 
 struct mail_user_module_register {

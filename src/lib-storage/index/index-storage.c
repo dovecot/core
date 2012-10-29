@@ -807,8 +807,8 @@ int index_storage_set_subscribed(struct mailbox *box, bool set)
 
 void index_storage_destroy(struct mail_storage *storage)
 {
-	if (storage->_attr_dict != NULL) {
-		(void)dict_wait(storage->_attr_dict);
-		dict_deinit(&storage->_attr_dict);
+	if (storage->_shared_attr_dict != NULL) {
+		(void)dict_wait(storage->_shared_attr_dict);
+		dict_deinit(&storage->_shared_attr_dict);
 	}
 }

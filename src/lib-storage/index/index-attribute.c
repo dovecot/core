@@ -12,10 +12,74 @@ struct index_storage_attribute_iter {
 	bool dict_disabled;
 };
 
-static int index_storage_get_dict(struct mailbox *box, struct dict **dict_r,
-				  const char **mailbox_prefix_r)
+static struct mail_namespace *
+mail_user_find_attribute_namespace(struct mail_user *user)
+{
+	struct mail_namespace *ns;
+
+	ns = mail_namespace_find_inbox(user->namespaces);
+	if (ns != NULL)
+		return ns;
+
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		if (ns->type == MAIL_NAMESPACE_TYPE_PRIVATE)
+			return ns;
+	}
+	return NULL;
+}
+
+static int
+index_storage_get_user_dict(struct mail_storage *err_storage,
+			    struct mail_user *user, struct dict **dict_r)
+{
+	struct mail_namespace *ns;
+	struct mail_storage *attr_storage;
+	const char *error;
+
+	if (user->_attr_dict != NULL) {
+		*dict_r = user->_attr_dict;
+		return 0;
+	}
+	if (user->attr_dict_failed) {
+		mail_storage_set_internal_error(err_storage);
+		return -1;
+	}
+
+	ns = mail_user_find_attribute_namespace(user);
+	if (ns == NULL) {
+		/* probably never happens? */
+		mail_storage_set_error(err_storage, MAIL_ERROR_NOTPOSSIBLE,
+			"Mailbox attributes not available for this mailbox");
+		return -1;
+	}
+	attr_storage = mail_namespace_get_default_storage(ns);
+
+	if (*attr_storage->set->mail_attribute_dict == '\0') {
+		mail_storage_set_error(err_storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "Mailbox attributes not enabled");
+		return -1;
+	}
+
+	if (dict_init(attr_storage->set->mail_attribute_dict,
+		      DICT_DATA_TYPE_STRING,
+		      user->username, user->set->base_dir,
+		      &user->_attr_dict, &error) < 0) {
+		mail_storage_set_critical(err_storage,
+			"mail_attribute_dict: dict_init(%s) failed: %s",
+			attr_storage->set->mail_attribute_dict, error);
+		user->attr_dict_failed = TRUE;
+		return -1;
+	}
+	*dict_r = user->_attr_dict;
+	return 0;
+}
+
+static int
+index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type,
+		       struct dict **dict_r, const char **mailbox_prefix_r)
 {
 	struct mail_storage *storage = box->storage;
+	struct mail_namespace *ns;
 	struct mailbox_metadata metadata;
 	const char *error;
 
@@ -23,8 +87,24 @@ static int index_storage_get_dict(struct mailbox *box, struct dict **dict_r,
 		return -1;
 	*mailbox_prefix_r = guid_128_to_string(metadata.guid);
 
-	if (storage->_attr_dict != NULL) {
-		*dict_r = storage->_attr_dict;
+	ns = mailbox_get_namespace(box);
+	if (type == MAIL_ATTRIBUTE_TYPE_PRIVATE) {
+		/* private attributes are stored in user's own dict */
+		return index_storage_get_user_dict(storage, storage->user, dict_r);
+	} else if (ns->user == ns->owner) {
+		/* user owns the mailbox. shared attributes are stored in
+		   the same dict. */
+		return index_storage_get_user_dict(storage, storage->user, dict_r);
+	} else if (ns->owner != NULL) {
+		/* accessing shared attribute of a shared mailbox.
+		   use the owner's dict. */
+		return index_storage_get_user_dict(storage, ns->owner, dict_r);
+	}
+
+	/* accessing shared attributes of a public mailbox. no user owns it,
+	   so use the storage's dict. */
+	if (storage->_shared_attr_dict != NULL) {
+		*dict_r = storage->_shared_attr_dict;
 		return 0;
 	}
 	if (*storage->set->mail_attribute_dict == '\0') {
@@ -32,7 +112,7 @@ static int index_storage_get_dict(struct mailbox *box, struct dict **dict_r,
 				       "Mailbox attributes not enabled");
 		return -1;
 	}
-	if (storage->attr_dict_failed) {
+	if (storage->shared_attr_dict_failed) {
 		mail_storage_set_internal_error(storage);
 		return -1;
 	}
@@ -41,14 +121,14 @@ static int index_storage_get_dict(struct mailbox *box, struct dict **dict_r,
 		      DICT_DATA_TYPE_STRING,
 		      storage->user->username,
 		      storage->user->set->base_dir,
-		      &storage->_attr_dict, &error) < 0) {
+		      &storage->_shared_attr_dict, &error) < 0) {
 		mail_storage_set_critical(storage,
 			"mail_attribute_dict: dict_init(%s) failed: %s",
 			storage->set->mail_attribute_dict, error);
-		storage->attr_dict_failed = TRUE;
+		storage->shared_attr_dict_failed = TRUE;
 		return -1;
 	}
-	*dict_r = storage->_attr_dict;
+	*dict_r = storage->_shared_attr_dict;
 	return 0;
 }
 
@@ -75,7 +155,7 @@ int index_storage_attribute_set(struct mailbox *box,
 	struct dict *dict;
 	const char *mailbox_prefix;
 
-	if (index_storage_get_dict(box, &dict, &mailbox_prefix) < 0)
+	if (index_storage_get_dict(box, type, &dict, &mailbox_prefix) < 0)
 		return -1;
 
 	T_BEGIN {
@@ -101,7 +181,7 @@ int index_storage_attribute_get(struct mailbox *box,
 	const char *mailbox_prefix;
 	int ret;
 
-	if (index_storage_get_dict(box, &dict, &mailbox_prefix) < 0)
+	if (index_storage_get_dict(box, type, &dict, &mailbox_prefix) < 0)
 		return -1;
 
 	ret = dict_lookup(dict, pool_datastack_create(),
@@ -126,7 +206,7 @@ index_storage_attribute_iter_init(struct mailbox *box,
 
 	iter = i_new(struct index_storage_attribute_iter, 1);
 	iter->iter.box = box;
-	if (index_storage_get_dict(box, &dict, &mailbox_prefix) < 0) {
+	if (index_storage_get_dict(box, type, &dict, &mailbox_prefix) < 0) {
 		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTPOSSIBLE)
 			iter->dict_disabled = TRUE;
 	} else {

@@ -14,6 +14,7 @@
 #include "auth-master.h"
 #include "master-service.h"
 #include "mountpoint-list.h"
+#include "dict.h"
 #include "mail-storage-settings.h"
 #include "mail-storage-private.h"
 #include "mail-storage-service.h"
@@ -28,6 +29,10 @@ struct auth_master_connection *mail_user_auth_master_conn;
 
 static void mail_user_deinit_base(struct mail_user *user)
 {
+	if (user->_attr_dict != NULL) {
+		(void)dict_wait(user->_attr_dict);
+		dict_deinit(&user->_attr_dict);
+	}
 	mail_namespaces_deinit(&user->namespaces);
 	if (user->mountpoints != NULL)
 		mountpoint_list_deinit(&user->mountpoints);
