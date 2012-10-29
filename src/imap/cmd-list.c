@@ -284,8 +284,6 @@ list_get_ref_patterns(struct cmd_list_context *ctx, const char *ref,
 		return patterns;
 
 	ns = mail_namespace_find(ctx->user->namespaces, ref);
-	if (ns == NULL)
-		return patterns;
 
 	t_array_init(&full_patterns, 16);
 	for (pat = patterns; *pat != NULL; pat++) {

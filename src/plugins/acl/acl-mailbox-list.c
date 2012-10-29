@@ -516,6 +516,10 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 		/* no ACL checks for internal namespaces (lda, shared) */
 		if (list->ns->type == MAIL_NAMESPACE_TYPE_SHARED)
 			acl_mailbox_list_init_shared(list);
+	} else if ((list->ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0) {
+		/* this namespace is empty. don't attempt to lookup ACLs,
+		   because they're not going to work anyway and we could
+		   crash doing it. */
 	} else {
 		acl_mailbox_list_init_default(list);
 	}

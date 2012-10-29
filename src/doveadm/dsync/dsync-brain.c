@@ -165,12 +165,6 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 	if (ibc_set->sync_ns_prefix != NULL) {
 		brain->sync_ns = mail_namespace_find(brain->user->namespaces,
 						     ibc_set->sync_ns_prefix);
-		if (brain->sync_ns == NULL) {
-			i_error("Requested sync namespace prefix=%s doesn't exist",
-				ibc_set->sync_ns_prefix);
-			brain->failed = TRUE;
-			return TRUE;
-		}
 	}
 	i_assert(brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_UNKNOWN);
 	brain->sync_type = ibc_set->sync_type;

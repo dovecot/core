@@ -28,7 +28,10 @@ client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 	}
 
 	ns = mail_namespace_find(namespaces, str_c(utf8_name));
-	if (ns == NULL) {
+	if ((ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0 &&
+	    ns->prefix_len == 0) {
+		/* this matched only the autocreated prefix="" namespace.
+		   give a nice human-readable error message */
 		client_send_tagline(cmd, t_strdup_printf(
 			"NO Client tried to access nonexistent namespace. "
 			"(Mailbox name should probably be prefixed with: %s)",

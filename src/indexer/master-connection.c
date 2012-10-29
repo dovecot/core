@@ -125,11 +125,6 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 	int ret;
 
 	ns = mail_namespace_find(user->namespaces, mailbox);
-	if (ns == NULL) {
-		i_error("Namespace not found for mailbox %s: ", mailbox);
-		return -1;
-	}
-
 	box = mailbox_alloc(ns->list, mailbox, 0);
 	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &path);
 	if (ret <= 0) {

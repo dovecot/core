@@ -12,6 +12,25 @@
 
 #include <stdlib.h>
 
+static struct mail_namespace_settings prefixless_ns_unexpanded_set = {
+	.name = "",
+	.type = "private",
+	.separator = "",
+	.prefix = "0",
+	.location = "0fail::LAYOUT=none",
+	.alias_for = NULL,
+
+	.inbox = FALSE,
+	.hidden = TRUE,
+	.list = "no",
+	.subscriptions = FALSE,
+	.ignore_on_failure = FALSE,
+	.disabled = FALSE,
+
+	.mailboxes = ARRAY_INIT
+};
+static struct mail_namespace_settings prefixless_ns_set;
+
 void mail_namespace_add_storage(struct mail_namespace *ns,
 				struct mail_storage *storage)
 {
@@ -105,6 +124,11 @@ namespace_add(struct mail_user *user,
 		ns->flags |= NAMESPACE_FLAG_HIDDEN;
 	if (ns_set->subscriptions)
 		ns->flags |= NAMESPACE_FLAG_SUBSCRIPTIONS;
+	if (ns_set == &prefixless_ns_set) {
+		/* autocreated prefix="" namespace */
+		ns->flags |= NAMESPACE_FLAG_UNUSABLE |
+			NAMESPACE_FLAG_AUTOCREATED;
+	}
 
 	if (*ns_set->location == '\0')
 		ns_set->location = mail_set->mail_location;
@@ -293,6 +317,7 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 	struct mail_namespace_settings *const *unexpanded_ns_set;
 	struct mail_namespace *namespaces, *ns, **ns_p;
 	unsigned int i, count, count2;
+	bool prefixless_found = FALSE;
 
 	i_assert(user->initialized);
 
@@ -321,11 +346,25 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 					ns_set[i]->prefix, *error_r);
 			}
 		} else {
+			if ((*ns_p)->prefix_len == 0)
+				prefixless_found = TRUE;
 			ns_p = &(*ns_p)->next;
 		}
 	}
 
 	if (namespaces != NULL) {
+		if (!prefixless_found) {
+			prefixless_ns_set = prefixless_ns_unexpanded_set;
+			/* a pretty evil way to expand the values */
+			prefixless_ns_set.prefix++;
+			prefixless_ns_set.location++;
+
+			if (namespace_add(user, &prefixless_ns_set,
+					  &prefixless_ns_unexpanded_set,
+					  mail_set, ns_p,
+					  error_r) < 0)
+				i_unreached();
+		}
 		if (!namespaces_check(namespaces, error_r)) {
 			*error_r = t_strconcat("namespace configuration error: ",
 					       *error_r, NULL);
@@ -410,7 +449,7 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 	ns->set = inbox_set;
 	ns->unexpanded_set = unexpanded_inbox_set;
 	ns->mail_set = mail_set;
-	ns->prefix = i_strdup(ns->set->prefix);
+	ns->prefix = i_strdup("");
 	ns->user = user;
 
 	if (mail_storage_create(ns, driver, 0, &error) < 0) {
@@ -612,7 +651,9 @@ mail_namespace_find(struct mail_namespace *namespaces, const char *mailbox)
 	struct mail_namespace *ns;
 
 	ns = mail_namespace_find_mask(namespaces, mailbox, 0, 0);
-	if (ns != NULL && ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
+	i_assert(ns != NULL);
+
+	if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 	    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
 		/* see if we need to autocreate a namespace for shared user */
 		if (strchr(mailbox, mail_namespace_get_sep(ns)) != NULL)
@@ -629,7 +670,7 @@ mail_namespace_find_unalias(struct mail_namespace *namespaces,
 	const char *storage_name;
 
 	ns = mail_namespace_find(namespaces, *mailbox);
-	if (ns != NULL && ns->alias_for != NULL) {
+	if (ns->alias_for != NULL) {
 		storage_name =
 			mailbox_list_get_storage_name(ns->list, *mailbox);
 		ns = ns->alias_for;

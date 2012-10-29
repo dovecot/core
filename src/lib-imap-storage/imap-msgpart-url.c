@@ -124,11 +124,6 @@ int imap_msgpart_url_open_mailbox(struct imap_msgpart_url *mpurl,
 
 	/* find mailbox namespace */
 	ns = mail_namespace_find(mpurl->user->namespaces, mpurl->mailbox);
-	if (ns == NULL) {
-		*error_r = "Nonexistent mailbox namespace";
-		*error_code_r = MAIL_ERROR_NOTFOUND;
-		return 0;
-	}
 
 	/* open mailbox */
 	if (mpurl->selected_box != NULL &&

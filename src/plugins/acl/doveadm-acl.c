@@ -37,11 +37,6 @@ cmd_acl_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 	}
 
 	ns = mail_namespace_find(user->namespaces, mailbox);
-	if (ns == NULL) {
-		i_error("No namespace found for mailbox %s", mailbox);
-		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
-		return -1;
-	}
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) < 0) {
@@ -410,11 +405,6 @@ cmd_acl_debug_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 	enum mail_error error;
 
 	ns = mail_namespace_find(user->namespaces, mailbox);
-	if (ns == NULL) {
-		i_error("No namespace found for mailbox %s", mailbox);
-		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
-		return -1;
-	}
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) < 0) {

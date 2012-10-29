@@ -577,6 +577,7 @@ static void quota_root_set_namespace(struct quota_root *root,
 {
 	const struct quota_rule *rule;
 	const char *name;
+	struct mail_namespace *ns;
 
 	if (root->ns_prefix != NULL && root->ns == NULL) {
 		root->ns = mail_namespace_find_prefix(namespaces,
@@ -589,7 +590,8 @@ static void quota_root_set_namespace(struct quota_root *root,
 
 	array_foreach(&root->set->rules, rule) {
 		name = rule->mailbox_name;
-		if (mail_namespace_find(namespaces, name) == NULL)
+		ns = mail_namespace_find(namespaces, name);
+		if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0)
 			i_error("quota: Unknown namespace: %s", name);
 	}
 }

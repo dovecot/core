@@ -173,10 +173,7 @@ doveadm_mailbox_list_iter_next(struct doveadm_mailbox_list_iter *iter)
 		iter->info.vname = patterns[iter->pattern_idx++];
 		iter->info.ns = mail_namespace_find(iter->user->namespaces,
 						    iter->info.vname);
-		if (iter->info.ns != NULL)
-			return &iter->info;
-		/* FIXME: maybe fail?.. or just wait for v2.2 to get rid of
-		   this error condition */
+		return &iter->info;
 	}
 
 	while ((info = mailbox_list_iter_next(iter->iter)) != NULL) {

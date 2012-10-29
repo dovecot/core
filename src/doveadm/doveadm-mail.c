@@ -143,11 +143,6 @@ doveadm_mailbox_find(struct mail_user *user, const char *mailbox)
 	}
 
 	ns = mail_namespace_find(user->namespaces, mailbox);
-	if (ns == NULL) {
-		i_fatal_status(DOVEADM_EX_NOTFOUND,
-			       "Can't find namespace for mailbox %s", mailbox);
-	}
-
 	return mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_IGNORE_ACLS);
 }
 

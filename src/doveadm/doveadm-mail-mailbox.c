@@ -202,11 +202,6 @@ cmd_mailbox_create_run(struct doveadm_mail_cmd_context *_ctx,
 		bool directory = FALSE;
 
 		ns = mail_namespace_find(user->namespaces, name);
-		if (ns == NULL) {
-			i_fatal_status(DOVEADM_EX_NOTFOUND,
-				       "Can't find namespace for: %s", name);
-		}
-
 		len = strlen(name);
 		if (len > 0 && name[len-1] == mail_namespace_get_sep(ns)) {
 			name = t_strndup(name, len-1);
@@ -276,9 +271,6 @@ get_child_mailboxes(struct mail_user *user, ARRAY_TYPE(const_string) *mailboxes,
 	const char *pattern, *child_name;
 
 	ns = mail_namespace_find(user->namespaces, name);
-	if (ns == NULL)
-		return 0;
-
 	pattern = t_strdup_printf("%s%c*", name, mail_namespace_get_sep(ns));
 	iter = mailbox_list_iter_init(ns->list, pattern,
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
@@ -320,13 +312,6 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 		const char *name = *namep;
 
 		ns = mail_namespace_find(user->namespaces, name);
-		if (ns == NULL) {
-			i_error("Can't find namespace for: %s", name);
-			doveadm_mail_failed_error(_ctx, MAIL_ERROR_NOTFOUND);
-			ret = -1;
-			continue;
-		}
-
 		box = mailbox_alloc(ns->list, name, 0);
 		storage = mailbox_get_storage(box);
 		if (mailbox_delete(box) < 0) {
@@ -409,16 +394,7 @@ cmd_mailbox_rename_run(struct doveadm_mail_cmd_context *_ctx,
 	int ret = 0;
 
 	oldns = mail_namespace_find(user->namespaces, oldname);
-	if (oldns == NULL) {
-		i_fatal_status(DOVEADM_EX_NOTFOUND,
-			       "Can't find namespace for: %s", oldname);
-	}
 	newns = mail_namespace_find(user->namespaces, newname);
-	if (newns == NULL) {
-		i_fatal_status(DOVEADM_EX_NOTFOUND,
-			       "Can't find namespace for: %s", newname);
-	}
-
 	oldbox = mailbox_alloc(oldns->list, oldname, 0);
 	newbox = mailbox_alloc(newns->list, newname, 0);
 	if (mailbox_rename(oldbox, newbox) < 0) {
@@ -484,11 +460,6 @@ cmd_mailbox_subscribe_run(struct doveadm_mail_cmd_context *_ctx,
 		const char *name = *namep;
 
 		ns = mail_namespace_find(user->namespaces, name);
-		if (ns == NULL) {
-			i_fatal_status(DOVEADM_EX_NOTFOUND,
-				       "Can't find namespace for: %s", name);
-		}
-
 		box = mailbox_alloc(ns->list, name, 0);
 		if (mailbox_set_subscribed(box, ctx->ctx.subscriptions) < 0) {
 			i_error("Can't %s mailbox %s: %s", name,

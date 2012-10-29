@@ -133,11 +133,6 @@ snarf_box_find(struct mail_user *user, struct mailbox_list **list_r,
 	}
 
 	snarf_ns = mail_namespace_find(user->namespaces, snarf_name);
-	if (snarf_ns == NULL) {
-		i_error("snarf: Namespace not found for mailbox: %s",
-			snarf_name);
-		return FALSE;
-	}
 	*list_r = snarf_ns->list;
 	*name_r = snarf_name;
 	return TRUE;

@@ -37,7 +37,7 @@ add_autobox(struct mail_user *user, const char *vname, bool subscriptions)
 	}
 
 	ns = mail_namespace_find(user->namespaces, vname);
-	if (ns == NULL) {
+	if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0) {
 		i_error("autocreate: No namespace found for mailbox: %s",
 			vname);
 		return;

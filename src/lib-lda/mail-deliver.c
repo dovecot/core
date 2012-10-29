@@ -164,12 +164,6 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 	}
 
 	ns = mail_namespace_find(ctx->user->namespaces, name);
-	if (ns == NULL) {
-		*error_str_r = "Unknown namespace";
-		*error_r = MAIL_ERROR_PARAMS;
-		return -1;
-	}
-
 	if (strcmp(name, ns->prefix) == 0 &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* delivering to a namespace prefix means we actually want to

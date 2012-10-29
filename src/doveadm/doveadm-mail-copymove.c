@@ -103,11 +103,6 @@ cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	int ret = 0;
 
 	ns = mail_namespace_find(user->namespaces, ctx->destname);
-	if (ns == NULL) {
-		i_fatal_status(DOVEADM_EX_NOTFOUND,
-			       "Can't find namespace for: %s", ctx->destname);
-	}
-
 	destbox = mailbox_alloc(ns->list, ctx->destname, MAILBOX_FLAG_SAVEONLY);
 	if (mailbox_open(destbox) < 0) {
 		i_error("Can't open mailbox '%s': %s", ctx->destname,

@@ -30,21 +30,10 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 	if (*ctx->dest_parent != '\0') {
 		/* prefix destination mailbox name with given parent mailbox */
 		ns = mail_namespace_find(user->namespaces, ctx->dest_parent);
-		if (ns == NULL) {
-			i_error("Can't find namespace for parent mailbox %s",
-				ctx->dest_parent);
-			doveadm_mail_failed_error(&ctx->ctx, MAIL_ERROR_NOTFOUND);
-			return -1;
-		}
 		name = t_strdup_printf("%s%c%s", ctx->dest_parent,
 				       mail_namespace_get_sep(ns), name);
-	}
-
-	ns = mail_namespace_find(user->namespaces, name);
-	if (ns == NULL) {
-		i_error("Can't find namespace for mailbox %s", name);
-		doveadm_mail_failed_error(&ctx->ctx, MAIL_ERROR_NOTFOUND);
-		return -1;
+	} else {
+		ns = mail_namespace_find(user->namespaces, name);
 	}
 
 	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_SAVEONLY);

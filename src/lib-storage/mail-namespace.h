@@ -109,29 +109,32 @@ char mail_namespace_get_sep(struct mail_namespace *ns);
 char mail_namespaces_get_root_sep(struct mail_namespace *namespaces)
 	ATTR_PURE;
 
-/* Returns namespace based on the mailbox name's prefix, or NULL if no matching
-   namespace could be found. */
+/* Returns namespace based on the mailbox name's prefix. Note that there is
+   always a prefix="" namespace, so for this function NULL is never returned. */
 struct mail_namespace *
 mail_namespace_find(struct mail_namespace *namespaces, const char *mailbox);
-/* Find namespace for mailbox and return it. If the namespace has alias_for
-   set, return that namespace instead and change mailbox name to be a valid
+/* Same as mail_namespace_find(), but if the namespace has alias_for set,
+   return that namespace instead and change mailbox name to be a valid
    inside it. */
 struct mail_namespace *
 mail_namespace_find_unalias(struct mail_namespace *namespaces,
 			    const char **mailbox);
-/* Like above, but ignore hidden namespaces. */
+
+/* Like mail_namespace_find(), but ignore hidden namespaces. */
 struct mail_namespace *
 mail_namespace_find_visible(struct mail_namespace *namespaces,
 			    const char *mailbox);
-/* Like above, but find only from namespaces with subscriptions flag set. */
+/* Like mail_namespace_find(), but find only from namespaces with
+   subscriptions=yes. */
 struct mail_namespace *
 mail_namespace_find_subscribable(struct mail_namespace *namespaces,
 				 const char *mailbox);
-/* Like above, but find only from namespaces with subscriptions flag not set. */
+/* Like mail_namespace_find(), but find only from namespaces with
+   subscriptions=no. */
 struct mail_namespace *
 mail_namespace_find_unsubscribable(struct mail_namespace *namespaces,
 				   const char *mailbox);
-/* Returns the INBOX namespace */
+/* Returns the INBOX namespace, or NULL if there is no such  */
 struct mail_namespace *
 mail_namespace_find_inbox(struct mail_namespace *namespaces);
 /* Find a namespace with given prefix. */

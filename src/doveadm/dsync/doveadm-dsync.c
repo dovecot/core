@@ -328,10 +328,6 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (ctx->namespace_prefix != NULL) {
 		sync_ns = mail_namespace_find(user->namespaces,
 					      ctx->namespace_prefix);
-		if (sync_ns == NULL) {
-			i_fatal("Namespace prefix=%s doesn't exist",
-				ctx->namespace_prefix);
-		}
 	}
 
 	if (!ctx->remote)

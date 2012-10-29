@@ -606,8 +606,6 @@ mailbox_settings_find(struct mail_user *user, const char *vname)
 	struct mail_namespace *ns;
 
 	ns = mail_namespace_find(user->namespaces, vname);
-	if (ns == NULL)
-		return NULL;
 	if (!array_is_created(&ns->set->mailboxes))
 		return NULL;
 

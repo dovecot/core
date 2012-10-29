@@ -250,7 +250,7 @@ AS_HELP_STRING([--with-storages], [Build with specified mail storage formats (md
 	mail_storages="shared `echo "$withval"|sed 's/,/ /g'`" ],
 	mail_storages="shared mdbox sdbox maildir mbox cydir")
 AC_SUBST(mail_storages)
-mail_storages="$mail_storages imapc_stub pop3c_stub raw"
+mail_storages="$mail_storages imapc_stub pop3c_stub raw fail"
 # drop duplicates
 duplicates=`(for i in $mail_storages; do echo $i; done)|sort|uniq -d|xargs echo`
 if test "$duplicates" != ""; then

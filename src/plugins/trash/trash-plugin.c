@@ -248,11 +248,11 @@ static bool trash_find_storage(struct mail_user *user,
 	struct mail_namespace *ns;
 
 	ns = mail_namespace_find(user->namespaces, trash->name);
-	if (ns != NULL) {
-		trash->ns = ns;
-		return TRUE;
-	}
-	return FALSE;
+	if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0)
+		return FALSE;
+
+	trash->ns = ns;
+	return TRUE;
 }
 
 static int trash_mailbox_priority_cmp(const struct trash_mailbox *t1,

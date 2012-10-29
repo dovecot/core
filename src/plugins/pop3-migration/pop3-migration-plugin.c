@@ -160,11 +160,6 @@ static int pop3_mailbox_open(struct mail_storage *storage)
 
 	ns = mail_namespace_find(storage->user->namespaces,
 				 mstorage->pop3_box_vname);
-	if (ns == NULL) {
-		i_error("pop3_migration: Namespace not found for mailbox %s",
-			mstorage->pop3_box_vname);
-		return -1;
-	}
 	mstorage->pop3_box = mailbox_alloc(ns->list, mstorage->pop3_box_vname,
 					   MAILBOX_FLAG_READONLY |
 					   MAILBOX_FLAG_POP3_SESSION);

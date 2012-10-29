@@ -320,7 +320,7 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	pop3_client_count++;
 	DLLIST_PREPEND(&pop3_clients, client);
 
-	ns = mail_namespace_find(user->namespaces, "INBOX");
+	ns = mail_namespace_find_inbox(user->namespaces);
 	if (ns == NULL) {
 		client_send_line(client, "-ERR [IN-USE] No INBOX namespace for user.");
 		client_destroy(client, "No INBOX namespace for user.");
