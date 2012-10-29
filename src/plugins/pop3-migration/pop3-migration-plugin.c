@@ -595,8 +595,7 @@ static void pop3_migration_mail_storage_destroy(struct mail_storage *storage)
 	if (array_is_created(&mstorage->pop3_uidl_map))
 		array_free(&mstorage->pop3_uidl_map);
 
-	if (mstorage->module_ctx.super.destroy != NULL)
-		mstorage->module_ctx.super.destroy(storage);
+	mstorage->module_ctx.super.destroy(storage);
 }
 
 static void pop3_migration_mail_storage_created(struct mail_storage *storage)

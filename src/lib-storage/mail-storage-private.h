@@ -108,9 +108,14 @@ struct mail_storage {
 	void *callback_context;
 
 	struct mail_binary_cache binary_cache;
+	/* Filled lazily by mailbox_attribute_*() */
+	struct dict *_attr_dict;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY(union mail_storage_module_context *) module_contexts;
+
+	/* Failed to create attribute dict, don't try again */
+	unsigned int attr_dict_failed:1;
 };
 
 struct mail_attachment_part {
@@ -261,8 +266,6 @@ struct mailbox {
 	/* Filled lazily when mailbox is opened, use mailbox_get_path()
 	   to access it */
 	const char *_path;
-	/* Filled lazily by mailbox_attribute_*() */
-	struct dict *_attr_dict;
 
 	/* default vfuncs for new struct mails. */
 	const struct mail_vfuncs *mail_vfuncs;
@@ -320,8 +323,6 @@ struct mailbox {
 	unsigned int disallow_new_keywords:1;
 	/* Mailbox has been synced at least once */
 	unsigned int synced:1;
-	/* Failed to create attribute dict, don't try again */
-	unsigned int attr_dict_failed:1;
 };
 
 struct mail_vfuncs {

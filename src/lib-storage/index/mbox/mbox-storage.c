@@ -793,7 +793,7 @@ struct mail_storage mbox_storage = {
                 mbox_get_setting_parser_info,
 		mbox_storage_alloc,
 		mbox_storage_create,
-		NULL,
+		index_storage_destroy,
 		mbox_storage_add_list,
 		mbox_storage_get_list_settings,
 		mbox_storage_autodetect,

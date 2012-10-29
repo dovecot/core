@@ -155,6 +155,7 @@ void index_save_context_free(struct mail_save_context *ctx);
 void index_copy_cache_fields(struct mail_save_context *ctx,
 			     struct mail *src_mail, uint32_t dest_seq);
 int index_storage_set_subscribed(struct mailbox *box, bool set);
+void index_storage_destroy(struct mail_storage *storage);
 
 bool index_keyword_array_cmp(const ARRAY_TYPE(keyword_indexes) *k1,
 			     const ARRAY_TYPE(keyword_indexes) *k2);

@@ -360,10 +360,6 @@ void index_storage_mailbox_close(struct mailbox *box)
 
 void index_storage_mailbox_free(struct mailbox *box)
 {
-	if (box->_attr_dict != NULL) {
-		(void)dict_wait(box->_attr_dict);
-		dict_deinit(&box->_attr_dict);
-	}
 	if (box->index_pvt != NULL)
 		mail_index_alloc_cache_unref(&box->index_pvt);
 	if (box->index != NULL)
@@ -807,4 +803,12 @@ int index_storage_set_subscribed(struct mailbox *box, bool set)
 		return -1;
 	}
 	return 0;
+}
+
+void index_storage_destroy(struct mail_storage *storage)
+{
+	if (storage->_attr_dict != NULL) {
+		(void)dict_wait(storage->_attr_dict);
+		dict_deinit(&storage->_attr_dict);
+	}
 }

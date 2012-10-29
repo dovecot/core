@@ -276,6 +276,7 @@ static void imapc_storage_destroy(struct mail_storage *_storage)
 	struct imapc_storage *storage = (struct imapc_storage *)_storage;
 
 	imapc_client_deinit(&storage->client);
+	index_storage_destroy(_storage);
 }
 
 static void imapc_storage_add_list(struct mail_storage *_storage,

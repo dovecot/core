@@ -657,7 +657,7 @@ struct mail_storage maildir_storage = {
                 maildir_get_setting_parser_info,
 		maildir_storage_alloc,
 		maildir_storage_create,
-		NULL,
+		index_storage_destroy,
 		maildir_storage_add_list,
 		maildir_storage_get_list_settings,
 		maildir_storage_autodetect,

@@ -413,8 +413,7 @@ void mail_storage_unref(struct mail_storage **_storage)
 
 	DLLIST_REMOVE(&storage->user->storages, storage);
 
-	if (storage->v.destroy != NULL)
-		storage->v.destroy(storage);
+	storage->v.destroy(storage);
 	i_free(storage->error_string);
 
 	*_storage = NULL;

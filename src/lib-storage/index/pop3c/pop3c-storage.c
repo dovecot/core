@@ -226,7 +226,7 @@ struct mail_storage pop3c_storage = {
 		pop3c_get_setting_parser_info,
 		pop3c_storage_alloc,
 		pop3c_storage_create,
-		NULL,
+		index_storage_destroy,
 		NULL,
 		pop3c_storage_get_list_settings,
 		NULL,
