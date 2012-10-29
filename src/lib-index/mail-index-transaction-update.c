@@ -963,7 +963,6 @@ keyword_update_has_changes(struct mail_index_transaction *t, uint32_t seq,
 			   enum modify_type modify_type,
 			   struct mail_keywords *keywords)
 {
-	struct mail_index_transaction_keyword_update *u;
 	ARRAY_TYPE(keyword_indexes) existing;
 	const unsigned int *existing_idx;
 	unsigned int i, j, existing_count;
@@ -978,16 +977,6 @@ keyword_update_has_changes(struct mail_index_transaction *t, uint32_t seq,
 		return TRUE;
 
 	for (i = 0; i < keywords->count; i++) {
-		u = array_idx_modifiable(&t->keyword_updates,
-					 keywords->idx[i]);
-		if (array_is_created(&u->add_seq) ||
-		    array_is_created(&u->remove_seq)) {
-			/* we've already modified this keyword in the
-			   transaction. don't bother checking it further,
-			   because we can't avoid the changes anyway. */
-			return TRUE;
-		}
-
 		found = FALSE;
 		for (j = 0; j < existing_count; j++) {
 			if (existing_idx[j] == keywords->idx[i]) {
