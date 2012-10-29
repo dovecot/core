@@ -7,7 +7,6 @@
 #define VIRTUAL_STORAGE_NAME "virtual"
 #define VIRTUAL_SUBSCRIPTION_FILE_NAME ".virtual-subscriptions"
 #define VIRTUAL_CONFIG_FNAME "dovecot-virtual"
-#define VIRTUAL_INDEX_PREFIX "dovecot.index"
 
 #define VIRTUAL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, virtual_storage_module)

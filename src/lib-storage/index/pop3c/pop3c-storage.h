@@ -4,7 +4,6 @@
 #include "index-storage.h"
 
 #define POP3C_STORAGE_NAME "pop3c"
-#define POP3C_INDEX_PREFIX "dovecot.index"
 
 struct pop3c_storage {
 	struct mail_storage storage;

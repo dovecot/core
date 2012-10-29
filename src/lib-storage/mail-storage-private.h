@@ -9,6 +9,9 @@
 #include "mail-storage-settings.h"
 #include "mail-index-private.h"
 
+/* Default prefix for indexes */
+#define MAIL_INDEX_PREFIX "dovecot.index"
+
 /* Block size when read()ing message header. */
 #define MAIL_READ_HDR_BLOCK_SIZE (1024*4)
 /* Block size when read()ing message (header and) body. */

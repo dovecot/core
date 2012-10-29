@@ -229,8 +229,7 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 	mbox->box.mail_vfuncs = &virtual_mail_vfuncs;
 	mbox->vfuncs = virtual_mailbox_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, vname, flags,
-				    VIRTUAL_INDEX_PREFIX);
+	index_storage_mailbox_alloc(&mbox->box, vname, flags, MAIL_INDEX_PREFIX);
 
 	mbox->storage = storage;
 	mbox->virtual_ext_id = (uint32_t)-1;

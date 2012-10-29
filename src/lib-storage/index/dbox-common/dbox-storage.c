@@ -153,7 +153,7 @@ void dbox_notify_changes(struct mailbox *box)
 		if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX,
 					&dir) <= 0)
 			return;
-		path = t_strdup_printf("%s/"DBOX_INDEX_PREFIX".log", dir);
+		path = t_strdup_printf("%s/"MAIL_INDEX_PREFIX".log", dir);
 		index_mailbox_check_add(box, path);
 	}
 }

@@ -12,7 +12,6 @@
 
 #define MBOX_STORAGE_NAME "mbox"
 #define MBOX_SUBSCRIPTION_FILE_NAME ".subscriptions"
-#define MBOX_INDEX_PREFIX "dovecot.index"
 #define MBOX_INDEX_DIR_NAME ".imap"
 #define MBOX_UIDVALIDITY_FNAME "dovecot-uidvalidity"
 

@@ -114,8 +114,7 @@ pop3c_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.mail_vfuncs = &pop3c_mail_vfuncs;
 	mbox->storage = (struct pop3c_storage *)storage;
 
-	index_storage_mailbox_alloc(&mbox->box, vname, flags,
-				    POP3C_INDEX_PREFIX);
+	index_storage_mailbox_alloc(&mbox->box, vname, flags, MAIL_INDEX_PREFIX);
 	return &mbox->box;
 }
 

@@ -366,8 +366,7 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &mbox_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, vname,
-				    flags, MBOX_INDEX_PREFIX);
+	index_storage_mailbox_alloc(&mbox->box, vname, flags, MAIL_INDEX_PREFIX);
 
 	mbox->storage = (struct mbox_storage *)storage;
 	mbox->mbox_fd = -1;
