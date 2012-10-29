@@ -303,7 +303,9 @@ static int cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
 	const struct mail_storage_settings *mail_set;
-	const char *error;
+	const char *key, *value, *error, *const *userdb_fields;
+	unsigned int i;
+	pool_t pool;
 	int ret;
 
 	memset(&service_input, 0, sizeof(service_input));
@@ -315,10 +317,16 @@ static int cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	service_input.remote_ip = input->info.remote_ip;
 	service_input.remote_port = input->info.remote_port;
 
+	pool = pool_alloconly_create("userdb fields", 1024);
+	mail_storage_service_save_userdb_fields(storage_service, pool,
+						&userdb_fields);
+
 	if ((ret = mail_storage_service_lookup_next(storage_service, &service_input,
 						    &service_user, &user,
-						    &error)) <= 0)
+						    &error)) <= 0) {
+		pool_unref(&pool);
 		return ret == 0 ? 0 : -1;
+	}
 
 	if (show_field == NULL) {
 		doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
@@ -333,8 +341,26 @@ static int cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	mail_set = mail_user_set_get_storage_set(user);
 	cmd_user_mail_input_field("mail", mail_set->mail_location, show_field);
 
+	if (userdb_fields != NULL) {
+		for (i = 0; userdb_fields[i] != NULL; i++) {
+			value = strchr(userdb_fields[i], '=');
+			if (value != NULL)
+				key = t_strdup_until(userdb_fields[i], value++);
+			else {
+				key = userdb_fields[i];
+				value = "";
+			}
+			if (strcmp(key, "uid") != 0 &&
+			    strcmp(key, "gid") != 0 &&
+			    strcmp(key, "home") != 0 &&
+			    strcmp(key, "mail") != 0)
+				cmd_user_mail_input_field(key, value, show_field);
+		}
+	}
+
 	mail_user_unref(&user);
 	mail_storage_service_user_free(&service_user);
+	pool_unref(&pool);
 	return 1;
 }
 
