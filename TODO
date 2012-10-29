@@ -10,6 +10,8 @@
    imap-urlauth-client.c (AFTER destroying the worker)
      - special response in the control connection to make the imap-urlauth
        master wait before starting a new worker
+ - finish dsync rewrite
+ - imaptest: add condstore, qresync tests
 
  - settings parsing is horribly bloaty
  - doveadm: if running via doveadm-server and it fails, say something about
