@@ -774,7 +774,10 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 			update = CONST_PTR_OFFSET(data, ctx->data_offset);
 		}
 
-		rec->type = MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS;
+		if (update->add_flags != 0 || update->remove_flags != 0)
+			rec->type = MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS;
+		else
+			rec->type = MAIL_INDEX_VIEW_SYNC_TYPE_MODSEQ;
 		rec->uid1 = update->uid1;
 		rec->uid2 = update->uid2;
 		break;

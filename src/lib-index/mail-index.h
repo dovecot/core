@@ -185,7 +185,8 @@ struct mail_index_sync_rec {
 
 enum mail_index_view_sync_type {
 	/* Flags or keywords changed */
-	MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS		= 0x01
+	MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS		= 0x01,
+	MAIL_INDEX_VIEW_SYNC_TYPE_MODSEQ	= 0x02
 };
 
 struct mail_index_view_sync_rec {

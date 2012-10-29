@@ -143,6 +143,7 @@ static void index_view_sync_recs_get(struct index_mailbox_sync_context *ctx)
 	i_array_init(&ctx->hidden_updates, 32);
 	while (mail_index_view_sync_next(ctx->sync_ctx, &sync_rec)) {
 		switch (sync_rec.type) {
+		case MAIL_INDEX_VIEW_SYNC_TYPE_MODSEQ:
 		case MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS:
 			if (!mail_index_lookup_seq_range(ctx->ctx.box->view,
 							 sync_rec.uid1,
@@ -150,10 +151,11 @@ static void index_view_sync_recs_get(struct index_mailbox_sync_context *ctx)
 							 &seq1, &seq2))
 				break;
 
-			if (!sync_rec.hidden) {
+			if (!sync_rec.hidden &&
+			    sync_rec.type == MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS) {
 				seq_range_array_add_range(&ctx->flag_updates,
 							  seq1, seq2);
-			} else if (array_is_created(&ctx->hidden_updates)) {
+			} else {
 				seq_range_array_add_range(&ctx->hidden_updates,
 							  seq1, seq2);
 			}
