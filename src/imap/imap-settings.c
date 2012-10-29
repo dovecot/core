@@ -87,7 +87,7 @@ static const struct imap_settings imap_default_settings = {
 	.imap_capability = "",
 	.imap_client_workarounds = "",
 	.imap_logout_format = "in=%i out=%o",
-	.imap_id_send = "",
+	.imap_id_send = "name *",
 	.imap_id_log = "",
 
 	.imap_urlauth_host = "",
