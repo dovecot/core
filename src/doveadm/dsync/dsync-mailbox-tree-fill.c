@@ -69,6 +69,7 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 			return -1;
 		}
 	} else {
+		i_assert(status.uidvalidity != 0);
 		memcpy(node->mailbox_guid, metadata.guid,
 		       sizeof(node->mailbox_guid));
 		node->uid_validity = status.uidvalidity;
