@@ -286,7 +286,7 @@ static void fs_posix_file_deinit(struct fs_file *_file)
 	i_free(file);
 }
 
-static bool fs_posix_prefetch(struct fs_file *_file, uoff_t length)
+static bool fs_posix_prefetch(struct fs_file *_file, uoff_t length ATTR_UNUSED)
 {
 	struct posix_fs_file *file = (struct posix_fs_file *)_file;
 
@@ -295,10 +295,13 @@ static bool fs_posix_prefetch(struct fs_file *_file, uoff_t length)
 			return TRUE;
 	}
 
+/* HAVE_POSIX_FADVISE alone isn't enough for CentOS 4.9 */
+#if defined(HAVE_POSIX_FADVISE) && defined(POSIX_FADV_WILLNEED)
 	if (posix_fadvise(file->fd, 0, length, POSIX_FADV_WILLNEED) < 0) {
 		i_error("posix_fadvise(%s) failed: %m", _file->path);
 		return TRUE;
 	}
+#endif
 	return FALSE;
 }
 
