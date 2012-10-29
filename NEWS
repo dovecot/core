@@ -4,6 +4,8 @@ v2.2.UNSTABLE 2012-xx-xx  Timo Sirainen <tss@iki.fi>
 	  parent directory if it has setgid-bit set. For full details, see
 	  http://wiki2.dovecot.org/SharedMailboxes/Permissions
 	* "doveadm auth" command was renamed to "doveadm auth test"
+	* IMAP: ID command now advertises server name as Dovecot by default.
+	  It was already trivial to guess this from command replies.
 
 	+ Implemented IMAP MOVE and BINARY extensions
 	+ Implemented IMAP CATENATE, URLAUTH and URLAUTH=BINARY extensions

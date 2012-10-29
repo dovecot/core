@@ -10,9 +10,21 @@
    imap-urlauth-client.c (AFTER destroying the worker)
      - special response in the control connection to make the imap-urlauth
        master wait before starting a new worker
- - finish dsync rewrite
+ - dsync to sync both shared and private message flags
+ - pop3_lock_session=yes should use its own separate pop3-lock file
+ - Track highestmodseq always, just don't keep per-message modseqs unless
+   they're enabled.
+ - LDA/LMTP: Allow saving one last mail even if it brings user over quota?
+ - zlib plugin should do caching similar to binary fetches. otherwise
+   partial fetches from large compressed mails are hopelessly slow.
  - imaptest: add condstore, qresync tests
 
+ - shared user should get settings from userdb extra fields, especially
+   plugin/quota_rule to get different quota limits for shared mailboxes.
+   the problem is that user doesn't currently have set_parser available,
+   and adding it would probably waste memory..
+ - auth_debug[_passwords]=yes ability for specific users via doveadm. for
+   both login-common and auth
  - settings parsing is horribly bloaty
  - doveadm: if running via doveadm-server and it fails, say something about
    error being in the log
