@@ -231,6 +231,7 @@ service_create(pool_t pool, const struct service_settings *set,
 	service->idle_kill = set->idle_kill != 0 ? set->idle_kill :
 		set->master_set->default_idle_kill;
 	service->type = service->set->parsed_type;
+	service->executable = set->executable;
 
 	if (set->process_limit == 0) {
 		/* use default */
@@ -238,11 +239,6 @@ service_create(pool_t pool, const struct service_settings *set,
 			set->master_set->default_process_limit;
 	} else {
 		service->process_limit = set->process_limit;
-	}
-
-	if (set->executable == NULL) {
-		*error_r = "executable not given";
-		return NULL;
 	}
 
 	/* default gid to user's primary group */
@@ -290,13 +286,6 @@ service_create(pool_t pool, const struct service_settings *set,
 		}
 	}
 
-	if (*set->executable == '/')
-		service->executable = set->executable;
-	else {
-		service->executable =
-			p_strconcat(pool, set->master_set->libexec_dir, "/",
-				    set->executable, NULL);
-	}
 	/* set these later, so if something fails we don't have to worry about
 	   closing them */
 	service->log_fd[0] = -1;
