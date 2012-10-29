@@ -81,6 +81,10 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 				const struct mail_storage_service_input *input,
 				struct mail_storage_service_user **user_r,
 				const char **error_r);
+/* The next mail_storage_service_lookup() will save the userdb fields into the
+   given pointer, allocated from the given pool. */
+void mail_storage_service_save_userdb_fields(struct mail_storage_service_ctx *ctx,
+					     pool_t pool, const char *const **userdb_fields_r);
 /* Returns 0 if ok, -1 if fatal error, -2 if error is user-specific. */
 int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 			      struct mail_storage_service_user *user,

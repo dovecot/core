@@ -60,6 +60,9 @@ struct mail_storage_service_ctx {
 	const char *set_cache_module, *set_cache_service;
 	struct master_service_settings_cache *set_cache;
 
+	pool_t userdb_next_pool;
+	const char *const **userdb_next_fieldsp;
+
 	unsigned int debug:1;
 	unsigned int log_initialized:1;
 };
@@ -991,7 +994,13 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	/* load global plugins */
 	mail_storage_service_load_modules(ctx, user_info, user_set);
 
-	temp_pool = pool_alloconly_create("userdb lookup", 2048);
+	if (ctx->userdb_next_pool == NULL)
+		temp_pool = pool_alloconly_create("userdb lookup", 2048);
+	else {
+		temp_pool = ctx->userdb_next_pool;
+		ctx->userdb_next_pool = NULL;
+		pool_ref(temp_pool);
+	}
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
 		ret = service_auth_userdb_lookup(ctx, input, temp_pool,
 						 &username, &userdb_fields,
@@ -1001,6 +1010,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 			pool_unref(&user_pool);
 			return ret;
 		}
+		*ctx->userdb_next_fieldsp = userdb_fields;
 	} else {
 		userdb_fields = input->userdb_fields;
 	}
@@ -1053,6 +1063,17 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 
 	*user_r = user;
 	return ret;
+}
+
+void mail_storage_service_save_userdb_fields(struct mail_storage_service_ctx *ctx,
+					     pool_t pool, const char *const **userdb_fields_r)
+{
+	i_assert(pool != NULL);
+	i_assert(userdb_fields_r != NULL);
+
+	ctx->userdb_next_pool = pool;
+	ctx->userdb_next_fieldsp = userdb_fields_r;
+	*userdb_fields_r = NULL;
 }
 
 int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
