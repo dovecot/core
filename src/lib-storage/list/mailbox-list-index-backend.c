@@ -483,6 +483,12 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 		(void)mailbox_list_index_sync_end(&sync_ctx, FALSE);
 		return -1;
 	}
+	if (ret == 0) {
+		(void)mailbox_list_index_sync_end(&sync_ctx, FALSE);
+		mailbox_list_set_error(&list->list, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(oldname));
+		return -1;
+	}
 	if (!mail_index_lookup_seq(sync_ctx->view, oldnode->uid, &oldseq))
 		i_panic("mailbox list index: lost uid=%u", oldnode->uid);
 
