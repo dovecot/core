@@ -85,6 +85,9 @@ enum mailbox_metadata_items {
 	MAILBOX_METADATA_CACHE_FIELDS		= 0x04,
 	MAILBOX_METADATA_PRECACHE_FIELDS	= 0x08,
 	MAILBOX_METADATA_BACKEND_NAMESPACE	= 0x10
+	/* metadata items that require mailbox to be synced at least once. */
+#define MAILBOX_METADATA_SYNC_ITEMS \
+	(MAILBOX_METADATA_GUID | MAILBOX_METADATA_VIRTUAL_SIZE)
 };
 
 enum mailbox_search_result_flags {

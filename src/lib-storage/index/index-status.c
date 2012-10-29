@@ -36,6 +36,8 @@ int index_storage_get_status(struct mailbox *box,
 	if (!box->opened) {
 		if (mailbox_open(box) < 0)
 			return -1;
+	}
+	if (!box->synced) {
 		if (mailbox_sync(box, 0) < 0)
 			return -1;
 	}
@@ -355,6 +357,10 @@ int index_mailbox_get_metadata(struct mailbox *box,
 {
 	if (!box->opened) {
 		if (mailbox_open(box) < 0)
+			return -1;
+	}
+	if (!box->synced && (items & MAILBOX_METADATA_SYNC_ITEMS) != 0) {
+		if (mailbox_sync(box, 0) < 0)
 			return -1;
 	}
 
