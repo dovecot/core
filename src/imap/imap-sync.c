@@ -306,23 +306,21 @@ static int imap_sync_finish(struct imap_sync_context *ctx)
 	ctx->finished = TRUE;
 
 	mail_free(&ctx->mail);
+	/* the transaction is used only for fetching modseqs/flags.
+	   it can't really fail.. */
+	(void)mailbox_transaction_commit(&ctx->t);
+
 	if (array_is_created(&ctx->expunges))
 		array_free(&ctx->expunges);
 
 	if (mailbox_sync_deinit(&ctx->sync_ctx, &ctx->sync_status) < 0 ||
 	    ctx->failed) {
-		mailbox_transaction_rollback(&ctx->t);
 		ctx->failed = TRUE;
 		return -1;
 	}
 	mailbox_get_open_status(ctx->box, STATUS_UIDVALIDITY |
 				STATUS_MESSAGES | STATUS_RECENT |
 				STATUS_HIGHESTMODSEQ, &ctx->status);
-
-	if (mailbox_transaction_commit(&ctx->t) < 0) {
-		ctx->failed = TRUE;
-		ret = -1;
-	}
 
 	if (ctx->status.uidvalidity != client->uidvalidity) {
 		/* most clients would get confused by this. disconnect them. */
