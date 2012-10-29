@@ -524,6 +524,13 @@ void acl_mailbox_allocated(struct mailbox *box)
 		return;
 	}
 
+	if (box->list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
+	    (box->list->ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
+		/* this is the root shared namespace, which itself doesn't
+		   have any existing mailboxes. */
+		return;
+	}
+
 	abox = p_new(box->pool, struct acl_mailbox, 1);
 	abox->module_ctx.super = *v;
 	box->vlast = &abox->module_ctx.super;
