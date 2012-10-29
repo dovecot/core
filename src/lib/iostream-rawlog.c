@@ -96,7 +96,7 @@ void iostream_rawlog_write(struct rawlog_iostream *rstream,
 		return;
 	}
 
-	do {
+	while (rstream->rawlog_fd != -1 && size > 0) {
 		p = memchr(data, '\n', size);
 		if (p != NULL) {
 			line_ends = TRUE;
@@ -118,7 +118,7 @@ void iostream_rawlog_write(struct rawlog_iostream *rstream,
 
 		data += pos;
 		size -= pos;
-	} while (size > 0);
+	}
 }
 
 void iostream_rawlog_close(struct rawlog_iostream *rstream)
