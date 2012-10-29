@@ -20,20 +20,22 @@
 
 #define RAWLOG_MAX_LINE_LEN 8192
 
-static void
+static int
 rawlog_write(struct rawlog_iostream *rstream, const void *data, size_t size)
 {
 	if (rstream->rawlog_fd == -1)
-		return;
+		return -1;
 
 	if (write_full(rstream->rawlog_fd, data, size) < 0) {
 		i_error("rawlog_istream.write(%s) failed: %m",
 			rstream->rawlog_path);
 		iostream_rawlog_close(rstream);
+		return -1;
 	}
+	return 0;
 }
 
-static void
+static int
 rawlog_write_timestamp(struct rawlog_iostream *rstream, bool line_ends)
 {
 	unsigned char data[MAX_INT_STRLEN + 6 + 1 + 3];
@@ -48,7 +50,7 @@ rawlog_write_timestamp(struct rawlog_iostream *rstream, bool line_ends)
 		str_append_c(&buf, line_ends ? ':' : '>');
 		str_append_c(&buf, ' ');
 	}
-	rawlog_write(rstream, buf.data, buf.used);
+	return rawlog_write(rstream, buf.data, buf.used);
 }
 
 void iostream_rawlog_init(struct rawlog_iostream *rstream,
@@ -66,18 +68,23 @@ iostream_rawlog_write_unbuffered(struct rawlog_iostream *rstream,
 {
 	size_t i, start;
 
-	if (!rstream->line_continued)
-		rawlog_write_timestamp(rstream, TRUE);
+	if (!rstream->line_continued) {
+		if (rawlog_write_timestamp(rstream, TRUE) < 0)
+			return;
+	}
 
 	for (start = 0, i = 1; i < size; i++) {
 		if (data[i-1] == '\n') {
-			rawlog_write(rstream, data + start, i - start);
-			rawlog_write_timestamp(rstream, TRUE);
+			if (rawlog_write(rstream, data + start, i - start) < 0 ||
+			    rawlog_write_timestamp(rstream, TRUE) < 0)
+				return;
 			start = i;
 		}
 	}
-	if (start != size)
-		rawlog_write(rstream, data + start, size - start);
+	if (start != size) {
+		if (rawlog_write(rstream, data + start, size - start) < 0)
+			return;
+	}
 	rstream->line_continued = data[size-1] != '\n';
 }
 
@@ -109,12 +116,15 @@ void iostream_rawlog_write(struct rawlog_iostream *rstream,
 			pos = size;
 		}
 
-		rawlog_write_timestamp(rstream, line_ends);
+		if (rawlog_write_timestamp(rstream, line_ends) < 0)
+			break;
 		if (rstream->buffer->used > 0) {
-			rawlog_write(rstream, rstream->buffer->data,
-				     rstream->buffer->used);
+			if (rawlog_write(rstream, rstream->buffer->data,
+					 rstream->buffer->used) < 0)
+				break;
 		}
-		rawlog_write(rstream, data, pos);
+		if (rawlog_write(rstream, data, pos) < 0)
+			break;
 
 		data += pos;
 		size -= pos;
