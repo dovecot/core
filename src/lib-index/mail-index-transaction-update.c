@@ -1014,9 +1014,21 @@ static struct mail_keywords *
 keyword_update_remove_existing(struct mail_index_transaction *t, uint32_t seq)
 {
 	ARRAY_TYPE(keyword_indexes) keywords;
+	uint32_t i, keywords_count;
 
 	t_array_init(&keywords, 32);
-	mail_index_transaction_lookup_latest_keywords(t, seq, &keywords);
+	if (t->view->v.lookup_full == NULL) {
+		/* syncing is saving a list of changes into this transaction.
+		   the seq is actual an uid, so we can't lookup the existing
+		   keywords. we shouldn't get here unless we're reading
+		   pre-v2.2 keyword-reset records from .log files. so we don't
+		   really care about performance that much here, */
+		keywords_count = array_count(&t->view->index->keywords);
+		for (i = 0; i < keywords_count; i++)
+			array_append(&keywords, &i, 1);
+	} else {
+		mail_index_transaction_lookup_latest_keywords(t, seq, &keywords);
+	}
 	if (array_count(&keywords) == 0)
 		return NULL;
 	return mail_index_keywords_create_from_indexes(t->view->index,
