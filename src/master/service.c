@@ -231,7 +231,6 @@ service_create(pool_t pool, const struct service_settings *set,
 	service->idle_kill = set->idle_kill != 0 ? set->idle_kill :
 		set->master_set->default_idle_kill;
 	service->type = service->set->parsed_type;
-	service->executable = set->executable;
 
 	if (set->process_limit == 0) {
 		/* use default */
@@ -357,6 +356,7 @@ service_create(pool_t pool, const struct service_settings *set,
 			return NULL;
 	}
 
+	service->executable = set->executable;
 	if (access(t_strcut(service->executable, ' '), X_OK) < 0) {
 		*error_r = t_strdup_printf("access(%s) failed: %m",
 					   t_strcut(service->executable, ' '));
@@ -396,6 +396,13 @@ service_lookup_type(struct service_list *service_list, enum service_type type)
 static bool service_want(struct service_settings *set)
 {
 	char *const *proto;
+
+	if (*set->executable == '\0') {
+		/* silently allow service {} blocks for disabled extensions
+		   (e.g. service managesieve {} block without pigeonhole
+		   installed) */
+		return FALSE;
+	}
 
 	if (*set->protocol == '\0')
 		return TRUE;
