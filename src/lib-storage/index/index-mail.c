@@ -811,7 +811,7 @@ static int index_mail_parse_body_finish(struct index_mail *mail,
 	return 0;
 }
 
-static int index_mail_stream_check_failure(struct index_mail *mail)
+int index_mail_stream_check_failure(struct index_mail *mail)
 {
 	if (mail->data.stream->stream_errno == 0)
 		return 0;

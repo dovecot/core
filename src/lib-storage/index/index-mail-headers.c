@@ -430,6 +430,8 @@ int index_mail_parse_headers(struct index_mail *mail,
 				     hdr_parser_flags,
 				     index_mail_parse_header_cb, mail);
 	}
+	if (index_mail_stream_check_failure(mail) < 0)
+		return -1;
 	data->hdr_size_set = TRUE;
 	data->access_part &= ~PARSE_HDR;
 
@@ -475,15 +477,17 @@ int index_mail_headers_get_envelope(struct index_mail *mail)
 		mailbox_header_lookup_unref(&header_ctx);
 		return -1;
 	}
+	mailbox_header_lookup_unref(&header_ctx);
 
 	if (mail->data.envelope == NULL && stream != NULL) {
 		/* we got the headers from cache - parse them to get the
 		   envelope */
 		message_parse_header(stream, NULL, hdr_parser_flags,
 				     imap_envelope_parse_callback, mail);
+		if (index_mail_stream_check_failure(mail) < 0)
+			return -1;
 		mail->data.save_envelope = FALSE;
 	}
-	mailbox_header_lookup_unref(&header_ctx);
 
 	if (mail->data.stream != NULL)
 		i_stream_seek(mail->data.stream, old_offset);

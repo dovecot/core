@@ -626,6 +626,10 @@ static void search_body(struct mail_search_arg *arg,
 		ret = message_search_msg(msg_search_ctx, ctx->input, NULL);
 		i_assert(ret >= 0 || ctx->input->stream_errno != 0);
 	}
+	if (ctx->input->stream_errno != 0) {
+		mail_storage_set_critical(ctx->index_ctx->box->storage,
+			"read(%s) failed: %m", i_stream_get_name(ctx->input));
+	}
 
 	ARG_SET_RESULT(arg, ret);
 }
@@ -686,6 +690,11 @@ static int search_arg_match_text(struct mail_search_arg *args,
 			}
 			message_parse_header(input, NULL, hdr_parser_flags,
 					     search_header, &hdr_ctx);
+			if (input->stream_errno != 0) {
+				mail_storage_set_critical(ctx->box->storage,
+					"read(%s) failed: %m", i_stream_get_name(input));
+				failed = TRUE;
+			}
 		}
 	}
 	if (headers_ctx != NULL)
