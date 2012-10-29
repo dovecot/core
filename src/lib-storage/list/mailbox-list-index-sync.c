@@ -290,10 +290,12 @@ mailbox_list_index_sync_list(struct mailbox_list_index_sync_context *sync_ctx)
 	mailbox_list_index_node_clear_exists(sync_ctx->ilist->mailbox_tree);
 
 	/* don't include autocreated mailboxes in index until they're
-	   actually created. */
+	   actually created. this index may be used by multiple users, so
+	   we also want to ignore ACLs here. */
 	patterns[0] = "*"; patterns[1] = NULL;
 	iter = sync_ctx->ilist->module_ctx.super.
 		iter_init(sync_ctx->list, patterns,
+			  MAILBOX_LIST_ITER_RAW_LIST |
 			  MAILBOX_LIST_ITER_NO_AUTO_BOXES);
 
 	sync_ctx->syncing_list = TRUE;

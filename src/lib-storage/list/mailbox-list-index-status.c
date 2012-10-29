@@ -124,6 +124,13 @@ index_list_get_cached_status(struct mailbox *box,
 
 	memset(status_r, 0, sizeof(*status_r));
 
+	if ((items & STATUS_UNSEEN) != 0 &&
+	    (mailbox_get_private_flags_mask(box) & MAIL_SEEN) != 0) {
+		/* can't get UNSEEN from list index, since each user has
+		   different \Seen flags */
+		return 0;
+	}
+
 	ret = index_list_open_view(box, &view, &seq);
 	if (ret <= 0)
 		return ret;
@@ -313,7 +320,10 @@ index_list_update_mailbox(struct mailbox *box, struct mail_index_view *view)
 		mailbox_list_index_refresh_later(box->list);
 	else {
 		/* get STATUS info using the given view, rather than
-		   using whatever state the mailbox is currently in */
+		   using whatever state the mailbox is currently in.
+		   note that for shared mailboxes (with private indexes) this
+		   also means that the unseen count is always the owner's
+		   count, not what exists in the private index. */
 		hdr = mail_index_get_header(view);
 
 		memset(&status, 0, sizeof(status));
