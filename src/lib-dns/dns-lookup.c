@@ -190,3 +190,10 @@ void dns_lookup_abort(struct dns_lookup **lookup)
 {
 	dns_lookup_free(lookup);
 }
+
+void dns_lookup_switch_ioloop(struct dns_lookup *lookup)
+{
+	if (lookup->to != NULL)
+		lookup->to = io_loop_move_timeout(&lookup->to);
+	lookup->io = io_loop_move_io(&lookup->io);
+}

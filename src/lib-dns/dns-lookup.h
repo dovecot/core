@@ -39,4 +39,6 @@ int dns_lookup(const char *host, const struct dns_lookup_settings *set,
 /* Abort the DNS lookup without calling the callback. */
 void dns_lookup_abort(struct dns_lookup **lookup);
 
+void dns_lookup_switch_ioloop(struct dns_lookup *lookup);
+
 #endif
