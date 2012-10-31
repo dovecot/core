@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <netdb.h>
 
+#define HOSTNAME_DISALLOWED_CHARS "/\r\n\t"
+
 const char *my_hostname = NULL;
 const char *my_pid = NULL;
 
@@ -15,14 +17,12 @@ void hostpid_init(void)
 {
 	static char hostname[256], pid[MAX_INT_STRLEN];
 
-	if (gethostname(hostname, sizeof(hostname)-1) == -1) {
-		if (i_strocpy(hostname, "unknown", sizeof(hostname)) < 0)
-			i_unreached();
-	}
+	if (gethostname(hostname, sizeof(hostname)-1) == -1)
+		i_fatal("gethostname() failed: %m");
 	hostname[sizeof(hostname)-1] = '\0';
 	my_hostname = hostname;
 
-	if (strchr(hostname, '/') != NULL)
+	if (strcspn(hostname, HOSTNAME_DISALLOWED_CHARS) != strlen(hostname))
 		i_fatal("Invalid system hostname: %s", hostname);
 
 	/* allow calling hostpid_init() multiple times to reset hostname */
