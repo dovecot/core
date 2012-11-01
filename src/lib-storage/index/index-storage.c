@@ -202,10 +202,8 @@ int index_storage_mailbox_alloc_index(struct mailbox *box)
 	if (box->index != NULL)
 		return 0;
 
-	if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX) < 0) {
-		mail_storage_set_internal_error(box->storage);
+	if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
 		return -1;
-	}
 
 	if (index_mailbox_alloc_index(box, &box->index) < 0)
 		return -1;
@@ -502,10 +500,8 @@ int index_storage_mailbox_create(struct mailbox *box, bool directory)
 		path = t_strdup_until(path, p);
 	}
 
-	if ((ret = mailbox_mkdir(box, path, type)) < 0) {
-		mail_storage_copy_list_error(box->storage, box->list);
+	if ((ret = mailbox_mkdir(box, path, type)) < 0)
 		return -1;
-	}
 	mailbox_refresh_permissions(box);
 	if (ret == 0) {
 		/* directory already exists */

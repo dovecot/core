@@ -18,10 +18,8 @@ static int index_storage_mailbox_alloc_index_pvt(struct mailbox *box)
 	if (ret <= 0)
 		return ret; /* error / no private indexes */
 
-	if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE) < 0) {
-		mail_storage_set_internal_error(box->storage);
+	if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE) < 0)
 		return -1;
-	}
 
 	box->index_pvt = mail_index_alloc_cache_get(NULL, index_dir,
 		t_strconcat(box->index_prefix, ".pvt", NULL));
