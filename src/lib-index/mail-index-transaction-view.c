@@ -381,6 +381,19 @@ tview_return_updated_ext(struct mail_index_view_transaction *tview,
 	}
 }
 
+static bool
+tview_is_ext_reset(struct mail_index_view_transaction *tview, uint32_t ext_id)
+{
+	const struct mail_transaction_ext_reset *resets;
+	unsigned int count;
+
+	if (!array_is_created(&tview->t->ext_resets))
+		return FALSE;
+
+	resets = array_get(&tview->t->ext_resets, &count);
+	return ext_id < count && resets[ext_id].new_reset_id != 0;
+}
+
 static void
 tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 		      uint32_t ext_id, struct mail_index_map **map_r,
@@ -411,8 +424,10 @@ tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 		}
 	}
 
-	/* not updated, return the existing value */
-	if (seq < tview->t->first_new_seq) {
+	/* not updated, return the existing value, unless ext was
+	   already reset */
+	if (seq < tview->t->first_new_seq &&
+	    !tview_is_ext_reset(tview, ext_id)) {
 		tview->super->lookup_ext_full(view, seq, ext_id,
 					      map_r, data_r, expunged_r);
 	} else {
