@@ -367,6 +367,13 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 
 	i_assert(!ctx->cache->locked);
 
+	if (array_count(&ctx->cache_data_seq) == 0) {
+		/* we had done some changes, but they were aborted. */
+		i_assert(ctx->last_rec_pos == 0);
+		ctx->min_seq = 0;
+		return 0;
+	}
+
 	if (mail_cache_transaction_lock(ctx) <= 0)
 		return -1;
 
@@ -423,6 +430,11 @@ mail_cache_transaction_update_last_rec(struct mail_cache_transaction_ctx *ctx)
 	rec = PTR_OFFSET(data, ctx->last_rec_pos);
 	rec->size = size - ctx->last_rec_pos;
 	i_assert(rec->size > sizeof(*rec));
+
+	if (rec->size > MAIL_CACHE_RECORD_MAX_SIZE) {
+		buffer_set_used_size(ctx->cache_data, ctx->last_rec_pos);
+		return;
+	}
 
 	if (ctx->min_seq > ctx->prev_seq || ctx->min_seq == 0)
 		ctx->min_seq = ctx->prev_seq;

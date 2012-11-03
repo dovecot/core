@@ -24,6 +24,9 @@
    the latest cache header. */
 #define MAIL_CACHE_HEADER_FIELD_CONTINUE_COUNT 4
 
+/* If cache record becomes larger than this, don't add it. */
+#define MAIL_CACHE_RECORD_MAX_SIZE (64*1024)
+
 #define MAIL_CACHE_LOCK_TIMEOUT 10
 #define MAIL_CACHE_LOCK_CHANGE_TIMEOUT 300
 

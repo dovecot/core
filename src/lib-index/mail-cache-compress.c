@@ -253,11 +253,12 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		while (mail_cache_lookup_iter_next(&iter, &field) > 0)
 			mail_cache_compress_field(&ctx, &field);
 
-		cache_rec.size = buffer_get_used_size(ctx.buffer);
-		if (cache_rec.size == sizeof(cache_rec)) {
+		if (ctx.buffer->used == sizeof(cache_rec) ||
+		    ctx.buffer->used > MAIL_CACHE_RECORD_MAX_SIZE) {
 			/* nothing cached */
 			ext_offset = 0;
 		} else {
+			cache_rec.size = ctx.buffer->used;
 			ext_offset = output->offset;
 			buffer_write(ctx.buffer, 0, &cache_rec,
 				     sizeof(cache_rec));
