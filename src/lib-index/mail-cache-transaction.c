@@ -34,7 +34,7 @@ struct mail_cache_transaction_ctx {
 
 	buffer_t *cache_data;
 	ARRAY(uint32_t) cache_data_seq;
-	uint32_t prev_seq;
+	uint32_t prev_seq, min_seq;
 	size_t last_rec_pos;
 
 	uoff_t bytes_written;
@@ -47,8 +47,6 @@ static MODULE_CONTEXT_DEFINE_INIT(cache_mail_index_transaction_module,
 				  &mail_index_module_register);
 
 static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx);
-static int mail_cache_link_locked(struct mail_cache *cache,
-				  uint32_t old_offset, uint32_t new_offset);
 
 static void mail_index_transaction_cache_reset(struct mail_index_transaction *t)
 {
@@ -281,7 +279,7 @@ mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 	struct mail_cache *cache = ctx->cache;
 	const struct mail_cache_record *rec = ctx->cache_data->data;
 	const uint32_t *seqs;
-	uint32_t i, seq_count, old_offset;
+	uint32_t i, seq_count;
 
 	mail_index_ext_using_reset_id(ctx->trans, ctx->cache->ext_id,
 				      ctx->cache_file_seq);
@@ -292,30 +290,7 @@ mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 	seqs = array_get(&ctx->cache_data_seq, &seq_count);
 	for (i = 0; i < seq_count; i++) {
 		mail_index_update_ext(ctx->trans, seqs[i], cache->ext_id,
-				      &write_offset, &old_offset);
-		if (old_offset != 0) {
-			/* we added records for this message multiple
-			   times in this same uncommitted transaction.
-			   only the new one will be written to
-			   transaction log, we need to do the linking
-			   ourself here. */
-			if (old_offset > write_offset) {
-				if (mail_cache_link_locked(cache, old_offset,
-							   write_offset) < 0)
-					return -1;
-			} else {
-				/* if we're combining multiple transactions,
-				   make sure the one with the smallest offset
-				   is written into index. this is required for
-				   non-file-mmaped cache to work properly. */
-				mail_index_update_ext(ctx->trans, seqs[i],
-						      cache->ext_id,
-						      &old_offset, NULL);
-				if (mail_cache_link_locked(cache, write_offset,
-							   old_offset) < 0)
-					return -1;
-			}
-		}
+				      &write_offset, NULL);
 
 		write_offset += rec->size;
 		rec = CONST_PTR_OFFSET(rec, rec->size);
@@ -324,9 +299,70 @@ mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 }
 
 static int
+mail_cache_link_records(struct mail_cache_transaction_ctx *ctx,
+			uint32_t write_offset)
+{
+	struct mail_index_map *map;
+	struct mail_cache_record *rec;
+	const uint32_t *seqs, *prev_offsetp;
+	ARRAY_TYPE(uint32_t) seq_offsets;
+	uint32_t i, seq_count, reset_id, prev_offset, *offsetp;
+	const void *data;
+	bool expunged;
+
+	i_assert(ctx->min_seq != 0);
+
+	i_array_init(&seq_offsets, 64);
+	seqs = array_get(&ctx->cache_data_seq, &seq_count);
+	rec = buffer_get_modifiable_data(ctx->cache_data, NULL);
+	for (i = 0; i < seq_count; i++) {
+		offsetp = array_idx_modifiable(&seq_offsets,
+					       seqs[i] - ctx->min_seq);
+		if (*offsetp != 0)
+			prev_offset = *offsetp;
+		else {
+			mail_index_lookup_ext_full(ctx->view->trans_view, seqs[i],
+						   ctx->cache->ext_id, &map,
+						   &data, &expunged);
+			prev_offsetp = data;
+
+			if (prev_offsetp == NULL || *prev_offsetp == 0)
+				prev_offset = 0;
+			else if (mail_index_ext_get_reset_id(ctx->view->trans_view, map,
+							     ctx->cache->ext_id,
+							     &reset_id) &&
+				 reset_id == ctx->cache_file_seq)
+				prev_offset = *prev_offsetp;
+			else
+				prev_offset = 0;
+			if (prev_offset >= write_offset) {
+				mail_cache_set_corrupted(ctx->cache,
+					"Cache record offset points outside existing file");
+				array_free(&seq_offsets);
+				return -1;
+			}
+		}
+
+		if (prev_offset != 0) {
+			/* link this record to previous one */
+			rec->prev_offset = prev_offset;
+			ctx->cache->hdr_copy.continued_record_count++;
+			ctx->cache->hdr_modified = TRUE;
+		}
+		*offsetp = write_offset;
+
+		write_offset += rec->size;
+		rec = PTR_OFFSET(rec, rec->size);
+	}
+	array_free(&seq_offsets);
+	return 0;
+}
+
+static int
 mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 {
-	uint32_t write_offset;
+	struct stat st;
+	uint32_t write_offset = 0;
 	int ret;
 
 	i_assert(!ctx->cache->locked);
@@ -334,10 +370,26 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	if (mail_cache_transaction_lock(ctx) <= 0)
 		return -1;
 
-	/* first write the actual data to cache file */
 	i_assert(ctx->cache_data != NULL);
 	i_assert(ctx->last_rec_pos <= ctx->cache_data->used);
-	if (mail_cache_append(ctx->cache, ctx->cache_data->data,
+
+	/* we need to get the final write offset for linking records */
+	if (fstat(ctx->cache->fd, &st) < 0) {
+		if (!ESTALE_FSTAT(errno))
+			mail_cache_set_syscall_error(ctx->cache, "fstat()");
+		ret = -1;
+	} else if ((uint32_t)-1 < st.st_size + ctx->last_rec_pos) {
+		mail_cache_set_corrupted(ctx->cache, "Cache file too large");
+		ret = -1;
+	} else {
+		write_offset = st.st_size;
+		if (mail_cache_link_records(ctx, write_offset) < 0)
+			ret = -1;
+	}
+
+	/* write to cache file */
+	if (ret < 0 ||
+	    mail_cache_append(ctx->cache, ctx->cache_data->data,
 			      ctx->last_rec_pos, &write_offset) < 0)
 		ret = -1;
 	else {
@@ -354,6 +406,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	buffer_set_used_size(ctx->cache_data,
 			     ctx->cache_data->used - ctx->last_rec_pos);
 	ctx->last_rec_pos = 0;
+	ctx->min_seq = 0;
 
 	array_clear(&ctx->cache_data_seq);
 	return ret;
@@ -371,11 +424,8 @@ mail_cache_transaction_update_last_rec(struct mail_cache_transaction_ctx *ctx)
 	rec->size = size - ctx->last_rec_pos;
 	i_assert(rec->size > sizeof(*rec));
 
-	/* FIXME: here would be a good place to set prev_offset to
-	   avoid doing it later, but avoid circular prev_offsets
-	   when cache is updated multiple times within the same
-	   transaction */
-
+	if (ctx->min_seq > ctx->prev_seq || ctx->min_seq == 0)
+		ctx->min_seq = ctx->prev_seq;
 	array_append(&ctx->cache_data_seq, &ctx->prev_seq, 1);
 	ctx->last_rec_pos = size;
 }
@@ -435,6 +485,7 @@ mail_cache_header_fields_write(struct mail_cache_transaction_ctx *ctx,
 
 	i_assert(cache->locked);
 
+	offset = 0;
 	if (mail_cache_append(cache, buffer->data, buffer->used, &offset) < 0)
 		return -1;
 
@@ -672,59 +723,6 @@ bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
 		return FALSE;
 
 	return mail_cache_field_exists(ctx->view, seq, field_idx) == 0;
-}
-
-static int mail_cache_link_locked(struct mail_cache *cache,
-				  uint32_t old_offset, uint32_t new_offset)
-{
-	new_offset += offsetof(struct mail_cache_record, prev_offset);
-	return mail_cache_write(cache, &old_offset, sizeof(old_offset),
-				new_offset);
-}
-
-int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
-		    uint32_t new_offset)
-{
-	const struct mail_cache_record *rec;
-	const void *data;
-	int ret;
-
-	i_assert(cache->locked);
-
-	if (MAIL_CACHE_IS_UNUSABLE(cache))
-		return -1;
-
-	/* this function is called for each added cache record (or cache
-	   extension record update actually) with new_offset pointing to the
-	   new record and old_offset pointing to the previous record.
-
-	   we want to keep the old and new records linked so both old and new
-	   cached data is found. normally they are already linked correctly.
-	   the problem only comes when multiple processes are adding cache
-	   records at the same time. we'd rather not lose those additions, so
-	   force the linking order to be new_offset -> old_offset if it isn't
-	   already. */
-	ret = mail_cache_map(cache, new_offset, sizeof(*rec), &data);
-	if (ret <= 0) {
-		if (ret == 0) {
-			mail_cache_set_corrupted(cache,
-				"Cache record offset %u points outside file",
-				new_offset);
-		}
-		return -1;
-	}
-	rec = data;
-	if (rec->prev_offset == old_offset) {
-		/* link is already correct */
-		return 0;
-	}
-
-	if (mail_cache_link_locked(cache, old_offset, new_offset) < 0)
-		return -1;
-
-	cache->hdr_copy.continued_record_count++;
-	cache->hdr_modified = TRUE;
-	return 0;
 }
 
 static int mail_cache_delete_real(struct mail_cache *cache, uint32_t offset)

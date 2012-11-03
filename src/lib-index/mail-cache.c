@@ -488,17 +488,6 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 					sizeof(uint32_t), sizeof(uint32_t));
 	mail_index_register_expunge_handler(index, cache->ext_id, FALSE,
 					    mail_cache_expunge_handler, cache);
-	mail_index_register_sync_handler(index, cache->ext_id,
-					 mail_cache_sync_handler,
-                                         MAIL_INDEX_SYNC_HANDLER_FILE |
-                                         MAIL_INDEX_SYNC_HANDLER_HEAD |
-					 (cache->file_cache == NULL ? 0 :
-					  MAIL_INDEX_SYNC_HANDLER_VIEW));
-
-	if (cache->file_cache != NULL) {
-		mail_index_register_sync_lost_handler(index,
-			mail_cache_sync_lost_handler);
-	}
 	return cache;
 }
 
@@ -527,16 +516,10 @@ void mail_cache_free(struct mail_cache **_cache)
 	struct mail_cache *cache = *_cache;
 
 	*_cache = NULL;
-	if (cache->file_cache != NULL) {
-		mail_index_unregister_sync_lost_handler(cache->index,
-			mail_cache_sync_lost_handler);
-
+	if (cache->file_cache != NULL)
 		file_cache_free(&cache->file_cache);
-	}
 
 	mail_index_unregister_expunge_handler(cache->index, cache->ext_id);
-	mail_index_unregister_sync_handler(cache->index, cache->ext_id);
-
 	mail_cache_file_close(cache);
 
 	hash_table_destroy(&cache->field_name_hash);
@@ -744,28 +727,29 @@ int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
 }
 
 int mail_cache_append(struct mail_cache *cache, const void *data, size_t size,
-		      uint32_t *offset_r)
+		      uint32_t *offset)
 {
 	struct stat st;
 
-	if (fstat(cache->fd, &st) < 0) {
-		if (!ESTALE_FSTAT(errno))
-			mail_cache_set_syscall_error(cache, "fstat()");
-		return -1;
+	if (*offset == 0) {
+		if (fstat(cache->fd, &st) < 0) {
+			if (!ESTALE_FSTAT(errno))
+				mail_cache_set_syscall_error(cache, "fstat()");
+			return -1;
+		}
+		*offset = st.st_size;
 	}
-	if ((uoff_t)st.st_size > (uint32_t)-1 ||
-	    (uint32_t)-1 - (uoff_t)st.st_size < size) {
+	if (*offset > (uint32_t)-1 || (uint32_t)-1 - *offset < size) {
 		mail_cache_set_corrupted(cache, "Cache file too large");
 		return -1;
 	}
-	*offset_r = st.st_size;
-	if (mail_cache_write(cache, data, size, *offset_r) < 0)
+	if (mail_cache_write(cache, data, size, *offset) < 0)
 		return -1;
 
 	/* FIXME: this is updated only so that older Dovecot versions (<=v2.1)
 	   can read this file. we can remove this later. */
 	cache->hdr_modified = TRUE;
-	cache->hdr_copy.backwards_compat_used_file_size = *offset_r + size;
+	cache->hdr_copy.backwards_compat_used_file_size = *offset + size;
 	return 0;
 }
 

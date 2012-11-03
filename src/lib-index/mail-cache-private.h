@@ -210,7 +210,7 @@ int mail_cache_unlock(struct mail_cache *cache);
 int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
 		     uoff_t offset);
 int mail_cache_append(struct mail_cache *cache, const void *data, size_t size,
-		      uint32_t *offset_r);
+		      uint32_t *offset);
 
 int mail_cache_header_fields_read(struct mail_cache *cache);
 int mail_cache_header_fields_update(struct mail_cache *cache);
@@ -242,9 +242,6 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 void mail_cache_file_close(struct mail_cache *cache);
 int mail_cache_reopen(struct mail_cache *cache);
 
-/* Update new_offset's prev_offset field to old_offset. */
-int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
-		    uint32_t new_offset);
 /* Mark record in given offset to be deleted. */
 int mail_cache_delete(struct mail_cache *cache, uint32_t offset);
 
@@ -258,10 +255,6 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			       uint32_t seq, const void *data,
 			       void **sync_context, void *context);
-int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
-			    uint32_t seq, void *old_data, const void *new_data,
-			    void **context);
-void mail_cache_sync_lost_handler(struct mail_index *index);
 
 void mail_cache_set_syscall_error(struct mail_cache *cache,
 				  const char *function);

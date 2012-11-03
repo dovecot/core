@@ -206,7 +206,6 @@ mail_cache_header_fields_get_offset(struct mail_cache *cache,
 	const void *data;
 	uint32_t offset = 0, next_offset;
 	unsigned int next_count = 0;
-	bool invalidate = FALSE;
 	int ret;
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
@@ -228,7 +227,6 @@ mail_cache_header_fields_get_offset(struct mail_cache *cache,
 			return -1;
 		}
 		offset = next_offset;
-		invalidate = TRUE;
 
 		if (cache->mmap_base != NULL || cache->map_with_read) {
 			ret = mail_cache_map(cache, offset, sizeof(*field_hdr),
@@ -274,10 +272,9 @@ mail_cache_header_fields_get_offset(struct mail_cache *cache,
 		cache->need_compress_file_seq = cache->hdr->file_seq;
 
 	if (field_hdr_r != NULL) {
-		if (cache->file_cache != NULL && invalidate) {
-			/* if this isn't the first header in file and we hadn't
-			   read this before, we can't trust that the cached
-			   data is valid */
+		if (cache->file_cache != NULL) {
+			/* invalidate the cache fields area to make sure we
+			   get the latest cache decisions/last_used fields */
 			file_cache_invalidate(cache->file_cache, offset,
 					      field_hdr->size);
 		}
