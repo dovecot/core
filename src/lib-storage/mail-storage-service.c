@@ -1010,7 +1010,8 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 			pool_unref(&user_pool);
 			return ret;
 		}
-		*ctx->userdb_next_fieldsp = userdb_fields;
+		if (ctx->userdb_next_fieldsp != NULL)
+			*ctx->userdb_next_fieldsp = userdb_fields;
 	} else {
 		userdb_fields = input->userdb_fields;
 	}
