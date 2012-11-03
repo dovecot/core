@@ -318,7 +318,8 @@ static void dump_cache_hdr(struct mail_cache *cache)
 	}
 
 	hdr = cache->hdr;
-	printf("version .............. = %u\n", hdr->version);
+	printf("major version ........ = %u\n", hdr->major_version);
+	printf("minor version ........ = %u\n", hdr->minor_version);
 	printf("indexid .............. = %u (%s)\n", hdr->indexid, unixdate2str(hdr->indexid));
 	printf("file_seq ............. = %u (%s) (%d compressions)\n",
 	       hdr->file_seq, unixdate2str(hdr->file_seq),

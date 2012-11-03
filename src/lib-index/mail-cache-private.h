@@ -5,7 +5,8 @@
 #include "mail-index-private.h"
 #include "mail-cache.h"
 
-#define MAIL_CACHE_VERSION 1
+#define MAIL_CACHE_MAJOR_VERSION 1
+#define MAIL_CACHE_MINOR_VERSION 1
 
 /* Drop fields that haven't been accessed for n seconds */
 #define MAIL_CACHE_FIELD_DROP_SECS (3600*24*30)
@@ -36,9 +37,10 @@
 struct mail_cache_header {
 	/* version is increased only when you can't have backwards
 	   compatibility. */
-	uint8_t version;
+	uint8_t major_version;
 	uint8_t compat_sizeof_uoff_t;
-	uint8_t unused[2];
+	uint8_t minor_version;
+	uint8_t unused;
 
 	uint32_t indexid;
 	uint32_t file_seq;

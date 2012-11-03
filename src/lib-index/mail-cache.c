@@ -232,7 +232,7 @@ static bool mail_cache_verify_header(struct mail_cache *cache,
 		return FALSE;
 	}
 
-	if (hdr->version != MAIL_CACHE_VERSION) {
+	if (hdr->major_version != MAIL_CACHE_MAJOR_VERSION) {
 		/* version changed - upgrade silently */
 		mail_cache_unlink(cache);
 		return FALSE;
