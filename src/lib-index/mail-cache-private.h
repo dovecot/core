@@ -12,10 +12,10 @@
 #define MAIL_CACHE_FIELD_DROP_SECS (3600*24*30)
 
 /* Never compress the file if it's smaller than this */
-#define MAIL_CACHE_COMPRESS_MIN_SIZE (1024*50)
+#define MAIL_CACHE_COMPRESS_MIN_SIZE (1024*32)
 
-/* Compress the file when deleted space reaches n% of total size */
-#define MAIL_CACHE_COMPRESS_PERCENTAGE 20
+/* Compress the file when n% of records are deleted */
+#define MAIL_CACHE_COMPRESS_DELETE_PERCENTAGE 20
 
 /* Compress the file when n% of rows contain continued rows.
    200% means that there's 2 continued rows per record. */
@@ -47,9 +47,11 @@ struct mail_cache_header {
 
 	uint32_t continued_record_count;
 
-	uint32_t unused_old_hole_offset;
+	/* NOTE: old versions used this for hole offset, so we can't fully
+	   rely on it */
+	uint32_t record_count;
 	uint32_t backwards_compat_used_file_size;
-	uint32_t deleted_space;
+	uint32_t deleted_record_count;
 
 	uint32_t field_header_offset;
 };
@@ -247,8 +249,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 void mail_cache_file_close(struct mail_cache *cache);
 int mail_cache_reopen(struct mail_cache *cache);
 
-/* Mark record in given offset to be deleted. */
-int mail_cache_delete(struct mail_cache *cache, uint32_t offset);
+void mail_cache_delete(struct mail_cache *cache);
 
 /* Notify the decision handling code that field was looked up for seq.
    This should be called even for fields that aren't currently in cache file */

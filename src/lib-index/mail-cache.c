@@ -197,30 +197,55 @@ static void mail_cache_update_need_compress(struct mail_cache *cache)
 {
 	const struct mail_cache_header *hdr = cache->hdr;
 	struct stat st;
-	unsigned int cont_percentage;
-	uoff_t file_size, max_del_space;
+	unsigned int msg_count;
+	unsigned int records_count, cont_percentage, delete_percentage;
+	bool want_compress = FALSE;
 
-	if (fstat(cache->fd, &st) < 0) {
-		if (!ESTALE_FSTAT(errno))
-			mail_cache_set_syscall_error(cache, "fstat()");
+	if (hdr->minor_version == 0) {
+		/* compress to get ourself into the new header version */
+		cache->need_compress_file_seq = hdr->file_seq;
 		return;
 	}
-	file_size = st.st_size;
 
-        cont_percentage = hdr->continued_record_count * 100 /
-		(cache->index->map->rec_map->records_count == 0 ? 1 :
-		 cache->index->map->rec_map->records_count);
-	if (cont_percentage >= MAIL_CACHE_COMPRESS_CONTINUED_PERCENTAGE &&
-	    file_size >= MAIL_CACHE_COMPRESS_MIN_SIZE) {
-		/* too many continued rows, compress */
-		cache->need_compress_file_seq = hdr->file_seq;
+	msg_count = cache->index->map->rec_map->records_count;
+	if (msg_count == 0)
+		records_count = 1;
+	else if (hdr->record_count == 0 || hdr->record_count > msg_count*2) {
+		/* probably not the real record_count, but hole offset that
+		   Dovecot <=v2.1 versions used to use in this position.
+		   we already checked that minor_version>0, but this could
+		   happen if old Dovecot was used to access mailbox after
+		   it had been updated. */
+		records_count = I_MAX(msg_count, 1);
+		cache->hdr_copy.record_count = msg_count;
+		cache->hdr_modified = TRUE;
+	} else {
+		records_count = hdr->record_count;
 	}
 
-	/* see if we've reached the max. deleted space in file */
-	max_del_space = file_size / 100 * MAIL_CACHE_COMPRESS_PERCENTAGE;
-	if (hdr->deleted_space >= max_del_space &&
-	    file_size >= MAIL_CACHE_COMPRESS_MIN_SIZE)
-		cache->need_compress_file_seq = hdr->file_seq;
+	cont_percentage = hdr->continued_record_count * 100 / records_count;
+	if (cont_percentage >= MAIL_CACHE_COMPRESS_CONTINUED_PERCENTAGE) {
+		/* too many continued rows, compress */
+		want_compress = TRUE;
+	}
+
+	delete_percentage = hdr->deleted_record_count * 100 /
+		(records_count + hdr->deleted_record_count);
+	if (delete_percentage >= MAIL_CACHE_COMPRESS_DELETE_PERCENTAGE) {
+		/* too many deleted records, compress */
+		want_compress = TRUE;
+	}
+
+	if (want_compress) {
+		if (fstat(cache->fd, &st) < 0) {
+			if (!ESTALE_FSTAT(errno))
+				mail_cache_set_syscall_error(cache, "fstat()");
+			return;
+		}
+		if (st.st_size >= MAIL_CACHE_COMPRESS_MIN_SIZE)
+			cache->need_compress_file_seq = hdr->file_seq;
+	}
+
 }
 
 static bool mail_cache_verify_header(struct mail_cache *cache,

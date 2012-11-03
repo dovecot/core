@@ -325,9 +325,9 @@ static void dump_cache_hdr(struct mail_cache *cache)
 	       hdr->file_seq, unixdate2str(hdr->file_seq),
 	       hdr->file_seq - hdr->indexid);
 	printf("continued_record_count = %u\n", hdr->continued_record_count);
-	printf("hole_offset (unused) . = %u\n", hdr->unused_old_hole_offset);
+	printf("record_count ......... = %u\n", hdr->record_count);
 	printf("used_file_size (old) . = %u\n", hdr->backwards_compat_used_file_size);
-	printf("deleted_space ........ = %u\n", hdr->deleted_space);
+	printf("deleted_record_count . = %u\n", hdr->deleted_record_count);
 	printf("field_header_offset .. = %u (0x%08x nontranslated)\n",
 	       mail_index_offset_to_uint32(hdr->field_header_offset),
 	       hdr->field_header_offset);

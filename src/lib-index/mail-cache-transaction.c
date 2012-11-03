@@ -37,7 +37,7 @@ struct mail_cache_transaction_ctx {
 	uint32_t prev_seq, min_seq;
 	size_t last_rec_pos;
 
-	uoff_t bytes_written;
+	unsigned int records_written;
 
 	unsigned int tried_compression:1;
 	unsigned int changes:1;
@@ -133,12 +133,12 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx **_ctx)
 
 	*_ctx = NULL;
 
-	if (ctx->bytes_written > 0) {
+	if (ctx->records_written > 0) {
 		/* we already wrote to the cache file. we can't (or don't want
 		   to) delete that data, so just mark it as deleted space */
 		if (mail_cache_transaction_lock(ctx) > 0) {
-			ctx->cache->hdr_copy.deleted_space +=
-				ctx->bytes_written;
+			ctx->cache->hdr_copy.deleted_record_count +=
+				ctx->records_written;
 			(void)mail_cache_unlock(ctx->cache);
 		}
 	}
@@ -347,7 +347,8 @@ mail_cache_link_records(struct mail_cache_transaction_ctx *ctx,
 			/* link this record to previous one */
 			rec->prev_offset = prev_offset;
 			ctx->cache->hdr_copy.continued_record_count++;
-			ctx->cache->hdr_modified = TRUE;
+		} else {
+			ctx->cache->hdr_copy.record_count++;
 		}
 		*offsetp = write_offset;
 
@@ -355,6 +356,7 @@ mail_cache_link_records(struct mail_cache_transaction_ctx *ctx,
 		rec = PTR_OFFSET(rec, rec->size);
 	}
 	array_free(&seq_offsets);
+	ctx->cache->hdr_modified = TRUE;
 	return 0;
 }
 
@@ -401,7 +403,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 		ret = -1;
 	else {
 		/* update records' cache offsets to index */
-		ctx->bytes_written += ctx->last_rec_pos;
+		ctx->records_written++;
 		ret = mail_cache_transaction_update_index(ctx, write_offset);
 	}
 	if (mail_cache_unlock(ctx->cache) < 0)
@@ -476,7 +478,7 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx **_ctx)
 			ret = -1;
 		else {
 			/* successfully wrote everything */
-			ctx->bytes_written = 0;
+			ctx->records_written = 0;
 		}
 		/* Here would be a good place to do fdatasync() to make sure
 		   everything is written before offsets are updated to index.
@@ -737,42 +739,17 @@ bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
 	return mail_cache_field_exists(ctx->view, seq, field_idx) == 0;
 }
 
-static int mail_cache_delete_real(struct mail_cache *cache, uint32_t offset)
+void mail_cache_delete(struct mail_cache *cache)
 {
-	const struct mail_cache_record *rec;
-	struct mail_cache_loop_track loop_track;
-	int ret = 0;
-
 	i_assert(cache->locked);
 
-	/* we'll only update the deleted_space in header. we can't really
-	   do any actual deleting as other processes might still be using
-	   the data. also it's actually useful as some index views are still
-	   able to ask cached data from messages that have already been
+	/* we'll only update the deleted record count in the header. we can't
+	   really do any actual deleting as other processes might still be
+	   using the data. also it's actually useful as old index views are
+	   still able to ask cached data for messages that have already been
 	   expunged. */
-	memset(&loop_track, 0, sizeof(loop_track));
-	while (offset != 0 &&
-	       (ret = mail_cache_get_record(cache, offset, &rec)) == 0) {
-		if (mail_cache_track_loops(&loop_track, offset, rec->size)) {
-			mail_cache_set_corrupted(cache,
-						 "record list is circular");
-			return -1;
-		}
-
-		cache->hdr_copy.deleted_space += rec->size;
-		offset = rec->prev_offset;
-	}
-	return ret;
-}
-
-int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
-{
-	int ret;
-
-	i_assert(cache->locked);
-	T_BEGIN {
-		ret = mail_cache_delete_real(cache, offset);
-	} T_END;
+	cache->hdr_copy.deleted_record_count++;
+	if (cache->hdr_copy.record_count > 0)
+		cache->hdr_copy.record_count--;
 	cache->hdr_modified = TRUE;
-	return ret;
 }

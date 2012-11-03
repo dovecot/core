@@ -163,7 +163,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	struct mail_cache_record cache_rec;
 	struct ostream *output;
 	uint32_t message_count, seq, first_new_seq, ext_offset;
-	unsigned int i, used_fields_count, orig_fields_count;
+	unsigned int i, used_fields_count, orig_fields_count, record_count;
 	time_t max_drop_time;
 
 	view = mail_index_transaction_get_view(trans);
@@ -231,7 +231,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	first_new_seq = mail_cache_get_first_new_seq(view);
 	message_count = mail_index_view_get_messages_count(view);
 
-	i_array_init(ext_offsets, message_count);
+	i_array_init(ext_offsets, message_count); record_count = 0;
 	for (seq = 1; seq <= message_count; seq++) {
 		if (mail_index_transaction_is_expunged(trans, seq)) {
 			array_append_zero(ext_offsets);
@@ -264,12 +264,14 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 			buffer_write(ctx.buffer, 0, &cache_rec,
 				     sizeof(cache_rec));
 			o_stream_nsend(output, ctx.buffer->data, cache_rec.size);
+			record_count++;
 		}
 
 		array_append(ext_offsets, &ext_offset, 1);
 	}
 	i_assert(orig_fields_count == cache->fields_count);
 
+	hdr.record_count = record_count;
 	hdr.field_header_offset = mail_index_uint32_to_offset(output->offset);
 	mail_cache_compress_get_fields(&ctx, used_fields_count);
 	o_stream_nsend(output, ctx.buffer->data, ctx.buffer->used);
