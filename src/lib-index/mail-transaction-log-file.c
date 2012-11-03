@@ -653,6 +653,11 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	int fd, ret;
 	bool rename_existing;
 
+	if (fcntl(new_fd, F_SETFL, O_APPEND) < 0) {
+		log_file_set_syscall_error(file, "fcntl(O_APPEND)");
+		return -1;
+	}
+
 	if (file->log->nfs_flush) {
 		/* although we check also mtime and file size below, it's done
 		   only to fix broken log files. we don't bother flushing
@@ -684,7 +689,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 		rename_existing = TRUE;
 	} else {
 		/* recreated. use the file if its header is ok */
-		fd = nfs_safe_open(file->filepath, O_RDWR);
+		fd = nfs_safe_open(file->filepath, O_RDWR | O_APPEND);
 		if (fd == -1) {
 			if (errno != ENOENT) {
 				log_file_set_syscall_error(file, "open()");
@@ -843,8 +848,12 @@ int mail_transaction_log_file_open(struct mail_transaction_log_file *file)
 	int ret;
 
         for (i = 0;; i++) {
-		file->fd = nfs_safe_open(file->filepath,
-					 !index->readonly ? O_RDWR : O_RDONLY);
+		if (!index->readonly) {
+			file->fd = nfs_safe_open(file->filepath,
+						 O_RDWR | O_APPEND);
+		} else {
+			file->fd = nfs_safe_open(file->filepath, O_RDONLY);
+		}
 		if (file->fd == -1 && errno == EACCES) {
 			file->fd = nfs_safe_open(file->filepath, O_RDONLY);
 			index->readonly = TRUE;
@@ -1370,18 +1379,11 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 		/* There's more data than we could sync at the moment. If the
 		   last record's size wasn't valid, we can't know if it will
 		   be updated unless we've locked the log. */
-		if (trans_size != 0) {
-			/* pread()s or the above fstat() check for mmaps should
-			   have guaranteed that this doesn't happen */
-			mail_transaction_log_file_set_corrupted(file,
-				"hdr.size too large (%u)", trans_size);
-			return -1;
-		} else if (file->locked) {
+		if (file->locked) {
 			mail_transaction_log_file_set_corrupted(file,
 				"Unexpected garbage at EOF");
 			return -1;
 		}
-
 		/* The size field will be updated soon */
 		mail_index_flush_read_cache(file->log->index, file->filepath,
 					    file->fd, file->locked);

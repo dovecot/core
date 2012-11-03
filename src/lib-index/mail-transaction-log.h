@@ -173,6 +173,8 @@ struct mail_transaction_log_append_ctx {
 	enum mail_transaction_type trans_flags;
 
 	uint64_t new_highest_modseq;
+	unsigned int transaction_count;
+
 	unsigned int append_sync_offset:1;
 	unsigned int sync_includes_this:1;
 	unsigned int want_fsync:1;

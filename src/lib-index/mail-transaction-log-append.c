@@ -32,6 +32,7 @@ void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx
 	buffer_append(ctx->output, data, size);
 
 	mail_transaction_update_modseq(&hdr, data, &ctx->new_highest_modseq);
+	ctx->transaction_count++;
 }
 
 static int
@@ -60,8 +61,6 @@ log_buffer_move_to_memory(struct mail_transaction_log_append_ctx *ctx)
 static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 {
 	struct mail_transaction_log_file *file = ctx->log->head;
-	struct mail_transaction_header *hdr;
-	uint32_t first_size;
 
 	if (ctx->output->used == 0)
 		return 0;
@@ -76,37 +75,17 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 		return 0;
 	}
 
-	/* size will be written later once everything is in disk */
-	hdr = buffer_get_space_unsafe(ctx->output, 0, sizeof(*hdr));
-	first_size = hdr->size;
-	i_assert(first_size != 0);
-	hdr->size = 0;
-
-	if (pwrite_full(file->fd, ctx->output->data, ctx->output->used,
-			file->sync_offset) < 0) {
+	if (write_full(file->fd, ctx->output->data, ctx->output->used) < 0) {
 		/* write failure, fallback to in-memory indexes. */
-		hdr->size = first_size;
 		mail_index_file_set_syscall_error(ctx->log->index,
 						  file->filepath,
-						  "pwrite_full()");
+						  "write_full()");
 		return log_buffer_move_to_memory(ctx);
 	}
 
 	i_assert(!ctx->sync_includes_this ||
 		 file->sync_offset + ctx->output->used ==
 		 file->max_tail_offset);
-
-	/* now that the whole transaction has been written, rewrite the first
-	   record's size so the transaction becomes visible */
-	hdr->size = first_size;
-	if (pwrite_full(file->fd, &first_size, sizeof(uint32_t),
-			file->sync_offset +
-			offsetof(struct mail_transaction_header, size)) < 0) {
-		mail_index_file_set_syscall_error(ctx->log->index,
-						  file->filepath,
-						  "pwrite_full()");
-		return log_buffer_move_to_memory(ctx);
-	}
 
 	if ((ctx->want_fsync &&
 	     file->log->index->fsync_mode != FSYNC_MODE_NEVER) ||
@@ -118,11 +97,6 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 			return log_buffer_move_to_memory(ctx);
 		}
 	}
-
-	/* FIXME: when we're relying on O_APPEND and someone else wrote a
-	   transaction, we'll need to wait for it to commit its transaction.
-	   if it crashes before doing that, we'll need to overwrite it with
-	   a dummy record */
 
 	if (file->mmap_base == NULL && file->buffer != NULL) {
 		/* we're reading from a file. avoid re-reading the data that
@@ -184,6 +158,7 @@ static int
 mail_transaction_log_append_locked(struct mail_transaction_log_append_ctx *ctx)
 {
 	struct mail_transaction_log_file *file = ctx->log->head;
+	struct mail_transaction_boundary *boundary;
 
 	if (file->sync_offset < file->last_size) {
 		/* there is some garbage at the end of the transaction log
@@ -197,6 +172,21 @@ mail_transaction_log_append_locked(struct mail_transaction_log_append_ctx *ctx)
 					file->filepath, "ftruncate()");
 			}
 		}
+	}
+
+	/* don't include log_file_tail_offset update in the transaction */
+	boundary = buffer_get_space_unsafe(ctx->output,
+				sizeof(struct mail_transaction_header),
+				sizeof(*boundary));
+	boundary->size = ctx->output->used;
+
+	if (ctx->transaction_count <= 2) {
+		/* 0-1 changes. don't bother with the boundary */
+		unsigned int boundary_size =
+			sizeof(struct mail_transaction_header) +
+			sizeof(*boundary);
+
+		buffer_delete(ctx->output, 0, boundary_size);
 	}
 
 	if (ctx->append_sync_offset)
@@ -213,6 +203,7 @@ int mail_transaction_log_append_begin(struct mail_index *index,
 				      struct mail_transaction_log_append_ctx **ctx_r)
 {
 	struct mail_transaction_log_append_ctx *ctx;
+	struct mail_transaction_boundary boundary;
 
 	if (!index->log_sync_locked) {
 		if (mail_transaction_log_lock_head(index->log) < 0)
@@ -222,6 +213,10 @@ int mail_transaction_log_append_begin(struct mail_index *index,
 	ctx->log = index->log;
 	ctx->output = buffer_create_dynamic(default_pool, 1024);
 	ctx->trans_flags = flags;
+
+	memset(&boundary, 0, sizeof(boundary));
+	mail_transaction_log_append_add(ctx, MAIL_TRANSACTION_BOUNDARY,
+					&boundary, sizeof(boundary));
 
 	*ctx_r = ctx;
 	return 0;
