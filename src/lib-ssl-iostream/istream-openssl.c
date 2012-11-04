@@ -85,10 +85,7 @@ static ssize_t i_stream_ssl_read_real(struct istream_private *stream)
 	sstream->ssl_io->input_handler = FALSE;
 	stream->max_buffer_size = (size_t)-1;
 	while ((ret = SSL_read(ssl_io->ssl, buffer, sizeof(buffer))) > 0) {
-		if (!i_stream_try_alloc(stream, ret, &size))
-			i_unreached();
-		i_assert(size >= (size_t)ret);
-		memcpy(stream->w_buffer + stream->pos, buffer, ret);
+		memcpy(i_stream_alloc(stream, ret), buffer, ret);
 		stream->pos += ret;
 		total_ret += ret;
 	}
