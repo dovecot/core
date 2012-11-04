@@ -751,6 +751,8 @@ int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
 
 	if (cache->file_cache != NULL)
 		file_cache_write(cache->file_cache, data, size, offset);
+	if (cache->read_buf != NULL)
+		buffer_set_used_size(cache->read_buf, 0);
 	return 0;
 }
 
