@@ -126,5 +126,6 @@ struct istream *i_stream_create_ssl(struct ssl_iostream *ssl_io)
 	sstream->istream.read = i_stream_ssl_read;
 
 	sstream->istream.istream.readable_fd = FALSE;
-	return i_stream_create(&sstream->istream, NULL, -1);
+	return i_stream_create(&sstream->istream, NULL,
+			       i_stream_get_fd(ssl_io->plain_input));
 }
