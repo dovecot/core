@@ -485,6 +485,8 @@ static void ssl_iostream_deinit_global(void)
 		ENGINE_finish(ssl_iostream_engine);
 	ENGINE_cleanup();
 	EVP_cleanup();
+	CRYPTO_cleanup_all_ex_data();
+	ERR_remove_state(0);
 	ERR_free_strings();
 }
 
