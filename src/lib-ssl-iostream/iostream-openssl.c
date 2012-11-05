@@ -212,9 +212,6 @@ int io_stream_create_ssl(struct ssl_iostream_context *ctx, const char *source,
 	SSL_set_bio(ssl_io->ssl, bio_int, bio_int);
         SSL_set_ex_data(ssl_io->ssl, dovecot_ssl_extdata_index, ssl_io);
 
-	i_stream_ref(ssl_io->plain_input);
-	o_stream_ref(ssl_io->plain_output);
-
 	T_BEGIN {
 		ret = ssl_iostream_set(ssl_io, set);
 	} T_END;
