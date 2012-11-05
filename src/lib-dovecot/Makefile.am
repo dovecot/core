@@ -8,32 +8,18 @@ libs = \
 	../lib-fs/libfs.la \
 	../lib-charset/libcharset.la \
 	../lib-master/libmaster.la \
+	../lib-ssl-iostream/libssl_iostream.la
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
-ssl_libs = \
-	../lib-master/libmaster_ssl.la \
-	../lib-ssl-iostream/libssl_iostream.la
-
-pkglib_LTLIBRARIES = libdovecot.la libdovecot-ssl.la
+pkglib_LTLIBRARIES = libdovecot.la
 
 libdovecot_la_SOURCES = 
-libdovecot_ssl_la_SOURCES = 
 
 libdovecot_la_LIBADD = \
 	$(libs) \
 	$(MODULE_LIBS) \
 	$(LTLIBICONV)
 
-libdovecot_ssl_la_LIBADD = \
-	libdovecot.la \
-	../lib/liblib.la \
-	$(MODULE_LIBS) \
-	$(ssl_libs) \
-	$(SSL_LIBS)
-
 libdovecot_la_DEPENDENCIES = $(libs)
-libdovecot_ssl_la_DEPENDENCIES = $(ssl_libs) libdovecot.la
-
 libdovecot_la_LDFLAGS = -export-dynamic
-libdovecot_ssl_la_LDFLAGS = -export-dynamic

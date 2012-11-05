@@ -23,7 +23,7 @@ int dovecot_ssl_extdata_index;
 
 static void ssl_iostream_init_global(const struct ssl_iostream_settings *set);
 
-const char *ssl_iostream_error(void)
+const char *openssl_iostream_error(void)
 {
 	unsigned long err;
 	char *buf;
@@ -44,7 +44,7 @@ const char *ssl_iostream_error(void)
 	return buf;
 }
 
-const char *ssl_iostream_key_load_error(void)
+const char *openssl_iostream_key_load_error(void)
 {
        unsigned long err = ERR_peek_error();
 
@@ -52,7 +52,7 @@ const char *ssl_iostream_key_load_error(void)
            ERR_GET_REASON(err) == X509_R_KEY_VALUES_MISMATCH)
                return "Key is for a different cert than ssl_cert";
        else
-               return ssl_iostream_error();
+               return openssl_iostream_error();
 }
 
 static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
@@ -95,8 +95,8 @@ pem_password_callback(char *buf, int size, int rwflag ATTR_UNUSED,
 	return strlen(buf);
 }
 
-int ssl_iostream_load_key(const struct ssl_iostream_settings *set,
-			  const char *key_source, EVP_PKEY **pkey_r)
+int openssl_iostream_load_key(const struct ssl_iostream_settings *set,
+			      const char *key_source, EVP_PKEY **pkey_r)
 {
 	struct ssl_iostream_password_context ctx;
 	EVP_PKEY *pkey;
@@ -106,7 +106,7 @@ int ssl_iostream_load_key(const struct ssl_iostream_settings *set,
 	key = t_strdup_noconst(set->key);
 	bio = BIO_new_mem_buf(key, strlen(key));
 	if (bio == NULL) {
-		i_error("BIO_new_mem_buf() failed: %s", ssl_iostream_error());
+		i_error("BIO_new_mem_buf() failed: %s", openssl_iostream_error());
 		safe_memset(key, 0, strlen(key));
 		return -1;
 	}
@@ -117,7 +117,7 @@ int ssl_iostream_load_key(const struct ssl_iostream_settings *set,
 	pkey = PEM_read_bio_PrivateKey(bio, NULL, pem_password_callback, &ctx);
 	if (pkey == NULL) {
 		i_error("%s: Couldn't parse private SSL key: %s",
-			key_source, ssl_iostream_error());
+			key_source, openssl_iostream_error());
 	}
 	BIO_free(bio);
 
@@ -133,11 +133,11 @@ ssl_iostream_ctx_use_key(struct ssl_iostream_context *ctx,
 	EVP_PKEY *pkey;
 	int ret = 0;
 
-	if (ssl_iostream_load_key(set, ctx->source, &pkey) < 0)
+	if (openssl_iostream_load_key(set, ctx->source, &pkey) < 0)
 		return -1;
 	if (!SSL_CTX_use_PrivateKey(ctx->ssl_ctx, pkey)) {
 		i_error("%s: Can't load SSL private key: %s",
-			ctx->source, ssl_iostream_key_load_error());
+			ctx->source, openssl_iostream_key_load_error());
 		ret = -1;
 	}
 	EVP_PKEY_free(pkey);
@@ -156,7 +156,7 @@ const char *ssl_iostream_get_use_certificate_error(const char *cert)
 	err = ERR_peek_error();
 	if (ERR_GET_LIB(err) != ERR_LIB_PEM ||
 	    ERR_GET_REASON(err) != PEM_R_NO_START_LINE)
-		return ssl_iostream_error();
+		return openssl_iostream_error();
 	else if (is_pem_key(cert)) {
 		return "The file contains a private key "
 			"(you've mixed ssl_cert and ssl_key settings)";
@@ -288,55 +288,6 @@ ssl_iostream_settings_dup(pool_t pool,
 	return new_set;
 }
 
-enum {
-	DOVECOT_SSL_PROTO_SSLv2	= 0x01,
-	DOVECOT_SSL_PROTO_SSLv3	= 0x02,
-	DOVECOT_SSL_PROTO_TLSv1	= 0x04,
-	DOVECOT_SSL_PROTO_ALL	= 0x07
-};
-
-int openssl_get_protocol_options(const char *protocols)
-{
-	const char *const *tmp;
-	int proto, op = 0, include = 0, exclude = 0;
-	bool neg;
-
-	tmp = t_strsplit_spaces(protocols, " ");
-	for (; *tmp != NULL; tmp++) {
-		const char *name = *tmp;
-
-		if (*name != '!')
-			neg = FALSE;
-		else {
-			name++;
-			neg = TRUE;
-		}
-		if (strcasecmp(name, SSL_TXT_SSLV2) == 0)
-			proto = DOVECOT_SSL_PROTO_SSLv2;
-		else if (strcasecmp(name, SSL_TXT_SSLV3) == 0)
-			proto = DOVECOT_SSL_PROTO_SSLv3;
-		else if (strcasecmp(name, SSL_TXT_TLSV1) == 0)
-			proto = DOVECOT_SSL_PROTO_TLSv1;
-		else {
-			i_fatal("Invalid ssl_protocols setting: "
-				"Unknown protocol '%s'", name);
-		}
-		if (neg)
-			exclude |= proto;
-		else
-			include |= proto;
-	}
-	if (include != 0) {
-		/* exclude everything, except those that are included
-		   (and let excludes still override those) */
-		exclude |= DOVECOT_SSL_PROTO_ALL & ~include;
-	}
-	if ((exclude & DOVECOT_SSL_PROTO_SSLv2) != 0) op |= SSL_OP_NO_SSLv2;
-	if ((exclude & DOVECOT_SSL_PROTO_SSLv3) != 0) op |= SSL_OP_NO_SSLv3;
-	if ((exclude & DOVECOT_SSL_PROTO_TLSv1) != 0) op |= SSL_OP_NO_TLSv1;
-	return op;
-}
-
 static int
 ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			 const struct ssl_iostream_settings *set)
@@ -349,7 +300,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	    !SSL_CTX_set_cipher_list(ctx->ssl_ctx, set->cipher_list)) {
 		i_error("%s: Can't set cipher list to '%s': %s",
 			ctx->source, set->cipher_list,
-			ssl_iostream_error());
+			openssl_iostream_error());
 		return -1;
 	}
 	if (ctx->set->protocols != NULL) {
@@ -374,7 +325,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		store = SSL_CTX_get_cert_store(ctx->ssl_ctx);
 		if (load_ca(store, set->ca, &xnames) < 0) {
 			i_error("%s: Couldn't parse ssl_ca: %s", ctx->source,
-				ssl_iostream_error());
+				openssl_iostream_error());
 			return -1;
 		}
 		if (ssl_iostream_ctx_verify_remote_cert(ctx, xnames) < 0)
@@ -383,7 +334,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		if (!SSL_CTX_load_verify_locations(ctx->ssl_ctx, NULL,
 						   set->ca_dir)) {
 			i_error("%s: Can't load CA certs from directory %s: %s",
-				ctx->source, set->ca_dir, ssl_iostream_error());
+				ctx->source, set->ca_dir, openssl_iostream_error());
 			return -1;
 		}
 	} else {
@@ -421,16 +372,16 @@ ssl_iostream_context_init_common(struct ssl_iostream_context *ctx,
 	return ssl_iostream_context_set(ctx, set);
 }
 
-int ssl_iostream_context_init_client(const char *source,
-				     const struct ssl_iostream_settings *set,
-				     struct ssl_iostream_context **ctx_r)
+int openssl_iostream_context_init_client(const char *source,
+					 const struct ssl_iostream_settings *set,
+					 struct ssl_iostream_context **ctx_r)
 {
 	struct ssl_iostream_context *ctx;
 	SSL_CTX *ssl_ctx;
 
 	ssl_iostream_init_global(set);
 	if ((ssl_ctx = SSL_CTX_new(SSLv23_client_method())) == NULL) {
-		i_error("SSL_CTX_new() failed: %s", ssl_iostream_error());
+		i_error("SSL_CTX_new() failed: %s", openssl_iostream_error());
 		return -1;
 	}
 
@@ -445,16 +396,16 @@ int ssl_iostream_context_init_client(const char *source,
 	return 0;
 }
 
-int ssl_iostream_context_init_server(const char *source,
-				     const struct ssl_iostream_settings *set,
-				     struct ssl_iostream_context **ctx_r)
+int openssl_iostream_context_init_server(const char *source,
+					 const struct ssl_iostream_settings *set,
+					 struct ssl_iostream_context **ctx_r)
 {
 	struct ssl_iostream_context *ctx;
 	SSL_CTX *ssl_ctx;
 
 	ssl_iostream_init_global(set);
 	if ((ssl_ctx = SSL_CTX_new(SSLv23_server_method())) == NULL) {
-		i_error("SSL_CTX_new() failed: %s", ssl_iostream_error());
+		i_error("SSL_CTX_new() failed: %s", openssl_iostream_error());
 		return -1;
 	}
 
@@ -468,13 +419,10 @@ int ssl_iostream_context_init_server(const char *source,
 	return 0;
 }
 
-void ssl_iostream_context_deinit(struct ssl_iostream_context **_ctx)
+void openssl_iostream_context_deinit(struct ssl_iostream_context *ctx)
 {
-	struct ssl_iostream_context *ctx = *_ctx;
-
-	*_ctx = NULL;
 	SSL_CTX_free(ctx->ssl_ctx);
-	ssl_iostream_context_free_params(ctx);
+	openssl_iostream_context_free_params(ctx);
 	pool_unref(&ctx->pool);
 	i_free(ctx);
 }

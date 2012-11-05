@@ -45,7 +45,7 @@ static ssize_t i_stream_ssl_read_real(struct istream_private *stream)
 			return -2;
 	}
 
-	ret = ssl_iostream_more(ssl_io);
+	ret = openssl_iostream_more(ssl_io);
 	if (ret <= 0) {
 		if (ret < 0) {
 			/* handshake failed */
@@ -65,7 +65,7 @@ static ssize_t i_stream_ssl_read_real(struct istream_private *stream)
 	while ((ret = SSL_read(ssl_io->ssl,
 			       stream->w_buffer + stream->pos, size)) <= 0) {
 		/* failed to read anything */
-		ret = ssl_iostream_handle_error(ssl_io, ret, "SSL_read");
+		ret = openssl_iostream_handle_error(ssl_io, ret, "SSL_read");
 		if (ret <= 0) {
 			if (ret < 0) {
 				stream->istream.stream_errno = errno;
@@ -108,7 +108,7 @@ static ssize_t i_stream_ssl_read(struct istream_private *stream)
 	return ret;
 }
 
-struct istream *i_stream_create_ssl(struct ssl_iostream *ssl_io)
+struct istream *openssl_i_stream_create_ssl(struct ssl_iostream *ssl_io)
 {
 	struct ssl_istream *sstream;
 

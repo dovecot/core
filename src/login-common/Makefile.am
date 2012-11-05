@@ -22,7 +22,12 @@ liblogin_la_SOURCES = \
 	ssl-proxy-gnutls.c \
 	ssl-proxy-openssl.c
 
+if BUILD_OPENSSL
+openssl_obj = ../lib-ssl-iostream/iostream-openssl-common.lo
+endif
+
 liblogin_la_LIBADD = \
+	$(openssl_obj) \
 	$(SSL_LIBS)
 
 headers = \

@@ -176,8 +176,7 @@ endif
 libauthdb_imap_la_LDFLAGS = -module -avoid-version
 libauthdb_imap_la_LIBADD = \
 	../lib-imap-client/libimap_client.la \
-	../lib-ssl-iostream/libssl_iostream.la \
-	$(LIBDOVECOT) $(SSL_LIBS)
+	$(LIBDOVECOT)
 libauthdb_imap_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-I$(top_srcdir)/src/lib-imap \

@@ -19,13 +19,13 @@ static int generate_dh_parameters(int bitsize, buffer_t *output)
 	dh = DH_generate_parameters(bitsize, DH_GENERATOR, NULL, NULL);
 	if (dh == NULL) {
 		i_error("DH_generate_parameters(bits=%d, gen=%d) failed: %s",
-			bitsize, DH_GENERATOR, ssl_iostream_error());
+			bitsize, DH_GENERATOR, openssl_iostream_error());
 		return -1;
 	}
 
 	len = i2d_DHparams(dh, NULL);
 	if (len < 0) {
-		i_error("i2d_DHparams() failed: %s", ssl_iostream_error());
+		i_error("i2d_DHparams() failed: %s", openssl_iostream_error());
 		DH_free(dh);
 		return -1;
 	}
@@ -40,7 +40,7 @@ static int generate_dh_parameters(int bitsize, buffer_t *output)
 	return 0;
 }
 
-int ssl_iostream_generate_params(buffer_t *output)
+int openssl_iostream_generate_params(buffer_t *output)
 {
 	unsigned int i;
 
@@ -101,13 +101,13 @@ read_dh_parameters_next(struct ssl_iostream_context *ctx,
 	return ret;
 }
 
-int ssl_iostream_context_import_params(struct ssl_iostream_context *ctx,
-				       const buffer_t *input)
+int openssl_iostream_context_import_params(struct ssl_iostream_context *ctx,
+					   const buffer_t *input)
 {
 	const unsigned char *data, *end;
 	int ret;
 
-	ssl_iostream_context_free_params(ctx);
+	openssl_iostream_context_free_params(ctx);
 
 	data = input->data;
 	end = data + input->used;
@@ -116,7 +116,7 @@ int ssl_iostream_context_import_params(struct ssl_iostream_context *ctx,
 	return ret < 0 || data != end ? -1 : 0;
 }
 
-void ssl_iostream_context_free_params(struct ssl_iostream_context *ctx)
+void openssl_iostream_context_free_params(struct ssl_iostream_context *ctx)
 {
 	if (ctx->dh_512 != NULL) {
 		DH_free(ctx->dh_512);

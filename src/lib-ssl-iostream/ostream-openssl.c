@@ -87,8 +87,8 @@ static int o_stream_ssl_flush_buffer(struct ssl_ostream *sstream)
 				CONST_PTR_OFFSET(sstream->buffer->data, pos),
 				sstream->buffer->used - pos);
 		if (ret <= 0) {
-			ret = ssl_iostream_handle_write_error(sstream->ssl_io,
-							      ret, "SSL_write");
+			ret = openssl_iostream_handle_write_error(sstream->ssl_io,
+								  ret, "SSL_write");
 			if (ret < 0) {
 				sstream->ostream.ostream.stream_errno = errno;
 				break;
@@ -97,7 +97,7 @@ static int o_stream_ssl_flush_buffer(struct ssl_ostream *sstream)
 				break;
 		} else {
 			pos += ret;
-			(void)ssl_iostream_bio_sync(sstream->ssl_io);
+			(void)openssl_iostream_bio_sync(sstream->ssl_io);
 		}
 	}
 	buffer_delete(sstream->buffer, 0, pos);
@@ -109,7 +109,7 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
 	int ret;
 
-	if ((ret = ssl_iostream_more(sstream->ssl_io)) < 0) {
+	if ((ret = openssl_iostream_more(sstream->ssl_io)) < 0) {
 		/* handshake failed */
 		stream->ostream.stream_errno = errno;
 	} else if (ret > 0 && sstream->buffer != NULL &&
@@ -143,8 +143,8 @@ o_stream_ssl_sendv_try(struct ssl_ostream *sstream,
 				CONST_PTR_OFFSET(iov[i].iov_base, pos),
 				iov[i].iov_len - pos);
 		if (ret <= 0) {
-			ret = ssl_iostream_handle_write_error(sstream->ssl_io,
-							      ret, "SSL_write");
+			ret = openssl_iostream_handle_write_error(sstream->ssl_io,
+								  ret, "SSL_write");
 			if (ret < 0) {
 				sstream->ostream.ostream.stream_errno = errno;
 				break;
@@ -159,7 +159,7 @@ o_stream_ssl_sendv_try(struct ssl_ostream *sstream,
 				i++;
 				pos = 0;
 			}
-			(void)ssl_iostream_bio_sync(sstream->ssl_io);
+			(void)openssl_iostream_bio_sync(sstream->ssl_io);
 		}
 	}
 	return ret < 0 ? -1 : 0;
@@ -231,7 +231,7 @@ static void o_stream_ssl_set_max_buffer_size(struct iostream_private *_stream,
 	o_stream_set_max_buffer_size(sstream->ssl_io->plain_output, max_size);
 }
 
-struct ostream *o_stream_create_ssl(struct ssl_iostream *ssl_io)
+struct ostream *openssl_o_stream_create_ssl(struct ssl_iostream *ssl_io)
 {
 	struct ssl_ostream *sstream;
 

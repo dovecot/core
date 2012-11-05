@@ -1,6 +1,6 @@
 pkgsysconfdir = $(sysconfdir)/dovecot
 
-noinst_LTLIBRARIES = libmaster.la libmaster_ssl.la
+noinst_LTLIBRARIES = libmaster.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -22,12 +22,10 @@ libmaster_la_SOURCES = \
 	master-service.c \
 	master-service-settings.c \
 	master-service-settings-cache.c \
+	master-service-ssl.c \
 	master-service-ssl-settings.c \
 	mountpoint-list.c \
 	syslog-util.c
-
-libmaster_ssl_la_SOURCES = \
-	master-service-ssl.c
 
 headers = \
 	anvil-client.h \
