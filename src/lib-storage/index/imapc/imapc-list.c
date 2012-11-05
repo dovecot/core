@@ -20,6 +20,8 @@ struct imapc_mailbox_list_iterate_context {
 	struct mailbox_info info;
 };
 
+extern struct mailbox_list imapc_mailbox_list;
+
 static struct mailbox_list *imapc_list_alloc(void)
 {
 	struct imapc_mailbox_list *list;

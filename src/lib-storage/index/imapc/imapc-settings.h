@@ -30,8 +30,6 @@ struct imapc_settings {
 	enum imapc_features parsed_features;
 };
 
-extern struct mail_storage imapc_stub_storage;
-
 const struct setting_parser_info *imapc_get_setting_parser_info(void);
 
 #endif

@@ -1,5 +1,4 @@
 noinst_LTLIBRARIES = libstorage_imapc.la
-module_LTLIBRARIES = lib20_imapc_plugin.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -13,26 +12,15 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/list \
 	-I$(top_srcdir)/src/lib-storage/index
 
-NOPLUGIN_LDFLAGS =
-lib20_imapc_plugin_la_LDFLAGS = -module -avoid-version
-
 libstorage_imapc_la_SOURCES = \
-	imapc-settings.c \
-	imapc-setting-storage.c
-
-lib20_imapc_plugin_la_SOURCES = \
 	imapc-list.c \
 	imapc-mail.c \
 	imapc-mail-fetch.c \
 	imapc-mailbox.c \
-	imapc-plugin.c \
 	imapc-save.c \
+	imapc-settings.c \
 	imapc-sync.c \
 	imapc-storage.c
-
-lib20_imapc_plugin_la_LIBADD = \
-	../../../lib-imap-client/libimap_client.la \
-	../../../lib-ssl-iostream/libssl_iostream.la
 
 headers = \
 	imapc-list.h \
@@ -43,6 +31,3 @@ headers = \
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
-
-noinst_HEADERS = \
-	imapc-plugin.h

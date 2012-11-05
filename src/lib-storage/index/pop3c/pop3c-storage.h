@@ -29,8 +29,6 @@ struct pop3c_mailbox {
 	unsigned int logged_in:1;
 };
 
-extern struct mail_storage pop3c_storage;
-extern struct mailbox pop3c_mailbox;
 extern struct mail_vfuncs pop3c_mail_vfuncs;
 
 #endif

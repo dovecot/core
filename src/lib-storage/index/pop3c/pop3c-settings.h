@@ -17,8 +17,6 @@ struct pop3c_settings {
 	const char *ssl_crypto_device;
 };
 
-extern struct mail_storage pop3c_stub_storage;
-
 const struct setting_parser_info *pop3c_get_setting_parser_info(void);
 
 #endif

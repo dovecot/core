@@ -22,8 +22,6 @@ struct imapc_mailbox_list {
 	unsigned int index_list_failed:1;
 };
 
-extern struct mailbox_list imapc_mailbox_list;
-
 int imapc_list_get_mailbox_flags(struct mailbox_list *list, const char *name,
 				 enum mailbox_info_flags *flags_r);
 

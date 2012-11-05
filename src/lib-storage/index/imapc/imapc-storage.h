@@ -110,9 +110,6 @@ struct imapc_simple_context {
 	int ret;
 };
 
-extern struct mail_storage imapc_storage;
-extern struct mailbox imapc_mailbox;
-
 struct mail_save_context *
 imapc_save_alloc(struct mailbox_transaction_context *_t);
 int imapc_save_begin(struct mail_save_context *ctx, struct istream *input);
