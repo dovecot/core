@@ -8,7 +8,7 @@ libs = \
 	../lib-fs/libfs.la \
 	../lib-charset/libcharset.la \
 	../lib-master/libmaster.la \
-	../lib-ssl-iostream/libssl_iostream.la
+	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
