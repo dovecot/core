@@ -5,7 +5,9 @@
 #include "iostream-ssl-private.h"
 
 static bool ssl_module_loaded = FALSE;
+#ifdef HAVE_SSL
 static struct module *ssl_module = NULL;
+#endif
 static const struct iostream_ssl_vfuncs *ssl_vfuncs = NULL;
 
 static int ssl_module_load(void)
