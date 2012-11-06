@@ -4,11 +4,20 @@
 #include "module-dir.h"
 #include "iostream-ssl-private.h"
 
+#include <stdlib.h>
+
 static bool ssl_module_loaded = FALSE;
 #ifdef HAVE_SSL
 static struct module *ssl_module = NULL;
 #endif
 static const struct iostream_ssl_vfuncs *ssl_vfuncs = NULL;
+
+#ifdef HAVE_SSL
+static void ssl_module_unload(void)
+{
+	module_dir_unload(&ssl_module);
+}
+#endif
 
 static int ssl_module_load(void)
 {
@@ -24,6 +33,8 @@ static int ssl_module_load(void)
 	ssl_vfuncs = module_get_symbol(ssl_module, "ssl_vfuncs");
 	if (ssl_vfuncs == NULL)
 		i_fatal("%s: ssl_vfuncs symbol not found", plugin_name);
+
+	atexit(ssl_module_unload);
 	ssl_module_loaded = TRUE;
 	return 0;
 #else
