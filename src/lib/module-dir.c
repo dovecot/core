@@ -494,8 +494,10 @@ void module_dir_deinit(struct module *modules)
 	struct module *module, **rev;
 	unsigned int i, count = 0;
 
-	for (module = modules; module != NULL; module = module->next)
-		count++;
+	for (module = modules; module != NULL; module = module->next) {
+		if (module->deinit != NULL && module->initialized)
+			count++;
+	}
 
 	if (count == 0)
 		return;
@@ -503,18 +505,19 @@ void module_dir_deinit(struct module *modules)
 	/* @UNSAFE: deinitialize in reverse order */
 	T_BEGIN {
 		rev = t_new(struct module *, count);
-		for (i = 0, module = modules; i < count; i++) {
-			rev[count-i-1] = module;
+		for (i = 0, module = modules; i < count; ) {
+			if (module->deinit != NULL && module->initialized) {
+				rev[count-i-1] = module;
+				i++;
+			}
 			module = module->next;
 		}
 
 		for (i = 0; i < count; i++) {
 			module = rev[i];
 
-			if (module->deinit != NULL && module->initialized) {
-				module->deinit();
-				module->initialized = FALSE;
-			}
+			module->deinit();
+			module->initialized = FALSE;
 		}
 	} T_END;
 }
