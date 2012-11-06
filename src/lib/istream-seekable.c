@@ -139,9 +139,8 @@ static ssize_t read_more(struct seekable_istream *sstream)
 		return -1;
 	}
 
-	while ((ret = i_stream_read(sstream->cur_input)) < 0) {
-		if (!sstream->cur_input->eof) {
-			/* full / error */
+	while ((ret = i_stream_read(sstream->cur_input)) == -1) {
+		if (sstream->cur_input->stream_errno != 0) {
 			sstream->istream.istream.stream_errno =
 				sstream->cur_input->stream_errno;
 			return -1;
@@ -183,7 +182,7 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 		if (size == 0) {
 			/* read more to buffer */
 			*ret_r = read_more(sstream);
-			if (*ret_r <= 0)
+			if (*ret_r == 0 || *ret_r == -1)
 				return TRUE;
 		}
 
