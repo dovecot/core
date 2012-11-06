@@ -472,8 +472,10 @@ int imap_sync_more(struct imap_sync_context *ctx)
 
 		ctx->seq = 0;
 	}
-	if (array_is_created(&ctx->expunges))
-		imap_sync_vanished(ctx);
+	if (ret > 0) {
+		if (array_is_created(&ctx->expunges))
+			imap_sync_vanished(ctx);
+	}
 	return ret;
 }
 
