@@ -70,7 +70,8 @@ auth_token_read_secret(const char *path,
 	}
 
 	/* check security parameters for compromise */
-	if ((st.st_mode & 07777) != 0600 || st.st_uid != 0 || st.st_nlink > 1 ||
+	if ((st.st_mode & 07777) != 0600 ||
+	    st.st_uid != geteuid() || st.st_nlink > 1 ||
 	    !S_ISREG(lst.st_mode) || st.st_ino != lst.st_ino ||
 	    !CMP_DEV_T(st.st_dev, lst.st_dev)) {
 		i_error("Compromised token secret file: %s", path);
