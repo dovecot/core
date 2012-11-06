@@ -60,8 +60,13 @@ static void module_free(struct module *module)
 {
 	if (module->deinit != NULL && module->initialized)
 		module->deinit();
-	if (dlclose(module->handle) != 0)
-		i_error("dlclose(%s) failed: %m", module->path);
+	/* dlclose()ing removes all symbols from valgrind's visibility.
+	   if GDB environment is set, don't actually unload the module
+	   (the GDB environment is used elsewhere too) */
+	if (getenv("GDB") == NULL) {
+		if (dlclose(module->handle) != 0)
+			i_error("dlclose(%s) failed: %m", module->path);
+	}
 	i_free(module->path);
 	i_free(module->name);
 	i_free(module);
