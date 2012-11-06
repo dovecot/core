@@ -296,7 +296,7 @@ imap_sync_send_highestmodseq(struct imap_sync_context *ctx,
 	client->highest_fetch_modseq = 0;
 }
 
-static int imap_sync_finish(struct imap_sync_context *ctx)
+static int imap_sync_finish(struct imap_sync_context *ctx, bool aborting)
 {
 	struct client *client = ctx->client;
 	int ret = ctx->failed ? -1 : 0;
@@ -327,7 +327,7 @@ static int imap_sync_finish(struct imap_sync_context *ctx)
 		client_disconnect_with_error(client,
 					     "Mailbox UIDVALIDITY changed");
 	}
-	if (!ctx->no_newmail) {
+	if (!ctx->no_newmail && !aborting) {
 		if (ctx->status.messages < ctx->messages_count)
 			i_panic("Message count decreased");
 		if (ctx->status.messages != ctx->messages_count &&
@@ -371,7 +371,7 @@ int imap_sync_deinit(struct imap_sync_context *ctx,
 {
 	int ret;
 
-	ret = imap_sync_finish(ctx);
+	ret = imap_sync_finish(ctx, TRUE);
 	imap_client_notify_finished(ctx->client);
 
 	if ((ctx->client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0)
@@ -506,14 +506,14 @@ static int imap_sync_send_expunges(struct imap_sync_context *ctx, string_t *str)
 	for (; ctx->seq >= ctx->sync_rec.seq1; ctx->seq--) {
 		if (ret == 0) {
 			/* buffer full, continue later */
-			break;
+			return 0;
 		}
 
 		str_truncate(str, 0);
 		str_printfa(str, "* %u EXPUNGE", ctx->seq);
 		ret = client_send_line_next(ctx->client, str_c(str));
 	}
-	return ret;
+	return 1;
 }
 
 int imap_sync_more(struct imap_sync_context *ctx)
@@ -613,10 +613,10 @@ int imap_sync_more(struct imap_sync_context *ctx)
 
 		ctx->seq = 0;
 	}
-	if (array_is_created(&ctx->expunges))
-		imap_sync_vanished(ctx);
 	if (ret > 0) {
-		if (imap_sync_finish(ctx) < 0)
+		if (array_is_created(&ctx->expunges))
+			imap_sync_vanished(ctx);
+		if (imap_sync_finish(ctx, FALSE) < 0)
 			return -1;
 		return imap_sync_more(ctx);
 	}
