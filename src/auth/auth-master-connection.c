@@ -239,7 +239,8 @@ user_verify_restricted_uid(struct auth_request *auth_request)
 
 	auth_request_log_error(auth_request, "userdb",
 		"client doesn't have lookup permissions for this user: %s "
-		"(change userdb socket permissions)", reason);
+		"(to bypass this check, set: service auth { unix_listener %s { mode=0777 } })",
+		reason, conn->path);
 	return -1;
 }
 
