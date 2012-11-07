@@ -296,16 +296,6 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		mdbox_transaction_save_rollback(_ctx);
 		return -1;
 	}
-
-	/* assign map UIDs for newly saved messages. they're written to
-	   transaction log immediately within this function, but the map
-	   is left locked. */
-	if (mdbox_map_append_assign_map_uids(ctx->append_ctx, &first_map_uid,
-					     &last_map_uid) < 0) {
-		mdbox_transaction_save_rollback(_ctx);
-		return -1;
-	}
-
 	/* lock the mailbox after map to avoid deadlocks. if we've noticed
 	   any corruption, deal with it later, otherwise we won't have
 	   up-to-date atomic->sync_view */
@@ -314,6 +304,16 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 			     MDBOX_SYNC_FLAG_FSYNC |
 			     MDBOX_SYNC_FLAG_NO_REBUILD, ctx->atomic,
 			     &ctx->sync_ctx) < 0) {
+		mdbox_transaction_save_rollback(_ctx);
+		return -1;
+	}
+
+	/* assign map UIDs for newly saved messages after we've successfully
+	   acquired all the locks. the transaction is now very unlikely to
+	   fail. the UIDs are written to the transaction log immediately within
+	   this function, but the map is left locked. */
+	if (mdbox_map_append_assign_map_uids(ctx->append_ctx, &first_map_uid,
+					     &last_map_uid) < 0) {
 		mdbox_transaction_save_rollback(_ctx);
 		return -1;
 	}
