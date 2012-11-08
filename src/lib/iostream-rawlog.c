@@ -95,7 +95,8 @@ void iostream_rawlog_write(struct rawlog_iostream *rstream,
 	size_t pos;
 	bool line_ends;
 
-	i_assert(size > 0);
+	if (size == 0)
+		return;
 
 	io_loop_time_refresh();
 	if ((rstream->flags & IOSTREAM_RAWLOG_FLAG_BUFFERED) == 0) {
