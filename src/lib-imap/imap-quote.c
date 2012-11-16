@@ -156,7 +156,7 @@ void imap_append_string_for_humans(string_t *dest,
 			break;
 		}
 	}
-	if (last_lwsp) {
+	if (last_lwsp && i > 0) {
 		modify = TRUE;
 		remove_count++;
 	}
