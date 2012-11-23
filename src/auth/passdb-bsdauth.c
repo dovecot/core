@@ -18,6 +18,7 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
 {
 	struct passwd pw;
+	const char *type;
 	int result;
 
 	auth_request_log_debug(request, "bsdauth", "lookup");
@@ -35,7 +36,8 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 	}
 
 	/* check if the password is valid */
-	result = auth_userokay(request->user, NULL, NULL,
+	type = t_strdup_printf("auth-%s", request->service);
+	result = auth_userokay(request->user, NULL, t_strdup_noconst(type),
 			       t_strdup_noconst(password));
 
 	/* clear the passwords from memory */
