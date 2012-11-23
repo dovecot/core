@@ -40,7 +40,7 @@ test_programs = \
 	test-http-response-parser \
 	test-http-client
 
-noinst_PROGRAMS = $(test_programs) test-http-responses
+noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	../lib-test/libtest.la \
@@ -96,26 +96,6 @@ test_http_client_DEPENDENCIES = \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	$(test_deps)
-
-test_http_responses_SOURCES = test-http-responses.c
-test_http_responses_LDADD = \
-	http-date.lo \
-	http-parser.lo \
-	http-header-parser.lo \
-	http-transfer-chunked.lo \
-	http-response-parser.lo \
-	../lib/liblib.la \
-	../lib/safe-memset.lo \
-	$(MODULE_LIBS)
-test_http_responses_DEPENDENCIES = \
-	http-date.lo \
-	http-parser.lo \
-	http-header-parser.lo \
-	http-transfer-chunked.lo \
-	http-response-parser.lo \
-	$(noinst_LTLIBRARIES) \
-	../lib/liblib.la \
-	../lib/safe-memset.lo
 
 check: check-am check-test
 check-test: all-am

@@ -109,11 +109,10 @@ http_client_host_port_drop_request(struct http_client_host_port *hport,
 	array_foreach_modifiable(queue, req_idx) {
 		if (*req_idx == req) {
 			idx = array_foreach_idx(queue, req_idx);
+			array_delete(queue, idx, 1);
 			break;
 		}
 	}
-	
-	array_delete(queue, idx, 1);
 }
 
 /*
