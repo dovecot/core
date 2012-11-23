@@ -1,0 +1,182 @@
+/* Copyright (c) 2012 Dovecot authors, see the included COPYING file */
+
+#include "lib.h"
+#include "net.h"
+#include "str.h"
+#include "hash.h"
+#include "array.h"
+#include "ioloop.h"
+#include "istream.h"
+#include "ostream.h"
+#include "connection.h"
+#include "dns-lookup.h"
+#include "iostream-rawlog.h"
+#include "iostream-ssl.h"
+#include "http-url.h"
+#include "http-response-parser.h"
+
+#include "http-client-private.h"
+
+#define HTTP_DEFAULT_PORT 80
+#define HTTPS_DEFAULT_PORT 443
+
+/* FIXME: This implementation not yet finished. The essence works: it is
+   possible to submit requests through the client. Responses are dumped to
+   stdout
+
+    Structure so far:
+    Client - Acts much like a browser; it is not dedicated to a single host.
+             Client can accept requests to different hosts, which can be served
+             at different IPs. Redirects can be handled in the background by
+             making a new connection. Connections to new hosts are created once
+             needed for servicing a request.
+    Requests - Semantics are similar to imapc commands. Create a request, 
+               optionally modify some aspects of it and finally submit it.
+    Hosts - We maintain a 'cache' of hosts for which we have looked up IPs.
+            Requests are first queued in the host struct on a per-port basis.
+    Peers - Group connections to the same ip/port (== peer_addr).
+    Connections - Actual connections to a server. Once a connection is ready to
+                  handle requests, it claims a request from a host object. One
+                  connection hand service multiple hosts and one host can have
+                  multiple associated connections, possibly to different ips and
+                  ports.
+
+  TODO: lots of cleanup, authentication, ssl, timeouts,	 rawlog etc.
+ */
+
+/*
+ * Logging
+ */
+
+static inline void
+http_client_debug(struct http_client *client,
+	const char *format, ...) ATTR_FORMAT(2, 3);
+
+static inline void
+http_client_debug(struct http_client *client,
+	const char *format, ...)
+{
+	va_list args;
+
+	va_start(args, format);	
+	if (client->set.debug)
+		i_debug("http-client: %s", t_strdup_vprintf(format, args));
+	va_end(args);
+}
+
+/*
+ * Client
+ */
+
+struct http_client *http_client_init(const struct http_client_settings *set)
+{
+	struct http_client *client;
+	pool_t pool;
+
+	pool = pool_alloconly_create("http client", 1024);
+	client = p_new(pool, struct http_client, 1);
+	client->pool = pool;
+	client->set.dns_client_socket_path =
+		p_strdup(pool, set->dns_client_socket_path);
+	client->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
+	client->set.ssl_ca_dir = p_strdup(pool, set->ssl_ca_dir);
+	client->set.max_idle_time_msecs = set->max_idle_time_msecs;
+	client->set.max_parallel_connections =
+		(set->max_parallel_connections > 0 ? set->max_parallel_connections : 1);
+	client->set.max_pipelined_requests =
+		(set->max_pipelined_requests > 0 ? set->max_pipelined_requests : 1);
+	client->set.max_attempts = set->max_attempts;
+	client->set.max_redirects = set->max_redirects;
+	client->set.debug = set->debug;
+
+	client->conn_list = http_client_connection_list_init();
+
+	hash_table_create(&client->hosts, default_pool, 0, str_hash, strcmp);
+	hash_table_create(&client->peers, default_pool, 0,
+		http_client_peer_addr_hash, http_client_peer_addr_cmp);
+
+	return client;
+}
+
+void http_client_deinit(struct http_client **_client)
+{
+	struct http_client *client = *_client;
+	struct hash_iterate_context *iter;
+	const char *hostname;
+	struct http_client_host *host;
+	const struct http_client_peer_addr *addr;
+	struct http_client_peer *peer;
+
+	/* free peers */
+	iter = hash_table_iterate_init(client->peers);
+	while (hash_table_iterate(iter, client->peers, &addr, &peer)) {
+		http_client_peer_free(&peer);
+	}
+	hash_table_iterate_deinit(&iter);
+	hash_table_destroy(&client->peers);
+
+	/* free hosts */
+	iter = hash_table_iterate_init(client->hosts);
+	while (hash_table_iterate(iter, client->hosts, &hostname, &host)) {
+		http_client_host_free(&host);
+	}
+	hash_table_iterate_deinit(&iter);
+	hash_table_destroy(&client->hosts);
+
+	connection_list_deinit(&client->conn_list);
+	pool_unref(&client->pool);
+	*_client = NULL;
+}
+
+void http_client_switch_ioloop(struct http_client *client)
+{
+	struct connection *_conn = client->conn_list->connections;
+
+	/* move connections */
+	/* FIXME: we wouldn't necessarily need to switch all of them
+	   immediately, only those that have requests now. but also connections
+	   that get new requests before ioloop is switched again.. */
+	for (; _conn != NULL; _conn = _conn->next) {
+		struct http_client_connection *conn =
+			(struct http_client_connection *)_conn;
+
+		http_client_connection_switch_ioloop(conn);
+	}
+
+	/* move dns lookups */
+	if (client->set.dns_client_socket_path != '\0') {
+		struct hash_iterate_context *iter;
+		struct http_client_host *host;
+		const char *hostname;
+	
+		iter = hash_table_iterate_init(client->hosts);
+		while (hash_table_iterate(iter, client->hosts, &hostname, &host)) {
+			http_client_host_switch_ioloop(host);
+		}
+		hash_table_iterate_deinit(&iter);
+	}
+}
+
+void http_client_wait(struct http_client *client)
+{
+	struct ioloop *prev_ioloop = current_ioloop;
+
+	i_assert(client->ioloop == NULL);
+
+	client->ioloop = io_loop_create();
+	http_client_switch_ioloop(client);
+
+	do {
+		http_client_debug(client,
+			"Waiting for %d requests to finish", client->pending_requests);
+		io_loop_run(client->ioloop);
+	} while (client->pending_requests > 0);
+
+	http_client_debug(client, "All requests finished");
+
+	current_ioloop = prev_ioloop;
+	http_client_switch_ioloop(client);
+	current_ioloop = client->ioloop;
+	io_loop_destroy(&client->ioloop);
+}
+

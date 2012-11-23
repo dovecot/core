@@ -8,26 +8,51 @@ AM_CPPFLAGS = \
 
 libhttp_la_SOURCES = \
 	http-date.c \
-	http-url.c
+	http-url.c \
+	http-parser.c \
+	http-header-parser.c \
+	http-transfer-chunked.c \
+	http-response-parser.c \
+	http-client-request.c \
+	http-client-connection.c \
+	http-client-peer.c \
+	http-client-host.c \
+	http-client.c
 
 headers = \
 	http-date.h \
-	http-url.h
+	http-url.h \
+	http-parser.h \
+	http-header-parser.h \
+	http-transfer.h \
+	http-response-parser.h \
+	http-client-private.h \
+	http-client.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	test-http-date \
-	test-http-url
+	test-http-url \
+	test-http-header-parser \
+	test-http-transfer \
+	test-http-response-parser \
+	test-http-client
 
-noinst_PROGRAMS = $(test_programs)
+noinst_PROGRAMS = $(test_programs) test-http-responses
 
 test_libs = \
 	../lib-test/libtest.la \
-	../lib/liblib.la
+	../lib/liblib.la \
+	../lib/safe-memset.lo \
+	$(MODULE_LIBS)
 
-test_deps = $(noinst_LTLIBRARIES) $(test_libs)
+test_deps = \
+	$(noinst_LTLIBRARIES)
+	../lib-test/libtest.la \
+	../lib/liblib.la \
+	../lib/safe-memset.lo
 
 test_http_url_SOURCES = test-http-url.c
 test_http_url_LDADD = http-url.lo  $(test_libs)
@@ -36,6 +61,61 @@ test_http_url_DEPENDENCIES = $(test_deps)
 test_http_date_SOURCES = test-http-date.c
 test_http_date_LDADD = http-date.lo  $(test_libs)
 test_http_date_DEPENDENCIES = $(test_deps)
+
+test_http_header_parser_SOURCES = test-http-header-parser.c
+test_http_header_parser_LDADD = http-parser.lo http-header-parser.lo $(test_libs)
+test_http_header_parser_DEPENDENCIES = $(test_deps)
+
+test_http_transfer_SOURCES = test-http-transfer.c
+test_http_transfer_LDADD = \
+	http-parser.lo \
+	http-header-parser.lo \
+	http-transfer-chunked.lo \
+	$(test_libs)
+test_http_transfer_DEPENDENCIES = $(test_deps)
+
+test_http_response_parser_SOURCES = test-http-response-parser.c
+test_http_response_parser_LDADD = \
+	http-date.lo \
+	http-parser.lo \
+	http-header-parser.lo \
+	http-transfer-chunked.lo \
+	http-response-parser.lo \
+	$(test_libs)
+test_http_response_parser_DEPENDENCIES = $(test_deps)
+
+test_http_client_SOURCES = test-http-client.c
+test_http_client_LDFLAGS = -export-dynamic
+test_http_client_LDADD = \
+	libhttp.la \
+	../lib-dns/libdns.la \
+	../lib-ssl-iostream/libssl_iostream.la \
+	$(test_libs)
+test_http_client_DEPENDENCIES = \
+	libhttp.la \
+	../lib-dns/libdns.la \
+	../lib-ssl-iostream/libssl_iostream.la \
+	$(test_deps)
+
+test_http_responses_SOURCES = test-http-responses.c
+test_http_responses_LDADD = \
+	http-date.lo \
+	http-parser.lo \
+	http-header-parser.lo \
+	http-transfer-chunked.lo \
+	http-response-parser.lo \
+	../lib/liblib.la \
+	../lib/safe-memset.lo \
+	$(MODULE_LIBS)
+test_http_responses_DEPENDENCIES = \
+	http-date.lo \
+	http-parser.lo \
+	http-header-parser.lo \
+	http-transfer-chunked.lo \
+	http-response-parser.lo \
+	$(noinst_LTLIBRARIES) \
+	../lib/liblib.la \
+	../lib/safe-memset.lo
 
 check: check-am check-test
 check-test: all-am

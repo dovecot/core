@@ -61,6 +61,10 @@ static struct http_header_parse_result valid_header_parse_result3[] = {
 	{ NULL, NULL }
 };
 
+static struct http_header_parse_result valid_header_parse_result4[] = {
+	{ NULL, NULL }
+};
+
 static const struct http_header_parse_test valid_header_parse_tests[] = {
 	{ .header = 
 			"Date: Sat, 06 Oct 2012 16:01:44 GMT\r\n"
@@ -103,6 +107,10 @@ static const struct http_header_parse_test valid_header_parse_tests[] = {
 			"Content-Type: text/html; charset=iso-8859-1\r\n"
 			"\r\n",
 		.fields = valid_header_parse_result3
+	},{
+		.header =
+			"\r\n",
+		.fields = valid_header_parse_result4
 	}
 };
 
@@ -115,7 +123,7 @@ static void test_http_header_parse_valid(void)
 	for (i = 0; i < valid_header_parse_test_count; i++) T_BEGIN {
 		struct istream *input;
 		struct http_header_parser *parser;
-		const char *header, *field_name;
+		const char *header, *field_name, *error;
 		const unsigned char *field_data;
 		size_t field_size;
 		int ret;
@@ -129,7 +137,7 @@ static void test_http_header_parse_valid(void)
 
 		j = 0;
 		while ((ret=http_header_parse_next_field
-			(parser, &field_name, &field_data, &field_size)) > 0) {
+			(parser, &field_name, &field_data, &field_size, &error)) > 0) {
 			const struct http_header_parse_result *result;
 			const char *field_value;
 
@@ -191,11 +199,11 @@ static void test_http_header_parse_invalid(void)
 	for (i = 0; i < invalid_header_parse_test_count; i++) T_BEGIN {
 		struct istream *input;
 		struct http_header_parser *parser;
-		const char *header, *field_name;
+		const char *header, *field_name, *error;
 		const unsigned char *field_data;
 		size_t field_size;
 		int ret;
-		
+
 		header = invalid_header_parse_tests[i];
 		input = i_stream_create_from_data(header, strlen(header));
 		parser = http_header_parser_init(input);
@@ -203,7 +211,7 @@ static void test_http_header_parse_invalid(void)
 		test_begin(t_strdup_printf("http header invalid [%d]", i));
 
 		while ((ret=http_header_parse_next_field
-			(parser, &field_name, &field_data, &field_size)) > 0) {
+			(parser, &field_name, &field_data, &field_size, &error)) > 0) {
 			if (field_name == NULL) break;
 		}
 
