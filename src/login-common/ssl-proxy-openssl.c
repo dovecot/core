@@ -394,8 +394,9 @@ static const char *ssl_last_error(void)
 	return ssl_err2str(err, data, flags);
 }
 
-static void ssl_handle_error(struct ssl_proxy *proxy, int ret,
-			     const char *func_name)
+static void
+ssl_handle_error(struct ssl_proxy *proxy, int ret, bool remove_wrong_direction,
+		 const char *func_name)
 {
 	const char *errstr = NULL;
 	int err;
@@ -408,9 +409,13 @@ static void ssl_handle_error(struct ssl_proxy *proxy, int ret,
 	switch (err) {
 	case SSL_ERROR_WANT_READ:
 		ssl_set_io(proxy, SSL_ADD_INPUT);
+		if (remove_wrong_direction)
+			ssl_set_io(proxy, SSL_REMOVE_OUTPUT);
 		break;
 	case SSL_ERROR_WANT_WRITE:
 		ssl_set_io(proxy, SSL_ADD_OUTPUT);
+		if (remove_wrong_direction)
+			ssl_set_io(proxy, SSL_REMOVE_INPUT);
 		break;
 	case SSL_ERROR_SYSCALL:
 		/* eat up the error queue */
@@ -458,13 +463,13 @@ static void ssl_handshake(struct ssl_proxy *proxy)
 	if (proxy->client_proxy) {
 		ret = SSL_connect(proxy->ssl);
 		if (ret != 1) {
-			ssl_handle_error(proxy, ret, "SSL_connect()");
+			ssl_handle_error(proxy, ret, TRUE, "SSL_connect()");
 			return;
 		}
 	} else {
 		ret = SSL_accept(proxy->ssl);
 		if (ret != 1) {
-			ssl_handle_error(proxy, ret, "SSL_accept()");
+			ssl_handle_error(proxy, ret, TRUE, "SSL_accept()");
 			return;
 		}
 	}
@@ -491,7 +496,7 @@ static void ssl_read(struct ssl_proxy *proxy)
 			       sizeof(proxy->plainout_buf) -
 			       proxy->plainout_size);
 		if (ret <= 0) {
-			ssl_handle_error(proxy, ret, "SSL_read()");
+			ssl_handle_error(proxy, ret, FALSE, "SSL_read()");
 			break;
 		} else {
 			i_free_and_null(proxy->last_error);
@@ -507,7 +512,7 @@ static void ssl_write(struct ssl_proxy *proxy)
 
 	ret = SSL_write(proxy->ssl, proxy->sslout_buf, proxy->sslout_size);
 	if (ret <= 0)
-		ssl_handle_error(proxy, ret, "SSL_write()");
+		ssl_handle_error(proxy, ret, FALSE, "SSL_write()");
 	else {
 		i_free_and_null(proxy->last_error);
 		proxy->sslout_size -= ret;
