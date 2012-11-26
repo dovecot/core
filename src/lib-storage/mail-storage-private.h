@@ -575,7 +575,9 @@ void mail_storage_copy_list_error(struct mail_storage *storage,
 void mail_storage_copy_error(struct mail_storage *dest,
 			     struct mail_storage *src);
 
-/* Returns TRUE if everything should already be in memory after this call. */
+/* Returns TRUE if everything should already be in memory after this call
+   or if prefetching is not supported, i.e. the caller shouldn't do more
+   prefetching before this message is handled. */
 bool mail_prefetch(struct mail *mail);
 void mail_set_aborted(struct mail *mail);
 void mail_set_expunged(struct mail *mail);
