@@ -387,7 +387,8 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	/* sync private index if needed. do this after real sync to make sure
 	   that all the new messages are added to the private index, so their
 	   flags can be updated. */
-	(void)index_storage_mailbox_sync_pvt(_ctx->box);
+	if (ret == 0)
+		(void)index_storage_mailbox_sync_pvt(_ctx->box);
 
 	/* update search results after private index is updated */
 	index_sync_search_results_update(ctx);
