@@ -35,6 +35,8 @@ typedef struct buffer string_t;
 struct istream;
 struct ostream;
 
+typedef void lib_atexit_callback_t(void);
+
 #include "array-decl.h" /* ARRAY*()s may exist in any header */
 #include "hash-decl.h" /* HASH_TABLE*()s may exist in any header */
 #include "strfuncs.h"
@@ -42,6 +44,12 @@ struct ostream;
 
 size_t nearest_power(size_t num) ATTR_CONST;
 int close_keep_errno(int *fd);
+
+/* Call the given callback at the beginning of lib_deinit(). The main
+   difference to atexit() is that liblib's memory allocation and logging
+   functions are still available. Also if lib_atexit() is called multiple times
+   to the same callback, it's added only once. */
+void lib_atexit(lib_atexit_callback_t *callback);
 
 void lib_init(void);
 void lib_deinit(void);
