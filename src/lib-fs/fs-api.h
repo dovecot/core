@@ -52,6 +52,10 @@ enum fs_open_flags {
 struct fs_settings {
 	/* Dovecot instance's base_dir */
 	const char *base_dir;
+	/* Directory where temporary files can be created at any time
+	   (e.g. /tmp or mail_temp_dir) */
+	const char *temp_dir;
+
 	/* Automatically try to rmdir() directories up to this path when
 	   deleting files. */
 	const char *root_path;
