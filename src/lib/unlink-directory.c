@@ -115,7 +115,8 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags)
 				if (errno != ENOENT)
 					break;
 				errno = 0;
-			} else if (S_ISDIR(st.st_mode)) {
+			} else if (S_ISDIR(st.st_mode) &&
+				   (flags & UNLINK_DIRECTORY_FLAG_FILES_ONLY) == 0) {
 				if (unlink_directory_r(d->d_name, flags) < 0) {
 					if (errno != ENOENT)
 						break;
@@ -134,6 +135,9 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags)
 					}
 					errno = 0;
 				}
+			} else if (S_ISDIR(st.st_mode) &&
+				   (flags & UNLINK_DIRECTORY_FLAG_FILES_ONLY) != 0) {
+				/* skip directory */
 			} else if (old_errno == EBUSY &&
 				   strncmp(d->d_name, ".nfs", 4) == 0) {
 				/* can't delete NFS files that are still
