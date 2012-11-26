@@ -52,6 +52,7 @@ liblib_la_SOURCES = \
 	ipwd.c \
 	iostream.c \
 	iostream-rawlog.c \
+	iostream-temp.c \
 	iso8601-date.c \
 	istream.c \
 	istream-base64-decoder.c \
@@ -179,6 +180,7 @@ headers = \
 	iostream-private.h \
 	iostream-rawlog.h \
 	iostream-rawlog-private.h \
+	iostream-temp.h \
 	iso8601-date.h \
 	istream.h \
 	istream-base64.h \
