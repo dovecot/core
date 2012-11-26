@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "fs-api.h"
 #include "master-service.h"
 #include "mail-index-modseq.h"
 #include "mail-search-build.h"
@@ -26,6 +27,27 @@ static struct mail_storage *sdbox_storage_alloc(void)
 	storage->storage.storage = sdbox_storage;
 	storage->storage.storage.pool = pool;
 	return &storage->storage.storage;
+}
+
+static int sdbox_storage_create(struct mail_storage *_storage,
+				struct mail_namespace *ns,
+				const char **error_r)
+{
+	struct dbox_storage *storage = (struct dbox_storage *)_storage;
+	enum fs_properties props;
+
+	if (dbox_storage_create(_storage, ns, error_r) < 0)
+		return -1;
+
+	if (storage->attachment_fs != NULL) {
+		props = fs_get_properties(storage->attachment_fs);
+		if ((props & FS_PROPERTY_RENAME) == 0) {
+			*error_r = "mail_attachment_fs: "
+				"Backend doesn't support renaming";
+			return -1;
+		}
+	}
+	return 0;
 }
 
 static const char *
@@ -372,7 +394,7 @@ struct mail_storage sdbox_storage = {
 	.v = {
                 NULL,
 		sdbox_storage_alloc,
-		dbox_storage_create,
+		sdbox_storage_create,
 		dbox_storage_destroy,
 		NULL,
 		dbox_storage_get_list_settings,
@@ -389,7 +411,7 @@ struct mail_storage dbox_storage = {
 	.v = {
 		NULL,
 		sdbox_storage_alloc,
-		dbox_storage_create,
+		sdbox_storage_create,
 		dbox_storage_destroy,
 		NULL,
 		dbox_storage_get_list_settings,
