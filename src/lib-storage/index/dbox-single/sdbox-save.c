@@ -25,6 +25,8 @@ struct sdbox_save_context {
 
 	struct sdbox_mailbox *mbox;
 	struct sdbox_sync_context *sync_ctx;
+
+	struct dbox_file *cur_file;
 	struct dbox_file_append_context *append_ctx;
 
 	uint32_t first_saved_seq;
@@ -59,9 +61,9 @@ sdbox_save_alloc(struct mailbox_transaction_context *t)
 
 	if (ctx != NULL) {
 		/* use the existing allocated structure */
+		ctx->cur_file = NULL;
 		ctx->ctx.failed = FALSE;
 		ctx->ctx.finished = FALSE;
-		ctx->ctx.cur_file = NULL;
 		ctx->ctx.dbox_output = NULL;
 		return &ctx->ctx.ctx;
 	}
@@ -110,7 +112,7 @@ int sdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		ctx->ctx.failed = TRUE;
 		return -1;
 	}
-	ctx->ctx.cur_file = file;
+	ctx->cur_file = file;
 	dbox_save_begin(&ctx->ctx, input);
 
 	sdbox_save_add_file(_ctx, file);

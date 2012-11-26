@@ -32,6 +32,7 @@ struct mdbox_save_context {
 	struct mdbox_mailbox *mbox;
 	struct mdbox_sync_context *sync_ctx;
 
+	struct dbox_file *cur_file;
 	struct dbox_file_append_context *cur_file_append;
 	struct mdbox_map_append_context *append_ctx;
 
@@ -105,9 +106,9 @@ mdbox_save_alloc(struct mailbox_transaction_context *t)
 
 	if (ctx != NULL) {
 		/* use the existing allocated structure */
+		ctx->cur_file = NULL;
 		ctx->ctx.failed = FALSE;
 		ctx->ctx.finished = FALSE;
-		ctx->ctx.cur_file = NULL;
 		ctx->ctx.dbox_output = NULL;
 		ctx->cur_file_append = NULL;
 		return &ctx->ctx.ctx;
@@ -148,7 +149,7 @@ int mdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	i_assert(ctx->ctx.dbox_output->offset <= (uint32_t)-1);
 	append_offset = ctx->ctx.dbox_output->offset;
 
-	ctx->ctx.cur_file = ctx->cur_file_append->file;
+	ctx->cur_file = ctx->cur_file_append->file;
 	dbox_save_begin(&ctx->ctx, input);
 
 	save_mail = array_append_space(&ctx->mails);

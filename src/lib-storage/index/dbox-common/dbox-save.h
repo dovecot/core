@@ -12,7 +12,6 @@ struct dbox_save_context {
 	struct istream *input;
 	struct mail *mail;
 
-	struct dbox_file *cur_file;
 	struct ostream *dbox_output;
 
 	unsigned int failed:1;
