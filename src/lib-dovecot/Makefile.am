@@ -1,13 +1,15 @@
+# when adding libraries, update LIBDOVECOT also in configure.in
 libs = \
+	../lib-master/libmaster.la \
+	../lib-fs/libfs.la \
 	../lib-settings/libsettings.la \
+	../lib-http/libhttp.la \
 	../lib-dict/libdict.la \
 	../lib-imap/libimap.la \
 	../lib-mail/libmail.la \
 	../lib-auth/libauth.la \
 	../lib-dns/libdns.la \
-	../lib-fs/libfs.la \
 	../lib-charset/libcharset.la \
-	../lib-master/libmaster.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
