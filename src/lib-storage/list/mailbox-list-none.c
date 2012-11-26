@@ -5,7 +5,6 @@
 #include "imap-match.h"
 #include "mailbox-list-private.h"
 
-#define MAILBOX_LIST_NAME_NONE "none"
 #define GLOBAL_TEMP_PREFIX ".temp."
 
 struct noop_list_iterate_context {

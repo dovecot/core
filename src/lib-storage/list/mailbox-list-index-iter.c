@@ -40,7 +40,7 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 	pool_t pool;
 	char ns_sep = mail_namespace_get_sep(list->ns);
 
-	pool = pool_alloconly_create("mailbox list index iter", 1024);
+	pool = pool_alloconly_create("mailbox list index iter", 2048);
 	ctx = p_new(pool, struct mailbox_list_index_iterate_context, 1);
 	ctx->ctx.pool = pool;
 	ctx->ctx.list = list;

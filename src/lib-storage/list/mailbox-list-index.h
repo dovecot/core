@@ -27,7 +27,6 @@
 #include "mail-storage.h"
 #include "mailbox-list-private.h"
 
-#define MAILBOX_LIST_NAME_INDEX "index"
 #define MAILBOX_LIST_INDEX_HIERARHCY_SEP '~'
 #define MAILBOX_LIST_INDEX_PREFIX "dovecot.list.index"
 

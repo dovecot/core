@@ -36,7 +36,7 @@ void mailbox_list_index_reset(struct mailbox_list_index *ilist)
 	ilist->sync_log_file_offset = 0;
 }
 
-static void mailbox_list_index_index_open(struct mailbox_list *list)
+static int mailbox_list_index_index_open(struct mailbox_list *list)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 	const struct mail_storage_settings *set = list->mail_set;
@@ -44,10 +44,14 @@ static void mailbox_list_index_index_open(struct mailbox_list *list)
 	unsigned int lock_timeout;
 
 	if (ilist->opened)
-		return;
-	ilist->opened = TRUE;
+		return 0;
 
 	index_flags = mail_storage_settings_to_index_flags(set);
+	if (strcmp(list->name, MAILBOX_LIST_NAME_INDEX) == 0) {
+		/* LAYOUT=index. this is the only location for the mailbox
+		   data, so we must never move it into memory. */
+		index_flags |= MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
+	}
 	lock_timeout = set->mail_max_lock_timeout == 0 ? -1U :
 		set->mail_max_lock_timeout;
 
@@ -56,12 +60,17 @@ static void mailbox_list_index_index_open(struct mailbox_list *list)
 	if (mail_index_open_or_create(ilist->index, index_flags) < 0) {
 		if (mail_index_move_to_memory(ilist->index) < 0) {
 			/* try opening once more. it should be created
-			   directly into memory now. */
+			   directly into memory now, except if it fails with
+			   LAYOUT=index backend. */
 			if (mail_index_open_or_create(ilist->index,
-						      index_flags) < 0)
-				i_panic("in-memory index creation failed");
+						      index_flags) < 0) {
+				mailbox_list_set_internal_error(list);
+				return -1;
+			}
 		}
 	}
+	ilist->opened = TRUE;
+	return 0;
 }
 
 struct mailbox_list_index_node *
@@ -344,7 +353,8 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 		return 0;
 	}
 
-	mailbox_list_index_index_open(list);
+	if (mailbox_list_index_index_open(list) < 0)
+		return -1;
 	if (mail_index_refresh(ilist->index) < 0) {
 		mailbox_list_index_set_index_error(list);
 		return -1;
@@ -380,7 +390,7 @@ void mailbox_list_index_refresh_later(struct mailbox_list *list)
 	if (!ilist->has_backing_store)
 		return;
 
-	mailbox_list_index_index_open(list);
+	(void)mailbox_list_index_index_open(list);
 
 	view = mail_index_view_open(ilist->index);
 	if (!mailbox_list_index_need_refresh(ilist, view)) {
@@ -481,7 +491,8 @@ mailbox_list_index_set_subscribed(struct mailbox_list *_list,
 
 	/* update the "subscriptions changed" counter/timestamp. its purpose
 	   is to trigger NOTIFY watcher to handle SubscriptionChange events */
-	mailbox_list_index_index_open(_list);
+	if (mailbox_list_index_index_open(_list) < 0)
+		return -1;
 	view = mail_index_view_open(ilist->index);
 	mail_index_get_header_ext(view, ilist->subs_hdr_ext_id, &data, &size);
 	if (size != sizeof(counter))
@@ -510,7 +521,8 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 	/* layout=index doesn't have any backing store */
 	has_backing_store = strcmp(list->name, MAILBOX_LIST_NAME_INDEX) != 0;
 
-	if (!list->mail_set->mailbox_list_index) {
+	if (!list->mail_set->mailbox_list_index ||
+	    strcmp(list->name, MAILBOX_LIST_NAME_NONE) == 0) {
 		/* reserve the module context anyway, so syncing code knows
 		   that the index is disabled */
 		i_assert(has_backing_store);

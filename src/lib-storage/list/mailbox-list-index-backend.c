@@ -36,8 +36,16 @@ static struct mailbox_list *index_list_alloc(void)
 
 static int index_list_init(struct mailbox_list *_list, const char **error_r)
 {
+	const char *dir;
+
 	if (!_list->mail_set->mailbox_list_index) {
 		*error_r = "LAYOUT=index requires mailbox_list_index=yes";
+		return -1;
+	}
+	if (mailbox_list_get_root_path(_list, MAILBOX_LIST_PATH_TYPE_INDEX, &dir) &&
+	    mailbox_list_mkdir_root(_list, dir, MAILBOX_LIST_PATH_TYPE_INDEX) < 0) {
+		*error_r = t_strdup_printf("Failed to create the index root directory: %s",
+					   mailbox_list_get_last_error(_list, NULL));
 		return -1;
 	}
 	return 0;
@@ -542,7 +550,7 @@ index_list_iter_init(struct mailbox_list *list,
 	struct mailbox_list_iterate_context *ctx;
 	pool_t pool;
 
-	pool = pool_alloconly_create("mailbox list index iter", 1024);
+	pool = pool_alloconly_create("mailbox list index backend iter", 1024);
 	ctx = p_new(pool, struct mailbox_list_iterate_context, 1);
 	ctx->pool = pool;
 	ctx->list = list;
@@ -565,7 +573,7 @@ static int index_list_iter_deinit(struct mailbox_list_iterate_context *ctx)
 
 struct mailbox_list index_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_INDEX,
-	.props = 0,
+	.props = MAILBOX_LIST_PROP_NO_ROOT,
 	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
 	{
