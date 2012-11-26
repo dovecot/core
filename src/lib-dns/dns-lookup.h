@@ -1,6 +1,8 @@
 #ifndef DNS_LOOKUP_H
 #define DNS_LOOKUP_H
 
+#define DNS_CLIENT_SOCKET_NAME "dns-client"
+
 struct dns_lookup;
 
 struct dns_lookup_settings {
