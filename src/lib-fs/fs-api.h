@@ -11,7 +11,12 @@ enum fs_properties {
 	FS_PROPERTY_LOCKS	= 0x02,
 	FS_PROPERTY_FASTCOPY	= 0x04,
 	FS_PROPERTY_RENAME	= 0x08,
-	FS_PROPERTY_STAT	= 0x10
+	FS_PROPERTY_STAT	= 0x10,
+	/* Iteration is possible */
+	FS_PROPERTY_ITER	= 0x20,
+	/* Iteration always returns all of the files (instead of possibly
+	   slightly out of date view) */
+	FS_PROPERTY_RELIABLEITER= 0x40
 };
 
 enum fs_open_mode {
