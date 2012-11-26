@@ -179,8 +179,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	} else {
 		/* no I/Os, but we should have some timeouts.
 		   just wait for them. */
-		if (msecs > 0)
-			usleep(msecs*1000);
+		i_assert(msecs >= 0);
+		usleep(msecs*1000);
 		ret = 0;
 	}
 
