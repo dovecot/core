@@ -652,7 +652,7 @@ static struct fs_iter *fs_posix_iter_init(struct fs *fs, const char *path)
 	iter->iter.fs = fs;
 	iter->path = i_strdup(path);
 	iter->dir = opendir(path);
-	if (iter->dir == NULL) {
+	if (iter->dir == NULL && errno != ENOENT) {
 		iter->err = errno;
 		fs_set_error(fs, "opendir(%s) failed: %m", path);
 	}
