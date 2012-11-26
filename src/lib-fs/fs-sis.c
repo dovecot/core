@@ -470,7 +470,7 @@ fs_sis_iter_init(struct fs *_fs, const char *path)
 	return fs_iter_init(fs->super, path);
 }
 
-struct fs fs_class_sis = {
+const struct fs fs_class_sis = {
 	.name = "sis",
 	.v = {
 		fs_sis_alloc,

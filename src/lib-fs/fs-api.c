@@ -1,14 +1,13 @@
 /* Copyright (c) 2010-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
+#include "module-dir.h"
 #include "str.h"
 #include "fs-api-private.h"
 
-static struct fs *fs_classes[] = {
-	&fs_class_posix,
-	&fs_class_sis,
-	&fs_class_sis_queue
-};
+static struct module *fs_modules = NULL;
+static ARRAY(const struct fs *) fs_classes;
 
 static int
 fs_alloc(const struct fs *fs_class, const char *args,
@@ -36,20 +35,80 @@ fs_alloc(const struct fs *fs_class, const char *args,
 	return 0;
 }
 
+static void fs_class_register(const struct fs *fs_class)
+{
+	array_append(&fs_classes, &fs_class, 1);
+}
+
+static void fs_classes_init(void)
+{
+	i_array_init(&fs_classes, 8);
+	fs_class_register(&fs_class_posix);
+	fs_class_register(&fs_class_sis);
+	fs_class_register(&fs_class_sis_queue);
+}
+
+static const struct fs *fs_class_find(const char *driver)
+{
+	const struct fs *const *classp;
+
+	if (!array_is_created(&fs_classes))
+		fs_classes_init();
+
+	array_foreach(&fs_classes, classp) {
+		if (strcmp((*classp)->name, driver) == 0)
+			return *classp;
+	}
+	return NULL;
+}
+
+static void fs_class_deinit_modules(void)
+{
+	module_dir_unload(&fs_modules);
+}
+
+static void fs_class_try_load_plugin(const char *driver)
+{
+	const char *module_name = t_strdup_printf("fs_%s", driver);
+	struct module *module;
+	struct module_dir_load_settings mod_set;
+	const struct fs *fs_class;
+
+	memset(&mod_set, 0, sizeof(mod_set));
+	mod_set.abi_version = DOVECOT_ABI_VERSION;
+	mod_set.ignore_missing = TRUE;
+
+	fs_modules = module_dir_load_missing(fs_modules, MODULE_DIR,
+					     module_name, &mod_set);
+	module_dir_init(fs_modules);
+
+	module = module_dir_find(fs_modules, module_name);
+	fs_class = module_get_symbol(module,
+				     t_strdup_printf("fs_class_%s", driver));
+	if (fs_class != NULL)
+		fs_class_register(fs_class);
+
+	lib_atexit(fs_class_deinit_modules);
+}
+
 int fs_init(const char *driver, const char *args,
 	    const struct fs_settings *set,
 	    struct fs **fs_r, const char **error_r)
 {
-	unsigned int i;
+	const struct fs *fs_class;
 
-	for (i = 0; i < N_ELEMENTS(fs_classes); i++) {
-		if (strcmp(fs_classes[i]->name, driver) == 0) {
-			return fs_alloc(fs_classes[i], args,
-					set, fs_r, error_r);
-		}
+	fs_class = fs_class_find(driver);
+	if (fs_class == NULL) {
+		T_BEGIN {
+			fs_class_try_load_plugin(driver);
+		} T_END;
+		fs_class = fs_class_find(driver);
 	}
-	*error_r = t_strdup_printf("Unknown fs driver: %s", driver);
-	return -1;
+	if (fs_class == NULL) {
+		*error_r = t_strdup_printf("Unknown fs driver: %s", driver);
+		return -1;
+	}
+	return fs_alloc(fs_class, args, set, fs_r, error_r);
 }
 
 void fs_deinit(struct fs **_fs)

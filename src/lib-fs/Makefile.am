@@ -1,7 +1,8 @@
 noinst_LTLIBRARIES = libfs.la
 
 AM_CPPFLAGS = \
-	-I$(top_srcdir)/src/lib
+	-I$(top_srcdir)/src/lib \
+	-DMODULE_DIR=\""$(moduledir)"\"
 
 libfs_la_SOURCES = \
 	fs-api.c \

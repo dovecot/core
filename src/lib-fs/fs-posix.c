@@ -724,7 +724,7 @@ static int fs_posix_iter_deinit(struct fs_iter *_iter)
 	return ret;
 }
 
-struct fs fs_class_posix = {
+const struct fs fs_class_posix = {
 	.name = "posix",
 	.v = {
 		fs_posix_alloc,

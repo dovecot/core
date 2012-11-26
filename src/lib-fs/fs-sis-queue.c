@@ -335,7 +335,7 @@ fs_sis_queue_iter_init(struct fs *_fs, const char *path)
 	return fs_iter_init(fs->super, path);
 }
 
-struct fs fs_class_sis_queue = {
+const struct fs fs_class_sis_queue = {
 	.name = "sis-queue",
 	.v = {
 		fs_sis_queue_alloc,

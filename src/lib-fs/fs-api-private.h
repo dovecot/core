@@ -74,9 +74,9 @@ struct fs_iter {
 	struct fs *fs;
 };
 
-extern struct fs fs_class_posix;
-extern struct fs fs_class_sis;
-extern struct fs fs_class_sis_queue;
+extern const struct fs fs_class_posix;
+extern const struct fs fs_class_sis;
+extern const struct fs fs_class_sis_queue;
 
 void fs_set_error(struct fs *fs, const char *fmt, ...) ATTR_FORMAT(2, 3);
 void fs_set_critical(struct fs *fs, const char *fmt, ...) ATTR_FORMAT(2, 3);
