@@ -45,6 +45,10 @@ struct mdbox_mail_index_record {
 	uint32_t map_uid;
 	uint32_t save_date;
 };
+struct obox_mail_index_record {
+	unsigned char guid[GUID_128_SIZE];
+	unsigned char oid[GUID_128_SIZE];
+};
 struct mailbox_list_index_record {
 	uint32_t name_id;
 	uint32_t parent_uid;
@@ -557,6 +561,10 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 			const struct mdbox_mail_index_record *drec = data;
 			printf("                   : map_uid   = %u\n", drec->map_uid);
 			printf("                   : save_date = %u (%s)\n", drec->save_date, unixdate2str(drec->save_date));
+		} else if (strcmp(ext[i].name, "obox") == 0) {
+			const struct obox_mail_index_record *orec = data;
+			printf("                   : guid = %s\n", guid_128_to_string(orec->guid));
+			printf("                   : oid  = %s\n", guid_128_to_string(orec->oid));
 		} else if (strcmp(ext[i].name, "list") == 0) {
 			const struct mailbox_list_index_record *lrec = data;
 			printf("                   : name_id      = %u\n", lrec->name_id);
