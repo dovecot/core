@@ -686,10 +686,16 @@ static const char *fs_posix_iter_next(struct fs_iter *_iter)
 	errno = 0;
 	while ((d = readdir(iter->dir)) != NULL) {
 #ifdef HAVE_DIRENT_D_TYPE
-		if (d->d_type != DT_DIR) {
-			if (d->d_type == DT_UNKNOWN &&
-			    fs_posix_iter_want(iter->path, d->d_name))
+		switch (d->d_type) {
+		case DT_UNKNOWN:
+			if (!fs_posix_iter_want(iter->path, d->d_name))
+				break;
+			/* fall through */
+		case DT_REG:
+		case DT_LNK:
 			return d->d_name;
+		default:
+			break;
 		}
 #else
 		if (fs_posix_iter_want(iter->path, d->d_name))
