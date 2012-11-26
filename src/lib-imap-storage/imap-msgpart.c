@@ -412,7 +412,7 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 		       const struct imap_msgpart *msgpart)
 {
 	struct mail_msgpart_partial_cache *cache = &mail->box->partial_cache;
-	struct istream *crlf_input;
+	struct istream *crlf_input, *errinput;
 	uoff_t physical_start = input->v_offset;
 	uoff_t virtual_skip = msgpart->partial_offset;
 	bool cr_skipped;
@@ -432,8 +432,11 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 		   message parts. */
 		skip_using_parts(mail, input, physical_start, &virtual_skip);
 	}
-	if (message_skip_virtual(input, virtual_skip, &cr_skipped) < 0)
-		return i_stream_create_error(errno);
+	if (message_skip_virtual(input, virtual_skip, &cr_skipped) < 0) {
+		errinput = i_stream_create_error(errno);
+		i_stream_set_name(errinput, i_stream_get_name(input));
+		return errinput;
+	}
 
 	if ((msgpart->partial_offset != 0 ||
 	     msgpart->partial_size != (uoff_t)-1) && !input->eof) {
