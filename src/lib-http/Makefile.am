@@ -45,14 +45,12 @@ noinst_PROGRAMS = $(test_programs)
 test_libs = \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
-	../lib/safe-memset.lo \
 	$(MODULE_LIBS)
 
 test_deps = \
 	$(noinst_LTLIBRARIES)
 	../lib-test/libtest.la \
-	../lib/liblib.la \
-	../lib/safe-memset.lo
+	../lib/liblib.la
 
 test_http_url_SOURCES = test-http-url.c
 test_http_url_LDADD = http-url.lo  $(test_libs)
