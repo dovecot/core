@@ -19,7 +19,7 @@ struct fs_vfuncs {
 	void (*set_async_callback)(struct fs_file *file,
 				   fs_file_async_callback_t *callback,
 				   void *context);
-	void (*wait_async)(struct fs *fs);
+	int (*wait_async)(struct fs *fs);
 
 	void (*set_metadata)(struct fs_file *file, const char *key,
 			     const char *value);

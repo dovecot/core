@@ -190,10 +190,12 @@ void fs_file_set_async_callback(struct fs_file *file,
 		callback(context);
 }
 
-void fs_wait_async(struct fs *fs)
+int fs_wait_async(struct fs *fs)
 {
-	if (fs->v.wait_async != NULL)
-		fs->v.wait_async(fs);
+	if (fs->v.wait_async == NULL)
+		return 0;
+	else
+		return fs->v.wait_async(fs);
 }
 
 int fs_lock(struct fs_file *file, unsigned int secs, struct fs_lock **lock_r)
