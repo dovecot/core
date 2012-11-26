@@ -315,7 +315,7 @@ static void check_duplicates(ARRAY_TYPE(const_string) *names,
 	}
 }
 
-static bool module_is_loaded(struct module *modules, const char *name)
+struct module *module_dir_find(struct module *modules, const char *name)
 {
 	struct module *module;
 	unsigned int len = strlen(name);
@@ -324,10 +324,15 @@ static bool module_is_loaded(struct module *modules, const char *name)
 		if (strncmp(module->name, name, len) == 0) {
 			if (module->name[len] == '\0' ||
 			    strcmp(module->name + len, "_plugin") == 0)
-				return TRUE;
+				return module;
 		}
 	}
-	return FALSE;
+	return NULL;
+}
+
+static bool module_is_loaded(struct module *modules, const char *name)
+{
+	return module_dir_find(modules, name) != NULL;
 }
 
 static void module_names_fix(const char **module_names)

@@ -57,6 +57,8 @@ void module_dir_init(struct module *modules);
 void module_dir_deinit(struct module *modules);
 /* Unload all modules */
 void module_dir_unload(struct module **modules);
+/* Find a module by name. */
+struct module *module_dir_find(struct module *modules, const char *name);
 
 void *module_get_symbol(struct module *module, const char *symbol);
 void *module_get_symbol_quiet(struct module *module, const char *symbol);
