@@ -355,8 +355,10 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 						   list_set.layout, *error_r);
 			return -1;
 		}
-		if (mail_storage_create_root(ns->list, flags, error_r) < 0)
-			return -1;
+		if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) == 0) {
+			if (mail_storage_create_root(ns->list, flags, error_r) < 0)
+				return -1;
+		}
 	}
 
 	storage = mail_storage_find(ns->user, storage_class, &list_set);
