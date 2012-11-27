@@ -623,13 +623,13 @@ i_stream_default_stat(struct istream_private *stream, bool exact)
 	if (stream->parent == NULL)
 		return 0;
 
-	if (exact && !stream->stream_size_passthrough) {
-		i_panic("istream %s: stat() doesn't support getting exact size",
-			i_stream_get_name(&stream->istream));
-	}
 	if (i_stream_stat(stream->parent, exact, &st) < 0)
 		return -1;
 	stream->statbuf = *st;
+	if (exact && !stream->stream_size_passthrough) {
+		/* exact size is not known, even if parent returned something */
+		stream->statbuf.st_size = -1;
+	}
 	return 0;
 }
 
