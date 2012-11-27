@@ -216,11 +216,10 @@ passwd_passwd_preinit(pool_t pool, const char *args)
 	module = p_new(pool, struct passwd_userdb_module, 1);
 	module->module.cache_key = USER_CACHE_KEY;
 	module->tmpl = userdb_template_build(pool, "passwd", args);
+	module->module.blocking = TRUE;
 
-	if (userdb_template_remove(module->tmpl, "blocking", &value)) {
-		module->module.blocking = value == NULL ||
-			strcasecmp(value, "yes") == 0;
-	}
+	if (userdb_template_remove(module->tmpl, "blocking", &value))
+		module->module.blocking = strcasecmp(value, "yes") == 0;
 	/* FIXME: backwards compatibility */
 	if (!userdb_template_is_empty(module->tmpl))
 		i_warning("userdb passwd: Move templates args to override_fields setting");
