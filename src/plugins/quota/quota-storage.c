@@ -87,7 +87,7 @@ quota_get_status(struct mailbox *box, enum mailbox_status_items items,
 		if ((items & ~STATUS_CHECK_OVER_QUOTA) == 0) {
 			/* don't bother calling parent, it may unnecessarily
 			   try to open the mailbox */
-			return ret;
+			return ret < 0 ? -1 : 0;
 		}
 	}
 
