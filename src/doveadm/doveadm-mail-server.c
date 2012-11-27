@@ -22,6 +22,11 @@
 #define DOVEADM_MAIL_SERVER_FAILED() \
 	(internal_failure || master_service_is_killed(master_service))
 
+struct doveadm_mail_server_cmd {
+	struct server_connection *conn;
+	char *username;
+};
+
 static struct hash_table *servers;
 static pool_t server_pool;
 static struct doveadm_mail_cmd_context *cmd_ctx;
@@ -80,16 +85,22 @@ static bool doveadm_server_have_used_connections(struct doveadm_server *server)
 
 static void doveadm_cmd_callback(enum server_cmd_reply reply, void *context)
 {
-	struct server_connection *conn = context;
-	struct doveadm_server *server;
+	struct doveadm_mail_server_cmd *servercmd = context;
+	struct doveadm_server *server =
+		server_connection_get_server(servercmd->conn);
+	const char *username = t_strdup(servercmd->username);
+
+	i_free(servercmd->username);
+	i_free(servercmd);
 
 	switch (reply) {
 	case SERVER_CMD_REPLY_INTERNAL_FAILURE:
+		i_error("%s: Internal failure for %s", server->name, username);
 		internal_failure = TRUE;
 		master_service_stop(master_service);
 		return;
 	case SERVER_CMD_REPLY_UNKNOWN_USER:
-		i_error("No such user");
+		i_error("%s: No such user: %s", server->name, username);
 		if (cmd_ctx->exit_code == 0)
 			cmd_ctx->exit_code = EX_NOUSER;
 		break;
@@ -100,8 +111,8 @@ static void doveadm_cmd_callback(enum server_cmd_reply reply, void *context)
 		break;
 	}
 
-	server = server_connection_get_server(conn);
 	if (array_count(&server->queue) > 0) {
+		struct server_connection *conn;
 		char *const *usernamep = array_idx(&server->queue, 0);
 		char *username = *usernamep;
 
@@ -119,6 +130,7 @@ static void doveadm_cmd_callback(enum server_cmd_reply reply, void *context)
 static void doveadm_mail_server_handle(struct server_connection *conn,
 				       const char *username)
 {
+	struct doveadm_mail_server_cmd *servercmd;
 	string_t *cmd;
 	unsigned int i;
 
@@ -138,7 +150,12 @@ static void doveadm_mail_server_handle(struct server_connection *conn,
 		str_tabescape_write(cmd, cmd_ctx->full_args[i]);
 	}
 	str_append_c(cmd, '\n');
-	server_connection_cmd(conn, str_c(cmd), doveadm_cmd_callback, conn);
+
+	servercmd = i_new(struct doveadm_mail_server_cmd, 1);
+	servercmd->conn = conn;
+	servercmd->username = i_strdup(username);
+	server_connection_cmd(conn, str_c(cmd),
+			      doveadm_cmd_callback, servercmd);
 }
 
 static void doveadm_server_flush_one(struct doveadm_server *server)
