@@ -83,8 +83,8 @@ static void fs_class_try_load_plugin(const char *driver)
 	module_dir_init(fs_modules);
 
 	module = module_dir_find(fs_modules, module_name);
-	fs_class = module_get_symbol(module,
-				     t_strdup_printf("fs_class_%s", driver));
+	fs_class = module == NULL ? NULL :
+		module_get_symbol(module, t_strdup_printf("fs_class_%s", driver));
 	if (fs_class != NULL)
 		fs_class_register(fs_class);
 
