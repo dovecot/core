@@ -315,6 +315,9 @@ static bool mail_cache_unlink_hole(struct mail_cache *cache, size_t size,
 
 	i_assert(cache->locked);
 
+	if (hdr->minor_version > 0)
+		return FALSE; /* this is record_count field in v2.2+ */
+
 	offset = hdr->hole_offset; prev_offset = 0;
 	while (offset != 0) {
 		if (pread_full(cache->fd, &hole, sizeof(hole), offset) <= 0) {
@@ -481,7 +484,8 @@ mail_cache_free_space(struct mail_cache *cache, uint32_t offset, uint32_t size)
 		/* we can just set used_file_size back */
 		cache->hdr_modified = TRUE;
 		cache->hdr_copy.used_file_size = offset;
-	} else if (size >= MAIL_CACHE_MIN_HOLE_SIZE) {
+	} else if (size >= MAIL_CACHE_MIN_HOLE_SIZE &&
+		   cache->hdr_copy.minor_version == 0) {
 		/* set it up as a hole */
 		hole.next_offset = cache->hdr_copy.hole_offset;
 		hole.size = size;

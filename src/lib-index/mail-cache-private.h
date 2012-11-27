@@ -47,7 +47,8 @@ struct mail_cache_header {
 	   compatibility. */
 	uint8_t version;
 	uint8_t compat_sizeof_uoff_t;
-	uint8_t unused[2];
+	uint8_t minor_version;
+	uint8_t unused;
 
 	uint32_t indexid;
 	uint32_t file_seq;
