@@ -99,10 +99,13 @@ static int script_contents_read(struct mail_user *user)
 		content->content_type = args[0];
 		content->extensions = (const void *)(args+1);
 	}
+	if (!eof_seen) {
+		if (input->v_offset == 0)
+			i_error("parser script didn't send any data");
+		else
+			i_error("parser script didn't send empty EOF line");
+	}
 	i_stream_destroy(&input);
-
-	if (!eof_seen)
-		i_error("parser script didn't send empty EOF line");
 	return 0;
 }
 
