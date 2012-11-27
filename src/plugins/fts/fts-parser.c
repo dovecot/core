@@ -11,7 +11,7 @@ const struct fts_parser_vfuncs *parsers[] = {
 	&fts_parser_script
 };
 
-bool fts_parser_init(struct mail_user *user,
+bool fts_parser_init(struct mail_user *user, bool require_short_utf8,
 		     const char *content_type, const char *content_disposition,
 		     struct fts_parser **parser_r)
 {
@@ -20,8 +20,10 @@ bool fts_parser_init(struct mail_user *user,
 	for (i = 0; i < N_ELEMENTS(parsers); i++) {
 		*parser_r = parsers[i]->try_init(user, content_type,
 						 content_disposition);
-		if (*parser_r != NULL)
+		if (*parser_r != NULL) {
+			(*parser_r)->require_short_utf8 = require_short_utf8;
 			return TRUE;
+		}
 	}
 	return FALSE;
 }
@@ -56,11 +58,15 @@ static void replace_nul_bytes(buffer_t *buf)
 
 void fts_parser_more(struct fts_parser *parser, struct message_block *block)
 {
+	bool valid_utf8;
+
 	if (parser->v.more != NULL)
 		parser->v.more(parser, block);
 
-	if (!uni_utf8_data_is_valid(block->data, block->size) ||
-	    data_has_nuls(block->data, block->size)) {
+	valid_utf8 = parser->require_short_utf8 ?
+		uni_utf8_short_data_is_valid(block->data, block->size) :
+		uni_utf8_data_is_valid(block->data, block->size);
+	if (!valid_utf8 || data_has_nuls(block->data, block->size)) {
 		/* output isn't valid UTF-8. make it. */
 		if (parser->utf8_output == NULL) {
 			parser->utf8_output =
@@ -68,8 +74,14 @@ void fts_parser_more(struct fts_parser *parser, struct message_block *block)
 		} else {
 			buffer_set_used_size(parser->utf8_output, 0);
 		}
-		(void)uni_utf8_get_valid_data(block->data, block->size,
-					      parser->utf8_output);
+		if (parser->require_short_utf8) {
+			(void)uni_utf8_short_get_valid_data(block->data,
+							    block->size,
+							    parser->utf8_output);
+		} else {
+			(void)uni_utf8_get_valid_data(block->data, block->size,
+						      parser->utf8_output);
+		}
 		replace_nul_bytes(parser->utf8_output);
 		block->data = parser->utf8_output->data;
 		block->size = parser->utf8_output->used;

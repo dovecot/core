@@ -144,6 +144,7 @@ fts_build_body_begin(struct fts_mail_build_context *ctx, bool *binary_body_r)
 	struct mail_storage *storage;
 	const char *content_type;
 	struct fts_backend_build_key key;
+	bool require_short_utf8;
 
 	i_assert(ctx->body_parser == NULL);
 
@@ -158,9 +159,11 @@ fts_build_body_begin(struct fts_mail_build_context *ctx, bool *binary_body_r)
 		return FALSE;
 	}
 
-	
+	require_short_utf8 = (ctx->update_ctx->backend->flags &
+			      FTS_BACKEND_FLAG_BUILD_SHORT_UTF8) != 0;
+
 	storage = mailbox_get_storage(ctx->mail->box);
-	if (fts_parser_init(mail_storage_get_user(storage),
+	if (fts_parser_init(mail_storage_get_user(storage), require_short_utf8,
 			    content_type, ctx->content_disposition,
 			    &ctx->body_parser)) {
 		/* extract text using the the returned parser */
