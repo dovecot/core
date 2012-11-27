@@ -420,3 +420,67 @@ bool uni_utf8_data_is_valid(const unsigned char *data, size_t size)
 
 	return uni_utf8_find_invalid_pos(data, size, &i) == 0;
 }
+
+static int
+uni_utf8_short_find_invalid_pos(const unsigned char *input, size_t size,
+				size_t *pos_r)
+{
+	size_t i, len;
+
+	/* find the first invalid utf8 sequence */
+	for (i = 0; i < size;) {
+		if (input[i] < 0x80)
+			i++;
+		else {
+			len = is_valid_utf8_seq(input + i, size-i);
+			if (unlikely(len == 0 || len > 4)) {
+				*pos_r = i;
+				return -1;
+			}
+			i += len;
+		}
+	}
+	return 0;
+}
+
+bool uni_utf8_short_get_valid_data(const unsigned char *input, size_t size,
+				   buffer_t *buf)
+{
+	size_t i, len;
+
+	if (uni_utf8_short_find_invalid_pos(input, size, &i) == 0)
+		return TRUE;
+
+	/* broken utf-8 input - skip the broken characters */
+	while (i < size) {
+		if (input[i] < 0x80) {
+			buffer_append_c(buf, input[i++]);
+			continue;
+		}
+
+		len = is_valid_utf8_seq(input + i, size-i);
+		if (len == 0 || len > 4) {
+			i += I_MAX(len, 1);
+			output_add_replacement_char(buf);
+			continue;
+		}
+		buffer_append(buf, input + i, len);
+		i += len;
+	}
+	return FALSE;
+}
+
+bool uni_utf8_short_str_is_valid(const char *str)
+{
+	size_t i;
+
+	return uni_utf8_short_find_invalid_pos((const unsigned char *)str,
+					       strlen(str), &i) == 0;
+}
+
+bool uni_utf8_short_data_is_valid(const unsigned char *data, size_t size)
+{
+	size_t i;
+
+	return uni_utf8_find_invalid_pos(data, size, &i) == 0;
+}
