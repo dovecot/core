@@ -162,6 +162,11 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 		ctx->copy_start_offset = part_end_offset;
 		return 0;
 	}
+	if (part->body_size.physical_size == 0) {
+		/* no body */
+		ctx->copy_start_offset = part_end_offset;
+		return 0;
+	}
 
 	/* single part - write decoded data */
 	block = array_append_space(&ctx->blocks);
