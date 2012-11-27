@@ -879,7 +879,8 @@ fts_backend_solr_lookup_multi(struct fts_backend *backend,
 
 struct fts_backend fts_backend_solr = {
 	.name = "solr",
-	.flags = FTS_BACKEND_FLAG_FUZZY_SEARCH,
+	.flags = FTS_BACKEND_FLAG_FUZZY_SEARCH |
+		FTS_BACKEND_FLAG_BUILD_SHORT_UTF8,
 
 	{
 		fts_backend_solr_alloc,
