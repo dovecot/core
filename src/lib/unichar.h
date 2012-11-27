@@ -88,11 +88,4 @@ bool uni_utf8_str_is_valid(const char *str);
 /* Returns TRUE if data contains only valid UTF-8 input. */
 bool uni_utf8_data_is_valid(const unsigned char *data, size_t size);
 
-/* Same as the non-short variants, but assume 5-byte and 6-byte UTF8
-   sequences are illegal. */
-bool uni_utf8_short_get_valid_data(const unsigned char *input, size_t size,
-				   buffer_t *buf);
-bool uni_utf8_short_str_is_valid(const char *str);
-bool uni_utf8_short_data_is_valid(const unsigned char *data, size_t size);
-
 #endif

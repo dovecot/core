@@ -59,9 +59,7 @@ enum fts_backend_flags {
 	/* Send only fully indexable words rather than randomly sized blocks */
 	FTS_BACKEND_FLAG_BUILD_FULL_WORDS	= 0x04,
 	/* Fuzzy search works */
-	FTS_BACKEND_FLAG_FUZZY_SEARCH		= 0x08,
-	/* Don't allow 5-byte or 6-byte UTF8 sequences */
-	FTS_BACKEND_FLAG_BUILD_SHORT_UTF8	= 0x10
+	FTS_BACKEND_FLAG_FUZZY_SEARCH		= 0x08
 };
 
 struct fts_backend {
