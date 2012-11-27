@@ -6,6 +6,8 @@ v2.2.UNSTABLE 2012-xx-xx  Timo Sirainen <tss@iki.fi>
 	* "doveadm auth" command was renamed to "doveadm auth test"
 	* IMAP: ID command now advertises server name as Dovecot by default.
 	  It was already trivial to guess this from command replies.
+	* dovecot.index.cache files can be safely accessed only by v2.1.11+.
+	  Older versions may think they're corrupted and delete them.
 
 	+ Implemented IMAP MOVE and BINARY extensions
 	+ Implemented IMAP CATENATE, URLAUTH and URLAUTH=BINARY extensions
