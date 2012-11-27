@@ -352,8 +352,7 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 		   visible to the following search */
 		if (ctx->expunges)
 			fts_backend_solr_expunge_flush(ctx);
-		str = t_strdup_printf("<commit waitFlush=\"false\" "
-				      "waitSearcher=\"%s\"/>",
+		str = t_strdup_printf("<commit waitSearcher=\"%s\"/>",
 				      ctx->documents_added ? "true" : "false");
 		if (solr_connection_post(solr_conn, str) < 0)
 			ret = -1;
