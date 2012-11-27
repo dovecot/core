@@ -139,6 +139,10 @@ doveadm_mail_cmd_server_run(struct client_connection *conn,
 		o_stream_send(conn->output, "\n+\n", 3);
 	}
 	pool_unref(&ctx->pool);
+
+	/* clear all headers */
+	doveadm_print_deinit();
+	doveadm_print_init(DOVEADM_PRINT_TYPE_SERVER);
 }
 
 static bool client_is_allowed_command(const struct doveadm_settings *set,
