@@ -239,8 +239,11 @@ client_connection_authenticate(struct client_connection *conn)
 	const unsigned char *data;
 	size_t size;
 
-	if ((line = i_stream_read_next_line(conn->input)) == NULL)
+	if ((line = i_stream_read_next_line(conn->input)) == NULL) {
+		if (conn->input->eof)
+			return -1;
 		return 0;
+	}
 
 	if (*conn->set->doveadm_password == '\0') {
 		i_error("doveadm_password not set, "
