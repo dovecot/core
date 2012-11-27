@@ -257,15 +257,17 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 				user->unexpanded_set);
 	owner->autocreated = TRUE;
 	if (mail_user_init(owner, &error) < 0) {
-		mailbox_list_set_critical(list,
-			"Couldn't create namespace '%s' for user %s: %s",
-			ns->prefix, userdomain, error);
-		mail_user_unref(&owner);
-		return -1;
-	}
-	if (!var_has_key(storage->location, 'h', "home"))
+		if (!owner->nonexistent) {
+			mailbox_list_set_critical(list,
+				"Couldn't create namespace '%s' for user %s: %s",
+				ns->prefix, userdomain, error);
+			mail_user_unref(&owner);
+			return -1;
+		}
+		ret = 0;
+	} else if (!var_has_key(storage->location, 'h', "home")) {
 		ret = 1;
-	else {
+	} else {
 		/* we'll need to look up the user's home directory */
 		if ((ret = mail_user_get_home(owner, &tab[3].value)) < 0) {
 			mailbox_list_set_critical(list, "Namespace '%s': "
