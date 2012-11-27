@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-EXPUNGE 1 "2010-11-25" "Dovecot v2.1" "Dovecot"
+.\" Copyright (c) 2010-2012 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-EXPUNGE 1 "2012-11-27" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-expunge \- Expunge messages matching given search query
 .\"------------------------------------------------------------------------
@@ -46,6 +46,10 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+.TP
+.B \-d
+Delete the mailbox if it is empty after expunging.
 .\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------
