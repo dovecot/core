@@ -42,6 +42,9 @@ struct mail_user {
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, union mail_user_module_context *);
 
+	/* User doesn't exist (as reported by userdb lookup when looking
+	   up home) */
+	unsigned int nonexistent:1;
 	/* Either home is set or there is no home for the user. */
 	unsigned int home_looked_up:1;
 	/* User is an administrator. Allow operations not normally allowed
