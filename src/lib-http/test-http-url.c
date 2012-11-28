@@ -269,7 +269,7 @@ static void test_http_url_valid(void)
 		test_begin(t_strdup_printf("http url valid [%d]", i));
 
 		if (urlb->host_name == NULL) urlb = NULL;
-		if (http_url_parse(url, urlb, flags, &urlp, &error) < 0)
+		if (http_url_parse(url, urlb, flags, pool_datastack_create(), &urlp, &error) < 0)
 			urlp = NULL;
 
 		test_out_reason(t_strdup_printf("http_url_parse(%s)",
@@ -396,7 +396,8 @@ static void test_http_url_invalid(void)
 
 		test_begin(t_strdup_printf("http url invalid [%d]", i));
 
-		if (http_url_parse(url, urlb, flags, &urlp, &error) < 0)
+		if (http_url_parse(url, urlb, flags,
+				   pool_datastack_create(), &urlp, &error) < 0)
 			urlp = NULL;
 		test_out_reason(t_strdup_printf("parse %s", url), urlp == NULL, error);
 
@@ -435,7 +436,8 @@ static void test_http_url_parse_create(void)
 		test_begin(t_strdup_printf("http url parse/create [%d]", i));
 
 		if (http_url_parse
-			(url, NULL, HTTP_URL_ALLOW_FRAGMENT_PART, &urlp, &error) < 0)
+			(url, NULL, HTTP_URL_ALLOW_FRAGMENT_PART,
+			 pool_datastack_create(), &urlp, &error) < 0)
 			urlp = NULL;
 		test_out_reason(t_strdup_printf("parse  %s", url), urlp != NULL, error);
 		if (urlp != NULL) {

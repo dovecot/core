@@ -320,7 +320,8 @@ void http_client_request_redirect(struct http_client_request *req,
 	unsigned int newport;
 
 	/* parse URL */
-	if (http_url_parse(location, NULL, 0, &url, &error) < 0) {
+	if (http_url_parse(location, NULL, 0,
+			   pool_datastack_create(), &url, &error) < 0) {
 		http_client_request_error(req, HTTP_CLIENT_REQUEST_ERROR_INVALID_REDIRECT,
 			t_strdup_printf("Invalid redirect location: %s", error));
 		return;

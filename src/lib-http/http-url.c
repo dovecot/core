@@ -209,7 +209,7 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 /* Public API */
 
 int http_url_parse(const char *url, struct http_url *base,
-		   enum http_url_parse_flags flags,
+		   enum http_url_parse_flags flags, pool_t pool,
 		   struct http_url **url_r, const char **error_r)
 {
 	struct http_url_parser url_parser;
@@ -219,9 +219,9 @@ int http_url_parse(const char *url, struct http_url *base,
 	i_assert((flags & HTTP_URL_PARSE_SCHEME_EXTERNAL) == 0 || base == NULL);
 
 	memset(&url_parser, '\0', sizeof(url_parser));
-	uri_parser_init(&url_parser.parser, pool_datastack_create(), url);
+	uri_parser_init(&url_parser.parser, pool, url);
 
-	url_parser.url = t_new(struct http_url, 1);
+	url_parser.url = p_new(pool, struct http_url, 1);
 	url_parser.base = base;
 	url_parser.flags = flags;
 
