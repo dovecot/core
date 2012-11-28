@@ -201,9 +201,13 @@ index_storage_mailbox_sync_pvt_index(struct mailbox *box)
 	return ret;
 }
 
-int index_storage_mailbox_sync_pvt(struct mailbox *box)
+int index_storage_mailbox_sync_pvt(struct mailbox *box,
+				   ARRAY_TYPE(seq_range) *flag_updates,
+				   ARRAY_TYPE(seq_range) *hidden_updates)
 {
 	struct mail_index_view_sync_ctx *view_sync_ctx;
+	struct mail_index_view_sync_rec sync_rec;
+	uint32_t seq1, seq2;
 	enum mail_flags pvt_flags;
 	bool delayed_expunges;
 	int ret;
@@ -220,8 +224,25 @@ int index_storage_mailbox_sync_pvt(struct mailbox *box)
 		return -1;
 
 	/* sync the private view */
-	view_sync_ctx = mail_index_view_sync_begin(box->view_pvt,
-		MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
+	view_sync_ctx = mail_index_view_sync_begin(box->view_pvt, 0);
+	while (mail_index_view_sync_next(view_sync_ctx, &sync_rec)) {
+		if (sync_rec.type != MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS)
+			continue;
+
+		/* *_updates contains box->view sequences (not view_pvt
+		   sequences) */
+		if (mail_index_lookup_seq_range(box->view,
+						sync_rec.uid1, sync_rec.uid2,
+						&seq1, &seq2)) {
+			if (!sync_rec.hidden) {
+				seq_range_array_add_range(flag_updates,
+							  seq1, seq2);
+			} else {
+				seq_range_array_add_range(hidden_updates,
+							  seq1, seq2);
+			}
+		}
+	}
 	if (mail_index_view_sync_commit(&view_sync_ctx, &delayed_expunges) < 0)
 		return -1;
 	return 0;

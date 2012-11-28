@@ -162,7 +162,11 @@ static void index_view_sync_recs_get(struct index_mailbox_sync_context *ctx)
 			break;
 		}
 	}
+}
 
+static void
+index_view_sync_cleanup_updates(struct index_mailbox_sync_context *ctx)
+{
 	/* remove expunged messages from flag updates */
 	if (ctx->expunges != NULL) {
 		seq_range_array_remove_seq_range(&ctx->flag_updates,
@@ -210,6 +214,14 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 	}
 	index_view_sync_recs_get(ctx);
 	index_sync_search_results_expunge(ctx);
+
+	/* sync private index if needed. it doesn't use box->view, so it
+	   doesn't matter if it's called at _sync_init() or _sync_deinit().
+	   however we also need to know if any private flags have changed
+	   since last sync, so we need to call it before _sync_next() calls. */
+	(void)index_storage_mailbox_sync_pvt(box, &ctx->flag_updates,
+					     &ctx->hidden_updates);
+	index_view_sync_cleanup_updates(ctx);
 	return &ctx->ctx;
 }
 
@@ -383,12 +395,6 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 
 	if (status_r != NULL)
 		status_r->sync_delayed_expunges = delayed_expunges;
-
-	/* sync private index if needed. do this after real sync to make sure
-	   that all the new messages are added to the private index, so their
-	   flags can be updated. */
-	if (ret == 0)
-		(void)index_storage_mailbox_sync_pvt(_ctx->box);
 
 	/* update search results after private index is updated */
 	index_sync_search_results_update(ctx);
