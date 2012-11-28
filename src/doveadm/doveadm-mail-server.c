@@ -177,7 +177,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	struct auth_master_connection *auth_conn;
 	struct auth_user_info info;
 	pool_t pool;
-	const char *proxy_host, *const *fields;
+	const char *auth_socket_path, *proxy_host, *const *fields;
 	unsigned int i;
 	bool proxying;
 	int ret;
@@ -195,14 +195,15 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 
 	pool = pool_alloconly_create("auth lookup", 1024);
 	auth_conn = mail_storage_service_get_auth_conn(ctx->storage_service);
+	auth_socket_path = auth_master_get_socket_path(auth_conn);
 	ret = auth_master_pass_lookup(auth_conn, input->username, &info,
 				      pool, &fields);
 	if (ret < 0) {
 		*error_r = fields[0] != NULL ?
 			t_strdup(fields[0]) : "passdb lookup failed";
-		*error_r = t_strdup_printf("%s (to see if user is proxied, "
+		*error_r = t_strdup_printf("%s: %s (to see if user is proxied, "
 					   "because doveadm_proxy_port is set)",
-					   *error_r);
+					   auth_socket_path, *error_r);
 	} else if (ret == 0) {
 		/* user not found from passdb. it could be in userdb though,
 		   so just continue with the default host */
@@ -218,7 +219,13 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 		if (!proxying)
 			ret = 0;
 		else if (proxy_host == NULL) {
-			*error_r = "Proxy is missing destination host";
+			*error_r = t_strdup_printf("%s: Proxy is missing destination host",
+						   auth_socket_path);
+			if (strstr(auth_socket_path, "/auth-userdb") != NULL) {
+				*error_r = t_strdup_printf(
+					"%s (maybe set auth_socket_path=director-userdb)",
+					*error_r);
+			}
 			ret = -1;
 		} else {
 			*host_r = t_strdup_printf("%s:%u", proxy_host,
