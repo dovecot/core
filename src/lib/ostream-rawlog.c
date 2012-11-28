@@ -24,16 +24,23 @@ o_stream_rawlog_sendv(struct ostream_private *stream,
 {
 	struct rawlog_ostream *rstream = (struct rawlog_ostream *)stream;
 	unsigned int i;
-	ssize_t ret;
-
-	for (i = 0; i < iov_count; i++) {
-		iostream_rawlog_write(&rstream->riostream,
-				      iov[i].iov_base, iov[i].iov_len);
-	}
+	ssize_t ret, bytes;
 
 	if ((ret = o_stream_sendv(stream->parent, iov, iov_count)) < 0) {
 		o_stream_copy_error_from_parent(stream);
 		return -1;
+	}
+	bytes = ret;
+	for (i = 0; i < iov_count && bytes > 0; i++) {
+		if (iov[i].iov_len < (size_t)bytes) {
+			iostream_rawlog_write(&rstream->riostream,
+					      iov[i].iov_base, iov[i].iov_len);
+			bytes -= iov[i].iov_len;
+		} else {
+			iostream_rawlog_write(&rstream->riostream,
+					      iov[i].iov_base, bytes);
+			break;
+		}
 	}
 
 	stream->ostream.offset += ret;
