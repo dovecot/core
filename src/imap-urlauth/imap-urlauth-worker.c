@@ -766,7 +766,7 @@ static int client_output(struct client *client)
 static int
 client_ctrl_read_fds(struct client *client)
 {
-	unsigned char data;
+	unsigned char data = 0;
 	ssize_t ret = 1;
 
 	if (client->fd_in == -1) {

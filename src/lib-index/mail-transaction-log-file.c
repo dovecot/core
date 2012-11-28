@@ -1351,7 +1351,6 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 		}
 
 		file->sync_offset += trans_size;
-		trans_size = 0;
 	}
 
 	if (file->mmap_base != NULL && !file->locked) {
