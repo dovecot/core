@@ -85,6 +85,8 @@ static uint32_t index_storage_find_first_pvt_unseen_seq(struct mailbox *box)
 
 	pvt_count = mail_index_view_get_messages_count(box->view_pvt);
 	mail_index_lookup_first(box->view_pvt, 0, MAIL_SEEN, &pvt_seq);
+	if (pvt_seq == 0)
+		pvt_seq = pvt_count+1;
 	for (; pvt_seq <= pvt_count; pvt_seq++) {
 		pvt_rec = mail_index_lookup(box->view_pvt, pvt_seq);
 		if ((pvt_rec->flags & MAIL_SEEN) == 0 &&
