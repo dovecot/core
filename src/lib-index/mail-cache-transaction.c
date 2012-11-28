@@ -365,7 +365,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 {
 	struct stat st;
 	uint32_t write_offset = 0;
-	int ret;
+	int ret = 0;
 
 	i_assert(!ctx->cache->locked);
 
