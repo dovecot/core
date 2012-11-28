@@ -255,13 +255,16 @@ int mail_session_update_parse(const char *const *args, const char **error_r)
 		return -1;
 
 	if (mail_stats_parse(args+1, &stats, error_r) < 0) {
-		*error_r = t_strconcat("UPDATE-SESSION: ", *error_r, NULL);
+		*error_r = t_strdup_printf("UPDATE-SESSION %s %s: %s",
+					   session->user->name,
+					   session->service, *error_r);
 		return -1;
 	}
 
 	if (!mail_stats_diff(&session->stats, &stats, &diff_stats, &error)) {
-		*error_r = t_strconcat("UPDATE-SESSION: stats shrank: ",
-				       error, NULL);
+		*error_r = t_strdup_printf("UPDATE-SESSION %s %s: stats shrank: %s",
+					   session->user->name,
+					   session->service, error);
 		return -1;
 	}
 	mail_session_refresh(session, &diff_stats);
