@@ -281,6 +281,7 @@ mail_cache_map_finish(struct mail_cache *cache, uoff_t offset, size_t size,
 				!MAIL_CACHE_IS_UNUSABLE(cache) &&
 				cache->hdr->file_seq != 0 ?
 				cache->hdr->file_seq : 0;
+			cache->hdr = NULL;
 			return -1;
 		}
 	}
@@ -296,6 +297,7 @@ mail_cache_map_finish(struct mail_cache *cache, uoff_t offset, size_t size,
 	} else {
 		i_assert(cache->hdr != NULL);
 	}
+	i_assert(cache->hdr->file_seq != 0);
 
 	if (offset + size > cache->mmap_length)
 		return 0;
@@ -365,8 +367,6 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 		return mail_cache_map_with_read(cache, offset, size, data_r);
 
 	if (cache->file_cache != NULL) {
-		cache->hdr = NULL;
-
 		ret = file_cache_read(cache->file_cache, offset, size);
 		if (ret < 0) {
                         /* In case of ESTALE we'll simply fail without error
@@ -378,6 +378,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
                            offsets. */
                         if (errno != ESTALE)
                                 mail_cache_set_syscall_error(cache, "read()");
+			cache->hdr = NULL;
 			return -1;
 		}
 
@@ -385,7 +386,8 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 					  &cache->mmap_length);
 		*data_r = offset > cache->mmap_length ? NULL :
 			CONST_PTR_OFFSET(data, offset);
-		return mail_cache_map_finish(cache, offset, size, data, TRUE);
+		return mail_cache_map_finish(cache, offset, size,
+					     offset == 0 ? data : NULL, TRUE);
 	}
 
 	if (offset < cache->mmap_length &&
