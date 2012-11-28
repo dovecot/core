@@ -107,6 +107,11 @@ void auth_master_deinit(struct auth_master_connection **_conn)
 	i_free(conn);
 }
 
+const char *auth_master_get_socket_path(struct auth_master_connection *conn)
+{
+	return conn->auth_socket_path;
+}
+
 static void auth_request_lookup_abort(struct auth_master_connection *conn)
 {
 	io_loop_stop(conn->ioloop);

@@ -27,6 +27,9 @@ struct auth_master_connection *
 auth_master_init(const char *auth_socket_path, enum auth_master_flags flags);
 void auth_master_deinit(struct auth_master_connection **conn);
 
+/* Returns the auth_socket_path */
+const char *auth_master_get_socket_path(struct auth_master_connection *conn);
+
 /* Do a USER lookup. Returns -1 = error, 0 = user not found, 1 = ok.
    When returning -1 and fields[0] isn't NULL, it contains an error message
    that should be shown to user. */
