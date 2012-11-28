@@ -1655,6 +1655,34 @@ static void index_mail_drop_recent_flag(struct mail *mail)
 	}
 }
 
+static bool
+index_mail_update_pvt_flags(struct mail *_mail, enum modify_type modify_type,
+			    enum mail_flags pvt_flags)
+{
+	struct mail_private *mail = (struct mail_private *)_mail;
+	const struct mail_index_record *rec;
+	enum mail_flags old_pvt_flags;
+
+	if (!index_mail_get_pvt(_mail))
+		return FALSE;
+	if (pvt_flags == 0 && modify_type != MODIFY_REPLACE)
+		return FALSE;
+
+	/* see if the flags actually change anything */
+	rec = mail_index_lookup(_mail->transaction->view_pvt, mail->seq_pvt);
+	old_pvt_flags = rec->flags & mailbox_get_private_flags_mask(_mail->box);
+
+	switch (modify_type) {
+	case MODIFY_ADD:
+		return (old_pvt_flags & pvt_flags) != pvt_flags;
+	case MODIFY_REPLACE:
+		return old_pvt_flags != pvt_flags;
+	case MODIFY_REMOVE:
+		return (old_pvt_flags & pvt_flags) != 0;
+	}
+	i_unreached();
+}
+
 void index_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 			     enum mail_flags flags)
 {
@@ -1672,8 +1700,7 @@ void index_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 		pvt_flags_mask = mailbox_get_private_flags_mask(_mail->box);
 		pvt_flags = flags & pvt_flags_mask;
 		flags &= ~pvt_flags_mask;
-		if (index_mail_get_pvt(_mail) &&
-		    (pvt_flags != 0 || modify_type == MODIFY_REPLACE)) {
+		if (index_mail_update_pvt_flags(_mail, modify_type, pvt_flags)) {
 			mail_index_update_flags(_mail->transaction->itrans_pvt,
 						mail->seq_pvt,
 						modify_type, pvt_flags);
