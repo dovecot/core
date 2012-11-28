@@ -123,6 +123,7 @@ void iostream_rawlog_write(struct rawlog_iostream *rstream,
 			if (rawlog_write(rstream, rstream->buffer->data,
 					 rstream->buffer->used) < 0)
 				break;
+			buffer_set_used_size(rstream->buffer, 0);
 		}
 		if (rawlog_write(rstream, data, pos) < 0)
 			break;
