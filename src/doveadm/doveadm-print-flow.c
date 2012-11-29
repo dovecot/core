@@ -63,7 +63,7 @@ doveadm_print_flow_print_stream(const unsigned char *value, size_t size)
 		if ((hdr->flags & DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE) == 0)
 			printf("%s=", hdr->title);
 	}
-	printf("%.*s", (int)size, value);
+	fwrite(value, 1, size, stdout);
 	if (size == 0) {
 		flow_next_hdr();
 		ctx->streaming = FALSE;

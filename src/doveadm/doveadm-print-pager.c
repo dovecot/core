@@ -56,7 +56,7 @@ doveadm_print_pager_print_stream(const unsigned char *value, size_t size)
 		ctx->streaming = TRUE;
 		printf("%s:\n", hdr->title);
 	}
-	printf("%.*s", (int)size, value);
+	fwrite(value, 1, size, stdout);
 	if (size == 0) {
 		pager_next_hdr();
 		ctx->streaming = FALSE;
