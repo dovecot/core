@@ -20,7 +20,8 @@ static const char json_input[] =
 	"  \"sub2\":-12.456,\n"
 	"  \"sub3\":12.456e9,\n"
 	"  \"sub4\":0.456e-789"
-	"}"
+	"},"
+	"\"key9\": \"\\\\\\\"\\b\\f\\n\\r\\t\\u0001\uffff\""
 	"}\n";
 
 static struct {
@@ -53,7 +54,9 @@ static struct {
 	{ JSON_TYPE_NUMBER, "12.456e9" },
 	{ JSON_TYPE_OBJECT_KEY, "sub4" },
 	{ JSON_TYPE_NUMBER, "0.456e-789" },
-	{ JSON_TYPE_OBJECT_END, NULL }
+	{ JSON_TYPE_OBJECT_END, NULL },
+	{ JSON_TYPE_OBJECT_KEY, "key9" },
+	{ JSON_TYPE_STRING, "\\\"\b\f\n\r\t\001\xef\xbf\xbf" }
 };
 
 static void test_json_parser_success(bool full_size)
@@ -93,6 +96,6 @@ static void test_json_parser_success(bool full_size)
 
 void test_json_parser(void)
 {
-	test_json_parser_success(TRUE);
 	test_json_parser_success(FALSE);
+	test_json_parser_success(TRUE);
 }
