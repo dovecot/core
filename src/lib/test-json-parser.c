@@ -5,7 +5,8 @@
 #include "istream-private.h"
 #include "json-parser.h"
 
-#define TYPE_STREAM 100
+#define TYPE_SKIP 100
+#define TYPE_STREAM 101
 
 static const char json_input[] =
 	"{\n"
@@ -13,6 +14,8 @@ static const char json_input[] =
 	" \"key2\"  :  1234,  \n"
 	"\"key3\":true,"
 	"\"key4\":false,"
+	"\"skip1\": \"jsifjaisfjiasji\","
+	"\"skip2\": { \"x\":{ \"y\":123}, \"z\":5},"
 	"\"key5\":null,"
 	"\"key6\": {},"
 	"\"key7\": {"
@@ -39,6 +42,10 @@ static struct {
 	{ JSON_TYPE_TRUE, "true" },
 	{ JSON_TYPE_OBJECT_KEY, "key4" },
 	{ JSON_TYPE_FALSE, "false" },
+	{ JSON_TYPE_OBJECT_KEY, "skip1" },
+	{ TYPE_SKIP, NULL },
+	{ JSON_TYPE_OBJECT_KEY, "skip2" },
+	{ TYPE_SKIP, NULL },
 	{ JSON_TYPE_OBJECT_KEY, "key5" },
 	{ JSON_TYPE_NULL, NULL },
 	{ JSON_TYPE_OBJECT_KEY, "key6" },
@@ -103,9 +110,13 @@ static void test_json_parser_success(bool full_size)
 		test_istream_set_size(input, i);
 
 		for (;;) {
-			if (json_output[pos].type != TYPE_STREAM)
+			if (json_output[pos].type == TYPE_SKIP) {
+				json_parse_skip_next(parser);
+				pos++;
+				continue;
+			} else if (json_output[pos].type != TYPE_STREAM) {
 				ret = json_parse_next(parser, &type, &value);
-			else {
+			} else {
 				ret = jsoninput != NULL ? 1 :
 					json_parse_next_stream(parser, &jsoninput);
 				if (jsoninput != NULL)

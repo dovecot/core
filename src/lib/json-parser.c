@@ -15,7 +15,7 @@ enum json_state {
 	JSON_STATE_OBJECT_COLON,
 	JSON_STATE_OBJECT_VALUE,
 	JSON_STATE_OBJECT_VALUE_NEXT,
-	JSON_STATE_STRINPUT_FINISH,
+	JSON_STATE_SKIP_STRING,
 	JSON_STATE_DONE
 };
 
@@ -30,11 +30,9 @@ struct json_parser {
 
 	enum json_state state;
 	unsigned int nested_object_count;
+	unsigned int nested_skip_count;
+	bool skipping;
 };
-
-static int
-json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
-		    const char **value_r);
 
 static int json_parser_read_more(struct json_parser *parser)
 {
@@ -144,11 +142,50 @@ static bool json_parse_whitespace(struct json_parser *parser)
 	return FALSE;
 }
 
-static int json_parse_string(struct json_parser *parser, const char **value_r)
+static int json_skip_string(struct json_parser *parser)
+{
+	for (; parser->data != parser->end; parser->data++) {
+		if (*parser->data == '"') {
+			parser->data++;
+			json_parser_update_input_pos(parser);
+			return 1;
+		}
+		if (*parser->data == '\\') {
+			switch (*++parser->data) {
+			case '"':
+			case '\\':
+			case '/':
+			case 'b':
+			case 'f':
+			case 'n':
+			case 'r':
+			case 't':
+				break;
+			case 'u':
+				if (parser->end - parser->data < 4)
+					return -1;
+				parser->data += 3;
+				break;
+			default:
+				return -1;
+			}
+		}
+	}
+	json_parser_update_input_pos(parser);
+	return 0;
+}
+
+static int json_parse_string(struct json_parser *parser, bool allow_skip,
+			     const char **value_r)
 {
 	if (*parser->data != '"')
 		return -1;
 	parser->data++;
+
+	if (parser->skipping && allow_skip) {
+		*value_r = NULL;
+		return json_skip_string(parser);
+	}
 
 	str_truncate(parser->value, 0);
 	for (; parser->data != parser->end; parser->data++) {
@@ -198,37 +235,6 @@ static int json_parse_string(struct json_parser *parser, const char **value_r)
 		}
 	}
 	return 0;
-}
-
-static int json_skip_string(struct json_parser *parser)
-{
-	for (; parser->data != parser->end; parser->data++) {
-		if (*parser->data == '"') {
-			parser->data++;
-			return 0;
-		}
-		if (*parser->data == '\\') {
-			switch (*++parser->data) {
-			case '"':
-			case '\\':
-			case '/':
-			case 'b':
-			case 'f':
-			case 'n':
-			case 'r':
-			case 't':
-				break;
-			case 'u':
-				if (parser->end - parser->data < 4)
-					return -1;
-				parser->data += 3;
-				break;
-			default:
-				return -1;
-			}
-		}
-	}
-	return -1;
 }
 
 static int
@@ -313,8 +319,7 @@ static int json_parse_atom(struct json_parser *parser, const char *atom)
 }
 
 static int
-json_parse_object_close(struct json_parser *parser, enum json_type *type_r,
-			const char **value_r)
+json_parse_object_close(struct json_parser *parser, enum json_type *type_r)
 {
 	parser->data++;
 	json_parser_update_input_pos(parser);
@@ -323,17 +328,22 @@ json_parse_object_close(struct json_parser *parser, enum json_type *type_r,
 		/* closing a nested object */
 		parser->nested_object_count--;
 		parser->state = JSON_STATE_OBJECT_VALUE_NEXT;
+		if (parser->nested_skip_count > 0) {
+			parser->nested_skip_count--;
+			return 0;
+		}
 		*type_r = JSON_TYPE_OBJECT_END;
-		return 0;
+		return 1;
 	}
 	parser->state = JSON_STATE_DONE;
-	return json_try_parse_next(parser, type_r, value_r);
+	return 0;
 }
 
 static int
 json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 		    const char **value_r)
 {
+	bool skipping = parser->skipping;
 	int ret;
 
 	if (!json_parse_whitespace(parser))
@@ -348,7 +358,7 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 		parser->data++;
 		parser->state = JSON_STATE_OBJECT_OPEN;
 		json_parser_update_input_pos(parser);
-		return json_try_parse_next(parser, type_r, value_r);
+		return 0;
 	case JSON_STATE_OBJECT_VALUE:
 		if (*parser->data == '[') {
 			parser->error = "Arrays not supported";
@@ -358,10 +368,15 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 			parser->state = JSON_STATE_OBJECT_OPEN;
 			parser->nested_object_count++;
 			json_parser_update_input_pos(parser);
+
+			if (parser->skipping) {
+				parser->nested_skip_count++;
+				return 0;
+			}
 			*type_r = JSON_TYPE_OBJECT;
-			return 0;
+			return 1;
 		}
-		if ((ret = json_parse_string(parser, value_r)) >= 0) {
+		if ((ret = json_parse_string(parser, TRUE, value_r)) >= 0) {
 			*type_r = JSON_TYPE_STRING;
 		} else if ((ret = json_parse_number(parser, value_r)) >= 0) {
 			*type_r = JSON_TYPE_NUMBER;
@@ -380,6 +395,12 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 		}
 		if (ret == 0) {
 			i_assert(parser->data == parser->end);
+			if (parser->skipping && *type_r == JSON_TYPE_STRING) {
+				/* a large string that we want to skip over. */
+				json_parser_update_input_pos(parser);
+				parser->state = JSON_STATE_SKIP_STRING;
+				return 0;
+			}
 			return -1;
 		}
 		parser->state = parser->state == JSON_STATE_ROOT ?
@@ -388,11 +409,11 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 		break;
 	case JSON_STATE_OBJECT_OPEN:
 		if (*parser->data == '}')
-			return json_parse_object_close(parser, type_r, value_r);
+			return json_parse_object_close(parser, type_r);
 		parser->state = JSON_STATE_OBJECT_KEY;
 		/* fall through */
 	case JSON_STATE_OBJECT_KEY:
-		if (json_parse_string(parser, value_r) <= 0) {
+		if (json_parse_string(parser, FALSE, value_r) <= 0) {
 			parser->error = "Expected string as object key";
 			return -1;
 		}
@@ -407,10 +428,14 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 		parser->data++;
 		parser->state = JSON_STATE_OBJECT_VALUE;
 		json_parser_update_input_pos(parser);
-		return json_try_parse_next(parser, type_r, value_r);
+		return 0;
 	case JSON_STATE_OBJECT_VALUE_NEXT:
+		if (parser->skipping && parser->nested_skip_count == 0) {
+			/* we skipped over the previous value */
+			parser->skipping = FALSE;
+		}
 		if (*parser->data == '}')
-			return json_parse_object_close(parser, type_r, value_r);
+			return json_parse_object_close(parser, type_r);
 		if (*parser->data != ',') {
 			parser->error = "Expected ',' or '}' after object value";
 			return -1;
@@ -418,18 +443,18 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 		parser->state = JSON_STATE_OBJECT_KEY;
 		parser->data++;
 		json_parser_update_input_pos(parser);
-		return json_try_parse_next(parser, type_r, value_r);
-	case JSON_STATE_STRINPUT_FINISH:
-		if (json_skip_string(parser) < 0)
+		return 0;
+	case JSON_STATE_SKIP_STRING:
+		if (json_skip_string(parser) <= 0)
 			return -1;
 		parser->state = JSON_STATE_OBJECT_VALUE_NEXT;
-		return json_try_parse_next(parser, type_r, value_r);
+		return 0;
 	case JSON_STATE_DONE:
 		parser->error = "Unexpected data at the end";
 		return -1;
 	}
 	json_parser_update_input_pos(parser);
-	return 0;
+	return skipping ? 0 : 1;
 }
 
 int json_parse_next(struct json_parser *parser, enum json_type *type_r,
@@ -442,7 +467,9 @@ int json_parse_next(struct json_parser *parser, enum json_type *type_r,
 	*value_r = NULL;
 
 	while ((ret = json_parser_read_more(parser)) > 0) {
-		if (json_try_parse_next(parser, type_r, value_r) == 0)
+		while ((ret = json_try_parse_next(parser, type_r, value_r)) == 0)
+			;
+		if (ret > 0)
 			break;
 		if (parser->data != parser->end)
 			return -1;
@@ -452,6 +479,16 @@ int json_parse_next(struct json_parser *parser, enum json_type *type_r,
 
 	}
 	return ret;
+}
+
+void json_parse_skip_next(struct json_parser *parser)
+{
+	i_assert(!parser->skipping);
+	i_assert(parser->strinput == NULL);
+	i_assert(parser->state == JSON_STATE_OBJECT_COLON ||
+		 parser->state == JSON_STATE_OBJECT_VALUE);
+
+	parser->skipping = TRUE;
 }
 
 static void json_strinput_destroyed(struct json_parser *parser)
@@ -484,7 +521,7 @@ json_try_parse_stream_start(struct json_parser *parser,
 	parser->data++;
 	json_parser_update_input_pos(parser);
 
-	parser->state = JSON_STATE_STRINPUT_FINISH;
+	parser->state = JSON_STATE_SKIP_STRING;
 	parser->strinput = i_stream_create_jsonstr(parser->input);
 	i_stream_set_destroy_callback(parser->strinput,
 				      json_strinput_destroyed, parser);
@@ -498,6 +535,7 @@ int json_parse_next_stream(struct json_parser *parser,
 {
 	int ret;
 
+	i_assert(!parser->skipping);
 	i_assert(parser->strinput == NULL);
 	i_assert(parser->state == JSON_STATE_OBJECT_COLON ||
 		 parser->state == JSON_STATE_OBJECT_VALUE);
