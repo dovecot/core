@@ -1,6 +1,8 @@
 #ifndef HTTP_URL_H
 #define HTTP_URL_H
 
+#include "net.h"
+
 struct http_url {
 	/* server */
 	const char *host_name;
