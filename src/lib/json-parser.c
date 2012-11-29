@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "hex-dec.h"
 #include "unichar.h"
+#include "istream-jsonstr.h"
 #include "json-parser.h"
 
 enum json_state {
@@ -14,6 +15,7 @@ enum json_state {
 	JSON_STATE_OBJECT_COLON,
 	JSON_STATE_OBJECT_VALUE,
 	JSON_STATE_OBJECT_VALUE_NEXT,
+	JSON_STATE_STRINPUT_FINISH,
 	JSON_STATE_DONE
 };
 
@@ -24,6 +26,7 @@ struct json_parser {
 	const unsigned char *start, *end, *data;
 	const char *error;
 	string_t *value;
+	struct istream *strinput;
 
 	enum json_state state;
 	unsigned int nested_object_count;
@@ -195,6 +198,37 @@ static int json_parse_string(struct json_parser *parser, const char **value_r)
 		}
 	}
 	return 0;
+}
+
+static int json_skip_string(struct json_parser *parser)
+{
+	for (; parser->data != parser->end; parser->data++) {
+		if (*parser->data == '"') {
+			parser->data++;
+			return 0;
+		}
+		if (*parser->data == '\\') {
+			switch (*++parser->data) {
+			case '"':
+			case '\\':
+			case '/':
+			case 'b':
+			case 'f':
+			case 'n':
+			case 'r':
+			case 't':
+				break;
+			case 'u':
+				if (parser->end - parser->data < 4)
+					return -1;
+				parser->data += 3;
+				break;
+			default:
+				return -1;
+			}
+		}
+	}
+	return -1;
 }
 
 static int
@@ -385,6 +419,11 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 		parser->data++;
 		json_parser_update_input_pos(parser);
 		return json_try_parse_next(parser, type_r, value_r);
+	case JSON_STATE_STRINPUT_FINISH:
+		if (json_skip_string(parser) < 0)
+			return -1;
+		parser->state = JSON_STATE_OBJECT_VALUE_NEXT;
+		return json_try_parse_next(parser, type_r, value_r);
 	case JSON_STATE_DONE:
 		parser->error = "Unexpected data at the end";
 		return -1;
@@ -398,6 +437,8 @@ int json_parse_next(struct json_parser *parser, enum json_type *type_r,
 {
 	int ret;
 
+	i_assert(parser->strinput == NULL);
+
 	*value_r = NULL;
 
 	while ((ret = json_parser_read_more(parser)) > 0) {
@@ -409,6 +450,68 @@ int json_parse_next(struct json_parser *parser, enum json_type *type_r,
 		   reset the error and try reading more. */
 		parser->error = NULL;
 
+	}
+	return ret;
+}
+
+static void json_strinput_destroyed(struct json_parser *parser)
+{
+	i_assert(parser->strinput != NULL);
+
+	parser->strinput = NULL;
+}
+
+static int
+json_try_parse_stream_start(struct json_parser *parser,
+			    struct istream **input_r)
+{
+	if (!json_parse_whitespace(parser))
+		return -1;
+
+	if (parser->state == JSON_STATE_OBJECT_COLON) {
+		if (*parser->data != ':') {
+			parser->error = "Expected ':' after key";
+			return -1;
+		}
+		parser->data++;
+		parser->state = JSON_STATE_OBJECT_VALUE;
+		if (!json_parse_whitespace(parser))
+			return -1;
+	}
+
+	if (*parser->data != '"')
+		return -1;
+	parser->data++;
+	json_parser_update_input_pos(parser);
+
+	parser->state = JSON_STATE_STRINPUT_FINISH;
+	parser->strinput = i_stream_create_jsonstr(parser->input);
+	i_stream_set_destroy_callback(parser->strinput,
+				      json_strinput_destroyed, parser);
+
+	*input_r = parser->strinput;
+	return 1;
+}
+
+int json_parse_next_stream(struct json_parser *parser,
+			   struct istream **input_r)
+{
+	int ret;
+
+	i_assert(parser->strinput == NULL);
+	i_assert(parser->state == JSON_STATE_OBJECT_COLON ||
+		 parser->state == JSON_STATE_OBJECT_VALUE);
+
+	*input_r = NULL;
+
+	while ((ret = json_parser_read_more(parser)) > 0) {
+		if (json_try_parse_stream_start(parser, input_r) == 0)
+			break;
+		if (parser->data != parser->end)
+			return -1;
+		/* parsing probably failed because there wasn't enough input.
+		   reset the error and try reading more. */
+		parser->error = NULL;
 	}
 	return ret;
 }

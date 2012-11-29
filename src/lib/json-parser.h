@@ -26,4 +26,10 @@ int json_parser_deinit(struct json_parser **parser, const char **error_r);
 int json_parse_next(struct json_parser *parser, enum json_type *type_r,
 		    const char **value_r);
 
+/* Return the following string as input stream. Returns 1 if ok, 0 if
+   input stream is non-blocking and needs more input, -1 if the next token
+   isn't a string (call json_parse_next()). */
+int json_parse_next_stream(struct json_parser *parser,
+			   struct istream **input_r);
+
 #endif

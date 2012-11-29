@@ -62,6 +62,7 @@ liblib_la_SOURCES = \
 	istream-crlf.c \
 	istream-data.c \
 	istream-file.c \
+	istream-jsonstr.c \
 	istream-limit.c \
 	istream-mmap.c \
 	istream-rawlog.c \
@@ -187,6 +188,7 @@ headers = \
 	istream-chain.h \
 	istream-concat.h \
 	istream-crlf.h \
+	istream-jsonstr.h \
 	istream-private.h \
 	istream-rawlog.h \
 	istream-seekable.h \

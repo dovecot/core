@@ -5,6 +5,8 @@
 #include "istream-private.h"
 #include "json-parser.h"
 
+#define TYPE_STREAM 100
+
 static const char json_input[] =
 	"{\n"
 	"\t\"key\"\t:\t\t\"string\","
@@ -21,7 +23,8 @@ static const char json_input[] =
 	"  \"sub3\":12.456e9,\n"
 	"  \"sub4\":0.456e-789"
 	"},"
-	"\"key9\": \"\\\\\\\"\\b\\f\\n\\r\\t\\u0001\uffff\""
+	"\"key9\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\uffff\","
+	"\"key10\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\uffff\""
 	"}\n";
 
 static struct {
@@ -56,19 +59,41 @@ static struct {
 	{ JSON_TYPE_NUMBER, "0.456e-789" },
 	{ JSON_TYPE_OBJECT_END, NULL },
 	{ JSON_TYPE_OBJECT_KEY, "key9" },
-	{ JSON_TYPE_STRING, "\\\"\b\f\n\r\t\001\xef\xbf\xbf" }
+	{ JSON_TYPE_STRING, "foo\\\"\b\f\n\r\t\001\xef\xbf\xbf" },
+	{ JSON_TYPE_OBJECT_KEY, "key10" },
+	{ TYPE_STREAM, "foo\\\"\b\f\n\r\t\001\xef\xbf\xbf" }
 };
+
+static int
+stream_read_value(struct istream **input, const char **value_r)
+{
+	const unsigned char *data;
+	size_t size;
+	ssize_t ret;
+
+	while ((ret = i_stream_read(*input)) > 0) ;
+	if (ret == 0)
+		return 0;
+	i_assert(ret == -1);
+	if ((*input)->stream_errno != 0)
+		return -1;
+
+	data = i_stream_get_data(*input, &size);
+	*value_r = t_strndup(data, size);
+	i_stream_unref(input);
+	return 1;
+}
 
 static void test_json_parser_success(bool full_size)
 {
 	struct json_parser *parser;
-	struct istream *input;
+	struct istream *input, *jsoninput = NULL;
 	enum json_type type;
 	const char *value, *error;
 	unsigned int i, pos, json_input_len = strlen(json_input);
 	int ret = 0;
 
-	test_begin("json parser");
+	test_begin(full_size ? "json parser" : "json parser (nonblocking)");
 	input = test_istream_create_data(json_input, json_input_len);
 	test_istream_set_allow_eof(input, FALSE);
 	parser = json_parser_init(input);
@@ -77,7 +102,19 @@ static void test_json_parser_success(bool full_size)
 	for (pos = 0; i <= json_input_len; i++) {
 		test_istream_set_size(input, i);
 
-		while ((ret = json_parse_next(parser, &type, &value)) > 0) {
+		for (;;) {
+			if (json_output[pos].type != TYPE_STREAM)
+				ret = json_parse_next(parser, &type, &value);
+			else {
+				ret = jsoninput != NULL ? 1 :
+					json_parse_next_stream(parser, &jsoninput);
+				if (jsoninput != NULL)
+					ret = stream_read_value(&jsoninput, &value);
+				type = TYPE_STREAM;
+			}
+			if (ret <= 0)
+				break;
+
 			i_assert(pos < N_ELEMENTS(json_output));
 			test_assert(json_output[pos].type == type);
 			test_assert(null_strcmp(json_output[pos].value, value) == 0);
@@ -96,6 +133,6 @@ static void test_json_parser_success(bool full_size)
 
 void test_json_parser(void)
 {
-	test_json_parser_success(FALSE);
 	test_json_parser_success(TRUE);
+	test_json_parser_success(FALSE);
 }
