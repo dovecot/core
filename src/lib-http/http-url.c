@@ -94,7 +94,7 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 	}
 
 	if (ret > 0 && url != NULL) {
-		url->host_name = auth.host_literal;
+		url->host_name = p_strdup(parser->pool, auth.host_literal);
 		url->host_ip = auth.host_ip;
 		url->have_host_ip = auth.have_host_ip;
 		url->port = auth.port;
@@ -166,9 +166,9 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 		}
 
 		if (url != NULL)
-			url->path = str_c(fullpath);
+			url->path = p_strdup(parser->pool, str_c(fullpath));
 	} else if (relative && url != NULL) {
-		url->path = base->path;
+		url->path = p_strdup(parser->pool, base->path);
 	}
 	
 	/* [ "?" query ] */
