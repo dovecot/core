@@ -1,6 +1,8 @@
 #ifndef URI_UTIL_H
 #define URI_UTIL_H
 
+#include "net.h"
+
 /*
  * Generic URI parsing.
  */
