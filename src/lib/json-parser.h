@@ -9,6 +9,9 @@ enum json_type {
 	/* } (not returned for the root object) */
 	JSON_TYPE_OBJECT_END,
 
+	JSON_TYPE_ARRAY,
+	JSON_TYPE_ARRAY_END,
+
 	JSON_TYPE_STRING,
 	JSON_TYPE_NUMBER,
 	JSON_TYPE_TRUE,
@@ -16,8 +19,7 @@ enum json_type {
 	JSON_TYPE_NULL
 };
 
-/* Parse JSON tokens from the input stream. Currently arrays aren't
-   supported. */
+/* Parse JSON tokens from the input stream. */
 struct json_parser *json_parser_init(struct istream *input);
 int json_parser_deinit(struct json_parser **parser, const char **error_r);
 

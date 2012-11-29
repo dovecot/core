@@ -15,7 +15,7 @@ static const char json_input[] =
 	"\"key3\":true,"
 	"\"key4\":false,"
 	"\"skip1\": \"jsifjaisfjiasji\","
-	"\"skip2\": { \"x\":{ \"y\":123}, \"z\":5},"
+	"\"skip2\": { \"x\":{ \"y\":123}, \"z\":[5,[6],{\"k\":0},3]},"
 	"\"key5\":null,"
 	"\"key6\": {},"
 	"\"key7\": {"
@@ -27,7 +27,9 @@ static const char json_input[] =
 	"  \"sub4\":0.456e-789"
 	"},"
 	"\"key9\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\uffff\","
-	"\"key10\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\uffff\""
+	"\"key10\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\uffff\","
+	"\"key11\": [],"
+	"\"key12\": [ \"foo\" , 5.24,[true],{\"aobj\":[]}]"
 	"}\n";
 
 static struct {
@@ -68,7 +70,23 @@ static struct {
 	{ JSON_TYPE_OBJECT_KEY, "key9" },
 	{ JSON_TYPE_STRING, "foo\\\"\b\f\n\r\t\001\xef\xbf\xbf" },
 	{ JSON_TYPE_OBJECT_KEY, "key10" },
-	{ TYPE_STREAM, "foo\\\"\b\f\n\r\t\001\xef\xbf\xbf" }
+	{ TYPE_STREAM, "foo\\\"\b\f\n\r\t\001\xef\xbf\xbf" },
+	{ JSON_TYPE_OBJECT_KEY, "key11" },
+	{ JSON_TYPE_ARRAY, NULL },
+	{ JSON_TYPE_ARRAY_END, NULL },
+	{ JSON_TYPE_OBJECT_KEY, "key12" },
+	{ JSON_TYPE_ARRAY, NULL },
+	{ JSON_TYPE_STRING, "foo" },
+	{ JSON_TYPE_NUMBER, "5.24" },
+	{ JSON_TYPE_ARRAY, NULL },
+	{ JSON_TYPE_TRUE, "true" },
+	{ JSON_TYPE_ARRAY_END, NULL },
+	{ JSON_TYPE_OBJECT, NULL },
+	{ JSON_TYPE_OBJECT_KEY, "aobj" },
+	{ JSON_TYPE_ARRAY, NULL },
+	{ JSON_TYPE_ARRAY_END, NULL },
+	{ JSON_TYPE_OBJECT_END, NULL },
+	{ JSON_TYPE_ARRAY_END, NULL }
 };
 
 static int
