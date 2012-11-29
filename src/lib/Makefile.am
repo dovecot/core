@@ -275,6 +275,7 @@ test_lib_SOURCES = \
 	test-istream-crlf.c \
 	test-istream-seekable.c \
 	test-istream-tee.c \
+	test-json-parser.c \
 	test-llist.c \
 	test-mempool-alloconly.c \
 	test-network.c \

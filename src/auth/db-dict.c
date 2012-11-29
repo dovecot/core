@@ -5,6 +5,7 @@
 #include "settings.h"
 #include "dict.h"
 #include "json-parser.h"
+#include "istream.h"
 #include "str.h"
 #include "auth-request.h"
 #include "auth-worker-client.h"
@@ -122,6 +123,7 @@ struct db_dict_value_iter *
 db_dict_value_iter_init(struct dict_connection *conn, const char *value)
 {
 	struct db_dict_value_iter *iter;
+	struct istream *input;
 
 	i_assert(strcmp(conn->set.value_format, "json") == 0);
 
@@ -129,7 +131,9 @@ db_dict_value_iter_init(struct dict_connection *conn, const char *value)
 	   value types are supported. */
 	iter = i_new(struct db_dict_value_iter, 1);
 	iter->key = str_new(default_pool, 64);
-	iter->parser = json_parser_init((const void *)value, strlen(value));
+	input = i_stream_create_from_data(value, strlen(value));
+	iter->parser = json_parser_init(input);
+	i_stream_unref(&input);
 	return iter;
 }
 
@@ -139,7 +143,7 @@ bool db_dict_value_iter_next(struct db_dict_value_iter *iter,
 	enum json_type type;
 	const char *value;
 
-	if (!json_parse_next(iter->parser, &type, &value))
+	if (json_parse_next(iter->parser, &type, &value) < 0)
 		return FALSE;
 	if (type != JSON_TYPE_OBJECT_KEY) {
 		iter->error = "Object expected";
@@ -152,8 +156,12 @@ bool db_dict_value_iter_next(struct db_dict_value_iter *iter,
 	str_truncate(iter->key, 0);
 	str_append(iter->key, value);
 
-	if (!json_parse_next(iter->parser, &type, &value)) {
+	if (json_parse_next(iter->parser, &type, &value) < 0) {
 		iter->error = "Missing value";
+		return FALSE;
+	}
+	if (type == JSON_TYPE_OBJECT) {
+		iter->error = "Nested objects not supported";
 		return FALSE;
 	}
 	*key_r = str_c(iter->key);
