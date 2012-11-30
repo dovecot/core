@@ -57,6 +57,7 @@ doveadm_mail_cmd_server_parse(const char *cmd_name,
 
 	ctx = doveadm_mail_cmd_init(cmd, set);
 	ctx->full_args = (const void *)(argv + 1);
+	ctx->proxying = TRUE;
 
 	ctx->service_flags |=
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |

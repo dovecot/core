@@ -374,7 +374,10 @@ static void doveadm_expire_mail_init(struct doveadm_mail_cmd_context *ctx)
 	if (expire_dict == NULL)
 		return;
 
-	if (ctx->iterate_single_user) {
+	/* doveadm proxying uses expire database only locally. the remote
+	   doveadm handles each user one at a time (even though
+	   iterate_single_user=FALSE) */
+	if (ctx->iterate_single_user || ctx->proxying) {
 		if (doveadm_debug) {
 			i_debug("expire: Iterating only a single user, "
 				"ignoring expire database");

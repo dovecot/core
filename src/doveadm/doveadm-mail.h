@@ -62,6 +62,8 @@ struct doveadm_mail_cmd_context {
 	/* if non-zero, exit with this code */
 	int exit_code;
 
+	/* This command is being called by a remote doveadm client. */
+	unsigned int proxying:1;
 	/* We're handling only a single user */
 	unsigned int iterate_single_user:1;
 	/* We're going through all users (not set for wildcard usernames) */
