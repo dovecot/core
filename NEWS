@@ -1,3 +1,7 @@
+v2.1.12 2012-11-30  Timo Sirainen <tss@iki.fi>
+
+	- dovecot-config in v2.1.11 caused build problems with Pigeonhole
+
 v2.1.11 2012-11-29  Timo Sirainen <tss@iki.fi>
 
 	* lmtp/lda: dovecot.index.cache file is no longer fully mapped to
