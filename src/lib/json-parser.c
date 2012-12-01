@@ -626,3 +626,38 @@ int json_parse_next_stream(struct json_parser *parser,
 	}
 	return ret;
 }
+
+void json_append_escaped(string_t *dest, const char *src)
+{
+	for (; *src != '\0'; src++) {
+		switch (*src) {
+		case '\b':
+			str_append(dest, "\\b");
+			break;
+		case '\f':
+			str_append(dest, "\\f");
+			break;
+		case '\n':
+			str_append(dest, "\\n");
+			break;
+		case '\r':
+			str_append(dest, "\\r");
+			break;
+		case '\t':
+			str_append(dest, "\\t");
+			break;
+		case '"':
+			str_append(dest, "\\\"");
+			break;
+		case '\\':
+			str_append(dest, "\\\\");
+			break;
+		default:
+			if (*src < 32)
+				str_printfa(dest, "\\u%04x", *src);
+			else
+				str_append_c(dest, *src);
+			break;
+		}
+	}
+}

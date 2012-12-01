@@ -36,4 +36,7 @@ void json_parse_skip_next(struct json_parser *parser);
 int json_parse_next_stream(struct json_parser *parser,
 			   struct istream **input_r);
 
+/* Append data to already opened JSON string. */
+void json_append_escaped(string_t *dest, const char *src);
+
 #endif
