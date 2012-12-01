@@ -293,6 +293,16 @@ static void http_client_payload_finished(struct http_client_connection *conn)
 			       http_client_connection_input, &conn->conn);
 }
 
+static void
+http_client_payload_destroyed_timeout(struct http_client_connection *conn)
+{
+	if (conn->close_indicated) {
+		http_client_connection_server_close(&conn);
+		return;
+	}
+	http_client_connection_input(&conn->conn);
+}
+
 static void http_client_payload_destroyed(struct http_client_connection *conn)
 {
 	i_assert(conn->incoming_payload != NULL);
@@ -310,18 +320,13 @@ static void http_client_payload_destroyed(struct http_client_connection *conn)
 	http_client_request_finish(&conn->pending_request);
 	conn->pending_request = NULL;
 
-	if (conn->close_indicated) {
-		http_client_connection_server_close(&conn);
-		return;
-	}
-
 	/* input stream may have pending input. make sure input handler
 	   gets called (but don't do it directly, since we get get here
 	   somewhere from the API user's code, which we can't really know what
 	   state it is in). this call also triggers sending a new request if
 	   necessary. */
 	conn->to_input =
-		timeout_add_short(0, http_client_connection_input, &conn->conn);
+		timeout_add_short(0, http_client_payload_destroyed_timeout, conn);
 }
 
 static bool
