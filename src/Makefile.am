@@ -1,18 +1,18 @@
 LIBDOVECOT_SUBDIRS = \
 	lib-test \
 	lib \
+	lib-settings \
 	lib-auth \
+	lib-master \
 	lib-charset \
 	lib-dns \
+	lib-dict \
+	lib-ssl-iostream
+	lib-http \
 	lib-fs \
 	lib-mail \
 	lib-imap \
-	lib-imap-storage \
-	lib-master \
-	lib-dict \
-	lib-settings \
-	lib-ssl-iostream \
-	lib-http
+	lib-imap-storage
 
 SUBDIRS = \
 	$(LIBDOVECOT_SUBDIRS) \
