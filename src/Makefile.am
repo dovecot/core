@@ -7,7 +7,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-charset \
 	lib-dns \
 	lib-dict \
-	lib-ssl-iostream
+	lib-ssl-iostream \
 	lib-http \
 	lib-fs \
 	lib-mail \
