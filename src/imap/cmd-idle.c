@@ -212,7 +212,8 @@ static void idle_add_keepalive_timeout(struct cmd_idle_context *ctx)
 	   time, but this can be avoided by using a properly configured Dovecot
 	   proxy. we'll also try to avoid this by not doing it for the commonly
 	   used intranet IP ranges. */
-	client_hash = remote_ip_is_usable(ctx->client->user->remote_ip) ?
+	client_hash = ctx->client->user->remote_ip != NULL &&
+		remote_ip_is_usable(ctx->client->user->remote_ip) ?
 		net_ip_hash(ctx->client->user->remote_ip) :
 		crc32_str(ctx->client->user->username);
 	interval -= (time(NULL) + client_hash) % interval;
