@@ -10,7 +10,8 @@ struct {
 	const char *output;
 } tests[] = {
 	{ "p=C3=A4=C3=A4t=C3=B6s", "päätös" },
-	{ "p=c3=a4=c3=a4t=c3=b6s", "päätös" },
+	{ "p=c3=a4=c3=a4t=c3=b6s=  ", "päätös" },
+	{ "p=c3=a4=c3=a4t=c3=b6s=  \n", "päätös" },
 	{ "p=c3=a4= \t \n=c3=\r\n=a4t=  \r\n=c3=b6s", "päätös" },
 };
 

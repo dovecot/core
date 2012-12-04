@@ -281,12 +281,12 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 	case MESSAGE_CTE_QP:
 		buffer_set_used_size(ctx->buf, 0);
 		if (ctx->encoding_buf->used != 0) {
-			quoted_printable_decode(ctx->encoding_buf->data,
-						ctx->encoding_buf->used,
-						&pos, ctx->buf);
+			(void)quoted_printable_decode(ctx->encoding_buf->data,
+						      ctx->encoding_buf->used,
+						      &pos, ctx->buf);
 		} else {
-			quoted_printable_decode(input->data, input->size,
-						&pos, ctx->buf);
+			(void)quoted_printable_decode(input->data, input->size,
+						      &pos, ctx->buf);
 		}
 		data = ctx->buf->data;
 		size = ctx->buf->used;

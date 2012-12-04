@@ -16,13 +16,14 @@ void message_header_decode_utf8(const unsigned char *data, size_t size,
 	buffer_append(dest, data, size);
 }
 
-void quoted_printable_decode(const unsigned char *src, size_t src_size,
-			     size_t *src_pos_r, buffer_t *dest)
+int quoted_printable_decode(const unsigned char *src, size_t src_size,
+			    size_t *src_pos_r, buffer_t *dest)
 {
 	while (src_size > 0 && src[src_size-1] == ' ')
 		src_size--;
 	buffer_append(dest, src, src_size);
 	*src_pos_r = src_size;
+	return 0;
 }
 
 int charset_to_utf8_begin(const char *charset ATTR_UNUSED,
