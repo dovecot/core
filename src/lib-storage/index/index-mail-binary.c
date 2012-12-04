@@ -381,6 +381,9 @@ index_mail_read_binary_to_cache(struct mail *_mail,
 
 	cache->input = i_streams_merge(blocks_get_streams(&ctx),
 				       IO_BLOCK_SIZE, fd_callback, _mail);
+	i_stream_set_name(cache->input, t_strdup_printf(
+		"<binary stream of mailbox %s UID %u>",
+		_mail->box->vname, _mail->uid));
 	if (blocks_count_lines(&ctx, cache->input) < 0) {
 		mail_storage_set_critical(_mail->box->storage,
 					  "read(%s) failed: %m",
