@@ -137,6 +137,7 @@ imap_get_error_string(struct client_command_context *cmd,
 		resp_code = IMAP_RESP_CODE_INUSE;
 		break;
 	case MAIL_ERROR_CONVERSION:
+	case MAIL_ERROR_INVALIDDATA:
 		break;
 	}
 	if (resp_code == NULL || *error_string == '[')

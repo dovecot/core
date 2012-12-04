@@ -119,7 +119,8 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 
 	if (cte == MESSAGE_CTE_UNKNOWN) {
 		mail_storage_set_error(ctx->mail->box->storage,
-				       MAIL_ERROR_CONVERSION, "Unknown CTE");
+				       MAIL_ERROR_CONVERSION,
+				       "Unknown Content-Transfer-Encoding.");
 		return -1;
 	}
 
@@ -385,9 +386,16 @@ index_mail_read_binary_to_cache(struct mail *_mail,
 		"<binary stream of mailbox %s UID %u>",
 		_mail->box->vname, _mail->uid));
 	if (blocks_count_lines(&ctx, cache->input) < 0) {
-		mail_storage_set_critical(_mail->box->storage,
-					  "read(%s) failed: %m",
-					  i_stream_get_name(cache->input));
+		if (cache->input->stream_errno == EINVAL) {
+			/* MIME part contains invalid data */
+			mail_storage_set_error(_mail->box->storage,
+					       MAIL_ERROR_INVALIDDATA,
+					       "Invalid data in MIME part");
+		} else {
+			mail_storage_set_critical(_mail->box->storage,
+				"read(%s) failed: %m",
+				i_stream_get_name(cache->input));
+		}
 		mail_storage_free_binary_cache(_mail->box->storage);
 		binary_streams_free(&ctx);
 		return -1;
