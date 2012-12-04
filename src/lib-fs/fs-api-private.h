@@ -64,6 +64,8 @@ struct fs_file {
 	struct fs *fs;
 	struct ostream *output;
 	char *path;
+
+	struct istream *pending_read_input;
 	bool write_pending;
 };
 

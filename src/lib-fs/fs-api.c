@@ -4,6 +4,7 @@
 #include "array.h"
 #include "module-dir.h"
 #include "str.h"
+#include "istream.h"
 #include "ostream.h"
 #include "fs-api-private.h"
 
@@ -199,7 +200,32 @@ bool fs_prefetch(struct fs_file *file, uoff_t length)
 
 ssize_t fs_read(struct fs_file *file, void *buf, size_t size)
 {
-	return file->fs->v.read(file, buf, size);
+	const unsigned char *data;
+	size_t data_size;
+	ssize_t ret;
+
+	if (file->fs->v.read != NULL)
+		return file->fs->v.read(file, buf, size);
+
+	/* backend didn't bother to implement read(), but we can do it with
+	   streams. */
+	if (file->pending_read_input == NULL)
+		file->pending_read_input = fs_read_stream(file, size+1);
+	ret = i_stream_read_data(file->pending_read_input,
+				 &data, &data_size, size-1);
+	if (ret == 0) {
+		fs_set_error_async(file->fs);
+		return -1;
+	}
+	if (ret < 0 && file->pending_read_input->stream_errno != 0) {
+		fs_set_error(file->fs, "read(%s) failed: %m",
+			     i_stream_get_name(file->pending_read_input));
+	} else {
+		ret = I_MIN(size, data_size);
+		memcpy(buf, data, ret);
+	}
+	i_stream_unref(&file->pending_read_input);
+	return ret;
 }
 
 struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
