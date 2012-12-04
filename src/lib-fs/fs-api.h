@@ -153,7 +153,7 @@ int fs_stat(struct fs_file *file, struct stat *st_r);
    directories are created automatically. Returns 0 if ok, -1 if error
    occurred. */
 int fs_copy(struct fs_file *src, struct fs_file *dest);
-/* Try to finish asynchronous fs_copy() */
+/* Try to finish asynchronous fs_copy(). Returns the same as fs_copy(). */
 int fs_copy_finish_async(struct fs_file *dest);
 /* Atomically rename a file. Destination parent directories are created
    automatically. Returns 0 if ok, -1 if error occurred. */
