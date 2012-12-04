@@ -70,6 +70,8 @@ static ssize_t i_stream_qp_decoder_read(struct istream_private *stream)
 {
 	struct qp_decoder_istream *bstream =
 		(struct qp_decoder_istream *)stream;
+	const unsigned char *data;
+	size_t size;
 	size_t pre_count, post_count;
 	int ret;
 	size_t prev_size = 0;
@@ -77,12 +79,24 @@ static ssize_t i_stream_qp_decoder_read(struct istream_private *stream)
 	do {
 		ret = i_stream_read_parent(stream, &prev_size);
 		if (ret <= 0) {
-			if (ret < 0 && stream->istream.stream_errno == 0 &&
-			    i_stream_get_data_size(stream->parent) > 0) {
-				/* qp input with a partial block */
-				stream->istream.stream_errno = EINVAL;
+			if (ret != -1 || stream->istream.stream_errno != 0)
+				return 0;
+
+			data = i_stream_get_data(stream->parent, &size);
+			if (size == 0)
+				return -1;
+
+			if (size == 1 && data[0] == '=') {
+				/* ends with "=". normally this would be
+				   followed by LF, but it's not really an
+				   error even without. */
+				i_stream_skip(stream->parent, 1);
+				stream->istream.eof = TRUE;
+				return -1;
 			}
-			return ret;
+			/* qp input with a partial block */
+			stream->istream.stream_errno = EINVAL;
+			return -1;
 		}
 
 		/* encode as many blocks as fits into destination buffer */
