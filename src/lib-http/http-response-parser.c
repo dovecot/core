@@ -78,7 +78,7 @@ http_response_parser_restart(struct http_response_parser *parser)
 	str_truncate(parser->strbuf, 0);
 	if (parser->response_pool != NULL)
 		pool_unref(&parser->response_pool);
-	parser->response_pool = pool_alloconly_create("http_response", 2048);
+	parser->response_pool = pool_alloconly_create("http_response", 4096);
 	parser->response = p_new(parser->response_pool, struct http_response, 1);
 	parser->response->date = (time_t)-1;
 	p_array_init(&parser->response->headers, parser->response_pool, 32);
