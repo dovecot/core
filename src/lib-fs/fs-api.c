@@ -4,6 +4,7 @@
 #include "array.h"
 #include "module-dir.h"
 #include "str.h"
+#include "ostream.h"
 #include "fs-api-private.h"
 
 static struct module *fs_modules = NULL;
@@ -208,7 +209,37 @@ struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 
 int fs_write(struct fs_file *file, const void *data, size_t size)
 {
-	return file->fs->v.write(file, data, size);
+	struct ostream *output;
+	ssize_t ret;
+	int err;
+
+	if (file->fs->v.write != NULL)
+		return file->fs->v.write(file, data, size);
+
+	/* backend didn't bother to implement write(), but we can do it with
+	   streams. */
+	if (!file->write_pending) {
+		output = fs_write_stream(file);
+		if ((ret = o_stream_send(output, data, size)) < 0) {
+			err = errno;
+			fs_set_error(file->fs, "fs_write(%s) failed: %m",
+				     o_stream_get_name(output));
+			fs_write_stream_abort(file, &output);
+			errno = err;
+			return -1;
+		}
+		i_assert((size_t)ret == size);
+		ret = fs_write_stream_finish(file, &output);
+	} else {
+		ret = fs_write_stream_finish_async(file);
+	}
+	if (ret == 0) {
+		fs_set_error_async(file->fs);
+		file->write_pending = TRUE;
+		return -1;
+	}
+	file->write_pending = FALSE;
+	return ret < 0 ? -1 : 0;
 }
 
 struct ostream *fs_write_stream(struct fs_file *file)
