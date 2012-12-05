@@ -379,10 +379,10 @@ int http_response_parse_next(struct http_response_parser *parser,
 
 		i_assert(parser->state == HTTP_RESPONSE_PARSE_STATE_INIT);
 
-		if (!payload->eof) {
-			while ((ret=i_stream_read(payload)) > 0) {
+		if (i_stream_have_bytes_left(payload)) {
+			do {
 				i_stream_skip(payload, i_stream_get_data_size(payload));
-			}
+			} while ((ret=i_stream_read(payload)) > 0);
 			if (ret == 0)
 				return 0;
 			if (ret < 0 && !payload->eof) {
