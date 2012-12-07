@@ -208,6 +208,12 @@ static void tview_lookup_seq_range(struct mail_index_view *view,
 			return;
 		}
 		*first_seq_r = seq;
+
+		if (rec->uid == last_uid) {
+			/* one seq in range */
+			*last_seq_r = seq;
+			return;
+		}
 	}
 
 	seq = tview->t->last_new_seq;
