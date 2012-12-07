@@ -203,7 +203,7 @@ static void tview_lookup_seq_range(struct mail_index_view *view,
 			if (first_uid <= rec->uid)
 				break;
 		}
-		if (seq > tview->t->last_new_seq) {
+		if (seq > tview->t->last_new_seq || rec->uid > last_uid) {
 			/* no messages in range */
 			return;
 		}
