@@ -40,11 +40,11 @@ o_stream_buffer_sendv(struct ostream_private *stream,
 		n = I_MIN(left, iov[i].iov_len);
 		buffer_write(bstream->buf, stream->ostream.offset,
 			     iov[i].iov_base, n);
+		stream->ostream.offset += n;
 		ret += n;
 		if (n != iov[i].iov_len)
 			break;
 	}
-	stream->ostream.offset += ret;
 	return ret;
 }
 
