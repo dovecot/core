@@ -290,7 +290,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 
 		msg = t_str_new(256);
 		save_count = seq_range_count(&changes.saved_uids);
-		if (save_count == 0) {
+		if (save_count == 0 || changes.no_read_perm) {
 			/* not supported by backend (virtual) */
 			str_append(msg, "OK Append completed.");
 		} else {
