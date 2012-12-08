@@ -349,6 +349,8 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		/* first storage for namespace */
 		if (mail_storage_is_mailbox_file(storage_class))
 			list_flags |= MAILBOX_LIST_FLAG_MAILBOX_FILES;
+		if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0)
+			list_flags |= MAILBOX_LIST_FLAG_NO_MAIL_FILES;
 		if (mailbox_list_create(list_set.layout, ns, &list_set,
 					list_flags, &list, error_r) < 0) {
 			*error_r = t_strdup_printf("Mailbox list driver %s: %s",
