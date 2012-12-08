@@ -16,7 +16,10 @@ enum fs_properties {
 	FS_PROPERTY_ITER	= 0x20,
 	/* Iteration always returns all of the files (instead of possibly
 	   slightly out of date view) */
-	FS_PROPERTY_RELIABLEITER= 0x40
+	FS_PROPERTY_RELIABLEITER= 0x40,
+	/* Backend uses directories, which aren't automatically deleted
+	   when its children are deleted. */
+	FS_PROPERTY_DIRECTORIES	= 0x80
 };
 
 enum fs_open_mode {
