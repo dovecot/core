@@ -57,6 +57,7 @@ const char *const mountpoint_list_default_ignore_prefixes[] = {
 	"/proc",
 	"/var/run",
 	"/run",
+	"/Volumes", /* OSX */
 	NULL
 };
 
