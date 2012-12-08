@@ -192,6 +192,7 @@ void solr_connection_deinit(struct solr_connection *conn)
 	curl_slist_free_all(conn->headers_post);
 	curl_multi_cleanup(conn->curlm);
 	curl_easy_cleanup(conn->curl);
+	XML_ParserFree(conn->xml_parser);
 	i_free(conn->last_sent_url);
 	i_free(conn->url);
 	i_free(conn);
