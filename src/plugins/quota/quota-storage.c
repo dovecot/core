@@ -161,13 +161,22 @@ void quota_mail_allocated(struct mail *_mail)
 	MODULE_CONTEXT_SET_SELF(mail, quota_mail_module, qmail);
 }
 
-static int quota_check(struct mailbox_transaction_context *t, struct mail *mail)
+static int quota_check(struct mail_save_context *ctx)
 {
+	struct mailbox_transaction_context *t = ctx->transaction;
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(t);
 	int ret;
 	bool too_large;
 
-	ret = quota_try_alloc(qt, mail, &too_large);
+	if (ctx->moving) {
+		/* the mail is being moved. the quota won't increase (after
+		   the following expunge), so allow this even if user is
+		   currently over quota */
+		quota_alloc(qt, ctx->dest_mail);
+		return 0;
+	}
+
+	ret = quota_try_alloc(qt, ctx->dest_mail, &too_large);
 	if (ret > 0)
 		return 0;
 	else if (ret == 0) {
@@ -206,12 +215,7 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 		   quota */
 		return 0;
 	}
-	if (ctx->moving) {
-		/* the mail is being moved. the quota won't increase, so allow
-		   this even if user is currently over quota */
-		return 0;
-	}
-	return quota_check(t, ctx->dest_mail);
+	return quota_check(ctx);
 }
 
 static int
@@ -223,7 +227,7 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 	uoff_t size;
 	int ret;
 
-	if (i_stream_get_size(input, TRUE, &size) > 0 && !ctx->moving) {
+	if (!ctx->moving && i_stream_get_size(input, TRUE, &size) > 0) {
 		/* Input size is known, check for quota immediately. This
 		   check isn't perfect, especially because input stream's
 		   linefeeds may contain CR+LFs while physical message would
@@ -267,12 +271,7 @@ static int quota_save_finish(struct mail_save_context *ctx)
 	if (qbox->module_ctx.super.save_finish(ctx) < 0)
 		return -1;
 
-	if (ctx->moving) {
-		/* the mail is being moved. the quota won't increase, so allow
-		   this even if user is currently over quota */
-		return 0;
-	}
-	return quota_check(ctx->transaction, ctx->dest_mail);
+	return quota_check(ctx);
 }
 
 static void quota_mailbox_sync_cleanup(struct quota_mailbox *qbox)
