@@ -171,7 +171,7 @@ int http_client_request_send_more(struct http_client_request *req)
 		ret = -1;
 	o_stream_set_max_buffer_size(output, (size_t)-1);
 
-	if (req->input->eof) {
+	if (!i_stream_have_bytes_left(req->input)) {
 		if (req->input->v_offset != req->input_size) {
 			i_error("stream input size changed"); //FIXME
 			return -1;
