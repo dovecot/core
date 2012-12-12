@@ -476,7 +476,6 @@ int http_response_parse_next(struct http_response_parser *parser,
 			                      / transfer-extension       ;  [FIXME]
 			   transfer-extension = token *( OWS ";" OWS transfer-parameter )
 			*/
-			// FIXME: parse this directly when the header is parsed
 			http_parser_init(&hparser,
 				(const unsigned char *)parser->transfer_encoding,
 				strlen(parser->transfer_encoding));

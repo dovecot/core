@@ -74,6 +74,7 @@ got_request_response(const struct http_response *response,
 
 static const char *test_query1 = "action=fullsearch&context=180&value=sieve&titlesearch=Titles";
 static const char *test_query2 = "action=fullsearch&context=180&value=pigeonhole&titlesearch=Titles";
+static const char *test_query3 = "foo=bar";
 
 int main(void)
 {
@@ -91,7 +92,7 @@ int main(void)
 	http_set.max_idle_time_msecs = 5*1000;
 	http_set.max_parallel_connections = 4;
 	http_set.max_pipelined_requests = 4;
-	http_set.max_redirects = 1;
+	http_set.max_redirects = 2;
 	http_set.max_attempts = 1;
 	http_set.debug = TRUE;
 	http_set.rawlog_dir = "/tmp/http-test";
@@ -215,6 +216,16 @@ int main(void)
 	http_req = http_client_request(http_client,
 		"GET", "jigsaw.w3.org", "/HTTP/ChunkedScript",
 		got_request_response, test_req);
+	http_client_request_submit(http_req);
+
+	test_req = i_new(struct http_test_request, 1);
+	http_req = http_client_request(http_client,
+		"POST", "jigsaw.w3.org", "/HTTP/300/Go_307",
+		got_request_response, test_req);
+	post_payload = i_stream_create_from_data
+		((unsigned char *)test_query3, strlen(test_query3));
+	http_client_request_set_payload(http_req, post_payload, FALSE);
+	i_stream_unref(&post_payload);
 	http_client_request_submit(http_req);
 
 	http_client_wait(http_client);

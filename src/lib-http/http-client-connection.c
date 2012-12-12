@@ -62,7 +62,7 @@ static void http_client_connection_input(struct connection *_conn);
 bool http_client_connection_is_ready(struct http_client_connection *conn)
 {
 	return (conn->connected && !conn->output_locked &&
-		array_count(&conn->request_wait_list) <
+		!conn->close_indicated &&	array_count(&conn->request_wait_list) <
 			conn->client->set.max_pipelined_requests);
 }
 
@@ -428,6 +428,10 @@ static void http_client_connection_input(struct connection *_conn)
 			return;
 		}
 
+		/* Got some response; cancel response timeout */
+		if (conn->to_response != NULL)
+			timeout_remove(&conn->to_response);
+
 		/* https://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-21
 		     Section 7.2:
 
@@ -438,8 +442,6 @@ static void http_client_connection_input(struct connection *_conn)
 		 */
 		if (req->payload_sync && response->status == 100) {
 			conn->payload_continue = TRUE;
-			if (conn->to_response != NULL)
-				timeout_remove(&conn->to_response);
 			http_client_connection_debug(conn,
 				"Got expected 100-continue response");
 			if (http_client_request_send_more(req) < 0) {
@@ -469,7 +471,7 @@ static void http_client_connection_input(struct connection *_conn)
 		if (!aborted) {
 			if (response->status / 100 == 3) {
 				/* redirect */
-				http_client_request_redirect(req, response->location);
+				http_client_request_redirect(req, response->status, response->location);
 			} else {
 				/* response for application */
 				if (!http_client_connection_return_response(conn, req, response))

@@ -137,6 +137,7 @@ void http_client_request_set_payload(struct http_client_request *req,
 	req->input = input;
 	if (i_stream_get_size(input, TRUE, &req->input_size) <= 0)
 		i_unreached(); //FIXME	
+	req->input_offset = input->v_offset;
 
 	/* prepare request payload sync using 100 Continue response from server */
 	if (req->input_size > 0 && sync) {
@@ -175,7 +176,6 @@ int http_client_request_send_more(struct http_client_request *req)
 			i_error("stream input size changed"); //FIXME
 			return -1;
 		}
-		i_stream_unref(&req->input);
 		req->state = HTTP_REQUEST_STATE_WAITING;
 		conn->output_locked = FALSE;
 		http_client_request_debug(req, "Sent all payload");
@@ -313,7 +313,7 @@ void http_client_request_finish(struct http_client_request **_req)
 }
 
 void http_client_request_redirect(struct http_client_request *req,
-	const char *location)
+	unsigned int status, const char *location)
 {
 	struct http_url *url;
 	const char *error;
@@ -341,6 +341,18 @@ void http_client_request_redirect(struct http_client_request *req,
 		return;
 	}
 
+	/* rewind payload stream */
+	if (req->input != NULL && req->input_size > 0 && status != 303) {
+		if (req->input->v_offset != req->input_offset && !req->input->seekable) {
+			http_client_request_error(req,
+				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
+				"Redirect failed: Cannot resend payload; stream is not seekable");
+			return;
+		} else {
+			i_stream_seek(req->input, req->input_offset);
+		}
+	}
+
 	newport = (url->have_port ? url->port : (url->have_ssl ? 443 : 80));
 
 	http_client_request_debug(req, "Redirecting to http://%s:%u%s",
@@ -354,6 +366,26 @@ void http_client_request_redirect(struct http_client_request *req,
 	req->target = p_strdup(req->pool, url->path);
 	req->ssl = url->have_ssl;
 
+	/* https://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-21
+	      Section-7.4.4
+	
+	   -> A 303 `See Other' redirect status response is handled a bit differently.
+	   Basically, the response content is located elsewhere, but the original
+	   (POST) request is handled already.
+	 */
+	if (status == 303 && strcasecmp(req->method, "HEAD") != 0 &&
+		strcasecmp(req->method, "GET") != 0) {
+		// FIXME: should we provide the means to skip this step? The original
+		// request was already handled at this point.
+		req->method = p_strdup(req->pool, "GET");
+
+		/* drop payload */
+		if (req->input != NULL)
+			i_stream_unref(&req->input);
+		req->input_size = 0;
+		req->input_offset = 0;
+	}
+
 	/* resubmit */
 	req->client->pending_requests--;
 	req->state = HTTP_REQUEST_STATE_NEW;
@@ -363,6 +395,18 @@ void http_client_request_redirect(struct http_client_request *req,
 void http_client_request_resubmit(struct http_client_request *req)
 {
 	http_client_request_debug(req, "Resubmitting request");
+
+	/* rewind payload stream */
+	if (req->input != NULL && req->input_size > 0) {
+		if (req->input->v_offset != req->input_offset && !req->input->seekable) {
+			http_client_request_error(req,
+				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
+				"Resubmission failed: Cannot resend payload; stream is not seekable");
+			return;
+		} else {
+			i_stream_seek(req->input, req->input_offset);
+		}
+	}
 
 	req->conn = NULL;
 	req->peer = NULL;

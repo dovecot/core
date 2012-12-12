@@ -57,7 +57,7 @@ struct http_client_request {
 
 	string_t *headers;
 	struct istream *input;
-	uoff_t input_size;
+	uoff_t input_size, input_offset;
 
 	unsigned int attempts;
 	unsigned int redirects;
@@ -198,7 +198,7 @@ void http_client_request_retry(struct http_client_request *req,
 void http_client_request_error(struct http_client_request *req,
 	unsigned int status, const char *error);
 void http_client_request_redirect(struct http_client_request *req,
-	const char *location);
+	unsigned int status, const char *location);
 void http_client_request_finish(struct http_client_request **_req);
 
 struct connection_list *http_client_connection_list_init(void);

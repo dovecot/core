@@ -12,13 +12,14 @@
 
 #include <time.h>
 
-struct http_transfer_chunked_test {
+struct http_transfer_chunked_input_test {
 	const char *in;
 	const char *out;
 };
 
-/* Valid transfer_chunked tests */
-struct http_transfer_chunked_test valid_transfer_chunked_tests[] = {
+/* Valid transfer_chunked input tests */
+static struct http_transfer_chunked_input_test
+valid_transfer_chunked_input_tests[] = {
 	{	.in = "1E\r\n"
 			"This is a simple test payload."
 			"\r\n"
@@ -77,10 +78,10 @@ struct http_transfer_chunked_test valid_transfer_chunked_tests[] = {
 	}
 };
 
-unsigned int valid_transfer_chunked_test_count =
-	N_ELEMENTS(valid_transfer_chunked_tests);
+static unsigned int valid_transfer_chunked_input_test_count =
+	N_ELEMENTS(valid_transfer_chunked_input_tests);
 
-static void test_http_transfer_chunked_valid(void)
+static void test_http_transfer_chunked_input_valid(void)
 {
 	struct istream *input, *chunked;
 	struct ostream *output;
@@ -89,21 +90,21 @@ static void test_http_transfer_chunked_valid(void)
 
 	payload_buffer = buffer_create_dynamic(default_pool, 1024);
 
-	for (i = 0; i < valid_transfer_chunked_test_count; i++) T_BEGIN {
+	for (i = 0; i < valid_transfer_chunked_input_test_count; i++) T_BEGIN {
 		const char *in, *out, *stream_out;
 
-		in = valid_transfer_chunked_tests[i].in;
-		out = valid_transfer_chunked_tests[i].out;
+		in = valid_transfer_chunked_input_tests[i].in;
+		out = valid_transfer_chunked_input_tests[i].out;
 
-		test_begin(t_strdup_printf("http transfer_chunked valid [%d]", i));
+		test_begin(t_strdup_printf("http transfer_chunked input valid [%d]", i));
 
 		input = i_stream_create_from_data(in, strlen(in));
 		chunked = http_transfer_chunked_istream_create(input);
 
 		buffer_set_used_size(payload_buffer, 0);
 		output = o_stream_create_buffer(payload_buffer);
-		test_out("payload read", 
-			o_stream_send_istream(output, chunked));
+		test_out("payload read", o_stream_send_istream(output, chunked) > 0
+			&& chunked->stream_errno == 0);
 		o_stream_destroy(&output);
 		stream_out = str_c(payload_buffer);
 
@@ -116,10 +117,226 @@ static void test_http_transfer_chunked_valid(void)
 	buffer_free(&payload_buffer);
 }
 
+/* Invalid transfer_chunked input tests */
+static const char *
+invalid_transfer_chunked_input_tests[] = {
+	// invalid size
+	"1X\r\n"
+	"This is a simple test payload."
+	"\r\n"
+	"0\r\n"
+	"\r\n",
+	// invalid end
+	"1E\r\n"
+	"This is a simple test payload."
+	"\r\n"
+	"0\r\n"
+	"ah\r\n",
+	// invalid size
+	"20\r\n"
+	"This is a longer test payload..."
+	"\r\n"
+	"2q\r\n"
+	"...spread over two separate chunks."
+	"\r\n"
+	"0\r\n"
+	"\r\n",
+	// invalid end
+	"20\r\n"
+	"This is a longer test payload..."
+	"\r\n"
+	"23\r\n"
+	"...spread over two separate chunks."
+	"\r\n"
+	"0\r\n",
+	// invalid last chunk
+	"20\r\n"
+	"This is a longer test payload..."
+	"\r\n"
+	"23\r\n"
+	"...spread over two separate chunks."
+	"\r\n"
+	"4\r\n"
+	"\r\n",
+	// invalid trailer
+	"26\r\n"
+	"This is an even longer test payload..."
+	"\r\n"
+	"27\r\n"
+	"...spread over three separate chunks..."
+	"\r\n"
+	"1F\r\n"
+	"...and also includes a trailer."
+	"\r\n"
+	"0\r\n"
+	"Checksum adgfef3fdaf3daf3dfaf3ff3fdag\r\n"
+	"\r\n"
+};
+
+static unsigned int invalid_transfer_chunked_input_test_count =
+	N_ELEMENTS(invalid_transfer_chunked_input_tests);
+
+static void test_http_transfer_chunked_input_invalid(void)
+{
+	struct istream *input, *chunked;
+	struct ostream *output;
+	buffer_t *payload_buffer;
+	unsigned int i;
+
+	payload_buffer = buffer_create_dynamic(default_pool, 1024);
+
+	for (i = 0; i < invalid_transfer_chunked_input_test_count; i++) T_BEGIN {
+		const char *in;
+
+		in = invalid_transfer_chunked_input_tests[i];
+
+		test_begin(t_strdup_printf("http transfer_chunked input invalid [%d]", i));
+
+		input = i_stream_create_from_data(in, strlen(in));
+		chunked = http_transfer_chunked_istream_create(input);
+
+		buffer_set_used_size(payload_buffer, 0);
+		output = o_stream_create_buffer(payload_buffer);
+		(void)o_stream_send_istream(output, chunked);
+		test_out("payload read failure", chunked->stream_errno != 0);
+		o_stream_destroy(&output);
+
+		test_end();
+	} T_END;
+
+	buffer_free(&payload_buffer);
+}
+
+/* Valid transfer_chunked output tests */
+static const char *valid_transfer_chunked_output_tests[] = {
+	/* The maximum chunk size is set to 16. These tests are tuned to some border
+	   cases 
+	*/
+	"A small payload",  // 15 bytes
+	"A longer payload", // 16 bytes
+	"A lengthy payload", // 17 bytes
+	/* Others */
+	"This is a test payload with lots of nonsense.",
+	"Yet another payload.",
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+	"This a very long repetitive payload. This a very long repetitive payload. "
+}; 
+
+static unsigned int valid_transfer_chunked_output_test_count =
+	N_ELEMENTS(valid_transfer_chunked_output_tests);
+
+static void test_http_transfer_chunked_output_valid(void)
+{
+	struct istream *input, *ichunked;
+	struct ostream *output, *ochunked;
+	buffer_t *chunked_buffer, *plain_buffer;
+	unsigned int i;
+
+	chunked_buffer = buffer_create_dynamic(default_pool, 1024);
+	plain_buffer = buffer_create_dynamic(default_pool, 1024);
+
+	for (i = 0; i < valid_transfer_chunked_output_test_count; i++) T_BEGIN {
+		const char *data, *stream_out;
+		const unsigned char *rdata;
+		size_t rsize;
+		ssize_t ret;
+
+		data = valid_transfer_chunked_output_tests[i];
+
+		test_begin(t_strdup_printf("http transfer_chunked output valid [%d]", i));
+
+		/* create input stream */
+		input = i_stream_create_from_data(data, strlen(data));
+
+		/* create buffer output stream */
+		buffer_set_used_size(chunked_buffer, 0);
+		output = o_stream_create_buffer(chunked_buffer);
+
+		/* create chunked output stream */
+		ochunked = http_transfer_chunked_ostream_create(output);
+
+		/* send input through chunked stream; chunk size is limited */
+		ret = 0;
+		for (;;) {
+			ret = i_stream_read_data(input, &rdata, &rsize, 0);
+			if (ret < 0) {
+				if (input->eof)
+					ret = 1;
+				break;
+			}
+			if (rsize == 0) 
+				break;
+			if (rsize > 16)
+				rsize = 16;
+
+			ret = o_stream_send(ochunked, rdata, rsize);
+			if (ret < 0)
+				break;
+
+			if ((size_t)ret != rsize) {
+				ret = -1;
+				break;
+			}
+
+			i_stream_skip(input, ret);
+		}
+
+		/* cleanup streams */
+		test_out("payload chunk", ret > 0);
+		o_stream_destroy(&ochunked);
+		o_stream_destroy(&output);
+		i_stream_destroy(&input);
+		
+		/* create chunked input stream */
+		input = i_stream_create_from_data
+			(chunked_buffer->data, chunked_buffer->used);
+		ichunked = http_transfer_chunked_istream_create(input);
+
+		/* read back chunk */
+		buffer_set_used_size(plain_buffer, 0);
+		output = o_stream_create_buffer(plain_buffer);
+		ret = o_stream_send_istream(output, ichunked);
+		test_out("payload unchunk", ret >= 0
+			&& ichunked->stream_errno == 0);
+		o_stream_destroy(&output);
+		i_stream_destroy(&ichunked);
+		i_stream_destroy(&input);
+
+		/* test output */
+		stream_out = str_c(plain_buffer);
+		test_out(t_strdup_printf("response->payload = %s",
+			str_sanitize(stream_out, 80)),
+			strcmp(stream_out, data) == 0);
+		test_end();
+	} T_END;
+
+	buffer_free(&chunked_buffer);
+	buffer_free(&plain_buffer);
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
-		test_http_transfer_chunked_valid,
+		test_http_transfer_chunked_input_valid,
+		test_http_transfer_chunked_input_invalid,
+		test_http_transfer_chunked_output_valid,
 		NULL
 	};
 	return test_run(test_functions);
