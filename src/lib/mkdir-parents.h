@@ -1,6 +1,8 @@
 #ifndef MKDIR_PARENTS_H
 #define MKDIR_PARENTS_H
 
+#include <sys/stat.h>
+
 /* Create path and all the directories under it if needed. Permissions for
    existing directories isn't changed. Returns 0 if ok. If directory already
    exists, returns -1 with errno=EEXIST. */
@@ -19,5 +21,11 @@ int mkdir_parents_chgrp(const char *path, mode_t mode,
 int mkdir_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int mkdir_chgrp(const char *path, mode_t mode,
 		gid_t gid, const char *gid_origin);
+
+/* stat() the path or its first parent that exists. Returns 0 if ok, -1 if
+   failed. root_dir is set to the last stat()ed directory (on success and
+   on failure). */
+int stat_first_parent(const char *path, const char **root_dir_r,
+		      struct stat *st_r);
 
 #endif

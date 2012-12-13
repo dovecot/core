@@ -125,3 +125,23 @@ int mkdir_parents(const char *path, mode_t mode)
 {
 	return mkdir_parents_chown(path, mode, (uid_t)-1, (gid_t)-1);
 }
+
+int stat_first_parent(const char *path, const char **root_dir_r,
+		      struct stat *st_r)
+{
+	const char *p;
+
+	while (stat(path, st_r) < 0) {
+		if (errno != ENOENT || strcmp(path, "/") == 0) {
+			*root_dir_r = path;
+			return -1;
+		}
+		p = strrchr(path, '/');
+		if (p == NULL)
+			path = "/";
+		else
+			path = t_strdup_until(path, p);
+	}
+	*root_dir_r = path;
+	return 0;
+}
