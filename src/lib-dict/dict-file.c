@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "hash.h"
+#include "mkdir-parents.h"
 #include "file-lock.h"
 #include "file-dotlock.h"
 #include "nfs-workarounds.h"
@@ -424,6 +425,33 @@ fd_copy_parent_dir_permissions(const char *src_path, int dest_fd,
 	return fd_copy_stat_permissions(&src_st, dest_fd, dest_path);
 }
 
+static int file_dict_mkdir(struct file_dict *dict)
+{
+	const char *path, *p, *root;
+	struct stat st;
+	mode_t mode = 0700;
+
+	p = strrchr(dict->path, '/');
+	if (p == NULL)
+		return 0;
+	path = t_strdup_until(dict->path, p);
+
+	if (stat_first_parent(path, &root, &st) < 0) {
+		i_error("stat(%s) failed: %m", root);
+		return -1;
+	}
+	if ((st.st_mode & S_ISGID) != 0) {
+		/* preserve parent's permissions when it has setgid bit */
+		mode = st.st_mode;
+	}
+
+	if (mkdir_parents(path, mode) < 0) {
+		i_error("mkdir_parents(%s) failed: %m", path);
+		return -1;
+	}
+	return 0;
+}
+
 static int
 file_dict_lock(struct file_dict *dict, struct file_lock **lock_r)
 {
@@ -435,6 +463,11 @@ file_dict_lock(struct file_dict *dict, struct file_lock **lock_r)
 	if (dict->fd == -1) {
 		/* quota file doesn't exist yet, we need to create it */
 		dict->fd = open(dict->path, O_CREAT | O_RDWR, 0600);
+		if (dict->fd == -1 && errno == ENOENT) {
+			if (file_dict_mkdir(dict) < 0)
+				return -1;
+			dict->fd = open(dict->path, O_CREAT | O_RDWR, 0600);
+		}
 		if (dict->fd == -1) {
 			i_error("creat(%s) failed: %m", dict->path);
 			return -1;
@@ -485,6 +518,12 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 	case FILE_LOCK_METHOD_DOTLOCK:
 		fd = file_dotlock_open(&file_dict_dotlock_settings, dict->path, 0,
 				       &dotlock);
+		if (fd == -1 && errno == ENOENT) {
+			if (file_dict_mkdir(dict) < 0)
+				return -1;
+			fd = file_dotlock_open(&file_dict_dotlock_settings,
+					       dict->path, 0, &dotlock);
+		}
 		if (fd == -1) {
 			i_error("file dict commit: file_dotlock_open(%s) failed: %m",
 				dict->path);
