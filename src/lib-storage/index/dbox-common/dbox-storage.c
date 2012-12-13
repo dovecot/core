@@ -30,8 +30,8 @@ void dbox_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 }
 
 static bool
-dbox_alt_path_has_changed(const char *root_dir,
-			  const char *alt_path, const char *alt_symlink_path)
+dbox_alt_path_has_changed(const char *root_dir, const char *alt_path,
+			  const char *alt_path2, const char *alt_symlink_path)
 {
 	const char *linkpath;
 
@@ -47,6 +47,13 @@ dbox_alt_path_has_changed(const char *root_dir,
 			  "but currently no ALT path set", root_dir, linkpath);
 		return TRUE;
 	} else if (strcmp(linkpath, alt_path) != 0) {
+		if (strcmp(linkpath, alt_path2) == 0) {
+			/* FIXME: for backwards compatibility. old versions
+			   created the symlink to mailboxes/ directory, which
+			   was fine with sdbox, but didn't even exist with
+			   mdbox. we'll silently replace the symlink. */
+			return TRUE;
+		}
 		i_warning("dbox %s: Original ALT=%s, "
 			  "but currently ALT=%s", root_dir, linkpath, alt_path);
 		return TRUE;
@@ -56,14 +63,17 @@ dbox_alt_path_has_changed(const char *root_dir,
 
 static void dbox_verify_alt_path(struct mailbox_list *list)
 {
-	const char *root_dir, *alt_symlink_path, *alt_path;
+	const char *root_dir, *alt_symlink_path, *alt_path, *alt_path2;
 
 	root_dir = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_DIR);
 	alt_symlink_path =
 		t_strconcat(root_dir, "/"DBOX_ALT_SYMLINK_NAME, NULL);
-	(void)mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX,
+	(void)mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_ALT_DIR,
 					 &alt_path);
-	if (!dbox_alt_path_has_changed(root_dir, alt_path, alt_symlink_path))
+	(void)mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX,
+					 &alt_path2);
+	if (!dbox_alt_path_has_changed(root_dir, alt_path, alt_path2,
+				       alt_symlink_path))
 		return;
 
 	/* unlink/create the current alt path symlink */
