@@ -381,6 +381,7 @@ sync_rename_node_to_temp(struct dsync_mailbox_tree_sync_ctx *ctx,
 		/* we're modifying a local tree. remember this change. */
 		new_name = dsync_mailbox_node_get_full_name(tree, node);
 
+		i_assert(strcmp(old_name, "INBOX") != 0);
 		change = array_append_space(&ctx->changes);
 		change->type = DSYNC_MAILBOX_TREE_SYNC_TYPE_RENAME;
 		change->ns = node->ns;
@@ -412,7 +413,9 @@ sync_rename_node(struct dsync_mailbox_tree_sync_ctx *ctx,
 	const char *name, *other_name;
 
 	/* move/rename node in the tree, so that its position/name is identical
-	   to other_node (in other_tree) */
+	   to other_node (in other_tree). temp_node's name is changed to
+	   temporary name (i.e. it assumes that node's name becomes temp_node's
+	   original name) */
 	other_tree = tree == ctx->local_tree ?
 		ctx->remote_tree : ctx->local_tree;
 
@@ -442,6 +445,7 @@ sync_rename_node(struct dsync_mailbox_tree_sync_ctx *ctx,
 		/* we're modifying a local tree. remember this change. */
 		other_name = dsync_mailbox_node_get_full_name(other_tree, other_node);
 
+		i_assert(strcmp(name, "INBOX") != 0);
 		change = array_append_space(&ctx->changes);
 		change->type = DSYNC_MAILBOX_TREE_SYNC_TYPE_RENAME;
 		change->ns = node->ns;
@@ -578,6 +582,22 @@ sync_rename_lower_ts(struct dsync_mailbox_tree_sync_ctx *ctx,
 			sync_rename_node(ctx, ctx->remote_tree, remote_node2,
 					 remote_node1, local_node1);
 			return TRUE;
+		} else if (node_has_parent(local_node1, local_node2)) {
+			/* node2 is a parent of node1, but it should be
+			   vice versa */
+			sync_rename_node_to_temp(ctx, ctx->local_tree,
+						 local_node1, local_node2->parent);
+			return TRUE;
+		} else if (node_has_parent(local_node2, local_node1)) {
+			/* node1 is a parent of node2, but it should be
+			   vice versa */
+			sync_rename_node_to_temp(ctx, ctx->local_tree,
+						 local_node2, local_node1->parent);
+			return TRUE;
+		} else if (local_node1->existence == DSYNC_MAILBOX_NODE_EXISTS) {
+			sync_rename_node_to_temp(ctx, ctx->remote_tree,
+						 remote_node2, remote_node2->parent);
+			return TRUE;
 		} else {
 			/* local : 1A, 2B
 			   remote:     2A     -> (2B)
@@ -594,31 +614,21 @@ sync_rename_lower_ts(struct dsync_mailbox_tree_sync_ctx *ctx,
 			sync_rename_node(ctx, ctx->local_tree, local_node1,
 					 local_node2, remote_node2);
 			return TRUE;
+		} else if (node_has_parent(remote_node1, remote_node2)) {
+			sync_rename_node_to_temp(ctx, ctx->remote_tree,
+						 remote_node1, remote_node2->parent);
+			return TRUE;
+		} else if (node_has_parent(remote_node2, remote_node1)) {
+			sync_rename_node_to_temp(ctx, ctx->remote_tree,
+						 remote_node2, remote_node1->parent);
+			return TRUE;
+		} else if (remote_node2->existence == DSYNC_MAILBOX_NODE_EXISTS) {
+			sync_rename_node_to_temp(ctx, ctx->local_tree,
+						 local_node1, local_node1->parent);
+			return TRUE;
 		}
 	}
 	return FALSE;
-}
-
-static void
-add_missing_mailbox(struct dsync_mailbox_tree_sync_ctx *ctx,
-		    struct dsync_mailbox_tree *tree,
-		    const struct dsync_mailbox_node *src)
-{
-	struct dsync_mailbox_node *node;
-
-	node = sync_node_new(tree, &tree->root.first_child, &tree->root, src);
-	sync_rename_node_to_temp(ctx, tree, node, node->parent);
-
-	node->existence = DSYNC_MAILBOX_NODE_EXISTS;
-	node->uid_validity = src->uid_validity;
-	memcpy(node->mailbox_guid, src->mailbox_guid,
-	       sizeof(node->mailbox_guid));
-	if (tree == ctx->local_tree) {
-		sync_add_create_change(ctx, node,
-			dsync_mailbox_node_get_full_name(tree, node));
-	}
-	if (dsync_mailbox_tree_guid_hash_add(tree, node) < 0)
-		i_unreached();
 }
 
 static bool sync_rename_conflict(struct dsync_mailbox_tree_sync_ctx *ctx,
@@ -633,30 +643,8 @@ static bool sync_rename_conflict(struct dsync_mailbox_tree_sync_ctx *ctx,
 	guid_p = remote_node2->mailbox_guid;
 	local_node2 = hash_table_lookup(ctx->local_tree->guid_hash, guid_p);
 
-	/* FIXME: kludge to avoid problems where one of the mailboxes
-	   doesn't exist yet. they seem to somewhat unnecessarily try to create
-	   temporary mailboxes and later rename them. this definitely doesn't
-	   work with INBOX. */
-	if (local_node2 == NULL &&
-	    (strcmp(local_node1->name, "INBOX") != 0 ||
-	     local_node1->parent->parent != NULL) &&
-	    remote_node2->existence == DSYNC_MAILBOX_NODE_EXISTS &&
-	    !dsync_mailbox_node_is_dir(remote_node2) &&
-	    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL) {
-		add_missing_mailbox(ctx, ctx->local_tree, remote_node2);
-		return TRUE;
-	}
-	if (remote_node1 == NULL &&
-	    (strcmp(remote_node2->name, "INBOX") != 0 ||
-	     remote_node2->parent->parent != NULL) &&
-	    local_node1->existence == DSYNC_MAILBOX_NODE_EXISTS &&
-	    !dsync_mailbox_node_is_dir(local_node1) &&
-	    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE) {
-		add_missing_mailbox(ctx, ctx->remote_tree, local_node1);
-		return TRUE;
-	}
-
-	if (remote_node1 != NULL || local_node2 != NULL) {
+	if ((remote_node1 != NULL && remote_node1->existence == DSYNC_MAILBOX_NODE_EXISTS) ||
+	    (local_node2 != NULL && local_node2->existence == DSYNC_MAILBOX_NODE_EXISTS)) {
 		/* conflicting name, rename the one with lower timestamp */
 		return sync_rename_lower_ts(ctx, local_node1, remote_node1,
 					    local_node2, remote_node2);
