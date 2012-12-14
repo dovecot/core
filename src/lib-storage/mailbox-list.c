@@ -513,6 +513,7 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 		if (strncmp(ns->prefix, storage_name, prefix_len) == 0)
 			storage_name += prefix_len;
 		else if (strncmp(ns->prefix, storage_name, prefix_len-1) == 0 &&
+			 strlen(storage_name) == prefix_len-1 &&
 			 ns->prefix[prefix_len-1] == mail_namespace_get_sep(ns)) {
 			/* trying to access the namespace prefix itself */
 			storage_name = "";
