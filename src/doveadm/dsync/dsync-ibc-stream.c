@@ -60,7 +60,7 @@ static const struct {
 	{ NULL, '\0', NULL, NULL },
 	{ .name = "handshake",
 	  .chr = 'H',
-	  .optional_keys = "sync_ns_prefix sync_type debug "
+	  .optional_keys = "sync_ns_prefix sync_type debug sync_all_namespaces "
 	  	"mails_have_guids send_guid_requests backup_send backup_recv"
 	},
 	{ .name = "mailbox_state",
@@ -541,6 +541,8 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "backup_recv", "");
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_DEBUG) != 0)
 		dsync_serializer_encode_add(encoder, "debug", "");
+	if ((set->brain_flags & DSYNC_BRAIN_FLAG_SYNC_ALL_NAMESPACES) != 0)
+		dsync_serializer_encode_add(encoder, "sync_all_namespaces", "");
 
 	dsync_serializer_encode_finish(&encoder, str);
 	dsync_ibc_stream_send_string(ibc, str);
@@ -599,6 +601,8 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 		set->brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_RECV;
 	if (dsync_deserializer_decode_try(decoder, "debug", &value))
 		set->brain_flags |= DSYNC_BRAIN_FLAG_DEBUG;
+	if (dsync_deserializer_decode_try(decoder, "sync_all_namespaces", &value))
+		set->brain_flags |= DSYNC_BRAIN_FLAG_SYNC_ALL_NAMESPACES;
 
 	*set_r = set;
 	return DSYNC_IBC_RECV_RET_OK;

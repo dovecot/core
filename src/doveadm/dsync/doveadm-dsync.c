@@ -27,7 +27,7 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+dEfm:n:r:Rs:"
+#define DSYNC_COMMON_GETOPT_ARGS "+adEfm:n:r:Rs:"
 
 struct dsync_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
@@ -44,6 +44,7 @@ struct dsync_cmd_context {
 	unsigned int lock_timeout;
 
 	unsigned int lock:1;
+	unsigned int sync_all_namespaces:1;
 	unsigned int default_replica_location:1;
 	unsigned int backup:1;
 	unsigned int reverse_backup:1;
@@ -362,6 +363,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	brain_flags = DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS |
 		DSYNC_BRAIN_FLAG_SEND_GUID_REQUESTS;
+	if (ctx->sync_all_namespaces)
+		brain_flags |= DSYNC_BRAIN_FLAG_SYNC_ALL_NAMESPACES;
 
 	if (ctx->reverse_backup)
 		brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_RECV;
@@ -459,6 +462,8 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 		run_cmd(ctx, remote_cmd_args);
 		ctx->remote = TRUE;
 	}
+	if (ctx->sync_all_namespaces && !ctx->remote)
+		i_fatal("-a parameter requires syncing with remote host");
 	return 0;
 }
 
@@ -490,6 +495,9 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 
 	switch (c) {
+	case 'a':
+		ctx->sync_all_namespaces = TRUE;
+		break;
 	case 'd':
 		ctx->default_replica_location = TRUE;
 		break;

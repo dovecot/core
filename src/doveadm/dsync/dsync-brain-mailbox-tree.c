@@ -16,6 +16,8 @@ static bool dsync_brain_want_namespace(struct dsync_brain *brain,
 {
 	if (brain->sync_ns == ns)
 		return TRUE;
+	if (brain->sync_all_namespaces)
+		return TRUE;
 
 	return brain->sync_ns == NULL &&
 		strcmp(ns->unexpanded_set->location,
@@ -137,6 +139,10 @@ dsync_namespace_match_parts(struct mail_namespace *ns,
 	const char *part, *prefix = ns->prefix;
 	unsigned int part_len;
 	char ns_sep = mail_namespace_get_sep(ns);
+
+	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+	    strcmp(name_parts[0], "INBOX") == 0 && name_parts[1] == NULL)
+		return TRUE;
 
 	for (; *name_parts != NULL && *prefix != '\0'; name_parts++) {
 		part = *name_parts;
