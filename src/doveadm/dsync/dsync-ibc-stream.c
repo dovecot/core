@@ -143,7 +143,11 @@ static void dsync_ibc_stream_stop(struct dsync_ibc_stream *ibc)
 
 static int dsync_ibc_stream_read_mail_stream(struct dsync_ibc_stream *ibc)
 {
-	if (i_stream_read(ibc->mail_input) < 0) {
+	while (i_stream_read(ibc->mail_input) > 0) {
+		i_stream_skip(ibc->mail_input,
+			      i_stream_get_data_size(ibc->mail_input));
+	}
+	if (ibc->mail_input->eof) {
 		if (ibc->mail_input->stream_errno != 0) {
 			errno = ibc->mail_input->stream_errno;
 			i_error("dsync(%s): read() failed: %m", ibc->name);
@@ -153,10 +157,10 @@ static int dsync_ibc_stream_read_mail_stream(struct dsync_ibc_stream *ibc)
 		/* finished reading the mail stream */
 		i_assert(ibc->mail_input->eof);
 		i_stream_seek(ibc->mail_input, 0);
+		ibc->has_pending_data = TRUE;
 		ibc->mail_input = NULL;
 		return 1;
 	}
-	i_stream_skip(ibc->mail_input, i_stream_get_data_size(ibc->mail_input));
 	return 0;
 }
 
