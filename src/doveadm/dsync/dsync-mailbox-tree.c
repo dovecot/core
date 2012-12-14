@@ -24,7 +24,7 @@ struct dsync_mailbox_tree *dsync_mailbox_tree_init(char sep, char alt_char)
 
 	i_assert(sep != '\0');
 
-	pool = pool_alloconly_create("dsync mailbox tree", 4096);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"dsync mailbox tree", 4096);
 	tree = p_new(pool, struct dsync_mailbox_tree, 1);
 	tree->pool = pool;
 	tree->sep = tree->sep_str[0] = sep;
