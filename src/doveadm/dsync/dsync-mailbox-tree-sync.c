@@ -634,8 +634,12 @@ static bool sync_rename_conflict(struct dsync_mailbox_tree_sync_ctx *ctx,
 	local_node2 = hash_table_lookup(ctx->local_tree->guid_hash, guid_p);
 
 	/* FIXME: kludge to avoid problems where one of the mailboxes
-	 doesn't exist yet */
+	   doesn't exist yet. they seem to somewhat unnecessarily try to create
+	   temporary mailboxes and later rename them. this definitely doesn't
+	   work with INBOX. */
 	if (local_node2 == NULL &&
+	    (strcmp(local_node1->name, "INBOX") != 0 ||
+	     local_node1->parent->parent != NULL) &&
 	    remote_node2->existence == DSYNC_MAILBOX_NODE_EXISTS &&
 	    !dsync_mailbox_node_is_dir(remote_node2) &&
 	    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL) {
@@ -643,6 +647,8 @@ static bool sync_rename_conflict(struct dsync_mailbox_tree_sync_ctx *ctx,
 		return TRUE;
 	}
 	if (remote_node1 == NULL &&
+	    (strcmp(remote_node2->name, "INBOX") != 0 ||
+	     remote_node2->parent->parent != NULL) &&
 	    local_node1->existence == DSYNC_MAILBOX_NODE_EXISTS &&
 	    !dsync_mailbox_node_is_dir(local_node1) &&
 	    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE) {
