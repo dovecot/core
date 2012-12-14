@@ -80,6 +80,7 @@ struct dsync_brain {
 	unsigned int mails_have_guids:1;
 	unsigned int backup_send:1;
 	unsigned int backup_recv:1;
+	unsigned int debug:1;
 	unsigned int changes_during_sync:1;
 	unsigned int failed:1;
 };

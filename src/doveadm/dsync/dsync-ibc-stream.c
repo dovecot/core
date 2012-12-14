@@ -60,7 +60,7 @@ static const struct {
 	{ NULL, '\0', NULL, NULL },
 	{ .name = "handshake",
 	  .chr = 'H',
-	  .optional_keys = "sync_ns_prefix sync_type "
+	  .optional_keys = "sync_ns_prefix sync_type debug "
 	  	"mails_have_guids send_guid_requests backup_send backup_recv"
 	},
 	{ .name = "mailbox_state",
@@ -267,11 +267,6 @@ static void dsync_ibc_stream_init(struct dsync_ibc_stream *ibc)
 {
 	unsigned int i;
 
-	fd_set_nonblock(ibc->fd_in, TRUE);
-	fd_set_nonblock(ibc->fd_out, TRUE);
-
-	ibc->input = i_stream_create_fd(ibc->fd_in, (size_t)-1, FALSE);
-	ibc->output = o_stream_create_fd(ibc->fd_out, (size_t)-1, FALSE);
 	ibc->io = io_add(ibc->fd_in, IO_READ, dsync_ibc_stream_input, ibc);
 	o_stream_set_no_error_handling(ibc->output, TRUE);
 	o_stream_set_flush_callback(ibc->output, dsync_ibc_stream_output, ibc);
@@ -316,12 +311,6 @@ static void dsync_ibc_stream_deinit(struct dsync_ibc *_ibc)
 		io_remove(&ibc->io);
 	i_stream_destroy(&ibc->input);
 	o_stream_destroy(&ibc->output);
-	if (close(ibc->fd_in) < 0)
-		i_error("close(%s) failed: %m", ibc->name);
-	if (ibc->fd_in != ibc->fd_out) {
-		if (close(ibc->fd_out) < 0)
-			i_error("close(%s) failed: %m", ibc->name);
-	}
 	pool_unref(&ibc->ret_pool);
 	i_free(ibc->temp_path_prefix);
 	i_free(ibc->name);
@@ -550,6 +539,8 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "backup_send", "");
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_BACKUP_RECV) != 0)
 		dsync_serializer_encode_add(encoder, "backup_recv", "");
+	if ((set->brain_flags & DSYNC_BRAIN_FLAG_DEBUG) != 0)
+		dsync_serializer_encode_add(encoder, "debug", "");
 
 	dsync_serializer_encode_finish(&encoder, str);
 	dsync_ibc_stream_send_string(ibc, str);
@@ -606,6 +597,8 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 		set->brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_SEND;
 	if (dsync_deserializer_decode_try(decoder, "backup_recv", &value))
 		set->brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_RECV;
+	if (dsync_deserializer_decode_try(decoder, "debug", &value))
+		set->brain_flags |= DSYNC_BRAIN_FLAG_DEBUG;
 
 	*set_r = set;
 	return DSYNC_IBC_RECV_RET_OK;
@@ -1521,15 +1514,16 @@ static const struct dsync_ibc_vfuncs dsync_ibc_stream_vfuncs = {
 };
 
 struct dsync_ibc *
-dsync_ibc_init_stream(int fd_in, int fd_out, const char *name,
-		      const char *temp_path_prefix)
+dsync_ibc_init_stream(struct istream *input, struct ostream *output,
+		      const char *name, const char *temp_path_prefix)
 {
 	struct dsync_ibc_stream *ibc;
 
 	ibc = i_new(struct dsync_ibc_stream, 1);
 	ibc->ibc.v = dsync_ibc_stream_vfuncs;
-	ibc->fd_in = fd_in;
-	ibc->fd_out = fd_out;
+	ibc->input = input;
+	ibc->output = output;
+	ibc->fd_in = i_stream_get_fd(input);
 	ibc->name = i_strdup(name);
 	ibc->temp_path_prefix = i_strdup(temp_path_prefix);
 	ibc->ret_pool = pool_alloconly_create("ibc stream data", 2048);

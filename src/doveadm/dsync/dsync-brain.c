@@ -8,6 +8,20 @@
 #include "dsync-ibc.h"
 #include "dsync-brain-private.h"
 
+static const char *dsync_state_names[DSYNC_STATE_DONE+1] = {
+	"recv_handshake",
+	"send_last_common",
+	"recv_last_common",
+	"send_mailbox_tree",
+	"send_mailbox_tree_deletes",
+	"recv_mailbox_tree",
+	"recv_mailbox_tree_deletes",
+	"master_send_mailbox",
+	"slave_recv_mailbox",
+	"sync_mails",
+	"done"
+};
+
 static void dsync_brain_run_io(void *context)
 {
 	struct dsync_brain *brain = context;
@@ -62,6 +76,7 @@ dsync_brain_set_flags(struct dsync_brain *brain, enum dsync_brain_flags flags)
 		(flags & DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS) != 0;
 	brain->backup_send = (flags & DSYNC_BRAIN_FLAG_BACKUP_SEND) != 0;
 	brain->backup_recv = (flags & DSYNC_BRAIN_FLAG_BACKUP_RECV) != 0;
+	brain->debug = (flags & DSYNC_BRAIN_FLAG_DEBUG) != 0;
 }
 
 struct dsync_brain *
@@ -244,6 +259,10 @@ static bool dsync_brain_run_real(struct dsync_brain *brain, bool *changed_r)
 	if (brain->failed)
 		return FALSE;
 
+	if (brain->debug) {
+		i_debug("brain %c: in state=%s", brain->master_brain ? 'M' : 'S',
+			dsync_state_names[brain->state]);
+	}
 	switch (brain->state) {
 	case DSYNC_STATE_SLAVE_RECV_HANDSHAKE:
 		changed = dsync_brain_slave_recv_handshake(brain);
@@ -283,6 +302,11 @@ static bool dsync_brain_run_real(struct dsync_brain *brain, bool *changed_r)
 		changed = TRUE;
 		ret = FALSE;
 		break;
+	}
+	if (brain->debug) {
+		i_debug("brain %c: out state=%s changed=%d",
+			brain->master_brain ? 'M' : 'S',
+			dsync_state_names[brain->state], changed);
 	}
 
 	*changed_r = changed;

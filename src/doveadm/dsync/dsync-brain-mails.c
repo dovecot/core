@@ -8,6 +8,15 @@
 #include "dsync-mailbox-export.h"
 #include "dsync-brain-private.h"
 
+static const char *dsync_box_state_names[DSYNC_BOX_STATE_DONE+1] = {
+	"mailbox",
+	"changes",
+	"mail_requests",
+	"mails",
+	"recv_last_common",
+	"done"
+};
+
 static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 {
 	const struct dsync_mailbox *dsync_box;
@@ -182,6 +191,10 @@ static bool dsync_brain_recv_mail(struct dsync_brain *brain)
 		dsync_brain_sync_half_finished(brain);
 		return TRUE;
 	}
+	if (brain->debug) {
+		i_debug("brain %c: import mail uid %u guid %s",
+			brain->master_brain ? 'M' : 'S', mail->uid, mail->guid);
+	}
 	dsync_mailbox_import_mail(brain->box_importer, mail);
 	if (mail->input != NULL)
 		i_stream_unref(&mail->input);
@@ -236,6 +249,13 @@ bool dsync_brain_sync_mails(struct dsync_brain *brain)
 
 	i_assert(brain->box != NULL);
 
+	if (brain->debug) {
+		i_debug("brain %c: in box '%s' recv_state=%s send_state=%s",
+			brain->master_brain ? 'M' : 'S',
+			mailbox_get_vname(brain->box),
+			dsync_box_state_names[brain->box_recv_state],
+			dsync_box_state_names[brain->box_send_state]);
+	}
 	switch (brain->box_recv_state) {
 	case DSYNC_BOX_STATE_MAILBOX:
 		changed = dsync_brain_master_sync_recv_mailbox(brain);
@@ -281,6 +301,13 @@ bool dsync_brain_sync_mails(struct dsync_brain *brain)
 		i_unreached();
 	case DSYNC_BOX_STATE_DONE:
 		break;
+	}
+	if (brain->debug) {
+		i_debug("brain %c: out box '%s' recv_state=%s send_state=%s changed=%d",
+			brain->master_brain ? 'M' : 'S',
+			brain->box == NULL ? "" : mailbox_get_vname(brain->box),
+			dsync_box_state_names[brain->box_recv_state],
+			dsync_box_state_names[brain->box_send_state], changed);
 	}
 	return changed;
 }

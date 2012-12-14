@@ -39,8 +39,8 @@ struct dsync_ibc_settings {
 void dsync_ibc_init_pipe(struct dsync_ibc **ibc1_r,
 			 struct dsync_ibc **ibc2_r);
 struct dsync_ibc *
-dsync_ibc_init_stream(int fd_in, int fd_out, const char *name,
-		      const char *temp_path_prefix);
+dsync_ibc_init_stream(struct istream *input, struct ostream *output,
+		      const char *name, const char *temp_path_prefix);
 void dsync_ibc_deinit(struct dsync_ibc **ibc);
 
 /* I/O callback is called whenever new data is available. It's also called on

@@ -4,6 +4,10 @@
 #include "lib-signals.h"
 #include "array.h"
 #include "execv-const.h"
+#include "fd-set-nonblock.h"
+#include "istream.h"
+#include "ostream.h"
+#include "iostream-rawlog.h"
 #include "str.h"
 #include "var-expand.h"
 #include "settings-parser.h"
@@ -23,13 +27,13 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+dEfl:m:n:s:"
+#define DSYNC_COMMON_GETOPT_ARGS "+dEfm:n:r:Rs:"
 
 struct dsync_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 	enum dsync_brain_sync_type sync_type;
 	const char *mailbox, *namespace_prefix;
-	const char *state_input;
+	const char *state_input, *rawlog_path;
 
 	const char *remote_name;
 	const char *local_location;
@@ -312,6 +316,23 @@ parse_ssh_location(struct dsync_cmd_context *ctx,
 	return get_ssh_cmd_args(ctx, host, login, username);
 }
 
+static struct dsync_ibc *
+cmd_dsync_icb_stream_init(struct dsync_cmd_context *ctx,
+			  const char *name, const char *temp_prefix)
+{
+	struct istream *input;
+	struct ostream *output;
+
+	fd_set_nonblock(ctx->fd_in, TRUE);
+	fd_set_nonblock(ctx->fd_out, TRUE);
+
+	input = i_stream_create_fd(ctx->fd_in, (size_t)-1, FALSE);
+	output = o_stream_create_fd(ctx->fd_out, (size_t)-1, FALSE);
+	if (ctx->rawlog_path != NULL)
+		iostream_rawlog_create_path(ctx->rawlog_path, &input, &output);
+	return dsync_ibc_init_stream(input, output, name, temp_prefix);
+}
+
 static int
 cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
@@ -335,22 +356,20 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	else {
 		string_t *temp_prefix = t_str_new(64);
 		mail_user_set_get_temp_prefix(temp_prefix, user->set);
-		ibc = dsync_ibc_init_stream(ctx->fd_in, ctx->fd_out,
-					    ctx->remote_name,
-					    str_c(temp_prefix));
-	}
-
-	if (doveadm_debug || doveadm_verbose) {
-		// FIXME
+		ibc = cmd_dsync_icb_stream_init(ctx, ctx->remote_name,
+						str_c(temp_prefix));
 	}
 
 	brain_flags = DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS |
 		DSYNC_BRAIN_FLAG_SEND_GUID_REQUESTS;
+
 	if (ctx->reverse_backup)
 		brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_RECV;
 	else if (ctx->backup)
 		brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_SEND;
 
+	if (doveadm_debug)
+		brain_flags |= DSYNC_BRAIN_FLAG_DEBUG;
 	brain = dsync_brain_master_init(user, ibc, sync_ns,
 					ctx->sync_type, brain_flags,
 					ctx->state_input == NULL ? "" :
@@ -376,6 +395,11 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		dsync_ibc_deinit(&ibc2);
 	if (ctx->io_err != NULL)
 		io_remove(&ctx->io_err);
+	if (ctx->fd_in != -1) {
+		if (ctx->fd_out != ctx->fd_in)
+			i_close_fd(&ctx->fd_out);
+		i_close_fd(&ctx->fd_in);
+	}
 	if (ctx->fd_err != -1)
 		i_close_fd(&ctx->fd_err);
 	return ret;
@@ -482,6 +506,9 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 'n':
 		ctx->namespace_prefix = optarg;
 		break;
+	case 'r':
+		ctx->rawlog_path = optarg;
+		break;
 	case 'R':
 		if (!ctx->backup)
 			return FALSE;
@@ -527,9 +554,10 @@ static struct doveadm_mail_cmd_context *cmd_dsync_backup_alloc(void)
 }
 
 static int
-cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx ATTR_UNUSED,
+cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		     struct mail_user *user)
 {
+	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	struct dsync_ibc *ibc;
 	struct dsync_brain *brain;
 	string_t *temp_prefix;
@@ -542,8 +570,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx ATTR_UNUSED,
 	temp_prefix = t_str_new(64);
 	mail_user_set_get_temp_prefix(temp_prefix, user->set);
 
-	ibc = dsync_ibc_init_stream(STDIN_FILENO, STDOUT_FILENO,
-				    "local", str_c(temp_prefix));
+	ibc = cmd_dsync_icb_stream_init(ctx, "local", str_c(temp_prefix));
 	brain = dsync_brain_slave_init(user, ibc);
 
 	io_loop_run(current_ioloop);
@@ -567,6 +594,9 @@ cmd_mailbox_dsync_server_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		if (str_to_uint(optarg, &ctx->lock_timeout) < 0)
 			i_error("Invalid -l parameter: %s", optarg);
 		break;
+	case 'r':
+		ctx->rawlog_path = optarg;
+		break;
 	case 'n':
 		ctx->namespace_prefix = optarg;
 		break;
@@ -581,10 +611,12 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 	struct dsync_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
-	ctx->ctx.getopt_args = "El:n:";
+	ctx->ctx.getopt_args = "El:n:r:";
 	ctx->ctx.v.parse_arg = cmd_mailbox_dsync_server_parse_arg;
 	ctx->ctx.v.run = cmd_dsync_server_run;
 	ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_CHANGED;
+	ctx->fd_in = STDIN_FILENO;
+	ctx->fd_out = STDOUT_FILENO;
 	return &ctx->ctx;
 }
 
