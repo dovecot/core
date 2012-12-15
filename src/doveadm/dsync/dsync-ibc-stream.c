@@ -143,10 +143,10 @@ static void dsync_ibc_stream_stop(struct dsync_ibc_stream *ibc)
 
 static int dsync_ibc_stream_read_mail_stream(struct dsync_ibc_stream *ibc)
 {
-	while (i_stream_read(ibc->mail_input) > 0) {
+	do {
 		i_stream_skip(ibc->mail_input,
 			      i_stream_get_data_size(ibc->mail_input));
-	}
+	} while (i_stream_read(ibc->mail_input) > 0);
 	if (ibc->mail_input->eof) {
 		if (ibc->mail_input->stream_errno != 0) {
 			errno = ibc->mail_input->stream_errno;
