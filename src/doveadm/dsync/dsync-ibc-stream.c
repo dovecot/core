@@ -243,6 +243,7 @@ static int dsync_ibc_stream_output(struct dsync_ibc_stream *ibc)
 	struct ostream *output = ibc->output;
 	int ret;
 
+	o_stream_cork(ibc->output);
 	if ((ret = o_stream_flush(output)) < 0)
 		ret = 1;
 	else if (ibc->mail_output != NULL) {
@@ -253,6 +254,7 @@ static int dsync_ibc_stream_output(struct dsync_ibc_stream *ibc)
 
 	if (!dsync_ibc_is_send_queue_full(&ibc->ibc))
 		ibc->ibc.io_callback(ibc->ibc.io_context);
+	o_stream_uncork(ibc->output);
 	return ret;
 }
 
@@ -1368,7 +1370,11 @@ dsync_ibc_stream_send_mail(struct dsync_ibc *_ibc,
 		ibc->mail_output_last = '\0';
 		ibc->mail_output = mail->input;
 		i_stream_ref(ibc->mail_output);
-		(void)dsync_ibc_stream_send_mail_stream(ibc);
+		if (dsync_ibc_stream_send_mail_stream(ibc) == 0) {
+			/* flush callback isn't being called while output
+			   stream is corked */
+			o_stream_uncork(ibc->output);
+		}
 	}
 }
 
@@ -1471,7 +1477,8 @@ static void dsync_ibc_stream_flush(struct dsync_ibc *_ibc)
 	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
 
 	o_stream_uncork(ibc->output);
-	o_stream_cork(ibc->output);
+	if (ibc->mail_output == NULL)
+		o_stream_cork(ibc->output);
 }
 
 static bool dsync_ibc_stream_is_send_queue_full(struct dsync_ibc *_ibc)
