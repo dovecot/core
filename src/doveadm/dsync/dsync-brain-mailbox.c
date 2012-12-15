@@ -530,10 +530,24 @@ void dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 	}
 }
 
+static void
+dsync_brain_slave_send_mailbox_lost(struct dsync_brain *brain,
+				    const struct dsync_mailbox *dsync_box)
+{
+	struct dsync_mailbox delete_box;
+
+	memset(&delete_box, 0, sizeof(delete_box));
+	memcpy(delete_box.mailbox_guid, dsync_box->mailbox_guid,
+	       sizeof(delete_box.mailbox_guid));
+	t_array_init(&delete_box.cache_fields, 0);
+	delete_box.mailbox_lost = TRUE;
+	dsync_ibc_send_mailbox(brain->ibc, &delete_box);
+}
+
 bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 {
 	const struct dsync_mailbox *dsync_box;
-	struct dsync_mailbox local_dsync_box, delete_box;
+	struct dsync_mailbox local_dsync_box;
 	struct mailbox *box;
 	int ret;
 
@@ -553,8 +567,9 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	}
 	if (box == NULL) {
 		/* mailbox was probably deleted/renamed during sync */
-		//FIXME: in case it wasn't, do error handling
+		//FIXME: verify this from log, and if not log an error.
 		brain->changes_during_sync = TRUE;
+		dsync_brain_slave_send_mailbox_lost(brain, dsync_box);
 		return TRUE;
 	}
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
@@ -573,11 +588,7 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 			return TRUE;
 		}
 		/* another process just deleted this mailbox? */
-		memset(&delete_box, 0, sizeof(delete_box));
-		memcpy(delete_box.mailbox_guid, dsync_box->mailbox_guid,
-		       sizeof(delete_box.mailbox_guid));
-		delete_box.mailbox_lost = TRUE;
-		dsync_ibc_send_mailbox(brain->ibc, &delete_box);
+		dsync_brain_slave_send_mailbox_lost(brain, dsync_box);
 		return TRUE;
 	}
 	i_assert(local_dsync_box.uid_validity != 0);

@@ -81,7 +81,7 @@ static const struct {
 	},
 	{ .name = "mailbox",
 	  .chr = 'B',
-	  .required_keys = "mailbox_guid uid_validity uid_next "
+	  .required_keys = "mailbox_lost mailbox_guid uid_validity uid_next "
 		"messages_count first_recent_uid highest_modseq",
 	  .optional_keys = "cache_fields"
 	},
