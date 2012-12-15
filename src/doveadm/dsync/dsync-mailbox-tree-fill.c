@@ -170,7 +170,7 @@ dsync_mailbox_tree_add_change_timestamps(struct dsync_mailbox_tree *tree,
 }
 
 int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
-			    struct mail_namespace *ns)
+			    struct mail_namespace *ns, const char *box_name)
 {
 	const enum mailbox_list_iter_flags list_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES;
@@ -181,6 +181,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 	struct mailbox_list_iterate_context *iter;
 	struct dsync_mailbox_node *node;
 	const struct mailbox_info *info;
+	const char *list_pattern = box_name != NULL ? box_name : "*";
 	int ret = 0;
 
 	i_assert(mail_namespace_get_sep(ns) == tree->sep);
@@ -195,7 +196,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 	}
 
 	/* first add all of the existing mailboxes */
-	iter = mailbox_list_iter_init(ns->list, "*", list_flags);
+	iter = mailbox_list_iter_init(ns->list, list_pattern, list_flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if (dsync_mailbox_tree_add(tree, info) < 0)
 			ret = -1;
@@ -206,7 +207,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 	}
 
 	/* add subscriptions */
-	iter = mailbox_list_iter_init(ns->list, "*", subs_list_flags);
+	iter = mailbox_list_iter_init(ns->list, list_pattern, subs_list_flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if (dsync_mailbox_tree_add_node(tree, info, &node) < 0)
 			ret = -1;

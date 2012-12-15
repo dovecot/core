@@ -60,7 +60,7 @@ static const struct {
 	{ NULL, '\0', NULL, NULL },
 	{ .name = "handshake",
 	  .chr = 'H',
-	  .optional_keys = "sync_ns_prefix sync_type debug sync_all_namespaces "
+	  .optional_keys = "sync_ns_prefix sync_box sync_type debug sync_all_namespaces "
 	  	"mails_have_guids send_guid_requests backup_send backup_recv"
 	},
 	{ .name = "mailbox_state",
@@ -514,6 +514,8 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "sync_ns_prefix",
 					    set->sync_ns_prefix);
 	}
+	if (set->sync_box != NULL)
+		dsync_serializer_encode_add(encoder, "sync_box", set->sync_box);
 
 	sync_type[0] = sync_type[1] = '\0';
 	switch (set->sync_type) {
@@ -574,6 +576,8 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 
 	if (dsync_deserializer_decode_try(decoder, "sync_ns_prefix", &value))
 		set->sync_ns_prefix = p_strdup(pool, value);
+	if (dsync_deserializer_decode_try(decoder, "sync_box", &value))
+		set->sync_box = p_strdup(pool, value);
 	if (dsync_deserializer_decode_try(decoder, "sync_type", &value)) {
 		switch (value[0]) {
 		case 'f':

@@ -28,7 +28,7 @@ enum dsync_brain_sync_type {
 
 struct dsync_brain *
 dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
-			struct mail_namespace *sync_ns,
+			struct mail_namespace *sync_ns, const char *sync_box,
 			enum dsync_brain_sync_type sync_type,
 			enum dsync_brain_flags flags,
 			const char *state);

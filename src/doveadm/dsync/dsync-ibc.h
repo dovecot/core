@@ -31,6 +31,8 @@ enum dsync_ibc_recv_ret {
 struct dsync_ibc_settings {
 	/* if non-NULL, sync only this namespace */
 	const char *sync_ns_prefix;
+	/* if non-NULL, sync only this mailbox name */
+	const char *sync_box;
 
 	enum dsync_brain_sync_type sync_type;
 	enum dsync_brain_flags brain_flags;

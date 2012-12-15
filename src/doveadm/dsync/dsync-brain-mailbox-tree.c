@@ -76,14 +76,14 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 	/* fill the local mailbox tree */
 	if (brain->sync_ns != NULL) {
 		if (dsync_mailbox_tree_fill(brain->local_mailbox_tree,
-					    brain->sync_ns) < 0)
+					    brain->sync_ns, brain->sync_box) < 0)
 			brain->failed = TRUE;
 	} else {
 		for (ns = brain->user->namespaces; ns != NULL; ns = ns->next) {
 			if (!dsync_brain_want_namespace(brain, ns))
 				continue;
 			if (dsync_mailbox_tree_fill(brain->local_mailbox_tree,
-						    ns) < 0)
+						    ns, brain->sync_box) < 0)
 				brain->failed = TRUE;
 		}
 	}
@@ -91,7 +91,6 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 	brain->local_tree_iter =
 		dsync_mailbox_tree_iter_init(brain->local_mailbox_tree);
 }
-
 
 void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 {

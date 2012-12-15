@@ -373,7 +373,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	if (doveadm_debug)
 		brain_flags |= DSYNC_BRAIN_FLAG_DEBUG;
-	brain = dsync_brain_master_init(user, ibc, sync_ns,
+	brain = dsync_brain_master_init(user, ibc, sync_ns, ctx->mailbox,
 					ctx->sync_type, brain_flags,
 					ctx->state_input == NULL ? "" :
 					ctx->state_input);

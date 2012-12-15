@@ -83,7 +83,7 @@ dsync_brain_set_flags(struct dsync_brain *brain, enum dsync_brain_flags flags)
 
 struct dsync_brain *
 dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
-			struct mail_namespace *sync_ns,
+			struct mail_namespace *sync_ns, const char *sync_box,
 			enum dsync_brain_sync_type sync_type,
 			enum dsync_brain_flags flags,
 			const char *state)
@@ -99,6 +99,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	brain->sync_type = sync_type;
 	if (sync_ns != NULL)
 		brain->sync_ns = sync_ns;
+	brain->sync_box = p_strdup(brain->pool, sync_box);
 	brain->master_brain = TRUE;
 	dsync_brain_set_flags(brain, flags);
 
@@ -120,6 +121,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 
 	memset(&ibc_set, 0, sizeof(ibc_set));
 	ibc_set.sync_ns_prefix = sync_ns == NULL ? NULL : sync_ns->prefix;
+	ibc_set.sync_box = sync_box;
 	ibc_set.sync_type = sync_type;
 	/* reverse the backup direction for the slave */
 	ibc_set.brain_flags = flags & ~(DSYNC_BRAIN_FLAG_BACKUP_SEND |
@@ -183,6 +185,7 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 		brain->sync_ns = mail_namespace_find(brain->user->namespaces,
 						     ibc_set->sync_ns_prefix);
 	}
+	brain->sync_box = p_strdup(brain->pool, ibc_set->sync_box);
 	i_assert(brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_UNKNOWN);
 	brain->sync_type = ibc_set->sync_type;
 	dsync_brain_set_flags(brain, ibc_set->brain_flags);
