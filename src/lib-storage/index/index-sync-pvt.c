@@ -116,7 +116,8 @@ index_storage_mailbox_sync_pvt_index(struct mailbox *box)
 	int ret;
 
 	/* open a view for the latest version of the index */
-	if (mail_index_refresh(box->index) < 0) {
+	if (mail_index_refresh(box->index) < 0 ||
+	    mail_index_refresh(box->index_pvt) < 0) {
 		mailbox_set_index_error(box);
 		return -1;
 	}
