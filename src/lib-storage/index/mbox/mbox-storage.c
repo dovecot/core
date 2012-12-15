@@ -613,6 +613,9 @@ mbox_mailbox_get_guid(struct mbox_mailbox *mbox, guid_128_t guid_r)
 			"Mailbox GUIDs are not permanent without index files");
 		return -1;
 	}
+	if (mbox_sync_header_refresh(mbox) < 0)
+		return -1;
+
 	if (!guid_128_is_empty(mbox->mbox_hdr.mailbox_guid)) {
 		/* we have the GUID */
 	} else if (mbox_file_open(mbox) < 0)
