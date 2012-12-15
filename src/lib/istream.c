@@ -363,7 +363,8 @@ char *i_stream_next_line(struct istream *stream)
 	const unsigned char *pos;
 
 	if (_stream->skip >= _stream->pos) {
-		stream->stream_errno = 0;
+		if (!unlikely(stream->closed))
+			stream->stream_errno = 0;
 		return NULL;
 	}
 
