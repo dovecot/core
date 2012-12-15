@@ -631,7 +631,7 @@ mbox_mailbox_get_guid(struct mbox_mailbox *mbox, guid_128_t guid_r)
 		int ret;
 
 		i_assert(mbox->mbox_lock_type == F_UNLCK);
-		box2 = mailbox_alloc(mbox->box.list, mbox->box.name, 0);
+		box2 = mailbox_alloc(mbox->box.list, mbox->box.vname, 0);
 		ret = mailbox_sync(box2, 0);
 		mbox2 = (struct mbox_mailbox *)box2;
 		memcpy(guid_r, mbox2->mbox_hdr.mailbox_guid, GUID_128_SIZE);
