@@ -420,7 +420,7 @@ maildir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 	struct maildir_uidlist *uidlist;
-	int ret;
+	int ret = 0;
 
 	if (!box->opened) {
 		if (mailbox_open(box) < 0)
@@ -428,18 +428,21 @@ maildir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	}
 	uidlist = mbox->uidlist;
 
-	if (maildir_uidlist_lock(uidlist) <= 0)
-		return -1;
+	if (update->uid_validity != 0 || update->min_next_uid != 0 ||
+	    !guid_128_is_empty(update->mailbox_guid)) {
+		if (maildir_uidlist_lock(uidlist) <= 0)
+			return -1;
 
-	if (!guid_128_is_empty(update->mailbox_guid))
-		maildir_uidlist_set_mailbox_guid(uidlist, update->mailbox_guid);
-	if (update->uid_validity != 0)
-		maildir_uidlist_set_uid_validity(uidlist, update->uid_validity);
-	if (update->min_next_uid != 0) {
-		maildir_uidlist_set_next_uid(uidlist, update->min_next_uid,
-					     FALSE);
+		if (!guid_128_is_empty(update->mailbox_guid))
+			maildir_uidlist_set_mailbox_guid(uidlist, update->mailbox_guid);
+		if (update->uid_validity != 0)
+			maildir_uidlist_set_uid_validity(uidlist, update->uid_validity);
+		if (update->min_next_uid != 0) {
+			maildir_uidlist_set_next_uid(uidlist, update->min_next_uid,
+						     FALSE);
+		}
+		ret = maildir_uidlist_update(uidlist);
 	}
-	ret = maildir_uidlist_update(uidlist);
 	if (ret == 0)
 		ret = index_storage_mailbox_update(box, update);
 	maildir_uidlist_unlock(uidlist);
