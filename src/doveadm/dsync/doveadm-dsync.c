@@ -244,6 +244,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	struct setting_parser_context *set_parser;
 	const char *set_line, *path1, *path2;
 	bool brain1_running, brain2_running, changed1, changed2;
+	int ret;
 
 	i_assert(ctx->local_location != NULL);
 
@@ -255,16 +256,23 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	set_line = t_strconcat("mail_location=", ctx->local_location, NULL);
 	if (settings_parse_line(set_parser, set_line) < 0)
 		i_unreached();
-	if (mail_storage_service_next(ctx->ctx.storage_service,
-				      ctx->ctx.cur_service_user, &user2) < 0)
-		i_fatal("User init failed");
+	ret = mail_storage_service_next(ctx->ctx.storage_service,
+					ctx->ctx.cur_service_user, &user2);
+	if (ret < 0) {
+		ctx->ctx.exit_code = ret == -1 ? EX_TEMPFAIL : EX_CONFIG;
+		mail_user_unref(&user2);
+		return -1;
+	}
 	user2->admin = TRUE;
 
 	if (mail_namespaces_get_root_sep(user->namespaces) !=
 	    mail_namespaces_get_root_sep(user2->namespaces)) {
-		i_fatal("Mail locations must use the same "
+		i_error("Mail locations must use the same "
 			"virtual mailbox hierarchy separator "
 			"(specify separator for the default namespace)");
+		ctx->ctx.exit_code = EX_CONFIG;
+		mail_user_unref(&user2);
+		return -1;
 	}
 	if (mailbox_list_get_root_path(user->namespaces->list,
 				       MAILBOX_LIST_PATH_TYPE_MAILBOX,
@@ -273,8 +281,11 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 				       MAILBOX_LIST_PATH_TYPE_MAILBOX,
 				       &path2) &&
 	    strcmp(path1, path2) == 0) {
-		i_fatal("Both source and destination mail_location "
+		i_error("Both source and destination mail_location "
 			"points to same directory: %s", path1);
+		ctx->ctx.exit_code = EX_CONFIG;
+		mail_user_unref(&user2);
+		return -1;
 	}
 
 	brain2 = dsync_brain_slave_init(user2, ibc2);
@@ -291,7 +302,11 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		brain2_running = dsync_brain_run(brain2, &changed2);
 	}
 	mail_user_unref(&user2);
-	return dsync_brain_deinit(&brain2);
+	if (dsync_brain_deinit(&brain2) < 0) {
+		ctx->ctx.exit_code = EX_TEMPFAIL;
+		return -1;
+	}
+	return 0;
 }
 
 static void
@@ -380,7 +395,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	if (!ctx->remote) {
 		if (cmd_dsync_run_local(ctx, user, brain, ibc2) < 0)
-			_ctx->exit_code = EX_TEMPFAIL;
+			ret = -1;
 	} else {
 		cmd_dsync_run_remote(user);
 	}
@@ -584,7 +599,11 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	io_loop_run(current_ioloop);
 
 	dsync_ibc_deinit(&ibc);
-	return dsync_brain_deinit(&brain);
+	if (dsync_brain_deinit(&brain) < 0) {
+		_ctx->exit_code = EX_TEMPFAIL;
+		return -1;
+	}
+	return 0;
 }
 
 static bool
