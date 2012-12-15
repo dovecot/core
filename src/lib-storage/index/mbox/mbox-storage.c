@@ -491,17 +491,21 @@ static int
 mbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 {
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
-	int ret;
+	int ret = 0;
 
 	if (!box->opened) {
 		if (mailbox_open(box) < 0)
 			return -1;
 	}
 
-	mbox->sync_hdr_update = update;
-	ret = mbox_sync(mbox, MBOX_SYNC_HEADER | MBOX_SYNC_FORCE_SYNC |
-			MBOX_SYNC_REWRITE);
-	mbox->sync_hdr_update = NULL;
+	if (update->uid_validity != 0 || update->min_next_uid != 0) {
+		mbox->sync_hdr_update = update;
+		ret = mbox_sync(mbox, MBOX_SYNC_HEADER | MBOX_SYNC_FORCE_SYNC |
+				MBOX_SYNC_REWRITE);
+		mbox->sync_hdr_update = NULL;
+	}
+	if (ret == 0)
+		ret = index_storage_mailbox_update(box, update);
 	return ret;
 }
 
