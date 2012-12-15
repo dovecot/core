@@ -730,8 +730,6 @@ mbox_transaction_unlock(struct mailbox *box, unsigned int lock_id1,
 		i_assert(mbox->box.transaction_count > 0 ||
 			 mbox->external_transactions > 0 ||
 			 mbox->mbox_lock_type == F_UNLCK);
-		i_assert(mbox->external_transactions == 0 ||
-			 mbox->mbox_lock_type == F_WRLCK);
 	} else {
 		/* mailbox opened with MAILBOX_FLAG_KEEP_LOCKED */
 		i_assert(mbox->mbox_lock_type == F_WRLCK);
