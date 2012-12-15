@@ -108,6 +108,7 @@ void dsync_brain_sync_init_box_states(struct dsync_brain *brain);
 
 void dsync_brain_master_send_mailbox(struct dsync_brain *brain);
 bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain);
+int dsync_brain_sync_mailbox_open(struct dsync_brain *brain);
 void dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 					  const struct dsync_mailbox *remote_dsync_box);
 bool dsync_brain_sync_mails(struct dsync_brain *brain);

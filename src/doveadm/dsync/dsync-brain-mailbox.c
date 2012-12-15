@@ -100,16 +100,13 @@ void dsync_brain_sync_init_box_states(struct dsync_brain *brain)
 	}
 }
 
-static int
+static void
 dsync_brain_sync_mailbox_init(struct dsync_brain *brain,
 			      struct mailbox *box,
 			      const struct dsync_mailbox *local_dsync_box,
 			      bool wait_for_remote_box)
 {
-	enum dsync_mailbox_exporter_flags exporter_flags = 0;
 	const struct dsync_mailbox_state *state;
-	uint32_t last_common_uid, highest_wanted_uid;
-	uint64_t last_common_modseq;
 
 	i_assert(brain->box_importer == NULL);
 	i_assert(brain->box_exporter == NULL);
@@ -127,28 +124,36 @@ dsync_brain_sync_mailbox_init(struct dsync_brain *brain,
 	memset(&brain->remote_dsync_box, 0, sizeof(brain->remote_dsync_box));
 
 	state = dsync_mailbox_state_find(brain, local_dsync_box->mailbox_guid);
-	if (state != NULL) {
+	if (state != NULL)
 		brain->mailbox_state = *state;
-		last_common_uid = state->last_common_uid;
-		last_common_modseq = state->last_common_modseq;
-	} else {
+	else {
 		memset(&brain->mailbox_state, 0, sizeof(brain->mailbox_state));
 		memcpy(brain->mailbox_state.mailbox_guid,
 		       local_dsync_box->mailbox_guid,
 		       sizeof(brain->mailbox_state.mailbox_guid));
 		brain->mailbox_state.last_uidvalidity =
 			local_dsync_box->uid_validity;
-		last_common_uid = 0;
-		last_common_modseq = 0;
 	}
+}
 
+int dsync_brain_sync_mailbox_open(struct dsync_brain *brain)
+{
+	enum dsync_mailbox_exporter_flags exporter_flags = 0;
+	uint32_t last_common_uid, highest_wanted_uid;
+	uint64_t last_common_modseq;
+
+	i_assert(brain->log_scan == NULL);
+
+	last_common_uid = brain->mailbox_state.last_common_uid;
+	last_common_modseq = brain->mailbox_state.last_common_modseq;
 	highest_wanted_uid = last_common_uid == 0 ?
 		(uint32_t)-1 : last_common_uid;
-	if (dsync_transaction_log_scan_init(box->view, highest_wanted_uid,
+	if (dsync_transaction_log_scan_init(brain->box->view,
+					    highest_wanted_uid,
 					    last_common_modseq,
 					    &brain->log_scan) < 0) {
 		i_error("Failed to read transaction log for mailbox %s",
-			mailbox_get_vname(box));
+			mailbox_get_vname(brain->box));
 		brain->failed = TRUE;
 		return -1;
 	}
@@ -159,8 +164,9 @@ dsync_brain_sync_mailbox_init(struct dsync_brain *brain,
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_MAILS_HAVE_GUIDS;
 
 	brain->box_exporter = brain->backup_recv ? NULL :
-		dsync_mailbox_export_init(box, brain->log_scan, last_common_uid,
-					  last_common_modseq, exporter_flags);
+		dsync_mailbox_export_init(brain->box, brain->log_scan,
+					  last_common_uid, last_common_modseq,
+					  exporter_flags);
 	return 0;
 }
 
@@ -173,6 +179,7 @@ void dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 	uint64_t last_common_modseq;
 
 	i_assert(brain->box_importer == NULL);
+	i_assert(brain->log_scan != NULL);
 
 	i_assert(memcmp(brain->local_dsync_box.mailbox_guid,
 			remote_dsync_box->mailbox_guid,
@@ -391,7 +398,7 @@ void dsync_brain_master_send_mailbox(struct dsync_brain *brain)
 
 	/* start exporting this mailbox (wait for remote to start importing) */
 	dsync_ibc_send_mailbox(brain->ibc, &dsync_box);
-	(void)dsync_brain_sync_mailbox_init(brain, box, &dsync_box, TRUE);
+	dsync_brain_sync_mailbox_init(brain, box, &dsync_box, TRUE);
 	brain->state = DSYNC_STATE_SYNC_MAILS;
 }
 
@@ -606,8 +613,8 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	}
 
 	/* start export/import */
-	if (dsync_brain_sync_mailbox_init(brain, box, &local_dsync_box,
-					  FALSE) == 0)
+	dsync_brain_sync_mailbox_init(brain, box, &local_dsync_box, FALSE);
+	if (dsync_brain_sync_mailbox_open(brain) == 0)
 		dsync_brain_sync_mailbox_init_remote(brain, dsync_box);
 
 	brain->state = DSYNC_STATE_SYNC_MAILS;
