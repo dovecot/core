@@ -420,6 +420,7 @@ maildir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 	struct maildir_uidlist *uidlist;
+	bool locked = FALSE;
 	int ret = 0;
 
 	if (!box->opened) {
@@ -433,6 +434,7 @@ maildir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 		if (maildir_uidlist_lock(uidlist) <= 0)
 			return -1;
 
+		locked = TRUE;
 		if (!guid_128_is_empty(update->mailbox_guid))
 			maildir_uidlist_set_mailbox_guid(uidlist, update->mailbox_guid);
 		if (update->uid_validity != 0)
@@ -445,7 +447,8 @@ maildir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	}
 	if (ret == 0)
 		ret = index_storage_mailbox_update(box, update);
-	maildir_uidlist_unlock(uidlist);
+	if (locked)
+		maildir_uidlist_unlock(uidlist);
 	return ret;
 }
 
