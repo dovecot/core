@@ -22,6 +22,7 @@ struct mail_index_alloc_cache_list {
 	struct mail_index *index;
 	char *mailbox_path;
 	int refcount;
+	bool referenced;
 
 	dev_t index_dir_dev;
 	ino_t index_dir_ino;
@@ -58,7 +59,7 @@ mail_index_alloc_cache_add(struct mail_index *index,
 static void
 mail_index_alloc_cache_list_free(struct mail_index_alloc_cache_list *list)
 {
-	if (list->index->open_count > 0)
+	if (list->referenced)
 		mail_index_close(list->index);
 	mail_index_free(&list->index);
 	i_free(list->mailbox_path);
@@ -166,6 +167,15 @@ static void destroy_unrefed(bool all)
 		} else {
 			if (rec->refcount == 0)
 				seen_ref0 = TRUE;
+			if (all && rec->index->open_count == 1 &&
+			    rec->referenced) {
+				/* we're the only one keeping this index open.
+				   we might be here, because the caller is
+				   deleting this mailbox and wants its indexes
+				   to be closed. so close it. */
+				rec->referenced = FALSE;
+				mail_index_close(rec->index);
+			}
 			list = &(*list)->next;
 		}
 	}
@@ -228,8 +238,9 @@ void mail_index_alloc_cache_index_opened(struct mail_index *index)
 			list->index_dir_dev = st.st_dev;
 		}
 	}
-	if (list != NULL) {
+	if (list != NULL && !list->referenced) {
 		/* keep it referenced for ourself */
+		list->referenced = TRUE;
 		index->open_count++;
 	}
 }
