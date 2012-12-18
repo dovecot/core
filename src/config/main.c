@@ -26,12 +26,16 @@ int main(int argc, char *argv[])
 	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);
 
-	master_service_init_finish(master_service);
 	config_parse_load_modules();
 
 	path = master_service_get_config_path(master_service);
 	if (config_parse_file(path, TRUE, "", &error) <= 0)
 		i_fatal("%s", error);
+
+	/* notify about our success only after successfully parsing the
+	   config file, so if the parsing fails, master won't immediately
+	   just recreate this process (and fail again and so on). */
+	master_service_init_finish(master_service);
 
 	master_service_run(master_service, client_connected);
 	config_connections_destroy_all();
