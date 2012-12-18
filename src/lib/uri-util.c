@@ -763,7 +763,7 @@ uri_data_encode(string_t *out, const unsigned char esc_table[256],
 	while (*p != '\0') {
 		if ((*p & 0x80) != 0 || (esc_table[*p] & esc_mask) == 0 ||
 		    strchr(esc_extra, (char)*p) != NULL) {
-			str_printfa(out, "%%%2x", *p);
+			str_printfa(out, "%%%02x", *p);
 		} else {
 			str_append_c(out, *p);
 		}
