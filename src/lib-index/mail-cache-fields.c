@@ -206,7 +206,7 @@ mail_cache_header_fields_get_offset(struct mail_cache *cache,
 	const struct mail_cache_header_fields *field_hdr;
 	struct mail_cache_header_fields tmp_field_hdr;
 	const void *data;
-	uint32_t offset = 0, next_offset;
+	uint32_t offset = 0, next_offset, field_hdr_size;
 	unsigned int next_count = 0;
 	bool invalidate = FALSE;
 	int ret;
@@ -276,14 +276,16 @@ mail_cache_header_fields_get_offset(struct mail_cache *cache,
 		cache->need_compress_file_seq = cache->hdr->file_seq;
 
 	if (field_hdr_r != NULL) {
+		/* detect corrupted size later */
+		field_hdr_size = I_MAX(field_hdr->size, sizeof(*field_hdr));
 		if (cache->file_cache != NULL && invalidate) {
 			/* if this isn't the first header in file and we hadn't
 			   read this before, we can't trust that the cached
 			   data is valid */
 			file_cache_invalidate(cache->file_cache, offset,
-					      field_hdr->size);
+					      field_hdr_size);
 		}
-		ret = mail_cache_map(cache, offset, field_hdr->size, &data);
+		ret = mail_cache_map(cache, offset, field_hdr_size, &data);
 		if (ret < 0)
 			return -1;
 		if (ret == 0) {
