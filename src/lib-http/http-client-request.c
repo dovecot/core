@@ -153,9 +153,9 @@ void http_client_request_submit(struct http_client_request *req)
 	http_client_request_debug(req, "Submitted");
 	
 	host = http_client_host_get(req->client, req->hostname);
-	http_client_host_submit_request(host, req);
 	req->state = HTTP_REQUEST_STATE_QUEUED;
 	req->client->pending_requests++;
+	http_client_host_submit_request(host, req);
 }
 
 int http_client_request_send_more(struct http_client_request *req)
