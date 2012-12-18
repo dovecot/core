@@ -101,7 +101,8 @@ raw_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 
 	switch (field) {
 	case MAIL_FETCH_FROM_ENVELOPE:
-		*value_r = mbox->envelope_sender;
+		*value_r = mbox->envelope_sender != NULL ?
+			mbox->envelope_sender : "";
 		return 0;
 	case MAIL_FETCH_UIDL_FILE_NAME:
 		*value_r = mbox->have_filename ?
