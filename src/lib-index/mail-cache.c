@@ -346,11 +346,12 @@ mail_cache_map_with_read(struct mail_cache *cache, size_t offset, size_t size,
 	buffer_set_used_size(cache->read_buf, ret);
 
 	cache->read_offset = offset;
-	cache->mmap_length = offset + size;
+	cache->mmap_length = offset + cache->read_buf->used;
 
 	*data_r = data;
 	hdr_data = offset == 0 ? *data_r : NULL;
-	return mail_cache_map_finish(cache, offset, size, hdr_data, TRUE);
+	return mail_cache_map_finish(cache, offset,
+				     cache->read_buf->used, hdr_data, TRUE);
 }
 
 int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
