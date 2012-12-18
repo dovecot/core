@@ -129,10 +129,10 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 		return -1;
 	}
 
-	path = mailbox_list_get_path(ns->list, mailbox,
+	path = mailbox_list_get_path(ns->list, NULL,
 				     MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (*path == '\0') {
-		i_info("Indexes disabled for Mailbox %s, skipping", mailbox);
+		i_info("Indexes disabled for mailbox %s, skipping", mailbox);
 		return 0;
 	}
 
