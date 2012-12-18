@@ -7,6 +7,7 @@
 #include "passdb.h"
 
 #include <stdlib.h>
+#include <ctype.h>
 
 static struct mech_module_list *mech_modules;
 
@@ -112,6 +113,20 @@ static void mech_register_add(struct mechanisms_register *reg,
 	reg->modules = list;
 }
 
+static const char *mech_get_plugin_name(const char *name)
+{
+	string_t *str = t_str_new(32);
+
+	str_append(str, "mech_");
+	for (; *name != '\0'; name++) {
+		if (*name == '-')
+			str_append_c(str, '_');
+		else
+			str_append_c(str, i_tolower(*name));
+	}
+	return str_c(str);
+}
+
 struct mechanisms_register *
 mech_register_init(const struct auth_settings *set)
 {
@@ -139,7 +154,7 @@ mech_register_init(const struct auth_settings *set)
 		mech = mech_module_find(name);
 		if (mech == NULL) {
 			/* maybe it's a plugin. try to load it. */
-			auth_module_load(t_strconcat("mech_", name, NULL));
+			auth_module_load(mech_get_plugin_name(name));
 			mech = mech_module_find(name);
 		}
 		if (mech == NULL)
