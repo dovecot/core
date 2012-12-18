@@ -344,8 +344,8 @@ blocks_count_lines(struct binary_ctx *ctx, struct istream *full_input)
 	i_assert(ret == -1);
 	if (full_input->stream_errno != 0)
 		return -1;
-	i_assert(!i_stream_have_bytes_left(cur_block->input));
-	i_assert(block_idx+1 == block_count);
+	i_assert(block_count == 0 || !i_stream_have_bytes_left(cur_block->input));
+	i_assert(block_count == 0 || block_idx+1 == block_count);
 	return 0;
 }
 
@@ -380,8 +380,13 @@ index_mail_read_binary_to_cache(struct mail *_mail,
 	cache->orig_physical_pos = part->physical_pos;
 	cache->include_hdr = include_hdr;
 
-	cache->input = i_streams_merge(blocks_get_streams(&ctx),
-				       IO_BLOCK_SIZE, fd_callback, _mail);
+	if (array_count(&ctx.blocks) != 0) {
+		cache->input = i_streams_merge(blocks_get_streams(&ctx),
+					       IO_BLOCK_SIZE,
+					       fd_callback, _mail);
+	} else {
+		cache->input = i_stream_create_from_data("", 0);
+	}
 	i_stream_set_name(cache->input, t_strdup_printf(
 		"<binary stream of mailbox %s UID %u>",
 		_mail->box->vname, _mail->uid));
