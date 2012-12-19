@@ -546,7 +546,8 @@ int json_parse_next(struct json_parser *parser, enum json_type *type_r,
 		/* parsing probably failed because there wasn't enough input.
 		   reset the error and try reading more. */
 		parser->error = NULL;
-
+		parser->highwater_offset = parser->input->v_offset +
+			i_stream_get_data_size(parser->input);
 	}
 	return ret;
 }
@@ -623,6 +624,8 @@ int json_parse_next_stream(struct json_parser *parser,
 		/* parsing probably failed because there wasn't enough input.
 		   reset the error and try reading more. */
 		parser->error = NULL;
+		parser->highwater_offset = parser->input->v_offset +
+			i_stream_get_data_size(parser->input);
 	}
 	return ret;
 }
