@@ -394,6 +394,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 	if (offset < cache->mmap_length &&
 	    size <= cache->mmap_length - offset) {
 		/* already mapped */
+		i_assert(cache->mmap_base != NULL);
 		*data_r = CONST_PTR_OFFSET(cache->mmap_base, offset);
 		return 1;
 	}

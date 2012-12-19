@@ -462,7 +462,13 @@ int mail_cache_compress(struct mail_cache *cache,
 		return 0;
 
 	/* compression isn't very efficient with small read()s */
-	cache->map_with_read = FALSE;
+	if (cache->map_with_read) {
+		cache->map_with_read = FALSE;
+		if (cache->read_buf != NULL)
+			buffer_set_used_size(cache->read_buf, 0);
+		cache->hdr = NULL;
+		cache->mmap_length = 0;
+	}
 
 	if (cache->index->lock_method == FILE_LOCK_METHOD_DOTLOCK) {
 		/* we're using dotlocking, cache file creation itself creates
