@@ -274,7 +274,8 @@ struct http_client_host *http_client_host_get
 		host->name = i_strdup(hostname);
 		i_array_init(&host->ports, 4);
 
-		hash_table_insert(client->hosts, host->name, host);
+		hostname = host->name;
+		hash_table_insert(client->hosts, hostname, host);
 
 		http_client_host_debug(host, "Host created");
 	}
