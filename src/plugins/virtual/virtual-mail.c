@@ -289,15 +289,17 @@ virtual_mail_get_first_header(struct mail *mail, const char *field,
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mail_private *p = (struct mail_private *)vmail->backend_mail;
+	int ret;
 
 	if (virtual_mail_handle_lost(vmail) < 0)
 		return -1;
-	if (p->v.get_first_header(vmail->backend_mail, field,
-				  decode_to_utf8, value_r) < 0) {
+	ret = p->v.get_first_header(vmail->backend_mail, field,
+				    decode_to_utf8, value_r);
+	if (ret < 0) {
 		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
 		return -1;
 	}
-	return 0;
+	return ret;
 }
 
 static int
