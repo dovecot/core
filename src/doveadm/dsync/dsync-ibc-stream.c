@@ -673,12 +673,12 @@ dsync_ibc_stream_recv_mailbox_state(struct dsync_ibc *_ibc,
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
 	value = dsync_deserializer_decode_get(decoder, "last_common_uid");
-	if (str_to_uint32(value, &state_r->last_uidvalidity) < 0) {
+	if (str_to_uint32(value, &state_r->last_common_uid) < 0) {
 		dsync_ibc_input_error(ibc, decoder, "Invalid last_common_uid");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
 	value = dsync_deserializer_decode_get(decoder, "last_common_modseq");
-	if (str_to_uint32(value, &state_r->last_uidvalidity) < 0) {
+	if (str_to_uint64(value, &state_r->last_common_modseq) < 0) {
 		dsync_ibc_input_error(ibc, decoder, "Invalid last_common_modseq");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
