@@ -398,6 +398,12 @@ union mail_module_context {
 struct mail_private {
 	struct mail mail;
 	struct mail_vfuncs v, *vlast;
+	/* normally NULL, but in case this is a "backend mail" for a mail
+	   created by virtual storage, this points back to the original virtual
+	   mail. at least mailbox_copy() bypasses the virtual storage, so this
+	   allows mail_log plugin to log the copy operation using the original
+	   mailbox name. */
+	struct mail *vmail;
 
 	uint32_t seq_pvt;
 

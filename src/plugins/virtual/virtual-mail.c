@@ -90,6 +90,7 @@ virtual_mail_set_backend_mail(struct mail *mail,
 			      struct virtual_backend_box *bbox)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct mail_private *backend_pmail;
 	struct mailbox_transaction_context *backend_trans;
 	struct mailbox_header_lookup_ctx *backend_headers;
 
@@ -102,6 +103,9 @@ virtual_mail_set_backend_mail(struct mail *mail,
 					 backend_headers);
 	if (backend_headers != NULL)
 		mailbox_header_lookup_unref(&backend_headers);
+
+	backend_pmail = (struct mail_private *)vmail->backend_mail;
+	backend_pmail->vmail = mail;
 	array_append(&vmail->backend_mails, &vmail->backend_mail, 1);
 	return vmail->backend_mail;
 }

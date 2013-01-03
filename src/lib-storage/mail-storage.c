@@ -1942,6 +1942,7 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 	struct mail_save_context *ctx = *_ctx;
 	struct mailbox *box = ctx->transaction->box;
 	struct mail_keywords *keywords = ctx->data.keywords;
+	struct mail *real_mail;
 	int ret;
 
 	*_ctx = NULL;
@@ -1952,7 +1953,10 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 		return -1;
 	}
 
-	ret = ctx->transaction->box->v.copy(ctx, mail);
+	/* bypass virtual storage, so hard linking can be used whenever
+	   possible */
+	real_mail = mail_get_real_mail(mail);
+	ret = ctx->transaction->box->v.copy(ctx, real_mail);
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
 	return ret;
