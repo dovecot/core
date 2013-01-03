@@ -8,8 +8,9 @@ struct mail_index_view;
 struct dsync_transaction_log_scan;
 
 int dsync_transaction_log_scan_init(struct mail_index_view *view,
+				    struct mail_index_view *pvt_view,
 				    uint32_t highest_wanted_uid,
-				    uint64_t modseq,
+				    uint64_t modseq, uint64_t pvt_modseq,
 				    struct dsync_transaction_log_scan **scan_r);
 HASH_TABLE_TYPE(dsync_uid_mail_change)
 dsync_transaction_log_scan_get_hash(struct dsync_transaction_log_scan *scan);

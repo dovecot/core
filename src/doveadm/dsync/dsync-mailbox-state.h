@@ -8,6 +8,7 @@ struct dsync_mailbox_state {
 	uint32_t last_uidvalidity;
 	uint32_t last_common_uid;
 	uint64_t last_common_modseq;
+	uint64_t last_common_pvt_modseq;
 };
 ARRAY_DEFINE_TYPE(dsync_mailbox_state, struct dsync_mailbox_state);
 HASH_TABLE_DEFINE_TYPE(dsync_mailbox_state, uint8_t *, struct dsync_mailbox_state *);

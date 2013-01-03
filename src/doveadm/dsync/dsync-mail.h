@@ -49,6 +49,9 @@ struct dsync_mail_change {
 
 	/* Message's current modseq (saves, flag changes) */
 	uint64_t modseq;
+	/* Message's current private modseq (for private flags in
+	   shared mailboxes, otherwise 0) */
+	uint64_t pvt_modseq;
 	/* Message's save timestamp (saves) */
 	time_t save_timestamp;
 
@@ -57,6 +60,7 @@ struct dsync_mail_change {
 	/* Flags added/removed since last sync, and final flags containing
 	   flags that exist now but haven't changed */
 	uint8_t add_flags, remove_flags, final_flags;
+	uint8_t add_pvt_flags, remove_pvt_flags;
 	/* Remove all keywords before applying changes. This is used only with
 	   old transaction logs, new ones never reset keywords (just explicitly
 	   remove unwanted keywords) */

@@ -18,9 +18,11 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  struct dsync_transaction_log_scan *log_scan,
 			  uint32_t last_common_uid,
 			  uint64_t last_common_modseq,
+			  uint64_t last_common_pvt_modseq,
 			  uint32_t remote_uid_next,
 			  uint32_t remote_first_recent_uid,
 			  uint64_t remote_highest_modseq,
+			  uint64_t remote_highest_pvt_modseq,
 			  enum dsync_mailbox_import_flags flags);
 void dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 				 const struct dsync_mail_change *change);
@@ -32,6 +34,7 @@ void dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
 int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **importer,
 				uint32_t *last_common_uid_r,
 				uint64_t *last_common_modseq_r,
+				uint64_t *last_common_pvt_modseq_r,
 				bool *changes_during_sync_r);
 
 #endif

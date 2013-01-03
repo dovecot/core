@@ -40,10 +40,10 @@ struct dsync_mailbox_importer {
 	pool_t pool;
 	struct mailbox *box;
 	uint32_t last_common_uid;
-	uint64_t last_common_modseq;
+	uint64_t last_common_modseq, last_common_pvt_modseq;
 	uint32_t remote_uid_next;
 	uint32_t remote_first_recent_uid;
-	uint64_t remote_highest_modseq;
+	uint64_t remote_highest_modseq, remote_highest_pvt_modseq;
 
 	struct mailbox_transaction_context *trans, *ext_trans;
 	struct mail_search_context *search_ctx;
@@ -70,7 +70,7 @@ struct dsync_mailbox_importer {
 	unsigned int mail_request_idx;
 
 	uint32_t prev_uid, next_local_seq, local_uid_next;
-	uint64_t local_initial_highestmodseq;
+	uint64_t local_initial_highestmodseq, local_initial_highestpvtmodseq;
 
 	unsigned int failed:1;
 	unsigned int last_common_uid_found:1;
@@ -112,9 +112,11 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  struct dsync_transaction_log_scan *log_scan,
 			  uint32_t last_common_uid,
 			  uint64_t last_common_modseq,
+			  uint64_t last_common_pvt_modseq,
 			  uint32_t remote_uid_next,
 			  uint32_t remote_first_recent_uid,
 			  uint64_t remote_highest_modseq,
+			  uint64_t remote_highest_pvt_modseq,
 			  enum dsync_mailbox_import_flags flags)
 {
 	const enum mailbox_transaction_flags ext_trans_flags =
@@ -132,11 +134,13 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer->box = box;
 	importer->last_common_uid = last_common_uid;
 	importer->last_common_modseq = last_common_modseq;
+	importer->last_common_pvt_modseq = last_common_pvt_modseq;
 	importer->last_common_uid_found =
 		last_common_uid != 0 || last_common_modseq != 0;
 	importer->remote_uid_next = remote_uid_next;
 	importer->remote_first_recent_uid = remote_first_recent_uid;
 	importer->remote_highest_modseq = remote_highest_modseq;
+	importer->remote_highest_pvt_modseq = remote_highest_pvt_modseq;
 
 	hash_table_create(&importer->import_guids, pool, 0, str_hash, strcmp);
 	hash_table_create_direct(&importer->import_uids, pool, 0);
@@ -162,11 +166,12 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer->revert_local_changes =
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_REVERT_LOCAL_CHANGES) != 0;
 
-	mailbox_get_open_status(importer->box,
-				STATUS_UIDNEXT | STATUS_HIGHESTMODSEQ,
+	mailbox_get_open_status(importer->box, STATUS_UIDNEXT |
+				STATUS_HIGHESTMODSEQ | STATUS_HIGHESTPVTMODSEQ,
 				&status);
 	importer->local_uid_next = status.uidnext;
 	importer->local_initial_highestmodseq = status.highest_modseq;
+	importer->local_initial_highestpvtmodseq = status.highest_pvt_modseq;
 	dsync_mailbox_import_search_init(importer);
 
 	importer->local_changes = dsync_transaction_log_scan_get_hash(log_scan);
@@ -428,27 +433,40 @@ dsync_import_set_mail(struct dsync_mailbox_importer *importer,
 static void
 merge_flags(uint32_t local_final, uint32_t local_add, uint32_t local_remove,
 	    uint32_t remote_final, uint32_t remote_add, uint32_t remote_remove,
-	    bool prefer_remote,
+	    uint32_t pvt_mask, bool prefer_remote, bool prefer_pvt_remote,
 	    uint32_t *change_add_r, uint32_t *change_remove_r)
 {
 	uint32_t combined_add, combined_remove, conflict_flags;
-	uint32_t local_wanted, remote_wanted;
+	uint32_t local_wanted, remote_wanted, conflict_pvt_flags;
 
 	/* resolve conflicts */
 	conflict_flags = local_add & remote_remove;
 	if (conflict_flags != 0) {
+		conflict_pvt_flags = conflict_flags & pvt_mask;
+		conflict_flags &= ~pvt_mask;
 		if (prefer_remote)
 			local_add &= ~conflict_flags;
 		else
 			remote_remove &= ~conflict_flags;
+		if (prefer_pvt_remote)
+			local_add &= ~conflict_pvt_flags;
+		else
+			remote_remove &= ~conflict_pvt_flags;
 	}
-	conflict_flags = local_remove & remote_add;
+	conflict_flags = (local_remove & remote_add) & ~pvt_mask;
 	if (conflict_flags != 0) {
+		conflict_pvt_flags = conflict_flags & pvt_mask;
+		conflict_flags &= ~pvt_mask;
 		if (prefer_remote)
 			local_remove &= ~conflict_flags;
 		else
 			remote_add &= ~conflict_flags;
+		if (prefer_pvt_remote)
+			local_remove &= ~conflict_pvt_flags;
+		else
+			remote_add &= ~conflict_pvt_flags;
 	}
+	
 	combined_add = local_add|remote_add;
 	combined_remove = local_remove|remote_remove;
 	i_assert((combined_add & combined_remove) == 0);
@@ -459,10 +477,15 @@ merge_flags(uint32_t local_final, uint32_t local_add, uint32_t local_remove,
 
 	conflict_flags = local_wanted ^ remote_wanted;
 	if (conflict_flags != 0) {
-		if (prefer_remote)
+		if (prefer_remote && prefer_pvt_remote)
 			local_wanted = remote_wanted;
-		/*else
-			remote_wanted = local_wanted;*/
+		else if (prefer_remote && !prefer_pvt_remote) {
+			local_wanted = (local_wanted & pvt_mask) |
+				(remote_wanted & ~pvt_mask);
+		} else if (!prefer_remote && prefer_pvt_remote) {
+			local_wanted = (local_wanted & ~pvt_mask) |
+				(remote_wanted & pvt_mask);
+		}
 	}
 
 	*change_add_r = local_wanted & ~local_final;
@@ -609,7 +632,8 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 	for (i = 0; i < array_size; i++) {
 		merge_flags(local_final[i], local_add[i], local_remove[i],
 			    remote_final[i], remote_add[i], remote_remove[i],
-			    prefer_remote, &change_add[i], &change_remove[i]);
+			    0, prefer_remote, prefer_remote,
+			    &change_add[i], &change_remove[i]);
 		if (change_add[i] != 0) {
 			keywords_append(&add_keywords, &all_keywords,
 					change_add[i], i*32);
@@ -673,6 +697,7 @@ dsync_mailbox_import_replace_flags(struct mail *mail,
 	mail_update_flags(mail, MODIFY_REPLACE,
 			  change->add_flags | change->final_flags);
 	mail_update_modseq(mail, change->modseq);
+	mail_update_pvt_modseq(mail, change->pvt_modseq);
 }
 
 static void
@@ -684,7 +709,7 @@ dsync_mailbox_import_flag_change(struct dsync_mailbox_importer *importer,
 	uint32_t change_add, change_remove;
 	ARRAY_TYPE(const_string) local_keyword_changes = ARRAY_INIT;
 	struct mail *mail;
-	bool prefer_remote;
+	bool prefer_remote, prefer_pvt_remote;
 
 	i_assert((change->add_flags & change->remove_flags) == 0);
 
@@ -723,11 +748,19 @@ dsync_mailbox_import_flag_change(struct dsync_mailbox_importer *importer,
 		   they become unsynced. */
 		prefer_remote = !importer->master_brain;
 	}
+	if (mail_get_pvt_modseq(mail) < change->pvt_modseq)
+		prefer_pvt_remote = TRUE;
+	else if (mail_get_pvt_modseq(mail) > change->pvt_modseq)
+		prefer_pvt_remote = FALSE;
+	else
+		prefer_pvt_remote = !importer->master_brain;
 
 	/* merge flags */
 	merge_flags(mail_get_flags(mail), local_add, local_remove,
 		    change->final_flags, change->add_flags, change->remove_flags,
-		    prefer_remote, &change_add, &change_remove);
+		    mailbox_get_private_flags_mask(mail->box),
+		    prefer_remote, prefer_pvt_remote,
+		    &change_add, &change_remove);
 
 	if (change_add != 0)
 		mail_update_flags(mail, MODIFY_ADD, change_add);
@@ -738,6 +771,7 @@ dsync_mailbox_import_flag_change(struct dsync_mailbox_importer *importer,
 	merge_keywords(mail, &local_keyword_changes, &change->keyword_changes,
 		       prefer_remote);
 	mail_update_modseq(mail, change->modseq);
+	mail_update_pvt_modseq(mail, change->pvt_modseq);
 }
 
 static void
@@ -1138,6 +1172,9 @@ dsync_mailbox_save_set_metadata(struct dsync_mailbox_importer *importer,
 		(void)mailbox_enable(importer->box, MAILBOX_FEATURE_CONDSTORE);
 		mailbox_save_set_min_modseq(save_ctx, change->modseq);
 	}
+	/* FIXME: if there already are private flags, they get lost because
+	   saving can't handle updating private index. they get added on the
+	   next sync though. if this is fixed here, set min_pvt_modseq also. */
 }
 
 static int
@@ -1409,6 +1446,7 @@ static int dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer,
 		I_MIN(importer->last_common_uid+1,
 		      importer->remote_first_recent_uid);
 	update.min_highest_modseq = importer->remote_highest_modseq;
+	update.min_highest_pvt_modseq = importer->remote_highest_pvt_modseq;
 
 	if (mailbox_update(importer->box, &update) < 0) {
 		i_error("Mailbox update failed to mailbox %s: %s",
@@ -1477,6 +1515,7 @@ dsync_mailbox_import_count_missing_uid_imports(HASH_TABLE_TYPE(uid_new_mail) imp
 int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 				uint32_t *last_common_uid_r,
 				uint64_t *last_common_modseq_r,
+				uint64_t *last_common_pvt_modseq_r,
 				bool *changes_during_sync_r)
 {
 	struct dsync_mailbox_importer *importer = *_importer;
@@ -1517,14 +1556,16 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 		array_free(&importer->mail_requests);
 
 	*last_common_uid_r = importer->last_common_uid;
-	if (!*changes_during_sync_r)
+	if (!*changes_during_sync_r) {
 		*last_common_modseq_r = importer->remote_highest_modseq;
-	else {
+		*last_common_pvt_modseq_r = importer->remote_highest_pvt_modseq;
+	} else {
 		/* local changes occurred during dsync. we exported changes up
 		   to local_initial_highestmodseq, so all of the changes have
 		   happened after it. we want the next run to see those changes,
 		   so return it as the last common modseq */
 		*last_common_modseq_r = importer->local_initial_highestmodseq;
+		*last_common_pvt_modseq_r = importer->local_initial_highestpvtmodseq;
 	}
 
 	ret = importer->failed ? -1 : 0;

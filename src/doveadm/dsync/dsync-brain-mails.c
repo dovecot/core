@@ -165,10 +165,13 @@ static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 		state.last_common_uid = brain->local_dsync_box.uid_next-1;
 		state.last_common_modseq =
 			brain->local_dsync_box.highest_modseq;
+		state.last_common_pvt_modseq =
+			brain->local_dsync_box.highest_pvt_modseq;
 	} else {
 		if (dsync_mailbox_import_deinit(&brain->box_importer,
 						&state.last_common_uid,
 						&state.last_common_modseq,
+						&state.last_common_pvt_modseq,
 						&changes_during_sync) < 0) {
 			i_error("Importing mailbox %s failed",
 				mailbox_get_vname(brain->box));

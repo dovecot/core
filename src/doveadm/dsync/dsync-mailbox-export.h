@@ -10,7 +10,6 @@ struct dsync_mailbox_exporter *
 dsync_mailbox_export_init(struct mailbox *box,
 			  struct dsync_transaction_log_scan *log_scan,
 			  uint32_t last_common_uid,
-			  uint64_t last_common_modseq,
 			  enum dsync_mailbox_exporter_flags flags);
 const struct dsync_mail_change *
 dsync_mailbox_export_next(struct dsync_mailbox_exporter *exporter);

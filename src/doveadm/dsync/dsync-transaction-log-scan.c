@@ -105,11 +105,11 @@ log_add_expunge_uid(struct dsync_transaction_log_scan *ctx, const void *data,
 }
 
 static void
-log_add_expunge_guid(struct dsync_transaction_log_scan *ctx, const void *data,
+log_add_expunge_guid(struct dsync_transaction_log_scan *ctx,
+		     struct mail_index_view *view, const void *data,
 		     const struct mail_transaction_header *hdr)
 {
 	const struct mail_transaction_expunge_guid *rec = data, *end;
-	struct mail_index_view *view = ctx->view;
 	struct dsync_mail_change *change;
 	uint32_t seq;
 	bool external;
@@ -271,7 +271,7 @@ log_add_keyword_update(struct dsync_transaction_log_scan *ctx, const void *data,
 
 static void
 log_add_modseq_update(struct dsync_transaction_log_scan *ctx, const void *data,
-		      const struct mail_transaction_header *hdr)
+		      const struct mail_transaction_header *hdr, bool pvt_scan)
 {
 	const struct mail_transaction_modseq_update *rec = data, *end;
 	struct dsync_mail_change *change;
@@ -292,16 +292,21 @@ log_add_modseq_update(struct dsync_transaction_log_scan *ctx, const void *data,
 
 		modseq = rec->modseq_low32 |
 			((uint64_t)rec->modseq_high32 << 32);
-		if (change->modseq < modseq)
-			change->modseq = modseq;
+		if (!pvt_scan) {
+			if (change->modseq < modseq)
+				change->modseq = modseq;
+		} else {
+			if (change->pvt_modseq < modseq)
+				change->pvt_modseq = modseq;
+		}
 	}
 }
 
 static int
 dsync_log_set(struct dsync_transaction_log_scan *ctx,
+	      struct mail_index_view *view, bool pvt_scan,
 	      struct mail_transaction_log_view *log_view, uint64_t modseq)
 {
-	struct mail_index_view *view = ctx->view;
 	uint32_t log_seq;
 	uoff_t log_offset;
 	bool reset;
@@ -320,35 +325,25 @@ dsync_log_set(struct dsync_transaction_log_scan *ctx,
 	}
 	if (ret == 0) {
 		/* return everything we've got */
-		ctx->returned_all_changes = TRUE;
+		if (!pvt_scan)
+			ctx->returned_all_changes = TRUE;
 		return mail_transaction_log_view_set_all(log_view);
 	}
 	return ret < 0 ? -1 : 0;
 }
 
-int dsync_transaction_log_scan_init(struct mail_index_view *view,
-				    uint32_t highest_wanted_uid,
-				    uint64_t modseq,
-				    struct dsync_transaction_log_scan **scan_r)
+static int
+dsync_log_scan(struct dsync_transaction_log_scan *ctx,
+	       struct mail_index_view *view, uint64_t modseq, bool pvt_scan)
 {
-	struct dsync_transaction_log_scan *ctx;
 	struct mail_transaction_log_view *log_view;
 	const struct mail_transaction_header *hdr;
 	const void *data;
 	uint32_t file_seq, max_seq;
 	uoff_t file_offset, max_offset;
-	pool_t pool;
-
-	pool = pool_alloconly_create(MEMPOOL_GROWING"dsync transaction log scan",
-				     10240);
-	ctx = p_new(pool, struct dsync_transaction_log_scan, 1);
-	ctx->pool = pool;
-	hash_table_create_direct(&ctx->changes, pool, 0);
-	ctx->view = view;
-	ctx->highest_wanted_uid = highest_wanted_uid;
 
 	log_view = mail_transaction_log_view_open(view->index->log);
-	if (dsync_log_set(ctx, log_view, modseq) < 0) {
+	if (dsync_log_set(ctx, view, pvt_scan, log_view, modseq) < 0) {
 		mail_transaction_log_view_close(&log_view);
 		return -1;
 	}
@@ -376,10 +371,12 @@ int dsync_transaction_log_scan_init(struct mail_index_view *view,
 
 		switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 		case MAIL_TRANSACTION_EXPUNGE:
-			log_add_expunge(ctx, data, hdr);
+			if (!pvt_scan)
+				log_add_expunge(ctx, data, hdr);
 			break;
 		case MAIL_TRANSACTION_EXPUNGE_GUID:
-			log_add_expunge_guid(ctx, data, hdr);
+			if (!pvt_scan)
+				log_add_expunge_guid(ctx, view, data, hdr);
 			break;
 		case MAIL_TRANSACTION_FLAG_UPDATE:
 			log_add_flag_update(ctx, data, hdr);
@@ -393,15 +390,43 @@ int dsync_transaction_log_scan_init(struct mail_index_view *view,
 			} T_END;
 			break;
 		case MAIL_TRANSACTION_MODSEQ_UPDATE:
-			log_add_modseq_update(ctx, data, hdr);
+			log_add_modseq_update(ctx, data, hdr, pvt_scan);
 			break;
 		}
 	}
 
-	ctx->last_log_seq = file_seq;
-	ctx->last_log_offset = file_offset;
-
+	if (!pvt_scan) {
+		ctx->last_log_seq = file_seq;
+		ctx->last_log_offset = file_offset;
+	}
 	mail_transaction_log_view_close(&log_view);
+	return 0;
+}
+
+int dsync_transaction_log_scan_init(struct mail_index_view *view,
+				    struct mail_index_view *pvt_view,
+				    uint32_t highest_wanted_uid,
+				    uint64_t modseq, uint64_t pvt_modseq,
+				    struct dsync_transaction_log_scan **scan_r)
+{
+	struct dsync_transaction_log_scan *ctx;
+	pool_t pool;
+
+	pool = pool_alloconly_create(MEMPOOL_GROWING"dsync transaction log scan",
+				     10240);
+	ctx = p_new(pool, struct dsync_transaction_log_scan, 1);
+	ctx->pool = pool;
+	hash_table_create_direct(&ctx->changes, pool, 0);
+	ctx->view = view;
+	ctx->highest_wanted_uid = highest_wanted_uid;
+
+	if (dsync_log_scan(ctx, view, modseq, FALSE) < 0)
+		return -1;
+	if (pvt_view != NULL) {
+		if (dsync_log_scan(ctx, pvt_view, pvt_modseq, TRUE) < 0)
+			return -1;
+	}
+
 	*scan_r = ctx;
 	return 0;
 }

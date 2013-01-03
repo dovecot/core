@@ -40,6 +40,8 @@ void dsync_mailbox_states_export(const HASH_TABLE_TYPE(dsync_mailbox_state) stat
 		put_uint32(buf, state->last_common_uid);
 		put_uint32(buf, state->last_common_modseq & 0xffffffffU);
 		put_uint32(buf, state->last_common_modseq >> 32);
+		put_uint32(buf, state->last_common_pvt_modseq & 0xffffffffU);
+		put_uint32(buf, state->last_common_pvt_modseq >> 32);
 		if (buf->used % 3 == 0) {
 			crc = crc32_data_more(crc, buf->data, buf->used);
 			base64_encode(buf->data, buf->used, output);
@@ -93,6 +95,9 @@ int dsync_mailbox_states_import(HASH_TABLE_TYPE(dsync_mailbox_state) states,
 		state->last_common_modseq =
 			get_uint32(data + GUID_128_SIZE + 8) |
 			(uint64_t)get_uint32(data + GUID_128_SIZE + 12) << 32;
+		state->last_common_pvt_modseq =
+			get_uint32(data + GUID_128_SIZE + 16) |
+			(uint64_t)get_uint32(data + GUID_128_SIZE + 20) << 32;
 		guid_p = state->mailbox_guid;
 		hash_table_insert(states, guid_p, state);
 	}

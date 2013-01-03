@@ -10,7 +10,7 @@ struct dsync_mailbox {
 	bool mailbox_lost;
 
 	uint32_t uid_validity, uid_next, messages_count, first_recent_uid;
-	uint64_t highest_modseq;
+	uint64_t highest_modseq, highest_pvt_modseq;
 	ARRAY_TYPE(mailbox_cache_field) cache_fields;
 };
 

@@ -66,7 +66,7 @@ static const struct {
 	{ .name = "mailbox_state",
 	  .chr = 'S',
 	  .required_keys = "mailbox_guid last_uidvalidity last_common_uid "
-	  	"last_common_modseq"
+	  	"last_common_modseq last_common_pvt_modseq"
 	},
 	{ .name = "mailbox_tree_node",
 	  .chr = 'N',
@@ -81,14 +81,14 @@ static const struct {
 	},
 	{ .name = "mailbox",
 	  .chr = 'B',
-	  .required_keys = "mailbox_guid uid_validity uid_next "
-		"messages_count first_recent_uid highest_modseq",
+	  .required_keys = "mailbox_guid uid_validity uid_next messages_count "
+		"first_recent_uid highest_modseq highest_pvt_modseq",
 	  .optional_keys = "mailbox_lost cache_fields"
 	},
 	{ .name = "mail_change",
 	  .chr = 'C',
 	  .required_keys = "type uid",
-	  .optional_keys = "guid hdr_hash modseq save_timestamp "
+	  .optional_keys = "guid hdr_hash modseq pvt_modseq save_timestamp "
 	  	"add_flags remove_flags final_flags "
 	  	"keywords_reset keyword_changes"
 	},
@@ -642,6 +642,8 @@ dsync_ibc_stream_send_mailbox_state(struct dsync_ibc *_ibc,
 				    dec2str(state->last_common_uid));
 	dsync_serializer_encode_add(encoder, "last_common_modseq",
 				    dec2str(state->last_common_modseq));
+	dsync_serializer_encode_add(encoder, "last_common_pvt_modseq",
+				    dec2str(state->last_common_pvt_modseq));
 
 	dsync_serializer_encode_finish(&encoder, str);
 	dsync_ibc_stream_send_string(ibc, str);
@@ -680,6 +682,11 @@ dsync_ibc_stream_recv_mailbox_state(struct dsync_ibc *_ibc,
 	value = dsync_deserializer_decode_get(decoder, "last_common_modseq");
 	if (str_to_uint64(value, &state_r->last_common_modseq) < 0) {
 		dsync_ibc_input_error(ibc, decoder, "Invalid last_common_modseq");
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
+	value = dsync_deserializer_decode_get(decoder, "last_common_pvt_modseq");
+	if (str_to_uint64(value, &state_r->last_common_pvt_modseq) < 0) {
+		dsync_ibc_input_error(ibc, decoder, "Invalid last_common_pvt_modseq");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
 	return DSYNC_IBC_RECV_RET_OK;
@@ -1002,6 +1009,8 @@ dsync_ibc_stream_send_mailbox(struct dsync_ibc *_ibc,
 				    dec2str(dsync_box->first_recent_uid));
 	dsync_serializer_encode_add(encoder, "highest_modseq",
 				    dec2str(dsync_box->highest_modseq));
+	dsync_serializer_encode_add(encoder, "highest_pvt_modseq",
+				    dec2str(dsync_box->highest_pvt_modseq));
 
 	value = get_cache_fields(ibc, dsync_box);
 	if (value != NULL)
@@ -1113,6 +1122,11 @@ dsync_ibc_stream_recv_mailbox(struct dsync_ibc *_ibc,
 		dsync_ibc_input_error(ibc, decoder, "Invalid highest_modseq");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
+	value = dsync_deserializer_decode_get(decoder, "highest_pvt_modseq");
+	if (str_to_uint64(value, &box->highest_pvt_modseq) < 0) {
+		dsync_ibc_input_error(ibc, decoder, "Invalid highest_pvt_modseq");
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
 
 	p_array_init(&box->cache_fields, pool, 32);
 	if (dsync_deserializer_decode_try(decoder, "cache_fields", &value)) {
@@ -1163,6 +1177,10 @@ dsync_ibc_stream_send_change(struct dsync_ibc *_ibc,
 	if (change->modseq != 0) {
 		dsync_serializer_encode_add(encoder, "modseq",
 					    dec2str(change->modseq));
+	}
+	if (change->pvt_modseq != 0) {
+		dsync_serializer_encode_add(encoder, "pvt_modseq",
+					    dec2str(change->pvt_modseq));
 	}
 	if (change->save_timestamp != 0) {
 		dsync_serializer_encode_add(encoder, "save_timestamp",
@@ -1250,6 +1268,11 @@ dsync_ibc_stream_recv_change(struct dsync_ibc *_ibc,
 	if (dsync_deserializer_decode_try(decoder, "modseq", &value) &&
 	    str_to_uint64(value, &change->modseq) < 0) {
 		dsync_ibc_input_error(ibc, decoder, "Invalid modseq");
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
+	if (dsync_deserializer_decode_try(decoder, "pvt_modseq", &value) &&
+	    str_to_uint64(value, &change->pvt_modseq) < 0) {
+		dsync_ibc_input_error(ibc, decoder, "Invalid pvt_modseq");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
 	if (dsync_deserializer_decode_try(decoder, "save_timestamp", &value) &&

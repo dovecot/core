@@ -73,6 +73,7 @@ void dsync_mail_change_dup(pool_t pool, const struct dsync_mail_change *src,
 	}
 	dest_r->hdr_hash = p_strdup(pool, src->hdr_hash);
 	dest_r->modseq = src->modseq;
+	dest_r->pvt_modseq = src->pvt_modseq;
 	dest_r->save_timestamp = src->save_timestamp;
 
 	dest_r->add_flags = src->add_flags;

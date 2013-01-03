@@ -140,17 +140,20 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain)
 {
 	enum dsync_mailbox_exporter_flags exporter_flags = 0;
 	uint32_t last_common_uid, highest_wanted_uid;
-	uint64_t last_common_modseq;
+	uint64_t last_common_modseq, last_common_pvt_modseq;
 
 	i_assert(brain->log_scan == NULL);
 
 	last_common_uid = brain->mailbox_state.last_common_uid;
 	last_common_modseq = brain->mailbox_state.last_common_modseq;
+	last_common_pvt_modseq = brain->mailbox_state.last_common_pvt_modseq;
 	highest_wanted_uid = last_common_uid == 0 ?
 		(uint32_t)-1 : last_common_uid;
 	if (dsync_transaction_log_scan_init(brain->box->view,
+					    brain->box->view_pvt,
 					    highest_wanted_uid,
 					    last_common_modseq,
+					    last_common_pvt_modseq,
 					    &brain->log_scan) < 0) {
 		i_error("Failed to read transaction log for mailbox %s",
 			mailbox_get_vname(brain->box));
@@ -165,7 +168,7 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain)
 
 	brain->box_exporter = brain->backup_recv ? NULL :
 		dsync_mailbox_export_init(brain->box, brain->log_scan,
-					  last_common_uid, last_common_modseq,
+					  last_common_uid,
 					  exporter_flags);
 	return 0;
 }
@@ -176,7 +179,7 @@ void dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 	enum dsync_mailbox_import_flags import_flags = 0;
 	const struct dsync_mailbox_state *state;
 	uint32_t last_common_uid;
-	uint64_t last_common_modseq;
+	uint64_t last_common_modseq, last_common_pvt_modseq;
 
 	i_assert(brain->box_importer == NULL);
 	i_assert(brain->log_scan != NULL);
@@ -191,9 +194,11 @@ void dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 	if (state != NULL) {
 		last_common_uid = state->last_common_uid;
 		last_common_modseq = state->last_common_modseq;
+		last_common_pvt_modseq = state->last_common_pvt_modseq;
 	} else {
 		last_common_uid = 0;
 		last_common_modseq = 0;
+		last_common_pvt_modseq = 0;
 	}
 
 	if (brain->guid_requests)
@@ -208,9 +213,11 @@ void dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 	brain->box_importer = brain->backup_send ? NULL :
 		dsync_mailbox_import_init(brain->box, brain->log_scan,
 					  last_common_uid, last_common_modseq,
+					  last_common_pvt_modseq,
 					  remote_dsync_box->uid_next,
 					  remote_dsync_box->first_recent_uid,
 					  remote_dsync_box->highest_modseq,
+					  remote_dsync_box->highest_pvt_modseq,
 					  import_flags);
 }
 
@@ -228,13 +235,14 @@ void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 	}
 	if (brain->box_importer != NULL) {
 		uint32_t last_common_uid;
-		uint64_t last_common_modseq;
+		uint64_t last_common_modseq, last_common_pvt_modseq;
 		bool changes_during_sync;
 
 		i_assert(brain->failed);
 		(void)dsync_mailbox_import_deinit(&brain->box_importer,
 						  &last_common_uid,
 						  &last_common_modseq,
+						  &last_common_pvt_modseq,
 						  &changes_during_sync);
 	}
 	if (brain->log_scan != NULL)
@@ -248,7 +256,8 @@ static int dsync_box_get(struct mailbox *box, struct dsync_mailbox *dsync_box_r)
 {
 	const enum mailbox_status_items status_items =
 		STATUS_UIDVALIDITY | STATUS_UIDNEXT | STATUS_MESSAGES |
-		STATUS_FIRST_RECENT_UID | STATUS_HIGHESTMODSEQ;
+		STATUS_FIRST_RECENT_UID | STATUS_HIGHESTMODSEQ |
+		STATUS_HIGHESTPVTMODSEQ;
 	const enum mailbox_metadata_items metadata_items =
 		MAILBOX_METADATA_CACHE_FIELDS | MAILBOX_METADATA_GUID;
 	struct mailbox_status status;
@@ -283,6 +292,7 @@ static int dsync_box_get(struct mailbox *box, struct dsync_mailbox *dsync_box_r)
 	dsync_box_r->messages_count = status.messages;
 	dsync_box_r->first_recent_uid = status.first_recent_uid;
 	dsync_box_r->highest_modseq = status.highest_modseq;
+	dsync_box_r->highest_pvt_modseq = status.highest_pvt_modseq;
 	dsync_box_r->cache_fields = *metadata.cache_fields;
 	return 1;
 }
@@ -300,7 +310,8 @@ dsync_brain_has_mailbox_state_changed(struct dsync_brain *brain,
 	return state == NULL ||
 		state->last_uidvalidity != dsync_box->uid_validity ||
 		state->last_common_uid+1 != dsync_box->uid_next ||
-		state->last_common_modseq != dsync_box->highest_modseq;
+		state->last_common_modseq != dsync_box->highest_modseq ||
+		state->last_common_pvt_modseq != dsync_box->highest_pvt_modseq;
 }
 
 static int
@@ -406,6 +417,7 @@ bool dsync_boxes_need_sync(const struct dsync_mailbox *box1,
 			   const struct dsync_mailbox *box2)
 {
 	return box1->highest_modseq != box2->highest_modseq ||
+		box1->highest_pvt_modseq != box2->highest_pvt_modseq ||
 		box1->messages_count != box2->messages_count ||
 		box1->uid_next != box2->uid_next ||
 		box1->uid_validity != box2->uid_validity ||

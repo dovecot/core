@@ -21,7 +21,6 @@ struct dsync_mailbox_exporter {
 	struct mailbox *box;
 	struct dsync_transaction_log_scan *log_scan;
 	uint32_t last_common_uid;
-	uint64_t last_common_modseq;
 
 	struct mailbox_transaction_context *trans;
 	struct mail_search_context *search_ctx;
@@ -99,6 +98,7 @@ search_update_flag_changes(struct dsync_mailbox_exporter *exporter,
 	i_assert((change->add_flags & change->remove_flags) == 0);
 
 	change->modseq = mail_get_modseq(mail);
+	change->pvt_modseq = mail_get_pvt_modseq(mail);
 	change->final_flags = mail_get_flags(mail) & MAIL_FLAGS_NONRECENT;
 
 	keywords = mail_get_keywords(mail);
@@ -416,7 +416,6 @@ struct dsync_mailbox_exporter *
 dsync_mailbox_export_init(struct mailbox *box,
 			  struct dsync_transaction_log_scan *log_scan,
 			  uint32_t last_common_uid,
-			  uint64_t last_common_modseq,
 			  enum dsync_mailbox_exporter_flags flags)
 {
 	struct dsync_mailbox_exporter *exporter;
@@ -429,7 +428,6 @@ dsync_mailbox_export_init(struct mailbox *box,
 	exporter->box = box;
 	exporter->log_scan = log_scan;
 	exporter->last_common_uid = last_common_uid;
-	exporter->last_common_modseq = last_common_modseq;
 	exporter->auto_export_mails =
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_AUTO_EXPORT_MAILS) != 0;
 	exporter->mails_have_guids =
