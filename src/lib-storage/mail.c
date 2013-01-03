@@ -86,6 +86,13 @@ uint64_t mail_get_modseq(struct mail *mail)
 	return p->v.get_modseq(mail);
 }
 
+uint64_t mail_get_pvt_modseq(struct mail *mail)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	return p->v.get_pvt_modseq(mail);
+}
+
 const char *const *mail_get_keywords(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;
@@ -290,6 +297,13 @@ void mail_update_modseq(struct mail *mail, uint64_t min_modseq)
 	struct mail_private *p = (struct mail_private *)mail;
 
 	p->v.update_modseq(mail, min_modseq);
+}
+
+void mail_update_pvt_modseq(struct mail *mail, uint64_t min_pvt_modseq)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	p->v.update_pvt_modseq(mail, min_pvt_modseq);
 }
 
 void mail_update_pop3_uidl(struct mail *mail, const char *uidl)

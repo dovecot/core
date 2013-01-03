@@ -85,7 +85,7 @@ struct index_mail_data {
 
 	uint32_t seq;
 	uint32_t cache_flags;
-	uint64_t modseq;
+	uint64_t modseq, pvt_modseq;
 	enum index_mail_access_part access_part;
 	/* dont_cache_fields overrides cache_fields */
 	enum mail_fetch_field cache_fetch_fields, dont_cache_fetch_fields;
@@ -193,6 +193,7 @@ void index_mail_set_read_buffer_size(struct mail *mail, struct istream *input);
 
 enum mail_flags index_mail_get_flags(struct mail *_mail);
 uint64_t index_mail_get_modseq(struct mail *_mail);
+uint64_t index_mail_get_pvt_modseq(struct mail *_mail);
 const char *const *index_mail_get_keywords(struct mail *_mail);
 const ARRAY_TYPE(keyword_indexes) *
 index_mail_get_keyword_indexes(struct mail *_mail);
@@ -220,6 +221,7 @@ void index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 				struct mail_keywords *keywords);
 void index_mail_update_modseq(struct mail *mail, uint64_t min_modseq);
+void index_mail_update_pvt_modseq(struct mail *mail, uint64_t min_pvt_modseq);
 void index_mail_expunge(struct mail *mail);
 void index_mail_precache(struct mail *mail);
 void index_mail_set_cache_corrupted(struct mail *mail,

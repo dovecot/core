@@ -195,6 +195,24 @@ uint64_t index_mail_get_modseq(struct mail *_mail)
 	return mail->data.modseq;
 }
 
+uint64_t index_mail_get_pvt_modseq(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+
+	if (mail->data.pvt_modseq != 0)
+		return mail->data.pvt_modseq;
+
+	if (mailbox_open_index_pvt(_mail->box) <= 0)
+		return 0;
+	index_transaction_init_pvt(_mail->transaction);
+
+	mail_index_modseq_enable(_mail->box->index_pvt);
+	mail->data.pvt_modseq =
+		mail_index_modseq_lookup(_mail->transaction->view_pvt,
+					 _mail->seq);
+	return mail->data.pvt_modseq;
+}
+
 const char *const *index_mail_get_keywords(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
@@ -1747,6 +1765,13 @@ void index_mail_update_modseq(struct mail *mail, uint64_t min_modseq)
 {
 	mail_index_update_modseq(mail->transaction->itrans, mail->seq,
 				 min_modseq);
+}
+
+void index_mail_update_pvt_modseq(struct mail *mail, uint64_t min_pvt_modseq)
+{
+	index_transaction_init_pvt(mail->transaction);
+	mail_index_update_modseq(mail->transaction->itrans_pvt, mail->seq,
+				 min_pvt_modseq);
 }
 
 void index_mail_expunge(struct mail *mail)

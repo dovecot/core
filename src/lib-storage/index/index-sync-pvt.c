@@ -1,50 +1,8 @@
 /* Copyright (c) 2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "mail-index-alloc-cache.h"
 #include "mailbox-list-private.h"
 #include "index-sync-private.h"
-
-static int index_storage_mailbox_alloc_index_pvt(struct mailbox *box)
-{
-	const char *index_dir;
-	int ret;
-
-	if (box->index_pvt != NULL)
-		return 1;
-
-	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE,
-				  &index_dir);
-	if (ret <= 0)
-		return ret; /* error / no private indexes */
-
-	if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE) < 0)
-		return -1;
-
-	box->index_pvt = mail_index_alloc_cache_get(NULL, index_dir,
-		t_strconcat(box->index_prefix, ".pvt", NULL));
-	mail_index_set_fsync_mode(box->index_pvt,
-				  box->storage->set->parsed_fsync_mode, 0);
-	mail_index_set_lock_method(box->index_pvt,
-		box->storage->set->parsed_lock_method,
-		mail_storage_get_lock_timeout(box->storage, -1U));
-	return 1;
-}
-
-static int index_storage_mailbox_open_index_pvt(struct mailbox *box)
-{
-	int ret;
-
-	if (box->view_pvt != NULL)
-		return 1;
-
-	if ((ret = index_storage_mailbox_alloc_index_pvt(box)) <= 0)
-		return ret;
-	if (mail_index_open(box->index_pvt, MAIL_INDEX_OPEN_FLAG_CREATE) < 0)
-		return -1;
-	box->view_pvt = mail_index_view_open(box->index_pvt);
-	return 1;
-}
 
 static int sync_pvt_expunges(struct mailbox *box,
 			     struct mail_index_view *view_pvt,
@@ -209,15 +167,10 @@ int index_storage_mailbox_sync_pvt(struct mailbox *box,
 	struct mail_index_view_sync_ctx *view_sync_ctx;
 	struct mail_index_view_sync_rec sync_rec;
 	uint32_t seq1, seq2;
-	enum mail_flags pvt_flags;
 	bool delayed_expunges;
 	int ret;
 
-	pvt_flags = mailbox_get_private_flags_mask(box);
-	if (pvt_flags == 0)
-		return 0;
-
-	if ((ret = index_storage_mailbox_open_index_pvt(box)) <= 0)
+	if ((ret = mailbox_open_index_pvt(box)) <= 0)
 		return ret;
 
 	/* sync private index against shared index by adding/removing mails */

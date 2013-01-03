@@ -76,7 +76,8 @@ enum mailbox_status_items {
 	STATUS_PERMANENT_FLAGS	= 0x200,
 	STATUS_FIRST_RECENT_UID	= 0x400,
 	STATUS_LAST_CACHED_SEQ	= 0x800,
-	STATUS_CHECK_OVER_QUOTA	= 0x1000 /* return error if over quota */
+	STATUS_CHECK_OVER_QUOTA	= 0x1000, /* return error if over quota */
+	STATUS_HIGHESTPVTMODSEQ	= 0x2000,
 };
 
 enum mailbox_metadata_items {
@@ -225,6 +226,7 @@ struct mailbox_status {
 	uint32_t first_recent_uid;
 	uint32_t last_cached_seq;
 	uint64_t highest_modseq;
+	uint64_t highest_pvt_modseq; /* 0 if no private index */
 
 	/* NULL-terminated array of keywords */
 	const ARRAY_TYPE(keywords) *keywords;
@@ -270,6 +272,7 @@ struct mailbox_update {
 	uint32_t min_next_uid;
 	uint32_t min_first_recent_uid;
 	uint64_t min_highest_modseq;
+	uint64_t min_highest_pvt_modseq;
 	/* Modify caching decisions, terminated by name=NULL */
 	const struct mailbox_cache_field *cache_updates;
 };
@@ -757,6 +760,10 @@ const char *const *mail_get_keywords(struct mail *mail);
 const ARRAY_TYPE(keyword_indexes) *mail_get_keyword_indexes(struct mail *mail);
 /* Returns message's modseq */
 uint64_t mail_get_modseq(struct mail *mail);
+/* Returns message's private modseq, or 0 if message hasn't had any
+   private flag changes. This is useful only for shared mailboxes that have
+   a private index defined. */
+uint64_t mail_get_pvt_modseq(struct mail *mail);
 
 /* Returns message's MIME parts */
 int mail_get_parts(struct mail *mail, struct message_part **parts_r);
@@ -838,6 +845,8 @@ void mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 			  struct mail_keywords *keywords);
 /* Update message's modseq to be at least min_modseq. */
 void mail_update_modseq(struct mail *mail, uint64_t min_modseq);
+/* Update message's private modseq to be at least min_pvt_modseq. */
+void mail_update_pvt_modseq(struct mail *mail, uint64_t min_pvt_modseq);
 
 /* Update message's POP3 UIDL (if possible). */
 void mail_update_pop3_uidl(struct mail *mail, const char *uidl);

@@ -402,9 +402,9 @@ mdbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 		if (mailbox_open(box) < 0)
 			return -1;
 	}
-	if (update->cache_updates != NULL)
-		index_storage_mailbox_update_cache(box, update);
-	return mdbox_write_index_header(box, update, NULL);
+	if (mdbox_write_index_header(box, update, NULL) < 0)
+		return -1;
+	return index_storage_mailbox_update_common(box, update);
 }
 
 struct mail_storage mdbox_storage = {

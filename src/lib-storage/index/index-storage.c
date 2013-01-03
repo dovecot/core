@@ -366,8 +366,9 @@ void index_storage_mailbox_free(struct mailbox *box)
 		mail_index_alloc_cache_unref(&box->index);
 }
 
-void index_storage_mailbox_update_cache(struct mailbox *box,
-					const struct mailbox_update *update)
+static void
+index_storage_mailbox_update_cache(struct mailbox *box,
+				   const struct mailbox_update *update)
 {
 	const struct mailbox_cache_field *updates = update->cache_updates;
 	ARRAY(struct mail_cache_field) new_fields;
@@ -411,6 +412,49 @@ void index_storage_mailbox_update_cache(struct mailbox *box,
 	}
 }
 
+static int
+index_storage_mailbox_update_pvt(struct mailbox *box,
+				 const struct mailbox_update *update)
+{
+	struct mail_index_transaction *trans;
+	struct mail_index_view *view;
+	int ret;
+
+	if ((ret = mailbox_open_index_pvt(box)) <= 0)
+		return ret;
+
+	mail_index_refresh(box->index_pvt);
+	view = mail_index_view_open(box->index_pvt);
+	trans = mail_index_transaction_begin(view,
+					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	if (update->min_highest_modseq != 0 &&
+	    mail_index_modseq_get_highest(view) < update->min_highest_pvt_modseq) {
+		mail_index_modseq_enable(box->index_pvt);
+		mail_index_update_highest_modseq(trans,
+						 update->min_highest_pvt_modseq);
+	}
+
+	if ((ret = mail_index_transaction_commit(&trans)) < 0)
+		mailbox_set_index_error(box);
+	mail_index_view_close(&view);
+	return ret;
+}
+
+int index_storage_mailbox_update_common(struct mailbox *box,
+					const struct mailbox_update *update)
+{
+	int ret = 0;
+
+	if (update->cache_updates != NULL)
+		index_storage_mailbox_update_cache(box, update);
+
+	if (update->min_highest_pvt_modseq != 0) {
+		if (index_storage_mailbox_update_pvt(box, update) < 0)
+			ret = -1;
+	}
+	return ret;
+}
+
 int index_storage_mailbox_update(struct mailbox *box,
 				 const struct mailbox_update *update)
 {
@@ -421,8 +465,6 @@ int index_storage_mailbox_update(struct mailbox *box,
 
 	if (mailbox_open(box) < 0)
 		return -1;
-	if (update->cache_updates != NULL)
-		index_storage_mailbox_update_cache(box, update);
 
 	/* make sure we get the latest index info */
 	mail_index_refresh(box->index);
@@ -469,7 +511,8 @@ int index_storage_mailbox_update(struct mailbox *box,
 	if ((ret = mail_index_transaction_commit(&trans)) < 0)
 		mailbox_set_index_error(box);
 	mail_index_view_close(&view);
-	return ret;
+	return ret < 0 ? -1 :
+		index_storage_mailbox_update_common(box, update);
 }
 
 int index_storage_mailbox_create(struct mailbox *box, bool directory)

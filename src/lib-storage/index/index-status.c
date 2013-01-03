@@ -144,6 +144,14 @@ void index_storage_get_open_status(struct mailbox *box,
 			status_r->highest_modseq = 1;
 		}
 	}
+	if ((items & STATUS_HIGHESTPVTMODSEQ) != 0 && box->view_pvt != NULL) {
+		status_r->highest_pvt_modseq =
+			mail_index_modseq_get_highest(box->view_pvt);
+		if (status_r->highest_pvt_modseq == 0) {
+			/* modseqs not enabled yet, but we can't return 0 */
+			status_r->highest_pvt_modseq = 1;
+		}
+	}
 
 	if ((items & STATUS_FIRST_UNSEEN_SEQ) != 0) {
 		if (box->view_pvt == NULL ||

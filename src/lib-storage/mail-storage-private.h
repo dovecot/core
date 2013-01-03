@@ -346,6 +346,7 @@ struct mail_vfuncs {
 	const ARRAY_TYPE(keyword_indexes) *
 		(*get_keyword_indexes)(struct mail *mail);
 	uint64_t (*get_modseq)(struct mail *mail);
+	uint64_t (*get_pvt_modseq)(struct mail *mail);
 
 	int (*get_parts)(struct mail *mail,
 			 struct message_part **parts_r);
@@ -381,6 +382,7 @@ struct mail_vfuncs {
 	void (*update_keywords)(struct mail *mail, enum modify_type modify_type,
 				struct mail_keywords *keywords);
 	void (*update_modseq)(struct mail *mail, uint64_t min_modseq);
+	void (*update_pvt_modseq)(struct mail *mail, uint64_t min_pvt_modseq);
 	void (*update_pop3_uidl)(struct mail *mail, const char *uidl);
 	void (*expunge)(struct mail *mail);
 	void (*set_cache_corrupted)(struct mail *mail,
@@ -596,6 +598,9 @@ const struct mailbox_permissions *mailbox_get_permissions(struct mailbox *box);
 /* Force permissions to be refreshed on next lookup */
 void mailbox_refresh_permissions(struct mailbox *box);
 
+/* Open private index files for mailbox. Returns 1 if opened, 0 if there
+   are no private indexes (or flags) in this mailbox, -1 if error. */
+int mailbox_open_index_pvt(struct mailbox *box);
 /* Create path's directory with proper permissions. The root directory is also
    created if necessary. Returns 1 if created, 0 if it already existed,
    -1 if error. */
