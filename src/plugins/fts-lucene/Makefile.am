@@ -8,6 +8,9 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/plugins/fts \
 	-I$(top_srcdir)/src/doveadm
 
+AM_CXXFLAGS = \
+	$(CLUCENE_CFLAGS)
+
 NOPLUGIN_LDFLAGS =
 lib21_fts_lucene_plugin_la_LDFLAGS = -module -avoid-version
 lib20_doveadm_fts_lucene_plugin_la_LDFLAGS = -module -avoid-version
@@ -28,7 +31,7 @@ endif
 endif
 
 lib21_fts_lucene_plugin_la_LIBADD = \
-	-lclucene-shared -lclucene-core $(TEXTCAT_LIBS) $(STEMMER_LIBS)
+	$(CLUCENE_LIBS) $(TEXTCAT_LIBS) $(STEMMER_LIBS)
 
 lib21_fts_lucene_plugin_la_SOURCES = \
 	fts-lucene-plugin.c \
