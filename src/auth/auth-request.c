@@ -863,7 +863,7 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 	}
 
 	*result_r = USERDB_RESULT_OK;
-	*reply_r = auth_stream_reply_init(request->pool);
+	*reply_r = auth_stream_reply_init_userdb(request->pool);
 	auth_stream_reply_import(*reply_r, value);
 	return TRUE;
 }
@@ -1342,7 +1342,7 @@ void auth_request_init_userdb_reply(struct auth_request *request)
 {
 	struct userdb_module *module = request->userdb->userdb;
 
-	request->userdb_reply = auth_stream_reply_init(request->pool);
+	request->userdb_reply = auth_stream_reply_init_userdb(request->pool);
 	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
 
 	userdb_template_export(module->default_fields_tmpl, request);

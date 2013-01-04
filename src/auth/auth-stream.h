@@ -4,6 +4,7 @@
 struct auth_request;
 
 struct auth_stream_reply *auth_stream_reply_init(pool_t pool);
+struct auth_stream_reply *auth_stream_reply_init_userdb(pool_t pool);
 void auth_stream_reply_add(struct auth_stream_reply *reply,
 			   const char *key, const char *value);
 void auth_stream_reply_reset(struct auth_stream_reply *reply);

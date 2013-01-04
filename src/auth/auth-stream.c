@@ -9,6 +9,7 @@
 
 struct auth_stream_reply {
 	string_t *str;
+	bool userdb;
 };
 
 struct auth_stream_reply *auth_stream_reply_init(pool_t pool)
@@ -17,6 +18,15 @@ struct auth_stream_reply *auth_stream_reply_init(pool_t pool)
 
 	reply = p_new(pool, struct auth_stream_reply, 1);
 	reply->str = str_new(pool, 128);
+	return reply;
+}
+
+struct auth_stream_reply *auth_stream_reply_init_userdb(pool_t pool)
+{
+	struct auth_stream_reply *reply;
+
+	reply = auth_stream_reply_init(pool);
+	reply->userdb = TRUE;
 	return reply;
 }
 
@@ -44,10 +54,16 @@ static bool
 auth_stream_reply_find_area(struct auth_stream_reply *reply, const char *key,
 			    unsigned int *idx_r, unsigned int *len_r)
 {
-	const char *str = str_c(reply->str);
-	unsigned int i, start, key_len = strlen(key);
+	const char *p, *str = str_c(reply->str);
+	unsigned int i = 0, start, key_len = strlen(key);
 
-	i = 0;
+	if (reply->userdb) {
+		p = strchr(str, '\t');
+		if (p == NULL)
+			return FALSE;
+		i = p-str+1;
+	}
+
 	while (str[i] != '\0') {
 		start = i;
 		for (; str[i] != '\0'; i++) {
