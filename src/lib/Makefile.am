@@ -273,6 +273,7 @@ test_lib_SOURCES = \
 	test-str-find.c \
 	test-str-sanitize.c \
 	test-time-util.c \
+	test-unichar.c \
 	test-utc-mktime.c \
 	test-var-expand.c
 
