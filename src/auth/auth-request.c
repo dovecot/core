@@ -438,22 +438,6 @@ static void auth_request_save_cache(struct auth_request *request,
 			  result == PASSDB_RESULT_OK);
 }
 
-static void auth_request_userdb_reply_update_user(struct auth_request *request)
-{
-	const char *str, *p;
-
-	str = t_strdup(auth_stream_reply_export(request->userdb_reply));
-
-	/* reset the reply and add the new username */
-	auth_stream_reply_reset(request->userdb_reply);
-	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
-
-	/* add the rest */
-	p = strchr(str, '\t');
-	if (p != NULL)
-		auth_stream_reply_import(request->userdb_reply, p + 1);
-}
-
 static bool auth_request_master_lookup_finish(struct auth_request *request)
 {
 	struct auth_passdb *passdb;
@@ -468,8 +452,6 @@ static bool auth_request_master_lookup_finish(struct auth_request *request)
 	request->master_user = request->user;
 	request->user = request->requested_login_user;
 	request->requested_login_user = NULL;
-	if (request->userdb_reply != NULL)
-		auth_request_userdb_reply_update_user(request);
 
 	request->skip_password_check = TRUE;
 	request->passdb_password = NULL;
@@ -1261,8 +1243,6 @@ auth_request_try_update_username(struct auth_request *request,
 				       "username changed %s -> %s",
 				       request->user, new_value);
 		request->user = p_strdup(request->pool, new_value);
-		if (request->userdb_reply != NULL)
-			auth_request_userdb_reply_update_user(request);
 	}
 	return TRUE;
 }
@@ -1367,8 +1347,6 @@ void auth_request_init_userdb_reply(struct auth_request *request)
 	struct userdb_module *module = request->userdb->userdb;
 
 	request->userdb_reply = auth_stream_reply_init(request->pool);
-	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
-
 	userdb_template_export(module->default_fields_tmpl, request);
 }
 

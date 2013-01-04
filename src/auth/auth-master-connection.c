@@ -276,6 +276,8 @@ user_callback(enum userdb_result result,
 		break;
 	case USERDB_RESULT_OK:
 		str_printfa(str, "USER\t%u\t", auth_request->id);
+		str_append_tabescaped(str, auth_request->user);
+		str_append_c(str, '\t');
 		str_append(str, auth_stream_reply_export(reply));
 		break;
 	}
