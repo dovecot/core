@@ -314,3 +314,17 @@ bool buffer_cmp(const buffer_t *buf1, const buffer_t *buf2)
 
 	return memcmp(buf1->data, buf2->data, buf1->used) == 0;
 }
+
+void buffer_verify_pool(buffer_t *_buf)
+{
+	const struct real_buffer *buf = (const struct real_buffer *)_buf;
+	void *ret;
+
+	if (buf->pool->datastack_pool) {
+		/* this doesn't really do anything except verify the
+		   stack frame */
+		ret = p_realloc(buf->pool, buf->w_buffer,
+				buf->alloc, buf->alloc);
+		i_assert(ret == buf->w_buffer);
+	}
+}

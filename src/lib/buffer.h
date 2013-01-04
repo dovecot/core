@@ -102,4 +102,10 @@ buffer_get_used_size(const buffer_t *buf)
 	return buf->used;
 }
 
+/* Crash if buffer was allocated from data stack and stack frame has changed.
+   This can be used as an assert-like check to verify that it's valid to
+   increase the buffer size here, instead of crashing only randomly when the
+   buffer needs to be increased. */
+void buffer_verify_pool(buffer_t *buf);
+
 #endif
