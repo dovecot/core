@@ -291,6 +291,9 @@ struct mail_transaction_commit_changes {
 
 	/* TRUE if anything actually changed with this commit */
 	bool changed;
+	/* User doesn't have read ACL for the mailbox, so don't show the
+	   uid_validity / saved_uids. */
+	bool no_read_perm;
 };
 
 struct mailbox_sync_rec {

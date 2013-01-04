@@ -45,6 +45,9 @@ static void str_add_nul(string_t *str)
 	size_t len = str_len(str);
 	size_t alloc = buffer_get_size(str);
 
+#ifdef DEBUG
+	buffer_verify_pool(str);
+#endif
 	if (len == alloc || data[len] != '\0') {
 		buffer_write(str, len, "", 1);
 		/* remove the \0 - we don't want to keep it */

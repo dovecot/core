@@ -838,6 +838,12 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 	if (mdbox_map_atomic_lock(ctx->atomic) < 0)
 		return -1;
 
+	/* fsck the map just in case its UIDs are broken */
+	if (mail_index_fsck(ctx->storage->map->index) < 0) {
+		mail_storage_set_internal_error(&ctx->storage->storage.storage);
+		return -1;
+	}
+
 	/* get old map header */
 	mail_index_get_header_ext(ctx->atomic->sync_view,
 				  ctx->storage->map->map_ext_id,

@@ -52,7 +52,7 @@ void acl_mail_user_created(struct mail_user *user)
 	const char *env;
 
 	env = mail_user_plugin_getenv(user, "acl");
-	if (env != NULL)
+	if (env != NULL && *env != '\0')
 		acl_mail_user_create(user, env);
 	else {
 		if (user->mail_debug)

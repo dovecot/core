@@ -208,7 +208,8 @@ int mdbox_map_open_or_create(struct mdbox_map *map)
 int mdbox_map_refresh(struct mdbox_map *map)
 {
 	struct mail_index_view_sync_ctx *ctx;
-	bool delayed_expunges;
+	bool delayed_expunges, fscked;
+	int ret = 0;
 
 	/* some open files may have read partially written mails. now that
 	   map syncing makes the new mails visible, we need to make sure the
@@ -227,14 +228,15 @@ int mdbox_map_refresh(struct mdbox_map *map)
 
 	ctx = mail_index_view_sync_begin(map->view,
 				MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
-	if (mail_index_reset_fscked(map->view->index))
-		mdbox_storage_set_corrupted(map->storage);
+	fscked = mail_index_reset_fscked(map->view->index);
 	if (mail_index_view_sync_commit(&ctx, &delayed_expunges) < 0) {
 		mail_storage_set_internal_error(MAP_STORAGE(map));
 		mail_index_reset_error(map->index);
-		return -1;
+		ret = -1;
 	}
-	return 0;
+	if (fscked)
+		mdbox_storage_set_corrupted(map->storage);
+	return ret;
 }
 
 static void

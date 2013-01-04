@@ -33,6 +33,7 @@ void test_strfuncs(void);
 void test_str_find(void);
 void test_str_sanitize(void);
 void test_time_util(void);
+void test_unichar(void);
 void test_utc_mktime(void);
 void test_var_expand(void);
 

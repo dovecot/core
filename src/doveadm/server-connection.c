@@ -269,8 +269,10 @@ static void server_connection_input(struct server_connection *conn)
 			server_connection_callback(conn, reply);
 		} else
 			i_error("doveadm server sent broken input");
-		/* we're finished, close the connection */
-		server_connection_destroy(&conn);
+		if (conn->callback == NULL) {
+			/* we're finished, close the connection */
+			server_connection_destroy(&conn);
+		}
 		break;
 	}
 }

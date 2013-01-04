@@ -119,7 +119,7 @@ mailbox_has_aliases(struct mailbox_list *list, const char *old_vname)
 			if (mailbox_symlink_exists(list, alias->new_vname,
 						   &existence) < 0)
 				ret = -1;
-			if (existence == MAILBOX_SYMLINK_EXISTENCE_SYMLINK)
+			else if (existence == MAILBOX_SYMLINK_EXISTENCE_SYMLINK)
 				return 1;
 		}
 	}

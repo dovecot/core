@@ -587,9 +587,13 @@ static void stats_user_created(struct mail_user *user)
 		stats_global_user = user;
 	} else if (stats_user_count == 1) {
 		/* second user connection. we'll need to start doing
-		   per-io callback tracking now. */
-		stats_add_session(stats_global_user);
-		stats_global_user = NULL;
+		   per-io callback tracking now. (we might have been doing it
+		   also previously but just temporarily quickly dropped to
+		   having 1 user, in which case stats_global_user=NULL) */
+		if (stats_global_user != NULL) {
+			stats_add_session(stats_global_user);
+			stats_global_user = NULL;
+		}
 	}
 	stats_user_count++;
 

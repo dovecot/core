@@ -121,8 +121,19 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	union mail_module_context *mmail = LAZY_EXPUNGE_MAIL_CONTEXT(mail);
 	struct lazy_expunge_transaction *lt =
 		LAZY_EXPUNGE_CONTEXT(_mail->transaction);
+	struct lazy_expunge_mailbox_list *llist;
+	struct mailbox *real_box;
 	struct mail_save_context *save_ctx;
 	const char *error;
+
+	/* don't copy the mail if we're expunging from lazy_expunge
+	   namespace (even if it's via a virtual mailbox) */
+	real_box = mail_get_real_mail(_mail)->box;
+	llist = LAZY_EXPUNGE_LIST_CONTEXT(real_box->list);
+	if (llist != NULL && llist->internal_namespace) {
+		mmail->super.expunge(_mail);
+		return;
+	}
 
 	if (lt->dest_box == NULL) {
 		lt->dest_box = mailbox_open_or_create(luser->lazy_ns->list,

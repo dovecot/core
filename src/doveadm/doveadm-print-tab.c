@@ -51,7 +51,7 @@ doveadm_print_tab_print_stream(const unsigned char *value, size_t size)
 	}
 	if (ctx.header_idx > 0)
 		printf("\t");
-	printf("%.*s", (int)size, value);
+	fwrite(value, 1, size, stdout);
 }
 
 static void doveadm_print_tab_flush(void)

@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "llist.h"
+#include "str.h"
 #include "str-sanitize.h"
 #include "time-util.h"
 #include "master-service.h"
@@ -194,16 +195,33 @@ static void proxy_fail_connect(struct login_proxy *proxy)
 	proxy->state_rec = NULL;
 }
 
+static void
+proxy_log_connect_error(struct login_proxy *proxy)
+{
+	string_t *str = t_str_new(128);
+	struct ip_addr local_ip;
+	unsigned int local_port;
+
+	str_printfa(str, "proxy(%s): connect(%s, %u) failed: %m (after %u secs",
+		    proxy->client->virtual_user,
+		    proxy->host, proxy->port,
+		    (unsigned int)(ioloop_time - proxy->created.tv_sec));
+
+	if (proxy->server_fd != -1 &&
+	    net_getsockname(proxy->server_fd, &local_ip, &local_port) == 0) {
+		str_printfa(str, ", local=%s:%u",
+			    net_ip2addr(&local_ip), local_port);
+	}
+
+	str_append_c(str, ')');
+	i_error("%s", str_c(str));
+}
+
 static void proxy_wait_connect(struct login_proxy *proxy)
 {
-	int err;
-
-	err = net_geterror(proxy->server_fd);
-	if (err != 0) {
-		i_error("proxy(%s): connect(%s, %u) failed: %s (after %u secs)",
-			proxy->client->virtual_user,
-			proxy->host, proxy->port, strerror(err),
-			(unsigned int)(ioloop_time - proxy->created.tv_sec));
+	errno = net_geterror(proxy->server_fd);
+	if (errno != 0) {
+		proxy_log_connect_error(proxy);
 		proxy_fail_connect(proxy);
                 login_proxy_free(&proxy);
 		return;
@@ -229,8 +247,8 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 
 static void proxy_connect_timeout(struct login_proxy *proxy)
 {
-	i_error("proxy(%s): connect(%s, %u) timed out",
-		proxy->client->virtual_user, proxy->host, proxy->port);
+	errno = ETIMEDOUT;
+	proxy_log_connect_error(proxy);
 	proxy_fail_connect(proxy);
 	login_proxy_free(&proxy);
 }
@@ -252,8 +270,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 
 	proxy->server_fd = net_connect_ip(&proxy->ip, proxy->port, NULL);
 	if (proxy->server_fd == -1) {
-		i_error("proxy(%s): connect(%s, %u) failed: %m",
-			proxy->client->virtual_user, proxy->host, proxy->port);
+		proxy_log_connect_error(proxy);
 		login_proxy_free(&proxy);
 		return -1;
 	}

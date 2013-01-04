@@ -21,6 +21,7 @@ struct acl_mailbox {
 	struct acl_object *aclobj;
 	bool skip_acl_checks;
 	bool acl_enabled;
+	bool no_read_right;
 };
 
 struct acl_transaction_context {
@@ -412,13 +413,19 @@ acl_transaction_commit(struct mailbox_transaction_context *ctx,
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(ctx->box);
 	void *at = ACL_CONTEXT(ctx);
+	int ret;
 
 	if (at != NULL) {
 		abox->module_ctx.super.transaction_rollback(ctx);
 		return -1;
 	}
 
-	return abox->module_ctx.super.transaction_commit(ctx, changes_r);
+	ret = abox->module_ctx.super.transaction_commit(ctx, changes_r);
+	if (abox->no_read_right) {
+		/* don't allow IMAP client to see what UIDs the messages got */
+		changes_r->no_read_perm = TRUE;
+	}
+	return ret;
 }
 
 static int acl_mailbox_exists(struct mailbox *box, bool auto_boxes,
@@ -476,6 +483,14 @@ static int acl_mailbox_open_check_acl(struct mailbox *box)
 			acl_mailbox_fail_not_found(box);
 		}
 		return -1;
+	}
+	if (open_right != ACL_STORAGE_RIGHT_READ) {
+		ret = acl_object_have_right(abox->aclobj,
+					    idx_arr[ACL_STORAGE_RIGHT_READ]);
+		if (ret < 0)
+			return -1;
+		if (ret == 0)
+			abox->no_read_right = TRUE;
 	}
 	return 0;
 }

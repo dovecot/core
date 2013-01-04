@@ -57,6 +57,7 @@ doveadm_mail_cmd_server_parse(const char *cmd_name,
 
 	ctx = doveadm_mail_cmd_init(cmd, set);
 	ctx->full_args = (const void *)(argv + 1);
+	ctx->proxying = TRUE;
 
 	ctx->service_flags |=
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
@@ -139,6 +140,10 @@ doveadm_mail_cmd_server_run(struct client_connection *conn,
 		o_stream_nsend(conn->output, "\n+\n", 3);
 	}
 	pool_unref(&ctx->pool);
+
+	/* clear all headers */
+	doveadm_print_deinit();
+	doveadm_print_init(DOVEADM_PRINT_TYPE_SERVER);
 }
 
 static bool client_is_allowed_command(const struct doveadm_settings *set,
@@ -239,8 +244,11 @@ client_connection_authenticate(struct client_connection *conn)
 	const unsigned char *data;
 	size_t size;
 
-	if ((line = i_stream_read_next_line(conn->input)) == NULL)
+	if ((line = i_stream_read_next_line(conn->input)) == NULL) {
+		if (conn->input->eof)
+			return -1;
 		return 0;
+	}
 
 	if (*conn->set->doveadm_password == '\0') {
 		i_error("doveadm_password not set, "

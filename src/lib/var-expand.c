@@ -160,7 +160,7 @@ var_expand_long(const struct var_expand_table *table,
 		const void *key_start, unsigned int key_len, void *context)
 {
         const struct var_expand_table *t;
-	const char *value = NULL;
+	const char *key, *value = NULL;
 
 	if (table != NULL) {
 		for (t = table; !TABLE_LAST(t); t++) {
@@ -171,35 +171,33 @@ var_expand_long(const struct var_expand_table *table,
 			}
 		}
 	}
+	key = t_strndup(key_start, key_len);
 
 	/* built-in variables: */
-	T_BEGIN {
-		const char *key = t_strndup(key_start, key_len);
+	switch (key_len) {
+	case 3:
+		if (strcmp(key, "pid") == 0)
+			value = my_pid;
+		else if (strcmp(key, "uid") == 0)
+			value = dec2str(geteuid());
+		else if (strcmp(key, "gid") == 0)
+			value = dec2str(getegid());
+		break;
+	case 8:
+		if (strcmp(key, "hostname") == 0)
+			value = my_hostname;
+		break;
+	}
 
-		switch (key_len) {
-		case 3:
-			if (strcmp(key, "pid") == 0)
-				value = my_pid;
-			else if (strcmp(key, "uid") == 0)
-				value = dec2str(geteuid());
-			else if (strcmp(key, "gid") == 0)
-				value = dec2str(getegid());
-			break;
-		case 8:
-			if (strcmp(key, "hostname") == 0)
-				value = my_hostname;
-			break;
-		}
-		if (value == NULL) {
-			const char *data = strchr(key, ':');
+	if (value == NULL) {
+		const char *data = strchr(key, ':');
 
-			if (data != NULL)
-				key = t_strdup_until(key, data++);
-			else
-				data = "";
-			value = var_expand_func(func_table, key, data, context);
-		}
-	} T_END;
+		if (data != NULL)
+			key = t_strdup_until(key, data++);
+		else
+			data = "";
+		value = var_expand_func(func_table, key, data, context);
+	}
 	return value;
 }
 

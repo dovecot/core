@@ -134,7 +134,7 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 				mailbox, mailbox_get_last_error(box, NULL));
 			return -1;
 		}
-		i_info("Indexes disabled for Mailbox %s, skipping", mailbox);
+		i_info("Indexes disabled for mailbox %s, skipping", mailbox);
 		return 0;
 	}
 	ret = 0;

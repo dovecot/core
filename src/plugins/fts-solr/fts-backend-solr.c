@@ -305,7 +305,7 @@ fts_backend_solr_doc_close(struct solr_fts_backend_update_context *ctx)
 	}
 	array_foreach_modifiable(&ctx->fields, field) {
 		str_printfa(ctx->cmd, "<field name=\"%s\">", field->key);
-		str_append_str(ctx->cmd, field->value);
+		xml_encode_data(ctx->cmd, str_data(field->value), str_len(field->value));
 		str_append(ctx->cmd, "</field>");
 		str_truncate(field->value, 0);
 	}
@@ -352,8 +352,7 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 		   visible to the following search */
 		if (ctx->expunges)
 			fts_backend_solr_expunge_flush(ctx);
-		str = t_strdup_printf("<commit waitFlush=\"false\" "
-				      "waitSearcher=\"%s\"/>",
+		str = t_strdup_printf("<commit waitSearcher=\"%s\"/>",
 				      ctx->documents_added ? "true" : "false");
 		if (solr_connection_post(solr_conn, str) < 0)
 			ret = -1;

@@ -132,8 +132,10 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 	else if (copy_count == 0) {
 		str_append(msg, "OK No messages found.");
 		pool_unref(&changes.pool);
-	} else if (seq_range_count(&changes.saved_uids) == 0) {
-		/* not supported by backend (virtual) */
+	} else if (seq_range_count(&changes.saved_uids) == 0 ||
+		   changes.no_read_perm) {
+		/* not supported by backend (virtual) or no read permissions
+		   for mailbox */
 		str_append(msg, move ? "OK Move completed." :
 			   "OK Copy completed.");
 		pool_unref(&changes.pool);

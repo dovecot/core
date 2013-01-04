@@ -37,8 +37,10 @@ int uni_utf8_get_char(const char *input, unichar_t *chr_r)
 
 int uni_utf8_get_char_n(const void *_input, size_t max_len, unichar_t *chr_r)
 {
+	static unichar_t lowest_valid_chr_table[] =
+		{ 0, 0, 0x80, 0x800, 0x10000, 0x20000, 0x40000 };
 	const unsigned char *input = _input;
-	unichar_t chr;
+	unichar_t chr, lowest_valid_chr;
 	unsigned int i, len;
 	int ret;
 
@@ -75,10 +77,12 @@ int uni_utf8_get_char_n(const void *_input, size_t max_len, unichar_t *chr_r)
 		return -1;
 	}
 
-	if (len <= max_len)
+	if (len <= max_len) {
+		lowest_valid_chr = lowest_valid_chr_table[len];
 		ret = 1;
-	else {
+	} else {
 		/* check first if the input is invalid before returning 0 */
+		lowest_valid_chr = 0;
 		ret = 0;
 		len = max_len;
 	}
@@ -90,6 +94,10 @@ int uni_utf8_get_char_n(const void *_input, size_t max_len, unichar_t *chr_r)
 
 		chr <<= 6;
 		chr |= input[i] & 0x3f;
+	}
+	if (chr < lowest_valid_chr) {
+		/* overlong encoding */
+		return -1;
 	}
 
 	*chr_r = chr;
@@ -340,19 +348,11 @@ int uni_utf8_to_decomposed_titlecase(const void *_input, size_t size,
 static inline unsigned int
 is_valid_utf8_seq(const unsigned char *input, unsigned int size)
 {
-	unsigned int i, len;
+	unichar_t chr;
 
-	len = uni_utf8_char_bytes(input[0]);
-	if (unlikely(len > size || len == 1))
+	if (uni_utf8_get_char_n(input, size, &chr) <= 0)
 		return 0;
-
-	/* the rest of the chars should be in 0x80..0xbf range.
-	   anything else is start of a sequence or invalid */
-	for (i = 1; i < len; i++) {
-		if (unlikely(input[i] < 0x80 || input[i] > 0xbf))
-			return 0;
-	}
-	return len;
+	return uni_utf8_char_bytes(input[0]);
 }
 
 static int uni_utf8_find_invalid_pos(const unsigned char *input, size_t size,

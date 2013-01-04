@@ -31,6 +31,17 @@ bool index_mailbox_want_full_sync(struct mailbox *box,
 	    ioloop_time < ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL)
 		return FALSE;
 
+	if ((flags & MAILBOX_SYNC_FLAG_FAST) != 0 &&
+	    (box->flags & MAILBOX_FLAG_SAVEONLY) != 0) {
+		/* lib-lda is syncing the mailbox after saving a mail.
+		   it only wants to find the new mail for potentially copying
+		   to other mailboxes. that's mainly an optimization, and since
+		   the mail was most likely already added to index we don't
+		   need to do a full sync to find it. the main benefit here is
+		   to avoid a very costly sync with a large Maildir/new/ */
+		return FALSE;
+	}
+
 	if (ibox->notify_to != NULL)
 		timeout_reset(ibox->notify_to);
 	ibox->sync_last_check = ioloop_time;

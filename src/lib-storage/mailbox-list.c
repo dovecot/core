@@ -921,27 +921,6 @@ void mailbox_list_get_root_permissions(struct mailbox_list *list,
 	}
 }
 
-static int
-mailbox_list_stat_parent(const char *path, const char **root_dir_r,
-			 struct stat *st_r, const char **error_r)
-{
-	const char *p;
-
-	while (stat(path, st_r) < 0) {
-		if (errno != ENOENT || strcmp(path, "/") == 0) {
-			*error_r = t_strdup_printf("stat(%s) failed: %m", path);
-			return -1;
-		}
-		p = strrchr(path, '/');
-		if (p == NULL)
-			path = "/";
-		else
-			path = t_strdup_until(path, p);
-	}
-	*root_dir_r = path;
-	return 0;
-}
-
 static const char *
 get_expanded_path(const char *unexpanded_start, const char *unexpanded_stop,
 		  const char *expanded_full)
@@ -1020,8 +999,10 @@ mailbox_list_try_mkdir_root_parent(struct mailbox_list *list,
 	}
 
 	/* get the first existing parent directory's permissions */
-	if (mailbox_list_stat_parent(expanded, &root_dir, &st, error_r) < 0)
+	if (stat_first_parent(expanded, &root_dir, &st) < 0) {
+		*error_r = t_strdup_printf("stat(%s) failed: %m", root_dir);
 		return -1;
+	}
 
 	/* if the parent directory doesn't have setgid-bit enabled, we don't
 	   copy any permissions from it. */

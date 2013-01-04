@@ -990,7 +990,7 @@ db_ldap_field_find(const char *data, void *context)
 	char *ldap_attr;
 
 	if (*data != '\0') {
-		ldap_attr = p_strdup(ctx->pool, data);
+		ldap_attr = p_strdup(ctx->pool, t_strcut(data, ':'));
 		array_append(&ctx->attr_names, &ldap_attr, 1);
 	}
 	return NULL;
@@ -1198,28 +1198,42 @@ db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
 	return ctx;
 }
 
+static const char *db_ldap_field_get_default(const char *data)
+{
+	const char *p;
+
+	p = strchr(data, ':');
+	if (p == NULL)
+		return "";
+	else {
+		/* default value given */
+		return p+1;
+	}
+}
+
 static const char *db_ldap_field_expand(const char *data, void *context)
 {
 	struct db_ldap_result_iterate_context *ctx = context;
 	struct db_ldap_value *ldap_value;
+	const char *field_name = t_strcut(data, ':');
 
-	ldap_value = hash_table_lookup(ctx->ldap_attrs, data);
+	ldap_value = hash_table_lookup(ctx->ldap_attrs, field_name);
 	if (ldap_value == NULL) {
-		/* ldap attribute wasn't requested */
+		/* requested ldap attribute wasn't returned at all */
 		if (ctx->debug)
-			str_printfa(ctx->debug, "; %s missing", data);
-		return "";
+			str_printfa(ctx->debug, "; %s missing", field_name);
+		return db_ldap_field_get_default(data);
 	}
 	ldap_value->used = TRUE;
 
 	if (ldap_value->values[0] == NULL) {
 		/* no value for ldap attribute */
-		return "";
+		return db_ldap_field_get_default(data);
 	}
 	if (ldap_value->values[1] != NULL) {
 		auth_request_log_warning(ctx->auth_request, "ldap",
 			"Multiple values found for '%s', using value '%s'",
-			data, ldap_value->values[0]);
+			field_name, ldap_value->values[0]);
 	}
 	return ldap_value->values[0];
 }

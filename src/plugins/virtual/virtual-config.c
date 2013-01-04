@@ -28,6 +28,7 @@ struct virtual_parse_context {
 
 	char sep;
 	bool have_wildcards;
+	bool have_mailbox_defines;
 };
 
 static struct mail_search_args *
@@ -170,6 +171,7 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 		bbox->name++;
 		ctx->mbox->save_bbox = bbox;
 	}
+	ctx->have_mailbox_defines = TRUE;
 	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
 	return 0;
 }
@@ -420,7 +422,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	if (ret == 0 && ctx.have_wildcards)
 		ret = virtual_config_expand_wildcards(&ctx);
 
-	if (ret == 0 && array_count(&mbox->backend_boxes) == 0) {
+	if (ret == 0 && !ctx.have_mailbox_defines) {
 		mail_storage_set_critical(storage,
 					  "%s: No mailboxes defined", path);
 		ret = -1;

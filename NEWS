@@ -30,6 +30,29 @@ v2.2.UNSTABLE 2012-xx-xx  Timo Sirainen <tss@iki.fi>
 	+ LMTP proxy: Implemented XCLIENT extension for passing remote IP
 	  address through proxy.
 
+v2.1.12 2012-11-30  Timo Sirainen <tss@iki.fi>
+
+	- dovecot-config in v2.1.11 caused build problems with Pigeonhole
+
+v2.1.11 2012-11-29  Timo Sirainen <tss@iki.fi>
+
+	* lmtp/lda: dovecot.index.cache file is no longer fully mapped to
+	  memory, allowing mail deliveries to work even if the file is huge.
+	* auth: userdb passwd lookups are now done by auth worker processes
+	  instead of auth master process (as it was documented, but
+	  accidentally didn't work that way).
+
+	+ lmtp: lmtp_rcpt_check_quota=yes setting checks quota on RCPT TO.
+	- lmtp: After successful proxying RCPT TO, the next one to a
+	  nonexistent user gave tempfail error instead of "user not found".
+	- lmtp proxy: Fixed hanging if remote server was down.
+	- imap: Fixed crash when SEARCH contained multiple KEYWORD parameters.
+	- doveadm: Various fixes to handling doveadm-server connections.
+	- -i <instance name> parameter for Dovecot tools didn't work correctly.
+	- director was somewhat broken in v2.1.10. This version also includes
+	  various reliability enhancements.
+	- auth: passdb imap was broken in v2.1.10.
+
 v2.1.10 2012-09-18  Timo Sirainen <tss@iki.fi>
 
 	+ imap: Implemented THREAD=ORDEREDSUBJECT extension.
