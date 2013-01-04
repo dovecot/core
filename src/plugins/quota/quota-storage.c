@@ -520,6 +520,7 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 	struct quota_mailbox_list *qlist;
 	struct quota *quota = NULL;
 	struct quota_root *root;
+	struct mail_user *quota_user;
 	bool add;
 
 	if (QUOTA_USER_CONTEXT(list->ns->user) == NULL)
@@ -528,8 +529,14 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 	/* see if we have a quota explicitly defined for this namespace */
 	quota = quota_get_mail_user_quota(list->ns->user);
 	root = quota_find_root_for_ns(quota, list->ns);
-	if (root != NULL)
+	if (root != NULL) {
+		/* explicit quota root */
 		root->ns = list->ns;
+		quota_user = list->ns->user;
+	} else {
+		quota_user = list->ns->owner != NULL ?
+			list->ns->owner : list->ns->user;
+	}
 
 	if ((list->ns->flags & NAMESPACE_FLAG_NOQUOTA) != 0)
 		add = FALSE;
@@ -538,7 +545,9 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 		   explicitly defined for it */
 		add = root != NULL;
 	} else {
-		add = TRUE;
+		/* for shared namespaces add only if the owner has quota
+		   enabled */
+		add = QUOTA_USER_CONTEXT(quota_user) != NULL;
 	}
 
 	if (add) {
@@ -550,10 +559,7 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 		v->deinit = quota_mailbox_list_deinit;
 		MODULE_CONTEXT_SET(list, quota_mailbox_list_module, qlist);
 
-		/* register to owner's quota roots */
-		quota = list->ns->owner != NULL ?
-			quota_get_mail_user_quota(list->ns->owner) :
-			quota_get_mail_user_quota(list->ns->user);
+		quota = quota_get_mail_user_quota(quota_user);
 		quota_add_user_namespace(quota, list->ns);
 	}
 }
