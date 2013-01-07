@@ -232,6 +232,7 @@ bool http_client_connection_next_request(struct http_client_connection *conn)
 	conn->payload_continue = FALSE;
 	if (conn->peer->no_payload_sync)
 		req->payload_sync = FALSE;
+
 	array_append(&conn->request_wait_list, &req, 1);
 	http_client_request_ref(req);
 
@@ -254,7 +255,7 @@ bool http_client_connection_next_request(struct http_client_connection *conn)
 	   period before sending the payload body.
 	 */
 	if (req->payload_sync) {
-		i_assert(req->input_size > 0);
+		i_assert(req->payload_size > 0);
 		i_assert(conn->to_response == NULL);
 		conn->to_response =	timeout_add(HTTP_CLIENT_CONTINUE_TIMEOUT_MSECS,
 			http_client_connection_continue_timeout, conn);
@@ -427,6 +428,10 @@ static void http_client_connection_input(struct connection *_conn)
 			http_client_connection_free(&conn);
 			return;
 		}
+
+		/* Got some response; cancel response timeout */
+		if (conn->to_response != NULL)
+			timeout_remove(&conn->to_response);
 
 		/* Got some response; cancel response timeout */
 		if (conn->to_response != NULL)

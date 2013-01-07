@@ -475,6 +475,21 @@ http_transfer_chunked_istream_read(struct istream_private *stream)
 	return -1;
 }
 
+static void
+http_transfer_chunked_istream_destroy(struct iostream_private *stream)
+{
+	struct http_transfer_chunked_istream *tcstream =
+		(struct http_transfer_chunked_istream *)stream;
+
+	if (tcstream->header_parser != NULL)
+		http_header_parser_deinit(&tcstream->header_parser);
+
+	// FIXME: copied from istream.c; there's got to be a better way.
+	i_free(tcstream->istream.w_buffer);
+	if (tcstream->istream.parent != NULL)
+		i_stream_unref(&tcstream->istream.parent);
+}
+
 struct istream *
 http_transfer_chunked_istream_create(struct istream *input)
 {
@@ -485,6 +500,7 @@ http_transfer_chunked_istream_create(struct istream *input)
 	tcstream->istream.max_buffer_size =
 		input->real_stream->max_buffer_size;
 
+	tcstream->istream.iostream.destroy = http_transfer_chunked_istream_destroy;
 	tcstream->istream.read = http_transfer_chunked_istream_read;
 
 	tcstream->istream.istream.readable_fd = FALSE;

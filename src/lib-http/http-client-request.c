@@ -9,6 +9,7 @@
 #include "ostream.h"
 #include "http-url.h"
 #include "http-response-parser.h"
+#include "http-transfer.h"
 
 #include "http-client-private.h"
 
@@ -86,8 +87,10 @@ void http_client_request_unref(struct http_client_request **_req)
 	http_client_request_debug(req, "Destroy (requests left=%d)",
 		client->pending_requests);
 
-	if (req->input != NULL)
-		i_stream_unref(&req->input);
+	if (req->payload_input != NULL)
+		i_stream_unref(&req->payload_input);
+	if (req->payload_output != NULL)
+		o_stream_unref(&req->payload_output);
 	str_free(&req->headers);
 	pool_unref(&req->pool);
 	*_req = NULL;
@@ -131,18 +134,19 @@ void http_client_request_set_payload(struct http_client_request *req,
 				     struct istream *input, bool sync)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
-	i_assert(req->input == NULL);
+	i_assert(req->payload_input == NULL);
 
 	i_stream_ref(input);
-	req->input = input;
-	if (i_stream_get_size(input, TRUE, &req->input_size) <= 0)
-		i_unreached(); //FIXME	
-	req->input_offset = input->v_offset;
+	req->payload_input = input;
+	if (i_stream_get_size(input, TRUE, &req->payload_size) <= 0) {
+		req->payload_size = 0;
+		req->payload_chunked = TRUE;
+	}
+	req->payload_offset = input->v_offset;
 
 	/* prepare request payload sync using 100 Continue response from server */
-	if (req->input_size > 0 && sync) {
+	if ((req->payload_chunked || req->payload_size > 0) && sync)
 		req->payload_sync = TRUE;
-	}
 }
 
 void http_client_request_submit(struct http_client_request *req)
@@ -161,21 +165,24 @@ void http_client_request_submit(struct http_client_request *req)
 int http_client_request_send_more(struct http_client_request *req)
 {
 	struct http_client_connection *conn = req->conn;
-	struct ostream *output = conn->conn.output;
+	struct ostream *output = req->payload_output;
 	int ret = 0;
 
-	i_assert(req->input != NULL);
+	i_assert(req->payload_input != NULL);
 
 	o_stream_set_max_buffer_size(output, 0);
-	if (o_stream_send_istream(output, req->input) < 0)
+	if (o_stream_send_istream(output, req->payload_input) < 0)
 		ret = -1;
 	o_stream_set_max_buffer_size(output, (size_t)-1);
 
-	if (!i_stream_have_bytes_left(req->input)) {
-		if (req->input->v_offset != req->input_size) {
+	if (!i_stream_have_bytes_left(req->payload_input)) {
+		if (!req->payload_chunked &&
+			req->payload_input->v_offset - req->payload_offset != req->payload_size) {
 			i_error("stream input size changed"); //FIXME
 			return -1;
 		}
+		o_stream_unref(&output);
+		req->payload_output = NULL;
 		req->state = HTTP_REQUEST_STATE_WAITING;
 		conn->output_locked = FALSE;
 		http_client_request_debug(req, "Sent all payload");
@@ -212,9 +219,15 @@ int http_client_request_send(struct http_client_request *req)
 	if (req->payload_sync) {
 		str_append(rtext, "Expect: 100-continue\r\n");
 	}
-	if (req->input_size != 0) {
+	if (req->payload_chunked) {
+		str_append(rtext, "Transfer-Encoding: chunked\r\n");
+		req->payload_output =
+			http_transfer_chunked_ostream_create(output);
+	} else if (req->payload_size != 0) {
 		str_printfa(rtext, "Content-Length: %"PRIuUOFF_T"\r\n",
-			    req->input_size);
+			    req->payload_size);
+		req->payload_output = output;
+		o_stream_ref(output);
 	}
 
 	iov[0].iov_base = str_data(rtext);
@@ -231,7 +244,7 @@ int http_client_request_send(struct http_client_request *req)
 
 	http_client_request_debug(req, "Sent");
 
-	if (ret >= 0 && req->input_size != 0) {
+	if (ret >= 0 && req->payload_output != NULL) {
 		if (!req->payload_sync) {
 			if (http_client_request_send_more(req) < 0)
 				ret = -1;
@@ -342,14 +355,28 @@ void http_client_request_redirect(struct http_client_request *req,
 	}
 
 	/* rewind payload stream */
-	if (req->input != NULL && req->input_size > 0 && status != 303) {
-		if (req->input->v_offset != req->input_offset && !req->input->seekable) {
+	if (req->payload_input != NULL && req->payload_size > 0 && status != 303) {
+		if (req->payload_input->v_offset != req->payload_offset &&
+			!req->payload_input->seekable) {
 			http_client_request_error(req,
 				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
 				"Redirect failed: Cannot resend payload; stream is not seekable");
 			return;
 		} else {
-			i_stream_seek(req->input, req->input_offset);
+			i_stream_seek(req->payload_input, req->payload_offset);
+		}
+	}
+
+	/* rewind payload stream */
+	if (req->payload_input != NULL && req->payload_size > 0 && status != 303) {
+		if (req->payload_input->v_offset != req->payload_offset &&
+			!req->payload_input->seekable) {
+			http_client_request_error(req,
+				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
+				"Redirect failed: Cannot resend payload; stream is not seekable");
+			return;
+		} else {
+			i_stream_seek(req->payload_input, req->payload_offset);
 		}
 	}
 
@@ -380,10 +407,30 @@ void http_client_request_redirect(struct http_client_request *req,
 		req->method = p_strdup(req->pool, "GET");
 
 		/* drop payload */
-		if (req->input != NULL)
-			i_stream_unref(&req->input);
-		req->input_size = 0;
-		req->input_offset = 0;
+		if (req->payload_input != NULL)
+			i_stream_unref(&req->payload_input);
+		req->payload_size = 0;
+		req->payload_offset = 0;
+	}
+
+	/* https://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-21
+	      Section-7.4.4
+	
+	   -> A 303 `See Other' redirect status response is handled a bit differently.
+	   Basically, the response content is located elsewhere, but the original
+	   (POST) request is handled already.
+	 */
+	if (status == 303 && strcasecmp(req->method, "HEAD") != 0 &&
+		strcasecmp(req->method, "GET") != 0) {
+		// FIXME: should we provide the means to skip this step? The original
+		// request was already handled at this point.
+		req->method = p_strdup(req->pool, "GET");
+
+		/* drop payload */
+		if (req->payload_input != NULL)
+			i_stream_unref(&req->payload_input);
+		req->payload_size = 0;
+		req->payload_offset = 0;
 	}
 
 	/* resubmit */
@@ -397,14 +444,28 @@ void http_client_request_resubmit(struct http_client_request *req)
 	http_client_request_debug(req, "Resubmitting request");
 
 	/* rewind payload stream */
-	if (req->input != NULL && req->input_size > 0) {
-		if (req->input->v_offset != req->input_offset && !req->input->seekable) {
+	if (req->payload_input != NULL && req->payload_size > 0) {
+		if (req->payload_input->v_offset != req->payload_offset &&
+			!req->payload_input->seekable) {
 			http_client_request_error(req,
 				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
 				"Resubmission failed: Cannot resend payload; stream is not seekable");
 			return;
 		} else {
-			i_stream_seek(req->input, req->input_offset);
+			i_stream_seek(req->payload_input, req->payload_offset);
+		}
+	}
+
+	/* rewind payload stream */
+	if (req->payload_input != NULL && req->payload_size > 0) {
+		if (req->payload_input->v_offset != req->payload_offset &&
+			!req->payload_input->seekable) {
+			http_client_request_error(req,
+				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
+				"Resubmission failed: Cannot resend payload; stream is not seekable");
+			return;
+		} else {
+			i_stream_seek(req->payload_input, req->payload_offset);
 		}
 	}
 

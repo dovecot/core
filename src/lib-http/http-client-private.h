@@ -56,8 +56,9 @@ struct http_client_request {
 	struct http_client_connection *conn;
 
 	string_t *headers;
-	struct istream *input;
-	uoff_t input_size, input_offset;
+	struct istream *payload_input;
+	uoff_t payload_size, payload_offset;
+	struct ostream *payload_output;
 
 	unsigned int attempts;
 	unsigned int redirects;
@@ -68,6 +69,7 @@ struct http_client_request {
 	enum http_request_state state;
 
 	unsigned int payload_sync:1;
+	unsigned int payload_chunked:1;
 	unsigned int ssl:1;
 	unsigned int urgent:1;
 };
