@@ -696,8 +696,10 @@ dsync_mailbox_import_replace_flags(struct mail *mail,
 
 	mail_update_flags(mail, MODIFY_REPLACE,
 			  change->add_flags | change->final_flags);
-	mail_update_modseq(mail, change->modseq);
-	mail_update_pvt_modseq(mail, change->pvt_modseq);
+	if (mail_get_modseq(mail) < change->modseq)
+		mail_update_modseq(mail, change->modseq);
+	if (mail_get_pvt_modseq(mail) < change->pvt_modseq)
+		mail_update_pvt_modseq(mail, change->pvt_modseq);
 }
 
 static void
@@ -770,8 +772,10 @@ dsync_mailbox_import_flag_change(struct dsync_mailbox_importer *importer,
 	/* merge keywords */
 	merge_keywords(mail, &local_keyword_changes, &change->keyword_changes,
 		       prefer_remote);
-	mail_update_modseq(mail, change->modseq);
-	mail_update_pvt_modseq(mail, change->pvt_modseq);
+	if (mail_get_modseq(mail) < change->modseq)
+		mail_update_modseq(mail, change->modseq);
+	if (mail_get_pvt_modseq(mail) < change->pvt_modseq)
+		mail_update_pvt_modseq(mail, change->pvt_modseq);
 }
 
 static void
