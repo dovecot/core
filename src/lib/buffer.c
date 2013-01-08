@@ -320,7 +320,7 @@ void buffer_verify_pool(buffer_t *_buf)
 	const struct real_buffer *buf = (const struct real_buffer *)_buf;
 	void *ret;
 
-	if (buf->pool != NULL && buf->pool->datastack_pool) {
+	if (buf->pool != NULL && buf->pool->datastack_pool && buf->alloc > 0) {
 		/* this doesn't really do anything except verify the
 		   stack frame */
 		ret = p_realloc(buf->pool, buf->w_buffer,
