@@ -103,6 +103,8 @@ run_cmd(struct dsync_cmd_context *ctx, const char *const *args)
 	ctx->fd_in = fd_out[0];
 	ctx->fd_out = fd_in[1];
 	ctx->fd_err = fd_err[0];
+
+	fd_set_nonblock(ctx->fd_err, TRUE);
 	ctx->err_stream = i_stream_create_fd(ctx->fd_err, IO_BLOCK_SIZE, FALSE);
 	i_stream_set_return_partial_line(ctx->err_stream, TRUE);
 }
