@@ -113,7 +113,7 @@ search_update_flag_changes(struct dsync_mailbox_exporter *exporter,
 		if (!final_keyword_check(change, keywords[i])) {
 			const char *keyword_change =
 				p_strdup_printf(exporter->pool, "%c%s",
-						KEYWORD_CHANGE_FINAL,
+						KEYWORD_CHANGE_ADD,
 						keywords[i]);
 			array_append(&change->keyword_changes,
 				     &keyword_change, 1);
