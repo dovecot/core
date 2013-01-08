@@ -59,9 +59,9 @@ static void remote_error_input(struct dsync_cmd_context *ctx)
 	const char *line;
 
 	while ((line = i_stream_read_next_line(ctx->err_stream)) != NULL)
-		i_error("remote: %s", line);
+		fprintf(stderr, "%s\n", line);
 
-	if (ctx->err_stream->eof)
+	if (ctx->err_stream->eof && ctx->io_err != NULL)
 		io_remove(&ctx->io_err);
 }
 
