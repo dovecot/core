@@ -29,6 +29,7 @@ struct doveadm_connection {
 	time_t last_connect_failure;
 	unsigned int handshaked:1;
 	unsigned int end_of_print:1;
+	unsigned int cmd_sent:1;
 };
 
 struct doveadm_connection *doveadm_connection_init(const char *path)
@@ -55,7 +56,7 @@ static void doveadm_callback(struct doveadm_connection *conn,
 	callback(reply, context);
 }
 
-static void doveadm_disconnect(struct doveadm_connection *conn)
+static void doveadm_close(struct doveadm_connection *conn)
 {
 	if (conn->fd == -1)
 		return;
@@ -66,7 +67,13 @@ static void doveadm_disconnect(struct doveadm_connection *conn)
 	if (close(conn->fd) < 0)
 		i_error("close(doveadm) failed: %m");
 	conn->fd = -1;
+	conn->end_of_print = FALSE;
+	conn->cmd_sent = FALSE;
+}
 
+static void doveadm_disconnect(struct doveadm_connection *conn)
+{
+	doveadm_close(conn);
 	if (conn->callback != NULL)
 		doveadm_callback(conn, DOVEADM_REPLY_FAIL);
 }
@@ -102,6 +109,9 @@ static int doveadm_input_line(struct doveadm_connection *conn, const char *line)
 			conn->end_of_print = TRUE;
 		return 0;
 	}
+	line = t_strdup(line);
+	doveadm_close(conn);
+
 	if (line[0] == '+')
 		doveadm_callback(conn, DOVEADM_REPLY_OK);
 	else if (line[0] == '-') {
@@ -113,9 +123,9 @@ static int doveadm_input_line(struct doveadm_connection *conn, const char *line)
 		i_error("%s: Invalid input: %s", conn->path, line);
 		return -1;
 	}
-	conn->end_of_print = FALSE;
 	/* FIXME: disconnect after each request for now.
-	   doveadm server's getopt() handling seems to break otherwise */
+	   doveadm server's getopt() handling seems to break otherwise.
+	   also with multiple UIDs doveadm-server fails because setid() fails */
 	return -1;
 }
 
@@ -158,7 +168,7 @@ static int doveadm_connect(struct doveadm_connection *conn)
 
 static void doveadm_fail_timeout(struct doveadm_connection *conn)
 {
-	doveadm_callback(conn, DOVEADM_REPLY_FAIL);
+	doveadm_disconnect(conn);
 }
 
 void doveadm_connection_sync(struct doveadm_connection *conn,
@@ -170,6 +180,7 @@ void doveadm_connection_sync(struct doveadm_connection *conn,
 	i_assert(callback != NULL);
 	i_assert(!doveadm_connection_is_busy(conn));
 
+	conn->cmd_sent = TRUE;
 	conn->callback = callback;
 	conn->context = context;
 
@@ -192,5 +203,5 @@ void doveadm_connection_sync(struct doveadm_connection *conn,
 
 bool doveadm_connection_is_busy(struct doveadm_connection *conn)
 {
-	return conn->callback != NULL;
+	return conn->cmd_sent;
 }
