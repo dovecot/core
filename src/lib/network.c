@@ -278,7 +278,11 @@ int net_connect_unix(const char *path)
 	sa.un.sun_family = AF_UNIX;
 	if (i_strocpy(sa.un.sun_path, path, sizeof(sa.un.sun_path)) < 0) {
 		/* too long path */
+#ifdef ENAMETOOLONG
+		errno = ENAMETOOLONG;
+#else
 		errno = EINVAL;
+#endif
 		return -1;
 	}
 
