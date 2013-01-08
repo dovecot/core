@@ -37,10 +37,12 @@ test_programs = \
 	test-http-url \
 	test-http-header-parser \
 	test-http-transfer \
-	test-http-response-parser \
+	test-http-response-parser
+
+test_nocheck_programs = \
 	test-http-client
 
-noinst_PROGRAMS = $(test_programs)
+noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 
 test_libs = \
 	../lib-test/libtest.la \
