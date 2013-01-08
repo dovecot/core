@@ -170,7 +170,9 @@ static void dsync_ibc_stream_input(struct dsync_ibc_stream *ibc)
 		if (dsync_ibc_stream_read_mail_stream(ibc) == 0)
 			return;
 	}
+	o_stream_cork(ibc->output);
 	ibc->ibc.io_callback(ibc->ibc.io_context);
+	o_stream_uncork(ibc->output);
 }
 
 static int dsync_ibc_stream_send_mail_stream(struct dsync_ibc_stream *ibc)
@@ -295,8 +297,7 @@ static void dsync_ibc_stream_init(struct dsync_ibc_stream *ibc)
 		}
 	} T_END;
 	o_stream_nsend_str(ibc->output, ".\n");
-
-	dsync_ibc_flush(&ibc->ibc);
+	o_stream_uncork(ibc->output);
 }
 
 static void dsync_ibc_stream_deinit(struct dsync_ibc *_ibc)
@@ -1390,11 +1391,7 @@ dsync_ibc_stream_send_mail(struct dsync_ibc *_ibc,
 		ibc->mail_output_last = '\0';
 		ibc->mail_output = mail->input;
 		i_stream_ref(ibc->mail_output);
-		if (dsync_ibc_stream_send_mail_stream(ibc) == 0) {
-			/* flush callback isn't being called while output
-			   stream is corked */
-			o_stream_uncork(ibc->output);
-		}
+		(void)dsync_ibc_stream_send_mail_stream(ibc);
 	}
 }
 
@@ -1492,15 +1489,6 @@ dsync_ibc_stream_recv_mail(struct dsync_ibc *_ibc, struct dsync_mail **mail_r)
 	return DSYNC_IBC_RECV_RET_OK;
 }
 
-static void dsync_ibc_stream_flush(struct dsync_ibc *_ibc)
-{
-	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
-
-	o_stream_uncork(ibc->output);
-	if (ibc->mail_output == NULL)
-		o_stream_cork(ibc->output);
-}
-
 static bool dsync_ibc_stream_is_send_queue_full(struct dsync_ibc *_ibc)
 {
 	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
@@ -1543,7 +1531,6 @@ static const struct dsync_ibc_vfuncs dsync_ibc_stream_vfuncs = {
 	dsync_ibc_stream_recv_mail_request,
 	dsync_ibc_stream_send_mail,
 	dsync_ibc_stream_recv_mail,
-	dsync_ibc_stream_flush,
 	dsync_ibc_stream_is_send_queue_full,
 	dsync_ibc_stream_has_pending_data
 };

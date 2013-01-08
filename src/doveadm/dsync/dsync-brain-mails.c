@@ -283,31 +283,28 @@ bool dsync_brain_sync_mails(struct dsync_brain *brain)
 		break;
 	}
 
-	if (brain->failed)
-		return TRUE;
-
-	switch (brain->box_send_state) {
-	case DSYNC_BOX_STATE_MAILBOX:
-		/* wait for mailbox to be received first */
-		break;
-	case DSYNC_BOX_STATE_CHANGES:
-		dsync_brain_send_mail_change(brain);
-		changed = TRUE;
-		break;
-	case DSYNC_BOX_STATE_MAIL_REQUESTS:
-		if (dsync_brain_send_mail_request(brain))
+	if (!dsync_ibc_is_send_queue_full(brain->ibc) && !brain->failed) {
+		switch (brain->box_send_state) {
+		case DSYNC_BOX_STATE_MAILBOX:
+			/* wait for mailbox to be received first */
+			break;
+		case DSYNC_BOX_STATE_CHANGES:
+			dsync_brain_send_mail_change(brain);
 			changed = TRUE;
-		break;
-	case DSYNC_BOX_STATE_MAILS:
-		if (!dsync_ibc_is_send_queue_full(brain->ibc)) {
+			break;
+		case DSYNC_BOX_STATE_MAIL_REQUESTS:
+			if (dsync_brain_send_mail_request(brain))
+				changed = TRUE;
+			break;
+		case DSYNC_BOX_STATE_MAILS:
 			if (dsync_brain_send_mail(brain))
 				changed = TRUE;
+			break;
+		case DSYNC_BOX_STATE_RECV_LAST_COMMON:
+			i_unreached();
+		case DSYNC_BOX_STATE_DONE:
+			break;
 		}
-		break;
-	case DSYNC_BOX_STATE_RECV_LAST_COMMON:
-		i_unreached();
-	case DSYNC_BOX_STATE_DONE:
-		break;
 	}
 	if (brain->debug) {
 		i_debug("brain %c: out box '%s' recv_state=%s send_state=%s changed=%d",

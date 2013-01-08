@@ -332,8 +332,6 @@ bool dsync_brain_run(struct dsync_brain *brain, bool *changed_r)
 	T_BEGIN {
 		ret = dsync_brain_run_real(brain, changed_r);
 	} T_END;
-	if (!brain->failed)
-		dsync_ibc_flush(brain->ibc);
 	return ret;
 }
 

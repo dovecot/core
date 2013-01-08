@@ -453,7 +453,6 @@ static const struct dsync_ibc_vfuncs dsync_ibc_pipe_vfuncs = {
 	dsync_ibc_pipe_recv_mail_request,
 	dsync_ibc_pipe_send_mail,
 	dsync_ibc_pipe_recv_mail,
-	NULL,
 	dsync_ibc_pipe_is_send_queue_full,
 	dsync_ibc_pipe_has_pending_data
 };

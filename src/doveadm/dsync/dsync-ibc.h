@@ -110,7 +110,6 @@ dsync_ibc_send_mail(struct dsync_ibc *ibc, const struct dsync_mail *mail);
 enum dsync_ibc_recv_ret
 dsync_ibc_recv_mail(struct dsync_ibc *ibc, struct dsync_mail **mail_r);
 
-void dsync_ibc_flush(struct dsync_ibc *ibc);
 bool dsync_ibc_has_failed(struct dsync_ibc *ibc);
 bool dsync_ibc_is_send_queue_full(struct dsync_ibc *ibc);
 bool dsync_ibc_has_pending_data(struct dsync_ibc *ibc);

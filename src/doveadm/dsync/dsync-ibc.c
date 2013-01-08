@@ -178,12 +178,6 @@ dsync_ibc_recv_mail(struct dsync_ibc *ibc, struct dsync_mail **mail_r)
 	return ibc->v.recv_mail(ibc, mail_r);
 }
 
-void dsync_ibc_flush(struct dsync_ibc *ibc)
-{
-	if (ibc->v.flush != NULL)
-		ibc->v.flush(ibc);
-}
-
 bool dsync_ibc_has_failed(struct dsync_ibc *ibc)
 {
 	return ibc->failed;
