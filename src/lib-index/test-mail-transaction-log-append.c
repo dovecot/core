@@ -44,6 +44,7 @@ static void test_append_expunge(struct mail_transaction_log *log)
 	struct mail_transaction_log_append_ctx *ctx;
 	const struct mail_transaction_header *hdr;
 	const unsigned int *bufp;
+	const struct mail_transaction_boundary *bound;
 
 	test_assert(mail_transaction_log_append_begin(log->index, MAIL_TRANSACTION_EXTERNAL, &ctx) == 0);
 	mail_transaction_log_append_add(ctx, MAIL_TRANSACTION_APPEND,
@@ -58,6 +59,13 @@ static void test_append_expunge(struct mail_transaction_log *log)
 	test_assert(file->sync_offset == file->buffer_offset + file->buffer->used);
 
 	hdr = file->buffer->data;
+	test_assert(hdr->type == (MAIL_TRANSACTION_BOUNDARY |
+				  MAIL_TRANSACTION_EXTERNAL));
+	test_assert(mail_index_offset_to_uint32(hdr->size) == sizeof(*hdr) + sizeof(*bound));
+	bound = (const void *)(hdr + 1);
+	test_assert(bound->size == file->buffer->used);
+	hdr = (const void *)(bound + 1);
+
 	test_assert(hdr->type == (MAIL_TRANSACTION_APPEND |
 				  MAIL_TRANSACTION_EXTERNAL));
 	test_assert(mail_index_offset_to_uint32(hdr->size) == sizeof(*hdr) + sizeof(buf[0]));
