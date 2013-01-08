@@ -331,8 +331,7 @@ static int dsync_ibc_stream_next_line(struct dsync_ibc_stream *ibc,
 	}
 
 	/* try reading some */
-	switch (i_stream_read(ibc->input)) {
-	case -1:
+	if (i_stream_read(ibc->input) == -1) {
 		if (ibc->input->stream_errno != 0) {
 			errno = ibc->input->stream_errno;
 			i_error("read(%s) failed: %m", ibc->name);
@@ -342,8 +341,6 @@ static int dsync_ibc_stream_next_line(struct dsync_ibc_stream *ibc,
 		}
 		dsync_ibc_stream_stop(ibc);
 		return -1;
-	case 0:
-		return 0;
 	}
 	*line_r = i_stream_next_line(ibc->input);
 	if (*line_r == NULL) {
