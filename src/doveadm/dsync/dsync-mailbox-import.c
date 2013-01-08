@@ -916,19 +916,56 @@ dsync_mailbox_import_match_msg(struct dsync_mailbox_importer *importer,
 	return strcmp(change->hdr_hash, hdr_hash) == 0 ? 1 : 0;
 }
 
+static bool
+dsync_mailbox_find_common_expunged_uid(struct dsync_mailbox_importer *importer,
+				       const struct dsync_mail_change *change)
+{
+	const struct dsync_mail_change *local_change;
+	guid_128_t guid_128, change_guid_128;
+
+	if (*change->guid == '\0') {
+		/* remote doesn't support GUIDs, can't verify expunge */
+		return FALSE;
+	}
+
+	/* local message is expunged. see if we can find its GUID from
+	   transaction log and check if the GUIDs match. The GUID in
+	   log is a 128bit GUID, so we may need to convert the remote's
+	   GUID string to 128bit GUID first. */
+	local_change = hash_table_lookup(importer->local_changes,
+					 POINTER_CAST(change->uid));
+	if (local_change == NULL || local_change->guid == NULL)
+		return FALSE;
+	if (guid_128_from_string(local_change->guid, guid_128) < 0)
+		i_unreached();
+
+	mail_generate_guid_128_hash(change->guid, change_guid_128);
+	if (memcmp(change_guid_128, guid_128, GUID_128_SIZE) != 0) {
+		/* mismatch - found the first non-common UID */
+		dsync_mailbox_common_uid_found(importer);
+	} else {
+		importer->last_common_uid = change->uid;
+	}
+	return TRUE;
+}
+
 static void
 dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 			      const struct dsync_mail_change *change)
 {
-	const struct dsync_mail_change *local_change;
-	guid_128_t guid_128, change_guid_128;
 	int ret;
 
 	/* try to find the matching local mail */
 	if (!importer_next_mail(importer, change->uid)) {
-		/* no more local mails. use the last message with a matching
-		   GUID as the last common UID. */
-		dsync_mailbox_common_uid_found(importer);
+		/* no more local mails. we can still try to match
+		   expunged mails though. */
+		if (change->guid == NULL ||
+		    !dsync_mailbox_find_common_expunged_uid(importer, change)) {
+			/* couldn't match it for an expunged mail. use the last
+			   message with a matching GUID as the last common
+			   UID. */
+			dsync_mailbox_common_uid_found(importer);
+		}
 		return;
 	}
 
@@ -951,31 +988,7 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 		}
 		return;
 	}
-
-	if (*change->guid == '\0') {
-		/* remote doesn't support GUIDs, can't verify expunge */
-		return;
-	}
-
-	/* local message is expunged. see if we can find its GUID from
-	   transaction log and check if the GUIDs match. The GUID in
-	   log is a 128bit GUID, so we may need to convert the remote's
-	   GUID string to 128bit GUID first. */
-	local_change = hash_table_lookup(importer->local_changes,
-					 POINTER_CAST(change->uid));
-	if (local_change == NULL || local_change->guid == NULL)
-		return;
-	if (guid_128_from_string(local_change->guid, guid_128) < 0)
-		i_unreached();
-
-	mail_generate_guid_128_hash(change->guid, change_guid_128);
-	if (memcmp(change_guid_128, guid_128, GUID_128_SIZE) != 0) {
-		/* mismatch - found the first non-common UID */
-		dsync_mailbox_common_uid_found(importer);
-	} else {
-		importer->last_common_uid = change->uid;
-	}
-	return;
+	dsync_mailbox_find_common_expunged_uid(importer, change);
 }
 
 void dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
