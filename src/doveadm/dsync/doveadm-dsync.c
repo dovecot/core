@@ -40,6 +40,7 @@ struct dsync_cmd_context {
 
 	int fd_in, fd_out, fd_err;
 	struct io *io_err;
+	struct istream *err_stream;
 
 	unsigned int lock_timeout;
 
@@ -55,18 +56,13 @@ static bool legacy_dsync = FALSE;
 
 static void remote_error_input(struct dsync_cmd_context *ctx)
 {
-	char buf[1024];
-	ssize_t ret;
+	const char *line;
 
-	ret = read(ctx->fd_err, buf, sizeof(buf)-1);
-	if (ret == -1) {
+	while ((line = i_stream_read_next_line(ctx->err_stream)) != NULL)
+		i_error("remote: %s", line);
+
+	if (ctx->err_stream->eof)
 		io_remove(&ctx->io_err);
-		return;
-	}
-	if (ret > 0) {
-		buf[ret-1] = '\0';
-		i_error("remote: %s", buf);
-	}
 }
 
 static void
@@ -107,7 +103,8 @@ run_cmd(struct dsync_cmd_context *ctx, const char *const *args)
 	ctx->fd_in = fd_out[0];
 	ctx->fd_out = fd_in[1];
 	ctx->fd_err = fd_err[0];
-	ctx->io_err = io_add(ctx->fd_err, IO_READ, remote_error_input, ctx);
+	ctx->err_stream = i_stream_create_fd(ctx->fd_err, IO_BLOCK_SIZE, FALSE);
+	i_stream_set_return_partial_line(ctx->err_stream, TRUE);
 }
 
 static void
@@ -374,6 +371,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		mail_user_set_get_temp_prefix(temp_prefix, user->set);
 		ibc = cmd_dsync_icb_stream_init(ctx, ctx->remote_name,
 						str_c(temp_prefix));
+		ctx->io_err = io_add(ctx->fd_err, IO_READ,
+				     remote_error_input, ctx);
 	}
 
 	brain_flags = DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS |
@@ -411,6 +410,10 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	dsync_ibc_deinit(&ibc);
 	if (ibc2 != NULL)
 		dsync_ibc_deinit(&ibc2);
+	if (ctx->err_stream != NULL) {
+		remote_error_input(ctx); /* print any pending errors */
+		i_stream_destroy(&ctx->err_stream);
+	}
 	if (ctx->io_err != NULL)
 		io_remove(&ctx->io_err);
 	if (ctx->fd_in != -1) {
