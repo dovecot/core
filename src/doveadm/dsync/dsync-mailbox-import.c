@@ -822,7 +822,8 @@ dsync_mailbox_import_expunge(struct dsync_mailbox_importer *importer,
 		i_assert(change->uid <= importer->last_common_uid);
 		if (dsync_import_set_mail(importer, change))
 			mail_expunge(importer->mail);
-	} else if (change->uid < importer->cur_mail->uid) {
+	} else if (importer->cur_mail == NULL ||
+		   change->uid < importer->cur_mail->uid) {
 		/* already expunged locally, we can ignore this.
 		   uid=last_common_uid if we managed to verify from
 		   transaction log that the GUIDs match */
