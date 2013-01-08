@@ -114,7 +114,7 @@ static bool dsync_brain_recv_mail_request(struct dsync_brain *brain)
 	return TRUE;
 }
 
-static void dsync_brain_send_mail_request(struct dsync_brain *brain)
+static bool dsync_brain_send_mail_request(struct dsync_brain *brain)
 {
 	const struct dsync_mail_request *request;
 
@@ -122,17 +122,19 @@ static void dsync_brain_send_mail_request(struct dsync_brain *brain)
 
 	while ((request = dsync_mailbox_import_next_request(brain->box_importer)) != NULL) {
 		if (dsync_ibc_send_mail_request(brain->ibc, request) == 0)
-			return;
+			return TRUE;
 	}
-	if (brain->box_recv_state > DSYNC_BOX_STATE_CHANGES) {
-		dsync_ibc_send_end_of_list(brain->ibc);
-		if (brain->box_exporter != NULL)
-			brain->box_send_state = DSYNC_BOX_STATE_MAILS;
-		else {
-			i_assert(brain->box_recv_state != DSYNC_BOX_STATE_DONE);
-			brain->box_send_state = DSYNC_BOX_STATE_DONE;
-		}
+	if (brain->box_recv_state <= DSYNC_BOX_STATE_CHANGES)
+		return FALSE;
+
+	dsync_ibc_send_end_of_list(brain->ibc);
+	if (brain->box_exporter != NULL)
+		brain->box_send_state = DSYNC_BOX_STATE_MAILS;
+	else {
+		i_assert(brain->box_recv_state != DSYNC_BOX_STATE_DONE);
+		brain->box_send_state = DSYNC_BOX_STATE_DONE;
 	}
+	return TRUE;
 }
 
 static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
@@ -293,8 +295,8 @@ bool dsync_brain_sync_mails(struct dsync_brain *brain)
 		changed = TRUE;
 		break;
 	case DSYNC_BOX_STATE_MAIL_REQUESTS:
-		dsync_brain_send_mail_request(brain);
-		changed = TRUE;
+		if (dsync_brain_send_mail_request(brain))
+			changed = TRUE;
 		break;
 	case DSYNC_BOX_STATE_MAILS:
 		if (!dsync_ibc_is_send_queue_full(brain->ibc)) {
