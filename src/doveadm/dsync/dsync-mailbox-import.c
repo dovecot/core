@@ -1386,7 +1386,7 @@ reassign_uids_in_seq_range(struct mailbox *box, uint32_t seq1, uint32_t seq2)
 	return ret;
 }
 
-static bool
+static int
 reassign_unwanted_uids(struct dsync_mailbox_importer *importer,
 		       const struct mail_transaction_commit_changes *changes,
 		       bool *changes_during_sync_r)
@@ -1441,8 +1441,9 @@ reassign_unwanted_uids(struct dsync_mailbox_importer *importer,
 		mailbox_get_seq_range(importer->box, importer->local_uid_next,
 				      lowest_saved_uid-1, &seq1, &seq2);
 		if (seq1 > 0) {
-			ret = reassign_uids_in_seq_range(importer->box,
-							 seq1, seq2);
+			if (reassign_uids_in_seq_range(importer->box,
+						       seq1, seq2) < 0)
+				ret = -1;
 			*changes_during_sync_r = TRUE;
 		}
 	}
@@ -1452,8 +1453,9 @@ reassign_unwanted_uids(struct dsync_mailbox_importer *importer,
 		mailbox_get_seq_range(importer->box, lowest_unwanted_uid,
 				      importer->remote_uid_next-1, &seq1, &seq2);
 		if (seq1 > 0) {
-			ret = reassign_uids_in_seq_range(importer->box,
-							 seq1, seq2);
+			if (reassign_uids_in_seq_range(importer->box,
+						       seq1, seq2) < 0)
+				ret = -1;
 			*changes_during_sync_r = TRUE;
 		}
 	}
