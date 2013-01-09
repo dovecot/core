@@ -21,6 +21,8 @@
 #include <unistd.h>
 
 struct mdbox_rebuild_msg {
+	struct mdbox_rebuild_msg *guid_hash_next;
+
 	guid_128_t guid_128;
 	uint32_t file_id;
 	uint32_t offset;
@@ -198,10 +200,13 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 		} else {
 			/* duplicate GUID, but not a duplicate message. */
 			i_error("mdbox %s: Duplicate GUID %s in "
-				"m.%u:%u and m.%u:%u",
+				"m.%u:%u (size=%"PRIuUOFF_T") and m.%u:%u "
+				"(size=%"PRIuUOFF_T")",
 				ctx->storage->storage_dir, guid,
-				old_rec->file_id, old_rec->offset,
-				rec->file_id, rec->offset);
+				old_rec->file_id, old_rec->offset, old_rec->mail_size,
+				rec->file_id, rec->offset, rec->mail_size);
+			rec->guid_hash_next = old_rec->guid_hash_next;
+			old_rec->guid_hash_next = rec;
 		}
 	}
 	if (ret < 0)
@@ -369,6 +374,20 @@ rebuild_lookup_map_uid(struct mdbox_storage_rebuild_context *ctx,
 	return pos == NULL ? NULL : *pos;
 }
 
+static bool
+guid_hash_have_map_uid(struct mdbox_rebuild_msg **recp, uint32_t map_uid)
+{
+	struct mdbox_rebuild_msg *rec;
+
+	for (rec = *recp; rec != NULL; rec = rec->guid_hash_next) {
+		if (rec->map_uid == map_uid) {
+			*recp = rec;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static void
 rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 		      struct dbox_sync_rebuild_context *rebuild_ctx,
@@ -411,17 +430,20 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 			   still try to look it up using map_uid. */
 			rec = map_uid == 0 ? NULL :
 				rebuild_lookup_map_uid(ctx, map_uid);
-		} else if (map_uid != rec->map_uid) {
+		} else if (!guid_hash_have_map_uid(&rec, map_uid)) {
 			/* message's GUID and map_uid point to different
 			   physical messages. assume that GUID is correct and
 			   map_uid is wrong. */
+			map_uid = rec->map_uid;
 		} else {
-			/* everything was ok */
+			/* everything was ok. use this specific record's
+			   map_uid to avoid duplicating mails in case the same
+			   GUID exists multiple times */
 		}
 
 		if (rec != NULL) T_BEGIN {
 			/* keep this message. add it to mailbox index. */
-			i_assert(rec->map_uid != 0);
+			i_assert(map_uid != 0);
 			rec->refcount++;
 
 			mail_index_lookup_uid(view, old_seq, &uid);
@@ -429,7 +451,7 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 			dbox_sync_rebuild_index_metadata(rebuild_ctx,
 							 new_seq, uid);
 
-			new_dbox_rec.map_uid = rec->map_uid;
+			new_dbox_rec.map_uid = map_uid;
 			mail_index_update_ext(trans, new_seq, mbox->ext_id,
 					      &new_dbox_rec, NULL);
 			mail_index_update_ext(trans, new_seq, mbox->guid_ext_id,
