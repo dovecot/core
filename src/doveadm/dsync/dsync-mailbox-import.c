@@ -962,6 +962,11 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 	if (!importer_next_mail(importer, change->uid)) {
 		/* no more local mails. we can still try to match
 		   expunged mails though. */
+		if (change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE) {
+			/* mail doesn't exist remotely either, don't bother
+			   looking it up locally. */
+			return;
+		}
 		if (change->guid == NULL ||
 		    !dsync_mailbox_find_common_expunged_uid(importer, change)) {
 			/* couldn't match it for an expunged mail. use the last
