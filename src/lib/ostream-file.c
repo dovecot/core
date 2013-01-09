@@ -814,16 +814,22 @@ static off_t io_stream_copy_stream(struct ostream_private *outstream,
 {
 	struct file_ostream *foutstream = (struct file_ostream *)outstream;
 	uoff_t in_size;
-	off_t in_abs_offset, ret;
+	off_t in_abs_offset, ret = 0;
 
 	if (same_stream) {
 		/* copying data within same fd. we'll have to be careful with
 		   seeks and overlapping writes. */
-		if ((ret = i_stream_get_size(instream, TRUE, &in_size)) <= 0) {
-			outstream->ostream.stream_errno = ret == 0 ? ESPIPE :
+		if ((ret = i_stream_get_size(instream, TRUE, &in_size)) < 0) {
+			outstream->ostream.stream_errno =
 				instream->stream_errno;
 			return -1;
 		}
+		/* if we couldn't find out the size, it means that instream
+		   isn't a regular file_istream. we can be reasonably sure that
+		   we can copy it safely the regular way. (there's really no
+		   other possibility, other than failing completely.) */
+	}
+	if (ret > 0) {
 		i_assert(instream->v_offset <= in_size);
 
 		in_abs_offset = instream->real_stream->abs_start_offset +
