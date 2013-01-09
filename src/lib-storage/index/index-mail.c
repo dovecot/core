@@ -1387,8 +1387,13 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 
-	if (mail->data.seq == seq)
-		return;
+	if (mail->data.seq == seq) {
+		if (!saving)
+			return;
+		/* we started saving a mail, aborted it, and now we're saving
+		   another mail with the same sequence. make sure the mail
+		   gets reset. */
+	}
 
 	mail->mail.v.close(&mail->mail.mail);
 
