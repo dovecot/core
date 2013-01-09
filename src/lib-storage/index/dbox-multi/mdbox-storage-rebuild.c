@@ -24,7 +24,8 @@ struct mdbox_rebuild_msg {
 	guid_128_t guid_128;
 	uint32_t file_id;
 	uint32_t offset;
-	uint32_t size;
+	uint32_t rec_size;
+	uoff_t mail_size;
 	uint32_t map_uid;
 
 	uint16_t refcount;
@@ -106,9 +107,9 @@ static int mdbox_rebuild_msg_offset_cmp(const void *p1, const void *p2)
 	if ((*m1)->offset > (*m2)->offset)
 		return 1;
 
-	if ((*m1)->size < (*m2)->size)
+	if ((*m1)->rec_size < (*m2)->rec_size)
 		return -1;
-	if ((*m1)->size > (*m2)->size)
+	if ((*m1)->rec_size > (*m2)->rec_size)
 		return 1;
 	return 0;
 }
@@ -175,7 +176,8 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 		rec = p_new(ctx->pool, struct mdbox_rebuild_msg, 1);
 		rec->file_id = file_id;
 		rec->offset = offset;
-		rec->size = file->input->v_offset - offset;
+		rec->rec_size = file->input->v_offset - offset;
+		rec->mail_size = dbox_file_get_plaintext_size(file);
 		mail_generate_guid_128_hash(guid, rec->guid_128);
 		i_assert(!guid_128_is_empty(rec->guid_128));
 		array_append(&ctx->msgs, &rec, 1);
@@ -183,9 +185,15 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 		old_rec = hash_table_lookup(ctx->guid_hash, rec->guid_128);
 		if (old_rec == NULL)
 			hash_table_insert(ctx->guid_hash, rec->guid_128, rec);
-		else if (rec->size == old_rec->size) {
-			/* duplicate. save this as a refcount=0 to map,
-			   so it will eventually be deleted. */
+		else if (rec->mail_size == old_rec->mail_size) {
+			/* two mails' GUID and size are the same, which quite
+			   likely means that their contents are the same as
+			   well. we'll compare the mail sizes instead of the
+			   record sizes, because the records' metadata may
+			   differ.
+
+			   save this duplicate mail with refcount=0 to the map,
+			   so it will eventually be purged. */
 			rec->seen_zero_ref_in_map = TRUE;
 		} else {
 			/* duplicate GUID, but not a duplicate message. */
@@ -290,7 +298,7 @@ rebuild_add_missing_map_uids(struct mdbox_storage_rebuild_context *ctx,
 
 		rec.file_id = msgs[i]->file_id;
 		rec.offset = msgs[i]->offset;
-		rec.size = msgs[i]->size;
+		rec.size = msgs[i]->rec_size;
 
 		msgs[i]->map_uid = next_uid++;
 		mail_index_append(ctx->atomic->sync_trans,
@@ -326,7 +334,7 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 		   the (file_id, offset, size) triplet */
 		search_msg.file_id = rec.rec.file_id;
 		search_msg.offset = rec.rec.offset;
-		search_msg.size = rec.rec.size;
+		search_msg.rec_size = rec.rec.size;
 		pos = bsearch(&search_msgp, msgs, count, sizeof(*msgs),
 			      mdbox_rebuild_msg_offset_cmp);
 		if (pos == NULL || (*pos)->map_uid != 0) {
