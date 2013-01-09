@@ -441,10 +441,11 @@ void mail_index_lookup_first(struct mail_index_view *view,
 /* Append a new record to index. */
 void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 		       uint32_t *seq_r);
-/* Assign UIDs for mails with uid=0 or uid<first_uid. Assumes that mailbox is
-   locked in a way that UIDs can be safely assigned. Returns UIDs for all
-   asigned messages, in their sequence order (so UIDs are not necessary
-   ascending). */
+/* Assign UIDs for mails with uid=0 or uid<first_uid. All the assigned UIDs
+   are higher than the highest unassigned UID (i.e. it doesn't try to fill UID
+   gaps). Assumes that mailbox is locked in a way that UIDs can be safely
+   assigned. Returns UIDs for all asigned messages, in their sequence order
+   (so UIDs are not necessary ascending). */
 void mail_index_append_finish_uids(struct mail_index_transaction *t,
 				   uint32_t first_uid,
 				   ARRAY_TYPE(seq_range) *uids_r);
