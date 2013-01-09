@@ -1393,10 +1393,27 @@ reassign_unwanted_uids(struct dsync_mailbox_importer *importer,
 {
 	struct seq_range_iter iter;
 	const uint32_t *wanted_uids;
-	uint32_t saved_uid, highest_unwanted_uid = 0;
+	uint32_t saved_uid, highest_wanted_uid = 0;
 	uint32_t seq1, seq2, lowest_saved_uid = (uint32_t)-1;
+	uint32_t lowest_unwanted_uid = (uint32_t)-1;
 	unsigned int i, n, wanted_count;
 	int ret = 0;
+
+	/* wanted_uids contains the UIDs we tried to save mails with.
+	   if nothing changed during dsync, we should have the expected UIDs
+	   (changes->saved_uids) and all is well.
+
+	   if any new messages got inserted during dsync, we'll need to fix up
+	   the UIDs and let the next dsync fix up the other side. for example:
+
+	   remote uids = 5,7,9 = wanted_uids
+	   remote uidnext = 12
+	   locally added new uid=5 ->
+	   saved_uids = 10,7,9
+
+	   we'll now need to reassign UIDs 5 and 10. or more generally, we
+	   need to reassign UIDs [original local uidnext .. lowest saved_uid-1]
+	   and [lowest unwanted uid .. remote uidnext-1] */
 
 	/* find the highest wanted UID that doesn't match what we got */
 	wanted_uids = array_get(&importer->wanted_uids, &wanted_count);
@@ -1405,30 +1422,40 @@ reassign_unwanted_uids(struct dsync_mailbox_importer *importer,
 		i_assert(i < wanted_count);
 		if (lowest_saved_uid > saved_uid)
 			lowest_saved_uid = saved_uid;
-		if (saved_uid != wanted_uids[i]) {
-			if (highest_unwanted_uid < wanted_uids[i])
-				highest_unwanted_uid = wanted_uids[i];
+		if (saved_uid == wanted_uids[i]) {
+			if (highest_wanted_uid < saved_uid)
+				highest_wanted_uid = saved_uid;
+		} else {
+			if (lowest_unwanted_uid > saved_uid)
+				lowest_unwanted_uid = saved_uid;
 		}
 		i++;
 	}
+	i_assert(lowest_unwanted_uid == (uint32_t)-1 ||
+		 lowest_unwanted_uid == highest_wanted_uid+1 ||
+		 highest_wanted_uid == 0);
 
-	if (highest_unwanted_uid == 0 && i > 0 &&
-	    importer->local_uid_next <= lowest_saved_uid-1) {
-		/* we didn't see any unwanted UIDs, but we'll still need to
-		   verify that messages didn't just get saved locally to a gap
-		   that we left in local_uid_next..(lowest_saved_uid-1) */
-		highest_unwanted_uid = lowest_saved_uid-1;
-	}
-
-	if (highest_unwanted_uid == 0)
-		seq1 = seq2 = 0;
-	else {
+	if (importer->local_uid_next != lowest_saved_uid &&
+	    lowest_saved_uid != (uint32_t)-1) {
+		/* [original local uidnext .. lowest saved_uid-1] */
 		mailbox_get_seq_range(importer->box, importer->local_uid_next,
-				      highest_unwanted_uid, &seq1, &seq2);
+				      lowest_saved_uid-1, &seq1, &seq2);
+		if (seq1 > 0) {
+			ret = reassign_uids_in_seq_range(importer->box,
+							 seq1, seq2);
+			*changes_during_sync_r = TRUE;
+		}
 	}
-	if (seq1 > 0) {
-		ret = reassign_uids_in_seq_range(importer->box, seq1, seq2);
-		*changes_during_sync_r = TRUE;
+
+	if (lowest_unwanted_uid < importer->remote_uid_next) {
+		/* [highest wanted_uid+1 .. remote uidnext-1] */
+		mailbox_get_seq_range(importer->box, lowest_unwanted_uid,
+				      importer->remote_uid_next-1, &seq1, &seq2);
+		if (seq1 > 0) {
+			ret = reassign_uids_in_seq_range(importer->box,
+							 seq1, seq2);
+			*changes_during_sync_r = TRUE;
+		}
 	}
 	return ret;
 }
