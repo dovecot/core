@@ -1076,6 +1076,7 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 {
 	struct importer_new_mail *newmail, *const *newmailp;
 	uint32_t common_uid_next, new_uid;
+	bool linked_uid;
 
 	common_uid_next = I_MAX(importer->local_uid_next,
 				importer->remote_uid_next);
@@ -1094,19 +1095,28 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 		if (newmail->uid_is_usable) {
 			/* keep the UID */
 			new_uid = newmail->uid;
+			linked_uid = FALSE;
 		} else if (newmail->link != NULL &&
-			 newmail->link->uid_is_usable)
+			   newmail->link->uid_is_usable) {
 			new_uid = newmail->link->uid;
-		else
+			linked_uid = TRUE;
+		} else {
 			new_uid = common_uid_next++;
+			linked_uid = FALSE;
+		}
 
 		if (newmail->uid_in_local && newmail->uid != new_uid) {
 			/* local UID changed, reassign it by copying */
 			dsync_msg_update_uid(importer, newmail->uid, new_uid);
+		} else if (linked_uid && newmail->link->uid_in_local) {
+			/* the linked message already exists. we'll just need
+			   to forget about this message. */
+			i_assert(!newmail->uid_in_local);
+			newmail->skip = TRUE;
 		}
 		newmail->uid = new_uid;
 
-		if (newmail->link != NULL) {
+		if (newmail->link != NULL && !newmail->skip) {
 			/* skip the linked mail */
 			newmail->link->skip = TRUE;
 		}
