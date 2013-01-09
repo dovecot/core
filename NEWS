@@ -30,6 +30,13 @@ v2.2.UNSTABLE 2012-xx-xx  Timo Sirainen <tss@iki.fi>
 	+ LMTP proxy: Implemented XCLIENT extension for passing remote IP
 	  address through proxy.
 
+v2.1.13 2013-01-06  Timo Sirainen <tss@iki.fi>
+
+	- Some fixes to cache file changes in v2.1.11.
+	- fts-solr: Overlong UTF8 sequences in mails were rejected by Solr and
+	  caused the mails to not be indexed.
+	- virtual storage: Sorting mailbox by from/to/cc/bcc didn't work.
+
 v2.1.12 2012-11-30  Timo Sirainen <tss@iki.fi>
 
 	- dovecot-config in v2.1.11 caused build problems with Pigeonhole

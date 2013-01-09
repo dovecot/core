@@ -411,14 +411,14 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	struct dbox_save_mail *save_mail;
 	struct mdbox_mailbox *src_mbox;
 	struct mdbox_mail_index_record rec;
-	const void *data;
+	const void *guid_data;
+	guid_128_t wanted_guid;
 	bool expunged;
 
 	ctx->ctx.finished = TRUE;
 
 	if (mail->box->storage != _ctx->transaction->box->storage ||
-	    _ctx->transaction->box->disable_reflink_copy_to ||
-	    _ctx->data.guid != NULL)
+	    _ctx->transaction->box->disable_reflink_copy_to)
 		return mail_storage_copy(_ctx, mail);
 	src_mbox = (struct mdbox_mailbox *)mail->box;
 
@@ -427,6 +427,20 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	if (mdbox_mail_lookup(src_mbox, mail->transaction->view, mail->seq,
 			      &rec.map_uid) < 0)
 		return -1;
+
+	mail_index_lookup_ext(mail->transaction->view, mail->seq,
+			      src_mbox->guid_ext_id, &guid_data, &expunged);
+	if (guid_data == NULL || guid_128_is_empty(guid_data)) {
+		/* missing GUID, something's broken. don't copy using
+		   refcounting. */
+		return mail_storage_copy(_ctx, mail);
+	} else if (_ctx->data.guid != NULL &&
+		   (guid_128_from_string(_ctx->data.guid, wanted_guid) < 0 ||
+		    memcmp(guid_data, wanted_guid, sizeof(wanted_guid)) != 0)) {
+		/* GUID change requested. we can't do it with refcount
+		   copying */
+		return mail_storage_copy(_ctx, mail);
+	}
 
 	/* remember the map_uid so we can later increase its refcount */
 	if (!array_is_created(&ctx->copy_map_uids))
@@ -438,12 +452,8 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	mail_index_update_ext(ctx->ctx.trans, ctx->ctx.seq,
 			      ctx->mbox->ext_id, &rec, NULL);
 
-	mail_index_lookup_ext(mail->transaction->view, mail->seq,
-			      src_mbox->guid_ext_id, &data, &expunged);
-	if (data != NULL) {
-		mail_index_update_ext(ctx->ctx.trans, ctx->ctx.seq,
-				      ctx->mbox->guid_ext_id, data, NULL);
-	}
+	mail_index_update_ext(ctx->ctx.trans, ctx->ctx.seq,
+			      ctx->mbox->guid_ext_id, guid_data, NULL);
 	index_copy_cache_fields(_ctx, mail, ctx->ctx.seq);
 
 	save_mail = array_append_space(&ctx->mails);
