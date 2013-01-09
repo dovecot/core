@@ -73,6 +73,7 @@ struct dsync_mailbox_importer {
 	uint64_t local_initial_highestmodseq, local_initial_highestpvtmodseq;
 
 	unsigned int failed:1;
+	unsigned int debug:1;
 	unsigned int last_common_uid_found:1;
 	unsigned int cur_uid_has_change:1;
 	unsigned int cur_mail_saved:1;
@@ -165,6 +166,7 @@ dsync_mailbox_import_init(struct mailbox *box,
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MASTER_BRAIN) != 0;
 	importer->revert_local_changes =
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_REVERT_LOCAL_CHANGES) != 0;
+	importer->debug = (flags & DSYNC_MAILBOX_IMPORT_FLAG_DEBUG) != 0;
 
 	mailbox_get_open_status(importer->box, STATUS_UIDNEXT |
 				STATUS_HIGHESTMODSEQ | STATUS_HIGHESTPVTMODSEQ,
@@ -1489,20 +1491,26 @@ static int dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer,
 }
 
 static unsigned int
-dsync_mailbox_import_count_missing_guid_imports(HASH_TABLE_TYPE(guid_new_mail) imports)
+dsync_mailbox_import_count_missing_guid_imports(struct dsync_mailbox_importer *importer)
 {
 	struct hash_iterate_context *iter;
 	const char *key;
 	struct importer_new_mail *mail;
 	unsigned int msgs_left = 0;
 
-	iter = hash_table_iterate_init(imports);
-	while (hash_table_iterate(iter, imports, &key, &mail)) {
+	iter = hash_table_iterate_init(importer->import_guids);
+	while (hash_table_iterate(iter, importer->import_guids, &key, &mail)) {
 		for (; mail != NULL; mail = mail->next) {
-			if (!mail->uid_in_local) {
-				msgs_left++;
-				break;
+			if (mail->uid_in_local || mail->skip)
+				continue;
+
+			if (importer->debug) {
+				i_debug("Mailbox %s: Missing mail GUID=%s (UID=%u)",
+					mailbox_get_vname(importer->box),
+					mail->guid, mail->uid);
 			}
+			msgs_left++;
+			break;
 		}
 	}
 	hash_table_iterate_deinit(&iter);
@@ -1510,20 +1518,26 @@ dsync_mailbox_import_count_missing_guid_imports(HASH_TABLE_TYPE(guid_new_mail) i
 }
 
 static unsigned int
-dsync_mailbox_import_count_missing_uid_imports(HASH_TABLE_TYPE(uid_new_mail) imports)
+dsync_mailbox_import_count_missing_uid_imports(struct dsync_mailbox_importer *importer)
 {
 	struct hash_iterate_context *iter;
 	void *key;
 	struct importer_new_mail *mail;
 	unsigned int msgs_left = 0;
 
-	iter = hash_table_iterate_init(imports);
-	while (hash_table_iterate(iter, imports, &key, &mail)) {
+	iter = hash_table_iterate_init(importer->import_uids);
+	while (hash_table_iterate(iter, importer->import_uids, &key, &mail)) {
 		for (; mail != NULL; mail = mail->next) {
-			if (!mail->uid_in_local) {
-				msgs_left++;
-				break;
+			if (mail->uid_in_local || mail->skip)
+				continue;
+
+			if (importer->debug) {
+				i_debug("Mailbox %s: Missing mail UID=%u",
+					mailbox_get_vname(importer->box),
+					mail->uid);
 			}
+			msgs_left++;
+			break;
 		}
 	}
 	hash_table_iterate_deinit(&iter);
@@ -1546,10 +1560,10 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 	if (!importer->new_uids_assigned)
 		dsync_mailbox_import_assign_new_uids(importer);
 
-	msgs_left =
-		dsync_mailbox_import_count_missing_guid_imports(importer->import_guids) +
-		dsync_mailbox_import_count_missing_uid_imports(importer->import_uids);
-	if (!importer->failed && msgs_left > 0) {
+	msgs_left = importer->failed ? 0 :
+		dsync_mailbox_import_count_missing_guid_imports(importer) +
+		dsync_mailbox_import_count_missing_uid_imports(importer);
+	if (msgs_left > 0) {
 		i_error("%s: Remote didn't send %u expected message bodies",
 			mailbox_get_vname(importer->box), msgs_left);
 	}
