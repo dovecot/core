@@ -110,6 +110,10 @@ dsync_ibc_send_mail(struct dsync_ibc *ibc, const struct dsync_mail *mail);
 enum dsync_ibc_recv_ret
 dsync_ibc_recv_mail(struct dsync_ibc *ibc, struct dsync_mail **mail_r);
 
+/* Close any mail input streams that are kept open. This needs to be called
+   before the mail is attempted to be freed (usually on error conditions). */
+void dsync_ibc_close_mail_streams(struct dsync_ibc *ibc);
+
 bool dsync_ibc_has_failed(struct dsync_ibc *ibc);
 bool dsync_ibc_is_send_queue_full(struct dsync_ibc *ibc);
 bool dsync_ibc_has_pending_data(struct dsync_ibc *ibc);

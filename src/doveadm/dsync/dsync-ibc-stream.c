@@ -1489,6 +1489,16 @@ dsync_ibc_stream_recv_mail(struct dsync_ibc *_ibc, struct dsync_mail **mail_r)
 	return DSYNC_IBC_RECV_RET_OK;
 }
 
+static void dsync_ibc_stream_close_mail_streams(struct dsync_ibc *_ibc)
+{
+	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
+
+	if (ibc->mail_output != NULL) {
+		i_stream_unref(&ibc->mail_output);
+		dsync_ibc_stream_stop(ibc);
+	}
+}
+
 static bool dsync_ibc_stream_is_send_queue_full(struct dsync_ibc *_ibc)
 {
 	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
@@ -1531,6 +1541,7 @@ static const struct dsync_ibc_vfuncs dsync_ibc_stream_vfuncs = {
 	dsync_ibc_stream_recv_mail_request,
 	dsync_ibc_stream_send_mail,
 	dsync_ibc_stream_recv_mail,
+	dsync_ibc_stream_close_mail_streams,
 	dsync_ibc_stream_is_send_queue_full,
 	dsync_ibc_stream_has_pending_data
 };

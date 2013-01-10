@@ -434,6 +434,26 @@ dsync_ibc_pipe_recv_mail(struct dsync_ibc *ibc, struct dsync_mail **mail_r)
 	return DSYNC_IBC_RECV_RET_OK;
 }
 
+static void pipe_close_mail_streams(struct dsync_ibc_pipe *pipe)
+{
+	struct item *item;
+
+	if (array_count(&pipe->item_queue) > 0) {
+		item = array_idx_modifiable(&pipe->item_queue, 0);
+		if (item->type == ITEM_MAIL &&
+		    item->u.mail.input != NULL)
+			i_stream_unref(&item->u.mail.input);
+	}
+}
+
+static void dsync_ibc_pipe_close_mail_streams(struct dsync_ibc *ibc)
+{
+	struct dsync_ibc_pipe *pipe = (struct dsync_ibc_pipe *)ibc;
+
+	pipe_close_mail_streams(pipe);
+	pipe_close_mail_streams(pipe->remote);
+}
+
 static const struct dsync_ibc_vfuncs dsync_ibc_pipe_vfuncs = {
 	dsync_ibc_pipe_deinit,
 	dsync_ibc_pipe_send_handshake,
@@ -453,6 +473,7 @@ static const struct dsync_ibc_vfuncs dsync_ibc_pipe_vfuncs = {
 	dsync_ibc_pipe_recv_mail_request,
 	dsync_ibc_pipe_send_mail,
 	dsync_ibc_pipe_recv_mail,
+	dsync_ibc_pipe_close_mail_streams,
 	dsync_ibc_pipe_is_send_queue_full,
 	dsync_ibc_pipe_has_pending_data
 };

@@ -158,6 +158,7 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 	if (dsync_ibc_has_failed(brain->ibc) ||
 	    brain->state != DSYNC_STATE_DONE)
 		brain->failed = TRUE;
+	dsync_ibc_close_mail_streams(brain->ibc);
 
 	if (brain->box != NULL)
 		dsync_brain_sync_mailbox_deinit(brain);
