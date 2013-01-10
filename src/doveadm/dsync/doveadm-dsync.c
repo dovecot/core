@@ -18,6 +18,7 @@
 #include "mailbox-list.h"
 #include "doveadm-settings.h"
 #include "doveadm-mail.h"
+#include "doveadm-print.h"
 #include "dsync-brain.h"
 #include "dsync-ibc.h"
 #include "doveadm-dsync.h"
@@ -404,7 +405,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (ctx->state_input != NULL) {
 		string_t *str = t_str_new(128);
 		dsync_brain_get_state(brain, str);
-		printf("%s\n", str_c(str));
+		doveadm_print(str_c(str));
 	}
 
 	if (dsync_brain_deinit(&brain) < 0)
@@ -566,6 +567,9 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 	ctx->ctx.v.prerun = cmd_dsync_prerun;
 	ctx->ctx.v.run = cmd_dsync_run;
 	ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_CHANGED;
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
+	doveadm_print_header("state", "state",
+			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 	return &ctx->ctx;
 }
 
@@ -649,6 +653,9 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 	ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_CHANGED;
 	ctx->fd_in = STDIN_FILENO;
 	ctx->fd_out = STDOUT_FILENO;
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
+	doveadm_print_header("state", "state",
+			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 	return &ctx->ctx;
 }
 
