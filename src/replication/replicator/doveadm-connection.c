@@ -69,6 +69,7 @@ static void doveadm_close(struct doveadm_connection *conn)
 	conn->fd = -1;
 	conn->end_of_print = FALSE;
 	conn->cmd_sent = FALSE;
+	conn->handshaked = FALSE;
 }
 
 static void doveadm_disconnect(struct doveadm_connection *conn)
