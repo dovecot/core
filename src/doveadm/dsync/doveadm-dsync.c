@@ -8,6 +8,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "iostream-rawlog.h"
+#include "write-full.h"
 #include "str.h"
 #include "var-expand.h"
 #include "settings-parser.h"
@@ -53,6 +54,7 @@ struct dsync_cmd_context {
 	unsigned int backup:1;
 	unsigned int reverse_backup:1;
 	unsigned int remote:1;
+	unsigned int remote_user_prefix:1;
 };
 
 static bool legacy_dsync = FALSE;
@@ -106,6 +108,13 @@ run_cmd(struct dsync_cmd_context *ctx, const char *const *args)
 	ctx->fd_in = fd_out[0];
 	ctx->fd_out = fd_in[1];
 	ctx->fd_err = fd_err[0];
+
+	if (ctx->remote_user_prefix) {
+		const char *prefix =
+			t_strdup_printf("%s\n", ctx->ctx.cur_username);
+		if (write_full(ctx->fd_out, prefix, strlen(prefix)) < 0)
+			i_fatal("write(remote out) failed: %m");
+	}
 
 	fd_set_nonblock(ctx->fd_err, TRUE);
 	ctx->err_stream = i_stream_create_fd(ctx->fd_err, IO_BLOCK_SIZE, FALSE);
@@ -534,12 +543,19 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 		}
 	}
 
-	if (remote_cmd_args == NULL && ctx->local_location != NULL &&
-	    strncmp(ctx->local_location, "remote:", 7) == 0) {
-		/* this is a remote (ssh) command */
-		ctx->remote_name = ctx->local_location+7;
-		remote_cmd_args = parse_ssh_location(ctx, ctx->remote_name,
-						     _ctx->cur_username);
+	if (remote_cmd_args == NULL && ctx->local_location != NULL) {
+		if (strncmp(ctx->local_location, "remote:", 7) == 0) {
+			/* this is a remote (ssh) command */
+			ctx->remote_name = ctx->local_location+7;
+		} else if (strncmp(ctx->local_location, "remoteprefix:", 13) == 0) {
+			/* this is a remote (ssh) command with a "user\n"
+			   prefix sent before dsync actually starts */
+			ctx->remote_name = ctx->local_location+13;
+			ctx->remote_user_prefix = TRUE;
+		}
+		remote_cmd_args = ctx->remote_name == NULL ? NULL :
+			parse_ssh_location(ctx, ctx->remote_name,
+					   _ctx->cur_username);
 	}
 
 	if (remote_cmd_args != NULL) {
