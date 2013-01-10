@@ -1127,9 +1127,15 @@ mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name,
 
 	/* make sure the mailbox name doesn't contain any foolishness:
 	   "../" could give access outside the mailbox directory.
-	   "./" and "//" could fool ACL checks. */
+	   "./" and "//" could fool ACL checks.
+
+	   some mailbox formats have reserved directory names, such as
+	   Maildir's cur/new/tmp. if any of those would conflict with the
+	   mailbox directory name, it's not valid. maildir++ is kludged here as
+	   a special case because all of its mailbox dirs begin with "." */
 	allow_internal_dirs = list->v.is_internal_name == NULL ||
-		*list->set.maildir_name != '\0';
+		*list->set.maildir_name != '\0' ||
+		strcmp(list->name, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0;
 	T_BEGIN {
 		const char *const *names;
 
