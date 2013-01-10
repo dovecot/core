@@ -59,6 +59,7 @@ static void doveadm_print_sticky_headers(void)
 	unsigned int count;
 
 	headers = array_get(&ctx->headers, &count);
+	i_assert(count > 0);
 	for (;;) {
 		if (ctx->header_idx == count)
 			ctx->header_idx = 0;
