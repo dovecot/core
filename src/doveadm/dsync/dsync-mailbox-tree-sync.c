@@ -991,12 +991,15 @@ static void sync_create_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 		if (other_node == NULL)
 			other_node = sorted_tree_get(other_tree, name);
 		if (!dsync_mailbox_node_is_dir(other_node)) {
-			/* already exists */
+			/* mailbox with same name exists both locally and
+			   remotely, but they have different GUIDs and neither
+			   side has the other's GUID. typically this means that
+			   both sides had autocreated some mailboxes (e.g.
+			   INBOX). we'll just change the GUID for one of
+			   them. */
 			i_assert(node->existence == DSYNC_MAILBOX_NODE_EXISTS);
-			// FIXME: remove this assert? for conflicting GUIDs
-			/*i_assert(memcmp(node->mailbox_guid,
-					other_node->mailbox_guid,
-					sizeof(node->mailbox_guid)) == 0);*/
+			if (other_tree == ctx->local_tree)
+				sync_add_create_change(ctx, node, name);
 		} else {
 			other_node->existence = DSYNC_MAILBOX_NODE_EXISTS;
 			other_node->ns = node->ns;
