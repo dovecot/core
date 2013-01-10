@@ -147,7 +147,6 @@ get_ssh_cmd_args(struct dsync_cmd_context *ctx,
 		{ '\0', NULL, "login" },
 		{ '\0', NULL, "host" },
 		{ '\0', NULL, "lock_timeout" },
-		{ '\0', NULL, "namespace" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -162,7 +161,6 @@ get_ssh_cmd_args(struct dsync_cmd_context *ctx,
 	tab[1].value = login;
 	tab[2].value = host;
 	tab[3].value = dec2str(ctx->lock_timeout);
-	tab[4].value = ctx->namespace_prefix;
 
 	t_array_init(&cmd_args, 8);
 	str = t_str_new(128);
@@ -633,9 +631,6 @@ cmd_mailbox_dsync_server_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 'r':
 		ctx->rawlog_path = optarg;
 		break;
-	case 'n':
-		ctx->namespace_prefix = optarg;
-		break;
 	default:
 		return FALSE;
 	}
@@ -647,7 +642,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 	struct dsync_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
-	ctx->ctx.getopt_args = "El:n:r:";
+	ctx->ctx.getopt_args = "El:r:";
 	ctx->ctx.v.parse_arg = cmd_mailbox_dsync_server_parse_arg;
 	ctx->ctx.v.run = cmd_dsync_server_run;
 	ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_CHANGED;
