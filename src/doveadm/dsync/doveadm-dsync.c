@@ -666,12 +666,10 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 
 	io_loop_run(current_ioloop);
 
-	dsync_ibc_deinit(&ibc);
-	if (dsync_brain_deinit(&brain) < 0) {
+	if (dsync_brain_deinit(&brain) < 0)
 		_ctx->exit_code = EX_TEMPFAIL;
-		return -1;
-	}
-	return 0;
+	dsync_ibc_deinit(&ibc);
+	return _ctx->exit_code == 0 ? 0 : -1;
 }
 
 static bool
