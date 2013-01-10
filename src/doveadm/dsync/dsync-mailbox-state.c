@@ -7,7 +7,7 @@
 #include "hash.h"
 #include "dsync-mailbox-state.h"
 
-#define MAILBOX_SIZE (GUID_128_SIZE + 4 + 4 + 8)
+#define MAILBOX_SIZE (GUID_128_SIZE + 4 + 4 + 8 + 8)
 
 static void put_uint32(buffer_t *output, uint32_t num)
 {
