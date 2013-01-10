@@ -99,7 +99,7 @@ search_update_flag_changes(struct dsync_mailbox_exporter *exporter,
 
 	change->modseq = mail_get_modseq(mail);
 	change->pvt_modseq = mail_get_pvt_modseq(mail);
-	change->final_flags = mail_get_flags(mail) & MAIL_FLAGS_NONRECENT;
+	change->final_flags = mail_get_flags(mail);
 
 	keywords = mail_get_keywords(mail);
 	if (!array_is_created(&change->keyword_changes) &&
