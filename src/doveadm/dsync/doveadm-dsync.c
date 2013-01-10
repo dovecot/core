@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <sys/wait.h>
 
 #define DSYNC_LOCK_FILENAME ".dovecot-sync.lock"
 #define DSYNC_COMMON_GETOPT_ARGS "+adEfl:m:n:r:Rs:"
@@ -311,8 +312,18 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 static void
 cmd_dsync_run_remote(struct mail_user *user)
 {
+	int status;
+
 	i_set_failure_prefix("dsync-local(%s): ", user->username);
 	io_loop_run(current_ioloop);
+
+	/* wait for the remote command to finish to see any final errors */
+	if (wait(&status) == -1)
+		i_error("wait() failed: %m");
+	else if (WIFSIGNALED(status))
+		i_error("Remote command died with signal %d", WTERMSIG(status));
+	else if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+		i_error("Remote command returned error %d", WEXITSTATUS(status));
 }
 
 static const char *const *
