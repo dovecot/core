@@ -13,7 +13,6 @@
 
 #define DOVEADM_FAIL_TIMEOUT_MSECS (1000*5)
 #define DOVEADM_HANDSHAKE "VERSION\tdoveadm-server\t1\t0\n"
-#define MAX_INBUF_SIZE 1024
 
 struct doveadm_connection {
 	char *path;
@@ -23,12 +22,12 @@ struct doveadm_connection {
 	struct ostream *output;
 	struct timeout *to;
 
+	char *state;
 	doveadm_callback_t *callback;
 	void *context;
 
 	time_t last_connect_failure;
 	unsigned int handshaked:1;
-	unsigned int end_of_print:1;
 	unsigned int cmd_sent:1;
 };
 
@@ -43,7 +42,7 @@ struct doveadm_connection *doveadm_connection_init(const char *path)
 }
 
 static void doveadm_callback(struct doveadm_connection *conn,
-			     enum doveadm_reply reply)
+			     const char *state, enum doveadm_reply reply)
 {
 	doveadm_callback_t *callback = conn->callback;
 	void *context = conn->context;
@@ -53,7 +52,7 @@ static void doveadm_callback(struct doveadm_connection *conn,
 
 	conn->callback = NULL;
 	conn->context = NULL;
-	callback(reply, context);
+	callback(reply, state, context);
 }
 
 static void doveadm_close(struct doveadm_connection *conn)
@@ -67,7 +66,7 @@ static void doveadm_close(struct doveadm_connection *conn)
 	if (close(conn->fd) < 0)
 		i_error("close(doveadm) failed: %m");
 	conn->fd = -1;
-	conn->end_of_print = FALSE;
+	i_free_and_null(conn->state);
 	conn->cmd_sent = FALSE;
 	conn->handshaked = FALSE;
 }
@@ -76,7 +75,7 @@ static void doveadm_disconnect(struct doveadm_connection *conn)
 {
 	doveadm_close(conn);
 	if (conn->callback != NULL)
-		doveadm_callback(conn, DOVEADM_REPLY_FAIL);
+		doveadm_callback(conn, "", DOVEADM_REPLY_FAIL);
 }
 
 void doveadm_connection_deinit(struct doveadm_connection **_conn)
@@ -92,6 +91,8 @@ void doveadm_connection_deinit(struct doveadm_connection **_conn)
 
 static int doveadm_input_line(struct doveadm_connection *conn, const char *line)
 {
+	const char *state;
+
 	if (!conn->handshaked) {
 		if (strcmp(line, "+") != 0) {
 			i_error("%s: Unexpected handshake: %s",
@@ -105,21 +106,21 @@ static int doveadm_input_line(struct doveadm_connection *conn, const char *line)
 		i_error("%s: Unexpected input: %s", conn->path, line);
 		return -1;
 	}
-	if (!conn->end_of_print) {
-		if (line[0] == '\0')
-			conn->end_of_print = TRUE;
+	if (conn->state == NULL) {
+		conn->state = i_strdup(t_strcut(line, '\t'));
 		return 0;
 	}
+	state = t_strdup(conn->state);
 	line = t_strdup(line);
 	doveadm_close(conn);
 
 	if (line[0] == '+')
-		doveadm_callback(conn, DOVEADM_REPLY_OK);
+		doveadm_callback(conn, state, DOVEADM_REPLY_OK);
 	else if (line[0] == '-') {
 		if (strcmp(line+1, "NOUSER") == 0)
-			doveadm_callback(conn, DOVEADM_REPLY_NOUSER);
+			doveadm_callback(conn, "", DOVEADM_REPLY_NOUSER);
 		else
-			doveadm_callback(conn, DOVEADM_REPLY_FAIL);
+			doveadm_callback(conn, "", DOVEADM_REPLY_FAIL);
 	} else {
 		i_error("%s: Invalid input: %s", conn->path, line);
 		return -1;
@@ -160,7 +161,7 @@ static int doveadm_connect(struct doveadm_connection *conn)
 	}
 	conn->last_connect_failure = 0;
 	conn->io = io_add(conn->fd, IO_READ, doveadm_input, conn);
-	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE, FALSE);
+	conn->input = i_stream_create_fd(conn->fd, (size_t)-1, FALSE);
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	o_stream_nsend_str(conn->output, DOVEADM_HANDSHAKE);
@@ -173,7 +174,7 @@ static void doveadm_fail_timeout(struct doveadm_connection *conn)
 }
 
 void doveadm_connection_sync(struct doveadm_connection *conn,
-			     const char *username, bool full,
+			     const char *username, const char *state, bool full,
 			     doveadm_callback_t *callback, void *context)
 {
 	string_t *cmd;
@@ -197,6 +198,9 @@ void doveadm_connection_sync(struct doveadm_connection *conn,
 		str_append(cmd, "\tsync\t-d");
 		if (full)
 			str_append(cmd, "\t-f");
+		str_append(cmd, "\t-s\t");
+		if (state != NULL)
+			str_append(cmd, state);
 		str_append_c(cmd, '\n');
 		o_stream_nsend(conn->output, str_data(cmd), str_len(cmd));
 	}

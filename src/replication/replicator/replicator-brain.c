@@ -82,7 +82,8 @@ get_doveadm_connection(struct replicator_brain *brain)
 	return conn;
 }
 
-static void doveadm_sync_callback(enum doveadm_reply reply, void *context)
+static void doveadm_sync_callback(enum doveadm_reply reply, const char *state,
+				  void *context)
 {
 	struct replicator_sync_context *ctx = context;
 
@@ -90,6 +91,8 @@ static void doveadm_sync_callback(enum doveadm_reply reply, void *context)
 		/* user no longer exists, remove from replication */
 		replicator_queue_remove(ctx->brain->queue, &ctx->user);
 	} else {
+		i_free(ctx->user->state);
+		ctx->user->state = i_strdup_empty(state);
 		ctx->user->last_sync_failed =
 			reply != DOVEADM_REPLY_OK;
 		replicator_queue_push(ctx->brain->queue, ctx->user);
@@ -125,7 +128,7 @@ doveadm_replicate(struct replicator_brain *brain, struct replicator_user *user)
 	ctx = i_new(struct replicator_sync_context, 1);
 	ctx->brain = brain;
 	ctx->user = user;
-	doveadm_connection_sync(conn, user->username, full,
+	doveadm_connection_sync(conn, user->username, user->state, full,
 				doveadm_sync_callback, ctx);
 	return TRUE;
 }

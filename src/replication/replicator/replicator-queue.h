@@ -8,12 +8,13 @@ struct replicator_user {
 	struct priorityq_item item;
 
 	char *username;
-	enum replication_priority priority;
+	char *state;
 	/* last time this user's state was updated */
 	time_t last_update;
 	/* last_fast_run is always >= last_full_run. */
 	time_t last_fast_sync, last_full_sync;
 
+	enum replication_priority priority;
 	/* User isn't currently in replication queue */
 	unsigned int popped:1;
 	/* Last replication sync failed */

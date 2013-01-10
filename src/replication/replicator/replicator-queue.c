@@ -174,6 +174,7 @@ void replicator_queue_remove(struct replicator_queue *queue,
 		priorityq_remove(queue->user_queue, &user->item);
 	hash_table_remove(queue->user_hash, user->username);
 
+	i_free(user->state);
 	i_free(user->username);
 	i_free(user);
 
