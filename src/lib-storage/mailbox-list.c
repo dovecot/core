@@ -896,11 +896,11 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 
 	if (list->mail_set->mail_debug && name == NULL) {
 		i_debug("Namespace %s: Using permissions from %s: "
-			"mode=0%o gid=%ld", list->ns->prefix,
+			"mode=0%o gid=%s", list->ns->prefix,
 			path != NULL ? path : "",
 			(int)permissions_r->dir_create_mode,
-			permissions_r->file_create_gid == (gid_t)-1 ? -1L :
-			(long)permissions_r->file_create_gid);
+			permissions_r->file_create_gid == (gid_t)-1 ? "default" :
+			dec2str(permissions_r->file_create_gid));
 	}
 }
 
