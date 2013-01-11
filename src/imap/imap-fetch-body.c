@@ -33,7 +33,8 @@ static void fetch_read_error(struct imap_fetch_context *ctx)
 
 	errno = state->cur_input->stream_errno;
 	mail_storage_set_critical(state->cur_mail->box->storage,
-		"read(%s) failed: %m (FETCH for mailbox %s UID %u)",
+		"read(%s) failed: %m (FETCH %s for mailbox %s UID %u)",
+		state->cur_human_name,
 		i_stream_get_name(state->cur_input),
 		mailbox_get_vname(state->cur_mail->box), state->cur_mail->uid);
 }
@@ -124,6 +125,31 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 	return 1;
 }
 
+static const char *
+get_body_human_name(pool_t pool, struct imap_fetch_body_data *body)
+{
+	string_t *str;
+	uoff_t partial_offset, partial_size;
+
+	str = t_str_new(64);
+	if (body->binary)
+		str_append(str, "BINARY[");
+	else
+		str_append(str, "BODY[");
+	str_append(str, body->section);
+	str_append_c(str, ']');
+
+	partial_offset = imap_msgpart_get_partial_offset(body->msgpart);
+	partial_size = imap_msgpart_get_partial_size(body->msgpart);
+	if (partial_offset != 0 || partial_size != (uoff_t)-1) {
+		str_printfa(str, "<%"PRIuUOFF_T, partial_offset);
+		if (partial_size != (uoff_t)-1)
+			str_printfa(str, ".%"PRIuUOFF_T, partial_size);
+		str_append_c(str, '>');
+	}
+	return p_strdup(pool, str_c(str));
+}
+
 static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 			      struct imap_fetch_body_data *body)
 {
@@ -148,7 +174,7 @@ static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 	ctx->state.cur_input = result.input;
 	ctx->state.cur_size = result.size;
 	ctx->state.cur_size_field = result.size_field;
-	ctx->state.cur_human_name = body->section;
+	ctx->state.cur_human_name = get_body_human_name(ctx->ctx_pool, body);
 
 	str = get_prefix(&ctx->state, body, ctx->state.cur_size,
 			 result.binary_decoded_input_has_nuls);
