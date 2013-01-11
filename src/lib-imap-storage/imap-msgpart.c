@@ -320,6 +320,11 @@ uoff_t imap_msgpart_get_partial_offset(struct imap_msgpart *msgpart)
 	return msgpart->partial_offset;
 }
 
+uoff_t imap_msgpart_get_partial_size(struct imap_msgpart *msgpart)
+{
+	return msgpart->partial_size;
+}
+
 enum mail_fetch_field imap_msgpart_get_fetch_data(struct imap_msgpart *msgpart)
 {
 	return msgpart->wanted_fields;

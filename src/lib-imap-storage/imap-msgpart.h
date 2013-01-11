@@ -33,6 +33,7 @@ void imap_msgpart_set_decode_to_binary(struct imap_msgpart *msgpart);
 void imap_msgpart_set_partial(struct imap_msgpart *msgpart,
 			      uoff_t offset, uoff_t size);
 uoff_t imap_msgpart_get_partial_offset(struct imap_msgpart *msgpart);
+uoff_t imap_msgpart_get_partial_size(struct imap_msgpart *msgpart);
 /* Return wanted_fields mask. */
 enum mail_fetch_field imap_msgpart_get_fetch_data(struct imap_msgpart *msgpart);
 
