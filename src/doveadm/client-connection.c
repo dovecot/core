@@ -19,7 +19,7 @@
 
 #include <unistd.h>
 
-#define MAX_INBUF_SIZE 1024
+#define MAX_INBUF_SIZE (1024*1024)
 
 static void client_connection_input(struct client_connection *conn);
 
