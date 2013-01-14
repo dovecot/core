@@ -399,6 +399,34 @@ cmd_acl_delete_alloc(void)
 }
 
 static int
+cmd_acl_recalc_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
+{
+	struct acl_user *auser = ACL_USER_CONTEXT(user);
+
+	if (auser == NULL) {
+		i_error("ACL not enabled for %s", user->username);
+		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
+		return -1;
+	}
+	if (acl_lookup_dict_rebuild(auser->acl_lookup_dict) < 0) {
+		i_error("Failed to recalculate ACL dicts");
+		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);
+		return -1;
+	}
+	return 0;
+}
+
+static struct doveadm_mail_cmd_context *
+cmd_acl_recalc_alloc(void)
+{
+	struct doveadm_mail_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
+	ctx->v.run = cmd_acl_recalc_run;
+	return ctx;
+}
+
+static int
 cmd_acl_debug_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 			   struct mail_user *user, const char *mailbox,
 			   struct mailbox **box_r)
@@ -591,6 +619,7 @@ static struct doveadm_mail_cmd acl_commands[] = {
 	{ cmd_acl_add_alloc, "acl add", "<mailbox> <id> <right> [<right> ...]" },
 	{ cmd_acl_remove_alloc, "acl remove", "<mailbox> <id> <right> [<right> ...]" },
 	{ cmd_acl_delete_alloc, "acl delete", "<mailbox> <id>" },
+	{ cmd_acl_recalc_alloc, "acl recalc", "" },
 	{ cmd_acl_debug_alloc, "acl debug", "<mailbox>" }
 };
 
