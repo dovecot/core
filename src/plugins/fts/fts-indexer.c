@@ -191,7 +191,11 @@ static int fts_indexer_input(struct fts_indexer_context *ctx)
 			return 1;
 		}
 	}
-	if (ctx->input->eof || ctx->input->stream_errno != 0) {
+	if (ctx->input->stream_errno != 0) {
+		i_error("indexer read() failed: %m");
+		return -1;
+	}
+	if (ctx->input->eof) {
 		i_error("indexer disconnected unexpectedly");
 		return -1;
 	}

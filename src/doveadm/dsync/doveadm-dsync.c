@@ -61,13 +61,25 @@ static bool legacy_dsync = FALSE;
 
 static void remote_error_input(struct dsync_cmd_context *ctx)
 {
+	const unsigned char *data;
+	size_t size;
 	const char *line;
 
-	while ((line = i_stream_read_next_line(ctx->err_stream)) != NULL)
-		fprintf(stderr, "%s\n", line);
-
-	if (ctx->err_stream->eof && ctx->io_err != NULL)
-		io_remove(&ctx->io_err);
+	switch (i_stream_read(ctx->err_stream)) {
+	case -2:
+		data = i_stream_get_data(ctx->err_stream, &size);
+		fprintf(stderr, "%.*s", (int)size, data);
+		i_stream_skip(ctx->err_stream, size);
+		break;
+	case -1:
+		if (ctx->io_err != NULL)
+			io_remove(&ctx->io_err);
+		break;
+	default:
+		while ((line = i_stream_next_line(ctx->err_stream)) != NULL)
+			fprintf(stderr, "%s\n", line);
+		break;
+	}
 }
 
 static void

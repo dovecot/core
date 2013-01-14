@@ -70,7 +70,7 @@ static int script_contents_read(struct mail_user *user)
 	struct istream *input;
 	struct content *content;
 	bool eof_seen = FALSE;
-	int fd;
+	int fd, ret = 0;
 
 	fd = script_connect(user, &path);
 	if (fd == -1)
@@ -99,14 +99,17 @@ static int script_contents_read(struct mail_user *user)
 		content->content_type = args[0];
 		content->extensions = (const void *)(args+1);
 	}
-	if (!eof_seen) {
+	if (input->stream_errno != 0) {
+		i_error("parser script read() failed: %m");
+		ret = -1;
+	} else if (!eof_seen) {
 		if (input->v_offset == 0)
 			i_error("parser script didn't send any data");
 		else
 			i_error("parser script didn't send empty EOF line");
 	}
 	i_stream_destroy(&input);
-	return 0;
+	return ret;
 }
 
 static bool script_support_content(struct mail_user *user,

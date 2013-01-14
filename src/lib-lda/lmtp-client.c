@@ -540,7 +540,10 @@ static void lmtp_client_input(struct lmtp_client *client)
 			str_truncate(client->input_multiline, 0);
 	}
 
-	if (client->input->stream_errno != 0) {
+	if (client->input->stream_errno == ENOBUFS) {
+		lmtp_client_fail(client,
+				 "501 5.5.4 Command reply line too long");
+	} else if (client->input->stream_errno != 0) {
 		errno = client->input->stream_errno;
 		i_error("lmtp client: read() failed: %m");
 		lmtp_client_fail(client, ERRSTR_TEMP_REMOTE_FAILURE

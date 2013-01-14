@@ -224,7 +224,7 @@ static void server_connection_input(struct server_connection *conn)
 		}
 	}
 
-	if (i_stream_read(conn->input) == -1) {
+	if (i_stream_read(conn->input) < 0) {
 		/* disconnected */
 		server_connection_destroy(&conn);
 		return;
