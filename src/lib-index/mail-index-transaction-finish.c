@@ -224,7 +224,7 @@ mail_index_convert_to_uid_ranges(struct mail_index_transaction *t,
 {
 	struct seq_range *range, *new_range;
 	unsigned int i, count;
-	uint32_t uid1, uid2;
+	uint32_t uid1, uid2, prev_uid = 0;
 
 	if (!array_is_created(array))
 		return;
@@ -235,10 +235,12 @@ mail_index_convert_to_uid_ranges(struct mail_index_transaction *t,
 
 		uid1 = mail_index_transaction_get_uid(t, range->seq1);
 		uid2 = mail_index_transaction_get_uid(t, range->seq2);
+		i_assert(uid1 > prev_uid);
 		if (uid2 - uid1 == range->seq2 - range->seq1) {
 			/* simple conversion */
 			range->seq1 = uid1;
 			range->seq2 = uid2;
+			prev_uid = uid2;
 		} else {
 			/* remove expunged UIDs */
 			new_range = array_insert_space(array, i);
@@ -249,9 +251,11 @@ mail_index_convert_to_uid_ranges(struct mail_index_transaction *t,
 			new_range->seq1 = uid1;
 			new_range->seq2 = get_nonexpunged_uid2(t, uid1,
 							       range->seq1);
+			i_assert(new_range->seq2 < uid2);
 
 			/* continue the range without the inserted seqs */
 			range->seq1 += new_range->seq2 - new_range->seq1 + 1;
+			prev_uid = new_range->seq2;
 		}
 	}
 }
