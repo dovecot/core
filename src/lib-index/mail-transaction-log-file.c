@@ -32,12 +32,26 @@ mail_transaction_log_mark_corrupted(struct mail_transaction_log_file *file)
 {
 	unsigned int offset =
 		offsetof(struct mail_transaction_log_header, indexid);
+	int flags;
 
 	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file) ||
 	    file->log->index->readonly)
 		return;
 
-	/* indexid=0 marks the log file as corrupted */
+	/* indexid=0 marks the log file as corrupted. we opened the file with
+	   O_APPEND, and now we need to drop it for pwrite() to work (at least
+	   in Linux) */
+	flags = fcntl(file->fd, F_GETFL, 0);
+	if (flags < 0) {
+		mail_index_file_set_syscall_error(file->log->index,
+			file->filepath, "fcntl(F_GETFL)");
+		return;
+	}
+	if (fcntl(file->fd, F_SETFL, flags & ~O_APPEND) < 0) {
+		mail_index_file_set_syscall_error(file->log->index,
+			file->filepath, "fcntl(F_SETFL)");
+		return;
+	}
 	if (pwrite_full(file->fd, &file->hdr.indexid,
 			sizeof(file->hdr.indexid), offset) < 0) {
 		mail_index_file_set_syscall_error(file->log->index,
