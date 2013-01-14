@@ -387,8 +387,15 @@ char *i_stream_read_next_line(struct istream *stream)
 		if (line != NULL)
 			break;
 
-		if (i_stream_read(stream) <= 0)
+		switch (i_stream_read(stream)) {
+		case -2:
+			stream->stream_errno = ENOBUFS;
+			return NULL;
+		case -1:
 			return i_stream_last_line(stream->real_stream);
+		case 0:
+			return NULL;
+		}
 	}
 	return line;
 }

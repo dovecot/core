@@ -123,7 +123,8 @@ uoff_t i_stream_get_absolute_offset(struct istream *stream);
    if the last line should be returned if it doesn't end with LF. */
 char *i_stream_next_line(struct istream *stream);
 /* Like i_stream_next_line(), but reads for more data if needed. Returns NULL
-   if more data is needed or error occurred. */
+   if more data is needed or error occurred. If the input buffer gets full,
+   stream_errno is set to ENOBUFS. */
 char *i_stream_read_next_line(struct istream *stream);
 /* Returns TRUE if the last line read with i_stream_next_line() ended with
    CRLF (instead of LF). */
