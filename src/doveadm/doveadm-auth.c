@@ -415,8 +415,11 @@ static void cmd_user(int argc, char *argv[])
 
 	if (!userdb_only) {
 		storage_service = mail_storage_service_init(master_service, NULL,
+			MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
+			MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR |
 			MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
-			MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP);
+			MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS |
+			MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES);
 	}
 
 	while ((input.username = argv[optind++]) != NULL) {
