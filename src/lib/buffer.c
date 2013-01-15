@@ -39,6 +39,7 @@ static void buffer_alloc(struct real_buffer *buf, size_t size)
 static inline void
 buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 {
+	unsigned int extra;
 	size_t new_size;
 
 	if (unlikely((size_t)-1 - pos < data_size)) {
@@ -53,7 +54,13 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 
 		memset(buf->w_buffer + buf->used, 0, max - buf->used);
 	}
-	if (new_size > buf->alloc) {
+
+	/* always keep +1 byte allocated available in case str_c() is called
+	   for this buffer. this is mainly for cases where the buffer is
+	   allocated from data stack, and str_c() is called in a separate stack
+	   frame. */
+	extra = buf->dynamic ? 1 : 0;
+	if (new_size + extra > buf->alloc) {
 		if (unlikely(!buf->dynamic)) {
 			i_panic("Buffer full (%"PRIuSIZE_T" > %"PRIuSIZE_T", "
 				"pool %s)", pos + data_size, buf->alloc,
@@ -62,7 +69,7 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 		}
 
 		buffer_alloc(buf, pool_get_exp_grown_size(buf->pool, buf->alloc,
-							  new_size));
+							  new_size + extra));
 	}
 #if 0
 	else if (new_size > buf->used && buf->alloced &&
