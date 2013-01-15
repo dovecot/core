@@ -2478,17 +2478,9 @@ for storage in $mail_storages; do
   fi
   if test $storage = imapc; then
     mailbox_list_drivers="$mailbox_list_drivers imapc"
-    want_ssl_libs=yes
-  fi
-  if test $storage = pop3c; then
-    want_ssl_libs=yes
   fi
 done
 LINKED_STORAGE_LDADD=
-if test "$want_ssl_libs" = yes; then
-  LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS \$(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la"
-  LINKED_STORAGE_LDADD="$SSL_LIBS"
-fi
 AC_SUBST(LINKED_STORAGE_LIBS)
 AC_SUBST(LINKED_STORAGE_LDADD)
 AC_SUBST(mailbox_list_drivers)
@@ -2528,7 +2520,6 @@ AC_SUBST(LIBDOVECOT_STORAGE)
 AC_SUBST(LIBDOVECOT_STORAGE_DEPS)
 AC_SUBST(LIBDOVECOT_LOGIN)
 AC_SUBST(LIBDOVECOT_SQL)
-AC_SUBST(LIBDOVECOT_SSL)
 AC_SUBST(LIBDOVECOT_COMPRESS)
 AC_SUBST(LIBDOVECOT_LDA)
 
