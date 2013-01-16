@@ -124,7 +124,7 @@ index_rebuild_header(struct index_rebuild_context *ctx,
 	else if (backup_hdr != NULL && backup_hdr->next_uid != 0)
 		next_uid = backup_hdr->next_uid;
 	else
-		next_uid = gen_uidvalidity(ctx->box->list);
+		next_uid = 1;
 	if (next_uid > trans_hdr->next_uid) {
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, next_uid),
