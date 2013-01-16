@@ -110,6 +110,7 @@ static int sdbox_sync_index(struct sdbox_sync_context *ctx)
 		mail_storage_set_critical(box->storage,
 			"sdbox %s: Broken index: missing UIDVALIDITY",
 			mailbox_get_path(box));
+		sdbox_set_mailbox_corrupted(box);
 		return 0;
 	}
 
