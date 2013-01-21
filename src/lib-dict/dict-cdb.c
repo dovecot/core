@@ -102,7 +102,7 @@ static int cdb_dict_lookup(struct dict *_dict, pool_t pool,
 		*value_r = NULL;
 		/* something bad with db */
 		if (ret < 0) {
-			i_error("cdb_lookup(%s) failed: %m", dict->path);
+			i_error("cdb_find(%s) failed: %m", dict->path);
 			return -1;
 		}
 		/* found nothing */
@@ -110,8 +110,11 @@ static int cdb_dict_lookup(struct dict *_dict, pool_t pool,
 	}
 
 	datalen = cdb_datalen(&dict->cdb);
-	data = p_new(pool, char, datalen + 1);
-	cdb_read(&dict->cdb, data, datalen, cdb_datapos(&dict->cdb));
+	data = p_malloc(pool, datalen + 1);
+	if (cdb_read(&dict->cdb, data, datalen, cdb_datapos(&dict->cdb)) < 0) {
+		i_error("cdb_read(%s) failed: %m", dict->path);
+		return -1;
+	}
 	*value_r = data;
 	return 1;
 }
