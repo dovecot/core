@@ -282,12 +282,13 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 
 int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view)
 {
-	struct mail_transaction_log_file *file, *first = view->log->files;
-
-	i_assert(first != NULL);
+	struct mail_transaction_log_file *file, *first;
 
 	/* make sure .log.2 file is opened */
 	(void)mail_transaction_log_find_file(view->log, 1, FALSE, &file);
+
+	first = view->log->files;
+	i_assert(first != NULL);
 
 	for (file = view->log->files; file != NULL; file = file->next) {
 		if (mail_transaction_log_file_map(file, file->hdr.hdr_size,
