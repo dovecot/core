@@ -644,12 +644,14 @@ static int fs_posix_delete(struct fs_file *_file)
 	return 0;
 }
 
-static struct fs_iter *fs_posix_iter_init(struct fs *fs, const char *path)
+static struct fs_iter *
+fs_posix_iter_init(struct fs *fs, const char *path, enum fs_iter_flags flags)
 {
 	struct posix_fs_iter *iter;
 
 	iter = i_new(struct posix_fs_iter, 1);
 	iter->iter.fs = fs;
+	iter->iter.flags = flags;
 	iter->path = i_strdup(path);
 	iter->dir = opendir(path);
 	if (iter->dir == NULL && errno != ENOENT) {
@@ -659,18 +661,20 @@ static struct fs_iter *fs_posix_iter_init(struct fs *fs, const char *path)
 	return &iter->iter;
 }
 
-static bool fs_posix_iter_want(const char *dir, const char *fname)
+static bool fs_posix_iter_want(struct posix_fs_iter *iter, const char *fname)
 {
 	bool ret;
 
 	T_BEGIN {
-		const char *path = t_strdup_printf("%s/%s", dir, fname);
+		const char *path = t_strdup_printf("%s/%s", iter->path, fname);
 		struct stat st;
 
 		if (stat(path, &st) < 0)
 			ret = FALSE;
+		else if (!S_ISDIR(st.st_mode))
+			ret = (iter->iter.flags & FS_ITER_FLAG_DIRS) == 0;
 		else
-			ret = !S_ISDIR(st.st_mode);
+			ret = (iter->iter.flags & FS_ITER_FLAG_DIRS) != 0;
 	} T_END;
 	return ret;
 }
@@ -684,24 +688,32 @@ static const char *fs_posix_iter_next(struct fs_iter *_iter)
 		return NULL;
 
 	errno = 0;
-	while ((d = readdir(iter->dir)) != NULL) {
+	for (; (d = readdir(iter->dir)) != NULL; errno = 0) {
+		if (strcmp(d->d_name, ".") == 0 ||
+		    strcmp(d->d_name, "..") == 0)
+			continue;
 #ifdef HAVE_DIRENT_D_TYPE
 		switch (d->d_type) {
 		case DT_UNKNOWN:
-			if (!fs_posix_iter_want(iter->path, d->d_name))
+			if (!fs_posix_iter_want(iter, d->d_name))
 				break;
 			/* fall through */
 		case DT_REG:
 		case DT_LNK:
-			return d->d_name;
+			if ((iter->iter.flags & FS_ITER_FLAG_DIRS) == 0)
+				return d->d_name;
+			break;
+		case DT_DIR:
+			if ((iter->iter.flags & FS_ITER_FLAG_DIRS) != 0)
+				return d->d_name;
+			break;
 		default:
 			break;
 		}
 #else
-		if (fs_posix_iter_want(iter->path, d->d_name))
+		if (fs_posix_iter_want(iter, d->d_name))
 			return d->d_name;
 #endif
-		errno = 0;
 	}
 	if (errno != 0) {
 		iter->err = errno;

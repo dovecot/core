@@ -45,7 +45,8 @@ struct fs_vfuncs {
 	int (*rename)(struct fs_file *src, struct fs_file *dest);
 	int (*delete_file)(struct fs_file *file);
 
-	struct fs_iter *(*iter_init)(struct fs *fs, const char *path);
+	struct fs_iter *(*iter_init)(struct fs *fs, const char *path,
+				     enum fs_iter_flags flags);
 	const char *(*iter_next)(struct fs_iter *iter);
 	int (*iter_deinit)(struct fs_iter *iter);
 };
@@ -75,6 +76,7 @@ struct fs_lock {
 
 struct fs_iter {
 	struct fs *fs;
+	enum fs_iter_flags flags;
 };
 
 extern const struct fs fs_class_posix;

@@ -52,6 +52,11 @@ enum fs_open_flags {
 	FS_OPEN_FLAG_ASYNC		= 0x20
 };
 
+enum fs_iter_flags {
+	/* Iterate only directories, not files */
+	FS_ITER_FLAG_DIRS	= 0x01
+};
+
 struct fs_settings {
 	/* Dovecot instance's base_dir */
 	const char *base_dir;
@@ -168,10 +173,11 @@ int fs_rename(struct fs_file *src, struct fs_file *dest);
 int fs_lock(struct fs_file *file, unsigned int secs, struct fs_lock **lock_r);
 void fs_unlock(struct fs_lock **lock);
 
-/* Iterate through all files (but not directories) in the given directory.
+/* Iterate through all files or directories in the given directory.
    Doesn't recurse to child directories. It's not an error to iterate a
    nonexistent directory. */
-struct fs_iter *fs_iter_init(struct fs *fs, const char *path);
+struct fs_iter *
+fs_iter_init(struct fs *fs, const char *path, enum fs_iter_flags flags);
 /* Returns 0 if ok, -1 if iteration failed. */
 int fs_iter_deinit(struct fs_iter **iter);
 /* Returns the next filename. */

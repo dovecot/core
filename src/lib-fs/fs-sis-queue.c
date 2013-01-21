@@ -328,11 +328,12 @@ static int fs_sis_queue_delete(struct fs_file *_file)
 }
 
 static struct fs_iter *
-fs_sis_queue_iter_init(struct fs *_fs, const char *path)
+fs_sis_queue_iter_init(struct fs *_fs, const char *path,
+		       enum fs_iter_flags flags)
 {
 	struct sis_queue_fs *fs = (struct sis_queue_fs *)_fs;
 
-	return fs_iter_init(fs->super, path);
+	return fs_iter_init(fs->super, path, flags);
 }
 
 const struct fs fs_class_sis_queue = {

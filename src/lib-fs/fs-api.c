@@ -359,9 +359,10 @@ int fs_delete(struct fs_file *file)
 	return file->fs->v.delete_file(file);
 }
 
-struct fs_iter *fs_iter_init(struct fs *fs, const char *path)
+struct fs_iter *
+fs_iter_init(struct fs *fs, const char *path, enum fs_iter_flags flags)
 {
-	return fs->v.iter_init(fs, path);
+	return fs->v.iter_init(fs, path, flags);
 }
 
 int fs_iter_deinit(struct fs_iter **_iter)

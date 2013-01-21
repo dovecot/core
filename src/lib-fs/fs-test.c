@@ -105,12 +105,13 @@ static void fs_test_file_delete(struct fs *fs, const char *path)
 	fs_file_deinit(&file);
 }
 
-static void fs_test_file_iter(struct fs *fs, const char *path)
+static void
+fs_test_file_iter(struct fs *fs, const char *path, enum fs_iter_flags flags)
 {
 	struct fs_iter *iter;
 	const char *fname;
 
-	iter = fs_iter_init(fs, path);
+	iter = fs_iter_init(fs, path, flags);
 	while ((fname = fs_iter_next(iter)) != NULL)
 		printf("%s\n", fname);
 	if (fs_iter_deinit(&iter) < 0) {
@@ -144,7 +145,9 @@ int main(int argc, char *argv[])
 	else if (strcmp(argv[3], "delete") == 0)
 		fs_test_file_delete(fs, argv[4]);
 	else if (strcmp(argv[3], "iter") == 0)
-		fs_test_file_iter(fs, argv[4]);
+		fs_test_file_iter(fs, argv[4], 0);
+	else if (strcmp(argv[3], "iter-dir") == 0)
+		fs_test_file_iter(fs, argv[4], FS_ITER_FLAG_DIRS);
 	else
 		i_fatal("Unknown command: %s", argv[3]);
 
