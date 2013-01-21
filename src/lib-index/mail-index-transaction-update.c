@@ -201,7 +201,6 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 	unsigned int i, count;
 	struct seq_range *range;
 	uint32_t next_uid;
-	bool used_existing_uids;
 	
 	if (!array_is_created(&t->appends))
 		return;
@@ -217,14 +216,12 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 	}
 
 	/* assign missing uids */
-	used_existing_uids = FALSE;
 	for (i = 0; i < count; i++) {
-		if (recs[i].uid == 0 || recs[i].uid < first_uid) {
+		if (recs[i].uid == 0 || recs[i].uid < first_uid)
 			recs[i].uid = next_uid++;
-			if (used_existing_uids)
+		else {
+			if (next_uid != first_uid)
 				t->appends_nonsorted = TRUE;
-		} else {
-			used_existing_uids = TRUE;
 		}
 	}
 

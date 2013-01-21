@@ -130,8 +130,17 @@ void mail_index_transaction_sort_appends(struct mail_index_transaction *t)
 	uint32_t *old_to_newseq_map;
 	unsigned int i, count;
 
-	if (!t->appends_nonsorted || !array_is_created(&t->appends))
+	if (!array_is_created(&t->appends))
 		return;
+	if (!t->appends_nonsorted) {
+#ifdef DEBUG
+		recs = array_get_modifiable(&t->appends, &count);
+		i_assert(count > 0);
+		for (i = 1; i < count; i++)
+			i_assert(recs[i-1].uid < recs[i].uid);
+#endif
+		return;
+	}
 
 	/* first make a copy of the UIDs and map them to sequences */
 	recs = array_get_modifiable(&t->appends, &count);
