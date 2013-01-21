@@ -118,7 +118,7 @@ log_add_expunge_guid(struct dsync_transaction_log_scan *ctx,
 
 	end = CONST_PTR_OFFSET(data, hdr->size);
 	for (; rec != end; rec++) {
-		if (!external && !mail_index_lookup_seq(view, rec->uid, &seq)) {
+		if (!external && mail_index_lookup_seq(view, rec->uid, &seq)) {
 			/* expunge request that hasn't been actually done yet.
 			   we check non-external ones because they might have
 			   the GUID while external ones don't. */
@@ -126,7 +126,8 @@ log_add_expunge_guid(struct dsync_transaction_log_scan *ctx,
 		}
 		if (export_change_get(ctx, rec->uid,
 				      DSYNC_MAIL_CHANGE_TYPE_EXPUNGE,
-				      &change)) T_BEGIN {
+				      &change) &&
+		    !guid_128_is_empty(rec->guid_128)) T_BEGIN {
 			change->guid = p_strdup(ctx->pool,
 				guid_128_to_string(rec->guid_128));
 		} T_END;
@@ -150,7 +151,7 @@ log_add_expunge_guid_uid(struct dsync_transaction_log_scan *ctx, const void *dat
 				       DSYNC_MAIL_CHANGE_TYPE_EXPUNGE,
 				       &change))
 			i_unreached();
-		T_BEGIN {
+		if (!guid_128_is_empty(rec->guid_128)) T_BEGIN {
 			change->guid = p_strdup(ctx->pool,
 						guid_128_to_string(rec->guid_128));
 		} T_END;
