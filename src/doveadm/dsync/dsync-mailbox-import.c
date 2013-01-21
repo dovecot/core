@@ -432,6 +432,22 @@ dsync_import_set_mail(struct dsync_mailbox_importer *importer,
 	return TRUE;
 }
 
+static bool dsync_check_cur_guid(struct dsync_mailbox_importer *importer,
+				 const struct dsync_mail_change *change)
+{
+	if (change->guid == NULL || *change->guid == '\0')
+		return TRUE;
+	if (strcmp(importer->cur_guid, change->guid) != 0) {
+		i_error("Mailbox %s: Unexpected GUID mismatch for "
+			"UID=%u: %s != %s", mailbox_get_vname(importer->box),
+			change->uid, importer->cur_guid, change->guid);
+		importer->last_common_uid = 1;
+		importer->failed = TRUE;
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static void
 merge_flags(uint32_t local_final, uint32_t local_add, uint32_t local_remove,
 	    uint32_t remote_final, uint32_t remote_add, uint32_t remote_remove,
@@ -718,9 +734,11 @@ dsync_mailbox_import_flag_change(struct dsync_mailbox_importer *importer,
 	i_assert((change->add_flags & change->remove_flags) == 0);
 
 	if (importer->cur_mail != NULL &&
-	    importer->cur_mail->uid == change->uid)
+	    importer->cur_mail->uid == change->uid) {
+		if (!dsync_check_cur_guid(importer, change))
+			return;
 		mail = importer->cur_mail;
-	else {
+	} else {
 		if (!dsync_import_set_mail(importer, change))
 			return;
 		mail = importer->mail;
@@ -833,7 +851,8 @@ dsync_mailbox_import_expunge(struct dsync_mailbox_importer *importer,
 	} else if (change->uid == importer->last_common_uid) {
 		/* already verified that the GUID matches */
 		i_assert(importer->cur_mail->uid == change->uid);
-		mail_expunge(importer->cur_mail);
+		if (dsync_check_cur_guid(importer, change))
+			mail_expunge(importer->cur_mail);
 	} else {
 		/* we don't know yet if we should expunge this
 		   message or not. queue it until we do. */
