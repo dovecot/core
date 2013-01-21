@@ -155,6 +155,13 @@ static void fs_sis_file_deinit(struct fs_file *_file)
 	i_free(file);
 }
 
+static const char *fs_sis_file_get_path(struct fs_file *_file)
+{
+	struct sis_fs_file *file = (struct sis_fs_file *)_file;
+
+	return fs_file_path(file->super);
+}
+
 static void
 fs_sis_set_async_callback(struct fs_file *_file,
 			  fs_file_async_callback_t *callback, void *context)
@@ -479,6 +486,7 @@ const struct fs fs_class_sis = {
 		fs_sis_get_properties,
 		fs_sis_file_init,
 		fs_sis_file_deinit,
+		fs_sis_file_get_path,
 		fs_sis_set_async_callback,
 		fs_sis_wait_async,
 		fs_sis_set_metadata,

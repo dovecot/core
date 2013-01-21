@@ -745,6 +745,7 @@ const struct fs fs_class_posix = {
 		fs_posix_get_properties,
 		fs_posix_file_init,
 		fs_posix_file_deinit,
+		NULL,
 		NULL, NULL,
 		NULL, NULL,
 		fs_posix_prefetch,

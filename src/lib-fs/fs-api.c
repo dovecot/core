@@ -178,7 +178,8 @@ int fs_get_metadata(struct fs_file *file,
 
 const char *fs_file_path(struct fs_file *file)
 {
-	return file->path;
+	return file->fs->v.get_path == NULL ? file->path :
+		file->fs->v.get_path(file);
 }
 
 const char *fs_last_error(struct fs *fs)
