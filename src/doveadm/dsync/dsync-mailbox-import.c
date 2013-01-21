@@ -76,7 +76,7 @@ struct dsync_mailbox_importer {
 	unsigned int debug:1;
 	unsigned int last_common_uid_found:1;
 	unsigned int cur_uid_has_change:1;
-	unsigned int cur_mail_saved:1;
+	unsigned int cur_mail_skip:1;
 	unsigned int local_expunged_guids_set:1;
 	unsigned int new_uids_assigned:1;
 	unsigned int want_mail_requests:1;
@@ -105,7 +105,7 @@ dsync_mailbox_import_search_init(struct dsync_mailbox_importer *importer)
 	if (mailbox_search_next(importer->search_ctx, &importer->cur_mail))
 		importer->next_local_seq = importer->cur_mail->seq;
 	/* this flag causes cur_guid to be looked up later */
-	importer->cur_mail_saved = TRUE;
+	importer->cur_mail_skip = TRUE;
 }
 
 struct dsync_mailbox_importer *
@@ -212,7 +212,7 @@ importer_next_mail(struct dsync_mailbox_importer *importer, uint32_t wanted_uid)
 					    importer->cur_mail->uid);
 		}
 
-		importer->cur_mail_saved = FALSE;
+		importer->cur_mail_skip = FALSE;
 		if (!mailbox_search_next(importer->search_ctx,
 					 &importer->cur_mail)) {
 			importer->cur_mail = NULL;
@@ -335,12 +335,17 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 		m2.uid = save_change->uid;
 	}
 
-	newmail = p_new(importer->pool, struct importer_new_mail, 1);
-
 	diff = importer_mail_cmp(&m1, &m2);
 	if (diff < 0) {
 		/* add a record for local mail */
 		i_assert(importer->cur_mail != NULL);
+		if (importer->revert_local_changes) {
+			mail_expunge(importer->cur_mail);
+			importer->cur_mail_skip = TRUE;
+			importer->next_local_seq++;
+			return FALSE;
+		}
+		newmail = p_new(importer->pool, struct importer_new_mail, 1);
 		newmail->guid = p_strdup(importer->pool, importer->cur_guid);
 		newmail->uid = importer->cur_mail->uid;
 		newmail->uid_in_local = TRUE;
@@ -349,6 +354,7 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 		remote_saved = FALSE;
 	} else if (diff > 0) {
 		i_assert(save_change != NULL);
+		newmail = p_new(importer->pool, struct importer_new_mail, 1);
 		newmail->guid = save_change->guid;
 		newmail->uid = save_change->uid;
 		newmail->uid_in_local = FALSE;
@@ -359,6 +365,7 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 		/* identical */
 		i_assert(importer->cur_mail != NULL);
 		i_assert(save_change != NULL);
+		newmail = p_new(importer->pool, struct importer_new_mail, 1);
 		newmail->guid = save_change->guid;
 		newmail->uid = importer->cur_mail->uid;
 		newmail->uid_in_local = TRUE;
@@ -368,7 +375,7 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 	}
 
 	if (newmail->uid_in_local) {
-		importer->cur_mail_saved = TRUE;
+		importer->cur_mail_skip = TRUE;
 		importer->next_local_seq++;
 	} else {
 		/* NOTE: assumes save_change is allocated from importer pool */
@@ -384,7 +391,7 @@ static bool ATTR_NULL(2)
 dsync_mailbox_try_save(struct dsync_mailbox_importer *importer,
 		       struct dsync_mail_change *save_change)
 {
-	if (importer->cur_mail_saved) {
+	if (importer->cur_mail_skip) {
 		if (!importer_next_mail(importer, 0) && save_change == NULL)
 			return FALSE;
 	}
