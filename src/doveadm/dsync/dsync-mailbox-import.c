@@ -33,6 +33,10 @@ struct importer_new_mail {
 	unsigned int copy_failed:1;
 };
 
+/* for quickly testing that two-way sync doesn't actually do any unexpected
+   modifications. */
+#define IMPORTER_DEBUG_CHANGE(importer) /*i_assert(!importer->master_brain)*/
+
 HASH_TABLE_DEFINE_TYPE(guid_new_mail, const char *, struct importer_new_mail *);
 HASH_TABLE_DEFINE_TYPE(uid_new_mail, void *, struct importer_new_mail *);
 
@@ -279,6 +283,7 @@ static void importer_mail_request(struct dsync_mailbox_importer *importer,
 	struct dsync_mail_request *request;
 
 	if (importer->want_mail_requests && !newmail->uid_in_local) {
+		IMPORTER_DEBUG_CHANGE(importer);
 		request = array_append_space(&importer->mail_requests);
 		request->guid = newmail->guid;
 		request->uid = newmail->uid;
@@ -1108,6 +1113,8 @@ dsync_msg_update_uid(struct dsync_mailbox_importer *importer,
 {
 	struct mail_save_context *save_ctx;
 
+	IMPORTER_DEBUG_CHANGE(importer);
+
 	if (!mail_set_uid(importer->mail, old_uid))
 		return;
 
@@ -1132,6 +1139,7 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 		if (newmail->skip) {
 			/* already assigned */
 			if (newmail->uid_in_local) {
+				IMPORTER_DEBUG_CHANGE(importer);
 				if (mail_set_uid(importer->mail, newmail->uid))
 					mail_expunge(importer->mail);
 			}
@@ -1483,6 +1491,7 @@ reassign_unwanted_uids(struct dsync_mailbox_importer *importer,
 			if (highest_wanted_uid < saved_uid)
 				highest_wanted_uid = saved_uid;
 		} else {
+			IMPORTER_DEBUG_CHANGE(importer);
 			if (lowest_unwanted_uid > saved_uid)
 				lowest_unwanted_uid = saved_uid;
 		}
