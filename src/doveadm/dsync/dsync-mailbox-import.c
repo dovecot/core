@@ -195,6 +195,22 @@ static void dsync_mail_error(struct dsync_mailbox_importer *importer,
 }
 
 static bool
+dsync_mail_change_guid_equals(const struct dsync_mail_change *change,
+			      const char *guid)
+{
+	guid_128_t guid_128, change_guid_128;
+
+	if (change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE)
+		return strcmp(change->guid, guid) == 0;
+
+	if (guid_128_from_string(change->guid, change_guid_128) < 0)
+		i_unreached();
+
+	mail_generate_guid_128_hash(guid, guid_128);
+	return memcmp(change_guid_128, guid_128, GUID_128_SIZE) == 0;
+}
+
+static bool
 importer_next_mail(struct dsync_mailbox_importer *importer, uint32_t wanted_uid)
 {
 	if (importer->cur_mail == NULL) {
@@ -334,6 +350,7 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 	if (save_change != NULL) {
 		m2.guid = save_change->guid;
 		m2.uid = save_change->uid;
+		i_assert(save_change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE);
 	}
 
 	diff = importer_mail_cmp(&m1, &m2);
@@ -429,7 +446,7 @@ dsync_import_set_mail(struct dsync_mailbox_importer *importer,
 		dsync_mail_error(importer, importer->mail, "GUID");
 		return FALSE;
 	}
-	if (strcmp(guid, change->guid) != 0) {
+	if (!dsync_mail_change_guid_equals(change, guid)) {
 		i_error("Mailbox %s: Unexpected GUID mismatch for "
 			"UID=%u: %s != %s", mailbox_get_vname(importer->box),
 			change->uid, guid, change->guid);
@@ -445,7 +462,7 @@ static bool dsync_check_cur_guid(struct dsync_mailbox_importer *importer,
 {
 	if (change->guid == NULL || *change->guid == '\0')
 		return TRUE;
-	if (strcmp(importer->cur_guid, change->guid) != 0) {
+	if (!dsync_mail_change_guid_equals(change, importer->cur_guid)) {
 		i_error("Mailbox %s: Unexpected GUID mismatch for "
 			"UID=%u: %s != %s", mailbox_get_vname(importer->box),
 			change->uid, importer->cur_guid, change->guid);
@@ -926,7 +943,8 @@ dsync_mailbox_import_match_msg(struct dsync_mailbox_importer *importer,
 
 	if (*change->guid != '\0' && *importer->cur_guid != '\0') {
 		/* we have GUIDs, verify them */
-		return strcmp(change->guid, importer->cur_guid) == 0 ? 1 : 0;
+		return dsync_mail_change_guid_equals(change,
+						     importer->cur_guid) ? 1 : 0;
 	}
 
 	/* verify hdr_hash if it exists */
@@ -951,7 +969,6 @@ dsync_mailbox_find_common_expunged_uid(struct dsync_mailbox_importer *importer,
 				       const struct dsync_mail_change *change)
 {
 	const struct dsync_mail_change *local_change;
-	guid_128_t guid_128, change_guid_128;
 
 	if (*change->guid == '\0') {
 		/* remote doesn't support GUIDs, can't verify expunge */
@@ -966,11 +983,9 @@ dsync_mailbox_find_common_expunged_uid(struct dsync_mailbox_importer *importer,
 					 POINTER_CAST(change->uid));
 	if (local_change == NULL || local_change->guid == NULL)
 		return FALSE;
-	if (guid_128_from_string(local_change->guid, guid_128) < 0)
-		i_unreached();
 
-	mail_generate_guid_128_hash(change->guid, change_guid_128);
-	if (memcmp(change_guid_128, guid_128, GUID_128_SIZE) != 0) {
+	i_assert(local_change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE);
+	if (!dsync_mail_change_guid_equals(local_change, change->guid)) {
 		/* mismatch - found the first non-common UID */
 		dsync_mailbox_common_uid_found(importer);
 	} else {
