@@ -8,16 +8,19 @@ AM_CPPFLAGS = \
 
 libfs_la_SOURCES = \
 	fs-api.c \
+	fs-metawrap.c \
 	fs-posix.c \
 	fs-sis.c \
 	fs-sis-common.c \
 	fs-sis-queue.c \
+	istream-metawrap.c \
 	ostream-cmp.c
 
 headers = \
 	fs-api.h \
 	fs-api-private.h \
 	fs-sis-common.h \
+	istream-metawrap.h \
 	ostream-cmp.h
 
 fs_test_SOURCES = fs-test.c

@@ -69,6 +69,13 @@ struct fs_file {
 
 	struct istream *pending_read_input;
 	bool write_pending;
+
+	pool_t metadata_pool;
+	ARRAY_TYPE(fs_metadata) metadata;
+
+	struct fs_file *copy_src;
+	struct istream *copy_input;
+	struct ostream *copy_output;
 };
 
 struct fs_lock {
@@ -81,6 +88,7 @@ struct fs_iter {
 };
 
 extern const struct fs fs_class_posix;
+extern const struct fs fs_class_metawrap;
 extern const struct fs fs_class_sis;
 extern const struct fs fs_class_sis_queue;
 
@@ -88,5 +96,12 @@ void fs_set_error(struct fs *fs, const char *fmt, ...) ATTR_FORMAT(2, 3);
 void fs_set_critical(struct fs *fs, const char *fmt, ...) ATTR_FORMAT(2, 3);
 
 void fs_set_error_async(struct fs *fs);
+
+ssize_t fs_read_via_stream(struct fs_file *file, void *buf, size_t size);
+int fs_write_via_stream(struct fs_file *file, const void *data, size_t size);
+void fs_metadata_init(struct fs_file *file);
+void fs_default_set_metadata(struct fs_file *file,
+			     const char *key, const char *value);
+int fs_default_copy(struct fs_file *src, struct fs_file *dest);
 
 #endif

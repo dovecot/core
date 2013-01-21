@@ -46,6 +46,7 @@ static void fs_classes_init(void)
 {
 	i_array_init(&fs_classes, 8);
 	fs_class_register(&fs_class_posix);
+	fs_class_register(&fs_class_metawrap);
 	fs_class_register(&fs_class_sis);
 	fs_class_register(&fs_class_sis_queue);
 }
@@ -146,6 +147,7 @@ struct fs_file *fs_file_init(struct fs *fs, const char *path, int mode_flags)
 void fs_file_deinit(struct fs_file **_file)
 {
 	struct fs_file *file = *_file;
+	pool_t metadata_pool = file->metadata_pool;
 
 	i_assert(file->fs->files_open_count > 0);
 
@@ -153,11 +155,33 @@ void fs_file_deinit(struct fs_file **_file)
 
 	file->fs->files_open_count--;
 	file->fs->v.file_deinit(file);
+
+	if (metadata_pool != NULL)
+		pool_unref(&metadata_pool);
 }
 
 enum fs_properties fs_get_properties(struct fs *fs)
 {
 	return fs->v.get_properties(fs);
+}
+
+void fs_metadata_init(struct fs_file *file)
+{
+	if (file->metadata_pool == NULL) {
+		file->metadata_pool = pool_alloconly_create("fs metadata", 1024);
+		p_array_init(&file->metadata, file->metadata_pool, 8);
+	}
+}
+
+void fs_default_set_metadata(struct fs_file *file,
+			     const char *key, const char *value)
+{
+	struct fs_metadata *metadata;
+
+	fs_metadata_init(file);
+	metadata = array_append_space(&file->metadata);
+	metadata->key = p_strdup(file->metadata_pool, key);
+	metadata->value = p_strdup(file->metadata_pool, value);
 }
 
 void fs_set_metadata(struct fs_file *file, const char *key, const char *value)
@@ -199,17 +223,14 @@ bool fs_prefetch(struct fs_file *file, uoff_t length)
 	return file->fs->v.prefetch(file, length);
 }
 
-ssize_t fs_read(struct fs_file *file, void *buf, size_t size)
+ssize_t fs_read_via_stream(struct fs_file *file, void *buf, size_t size)
 {
 	const unsigned char *data;
 	size_t data_size;
 	ssize_t ret;
 
-	if (file->fs->v.read != NULL)
-		return file->fs->v.read(file, buf, size);
+	i_assert(size > 0);
 
-	/* backend didn't bother to implement read(), but we can do it with
-	   streams. */
 	if (file->pending_read_input == NULL)
 		file->pending_read_input = fs_read_stream(file, size+1);
 	ret = i_stream_read_data(file->pending_read_input,
@@ -229,22 +250,27 @@ ssize_t fs_read(struct fs_file *file, void *buf, size_t size)
 	return ret;
 }
 
+ssize_t fs_read(struct fs_file *file, void *buf, size_t size)
+{
+	if (file->fs->v.read != NULL)
+		return file->fs->v.read(file, buf, size);
+
+	/* backend didn't bother to implement read(), but we can do it with
+	   streams. */
+	return fs_read_via_stream(file, buf, size);
+}
+
 struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 {
 	return file->fs->v.read_stream(file, max_buffer_size);
 }
 
-int fs_write(struct fs_file *file, const void *data, size_t size)
+int fs_write_via_stream(struct fs_file *file, const void *data, size_t size)
 {
 	struct ostream *output;
 	ssize_t ret;
 	int err;
 
-	if (file->fs->v.write != NULL)
-		return file->fs->v.write(file, data, size);
-
-	/* backend didn't bother to implement write(), but we can do it with
-	   streams. */
 	if (!file->write_pending) {
 		output = fs_write_stream(file);
 		if ((ret = o_stream_send(output, data, size)) < 0) {
@@ -267,6 +293,16 @@ int fs_write(struct fs_file *file, const void *data, size_t size)
 	}
 	file->write_pending = FALSE;
 	return ret < 0 ? -1 : 0;
+}
+
+int fs_write(struct fs_file *file, const void *data, size_t size)
+{
+	if (file->fs->v.write != NULL)
+		return file->fs->v.write(file, data, size);
+
+	/* backend didn't bother to implement write(), but we can do it with
+	   streams. */
+	return fs_write_via_stream(file, data, size);
 }
 
 struct ostream *fs_write_stream(struct fs_file *file)
@@ -336,6 +372,44 @@ int fs_exists(struct fs_file *file)
 int fs_stat(struct fs_file *file, struct stat *st_r)
 {
 	return file->fs->v.stat(file, st_r);
+}
+
+int fs_default_copy(struct fs_file *src, struct fs_file *dest)
+{
+	if (dest->copy_src != NULL) {
+		i_assert(src == NULL || src == dest->copy_src);
+		if (dest->copy_output == NULL) {
+			i_assert(dest->copy_input == NULL);
+			if (fs_write_stream_finish_async(dest) < 0)
+				return -1;
+			dest->copy_src = NULL;
+			return 0;
+		}
+	} else {
+		dest->copy_src = src;
+		dest->copy_input = fs_read_stream(src, IO_BLOCK_SIZE);
+		dest->copy_output = fs_write_stream(dest);
+	}
+	while (o_stream_send_istream(dest->copy_output, dest->copy_input) > 0) ;
+	if (dest->copy_input->stream_errno != 0) {
+		fs_set_error(dest->fs, "read(%s) failed: %m",
+			     i_stream_get_name(dest->copy_input));
+		return -1;
+	}
+	if (dest->copy_output->stream_errno != 0) {
+		fs_set_error(dest->fs, "write(%s) failed: %m",
+			     o_stream_get_name(dest->copy_output));
+		return -1;
+	}
+	if (!dest->copy_input->eof) {
+		fs_set_error_async(dest->fs);
+		return -1;
+	}
+	i_stream_unref(&dest->copy_input);
+	if (fs_write_stream_finish(dest, &dest->copy_output) < 0)
+		return -1;
+	dest->copy_src = NULL;
+	return 0;
 }
 
 int fs_copy(struct fs_file *src, struct fs_file *dest)
