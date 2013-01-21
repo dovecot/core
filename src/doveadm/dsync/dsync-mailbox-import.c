@@ -1560,13 +1560,12 @@ static int dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer,
 	return ret;
 }
 
-static unsigned int
-dsync_mailbox_import_count_missing_guid_imports(struct dsync_mailbox_importer *importer)
+static void
+dsync_mailbox_import_check_missing_guid_imports(struct dsync_mailbox_importer *importer)
 {
 	struct hash_iterate_context *iter;
 	const char *key;
 	struct importer_new_mail *mail;
-	unsigned int msgs_left = 0;
 
 	iter = hash_table_iterate_init(importer->import_guids);
 	while (hash_table_iterate(iter, importer->import_guids, &key, &mail)) {
@@ -1574,26 +1573,20 @@ dsync_mailbox_import_count_missing_guid_imports(struct dsync_mailbox_importer *i
 			if (mail->uid_in_local || mail->skip)
 				continue;
 
-			if (importer->debug) {
-				i_debug("Mailbox %s: Missing mail GUID=%s (UID=%u)",
-					mailbox_get_vname(importer->box),
-					mail->guid, mail->uid);
-			}
-			msgs_left++;
-			break;
+			i_error("Mailbox %s: Remote didn't send mail GUID=%s (UID=%u)",
+				mailbox_get_vname(importer->box),
+				mail->guid, mail->uid);
 		}
 	}
 	hash_table_iterate_deinit(&iter);
-	return msgs_left;
 }
 
-static unsigned int
-dsync_mailbox_import_count_missing_uid_imports(struct dsync_mailbox_importer *importer)
+static void
+dsync_mailbox_import_check_missing_uid_imports(struct dsync_mailbox_importer *importer)
 {
 	struct hash_iterate_context *iter;
 	void *key;
 	struct importer_new_mail *mail;
-	unsigned int msgs_left = 0;
 
 	iter = hash_table_iterate_init(importer->import_uids);
 	while (hash_table_iterate(iter, importer->import_uids, &key, &mail)) {
@@ -1601,17 +1594,12 @@ dsync_mailbox_import_count_missing_uid_imports(struct dsync_mailbox_importer *im
 			if (mail->uid_in_local || mail->skip)
 				continue;
 
-			if (importer->debug) {
-				i_debug("Mailbox %s: Missing mail UID=%u",
-					mailbox_get_vname(importer->box),
-					mail->uid);
-			}
-			msgs_left++;
-			break;
+			i_error("Mailbox %s: Remote didn't send mail UID=%u",
+				mailbox_get_vname(importer->box),
+				mail->uid);
 		}
 	}
 	hash_table_iterate_deinit(&iter);
-	return msgs_left;
 }
 
 int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
@@ -1621,7 +1609,6 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 				bool *changes_during_sync_r)
 {
 	struct dsync_mailbox_importer *importer = *_importer;
-	unsigned int msgs_left;
 	int ret;
 
 	*_importer = NULL;
@@ -1630,13 +1617,8 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 	if (!importer->new_uids_assigned)
 		dsync_mailbox_import_assign_new_uids(importer);
 
-	msgs_left = importer->failed ? 0 :
-		dsync_mailbox_import_count_missing_guid_imports(importer) +
-		dsync_mailbox_import_count_missing_uid_imports(importer);
-	if (msgs_left > 0) {
-		i_error("%s: Remote didn't send %u expected message bodies",
-			mailbox_get_vname(importer->box), msgs_left);
-	}
+	dsync_mailbox_import_check_missing_guid_imports(importer);
+	dsync_mailbox_import_check_missing_uid_imports(importer);
 
 	if (importer->search_ctx != NULL) {
 		if (mailbox_search_deinit(&importer->search_ctx) < 0)
