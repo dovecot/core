@@ -226,6 +226,7 @@ importer_next_mail(struct dsync_mailbox_importer *importer, uint32_t wanted_uid)
 	if (mail_get_special(importer->cur_mail, MAIL_FETCH_GUID,
 			     &importer->cur_guid) < 0) {
 		dsync_mail_error(importer, importer->cur_mail, "GUID");
+		importer->next_local_seq = importer->cur_mail->seq + 1;
 		return importer_next_mail(importer, wanted_uid);
 	}
 	/* make sure next_local_seq gets updated in case we came here
