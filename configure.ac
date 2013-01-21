@@ -126,6 +126,11 @@ AS_HELP_STRING([--with-vpopmail], [Build with vpopmail support (auto)]),
 #  want_db=no)
 want_db=no
 
+AC_ARG_WITH(cdb,
+AS_HELP_STRING([--with-cdb], [Build with CDB support]),
+  TEST_WITH(cdb, $withval),
+  want_cdb=no)
+
 dnl The --with-sql is useful only if Dovecot is being built with all the SQL
 dnl drivers as modules. If any SQL driver is built-in, this option is ignored.
 AC_ARG_WITH(sql,
@@ -2113,6 +2118,23 @@ if test $want_db != no; then
   fi
 fi
 
+if test $want_cdb != no; then
+  AC_CHECK_LIB(cdb, cdb_init, [
+    AC_CHECK_HEADER(cdb.h, [
+      DICT_LIBS="$DICT_LIBS -lcdb"
+      AC_DEFINE(BUILD_CDB,, Build with CDB support)
+    ], [
+      if test $want_cdb = yes; then
+        AC_ERROR([Can't build with CDB support: cdb.h not found])
+      fi
+    ])
+  ], [
+    if test $want_cdb = yes; then
+      AC_ERROR([Can't build with CDB support: libcdb not found])
+    fi
+  ])
+fi
+
 if test $want_pgsql != no; then
   AC_CHECK_PROG(PG_CONFIG, pg_config, pg_config, NO)
   if test $PG_CONFIG = NO; then
@@ -2397,6 +2419,7 @@ AC_SUBST(SQLITE_CFLAGS)
 AC_SUBST(SQLITE_LIBS)
 
 AC_SUBST(DICT_LIBS)
+AC_SUBST(CDB_LIBS)
 AC_SUBST(dict_drivers)
 
 dnl **

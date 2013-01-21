@@ -59,5 +59,6 @@ extern struct dict dict_driver_file;
 extern struct dict dict_driver_memcached;
 extern struct dict dict_driver_memcached_ascii;
 extern struct dict dict_driver_redis;
+extern struct dict dict_driver_cdb;
 
 #endif
