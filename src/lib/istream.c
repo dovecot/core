@@ -390,6 +390,7 @@ char *i_stream_read_next_line(struct istream *stream)
 		switch (i_stream_read(stream)) {
 		case -2:
 			stream->stream_errno = ENOBUFS;
+			stream->eof = TRUE;
 			return NULL;
 		case -1:
 			return i_stream_last_line(stream->real_stream);
