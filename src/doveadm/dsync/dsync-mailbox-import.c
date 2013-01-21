@@ -1263,7 +1263,7 @@ dsync_mailbox_save_init(struct dsync_mailbox_importer *importer,
 	if (*mail->guid != '\0')
 		mailbox_save_set_guid(save_ctx, mail->guid);
 	dsync_mailbox_save_set_metadata(importer, save_ctx, newmail->change);
-	if (*mail->pop3_uidl != '\0')
+	if (mail->pop3_uidl != NULL && *mail->pop3_uidl != '\0')
 		mailbox_save_set_pop3_uidl(save_ctx, mail->pop3_uidl);
 	if (mail->pop3_order > 0)
 		mailbox_save_set_pop3_order(save_ctx, mail->pop3_order);
@@ -1341,7 +1341,7 @@ void dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
 {
 	struct importer_new_mail *newmail, *allmails;
 
-	i_assert(mail->input->seekable);
+	i_assert(mail->input == NULL || mail->input->seekable);
 	i_assert(importer->new_uids_assigned);
 
 	newmail = *mail->guid != '\0' ?
