@@ -564,6 +564,8 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			   prefix sent before dsync actually starts */
 			ctx->remote_name = ctx->local_location+13;
 			ctx->remote_user_prefix = TRUE;
+		} else {
+			ctx->remote_name = NULL;
 		}
 		remote_cmd_args = ctx->remote_name == NULL ? NULL :
 			parse_ssh_location(ctx, ctx->remote_name,
