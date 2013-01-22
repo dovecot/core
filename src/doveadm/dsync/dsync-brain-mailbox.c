@@ -545,8 +545,8 @@ void dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 
 	if (mailbox_update(box, &update) < 0) {
 		i_error("Couldn't update mailbox %s metadata: %s",
-			mailbox_get_vname(brain->box),
-			mailbox_get_last_error(brain->box, NULL));
+			mailbox_get_vname(box),
+			mailbox_get_last_error(box, NULL));
 		brain->failed = TRUE;
 	}
 }
