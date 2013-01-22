@@ -374,6 +374,7 @@ index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
 	input2 = tee_i_stream_create_child(mail->data.tee_stream);
 
 	index_mail_parse_header_init(mail, NULL);
+	mail->data.parser_input = input;
 	mail->data.parser_ctx =
 		message_parser_init(mail->data_pool, input,
 				    hdr_parser_flags, msg_parser_flags);
@@ -386,10 +387,13 @@ static void index_mail_init_parser(struct index_mail *mail)
 	struct index_mail_data *data = &mail->data;
 	struct message_part *parts;
 
-	if (data->parser_ctx != NULL)
+	if (data->parser_ctx != NULL) {
+		data->parser_input = NULL;
 		(void)message_parser_deinit(&data->parser_ctx, &parts);
+	}
 
 	if (data->parts == NULL) {
+		data->parser_input = data->stream;
 		data->parser_ctx = message_parser_init(mail->data_pool,
 						       data->stream,
 						       hdr_parser_flags,
