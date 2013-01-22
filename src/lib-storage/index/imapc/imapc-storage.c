@@ -755,12 +755,11 @@ static int imapc_mailbox_get_metadata(struct mailbox *box,
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
 	const struct imapc_namespace *ns;
 
-	if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
-		return -1;
 	if ((items & MAILBOX_METADATA_GUID) != 0) {
 		/* a bit ugly way to do this, but better than nothing for now.
 		   FIXME: if indexes are enabled, keep this there. */
 		mail_generate_guid_128_hash(box->name, metadata_r->guid);
+		items &= ~MAILBOX_METADATA_GUID;
 	}
 	if ((items & MAILBOX_METADATA_BACKEND_NAMESPACE) != 0) {
 		if (imapc_mailbox_get_namespaces(mbox->storage) < 0)
@@ -771,6 +770,11 @@ static int imapc_mailbox_get_metadata(struct mailbox *box,
 			metadata_r->backend_ns_prefix = ns->prefix;
 			metadata_r->backend_ns_type = ns->type;
 		}
+		items &= ~MAILBOX_METADATA_BACKEND_NAMESPACE;
+	}
+	if (items != 0) {
+		if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
+			return -1;
 	}
 	return 0;
 }
