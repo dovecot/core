@@ -163,13 +163,19 @@ int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
 				      enum mailbox_existence *existence_r)
 {
 	struct stat st;
+	enum mail_error error;
 	const char *path, *path2;
 	int ret;
 
 	/* see if it's selectable */
 	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX, &path);
-	if (ret < 0)
-		return -1;
+	if (ret < 0) {
+		mailbox_list_get_last_error(box->list, &error);
+		if (error != MAIL_ERROR_NOTFOUND)
+			return -1;
+		*existence_r = MAILBOX_EXISTENCE_NONE;
+		return 0;
+	}
 	if (ret == 0) {
 		/* no mailboxes in this storage? */
 		*existence_r = MAILBOX_EXISTENCE_NONE;
