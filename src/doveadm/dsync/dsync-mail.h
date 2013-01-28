@@ -17,6 +17,12 @@ struct dsync_mail {
 	/* Input stream containing the message text, or NULL if all instances
 	   of the message were already expunged from this mailbox. */
 	struct istream *input;
+
+	/* If non-NULL, we're syncing within the dsync process using ibc-pipe.
+	   This mail can be used to mailbox_copy() the mail. */
+	struct mail *input_mail;
+	/* Verify that this equals to input_mail->uid */
+	uint32_t input_mail_uid;
 };
 
 struct dsync_mail_request {

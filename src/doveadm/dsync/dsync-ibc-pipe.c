@@ -416,6 +416,8 @@ dsync_ibc_pipe_send_mail(struct dsync_ibc *ibc, const struct dsync_mail *mail)
 		item->u.mail.input = mail->input;
 		i_stream_ref(mail->input);
 	}
+	item->u.mail.input_mail = mail->input_mail;
+	item->u.mail.input_mail_uid = mail->input_mail_uid;
 }
 
 static enum dsync_ibc_recv_ret

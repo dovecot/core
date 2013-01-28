@@ -1317,6 +1317,17 @@ static void dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 		if (save_ctx == NULL)
 			save_ctx = dsync_mailbox_save_init(importer, mail, newmail);
 	}
+	if (ret <= 0 && mail->input_mail != NULL) {
+		/* copy using the source mail */
+		i_assert(mail->input_mail->uid == mail->input_mail_uid);
+		if (mailbox_copy(&save_ctx, mail->input_mail) == 0)
+			ret = 1;
+		else {
+			ret = -1;
+			save_ctx = dsync_mailbox_save_init(importer, mail, newmail);
+		}
+
+	}
 	if (ret > 0) {
 		array_append(&importer->wanted_uids, &newmail->uid, 1);
 		return;

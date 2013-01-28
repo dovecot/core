@@ -581,6 +581,8 @@ static int dsync_mailbox_export_mail(struct dsync_mailbox_exporter *exporter,
 		return -1;
 	}
 
+	dmail->input_mail = mail;
+	dmail->input_mail_uid = mail->uid;
 	if (mail_get_stream(mail, NULL, NULL, &dmail->input) < 0)
 		return dsync_mail_error(exporter, mail, "body");
 
