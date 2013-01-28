@@ -492,6 +492,9 @@ void mail_storage_copy_error(struct mail_storage *dest,
 	const char *str;
 	enum mail_error error;
 
+	if (src == dest)
+		return;
+
 	str = mail_storage_get_last_error(src, &error);
 	mail_storage_set_error(dest, error, str);
 }
