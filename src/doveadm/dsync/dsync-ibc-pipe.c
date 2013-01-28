@@ -408,6 +408,7 @@ dsync_ibc_pipe_send_mail(struct dsync_ibc *ibc, const struct dsync_mail *mail)
 
 	item = dsync_ibc_pipe_push_item(pipe->remote, ITEM_MAIL);
 	item->u.mail.guid = p_strdup(item->pool, mail->guid);
+	item->u.mail.uid = mail->uid;
 	item->u.mail.pop3_uidl = p_strdup(item->pool, mail->pop3_uidl);
 	item->u.mail.pop3_order = mail->pop3_order;
 	item->u.mail.received_date = mail->received_date;
