@@ -1,6 +1,7 @@
 /* Copyright (c) 2004-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "file-cache.h"
 #include "mail-cache-private.h"
 #include "mail-index-view-private.h"
@@ -144,6 +145,8 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 					      ctx->invalidate_highwater -
 					      *new_cache_offset);
 			ctx->invalidate_highwater = *new_cache_offset;
+			if (cache->read_buf != NULL)
+				buffer_set_used_size(cache->read_buf, 0);
 		}
 	}
 
@@ -188,4 +191,6 @@ void mail_cache_sync_lost_handler(struct mail_index *index)
 					    cache->fd, cache->locked);
 	}
 	file_cache_invalidate(cache->file_cache, 0, (uoff_t)-1);
+	if (cache->read_buf != NULL)
+		buffer_set_used_size(cache->read_buf, 0);
 }

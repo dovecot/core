@@ -705,6 +705,8 @@ mail_cache_lock_full(struct mail_cache *cache, bool require_same_reset_id,
 			file_cache_invalidate(cache->file_cache, 0,
 					      sizeof(struct mail_cache_header));
 		}
+		if (cache->read_buf != NULL)
+			buffer_set_used_size(cache->read_buf, 0);
 		if (mail_cache_map(cache, 0, 0, &data) > 0)
 			cache->hdr_copy = *cache->hdr;
 		else {
