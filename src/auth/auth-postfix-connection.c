@@ -66,7 +66,6 @@ static void
 user_callback(enum userdb_result result, struct auth_request *auth_request)
 {
 	struct auth_postfix_connection *conn = auth_request->context;
-	struct auth_stream_reply *reply = auth_request->userdb_reply;
 	string_t *str;
 	const char *value;
 
@@ -77,7 +76,7 @@ user_callback(enum userdb_result result, struct auth_request *auth_request)
 	switch (result) {
 	case USERDB_RESULT_INTERNAL_FAILURE:
 		if (auth_request->userdb_lookup_failed)
-			value = auth_stream_reply_find(reply, "reason");
+			value = auth_fields_find(auth_request->userdb_reply, "reason");
 		else
 			value = NULL;
 		str_printfa(str, "400 %s",

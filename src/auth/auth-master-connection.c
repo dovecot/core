@@ -214,14 +214,14 @@ static int
 user_verify_restricted_uid(struct auth_request *auth_request)
 {
 	struct auth_master_connection *conn = auth_request->master;
-	struct auth_stream_reply *reply = auth_request->userdb_reply;
+	struct auth_fields *reply = auth_request->userdb_reply;
 	const char *value, *reason;
 	uid_t uid;
 
 	if (conn->userdb_restricted_uid == 0)
 		return 0;
 
-	value = auth_stream_reply_find(reply, "uid");
+	value = auth_fields_find(reply, "uid");
 	if (value == NULL)
 		reason = "userdb reply doesn't contain uid";
 	else if (str_to_uid(value, &uid) < 0)
@@ -262,8 +262,8 @@ user_callback(enum userdb_result result,
 	case USERDB_RESULT_INTERNAL_FAILURE:
 		str_printfa(str, "FAIL\t%u", auth_request->id);
 		if (auth_request->userdb_lookup_failed) {
-			value = auth_stream_reply_find(auth_request->userdb_reply,
-						       "reason");
+			value = auth_fields_find(auth_request->userdb_reply,
+						 "reason");
 			if (value != NULL)
 				str_printfa(str, "\treason=%s", value);
 		}
@@ -275,7 +275,7 @@ user_callback(enum userdb_result result,
 		str_printfa(str, "USER\t%u\t", auth_request->id);
 		str_append_tabescaped(str, auth_request->user);
 		str_append_c(str, '\t');
-		auth_stream_reply_append(auth_request->userdb_reply, str, FALSE);
+		auth_fields_append(auth_request->userdb_reply, str, FALSE);
 		break;
 	}
 
@@ -323,10 +323,10 @@ static void pass_callback_finish(struct auth_request *auth_request,
 	case PASSDB_RESULT_OK:
 		str_printfa(str, "PASS\t%u\tuser=", auth_request->id);
 		str_append_tabescaped(str, auth_request->user);
-		if (!auth_stream_is_empty(auth_request->extra_fields)) {
+		if (!auth_fields_is_empty(auth_request->extra_fields)) {
 			str_append_c(str, '\t');
-			auth_stream_reply_append(auth_request->extra_fields,
-						 str, FALSE);
+			auth_fields_append(auth_request->extra_fields,
+					   str, FALSE);
 		}
 		break;
 	case PASSDB_RESULT_USER_UNKNOWN:

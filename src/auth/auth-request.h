@@ -49,9 +49,9 @@ struct auth_request {
 	char *passdb_password; /* set after password lookup if successful */
         /* extra_fields are returned in authentication reply. Fields prefixed
            with "userdb_" are automatically placed to userdb_reply instead. */
-        struct auth_stream_reply *extra_fields;
+        struct auth_fields *extra_fields;
 	/* the whole userdb result reply */
-	struct auth_stream_reply *userdb_reply;
+	struct auth_fields *userdb_reply;
 	struct auth_request_proxy_dns_lookup_ctx *dns_lookup_ctx;
 	/* Result of passdb lookup */
 	enum passdb_result passdb_result;

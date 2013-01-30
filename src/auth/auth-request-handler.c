@@ -166,15 +166,15 @@ auth_str_add_keyvalue(string_t *dest, const char *key, const char *value)
 static void
 auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 {
-	if (auth_stream_is_empty(request->extra_fields))
+	if (auth_fields_is_empty(request->extra_fields))
 		return;
 
 	str_append_c(dest, '\t');
-	auth_stream_reply_append(request->extra_fields, dest, FALSE);
+	auth_fields_append(request->extra_fields, dest, FALSE);
 
 	if (request->proxy && !request->auth_only) {
 		/* we're proxying */
-		if (!auth_stream_reply_exists(request->extra_fields, "pass") &&
+		if (!auth_fields_exists(request->extra_fields, "pass") &&
 		    request->mech_password != NULL) {
 			/* send back the password that was sent by user
 			   (not the password in passdb). */
@@ -182,7 +182,7 @@ auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 					      request->mech_password);
 		}
 		if (request->master_user != NULL &&
-		    !auth_stream_reply_exists(request->extra_fields, "master")) {
+		    !auth_fields_exists(request->extra_fields, "master")) {
 			/* the master username needs to be forwarded */
 			auth_str_add_keyvalue(dest, "master",
 					      request->master_user);
@@ -338,8 +338,8 @@ void auth_request_handler_reply(struct auth_request *request,
 		if (reply_size > 0) {
 			str = t_str_new(MAX_BASE64_ENCODED_SIZE(reply_size));
 			base64_encode(auth_reply, reply_size, str);
-			auth_stream_reply_add(request->extra_fields, "resp",
-					      str_c(str), 0);
+			auth_fields_add(request->extra_fields, "resp",
+					str_c(str), 0);
 		}
 		ret = auth_request_proxy_finish(request,
 				auth_request_handler_proxy_callback);
@@ -624,8 +624,7 @@ static void userdb_callback(enum userdb_result result,
 	case USERDB_RESULT_INTERNAL_FAILURE:
 		str_printfa(str, "FAIL\t%u", request->id);
 		if (request->userdb_lookup_failed) {
-			value = auth_stream_reply_find(request->userdb_reply,
-						       "reason");
+			value = auth_fields_find(request->userdb_reply, "reason");
 			if (value != NULL)
 				auth_str_add_keyvalue(str, "reason", value);
 		}
@@ -636,11 +635,10 @@ static void userdb_callback(enum userdb_result result,
 	case USERDB_RESULT_OK:
 		str_printfa(str, "USER\t%u\t", request->id);
 		str_append_tabescaped(str, request->user);
-		auth_stream_reply_append(request->userdb_reply, str, FALSE);
+		auth_fields_append(request->userdb_reply, str, FALSE);
 
 		if (request->master_user != NULL &&
-		    !auth_stream_reply_exists(request->userdb_reply,
-					      "master_user")) {
+		    !auth_fields_exists(request->userdb_reply, "master_user")) {
 			auth_str_add_keyvalue(str, "master_user",
 					      request->master_user);
 		}

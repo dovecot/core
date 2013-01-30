@@ -14,7 +14,7 @@
 #include "safe-memset.h"
 #include "master-service.h"
 #include "mech.h"
-#include "auth-stream.h"
+#include "auth-fields.h"
 #include "auth-request-handler.h"
 #include "auth-client-interface.h"
 #include "auth-client-connection.h"

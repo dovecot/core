@@ -71,7 +71,7 @@ auth_SOURCES = \
 	auth-request.c \
 	auth-request-handler.c \
 	auth-settings.c \
-	auth-stream.c \
+	auth-fields.c \
 	auth-token.c \
 	auth-worker-client.c \
 	auth-worker-server.c \
@@ -138,7 +138,7 @@ headers = \
 	auth-request.h \
 	auth-request-handler.h \
 	auth-settings.h \
-	auth-stream.h \
+	auth-fields.h \
 	auth-token.h \
 	auth-worker-client.h \
 	auth-worker-server.h \

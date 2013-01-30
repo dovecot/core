@@ -129,9 +129,9 @@ static void verify_plain_callback(enum passdb_result result,
 		str_append_c(str, '\t');
 		if (request->passdb_password != NULL)
 			str_append_tabescaped(str, request->passdb_password);
-		if (!auth_stream_is_empty(request->extra_fields)) {
+		if (!auth_fields_is_empty(request->extra_fields)) {
 			str_append_c(str, '\t');
-			auth_stream_reply_append(request->extra_fields, str, TRUE);
+			auth_fields_append(request->extra_fields, str, TRUE);
 		}
 	}
 	str_append_c(str, '\n');
@@ -214,9 +214,9 @@ lookup_credentials_callback(enum passdb_result result,
 		str_printfa(str, "\t{%s.b64}", request->credentials_scheme);
 		base64_encode(credentials, size, str);
 
-		if (!auth_stream_is_empty(request->extra_fields)) {
+		if (!auth_fields_is_empty(request->extra_fields)) {
 			str_append_c(str, '\t');
-			auth_stream_reply_append(request->extra_fields, str, TRUE);
+			auth_fields_append(request->extra_fields, str, TRUE);
 		}
 	}
 	str_append_c(str, '\n');
@@ -343,7 +343,7 @@ lookup_user_callback(enum userdb_result result,
 		break;
 	case USERDB_RESULT_OK:
 		str_append(str, "OK\t");
-		auth_stream_reply_append(auth_request->userdb_reply, str, TRUE);
+		auth_fields_append(auth_request->userdb_reply, str, TRUE);
 		if (auth_request->userdb_lookup_failed)
 			str_append(str, "\ttempfail");
 		break;

@@ -425,9 +425,9 @@ static void auth_request_save_cache(struct auth_request *request,
 		str_append(str, request->passdb_password);
 	}
 
-	if (!auth_stream_is_empty(request->extra_fields)) {
+	if (!auth_fields_is_empty(request->extra_fields)) {
 		str_append_c(str, '\t');
-		auth_stream_reply_append(request->extra_fields, str, TRUE);
+		auth_fields_append(request->extra_fields, str, TRUE);
 	}
 	auth_cache_insert(passdb_cache, request, passdb->cache_key, str_c(str),
 			  result == PASSDB_RESULT_OK);
@@ -507,12 +507,10 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			}
 		}
 	} else if (*result == PASSDB_RESULT_PASS_EXPIRED) {
-		if (request->extra_fields == NULL) {
-			request->extra_fields =
-				auth_stream_reply_init(request->pool);
-		}
-	        auth_stream_reply_add(request->extra_fields, "reason",
-				      "Password expired", 0);
+		if (request->extra_fields == NULL)
+			request->extra_fields = auth_fields_init(request->pool);
+	        auth_fields_add(request->extra_fields, "reason",
+				"Password expired", 0);
 	} else if (request->passdb->next != NULL &&
 		   *result != PASSDB_RESULT_USER_DISABLED) {
 		/* try next passdb. */
@@ -534,7 +532,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			request->passdb_internal_failure = TRUE;
 		}
 		if (request->extra_fields != NULL)
-			auth_stream_reply_reset(request->extra_fields);
+			auth_fields_reset(request->extra_fields);
 
 		return FALSE;
 	} else if (request->passdb_internal_failure) {
@@ -833,7 +831,7 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 		cache_value = "";
 	else {
 		str = t_str_new(128);
-		auth_stream_reply_append(request->userdb_reply, str, TRUE);
+		auth_fields_append(request->userdb_reply, str, TRUE);
 		cache_value = str_c(str);
 	}
 	/* last_success has no meaning with userdb */
@@ -843,7 +841,7 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 
 static bool auth_request_lookup_user_cache(struct auth_request *request,
 					   const char *key,
-					   struct auth_stream_reply **reply_r,
+					   struct auth_fields **reply_r,
 					   enum userdb_result *result_r,
 					   bool use_expired)
 {
@@ -866,13 +864,13 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 	if (*value == '\0') {
 		/* negative cache entry */
 		*result_r = USERDB_RESULT_USER_UNKNOWN;
-		*reply_r = auth_stream_reply_init(request->pool);
+		*reply_r = auth_fields_init(request->pool);
 		return TRUE;
 	}
 
 	*result_r = USERDB_RESULT_OK;
-	*reply_r = auth_stream_reply_init(request->pool);
-	auth_stream_reply_import(*reply_r, value, 0);
+	*reply_r = auth_fields_init(request->pool);
+	auth_fields_import(*reply_r, value, 0);
 	return TRUE;
 }
 
@@ -921,7 +919,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 		   request was expired in cache, fallback to using cached
 		   expired record. */
 		const char *cache_key = userdb->cache_key;
-		struct auth_stream_reply *reply;
+		struct auth_fields *reply;
 
 		if (auth_request_lookup_user_cache(request, cache_key, &reply,
 						   &result, TRUE)) {
@@ -946,7 +944,7 @@ void auth_request_lookup_user(struct auth_request *request,
 	/* (for now) auth_cache is shared between passdb and userdb */
 	cache_key = passdb_cache == NULL ? NULL : userdb->cache_key;
 	if (cache_key != NULL) {
-		struct auth_stream_reply *reply;
+		struct auth_fields *reply;
 		enum userdb_result result;
 
 		if (auth_request_lookup_user_cache(request, cache_key, &reply,
@@ -1192,8 +1190,8 @@ static void auth_request_set_reply_field(struct auth_request *request,
 	}
 
 	if (request->extra_fields == NULL)
-		request->extra_fields = auth_stream_reply_init(request->pool);
-	auth_stream_reply_add(request->extra_fields, name, value, 0);
+		request->extra_fields = auth_fields_init(request->pool);
+	auth_fields_add(request->extra_fields, name, value, 0);
 }
 
 static const char *
@@ -1307,8 +1305,8 @@ void auth_request_set_field(struct auth_request *request,
 		/* we'll need to get this field stored into cache,
 		   or we're a worker and we'll need to send this to the main
 		   auth process that can store it in the cache. */
-		auth_stream_reply_add(request->extra_fields, name, value,
-				      AUTH_STREAM_FIELD_FLAG_HIDDEN);
+		auth_fields_add(request->extra_fields, name, value,
+				AUTH_FIELD_FLAG_HIDDEN);
 	}
 }
 
@@ -1344,7 +1342,7 @@ void auth_request_init_userdb_reply(struct auth_request *request)
 {
 	struct userdb_module *module = request->userdb->userdb;
 
-	request->userdb_reply = auth_stream_reply_init(request->pool);
+	request->userdb_reply = auth_fields_init(request->pool);
 	userdb_template_export(module->default_fields_tmpl, request);
 }
 
@@ -1361,10 +1359,10 @@ static void auth_request_set_uidgid_file(struct auth_request *request,
 		auth_request_log_error(request, "uidgid_file",
 				       "stat(%s) failed: %m", str_c(path));
 	} else {
-		auth_stream_reply_add(request->userdb_reply,
-				      "uid", dec2str(st.st_uid), 0);
-		auth_stream_reply_add(request->userdb_reply,
-				      "gid", dec2str(st.st_gid), 0);
+		auth_fields_add(request->userdb_reply,
+				"uid", dec2str(st.st_uid), 0);
+		auth_fields_add(request->userdb_reply,
+				"gid", dec2str(st.st_gid), 0);
 	}
 }
 
@@ -1397,7 +1395,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		auth_request_set_uidgid_file(request, value);
 		return;
 	} else if (strcmp(name, "userdb_import") == 0) {
-		auth_stream_reply_import(request->userdb_reply, value, 0);
+		auth_fields_import(request->userdb_reply, value, 0);
 		return;
 	} else if (strcmp(name, "system_user") == 0) {
 		/* FIXME: the system_user is for backwards compatibility */
@@ -1409,7 +1407,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		name = "system_groups_user";
 	}
 
-	auth_stream_reply_add(request->userdb_reply, name, value, 0);
+	auth_fields_add(request->userdb_reply, name, value, 0);
 }
 
 void auth_request_set_userdb_field_values(struct auth_request *request,
@@ -1436,8 +1434,7 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 				str_append_c(value, ',');
 			str_append(value, dec2str(gid));
 		}
-		auth_stream_reply_add(request->userdb_reply, name,
-				      str_c(value), 0);
+		auth_fields_add(request->userdb_reply, name, str_c(value), 0);
 	} else {
 		/* add only one */
 		if (values[1] != NULL) {
@@ -1457,7 +1454,7 @@ static bool auth_request_proxy_is_self(struct auth_request *request)
 		return FALSE;
 
 	/* check if the port is the same */
-	port = auth_stream_reply_find(request->extra_fields, "port");
+	port = auth_fields_find(request->extra_fields, "port");
 	if (port != NULL && !str_uint_equals(port, request->local_port))
 		return FALSE;
 	/* don't check destuser. in some systems destuser is intentionally
@@ -1493,8 +1490,8 @@ static void auth_request_proxy_finish_ip(struct auth_request *request)
 		request->no_login = TRUE;
 	} else if (!auth_request_proxy_is_self(request)) {
 		/* proxy destination isn't ourself - proxy */
-		auth_stream_reply_remove(request->extra_fields, "proxy_maybe");
-		auth_stream_reply_add(request->extra_fields, "proxy", NULL, 0);
+		auth_fields_remove(request->extra_fields, "proxy_maybe");
+		auth_fields_add(request->extra_fields, "proxy", NULL, 0);
 		request->no_login = TRUE;
 	} else {
 		/* proxying to ourself - log in without proxying by dropping
@@ -1504,8 +1501,8 @@ static void auth_request_proxy_finish_ip(struct auth_request *request)
 		auth_request_proxy_finish_failure(request);
 		if (proxy_always) {
 			/* director adds the host */
-			auth_stream_reply_add(request->extra_fields,
-					      "proxy", NULL, 0);
+			auth_fields_add(request->extra_fields,
+					"proxy", NULL, 0);
 			request->proxy = TRUE;
 		}
 	}
@@ -1522,7 +1519,7 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 	request->dns_lookup_ctx = NULL;
 	ctx->dns_lookup = NULL;
 
-	host = auth_stream_reply_find(request->extra_fields, "host");
+	host = auth_fields_find(request->extra_fields, "host");
 	i_assert(host != NULL);
 
 	if (result->ret != 0) {
@@ -1536,8 +1533,8 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 				"DNS lookup for %s took %u.%03u s",
 				host, result->msecs/1000, result->msecs % 1000);
 		}
-		auth_stream_reply_add(request->extra_fields, "hostip",
-				      net_ip2addr(&result->ips[0]), 0);
+		auth_fields_add(request->extra_fields, "hostip",
+				net_ip2addr(&result->ips[0]), 0);
 		for (i = 0; i < result->ips_count; i++) {
 			if (auth_request_proxy_ip_is_self(request,
 							  &result->ips[i])) {
@@ -1560,7 +1557,7 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 	struct ip_addr ip;
 	unsigned int secs;
 
-	host = auth_stream_reply_find(request->extra_fields, "host");
+	host = auth_fields_find(request->extra_fields, "host");
 	if (host == NULL)
 		return 1;
 	if (net_addr2ip(host, &ip) == 0) {
@@ -1573,7 +1570,7 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 	memset(&dns_set, 0, sizeof(dns_set));
 	dns_set.dns_client_socket_path = AUTH_DNS_SOCKET_PATH;
 	dns_set.timeout_msecs = AUTH_DNS_DEFAULT_TIMEOUT_MSECS;
-	value = auth_stream_reply_find(request->extra_fields, "proxy_timeout");
+	value = auth_fields_find(request->extra_fields, "proxy_timeout");
 	if (value != NULL) {
 		if (str_to_uint(value, &secs) < 0) {
 			auth_request_log_error(request, "proxy",
@@ -1618,11 +1615,11 @@ void auth_request_proxy_finish_failure(struct auth_request *request)
 		return;
 
 	/* drop all proxying fields */
-	auth_stream_reply_remove(request->extra_fields, "proxy");
-	auth_stream_reply_remove(request->extra_fields, "proxy_maybe");
-	auth_stream_reply_remove(request->extra_fields, "host");
-	auth_stream_reply_remove(request->extra_fields, "port");
-	auth_stream_reply_remove(request->extra_fields, "destuser");
+	auth_fields_remove(request->extra_fields, "proxy");
+	auth_fields_remove(request->extra_fields, "proxy_maybe");
+	auth_fields_remove(request->extra_fields, "host");
+	auth_fields_remove(request->extra_fields, "port");
+	auth_fields_remove(request->extra_fields, "destuser");
 
 	request->proxy = FALSE;
 	request->proxy_maybe = FALSE;

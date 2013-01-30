@@ -51,9 +51,9 @@ struct db_checkpassword {
 };
 
 static void
-env_put_extra_fields(const ARRAY_TYPE(auth_stream_field) *extra_fields)
+env_put_extra_fields(const ARRAY_TYPE(auth_field) *extra_fields)
 {
-	const struct auth_stream_field *field;
+	const struct auth_field *field;
 	const char *key, *value;
 
 	array_foreach(extra_fields, field) {
@@ -270,8 +270,8 @@ static void checkpassword_setup_env(struct auth_request *request)
 				    request->master_user, NULL));
 	}
 	if (request->extra_fields != NULL) {
-		const ARRAY_TYPE(auth_stream_field) *fields =
-			auth_stream_reply_export(request->extra_fields);
+		const ARRAY_TYPE(auth_field) *fields =
+			auth_fields_export(request->extra_fields);
 
 		/* extra fields could come from master db */
 		env_put_extra_fields(fields);

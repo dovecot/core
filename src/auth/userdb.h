@@ -2,7 +2,7 @@
 #define USERDB_H
 
 #include "md5.h"
-#include "auth-stream.h"
+#include "auth-fields.h"
 
 struct auth;
 struct auth_request;

@@ -6,28 +6,28 @@
 #include "strescape.h"
 #include "ostream.h"
 #include "auth-request.h"
-#include "auth-stream.h"
+#include "auth-fields.h"
 
-struct auth_stream_reply {
+struct auth_fields {
 	pool_t pool;
-	ARRAY_TYPE(auth_stream_field) fields;
+	ARRAY_TYPE(auth_field) fields;
 };
 
-struct auth_stream_reply *auth_stream_reply_init(pool_t pool)
+struct auth_fields *auth_fields_init(pool_t pool)
 {
-	struct auth_stream_reply *reply;
+	struct auth_fields *reply;
 
-	reply = p_new(pool, struct auth_stream_reply, 1);
+	reply = p_new(pool, struct auth_fields, 1);
 	reply->pool = pool;
 	p_array_init(&reply->fields, pool, 16);
 	return reply;
 }
 
 static bool
-auth_stream_reply_find_idx(struct auth_stream_reply *reply, const char *key,
-			   unsigned int *idx_r)
+auth_fields_find_idx(struct auth_fields *reply, const char *key,
+		     unsigned int *idx_r)
 {
-	const struct auth_stream_field *fields;
+	const struct auth_field *fields;
 	unsigned int i, count;
 
 	fields = array_get(&reply->fields, &count);
@@ -40,18 +40,18 @@ auth_stream_reply_find_idx(struct auth_stream_reply *reply, const char *key,
 	return FALSE;
 }
 
-void auth_stream_reply_add(struct auth_stream_reply *reply,
-			   const char *key, const char *value,
-			   enum auth_stream_field_flags flags)
+void auth_fields_add(struct auth_fields *reply,
+		     const char *key, const char *value,
+		     enum auth_field_flags flags)
 {
-	struct auth_stream_field *field;
+	struct auth_field *field;
 	unsigned int idx;
 
 	i_assert(*key != '\0');
 	i_assert(strchr(key, '\t') == NULL &&
 		 strchr(key, '\n') == NULL);
 
-	if (!auth_stream_reply_find_idx(reply, key, &idx)) {
+	if (!auth_fields_find_idx(reply, key, &idx)) {
 		field = array_append_space(&reply->fields);
 		field->key = p_strdup(reply->pool, key);
 	} else {
@@ -61,39 +61,38 @@ void auth_stream_reply_add(struct auth_stream_reply *reply,
 	field->flags = flags;
 }
 
-void auth_stream_reply_remove(struct auth_stream_reply *reply, const char *key)
+void auth_fields_remove(struct auth_fields *reply, const char *key)
 {
 	unsigned int idx;
 
-	if (auth_stream_reply_find_idx(reply, key, &idx))
+	if (auth_fields_find_idx(reply, key, &idx))
 		array_delete(&reply->fields, idx, 1);
 }
 
-const char *auth_stream_reply_find(struct auth_stream_reply *reply,
-				   const char *key)
+const char *auth_fields_find(struct auth_fields *reply, const char *key)
 {
-	const struct auth_stream_field *field;
+	const struct auth_field *field;
 	unsigned int idx;
 
-	if (!auth_stream_reply_find_idx(reply, key, &idx))
+	if (!auth_fields_find_idx(reply, key, &idx))
 		return NULL;
 
 	field = array_idx(&reply->fields, idx);
 	return field->value == NULL ? "" : field->value;
 }
 
-bool auth_stream_reply_exists(struct auth_stream_reply *reply, const char *key)
+bool auth_fields_exists(struct auth_fields *reply, const char *key)
 {
-	return auth_stream_reply_find(reply, key) != NULL;
+	return auth_fields_find(reply, key) != NULL;
 }
 
-void auth_stream_reply_reset(struct auth_stream_reply *reply)
+void auth_fields_reset(struct auth_fields *reply)
 {
 	array_clear(&reply->fields);
 }
 
-void auth_stream_reply_import(struct auth_stream_reply *reply, const char *str,
-			      enum auth_stream_field_flags flags)
+void auth_fields_import(struct auth_fields *reply, const char *str,
+			enum auth_field_flags flags)
 {
 	T_BEGIN {
 		const char *const *arg = t_strsplit_tab(str);
@@ -107,28 +106,27 @@ void auth_stream_reply_import(struct auth_stream_reply *reply, const char *str,
 			} else {
 				key = t_strdup_until(*arg, value++);
 			}
-			auth_stream_reply_add(reply, key, value, flags);
+			auth_fields_add(reply, key, value, flags);
 		}
 	} T_END;
 }
 
-const ARRAY_TYPE(auth_stream_field) *
-auth_stream_reply_export(struct auth_stream_reply *reply)
+const ARRAY_TYPE(auth_field) *auth_fields_export(struct auth_fields *reply)
 {
 	return &reply->fields;
 }
 
-void auth_stream_reply_append(struct auth_stream_reply *reply, string_t *dest,
-			      bool include_hidden)
+void auth_fields_append(struct auth_fields *reply, string_t *dest,
+			bool include_hidden)
 {
-	const struct auth_stream_field *fields;
+	const struct auth_field *fields;
 	unsigned int i, count;
 	bool first = TRUE;
 
 	fields = array_get(&reply->fields, &count);
 	for (i = 0; i < count; i++) {
 		if (!include_hidden &&
-		    (fields[i].flags & AUTH_STREAM_FIELD_FLAG_HIDDEN) != 0)
+		    (fields[i].flags & AUTH_FIELD_FLAG_HIDDEN) != 0)
 			continue;
 
 		if (first)
@@ -143,7 +141,7 @@ void auth_stream_reply_append(struct auth_stream_reply *reply, string_t *dest,
 	}
 }
 
-bool auth_stream_is_empty(struct auth_stream_reply *reply)
+bool auth_fields_is_empty(struct auth_fields *reply)
 {
 	return reply == NULL || array_count(&reply->fields) == 0;
 }

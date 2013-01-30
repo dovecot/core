@@ -19,7 +19,7 @@ auth_worker_reply_parse_args(struct auth_request *request,
 	args++;
 
 	if (*args != NULL) {
-		i_assert(auth_stream_is_empty(request->extra_fields) ||
+		i_assert(auth_fields_is_empty(request->extra_fields) ||
 			 request->master_user != NULL);
 		auth_request_set_fields(request, args, NULL);
 	}
@@ -79,7 +79,7 @@ void passdb_blocking_verify_plain(struct auth_request *request)
 {
 	string_t *str;
 
-	i_assert(auth_stream_is_empty(request->extra_fields) ||
+	i_assert(auth_fields_is_empty(request->extra_fields) ||
 		 request->master_user != NULL);
 
 	str = t_str_new(128);
@@ -122,7 +122,7 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 {
 	string_t *str;
 
-	i_assert(auth_stream_is_empty(request->extra_fields) ||
+	i_assert(auth_fields_is_empty(request->extra_fields) ||
 		 request->master_user != NULL);
 
 	str = t_str_new(128);
