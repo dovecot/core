@@ -205,13 +205,15 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 	auth_str_add_keyvalue(dest, "service", request->service);
 
         if (request->master_user != NULL) {
-		auth_str_add_keyvalue(dest, "master_user",
+		auth_str_add_keyvalue(dest, "master-user",
 				      request->master_user);
 	}
 	auth_str_add_keyvalue(dest, "original_username",
 			      request->original_username);
-	auth_str_add_keyvalue(dest, "requested_login_user",
-			      request->requested_login_user);
+	if (request->requested_login_user != NULL) {
+		auth_str_add_keyvalue(dest, "requested-login-user",
+				      request->requested_login_user);
+	}
 
 	if (request->local_ip.family != 0) {
 		auth_str_add_keyvalue(dest, "lip",
@@ -228,7 +230,7 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 	if (request->secured)
 		str_append(dest, "\tsecured");
 	if (request->skip_password_check)
-		str_append(dest, "\tskip_password_check");
+		str_append(dest, "\tskip-password-check");
 	if (request->valid_client_cert)
 		str_append(dest, "\tvalid-client-cert");
 	if (request->no_penalty)
@@ -311,15 +313,15 @@ bool auth_request_import(struct auth_request *request,
 	/* for communication between auth master and worker processes */
 	if (strcmp(key, "user") == 0)
 		request->user = p_strdup(request->pool, value);
-	else if (strcmp(key, "master_user") == 0)
+	else if (strcmp(key, "master-user") == 0)
 		request->master_user = p_strdup(request->pool, value);
-	else if (strcmp(key, "original_username") == 0)
+	else if (strcmp(key, "original-username") == 0)
 		request->original_username = p_strdup(request->pool, value);
-	else if (strcmp(key, "requested_login_user") == 0)
+	else if (strcmp(key, "requested-login-user") == 0)
 		request->requested_login_user = p_strdup(request->pool, value);
 	else if (strcmp(key, "successful") == 0)
 		request->successful = TRUE;
-	else if (strcmp(key, "skip_password_check") == 0) {
+	else if (strcmp(key, "skip-password-check") == 0) {
 		i_assert(request->master_user !=  NULL);
 		request->skip_password_check = TRUE;
 	} else if (strcmp(key, "mech") == 0)
