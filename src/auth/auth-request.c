@@ -291,10 +291,9 @@ bool auth_request_import(struct auth_request *request,
 		request->no_login = TRUE;
 	else if (strcmp(key, "successful") == 0)
 		request->successful = TRUE;
-	else if (strcmp(key, "skip_password_check") == 0) {
-		i_assert(request->master_user !=  NULL);
+	else if (strcmp(key, "skip_password_check") == 0)
 		request->skip_password_check = TRUE;
-	} else if (strcmp(key, "mech") == 0)
+	else if (strcmp(key, "mech") == 0)
 		request->mech_name = p_strdup(request->pool, value);
 	else
 		return FALSE;
@@ -1705,7 +1704,6 @@ int auth_request_password_verify(struct auth_request *request,
 
 	if (request->skip_password_check) {
 		/* currently this can happen only with master logins */
-		i_assert(request->master_user != NULL);
 		return 1;
 	}
 
