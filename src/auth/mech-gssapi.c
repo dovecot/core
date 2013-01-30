@@ -408,7 +408,7 @@ k5_principal_is_authorized(struct auth_request *request, const char *name)
 {
 	const char *value, *const *authorized_names, *const *tmp;
 
-	value = auth_stream_reply_find(request->extra_fields, "k5principals");
+	value = auth_fields_find(request->extra_fields, "k5principals");
 	if (value == NULL)
 		return FALSE;
 
@@ -639,7 +639,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 
 	/* Continue in callback once auth_request is populated with passdb
 	   information. */
-	request->passdb_success = TRUE; /* default to success */
+	auth_request->passdb_success = TRUE; /* default to success */
 	auth_request_lookup_credentials(&request->auth_request, "",
 					gssapi_credentials_callback);
 	return 0;
