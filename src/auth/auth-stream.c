@@ -1,6 +1,7 @@
 /* Copyright (c) 2005-2012 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
+#include "array.h"
 #include "str.h"
 #include "strescape.h"
 #include "ostream.h"
@@ -8,7 +9,8 @@
 #include "auth-stream.h"
 
 struct auth_stream_reply {
-	string_t *str;
+	pool_t pool;
+	ARRAY_TYPE(auth_stream_field) fields;
 };
 
 struct auth_stream_reply *auth_stream_reply_init(pool_t pool)
@@ -16,128 +18,132 @@ struct auth_stream_reply *auth_stream_reply_init(pool_t pool)
 	struct auth_stream_reply *reply;
 
 	reply = p_new(pool, struct auth_stream_reply, 1);
-	reply->str = str_new(pool, 128);
+	reply->pool = pool;
+	p_array_init(&reply->fields, pool, 16);
 	return reply;
 }
 
-void auth_stream_reply_add(struct auth_stream_reply *reply,
-			   const char *key, const char *value)
-{
-	i_assert(*key != '\0');
-	i_assert(strchr(key, '\t') == NULL &&
-		 strchr(key, '\n') == NULL);
-
-	if (str_len(reply->str) > 0)
-		str_append_c(reply->str, '\t');
-
-	str_append(reply->str, key);
-	if (value != NULL) {
-		str_append_c(reply->str, '=');
-		/* escape dangerous characters in the value */
-		str_append_tabescaped(reply->str, value);
-	}
-}
-
 static bool
-auth_stream_reply_find_area(struct auth_stream_reply *reply, const char *key,
-			    unsigned int *idx_r, unsigned int *len_r)
+auth_stream_reply_find_idx(struct auth_stream_reply *reply, const char *key,
+			   unsigned int *idx_r)
 {
-	const char *str = str_c(reply->str);
-	unsigned int i, start, key_len = strlen(key);
+	const struct auth_stream_field *fields;
+	unsigned int i, count;
 
-	i = 0;
-	while (str[i] != '\0') {
-		start = i;
-		for (; str[i] != '\0'; i++) {
-			if (str[i] == '\t')
-				break;
-		}
-
-		if (strncmp(str+start, key, key_len) == 0 &&
-		    (str[start+key_len] == '=' ||
-		     str[start+key_len] == '\t' ||
-		     str[start+key_len] == '\0')) {
-			*idx_r = start;
-			*len_r = i - start;
+	fields = array_get(&reply->fields, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(fields[i].key, key) == 0) {
+			*idx_r = i;
 			return TRUE;
 		}
-		if (str[i] == '\t')
-			i++;
 	}
 	return FALSE;
 }
 
+void auth_stream_reply_add(struct auth_stream_reply *reply,
+			   const char *key, const char *value,
+			   enum auth_stream_field_flags flags)
+{
+	struct auth_stream_field *field;
+	unsigned int idx;
+
+	i_assert(*key != '\0');
+	i_assert(strchr(key, '\t') == NULL &&
+		 strchr(key, '\n') == NULL);
+
+	if (!auth_stream_reply_find_idx(reply, key, &idx)) {
+		field = array_append_space(&reply->fields);
+		field->key = p_strdup(reply->pool, key);
+	} else {
+		field = array_idx_modifiable(&reply->fields, idx);
+	}
+	field->value = p_strdup_empty(reply->pool, value);
+	field->flags = flags;
+}
+
 void auth_stream_reply_remove(struct auth_stream_reply *reply, const char *key)
 {
-	unsigned int idx, len;
+	unsigned int idx;
 
-	if (!auth_stream_reply_find_area(reply, key, &idx, &len))
-		return;
-
-	if (idx == 0 && str_len(reply->str) == len) {
-		/* removing the only item */
-	} else if (str_len(reply->str) == idx + len) {
-		/* removing the last item -> remove the preceding tab */
-		len++;
-		idx--;
-	} else {
-		/* remove the trailing tab */
-		len++;
-	}
-	str_delete(reply->str, idx, len);
+	if (auth_stream_reply_find_idx(reply, key, &idx))
+		array_delete(&reply->fields, idx, 1);
 }
 
 const char *auth_stream_reply_find(struct auth_stream_reply *reply,
 				   const char *key)
 {
-	unsigned int idx, len, keylen;
+	const struct auth_stream_field *field;
+	unsigned int idx;
 
-	if (!auth_stream_reply_find_area(reply, key, &idx, &len))
+	if (!auth_stream_reply_find_idx(reply, key, &idx))
 		return NULL;
-	else {
-		keylen = strlen(key);
-		if (len == keylen) {
-			/* key without =value */
-			return "";
-		}
-		i_assert(len > keylen);
-		idx += keylen + 1;
-		len -= keylen + 1;
-		return t_strndup(str_c(reply->str) + idx, len);
-	}
+
+	field = array_idx(&reply->fields, idx);
+	return field->value == NULL ? "" : field->value;
 }
 
 bool auth_stream_reply_exists(struct auth_stream_reply *reply, const char *key)
 {
-	unsigned int idx, len;
-
-	return auth_stream_reply_find_area(reply, key, &idx, &len);
+	return auth_stream_reply_find(reply, key) != NULL;
 }
 
 void auth_stream_reply_reset(struct auth_stream_reply *reply)
 {
-	str_truncate(reply->str, 0);
+	array_clear(&reply->fields);
 }
 
-void auth_stream_reply_import(struct auth_stream_reply *reply, const char *str)
+void auth_stream_reply_import(struct auth_stream_reply *reply, const char *str,
+			      enum auth_stream_field_flags flags)
 {
-	if (str_len(reply->str) > 0)
-		str_append_c(reply->str, '\t');
-	str_append(reply->str, str);
+	T_BEGIN {
+		const char *const *arg = t_strsplit_tab(str);
+		const char *key, *value;
+
+		for (; *arg != NULL; arg++) {
+			value = strchr(*arg, '=');
+			if (value == NULL) {
+				key = *arg;
+				value = NULL;
+			} else {
+				key = t_strdup_until(*arg, value++);
+			}
+			auth_stream_reply_add(reply, key, value, flags);
+		}
+	} T_END;
 }
 
-const char *auth_stream_reply_export(struct auth_stream_reply *reply)
+const ARRAY_TYPE(auth_stream_field) *
+auth_stream_reply_export(struct auth_stream_reply *reply)
 {
-	return str_c(reply->str);
+	return &reply->fields;
 }
 
-void auth_stream_reply_append(struct auth_stream_reply *reply,
-			      string_t *dest)
+void auth_stream_reply_append(struct auth_stream_reply *reply, string_t *dest,
+			      bool include_hidden)
 {
-	str_append_str(dest, reply->str);
+	const struct auth_stream_field *fields;
+	unsigned int i, count;
+	bool first = TRUE;
+
+	fields = array_get(&reply->fields, &count);
+	for (i = 0; i < count; i++) {
+		if (!include_hidden &&
+		    (fields[i].flags & AUTH_STREAM_FIELD_FLAG_HIDDEN) != 0)
+			continue;
+
+		if (first)
+			first = FALSE;
+		else
+			str_append_c(dest, '\t');
+		str_append(dest, fields[i].key);
+		if (fields[i].value != NULL) {
+			str_append_c(dest, '=');
+			str_append_tabescaped(dest, fields[i].value);
+		}
+	}
 }
 
 bool auth_stream_is_empty(struct auth_stream_reply *reply)
 {
-	return reply == NULL || str_len(reply->str) == 0;
+	return reply == NULL || array_count(&reply->fields) == 0;
 }

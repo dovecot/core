@@ -170,7 +170,7 @@ auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 		return;
 
 	str_append_c(dest, '\t');
-	auth_stream_reply_append(request->extra_fields, dest);
+	auth_stream_reply_append(request->extra_fields, dest, FALSE);
 
 	if (request->proxy && !request->auth_only) {
 		/* we're proxying */
@@ -338,7 +338,8 @@ void auth_request_handler_reply(struct auth_request *request,
 		if (reply_size > 0) {
 			str = t_str_new(MAX_BASE64_ENCODED_SIZE(reply_size));
 			base64_encode(auth_reply, reply_size, str);
-			auth_stream_reply_add(request->extra_fields, "resp", str_c(str));
+			auth_stream_reply_add(request->extra_fields, "resp",
+					      str_c(str), 0);
 		}
 		ret = auth_request_proxy_finish(request,
 				auth_request_handler_proxy_callback);
@@ -635,7 +636,7 @@ static void userdb_callback(enum userdb_result result,
 	case USERDB_RESULT_OK:
 		str_printfa(str, "USER\t%u\t", request->id);
 		str_append_tabescaped(str, request->user);
-		auth_stream_reply_append(request->userdb_reply, str);
+		auth_stream_reply_append(request->userdb_reply, str, FALSE);
 
 		if (request->master_user != NULL &&
 		    !auth_stream_reply_exists(request->userdb_reply,

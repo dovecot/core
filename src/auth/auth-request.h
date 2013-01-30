@@ -50,9 +50,6 @@ struct auth_request {
         /* extra_fields are returned in authentication reply. Fields prefixed
            with "userdb_" are automatically placed to userdb_reply instead. */
         struct auth_stream_reply *extra_fields;
-	/* extra_fields that aren't supposed to be sent to the client, but
-	   are supposed to be stored to auth cache. */
-	struct auth_stream_reply *extra_cache_fields;
 	/* the whole userdb result reply */
 	struct auth_stream_reply *userdb_reply;
 	struct auth_request_proxy_dns_lookup_ctx *dns_lookup_ctx;

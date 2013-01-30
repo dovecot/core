@@ -275,7 +275,7 @@ user_callback(enum userdb_result result,
 		str_printfa(str, "USER\t%u\t", auth_request->id);
 		str_append_tabescaped(str, auth_request->user);
 		str_append_c(str, '\t');
-		auth_stream_reply_append(auth_request->userdb_reply, str);
+		auth_stream_reply_append(auth_request->userdb_reply, str, FALSE);
 		break;
 	}
 
@@ -325,7 +325,8 @@ static void pass_callback_finish(struct auth_request *auth_request,
 		str_append_tabescaped(str, auth_request->user);
 		if (!auth_stream_is_empty(auth_request->extra_fields)) {
 			str_append_c(str, '\t');
-			auth_stream_reply_append(auth_request->extra_fields, str);
+			auth_stream_reply_append(auth_request->extra_fields,
+						 str, FALSE);
 		}
 		break;
 	case PASSDB_RESULT_USER_UNKNOWN:

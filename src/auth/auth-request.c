@@ -427,11 +427,7 @@ static void auth_request_save_cache(struct auth_request *request,
 
 	if (!auth_stream_is_empty(request->extra_fields)) {
 		str_append_c(str, '\t');
-		auth_stream_reply_append(request->extra_fields, str);
-	}
-	if (!auth_stream_is_empty(request->extra_cache_fields)) {
-		str_append_c(str, '\t');
-		auth_stream_reply_append(request->extra_cache_fields, str);
+		auth_stream_reply_append(request->extra_fields, str, TRUE);
 	}
 	auth_cache_insert(passdb_cache, request, passdb->cache_key, str_c(str),
 			  result == PASSDB_RESULT_OK);
@@ -516,7 +512,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 				auth_stream_reply_init(request->pool);
 		}
 	        auth_stream_reply_add(request->extra_fields, "reason",
-				      "Password expired");
+				      "Password expired", 0);
 	} else if (request->passdb->next != NULL &&
 		   *result != PASSDB_RESULT_USER_DISABLED) {
 		/* try next passdb. */
@@ -826,16 +822,23 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 					   enum userdb_result result)
 {
 	struct userdb_module *userdb = request->userdb->userdb;
-	const char *str;
+	string_t *str;
+	const char *cache_value;
 
 	if (passdb_cache == NULL || userdb->cache_key == NULL ||
 	    request->master_user != NULL)
 		return;
 
-	str = result == USERDB_RESULT_USER_UNKNOWN ? "" :
-		auth_stream_reply_export(request->userdb_reply);
+	if (result == USERDB_RESULT_USER_UNKNOWN)
+		cache_value = "";
+	else {
+		str = t_str_new(128);
+		auth_stream_reply_append(request->userdb_reply, str, TRUE);
+		cache_value = str_c(str);
+	}
 	/* last_success has no meaning with userdb */
-	auth_cache_insert(passdb_cache, request, userdb->cache_key, str, FALSE);
+	auth_cache_insert(passdb_cache, request, userdb->cache_key,
+			  cache_value, FALSE);
 }
 
 static bool auth_request_lookup_user_cache(struct auth_request *request,
@@ -869,7 +872,7 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 
 	*result_r = USERDB_RESULT_OK;
 	*reply_r = auth_stream_reply_init(request->pool);
-	auth_stream_reply_import(*reply_r, value);
+	auth_stream_reply_import(*reply_r, value, 0);
 	return TRUE;
 }
 
@@ -1190,8 +1193,7 @@ static void auth_request_set_reply_field(struct auth_request *request,
 
 	if (request->extra_fields == NULL)
 		request->extra_fields = auth_stream_reply_init(request->pool);
-	auth_stream_reply_remove(request->extra_fields, name);
-	auth_stream_reply_add(request->extra_fields, name, value);
+	auth_stream_reply_add(request->extra_fields, name, value, 0);
 }
 
 static const char *
@@ -1305,11 +1307,8 @@ void auth_request_set_field(struct auth_request *request,
 		/* we'll need to get this field stored into cache,
 		   or we're a worker and we'll need to send this to the main
 		   auth process that can store it in the cache. */
-		if (request->extra_cache_fields == NULL) {
-			request->extra_cache_fields =
-				auth_stream_reply_init(request->pool);
-		}
-		auth_stream_reply_add(request->extra_cache_fields, name, value);
+		auth_stream_reply_add(request->extra_fields, name, value,
+				      AUTH_STREAM_FIELD_FLAG_HIDDEN);
 	}
 }
 
@@ -1363,9 +1362,9 @@ static void auth_request_set_uidgid_file(struct auth_request *request,
 				       "stat(%s) failed: %m", str_c(path));
 	} else {
 		auth_stream_reply_add(request->userdb_reply,
-				      "uid", dec2str(st.st_uid));
+				      "uid", dec2str(st.st_uid), 0);
 		auth_stream_reply_add(request->userdb_reply,
-				      "gid", dec2str(st.st_gid));
+				      "gid", dec2str(st.st_gid), 0);
 	}
 }
 
@@ -1398,7 +1397,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		auth_request_set_uidgid_file(request, value);
 		return;
 	} else if (strcmp(name, "userdb_import") == 0) {
-		auth_stream_reply_import(request->userdb_reply, value);
+		auth_stream_reply_import(request->userdb_reply, value, 0);
 		return;
 	} else if (strcmp(name, "system_user") == 0) {
 		/* FIXME: the system_user is for backwards compatibility */
@@ -1410,8 +1409,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		name = "system_groups_user";
 	}
 
-	auth_stream_reply_remove(request->userdb_reply, name);
-	auth_stream_reply_add(request->userdb_reply, name, value);
+	auth_stream_reply_add(request->userdb_reply, name, value, 0);
 }
 
 void auth_request_set_userdb_field_values(struct auth_request *request,
@@ -1439,7 +1437,7 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 			str_append(value, dec2str(gid));
 		}
 		auth_stream_reply_add(request->userdb_reply, name,
-				      str_c(value));
+				      str_c(value), 0);
 	} else {
 		/* add only one */
 		if (values[1] != NULL) {
@@ -1496,7 +1494,7 @@ static void auth_request_proxy_finish_ip(struct auth_request *request)
 	} else if (!auth_request_proxy_is_self(request)) {
 		/* proxy destination isn't ourself - proxy */
 		auth_stream_reply_remove(request->extra_fields, "proxy_maybe");
-		auth_stream_reply_add(request->extra_fields, "proxy", NULL);
+		auth_stream_reply_add(request->extra_fields, "proxy", NULL, 0);
 		request->no_login = TRUE;
 	} else {
 		/* proxying to ourself - log in without proxying by dropping
@@ -1507,7 +1505,7 @@ static void auth_request_proxy_finish_ip(struct auth_request *request)
 		if (proxy_always) {
 			/* director adds the host */
 			auth_stream_reply_add(request->extra_fields,
-					      "proxy", NULL);
+					      "proxy", NULL, 0);
 			request->proxy = TRUE;
 		}
 	}
@@ -1538,9 +1536,8 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 				"DNS lookup for %s took %u.%03u s",
 				host, result->msecs/1000, result->msecs % 1000);
 		}
-		auth_stream_reply_remove(request->extra_fields, "hostip");
 		auth_stream_reply_add(request->extra_fields, "hostip",
-				      net_ip2addr(&result->ips[0]));
+				      net_ip2addr(&result->ips[0]), 0);
 		for (i = 0; i < result->ips_count; i++) {
 			if (auth_request_proxy_ip_is_self(request,
 							  &result->ips[i])) {

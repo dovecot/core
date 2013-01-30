@@ -5,6 +5,7 @@
 #if defined(PASSDB_CHECKPASSWORD) || defined(USERDB_CHECKPASSWORD)
 
 #include "lib-signals.h"
+#include "array.h"
 #include "buffer.h"
 #include "str.h"
 #include "ioloop.h"
@@ -49,18 +50,16 @@ struct db_checkpassword {
 	struct child_wait *child_wait;
 };
 
-static void env_put_extra_fields(const char *extra_fields)
+static void
+env_put_extra_fields(const ARRAY_TYPE(auth_stream_field) *extra_fields)
 {
-	const char *const *tmp;
-	const char *key, *p;
+	const struct auth_stream_field *field;
+	const char *key, *value;
 
-	for (tmp = t_strsplit_tab(extra_fields); *tmp != NULL; tmp++) {
-		key = t_str_ucase(t_strcut(*tmp, '='));
-		p = strchr(*tmp, '=');
-		if (p == NULL)
-			env_put(t_strconcat(key, "=1", NULL));
-		else
-			env_put(t_strconcat(key, p, NULL));
+	array_foreach(extra_fields, field) {
+		key = t_str_ucase(field->key);
+		value = field->value != NULL ? field->value : "1";
+		env_put(t_strconcat(key, "=", value, NULL));
 	}
 }
 
@@ -271,7 +270,7 @@ static void checkpassword_setup_env(struct auth_request *request)
 				    request->master_user, NULL));
 	}
 	if (request->extra_fields != NULL) {
-		const char *fields =
+		const ARRAY_TYPE(auth_stream_field) *fields =
 			auth_stream_reply_export(request->extra_fields);
 
 		/* extra fields could come from master db */
