@@ -156,34 +156,18 @@ static void auth_request_handler_remove(struct auth_request_handler *handler,
 static void get_client_extra_fields(struct auth_request *request,
 				    struct auth_stream_reply *reply)
 {
-	const char **fields, *extra_fields;
-	unsigned int src;
-	bool seen_pass = FALSE;
+	const char *extra_fields;
 
 	if (auth_stream_is_empty(request->extra_fields))
 		return;
 
 	extra_fields = auth_stream_reply_export(request->extra_fields);
-
-	if (!request->proxy && strstr(extra_fields, "userdb_") == NULL) {
-		/* optimization: there are no userdb_* fields, we can just
-		   import */
-		auth_stream_reply_import(reply, extra_fields);
-		return;
-	}
-
-	fields = t_strsplit_tab(extra_fields);
-	for (src = 0; fields[src] != NULL; src++) {
-		if (strncmp(fields[src], "userdb_", 7) != 0) {
-			if (!seen_pass && strncmp(fields[src], "pass=", 5) == 0)
-				seen_pass = TRUE;
-			auth_stream_reply_import(reply, fields[src]);
-		}
-	}
+	auth_stream_reply_import(reply, extra_fields);
 
 	if (request->proxy && !request->auth_only) {
 		/* we're proxying */
-		if (!seen_pass && request->mech_password != NULL) {
+		if (!auth_stream_reply_exists(reply, "pass") &&
+		    request->mech_password != NULL) {
 			/* send back the password that was sent by user
 			   (not the password in passdb). */
 			auth_stream_reply_add(reply, "pass",

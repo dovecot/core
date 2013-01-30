@@ -48,8 +48,7 @@ struct auth_request {
 	char *mech_password; /* set if verify_plain() is called */
 	char *passdb_password; /* set after password lookup if successful */
         /* extra_fields are returned in authentication reply. Fields prefixed
-           with "userdb_" are skipped. If prefetch userdb is used, it uses
-           the "userdb_" prefixed fields. */
+           with "userdb_" are automatically placed to userdb_reply instead. */
         struct auth_stream_reply *extra_fields;
 	/* extra_fields that aren't supposed to be sent to the client, but
 	   are supposed to be stored to auth cache. */
