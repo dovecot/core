@@ -12,7 +12,7 @@ enum auth_client_result {
 };
 
 typedef void
-auth_request_callback_t(struct auth_stream_reply *reply, void *context);
+auth_request_callback_t(const char *reply, void *context);
 
 struct auth_request_handler *
 auth_request_handler_create(bool token_auth, auth_request_callback_t *callback,
@@ -22,7 +22,7 @@ auth_request_handler_create(bool token_auth, auth_request_callback_t *callback,
 		(auth_request_callback_t *)callback, \
 		(void *)((char*)context + \
 			CALLBACK_TYPECHECK(callback, void (*)( \
-				struct auth_stream_reply *, typeof(context)))), \
+				const char *, typeof(context)))), \
 		master_callback)
 
 void auth_request_handler_destroy(struct auth_request_handler **handler);

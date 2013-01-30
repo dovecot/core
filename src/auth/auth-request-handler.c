@@ -8,6 +8,7 @@
 #include "hash.h"
 #include "net.h"
 #include "str.h"
+#include "strescape.h"
 #include "str-sanitize.h"
 #include "master-interface.h"
 #include "auth-penalty.h"
@@ -153,38 +154,44 @@ static void auth_request_handler_remove(struct auth_request_handler *handler,
 	auth_request_unref(&request);
 }
 
-static void get_client_extra_fields(struct auth_request *request,
-				    struct auth_stream_reply *reply)
+static void
+auth_str_add_keyvalue(string_t *dest, const char *key, const char *value)
 {
-	const char *extra_fields;
+	str_append_c(dest, '\t');
+	str_append(dest, key);
+	str_append_c(dest, '=');
+	str_append_tabescaped(dest, value);
+}
 
+static void
+auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
+{
 	if (auth_stream_is_empty(request->extra_fields))
 		return;
 
-	extra_fields = auth_stream_reply_export(request->extra_fields);
-	auth_stream_reply_import(reply, extra_fields);
+	str_append_c(dest, '\t');
+	auth_stream_reply_append(request->extra_fields, dest);
 
 	if (request->proxy && !request->auth_only) {
 		/* we're proxying */
-		if (!auth_stream_reply_exists(reply, "pass") &&
+		if (!auth_stream_reply_exists(request->extra_fields, "pass") &&
 		    request->mech_password != NULL) {
 			/* send back the password that was sent by user
 			   (not the password in passdb). */
-			auth_stream_reply_add(reply, "pass",
+			auth_str_add_keyvalue(dest, "pass",
 					      request->mech_password);
 		}
 		if (request->master_user != NULL &&
-		    auth_stream_reply_find(reply, "master") == NULL) {
+		    !auth_stream_reply_exists(request->extra_fields, "master")) {
 			/* the master username needs to be forwarded */
-			auth_stream_reply_add(reply, "master",
+			auth_str_add_keyvalue(dest, "master",
 					      request->master_user);
 		}
 	}
 }
 
 static void
-auth_request_handle_failure(struct auth_request *request,
-			    struct auth_stream_reply *reply)
+auth_request_handle_failure(struct auth_request *request, const char *reply)
 {
         struct auth_request_handler *handler = request->handler;
 
@@ -228,52 +235,47 @@ static void
 auth_request_handler_reply_success_finish(struct auth_request *request)
 {
         struct auth_request_handler *handler = request->handler;
-	struct auth_stream_reply *reply;
-
-	reply = auth_stream_reply_init(pool_datastack_create());
+	string_t *str = t_str_new(128);
 
 	if (request->last_penalty != 0 && auth_penalty != NULL) {
 		/* reset penalty */
 		auth_penalty_update(auth_penalty, request, 0);
 	}
 
-	auth_stream_reply_add(reply, "OK", NULL);
-	auth_stream_reply_add(reply, NULL, dec2str(request->id));
-	auth_stream_reply_add(reply, "user", request->user);
-	get_client_extra_fields(request, reply);
+	str_printfa(str, "OK\t%u\tuser=", request->id);
+	str_append_tabescaped(str, request->user);
+	auth_str_append_extra_fields(request, str);
 	if (request->no_login || handler->master_callback == NULL) {
 		/* this request doesn't have to wait for master
 		   process to pick it up. delete it */
 		auth_request_handler_remove(handler, request);
 	}
-	handler->callback(reply, handler->context);
+	handler->callback(str_c(str), handler->context);
 }
 
 static void
 auth_request_handler_reply_failure_finish(struct auth_request *request)
 {
-	struct auth_stream_reply *reply;
+	string_t *str = t_str_new(128);
 
-	reply = auth_stream_reply_init(pool_datastack_create());
-	auth_stream_reply_add(reply, "FAIL", NULL);
-	auth_stream_reply_add(reply, NULL, dec2str(request->id));
+	str_printfa(str, "FAIL\t%u", request->id);
 	if (request->user != NULL)
-		auth_stream_reply_add(reply, "user", request->user);
+		auth_str_add_keyvalue(str, "user", request->user);
 	else if (request->original_username != NULL) {
-		auth_stream_reply_add(reply, "user",
+		auth_str_add_keyvalue(str, "user", 
 				      request->original_username);
 	}
 
 	if (request->internal_failure)
-		auth_stream_reply_add(reply, "temp", NULL);
+		str_append(str, "\ttemp");
 	else if (request->master_user != NULL) {
 		/* authentication succeeded, but we can't log in
 		   as the wanted user */
-		auth_stream_reply_add(reply, "authz", NULL);
+		str_append(str, "\tauthz");
 	}
 	if (request->no_failure_delay)
-		auth_stream_reply_add(reply, "nodelay", NULL);
-	get_client_extra_fields(request, reply);
+		str_append(str, "\tnodelay");
+	auth_str_append_extra_fields(request, str);
 
 	switch (request->passdb_result) {
 	case PASSDB_RESULT_INTERNAL_FAILURE:
@@ -283,14 +285,14 @@ auth_request_handler_reply_failure_finish(struct auth_request *request)
 	case PASSDB_RESULT_OK:
 		break;
 	case PASSDB_RESULT_USER_DISABLED:
-		auth_stream_reply_add(reply, "user_disabled", NULL);
+		str_append(str, "\tuser_disabled");
 		break;
 	case PASSDB_RESULT_PASS_EXPIRED:
-		auth_stream_reply_add(reply, "pass_expired", NULL);
+		str_append(str, "\tpass_expired");
 		break;
 	}
 
-	auth_request_handle_failure(request, reply);
+	auth_request_handle_failure(request, str_c(str));
 }
 
 static void
@@ -310,7 +312,6 @@ void auth_request_handler_reply(struct auth_request *request,
 				const void *auth_reply, size_t reply_size)
 {
         struct auth_request_handler *handler = request->handler;
-	struct auth_stream_reply *reply;
 	string_t *str;
 	int ret;
 
@@ -326,16 +327,12 @@ void auth_request_handler_reply(struct auth_request *request,
 
 	switch (result) {
 	case AUTH_CLIENT_RESULT_CONTINUE:
-		reply = auth_stream_reply_init(pool_datastack_create());
-		auth_stream_reply_add(reply, "CONT", NULL);
-		auth_stream_reply_add(reply, NULL, dec2str(request->id));
-
-		str = t_str_new(MAX_BASE64_ENCODED_SIZE(reply_size));
+		str = t_str_new(16 + MAX_BASE64_ENCODED_SIZE(reply_size));
+		str_printfa(str, "CONT\t%u\t", request->id);
 		base64_encode(auth_reply, reply_size, str);
-		auth_stream_reply_add(reply, NULL, str_c(str));
 
 		request->accept_input = TRUE;
-		handler->callback(reply, handler->context);
+		handler->callback(str_c(str), handler->context);
 		break;
 	case AUTH_CLIENT_RESULT_SUCCESS:
 		if (reply_size > 0) {
@@ -373,16 +370,14 @@ static void auth_request_handler_auth_fail(struct auth_request_handler *handler,
 					   struct auth_request *request,
 					   const char *reason)
 {
-	struct auth_stream_reply *reply;
+	string_t *str = t_str_new(128);
 
 	auth_request_log_info(request, request->mech->mech_name, "%s", reason);
 
-	reply = auth_stream_reply_init(pool_datastack_create());
-	auth_stream_reply_add(reply, "FAIL", NULL);
-	auth_stream_reply_add(reply, NULL, dec2str(request->id));
-	auth_stream_reply_add(reply, "reason", reason);
+	str_printfa(str, "FAIL\t%u\treason=", request->id);
+	str_append_tabescaped(str, reason);
 
-	handler->callback(reply, handler->context);
+	handler->callback(str_c(str), handler->context);
 	auth_request_handler_remove(handler, request);
 }
 
@@ -579,13 +574,8 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 
 	request = hash_table_lookup(handler->requests, POINTER_CAST(id));
 	if (request == NULL) {
-		struct auth_stream_reply *reply;
-
-		reply = auth_stream_reply_init(pool_datastack_create());
-		auth_stream_reply_add(reply, "FAIL", NULL);
-		auth_stream_reply_add(reply, NULL, dec2str(id));
-		auth_stream_reply_add(reply, "reason",
-				      "Authentication request timed out");
+		const char *reply = t_strdup_printf(
+			"FAIL\t%u\treason=Authentication request timed out", id);
 		handler->callback(reply, handler->context);
 		return TRUE;
 	}
@@ -618,7 +608,7 @@ static void userdb_callback(enum userdb_result result,
 			    struct auth_request *request)
 {
         struct auth_request_handler *handler = request->handler;
-	struct auth_stream_reply *reply;
+	string_t *str;
 	const char *value;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_USERDB);
@@ -628,28 +618,29 @@ static void userdb_callback(enum userdb_result result,
 	if (request->userdb_lookup_failed)
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 
-	reply = auth_stream_reply_init(pool_datastack_create());
+	str = t_str_new(128);
 	switch (result) {
 	case USERDB_RESULT_INTERNAL_FAILURE:
-		auth_stream_reply_add(reply, "FAIL", NULL);
-		auth_stream_reply_add(reply, NULL, dec2str(request->id));
+		str_printfa(str, "FAIL\t%u", request->id);
 		if (request->userdb_lookup_failed) {
 			value = auth_stream_reply_find(request->userdb_reply,
 						       "reason");
 			if (value != NULL)
-				auth_stream_reply_add(reply, "reason", value);
+				auth_str_add_keyvalue(str, "reason", value);
 		}
 		break;
 	case USERDB_RESULT_USER_UNKNOWN:
-		auth_stream_reply_add(reply, "NOTFOUND", NULL);
-		auth_stream_reply_add(reply, NULL, dec2str(request->id));
+		str_printfa(str, "NOTFOUND\t%u", request->id);
 		break;
 	case USERDB_RESULT_OK:
+		str_printfa(str, "USER\t%u\t", request->id);
+		str_append_tabescaped(str, request->user);
+		auth_stream_reply_append(request->userdb_reply, str);
+
 		if (request->master_user != NULL &&
-		    auth_stream_reply_find(request->userdb_reply,
-					   "master_user") == NULL) {
-			auth_stream_reply_add(request->userdb_reply,
-					      "master_user",
+		    !auth_stream_reply_exists(request->userdb_reply,
+					      "master_user")) {
+			auth_str_add_keyvalue(str, "master_user",
 					      request->master_user);
 		}
 		if (*request->set->anonymous_username != '\0' &&
@@ -658,16 +649,8 @@ static void userdb_callback(enum userdb_result result,
 			/* this is an anonymous login, either via ANONYMOUS
 			   SASL mechanism or simply logging in as the anonymous
 			   user via another mechanism */
-			auth_stream_reply_add(request->userdb_reply,
-					      "anonymous", NULL);
+			str_append(str, "\tanonymous");
 		}
-
-		auth_stream_reply_add(reply, "USER", NULL);
-		auth_stream_reply_add(reply, NULL, dec2str(request->id));
-		auth_stream_reply_add(reply, NULL, request->user);
-		auth_stream_reply_import(reply,
-			auth_stream_reply_export(request->userdb_reply));
-
 		/* generate auth_token when master service provided session_pid */
 		if (request->session_pid != (pid_t)-1) {
 			const char *auth_token =
@@ -675,11 +658,11 @@ static void userdb_callback(enum userdb_result result,
 					       dec2str(request->session_pid),
 					       request->user,
 					       request->session_id);
-			auth_stream_reply_add(reply, "auth_token", auth_token);
+			auth_str_add_keyvalue(str, "auth_token", auth_token);
 		}
 		break;
 	}
-	handler->master_callback(reply, request->master);
+	handler->master_callback(str_c(str), request->master);
 
 	auth_master_connection_unref(&request->master);
 	auth_request_unref(&request);
@@ -689,13 +672,11 @@ static void userdb_callback(enum userdb_result result,
 static bool
 auth_master_request_failed(struct auth_request_handler *handler,
 			   struct auth_master_connection *master,
-			   struct auth_stream_reply *reply, unsigned int id)
+			   unsigned int id)
 {
-	auth_stream_reply_add(reply, "FAIL", NULL);
-	auth_stream_reply_add(reply, NULL, dec2str(id));
 	if (handler->master_callback == NULL)
 		return FALSE;
-	handler->master_callback(reply, master);
+	handler->master_callback(t_strdup_printf("FAIL\t%u", id), master);
 	return TRUE;
 }
 
@@ -705,16 +686,13 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 					 const char *const *params)
 {
 	struct auth_request *request;
-	struct auth_stream_reply *reply;
 	struct net_unix_cred cred;
-
-	reply = auth_stream_reply_init(pool_datastack_create());
 
 	request = hash_table_lookup(handler->requests, POINTER_CAST(client_id));
 	if (request == NULL) {
 		i_error("Master request %u.%u not found",
 			handler->client_pid, client_id);
-		return auth_master_request_failed(handler, master, reply, id);
+		return auth_master_request_failed(handler, master, id);
 	}
 
 	auth_request_ref(request);
@@ -743,16 +721,15 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 			(long)request->session_pid,
 			handler->client_pid, client_id,
 			(long)cred.pid, (long)cred.uid);
-		return auth_master_request_failed(handler, master, reply, id);
+		return auth_master_request_failed(handler, master, id);
 	}
 
 	if (request->state != AUTH_REQUEST_STATE_FINISHED ||
 	    !request->successful) {
 		i_error("Master requested unfinished authentication request "
 			"%u.%u", handler->client_pid, client_id);
-		auth_stream_reply_add(reply, "FAIL", NULL);
-		auth_stream_reply_add(reply, NULL, dec2str(id));
-		handler->master_callback(reply, master);
+		handler->master_callback(t_strdup_printf("FAIL\t%u", id),
+					 master);
 		auth_request_unref(&request);
 	} else {
 		/* the request isn't being referenced anywhere anymore,

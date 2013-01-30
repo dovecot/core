@@ -358,7 +358,7 @@ static void auth_request_save_cache(struct auth_request *request,
 				    enum passdb_result result)
 {
 	struct passdb_module *passdb = request->passdb->passdb;
-	const char *extra_fields, *encoded_password;
+	const char *encoded_password;
 	string_t *str;
 
 	switch (result) {
@@ -376,9 +376,6 @@ static void auth_request_save_cache(struct auth_request *request,
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		i_unreached();
 	}
-
-	extra_fields = request->extra_fields == NULL ? NULL :
-		auth_stream_reply_export(request->extra_fields);
 
 	if (passdb_cache == NULL || passdb->cache_key == NULL ||
 	    request->master_user != NULL)
@@ -428,17 +425,13 @@ static void auth_request_save_cache(struct auth_request *request,
 		str_append(str, request->passdb_password);
 	}
 
-	if (extra_fields != NULL && *extra_fields != '\0') {
+	if (!auth_stream_is_empty(request->extra_fields)) {
 		str_append_c(str, '\t');
-		str_append(str, extra_fields);
+		auth_stream_reply_append(request->extra_fields, str);
 	}
-	if (request->extra_cache_fields != NULL) {
-		extra_fields =
-			auth_stream_reply_export(request->extra_cache_fields);
-		if (*extra_fields != '\0') {
-			str_append_c(str, '\t');
-			str_append(str, extra_fields);
-		}
+	if (!auth_stream_is_empty(request->extra_cache_fields)) {
+		str_append_c(str, '\t');
+		auth_stream_reply_append(request->extra_cache_fields, str);
 	}
 	auth_cache_insert(passdb_cache, request, passdb->cache_key, str_c(str),
 			  result == PASSDB_RESULT_OK);

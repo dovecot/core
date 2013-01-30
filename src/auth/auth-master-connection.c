@@ -69,22 +69,18 @@ auth_master_reply_hide_passwords(struct auth_master_connection *conn,
 	return t_strarray_join((void *)args, "\t");
 }
 
-void auth_master_request_callback(struct auth_stream_reply *reply,
-				  void *context)
+void auth_master_request_callback(const char *reply, void *context)
 {
 	struct auth_master_connection *conn = context;
 	struct const_iovec iov[2];
-	const char *reply_str;
-
-	reply_str = auth_stream_reply_export(reply);
 
 	if (conn->auth->set->debug) {
 		i_debug("master userdb out: %s",
-			auth_master_reply_hide_passwords(conn, reply_str));
+			auth_master_reply_hide_passwords(conn, reply));
 	}
 
-	iov[0].iov_base = reply_str;
-	iov[0].iov_len = strlen(reply_str);
+	iov[0].iov_base = reply;
+	iov[0].iov_len = strlen(reply);
 	iov[1].iov_base = "\n";
 	iov[1].iov_len = 1;
 
@@ -250,7 +246,6 @@ user_callback(enum userdb_result result,
 	      struct auth_request *auth_request)
 {
 	struct auth_master_connection *conn = auth_request->master;
-	struct auth_stream_reply *reply = auth_request->userdb_reply;
 	string_t *str;
 	const char *value;
 
@@ -267,7 +262,8 @@ user_callback(enum userdb_result result,
 	case USERDB_RESULT_INTERNAL_FAILURE:
 		str_printfa(str, "FAIL\t%u", auth_request->id);
 		if (auth_request->userdb_lookup_failed) {
-			value = auth_stream_reply_find(reply, "reason");
+			value = auth_stream_reply_find(auth_request->userdb_reply,
+						       "reason");
 			if (value != NULL)
 				str_printfa(str, "\treason=%s", value);
 		}
@@ -279,7 +275,7 @@ user_callback(enum userdb_result result,
 		str_printfa(str, "USER\t%u\t", auth_request->id);
 		str_append_tabescaped(str, auth_request->user);
 		str_append_c(str, '\t');
-		str_append(str, auth_stream_reply_export(reply));
+		auth_stream_reply_append(auth_request->userdb_reply, str);
 		break;
 	}
 
@@ -320,7 +316,6 @@ static void pass_callback_finish(struct auth_request *auth_request,
 				 enum passdb_result result)
 {
 	struct auth_master_connection *conn = auth_request->master;
-	struct auth_stream_reply *reply = auth_request->extra_fields;
 	string_t *str;
 
 	str = t_str_new(128);
@@ -328,9 +323,9 @@ static void pass_callback_finish(struct auth_request *auth_request,
 	case PASSDB_RESULT_OK:
 		str_printfa(str, "PASS\t%u\tuser=", auth_request->id);
 		str_append_tabescaped(str, auth_request->user);
-		if (reply != NULL) {
+		if (!auth_stream_is_empty(auth_request->extra_fields)) {
 			str_append_c(str, '\t');
-			str_append(str, auth_stream_reply_export(reply));
+			auth_stream_reply_append(auth_request->extra_fields, str);
 		}
 		break;
 	case PASSDB_RESULT_USER_UNKNOWN:

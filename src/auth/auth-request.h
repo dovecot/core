@@ -244,5 +244,6 @@ void auth_request_userdb_callback(enum userdb_result result,
 				  struct auth_request *request);
 
 void auth_request_refresh_last_access(struct auth_request *request);
+void auth_str_append(string_t *dest, const char *key, const char *value);
 
 #endif

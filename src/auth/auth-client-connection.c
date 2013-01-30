@@ -71,16 +71,15 @@ static void auth_client_send(struct auth_client_connection *conn,
 	}
 }
 
-static void auth_callback(struct auth_stream_reply *reply,
+static void auth_callback(const char *reply,
 			  struct auth_client_connection *conn)
 {
 	if (reply == NULL) {
 		/* handler destroyed */
 		auth_client_connection_unref(&conn);
-		return;
+	} else {
+		auth_client_send(conn, reply);
 	}
-
-	auth_client_send(conn, auth_stream_reply_export(reply));
 }
 
 static bool
