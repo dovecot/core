@@ -23,18 +23,16 @@ struct auth_stream_reply *auth_stream_reply_init(pool_t pool)
 void auth_stream_reply_add(struct auth_stream_reply *reply,
 			   const char *key, const char *value)
 {
+	i_assert(*key != '\0');
+	i_assert(strchr(key, '\t') == NULL &&
+		 strchr(key, '\n') == NULL);
+
 	if (str_len(reply->str) > 0)
 		str_append_c(reply->str, '\t');
-	if (key != NULL) {
-		i_assert(*key != '\0');
-		i_assert(strchr(key, '\t') == NULL &&
-			 strchr(key, '\n') == NULL);
 
-		str_append(reply->str, key);
-		if (value != NULL)
-			str_append_c(reply->str, '=');
-	}
+	str_append(reply->str, key);
 	if (value != NULL) {
+		str_append_c(reply->str, '=');
 		/* escape dangerous characters in the value */
 		str_append_tabescaped(reply->str, value);
 	}
@@ -142,9 +140,4 @@ void auth_stream_reply_append(struct auth_stream_reply *reply,
 bool auth_stream_is_empty(struct auth_stream_reply *reply)
 {
 	return reply == NULL || str_len(reply->str) == 0;
-}
-
-string_t *auth_stream_reply_get_str(struct auth_stream_reply *reply)
-{
-	return reply->str;
 }
