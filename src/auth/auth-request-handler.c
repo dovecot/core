@@ -170,7 +170,8 @@ auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 		return;
 
 	str_append_c(dest, '\t');
-	auth_fields_append(request->extra_fields, dest, FALSE);
+	auth_fields_append(request->extra_fields, dest,
+			   AUTH_FIELD_FLAG_HIDDEN, 0);
 
 	if (!request->auth_only &&
 	    auth_fields_exists(request->extra_fields, "proxy")) {
@@ -641,7 +642,8 @@ static void userdb_callback(enum userdb_result result,
 		str_printfa(str, "USER\t%u\t", request->id);
 		str_append_tabescaped(str, request->user);
 		str_append_c(str, '\t');
-		auth_fields_append(request->userdb_reply, str, FALSE);
+		auth_fields_append(request->userdb_reply, str,
+				   AUTH_FIELD_FLAG_HIDDEN, 0);
 
 		if (request->master_user != NULL &&
 		    !auth_fields_exists(request->userdb_reply, "master_user")) {

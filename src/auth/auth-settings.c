@@ -111,6 +111,10 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(SET_STR, args),
 	DEF(SET_STR, default_fields),
 	DEF(SET_STR, override_fields),
+	DEF(SET_ENUM, skip),
+	DEF(SET_ENUM, result_success),
+	DEF(SET_ENUM, result_failure),
+	DEF(SET_ENUM, result_internalfail),
 	DEF(SET_BOOL, deny),
 	DEF(SET_BOOL, pass),
 	DEF(SET_BOOL, master),
@@ -123,6 +127,10 @@ static const struct auth_passdb_settings auth_passdb_default_settings = {
 	.args = "",
 	.default_fields = "",
 	.override_fields = "",
+	.skip = "never:authenticated:unauthenticated",
+	.result_success = "return-ok:return:return-fail:continue:continue-ok:continue-fail",
+	.result_failure = "continue:return:return-ok:return-fail:continue-ok:continue-fail",
+	.result_internalfail = "continue:return:return-ok:return-fail:continue-ok:continue-fail",
 	.deny = FALSE,
 	.pass = FALSE,
 	.master = FALSE
@@ -361,6 +369,10 @@ auth_passdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 
 	if (set->driver == NULL || *set->driver == '\0') {
 		*error_r = "passdb is missing driver";
+		return FALSE;
+	}
+	if (set->pass && strcmp(set->result_success, "return-ok") != 0) {
+		*error_r = "Obsolete pass=yes setting mixed with non-default result_success";
 		return FALSE;
 	}
 	return TRUE;

@@ -121,6 +121,11 @@ struct auth_request {
 	unsigned int prefer_plain_credentials:1;
 	unsigned int in_delayed_failure_queue:1;
 	unsigned int removed_from_handler:1;
+	/* each passdb lookup can update the current success-status using the
+	   result_* rules. the authentication succeeds only if this is TRUE
+	   at the end. mechanisms that don't require passdb, but do a passdb
+	   lookup anyway (e.g. GSSAPI) need to set this to TRUE by default. */
+	unsigned int passdb_success:1;
 	/* the last userdb lookup failed either due to "tempfail" extra field
 	   or because one of the returned uid/gid fields couldn't be translated
 	   to a number */

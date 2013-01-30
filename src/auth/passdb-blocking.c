@@ -18,11 +18,8 @@ auth_worker_reply_parse_args(struct auth_request *request,
 		request->passdb_password = p_strdup(request->pool, *args);
 	args++;
 
-	if (*args != NULL) {
-		i_assert(auth_fields_is_empty(request->extra_fields) ||
-			 request->master_user != NULL);
+	if (*args != NULL)
 		auth_request_set_fields(request, args, NULL);
-	}
 }
 
 static enum passdb_result
@@ -79,9 +76,6 @@ void passdb_blocking_verify_plain(struct auth_request *request)
 {
 	string_t *str;
 
-	i_assert(auth_fields_is_empty(request->extra_fields) ||
-		 request->master_user != NULL);
-
 	str = t_str_new(128);
 	str_printfa(str, "PASSV\t%u\t", request->passdb->passdb->id);
 	str_append_tabescaped(str, request->mech_password);
@@ -121,9 +115,6 @@ static bool lookup_credentials_callback(const char *reply, void *context)
 void passdb_blocking_lookup_credentials(struct auth_request *request)
 {
 	string_t *str;
-
-	i_assert(auth_fields_is_empty(request->extra_fields) ||
-		 request->master_user != NULL);
 
 	str = t_str_new(128);
 	str_printfa(str, "PASSL\t%u\t", request->passdb->passdb->id);

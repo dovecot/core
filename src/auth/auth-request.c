@@ -81,6 +81,7 @@ struct auth_request *auth_request_new_dummy(void)
 	request->last_access = ioloop_time;
 	request->session_pid = (pid_t)-1;
 	request->set = global_auth_settings;
+	request->extra_fields = auth_fields_init(request->pool);
 	return request;
 }
 
@@ -118,7 +119,7 @@ void auth_request_success(struct auth_request *request,
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	if (request->failed) {
+	if (request->failed || !request->passdb_success) {
 		/* password was valid, but some other check failed. */
 		auth_request_fail(request);
 		return;
@@ -193,8 +194,10 @@ auth_str_add_keyvalue(string_t *dest, const char *key, const char *value)
 {
 	str_append_c(dest, '\t');
 	str_append(dest, key);
-	str_append_c(dest, '=');
-	str_append_tabescaped(dest, value);
+	if (value != NULL) {
+		str_append_c(dest, '=');
+		str_append_tabescaped(dest, value);
+	}
 }
 
 void auth_request_export(struct auth_request *request, string_t *dest)
@@ -321,10 +324,9 @@ bool auth_request_import(struct auth_request *request,
 		request->requested_login_user = p_strdup(request->pool, value);
 	else if (strcmp(key, "successful") == 0)
 		request->successful = TRUE;
-	else if (strcmp(key, "skip-password-check") == 0) {
-		i_assert(request->master_user !=  NULL);
+	else if (strcmp(key, "skip-password-check") == 0)
 		request->skip_password_check = TRUE;
-	} else if (strcmp(key, "mech") == 0)
+	else if (strcmp(key, "mech") == 0)
 		request->mech_name = p_strdup(request->pool, value);
 	else
 		return FALSE;
@@ -429,18 +431,22 @@ static void auth_request_save_cache(struct auth_request *request,
 
 	if (!auth_fields_is_empty(request->extra_fields)) {
 		str_append_c(str, '\t');
-		auth_fields_append(request->extra_fields, str, TRUE);
+		/* add only those extra fields to cache that were set by this
+		   passdb lookup. the CHANGED flag does this, because we
+		   snapshotted the extra_fields before the current passdb
+		   lookup. */
+		auth_fields_append(request->extra_fields, str,
+				   AUTH_FIELD_FLAG_CHANGED,
+				   AUTH_FIELD_FLAG_CHANGED);
 	}
 	auth_cache_insert(passdb_cache, request, passdb->cache_key, str_c(str),
 			  result == PASSDB_RESULT_OK);
 }
 
-static bool auth_request_master_lookup_finish(struct auth_request *request)
+static void auth_request_master_lookup_finish(struct auth_request *request)
 {
-	struct auth_passdb *passdb;
-
 	if (request->failed)
-		return TRUE;
+		return;
 
 	/* master login successful. update user and master_user variables. */
 	auth_request_log_info(request, "passdb", "Master user logging in as %s",
@@ -449,35 +455,35 @@ static bool auth_request_master_lookup_finish(struct auth_request *request)
 	request->master_user = request->user;
 	request->user = request->requested_login_user;
 	request->requested_login_user = NULL;
+}
 
-	request->skip_password_check = TRUE;
-	request->passdb_password = NULL;
+static bool
+auth_request_want_skip_passdb(struct auth_request *request,
+			      struct auth_passdb *passdb)
+{
+	/* skip_password_check basically specifies if authentication is
+	   finished */
+	bool authenticated = request->skip_password_check;
 
-	if (!request->passdb->set->pass) {
-		/* skip the passdb lookup, we're authenticated now. */
-		return TRUE;
+	switch (passdb->skip) {
+	case AUTH_PASSDB_SKIP_NEVER:
+		return FALSE;
+	case AUTH_PASSDB_SKIP_AUTHENTICATED:
+		return authenticated;
+	case AUTH_PASSDB_SKIP_UNAUTHENTICATED:
+		return !authenticated;
 	}
-
-	/* the authentication continues with passdb lookup for the
-	   requested_login_user. */
-	request->passdb = auth_request_get_auth(request)->passdbs;
-
-	for (passdb = request->passdb; passdb != NULL; passdb = passdb->next) {
-		if (passdb->passdb->iface.lookup_credentials != NULL)
-			break;
-	}
-	if (passdb == NULL) {
-		auth_request_log_error(request, "passdb",
-			"No passdbs support skipping password verification - "
-			"pass=yes can't be used in master passdb");
-	}
-	return FALSE;
+	i_unreached();
 }
 
 static bool
 auth_request_handle_passdb_callback(enum passdb_result *result,
 				    struct auth_request *request)
 {
+	struct auth_passdb *next_passdb;
+	enum auth_passdb_rule result_rule;
+	bool passdb_continue = FALSE;
+
 	if (request->passdb_password != NULL) {
 		safe_memset(request->passdb_password, 0,
 			    strlen(request->passdb_password));
@@ -493,29 +499,87 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 					      "User found from deny passdb");
 			*result = PASSDB_RESULT_USER_DISABLED;
 		}
-	} else if (*result == PASSDB_RESULT_OK) {
-		/* success */
-		if (request->requested_login_user != NULL) {
-			/* this was a master user lookup. */
-			if (!auth_request_master_lookup_finish(request))
-				return FALSE;
-		} else {
-			if (request->passdb->set->pass) {
-				/* this wasn't the final passdb lookup,
-				   continue to next passdb */
-				request->passdb = request->passdb->next;
-				request->passdb_password = NULL;
-				return FALSE;
-			}
-		}
-	} else if (*result == PASSDB_RESULT_PASS_EXPIRED) {
-	        auth_fields_add(request->extra_fields, "reason",
-				"Password expired", 0);
-	} else if (request->passdb->next != NULL &&
-		   *result != PASSDB_RESULT_USER_DISABLED) {
+		return TRUE;
+	}
+
+	/* users that exist but can't log in are special. we don't try to match
+	   any of the success/failure rules to them. they'll always fail. */
+	switch (*result) {
+	case PASSDB_RESULT_USER_DISABLED:
+		return TRUE;
+	case PASSDB_RESULT_PASS_EXPIRED:
+		auth_request_set_field(request, "reason",
+				       "Password expired", NULL);
+		return TRUE;
+
+	case PASSDB_RESULT_OK:
+		result_rule = request->passdb->result_success;
+		break;
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+		result_rule = request->passdb->result_internalfail;
+		break;
+	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
+	case PASSDB_RESULT_USER_UNKNOWN:
+	case PASSDB_RESULT_PASSWORD_MISMATCH:
+	default:
+		result_rule = request->passdb->result_failure;
+		break;
+	}
+
+	switch (result_rule) {
+	case AUTH_PASSDB_RULE_RETURN:
+		break;
+	case AUTH_PASSDB_RULE_RETURN_OK:
+		request->passdb_success = TRUE;
+		break;
+	case AUTH_PASSDB_RULE_RETURN_FAIL:
+		request->passdb_success = FALSE;
+		break;
+	case AUTH_PASSDB_RULE_CONTINUE:
+		passdb_continue = TRUE;
+		break;
+	case AUTH_PASSDB_RULE_CONTINUE_OK:
+		passdb_continue = TRUE;
+		request->passdb_success = TRUE;
+		break;
+	case AUTH_PASSDB_RULE_CONTINUE_FAIL:
+		passdb_continue = TRUE;
+		request->passdb_success = FALSE;
+		break;
+	}
+
+	if (*result == PASSDB_RESULT_OK && passdb_continue) {
+		/* password was successfully verified. don't bother
+		   checking it again. */
+		request->skip_password_check = TRUE;
+	}
+
+	if (request->requested_login_user != NULL) {
+		auth_request_master_lookup_finish(request);
+		/* if the passdb lookup continues, it continues with non-master
+		   passdbs for the requested_login_user. */
+		next_passdb = auth_request_get_auth(request)->passdbs;
+	} else {
+		next_passdb = request->passdb->next;
+	}
+	while (next_passdb != NULL &&
+	       auth_request_want_skip_passdb(request, next_passdb))
+		next_passdb = next_passdb->next;
+
+	if (passdb_continue && next_passdb != NULL) {
 		/* try next passdb. */
-                request->passdb = request->passdb->next;
+                request->passdb = next_passdb;
 		request->passdb_password = NULL;
+
+		if (*result == PASSDB_RESULT_OK) {
+			/* this passdb lookup succeeded, preserve its extra
+			   fields */
+			auth_fields_snapshot(request->extra_fields);
+		} else {
+			/* this passdb lookup failed, remove any extra fields
+			   it set */
+			auth_fields_snapshot(request->extra_fields);
+		}
 
 		if (*result == PASSDB_RESULT_USER_UNKNOWN) {
 			/* remember that we did at least one successful
@@ -527,16 +591,16 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			   successfully login. */
 			request->passdbs_seen_internal_failure = TRUE;
 		}
-		auth_fields_reset(request->extra_fields);
-
 		return FALSE;
 	} else if (request->passdbs_seen_internal_failure) {
 		/* last passdb lookup returned internal failure. it may have
 		   had the correct password, so return internal failure
 		   instead of plain failure. */
 		*result = PASSDB_RESULT_INTERNAL_FAILURE;
+	} else if (request->passdb_success) {
+		/* either this or a previous passdb lookup succeeded. */
+		*result = PASSDB_RESULT_OK;
 	}
-
 	return TRUE;
 }
 
@@ -826,7 +890,9 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 		cache_value = "";
 	else {
 		str = t_str_new(128);
-		auth_fields_append(request->userdb_reply, str, TRUE);
+		auth_fields_append(request->userdb_reply, str,
+				   AUTH_FIELD_FLAG_CHANGED,
+				   AUTH_FIELD_FLAG_CHANGED);
 		cache_value = str_c(str);
 	}
 	/* last_success has no meaning with userdb */
@@ -1660,8 +1726,7 @@ int auth_request_password_verify(struct auth_request *request,
 	int ret;
 
 	if (request->skip_password_check) {
-		/* currently this can happen only with master logins */
-		i_assert(request->master_user != NULL);
+		/* passdb continue* rule after a successful authentication */
 		return 1;
 	}
 

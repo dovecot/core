@@ -10,7 +10,9 @@
 
 struct auth_fields {
 	pool_t pool;
-	ARRAY_TYPE(auth_field) fields;
+	ARRAY_TYPE(auth_field) fields, snapshot_fields;
+	unsigned int snapshot_idx;
+	bool snapshotted;
 };
 
 struct auth_fields *auth_fields_init(pool_t pool)
@@ -20,6 +22,16 @@ struct auth_fields *auth_fields_init(pool_t pool)
 	fields = p_new(pool, struct auth_fields, 1);
 	fields->pool = pool;
 	return fields;
+}
+
+static void auth_fields_snapshot_preserve(struct auth_fields *fields)
+{
+	if (!fields->snapshotted || array_is_created(&fields->snapshot_fields))
+		return;
+
+	p_array_init(&fields->snapshot_fields, fields->pool,
+		     array_count(&fields->fields));
+	array_append_array(&fields->snapshot_fields, &fields->fields);
 }
 
 static bool
@@ -60,18 +72,21 @@ void auth_fields_add(struct auth_fields *fields,
 		field = array_append_space(&fields->fields);
 		field->key = p_strdup(fields->pool, key);
 	} else {
+		auth_fields_snapshot_preserve(fields);
 		field = array_idx_modifiable(&fields->fields, idx);
 	}
 	field->value = p_strdup_empty(fields->pool, value);
-	field->flags = flags;
+	field->flags = flags | AUTH_FIELD_FLAG_CHANGED;
 }
 
 void auth_fields_remove(struct auth_fields *fields, const char *key)
 {
 	unsigned int idx;
 
-	if (auth_fields_find_idx(fields, key, &idx))
+	if (auth_fields_find_idx(fields, key, &idx)) {
+		auth_fields_snapshot_preserve(fields);
 		array_delete(&fields->fields, idx, 1);
+	}
 }
 
 const char *auth_fields_find(struct auth_fields *fields, const char *key)
@@ -93,8 +108,10 @@ bool auth_fields_exists(struct auth_fields *fields, const char *key)
 
 void auth_fields_reset(struct auth_fields *fields)
 {
-	if (array_is_created(&fields->fields))
+	if (array_is_created(&fields->fields)) {
+		auth_fields_snapshot_preserve(fields);
 		array_clear(&fields->fields);
+	}
 }
 
 void auth_fields_import(struct auth_fields *fields, const char *str,
@@ -125,7 +142,8 @@ const ARRAY_TYPE(auth_field) *auth_fields_export(struct auth_fields *fields)
 }
 
 void auth_fields_append(struct auth_fields *fields, string_t *dest,
-			bool include_hidden)
+			enum auth_field_flags flags_mask,
+			enum auth_field_flags flags_result)
 {
 	const struct auth_field *f;
 	unsigned int i, count;
@@ -136,8 +154,7 @@ void auth_fields_append(struct auth_fields *fields, string_t *dest,
 
 	f = array_get(&fields->fields, &count);
 	for (i = 0; i < count; i++) {
-		if (!include_hidden &&
-		    (f[i].flags & AUTH_FIELD_FLAG_HIDDEN) != 0)
+		if ((f[i].flags & flags_mask) != flags_result)
 			continue;
 
 		if (first)
@@ -156,4 +173,35 @@ bool auth_fields_is_empty(struct auth_fields *fields)
 {
 	return fields == NULL || !array_is_created(&fields->fields) ||
 		array_count(&fields->fields) == 0;
+}
+
+void auth_fields_snapshot(struct auth_fields *fields)
+{
+	struct auth_field *field;
+
+	fields->snapshotted = TRUE;
+	if (!array_is_created(&fields->fields))
+		return;
+
+	if (!array_is_created(&fields->snapshot_fields)) {
+		/* try to avoid creating this array */
+		fields->snapshot_idx = array_count(&fields->fields);
+	} else {
+		array_clear(&fields->snapshot_fields);
+		array_append_array(&fields->snapshot_fields, &fields->fields);
+	}
+	array_foreach_modifiable(&fields->fields, field)
+		field->flags &= ~AUTH_FIELD_FLAG_CHANGED;
+}
+
+void auth_fields_rollback(struct auth_fields *fields)
+{
+	if (array_is_created(&fields->snapshot_fields)) {
+		array_clear(&fields->fields);
+		array_append_array(&fields->fields, &fields->snapshot_fields);
+	} else if (array_is_created(&fields->fields)) {
+		array_delete(&fields->fields, fields->snapshot_idx,
+			     array_count(&fields->fields) -
+			     fields->snapshot_idx);
+	}
 }

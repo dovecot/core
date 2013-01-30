@@ -18,6 +18,34 @@ struct auth_userdb_settings userdb_dummy_set = {
 
 static ARRAY(struct auth *) auths;
 
+static enum auth_passdb_skip auth_passdb_skip_parse(const char *str)
+{
+	if (strcmp(str, "never") == 0)
+		return AUTH_PASSDB_SKIP_NEVER;
+	if (strcmp(str, "authenticated") == 0)
+		return AUTH_PASSDB_SKIP_AUTHENTICATED;
+	if (strcmp(str, "unauthenticated") == 0)
+		return AUTH_PASSDB_SKIP_UNAUTHENTICATED;
+	i_unreached();
+}
+
+static enum auth_passdb_rule auth_passdb_rule_parse(const char *str)
+{
+	if (strcmp(str, "return") == 0)
+		return AUTH_PASSDB_RULE_RETURN;
+	if (strcmp(str, "return-ok") == 0)
+		return AUTH_PASSDB_RULE_RETURN_OK;
+	if (strcmp(str, "return-fail") == 0)
+		return AUTH_PASSDB_RULE_RETURN_FAIL;
+	if (strcmp(str, "continue") == 0)
+		return AUTH_PASSDB_RULE_CONTINUE;
+	if (strcmp(str, "continue-ok") == 0)
+		return AUTH_PASSDB_RULE_CONTINUE_OK;
+	if (strcmp(str, "continue-fail") == 0)
+		return AUTH_PASSDB_RULE_CONTINUE_FAIL;
+	i_unreached();
+}
+
 static void
 auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 		    struct auth_passdb **passdbs)
@@ -26,6 +54,17 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 
 	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
 	auth_passdb->set = set;
+	auth_passdb->skip = auth_passdb_skip_parse(set->skip);
+	auth_passdb->result_success =
+		auth_passdb_rule_parse(set->result_success);
+	auth_passdb->result_failure =
+		auth_passdb_rule_parse(set->result_failure);
+	auth_passdb->result_internalfail =
+		auth_passdb_rule_parse(set->result_internalfail);
+
+	/* for backwards compatibility: */
+	if (set->pass)
+		auth_passdb->result_success = AUTH_PASSDB_RULE_CONTINUE;
 
 	for (dest = passdbs; *dest != NULL; dest = &(*dest)->next) ;
 	*dest = auth_passdb;
