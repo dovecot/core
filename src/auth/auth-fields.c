@@ -15,24 +15,26 @@ struct auth_fields {
 
 struct auth_fields *auth_fields_init(pool_t pool)
 {
-	struct auth_fields *reply;
+	struct auth_fields *fields;
 
-	reply = p_new(pool, struct auth_fields, 1);
-	reply->pool = pool;
-	p_array_init(&reply->fields, pool, 16);
-	return reply;
+	fields = p_new(pool, struct auth_fields, 1);
+	fields->pool = pool;
+	return fields;
 }
 
 static bool
-auth_fields_find_idx(struct auth_fields *reply, const char *key,
+auth_fields_find_idx(struct auth_fields *fields, const char *key,
 		     unsigned int *idx_r)
 {
-	const struct auth_field *fields;
+	const struct auth_field *f;
 	unsigned int i, count;
 
-	fields = array_get(&reply->fields, &count);
+	if (!array_is_created(&fields->fields))
+		return FALSE;
+
+	f = array_get(&fields->fields, &count);
 	for (i = 0; i < count; i++) {
-		if (strcmp(fields[i].key, key) == 0) {
+		if (strcmp(f[i].key, key) == 0) {
 			*idx_r = i;
 			return TRUE;
 		}
@@ -40,7 +42,7 @@ auth_fields_find_idx(struct auth_fields *reply, const char *key,
 	return FALSE;
 }
 
-void auth_fields_add(struct auth_fields *reply,
+void auth_fields_add(struct auth_fields *fields,
 		     const char *key, const char *value,
 		     enum auth_field_flags flags)
 {
@@ -51,47 +53,51 @@ void auth_fields_add(struct auth_fields *reply,
 	i_assert(strchr(key, '\t') == NULL &&
 		 strchr(key, '\n') == NULL);
 
-	if (!auth_fields_find_idx(reply, key, &idx)) {
-		field = array_append_space(&reply->fields);
-		field->key = p_strdup(reply->pool, key);
+	if (!auth_fields_find_idx(fields, key, &idx)) {
+		if (!array_is_created(&fields->fields))
+			p_array_init(&fields->fields, fields->pool, 16);
+
+		field = array_append_space(&fields->fields);
+		field->key = p_strdup(fields->pool, key);
 	} else {
-		field = array_idx_modifiable(&reply->fields, idx);
+		field = array_idx_modifiable(&fields->fields, idx);
 	}
-	field->value = p_strdup_empty(reply->pool, value);
+	field->value = p_strdup_empty(fields->pool, value);
 	field->flags = flags;
 }
 
-void auth_fields_remove(struct auth_fields *reply, const char *key)
+void auth_fields_remove(struct auth_fields *fields, const char *key)
 {
 	unsigned int idx;
 
-	if (auth_fields_find_idx(reply, key, &idx))
-		array_delete(&reply->fields, idx, 1);
+	if (auth_fields_find_idx(fields, key, &idx))
+		array_delete(&fields->fields, idx, 1);
 }
 
-const char *auth_fields_find(struct auth_fields *reply, const char *key)
+const char *auth_fields_find(struct auth_fields *fields, const char *key)
 {
 	const struct auth_field *field;
 	unsigned int idx;
 
-	if (!auth_fields_find_idx(reply, key, &idx))
+	if (!auth_fields_find_idx(fields, key, &idx))
 		return NULL;
 
-	field = array_idx(&reply->fields, idx);
+	field = array_idx(&fields->fields, idx);
 	return field->value == NULL ? "" : field->value;
 }
 
-bool auth_fields_exists(struct auth_fields *reply, const char *key)
+bool auth_fields_exists(struct auth_fields *fields, const char *key)
 {
-	return auth_fields_find(reply, key) != NULL;
+	return auth_fields_find(fields, key) != NULL;
 }
 
-void auth_fields_reset(struct auth_fields *reply)
+void auth_fields_reset(struct auth_fields *fields)
 {
-	array_clear(&reply->fields);
+	if (array_is_created(&fields->fields))
+		array_clear(&fields->fields);
 }
 
-void auth_fields_import(struct auth_fields *reply, const char *str,
+void auth_fields_import(struct auth_fields *fields, const char *str,
 			enum auth_field_flags flags)
 {
 	T_BEGIN {
@@ -106,42 +112,48 @@ void auth_fields_import(struct auth_fields *reply, const char *str,
 			} else {
 				key = t_strdup_until(*arg, value++);
 			}
-			auth_fields_add(reply, key, value, flags);
+			auth_fields_add(fields, key, value, flags);
 		}
 	} T_END;
 }
 
-const ARRAY_TYPE(auth_field) *auth_fields_export(struct auth_fields *reply)
+const ARRAY_TYPE(auth_field) *auth_fields_export(struct auth_fields *fields)
 {
-	return &reply->fields;
+	if (!array_is_created(&fields->fields))
+		p_array_init(&fields->fields, fields->pool, 1);
+	return &fields->fields;
 }
 
-void auth_fields_append(struct auth_fields *reply, string_t *dest,
+void auth_fields_append(struct auth_fields *fields, string_t *dest,
 			bool include_hidden)
 {
-	const struct auth_field *fields;
+	const struct auth_field *f;
 	unsigned int i, count;
 	bool first = TRUE;
 
-	fields = array_get(&reply->fields, &count);
+	if (!array_is_created(&fields->fields))
+		return;
+
+	f = array_get(&fields->fields, &count);
 	for (i = 0; i < count; i++) {
 		if (!include_hidden &&
-		    (fields[i].flags & AUTH_FIELD_FLAG_HIDDEN) != 0)
+		    (f[i].flags & AUTH_FIELD_FLAG_HIDDEN) != 0)
 			continue;
 
 		if (first)
 			first = FALSE;
 		else
 			str_append_c(dest, '\t');
-		str_append(dest, fields[i].key);
-		if (fields[i].value != NULL) {
+		str_append(dest, f[i].key);
+		if (f[i].value != NULL) {
 			str_append_c(dest, '=');
-			str_append_tabescaped(dest, fields[i].value);
+			str_append_tabescaped(dest, f[i].value);
 		}
 	}
 }
 
-bool auth_fields_is_empty(struct auth_fields *reply)
+bool auth_fields_is_empty(struct auth_fields *fields)
 {
-	return reply == NULL || array_count(&reply->fields) == 0;
+	return fields == NULL || !array_is_created(&fields->fields) ||
+		array_count(&fields->fields) == 0;
 }
