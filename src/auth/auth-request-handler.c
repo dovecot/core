@@ -640,6 +640,7 @@ static void userdb_callback(enum userdb_result result,
 	case USERDB_RESULT_OK:
 		str_printfa(str, "USER\t%u\t", request->id);
 		str_append_tabescaped(str, request->user);
+		str_append_c(str, '\t');
 		auth_fields_append(request->userdb_reply, str, FALSE);
 
 		if (request->master_user != NULL &&
