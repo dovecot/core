@@ -1454,18 +1454,13 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 
 static bool auth_request_proxy_is_self(struct auth_request *request)
 {
-	const char *const *tmp, *port = NULL;
+	const char *port = NULL;
 
 	if (!request->proxy_host_is_self)
 		return FALSE;
 
 	/* check if the port is the same */
-	tmp = auth_stream_split(request->extra_fields);
-	for (; *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "port=", 5) == 0)
-			port = *tmp + 5;
-	}
-
+	port = auth_stream_reply_find(request->extra_fields, "port");
 	if (port != NULL && !str_uint_equals(port, request->local_port))
 		return FALSE;
 	/* don't check destuser. in some systems destuser is intentionally
