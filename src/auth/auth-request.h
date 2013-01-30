@@ -53,7 +53,8 @@ struct auth_request {
 	/* the whole userdb result reply */
 	struct auth_fields *userdb_reply;
 	struct auth_request_proxy_dns_lookup_ctx *dns_lookup_ctx;
-	/* Result of passdb lookup */
+	/* The final result of passdb lookup (delayed due to asynchronous
+	   proxy DNS lookups) */
 	enum passdb_result passdb_result;
 
 	const struct mech_module *mech;
@@ -90,33 +91,40 @@ struct auth_request {
 
 	void *context;
 
-	unsigned int successful:1;
-	unsigned int passdb_failure:1;
-	unsigned int internal_failure:1;
-	unsigned int passdb_user_unknown:1;
-	unsigned int passdb_internal_failure:1;
-	unsigned int userdb_internal_failure:1;
-	unsigned int delayed_failure:1;
+	/* this is a lookup on auth socket (not login socket).
+	   skip any proxying stuff if enabled. */
 	unsigned int auth_only:1;
-	unsigned int domain_is_realm:1;
-	unsigned int accept_input:1;
-	unsigned int no_failure_delay:1;
-	unsigned int no_login:1;
-	unsigned int no_password:1;
-	unsigned int skip_password_check:1;
-	unsigned int prefer_plain_credentials:1;
-	unsigned int proxy:1;
-	unsigned int proxy_maybe:1;
-	unsigned int proxy_always:1;
-	unsigned int proxy_host_is_self:1;
-	unsigned int valid_client_cert:1;
-	unsigned int no_penalty:1;
-	unsigned int cert_username:1;
+	/* we're doing a userdb lookup now (we may have done passdb lookup
+	   earlier) */
 	unsigned int userdb_lookup:1;
-	unsigned int userdb_lookup_failed:1;
+	/* DIGEST-MD5 kludge */
+	unsigned int domain_is_realm:1;
+
+	/* flags received from auth client: */
 	unsigned int secured:1;
 	unsigned int final_resp_ok:1;
+	unsigned int no_penalty:1;
+	unsigned int valid_client_cert:1;
+	unsigned int cert_username:1;
+
+	/* success/failure states: */
+	unsigned int successful:1;
+	unsigned int failed:1; /* overrides any other success */
+	unsigned int internal_failure:1;
+	unsigned int passdbs_seen_user_unknown:1;
+	unsigned int passdbs_seen_internal_failure:1;
+	unsigned int userdbs_seen_internal_failure:1;
+
+	/* current state: */
+	unsigned int accept_cont_input:1;
+	unsigned int skip_password_check:1;
+	unsigned int prefer_plain_credentials:1;
+	unsigned int in_delayed_failure_queue:1;
 	unsigned int removed_from_handler:1;
+	/* the last userdb lookup failed either due to "tempfail" extra field
+	   or because one of the returned uid/gid fields couldn't be translated
+	   to a number */
+	unsigned int userdb_lookup_failed:1;
 
 	/* ... mechanism specific data ... */
 };

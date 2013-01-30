@@ -408,9 +408,6 @@ k5_principal_is_authorized(struct auth_request *request, const char *name)
 {
 	const char *value, *const *authorized_names, *const *tmp;
 
-	if (request->extra_fields == NULL)
-		return FALSE;
-
 	value = auth_stream_reply_find(request->extra_fields, "k5principals");
 	if (value == NULL)
 		return FALSE;

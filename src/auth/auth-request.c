@@ -61,6 +61,7 @@ auth_request_new(const struct mech_module *mech)
 	request->set = global_auth_settings;
 	request->mech = mech;
 	request->mech_name = mech == NULL ? NULL : mech->mech_name;
+	request->extra_fields = auth_fields_init(request->pool);
 	return request;
 }
 
@@ -117,7 +118,7 @@ void auth_request_success(struct auth_request *request,
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	if (request->passdb_failure) {
+	if (request->failed) {
 		/* password was valid, but some other check failed. */
 		auth_request_fail(request);
 		return;
@@ -316,8 +317,6 @@ bool auth_request_import(struct auth_request *request,
 		request->original_username = p_strdup(request->pool, value);
 	else if (strcmp(key, "requested_login_user") == 0)
 		request->requested_login_user = p_strdup(request->pool, value);
-	else if (strcmp(key, "nologin") == 0)
-		request->no_login = TRUE;
 	else if (strcmp(key, "successful") == 0)
 		request->successful = TRUE;
 	else if (strcmp(key, "skip_password_check") == 0) {
@@ -390,7 +389,8 @@ static void auth_request_save_cache(struct auth_request *request,
 		return;
 	}
 
-	if (!request->no_password && request->passdb_password == NULL) {
+	if (request->passdb_password == NULL &&
+	    !auth_fields_exists(request->extra_fields, "nopassword")) {
 		/* passdb didn't provide the correct password */
 		if (result != PASSDB_RESULT_OK ||
 		    request->mech_password == NULL)
@@ -437,7 +437,7 @@ static bool auth_request_master_lookup_finish(struct auth_request *request)
 {
 	struct auth_passdb *passdb;
 
-	if (request->passdb_failure)
+	if (request->failed)
 		return TRUE;
 
 	/* master login successful. update user and master_user variables. */
@@ -507,8 +507,6 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			}
 		}
 	} else if (*result == PASSDB_RESULT_PASS_EXPIRED) {
-		if (request->extra_fields == NULL)
-			request->extra_fields = auth_fields_init(request->pool);
 	        auth_fields_add(request->extra_fields, "reason",
 				"Password expired", 0);
 	} else if (request->passdb->next != NULL &&
@@ -517,25 +515,20 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
                 request->passdb = request->passdb->next;
 		request->passdb_password = NULL;
 
-		request->proxy = FALSE;
-		request->proxy_maybe = FALSE;
-		request->proxy_always = FALSE;
-
 		if (*result == PASSDB_RESULT_USER_UNKNOWN) {
 			/* remember that we did at least one successful
 			   passdb lookup */
-			request->passdb_user_unknown = TRUE;
+			request->passdbs_seen_user_unknown = TRUE;
 		} else if (*result == PASSDB_RESULT_INTERNAL_FAILURE) {
 			/* remember that we have had an internal failure. at
 			   the end return internal failure if we couldn't
 			   successfully login. */
-			request->passdb_internal_failure = TRUE;
+			request->passdbs_seen_internal_failure = TRUE;
 		}
-		if (request->extra_fields != NULL)
-			auth_fields_reset(request->extra_fields);
+		auth_fields_reset(request->extra_fields);
 
 		return FALSE;
-	} else if (request->passdb_internal_failure) {
+	} else if (request->passdbs_seen_internal_failure) {
 		/* last passdb lookup returned internal failure. it may have
 		   had the correct password, so return internal failure
 		   instead of plain failure. */
@@ -693,7 +686,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 				binary_to_hex(credentials, size));
 		}
 		if (result == PASSDB_RESULT_SCHEME_NOT_AVAILABLE &&
-		    request->passdb_user_unknown) {
+		    request->passdbs_seen_user_unknown) {
 			/* one of the passdbs accepted the scheme,
 			   but the user was unknown there */
 			result = PASSDB_RESULT_USER_UNKNOWN;
@@ -882,7 +875,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 	if (result != USERDB_RESULT_OK && request->userdb->next != NULL) {
 		/* try next userdb. */
 		if (result == USERDB_RESULT_INTERNAL_FAILURE)
-			request->userdb_internal_failure = TRUE;
+			request->userdbs_seen_internal_failure = TRUE;
 
 		request->userdb = request->userdb->next;
 		auth_request_lookup_user(request,
@@ -892,7 +885,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 
 	if (result == USERDB_RESULT_OK)
 		userdb_template_export(userdb->override_fields_tmpl, request);
-	else if (request->userdb_internal_failure) {
+	else if (request->userdbs_seen_internal_failure) {
 		/* one of the userdb lookups failed. the user might have been
 		   in there, so this is an internal failure */
 		result = USERDB_RESULT_INTERNAL_FAILURE;
@@ -1111,7 +1104,7 @@ static void auth_request_validate_networks(struct auth_request *request,
 		/* IP not known */
 		auth_request_log_info(request, "passdb",
 			"allow_nets check failed: Remote IP not known");
-		request->passdb_failure = TRUE;
+		request->failed = TRUE;
 		return;
 	}
 
@@ -1134,7 +1127,7 @@ static void auth_request_validate_networks(struct auth_request *request,
 		auth_request_log_info(request, "passdb",
 			"allow_nets check failed: IP not in allowed networks");
 	}
-	request->passdb_failure = !found;
+	request->failed = !found;
 }
 
 static void
@@ -1160,38 +1153,6 @@ auth_request_set_password(struct auth_request *request, const char *value,
 			p_strdup_printf(request->pool, "{%s}%s",
 					default_scheme, value);
 	}
-}
-
-static void auth_request_set_reply_field(struct auth_request *request,
-					 const char *name, const char *value)
-{
-	if (strcmp(name, "nologin") == 0) {
-		/* user can't actually login - don't keep this
-		   reply for master */
-		request->no_login = TRUE;
-		value = NULL;
-	} else if (strcmp(name, "proxy") == 0) {
-		/* we're proxying authentication for this user. send
-		   password back if using plaintext authentication. */
-		request->proxy = TRUE;
-		value = NULL;
-	} else if (strcmp(name, "proxy_always") == 0) {
-		/* when proxy_maybe=yes and proxying wouldn't normally be done,
-		   with this enabled proxy=y is still returned without host.
-		   this can be used to make director set the host. */
-		request->proxy_always = TRUE;
-		value = NULL;
-	} else if (strcmp(name, "proxy_maybe") == 0) {
-		/* like "proxy", but log in normally if we're proxying to
-		   ourself */
-		request->proxy = TRUE;
-		request->proxy_maybe = TRUE;
-		value = NULL;
-	}
-
-	if (request->extra_fields == NULL)
-		request->extra_fields = auth_fields_init(request->pool);
-	auth_fields_add(request->extra_fields, name, value, 0);
 }
 
 static const char *
@@ -1270,7 +1231,6 @@ void auth_request_set_field(struct auth_request *request,
 		   to cache. */
 	} else if (strcmp(name, "nodelay") == 0) {
 		/* don't delay replying to client of the failure */
-		request->no_failure_delay = TRUE;
 	} else if (strcmp(name, "nopassword") == 0) {
 		/* NULL password - anything goes */
 		const char *password = request->passdb_password;
@@ -1285,7 +1245,6 @@ void auth_request_set_field(struct auth_request *request,
 				return;
 			}
 		}
-		request->no_password = TRUE;
 		request->passdb_password = NULL;
 	} else if (strcmp(name, "allow_nets") == 0) {
 		auth_request_validate_networks(request, value);
@@ -1296,7 +1255,7 @@ void auth_request_set_field(struct auth_request *request,
 		auth_request_set_userdb_field(request, name + 7, value);
 	} else {
 		/* these fields are returned to client */
-		auth_request_set_reply_field(request, name, value);
+		auth_fields_add(request->extra_fields, name, value, 0);
 		return;
 	}
 
@@ -1450,9 +1409,6 @@ static bool auth_request_proxy_is_self(struct auth_request *request)
 {
 	const char *port = NULL;
 
-	if (!request->proxy_host_is_self)
-		return FALSE;
-
 	/* check if the port is the same */
 	port = auth_fields_find(request->extra_fields, "port");
 	if (port != NULL && !str_uint_equals(port, request->local_port))
@@ -1483,27 +1439,32 @@ auth_request_proxy_ip_is_self(struct auth_request *request,
 	return FALSE;
 }
 
-static void auth_request_proxy_finish_ip(struct auth_request *request)
+static void
+auth_request_proxy_finish_ip(struct auth_request *request,
+			     bool proxy_host_is_self)
 {
-	if (!request->proxy_maybe) {
+	if (!auth_fields_exists(request->extra_fields, "proxy_maybe")) {
 		/* proxying */
-		request->no_login = TRUE;
-	} else if (!auth_request_proxy_is_self(request)) {
+	} else if (!proxy_host_is_self ||
+		   !auth_request_proxy_is_self(request)) {
 		/* proxy destination isn't ourself - proxy */
 		auth_fields_remove(request->extra_fields, "proxy_maybe");
 		auth_fields_add(request->extra_fields, "proxy", NULL, 0);
-		request->no_login = TRUE;
 	} else {
 		/* proxying to ourself - log in without proxying by dropping
 		   all the proxying fields. */
-		bool proxy_always = request->proxy_always;
+		bool proxy_always = auth_fields_exists(request->extra_fields,
+						       "proxy_always");
 
 		auth_request_proxy_finish_failure(request);
 		if (proxy_always) {
-			/* director adds the host */
+			/* setup where "self" refers to the local director
+			   cluster, while "non-self" refers to remote clusters.
+
+			   we've matched self here, so add proxy field and
+			   let director fill the host. */
 			auth_fields_add(request->extra_fields,
 					"proxy", NULL, 0);
-			request->proxy = TRUE;
 		}
 	}
 }
@@ -1515,6 +1476,7 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 	struct auth_request *request = ctx->request;
 	const char *host;
 	unsigned int i;
+	bool proxy_host_is_self;
 
 	request->dns_lookup_ctx = NULL;
 	ctx->dns_lookup = NULL;
@@ -1535,36 +1497,28 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 		}
 		auth_fields_add(request->extra_fields, "hostip",
 				net_ip2addr(&result->ips[0]), 0);
+		proxy_host_is_self = FALSE;
 		for (i = 0; i < result->ips_count; i++) {
 			if (auth_request_proxy_ip_is_self(request,
 							  &result->ips[i])) {
-				request->proxy_host_is_self = TRUE;
+				proxy_host_is_self = TRUE;
 				break;
 			}
 		}
-		auth_request_proxy_finish_ip(request);
+		auth_request_proxy_finish_ip(request, proxy_host_is_self);
 	}
 	if (ctx->callback != NULL)
 		ctx->callback(result->ret == 0, request);
 }
 
 static int auth_request_proxy_host_lookup(struct auth_request *request,
+					  const char *host,
 					  auth_request_proxy_cb_t *callback)
 {
 	struct auth_request_proxy_dns_lookup_ctx *ctx;
 	struct dns_lookup_settings dns_set;
-	const char *host, *value;
-	struct ip_addr ip;
+	const char *value;
 	unsigned int secs;
-
-	host = auth_fields_find(request->extra_fields, "host");
-	if (host == NULL)
-		return 1;
-	if (net_addr2ip(host, &ip) == 0) {
-		if (auth_request_proxy_ip_is_self(request, &ip))
-			request->proxy_host_is_self = TRUE;
-		return 1;
-	}
 
 	/* need to do dns lookup for the host */
 	memset(&dns_set, 0, sizeof(dns_set));
@@ -1597,33 +1551,41 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 int auth_request_proxy_finish(struct auth_request *request,
 			      auth_request_proxy_cb_t *callback)
 {
-	int ret;
+	const char *host;
+	struct ip_addr ip;
+	bool proxy_host_is_self;
 
-	if (!request->proxy || request->auth_only)
+	if (request->auth_only)
+		return 1;
+	if (!auth_fields_exists(request->extra_fields, "proxy") &&
+	    !auth_fields_exists(request->extra_fields, "proxy_maybe"))
 		return 1;
 
-	if ((ret = auth_request_proxy_host_lookup(request, callback)) <= 0)
-		return ret;
+	host = auth_fields_find(request->extra_fields, "host");
+	if (host == NULL) {
+		/* director can set the host */
+		proxy_host_is_self = FALSE;
+	} else if (net_addr2ip(host, &ip) == 0) {
+		proxy_host_is_self =
+			auth_request_proxy_ip_is_self(request, &ip);
+	} else {
+		/* asynchronous host lookup */
+		return auth_request_proxy_host_lookup(request, host, callback);
+	}
 
-	auth_request_proxy_finish_ip(request);
+	auth_request_proxy_finish_ip(request, proxy_host_is_self);
 	return 1;
 }
 
 void auth_request_proxy_finish_failure(struct auth_request *request)
 {
-	if (!request->proxy)
-		return;
-
 	/* drop all proxying fields */
 	auth_fields_remove(request->extra_fields, "proxy");
 	auth_fields_remove(request->extra_fields, "proxy_maybe");
+	auth_fields_remove(request->extra_fields, "proxy_always");
 	auth_fields_remove(request->extra_fields, "host");
 	auth_fields_remove(request->extra_fields, "port");
 	auth_fields_remove(request->extra_fields, "destuser");
-
-	request->proxy = FALSE;
-	request->proxy_maybe = FALSE;
-	request->proxy_always = FALSE;
 }
 
 static void log_password_failure(struct auth_request *request,
@@ -1706,7 +1668,7 @@ int auth_request_password_verify(struct auth_request *request,
 		return 0;
 	}
 
-	if (request->no_password) {
+	if (auth_fields_exists(request->extra_fields, "nopassword")) {
 		auth_request_log_debug(request, subsystem,
 				       "Allowing any password");
 		return 1;

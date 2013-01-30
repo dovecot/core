@@ -113,7 +113,7 @@ static void verify_plain_callback(enum passdb_result result,
 	struct auth_worker_client *client = request->context;
 	string_t *str;
 
-	if (request->passdb_failure && result == PASSDB_RESULT_OK)
+	if (request->failed && result == PASSDB_RESULT_OK)
 		result = PASSDB_RESULT_PASSWORD_MISMATCH;
 
 	str = t_str_new(128);
@@ -200,7 +200,7 @@ lookup_credentials_callback(enum passdb_result result,
 	struct auth_worker_client *client = request->context;
 	string_t *str;
 
-	if (request->passdb_failure && result == PASSDB_RESULT_OK)
+	if (request->failed && result == PASSDB_RESULT_OK)
 		result = PASSDB_RESULT_PASSWORD_MISMATCH;
 
 	str = t_str_new(128);

@@ -79,7 +79,7 @@ ldap_lookup_finish(struct auth_request *auth_request,
 			"pass_filter matched multiple objects, aborting");
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (auth_request->passdb_password == NULL &&
-		   !auth_request->no_password) {
+		   !auth_fields_exists(auth_request->extra_fields, "nopassword")) {
 		auth_request_log_info(auth_request, "ldap",
 			"No password returned (and no nopassword)");
 		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;

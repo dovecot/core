@@ -172,7 +172,8 @@ auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 	str_append_c(dest, '\t');
 	auth_fields_append(request->extra_fields, dest, FALSE);
 
-	if (request->proxy && !request->auth_only) {
+	if (!request->auth_only &&
+	    auth_fields_exists(request->extra_fields, "proxy")) {
 		/* we're proxying */
 		if (!auth_fields_exists(request->extra_fields, "pass") &&
 		    request->mech_password != NULL) {
@@ -195,7 +196,7 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 {
         struct auth_request_handler *handler = request->handler;
 
-	if (request->delayed_failure) {
+	if (request->in_delayed_failure_queue) {
 		/* we came here from flush_failures() */
 		handler->callback(reply, handler->context);
 		return;
@@ -205,7 +206,7 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 	auth_request_ref(request);
 	auth_request_handler_remove(handler, request);
 
-	if (request->no_failure_delay) {
+	if (auth_fields_exists(request->extra_fields, "nodelay")) {
 		/* passdb specifically requested not to delay the reply. */
 		handler->callback(reply, handler->context);
 		auth_request_unref(&request);
@@ -214,7 +215,7 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 
 	/* failure. don't announce it immediately to avoid
 	   a) timing attacks, b) flooding */
-	request->delayed_failure = TRUE;
+	request->in_delayed_failure_queue = TRUE;
 	handler->refcount++;
 
 	if (auth_penalty != NULL) {
@@ -245,7 +246,9 @@ auth_request_handler_reply_success_finish(struct auth_request *request)
 	str_printfa(str, "OK\t%u\tuser=", request->id);
 	str_append_tabescaped(str, request->user);
 	auth_str_append_extra_fields(request, str);
-	if (request->no_login || handler->master_callback == NULL) {
+	if (handler->master_callback == NULL ||
+	    auth_fields_exists(request->extra_fields, "nologin") ||
+	    auth_fields_exists(request->extra_fields, "proxy")) {
 		/* this request doesn't have to wait for master
 		   process to pick it up. delete it */
 		auth_request_handler_remove(handler, request);
@@ -273,8 +276,10 @@ auth_request_handler_reply_failure_finish(struct auth_request *request)
 		   as the wanted user */
 		str_append(str, "\tauthz");
 	}
-	if (request->no_failure_delay)
+	if (auth_fields_exists(request->extra_fields, "nodelay")) {
+		/* this is normally a hidden field, need to add it explicitly */
 		str_append(str, "\tnodelay");
+	}
 	auth_str_append_extra_fields(request, str);
 
 	switch (request->passdb_result) {
@@ -331,7 +336,7 @@ void auth_request_handler_reply(struct auth_request *request,
 		str_printfa(str, "CONT\t%u\t", request->id);
 		base64_encode(auth_reply, reply_size, str);
 
-		request->accept_input = TRUE;
+		request->accept_cont_input = TRUE;
 		handler->callback(str_c(str), handler->context);
 		break;
 	case AUTH_CLIENT_RESULT_SUCCESS:
@@ -582,12 +587,12 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	}
 
 	/* accept input only once after mechanism has sent a CONT reply */
-	if (!request->accept_input) {
+	if (!request->accept_cont_input) {
 		auth_request_handler_auth_fail(handler, request,
 					       "Unexpected continuation");
 		return TRUE;
 	}
-	request->accept_input = FALSE;
+	request->accept_cont_input = FALSE;
 
 	data_len = strlen(data);
 	buf = buffer_create_dynamic(pool_datastack_create(),

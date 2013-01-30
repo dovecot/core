@@ -269,7 +269,7 @@ static void checkpassword_setup_env(struct auth_request *request)
 		env_put(t_strconcat("MASTER_USER=",
 				    request->master_user, NULL));
 	}
-	if (request->extra_fields != NULL) {
+	if (!auth_fields_is_empty(request->extra_fields)) {
 		const ARRAY_TYPE(auth_field) *fields =
 			auth_fields_export(request->extra_fields);
 
