@@ -25,7 +25,7 @@
 struct auth_worker_request {
 	unsigned int id;
 	time_t created;
-	const char *data_str;
+	const char *data;
 	auth_worker_callback_t *callback;
 	void *context;
 };
@@ -96,8 +96,8 @@ static void auth_worker_request_send(struct auth_worker_connection *conn,
 
 	iov[0].iov_base = t_strdup_printf("%d\t", request->id);
 	iov[0].iov_len = strlen(iov[0].iov_base);
-	iov[1].iov_base = request->data_str;
-	iov[1].iov_len = strlen(request->data_str);
+	iov[1].iov_base = request->data;
+	iov[1].iov_len = strlen(request->data);
 	iov[2].iov_base = "\n";
 	iov[2].iov_len = 1;
 
@@ -387,7 +387,7 @@ static void worker_input(struct auth_worker_connection *conn)
 }
 
 struct auth_worker_connection *
-auth_worker_call(pool_t pool, struct auth_stream_reply *data,
+auth_worker_call(pool_t pool, const char *data,
 		 auth_worker_callback_t *callback, void *context)
 {
 	struct auth_worker_connection *conn;
@@ -395,7 +395,7 @@ auth_worker_call(pool_t pool, struct auth_stream_reply *data,
 
 	request = p_new(pool, struct auth_worker_request, 1);
 	request->created = ioloop_time;
-	request->data_str = p_strdup(pool, auth_stream_reply_export(data));
+	request->data = p_strdup(pool, data);
 	request->callback = callback;
 	request->context = context;
 

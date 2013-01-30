@@ -187,49 +187,55 @@ void auth_request_unref(struct auth_request **_request)
 		pool_unref(&request->pool);
 }
 
-void auth_request_export(struct auth_request *request,
-			 struct auth_stream_reply *reply)
+static void
+auth_str_add_keyvalue(string_t *dest, const char *key, const char *value)
 {
-	auth_stream_reply_add(reply, "user", request->user);
-	auth_stream_reply_add(reply, "service", request->service);
+	str_append_c(dest, '\t');
+	str_append(dest, key);
+	str_append_c(dest, '=');
+	str_append_tabescaped(dest, value);
+}
+
+void auth_request_export(struct auth_request *request, string_t *dest)
+{
+	str_append(dest, "user=");
+	str_append_tabescaped(dest, request->user);
+
+	auth_str_add_keyvalue(dest, "service", request->service);
 
         if (request->master_user != NULL) {
-		auth_stream_reply_add(reply, "master_user",
+		auth_str_add_keyvalue(dest, "master_user",
 				      request->master_user);
 	}
-	auth_stream_reply_add(reply, "original_username",
+	auth_str_add_keyvalue(dest, "original_username",
 			      request->original_username);
-	auth_stream_reply_add(reply, "requested_login_user",
+	auth_str_add_keyvalue(dest, "requested_login_user",
 			      request->requested_login_user);
 
 	if (request->local_ip.family != 0) {
-		auth_stream_reply_add(reply, "lip",
+		auth_str_add_keyvalue(dest, "lip",
 				      net_ip2addr(&request->local_ip));
 	}
 	if (request->remote_ip.family != 0) {
-		auth_stream_reply_add(reply, "rip",
+		auth_str_add_keyvalue(dest, "rip",
 				      net_ip2addr(&request->remote_ip));
 	}
-	if (request->local_port != 0) {
-		auth_stream_reply_add(reply, "lport",
-				      dec2str(request->local_port));
-	}
-	if (request->remote_port != 0) {
-		auth_stream_reply_add(reply, "rport",
-				      dec2str(request->remote_port));
-	}
+	if (request->local_port != 0)
+		str_printfa(dest, "\tlport=%u", request->local_port);
+	if (request->remote_port != 0)
+		str_printfa(dest, "\trport=%u", request->remote_port);
 	if (request->secured)
-		auth_stream_reply_add(reply, "secured", "1");
+		str_append(dest, "\tsecured");
 	if (request->skip_password_check)
-		auth_stream_reply_add(reply, "skip_password_check", "1");
+		str_append(dest, "\tskip_password_check");
 	if (request->valid_client_cert)
-		auth_stream_reply_add(reply, "valid-client-cert", "1");
+		str_append(dest, "\tvalid-client-cert");
 	if (request->no_penalty)
-		auth_stream_reply_add(reply, "no-penalty", "1");
+		str_append(dest, "\tno-penalty");
 	if (request->successful)
-		auth_stream_reply_add(reply, "successful", "1");
+		str_append(dest, "\tsuccessful");
 	if (request->mech_name != NULL)
-		auth_stream_reply_add(reply, "mech", request->mech_name);
+		auth_str_add_keyvalue(dest, "mech", request->mech_name);
 }
 
 bool auth_request_import_info(struct auth_request *request,

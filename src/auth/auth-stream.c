@@ -133,6 +133,12 @@ const char *auth_stream_reply_export(struct auth_stream_reply *reply)
 	return str_c(reply->str);
 }
 
+void auth_stream_reply_append(struct auth_stream_reply *reply,
+			      string_t *dest)
+{
+	str_append_str(dest, reply->str);
+}
+
 bool auth_stream_is_empty(struct auth_stream_reply *reply)
 {
 	return reply == NULL || str_len(reply->str) == 0;

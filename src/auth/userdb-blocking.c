@@ -50,15 +50,14 @@ static bool user_callback(const char *reply, void *context)
 
 void userdb_blocking_lookup(struct auth_request *request)
 {
-	struct auth_stream_reply *reply;
+	string_t *str;
 
-	reply = auth_stream_reply_init(pool_datastack_create());
-	auth_stream_reply_add(reply, "USER", NULL);
-	auth_stream_reply_add(reply, NULL, dec2str(request->userdb->userdb->id));
-	auth_request_export(request, reply);
+	str = t_str_new(128);
+	str_printfa(str, "USER\t%u\t", request->userdb->userdb->id);
+	auth_request_export(request, str);
 
 	auth_request_ref(request);
-	auth_worker_call(request->pool, reply, user_callback, request);
+	auth_worker_call(request->pool, str_c(str), user_callback, request);
 }
 
 static bool iter_callback(const char *reply, void *context)
@@ -84,13 +83,11 @@ userdb_blocking_iter_init(struct auth_request *request,
 			  userdb_iter_callback_t *callback, void *context)
 {
 	struct blocking_userdb_iterate_context *ctx;
-	struct auth_stream_reply *reply;
+	string_t *str;
 
-	reply = auth_stream_reply_init(pool_datastack_create());
-	auth_stream_reply_add(reply, "LIST", NULL);
-	auth_stream_reply_add(reply, NULL,
-			      dec2str(request->userdb->userdb->id));
-	auth_request_export(request, reply);
+	str = t_str_new(128);
+	str_printfa(str, "LIST\t%u\t", request->userdb->userdb->id);
+	auth_request_export(request, str);
 
 	ctx = p_new(request->pool, struct blocking_userdb_iterate_context, 1);
 	ctx->ctx.auth_request = request;
@@ -98,7 +95,7 @@ userdb_blocking_iter_init(struct auth_request *request,
 	ctx->ctx.context = context;
 
 	auth_request_ref(request);
-	ctx->conn = auth_worker_call(request->pool, reply, iter_callback, ctx);
+	ctx->conn = auth_worker_call(request->pool, str_c(str), iter_callback, ctx);
 	return &ctx->ctx;
 }
 

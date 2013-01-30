@@ -8,6 +8,7 @@
 #include "ostream.h"
 #include "hex-binary.h"
 #include "str.h"
+#include "strescape.h"
 #include "process-title.h"
 #include "master-service.h"
 #include "auth-request.h"
@@ -110,39 +111,33 @@ static void verify_plain_callback(enum passdb_result result,
 				  struct auth_request *request)
 {
 	struct auth_worker_client *client = request->context;
-	struct auth_stream_reply *reply;
 	string_t *str;
 
 	if (request->passdb_failure && result == PASSDB_RESULT_OK)
 		result = PASSDB_RESULT_PASSWORD_MISMATCH;
 
-	reply = auth_stream_reply_init(pool_datastack_create());
-	auth_stream_reply_add(reply, NULL, dec2str(request->id));
+	str = t_str_new(128);
+	str_printfa(str, "%u\t", request->id);
 
 	if (result == PASSDB_RESULT_OK)
-		auth_stream_reply_add(reply, "OK", NULL);
-	else {
-		auth_stream_reply_add(reply, "FAIL", NULL);
-		auth_stream_reply_add(reply, NULL,
-				      t_strdup_printf("%d", result));
-	}
+		str_append(str, "OK");
+	else
+		str_printfa(str, "FAIL\t%d", result);
 	if (result != PASSDB_RESULT_INTERNAL_FAILURE) {
-		auth_stream_reply_add(reply, NULL, request->user);
-		auth_stream_reply_add(reply, NULL,
-				      request->passdb_password == NULL ? "" :
-				      request->passdb_password);
-		if (request->extra_fields != NULL) {
-			const char *fields =
-				auth_stream_reply_export(request->extra_fields);
-			auth_stream_reply_import(reply, fields);
+		str_append_c(str, '\t');
+		str_append_tabescaped(str, request->user);
+		str_append_c(str, '\t');
+		if (request->passdb_password != NULL)
+			str_append_tabescaped(str, request->passdb_password);
+		if (!auth_stream_is_empty(request->extra_fields)) {
+			str_append_c(str, '\t');
+			auth_stream_reply_append(request->extra_fields, str);
 		}
-		if (request->extra_cache_fields != NULL) {
-			const char *fields =
-				auth_stream_reply_export(request->extra_cache_fields);
-			auth_stream_reply_import(reply, fields);
+		if (!auth_stream_is_empty(request->extra_cache_fields)) {
+			str_append_c(str, '\t');
+			auth_stream_reply_append(request->extra_cache_fields, str);
 		}
 	}
-	str = auth_stream_reply_get_str(reply);
 	str_append_c(str, '\n');
 	auth_worker_send_reply(client, str);
 
@@ -207,40 +202,31 @@ lookup_credentials_callback(enum passdb_result result,
 			    struct auth_request *request)
 {
 	struct auth_worker_client *client = request->context;
-	struct auth_stream_reply *reply;
 	string_t *str;
 
 	if (request->passdb_failure && result == PASSDB_RESULT_OK)
 		result = PASSDB_RESULT_PASSWORD_MISMATCH;
 
-	reply = auth_stream_reply_init(pool_datastack_create());
-	auth_stream_reply_add(reply, NULL, dec2str(request->id));
+	str = t_str_new(128);
+	str_printfa(str, "%u\t", request->id);
 
-	if (result != PASSDB_RESULT_OK) {
-		auth_stream_reply_add(reply, "FAIL", NULL);
-		auth_stream_reply_add(reply, NULL,
-				      t_strdup_printf("%d", result));
-	} else {
-		auth_stream_reply_add(reply, "OK", NULL);
-		auth_stream_reply_add(reply, NULL, request->user);
-
-		str = t_str_new(64);
-		str_printfa(str, "{%s.b64}", request->credentials_scheme);
+	if (result != PASSDB_RESULT_OK)
+		str_printfa(str, "FAIL\t%d", result);
+	else {
+		str_append(str, "OK\t");
+		str_append_tabescaped(str, request->user);
+		str_printfa(str, "\t{%s.b64}", request->credentials_scheme);
 		base64_encode(credentials, size, str);
-		auth_stream_reply_add(reply, NULL, str_c(str));
 
-		if (request->extra_fields != NULL) {
-			const char *fields =
-				auth_stream_reply_export(request->extra_fields);
-			auth_stream_reply_import(reply, fields);
+		if (!auth_stream_is_empty(request->extra_fields)) {
+			str_append_c(str, '\t');
+			auth_stream_reply_append(request->extra_fields, str);
 		}
-		if (request->extra_cache_fields != NULL) {
-			const char *fields =
-				auth_stream_reply_export(request->extra_cache_fields);
-			auth_stream_reply_import(reply, fields);
+		if (!auth_stream_is_empty(request->extra_cache_fields)) {
+			str_append_c(str, '\t');
+			auth_stream_reply_append(request->extra_cache_fields, str);
 		}
 	}
-	str = auth_stream_reply_get_str(reply);
 	str_append_c(str, '\n');
 	auth_worker_send_reply(client, str);
 
@@ -352,7 +338,6 @@ lookup_user_callback(enum userdb_result result,
 		     struct auth_request *auth_request)
 {
 	struct auth_worker_client *client = auth_request->context;
-	struct auth_stream_reply *reply = auth_request->userdb_reply;
 	string_t *str;
 
 	str = t_str_new(128);
@@ -366,7 +351,7 @@ lookup_user_callback(enum userdb_result result,
 		break;
 	case USERDB_RESULT_OK:
 		str_append(str, "OK\t");
-		str_append(str, auth_stream_reply_export(reply));
+		auth_stream_reply_append(auth_request->userdb_reply, str);
 		if (auth_request->userdb_lookup_failed)
 			str_append(str, "\ttempfail");
 		break;
