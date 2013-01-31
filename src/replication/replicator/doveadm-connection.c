@@ -14,6 +14,11 @@
 #define DOVEADM_FAIL_TIMEOUT_MSECS (1000*5)
 #define DOVEADM_HANDSHAKE "VERSION\tdoveadm-server\t1\t0\n"
 
+/* normally there shouldn't be any need for locking, since replicator doesn't
+   start dsync in parallel for the same user. we'll do locking just in case
+   anyway */
+#define DSYNC_LOCK_TIMEOUT_SECS 30
+
 struct doveadm_connection {
 	char *path;
 	int fd;
@@ -195,7 +200,7 @@ void doveadm_connection_sync(struct doveadm_connection *conn,
 		cmd = t_str_new(256);
 		str_append_c(cmd, '\t');
 		str_append_tabescaped(cmd, username);
-		str_append(cmd, "\tsync\t-d");
+		str_printfa(cmd, "\tsync\t-d\t-l\t%u", DSYNC_LOCK_TIMEOUT_SECS);
 		if (full)
 			str_append(cmd, "\t-f");
 		str_append(cmd, "\t-s\t");
