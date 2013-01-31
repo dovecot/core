@@ -55,6 +55,9 @@ void o_stream_close(struct ostream *stream)
 {
 	io_stream_close(&stream->real_stream->iostream);
 	stream->closed = TRUE;
+
+	if (stream->stream_errno == 0)
+		stream->stream_errno = EPIPE;
 }
 
 #undef o_stream_set_flush_callback
