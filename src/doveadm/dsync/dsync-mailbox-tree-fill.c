@@ -30,6 +30,30 @@ dsync_mailbox_tree_add_node(struct dsync_mailbox_tree *tree,
 	return 0;
 }
 
+static int
+dsync_mailbox_tree_get_selectable(struct mailbox *box,
+				  struct mailbox_metadata *metadata_r,
+				  struct mailbox_status *status_r)
+{
+	/* try the fast path */
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, metadata_r) < 0)
+		return -1;
+	if (mailbox_get_status(box, STATUS_UIDVALIDITY, status_r) < 0)
+		return -1;
+
+	i_assert(!guid_128_is_empty(metadata_r->guid));
+	if (status_r->uidvalidity != 0)
+		return 0;
+
+	/* no UIDVALIDITY assigned yet. syncing a mailbox should add it. */
+	if (mailbox_sync(box, 0) < 0)
+		return -1;
+	if (mailbox_get_status(box, STATUS_UIDVALIDITY, status_r) < 0)
+		return -1;
+	i_assert(status_r->uidvalidity != 0);
+	return 0;
+}
+
 static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 				  const struct mailbox_info *info)
 {
@@ -52,8 +76,7 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 
 	/* get GUID and UIDVALIDITY for selectable mailbox */
 	box = mailbox_alloc(info->ns->list, info->vname, 0);
-	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0 ||
-	    mailbox_get_status(box, STATUS_UIDVALIDITY, &status) < 0) {
+	if (dsync_mailbox_tree_get_selectable(box, &metadata, &status) < 0) {
 		errstr = mailbox_get_last_error(box, &error);
 		switch (error) {
 		case MAIL_ERROR_NOTFOUND:
@@ -69,7 +92,6 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 			return -1;
 		}
 	} else {
-		i_assert(status.uidvalidity != 0);
 		memcpy(node->mailbox_guid, metadata.guid,
 		       sizeof(node->mailbox_guid));
 		node->uid_validity = status.uidvalidity;
