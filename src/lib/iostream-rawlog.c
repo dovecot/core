@@ -44,7 +44,8 @@ void iostream_rawlog_write(struct rawlog_iostream *rstream,
 {
 	size_t i, start;
 
-	i_assert(size > 0);
+	if (size == 0)
+		return;
 
 	io_loop_time_refresh();
 	if (rstream->write_timestamp)
