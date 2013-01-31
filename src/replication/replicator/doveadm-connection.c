@@ -57,7 +57,13 @@ static void doveadm_callback(struct doveadm_connection *conn,
 
 	conn->callback = NULL;
 	conn->context = NULL;
+
+	/* make sure callback doesn't try to reuse this connection, since
+	   we can't currently handle it */
+	i_assert(!conn->cmd_sent);
+	conn->cmd_sent = TRUE;
 	callback(reply, state, context);
+	conn->cmd_sent = FALSE;
 }
 
 static void doveadm_close(struct doveadm_connection *conn)
