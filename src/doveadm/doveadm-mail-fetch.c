@@ -101,6 +101,12 @@ static int fetch_flags(struct fetch_cmd_context *ctx)
 	return 0;
 }
 
+static int fetch_modseq(struct fetch_cmd_context *ctx)
+{
+	doveadm_print_num(mail_get_modseq(ctx->mail));
+	return 0;
+}
+
 static int fetch_hdr(struct fetch_cmd_context *ctx)
 {
 	struct istream *input;
@@ -404,6 +410,7 @@ static const struct fetch_field fetch_fields[] = {
 	{ "uid",           0,                        fetch_uid },
 	{ "guid",          0,                        fetch_guid },
 	{ "flags",         MAIL_FETCH_FLAGS,         fetch_flags },
+	{ "modseq",        0,                        fetch_modseq },
 	{ "hdr",           MAIL_FETCH_STREAM_HEADER, fetch_hdr },
 	{ "body",          MAIL_FETCH_STREAM_BODY,   fetch_body },
 	{ "text",          MAIL_FETCH_STREAM_HEADER |
