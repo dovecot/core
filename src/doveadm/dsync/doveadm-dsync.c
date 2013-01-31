@@ -32,6 +32,7 @@
 
 #define DSYNC_LOCK_FILENAME ".dovecot-sync.lock"
 #define DSYNC_COMMON_GETOPT_ARGS "+adEfl:m:n:r:Rs:"
+#define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 
 struct dsync_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
@@ -342,7 +343,7 @@ cmd_dsync_run_remote(struct dsync_cmd_context *ctx, struct mail_user *user)
 
 	/* wait for the remote command to finish to see any final errors.
 	   don't wait very long though. */
-	alarm(5);
+	alarm(DSYNC_REMOTE_CMD_EXIT_WAIT_SECS);
 	if (wait(&status) == -1) {
 		if (errno != EINTR)
 			i_error("wait() failed: %m");
