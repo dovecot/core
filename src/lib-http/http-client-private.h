@@ -70,6 +70,7 @@ struct http_client_request {
 
 	unsigned int payload_sync:1;
 	unsigned int payload_chunked:1;
+	unsigned int payload_wait:1;
 	unsigned int ssl:1;
 	unsigned int urgent:1;
 };
@@ -133,6 +134,7 @@ struct http_client_connection {
 	struct connection conn;
 	struct http_client_peer *peer;
 	struct http_client *client;
+	unsigned int refcount;
 
 	const char *label;
 
@@ -207,8 +209,10 @@ struct connection_list *http_client_connection_list_init(void);
 
 struct http_client_connection *
 	http_client_connection_create(struct http_client_peer *peer);
-void http_client_connection_free(struct http_client_connection **_conn);
+void http_client_connection_ref(struct http_client_connection *conn);
+void http_client_connection_unref(struct http_client_connection **_conn);
 bool http_client_connection_is_ready(struct http_client_connection *conn);
+bool http_client_connection_is_idle(struct http_client_connection *conn);
 bool http_client_connection_next_request(struct http_client_connection *conn);
 void http_client_connection_switch_ioloop(struct http_client_connection *conn);
 
@@ -232,6 +236,7 @@ struct http_client_request *
 void http_client_peer_handle_requests(struct http_client_peer *peer);
 void http_client_peer_connection_failure(struct http_client_peer *peer);
 void http_client_peer_connection_lost(struct http_client_peer *peer);
+unsigned int http_client_peer_idle_connections(struct http_client_peer *peer);
 
 struct http_client_host *
 	http_client_host_get(struct http_client *client, const char *hostname);

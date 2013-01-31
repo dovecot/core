@@ -257,7 +257,7 @@ void http_client_peer_free(struct http_client_peer **_peer)
 	array_copy(&conns.arr, 0, &peer->conns.arr, 0, array_count(&peer->conns));
 
 	array_foreach_modifiable(&conns, conn) {
-		http_client_connection_free(conn);
+		http_client_connection_unref(conn);
 	}
 
 	i_assert(array_count(&peer->conns) == 0);
@@ -343,7 +343,7 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 	if (peer->destroyed)
 		return;
 
-	http_client_peer_debug(peer, "Lost connection (%d connections left)",
+	http_client_peer_debug(peer, "Lost a connection (%d connections left)",
 		array_count(&peer->conns));
 
 	if (array_count(&peer->conns) == 0) {
@@ -354,5 +354,19 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 		else
 			http_client_peer_free(&peer);
 	}
+}
+
+unsigned int http_client_peer_idle_connections(struct http_client_peer *peer)
+{
+    struct http_client_connection *const *conn_idx;
+    unsigned int idle = 0;
+
+	/* find the least busy connection */
+    array_foreach(&peer->conns, conn_idx) {
+        if (http_client_connection_is_idle(*conn_idx))
+			idle++;
+    }
+
+	return idle;
 }
 

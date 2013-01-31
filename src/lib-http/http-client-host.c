@@ -236,7 +236,7 @@ static void http_client_host_lookup
 		host->ips_count = 1;
 		host->ips = i_new(struct ip_addr, host->ips_count);
 		host->ips[0] = ip;
-	} else if (*dns_set.dns_client_socket_path == '\0') {
+	} else if (dns_set.dns_client_socket_path == NULL) {
 		ret = net_gethostbyname(host->name,	&ips, &ips_count);
 		if (ret != 0) {
 			i_error("http-client: net_gethostbyname(%s) failed: %s",
@@ -327,7 +327,7 @@ http_client_host_claim_request(struct http_client_host *host,
 	}
 
 	http_client_host_debug(host,
-		"Connection %s:%u claimed request %s %s",
+		"Connection to peer %s:%u claimed request %s %s",
 		net_ip2addr(&addr->ip), addr->port, http_client_request_label(req),
 		(req->urgent ? "(urgent)" : ""));
 

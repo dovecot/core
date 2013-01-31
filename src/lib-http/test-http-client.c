@@ -4,7 +4,6 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "write-full.h"
-#include "http-response-parser.h"
 #include "http-client.h"
 
 struct http_test_request {
@@ -72,8 +71,8 @@ got_request_response(const struct http_response *response,
 	payload_input(req);
 }
 
-static const char *test_query1 = "action=fullsearch&context=180&value=sieve&titlesearch=Titles";
-static const char *test_query2 = "action=fullsearch&context=180&value=pigeonhole&titlesearch=Titles";
+static const char *test_query1 = "data=Frop&submit=Submit";
+static const char *test_query2 = "data=This%20is%20a%20test&submit=Submit";
 static const char *test_query3 = "foo=bar";
 
 int main(void)
@@ -103,7 +102,6 @@ int main(void)
 	io_loop_set_running(ioloop);
 
 	// JigSAW is useful for testing: http://jigsaw.w3.org/HTTP/
-	// POST test server is useful for POST testing: http://posttestserver.com
 
 	http_client = http_client_init(&http_set);
 
@@ -152,22 +150,26 @@ int main(void)
 
 	test_req = i_new(struct http_test_request, 1);
 	http_req = http_client_request(http_client,
-		"POST", "posttestserver.com", "/post.php",
+		"POST", "test.dovecot.org", "/http/post/index.php",
 		got_request_response, test_req);
 	post_payload = i_stream_create_from_data
 		((unsigned char *)test_query1, strlen(test_query1));
-	http_client_request_set_payload(http_req, post_payload, TRUE);
+	http_client_request_set_payload(http_req, post_payload, FALSE);
 	i_stream_unref(&post_payload);
+	http_client_request_add_header(http_req,
+		"Content-Type", "application/x-www-form-urlencoded");
 	http_client_request_submit(http_req);
 
 	test_req = i_new(struct http_test_request, 1);
 	http_req = http_client_request(http_client,
-		"POST", "posttestserver.com", "/post.php",
+		"POST", "test.dovecot.org", "/http/post/index.php",
 		got_request_response, test_req);
 	post_payload = i_stream_create_from_data
 		((unsigned char *)test_query2, strlen(test_query2));
 	http_client_request_set_payload(http_req, post_payload, TRUE);
 	i_stream_unref(&post_payload);
+	http_client_request_add_header(http_req,
+		"Content-Type", "application/x-www-form-urlencoded");
 	http_client_request_submit(http_req);
 
 	test_req = i_new(struct http_test_request, 1);
@@ -219,6 +221,17 @@ int main(void)
 
 	test_req = i_new(struct http_test_request, 1);
 	http_req = http_client_request(http_client,
+		"POST", "posttestserver.com", "/post.php",
+		got_request_response, test_req);
+	post_payload = i_stream_create_from_data
+		((unsigned char *)test_query1, strlen(test_query1));
+	http_client_request_set_payload(http_req, post_payload, TRUE);
+	i_stream_unref(&post_payload);
+	http_client_request_set_ssl(http_req, TRUE);
+	http_client_request_submit(http_req);
+
+	test_req = i_new(struct http_test_request, 1);
+	http_req = http_client_request(http_client,
 		"GET", "wiki2.dovecot.org", "/Pigeonhole",
 		got_request_response, test_req);
 	http_client_request_submit(http_req);
@@ -246,6 +259,25 @@ int main(void)
 	post_payload = i_stream_create_from_data
 		((unsigned char *)test_query3, strlen(test_query3));
 	http_client_request_set_payload(http_req, post_payload, FALSE);
+	i_stream_unref(&post_payload);
+	http_client_request_submit(http_req);
+
+	test_req = i_new(struct http_test_request, 1);
+	http_req = http_client_request(http_client,
+		"POST", "jigsaw.w3.org", "/HTTP/300/Go_307",
+		got_request_response, test_req);
+	post_payload = i_stream_create_from_data
+		((unsigned char *)test_query3, strlen(test_query3));
+	http_client_request_set_payload(http_req, post_payload, FALSE);
+	i_stream_unref(&post_payload);
+	http_client_request_submit(http_req);
+
+	test_req = i_new(struct http_test_request, 1);
+	http_req = http_client_request(http_client,
+		"PUT", "test.dovecot.org", "/http/put/put.php",
+		got_request_response, test_req);
+	post_payload = i_stream_create_file("Makefile.am", 10);
+	http_client_request_set_payload(http_req, post_payload, TRUE);
 	i_stream_unref(&post_payload);
 	http_client_request_submit(http_req);
 

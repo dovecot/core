@@ -149,17 +149,104 @@ void http_client_request_set_payload(struct http_client_request *req,
 		req->payload_sync = TRUE;
 }
 
-void http_client_request_submit(struct http_client_request *req)
+static void http_client_request_do_submit(struct http_client_request *req)
 {
 	struct http_client_host *host;
 
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
-	http_client_request_debug(req, "Submitted");
 	
 	host = http_client_host_get(req->client, req->hostname);
 	req->state = HTTP_REQUEST_STATE_QUEUED;
-	req->client->pending_requests++;
+
 	http_client_host_submit_request(host, req);
+}
+
+void http_client_request_submit(struct http_client_request *req)
+{
+	http_client_request_debug(req, "Submitted");
+	req->client->pending_requests++;
+
+	http_client_request_do_submit(req);
+}
+
+static void
+http_client_request_finish_payload(struct http_client_request *req)
+{
+	if (req->payload_output != NULL) {
+		o_stream_unref(&req->payload_output);
+		req->payload_output = NULL;
+	}
+	req->state = HTTP_REQUEST_STATE_WAITING;
+	req->conn->output_locked = FALSE;
+	http_client_request_debug(req, "Sent all payload");
+}
+
+int http_client_request_send_payload(struct http_client_request **_req,
+	const unsigned char *data, size_t size)
+{
+	struct ioloop *prev_ioloop = current_ioloop;
+	struct http_client_request *req = *_req;
+	struct http_client_connection *conn = req->conn;
+	struct http_client *client = req->client;
+	int ret;
+
+	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
+		req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT);
+	i_assert(req->payload_input == NULL);
+
+	if (conn != NULL)
+		http_client_connection_ref(conn);
+	http_client_request_ref(req);
+	req->payload_wait = TRUE;
+
+	if (data == NULL) {
+		req->payload_input = NULL;
+		if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT)
+			http_client_request_finish_payload(req);
+	} else { 
+		req->payload_input = i_stream_create_from_data(data, size);
+	}
+	req->payload_size = 0;
+	req->payload_chunked = TRUE;
+
+	if (req->state == HTTP_REQUEST_STATE_NEW)
+		http_client_request_submit(req);
+
+	/* Wait for payload data to be written */
+
+	i_assert(client->ioloop == NULL);
+	client->ioloop = io_loop_create();
+	http_client_switch_ioloop(client);
+
+	while (req->state < HTTP_REQUEST_STATE_FINISHED) {
+		http_client_request_debug(req, "Waiting for request to finish");
+		io_loop_run(client->ioloop);
+
+		if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT &&
+			req->payload_input->eof) {
+			i_stream_unref(&req->payload_input);
+			req->payload_input = NULL;
+			break;
+		}
+	}
+
+	current_ioloop = prev_ioloop;
+	http_client_switch_ioloop(client);
+	current_ioloop = client->ioloop;
+	io_loop_destroy(&client->ioloop);
+
+	if (req->state == HTTP_REQUEST_STATE_FINISHED)
+		ret = 1;
+	else
+		ret = (req->state == HTTP_REQUEST_STATE_ABORTED ? -1 : 0);
+
+	req->payload_wait = FALSE;
+	http_client_request_unref(_req);
+	if (conn != NULL)
+		http_client_connection_unref(&conn);
+
+	/* Return status */
+	return ret;
 }
 
 int http_client_request_send_more(struct http_client_request *req)
@@ -181,11 +268,13 @@ int http_client_request_send_more(struct http_client_request *req)
 			i_error("stream input size changed"); //FIXME
 			return -1;
 		}
-		o_stream_unref(&output);
-		req->payload_output = NULL;
-		req->state = HTTP_REQUEST_STATE_WAITING;
-		conn->output_locked = FALSE;
-		http_client_request_debug(req, "Sent all payload");
+
+		if (req->payload_wait) {
+			if (req->client->ioloop != NULL)
+				io_loop_stop(req->client->ioloop);
+		} else {
+			http_client_request_finish_payload(req);
+		}
 
 	} else {
 		conn->output_locked = TRUE;
@@ -242,7 +331,7 @@ int http_client_request_send(struct http_client_request *req)
 	if (o_stream_sendv(output, iov, N_ELEMENTS(iov)) < 0)
 		ret = -1;
 
-	http_client_request_debug(req, "Sent");
+	http_client_request_debug(req, "Sent header");
 
 	if (ret >= 0 && req->payload_output != NULL) {
 		if (!req->payload_sync) {
@@ -322,6 +411,9 @@ void http_client_request_finish(struct http_client_request **_req)
 
 	req->callback = NULL;
 	req->state = HTTP_REQUEST_STATE_FINISHED;
+
+	if (req->payload_wait && req->client->ioloop != NULL)
+		io_loop_stop(req->client->ioloop);
 	http_client_request_unref(_req);
 }
 
@@ -434,9 +526,8 @@ void http_client_request_redirect(struct http_client_request *req,
 	}
 
 	/* resubmit */
-	req->client->pending_requests--;
 	req->state = HTTP_REQUEST_STATE_NEW;
-	http_client_request_submit(req);
+	http_client_request_do_submit(req);
 }
 
 void http_client_request_resubmit(struct http_client_request *req)

@@ -66,6 +66,11 @@ bool http_client_connection_is_ready(struct http_client_connection *conn)
 			conn->client->set.max_pipelined_requests);
 }
 
+bool http_client_connection_is_idle(struct http_client_connection *conn)
+{
+	return (conn->to_idle != NULL);
+}
+
 static void
 http_client_connection_retry_requests(struct http_client_connection *conn,
 	unsigned int status, const char *error)
@@ -92,13 +97,14 @@ http_client_connection_server_close(struct http_client_connection **_conn)
 
 	array_foreach_modifiable(&conn->request_wait_list, req) {
 		http_client_request_resubmit(*req);
+		http_client_request_unref(req);
 	}	
 	array_clear(&conn->request_wait_list);
 
 	if (conn->client->ioloop != NULL)
 		io_loop_stop(conn->client->ioloop);
 
-	http_client_connection_free(_conn);
+	http_client_connection_unref(_conn);
 }
 
 static void
@@ -111,7 +117,7 @@ http_client_connection_abort_temp_error(struct http_client_connection **_conn,
 	conn->closing = TRUE;
 	
 	http_client_connection_retry_requests(conn, status, error);
-	http_client_connection_free(_conn);
+	http_client_connection_unref(_conn);
 }
 
 static void
@@ -128,7 +134,7 @@ http_client_connection_abort_error(struct http_client_connection **_conn,
 		http_client_request_error(*req, status, error);
 	}	
 	array_clear(&conn->request_wait_list);
-	http_client_connection_free(_conn);
+	http_client_connection_unref(_conn);
 }
 
 static void
@@ -136,7 +142,7 @@ http_client_connection_idle_timeout(struct http_client_connection *conn)
 {
 	http_client_connection_debug(conn, "Idle connection timed out");
 
-	http_client_connection_free(&conn);
+	http_client_connection_unref(&conn);
 }
 
 static void
@@ -153,9 +159,6 @@ http_client_connection_check_idle(struct http_client_connection *conn)
 			return;
 		}
 
-		http_client_connection_debug(conn, 
-			"No more requests queued; going idle");
-
 		if (conn->client->ioloop != NULL)
 			io_loop_stop(conn->client->ioloop);
 
@@ -167,12 +170,19 @@ http_client_connection_check_idle(struct http_client_connection *conn)
 			/* instant death for (urgent) connections above limit */
 			timeout = 0;
 		} else {
+			unsigned int idle_count = http_client_peer_idle_connections(conn->peer);
+
 			/* kill duplicate connections quicker;
 				 linearly based on the number of connections */
-			timeout = (conn->client->set.max_parallel_connections - count) *
+			i_assert(count >= idle_count + 1);
+			timeout = (conn->client->set.max_parallel_connections - idle_count) *
 				(conn->client->set.max_idle_time_msecs /
 					conn->client->set.max_parallel_connections);
 		}
+
+		http_client_connection_debug(conn, 
+			"No more requests queued; going idle (timeout = %u msecs)",
+			timeout);
 
 		conn->to_idle =
 			timeout_add(timeout, http_client_connection_idle_timeout, conn);
@@ -199,7 +209,6 @@ http_client_connection_continue_timeout(struct http_client_connection *conn)
 	req_idx = array_idx(&conn->request_wait_list, 0);
 	req = req_idx[0];
 
-	// FIXME: we should mark this in the peer object for next requests
 	conn->payload_continue = TRUE;
 	if (http_client_request_send_more(req) < 0) {
 		http_client_connection_abort_temp_error(&conn,
@@ -236,6 +245,9 @@ bool http_client_connection_next_request(struct http_client_connection *conn)
 	array_append(&conn->request_wait_list, &req, 1);
 	http_client_request_ref(req);
 
+	http_client_connection_debug(conn, "Claimed request %s",
+		http_client_request_label(req));
+
 	if (http_client_request_send(req) < 0) {
 		http_client_connection_abort_temp_error(&conn,
 			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
@@ -255,7 +267,7 @@ bool http_client_connection_next_request(struct http_client_connection *conn)
 	   period before sending the payload body.
 	 */
 	if (req->payload_sync) {
-		i_assert(req->payload_size > 0);
+		i_assert(req->payload_chunked || req->payload_size > 0);
 		i_assert(conn->to_response == NULL);
 		conn->to_response =	timeout_add(HTTP_CLIENT_CONTINUE_TIMEOUT_MSECS,
 			http_client_connection_continue_timeout, conn);
@@ -284,7 +296,7 @@ static void http_client_connection_destroy(struct connection *_conn)
 		break;
 	}
 
-	http_client_connection_free(&conn);
+	http_client_connection_unref(&conn);
 }
 
 static void http_client_payload_finished(struct http_client_connection *conn)
@@ -425,13 +437,9 @@ static void http_client_connection_input(struct connection *_conn)
 		if (req == NULL) {
 			/* server sent response without any requests in the wait list */
 			http_client_connection_error(conn, "Got unexpected input from server");
-			http_client_connection_free(&conn);
+			http_client_connection_unref(&conn);
 			return;
 		}
-
-		/* Got some response; cancel response timeout */
-		if (conn->to_response != NULL)
-			timeout_remove(&conn->to_response);
 
 		/* Got some response; cancel response timeout */
 		if (conn->to_response != NULL)
@@ -459,8 +467,11 @@ static void http_client_connection_input(struct connection *_conn)
 			/* ignore them for now */
 			http_client_connection_debug(conn,
 				"Got unexpected %u response; ignoring", response->status);
+			/* restart timeout */
+			conn->to_response =	timeout_add(HTTP_CLIENT_CONTINUE_TIMEOUT_MSECS,
+				http_client_connection_continue_timeout, conn);
 			continue;
-		} // FIXME: handle 417 Expectation Failed
+		} 
 
 		http_client_connection_debug(conn,
 			"Got %u response for request %s",
@@ -474,7 +485,13 @@ static void http_client_connection_input(struct connection *_conn)
 		conn->close_indicated = response->connection_close;
 
 		if (!aborted) {
-			if (response->status / 100 == 3) {
+			if (response->status == 417 && req->payload_sync) {
+				/* drop Expect: continue */
+				req->payload_sync = FALSE;
+				conn->peer->no_payload_sync = TRUE;
+				http_client_request_retry(req, response->status, response->reason);
+				return;								
+			} else if (response->status / 100 == 3) {
 				/* redirect */
 				http_client_request_redirect(req, response->status, response->location);
 			} else {
@@ -568,7 +585,7 @@ http_client_connection_ready(struct http_client_connection *conn)
 
 	conn->connected = TRUE;
 
-	if (*conn->client->set.rawlog_dir != '\0' &&
+	if (conn->client->set.rawlog_dir != NULL &&
 		stat(conn->client->set.rawlog_dir, &st) == 0) {
 		iostream_rawlog_create(conn->client->set.rawlog_dir,
 				       &conn->conn.input, &conn->conn.output);
@@ -716,6 +733,7 @@ http_client_connection_create(struct http_client_peer *peer)
 	static unsigned int id = 0;
 
 	conn = i_new(struct http_client_connection, 1);
+	conn->refcount = 1;
 	conn->client = peer->client;
 	conn->peer = peer;
 	i_array_init(&conn->request_wait_list, 16);
@@ -724,7 +742,7 @@ http_client_connection_create(struct http_client_peer *peer)
 		(peer->client->conn_list, &conn->conn, &peer->addr.ip, peer->addr.port);
 
 	if (http_client_connection_connect(conn) < 0) {
-		http_client_connection_free(&conn);
+		http_client_connection_unref(&conn);
 		return NULL;
 	}
 
@@ -737,12 +755,22 @@ http_client_connection_create(struct http_client_peer *peer)
 	return conn;
 }
 
-void http_client_connection_free(struct http_client_connection **_conn)
+void http_client_connection_ref(struct http_client_connection *conn)
+{
+	conn->refcount++;
+}
+
+void http_client_connection_unref(struct http_client_connection **_conn)
 {
 	struct http_client_connection *conn = *_conn;
 	struct http_client_connection *const *conn_idx;
 	struct http_client_peer *peer = conn->peer;
 	struct http_client_request **req;
+
+	i_assert(conn->refcount > 0);
+
+	if (--conn->refcount > 0)
+		return;
 
 	http_client_connection_debug(conn, "Connection destroy");
 

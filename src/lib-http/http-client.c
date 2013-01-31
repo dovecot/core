@@ -13,7 +13,6 @@
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
 #include "http-url.h"
-#include "http-response-parser.h"
 
 #include "http-client-private.h"
 
@@ -76,9 +75,12 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	pool = pool_alloconly_create("http client", 1024);
 	client = p_new(pool, struct http_client, 1);
 	client->pool = pool;
-	client->set.dns_client_socket_path =
-		p_strdup(pool, set->dns_client_socket_path);
-	client->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
+	if (set->dns_client_socket_path != NULL && *set->dns_client_socket_path != '\0') {
+		client->set.dns_client_socket_path =
+			p_strdup(pool, set->dns_client_socket_path);
+	}
+	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
+		client->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
 	client->set.ssl_ca_dir = p_strdup(pool, set->ssl_ca_dir);
 	client->set.max_idle_time_msecs = set->max_idle_time_msecs;
 	client->set.max_parallel_connections =

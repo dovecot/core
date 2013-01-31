@@ -1,6 +1,8 @@
 #ifndef HTTP_CLIENT_H
 #define HTTP_CLIENT_H
 
+#include "http-response-parser.h"
+
 struct http_response;
 
 struct http_client;
@@ -72,8 +74,14 @@ void http_client_request_add_header(struct http_client_request *req,
 				    const char *key, const char *value);
 void http_client_request_set_payload(struct http_client_request *req,
 				     struct istream *input, bool sync);
+
 void http_client_request_submit(struct http_client_request *req);
 void http_client_request_abort(struct http_client_request **req);
+
+/* submits request and blocks until provided payload is sent. Multiple calls
+   are allowed; payload transmission is ended when data == NULL. */
+int http_client_request_send_payload(struct http_client_request **req,
+	const unsigned char *data, size_t size);
 
 void http_client_switch_ioloop(struct http_client *client);
 
