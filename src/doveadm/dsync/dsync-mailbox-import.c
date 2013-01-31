@@ -483,7 +483,7 @@ merge_flags(uint32_t local_final, uint32_t local_add, uint32_t local_remove,
 	    uint32_t remote_final, uint32_t remote_add, uint32_t remote_remove,
 	    uint32_t pvt_mask, bool prefer_remote, bool prefer_pvt_remote,
 	    uint32_t *change_add_r, uint32_t *change_remove_r,
-	    bool *remote_changed)
+	    bool *remote_changed, bool *remote_pvt_changed)
 {
 	uint32_t combined_add, combined_remove, conflict_flags;
 	uint32_t local_wanted, remote_wanted, conflict_pvt_flags;
@@ -544,8 +544,10 @@ merge_flags(uint32_t local_final, uint32_t local_add, uint32_t local_remove,
 
 	*change_add_r = local_wanted & ~local_final;
 	*change_remove_r = local_final & ~local_wanted;
-	if (local_wanted != remote_final)
+	if ((local_wanted & ~pvt_mask) != (remote_final & ~pvt_mask))
 		*remote_changed = TRUE;
+	if ((local_wanted & pvt_mask) != (remote_final & pvt_mask))
+		*remote_pvt_changed = TRUE;
 }
 
 static bool
@@ -584,7 +586,8 @@ static void keywords_append(ARRAY_TYPE(const_string) *dest,
 static void
 merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 	       const ARRAY_TYPE(const_string) *remote_changes,
-	       bool prefer_remote, bool *remote_changed)
+	       bool prefer_remote,
+	       bool *remote_changed, bool *remote_pvt_changed)
 {
 	/* local_changes and remote_changes are assumed to have no
 	   duplicates names */
@@ -675,7 +678,7 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 			local_remove[name_idx/32] |= 1U << (name_idx%32);
 			break;
 		case KEYWORD_CHANGE_FINAL:
-			i_unreached();
+			break;
 		}
 	}
 	for (i = 0; local_keywords[i] != NULL; i++) {
@@ -694,7 +697,8 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 		merge_flags(local_final[i], local_add[i], local_remove[i],
 			    remote_final[i], remote_add[i], remote_remove[i],
 			    0, prefer_remote, prefer_remote,
-			    &change_add[i], &change_remove[i], remote_changed);
+			    &change_add[i], &change_remove[i],
+			    remote_changed, remote_pvt_changed);
 		if (change_add[i] != 0) {
 			keywords_append(&add_keywords, &all_keywords,
 					change_add[i], i*32);
@@ -774,7 +778,8 @@ dsync_mailbox_import_flag_change(struct dsync_mailbox_importer *importer,
 	uint64_t new_modseq;
 	ARRAY_TYPE(const_string) local_keyword_changes = ARRAY_INIT;
 	struct mail *mail;
-	bool prefer_remote, prefer_pvt_remote, remote_changed = FALSE;
+	bool prefer_remote, prefer_pvt_remote;
+	bool remote_changed = FALSE, remote_pvt_changed = FALSE;
 
 	i_assert((change->add_flags & change->remove_flags) == 0);
 
@@ -827,7 +832,8 @@ dsync_mailbox_import_flag_change(struct dsync_mailbox_importer *importer,
 		    change->final_flags, change->add_flags, change->remove_flags,
 		    mailbox_get_private_flags_mask(mail->box),
 		    prefer_remote, prefer_pvt_remote,
-		    &change_add, &change_remove, &remote_changed);
+		    &change_add, &change_remove,
+		    &remote_changed, &remote_pvt_changed);
 
 	if (change_add != 0)
 		mail_update_flags(mail, MODIFY_ADD, change_add);
@@ -836,7 +842,7 @@ dsync_mailbox_import_flag_change(struct dsync_mailbox_importer *importer,
 
 	/* merge keywords */
 	merge_keywords(mail, &local_keyword_changes, &change->keyword_changes,
-		       prefer_remote, &remote_changed);
+		       prefer_remote, &remote_changed, &remote_pvt_changed);
 
 	/* update modseqs. try to anticipate when we have to increase modseq
 	   to get it closer to what remote has (although we can't guess it
@@ -848,7 +854,7 @@ dsync_mailbox_import_flag_change(struct dsync_mailbox_importer *importer,
 		mail_update_modseq(mail, new_modseq);
 
 	new_modseq = change->pvt_modseq;
-	if (remote_changed && new_modseq <= importer->remote_highest_pvt_modseq)
+	if (remote_pvt_changed && new_modseq <= importer->remote_highest_pvt_modseq)
 		new_modseq = importer->remote_highest_pvt_modseq+1;
 	if (mail_get_pvt_modseq(mail) < new_modseq)
 		mail_update_pvt_modseq(mail, new_modseq);

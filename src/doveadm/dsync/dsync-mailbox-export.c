@@ -74,7 +74,7 @@ final_keyword_check(struct dsync_mail_change *change, const char *name,
 	const char *const *changes;
 	unsigned int i, count;
 
-	*type_r = KEYWORD_CHANGE_ADD;
+	*type_r = KEYWORD_CHANGE_FINAL;
 
 	changes = array_get(&change->keyword_changes, &count);
 	for (i = 0; i < count; i++) {
