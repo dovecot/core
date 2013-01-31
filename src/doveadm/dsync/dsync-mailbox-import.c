@@ -688,7 +688,7 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 		}
 		if (change_remove[i] != 0) {
 			keywords_append(&remove_keywords, &all_keywords,
-					change_add[i], i*32);
+					change_remove[i], i*32);
 		}
 	}
 
