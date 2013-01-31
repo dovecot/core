@@ -20,6 +20,8 @@ struct replicator_brain {
 	struct timeout *to;
 
 	ARRAY(struct doveadm_connection *) doveadm_conns;
+
+	unsigned int deinitializing:1;
 };
 
 static void replicator_brain_fill(struct replicator_brain *brain);
@@ -57,6 +59,7 @@ void replicator_brain_deinit(struct replicator_brain **_brain)
 
 	*_brain = NULL;
 
+	brain->deinitializing = TRUE;
 	array_foreach_modifiable(&brain->doveadm_conns, connp)
 		doveadm_connection_deinit(connp);
 	if (brain->to != NULL)
@@ -97,7 +100,8 @@ static void doveadm_sync_callback(enum doveadm_reply reply, const char *state,
 			reply != DOVEADM_REPLY_OK;
 		replicator_queue_push(ctx->brain->queue, ctx->user);
 	}
-	replicator_brain_fill(ctx->brain);
+	if (!ctx->brain->deinitializing)
+		replicator_brain_fill(ctx->brain);
 	i_free(ctx);
 }
 
