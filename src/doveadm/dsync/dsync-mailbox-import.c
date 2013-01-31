@@ -638,12 +638,16 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 		switch (changes[i][0]) {
 		case KEYWORD_CHANGE_ADD:
 			remote_add[name_idx/32] |= 1U << (name_idx%32);
-			/* fall through */
-		case KEYWORD_CHANGE_FINAL:
-			remote_final[name_idx/32] |= 1U << (name_idx%32);
 			break;
 		case KEYWORD_CHANGE_REMOVE:
 			remote_remove[name_idx/32] |= 1U << (name_idx%32);
+			break;
+		case KEYWORD_CHANGE_FINAL:
+			remote_final[name_idx/32] |= 1U << (name_idx%32);
+			break;
+		case KEYWORD_CHANGE_ADD_AND_FINAL:
+			remote_add[name_idx/32] |= 1U << (name_idx%32);
+			remote_final[name_idx/32] |= 1U << (name_idx%32);
 			break;
 		}
 	}
@@ -664,6 +668,7 @@ merge_keywords(struct mail *mail, const ARRAY_TYPE(const_string) *local_changes,
 
 		switch (changes[i][0]) {
 		case KEYWORD_CHANGE_ADD:
+		case KEYWORD_CHANGE_ADD_AND_FINAL:
 			local_add[name_idx/32] |= 1U << (name_idx%32);
 			break;
 		case KEYWORD_CHANGE_REMOVE:
@@ -737,6 +742,7 @@ dsync_mailbox_import_replace_flags(struct mail *mail,
 		switch (changes[i][0]) {
 		case KEYWORD_CHANGE_ADD:
 		case KEYWORD_CHANGE_FINAL:
+		case KEYWORD_CHANGE_ADD_AND_FINAL:
 			name = changes[i]+1;
 			array_append(&keywords, &name, 1);
 			break;
@@ -1245,7 +1251,7 @@ dsync_mailbox_get_final_keywords(const struct dsync_mail_change *change)
 	t_array_init(&keywords, count);
 	for (i = 0; i < count; i++) {
 		if (changes[i][0] == KEYWORD_CHANGE_ADD ||
-		    changes[i][0] == KEYWORD_CHANGE_FINAL) {
+		    changes[i][0] == KEYWORD_CHANGE_ADD_AND_FINAL) {
 			const char *name = changes[i]+1;
 
 			array_append(&keywords, &name, 1);

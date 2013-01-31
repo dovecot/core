@@ -40,6 +40,7 @@ enum dsync_mail_change_type {
 #define KEYWORD_CHANGE_ADD '+'
 #define KEYWORD_CHANGE_REMOVE '-'
 #define KEYWORD_CHANGE_FINAL '='
+#define KEYWORD_CHANGE_ADD_AND_FINAL '&'
 
 struct dsync_mail_change {
 	enum dsync_mail_change_type type;
@@ -71,8 +72,7 @@ struct dsync_mail_change {
 	   old transaction logs, new ones never reset keywords (just explicitly
 	   remove unwanted keywords) */
 	bool keywords_reset;
-	/* +add, -remove, =final. If the flag is both +added and in =final,
-	   it's not not duplicated as =flag to avoid wasting space. */
+	/* +add, -remove, =final, &add_and_final. */
 	ARRAY_TYPE(const_string) keyword_changes;
 };
 

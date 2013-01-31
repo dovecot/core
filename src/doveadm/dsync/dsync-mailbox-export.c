@@ -68,20 +68,33 @@ static int dsync_mail_error(struct dsync_mailbox_exporter *exporter,
 }
 
 static bool
-final_keyword_check(struct dsync_mail_change *change, const char *name)
+final_keyword_check(struct dsync_mail_change *change, const char *name,
+		    char *type_r)
 {
 	const char *const *changes;
 	unsigned int i, count;
 
+	*type_r = KEYWORD_CHANGE_ADD;
+
 	changes = array_get(&change->keyword_changes, &count);
 	for (i = 0; i < count; i++) {
-		if (strcmp(changes[i]+1, name) == 0) {
-			if (changes[i][0] == KEYWORD_CHANGE_REMOVE) {
-				/* a final keyword is marked as removed.
-				   this shouldn't normally happen. */
-				array_delete(&change->keyword_changes, i, 1);
-				break;
-			}
+		if (strcmp(changes[i]+1, name) != 0)
+			continue;
+
+		switch (changes[i][0]) {
+		case KEYWORD_CHANGE_ADD:
+			/* replace with ADD_AND_FINAL */
+			array_delete(&change->keyword_changes, i, 1);
+			*type_r = KEYWORD_CHANGE_ADD_AND_FINAL;
+			return FALSE;
+		case KEYWORD_CHANGE_REMOVE:
+			/* a final keyword is marked as removed.
+			   this shouldn't normally happen. */
+			array_delete(&change->keyword_changes, i, 1);
+			return FALSE;
+		case KEYWORD_CHANGE_ADD_AND_FINAL:
+		case KEYWORD_CHANGE_FINAL:
+			/* no change */
 			return TRUE;
 		}
 	}
@@ -94,6 +107,7 @@ search_update_flag_changes(struct dsync_mailbox_exporter *exporter,
 {
 	const char *const *keywords;
 	unsigned int i;
+	char type;
 
 	i_assert((change->add_flags & change->remove_flags) == 0);
 
@@ -110,11 +124,10 @@ search_update_flag_changes(struct dsync_mailbox_exporter *exporter,
 	for (i = 0; keywords[i] != NULL; i++) {
 		/* add the final keyword if it's not already there
 		   as +keyword */
-		if (!final_keyword_check(change, keywords[i])) {
+		if (!final_keyword_check(change, keywords[i], &type)) {
 			const char *keyword_change =
 				p_strdup_printf(exporter->pool, "%c%s",
-						KEYWORD_CHANGE_ADD,
-						keywords[i]);
+						type, keywords[i]);
 			array_append(&change->keyword_changes,
 				     &keyword_change, 1);
 		}
