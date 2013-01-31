@@ -56,13 +56,12 @@ replication_fifo_notify(struct mail_user *user,
 	if (fifo_failed)
 		return -1;
 	if (fifo_fd == -1) {
-		fifo_fd = open(fifo_path, O_WRONLY);
+		fifo_fd = open(fifo_path, O_WRONLY | O_NONBLOCK);
 		if (fifo_fd == -1) {
 			i_error("open(%s) failed: %m", fifo_path);
 			fifo_failed = TRUE;
 			return -1;
 		}
-		fd_set_nonblock(fifo_fd, TRUE);
 	}
 	/* <username> \t <priority> */
 	str = t_str_new(256);
