@@ -438,7 +438,7 @@ static int
 o_stream_default_seek(struct ostream_private *_stream,
 		      uoff_t offset ATTR_UNUSED)
 {
-	_stream->ostream.stream_errno = EPIPE;
+	_stream->ostream.stream_errno = ESPIPE;
 	return -1;
 }
 
@@ -447,7 +447,7 @@ o_stream_default_write_at(struct ostream_private *_stream,
 			  const void *data ATTR_UNUSED,
 			  size_t size ATTR_UNUSED, uoff_t offset ATTR_UNUSED)
 {
-	_stream->ostream.stream_errno = EPIPE;
+	_stream->ostream.stream_errno = ESPIPE;
 	return -1;
 }
 
