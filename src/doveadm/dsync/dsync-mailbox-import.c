@@ -520,6 +520,11 @@ merge_flags(uint32_t local_final, uint32_t local_add, uint32_t local_remove,
 	combined_remove = local_remove|remote_remove;
 	i_assert((combined_add & combined_remove) == 0);
 
+	/* don't change flags that are currently identical in both sides */
+	conflict_flags = local_final ^ remote_final;
+	combined_add &= conflict_flags;
+	combined_remove &= conflict_flags;
+
 	/* see if there are conflicting final flags */
 	local_wanted = (local_final|combined_add) & ~combined_remove;
 	remote_wanted = (remote_final|combined_add) & ~combined_remove;
