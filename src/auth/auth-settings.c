@@ -210,8 +210,6 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(SET_STR, winbind_helper_path),
 	DEF(SET_STR, proxy_self),
 	DEF(SET_TIME, failure_delay),
-	DEF(SET_UINT, first_valid_uid),
-	DEF(SET_UINT, last_valid_uid),
 
 	DEF(SET_BOOL, verbose),
 	DEF(SET_BOOL, debug),
@@ -228,6 +226,8 @@ static const struct setting_define auth_setting_defines[] = {
 
 	DEF_NOPREFIX(SET_STR, base_dir),
 	DEF_NOPREFIX(SET_BOOL, verbose_proctitle),
+	DEF_NOPREFIX(SET_UINT, first_valid_uid),
+	DEF_NOPREFIX(SET_UINT, last_valid_uid),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -249,8 +249,6 @@ static const struct auth_settings auth_default_settings = {
 	.winbind_helper_path = "/usr/bin/ntlm_auth",
 	.proxy_self = "",
 	.failure_delay = 2,
-	.first_valid_uid = 500,
-	.last_valid_uid = 0,
 
 	.verbose = FALSE,
 	.debug = FALSE,
@@ -266,7 +264,9 @@ static const struct auth_settings auth_default_settings = {
 	.userdbs = ARRAY_INIT,
 
 	.base_dir = PKG_RUNDIR,
-	.verbose_proctitle = FALSE
+	.verbose_proctitle = FALSE,
+	.first_valid_uid = 500,
+	.last_valid_uid = 0,
 };
 
 const struct setting_parser_info auth_setting_parser_info = {

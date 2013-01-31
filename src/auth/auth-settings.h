@@ -42,8 +42,6 @@ struct auth_settings {
 	const char *winbind_helper_path;
 	const char *proxy_self;
 	unsigned int failure_delay;
-	unsigned int first_valid_uid;
-	unsigned int last_valid_uid;
 
 	bool verbose, debug, debug_passwords;
 	const char *verbose_passwords;
@@ -53,11 +51,14 @@ struct auth_settings {
 
 	unsigned int worker_max_count;
 
+	/* settings that don't have auth_ prefix: */
 	ARRAY(struct auth_passdb_settings *) passdbs;
 	ARRAY(struct auth_userdb_settings *) userdbs;
 
 	const char *base_dir;
 	bool verbose_proctitle;
+	unsigned int first_valid_uid;
+	unsigned int last_valid_uid;
 
 	/* generated: */
 	char username_chars_map[256];
