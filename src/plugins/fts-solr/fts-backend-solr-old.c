@@ -225,6 +225,11 @@ static struct fts_backend *fts_backend_solr_alloc(void)
 	return &backend->backend;
 }
 
+static void fts_backend_solr_connection_deinit(void)
+{
+	solr_connection_deinit(solr_conn);
+}
+
 static int
 fts_backend_solr_init(struct fts_backend *_backend,
 		      const char **error_r ATTR_UNUSED)
@@ -234,8 +239,10 @@ fts_backend_solr_init(struct fts_backend *_backend,
 	const struct fts_solr_settings *set = &fuser->set;
 	const char *str;
 
-	if (solr_conn == NULL)
+	if (solr_conn == NULL) {
 		solr_conn = solr_connection_init(set->url, set->debug);
+		lib_atexit(fts_backend_solr_connection_deinit);
+	}
 
 	str = solr_escape_id_str(_backend->ns->user->username);
 	backend->id_username = i_strdup(str);
