@@ -254,6 +254,12 @@ int dbox_mailbox_create(struct mailbox *box,
 	if (mailbox_open(box) < 0)
 		return -1;
 
+	if (mail_index_get_header(box->view)->uid_validity != 0) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
+				       "Mailbox already exists");
+		return -1;
+	}
+
 	/* if alt path already exists and contains files, rebuild storage so
 	   that we don't start overwriting files. */
 	alt_path = mailbox_list_get_path(box->list, box->name,
