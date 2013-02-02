@@ -4,6 +4,7 @@
 #include "array.h"
 #include "mail-user.h"
 #include "mail-storage-hooks.h"
+#include "solr-connection.h"
 #include "fts-solr-plugin.h"
 
 #include <stdlib.h>
