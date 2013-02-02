@@ -40,8 +40,6 @@ struct solr_fts_backend_update_context {
 	bool documents_added;
 };
 
-static struct solr_connection *solr_conn = NULL;
-
 static bool is_valid_xml_char(unichar_t chr)
 {
 	/* Valid characters in XML:
