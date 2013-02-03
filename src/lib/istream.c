@@ -707,6 +707,7 @@ struct istream *i_stream_create_error(int stream_errno)
 	stream->istream.readable_fd = FALSE;
 	stream->istream.blocking = TRUE;
 	stream->istream.seekable = TRUE;
+	stream->istream.eof = TRUE;
 	stream->istream.stream_errno = stream_errno;
 	i_stream_create(stream, NULL, -1);
 	i_stream_set_name(&stream->istream, "(error)");
