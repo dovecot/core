@@ -314,7 +314,7 @@ struct ostream *fs_write_stream(struct fs_file *file)
 
 int fs_write_stream_finish(struct fs_file *file, struct ostream **output)
 {
-	i_assert(*output == file->output);
+	i_assert(*output == file->output || *output == NULL);
 
 	*output = NULL;
 	return file->fs->v.write_stream_finish(file, TRUE);
