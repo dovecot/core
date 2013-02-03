@@ -34,6 +34,7 @@ static int metadata_header_read(struct metawrap_istream *mstream)
 		mstream->istream.istream.eof = TRUE;
 		return -1;
 	}
+	i_assert(!mstream->istream.parent->blocking);
 	return 0;
 }
 
@@ -51,10 +52,36 @@ static ssize_t i_stream_metawrap_read(struct istream_private *stream)
 		mstream->start_offset = stream->parent->v_offset;
 		if (ret <= 0)
 			return ret;
+		/* this stream is kind of silently skipping over the metadata */
+		stream->abs_start_offset += mstream->start_offset;
 		mstream->in_metadata = FALSE;
 	}
 	/* after metadata header it's all just passthrough */
 	return i_stream_read_copy_from_parent(&stream->istream);
+}
+
+static int i_stream_metawrap_stat(struct istream_private *stream, bool exact)
+{
+	struct metawrap_istream *mstream = (struct metawrap_istream *)stream;
+	const struct stat *st;
+	int ret;
+
+	if (i_stream_stat(stream->parent, exact, &st) < 0)
+		return -1;
+	stream->statbuf = *st;
+
+	if (mstream->in_metadata) {
+		ret = i_stream_read(&stream->istream);
+		if (ret < 0)
+			return -1;
+		if (ret == 0) {
+			stream->statbuf.st_size = -1;
+			return 0;
+		}
+	}
+	i_assert((uoff_t)stream->statbuf.st_size >= mstream->start_offset);
+	stream->statbuf.st_size -= mstream->start_offset;
+	return 0;
 }
 
 struct istream *
@@ -67,8 +94,9 @@ i_stream_create_metawrap(struct istream *input,
 	mstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	mstream->istream.read = i_stream_metawrap_read;
+	mstream->istream.stat = i_stream_metawrap_stat;
 
-	mstream->istream.istream.readable_fd = FALSE;
+	mstream->istream.istream.readable_fd = input->readable_fd;
 	mstream->istream.istream.blocking = input->blocking;
 	mstream->istream.istream.seekable = FALSE;
 	mstream->in_metadata = TRUE;
