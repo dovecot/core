@@ -404,6 +404,8 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 	i_free_and_null(file->temp_path);
 	file->success = TRUE;
 	file->seek_to_beginning = TRUE;
+	/* allow opening the file after writing to it */
+	file->open_mode = FS_OPEN_MODE_READONLY;
 	return 0;
 }
 
