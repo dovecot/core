@@ -5,7 +5,7 @@
 #include "str.h"
 #include "safe-mkstemp.h"
 #include "write-full.h"
-#include "istream.h"
+#include "istream-private.h"
 #include "ostream-private.h"
 #include "iostream-temp.h"
 
@@ -15,7 +15,13 @@
 
 struct temp_ostream {
 	struct ostream_private ostream;
+
 	char *temp_path_prefix;
+	enum iostream_temp_flags flags;
+
+	struct istream *dupstream;
+	uoff_t dupstream_offset, dupstream_start_offset;
+
 	buffer_t *buf;
 	int fd;
 	bool fd_tried;
@@ -87,6 +93,8 @@ o_stream_temp_sendv(struct ostream_private *stream,
 	ssize_t ret = 0;
 	unsigned int i;
 
+	tstream->flags &= ~IOSTREAM_TEMP_FLAG_TRY_FD_DUP;
+
 	if (tstream->fd != -1)
 		return o_stream_temp_fd_sendv(tstream, iov, iov_count);
 
@@ -105,15 +113,91 @@ o_stream_temp_sendv(struct ostream_private *stream,
 	return ret;
 }
 
-struct ostream *iostream_temp_create(const char *temp_path_prefix)
+static int o_stream_temp_dup_cancel(struct temp_ostream *tstream)
+{
+	struct istream *input;
+	uoff_t size = tstream->dupstream_offset -
+		tstream->dupstream_start_offset;
+	off_t ret;
+
+	i_stream_seek(tstream->dupstream, tstream->dupstream_start_offset);
+
+	input = i_stream_create_limit(tstream->dupstream, size);
+	do {
+		ret = io_stream_copy(&tstream->ostream.ostream,
+				     input, IO_BLOCK_SIZE);
+	} while (input->v_offset < tstream->dupstream_offset && ret > 0);
+	if (ret < 0 && tstream->ostream.ostream.stream_errno == 0) {
+		i_assert(input->stream_errno != 0);
+		tstream->ostream.ostream.stream_errno = input->stream_errno;
+	}
+	i_stream_destroy(&input);
+	i_stream_unref(&tstream->dupstream);
+	return ret < 0 ? -1 : 0;
+}
+
+static int o_stream_temp_dup_istream(struct temp_ostream *outstream,
+				     struct istream *instream)
+{
+	uoff_t in_size;
+	off_t ret;
+
+	if (!instream->readable_fd || i_stream_get_fd(instream) == -1)
+		return 0;
+
+	if (i_stream_get_size(instream, TRUE, &in_size) <= 0) {
+		if (outstream->dupstream != NULL)
+			return o_stream_temp_dup_cancel(outstream);
+		return 0;
+	}
+
+	if (outstream->dupstream == NULL) {
+		outstream->dupstream = instream;
+		outstream->dupstream_start_offset = instream->v_offset;
+		i_stream_ref(outstream->dupstream);
+	} else {
+		if (outstream->dupstream != instream ||
+		    outstream->dupstream_offset != instream->v_offset ||
+		    outstream->dupstream_offset > in_size)
+			return o_stream_temp_dup_cancel(outstream);
+	}
+	ret = in_size - instream->v_offset;
+	i_stream_seek(instream, in_size);
+	outstream->dupstream_offset = instream->v_offset;
+	return ret;
+}
+
+static off_t o_stream_temp_send_istream(struct ostream_private *_outstream,
+					struct istream *instream)
+{
+	struct temp_ostream *outstream = (struct temp_ostream *)_outstream;
+	uoff_t orig_offset;
+	int ret;
+
+	if ((outstream->flags & IOSTREAM_TEMP_FLAG_TRY_FD_DUP) != 0) {
+		orig_offset = outstream->dupstream_offset;
+		if ((ret = o_stream_temp_dup_istream(outstream, instream)) > 0)
+			return outstream->dupstream_offset - orig_offset;
+		if (ret < 0)
+			return -1;
+		outstream->flags &= ~IOSTREAM_TEMP_FLAG_TRY_FD_DUP;
+	}
+	return io_stream_copy(&outstream->ostream.ostream,
+			      instream, IO_BLOCK_SIZE);
+}
+
+struct ostream *iostream_temp_create(const char *temp_path_prefix,
+				     enum iostream_temp_flags flags)
 {
 	struct temp_ostream *tstream;
 	struct ostream *output;
 
 	tstream = i_new(struct temp_ostream, 1);
 	tstream->ostream.sendv = o_stream_temp_sendv;
+	tstream->ostream.send_istream = o_stream_temp_send_istream;
 	tstream->ostream.iostream.close = o_stream_temp_close;
 	tstream->temp_path_prefix = i_strdup(temp_path_prefix);
+	tstream->flags = flags;
 	tstream->buf = buffer_create_dynamic(default_pool, 8192);
 	tstream->fd = -1;
 
@@ -132,9 +216,26 @@ struct istream *iostream_temp_finish(struct ostream **output,
 {
 	struct temp_ostream *tstream =
 		(struct temp_ostream *)(*output)->real_stream;
-	struct istream *input;
+	struct istream *input, *input2;
+	uoff_t abs_offset, size;
+	int fd;
 
-	if (tstream->fd != -1) {
+	if (tstream->dupstream != NULL) {
+		abs_offset = tstream->dupstream->real_stream->abs_start_offset +
+			tstream->dupstream_start_offset;
+		size = tstream->dupstream_offset -
+			tstream->dupstream_start_offset;
+		fd = dup(i_stream_get_fd(tstream->dupstream));
+		if (fd == -1)
+			input = i_stream_create_error(errno);
+		else {
+			input2 = i_stream_create_fd(fd, max_buffer_size, TRUE);
+			i_stream_seek(input2, abs_offset);
+			input = i_stream_create_limit(input2, size);
+			i_stream_unref(&input2);
+		}
+		i_stream_unref(&tstream->dupstream);
+	} else if (tstream->fd != -1) {
 		input = i_stream_create_fd(tstream->fd, max_buffer_size, TRUE);
 		tstream->fd = -1;
 	} else {
