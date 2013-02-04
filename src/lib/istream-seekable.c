@@ -330,6 +330,8 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 		i_stream_seek(&stream->istream, old_offset);
 		unref_streams(sstream);
 	}
+	if (stream->istream.stream_errno != 0)
+		return -1;
 
 	if (sstream->fd_input != NULL) {
 		/* using a file backed buffer, we can use real fstat() */
