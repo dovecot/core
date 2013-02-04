@@ -328,7 +328,7 @@ static int fs_metawrap_stat(struct fs_file *_file, struct stat *st_r)
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 	struct istream *input;
-	uoff_t content_offset;
+	uoff_t input_size;
 	ssize_t ret;
 
 	if (!file->fs->wrap_metadata) {
@@ -339,21 +339,24 @@ static int fs_metawrap_stat(struct fs_file *_file, struct stat *st_r)
 		return 0;
 	}
 	input = fs_read_stream(_file, IO_BLOCK_SIZE);
-	ret = i_stream_read(input);
-	content_offset = input->real_stream->parent->v_offset;
-	i_stream_unref(&input);
-	if (ret <= 0) {
-		if (ret == 0)
-			fs_set_error_async(_file->fs);
+	if ((ret = i_stream_get_size(input, TRUE, &input_size)) < 0) {
+		fs_set_error(_file->fs, "i_stream_get_size(%s) failed: %m",
+			     fs_file_path(_file));
+		i_stream_unref(&input);
+		return -1;
+	}
+	if (ret == 0) {
+		i_stream_unref(&input);
+		fs_set_error_async(_file->fs);
 		return -1;
 	}
 
 	if (fs_stat(file->super, st_r) < 0) {
+		i_assert(errno != EAGAIN); /* read should have caught this */
 		fs_metawrap_copy_error(file->fs);
 		return -1;
 	}
-	i_assert((uoff_t)st_r->st_size >= content_offset);
-	st_r->st_size -= content_offset;
+	st_r->st_size = input_size;
 	return 0;
 }
 
