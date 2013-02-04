@@ -666,6 +666,9 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 		_stream->parent_expected_offset = parent->v_offset;
 		_stream->abs_start_offset = parent->v_offset +
 			parent->real_stream->abs_start_offset;
+		/* if parent stream is an istream-error, copy the error */
+		_stream->istream.stream_errno = parent->stream_errno;
+		_stream->istream.eof = parent->eof;
 		i_stream_ref(parent);
 	}
 	_stream->istream.real_stream = _stream;
