@@ -220,7 +220,7 @@ struct istream *iostream_temp_finish(struct ostream **output,
 	uoff_t abs_offset, size;
 	int fd;
 
-	if (tstream->dupstream != NULL) {
+	if (tstream->dupstream != NULL && !tstream->dupstream->closed) {
 		abs_offset = tstream->dupstream->real_stream->abs_start_offset +
 			tstream->dupstream_start_offset;
 		size = tstream->dupstream_offset -
@@ -235,6 +235,9 @@ struct istream *iostream_temp_finish(struct ostream **output,
 			i_stream_unref(&input2);
 		}
 		i_stream_unref(&tstream->dupstream);
+	} else if (tstream->dupstream != NULL) {
+		/* return the original failed stream. */
+		input = tstream->dupstream;
 	} else if (tstream->fd != -1) {
 		input = i_stream_create_fd(tstream->fd, max_buffer_size, TRUE);
 		tstream->fd = -1;
