@@ -223,6 +223,7 @@ struct istream *tee_i_stream_create_child(struct tee_istream *tee)
 	tee->children = tstream;
 
 	ret = i_stream_create(&tstream->istream, input, i_stream_get_fd(input));
+	i_stream_set_name(&tstream->istream.istream, i_stream_get_name(input));
 	/* we keep the reference in tee stream, no need for extra references */
 	i_stream_unref(&input);
 	return ret;
