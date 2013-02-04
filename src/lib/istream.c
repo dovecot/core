@@ -75,7 +75,7 @@ void i_stream_close(struct istream *stream)
 	stream->closed = TRUE;
 
 	if (stream->stream_errno == 0)
-		stream->stream_errno = ENOENT;
+		stream->stream_errno = EPIPE;
 }
 
 void i_stream_set_init_buffer_size(struct istream *stream, size_t size)
