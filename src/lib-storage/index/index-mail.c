@@ -762,15 +762,20 @@ static int index_mail_parse_body_finish(struct index_mail *mail,
 		i_stream_ref(parser_input);
 		ret = message_parser_deinit(&mail->data.parser_ctx,
 					    &mail->data.parts) < 0 ? 0 : 1;
-		if (parser_input->stream_errno != 0) {
+		if (parser_input->stream_errno == 0 ||
+		    parser_input->stream_errno == EPIPE) {
+			/* EPIPE = input already closed. allow the caller to
+			   decide if that is an error or not. */
+			i_assert(i_stream_read(parser_input) == -1 &&
+				 !i_stream_have_bytes_left(parser_input));
+		} else {
 			errno = parser_input->stream_errno;
 			mail_storage_set_critical(mail->mail.mail.box->storage,
-					"read(%s) failed: %m",
-					i_stream_get_name(parser_input));
+				"mail parser: read(%s, box=%s) failed: %m",
+				i_stream_get_name(parser_input),
+				mail->mail.mail.box->vname);
 			ret = -1;
 		}
-		i_assert(i_stream_read(parser_input) == -1 &&
-			 !i_stream_have_bytes_left(parser_input));
 		i_stream_unref(&parser_input);
 	}
 	if (ret <= 0) {
