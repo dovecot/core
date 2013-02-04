@@ -8,7 +8,10 @@
 #include "istream-private.h"
 #include "istream-metawrap.h"
 #include "ostream.h"
+#include "ostream-metawrap.h"
 #include "fs-api-private.h"
+
+#define MAX_METADATA_LINE_LEN 8192
 
 struct metawrap_fs {
 	struct fs fs;
@@ -21,6 +24,8 @@ struct metawrap_fs_file {
 	struct metawrap_fs *fs;
 	struct fs_file *super;
 	enum fs_open_mode open_mode;
+	struct istream *input;
+	struct ostream *super_output;
 };
 
 static void fs_metawrap_copy_error(struct metawrap_fs *fs)
@@ -226,15 +231,21 @@ static struct istream *
 fs_metawrap_read_stream(struct fs_file *_file, size_t max_buffer_size)
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
-	struct istream *input, *input2;
+	struct istream *input;
 
 	if (!file->fs->wrap_metadata)
 		return fs_read_stream(file->super, max_buffer_size);
 
-	input = fs_read_stream(file->super, max_buffer_size);
-	input2 = i_stream_create_metawrap(input, fs_metawrap_callback, file);
+	if (file->input != NULL) {
+		i_stream_seek(file->input, 0);
+		return file->input;
+	}
+
+	input = fs_read_stream(file->super,
+			       I_MAX(max_buffer_size, MAX_METADATA_LINE_LEN));
+	file->input = i_stream_create_metawrap(input, fs_metawrap_callback, file);
 	i_stream_unref(&input);
-	return input2;
+	return file->input;
 }
 
 static int fs_metawrap_write(struct fs_file *_file, const void *data, size_t size)
@@ -251,36 +262,42 @@ static int fs_metawrap_write(struct fs_file *_file, const void *data, size_t siz
 	return fs_write_via_stream(_file, data, size);
 }
 
+static void fs_metawrap_write_metadata(void *context)
+{
+	struct metawrap_fs_file *file = context;
+	const struct fs_metadata *metadata;
+	string_t *str = t_str_new(256);
+	ssize_t ret;
+
+	/* FIXME: if fs_set_metadata() is called later the changes are
+	   ignored. we'd need to write via temporary file then. */
+	array_foreach(&file->file.metadata, metadata) {
+		str_append_tabescaped(str, metadata->key);
+		str_append_c(str, ':');
+		str_append_tabescaped(str, metadata->value);
+		str_append_c(str, '\n');
+	}
+	str_append_c(str, '\n');
+	ret = o_stream_send(file->file.output, str_data(str), str_len(str));
+	if (ret < 0)
+		o_stream_close(file->file.output);
+	else
+		i_assert((size_t)ret == str_len(str));
+}
+
 static void fs_metawrap_write_stream(struct fs_file *_file)
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 
 	i_assert(_file->output == NULL);
 
-	_file->output = fs_write_stream(file->super);
-	if (file->fs->wrap_metadata) T_BEGIN {
-		const struct fs_metadata *metadata;
-		string_t *str = t_str_new(256);
-		ssize_t ret;
-
-		/* FIXME: if fs_set_metadata() is called later the changes are
-		   ignored. we'd need to write via temporary file then. */
-		array_foreach(&_file->metadata, metadata) {
-			str_append_tabescaped(str, metadata->key);
-			str_append_c(str, ':');
-			str_append_tabescaped(str, metadata->value);
-			str_append_c(str, '\n');
-		}
-		str_append_c(str, '\n');
-		ret = o_stream_send(_file->output, str_data(str), str_len(str));
-		if (ret < 0) {
-			int err = _file->output->stream_errno;
-			fs_write_stream_abort(file->super, &_file->output);
-			_file->output = o_stream_create_error(err);
-		} else {
-			i_assert((size_t)ret == str_len(str));
-		}
-	} T_END;
+	file->super_output = fs_write_stream(file->super);
+	if (!file->fs->wrap_metadata)
+		_file->output = file->super_output;
+	else {
+		_file->output = o_stream_create_metawrap(file->super_output,
+			fs_metawrap_write_metadata, file);
+	}
 }
 
 static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
@@ -288,16 +305,24 @@ static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 	int ret;
 
+	if (_file->output->closed)
+		success = FALSE;
+
 	if (!success) {
-		fs_write_stream_abort(file->super, &_file->output);
-		fs_metawrap_file_copy_error(file);
-		return -1;
+		fs_write_stream_abort(file->super, &file->super_output);
+		ret = -1;
+	} else {
+		ret = fs_write_stream_finish(file->super, &file->super_output);
 	}
 
-	if ((ret = fs_write_stream_finish(file->super, &_file->output)) < 0) {
-		fs_metawrap_file_copy_error(file);
-		return -1;
+	if (ret != 0) {
+		if (_file->output == file->super_output)
+			_file->output = NULL;
+		else
+			o_stream_unref(&_file->output);
 	}
+	if (ret < 0)
+		fs_metawrap_file_copy_error(file);
 	return ret;
 }
 
