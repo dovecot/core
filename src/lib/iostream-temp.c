@@ -234,16 +234,23 @@ struct istream *iostream_temp_finish(struct ostream **output,
 			input = i_stream_create_limit(input2, size);
 			i_stream_unref(&input2);
 		}
+		i_stream_set_name(input, t_strdup_printf(
+			"(Temp file in %s, from %s)", tstream->temp_path_prefix,
+			i_stream_get_name(tstream->dupstream)));
 		i_stream_unref(&tstream->dupstream);
 	} else if (tstream->dupstream != NULL) {
 		/* return the original failed stream. */
 		input = tstream->dupstream;
 	} else if (tstream->fd != -1) {
 		input = i_stream_create_fd(tstream->fd, max_buffer_size, TRUE);
+		i_stream_set_name(input, t_strdup_printf(
+			"(Temp file in %s)", tstream->temp_path_prefix));
 		tstream->fd = -1;
 	} else {
 		input = i_stream_create_from_data(tstream->buf->data,
 						  tstream->buf->used);
+		i_stream_set_name(input, t_strdup_printf(
+			"(Temp file in %s)", tstream->temp_path_prefix));
 		i_stream_set_destroy_callback(input, iostream_temp_buf_destroyed,
 					      tstream->buf);
 		tstream->buf = NULL;
