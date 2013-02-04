@@ -22,7 +22,7 @@ struct metawrap_fs {
 struct metawrap_fs_file {
 	struct fs_file file;
 	struct metawrap_fs *fs;
-	struct fs_file *super;
+	struct fs_file *super, *super_read;
 	enum fs_open_mode open_mode;
 	struct istream *input;
 	struct ostream *super_output;
@@ -116,10 +116,16 @@ fs_metawrap_file_init(struct fs *_fs, const char *path,
 
 	/* avoid unnecessarily creating two seekable streams */
 	flags &= ~FS_OPEN_FLAG_SEEKABLE;
-	if (mode == FS_OPEN_MODE_READONLY)
-		flags |= FS_OPEN_FLAG_ASYNC;
 
 	file->super = fs_file_init(fs->super, path, mode | flags);
+	if (mode == FS_OPEN_MODE_READONLY && (flags & FS_OPEN_FLAG_ASYNC) == 0) {
+		/* use async stream for super, so fs_read_stream() won't create
+		   another seekable stream unneededly */
+		file->super_read = fs_file_init(fs->super, path, mode | flags |
+						FS_OPEN_FLAG_ASYNC);
+	} else {
+		file->super_read = file->super;
+	}
 	i_array_init(&file->file.metadata, 8);
 	return &file->file;
 }
@@ -128,6 +134,8 @@ static void fs_metawrap_file_deinit(struct fs_file *_file)
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 
+	if (file->super_read != file->super)
+		fs_file_deinit(&file->super_read);
 	fs_file_deinit(&file->super);
 	array_free(&file->file.metadata);
 	i_free(file->file.path);
@@ -241,7 +249,7 @@ fs_metawrap_read_stream(struct fs_file *_file, size_t max_buffer_size)
 		return file->input;
 	}
 
-	input = fs_read_stream(file->super,
+	input = fs_read_stream(file->super_read,
 			       I_MAX(max_buffer_size, MAX_METADATA_LINE_LEN));
 	file->input = i_stream_create_metawrap(input, fs_metawrap_callback, file);
 	i_stream_unref(&input);
@@ -305,8 +313,14 @@ static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 	int ret;
 
-	if (_file->output->closed)
-		success = FALSE;
+	if (_file->output != NULL) {
+		if (_file->output->closed)
+			success = FALSE;
+		if (_file->output == file->super_output)
+			_file->output = NULL;
+		else
+			o_stream_unref(&_file->output);
+	}
 
 	if (!success) {
 		fs_write_stream_abort(file->super, &file->super_output);
@@ -315,12 +329,6 @@ static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 		ret = fs_write_stream_finish(file->super, &file->super_output);
 	}
 
-	if (ret != 0) {
-		if (_file->output == file->super_output)
-			_file->output = NULL;
-		else
-			o_stream_unref(&_file->output);
-	}
 	if (ret < 0)
 		fs_metawrap_file_copy_error(file);
 	return ret;
