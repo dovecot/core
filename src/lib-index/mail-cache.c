@@ -367,7 +367,8 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 	/* verify offset + size before trying to allocate a huge amount of
 	   memory due to them. note that we may be prefetching more than we
 	   actually need, so don't fail too early. */
-	if (size > cache->mmap_length || offset + size > cache->mmap_length) {
+	if ((size > cache->mmap_length || offset + size > cache->mmap_length) &&
+	    (offset > 0 || size > sizeof(struct mail_cache_header))) {
 		if (fstat(cache->fd, &st) < 0) {
 			i_error("fstat(%s) failed: %m", cache->filepath);
 			return -1;
@@ -376,7 +377,8 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 			*data_r = NULL;
 			return 0;
 		}
-		size = st.st_size - offset;
+		if (offset + size > (uoff_t)st.st_size)
+			size = st.st_size - offset;
 	}
 
 	cache->remap_counter++;
