@@ -133,12 +133,18 @@ void http_client_request_add_header(struct http_client_request *req,
 void http_client_request_set_payload(struct http_client_request *req,
 				     struct istream *input, bool sync)
 {
+	int ret;
+
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
 	i_assert(req->payload_input == NULL);
 
 	i_stream_ref(input);
 	req->payload_input = input;
-	if (i_stream_get_size(input, TRUE, &req->payload_size) <= 0) {
+	if ((ret = i_stream_get_size(input, TRUE, &req->payload_size)) <= 0) {
+		if (ret < 0) {
+			i_error("i_stream_get_size(%s) failed: %m",
+				i_stream_get_name(input));
+		}
 		req->payload_size = 0;
 		req->payload_chunked = TRUE;
 	}
