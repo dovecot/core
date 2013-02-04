@@ -66,6 +66,9 @@ struct http_client_request {
 	http_client_request_callback_t *callback;
 	void *context;
 
+	void (*destroy_callback)(void *);
+	void *destroy_context;
+
 	enum http_request_state state;
 
 	unsigned int payload_sync:1;

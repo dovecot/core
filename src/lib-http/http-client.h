@@ -78,6 +78,11 @@ void http_client_request_set_payload(struct http_client_request *req,
 void http_client_request_submit(struct http_client_request *req);
 void http_client_request_abort(struct http_client_request **req);
 
+/* Call the specified callback when HTTP request is destroyed. */
+void http_client_request_set_destroy_callback(struct http_client_request *req,
+					      void (*callback)(void *),
+					      void *context);
+
 /* submits request and blocks until provided payload is sent. Multiple calls
    are allowed; payload transmission is ended when data == NULL. */
 int http_client_request_send_payload(struct http_client_request **req,

@@ -412,6 +412,9 @@ void http_client_request_finish(struct http_client_request **_req)
 	req->callback = NULL;
 	req->state = HTTP_REQUEST_STATE_FINISHED;
 
+	if (req->destroy_callback != NULL)
+		req->destroy_callback(req->destroy_context);
+
 	if (req->payload_wait && req->client->ioloop != NULL)
 		io_loop_stop(req->client->ioloop);
 	http_client_request_unref(_req);
@@ -580,4 +583,12 @@ void http_client_request_retry(struct http_client_request *req,
 
 	/* resubmit */
 	http_client_request_resubmit(req);
+}
+
+void http_client_request_set_destroy_callback(struct http_client_request *req,
+					      void (*callback)(void *),
+					      void *context)
+{
+	req->destroy_callback = callback;
+	req->destroy_context = context;
 }
