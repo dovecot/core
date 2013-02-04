@@ -109,6 +109,11 @@ fs_metawrap_file_init(struct fs *_fs, const char *path,
 	file->fs = fs;
 	file->open_mode = mode;
 
+	/* avoid unnecessarily creating two seekable streams */
+	flags &= ~FS_OPEN_FLAG_SEEKABLE;
+	if (mode == FS_OPEN_MODE_READONLY)
+		flags |= FS_OPEN_FLAG_ASYNC;
+
 	file->super = fs_file_init(fs->super, path, mode | flags);
 	i_array_init(&file->file.metadata, 8);
 	return &file->file;

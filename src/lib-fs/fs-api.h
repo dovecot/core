@@ -49,7 +49,9 @@ enum fs_open_flags {
 
 	   Asynchronous reads: fs_read() will fail with EAGAIN if it's not
 	   finished and fs_read_stream() returns a nonblocking stream. */
-	FS_OPEN_FLAG_ASYNC		= 0x20
+	FS_OPEN_FLAG_ASYNC		= 0x20,
+	/* fs_read_stream() must return a seekable input stream */
+	FS_OPEN_FLAG_SEEKABLE		= 0x40
 };
 
 enum fs_iter_flags {

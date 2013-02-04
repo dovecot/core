@@ -5,6 +5,7 @@
 #include "module-dir.h"
 #include "str.h"
 #include "istream.h"
+#include "istream-seekable.h"
 #include "ostream.h"
 #include "fs-api-private.h"
 
@@ -99,6 +100,7 @@ int fs_init(const char *driver, const char *args,
 	    struct fs **fs_r, const char **error_r)
 {
 	const struct fs *fs_class;
+	const char *temp_file_prefix;
 
 	fs_class = fs_class_find(driver);
 	if (fs_class == NULL) {
@@ -111,7 +113,14 @@ int fs_init(const char *driver, const char *args,
 		*error_r = t_strdup_printf("Unknown fs driver: %s", driver);
 		return -1;
 	}
-	return fs_alloc(fs_class, args, set, fs_r, error_r);
+	if (fs_alloc(fs_class, args, set, fs_r, error_r) < 0)
+		return -1;
+
+	temp_file_prefix = set->temp_file_prefix != NULL ?
+		set->temp_file_prefix : ".temp.dovecot";
+	(*fs_r)->temp_path_prefix = i_strconcat(set->temp_dir, "/",
+						temp_file_prefix, NULL);
+	return 0;
 }
 
 void fs_deinit(struct fs **_fs)
@@ -126,6 +135,7 @@ void fs_deinit(struct fs **_fs)
 			fs->name, fs->files_open_count);
 	}
 
+	i_free(fs->temp_path_prefix);
 	fs->v.deinit(fs);
 	str_free(&last_error);
 }
@@ -140,6 +150,7 @@ struct fs_file *fs_file_init(struct fs *fs, const char *path, int mode_flags)
 		file = fs->v.file_init(fs, path, mode_flags & FS_OPEN_MODE_MASK,
 				       mode_flags & ~FS_OPEN_MODE_MASK);
 	} T_END;
+	file->flags = mode_flags & ~FS_OPEN_MODE_MASK;
 	fs->files_open_count++;
 	return file;
 }
@@ -262,7 +273,47 @@ ssize_t fs_read(struct fs_file *file, void *buf, size_t size)
 
 struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 {
-	return file->fs->v.read_stream(file, max_buffer_size);
+	struct istream *input, *inputs[2];
+	const unsigned char *data;
+	size_t size;
+	ssize_t ret;
+	bool want_seekable = FALSE;
+
+	input = file->fs->v.read_stream(file, max_buffer_size);
+	if (input->stream_errno != 0) {
+		/* read failed already */
+		return input;
+	}
+
+	if ((file->flags & FS_OPEN_FLAG_SEEKABLE) != 0)
+		want_seekable = TRUE;
+	else if ((file->flags & FS_OPEN_FLAG_ASYNC) == 0 && !input->blocking)
+		want_seekable = TRUE;
+
+	if (want_seekable && !input->seekable) {
+		/* need to make the stream seekable */
+		inputs[0] = input;
+		inputs[1] = NULL;
+		input = i_stream_create_seekable_path(inputs, max_buffer_size,
+						file->fs->temp_path_prefix);
+		i_stream_set_name(input, i_stream_get_name(inputs[0]));
+		i_stream_unref(&inputs[0]);
+	}
+	if ((file->flags & FS_OPEN_FLAG_ASYNC) == 0 && !input->blocking) {
+		/* read the whole input stream before returning */
+		while ((ret = i_stream_read_data(input, &data, &size, 0)) >= 0) {
+			i_stream_skip(input, size);
+			if (ret == 0) {
+				if (fs_wait_async(file->fs) < 0) {
+					input->stream_errno = errno;
+					input->eof = TRUE;
+					break;
+				}
+			}
+		}
+		i_stream_seek(input, 0);
+	}
+	return input;
 }
 
 int fs_write_via_stream(struct fs_file *file, const void *data, size_t size)

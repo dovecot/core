@@ -55,6 +55,7 @@ struct fs_vfuncs {
 struct fs {
 	const char *name;
 	struct fs_vfuncs v;
+	char *temp_path_prefix;
 
 	struct fs_settings set;
 	string_t *last_error;
@@ -66,6 +67,7 @@ struct fs_file {
 	struct fs *fs;
 	struct ostream *output;
 	char *path;
+	enum fs_open_flags flags;
 
 	struct istream *pending_read_input;
 	bool write_pending;
