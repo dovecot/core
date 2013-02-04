@@ -630,7 +630,7 @@ i_stream_default_stat(struct istream_private *stream, bool exact)
 	const struct stat *st;
 
 	if (stream->parent == NULL)
-		return 0;
+		return stream->istream.stream_errno == 0 ? 0 : -1;
 
 	if (i_stream_stat(stream->parent, exact, &st) < 0)
 		return -1;
