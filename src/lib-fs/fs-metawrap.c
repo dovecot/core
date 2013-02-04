@@ -145,7 +145,11 @@ static int fs_metawrap_wait_async(struct fs *_fs)
 {
 	struct metawrap_fs *fs = (struct metawrap_fs *)_fs;
 
-	return fs_wait_async(fs->super);
+	if (fs_wait_async(fs->super) < 0) {
+		fs_metawrap_copy_error(fs);
+		return -1;
+	}
+	return 0;
 }
 
 static void
@@ -167,8 +171,13 @@ fs_metawrap_get_metadata(struct fs_file *_file,
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 	char c;
 
-	if (!file->fs->wrap_metadata)
-		return fs_get_metadata(file->super, metadata_r);
+	if (!file->fs->wrap_metadata) {
+		if (fs_get_metadata(file->super, metadata_r) < 0) {
+			fs_metawrap_file_copy_error(file);
+			return -1;
+		}
+		return 0;
+	}
 
 	if (fs_read(_file, &c, 1) < 0)
 		return -1;
