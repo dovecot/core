@@ -40,9 +40,9 @@ enum fs_open_mode {
 };
 
 enum fs_open_flags {
-	/* File being written isn't very important, performance is more
-	   important than actually guaranteeing that the file gets saved */
-	FS_OPEN_FLAG_UNIMPORTANT	= 0x10,
+	/* File is important and writing must call fsync() or have equivalent
+	   behavior. */
+	FS_OPEN_FLAG_FSYNC		= 0x10,
 	/* Asynchronous writes: fs_write() will fail with EAGAIN if it needs to
 	   be called again (the retries can use size=0). For streams
 	   fs_write_stream_finish() may request retrying with 0.

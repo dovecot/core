@@ -350,7 +350,7 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 {
 	int ret;
 
-	if ((file->open_flags & FS_OPEN_FLAG_UNIMPORTANT) == 0) {
+	if ((file->open_flags & FS_OPEN_FLAG_FSYNC) != 0) {
 		if (fdatasync(file->fd) < 0) {
 			fs_set_error(file->file.fs, "fdatasync(%s) failed: %m",
 				     file->file.path);

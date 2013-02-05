@@ -87,8 +87,8 @@ index_attachment_open_ostream(struct istream_attachment_info *info,
 
 	i_assert(attach->cur_file == NULL);
 
-	if (storage->set->parsed_fsync_mode == FSYNC_MODE_NEVER)
-		flags |= FS_OPEN_FLAG_UNIMPORTANT;
+	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER)
+		flags |= FS_OPEN_FLAG_FSYNC;
 
 	if (strlen(digest) < 4) {
 		/* make sure we can access first 4 bytes without accessing
