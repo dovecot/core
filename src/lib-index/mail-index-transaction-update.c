@@ -1034,6 +1034,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 {
 	struct mail_index_transaction_keyword_update *u;
 	struct mail_keywords *add_keywords = NULL, *remove_keywords = NULL;
+	struct mail_keywords *unref_keywords = NULL;
 	unsigned int i;
 	bool changed;
 
@@ -1069,6 +1070,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 		if (seq < t->first_new_seq) {
 			/* remove the ones currently in index */
 			remove_keywords = keyword_update_remove_existing(t, seq);
+			unref_keywords = remove_keywords;
 		}
 		/* remove from all changes we've done in this transaction */
 		array_foreach_modifiable(&t->keyword_updates, u)
@@ -1107,6 +1109,8 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 			seq_range_array_remove(&u->remove_seq, seq);
 		}
 	}
+	if (unref_keywords != NULL)
+		mail_index_keywords_unref(&unref_keywords);
 
 	t->log_updates = TRUE;
 }

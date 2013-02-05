@@ -57,6 +57,10 @@ mail_index_keywords_create_from_indexes(struct mail_index *index ATTR_UNUSED,
 	return NULL;
 }
 
+void mail_index_keywords_unref(struct mail_keywords **keywords ATTR_UNUSED)
+{
+}
+
 static struct mail_index_transaction *
 mail_index_transaction_new(void)
 {
