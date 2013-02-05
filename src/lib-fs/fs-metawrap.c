@@ -126,7 +126,7 @@ fs_metawrap_file_init(struct fs *_fs, const char *path,
 	} else {
 		file->super_read = file->super;
 	}
-	i_array_init(&file->file.metadata, 8);
+	fs_metadata_init(&file->file);
 	return &file->file;
 }
 
@@ -134,10 +134,11 @@ static void fs_metawrap_file_deinit(struct fs_file *_file)
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 
+	if (file->input != NULL)
+		i_stream_unref(&file->input);
 	if (file->super_read != file->super)
 		fs_file_deinit(&file->super_read);
 	fs_file_deinit(&file->super);
-	array_free(&file->file.metadata);
 	i_free(file->file.path);
 	i_free(file);
 }
@@ -245,6 +246,7 @@ fs_metawrap_read_stream(struct fs_file *_file, size_t max_buffer_size)
 		return fs_read_stream(file->super, max_buffer_size);
 
 	if (file->input != NULL) {
+		i_stream_ref(file->input);
 		i_stream_seek(file->input, 0);
 		return file->input;
 	}
@@ -253,6 +255,7 @@ fs_metawrap_read_stream(struct fs_file *_file, size_t max_buffer_size)
 			       I_MAX(max_buffer_size, MAX_METADATA_LINE_LEN));
 	file->input = i_stream_create_metawrap(input, fs_metawrap_callback, file);
 	i_stream_unref(&input);
+	i_stream_ref(file->input);
 	return file->input;
 }
 
@@ -383,8 +386,8 @@ static int fs_metawrap_stat(struct fs_file *_file, struct stat *st_r)
 		i_stream_unref(&input);
 		return -1;
 	}
+	i_stream_unref(&input);
 	if (ret == 0) {
-		i_stream_unref(&input);
 		fs_set_error_async(_file->fs);
 		return -1;
 	}
