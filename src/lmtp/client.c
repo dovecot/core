@@ -8,6 +8,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "hostpid.h"
+#include "process-title.h"
 #include "var-expand.h"
 #include "settings-parser.h"
 #include "master-service.h"
@@ -30,6 +31,20 @@
 
 static struct client *clients = NULL;
 unsigned int clients_count = 0;
+
+void client_state_set(struct client *client, const char *name)
+{
+	client->state.name = name;
+
+	if (!client->service_set->verbose_proctitle)
+		return;
+	if (clients_count == 0)
+		process_title_set("[idling]");
+	else if (clients_count > 1)
+		process_title_set(t_strdup_printf("[%u clients]", clients_count));
+	else
+		process_title_set(t_strdup_printf("[%s]", client->state.name));
+}
 
 static void client_idle_timeout(struct client *client)
 {
@@ -156,6 +171,7 @@ static void client_read_settings(struct client *client)
 	lmtp_settings_dup(set_parser, client->pool, &lmtp_set, &lda_set);
 	settings_var_expand(&lmtp_setting_parser_info, lmtp_set, client->pool,
 		mail_storage_service_get_var_expand_table(storage_service, &input));
+	client->service_set = master_service_settings_get(master_service);
 	client->lmtp_set = lmtp_set;
 	client->set = lda_set;
 }
@@ -219,7 +235,6 @@ struct client *client_create(int fd_in, int fd_out,
 	client_io_reset(client);
 	client->state_pool = pool_alloconly_create("client state", 4096);
 	client->state.mail_data_fd = -1;
-	client->state.name = "banner";
 	client_read_settings(client);
 	client_raw_user_create(client);
 	client_generate_session_id(client);
@@ -229,6 +244,7 @@ struct client *client_create(int fd_in, int fd_out,
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 
+	client_state_set(client, "banner");
 	client_send_line(client, "220 %s %s", client->my_domain,
 			 client->lmtp_set->login_greeting);
 	i_info("Connect from %s", client_remote_id(client));
@@ -242,6 +258,8 @@ void client_destroy(struct client *client, const char *prefix,
 
 	clients_count--;
 	DLLIST_REMOVE(&clients, client);
+
+	client_state_set(client, "destroyed");
 
 	if (client->raw_mail_user != NULL)
 		mail_user_unref(&client->raw_mail_user);
@@ -326,7 +344,7 @@ void client_state_reset(struct client *client)
 	client->state.mail_data_fd = -1;
 
 	client_generate_session_id(client);
-	client->state.name = "reset";
+	client_state_set(client, "reset");
 }
 
 void client_send_line(struct client *client, const char *fmt, ...)

@@ -43,6 +43,7 @@ struct client {
 	const struct setting_parser_info *user_set_info;
 	const struct lda_settings *set;
 	const struct lmtp_settings *lmtp_set;
+	const struct master_service_settings *service_set;
 	int fd_in, fd_out;
 	struct io *io;
 	struct istream *input;
@@ -76,6 +77,7 @@ void client_disconnect(struct client *client, const char *prefix,
 		       const char *reason);
 void client_io_reset(struct client *client);
 void client_state_reset(struct client *client);
+void client_state_set(struct client *client, const char *name);
 
 void client_input_handle(struct client *client);
 int client_input_read(struct client *client);
