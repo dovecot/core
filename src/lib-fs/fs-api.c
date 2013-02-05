@@ -164,6 +164,14 @@ void fs_file_deinit(struct fs_file **_file)
 
 	*_file = NULL;
 
+	if (file->pending_read_input != NULL)
+		i_stream_unref(&file->pending_read_input);
+
+	if (file->copy_input != NULL) {
+		i_stream_unref(&file->copy_input);
+		(void)fs_write_stream_abort(file, &file->copy_output);
+	}
+
 	file->fs->files_open_count--;
 	file->fs->v.file_deinit(file);
 
