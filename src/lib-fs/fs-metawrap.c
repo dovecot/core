@@ -26,6 +26,7 @@ struct metawrap_fs_file {
 	enum fs_open_mode open_mode;
 	struct istream *input;
 	struct ostream *super_output;
+	bool metadata_read;
 };
 
 static void fs_metawrap_copy_error(struct metawrap_fs *fs)
@@ -198,8 +199,10 @@ fs_metawrap_get_metadata(struct fs_file *_file,
 		return 0;
 	}
 
-	if (fs_read(_file, &c, 1) < 0)
-		return -1;
+	if (!file->metadata_read) {
+		if (fs_read(_file, &c, 1) < 0)
+			return -1;
+	}
 	*metadata_r = &_file->metadata;
 	return 0;
 }
@@ -228,6 +231,11 @@ static void
 fs_metawrap_callback(const char *key, const char *value, void *context)
 {
 	struct metawrap_fs_file *file = context;
+
+	if (key == NULL) {
+		file->metadata_read = TRUE;
+		return;
+	}
 
 	T_BEGIN {
 		key = str_tabunescape(t_strdup_noconst(key));

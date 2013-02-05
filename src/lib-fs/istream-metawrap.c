@@ -18,8 +18,10 @@ static int metadata_header_read(struct metawrap_istream *mstream)
 	char *line, *p;
 
 	while ((line = i_stream_read_next_line(mstream->istream.parent)) != NULL) {
-		if (*line == '\0')
+		if (*line == '\0') {
+			mstream->callback(NULL, NULL, mstream->context);
 			return 1;
+		}
 		p = strchr(line, ':');
 		if (p == NULL) {
 			mstream->istream.istream.stream_errno = EINVAL;
