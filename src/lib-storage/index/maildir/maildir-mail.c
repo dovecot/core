@@ -584,8 +584,10 @@ maildir_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 		}
 		if (mail->mail.v.istream_opened != NULL) {
 			if (mail->mail.v.istream_opened(_mail,
-							&data->stream) < 0)
+							&data->stream) < 0) {
+				i_stream_unref(&data->stream);
 				return -1;
+			}
 		}
 	}
 

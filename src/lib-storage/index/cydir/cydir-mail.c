@@ -98,6 +98,7 @@ cydir_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 		      struct istream **stream_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
+	struct istream *input;
 	const char *path;
 	int fd;
 
@@ -114,13 +115,16 @@ cydir_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 			}
 			return -1;
 		}
-		mail->data.stream = i_stream_create_fd(fd, 0, TRUE);
-		i_stream_set_name(mail->data.stream, path);
-		index_mail_set_read_buffer_size(_mail, mail->data.stream);
+		input = i_stream_create_fd(fd, 0, TRUE);
+		i_stream_set_name(input, path);
+		index_mail_set_read_buffer_size(_mail, input);
 		if (mail->mail.v.istream_opened != NULL) {
-			if (mail->mail.v.istream_opened(_mail, stream_r) < 0)
+			if (mail->mail.v.istream_opened(_mail, &input) < 0) {
+				i_stream_unref(&input);
 				return -1;
+			}
 		}
+		mail->data.stream = input;
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);

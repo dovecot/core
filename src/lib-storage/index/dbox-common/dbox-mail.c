@@ -220,8 +220,10 @@ get_mail_stream(struct dbox_mail *mail, uoff_t offset,
 	struct dbox_file *file = mail->open_file;
 	int ret;
 
-	if ((ret = dbox_file_seek(file, offset)) <= 0)
+	if ((ret = dbox_file_seek(file, offset)) <= 0) {
+		*stream_r = NULL;
 		return ret;
+	}
 
 	*stream_r = i_stream_create_limit(file->input, file->cur_physical_size);
 	if (pmail->v.istream_opened != NULL) {
@@ -258,6 +260,8 @@ int dbox_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 			dbox_file_set_corrupted(mail->open_file,
 				"uid=%u points to broken data at offset="
 				"%"PRIuUOFF_T, _mail->uid, offset);
+			if (input != NULL)
+				i_stream_unref(&input);
 			return -1;
 		}
 		data->stream = input;
