@@ -174,24 +174,25 @@ int index_storage_attribute_set(struct mailbox *box,
 }
 
 int index_storage_attribute_get(struct mailbox *box,
-				enum mail_attribute_type type,
-				const char *key, const char **value_r)
+				enum mail_attribute_type type, const char *key,
+				struct mail_attribute_value *value_r)
 {
 	struct dict *dict;
 	const char *mailbox_prefix;
 	int ret;
 
+	memset(value_r, 0, sizeof(*value_r));
+
 	if (index_storage_get_dict(box, type, &dict, &mailbox_prefix) < 0)
 		return -1;
 
 	ret = dict_lookup(dict, pool_datastack_create(),
-			  key_get_prefixed(type, mailbox_prefix, key), value_r);
+			  key_get_prefixed(type, mailbox_prefix, key),
+			  &value_r->value);
 	if (ret < 0) {
 		mail_storage_set_internal_error(box->storage);
 		return -1;
 	}
-	if (ret == 0)
-		*value_r = NULL;
 	return ret;
 }
 

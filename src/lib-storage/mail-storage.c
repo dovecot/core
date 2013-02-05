@@ -1515,7 +1515,7 @@ int mailbox_attribute_unset(struct mailbox *box, enum mail_attribute_type type,
 }
 
 int mailbox_attribute_get(struct mailbox *box, enum mail_attribute_type type,
-			  const char *key, const char **value_r)
+			  const char *key, struct mail_attribute_value *value_r)
 {
 	return box->v.attribute_get(box, type, key, value_r);
 }

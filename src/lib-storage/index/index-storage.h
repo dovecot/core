@@ -120,8 +120,8 @@ int index_storage_attribute_set(struct mailbox *box,
 				enum mail_attribute_type type,
 				const char *key, const char *value);
 int index_storage_attribute_get(struct mailbox *box,
-				enum mail_attribute_type type,
-				const char *key, const char **value_r);
+				enum mail_attribute_type type, const char *key,
+				struct mail_attribute_value *value_r);
 struct mailbox_attribute_iter *
 index_storage_attribute_iter_init(struct mailbox *box,
 				  enum mail_attribute_type type,

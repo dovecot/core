@@ -154,7 +154,7 @@ struct mailbox_vfuncs {
 	int (*attribute_set)(struct mailbox *box, enum mail_attribute_type type,
 			     const char *key, const char *value);
 	int (*attribute_get)(struct mailbox *box, enum mail_attribute_type type,
-			     const char *key, const char **value_r);
+			     const char *key, struct mail_attribute_value *value_r);
 	struct mailbox_attribute_iter *
 		(*attribute_iter_init)(struct mailbox *box,
 				       enum mail_attribute_type type,

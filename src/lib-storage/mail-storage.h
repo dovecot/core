@@ -203,6 +203,14 @@ enum mail_attribute_type {
 	MAIL_ATTRIBUTE_TYPE_PRIVATE,
 	MAIL_ATTRIBUTE_TYPE_SHARED
 };
+enum mail_attribute_value_flags {
+	MAIL_ATTRIBUTE_VALUE_FLAG_READONLY	= 0x01
+};
+
+struct mail_attribute_value {
+	const char *value;
+	enum mail_attribute_value_flags flags;
+};
 
 struct message_part;
 struct mail_namespace;
@@ -527,7 +535,7 @@ int mailbox_attribute_unset(struct mailbox *box, enum mail_attribute_type type,
 /* Returns value for mailbox attribute key. Returns 1 if value was returned,
    0 if value wasn't found (set to NULL), -1 if error */
 int mailbox_attribute_get(struct mailbox *box, enum mail_attribute_type type,
-			  const char *key, const char **value_r);
+			  const char *key, struct mail_attribute_value *value_r);
 
 /* Iterate through mailbox attributes of the given type. The prefix can be used
    to restrict what attributes are returned. */

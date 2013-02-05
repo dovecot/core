@@ -18,6 +18,7 @@ int imap_urlauth_backend_get_mailbox_key(struct mailbox *box, bool create,
 					 enum mail_error *error_code_r)
 {
 	struct mail_user *user = mail_storage_get_user(mailbox_get_storage(box));
+	struct mail_attribute_value urlauth_key;
 	const char *mailbox_key_hex = NULL;
 	buffer_t key_buf;
 	int ret;
@@ -26,7 +27,7 @@ int imap_urlauth_backend_get_mailbox_key(struct mailbox *box, bool create,
 	*error_code_r = MAIL_ERROR_TEMP;
 
 	ret = mailbox_attribute_get(box, MAIL_ATTRIBUTE_TYPE_PRIVATE,
-				    IMAP_URLAUTH_KEY, &mailbox_key_hex);
+				    IMAP_URLAUTH_KEY, &urlauth_key);
 	if (ret < 0)
 		return -1;
 
@@ -55,6 +56,7 @@ int imap_urlauth_backend_get_mailbox_key(struct mailbox *box, bool create,
 		/* read existing key */
 		buffer_create_from_data(&key_buf, mailbox_key_r,
 					IMAP_URLAUTH_KEY_LEN);
+		mailbox_key_hex = urlauth_key.value;
 		if (strlen(mailbox_key_hex) != 2*IMAP_URLAUTH_KEY_LEN ||
 		    hex_to_binary(mailbox_key_hex, &key_buf) < 0 ||
 		    key_buf.used != IMAP_URLAUTH_KEY_LEN) {
