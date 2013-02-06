@@ -627,10 +627,12 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 
 	i_assert(uni_utf8_str_is_valid(vname));
 
-	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
-	    strncasecmp(vname, "INBOX", 5) == 0 &&
+	if (strncasecmp(vname, "INBOX", 5) == 0 &&
 	    strncmp(vname, "INBOX", 5) != 0) {
-		/* make sure INBOX shows up in uppercase everywhere */
+		/* make sure INBOX shows up in uppercase everywhere. do this
+		   regardless of whether we're in inbox=yes namespace, because
+		   clients expect INBOX to be case insensitive regardless of
+		   server's internal configuration. */
 		if (vname[5] == '\0')
 			vname = "INBOX";
 		else if (vname[5] == mail_namespace_get_sep(list->ns))
