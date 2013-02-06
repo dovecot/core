@@ -437,6 +437,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 	cache->mmap_base = mmap_ro_file(cache->fd, &cache->mmap_length);
 	if (cache->mmap_base == MAP_FAILED) {
 		cache->mmap_base = NULL;
+		cache->mmap_length = 0;
 		mail_cache_set_syscall_error(cache, "mmap()");
 		return -1;
 	}
