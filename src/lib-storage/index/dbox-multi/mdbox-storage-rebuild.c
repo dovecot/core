@@ -430,7 +430,7 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 			   still try to look it up using map_uid. */
 			rec = map_uid == 0 ? NULL :
 				rebuild_lookup_map_uid(ctx, map_uid);
-			map_uid = rec->map_uid;
+			map_uid = rec == NULL ? 0 : rec->map_uid;
 		} else if (!guid_hash_have_map_uid(&rec, map_uid)) {
 			/* message's GUID and map_uid point to different
 			   physical messages. assume that GUID is correct and
