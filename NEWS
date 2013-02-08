@@ -1,3 +1,8 @@
+v2.1.15 2013-02-08  Timo Sirainen <tss@iki.fi>
+
+	- v2.1.14: dovecot.index.cache fixes caused it to use more disk I/O
+	  and memory than necessary.
+
 v2.1.14 2013-01-30  Timo Sirainen <tss@iki.fi>
 
 	+ doveadm acl recalc command added
