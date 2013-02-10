@@ -116,12 +116,10 @@ fail_mailbox_sync_next(struct mailbox_sync_context *ctx ATTR_UNUSED,
 
 static int
 fail_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
-			 struct mailbox_sync_status *status_r)
+			 struct mailbox_sync_status *status_r ATTR_UNUSED)
 {
 	mail_storage_set_error(ctx->box->storage, MAIL_ERROR_NOTFOUND,
 			       T_MAIL_ERR_MAILBOX_NOT_FOUND(ctx->box->vname));
-	if (status_r != NULL)
-		memset(status_r, 0, sizeof(*status_r));
 	i_free(ctx);
 	return -1;
 }
