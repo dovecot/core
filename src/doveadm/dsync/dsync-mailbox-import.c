@@ -55,6 +55,7 @@ struct dsync_mailbox_importer {
 
 	struct mail *cur_mail;
 	const char *cur_guid;
+	const char *cur_hdr_hash;
 
 	/* UID => struct dsync_mail_change */
 	HASH_TABLE_TYPE(dsync_uid_mail_change) local_changes;
@@ -86,6 +87,7 @@ struct dsync_mailbox_importer {
 	unsigned int want_mail_requests:1;
 	unsigned int master_brain:1;
 	unsigned int revert_local_changes:1;
+	unsigned int mails_have_guids:1;
 };
 
 static void
@@ -168,6 +170,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer->revert_local_changes =
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_REVERT_LOCAL_CHANGES) != 0;
 	importer->debug = (flags & DSYNC_MAILBOX_IMPORT_FLAG_DEBUG) != 0;
+	importer->mails_have_guids =
+		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS) != 0;
 
 	mailbox_get_open_status(importer->box, STATUS_UIDNEXT |
 				STATUS_HIGHESTMODSEQ | STATUS_HIGHESTPVTMODSEQ,
@@ -214,6 +218,9 @@ dsync_mail_change_guid_equals(const struct dsync_mail_change *change,
 static bool
 importer_next_mail(struct dsync_mailbox_importer *importer, uint32_t wanted_uid)
 {
+	const char *hdr_hash;
+	int ret = 0;
+
 	if (importer->cur_mail == NULL) {
 		/* end of search */
 		return FALSE;
@@ -234,15 +241,32 @@ importer_next_mail(struct dsync_mailbox_importer *importer, uint32_t wanted_uid)
 					 &importer->cur_mail)) {
 			importer->cur_mail = NULL;
 			importer->cur_guid = NULL;
+			importer->cur_hdr_hash = NULL;
 			return FALSE;
 		}
 		importer->cur_uid_has_change = FALSE;
 	}
 	importer->cur_uid_has_change = importer->cur_mail != NULL &&
 		importer->cur_mail->uid == wanted_uid;
-	if (mail_get_special(importer->cur_mail, MAIL_FETCH_GUID,
-			     &importer->cur_guid) < 0) {
-		dsync_mail_error(importer, importer->cur_mail, "GUID");
+	if (importer->mails_have_guids) {
+		if (mail_get_special(importer->cur_mail, MAIL_FETCH_GUID,
+				     &importer->cur_guid) < 0) {
+			dsync_mail_error(importer, importer->cur_mail, "GUID");
+			ret = -1;
+		}
+	} else {
+		if (dsync_mail_get_hdr_hash(importer->cur_mail,
+					    &hdr_hash) < 0) {
+			dsync_mail_error(importer, importer->cur_mail,
+					 "header hash");
+			ret = -1;
+		} else {
+			struct mail_private *pmail =
+				(struct mail_private *)importer->cur_mail;
+			importer->cur_hdr_hash = p_strdup(pmail->pool, hdr_hash);
+		}
+	}
+	if (ret < 0) {
 		importer->next_local_seq = importer->cur_mail->seq + 1;
 		return importer_next_mail(importer, wanted_uid);
 	}
@@ -288,7 +312,7 @@ static void importer_mail_request(struct dsync_mailbox_importer *importer,
 }
 
 static void newmail_link(struct dsync_mailbox_importer *importer,
-			 struct importer_new_mail *newmail)
+			 struct importer_new_mail *newmail, uint32_t remote_uid)
 {
 	struct importer_new_mail *first_mail, **last, *mail, *link = NULL;
 
@@ -303,16 +327,12 @@ static void newmail_link(struct dsync_mailbox_importer *importer,
 			return;
 		}
 	} else {
-		if (!newmail->uid_in_local) {
-			/* FIXME: ? */
-			return;
-		}
 		first_mail = hash_table_lookup(importer->import_uids,
-					       POINTER_CAST(newmail->uid));
+					       POINTER_CAST(remote_uid));
 		if (first_mail == NULL) {
 			/* first mail for this UID */
 			hash_table_insert(importer->import_uids,
-					  POINTER_CAST(newmail->uid), newmail);
+					  POINTER_CAST(remote_uid), newmail);
 			importer_mail_request(importer, newmail);
 			return;
 		}
@@ -345,12 +365,14 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 
 	memset(&m1, 0, sizeof(m1));
 	if (importer->cur_mail != NULL) {
-		m1.guid = importer->cur_guid;
+		m1.guid = importer->cur_guid != NULL ?
+			importer->cur_guid : importer->cur_hdr_hash;
 		m1.uid = importer->cur_mail->uid;
 	}
 	memset(&m2, 0, sizeof(m2));
 	if (save_change != NULL) {
-		m2.guid = save_change->guid;
+		m2.guid = save_change->hdr_hash != NULL ?
+			save_change->hdr_hash : save_change->guid;
 		m2.uid = save_change->uid;
 		i_assert(save_change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE);
 	}
@@ -403,7 +425,7 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 	}
 
 	array_append(&importer->newmails, &newmail, 1);
-	newmail_link(importer, newmail);
+	newmail_link(importer, newmail, save_change->uid);
 	return remote_saved;
 }
 
@@ -931,6 +953,7 @@ dsync_mailbox_rewind_search(struct dsync_mailbox_importer *importer)
 
 	importer->cur_mail = NULL;
 	importer->cur_guid = NULL;
+	importer->cur_hdr_hash = NULL;
 	importer->next_local_seq = 0;
 
 	(void)mailbox_search_deinit(&importer->search_ctx);
