@@ -38,7 +38,7 @@ dsync_mailbox_tree_get_selectable(struct mailbox *box,
 	/* try the fast path */
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, metadata_r) < 0)
 		return -1;
-	if (mailbox_get_status(box, STATUS_UIDVALIDITY, status_r) < 0)
+	if (mailbox_get_status(box, STATUS_UIDVALIDITY | STATUS_UIDNEXT, status_r) < 0)
 		return -1;
 
 	i_assert(!guid_128_is_empty(metadata_r->guid));
@@ -48,7 +48,7 @@ dsync_mailbox_tree_get_selectable(struct mailbox *box,
 	/* no UIDVALIDITY assigned yet. syncing a mailbox should add it. */
 	if (mailbox_sync(box, 0) < 0)
 		return -1;
-	if (mailbox_get_status(box, STATUS_UIDVALIDITY, status_r) < 0)
+	if (mailbox_get_status(box, STATUS_UIDVALIDITY | STATUS_UIDNEXT, status_r) < 0)
 		return -1;
 	i_assert(status_r->uidvalidity != 0);
 	return 0;
