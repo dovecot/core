@@ -5,6 +5,7 @@
 #include "hex-binary.h"
 #include "md5.h"
 #include "istream.h"
+#include "istream-crlf.h"
 #include "message-size.h"
 #include "mail-storage.h"
 #include "dsync-mail.h"
@@ -19,7 +20,7 @@ static const char *hashed_headers[] = {
 
 int dsync_mail_get_hdr_hash(struct mail *mail, const char **hdr_hash_r)
 {
-	struct istream *input;
+	struct istream *hdr_input, *input;
 	struct mailbox_header_lookup_ctx *hdr_ctx;
 	struct md5_context md5_ctx;
 	unsigned char md5_result[MD5_RESULTLEN];
@@ -28,10 +29,12 @@ int dsync_mail_get_hdr_hash(struct mail *mail, const char **hdr_hash_r)
 	int ret = 0;
 
 	hdr_ctx = mailbox_header_lookup_init(mail->box, hashed_headers);
-	ret = mail_get_header_stream(mail, hdr_ctx, &input);
+	ret = mail_get_header_stream(mail, hdr_ctx, &hdr_input);
 	mailbox_header_lookup_unref(&hdr_ctx);
 	if (ret < 0)
 		return -1;
+
+	input = i_stream_create_lf(hdr_input);
 
 	md5_init(&md5_ctx);
 	while (!i_stream_is_eof(input)) {
@@ -44,6 +47,7 @@ int dsync_mail_get_hdr_hash(struct mail *mail, const char **hdr_hash_r)
 	}
 	if (input->stream_errno != 0)
 		ret = -1;
+	i_stream_unref(&input);
 
 	md5_final(&md5_ctx, md5_result);
 	*hdr_hash_r = binary_to_hex(md5_result, sizeof(md5_result));
