@@ -61,7 +61,7 @@ static const struct {
 	{ .name = "handshake",
 	  .chr = 'H',
 	  .optional_keys = "sync_ns_prefix sync_box sync_type debug sync_all_namespaces "
-	  	"mails_have_guids send_guid_requests backup_send backup_recv"
+	  	"mails_have_guids send_mail_requests backup_send backup_recv"
 	},
 	{ .name = "mailbox_state",
 	  .chr = 'S',
@@ -535,8 +535,8 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 	dsync_serializer_encode_add(encoder, "sync_type", sync_type);
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS) != 0)
 		dsync_serializer_encode_add(encoder, "mails_have_guids", "");
-	if ((set->brain_flags & DSYNC_BRAIN_FLAG_SEND_GUID_REQUESTS) != 0)
-		dsync_serializer_encode_add(encoder, "send_guid_requests", "");
+	if ((set->brain_flags & DSYNC_BRAIN_FLAG_SEND_MAIL_REQUESTS) != 0)
+		dsync_serializer_encode_add(encoder, "send_mail_requests", "");
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_BACKUP_SEND) != 0)
 		dsync_serializer_encode_add(encoder, "backup_send", "");
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_BACKUP_RECV) != 0)
@@ -597,8 +597,8 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 	}
 	if (dsync_deserializer_decode_try(decoder, "mails_have_guids", &value))
 		set->brain_flags |= DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS;
-	if (dsync_deserializer_decode_try(decoder, "send_guid_requests", &value))
-		set->brain_flags |= DSYNC_BRAIN_FLAG_SEND_GUID_REQUESTS;
+	if (dsync_deserializer_decode_try(decoder, "send_mail_requests", &value))
+		set->brain_flags |= DSYNC_BRAIN_FLAG_SEND_MAIL_REQUESTS;
 	if (dsync_deserializer_decode_try(decoder, "backup_send", &value))
 		set->brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_SEND;
 	if (dsync_deserializer_decode_try(decoder, "backup_recv", &value))

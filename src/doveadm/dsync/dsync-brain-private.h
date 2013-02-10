@@ -77,7 +77,7 @@ struct dsync_brain {
 	ARRAY_TYPE(dsync_mailbox_state) remote_mailbox_states;
 
 	unsigned int master_brain:1;
-	unsigned int guid_requests:1;
+	unsigned int mail_requests:1;
 	unsigned int mails_have_guids:1;
 	unsigned int backup_send:1;
 	unsigned int backup_recv:1;

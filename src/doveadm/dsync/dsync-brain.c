@@ -70,8 +70,8 @@ dsync_brain_common_init(struct mail_user *user, struct dsync_ibc *ibc)
 static void
 dsync_brain_set_flags(struct dsync_brain *brain, enum dsync_brain_flags flags)
 {
-	brain->guid_requests =
-		(flags & DSYNC_BRAIN_FLAG_SEND_GUID_REQUESTS) != 0;
+	brain->mail_requests =
+		(flags & DSYNC_BRAIN_FLAG_SEND_MAIL_REQUESTS) != 0;
 	brain->mails_have_guids =
 		(flags & DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS) != 0;
 	brain->backup_send = (flags & DSYNC_BRAIN_FLAG_BACKUP_SEND) != 0;

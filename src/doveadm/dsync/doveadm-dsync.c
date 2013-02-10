@@ -420,7 +420,7 @@ cmd_dsync_run_real(struct dsync_cmd_context *ctx, struct mail_user *user)
 	}
 
 	brain_flags = DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS |
-		DSYNC_BRAIN_FLAG_SEND_GUID_REQUESTS;
+		DSYNC_BRAIN_FLAG_SEND_MAIL_REQUESTS;
 	if (ctx->sync_all_namespaces)
 		brain_flags |= DSYNC_BRAIN_FLAG_SYNC_ALL_NAMESPACES;
 
