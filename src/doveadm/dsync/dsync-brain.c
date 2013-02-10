@@ -72,8 +72,6 @@ dsync_brain_set_flags(struct dsync_brain *brain, enum dsync_brain_flags flags)
 {
 	brain->mail_requests =
 		(flags & DSYNC_BRAIN_FLAG_SEND_MAIL_REQUESTS) != 0;
-	brain->mails_have_guids =
-		(flags & DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS) != 0;
 	brain->backup_send = (flags & DSYNC_BRAIN_FLAG_BACKUP_SEND) != 0;
 	brain->backup_recv = (flags & DSYNC_BRAIN_FLAG_BACKUP_RECV) != 0;
 	brain->debug = (flags & DSYNC_BRAIN_FLAG_DEBUG) != 0;

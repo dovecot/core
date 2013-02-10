@@ -136,45 +136,9 @@ dsync_brain_sync_mailbox_init(struct dsync_brain *brain,
 	}
 }
 
-int dsync_brain_sync_mailbox_open(struct dsync_brain *brain)
-{
-	enum dsync_mailbox_exporter_flags exporter_flags = 0;
-	uint32_t last_common_uid, highest_wanted_uid;
-	uint64_t last_common_modseq, last_common_pvt_modseq;
-
-	i_assert(brain->log_scan == NULL);
-
-	last_common_uid = brain->mailbox_state.last_common_uid;
-	last_common_modseq = brain->mailbox_state.last_common_modseq;
-	last_common_pvt_modseq = brain->mailbox_state.last_common_pvt_modseq;
-	highest_wanted_uid = last_common_uid == 0 ?
-		(uint32_t)-1 : last_common_uid;
-	if (dsync_transaction_log_scan_init(brain->box->view,
-					    brain->box->view_pvt,
-					    highest_wanted_uid,
-					    last_common_modseq,
-					    last_common_pvt_modseq,
-					    &brain->log_scan) < 0) {
-		i_error("Failed to read transaction log for mailbox %s",
-			mailbox_get_vname(brain->box));
-		brain->failed = TRUE;
-		return -1;
-	}
-
-	if (!brain->mail_requests)
-		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_AUTO_EXPORT_MAILS;
-	if (brain->mails_have_guids)
-		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_MAILS_HAVE_GUIDS;
-
-	brain->box_exporter = brain->backup_recv ? NULL :
-		dsync_mailbox_export_init(brain->box, brain->log_scan,
-					  last_common_uid,
-					  exporter_flags);
-	return 0;
-}
-
-void dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
-					  const struct dsync_mailbox *remote_dsync_box)
+static void
+dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
+				     const struct dsync_mailbox *remote_dsync_box)
 {
 	enum dsync_mailbox_import_flags import_flags = 0;
 	const struct dsync_mailbox_state *state;
@@ -219,6 +183,46 @@ void dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 					  remote_dsync_box->highest_modseq,
 					  remote_dsync_box->highest_pvt_modseq,
 					  import_flags);
+}
+
+int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
+				  const struct dsync_mailbox *remote_dsync_box)
+{
+	enum dsync_mailbox_exporter_flags exporter_flags = 0;
+	uint32_t last_common_uid, highest_wanted_uid;
+	uint64_t last_common_modseq, last_common_pvt_modseq;
+
+	i_assert(brain->log_scan == NULL);
+
+	last_common_uid = brain->mailbox_state.last_common_uid;
+	last_common_modseq = brain->mailbox_state.last_common_modseq;
+	last_common_pvt_modseq = brain->mailbox_state.last_common_pvt_modseq;
+	highest_wanted_uid = last_common_uid == 0 ?
+		(uint32_t)-1 : last_common_uid;
+	if (dsync_transaction_log_scan_init(brain->box->view,
+					    brain->box->view_pvt,
+					    highest_wanted_uid,
+					    last_common_modseq,
+					    last_common_pvt_modseq,
+					    &brain->log_scan) < 0) {
+		i_error("Failed to read transaction log for mailbox %s",
+			mailbox_get_vname(brain->box));
+		brain->failed = TRUE;
+		return -1;
+	}
+
+	if (!brain->mail_requests)
+		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_AUTO_EXPORT_MAILS;
+	if (brain->local_dsync_box.have_guids &&
+	    remote_dsync_box->have_guids)
+		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_MAILS_HAVE_GUIDS;
+
+	brain->box_exporter = brain->backup_recv ? NULL :
+		dsync_mailbox_export_init(brain->box, brain->log_scan,
+					  last_common_uid,
+					  exporter_flags);
+	dsync_brain_sync_mailbox_init_remote(brain, remote_dsync_box);
+	return 0;
 }
 
 void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
@@ -294,6 +298,7 @@ static int dsync_box_get(struct mailbox *box, struct dsync_mailbox *dsync_box_r)
 	dsync_box_r->highest_modseq = status.highest_modseq;
 	dsync_box_r->highest_pvt_modseq = status.highest_pvt_modseq;
 	dsync_box_r->cache_fields = *metadata.cache_fields;
+	dsync_box_r->have_guids = status.have_guids;
 	return 1;
 }
 
@@ -626,8 +631,8 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 
 	/* start export/import */
 	dsync_brain_sync_mailbox_init(brain, box, &local_dsync_box, FALSE);
-	if (dsync_brain_sync_mailbox_open(brain) == 0)
-		dsync_brain_sync_mailbox_init_remote(brain, dsync_box);
+	if (dsync_brain_sync_mailbox_open(brain, dsync_box) < 0)
+		return TRUE;
 
 	brain->state = DSYNC_STATE_SYNC_MAILS;
 	return TRUE;

@@ -53,9 +53,8 @@ static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 		dsync_brain_sync_mailbox_deinit(brain);
 		return TRUE;
 	}
-	if (dsync_brain_sync_mailbox_open(brain) < 0)
+	if (dsync_brain_sync_mailbox_open(brain, dsync_box) < 0)
 		return TRUE;
-	dsync_brain_sync_mailbox_init_remote(brain, dsync_box);
 	dsync_brain_sync_init_box_states(brain);
 	return TRUE;
 }

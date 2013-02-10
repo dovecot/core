@@ -61,7 +61,7 @@ static const struct {
 	{ .name = "handshake",
 	  .chr = 'H',
 	  .optional_keys = "sync_ns_prefix sync_box sync_type debug sync_all_namespaces "
-	  	"mails_have_guids send_mail_requests backup_send backup_recv"
+	  	"send_mail_requests backup_send backup_recv"
 	},
 	{ .name = "mailbox_state",
 	  .chr = 'S',
@@ -83,7 +83,7 @@ static const struct {
 	  .chr = 'B',
 	  .required_keys = "mailbox_guid uid_validity uid_next messages_count "
 		"first_recent_uid highest_modseq highest_pvt_modseq",
-	  .optional_keys = "mailbox_lost cache_fields"
+	  .optional_keys = "mailbox_lost cache_fields have_guids"
 	},
 	{ .name = "mail_change",
 	  .chr = 'C',
@@ -533,8 +533,6 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 	}
 	i_assert(sync_type[0] != '\0');
 	dsync_serializer_encode_add(encoder, "sync_type", sync_type);
-	if ((set->brain_flags & DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS) != 0)
-		dsync_serializer_encode_add(encoder, "mails_have_guids", "");
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_SEND_MAIL_REQUESTS) != 0)
 		dsync_serializer_encode_add(encoder, "send_mail_requests", "");
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_BACKUP_SEND) != 0)
@@ -595,8 +593,6 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 			return DSYNC_IBC_RECV_RET_TRYAGAIN;
 		}
 	}
-	if (dsync_deserializer_decode_try(decoder, "mails_have_guids", &value))
-		set->brain_flags |= DSYNC_BRAIN_FLAG_MAILS_HAVE_GUIDS;
 	if (dsync_deserializer_decode_try(decoder, "send_mail_requests", &value))
 		set->brain_flags |= DSYNC_BRAIN_FLAG_SEND_MAIL_REQUESTS;
 	if (dsync_deserializer_decode_try(decoder, "backup_send", &value))
@@ -997,6 +993,8 @@ dsync_ibc_stream_send_mailbox(struct dsync_ibc *_ibc,
 
 	if (dsync_box->mailbox_lost)
 		dsync_serializer_encode_add(encoder, "mailbox_lost", "");
+	if (dsync_box->have_guids)
+		dsync_serializer_encode_add(encoder, "have_guids", "");
 	dsync_serializer_encode_add(encoder, "uid_validity",
 				    dec2str(dsync_box->uid_validity));
 	dsync_serializer_encode_add(encoder, "uid_next",
@@ -1095,6 +1093,8 @@ dsync_ibc_stream_recv_mailbox(struct dsync_ibc *_ibc,
 
 	if (dsync_deserializer_decode_try(decoder, "mailbox_lost", &value))
 		box->mailbox_lost = TRUE;
+	if (dsync_deserializer_decode_try(decoder, "have_guids", &value))
+		box->have_guids = TRUE;
 	value = dsync_deserializer_decode_get(decoder, "uid_validity");
 	if (str_to_uint32(value, &box->uid_validity) < 0) {
 		dsync_ibc_input_error(ibc, decoder, "Invalid uid_validity");
