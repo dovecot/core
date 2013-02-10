@@ -122,8 +122,6 @@ index_list_get_cached_status(struct mailbox *box,
 	uint32_t seq;
 	int ret;
 
-	memset(status_r, 0, sizeof(*status_r));
-
 	if ((items & STATUS_UNSEEN) != 0 &&
 	    (mailbox_get_private_flags_mask(box) & MAIL_SEEN) != 0) {
 		/* can't get UNSEEN from list index, since each user has

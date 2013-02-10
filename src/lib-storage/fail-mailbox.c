@@ -81,7 +81,6 @@ static int fail_mailbox_get_status(struct mailbox *box ATTR_UNUSED,
 				   enum mailbox_status_items items ATTR_UNUSED,
 				   struct mailbox_status *status_r)
 {
-	memset(status_r, 0, sizeof(*status_r));
 	status_r->uidvalidity = TEST_UID_VALIDITY;
 	status_r->uidnext = 1;
 	mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,

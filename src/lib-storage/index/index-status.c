@@ -109,8 +109,6 @@ void index_storage_get_open_status(struct mailbox *box,
 {
 	const struct mail_index_header *hdr;
 
-	memset(status_r, 0, sizeof(struct mailbox_status));
-
 	/* we can get most of the status items without any trouble */
 	hdr = mail_index_get_header(box->view);
 	status_r->messages = hdr->messages_count;
