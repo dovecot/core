@@ -365,14 +365,14 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 
 	memset(&m1, 0, sizeof(m1));
 	if (importer->cur_mail != NULL) {
-		m1.guid = importer->cur_guid != NULL ?
+		m1.guid = importer->mails_have_guids ?
 			importer->cur_guid : importer->cur_hdr_hash;
 		m1.uid = importer->cur_mail->uid;
 	}
 	memset(&m2, 0, sizeof(m2));
 	if (save_change != NULL) {
-		m2.guid = save_change->hdr_hash != NULL ?
-			save_change->hdr_hash : save_change->guid;
+		m2.guid = importer->mails_have_guids ?
+			save_change->guid : save_change->hdr_hash;
 		m2.uid = save_change->uid;
 		i_assert(save_change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE);
 	}
