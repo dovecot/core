@@ -2642,33 +2642,21 @@ not_fts=""
 
 have_solr=no
 if test "$want_solr" != "no"; then
-  AC_CHECK_PROG(CURLCONFIG, curl-config, curl-config, NO)
-  if test $CURLCONFIG != NO; then
-    CURL_CFLAGS=`$CURLCONFIG --cflags`
-    CURL_LIBS=`$CURLCONFIG --libs`
-    
-    dnl libcurl found, also need libexpat
-    AC_CHECK_LIB(expat, XML_Parse, [
-      AC_CHECK_HEADER(expat.h, [
-        AC_SUBST(CURL_CFLAGS)
-        AC_SUBST(CURL_LIBS)
-	have_solr=yes
-        fts="$fts solr"
-      ], [
-	if test $want_solr = yes; then
-	  AC_ERROR([Can't build with Solr support: expat.h not found])
-	fi
-      ])
+  dnl need libexpat
+  AC_CHECK_LIB(expat, XML_Parse, [
+    AC_CHECK_HEADER(expat.h, [
+      have_solr=yes
+      fts="$fts solr"
     ], [
       if test $want_solr = yes; then
-	AC_ERROR([Can't build with Solr support: libexpat not found])
+        AC_ERROR([Can't build with Solr support: expat.h not found])
       fi
     ])
-  else
+  ], [
     if test $want_solr = yes; then
-      AC_ERROR([Can't build with Solr support: curl-config not found])
+      AC_ERROR([Can't build with Solr support: libexpat not found])
     fi
-  fi
+  ])
 fi
 AM_CONDITIONAL(BUILD_SOLR, test "$have_solr" = "yes")
 

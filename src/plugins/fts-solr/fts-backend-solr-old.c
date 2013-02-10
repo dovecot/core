@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "strescape.h"
 #include "unichar.h"
+#include "http-url.h"
 #include "imap-utf7.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
@@ -149,7 +150,7 @@ static void solr_quote(string_t *dest, const char *str)
 static void solr_quote_http(string_t *dest, const char *str)
 {
 	str_append(dest, "%22");
-	solr_connection_http_escape(solr_conn, dest, str);
+	http_url_escape_param(dest, str);
 	str_append(dest, "%22");
 }
 
@@ -224,16 +225,18 @@ static struct fts_backend *fts_backend_solr_alloc(void)
 }
 
 static int
-fts_backend_solr_init(struct fts_backend *_backend,
-		      const char **error_r ATTR_UNUSED)
+fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 {
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(_backend->ns->user);
 	const struct fts_solr_settings *set = &fuser->set;
 	const char *str;
 
-	if (solr_conn == NULL)
-		solr_conn = solr_connection_init(set->url, set->debug);
+	if (solr_conn == NULL) {
+		if (solr_connection_init(set->url, set->debug,
+					 &solr_conn, error_r) < 0)
+			return -1;
+	}
 
 	str = solr_escape_id_str(_backend->ns->user->username);
 	backend->id_username = i_strdup(str);
@@ -278,7 +281,7 @@ solr_add_ns_query_http(string_t *str, struct solr_fts_backend *backend,
 
 	tmp = t_str_new(64);
 	solr_add_ns_query(tmp, backend, ns, FALSE);
-	solr_connection_http_escape(solr_conn, str, str_c(tmp));
+	http_url_escape_param(str, str_c(tmp));
 }
 
 static int

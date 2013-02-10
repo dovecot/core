@@ -1,15 +1,16 @@
 /* Copyright (c) 2006-2013 Dovecot authors, see the included COPYING file */
 
-/* curl: 7.16.0 curl_multi_timeout */
-
 #include "lib.h"
 #include "array.h"
 #include "hash.h"
 #include "str.h"
 #include "strescape.h"
+#include "ioloop.h"
+#include "istream.h"
+#include "http-url.h"
+#include "http-client.h"
 #include "solr-connection.h"
 
-#include <curl/curl.h>
 #include <expat.h>
 
 enum solr_xml_response_state {
@@ -46,43 +47,32 @@ struct solr_lookup_xml_context {
 
 struct solr_connection_post {
 	struct solr_connection *conn;
-	const unsigned char *data;
-	size_t size, pos;
-	char *url;
+
+	struct http_client_request *http_req;
 
 	unsigned int failed:1;
 };
 
 struct solr_connection {
-	CURL *curl;
-	CURLM *curlm;
+	struct http_client *http_client;
 
-	char curl_errorbuf[CURL_ERROR_SIZE];
-	struct curl_slist *headers, *headers_post;
 	XML_Parser xml_parser;
 
-	char *url, *last_sent_url;
+	char *http_host;
+	in_port_t http_port;
+	char *http_base_url;
 	char *http_failure;
+
+	int request_status;
+
+	struct istream *payload;
+	struct io *io;
 
 	unsigned int debug:1;
 	unsigned int posting:1;
 	unsigned int xml_failed:1;
+	unsigned int http_ssl:1;
 };
-
-static size_t
-curl_output_func(void *data, size_t element_size, size_t nmemb, void *context)
-{
-	struct solr_connection_post *post = context;
-	size_t size = element_size * nmemb;
-
-	/* @UNSAFE */
-	if (size > post->size - post->pos)
-		size = post->size - post->pos;
-
-	memcpy(data, post->data + post->pos, size);
-	post->pos += size;
-	return size;
-}
 
 static int solr_xml_parse(struct solr_connection *conn,
 			  const void *data, size_t size, bool done)
@@ -109,103 +99,55 @@ static int solr_xml_parse(struct solr_connection *conn,
 	return 0;
 }
 
-static size_t
-curl_input_func(void *data, size_t element_size, size_t nmemb, void *context)
+int solr_connection_init(const char *url, bool debug,
+			 struct solr_connection **conn_r, const char **error_r)
 {
-	struct solr_connection *conn = context;
-	size_t size = element_size * nmemb;
-
-	(void)solr_xml_parse(conn, data, size, FALSE);
-	return size;
-}
-
-static size_t
-curl_header_func(void *data, size_t element_size, size_t nmemb, void *context)
-{
-	struct solr_connection *conn = context;
-	size_t size = element_size * nmemb;
-	const unsigned char *p;
-	size_t i;
-
-	if (conn->http_failure != NULL)
-		return size;
-
-	for (i = 0, p = data; i < size; i++) {
-		if (p[i] == ' ') {
-			i++;
-			break;
-		}
-	}
-	if (i == size || p[i] < '0' || p[i] > '9')
-		i = 0;
-	conn->http_failure = i_strndup(p + i, size - i);
-	return size;
-}
-
-struct solr_connection *solr_connection_init(const char *url, bool debug)
-{
+	struct http_client_settings http_set;
 	struct solr_connection *conn;
+	struct http_url *http_url;
+	const char *error;
+
+	if (http_url_parse(url, NULL, 0, pool_datastack_create(),
+			   &http_url, &error) < 0) {
+		*error_r = t_strdup_printf(
+			"fts_solr: Failed to parse HTTP url: %s", error);
+		return -1;
+	}
 
 	conn = i_new(struct solr_connection, 1);
-	conn->url = i_strdup(url);
+	conn->http_host = i_strdup(http_url->host_name);
+	conn->http_port = http_url->port;
+	conn->http_base_url = i_strconcat(http_url->path, http_url->enc_query, NULL);
+	conn->http_ssl = http_url->have_ssl;
 	conn->debug = debug;
 
-	conn->curlm = curl_multi_init();
-	conn->curl = curl_easy_init();
-	if (conn->curl == NULL || conn->curlm == NULL) {
-		i_fatal_status(FATAL_OUTOFMEM,
-			       "fts_solr: Failed to allocate curl");
-	}
+	memset(&http_set, 0, sizeof(http_set));
+	http_set.debug = TRUE;
+	http_set.max_idle_time_msecs = 5*1000;
+	http_set.max_parallel_connections = 1;
+	http_set.max_pipelined_requests = 1;
+	http_set.max_redirects = 1;
+	http_set.max_attempts = 3;
+	http_set.debug = conn->debug;
 
-	/* set global curl options */
-	curl_easy_setopt(conn->curl, CURLOPT_ERRORBUFFER, conn->curl_errorbuf);
-	if (conn->debug)
-		curl_easy_setopt(conn->curl, CURLOPT_VERBOSE, 1L);
-
-	curl_easy_setopt(conn->curl, CURLOPT_NOPROGRESS, 1L);
-	curl_easy_setopt(conn->curl, CURLOPT_NOSIGNAL, 1L);
-	curl_easy_setopt(conn->curl, CURLOPT_READFUNCTION, curl_output_func);
-	curl_easy_setopt(conn->curl, CURLOPT_WRITEFUNCTION, curl_input_func);
-	curl_easy_setopt(conn->curl, CURLOPT_WRITEDATA, conn);
-	curl_easy_setopt(conn->curl, CURLOPT_HEADERFUNCTION, curl_header_func);
-	curl_easy_setopt(conn->curl, CURLOPT_HEADERDATA, conn);
-
-	conn->headers = curl_slist_append(NULL, "Content-Type: text/xml");
-	conn->headers_post = curl_slist_append(NULL, "Content-Type: text/xml");
-	conn->headers_post = curl_slist_append(conn->headers_post,
-					       "Transfer-Encoding: chunked");
-	conn->headers_post = curl_slist_append(conn->headers_post,
-					       "Expect:");
-	curl_easy_setopt(conn->curl, CURLOPT_HTTPHEADER, conn->headers);
+	conn->http_client = http_client_init(&http_set);
 
 	conn->xml_parser = XML_ParserCreate("UTF-8");
 	if (conn->xml_parser == NULL) {
 		i_fatal_status(FATAL_OUTOFMEM,
 			       "fts_solr: Failed to allocate XML parser");
 	}
-	return conn;
+	*conn_r = conn;
+	return 0;
 }
 
 void solr_connection_deinit(struct solr_connection *conn)
 {
-	curl_slist_free_all(conn->headers);
-	curl_slist_free_all(conn->headers_post);
-	curl_multi_cleanup(conn->curlm);
-	curl_easy_cleanup(conn->curl);
+	http_client_deinit(&conn->http_client);
 	XML_ParserFree(conn->xml_parser);
-	i_free(conn->last_sent_url);
-	i_free(conn->url);
+	i_free(conn->http_host);
+	i_free(conn->http_base_url);
 	i_free(conn);
-}
-
-void solr_connection_http_escape(struct solr_connection *conn, string_t *dest,
-				 const char *str)
-{
-	char *encoded;
-
-	encoded = curl_easy_escape(conn->curl, str, 0);
-	str_append(dest, encoded);
-	curl_free(encoded);
 }
 
 static const char *attrs_get_name(const char **attrs)
@@ -408,12 +350,66 @@ static void solr_lookup_xml_data(void *context, const char *str, int len)
 	}
 }
 
+static void solr_connection_payload_input(struct solr_connection *conn)
+{
+	const unsigned char *data;
+	size_t size;
+	int ret;
+
+	/* read payload */
+	while ((ret = i_stream_read_data(conn->payload, &data, &size, 0)) > 0) {
+		(void)solr_xml_parse(conn, data, size, FALSE);
+		i_stream_skip(conn->payload, size);
+	}
+
+	if (ret == 0) {
+		/* we will be called again for more data */
+	} else {
+		if (conn->payload->stream_errno != 0) {
+			i_error("fts_solr: failed to read payload from HTTP server: %m");
+			conn->request_status = -1;
+		}
+		io_remove(&conn->io);
+		i_stream_unref(&conn->payload);
+	}
+}
+
+static void
+solr_connection_select_response(const struct http_response *response,
+				struct solr_connection *conn)
+{
+	if (response == NULL) {
+		/* request failed */
+		i_error("fts_solr: HTTP GET request failed");
+		conn->request_status = -1;
+		return;
+	}
+
+	if (response->status / 100 != 2) {
+		i_error("fts_solr: Lookup failed: %s", response->reason);
+		conn->request_status = -1;
+		return;
+	}
+
+	if (response->payload == NULL) {
+		i_error("fts_solr: Lookup failed: Empty response payload");
+		conn->request_status = -1;
+		return;
+	}
+
+	i_stream_ref(response->payload);
+	conn->payload = response->payload;
+	conn->io = io_add(i_stream_get_fd(response->payload), IO_READ,
+			  solr_connection_payload_input, conn);
+	solr_connection_payload_input(conn);
+}
+
 int solr_connection_select(struct solr_connection *conn, const char *query,
 			   pool_t pool, struct solr_result ***box_results_r)
 {
 	struct solr_lookup_xml_context solr_lookup_context;
-	CURLcode ret;
-	long httpret;
+	struct http_client_request *http_req;
+	const char *url;
 	int parse_ret;
 
 	i_assert(!conn->posting);
@@ -432,22 +428,22 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	XML_SetCharacterDataHandler(conn->xml_parser, solr_lookup_xml_data);
 	XML_SetUserData(conn->xml_parser, &solr_lookup_context);
 
-	/* curl v7.16 and older don't strdup() the URL */
-	i_free(conn->last_sent_url);
-	conn->last_sent_url = i_strconcat(conn->url, "select?", query, NULL);
+	url = t_strconcat(conn->http_base_url, "select?", query, NULL);
 
-	curl_easy_setopt(conn->curl, CURLOPT_URL, conn->last_sent_url);
-	ret = curl_easy_perform(conn->curl);
-	if (ret != 0) {
-		i_error("fts_solr: HTTP GET failed: %s",
-			conn->curl_errorbuf);
+	http_req = http_client_request(conn->http_client, "GET",
+				       conn->http_host, url,
+				       solr_connection_select_response, conn);
+	http_client_request_set_port(http_req, conn->http_port);
+	http_client_request_set_ssl(http_req, conn->http_ssl);
+	http_client_request_add_header(http_req, "Content-Type", "text/xml");
+	http_client_request_submit(http_req);
+
+	conn->request_status = 0;
+	http_client_wait(conn->http_client);
+
+	if (conn->request_status < 0)
 		return -1;
-	}
-	curl_easy_getinfo(conn->curl, CURLINFO_RESPONSE_CODE, &httpret);
-	if (httpret != 200) {
-		i_error("fts_solr: Lookup failed: %s", conn->http_failure);
-		return -1;
-	}
+
 	parse_ret = solr_xml_parse(conn, "", 0, TRUE);
 	hash_table_destroy(&solr_lookup_context.mailboxes);
 
@@ -456,141 +452,86 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	return parse_ret;
 }
 
+static void
+solr_connection_update_response(const struct http_response *response,
+				struct solr_connection *conn)
+{
+	if (response == NULL) {
+		/* request failed */
+		i_error("fts_solr: HTTP POST request failed");
+		conn->request_status = -1;
+		return;
+	}
+
+	if (response->status / 100 != 2) {
+		i_error("fts_solr: Indexing failed: %s", response->reason);
+		conn->request_status = -1;
+		return;
+	}
+}
+
+static struct http_client_request *
+solr_connection_post_request(struct solr_connection *conn)
+{
+	struct http_client_request *http_req;
+	const char *url;
+
+	url = t_strconcat(conn->http_base_url, "update", NULL);
+
+	http_req = http_client_request(conn->http_client, "POST",
+				       conn->http_host, url,
+				       solr_connection_update_response, conn);
+	http_client_request_set_port(http_req, conn->http_port);
+	http_client_request_set_ssl(http_req, conn->http_ssl);
+	http_client_request_add_header(http_req, "Content-Type", "text/xml");
+	return http_req;
+}
+
 struct solr_connection_post *
 solr_connection_post_begin(struct solr_connection *conn)
 {
 	struct solr_connection_post *post;
-	CURLMcode merr;
-
-	post = i_new(struct solr_connection_post, 1);
-	post->conn = conn;
 
 	i_assert(!conn->posting);
 	conn->posting = TRUE;
 
-	i_free_and_null(conn->http_failure);
-
-	curl_easy_setopt(conn->curl, CURLOPT_READDATA, post);
-	merr = curl_multi_add_handle(conn->curlm, conn->curl);
-	if (merr != CURLM_OK) {
-		i_error("fts_solr: curl_multi_add_handle() failed: %s",
-			curl_multi_strerror(merr));
-		post->failed = TRUE;
-	} else {
-		/* curl v7.16 and older don't strdup() the URL */
-		post->url = i_strconcat(conn->url, "update", NULL);
-		curl_easy_setopt(conn->curl, CURLOPT_URL, post->url);
-		curl_easy_setopt(conn->curl, CURLOPT_HTTPHEADER,
-				 conn->headers_post);
-		curl_easy_setopt(conn->curl, CURLOPT_POST, (long)1);
-		XML_ParserReset(conn->xml_parser, "UTF-8");
-	}
+	post = i_new(struct solr_connection_post, 1);
+	post->conn = conn;
+	post->http_req = solr_connection_post_request(conn);
+	XML_ParserReset(conn->xml_parser, "UTF-8");
 	return post;
 }
 
 void solr_connection_post_more(struct solr_connection_post *post,
 			       const unsigned char *data, size_t size)
 {
-	fd_set fdread;
-	fd_set fdwrite;
-	fd_set fdexcep;
-	struct timeval timeout_tv;
-	long timeout;
-	CURLMsg *msg;
-	CURLMcode merr;
-	int ret, handles, maxfd, n;
-
+	struct solr_connection *conn = post->conn;
 	i_assert(post->conn->posting);
 
 	if (post->failed)
 		return;
 
-	post->data = data;
-	post->size = size;
-	post->pos = 0;
-
-	for (;;) {
-		merr = curl_multi_perform(post->conn->curlm, &handles);
-		if (merr == CURLM_CALL_MULTI_PERFORM)
-			continue;
-		if (merr != CURLM_OK) {
-			i_error("fts_solr: curl_multi_perform() failed: %s",
-				curl_multi_strerror(merr));
-			break;
-		}
-		if ((post->pos == post->size && post->size != 0) ||
-		    (handles == 0 && post->size == 0)) {
-			/* everything sent successfully */
-			return;
-		}
-		msg = curl_multi_info_read(post->conn->curlm, &n);
-		if (msg != NULL && msg->msg == CURLMSG_DONE &&
-		    msg->data.result != CURLE_OK) {
-			i_error("fts_solr: curl post failed: %s",
-				curl_easy_strerror(msg->data.result));
-			break;
-		}
-
-		/* everything wasn't sent - wait. just use select,
-		   since libcurl interface is easiest with it. */
-		FD_ZERO(&fdread);
-		FD_ZERO(&fdwrite);
-		FD_ZERO(&fdexcep);
-
-		merr = curl_multi_fdset(post->conn->curlm, &fdread, &fdwrite,
-					&fdexcep, &maxfd);
-		if (merr != CURLM_OK) {
-			i_error("fts_solr: curl_multi_fdset() failed: %s",
-				curl_multi_strerror(merr));
-			break;
-		}
-		i_assert(maxfd >= 0);
-
-		merr = curl_multi_timeout(post->conn->curlm, &timeout);
-		if (merr != CURLM_OK) {
-			i_error("fts_solr: curl_multi_timeout() failed: %s",
-				curl_multi_strerror(merr));
-			break;
-		}
-
-		if (timeout < 0) {
-			timeout_tv.tv_sec = 1;
-			timeout_tv.tv_usec = 0;
-		} else {
-			timeout_tv.tv_sec = timeout / 1000;
-			timeout_tv.tv_usec = (timeout % 1000) * 1000;
-		}
-		ret = select(maxfd+1, &fdread, &fdwrite, &fdexcep, &timeout_tv);
-		if (ret < 0) {
-			i_error("fts_solr: select() failed: %m");
-			break;
-		}
-	}
-	post->failed = TRUE;
+	if (http_client_request_send_payload(&post->http_req, data, size) != 0 &&
+	    conn->request_status < 0)
+		post->failed = TRUE;
 }
 
 int solr_connection_post_end(struct solr_connection_post *post)
 {
 	struct solr_connection *conn = post->conn;
-	long httpret;
 	int ret = post->failed ? -1 : 0;
 
 	i_assert(conn->posting);
 
-	solr_connection_post_more(post, &uchar_nul, 0);
-
-	curl_easy_getinfo(conn->curl, CURLINFO_RESPONSE_CODE, &httpret);
-	if (httpret != 200 && ret == 0) {
-		i_error("fts_solr: Indexing failed: %s", conn->http_failure);
-		ret = -1;
+	if (!post->failed) {
+		if (http_client_request_send_payload(&post->http_req, NULL, 0) <= 0 ||
+			conn->request_status < 0) {
+			ret = -1;
+		}
+	} else {
+		if (post->http_req != NULL)
+			http_client_request_abort(&post->http_req);
 	}
-
-	curl_easy_setopt(conn->curl, CURLOPT_READDATA, NULL);
-	curl_easy_setopt(conn->curl, CURLOPT_POST, (long)0);
-	curl_easy_setopt(conn->curl, CURLOPT_HTTPHEADER, conn->headers);
-
-	(void)curl_multi_remove_handle(conn->curlm, conn->curl);
-	i_free(post->url);
 	i_free(post);
 
 	conn->posting = FALSE;
@@ -599,10 +540,26 @@ int solr_connection_post_end(struct solr_connection_post *post)
 
 int solr_connection_post(struct solr_connection *conn, const char *cmd)
 {
-	struct solr_connection_post *post;
+	struct http_client_request *http_req;
+	struct istream *post_payload;
 
-	post = solr_connection_post_begin(conn);
-	solr_connection_post_more(post, (const unsigned char *)cmd,
-				  strlen(cmd));
-	return solr_connection_post_end(post);
+	i_assert(!conn->posting);
+	conn->posting = TRUE;
+
+	http_req = solr_connection_post_request(conn);
+	post_payload = i_stream_create_from_data(cmd, strlen(cmd));
+	http_client_request_set_payload(http_req, post_payload, TRUE);
+	i_stream_unref(&post_payload);
+	http_client_request_submit(http_req);
+
+	XML_ParserReset(conn->xml_parser, "UTF-8");
+
+	conn->request_status = 0;
+	http_client_wait(conn->http_client);
+
+	if (conn->request_status < 0)
+		return -1;
+
+	conn->posting = FALSE;
+	return conn->request_status;
 }
