@@ -142,6 +142,7 @@ static void i_stream_file_sync(struct istream_private *stream)
 	}
 
 	stream->skip = stream->pos = 0;
+	stream->istream.eof = FALSE;
 }
 
 static int
