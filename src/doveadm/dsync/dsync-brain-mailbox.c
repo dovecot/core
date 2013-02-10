@@ -205,8 +205,6 @@ void dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_WANT_MAIL_REQUESTS;
 	if (brain->master_brain)
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_MASTER_BRAIN;
-	if (brain->mails_have_guids)
-		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS;
 	if (brain->backup_recv)
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_REVERT_LOCAL_CHANGES;
 	if (brain->debug)

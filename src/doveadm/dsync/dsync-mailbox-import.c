@@ -84,7 +84,6 @@ struct dsync_mailbox_importer {
 	unsigned int local_expunged_guids_set:1;
 	unsigned int new_uids_assigned:1;
 	unsigned int want_mail_requests:1;
-	unsigned int mails_have_guids:1;
 	unsigned int master_brain:1;
 	unsigned int revert_local_changes:1;
 };
@@ -164,8 +163,6 @@ dsync_mailbox_import_init(struct mailbox *box,
 		i_array_init(&importer->mail_requests, 128);
 		importer->want_mail_requests = TRUE;
 	}
-	importer->mails_have_guids =
-		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS) != 0;
 	importer->master_brain =
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MASTER_BRAIN) != 0;
 	importer->revert_local_changes =
