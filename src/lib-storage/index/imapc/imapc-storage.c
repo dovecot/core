@@ -661,7 +661,9 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 	struct imapc_simple_context sctx;
 	string_t *str;
 
-	memset(status_r, 0, sizeof(*status_r));
+	if (mbox->guid_fetch_field_name != NULL ||
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GUID_FORCED))
+		status_r->have_guids = TRUE;
 
 	if (box->opened) {
 		imapc_mailbox_get_selected_status(mbox, items, status_r);

@@ -161,6 +161,7 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 {
 	struct mail_user *user = mbox->storage->storage.user;
 	struct mail_namespace *ns;
+	struct mailbox_status status;
 	const char *mailbox;
 
 	i_assert(bbox->box == NULL);
@@ -177,6 +178,10 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 	i_array_init(&bbox->uids, 64);
 	i_array_init(&bbox->sync_pending_removes, 64);
 	mail_search_args_init(bbox->search_args, bbox->box, FALSE, NULL);
+
+	mailbox_get_open_status(bbox->box, 0, &status);
+	if (!status.have_guids)
+		mbox->have_guids = FALSE;
 	return 1;
 }
 
@@ -186,6 +191,8 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 	struct virtual_backend_box *const *bboxes;
 	unsigned int i, count;
 	int ret;
+
+	mbox->have_guids = TRUE;
 
 	bboxes = array_get(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; ) {
@@ -339,6 +346,8 @@ virtual_storage_get_status(struct mailbox *box,
 			   enum mailbox_status_items items,
 			   struct mailbox_status *status_r)
 {
+	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+
 	if ((items & STATUS_LAST_CACHED_SEQ) != 0)
 		items |= STATUS_MESSAGES;
 
@@ -354,6 +363,8 @@ virtual_storage_get_status(struct mailbox *box,
 		   indexed. */
 		status_r->last_cached_seq = status_r->messages;
 	}
+	if (mbox->have_guids)
+		status_r->have_guids = TRUE;
 	return 0;
 }
 

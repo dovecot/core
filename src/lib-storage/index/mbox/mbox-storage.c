@@ -791,7 +791,8 @@ bool mbox_is_backend_readonly(struct mbox_mailbox *mbox)
 struct mail_storage mbox_storage = {
 	.name = MBOX_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE |
-		MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS,
+		MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS |
+		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS,
 
 	.v = {
                 mbox_get_setting_parser_info,

@@ -1453,11 +1453,20 @@ bool mailbox_backends_equal(const struct mailbox *box1,
 	return ns1 == ns2;
 }
 
+static void
+mailbox_get_status_set_defaults(struct mailbox *box,
+				struct mailbox_status *status_r)
+{
+	memset(status_r, 0, sizeof(*status_r));
+	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS) != 0)
+		status_r->have_guids = TRUE;
+}
+
 int mailbox_get_status(struct mailbox *box,
 		       enum mailbox_status_items items,
 		       struct mailbox_status *status_r)
 {
-	memset(status_r, 0, sizeof(*status_r));
+	mailbox_get_status_set_defaults(box, status_r);
 	if (mailbox_verify_existing_name(box) < 0)
 		return -1;
 	return box->v.get_status(box, items, status_r);
@@ -1469,7 +1478,7 @@ void mailbox_get_open_status(struct mailbox *box,
 {
 	i_assert(box->opened);
 
-	memset(status_r, 0, sizeof(*status_r));
+	mailbox_get_status_set_defaults(box, status_r);
 	if (box->v.get_status(box, items, status_r) < 0)
 		i_unreached();
 }

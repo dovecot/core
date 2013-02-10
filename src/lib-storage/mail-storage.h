@@ -223,31 +223,35 @@ struct mailbox;
 struct mailbox_transaction_context;
 
 struct mailbox_status {
-	uint32_t messages;
-	uint32_t recent;
-	uint32_t unseen;
+	uint32_t messages; /* STATUS_MESSAGES */
+	uint32_t recent; /* STATUS_RECENT */
+	uint32_t unseen; /* STATUS_UNSEEN */
 
-	uint32_t uidvalidity;
-	uint32_t uidnext;
+	uint32_t uidvalidity; /* STATUS_UIDVALIDITY */
+	uint32_t uidnext; /* STATUS_UIDNEXT */
 
-	uint32_t first_unseen_seq;
-	uint32_t first_recent_uid;
-	uint32_t last_cached_seq;
-	uint64_t highest_modseq;
-	uint64_t highest_pvt_modseq; /* 0 if no private index */
+	uint32_t first_unseen_seq; /* STATUS_FIRST_UNSEEN_SEQ */
+	uint32_t first_recent_uid; /* STATUS_FIRST_RECENT_UID */
+	uint32_t last_cached_seq; /* STATUS_LAST_CACHED_SEQ */
+	uint64_t highest_modseq; /* STATUS_HIGHESTMODSEQ */
+	/* 0 if no private index (STATUS_HIGHESTPVTMODSEQ) */
+	uint64_t highest_pvt_modseq;
 
-	/* NULL-terminated array of keywords */
+	/* NULL-terminated array of keywords (STATUS_KEYWORDS) */
 	const ARRAY_TYPE(keywords) *keywords;
 
-	/* These flags can be permanently modified */
+	/* These flags can be permanently modified (STATUS_PERMANENT_FLAGS) */
 	enum mail_flags permanent_flags;
 
-	/* Modseqs aren't permanent (index is in memory) */
-	unsigned int nonpermanent_modseqs:1;
-	/* All keywords can be permanently modified */
+	/* All keywords can be permanently modified (STATUS_PERMANENT_FLAGS) */
 	unsigned int permanent_keywords:1;
-	/* More keywords can be created */
+	/* More keywords can be created (STATUS_PERMANENT_FLAGS) */
 	unsigned int allow_new_keywords:1;
+	/* Modseqs aren't permanent (index is in memory) (STATUS_HIGHESTMODSEQ) */
+	unsigned int nonpermanent_modseqs:1;
+
+	/* Messages have GUIDs (always set) */
+	unsigned int have_guids:1;
 };
 
 struct mailbox_cache_field {

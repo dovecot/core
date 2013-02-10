@@ -144,6 +144,7 @@ struct virtual_mailbox {
 	unsigned int uids_mapped:1;
 	unsigned int sync_initialized:1;
 	unsigned int inconsistent:1;
+	unsigned int have_guids:1;
 };
 
 extern MODULE_CONTEXT_DEFINE(virtual_storage_module,
