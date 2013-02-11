@@ -994,10 +994,13 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 	const char *mailbox_name;
 	unsigned int i, count;
 	uint64_t bytes_limit, count_limit, current, limit, diff;
+	bool use_last_extra;
 	int ret;
 
 	ctx->limits_set = TRUE;
 	mailbox_name = mailbox_get_vname(ctx->box);
+	/* use last_mail_max_extra_bytes only for LDA/LMTP */
+	use_last_extra = (ctx->box->flags & MAILBOX_FLAG_POST_SESSION) != 0;
 
 	/* find the lowest quota limits from all roots and use them */
 	roots = array_get(&ctx->quota->roots, &count);
@@ -1028,7 +1031,8 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 					diff = limit - current;
 					if (ctx->bytes_ceil2 > diff)
 						ctx->bytes_ceil2 = diff;
-					diff += roots[i]->set->last_mail_max_extra_bytes;
+					diff += !use_last_extra ? 0 :
+						roots[i]->set->last_mail_max_extra_bytes;
 					if (ctx->bytes_ceil > diff)
 						ctx->bytes_ceil = diff;
 				}
