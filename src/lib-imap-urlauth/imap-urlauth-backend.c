@@ -10,7 +10,7 @@
 #include "imap-urlauth-private.h"
 #include "imap-urlauth-backend.h"
 
-#define IMAP_URLAUTH_KEY "imap-urlauth"
+#define IMAP_URLAUTH_KEY MAILBOX_ATTRIBUTE_PREFIX_DOVECOT"imap-urlauth"
 
 int imap_urlauth_backend_get_mailbox_key(struct mailbox *box, bool create,
 					 unsigned char mailbox_key_r[IMAP_URLAUTH_KEY_LEN],
