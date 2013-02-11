@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 
+#define QUOTA_DEFAULT_LAST_EXTRA "10%"
 #define DEFAULT_QUOTA_EXCEEDED_MSG \
 	"Quota exceeded (mailbox for user is full)"
 #define RULE_NAME_DEFAULT_FORCE "*"
@@ -45,6 +46,10 @@ static const struct quota_backend *quota_backends[] = {
 
 static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 				    uoff_t size, bool *too_large_r);
+static int
+quota_root_parse_last_extra(struct mail_user *user, const char *root_name,
+			    struct quota_root_settings *root_set,
+			    const char **error_r);
 
 static const struct quota_backend *quota_backend_find(const char *name)
 {
@@ -174,6 +179,8 @@ quota_root_add(struct quota_settings *quota_set, struct mail_user *user,
 	if (quota_root_add_rules(user, root_name, root_set, error_r) < 0)
 		return -1;
 	if (quota_root_add_warning_rules(user, root_name, root_set, error_r) < 0)
+		return -1;
+	if (quota_root_parse_last_extra(user, root_name, root_set, error_r) < 0)
 		return -1;
 	return 0;
 }
@@ -362,8 +369,7 @@ quota_rule_parse_percentage(struct quota_root_settings *root_set,
 	int64_t percentage = *limit;
 
 	if (percentage <= -100 || percentage >= -1U) {
-		*error_r = p_strdup_printf(root_set->set->pool,
-			"Invalid rule percentage: %lld", (long long)percentage);
+		*error_r = "Invalid percentage";
 		return -1;
 	}
 
@@ -378,6 +384,44 @@ quota_rule_parse_percentage(struct quota_root_settings *root_set,
 		rule->count_percent = percentage;
 	else
 		i_unreached();
+	return 0;
+}
+
+static int quota_limit_parse(struct quota_root_settings *root_set,
+			     struct quota_rule *rule, const char *unit,
+			     uint64_t multiply, int64_t *limit,
+			     const char **error_r)
+{
+	switch (i_toupper(*unit)) {
+	case '\0':
+		/* default */
+		break;
+	case 'B':
+		multiply = 1;
+		break;
+	case 'K':
+		multiply = 1024;
+		break;
+	case 'M':
+		multiply = 1024*1024;
+		break;
+	case 'G':
+		multiply = 1024*1024*1024;
+		break;
+	case 'T':
+		multiply = 1024ULL*1024*1024*1024;
+		break;
+	case '%':
+		multiply = 0;
+		if (quota_rule_parse_percentage(root_set, rule, limit,
+						error_r) < 0)
+			return -1;
+		break;
+	default:
+		*error_r = t_strdup_printf("Unknown unit: %s", unit);
+		return -1;
+	}
+	*limit *= multiply;
 	return 0;
 }
 
@@ -415,7 +459,7 @@ quota_rule_parse_limits(struct quota_root_settings *root_set,
 			const char *full_rule_def,
 			bool relative_rule, const char **error_r)
 {
-	const char **args, *key, *value;
+	const char **args, *key, *value, *error;
 	char *p;
 	uint64_t multiply;
 	int64_t *limit;
@@ -462,37 +506,13 @@ quota_rule_parse_limits(struct quota_root_settings *root_set,
 			return -1;
 		}
 
-		switch (i_toupper(*p)) {
-		case '\0':
-			/* default */
-			break;
-		case 'B':
-			multiply = 1;
-			break;
-		case 'K':
-			multiply = 1024;
-			break;
-		case 'M':
-			multiply = 1024*1024;
-			break;
-		case 'G':
-			multiply = 1024*1024*1024;
-			break;
-		case 'T':
-			multiply = 1024ULL*1024*1024*1024;
-			break;
-		case '%':
-			multiply = 0;
-			if (quota_rule_parse_percentage(root_set, rule, limit,
-							error_r) < 0)
-				return -1;
-			break;
-		default:
+		if (quota_limit_parse(root_set, rule, p, multiply,
+				      limit, &error) < 0) {
 			*error_r = p_strdup_printf(root_set->set->pool,
-					"Invalid rule limit value: %s", *args);
+				"Invalid rule limit value '%s': %s",
+				*args, error);
 			return -1;
 		}
-		*limit *= multiply;
 	}
 	if (!relative_rule) {
 		if (rule->bytes_limit < 0) {
@@ -581,6 +601,37 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 			t_strdup_printf(" (%u%%)", rule->count_percent));
 	}
 	return ret;
+}
+
+static int
+quota_root_parse_last_extra(struct mail_user *user, const char *root_name,
+			    struct quota_root_settings *root_set,
+			    const char **error_r)
+{
+	const char *set_name, *value, *error;
+	char *p;
+	struct quota_rule rule;
+
+	set_name = t_strconcat(root_name, "_last_extra", NULL);
+	value = mail_user_plugin_getenv(user, set_name);
+	if (value == NULL) {
+		/* default */
+		value = QUOTA_DEFAULT_LAST_EXTRA;
+	}
+
+	memset(&rule, 0, sizeof(rule));
+	rule.bytes_limit = strtoll(value, &p, 10);
+
+	if (quota_limit_parse(root_set, &rule, p, 1,
+			      &rule.bytes_limit, &error) < 0) {
+		*error_r = p_strdup_printf(root_set->set->pool,
+			"Invalid %s value '%s': %s", set_name, value, error);
+		return -1;
+	}
+	quota_rule_recalculate_relative_rules(&rule,
+		root_set->default_rule.bytes_limit, 0);
+	root_set->last_mail_max_extra_bytes = rule.bytes_limit;
+	return 0;
 }
 
 static int quota_root_get_rule_limits(struct quota_root *root,
@@ -927,6 +978,7 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 
 	ctx->box = box;
 	ctx->bytes_ceil = (uint64_t)-1;
+	ctx->bytes_ceil2 = (uint64_t)-1;
 	ctx->count_ceil = (uint64_t)-1;
 
 	if (box->storage->user->admin) {
@@ -965,13 +1017,18 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 						 QUOTA_NAME_STORAGE_BYTES,
 						 &current, &limit);
 			if (ret > 0) {
-				if (limit < current) {
+				if (limit <= current) {
+					/* over quota */
 					ctx->bytes_ceil = 0;
+					ctx->bytes_ceil2 = 0;
 					diff = current - limit;
 					if (ctx->bytes_over < diff)
 						ctx->bytes_over = diff;
 				} else {
 					diff = limit - current;
+					if (ctx->bytes_ceil2 > diff)
+						ctx->bytes_ceil2 = diff;
+					diff += roots[i]->set->last_mail_max_extra_bytes;
 					if (ctx->bytes_ceil > diff)
 						ctx->bytes_ceil = diff;
 				}
@@ -1155,6 +1212,17 @@ void quota_transaction_rollback(struct quota_transaction_context **_ctx)
 	i_free(ctx);
 }
 
+static bool quota_is_over(struct quota_transaction_context *ctx, uoff_t size)
+{
+	if ((ctx->count_used < 0 ||
+	     (uint64_t)ctx->count_used + 1 <= ctx->count_ceil) &&
+	    ((ctx->bytes_used < 0 && size <= ctx->bytes_ceil) ||
+	     (uint64_t)ctx->bytes_used + size <= ctx->bytes_ceil))
+		return FALSE;
+	else
+		return TRUE;
+}
+
 int quota_try_alloc(struct quota_transaction_context *ctx,
 		    struct mail *mail, bool *too_large_r)
 {
@@ -1182,6 +1250,8 @@ int quota_test_alloc(struct quota_transaction_context *ctx,
 		if (quota_transaction_set_limits(ctx) < 0)
 			return -1;
 	}
+	/* this is a virtual function mainly for trash plugin and similar,
+	   which may automatically delete mails to stay under quota. */
 	return ctx->quota->set->test_alloc(ctx, size, too_large_r);
 }
 
@@ -1194,10 +1264,7 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 
 	*too_large_r = FALSE;
 
-	if ((ctx->count_used < 0 ||
-	     (uint64_t)ctx->count_used + 1 <= ctx->count_ceil) &&
-	    ((ctx->bytes_used < 0 && size <= ctx->bytes_ceil) ||
-	     (uint64_t)ctx->bytes_used + size <= ctx->bytes_ceil))
+	if (!quota_is_over(ctx, size))
 		return 1;
 
 	/* limit reached. only thing left to do now is to set too_large_r. */
@@ -1233,6 +1300,7 @@ void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail)
 	if (mail_get_physical_size(mail, &size) == 0)
 		ctx->bytes_used += size;
 
+	ctx->bytes_ceil = ctx->bytes_ceil2;
 	ctx->count_used++;
 }
 

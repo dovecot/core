@@ -77,7 +77,7 @@ quota_get_status(struct mailbox *box, enum mailbox_status_items items,
 
 	if ((items & STATUS_CHECK_OVER_QUOTA) != 0) {
 		qt = quota_transaction_begin(box);
-		if ((ret = quota_test_alloc(qt, 1, &too_large)) == 0) {
+		if ((ret = quota_test_alloc(qt, 0, &too_large)) == 0) {
 			mail_storage_set_error(box->storage, MAIL_ERROR_NOSPACE,
 					       qt->quota->set->quota_exceeded_msg);
 			ret = -1;
