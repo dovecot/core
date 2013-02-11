@@ -199,6 +199,10 @@ enum mailbox_sync_type {
 	MAILBOX_SYNC_TYPE_MODSEQ	= 0x04
 };
 
+/* RFC 5464 specifies that this is vendor/<vendor-token>/. The registered
+   vendor-tokens always begin with "vendor." so there's some redundancy.. */
+#define MAILBOX_ATTRIBUTE_PREFIX_DOVECOT "vendor/vendor.dovecot/"
+
 enum mail_attribute_type {
 	MAIL_ATTRIBUTE_TYPE_PRIVATE,
 	MAIL_ATTRIBUTE_TYPE_SHARED
@@ -530,7 +534,9 @@ int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
    (as opposed to flags shared between users). */
 enum mail_flags mailbox_get_private_flags_mask(struct mailbox *box);
 
-/* Set mailbox attribute key to value. */
+/* Set mailbox attribute key to value. The key should be compatible with
+   IMAP METADATA, so for Dovecot-specific keys use
+   MAILBOX_ATTRIBUTE_PREFIX_DOVECOT. */
 int mailbox_attribute_set(struct mailbox *box, enum mail_attribute_type type,
 			  const char *key, const char *value);
 /* Delete mailbox attribute key. */
