@@ -106,6 +106,7 @@ smtp_client_open_sendmail(const struct lda_settings *set,
 
 	client = i_new(struct smtp_client, 1);
 	client->output = o_stream_create_fd(fd[1], IO_BLOCK_SIZE, TRUE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 	client->pid = pid;
 
 	*output_r = client->output;
@@ -163,6 +164,7 @@ smtp_client_open(const struct lda_settings *set, const char *destination,
 	client->return_path = i_strdup(return_path);
 	client->temp_fd = fd;
 	client->output = o_stream_create_fd(fd, IO_BLOCK_SIZE, TRUE);
+	o_stream_set_no_error_handling(client->output, TRUE);
 	client->use_smtp = TRUE;
 
 	*output_r = client->output;
