@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 
-#define QUOTA_DEFAULT_LAST_EXTRA "10%"
+#define QUOTA_DEFAULT_GRACE "10%"
 #define DEFAULT_QUOTA_EXCEEDED_MSG \
 	"Quota exceeded (mailbox for user is full)"
 #define RULE_NAME_DEFAULT_FORCE "*"
@@ -47,9 +47,9 @@ static const struct quota_backend *quota_backends[] = {
 static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 				    uoff_t size, bool *too_large_r);
 static int
-quota_root_parse_last_extra(struct mail_user *user, const char *root_name,
-			    struct quota_root_settings *root_set,
-			    const char **error_r);
+quota_root_parse_grace(struct mail_user *user, const char *root_name,
+		       struct quota_root_settings *root_set,
+		       const char **error_r);
 
 static const struct quota_backend *quota_backend_find(const char *name)
 {
@@ -180,7 +180,7 @@ quota_root_add(struct quota_settings *quota_set, struct mail_user *user,
 		return -1;
 	if (quota_root_add_warning_rules(user, root_name, root_set, error_r) < 0)
 		return -1;
-	if (quota_root_parse_last_extra(user, root_name, root_set, error_r) < 0)
+	if (quota_root_parse_grace(user, root_name, root_set, error_r) < 0)
 		return -1;
 	return 0;
 }
@@ -604,19 +604,19 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 }
 
 static int
-quota_root_parse_last_extra(struct mail_user *user, const char *root_name,
-			    struct quota_root_settings *root_set,
-			    const char **error_r)
+quota_root_parse_grace(struct mail_user *user, const char *root_name,
+		       struct quota_root_settings *root_set,
+		       const char **error_r)
 {
 	const char *set_name, *value, *error;
 	char *p;
 	struct quota_rule rule;
 
-	set_name = t_strconcat(root_name, "_last_extra", NULL);
+	set_name = t_strconcat(root_name, "_grace", NULL);
 	value = mail_user_plugin_getenv(user, set_name);
 	if (value == NULL) {
 		/* default */
-		value = QUOTA_DEFAULT_LAST_EXTRA;
+		value = QUOTA_DEFAULT_GRACE;
 	}
 
 	memset(&rule, 0, sizeof(rule));
@@ -994,13 +994,13 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 	const char *mailbox_name;
 	unsigned int i, count;
 	uint64_t bytes_limit, count_limit, current, limit, diff;
-	bool use_last_extra;
+	bool use_grace;
 	int ret;
 
 	ctx->limits_set = TRUE;
 	mailbox_name = mailbox_get_vname(ctx->box);
 	/* use last_mail_max_extra_bytes only for LDA/LMTP */
-	use_last_extra = (ctx->box->flags & MAILBOX_FLAG_POST_SESSION) != 0;
+	use_grace = (ctx->box->flags & MAILBOX_FLAG_POST_SESSION) != 0;
 
 	/* find the lowest quota limits from all roots and use them */
 	roots = array_get(&ctx->quota->roots, &count);
@@ -1031,7 +1031,7 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 					diff = limit - current;
 					if (ctx->bytes_ceil2 > diff)
 						ctx->bytes_ceil2 = diff;
-					diff += !use_last_extra ? 0 :
+					diff += !use_grace ? 0 :
 						roots[i]->set->last_mail_max_extra_bytes;
 					if (ctx->bytes_ceil > diff)
 						ctx->bytes_ceil = diff;
