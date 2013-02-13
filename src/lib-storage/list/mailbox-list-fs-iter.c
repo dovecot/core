@@ -399,9 +399,12 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 			prefix_vname = t_strdup_until(pattern, last);
 		}
 
-		if (p == last+1 && *pattern == ns_sep)
+		if (*pattern == ns_sep && full_fs_access) {
+			/* pattern=/something with full filesystem access.
+			   (without full filesystem access we want to skip this
+			   if namespace prefix begins with separator) */
 			root = "/";
-		else if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+		} else if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
 			 ns->prefix_len == 6 &&
 			 strcasecmp(prefix_vname, "INBOX") == 0 &&
 			 strncasecmp(ns->prefix, pattern, ns->prefix_len) == 0) {
