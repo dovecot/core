@@ -15,7 +15,7 @@ struct auth_cache {
 	HASH_TABLE(char *, struct auth_cache_node *) hash;
 	struct auth_cache_node *head, *tail;
 
-	size_t size_left;
+	size_t max_size, size_left;
 	unsigned int ttl_secs, neg_ttl_secs;
 
 	unsigned int hit_count, miss_count;
@@ -199,6 +199,7 @@ static void sig_auth_cache_stats(const siginfo_t *si ATTR_UNUSED, void *context)
 {
 	struct auth_cache *cache = context;
 	unsigned int total_count;
+	size_t cache_used;
 
 	total_count = cache->hit_count + cache->miss_count;
 	i_info("Authentication cache hits %u/%u (%u%%)",
@@ -206,9 +207,16 @@ static void sig_auth_cache_stats(const siginfo_t *si ATTR_UNUSED, void *context)
 	       total_count == 0 ? 100 : (cache->hit_count * 100 / total_count));
 
 	i_info("Authentication cache inserts: "
-	       "positive: %u %lluB, negative: %u %lluB",
+	       "positive: %u entries %llu bytes, "
+	       "negative: %u entries %llu bytes",
 	       cache->pos_entries, cache->pos_size,
 	       cache->neg_entries, cache->neg_size);
+
+	cache_used = cache->max_size - cache->size_left;
+	i_info("Authentication cache current size: "
+	       "%"PRIuSIZE_T" bytes used of %"PRIuSIZE_T" bytes (%u%%)",
+	       cache_used, cache->max_size,
+	       (unsigned int)(cache_used * 100ULL / cache->max_size));
 
 	/* reset counters */
 	cache->hit_count = cache->miss_count = 0;
@@ -224,6 +232,7 @@ struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs,
 
 	cache = i_new(struct auth_cache, 1);
 	hash_table_create(&cache->hash, default_pool, 0, str_hash, strcmp);
+	cache->max_size = max_size;
 	cache->size_left = max_size;
 	cache->ttl_secs = ttl_secs;
 	cache->neg_ttl_secs = neg_ttl_secs;
