@@ -466,22 +466,27 @@ cmd_dsync_run_real(struct dsync_cmd_context *ctx, struct mail_user *user)
 	dsync_ibc_deinit(&ibc);
 	if (ibc2 != NULL)
 		dsync_ibc_deinit(&ibc2);
-	if (ctx->err_stream != NULL) {
-		remote_error_input(ctx); /* print any pending errors */
-		remote_errors_logged = ctx->err_stream->v_offset > 0;
-		i_stream_destroy(&ctx->err_stream);
-	}
-	if (ctx->io_err != NULL)
-		io_remove(&ctx->io_err);
 	if (ctx->fd_in != -1) {
 		if (ctx->fd_out != ctx->fd_in)
 			i_close_fd(&ctx->fd_out);
 		i_close_fd(&ctx->fd_in);
 	}
-	if (ctx->fd_err != -1)
-		i_close_fd(&ctx->fd_err);
 	if (ctx->remote)
 		cmd_dsync_wait_remote(ctx, remote_errors_logged);
+
+	/* print any final errors after the process has died. not closing
+	   stdin/stdout before wait() may cause the process to hang, but stderr
+	   shouldn't (at least with ssh) and we need stderr to be open to be
+	   able to print the final errors */
+	if (ctx->err_stream != NULL) {
+		remote_error_input(ctx);
+		remote_errors_logged = ctx->err_stream->v_offset > 0;
+		i_stream_destroy(&ctx->err_stream);
+	}
+	if (ctx->io_err != NULL)
+		io_remove(&ctx->io_err);
+	if (ctx->fd_err != -1)
+		i_close_fd(&ctx->fd_err);
 	return ret;
 }
 
