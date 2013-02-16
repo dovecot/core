@@ -528,6 +528,9 @@ struct mail_save_context {
 	bool (*part_is_attachment)(struct mail_save_context *ctx,
 				   const struct mail_attachment_part *part);
 
+	/* mailbox_save_alloc() called, but finish/cancel not.
+	   the same context is usually returned by the backends for reuse. */
+	unsigned int unfinished:1;
 	/* mail was copied using saving */
 	unsigned int copying_via_save:1;
 	/* mail is being saved, not copied */

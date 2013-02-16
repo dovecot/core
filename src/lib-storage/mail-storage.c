@@ -1790,6 +1790,8 @@ mailbox_save_alloc(struct mailbox_transaction_context *t)
 	struct mail_save_context *ctx;
 
 	ctx = t->box->v.save_alloc(t);
+	i_assert(!ctx->unfinished);
+	ctx->unfinished = TRUE;
 	ctx->data.received_date = (time_t)-1;
 	ctx->data.save_date = (time_t)-1;
 	return ctx;

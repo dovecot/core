@@ -754,6 +754,7 @@ void index_save_context_free(struct mail_save_context *ctx)
 	i_free_and_null(ctx->data.pop3_uidl);
 	index_attachment_save_free(ctx);
 	memset(&ctx->data, 0, sizeof(ctx->data));
+	ctx->unfinished = FALSE;
 }
 
 static void
