@@ -426,8 +426,10 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	memset(&rec, 0, sizeof(rec));
 	rec.save_date = ioloop_time;
 	if (mdbox_mail_lookup(src_mbox, mail->transaction->view, mail->seq,
-			      &rec.map_uid) < 0)
+			      &rec.map_uid) < 0) {
+		index_save_context_free(_ctx);
 		return -1;
+	}
 
 	mail_index_lookup_ext(mail->transaction->view, mail->seq,
 			      src_mbox->guid_ext_id, &guid_data, &expunged);
@@ -462,5 +464,6 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 
 	if (_ctx->dest_mail != NULL)
 		mail_set_seq_saving(_ctx->dest_mail, ctx->ctx.seq);
+	index_save_context_free(_ctx);
 	return 0;
 }
