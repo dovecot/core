@@ -174,8 +174,6 @@ static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 						&state.last_common_modseq,
 						&state.last_common_pvt_modseq,
 						&changes_during_sync) < 0) {
-			i_error("Importing mailbox %s failed",
-				mailbox_get_vname(brain->box));
 			brain->failed = TRUE;
 			return;
 		}
