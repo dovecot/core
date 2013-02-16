@@ -333,7 +333,8 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	return 0;
 }
 
-static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx)
+static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx,
+				  bool remote_errors_logged)
 {
 	int status;
 
@@ -353,8 +354,14 @@ static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx)
 		}
 	} else if (WIFSIGNALED(status))
 		i_error("Remote command died with signal %d", WTERMSIG(status));
-	else if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+	else if (!WIFEXITED(status))
+		i_error("Remote command failed with status %d", status);
+	else if (WEXITSTATUS(status) == EX_TEMPFAIL && remote_errors_logged) {
+		/* remote most likely already logged the error.
+		   don't bother logging another line about it */
+	} else if (WEXITSTATUS(status) != 0) {
 		i_error("Remote command returned error %d", WEXITSTATUS(status));
+	}
 }
 
 static void cmd_dsync_run_remote(struct mail_user *user)
@@ -403,6 +410,7 @@ cmd_dsync_run_real(struct dsync_cmd_context *ctx, struct mail_user *user)
 	struct dsync_brain *brain;
 	struct mail_namespace *sync_ns = NULL;
 	enum dsync_brain_flags brain_flags;
+	bool remote_errors_logged = FALSE;
 	int ret = 0;
 
 	user->admin = TRUE;
@@ -460,6 +468,7 @@ cmd_dsync_run_real(struct dsync_cmd_context *ctx, struct mail_user *user)
 		dsync_ibc_deinit(&ibc2);
 	if (ctx->err_stream != NULL) {
 		remote_error_input(ctx); /* print any pending errors */
+		remote_errors_logged = ctx->err_stream->v_offset > 0;
 		i_stream_destroy(&ctx->err_stream);
 	}
 	if (ctx->io_err != NULL)
@@ -472,7 +481,7 @@ cmd_dsync_run_real(struct dsync_cmd_context *ctx, struct mail_user *user)
 	if (ctx->fd_err != -1)
 		i_close_fd(&ctx->fd_err);
 	if (ctx->remote)
-		cmd_dsync_wait_remote(ctx);
+		cmd_dsync_wait_remote(ctx, remote_errors_logged);
 	return ret;
 }
 
