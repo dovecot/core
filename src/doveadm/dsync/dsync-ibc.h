@@ -29,6 +29,9 @@ enum dsync_ibc_recv_ret {
 };
 
 struct dsync_ibc_settings {
+	/* Server hostname. Used for determining which server does the
+	   locking. */
+	const char *hostname;
 	/* if non-NULL, sync only this namespace */
 	const char *sync_ns_prefix;
 	/* if non-NULL, sync only this mailbox name */
@@ -36,6 +39,7 @@ struct dsync_ibc_settings {
 
 	enum dsync_brain_sync_type sync_type;
 	enum dsync_brain_flags brain_flags;
+	unsigned int lock_timeout;
 };
 
 void dsync_ibc_init_pipe(struct dsync_ibc **ibc1_r,

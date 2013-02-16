@@ -65,8 +65,9 @@ static const struct {
 	},
 	{ .name = "handshake",
 	  .chr = 'H',
+	  .required_keys = "hostname",
 	  .optional_keys = "sync_ns_prefix sync_box sync_type debug sync_all_namespaces "
-	  	"send_mail_requests backup_send backup_recv"
+	  	"send_mail_requests backup_send backup_recv lock_timeout"
 	},
 	{ .name = "mailbox_state",
 	  .chr = 'S',
@@ -533,6 +534,7 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 
 	str_append_c(str, items[ITEM_HANDSHAKE].chr);
 	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_HANDSHAKE]);
+	dsync_serializer_encode_add(encoder, "hostname", set->hostname);
 	if (set->sync_ns_prefix != NULL) {
 		dsync_serializer_encode_add(encoder, "sync_ns_prefix",
 					    set->sync_ns_prefix);
@@ -554,8 +556,12 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 		sync_type[0] = 's';
 		break;
 	}
-	i_assert(sync_type[0] != '\0');
-	dsync_serializer_encode_add(encoder, "sync_type", sync_type);
+	if (sync_type[0] != '\0')
+		dsync_serializer_encode_add(encoder, "sync_type", sync_type);
+	if (set->lock_timeout > 0) {
+		dsync_serializer_encode_add(encoder, "lock_timeout",
+			t_strdup_printf("%u", set->lock_timeout));
+	}
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_SEND_MAIL_REQUESTS) != 0)
 		dsync_serializer_encode_add(encoder, "send_mail_requests", "");
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_BACKUP_SEND) != 0)
@@ -595,6 +601,8 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 	p_clear(pool);
 	set = p_new(pool, struct dsync_ibc_settings, 1);
 
+	value = dsync_deserializer_decode_get(decoder, "hostname");
+	set->hostname = p_strdup(pool, value);
 	if (dsync_deserializer_decode_try(decoder, "sync_ns_prefix", &value))
 		set->sync_ns_prefix = p_strdup(pool, value);
 	if (dsync_deserializer_decode_try(decoder, "sync_box", &value))
@@ -613,6 +621,14 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 		default:
 			dsync_ibc_input_error(ibc, decoder,
 				"Unknown sync_type: %s", value);
+			return DSYNC_IBC_RECV_RET_TRYAGAIN;
+		}
+	}
+	if (dsync_deserializer_decode_try(decoder, "lock_timeout", &value)) {
+		if (str_to_uint(value, &set->lock_timeout) < 0 ||
+		    set->lock_timeout == 0) {
+			dsync_ibc_input_error(ibc, decoder,
+				"Invalid lock_timeout: %s", value);
 			return DSYNC_IBC_RECV_RET_TRYAGAIN;
 		}
 	}

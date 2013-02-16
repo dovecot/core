@@ -6,9 +6,12 @@
 #include "dsync-mailbox.h"
 #include "dsync-mailbox-state.h"
 
+#define DSYNC_LOCK_FILENAME ".dovecot-sync.lock"
+
 struct dsync_mailbox_tree_sync_change;
 
 enum dsync_state {
+	DSYNC_STATE_MASTER_RECV_HANDSHAKE,
 	DSYNC_STATE_SLAVE_RECV_HANDSHAKE,
 	/* if sync_type=STATE, the master brain knows the saved "last common
 	   mailbox state". this state is sent to the slave. */
@@ -48,6 +51,11 @@ struct dsync_brain {
 	struct mail_namespace *sync_ns;
 	char *sync_box;
 	enum dsync_brain_sync_type sync_type;
+
+	unsigned int lock_timeout;
+	int lock_fd;
+	const char *lock_path;
+	struct file_lock *lock;
 
 	char hierarchy_sep;
 	struct dsync_mailbox_tree *local_mailbox_tree;

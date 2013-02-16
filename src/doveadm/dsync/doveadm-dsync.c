@@ -30,7 +30,6 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_LOCK_FILENAME ".dovecot-sync.lock"
 #define DSYNC_COMMON_GETOPT_ARGS "+adEfl:m:n:r:Rs:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 
@@ -165,14 +164,12 @@ mirror_get_remote_cmd_line(const char *const *argv,
 }
 
 static const char *const *
-get_ssh_cmd_args(struct dsync_cmd_context *ctx,
-		 const char *host, const char *login, const char *mail_user)
+get_ssh_cmd_args(const char *host, const char *login, const char *mail_user)
 {
 	static struct var_expand_table static_tab[] = {
 		{ 'u', NULL, "user" },
 		{ '\0', NULL, "login" },
 		{ '\0', NULL, "host" },
-		{ '\0', NULL, "lock_timeout" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -186,7 +183,6 @@ get_ssh_cmd_args(struct dsync_cmd_context *ctx,
 	tab[0].value = mail_user;
 	tab[1].value = login;
 	tab[2].value = host;
-	tab[3].value = dec2str(ctx->lock_timeout);
 
 	t_array_init(&cmd_args, 8);
 	str = t_str_new(128);
@@ -255,7 +251,7 @@ static bool mirror_get_remote_cmd(struct dsync_cmd_context *ctx,
 
 	/* we'll assume virtual users, so in user@host it really means not to
 	   give ssh a username, but to give dsync -u user parameter. */
-	*cmd_args_r = get_ssh_cmd_args(ctx, host, "", user);
+	*cmd_args_r = get_ssh_cmd_args(host, "", user);
 	return TRUE;
 }
 
@@ -371,8 +367,7 @@ static void cmd_dsync_run_remote(struct mail_user *user)
 }
 
 static const char *const *
-parse_ssh_location(struct dsync_cmd_context *ctx,
-		   const char *location, const char *username)
+parse_ssh_location(const char *location, const char *username)
 {
 	const char *host, *login;
 
@@ -383,7 +378,7 @@ parse_ssh_location(struct dsync_cmd_context *ctx,
 		host = location;
 		login = "";
 	}
-	return get_ssh_cmd_args(ctx, host, login, username);
+	return get_ssh_cmd_args(host, login, username);
 }
 
 static struct dsync_ibc *
@@ -404,8 +399,9 @@ cmd_dsync_icb_stream_init(struct dsync_cmd_context *ctx,
 }
 
 static int
-cmd_dsync_run_real(struct dsync_cmd_context *ctx, struct mail_user *user)
+cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
+	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	struct dsync_ibc *ibc, *ibc2 = NULL;
 	struct dsync_brain *brain;
 	struct mail_namespace *sync_ns = NULL;
@@ -445,6 +441,7 @@ cmd_dsync_run_real(struct dsync_cmd_context *ctx, struct mail_user *user)
 		brain_flags |= DSYNC_BRAIN_FLAG_DEBUG;
 	brain = dsync_brain_master_init(user, ibc, sync_ns, ctx->mailbox,
 					ctx->sync_type, brain_flags,
+					ctx->lock_timeout,
 					ctx->state_input == NULL ? "" :
 					ctx->state_input);
 
@@ -488,62 +485,6 @@ cmd_dsync_run_real(struct dsync_cmd_context *ctx, struct mail_user *user)
 	if (ctx->fd_err != -1)
 		i_close_fd(&ctx->fd_err);
 	return ret;
-}
-
-static int dsync_lock(struct mail_user *user, unsigned int lock_timeout,
-		      const char **path_r, struct file_lock **lock_r)
-{
-	const char *home, *path;
-	int ret, fd;
-
-	if ((ret = mail_user_get_home(user, &home)) < 0) {
-		i_error("Couldn't look up user's home dir");
-		return -1;
-	}
-	if (ret == 0) {
-		i_error("User has no home directory");
-		return -1;
-	}
-
-	path = t_strconcat(home, "/"DSYNC_LOCK_FILENAME, NULL);
-	fd = creat(path, 0600);
-	if (fd == -1) {
-		i_error("Couldn't create lock %s: %m", path);
-		return -1;
-	}
-
-	if (file_wait_lock(fd, path, F_WRLCK, FILE_LOCK_METHOD_FCNTL,
-			   lock_timeout, lock_r) <= 0) {
-		i_error("Couldn't lock %s: %m", path);
-		(void)close(fd);
-		return -1;
-	}
-	*path_r = path;
-	return fd;
-}
-
-static int
-cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
-{
-	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
-	const char *lock_path;
-	struct file_lock *lock;
-	int lock_fd, ret;
-
-	if (!ctx->lock)
-		return cmd_dsync_run_real(ctx, user);
-
-	lock_fd = dsync_lock(user, ctx->lock_timeout, &lock_path, &lock);
-	if (lock_fd == -1) {
-		_ctx->exit_code = EX_TEMPFAIL;
-		return -1;
-	} else {
-		ret = cmd_dsync_run_real(ctx, user);
-		file_lock_free(&lock);
-		if (close(lock_fd) < 0)
-			i_error("close(%s) failed: %m", lock_path);
-		return ret;
-	}
 }
 
 static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
@@ -599,7 +540,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			ctx->remote_name = NULL;
 		}
 		remote_cmd_args = ctx->remote_name == NULL ? NULL :
-			parse_ssh_location(ctx, ctx->remote_name,
+			parse_ssh_location(ctx->remote_name,
 					   _ctx->cur_username);
 	}
 
