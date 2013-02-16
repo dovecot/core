@@ -1222,7 +1222,7 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 		}
 
 		newmail->final_uid = new_uid;
-		if (newmail->link != NULL) {
+		if (newmail->link != NULL && newmail->link != newmail) {
 			/* skip processing the linked mail */
 			newmail->link->skip = TRUE;
 		}
