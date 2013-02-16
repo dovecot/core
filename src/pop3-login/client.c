@@ -232,7 +232,10 @@ void client_send_reply(struct client *client, enum pop3_cmd_reply reply,
 		prefix = "+OK";
 		break;
 	case POP3_CMD_REPLY_TEMPFAIL:
-		prefix = "-ERR [IN-USE]";
+		prefix = "-ERR [SYS/TEMP]";
+		break;
+	case POP3_CMD_REPLY_AUTH_ERROR:
+		prefix = "-ERR [AUTH]";
 		break;
 	case POP3_CMD_REPLY_ERROR:
 		break;

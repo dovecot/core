@@ -99,7 +99,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 			 const char **error_r)
 {
 	const char *lookup_error_str =
-		"-ERR [IN-USE] "MAIL_ERRSTR_CRITICAL_MSG"\r\n";
+		"-ERR [SYS/TEMP] "MAIL_ERRSTR_CRITICAL_MSG"\r\n";
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
 	struct client *client;
@@ -184,7 +184,7 @@ static void login_client_failed(const struct master_login_client *client,
 {
 	const char *msg;
 
-	msg = t_strdup_printf("-ERR [IN-USE] %s\r\n", errormsg);
+	msg = t_strdup_printf("-ERR [SYS/TEMP] %s\r\n", errormsg);
 	if (write(client->fd, msg, strlen(msg)) < 0) {
 		/* ignored */
 	}
@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 
 	if (IS_STANDALONE() && getuid() == 0 &&
 	    net_getpeername(1, NULL, NULL) == 0) {
-		printf("-ERR pop3 binary must not be started from "
+		printf("-ERR [SYS/PERM] pop3 binary must not be started from "
 		       "inetd, use pop3-login instead.\n");
 		return 1;
 	}

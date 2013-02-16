@@ -240,7 +240,7 @@ static int init_mailbox(struct client *client, const char **error_r)
 			*error_r = "Can't sync mailbox: "
 				"Messages keep getting expunged";
 		}
-		client_send_line(client, "-ERR [IN-USE] Couldn't sync mailbox.");
+		client_send_line(client, "-ERR [SYS/TEMP] Couldn't sync mailbox.");
 	}
 	return -1;
 }
@@ -283,7 +283,6 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	struct client *client;
         enum mailbox_flags flags;
 	const char *errmsg;
-	enum mail_error error;
 	pool_t pool;
 
 	/* always use nonblocking I/O */
@@ -330,11 +329,9 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	client->mailbox = mailbox_alloc(client->inbox_ns->list, "INBOX", flags);
 	storage = mailbox_get_storage(client->mailbox);
 	if (mailbox_open(client->mailbox) < 0) {
-		errmsg = t_strdup_printf("Couldn't open INBOX: %s",
-					 mailbox_get_last_error(client->mailbox,
-								&error));
-		i_error("%s", errmsg);
-		client_send_line(client, "-ERR [IN-USE] %s", errmsg);
+		i_error("Couldn't open INBOX: %s",
+			mailbox_get_last_error(client->mailbox, NULL));
+		client_send_storage_error(client);
 		client_destroy(client, "Couldn't open INBOX");
 		return NULL;
 	}
@@ -603,15 +600,27 @@ void client_send_line(struct client *client, const char *fmt, ...)
 
 void client_send_storage_error(struct client *client)
 {
+	const char *errstr;
+	enum mail_error error;
+
 	if (mailbox_is_inconsistent(client->mailbox)) {
-		client_send_line(client, "-ERR Mailbox is in inconsistent "
+		client_send_line(client, "-ERR [SYS/TEMP] Mailbox is in inconsistent "
 				 "state, please relogin.");
 		client_disconnect(client, "Mailbox is in inconsistent state.");
 		return;
 	}
 
-	client_send_line(client, "-ERR %s",
-			 mailbox_get_last_error(client->mailbox, NULL));
+	errstr = mailbox_get_last_error(client->mailbox, &error);
+	switch (error) {
+	case MAIL_ERROR_TEMP:
+	case MAIL_ERROR_NOSPACE:
+	case MAIL_ERROR_INUSE:
+		client_send_line(client, "-ERR [SYS/TEMP] %s", errstr);
+		break;
+	default:
+		client_send_line(client, "-ERR [SYS/PERM] %s", errstr);
+		break;
+	}
 }
 
 bool client_handle_input(struct client *client)
@@ -731,7 +740,7 @@ void clients_destroy_all(void)
 	while (pop3_clients != NULL) {
 		if (pop3_clients->cmd == NULL) {
 			client_send_line(pop3_clients,
-				"-ERR Server shutting down.");
+				"-ERR [SYS/TEMP] Server shutting down.");
 		}
 		client_destroy(pop3_clients, "Server shutting down.");
 	}

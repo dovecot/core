@@ -6,7 +6,8 @@
 	"TOP\r\n" \
 	"UIDL\r\n" \
 	"RESP-CODES\r\n" \
-	"PIPELINING\r\n"
+	"PIPELINING\r\n" \
+	"AUTH-RESP-CODE\r\n"
 
 /* + SASL */
 
