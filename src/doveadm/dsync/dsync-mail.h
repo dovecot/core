@@ -77,6 +77,8 @@ struct dsync_mail_change {
 };
 
 int dsync_mail_get_hdr_hash(struct mail *mail, const char **hdr_hash_r);
+int dsync_mail_fill(struct mail *mail, struct dsync_mail *dmail_r,
+		    const char **error_field_r);
 
 void dsync_mail_change_dup(pool_t pool, const struct dsync_mail_change *src,
 			   struct dsync_mail_change *dest_r);

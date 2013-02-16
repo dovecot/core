@@ -247,6 +247,7 @@ void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 
 		i_assert(brain->failed);
 		(void)dsync_mailbox_import_deinit(&brain->box_importer,
+						  FALSE,
 						  &last_common_uid,
 						  &last_common_modseq,
 						  &last_common_pvt_modseq,

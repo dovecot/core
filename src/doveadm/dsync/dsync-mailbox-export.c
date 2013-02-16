@@ -566,49 +566,30 @@ dsync_mailbox_export_body_search_deinit(struct dsync_mailbox_exporter *exporter)
 static int dsync_mailbox_export_mail(struct dsync_mailbox_exporter *exporter,
 				     struct mail *mail)
 {
-	struct dsync_mail *dmail = &exporter->dsync_mail;
 	struct dsync_mail_guid_instances *instances;
-	const char *guid, *str;
+	const char *error_field;
 
-	if (mail_get_special(mail, MAIL_FETCH_GUID, &guid) < 0)
-		return dsync_mail_error(exporter, mail, "GUID");
+	if (dsync_mail_fill(mail, &exporter->dsync_mail, &error_field) < 0)
+		return dsync_mail_error(exporter, mail, error_field);
 
-	memset(dmail, 0, sizeof(*dmail));
-	if (!seq_range_exists(&exporter->requested_uids, mail->uid))
-		dmail->guid = guid;
-	else {
-		dmail->uid = mail->uid;
-		dmail->guid = "";
-	}
-
-	instances = *guid == '\0' ? NULL :
-		hash_table_lookup(exporter->export_guids, guid);
+	instances = *exporter->dsync_mail.guid == '\0' ? NULL :
+		hash_table_lookup(exporter->export_guids,
+				  exporter->dsync_mail.guid);
 	if (instances != NULL) {
 		/* GUID found */
-	} else if (dmail->uid != 0) {
+	} else if (exporter->dsync_mail.uid != 0) {
 		/* mail requested by UID */
 	} else {
 		exporter->error = p_strdup_printf(exporter->pool,
 			"GUID unexpectedly changed for UID=%u GUID=%s",
-			mail->uid, guid);
+			mail->uid, exporter->dsync_mail.guid);
 		return -1;
 	}
 
-	dmail->input_mail = mail;
-	dmail->input_mail_uid = mail->uid;
-	if (mail_get_stream(mail, NULL, NULL, &dmail->input) < 0)
-		return dsync_mail_error(exporter, mail, "body");
-
-	if (mail_get_special(mail, MAIL_FETCH_UIDL_BACKEND, &dmail->pop3_uidl) < 0)
-		return dsync_mail_error(exporter, mail, "pop3-uidl");
-	if (mail_get_special(mail, MAIL_FETCH_POP3_ORDER, &str) < 0)
-		return dsync_mail_error(exporter, mail, "pop3-order");
-	if (*str != '\0') {
-		if (str_to_uint(str, &dmail->pop3_order) < 0)
-			i_unreached();
-	}
-	if (mail_get_received_date(mail, &dmail->received_date) < 0)
-		return dsync_mail_error(exporter, mail, "received-date");
+	if (!seq_range_exists(&exporter->requested_uids, mail->uid))
+		exporter->dsync_mail.uid = 0;
+	else
+		exporter->dsync_mail.guid = "";
 
 	/* this message was successfully returned, don't try retrying it */
 	if (instances != NULL)

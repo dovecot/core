@@ -169,7 +169,7 @@ static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 		state.last_common_pvt_modseq =
 			brain->local_dsync_box.highest_pvt_modseq;
 	} else {
-		if (dsync_mailbox_import_deinit(&brain->box_importer,
+		if (dsync_mailbox_import_deinit(&brain->box_importer, TRUE,
 						&state.last_common_uid,
 						&state.last_common_modseq,
 						&state.last_common_pvt_modseq,

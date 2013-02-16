@@ -54,6 +54,46 @@ int dsync_mail_get_hdr_hash(struct mail *mail, const char **hdr_hash_r)
 	return ret;
 }
 
+int dsync_mail_fill(struct mail *mail, struct dsync_mail *dmail_r,
+		    const char **error_field_r)
+{
+	const char *guid, *str;
+
+	memset(dmail_r, 0, sizeof(*dmail_r));
+
+	if (mail_get_special(mail, MAIL_FETCH_GUID, &guid) < 0) {
+		*error_field_r = "GUID";
+		return -1;
+	}
+	dmail_r->guid = guid;
+	dmail_r->uid = mail->uid;
+
+	dmail_r->input_mail = mail;
+	dmail_r->input_mail_uid = mail->uid;
+	if (mail_get_stream(mail, NULL, NULL, &dmail_r->input) < 0) {
+		*error_field_r = "body";
+		return -1;
+	}
+
+	if (mail_get_special(mail, MAIL_FETCH_UIDL_BACKEND, &dmail_r->pop3_uidl) < 0) {
+		*error_field_r = "pop3-uidl";
+		return -1;
+	}
+	if (mail_get_special(mail, MAIL_FETCH_POP3_ORDER, &str) < 0) {
+		*error_field_r = "pop3-order";
+		return -1;
+	}
+	if (*str != '\0') {
+		if (str_to_uint(str, &dmail_r->pop3_order) < 0)
+			i_unreached();
+	}
+	if (mail_get_received_date(mail, &dmail_r->received_date) < 0) {
+		*error_field_r = "received-date";
+		return -1;
+	}
+	return 0;
+}
+
 static void
 const_string_array_dup(pool_t pool, const ARRAY_TYPE(const_string) *src,
 		       ARRAY_TYPE(const_string) *dest)
