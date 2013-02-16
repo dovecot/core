@@ -83,6 +83,8 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 					   set->imap_max_line_length, FALSE);
 	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
 	o_stream_set_no_error_handling(client->output, TRUE);
+	i_stream_set_name(client->input, "<imap client>");
+	o_stream_set_name(client->output, "<imap client>");
 
 	o_stream_set_flush_callback(client->output, client_output, client);
 

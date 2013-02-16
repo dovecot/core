@@ -29,6 +29,7 @@ int main(void)
 		test_primes,
 		test_priorityq,
 		test_seq_range_array,
+		test_str,
 		test_strescape,
 		test_strfuncs,
 		test_str_find,

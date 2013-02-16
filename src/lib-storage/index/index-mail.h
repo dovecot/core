@@ -98,6 +98,7 @@ struct index_mail_data {
 	struct istream *stream, *filter_stream;
 	struct tee_istream *tee_stream;
 	struct message_size hdr_size, body_size;
+	struct istream *parser_input;
 	struct message_parser_ctx *parser_ctx;
 	int parsing_count;
 	ARRAY_TYPE(keywords) keywords;

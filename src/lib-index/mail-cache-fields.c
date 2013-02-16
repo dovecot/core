@@ -280,6 +280,8 @@ mail_cache_header_fields_get_offset(struct mail_cache *cache,
 			file_cache_invalidate(cache->file_cache, offset,
 					      field_hdr_size);
 		}
+		if (cache->read_buf != NULL)
+			buffer_set_used_size(cache->read_buf, 0);
 		ret = mail_cache_map(cache, offset, field_hdr_size, &data);
 		if (ret < 0)
 			return -1;

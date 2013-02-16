@@ -286,6 +286,7 @@ test_lib_SOURCES = \
 	test-primes.c \
 	test-priorityq.c \
 	test-seq-range-array.c \
+	test-str.c \
 	test-strescape.c \
 	test-strfuncs.c \
 	test-str-find.c \

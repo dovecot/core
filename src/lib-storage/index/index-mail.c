@@ -805,13 +805,43 @@ static void index_mail_cache_dates(struct index_mail *mail)
 static int index_mail_parse_body_finish(struct index_mail *mail,
 					enum index_cache_field field)
 {
-	if (message_parser_deinit(&mail->data.parser_ctx,
-				  &mail->data.parts) < 0) {
-		mail_set_cache_corrupted(&mail->mail.mail,
-					 MAIL_FETCH_MESSAGE_PARTS);
+	struct istream *parser_input = mail->data.parser_input;
+	int ret;
+
+	if (parser_input == NULL) {
+		ret = message_parser_deinit(&mail->data.parser_ctx,
+					    &mail->data.parts) < 0 ? 0 : 1;
+	} else {
+		mail->data.parser_input = NULL;
+		i_stream_ref(parser_input);
+		ret = message_parser_deinit(&mail->data.parser_ctx,
+					    &mail->data.parts) < 0 ? 0 : 1;
+		if (parser_input->stream_errno == 0 ||
+		    parser_input->stream_errno == EPIPE) {
+			/* EPIPE = input already closed. allow the caller to
+			   decide if that is an error or not. */
+			i_assert(i_stream_read(parser_input) == -1 &&
+				 !i_stream_have_bytes_left(parser_input));
+		} else {
+			errno = parser_input->stream_errno;
+			mail_storage_set_critical(mail->mail.mail.box->storage,
+				"mail parser: read(%s, box=%s) failed: %m",
+				i_stream_get_name(parser_input),
+				mail->mail.mail.box->vname);
+			ret = -1;
+		}
+		i_stream_unref(&parser_input);
+	}
+	if (ret <= 0) {
+		if (ret == 0) {
+			mail_set_cache_corrupted(&mail->mail.mail,
+						 MAIL_FETCH_MESSAGE_PARTS);
+		}
+		mail->data.parts = NULL;
 		mail->data.parsed_bodystructure = FALSE;
 		return -1;
 	}
+
 	if (mail->data.no_caching) {
 		/* if we're here because we aborted parsing, don't get any
 		   further or we may crash while generating output from
@@ -1221,6 +1251,7 @@ static void index_mail_close_streams_full(struct index_mail *mail, bool closing)
 			mail_set_cache_corrupted(&mail->mail.mail,
 						 MAIL_FETCH_MESSAGE_PARTS);
 		}
+		mail->data.parser_input = NULL;
 	}
 	if (data->filter_stream != NULL)
 		i_stream_unref(&data->filter_stream);
