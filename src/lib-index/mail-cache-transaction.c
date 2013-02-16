@@ -308,7 +308,6 @@ mail_cache_link_records(struct mail_cache_transaction_ctx *ctx,
 	ARRAY_TYPE(uint32_t) seq_offsets;
 	uint32_t i, seq_count, reset_id, prev_offset, *offsetp;
 	const void *data;
-	bool expunged;
 
 	i_assert(ctx->min_seq != 0);
 
@@ -323,7 +322,7 @@ mail_cache_link_records(struct mail_cache_transaction_ctx *ctx,
 		else {
 			mail_index_lookup_ext_full(ctx->view->trans_view, seqs[i],
 						   ctx->cache->ext_id, &map,
-						   &data, &expunged);
+						   &data, NULL);
 			prev_offsetp = data;
 
 			if (prev_offsetp == NULL || *prev_offsetp == 0)

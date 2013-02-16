@@ -63,10 +63,8 @@ uint32_t mail_cache_lookup_cur_offset(struct mail_index_view *view,
 	struct mail_index_map *map;
 	const void *data;
 	uint32_t offset;
-	bool expunged;
 
-	mail_index_lookup_ext_full(view, seq, cache->ext_id,
-				   &map, &data, &expunged);
+	mail_index_lookup_ext_full(view, seq, cache->ext_id, &map, &data, NULL);
 	if (data == NULL) {
 		/* no cache offsets */
 		return 0;
