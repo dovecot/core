@@ -1069,13 +1069,15 @@ dsync_mailbox_find_common_expunged_uid(struct dsync_mailbox_importer *importer,
 		return FALSE;
 
 	i_assert(local_change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE);
-	if (!dsync_mail_change_guid_equals(local_change, change->guid)) {
+	if (dsync_mail_change_guid_equals(local_change, change->guid))
+		importer->last_common_uid = change->uid;
+	else if (change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE)
+		dsync_mailbox_common_uid_found(importer);
+	else {
 		/* GUID mismatch for two expunged mails. dsync can't update
 		   GUIDs for already expunged messages, so we can't immediately
 		   determine that the rest of the messages are a mismatch. so
 		   for now we'll just skip over this pair. */
-	} else {
-		importer->last_common_uid = change->uid;
 	}
 	return TRUE;
 }
