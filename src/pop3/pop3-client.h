@@ -45,6 +45,9 @@ struct client {
 	struct mailbox *mailbox;
 	struct mailbox_transaction_context *trans;
 
+	struct timeout *to_session_dotlock_refresh;
+	struct dotlock *session_dotlock;
+
 	time_t last_input, last_output;
 	unsigned int bad_counter;
 	unsigned int highest_expunged_fetch_msgnum;

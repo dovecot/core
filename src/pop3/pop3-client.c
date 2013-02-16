@@ -10,6 +10,7 @@
 #include "str.h"
 #include "llist.h"
 #include "hostpid.h"
+#include "file-dotlock.h"
 #include "var-expand.h"
 #include "master-service.h"
 #include "mail-storage.h"
@@ -37,6 +38,9 @@
    transaction. This allows the mailbox to become unlocked. */
 #define CLIENT_COMMIT_TIMEOUT_MSECS (10*1000)
 
+#define POP3_LOCK_FNAME "dovecot-pop3-session.lock"
+#define POP3_SESSION_DOTLOCK_STALE_TIMEOUT_SECS (60*5)
+
 extern struct pop3_client_vfuncs pop3_client_vfuncs;
 
 struct pop3_module_register pop3_module_register = { 0 };
@@ -47,6 +51,13 @@ unsigned int pop3_client_count;
 static enum mail_sort_type pop3_sort_program[] = {
 	MAIL_SORT_POP3_ORDER,
 	MAIL_SORT_END
+};
+
+static const struct dotlock_settings session_dotlock_set = {
+	.timeout = 10,
+	.stale_timeout = POP3_SESSION_DOTLOCK_STALE_TIMEOUT_SECS,
+	.lock_suffix = "",
+	.use_io_notify = TRUE
 };
 
 static void client_input(struct client *client);
@@ -273,6 +284,49 @@ static enum uidl_keys parse_uidl_keymask(const char *format)
 	return mask;
 }
 
+static void pop3_lock_session_refresh(struct client *client)
+{
+	if (file_dotlock_touch(client->session_dotlock) < 0) {
+		client_send_line(client,
+			"-ERR [SYS/TEMP] Couldn't update POP3 session lock.");
+		client_destroy(client, "Couldn't lock POP3 session");
+	}
+}
+
+static int pop3_lock_session(struct client *client)
+{
+	const struct mail_storage_settings *mail_set =
+		mail_storage_service_user_get_mail_set(client->service_user);
+	struct dotlock_settings dotlock_set;
+	const char *dir, *path;
+	int ret;
+
+	if (!mailbox_list_get_root_path(client->inbox_ns->list,
+					MAILBOX_LIST_PATH_TYPE_DIR, &dir) &&
+	    !mailbox_list_get_root_path(client->inbox_ns->list,
+					MAILBOX_LIST_PATH_TYPE_INDEX, &dir)) {
+		i_error("pop3_lock_session: Storage has no root/index directory, "
+			"can't create a POP3 session lock file");
+		return -1;
+	}
+	path = t_strdup_printf("%s/"POP3_LOCK_FNAME, dir);
+
+	dotlock_set = session_dotlock_set;
+	dotlock_set.use_excl_lock = mail_set->dotlock_use_excl;
+	dotlock_set.nfs_flush = mail_set->mail_nfs_storage;
+
+	ret = file_dotlock_create(&dotlock_set, path, 0,
+				  &client->session_dotlock);
+	if (ret < 0)
+		i_error("file_dotlock_create(%s) failed: %m", path);
+	else if (ret > 0) {
+		client->to_session_dotlock_refresh =
+			timeout_add(POP3_SESSION_DOTLOCK_STALE_TIMEOUT_SECS*1000,
+				    pop3_lock_session_refresh, client);
+	}
+	return ret;
+}
+
 int client_create(int fd_in, int fd_out, const char *session_id,
 		  struct mail_user *user,
 		  struct mail_storage_service_user *service_user,
@@ -284,6 +338,7 @@ int client_create(int fd_in, int fd_out, const char *session_id,
         enum mailbox_flags flags;
 	const char *errmsg;
 	pool_t pool;
+	int ret;
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd_in, TRUE);
@@ -308,10 +363,8 @@ int client_create(int fd_in, int fd_out, const char *session_id,
         client->last_input = ioloop_time;
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
-	if (!set->pop3_lock_session) {
-		client->to_commit = timeout_add(CLIENT_COMMIT_TIMEOUT_MSECS,
-						client_commit_timeout, client);
-	}
+	client->to_commit = timeout_add(CLIENT_COMMIT_TIMEOUT_MSECS,
+					client_commit_timeout, client);
 
 	client->user = user;
 
@@ -321,11 +374,17 @@ int client_create(int fd_in, int fd_out, const char *session_id,
 	client->inbox_ns = mail_namespace_find_inbox(user->namespaces);
 	i_assert(client->inbox_ns != NULL);
 
+	if (set->pop3_lock_session && (ret = pop3_lock_session(client)) <= 0) {
+		client_send_line(client, ret < 0 ?
+			"-ERR [SYS/TEMP] Failed to create POP3 session lock." :
+			"-ERR [IN-USE] Mailbox is locked by another POP3 session.");
+		client_destroy(client, "Couldn't lock POP3 session");
+		return -1;
+	}
+
 	flags = MAILBOX_FLAG_POP3_SESSION;
 	if (!set->pop3_no_flag_updates)
 		flags |= MAILBOX_FLAG_DROP_RECENT;
-	if (set->pop3_lock_session)
-		flags |= MAILBOX_FLAG_KEEP_LOCKED;
 	client->mailbox = mailbox_alloc(client->inbox_ns->list, "INBOX", flags);
 	storage = mailbox_get_storage(client->mailbox);
 	if (mailbox_open(client->mailbox) < 0) {
@@ -507,6 +566,11 @@ static void client_default_destroy(struct client *client, const char *reason)
 			"\n", NULL));
 	}
 	mail_user_unref(&client->user);
+
+	if (client->session_dotlock != NULL)
+		file_dotlock_delete(&client->session_dotlock);
+	if (client->to_session_dotlock_refresh != NULL)
+		timeout_remove(&client->to_session_dotlock_refresh);
 
 	if (client->uidl_pool != NULL)
 		pool_unref(&client->uidl_pool);
