@@ -244,7 +244,6 @@ static void mbox_sync_find_index_md5(struct mbox_sync_context *sync_ctx,
         const struct mail_index_record *rec = NULL;
 	uint32_t messages_count;
 	const void *data;
-	bool expunged;
 
 	if (sync_ctx->index_reset) {
 		*rec_r = NULL;
@@ -258,7 +257,7 @@ static void mbox_sync_find_index_md5(struct mbox_sync_context *sync_ctx,
 		mail_index_lookup_ext(sync_ctx->sync_view,
 				      sync_ctx->idx_seq,
 				      sync_ctx->mbox->md5hdr_ext_idx,
-				      &data, &expunged);
+				      &data, NULL);
 		if (data != NULL && memcmp(data, hdr_md5_sum, 16) == 0)
 			break;
 
@@ -278,13 +277,12 @@ mbox_sync_update_from_offset(struct mbox_sync_context *sync_ctx,
 {
 	const void *data;
 	uint64_t offset;
-	bool expunged;
 
 	if (!nocheck) {
 		/* see if from_offset needs updating */
 		mail_index_lookup_ext(sync_ctx->sync_view, sync_ctx->idx_seq,
 				      sync_ctx->mbox->mbox_ext_idx,
-				      &data, &expunged);
+				      &data, NULL);
 		if (data != NULL &&
 		    *((const uint64_t *)data) == mail->from_offset)
 			return;
@@ -316,11 +314,9 @@ mbox_sync_update_md5_if_changed(struct mbox_sync_mail_context *mail_ctx)
 {
         struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
 	const void *ext_data;
-	bool expunged;
 
 	mail_index_lookup_ext(sync_ctx->sync_view, sync_ctx->idx_seq,
-			      sync_ctx->mbox->md5hdr_ext_idx,
-			      &ext_data, &expunged);
+			      sync_ctx->mbox->md5hdr_ext_idx, &ext_data, NULL);
 	if (ext_data == NULL ||
 	    memcmp(mail_ctx->hdr_md5_sum, ext_data, 16) != 0) {
 		mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,

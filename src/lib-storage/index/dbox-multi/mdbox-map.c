@@ -266,10 +266,8 @@ mdbox_map_lookup_seq(struct mdbox_map *map, uint32_t seq,
 	const struct mdbox_map_mail_index_record *rec;
 	const void *data;
 	uint32_t uid;
-	bool expunged;
 
-	mail_index_lookup_ext(map->view, seq, map->map_ext_id,
-			      &data, &expunged);
+	mail_index_lookup_ext(map->view, seq, map->map_ext_id, &data, NULL);
 	rec = data;
 
 	if (rec == NULL || rec->file_id == 0) {
@@ -322,7 +320,6 @@ int mdbox_map_lookup_full(struct mdbox_map *map, uint32_t map_uid,
 	const uint16_t *ref16_p;
 	const void *data;
 	uint32_t seq;
-	bool expunged;
 	int ret;
 
 	if (mdbox_map_open_or_create(map) < 0)
@@ -335,8 +332,7 @@ int mdbox_map_lookup_full(struct mdbox_map *map, uint32_t map_uid,
 		return -1;
 	*rec_r = *rec;
 
-	mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
-			      &data, &expunged);
+	mail_index_lookup_ext(map->view, seq, map->ref_ext_id, &data, NULL);
 	if (data == NULL) {
 		mdbox_map_set_corrupted(map, "missing ref extension");
 		return -1;
@@ -352,19 +348,18 @@ int mdbox_map_view_lookup_rec(struct mdbox_map *map,
 {
 	const uint16_t *ref16_p;
 	const void *data;
-	bool expunged;
 
 	memset(rec_r, 0, sizeof(*rec_r));
 	mail_index_lookup_uid(view, seq, &rec_r->map_uid);
 
-	mail_index_lookup_ext(view, seq, map->map_ext_id, &data, &expunged);
+	mail_index_lookup_ext(view, seq, map->map_ext_id, &data, NULL);
 	if (data == NULL) {
 		mdbox_map_set_corrupted(map, "missing map extension");
 		return -1;
 	}
 	memcpy(&rec_r->rec, data, sizeof(rec_r->rec));
 
-	mail_index_lookup_ext(view, seq, map->ref_ext_id, &data, &expunged);
+	mail_index_lookup_ext(view, seq, map->ref_ext_id, &data, NULL);
 	if (data == NULL) {
 		mdbox_map_set_corrupted(map, "missing ref extension");
 		return -1;
@@ -605,7 +600,6 @@ int mdbox_map_update_refcount(struct mdbox_map_transaction_context *ctx,
 	struct mdbox_map *map = ctx->atomic->map;
 	const void *data;
 	uint32_t seq;
-	bool expunged;
 	int old_diff, new_diff;
 
 	if (unlikely(ctx->trans == NULL))
@@ -624,8 +618,7 @@ int mdbox_map_update_refcount(struct mdbox_map_transaction_context *ctx,
 		}
 		return -1;
 	}
-	mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
-			      &data, &expunged);
+	mail_index_lookup_ext(map->view, seq, map->ref_ext_id, &data, NULL);
 	old_diff = data == NULL ? 0 : *((const uint16_t *)data);
 	ctx->changed = TRUE;
 	new_diff = mail_index_atomic_inc_ext(ctx->trans, seq,
@@ -672,7 +665,6 @@ int mdbox_map_remove_file_id(struct mdbox_map *map, uint32_t file_id)
 	const struct mail_index_header *hdr;
 	const struct mdbox_map_mail_index_record *rec;
 	const void *data;
-	bool expunged;
 	uint32_t seq;
 	int ret = 0;
 
@@ -686,7 +678,7 @@ int mdbox_map_remove_file_id(struct mdbox_map *map, uint32_t file_id)
 	hdr = mail_index_get_header(map->view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		mail_index_lookup_ext(map->view, seq, map->map_ext_id,
-				      &data, &expunged);
+				      &data, NULL);
 		if (data == NULL) {
 			mdbox_map_set_corrupted(map, "missing map extension");
 			ret = -1;

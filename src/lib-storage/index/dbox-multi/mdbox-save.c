@@ -51,11 +51,9 @@ mdbox_copy_file_get_file(struct mailbox_transaction_context *t,
 		(struct mdbox_save_context *)t->save_ctx;
 	const struct mdbox_mail_index_record *rec;
 	const void *data;
-	bool expunged;
 	uint32_t file_id;
 
-	mail_index_lookup_ext(t->view, seq, ctx->mbox->ext_id,
-			      &data, &expunged);
+	mail_index_lookup_ext(t->view, seq, ctx->mbox->ext_id, &data, NULL);
 	rec = data;
 
 	if (mdbox_map_lookup(ctx->mbox->storage->map, rec->map_uid,
@@ -251,7 +249,6 @@ mdbox_save_set_map_uids(struct mdbox_save_context *ctx,
 	const struct dbox_save_mail *mails;
 	unsigned int i, count;
 	const void *data;
-	bool expunged;
 	uint32_t next_map_uid = first_map_uid;
 
 	mdbox_update_header(mbox, ctx->ctx.trans, NULL);
@@ -261,7 +258,7 @@ mdbox_save_set_map_uids(struct mdbox_save_context *ctx,
 	mails = array_get(&ctx->mails, &count);
 	for (i = 0; i < count; i++) {
 		mail_index_lookup_ext(view, mails[i].seq, mbox->ext_id,
-				      &data, &expunged);
+				      &data, NULL);
 		old_rec = data;
 		if (old_rec != NULL && old_rec->map_uid != 0) {
 			/* message was copied. keep the existing map uid */
@@ -413,7 +410,6 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	struct mdbox_mail_index_record rec;
 	const void *guid_data;
 	guid_128_t wanted_guid;
-	bool expunged;
 
 	ctx->ctx.finished = TRUE;
 
@@ -431,7 +427,7 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	}
 
 	mail_index_lookup_ext(mail->transaction->view, mail->seq,
-			      src_mbox->guid_ext_id, &guid_data, &expunged);
+			      src_mbox->guid_ext_id, &guid_data, NULL);
 	if (guid_data == NULL || guid_128_is_empty(guid_data)) {
 		/* missing GUID, something's broken. don't copy using
 		   refcounting. */

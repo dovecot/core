@@ -400,7 +400,6 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 	struct mdbox_rebuild_msg *rec;
 	const void *data;
 	const uint8_t *guid_p;
-	bool expunged;
 	uint32_t old_seq, new_seq, uid, map_uid;
 
 	/* Rebuild the mailbox's index. Note that index is reset at this point,
@@ -409,7 +408,7 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 	hdr = mail_index_get_header(view);
 	for (old_seq = 1; old_seq <= hdr->messages_count; old_seq++) {
 		mail_index_lookup_ext(view, old_seq, mbox->ext_id,
-				      &data, &expunged);
+				      &data, NULL);
 		if (data == NULL) {
 			memset(&new_dbox_rec, 0, sizeof(new_dbox_rec));
 			map_uid = 0;
@@ -419,7 +418,7 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 		}
 
 		mail_index_lookup_ext(view, old_seq, mbox->guid_ext_id,
-				      &data, &expunged);
+				      &data, NULL);
 		guid_p = data;
 
 		/* see if we can find this message based on
@@ -764,7 +763,6 @@ static void rebuild_update_refcounts(struct mdbox_storage_rebuild_context *ctx)
 	const void *data;
 	struct mdbox_rebuild_msg **msgs;
 	const uint16_t *ref16_p;
-	bool expunged;
 	uint32_t seq, map_uid;
 	unsigned int i, count;
 
@@ -781,7 +779,7 @@ static void rebuild_update_refcounts(struct mdbox_storage_rebuild_context *ctx)
 
 		mail_index_lookup_ext(ctx->atomic->sync_view, seq,
 				      ctx->storage->map->ref_ext_id,
-				      &data, &expunged);
+				      &data, NULL);
 		ref16_p = data;
 		if (ref16_p == NULL || *ref16_p != msgs[i]->refcount) {
 			mail_index_update_ext(ctx->atomic->sync_trans, seq,

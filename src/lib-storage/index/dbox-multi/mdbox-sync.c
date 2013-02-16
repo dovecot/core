@@ -30,11 +30,10 @@ dbox_sync_verify_expunge_guid(struct mdbox_sync_context *ctx, uint32_t seq,
 {
 	const void *data;
 	uint32_t uid;
-	bool expunged;
 
 	mail_index_lookup_uid(ctx->sync_view, seq, &uid);
 	mail_index_lookup_ext(ctx->sync_view, seq,
-			      ctx->mbox->guid_ext_id, &data, &expunged);
+			      ctx->mbox->guid_ext_id, &data, NULL);
 	if (guid_128_is_empty(guid_128) ||
 	    memcmp(data, guid_128, GUID_128_SIZE) == 0)
 		return 0;
@@ -100,7 +99,6 @@ static int dbox_sync_mark_expunges(struct mdbox_sync_context *ctx)
 	unsigned int n;
 	const void *data;
 	uint32_t seq, uid;
-	bool expunged;
 
 	/* use a separate transaction here so that we can commit the changes
 	   during map transaction */
@@ -109,7 +107,7 @@ static int dbox_sync_mark_expunges(struct mdbox_sync_context *ctx)
 	while (seq_range_array_iter_nth(&iter, n++, &seq)) {
 		mail_index_lookup_uid(ctx->sync_view, seq, &uid);
 		mail_index_lookup_ext(ctx->sync_view, seq,
-				      ctx->mbox->guid_ext_id, &data, &expunged);
+				      ctx->mbox->guid_ext_id, &data, NULL);
 		mail_index_expunge_guid(trans, seq, data);
 	}
 	if (mail_index_transaction_commit(&trans) < 0)

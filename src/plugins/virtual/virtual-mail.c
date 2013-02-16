@@ -117,12 +117,11 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq, bool saving)
 	struct virtual_backend_box *bbox;
 	const struct virtual_mail_index_record *vrec;
 	const void *data;
-	bool expunged;
 
 	i_assert(!saving);
 
 	mail_index_lookup_ext(mail->transaction->view, seq,
-			      mbox->virtual_ext_id, &data, &expunged);
+			      mbox->virtual_ext_id, &data, NULL);
 	vrec = data;
 
 	bbox = virtual_backend_box_lookup(mbox, vrec->mailbox_id);

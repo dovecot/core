@@ -70,7 +70,6 @@ static void virtual_search_get_records(struct mail_search_context *ctx,
 	const struct virtual_mail_index_record *vrec;
 	struct virtual_search_record srec;
 	const void *data;
-	bool expunged;
 	int result;
 
 	memset(&srec, 0, sizeof(srec));
@@ -84,7 +83,7 @@ static void virtual_search_get_records(struct mail_search_context *ctx,
 			/* possible match, save and check later */
 			mail_index_lookup_ext(mbox->box.view, ctx->seq,
 					      mbox->virtual_ext_id,
-					      &data, &expunged);
+					      &data, NULL);
 			vrec = data;
 
 			srec.mailbox_id = vrec->mailbox_id;

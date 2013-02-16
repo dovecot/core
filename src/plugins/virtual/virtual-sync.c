@@ -343,7 +343,6 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 	enum modify_type modify_type;
 	const char *kw_names[2];
 	uint32_t vseq, seq1, seq2;
-	bool expunged;
 
 	switch (sync_rec->type) {
 	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
@@ -361,7 +360,7 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 
 	for (vseq = seq1; vseq <= seq2; vseq++) {
 		mail_index_lookup_ext(ctx->sync_view, vseq, virtual_ext_id,
-				      &data, &expunged);
+				      &data, NULL);
 		vrec = data;
 
 		bbox = virtual_backend_box_lookup(ctx->mbox, vrec->mailbox_id);
@@ -633,7 +632,6 @@ virtual_sync_backend_handle_old_vmsgs(struct virtual_sync_context *ctx,
 	struct virtual_backend_uidmap uidmap;
 	const void *data;
 	uint32_t seq, vseq, vuid, messages;
-	bool expunged;
 
 	/* add the currently existing UIDs to uidmap. remember the messages
 	   that were already expunged */
@@ -644,8 +642,7 @@ virtual_sync_backend_handle_old_vmsgs(struct virtual_sync_context *ctx,
 	for (vseq = 1; vseq <= messages; vseq++) {
 		mail_index_lookup_uid(ctx->sync_view, vseq, &vuid);
 		mail_index_lookup_ext(ctx->sync_view, vseq,
-				      ctx->mbox->virtual_ext_id,
-				      &data, &expunged);
+				      ctx->mbox->virtual_ext_id, &data, NULL);
 		vrec = data;
 		if (vrec->mailbox_id == bbox->mailbox_id) {
 			uidmap.real_uid = vrec->real_uid;
@@ -1070,7 +1067,6 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 	struct virtual_add_record add_rec;
 	const struct virtual_mail_index_record *vrec;
 	const void *data;
-	bool expunged;
 	uint32_t i, vseq, vuid, messages;
 	unsigned int j = 0, uidmap_count = 0;
 
@@ -1083,7 +1079,7 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 	vmails = i_new(struct virtual_sync_mail, messages);
 	for (vseq = 1; vseq <= messages; vseq++) {
 		mail_index_lookup_ext(ctx->sync_view, vseq, virtual_ext_id,
-				      &data, &expunged);
+				      &data, NULL);
 		vrec = data;
 		vmails[vseq-1].vseq = vseq;
 		vmails[vseq-1].vrec = *vrec;
@@ -1293,7 +1289,6 @@ virtual_sync_apply_existing_appends(struct virtual_sync_context *ctx)
 	const struct virtual_mail_index_record *vrec;
 	struct virtual_backend_uidmap uidmap;
 	const void *data;
-	bool expunged;
 	uint32_t seq, seq2;
 
 	if (!ctx->mbox->uids_mapped)
@@ -1313,7 +1308,7 @@ virtual_sync_apply_existing_appends(struct virtual_sync_context *ctx)
 	memset(&uidmap, 0, sizeof(uidmap));
 	for (; seq <= seq2; seq++) {
 		mail_index_lookup_ext(ctx->sync_view, seq, virtual_ext_id,
-				      &data, &expunged);
+				      &data, NULL);
 		vrec = data;
 		uidmap.real_uid = vrec->real_uid;
 		mail_index_lookup_uid(ctx->sync_view, seq, &uidmap.virtual_uid);
@@ -1347,7 +1342,6 @@ virtual_sync_apply_existing_expunges(struct virtual_mailbox *mbox,
 	struct seq_range_iter iter;
 	const struct virtual_mail_index_record *vrec;
 	const void *data;
-	bool expunged;
 	unsigned int n = 0;
 	uint32_t seq;
 
@@ -1357,7 +1351,7 @@ virtual_sync_apply_existing_expunges(struct virtual_mailbox *mbox,
 	seq_range_array_iter_init(&iter, isync_ctx->expunges);
 	while (seq_range_array_iter_nth(&iter, n++, &seq)) {
 		mail_index_lookup_ext(mbox->box.view, seq,
-				      mbox->virtual_ext_id, &data, &expunged);
+				      mbox->virtual_ext_id, &data, NULL);
 		vrec = data;
 
 		if (bbox == NULL || bbox->mailbox_id != vrec->mailbox_id) {

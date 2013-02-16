@@ -21,9 +21,8 @@ int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,
 	struct mdbox_index_header hdr;
 	const void *data;
 	uint32_t uid, cur_map_uid_validity;
-	bool expunged;
 
-	mail_index_lookup_ext(view, seq, mbox->ext_id, &data, &expunged);
+	mail_index_lookup_ext(view, seq, mbox->ext_id, &data, NULL);
 	dbox_rec = data;
 	if (dbox_rec == NULL || dbox_rec->map_uid == 0) {
 		mail_index_lookup_uid(view, seq, &uid);
@@ -156,10 +155,9 @@ static int mdbox_mail_get_save_date(struct mail *mail, time_t *date_r)
 		(struct mdbox_mailbox *)mail->transaction->box;
 	const struct mdbox_mail_index_record *dbox_rec;
 	const void *data;
-	bool expunged;
 
 	mail_index_lookup_ext(mail->transaction->view, mail->seq,
-			      mbox->ext_id, &data, &expunged);
+			      mbox->ext_id, &data, NULL);
 	dbox_rec = data;
 	if (dbox_rec == NULL || dbox_rec->map_uid == 0) {
 		/* lost for some reason, use fallback */
