@@ -72,7 +72,8 @@ static const struct {
 	{ .name = "mailbox_state",
 	  .chr = 'S',
 	  .required_keys = "mailbox_guid last_uidvalidity last_common_uid "
-	  	"last_common_modseq last_common_pvt_modseq"
+	  	"last_common_modseq last_common_pvt_modseq",
+	  .optional_keys = "changes_during_sync"
 	},
 	{ .name = "mailbox_tree_node",
 	  .chr = 'N',
@@ -677,6 +678,8 @@ dsync_ibc_stream_send_mailbox_state(struct dsync_ibc *_ibc,
 				    dec2str(state->last_common_modseq));
 	dsync_serializer_encode_add(encoder, "last_common_pvt_modseq",
 				    dec2str(state->last_common_pvt_modseq));
+	if (state->changes_during_sync)
+		dsync_serializer_encode_add(encoder, "changes_during_sync", "");
 
 	dsync_serializer_encode_finish(&encoder, str);
 	dsync_ibc_stream_send_string(ibc, str);
@@ -722,6 +725,8 @@ dsync_ibc_stream_recv_mailbox_state(struct dsync_ibc *_ibc,
 		dsync_ibc_input_error(ibc, decoder, "Invalid last_common_pvt_modseq");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
+	if (dsync_deserializer_decode_try(decoder, "changes_during_sync", &value))
+		state_r->changes_during_sync = TRUE;
 	return DSYNC_IBC_RECV_RET_OK;
 }
 

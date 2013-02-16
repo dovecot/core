@@ -140,7 +140,6 @@ static bool dsync_brain_send_mail_request(struct dsync_brain *brain)
 static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 {
 	struct dsync_mailbox_state state;
-	bool changes_during_sync;
 	const char *error;
 
 	if (brain->box_recv_state < DSYNC_BOX_STATE_RECV_LAST_COMMON ||
@@ -174,13 +173,14 @@ static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 						&state.last_common_uid,
 						&state.last_common_modseq,
 						&state.last_common_pvt_modseq,
-						&changes_during_sync) < 0) {
+						&state.changes_during_sync) < 0) {
 			brain->failed = TRUE;
 			return;
 		}
-		if (changes_during_sync)
+		if (state.changes_during_sync)
 			brain->changes_during_sync = TRUE;
 	}
+	brain->mailbox_state = state;
 	dsync_ibc_send_mailbox_state(brain->ibc, &state);
 }
 
@@ -242,7 +242,20 @@ static bool dsync_brain_recv_last_common(struct dsync_brain *brain)
 		return TRUE;
 	}
 	i_assert(brain->box_send_state == DSYNC_BOX_STATE_DONE);
-	brain->mailbox_state = state;
+	i_assert(memcmp(state.mailbox_guid, brain->local_dsync_box.mailbox_guid,
+			sizeof(state.mailbox_guid)) == 0);
+
+	/* normally the last_common_* values should be the same in local and
+	   remote, but during unexpected changes they may differ. use the
+	   values that are lower as the final state. */
+	if (brain->mailbox_state.last_common_uid > state.last_common_uid)
+		brain->mailbox_state.last_common_uid = state.last_common_uid;
+	if (brain->mailbox_state.last_common_modseq > state.last_common_modseq)
+		brain->mailbox_state.last_common_modseq = state.last_common_modseq;
+	if (brain->mailbox_state.last_common_pvt_modseq > state.last_common_pvt_modseq)
+		brain->mailbox_state.last_common_pvt_modseq = state.last_common_pvt_modseq;
+	if (state.changes_during_sync)
+		brain->changes_during_sync = TRUE;
 
 	dsync_brain_sync_mailbox_deinit(brain);
 	return TRUE;
