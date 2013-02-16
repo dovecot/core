@@ -1819,6 +1819,11 @@ reassign_unwanted_uids(struct dsync_mailbox_importer *importer,
 			*changes_during_sync_r = TRUE;
 		}
 	}
+	if (*changes_during_sync_r) {
+		/* conflicting changes during sync, revert our last-common-uid
+		   back to a safe value. */
+		importer->last_common_uid = importer->local_uid_next - 1;
+	}
 	return ret;
 }
 
