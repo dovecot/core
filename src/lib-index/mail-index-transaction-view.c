@@ -139,14 +139,16 @@ tview_lookup_full(struct mail_index_view *view, uint32_t seq,
 		/* FIXME: is this right to return index map..?
 		   it's not there yet. */
 		*map_r = view->index->map;
-		*expunged_r = FALSE;
+		if (expunged_r != NULL)
+			*expunged_r = FALSE;
 		return mail_index_transaction_lookup(tview->t, seq);
 	}
 
 	rec = tview->super->lookup_full(view, seq, map_r, expunged_r);
 	rec = tview_apply_flag_updates(tview, *map_r, rec, seq);
 
-	if (mail_index_transaction_is_expunged(tview->t, seq))
+	if (expunged_r != NULL &&
+	    mail_index_transaction_is_expunged(tview->t, seq))
 		*expunged_r = TRUE;
 	return rec;
 }
@@ -413,7 +415,8 @@ tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 
 	i_assert(ext_id < array_count(&view->index->extensions));
 
-	*expunged_r = FALSE;
+	if (expunged_r != NULL)
+		*expunged_r = FALSE;
 
 	if (array_is_created(&tview->t->ext_rec_updates) &&
 	    ext_id < array_count(&tview->t->ext_rec_updates)) {

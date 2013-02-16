@@ -181,13 +181,15 @@ view_lookup_full(struct mail_index_view *view, uint32_t seq,
 
 		/* we'll need to return something so the caller doesn't crash */
 		*map_r = view->map;
-		*expunged_r = TRUE;
+		if (expunged_r != NULL)
+			*expunged_r = TRUE;
 		return &broken_rec;
 	}
 	if (view->map == view->index->map) {
 		/* view's mapping is latest. we can use it directly. */
 		*map_r = view->map;
-		*expunged_r = FALSE;
+		if (expunged_r != NULL)
+			*expunged_r = FALSE;
 		return rec;
 	}
 
@@ -205,7 +207,8 @@ view_lookup_full(struct mail_index_view *view, uint32_t seq,
 	if (seq == 0) {
 		/* everything is expunged from head. use the old record. */
 		*map_r = view->map;
-		*expunged_r = TRUE;
+		if (expunged_r != NULL)
+			*expunged_r = TRUE;
 		return rec;
 	}
 
@@ -222,12 +225,14 @@ view_lookup_full(struct mail_index_view *view, uint32_t seq,
 		   returned record doesn't get invalidated after next sync. */
 		mail_index_view_ref_map(view, view->index->map);
 		*map_r = view->index->map;
-		*expunged_r = FALSE;
+		if (expunged_r != NULL)
+			*expunged_r = FALSE;
 		return head_rec;
 	} else {
 		/* expuned from head. use the old record. */
 		*map_r = view->map;
-		*expunged_r = TRUE;
+		if (expunged_r != NULL)
+			*expunged_r = TRUE;
 		return rec;
 	}
 }
@@ -334,10 +339,9 @@ static void view_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 {
 	struct mail_index_map *map;
 	const void *data;
-	bool expunged;
 
 	mail_index_lookup_ext_full(view, seq, view->index->keywords_ext_id,
-				   &map, &data, &expunged);
+				   &map, &data, NULL);
 	mail_index_data_lookup_keywords(map, data, keyword_idx);
 }
 
@@ -442,9 +446,7 @@ const struct mail_index_record *
 mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
 		       struct mail_index_map **map_r)
 {
-	bool expunged;
-
-	return view->v.lookup_full(view, seq, map_r, &expunged);
+	return view->v.lookup_full(view, seq, map_r, NULL);
 }
 
 bool mail_index_is_expunged(struct mail_index_view *view, uint32_t seq)
