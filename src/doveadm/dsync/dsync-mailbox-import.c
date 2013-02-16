@@ -227,15 +227,16 @@ dsync_mail_change_guid_equals(const struct dsync_mail_change *change,
 	return memcmp(change_guid_128, guid_128, GUID_128_SIZE) == 0;
 }
 
-static bool
-importer_next_mail(struct dsync_mailbox_importer *importer, uint32_t wanted_uid)
+static int
+importer_try_next_mail(struct dsync_mailbox_importer *importer,
+		       uint32_t wanted_uid)
 {
+	struct mail_private *pmail;
 	const char *hdr_hash;
-	int ret = 0;
 
 	if (importer->cur_mail == NULL) {
 		/* end of search */
-		return FALSE;
+		return -1;
 	}
 	while (importer->cur_mail->seq < importer->next_local_seq ||
 	       importer->cur_mail->uid < wanted_uid) {
@@ -254,7 +255,7 @@ importer_next_mail(struct dsync_mailbox_importer *importer, uint32_t wanted_uid)
 			importer->cur_mail = NULL;
 			importer->cur_guid = NULL;
 			importer->cur_hdr_hash = NULL;
-			return FALSE;
+			return -1;
 		}
 		importer->cur_uid_has_change = FALSE;
 	}
@@ -264,28 +265,33 @@ importer_next_mail(struct dsync_mailbox_importer *importer, uint32_t wanted_uid)
 		if (mail_get_special(importer->cur_mail, MAIL_FETCH_GUID,
 				     &importer->cur_guid) < 0) {
 			dsync_mail_error(importer, importer->cur_mail, "GUID");
-			ret = -1;
+			return 0;
 		}
 	} else {
 		if (dsync_mail_get_hdr_hash(importer->cur_mail,
 					    &hdr_hash) < 0) {
 			dsync_mail_error(importer, importer->cur_mail,
 					 "header hash");
-			ret = -1;
-		} else {
-			struct mail_private *pmail =
-				(struct mail_private *)importer->cur_mail;
-			importer->cur_hdr_hash = p_strdup(pmail->pool, hdr_hash);
-		}
-	}
-	if (ret < 0) {
-		importer->next_local_seq = importer->cur_mail->seq + 1;
-		return importer_next_mail(importer, wanted_uid);
+			return 0;
+		} 
+		pmail = (struct mail_private *)importer->cur_mail;
+		importer->cur_hdr_hash = p_strdup(pmail->pool, hdr_hash);
 	}
 	/* make sure next_local_seq gets updated in case we came here
 	   because of min_uid */
 	importer->next_local_seq = importer->cur_mail->seq;
-	return TRUE;
+	return 1;
+}
+
+static bool
+importer_next_mail(struct dsync_mailbox_importer *importer, uint32_t wanted_uid)
+{
+	int ret;
+
+	while ((ret = importer_try_next_mail(importer, wanted_uid)) == 0 &&
+	       !importer->failed)
+		importer->next_local_seq = importer->cur_mail->seq + 1;
+	return ret > 0;
 }
 
 static int
