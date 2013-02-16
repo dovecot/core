@@ -273,10 +273,10 @@ static enum uidl_keys parse_uidl_keymask(const char *format)
 	return mask;
 }
 
-struct client *client_create(int fd_in, int fd_out, const char *session_id,
-			     struct mail_user *user,
-			     struct mail_storage_service_user *service_user,
-			     const struct pop3_settings *set)
+int client_create(int fd_in, int fd_out, const char *session_id,
+		  struct mail_user *user,
+		  struct mail_storage_service_user *service_user,
+		  const struct pop3_settings *set, struct client **client_r)
 {
 	struct mail_storage *storage;
 	const char *ident;
@@ -333,14 +333,14 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 			mailbox_get_last_error(client->mailbox, NULL));
 		client_send_storage_error(client);
 		client_destroy(client, "Couldn't open INBOX");
-		return NULL;
+		return -1;
 	}
 	client->mail_set = mail_storage_get_settings(storage);
 
 	if (init_mailbox(client, &errmsg) < 0) {
 		i_error("Couldn't init INBOX: %s", errmsg);
 		client_destroy(client, "Mailbox init failed");
-		return NULL;
+		return -1;
 	}
 
 	client->uidl_keymask =
@@ -371,7 +371,8 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 		hook_client_created(&client);
 
 	pop3_refresh_proctitle();
-	return client;
+	*client_r = client;
+	return 0;
 }
 
 static const char *client_build_uidl_change_string(struct client *client)

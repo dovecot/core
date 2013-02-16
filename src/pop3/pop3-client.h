@@ -103,10 +103,10 @@ extern unsigned int pop3_client_count;
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int fd_in, int fd_out, const char *session_id,
-			     struct mail_user *user,
-			     struct mail_storage_service_user *service_user,
-			     const struct pop3_settings *set);
+int client_create(int fd_in, int fd_out, const char *session_id,
+		  struct mail_user *user,
+		  struct mail_storage_service_user *service_user,
+		  const struct pop3_settings *set, struct client **client_r);
 void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 
 /* Disconnect client connection */
