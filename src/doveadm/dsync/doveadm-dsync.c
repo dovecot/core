@@ -333,29 +333,34 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	return 0;
 }
 
-static void
-cmd_dsync_run_remote(struct dsync_cmd_context *ctx, struct mail_user *user)
+static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx)
 {
 	int status;
-
-	i_set_failure_prefix("dsync-local(%s): ", user->username);
-	io_loop_run(current_ioloop);
 
 	/* wait for the remote command to finish to see any final errors.
 	   don't wait very long though. */
 	alarm(DSYNC_REMOTE_CMD_EXIT_WAIT_SECS);
-	if (wait(&status) == -1) {
-		if (errno != EINTR)
-			i_error("wait() failed: %m");
-		else {
+	if (waitpid(ctx->remote_pid, &status, 0) == -1) {
+		if (errno != EINTR) {
+			i_error("waitpid(%ld) failed: %m",
+				(long)ctx->remote_pid);
+		} else {
 			i_error("Remote command process isn't dying, killing it");
-			if (kill(ctx->remote_pid, SIGKILL) < 0 && errno != ESRCH)
-				i_error("kill() failed: %m");
+			if (kill(ctx->remote_pid, SIGKILL) < 0 && errno != ESRCH) {
+				i_error("kill(%ld, SIGKILL) failed: %m",
+					(long)ctx->remote_pid);
+			}
 		}
 	} else if (WIFSIGNALED(status))
 		i_error("Remote command died with signal %d", WTERMSIG(status));
 	else if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
 		i_error("Remote command returned error %d", WEXITSTATUS(status));
+}
+
+static void cmd_dsync_run_remote(struct mail_user *user)
+{
+	i_set_failure_prefix("dsync-local(%s): ", user->username);
+	io_loop_run(current_ioloop);
 }
 
 static const char *const *
@@ -439,7 +444,7 @@ cmd_dsync_run_real(struct dsync_cmd_context *ctx, struct mail_user *user)
 		if (cmd_dsync_run_local(ctx, user, brain, ibc2) < 0)
 			ret = -1;
 	} else {
-		cmd_dsync_run_remote(ctx, user);
+		cmd_dsync_run_remote(user);
 	}
 
 	if (ctx->state_input != NULL) {
@@ -466,6 +471,8 @@ cmd_dsync_run_real(struct dsync_cmd_context *ctx, struct mail_user *user)
 	}
 	if (ctx->fd_err != -1)
 		i_close_fd(&ctx->fd_err);
+	if (ctx->remote)
+		cmd_dsync_wait_remote(ctx);
 	return ret;
 }
 
