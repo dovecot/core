@@ -278,7 +278,6 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set)
 {
-	struct mail_namespace *ns;
 	struct mail_storage *storage;
 	const char *ident;
 	struct client *client;
@@ -320,20 +319,15 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	pop3_client_count++;
 	DLLIST_PREPEND(&pop3_clients, client);
 
-	ns = mail_namespace_find_inbox(user->namespaces);
-	if (ns == NULL) {
-		client_send_line(client, "-ERR [IN-USE] No INBOX namespace for user.");
-		client_destroy(client, "No INBOX namespace for user.");
-		return NULL;
-	}
-	client->inbox_ns = ns;
+	client->inbox_ns = mail_namespace_find_inbox(user->namespaces);
+	i_assert(client->inbox_ns != NULL);
 
 	flags = MAILBOX_FLAG_POP3_SESSION;
 	if (!set->pop3_no_flag_updates)
 		flags |= MAILBOX_FLAG_DROP_RECENT;
 	if (set->pop3_lock_session)
 		flags |= MAILBOX_FLAG_KEEP_LOCKED;
-	client->mailbox = mailbox_alloc(ns->list, "INBOX", flags);
+	client->mailbox = mailbox_alloc(client->inbox_ns->list, "INBOX", flags);
 	storage = mailbox_get_storage(client->mailbox);
 	if (mailbox_open(client->mailbox) < 0) {
 		errmsg = t_strdup_printf("Couldn't open INBOX: %s",
