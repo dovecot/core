@@ -544,7 +544,6 @@ int solr_connection_post(struct solr_connection *conn, const char *cmd)
 	struct istream *post_payload;
 
 	i_assert(!conn->posting);
-	conn->posting = TRUE;
 
 	http_req = solr_connection_post_request(conn);
 	post_payload = i_stream_create_from_data(cmd, strlen(cmd));
@@ -557,9 +556,5 @@ int solr_connection_post(struct solr_connection *conn, const char *cmd)
 	conn->request_status = 0;
 	http_client_wait(conn->http_client);
 
-	if (conn->request_status < 0)
-		return -1;
-
-	conn->posting = FALSE;
 	return conn->request_status;
 }
