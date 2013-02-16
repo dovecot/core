@@ -25,8 +25,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  uint64_t remote_highest_modseq,
 			  uint64_t remote_highest_pvt_modseq,
 			  enum dsync_mailbox_import_flags flags);
-void dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
-				 const struct dsync_mail_change *change);
+int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
+				const struct dsync_mail_change *change);
 void dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer);
 const struct dsync_mail_request *
 dsync_mailbox_import_next_request(struct dsync_mailbox_importer *importer);

@@ -74,7 +74,8 @@ static bool dsync_brain_recv_mail_change(struct dsync_brain *brain)
 			brain->box_recv_state = DSYNC_BOX_STATE_MAILS;
 		return TRUE;
 	}
-	dsync_mailbox_import_change(brain->box_importer, change);
+	if (dsync_mailbox_import_change(brain->box_importer, change) < 0)
+		brain->failed = TRUE;
 	return TRUE;
 }
 

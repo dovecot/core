@@ -35,6 +35,7 @@ struct importer_new_mail {
 	unsigned int uid_in_local:1;
 	unsigned int uid_is_usable:1;
 	unsigned int skip:1;
+	unsigned int expunged:1;
 	unsigned int copy_failed:1;
 };
 
@@ -432,10 +433,9 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 	if (newmail->uid_in_local) {
 		importer->cur_mail_skip = TRUE;
 		importer->next_local_seq++;
-	} else {
-		/* NOTE: assumes save_change is allocated from importer pool */
-		newmail->change = save_change;
 	}
+	/* NOTE: assumes save_change is allocated from importer pool */
+	newmail->change = save_change;
 
 	array_append(&importer->newmails, &newmail, 1);
 	newmail_link(importer, newmail,
@@ -502,7 +502,6 @@ dsync_import_set_mail(struct dsync_mailbox_importer *importer,
 		dsync_import_unexpected_state(importer, t_strdup_printf(
 			"Unexpected GUID mismatch for UID=%u: %s != %s",
 			change->uid, guid, change->guid));
-		importer->last_common_uid = 1;
 		importer->failed = TRUE;
 		return FALSE;
 	}
@@ -518,7 +517,6 @@ static bool dsync_check_cur_guid(struct dsync_mailbox_importer *importer,
 		dsync_import_unexpected_state(importer, t_strdup_printf(
 			"Unexpected GUID mismatch (2) for UID=%u: %s != %s",
 			change->uid, importer->cur_guid, change->guid));
-		importer->last_common_uid = 1;
 		importer->failed = TRUE;
 		return FALSE;
 	}
@@ -935,7 +933,8 @@ dsync_mailbox_import_save(struct dsync_mailbox_importer *importer,
 		/* the local mail is expunged. we'll decide later if we want
 		   to save this mail locally or expunge it form remote. */
 		i_assert(change->uid > importer->last_common_uid);
-		i_assert(change->uid < importer->cur_mail->uid);
+		i_assert(importer->cur_mail == NULL ||
+			 change->uid < importer->cur_mail->uid);
 		array_append(&importer->maybe_saves, &save, 1);
 	}
 }
@@ -1128,13 +1127,16 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 	dsync_mailbox_find_common_expunged_uid(importer, change);
 }
 
-void dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
-				 const struct dsync_mail_change *change)
+int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
+				const struct dsync_mail_change *change)
 {
 	i_assert(!importer->new_uids_assigned);
 	i_assert(importer->prev_uid < change->uid);
 
 	importer->prev_uid = change->uid;
+
+	if (importer->failed)
+		return -1;
 
 	if (!importer->last_common_uid_found)
 		dsync_mailbox_find_common_uid(importer, change);
@@ -1155,7 +1157,7 @@ void dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 			i_assert(change->type != DSYNC_MAIL_CHANGE_TYPE_SAVE);
 		} else if (change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE) {
 			/* ignore */
-			return;
+			return 0;
 		} else {
 			i_assert(change->type == DSYNC_MAIL_CHANGE_TYPE_SAVE);
 		}
@@ -1171,6 +1173,7 @@ void dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 		   find its GUID */
 		if (change->uid > importer->last_common_uid) {
 			i_assert(change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE ||
+				 importer->cur_mail == NULL ||
 				 change->uid < importer->cur_mail->uid);
 		}
 	}
@@ -1187,24 +1190,7 @@ void dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 		dsync_mailbox_import_flag_change(importer, change);
 		break;
 	}
-}
-
-static void
-dsync_msg_update_uid(struct dsync_mailbox_importer *importer,
-		     uint32_t old_uid, uint32_t new_uid)
-{
-	struct mail_save_context *save_ctx;
-
-	IMPORTER_DEBUG_CHANGE(importer);
-
-	if (!mail_set_uid(importer->mail, old_uid))
-		return;
-
-	save_ctx = mailbox_save_alloc(importer->ext_trans);
-	mailbox_save_copy_flags(save_ctx, importer->mail);
-	mailbox_save_set_uid(save_ctx, new_uid);
-	if (mailbox_move(&save_ctx, importer->mail) == 0)
-		array_append(&importer->wanted_uids, &new_uid, 1);
+	return importer->failed ? -1 : 0;
 }
 
 static void
@@ -1212,7 +1198,6 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 {
 	struct importer_new_mail *newmail, *const *newmailp;
 	uint32_t common_uid_next, new_uid;
-	bool linked_uid;
 
 	common_uid_next = I_MAX(importer->local_uid_next,
 				importer->remote_uid_next);
@@ -1220,11 +1205,6 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 		newmail = *newmailp;
 		if (newmail->skip) {
 			/* already assigned */
-			if (newmail->uid_in_local) {
-				IMPORTER_DEBUG_CHANGE(importer);
-				if (mail_set_uid(importer->mail, newmail->local_uid))
-					mail_expunge(importer->mail);
-			}
 			continue;
 		}
 
@@ -1232,30 +1212,18 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 		if (newmail->uid_is_usable) {
 			/* keep the UID */
 			new_uid = newmail->final_uid;
-			linked_uid = FALSE;
 		} else if (newmail->link != NULL &&
 			   newmail->link->uid_is_usable) {
+			/* we can use the linked message's UID and expunge
+			   this mail */
 			new_uid = newmail->link->final_uid;
-			linked_uid = TRUE;
 		} else {
 			new_uid = common_uid_next++;
-			linked_uid = FALSE;
 		}
 
-		if (newmail->uid_in_local && newmail->final_uid != new_uid) {
-			/* local UID changed, reassign it by copying */
-			dsync_msg_update_uid(importer, newmail->final_uid,
-					     new_uid);
-		} else if (linked_uid && newmail->link->uid_in_local) {
-			/* the linked message already exists. we'll just need
-			   to forget about this message. */
-			i_assert(!newmail->uid_in_local);
-			newmail->skip = TRUE;
-		}
 		newmail->final_uid = new_uid;
-
-		if (newmail->link != NULL && !newmail->skip) {
-			/* skip the linked mail */
+		if (newmail->link != NULL) {
+			/* skip processing the linked mail */
 			newmail->link->skip = TRUE;
 		}
 	}
@@ -1265,13 +1233,13 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 
 static int
 dsync_mailbox_import_local_uid(struct dsync_mailbox_importer *importer,
-			       struct importer_new_mail *mail,
+			       uint32_t uid, const char *guid,
 			       struct dsync_mail *dmail_r)
 {
 	const char *error_field, *errstr;
 	enum mail_error error;
 
-	if (!mail_set_uid(importer->mail, mail->local_uid))
+	if (!mail_set_uid(importer->mail, uid))
 		return 0;
 
 	if (dsync_mail_fill(importer->mail, dmail_r, &error_field) < 0) {
@@ -1281,25 +1249,136 @@ dsync_mailbox_import_local_uid(struct dsync_mailbox_importer *importer,
 
 		i_error("Mailbox %s: Can't lookup %s for UID=%u: %s",
 			mailbox_get_vname(importer->box),
-			error_field, mail->local_uid, errstr);
+			error_field, uid, errstr);
 		return -1;
 	}
-	if (*mail->guid != '\0' && strcmp(mail->guid, dmail_r->guid) != 0) {
+	if (*guid != '\0' && strcmp(guid, dmail_r->guid) != 0) {
 		dsync_import_unexpected_state(importer, t_strdup_printf(
 			"Unexpected GUID mismatch (3) for UID=%u: %s != %s",
-			mail->local_uid, dmail_r->guid, mail->guid));
+			uid, dmail_r->guid, guid));
 		return -1;
 	}
 	return 1;
 }
 
-static bool newmails_need_save(struct importer_new_mail *all_newmails)
+static bool
+dsync_msg_change_uid(struct dsync_mailbox_importer *importer,
+		     uint32_t old_uid, uint32_t new_uid)
 {
-	struct importer_new_mail *mail;
+	struct mail_save_context *save_ctx;
 
-	for (mail = all_newmails; mail != NULL; mail = mail->next) {
-		if (!mail->uid_in_local && !mail->skip)
+	IMPORTER_DEBUG_CHANGE(importer);
+
+	if (!mail_set_uid(importer->mail, old_uid))
+		return FALSE;
+
+	save_ctx = mailbox_save_alloc(importer->ext_trans);
+	mailbox_save_copy_flags(save_ctx, importer->mail);
+	mailbox_save_set_uid(save_ctx, new_uid);
+	if (mailbox_move(&save_ctx, importer->mail) < 0)
+		return FALSE;
+	array_append(&importer->wanted_uids, &new_uid, 1);
+	return TRUE;
+}
+
+static bool
+dsync_mailbox_import_change_uid(struct dsync_mailbox_importer *importer,
+				ARRAY_TYPE(seq_range) *unwanted_uids,
+				uint32_t wanted_uid)
+{
+	const struct seq_range *range;
+	unsigned int count;
+
+	while ((count = array_count(unwanted_uids)) > 0) {
+		range = array_idx(unwanted_uids, count-1);
+		if (dsync_msg_change_uid(importer, range->seq2, wanted_uid)) {
+			seq_range_array_remove(unwanted_uids, range->seq2);
 			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static bool
+dsync_mailbox_import_try_local(struct dsync_mailbox_importer *importer,
+			       struct importer_new_mail *all_newmails,
+			       ARRAY_TYPE(seq_range) *local_uids,
+			       ARRAY_TYPE(seq_range) *wanted_uids)
+{
+	ARRAY_TYPE(seq_range) assigned_uids, unwanted_uids;
+	struct seq_range_iter local_iter, wanted_iter;
+	unsigned int local_n, wanted_n;
+	uint32_t local_uid, wanted_uid;
+	struct importer_new_mail *mail;
+	struct dsync_mail dmail;
+
+	if (array_count(local_uids) == 0)
+		return FALSE;
+
+	local_n = wanted_n = 0;
+	seq_range_array_iter_init(&local_iter, local_uids);
+	seq_range_array_iter_init(&wanted_iter, wanted_uids);
+
+	/* wanted_uids contains UIDs that need to exist at the end. those that
+	   don't already exist in local_uids have a higher UID than any
+	   existing local UID */
+	t_array_init(&assigned_uids, array_count(wanted_uids));
+	t_array_init(&unwanted_uids, 8);
+	while (seq_range_array_iter_nth(&local_iter, local_n++, &local_uid)) {
+		if (seq_range_array_iter_nth(&wanted_iter, wanted_n,
+					     &wanted_uid)) {
+			if (local_uid == wanted_uid) {
+				/* we have exactly the UID we want. keep it. */
+				seq_range_array_add(&assigned_uids, wanted_uid);
+				wanted_n++;
+				continue;
+			}
+			i_assert(local_uid < wanted_uid);
+		}
+		/* we no longer want this local UID. */
+		seq_range_array_add(&unwanted_uids, local_uid);
+	}
+
+	/* reuse as many existing messages as possible by changing their UIDs */
+	while (seq_range_array_iter_nth(&wanted_iter, wanted_n, &wanted_uid)) {
+		if (!dsync_mailbox_import_change_uid(importer, &unwanted_uids,
+						     wanted_uid))
+			break;
+		seq_range_array_add(&assigned_uids, wanted_uid);
+		wanted_n++;
+	}
+
+	/* expunge all unwanted messages */
+	local_n = 0; seq_range_array_iter_init(&local_iter, &unwanted_uids);
+	while (seq_range_array_iter_nth(&local_iter, local_n++, &local_uid)) {
+		IMPORTER_DEBUG_CHANGE(importer);
+		if (mail_set_uid(importer->mail, local_uid))
+			mail_expunge(importer->mail);
+	}
+
+	/* mark mails whose UIDs we got to be skipped over later */
+	for (mail = all_newmails; mail != NULL; mail = mail->next) {
+		if (!mail->skip &&
+		    seq_range_exists(&assigned_uids, mail->final_uid))
+			mail->skip = TRUE;
+	}
+
+	if (!seq_range_array_iter_nth(&wanted_iter, wanted_n, &wanted_uid)) {
+		/* we've assigned all wanted UIDs */
+		return TRUE;
+	}
+
+	/* try to find one existing message that we can use to copy to the
+	   other instances */
+	local_n = 0; seq_range_array_iter_init(&local_iter, local_uids);
+	while (seq_range_array_iter_nth(&local_iter, local_n++, &local_uid)) {
+		if (dsync_mailbox_import_local_uid(importer, local_uid,
+						   all_newmails->guid,
+						   &dmail) > 0) {
+			dsync_mailbox_save_newmails(importer, &dmail,
+						    all_newmails);
+			return TRUE;
+		}
 	}
 	return FALSE;
 }
@@ -1308,53 +1387,44 @@ static bool
 dsync_mailbox_import_handle_mail(struct dsync_mailbox_importer *importer,
 				 struct importer_new_mail *all_newmails)
 {
+	ARRAY_TYPE(seq_range) local_uids, wanted_uids;
 	struct dsync_mail_request *request;
 	struct importer_new_mail *mail;
-	struct dsync_mail dmail;
 	const char *request_guid = NULL;
 	uint32_t request_uid = 0;
-	bool failures = FALSE;
-	int ret;
 
-	if (!newmails_need_save(all_newmails))
-		return TRUE;
-
-	/* see if we have a local instance of the mail */
+	/* get the list of the current local UIDs and the wanted UIDs.
+	   find the first remote instance that we can request in case there are
+	   no local instances */
+	t_array_init(&local_uids, 8);
+	t_array_init(&wanted_uids, 8);
 	for (mail = all_newmails; mail != NULL; mail = mail->next) {
-		if (mail->uid_in_local) {
-			ret = dsync_mailbox_import_local_uid(importer, mail,
-							     &dmail);
-			if (ret > 0) {
-				dsync_mailbox_save_newmails(importer, &dmail,
-							    all_newmails);
-				return TRUE;
-			}
-			if (ret < 0)
-				failures = TRUE;
-		} else if (request_guid == NULL) {
+		if (mail->uid_in_local)
+			seq_range_array_add(&local_uids, mail->local_uid);
+		else if (request_guid == NULL) {
 			if (*mail->guid != '\0')
 				request_guid = mail->guid;
 			request_uid = mail->remote_uid;
 			i_assert(request_uid != 0);
 		}
+		if (!mail->skip)
+			seq_range_array_add(&wanted_uids, mail->final_uid);
 	}
-	if (request_uid == 0) {
-		if (failures)
-			importer->failed = TRUE;
-		else {
-			/* all local instances expunged already. */
-		}
-		return TRUE;
-	}
+	i_assert(array_count(&wanted_uids) > 0);
 
-	/* no local instance. request from remote */
-	if (importer->want_mail_requests) {
+	if (!dsync_mailbox_import_try_local(importer, all_newmails,
+					    &local_uids, &wanted_uids)) {
+		/* no local instance. request from remote */
 		IMPORTER_DEBUG_CHANGE(importer);
-		request = array_append_space(&importer->mail_requests);
-		request->guid = request_guid;
-		request->uid = request_uid;
+		if (importer->want_mail_requests) {
+			request = array_append_space(&importer->mail_requests);
+			request->guid = request_guid;
+			request->uid = request_uid;
+		}
+		return FALSE;
 	}
-	return FALSE;
+	/* successfully handled all the mails locally */
+	return TRUE;
 }
 
 static void
@@ -1367,15 +1437,19 @@ dsync_mailbox_import_handle_local_mails(struct dsync_mailbox_importer *importer)
 
 	iter = hash_table_iterate_init(importer->import_guids);
 	while (hash_table_iterate(iter, importer->import_guids, &key, &mail)) {
-		if (dsync_mailbox_import_handle_mail(importer, mail))
-			hash_table_remove(importer->import_guids, key);
+		T_BEGIN {
+			if (dsync_mailbox_import_handle_mail(importer, mail))
+				hash_table_remove(importer->import_guids, key);
+		} T_END;
 	}
 	hash_table_iterate_deinit(&iter);
 
 	iter = hash_table_iterate_init(importer->import_uids);
 	while (hash_table_iterate(iter, importer->import_uids, &key2, &mail)) {
-		if (dsync_mailbox_import_handle_mail(importer, mail))
-			hash_table_remove(importer->import_uids, key2);
+		T_BEGIN {
+			if (dsync_mailbox_import_handle_mail(importer, mail))
+				hash_table_remove(importer->import_uids, key2);
+		} T_END;
 	}
 	hash_table_iterate_deinit(&iter);
 }
@@ -1532,6 +1606,7 @@ static void dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 
 	}
 	if (ret > 0) {
+		i_assert(save_ctx == NULL);
 		array_append(&importer->wanted_uids, &newmail->final_uid, 1);
 		return;
 	}
@@ -1594,16 +1669,7 @@ static void dsync_mailbox_save_newmails(struct dsync_mailbox_importer *importer,
 
 	/* save all instances of the message */
 	for (newmail = all_newmails; newmail != NULL; newmail = newmail->next) {
-		if (newmail->skip) {
-			/* no need to do anything for this mail */
-			continue;
-		}
-		if (newmail->uid_in_local) {
-			/* we already handled this by copying the mail */
-			continue;
-		}
-
-		T_BEGIN {
+		if (!newmail->skip) T_BEGIN {
 			dsync_mailbox_save_body(importer, mail, newmail,
 						all_newmails);
 		} T_END;
@@ -1821,7 +1887,7 @@ dsync_mailbox_import_check_missing_guid_imports(struct dsync_mailbox_importer *i
 	iter = hash_table_iterate_init(importer->import_guids);
 	while (hash_table_iterate(iter, importer->import_guids, &key, &mail)) {
 		for (; mail != NULL; mail = mail->next) {
-			if (mail->uid_in_local || mail->skip)
+			if (mail->skip)
 				continue;
 
 			i_error("Mailbox %s: Remote didn't send mail GUID=%s (UID=%u)",
@@ -1842,7 +1908,7 @@ dsync_mailbox_import_check_missing_uid_imports(struct dsync_mailbox_importer *im
 	iter = hash_table_iterate_init(importer->import_uids);
 	while (hash_table_iterate(iter, importer->import_uids, &key, &mail)) {
 		for (; mail != NULL; mail = mail->next) {
-			if (mail->uid_in_local || mail->skip)
+			if (mail->skip)
 				continue;
 
 			i_error("Mailbox %s: Remote didn't send mail UID=%u",
