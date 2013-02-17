@@ -58,6 +58,20 @@ sync_create_box(struct mailbox *box, const guid_128_t mailbox_guid,
 				mailbox_get_last_error(box, NULL));
 			return -1;
 		}
+		/* verify that the update worked */
+		if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
+					 &metadata) < 0) {
+			i_error("Can't get mailbox GUID %s: %s",
+				mailbox_get_vname(box),
+				mailbox_get_last_error(box, NULL));
+			return -1;
+		}
+		if (memcmp(mailbox_guid, metadata.guid,
+			   sizeof(metadata.guid)) != 0) {
+			i_error("Backend didn't update mailbox %s GUID",
+				mailbox_get_vname(box));
+			return -1;
+		}
 	}
 	return 0;
 }
