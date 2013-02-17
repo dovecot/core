@@ -498,7 +498,8 @@ mbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 			return -1;
 	}
 
-	if (update->uid_validity != 0 || update->min_next_uid != 0) {
+	if (update->uid_validity != 0 || update->min_next_uid != 0 ||
+	    !guid_128_is_empty(update->mailbox_guid)) {
 		mbox->sync_hdr_update = update;
 		ret = mbox_sync(mbox, MBOX_SYNC_HEADER | MBOX_SYNC_FORCE_SYNC |
 				MBOX_SYNC_REWRITE);
