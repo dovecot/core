@@ -707,6 +707,10 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 		ctx->info.flags |= MAILBOX_NOSELECT;
 	} else if ((ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
 		   list_file_is_any_inbox(ctx, storage_name)) {
+		if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+			/* probably mbox inbox file */
+			return 0;
+		}
 		/* shared/user/INBOX */
 		ctx->info.flags &= ~(MAILBOX_NOSELECT | MAILBOX_NONEXISTENT);
 		ctx->info.flags |= MAILBOX_SELECT;
