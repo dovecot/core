@@ -117,7 +117,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	dsync_brain_mailbox_trees_init(brain);
 
 	memset(&ibc_set, 0, sizeof(ibc_set));
-	ibc_set.hostname = my_hostname;
+	ibc_set.hostname = my_hostdomain();
 	ibc_set.sync_ns_prefix = sync_ns == NULL ? NULL : sync_ns->prefix;
 	ibc_set.sync_box = sync_box;
 	ibc_set.sync_type = sync_type;
@@ -146,7 +146,7 @@ dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc)
 	brain->state = DSYNC_STATE_SLAVE_RECV_HANDSHAKE;
 
 	memset(&ibc_set, 0, sizeof(ibc_set));
-	ibc_set.hostname = my_hostname;
+	ibc_set.hostname = my_hostdomain();
 	dsync_ibc_send_handshake(ibc, &ibc_set);
 
 	dsync_ibc_set_io_callback(ibc, dsync_brain_run_io, brain);
