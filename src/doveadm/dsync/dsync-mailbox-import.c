@@ -1305,14 +1305,32 @@ dsync_mailbox_import_change_uid(struct dsync_mailbox_importer *importer,
 				uint32_t wanted_uid)
 {
 	const struct seq_range *range;
-	unsigned int count;
+	unsigned int count, n;
+	struct seq_range_iter iter;
+	uint32_t uid;
 
-	while ((count = array_count(unwanted_uids)) > 0) {
-		range = array_idx(unwanted_uids, count-1);
-		if (dsync_msg_change_uid(importer, range->seq2, wanted_uid)) {
-			seq_range_array_remove(unwanted_uids, range->seq2);
+	/* optimize by first trying to use the latest UID */
+	range = array_get(unwanted_uids, &count);
+	if (count == 0)
+		return FALSE;
+	if (dsync_msg_change_uid(importer, range[count-1].seq2, wanted_uid)) {
+		seq_range_array_remove(unwanted_uids, range[count-1].seq2);
+		return TRUE;
+	}
+	if (mailbox_get_last_mail_error(importer->box) == MAIL_ERROR_EXPUNGED)
+		seq_range_array_remove(unwanted_uids, range[count-1].seq2);
+
+	/* now try to use any of them by iterating through them. (would be
+	   easier&faster to just iterate backwards, but probably too much
+	   trouble to add such API) */
+	n = 0; seq_range_array_iter_init(&iter, unwanted_uids);
+	while (seq_range_array_iter_nth(&iter, n++, &uid)) {
+		if (dsync_msg_change_uid(importer, uid, wanted_uid)) {
+			seq_range_array_remove(unwanted_uids, uid);
 			return TRUE;
 		}
+		if (mailbox_get_last_mail_error(importer->box) == MAIL_ERROR_EXPUNGED)
+			seq_range_array_remove(unwanted_uids, uid);
 	}
 	return FALSE;
 }
