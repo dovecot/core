@@ -77,6 +77,7 @@ struct dsync_mailbox_importer {
 
 	ARRAY(struct importer_new_mail *) newmails;
 	ARRAY_TYPE(uint32_t) wanted_uids;
+	uint32_t highest_wanted_uid;
 
 	ARRAY(struct dsync_mail_request) mail_requests;
 	unsigned int mail_request_idx;
@@ -1279,6 +1280,15 @@ dsync_mailbox_import_local_uid(struct dsync_mailbox_importer *importer,
 	return 1;
 }
 
+static void
+dsync_mailbox_import_want_uid(struct dsync_mailbox_importer *importer,
+			      uint32_t uid)
+{
+	if (importer->highest_wanted_uid < uid)
+		importer->highest_wanted_uid = uid;
+	array_append(&importer->wanted_uids, &uid, 1);
+}
+
 static bool
 dsync_msg_change_uid(struct dsync_mailbox_importer *importer,
 		     uint32_t old_uid, uint32_t new_uid)
@@ -1295,7 +1305,7 @@ dsync_msg_change_uid(struct dsync_mailbox_importer *importer,
 	mailbox_save_set_uid(save_ctx, new_uid);
 	if (mailbox_move(&save_ctx, importer->mail) < 0)
 		return FALSE;
-	array_append(&importer->wanted_uids, &new_uid, 1);
+	dsync_mailbox_import_want_uid(importer, new_uid);
 	return TRUE;
 }
 
@@ -1643,7 +1653,7 @@ static void dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 	}
 	if (ret > 0) {
 		i_assert(save_ctx == NULL);
-		array_append(&importer->wanted_uids, &newmail->final_uid, 1);
+		dsync_mailbox_import_want_uid(importer, newmail->final_uid);
 		return;
 	}
 	/* fallback to saving from remote stream */
@@ -1691,8 +1701,8 @@ static void dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 				mailbox_get_last_error(importer->box, NULL));
 			importer->failed = TRUE;
 		} else {
-			array_append(&importer->wanted_uids,
-				     &newmail->final_uid, 1);
+			dsync_mailbox_import_want_uid(importer,
+						      newmail->final_uid);
 		}
 	}
 }
@@ -1742,23 +1752,34 @@ void dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
 }
 
 static int
-reassign_uids_in_seq_range(struct mailbox *box, uint32_t seq1, uint32_t seq2)
+reassign_uids_in_seq_range(struct mailbox *box,
+			   const ARRAY_TYPE(seq_range) *unwanted_uids)
 {
 	const enum mailbox_transaction_flags trans_flags =
 		MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 		MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS;
 	struct mailbox_transaction_context *trans;
+	struct mail_search_args *search_args;
+	struct mail_search_arg *arg;
+	struct mail_search_context *search_ctx;
 	struct mail_save_context *save_ctx;
 	struct mail *mail;
-	uint32_t seq;
-	int ret = 0;
+	int ret = 1;
+
+	if (array_count(unwanted_uids) == 0)
+		return 1;
+
+	search_args = mail_search_build_init();
+	arg = mail_search_build_add(search_args, SEARCH_UIDSET);
+	p_array_init(&arg->value.seqset, search_args->pool,
+		     array_count(unwanted_uids));
+	array_append_array(&arg->value.seqset, unwanted_uids);
 
 	trans = mailbox_transaction_begin(box, trans_flags);
-	mail = mail_alloc(trans, 0, NULL);
+	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
+	mail_search_args_unref(&search_args);
 
-	for (seq = seq1; seq <= seq2; seq++) {
-		mail_set_seq(mail, seq);
-
+	while (mailbox_search_next(search_ctx, &mail)) {
 		save_ctx = mailbox_save_alloc(trans);
 		mailbox_save_copy_flags(save_ctx, mail);
 		if (mailbox_move(&save_ctx, mail) < 0) {
@@ -1766,9 +1787,16 @@ reassign_uids_in_seq_range(struct mailbox *box, uint32_t seq1, uint32_t seq2)
 				mailbox_get_vname(box),
 				mailbox_get_last_error(box, NULL));
 			ret = -1;
+		} else if (ret > 0) {
+			ret = 0;
 		}
 	}
-	mail_free(&mail);
+	if (mailbox_search_deinit(&search_ctx) < 0) {
+		i_error("Mailbox %s: mail search failed: %s",
+			mailbox_get_vname(box),
+			mailbox_get_last_error(box, NULL));
+		ret = -1;
+	}
 
 	if (mailbox_transaction_commit(&trans) < 0) {
 		i_error("Mailbox %s: UID reassign commit failed: %s",
@@ -1784,14 +1812,18 @@ reassign_unwanted_uids(struct dsync_mailbox_importer *importer,
 		       const struct mail_transaction_commit_changes *changes,
 		       bool *changes_during_sync_r)
 {
+	ARRAY_TYPE(seq_range) unwanted_uids;
 	struct seq_range_iter iter;
 	const uint32_t *wanted_uids;
-	uint32_t saved_uid, highest_wanted_uid = 0;
-	uint32_t seq1, seq2, lowest_saved_uid = (uint32_t)-1;
-	uint32_t lowest_unwanted_uid = (uint32_t)-1;
+	uint32_t saved_uid, highest_seen_uid;
 	unsigned int i, n, wanted_count;
 	int ret = 0;
 
+	wanted_uids = array_get(&importer->wanted_uids, &wanted_count);
+	if (wanted_count == 0) {
+		i_assert(array_count(&changes->saved_uids) == 0);
+		return 0;
+	}
 	/* wanted_uids contains the UIDs we tried to save mails with.
 	   if nothing changed during dsync, we should have the expected UIDs
 	   (changes->saved_uids) and all is well.
@@ -1804,61 +1836,34 @@ reassign_unwanted_uids(struct dsync_mailbox_importer *importer,
 	   locally added new uid=5 ->
 	   saved_uids = 10,7,9
 
-	   we'll now need to reassign UIDs 5 and 10. or more generally, we
-	   need to reassign UIDs [original local uidnext .. lowest saved_uid-1]
-	   and [lowest unwanted uid .. remote uidnext-1] */
+	   we'll now need to reassign UIDs 5 and 10. to be fully future-proof
+	   we'll reassign all UIDs between [original local uidnext .. highest
+	   UID we think we know] that aren't in saved_uids. */
 
-	/* find the highest wanted UID that doesn't match what we got */
-	wanted_uids = array_get(&importer->wanted_uids, &wanted_count);
+	/* create uidset for the list of UIDs we don't want to exist */
+	t_array_init(&unwanted_uids, 8);
+	highest_seen_uid = I_MAX(importer->remote_uid_next-1,
+				 importer->highest_wanted_uid);
+	i_assert(importer->local_uid_next <= highest_seen_uid);
+	seq_range_array_add_range(&unwanted_uids,
+				  importer->local_uid_next, highest_seen_uid);
 	seq_range_array_iter_init(&iter, &changes->saved_uids); i = n = 0;
 	while (seq_range_array_iter_nth(&iter, n++, &saved_uid)) {
 		i_assert(i < wanted_count);
-		if (lowest_saved_uid > saved_uid)
-			lowest_saved_uid = saved_uid;
-		if (saved_uid == wanted_uids[i]) {
-			if (highest_wanted_uid < saved_uid)
-				highest_wanted_uid = saved_uid;
-		} else {
-			IMPORTER_DEBUG_CHANGE(importer);
-			if (lowest_unwanted_uid > saved_uid)
-				lowest_unwanted_uid = saved_uid;
-		}
+		if (saved_uid == wanted_uids[i])
+			seq_range_array_remove(&unwanted_uids, saved_uid);
 		i++;
 	}
-	i_assert(lowest_unwanted_uid == (uint32_t)-1 ||
-		 lowest_unwanted_uid == highest_wanted_uid+1 ||
-		 highest_wanted_uid == 0);
+	i_assert(i == wanted_count);
 
-	if (importer->local_uid_next != lowest_saved_uid &&
-	    lowest_saved_uid != (uint32_t)-1) {
-		/* [original local uidnext .. lowest saved_uid-1] */
-		mailbox_get_seq_range(importer->box, importer->local_uid_next,
-				      lowest_saved_uid-1, &seq1, &seq2);
-		if (seq1 > 0) {
-			if (reassign_uids_in_seq_range(importer->box,
-						       seq1, seq2) < 0)
-				ret = -1;
-			*changes_during_sync_r = TRUE;
-		}
-	}
-
-	if (lowest_unwanted_uid < importer->remote_uid_next) {
-		/* [highest wanted_uid+1 .. remote uidnext-1] */
-		mailbox_get_seq_range(importer->box, lowest_unwanted_uid,
-				      importer->remote_uid_next-1, &seq1, &seq2);
-		if (seq1 > 0) {
-			if (reassign_uids_in_seq_range(importer->box,
-						       seq1, seq2) < 0)
-				ret = -1;
-			*changes_during_sync_r = TRUE;
-		}
-	}
-	if (*changes_during_sync_r) {
+	ret = reassign_uids_in_seq_range(importer->box, &unwanted_uids);
+	if (ret == 0) {
+		*changes_during_sync_r = TRUE;
 		/* conflicting changes during sync, revert our last-common-uid
 		   back to a safe value. */
 		importer->last_common_uid = importer->local_uid_next - 1;
 	}
-	return ret;
+	return ret < 0 ? -1 : 0;
 }
 
 static int dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer,
