@@ -818,12 +818,13 @@ maildir_filename_check_conflicts(struct maildir_save_context *ctx,
 {
 	uoff_t size;
 
-	if (!ctx->locked_uidlist_refresh) {
+	if (!ctx->locked_uidlist_refresh && ctx->locked) {
 		(void)maildir_uidlist_refresh(ctx->mbox->uidlist);
 		ctx->locked_uidlist_refresh = TRUE;
 	}
 
-	if ((prev_mf != NULL && maildir_filename_has_conflict(mf, prev_mf)) ||
+	if (!ctx->locked_uidlist_refresh ||
+	    (prev_mf != NULL && maildir_filename_has_conflict(mf, prev_mf)) ||
 	    maildir_uidlist_get_full_filename(ctx->mbox->uidlist,
 					      mf->dest_basename) != NULL) {
 		/* file already exists. give it another name.
