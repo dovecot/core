@@ -259,8 +259,10 @@ static bool dsync_brain_master_recv_handshake(struct dsync_brain *brain)
 		return FALSE;
 
 	if (brain->lock_timeout > 0) {
-		if (dsync_brain_lock(brain, ibc_set->hostname) < 0)
+		if (dsync_brain_lock(brain, ibc_set->hostname) < 0) {
+			brain->failed = TRUE;
 			return FALSE;
+		}
 	}
 
 	brain->state = brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_STATE ?
@@ -280,8 +282,10 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 
 	if (ibc_set->lock_timeout > 0) {
 		brain->lock_timeout = ibc_set->lock_timeout;
-		if (dsync_brain_lock(brain, ibc_set->hostname) < 0)
+		if (dsync_brain_lock(brain, ibc_set->hostname) < 0) {
+			brain->failed = TRUE;
 			return FALSE;
+		}
 	}
 
 	if (ibc_set->sync_ns_prefix != NULL) {
