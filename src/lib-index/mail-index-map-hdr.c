@@ -272,6 +272,12 @@ int mail_index_map_check_header(struct mail_index_map *map)
 		/* pre-v1.1.rc6: make sure the \Recent flags are gone */
 		mail_index_map_clear_recent_flags(map);
 		map->hdr.minor_version = MAIL_INDEX_MINOR_VERSION;
+		/* fall through */
+	case 2:
+		/* pre-v2.2 (although should have been done in v2.1 already):
+		   make sure the old unused fields are cleared */
+		map->hdr.unused_old_sync_size = 0;
+		map->hdr.unused_old_sync_stamp = 0;
 	}
 	if (hdr->first_recent_uid == 0 ||
 	    hdr->first_recent_uid > hdr->next_uid ||

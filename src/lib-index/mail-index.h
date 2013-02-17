@@ -8,7 +8,7 @@
 #include "seq-range-array.h"
 
 #define MAIL_INDEX_MAJOR_VERSION 7
-#define MAIL_INDEX_MINOR_VERSION 2
+#define MAIL_INDEX_MINOR_VERSION 3
 
 #define MAIL_INDEX_HEADER_MIN_SIZE 120
 
