@@ -201,6 +201,11 @@ log_it(struct log_connection *log, const char *line,
 	}
 
 	i_failure_parse_line(line, &failure);
+	if (failure.pid == 0) {
+		i_error("Invalid log line: %s", line);
+		return;
+	}
+
 	switch (failure.log_type) {
 	case LOG_TYPE_FATAL:
 	case LOG_TYPE_PANIC:
