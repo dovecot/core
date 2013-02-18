@@ -34,12 +34,23 @@ const char *guid_generate(void)
 			       pid, my_hostname);
 }
 
+void guid_128_host_hash_get(const char *host,
+			    unsigned char hash_r[GUID_128_HOST_HASH_SIZE])
+{
+	unsigned char full_hash[SHA1_RESULTLEN];
+
+	sha1_get_digest(host, strlen(host), full_hash);
+	memcpy(hash_r, full_hash + sizeof(full_hash)-GUID_128_HOST_HASH_SIZE,
+	       GUID_128_HOST_HASH_SIZE);
+}
+
 void guid_128_generate(guid_128_t guid_r)
 {
+#if GUID_128_HOST_HASH_SIZE != 4
+#  error GUID_128_HOST_HASH_SIZE must be 4
+#endif
 	static struct timespec ts = { 0, 0 };
 	static uint8_t guid_static[8];
-	unsigned char hostdomain_hash[SHA1_RESULTLEN];
-	const char *hostdomain;
 	uint32_t pid;
 
 	/* we'll use the current time in nanoseconds as the initial 64bit
@@ -48,16 +59,12 @@ void guid_128_generate(guid_128_t guid_r)
 		if (clock_gettime(CLOCK_REALTIME, &ts) < 0)
 			i_fatal("clock_gettime() failed: %m");
 		pid = getpid();
-		hostdomain = my_hostdomain();
-		sha1_get_digest(hostdomain, strlen(hostdomain),
-				hostdomain_hash);
 
 		guid_static[0] = (pid & 0x000000ff);
 		guid_static[1] = (pid & 0x0000ff00) >> 8;
 		guid_static[2] = (pid & 0x00ff0000) >> 16;
 		guid_static[3] = (pid & 0xff000000) >> 24;
-		memcpy(guid_static+4,
-		       hostdomain_hash+sizeof(hostdomain_hash)-4, 4);
+		guid_128_host_hash_get(my_hostdomain(), guid_static+4);
 	} else if ((uint32_t)ts.tv_nsec < (uint32_t)-1) {
 		ts.tv_nsec++;
 	} else {

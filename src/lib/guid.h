@@ -4,6 +4,8 @@
 #define GUID_128_SIZE 16
 typedef uint8_t guid_128_t[GUID_128_SIZE];
 
+#define GUID_128_HOST_HASH_SIZE 4
+
 /* Generate a GUID (contains host name) */
 const char *guid_generate(void);
 /* Generate 128 bit GUID */
@@ -19,5 +21,9 @@ int guid_128_from_string(const char *str, guid_128_t guid_r);
 /* guid_128 hash/cmp functions for hash.h */
 unsigned int guid_128_hash(const uint8_t *guid);
 int guid_128_cmp(const uint8_t *guid1, const uint8_t *guid2);
+
+/* Return the hash of host used by guid_128_generate(). */
+void guid_128_host_hash_get(const char *host,
+			    unsigned char hash_r[GUID_128_HOST_HASH_SIZE]);
 
 #endif
