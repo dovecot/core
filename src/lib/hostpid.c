@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "hostpid.h"
 
+#include <stdlib.h>
 #include <unistd.h>
 #include <netdb.h>
 
@@ -17,13 +18,17 @@ void hostpid_init(void)
 {
 	static char hostname[256], pid[MAX_INT_STRLEN];
 
-	if (gethostname(hostname, sizeof(hostname)-1) == -1)
-		i_fatal("gethostname() failed: %m");
-	hostname[sizeof(hostname)-1] = '\0';
-	my_hostname = hostname;
+	my_hostname = getenv(MY_HOSTNAME_ENV);
+	if (my_hostname == NULL) {
+		if (gethostname(hostname, sizeof(hostname)-1) < 0)
+			i_fatal("gethostname() failed: %m");
+		hostname[sizeof(hostname)-1] = '\0';
+		my_hostname = hostname;
+	}
 
-	if (strcspn(hostname, HOSTNAME_DISALLOWED_CHARS) != strlen(hostname))
-		i_fatal("Invalid system hostname: %s", hostname);
+	if (my_hostname[0] == '\0' ||
+	    strcspn(my_hostname, HOSTNAME_DISALLOWED_CHARS) != strlen(my_hostname))
+		i_error("Invalid system hostname: '%s'", my_hostname);
 
 	/* allow calling hostpid_init() multiple times to reset hostname */
 	i_free_and_null(my_domain);
@@ -43,11 +48,14 @@ const char *my_hostdomain(void)
 	const char *name;
 
 	if (my_domain == NULL) {
-		hent = gethostbyname(my_hostname);
-		name = hent != NULL ? hent->h_name : NULL;
+		name = getenv(MY_HOSTDOMAIN_ENV);
 		if (name == NULL) {
-			/* failed, use just the hostname */
-			name = my_hostname;
+			hent = gethostbyname(my_hostname);
+			name = hent != NULL ? hent->h_name : NULL;
+			if (name == NULL) {
+				/* failed, use just the hostname */
+				name = my_hostname;
+			}
 		}
 		my_domain = i_strdup(name);
 	}

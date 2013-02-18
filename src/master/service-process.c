@@ -235,6 +235,8 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 					service->set->service_count));
 	}
 	env_put(t_strdup_printf(MASTER_UID_ENV"=%u", uid));
+	env_put(t_strdup_printf(MY_HOSTNAME_ENV"=%s", my_hostname));
+	env_put(t_strdup_printf(MY_HOSTDOMAIN_ENV"=%s", my_hostdomain()));
 
 	if (!service->set->master_set->version_ignore)
 		env_put(MASTER_DOVECOT_VERSION_ENV"="PACKAGE_VERSION);
