@@ -77,6 +77,7 @@ void lib_deinit(void)
 	}
 
 	ipwd_deinit();
+	hostpid_deinit();
 	data_stack_deinit();
 	env_deinit();
 	failures_deinit();

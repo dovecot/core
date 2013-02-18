@@ -32,6 +32,11 @@ void hostpid_init(void)
 	my_pid = pid;
 }
 
+void hostpid_deinit(void)
+{
+	i_free(my_domain);
+}
+
 const char *my_hostdomain(void)
 {
 	struct hostent *hent;
