@@ -193,7 +193,7 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 	const char *home;
 	int ret;
 
-	if ((ret = strcmp(remote_hostname, my_hostname)) < 0) {
+	if ((ret = strcmp(remote_hostname, my_hostdomain())) < 0) {
 		/* locking done by remote */
 		return 0;
 	}
