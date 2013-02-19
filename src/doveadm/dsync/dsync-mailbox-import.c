@@ -562,7 +562,7 @@ merge_flags(uint32_t local_final, uint32_t local_add, uint32_t local_remove,
 		else
 			remote_remove &= ~conflict_pvt_flags;
 	}
-	conflict_flags = (local_remove & remote_add) & ~pvt_mask;
+	conflict_flags = local_remove & remote_add;
 	if (conflict_flags != 0) {
 		conflict_pvt_flags = conflict_flags & pvt_mask;
 		conflict_flags &= ~pvt_mask;
