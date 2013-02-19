@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "index-storage.h"
+#include "index-sync-private.h"
 #include "index-mail.h"
 
 static void index_transaction_free(struct mailbox_transaction_context *t)
@@ -11,6 +12,8 @@ static void index_transaction_free(struct mailbox_transaction_context *t)
 		mail_index_view_close(&t->view_pvt);
 	mail_cache_view_close(&t->cache_view);
 	mail_index_view_close(&t->view);
+	if (array_is_created(&t->pvt_saves))
+		array_free(&t->pvt_saves);
 	array_free(&t->module_contexts);
 	i_free(t);
 }
@@ -21,6 +24,7 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 {
 	struct mailbox_transaction_context *t =
 		MAIL_STORAGE_CONTEXT(index_trans);
+	struct index_mailbox_sync_pvt_context *pvt_sync_ctx = NULL;
 	int ret = 0;
 
 	if (t->nontransactional_changes)
@@ -33,6 +37,11 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 		} else {
 			t->changes->changed = TRUE;
 		}
+	}
+
+	if (array_is_created(&t->pvt_saves)) {
+		if (index_mailbox_sync_pvt_init(t->box, TRUE, &pvt_sync_ctx) < 0)
+			ret = -1;
 	}
 
 	i_assert(t->mail_ref_count == 0);
@@ -50,6 +59,14 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 
 	if (t->save_ctx != NULL)
 		t->box->v.transaction_save_commit_post(t->save_ctx, result_r);
+
+	if (pvt_sync_ctx != NULL) {
+		if (index_mailbox_sync_pvt_newmails(pvt_sync_ctx, t) < 0) {
+			/* failed to add private flags. a bit too late to
+			   return failure though, so just ignore silently */
+		}
+		index_mailbox_sync_pvt_deinit(&pvt_sync_ctx);
+	}
 
 	index_transaction_free(t);
 	return ret;

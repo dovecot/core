@@ -83,7 +83,8 @@ int virtual_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		virtual_copy_keywords(_ctx->transaction->box, mdata->keywords,
 				      ctx->backend_box);
 
-	mailbox_save_set_flags(ctx->backend_save_ctx, mdata->flags,
+	mailbox_save_set_flags(ctx->backend_save_ctx,
+			       mdata->flags | mdata->pvt_flags,
 			       ctx->backend_keywords);
 	mailbox_save_set_received_date(ctx->backend_save_ctx,
 				       mdata->received_date,

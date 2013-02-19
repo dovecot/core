@@ -347,8 +347,9 @@ void acl_mail_allocated(struct mail *_mail)
 	MODULE_CONTEXT_SET_SELF(mail, acl_mail_module, amail);
 }
 
-static int acl_save_get_flags(struct mailbox *box, enum mail_flags *flags,
-			      struct mail_keywords **keywords)
+static int
+acl_save_get_flags(struct mailbox *box, enum mail_flags *flags,
+		   enum mail_flags *pvt_flags, struct mail_keywords **keywords)
 {
 	bool acl_flags, acl_flag_seen, acl_flag_del;
 
@@ -356,12 +357,17 @@ static int acl_save_get_flags(struct mailbox *box, enum mail_flags *flags,
 				 &acl_flag_del) < 0)
 		return -1;
 
-	if (!acl_flag_seen)
+	if (!acl_flag_seen) {
 		*flags &= ~MAIL_SEEN;
-	if (!acl_flag_del)
+		*pvt_flags &= ~MAIL_SEEN;
+	}
+	if (!acl_flag_del) {
 		*flags &= ~MAIL_DELETED;
+		*pvt_flags &= ~MAIL_DELETED;
+	}
 	if (!acl_flags) {
 		*flags &= MAIL_SEEN | MAIL_DELETED;
+		*pvt_flags &= MAIL_SEEN | MAIL_DELETED;
 		*keywords = NULL;
 	}
 	return 0;
@@ -378,7 +384,8 @@ acl_save_begin(struct mail_save_context *ctx, struct istream *input)
 		ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
 	if (acl_mailbox_right_lookup(box, save_right) <= 0)
 		return -1;
-	if (acl_save_get_flags(box, &ctx->data.flags, &ctx->data.keywords) < 0)
+	if (acl_save_get_flags(box, &ctx->data.flags,
+			       &ctx->data.pvt_flags, &ctx->data.keywords) < 0)
 		return -1;
 
 	return abox->module_ctx.super.save_begin(ctx, input);
@@ -401,7 +408,8 @@ acl_copy(struct mail_save_context *ctx, struct mail *mail)
 		ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
 	if (acl_mailbox_right_lookup(t->box, save_right) <= 0)
 		return -1;
-	if (acl_save_get_flags(t->box, &ctx->data.flags, &ctx->data.keywords) < 0)
+	if (acl_save_get_flags(t->box, &ctx->data.flags,
+			       &ctx->data.pvt_flags, &ctx->data.keywords) < 0)
 		return -1;
 
 	return abox->module_ctx.super.copy(ctx, mail);

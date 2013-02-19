@@ -439,6 +439,13 @@ struct mailbox_transaction_stats {
 	unsigned long cache_hit_count;
 };
 
+struct mail_save_private_changes {
+	/* first saved mail is 0, second is 1, etc. we'll map these to UIDs
+	   using struct mail_transaction_commit_changes. */
+	unsigned int mailnum;
+	enum mail_flags flags;
+};
+
 struct mailbox_transaction_context {
 	struct mailbox *box;
 	enum mailbox_transaction_flags flags;
@@ -462,6 +469,11 @@ struct mailbox_transaction_context {
 	ARRAY(union mailbox_transaction_module_context *) module_contexts;
 
 	struct mail_save_context *save_ctx;
+	/* number of mails saved/copied within this transaction. */
+	unsigned int save_count;
+	/* List of private flags added with save/copy. These are added to the
+	   private index after committing the mails to the shared index. */
+	ARRAY(struct mail_save_private_changes) pvt_saves;
 
 	/* these statistics are never reset by mail-storage API: */
 	struct mailbox_transaction_stats stats;
@@ -503,6 +515,7 @@ struct mail_search_context {
 
 struct mail_save_data {
 	enum mail_flags flags;
+	enum mail_flags pvt_flags;
 	struct mail_keywords *keywords;
 	uint64_t min_modseq;
 

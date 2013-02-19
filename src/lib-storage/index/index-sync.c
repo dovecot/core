@@ -195,6 +195,7 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 			bool failed)
 {
         struct index_mailbox_sync_context *ctx;
+	struct index_mailbox_sync_pvt_context *pvt_ctx;
 	enum mail_index_view_sync_flags sync_flags = 0;
 
 	ctx = i_new(struct index_mailbox_sync_context, 1);
@@ -230,8 +231,12 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 	   doesn't matter if it's called at _sync_init() or _sync_deinit().
 	   however we also need to know if any private flags have changed
 	   since last sync, so we need to call it before _sync_next() calls. */
-	(void)index_storage_mailbox_sync_pvt(box, &ctx->flag_updates,
-					     &ctx->hidden_updates);
+	if (index_mailbox_sync_pvt_init(box, FALSE, &pvt_ctx) > 0) {
+		(void)index_mailbox_sync_pvt_view(pvt_ctx, &ctx->flag_updates,
+						  &ctx->hidden_updates);
+		index_mailbox_sync_pvt_deinit(&pvt_ctx);
+
+	}
 	index_view_sync_cleanup_updates(ctx);
 	return &ctx->ctx;
 }

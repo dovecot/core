@@ -3,6 +3,8 @@
 
 #include "index-storage.h"
 
+struct index_mailbox_sync_pvt_context;
+
 struct index_mailbox_sync_context {
 	struct mailbox_sync_context ctx;
 
@@ -22,8 +24,14 @@ void index_sync_search_results_uidify(struct index_mailbox_sync_context *ctx);
 void index_sync_search_results_update(struct index_mailbox_sync_context *ctx);
 void index_sync_search_results_expunge(struct index_mailbox_sync_context *ctx);
 
-int index_storage_mailbox_sync_pvt(struct mailbox *box,
-				   ARRAY_TYPE(seq_range) *flag_updates,
-				   ARRAY_TYPE(seq_range) *hidden_updates);
+/* Returns 1 = ok, 0 = no private indexes, -1 = error */
+int index_mailbox_sync_pvt_init(struct mailbox *box, bool lock,
+				struct index_mailbox_sync_pvt_context **ctx_r);
+int index_mailbox_sync_pvt_newmails(struct index_mailbox_sync_pvt_context *ctx,
+				    struct mailbox_transaction_context *trans);
+int index_mailbox_sync_pvt_view(struct index_mailbox_sync_pvt_context *ctx,
+				ARRAY_TYPE(seq_range) *flag_updates,
+				ARRAY_TYPE(seq_range) *hidden_updates);
+void index_mailbox_sync_pvt_deinit(struct index_mailbox_sync_pvt_context **ctx);
 
 #endif

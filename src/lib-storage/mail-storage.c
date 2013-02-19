@@ -1744,6 +1744,7 @@ int mailbox_transaction_commit_get_changes(
 	struct mail_transaction_commit_changes *changes_r)
 {
 	struct mailbox_transaction_context *t = *_t;
+	unsigned int save_count = t->save_count;
 	int ret;
 
 	t->box->transaction_count--;
@@ -1753,6 +1754,7 @@ int mailbox_transaction_commit_get_changes(
 	T_BEGIN {
 		ret = t->box->v.transaction_commit(t, changes_r);
 	} T_END;
+	i_assert(ret < 0 || seq_range_count(&changes_r->saved_uids) == save_count);
 	if (ret < 0 && changes_r->pool != NULL)
 		pool_unref(&changes_r->pool);
 	return ret;
@@ -1803,7 +1805,10 @@ void mailbox_save_set_flags(struct mail_save_context *ctx,
 			    enum mail_flags flags,
 			    struct mail_keywords *keywords)
 {
-	ctx->data.flags = flags;
+	struct mailbox *box = ctx->transaction->box;
+
+	ctx->data.flags = flags & ~mailbox_get_private_flags_mask(box);
+	ctx->data.pvt_flags = flags & mailbox_get_private_flags_mask(box);
 	ctx->data.keywords = keywords;
 	if (keywords != NULL)
 		mailbox_keywords_ref(keywords);
@@ -1812,12 +1817,15 @@ void mailbox_save_set_flags(struct mail_save_context *ctx,
 void mailbox_save_copy_flags(struct mail_save_context *ctx, struct mail *mail)
 {
 	const char *const *keywords_list;
+	struct mail_keywords *keywords;
 
 	keywords_list = mail_get_keywords(mail);
-	ctx->data.keywords = str_array_length(keywords_list) == 0 ? NULL :
+	keywords = str_array_length(keywords_list) == 0 ? NULL :
 		mailbox_keywords_create_valid(ctx->transaction->box,
 					      keywords_list);
-	ctx->data.flags = mail_get_flags(mail);
+	mailbox_save_set_flags(ctx, mail_get_flags(mail), keywords);
+	if (keywords != NULL)
+		mailbox_keywords_unref(&keywords);
 }
 
 void mailbox_save_set_min_modseq(struct mail_save_context *ctx,
@@ -1914,15 +1922,34 @@ int mailbox_save_continue(struct mail_save_context *ctx)
 	return ctx->transaction->box->v.save_continue(ctx);
 }
 
+static void
+mailbox_save_add_pvt_flags(struct mailbox_transaction_context *t,
+			   enum mail_flags pvt_flags)
+{
+	struct mail_save_private_changes *save;
+
+	if (!array_is_created(&t->pvt_saves))
+		i_array_init(&t->pvt_saves, 8);
+	save = array_append_space(&t->pvt_saves);
+	save->mailnum = t->save_count;
+	save->flags = pvt_flags;
+}
+
 int mailbox_save_finish(struct mail_save_context **_ctx)
 {
 	struct mail_save_context *ctx = *_ctx;
-	struct mailbox *box = ctx->transaction->box;
+	struct mailbox_transaction_context *t = ctx->transaction;
 	struct mail_keywords *keywords = ctx->data.keywords;
+	enum mail_flags pvt_flags = ctx->data.pvt_flags;
 	int ret;
 
 	*_ctx = NULL;
-	ret = box->v.save_finish(ctx);
+	ret = t->box->v.save_finish(ctx);
+	if (ret == 0 && !ctx->copying_via_save) {
+		if (pvt_flags != 0)
+			mailbox_save_add_pvt_flags(t, pvt_flags);
+		t->save_count++;
+	}
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
 	return ret;
@@ -1956,15 +1983,16 @@ mailbox_save_get_transaction(struct mail_save_context *ctx)
 int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 {
 	struct mail_save_context *ctx = *_ctx;
-	struct mailbox *box = ctx->transaction->box;
+	struct mailbox_transaction_context *t = ctx->transaction;
 	struct mail_keywords *keywords = ctx->data.keywords;
+	enum mail_flags pvt_flags = ctx->data.pvt_flags;
 	struct mail *real_mail;
 	int ret;
 
 	*_ctx = NULL;
 
-	if (mail_index_is_deleted(box->index)) {
-		mailbox_set_deleted(box);
+	if (mail_index_is_deleted(t->box->index)) {
+		mailbox_set_deleted(t->box);
 		mailbox_save_cancel(&ctx);
 		return -1;
 	}
@@ -1972,7 +2000,12 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 	/* bypass virtual storage, so hard linking can be used whenever
 	   possible */
 	real_mail = mail_get_real_mail(mail);
-	ret = ctx->transaction->box->v.copy(ctx, real_mail);
+	ret = t->box->v.copy(ctx, real_mail);
+	if (ret == 0) {
+		if (pvt_flags != 0)
+			mailbox_save_add_pvt_flags(t, pvt_flags);
+		t->save_count++;
+	}
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
 	return ret;
