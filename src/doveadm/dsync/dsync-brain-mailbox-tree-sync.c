@@ -7,13 +7,14 @@
 #include "dsync-brain-private.h"
 
 static int
-sync_create_box(struct mailbox *box, const guid_128_t mailbox_guid,
-		uint32_t uid_validity)
+sync_create_box(struct dsync_brain *brain, struct mailbox *box,
+		const guid_128_t mailbox_guid, uint32_t uid_validity)
 {
 	struct mailbox_metadata metadata;
 	struct mailbox_update update;
 	enum mail_error error;
 	const char *errstr;
+	int ret;
 
 	memset(&update, 0, sizeof(update));
 	memcpy(update.mailbox_guid, mailbox_guid, sizeof(update.mailbox_guid));
@@ -48,7 +49,15 @@ sync_create_box(struct mailbox *box, const guid_128_t mailbox_guid,
 		return -1;
 	}
 
-	if (memcmp(mailbox_guid, metadata.guid, sizeof(metadata.guid)) > 0) {
+	ret = memcmp(mailbox_guid, metadata.guid, sizeof(metadata.guid));
+	if (ret > 0) {
+		if (brain->debug) {
+			i_debug("brain %c: Changing mailbox %s GUID %s -> %s",
+				brain->master_brain ? 'M' : 'S',
+				mailbox_get_vname(box),
+				guid_128_to_string(metadata.guid),
+				guid_128_to_string(mailbox_guid));
+		}
 		memset(&update, 0, sizeof(update));
 		memcpy(update.mailbox_guid, mailbox_guid,
 		       sizeof(update.mailbox_guid));
@@ -71,6 +80,15 @@ sync_create_box(struct mailbox *box, const guid_128_t mailbox_guid,
 			i_error("Backend didn't update mailbox %s GUID",
 				mailbox_get_vname(box));
 			return -1;
+		}
+	} else if (ret < 0) {
+		if (brain->debug) {
+			i_debug("brain %c: Other brain should change mailbox "
+				"%s GUID %s -> %s",
+				brain->master_brain ? 'M' : 'S',
+				mailbox_get_vname(box),
+				guid_128_to_string(mailbox_guid),
+				guid_128_to_string(metadata.guid));
 		}
 	}
 	return 0;
@@ -118,7 +136,7 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 	}
 	switch (change->type) {
 	case DSYNC_MAILBOX_TREE_SYNC_TYPE_CREATE_BOX:
-		ret = sync_create_box(box, change->mailbox_guid,
+		ret = sync_create_box(brain, box, change->mailbox_guid,
 				      change->uid_validity);
 		mailbox_free(&box);
 		return ret;
