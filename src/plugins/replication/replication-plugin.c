@@ -186,10 +186,10 @@ static void replication_notify(struct mail_namespace *ns,
 		return;
 	}
 
-	ruser = REPLICATION_USER_CONTEXT(ns->owner);
+	ruser = REPLICATION_USER_CONTEXT(ns->user);
 
 	if (priority == REPLICATION_PRIORITY_SYNC) {
-		if (replication_notify_sync(ns->owner) == 0) {
+		if (replication_notify_sync(ns->user) == 0) {
 			timeout_remove(&ruser->to);
 			ruser->priority = REPLICATION_PRIORITY_NONE;
 			return;
@@ -202,7 +202,7 @@ static void replication_notify(struct mail_namespace *ns,
 		ruser->priority = priority;
 	if (ruser->to == NULL) {
 		ruser->to = timeout_add_short(REPLICATION_NOTIFY_DELAY_MSECS,
-					      replication_notify_now, ns->owner);
+					      replication_notify_now, ns->user);
 	}
 }
 
