@@ -662,4 +662,7 @@ void mailbox_list_index_backend_init_mailbox(struct mailbox *box)
 		return;
 	box->v.create_box = index_list_mailbox_create;
 	box->v.update_box = index_list_mailbox_update;
+
+	box->v.list_index_has_changed = NULL;
+	box->v.list_index_update_sync = NULL;
 }
