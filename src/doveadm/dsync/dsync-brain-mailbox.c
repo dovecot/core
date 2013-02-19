@@ -564,6 +564,11 @@ dsync_brain_slave_send_mailbox_lost(struct dsync_brain *brain,
 {
 	struct dsync_mailbox delete_box;
 
+	if (brain->debug) {
+		i_debug("brain %c: We don't have mailbox %s",
+			brain->master_brain ? 'M' : 'S',
+			guid_128_to_string(dsync_box->mailbox_guid));
+	}
 	memset(&delete_box, 0, sizeof(delete_box));
 	memcpy(delete_box.mailbox_guid, dsync_box->mailbox_guid,
 	       sizeof(delete_box.mailbox_guid));
