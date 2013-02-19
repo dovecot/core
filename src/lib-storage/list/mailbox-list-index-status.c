@@ -129,8 +129,7 @@ index_list_get_cached_status(struct mailbox *box,
 		return 0;
 	}
 
-	ret = index_list_open_view(box, &view, &seq);
-	if (ret <= 0)
+	if ((ret = index_list_open_view(box, &view, &seq)) <= 0)
 		return ret;
 
 	ret = mailbox_list_index_status(box->list, view, seq, items,
@@ -167,8 +166,7 @@ index_list_get_cached_guid(struct mailbox *box, guid_128_t guid_r)
 		return 0;
 	}
 
-	ret = index_list_open_view(box, &view, &seq);
-	if (ret <= 0)
+	if ((ret = index_list_open_view(box, &view, &seq)) <= 0)
 		return ret;
 
 	ret = mailbox_list_index_status(box->list, view, seq, 0,
@@ -195,37 +193,34 @@ index_list_get_metadata(struct mailbox *box,
 }
 
 static int
-index_list_update(struct mailbox *box, struct mail_index_view *view,
-		  uint32_t seq, const struct mailbox_status *status)
+index_list_update_full(struct mailbox *box, struct mail_index_view *view,
+		       uint32_t seq, const guid_128_t new_guid,
+		       const struct mailbox_status *new_status,
+		       bool update_backend)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct mail_index_transaction *trans;
 	struct mail_index_transaction_commit_result result;
-	struct mailbox_metadata metadata;
 	struct mailbox_status old_status;
-	guid_128_t mailbox_guid;
+	guid_128_t old_guid;
 	bool rec_changed, msgs_changed, hmodseq_changed;
 
-	i_assert(box->opened);
-
-	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0)
-		memset(&metadata, 0, sizeof(metadata));
-
 	memset(&old_status, 0, sizeof(old_status));
-	memset(mailbox_guid, 0, sizeof(mailbox_guid));
+	memset(old_guid, 0, sizeof(old_guid));
 	(void)mailbox_list_index_status(box->list, view, seq, CACHED_STATUS_ITEMS,
-					&old_status, mailbox_guid);
+					&old_status, old_guid);
 
-	rec_changed = old_status.uidvalidity != status->uidvalidity;
-	if (memcmp(metadata.guid, mailbox_guid, sizeof(metadata.guid)) != 0 &&
-	    guid_128_is_empty(metadata.guid))
+	rec_changed = old_status.uidvalidity != new_status->uidvalidity &&
+		new_status->uidvalidity != 0;
+	if (!guid_128_equals(new_guid, old_guid) &&
+	    !guid_128_is_empty(new_guid))
 		rec_changed = TRUE;
-	msgs_changed = old_status.messages != status->messages ||
-		old_status.unseen != status->unseen ||
-		old_status.recent != status->recent ||
-		old_status.uidnext != status->uidnext;
+	msgs_changed = old_status.messages != new_status->messages ||
+		old_status.unseen != new_status->unseen ||
+		old_status.recent != new_status->recent ||
+		old_status.uidnext != new_status->uidnext;
 	/* update highest-modseq only if they're ever been used */
-	if (old_status.highest_modseq == status->highest_modseq) {
+	if (old_status.highest_modseq == new_status->highest_modseq) {
 		hmodseq_changed = FALSE;
 	} else if ((box->enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0 ||
 		   old_status.highest_modseq != 0) {
@@ -240,7 +235,7 @@ index_list_update(struct mailbox *box, struct mail_index_view *view,
 	}
 
 	if (hmodseq_changed &&
-	    old_status.highest_modseq != status->highest_modseq)
+	    old_status.highest_modseq != new_status->highest_modseq)
 		hmodseq_changed = TRUE;
 
 	if (!rec_changed && !msgs_changed && !hmodseq_changed)
@@ -259,9 +254,10 @@ index_list_update(struct mailbox *box, struct mail_index_view *view,
 		i_assert(old_data != NULL);
 		memcpy(&rec, old_data, sizeof(rec));
 
-		rec.uid_validity = status->uidvalidity;
-		if (!guid_128_is_empty(metadata.guid))
-			memcpy(rec.guid, metadata.guid, sizeof(rec.guid));
+		if (new_status->uidvalidity != 0)
+			rec.uid_validity = new_status->uidvalidity;
+		if (!guid_128_is_empty(new_guid))
+			memcpy(rec.guid, new_guid, sizeof(rec.guid));
 		mail_index_update_ext(trans, seq, ilist->ext_id, &rec, NULL);
 	}
 
@@ -269,27 +265,43 @@ index_list_update(struct mailbox *box, struct mail_index_view *view,
 		struct mailbox_list_index_msgs_record msgs;
 
 		memset(&msgs, 0, sizeof(msgs));
-		msgs.messages = status->messages;
-		msgs.unseen = status->unseen;
-		msgs.recent = status->recent;
-		msgs.uidnext = status->uidnext;
+		msgs.messages = new_status->messages;
+		msgs.unseen = new_status->unseen;
+		msgs.recent = new_status->recent;
+		msgs.uidnext = new_status->uidnext;
 
 		mail_index_update_ext(trans, seq, ilist->msgs_ext_id,
 				      &msgs, NULL);
 	}
 	if (hmodseq_changed) {
 		mail_index_update_ext(trans, seq, ilist->hmodseq_ext_id,
-				      &status->highest_modseq, NULL);
+				      &new_status->highest_modseq, NULL);
 	}
 
-	if (box->v.list_index_update_sync != NULL)
-		box->v.list_index_update_sync(box, trans, seq);
+	if (update_backend) {
+		if (box->v.list_index_update_sync != NULL)
+			box->v.list_index_update_sync(box, trans, seq);
+	}
 
 	if (mail_index_transaction_commit_full(&trans, &result) < 0) {
 		mailbox_list_index_set_index_error(box->list);
 		return -1;
 	}
 	return 0;
+}
+
+static int
+index_list_update(struct mailbox *box, struct mail_index_view *view,
+		  uint32_t seq, const struct mailbox_status *status)
+{
+	struct mailbox_metadata metadata;
+
+	i_assert(box->opened);
+
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0)
+		memset(&metadata, 0, sizeof(metadata));
+	return index_list_update_full(box, view, seq, metadata.guid,
+				      status, TRUE);
 }
 
 static void
@@ -347,6 +359,43 @@ index_list_update_mailbox(struct mailbox *box, struct mail_index_view *view)
 		ilist->updating_status = FALSE;
 	}
 	mail_index_view_close(&list_view);
+}
+
+void mailbox_list_index_update_mailbox_index(struct mailbox *box,
+					     const struct mailbox_update *update)
+{
+	struct mailbox_status status;
+	struct mail_index_view *view;
+	guid_128_t mailbox_guid;
+	uint32_t seq;
+	int ret;
+
+	if ((ret = index_list_open_view(box, &view, &seq)) <= 0)
+		return;
+
+	(void)mailbox_list_index_status(box->list, view, seq,
+					CACHED_STATUS_ITEMS, &status,
+					mailbox_guid);
+	if (update->uid_validity != 0)
+		status.uidvalidity = update->uid_validity;
+	if ((!guid_128_equals(update->mailbox_guid, mailbox_guid) &&
+	     !guid_128_is_empty(update->mailbox_guid) &&
+	     !guid_128_is_empty(mailbox_guid)) ||
+	    update->uid_validity != 0 ||
+	    update->min_next_uid != 0 ||
+	    update->min_first_recent_uid != 0 ||
+	    update->min_highest_modseq != 0) {
+		/* reset status counters. let the syncing later figure out
+		   their correct values. */
+		status.messages = 0;
+		status.unseen = 0;
+		status.recent = 0;
+		status.uidnext = 0;
+		status.highest_modseq = 0;
+	}
+	index_list_update_full(box, view, seq, update->mailbox_guid,
+			       &status, FALSE);
+	mail_index_view_close(&view);
 }
 
 static int index_list_sync_deinit(struct mailbox_sync_context *ctx,

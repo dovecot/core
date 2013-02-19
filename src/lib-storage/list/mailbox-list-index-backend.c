@@ -9,6 +9,8 @@
 #include "mailbox-list-index-storage.h"
 #include "mailbox-list-index-sync.h"
 
+#include <stdio.h>
+
 #define GLOBAL_TEMP_PREFIX ".temp."
 
 struct index_mailbox_list {
@@ -79,6 +81,20 @@ index_list_get_node(struct index_mailbox_list *list, const char *name,
 	return 1;
 }
 
+static const char *
+index_get_guid_path(struct mailbox_list *_list, const char *root_dir,
+		    const guid_128_t mailbox_guid)
+{
+	if (_list->set.mailbox_dir_name == '\0') {
+		return t_strconcat(root_dir, "/",
+				   guid_128_to_string(mailbox_guid), NULL);
+	} else {
+		return t_strdup_printf("%s/%s%s", root_dir,
+				       _list->set.mailbox_dir_name,
+				       guid_128_to_string(mailbox_guid));
+	}
+}
+
 static int
 index_list_get_path(struct mailbox_list *_list, const char *name,
 		    enum mailbox_list_path_type type, const char **path_r)
@@ -128,14 +144,8 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 		mailbox_list_set_error(_list, MAIL_ERROR_NOTFOUND,
 				       T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		ret = -1;
-	} else if (_list->set.mailbox_dir_name == '\0') {
-		*path_r = t_strconcat(root_dir, "/",
-				      guid_128_to_string(mailbox_guid), NULL);
-		ret = 1;
 	} else {
-		*path_r = t_strdup_printf("%s/%s%s", root_dir,
-					  _list->set.mailbox_dir_name,
-					  guid_128_to_string(mailbox_guid));
+		*path_r = index_get_guid_path(_list, root_dir, mailbox_guid);
 		ret = 1;
 	}
 	mail_index_view_close(&view);
@@ -308,6 +318,48 @@ index_list_mailbox_create(struct mailbox *box,
 	}
 	return directory ? 0 :
 		ibox->module_ctx.super.create_box(box, update, directory);
+}
+
+static int
+index_list_mailbox_update(struct mailbox *box,
+			  const struct mailbox_update *update)
+{
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
+	const char *root_dir, *old_path, *new_path;
+
+	if (mailbox_list_get_path(box->list, box->name,
+				  MAILBOX_LIST_PATH_TYPE_MAILBOX,
+				  &old_path) <= 0)
+		old_path = NULL;
+
+	if (ibox->module_ctx.super.update_box(box, update) < 0)
+		return -1;
+
+	/* rename the directory */
+	if (!guid_128_is_empty(update->mailbox_guid) &&
+	    mailbox_list_set_get_root_path(&box->list->set,
+					   MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					   &root_dir)) {
+		new_path = index_get_guid_path(box->list, root_dir,
+					       update->mailbox_guid);
+		if (strcmp(old_path, new_path) == 0)
+			;
+		else if (rename(old_path, new_path) == 0)
+			;
+		else if (errno == ENOENT) {
+			mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
+			return -1;
+		} else {
+			mail_storage_set_critical(box->storage,
+						  "rename(%s, %s) failed: %m",
+						  old_path, new_path);
+			return -1;
+		}
+	}
+
+	mailbox_list_index_update_mailbox_index(box, update);
+	return 0;
 }
 
 static void
@@ -609,4 +661,5 @@ void mailbox_list_index_backend_init_mailbox(struct mailbox *box)
 	if (strcmp(box->list->name, MAILBOX_LIST_NAME_INDEX) != 0)
 		return;
 	box->v.create_box = index_list_mailbox_create;
+	box->v.update_box = index_list_mailbox_update;
 }

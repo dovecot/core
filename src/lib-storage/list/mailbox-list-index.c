@@ -443,6 +443,19 @@ mailbox_list_index_create_mailbox(struct mailbox *box,
 }
 
 static int
+mailbox_list_index_update_mailbox(struct mailbox *box,
+				  const struct mailbox_update *update)
+{
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
+
+	if (ibox->module_ctx.super.update_box(box, update) < 0)
+		return -1;
+
+	mailbox_list_index_update_mailbox_index(box, update);
+	return 0;
+}
+
+static int
 mailbox_list_index_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
@@ -589,8 +602,9 @@ static void mailbox_list_index_mailbox_allocated(struct mailbox *box)
 	ibox->module_ctx.super = box->v;
 	MODULE_CONTEXT_SET(box, index_list_storage_module, ibox);
 
-	/* for layout=index this gets overridden */
+	/* for layout=index these get overridden */
 	box->v.create_box = mailbox_list_index_create_mailbox;
+	box->v.update_box = mailbox_list_index_update_mailbox;
 
 	mailbox_list_index_status_init_mailbox(box);
 	mailbox_list_index_backend_init_mailbox(box);

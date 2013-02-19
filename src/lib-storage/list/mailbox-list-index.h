@@ -166,6 +166,8 @@ bool mailbox_list_index_status(struct mailbox_list *list,
 			       uint8_t *mailbox_guid);
 void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 					      enum mailbox_info_flags *flags);
+void mailbox_list_index_update_mailbox_index(struct mailbox *box,
+					     const struct mailbox_update *update);
 
 int mailbox_list_index_notify_init(struct mailbox_list *list,
 				   enum mailbox_list_notify_event mask,
