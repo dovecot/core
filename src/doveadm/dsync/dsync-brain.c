@@ -79,8 +79,8 @@ dsync_brain_set_flags(struct dsync_brain *brain, enum dsync_brain_flags flags)
 	brain->backup_send = (flags & DSYNC_BRAIN_FLAG_BACKUP_SEND) != 0;
 	brain->backup_recv = (flags & DSYNC_BRAIN_FLAG_BACKUP_RECV) != 0;
 	brain->debug = (flags & DSYNC_BRAIN_FLAG_DEBUG) != 0;
-	brain->sync_all_namespaces =
-		(flags & DSYNC_BRAIN_FLAG_SYNC_ALL_NAMESPACES) != 0;
+	brain->sync_visible_namespaces =
+		(flags & DSYNC_BRAIN_FLAG_SYNC_VISIBLE_NAMESPACES) != 0;
 }
 
 struct dsync_brain *

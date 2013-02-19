@@ -16,8 +16,13 @@ static bool dsync_brain_want_namespace(struct dsync_brain *brain,
 {
 	if (brain->sync_ns == ns)
 		return TRUE;
-	if (brain->sync_all_namespaces)
-		return TRUE;
+	if (brain->sync_visible_namespaces) {
+		if ((ns->flags & NAMESPACE_FLAG_HIDDEN) == 0)
+			return TRUE;
+		if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+				  NAMESPACE_FLAG_LIST_CHILDREN)) != 0)
+			return TRUE;
+	}
 
 	return brain->sync_ns == NULL &&
 		strcmp(ns->unexpanded_set->location,
