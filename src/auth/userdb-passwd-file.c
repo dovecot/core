@@ -43,7 +43,7 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 
 	pu = db_passwd_file_lookup(module->pwf, auth_request,
 				   module->username_format);
-	if (pu == NULL) {
+	if (pu == NULL || pu->uid == 0) {
 		callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 		return;
 	}

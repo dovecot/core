@@ -96,6 +96,9 @@ passwd_file_add(struct passwd_file *pw, const char *username,
 			i_error("passwd-file %s: User %s is missing "
 				"userdb info", pw->path, username);
 		}
+		/* don't allow userdb lookups */
+		pu->uid = 0;
+		pu->gid = 0;
 	} else if (!pw->db->userdb || **args == '\0')
 		args++;
 	else {
