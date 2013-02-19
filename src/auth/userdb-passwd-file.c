@@ -99,7 +99,7 @@ passwd_file_iterate_init(struct auth_request *auth_request,
 	ctx->ctx.auth_request = auth_request;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
-	ctx->skip_passdb_entries = module->pwf->userdb_warn_missing;
+	ctx->skip_passdb_entries = !module->pwf->userdb_warn_missing;
 	if (module->pwf->default_file == NULL) {
 		i_error("passwd-file: User iteration isn't currently supported "
 			"with %%variable paths");
