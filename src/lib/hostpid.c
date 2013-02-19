@@ -35,7 +35,7 @@ void hostpid_init(void)
 
 	if (value[0] == '\0' ||
 	    strcspn(value, HOSTNAME_DISALLOWED_CHARS) != strlen(value))
-		i_error("Invalid system hostname: '%s'", value);
+		i_fatal("Invalid system hostname: '%s'", value);
 	my_hostname_dup = i_strdup(value);
 	my_hostname = my_hostname_dup;
 
