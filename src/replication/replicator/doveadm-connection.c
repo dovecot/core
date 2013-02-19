@@ -206,7 +206,7 @@ void doveadm_connection_sync(struct doveadm_connection *conn,
 		cmd = t_str_new(256);
 		str_append_c(cmd, '\t');
 		str_append_tabescaped(cmd, username);
-		str_printfa(cmd, "\tsync\t-d\t-l\t%u", DSYNC_LOCK_TIMEOUT_SECS);
+		str_printfa(cmd, "\tsync\t-d\t-N\t-l\t%u", DSYNC_LOCK_TIMEOUT_SECS);
 		if (full)
 			str_append(cmd, "\t-f");
 		str_append(cmd, "\t-s\t");
