@@ -201,23 +201,21 @@ log_it(struct log_connection *log, const char *line,
 	}
 
 	i_failure_parse_line(line, &failure);
-	if (failure.pid == 0) {
-		i_error("Invalid log line: %s", line);
-		return;
-	}
-
 	switch (failure.log_type) {
 	case LOG_TYPE_FATAL:
 	case LOG_TYPE_PANIC:
-		client = log_client_get(log, failure.pid);
-		client->fatal_logged = TRUE;
+		if (failure.pid != 0) {
+			client = log_client_get(log, failure.pid);
+			client->fatal_logged = TRUE;
+		}
 		break;
 	case LOG_TYPE_OPTION:
 		log_parse_option(log, &failure);
 		return;
 	default:
-		client = hash_table_lookup(log->clients,
-					   POINTER_CAST(failure.pid));
+		client = failure.pid == 0 ? NULL :
+			hash_table_lookup(log->clients,
+					  POINTER_CAST(failure.pid));
 		break;
 	}
 	i_assert(failure.log_type < LOG_TYPE_COUNT);
