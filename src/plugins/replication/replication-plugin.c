@@ -186,10 +186,6 @@ static void replication_notify(struct mail_namespace *ns,
 		return;
 	}
 
-	if (ns->owner == NULL) {
-		/* public namespace. we can't handle this for now. */
-		return;
-	}
 	ruser = REPLICATION_USER_CONTEXT(ns->owner);
 
 	if (priority == REPLICATION_PRIORITY_SYNC) {
