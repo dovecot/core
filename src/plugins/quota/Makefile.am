@@ -1,7 +1,10 @@
 doveadm_moduledir = $(moduledir)/doveadm
 
+pkglibexec_PROGRAMS = quota-status
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-mail \
@@ -27,6 +30,17 @@ quota_dist_sources = \
         quota-plugin.c \
 	quota-storage.c
 
+quota_common_objects = \
+	quota.lo \
+	quota-count.lo \
+	quota-fs.lo \
+	quota-dict.lo \
+	quota-dirsize.lo \
+	quota-maildir.lo \
+        quota-plugin.lo \
+	quota-storage.lo \
+	$(RQUOTA_XDR_LO)
+
 lib10_quota_plugin_la_SOURCES = $(quota_dist_sources)
 nodist_lib10_quota_plugin_la_SOURCES = $(RQUOTA_XDR)
 
@@ -36,8 +50,22 @@ doveadm_module_LTLIBRARIES = \
 lib10_doveadm_quota_plugin_la_SOURCES = \
 	doveadm-quota.c
 
+quota_status_SOURCES = \
+	quota-status.c
+
+quota_status_LDADD = \
+	$(quota_common_objects) \
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT) \
+	$(MODULE_LIBS)
+quota_status_DEPENDENCIES = \
+	$(quota_common_objects) \
+	$(LIBDOVECOT_STORAGE_DEPS) \
+	$(LIBDOVECOT_DEPS)
+
 if HAVE_RQUOTA
 RQUOTA_XDR = rquota_xdr.c
+RQUOTA_XDR_LO = rquota_xdr.lo
 #RQUOTA_X = /usr/include/rpcsvc/rquota.x
 RQUOTA_X = $(srcdir)/rquota.x
 rquota_xdr.c: Makefile $(RQUOTA_X)

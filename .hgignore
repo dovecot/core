@@ -97,6 +97,7 @@ src/util/tcpwrap
 src/plugins/fts/xml2text
 src/plugins/quota/rquota_xdr.c
 src/plugins/quota/rquota.h
+src/plugins/quota/quota-status
 
 syntax: regexp
 src/.*/test-[^\.]*$
