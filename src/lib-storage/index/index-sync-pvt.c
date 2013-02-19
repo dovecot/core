@@ -65,6 +65,17 @@ sync_pvt_copy_self_flags(struct index_mailbox_sync_pvt_context *ctx,
 	}
 }
 
+static void
+sync_pvt_copy_shared_flags(struct index_mailbox_sync_pvt_context *ctx,
+			   uint32_t seq_shared, uint32_t seq_pvt)
+{
+	const struct mail_index_record *rec;
+
+	rec = mail_index_lookup(ctx->view_shared, seq_shared);
+	mail_index_update_flags(ctx->trans_pvt, seq_pvt, MODIFY_ADD,
+		rec->flags & mailbox_get_private_flags_mask(ctx->box));
+}
+
 static int
 index_mailbox_sync_view_refresh(struct index_mailbox_sync_pvt_context *ctx)
 {
@@ -144,7 +155,7 @@ index_mailbox_sync_pvt_index(struct index_mailbox_sync_pvt_context *ctx,
 	ARRAY_TYPE(keyword_indexes) keywords;
 	uint32_t seq_shared, seq_pvt, seq_old_pvt, seq2, count_shared, uid;
 	unsigned int pc_idx = 0;
-	bool reset = FALSE, preserve_old_flags = FALSE;
+	bool reset = FALSE, preserve_old_flags = FALSE, copy_shared_flags;
 	int ret;
 
 	if (ctx->sync_ctx == NULL) {
@@ -166,6 +177,10 @@ index_mailbox_sync_pvt_index(struct index_mailbox_sync_pvt_context *ctx,
 		/* mailbox created/recreated */
 		reset = TRUE;
 	}
+	/* for public namespaces copy the initial private flags from the shared
+	   index. this allows Sieve scripts to set the initial flags. */
+	copy_shared_flags =
+		ctx->box->list->ns->type == MAIL_NAMESPACE_TYPE_PUBLIC;
 
 	count_shared = mail_index_view_get_messages_count(ctx->view_shared);
 	if (!reset) {
@@ -194,7 +209,10 @@ index_mailbox_sync_pvt_index(struct index_mailbox_sync_pvt_context *ctx,
 			/* copy flags from the original private index */
 			sync_pvt_copy_self_flags(ctx, &keywords,
 						 seq_old_pvt, seq_pvt);
+		} else if (copy_shared_flags) {
+			sync_pvt_copy_shared_flags(ctx, seq_shared, seq_pvt);
 		}
+
 		/* add private flags for the recently saved/copied messages */
 		while (pc_idx < pvt_changes_count &&
 		       pvt_changes[pc_idx].mailnum <= uid) {
