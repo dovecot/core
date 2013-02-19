@@ -94,6 +94,11 @@ bool guid_128_is_empty(const guid_128_t guid)
 	return TRUE;
 }
 
+bool guid_128_equals(const guid_128_t guid1, const guid_128_t guid2)
+{
+	return memcmp(guid1, guid2, GUID_128_SIZE) == 0;
+}
+
 int guid_128_from_string(const char *str, guid_128_t guid_r)
 {
 	buffer_t buf;

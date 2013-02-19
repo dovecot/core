@@ -12,6 +12,8 @@ const char *guid_generate(void);
 void guid_128_generate(guid_128_t guid_r);
 /* Returns TRUE if GUID is empty (not set / unknown). */
 bool guid_128_is_empty(const guid_128_t guid);
+/* Returns TRUE if two GUIDs are equal. */
+bool guid_128_equals(const guid_128_t guid1, const guid_128_t guid2);
 
 /* Returns GUID as a hex string. */
 const char *guid_128_to_string(const guid_128_t guid);
