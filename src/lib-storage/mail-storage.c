@@ -1897,6 +1897,7 @@ int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
 
 	if (mail_index_is_deleted(box->index)) {
 		mailbox_set_deleted(box);
+		mailbox_save_cancel(ctx);
 		return -1;
 	}
 
