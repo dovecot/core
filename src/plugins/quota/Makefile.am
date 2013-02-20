@@ -53,8 +53,16 @@ lib10_doveadm_quota_plugin_la_SOURCES = \
 quota_status_SOURCES = \
 	quota-status.c
 
+if !BUILD_SHARED_LIBS
+unused_objects = \
+	../../lib/mountpoint.o \
+	../../lib-imap/imap-util.o \
+	../../lib-storage/mail-search-parser-imap.o
+endif
+
 quota_status_LDADD = \
 	$(quota_common_objects) \
+	$(unused_objects) \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS)

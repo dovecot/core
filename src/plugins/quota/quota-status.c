@@ -1,7 +1,6 @@
 /* Copyright (c) 2013 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "module-dir.h"
 #include "ostream.h"
 #include "connection.h"
 #include "restrict-access.h"
@@ -27,11 +26,6 @@ struct quota_client {
 static enum quota_protocol protocol;
 static struct mail_storage_service_ctx *storage_service;
 static struct connection_list *clients;
-
-static struct module quota_module = {
-	.path = "quota",
-	.name = "quota"
-};
 
 static void client_connected(struct master_service_connection *conn)
 {
@@ -168,15 +162,12 @@ static void main_init(void)
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
 		MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP |
 		MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS |
-		MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR |
-		MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS);
-	quota_plugin_init(&quota_module);
+		MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR);
 }
 
 static void main_deinit(void)
 {
 	connection_list_deinit(&clients);
-	quota_plugin_deinit();
 	mail_storage_service_deinit(&storage_service);
 }
 
