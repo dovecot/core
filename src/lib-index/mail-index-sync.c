@@ -500,6 +500,8 @@ int mail_index_sync_begin_to(struct mail_index *index,
 	bool retry;
 	int ret;
 
+	i_assert(index->open_count > 0);
+
 	ret = mail_index_sync_begin_to2(index, ctx_r, view_r, trans_r,
 					log_file_seq, log_file_offset,
 					flags, &retry);
