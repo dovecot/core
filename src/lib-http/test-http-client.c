@@ -263,7 +263,11 @@ static void run_tests(struct http_client *http_client)
 	http_client_request_submit(http_req);
 }
 
-static void run_http_get(struct http_client *http_client, const char *url_str)
+static void
+test_http_request_init(struct http_client *http_client,
+		       const char *method, const char *url_str,
+		       struct http_client_request **http_req_r,
+		       struct http_test_request **test_req_r)
 {
 	struct http_client_request *http_req;
 	struct http_test_request *test_req;
@@ -277,13 +281,38 @@ static void run_http_get(struct http_client *http_client, const char *url_str)
 	test_req = i_new(struct http_test_request, 1);
 	test_req->write_output = TRUE;
 	http_req = http_client_request(http_client,
-		"GET", url->host_name,
+		method, url->host_name,
 		t_strconcat("/", url->path, url->enc_query, NULL),
 		got_request_response, test_req);
 	if (url->have_port)
 		http_client_request_set_port(http_req, url->port);
 	if (url->have_ssl)
 		http_client_request_set_ssl(http_req, TRUE);
+
+	*http_req_r = http_req;
+	*test_req_r = test_req;
+}
+
+static void run_http_get(struct http_client *http_client, const char *url_str)
+{
+	struct http_client_request *http_req;
+	struct http_test_request *test_req;
+
+	test_http_request_init(http_client, "GET", url_str, &http_req, &test_req);
+	http_client_request_submit(http_req);
+}
+
+static void run_http_post(struct http_client *http_client, const char *url_str,
+			  const char *path)
+{
+	struct http_client_request *http_req;
+	struct http_test_request *test_req;
+	struct istream *input;
+
+	test_http_request_init(http_client, "POST", url_str, &http_req, &test_req);
+	input = i_stream_create_file(path, IO_BLOCK_SIZE);
+	http_client_request_set_payload(http_req, input, FALSE);
+	i_stream_unref(&input);
 	http_client_request_submit(http_req);
 }
 
@@ -312,10 +341,19 @@ int main(int argc, char *argv[])
 
 	http_client = http_client_init(&http_set);
 
-	if (argc > 1)
-		run_http_get(http_client, argv[1]);
-	else
+	switch (argc) {
+	case 1:
 		run_tests(http_client);
+		break;
+	case 2:
+		run_http_get(http_client, argv[1]);
+		break;
+	case 3:
+		run_http_post(http_client, argv[1], argv[2]);
+		break;
+	default:
+		i_fatal("Too many parameters");
+	}
 
 	http_client_wait(http_client);
 	http_client_deinit(&http_client);
