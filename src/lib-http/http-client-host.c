@@ -289,17 +289,20 @@ void http_client_host_submit_request(struct http_client_host *host,
 
 	req->host = host;
 
-	if (host->ips_count == 0 && host->dns_lookup == NULL)	
-		http_client_host_lookup(host);
+	/* add request to host (grouped by tcp port) */
 	hport = http_client_host_port_init(host, req->port, req->ssl);
 	if (req->urgent)
 		array_append(&hport->urgent_request_queue, &req, 1);
 	else
 		array_append(&hport->request_queue, &req, 1);
 
+	/* start DNS lookup if necessary */
+	if (host->ips_count == 0 && host->dns_lookup == NULL)	
+		http_client_host_lookup(host);
+
+	/* make a connection if we have an IP already */
 	if (host->ips_count == 0)
 		return;
-	
 	http_client_host_connection_setup(host, hport);
 }
 
