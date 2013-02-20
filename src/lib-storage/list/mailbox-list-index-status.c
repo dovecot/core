@@ -529,7 +529,7 @@ void mailbox_list_index_status_init_mailbox(struct mailbox *box)
 	box->v.transaction_commit = index_list_transaction_commit;
 }
 
-void mailbox_list_index_status_init_list(struct mailbox_list *list)
+void mailbox_list_index_status_init_finish(struct mailbox_list *list)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 

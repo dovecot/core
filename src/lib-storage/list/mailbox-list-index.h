@@ -105,6 +105,7 @@ struct mailbox_list_index {
 	HASH_TABLE(void *, struct mailbox_list_index_node *) mailbox_hash;
 	struct mailbox_list_index_node *mailbox_tree;
 
+	unsigned int pending_init:1;
 	unsigned int opened:1;
 	unsigned int syncing:1;
 	unsigned int updating_status:1;
@@ -181,6 +182,6 @@ void mailbox_list_index_notify_wait(struct mailbox_list_notify *notify,
 
 void mailbox_list_index_status_init_mailbox(struct mailbox *box);
 void mailbox_list_index_backend_init_mailbox(struct mailbox *box);
-void mailbox_list_index_status_init_list(struct mailbox_list *list);
+void mailbox_list_index_status_init_finish(struct mailbox_list *list);
 
 #endif

@@ -528,7 +528,6 @@ mailbox_list_index_set_subscribed(struct mailbox_list *_list,
 static void mailbox_list_index_created(struct mailbox_list *list)
 {
 	struct mailbox_list_index *ilist;
-	const char *dir;
 	bool has_backing_store;
 
 	/* layout=index doesn't have any backing store */
@@ -543,16 +542,11 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 		MODULE_CONTEXT_SET(list, mailbox_list_index_module, ilist);
 		return;
 	}
-	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
-					&dir)) {
-		/* in-memory indexes */
-		dir = NULL;
-	}
-	i_assert(has_backing_store || dir != NULL);
 
 	ilist = p_new(list->pool, struct mailbox_list_index, 1);
 	ilist->module_ctx.super = list->v;
 	ilist->has_backing_store = has_backing_store;
+	ilist->pending_init = TRUE;
 
 	list->v.deinit = mailbox_list_index_deinit;
 	list->v.iter_init = mailbox_list_index_iter_init;
@@ -570,6 +564,25 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 	list->v.notify_wait = mailbox_list_index_notify_wait;
 
 	MODULE_CONTEXT_SET(list, mailbox_list_index_module, ilist);
+}
+
+static void mailbox_list_index_init_finish(struct mailbox_list *list)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	const char *dir;
+
+	if (!ilist->pending_init)
+		return;
+	ilist->pending_init = FALSE;
+
+	/* we've delayed this part of the initialization so that mbox format
+	   can override the index root directory path */
+	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
+					&dir)) {
+		/* in-memory indexes */
+		dir = NULL;
+	}
+	i_assert(ilist->has_backing_store || dir != NULL);
 
 	ilist->path = dir == NULL ? "(in-memory mailbox list index)" :
 		p_strdup_printf(list->pool, "%s/"MAILBOX_LIST_INDEX_PREFIX, dir);
@@ -587,7 +600,16 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 	hash_table_create_direct(&ilist->mailbox_names, ilist->mailbox_pool, 0);
 	hash_table_create_direct(&ilist->mailbox_hash, ilist->mailbox_pool, 0);
 
-	mailbox_list_index_status_init_list(list);
+	mailbox_list_index_status_init_finish(list);
+}
+
+static void
+mailbox_list_index_namespaces_created(struct mail_namespace *namespaces)
+{
+	struct mail_namespace *ns;
+
+	for (ns = namespaces; ns != NULL; ns = ns->next)
+		mailbox_list_index_init_finish(ns->list);
 }
 
 static void mailbox_list_index_mailbox_allocated(struct mailbox *box)
@@ -612,6 +634,7 @@ static void mailbox_list_index_mailbox_allocated(struct mailbox *box)
 
 static struct mail_storage_hooks mailbox_list_index_hooks = {
 	.mailbox_list_created = mailbox_list_index_created,
+	.mail_namespaces_created = mailbox_list_index_namespaces_created,
 	.mailbox_allocated = mailbox_list_index_mailbox_allocated
 };
 
