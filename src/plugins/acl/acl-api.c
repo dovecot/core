@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "str.h"
 #include "hash.h"
+#include "mail-user.h"
+#include "mailbox-list.h"
 #include "acl-cache.h"
 #include "acl-api-private.h"
 
@@ -30,6 +32,12 @@ int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)
 {
 	struct acl_backend *backend = aclobj->backend;
 	const struct acl_mask *have_mask;
+
+	if (mailbox_list_get_user(aclobj->backend->list)->admin) {
+		/* admin user (especially dsync) can do anything regardless
+		   of ACLs */
+		return 1;
+	}
 
 	if (backend->v.object_refresh_cache(aclobj) < 0)
 		return -1;
