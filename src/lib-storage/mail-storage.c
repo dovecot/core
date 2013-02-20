@@ -1941,11 +1941,12 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 	struct mailbox_transaction_context *t = ctx->transaction;
 	struct mail_keywords *keywords = ctx->data.keywords;
 	enum mail_flags pvt_flags = ctx->data.pvt_flags;
+	bool copying_via_save = ctx->copying_via_save;
 	int ret;
 
 	*_ctx = NULL;
 	ret = t->box->v.save_finish(ctx);
-	if (ret == 0 && !ctx->copying_via_save) {
+	if (ret == 0 && !copying_via_save) {
 		if (pvt_flags != 0)
 			mailbox_save_add_pvt_flags(t, pvt_flags);
 		t->save_count++;
