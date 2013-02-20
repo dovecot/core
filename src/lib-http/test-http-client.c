@@ -4,11 +4,13 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "write-full.h"
+#include "http-url.h"
 #include "http-client.h"
 
 struct http_test_request {
 	struct io *io;
 	struct istream *payload;
+	bool write_output;
 };
 
 static void payload_input(struct http_test_request *req)
@@ -20,7 +22,8 @@ static void payload_input(struct http_test_request *req)
 	/* read payload */
 	while ((ret=i_stream_read_data(req->payload, &data, &size, 0)) > 0) {
 		i_info("DEBUG: got data (size=%d)", (int)size); 
-		//write_full(1, data, size);
+		if (req->write_output)
+			write_full(1, data, size);
 		i_stream_skip(req->payload, size);
 	}
 
@@ -75,35 +78,13 @@ static const char *test_query1 = "data=Frop&submit=Submit";
 static const char *test_query2 = "data=This%20is%20a%20test&submit=Submit";
 static const char *test_query3 = "foo=bar";
 
-int main(void)
+static void run_tests(struct http_client *http_client)
 {
-	struct http_client_settings http_set;
-	struct http_client *http_client;
 	struct http_client_request *http_req;
-	struct ioloop *ioloop;
 	struct http_test_request *test_req;
 	struct istream *post_payload;
 
-	memset(&http_set, 0, sizeof(http_set));
-	http_set.dns_client_socket_path = "/var/run/dovecot/dns-client";
-	http_set.debug = TRUE;
-	http_set.ssl_ca_dir = "/etc/ssl/certs";
-	http_set.max_idle_time_msecs = 5*1000;
-	http_set.max_parallel_connections = 4;
-	http_set.max_pipelined_requests = 4;
-	http_set.max_redirects = 2;
-	http_set.max_attempts = 1;
-	http_set.debug = TRUE;
-	http_set.rawlog_dir = "/tmp/http-test";
-
-	lib_init();
-
-	ioloop = io_loop_create();
-	io_loop_set_running(ioloop);
-
 	// JigSAW is useful for testing: http://jigsaw.w3.org/HTTP/
-
-	http_client = http_client_init(&http_set);
 
 	test_req = i_new(struct http_test_request, 1);
 	http_req = http_client_request(http_client,
@@ -280,9 +261,63 @@ int main(void)
 	http_client_request_set_payload(http_req, post_payload, TRUE);
 	i_stream_unref(&post_payload);
 	http_client_request_submit(http_req);
+}
+
+static void run_http_get(struct http_client *http_client, const char *url_str)
+{
+	struct http_client_request *http_req;
+	struct http_test_request *test_req;
+	struct http_url *url;
+	const char *error;
+
+	if (http_url_parse(url_str, NULL, 0, pool_datastack_create(),
+			   &url, &error) < 0)
+		i_fatal("Invalid URL %s: %s", url_str, error);
+
+	test_req = i_new(struct http_test_request, 1);
+	test_req->write_output = TRUE;
+	http_req = http_client_request(http_client,
+		"GET", url->host_name,
+		t_strconcat("/", url->path, url->enc_query, NULL),
+		got_request_response, test_req);
+	if (url->have_port)
+		http_client_request_set_port(http_req, url->port);
+	if (url->have_ssl)
+		http_client_request_set_ssl(http_req, TRUE);
+	http_client_request_submit(http_req);
+}
+
+int main(int argc, char *argv[])
+{
+	struct http_client_settings http_set;
+	struct http_client *http_client;
+	struct ioloop *ioloop;
+
+	memset(&http_set, 0, sizeof(http_set));
+	http_set.dns_client_socket_path = "/var/run/dovecot/dns-client";
+	http_set.debug = TRUE;
+	http_set.ssl_ca_dir = "/etc/ssl/certs";
+	http_set.max_idle_time_msecs = 5*1000;
+	http_set.max_parallel_connections = 4;
+	http_set.max_pipelined_requests = 4;
+	http_set.max_redirects = 2;
+	http_set.max_attempts = 1;
+	http_set.debug = TRUE;
+	http_set.rawlog_dir = "/tmp/http-test";
+
+	lib_init();
+
+	ioloop = io_loop_create();
+	io_loop_set_running(ioloop);
+
+	http_client = http_client_init(&http_set);
+
+	if (argc > 1)
+		run_http_get(http_client, argv[1]);
+	else
+		run_tests(http_client);
 
 	http_client_wait(http_client);
-
 	http_client_deinit(&http_client);
 
 	io_loop_destroy(&ioloop);
