@@ -165,6 +165,9 @@ void http_client_wait(struct http_client *client)
 
 	i_assert(client->ioloop == NULL);
 
+	if (client->pending_requests == 0)
+		return;
+
 	client->ioloop = io_loop_create();
 	http_client_switch_ioloop(client);
 

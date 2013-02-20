@@ -87,6 +87,9 @@ void http_client_request_unref(struct http_client_request **_req)
 	http_client_request_debug(req, "Destroy (requests left=%d)",
 		client->pending_requests);
 
+	if (client->pending_requests == 0 && client->ioloop != NULL)
+		io_loop_stop(client->ioloop);
+
 	if (req->payload_input != NULL)
 		i_stream_unref(&req->payload_input);
 	if (req->payload_output != NULL)
