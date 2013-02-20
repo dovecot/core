@@ -524,7 +524,7 @@ int solr_connection_post_end(struct solr_connection_post *post)
 	i_assert(conn->posting);
 
 	if (!post->failed) {
-		if (http_client_request_send_payload(&post->http_req, NULL, 0) <= 0 ||
+		if (http_client_request_finish_payload(&post->http_req) <= 0 ||
 			conn->request_status < 0) {
 			ret = -1;
 		}

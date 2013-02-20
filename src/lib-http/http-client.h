@@ -84,9 +84,11 @@ void http_client_request_set_destroy_callback(struct http_client_request *req,
 					      void *context);
 
 /* submits request and blocks until provided payload is sent. Multiple calls
-   are allowed; payload transmission is ended when data == NULL. */
+   are allowed; payload transmission is ended with
+   http_client_request_finish_payload(). */
 int http_client_request_send_payload(struct http_client_request **req,
 	const unsigned char *data, size_t size);
+int http_client_request_finish_payload(struct http_client_request **req);
 
 void http_client_switch_ioloop(struct http_client *client);
 

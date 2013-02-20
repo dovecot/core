@@ -176,7 +176,7 @@ void http_client_request_submit(struct http_client_request *req)
 }
 
 static void
-http_client_request_finish_payload(struct http_client_request *req)
+http_client_request_finish_payload_out(struct http_client_request *req)
 {
 	if (req->payload_output != NULL) {
 		o_stream_unref(&req->payload_output);
@@ -187,7 +187,8 @@ http_client_request_finish_payload(struct http_client_request *req)
 	http_client_request_debug(req, "Sent all payload");
 }
 
-int http_client_request_send_payload(struct http_client_request **_req,
+static int
+http_client_request_continue_payload(struct http_client_request **_req,
 	const unsigned char *data, size_t size)
 {
 	struct ioloop *prev_ioloop = current_ioloop;
@@ -208,7 +209,7 @@ int http_client_request_send_payload(struct http_client_request **_req,
 	if (data == NULL) {
 		req->payload_input = NULL;
 		if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT)
-			http_client_request_finish_payload(req);
+			http_client_request_finish_payload_out(req);
 	} else { 
 		req->payload_input = i_stream_create_from_data(data, size);
 	}
@@ -255,6 +256,19 @@ int http_client_request_send_payload(struct http_client_request **_req,
 	return ret;
 }
 
+int http_client_request_send_payload(struct http_client_request **_req,
+	const unsigned char *data, size_t size)
+{
+	i_assert(data != NULL);
+
+	return http_client_request_continue_payload(_req, data, size);
+}
+
+int http_client_request_finish_payload(struct http_client_request **_req)
+{
+	return http_client_request_continue_payload(_req, NULL, 0);
+}
+
 int http_client_request_send_more(struct http_client_request *req)
 {
 	struct http_client_connection *conn = req->conn;
@@ -279,7 +293,7 @@ int http_client_request_send_more(struct http_client_request *req)
 			if (req->client->ioloop != NULL)
 				io_loop_stop(req->client->ioloop);
 		} else {
-			http_client_request_finish_payload(req);
+			http_client_request_finish_payload_out(req);
 		}
 
 	} else {
