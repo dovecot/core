@@ -1954,6 +1954,7 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 	}
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
+	i_assert(!ctx->unfinished);
 	return ret;
 }
 
@@ -1974,6 +1975,7 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 		mail = (struct mail_private *)ctx->dest_mail;
 		mail->v.close(&mail->mail);
 	}
+	i_assert(!ctx->unfinished);
 }
 
 struct mailbox_transaction_context *
@@ -2010,6 +2012,7 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 	}
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
+	i_assert(!ctx->unfinished);
 	return ret;
 }
 
