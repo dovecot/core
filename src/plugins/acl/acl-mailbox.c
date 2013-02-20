@@ -391,26 +391,38 @@ acl_save_begin(struct mail_save_context *ctx, struct istream *input)
 	return abox->module_ctx.super.save_begin(ctx, input);
 }
 
-static int
-acl_copy(struct mail_save_context *ctx, struct mail *mail)
+static bool
+acl_copy_has_rights(struct mail_save_context *ctx, struct mail *mail)
 {
-	struct mailbox_transaction_context *t = ctx->transaction;
-	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
+	struct mailbox *destbox = ctx->transaction->box;
 	enum acl_storage_rights save_right;
 
 	if (ctx->moving) {
 		if (acl_mailbox_right_lookup(mail->box,
 					     ACL_STORAGE_RIGHT_EXPUNGE) <= 0)
-			return -1;
+			return FALSE;
 	}
 
-	save_right = (t->box->flags & MAILBOX_FLAG_POST_SESSION) != 0 ?
+	save_right = (destbox->flags & MAILBOX_FLAG_POST_SESSION) != 0 ?
 		ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
-	if (acl_mailbox_right_lookup(t->box, save_right) <= 0)
-		return -1;
-	if (acl_save_get_flags(t->box, &ctx->data.flags,
+	if (acl_mailbox_right_lookup(destbox, save_right) <= 0)
+		return FALSE;
+	if (acl_save_get_flags(destbox, &ctx->data.flags,
 			       &ctx->data.pvt_flags, &ctx->data.keywords) < 0)
+		return FALSE;
+	return TRUE;
+}
+
+static int
+acl_copy(struct mail_save_context *ctx, struct mail *mail)
+{
+	struct mailbox_transaction_context *t = ctx->transaction;
+	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
+
+	if (!acl_copy_has_rights(ctx, mail)) {
+		mailbox_save_cancel(&ctx);
 		return -1;
+	}
 
 	return abox->module_ctx.super.copy(ctx, mail);
 }
