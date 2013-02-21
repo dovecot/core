@@ -95,7 +95,8 @@ quota-fs.lo: rquota.h
 
 endif
 
-noinst_HEADERS = \
+pkginc_libdir=$(pkgincludedir)
+pkginc_lib_HEADERS = \
 	quota.h \
 	quota-fs.h \
 	quota-plugin.h \
