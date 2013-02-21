@@ -571,7 +571,7 @@ static void mailbox_list_index_init_finish(struct mailbox_list *list)
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 	const char *dir;
 
-	if (!ilist->pending_init)
+	if (ilist == NULL || !ilist->pending_init)
 		return;
 	ilist->pending_init = FALSE;
 
