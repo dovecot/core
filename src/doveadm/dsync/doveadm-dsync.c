@@ -330,14 +330,12 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 }
 
 static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx,
-				  bool remote_errors_logged)
+				  int *status_r)
 {
-	int status;
-
 	/* wait for the remote command to finish to see any final errors.
 	   don't wait very long though. */
 	alarm(DSYNC_REMOTE_CMD_EXIT_WAIT_SECS);
-	if (waitpid(ctx->remote_pid, &status, 0) == -1) {
+	if (waitpid(ctx->remote_pid, status_r, 0) == -1) {
 		if (errno != EINTR) {
 			i_error("waitpid(%ld) failed: %m",
 				(long)ctx->remote_pid);
@@ -348,7 +346,15 @@ static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx,
 					(long)ctx->remote_pid);
 			}
 		}
-	} else if (WIFSIGNALED(status))
+		*status_r = -1;
+	}
+}
+
+static void cmd_dsync_log_remote_status(int status, bool remote_errors_logged)
+{
+	if (status == -1)
+		;
+	else if (WIFSIGNALED(status))
 		i_error("Remote command died with signal %d", WTERMSIG(status));
 	else if (!WIFEXITED(status))
 		i_error("Remote command failed with status %d", status);
@@ -407,7 +413,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	struct mail_namespace *sync_ns = NULL;
 	enum dsync_brain_flags brain_flags;
 	bool remote_errors_logged = FALSE;
-	int ret = 0;
+	int status, ret = 0;
 
 	user->admin = TRUE;
 	user->dsyncing = TRUE;
@@ -469,7 +475,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		i_close_fd(&ctx->fd_in);
 	}
 	if (ctx->remote)
-		cmd_dsync_wait_remote(ctx, remote_errors_logged);
+		cmd_dsync_wait_remote(ctx, &status);
 
 	/* print any final errors after the process has died. not closing
 	   stdin/stdout before wait() may cause the process to hang, but stderr
@@ -480,6 +486,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		remote_errors_logged = ctx->err_stream->v_offset > 0;
 		i_stream_destroy(&ctx->err_stream);
 	}
+	cmd_dsync_log_remote_status(status, remote_errors_logged);
 	if (ctx->io_err != NULL)
 		io_remove(&ctx->io_err);
 	if (ctx->fd_err != -1)
