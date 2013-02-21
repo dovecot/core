@@ -361,7 +361,7 @@ unsigned int http_client_peer_idle_connections(struct http_client_peer *peer)
     struct http_client_connection *const *conn_idx;
     unsigned int idle = 0;
 
-	/* find the least busy connection */
+	/* find idle connections */
     array_foreach(&peer->conns, conn_idx) {
         if (http_client_connection_is_idle(*conn_idx))
 			idle++;

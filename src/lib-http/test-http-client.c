@@ -213,6 +213,17 @@ static void run_tests(struct http_client *http_client)
 
 	test_req = i_new(struct http_test_request, 1);
 	http_req = http_client_request(http_client,
+		"POST", "posttestserver.com", "/post.php",
+		got_request_response, test_req);
+	post_payload = i_stream_create_from_data
+		((unsigned char *)test_query1, strlen(test_query1));
+	http_client_request_set_payload(http_req, post_payload, TRUE);
+	i_stream_unref(&post_payload);
+	http_client_request_set_ssl(http_req, TRUE);
+	http_client_request_submit(http_req);
+
+	test_req = i_new(struct http_test_request, 1);
+	http_req = http_client_request(http_client,
 		"GET", "wiki2.dovecot.org", "/Pigeonhole",
 		got_request_response, test_req);
 	http_client_request_submit(http_req);

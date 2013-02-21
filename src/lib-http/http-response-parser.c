@@ -98,7 +98,8 @@ static int http_response_parse_version(struct http_response_parser *parser)
 	if (str_len(parser->strbuf) + (parser->cur-first) > 8)
 		return -1;
 
-	str_append_n(parser->strbuf, first, parser->cur-first);
+	if ((parser->cur - first) > 0)
+		str_append_n(parser->strbuf, first, parser->cur-first);
 	if (parser->cur == parser->end)
 		return 0;
 
@@ -116,30 +117,35 @@ static int http_response_parse_version(struct http_response_parser *parser)
 	if (!i_isdigit(*p))
 		return -1;
 	parser->response->version_minor = *p - '0';
+	str_truncate(parser->strbuf, 0);
 	return 1;
 }
 
 static int http_response_parse_status(struct http_response_parser *parser)
 {
 	const unsigned char *first = parser->cur;
-	const char *p;
+	const unsigned char *p;
 
 	/* status-code   = 3DIGIT
 	 */
-	while (parser->cur < parser->end && i_isdigit(*parser->cur))
+	while (parser->cur < parser->end && i_isdigit(*parser->cur)) {
 		parser->cur++;
+		if ((parser->cur - first) > 3)
+			return -1;
+	}
 
-	if (str_len(parser->strbuf) + (parser->cur-first) > 3)
+	if (str_len(parser->strbuf) + (parser->cur - first) > 3)
 		return -1;
-
-	str_append_n(parser->strbuf, first, parser->cur-first);
+	if ((parser->cur - first) > 0)
+		str_append_n(parser->strbuf, first, parser->cur-first);
 	if (parser->cur == parser->end)
 		return 0;
 	if (str_len(parser->strbuf) != 3)
 		return -1;
-	p = str_c(parser->strbuf);
+	p = str_data(parser->strbuf);
 	parser->response->status =
 		(p[0] - '0')*100 + (p[1] - '0')*10 + (p[2] - '0');
+	str_truncate(parser->strbuf, 0);
 	return 1;
 }
 
@@ -152,12 +158,13 @@ static int http_response_parse_reason(struct http_response_parser *parser)
 	while (parser->cur < parser->end && http_char_is_text(*parser->cur))
 		parser->cur++;
 
-	str_append_n(parser->strbuf, first, parser->cur-first);
-
+	if ((parser->cur - first) > 0)
+		str_append_n(parser->strbuf, first, parser->cur-first);
 	if (parser->cur == parser->end)
 		return 0;
 	parser->response->reason =
 		p_strdup(parser->response_pool, str_c(parser->strbuf));
+	str_truncate(parser->strbuf, 0);
 	return 1;
 }
 
@@ -189,7 +196,6 @@ static int http_response_parse(struct http_response_parser *parser)
 					parser->error = "Invalid HTTP version in response";
 				return ret;
 			}
-			str_truncate(parser->strbuf, 0);
 			parser->state = HTTP_RESPONSE_PARSE_STATE_SP1;
 			if (parser->cur == parser->end)
 				return 0;
@@ -202,7 +208,6 @@ static int http_response_parse(struct http_response_parser *parser)
 				return -1;
 			}
 			parser->cur++;
-			str_truncate(parser->strbuf, 0);
 			parser->state = HTTP_RESPONSE_PARSE_STATE_STATUS;
 			if (parser->cur >= parser->end)
 				return 0;
@@ -213,7 +218,6 @@ static int http_response_parse(struct http_response_parser *parser)
 					parser->error = "Invalid HTTP status code in response";
 				return ret;
 			}
-			str_truncate(parser->strbuf, 0);
 			parser->state = HTTP_RESPONSE_PARSE_STATE_SP2;
 			if (parser->cur == parser->end)
 				return 0;
@@ -226,7 +230,6 @@ static int http_response_parse(struct http_response_parser *parser)
 				return -1;
 			}
 			parser->cur++;
-			str_truncate(parser->strbuf, 0);
 			parser->state = HTTP_RESPONSE_PARSE_STATE_REASON;
 			if (parser->cur >= parser->end)
 				return 0;
@@ -234,7 +237,6 @@ static int http_response_parse(struct http_response_parser *parser)
 		case HTTP_RESPONSE_PARSE_STATE_REASON:
 			if ((ret=http_response_parse_reason(parser)) <= 0)
 				return ret;
-			str_truncate(parser->strbuf, 0);
 			parser->state = HTTP_RESPONSE_PARSE_STATE_CR;
 			if (parser->cur == parser->end)
 				return 0;
