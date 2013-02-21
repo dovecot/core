@@ -1,24 +1,24 @@
+ - dsync over tcp
+ - if transaction log file corruption is noticed, make sure new dovecot.index
+   snapshot gets written and don't mark the whole file corrupted.. rather maybe
+   just rotate and truncate it
  - LAYOUT=index:
     - force-resync should fix the index, finding any missing mailboxes, same
       for when internally detecting the error
     - see if there are any race conditions? and check other error handling
     - after doing a lot of changes the list's memory pool keeps growing.
       do an occasional re-parsing to clear the pool
-    - mailbox_update() needs to update also uidvalidity/guid
     - quota recalc + dict-file [+acl?] assert-crashes in !indexing->syncing
+ - imaptest: add condstore, qresync tests
+
+ - zlib plugin should do caching similar to binary fetches. otherwise
+   partial fetches from large compressed mails are hopelessly slow.
+ - Track highestmodseq always, just don't keep per-message modseqs unless
+   they're enabled. Then don't return [NOMODSEQ] on select.
  - URLAUTH: if client tries to access nonexistent user, do a delay in
    imap-urlauth-client.c (AFTER destroying the worker)
      - special response in the control connection to make the imap-urlauth
        master wait before starting a new worker
- - dsync to sync both shared and private message flags
- - pop3_lock_session=yes should use its own separate pop3-lock file
- - Track highestmodseq always, just don't keep per-message modseqs unless
-   they're enabled.
- - LDA/LMTP: Allow saving one last mail even if it brings user over quota?
- - zlib plugin should do caching similar to binary fetches. otherwise
-   partial fetches from large compressed mails are hopelessly slow.
- - imaptest: add condstore, qresync tests
-
  - shared user should get settings from userdb extra fields, especially
    plugin/quota_rule to get different quota limits for shared mailboxes.
    the problem is that user doesn't currently have set_parser available,
@@ -35,6 +35,7 @@
  - FIFOs maybe should be counted as connections, but unlisten should
    unlink+reopen it in master?
  - lmtp client/proxy: Handle multiline replies better
+ - lmtp: support DSN extension (especially ORCPT)
  - recreate mailbox -> existing sessions log "indexid changed" error
  - add message/mime limits
  - imapc:
@@ -70,6 +71,8 @@
        users, 2) create mail_user only once for each user, 3) remember in
        src_mail the previously copied mail, 4) use that for mailbox_copy()ing
        to following recipients
+     - make sure this removes duplicate dbox mails when sieve saves mail to
+       multiple mailboxes
  - notify_sync() could have "what changed" struct with old/new flags
  - maildir: copy dovecot-shared file from parent mailbox, not root.
  - if global ACL path points to a file instead of a directory, read all of
