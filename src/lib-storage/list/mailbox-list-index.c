@@ -420,12 +420,14 @@ static void mailbox_list_index_deinit(struct mailbox_list *list)
 
 	if (ilist->to_refresh != NULL)
 		timeout_remove(&ilist->to_refresh);
-	hash_table_destroy(&ilist->mailbox_hash);
-	hash_table_destroy(&ilist->mailbox_names);
-	pool_unref(&ilist->mailbox_pool);
-	if (ilist->opened)
-		mail_index_close(ilist->index);
-	mail_index_free(&ilist->index);
+	if (ilist->index != NULL) {
+		hash_table_destroy(&ilist->mailbox_hash);
+		hash_table_destroy(&ilist->mailbox_names);
+		pool_unref(&ilist->mailbox_pool);
+		if (ilist->opened)
+			mail_index_close(ilist->index);
+		mail_index_free(&ilist->index);
+	}
 	ilist->module_ctx.super.deinit(list);
 }
 
