@@ -388,7 +388,6 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 			   where we could optimize with root=prefix, but
 			   probably too much trouble to implement. */
 			prefix_vname = "";
-			p = last = pattern;
 		} else {
 			for (p = last = pattern; *p != '\0'; p++) {
 				if (*p == '%' || *p == '*')

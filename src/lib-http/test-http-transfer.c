@@ -273,7 +273,6 @@ static void test_http_transfer_chunked_output_valid(void)
 		ochunked = http_transfer_chunked_ostream_create(output);
 
 		/* send input through chunked stream; chunk size is limited */
-		ret = 0;
 		for (;;) {
 			ret = i_stream_read_data(input, &rdata, &rsize, 0);
 			if (ret < 0) {
