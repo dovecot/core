@@ -79,6 +79,7 @@ http_client_connection_retry_requests(struct http_client_connection *conn,
 
 	array_foreach_modifiable(&conn->request_wait_list, req) {
 		http_client_request_retry(*req, status, error);
+		http_client_request_unref(req);
 	}	
 	array_clear(&conn->request_wait_list);
 }
@@ -132,6 +133,7 @@ http_client_connection_abort_error(struct http_client_connection **_conn,
 	
 	array_foreach_modifiable(&conn->request_wait_list, req) {
 		http_client_request_error(*req, status, error);
+		http_client_request_unref(req);
 	}	
 	array_clear(&conn->request_wait_list);
 	http_client_connection_unref(_conn);
