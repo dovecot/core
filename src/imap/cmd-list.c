@@ -1026,7 +1026,7 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 				return TRUE;
 			}
 			if (imap_utf7_to_utf8(pattern, str) == 0)
-				pattern = t_strdup(str_c(str));
+				pattern = p_strdup(cmd->pool, str_c(str));
 			array_append(&patterns, &pattern, 1);
 			str_truncate(str, 0);
 		}
@@ -1037,7 +1037,7 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 			return TRUE;
 		}
 		if (imap_utf7_to_utf8(pattern, str) == 0)
-			pattern = str_c(str);
+			pattern = p_strdup(cmd->pool, str_c(str));
 
 		p_array_init(&patterns, cmd->pool, 1);
 		array_append(&patterns, &pattern, 1);
