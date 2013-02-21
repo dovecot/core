@@ -8,6 +8,8 @@
 
 #include "http-transfer.h"
 
+#define MIN_CHUNK_SIZE_WITH_EXTRA 6
+
 /*
  * Chunked input stream
  */
@@ -540,14 +542,17 @@ static size_t _log16(size_t in)
 
 static size_t _max_chunk_size(size_t avail)
 {
+	size_t chunk_extra = 2*2;
+
 	/* Make sure we have room for both chunk data and overhead
 
 	   chunk          = chunk-size CRLF
 	                    chunk-data CRLF
 	   chunk-size     = 1*HEXDIG
 	 */
-	avail -= (2*2);
-	return avail - (_log16(avail));
+	chunk_extra += _log16(avail);
+	return avail < chunk_extra ? 0 :
+		avail - chunk_extra;
 }
 
 static void
@@ -572,6 +577,8 @@ http_transfer_chunked_ostream_sendv(struct ostream_private *stream,
 	ssize_t ret;
 	const char *prefix;
 
+	i_assert(stream->parent->real_stream->max_buffer_size >= MIN_CHUNK_SIZE_WITH_EXTRA);
+
 	if ((ret=o_stream_flush(stream->parent)) <= 0) {
 		/* error / we still couldn't flush existing data to
 		   parent stream. */
@@ -588,7 +595,7 @@ http_transfer_chunked_ostream_sendv(struct ostream_private *stream,
 	/* check if we have room to send at least one byte */
 	max_bytes = o_stream_get_buffer_avail_size(stream->parent);
 	max_bytes = _max_chunk_size(max_bytes);
-	if (max_bytes < 6)
+	if (max_bytes < MIN_CHUNK_SIZE_WITH_EXTRA)
 		return 0;
 
 	tcstream->chunk_size = bytes > max_bytes ? max_bytes : bytes;

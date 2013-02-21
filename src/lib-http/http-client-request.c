@@ -230,6 +230,9 @@ http_client_request_continue_payload(struct http_client_request **_req,
 
 	while (req->state < HTTP_REQUEST_STATE_FINISHED) {
 		http_client_request_debug(req, "Waiting for request to finish");
+		
+		if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT)
+			o_stream_set_flush_pending(req->payload_output, TRUE);
 		io_loop_run(client->ioloop);
 
 		if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT &&
@@ -280,7 +283,8 @@ int http_client_request_send_more(struct http_client_request *req)
 
 	i_assert(req->payload_input != NULL);
 
-	o_stream_set_max_buffer_size(output, 0);
+	/* chunked ostream needs to write to the parent stream's buffer */
+	o_stream_set_max_buffer_size(output, IO_BLOCK_SIZE);
 	if (o_stream_send_istream(output, req->payload_input) < 0)
 		ret = -1;
 	o_stream_set_max_buffer_size(output, (size_t)-1);
@@ -293,6 +297,7 @@ int http_client_request_send_more(struct http_client_request *req)
 		}
 
 		if (req->payload_wait) {
+			conn->output_locked = TRUE;
 			if (req->client->ioloop != NULL)
 				io_loop_stop(req->client->ioloop);
 		} else {
