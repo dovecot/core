@@ -928,6 +928,13 @@ static bool mailbox_try_undelete(struct mailbox *box)
 {
 	time_t mtime;
 
+	if ((box->flags & MAILBOX_FLAG_READONLY) != 0) {
+		/* most importantly we don't do this because we want to avoid
+		   a loop: mdbox storage rebuild -> mailbox_open() ->
+		   mailbox_mark_index_deleted() -> mailbox_sync() ->
+		   mdbox storage rebuild. */
+		return FALSE;
+	}
 	if (mail_index_get_modification_time(box->index, &mtime) < 0)
 		return FALSE;
 	if (mtime + MAILBOX_DELETE_RETRY_SECS > time(NULL))
