@@ -123,9 +123,8 @@ client_create(int fd, bool ssl, pool_t pool,
 	client->pool = pool;
 	client->set = set;
 	client->ssl_set = ssl_set;
-	client->local_ip = *local_ip;
-	client->ip = *remote_ip;
-	client->real_ip = *remote_ip;
+	client->real_local_ip = client->local_ip = *local_ip;
+	client->real_remote_ip = client->ip = *remote_ip;
 	client->fd = fd;
 	client->tls = ssl;
 	client->trusted = client_is_trusted(client);
@@ -463,7 +462,10 @@ static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ 'k', NULL, "ssl_security" },
 	{ 'e', NULL, "mail_pid" },
 	{ '\0', NULL, "session" },
+	{ '\0', NULL, "real_lip" },
 	{ '\0', NULL, "real_rip" },
+	{ '\0', NULL, "real_lport" },
+	{ '\0', NULL, "real_rport" },
 	{ '\0', NULL, NULL }
 };
 
@@ -513,7 +515,10 @@ get_var_expand_table(struct client *client)
 	tab[13].value = client->mail_pid == 0 ? "" :
 		dec2str(client->mail_pid);
 	tab[14].value = client_get_session_id(client);
-	tab[15].value = net_ip2addr(&client->real_ip);
+	tab[15].value = net_ip2addr(&client->real_local_ip);
+	tab[16].value = net_ip2addr(&client->real_remote_ip);
+	tab[17].value = dec2str(client->real_local_port);
+	tab[18].value = dec2str(client->real_remote_port);
 	return tab;
 }
 

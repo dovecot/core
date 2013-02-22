@@ -230,6 +230,18 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_printfa(dest, "\tlport=%u", request->local_port);
 	if (request->remote_port != 0)
 		str_printfa(dest, "\trport=%u", request->remote_port);
+	if (request->real_local_ip.family != 0) {
+		auth_str_add_keyvalue(dest, "real_lip",
+				      net_ip2addr(&request->real_local_ip));
+	}
+	if (request->real_remote_ip.family != 0) {
+		auth_str_add_keyvalue(dest, "real_rip",
+				      net_ip2addr(&request->real_remote_ip));
+	}
+	if (request->real_local_port != 0)
+		str_printfa(dest, "\treal_lport=%u", request->real_local_port);
+	if (request->real_remote_port != 0)
+		str_printfa(dest, "\treal_rport=%u", request->real_remote_port);
 	if (request->secured)
 		str_append(dest, "\tsecured");
 	if (request->skip_password_check)
@@ -250,14 +262,31 @@ bool auth_request_import_info(struct auth_request *request,
 	/* authentication and user lookups may set these */
 	if (strcmp(key, "service") == 0)
 		request->service = p_strdup(request->pool, value);
-	else if (strcmp(key, "lip") == 0)
+	else if (strcmp(key, "lip") == 0) {
 		(void)net_addr2ip(value, &request->local_ip);
-	else if (strcmp(key, "rip") == 0)
+		if (request->real_local_ip.family == 0)
+			request->real_local_ip = request->local_ip;
+	} else if (strcmp(key, "rip") == 0) {
 		(void)net_addr2ip(value, &request->remote_ip);
-	else if (strcmp(key, "lport") == 0)
+		if (request->real_remote_ip.family == 0)
+			request->real_remote_ip = request->remote_ip;
+	} else if (strcmp(key, "lport") == 0) {
 		request->local_port = atoi(value);
-	else if (strcmp(key, "rport") == 0)
+		if (request->real_local_port == 0)
+			request->real_local_port = request->local_port;
+	} else if (strcmp(key, "rport") == 0) {
 		request->remote_port = atoi(value);
+		if (request->real_remote_port == 0)
+			request->real_remote_port = request->remote_port;
+	}
+	else if (strcmp(key, "real_lip") == 0)
+		(void)net_addr2ip(value, &request->real_local_ip);
+	else if (strcmp(key, "real_rip") == 0)
+		(void)net_addr2ip(value, &request->real_remote_ip);
+	else if (strcmp(key, "real_lport") == 0)
+		request->real_local_port = atoi(value);
+	else if (strcmp(key, "real_rport") == 0)
+		request->real_remote_port = atoi(value);
 	else if (strcmp(key, "session") == 0)
 		request->session_id = p_strdup(request->pool, value);
 	else
@@ -1812,6 +1841,10 @@ const struct var_expand_table auth_request_var_expand_static_tab[] = {
 	{ '\0', NULL, "login_username" },
 	{ '\0', NULL, "login_domain" },
 	{ '\0', NULL, "session" },
+	{ '\0', NULL, "real_lip" },
+	{ '\0', NULL, "real_rip" },
+	{ '\0', NULL, "real_lport" },
+	{ '\0', NULL, "real_rport" },
 	{ '\0', NULL, NULL }
 };
 
@@ -1882,6 +1915,12 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	}
 	tab[18].value = auth_request->session_id == NULL ? NULL :
 		escape_func(auth_request->session_id, auth_request);
+	if (auth_request->real_local_ip.family != 0)
+		tab[19].value = net_ip2addr(&auth_request->real_local_ip);
+	if (auth_request->real_remote_ip.family != 0)
+		tab[20].value = net_ip2addr(&auth_request->real_remote_ip);
+	tab[21].value = dec2str(auth_request->real_local_port);
+	tab[22].value = dec2str(auth_request->real_remote_port);
 	return ret_tab;
 }
 

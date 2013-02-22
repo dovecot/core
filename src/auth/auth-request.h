@@ -73,8 +73,8 @@ struct auth_request {
 	pid_t session_pid;
 
 	const char *service, *mech_name, *session_id;
-	struct ip_addr local_ip, remote_ip;
-	unsigned int local_port, remote_port;
+	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;
+	unsigned int local_port, remote_port, real_local_port, real_remote_port;
 
 	struct timeout *to_abort, *to_penalty;
 	unsigned int last_penalty;
@@ -140,7 +140,7 @@ extern unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 #define AUTH_REQUEST_VAR_TAB_USER_IDX 0
 #define AUTH_REQUEST_VAR_TAB_USERNAME_IDX 1
 #define AUTH_REQUEST_VAR_TAB_DOMAIN_IDX 2
-#define AUTH_REQUEST_VAR_TAB_COUNT 19
+#define AUTH_REQUEST_VAR_TAB_COUNT 23
 extern const struct var_expand_table auth_request_var_expand_static_tab[];
 
 struct auth_request *

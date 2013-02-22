@@ -60,6 +60,26 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 		str_printfa(str, "\tlport=%u", info->local_port);
 	if (info->remote_port != 0)
 		str_printfa(str, "\trport=%u", info->remote_port);
+
+	/* send the real_* variants only when they differ from the unreal
+	   ones */
+	if (info->real_local_ip.family != 0 &&
+	    !net_ip_compare(&info->real_local_ip, &info->local_ip)) {
+		str_printfa(str, "\treal_lip=%s",
+			    net_ip2addr(&info->real_local_ip));
+	}
+	if (info->real_remote_ip.family != 0 &&
+	    !net_ip_compare(&info->real_remote_ip, &info->remote_ip)) {
+		str_printfa(str, "\treal_rip=%s",
+			    net_ip2addr(&info->real_remote_ip));
+	}
+	if (info->real_local_port != 0 &&
+	    info->real_local_port != info->local_port)
+		str_printfa(str, "\treal_lport=%u", info->real_local_port);
+	if (info->real_remote_port != 0 &&
+	    info->real_remote_port != info->remote_port)
+		str_printfa(str, "\treal_rport=%u", info->real_remote_port);
+
 	if (info->initial_resp_base64 != NULL) {
 		str_append(str, "\tresp=");
 		str_append_tabescaped(str, info->initial_resp_base64);

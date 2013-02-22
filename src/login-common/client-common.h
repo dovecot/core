@@ -102,8 +102,9 @@ struct client {
 
 	struct ip_addr local_ip;
 	struct ip_addr ip;
-	struct ip_addr real_ip;
+	struct ip_addr real_remote_ip, real_local_ip;
 	unsigned int local_port, remote_port;
+	unsigned int real_local_port, real_remote_port;
 	struct ssl_proxy *ssl_proxy;
 	const struct login_settings *set;
 	const struct master_service_ssl_settings *ssl_set;

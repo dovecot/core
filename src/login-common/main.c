@@ -143,8 +143,8 @@ client_connected_finish(const struct master_service_connection *conn)
 		ssl_proxy_start(proxy);
 	}
 
-	client->remote_port = conn->remote_port;
-	client->local_port = local_port;
+	client->real_remote_port = client->remote_port = conn->remote_port;
+	client->real_local_port = client->local_port = local_port;
 
 	if (auth_client_to != NULL)
 		timeout_remove(&auth_client_to);
