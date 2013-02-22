@@ -6,6 +6,10 @@
 #  define HAVE_FS_QUOTA
 #endif
 
+#ifdef HAVE_QUOTA_OPEN
+#  include <quota.h> /* NetBSD with libquota */
+#endif
+
 #ifdef HAVE_SYS_QUOTA_H
 #  include <sys/quota.h> /* Linux, HP-UX */
 #elif defined(HAVE_SYS_FS_UFS_QUOTA_H)
@@ -35,6 +39,12 @@
 #  define FS_QUOTA_SOLARIS
 #else
 #  undef HAVE_FS_QUOTA
+#endif
+
+#ifdef HAVE_QUOTA_OPEN /* NetBSD with libquota */
+#  define FS_QUOTA_NETBSD
+#  define HAVE_FS_QUOTA
+#  undef FS_QUOTA_LINUX /* obtained because we also have <sys/quota.h> */
 #endif
 
 #endif

@@ -299,7 +299,8 @@ AC_DEFINE_UNQUOTED(DOVECOT_VERSION, "$PACKAGE_VERSION", Dovecot version)
 
 AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h inttypes.h \
   sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h \
-  sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h sys/fs/quota_common.h \
+  sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h \
+  quota.h sys/fs/quota_common.h \
   mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \
   xfs/xqm.h execinfo.h ucontext.h malloc_np.h sys/utsname.h sys/vmount.h \
   sys/utsname.h glob.h linux/falloc.h ucred.h sys/ucred.h)
@@ -2632,6 +2633,13 @@ if test -f /usr/include/rpcsvc/rquota.x && test -n "$RPCGEN"; then
   have_rquota=yes
 fi
 AM_CONDITIONAL(HAVE_RQUOTA, test "$have_rquota" = "yes")
+
+QUOTA_LIBS=""
+AC_SEARCH_LIBS(quota_open, quota, [
+  AC_DEFINE(HAVE_QUOTA_OPEN,, Define if you have quota_open())
+  QUOTA_LIBS="-lquota"
+])
+AC_SUBST(QUOTA_LIBS)
 
 dnl
 dnl ** Full text search
