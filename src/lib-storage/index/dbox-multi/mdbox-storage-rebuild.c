@@ -152,9 +152,11 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 				/* use existing file header if it was ok */
 				prev_offset = offset;
 			}
-			if (dbox_file_fix(file, prev_offset) < 0) {
-				ret = -1;
+			if ((ret = dbox_file_fix(file, prev_offset)) < 0)
 				break;
+			if (ret == 0) {
+				/* file was deleted */
+				return 1;
 			}
 			fixed = TRUE;
 			if (!first) {

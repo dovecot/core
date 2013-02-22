@@ -291,7 +291,7 @@ int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 {
 	struct ostream *output;
 	const char *dir, *p, *temp_path, *broken_path;
-	bool deleted;
+	bool deleted, have_messages;
 	int fd, ret;
 
 	i_assert(dbox_file_is_open(file));
@@ -307,6 +307,7 @@ int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 
 	output = o_stream_create_fd_file(fd, 0, FALSE);
 	ret = dbox_file_fix_write_stream(file, start_offset, temp_path, output);
+	have_messages = output->offset > file->file_header_size;
 	o_stream_unref(&output);
 	if (close(fd) < 0) {
 		mail_storage_set_critical(&file->storage->storage,
@@ -332,6 +333,15 @@ int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 		i_warning("dbox: Copy of the broken file saved to %s",
 			  broken_path);
 	}
+	if (!have_messages) {
+		/* the resulting file has no messages. just delete the file. */
+		dbox_file_close(file);
+		if (unlink(temp_path) < 0)
+			i_error("unlink(%s) failed: %m", temp_path);
+		if (unlink(file->cur_path) < 0)
+			i_error("unlink(%s) failed: %m", file->cur_path);
+		return 0;
+	}
 	if (rename(temp_path, file->cur_path) < 0) {
 		mail_storage_set_critical(&file->storage->storage,
 					  "rename(%s, %s) failed: %m",
@@ -347,5 +357,5 @@ int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 			file->cur_path);
 		return -1;
 	}
-	return 0;
+	return 1;
 }
