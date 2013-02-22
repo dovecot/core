@@ -325,7 +325,12 @@ static int cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 						    &service_user, &user,
 						    &error)) <= 0) {
 		pool_unref(&pool);
-		return ret == 0 ? 0 : -1;
+		if (ret < 0)
+			return -1;
+		fprintf(show_field == NULL ? stdout : stderr,
+			"userdb lookup: user %s doesn't exist\n",
+			input->username);
+		return 0;
 	}
 
 	if (show_field == NULL) {
