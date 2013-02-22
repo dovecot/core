@@ -17,8 +17,13 @@
 
 #define SOLR_CMDBUF_SIZE (1024*64)
 #define SOLR_CMDBUF_FLUSH_SIZE (SOLR_CMDBUF_SIZE-128)
-#define SOLR_BUFFER_WARN_SIZE (1024*1024)
 #define SOLR_MAX_MULTI_ROWS 100000
+
+/* If header is larger than this, truncate it. */
+#define SOLR_HEADER_MAX_SIZE (1024*1024)
+/* If SOLR_HEADER_MAX_SIZE was already reached, write still to individual
+   header fields as long as they're smaller than this */
+#define SOLR_HEADER_LINE_MAX_TRUNC_SIZE 1024
 
 struct solr_fts_backend {
 	struct fts_backend backend;
@@ -42,12 +47,12 @@ struct solr_fts_backend_update_context {
 	ARRAY_DEFINE(fields, struct solr_fts_field);
 
 	uint32_t last_indexed_uid;
-	uint32_t size_warned_uid;
 
 	unsigned int last_indexed_uid_set:1;
 	unsigned int body_open:1;
 	unsigned int documents_added:1;
 	unsigned int expunges:1;
+	unsigned int truncate_header:1;
 };
 
 static struct solr_connection *solr_conn = NULL;
@@ -445,6 +450,7 @@ fts_backend_solr_uid_changed(struct solr_fts_backend_update_context *ctx,
 		fts_backend_solr_doc_close(ctx);
 	}
 	ctx->prev_uid = uid;
+	ctx->truncate_header = FALSE;
 	fts_backend_solr_doc_open(ctx, uid);
 }
 
@@ -531,8 +537,11 @@ fts_backend_solr_update_build_more(struct fts_backend_update_context *_ctx,
 		}
 		xml_encode_data(ctx->cmd, data, size);
 	} else {
-		xml_encode_data(ctx->cur_value, data, size);
-		if (ctx->cur_value2 != NULL)
+		if (!ctx->truncate_header)
+			xml_encode_data(ctx->cur_value, data, size);
+		if (ctx->cur_value2 != NULL &&
+		    (!ctx->truncate_header ||
+		     str_len(ctx->cur_value2) < SOLR_HEADER_LINE_MAX_TRUNC_SIZE))
 			xml_encode_data(ctx->cur_value2, data, size);
 	}
 
@@ -541,15 +550,15 @@ fts_backend_solr_update_build_more(struct fts_backend_update_context *_ctx,
 					  str_len(ctx->cmd));
 		str_truncate(ctx->cmd, 0);
 	}
-	if (str_len(ctx->cur_value) >= SOLR_BUFFER_WARN_SIZE &&
-	    ctx->size_warned_uid != ctx->prev_uid) {
+	if (!ctx->truncate_header &&
+	    str_len(ctx->cur_value) >= SOLR_HEADER_MAX_SIZE) {
 		/* a large header */
 		i_assert(ctx->cur_value != ctx->cmd);
 
-		ctx->size_warned_uid = ctx->prev_uid;
-		i_warning("fts-solr(%s): Mailbox %s UID=%u header size is huge",
+		i_warning("fts-solr(%s): Mailbox %s UID=%u header size is huge, truncating",
 			  ctx->cur_box->storage->user->username,
 			  mailbox_get_vname(ctx->cur_box), ctx->prev_uid);
+		ctx->truncate_header = TRUE;
 	}
 	return 0;
 }
