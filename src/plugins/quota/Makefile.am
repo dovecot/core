@@ -1,5 +1,6 @@
 doveadm_moduledir = $(moduledir)/doveadm
 
+pkglibexecdir = $(libexecdir)/dovecot
 pkglibexec_PROGRAMS = quota-status
 
 AM_CPPFLAGS = \
