@@ -212,8 +212,14 @@ static struct duplicate_file *duplicate_file_new(struct duplicate_context *ctx)
 	file->path = p_strdup(pool, ctx->path);
 	file->new_fd = file_dotlock_open(&ctx->dotlock_set, file->path, 0,
 					 &file->dotlock);
-	if (file->new_fd == -1)
-		i_error("file_dotlock_create(%s) failed: %m", file->path);
+	if (file->new_fd != -1)
+		;
+	else if (errno != EAGAIN)
+		i_error("file_dotlock_open(%s) failed: %m", file->path);
+	else {
+		i_error("Creating lock file for %s timed out in %u secs",
+			file->path, ctx->dotlock_set.timeout);
+	}
 	file->hash = hash_table_create(default_pool, pool, 0,
 				       duplicate_hash, duplicate_cmp);
 	(void)duplicate_read(file);
