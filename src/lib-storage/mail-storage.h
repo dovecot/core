@@ -78,6 +78,10 @@ enum mailbox_status_items {
 	STATUS_LAST_CACHED_SEQ	= 0x800,
 	STATUS_CHECK_OVER_QUOTA	= 0x1000, /* return error if over quota */
 	STATUS_HIGHESTPVTMODSEQ	= 0x2000,
+	/* status items that must not be looked up with
+	   mailbox_get_open_status(), because they can return failure. */
+#define MAILBOX_STATUS_FAILING_ITEMS \
+	(STATUS_LAST_CACHED_SEQ | STATUS_CHECK_OVER_QUOTA)
 };
 
 enum mailbox_metadata_items {

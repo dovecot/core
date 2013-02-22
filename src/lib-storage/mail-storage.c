@@ -1479,6 +1479,7 @@ void mailbox_get_open_status(struct mailbox *box,
 			     struct mailbox_status *status_r)
 {
 	i_assert(box->opened);
+	i_assert((items & MAILBOX_STATUS_FAILING_ITEMS) == 0);
 
 	mailbox_get_status_set_defaults(box, status_r);
 	if (box->v.get_status(box, items, status_r) < 0)
