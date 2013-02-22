@@ -61,6 +61,7 @@ lmtp_proxy_init(const struct lmtp_proxy_settings *set,
 	struct lmtp_proxy *proxy;
 	pool_t pool;
 
+	i_assert(set->proxy_ttl > 0);
 	o_stream_ref(client_output);
 
 	pool = pool_alloconly_create("lmtp proxy", 1024);
@@ -136,7 +137,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	client_set.dns_client_socket_path = proxy->set.dns_client_socket_path;
 	client_set.source_ip = proxy->set.source_ip;
 	client_set.source_port = proxy->set.source_port;
-	client_set.proxy_ttl_plus_1 = proxy->set.proxy_ttl+1;
+	client_set.proxy_ttl = proxy->set.proxy_ttl;
 	client_set.proxy_timeout_secs = set->timeout_msecs/1000;
 
 	conn = p_new(proxy->pool, struct lmtp_proxy_connection, 1);

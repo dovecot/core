@@ -29,7 +29,7 @@ enum imap_proxy_state {
 
 static void proxy_write_id(struct imap_client *client, string_t *str)
 {
-	i_assert(client->common.proxy_ttl > 0);
+	i_assert(client->common.proxy_ttl > 1);
 
 	str_printfa(str, "I ID ("
 		    "\"x-session-id\" \"%s\" "

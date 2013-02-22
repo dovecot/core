@@ -97,7 +97,7 @@ lmtp_client_init(const struct lmtp_client_settings *set,
 		p_strdup(pool, set->dns_client_socket_path);
 	client->set.source_ip = set->source_ip;
 	client->set.source_port = set->source_port;
-	client->set.proxy_ttl_plus_1 = set->proxy_ttl_plus_1;
+	client->set.proxy_ttl = set->proxy_ttl;
 	client->set.proxy_timeout_secs = set->proxy_timeout_secs;
 	client->finish_callback = finish_callback;
 	client->finish_context = context;
@@ -433,9 +433,9 @@ static bool lmtp_client_send_xclient(struct lmtp_client *client)
 	if (client->set.source_port != 0 &&
 	    str_array_icase_find(client->xclient_args, "PORT"))
 		str_printfa(str, " PORT=%u", client->set.source_port);
-	if (client->set.proxy_ttl_plus_1 != 0 &&
+	if (client->set.proxy_ttl != 0 &&
 	    str_array_icase_find(client->xclient_args, "TTL"))
-		str_printfa(str, " TTL=%u", client->set.proxy_ttl_plus_1-1);
+		str_printfa(str, " TTL=%u", client->set.proxy_ttl);
 	if (client->set.proxy_timeout_secs != 0 &&
 	    str_array_icase_find(client->xclient_args, "TIMEOUT"))
 		str_printfa(str, " TIMEOUT=%u", client->set.proxy_timeout_secs);

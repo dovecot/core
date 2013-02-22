@@ -21,8 +21,8 @@ struct lmtp_client_settings {
 	   send the these as ADDR/PORT/TTL/TIMEOUT */
 	struct ip_addr source_ip;
 	unsigned int source_port;
-	/* send TTL as this -1, so the default 0 means "don't send it" */
-	unsigned int proxy_ttl_plus_1;
+	/* send TTL as this (default 0 means "don't send it") */
+	unsigned int proxy_ttl;
 	/* remote is notified that the connection is going to be closed after
 	   this many seconds, so it should try to keep lock waits and such
 	   lower than this. */

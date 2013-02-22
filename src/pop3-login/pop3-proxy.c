@@ -37,7 +37,7 @@ static void proxy_send_login(struct pop3_client *client, struct ostream *output)
 {
 	string_t *str;
 
-	i_assert(client->common.proxy_ttl > 0);
+	i_assert(client->common.proxy_ttl > 1);
 	if (client->proxy_xclient) {
 		/* remote supports XCLIENT, send it */
 		o_stream_nsend_str(output, t_strdup_printf(

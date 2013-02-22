@@ -299,7 +299,7 @@ int login_proxy_new(struct client *client,
 		return -1;
 	}
 
-	if (client->proxy_ttl == 0) {
+	if (client->proxy_ttl <= 1) {
 		i_error("proxy(%s): TTL reached zero - "
 			"proxies appear to be looping?", client->virtual_user);
 		return -1;

@@ -297,7 +297,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 		return TRUE;
 	}
 
-	if (client->proxy_ttl == 0) {
+	if (client->proxy_ttl <= 1) {
 		i_error("Proxying to <%s> appears to be looping (TTL=0)",
 			username);
 		client_send_line(client, "554 5.4.6 <%s> "
