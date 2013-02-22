@@ -262,15 +262,17 @@ client_dict_finish_transaction(struct client_dict *dict,
 		i_error("dict-client: Unknown transaction id %u", id);
 		return;
 	}
-	if (ctx->callback != NULL)
-		ctx->callback(ret, ctx->context);
 
-	DLLIST_REMOVE(&dict->transactions, ctx);
-	i_free(ctx);
-
+	/* the callback may call the dict code again, so remove this
+	   transaction before calling it */
 	i_assert(dict->async_commits > 0);
 	if (--dict->async_commits == 0)
 		io_remove(&dict->io);
+	DLLIST_REMOVE(&dict->transactions, ctx);
+
+	if (ctx->callback != NULL)
+		ctx->callback(ret, ctx->context);
+	i_free(ctx);
 }
 
 static ssize_t client_dict_read_timeout(struct client_dict *dict)
