@@ -299,7 +299,9 @@ struct mail_transaction_commit_changes {
 
 	/* UIDVALIDITY for assigned UIDs. */
 	uint32_t uid_validity;
-	/* UIDs assigned to saved messages. Not necessarily ascending. */
+	/* UIDs assigned to saved messages. Not necessarily ascending.
+	   If UID assignment wasn't required (e.g. LDA), this array may also be
+	   empty. Otherwise all of the saved mails got an UID. */
 	ARRAY_TYPE(seq_range) saved_uids;
 
 	/* number of modseq changes that couldn't be changed as requested */
