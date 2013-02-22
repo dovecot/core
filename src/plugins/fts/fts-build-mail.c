@@ -170,6 +170,7 @@ fts_build_body_begin(struct fts_mail_build_context *ctx, bool *binary_body_r)
 		   strncmp(content_type, "message/", 8) == 0) {
 		/* text body parts */
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART;
+		ctx->body_parser = fts_parser_text_init();
 	} else {
 		/* possibly binary */
 		if ((ctx->update_ctx->backend->flags &
@@ -178,8 +179,6 @@ fts_build_body_begin(struct fts_mail_build_context *ctx, bool *binary_body_r)
 		*binary_body_r = TRUE;
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY;
 	}
-	if (ctx->body_parser == NULL)
-		ctx->body_parser = fts_parser_text_init();
 	key.body_content_type = content_type;
 	key.body_content_disposition = ctx->content_disposition;
 	return fts_backend_update_set_build_key(ctx->update_ctx, &key);
