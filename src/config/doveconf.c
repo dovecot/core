@@ -833,6 +833,8 @@ int main(int argc, char *argv[])
 			printf("# %s\n", info);
 		if (!config_path_specified)
 			check_wrong_config(config_path);
+		if (scope == CONFIG_DUMP_SCOPE_ALL)
+			printf("# NOTE: Send doveconf -n output instead when asking for help.\n");
 		fflush(stdout);
 		ret2 = config_dump_human(&filter, wanted_modules, scope, NULL);
 	} else {
