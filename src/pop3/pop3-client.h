@@ -9,8 +9,12 @@ typedef void command_func_t(struct client *client);
 #define MSGS_BITMASK_SIZE(client) \
 	(((client)->messages_count + (CHAR_BIT-1)) / CHAR_BIT)
 
+/* Stop reading input when output buffer has this many bytes. Once the buffer
+   size has dropped to half of it, start reading input again. */
+#define POP3_OUTBUF_THROTTLE_SIZE 4096
+
 #define POP3_CLIENT_OUTPUT_FULL(client) \
-	((client)->io == NULL)
+	(o_stream_get_buffer_used_size((client)->output) >= POP3_OUTBUF_THROTTLE_SIZE)
 
 struct pop3_client_vfuncs {
 	void (*destroy)(struct client *client, const char *reason);

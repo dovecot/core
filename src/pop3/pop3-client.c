@@ -25,10 +25,6 @@
 /* max. length of input command line (spec says 512) */
 #define MAX_INBUF_SIZE 2048
 
-/* Stop reading input when output buffer has this many bytes. Once the buffer
-   size has dropped to half of it, start reading input again. */
-#define OUTBUF_THROTTLE_SIZE 4096
-
 /* Disconnect client when it sends too many bad commands in a row */
 #define CLIENT_MAX_BAD_COMMANDS 20
 
@@ -643,21 +639,16 @@ void client_send_line(struct client *client, const char *fmt, ...)
 		i_assert(ret < 0 || (size_t)ret == str_len(str));
 	} T_END;
 	if (ret >= 0) {
-		if (o_stream_get_buffer_used_size(client->output) <
-		    OUTBUF_THROTTLE_SIZE) {
+		if (!POP3_CLIENT_OUTPUT_FULL(client))
 			client->last_output = ioloop_time;
-		} else {
-			if (client->io != NULL) {
-				/* no more input until client has read
-				   our output */
-				io_remove(&client->io);
+		else if (client->io != NULL) {
+			/* no more input until client has read
+			   our output */
+			io_remove(&client->io);
 
-				/* If someone happens to flush output,
-				   we want to get our IO handler back in
-				   flush callback */
-				o_stream_set_flush_pending(client->output,
-							   TRUE);
-			}
+			/* If someone happens to flush output, we want to get
+			   our IO handler back in flush callback */
+			o_stream_set_flush_pending(client->output, TRUE);
 		}
 	}
 	va_end(va);
@@ -775,7 +766,7 @@ static int client_output(struct client *client)
 
 	if (client->cmd == NULL) {
 		if (o_stream_get_buffer_used_size(client->output) <
-		    OUTBUF_THROTTLE_SIZE/2 && client->io == NULL) {
+		    POP3_OUTBUF_THROTTLE_SIZE/2 && client->io == NULL) {
 			/* enable input again */
 			client->io = io_add(i_stream_get_fd(client->input),
 					    IO_READ, client_input, client);
