@@ -68,11 +68,10 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	int ret = 0;
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_PRECACHE_FIELDS,
-				 &metadata) < 0)
+				 &metadata) < 0 ||
+	    mailbox_get_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
+			       &status) < 0)
 		return -1;
-
-	mailbox_get_open_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
-				&status);
 	seq = status.last_cached_seq + 1;
 
 	trans = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC);
