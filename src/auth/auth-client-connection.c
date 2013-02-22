@@ -24,6 +24,9 @@
 
 #define OUTBUF_THROTTLE_SIZE (1024*50)
 
+#define AUTH_DEBUG_SENSITIVE_SUFFIX \
+	" (previous base64 data may contain sensitive data)"
+
 static void auth_client_disconnected(struct auth_client_connection **_conn);
 static void auth_client_connection_unref(struct auth_client_connection **_conn);
 static void auth_client_input(struct auth_client_connection *conn);
@@ -150,7 +153,8 @@ static int auth_client_output(struct auth_client_connection *conn)
 	return 1;
 }
 
-static const char *auth_line_hide_pass(const char *line)
+static const char *
+auth_line_hide_pass(struct auth_client_connection *conn, const char *line)
 {
 	const char *p, *p2;
 
@@ -159,14 +163,21 @@ static const char *auth_line_hide_pass(const char *line)
 		return line;
 	p += 6;
 
+	if (conn->auth->set->debug_passwords)
+		return t_strconcat(line, AUTH_DEBUG_SENSITIVE_SUFFIX, NULL);
+
 	p2 = strchr(p, '\t');
 	return t_strconcat(t_strdup_until(line, p), PASSWORD_HIDDEN_STR,
 			   p2, NULL);
 }
 
-static const char *cont_line_hide_pass(const char *line)
+static const char *
+cont_line_hide_pass(struct auth_client_connection *conn, const char *line)
 {
 	const char *p;
+
+	if (conn->auth->set->debug_passwords)
+		return t_strconcat(line, AUTH_DEBUG_SENSITIVE_SUFFIX, NULL);
 
 	p = strchr(line, '\t');
 	if (p == NULL)
@@ -195,8 +206,7 @@ auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 	if (strncmp(line, "AUTH\t", 5) == 0) {
 		if (conn->auth->set->debug) {
 			i_debug("client in: %s",
-				conn->auth->set->debug_passwords ? line :
-				auth_line_hide_pass(line));
+				auth_line_hide_pass(conn, line));
 		}
 		return auth_request_handler_auth_begin(conn->request_handler,
 						       line + 5);
@@ -204,8 +214,7 @@ auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 	if (strncmp(line, "CONT\t", 5) == 0) {
 		if (conn->auth->set->debug) {
 			i_debug("client in: %s",
-				conn->auth->set->debug_passwords ? line :
-				cont_line_hide_pass(line));
+				cont_line_hide_pass(conn, line));
 		}
 		return auth_request_handler_auth_continue(conn->request_handler,
 							  line + 5);
