@@ -351,6 +351,9 @@ static bool sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 	if (map == NULL)
 		return FALSE;
 
+	if (ctx->result != NULL)
+		sql_result_unref(ctx->result);
+
 	T_BEGIN {
 		string_t *query = t_str_new(256);
 
