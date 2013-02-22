@@ -81,7 +81,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mail_debug = FALSE,
 	.mail_full_filesystem_access = FALSE,
 	.maildir_stat_dirs = FALSE,
-	.mail_shared_explicit_inbox = TRUE,
+	.mail_shared_explicit_inbox = FALSE,
 	.lock_method = "fcntl:flock:dotlock",
 	.pop3_uidl_format = "%08Xu%08Xv"
 };

@@ -14,6 +14,7 @@ v2.2.UNSTABLE 2013-xx-xx  Timo Sirainen <tss@iki.fi>
 	* pop3_lock_session=yes now uses a POP3-only dovecot-pop3-session.lock
 	  file instead of actually locking the mailbox (and causing
 	  IMAP/LDA/LMTP to wait for the POP3 session to close).
+	* mail_shared_explicit_inbox setting's default switched to "no".
 
 	+ Implemented IMAP MOVE and BINARY extensions
 	+ Implemented IMAP CATENATE, URLAUTH and URLAUTH=BINARY extensions
