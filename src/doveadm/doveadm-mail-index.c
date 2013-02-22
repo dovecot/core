@@ -38,10 +38,10 @@ static int cmd_index_box_precache(struct mailbox *box)
 	int ret = 0;
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_PRECACHE_FIELDS,
-				 &metadata) < 0)
+				 &metadata) < 0 ||
+	    mailbox_get_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
+			       &status) < 0)
 		return -1;
-	mailbox_get_open_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
-				&status);
 
 	seq = status.last_cached_seq + 1;
 	if (seq > status.messages) {
