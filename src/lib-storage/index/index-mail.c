@@ -802,8 +802,9 @@ static void index_mail_cache_dates(struct index_mail *mail)
 		(void)index_mail_cache_sent_date(mail);
 }
 
-static int index_mail_parse_body_finish(struct index_mail *mail,
-					enum index_cache_field field)
+static int
+index_mail_parse_body_finish(struct index_mail *mail,
+			     enum index_cache_field field, bool success)
 {
 	struct istream *parser_input = mail->data.parser_input;
 	int ret;
@@ -820,7 +821,8 @@ static int index_mail_parse_body_finish(struct index_mail *mail,
 		    parser_input->stream_errno == EPIPE) {
 			/* EPIPE = input already closed. allow the caller to
 			   decide if that is an error or not. */
-			i_assert(i_stream_read(parser_input) == -1 &&
+			i_assert(!success ||
+				 i_stream_read(parser_input) == -1 &&
 				 !i_stream_have_bytes_left(parser_input));
 		} else {
 			errno = parser_input->stream_errno;
@@ -897,7 +899,7 @@ static int index_mail_parse_body(struct index_mail *mail,
 			*null_message_part_header_callback, (void *)NULL);
 	}
 	ret = index_mail_stream_check_failure(mail);
-	if (index_mail_parse_body_finish(mail, field) < 0)
+	if (index_mail_parse_body_finish(mail, field, TRUE) < 0)
 		ret = -1;
 
 	i_stream_seek(data->stream, old_offset);
@@ -1693,7 +1695,7 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date,
 
 	mail->data.save_bodystructure_body = FALSE;
 	mail->data.parsed_bodystructure = TRUE;
-	(void)index_mail_parse_body_finish(mail, 0);
+	(void)index_mail_parse_body_finish(mail, 0, success);
 }
 
 static void index_mail_drop_recent_flag(struct mail *mail)
