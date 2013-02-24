@@ -37,7 +37,7 @@ static void init_suffixes(struct str_find_context *ctx, unsigned int *suffixes)
 
 	suffixes[len_1] = ctx->key_len;
 	g = len_1;
-	for (i = ctx->key_len - 2; i >= 0; i--) {
+	for (i = (int)ctx->key_len - 2; i >= 0; i--) {
 		if (i > g && (int)suffixes[i + len_1 - f] < i - g)
 			suffixes[i] = suffixes[i + len_1 - f];
 		else {
@@ -53,9 +53,8 @@ static void init_suffixes(struct str_find_context *ctx, unsigned int *suffixes)
 
 static void init_goodtab(struct str_find_context *ctx)
 {
-	unsigned int len_1 = ctx->key_len - 1;
-	unsigned int j, *suffixes;
-	int i;
+	unsigned int *suffixes;
+	int j, i, len_1 = ctx->key_len - 1;
 
 	suffixes = t_buffer_get(sizeof(*suffixes) * ctx->key_len);
 	init_suffixes(ctx, suffixes);
@@ -153,7 +152,8 @@ bool str_find_more(struct str_find_context *ctx,
 				i--;
 			}
 
-			bad_value = ctx->badtab[data[i + j]] + i + 1 - key_len;
+			bad_value = (int)(ctx->badtab[data[i + j]] + i + 1) -
+				(int)key_len;
 			j += I_MAX(ctx->goodtab[i], bad_value);
 		}
 		i_assert(j <= size);

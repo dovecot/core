@@ -37,7 +37,7 @@ long long timeval_diff_usecs(const struct timeval *tv1,
 		secs--;
 		usecs += 1000000;
 	}
-	return ((long long)secs * 1000000ULL) + usecs;
+	return ((long long)secs * 1000000LL) + usecs;
 }
 
 const char *t_strflocaltime(const char *fmt, time_t t)

@@ -5,7 +5,7 @@
 
 static int cmp_uint(const unsigned int *i1, const unsigned int *i2)
 {
-	return *i1 - *i2;
+	return (int)*i1 - (int)*i2;
 }
 
 void test_bsearch_insert_pos(void)
