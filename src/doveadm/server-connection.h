@@ -26,4 +26,6 @@ void server_connection_cmd(struct server_connection *conn, const char *line,
 /* Returns TRUE if no command is being processed */
 bool server_connection_is_idle(struct server_connection *conn);
 
+int server_connection_get_fd(struct server_connection *conn);
+
 #endif

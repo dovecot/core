@@ -399,3 +399,8 @@ bool server_connection_is_idle(struct server_connection *conn)
 {
 	return conn->callback == NULL;
 }
+
+int server_connection_get_fd(struct server_connection *conn)
+{
+	return conn->fd;
+}

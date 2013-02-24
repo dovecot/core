@@ -1,6 +1,22 @@
 #ifndef CLIENT_CONNECTION_H
 #define CLIENT_CONNECTION_H
 
+#include "net.h"
+
+struct client_connection {
+	pool_t pool;
+
+	int fd;
+	struct io *io;
+	struct istream *input;
+	struct ostream *output;
+	struct ip_addr local_ip, remote_ip;
+	const struct doveadm_settings *set;
+
+	unsigned int handshaked:1;
+	unsigned int authenticated:1;
+};
+
 struct client_connection *client_connection_create(int fd, int listen_fd);
 void client_connection_destroy(struct client_connection **conn);
 

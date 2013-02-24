@@ -10,6 +10,7 @@
 #include "iostream-rawlog.h"
 #include "write-full.h"
 #include "str.h"
+#include "strescape.h"
 #include "var-expand.h"
 #include "settings-parser.h"
 #include "master-service.h"
@@ -20,6 +21,9 @@
 #include "doveadm-settings.h"
 #include "doveadm-mail.h"
 #include "doveadm-print.h"
+#include "doveadm-server.h"
+#include "client-connection.h"
+#include "server-connection.h"
 #include "dsync-brain.h"
 #include "dsync-ibc.h"
 #include "doveadm-dsync.h"
@@ -32,6 +36,12 @@
 
 #define DSYNC_COMMON_GETOPT_ARGS "+dEfl:m:n:Nr:Rs:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
+
+enum dsync_run_type {
+	DSYNC_RUN_TYPE_LOCAL,
+	DSYNC_RUN_TYPE_STREAM,
+	DSYNC_RUN_TYPE_CMD
+};
 
 struct dsync_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
@@ -47,6 +57,10 @@ struct dsync_cmd_context {
 	struct io *io_err;
 	struct istream *err_stream;
 
+	enum dsync_run_type run_type;
+	struct server_connection *tcp_conn;
+	const char *error;
+
 	unsigned int lock_timeout;
 
 	unsigned int lock:1;
@@ -54,7 +68,6 @@ struct dsync_cmd_context {
 	unsigned int default_replica_location:1;
 	unsigned int backup:1;
 	unsigned int reverse_backup:1;
-	unsigned int remote:1;
 	unsigned int remote_user_prefix:1;
 };
 
@@ -423,15 +436,17 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 					      ctx->namespace_prefix);
 	}
 
-	if (!ctx->remote)
+	if (ctx->run_type == DSYNC_RUN_TYPE_LOCAL)
 		dsync_ibc_init_pipe(&ibc, &ibc2);
 	else {
 		string_t *temp_prefix = t_str_new(64);
 		mail_user_set_get_temp_prefix(temp_prefix, user->set);
 		ibc = cmd_dsync_icb_stream_init(ctx, ctx->remote_name,
 						str_c(temp_prefix));
-		ctx->io_err = io_add(ctx->fd_err, IO_READ,
-				     remote_error_input, ctx);
+		if (ctx->fd_err != -1) {
+			ctx->io_err = io_add(ctx->fd_err, IO_READ,
+					     remote_error_input, ctx);
+		}
 	}
 
 	brain_flags = DSYNC_BRAIN_FLAG_SEND_MAIL_REQUESTS;
@@ -451,7 +466,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 					ctx->state_input == NULL ? "" :
 					ctx->state_input);
 
-	if (!ctx->remote) {
+	if (ctx->run_type == DSYNC_RUN_TYPE_LOCAL) {
 		if (cmd_dsync_run_local(ctx, user, brain, ibc2) < 0)
 			ret = -1;
 	} else {
@@ -474,7 +489,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 			i_close_fd(&ctx->fd_out);
 		i_close_fd(&ctx->fd_in);
 	}
-	if (ctx->remote)
+	if (ctx->run_type == DSYNC_RUN_TYPE_CMD)
 		cmd_dsync_wait_remote(ctx, &status);
 
 	/* print any final errors after the process has died. not closing
@@ -486,13 +501,116 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		remote_errors_logged = ctx->err_stream->v_offset > 0;
 		i_stream_destroy(&ctx->err_stream);
 	}
-	if (ctx->remote)
+	if (ctx->run_type == DSYNC_RUN_TYPE_CMD)
 		cmd_dsync_log_remote_status(status, remote_errors_logged);
 	if (ctx->io_err != NULL)
 		io_remove(&ctx->io_err);
 	if (ctx->fd_err != -1)
 		i_close_fd(&ctx->fd_err);
 	return ret;
+}
+
+static void dsync_connected_callback(enum server_cmd_reply reply, void *context)
+{
+	struct dsync_cmd_context *ctx = context;
+
+	switch (reply) {
+	case SERVER_CMD_REPLY_UNKNOWN_USER:
+		ctx->error = "Unknown user in remote";
+		ctx->ctx.exit_code = EX_NOUSER;
+		break;
+	case SERVER_CMD_REPLY_FAIL:
+		ctx->error = "Failed to start dsync-server command";
+		break;
+	case SERVER_CMD_REPLY_OK:
+		ctx->fd_in = ctx->fd_out =
+			dup(server_connection_get_fd(ctx->tcp_conn));
+		if (ctx->fd_in == -1)
+			ctx->error = t_strdup_printf("dup() failed: %m");
+		break;
+	case SERVER_CMD_REPLY_INTERNAL_FAILURE:
+		ctx->error = "Disconnected from remote";
+		break;
+	default:
+		i_unreached();
+	}
+	io_loop_stop(current_ioloop);
+}
+
+static int dsync_connect_tcp(struct dsync_cmd_context *ctx, const char *target,
+			     const char **error_r)
+{
+	struct doveadm_server *server;
+	struct server_connection *conn;
+	struct ioloop *ioloop;
+	string_t *cmd;
+
+	server = p_new(ctx->ctx.pool, struct doveadm_server, 1);
+	server->name = p_strdup(ctx->ctx.pool, target);
+	p_array_init(&server->connections, ctx->ctx.pool, 1);
+	p_array_init(&server->queue, ctx->ctx.pool, 1);
+
+	ioloop = io_loop_create();
+
+	if (server_connection_create(server, &conn) < 0) {
+		*error_r = "Couldn't create server connection";
+		return -1;
+	}
+
+	/* <flags> <username> <command> [<args>] */
+	cmd = t_str_new(256);
+	if (doveadm_debug)
+		str_append_c(cmd, 'D');
+	str_append_c(cmd, '\t');
+	str_append_tabescaped(cmd, ctx->ctx.cur_username);
+	str_append(cmd, "\tdsync-server\t-u");
+	str_append_tabescaped(cmd, ctx->ctx.cur_username);
+	str_append_c(cmd, '\n');
+
+	ctx->tcp_conn = conn;
+	server_connection_cmd(conn, str_c(cmd),
+			      dsync_connected_callback, ctx);
+	io_loop_run(ioloop);
+	ctx->tcp_conn = NULL;
+
+	if (array_count(&server->connections) > 0)
+		server_connection_destroy(&conn);
+	io_loop_destroy(&ioloop);
+
+	if (ctx->error != NULL) {
+		*error_r = ctx->error;
+		return -1;
+	}
+	ctx->run_type = DSYNC_RUN_TYPE_STREAM;
+	return 0;
+}
+
+static int
+parse_location(struct dsync_cmd_context *ctx, const char *location,
+	       const char *const **remote_cmd_args_r, const char **error_r)
+{
+	if (strncmp(location, "tcp:", 4) == 0) {
+		/* TCP connection to remote dsync */
+		ctx->remote_name = location+4;
+		return dsync_connect_tcp(ctx, ctx->remote_name, error_r);
+	}
+
+	if (strncmp(location, "remote:", 7) == 0) {
+		/* this is a remote (ssh) command */
+		ctx->remote_name = location+7;
+	} else if (strncmp(location, "remoteprefix:", 13) == 0) {
+		/* this is a remote (ssh) command with a "user\n"
+		   prefix sent before dsync actually starts */
+		ctx->remote_name = location+13;
+		ctx->remote_user_prefix = TRUE;
+	} else {
+		/* local with e.g. maildir:path */
+		ctx->remote_name = NULL;
+		return 0;
+	}
+	*remote_cmd_args_r =
+		parse_ssh_location(ctx->remote_name, ctx->ctx.cur_username);
+	return 0;
 }
 
 static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
@@ -509,7 +627,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 	ctx->fd_in = STDIN_FILENO;
 	ctx->fd_out = STDOUT_FILENO;
 	ctx->fd_err = -1;
-	ctx->remote = FALSE;
+	ctx->run_type = DSYNC_RUN_TYPE_LOCAL;
 	ctx->remote_name = "remote";
 
 	if (ctx->default_replica_location) {
@@ -536,29 +654,20 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 	}
 
 	if (remote_cmd_args == NULL && ctx->local_location != NULL) {
-		if (strncmp(ctx->local_location, "remote:", 7) == 0) {
-			/* this is a remote (ssh) command */
-			ctx->remote_name = ctx->local_location+7;
-		} else if (strncmp(ctx->local_location, "remoteprefix:", 13) == 0) {
-			/* this is a remote (ssh) command with a "user\n"
-			   prefix sent before dsync actually starts */
-			ctx->remote_name = ctx->local_location+13;
-			ctx->remote_user_prefix = TRUE;
-		} else {
-			ctx->remote_name = NULL;
-		}
-		remote_cmd_args = ctx->remote_name == NULL ? NULL :
-			parse_ssh_location(ctx->remote_name,
-					   _ctx->cur_username);
+		if (parse_location(ctx, ctx->local_location, &remote_cmd_args,
+				   error_r) < 0)
+			return -1;
 	}
 
 	if (remote_cmd_args != NULL) {
 		/* do this before mail_storage_service_next() in case it
 		   drops process privileges */
 		run_cmd(ctx, remote_cmd_args);
-		ctx->remote = TRUE;
+		ctx->run_type = DSYNC_RUN_TYPE_CMD;
 	}
-	if (ctx->sync_visible_namespaces && !ctx->remote)
+
+	if (ctx->sync_visible_namespaces &&
+	    ctx->run_type == DSYNC_RUN_TYPE_LOCAL)
 		i_fatal("-N parameter requires syncing with remote host");
 	return 0;
 }
@@ -674,6 +783,20 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	struct dsync_brain *brain;
 	string_t *temp_prefix;
 
+	if (_ctx->conn != NULL) {
+		/* doveadm-server connection. start with a success reply.
+		   after that follows the regular dsync protocol. */
+		ctx->fd_in = _ctx->conn->fd;
+		ctx->fd_out = _ctx->conn->fd;
+		if (write_full(ctx->fd_out, "\n+\n", 3) < 0) {
+			i_error("write(initial reply) failed: %m");
+			return -1;
+		}
+		/* make sure nothing more is written by the generic doveadm
+		   connection code */
+		o_stream_close(_ctx->conn->output);
+	}
+
 	user->admin = TRUE;
 	user->dsyncing = TRUE;
 
@@ -690,6 +813,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	if (dsync_brain_deinit(&brain) < 0)
 		_ctx->exit_code = EX_TEMPFAIL;
 	dsync_ibc_deinit(&ibc);
+
 	return _ctx->exit_code == 0 ? 0 : -1;
 }
 
@@ -723,9 +847,6 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 	ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_CHANGED;
 	ctx->fd_in = STDIN_FILENO;
 	ctx->fd_out = STDOUT_FILENO;
-	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
-	doveadm_print_header("state", "state",
-			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 	return &ctx->ctx;
 }
 

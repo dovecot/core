@@ -23,20 +23,6 @@
 
 static void client_connection_input(struct client_connection *conn);
 
-struct client_connection {
-	pool_t pool;
-
-	int fd;
-	struct io *io;
-	struct istream *input;
-	struct ostream *output;
-	struct ip_addr local_ip, remote_ip;
-	const struct doveadm_settings *set;
-
-	unsigned int handshaked:1;
-	unsigned int authenticated:1;
-};
-
 static struct doveadm_mail_cmd_context *
 doveadm_mail_cmd_server_parse(const char *cmd_name,
 			      const struct doveadm_settings *set,
@@ -118,6 +104,8 @@ doveadm_mail_cmd_server_run(struct client_connection *conn,
 {
 	const char *error;
 	int ret;
+
+	ctx->conn = conn;
 
 	if (ctx->v.preinit != NULL)
 		ctx->v.preinit(ctx);
