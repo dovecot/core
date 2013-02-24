@@ -61,6 +61,32 @@ static int sdbox_mail_file_set(struct dbox_mail *mail)
 	}
 }
 
+static int
+sdbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
+		       const char **value_r)
+{
+	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	struct stat st;
+
+	switch (field) {
+	case MAIL_FETCH_REFCOUNT:
+		if (sdbox_mail_file_set(mail) < 0)
+			return -1;
+
+		_mail->transaction->stats.fstat_lookup_count++;
+		if (dbox_file_stat(mail->open_file, &st) < 0) {
+			if (errno == ENOENT)
+				mail_set_expunged(_mail);
+			return -1;
+		}
+		*value_r = p_strdup_printf(mail->imail.mail.data_pool, "%lu",
+					   (unsigned long)st.st_nlink);
+		return 0;
+	default:
+		return dbox_mail_get_special(_mail, field, value_r);
+	}
+}
+
 int sdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 		    struct dbox_file **file_r)
 {
@@ -118,7 +144,7 @@ struct mail_vfuncs sdbox_mail_vfuncs = {
 	index_mail_get_header_stream,
 	dbox_mail_get_stream,
 	index_mail_get_binary_stream,
-	dbox_mail_get_special,
+	sdbox_mail_get_special,
 	index_mail_get_real_mail,
 	index_mail_update_flags,
 	index_mail_update_keywords,

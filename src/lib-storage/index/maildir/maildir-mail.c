@@ -475,6 +475,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
 	const char *path, *fname = NULL, *end, *guid, *uidl, *order;
+	struct stat st;
 
 	switch (field) {
 	case MAIL_FETCH_GUID:
@@ -558,6 +559,12 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		} else {
 			*value_r = p_strdup(mail->mail.data_pool, order);
 		}
+		return 0;
+	case MAIL_FETCH_REFCOUNT:
+		if (maildir_mail_stat(_mail, &st) < 0)
+			return -1;
+		*value_r = p_strdup_printf(mail->mail.data_pool, "%lu",
+					   (unsigned long)st.st_nlink);
 		return 0;
 	default:
 		return index_mail_get_special(_mail, field, value_r);

@@ -168,6 +168,33 @@ static int mdbox_mail_get_save_date(struct mail *mail, time_t *date_r)
 	return 0;
 }
 
+static int
+mdbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
+		       const char **value_r)
+{
+	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	struct mdbox_mailbox *mbox =
+		(struct mdbox_mailbox *)_mail->transaction->box;
+	struct mdbox_map_mail_index_record rec;
+	uint32_t map_uid;
+	uint16_t refcount;
+
+	switch (field) {
+	case MAIL_FETCH_REFCOUNT:
+		if (mdbox_mail_lookup(mbox, _mail->transaction->view,
+				      _mail->seq, &map_uid) < 0)
+			return -1;
+		if (mdbox_map_lookup_full(mbox->storage->map, map_uid,
+					  &rec, &refcount) < 0)
+			return -1;
+		*value_r = p_strdup_printf(mail->imail.mail.data_pool, "%u",
+					   refcount);
+		return 0;
+	default:
+		return dbox_mail_get_special(_mail, field, value_r);
+	}
+}
+
 static void
 mdbox_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 			enum mail_flags flags)
@@ -208,7 +235,7 @@ struct mail_vfuncs mdbox_mail_vfuncs = {
 	index_mail_get_header_stream,
 	dbox_mail_get_stream,
 	index_mail_get_binary_stream,
-	dbox_mail_get_special,
+	mdbox_mail_get_special,
 	index_mail_get_real_mail,
 	mdbox_mail_update_flags,
 	index_mail_update_keywords,
