@@ -156,30 +156,14 @@ static void cmd_append_send_literal_continue(struct client *client)
 }
 
 static int
-cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
+cmd_append_catenate_mpurl(struct client_command_context *cmd,
+			  const char *caturl, struct imap_msgpart_url *mpurl)
 {
 	struct cmd_append_context *ctx = cmd->context;
-	struct imap_msgpart_url *mpurl;
 	struct imap_msgpart_open_result mpresult;
 	uoff_t newsize;
 	const char *error;
 	int ret;
-
-	if (ctx->failed)
-		return -1;
-
-	ret = imap_msgpart_url_parse(cmd->client->user, cmd->client->mailbox,
-				     caturl, &mpurl, &error);
-	if (ret < 0) {
-		client_send_storage_error(cmd, ctx->storage);
-		return -1;
-	}
-	if (ret == 0) {
-		/* invalid url, abort */
-		client_send_tagline(cmd,
-			t_strdup_printf("NO [BADURL %s] %s.", caturl, error));
-		return -1;
-	}
 
 	/* catenate URL */
 	ret = imap_msgpart_url_read_part(mpurl, &mpresult, &error);
@@ -195,7 +179,6 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 	}
 	if (mpresult.size == 0) {
 		/* empty input */
-		imap_msgpart_url_free(&mpurl);
 		return 0;
 	}
 
@@ -203,7 +186,6 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 	if (newsize < ctx->cat_msg_size) {
 		client_send_tagline(cmd,
 			"NO [TOOBIG] Composed message grows too big.");
-		imap_msgpart_url_free(&mpurl);
 		return -1;
 	}
 
@@ -235,6 +217,33 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 		i_assert(!i_stream_have_bytes_left(mpresult.input));
 		ret = 0;
 	}
+	return ret;
+}
+
+static int
+cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
+{
+	struct cmd_append_context *ctx = cmd->context;
+	struct imap_msgpart_url *mpurl;
+	const char *error;
+	int ret;
+
+	if (ctx->failed)
+		return -1;
+
+	ret = imap_msgpart_url_parse(cmd->client->user, cmd->client->mailbox,
+				     caturl, &mpurl, &error);
+	if (ret < 0) {
+		client_send_storage_error(cmd, ctx->storage);
+		return -1;
+	}
+	if (ret == 0) {
+		/* invalid url, abort */
+		client_send_tagline(cmd,
+			t_strdup_printf("NO [BADURL %s] %s.", caturl, error));
+		return -1;
+	}
+	ret = cmd_append_catenate_mpurl(cmd, caturl, mpurl);
 	imap_msgpart_url_free(&mpurl);
 	return ret;
 }
