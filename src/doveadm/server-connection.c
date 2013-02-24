@@ -139,8 +139,11 @@ server_handle_input(struct server_connection *conn,
 	str = t_str_new(128);
 	for (i = start = 0; i < size; i++) {
 		if (data[i] == '\n') {
-			if (i != start)
-				i_error("doveadm server sent broken input");
+			if (i != start) {
+				i_error("doveadm server sent broken print input");
+				server_connection_destroy(&conn);
+				return;
+			}
 			conn->state = SERVER_REPLY_STATE_RET;
 			i_stream_skip(conn->input, i + 1);
 
@@ -267,8 +270,12 @@ static void server_connection_input(struct server_connection *conn)
 				SERVER_CMD_REPLY_UNKNOWN_USER :
 				SERVER_CMD_REPLY_FAIL;
 			server_connection_callback(conn, reply);
-		} else
-			i_error("doveadm server sent broken input");
+		} else {
+			i_error("doveadm server sent broken input "
+				"(expected cmd reply): %s", line);
+			server_connection_destroy(&conn);
+			break;
+		}
 		if (conn->callback == NULL) {
 			/* we're finished, close the connection */
 			server_connection_destroy(&conn);
