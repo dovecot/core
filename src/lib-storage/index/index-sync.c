@@ -348,7 +348,9 @@ void index_sync_update_recent_count(struct mailbox *box)
 	uint32_t seq1, seq2;
 
 	hdr = mail_index_get_header(box->view);
-	if (hdr->first_recent_uid > ibox->recent_flags_prev_uid) {
+	if (hdr->first_recent_uid > ibox->recent_flags_prev_uid ||
+	    hdr->next_uid > ibox->recent_flags_last_check_nextuid) {
+		ibox->recent_flags_last_check_nextuid = hdr->next_uid;
 		mail_index_lookup_seq_range(box->view,
 					    hdr->first_recent_uid,
 					    hdr->next_uid,
