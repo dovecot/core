@@ -760,6 +760,11 @@ static bool mail_index_sync_want_index_write(struct mail_index *index)
 {
 	uint32_t log_diff;
 
+	if (index->last_read_log_file_seq != index->map->hdr.log_file_seq) {
+		/* we recently just rotated the log and rewrote index */
+		return FALSE;
+	}
+
 	log_diff = index->map->hdr.log_file_tail_offset -
 		index->last_read_log_file_tail_offset;
 	if (log_diff > MAIL_INDEX_MAX_WRITE_BYTES ||
