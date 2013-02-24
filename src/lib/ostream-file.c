@@ -873,7 +873,8 @@ static off_t o_stream_file_send_istream(struct ostream_private *outstream,
 		foutstream->no_sendfile = TRUE;
 	}
 
-	same_stream = i_stream_get_fd(instream) == foutstream->fd;
+	same_stream = i_stream_get_fd(instream) == foutstream->fd &&
+		foutstream->fd != -1;
 	return io_stream_copy_stream(outstream, instream, same_stream);
 }
 
