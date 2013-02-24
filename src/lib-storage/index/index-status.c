@@ -48,9 +48,16 @@ int index_storage_get_status(struct mailbox *box,
 	hdr = mail_index_get_header(box->view);
 	status_r->messages = hdr->messages_count;
 	if ((items & STATUS_RECENT) != 0) {
-		/* make sure recent count is set, in case syncing hasn't
-		   been done yet */
-		index_sync_update_recent_count(box);
+		if ((box->flags & MAILBOX_FLAG_DROP_RECENT) != 0) {
+			/* recent flags are set and dropped by the previous
+			   sync while index was locked. if we updated the
+			   recent flags here we'd have a race condition. */
+			i_assert(box->synced);
+		} else {
+			/* make sure recent count is set, in case we haven't
+			   synced yet */
+			index_sync_update_recent_count(box);
+		}
 		status_r->recent = index_mailbox_get_recent_count(box);
 		i_assert(status_r->recent <= status_r->messages);
 	}
