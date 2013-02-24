@@ -160,10 +160,13 @@
 	COMPILE_ERROR_IF_TRUE( \
 		!__builtin_types_compatible_p(typeof(_a1), typeof(_b)) && \
 		!__builtin_types_compatible_p(typeof(_a2), typeof(_b)))
+#define COMPILE_ERROR_IF_CONST_TYPES_NOT_COMPATIBLE(_a, _b) \
+	COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE(_a, typeof(const typeof(*_a) *), _b)
 #else
 #  define COMPILE_ERROR_IF_TRUE(condition) 0
 #  define COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(_a, _b) 0
 #  define COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE(_a1, _a2, _b) 0
+#  define COMPILE_ERROR_IF_CONST_TYPES_NOT_COMPATIBLE(_a, _b) 0
 #endif
 
 #if __GNUC__ > 2
