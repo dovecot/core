@@ -317,7 +317,8 @@ int server_connection_create(struct doveadm_server *server,
 	conn = p_new(pool, struct server_connection, 1);
 	conn->pool = pool;
 	conn->server = server;
-	conn->fd = doveadm_connect(server->name);
+	conn->fd = doveadm_connect_with_default_port(server->name,
+						     doveadm_settings->doveadm_port);
 	net_set_nonblock(conn->fd, TRUE);
 	conn->io = io_add(conn->fd, IO_READ, server_connection_input, conn);
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE, FALSE);

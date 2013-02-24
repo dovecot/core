@@ -97,15 +97,21 @@ const char *doveadm_plugin_getenv(const char *name)
 }
 
 static bool
-parse_hostport(const char *str, const char **host_r, unsigned int *port_r)
+parse_hostport(const char *str, unsigned int default_port,
+	       const char **host_r, unsigned int *port_r)
 {
 	const char *p;
 
 	/* host:port */
 	p = strrchr(str, ':');
-	if (p == NULL || str_to_uint(p+1, port_r) < 0)
-		return FALSE;
-	*host_r = t_strdup_until(str, p);
+	if (p == NULL && default_port != 0) {
+		*host_r = str;
+		*port_r = default_port;
+	} else {
+		if (p == NULL || str_to_uint(p+1, port_r) < 0)
+			return FALSE;
+		*host_r = t_strdup_until(str, p);
+	}
 
 	/* there is any '/' character (unlikely to be found from host names),
 	   assume ':' is part of a file path */
@@ -114,7 +120,8 @@ parse_hostport(const char *str, const char **host_r, unsigned int *port_r)
 	return TRUE;
 }
 
-int doveadm_connect(const char *path)
+int doveadm_connect_with_default_port(const char *path,
+				      unsigned int default_port)
 {
 	struct stat st;
 	const char *host;
@@ -122,7 +129,8 @@ int doveadm_connect(const char *path)
 	unsigned int port, ips_count;
 	int fd, ret;
 
-	if (parse_hostport(path, &host, &port) && stat(path, &st) < 0) {
+	if (parse_hostport(path, default_port, &host, &port) &&
+	    stat(path, &st) < 0) {
 		/* it's a host:port, connect via TCP */
 		ret = net_gethostbyname(host, &ips, &ips_count);
 		if (ret != 0) {
@@ -140,4 +148,9 @@ int doveadm_connect(const char *path)
 			i_fatal("net_connect_unix(%s) failed: %m", path);
 	}
 	return fd;
+}
+
+int doveadm_connect(const char *path)
+{
+	return doveadm_connect_with_default_port(path, 0);
 }
