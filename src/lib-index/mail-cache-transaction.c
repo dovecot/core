@@ -645,7 +645,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	mail_cache_decision_add(ctx->view, seq, field_idx);
 
 	fixed_size = ctx->cache->fields[field_idx].field.field_size;
-	i_assert(fixed_size == (unsigned int)-1 || fixed_size == data_size);
+	i_assert(fixed_size == UINT_MAX || fixed_size == data_size);
 
 	data_size32 = (uint32_t)data_size;
 
@@ -666,7 +666,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		     &ctx->view->cached_exists_value, 1);
 
 	full_size = (data_size + 3) & ~3;
-	if (fixed_size == (unsigned int)-1)
+	if (fixed_size == UINT_MAX)
 		full_size += sizeof(data_size32);
 
 	if (ctx->cache_data->used + full_size > MAIL_CACHE_MAX_WRITE_BUFFER &&
@@ -685,7 +685,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	}
 
 	buffer_append(ctx->cache_data, &file_field, sizeof(file_field));
-	if (fixed_size == -1U) {
+	if (fixed_size == UINT_MAX) {
 		buffer_append(ctx->cache_data, &data_size32,
 			      sizeof(data_size32));
 	}

@@ -52,7 +52,7 @@ void mail_cache_free(struct mail_cache **cache);
 void mail_cache_register_fields(struct mail_cache *cache,
 				struct mail_cache_field *fields,
 				unsigned int fields_count);
-/* Returns registered field index, or (unsigned int)-1 if not found. */
+/* Returns registered field index, or UINT_MAX if not found. */
 unsigned int
 mail_cache_register_lookup(struct mail_cache *cache, const char *name);
 /* Returns specified field */

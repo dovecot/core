@@ -11,9 +11,9 @@ static int cmp_uint(const unsigned int *i1, const unsigned int *i2)
 void test_bsearch_insert_pos(void)
 {
 	static const unsigned int input[] = {
-		1, 5, 9, 15, 16, -1U,
-		1, 5, 9, 15, 16, 17, -1U,
-		-1U
+		1, 5, 9, 15, 16, UINT_MAX,
+		1, 5, 9, 15, 16, 17, UINT_MAX,
+		UINT_MAX
 	};
 	static const unsigned int max_key = 18;
 	const unsigned int *cur;
@@ -21,8 +21,8 @@ void test_bsearch_insert_pos(void)
 	bool success;
 
 	cur = input;
-	for (i = 0; cur[0] != -1U; i++) {
-		for (len = 0; cur[len] != -1U; len++) ;
+	for (i = 0; cur[0] != UINT_MAX; i++) {
+		for (len = 0; cur[len] != UINT_MAX; len++) ;
 		for (key = 0; key < max_key; key++) {
 			if (bsearch_insert_pos(&key, cur, len, sizeof(*cur),
 					       cmp_uint, &idx))

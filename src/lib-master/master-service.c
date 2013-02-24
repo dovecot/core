@@ -154,7 +154,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 		i_strconcat(getopt_str, master_service_getopt_string(), NULL);
 	service->flags = flags;
 	service->ioloop = io_loop_create();
-	service->service_count_left = (unsigned int)-1;
+	service->service_count_left = UINT_MAX;
 	service->config_fd = -1;
 
 	service->config_path = i_strdup(getenv(MASTER_CONFIG_FILE_ENV));
@@ -632,7 +632,7 @@ void master_service_client_connection_destroyed(struct master_service *service)
 		service->total_available_count--;
                 service->service_count_left--;
 	} else {
-		if (service->service_count_left != (unsigned int)-1)
+		if (service->service_count_left != UINT_MAX)
 			service->service_count_left--;
 
 		i_assert(service->master_status.available_count <

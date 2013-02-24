@@ -438,7 +438,7 @@ static void stats_top_output(struct top_context *ctx)
 
 	for (i = 0; i < N_ELEMENTS(names); i++) {
 		if (!stats_header_find(ctx, names[i], &indexes[i]))
-			indexes[i] = -1U;
+			indexes[i] = UINT_MAX;
 	}
 
 	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) < 0)
@@ -448,7 +448,7 @@ static void stats_top_output(struct top_context *ctx)
 	lines = array_get(&ctx->lines, &count);
 	for (i = 0, row = 1; row < maxrow && i < count; i++, row++) {
 		for (j = 0; j < N_ELEMENTS(names); j++) {
-			if (indexes[j] == -1U)
+			if (indexes[j] == UINT_MAX)
 				doveadm_print("?");
 			else
 				stats_top_output_diff(ctx, lines[i], indexes[j]);

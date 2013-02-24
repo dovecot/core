@@ -37,7 +37,7 @@ void dict_driver_register(struct dict *driver)
 void dict_driver_unregister(struct dict *driver)
 {
 	struct dict *const *dicts;
-	unsigned int idx = -1U;
+	unsigned int idx = UINT_MAX;
 
 	array_foreach(&dict_drivers, dicts) {
 		if (*dicts == driver) {
@@ -45,7 +45,7 @@ void dict_driver_unregister(struct dict *driver)
 			break;
 		}
 	}
-	i_assert(idx != -1U);
+	i_assert(idx != UINT_MAX);
 	array_delete(&dict_drivers, idx, 1);
 
 	if (array_count(&dict_drivers) == 0)

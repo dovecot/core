@@ -66,7 +66,7 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list)
 		MAP_STORAGE(map)->set->parsed_fsync_mode, 0);
 	mail_index_set_lock_method(map->index,
 		MAP_STORAGE(map)->set->parsed_lock_method,
-		mail_storage_get_lock_timeout(MAP_STORAGE(map), -1U));
+		mail_storage_get_lock_timeout(MAP_STORAGE(map), UINT_MAX));
 	map->root_list = root_list;
 	map->map_ext_id = mail_index_ext_register(map->index, "map",
 				sizeof(struct mdbox_map_mail_index_header),

@@ -335,9 +335,9 @@ driver_sqlpool_get_connection(struct sqlpool_db *db,
 
 	conn = sqlpool_find_available_connection(db, unwanted_host_idx,
 						 &all_disconnected);
-	if (conn == NULL && unwanted_host_idx != -1U) {
+	if (conn == NULL && unwanted_host_idx != UINT_MAX) {
 		/* maybe there are no wanted hosts. use any of them. */
-		conn = sqlpool_find_available_connection(db, -1U,
+		conn = sqlpool_find_available_connection(db, UINT_MAX,
 							 &all_disconnected);
 	}
 	if (conn == NULL && all_disconnected) {
@@ -350,7 +350,7 @@ driver_sqlpool_get_connection(struct sqlpool_db *db,
 			if (conndb->connect_delay > SQL_CONNECT_RESET_DELAY)
 				conndb->connect_delay = SQL_CONNECT_RESET_DELAY;
 		}
-		conn = sqlpool_find_available_connection(db, -1U,
+		conn = sqlpool_find_available_connection(db, UINT_MAX,
 							 &all_disconnected);
 	}
 	if (conn == NULL) {
@@ -372,7 +372,7 @@ driver_sqlpool_get_sync_connection(struct sqlpool_db *db,
 	const struct sqlpool_connection *conns;
 	unsigned int i, count;
 
-	if (driver_sqlpool_get_connection(db, -1U, conn_r))
+	if (driver_sqlpool_get_connection(db, UINT_MAX, conn_r))
 		return TRUE;
 
 	/* no idling connections, but maybe we can find one that's trying to
@@ -651,7 +651,7 @@ driver_sqlpool_query(struct sql_db *_db, const char *query,
 	request->callback = callback;
 	request->context = context;
 
-	if (!driver_sqlpool_get_connection(db, -1U, &conn))
+	if (!driver_sqlpool_get_connection(db, UINT_MAX, &conn))
 		driver_sqlpool_append_request(db, request);
 	else {
 		request->host_idx = conn->host_idx;
@@ -737,7 +737,7 @@ driver_sqlpool_transaction_commit(struct sql_transaction_context *_ctx,
 	ctx->commit_request = sqlpool_request_new(db, NULL);
 	ctx->commit_request->trans = ctx;
 
-	if (driver_sqlpool_get_connection(db, -1U, &conn))
+	if (driver_sqlpool_get_connection(db, UINT_MAX, &conn))
 		sqlpool_request_handle_transaction(conn->db, ctx);
 	else
 		driver_sqlpool_append_request(db, ctx->commit_request);

@@ -1057,7 +1057,7 @@ modseq_cache_hit(struct mail_transaction_log_file *file, unsigned int idx)
 static struct modseq_cache *
 modseq_cache_get_offset(struct mail_transaction_log_file *file, uoff_t offset)
 {
-	unsigned int i, best = -1U;
+	unsigned int i, best = UINT_MAX;
 
 	for (i = 0; i < N_ELEMENTS(file->modseq_cache); i++) {
 		if (offset < file->modseq_cache[i].offset)
@@ -1071,12 +1071,12 @@ modseq_cache_get_offset(struct mail_transaction_log_file *file, uoff_t offset)
 			return modseq_cache_hit(file, i);
 		}
 
-		if (best == -1U ||
+		if (best == UINT_MAX ||
 		    file->modseq_cache[i].offset <
 		    file->modseq_cache[best].offset)
 			best = i;
 	}
-	if (best == -1U)
+	if (best == UINT_MAX)
 		return NULL;
 	return &file->modseq_cache[best];
 }
@@ -1084,7 +1084,7 @@ modseq_cache_get_offset(struct mail_transaction_log_file *file, uoff_t offset)
 static struct modseq_cache *
 modseq_cache_get_modseq(struct mail_transaction_log_file *file, uint64_t modseq)
 {
-	unsigned int i, best = -1U;
+	unsigned int i, best = UINT_MAX;
 
 	for (i = 0; i < N_ELEMENTS(file->modseq_cache); i++) {
 		if (modseq < file->modseq_cache[i].highest_modseq)
@@ -1098,12 +1098,12 @@ modseq_cache_get_modseq(struct mail_transaction_log_file *file, uint64_t modseq)
 			return modseq_cache_hit(file, i);
 		}
 
-		if (best == -1U ||
+		if (best == UINT_MAX ||
 		    file->modseq_cache[i].highest_modseq <
 		    file->modseq_cache[best].highest_modseq)
 			best = i;
 	}
-	if (best == -1U)
+	if (best == UINT_MAX)
 		return NULL;
 	return &file->modseq_cache[best];
 }

@@ -77,7 +77,7 @@ mail_cache_compress_field(struct mail_cache_copy_context *ctx,
 
 	buffer_append(ctx->buffer, &file_field_idx, sizeof(file_field_idx));
 
-	if (cache_field->field_size == (unsigned int)-1) {
+	if (cache_field->field_size == UINT_MAX) {
 		size32 = (uint32_t)field->size;
 		buffer_append(ctx->buffer, &size32, sizeof(size32));
 	}

@@ -48,9 +48,9 @@ static void test_base64_decode(void)
 		"aGVs!!!!!"
 	};
 	static const struct test_base64_decode_output output[] = {
-		{ "hello world", 0, -1U },
-		{ "foo barits", 0, -1U },
-		{ "just niin", 1, -1U },
+		{ "hello world", 0, UINT_MAX },
+		{ "foo barits", 0, UINT_MAX },
+		{ "just niin", 1, UINT_MAX },
 		{ "hel", 1, 4 },
 		{ "hel", -1, 4 },
 		{ "hel", -1, 4 }
@@ -71,7 +71,7 @@ static void test_base64_decode(void)
 		test_assert(output[i].ret == ret &&
 			    strcmp(output[i].text, str_c(str)) == 0 &&
 			    (src_pos == output[i].src_pos ||
-			     (output[i].src_pos == -1U &&
+			     (output[i].src_pos == UINT_MAX &&
 			      src_pos == strlen(input[i]))));
 	}
 	test_end();

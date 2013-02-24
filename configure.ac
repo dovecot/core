@@ -346,7 +346,7 @@ fi
 if test "$have_clang" = "yes"; then
   # clang specific options
   if test "$want_devel_checks" = "yes"; then
-    CFLAGS="$CFLAGS -fcatch-undefined-behavior -ftrapv"
+    CFLAGS="$CFLAGS -fsanitize=address,integer,undefined -ftrapv"
   fi
 fi
 

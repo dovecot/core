@@ -639,7 +639,7 @@ bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	unsigned int i, count, next_i;
 	uint32_t next_found_uid;
 
-	next_i = (unsigned int)-1;
+	next_i = UINT_MAX;
 	next_found_uid = (uint32_t)-1;
 
 	/* FIXME: replace with a priority queue so we don't have to go
@@ -665,7 +665,7 @@ bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	}
 
 	if (i == count) {
-		if (next_i == (unsigned int)-1) {
+		if (next_i == UINT_MAX) {
 			/* nothing left in sync_list */
 			return FALSE;
 		}

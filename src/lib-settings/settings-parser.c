@@ -385,7 +385,7 @@ int settings_get_time(const char *str, unsigned int *secs_r,
 		*error_r = t_strconcat("Invalid time interval: ", str, NULL);
 		return -1;
 	}
-	if (num > -1U / multiply) {
+	if (num > UINT_MAX / multiply) {
 		*error_r = t_strconcat("Time interval is too large: ",
 				       str, NULL);
 		return -1;
@@ -436,7 +436,7 @@ int settings_get_size(const char *str, uoff_t *bytes_r,
 		*error_r = t_strconcat("Invalid size: ", str, NULL);
 		return -1;
 	}
-	if (num > -1ULL / multiply) {
+	if (num > ULLONG_MAX / multiply) {
 		*error_r = t_strconcat("Size is too large: ", str, NULL);
 		return -1;
 	}

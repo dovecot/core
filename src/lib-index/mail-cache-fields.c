@@ -147,7 +147,7 @@ void mail_cache_register_fields(struct mail_cache *cache,
 		cache->field_file_map[idx] = (uint32_t)-1;
 
 		if (!field_has_fixed_size(cache->fields[idx].field.type))
-			cache->fields[idx].field.field_size = (unsigned int)-1;
+			cache->fields[idx].field.field_size = UINT_MAX;
 
 		hash_table_insert(cache->field_name_hash, name,
 				  POINTER_CAST(idx));
@@ -164,7 +164,7 @@ mail_cache_register_lookup(struct mail_cache *cache, const char *name)
 	if (hash_table_lookup_full(cache->field_name_hash, name, &key, &value))
 		return POINTER_CAST_TO(value, unsigned int);
 	else
-		return -1U;
+		return UINT_MAX;
 }
 
 const struct mail_cache_field *

@@ -368,7 +368,7 @@ quota_rule_parse_percentage(struct quota_root_settings *root_set,
 {
 	int64_t percentage = *limit;
 
-	if (percentage <= -100 || percentage >= -1U) {
+	if (percentage <= -100 || percentage >= UINT_MAX) {
 		*error_r = "Invalid percentage";
 		return -1;
 	}

@@ -577,9 +577,9 @@ auth_cache_flush_reply_callback(const char *cmd, const char *const *args,
 	unsigned int *countp = context;
 
 	if (strcmp(cmd, "OK") != 0)
-		*countp = -1U;
+		*countp = UINT_MAX;
 	else if (args[0] == NULL || str_to_uint(args[0], countp) < 0)
-		*countp = -1U;
+		*countp = UINT_MAX;
 
 	io_loop_stop(current_ioloop);
 	return TRUE;
@@ -590,7 +590,7 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 {
 	string_t *str;
 
-	*count_r = -1U;
+	*count_r = UINT_MAX;
 
 	conn->reply_callback = auth_cache_flush_reply_callback;
 	conn->reply_context = count_r;
@@ -609,7 +609,7 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	(void)auth_master_run_cmd(conn, str_c(str));
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
 
-	return *count_r == -1U ? -1 : 0;
+	return *count_r == UINT_MAX ? -1 : 0;
 }
 
 static bool

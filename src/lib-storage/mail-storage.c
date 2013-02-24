@@ -1087,7 +1087,7 @@ static int mailbox_alloc_index_pvt(struct mailbox *box)
 				  box->storage->set->parsed_fsync_mode, 0);
 	mail_index_set_lock_method(box->index_pvt,
 		box->storage->set->parsed_lock_method,
-		mail_storage_get_lock_timeout(box->storage, -1U));
+		mail_storage_get_lock_timeout(box->storage, UINT_MAX));
 	return 1;
 }
 

@@ -62,7 +62,7 @@ static void test_message_address(void)
 	for (i = 0; i < N_ELEMENTS(output); i++) {
 		addr = message_address_parse(pool_datastack_create(),
 					     (const unsigned char *)input[i*2],
-					     strlen(input[i*2]), -1U, FALSE);
+					     strlen(input[i*2]), UINT_MAX, FALSE);
 		test_assert(addr != NULL && addr->next == NULL &&
 			    cmp_addr(addr, &output[i]));
 
@@ -86,7 +86,7 @@ static void test_message_address(void)
 
 	test_begin("message address parsing with groups");
 	addr = message_address_parse(pool_datastack_create(), str_data(group),
-				     str_len(group), -1U, FALSE);
+				     str_len(group), UINT_MAX, FALSE);
 	test_assert(addr != NULL && cmp_addr(addr, &group_prefix));
 	addr = addr->next;
 	for (i = 0; i < N_ELEMENTS(output) && addr != NULL; i++) {
@@ -103,7 +103,7 @@ static void test_message_address(void)
 	str_truncate(group, 0);
 	str_append(group, "group:;");
 	addr = message_address_parse(pool_datastack_create(), str_data(group),
-				     str_len(group), -1U, FALSE);
+				     str_len(group), UINT_MAX, FALSE);
 	test_assert(addr != NULL && cmp_addr(addr, &group_prefix));
 	addr = addr->next;
 	test_assert(addr != NULL && addr->next == NULL &&

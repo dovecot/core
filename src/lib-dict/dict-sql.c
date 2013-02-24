@@ -525,7 +525,7 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			ret = -1;
 		} else {
 			while (ctx->inc_row != NULL) {
-				i_assert(ctx->inc_row->rows != -1U);
+				i_assert(ctx->inc_row->rows != UINT_MAX);
 				if (ctx->inc_row->rows == 0) {
 					ret = 0;
 					break;
@@ -759,7 +759,7 @@ sql_dict_next_inc_row(struct sql_dict_transaction_context *ctx)
 	}
 	row = p_new(ctx->inc_row_pool, struct sql_dict_inc_row, 1);
 	row->prev = ctx->inc_row;
-	row->rows = -1U;
+	row->rows = UINT_MAX;
 	ctx->inc_row = row;
 	return &row->rows;
 }

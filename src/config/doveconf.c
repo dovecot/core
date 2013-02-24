@@ -104,7 +104,7 @@ static struct prefix_stack prefix_stack_pop(ARRAY_TYPE(prefix_stack) *stack)
 	s = array_get(stack, &count);
 	i_assert(count > 0);
 	if (count == 1) {
-		sc.prefix_idx = -1U;
+		sc.prefix_idx = UINT_MAX;
 	} else {
 		sc.prefix_idx = s[count-2].prefix_idx;
 	}
@@ -118,7 +118,7 @@ static void prefix_stack_reset_str(ARRAY_TYPE(prefix_stack) *stack)
 	struct prefix_stack *s;
 
 	array_foreach_modifiable(stack, s)
-		s->str_pos = -1U;
+		s->str_pos = UINT_MAX;
 }
 
 static struct config_dump_human_context *
@@ -178,7 +178,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	const char *const *strings, *const *args, *p, *str, *const *prefixes;
 	const char *key, *key2, *value;
 	unsigned int i, j, count, len, prefix_count, skip_len;
-	unsigned int setting_name_filter_len, prefix_idx = -1U;
+	unsigned int setting_name_filter_len, prefix_idx = UINT_MAX;
 	bool unique_key;
 	int ret = 0;
 
@@ -238,12 +238,12 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		j = 0;
 		/* if there are open sections and this key isn't in it,
 		   close the sections */
-		while (prefix_idx != -1U) {
+		while (prefix_idx != UINT_MAX) {
 			len = strlen(prefixes[prefix_idx]);
 			if (strncmp(prefixes[prefix_idx], key, len) != 0) {
 				prefix = prefix_stack_pop(&prefix_stack);
 				indent--;
-				if (prefix.str_pos != -1U)
+				if (prefix.str_pos != UINT_MAX)
 					str_truncate(ctx->list_prefix, prefix.str_pos);
 				else {
 					o_stream_nsend(output, indent_str, indent*2);
@@ -260,9 +260,9 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		for (; j < prefix_count; j++) {
 			len = strlen(prefixes[j]);
 			if (strncmp(prefixes[j], key, len) == 0) {
-				key2 = key + (prefix_idx == -1U ? 0 :
+				key2 = key + (prefix_idx == UINT_MAX ? 0 :
 					      strlen(prefixes[prefix_idx]));
-				prefix.str_pos = !unique_key ? -1U :
+				prefix.str_pos = !unique_key ? UINT_MAX :
 					str_len(ctx->list_prefix);
 				prefix_idx = j;
 				prefix.prefix_idx = prefix_idx;
@@ -294,7 +294,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		prefix_stack_reset_str(&prefix_stack);
 		ctx->list_prefix_sent = TRUE;
 
-		skip_len = prefix_idx == -1U ? 0 : strlen(prefixes[prefix_idx]);
+		skip_len = prefix_idx == UINT_MAX ? 0 : strlen(prefixes[prefix_idx]);
 		i_assert(skip_len == 0 ||
 			 strncmp(prefixes[prefix_idx], strings[i], skip_len) == 0);
 		o_stream_nsend(output, indent_str, indent*2);
@@ -314,9 +314,9 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	end: ;
 	} T_END;
 
-	while (prefix_idx != -1U) {
+	while (prefix_idx != UINT_MAX) {
 		prefix = prefix_stack_pop(&prefix_stack);
-		if (prefix.str_pos != -1U)
+		if (prefix.str_pos != UINT_MAX)
 			break;
 		prefix_idx = prefix.prefix_idx;
 		indent--;

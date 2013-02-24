@@ -217,7 +217,7 @@ int index_storage_mailbox_alloc_index(struct mailbox *box)
 				  box->storage->set->parsed_fsync_mode, 0);
 	mail_index_set_lock_method(box->index,
 		box->storage->set->parsed_lock_method,
-		mail_storage_get_lock_timeout(box->storage, -1U));
+		mail_storage_get_lock_timeout(box->storage, UINT_MAX));
 	return 0;
 }
 
@@ -771,10 +771,10 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 	uint32_t t;
 
 	src_field_idx = mail_cache_register_lookup(src_mail->box->cache, name);
-	i_assert(src_field_idx != -1U);
+	i_assert(src_field_idx != UINT_MAX);
 
 	dest_field_idx = mail_cache_register_lookup(dest_trans->box->cache, name);
-	if (dest_field_idx == -1U) {
+	if (dest_field_idx == UINT_MAX) {
 		/* unknown field */
 		return;
 	}

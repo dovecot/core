@@ -178,7 +178,8 @@ index_index_rebuild_init(struct mailbox *box, struct mail_index_view *view,
 #endif
 		open_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
 	mail_index_set_lock_method(ctx->backup_index,
-				   box->storage->set->parsed_lock_method, -1U);
+				   box->storage->set->parsed_lock_method,
+				   UINT_MAX);
 	if (mail_index_open(ctx->backup_index, open_flags) <= 0)
 		mail_index_free(&ctx->backup_index);
 	else

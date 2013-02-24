@@ -38,7 +38,7 @@ static const char *test_aqueue2(unsigned int initial_size)
 					return t_strdup_printf("Wrong count after append %u vs %u)",
 							       aqueue_count(aqueue), j + 1);
 				}
-				if (!aqueue_is_ok(aqueue, -1U))
+				if (!aqueue_is_ok(aqueue, UINT_MAX))
 					return "Invalid data after append";
 			}
 

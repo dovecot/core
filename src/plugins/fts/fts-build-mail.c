@@ -128,7 +128,7 @@ static void fts_build_mail_header(struct fts_mail_build_context *ctx,
 		addr = message_address_parse(pool_datastack_create(),
 					     hdr->full_value,
 					     hdr->full_value_len,
-					     -1U, TRUE);
+					     UINT_MAX, TRUE);
 		str = t_str_new(hdr->full_value_len);
 		message_address_write(str, addr);
 

@@ -210,7 +210,7 @@ keywords_update_records(struct mail_index_sync_map_ctx *ctx,
 	unsigned int data_offset;
 	uint32_t seq1, seq2;
 
-	i_assert(keyword_idx != (unsigned int)-1);
+	i_assert(keyword_idx != UINT_MAX);
 
 	if (!mail_index_lookup_seq_range(view, uid1, uid2, &seq1, &seq2))
 		return 1;

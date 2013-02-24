@@ -136,7 +136,7 @@ static void priorityq_remove_idx(struct priorityq *pq, unsigned int idx)
 void priorityq_remove(struct priorityq *pq, struct priorityq_item *item)
 {
 	priorityq_remove_idx(pq, item->idx);
-	item->idx = -1U;
+	item->idx = UINT_MAX;
 }
 
 struct priorityq_item *priorityq_peek(struct priorityq *pq)
@@ -157,7 +157,7 @@ struct priorityq_item *priorityq_pop(struct priorityq *pq)
 	item = priorityq_peek(pq);
 	if (item != NULL) {
 		priorityq_remove_idx(pq, 0);
-		item->idx = -1U;
+		item->idx = UINT_MAX;
 	}
 	return item;
 }

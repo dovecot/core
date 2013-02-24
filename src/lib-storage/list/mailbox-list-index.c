@@ -52,7 +52,7 @@ static int mailbox_list_index_index_open(struct mailbox_list *list)
 		   data, so we must never move it into memory. */
 		index_flags |= MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
 	}
-	lock_timeout = set->mail_max_lock_timeout == 0 ? -1U :
+	lock_timeout = set->mail_max_lock_timeout == 0 ? UINT_MAX :
 		set->mail_max_lock_timeout;
 
 	mail_index_set_lock_method(ilist->index, set->parsed_lock_method,

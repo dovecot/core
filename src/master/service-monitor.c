@@ -101,7 +101,7 @@ static void service_status_less(struct service_process *process,
 		process->idle_start = ioloop_time;
 		if (service->process_avail > service->set->process_min_avail &&
 		    process->to_idle == NULL &&
-		    service->idle_kill != -1U) {
+		    service->idle_kill != UINT_MAX) {
 			/* we have more processes than we really need.
 			   add a bit of randomness so that we don't send the
 			   signal to all of them at once */

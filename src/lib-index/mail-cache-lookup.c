@@ -253,7 +253,7 @@ int mail_cache_lookup_iter_next(struct mail_cache_lookup_iterate_ctx *ctx,
 
 	field_idx = cache->file_field_map[file_field];
 	data_size = cache->fields[field_idx].field.field_size;
-	if (data_size == (unsigned int)-1 &&
+	if (data_size == UINT_MAX &&
 	    ctx->pos + sizeof(uint32_t) <= ctx->rec->size) {
 		/* variable size field. get its size from the file. */
 		data_size = *((const uint32_t *)

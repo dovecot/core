@@ -66,7 +66,7 @@ void mail_storage_hooks_add(struct module *module,
 void mail_storage_hooks_remove(const struct mail_storage_hooks *hooks)
 {
 	const struct mail_storage_module_hooks *module_hook;
-	unsigned int idx = -1U;
+	unsigned int idx = UINT_MAX;
 
 	array_foreach(&module_hooks, module_hook) {
 		if (module_hook->hooks == hooks) {
@@ -74,7 +74,7 @@ void mail_storage_hooks_remove(const struct mail_storage_hooks *hooks)
 			break;
 		}
 	}
-	i_assert(idx != -1U);
+	i_assert(idx != UINT_MAX);
 
 	array_delete(&module_hooks, idx, 1);
 }
@@ -87,7 +87,7 @@ void mail_storage_hooks_add_internal(const struct mail_storage_hooks *hooks)
 void mail_storage_hooks_remove_internal(const struct mail_storage_hooks *hooks)
 {
 	const struct mail_storage_hooks *const *old_hooks;
-	unsigned int idx = -1U;
+	unsigned int idx = UINT_MAX;
 
 	array_foreach(&internal_hooks, old_hooks) {
 		if (*old_hooks == hooks) {
@@ -95,7 +95,7 @@ void mail_storage_hooks_remove_internal(const struct mail_storage_hooks *hooks)
 			break;
 		}
 	}
-	i_assert(idx != -1U);
+	i_assert(idx != UINT_MAX);
 
 	array_delete(&internal_hooks, idx, 1);
 }

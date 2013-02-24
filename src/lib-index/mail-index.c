@@ -45,7 +45,7 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->mode = 0600;
 	index->gid = (gid_t)-1;
 	index->lock_method = FILE_LOCK_METHOD_FCNTL;
-	index->max_lock_timeout_secs = -1U;
+	index->max_lock_timeout_secs = UINT_MAX;
 
 	index->keywords_ext_id =
 		mail_index_ext_register(index, MAIL_INDEX_EXT_KEYWORDS,
@@ -262,7 +262,7 @@ bool mail_index_keyword_lookup(struct mail_index *index,
 		return TRUE;
 	}
 
-	*idx_r = -1U;
+	*idx_r = UINT_MAX;
 	return FALSE;
 }
 

@@ -122,7 +122,7 @@ http_client_peer_next_request(struct http_client_peer *peer,
 {
 	struct http_client_connection *const *conn_idx;
 	struct http_client_connection *conn = NULL;
-	unsigned int closing = 0, min_waiting = (unsigned int)-1;
+	unsigned int closing = 0, min_waiting = UINT_MAX;
 	
 	/* at this point we already know that a request for this peer is pending
 	 */

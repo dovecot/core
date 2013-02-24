@@ -146,7 +146,7 @@ void imap_envelope_parse_header(pool_t pool,
 	if (addr_p != NULL) {
 		*addr_p = message_address_parse(pool, hdr->full_value,
 						hdr->full_value_len,
-						(unsigned int)-1, TRUE);
+						UINT_MAX, TRUE);
 	} else if (str_p != NULL) T_BEGIN {
 		string_t *str = t_str_new(128);
 

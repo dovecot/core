@@ -928,7 +928,7 @@ void db_ldap_enable_input(struct ldap_connection *conn, bool enable)
 
 static void db_ldap_disconnect_timeout(struct ldap_connection *conn)
 {
-	db_ldap_abort_requests(conn, -1U,
+	db_ldap_abort_requests(conn, UINT_MAX,
 		DB_LDAP_REQUEST_DISCONNECT_TIMEOUT_SECS, FALSE,
 		"Aborting (timeout), we're not connected to LDAP server");
 
@@ -1469,7 +1469,7 @@ void db_ldap_unref(struct ldap_connection **_conn)
 		}
 	}
 
-	db_ldap_abort_requests(conn, -1U, 0, FALSE, "Shutting down");
+	db_ldap_abort_requests(conn, UINT_MAX, 0, FALSE, "Shutting down");
 	i_assert(conn->pending_count == 0);
 	db_ldap_conn_close(conn);
 	i_assert(conn->to == NULL);

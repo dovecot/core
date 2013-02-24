@@ -357,7 +357,7 @@ static void cmd_director_add(int argc, char *argv[])
 {
 	struct director_context *ctx;
 	struct ip_addr *ips;
-	unsigned int i, ips_count, vhost_count = -1U;
+	unsigned int i, ips_count, vhost_count = UINT_MAX;
 	const char *host, *cmd, *line;
 
 	ctx = cmd_director_init(argc, argv, "a:", cmd_director_add);
@@ -373,7 +373,7 @@ static void cmd_director_add(int argc, char *argv[])
 
 	director_get_host(host, &ips, &ips_count);
 	for (i = 0; i < ips_count; i++) {
-		cmd = vhost_count == -1U ?
+		cmd = vhost_count == UINT_MAX ?
 			t_strdup_printf("HOST-SET\t%s\n",
 					net_ip2addr(&ips[i])) :
 			t_strdup_printf("HOST-SET\t%s\t%u\n",

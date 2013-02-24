@@ -1545,7 +1545,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 		if (uidlist->recreate_on_change)
 			return maildir_uidlist_recreate(uidlist);
 	}
-	i_assert(ctx->first_unwritten_pos != (unsigned int)-1);
+	i_assert(ctx->first_unwritten_pos != UINT_MAX);
 
 	if (lseek(uidlist->fd, 0, SEEK_END) < 0) {
 		mail_storage_set_critical(storage,
@@ -1647,8 +1647,8 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 	ctx->partial = !locked ||
 		(sync_flags & MAILDIR_UIDLIST_SYNC_PARTIAL) != 0;
 	ctx->locked = locked;
-	ctx->first_unwritten_pos = (unsigned int)-1;
-	ctx->first_new_pos = (unsigned int)-1;
+	ctx->first_unwritten_pos = UINT_MAX;
+	ctx->first_new_pos = UINT_MAX;
 
 	if (ctx->partial) {
 		if ((sync_flags & MAILDIR_UIDLIST_SYNC_KEEP_STATE) == 0) {
@@ -1687,7 +1687,7 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 			/* we can't add it, so just ignore it */
 			return 1;
 		}
-		if (ctx->first_new_pos == (unsigned int)-1)
+		if (ctx->first_new_pos == UINT_MAX)
 			ctx->first_new_pos = array_count(&uidlist->records);
 		ctx->new_files_count++;
 		ctx->changed = TRUE;
@@ -1849,11 +1849,11 @@ void maildir_uidlist_sync_remove(struct maildir_uidlist_sync_ctx *ctx,
 	hash_table_remove(ctx->uidlist->files, filename);
 	idx = maildir_uidlist_records_array_delete(ctx->uidlist, rec);
 
-	if (ctx->first_unwritten_pos != (unsigned int)-1) {
+	if (ctx->first_unwritten_pos != UINT_MAX) {
 		i_assert(ctx->first_unwritten_pos > idx);
 		ctx->first_unwritten_pos--;
 	}
-	if (ctx->first_new_pos != (unsigned int)-1) {
+	if (ctx->first_new_pos != UINT_MAX) {
 		i_assert(ctx->first_new_pos > idx);
 		ctx->first_new_pos--;
 	}
@@ -1941,9 +1941,9 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist_sync_ctx *ctx)
 	unsigned int dest, count;
 
 	i_assert(UIDLIST_IS_LOCKED(ctx->uidlist));
-	i_assert(ctx->first_new_pos != (unsigned int)-1);
+	i_assert(ctx->first_new_pos != UINT_MAX);
 
-	if (ctx->first_unwritten_pos == (unsigned int)-1)
+	if (ctx->first_unwritten_pos == UINT_MAX)
 		ctx->first_unwritten_pos = ctx->first_new_pos;
 
 	/* sort new files and assign UIDs for them */
@@ -1967,7 +1967,7 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist_sync_ctx *ctx)
 		ctx->uidlist->last_seen_uid = ctx->uidlist->next_uid-1;
 
 	ctx->new_files_count = 0;
-	ctx->first_new_pos = (unsigned int)-1;
+	ctx->first_new_pos = UINT_MAX;
 	ctx->uidlist->change_counter++;
 	ctx->finish_change_counter = ctx->uidlist->change_counter;
 }

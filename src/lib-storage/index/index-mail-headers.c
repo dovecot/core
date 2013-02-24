@@ -129,7 +129,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 		}
 	}
 
-	mail->data.dont_cache_field_idx = -1U;
+	mail->data.dont_cache_field_idx = UINT_MAX;
 }
 
 static unsigned int
@@ -752,7 +752,7 @@ int index_mail_get_headers(struct mail *_mail, const char *field,
 			return 0;
 
 		T_BEGIN {
-			ret = index_mail_headers_decode(mail, value_r, -1U);
+			ret = index_mail_headers_decode(mail, value_r, UINT_MAX);
 		} T_END;
 
 		if (ret < 0) {

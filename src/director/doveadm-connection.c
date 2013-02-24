@@ -189,7 +189,7 @@ doveadm_cmd_host_set(struct doveadm_connection *conn, const char *line)
 	const char *const *args;
 	struct mail_host *host;
 	struct ip_addr ip;
-	unsigned int vhost_count = -1U;
+	unsigned int vhost_count = UINT_MAX;
 
 	args = t_strsplit_tab(line);
 	if (args[0] == NULL ||
@@ -198,14 +198,14 @@ doveadm_cmd_host_set(struct doveadm_connection *conn, const char *line)
 		i_error("doveadm sent invalid HOST-SET parameters: %s", line);
 		return FALSE;
 	}
-	if (vhost_count > MAX_VALID_VHOST_COUNT && vhost_count != -1U) {
+	if (vhost_count > MAX_VALID_VHOST_COUNT && vhost_count != UINT_MAX) {
 		o_stream_nsend_str(conn->output, "vhost count too large\n");
 		return TRUE;
 	}
 	host = mail_host_lookup(dir->mail_hosts, &ip);
 	if (host == NULL)
 		host = mail_host_add_ip(dir->mail_hosts, &ip);
-	if (vhost_count != -1U)
+	if (vhost_count != UINT_MAX)
 		mail_host_set_vhost_count(dir->mail_hosts, host, vhost_count);
 	director_update_host(dir, dir->self_host, NULL, host);
 

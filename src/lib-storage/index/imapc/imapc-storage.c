@@ -740,7 +740,7 @@ static const struct imapc_namespace *
 imapc_namespace_find_mailbox(struct imapc_storage *storage, const char *name)
 {
 	const struct imapc_namespace *ns, *best_ns = NULL;
-	unsigned int best_len = -1U, len;
+	unsigned int best_len = UINT_MAX, len;
 
 	array_foreach(&storage->remote_namespaces, ns) {
 		len = strlen(ns->prefix);

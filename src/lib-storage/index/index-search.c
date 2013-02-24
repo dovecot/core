@@ -521,7 +521,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 			addr = message_address_parse(pool_datastack_create(),
 						     ctx->hdr->full_value,
 						     ctx->hdr->full_value_len,
-						     (unsigned int)-1, TRUE);
+						     UINT_MAX, TRUE);
 			str = t_str_new(ctx->hdr->value_len);
 			message_address_write(str, addr);
 			hdr.value = hdr.full_value = str_data(str);
@@ -1173,7 +1173,7 @@ index_storage_search_init(struct mailbox_transaction_context *t,
 
 	ctx->max_mails = t->box->storage->set->mail_prefetch_count + 1;
 	if (ctx->max_mails == 0)
-		ctx->max_mails = -1U;
+		ctx->max_mails = UINT_MAX;
 	ctx->next_time_check_cost = SEARCH_INITIAL_MAX_COST;
 	if (gettimeofday(&ctx->last_nonblock_timeval, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");

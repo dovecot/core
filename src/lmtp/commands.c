@@ -1060,7 +1060,7 @@ int cmd_xclient(struct client *client, const char *args)
 {
 	const char *const *tmp;
 	struct ip_addr remote_ip;
-	unsigned int remote_port = 0, ttl = -1U, timeout_secs = 0;
+	unsigned int remote_port = 0, ttl = UINT_MAX, timeout_secs = 0;
 	bool args_ok = TRUE;
 
 	if (!client_is_trusted(client)) {
@@ -1095,7 +1095,7 @@ int cmd_xclient(struct client *client, const char *args)
 		client->remote_ip = remote_ip;
 	if (remote_port != 0)
 		client->remote_port = remote_port;
-	if (ttl != -1U)
+	if (ttl != UINT_MAX)
 		client->proxy_ttl = ttl;
 	client->proxy_timeout_secs = timeout_secs;
 	client_send_line(client, "220 %s %s", client->my_domain,

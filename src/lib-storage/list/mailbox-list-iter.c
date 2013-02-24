@@ -765,7 +765,7 @@ autocreate_box_match(const ARRAY_TYPE(mailbox_settings) *boxes,
 	enum autocreate_match_result result = 0;
 	char sep = mail_namespace_get_sep(ns);
 
-	*idx_r = -1U;
+	*idx_r = UINT_MAX;
 
 	sets = array_get(boxes, &count);
 	for (i = 0; i < count; i++) {

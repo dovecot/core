@@ -1294,7 +1294,7 @@ static void index_mail_reset_data(struct index_mail *mail)
 	data->save_date = (time_t)-1;
 	data->received_date = (time_t)-1;
 	data->sent_date.time = (uint32_t)-1;
-	data->dont_cache_field_idx = -1U;
+	data->dont_cache_field_idx = UINT_MAX;
 
 	data->wanted_fields = mail->mail.wanted_fields;
 	if (mail->mail.wanted_headers != NULL) {
@@ -1355,7 +1355,7 @@ static void check_envelope(struct index_mail *mail)
 	   we don't need to parse the header. */
 	cache_field_hdr = mail_cache_register_lookup(_mail->box->cache,
 						     "hdr.message-id");
-	if (cache_field_hdr == (unsigned int)-1 ||
+	if (cache_field_hdr == UINT_MAX ||
 	    mail_cache_field_exists(_mail->transaction->cache_view,
 				    _mail->seq, cache_field_hdr) <= 0)
 		mail->data.access_part |= PARSE_HDR;

@@ -227,7 +227,8 @@ void mail_index_set_fsync_mode(struct mail_index *index, enum fsync_mode mode,
 			       enum mail_index_fsync_mask mask);
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid, const char *gid_origin);
-/* Set locking method and maximum time to wait for a lock (-1U = default). */
+/* Set locking method and maximum time to wait for a lock
+   (UINT_MAX = default). */
 void mail_index_set_lock_method(struct mail_index *index,
 				enum file_lock_method lock_method,
 				unsigned int max_timeout_secs);

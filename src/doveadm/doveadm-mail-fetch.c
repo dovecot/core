@@ -170,8 +170,8 @@ static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 		struct message_address *addr;
 
 		addr = message_address_parse(pool_datastack_create(),
-					     str_data(str), str_len(str), -1U,
-					     FALSE);
+					     str_data(str), str_len(str),
+					     UINT_MAX, FALSE);
 		str_truncate(str, 0);
 		add_lf = FALSE;
 		for (; addr != NULL; addr = addr->next) {
