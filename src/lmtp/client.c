@@ -190,7 +190,7 @@ static void client_generate_session_id(struct client *client)
 	client->state.session_id = p_strdup(client->state_pool, str_c(id));
 }
 
-static const char *client_remote_id(struct client *client)
+const char *client_remote_id(struct client *client)
 {
 	const char *addr;
 

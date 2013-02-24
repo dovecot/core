@@ -585,7 +585,11 @@ int cmd_rcpt(struct client *client, const char *args)
 
 int cmd_quit(struct client *client, const char *args ATTR_UNUSED)
 {
-	client_destroy(client, "221 2.0.0", "Client quit");
+	client_send_line(client, "221 2.0.0 OK");
+	/* don't log the (state name) for successful QUITs */
+	i_info("Disconnect from %s: Successful quit", client_remote_id(client));
+	client->disconnected = TRUE;
+	client_destroy(client, NULL, NULL);
 	return -1;
 }
 
