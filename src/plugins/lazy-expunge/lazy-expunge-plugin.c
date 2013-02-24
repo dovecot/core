@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "hash.h"
 #include "seq-range-array.h"
 #include "mkdir-parents.h"
 #include "mail-storage-private.h"
@@ -32,6 +33,7 @@ struct lazy_expunge_mail_user {
 
 	struct mail_namespace *lazy_ns;
 	const char *env;
+	bool copy_only_last_instance;
 };
 
 struct lazy_expunge_mailbox_list {
@@ -47,7 +49,11 @@ struct lazy_expunge_transaction {
 	struct mailbox *dest_box;
 	struct mailbox_transaction_context *dest_trans;
 
+	pool_t pool;
+	HASH_TABLE(const char *, void *) guids;
+
 	bool failed;
+	bool copy_only_last_instance;
 };
 
 const char *lazy_expunge_plugin_version = DOVECOT_ABI_VERSION;
@@ -112,6 +118,74 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 	return box;
 }
 
+static unsigned int
+lazy_expunge_count_in_transaction(struct lazy_expunge_transaction *lt,
+				  const char *guid)
+{
+	void *refcountp;
+	unsigned int refcount;
+
+	if (lt->pool == NULL) {
+		lt->pool = pool_alloconly_create("lazy expunge transaction",
+						 1024);
+		hash_table_create(&lt->guids, lt->pool, 0, str_hash, strcmp);
+	}
+
+	refcountp = hash_table_lookup(lt->guids, guid);
+	refcount = POINTER_CAST_TO(refcountp, unsigned int) + 1;
+	refcountp = POINTER_CAST(refcount);
+	if (refcount == 1) {
+		guid = p_strdup(lt->pool, guid);
+		hash_table_insert(lt->guids, guid, refcountp);
+	} else {
+		hash_table_update(lt->guids, guid, refcountp);
+	}
+	return refcount-1;
+}
+
+static int lazy_expunge_mail_is_last_instace(struct mail *_mail)
+{
+	struct lazy_expunge_transaction *lt =
+		LAZY_EXPUNGE_CONTEXT(_mail->transaction);
+	const char *value;
+	unsigned long refcount;
+
+	if (mail_get_special(_mail, MAIL_FETCH_REFCOUNT, &value) < 0) {
+		mail_storage_set_critical(_mail->box->storage,
+			"lazy_expunge: Couldn't lookup message's refcount");
+		return -1;
+	}
+	if (*value == '\0') {
+		/* refcounts not supported by backend. assume all mails are
+		   the last instance. */
+		return 1;
+	}
+	if (str_to_ulong(value, &refcount) < 0)
+		i_panic("Invalid mail refcount number: %s", value);
+	if (refcount > 1) {
+		/* this probably isn't the last instance of the mail, but
+		   it's possible that the same mail was copied to this mailbox
+		   multiple times and we're deleting more than one instance
+		   within this transaction. in those cases each expunge will
+		   see the same refcount, so we need to adjust the refcount
+		   by tracking the expunged message GUIDs. */
+		if (mail_get_special(_mail, MAIL_FETCH_GUID, &value) < 0) {
+			mail_storage_set_critical(_mail->box->storage,
+				"lazy_expunge: Couldn't lookup message's GUID");
+			return -1;
+		}
+		if (*value == '\0') {
+			/* GUIDs not supported by backend, but refcounts are?
+			   not with our current backends. */
+			mail_storage_set_critical(_mail->box->storage,
+				"lazy_expunge: Message unexpectedly has no GUID");
+			return -1;
+		}
+		refcount -= lazy_expunge_count_in_transaction(lt, value);
+	}
+	return refcount <= 1 ? 1 : 0;
+}
+
 static void lazy_expunge_mail_expunge(struct mail *_mail)
 {
 	struct mail_namespace *ns = _mail->box->list->ns;
@@ -125,6 +199,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	struct mailbox *real_box;
 	struct mail_save_context *save_ctx;
 	const char *error;
+	int ret;
 
 	/* don't copy the mail if we're expunging from lazy_expunge
 	   namespace (even if it's via a virtual mailbox) */
@@ -133,6 +208,20 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	if (llist != NULL && llist->internal_namespace) {
 		mmail->super.expunge(_mail);
 		return;
+	}
+
+	if (lt->copy_only_last_instance) {
+		/* we want to copy only the last instance of the mail to
+		   lazy_expunge namespace. other instances will be expunged
+		   immediately. */
+		if ((ret = lazy_expunge_mail_is_last_instace(_mail)) < 0) {
+			lt->failed = TRUE;
+			return;
+		}
+		if (ret == 0) {
+			mmail->super.expunge(_mail);
+			return;
+		}
 	}
 
 	if (lt->dest_box == NULL) {
@@ -169,12 +258,15 @@ static struct mailbox_transaction_context *
 lazy_expunge_transaction_begin(struct mailbox *box,
 			       enum mailbox_transaction_flags flags)
 {
+	struct lazy_expunge_mail_user *luser =
+		LAZY_EXPUNGE_USER_CONTEXT(box->list->ns->user);
 	union mailbox_module_context *mbox = LAZY_EXPUNGE_CONTEXT(box);
 	struct mailbox_transaction_context *t;
 	struct lazy_expunge_transaction *lt;
 
 	t = mbox->super.transaction_begin(box, flags);
 	lt = i_new(struct lazy_expunge_transaction, 1);
+	lt->copy_only_last_instance = luser->copy_only_last_instance;
 
 	MODULE_CONTEXT_SET(t, lazy_expunge_mail_storage_module, lt);
 	return t;
@@ -186,6 +278,10 @@ static void lazy_expunge_transaction_free(struct lazy_expunge_transaction *lt)
 		mailbox_transaction_rollback(&lt->dest_trans);
 	if (lt->dest_box != NULL)
 		mailbox_free(&lt->dest_box);
+	if (hash_table_is_created(lt->guids))
+		hash_table_destroy(&lt->guids);
+	if (lt->pool != NULL)
+		pool_unref(&lt->pool);
 	i_free(lt);
 }
 
@@ -349,6 +445,8 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 		user->vlast = &luser->module_ctx.super;
 		v->deinit = lazy_expunge_user_deinit;
 		luser->env = env;
+		luser->copy_only_last_instance =
+			mail_user_plugin_getenv(user, "lazy_expunge_only_last_instance") != NULL;
 
 		MODULE_CONTEXT_SET(user, lazy_expunge_mail_user_module, luser);
 	} else if (user->mail_debug) {
