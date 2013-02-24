@@ -230,6 +230,9 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 		client_send_storage_error(cmd, ctx->storage);
 		ret = -1;
 	} else {
+		/* all the input must be consumed, so istream-chain's read()
+		   unreferences the stream and we can free its parent mail */
+		i_assert(!i_stream_have_bytes_left(mpresult.input));
 		ret = 0;
 	}
 	imap_msgpart_url_free(&mpurl);
