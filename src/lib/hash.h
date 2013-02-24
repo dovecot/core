@@ -27,6 +27,16 @@ void hash_table_create(struct hash_table **table_r, pool_t node_pool,
 	({(void)COMPILE_ERROR_IF_TRUE( \
 		sizeof((*table)._key) != sizeof(void *) || \
 		sizeof((*table)._value) != sizeof(void *)); \
+	(void)COMPILE_ERROR_IF_TRUE( \
+		!__builtin_types_compatible_p(typeof(&key_cmp_cb), \
+			int (*)(typeof((*table)._key), typeof((*table)._key))) && \
+		!__builtin_types_compatible_p(typeof(&key_cmp_cb), \
+			int (*)(typeof(const typeof(*(*table)._key) *), typeof(const typeof(*(*table)._key) *)))); \
+	(void)COMPILE_ERROR_IF_TRUE( \
+		!__builtin_types_compatible_p(typeof(&hash_cb), \
+			unsigned int (*)(typeof((*table)._key))) && \
+		!__builtin_types_compatible_p(typeof(&hash_cb), \
+			unsigned int (*)(typeof(const typeof(*(*table)._key) *)))); \
 	hash_table_create(&(*table)._table, pool, size, \
 		(hash_callback_t *)hash_cb, \
 		(hash_cmp_callback_t *)key_cmp_cb);})
