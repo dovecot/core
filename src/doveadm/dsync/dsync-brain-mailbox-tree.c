@@ -16,6 +16,10 @@ static bool dsync_brain_want_namespace(struct dsync_brain *brain,
 {
 	if (brain->sync_ns == ns)
 		return TRUE;
+	if (ns->alias_for != NULL) {
+		/* always skip aliases */
+		return FALSE;
+	}
 	if (brain->sync_visible_namespaces) {
 		if ((ns->flags & NAMESPACE_FLAG_HIDDEN) == 0)
 			return TRUE;
