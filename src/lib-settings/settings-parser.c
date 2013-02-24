@@ -209,7 +209,13 @@ settings_parser_init_list(pool_t set_pool,
 	ctx->set_pool = set_pool;
 	ctx->parser_pool = parser_pool;
 	ctx->flags = flags;
-	hash_table_create(&ctx->links, ctx->parser_pool, 0, str_hash, strcmp);
+	/* use case-insensitive comparisons. this is mainly because settings
+	   may go through environment variables where their keys get
+	   uppercased. of course the alternative would be to not uppercase
+	   environment. probably doesn't make much difference which way is
+	   chosen. */
+	hash_table_create(&ctx->links, ctx->parser_pool, 0,
+			  strcase_hash, strcasecmp);
 
 	ctx->root_count = count;
 	ctx->roots = p_new(ctx->parser_pool, struct setting_link, count);
@@ -1778,7 +1784,7 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 	}
 
 	hash_table_create(&new_ctx->links, new_ctx->parser_pool, 0,
-			  str_hash, strcmp);
+			  strcase_hash, strcasecmp);
 
 	iter = hash_table_iterate_init(old_ctx->links);
 	while (hash_table_iterate(iter, old_ctx->links, &key, &value)) {
