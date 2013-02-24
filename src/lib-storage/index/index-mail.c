@@ -822,8 +822,8 @@ index_mail_parse_body_finish(struct index_mail *mail,
 			/* EPIPE = input already closed. allow the caller to
 			   decide if that is an error or not. */
 			i_assert(!success ||
-				 i_stream_read(parser_input) == -1 &&
-				 !i_stream_have_bytes_left(parser_input));
+				 (i_stream_read(parser_input) == -1 &&
+				  !i_stream_have_bytes_left(parser_input)));
 		} else {
 			errno = parser_input->stream_errno;
 			mail_storage_set_critical(mail->mail.mail.box->storage,
