@@ -151,7 +151,6 @@
 #endif
 
 #if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 0)) && !defined(__cplusplus)
-#  define HAVE_TYPEOF
 #  define COMPILE_ERROR_IF_TRUE(condition) \
 	(sizeof(char[1 - 2 * !!(condition)]) - 1)
 #  define COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(_a, _b) \
