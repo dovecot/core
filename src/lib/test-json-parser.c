@@ -128,11 +128,11 @@ static void test_json_parser_success(bool full_size)
 		test_istream_set_size(input, i);
 
 		for (;;) {
-			if (json_output[pos].type == TYPE_SKIP) {
+			if (json_output[pos].type == (enum json_type)TYPE_SKIP) {
 				json_parse_skip_next(parser);
 				pos++;
 				continue;
-			} else if (json_output[pos].type != TYPE_STREAM) {
+			} else if (json_output[pos].type != (enum json_type)TYPE_STREAM) {
 				ret = json_parse_next(parser, &type, &value);
 			} else {
 				ret = jsoninput != NULL ? 1 :
