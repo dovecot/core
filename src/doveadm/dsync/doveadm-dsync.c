@@ -486,7 +486,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		remote_errors_logged = ctx->err_stream->v_offset > 0;
 		i_stream_destroy(&ctx->err_stream);
 	}
-	cmd_dsync_log_remote_status(status, remote_errors_logged);
+	if (ctx->remote)
+		cmd_dsync_log_remote_status(status, remote_errors_logged);
 	if (ctx->io_err != NULL)
 		io_remove(&ctx->io_err);
 	if (ctx->fd_err != -1)
