@@ -182,7 +182,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 
 	*host_r = ctx->set->doveadm_socket_path;
 
-	if (ctx->set->doveadm_proxy_port == 0)
+	if (ctx->set->doveadm_port == 0)
 		return 0;
 
 	/* make sure we have an auth connection */
@@ -227,7 +227,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 			ret = -1;
 		} else {
 			*host_r = t_strdup_printf("%s:%u", proxy_host,
-						  ctx->set->doveadm_proxy_port);
+						  ctx->set->doveadm_port);
 		}
 	}
 	pool_unref(&pool);
