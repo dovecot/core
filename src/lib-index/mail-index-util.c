@@ -106,7 +106,7 @@ int mail_index_unpack_num(const uint8_t **p, const uint8_t *end,
 static int mail_index_seq_record_cmp(const uint32_t *key_seq,
 				     const uint32_t *data_seq)
 {
-	return *key_seq - *data_seq;
+	return (int)*key_seq - (int)*data_seq;
 }
 
 bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,

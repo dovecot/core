@@ -326,7 +326,9 @@ void msgset_generator_init(struct msgset_generator_context *ctx, string_t *str)
 
 void msgset_generator_next(struct msgset_generator_context *ctx, uint32_t uid)
 {
-	if (uid != ctx->last_uid+1) {
+	i_assert(uid > 0);
+
+	if (uid-1 != ctx->last_uid) {
 		if (ctx->first_uid == 0)
 			;
 		else if (ctx->first_uid == ctx->last_uid)
