@@ -48,22 +48,22 @@ bool seq_range_array_add(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 	}
 
 	/* quick checks */
-	if (data[count-1].seq2 == seq-1) {
-		/* grow last range */
-		data[count-1].seq2 = seq;
-		return FALSE;
-	}
 	if (data[count-1].seq2 < seq) {
-		array_append(array, &value, 1);
-		return FALSE;
-	}
-	if (data[0].seq1 == seq+1) {
-		/* grow down first range */
-		data[0].seq1 = seq;
+		if (data[count-1].seq2 == seq-1) {
+			/* grow last range */
+			data[count-1].seq2 = seq;
+		} else {
+			array_append(array, &value, 1);
+		}
 		return FALSE;
 	}
 	if (data[0].seq1 > seq) {
-		array_insert(array, 0, &value, 1);
+		if (data[0].seq1-1 == seq) {
+			/* grow down first range */
+			data[0].seq1 = seq;
+		} else {
+			array_insert(array, 0, &value, 1);
+		}
 		return FALSE;
 	}
 

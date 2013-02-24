@@ -6,6 +6,41 @@
 
 #include <stdlib.h>
 
+static void
+boundaries_permute(uint32_t *input, unsigned int i, unsigned int count)
+{
+	ARRAY_TYPE(seq_range) range;
+	const struct seq_range *seqs;
+	unsigned int seqs_count;
+	uint32_t tmp;
+	unsigned int j;
+
+	if (i+1 < count) {
+		for (j = i; j < count; j++) {
+			tmp = input[i]; input[i] = input[j]; input[j] = tmp;
+			boundaries_permute(input, i+1, count);
+			tmp = input[i]; input[i] = input[j]; input[j] = tmp;
+		}
+		return;
+	}
+	t_array_init(&range, 4);
+	for (i = 0; i < count; i++)
+		seq_range_array_add(&range, input[i]);
+	seqs = array_get(&range, &seqs_count);
+	test_assert(seqs_count == 2);
+	test_assert(seqs[0].seq1 == 0);
+	test_assert(seqs[0].seq2 == 1);
+	test_assert(seqs[1].seq1 == (uint32_t)-2);
+	test_assert(seqs[1].seq2 == (uint32_t)-1);
+}
+
+static void test_seq_range_array_add_boundaries(void)
+{
+	static uint32_t input[] = { 0, 1, (uint32_t)-2, (uint32_t)-1 };
+
+	boundaries_permute(input, 0, N_ELEMENTS(input));
+}
+
 static void test_seq_range_array_add_merge(void)
 {
 	ARRAY_TYPE(seq_range) range;
@@ -169,6 +204,7 @@ static void test_seq_range_array_have_common(void)
 
 void test_seq_range_array(void)
 {
+	test_seq_range_array_add_boundaries();
 	test_seq_range_array_add_merge();
 	test_seq_range_array_invert();
 	test_seq_range_array_have_common();
