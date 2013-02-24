@@ -144,7 +144,7 @@ static ssize_t i_stream_crlf_read_lf(struct istream_private *stream)
 			stream->w_buffer[dest++] = data[0];
 	}
 
-	diff = -1;
+	diff = 1;
 	for (i = 1; i < size && dest < stream->buffer_size; i++) {
 		if (data[i] == '\r') {
 			if (data[i-1] != '\r')
@@ -159,7 +159,7 @@ static ssize_t i_stream_crlf_read_lf(struct istream_private *stream)
 
 		stream->w_buffer[dest++] = data[i];
 	}
-	cstream->pending_cr = data[i+diff] == '\r';
+	cstream->pending_cr = data[i-diff] == '\r';
 	i_stream_skip(stream->parent, i);
 
 	ret = dest - stream->pos;
