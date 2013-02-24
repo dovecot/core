@@ -794,7 +794,17 @@ static bool client_command_input(struct client_command_context *cmd)
 		cmd->name = imap_parser_read_word(cmd->parser);
 		if (cmd->name == NULL)
 			return FALSE; /* need more data */
-		cmd->name = p_strdup(cmd->pool, cmd->name);
+
+		/* UID commands are a special case. better to handle them
+		   here. */
+		if (!cmd->uid && strcasecmp(cmd->name, "UID") == 0) {
+			cmd->uid = TRUE;
+			cmd->name = imap_parser_read_word(cmd->parser);
+			if (cmd->name == NULL)
+				return FALSE; /* need more data */
+		}
+		cmd->name = !cmd->uid ? p_strdup(cmd->pool, cmd->name) :
+			p_strconcat(cmd->pool, "UID ", cmd->name, NULL);
 		imap_refresh_proctitle();
 	}
 

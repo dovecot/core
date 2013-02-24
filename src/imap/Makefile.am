@@ -57,7 +57,6 @@ cmds = \
 	cmd-store.c \
 	cmd-subscribe.c \
 	cmd-thread.c \
-	cmd-uid.c \
 	cmd-unselect.c \
 	cmd-unsubscribe.c \
 	cmd-urlfetch.c \

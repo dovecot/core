@@ -38,7 +38,6 @@ static const struct command imap4rev1_commands[] = {
 	{ "FETCH",		cmd_fetch,       COMMAND_FLAG_USES_SEQS },
 	{ "SEARCH",		cmd_search,      COMMAND_FLAG_USES_SEQS },
 	{ "STORE",		cmd_store,       COMMAND_FLAG_USES_SEQS },
-	{ "UID",		cmd_uid,         0 },
 	{ "UID COPY",		cmd_copy,        COMMAND_FLAG_BREAKS_SEQS },
 	{ "UID FETCH",		cmd_fetch,       COMMAND_FLAG_BREAKS_SEQS },
 	{ "UID SEARCH",		cmd_search,      COMMAND_FLAG_BREAKS_SEQS },
