@@ -347,6 +347,7 @@ if test "$have_clang" = "yes"; then
   if test "$want_devel_checks" = "yes"; then
     # FIXME: enable once md[45], sha[12] can be compiled without
     #CFLAGS="$CFLAGS -fsanitize=integer,undefined -ftrapv"
+    :
   fi
 fi
 
@@ -425,6 +426,21 @@ AC_CHECK_TYPES([struct sockpeercred])
 AC_SEARCH_LIBS(clock_gettime, rt, [
   AC_DEFINE(HAVE_CLOCK_GETTIME,, Define if you have the clock_gettime function)
 ])
+
+AC_CACHE_CHECK([for typeof],i_cv_have_typeof,[
+  AC_TRY_COMPILE([
+  ], [
+    int foo;
+    typeof(foo) bar;
+  ], [
+    i_cv_have_typeof=yes
+  ], [
+    i_cv_have_typeof=no
+  ])
+])
+if test $i_cv_have_typeof = yes; then
+  AC_DEFINE(HAVE_TYPEOF,, Define if you have typeof())
+fi
 
 dnl strtoimax and strtoumax are macros in HP-UX, so inttypes.h must be included
 dnl Link instead of just compiling since there's something wrong with Tru64
