@@ -1721,7 +1721,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	}
 
 	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
-		if (start_offset < file->buffer_offset) {
+		if (start_offset < file->buffer_offset || file->buffer == NULL) {
 			/* we had moved the log to memory but failed to read
 			   the beginning of the log file */
 			mail_index_set_error(index,
@@ -1729,7 +1729,6 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 				file->filepath);
 			return 0;
 		}
-		i_assert(file->buffer != NULL);
 		return log_file_map_check_offsets(file, start_offset,
 						  end_offset);
 	}

@@ -45,6 +45,8 @@ static void drop_privileges(void)
 
 int main(int argc, char *argv[])
 {
+	enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
@@ -52,7 +54,7 @@ int main(int argc, char *argv[])
 		MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT;
 	int c;
 
-	master_service = master_service_init("indexer-worker", 0,
+	master_service = master_service_init("indexer-worker", service_flags,
 					     &argc, &argv, "D");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {

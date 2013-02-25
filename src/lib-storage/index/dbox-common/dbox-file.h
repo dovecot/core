@@ -190,7 +190,8 @@ uoff_t dbox_file_get_plaintext_size(struct dbox_file *file);
 
 /* Fix a broken dbox file by rename()ing over it with a fixed file. Everything
    before start_offset is assumed to be valid and is simply copied. The file
-   is reopened afterwards. Returns 0 if ok, -1 if I/O error. */
+   is reopened afterwards. Returns 1 if ok, 0 if the resulting file has no
+   mails and was deleted, -1 if I/O error. */
 int dbox_file_fix(struct dbox_file *file, uoff_t start_offset);
 /* Delete the given dbox file. Returns 1 if deleted, 0 if file wasn't found
    or -1 if error. */
