@@ -846,9 +846,11 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		_ctx->exit_code = EX_TEMPFAIL;
 	dsync_ibc_deinit(&ibc);
 
-	/* make sure nothing more is written by the generic doveadm
-	   connection code */
-	o_stream_close(_ctx->conn->output);
+	if (_ctx->conn != NULL) {
+		/* make sure nothing more is written by the generic doveadm
+		   connection code */
+		o_stream_close(_ctx->conn->output);
+	}
 
 	return _ctx->exit_code == 0 ? 0 : -1;
 }
