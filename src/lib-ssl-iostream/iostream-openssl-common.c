@@ -97,6 +97,20 @@ static const char *get_cname(X509 *cert)
 	return asn1_string_to_c(str);
 }
 
+static bool openssl_hostname_equals(const char *ssl_name, const char *host)
+{
+	const char *p;
+
+	if (strcmp(ssl_name, host) == 0)
+		return TRUE;
+
+	/* check for *.example.com wildcard */
+	if (ssl_name[0] != '*' || ssl_name[1] != '.')
+		return FALSE;
+	p = strchr(host, '.');
+	return p != NULL && strcmp(ssl_name+2, p+1) == 0;
+}
+
 int openssl_cert_match_name(SSL *ssl, const char *verify_name)
 {
 	X509 *cert;
@@ -118,7 +132,7 @@ int openssl_cert_match_name(SSL *ssl, const char *verify_name)
 		if (gn->type == GEN_DNS) {
 			dns_names = TRUE;
 			dnsname = get_general_dns_name(gn);
-			if (strcmp(dnsname, verify_name) == 0)
+			if (openssl_hostname_equals(dnsname, verify_name))
 				break;
 		}
 	}
@@ -128,8 +142,10 @@ int openssl_cert_match_name(SSL *ssl, const char *verify_name)
 	   SubjectAltNames */
 	if (dns_names)
 		ret = i < count ? 0 : -1;
+	else if (openssl_hostname_equals(get_cname(cert), verify_name))
+		ret = 0;
 	else
-		ret = strcmp(get_cname(cert), verify_name) == 0 ? 0 : -1;
+		ret = -1;
 	X509_free(cert);
 	return ret;
 }
