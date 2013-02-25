@@ -366,12 +366,16 @@ void server_connection_destroy(struct server_connection **_conn)
 	if (printing_conn == conn)
 		print_connection_released();
 
-	i_stream_destroy(&conn->input);
-	o_stream_destroy(&conn->output);
+	if (conn->input != NULL)
+		i_stream_destroy(&conn->input);
+	if (conn->output != NULL)
+		o_stream_destroy(&conn->output);
 	if (conn->io != NULL)
 		io_remove(&conn->io);
-	if (close(conn->fd) < 0)
-		i_error("close(server) failed: %m");
+	if (conn->fd != -1) {
+		if (close(conn->fd) < 0)
+			i_error("close(server) failed: %m");
+	}
 	pool_unref(&conn->pool);
 }
 
@@ -400,7 +404,16 @@ bool server_connection_is_idle(struct server_connection *conn)
 	return conn->callback == NULL;
 }
 
-int server_connection_get_fd(struct server_connection *conn)
+void server_connection_extract(struct server_connection *conn,
+			       struct istream **istream_r,
+			       struct ostream **ostream_r)
 {
-	return conn->fd;
+	*istream_r = conn->input;
+	*ostream_r = conn->output;
+
+	conn->input = NULL;
+	conn->output = NULL;
+	if (conn->io != NULL)
+		io_remove(&conn->io);
+	conn->fd = -1;
 }

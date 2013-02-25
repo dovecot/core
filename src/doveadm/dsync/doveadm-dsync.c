@@ -55,7 +55,8 @@ struct dsync_cmd_context {
 
 	int fd_in, fd_out, fd_err;
 	struct io *io_err;
-	struct istream *err_stream;
+	struct istream *input, *err_stream;
+	struct ostream *output;
 
 	enum dsync_run_type run_type;
 	struct server_connection *tcp_conn;
@@ -404,17 +405,21 @@ static struct dsync_ibc *
 cmd_dsync_icb_stream_init(struct dsync_cmd_context *ctx,
 			  const char *name, const char *temp_prefix)
 {
-	struct istream *input;
-	struct ostream *output;
-
-	fd_set_nonblock(ctx->fd_in, TRUE);
-	fd_set_nonblock(ctx->fd_out, TRUE);
-
-	input = i_stream_create_fd(ctx->fd_in, (size_t)-1, FALSE);
-	output = o_stream_create_fd(ctx->fd_out, (size_t)-1, FALSE);
-	if (ctx->rawlog_path != NULL)
-		iostream_rawlog_create_path(ctx->rawlog_path, &input, &output);
-	return dsync_ibc_init_stream(input, output, name, temp_prefix);
+	if (ctx->input == NULL) {
+		fd_set_nonblock(ctx->fd_in, TRUE);
+		fd_set_nonblock(ctx->fd_out, TRUE);
+		ctx->input = i_stream_create_fd(ctx->fd_in, (size_t)-1, FALSE);
+		ctx->output = o_stream_create_fd(ctx->fd_out, (size_t)-1, FALSE);
+	} else {
+		i_stream_ref(ctx->input);
+		o_stream_ref(ctx->output);
+	}
+	if (ctx->rawlog_path != NULL) {
+		iostream_rawlog_create_path(ctx->rawlog_path,
+					    &ctx->input, &ctx->output);
+	}
+	return dsync_ibc_init_stream(ctx->input, ctx->output,
+				     name, temp_prefix);
 }
 
 static int
@@ -523,10 +528,9 @@ static void dsync_connected_callback(enum server_cmd_reply reply, void *context)
 		ctx->error = "Failed to start dsync-server command";
 		break;
 	case SERVER_CMD_REPLY_OK:
-		ctx->fd_in = ctx->fd_out =
-			dup(server_connection_get_fd(ctx->tcp_conn));
-		if (ctx->fd_in == -1)
-			ctx->error = t_strdup_printf("dup() failed: %m");
+		server_connection_extract(ctx->tcp_conn, &ctx->input,
+					  &ctx->output);
+		ctx->fd_in = ctx->fd_out = -1;
 		break;
 	case SERVER_CMD_REPLY_INTERNAL_FAILURE:
 		ctx->error = "Disconnected from remote";
@@ -786,15 +790,10 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	if (_ctx->conn != NULL) {
 		/* doveadm-server connection. start with a success reply.
 		   after that follows the regular dsync protocol. */
-		ctx->fd_in = _ctx->conn->fd;
-		ctx->fd_out = _ctx->conn->fd;
-		if (write_full(ctx->fd_out, "\n+\n", 3) < 0) {
-			i_error("write(initial reply) failed: %m");
-			return -1;
-		}
-		/* make sure nothing more is written by the generic doveadm
-		   connection code */
-		o_stream_close(_ctx->conn->output);
+		ctx->fd_in = ctx->fd_out = -1;
+		ctx->input = _ctx->conn->input;
+		ctx->output = _ctx->conn->output;
+		o_stream_nsend(ctx->output, "\n+\n", 3);
 	}
 
 	user->admin = TRUE;
@@ -813,6 +812,10 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	if (dsync_brain_deinit(&brain) < 0)
 		_ctx->exit_code = EX_TEMPFAIL;
 	dsync_ibc_deinit(&ibc);
+
+	/* make sure nothing more is written by the generic doveadm
+	   connection code */
+	o_stream_close(_ctx->conn->output);
 
 	return _ctx->exit_code == 0 ? 0 : -1;
 }
