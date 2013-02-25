@@ -7,6 +7,7 @@
 #include "fd-set-nonblock.h"
 #include "istream.h"
 #include "ostream.h"
+#include "iostream-ssl.h"
 #include "iostream-rawlog.h"
 #include "write-full.h"
 #include "str.h"
@@ -14,6 +15,7 @@
 #include "var-expand.h"
 #include "settings-parser.h"
 #include "master-service.h"
+#include "master-service-ssl-settings.h"
 #include "mail-storage-service.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
@@ -57,6 +59,9 @@ struct dsync_cmd_context {
 	struct io *io_err;
 	struct istream *input, *err_stream;
 	struct ostream *output;
+
+	struct ssl_iostream_context *ssl_ctx;
+	struct ssl_iostream *ssl_iostream;
 
 	enum dsync_run_type run_type;
 	struct server_connection *tcp_conn;
@@ -489,6 +494,10 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	dsync_ibc_deinit(&ibc);
 	if (ibc2 != NULL)
 		dsync_ibc_deinit(&ibc2);
+	if (ctx->ssl_iostream != NULL)
+		ssl_iostream_destroy(&ctx->ssl_iostream);
+	if (ctx->ssl_ctx != NULL)
+		ssl_iostream_context_deinit(&ctx->ssl_ctx);
 	if (ctx->fd_in != -1) {
 		if (ctx->fd_out != ctx->fd_in)
 			i_close_fd(&ctx->fd_out);
@@ -529,7 +538,7 @@ static void dsync_connected_callback(enum server_cmd_reply reply, void *context)
 		break;
 	case SERVER_CMD_REPLY_OK:
 		server_connection_extract(ctx->tcp_conn, &ctx->input,
-					  &ctx->output);
+					  &ctx->output, &ctx->ssl_iostream);
 		ctx->fd_in = ctx->fd_out = -1;
 		break;
 	case SERVER_CMD_REPLY_INTERNAL_FAILURE:
@@ -541,8 +550,21 @@ static void dsync_connected_callback(enum server_cmd_reply reply, void *context)
 	io_loop_stop(current_ioloop);
 }
 
+static int dsync_init_ssl_ctx(struct dsync_cmd_context *ctx)
+{
+	struct ssl_iostream_settings ssl_set;
+
+	memset(&ssl_set, 0, sizeof(ssl_set));
+	ssl_set.ca_dir = doveadm_settings->ssl_client_ca_dir;
+	ssl_set.verify_remote_cert = TRUE;
+	ssl_set.crypto_device = doveadm_settings->ssl_crypto_device;
+
+	return ssl_iostream_context_init_client("doveadm", &ssl_set,
+						&ctx->ssl_ctx);
+}
+
 static int dsync_connect_tcp(struct dsync_cmd_context *ctx, const char *target,
-			     const char **error_r)
+			     bool ssl, const char **error_r)
 {
 	struct doveadm_server *server;
 	struct server_connection *conn;
@@ -551,6 +573,13 @@ static int dsync_connect_tcp(struct dsync_cmd_context *ctx, const char *target,
 
 	server = p_new(ctx->ctx.pool, struct doveadm_server, 1);
 	server->name = p_strdup(ctx->ctx.pool, target);
+	if (ssl) {
+		if (dsync_init_ssl_ctx(ctx) < 0) {
+			*error_r = "Couldn't initialize SSL context";
+			return -1;
+		}
+		server->ssl_ctx = ctx->ssl_ctx;
+	}
 	p_array_init(&server->connections, ctx->ctx.pool, 1);
 	p_array_init(&server->queue, ctx->ctx.pool, 1);
 
@@ -596,7 +625,12 @@ parse_location(struct dsync_cmd_context *ctx, const char *location,
 	if (strncmp(location, "tcp:", 4) == 0) {
 		/* TCP connection to remote dsync */
 		ctx->remote_name = location+4;
-		return dsync_connect_tcp(ctx, ctx->remote_name, error_r);
+		return dsync_connect_tcp(ctx, ctx->remote_name, FALSE, error_r);
+	}
+	if (strncmp(location, "tcps:", 5) == 0) {
+		/* TCP+SSL connection to remote dsync */
+		ctx->remote_name = location+5;
+		return dsync_connect_tcp(ctx, ctx->remote_name, TRUE, error_r);
 	}
 
 	if (strncmp(location, "remote:", 7) == 0) {

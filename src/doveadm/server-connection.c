@@ -9,6 +9,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
+#include "iostream-ssl.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "settings-parser.h"
@@ -38,6 +39,7 @@ struct server_connection {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+	struct ssl_iostream *ssl_iostream;
 
 	const char *delayed_cmd;
 	server_cmd_callback_t *callback;
@@ -313,6 +315,67 @@ static int server_connection_read_settings(struct server_connection *conn)
 	return 0;
 }
 
+static int server_connection_ssl_handshaked(void *context)
+{
+	struct server_connection *conn = context;
+	const char *host, *p;
+
+	host = conn->server->name;
+	p = strrchr(host, ':');
+	if (p != NULL)
+		host = t_strdup_until(host, p);
+
+	if (!ssl_iostream_has_valid_client_cert(conn->ssl_iostream)) {
+		if (!ssl_iostream_has_broken_client_cert(conn->ssl_iostream)) {
+			i_error("%s: SSL certificate not received",
+				conn->server->name);
+		} else {
+			i_error("%s: Received invalid SSL certificate",
+				conn->server->name);
+		}
+	} else if (ssl_iostream_cert_match_name(conn->ssl_iostream, host) < 0) {
+		i_error("%s: SSL certificate doesn't match host name",
+			conn->server->name);
+	} else {
+		if (doveadm_debug) {
+			i_debug("%s: SSL handshake successful",
+				conn->server->name);
+		}
+		return 0;
+	}
+	i_stream_close(conn->input);
+	return -1;
+}
+
+static int server_connection_init_ssl(struct server_connection *conn)
+{
+	struct ssl_iostream_settings ssl_set;
+
+	if (conn->server->ssl_ctx == NULL)
+		return 0;
+
+	memset(&ssl_set, 0, sizeof(ssl_set));
+	ssl_set.verify_remote_cert = TRUE;
+	ssl_set.require_valid_cert = TRUE;
+	ssl_set.verbose_invalid_cert = TRUE;
+
+	if (io_stream_create_ssl(conn->server->ssl_ctx, "doveadm", &ssl_set,
+				 &conn->input, &conn->output,
+				 &conn->ssl_iostream) < 0) {
+		i_error("Couldn't initialize SSL client");
+		return -1;
+	}
+	ssl_iostream_set_handshake_callback(conn->ssl_iostream,
+					    server_connection_ssl_handshaked,
+					    conn);
+	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
+		i_error("SSL handshake failed: %s",
+			ssl_iostream_get_last_error(conn->ssl_iostream));
+		return -1;
+	}
+	return 0;
+}
+
 int server_connection_create(struct doveadm_server *server,
 			     struct server_connection **conn_r)
 {
@@ -330,15 +393,19 @@ int server_connection_create(struct doveadm_server *server,
 	conn->io = io_add(conn->fd, IO_READ, server_connection_input, conn);
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
+
+	array_append(&conn->server->connections, &conn, 1);
+
+	if (server_connection_read_settings(conn) < 0 ||
+	    server_connection_init_ssl(conn) < 0) {
+		server_connection_destroy(&conn);
+		return -1;
+	}
+
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->state = SERVER_REPLY_STATE_DONE;
 	o_stream_nsend_str(conn->output, DOVEADM_SERVER_HANDSHAKE);
 
-	array_append(&conn->server->connections, &conn, 1);
-	if (server_connection_read_settings(conn) < 0) {
-		server_connection_destroy(&conn);
-		return -1;
-	}
 	*conn_r = conn;
 	return 0;
 }
@@ -370,6 +437,8 @@ void server_connection_destroy(struct server_connection **_conn)
 		i_stream_destroy(&conn->input);
 	if (conn->output != NULL)
 		o_stream_destroy(&conn->output);
+	if (conn->ssl_iostream != NULL)
+		ssl_iostream_unref(&conn->ssl_iostream);
 	if (conn->io != NULL)
 		io_remove(&conn->io);
 	if (conn->fd != -1) {
@@ -406,13 +475,16 @@ bool server_connection_is_idle(struct server_connection *conn)
 
 void server_connection_extract(struct server_connection *conn,
 			       struct istream **istream_r,
-			       struct ostream **ostream_r)
+			       struct ostream **ostream_r,
+			       struct ssl_iostream **ssl_iostream_r)
 {
 	*istream_r = conn->input;
 	*ostream_r = conn->output;
+	*ssl_iostream_r = conn->ssl_iostream;
 
 	conn->input = NULL;
 	conn->output = NULL;
+	conn->ssl_iostream = NULL;
 	if (conn->io != NULL)
 		io_remove(&conn->io);
 	conn->fd = -1;

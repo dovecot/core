@@ -10,6 +10,7 @@ enum server_cmd_reply {
 
 struct doveadm_server;
 struct server_connection;
+struct ssl_iostream;
 
 typedef void server_cmd_callback_t(enum server_cmd_reply reply, void *context);
 
@@ -30,6 +31,7 @@ bool server_connection_is_idle(struct server_connection *conn);
    waits for itself to be destroyed. */
 void server_connection_extract(struct server_connection *conn,
 			       struct istream **istream_r,
-			       struct ostream **ostream_r);
+			       struct ostream **ostream_r,
+			       struct ssl_iostream **ssl_iostream_r);
 
 #endif
