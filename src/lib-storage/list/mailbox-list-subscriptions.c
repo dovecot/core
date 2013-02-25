@@ -45,7 +45,8 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 	}
 	ns = mail_namespace_find_unsubscribable(namespaces, ns_name);
 	if (ns != NULL && ns != default_ns) {
-		if (ns->prefix_len > default_ns->prefix_len)
+		if (ns->prefix_len > default_ns->prefix_len ||
+		    strncmp(ns->prefix, default_ns->prefix, ns->prefix_len) != 0)
 			return 0;
 		ns = default_ns;
 	}
