@@ -2547,7 +2547,7 @@ dnl **
 
 if test "$want_shared_libs" = "yes"; then
   LIBDOVECOT_DEPS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
-  LIBDOVECOT="$LIBDOVECOT_DEPS"
+  LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS)"
   LIBDOVECOT_STORAGE_DEPS='$(top_builddir)/src/lib-storage/libdovecot-storage.la $(top_builddir)/src/lib-imap-storage/libimap-storage.la'
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/libdovecot-login.la'
   LIBDOVECOT_COMPRESS='$(top_builddir)/src/lib-compression/libcompression.la'
