@@ -38,7 +38,7 @@ int uni_utf8_get_char(const char *input, unichar_t *chr_r)
 int uni_utf8_get_char_n(const void *_input, size_t max_len, unichar_t *chr_r)
 {
 	static unichar_t lowest_valid_chr_table[] =
-		{ 0, 0, 0x80, 0x800, 0x10000, 0x20000, 0x40000 };
+		{ 0, 0, 0x80, 0x800, 0x10000, 0x200000, 0x4000000 };
 	const unsigned char *input = _input;
 	unichar_t chr, lowest_valid_chr;
 	unsigned int i, len;
