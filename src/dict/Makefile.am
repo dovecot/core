@@ -20,7 +20,6 @@ libs = \
 dict_LDADD = \
 	$(libs) \
 	$(LIBDOVECOT) \
-	$(MODULE_LIBS) \
 	$(DICT_LIBS) \
 	$(SQL_LIBS)
 dict_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)

@@ -36,7 +36,7 @@ imap_urlauth_CPPFLAGS = \
 
 imap_urlauth_LDFLAGS = -export-dynamic
 
-imap_urlauth_LDADD = $(LIBDOVECOT) $(MODULE_LIBS)
+imap_urlauth_LDADD = $(LIBDOVECOT)
 imap_urlauth_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 imap_urlauth_SOURCES = \
@@ -65,7 +65,7 @@ imap_urlauth_worker_LDFLAGS = -export-dynamic
 urlauth_libs = \
 	$(top_builddir)/src/lib-imap-urlauth/libimap-urlauth.la
 
-imap_urlauth_worker_LDADD = $(urlauth_libs) $(LIBDOVECOT_STORAGE) $(LIBDOVECOT) $(MODULE_LIBS)
+imap_urlauth_worker_LDADD = $(urlauth_libs) $(LIBDOVECOT_STORAGE) $(LIBDOVECOT)
 imap_urlauth_worker_DEPENDENCIES = $(urlauth_libs) $(LIBDOVECOT_STORAGE_DEPS) $(LIBDOVECOT_DEPS)
 
 imap_urlauth_worker_SOURCES = \

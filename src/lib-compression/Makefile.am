@@ -21,6 +21,6 @@ pkginc_lib_HEADERS = \
 
 pkglib_LTLIBRARIES = libdovecot-compression.la
 libdovecot_compression_la_SOURCES = 
-libdovecot_compression_la_LIBADD = libcompression.la ../lib/liblib.la $(MODULE_LIBS) $(COMPRESS_LIBS)
+libdovecot_compression_la_LIBADD = libcompression.la ../lib/liblib.la $(COMPRESS_LIBS)
 libdovecot_compression_la_DEPENDENCIES = libcompression.la
 libdovecot_compression_la_LDFLAGS = -export-dynamic

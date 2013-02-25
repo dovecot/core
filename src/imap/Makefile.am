@@ -19,8 +19,7 @@ imap_LDFLAGS = -export-dynamic
 imap_LDADD = \
 	../lib-imap-urlauth/libimap-urlauth.la \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT) \
-	$(MODULE_LIBS)
+	$(LIBDOVECOT)
 imap_DEPENDENCIES = \
 	../lib-imap-urlauth/libimap-urlauth.la \
 	$(LIBDOVECOT_STORAGE_DEPS) \

@@ -41,6 +41,7 @@ dovecot-config: dovecot-config.in Makefile
 	-e "s|\$$(top_builddir)|$$abs_builddir|g" \
 	-e "s|\$$(incdir)|$$abs_srcdir|g" \
 	-e "s|\$$(LIBICONV)|$(LIBICONV)|g" \
+	-e "s|\$$(MODULE_LIBS)|$(MODULE_LIBS)|g" \
 	-e "s|^\(dovecot_pkgincludedir\)=|\1=$(pkgincludedir)|" \
 	-e "s|^\(dovecot_pkglibdir\)=|\1=$(pkglibdir)|" \
 	-e "s|^\(dovecot_pkglibexecdir\)=|\1=$(libexecdir)/dovecot|" \

@@ -41,8 +41,7 @@ doveadm_LDADD = \
 	$(cmd_pw_libs) \
 	$(CRYPT_LIBS) \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT) \
-	$(MODULE_LIBS)
+	$(LIBDOVECOT)
 doveadm_DEPENDENCIES = \
 	$(libs) \
 	$(cmd_pw_libs) \
@@ -52,8 +51,7 @@ doveadm_DEPENDENCIES = \
 doveadm_server_LDADD = \
 	$(libs) \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT) \
-	$(MODULE_LIBS)
+	$(LIBDOVECOT)
 doveadm_server_DEPENDENCIES = \
 	$(libs) \
 	$(LIBDOVECOT_STORAGE_DEPS) \

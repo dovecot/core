@@ -79,7 +79,7 @@ endif
 
 pkglib_LTLIBRARIES = libdovecot-sql.la
 libdovecot_sql_la_SOURCES = 
-libdovecot_sql_la_LIBADD = libsql.la $(deplibs) $(MODULE_LIBS) $(sql_libs)
+libdovecot_sql_la_LIBADD = libsql.la $(deplibs) $(sql_libs)
 libdovecot_sql_la_DEPENDENCIES = libsql.la
 libdovecot_sql_la_LDFLAGS = -export-dynamic
 

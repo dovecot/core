@@ -89,7 +89,7 @@ shlibs = \
 
 pkglib_LTLIBRARIES = libdovecot-storage.la
 libdovecot_storage_la_SOURCES = 
-libdovecot_storage_la_LIBADD = $(shlibs) $(LINKED_STORAGE_LDADD) $(MODULE_LIBS)
+libdovecot_storage_la_LIBADD = $(shlibs) $(LINKED_STORAGE_LDADD)
 libdovecot_storage_la_DEPENDENCIES = $(shlibs)
 libdovecot_storage_la_LDFLAGS = -export-dynamic
 

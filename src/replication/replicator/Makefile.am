@@ -11,7 +11,7 @@ AM_CPPFLAGS = \
 	-DPKG_STATEDIR=\""$(statedir)"\"
 
 replicator_LDFLAGS = -export-dynamic
-replicator_LDADD = $(LIBDOVECOT) $(MODULE_LIBS)
+replicator_LDADD = $(LIBDOVECOT)
 replicator_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 replicator_SOURCES = \

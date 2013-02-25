@@ -11,7 +11,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-DPKG_RUNDIR=\""$(rundir)"\"
 
-indexer_LDADD = $(LIBDOVECOT) $(MODULE_LIBS)
+indexer_LDADD = $(LIBDOVECOT)
 indexer_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 indexer_SOURCES = \
 	indexer.c \
@@ -23,8 +23,7 @@ indexer_SOURCES = \
 
 indexer_worker_LDADD = \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT) \
-	$(MODULE_LIBS)
+	$(LIBDOVECOT)
 indexer_worker_DEPENDENCIES = \
 	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)

@@ -7,9 +7,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master
 
-stats_LDADD = \
-	$(LIBDOVECOT) \
-	$(MODULE_LIBS)
+stats_LDADD = $(LIBDOVECOT) 
 stats_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 stats_SOURCES = \

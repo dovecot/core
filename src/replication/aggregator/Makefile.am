@@ -11,7 +11,7 @@ AM_CPPFLAGS = \
 	-DPKG_STATEDIR=\""$(statedir)"\"
 
 aggregator_LDFLAGS = -export-dynamic
-aggregator_LDADD = $(LIBDOVECOT) $(MODULE_LIBS)
+aggregator_LDADD = $(LIBDOVECOT)
 aggregator_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 aggregator_SOURCES = \

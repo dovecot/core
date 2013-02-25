@@ -54,7 +54,7 @@ auth_libs = \
 	../lib-otp/libotp.a \
 	$(LIBDOVECOT_SQL)
 
-auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(MODULE_LIBS)
+auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS)
 auth_DEPENDENCIES = $(auth_libs) $(LIBDOVECOT_DEPS)
 
 ldap_sources = db-ldap.c passdb-ldap.c userdb-ldap.c

@@ -7,7 +7,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-settings
 
-dns_client_LDADD = $(LIBDOVECOT) $(MODULE_LIBS)
+dns_client_LDADD = $(LIBDOVECOT)
 dns_client_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 dns_client_SOURCES = \
 	dns-client.c \

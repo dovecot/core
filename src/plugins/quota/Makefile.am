@@ -58,7 +58,6 @@ quota_status_LDADD = \
 	$(quota_common_objects) \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
-	$(MODULE_LIBS) \
 	$(QUOTA_LIBS)
 quota_status_DEPENDENCIES = \
 	$(quota_common_objects) \

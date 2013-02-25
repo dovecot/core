@@ -19,8 +19,7 @@ dovecot_lda_LDFLAGS = -export-dynamic
 dovecot_lda_LDADD = \
 	$(LIBDOVECOT_LDA) \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT) \
-	$(MODULE_LIBS)
+	$(LIBDOVECOT)
 dovecot_lda_DEPENDENCIES = \
 	$(LIBDOVECOT_LDA) \
 	$(LIBDOVECOT_STORAGE_DEPS) \

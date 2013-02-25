@@ -2545,7 +2545,7 @@ if test "$want_shared_libs" = "yes"; then
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/libdovecot-lda.la'
 else
   LIBDOVECOT_DEPS='$(top_builddir)/src/lib-master/libmaster.la $(top_builddir)/src/lib-settings/libsettings.la $(top_builddir)/src/lib-http/libhttp.la $(top_builddir)/src/lib-dict/libdict.la $(top_builddir)/src/lib-dns/libdns.la $(top_builddir)/src/lib-fs/libfs.la $(top_builddir)/src/lib-imap/libimap.la $(top_builddir)/src/lib-mail/libmail.la $(top_builddir)/src/lib-auth/libauth.la $(top_builddir)/src/lib-charset/libcharset.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la $(top_builddir)/src/lib-test/libtest.la $(top_builddir)/src/lib/liblib.la'
-  LIBDOVECOT="$LIBDOVECOT_DEPS \$(LIBICONV)"
+  LIBDOVECOT="$LIBDOVECOT_DEPS \$(LIBICONV) \$(MODULE_LIBS)"
   LIBDOVECOT_STORAGE_LAST='$(top_builddir)/src/lib-storage/list/libstorage_list.la $(top_builddir)/src/lib-storage/index/libstorage_index.la $(top_builddir)/src/lib-storage/libstorage.la $(top_builddir)/src/lib-index/libindex.la $(top_builddir)/src/lib-imap-storage/libimap-storage.la'
   LIBDOVECOT_STORAGE_FIRST='$(top_builddir)/src/lib-storage/libstorage_service.la $(top_builddir)/src/lib-storage/register/libstorage_register.la'
   LIBDOVECOT_STORAGE_DEPS="$LIBDOVECOT_STORAGE_FIRST $LINKED_STORAGE_LIBS $LIBDOVECOT_STORAGE_LAST"

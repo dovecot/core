@@ -29,22 +29,21 @@ rawlog_SOURCES = \
 
 script_login_LDADD = \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT) \
-	$(MODULE_LIBS)
+	$(LIBDOVECOT) 
 script_login_DEPENDENCIES = \
 	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
 script_login_SOURCES = \
 	script-login.c
 
-script_LDADD = $(LIBDOVECOT) $(MODULE_LIBS)
+script_LDADD = $(LIBDOVECOT)
 script_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 script_SOURCES = \
 	script.c
 
 if TCPWRAPPERS
 TCPWRAP_BIN = tcpwrap
-tcpwrap_LDADD = $(LIBDOVECOT) $(MODULE_LIBS) $(LIBWRAP_LIBS)
+tcpwrap_LDADD = $(LIBDOVECOT) $(LIBWRAP_LIBS)
 tcpwrap_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 tcpwrap_SOURCES = \
 	tcpwrap.c \
