@@ -1,4 +1,4 @@
-v2.2.UNSTABLE 2013-xx-xx  Timo Sirainen <tss@iki.fi>
+v2.2.rc1 2013-02-15  Timo Sirainen <tss@iki.fi>
 
 	* When creating home directories, the permissions are copied from the
 	  parent directory if it has setgid-bit set. For full details, see

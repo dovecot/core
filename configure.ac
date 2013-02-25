@@ -2,7 +2,7 @@ AC_PREREQ([2.59])
 
 # Be sure to update ABI version also if anything changes that might require
 # recompiling plugins. Most importantly that means if any structs are changed.
-AC_INIT([Dovecot],[2.2.beta2],[dovecot@dovecot.org])
+AC_INIT([Dovecot],[2.2.rc1],[dovecot@dovecot.org])
 AC_DEFINE_UNQUOTED([DOVECOT_ABI_VERSION], "2.2.ABIv0($PACKAGE_VERSION)", [Dovecot ABI version])
 
 AC_CONFIG_SRCDIR([src])
@@ -2921,6 +2921,3 @@ echo "Full text search :$fts"
 if test "$not_fts" != ""; then
   echo "                 :$not_fts"
 fi
-
-echo
-echo "NOTE: This is the UNSTABLE development branch of Dovecot v2.2."
