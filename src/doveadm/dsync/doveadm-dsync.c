@@ -699,8 +699,6 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 	if (remote_cmd_args != NULL) {
 		/* do this before mail_storage_service_next() in case it
 		   drops process privileges */
-		ctx->fd_in = STDIN_FILENO;
-		ctx->fd_out = STDIN_FILENO;
 		run_cmd(ctx, remote_cmd_args);
 		ctx->run_type = DSYNC_RUN_TYPE_CMD;
 	}
