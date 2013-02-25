@@ -1,3 +1,7 @@
+v2.2.rc2 2013-02-15  Timo Sirainen <tss@iki.fi>
+
+	- rc1 wasn't actually usable in most configurations.
+
 v2.2.rc1 2013-02-15  Timo Sirainen <tss@iki.fi>
 
 	* When creating home directories, the permissions are copied from the
@@ -15,6 +19,8 @@ v2.2.rc1 2013-02-15  Timo Sirainen <tss@iki.fi>
 	  file instead of actually locking the mailbox (and causing
 	  IMAP/LDA/LMTP to wait for the POP3 session to close).
 	* mail_shared_explicit_inbox setting's default switched to "no".
+	* ssl_client_ca_dir setting replaced imapc_ssl_ca_dir and
+	  pop3c_ssl_ca_dir settings.
 
 	+ Implemented IMAP MOVE and BINARY extensions
 	+ Implemented IMAP CATENATE, URLAUTH and URLAUTH=BINARY extensions
