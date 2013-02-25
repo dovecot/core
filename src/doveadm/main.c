@@ -32,7 +32,8 @@ static void client_connected(struct master_service_connection *conn)
 	}
 
 	master_service_client_connection_accept(conn);
-	doveadm_client = client_connection_create(conn->fd, conn->listen_fd);
+	doveadm_client = client_connection_create(conn->fd, conn->listen_fd,
+						  conn->ssl);
 }
 
 static void main_preinit(void)

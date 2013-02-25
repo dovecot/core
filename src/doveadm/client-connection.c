@@ -7,7 +7,9 @@
 #include "ostream.h"
 #include "strescape.h"
 #include "settings-parser.h"
+#include "iostream-ssl.h"
 #include "master-service.h"
+#include "master-service-ssl.h"
 #include "master-service-settings.h"
 #include "mail-storage-service.h"
 #include "doveadm-util.h"
@@ -345,11 +347,44 @@ static int client_connection_read_settings(struct client_connection *conn)
 	return 0;
 }
 
-struct client_connection *client_connection_create(int fd, int listen_fd)
+static int client_connection_init_ssl(struct client_connection *conn)
+{
+	if (master_service_ssl_init(master_service,
+				    &conn->input, &conn->output,
+				    &conn->ssl_iostream) < 0)
+		return -1;
+	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
+		i_error("SSL handshake failed: %s",
+			ssl_iostream_get_last_error(conn->ssl_iostream));
+		return -1;
+	}
+	return 0;
+}
+
+static void
+client_connection_send_auth_handshake(struct client_connection *
+				      conn, int listen_fd)
+{
+	const char *listen_path;
+	struct stat st;
+
+	/* we'll have to do this with stat(), because at least in Linux
+	   fstat() always returns mode as 0777 */
+	if (net_getunixname(listen_fd, &listen_path) == 0 &&
+	    stat(listen_path, &st) == 0 && S_ISSOCK(st.st_mode) &&
+	    (st.st_mode & 0777) == 0600) {
+		/* no need for client to authenticate */
+		conn->authenticated = TRUE;
+		o_stream_nsend(conn->output, "+\n", 2);
+	} else {
+		o_stream_nsend(conn->output, "-\n", 2);
+	}
+}
+
+struct client_connection *
+client_connection_create(int fd, int listen_fd, bool ssl)
 {
 	struct client_connection *conn;
-	struct stat st;
-	const char *listen_path;
 	unsigned int port;
 	pool_t pool;
 
@@ -365,19 +400,17 @@ struct client_connection *client_connection_create(int fd, int listen_fd)
 	(void)net_getsockname(fd, &conn->local_ip, &port);
 	(void)net_getpeername(fd, &conn->remote_ip, &port);
 
-	/* we'll have to do this with stat(), because at least in Linux
-	   fstat() always returns mode as 0777 */
-	if (net_getunixname(listen_fd, &listen_path) == 0 &&
-	    stat(listen_path, &st) == 0 && S_ISSOCK(st.st_mode) &&
-	    (st.st_mode & 0777) == 0600) {
-		/* no need for client to authenticate */
-		conn->authenticated = TRUE;
-		o_stream_nsend(conn->output, "+\n", 2);
-	} else {
-		o_stream_nsend(conn->output, "-\n", 2);
-	}
-	if (client_connection_read_settings(conn) < 0)
+	if (client_connection_read_settings(conn) < 0) {
 		client_connection_destroy(&conn);
+		return NULL;
+	}
+	if (ssl) {
+		if (client_connection_init_ssl(conn) < 0) {
+			client_connection_destroy(&conn);
+			return NULL;
+		}
+	}
+	client_connection_send_auth_handshake(conn, listen_fd);
 	return conn;
 }
 
@@ -387,6 +420,8 @@ void client_connection_destroy(struct client_connection **_conn)
 
 	*_conn = NULL;
 
+	if (conn->ssl_iostream != NULL)
+		ssl_iostream_destroy(&conn->ssl_iostream);
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
 	io_remove(&conn->io);
