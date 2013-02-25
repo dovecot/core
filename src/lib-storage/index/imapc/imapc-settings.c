@@ -22,7 +22,6 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(SET_STR, imapc_password),
 
 	DEF(SET_ENUM, imapc_ssl),
-	DEF(SET_STR, imapc_ssl_ca_dir),
 	DEF(SET_BOOL, imapc_ssl_verify),
 
 	DEF(SET_STR, imapc_features),
@@ -30,6 +29,7 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(SET_STR, imapc_list_prefix),
 	DEF(SET_TIME, imapc_max_idle_time),
 
+	DEF(SET_STR, ssl_client_ca_dir),
 	DEF(SET_STR, ssl_crypto_device),
 
 	SETTING_DEFINE_LIST_END
@@ -44,7 +44,6 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_password = "",
 
 	.imapc_ssl = "no:imaps:starttls",
-	.imapc_ssl_ca_dir = "",
 	.imapc_ssl_verify = TRUE,
 
 	.imapc_features = "",
@@ -52,6 +51,7 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_list_prefix = "",
 	.imapc_max_idle_time = 60*29,
 
+	.ssl_client_ca_dir = "",
 	.ssl_crypto_device = ""
 };
 
@@ -123,11 +123,11 @@ static bool imapc_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 #ifndef CONFIG_BINARY
-	if (*set->imapc_ssl_ca_dir != '\0' &&
-	    access(set->imapc_ssl_ca_dir, X_OK) < 0) {
+	if (*set->ssl_client_ca_dir != '\0' &&
+	    access(set->ssl_client_ca_dir, X_OK) < 0) {
 		*error_r = t_strdup_printf(
-			"imapc_ssl_ca_dir: access(%s) failed: %m",
-			set->imapc_ssl_ca_dir);
+			"ssl_client_ca_dir: access(%s) failed: %m",
+			set->ssl_client_ca_dir);
 		return FALSE;
 	}
 #endif

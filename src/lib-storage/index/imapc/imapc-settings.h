@@ -17,7 +17,6 @@ struct imapc_settings {
 	const char *imapc_password;
 
 	const char *imapc_ssl;
-	const char *imapc_ssl_ca_dir;
 	bool imapc_ssl_verify;
 
 	const char *imapc_features;
@@ -25,6 +24,7 @@ struct imapc_settings {
 	const char *imapc_list_prefix;
 	unsigned int imapc_max_idle_time;
 
+	const char *ssl_client_ca_dir;
 	const char *ssl_crypto_device;
 
 	enum imapc_features parsed_features;

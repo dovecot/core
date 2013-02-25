@@ -73,7 +73,7 @@ pop3c_client_create_from_set(struct mail_user *user,
 	client_set.rawlog_dir =
 		mail_user_home_expand(user, set->pop3c_rawlog_dir);
 
-	client_set.ssl_ca_dir = set->pop3c_ssl_ca_dir;
+	client_set.ssl_ca_dir = set->ssl_client_ca_dir;
 	client_set.ssl_verify = set->pop3c_ssl_verify;
 	if (strcmp(set->pop3c_ssl, "pop3s") == 0)
 		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_IMMEDIATE;
