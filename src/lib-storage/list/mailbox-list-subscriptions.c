@@ -44,8 +44,11 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 		ns_name = t_strconcat(src_list->ns->prefix, name, NULL);
 	}
 	ns = mail_namespace_find_unsubscribable(namespaces, ns_name);
-	if (ns != NULL && ns != default_ns)
-		return 0;
+	if (ns != NULL && ns != default_ns) {
+		if (ns->prefix_len > default_ns->prefix_len)
+			return 0;
+		ns = default_ns;
+	}
 
 	/* 2) when listing pub/ namespace, skip over entries that don't
 	   begin with pub/. */
