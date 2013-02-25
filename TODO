@@ -1,4 +1,3 @@
- - dsync over tcp
  - if transaction log file corruption is noticed, make sure new dovecot.index
    snapshot gets written and don't mark the whole file corrupted.. rather maybe
    just rotate and truncate it
@@ -45,6 +44,10 @@
    so mail_storage_settings are copied to mail_namespace_settings. use the
    change tracking to figure out what settings are namespace-specific.
 
+ - doveadm import: add -d parameter to deduplicate mails based on their GUID
+   (or perhaps do it by default?)
+ - sdbox: altmoving is done with mailbox locked. that's not necessary, it could
+   do the copying while unlocked and delete the primary files while locked
  - passdb, userdb { username_format } that doesn't permanently change
    the username
  - mdbox/sdbox index rebuild -> quota rebuild?
@@ -61,10 +64,7 @@
     - with in-memory indexes be sure to refresh it more often
     - refreshing could refresh only the parts that are actually requested,
       e.g. %
-    - mailbox_get_metadata(guid) could be optimized
     - virtual could use it to avoid keeping all mailboxes open
- - check:
-    - dsyncing between two namespace separators is probably broken..
  - remove mail_deliver_session after all, do all the stuff transparently
    by hooking into mailbox_copy().
      - use this hook also to do the mail deduplication: 1) sort all destination
@@ -93,13 +93,14 @@
  - sent, drafts: .Sent/dovecot.index: modseq_hdr.log_offset too large
  - mail_max_lock_timeout error could be reported more nicely, also ones coming
    from lib-index
- - dsync: if mailbox is renamed due to it being invalid, its subscription
-   isn't renamed
  - sql pool: if async query is pending and sync query is sent and there
    are no more empty connections, it should flush the async query first
  - NTLMv1 and LM should be disabled if disable_plaintext_auth=yes
  - SEARCH SENT*/HEADER/etc. doesn't seem optimized when using with TEXT/BODY
  - dict sql: support ignoring some search key hierarchies (e.g. acl "anyone")
+ - dsync: avoid sending email when it could be copied from another mailbox.
+   probably requires storage to have guid => { instances } map? that's
+   rather annoying to add.
 
  - mdbox
     - dotlocking: cleanup should delete stale *.lock files
@@ -124,7 +125,6 @@
  - maildir: out-of-disk-space failures apparently cause all kinds of
    problems, e.g. "Expunged message reappeared", "Duplicate file entry"?
  - deliver -r <address> used as autoreplies' From-address?
- - add fd limit checks/warnings
  - istream-seekable is inefficient. it shouldn't be reading the temp file
    immediately after writing to it
  - config process is handling requests too slowly. maybe add some caching.
@@ -134,17 +134,6 @@
  - ipv6: auth penalty should begin from /64 and gradually grow to /48 if
    necessary. and the same could be done for ipv4 as well..
 
- - dsync:
-   - check for uid conflicts in the middle of mailbox based on next existing
-     message, not previous
-   - subscriptions syncing doesn't handle mixed hierarchy separators
-   - Can't rename mailbox INBOX_019acf2169c5784b307f000074ccac23 to INBOX: Target mailbox already exists
-   - copying can't work in non-full mode unless source mailbox is modified
-     in some way. possibly add some COPY records to transaction log in future?
-   - superfast mode: when syncing changes within a mailbox, use modseqs to
-     figure out what has changed similar to QRESYNC.
-
- - lda: add some -h 'Header: value' parameter that adds/replaces header
  - ldap: fix multiple-gid support somehow
  - search: use mail_get_parts() only when it's already cached. if it's not,
    add it to cache afterwards.
@@ -155,18 +144,12 @@
 	//FIXME:i_assert((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0);
   ^ appears to work now though, probably because of the added syncing stuff..
 
- - transaction log corruption should make sure dovecot.index is rewritten
-   and perhaps not delete the file.
  - use backup index in mail_index_fsck()
-
  - proxying: support fallbacking to local (or other?) server if the first
    one is down
  - i_panic("Message count decreased") happens - why?
      - at least one backtrace shows client_destroy -> client_command_cancel ->
        imap_sync_deinit
- - fsck -> log_file_tail_offset 2273345664 -> 996 ->
-   mail-transaction-log.c: line 341 (mail_transaction_log_set_mailbox_sync_pos):
-   assertion failed: (file_offset >= log->head->saved_tail_offset)
  - virtual: If last message matching INTHREAD rule gets expunged, the rest of
    the thread doesn't go away
  - how do shared mailboxes work with plugins?
@@ -180,7 +163,6 @@
       dovecot-acl files? at least not that often..
  - fs quota: getquotaroot inbox vs. other-box should return different quotas
    if two quotas are defined
- - new primes code: are hash tables now being resized too often?
  - auth_log_prefix setting similar to mail_log_prefix
 
  - thread indexes: if we expunge a duplicate message-id: and we have a sibling
@@ -221,8 +203,6 @@
        }
 
  - maildir+pop3 fast updates:
-   - with locking enabled, pop3 could just keep the one and same sync lock and
-     do the whole thing using sync transaction
    - don't update dovecot-uidlist if dovecot.index.cache doesn't exist /
      there's nothing to cache
    - if all messages are expunged and there are no unknown extensions in index,
@@ -268,7 +248,6 @@
     - COPY doesn't work to itself (lock assert crash, for now just disallowed)
 
  - index
-    - read-only support for mailboxes where we don't have write-access
     - index file format changes:
         - split to "old" and "new" indexes and try to avoid loading "old" into
 	  memory until needed
