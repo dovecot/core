@@ -442,7 +442,8 @@ void master_service_init_finish(struct master_service *service)
 						  master_status_error, service);
 	}
 	master_service_io_listeners_add(service);
-	if (service->want_ssl_settings)
+	if (service->want_ssl_settings &&
+	    (service->flags & MASTER_SERVICE_FLAG_NO_SSL_INIT) == 0)
 		master_service_ssl_ctx_init(service);
 
 	if ((service->flags & MASTER_SERVICE_FLAG_STD_CLIENT) != 0) {

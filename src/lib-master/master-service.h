@@ -26,7 +26,9 @@ enum master_service_flags {
 	/* SSL settings are always looked up when we have ssl listeners.
 	   This flag enables looking up SSL settings even without ssl
 	   listeners (i.e. the service does STARTTLS). */
-	MASTER_SERVICE_FLAG_USE_SSL_SETTINGS	= 0x200
+	MASTER_SERVICE_FLAG_USE_SSL_SETTINGS	= 0x200,
+	/* Don't initialize SSL context automatically. */
+	MASTER_SERVICE_FLAG_NO_SSL_INIT		= 0x400
 };
 
 struct master_service_connection {
