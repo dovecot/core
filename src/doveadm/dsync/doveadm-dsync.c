@@ -539,7 +539,6 @@ static void dsync_connected_callback(enum server_cmd_reply reply, void *context)
 	case SERVER_CMD_REPLY_OK:
 		server_connection_extract(ctx->tcp_conn, &ctx->input,
 					  &ctx->output, &ctx->ssl_iostream);
-		ctx->fd_in = ctx->fd_out = -1;
 		break;
 	case SERVER_CMD_REPLY_INTERNAL_FAILURE:
 		ctx->error = "Disconnected from remote";
@@ -662,8 +661,8 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 
 	user_set = mail_storage_service_user_get_set(service_user)[0];
 
-	ctx->fd_in = STDIN_FILENO;
-	ctx->fd_out = STDOUT_FILENO;
+	ctx->fd_in = -1;
+	ctx->fd_out = -1;
 	ctx->fd_err = -1;
 	ctx->run_type = DSYNC_RUN_TYPE_LOCAL;
 	ctx->remote_name = "remote";
@@ -700,6 +699,8 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 	if (remote_cmd_args != NULL) {
 		/* do this before mail_storage_service_next() in case it
 		   drops process privileges */
+		ctx->fd_in = STDIN_FILENO;
+		ctx->fd_out = STDIN_FILENO;
 		run_cmd(ctx, remote_cmd_args);
 		ctx->run_type = DSYNC_RUN_TYPE_CMD;
 	}
