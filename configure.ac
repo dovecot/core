@@ -318,7 +318,16 @@ if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
 	# -Wmissing-format-attribute -Wmissing-noreturn -Wwrite-strings # a couple of warnings
 	CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts -Wformat=2 -Wbad-function-cast"
 
-	if test "$have_clang" != "yes"; then
+	if test "$have_clang" = "yes"; then
+	  AC_TRY_COMPILE([
+	  #if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 3)
+	  #  error new clang
+	  #endif
+	  ],,,[
+	    # clang 3.3+ unfortunately this gives warnings with hash.h
+	    CFLAGS="$CFLAGS -Wno-duplicate-decl-specifier"
+	  ])
+	else
 	  # This is simply to avoid warning when building strftime() wrappers..
 	  CFLAGS="$CFLAGS -fno-builtin-strftime"
 	fi

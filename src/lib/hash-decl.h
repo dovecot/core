@@ -5,6 +5,7 @@
 		struct hash_table *_table; \
 		key_type _key; \
 		key_type *_keyp; \
+		const key_type _const_key; \
 		value_type _value; \
 		value_type *_valuep; \
 	}
