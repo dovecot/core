@@ -15,6 +15,7 @@
 #include "syslog-util.h"
 #include "master-instance.h"
 #include "master-login.h"
+#include "master-service-ssl.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
 
@@ -441,6 +442,8 @@ void master_service_init_finish(struct master_service *service)
 						  master_status_error, service);
 	}
 	master_service_io_listeners_add(service);
+	if (service->want_ssl_settings)
+		master_service_ssl_ctx_init(service);
 
 	if ((service->flags & MASTER_SERVICE_FLAG_STD_CLIENT) != 0) {
 		/* we already have a connection to be served */
@@ -714,6 +717,7 @@ void master_service_deinit(struct master_service **_service)
 	*_service = NULL;
 
 	master_service_io_listeners_remove(service);
+	master_service_ssl_ctx_deinit(service);
 
 	master_service_close_config_fd(service);
 	if (service->to_die != NULL)
