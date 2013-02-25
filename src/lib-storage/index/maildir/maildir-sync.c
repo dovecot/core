@@ -288,6 +288,7 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 	const char *fname1, *path1, *path2;
 	const char *new_fname, *new_path;
 	struct stat st1, st2;
+	uoff_t size;
 
 	fname1 = maildir_uidlist_sync_get_full_filename(ctx->uidlist_sync_ctx,
 							fname2);
@@ -330,6 +331,16 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 	}
 
 	new_fname = maildir_filename_generate();
+	/* preserve S= and W= sizes if they're available.
+	   (S=size is required for zlib plugin to work) */
+	if (maildir_filename_get_size(fname2, MAILDIR_EXTRA_FILE_SIZE, &size)) {
+		new_fname = t_strdup_printf("%s,%c=%"PRIuUOFF_T,
+			new_fname, MAILDIR_EXTRA_FILE_SIZE, size);
+	}
+	if (maildir_filename_get_size(fname2, MAILDIR_EXTRA_VIRTUAL_SIZE, &size)) {
+		new_fname = t_strdup_printf("%s,%c=%"PRIuUOFF_T,
+			new_fname, MAILDIR_EXTRA_VIRTUAL_SIZE, size);
+	}
 	new_path = t_strconcat(mailbox_get_path(&ctx->mbox->box),
 			       "/new/", new_fname, NULL);
 
