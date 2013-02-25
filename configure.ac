@@ -290,7 +290,6 @@ AC_PROG_CPP
 AC_PROG_CXX # lucene plugin needs this
 AC_HEADER_STDC
 AC_C_INLINE
-AC_C_TYPEOF
 AC_PROG_LIBTOOL
 AM_ICONV
 
@@ -346,7 +345,8 @@ fi
 if test "$have_clang" = "yes"; then
   # clang specific options
   if test "$want_devel_checks" = "yes"; then
-    CFLAGS="$CFLAGS -fsanitize=address,integer,undefined -ftrapv"
+    # FIXME: enable once md[45], sha[12] can be compiled without
+    #CFLAGS="$CFLAGS -fsanitize=integer,undefined -ftrapv"
   fi
 fi
 
