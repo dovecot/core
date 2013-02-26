@@ -1473,7 +1473,6 @@ void mailbox_list_add_change(struct mailbox_list *list,
 int mailbox_list_set_subscribed(struct mailbox_list *list,
 				const char *name, bool set)
 {
-	guid_128_t guid;
 	int ret;
 
 	/* make sure we'll refresh the file on next list */
@@ -1481,14 +1480,6 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 
 	if ((ret = list->v.set_subscribed(list, name, set)) <= 0)
 		return ret;
-
-	/* subscriptions are about names, not about mailboxes. it's possible
-	   to have a subscription to nonexistent mailbox. renames also don't
-	   change subscriptions. so instead of using actual GUIDs, we'll use
-	   hash of the name. */
-	mailbox_name_get_sha128(name, guid);
-	mailbox_list_add_change(list, set ? MAILBOX_LOG_RECORD_SUBSCRIBE :
-				MAILBOX_LOG_RECORD_UNSUBSCRIBE, guid);
 	return 0;
 }
 

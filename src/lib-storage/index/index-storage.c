@@ -595,7 +595,7 @@ int index_storage_mailbox_delete_dir(struct mailbox *box, bool mailbox_deleted)
 	/* failed directory deletion, but mailbox deletion succeeded.
 	   this was probably maildir++, which internally deleted the
 	   directory as well. add changelog record about that too. */
-	mailbox_name_get_sha128(box->name, dir_sha128);
+	mailbox_name_get_sha128(box->vname, dir_sha128);
 	mailbox_list_add_change(box->list, MAILBOX_LOG_RECORD_DELETE_DIR,
 				dir_sha128);
 	return 0;
@@ -731,7 +731,7 @@ int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 
 	/* we'll track mailbox names, instead of GUIDs. We may be renaming a
 	   non-selectable mailbox (directory), which doesn't even have a GUID */
-	mailbox_name_get_sha128(dest->name, guid);
+	mailbox_name_get_sha128(dest->vname, guid);
 	mailbox_list_add_change(src->list, MAILBOX_LOG_RECORD_RENAME, guid);
 	return 0;
 }
@@ -828,6 +828,7 @@ int index_storage_set_subscribed(struct mailbox *box, bool set)
 	struct mail_namespace *ns;
 	struct mailbox_list *list = box->list;
 	const char *subs_name;
+	guid_128_t guid;
 
 	if ((list->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) != 0)
 		subs_name = box->name;
@@ -854,6 +855,14 @@ int index_storage_set_subscribed(struct mailbox *box, bool set)
 		mail_storage_copy_list_error(box->storage, list);
 		return -1;
 	}
+
+	/* subscriptions are about names, not about mailboxes. it's possible
+	   to have a subscription to nonexistent mailbox. renames also don't
+	   change subscriptions. so instead of using actual GUIDs, we'll use
+	   hash of the name. */
+	mailbox_name_get_sha128(box->vname, guid);
+	mailbox_list_add_change(list, set ? MAILBOX_LOG_RECORD_SUBSCRIBE :
+				MAILBOX_LOG_RECORD_UNSUBSCRIBE, guid);
 	return 0;
 }
 
