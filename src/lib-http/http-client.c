@@ -163,6 +163,7 @@ void http_client_wait(struct http_client *client)
 
 	client->ioloop = io_loop_create();
 	http_client_switch_ioloop(client);
+	i_assert(io_loop_have_ios(client->ioloop));
 
 	do {
 		http_client_debug(client,
