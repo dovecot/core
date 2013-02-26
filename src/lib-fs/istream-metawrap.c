@@ -62,6 +62,20 @@ static ssize_t i_stream_metawrap_read(struct istream_private *stream)
 	return i_stream_read_copy_from_parent(&stream->istream);
 }
 
+static void
+i_stream_metawrap_seek(struct istream_private *stream,
+		       uoff_t v_offset, bool mark ATTR_UNUSED)
+{
+	struct metawrap_istream *mstream = (struct metawrap_istream *)stream;
+
+	/* support seeking only after reading the metadata */
+	i_assert(!mstream->in_metadata ||
+		 (mstream->start_offset == 0 && v_offset == 0));
+
+	stream->istream.v_offset = v_offset;
+	stream->skip = stream->pos = 0;
+}
+
 static int i_stream_metawrap_stat(struct istream_private *stream, bool exact)
 {
 	struct metawrap_istream *mstream = (struct metawrap_istream *)stream;
@@ -96,11 +110,12 @@ i_stream_create_metawrap(struct istream *input,
 	mstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	mstream->istream.read = i_stream_metawrap_read;
-	mstream->istream.stat = i_stream_metawrap_stat;
+	mstream->istream.seek = i_stream_metawrap_seek;
+	mstream->istream.stat = input->seekable ? i_stream_metawrap_stat : NULL;
 
 	mstream->istream.istream.readable_fd = input->readable_fd;
 	mstream->istream.istream.blocking = input->blocking;
-	mstream->istream.istream.seekable = FALSE;
+	mstream->istream.istream.seekable = input->seekable;
 	mstream->in_metadata = TRUE;
 	mstream->callback = callback;
 	mstream->context = context;
