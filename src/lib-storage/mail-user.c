@@ -264,11 +264,15 @@ void mail_user_drop_useless_namespaces(struct mail_user *user)
 {
 	struct mail_namespace *ns, *next;
 
+	/* drop all autocreated unusable (typically shared) namespaces.
+	   don't drop the autocreated prefix="" namespace that we explicitly
+	   created for being the fallback namespace. */
 	for (ns = user->namespaces; ns != NULL; ns = next) {
 		next = ns->next;
 
 		if ((ns->flags & NAMESPACE_FLAG_USABLE) == 0 &&
-		    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0)
+		    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0 &&
+		    ns->prefix_len > 0)
 			mail_namespace_destroy(ns);
 	}
 }
