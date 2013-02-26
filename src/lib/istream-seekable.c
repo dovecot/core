@@ -35,13 +35,10 @@ struct seekable_istream {
 static void i_stream_seekable_close(struct iostream_private *stream)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
-	unsigned int i;
 
 	sstream->fd = -1;
 	if (sstream->fd_input != NULL)
 		i_stream_close(sstream->fd_input);
-	for (i = 0; sstream->input[i] != NULL; i++)
-		i_stream_close(sstream->input[i]);
 }
 
 static void unref_streams(struct seekable_istream *sstream)
