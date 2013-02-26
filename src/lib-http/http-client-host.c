@@ -5,6 +5,7 @@
 #include "str.h"
 #include "hash.h"
 #include "array.h"
+#include "llist.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
@@ -276,6 +277,7 @@ struct http_client_host *http_client_host_get
 
 		hostname = host->name;
 		hash_table_insert(client->hosts, hostname, host);
+		DLLIST_PREPEND(&client->hosts_list, host);
 
 		http_client_host_debug(host, "Host created");
 	}
@@ -367,8 +369,12 @@ void http_client_host_free(struct http_client_host **_host)
 {
 	struct http_client_host *host = *_host;
 	struct http_client_host_port *hport;
+	const char *hostname = host->name;
 
 	http_client_host_debug(host, "Host destroy");
+
+	DLLIST_REMOVE(&host->client->hosts_list, host);
+	hash_table_remove(host->client->hosts, hostname);
 
 	if (host->dns_lookup != NULL)
 		dns_lookup_abort(&host->dns_lookup);

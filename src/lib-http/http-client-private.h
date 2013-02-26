@@ -94,6 +94,8 @@ struct http_client_host_port {
 };
 
 struct http_client_host {
+	struct http_client_host *prev, *next;
+
 	struct http_client *client;
 	char *name;
 
@@ -175,6 +177,7 @@ struct http_client {
 	struct connection_list *conn_list;
 
 	HASH_TABLE_TYPE(http_client_host) hosts;
+	struct http_client_host *hosts_list;
 	HASH_TABLE_TYPE(http_client_peer) peers;
 	unsigned int pending_requests;
 };

@@ -104,7 +104,6 @@ void http_client_deinit(struct http_client **_client)
 {
 	struct http_client *client = *_client;
 	struct hash_iterate_context *iter;
-	const char *hostname;
 	struct http_client_host *host;
 	const struct http_client_peer_addr *addr;
 	struct http_client_peer *peer;
@@ -118,11 +117,10 @@ void http_client_deinit(struct http_client **_client)
 	hash_table_destroy(&client->peers);
 
 	/* free hosts */
-	iter = hash_table_iterate_init(client->hosts);
-	while (hash_table_iterate(iter, client->hosts, &hostname, &host)) {
+	while (client->hosts_list != NULL) {
+		host = client->hosts_list;
 		http_client_host_free(&host);
 	}
-	hash_table_iterate_deinit(&iter);
 	hash_table_destroy(&client->hosts);
 
 	connection_list_deinit(&client->conn_list);
@@ -147,15 +145,10 @@ void http_client_switch_ioloop(struct http_client *client)
 
 	/* move dns lookups */
 	if (client->set.dns_client_socket_path != '\0') {
-		struct hash_iterate_context *iter;
 		struct http_client_host *host;
-		const char *hostname;
 	
-		iter = hash_table_iterate_init(client->hosts);
-		while (hash_table_iterate(iter, client->hosts, &hostname, &host)) {
+		for (host = client->hosts_list; host != NULL; host = host->next)
 			http_client_host_switch_ioloop(host);
-		}
-		hash_table_iterate_deinit(&iter);
 	}
 }
 
