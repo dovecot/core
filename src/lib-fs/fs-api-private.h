@@ -69,6 +69,7 @@ struct fs_file {
 	char *path;
 	enum fs_open_flags flags;
 
+	struct istream *seekable_input;
 	struct istream *pending_read_input;
 	bool write_pending;
 

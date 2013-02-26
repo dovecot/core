@@ -166,6 +166,8 @@ void fs_file_deinit(struct fs_file **_file)
 
 	if (file->pending_read_input != NULL)
 		i_stream_unref(&file->pending_read_input);
+	if (file->seekable_input != NULL)
+		i_stream_unref(&file->seekable_input);
 
 	if (file->copy_input != NULL) {
 		i_stream_unref(&file->copy_input);
@@ -287,6 +289,11 @@ struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 	ssize_t ret;
 	bool want_seekable = FALSE;
 
+	if (file->seekable_input != NULL) {
+		i_stream_seek(file->seekable_input, 0);
+		i_stream_ref(file->seekable_input);
+		return file->seekable_input;
+	}
 	input = file->fs->v.read_stream(file, max_buffer_size);
 	if (input->stream_errno != 0) {
 		/* read failed already */
@@ -306,6 +313,9 @@ struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 						file->fs->temp_path_prefix);
 		i_stream_set_name(input, i_stream_get_name(inputs[0]));
 		i_stream_unref(&inputs[0]);
+
+		file->seekable_input = input;
+		i_stream_ref(file->seekable_input);
 	}
 	if ((file->flags & FS_OPEN_FLAG_ASYNC) == 0 && !input->blocking) {
 		/* read the whole input stream before returning */
