@@ -103,17 +103,14 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 void http_client_deinit(struct http_client **_client)
 {
 	struct http_client *client = *_client;
-	struct hash_iterate_context *iter;
 	struct http_client_host *host;
-	const struct http_client_peer_addr *addr;
 	struct http_client_peer *peer;
 
 	/* free peers */
-	iter = hash_table_iterate_init(client->peers);
-	while (hash_table_iterate(iter, client->peers, &addr, &peer)) {
+	while (client->peers_list != NULL) {
+		peer = client->peers_list;
 		http_client_peer_free(&peer);
 	}
-	hash_table_iterate_deinit(&iter);
 	hash_table_destroy(&client->peers);
 
 	/* free hosts */

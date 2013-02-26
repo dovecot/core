@@ -5,6 +5,7 @@
 #include "str.h"
 #include "hash.h"
 #include "array.h"
+#include "llist.h"
 #include "istream.h"
 #include "ostream.h"
 #include "iostream-ssl.h"
@@ -204,6 +205,7 @@ http_client_peer_create(struct http_client *client,
 
 	hash_table_insert
 		(client->peers, (const struct http_client_peer_addr *)&peer->addr, peer);
+	DLLIST_PREPEND(&client->peers_list, peer);
 
 	http_client_peer_debug(peer, "Peer created");
 
@@ -271,6 +273,7 @@ void http_client_peer_free(struct http_client_peer **_peer)
 
 	hash_table_remove
 		(peer->client->peers, (const struct http_client_peer_addr *)&peer->addr);
+	DLLIST_REMOVE(&peer->client->peers_list, peer);
 
 	i_free(peer);
 	*_peer = NULL;

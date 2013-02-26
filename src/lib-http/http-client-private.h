@@ -119,6 +119,7 @@ struct http_client_peer_addr {
 struct http_client_peer {
 	struct http_client_peer_addr addr;
 	struct http_client *client;
+	struct http_client_peer *prev, *next;
 
 	/* hosts served through this peer */
 	ARRAY_TYPE(http_client_host) hosts;
@@ -179,6 +180,7 @@ struct http_client {
 	HASH_TABLE_TYPE(http_client_host) hosts;
 	struct http_client_host *hosts_list;
 	HASH_TABLE_TYPE(http_client_peer) peers;
+	struct http_client_peer *peers_list;
 	unsigned int pending_requests;
 };
 
