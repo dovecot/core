@@ -150,40 +150,75 @@ static bool parse_scram_client_first(struct scram_auth_request *request,
 				     const unsigned char *data, size_t size,
 				     const char **error_r)
 {
-	const char *const *fields;
+	const char *const *fields, *login_username = NULL;
+	const char *gs2_cbind_flag, *authzid, *username, *nonce;
 
 	fields = t_strsplit(t_strndup(data, size), ",");
 	if (str_array_length(fields) < 4) {
 		*error_r = "Invalid initial client message";
 		return FALSE;
 	}
+	gs2_cbind_flag = fields[0];
+	authzid = fields[1];
+	username = fields[2];
+	nonce = fields[3];
 
-	switch (fields[0][0]) {
+	/* Order of fields is fixed:
+
+	   client-first-message = gs2-header client-first-message-bare
+	   gs2-header      = gs2-cbind-flag "," [ authzid ] ","
+	   gs2-cbind-flag  = ("p=" cb-name) / "n" / "y"
+
+	   client-first-message-bare = [reserved-mext ","]
+                                       username "," nonce ["," extensions]
+	   reserved-mext   = "m=" 1*(value-char)
+
+	   username        = "n=" saslname
+	   nonce           = "r=" c-nonce [s-nonce]
+
+	   extensions      = attr-val *("," attr-val)
+			       ;; All extensions are optional,
+			       ;; i.e., unrecognized attributes
+			       ;; not defined in this document
+			       ;; MUST be ignored.
+	   attr-val        = ALPHA "=" value
+
+	   */
+	switch (gs2_cbind_flag[0]) {
 	case 'p':
 		*error_r = "Channel binding not supported";
 		return FALSE;
 	case 'y':
 	case 'n':
-		request->gs2_cbind_flag = p_strdup(request->pool, fields[0]);
+		request->gs2_cbind_flag =
+			p_strdup(request->pool, gs2_cbind_flag);
 		break;
 	default:
 		*error_r = "Invalid GS2 header";
 		return FALSE;
 	}
 
-	if (fields[1][0] != '\0') {
-		*error_r = "authzid not supported";
+	if (authzid[0] == '\0')
+		;
+	else if (authzid[0] == 'a' && authzid[1] == '=') {
+		/* Unescape authzid */
+		login_username = scram_unescape_username(authzid + 2);
+
+		if (login_username == NULL) {
+			*error_r = "authzid escaping is invalid";
+			return FALSE;
+		}
+	} else {
+		*error_r = "Invalid authzid field";
 		return FALSE;
 	}
-	if (fields[2][0] == 'm') {
+	if (username[0] == 'm') {
 		*error_r = "Mandatory extension(s) not supported";
 		return FALSE;
 	}
-	if (fields[2][0] == 'n') {
+	if (username[0] == 'n' && username[1] == '=') {
 		/* Unescape username */
-		const char *username =
-			scram_unescape_username(fields[2] + 2);
-
+		username = scram_unescape_username(username + 2);
 		if (username == NULL) {
 			*error_r = "Username escaping is invalid";
 			return FALSE;
@@ -195,9 +230,14 @@ static bool parse_scram_client_first(struct scram_auth_request *request,
 		*error_r = "Invalid username field";
 		return FALSE;
 	}
+	if (login_username != NULL) {
+		if (!auth_request_set_login_username(&request->auth_request,
+						     login_username, error_r))
+			return FALSE;
+	}
 
-	if (fields[3][0] == 'r')
-		request->cnonce = p_strdup(request->pool, fields[3]+2);
+	if (nonce[0] == 'r' && nonce[1] == '=')
+		request->cnonce = p_strdup(request->pool, nonce+2);
 	else {
 		*error_r = "Invalid client nonce";
 		return FALSE;
