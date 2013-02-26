@@ -119,7 +119,8 @@ fs_metawrap_file_init(struct fs *_fs, const char *path,
 	flags &= ~FS_OPEN_FLAG_SEEKABLE;
 
 	file->super = fs_file_init(fs->super, path, mode | flags);
-	if (mode == FS_OPEN_MODE_READONLY && (flags & FS_OPEN_FLAG_ASYNC) == 0) {
+	if (file->fs->wrap_metadata && mode == FS_OPEN_MODE_READONLY &&
+	    (flags & FS_OPEN_FLAG_ASYNC) == 0) {
 		/* use async stream for super, so fs_read_stream() won't create
 		   another seekable stream unneededly */
 		file->super_read = fs_file_init(fs->super, path, mode | flags |
@@ -211,7 +212,10 @@ static bool fs_metawrap_prefetch(struct fs_file *_file, uoff_t length)
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 
-	return fs_prefetch(file->super, length);
+	if (!file->fs->wrap_metadata)
+		return fs_prefetch(file->super, length);
+	else
+		return fs_prefetch(file->super_read, length);
 }
 
 static ssize_t fs_metawrap_read(struct fs_file *_file, void *buf, size_t size)
