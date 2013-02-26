@@ -112,40 +112,55 @@ parse_hostport(const char *str, unsigned int default_port,
 			return FALSE;
 		*host_r = t_strdup_until(str, p);
 	}
-
-	/* there is any '/' character (unlikely to be found from host names),
-	   assume ':' is part of a file path */
-	if (strchr(str, '/') != NULL)
-		return FALSE;
 	return TRUE;
+}
+
+static int
+doveadm_tcp_connect_port(const char *host, unsigned int port)
+{
+	struct ip_addr *ips;
+	unsigned int ips_count;
+	int ret, fd;
+
+	ret = net_gethostbyname(host, &ips, &ips_count);
+	if (ret != 0) {
+		i_fatal("Lookup of host %s failed: %s",
+			host, net_gethosterror(ret));
+	}
+	fd = net_connect_ip_blocking(&ips[0], port, NULL);
+	if (fd == -1) {
+		i_fatal("connect(%s:%u) failed: %m",
+			net_ip2addr(&ips[0]), port);
+	}
+	return fd;
+}
+
+int doveadm_tcp_connect(const char *target, unsigned int default_port)
+{
+	const char *host;
+	unsigned int port;
+
+	if (!parse_hostport(target, default_port, &host, &port)) {
+		i_fatal("Port not known for %s. Either set proxy_port "
+			"or use %s:port", target, target);
+	}
+	return doveadm_tcp_connect_port(host, port);
 }
 
 int doveadm_connect_with_default_port(const char *path,
 				      unsigned int default_port)
 {
-	struct stat st;
-	const char *host;
-	struct ip_addr *ips;
-	unsigned int port, ips_count;
-	int fd, ret;
+	int fd;
 
-	if (parse_hostport(path, default_port, &host, &port) &&
-	    stat(path, &st) < 0) {
-		/* it's a host:port, connect via TCP */
-		ret = net_gethostbyname(host, &ips, &ips_count);
-		if (ret != 0) {
-			i_fatal("Lookup of host %s failed: %s",
-				host, net_gethosterror(ret));
-		}
-		fd = net_connect_ip_blocking(&ips[0], port, NULL);
-		if (fd == -1) {
-			i_fatal("connect(%s:%u) failed: %m",
-				net_ip2addr(&ips[0]), port);
-		}
-	} else {
+	/* we'll assume UNIX sockets typically have an absolute path,
+	   or at the very least '/' somewhere. */
+	if (strchr(path, '/') == NULL)
+		fd = doveadm_tcp_connect(path, default_port);
+	else {
 		fd = net_connect_unix(path);
 		if (fd == -1)
 			i_fatal("net_connect_unix(%s) failed: %m", path);
+		return -1;
 	}
 	return fd;
 }
