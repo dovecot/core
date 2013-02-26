@@ -452,7 +452,7 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 
-	if (ns->alias_for != NULL) {
+	if (ns->alias_for != NULL && !ns->disabled) {
 		if (array_is_created(&ns->user_set->namespaces)) {
 			namespaces = array_get(&ns->user_set->namespaces,
 					       &count);
