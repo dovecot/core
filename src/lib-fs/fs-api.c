@@ -451,11 +451,13 @@ int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 	}
 	while (o_stream_send_istream(dest->copy_output, dest->copy_input) > 0) ;
 	if (dest->copy_input->stream_errno != 0) {
+		errno = dest->copy_input->stream_errno;
 		fs_set_error(dest->fs, "read(%s) failed: %m",
 			     i_stream_get_name(dest->copy_input));
 		return -1;
 	}
 	if (dest->copy_output->stream_errno != 0) {
+		errno = dest->copy_output->stream_errno;
 		fs_set_error(dest->fs, "write(%s) failed: %m",
 			     o_stream_get_name(dest->copy_output));
 		return -1;
