@@ -137,5 +137,7 @@ struct ioloop_context *io_loop_get_current_context(struct ioloop *ioloop);
 struct io *io_loop_move_io(struct io **io);
 /* Like io_loop_move_io(), but for timeouts. */
 struct timeout *io_loop_move_timeout(struct timeout **timeout);
+/* Returns TRUE if any IOs have been added to the ioloop. */
+bool io_loop_have_ios(struct ioloop *ioloop);
 
 #endif

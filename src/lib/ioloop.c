@@ -660,3 +660,8 @@ struct timeout *io_loop_move_timeout(struct timeout **_timeout)
 	timeout_remove(_timeout);
 	return new_to;
 }
+
+bool io_loop_have_ios(struct ioloop *ioloop)
+{
+	return ioloop->io_files;
+}
