@@ -195,6 +195,10 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 			    struct mail_namespace *ns, const char *box_name)
 {
 	const enum mailbox_list_iter_flags list_flags =
+		/* FIXME: we'll skip symlinks, because we can't handle them
+		   currently. in future we could detect them and create them
+		   by creating the symlink. */
+		MAILBOX_LIST_ITER_SKIP_ALIASES |
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES;
 	const enum mailbox_list_iter_flags subs_list_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
