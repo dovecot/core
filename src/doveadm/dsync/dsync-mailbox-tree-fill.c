@@ -191,6 +191,40 @@ dsync_mailbox_tree_add_change_timestamps(struct dsync_mailbox_tree *tree,
 	return 0;
 }
 
+static int
+dsync_mailbox_tree_fix_guid_duplicate(struct dsync_mailbox_tree *tree,
+				      struct dsync_mailbox_node *node1,
+				      struct dsync_mailbox_node *node2)
+{
+	struct mailbox *box;
+	struct mailbox_update update;
+	const char *node2_name;
+	int ret = 0;
+
+	memset(&update, 0, sizeof(update));
+	guid_128_generate(update.mailbox_guid);
+
+	node2_name = dsync_mailbox_node_get_full_name(tree, node2);
+	i_error("Duplicate mailbox GUID %s for mailboxes %s and %s - "
+		"giving a new GUID %s to %s",
+		guid_128_to_string(node1->mailbox_guid),
+		dsync_mailbox_node_get_full_name(tree, node1), node2_name,
+		guid_128_to_string(update.mailbox_guid), node2_name);
+
+	i_assert(node2->ns != NULL);
+	box = mailbox_alloc(node2->ns->list, node2->name, 0);
+	if (mailbox_update(box, &update) < 0) {
+		i_error("Couldn't update mailbox %s GUID: %s",
+			node2->name, mailbox_get_last_error(box, NULL));
+		ret = -1;
+	} else {
+		memcpy(node2->mailbox_guid, update.mailbox_guid,
+		       sizeof(node2->mailbox_guid));
+	}
+	mailbox_free(&box);
+	return ret;
+}
+
 int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 			    struct mail_namespace *ns, const char *box_name)
 {
@@ -205,7 +239,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 		MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	struct mailbox_list_iterate_context *iter;
-	struct dsync_mailbox_node *node;
+	struct dsync_mailbox_node *node, *dup_node1, *dup_node2;
 	const struct mailbox_info *info;
 	const char *list_pattern = box_name != NULL ? box_name : "*";
 	int ret = 0;
@@ -244,12 +278,17 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 		i_error("Mailbox listing for namespace '%s' failed", ns->prefix);
 		ret = -1;
 	}
+	if (ret < 0)
+		return -1;
 
-	if (dsync_mailbox_tree_build_guid_hash(tree) < 0)
-		ret = -1;
+	while (dsync_mailbox_tree_build_guid_hash(tree, &dup_node1,
+						  &dup_node2) < 0) {
+		if (dsync_mailbox_tree_fix_guid_duplicate(tree, dup_node1, dup_node2) < 0)
+			return -1;
+	}
 
 	/* add timestamps */
 	if (dsync_mailbox_tree_add_change_timestamps(tree, ns) < 0)
-		ret = -1;
-	return ret;
+		return -1;
+	return 0;
 }

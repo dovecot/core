@@ -315,7 +315,7 @@ static void dsync_brain_mailbox_trees_sync(struct dsync_brain *brain)
 bool dsync_brain_recv_mailbox_tree(struct dsync_brain *brain)
 {
 	const struct dsync_mailbox_node *remote_node;
-	struct dsync_mailbox_node *node;
+	struct dsync_mailbox_node *node, *dup_node1, *dup_node2;
 	const char *const *parts, *name;
 	struct mail_namespace *ns;
 	enum dsync_ibc_recv_ret ret;
@@ -335,14 +335,22 @@ bool dsync_brain_recv_mailbox_tree(struct dsync_brain *brain)
 		node->ns = ns;
 		dsync_mailbox_node_copy_data(node, remote_node);
 	}
-	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
-		if (dsync_mailbox_tree_build_guid_hash(brain->remote_mailbox_tree) < 0)
-			brain->failed = TRUE;
+	if (ret != DSYNC_IBC_RECV_RET_FINISHED)
+		return changed;
 
-		brain->state = DSYNC_STATE_RECV_MAILBOX_TREE_DELETES;
-		changed = TRUE;
+	if (dsync_mailbox_tree_build_guid_hash(brain->remote_mailbox_tree,
+					       &dup_node1, &dup_node2) < 0) {
+		i_error("Remote sent duplicate mailbox GUID %s for mailboxes %s and %s",
+			guid_128_to_string(dup_node1->mailbox_guid),
+			dsync_mailbox_node_get_full_name(brain->remote_mailbox_tree,
+							 dup_node1),
+			dsync_mailbox_node_get_full_name(brain->remote_mailbox_tree,
+							 dup_node2));
+		brain->failed = TRUE;
 	}
-	return changed;
+
+	brain->state = DSYNC_STATE_RECV_MAILBOX_TREE_DELETES;
+	return TRUE;
 }
 
 static void
@@ -351,7 +359,7 @@ dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 				    const struct dsync_mailbox_delete *other_del)
 {
 	const struct dsync_mailbox_node *node;
-	struct dsync_mailbox_node *other_node;
+	struct dsync_mailbox_node *other_node, *old_node;
 	const char *name;
 
 	/* see if we can find the deletion based on mailbox tree that should
@@ -388,7 +396,8 @@ dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 	other_node->ns = node->ns;
 	other_node->existence = DSYNC_MAILBOX_NODE_DELETED;
 
-	if (dsync_mailbox_tree_guid_hash_add(other_tree, other_node) < 0)
+	if (dsync_mailbox_tree_guid_hash_add(other_tree, other_node,
+					     &old_node) < 0)
 		i_unreached();
 }
 

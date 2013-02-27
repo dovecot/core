@@ -137,11 +137,16 @@ dsync_mailbox_tree_get_deletes(struct dsync_mailbox_tree *tree,
 struct dsync_mailbox_node *
 dsync_mailbox_tree_find_delete(struct dsync_mailbox_tree *tree,
 			       const struct dsync_mailbox_delete *del);
-/* Build GUID lookup hash, if it's not already built. */
-int dsync_mailbox_tree_build_guid_hash(struct dsync_mailbox_tree *tree);
+/* Build GUID lookup hash, if it's not already built. Returns 0 if ok, -1 if
+   there are duplicate GUIDs. The nodes with the duplicate GUIDs are
+   returned. */
+int dsync_mailbox_tree_build_guid_hash(struct dsync_mailbox_tree *tree,
+				       struct dsync_mailbox_node **dup_node1_r,
+				       struct dsync_mailbox_node **dup_node2_r);
 /* Manually add a new node to hash. */
 int dsync_mailbox_tree_guid_hash_add(struct dsync_mailbox_tree *tree,
-				     struct dsync_mailbox_node *node);
+				     struct dsync_mailbox_node *node,
+				     struct dsync_mailbox_node **old_node_r);
 /* Set remote separator used for directory deletions in
    dsync_mailbox_tree_find_delete() */
 void dsync_mailbox_tree_set_remote_sep(struct dsync_mailbox_tree *tree,
