@@ -521,6 +521,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		io_remove(&ctx->io_err);
 	if (ctx->fd_err != -1)
 		i_close_fd(&ctx->fd_err);
+	ctx->input = NULL;
+	ctx->output = NULL;
 	return ret;
 }
 
@@ -552,6 +554,9 @@ static void dsync_connected_callback(enum server_cmd_reply reply, void *context)
 static int dsync_init_ssl_ctx(struct dsync_cmd_context *ctx)
 {
 	struct ssl_iostream_settings ssl_set;
+
+	if (ctx->ssl_ctx != NULL)
+		return 0;
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
 	ssl_set.ca_dir = doveadm_settings->ssl_client_ca_dir;
@@ -611,6 +616,7 @@ static int dsync_connect_tcp(struct dsync_cmd_context *ctx, const char *target,
 
 	if (ctx->error != NULL) {
 		*error_r = ctx->error;
+		ctx->error = NULL;
 		return -1;
 	}
 	ctx->run_type = DSYNC_RUN_TYPE_STREAM;
