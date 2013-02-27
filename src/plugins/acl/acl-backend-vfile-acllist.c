@@ -38,14 +38,16 @@ acllist_clear(struct acl_backend_vfile *backend, uoff_t file_size)
 	}
 }
 
-static const char *acl_list_get_root_dir(struct acl_backend_vfile *backend,
-					 enum mailbox_list_path_type *type_r)
+static bool acl_list_get_root_dir(struct acl_backend_vfile *backend,
+				  const char **root_dir_r,
+				  enum mailbox_list_path_type *type_r)
 {
 	struct mail_storage *storage;
 	const char *rootdir, *maildir;
 
-	rootdir = mailbox_list_get_root_forced(backend->backend.list,
-					       MAILBOX_LIST_PATH_TYPE_DIR);
+	if (!mailbox_list_get_root_path(backend->backend.list,
+					MAILBOX_LIST_PATH_TYPE_DIR, &rootdir))
+		return FALSE;
 	*type_r = MAILBOX_LIST_PATH_TYPE_DIR;
 
 	storage = mailbox_list_get_namespace(backend->backend.list)->storage;
@@ -62,15 +64,20 @@ static const char *acl_list_get_root_dir(struct acl_backend_vfile *backend,
 			*type_r = MAILBOX_LIST_PATH_TYPE_CONTROL;
 		}
 	}
-	return rootdir;
+	*root_dir_r = rootdir;
+	return TRUE;
 }
 
-static const char *acl_list_get_path(struct acl_backend_vfile *backend)
+static bool acl_list_get_path(struct acl_backend_vfile *backend,
+			      const char **path_r)
 {
 	enum mailbox_list_path_type type;
+	const char *root_dir;
 
-	return t_strconcat(acl_list_get_root_dir(backend, &type),
-			   "/"ACLLIST_FILENAME, NULL);
+	if (!acl_list_get_root_dir(backend, &root_dir, &type))
+		return FALSE;
+	*path_r = t_strconcat(root_dir, "/"ACLLIST_FILENAME, NULL);
+	return TRUE;
 }
 
 static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
@@ -83,8 +90,7 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 
 	backend->acllist_last_check = ioloop_time;
 
-	path = acl_list_get_path(backend);
-	if (path == NULL) {
+	if (!acl_list_get_path(backend, &path)) {
 		/* we're never going to build acllist for this namespace. */
 		acllist_clear(backend, 0);
 		return 0;
@@ -216,8 +222,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 
 	i_assert(!backend->rebuilding_acllist);
 
-	rootdir = acl_list_get_root_dir(backend, &type);
-	if (rootdir == NULL)
+	if (!acl_list_get_root_dir(backend, &rootdir, &type))
 		return 0;
 
 	ns = mailbox_list_get_namespace(list);
@@ -290,7 +295,8 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 	}
 
 	if (ret == 0) {
-		acllist_path = acl_list_get_path(backend);
+		if (!acl_list_get_path(backend, &acllist_path))
+			i_unreached();
 		if (rename(str_c(path), acllist_path) < 0) {
 			i_error("rename(%s, %s) failed: %m",
 				str_c(path), acllist_path);
@@ -321,7 +327,8 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 		return 0;
 	else {
 		/* delete it to make sure it gets rebuilt later */
-		acllist_path = acl_list_get_path(backend);
+		if (!acl_list_get_path(backend, &acllist_path))
+			i_unreached();
 		if (unlink(acllist_path) < 0 && errno != ENOENT)
 			i_error("unlink(%s) failed: %m", acllist_path);
 		return -1;
