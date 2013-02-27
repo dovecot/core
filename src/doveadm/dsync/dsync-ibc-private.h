@@ -73,6 +73,7 @@ struct dsync_ibc {
 	void *io_context;
 
 	unsigned int failed:1;
+	unsigned int timeout:1;
 };
 
 #endif

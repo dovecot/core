@@ -160,6 +160,14 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 
 	*_brain = NULL;
 
+	if (dsync_ibc_has_timed_out(brain->ibc)) {
+		i_error("Timeout during state=%s%s",
+			dsync_state_names[brain->state],
+			brain->state != DSYNC_STATE_SYNC_MAILS ? "" :
+			t_strdup_printf(" (send=%s recv=%s)",
+				dsync_box_state_names[brain->box_send_state],
+				dsync_box_state_names[brain->box_recv_state]));
+	}
 	if (dsync_ibc_has_failed(brain->ibc) ||
 	    brain->state != DSYNC_STATE_DONE)
 		brain->failed = TRUE;

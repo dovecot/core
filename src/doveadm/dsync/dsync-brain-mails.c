@@ -8,7 +8,7 @@
 #include "dsync-mailbox-export.h"
 #include "dsync-brain-private.h"
 
-static const char *dsync_box_state_names[DSYNC_BOX_STATE_DONE+1] = {
+const char *dsync_box_state_names[DSYNC_BOX_STATE_DONE+1] = {
 	"mailbox",
 	"changes",
 	"mail_requests",

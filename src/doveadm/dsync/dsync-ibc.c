@@ -188,6 +188,11 @@ bool dsync_ibc_has_failed(struct dsync_ibc *ibc)
 	return ibc->failed;
 }
 
+bool dsync_ibc_has_timed_out(struct dsync_ibc *ibc)
+{
+	return ibc->timeout;
+}
+
 bool dsync_ibc_is_send_queue_full(struct dsync_ibc *ibc)
 {
 	return ibc->v.is_send_queue_full(ibc);

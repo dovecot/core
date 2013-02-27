@@ -94,6 +94,8 @@ struct dsync_brain {
 	unsigned int failed:1;
 };
 
+extern const char *dsync_box_state_names[DSYNC_BOX_STATE_DONE+1];
+
 void dsync_brain_mailbox_trees_init(struct dsync_brain *brain);
 void dsync_brain_send_mailbox_tree(struct dsync_brain *brain);
 void dsync_brain_send_mailbox_tree_deletes(struct dsync_brain *brain);

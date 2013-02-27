@@ -273,6 +273,7 @@ static void dsync_ibc_stream_timeout(struct dsync_ibc_stream *ibc)
 {
 	i_error("dsync(%s): I/O has stalled, no activity for %u seconds",
 		ibc->name, DSYNC_IBC_STREAM_TIMEOUT_MSECS/1000);
+	ibc->ibc.timeout = TRUE;
 	dsync_ibc_stream_stop(ibc);
 }
 
