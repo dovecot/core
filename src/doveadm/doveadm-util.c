@@ -160,7 +160,6 @@ int doveadm_connect_with_default_port(const char *path,
 		fd = net_connect_unix(path);
 		if (fd == -1)
 			i_fatal("net_connect_unix(%s) failed: %m", path);
-		return -1;
 	}
 	return fd;
 }
