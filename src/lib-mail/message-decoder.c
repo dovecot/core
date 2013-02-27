@@ -222,7 +222,7 @@ static void translation_buf_decode(struct message_decoder_context *ctx,
 	(void)charset_to_utf8(ctx->charset_trans, trans_buf,
 			      &trans_size, ctx->buf2);
 
-	if (trans_size < ctx->translation_size) {
+	if (trans_size <= ctx->translation_size) {
 		/* need more data to finish the translation. */
 		i_assert(orig_size < MAX_TRANSLATION_BUF_SIZE);
 		memcpy(ctx->translation_buf, trans_buf, orig_size);
