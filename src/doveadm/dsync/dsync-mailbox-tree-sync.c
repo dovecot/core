@@ -990,17 +990,8 @@ static void sync_create_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 		other_node = hash_table_lookup(other_tree->guid_hash, guid_p);
 		if (other_node == NULL)
 			other_node = sorted_tree_get(other_tree, name);
-		if (!dsync_mailbox_node_is_dir(other_node)) {
-			/* mailbox with same name exists both locally and
-			   remotely, but they have different GUIDs and neither
-			   side has the other's GUID. typically this means that
-			   both sides had autocreated some mailboxes (e.g.
-			   INBOX). we'll just change the GUID for one of
-			   them. */
-			i_assert(node->existence == DSYNC_MAILBOX_NODE_EXISTS);
-			if (other_tree == ctx->local_tree)
-				sync_add_create_change(ctx, node, name);
-		} else {
+		if (dsync_mailbox_node_is_dir(other_node)) {
+			/* create a missing mailbox */
 			other_node->existence = DSYNC_MAILBOX_NODE_EXISTS;
 			other_node->ns = node->ns;
 			other_node->uid_validity = node->uid_validity;
@@ -1008,6 +999,24 @@ static void sync_create_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 			       sizeof(other_node->mailbox_guid));
 			if (other_tree == ctx->local_tree)
 				sync_add_create_change(ctx, other_node, name);
+		} else if (!guid_128_equals(node->mailbox_guid,
+					    other_node->mailbox_guid)) {
+			/* mailbox with same name exists both locally and
+			   remotely, but they have different GUIDs and neither
+			   side has the other's GUID. typically this means that
+			   both sides had autocreated some mailboxes (e.g.
+			   INBOX). we'll just change the GUID for one of
+			   them. */
+			i_assert(node->existence == DSYNC_MAILBOX_NODE_EXISTS);
+			i_assert(node->ns == other_node->ns);
+
+			if (other_tree == ctx->local_tree)
+				sync_add_create_change(ctx, node, name);
+		} else {
+			/* existing mailbox. mismatching UIDVALIDITY is handled
+			   later while syncing the mailbox. */
+			i_assert(node->existence == DSYNC_MAILBOX_NODE_EXISTS);
+			i_assert(node->ns == other_node->ns);
 		}
 	}
 	dsync_mailbox_tree_iter_deinit(&iter);
