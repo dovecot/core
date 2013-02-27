@@ -207,7 +207,7 @@ static void translation_buf_decode(struct message_decoder_context *ctx,
 {
 	unsigned char trans_buf[MAX_TRANSLATION_BUF_SIZE+1];
 	unsigned int data_wanted, skip;
-	size_t trans_size;
+	size_t trans_size, orig_size;
 
 	/* @UNSAFE: move the previously untranslated bytes to trans_buf
 	   and see if we have now enough data to get the next character
@@ -218,11 +218,19 @@ static void translation_buf_decode(struct message_decoder_context *ctx,
 		data_wanted = *size;
 	memcpy(trans_buf + ctx->translation_size, *data, data_wanted);
 
-	trans_size = ctx->translation_size + data_wanted;
+	orig_size = trans_size = ctx->translation_size + data_wanted;
 	(void)charset_to_utf8(ctx->charset_trans, trans_buf,
 			      &trans_size, ctx->buf2);
 
-	i_assert(trans_size > ctx->translation_size);
+	if (trans_size < ctx->translation_size) {
+		/* need more data to finish the translation. */
+		i_assert(orig_size < MAX_TRANSLATION_BUF_SIZE);
+		memcpy(ctx->translation_buf, trans_buf, orig_size);
+		ctx->translation_size = orig_size;
+		*data += *size;
+		*size = 0;
+		return;
+	}
 	skip = trans_size - ctx->translation_size;
 
 	i_assert(*size >= skip);
