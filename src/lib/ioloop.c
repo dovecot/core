@@ -193,7 +193,7 @@ static void ATTR_NULL(2)
 timeout_reset_timeval(struct timeout *timeout, struct timeval *tv_now)
 {
 	timeout_update_next(timeout, tv_now);
-	if (timeout->msecs == 0) {
+	if (timeout->msecs <= 1) {
 		/* if we came here from io_loop_handle_timeouts(),
 		   next_run must be larger than tv_now or we could go to
 		   infinite loop. +1000 to get 1 ms further, another +1000 to
