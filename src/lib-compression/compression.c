@@ -9,6 +9,8 @@
 #ifndef HAVE_ZLIB
 #  define i_stream_create_gz NULL
 #  define o_stream_create_gz NULL
+#  define i_stream_create_deflate NULL
+#  define o_stream_create_deflate NULL
 #endif
 #ifndef HAVE_BZLIB
 #  define i_stream_create_bz2 NULL

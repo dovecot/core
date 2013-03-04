@@ -14,8 +14,33 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-const char *doveadm_zlib_plugin_version = DOVECOT_ABI_VERSION;
+static bool test_dump_imapzlib(const char *path)
+{
+	const char *p;
+	char buf[4096];
+	int fd, ret;
+	bool match = FALSE;
 
+	p = strrchr(path, '.');
+	if (p == NULL || (strcmp(p, ".in") != 0 && strcmp(p, ".out") != 0))
+		return FALSE;
+
+	fd = open(path, O_RDONLY);
+	if (fd == -1)
+		return FALSE;
+
+	ret = read(fd, buf, sizeof(buf)-1);
+	if (ret > 0) {
+		buf[ret] = '\0';
+		(void)str_lcase(buf);
+		match = strstr(buf, " ok begin compression.") != NULL ||
+			strstr(buf, " compress deflate") != NULL;
+	}
+	i_close_fd(&fd);
+	return match;
+}
+
+#ifdef HAVE_ZLIB
 static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[])
 {
 	struct istream *input, *input2;
@@ -50,32 +75,6 @@ static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[])
 	}
 	i_stream_unref(&input2);
 	fflush(stdout);
-}
-
-static bool test_dump_imapzlib(const char *path)
-{
-	const char *p;
-	char buf[4096];
-	int fd, ret;
-	bool match = FALSE;
-
-	p = strrchr(path, '.');
-	if (p == NULL || (strcmp(p, ".in") != 0 && strcmp(p, ".out") != 0))
-		return FALSE;
-
-	fd = open(path, O_RDONLY);
-	if (fd == -1)
-		return FALSE;
-
-	ret = read(fd, buf, sizeof(buf)-1);
-	if (ret > 0) {
-		buf[ret] = '\0';
-		(void)str_lcase(buf);
-		match = strstr(buf, " ok begin compression.") != NULL ||
-			strstr(buf, " compress deflate") != NULL;
-	}
-	i_close_fd(&fd);
-	return match;
 }
 
 struct client {
@@ -176,6 +175,17 @@ static void cmd_zlibconnect(int argc ATTR_UNUSED, char *argv[])
 	if (close(fd) < 0)
 		i_fatal("close() failed: %m");
 }
+#else
+static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
+{
+	i_fatal("Dovecot compiled without zlib support");
+}
+
+static void cmd_zlibconnect(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
+{
+	i_fatal("Dovecot compiled without zlib support");
+}
+#endif
 
 struct doveadm_cmd_dump doveadm_cmd_dump_zlib = {
 	"imapzlib",
