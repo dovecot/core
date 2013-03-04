@@ -19,6 +19,7 @@ raw_storage_create_from_set(const struct setting_parser_info *set_info,
 	struct mail_user *user;
 	struct mail_namespace *ns;
 	struct mail_namespace_settings *ns_set;
+	struct mail_storage_settings *mail_set;
 	const char *error;
 
 	user = mail_user_alloc("raw mail user", set_info, set);
@@ -38,6 +39,12 @@ raw_storage_create_from_set(const struct setting_parser_info *set_info,
 	ns->flags &= ~NAMESPACE_FLAG_INBOX_USER;
 	ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
 	ns->set = ns_set;
+	/* absolute paths are ok with raw storage */
+	mail_set = p_new(user->pool, struct mail_storage_settings, 1);
+	*mail_set = *ns->mail_set;
+	mail_set->mail_full_filesystem_access = TRUE;
+	ns->mail_set = mail_set;
+
 	if (mail_storage_create(ns, "raw", 0, &error) < 0)
 		i_fatal("Couldn't create internal raw storage: %s", error);
 	return user;
