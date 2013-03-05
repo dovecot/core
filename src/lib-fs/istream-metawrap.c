@@ -9,7 +9,7 @@ struct metawrap_istream {
 	metawrap_callback_t *callback;
 	void *context;
 
-	uoff_t start_offset;
+	uoff_t start_offset, pending_seek;
 	bool in_metadata;
 };
 
@@ -57,6 +57,10 @@ static ssize_t i_stream_metawrap_read(struct istream_private *stream)
 		/* this stream is kind of silently skipping over the metadata */
 		stream->abs_start_offset += mstream->start_offset;
 		mstream->in_metadata = FALSE;
+		if (mstream->pending_seek != 0) {
+			i_stream_seek(&stream->istream, mstream->pending_seek);
+			return i_stream_read(&stream->istream);
+		}
 	}
 	/* after metadata header it's all just passthrough */
 	return i_stream_read_copy_from_parent(&stream->istream);
@@ -68,11 +72,15 @@ i_stream_metawrap_seek(struct istream_private *stream,
 {
 	struct metawrap_istream *mstream = (struct metawrap_istream *)stream;
 
-	/* support seeking only after reading the metadata */
-	i_assert(!mstream->in_metadata ||
-		 (mstream->start_offset == 0 && v_offset == 0));
-
-	stream->istream.v_offset = v_offset;
+	if (!mstream->in_metadata) {
+		/* already read through metadata. we can skip directly. */
+		stream->istream.v_offset = v_offset;
+		mstream->pending_seek = 0;
+	} else {
+		/* we need to read through the metadata first */
+		mstream->pending_seek = v_offset;
+		stream->istream.v_offset = 0;
+	}
 	stream->skip = stream->pos = 0;
 }
 
