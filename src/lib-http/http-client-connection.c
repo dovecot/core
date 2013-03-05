@@ -787,6 +787,7 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 
 	http_client_connection_debug(conn, "Connection destroy");
 
+	conn->closing = TRUE;
 	conn->connected = FALSE;
 
 #ifdef HTTP_BUILD_SSL

@@ -91,42 +91,51 @@ http_client_peer_get_hostname(struct http_client_peer *peer)
 }
 
 static int
-http_client_peer_connect(struct http_client_peer *peer)
+http_client_peer_connect(struct http_client_peer *peer, unsigned int count)
 {
 	struct http_client_connection *conn;
+	unsigned int i;
 
-	conn = http_client_connection_create(peer);
-	if (conn == NULL) {
-		http_client_peer_debug(peer, "Failed to make new connection");
-		return -1;
+	for (i = 0; i < count; i++) {
+		http_client_peer_debug(peer, "Making new connection %u of %u", i+1, count);
+
+		conn = http_client_connection_create(peer);
+		if (conn == NULL) {
+			http_client_peer_debug(peer, "Failed to make new connection");
+			return -1;
+		}
 	}
 
 	return 0;
 }
 
-static bool
-http_client_peer_requests_pending(struct http_client_peer *peer, bool urgent)
+static unsigned int
+http_client_peer_requests_pending(struct http_client_peer *peer, unsigned int *num_urgent_r)
 {
 	struct http_client_host *const *host;
+	unsigned int num_requests = 0, num_urgent = 0, requests, urgent;
 
 	array_foreach(&peer->hosts, host) {
-		if (http_client_host_have_requests(*host, &peer->addr, urgent))
-			return TRUE;
-	}
+		requests = http_client_host_requests_pending(*host, &peer->addr, &urgent);
 
-	return FALSE;
+		num_requests += requests;
+		num_urgent += urgent;
+	}
+	*num_urgent_r = num_urgent;
+	return num_requests;
 }
 
 static bool
-http_client_peer_next_request(struct http_client_peer *peer,
-	bool urgent)
+http_client_peer_next_request(struct http_client_peer *peer)
 {
 	struct http_client_connection *const *conn_idx;
 	struct http_client_connection *conn = NULL;
-	unsigned int closing = 0, min_waiting = UINT_MAX;
-	
+	unsigned int connecting = 0, closing = 0, min_waiting = UINT_MAX;
+	unsigned int num_urgent, new_connections;
+
 	/* at this point we already know that a request for this peer is pending
 	 */
+	(void)http_client_peer_requests_pending(peer, &num_urgent);
 
 	/* find the least busy connection */
 	array_foreach(&peer->conns, conn_idx) {
@@ -135,23 +144,27 @@ http_client_peer_next_request(struct http_client_peer *peer,
 			if (waiting < min_waiting) {
 				min_waiting = waiting;
 				conn = *conn_idx;
-				if (min_waiting == 0)
+				if (min_waiting == 0) {
+					/* found idle connection, use it now */
 					break;
+				}
 			}
 		}
-		/* count the number of closing connections */
+		/* count the number of connecting and closing connections */
 		if ((*conn_idx)->closing)
 			closing++;
+		else if (!(*conn_idx)->connected)
+			connecting++;
 	}
 
-	/* do we have an idle connection? */
+	/* did we find an idle connection? */
 	if (conn != NULL && min_waiting == 0) {
-		/* yes */
+		/* yes, use it */
 		return http_client_connection_next_request(conn);
 	}
 
 	/* no, but can we create a new connection? */		
-	if (!urgent && (array_count(&peer->conns) - closing) >=
+	if (num_urgent == 0 && (array_count(&peer->conns) - closing) >=
 		peer->client->set.max_parallel_connections) {
 		/* no */
 		if (conn == NULL)
@@ -160,8 +173,13 @@ http_client_peer_next_request(struct http_client_peer *peer,
 		return http_client_connection_next_request(conn);
 	}
 
-	/* yes */
-	if (http_client_peer_connect(peer) < 0) {
+	/* yes, determine how many connections to set up */
+	if (num_urgent == 0) {
+		new_connections = 1;
+	} else {
+		new_connections = (num_urgent > connecting ? num_urgent - connecting : 0);
+	}
+	if (http_client_peer_connect(peer, new_connections) < 0) {
 		/* connection failed */
 		if (conn == NULL)
 			return FALSE;
@@ -175,17 +193,7 @@ http_client_peer_next_request(struct http_client_peer *peer,
 
 void http_client_peer_handle_requests(struct http_client_peer *peer)
 {
-	/* check urgent requests first */
-	while (http_client_peer_requests_pending(peer, TRUE)) {
-		if (!http_client_peer_next_request(peer, TRUE))
-			break;
-	}
-
-	/* check normal requests once we're done */
-	while (http_client_peer_requests_pending(peer, FALSE)) {
-		if (!http_client_peer_next_request(peer, FALSE))
-			break;
-	}
+	while (http_client_peer_next_request(peer)) ;
 }
 
 static struct http_client_peer *
@@ -234,7 +242,7 @@ http_client_peer_create(struct http_client *client,
 	}
 #endif
 
-	if (http_client_peer_connect(peer) < 0) {
+	if (http_client_peer_connect(peer, 1) < 0) {
 		http_client_peer_free(&peer);
 		return NULL;
 	}
@@ -308,7 +316,7 @@ void http_client_peer_add_host(struct http_client_peer *peer,
 	if (!exists)
 		array_append(&peer->hosts, &host, 1);
 	if (exists || array_count(&peer->hosts) > 1)
-		(void)http_client_peer_next_request(peer, FALSE);
+		(void)http_client_peer_next_request(peer);
 }
 
 struct http_client_request *
@@ -343,6 +351,8 @@ void http_client_peer_connection_failure(struct http_client_peer *peer)
 
 void http_client_peer_connection_lost(struct http_client_peer *peer)
 {
+	unsigned int num_urgent;
+
 	if (peer->destroyed)
 		return;
 
@@ -350,12 +360,10 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 		array_count(&peer->conns));
 
 	if (array_count(&peer->conns) == 0) {
-		if (http_client_peer_requests_pending(peer, TRUE))
-			(void)http_client_peer_next_request(peer, TRUE);
-		else if (http_client_peer_requests_pending(peer, FALSE))
-			(void)http_client_peer_next_request(peer, FALSE);
-		else
-			http_client_peer_free(&peer);
+		if (!http_client_peer_next_request(peer)) {
+			if (http_client_peer_requests_pending(peer, &num_urgent) == 0)
+				http_client_peer_free(&peer);
+		}
 	}
 }
 

@@ -68,7 +68,6 @@ http_client_host_port_init(struct http_client_host *host,
 		hport->ssl = ssl;
 		hport->ips_connect_idx = 0;
 		i_array_init(&hport->request_queue, 16);
-		i_array_init(&hport->urgent_request_queue, 4);
 	}
 
 	return hport;
@@ -83,11 +82,7 @@ static void http_client_host_port_error(struct http_client_host_port *hport,
 	array_foreach_modifiable(&hport->request_queue, req) {
 		http_client_request_error(*req, status, error);
 	}
-	array_foreach_modifiable(&hport->urgent_request_queue, req) {
-		http_client_request_error(*req, status, error);
-	}
 	array_clear(&hport->request_queue);
-	array_clear(&hport->urgent_request_queue);
 }
 
 static void http_client_host_port_deinit(struct http_client_host_port *hport)
@@ -95,7 +90,6 @@ static void http_client_host_port_deinit(struct http_client_host_port *hport)
 	http_client_host_port_error
 		(hport, HTTP_CLIENT_REQUEST_ERROR_ABORTED, "Aborted");
 	array_free(&hport->request_queue);
-	array_free(&hport->urgent_request_queue);
 }
 
 static void
@@ -103,14 +97,12 @@ http_client_host_port_drop_request(struct http_client_host_port *hport,
 	struct http_client_request *req)
 {
 	struct http_client_request **req_idx;
-	ARRAY_TYPE(http_client_request) *queue =
-		(req->urgent ? &hport->urgent_request_queue : &hport->request_queue);
 	unsigned int idx;
 
-	array_foreach_modifiable(queue, req_idx) {
+	array_foreach_modifiable(&hport->request_queue, req_idx) {
 		if (*req_idx == req) {
-			idx = array_foreach_idx(queue, req_idx);
-			array_delete(queue, idx, 1);
+			idx = array_foreach_idx(&hport->request_queue, req_idx);
+			array_delete(&hport->request_queue, idx, 1);
 			break;
 		}
 	}
@@ -297,7 +289,7 @@ void http_client_host_submit_request(struct http_client_host *host,
 	/* add request to host (grouped by tcp port) */
 	hport = http_client_host_port_init(host, req->port, req->ssl);
 	if (req->urgent)
-		array_append(&hport->urgent_request_queue, &req, 1);
+		array_insert(&hport->request_queue, 0, &req, 1);
 	else
 		array_append(&hport->request_queue, &req, 1);
 
@@ -316,23 +308,26 @@ http_client_host_claim_request(struct http_client_host *host,
 	const struct http_client_peer_addr *addr, bool no_urgent)
 {
 	struct http_client_host_port *hport;
-	struct http_client_request *const *req_idx;
+	struct http_client_request *const *requests;
 	struct http_client_request *req;
+	unsigned int i, count;
 
 	hport = http_client_host_port_find(host, addr->port, addr->ssl);
 	if (hport == NULL)
 		return NULL;
-	if (!no_urgent && array_count(&hport->urgent_request_queue) > 0) {
-		req_idx = array_idx(&hport->urgent_request_queue, 0);
-		req = *req_idx;
-		array_delete(&hport->urgent_request_queue, 0, 1);
-	} else if (array_count(&hport->request_queue) > 0) {
-		req_idx = array_idx(&hport->request_queue, 0);
-		req = *req_idx;
-		array_delete(&hport->request_queue, 0, 1);
-	} else {
+
+	requests = array_get(&hport->request_queue, &count);
+	if (count == 0)
 		return NULL;
+	i = 0;
+	if (requests[0]->urgent && no_urgent) {
+		for (; requests[i]->urgent; i++) {
+			if (i == count)
+				return NULL;
+		}
 	}
+	req = requests[i];
+	array_delete(&hport->request_queue, i, 1);
 
 	http_client_host_debug(host,
 		"Connection to peer %s:%u claimed request %s %s",
@@ -342,18 +337,23 @@ http_client_host_claim_request(struct http_client_host *host,
 	return req;
 }
 
-bool http_client_host_have_requests(struct http_client_host *host,
-	const struct http_client_peer_addr *addr, bool urgent)
+unsigned int http_client_host_requests_pending(struct http_client_host *host,
+	const struct http_client_peer_addr *addr, unsigned int *num_urgent_r)
 {
 	struct http_client_host_port *hport;
+	struct http_client_request *const *requests;
+	unsigned int count, i;
+
+	*num_urgent_r = 0;
 
 	hport = http_client_host_port_find(host, addr->port, addr->ssl);
 	if (hport == NULL)
-		return FALSE;
-	
-	if (urgent)
-		return (array_count(&hport->urgent_request_queue) > 0);
-	return (array_count(&hport->request_queue) > 0);
+		return 0;
+
+	requests = array_get(&hport->request_queue, &count);
+	for (i = 0; i < count && requests[i]->urgent; i++)
+		(*num_urgent_r)++;
+	return count;
 }
 
 void http_client_host_drop_request(struct http_client_host *host,
@@ -364,7 +364,7 @@ void http_client_host_drop_request(struct http_client_host *host,
 	hport = http_client_host_port_find(host, req->port, req->ssl);
 	if (hport == NULL)
 		return;
-	
+
 	http_client_host_port_drop_request(hport, req);
 }
 

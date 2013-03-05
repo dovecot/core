@@ -87,9 +87,6 @@ struct http_client_host_port {
 	/* requests pending in queue to be picked up by connections */
 	ARRAY_TYPE(http_client_request) request_queue;
 
-	/* urgent request queue */
-	ARRAY_TYPE(http_client_request) urgent_request_queue;
-
 	unsigned int ssl:1;
 };
 
@@ -258,8 +255,8 @@ http_client_host_claim_request(struct http_client_host *host,
 	const struct http_client_peer_addr *addr, bool no_urgent);
 void http_client_host_connection_failure(struct http_client_host *host,
 	const struct http_client_peer_addr *addr);
-bool http_client_host_have_requests(struct http_client_host *host,
-	const struct http_client_peer_addr *addr, bool urgent);
+unsigned int http_client_host_requests_pending(struct http_client_host *host,
+	const struct http_client_peer_addr *addr, unsigned int *num_urgent_r);
 void http_client_host_drop_request(struct http_client_host *host,
 	struct http_client_request *req);
 void http_client_host_switch_ioloop(struct http_client_host *host);
