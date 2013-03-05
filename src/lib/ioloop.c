@@ -665,3 +665,10 @@ bool io_loop_have_ios(struct ioloop *ioloop)
 {
 	return ioloop->io_files;
 }
+
+bool io_loop_have_immediate_timeouts(struct ioloop *ioloop)
+{
+	struct timeval tv;
+
+	return io_loop_get_wait_time(ioloop, &tv) == 0;
+}

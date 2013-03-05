@@ -139,5 +139,8 @@ struct io *io_loop_move_io(struct io **io);
 struct timeout *io_loop_move_timeout(struct timeout **timeout);
 /* Returns TRUE if any IOs have been added to the ioloop. */
 bool io_loop_have_ios(struct ioloop *ioloop);
+/* Returns TRUE if there is a pending timeout that is going to be run
+   immediately. */
+bool io_loop_have_immediate_timeouts(struct ioloop *ioloop);
 
 #endif
