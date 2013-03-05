@@ -160,7 +160,10 @@ void http_client_wait(struct http_client *client)
 
 	client->ioloop = io_loop_create();
 	http_client_switch_ioloop(client);
-	i_assert(io_loop_have_ios(client->ioloop));
+	/* either we're waiting for network I/O or we're getting out of a
+	   callback using timeout_add_short(0) */
+	i_assert(io_loop_have_ios(client->ioloop) ||
+		 io_loop_have_immediate_timeouts(client->ioloop));
 
 	do {
 		http_client_debug(client,
