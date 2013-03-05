@@ -200,6 +200,7 @@ http_client_connection_continue_timeout(struct http_client_connection *conn)
 {
 	struct http_client_request *const *req_idx;
 	struct http_client_request *req;
+	const char *error;
 
 	if (conn->to_response != NULL)
 		timeout_remove(&conn->to_response);
@@ -212,18 +213,19 @@ http_client_connection_continue_timeout(struct http_client_connection *conn)
 	req = req_idx[0];
 
 	conn->payload_continue = TRUE;
-	if (http_client_request_send_more(req) < 0) {
+	if (http_client_request_send_more(req, &error) < 0) {
 		http_client_connection_abort_temp_error(&conn,
-			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST, "Failed to send request");
+			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
+			t_strdup_printf("Failed to send request: %s", error));
 	}
 }
 
 bool http_client_connection_next_request(struct http_client_connection *conn)
 {
 	struct http_client_request *req = NULL;
+	const char *error;
 
 	if (!http_client_connection_is_ready(conn)) {
-		
 		http_client_connection_debug(conn, "Not ready for next request");
 		return FALSE;
 	}
@@ -250,10 +252,10 @@ bool http_client_connection_next_request(struct http_client_connection *conn)
 	http_client_connection_debug(conn, "Claimed request %s",
 		http_client_request_label(req));
 
-	if (http_client_request_send(req) < 0) {
+	if (http_client_request_send(req, &error) < 0) {
 		http_client_connection_abort_temp_error(&conn,
 			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
-			"Failed to send request");
+			t_strdup_printf("Failed to send request: %s", error));
 		return FALSE;
 	}
 
@@ -292,8 +294,10 @@ static void http_client_connection_destroy(struct connection *_conn)
 		break;
 	case CONNECTION_DISCONNECT_CONN_CLOSED:
 		/* retry pending requests if possible */
+		errno = _conn->input->stream_errno;
 		http_client_connection_retry_requests(conn,
-			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST, "Connection lost");
+			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
+			t_strdup_printf("Connection lost: %m"));
 	default:
 		break;
 	}
@@ -459,10 +463,10 @@ static void http_client_connection_input(struct connection *_conn)
 			conn->payload_continue = TRUE;
 			http_client_connection_debug(conn,
 				"Got expected 100-continue response");
-			if (http_client_request_send_more(req) < 0) {
+			if (http_client_request_send_more(req, &error) < 0) {
 				http_client_connection_abort_temp_error(&conn,
 					HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
-					"Failed to send request");
+					t_strdup_printf("Failed to send request: %s", error));
 			}
 			return;
 		} else if (response->status / 100 == 1) {
@@ -523,13 +527,14 @@ static void http_client_connection_input(struct connection *_conn)
 	}
 
 	if (ret <= 0 &&
-		(conn->conn.input->eof || conn->conn.input->stream_errno != 0)) {
+	    (conn->conn.input->eof || conn->conn.input->stream_errno != 0)) {
 		int stream_errno = conn->conn.input->stream_errno;
-		http_client_connection_debug(conn,
-			"Lost connection to server (error=%s)",
-			stream_errno != 0 ? strerror(stream_errno) : "EOF");
 		http_client_connection_abort_temp_error(&conn,
-			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST, "Connection lost");
+			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
+			t_strdup_printf("Connection lost: read(%s) failed: %s",
+					i_stream_get_name(conn->conn.input),
+					stream_errno != 0 ?
+					strerror(stream_errno) : "EOF"));
 		return;
 	}
 
@@ -550,12 +555,15 @@ static int http_client_connection_output(struct http_client_connection *conn)
 {
 	struct http_client_request *const *req_idx, *req;
 	struct ostream *output = conn->conn.output;
+	const char *error;
 	int ret;
 
 	if ((ret = o_stream_flush(output)) <= 0) {
 		if (ret < 0) {
 			http_client_connection_abort_temp_error(&conn,
-				HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST, "Connection lost");
+				HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
+				t_strdup_printf("Connection lost: write(%s) failed: %m",
+						o_stream_get_name(output)));
 		}
 		return ret;
 	}
@@ -565,9 +573,10 @@ static int http_client_connection_output(struct http_client_connection *conn)
 		req = req_idx[0];
 
 		if (!req->payload_sync || conn->payload_continue) {
-			if (http_client_request_send_more(req) < 0) {
+			if (http_client_request_send_more(req, &error) < 0) {
 				http_client_connection_abort_temp_error(&conn,
-					HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST, "Connection lost");
+					HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
+					t_strdup_printf("Connection lost: %s", error));
 				return -1;
 			}
 			if (!conn->output_locked) {

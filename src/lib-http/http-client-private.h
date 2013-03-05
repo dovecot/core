@@ -200,8 +200,10 @@ http_client_connection_label(struct http_client_connection *conn)
 
 void http_client_request_ref(struct http_client_request *req);
 void http_client_request_unref(struct http_client_request **_req);
-int http_client_request_send(struct http_client_request *req);
-int http_client_request_send_more(struct http_client_request *req);
+int http_client_request_send(struct http_client_request *req,
+			     const char **error_r);
+int http_client_request_send_more(struct http_client_request *req,
+				  const char **error_r);
 void http_client_request_callback(struct http_client_request *req,
 	struct http_response *response);
 void http_client_request_resubmit(struct http_client_request *req);

@@ -215,6 +215,7 @@ http_client_request_continue_payload(struct http_client_request **_req,
 			http_client_request_finish_payload_out(req);
 	} else { 
 		req->payload_input = i_stream_create_from_data(data, size);
+		i_stream_set_name(req->payload_input, "<HTTP request payload>");
 	}
 	req->payload_size = 0;
 	req->payload_chunked = TRUE;
@@ -275,19 +276,31 @@ int http_client_request_finish_payload(struct http_client_request **_req)
 	return http_client_request_continue_payload(_req, NULL, 0);
 }
 
-int http_client_request_send_more(struct http_client_request *req)
+int http_client_request_send_more(struct http_client_request *req,
+				  const char **error_r)
 {
 	struct http_client_connection *conn = req->conn;
 	struct ostream *output = req->payload_output;
-	int ret = 0;
+	off_t ret;
 
 	i_assert(req->payload_input != NULL);
 
 	/* chunked ostream needs to write to the parent stream's buffer */
 	o_stream_set_max_buffer_size(output, IO_BLOCK_SIZE);
-	if (o_stream_send_istream(output, req->payload_input) < 0)
-		ret = -1;
+	ret = o_stream_send_istream(output, req->payload_input);
 	o_stream_set_max_buffer_size(output, (size_t)-1);
+
+	if (req->payload_input->stream_errno != 0) {
+		errno = req->payload_input->stream_errno;
+		*error_r = t_strdup_printf("read(%s) failed: %m",
+					   i_stream_get_name(req->payload_input));
+	} else if (output->stream_errno != 0) {
+		errno = output->stream_errno;
+		*error_r = t_strdup_printf("write(%s) failed: %m",
+					   o_stream_get_name(output));
+	} else {
+		i_assert(ret >= 0);
+	}
 
 	if (!i_stream_have_bytes_left(req->payload_input)) {
 		if (!req->payload_chunked &&
@@ -309,10 +322,11 @@ int http_client_request_send_more(struct http_client_request *req)
 		o_stream_set_flush_pending(output, TRUE);
 		http_client_request_debug(req, "Partially sent payload");
 	}
-	return ret;
+	return ret < 0 ? -1 : 0;
 }
 
-int http_client_request_send(struct http_client_request *req)
+int http_client_request_send(struct http_client_request *req,
+			     const char **error_r)
 {
 	struct http_client_connection *conn = req->conn;
 	struct ostream *output = conn->conn.output;
@@ -356,14 +370,17 @@ int http_client_request_send(struct http_client_request *req)
 
 	req->state = HTTP_REQUEST_STATE_PAYLOAD_OUT;
 	o_stream_cork(output);
-	if (o_stream_sendv(output, iov, N_ELEMENTS(iov)) < 0)
+	if (o_stream_sendv(output, iov, N_ELEMENTS(iov)) < 0) {
+		*error_r = t_strdup_printf("write(%s) failed: %m",
+					   o_stream_get_name(output));
 		ret = -1;
+	}
 
 	http_client_request_debug(req, "Sent header");
 
 	if (ret >= 0 && req->payload_output != NULL) {
 		if (!req->payload_sync) {
-			if (http_client_request_send_more(req) < 0)
+			if (http_client_request_send_more(req, error_r) < 0)
 				ret = -1;
 		} else {
 			http_client_request_debug(req, "Waiting for 100-continue");
