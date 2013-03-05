@@ -354,6 +354,7 @@ void connection_list_deinit(struct connection_list **_list)
 
 	while (list->connections != NULL) {
 		conn = list->connections;
+		conn->disconnect_reason = CONNECTION_DISCONNECT_DEINIT;
 		list->v.destroy(conn);
 		i_assert(conn != list->connections);
 	}
