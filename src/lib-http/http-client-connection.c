@@ -284,6 +284,7 @@ static void http_client_connection_destroy(struct connection *_conn)
 {
 	struct http_client_connection *conn =
 		(struct http_client_connection *)_conn;
+	const char *error;
 
 	conn->closing = TRUE;
 	conn->connected = FALSE;
@@ -294,10 +295,11 @@ static void http_client_connection_destroy(struct connection *_conn)
 		break;
 	case CONNECTION_DISCONNECT_CONN_CLOSED:
 		/* retry pending requests if possible */
-		errno = _conn->input->stream_errno;
+		error = _conn->input == NULL ? "Connection lost" :
+			t_strdup_printf("Connection lost: %s",
+					strerror(_conn->input->stream_errno));
 		http_client_connection_retry_requests(conn,
-			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
-			t_strdup_printf("Connection lost: %m"));
+			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST, error);
 	default:
 		break;
 	}
