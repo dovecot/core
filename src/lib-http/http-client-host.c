@@ -142,6 +142,9 @@ http_client_host_connection_setup(struct http_client_host *host,
 	}
 
 	if (peer == NULL) {
+		/* all IPs failed, but retry all of them again on the
+		   next request. */
+		hport->ips_connect_idx = 0;
 		http_client_host_port_error
 			(hport, HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, "Connection failed");
 		if (host->client->ioloop != NULL)
