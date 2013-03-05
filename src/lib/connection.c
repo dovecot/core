@@ -116,11 +116,13 @@ static void connection_init_streams(struct connection *conn)
 	if (set->input_max_size != 0) {
 		conn->input = i_stream_create_fd(conn->fd_in,
 						 set->input_max_size, FALSE);
+		i_stream_set_name(conn->input, conn->name);
 	}
 	if (set->output_max_size != 0) {
 		conn->output = o_stream_create_fd(conn->fd_out,
 						  set->output_max_size, FALSE);
 		o_stream_set_no_error_handling(conn->output, TRUE);
+		o_stream_set_name(conn->output, conn->name);
 	}
 	conn->io = io_add(conn->fd_in, IO_READ, *conn->list->v.input, conn);
 	if (set->input_idle_timeout_secs != 0) {
