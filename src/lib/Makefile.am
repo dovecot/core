@@ -99,8 +99,9 @@ liblib_la_SOURCES = \
 	nfs-workarounds.c \
 	numpack.c \
 	ostream.c \
-	ostream-file.c \
 	ostream-buffer.c \
+	ostream-file.c \
+	ostream-hash.c \
 	ostream-rawlog.c \
 	primes.c \
 	printf-format-fix.c \
@@ -215,6 +216,7 @@ headers = \
 	nfs-workarounds.h \
 	numpack.h \
 	ostream.h \
+	ostream-hash.h \
 	ostream-private.h \
 	ostream-rawlog.h \
 	primes.h \
