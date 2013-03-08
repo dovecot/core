@@ -354,7 +354,9 @@ int http_client_request_send(struct http_client_request *req,
 		str_append(rtext, "Transfer-Encoding: chunked\r\n");
 		req->payload_output =
 			http_transfer_chunked_ostream_create(output);
-	} else if (req->payload_size != 0) {
+	} else if (req->payload_input != NULL) {
+		/* send Content-Length if we have specified a payload,
+		   even if it's 0 bytes. */
 		str_printfa(rtext, "Content-Length: %"PRIuUOFF_T"\r\n",
 			    req->payload_size);
 		req->payload_output = output;
