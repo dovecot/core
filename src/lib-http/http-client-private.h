@@ -191,7 +191,7 @@ int http_client_request_send(struct http_client_request *req,
 			     const char **error_r);
 int http_client_request_send_more(struct http_client_request *req,
 				  const char **error_r);
-void http_client_request_callback(struct http_client_request *req,
+bool http_client_request_callback(struct http_client_request *req,
 	struct http_response *response);
 void http_client_request_resubmit(struct http_client_request *req);
 void http_client_request_retry(struct http_client_request *req,

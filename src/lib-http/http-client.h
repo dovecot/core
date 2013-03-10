@@ -90,6 +90,7 @@ void http_client_request_set_payload(struct http_client_request *req,
 enum http_request_state
 http_client_request_get_state(struct http_client_request *req);
 void http_client_request_submit(struct http_client_request *req);
+bool http_client_request_try_retry(struct http_client_request *req);
 void http_client_request_abort(struct http_client_request **req);
 
 /* Call the specified callback when HTTP request is destroyed. */

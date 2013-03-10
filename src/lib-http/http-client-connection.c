@@ -392,7 +392,17 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		io_remove(&conn->conn.io);
 	}
 
-	http_client_request_callback(req, response);
+	if (!http_client_request_callback(req, response)) {
+		/* retrying, don't destroy the request */
+		if (response->payload != NULL) {
+			i_stream_unset_destroy_callback(conn->incoming_payload);
+			i_stream_unref(&conn->incoming_payload);
+			conn->conn.io = io_add(conn->conn.fd_in, IO_READ,
+					       http_client_connection_input,
+					       &conn->conn);
+		}
+		return TRUE;
+	}
 
 	// FIXME: conn may be freed at this point..
 
@@ -506,6 +516,7 @@ static void http_client_connection_input(struct connection *_conn)
 		/* remove request from queue */
 		array_delete(&conn->request_wait_list, 0, 1);
 		aborted = (req->state == HTTP_REQUEST_STATE_ABORTED);
+		i_assert(req->refcount > 1 || aborted);
 		http_client_request_unref(&req);
 		
 		conn->close_indicated = response->connection_close;

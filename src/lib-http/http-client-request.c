@@ -412,16 +412,25 @@ int http_client_request_send(struct http_client_request *req,
 	return ret;
 }
 
-void http_client_request_callback(struct http_client_request *req,
+bool http_client_request_callback(struct http_client_request *req,
 			     struct http_response *response)
 {
 	http_client_request_callback_t *callback = req->callback;
+	unsigned int orig_attempts = req->attempts;
 
 	req->state = HTTP_REQUEST_STATE_GOT_RESPONSE;
 
 	req->callback = NULL;
-	if (callback != NULL)
+	if (callback != NULL) {
 		callback(response, req->context);
+		if (req->attempts != orig_attempts) {
+			/* retrying */
+			req->callback = callback;
+			http_client_request_resubmit(req);
+			return FALSE;
+		}
+	}
+	return TRUE;
 }
 
 static void
@@ -636,17 +645,21 @@ void http_client_request_resubmit(struct http_client_request *req)
 void http_client_request_retry(struct http_client_request *req,
 	unsigned int status, const char *error)
 {
-	/* limit the number of attempts for each request */
-	if (++req->attempts >= req->client->set.max_attempts) {
-		/* return error */
+	if (!http_client_request_try_retry(req))
 		http_client_request_error(req, status, error);
-		return;
-	}
+}
+
+bool http_client_request_try_retry(struct http_client_request *req)
+{
+	/* limit the number of attempts for each request */
+	if (req->attempts+1 >= req->client->set.max_attempts)
+		return FALSE;
+	req->attempts++;
 
 	http_client_request_debug(req, "Retrying (attempts=%d)", req->attempts);
-
-	/* resubmit */
-	http_client_request_resubmit(req);
+	if (req->callback != NULL)
+		http_client_request_resubmit(req);
+	return TRUE;
 }
 
 void http_client_request_set_destroy_callback(struct http_client_request *req,
