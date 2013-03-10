@@ -175,7 +175,12 @@ http_client_peer_next_request(struct http_client_peer *peer)
 	}
 
 	/* yes, determine how many connections to set up */
-	if (num_urgent == 0) {
+	if (peer->last_connect_failed && array_count(&peer->conns) > 0 &&
+	    array_count(&peer->conns) == connecting+closing) {
+		/* don't create new connections until the existing ones have
+		   finished connecting successfully. */
+		new_connections = 0;
+	} else if (num_urgent == 0) {
 		new_connections = 1;
 	} else {
 		new_connections = (num_urgent > connecting ? num_urgent - connecting : 0);
@@ -339,12 +344,19 @@ http_client_peer_claim_request(struct http_client_peer *peer, bool no_urgent)
 void http_client_peer_connection_failure(struct http_client_peer *peer)
 {
 	struct http_client_host *const *host;
+	unsigned int num_urgent;
 
 	i_assert(array_count(&peer->conns) > 0);
 
 	http_client_peer_debug(peer, "Failed to make connection");
 
-	if (array_count(&peer->conns) == 1) {
+	if (array_count(&peer->conns) > 1) {
+		/* if there are other connections attempting to connect, wait
+		   for them before failing the requests. remember that we had
+		   trouble with connecting so in future we don't try to create
+		   more than one connection until connects work again. */
+		peer->last_connect_failed = TRUE;
+	} else {
 		/* this was the only/last connection and connecting to it
 		   failed. a second connect will probably also fail, so just
 		   abort all requests. */

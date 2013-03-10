@@ -615,6 +615,7 @@ http_client_connection_ready(struct http_client_connection *conn)
 	struct stat st;
 
 	conn->connected = TRUE;
+	conn->peer->last_connect_failed = FALSE;
 
 	if (conn->client->set.rawlog_dir != NULL &&
 		stat(conn->client->set.rawlog_dir, &st) == 0) {
