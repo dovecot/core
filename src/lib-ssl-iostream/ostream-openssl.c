@@ -129,59 +129,21 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 }
 
 static ssize_t
-o_stream_ssl_sendv_try(struct ssl_ostream *sstream,
-		       const struct const_iovec *iov, unsigned int iov_count,
-		       size_t *bytes_sent_r)
-{
-	unsigned int i;
-	size_t pos;
-	ssize_t ret = 0;
-
-	*bytes_sent_r = 0;
-	for (i = 0, pos = 0; i < iov_count; ) {
-		ret = SSL_write(sstream->ssl_io->ssl,
-				CONST_PTR_OFFSET(iov[i].iov_base, pos),
-				iov[i].iov_len - pos);
-		if (ret <= 0) {
-			ret = openssl_iostream_handle_write_error(sstream->ssl_io,
-								  ret, "SSL_write");
-			if (ret < 0) {
-				sstream->ostream.ostream.stream_errno = errno;
-				break;
-			}
-			if (ret == 0)
-				break;
-		} else {
-			*bytes_sent_r += ret;
-			if ((size_t)ret < iov[i].iov_len)
-				pos += ret;
-			else {
-				i++;
-				pos = 0;
-			}
-			(void)openssl_iostream_bio_sync(sstream->ssl_io);
-		}
-	}
-	return ret < 0 ? -1 : 0;
-}
-
-static ssize_t
 o_stream_ssl_sendv(struct ostream_private *stream,
 		   const struct const_iovec *iov, unsigned int iov_count)
 {
 	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
 	size_t bytes_sent = 0;
-	int ret;
-
-	if (!sstream->ssl_io->handshaked)
-		ret = 0;
-	else {
-		ret = o_stream_ssl_sendv_try(sstream, iov, iov_count,
-					     &bytes_sent);
-	}
 
 	bytes_sent = o_stream_ssl_buffer(sstream, iov, iov_count, bytes_sent);
-	return bytes_sent != 0 ? (ssize_t)bytes_sent : ret;
+	if (sstream->ssl_io->handshaked &&
+	    sstream->buffer->used == bytes_sent) {
+		/* buffer was empty before calling this. try to write it
+		   immediately. */
+		if (o_stream_ssl_flush_buffer(sstream) < 0)
+			return -1;
+	}
+	return bytes_sent;
 }
 
 static void o_stream_ssl_switch_ioloop(struct ostream_private *stream)
