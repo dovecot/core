@@ -16,6 +16,8 @@ static void o_stream_rawlog_close(struct iostream_private *stream)
 
 	(void)o_stream_flush(rstream->ostream.parent);
 	iostream_rawlog_close(&rstream->riostream);
+
+	o_stream_close(rstream->ostream.parent);
 }
 
 static ssize_t

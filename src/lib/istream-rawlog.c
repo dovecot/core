@@ -15,6 +15,7 @@ static void i_stream_rawlog_close(struct iostream_private *stream)
 	struct rawlog_istream *rstream = (struct rawlog_istream *)stream;
 
 	iostream_rawlog_close(&rstream->riostream);
+	i_stream_close(rstream->istream.parent);
 }
 
 static void i_stream_rawlog_destroy(struct iostream_private *stream)
