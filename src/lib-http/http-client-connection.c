@@ -373,6 +373,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 	struct http_client_request *req, struct http_response *response)
 {
 	struct istream *payload;
+	bool retrying;
 
 	i_assert(conn->incoming_payload == NULL);
 	i_assert(conn->pending_request == NULL);
@@ -392,7 +393,17 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		io_remove(&conn->conn.io);
 	}
 
-	if (!http_client_request_callback(req, response)) {
+	http_client_connection_ref(conn);
+	retrying = !http_client_request_callback(req, response);
+	http_client_connection_unref(&conn);
+	if (conn == NULL) {
+		/* the callback managed to get this connection destroyed */
+		if (!retrying)
+			http_client_request_finish(&req);
+		return FALSE;
+	}
+
+	if (retrying) {
 		/* retrying, don't destroy the request */
 		if (response->payload != NULL) {
 			i_stream_unset_destroy_callback(conn->incoming_payload);
@@ -403,8 +414,6 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		}
 		return TRUE;
 	}
-
-	// FIXME: conn may be freed at this point..
 
 	if (response->payload != NULL) {
 		req->state = HTTP_REQUEST_STATE_PAYLOAD_IN;
