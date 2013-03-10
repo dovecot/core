@@ -301,6 +301,7 @@ int http_client_request_send_more(struct http_client_request *req,
 	off_t ret;
 
 	i_assert(req->payload_input != NULL);
+	i_assert(req->payload_output != NULL);
 
 	/* chunked ostream needs to write to the parent stream's buffer */
 	o_stream_set_max_buffer_size(output, IO_BLOCK_SIZE);
