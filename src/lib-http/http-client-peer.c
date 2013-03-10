@@ -133,14 +133,15 @@ http_client_peer_next_request(struct http_client_peer *peer)
 	unsigned int connecting = 0, closing = 0, min_waiting = UINT_MAX;
 	unsigned int num_urgent, new_connections;
 
-	/* at this point we already know that a request for this peer is pending
-	 */
-	(void)http_client_peer_requests_pending(peer, &num_urgent);
+	if (http_client_peer_requests_pending(peer, &num_urgent) == 0)
+		return FALSE;
 
 	/* find the least busy connection */
 	array_foreach(&peer->conns, conn_idx) {
 		if (http_client_connection_is_ready(*conn_idx)) {
 			unsigned int waiting = array_count(&(*conn_idx)->request_wait_list);
+			if ((*conn_idx)->pending_request != NULL)
+				waiting++;
 			if (waiting < min_waiting) {
 				min_waiting = waiting;
 				conn = *conn_idx;
@@ -315,8 +316,7 @@ void http_client_peer_add_host(struct http_client_peer *peer,
 
 	if (!exists)
 		array_append(&peer->hosts, &host, 1);
-	if (exists || array_count(&peer->hosts) > 1)
-		(void)http_client_peer_next_request(peer);
+	http_client_peer_handle_requests(peer);
 }
 
 struct http_client_request *
@@ -340,9 +340,14 @@ void http_client_peer_connection_failure(struct http_client_peer *peer)
 {
 	struct http_client_host *const *host;
 
+	i_assert(array_count(&peer->conns) > 0);
+
 	http_client_peer_debug(peer, "Failed to make connection");
 
 	if (array_count(&peer->conns) == 1) {
+		/* this was the only/last connection and connecting to it
+		   failed. a second connect will probably also fail, so just
+		   abort all requests. */
 		array_foreach(&peer->hosts, host) {
 			http_client_host_connection_failure(*host, &peer->addr);
 		}
@@ -359,12 +364,11 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 	http_client_peer_debug(peer, "Lost a connection (%d connections left)",
 		array_count(&peer->conns));
 
-	if (array_count(&peer->conns) == 0) {
-		if (!http_client_peer_next_request(peer)) {
-			if (http_client_peer_requests_pending(peer, &num_urgent) == 0)
-				http_client_peer_free(&peer);
-		}
-	}
+	/* if there are pending requests, create a new connection for them. */
+	http_client_peer_handle_requests(peer);
+	if (array_count(&peer->conns) == 0 &&
+	    http_client_peer_requests_pending(peer, &num_urgent) == 0)
+		http_client_peer_free(&peer);
 }
 
 unsigned int http_client_peer_idle_connections(struct http_client_peer *peer)

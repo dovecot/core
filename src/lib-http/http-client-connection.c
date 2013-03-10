@@ -61,9 +61,13 @@ static void http_client_connection_input(struct connection *_conn);
 
 bool http_client_connection_is_ready(struct http_client_connection *conn)
 {
+	unsigned int pending_count = array_count(&conn->request_wait_list);
+
+	if (conn->pending_request != NULL)
+		pending_count++;
 	return (conn->connected && !conn->output_locked &&
-		!conn->close_indicated &&	array_count(&conn->request_wait_list) <
-			conn->client->set.max_pipelined_requests);
+		!conn->close_indicated &&
+		pending_count < conn->client->set.max_pipelined_requests);
 }
 
 bool http_client_connection_is_idle(struct http_client_connection *conn)
@@ -224,6 +228,7 @@ bool http_client_connection_next_request(struct http_client_connection *conn)
 {
 	struct http_client_request *req = NULL;
 	const char *error;
+	bool have_pending_requests;
 
 	if (!http_client_connection_is_ready(conn)) {
 		http_client_connection_debug(conn, "Not ready for next request");
@@ -231,8 +236,9 @@ bool http_client_connection_next_request(struct http_client_connection *conn)
 	}
 
 	/* claim request, but no urgent request can be second in line */
-	req = http_client_peer_claim_request(conn->peer,
-		array_count(&conn->request_wait_list) > 0); 
+	have_pending_requests = array_count(&conn->request_wait_list) > 0 ||
+		conn->pending_request != NULL;
+	req = http_client_peer_claim_request(conn->peer, have_pending_requests);
 	if (req == NULL) {
 		http_client_connection_check_idle(conn);
 		return FALSE;	
@@ -324,10 +330,12 @@ http_client_payload_destroyed_timeout(struct http_client_connection *conn)
 	http_client_connection_input(&conn->conn);
 }
 
-static void http_client_payload_destroyed(struct http_client_connection *conn)
+static void http_client_payload_destroyed(struct http_client_request *req)
 {
+	struct http_client_connection *conn = req->conn;
+
+	i_assert(conn->pending_request == req);
 	i_assert(conn->incoming_payload != NULL);
-	i_assert(conn->pending_request != NULL);
 	i_assert(conn->conn.io == NULL);
 
 	http_client_connection_debug(conn, "Response payload stream destroyed");
@@ -338,7 +346,7 @@ static void http_client_payload_destroyed(struct http_client_connection *conn)
 
 	conn->incoming_payload = NULL;
 
-	http_client_request_finish(&conn->pending_request);
+	http_client_request_finish(&req);
 	conn->pending_request = NULL;
 
 	/* input stream may have pending input. make sure input handler
@@ -368,7 +376,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 			i_stream_create_limit(response->payload, (uoff_t)-1);
 		i_stream_set_destroy_callback(response->payload,
 					      http_client_payload_destroyed,
-					      conn);
+					      req);
 		/* the callback may add its own I/O, so we need to remove
 		   our one before calling it */
 		io_remove(&conn->conn.io);
