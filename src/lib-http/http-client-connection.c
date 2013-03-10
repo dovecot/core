@@ -117,6 +117,16 @@ http_client_connection_abort_temp_error(struct http_client_connection **_conn,
 	unsigned int status, const char *error)
 {
 	struct http_client_connection *conn = *_conn;
+	const char *sslerr;
+
+	if (status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST &&
+	    conn->ssl_iostream != NULL) {
+		sslerr = ssl_iostream_get_last_error(conn->ssl_iostream);
+		if (sslerr != NULL) {
+			error = t_strdup_printf("%s (last SSL error: %s)",
+						error, sslerr);
+		}
+	}
 
 	conn->connected = FALSE;
 	conn->closing = TRUE;
