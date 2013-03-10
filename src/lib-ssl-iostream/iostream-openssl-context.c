@@ -384,6 +384,7 @@ int openssl_iostream_context_init_client(const char *source,
 		i_error("SSL_CTX_new() failed: %s", openssl_iostream_error());
 		return -1;
 	}
+	SSL_CTX_set_mode(ssl_ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
 
 	ctx = i_new(struct ssl_iostream_context, 1);
 	ctx->ssl_ctx = ssl_ctx;
