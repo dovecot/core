@@ -364,6 +364,9 @@ void http_client_peer_connection_failure(struct http_client_peer *peer)
 			http_client_host_connection_failure(*host, &peer->addr);
 		}
 	}
+	if (array_count(&peer->conns) == 0 &&
+	    http_client_peer_requests_pending(peer, &num_urgent) == 0)
+		http_client_peer_free(&peer);
 }
 
 void http_client_peer_connection_lost(struct http_client_peer *peer)
