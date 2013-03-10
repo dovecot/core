@@ -45,13 +45,6 @@ static void
 got_request_response(const struct http_response *response,
 		     struct http_test_request *req)
 {
-	if (response == NULL) {
-		/* request failed */
-		i_free(req);
-		i_error("HTTP REQUEST FAILED");
-		return;
-	}
-
 	if (response->status / 100 != 2) {
 		i_error("HTTP Request failed: %s", response->reason);
 		i_free(req);
