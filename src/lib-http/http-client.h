@@ -18,6 +18,18 @@ enum http_client_request_error {
 	HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT,
 };
 
+enum http_request_state {
+	HTTP_REQUEST_STATE_NEW = 0,
+	HTTP_REQUEST_STATE_QUEUED,
+	HTTP_REQUEST_STATE_PAYLOAD_OUT,
+	HTTP_REQUEST_STATE_WAITING,
+	HTTP_REQUEST_STATE_GOT_RESPONSE,
+	HTTP_REQUEST_STATE_PAYLOAD_IN,
+	HTTP_REQUEST_STATE_FINISHED,
+	HTTP_REQUEST_STATE_ABORTED
+};
+extern const char *http_request_state_names[];
+
 struct http_client_settings {
 	const char *dns_client_socket_path;
 
@@ -75,6 +87,8 @@ void http_client_request_add_header(struct http_client_request *req,
 void http_client_request_set_payload(struct http_client_request *req,
 				     struct istream *input, bool sync);
 
+enum http_request_state
+http_client_request_get_state(struct http_client_request *req);
 void http_client_request_submit(struct http_client_request *req);
 void http_client_request_abort(struct http_client_request **req);
 

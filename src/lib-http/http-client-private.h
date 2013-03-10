@@ -30,17 +30,6 @@ HASH_TABLE_DEFINE_TYPE(http_client_host, const char *,
 HASH_TABLE_DEFINE_TYPE(http_client_peer, const struct http_client_peer_addr *,
 	struct http_client_peer *);
 
-enum http_request_state {
-	HTTP_REQUEST_STATE_NEW = 0,
-	HTTP_REQUEST_STATE_QUEUED,
-	HTTP_REQUEST_STATE_PAYLOAD_OUT,
-	HTTP_REQUEST_STATE_WAITING,
-	HTTP_REQUEST_STATE_GOT_RESPONSE,
-	HTTP_REQUEST_STATE_PAYLOAD_IN,
-	HTTP_REQUEST_STATE_FINISHED,
-	HTTP_REQUEST_STATE_ABORTED
-};
-
 struct http_client_request {
 	pool_t pool;
 	unsigned int refcount;

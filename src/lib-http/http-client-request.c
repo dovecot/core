@@ -13,6 +13,17 @@
 
 #include "http-client-private.h"
 
+const char *http_request_state_names[] = {
+	"new",
+	"queued",
+	"payload_out",
+	"waiting",
+	"got_response",
+	"payload_in",
+	"finished",
+	"aborted"
+};
+
 /*
  * Logging
  */
@@ -156,6 +167,12 @@ void http_client_request_set_payload(struct http_client_request *req,
 	/* prepare request payload sync using 100 Continue response from server */
 	if ((req->payload_chunked || req->payload_size > 0) && sync)
 		req->payload_sync = TRUE;
+}
+
+enum http_request_state
+http_client_request_get_state(struct http_client_request *req)
+{
+	return req->state;
 }
 
 static void http_client_request_do_submit(struct http_client_request *req)
