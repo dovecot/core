@@ -152,8 +152,7 @@ int fs_wait_async(struct fs *fs);
 
 /* Returns 1 if file exists, 0 if not, -1 if error occurred. */
 int fs_exists(struct fs_file *file);
-/* Delete a file. Returns 1 if file was actually deleted by us,
-   0 if file didn't exist, -1 if error. */
+/* Delete a file. Returns 0 if file was actually deleted by us, -1 if error. */
 int fs_delete(struct fs_file *file);
 
 /* Returns 0 if ok, -1 if error occurred (e.g. errno=ENOENT).
