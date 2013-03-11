@@ -82,8 +82,6 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 	backend->default_aclmask =
 		acl_cache_mask_init(backend->cache, backend->pool,
 				    backend->default_rights);
-
-	backend->default_aclobj = acl_object_init_from_name(backend, "");
 	return backend;
 }
 
@@ -93,7 +91,8 @@ void acl_backend_deinit(struct acl_backend **_backend)
 
 	*_backend = NULL;
 
-	acl_object_deinit(&backend->default_aclobj);
+	if (backend->default_aclobj != NULL)
+		acl_object_deinit(&backend->default_aclobj);
 	acl_cache_deinit(&backend->cache);
 	backend->v.deinit(backend);
 }
@@ -161,6 +160,10 @@ unsigned int acl_backend_lookup_right(struct acl_backend *backend,
 int acl_backend_get_default_rights(struct acl_backend *backend,
 				   const struct acl_mask **mask_r)
 {
+	if (backend->default_aclobj == NULL) {
+		backend->default_aclobj =
+			acl_object_init_from_name(backend, "");
+	}
 	if (backend->v.object_refresh_cache(backend->default_aclobj) < 0)
 		return -1;
 
