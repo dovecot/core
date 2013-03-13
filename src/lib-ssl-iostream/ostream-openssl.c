@@ -11,11 +11,13 @@ struct ssl_ostream {
 	buffer_t *buffer;
 };
 
-static void o_stream_ssl_close(struct iostream_private *stream)
+static void
+o_stream_ssl_close(struct iostream_private *stream, bool close_parent)
 {
 	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
 
-	o_stream_close(sstream->ssl_io->plain_output);
+	if (close_parent)
+		o_stream_close(sstream->ssl_io->plain_output);
 }
 
 static void o_stream_ssl_destroy(struct iostream_private *stream)

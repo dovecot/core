@@ -32,7 +32,8 @@ struct seekable_istream {
 	bool free_context;
 };
 
-static void i_stream_seekable_close(struct iostream_private *stream)
+static void i_stream_seekable_close(struct iostream_private *stream,
+				    bool close_parent ATTR_UNUSED)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 

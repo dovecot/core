@@ -22,7 +22,8 @@ struct mmap_istream {
 
 static size_t mmap_pagemask = 0;
 
-static void i_stream_mmap_close(struct iostream_private *stream)
+static void i_stream_mmap_close(struct iostream_private *stream,
+				bool close_parent ATTR_UNUSED)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 

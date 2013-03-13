@@ -20,12 +20,15 @@ struct bzlib_ostream {
 	unsigned int flushed:1;
 };
 
-static void o_stream_bzlib_close(struct iostream_private *stream)
+static void o_stream_bzlib_close(struct iostream_private *stream,
+				 bool close_parent)
 {
 	struct bzlib_ostream *zstream = (struct bzlib_ostream *)stream;
 
 	(void)o_stream_flush(&zstream->ostream.ostream);
 	(void)BZ2_bzCompressEnd(&zstream->zs);
+	if (close_parent)
+		o_stream_close(zstream->ostream.parent);
 }
 
 static int o_stream_zlib_send_outbuf(struct bzlib_ostream *zstream)

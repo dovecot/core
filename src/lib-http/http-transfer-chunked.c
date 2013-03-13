@@ -556,13 +556,16 @@ static size_t _max_chunk_size(size_t avail)
 }
 
 static void
-http_transfer_chunked_ostream_close(struct iostream_private *stream)
+http_transfer_chunked_ostream_close(struct iostream_private *stream,
+				    bool close_parent)
 {
 	struct http_transfer_chunked_ostream *tcstream =
 		(struct http_transfer_chunked_ostream *)stream;
 
 	(void)o_stream_send(tcstream->ostream.parent, "0\r\n\r\n", 5);
 	(void)o_stream_flush(&tcstream->ostream.ostream);
+	if (close_parent)
+		o_stream_close(tcstream->ostream.parent);
 }
 
 static ssize_t

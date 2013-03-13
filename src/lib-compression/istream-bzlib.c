@@ -23,7 +23,8 @@ struct bzlib_istream {
 	unsigned int zs_closed:1;
 };
 
-static void i_stream_bzlib_close(struct iostream_private *stream)
+static void i_stream_bzlib_close(struct iostream_private *stream,
+				 bool close_parent)
 {
 	struct bzlib_istream *zstream = (struct bzlib_istream *)stream;
 
@@ -31,6 +32,8 @@ static void i_stream_bzlib_close(struct iostream_private *stream)
 		(void)BZ2_bzDecompressEnd(&zstream->zs);
 		zstream->zs_closed = TRUE;
 	}
+	if (close_parent)
+		i_stream_close(zstream->istream.parent);
 }
 
 static void bzlib_read_error(struct bzlib_istream *zstream, const char *error)

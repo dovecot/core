@@ -627,7 +627,8 @@ i_stream_attachment_extractor_read(struct istream_private *stream)
 	return ret;
 }
 
-static void i_stream_attachment_extractor_close(struct iostream_private *stream)
+static void i_stream_attachment_extractor_close(struct iostream_private *stream,
+						bool close_parent)
 {
 	struct attachment_istream *astream =
 		(struct attachment_istream *)stream;
@@ -641,6 +642,8 @@ static void i_stream_attachment_extractor_close(struct iostream_private *stream)
 	hash_format_deinit_free(&astream->set.hash_format);
 	if (astream->pool != NULL)
 		pool_unref(&astream->pool);
+	if (close_parent)
+		i_stream_close(astream->istream.parent);
 }
 
 struct istream *

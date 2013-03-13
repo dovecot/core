@@ -10,11 +10,13 @@ struct ssl_istream {
 	bool seen_eof;
 };
 
-static void i_stream_ssl_close(struct iostream_private *stream)
+static void i_stream_ssl_close(struct iostream_private *stream,
+			       bool close_parent)
 {
 	struct ssl_istream *sstream = (struct ssl_istream *)stream;
 
-	i_stream_close(sstream->ssl_io->plain_input);
+	if (close_parent)
+		i_stream_close(sstream->ssl_io->plain_input);
 }
 
 static void i_stream_ssl_destroy(struct iostream_private *stream)

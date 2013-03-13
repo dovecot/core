@@ -67,7 +67,8 @@ static void stream_closed(struct file_ostream *fstream)
 	fstream->ostream.ostream.closed = TRUE;
 }
 
-static void o_stream_file_close(struct iostream_private *stream)
+static void o_stream_file_close(struct iostream_private *stream,
+				bool close_parent ATTR_UNUSED)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 

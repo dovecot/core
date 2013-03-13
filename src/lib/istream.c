@@ -21,9 +21,18 @@ const char *i_stream_get_name(struct istream *stream)
 	return stream->real_stream->iostream.name;
 }
 
+static void i_stream_close_full(struct istream *stream, bool close_parents)
+{
+	io_stream_close(&stream->real_stream->iostream, close_parents);
+	stream->closed = TRUE;
+
+	if (stream->stream_errno == 0)
+		stream->stream_errno = EPIPE;
+}
+
 void i_stream_destroy(struct istream **stream)
 {
-	i_stream_close(*stream);
+	i_stream_close_full(*stream, FALSE);
 	i_stream_unref(stream);
 }
 
@@ -71,11 +80,7 @@ int i_stream_get_fd(struct istream *stream)
 
 void i_stream_close(struct istream *stream)
 {
-	io_stream_close(&stream->real_stream->iostream);
-	stream->closed = TRUE;
-
-	if (stream->stream_errno == 0)
-		stream->stream_errno = EPIPE;
+	i_stream_close_full(stream, TRUE);
 }
 
 void i_stream_set_init_buffer_size(struct istream *stream, size_t size)
@@ -582,6 +587,15 @@ i_stream_default_set_max_buffer_size(struct iostream_private *stream,
 		i_stream_set_max_buffer_size(_stream->parent, max_size);
 }
 
+static void i_stream_default_close(struct iostream_private *stream,
+				   bool close_parent)
+{
+	struct istream_private *_stream = (struct istream_private *)stream;
+
+	if (close_parent && _stream->parent != NULL)
+		i_stream_close(_stream->parent);
+}
+
 static void i_stream_default_destroy(struct iostream_private *stream)
 {
 	struct istream_private *_stream = (struct istream_private *)stream;
@@ -673,6 +687,8 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 	}
 	_stream->istream.real_stream = _stream;
 
+	if (_stream->iostream.close == NULL)
+		_stream->iostream.close = i_stream_default_close;
 	if (_stream->iostream.destroy == NULL)
 		_stream->iostream.destroy = i_stream_default_destroy;
 	if (_stream->seek == NULL) {

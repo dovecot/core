@@ -4,16 +4,22 @@
 #include "iostream-private.h"
 
 static void
-io_stream_default_close_destroy(struct iostream_private *stream ATTR_UNUSED)
+io_stream_default_close(struct iostream_private *stream ATTR_UNUSED,
+			bool close_parent ATTR_UNUSED)
+{
+}
+
+static void
+io_stream_default_destroy(struct iostream_private *stream ATTR_UNUSED)
 {
 }
 
 void io_stream_init(struct iostream_private *stream)
 {
 	if (stream->close == NULL)
-		stream->close = io_stream_default_close_destroy;
+		stream->close = io_stream_default_close;
 	if (stream->destroy == NULL)
-		stream->destroy = io_stream_default_close_destroy;
+		stream->destroy = io_stream_default_destroy;
 
 	stream->refcount = 1;
 }
@@ -29,7 +35,7 @@ void io_stream_unref(struct iostream_private *stream)
 	if (--stream->refcount != 0)
 		return;
 
-	stream->close(stream);
+	stream->close(stream, FALSE);
 	stream->destroy(stream);
 	if (stream->destroy_callback != NULL)
 		stream->destroy_callback(stream->destroy_context);
@@ -38,9 +44,9 @@ void io_stream_unref(struct iostream_private *stream)
         i_free(stream);
 }
 
-void io_stream_close(struct iostream_private *stream)
+void io_stream_close(struct iostream_private *stream, bool close_parent)
 {
-	stream->close(stream);
+	stream->close(stream, close_parent);
 }
 
 void io_stream_set_max_buffer_size(struct iostream_private *stream,

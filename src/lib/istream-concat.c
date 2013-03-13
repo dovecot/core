@@ -15,13 +15,16 @@ struct concat_istream {
 	size_t prev_stream_left, prev_skip;
 };
 
-static void i_stream_concat_close(struct iostream_private *stream)
+static void i_stream_concat_close(struct iostream_private *stream,
+				  bool close_parent)
 {
 	struct concat_istream *cstream = (struct concat_istream *)stream;
 	unsigned int i;
 
-	for (i = 0; cstream->input[i] != NULL; i++)
-		i_stream_close(cstream->input[i]);
+	if (close_parent) {
+		for (i = 0; cstream->input[i] != NULL; i++)
+			i_stream_close(cstream->input[i]);
+	}
 }
 
 static void i_stream_concat_destroy(struct iostream_private *stream)

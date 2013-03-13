@@ -27,7 +27,9 @@ struct temp_ostream {
 	bool fd_tried;
 };
 
-static void o_stream_temp_close(struct iostream_private *stream)
+static void
+o_stream_temp_close(struct iostream_private *stream,
+		    bool close_parent ATTR_UNUSED)
 {
 	struct temp_ostream *tstream = (struct temp_ostream *)stream;
 

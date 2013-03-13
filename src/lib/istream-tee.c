@@ -65,7 +65,8 @@ static void tee_streams_skip(struct tee_istream *tee)
 	}
 }
 
-static void i_stream_tee_close(struct iostream_private *stream)
+static void i_stream_tee_close(struct iostream_private *stream,
+			       bool close_parent ATTR_UNUSED)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 

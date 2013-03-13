@@ -27,12 +27,15 @@ struct zlib_ostream {
 	unsigned int flushed:1;
 };
 
-static void o_stream_zlib_close(struct iostream_private *stream)
+static void o_stream_zlib_close(struct iostream_private *stream,
+				bool close_parent)
 {
 	struct zlib_ostream *zstream = (struct zlib_ostream *)stream;
 
 	(void)o_stream_flush(&zstream->ostream.ostream);
 	(void)deflateEnd(&zstream->zs);
+	if (close_parent)
+		o_stream_close(zstream->ostream.parent);
 }
 
 static int o_stream_zlib_send_gz_header(struct zlib_ostream *zstream)

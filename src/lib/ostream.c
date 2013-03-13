@@ -25,9 +25,18 @@ int o_stream_get_fd(struct ostream *stream)
 	return stream->real_stream->fd;
 }
 
+static void o_stream_close_full(struct ostream *stream, bool close_parents)
+{
+	io_stream_close(&stream->real_stream->iostream, close_parents);
+	stream->closed = TRUE;
+
+	if (stream->stream_errno == 0)
+		stream->stream_errno = EPIPE;
+}
+
 void o_stream_destroy(struct ostream **stream)
 {
-	o_stream_close(*stream);
+	o_stream_close_full(*stream, FALSE);
 	o_stream_unref(stream);
 }
 
@@ -53,11 +62,7 @@ void o_stream_unref(struct ostream **_stream)
 
 void o_stream_close(struct ostream *stream)
 {
-	io_stream_close(&stream->real_stream->iostream);
-	stream->closed = TRUE;
-
-	if (stream->stream_errno == 0)
-		stream->stream_errno = EPIPE;
+	o_stream_close_full(stream, TRUE);
 }
 
 #undef o_stream_set_flush_callback
@@ -348,11 +353,14 @@ void o_stream_switch_ioloop(struct ostream *stream)
 	_stream->switch_ioloop(_stream);
 }
 
-static void o_stream_default_close(struct iostream_private *stream)
+static void o_stream_default_close(struct iostream_private *stream,
+				   bool close_parent)
 {
 	struct ostream_private *_stream = (struct ostream_private *)stream;
 
 	(void)o_stream_flush(&_stream->ostream);
+	if (close_parent && _stream->parent != NULL)
+		o_stream_close(_stream->parent);
 }
 
 static void o_stream_default_destroy(struct iostream_private *stream)

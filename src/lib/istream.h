@@ -43,7 +43,7 @@ void i_stream_set_name(struct istream *stream, const char *name);
    Returns "" if stream has no name. */
 const char *i_stream_get_name(struct istream *stream);
 
-/* i_stream_close() + i_stream_unref() */
+/* Close this stream (but not its parents) and unreference it. */
 void i_stream_destroy(struct istream **stream);
 
 /* Reference counting. References start from 1, so calling i_stream_unref()
@@ -65,8 +65,8 @@ void i_stream_unset_destroy_callback(struct istream *stream);
 /* Return file descriptor for stream, or -1 if none is available. */
 int i_stream_get_fd(struct istream *stream);
 
-/* Mark the stream closed. Any reads after this will return -1. The data
-   already read can still be used. */
+/* Mark the stream and all of its parent streams closed. Any reads after this
+   will return -1. The data already read can still be used. */
 void i_stream_close(struct istream *stream);
 /* Sync the stream with the underlying backend, ie. if a file has been
    modified, flush any cached data. */

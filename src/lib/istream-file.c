@@ -22,7 +22,8 @@ struct file_istream {
 	unsigned int seen_eof:1;
 };
 
-static void i_stream_file_close(struct iostream_private *stream)
+static void i_stream_file_close(struct iostream_private *stream,
+				bool close_parent ATTR_UNUSED)
 {
 	struct file_istream *fstream = (struct file_istream *)stream;
 	struct istream_private *_stream = (struct istream_private *)stream;

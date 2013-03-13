@@ -10,14 +10,16 @@ struct rawlog_ostream {
 	struct rawlog_iostream riostream;
 };
 
-static void o_stream_rawlog_close(struct iostream_private *stream)
+static void o_stream_rawlog_close(struct iostream_private *stream,
+				  bool close_parent)
 {
 	struct rawlog_ostream *rstream = (struct rawlog_ostream *)stream;
 
 	(void)o_stream_flush(rstream->ostream.parent);
 	iostream_rawlog_close(&rstream->riostream);
 
-	o_stream_close(rstream->ostream.parent);
+	if (close_parent)
+		o_stream_close(rstream->ostream.parent);
 }
 
 static ssize_t

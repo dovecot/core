@@ -12,7 +12,8 @@ struct cmp_ostream {
 	bool equals;
 };
 
-static void o_stream_cmp_close(struct iostream_private *stream)
+static void o_stream_cmp_close(struct iostream_private *stream,
+			       bool close_parent)
 {
 	struct cmp_ostream *cstream = (struct cmp_ostream *)stream;
 
@@ -21,6 +22,8 @@ static void o_stream_cmp_close(struct iostream_private *stream)
 
 	i_stream_unref(&cstream->input);
 	(void)o_stream_flush(&cstream->ostream.ostream);
+	if (close_parent)
+		o_stream_close(cstream->ostream.parent);
 }
 
 bool stream_cmp_block(struct istream *input,

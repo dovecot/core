@@ -260,7 +260,8 @@ static ssize_t i_stream_binary_converter_read(struct istream_private *stream)
 	return new_size - old_size;
 }
 
-static void i_stream_binary_converter_close(struct iostream_private *stream)
+static void i_stream_binary_converter_close(struct iostream_private *stream,
+					    bool close_parent)
 {
 	struct binary_converter_istream *bstream =
 		(struct binary_converter_istream *)stream;
@@ -270,6 +271,8 @@ static void i_stream_binary_converter_close(struct iostream_private *stream)
 		(void)message_parser_deinit(&bstream->parser, &parts);
 	if (bstream->pool != NULL)
 		pool_unref(&bstream->pool);
+	if (close_parent)
+		i_stream_close(bstream->istream.parent);
 }
 
 struct istream *i_stream_create_binary_converter(struct istream *input)

@@ -40,7 +40,8 @@ struct zlib_istream {
 
 static void i_stream_zlib_init(struct zlib_istream *zstream);
 
-static void i_stream_zlib_close(struct iostream_private *stream)
+static void i_stream_zlib_close(struct iostream_private *stream,
+				bool close_parent)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *)stream;
 
@@ -48,6 +49,8 @@ static void i_stream_zlib_close(struct iostream_private *stream)
 		(void)inflateEnd(&zstream->zs);
 		zstream->zs_closed = TRUE;
 	}
+	if (close_parent)
+		i_stream_close(zstream->istream.parent);
 }
 
 static void zlib_read_error(struct zlib_istream *zstream, const char *error)

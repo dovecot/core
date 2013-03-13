@@ -47,7 +47,7 @@ const char *o_stream_get_name(struct ostream *stream);
 /* Return file descriptor for stream, or -1 if none is available. */
 int o_stream_get_fd(struct ostream *stream);
 
-/* o_stream_close() + o_stream_unref() */
+/* Close this stream (but not its parents) and unreference it. */
 void o_stream_destroy(struct ostream **stream);
 /* Reference counting. References start from 1, so calling o_stream_unref()
    destroys the stream if o_stream_ref() is never used. */
@@ -55,7 +55,8 @@ void o_stream_ref(struct ostream *stream);
 /* Unreferences the stream and sets stream pointer to NULL. */
 void o_stream_unref(struct ostream **stream);
 
-/* Mark the stream closed. Nothing will be sent after this call. */
+/* Mark the stream and all of its parent streams closed. Nothing will be
+   sent after this call. */
 void o_stream_close(struct ostream *stream);
 
 /* Set IO_WRITE callback. Default will just try to flush the output and
