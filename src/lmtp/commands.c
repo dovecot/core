@@ -620,6 +620,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	struct mail_storage *storage;
 	const struct mail_storage_service_input *input;
 	const struct mail_storage_settings *mail_set;
+	struct lda_settings *lda_set;
 	struct mail_namespace *ns;
 	struct setting_parser_context *set_parser;
 	void **sets;
@@ -654,11 +655,14 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 		return -1;
 	}
 	sets = mail_storage_service_user_get_set(rcpt->service_user);
+	lda_set = sets[1];
+	settings_var_expand(&lda_setting_parser_info, lda_set, client->pool,
+		mail_user_var_expand_table(client->state.dest_user));
 
 	memset(&dctx, 0, sizeof(dctx));
 	dctx.session = session;
 	dctx.pool = session->pool;
-	dctx.set = sets[1];
+	dctx.set = lda_set;
 	dctx.session_id = client->state.session_id;
 	dctx.src_mail = src_mail;
 	dctx.src_envelope_sender = client->state.mail_from;

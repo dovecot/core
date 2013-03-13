@@ -276,6 +276,7 @@ int main(int argc, char *argv[])
 	struct mail_deliver_context ctx;
 	enum mail_storage_service_flags service_flags = 0;
 	const char *user, *errstr, *path;
+	struct lda_settings *lda_set;
 	struct mail_storage_service_ctx *storage_service;
 	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input service_input;
@@ -420,7 +421,11 @@ int main(int argc, char *argv[])
 #ifdef SIGXFSZ
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
-	ctx.set = mail_storage_service_user_get_set(service_user)[1];
+	lda_set = mail_storage_service_user_get_set(service_user)[1];
+	settings_var_expand(&lda_setting_parser_info, lda_set,
+			    ctx.dest_user->pool,
+			    mail_user_var_expand_table(ctx.dest_user));
+	ctx.set = lda_set;
 
 	if (ctx.dest_user->mail_debug && *user_source != '\0') {
 		i_debug("userdb lookup skipped, username taken from %s",
