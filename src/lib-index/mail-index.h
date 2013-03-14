@@ -464,6 +464,14 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 				   uint32_t seq1, uint32_t seq2,
 				   enum modify_type modify_type,
 				   enum mail_flags flags);
+/* Specified attribute's value was changed. This is just a notification so the
+   change gets assigned its own modseq and any log readers can find out about
+   this change. */
+void mail_index_attribute_set(struct mail_index_transaction *t,
+			      bool pvt, const char *key);
+/* Attribute was deleted. */
+void mail_index_attribute_unset(struct mail_index_transaction *t,
+				bool pvt, const char *key);
 /* Update message's modseq to be at least min_modseq. */
 void mail_index_update_modseq(struct mail_index_transaction *t, uint32_t seq,
 			      uint64_t min_modseq);

@@ -608,6 +608,40 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 			if ((i % 4) != 0)
 				i += 4 - (i % 4);
 		}
+		break;
+	}
+	case MAIL_TRANSACTION_ATTRIBUTE_UPDATE: {
+		const char *attr_changes = data;
+		unsigned int i;
+
+		for (i = 0; i+2 < rec_size && attr_changes[i] != '\0'; ) {
+			if (attr_changes[i] != '+' && attr_changes[i] != '-') {
+				mail_transaction_log_file_set_corrupted(file,
+					"attribute update: Invalid prefix 0x%02x",
+					attr_changes[i]);
+				return FALSE;
+			}
+			i++;
+			if (attr_changes[i] != 'p' && attr_changes[i] != 's') {
+				mail_transaction_log_file_set_corrupted(file,
+					"attribute update: Invalid type 0x%02x",
+					attr_changes[i]);
+				return FALSE;
+			}
+			i++;
+			if (attr_changes[i] == '\0') {
+				mail_transaction_log_file_set_corrupted(file,
+					"attribute update: Empty key");
+				return FALSE;
+			}
+			i += strlen(attr_changes+i) + 1;
+		}
+		if (i == 0 || (i < rec_size && attr_changes[i] != '\0')) {
+			mail_transaction_log_file_set_corrupted(file,
+				"attribute update doesn't end with NUL");
+			return FALSE;
+		}
+		break;
 	}
 	default:
 		break;

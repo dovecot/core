@@ -76,6 +76,8 @@ void mail_index_transaction_reset_v(struct mail_index_transaction *t)
 		array_free(&t->ext_reset_ids);
 	if (array_is_created(&t->ext_reset_atomic))
 		array_free(&t->ext_reset_atomic);
+	if (t->attribute_updates != NULL)
+		buffer_free(&t->attribute_updates);
 
 	t->first_new_seq = mail_index_view_get_messages_count(t->view)+1;
 	t->last_new_seq = 0;
@@ -106,6 +108,7 @@ void mail_index_transaction_set_log_updates(struct mail_index_transaction *t)
 		array_is_created(&t->modseq_updates) ||
 		array_is_created(&t->expunges) ||
 		array_is_created(&t->keyword_updates) ||
+		t->attribute_updates != NULL ||
 		t->pre_hdr_changed || t->post_hdr_changed ||
 		t->min_highest_modseq != 0;
 }
@@ -645,6 +648,30 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 			     enum mail_flags flags)
 {
 	mail_index_update_flags_range(t, seq, seq, modify_type, flags);
+}
+
+static void
+mail_index_attribute_set_full(struct mail_index_transaction *t,
+			      const char *key, bool pvt, char prefix)
+{
+	if (t->attribute_updates == NULL)
+		t->attribute_updates = buffer_create_dynamic(default_pool, 64);
+	buffer_append_c(t->attribute_updates, prefix);
+	buffer_append_c(t->attribute_updates, pvt ? 'p' : 's');
+	buffer_append(t->attribute_updates, key, strlen(key)+1);
+	t->log_updates = TRUE;
+}
+
+void mail_index_attribute_set(struct mail_index_transaction *t,
+			      bool pvt, const char *key)
+{
+	mail_index_attribute_set_full(t, key, pvt, '+');
+}
+
+void mail_index_attribute_unset(struct mail_index_transaction *t,
+				bool pvt, const char *key)
+{
+	mail_index_attribute_set_full(t, key, pvt, '-');
 }
 
 void mail_index_update_header(struct mail_index_transaction *t,

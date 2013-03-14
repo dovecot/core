@@ -335,6 +335,7 @@ mail_index_modseq_update_old_rec(struct mail_index_modseq_sync *ctx,
 	buffer_t uid_buf;
 	unsigned int i, count;
 	uint32_t seq1, seq2;
+	uint64_t modseq;
 
 	switch (thdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_APPEND: {
@@ -374,12 +375,19 @@ mail_index_modseq_update_old_rec(struct mail_index_modseq_sync *ctx,
 		array_create_from_buffer(&uids, &uid_buf,
 			sizeof(struct mail_transaction_keyword_reset));
 		break;
+	case MAIL_TRANSACTION_ATTRIBUTE_UPDATE:
+		break;
 	default:
 		return;
 	}
 
+	/* update highestmodseq regardless of whether any mails were updated */
+	modseq = mail_transaction_log_view_get_prev_modseq(ctx->log_view);
+	if (modseq > ctx->highest_modseq)
+		ctx->highest_modseq = modseq;
+
 	/* update modseqs */
-	count = array_count(&uids);
+	count = array_is_created(&uids) ? array_count(&uids) : 0;
 	for (i = 0; i < count; i++) {
 		rec = array_idx(&uids, i);
 		if (mail_index_lookup_seq_range(ctx->view, rec->seq1, rec->seq2,

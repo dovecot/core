@@ -70,6 +70,7 @@ struct mail_index_transaction {
 	ARRAY(uint32_t) ext_reset_atomic;
 
 	ARRAY(struct mail_index_transaction_keyword_update) keyword_updates;
+	buffer_t *attribute_updates; /* [+-][ps]key\0.. */
 
 	uint64_t min_highest_modseq;
 	uint64_t max_modseq;
