@@ -1002,6 +1002,16 @@ void master_status_update(struct master_service *service)
 bool version_string_verify(const char *line, const char *service_name,
 			   unsigned major_version)
 {
+	unsigned int minor_version;
+
+	return version_string_verify_full(line, service_name,
+					  major_version, &minor_version);
+}
+
+bool version_string_verify_full(const char *line, const char *service_name,
+				unsigned major_version,
+				unsigned int *minor_version_r)
+{
 	unsigned int service_name_len = strlen(service_name);
 	bool ret;
 
@@ -1015,7 +1025,16 @@ bool version_string_verify(const char *line, const char *service_name,
 	line += service_name_len + 1;
 
 	T_BEGIN {
-		ret = str_uint_equals(t_strcut(line, '\t'), major_version);
+		const char *p = strchr(line, '\t');
+
+		if (p == NULL)
+			ret = FALSE;
+		else {
+			ret = str_uint_equals(t_strdup_until(line, p),
+					      major_version);
+			if (str_to_uint(p+1, minor_version_r) < 0)
+				ret = FALSE;
+		}
 	} T_END;
 	return ret;
 }
