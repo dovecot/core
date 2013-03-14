@@ -10,6 +10,7 @@ enum dsync_mailbox_import_flags {
 };
 
 struct mailbox;
+struct dsync_mailbox_attribute;
 struct dsync_mail;
 struct dsync_mail_change;
 struct dsync_transaction_log_scan;
@@ -25,6 +26,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  uint64_t remote_highest_modseq,
 			  uint64_t remote_highest_pvt_modseq,
 			  enum dsync_mailbox_import_flags flags);
+int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
+				   const struct dsync_mailbox_attribute *attr);
 int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 				const struct dsync_mail_change *change);
 void dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer);

@@ -21,6 +21,7 @@ libdsync_la_SOURCES = \
 	dsync-brain-mails.c \
 	dsync-deserializer.c \
 	dsync-mail.c \
+	dsync-mailbox.c \
 	dsync-mailbox-import.c \
 	dsync-mailbox-export.c \
 	dsync-mailbox-state.c \

@@ -10,6 +10,7 @@
 #include "mail-search-build.h"
 #include "dsync-transaction-log-scan.h"
 #include "dsync-mail.h"
+#include "dsync-mailbox.h"
 #include "dsync-mailbox-import.h"
 
 struct importer_mail {
@@ -66,6 +67,7 @@ struct dsync_mailbox_importer {
 
 	/* UID => struct dsync_mail_change */
 	HASH_TABLE_TYPE(dsync_uid_mail_change) local_changes;
+	HASH_TABLE_TYPE(dsync_attr_change) local_attr_changes;
 
 	ARRAY_TYPE(seq_range) maybe_expunge_uids;
 	ARRAY(struct dsync_mail_change *) maybe_saves;
@@ -196,7 +198,120 @@ dsync_mailbox_import_init(struct mailbox *box,
 	dsync_mailbox_import_search_init(importer);
 
 	importer->local_changes = dsync_transaction_log_scan_get_hash(log_scan);
+	importer->local_attr_changes = dsync_transaction_log_scan_get_attr_hash(log_scan);
 	return importer;
+}
+
+static int
+dsync_mailbox_import_lookup_attr(struct dsync_mailbox_importer *importer,
+				 enum mail_attribute_type type, const char *key,
+				 const struct dsync_mailbox_attribute **attr_r)
+{
+	struct dsync_mailbox_attribute lookup_attr, *attr;
+	const struct dsync_mailbox_attribute *attr_change;
+	struct mail_attribute_value value;
+
+	*attr_r = NULL;
+
+	if (mailbox_attribute_get(importer->trans, type, key, &value) < 0) {
+		i_error("Mailbox %s: Failed to get attribute %s: %s",
+			mailbox_get_vname(importer->box), key,
+			mailbox_get_last_error(importer->box, NULL));
+		importer->failed = TRUE;
+		return -1;
+	}
+
+	lookup_attr.type = type;
+	lookup_attr.key = key;
+
+	attr_change = hash_table_lookup(importer->local_attr_changes,
+					&lookup_attr);
+	if (attr_change == NULL && value.value == NULL) {
+		/* we have no knowledge of this attribute */
+		return 0;
+	}
+	attr = t_new(struct dsync_mailbox_attribute, 1);
+	attr->type = type;
+	attr->key = key;
+	attr->value = value.value;
+	attr->last_change = value.last_change;
+	if (attr_change != NULL) {
+		attr->deleted = attr_change->deleted && attr->value == NULL;
+		attr->modseq = attr_change->modseq;
+	}
+	*attr_r = attr;
+	return 0;
+}
+
+int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
+				   const struct dsync_mailbox_attribute *attr)
+{
+	const struct dsync_mailbox_attribute *local_attr;
+	int ret;
+
+	i_assert(attr->value != NULL || attr->deleted);
+
+	if (dsync_mailbox_import_lookup_attr(importer, attr->type,
+					     attr->key, &local_attr) < 0)
+		return -1;
+	if (local_attr == NULL) {
+		/* we haven't seen this locally -> use whatever remote has */
+	} else if (null_strcmp(attr->value, local_attr->value) == 0) {
+		/* the values are identical anyway -> we can skip them.
+		   FIXME: but should timestamp/modseq still be updated?.. */
+		return 0;
+	} else if (local_attr->modseq <= importer->last_common_modseq &&
+		   attr->modseq > importer->last_common_modseq &&
+		   importer->last_common_modseq > 0) {
+		/* we're doing incremental syncing, and we can see that the
+		   attribute was changed remotely, but not locally -> use it */
+	} else if (local_attr->modseq > importer->last_common_modseq &&
+		   attr->modseq <= importer->last_common_modseq &&
+		   importer->last_common_modseq > 0) {
+		/* we're doing incremental syncing, and we can see that the
+		   attribute was changed locally, but not remotely -> ignore */
+		return 0;
+	} else if (attr->last_change > local_attr->last_change) {
+		/* remote has a newer timestamp -> use it */
+	} else if (attr->last_change < local_attr->last_change) {
+		/* remote has an older timestamp -> ignore */
+		return 0;
+	} else {
+		/* the timestamps are the same. now we're down to guessing
+		   the right answer. first try to use modseqs, but if even they
+		   are the same, fallback to just picking one based on the
+		   value. */
+		if (attr->modseq > local_attr->modseq) {
+			/* remote has a higher modseq -> use it */
+		} else if (attr->modseq < local_attr->modseq) {
+			/* remote has an older modseq -> ignore */
+			return 0;
+		} else if (attr->value != NULL && local_attr->value == NULL) {
+			/* remote has a value and local doesn't -> use it */
+		} else if (attr->value == NULL && local_attr->value != NULL) {
+			/* remote doesn't have a value, bt local does -> skip */
+			return 0;
+		} else {
+			/* now we have absolutely no reasonable guesses left.
+			   just pick one of them that are used. */
+			if (strcmp(attr->value, local_attr->value) < 0)
+				return 0;
+		}
+	}
+	if (attr->value != NULL) {
+		ret = mailbox_attribute_set(importer->trans, attr->type,
+					    attr->key, attr->value);
+	} else {
+		ret = mailbox_attribute_unset(importer->trans, attr->type,
+					      attr->key);
+	}
+	if (ret < 0) {
+		i_error("Mailbox %s: Failed to set attribute %s: %s",
+			mailbox_get_vname(importer->box), attr->key,
+			mailbox_get_last_error(importer->box, NULL));
+		importer->failed = TRUE;
+	}
+	return ret;
 }
 
 static void dsync_mail_error(struct dsync_mailbox_importer *importer,

@@ -5,11 +5,13 @@
 #include "mail-index-modseq.h"
 #include "mail-storage-private.h"
 #include "dsync-mail.h"
+#include "dsync-mailbox.h"
 #include "dsync-transaction-log-scan.h"
 
 struct dsync_transaction_log_scan {
 	pool_t pool;
 	HASH_TABLE_TYPE(dsync_uid_mail_change) changes;
+	HASH_TABLE_TYPE(dsync_attr_change) attr_changes;
 	struct mail_index_view *view;
 	uint32_t highest_wanted_uid;
 
@@ -303,6 +305,44 @@ log_add_modseq_update(struct dsync_transaction_log_scan *ctx, const void *data,
 	}
 }
 
+static void
+log_add_attribute_update_key(struct dsync_transaction_log_scan *ctx,
+			     const char *attr_change, uint64_t modseq)
+{
+	struct dsync_mailbox_attribute lookup_attr, *attr;
+
+	i_assert(strlen(attr_change) > 2); /* checked by lib-index */
+
+	lookup_attr.type = attr_change[1] == 'p' ?
+		MAIL_ATTRIBUTE_TYPE_PRIVATE : MAIL_ATTRIBUTE_TYPE_SHARED;
+	lookup_attr.key = attr_change+2;
+
+	attr = hash_table_lookup(ctx->attr_changes, &lookup_attr);
+	if (attr == NULL) {
+		attr = p_new(ctx->pool, struct dsync_mailbox_attribute, 1);
+		attr->type = lookup_attr.type;
+		attr->key = p_strdup(ctx->pool, lookup_attr.key);
+		hash_table_insert(ctx->attr_changes, attr, attr);
+	}
+	attr->deleted = attr_change[0] == '-';
+	attr->modseq = modseq;
+}
+
+static void
+log_add_attribute_update(struct dsync_transaction_log_scan *ctx,
+			 const void *data,
+			 const struct mail_transaction_header *hdr,
+			 uint64_t modseq)
+{
+	const char *attr_changes = data;
+	unsigned int i;
+
+	for (i = 0; i < hdr->size && attr_changes[i] != '\0'; ) {
+		log_add_attribute_update_key(ctx, attr_changes+i, modseq);
+		i += strlen(attr_changes+i) + 1;
+	}
+}
+
 static int
 dsync_log_set(struct dsync_transaction_log_scan *ctx,
 	      struct mail_index_view *view, bool pvt_scan,
@@ -342,6 +382,7 @@ dsync_log_scan(struct dsync_transaction_log_scan *ctx,
 	const void *data;
 	uint32_t file_seq, max_seq;
 	uoff_t file_offset, max_offset;
+	uint64_t cur_modseq;
 
 	log_view = mail_transaction_log_view_open(view->index->log);
 	if (dsync_log_set(ctx, view, pvt_scan, log_view, modseq) < 0) {
@@ -393,6 +434,10 @@ dsync_log_scan(struct dsync_transaction_log_scan *ctx,
 		case MAIL_TRANSACTION_MODSEQ_UPDATE:
 			log_add_modseq_update(ctx, data, hdr, pvt_scan);
 			break;
+		case MAIL_TRANSACTION_ATTRIBUTE_UPDATE:
+			cur_modseq = mail_transaction_log_view_get_prev_modseq(log_view);
+			log_add_attribute_update(ctx, data, hdr, cur_modseq);
+			break;
 		}
 	}
 
@@ -402,6 +447,23 @@ dsync_log_scan(struct dsync_transaction_log_scan *ctx,
 	}
 	mail_transaction_log_view_close(&log_view);
 	return 0;
+}
+
+static int
+dsync_mailbox_attribute_cmp(const struct dsync_mailbox_attribute *attr1,
+			    const struct dsync_mailbox_attribute *attr2)
+{
+	if (attr1->type < attr2->type)
+		return -1;
+	if (attr1->type > attr2->type)
+		return 1;
+	return strcmp(attr1->key, attr2->key);
+}
+
+static unsigned int
+dsync_mailbox_attribute_hash(const struct dsync_mailbox_attribute *attr)
+{
+	return str_hash(attr->key) ^ attr->type;
 }
 
 int dsync_transaction_log_scan_init(struct mail_index_view *view,
@@ -418,6 +480,9 @@ int dsync_transaction_log_scan_init(struct mail_index_view *view,
 	ctx = p_new(pool, struct dsync_transaction_log_scan, 1);
 	ctx->pool = pool;
 	hash_table_create_direct(&ctx->changes, pool, 0);
+	hash_table_create(&ctx->attr_changes, pool, 0,
+			  dsync_mailbox_attribute_hash,
+			  dsync_mailbox_attribute_cmp);
 	ctx->view = view;
 	ctx->highest_wanted_uid = highest_wanted_uid;
 
@@ -436,6 +501,12 @@ HASH_TABLE_TYPE(dsync_uid_mail_change)
 dsync_transaction_log_scan_get_hash(struct dsync_transaction_log_scan *scan)
 {
 	return scan->changes;
+}
+
+HASH_TABLE_TYPE(dsync_attr_change)
+dsync_transaction_log_scan_get_attr_hash(struct dsync_transaction_log_scan *scan)
+{
+	return scan->attr_changes;
 }
 
 bool
@@ -491,5 +562,6 @@ void dsync_transaction_log_scan_deinit(struct dsync_transaction_log_scan **_scan
 	*_scan = NULL;
 
 	hash_table_destroy(&scan->changes);
+	hash_table_destroy(&scan->attr_changes);
 	pool_unref(&scan->pool);
 }

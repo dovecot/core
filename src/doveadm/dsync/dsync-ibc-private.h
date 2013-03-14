@@ -43,6 +43,12 @@ struct dsync_ibc_vfuncs {
 		(*recv_mailbox)(struct dsync_ibc *ibc,
 				const struct dsync_mailbox **dsync_box_r);
 
+	void (*send_mailbox_attribute)(struct dsync_ibc *ibc,
+				       const struct dsync_mailbox_attribute *attr);
+	enum dsync_ibc_recv_ret
+		(*recv_mailbox_attribute)(struct dsync_ibc *ibc,
+					  const struct dsync_mailbox_attribute **attr_r);
+
 	void (*send_change)(struct dsync_ibc *ibc,
 			    const struct dsync_mail_change *change);
 	enum dsync_ibc_recv_ret

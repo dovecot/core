@@ -84,7 +84,7 @@ void dsync_brain_sync_init_box_states(struct dsync_brain *brain)
 {
 	if (brain->backup_send) {
 		/* we have an exporter, but no importer. */
-		brain->box_send_state = DSYNC_BOX_STATE_CHANGES;
+		brain->box_send_state = DSYNC_BOX_STATE_ATTRIBUTES;
 		brain->box_recv_state = brain->mail_requests ?
 			DSYNC_BOX_STATE_MAIL_REQUESTS :
 			DSYNC_BOX_STATE_RECV_LAST_COMMON;
@@ -93,10 +93,10 @@ void dsync_brain_sync_init_box_states(struct dsync_brain *brain)
 		brain->box_send_state = brain->mail_requests ?
 			DSYNC_BOX_STATE_MAIL_REQUESTS :
 			DSYNC_BOX_STATE_DONE;
-		brain->box_recv_state = DSYNC_BOX_STATE_CHANGES;
+		brain->box_recv_state = DSYNC_BOX_STATE_ATTRIBUTES;
 	} else {
-		brain->box_send_state = DSYNC_BOX_STATE_CHANGES;
-		brain->box_recv_state = DSYNC_BOX_STATE_CHANGES;
+		brain->box_send_state = DSYNC_BOX_STATE_ATTRIBUTES;
+		brain->box_recv_state = DSYNC_BOX_STATE_ATTRIBUTES;
 	}
 }
 

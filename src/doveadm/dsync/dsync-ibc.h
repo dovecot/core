@@ -11,6 +11,7 @@ struct dsync_mailbox;
 struct dsync_mailbox_state;
 struct dsync_mailbox_node;
 struct dsync_mailbox_delete;
+struct dsync_mailbox_attribute;
 struct dsync_mail;
 struct dsync_mail_change;
 struct dsync_mail_request;
@@ -94,6 +95,13 @@ dsync_ibc_send_mailbox(struct dsync_ibc *ibc,
 enum dsync_ibc_recv_ret
 dsync_ibc_recv_mailbox(struct dsync_ibc *ibc,
 		       const struct dsync_mailbox **dsync_box_r);
+
+enum dsync_ibc_send_ret ATTR_NOWARN_UNUSED_RESULT
+dsync_ibc_send_mailbox_attribute(struct dsync_ibc *ibc,
+				 const struct dsync_mailbox_attribute *attr);
+enum dsync_ibc_recv_ret
+dsync_ibc_recv_mailbox_attribute(struct dsync_ibc *ibc,
+				 const struct dsync_mailbox_attribute **attr_r);
 
 enum dsync_ibc_send_ret ATTR_NOWARN_UNUSED_RESULT
 dsync_ibc_send_change(struct dsync_ibc *ibc,

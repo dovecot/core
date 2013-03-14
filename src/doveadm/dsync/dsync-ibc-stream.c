@@ -28,7 +28,10 @@
 #define DSYNC_IBC_STREAM_OUTBUF_THROTTLE_SIZE (1024*128)
 
 #define DSYNC_PROTOCOL_VERSION_MAJOR 3
-#define DSYNC_HANDSHAKE_VERSION "VERSION\tdsync\t3\t0\n"
+#define DSYNC_PROTOCOL_VERSION_MINOR 1
+#define DSYNC_HANDSHAKE_VERSION "VERSION\tdsync\t3\t1\n"
+
+#define DSYNC_PROTOCOL_MINOR_HAVE_ATTRIBUTES 1
 
 enum item_type {
 	ITEM_NONE,
@@ -40,6 +43,7 @@ enum item_type {
 	ITEM_MAILBOX_DELETE,
 	ITEM_MAILBOX,
 
+	ITEM_MAILBOX_ATTRIBUTE,
 	ITEM_MAIL_CHANGE,
 	ITEM_MAIL_REQUEST,
 	ITEM_MAIL,
@@ -92,6 +96,11 @@ static const struct {
 		"first_recent_uid highest_modseq highest_pvt_modseq",
 	  .optional_keys = "mailbox_lost cache_fields have_guids"
 	},
+	{ .name = "mailbox_attribute",
+	  .chr = 'A',
+	  .required_keys = "type key",
+	  .optional_keys = "value deleted last_change modseq"
+	},
 	{ .name = "mail_change",
 	  .chr = 'C',
 	  .required_keys = "type uid",
@@ -126,6 +135,7 @@ struct dsync_ibc_stream {
 	struct io *io;
 	struct timeout *to;
 
+	unsigned int minor_version;
 	struct dsync_serializer *serializers[ITEM_END_OF_LIST];
 	struct dsync_deserializer *deserializers[ITEM_END_OF_LIST];
 
@@ -195,16 +205,9 @@ static int dsync_ibc_stream_send_mail_stream(struct dsync_ibc_stream *ibc)
 					 &data, &size, 0)) > 0) {
 		add = '\0';
 		for (i = 0; i < size; i++) {
-			if (data[i] == '\n') {
-				if ((i == 0 && ibc->mail_output_last != '\r') ||
-				    (i > 0 && data[i-1] != '\r')) {
-					/* missing CR */
-					add = '\r';
-					break;
-				}
-			} else if (data[i] == '.' &&
-				   ((i == 0 && ibc->mail_output_last == '\n') ||
-				    (i > 0 && data[i-1] == '\n'))) {
+			if (data[i] == '.' &&
+			    ((i == 0 && ibc->mail_output_last == '\n') ||
+			     (i > 0 && data[i-1] == '\n'))) {
 				/* escape the dot */
 				add = '.';
 				break;
@@ -243,7 +246,8 @@ static int dsync_ibc_stream_send_mail_stream(struct dsync_ibc_stream *ibc)
 		return -1;
 	}
 
-	/* finished sending the stream */
+	/* finished sending the stream. use "CRLF." instead of "LF." just in
+	   case we're sending binary data that ends with CR. */
 	o_stream_nsend_str(ibc->output, "\r\n.\r\n");
 	i_stream_unref(&ibc->mail_output);
 	return 1;
@@ -429,8 +433,9 @@ dsync_ibc_stream_handshake(struct dsync_ibc_stream *ibc, const char *line)
 		return TRUE;
 
 	if (!ibc->version_received) {
-		if (!version_string_verify(line, "dsync",
-					   DSYNC_PROTOCOL_VERSION_MAJOR)) {
+		if (!version_string_verify_full(line, "dsync",
+						DSYNC_PROTOCOL_VERSION_MAJOR,
+						&ibc->minor_version)) {
 			dsync_ibc_input_error(ibc, NULL,
 				"Remote dsync doesn't use compatible protocol");
 			return DSYNC_IBC_RECV_RET_TRYAGAIN;
@@ -1185,6 +1190,107 @@ dsync_ibc_stream_recv_mailbox(struct dsync_ibc *_ibc,
 }
 
 static void
+dsync_ibc_stream_send_mailbox_attribute(struct dsync_ibc *_ibc,
+					const struct dsync_mailbox_attribute *attr)
+{
+	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
+	struct dsync_serializer_encoder *encoder;
+	string_t *str = t_str_new(128);
+	char type[2];
+
+	if (ibc->minor_version < DSYNC_PROTOCOL_MINOR_HAVE_ATTRIBUTES)
+		return;
+
+	str_append_c(str, items[ITEM_MAILBOX_ATTRIBUTE].chr);
+	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_MAILBOX_ATTRIBUTE]);
+
+	type[0] = type[1] = '\0';
+	switch (attr->type) {
+	case MAIL_ATTRIBUTE_TYPE_PRIVATE:
+		type[0] = 'p';
+		break;
+	case MAIL_ATTRIBUTE_TYPE_SHARED:
+		type[0] = 's';
+		break;
+	}
+	i_assert(type[0] != '\0');
+	dsync_serializer_encode_add(encoder, "type", type);
+	dsync_serializer_encode_add(encoder, "key", attr->key);
+	if (attr->value != NULL)
+		dsync_serializer_encode_add(encoder, "value", attr->value);
+
+	if (attr->deleted)
+		dsync_serializer_encode_add(encoder, "deleted", "");
+	if (attr->last_change != 0) {
+		dsync_serializer_encode_add(encoder, "last_change",
+					    dec2str(attr->last_change));
+	}
+	if (attr->modseq != 0) {
+		dsync_serializer_encode_add(encoder, "modseq",
+					    dec2str(attr->modseq));
+	}
+
+	dsync_serializer_encode_finish(&encoder, str);
+	dsync_ibc_stream_send_string(ibc, str);
+}
+
+static enum dsync_ibc_recv_ret
+dsync_ibc_stream_recv_mailbox_attribute(struct dsync_ibc *_ibc,
+					const struct dsync_mailbox_attribute **attr_r)
+{
+	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
+	pool_t pool = ibc->ret_pool;
+	struct dsync_deserializer_decoder *decoder;
+	struct dsync_mailbox_attribute *attr;
+	const char *value;
+	enum dsync_ibc_recv_ret ret;
+
+	if (ibc->minor_version < DSYNC_PROTOCOL_MINOR_HAVE_ATTRIBUTES)
+		return DSYNC_IBC_RECV_RET_FINISHED;
+
+	p_clear(pool);
+	attr = p_new(pool, struct dsync_mailbox_attribute, 1);
+
+	ret = dsync_ibc_stream_input_next(ibc, ITEM_MAIL_CHANGE, &decoder);
+	if (ret != DSYNC_IBC_RECV_RET_OK)
+		return ret;
+
+	value = dsync_deserializer_decode_get(decoder, "type");
+	switch (*value) {
+	case 'p':
+		attr->type = MAIL_ATTRIBUTE_TYPE_PRIVATE;
+		break;
+	case 's':
+		attr->type = MAIL_ATTRIBUTE_TYPE_SHARED;
+		break;
+	default:
+		dsync_ibc_input_error(ibc, decoder, "Invalid type: %s", value);
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
+
+	value = dsync_deserializer_decode_get(decoder, "key");
+	attr->key = p_strdup(pool, value);
+
+	if (dsync_deserializer_decode_try(decoder, "value", &value))
+		attr->value = p_strdup(pool, value);
+	if (dsync_deserializer_decode_try(decoder, "deleted", &value))
+		attr->deleted = TRUE;
+	if (dsync_deserializer_decode_try(decoder, "last_change", &value) &&
+	    str_to_time(value, &attr->last_change) < 0) {
+		dsync_ibc_input_error(ibc, decoder, "Invalid last_change");
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
+	if (dsync_deserializer_decode_try(decoder, "modseq", &value) &&
+	    str_to_uint64(value, &attr->modseq) < 0) {
+		dsync_ibc_input_error(ibc, decoder, "Invalid modseq");
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
+
+	*attr_r = attr;
+	return DSYNC_IBC_RECV_RET_OK;
+}
+
+static void
 dsync_ibc_stream_send_change(struct dsync_ibc *_ibc,
 			     const struct dsync_mail_change *change)
 {
@@ -1580,6 +1686,8 @@ static const struct dsync_ibc_vfuncs dsync_ibc_stream_vfuncs = {
 	dsync_ibc_stream_recv_mailbox_deletes,
 	dsync_ibc_stream_send_mailbox,
 	dsync_ibc_stream_recv_mailbox,
+	dsync_ibc_stream_send_mailbox_attribute,
+	dsync_ibc_stream_recv_mailbox_attribute,
 	dsync_ibc_stream_send_change,
 	dsync_ibc_stream_recv_change,
 	dsync_ibc_stream_send_mail_request,

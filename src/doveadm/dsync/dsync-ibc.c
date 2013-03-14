@@ -123,6 +123,23 @@ dsync_ibc_recv_mailbox(struct dsync_ibc *ibc,
 	return ibc->v.recv_mailbox(ibc, dsync_box_r);
 }
 
+enum dsync_ibc_send_ret ATTR_NOWARN_UNUSED_RESULT
+dsync_ibc_send_mailbox_attribute(struct dsync_ibc *ibc,
+				 const struct dsync_mailbox_attribute *attr)
+{
+	T_BEGIN {
+		ibc->v.send_mailbox_attribute(ibc, attr);
+	} T_END;
+	return dsync_ibc_send_ret(ibc);
+}
+
+enum dsync_ibc_recv_ret
+dsync_ibc_recv_mailbox_attribute(struct dsync_ibc *ibc,
+				 const struct dsync_mailbox_attribute **attr_r)
+{
+	return ibc->v.recv_mailbox_attribute(ibc, attr_r);
+}
+
 enum dsync_ibc_send_ret
 dsync_ibc_send_change(struct dsync_ibc *ibc,
 		      const struct dsync_mail_change *change)

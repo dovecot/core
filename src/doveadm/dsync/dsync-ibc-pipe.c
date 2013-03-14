@@ -16,6 +16,7 @@ enum item_type {
 	ITEM_MAILBOX_TREE_NODE,
 	ITEM_MAILBOX_DELETE,
 	ITEM_MAILBOX,
+	ITEM_MAILBOX_ATTRIBUTE,
 	ITEM_MAIL_CHANGE,
 	ITEM_MAIL_REQUEST,
 	ITEM_MAIL
@@ -31,6 +32,7 @@ struct item {
 		struct dsync_mailbox_node node;
 		guid_128_t mailbox_guid;
 		struct dsync_mailbox dsync_box;
+		struct dsync_mailbox_attribute attr;
 		struct dsync_mail_change change;
 		struct dsync_mail_request request;
 		struct dsync_mail mail;
@@ -84,6 +86,7 @@ dsync_ibc_pipe_push_item(struct dsync_ibc_pipe *pipe, enum item_type type)
 	case ITEM_HANDSHAKE:
 	case ITEM_MAILBOX:
 	case ITEM_MAILBOX_TREE_NODE:
+	case ITEM_MAILBOX_ATTRIBUTE:
 	case ITEM_MAIL_CHANGE:
 	case ITEM_MAIL_REQUEST:
 	case ITEM_MAIL:
@@ -342,6 +345,35 @@ dsync_ibc_pipe_recv_mailbox(struct dsync_ibc *ibc,
 }
 
 static void
+dsync_ibc_pipe_send_mailbox_attribute(struct dsync_ibc *ibc,
+				      const struct dsync_mailbox_attribute *attr)
+{
+	struct dsync_ibc_pipe *pipe = (struct dsync_ibc_pipe *)ibc;
+	struct item *item;
+
+	item = dsync_ibc_pipe_push_item(pipe->remote, ITEM_MAILBOX_ATTRIBUTE);
+	dsync_mailbox_attribute_dup(item->pool, attr, &item->u.attr);
+}
+
+static enum dsync_ibc_recv_ret
+dsync_ibc_pipe_recv_mailbox_attribute(struct dsync_ibc *ibc,
+				      const struct dsync_mailbox_attribute **attr_r)
+{
+	struct dsync_ibc_pipe *pipe = (struct dsync_ibc_pipe *)ibc;
+	struct item *item;
+
+	if (dsync_ibc_pipe_try_pop_eol(pipe))
+		return DSYNC_IBC_RECV_RET_FINISHED;
+
+	item = dsync_ibc_pipe_pop_item(pipe, ITEM_MAILBOX_ATTRIBUTE);
+	if (item == NULL)
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+
+	*attr_r = &item->u.attr;
+	return DSYNC_IBC_RECV_RET_OK;
+}
+
+static void
 dsync_ibc_pipe_send_change(struct dsync_ibc *ibc,
 			   const struct dsync_mail_change *change)
 {
@@ -470,6 +502,8 @@ static const struct dsync_ibc_vfuncs dsync_ibc_pipe_vfuncs = {
 	dsync_ibc_pipe_recv_mailbox_deletes,
 	dsync_ibc_pipe_send_mailbox,
 	dsync_ibc_pipe_recv_mailbox,
+	dsync_ibc_pipe_send_mailbox_attribute,
+	dsync_ibc_pipe_recv_mailbox_attribute,
 	dsync_ibc_pipe_send_change,
 	dsync_ibc_pipe_recv_change,
 	dsync_ibc_pipe_send_mail_request,

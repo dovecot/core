@@ -11,6 +11,7 @@
 const char *dsync_box_state_names[DSYNC_BOX_STATE_DONE+1] = {
 	"mailbox",
 	"changes",
+	"attributes",
 	"mail_requests",
 	"mails",
 	"recv_last_common",
@@ -57,6 +58,34 @@ static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 		return TRUE;
 	dsync_brain_sync_init_box_states(brain);
 	return TRUE;
+}
+
+static bool dsync_brain_recv_mailbox_attribute(struct dsync_brain *brain)
+{
+	const struct dsync_mailbox_attribute *attr;
+	enum dsync_ibc_recv_ret ret;
+
+	if ((ret = dsync_ibc_recv_mailbox_attribute(brain->ibc, &attr)) == 0)
+		return FALSE;
+	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
+		brain->box_recv_state = DSYNC_BOX_STATE_CHANGES;
+		return TRUE;
+	}
+	if (dsync_mailbox_import_attribute(brain->box_importer, attr) < 0)
+		brain->failed = TRUE;
+	return TRUE;
+}
+
+static void dsync_brain_send_mailbox_attribute(struct dsync_brain *brain)
+{
+	const struct dsync_mailbox_attribute *attr;
+
+	while ((attr = dsync_mailbox_export_next_attr(brain->box_exporter)) != NULL) {
+		if (dsync_ibc_send_mailbox_attribute(brain->ibc, attr) == 0)
+			return;
+	}
+	dsync_ibc_send_end_of_list(brain->ibc);
+	brain->box_send_state = DSYNC_BOX_STATE_CHANGES;
 }
 
 static bool dsync_brain_recv_mail_change(struct dsync_brain *brain)
@@ -278,6 +307,9 @@ bool dsync_brain_sync_mails(struct dsync_brain *brain)
 	case DSYNC_BOX_STATE_MAILBOX:
 		changed = dsync_brain_master_sync_recv_mailbox(brain);
 		break;
+	case DSYNC_BOX_STATE_ATTRIBUTES:
+		changed = dsync_brain_recv_mailbox_attribute(brain);
+		break;
 	case DSYNC_BOX_STATE_CHANGES:
 		changed = dsync_brain_recv_mail_change(brain);
 		break;
@@ -298,6 +330,10 @@ bool dsync_brain_sync_mails(struct dsync_brain *brain)
 		switch (brain->box_send_state) {
 		case DSYNC_BOX_STATE_MAILBOX:
 			/* wait for mailbox to be received first */
+			break;
+		case DSYNC_BOX_STATE_ATTRIBUTES:
+			dsync_brain_send_mailbox_attribute(brain);
+			changed = TRUE;
 			break;
 		case DSYNC_BOX_STATE_CHANGES:
 			dsync_brain_send_mail_change(brain);

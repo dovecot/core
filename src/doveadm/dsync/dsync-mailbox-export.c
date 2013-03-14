@@ -8,6 +8,7 @@
 #include "mail-search-build.h"
 #include "dsync-transaction-log-scan.h"
 #include "dsync-mail.h"
+#include "dsync-mailbox.h"
 #include "dsync-mailbox-export.h"
 
 struct dsync_mail_guid_instances {
@@ -40,6 +41,9 @@ struct dsync_mailbox_exporter {
 	ARRAY(struct dsync_mail_change *) sorted_changes;
 	unsigned int change_idx;
 	uint32_t highest_changed_uid;
+
+	ARRAY(struct dsync_mailbox_attribute) attr_changes;
+	unsigned int attr_change_idx;
 
 	struct dsync_mail_change change;
 	struct dsync_mail dsync_mail;
@@ -396,6 +400,101 @@ dsync_mailbox_export_sort_changes(struct dsync_mailbox_exporter *exporter)
 }
 
 static void
+dsync_mailbox_export_attr_changes(struct dsync_mailbox_exporter *exporter,
+				  enum mail_attribute_type type)
+{
+	HASH_TABLE_TYPE(dsync_attr_change) attr_changes;
+	struct mailbox_attribute_iter *iter;
+	struct dsync_mailbox_attribute lookup_attr, *attr;
+	struct dsync_mailbox_attribute *attr_change;
+	const char *key;
+	struct mail_attribute_value value;
+	bool export_all_attrs;
+
+	export_all_attrs = exporter->return_all_mails ||
+		exporter->last_common_uid == 0;
+	attr_changes = dsync_transaction_log_scan_get_attr_hash(exporter->log_scan);
+	lookup_attr.type = type;
+
+	iter = mailbox_attribute_iter_init(exporter->box, type, "");
+	while ((key = mailbox_attribute_iter_next(iter)) != NULL) {
+		lookup_attr.key = key;
+		attr_change = hash_table_lookup(attr_changes, &lookup_attr);
+		if (attr_change == NULL && !export_all_attrs)
+			continue;
+
+		if (mailbox_attribute_get(exporter->trans, type, key, &value) < 0) {
+			exporter->error = p_strdup_printf(exporter->pool,
+				"Mailbox attribute %s lookup failed: %s", key,
+				mailbox_get_last_error(exporter->box, NULL));
+			break;
+		}
+		if ((value.flags & MAIL_ATTRIBUTE_VALUE_FLAG_READONLY) != 0) {
+			/* readonly attributes can't be changed,
+			   no point in exporting them */
+			continue;
+		}
+
+		attr = array_append_space(&exporter->attr_changes);
+		attr->type = type;
+		attr->value = p_strdup(exporter->pool, value.value);
+		attr->last_change = value.last_change;
+		if (attr_change != NULL) {
+			i_assert(!attr_change->exported);
+			attr_change->exported = TRUE;
+			attr->key = attr_change->key;
+			attr->deleted = attr_change->deleted &&
+				attr->value == NULL;
+			attr->modseq = attr_change->modseq;
+		} else {
+			attr->key = p_strdup(exporter->pool, key);
+		}
+	}
+	if (mailbox_attribute_iter_deinit(&iter) < 0) {
+		exporter->error = p_strdup_printf(exporter->pool,
+			"Mailbox attribute iteration failed: %s",
+			mailbox_get_last_error(exporter->box, NULL));
+	}
+}
+
+static void
+dsync_mailbox_export_nonexistent_attrs(struct dsync_mailbox_exporter *exporter)
+{
+	HASH_TABLE_TYPE(dsync_attr_change) attr_changes;
+	struct hash_iterate_context *iter;
+	struct dsync_mailbox_attribute *attr;
+	struct mail_attribute_value value;
+
+	attr_changes = dsync_transaction_log_scan_get_attr_hash(exporter->log_scan);
+
+	iter = hash_table_iterate_init(attr_changes);
+	while (hash_table_iterate(iter, attr_changes, &attr, &attr)) {
+		if (attr->exported || !attr->deleted)
+			continue;
+
+		/* lookup the value mainly to get its last_change value. */
+		if (mailbox_attribute_get(exporter->trans, attr->type,
+					  attr->key, &value) < 0) {
+			exporter->error = p_strdup_printf(exporter->pool,
+				"Mailbox attribute %s lookup failed: %s", attr->key,
+				mailbox_get_last_error(exporter->box, NULL));
+			break;
+		}
+		if ((value.flags & MAIL_ATTRIBUTE_VALUE_FLAG_READONLY) != 0)
+			continue;
+
+		attr->last_change = value.last_change;
+		if (value.value != NULL) {
+			attr->value = p_strdup(exporter->pool, value.value);
+			attr->deleted = FALSE;
+		}
+		attr->exported = TRUE;
+		array_append(&exporter->attr_changes, attr, 1);
+	}
+	hash_table_iterate_deinit(&iter);
+}
+
+static void
 dsync_mailbox_export_log_scan(struct dsync_mailbox_exporter *exporter,
 			      struct dsync_transaction_log_scan *log_scan)
 {
@@ -456,7 +555,27 @@ dsync_mailbox_export_init(struct mailbox *box,
 	dsync_mailbox_export_search(exporter);
 	/* get the changes sorted by UID */
 	dsync_mailbox_export_sort_changes(exporter);
+
+	p_array_init(&exporter->attr_changes, pool, 16);
+	dsync_mailbox_export_attr_changes(exporter, MAIL_ATTRIBUTE_TYPE_PRIVATE);
+	dsync_mailbox_export_attr_changes(exporter, MAIL_ATTRIBUTE_TYPE_SHARED);
+	dsync_mailbox_export_nonexistent_attrs(exporter);
 	return exporter;
+}
+
+const struct dsync_mailbox_attribute *
+dsync_mailbox_export_next_attr(struct dsync_mailbox_exporter *exporter)
+{
+	const struct dsync_mailbox_attribute *changes;
+	unsigned int count;
+
+	if (exporter->error != NULL)
+		return NULL;
+
+	changes = array_get(&exporter->attr_changes, &count);
+	if (exporter->attr_change_idx == count)
+		return NULL;
+	return &changes[exporter->attr_change_idx++];
 }
 
 const struct dsync_mail_change *
@@ -471,7 +590,6 @@ dsync_mailbox_export_next(struct dsync_mailbox_exporter *exporter)
 	changes = array_get(&exporter->sorted_changes, &count);
 	if (exporter->change_idx == count)
 		return NULL;
-
 	return changes[exporter->change_idx++];
 }
 

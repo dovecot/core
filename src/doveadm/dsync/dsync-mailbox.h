@@ -15,4 +15,20 @@ struct dsync_mailbox {
 	ARRAY_TYPE(mailbox_cache_field) cache_fields;
 };
 
+struct dsync_mailbox_attribute {
+	enum mail_attribute_type type;
+	const char *key;
+	const char *value; /* NULL = not looked up yet / deleted */
+
+	time_t last_change; /* 0 = unknown */
+	uint64_t modseq; /* 0 = unknown */
+
+	bool deleted; /* attribute is known to have been deleted */
+	bool exported; /* internally used by exporting */
+};
+
+void dsync_mailbox_attribute_dup(pool_t pool,
+				 const struct dsync_mailbox_attribute *src,
+				 struct dsync_mailbox_attribute *dest_r);
+
 #endif
