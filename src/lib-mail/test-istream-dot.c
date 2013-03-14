@@ -106,6 +106,8 @@ static void test_istream_dot(void)
 	static struct dot_test tests[] = {
 		{ "..foo\n..\n.foo\n.\nfoo", ".foo\n.\nfoo\n", "foo" },
 		{ "..foo\r\n..\r\n.foo\r\n.\r\nfoo", ".foo\r\n.\r\nfoo\r\n", "foo" },
+		{ "\r.\r\n.\r\n", "\r.\r\n", "" },
+		{ "\n\r.\r\r\n.\r\n", "\n\r.\r\r\n", "" },
 		{ "\r\n.\r\n", "\r\n", "" },
 		{ "\n.\r\n", "\n", "" },
 		{ "\n.\n", "\n", "" },
