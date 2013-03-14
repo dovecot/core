@@ -12,11 +12,14 @@
 
 #define IMAP_URLAUTH_KEY MAILBOX_ATTRIBUTE_PREFIX_DOVECOT"imap-urlauth"
 
-int imap_urlauth_backend_get_mailbox_key(struct mailbox *box, bool create,
-					 unsigned char mailbox_key_r[IMAP_URLAUTH_KEY_LEN],
-					 const char **error_r,
-					 enum mail_error *error_code_r)
+static int
+imap_urlauth_backend_trans_get_mailbox_key(struct mailbox_transaction_context *trans,
+					   bool create,
+					   unsigned char mailbox_key_r[IMAP_URLAUTH_KEY_LEN],
+					   const char **error_r,
+					   enum mail_error *error_code_r)
 {
+	struct mailbox *box = mailbox_transaction_get_mailbox(trans);
 	struct mail_user *user = mail_storage_get_user(mailbox_get_storage(box));
 	struct mail_attribute_value urlauth_key;
 	const char *mailbox_key_hex = NULL;
@@ -26,7 +29,7 @@ int imap_urlauth_backend_get_mailbox_key(struct mailbox *box, bool create,
 	*error_r = "Internal server error";
 	*error_code_r = MAIL_ERROR_TEMP;
 
-	ret = mailbox_attribute_get(box, MAIL_ATTRIBUTE_TYPE_PRIVATE,
+	ret = mailbox_attribute_get(trans, MAIL_ATTRIBUTE_TYPE_PRIVATE,
 				    IMAP_URLAUTH_KEY, &urlauth_key);
 	if (ret < 0)
 		return -1;
@@ -44,7 +47,7 @@ int imap_urlauth_backend_get_mailbox_key(struct mailbox *box, bool create,
 		random_fill(mailbox_key_r, IMAP_URLAUTH_KEY_LEN);
 		mailbox_key_hex = binary_to_hex(mailbox_key_r,
 						IMAP_URLAUTH_KEY_LEN);
-		ret = mailbox_attribute_set(box, MAIL_ATTRIBUTE_TYPE_PRIVATE,
+		ret = mailbox_attribute_set(trans, MAIL_ATTRIBUTE_TYPE_PRIVATE,
 					    IMAP_URLAUTH_KEY, mailbox_key_hex);
 		if (ret < 0)
 			return -1;
@@ -69,10 +72,48 @@ int imap_urlauth_backend_get_mailbox_key(struct mailbox *box, bool create,
 	return 1;
 }
 
+int imap_urlauth_backend_get_mailbox_key(struct mailbox *box, bool create,
+					 unsigned char mailbox_key_r[IMAP_URLAUTH_KEY_LEN],
+					 const char **error_r,
+					 enum mail_error *error_code_r)
+{
+	struct mailbox_transaction_context *t;
+	int ret;
+
+	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL);
+	ret = imap_urlauth_backend_trans_get_mailbox_key(t, create, mailbox_key_r, error_r, error_code_r);
+	if (mailbox_transaction_commit(&t) < 0)
+		ret = -1;
+	return ret;
+}
+
 int imap_urlauth_backend_reset_mailbox_key(struct mailbox *box)
 {
-	return mailbox_attribute_unset(box, MAIL_ATTRIBUTE_TYPE_PRIVATE,
-				       IMAP_URLAUTH_KEY) < 0 ? -1 : 1;
+	struct mailbox_transaction_context *t;
+	int ret;
+
+	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL);
+	ret = mailbox_attribute_unset(t, MAIL_ATTRIBUTE_TYPE_PRIVATE,
+				      IMAP_URLAUTH_KEY) < 0 ? -1 : 1;
+	if (mailbox_transaction_commit(&t) < 0)
+		ret = -1;
+	return ret;
+}
+
+static int imap_urlauth_backend_mailbox_reset_key(struct mailbox *box)
+{
+	const char *errstr;
+	enum mail_error error;
+
+	if (mailbox_open(box) < 0) {
+		errstr = mailbox_get_last_error(box, &error);
+		if (error == MAIL_ERROR_NOTFOUND || error == MAIL_ERROR_PERM)
+			return 0;
+		i_error("urlauth key reset: Couldn't open mailbox %s: %s",
+			mailbox_get_vname(box), errstr);
+		return -1;
+	}
+	return imap_urlauth_backend_reset_mailbox_key(box) < 0 ? -1 : 0;
 }
 
 int imap_urlauth_backend_reset_all_keys(struct mail_user *user)
@@ -90,8 +131,7 @@ int imap_urlauth_backend_reset_all_keys(struct mail_user *user)
 						 MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		box = mailbox_alloc(info->ns->list, info->vname, 0);
-		if (mailbox_attribute_unset(box, MAIL_ATTRIBUTE_TYPE_PRIVATE,
-					    IMAP_URLAUTH_KEY) < 0)
+		if (imap_urlauth_backend_mailbox_reset_key(box) < 0)
 			ret = -1;
 		mailbox_free(&box);
 	}

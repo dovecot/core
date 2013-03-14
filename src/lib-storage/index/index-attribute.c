@@ -147,33 +147,66 @@ key_get_prefixed(enum mail_attribute_type type, const char *mailbox_prefix,
 	i_unreached();
 }
 
-int index_storage_attribute_set(struct mailbox *box,
+static int
+index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
+				       enum mail_attribute_type type,
+				       struct dict_transaction_context **dtrans_r,
+				       const char **mailbox_prefix_r)
+{
+	struct dict_transaction_context **dtransp = NULL;
+	struct dict *dict;
+
+	switch (type) {
+	case MAIL_ATTRIBUTE_TYPE_PRIVATE:
+		dtransp = &t->attr_pvt_trans;
+		break;
+	case MAIL_ATTRIBUTE_TYPE_SHARED:
+		dtransp = &t->attr_shared_trans;
+		break;
+	}
+	i_assert(dtransp != NULL);
+
+	if (index_storage_get_dict(t->box, type, &dict, mailbox_prefix_r) < 0)
+		return -1;
+	*dtransp = *dtrans_r = dict_transaction_begin(dict);
+	return 0;
+}
+
+int index_storage_attribute_set(struct mailbox_transaction_context *t,
 				enum mail_attribute_type type,
 				const char *key, const char *value)
 {
 	struct dict_transaction_context *dtrans;
-	struct dict *dict;
 	const char *mailbox_prefix;
+	bool pvt = type == MAIL_ATTRIBUTE_TYPE_PRIVATE;
 
-	if (index_storage_get_dict(box, type, &dict, &mailbox_prefix) < 0)
+	if (strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT,
+		    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT)) == 0) {
+		mail_storage_set_error(t->box->storage, MAIL_ERROR_PARAMS,
+			"Internal attributes cannot be changed directly");
+		return -1;
+	}
+
+	if (index_storage_attribute_get_dict_trans(t, type, &dtrans,
+						   &mailbox_prefix) < 0)
 		return -1;
 
 	T_BEGIN {
-		key = key_get_prefixed(type, mailbox_prefix, key);
-		dtrans = dict_transaction_begin(dict);
-		if (value != NULL)
-			dict_set(dtrans, key, value);
-		else
-			dict_unset(dtrans, key);
+		const char *prefixed_key =
+			key_get_prefixed(type, mailbox_prefix, key);
+
+		if (value != NULL) {
+			dict_set(dtrans, prefixed_key, value);
+			mail_index_attribute_set(t->itrans, pvt, key);
+		} else {
+			dict_unset(dtrans, prefixed_key);
+			mail_index_attribute_unset(t->itrans, pvt, key);
+		}
 	} T_END;
-	if (dict_transaction_commit(&dtrans) < 0) {
-		mail_storage_set_internal_error(box->storage);
-		return -1;
-	}
 	return 0;
 }
 
-int index_storage_attribute_get(struct mailbox *box,
+int index_storage_attribute_get(struct mailbox_transaction_context *t,
 				enum mail_attribute_type type, const char *key,
 				struct mail_attribute_value *value_r)
 {
@@ -183,14 +216,18 @@ int index_storage_attribute_get(struct mailbox *box,
 
 	memset(value_r, 0, sizeof(*value_r));
 
-	if (index_storage_get_dict(box, type, &dict, &mailbox_prefix) < 0)
+	if (strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT,
+		    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT)) == 0)
+		return 0;
+
+	if (index_storage_get_dict(t->box, type, &dict, &mailbox_prefix) < 0)
 		return -1;
 
 	ret = dict_lookup(dict, pool_datastack_create(),
 			  key_get_prefixed(type, mailbox_prefix, key),
 			  &value_r->value);
 	if (ret < 0) {
-		mail_storage_set_internal_error(box->storage);
+		mail_storage_set_internal_error(t->box->storage);
 		return -1;
 	}
 	return ret;

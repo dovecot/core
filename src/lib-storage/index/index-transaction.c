@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "dict.h"
 #include "index-storage.h"
 #include "index-sync-private.h"
 #include "index-mail.h"
@@ -30,8 +31,24 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 	if (t->nontransactional_changes)
 		t->changes->changed = TRUE;
 
+	if (t->attr_pvt_trans != NULL) {
+		if (dict_transaction_commit(&t->attr_pvt_trans) < 0) {
+			mail_storage_set_internal_error(t->box->storage);
+			ret = -1;
+		}
+	}
+	if (t->attr_shared_trans != NULL) {
+		if (dict_transaction_commit(&t->attr_shared_trans) < 0) {
+			mail_storage_set_internal_error(t->box->storage);
+			ret = -1;
+		}
+	}
+
 	if (t->save_ctx != NULL) {
-		if (t->box->v.transaction_save_commit_pre(t->save_ctx) < 0) {
+		if (ret < 0) {
+			t->box->v.transaction_save_rollback(t->save_ctx);
+			t->save_ctx = NULL;
+		} else if (t->box->v.transaction_save_commit_pre(t->save_ctx) < 0) {
 			t->save_ctx = NULL;
 			ret = -1;
 		} else {

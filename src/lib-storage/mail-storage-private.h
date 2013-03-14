@@ -153,10 +153,12 @@ struct mailbox_vfuncs {
 			    struct mailbox_metadata *metadata_r);
 	int (*set_subscribed)(struct mailbox *box, bool set);
 
-	int (*attribute_set)(struct mailbox *box, enum mail_attribute_type type,
+	int (*attribute_set)(struct mailbox_transaction_context *t,
+			     enum mail_attribute_type type,
 			     const char *key, const char *value);
-	int (*attribute_get)(struct mailbox *box, enum mail_attribute_type type,
-			     const char *key, struct mail_attribute_value *value_r);
+	int (*attribute_get)(struct mailbox_transaction_context *t,
+			     enum mail_attribute_type type, const char *key,
+			     struct mail_attribute_value *value_r);
 	struct mailbox_attribute_iter *
 		(*attribute_iter_init)(struct mailbox *box,
 				       enum mail_attribute_type type,
@@ -455,6 +457,7 @@ struct mailbox_transaction_context {
 	int mail_ref_count;
 
 	struct mail_index_transaction *itrans;
+	struct dict_transaction_context *attr_pvt_trans, *attr_shared_trans;
 	/* view contains all changes done within this transaction */
 	struct mail_index_view *view;
 

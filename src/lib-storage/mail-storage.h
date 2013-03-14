@@ -207,6 +207,9 @@ enum mailbox_sync_type {
 /* RFC 5464 specifies that this is vendor/<vendor-token>/. The registered
    vendor-tokens always begin with "vendor." so there's some redundancy.. */
 #define MAILBOX_ATTRIBUTE_PREFIX_DOVECOT "vendor/vendor.dovecot/"
+/* Prefix used for attributes reserved for Dovecot's internal use. Normal
+   users cannot access these in any way. */
+#define MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT "vendor/vendor.dovecot/pvt/"
 
 enum mail_attribute_type {
 	MAIL_ATTRIBUTE_TYPE_PRIVATE,
@@ -217,7 +220,12 @@ enum mail_attribute_value_flags {
 };
 
 struct mail_attribute_value {
+	/* The actual value */
 	const char *value;
+	/* Last time the attribute was changed (0 = unknown). This may be
+	   returned even for values that don't exist anymore. */
+	time_t last_change;
+
 	enum mail_attribute_value_flags flags;
 };
 
@@ -544,15 +552,17 @@ enum mail_flags mailbox_get_private_flags_mask(struct mailbox *box);
 /* Set mailbox attribute key to value. The key should be compatible with
    IMAP METADATA, so for Dovecot-specific keys use
    MAILBOX_ATTRIBUTE_PREFIX_DOVECOT. */
-int mailbox_attribute_set(struct mailbox *box, enum mail_attribute_type type,
+int mailbox_attribute_set(struct mailbox_transaction_context *t,
+			  enum mail_attribute_type type,
 			  const char *key, const char *value);
 /* Delete mailbox attribute key. */
-int mailbox_attribute_unset(struct mailbox *box, enum mail_attribute_type type,
-			    const char *key);
+int mailbox_attribute_unset(struct mailbox_transaction_context *t,
+			    enum mail_attribute_type type, const char *key);
 /* Returns value for mailbox attribute key. Returns 1 if value was returned,
    0 if value wasn't found (set to NULL), -1 if error */
-int mailbox_attribute_get(struct mailbox *box, enum mail_attribute_type type,
-			  const char *key, struct mail_attribute_value *value_r);
+int mailbox_attribute_get(struct mailbox_transaction_context *t,
+			  enum mail_attribute_type type, const char *key,
+			  struct mail_attribute_value *value_r);
 
 /* Iterate through mailbox attributes of the given type. The prefix can be used
    to restrict what attributes are returned. */

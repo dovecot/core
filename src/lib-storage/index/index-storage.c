@@ -601,7 +601,25 @@ int index_storage_mailbox_delete_dir(struct mailbox *box, bool mailbox_deleted)
 	return 0;
 }
 
-static int mailbox_expunge_all_mails(struct mailbox *box)
+static int
+mailbox_delete_all_attributes(struct mailbox_transaction_context *t,
+			      enum mail_attribute_type type)
+{
+	struct mailbox_attribute_iter *iter;
+	const char *key;
+	int ret = 0;
+
+	iter = mailbox_attribute_iter_init(t->box, type, "");
+	while ((key = mailbox_attribute_iter_next(iter)) != NULL) {
+		if (mailbox_attribute_unset(t, type, key) < 0)
+			ret = -1;
+	}
+	if (mailbox_attribute_iter_deinit(&iter) < 0)
+		ret = -1;
+	return ret;
+}
+
+static int mailbox_expunge_all_data(struct mailbox *box)
 {
 	struct mail_search_context *ctx;
         struct mailbox_transaction_context *t;
@@ -624,24 +642,13 @@ static int mailbox_expunge_all_mails(struct mailbox *box)
 		mailbox_transaction_rollback(&t);
 		return -1;
 	}
-	return mailbox_transaction_commit(&t);
-}
 
-static int
-mailbox_delete_all_attributes(struct mailbox *box, enum mail_attribute_type type)
-{
-	struct mailbox_attribute_iter *iter;
-	const char *key;
-	int ret = 0;
-
-	iter = mailbox_attribute_iter_init(box, type, "");
-	while ((key = mailbox_attribute_iter_next(iter)) != NULL) {
-		if (mailbox_attribute_unset(box, type, key) < 0)
-			ret = -1;
+	if (mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_PRIVATE) < 0 ||
+	    mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_SHARED) < 0) {
+		mailbox_transaction_rollback(&t);
+		return -1;
 	}
-	if (mailbox_attribute_iter_deinit(&iter) < 0)
-		ret = -1;
-	return ret;
+	return mailbox_transaction_commit(&t);
 }
 
 int index_storage_mailbox_delete(struct mailbox *box)
@@ -672,11 +679,7 @@ int index_storage_mailbox_delete(struct mailbox *box)
 	*/
 
 	if (!box->deleting_must_be_empty) {
-		if (mailbox_expunge_all_mails(box) < 0)
-			return -1;
-		if (mailbox_delete_all_attributes(box, MAIL_ATTRIBUTE_TYPE_PRIVATE) < 0)
-			return -1;
-		if (mailbox_delete_all_attributes(box, MAIL_ATTRIBUTE_TYPE_SHARED) < 0)
+		if (mailbox_expunge_all_data(box) < 0)
 			return -1;
 	}
 	if (mailbox_mark_index_deleted(box, TRUE) < 0)
