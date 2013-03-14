@@ -1,6 +1,7 @@
 /* Copyright (c) 2006-2013 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "str.h"
 #include "hash.h"
 #include "mail-user.h"
@@ -122,6 +123,11 @@ const char *const *acl_object_get_default_rights(struct acl_object *aclobj)
 					  pool_datastack_create());
 }
 
+int acl_object_last_changed(struct acl_object *aclobj, time_t *last_changed_r)
+{
+	return aclobj->backend->v.last_changed(aclobj, last_changed_r);
+}
+
 int acl_object_update(struct acl_object *aclobj,
 		      const struct acl_rights_update *update)
 {
@@ -203,6 +209,100 @@ void acl_rights_write_id(string_t *dest, const struct acl_rights *right)
 	case ACL_ID_TYPE_COUNT:
 		i_unreached();
 	}
+}
+
+const char *acl_rights_get_id(const struct acl_rights *right)
+{
+	string_t *str = t_str_new(32);
+
+	acl_rights_write_id(str, right);
+	return str_c(str);
+}
+
+static bool is_standard_right(const char *name)
+{
+	unsigned int i;
+
+	for (i = 0; all_mailbox_rights[i] != NULL; i++) {
+		if (strcmp(all_mailbox_rights[i], name) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+int acl_rights_update_import(struct acl_rights_update *update,
+			     const char *id, const char *const *rights,
+			     const char **error_r)
+{
+	ARRAY_TYPE(const_string) dest_rights, dest_neg_rights, *dest;
+	unsigned int i, j;
+
+	if (acl_identifier_parse(id, &update->rights) < 0) {
+		*error_r = t_strdup_printf("Invalid ID: %s", id);
+		return -1;
+	}
+	if (rights == NULL) {
+		update->modify_mode = ACL_MODIFY_MODE_CLEAR;
+		update->neg_modify_mode = ACL_MODIFY_MODE_CLEAR;
+		return 0;
+	}
+
+	t_array_init(&dest_rights, 8);
+	t_array_init(&dest_neg_rights, 8);
+	for (i = 0; rights[i] != NULL; i++) {
+		const char *right = rights[i];
+
+		if (right[0] != '-')
+			dest = &dest_rights;
+		else {
+			right++;
+			dest = &dest_neg_rights;
+		}
+		if (strcmp(right, "all") != 0) {
+			if (*right == ':') {
+				/* non-standard right */
+				right++;
+				array_append(dest, &right, 1);
+			} else if (is_standard_right(right)) {
+				array_append(dest, &right, 1);
+			} else {
+				*error_r = t_strdup_printf("Invalid right '%s'",
+							   right);
+				return -1;
+			}
+		} else {
+			for (j = 0; all_mailbox_rights[j] != NULL; j++)
+				array_append(dest, &all_mailbox_rights[j], 1);
+		}
+	}
+	if (array_count(&dest_rights) > 0) {
+		array_append_zero(&dest_rights);
+		update->rights.rights = array_idx(&dest_rights, 0);
+	} else if (update->modify_mode == ACL_MODIFY_MODE_REPLACE) {
+		update->modify_mode = ACL_MODIFY_MODE_CLEAR;
+	}
+	if (array_count(&dest_neg_rights) > 0) {
+		array_append_zero(&dest_neg_rights);
+		update->rights.neg_rights = array_idx(&dest_neg_rights, 0);
+	} else if (update->neg_modify_mode == ACL_MODIFY_MODE_REPLACE) {
+		update->neg_modify_mode = ACL_MODIFY_MODE_CLEAR;
+	}
+	return 0;
+}
+
+const char *acl_rights_export(const struct acl_rights *rights)
+{
+	string_t *str = t_str_new(128);
+
+	if (rights->rights != NULL)
+		str_append(str, t_strarray_join(rights->rights, " "));
+	if (rights->neg_rights != NULL) {
+		if (str_len(str) > 0)
+			str_append_c(str, ' ');
+		str_append_c(str, '-');
+		str_append(str, t_strarray_join(rights->neg_rights, " -"));
+	}
+	return str_c(str);
 }
 
 bool acl_rights_has_nonowner_lookup_changes(const struct acl_rights *rights)

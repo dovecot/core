@@ -35,6 +35,14 @@ struct acl_mailbox_list {
 	time_t last_shared_add_check;
 };
 
+struct acl_mailbox {
+	union mailbox_module_context module_ctx;
+	struct acl_object *aclobj;
+	bool skip_acl_checks;
+	bool acl_enabled;
+	bool no_read_right;
+};
+
 extern MODULE_CONTEXT_DEFINE(acl_storage_module, &mail_storage_module_register);
 extern MODULE_CONTEXT_DEFINE(acl_user_module, &mail_user_module_register);
 extern MODULE_CONTEXT_DEFINE(acl_mailbox_list_module,

@@ -32,6 +32,7 @@ struct acl_backend_vfuncs {
 	int (*object_refresh_cache)(struct acl_object *aclobj);
 	int (*object_update)(struct acl_object *aclobj,
 			     const struct acl_rights_update *update);
+	int (*last_changed)(struct acl_object *aclobj, time_t *last_changed_r);
 
 	struct acl_object_list_iter *
 		(*object_list_init)(struct acl_object *aclobj);
@@ -86,5 +87,9 @@ void acl_rights_write_id(string_t *dest, const struct acl_rights *right);
 bool acl_rights_has_nonowner_lookup_changes(const struct acl_rights *rights);
 
 int acl_identifier_parse(const char *line, struct acl_rights *rights);
+int acl_rights_update_import(struct acl_rights_update *update,
+			     const char *id, const char *const *rights,
+			     const char **error_r);
+const char *acl_rights_export(const struct acl_rights *rights);
 
 #endif

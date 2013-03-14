@@ -18,6 +18,7 @@ module_LTLIBRARIES = \
 
 lib01_acl_plugin_la_SOURCES = \
 	acl-api.c \
+	acl-attributes.c \
 	acl-backend.c \
 	acl-backend-vfile.c \
 	acl-backend-vfile-acllist.c \

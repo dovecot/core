@@ -532,6 +532,27 @@ static void imap_acl_update_ensure_keep_admins(struct acl_backend *backend,
 	update->rights.rights = array_idx(&new_rights, 0);
 }
 
+static int
+cmd_acl_mailbox_update(struct mailbox *box,
+		       const struct acl_rights_update *update,
+		       const char **error_r)
+{
+	struct mailbox_transaction_context *t;
+	int ret;
+
+	if (mailbox_open(box) < 0) {
+		*error_r = mailbox_get_last_error(box, NULL);
+		return -1;
+	}
+
+	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL);
+	ret = acl_mailbox_update_acl(t, update);
+	if (mailbox_transaction_commit(&t) < 0)
+		ret = -1;
+	*error_r = MAIL_ERRSTR_CRITICAL_MSG;
+	return ret;
+}
+
 static bool cmd_setacl(struct client_command_context *cmd)
 {
 	struct mail_namespace *ns;
@@ -613,8 +634,8 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		imap_acl_update_ensure_keep_admins(backend, aclobj, &update);
 	}
 
-	if (acl_object_update(aclobj, &update) < 0)
-		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
+	if (cmd_acl_mailbox_update(box, &update, &error) < 0)
+		client_send_tagline(cmd, t_strdup_printf("NO %s", error));
 	else
 		client_send_tagline(cmd, "OK Setacl complete.");
 	mailbox_free(&box);
@@ -652,8 +673,8 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 	if (box == NULL)
 		return TRUE;
 
-	if (acl_object_update(acl_mailbox_get_aclobj(box), &update) < 0)
-		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
+	if (cmd_acl_mailbox_update(box, &update, &error) < 0)
+		client_send_tagline(cmd, t_strdup_printf("NO %s", error));
 	else
 		client_send_tagline(cmd, "OK Deleteacl complete.");
 	mailbox_free(&box);

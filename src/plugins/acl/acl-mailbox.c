@@ -16,14 +16,6 @@
 #define ACL_MAIL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, acl_mail_module)
 
-struct acl_mailbox {
-	union mailbox_module_context module_ctx;
-	struct acl_object *aclobj;
-	bool skip_acl_checks;
-	bool acl_enabled;
-	bool no_read_right;
-};
-
 struct acl_transaction_context {
 	union mailbox_transaction_module_context module_ctx;
 };
@@ -588,6 +580,58 @@ void acl_mailbox_allocated(struct mailbox *box)
 		v->save_begin = acl_save_begin;
 		v->copy = acl_copy;
 		v->transaction_commit = acl_transaction_commit;
+		v->attribute_set = acl_attribute_set;
+		v->attribute_get = acl_attribute_get;
+		v->attribute_iter_init = acl_attribute_iter_init;
+		v->attribute_iter_next = acl_attribute_iter_next;
+		v->attribute_iter_deinit = acl_attribute_iter_deinit;
 	}
 	MODULE_CONTEXT_SET(box, acl_storage_module, abox);
+}
+
+static bool
+acl_mailbox_update_removed_id(struct acl_object *aclobj,
+			      const struct acl_rights_update *update)
+{
+	struct acl_object_list_iter *iter;
+	struct acl_rights rights;
+	int ret;
+
+	if (update->modify_mode != ACL_MODIFY_MODE_CLEAR &&
+	    update->neg_modify_mode != ACL_MODIFY_MODE_CLEAR)
+		return FALSE;
+	if (update->modify_mode == ACL_MODIFY_MODE_CLEAR &&
+	    update->neg_modify_mode == ACL_MODIFY_MODE_CLEAR)
+		return TRUE;
+
+	/* mixed clear/non-clear. see if the identifier exists anymore */
+	iter = acl_object_list_init(aclobj);
+	while ((ret = acl_object_list_next(iter, &rights)) > 0) {
+		if (rights.id_type == update->rights.id_type &&
+		    null_strcmp(rights.identifier, update->rights.identifier) == 0)
+			break;
+	}
+	acl_object_list_deinit(&iter);
+	return ret == 0;
+}
+
+int acl_mailbox_update_acl(struct mailbox_transaction_context *t,
+			   const struct acl_rights_update *update)
+{
+	struct acl_object *aclobj;
+	const char *key;
+
+	key = t_strdup_printf(MAILBOX_ATTRIBUTE_PREFIX_ACL"%s",
+			      acl_rights_get_id(&update->rights));
+	aclobj = acl_mailbox_get_aclobj(t->box);
+	if (acl_object_update(aclobj, update) < 0) {
+		mail_storage_set_critical(t->box->storage, "Failed to set ACL");
+		return -1;
+	}
+
+	if (acl_mailbox_update_removed_id(aclobj, update))
+		mail_index_attribute_unset(t->itrans, FALSE, key);
+	else
+		mail_index_attribute_set(t->itrans, FALSE, key);
+	return 0;
 }

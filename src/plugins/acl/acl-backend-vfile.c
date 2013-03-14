@@ -1170,6 +1170,27 @@ acl_backend_vfile_object_update(struct acl_object *_aclobj,
 	return 0;
 }
 
+static int acl_backend_vfile_object_last_changed(struct acl_object *_aclobj,
+						 time_t *last_changed_r)
+{
+	struct acl_backend_vfile_validity *old_validity;
+
+	*last_changed_r = 0;
+
+	old_validity = acl_cache_get_validity(_aclobj->backend->cache,
+					      _aclobj->name);
+	if (old_validity == NULL) {
+		if (acl_backend_vfile_object_refresh_cache(_aclobj) < 0)
+			return -1;
+		old_validity = acl_cache_get_validity(_aclobj->backend->cache,
+						      _aclobj->name);
+		if (old_validity == NULL)
+			return 0;
+	}
+	*last_changed_r = old_validity->local_validity.last_mtime;
+	return 0;
+}
+
 static struct acl_object_list_iter *
 acl_backend_vfile_object_list_init(struct acl_object *_aclobj)
 {
@@ -1226,6 +1247,7 @@ struct acl_backend_vfuncs acl_backend_vfile = {
 	acl_backend_vfile_object_deinit,
 	acl_backend_vfile_object_refresh_cache,
 	acl_backend_vfile_object_update,
+	acl_backend_vfile_object_last_changed,
 	acl_backend_vfile_object_list_init,
 	acl_backend_vfile_object_list_next,
 	acl_backend_vfile_object_list_deinit

@@ -30,6 +30,9 @@ struct acl_object;
 /* Allow changing ACL state in this mailbox */
 #define MAIL_ACL_ADMIN		"admin"
 
+#define MAILBOX_ATTRIBUTE_PREFIX_ACL \
+	MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT"acl/"
+
 /* ACL identifiers in override order */
 enum acl_id_type {
 	/* Anyone's rights, including anonymous's.
@@ -138,6 +141,9 @@ int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
 			     const char *const **rights_r);
 /* Returns the default rights for the object. */
 const char *const *acl_object_get_default_rights(struct acl_object *aclobj);
+/* Returns timestamp of when the ACLs were last changed for this object,
+   or 0 = never. */
+int acl_object_last_changed(struct acl_object *aclobj, time_t *last_changed_r);
 
 /* Update ACL of given object. */
 int acl_object_update(struct acl_object *aclobj,
@@ -148,5 +154,8 @@ struct acl_object_list_iter *acl_object_list_init(struct acl_object *aclobj);
 int acl_object_list_next(struct acl_object_list_iter *iter,
                          struct acl_rights *rights_r);
 void acl_object_list_deinit(struct acl_object_list_iter **iter);
+
+/* Returns the canonical ID for the right. */
+const char *acl_rights_get_id(const struct acl_rights *right);
 
 #endif
