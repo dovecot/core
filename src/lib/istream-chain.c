@@ -58,12 +58,12 @@ i_stream_chain_append_internal(struct istream_chain *chain,
 
 void i_stream_chain_append(struct istream_chain *chain, struct istream *stream)
 {
-	return i_stream_chain_append_internal(chain, stream);
+	i_stream_chain_append_internal(chain, stream);
 }
 
 void i_stream_chain_append_eof(struct istream_chain *chain)
 {
-	return i_stream_chain_append_internal(chain, NULL);
+	i_stream_chain_append_internal(chain, NULL);
 }
 
 static void
