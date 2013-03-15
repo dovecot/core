@@ -1213,13 +1213,13 @@ void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 			     enum maildir_uidlist_rec_ext_key key,
 			     const char *value)
 {
-	return maildir_uidlist_set_ext_internal(uidlist, uid, key, value);
+	maildir_uidlist_set_ext_internal(uidlist, uid, key, value);
 }
 
 void maildir_uidlist_unset_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 			       enum maildir_uidlist_rec_ext_key key)
 {
-	return maildir_uidlist_set_ext_internal(uidlist, uid, key, NULL);
+	maildir_uidlist_set_ext_internal(uidlist, uid, key, NULL);
 }
 
 static void
