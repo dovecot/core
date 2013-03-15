@@ -3,6 +3,8 @@
 
 #include "net.h"
 
+#include <unistd.h> /* for getopt() opt* variables */
+
 enum master_service_flags {
 	/* stdin/stdout already contains a client which we want to serve */
 	MASTER_SERVICE_FLAG_STD_CLIENT		= 0x01,
