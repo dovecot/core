@@ -623,6 +623,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 {
 	static struct var_expand_func_table var_funcs_table[] = {
 		{ "ldap", db_ldap_field_subquery_find },
+		{ "ldap_ptr", db_ldap_field_subquery_find },
 		{ NULL, NULL }
 	};
 	const struct ldap_field *field;
@@ -1251,6 +1252,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 {
 	static struct var_expand_func_table var_funcs_table[] = {
 		{ "ldap", db_ldap_field_find },
+		{ "ldap_ptr", db_ldap_field_find },
 		{ NULL, NULL }
 	};
 	struct ldap_field_find_context ctx;
@@ -1515,6 +1517,19 @@ static const char *db_ldap_field_expand(const char *data, void *context)
 	return ldap_value->values[0];
 }
 
+static const char *db_ldap_field_ptr_expand(const char *data, void *context)
+{
+	struct db_ldap_result_iterate_context *ctx = context;
+	const char *field_name, *suffix;
+
+	suffix = strchr(t_strcut(data, ':'), '@');
+	field_name = db_ldap_field_expand(data, ctx);
+	if (field_name[0] == '\0')
+		return "";
+	field_name = t_strconcat(field_name, suffix, NULL);
+	return db_ldap_field_expand(field_name, ctx);
+}
+
 static const char *const *
 db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 			    const struct ldap_field *field,
@@ -1522,6 +1537,7 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 {
 	static struct var_expand_func_table var_funcs_table[] = {
 		{ "ldap", db_ldap_field_expand },
+		{ "ldap_ptr", db_ldap_field_ptr_expand },
 		{ NULL, NULL }
 	};
 	const struct var_expand_table *var_table;
