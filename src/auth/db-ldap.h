@@ -87,6 +87,9 @@ struct ldap_field {
 	/* LDAP value contains a DN, which is looked up and used for @name
 	   attributes. */
 	bool value_is_dn;
+	/* This attribute is used internally only via %{ldap_ptr},
+	   it shouldn't be returned in iteration. */
+	bool skip;
 };
 ARRAY_DEFINE_TYPE(ldap_field, struct ldap_field);
 

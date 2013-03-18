@@ -1314,6 +1314,11 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 				/* @name=ldapField */
 				name++;
 				field->value_is_dn = TRUE;
+			} else if (name[0] == '!' && name == ldap_attr) {
+				/* !ldapAttr */
+				name = "";
+				ldap_attr++;
+				field->skip = TRUE;
 			}
 			field->name = name;
 			field->value = templ;
@@ -1596,7 +1601,8 @@ bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
 		if (ctx->attr_idx == array_count(ctx->attr_map))
 			return FALSE;
 		field = array_idx(ctx->attr_map, ctx->attr_idx++);
-	} while (field->value_is_dn != ctx->iter_dn_values);
+	} while (field->value_is_dn != ctx->iter_dn_values ||
+		 field->skip);
 
 	ldap_value = *field->ldap_attr_name == '\0' ? NULL :
 		hash_table_lookup(ctx->ldap_attrs, field->ldap_attr_name);
