@@ -33,7 +33,7 @@ quoted_printable_decode_full(const unsigned char *src, size_t src_size,
 {
 	char hexbuf[3];
 	size_t src_pos, pos, next;
-	bool errors = FALSE;
+	bool have_cr, errors = FALSE;
 	int ret;
 
 	hexbuf[2] = '\0';
@@ -46,13 +46,19 @@ quoted_printable_decode_full(const unsigned char *src, size_t src_size,
 		if (src[src_pos] == '\n') {
 			/* drop trailing whitespace */
 			pos = src_pos;
-			if (pos > 0 && src[pos-1] == '\r')
+			if (pos > 0 && src[pos-1] == '\r') {
 				pos--;
+				have_cr = TRUE;
+			} else {
+				have_cr = FALSE;
+			}
 			while (pos > 0 && QP_IS_TRAILING_SPACE(src[pos-1]))
 				pos--;
 			buffer_append(dest, src + next, pos - next);
 			next = src_pos+1;
-			buffer_append(dest, "\r\n", 2);
+			if (have_cr)
+				buffer_append_c(dest, '\r');
+			buffer_append_c(dest, '\n');
 			continue;
 		}
 
