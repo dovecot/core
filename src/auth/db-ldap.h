@@ -76,6 +76,20 @@ enum ldap_request_type {
 	LDAP_REQUEST_TYPE_BIND
 };
 
+struct ldap_field {
+	/* Dovecot field name. */
+	const char *name;
+	/* Field value template with %vars. NULL = same as LDAP value. */
+	const char *value;
+	/* LDAP attribute name, or "" if this is a static field. */
+	const char *ldap_attr_name;
+
+	/* LDAP value contains a DN, which is looked up and used for @name
+	   attributes. */
+	bool value_is_dn;
+};
+ARRAY_DEFINE_TYPE(ldap_field, struct ldap_field);
+
 struct ldap_request {
 	enum ldap_request_type type;
 
@@ -86,12 +100,12 @@ struct ldap_request {
 
 	db_search_callback_t *callback;
 	struct auth_request *auth_request;
+};
 
-	/* If expect_one_reply=TRUE, this contains the first LDAP entry.
-	   If another one comes, we'll return an error. */
-	LDAPMessage *first_entry;
-
-	unsigned int expect_one_reply:1;
+struct ldap_request_named_result {
+	const struct ldap_field *field;
+	const char *dn;
+	LDAPMessage *result;
 };
 
 struct ldap_request_search {
@@ -100,6 +114,11 @@ struct ldap_request_search {
 	const char *base;
 	const char *filter;
 	char **attributes; /* points to pass_attr_names / user_attr_names */
+	const ARRAY_TYPE(ldap_field) *attr_map;
+
+	LDAPMessage *result;
+	ARRAY(struct ldap_request_named_result) named_results;
+	unsigned int name_idx;
 };
 
 struct ldap_request_bind {
@@ -118,16 +137,6 @@ enum ldap_connection_state {
 	/* Bound to default dn */
 	LDAP_CONN_STATE_BOUND_DEFAULT
 };
-
-struct ldap_field {
-	/* Dovecot field name. */
-	const char *name;
-	/* Field value template with %vars. NULL = same as LDAP value. */
-	const char *value;
-	/* LDAP attribute name, or "" if this is a static field. */
-	const char *ldap_attr_name;
-};
-ARRAY_DEFINE_TYPE(ldap_field, struct ldap_field);
 
 struct ldap_connection {
 	struct ldap_connection *next;
@@ -181,9 +190,8 @@ const char *ldap_escape(const char *str,
 const char *ldap_get_error(struct ldap_connection *conn);
 
 struct db_ldap_result_iterate_context *
-db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
-			    struct auth_request *auth_request,
-			    const ARRAY_TYPE(ldap_field) *attr_map);
+db_ldap_result_iterate_init(struct ldap_connection *conn,
+			    struct ldap_request_search *ldap_request);
 bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
 				 const char **name_r,
 				 const char *const **values_r);

@@ -42,16 +42,16 @@ struct ldap_userdb_iterate_context {
 };
 
 static void
-ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
-		      struct auth_request *auth_request)
+ldap_query_get_result(struct ldap_connection *conn,
+		      struct auth_request *auth_request,
+		      struct ldap_request_search *ldap_request)
 {
 	struct db_ldap_result_iterate_context *ldap_iter;
 	const char *name, *const *values;
 
 	auth_request_init_userdb_reply(auth_request);
 
-	ldap_iter = db_ldap_result_iterate_init(conn, entry, auth_request,
-						&conn->user_attr_map);
+	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		auth_request_set_userdb_field_values(auth_request,
 						     name, values);
@@ -100,7 +100,7 @@ static void userdb_ldap_lookup_callback(struct ldap_connection *conn,
 
 	if (urequest->entries++ == 0) {
 		/* first entry */
-		ldap_query_get_result(conn, res, auth_request);
+		ldap_query_get_result(conn, auth_request, &urequest->request);
 	}
 }
 
@@ -130,6 +130,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	var_expand(str, conn->set.user_filter, vars);
 	request->request.filter = p_strdup(auth_request->pool, str_c(str));
 
+	request->request.attr_map = &conn->user_attr_map;
 	request->request.attributes = conn->user_attr_names;
 
 	auth_request_log_debug(auth_request, "ldap", "user search: "
@@ -166,9 +167,7 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 	request->create_time = ioloop_time;
 
 	ctx->in_callback = TRUE;
-	ldap_iter = db_ldap_result_iterate_init(conn, res,
-						request->auth_request,
-						&conn->iterate_attr_map);
+	ldap_iter = db_ldap_result_iterate_init(conn, &urequest->request);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		if (strcmp(name, "user") != 0) {
 			i_warning("ldap: iterate: "
@@ -220,6 +219,7 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	str_truncate(str, 0);
 	var_expand(str, conn->set.iterate_filter, vars);
 	request->request.filter = p_strdup(auth_request->pool, str_c(str));
+	request->request.attr_map = &conn->iterate_attr_map;
 	request->request.attributes = conn->iterate_attr_names;
 
 	if (global_auth_settings->debug) {
