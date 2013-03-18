@@ -22,8 +22,6 @@ i_stream_read_parent(struct istream_private *stream, size_t *prev_size)
 		return 1;
 	}
 
-	/* we have less than one qp block.
-	   see if there is more data available. */
 	ret = i_stream_read(stream->parent);
 	if (ret <= 0) {
 		stream->istream.stream_errno = stream->parent->stream_errno;
@@ -35,7 +33,7 @@ i_stream_read_parent(struct istream_private *stream, size_t *prev_size)
 }
 
 static int
-i_stream_qp_try_decode_block(struct qp_decoder_istream *bstream, bool eof)
+i_stream_qp_try_decode_input(struct qp_decoder_istream *bstream, bool eof)
 {
 	struct istream_private *stream = &bstream->istream;
 	const unsigned char *data;
@@ -47,13 +45,15 @@ i_stream_qp_try_decode_block(struct qp_decoder_istream *bstream, bool eof)
 	if (size == 0)
 		return 0;
 
-	i_stream_try_alloc(stream, (size+3)/4*3, &avail);
+	/* the decoded quoted-printable content can never be larger than the
+	   encoded content. at worst they are equal. */
+	i_stream_try_alloc(stream, size, &avail);
 	buffer_avail = stream->buffer_size - stream->pos;
 
-	if ((size + 3) / 4 * 3 > buffer_avail) {
+	if (size > buffer_avail) {
 		/* can't fit everything to destination buffer.
 		   write as much as we can. */
-		size = (buffer_avail / 3) * 4;
+		size = buffer_avail;
 		if (size == 0)
 			return -2;
 	}
@@ -86,21 +86,21 @@ static ssize_t i_stream_qp_decoder_read(struct istream_private *stream)
 			if (ret != -1 || stream->istream.stream_errno != 0)
 				return 0;
 
-			ret = i_stream_qp_try_decode_block(bstream, TRUE);
+			ret = i_stream_qp_try_decode_input(bstream, TRUE);
 			if (ret == 0) {
 				/* ended with =[whitespace] but without LF */
 				stream->istream.eof = TRUE;
 				return -1;
 			}
-			/* qp input with a partial block */
+			/* partial qp input */
 			i_assert(ret < 0);
 			stream->istream.stream_errno = EINVAL;
 			return -1;
 		}
 
-		/* encode as many blocks as fits into destination buffer */
+		/* encode as much data as fits into destination buffer */
 		pre_count = stream->pos - stream->skip;
-		while ((ret = i_stream_qp_try_decode_block(bstream, FALSE)) > 0) ;
+		while ((ret = i_stream_qp_try_decode_input(bstream, FALSE)) > 0) ;
 		post_count = stream->pos - stream->skip;
 	} while (ret == 0 && pre_count == post_count);
 
