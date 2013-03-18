@@ -665,20 +665,35 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 	return 0;
 }
 
-static int db_ldap_search_next_subsearch(struct ldap_connection *conn,
-					 struct ldap_request *_request,
-					 LDAPMessage *res)
+static int db_ldap_search_save_result(struct ldap_request_search *request,
+				      LDAPMessage *res)
 {
-	struct ldap_request_search *request =
-		(struct ldap_request_search *)_request;
+	struct ldap_request_named_result *named_res;
+
+	if (!array_is_created(&request->named_results)) {
+		if (request->result != NULL)
+			return -1;
+		request->result = res;
+	} else {
+		named_res = array_idx_modifiable(&request->named_results,
+						 request->name_idx);
+		if (named_res->result != NULL)
+			return -1;
+		named_res->result = res;
+	}
+	return 0;
+}
+
+static int db_ldap_search_next_subsearch(struct ldap_connection *conn,
+					 struct ldap_request_search *request)
+{
 	struct ldap_request_named_result *named_res;
 	const struct ldap_field *field;
 
-	if (request->result == NULL) {
-		request->result = res;
+	if (!array_is_created(&request->named_results)) {
 		/* see if we need to do more LDAP queries */
 		p_array_init(&request->named_results,
-			     _request->auth_request->pool, 2);
+			     request->request.auth_request->pool, 2);
 		array_foreach(request->attr_map, field) {
 			if (!field->value_is_dn)
 				continue;
@@ -688,9 +703,7 @@ static int db_ldap_search_next_subsearch(struct ldap_connection *conn,
 		if (db_ldap_fields_get_dn(conn, request) < 0)
 			return -1;
 	} else {
-		named_res = array_idx_modifiable(&request->named_results,
-						 request->name_idx++);
-		named_res->result = res;
+		request->name_idx++;
 	}
 	while (request->name_idx < array_count(&request->named_results)) {
 		/* send the next LDAP query */
@@ -713,6 +726,7 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 			      struct ldap_request *request, unsigned int idx,
 			      LDAPMessage *res)
 {
+	struct ldap_request_search *srequest = NULL;
 	int ret;
 	bool final_result;
 
@@ -723,6 +737,7 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 		i_assert(conn->pending_count == 1);
 		conn->conn_state = LDAP_CONN_STATE_BOUND_AUTH;
 	} else {
+		srequest = (struct ldap_request_search *)request;
 		switch (ldap_msgtype(res)) {
 		case LDAP_RES_SEARCH_ENTRY:
 		case LDAP_RES_SEARCH_RESULT:
@@ -754,15 +769,27 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 			ldap_err2string(ret));
 		res = NULL;
 	}
-	if (ret == LDAP_SUCCESS && request->type == LDAP_REQUEST_TYPE_SEARCH) {
+	if (ret == LDAP_SUCCESS && srequest != NULL) {
 		/* expand any @results */
-		ret = db_ldap_search_next_subsearch(conn, request, res);
-		if (ret > 0) {
-			/* wait for finish, don't free the result yet */
-			return FALSE;
+		if (!final_result) {
+			if (db_ldap_search_save_result(srequest, res) < 0) {
+				auth_request_log_error(request->auth_request, "ldap",
+					"LDAP search returned multiple entries");
+				res = NULL;
+			} else {
+				/* wait for finish, don't free the result yet */
+				return FALSE;
+			}
+		} else {
+			ret = db_ldap_search_next_subsearch(conn, srequest);
+			if (ret > 0) {
+				/* free this result, but not the others */
+				ldap_msgfree(res);
+				return FALSE;
+			}
+			if (ret < 0)
+				res = NULL;
 		}
-		if (ret < 0)
-			res = NULL;
 	}
 	if (final_result) {
 		conn->pending_count--;
@@ -770,6 +797,8 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 	}
 
 	T_BEGIN {
+		if (res != NULL && srequest != NULL && srequest->result != NULL)
+			request->callback(conn, request, srequest->result);
 		request->callback(conn, request, res);
 	} T_END;
 
