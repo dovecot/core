@@ -4,6 +4,7 @@
 #include "net.h"
 
 #include <unistd.h> /* for getopt() opt* variables */
+#include <stdio.h> /* for getopt() opt* variables in Solaris */
 
 enum master_service_flags {
 	/* stdin/stdout already contains a client which we want to serve */
