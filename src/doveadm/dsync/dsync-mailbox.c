@@ -1,6 +1,7 @@
 /* Copyright (c) 2013 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "istream.h"
 #include "dsync-mailbox.h"
 
 void dsync_mailbox_attribute_dup(pool_t pool,
