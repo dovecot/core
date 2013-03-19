@@ -18,7 +18,9 @@ struct dsync_mailbox {
 struct dsync_mailbox_attribute {
 	enum mail_attribute_type type;
 	const char *key;
-	const char *value; /* NULL = not looked up yet / deleted */
+	/* if both values are NULL = not looked up yet / deleted */
+	const char *value;
+	struct istream *value_stream;
 
 	time_t last_change; /* 0 = unknown */
 	uint64_t modseq; /* 0 = unknown */
@@ -26,6 +28,8 @@ struct dsync_mailbox_attribute {
 	bool deleted; /* attribute is known to have been deleted */
 	bool exported; /* internally used by exporting */
 };
+#define DSYNC_ATTR_HAS_VALUE(attr) \
+	((attr)->value != NULL || (attr)->value_stream != NULL)
 
 void dsync_mailbox_attribute_dup(pool_t pool,
 				 const struct dsync_mailbox_attribute *src,

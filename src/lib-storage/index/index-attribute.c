@@ -179,6 +179,7 @@ int index_storage_attribute_set(struct mailbox_transaction_context *t,
 	struct dict_transaction_context *dtrans;
 	const char *mailbox_prefix;
 	bool pvt = type == MAIL_ATTRIBUTE_TYPE_PRIVATE;
+	int ret = 0;
 
 	if (strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT,
 		    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT)) == 0) {
@@ -194,16 +195,20 @@ int index_storage_attribute_set(struct mailbox_transaction_context *t,
 	T_BEGIN {
 		const char *prefixed_key =
 			key_get_prefixed(type, mailbox_prefix, key);
+		const char *value_str;
 
-		if (value->value != NULL) {
-			dict_set(dtrans, prefixed_key, value->value);
+		if (mailbox_attribute_value_to_string(t->box->storage, value,
+						      &value_str) < 0) {
+			ret = -1;
+		} else if (value_str != NULL) {
+			dict_set(dtrans, prefixed_key, value_str);
 			mail_index_attribute_set(t->itrans, pvt, key);
 		} else {
 			dict_unset(dtrans, prefixed_key);
 			mail_index_attribute_unset(t->itrans, pvt, key);
 		}
 	} T_END;
-	return 0;
+	return ret;
 }
 
 int index_storage_attribute_get(struct mailbox_transaction_context *t,

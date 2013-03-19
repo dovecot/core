@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "llist.h"
+#include "str.h"
 #include "unichar.h"
 #include "istream.h"
 #include "eacces-error.h"
@@ -1537,11 +1538,64 @@ int mailbox_attribute_unset(struct mailbox_transaction_context *t,
 	return t->box->v.attribute_set(t, type, key, &value);
 }
 
+int mailbox_attribute_value_to_string(struct mail_storage *storage,
+				      const struct mail_attribute_value *value,
+				      const char **str_r)
+{
+	string_t *str;
+	const unsigned char *data;
+	size_t size;
+
+	if (value->value_stream == NULL) {
+		*str_r = value->value;
+		return 0;
+	}
+	str = t_str_new(128);
+	i_stream_seek(value->value_stream, 0);
+	while (i_stream_read_data(value->value_stream, &data, &size, 0) > 0) {
+		if (memchr(data, '\0', size) != NULL) {
+			mail_storage_set_error(storage, MAIL_ERROR_PARAMS,
+				"Attribute string value has NULs");
+			return -1;
+		}
+		str_append_n(str, data, size);
+		i_stream_skip(value->value_stream, size);
+	}
+	if (value->value_stream->stream_errno != 0) {
+		mail_storage_set_critical(storage, "read(%s) failed: %m",
+			i_stream_get_name(value->value_stream));
+		return -1;
+	}
+	i_assert(value->value_stream->eof);
+	*str_r = str_c(str);
+	return 0;
+}
+
 int mailbox_attribute_get(struct mailbox_transaction_context *t,
 			  enum mail_attribute_type type, const char *key,
 			  struct mail_attribute_value *value_r)
 {
-	return t->box->v.attribute_get(t, type, key, value_r);
+	int ret;
+
+	memset(value_r, 0, sizeof(*value_r));
+	if ((ret = t->box->v.attribute_get(t, type, key, value_r)) <= 0)
+		return ret;
+	i_assert(value_r->value != NULL);
+	return 1;
+}
+
+int mailbox_attribute_get_stream(struct mailbox_transaction_context *t,
+				 enum mail_attribute_type type, const char *key,
+				 struct mail_attribute_value *value_r)
+{
+	int ret;
+
+	memset(value_r, 0, sizeof(*value_r));
+	value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_INT_STREAMS;
+	if ((ret = t->box->v.attribute_get(t, type, key, value_r)) <= 0)
+		return ret;
+	i_assert(value_r->value != NULL || value_r->value_stream != NULL);
+	return 1;
 }
 
 struct mailbox_attribute_iter *

@@ -63,6 +63,7 @@ static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 static bool dsync_brain_recv_mailbox_attribute(struct dsync_brain *brain)
 {
 	const struct dsync_mailbox_attribute *attr;
+	struct istream *input;
 	enum dsync_ibc_recv_ret ret;
 
 	if ((ret = dsync_ibc_recv_mailbox_attribute(brain->ibc, &attr)) == 0)
@@ -73,6 +74,9 @@ static bool dsync_brain_recv_mailbox_attribute(struct dsync_brain *brain)
 	}
 	if (dsync_mailbox_import_attribute(brain->box_importer, attr) < 0)
 		brain->failed = TRUE;
+	input = attr->value_stream;
+	if (input != NULL)
+		i_stream_unref(&input);
 	return TRUE;
 }
 

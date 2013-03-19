@@ -205,7 +205,7 @@ dsync_mailbox_import_init(struct mailbox *box,
 static int
 dsync_mailbox_import_lookup_attr(struct dsync_mailbox_importer *importer,
 				 enum mail_attribute_type type, const char *key,
-				 const struct dsync_mailbox_attribute **attr_r)
+				 struct dsync_mailbox_attribute **attr_r)
 {
 	struct dsync_mailbox_attribute lookup_attr, *attr;
 	const struct dsync_mailbox_attribute *attr_change;
@@ -213,7 +213,7 @@ dsync_mailbox_import_lookup_attr(struct dsync_mailbox_importer *importer,
 
 	*attr_r = NULL;
 
-	if (mailbox_attribute_get(importer->trans, type, key, &value) < 0) {
+	if (mailbox_attribute_get_stream(importer->trans, type, key, &value) < 0) {
 		i_error("Mailbox %s: Failed to get attribute %s: %s",
 			mailbox_get_vname(importer->box), key,
 			mailbox_get_last_error(importer->box, NULL));
@@ -226,7 +226,8 @@ dsync_mailbox_import_lookup_attr(struct dsync_mailbox_importer *importer,
 
 	attr_change = hash_table_lookup(importer->local_attr_changes,
 					&lookup_attr);
-	if (attr_change == NULL && value.value == NULL) {
+	if (attr_change == NULL &&
+	    value.value == NULL && value.value_stream == NULL) {
 		/* we have no knowledge of this attribute */
 		return 0;
 	}
@@ -234,33 +235,118 @@ dsync_mailbox_import_lookup_attr(struct dsync_mailbox_importer *importer,
 	attr->type = type;
 	attr->key = key;
 	attr->value = value.value;
+	attr->value_stream = value.value_stream;
 	attr->last_change = value.last_change;
 	if (attr_change != NULL) {
-		attr->deleted = attr_change->deleted && attr->value == NULL;
+		attr->deleted = attr_change->deleted &&
+			!DSYNC_ATTR_HAS_VALUE(attr);
 		attr->modseq = attr_change->modseq;
 	}
 	*attr_r = attr;
 	return 0;
 }
 
+static int
+dsync_istreams_cmp(struct istream *input1, struct istream *input2, int *cmp_r)
+{
+	const unsigned char *data1, *data2;
+	size_t size1, size2, size;
+
+	for (;;) {
+		(void)i_stream_read_data(input1, &data1, &size1, 0);
+		(void)i_stream_read_data(input2, &data2, &size2, 0);
+
+		if (size1 == 0 || size2 == 0)
+			break;
+		size = I_MIN(size1, size2);
+		*cmp_r = memcmp(data1, data2, size);
+		if (*cmp_r != 0)
+			return 0;
+		i_stream_skip(input1, size);
+		i_stream_skip(input2, size);
+	}
+	if (input1->stream_errno != 0) {
+		errno = input1->stream_errno;
+		i_error("read(%s) failed: %m", i_stream_get_name(input1));
+		return -1;
+	}
+	if (input2->stream_errno != 0) {
+		errno = input2->stream_errno;
+		i_error("read(%s) failed: %m", i_stream_get_name(input2));
+		return -1;
+	}
+	if (size1 == 0 && size2 == 0)
+		*cmp_r = 0;
+	else
+		*cmp_r = size1 == 0 ? -1 : 1;
+	return 0;
+}
+
+static int
+dsync_attributes_cmp_values(const struct dsync_mailbox_attribute *attr1,
+			    const struct dsync_mailbox_attribute *attr2,
+			    int *cmp_r)
+{
+	struct istream *input1, *input2;
+	int ret;
+
+	if (attr1->value != NULL && attr2->value != NULL) {
+		*cmp_r = strcmp(attr1->value, attr2->value);
+		return 0;
+	}
+	/* at least one of them is a stream. make both of them streams. */
+	input1 = attr1->value_stream != NULL ? attr1->value_stream :
+		i_stream_create_from_data(attr1->value, strlen(attr1->value));
+	input2 = attr2->value_stream != NULL ? attr2->value_stream :
+		i_stream_create_from_data(attr2->value, strlen(attr2->value));
+	i_stream_seek(input1, 0);
+	i_stream_seek(input2, 0);
+	ret = dsync_istreams_cmp(input1, input2, cmp_r);
+	if (attr1->value_stream == NULL)
+		i_stream_unref(&input1);
+	if (attr2->value_stream == NULL)
+		i_stream_unref(&input2);
+	return ret;
+}
+
+static int
+dsync_attributes_cmp(const struct dsync_mailbox_attribute *attr,
+		     const struct dsync_mailbox_attribute *local_attr,
+		     int *cmp_r)
+{
+	if (DSYNC_ATTR_HAS_VALUE(attr) &&
+	    !DSYNC_ATTR_HAS_VALUE(local_attr)) {
+		/* remote has a value and local doesn't -> use it */
+		return 1;
+	} else if (!DSYNC_ATTR_HAS_VALUE(attr) &&
+		   DSYNC_ATTR_HAS_VALUE(local_attr)) {
+		/* remote doesn't have a value, bt local does -> skip */
+		return -1;
+	}
+
+	return dsync_attributes_cmp_values(attr, local_attr, cmp_r);
+}
+
 int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 				   const struct dsync_mailbox_attribute *attr)
 {
-	const struct dsync_mailbox_attribute *local_attr;
+	struct dsync_mailbox_attribute *local_attr;
 	struct mail_attribute_value value;
-	int ret;
+	int ret, cmp;
+	bool ignore = FALSE;
 
-	i_assert(attr->value != NULL || attr->deleted);
+	i_assert(DSYNC_ATTR_HAS_VALUE(attr) || attr->deleted);
 
 	if (dsync_mailbox_import_lookup_attr(importer, attr->type,
 					     attr->key, &local_attr) < 0)
 		return -1;
+	if (attr->deleted &&
+	    (local_attr == NULL || !DSYNC_ATTR_HAS_VALUE(local_attr))) {
+		/* attribute doesn't exist on either side -> ignore */
+		return 0;
+	}
 	if (local_attr == NULL) {
 		/* we haven't seen this locally -> use whatever remote has */
-	} else if (null_strcmp(attr->value, local_attr->value) == 0) {
-		/* the values are identical anyway -> we can skip them.
-		   FIXME: but should timestamp/modseq still be updated?.. */
-		return 0;
 	} else if (local_attr->modseq <= importer->last_common_modseq &&
 		   attr->modseq > importer->last_common_modseq &&
 		   importer->last_common_modseq > 0) {
@@ -271,37 +357,46 @@ int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 		   importer->last_common_modseq > 0) {
 		/* we're doing incremental syncing, and we can see that the
 		   attribute was changed locally, but not remotely -> ignore */
-		return 0;
+		ignore = TRUE;
 	} else if (attr->last_change > local_attr->last_change) {
 		/* remote has a newer timestamp -> use it */
 	} else if (attr->last_change < local_attr->last_change) {
 		/* remote has an older timestamp -> ignore */
-		return 0;
+		ignore = TRUE;
 	} else {
 		/* the timestamps are the same. now we're down to guessing
-		   the right answer. first try to use modseqs, but if even they
-		   are the same, fallback to just picking one based on the
+		   the right answer, unless the values are actually equal,
+		   so check that first. next try to use modseqs, but if even
+		   they are the same, fallback to just picking one based on the
 		   value. */
+		if (dsync_attributes_cmp(attr, local_attr, &cmp) < 0) {
+			importer->failed = TRUE;
+			return -1;
+		}
+		if (cmp == 0) {
+			/* identical scripts */
+			return 0;
+		}
+
 		if (attr->modseq > local_attr->modseq) {
 			/* remote has a higher modseq -> use it */
 		} else if (attr->modseq < local_attr->modseq) {
 			/* remote has an older modseq -> ignore */
-			return 0;
-		} else if (attr->value != NULL && local_attr->value == NULL) {
-			/* remote has a value and local doesn't -> use it */
-		} else if (attr->value == NULL && local_attr->value != NULL) {
-			/* remote doesn't have a value, bt local does -> skip */
-			return 0;
+			ignore = TRUE;
 		} else {
-			/* now we have absolutely no reasonable guesses left.
-			   just pick one of them that are used. */
-			if (strcmp(attr->value, local_attr->value) < 0)
-				return 0;
+			if (cmp < 0)
+				ignore = TRUE;
 		}
+	}
+	if (ignore) {
+		if (local_attr->value_stream != NULL)
+			i_stream_unref(&local_attr->value_stream);
+		return 0;
 	}
 
 	memset(&value, 0, sizeof(value));
 	value.value = attr->value;
+	value.value_stream = attr->value_stream;
 	value.last_change = attr->last_change;
 	ret = mailbox_attribute_set(importer->trans, attr->type,
 				    attr->key, &value);
@@ -311,6 +406,8 @@ int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 			mailbox_get_last_error(importer->box, NULL));
 		importer->failed = TRUE;
 	}
+	if (local_attr != NULL && local_attr->value_stream != NULL)
+		i_stream_unref(&local_attr->value_stream);
 	return ret;
 }
 

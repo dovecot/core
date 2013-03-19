@@ -216,12 +216,18 @@ enum mail_attribute_type {
 	MAIL_ATTRIBUTE_TYPE_SHARED
 };
 enum mail_attribute_value_flags {
-	MAIL_ATTRIBUTE_VALUE_FLAG_READONLY	= 0x01
+	MAIL_ATTRIBUTE_VALUE_FLAG_READONLY	= 0x01,
+	MAIL_ATTRIBUTE_VALUE_FLAG_INT_STREAMS	= 0x02
 };
 
 struct mail_attribute_value {
-	/* The actual value */
+	/* mailbox_attribute_set() can set either value or value_stream.
+	   mailbox_attribute_get() returns only values, but
+	   mailbox_attribute_get_stream() may return either value or
+	   value_stream. The caller must unreference the returned streams. */
 	const char *value;
+	struct istream *value_stream;
+
 	/* Last time the attribute was changed (0 = unknown). This may be
 	   returned even for values that don't exist anymore. */
 	time_t last_change;
@@ -564,6 +570,11 @@ int mailbox_attribute_unset(struct mailbox_transaction_context *t,
 int mailbox_attribute_get(struct mailbox_transaction_context *t,
 			  enum mail_attribute_type type, const char *key,
 			  struct mail_attribute_value *value_r);
+/* Same as mailbox_attribute_get(), but the returned value may be either an
+   input stream or a string. */
+int mailbox_attribute_get_stream(struct mailbox_transaction_context *t,
+				 enum mail_attribute_type type, const char *key,
+				 struct mail_attribute_value *value_r);
 
 /* Iterate through mailbox attributes of the given type. The prefix can be used
    to restrict what attributes are returned. */
