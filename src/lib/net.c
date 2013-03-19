@@ -984,6 +984,11 @@ bool net_is_in_network(const struct ip_addr *ip,
 		ip = &tmp_ip;
 	}
 
+	if (ip->family == 0) {
+		/* non-IPv4/IPv6 address (e.g. UNIX socket) never matches
+		   anything */
+		return FALSE;
+	}
 	if (IPADDR_IS_V4(ip) != IPADDR_IS_V4(net_ip)) {
 		/* one is IPv6 and one is IPv4 */
 		return FALSE;
