@@ -65,6 +65,8 @@ struct fs_settings {
 	/* Directory where temporary files can be created at any time
 	   (e.g. /tmp or mail_temp_dir) */
 	const char *temp_dir;
+	/* SSL client settings. */
+	const struct ssl_iostream_settings *ssl_client_set;
 
 	/* Automatically try to rmdir() directories up to this path when
 	   deleting files. */
