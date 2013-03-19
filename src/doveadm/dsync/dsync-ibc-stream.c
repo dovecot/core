@@ -1251,7 +1251,7 @@ dsync_ibc_stream_recv_mailbox_attribute(struct dsync_ibc *_ibc,
 	p_clear(pool);
 	attr = p_new(pool, struct dsync_mailbox_attribute, 1);
 
-	ret = dsync_ibc_stream_input_next(ibc, ITEM_MAIL_CHANGE, &decoder);
+	ret = dsync_ibc_stream_input_next(ibc, ITEM_MAILBOX_ATTRIBUTE, &decoder);
 	if (ret != DSYNC_IBC_RECV_RET_OK)
 		return ret;
 
