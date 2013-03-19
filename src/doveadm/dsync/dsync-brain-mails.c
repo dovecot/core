@@ -153,7 +153,7 @@ static bool dsync_brain_send_mail_request(struct dsync_brain *brain)
 		if (dsync_ibc_send_mail_request(brain->ibc, request) == 0)
 			return TRUE;
 	}
-	if (brain->box_recv_state <= DSYNC_BOX_STATE_CHANGES)
+	if (brain->box_recv_state < DSYNC_BOX_STATE_MAIL_REQUESTS)
 		return FALSE;
 
 	dsync_ibc_send_end_of_list(brain->ibc);
