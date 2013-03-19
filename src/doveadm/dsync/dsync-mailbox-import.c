@@ -299,8 +299,13 @@ int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 		}
 	}
 	if (attr->value != NULL) {
+		struct mail_attribute_value value;
+
+		memset(&value, 0, sizeof(value));
+		value.value = attr->value;
+		value.last_change = attr->last_change;
 		ret = mailbox_attribute_set(importer->trans, attr->type,
-					    attr->key, attr->value);
+					    attr->key, &value);
 	} else {
 		ret = mailbox_attribute_unset(importer->trans, attr->type,
 					      attr->key);

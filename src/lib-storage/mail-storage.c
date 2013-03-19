@@ -1522,16 +1522,21 @@ enum mail_flags mailbox_get_private_flags_mask(struct mailbox *box)
 }
 
 int mailbox_attribute_set(struct mailbox_transaction_context *t,
-			  enum mail_attribute_type type,
-			  const char *key, const char *value)
+			  enum mail_attribute_type type, const char *key,
+			  const struct mail_attribute_value *value)
 {
+	i_assert(value->value != NULL);
+
 	return t->box->v.attribute_set(t, type, key, value);
 }
 
 int mailbox_attribute_unset(struct mailbox_transaction_context *t,
 			    enum mail_attribute_type type, const char *key)
 {
-	return t->box->v.attribute_set(t, type, key, NULL);
+	struct mail_attribute_value value;
+
+	memset(&value, 0, sizeof(value));
+	return t->box->v.attribute_set(t, type, key, &value);
 }
 
 int mailbox_attribute_get(struct mailbox_transaction_context *t,

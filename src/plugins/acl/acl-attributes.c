@@ -17,8 +17,9 @@ struct acl_mailbox_attribute_iter {
 	bool failed;
 };
 
-static int acl_attribute_update_acl(struct mailbox_transaction_context *t,
-				    const char *key, const char *value)
+static int
+acl_attribute_update_acl(struct mailbox_transaction_context *t, const char *key,
+			 const struct mail_attribute_value *value)
 {
 	const char *id, *const *rights, *error;
 	struct acl_rights_update update;
@@ -38,7 +39,7 @@ static int acl_attribute_update_acl(struct mailbox_transaction_context *t,
 	update.modify_mode = ACL_MODIFY_MODE_REPLACE;
 	update.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
 	id = key + strlen(MAILBOX_ATTRIBUTE_PREFIX_ACL);
-	rights = value == NULL ? NULL : t_strsplit(value, " ");
+	rights = value->value == NULL ? NULL : t_strsplit(value->value, " ");
 	if (acl_rights_update_import(&update, id, rights, &error) < 0) {
 		mail_storage_set_error(t->box->storage, MAIL_ERROR_PARAMS, error);
 		return -1;
@@ -125,8 +126,8 @@ static int acl_have_attribute_rights(struct mailbox *box)
 }
 
 int acl_attribute_set(struct mailbox_transaction_context *t,
-		      enum mail_attribute_type type,
-		      const char *key, const char *value)
+		      enum mail_attribute_type type, const char *key,
+		      const struct mail_attribute_value *value)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
 

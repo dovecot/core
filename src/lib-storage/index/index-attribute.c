@@ -173,8 +173,8 @@ index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
 }
 
 int index_storage_attribute_set(struct mailbox_transaction_context *t,
-				enum mail_attribute_type type,
-				const char *key, const char *value)
+				enum mail_attribute_type type, const char *key,
+				const struct mail_attribute_value *value)
 {
 	struct dict_transaction_context *dtrans;
 	const char *mailbox_prefix;
@@ -195,8 +195,8 @@ int index_storage_attribute_set(struct mailbox_transaction_context *t,
 		const char *prefixed_key =
 			key_get_prefixed(type, mailbox_prefix, key);
 
-		if (value != NULL) {
-			dict_set(dtrans, prefixed_key, value);
+		if (value->value != NULL) {
+			dict_set(dtrans, prefixed_key, value->value);
 			mail_index_attribute_set(t->itrans, pvt, key);
 		} else {
 			dict_unset(dtrans, prefixed_key);

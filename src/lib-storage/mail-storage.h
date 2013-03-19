@@ -553,8 +553,8 @@ enum mail_flags mailbox_get_private_flags_mask(struct mailbox *box);
    IMAP METADATA, so for Dovecot-specific keys use
    MAILBOX_ATTRIBUTE_PREFIX_DOVECOT. */
 int mailbox_attribute_set(struct mailbox_transaction_context *t,
-			  enum mail_attribute_type type,
-			  const char *key, const char *value);
+			  enum mail_attribute_type type, const char *key,
+			  const struct mail_attribute_value *value);
 /* Delete mailbox attribute key. */
 int mailbox_attribute_unset(struct mailbox_transaction_context *t,
 			    enum mail_attribute_type type, const char *key);

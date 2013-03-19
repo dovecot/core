@@ -154,8 +154,8 @@ struct mailbox_vfuncs {
 	int (*set_subscribed)(struct mailbox *box, bool set);
 
 	int (*attribute_set)(struct mailbox_transaction_context *t,
-			     enum mail_attribute_type type,
-			     const char *key, const char *value);
+			     enum mail_attribute_type type, const char *key,
+			     const struct mail_attribute_value *value);
 	int (*attribute_get)(struct mailbox_transaction_context *t,
 			     enum mail_attribute_type type, const char *key,
 			     struct mail_attribute_value *value_r);
