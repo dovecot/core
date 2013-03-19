@@ -25,6 +25,10 @@ void mail_storage_hooks_deinit(void);
 
 void mail_storage_hooks_add(struct module *module,
 			    const struct mail_storage_hooks *hooks);
+/* Add hooks to this plugin regardless of whether it exists in user's
+   mail_plugins setting. */
+void mail_storage_hooks_add_forced(struct module *module,
+				   const struct mail_storage_hooks *hooks);
 void mail_storage_hooks_remove(const struct mail_storage_hooks *hooks);
 
 void mail_storage_hooks_add_internal(const struct mail_storage_hooks *hooks);

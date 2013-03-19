@@ -12,6 +12,7 @@
 struct mail_storage_module_hooks {
 	struct module *module;
 	const struct mail_storage_hooks *hooks;
+	bool forced;
 };
 
 struct hook_stack {
@@ -41,7 +42,8 @@ static ARRAY(const struct mail_storage_hooks *) internal_hooks = ARRAY_INIT;
 
 void mail_storage_hooks_init(void)
 {
-	i_array_init(&module_hooks, 32);
+	if (!array_is_created(&module_hooks))
+		i_array_init(&module_hooks, 32);
 	i_array_init(&internal_hooks, 8);
 }
 
@@ -60,7 +62,21 @@ void mail_storage_hooks_add(struct module *module,
 	new_hook.module = module;
 	new_hook.hooks = hooks;
 
+	/* allow adding hooks before mail_storage_hooks_init() */
+	if (!array_is_created(&module_hooks))
+		i_array_init(&module_hooks, 32);
 	array_append(&module_hooks, &new_hook, 1);
+}
+
+void mail_storage_hooks_add_forced(struct module *module,
+				   const struct mail_storage_hooks *hooks)
+{
+	struct mail_storage_module_hooks *hook;
+
+	mail_storage_hooks_add(module, hooks);
+	hook = array_idx_modifiable(&module_hooks,
+				    array_count(&module_hooks)-1);
+	hook->forced = TRUE;
 }
 
 void mail_storage_hooks_remove(const struct mail_storage_hooks *hooks)
@@ -125,7 +141,7 @@ static void mail_user_add_plugin_hooks(struct mail_user *user)
 	plugins = t_strsplit_spaces(user->set->mail_plugins, ", ");
 	array_foreach(&module_hooks, module_hook) {
 		name = module_get_plugin_name(module_hook->module);
-		if (str_array_find(plugins, name))
+		if (str_array_find(plugins, name) || module_hook->forced)
 			array_append(&tmp_hooks, module_hook, 1);
 	}
 

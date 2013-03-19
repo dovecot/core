@@ -644,6 +644,9 @@ int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 unsigned int mail_storage_get_lock_timeout(struct mail_storage *storage,
 					   unsigned int secs);
 void mail_storage_free_binary_cache(struct mail_storage *storage);
+int mailbox_attribute_value_to_string(struct mail_storage *storage,
+				      const struct mail_attribute_value *value,
+				      const char **str_r);
 
 enum mail_index_open_flags
 mail_storage_settings_to_index_flags(const struct mail_storage_settings *set);
