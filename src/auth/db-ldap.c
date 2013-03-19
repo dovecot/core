@@ -546,24 +546,6 @@ db_ldap_find_request(struct ldap_connection *conn, int msgid,
 	return NULL;
 }
 
-static int db_ldap_dn_parse(struct auth_request *auth_request,
-			    struct ldap_request_named_result *named_res,
-			    const char *name, const char *value)
-{
-	unsigned int len = strlen(value);
-
-	/* in future we could also have a filter() in here and maybe some
-	   options.. of course, in future the whole ldap configuration will
-	   probably be redesigned to become simpler.. */
-	if (strncmp(value, "base(", 5) != 0 || value[len-1] != ')') {
-		auth_request_log_error(auth_request, "ldap",
-			"Invalid @%s value '%s'", name, value);
-		return -1;
-	}
-	named_res->dn = p_strndup(auth_request->pool, value+5, len-5-1);
-	return 0;
-}
-
 static int db_ldap_fields_get_dn(struct ldap_connection *conn,
 				 struct ldap_request_search *request)
 {
@@ -582,9 +564,9 @@ static int db_ldap_fields_get_dn(struct ldap_connection *conn,
 		array_foreach_modifiable(&request->named_results, named_res) {
 			if (strcmp(named_res->field->name, name) != 0)
 				continue;
-			if (db_ldap_dn_parse(auth_request, named_res,
-					     name, values[0]) < 0)
-				return -1;
+			/* In future we could also support LDAP URLs here */
+			named_res->dn = p_strdup(auth_request->pool,
+						 values[0]);
 		}
 	}
 	db_ldap_result_iterate_deinit(&ldap_iter);
