@@ -85,6 +85,8 @@ struct acl_rights_update {
 
 	enum acl_modify_mode modify_mode;
 	enum acl_modify_mode neg_modify_mode;
+	/* These changes' "last changed" timestamp */
+	time_t last_change;
 };
 
 /* data contains the information needed to initialize ACL backend. If username

@@ -38,6 +38,7 @@ acl_attribute_update_acl(struct mailbox_transaction_context *t, const char *key,
 	memset(&update, 0, sizeof(update));
 	update.modify_mode = ACL_MODIFY_MODE_REPLACE;
 	update.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
+	update.last_change = value->last_change;
 	id = key + strlen(MAILBOX_ATTRIBUTE_PREFIX_ACL);
 	rights = value->value == NULL ? NULL : t_strsplit(value->value, " ");
 	if (acl_rights_update_import(&update, id, rights, &error) < 0) {

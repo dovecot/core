@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <utime.h>
 #include <sys/stat.h>
 
 #define ACL_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
@@ -1136,7 +1137,10 @@ acl_backend_vfile_object_update(struct acl_object *_aclobj,
 	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)_aclobj->backend;
+	struct acl_backend_vfile_validity *validity;
 	struct dotlock *dotlock;
+	struct utimbuf ut;
+	time_t orig_mtime;
 	const char *path;
 	unsigned int i;
 	int fd;
@@ -1159,12 +1163,26 @@ acl_backend_vfile_object_update(struct acl_object *_aclobj,
 		return 0;
 	}
 
+	validity = acl_cache_get_validity(_aclobj->backend->cache,
+					  _aclobj->name);
+	orig_mtime = validity->local_validity.last_mtime;
+
 	/* ACLs were really changed, write the new ones */
 	path = file_dotlock_get_lock_path(dotlock);
 	if (acl_backend_vfile_update_write(aclobj, fd, path) < 0) {
 		file_dotlock_delete(&dotlock);
 		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
 		return -1;
+	}
+	if (orig_mtime < update->last_change && update->last_change != 0) {
+		/* set mtime to last_change, if it's higher than the file's
+		   original mtime. if original mtime is higher, then we're
+		   merging some changes and it's better for the mtime to get
+		   updated. */
+		ut.actime = ioloop_time;
+		ut.modtime = update->last_change;
+		if (utime(path, &ut) < 0)
+			i_error("utime(%s) failed: %m", path);
 	}
 	acl_backend_vfile_update_cache(_aclobj, fd);
 	if (file_dotlock_replace(&dotlock, 0) < 0) {
