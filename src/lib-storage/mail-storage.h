@@ -555,7 +555,8 @@ enum mail_flags mailbox_get_private_flags_mask(struct mailbox *box);
 int mailbox_attribute_set(struct mailbox_transaction_context *t,
 			  enum mail_attribute_type type, const char *key,
 			  const struct mail_attribute_value *value);
-/* Delete mailbox attribute key. */
+/* Delete mailbox attribute key. This is just a wrapper to
+   mailbox_attribute_set() with value->value=NULL. */
 int mailbox_attribute_unset(struct mailbox_transaction_context *t,
 			    enum mail_attribute_type type, const char *key);
 /* Returns value for mailbox attribute key. Returns 1 if value was returned,

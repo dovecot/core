@@ -1525,8 +1525,6 @@ int mailbox_attribute_set(struct mailbox_transaction_context *t,
 			  enum mail_attribute_type type, const char *key,
 			  const struct mail_attribute_value *value)
 {
-	i_assert(value->value != NULL);
-
 	return t->box->v.attribute_set(t, type, key, value);
 }
 
