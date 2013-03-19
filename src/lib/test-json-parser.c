@@ -26,8 +26,8 @@ static const char json_input[] =
 	"  \"sub3\":12.456e9,\n"
 	"  \"sub4\":0.456e-789"
 	"},"
-	"\"key9\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\uffff\","
-	"\"key10\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\uffff\","
+	"\"key9\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\\uffff\","
+	"\"key10\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\\uffff\","
 	"\"key11\": [],"
 	"\"key12\": [ \"foo\" , 5.24,[true],{\"aobj\":[]}]"
 	"}\n";
