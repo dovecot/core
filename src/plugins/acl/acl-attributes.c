@@ -169,7 +169,9 @@ acl_attribute_iter_init(struct mailbox *box, enum mail_attribute_type type,
 		aiter->super = abox->module_ctx.super.
 			attribute_iter_init(box, type, prefix);
 		if (box->storage->user->admin &&
-		    type == MAIL_ATTRIBUTE_TYPE_SHARED) {
+		    type == MAIL_ATTRIBUTE_TYPE_SHARED &&
+		    strncmp(prefix, MAILBOX_ATTRIBUTE_PREFIX_ACL,
+			    strlen(prefix)) == 0) {
 			aiter->acl_iter = acl_object_list_init(abox->aclobj);
 			aiter->acl_name = str_new(default_pool, 128);
 			str_append(aiter->acl_name, MAILBOX_ATTRIBUTE_PREFIX_ACL);
