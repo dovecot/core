@@ -992,6 +992,7 @@ vfile_object_add_right(struct acl_object_vfile *aclobj, unsigned int idx,
 		       const struct acl_rights_update *update)
 {
 	struct acl_rights right;
+	bool c1, c2;
 
 	if (update->modify_mode == ACL_MODIFY_MODE_REMOVE &&
 	    update->neg_modify_mode == ACL_MODIFY_MODE_REMOVE) {
@@ -1003,8 +1004,17 @@ vfile_object_add_right(struct acl_object_vfile *aclobj, unsigned int idx,
 	right.id_type = update->rights.id_type;
 	right.identifier = p_strdup(aclobj->rights_pool,
 				    update->rights.identifier);
-	array_insert(&aclobj->rights, idx, &right, 1);
-	return vfile_object_modify_right(aclobj, idx, update);
+
+	c1 = modify_right_list(aclobj->rights_pool, &right.rights,
+			       update->rights.rights, update->modify_mode);
+	c2 = modify_right_list(aclobj->rights_pool, &right.neg_rights,
+			       update->rights.neg_rights,
+			       update->neg_modify_mode);
+	if (c1 || c2) {
+		array_insert(&aclobj->rights, idx, &right, 1);
+		return TRUE;
+	}
+	return FALSE;
 }
 
 static void vfile_write_rights_list(string_t *dest, const char *const *rights)
