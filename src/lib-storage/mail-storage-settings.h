@@ -38,6 +38,9 @@ struct mail_storage_settings {
 	const char *lock_method;
 	const char *pop3_uidl_format;
 
+	const char *ssl_client_ca_dir;
+	const char *ssl_crypto_device;
+
 	enum file_lock_method parsed_lock_method;
 	enum fsync_mode parsed_fsync_mode;
 };

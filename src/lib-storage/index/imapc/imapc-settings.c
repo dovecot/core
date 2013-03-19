@@ -29,9 +29,6 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(SET_STR, imapc_list_prefix),
 	DEF(SET_TIME, imapc_max_idle_time),
 
-	DEF(SET_STR, ssl_client_ca_dir),
-	DEF(SET_STR, ssl_crypto_device),
-
 	SETTING_DEFINE_LIST_END
 };
 
@@ -49,10 +46,7 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_features = "",
 	.imapc_rawlog_dir = "",
 	.imapc_list_prefix = "",
-	.imapc_max_idle_time = 60*29,
-
-	.ssl_client_ca_dir = "",
-	.ssl_crypto_device = ""
+	.imapc_max_idle_time = 60*29
 };
 
 static const struct setting_parser_info imapc_setting_parser_info = {
@@ -122,15 +116,6 @@ static bool imapc_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		*error_r = "invalid imapc_port";
 		return FALSE;
 	}
-#ifndef CONFIG_BINARY
-	if (*set->ssl_client_ca_dir != '\0' &&
-	    access(set->ssl_client_ca_dir, X_OK) < 0) {
-		*error_r = t_strdup_printf(
-			"ssl_client_ca_dir: access(%s) failed: %m",
-			set->ssl_client_ca_dir);
-		return FALSE;
-	}
-#endif
 	if (set->imapc_max_idle_time == 0) {
 		*error_r = "imapc_max_idle_time must not be 0";
 		return FALSE;

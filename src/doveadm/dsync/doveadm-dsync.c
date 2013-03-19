@@ -551,7 +551,8 @@ static void dsync_connected_callback(enum server_cmd_reply reply, void *context)
 	io_loop_stop(current_ioloop);
 }
 
-static int dsync_init_ssl_ctx(struct dsync_cmd_context *ctx)
+static int dsync_init_ssl_ctx(struct dsync_cmd_context *ctx,
+			      const struct mail_storage_settings *mail_set)
 {
 	struct ssl_iostream_settings ssl_set;
 
@@ -559,16 +560,18 @@ static int dsync_init_ssl_ctx(struct dsync_cmd_context *ctx)
 		return 0;
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
-	ssl_set.ca_dir = doveadm_settings->ssl_client_ca_dir;
+	ssl_set.ca_dir = mail_set->ssl_client_ca_dir;
 	ssl_set.verify_remote_cert = TRUE;
-	ssl_set.crypto_device = doveadm_settings->ssl_crypto_device;
+	ssl_set.crypto_device = mail_set->ssl_crypto_device;
 
 	return ssl_iostream_context_init_client("doveadm", &ssl_set,
 						&ctx->ssl_ctx);
 }
 
-static int dsync_connect_tcp(struct dsync_cmd_context *ctx, const char *target,
-			     bool ssl, const char **error_r)
+static int
+dsync_connect_tcp(struct dsync_cmd_context *ctx,
+		  const struct mail_storage_settings *mail_set,
+		  const char *target, bool ssl, const char **error_r)
 {
 	struct doveadm_server *server;
 	struct server_connection *conn;
@@ -578,7 +581,7 @@ static int dsync_connect_tcp(struct dsync_cmd_context *ctx, const char *target,
 	server = p_new(ctx->ctx.pool, struct doveadm_server, 1);
 	server->name = p_strdup(ctx->ctx.pool, target);
 	if (ssl) {
-		if (dsync_init_ssl_ctx(ctx) < 0) {
+		if (dsync_init_ssl_ctx(ctx, mail_set) < 0) {
 			*error_r = "Couldn't initialize SSL context";
 			return -1;
 		}
@@ -624,18 +627,22 @@ static int dsync_connect_tcp(struct dsync_cmd_context *ctx, const char *target,
 }
 
 static int
-parse_location(struct dsync_cmd_context *ctx, const char *location,
+parse_location(struct dsync_cmd_context *ctx,
+	       const struct mail_storage_settings *mail_set,
+	       const char *location,
 	       const char *const **remote_cmd_args_r, const char **error_r)
 {
 	if (strncmp(location, "tcp:", 4) == 0) {
 		/* TCP connection to remote dsync */
 		ctx->remote_name = location+4;
-		return dsync_connect_tcp(ctx, ctx->remote_name, FALSE, error_r);
+		return dsync_connect_tcp(ctx, mail_set, ctx->remote_name,
+					 FALSE, error_r);
 	}
 	if (strncmp(location, "tcps:", 5) == 0) {
 		/* TCP+SSL connection to remote dsync */
 		ctx->remote_name = location+5;
-		return dsync_connect_tcp(ctx, ctx->remote_name, TRUE, error_r);
+		return dsync_connect_tcp(ctx, mail_set, ctx->remote_name,
+					 TRUE, error_r);
 	}
 
 	if (strncmp(location, "remote:", 7) == 0) {
@@ -663,9 +670,11 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	const char *const *remote_cmd_args = NULL;
 	const struct mail_user_settings *user_set;
+	const struct mail_storage_settings *mail_set;
 	const char *username = "";
 
 	user_set = mail_storage_service_user_get_set(service_user)[0];
+	mail_set = mail_storage_service_user_get_mail_set(service_user);
 
 	ctx->fd_in = -1;
 	ctx->fd_out = -1;
@@ -697,8 +706,8 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 	}
 
 	if (remote_cmd_args == NULL && ctx->local_location != NULL) {
-		if (parse_location(ctx, ctx->local_location, &remote_cmd_args,
-				   error_r) < 0)
+		if (parse_location(ctx, mail_set, ctx->local_location,
+				   &remote_cmd_args, error_r) < 0)
 			return -1;
 	}
 

@@ -243,7 +243,7 @@ imapc_storage_create(struct mail_storage *_storage,
 	mail_user_set_get_temp_prefix(str, _storage->user->set);
 	set.temp_path_prefix = str_c(str);
 
-	set.ssl_ca_dir = storage->set->ssl_client_ca_dir;
+	set.ssl_ca_dir = _storage->set->ssl_client_ca_dir;
 	set.ssl_verify = storage->set->imapc_ssl_verify;
 	if (strcmp(storage->set->imapc_ssl, "imaps") == 0)
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_IMMEDIATE;
@@ -251,7 +251,7 @@ imapc_storage_create(struct mail_storage *_storage,
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_STARTTLS;
 	else
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
-	set.ssl_crypto_device = storage->set->ssl_crypto_device;
+	set.ssl_crypto_device = _storage->set->ssl_crypto_device;
 
 	storage->list = (struct imapc_mailbox_list *)ns->list;
 	storage->list->storage = storage;

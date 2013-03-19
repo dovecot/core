@@ -24,9 +24,6 @@ struct imapc_settings {
 	const char *imapc_list_prefix;
 	unsigned int imapc_max_idle_time;
 
-	const char *ssl_client_ca_dir;
-	const char *ssl_crypto_device;
-
 	enum imapc_features parsed_features;
 };
 

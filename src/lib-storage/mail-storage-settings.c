@@ -53,6 +53,9 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_ENUM, lock_method),
 	DEF(SET_STR, pop3_uidl_format),
 
+	DEF(SET_STR, ssl_client_ca_dir),
+	DEF(SET_STR, ssl_crypto_device),
+
 	SETTING_DEFINE_LIST_END
 };
 
@@ -83,7 +86,10 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.maildir_stat_dirs = FALSE,
 	.mail_shared_explicit_inbox = FALSE,
 	.lock_method = "fcntl:flock:dotlock",
-	.pop3_uidl_format = "%08Xu%08Xv"
+	.pop3_uidl_format = "%08Xu%08Xv",
+
+	.ssl_client_ca_dir = "",
+	.ssl_crypto_device = ""
 };
 
 const struct setting_parser_info mail_storage_setting_parser_info = {
@@ -418,6 +424,15 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 	hash_format_deinit_free(&format);
+#ifndef CONFIG_BINARY
+	if (*set->ssl_client_ca_dir != '\0' &&
+	    access(set->ssl_client_ca_dir, X_OK) < 0) {
+		*error_r = t_strdup_printf(
+			"ssl_client_ca_dir: access(%s) failed: %m",
+			set->ssl_client_ca_dir);
+		return FALSE;
+	}
+#endif
 	return TRUE;
 }
 
