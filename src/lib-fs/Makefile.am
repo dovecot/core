@@ -4,6 +4,7 @@ noinst_PROGRAMS = fs-test
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-DMODULE_DIR=\""$(moduledir)"\"
 
 libfs_la_SOURCES = \

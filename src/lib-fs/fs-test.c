@@ -4,11 +4,17 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "iostream-ssl.h"
 #include "fs-api.h"
 
 #include <stdio.h>
 
+static const struct ssl_iostream_settings ssl_set = {
+	.ca_dir = "/etc/ssl/certs" /* FIXME: some parameter to change this? */
+};
+
 static const struct fs_settings fs_set = {
+	.ssl_client_set = &ssl_set,
 	.temp_dir = "/tmp"
 };
 
