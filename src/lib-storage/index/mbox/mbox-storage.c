@@ -100,6 +100,14 @@ mbox_list_get_path(struct mailbox_list *list, const char *name,
 
 	if (type == MAILBOX_LIST_PATH_TYPE_CONTROL ||
 	    type == MAILBOX_LIST_PATH_TYPE_INDEX) {
+		if (name == NULL && type == MAILBOX_LIST_PATH_TYPE_CONTROL &&
+		    list->set.control_dir != NULL) {
+			/* kind of a kludge for backwards compatibility:
+			   the subscriptions file is in the root control_dir
+			   without .imap/ suffix */
+			*path_r = path;
+			return 1;
+		}
 		if (name == NULL) {
 			*path_r = t_strconcat(path, "/"MBOX_INDEX_DIR_NAME, NULL);
 			return 1;

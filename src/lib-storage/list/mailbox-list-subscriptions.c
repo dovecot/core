@@ -110,6 +110,7 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 {
 	struct subsfile_list_context *subsfile_ctx;
 	struct stat st;
+	enum mailbox_list_path_type type;
 	const char *path, *name;
 	char sep;
 	int ret;
@@ -122,8 +123,10 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 		sep = mail_namespace_get_sep(src_list->ns);
 		dest_list->subscriptions = mailbox_tree_init(sep);
 	}
-	path = t_strconcat(src_list->set.control_dir != NULL ?
-			   src_list->set.control_dir : src_list->set.root_dir,
+
+	type = src_list->set.control_dir != NULL ?
+		MAILBOX_LIST_PATH_TYPE_CONTROL : MAILBOX_LIST_PATH_TYPE_DIR;
+	path = t_strconcat(mailbox_list_get_root_forced(src_list, type),
 			   "/", src_list->set.subscription_fname, NULL);
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT) {
