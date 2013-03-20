@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
-#include "doveadm-connection.h"
+#include "dsync-client.h"
 #include "replicator-settings.h"
 #include "replicator-queue.h"
 #include "replicator-brain.h"
@@ -19,7 +19,7 @@ struct replicator_brain {
 	const struct replicator_settings *set;
 	struct timeout *to;
 
-	ARRAY(struct doveadm_connection *) doveadm_conns;
+	ARRAY(struct dsync_client *) dsync_clients;
 
 	unsigned int deinitializing:1;
 };
@@ -45,7 +45,7 @@ replicator_brain_init(struct replicator_queue *queue,
 	brain->pool = pool;
 	brain->queue = queue;
 	brain->set = set;
-	p_array_init(&brain->doveadm_conns, pool, 16);
+	p_array_init(&brain->dsync_clients, pool, 16);
 	replicator_queue_set_change_callback(queue,
 		replicator_brain_queue_changed, brain);
 	replicator_brain_fill(brain);
@@ -55,49 +55,48 @@ replicator_brain_init(struct replicator_queue *queue,
 void replicator_brain_deinit(struct replicator_brain **_brain)
 {
 	struct replicator_brain *brain = *_brain;
-	struct doveadm_connection **connp;
+	struct dsync_client **connp;
 
 	*_brain = NULL;
 
 	brain->deinitializing = TRUE;
-	array_foreach_modifiable(&brain->doveadm_conns, connp)
-		doveadm_connection_deinit(connp);
+	array_foreach_modifiable(&brain->dsync_clients, connp)
+		dsync_client_deinit(connp);
 	if (brain->to != NULL)
 		timeout_remove(&brain->to);
 	pool_unref(&brain->pool);
 }
 
-static struct doveadm_connection *
-get_doveadm_connection(struct replicator_brain *brain)
+static struct dsync_client *
+get_dsync_client(struct replicator_brain *brain)
 {
-	struct doveadm_connection *const *connp, *conn = NULL;
+	struct dsync_client *const *connp, *conn = NULL;
 
-	array_foreach(&brain->doveadm_conns, connp) {
-		if (!doveadm_connection_is_busy(*connp))
+	array_foreach(&brain->dsync_clients, connp) {
+		if (!dsync_client_is_busy(*connp))
 			return *connp;
 	}
-	if (array_count(&brain->doveadm_conns) ==
+	if (array_count(&brain->dsync_clients) ==
 	    brain->set->replication_max_conns)
 		return NULL;
 
-	conn = doveadm_connection_init(brain->set->doveadm_socket_path);
-	array_append(&brain->doveadm_conns, &conn, 1);
+	conn = dsync_client_init(brain->set->doveadm_socket_path);
+	array_append(&brain->dsync_clients, &conn, 1);
 	return conn;
 }
 
-static void doveadm_sync_callback(enum doveadm_reply reply, const char *state,
-				  void *context)
+static void dsync_callback(enum dsync_reply reply, const char *state,
+			   void *context)
 {
 	struct replicator_sync_context *ctx = context;
 
-	if (reply == DOVEADM_REPLY_NOUSER) {
+	if (reply == DSYNC_REPLY_NOUSER) {
 		/* user no longer exists, remove from replication */
 		replicator_queue_remove(ctx->brain->queue, &ctx->user);
 	} else {
 		i_free(ctx->user->state);
 		ctx->user->state = i_strdup_empty(state);
-		ctx->user->last_sync_failed =
-			reply != DOVEADM_REPLY_OK;
+		ctx->user->last_sync_failed = reply != DSYNC_REPLY_OK;
 		replicator_queue_push(ctx->brain->queue, ctx->user);
 	}
 	if (!ctx->brain->deinitializing)
@@ -106,14 +105,14 @@ static void doveadm_sync_callback(enum doveadm_reply reply, const char *state,
 }
 
 static bool
-doveadm_replicate(struct replicator_brain *brain, struct replicator_user *user)
+dsync_replicate(struct replicator_brain *brain, struct replicator_user *user)
 {
 	struct replicator_sync_context *ctx;
-	struct doveadm_connection *conn;
+	struct dsync_client *conn;
 	time_t next_full_sync;
 	bool full;
 
-	conn = get_doveadm_connection(brain);
+	conn = get_dsync_client(brain);
 	if (conn == NULL)
 		return FALSE;
 
@@ -132,8 +131,8 @@ doveadm_replicate(struct replicator_brain *brain, struct replicator_user *user)
 	ctx = i_new(struct replicator_sync_context, 1);
 	ctx->brain = brain;
 	ctx->user = user;
-	doveadm_connection_sync(conn, user->username, user->state, full,
-				doveadm_sync_callback, ctx);
+	dsync_client_sync(conn, user->username, user->state, full,
+			  dsync_callback, ctx);
 	return TRUE;
 }
 
@@ -158,7 +157,7 @@ static bool replicator_brain_fill_next(struct replicator_brain *brain)
 		return FALSE;
 	}
 
-	if (!doveadm_replicate(brain, user)) {
+	if (!dsync_replicate(brain, user)) {
 		/* all connections were full, put the user back to queue */
 		replicator_queue_push(brain->queue, user);
 		return FALSE;
