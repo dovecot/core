@@ -140,7 +140,8 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 	if (!mail_index_lookup_seq(view, node->uid, &seq))
 		i_panic("mailbox list index: lost uid=%u", node->uid);
 	if (!mailbox_list_index_status(_list, view, seq, 0,
-				       &status, mailbox_guid)) {
+				       &status, mailbox_guid) ||
+	    guid_128_is_empty(mailbox_guid)) {
 		mailbox_list_set_error(_list, MAIL_ERROR_NOTFOUND,
 				       T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		ret = -1;
