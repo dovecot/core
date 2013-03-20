@@ -363,6 +363,20 @@ index_list_mailbox_update(struct mailbox *box,
 	return 0;
 }
 
+static int
+index_list_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
+			  enum mailbox_existence *existence_r)
+{
+	struct index_mailbox_list *list =
+		(struct index_mailbox_list *)box->list;
+
+	if (index_list_node_exists(list, box->name, existence_r) < 0) {
+		mail_storage_copy_list_error(box->storage, box->list);
+		return -1;
+	}
+	return 0;
+}
+
 static void
 index_list_try_delete(struct index_mailbox_list *list, const char *name,
 		      enum mailbox_list_path_type type)
@@ -663,6 +677,7 @@ void mailbox_list_index_backend_init_mailbox(struct mailbox *box)
 		return;
 	box->v.create_box = index_list_mailbox_create;
 	box->v.update_box = index_list_mailbox_update;
+	box->v.exists = index_list_mailbox_exists;
 
 	box->v.list_index_has_changed = NULL;
 	box->v.list_index_update_sync = NULL;
