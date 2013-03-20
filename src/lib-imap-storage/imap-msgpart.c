@@ -288,7 +288,8 @@ int imap_msgpart_parse(const char *section, struct imap_msgpart **msgpart_r)
 		else
 			msgpart->wanted_fields |= MAIL_FETCH_STREAM_BODY;
 	} else {
-		i_unreached();
+		imap_msgpart_free(&msgpart);
+		return -1;
 	}
 	return 0;
 }

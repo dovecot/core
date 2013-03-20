@@ -357,7 +357,7 @@ bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 	}
 	if (imap_msgpart_parse(body->section, &body->msgpart) < 0) {
 		ctx->error = "Invalid BODY[..] section";
-		return -1;
+		return FALSE;
 	}
 	ctx->fetch_ctx->fetch_data |=
 		imap_msgpart_get_fetch_data(body->msgpart);
