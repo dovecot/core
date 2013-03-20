@@ -167,10 +167,13 @@ static int fs_list_set_subscribed(struct mailbox_list *_list,
 				  const char *name, bool set)
 {
 	struct fs_mailbox_list *list = (struct fs_mailbox_list *)_list;
+	enum mailbox_list_path_type type;
 	const char *path;
 
-	path = t_strconcat(_list->set.control_dir != NULL ?
-			   _list->set.control_dir : _list->set.root_dir,
+	type = _list->set.control_dir != NULL ?
+		MAILBOX_LIST_PATH_TYPE_CONTROL : MAILBOX_LIST_PATH_TYPE_DIR;
+
+	path = t_strconcat(mailbox_list_get_root_forced(_list, type),
 			   "/", _list->set.subscription_fname, NULL);
 	return subsfile_set_subscribed(_list, path, list->temp_prefix,
 				       name, set);
