@@ -1359,7 +1359,8 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 {
 	const char *error = NULL;
 
-	if (mailbox_verify_existing_name(src) < 0)
+	/* Check only name validity, \Noselect don't necessarily exist. */
+	if (mailbox_verify_name(src) < 0)
 		return -1;
 	if (*src->name == '\0') {
 		mail_storage_set_error(src->storage, MAIL_ERROR_PARAMS,
