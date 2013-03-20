@@ -20,7 +20,6 @@ static bool
 cmd_resetkey_mailbox(struct client_command_context *cmd,
 		     const char *mailbox, const struct imap_arg *mech_args)
 {
-	enum mailbox_existence existence;
 	struct mail_namespace *ns;
 	enum mailbox_flags flags = MAILBOX_FLAG_READONLY;
 	struct mailbox *box;
@@ -49,18 +48,10 @@ cmd_resetkey_mailbox(struct client_command_context *cmd,
 	if (ns == NULL)
 		return TRUE;
 
-	/* check mailbox */
+	/* open mailbox */
 	box = mailbox_alloc(ns->list, mailbox, flags);
-	if (mailbox_exists(box, TRUE, &existence) < 0) {
-		client_send_internal_error(cmd);
-		mailbox_free(&box);
-		return TRUE;
-	}
-
-	if (existence == MAILBOX_EXISTENCE_NONE) {
-		client_send_tagline(cmd, t_strdup_printf(
-			"NO ["IMAP_RESP_CODE_NONEXISTENT"] "
-			MAIL_ERRSTR_MAILBOX_NOT_FOUND, mailbox));
+	if (mailbox_open(box) < 0) {
+		client_send_storage_error(cmd, mailbox_get_storage(box));
 		mailbox_free(&box);
 		return TRUE;
 	}
