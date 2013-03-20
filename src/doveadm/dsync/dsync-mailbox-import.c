@@ -317,11 +317,13 @@ dsync_attributes_cmp(const struct dsync_mailbox_attribute *attr,
 	if (DSYNC_ATTR_HAS_VALUE(attr) &&
 	    !DSYNC_ATTR_HAS_VALUE(local_attr)) {
 		/* remote has a value and local doesn't -> use it */
-		return 1;
+		*cmp_r = 1;
+		return 0;
 	} else if (!DSYNC_ATTR_HAS_VALUE(attr) &&
 		   DSYNC_ATTR_HAS_VALUE(local_attr)) {
 		/* remote doesn't have a value, bt local does -> skip */
-		return -1;
+		*cmp_r = -1;
+		return 0;
 	}
 
 	return dsync_attributes_cmp_values(attr, local_attr, cmp_r);
