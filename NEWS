@@ -1,3 +1,12 @@
+v2.2.rc3 2013-03-20  Timo Sirainen <tss@iki.fi>
+
+	+ dsync: Support syncing ACLs (and Sieve scripts with Pigeonhole)
+	+ ldap: Support subqueries and value pointers, see
+	  http://wiki2.dovecot.org/AuthDatabase/LDAP/Userdb
+	+ postmaster_address setting: Expand %d to recipient's domain
+	- Fixed a crash when decoding quoted-printable content.
+	- dsync: Various bugfixes
+
 v2.2.rc2 2013-02-15  Timo Sirainen <tss@iki.fi>
 
 	- rc1 wasn't actually usable in most configurations.
