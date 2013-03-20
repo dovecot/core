@@ -449,7 +449,7 @@ int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 		i_assert(src == NULL || src == dest->copy_src);
 		if (dest->copy_output == NULL) {
 			i_assert(dest->copy_input == NULL);
-			if (fs_write_stream_finish_async(dest) < 0)
+			if (fs_write_stream_finish_async(dest) <= 0)
 				return -1;
 			dest->copy_src = NULL;
 			return 0;
@@ -477,7 +477,7 @@ int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 		return -1;
 	}
 	i_stream_unref(&dest->copy_input);
-	if (fs_write_stream_finish(dest, &dest->copy_output) < 0)
+	if (fs_write_stream_finish(dest, &dest->copy_output) <= 0)
 		return -1;
 	dest->copy_src = NULL;
 	return 0;
