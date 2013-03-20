@@ -337,8 +337,13 @@ int fts_backend_lookup_multi(struct fts_backend *backend,
 	result->box_results = p_new(result->pool, struct fts_result, i+1);
 
 	for (i = 0; boxes[i] != NULL; i++) {
+		struct fts_result *box_result = &result->box_results[i];
+
+		p_array_init(&box_result->definite_uids, result->pool, 32);
+		p_array_init(&box_result->maybe_uids, result->pool, 32);
+		p_array_init(&box_result->scores, result->pool, 32);
 		if (backend->v.lookup(backend, boxes[i], args,
-				      and_args, &result->box_results[i]) < 0)
+				      and_args, box_result) < 0)
 			return -1;
 	}
 	return 0;
