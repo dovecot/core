@@ -30,7 +30,7 @@ struct dsync_mailbox_exporter {
 	/* GUID => instances */
 	HASH_TABLE(char *, struct dsync_mail_guid_instances *) export_guids;
 	ARRAY_TYPE(seq_range) requested_uids;
-	unsigned int requested_uid_search_idx;
+	ARRAY_TYPE(seq_range) search_uids;
 
 	ARRAY_TYPE(seq_range) expunged_seqs;
 	ARRAY_TYPE(const_string) expunged_guids;
@@ -462,6 +462,7 @@ dsync_mailbox_export_init(struct mailbox *box,
 	exporter->mails_have_guids =
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_MAILS_HAVE_GUIDS) != 0;
 	p_array_init(&exporter->requested_uids, pool, 16);
+	p_array_init(&exporter->search_uids, pool, 16);
 	hash_table_create(&exporter->export_guids, pool, 0, str_hash, strcmp);
 	p_array_init(&exporter->expunged_seqs, pool, 16);
 	p_array_init(&exporter->expunged_guids, pool, 16);
@@ -688,14 +689,16 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 
 	/* add requested UIDs */
 	range = array_get(&exporter->requested_uids, &count);
-	for (i = exporter->requested_uid_search_idx; i < count; i++) {
+	for (i = 0; i < count; i++) {
 		mailbox_get_seq_range(exporter->box,
 				      range->seq1, range->seq2,
 				      &seq1, &seq2);
 		seq_range_array_add_range(&sarg->value.seqset,
 					  seq1, seq2);
 	}
-	exporter->requested_uid_search_idx = count;
+	array_clear(&exporter->search_uids);
+	array_append_array(&exporter->search_uids, &exporter->requested_uids);
+	array_clear(&exporter->requested_uids);
 
 	exporter->search_ctx =
 		mailbox_search_init(exporter->trans, search_args, NULL,
@@ -744,7 +747,7 @@ static int dsync_mailbox_export_mail(struct dsync_mailbox_exporter *exporter,
 		return -1;
 	}
 
-	if (!seq_range_exists(&exporter->requested_uids, mail->uid))
+	if (!seq_range_exists(&exporter->search_uids, mail->uid))
 		exporter->dsync_mail.uid = 0;
 	else
 		exporter->dsync_mail.guid = "";
