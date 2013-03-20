@@ -138,7 +138,11 @@ acl_backend_vfile_get_local_dir(struct acl_backend *backend, const char *name)
 	else if (!mailbox_list_is_valid_name(ns->list, name, &error))
 		return NULL;
 
-	type = mail_storage_is_mailbox_file(ns->storage) ?
+	/* ACL files are very important. try to keep them among the main
+	   mail files. that's not possible though with a) if the mailbox is
+	   a file or b) if the mailbox path doesn't point to filesystem. */
+	type = mail_storage_is_mailbox_file(ns->storage) ||
+		(ns->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0 ?
 		MAILBOX_LIST_PATH_TYPE_CONTROL : MAILBOX_LIST_PATH_TYPE_MAILBOX;
 	if (name == NULL) {
 		if (!mailbox_list_get_root_path(ns->list, type, &dir))

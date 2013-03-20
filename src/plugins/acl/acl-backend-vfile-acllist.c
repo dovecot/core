@@ -44,14 +44,17 @@ static bool acl_list_get_root_dir(struct acl_backend_vfile *backend,
 {
 	struct mail_storage *storage;
 	const char *rootdir, *maildir;
-
-	if (!mailbox_list_get_root_path(backend->backend.list,
-					MAILBOX_LIST_PATH_TYPE_DIR, &rootdir))
-		return FALSE;
-	*type_r = MAILBOX_LIST_PATH_TYPE_DIR;
+	enum mailbox_list_path_type type;
 
 	storage = mailbox_list_get_namespace(backend->backend.list)->storage;
-	if (mail_storage_is_mailbox_file(storage)) {
+	type = (storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0 ?
+		MAILBOX_LIST_PATH_TYPE_CONTROL : MAILBOX_LIST_PATH_TYPE_DIR;
+	if (!mailbox_list_get_root_path(backend->backend.list, type, &rootdir))
+		return FALSE;
+	*type_r = type;
+
+	if (type == MAILBOX_LIST_PATH_TYPE_DIR &&
+	    mail_storage_is_mailbox_file(storage)) {
 		maildir = mailbox_list_get_root_forced(backend->backend.list,
 						       MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		if (strcmp(maildir, rootdir) == 0) {
