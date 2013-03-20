@@ -78,7 +78,7 @@ static void cmd_pw(int argc, char *argv[])
 	if (rounds > 0)
 		password_set_encryption_rounds(rounds);
 
-	if (test_hash != NULL)
+	if (test_hash != NULL && plaintext == NULL)
 		plaintext = t_askpass("Enter password to verify: ");
 	while (plaintext == NULL) {
 		const char *check;
