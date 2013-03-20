@@ -959,8 +959,15 @@ int settings_parse_stream_read(struct setting_parser_context *ctx,
 		if (input->stream_errno != 0) {
 			ctx->error = p_strdup_printf(ctx->parser_pool,
 						     "read() failed: %m");
+		} else if (input->v_offset == 0) {
+			ctx->error = p_strdup_printf(ctx->parser_pool,
+				"read(%s) disconnected before receiving any data",
+				i_stream_get_name(input));
 		} else {
-			ctx->error = "input is missing end-of-settings line";
+			ctx->error = p_strdup_printf(ctx->parser_pool,
+				"read(%s) disconnected before receiving "
+				"end-of-settings line",
+				i_stream_get_name(input));
 		}
 		break;
 	case -2:
@@ -991,6 +998,7 @@ int settings_parse_file(struct setting_parser_context *ctx,
 	}
 
 	input = i_stream_create_fd(fd, max_line_length, TRUE);
+	i_stream_set_name(input, path);
 	ret = settings_parse_stream_read(ctx, input);
 	i_stream_unref(&input);
 
@@ -1080,6 +1088,7 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 	i_close_fd(&fd[1]);
 
 	input = i_stream_create_fd(fd[0], (size_t)-1, TRUE);
+	i_stream_set_name(input, bin_path);
 	ret = settings_parse_stream_read(ctx, input);
 	i_stream_destroy(&input);
 
