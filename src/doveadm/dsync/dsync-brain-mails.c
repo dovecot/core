@@ -242,17 +242,19 @@ static bool dsync_brain_recv_mail(struct dsync_brain *brain)
 static bool dsync_brain_send_mail(struct dsync_brain *brain)
 {
 	const struct dsync_mail *mail;
-	bool changed = FALSE;
 
-	while ((mail = dsync_mailbox_export_next_mail(brain->box_exporter)) != NULL) {
-		changed = TRUE;
-		if (dsync_ibc_send_mail(brain->ibc, mail) == 0)
-			return TRUE;
-	}
 	if (brain->mail_requests &&
 	    brain->box_recv_state < DSYNC_BOX_STATE_MAILS) {
-		/* wait for mail requests to finish */
-		return changed;
+		/* wait for mail requests to finish. we could already start
+		   exporting, but then we're going to do quite a lot of
+		   separate searches. especially with pipe backend we'd do
+		   a separate search for each mail. */
+		return FALSE;
+	}
+
+	while ((mail = dsync_mailbox_export_next_mail(brain->box_exporter)) != NULL) {
+		if (dsync_ibc_send_mail(brain->ibc, mail) == 0)
+			return TRUE;
 	}
 
 	brain->box_send_state = DSYNC_BOX_STATE_DONE;
