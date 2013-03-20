@@ -277,9 +277,10 @@ lmtp_client_data_next(struct lmtp_client *client, const char *line)
 		if (client->protocol == LMTP_CLIENT_PROTOCOL_LMTP)
 			break;
 	}
-	if (i < count)
+	if (client->rcpt_next_data_idx < count)
 		return 0;
 
+	o_stream_send_str(client->output, "QUIT\r\n");
 	lmtp_client_close(client);
 	return -1;
 }
