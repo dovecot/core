@@ -26,7 +26,7 @@ struct dsync_mail {
 };
 
 struct dsync_mail_request {
-	/* either GUID="" or uid=0 */
+	/* either GUID=NULL or uid=0 */
 	const char *guid;
 	uint32_t uid;
 };

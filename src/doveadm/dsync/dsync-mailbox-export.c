@@ -762,7 +762,7 @@ void dsync_mailbox_export_want_mail(struct dsync_mailbox_exporter *exporter,
 
 	i_assert(!exporter->auto_export_mails);
 
-	if (*request->guid == '\0') {
+	if (request->guid == NULL) {
 		i_assert(request->uid > 0);
 		seq_range_array_add(&exporter->requested_uids, request->uid);
 		return;

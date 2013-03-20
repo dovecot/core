@@ -163,7 +163,7 @@ enum dsync_ibc_send_ret
 dsync_ibc_send_mail_request(struct dsync_ibc *ibc,
 			    const struct dsync_mail_request *request)
 {
-	i_assert(*request->guid != '\0' || request->uid != 0);
+	i_assert(request->guid != NULL || request->uid != 0);
 
 	T_BEGIN {
 		ibc->v.send_mail_request(ibc, request);
