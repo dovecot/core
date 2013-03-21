@@ -15,6 +15,7 @@
 #include <stdlib.h>
 
 #define PROXY_FAILURE_MSG "Account is temporarily unavailable."
+#define PROXY_DEFAULT_TIMEOUT_MSECS (1000*30)
 
 /* If we've been waiting auth server to respond for over this many milliseconds,
    send a "waiting" message. */
@@ -307,6 +308,8 @@ static int proxy_start(struct client *client,
 		proxy_set.ip.family = 0;
 	proxy_set.port = reply->port;
 	proxy_set.connect_timeout_msecs = reply->proxy_timeout_msecs;
+	if (proxy_set.connect_timeout_msecs == 0)
+		proxy_set.connect_timeout_msecs = PROXY_DEFAULT_TIMEOUT_MSECS;
 	proxy_set.notify_refresh_secs = reply->proxy_refresh_secs;
 	proxy_set.ssl_flags = reply->ssl_flags;
 
