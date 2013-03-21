@@ -48,6 +48,7 @@ struct login_proxy {
 
 	proxy_callback_t *callback;
 
+	unsigned int connected:1;
 	unsigned int destroying:1;
 	unsigned int disconnecting:1;
 };
@@ -202,9 +203,15 @@ proxy_log_connect_error(struct login_proxy *proxy)
 	struct ip_addr local_ip;
 	unsigned int local_port;
 
-	str_printfa(str, "proxy(%s): connect(%s, %u) failed: %m (after %u secs",
-		    proxy->client->virtual_user,
-		    proxy->host, proxy->port,
+	str_printfa(str, "proxy(%s): ", proxy->client->virtual_user);
+	if (!proxy->connected) {
+		str_printfa(str, "connect(%s, %u) failed: %m",
+			    proxy->host, proxy->port);
+	} else {
+		str_printfa(str, "Login for %s:%u timed out",
+			    proxy->host, proxy->port);
+	}
+	str_printfa(str, " (after %u secs",
 		    (unsigned int)(ioloop_time - proxy->created.tv_sec));
 
 	if (proxy->server_fd != -1 &&
@@ -226,12 +233,10 @@ static void proxy_wait_connect(struct login_proxy *proxy)
                 login_proxy_free(&proxy);
 		return;
 	}
+	proxy->connected = TRUE;
 	proxy->state_rec->last_success = ioloop_timeval;
 	proxy->state_rec->num_waiting_connections--;
 	proxy->state_rec = NULL;
-
-	if (proxy->to != NULL)
-		timeout_remove(&proxy->to);
 
 	if ((proxy->ssl_flags & PROXY_SSL_FLAG_YES) != 0 &&
 	    (proxy->ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0) {
@@ -463,6 +468,9 @@ void login_proxy_detach(struct login_proxy *proxy)
 
 	i_assert(proxy->client_fd == -1);
 	i_assert(proxy->server_output != NULL);
+
+	if (proxy->to != NULL)
+		timeout_remove(&proxy->to);
 
 	proxy->client_fd = i_stream_get_fd(client->input);
 	proxy->client_output = client->output;
