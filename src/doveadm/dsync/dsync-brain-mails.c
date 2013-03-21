@@ -48,8 +48,7 @@ static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 	dsync_brain_mailbox_update_pre(brain, brain->box,
 				       &brain->local_dsync_box, dsync_box);
 
-	if (brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_CHANGED &&
-	    !dsync_boxes_need_sync(&brain->local_dsync_box, dsync_box)) {
+	if (!dsync_boxes_need_sync(brain, &brain->local_dsync_box, dsync_box)) {
 		/* no fields appear to have changed, skip this mailbox */
 		dsync_brain_sync_mailbox_deinit(brain);
 		return TRUE;

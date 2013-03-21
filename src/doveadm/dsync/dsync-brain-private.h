@@ -91,6 +91,7 @@ struct dsync_brain {
 	unsigned int backup_recv:1;
 	unsigned int debug:1;
 	unsigned int sync_visible_namespaces:1;
+	unsigned int no_mail_sync:1;
 	unsigned int changes_during_sync:1;
 	unsigned int failed:1;
 };
@@ -112,7 +113,8 @@ void dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 				    struct mailbox *box,
 				    const struct dsync_mailbox *local_box,
 				    const struct dsync_mailbox *remote_box);
-bool dsync_boxes_need_sync(const struct dsync_mailbox *box1,
+bool dsync_boxes_need_sync(struct dsync_brain *brain,
+			   const struct dsync_mailbox *box1,
 			   const struct dsync_mailbox *box2);
 void dsync_brain_sync_init_box_states(struct dsync_brain *brain);
 

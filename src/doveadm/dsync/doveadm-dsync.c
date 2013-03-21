@@ -470,6 +470,10 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	if (doveadm_debug)
 		brain_flags |= DSYNC_BRAIN_FLAG_DEBUG;
+	if (ctx->mailbox != NULL && *ctx->mailbox == '\0') {
+		brain_flags |= DSYNC_BRAIN_FLAG_NO_MAIL_SYNC;
+		ctx->mailbox = NULL;
+	}
 	brain = dsync_brain_master_init(user, ibc, sync_ns, ctx->mailbox,
 					ctx->sync_type, brain_flags,
 					ctx->lock_timeout,

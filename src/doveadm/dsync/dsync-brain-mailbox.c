@@ -422,9 +422,14 @@ void dsync_brain_master_send_mailbox(struct dsync_brain *brain)
 	brain->state = DSYNC_STATE_SYNC_MAILS;
 }
 
-bool dsync_boxes_need_sync(const struct dsync_mailbox *box1,
+bool dsync_boxes_need_sync(struct dsync_brain *brain,
+			   const struct dsync_mailbox *box1,
 			   const struct dsync_mailbox *box2)
 {
+	if (brain->no_mail_sync)
+		return FALSE;
+	if (brain->sync_type != DSYNC_BRAIN_SYNC_TYPE_CHANGED)
+		return TRUE;
 	return box1->highest_modseq != box2->highest_modseq ||
 		box1->highest_pvt_modseq != box2->highest_pvt_modseq ||
 		box1->messages_count != box2->messages_count ||
@@ -631,8 +636,7 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 
 	dsync_brain_mailbox_update_pre(brain, box, &local_dsync_box, dsync_box);
 
-	if (brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_CHANGED &&
-	    !dsync_boxes_need_sync(&local_dsync_box, dsync_box)) {
+	if (!dsync_boxes_need_sync(brain, &local_dsync_box, dsync_box)) {
 		/* no fields appear to have changed, skip this mailbox */
 		mailbox_free(&box);
 		return TRUE;
