@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "imap-match.h"
+#include "mailbox-tree.h"
 #include "mailbox-list-private.h"
 #include "index-storage.h"
 #include "shared-storage.h"
@@ -175,9 +176,15 @@ static int shared_list_iter_deinit(struct mailbox_list_iterate_context *ctx)
 }
 
 static int
-shared_list_subscriptions_refresh(struct mailbox_list *src_list ATTR_UNUSED,
-				  struct mailbox_list *dest_list ATTR_UNUSED)
+shared_list_subscriptions_refresh(struct mailbox_list *src_list,
+				  struct mailbox_list *dest_list)
 {
+	char sep;
+
+	if (dest_list->subscriptions == NULL) {
+		sep = mail_namespace_get_sep(src_list->ns);
+		dest_list->subscriptions = mailbox_tree_init(sep);
+	}
 	return 0;
 }
 
