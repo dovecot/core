@@ -150,6 +150,8 @@ void mailbox_list_destroy(struct mailbox_list **list);
 
 const char *
 mailbox_list_get_driver_name(const struct mailbox_list *list) ATTR_PURE;
+const struct mailbox_list_settings *
+mailbox_list_get_settings(const struct mailbox_list *list) ATTR_PURE;
 enum mailbox_list_flags
 mailbox_list_get_flags(const struct mailbox_list *list) ATTR_PURE;
 struct mail_namespace *
