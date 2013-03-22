@@ -741,7 +741,7 @@ const char *mailbox_list_get_driver_name(const struct mailbox_list *list)
 const struct mailbox_list_settings *
 mailbox_list_get_settings(const struct mailbox_list *list)
 {
-	return list->set;
+	return &list->set;
 }
 
 enum mailbox_list_flags mailbox_list_get_flags(const struct mailbox_list *list)
