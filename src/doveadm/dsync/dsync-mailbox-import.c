@@ -252,6 +252,8 @@ dsync_istreams_cmp(struct istream *input1, struct istream *input2, int *cmp_r)
 	const unsigned char *data1, *data2;
 	size_t size1, size2, size;
 
+	*cmp_r = -1; /* quiet gcc */
+
 	for (;;) {
 		(void)i_stream_read_data(input1, &data1, &size1, 0);
 		(void)i_stream_read_data(input2, &data2, &size2, 0);
