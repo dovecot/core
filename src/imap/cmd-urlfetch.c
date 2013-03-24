@@ -8,6 +8,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "imap-url.h"
+#include "imap-quote.h"
 #include "imap-common.h"
 #include "imap-commands.h"
 #include "imap-urlauth.h"
@@ -184,7 +185,7 @@ static int cmd_urlfetch_url_sucess(struct client_command_context *cmd,
 		ctx->extended = TRUE;
 
 		str_append(response, "* URLFETCH ");
-		str_append(response, reply->url);
+		imap_append_astring(response, reply->url);
 		str_append(response, " (");
 		if ((reply->flags & IMAP_URLAUTH_FETCH_FLAG_BODYPARTSTRUCTURE) != 0 &&
 		    reply->bodypartstruct != NULL) {

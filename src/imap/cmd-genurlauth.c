@@ -3,6 +3,7 @@
 #include "imap-common.h"
 #include "str.h"
 #include "imap-commands.h"
+#include "imap-quote.h"
 #include "imap-urlauth.h"
 
 bool cmd_genurlauth(struct client_command_context *cmd)
@@ -43,7 +44,7 @@ bool cmd_genurlauth(struct client_command_context *cmd)
 		}
 
 		str_append_c(response, ' ');
-		str_append(response, url);
+		imap_append_astring(response, url);
 	}
 
 	client_send_line(cmd->client, str_c(response));
