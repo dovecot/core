@@ -430,7 +430,6 @@ static bool
 mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 			      struct mail_namespace *ns, bool has_children)
 {
-	struct mail_namespace *subs_ns;
 	struct mailbox *box;
 	enum mailbox_existence existence;
 	int ret;
@@ -460,13 +459,9 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 
 	if ((ctx->ctx.flags & (MAILBOX_LIST_ITER_RETURN_SUBSCRIBED |
 			       MAILBOX_LIST_ITER_SELECT_SUBSCRIBED)) != 0) {
-		subs_ns = mail_namespace_find_subscribable(ctx->namespaces,
-							   ns->prefix);
-		if (subs_ns != NULL) {
-			mailbox_list_set_subscription_flags(subs_ns->list,
-							    ctx->ns_info.vname,
-							    &ctx->ns_info.flags);
-		}
+		mailbox_list_set_subscription_flags(ns->list,
+						    ctx->ns_info.vname,
+						    &ctx->ns_info.flags);
 	}
 	if (!mailbox_ns_prefix_check_selection_criteria(ctx))
 		return FALSE;
@@ -608,9 +603,14 @@ mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 			ctx->inbox_info.flags |= MAILBOX_CHILDREN;
 			ctx->inbox_info.flags &= ~MAILBOX_NOINFERIORS;
 		}
-		if (mailbox_is_shared_inbox(info->ns, info->vname)) {
-			/* listing shared/$user/INBOX as shared/$user, which
-			   we already listed as namespace prefix */
+		if (info->ns->prefix_len > 0 &&
+		    strncmp(info->vname, info->ns->prefix,
+			    info->ns->prefix_len-1) == 0 &&
+		    info->vname[info->ns->prefix_len-1] == '\0') {
+			/* this is an entry for namespace prefix, which we
+			   already returned. (e.g. shared/$user/INBOX entry
+			   returned as shared/$user, or when listing
+			   subscribed namespace prefix). */
 			return FALSE;
 		}
 
