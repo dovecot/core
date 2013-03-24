@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "net.h"
+#include "strescape.h"
 #include "istream.h"
 #include "write-full.h"
 #include "master-service.h"
@@ -113,7 +113,12 @@ static void cmd_replicator_status(int argc, char *argv[])
 	doveadm_print_header_simple("full sync");
 	doveadm_print_header_simple("failed");
 
-	replicator_send(ctx, "STATUS\n");
+	if (argv[1] == NULL)
+		replicator_send(ctx, "STATUS\n");
+	else {
+		replicator_send(ctx, t_strdup_printf("STATUS\t%s\n",
+						     str_tabescape(argv[1])));
+	}
 	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
 		if (*line == '\0')
 			break;

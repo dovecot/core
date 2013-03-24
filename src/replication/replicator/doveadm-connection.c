@@ -32,7 +32,7 @@ client_input_status(struct doveadm_connection *client, const char *const *args)
 	users = replicator_queue_get_users(client->queue, &count);
 	for (i = 0; i < count; i++) {
 		user = users[i];
-		if (mask != NULL && wildcard_match(user->username, mask))
+		if (mask != NULL && !wildcard_match(user->username, mask))
 			continue;
 
 		str_truncate(str, 0);
