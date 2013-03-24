@@ -12,7 +12,7 @@ struct replicator_user {
 	char *state;
 	/* last time this user's state was updated */
 	time_t last_update;
-	/* last_fast_run is always >= last_full_run. */
+	/* last_fast_sync is always >= last_full_sync. */
 	time_t last_fast_sync, last_full_sync;
 
 	enum replication_priority priority;
@@ -24,7 +24,9 @@ struct replicator_user {
 
 typedef void replicator_sync_callback_t(bool success, void *context);
 
-struct replicator_queue *replicator_queue_init(unsigned int full_sync_interval);
+struct replicator_queue *
+replicator_queue_init(unsigned int full_sync_interval,
+		      unsigned int failure_resync_interval);
 void replicator_queue_deinit(struct replicator_queue **queue);
 
 /* Call the specified callback when data is added/removed/moved in queue

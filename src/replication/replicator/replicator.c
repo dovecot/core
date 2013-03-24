@@ -14,6 +14,8 @@
 
 #define REPLICATOR_AUTH_SERVICE_NAME "replicator"
 #define REPLICATOR_DB_DUMP_INTERVAL_MSECS (1000*60*15)
+/* if syncing fails, try again in 5 minutes */
+#define REPLICATOR_FAILURE_RESYNC_INTERVAL_SECS (60*5)
 #define REPLICATOR_DB_FNAME "replicator.db"
 
 static struct replicator_queue *queue;
@@ -79,7 +81,8 @@ static void main_init(void)
 	sets = master_service_settings_get_others(master_service);
 	set = sets[0];
 
-	queue = replicator_queue_init(set->replication_full_sync_interval);
+	queue = replicator_queue_init(set->replication_full_sync_interval,
+				      REPLICATOR_FAILURE_RESYNC_INTERVAL_SECS);
 	replication_add_users(queue);
 	to_dump = timeout_add(REPLICATOR_DB_DUMP_INTERVAL_MSECS,
 			      replicator_dump_timeout, (void *)NULL);
