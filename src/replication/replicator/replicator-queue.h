@@ -61,6 +61,11 @@ void replicator_queue_push(struct replicator_queue *queue,
 int replicator_queue_import(struct replicator_queue *queue, const char *path);
 int replicator_queue_export(struct replicator_queue *queue, const char *path);
 
+/* Returns TRUE if user replication can be started now, FALSE if not. When
+   returning FALSE, next_secs_r is set to user's next replication time. */
+bool replicator_queue_want_sync_now(struct replicator_queue *queue,
+				    struct replicator_user *user,
+				    unsigned int *next_secs_r);
 /* Returns an (unsorted) array of all users in the queue. */
 struct replicator_user *const *
 replicator_queue_get_users(struct replicator_queue *queue,

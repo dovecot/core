@@ -198,10 +198,9 @@ void replicator_queue_remove(struct replicator_queue *queue,
 		queue->change_callback(queue->change_context);
 }
 
-static bool
-replicator_queue_can_sync_now(struct replicator_queue *queue,
-			      struct replicator_user *user,
-			      unsigned int *next_secs_r)
+bool replicator_queue_want_sync_now(struct replicator_queue *queue,
+				    struct replicator_user *user,
+				    unsigned int *next_secs_r)
 {
 	time_t next_sync;
 
@@ -235,7 +234,7 @@ replicator_queue_pop(struct replicator_queue *queue,
 		return NULL;
 	}
 	user = (struct replicator_user *)item;
-	if (!replicator_queue_can_sync_now(queue, user, next_secs_r)) {
+	if (!replicator_queue_want_sync_now(queue, user, next_secs_r)) {
 		/* we don't want to sync the user yet */
 		return NULL;
 	}

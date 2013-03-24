@@ -105,6 +105,31 @@ static const char *time_ago(time_t t)
 	return t_strdup_printf("%02d:%02d:%02d", diff/3600, diff/60, diff%60);
 }
 
+static void cmd_replicator_status_overview(struct replicator_context *ctx)
+{
+	char *line, *value;
+
+	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
+	doveadm_print_header("field", "field",
+			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+	doveadm_print_header("value", "value",
+			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+
+	replicator_send(ctx, "STATUS\n");
+	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
+		if (*line == '\0')
+			break;
+		value = strchr(line, '\t');
+		if (value != NULL)
+			*value++ = '\0';
+		else
+			value = "";
+		doveadm_print(line);
+		doveadm_print(value);
+	}
+	replicator_disconnect(ctx);
+}
+
 static void cmd_replicator_status(int argc, char *argv[])
 {
 	struct replicator_context *ctx;
@@ -112,6 +137,11 @@ static void cmd_replicator_status(int argc, char *argv[])
 	time_t last_fast, last_full;
 
 	ctx = cmd_replicator_init(argc, argv, "a:", cmd_replicator_status);
+
+	if (argv[1] == NULL) {
+		cmd_replicator_status_overview(ctx);
+		return;
+	}
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header("username", "username",
@@ -121,12 +151,8 @@ static void cmd_replicator_status(int argc, char *argv[])
 	doveadm_print_header_simple("full sync");
 	doveadm_print_header_simple("failed");
 
-	if (argv[1] == NULL)
-		replicator_send(ctx, "STATUS\n");
-	else {
-		replicator_send(ctx, t_strdup_printf("STATUS\t%s\n",
-						     str_tabescape(argv[1])));
-	}
+	replicator_send(ctx, t_strdup_printf("STATUS\t%s\n",
+					     str_tabescape(argv[1])));
 	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
 		if (*line == '\0')
 			break;

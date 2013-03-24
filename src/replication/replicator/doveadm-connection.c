@@ -21,6 +21,52 @@ struct doveadm_connection {
 };
 static struct connection_list *doveadm_connections;
 
+static int client_input_status_overview(struct doveadm_connection *client)
+{
+	struct replicator_user *const *users;
+	enum replication_priority priority;
+	unsigned int pending_counts[REPLICATION_PRIORITY_SYNC+1];
+	unsigned int i, count, next_secs, pending_failed_count;
+	unsigned int pending_full_resync_count, waiting_failed_count;
+	string_t *str = t_str_new(256);
+
+	memset(pending_counts, 0, sizeof(pending_counts));
+	pending_failed_count = 0; waiting_failed_count = 0;
+	pending_full_resync_count = 0;
+
+	users = replicator_queue_get_users(client->queue, &count);
+	for (i = 0; i < count; i++) {
+		if (users[i]->priority != REPLICATION_PRIORITY_NONE)
+			pending_counts[users[i]->priority]++;
+		else if (replicator_queue_want_sync_now(client->queue,
+							users[i], &next_secs)) {
+			if (users[i]->last_sync_failed)
+				pending_failed_count++;
+			else
+				pending_full_resync_count++;
+		} else {
+			if (users[i]->last_sync_failed)
+				waiting_failed_count++;
+		}
+	}
+
+	for (priority = REPLICATION_PRIORITY_SYNC; priority > 0; priority--) {
+		str_printfa(str, "Queued '%s' requests\t%u\n",
+			    replicator_priority_to_str(priority),
+			    pending_counts[priority]);
+	}
+	str_printfa(str, "Queued 'failed' requests\t%u\n",
+		    pending_failed_count);
+	str_printfa(str, "Queued 'full resync' requests\t%u\n",
+		    pending_full_resync_count);
+	str_printfa(str, "Waiting 'failed' requests\t%u\n",
+		    waiting_failed_count);
+	str_printfa(str, "Total number of known users\t%u\n", count);
+	str_append_c(str, '\n');
+	o_stream_send(client->conn.output, str_data(str), str_len(str));
+	return 0;
+}
+
 static int
 client_input_status(struct doveadm_connection *client, const char *const *args)
 {
@@ -29,10 +75,13 @@ client_input_status(struct doveadm_connection *client, const char *const *args)
 	const char *mask = args[0];
 	string_t *str = t_str_new(128);
 
+	if (mask == NULL)
+		return client_input_status_overview(client);
+
 	users = replicator_queue_get_users(client->queue, &count);
 	for (i = 0; i < count; i++) {
 		user = users[i];
-		if (mask != NULL && !wildcard_match(user->username, mask))
+		if (!wildcard_match(user->username, mask))
 			continue;
 
 		str_truncate(str, 0);
