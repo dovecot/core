@@ -732,7 +732,8 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 	ctx->patterns = p_new(pool, const char *, count + 1);
 	for (i = 0; i < count; i++)
 		ctx->patterns[i] = p_strdup(pool, patterns[i]);
-	if (patterns_match_inbox(namespaces, ctx->patterns)) {
+	if (patterns_match_inbox(namespaces, ctx->patterns) &&
+	    (flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
 		/* we're going to list the INBOX. get its own flags (i.e. not
 		   [no]children) immediately, so if we end up seeing something
 		   else called INBOX (e.g. namespace prefix) we can show it
