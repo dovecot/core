@@ -64,7 +64,7 @@ const struct replicator_settings replicator_default_settings = {
 	.auth_socket_path = "auth-userdb",
 	.doveadm_socket_path = "doveadm-server",
 
-	.replication_full_sync_interval = 60*60*12,
+	.replication_full_sync_interval = 60*60*24,
 	.replication_max_conns = 10
 };
 
