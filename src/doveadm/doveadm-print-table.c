@@ -135,16 +135,20 @@ static void doveadm_print_next(const char *value)
 	}
 }
 
-static void doveadm_buffer_flush(void)
+static void doveadm_print_headers(void)
 {
 	const struct doveadm_print_table_header *headers;
-	const char *const *valuep;
 	unsigned int i, count;
 
-	doveadm_calc_header_length();
-
 	headers = array_get(&ctx->headers, &count);
+	/* if all headers are hidden, don't print any of them */
 	for (i = 0; i < count; i++) {
+		if ((headers[i].flags & DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE) == 0)
+			break;
+	}
+	if (i == count)
+		return;
+	for (; i < count; i++) {
 		if (i > 0) fprintf(stderr, " ");
 
 		if ((headers[i].flags &
@@ -157,6 +161,14 @@ static void doveadm_buffer_flush(void)
 		}
 	}
 	fprintf(stderr, "\n");
+}
+
+static void doveadm_buffer_flush(void)
+{
+	const char *const *valuep;
+
+	doveadm_calc_header_length();
+	doveadm_print_headers();
 
 	array_foreach(&ctx->buffered_values, valuep)
 		doveadm_print_next(*valuep);
