@@ -101,6 +101,7 @@ doveadm_SOURCES = \
 	doveadm-print-table.c \
 	doveadm-proxy.c \
 	doveadm-pw.c \
+	doveadm-replicator.c \
 	doveadm-sis.c \
 	doveadm-stats.c \
 	doveadm-who.c \
