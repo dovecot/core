@@ -7,6 +7,7 @@
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "notify-connection.h"
+#include "doveadm-connection.h"
 #include "replicator-brain.h"
 #include "replicator-queue.h"
 #include "replicator-settings.h"
@@ -24,7 +25,10 @@ static struct timeout *to_dump;
 static void client_connected(struct master_service_connection *conn)
 {
 	master_service_client_connection_accept(conn);
-	(void)notify_connection_create(conn->fd, queue);
+	if (strcmp(conn->name, "replicator-doveadm") == 0)
+		doveadm_connection_create(queue, conn->fd);
+	else
+		(void)notify_connection_create(conn->fd, queue);
 }
 
 static void replication_add_users(struct replicator_queue *queue)
@@ -80,12 +84,14 @@ static void main_init(void)
 	to_dump = timeout_add(REPLICATOR_DB_DUMP_INTERVAL_MSECS,
 			      replicator_dump_timeout, (void *)NULL);
 	brain = replicator_brain_init(queue, set);
+	doveadm_connections_init();
 }
 
 static void main_deinit(void)
 {
 	const char *path;
 
+	doveadm_connections_deinit();
 	notify_connections_destroy_all();
 	replicator_brain_deinit(&brain);
 	timeout_remove(&to_dump);

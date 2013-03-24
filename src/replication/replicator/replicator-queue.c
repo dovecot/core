@@ -371,3 +371,14 @@ int replicator_queue_export(struct replicator_queue *queue, const char *path)
 	o_stream_destroy(&output);
 	return ret;
 }
+
+struct replicator_user *const *
+replicator_queue_get_users(struct replicator_queue *queue,
+			   unsigned int *count_r)
+{
+	struct priorityq_item *const *items =
+		priorityq_items(queue->user_queue);
+
+	*count_r = priorityq_count(queue->user_queue);
+	return (void *)items;
+}

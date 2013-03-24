@@ -8,6 +8,7 @@ struct replicator_user {
 	struct priorityq_item item;
 
 	char *username;
+	/* dsync state for incremental syncing */
 	char *state;
 	/* last time this user's state was updated */
 	time_t last_update;
@@ -57,5 +58,10 @@ void replicator_queue_push(struct replicator_queue *queue,
 
 int replicator_queue_import(struct replicator_queue *queue, const char *path);
 int replicator_queue_export(struct replicator_queue *queue, const char *path);
+
+/* Returns an (unsorted) array of all users in the queue. */
+struct replicator_user *const *
+replicator_queue_get_users(struct replicator_queue *queue,
+			   unsigned int *count_r);
 
 #endif

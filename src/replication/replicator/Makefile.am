@@ -15,6 +15,7 @@ replicator_LDADD = $(LIBDOVECOT)
 replicator_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 replicator_SOURCES = \
+	doveadm-connection.c \
 	dsync-client.c \
 	replicator.c \
 	replicator-brain.c \
@@ -23,6 +24,7 @@ replicator_SOURCES = \
 	notify-connection.c
 
 noinst_HEADERS = \
+	doveadm-connection.h \
 	dsync-client.h \
 	replicator-brain.h \
 	replicator-queue.h \
