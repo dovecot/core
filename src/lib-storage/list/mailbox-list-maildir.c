@@ -428,7 +428,7 @@ static int maildir_list_delete_dir(struct mailbox_list *list, const char *name)
 				       "Mailbox exists");
 	} else if (errno == ENOENT || errno == ENOTDIR) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+			T_MAILBOX_LIST_ERR_NOT_FOUND(list, name));
 	} else {
 		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
 	}
@@ -613,7 +613,7 @@ maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 			return -1;
 		if (!found && ret == 0) {
 			mailbox_list_set_error(oldlist, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(oldname));
+				T_MAILBOX_LIST_ERR_NOT_FOUND(oldlist, oldname));
 			return -1;
 		}
 

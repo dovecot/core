@@ -68,7 +68,7 @@ int mailbox_list_delete_maildir_via_trash(struct mailbox_list *list,
 				continue;
 			}
 			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+				T_MAILBOX_LIST_ERR_NOT_FOUND(list, name));
 			return -1;
 		}
 		if (errno == EXDEV) {
@@ -130,7 +130,7 @@ int mailbox_list_delete_mailbox_file(struct mailbox_list *list,
 		return 0;
 	else if (ENOTFOUND(errno)) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				       T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+				       T_MAILBOX_LIST_ERR_NOT_FOUND(list, name));
 		return -1;
 	} else {
 		if (!mailbox_list_set_error_from_errno(list)) {
@@ -158,7 +158,7 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 	if (dir == NULL) {
 		if (errno == ENOENT) {
 			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+				T_MAILBOX_LIST_ERR_NOT_FOUND(list, name));
 		} else {
 			if (!mailbox_list_set_error_from_errno(list)) {
 				mailbox_list_set_critical(list,
@@ -340,7 +340,7 @@ int mailbox_list_delete_symlink_default(struct mailbox_list *list,
 
 	if (errno == ENOENT) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+			T_MAILBOX_LIST_ERR_NOT_FOUND(list, name));
 	} else if (errno == EISDIR ||
 		   errno == EPERM) { /* Solaris */
 		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,

@@ -393,7 +393,7 @@ static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
 
 	if (errno == ENOENT || errno == ENOTDIR) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+			T_MAILBOX_LIST_ERR_NOT_FOUND(list, name));
 	} else if (errno == ENOTEMPTY || errno == EEXIST) {
 		/* mbox workaround: if only .imap/ directory is preventing the
 		   deletion, remove it */
@@ -586,7 +586,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 	if (rename(oldpath, newpath) < 0) {
 		if (ENOTFOUND(errno)) {
 			mailbox_list_set_error(oldlist, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(oldname));
+				T_MAILBOX_LIST_ERR_NOT_FOUND(oldlist, oldname));
 		} else if (!mailbox_list_set_error_from_errno(oldlist)) {
 			mailbox_list_set_critical(oldlist,
 				"rename(%s, %s) failed: %m", oldpath, newpath);

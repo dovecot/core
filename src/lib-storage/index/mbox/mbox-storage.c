@@ -470,7 +470,7 @@ static int mbox_mailbox_open(struct mailbox *box)
 		return -1;
 	} else if (ENOTFOUND(errno)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 		return -1;
 	} else if (mail_storage_set_error_from_errno(box->storage)) {
 		return -1;
