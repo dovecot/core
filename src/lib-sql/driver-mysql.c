@@ -135,9 +135,6 @@ static int driver_mysql_connect(struct sql_db *_db)
 			mysql_error(db->mysql), db->api.connect_delay);
 		return -1;
 	} else {
-		i_info("%s: Connected to database %s%s", mysql_prefix(db),
-		       db->dbname, db->ssl_set ? " using SSL" : "");
-
 		db->last_success = ioloop_time;
 		sql_db_set_state(&db->api, SQL_DB_STATE_IDLE);
 		return 1;

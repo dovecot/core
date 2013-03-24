@@ -168,8 +168,6 @@ static void connect_callback(struct pgsql_db *db)
 	}
 
 	if (io_dir == 0) {
-		i_info("%s: Connected to database %s",
-		       pgsql_prefix(db), PQdb(db->pg));
 		if (db->to_connect != NULL)
 			timeout_remove(&db->to_connect);
 		driver_pgsql_set_state(db, SQL_DB_STATE_IDLE);
