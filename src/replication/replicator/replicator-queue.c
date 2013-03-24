@@ -256,24 +256,27 @@ void replicator_queue_push(struct replicator_queue *queue,
 static int
 replicator_queue_import_line(struct replicator_queue *queue, const char *line)
 {
-	const char *const *args, *username;
+	const char *const *args, *username, *state;
 	unsigned int priority;
 	struct replicator_user *user, tmp_user;
 
-	/* <user> <priority> <last update> <last fast sync> <last full sync> */
+	/* <user> <priority> <last update> <last fast sync> <last full sync>
+	   <last failed> <state> */
 	args = t_strsplit_tabescaped(line);
-	if (str_array_length(args) < 5)
+	if (str_array_length(args) < 7)
 		return -1;
 
 	memset(&tmp_user, 0, sizeof(tmp_user));
 	username = args[0];
+	state = t_strdup_noconst(args[6]);
 	if (username[0] == '\0' ||
 	    str_to_uint(args[1], &priority) < 0 ||
 	    str_to_time(args[2], &tmp_user.last_update) < 0 ||
 	    str_to_time(args[3], &tmp_user.last_fast_sync) < 0 ||
-	    str_to_time(args[3], &tmp_user.last_full_sync) < 0)
+	    str_to_time(args[4], &tmp_user.last_full_sync) < 0)
 		return -1;
 	tmp_user.priority = priority;
+	tmp_user.last_sync_failed = args[5][0] != '0';
 
 	user = hash_table_lookup(queue->user_hash, username);
 	if (user != NULL) {
@@ -288,11 +291,14 @@ replicator_queue_import_line(struct replicator_queue *queue, const char *line)
 				return 0;
 		}
 	}
-	user = replicator_queue_add(queue, tmp_user.username,
+	user = replicator_queue_add(queue, username,
 				    tmp_user.priority);
 	user->last_update = tmp_user.last_update;
 	user->last_fast_sync = tmp_user.last_fast_sync;
 	user->last_full_sync = tmp_user.last_full_sync;
+	user->last_sync_failed = tmp_user.last_sync_failed;
+	i_free(user->state);
+	user->state = i_strdup(state);
 	return 0;
 }
 
@@ -330,10 +336,14 @@ static void
 replicator_queue_export_user(struct replicator_user *user, string_t *str)
 {
 	str_append_tabescaped(str, user->username);
-	str_printfa(str, "\t%d\t%lld\t%lld\t%lld", (int)user->priority,
+	str_printfa(str, "\t%d\t%lld\t%lld\t%lld\t%d\t", (int)user->priority,
 		    (long long)user->last_update,
 		    (long long)user->last_fast_sync,
-		    (long long)user->last_full_sync);
+		    (long long)user->last_full_sync,
+		    user->last_sync_failed);
+	if (user->state != NULL)
+		str_append_tabescaped(str, user->state);
+	str_append_c(str, '\n');
 }
 
 int replicator_queue_export(struct replicator_queue *queue, const char *path)
