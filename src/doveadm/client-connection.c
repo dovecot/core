@@ -308,7 +308,8 @@ static void client_connection_input(struct client_connection *conn)
 		conn->authenticated = TRUE;
 	}
 
-	while (ok && (line = i_stream_read_next_line(conn->input)) != NULL) {
+	while (ok && !conn->input->closed &&
+	       (line = i_stream_read_next_line(conn->input)) != NULL) {
 		T_BEGIN {
 			char **args;
 
