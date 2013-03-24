@@ -49,6 +49,45 @@ client_input_status(struct doveadm_connection *client, const char *const *args)
 	return 0;
 }
 
+static int
+client_input_replicate(struct doveadm_connection *client, const char *const *args)
+{
+	struct replicator_user *const *queue_users, **users_dup;
+	unsigned int i, count, match_count;
+	const char *usermask;
+	enum replication_priority priority;
+
+	/* <priority> <username>|<mask> */
+	if (str_array_length(args) != 2) {
+		i_error("%s: REPLICATE: Invalid parameters", client->conn.name);
+		return -1;
+	}
+	if (replication_priority_parse(args[0], &priority) < 0) {
+		o_stream_send_str(client->conn.output, "-Invalid priority\n");
+		return 0;
+	}
+	usermask = args[1];
+	if (strchr(usermask, '*') == NULL && strchr(usermask, '?') == NULL) {
+		replicator_queue_add(client->queue, usermask, priority);
+		o_stream_send_str(client->conn.output, "+1\n");
+		return 0;
+	}
+
+	queue_users = replicator_queue_get_users(client->queue, &count);
+	users_dup = i_new(struct replicator_user *, count+1);
+	for (i = match_count = 0; i < count; i++) {
+		if (wildcard_match(queue_users[i]->username, usermask))
+			users_dup[match_count++] = queue_users[i];
+	}
+	for (i = 0; i < match_count; i++) {
+		replicator_queue_add(client->queue, users_dup[i]->username,
+				     priority);
+	}
+	o_stream_send_str(client->conn.output,
+			  t_strdup_printf("+%u\n", match_count));
+	return 0;
+}
+
 static int client_input_args(struct connection *conn, const char *const *args)
 {
 	struct doveadm_connection *client = (struct doveadm_connection *)conn;
@@ -62,6 +101,8 @@ static int client_input_args(struct connection *conn, const char *const *args)
 
 	if (strcmp(cmd, "STATUS") == 0)
 		return client_input_status(client, args);
+	else if (strcmp(cmd, "REPLICATE") == 0)
+		return client_input_replicate(client, args);
 	i_error("%s: Unknown command: %s", conn->name, cmd);
 	return -1;
 }

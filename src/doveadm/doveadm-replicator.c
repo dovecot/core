@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "str.h"
 #include "strescape.h"
 #include "istream.h"
 #include "write-full.h"
@@ -16,6 +17,7 @@
 
 struct replicator_context {
 	const char *socket_path;
+	const char *priority;
 	struct istream *input;
 };
 
@@ -68,7 +70,8 @@ static void replicator_disconnect(struct replicator_context *ctx)
 }
 
 static struct replicator_context *
-cmd_replicator_init(int argc, char *argv[], doveadm_command_t *cmd)
+cmd_replicator_init(int argc, char *argv[], const char *getopt_args,
+		    doveadm_command_t *cmd)
 {
 	struct replicator_context *ctx;
 	int c;
@@ -77,10 +80,13 @@ cmd_replicator_init(int argc, char *argv[], doveadm_command_t *cmd)
 	ctx->socket_path = t_strconcat(doveadm_settings->base_dir,
 				       "/replicator-doveadm", NULL);
 
-	while ((c = getopt(argc, argv, "a:")) > 0) {
+	while ((c = getopt(argc, argv, getopt_args)) > 0) {
 		switch (c) {
 		case 'a':
 			ctx->socket_path = optarg;
+			break;
+		case 'p':
+			ctx->priority = optarg;
 			break;
 		default:
 			replicator_cmd_help(cmd);
@@ -105,7 +111,7 @@ static void cmd_replicator_status(int argc, char *argv[])
 	const char *line, *const *args;
 	time_t last_fast, last_full;
 
-	ctx = cmd_replicator_init(argc, argv, cmd_replicator_status);
+	ctx = cmd_replicator_init(argc, argv, "a:", cmd_replicator_status);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header("username", "username",
@@ -138,15 +144,56 @@ static void cmd_replicator_status(int argc, char *argv[])
 		} T_END;
 	}
 	if (line == NULL) {
-		i_error("Director disconnected unexpectedly");
+		i_error("Replicator disconnected unexpectedly");
 		doveadm_exit_code = EX_TEMPFAIL;
+	}
+	replicator_disconnect(ctx);
+}
+
+static void cmd_replicator_replicate(int argc, char *argv[])
+{
+	struct replicator_context *ctx;
+	string_t *str;
+	const char *line;
+
+	if (argv[1] == NULL)
+		replicator_cmd_help(cmd_replicator_replicate);
+
+	ctx = cmd_replicator_init(argc, argv, "a:p:", cmd_replicator_replicate);
+
+	str = t_str_new(128);
+	str_append(str, "REPLICATE\t");
+	if (ctx->priority == NULL)
+		str_append_tabescaped(str, "low");
+	else
+		str_append_tabescaped(str, ctx->priority);
+	str_append_c(str, '\t');
+	str_append_tabescaped(str, argv[1]);
+	str_append_c(str, '\n');
+	replicator_send(ctx, str_c(str));
+
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
+	doveadm_print_header("result", "result",
+			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+
+	line = i_stream_read_next_line(ctx->input);
+	if (line == NULL) {
+		i_error("Replicator disconnected unexpectedly");
+		doveadm_exit_code = EX_TEMPFAIL;
+	} else if (line[0] != '+') {
+		i_error("Replicator failed: %s", line+1);
+		doveadm_exit_code = EX_USAGE;
+	} else {
+		doveadm_print(t_strdup_printf("%s users updated", line+1));
 	}
 	replicator_disconnect(ctx);
 }
 
 struct doveadm_cmd doveadm_cmd_replicator[] = {
 	{ cmd_replicator_status, "replicator status",
-	  "[-a <replicator socket path>] [<user mask>]" }
+	  "[-a <replicator socket path>] [<user mask>]" },
+	{ cmd_replicator_replicate, "replicator replicate",
+	  "[-a <replicator socket path>] [-p <priority>] <user mask>" },
 };
 
 static void replicator_cmd_help(doveadm_command_t *cmd)
