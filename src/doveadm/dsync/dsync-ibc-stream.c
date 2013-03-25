@@ -1298,6 +1298,11 @@ dsync_ibc_stream_recv_mailbox_attribute(struct dsync_ibc *_ibc,
 	if (ibc->minor_version < DSYNC_PROTOCOL_MINOR_HAVE_ATTRIBUTES)
 		return DSYNC_IBC_RECV_RET_FINISHED;
 
+	if (ibc->value_input != NULL) {
+		/* wait until the mail's stream has been read */
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
+
 	if (ibc->cur_attr != NULL) {
 		/* finished reading the stream, return the mail now */
 		*attr_r = ibc->cur_attr;
