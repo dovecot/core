@@ -167,25 +167,25 @@ static int cmd_urlfetch_url_sucess(struct client_command_context *cmd,
 				   struct imap_urlauth_fetch_reply *reply)
 {
 	struct cmd_urlfetch_context *ctx = cmd->context;
+	string_t *response = t_str_new(256);
 	int ret;
+
+	str_append(response, "* URLFETCH ");
+	imap_append_astring(response, reply->url);
 
 	if ((reply->flags & IMAP_URLAUTH_FETCH_FLAG_EXTENDED) == 0) {
 		/* simple */
 		ctx->extended = FALSE;
 
-		client_send_line(cmd->client, t_strdup_printf(
-			"* URLFETCH %s {%"PRIuUOFF_T"}",
-			reply->url, reply->size));
+		str_printfa(response, " {%"PRIuUOFF_T"}", reply->size);
+		client_send_line(cmd->client, str_c(response));
 		i_assert(reply->size == 0 || reply->input != NULL);
 	} else {
-		string_t *response = t_str_new(256);
 		bool metadata = FALSE;
 
 		/* extended */
 		ctx->extended = TRUE;
 
-		str_append(response, "* URLFETCH ");
-		imap_append_astring(response, reply->url);
 		str_append(response, " (");
 		if ((reply->flags & IMAP_URLAUTH_FETCH_FLAG_BODYPARTSTRUCTURE) != 0 &&
 		    reply->bodypartstruct != NULL) {
@@ -265,8 +265,12 @@ cmd_urlfetch_url_callback(struct imap_urlauth_fetch_reply *reply,
 		}
 	} else {
 		/* URL fetch failed */
-		client_send_line(cmd->client,
-			t_strdup_printf("* URLFETCH %s NIL", reply->url));
+		string_t *response = t_str_new(128);
+
+		str_append(response, "* URLFETCH ");
+		imap_append_astring(response, reply->url);
+		str_append(response, " NIL");
+		client_send_line(cmd->client, str_c(response));
 		if (reply->error != NULL) {
 			client_send_line(cmd->client, t_strdup_printf(
 				"* NO %s.", reply->error));
