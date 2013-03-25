@@ -87,6 +87,7 @@ dsync_brain_set_flags(struct dsync_brain *brain, enum dsync_brain_flags flags)
 struct dsync_brain *
 dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 			struct mail_namespace *sync_ns, const char *sync_box,
+			const guid_128_t sync_box_guid,
 			enum dsync_brain_sync_type sync_type,
 			enum dsync_brain_flags flags, unsigned int lock_timeout,
 			const char *state)
@@ -103,6 +104,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	if (sync_ns != NULL)
 		brain->sync_ns = sync_ns;
 	brain->sync_box = p_strdup(brain->pool, sync_box);
+	memcpy(brain->sync_box_guid, sync_box_guid, sizeof(brain->sync_box_guid));
 	brain->lock_timeout = lock_timeout;
 	brain->master_brain = TRUE;
 	dsync_brain_set_flags(brain, flags);
@@ -121,6 +123,8 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	ibc_set.hostname = my_hostdomain();
 	ibc_set.sync_ns_prefix = sync_ns == NULL ? NULL : sync_ns->prefix;
 	ibc_set.sync_box = sync_box;
+	memcpy(ibc_set.sync_box_guid, sync_box_guid,
+	       sizeof(ibc_set.sync_box_guid));
 	ibc_set.sync_type = sync_type;
 	ibc_set.lock_timeout = lock_timeout;
 	/* reverse the backup direction for the slave */
@@ -302,6 +306,8 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 						     ibc_set->sync_ns_prefix);
 	}
 	brain->sync_box = p_strdup(brain->pool, ibc_set->sync_box);
+	memcpy(brain->sync_box_guid, ibc_set->sync_box_guid,
+	       sizeof(brain->sync_box_guid));
 	i_assert(brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_UNKNOWN);
 	brain->sync_type = ibc_set->sync_type;
 	dsync_brain_set_flags(brain, ibc_set->brain_flags);

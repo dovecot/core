@@ -37,6 +37,8 @@ struct dsync_ibc_settings {
 	const char *sync_ns_prefix;
 	/* if non-NULL, sync only this mailbox name */
 	const char *sync_box;
+	/* if non-empty, sync only this mailbox GUID */
+	guid_128_t sync_box_guid;
 
 	enum dsync_brain_sync_type sync_type;
 	enum dsync_brain_flags brain_flags;

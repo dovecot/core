@@ -50,7 +50,8 @@ struct dsync_brain {
 	struct mail_user *user;
 	struct dsync_ibc *ibc;
 	struct mail_namespace *sync_ns;
-	char *sync_box;
+	const char *sync_box;
+	guid_128_t sync_box_guid;
 	enum dsync_brain_sync_type sync_type;
 
 	unsigned int lock_timeout;

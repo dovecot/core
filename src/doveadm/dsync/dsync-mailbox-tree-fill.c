@@ -31,6 +31,17 @@ dsync_mailbox_tree_add_node(struct dsync_mailbox_tree *tree,
 }
 
 static int
+dsync_mailbox_tree_add_exists_node(struct dsync_mailbox_tree *tree,
+				   const struct mailbox_info *info,
+				   struct dsync_mailbox_node **node_r)
+{
+	if (dsync_mailbox_tree_add_node(tree, info, node_r) < 0)
+		return -1;
+	(*node_r)->existence = DSYNC_MAILBOX_NODE_EXISTS;
+	return 0;
+}
+
+static int
 dsync_mailbox_tree_get_selectable(struct mailbox *box,
 				  struct mailbox_metadata *metadata_r,
 				  struct mailbox_status *status_r)
@@ -55,7 +66,8 @@ dsync_mailbox_tree_get_selectable(struct mailbox *box,
 }
 
 static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
-				  const struct mailbox_info *info)
+				  const struct mailbox_info *info,
+				  const guid_128_t box_guid)
 {
 	struct dsync_mailbox_node *node;
 	struct mailbox *box;
@@ -63,16 +75,14 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 	struct mailbox_status status;
 	const char *errstr;
 	enum mail_error error;
+	int ret = 0;
 
 	if ((info->flags & MAILBOX_NONEXISTENT) != 0)
 		return 0;
-
-	if (dsync_mailbox_tree_add_node(tree, info, &node) < 0)
-		return -1;
-	node->existence = DSYNC_MAILBOX_NODE_EXISTS;
-
-	if ((info->flags & MAILBOX_NOSELECT) != 0)
-		return 0;
+	if ((info->flags & MAILBOX_NOSELECT) != 0) {
+		return !guid_128_is_empty(box_guid) ? 0 :
+			dsync_mailbox_tree_add_exists_node(tree, info, &node);
+	}
 
 	/* get GUID and UIDVALIDITY for selectable mailbox */
 	box = mailbox_alloc(info->ns->list, info->vname, 0);
@@ -88,16 +98,24 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 		default:
 			i_error("Failed to access mailbox %s: %s",
 				info->vname, errstr);
-			mailbox_free(&box);
-			return -1;
+			ret = -1;
 		}
-	} else {
-		memcpy(node->mailbox_guid, metadata.guid,
-		       sizeof(node->mailbox_guid));
-		node->uid_validity = status.uidvalidity;
-		node->uid_next = status.uidnext;
+		mailbox_free(&box);
+		return ret;
 	}
 	mailbox_free(&box);
+
+	if (!guid_128_is_empty(box_guid) &&
+	    !guid_128_equals(box_guid, metadata.guid)) {
+		/* unwanted mailbox */
+		return 0;
+	}
+	if (dsync_mailbox_tree_add_exists_node(tree, info, &node) < 0)
+		return -1;
+	memcpy(node->mailbox_guid, metadata.guid,
+	       sizeof(node->mailbox_guid));
+	node->uid_validity = status.uidvalidity;
+	node->uid_next = status.uidnext;
 	return 0;
 }
 
@@ -235,7 +253,8 @@ dsync_mailbox_tree_fix_guid_duplicate(struct dsync_mailbox_tree *tree,
 }
 
 int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
-			    struct mail_namespace *ns, const char *box_name)
+			    struct mail_namespace *ns, const char *box_name,
+			    const guid_128_t box_guid)
 {
 	const enum mailbox_list_iter_flags list_flags =
 		/* FIXME: we'll skip symlinks, because we can't handle them
@@ -267,7 +286,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 	/* first add all of the existing mailboxes */
 	iter = mailbox_list_iter_init(ns->list, list_pattern, list_flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		if (dsync_mailbox_tree_add(tree, info) < 0)
+		if (dsync_mailbox_tree_add(tree, info, box_guid) < 0)
 			ret = -1;
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {

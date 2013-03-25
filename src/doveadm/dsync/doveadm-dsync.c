@@ -36,7 +36,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+dEfl:m:n:Nr:Rs:"
+#define DSYNC_COMMON_GETOPT_ARGS "+dEfg:l:m:n:Nr:Rs:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 
 enum dsync_run_type {
@@ -49,6 +49,7 @@ struct dsync_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 	enum dsync_brain_sync_type sync_type;
 	const char *mailbox, *namespace_prefix;
+	guid_128_t mailbox_guid;
 	const char *state_input, *rawlog_path;
 
 	const char *remote_name;
@@ -75,6 +76,7 @@ struct dsync_cmd_context {
 	unsigned int backup:1;
 	unsigned int reverse_backup:1;
 	unsigned int remote_user_prefix:1;
+	unsigned int no_mail_sync:1;
 };
 
 static bool legacy_dsync = FALSE;
@@ -468,13 +470,12 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	else if (ctx->backup)
 		brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_SEND;
 
+	if (ctx->no_mail_sync)
+		brain_flags |= DSYNC_BRAIN_FLAG_NO_MAIL_SYNC;
 	if (doveadm_debug)
 		brain_flags |= DSYNC_BRAIN_FLAG_DEBUG;
-	if (ctx->mailbox != NULL && *ctx->mailbox == '\0') {
-		brain_flags |= DSYNC_BRAIN_FLAG_NO_MAIL_SYNC;
-		ctx->mailbox = NULL;
-	}
 	brain = dsync_brain_master_init(user, ibc, sync_ns, ctx->mailbox,
+					ctx->mailbox_guid,
 					ctx->sync_type, brain_flags,
 					ctx->lock_timeout,
 					ctx->state_input == NULL ? "" :
@@ -766,13 +767,23 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 'f':
 		ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_FULL;
 		break;
+	case 'g':
+		if (optarg[0] == '\0')
+			ctx->no_mail_sync = TRUE;
+		else if (guid_128_from_string(optarg, ctx->mailbox_guid) < 0 ||
+			 guid_128_is_empty(ctx->mailbox_guid))
+			i_error("Invalid -g parameter: %s", optarg);
+		break;
 	case 'l':
 		ctx->lock = TRUE;
 		if (str_to_uint(optarg, &ctx->lock_timeout) < 0)
 			i_error("Invalid -l parameter: %s", optarg);
 		break;
 	case 'm':
-		ctx->mailbox = optarg;
+		if (optarg[0] == '\0')
+			ctx->no_mail_sync = TRUE;
+		else
+			ctx->mailbox = optarg;
 		break;
 	case 'n':
 		ctx->namespace_prefix = optarg;

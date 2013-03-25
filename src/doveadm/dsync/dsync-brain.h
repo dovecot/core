@@ -1,6 +1,8 @@
 #ifndef DSYNC_BRAIN_H
 #define DSYNC_BRAIN_H
 
+#include "guid.h"
+
 struct mail_namespace;
 struct mail_user;
 struct dsync_ibc;
@@ -31,6 +33,7 @@ enum dsync_brain_sync_type {
 struct dsync_brain *
 dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 			struct mail_namespace *sync_ns, const char *sync_box,
+			const guid_128_t sync_box_guid,
 			enum dsync_brain_sync_type sync_type,
 			enum dsync_brain_flags flags, unsigned int lock_timeout,
 			const char *state);

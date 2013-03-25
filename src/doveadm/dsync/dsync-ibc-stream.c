@@ -70,7 +70,8 @@ static const struct {
 	{ .name = "handshake",
 	  .chr = 'H',
 	  .required_keys = "hostname",
-	  .optional_keys = "sync_ns_prefix sync_box sync_type debug sync_visible_namespaces "
+	  .optional_keys = "sync_ns_prefix sync_box sync_box_guid sync_type "
+	  	"debug sync_visible_namespaces "
 	  	"send_mail_requests backup_send backup_recv lock_timeout"
 	},
 	{ .name = "mailbox_state",
@@ -589,6 +590,10 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 	}
 	if (set->sync_box != NULL)
 		dsync_serializer_encode_add(encoder, "sync_box", set->sync_box);
+	if (!guid_128_is_empty(set->sync_box_guid)) {
+		dsync_serializer_encode_add(encoder, "sync_box_guid",
+			guid_128_to_string(set->sync_box_guid));
+	}
 
 	sync_type[0] = sync_type[1] = '\0';
 	switch (set->sync_type) {
@@ -655,6 +660,12 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 		set->sync_ns_prefix = p_strdup(pool, value);
 	if (dsync_deserializer_decode_try(decoder, "sync_box", &value))
 		set->sync_box = p_strdup(pool, value);
+	if (dsync_deserializer_decode_try(decoder, "sync_box_guid", &value) &&
+	    guid_128_from_string(value, set->sync_box_guid) < 0) {
+		dsync_ibc_input_error(ibc, decoder,
+				      "Invalid sync_box_guid: %s", value);
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
 	if (dsync_deserializer_decode_try(decoder, "sync_type", &value)) {
 		switch (value[0]) {
 		case 'f':

@@ -121,10 +121,11 @@ const char *dsync_mailbox_node_get_full_name(const struct dsync_mailbox_tree *tr
 void dsync_mailbox_node_copy_data(struct dsync_mailbox_node *dest,
 				  const struct dsync_mailbox_node *src);
 
-/* Add nodes to tree from the given namespace. If box_name is non-NULL,
-   add only that mailbox to the tree. */
+/* Add nodes to tree from the given namespace. If box_name or box_guid is
+   non-NULL, add only that mailbox to the tree. */
 int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
-			    struct mail_namespace *ns, const char *box_name);
+			    struct mail_namespace *ns, const char *box_name,
+			    const guid_128_t box_guid);
 
 /* Return all known deleted mailboxes and directories. */
 const struct dsync_mailbox_delete *
