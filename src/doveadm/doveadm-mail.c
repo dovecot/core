@@ -541,57 +541,76 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 }
 
 static bool
-doveadm_mail_try_run_multi_word(const struct doveadm_mail_cmd *cmd,
-				const char *cmdname, int argc, char *argv[])
+doveadm_mail_cmd_try_find_multi_word(const struct doveadm_mail_cmd *cmd,
+				     const char *cmdname, int *argc,
+				     const char *const **argv)
 {
 	unsigned int len;
 
-	if (argc < 2)
+	if (*argc < 2)
 		return FALSE;
+	*argc -= 1;
+	*argv += 1;
 
-	len = strlen(argv[1]);
-	if (strncmp(cmdname, argv[1], len) != 0)
+	len = strlen((*argv)[0]);
+	if (strncmp(cmdname, (*argv)[0], len) != 0)
 		return FALSE;
 
 	if (cmdname[len] == ' ') {
 		/* more args */
-		return doveadm_mail_try_run_multi_word(cmd, cmdname + len + 1,
-						       argc - 1, argv + 1);
+		return doveadm_mail_cmd_try_find_multi_word(cmd, cmdname + len + 1,
+							    argc, argv);
 	}
 	if (cmdname[len] != '\0')
 		return FALSE;
 
 	/* match */
-	doveadm_mail_cmd(cmd, argc - 1, argv + 1);
 	return TRUE;
 }
 
-bool doveadm_mail_try_run(const char *cmd_name, int argc, char *argv[])
+const struct doveadm_mail_cmd *
+doveadm_mail_cmd_find_from_argv(const char *cmd_name, int *argc,
+				const char *const **argv)
 {
 	const struct doveadm_mail_cmd *cmd;
 	unsigned int cmd_name_len;
+	const char *const *orig_argv;
+	int orig_argc;
 
-	i_assert(argc > 0);
+	i_assert(*argc > 0);
 
 	cmd_name_len = strlen(cmd_name);
 	array_foreach(&doveadm_mail_cmds, cmd) {
-		if (strcmp(cmd->name, cmd_name) == 0) {
-			doveadm_mail_cmd(cmd, argc, argv);
-			return TRUE;
-		}
+		if (strcmp(cmd->name, cmd_name) == 0)
+			return cmd;
 
 		/* see if it matches a multi-word command */
 		if (strncmp(cmd->name, cmd_name, cmd_name_len) == 0 &&
 		    cmd->name[cmd_name_len] == ' ') {
 			const char *subcmd = cmd->name + cmd_name_len + 1;
 
-			if (doveadm_mail_try_run_multi_word(cmd, subcmd,
-							    argc, argv))
-				return TRUE;
+			orig_argc = *argc;
+			orig_argv = *argv;
+			if (doveadm_mail_cmd_try_find_multi_word(cmd, subcmd,
+								 argc, argv))
+				return cmd;
+			*argc = orig_argc;
+			*argv = orig_argv;
 		}
 	}
 
 	return FALSE;
+}
+
+bool doveadm_mail_try_run(const char *cmd_name, int argc, char *argv[])
+{
+	const struct doveadm_mail_cmd *cmd;
+
+	cmd = doveadm_mail_cmd_find_from_argv(cmd_name, &argc, (void *)&argv);
+	if (cmd == NULL)
+		return FALSE;
+	doveadm_mail_cmd(cmd, argc, argv);
+	return TRUE;
 }
 
 void doveadm_mail_register_cmd(const struct doveadm_mail_cmd *cmd)
@@ -686,6 +705,7 @@ static struct doveadm_mail_cmd *mail_commands[] = {
 	&cmd_mailbox_subscribe,
 	&cmd_mailbox_unsubscribe,
 	&cmd_mailbox_status,
+	&cmd_batch,
 	&cmd_dsync_backup,
 	&cmd_dsync_mirror,
 	&cmd_dsync_server

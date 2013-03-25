@@ -95,6 +95,9 @@ bool doveadm_mail_has_subcommands(const char *cmd_name);
 void doveadm_mail_init(void);
 void doveadm_mail_deinit(void);
 
+const struct doveadm_mail_cmd *
+doveadm_mail_cmd_find_from_argv(const char *cmd_name, int *argc,
+				const char *const **argv);
 struct doveadm_mail_cmd_context *
 doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd,
 		      const struct doveadm_settings *set);
@@ -145,5 +148,6 @@ struct doveadm_mail_cmd cmd_mailbox_rename;
 struct doveadm_mail_cmd cmd_mailbox_subscribe;
 struct doveadm_mail_cmd cmd_mailbox_unsubscribe;
 struct doveadm_mail_cmd cmd_mailbox_status;
+struct doveadm_mail_cmd cmd_batch;
 
 #endif
