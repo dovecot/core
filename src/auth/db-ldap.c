@@ -806,11 +806,13 @@ static void db_ldap_request_free(struct ldap_request *request, LDAPMessage *res)
 		if (srequest->result != NULL)
 			ldap_msgfree(srequest->result);
 
-		array_foreach(&srequest->named_results, named_res) {
-			if (named_res->result == res)
-				res = NULL;
-			if (named_res->result != NULL)
-				ldap_msgfree(named_res->result);
+		if (array_is_created(&srequest->named_results)) {
+			array_foreach(&srequest->named_results, named_res) {
+				if (named_res->result == res)
+					res = NULL;
+				if (named_res->result != NULL)
+					ldap_msgfree(named_res->result);
+			}
 		}
 	}
 	if (res != NULL)
@@ -1449,10 +1451,12 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 		ctx->debug = t_str_new(256);
 
 	get_ldap_fields(ctx, conn, ldap_request->result, "");
-	array_foreach(&ldap_request->named_results, named_res) {
-		suffix = t_strdup_printf("@%s", named_res->field->name);
-		if (named_res->result != NULL)
-			get_ldap_fields(ctx, conn, named_res->result, suffix);
+	if (array_is_created(&ldap_request->named_results)) {
+		array_foreach(&ldap_request->named_results, named_res) {
+			suffix = t_strdup_printf("@%s", named_res->field->name);
+			if (named_res->result != NULL)
+				get_ldap_fields(ctx, conn, named_res->result, suffix);
+		}
 	}
 	return ctx;
 }
