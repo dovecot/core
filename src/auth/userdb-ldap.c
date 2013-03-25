@@ -221,6 +221,7 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	request->request.filter = p_strdup(auth_request->pool, str_c(str));
 	request->request.attr_map = &conn->iterate_attr_map;
 	request->request.attributes = conn->iterate_attr_names;
+	request->request.multi_entry = TRUE;
 
 	if (global_auth_settings->debug) {
 		i_debug("ldap: iterate: base=%s scope=%s filter=%s fields=%s",

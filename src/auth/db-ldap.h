@@ -122,6 +122,8 @@ struct ldap_request_search {
 	LDAPMessage *result;
 	ARRAY(struct ldap_request_named_result) named_results;
 	unsigned int name_idx;
+
+	bool multi_entry;
 };
 
 struct ldap_request_bind {

@@ -752,7 +752,7 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 			ldap_err2string(ret));
 		res = NULL;
 	}
-	if (ret == LDAP_SUCCESS && srequest != NULL) {
+	if (ret == LDAP_SUCCESS && srequest != NULL && !srequest->multi_entry) {
 		/* expand any @results */
 		if (!final_result) {
 			if (db_ldap_search_save_result(srequest, res) < 0) {
@@ -779,11 +779,22 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 		aqueue_delete(conn->request_queue, idx);
 	}
 
-	T_BEGIN {
-		if (res != NULL && srequest != NULL && srequest->result != NULL)
-			request->callback(conn, request, srequest->result);
-		request->callback(conn, request, res);
-	} T_END;
+	if (srequest == NULL) {
+		T_BEGIN {
+			request->callback(conn, request, res);
+		} T_END;
+	} else {
+		T_BEGIN {
+			LDAPMessage *orig_result = srequest->result;
+
+			if (res != NULL && srequest->result != NULL)
+				request->callback(conn, request, srequest->result);
+
+			srequest->result = res;
+			request->callback(conn, request, res);
+			srequest->result = orig_result;
+		} T_END;
+	}
 
 	if (idx > 0) {
 		/* see if there are timed out requests */
@@ -1439,6 +1450,8 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 	const struct ldap_request_named_result *named_res;
 	const char *suffix;
 	pool_t pool;
+
+	i_assert(ldap_request->result != NULL);
 
 	pool = pool_alloconly_create("ldap result iter", 1024);
 	ctx = p_new(pool, struct db_ldap_result_iterate_context, 1);
