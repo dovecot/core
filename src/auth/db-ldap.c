@@ -710,6 +710,7 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 			      LDAPMessage *res)
 {
 	struct ldap_request_search *srequest = NULL;
+	const struct ldap_request_named_result *named_res;
 	int ret;
 	bool final_result;
 
@@ -746,10 +747,18 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 		struct ldap_request_search *srequest =
 			(struct ldap_request_search *)request;
 
-		auth_request_log_error(request->auth_request, "ldap",
-			"ldap_search(base=%s filter=%s) failed: %s",
-			srequest->base, srequest->filter,
-			ldap_err2string(ret));
+		if (!array_is_created(&request->named_results)) {
+			auth_request_log_error(request->auth_request, "ldap",
+				"ldap_search(base=%s filter=%s) failed: %s",
+				srequest->base, srequest->filter,
+				ldap_err2string(ret));
+		} else {
+			named_res = array_idx(&request->named_results,
+					      request->name_idx);
+			auth_request_log_error(request->auth_request, "ldap",
+				"ldap_search(base=%s) failed: %s",
+				named_res->dn, ldap_err2string(ret));
+		}
 		res = NULL;
 	}
 	if (ret == LDAP_SUCCESS && srequest != NULL && !srequest->multi_entry) {
