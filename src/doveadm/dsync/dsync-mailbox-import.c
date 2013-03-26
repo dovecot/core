@@ -506,6 +506,7 @@ importer_try_next_mail(struct dsync_mailbox_importer *importer,
 		} 
 		pmail = (struct mail_private *)importer->cur_mail;
 		importer->cur_hdr_hash = p_strdup(pmail->pool, hdr_hash);
+		importer->cur_guid = "";
 	}
 	/* make sure next_local_seq gets updated in case we came here
 	   because of min_uid */
