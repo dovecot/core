@@ -747,14 +747,14 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 		struct ldap_request_search *srequest =
 			(struct ldap_request_search *)request;
 
-		if (!array_is_created(&request->named_results)) {
+		if (!array_is_created(&srequest->named_results)) {
 			auth_request_log_error(request->auth_request, "ldap",
 				"ldap_search(base=%s filter=%s) failed: %s",
 				srequest->base, srequest->filter,
 				ldap_err2string(ret));
 		} else {
-			named_res = array_idx(&request->named_results,
-					      request->name_idx);
+			named_res = array_idx(&srequest->named_results,
+					      srequest->name_idx);
 			auth_request_log_error(request->auth_request, "ldap",
 				"ldap_search(base=%s) failed: %s",
 				named_res->dn, ldap_err2string(ret));
