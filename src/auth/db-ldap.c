@@ -675,6 +675,9 @@ static int db_ldap_search_next_subsearch(struct ldap_connection *conn,
 	struct ldap_request_named_result *named_res;
 	const struct ldap_field *field;
 
+	if (request->result != NULL)
+		res = request->result;
+
 	if (!array_is_created(&request->named_results)) {
 		/* see if we need to do more LDAP queries */
 		p_array_init(&request->named_results,
