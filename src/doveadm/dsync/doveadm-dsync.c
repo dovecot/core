@@ -276,6 +276,16 @@ static bool mirror_get_remote_cmd(struct dsync_cmd_context *ctx,
 	return TRUE;
 }
 
+static bool paths_are_equal(struct mail_user *user1, struct mail_user *user2,
+			    enum mailbox_list_path_type type)
+{
+	const char *path1, *path2;
+
+	return mailbox_list_get_root_path(user1->namespaces->list, type, &path1) &&
+		mailbox_list_get_root_path(user2->namespaces->list, type, &path2) &&
+		strcmp(path1, path2) == 0;
+}
+
 static int
 cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		    struct dsync_brain *brain, struct dsync_ibc *ibc2)
@@ -315,15 +325,12 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		mail_user_unref(&user2);
 		return -1;
 	}
-	if (mailbox_list_get_root_path(user->namespaces->list,
-				       MAILBOX_LIST_PATH_TYPE_MAILBOX,
-				       &path1) &&
-	    mailbox_list_get_root_path(user2->namespaces->list,
-				       MAILBOX_LIST_PATH_TYPE_MAILBOX,
-				       &path2) &&
-	    strcmp(path1, path2) == 0) {
+	if (paths_are_equal(user, user2, MAILBOX_LIST_PATH_TYPE_MAILBOX) &&
+	    paths_are_equal(user, user2, MAILBOX_LIST_PATH_TYPE_INDEX)) {
 		i_error("Both source and destination mail_location "
-			"points to same directory: %s", path1);
+			"points to same directory: %s",
+			mailbox_list_get_root_forced(user->namespaces->list,
+						     MAILBOX_LIST_PATH_TYPE_MAILBOX));
 		ctx->ctx.exit_code = EX_CONFIG;
 		mail_user_unref(&user2);
 		return -1;
