@@ -266,7 +266,10 @@ int mail_get_special(struct mail *mail, enum mail_fetch_field field,
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_special(mail, field, value_r);
+	if (p->v.get_special(mail, field, value_r) < 0)
+		return -1;
+	i_assert(*value_r != NULL);
+	return 0;
 }
 
 struct mail *mail_get_real_mail(struct mail *mail)
