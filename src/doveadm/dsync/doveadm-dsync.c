@@ -77,6 +77,7 @@ struct dsync_cmd_context {
 	unsigned int reverse_backup:1;
 	unsigned int remote_user_prefix:1;
 	unsigned int no_mail_sync:1;
+	unsigned int local_location_from_arg:1;
 };
 
 static bool legacy_dsync = FALSE;
@@ -293,18 +294,23 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	struct dsync_brain *brain2;
 	struct mail_user *user2;
 	struct setting_parser_context *set_parser;
-	const char *set_line, *path1, *path2;
+	const char *set_line, *location;
 	bool brain1_running, brain2_running, changed1, changed2;
 	int ret;
 
-	i_assert(ctx->local_location != NULL);
+	if (ctx->local_location_from_arg)
+		location = ctx->ctx.args[0];
+	else {
+		i_assert(ctx->local_location != NULL);
+		location = ctx->local_location;
+	}
 
 	i_set_failure_prefix("dsync(%s): ", user->username);
 
 	/* update mail_location and create another user for the
 	   second location. */
 	set_parser = mail_storage_service_user_get_settings_parser(ctx->ctx.cur_service_user);
-	set_line = t_strconcat("mail_location=", ctx->local_location, NULL);
+	set_line = t_strconcat("mail_location=", location, NULL);
 	if (settings_parse_line(set_parser, set_line) < 0)
 		i_unreached();
 	ret = mail_storage_service_next(ctx->ctx.storage_service,
@@ -680,7 +686,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			    const char **error_r)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
-	const char *const *remote_cmd_args = NULL;
+	const char *local_location, *const *remote_cmd_args = NULL;
 	const struct mail_user_settings *user_set;
 	const struct mail_storage_settings *mail_set;
 	const char *username = "";
@@ -703,6 +709,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			_ctx->exit_code = DOVEADM_EX_NOTFOUND;
 			return -1;
 		}
+		local_location = ctx->local_location;
 	} else {
 		/* if we're executing remotely, give -u parameter if we also
 		   did a userdb lookup. */
@@ -713,12 +720,13 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			/* it's a mail_location */
 			if (_ctx->args[1] != NULL)
 				doveadm_mail_help_name(_ctx->cmd->name);
-			ctx->local_location = _ctx->args[0];
+			ctx->local_location_from_arg = TRUE;
+			local_location = _ctx->args[0];
 		}
 	}
 
 	if (remote_cmd_args == NULL && ctx->local_location != NULL) {
-		if (parse_location(ctx, mail_set, ctx->local_location,
+		if (parse_location(ctx, mail_set, local_location,
 				   &remote_cmd_args, error_r) < 0)
 			return -1;
 	}
