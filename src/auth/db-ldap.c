@@ -158,7 +158,7 @@ static void db_ldap_conn_close(struct ldap_connection *conn);
 struct db_ldap_result_iterate_context *
 db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 				 struct ldap_request_search *ldap_request,
-				 bool iter_dn_values);
+				 LDAPMessage *res, bool iter_dn_values);
 
 static int deref2str(const char *str)
 {
@@ -547,14 +547,15 @@ db_ldap_find_request(struct ldap_connection *conn, int msgid,
 }
 
 static int db_ldap_fields_get_dn(struct ldap_connection *conn,
-				 struct ldap_request_search *request)
+				 struct ldap_request_search *request,
+				 LDAPMessage *res)
 {
 	struct auth_request *auth_request = request->request.auth_request;
 	struct ldap_request_named_result *named_res;
 	struct db_ldap_result_iterate_context *ldap_iter;
 	const char *name, *const *values;
 
-	ldap_iter = db_ldap_result_iterate_init_full(conn, request, TRUE);
+	ldap_iter = db_ldap_result_iterate_init_full(conn, request, res, TRUE);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		if (values[1] != NULL) {
 			auth_request_log_warning(auth_request, "ldap",
@@ -668,7 +669,8 @@ static int db_ldap_search_save_result(struct ldap_request_search *request,
 }
 
 static int db_ldap_search_next_subsearch(struct ldap_connection *conn,
-					 struct ldap_request_search *request)
+					 struct ldap_request_search *request,
+					 LDAPMessage *res)
 {
 	struct ldap_request_named_result *named_res;
 	const struct ldap_field *field;
@@ -683,7 +685,7 @@ static int db_ldap_search_next_subsearch(struct ldap_connection *conn,
 			named_res = array_append_space(&request->named_results);
 			named_res->field = field;
 		}
-		if (db_ldap_fields_get_dn(conn, request) < 0)
+		if (db_ldap_fields_get_dn(conn, request, res) < 0)
 			return -1;
 	} else {
 		request->name_idx++;
@@ -773,7 +775,7 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 				return FALSE;
 			}
 		} else {
-			ret = db_ldap_search_next_subsearch(conn, srequest);
+			ret = db_ldap_search_next_subsearch(conn, srequest, res);
 			if (ret > 0) {
 				/* free this result, but not the others */
 				ldap_msgfree(res);
@@ -788,22 +790,12 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 		aqueue_delete(conn->request_queue, idx);
 	}
 
-	if (srequest == NULL) {
-		T_BEGIN {
-			request->callback(conn, request, res);
-		} T_END;
-	} else {
-		T_BEGIN {
-			LDAPMessage *orig_result = srequest->result;
+	T_BEGIN {
+		if (res != NULL && srequest != NULL && srequest->result != NULL)
+			request->callback(conn, request, srequest->result);
 
-			if (res != NULL && srequest->result != NULL)
-				request->callback(conn, request, srequest->result);
-
-			srequest->result = res;
-			request->callback(conn, request, res);
-			srequest->result = orig_result;
-		} T_END;
-	}
+		request->callback(conn, request, res);
+	} T_END;
 
 	if (idx > 0) {
 		/* see if there are timed out requests */
@@ -1453,14 +1445,12 @@ get_ldap_fields(struct db_ldap_result_iterate_context *ctx,
 struct db_ldap_result_iterate_context *
 db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 				 struct ldap_request_search *ldap_request,
-				 bool iter_dn_values)
+				 LDAPMessage *res, bool iter_dn_values)
 {
 	struct db_ldap_result_iterate_context *ctx;
 	const struct ldap_request_named_result *named_res;
 	const char *suffix;
 	pool_t pool;
-
-	i_assert(ldap_request->result != NULL);
 
 	pool = pool_alloconly_create("ldap result iter", 1024);
 	ctx = p_new(pool, struct db_ldap_result_iterate_context, 1);
@@ -1472,7 +1462,7 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 	if (ctx->auth_request->set->debug)
 		ctx->debug = t_str_new(256);
 
-	get_ldap_fields(ctx, conn, ldap_request->result, "");
+	get_ldap_fields(ctx, conn, res, "");
 	if (array_is_created(&ldap_request->named_results)) {
 		array_foreach(&ldap_request->named_results, named_res) {
 			suffix = t_strdup_printf("@%s", named_res->field->name);
@@ -1485,9 +1475,10 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 
 struct db_ldap_result_iterate_context *
 db_ldap_result_iterate_init(struct ldap_connection *conn,
-			    struct ldap_request_search *ldap_request)
+			    struct ldap_request_search *ldap_request,
+			    LDAPMessage *res)
 {
-	return db_ldap_result_iterate_init_full(conn, ldap_request, FALSE);
+	return db_ldap_result_iterate_init_full(conn, ldap_request, res, FALSE);
 }
 
 static const char *db_ldap_field_get_default(const char *data)

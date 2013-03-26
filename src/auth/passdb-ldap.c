@@ -41,12 +41,13 @@ struct passdb_ldap_request {
 static void
 ldap_query_save_result(struct ldap_connection *conn,
 		       struct auth_request *auth_request,
-		       struct ldap_request_search *ldap_request)
+		       struct ldap_request_search *ldap_request,
+		       LDAPMessage *res)
 {
 	struct db_ldap_result_iterate_context *ldap_iter;
 	const char *name, *const *values;
 
-	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request);
+	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request, res);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		if (values[1] != NULL) {
 			auth_request_log_warning(auth_request, "ldap",
@@ -129,7 +130,7 @@ ldap_lookup_pass_callback(struct ldap_connection *conn,
 	if (ldap_request->entries++ == 0) {
 		/* first entry */
 		ldap_query_save_result(conn, auth_request,
-				       &ldap_request->request.search);
+				       &ldap_request->request.search, res);
 	}
 }
 
@@ -245,7 +246,7 @@ static void ldap_bind_lookup_dn_callback(struct ldap_connection *conn,
 
 		/* first entry */
 		ldap_query_save_result(conn, auth_request,
-				       &passdb_ldap_request->request.search);
+				       &passdb_ldap_request->request.search, res);
 
 		/* save dn */
 		dn = ldap_get_dn(conn->ld, res);

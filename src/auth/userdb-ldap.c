@@ -44,14 +44,15 @@ struct ldap_userdb_iterate_context {
 static void
 ldap_query_get_result(struct ldap_connection *conn,
 		      struct auth_request *auth_request,
-		      struct ldap_request_search *ldap_request)
+		      struct ldap_request_search *ldap_request,
+		      LDAPMessage *res)
 {
 	struct db_ldap_result_iterate_context *ldap_iter;
 	const char *name, *const *values;
 
 	auth_request_init_userdb_reply(auth_request);
 
-	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request);
+	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request, res);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		auth_request_set_userdb_field_values(auth_request,
 						     name, values);
@@ -100,7 +101,8 @@ static void userdb_ldap_lookup_callback(struct ldap_connection *conn,
 
 	if (urequest->entries++ == 0) {
 		/* first entry */
-		ldap_query_get_result(conn, auth_request, &urequest->request);
+		ldap_query_get_result(conn, auth_request,
+				      &urequest->request, res);
 	}
 }
 
@@ -167,7 +169,7 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 	request->create_time = ioloop_time;
 
 	ctx->in_callback = TRUE;
-	ldap_iter = db_ldap_result_iterate_init(conn, &urequest->request);
+	ldap_iter = db_ldap_result_iterate_init(conn, &urequest->request, res);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		if (strcmp(name, "user") != 0) {
 			i_warning("ldap: iterate: "
