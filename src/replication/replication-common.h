@@ -25,6 +25,7 @@ replicator_priority_to_str(enum replication_priority priority)
 	case REPLICATION_PRIORITY_SYNC:
 		return "sync";
 	}
+	i_unreached();
 }
 
 static inline int
