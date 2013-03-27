@@ -787,12 +787,12 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 			ctx->no_mail_sync = TRUE;
 		else if (guid_128_from_string(optarg, ctx->mailbox_guid) < 0 ||
 			 guid_128_is_empty(ctx->mailbox_guid))
-			i_error("Invalid -g parameter: %s", optarg);
+			i_fatal("Invalid -g parameter: %s", optarg);
 		break;
 	case 'l':
 		ctx->lock = TRUE;
 		if (str_to_uint(optarg, &ctx->lock_timeout) < 0)
-			i_error("Invalid -l parameter: %s", optarg);
+			i_fatal("Invalid -l parameter: %s", optarg);
 		break;
 	case 'm':
 		if (optarg[0] == '\0')
