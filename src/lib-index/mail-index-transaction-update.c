@@ -871,8 +871,8 @@ void mail_index_update_header_ext(struct mail_index_transaction *t,
 	struct mail_index_transaction_ext_hdr_update *hdr;
 	size_t new_size;
 
-	i_assert(offset <= (uint16_t)-1 && size <= (uint16_t)-1 &&
-		 offset + size <= (uint16_t)-1);
+	i_assert(offset <= (uint32_t)-1 && size <= (uint32_t)-1 &&
+		 offset + size <= (uint32_t)-1);
 
 	if (!array_is_created(&t->ext_hdr_updates))
 		i_array_init(&t->ext_hdr_updates, ext_id + 2);
