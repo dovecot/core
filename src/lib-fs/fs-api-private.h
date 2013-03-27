@@ -53,6 +53,7 @@ struct fs_vfuncs {
 };
 
 struct fs {
+	struct fs *parent; /* for wrapper filesystems */
 	const char *name;
 	struct fs_vfuncs v;
 	char *temp_path_prefix;

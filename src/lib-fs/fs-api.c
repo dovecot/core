@@ -227,8 +227,24 @@ const char *fs_file_path(struct fs_file *file)
 		file->fs->v.get_path(file);
 }
 
+static void ATTR_FORMAT(2, 0)
+fs_set_verror(struct fs *fs, const char *fmt, va_list args)
+{
+	/* the error is always kept in the parentmost fs */
+	if (fs->parent != NULL)
+		fs_set_verror(fs->parent, fmt, args);
+	else {
+		str_truncate(fs->last_error, 0);
+		str_vprintfa(fs->last_error, fmt, args);
+	}
+}
+
 const char *fs_last_error(struct fs *fs)
 {
+	/* the error is always kept in the parentmost fs */
+	if (fs->parent != NULL)
+		return fs_last_error(fs->parent);
+
 	if (str_len(fs->last_error) == 0)
 		return "BUG: Unknown fs error";
 	return str_c(fs->last_error);
@@ -529,8 +545,7 @@ void fs_set_error(struct fs *fs, const char *fmt, ...)
 	va_list args;
 
 	va_start(args, fmt);
-	str_truncate(fs->last_error, 0);
-	str_vprintfa(fs->last_error, fmt, args);
+	fs_set_verror(fs, fmt, args);
 	va_end(args);
 }
 
@@ -539,9 +554,9 @@ void fs_set_critical(struct fs *fs, const char *fmt, ...)
 	va_list args;
 
 	va_start(args, fmt);
-	str_truncate(fs->last_error, 0);
-	str_vprintfa(fs->last_error, fmt, args);
-	i_error("fs-%s: %s", fs->name, str_c(fs->last_error));
+	fs_set_verror(fs, fmt, args);
+
+	i_error("fs-%s: %s", fs->name, fs_last_error(fs));
 	va_end(args);
 }
 
