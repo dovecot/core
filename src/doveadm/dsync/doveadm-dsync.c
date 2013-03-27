@@ -686,7 +686,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			    const char **error_r)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
-	const char *local_location, *const *remote_cmd_args = NULL;
+	const char *local_location = NULL, *const *remote_cmd_args = NULL;
 	const struct mail_user_settings *user_set;
 	const struct mail_storage_settings *mail_set;
 	const char *username = "";
