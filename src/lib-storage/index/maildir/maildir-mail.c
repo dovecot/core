@@ -687,6 +687,11 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 	uoff_t size;
 	char wrong_key;
 
+	if (mbox->storage->set->maildir_broken_filename_sizes) {
+		/* never try to fix sizes in maildir filenames */
+		return;
+	}
+
 	if (maildir_sync_lookup(mbox, mail->uid, &flags, &fname) <= 0)
 		return;
 	if (strchr(fname, MAILDIR_EXTRA_SEP) == NULL)
