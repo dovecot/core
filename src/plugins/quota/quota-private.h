@@ -90,6 +90,7 @@ struct quota_root_settings {
 	/* If user is under quota before saving a mail, allow the last mail to
 	   bring the user over quota by this many bytes. */
 	uint64_t last_mail_max_extra_bytes;
+	struct quota_rule grace_rule;
 
 	/* Limits in default_rule override backend's quota limits */
 	unsigned int force_default_rule:1;

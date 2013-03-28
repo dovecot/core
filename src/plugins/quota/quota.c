@@ -451,6 +451,9 @@ void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
 		quota_rule_recalculate_relative_rules(&warning_rule->rule,
 						      bytes_limit, count_limit);
 	}
+	quota_rule_recalculate_relative_rules(&root_set->grace_rule,
+					      bytes_limit, 0);
+	root_set->last_mail_max_extra_bytes = root_set->grace_rule.bytes_limit;
 }
 
 static int
@@ -610,7 +613,6 @@ quota_root_parse_grace(struct mail_user *user, const char *root_name,
 {
 	const char *set_name, *value, *error;
 	char *p;
-	struct quota_rule rule;
 
 	set_name = t_strconcat(root_name, "_grace", NULL);
 	value = mail_user_plugin_getenv(user, set_name);
@@ -619,18 +621,17 @@ quota_root_parse_grace(struct mail_user *user, const char *root_name,
 		value = QUOTA_DEFAULT_GRACE;
 	}
 
-	memset(&rule, 0, sizeof(rule));
-	rule.bytes_limit = strtoll(value, &p, 10);
+	root_set->grace_rule.bytes_limit = strtoll(value, &p, 10);
 
-	if (quota_limit_parse(root_set, &rule, p, 1,
-			      &rule.bytes_limit, &error) < 0) {
+	if (quota_limit_parse(root_set, &root_set->grace_rule, p, 1,
+			      &root_set->grace_rule.bytes_limit, &error) < 0) {
 		*error_r = p_strdup_printf(root_set->set->pool,
 			"Invalid %s value '%s': %s", set_name, value, error);
 		return -1;
 	}
-	quota_rule_recalculate_relative_rules(&rule,
+	quota_rule_recalculate_relative_rules(&root_set->grace_rule,
 		root_set->default_rule.bytes_limit, 0);
-	root_set->last_mail_max_extra_bytes = rule.bytes_limit;
+	root_set->last_mail_max_extra_bytes = root_set->grace_rule.bytes_limit;
 	return 0;
 }
 
