@@ -691,7 +691,7 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 	range = array_get(&exporter->requested_uids, &count);
 	for (i = 0; i < count; i++) {
 		mailbox_get_seq_range(exporter->box,
-				      range->seq1, range->seq2,
+				      range[i].seq1, range[i].seq2,
 				      &seq1, &seq2);
 		seq_range_array_add_range(&sarg->value.seqset,
 					  seq1, seq2);
