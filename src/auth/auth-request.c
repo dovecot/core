@@ -1242,6 +1242,22 @@ auth_request_try_update_username(struct auth_request *request,
 	return TRUE;
 }
 
+static void
+auth_request_userdb_userdb_import(struct auth_request *request,
+				  const char *args, const char *default_scheme)
+{
+	const char *key, *value, *const *arg = t_strsplit(args, "\t");
+
+	for (; *arg != NULL; arg++) {
+		value = strchr(*arg, '=');
+		if (value == NULL)
+			key = *arg;
+		else
+			key = t_strdup_until(*arg, value++);
+		auth_request_set_field(request, key, value, default_scheme);
+	}
+}
+
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme)
@@ -1287,6 +1303,11 @@ void auth_request_set_field(struct auth_request *request,
 		auth_request_validate_networks(request, value);
 	} else if (strncmp(name, "userdb_", 7) == 0) {
 		/* for prefetch userdb */
+		if (strcmp(name, "userdb_userdb_import") == 0) {
+			auth_request_userdb_userdb_import(request, value,
+							  default_scheme);
+			return;
+		}
 		if (request->userdb_reply == NULL)
 			auth_request_init_userdb_reply(request);
 		auth_request_set_userdb_field(request, name + 7, value);
