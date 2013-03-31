@@ -227,6 +227,8 @@ int quota_user_read_settings(struct mail_user *user,
 		pool_unref(&pool);
 		return 0;
 	}
+
+	quota_set->initialized = TRUE;
 	*set_r = quota_set;
 	return 1;
 }
@@ -454,6 +456,13 @@ void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
 	quota_rule_recalculate_relative_rules(&root_set->grace_rule,
 					      bytes_limit, 0);
 	root_set->last_mail_max_extra_bytes = root_set->grace_rule.bytes_limit;
+
+	if (root_set->set->debug && root_set->set->initialized) {
+		i_debug("Quota root %s: Recalculated relative rules with "
+			"bytes=%lld count=%lld. Now grace=%llu", root_set->name,
+			(long long)bytes_limit, (long long)count_limit,
+			(unsigned long long)root_set->last_mail_max_extra_bytes);
+	}
 }
 
 static int
@@ -632,6 +641,12 @@ quota_root_parse_grace(struct mail_user *user, const char *root_name,
 	quota_rule_recalculate_relative_rules(&root_set->grace_rule,
 		root_set->default_rule.bytes_limit, 0);
 	root_set->last_mail_max_extra_bytes = root_set->grace_rule.bytes_limit;
+	if (root_set->set->debug) {
+		i_debug("Quota grace: root=%s bytes=%lld%s",
+			root_set->name, (long long)root_set->grace_rule.bytes_limit,
+			root_set->grace_rule.bytes_percent == 0 ? "" :
+			t_strdup_printf(" (%u%%)", root_set->grace_rule.bytes_percent));
+	}
 	return 0;
 }
 
