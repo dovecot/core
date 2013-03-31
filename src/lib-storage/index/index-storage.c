@@ -759,9 +759,6 @@ void index_save_context_free(struct mail_save_context *ctx)
 	memset(&ctx->data, 0, sizeof(ctx->data));
 
 	ctx->unfinished = FALSE;
-	ctx->copying_via_save = FALSE;
-	ctx->saving = FALSE;
-	ctx->moving = FALSE;
 }
 
 static void

@@ -2026,6 +2026,7 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
 	i_assert(!ctx->unfinished);
+	ctx->saving = FALSE;
 	return ret;
 }
 
@@ -2047,6 +2048,7 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 		mail->v.close(&mail->mail);
 	}
 	i_assert(!ctx->unfinished);
+	ctx->saving = FALSE;
 }
 
 struct mailbox_transaction_context *
@@ -2084,6 +2086,9 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
 	i_assert(!ctx->unfinished);
+
+	ctx->copying_via_save = FALSE;
+	ctx->saving = FALSE;
 	return ret;
 }
 
@@ -2096,6 +2101,7 @@ int mailbox_move(struct mail_save_context **_ctx, struct mail *mail)
 		return -1;
 
 	mail_expunge(mail);
+	ctx->moving = FALSE;
 	return 0;
 }
 
