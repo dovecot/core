@@ -113,7 +113,10 @@ int virtual_save_finish(struct mail_save_context *_ctx)
 {
 	struct virtual_save_context *ctx = (struct virtual_save_context *)_ctx;
 
-	return mailbox_save_finish(&ctx->backend_save_ctx);
+	if (mailbox_save_finish(&ctx->backend_save_ctx) < 0)
+		return -1;
+	_ctx->unfinished = FALSE;
+	return 0;
 }
 
 void virtual_save_cancel(struct mail_save_context *_ctx)
@@ -122,6 +125,7 @@ void virtual_save_cancel(struct mail_save_context *_ctx)
 
 	if (ctx->backend_save_ctx != NULL)
 		mailbox_save_cancel(&ctx->backend_save_ctx);
+	_ctx->unfinished = FALSE;
 }
 
 void virtual_save_free(struct mail_save_context *_ctx)

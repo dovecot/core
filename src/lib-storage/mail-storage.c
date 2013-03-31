@@ -1813,7 +1813,6 @@ int mailbox_transaction_commit_get_changes(
 {
 	struct mailbox_transaction_context *t = *_t;
 	unsigned int save_count = t->save_count;
-	bool assign_uids = (t->flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0;
 	int ret;
 
 	t->box->transaction_count--;
@@ -1823,9 +1822,11 @@ int mailbox_transaction_commit_get_changes(
 	T_BEGIN {
 		ret = t->box->v.transaction_commit(t, changes_r);
 	} T_END;
-	i_assert(ret < 0 ||
-		 seq_range_count(&changes_r->saved_uids) == save_count ||
-		 (array_count(&changes_r->saved_uids) == 0 && !assign_uids));
+	/* either all the saved messages get UIDs or none, because a) we
+	   failed, b) MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS not set,
+	   c) backend doesn't support it (e.g. virtual plugin) */
+	i_assert(seq_range_count(&changes_r->saved_uids) == save_count ||
+		 array_count(&changes_r->saved_uids) == 0);
 	if (ret < 0 && changes_r->pool != NULL)
 		pool_unref(&changes_r->pool);
 	return ret;
