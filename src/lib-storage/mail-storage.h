@@ -541,7 +541,10 @@ bool mailbox_backends_equal(const struct mailbox *box1,
    do forced CLOSE. */
 bool mailbox_is_inconsistent(struct mailbox *box);
 
-/* Gets the mailbox status information, opening the mailbox if necessary. */
+/* Gets the mailbox status information. If mailbox isn't opened yet, try to
+   return the results from mailbox list indexes. Otherwise the mailbox is
+   opened and synced. If the mailbox is already opened, no syncing is done
+   automatically. */
 int mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
 		       struct mailbox_status *status_r);
 /* Gets the mailbox status, requires that mailbox is already opened. */
