@@ -1326,8 +1326,13 @@ void auth_request_set_field(struct auth_request *request,
 	if (auth_request_try_update_username(request, name, value)) {
 		/* don't change the original value so it gets saved correctly
 		   to cache. */
-	} else if (strcmp(name, "nodelay") == 0) {
-		/* don't delay replying to client of the failure */
+	} else if (strcmp(name, "allow_nets") == 0) {
+		auth_request_validate_networks(request, value);
+	} else if (strncmp(name, "userdb_", 7) == 0) {
+		/* for prefetch userdb */
+		if (request->userdb_reply == NULL)
+			auth_request_init_userdb_reply(request);
+		auth_request_set_userdb_field(request, name + 7, value);
 	} else if (strcmp(name, "nopassword") == 0) {
 		/* NULL password - anything goes */
 		const char *password = request->passdb_password;
@@ -1343,13 +1348,8 @@ void auth_request_set_field(struct auth_request *request,
 			}
 		}
 		request->passdb_password = NULL;
-	} else if (strcmp(name, "allow_nets") == 0) {
-		auth_request_validate_networks(request, value);
-	} else if (strncmp(name, "userdb_", 7) == 0) {
-		/* for prefetch userdb */
-		if (request->userdb_reply == NULL)
-			auth_request_init_userdb_reply(request);
-		auth_request_set_userdb_field(request, name + 7, value);
+		auth_fields_add(request->extra_fields, name, value, 0);
+		return;
 	} else {
 		/* these fields are returned to client */
 		auth_fields_add(request->extra_fields, name, value, 0);
