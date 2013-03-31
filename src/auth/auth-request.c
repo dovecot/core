@@ -1246,16 +1246,10 @@ static void
 auth_request_passdb_import(struct auth_request *request,
 			   const char *args, const char *default_scheme)
 {
-	const char *key, *value, *const *arg = t_strsplit(args, "\t");
+	const char *const *arg;
 
-	for (; *arg != NULL; arg++) {
-		value = strchr(*arg, '=');
-		if (value == NULL)
-			key = *arg;
-		else
-			key = t_strdup_until(*arg, value++);
-		auth_request_set_field(request, key, value, default_scheme);
-	}
+	for (arg = t_strsplit(args, "\t"); *arg != NULL; arg++)
+		auth_request_set_field_keyvalue(request, *arg, default_scheme);
 }
 
 void auth_request_set_field(struct auth_request *request,
