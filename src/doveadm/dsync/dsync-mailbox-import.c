@@ -2156,6 +2156,7 @@ dsync_mailbox_import_check_missing_guid_imports(struct dsync_mailbox_importer *i
 			i_error("Mailbox %s: Remote didn't send mail GUID=%s (UID=%u)",
 				mailbox_get_vname(importer->box),
 				mail->guid, mail->remote_uid);
+			importer->failed = TRUE;
 		}
 	}
 	hash_table_iterate_deinit(&iter);
@@ -2177,6 +2178,7 @@ dsync_mailbox_import_check_missing_uid_imports(struct dsync_mailbox_importer *im
 			i_error("Mailbox %s: Remote didn't send mail UID=%u",
 				mailbox_get_vname(importer->box),
 				mail->remote_uid);
+			importer->failed = TRUE;
 		}
 	}
 	hash_table_iterate_deinit(&iter);
