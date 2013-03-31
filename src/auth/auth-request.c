@@ -1243,13 +1243,15 @@ auth_request_try_update_username(struct auth_request *request,
 }
 
 static void
-auth_request_passdb_import(struct auth_request *request,
-			   const char *args, const char *default_scheme)
+auth_request_passdb_import(struct auth_request *request, const char *args,
+			   const char *key_prefix, const char *default_scheme)
 {
-	const char *const *arg;
+	const char *const *arg, *field;
 
-	for (arg = t_strsplit(args, "\t"); *arg != NULL; arg++)
-		auth_request_set_field_keyvalue(request, *arg, default_scheme);
+	for (arg = t_strsplit(args, "\t"); *arg != NULL; arg++) {
+		field = t_strconcat(key_prefix, *arg, NULL);
+		auth_request_set_field_keyvalue(request, field, default_scheme);
+	}
 }
 
 void auth_request_set_field(struct auth_request *request,
@@ -1296,10 +1298,18 @@ void auth_request_set_field(struct auth_request *request,
 	} else if (strcmp(name, "allow_nets") == 0) {
 		auth_request_validate_networks(request, value);
 	} else if (strcmp(name, "passdb_import") == 0) {
-		auth_request_passdb_import(request, value, default_scheme);
+		auth_request_passdb_import(request, value, "", default_scheme);
 		return;
 	} else if (strncmp(name, "userdb_", 7) == 0) {
 		/* for prefetch userdb */
+		if (strcmp(name, "userdb_userdb_import") == 0) {
+			/* we need can't put the whole userdb_userdb_import
+			   value to extra_cache_fields or it doesn't work
+			   properly. so handle this explicitly. */
+			auth_request_passdb_import(request, value,
+						   "userdb_", default_scheme);
+			return;
+		}
 		if (request->userdb_reply == NULL)
 			auth_request_init_userdb_reply(request);
 		auth_request_set_userdb_field(request, name + 7, value);
@@ -1380,6 +1390,24 @@ static void auth_request_set_uidgid_file(struct auth_request *request,
 	}
 }
 
+static void
+auth_request_userdb_import(struct auth_request *request, const char *args)
+{
+	const char *key, *value, *const *arg;
+
+	for (arg = t_strsplit(args, "\t"); *arg != NULL; arg++) {
+		value = strchr(*arg, '=');
+		if (value == NULL) {
+			key = *arg;
+			value = "";
+		} else {
+			key = t_strdup_until(*arg, value);
+			value++;
+		}
+		auth_request_set_userdb_field(request, key, value);
+	}
+}
+
 void auth_request_set_userdb_field(struct auth_request *request,
 				   const char *name, const char *value)
 {
@@ -1409,7 +1437,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		auth_request_set_uidgid_file(request, value);
 		return;
 	} else if (strcmp(name, "userdb_import") == 0) {
-		auth_stream_reply_import(request->userdb_reply, value);
+		auth_request_userdb_import(request, value);
 		return;
 	} else if (strcmp(name, "system_user") == 0) {
 		/* FIXME: the system_user is for backwards compatibility */
