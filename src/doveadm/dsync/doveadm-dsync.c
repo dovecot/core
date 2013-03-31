@@ -317,7 +317,6 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 					ctx->ctx.cur_service_user, &user2);
 	if (ret < 0) {
 		ctx->ctx.exit_code = ret == -1 ? EX_TEMPFAIL : EX_CONFIG;
-		mail_user_unref(&user2);
 		return -1;
 	}
 	user2->admin = TRUE;
