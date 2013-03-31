@@ -56,6 +56,8 @@ const char *const mountpoint_list_default_ignore_prefixes[] = {
 	"/sys",
 	"/proc",
 	"/var/run",
+	"/var/tmp",
+	"/tmp",
 	"/run",
 #ifdef __APPLE__
 	"/Volumes",
