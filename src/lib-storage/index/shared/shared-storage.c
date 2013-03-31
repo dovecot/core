@@ -318,11 +318,19 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		p_strdup(user->pool, storage->unexpanded_location);
 	new_ns->unexpanded_set = unexpanded_ns_set;
 
+	/* We need to create a prefix="" namespace for the owner */
+	if (mail_namespaces_init_location(owner, str_c(location), &error) < 0) {
+		mail_namespace_destroy(new_ns);
+		mail_user_unref(&owner);
+		return -1;
+	}
+
 	if (mail_storage_create(new_ns, NULL, _storage->flags |
 				MAIL_STORAGE_FLAG_NO_AUTOVERIFY, &error) < 0) {
 		mailbox_list_set_critical(list, "Namespace '%s': %s",
 					  new_ns->prefix, error);
 		mail_namespace_destroy(new_ns);
+		mail_user_unref(&owner);
 		return -1;
 	}
 	if ((new_ns->flags & NAMESPACE_FLAG_UNUSABLE) == 0 &&
