@@ -228,6 +228,7 @@ http_client_peer_create(struct http_client *client,
 		const char *source;
 		memset(&ssl_set, 0, sizeof(ssl_set));
 		ssl_set.ca_dir = peer->client->set.ssl_ca_dir;
+		ssl_set.ca = peer->client->set.ssl_ca;
 		ssl_set.verify_remote_cert = TRUE;
 		ssl_set.crypto_device = peer->client->set.ssl_crypto_device;
 

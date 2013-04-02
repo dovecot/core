@@ -82,6 +82,7 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
 		client->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
 	client->set.ssl_ca_dir = p_strdup(pool, set->ssl_ca_dir);
+	client->set.ssl_ca = p_strdup(pool, set->ssl_ca);
 	client->set.max_idle_time_msecs = set->max_idle_time_msecs;
 	client->set.max_parallel_connections =
 		(set->max_parallel_connections > 0 ? set->max_parallel_connections : 1);
