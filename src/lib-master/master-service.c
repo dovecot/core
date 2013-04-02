@@ -814,8 +814,7 @@ static void master_service_listen(struct master_service_listener *l)
 		if (close(conn.fd) < 0)
 			i_error("close(service connection) failed: %m");
 		master_service_client_connection_destroyed(service);
-	}
-	if (conn.fifo) {
+	} else if (conn.fifo) {
 		/* reading FIFOs stays open forever, don't count them
 		   as real clients */
 		master_service_client_connection_destroyed(service);
