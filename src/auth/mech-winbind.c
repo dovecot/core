@@ -257,7 +257,8 @@ do_auth_continue(struct auth_request *auth_request,
 					      "%s", error);
 			return HR_FAIL;
 		}
- 
+
+		request->auth_request.passdb_success = TRUE;
 		if (gss_spnego && strcmp(token[1], "*") != 0) {
 			buffer_t *buf;
 

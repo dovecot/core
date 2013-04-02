@@ -51,10 +51,12 @@ mech_dovecot_token_auth_continue(struct auth_request *request,
 		const char *valid_token =
 			auth_token_get(service, pid, request->user, session_id);
 
-		if (strcmp(auth_token, valid_token) == 0)
+		if (strcmp(auth_token, valid_token) == 0) {
+			request->passdb_success = TRUE;
 			auth_request_success(request, NULL, 0);
-		else
+		} else {
 			auth_request_fail(request);
+		}
 	}
 
 	/* make sure it's cleared */
