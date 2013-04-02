@@ -6,7 +6,7 @@
 # unlimited permission to copy and/or distribute it, with or without
 # modifications, as long as this notice is preserved.
 
-# serial 9
+# serial 10
 
 AC_DEFUN([DC_DOVECOT_MODULEDIR],[
 	AC_ARG_WITH(moduledir,
@@ -70,7 +70,7 @@ AC_DEFUN([DC_DOVECOT],[
 	cd $dovecotdir
 	abs_dovecotdir=`pwd`
 	cd $old
-	DISTCHECK_CONFIGURE_FLAGS="--with-dovecot=$abs_dovecotdir --without-dovecot-install-dirs"
+	DISTCHECK_CONFIGURE_FLAGS="--with-dovecot=$abs_dovecotdir"
 
 	eval `grep -i '^dovecot_[[a-z_]]*=' "$dovecotdir"/dovecot-config`
 	eval `grep '^LIBDOVECOT[[A-Z_]]*=' "$dovecotdir"/dovecot-config`
