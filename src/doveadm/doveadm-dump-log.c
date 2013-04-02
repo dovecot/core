@@ -52,6 +52,7 @@ mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr)
 	case MAIL_TRANSACTION_FLAG_UPDATE:
 	case MAIL_TRANSACTION_KEYWORD_UPDATE:
 	case MAIL_TRANSACTION_KEYWORD_RESET:
+	case MAIL_TRANSACTION_ATTRIBUTE_UPDATE:
 		/* these changes increase modseq */
 		return TRUE;
 	}
@@ -113,6 +114,9 @@ static const char *log_record_type(unsigned int type)
 		break;
 	case MAIL_TRANSACTION_BOUNDARY:
 		name = "boundary";
+		break;
+	case MAIL_TRANSACTION_ATTRIBUTE_UPDATE:
+		name = "attribute-update";
 		break;
 	default:
 		name = t_strdup_printf("unknown: %x", type);
@@ -411,6 +415,16 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		const struct mail_transaction_boundary *rec = data;
 
 		printf(" - size=%u\n", rec->size);
+		break;
+	}
+	case MAIL_TRANSACTION_ATTRIBUTE_UPDATE: {
+		const char *keys = data;
+		unsigned int i;
+
+		for (i = 0; i < size && keys[i] != '\0'; ) {
+			printf(" - %s\n", keys+i);
+			i += strlen(keys+i) + 1;
+		}
 		break;
 	}
 	default:

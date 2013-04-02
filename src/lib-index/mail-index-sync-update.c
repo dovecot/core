@@ -523,6 +523,7 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 			    const struct mail_transaction_header *hdr,
 			    const void *data)
 {
+	uint64_t modseq;
 	int ret = 0;
 
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
@@ -803,6 +804,10 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 		ctx->view->index->index_delete_requested = FALSE;
 		break;
 	case MAIL_TRANSACTION_BOUNDARY:
+		break;
+	case MAIL_TRANSACTION_ATTRIBUTE_UPDATE:
+		modseq = mail_transaction_log_view_get_prev_modseq(ctx->view->log_view);
+		mail_index_modseq_update_highest(ctx->modseq_ctx, modseq);
 		break;
 	default:
 		mail_index_sync_set_corrupted(ctx,
