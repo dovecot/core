@@ -20,6 +20,7 @@ mech_anonymous_auth_continue(struct auth_request *request,
 	request->user = p_strdup(request->pool,
 				 request->set->anonymous_username);
 
+	request->passdb_success = TRUE;
 	auth_request_success(request, "", 0);
 }
 
