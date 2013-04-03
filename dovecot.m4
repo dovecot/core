@@ -6,7 +6,7 @@
 # unlimited permission to copy and/or distribute it, with or without
 # modifications, as long as this notice is preserved.
 
-# serial 10
+# serial 11
 
 AC_DEFUN([DC_DOVECOT_MODULEDIR],[
 	AC_ARG_WITH(moduledir,
@@ -70,12 +70,14 @@ AC_DEFUN([DC_DOVECOT],[
 	cd $dovecotdir
 	abs_dovecotdir=`pwd`
 	cd $old
-	DISTCHECK_CONFIGURE_FLAGS="--with-dovecot=$abs_dovecotdir"
+	DISTCHECK_CONFIGURE_FLAGS="--with-dovecot=$abs_dovecotdir --without-dovecot-install-dirs"
 
 	eval `grep -i '^dovecot_[[a-z_]]*=' "$dovecotdir"/dovecot-config`
 	eval `grep '^LIBDOVECOT[[A-Z_]]*=' "$dovecotdir"/dovecot-config`
 
 	if test "$use_install_dirs" = "no"; then
+		# the main purpose of these is to fix make distcheck for plugins
+		# other than that, they don't really make much sense
 		dovecot_pkgincludedir='$(pkgincludedir)'
 		dovecot_pkglibdir='$(pkglibdir)'
 		dovecot_pkglibexecdir='$(libexecdir)/dovecot'
