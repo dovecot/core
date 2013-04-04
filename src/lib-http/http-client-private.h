@@ -79,7 +79,7 @@ struct http_client_host_port {
 	/* requests pending in queue to be picked up by connections */
 	ARRAY_TYPE(http_client_request) request_queue;
 
-	unsigned int ssl:1;
+	char *https_name;
 };
 
 struct http_client_host {
@@ -103,9 +103,9 @@ struct http_client_host {
 };
 
 struct http_client_peer_addr {
+	char *https_name; /* TLS SNI */
 	struct ip_addr ip;
 	unsigned int port;
-	unsigned int ssl:1;              /* https */
 };
 
 struct http_client_peer {
@@ -220,8 +220,6 @@ int http_client_peer_addr_cmp
 	(const struct http_client_peer_addr *peer1,
 		const struct http_client_peer_addr *peer2) ATTR_PURE;
 
-const char *
-	http_client_peer_get_hostname(struct http_client_peer *peer);
 struct http_client_peer *
 	http_client_peer_get(struct http_client *client,
 		const struct http_client_peer_addr *addr);

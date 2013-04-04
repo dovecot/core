@@ -43,7 +43,8 @@ http_client_peer_debug(struct http_client_peer *peer,
 unsigned int http_client_peer_addr_hash
 (const struct http_client_peer_addr *peer)
 {
-	return net_ip_hash(&peer->ip) + peer->port + peer->ssl;
+	return net_ip_hash(&peer->ip) + peer->port +
+		str_hash(peer->https_name);
 }
 
 int http_client_peer_addr_cmp
@@ -56,27 +57,12 @@ int http_client_peer_addr_cmp
 		return ret;
 	if (peer1->port != peer2->port)
 		return (peer1->port > peer2->port ? 1 : -1);
-	if (peer1->ssl != peer2->ssl)
-		return (peer1->ssl > peer2->ssl ? 1 : -1);
-	return 0;
+	return null_strcmp(peer1->https_name, peer2->https_name);
 }
 
 /*
  * Peer
  */
-
-const char *
-http_client_peer_get_hostname(struct http_client_peer *peer)
-{
-	struct http_client_host *const *host;
-
-	if (array_count(&peer->hosts) == 0)
-		return NULL;
-
-	/* just return name of initial host */
-	host = array_idx(&peer->hosts, 1);
-	return (*host)->name;
-}
 
 static void
 http_client_peer_connect(struct http_client_peer *peer, unsigned int count)
@@ -182,11 +168,12 @@ http_client_peer_create(struct http_client *client,
 {
 	struct http_client_peer *peer;
 
-	i_assert(!addr->ssl || client->ssl_ctx != NULL);
+	i_assert(addr->https_name == NULL || client->ssl_ctx != NULL);
 
 	peer = i_new(struct http_client_peer, 1);
 	peer->client = client;
 	peer->addr = *addr;
+	peer->addr.https_name = i_strdup(addr->https_name);
 	i_array_init(&peer->hosts, 16);
 	i_array_init(&peer->conns, 16);
 
@@ -227,6 +214,7 @@ void http_client_peer_free(struct http_client_peer **_peer)
 		(peer->client->peers, (const struct http_client_peer_addr *)&peer->addr);
 	DLLIST_REMOVE(&peer->client->peers_list, peer);
 
+	i_free(peer->addr.https_name);
 	i_free(peer);
 	*_peer = NULL;
 }

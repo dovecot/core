@@ -640,6 +640,7 @@ static int
 http_client_connection_ssl_handshaked(const char **error_r, void *context)
 {
 	struct http_client_connection *conn = context;
+	const char *host = conn->peer->addr.https_name;
 
 	if (conn->client->set.ssl_allow_invalid_cert) {
 		/* skip certificate checks */
@@ -651,16 +652,10 @@ http_client_connection_ssl_handshaked(const char **error_r, void *context)
 		else
 			*error_r = "Received invalid SSL certificate";
 		return -1;
+	} else if (ssl_iostream_cert_match_name(conn->ssl_iostream, host) == 0) {
+		http_client_connection_debug(conn, "SSL handshake successful");
+		return 0;
 	} else {
-		const char *host = http_client_peer_get_hostname(conn->peer);
-
-		i_assert(host != NULL);
-
-		if (ssl_iostream_cert_match_name(conn->ssl_iostream, host) == 0) {
-			http_client_connection_debug(conn, "SSL handshake successful");
-			return 0;
-		}
-
 		*error_r = t_strdup_printf(
 			"SSL certificate doesn't match expected host name %s", host);
 		return -1;
@@ -720,7 +715,7 @@ http_client_connection_connected(struct connection *_conn, bool success)
 			"connect(%s) failed: %m", _conn->name));
 	} else {
 		http_client_connection_debug(conn, "Connected");
-		if (conn->peer->addr.ssl) {
+		if (conn->peer->addr.https_name != NULL) {
 			if (http_client_connection_ssl_init(conn, &error) < 0) {
 				http_client_peer_connection_failure(conn->peer, error);
 				http_client_connection_unref(&conn);

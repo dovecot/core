@@ -43,12 +43,13 @@ http_client_host_debug(struct http_client_host *host,
 
 static struct http_client_host_port *
 http_client_host_port_find(struct http_client_host *host,
-	unsigned int port, bool ssl)
+	unsigned int port, const char *https_name)
 {
 	struct http_client_host_port *hport;
 
 	array_foreach_modifiable(&host->ports, hport) {
-		if (hport->port == port && hport->ssl == ssl)
+		if (hport->port == port &&
+		    null_strcmp(hport->https_name, https_name) == 0)
 			return hport;
 	}
 
@@ -57,15 +58,15 @@ http_client_host_port_find(struct http_client_host *host,
 
 static struct http_client_host_port *
 http_client_host_port_init(struct http_client_host *host,
-	unsigned int port, bool ssl)
+	unsigned int port, const char *https_name)
 {
 	struct http_client_host_port *hport;
 
-	hport = http_client_host_port_find(host, port, ssl);
+	hport = http_client_host_port_find(host, port, https_name);
 	if (hport == NULL) {
 		hport = array_append_space(&host->ports);
 		hport->port = port;
-		hport->ssl = ssl;
+		hport->https_name = i_strdup(https_name);
 		hport->ips_connect_idx = 0;
 		i_array_init(&hport->request_queue, 16);
 	}
@@ -89,6 +90,7 @@ static void http_client_host_port_deinit(struct http_client_host_port *hport)
 {
 	http_client_host_port_error
 		(hport, HTTP_CLIENT_REQUEST_ERROR_ABORTED, "Aborted");
+	i_free(hport->https_name);
 	array_free(&hport->request_queue);
 }
 
@@ -121,10 +123,11 @@ http_client_host_connection_setup(struct http_client_host *host,
 
 	addr.ip = host->ips[hport->ips_connect_idx];
 	addr.port = hport->port;
-	addr.ssl = hport->ssl;
+	addr.https_name = hport->https_name;
 
-	http_client_host_debug(host, "Setting up connection to %s:%u (ssl=%s)",
-		net_ip2addr(&addr.ip), addr.port, (addr.ssl ? "yes" : "no"));
+	http_client_host_debug(host, "Setting up connection to %s:%u%s",
+		net_ip2addr(&addr.ip), addr.port, addr.https_name == NULL ? "" :
+		t_strdup_printf(" (SSL=%s)", addr.https_name));
 
 	peer = http_client_peer_get(host->client, &addr);
 	http_client_peer_add_host(peer, host);
@@ -138,7 +141,7 @@ void http_client_host_connection_failure(struct http_client_host *host,
 	http_client_host_debug(host, "Failed to connect to %s:%u: %s",
 		net_ip2addr(&addr->ip), addr->port, reason);
 
-	hport = http_client_host_port_find(host, addr->port, addr->ssl);
+	hport = http_client_host_port_find(host, addr->port, addr->https_name);
 	if (hport == NULL)
 		return;
 
@@ -275,6 +278,7 @@ void http_client_host_submit_request(struct http_client_host *host,
 	struct http_client_request *req)
 {
 	struct http_client_host_port *hport;
+	const char *https_name = req->ssl ? req->hostname : NULL;
 	const char *error;
 
 	req->host = host;
@@ -288,7 +292,7 @@ void http_client_host_submit_request(struct http_client_host *host,
 	}
 
 	/* add request to host (grouped by tcp port) */
-	hport = http_client_host_port_init(host, req->port, req->ssl);
+	hport = http_client_host_port_init(host, req->port, https_name);
 	if (req->urgent)
 		array_insert(&hport->request_queue, 0, &req, 1);
 	else
@@ -314,7 +318,7 @@ http_client_host_claim_request(struct http_client_host *host,
 	struct http_client_request *req;
 	unsigned int i, count;
 
-	hport = http_client_host_port_find(host, addr->port, addr->ssl);
+	hport = http_client_host_port_find(host, addr->port, addr->https_name);
 	if (hport == NULL)
 		return NULL;
 
@@ -348,7 +352,7 @@ unsigned int http_client_host_requests_pending(struct http_client_host *host,
 
 	*num_urgent_r = 0;
 
-	hport = http_client_host_port_find(host, addr->port, addr->ssl);
+	hport = http_client_host_port_find(host, addr->port, addr->https_name);
 	if (hport == NULL)
 		return 0;
 
@@ -362,8 +366,9 @@ void http_client_host_drop_request(struct http_client_host *host,
 	struct http_client_request *req)
 {
 	struct http_client_host_port *hport;
+	const char *https_name = req->ssl ? req->hostname : NULL;
 
-	hport = http_client_host_port_find(host, req->port, req->ssl);
+	hport = http_client_host_port_find(host, req->port, https_name);
 	if (hport == NULL)
 		return;
 
