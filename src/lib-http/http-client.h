@@ -36,7 +36,6 @@ struct http_client_settings {
 	const char *ssl_ca_dir, *ssl_ca;
 	const char *ssl_crypto_device;
 	bool ssl_allow_invalid_cert;
-	bool ssl_verify;
 
 	const char *rawlog_dir;
 

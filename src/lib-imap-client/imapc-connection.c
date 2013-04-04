@@ -1151,7 +1151,6 @@ static int imapc_connection_ssl_handshaked(const char **error_r, void *context)
 		return 0;
 	}
 	conn->handshake_failed = TRUE;
-	i_stream_close(conn->input);
 	return -1;
 }
 

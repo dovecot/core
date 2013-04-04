@@ -434,7 +434,6 @@ static int pop3c_client_ssl_handshaked(const char **error_r, void *context)
 		return 0;
 	}
 	client->handshake_failed = TRUE;
-	i_stream_close(client->input);
 	return -1;
 }
 

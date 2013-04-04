@@ -330,10 +330,12 @@ static int server_connection_ssl_handshaked(const char **error_r, void *context)
 			*error_r = "SSL certificate not received";
 		else
 			*error_r = "Received invalid SSL certificate";
+		return -1;
 	} else if (ssl_iostream_cert_match_name(conn->ssl_iostream, host) < 0) {
 		*error_r = t_strdup_printf(
 			"SSL certificate doesn't match expected host name %s",
 			host);
+		return -1;
 	} else {
 		if (doveadm_debug) {
 			i_debug("%s: SSL handshake successful",
@@ -341,8 +343,6 @@ static int server_connection_ssl_handshaked(const char **error_r, void *context)
 		}
 		return 0;
 	}
-	i_stream_close(conn->input);
-	return -1;
 }
 
 static int server_connection_init_ssl(struct server_connection *conn)
