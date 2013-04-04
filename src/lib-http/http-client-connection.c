@@ -307,7 +307,8 @@ static void http_client_connection_destroy(struct connection *_conn)
 
 	switch (_conn->disconnect_reason) {
 	case CONNECTION_DISCONNECT_CONNECT_TIMEOUT:
-		http_client_peer_connection_failure(conn->peer);
+		http_client_peer_connection_failure(conn->peer, t_strdup_printf(
+			"connect(%s) failed: Connection timed out", _conn->name));
 		break;
 	case CONNECTION_DISCONNECT_CONN_CLOSED:
 		/* retry pending requests if possible */
@@ -683,15 +684,13 @@ static int http_client_connection_ssl_handshaked(void *context)
 }
 
 static int 
-http_client_connection_ssl_init(struct http_client_connection *conn)
+http_client_connection_ssl_init(struct http_client_connection *conn,
+				const char **error_r)
 {
 	struct ssl_iostream_settings ssl_set;
 	const char *source, *error;
 
-	if (conn->client->ssl_ctx == NULL) {
-		http_client_connection_error(conn, "No SSL context");
-		return -1;
-	}
+	i_assert(conn->client->ssl_ctx != NULL);
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
 	if (conn->client->set.ssl_verify) {
@@ -708,15 +707,16 @@ http_client_connection_ssl_init(struct http_client_connection *conn)
 	if (io_stream_create_ssl(conn->client->ssl_ctx, source, &ssl_set,
 				 &conn->conn.input, &conn->conn.output,
 				 &conn->ssl_iostream, &error) < 0) {
-		http_client_connection_error(conn,
-			"Couldn't initialize SSL client: %s", error);
+		*error_r = t_strdup_printf(
+			"Couldn't initialize SSL client for %s: %s",
+			conn->conn.name, error);
 		return -1;
 	}
 	ssl_iostream_set_handshake_callback(conn->ssl_iostream,
 					    http_client_connection_ssl_handshaked, conn);
 	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
-		http_client_connection_error(conn, "SSL handshake failed: %s",
-			ssl_iostream_get_last_error(conn->ssl_iostream));
+		*error_r = t_strdup_printf("SSL handshake to %s failed: %s",
+			conn->conn.name, ssl_iostream_get_last_error(conn->ssl_iostream));
 		return -1;
 	}
 
@@ -729,16 +729,16 @@ http_client_connection_connected(struct connection *_conn, bool success)
 {
 	struct http_client_connection *conn =
 		(struct http_client_connection *)_conn;
+	const char *error;
 
 	if (!success) {
-		http_client_connection_error(conn, "connect(%s) failed: %m",
-					     _conn->name);
-		http_client_peer_connection_failure(conn->peer);
+		http_client_peer_connection_failure(conn->peer, t_strdup_printf(
+			"connect(%s) failed: %m", _conn->name));
 	} else {
 		http_client_connection_debug(conn, "Connected");
 		if (conn->peer->addr.ssl) {
-			if (http_client_connection_ssl_init(conn) < 0) {
-				http_client_peer_connection_failure(conn->peer);
+			if (http_client_connection_ssl_init(conn, &error) < 0) {
+				http_client_peer_connection_failure(conn->peer, error);
 				http_client_connection_unref(&conn);
 			}
 			return;

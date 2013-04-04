@@ -232,7 +232,8 @@ struct http_client_request *
 	http_client_peer_claim_request(struct http_client_peer *peer,
 		bool no_urgent);
 void http_client_peer_handle_requests(struct http_client_peer *peer);
-void http_client_peer_connection_failure(struct http_client_peer *peer);
+void http_client_peer_connection_failure(struct http_client_peer *peer,
+					 const char *reason);
 void http_client_peer_connection_lost(struct http_client_peer *peer);
 unsigned int http_client_peer_idle_connections(struct http_client_peer *peer);
 
@@ -245,7 +246,7 @@ struct http_client_request *
 http_client_host_claim_request(struct http_client_host *host,
 	const struct http_client_peer_addr *addr, bool no_urgent);
 void http_client_host_connection_failure(struct http_client_host *host,
-	const struct http_client_peer_addr *addr);
+	const struct http_client_peer_addr *addr, const char *reason);
 unsigned int http_client_host_requests_pending(struct http_client_host *host,
 	const struct http_client_peer_addr *addr, unsigned int *num_urgent_r);
 void http_client_host_drop_request(struct http_client_host *host,

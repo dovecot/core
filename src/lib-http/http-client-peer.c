@@ -279,7 +279,8 @@ http_client_peer_claim_request(struct http_client_peer *peer, bool no_urgent)
 	return NULL;
 }
 
-void http_client_peer_connection_failure(struct http_client_peer *peer)
+void http_client_peer_connection_failure(struct http_client_peer *peer,
+					 const char *reason)
 {
 	struct http_client_host *const *host;
 	unsigned int num_urgent;
@@ -299,7 +300,7 @@ void http_client_peer_connection_failure(struct http_client_peer *peer)
 		   failed. a second connect will probably also fail, so just
 		   abort all requests. */
 		array_foreach(&peer->hosts, host) {
-			http_client_host_connection_failure(*host, &peer->addr);
+			http_client_host_connection_failure(*host, &peer->addr, reason);
 		}
 	}
 	if (array_count(&peer->conns) == 0 &&

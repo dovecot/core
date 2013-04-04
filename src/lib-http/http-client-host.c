@@ -119,17 +119,6 @@ http_client_host_connection_setup(struct http_client_host *host,
 	struct http_client_peer *peer = NULL;
 	struct http_client_peer_addr addr;
 
-	if (hport->ips_connect_idx == host->ips_count) {
-		/* all IPs failed, but retry all of them again on the
-		   next request. */
-		hport->ips_connect_idx = 0;
-		http_client_host_port_error
-			(hport, HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, "Connection failed");
-		if (host->client->ioloop != NULL)
-			io_loop_stop(host->client->ioloop);
-		return;
-	}
-
 	addr.ip = host->ips[hport->ips_connect_idx];
 	addr.port = hport->port;
 	addr.ssl = hport->ssl;
@@ -142,18 +131,28 @@ http_client_host_connection_setup(struct http_client_host *host,
 }
 
 void http_client_host_connection_failure(struct http_client_host *host,
-	const struct http_client_peer_addr *addr)
+	const struct http_client_peer_addr *addr, const char *reason)
 {
 	struct http_client_host_port *hport;
 
-	http_client_host_debug(host, "Failed to connect to %s:%u", 
-		net_ip2addr(&addr->ip), addr->port);
+	http_client_host_debug(host, "Failed to connect to %s:%u: %s",
+		net_ip2addr(&addr->ip), addr->port, reason);
 
 	hport = http_client_host_port_find(host, addr->port, addr->ssl);
 	if (hport == NULL)
 		return;
 
-	hport->ips_connect_idx++;
+	i_assert(hport->ips_connect_idx < host->ips_count);
+	if (++hport->ips_connect_idx == host->ips_count) {
+		/* all IPs failed, but retry all of them again on the
+		   next request. */
+		hport->ips_connect_idx = 0;
+		http_client_host_port_error(hport,
+			HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, reason);
+		if (host->client->ioloop != NULL)
+			io_loop_stop(host->client->ioloop);
+		return;
+	}
 	http_client_host_connection_setup(host, hport);
 }
 
@@ -302,6 +301,7 @@ void http_client_host_submit_request(struct http_client_host *host,
 	/* make a connection if we have an IP already */
 	if (host->ips_count == 0)
 		return;
+	i_assert(hport->ips_connect_idx == 0);
 	http_client_host_connection_setup(host, hport);
 }
 
