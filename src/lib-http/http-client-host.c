@@ -164,13 +164,15 @@ void http_client_host_connection_failure(struct http_client_host *host,
 }
 
 static void
-http_client_host_lookup_failure(struct http_client_host *host)
+http_client_host_lookup_failure(struct http_client_host *host, const char *error)
 {
 	struct http_client_host_port *hport;
 
+	error = t_strdup_printf("Failed to lookup host %s: %s",
+				host->name, error);
 	array_foreach_modifiable(&host->ports, hport) {
 		http_client_host_port_error(hport,
-			HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED, "Failed to lookup host");
+			HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED, error);
 	}
 }
 
@@ -184,9 +186,7 @@ http_client_host_dns_callback(const struct dns_lookup_result *result,
 	host->dns_lookup = NULL;
 
 	if (result->ret != 0) {
-		i_error("http-client: dns_lookup(%s) failed: %s",
-			host->name, result->error);
-		http_client_host_lookup_failure(host);
+		http_client_host_lookup_failure(host, result->error);
 		return;
 	}
 
@@ -235,9 +235,7 @@ static void http_client_host_lookup
 	} else if (dns_set.dns_client_socket_path == NULL) {
 		ret = net_gethostbyname(host->name,	&ips, &ips_count);
 		if (ret != 0) {
-			i_error("http-client: net_gethostbyname(%s) failed: %s",
-				host->name,	net_gethosterror(ret));
-			http_client_host_lookup_failure(host);
+			http_client_host_lookup_failure(host, net_gethosterror(ret));
 			return;
 		}
 
