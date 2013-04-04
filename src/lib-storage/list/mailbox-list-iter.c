@@ -594,7 +594,9 @@ mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 	if (info != NULL) {
 		if (strcasecmp(info->vname, "INBOX") == 0 && ctx->inbox_list) {
 			/* delay sending INBOX reply. we already saved its
-			   flags at init stage */
+			   flags at init stage, except for \Noinferiors */
+			ctx->inbox_info.flags |=
+				(info->flags & MAILBOX_NOINFERIORS);
 			return FALSE;
 		}
 		if (strncasecmp(info->vname, "INBOX", 5) == 0 &&
