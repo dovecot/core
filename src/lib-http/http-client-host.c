@@ -118,6 +118,17 @@ http_client_host_connection_setup(struct http_client_host *host,
 {
 	struct http_client_peer *peer = NULL;
 	struct http_client_peer_addr addr;
+	const char *error;
+
+	if (hport->ssl && host->client->ssl_ctx == NULL) {
+		if (http_client_init_ssl_ctx(host->client, &error) < 0) {
+			http_client_host_port_error(hport,
+				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, error);
+			if (host->client->ioloop != NULL)
+				io_loop_stop(host->client->ioloop);
+			return;
+		}
+	}
 
 	while (hport->ips_connect_idx < host->ips_count) {
 		addr.ip = host->ips[hport->ips_connect_idx];

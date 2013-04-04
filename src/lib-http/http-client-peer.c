@@ -207,9 +207,8 @@ http_client_peer_create(struct http_client *client,
 			      const struct http_client_peer_addr *addr)
 {
 	struct http_client_peer *peer;
-#ifdef HTTP_BUILD_SSL
-	struct ssl_iostream_settings ssl_set;
-#endif
+
+	i_assert(!addr->ssl || client->ssl_ctx != NULL);
 
 	peer = i_new(struct http_client_peer, 1);
 	peer->client = client;
@@ -222,32 +221,6 @@ http_client_peer_create(struct http_client *client,
 	DLLIST_PREPEND(&client->peers_list, peer);
 
 	http_client_peer_debug(peer, "Peer created");
-
-#ifdef HTTP_BUILD_SSL
-	if (peer->addr.ssl && peer->ssl_ctx == NULL) {
-		const char *source;
-		memset(&ssl_set, 0, sizeof(ssl_set));
-		ssl_set.ca_dir = peer->client->set.ssl_ca_dir;
-		ssl_set.ca = peer->client->set.ssl_ca;
-		ssl_set.verify_remote_cert = TRUE;
-		ssl_set.crypto_device = peer->client->set.ssl_crypto_device;
-
-		source = t_strdup_printf("http-client: peer %s:%u",
-			net_ip2addr(&peer->addr.ip), peer->addr.port);
-		if (ssl_iostream_context_init_client
-			(source, &ssl_set, &peer->ssl_ctx) < 0) {
-			http_client_peer_error(peer, "Couldn't initialize SSL context");
-			http_client_peer_free(&peer);
-			return NULL;
-		}
-	}
-#else
-	if (peer->addr.ssl) {
-		http_client_peer_error(peer, "HTTPS is not supported");
-		http_client_peer_free(&peer);
-		return NULL;
-	}
-#endif
 
 	if (http_client_peer_connect(peer, 1) < 0) {
 		http_client_peer_free(&peer);
@@ -280,11 +253,6 @@ void http_client_peer_free(struct http_client_peer **_peer)
 	i_assert(array_count(&peer->conns) == 0);
 	array_free(&peer->conns);
 	array_free(&peer->hosts);
-
-#ifdef HTTP_BUILD_SSL
-	if (peer->ssl_ctx != NULL)
-		ssl_iostream_context_deinit(&peer->ssl_ctx);
-#endif
 
 	hash_table_remove
 		(peer->client->peers, (const struct http_client_peer_addr *)&peer->addr);

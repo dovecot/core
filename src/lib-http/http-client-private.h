@@ -5,8 +5,6 @@
 
 #include "http-client.h"
 
-#define HTTP_BUILD_SSL
-
 #define HTTP_DEFAULT_PORT 80
 #define HTTPS_DEFAULT_PORT 443
 
@@ -113,11 +111,6 @@ struct http_client_peer {
 	/* active connections to this peer */
 	ARRAY_TYPE(http_client_connection) conns;
 
-	/* ssl */
-#ifdef HTTP_BUILD_SSL
-	struct ssl_iostream_context *ssl_ctx;
-#endif
-
 	unsigned int destroyed:1;        /* peer is being destroyed */
 	unsigned int no_payload_sync:1;  /* expect: 100-continue failed before */
 	unsigned int last_connect_failed:1;
@@ -133,11 +126,7 @@ struct http_client_connection {
 
 	unsigned int id; // DEBUG: identify parallel connections
 
-	/* ssl */
-#ifdef HTTP_BUILD_SSL
 	struct ssl_iostream *ssl_iostream;
-#endif
-
 	struct http_response_parser *http_parser;
 	struct timeout *to_input, *to_idle, *to_response;
 
@@ -161,6 +150,7 @@ struct http_client {
 	struct http_client_settings set;
 
 	struct ioloop *ioloop;
+	struct ssl_iostream_context *ssl_ctx;
 
 	struct connection_list *conn_list;
 
@@ -184,6 +174,8 @@ http_client_connection_label(struct http_client_connection *conn)
 	return t_strdup_printf("%s:%u [%d]",
 		net_ip2addr(&conn->conn.ip), conn->conn.port, conn->id);
 }
+
+int http_client_init_ssl_ctx(struct http_client *client, const char **error_r);
 
 void http_client_request_ref(struct http_client_request *req);
 void http_client_request_unref(struct http_client_request **_req);

@@ -122,6 +122,9 @@ void http_client_deinit(struct http_client **_client)
 	hash_table_destroy(&client->hosts);
 
 	connection_list_deinit(&client->conn_list);
+
+	if (client->ssl_ctx != NULL)
+		ssl_iostream_context_deinit(&client->ssl_ctx);
 	pool_unref(&client->pool);
 	*_client = NULL;
 }
@@ -180,3 +183,23 @@ void http_client_wait(struct http_client *client)
 	io_loop_destroy(&client->ioloop);
 }
 
+int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
+{
+	struct ssl_iostream_settings ssl_set;
+
+	if (client->ssl_ctx != NULL)
+		return 0;
+
+	memset(&ssl_set, 0, sizeof(ssl_set));
+	ssl_set.ca_dir = client->set.ssl_ca_dir;
+	ssl_set.ca = client->set.ssl_ca;
+	ssl_set.verify_remote_cert = TRUE;
+	ssl_set.crypto_device = client->set.ssl_crypto_device;
+
+	if (ssl_iostream_context_init_client("lib-http", &ssl_set,
+					     &client->ssl_ctx) < 0) {
+		*error_r = "Couldn't initialize SSL context";
+		return -1;
+	}
+	return 0;
+}

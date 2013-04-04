@@ -651,7 +651,6 @@ http_client_connection_ready(struct http_client_connection *conn)
 	(void)http_client_connection_next_request(conn);
 }
 
-#ifdef HTTP_BUILD_SSL
 static int http_client_connection_ssl_handshaked(void *context)
 {
 	struct http_client_connection *conn = context;
@@ -689,7 +688,7 @@ http_client_connection_ssl_init(struct http_client_connection *conn)
 	struct ssl_iostream_settings ssl_set;
 	const char *source;
 
-	if (conn->peer->ssl_ctx == NULL) {
+	if (conn->client->ssl_ctx == NULL) {
 		http_client_connection_error(conn, "No SSL context");
 		return -1;
 	}
@@ -706,7 +705,7 @@ http_client_connection_ssl_init(struct http_client_connection *conn)
 
 	source = t_strdup_printf
 		("connection %s: ", http_client_connection_label(conn));
-	if (io_stream_create_ssl(conn->peer->ssl_ctx, source, &ssl_set,
+	if (io_stream_create_ssl(conn->client->ssl_ctx, source, &ssl_set,
 				 &conn->conn.input, &conn->conn.output, &conn->ssl_iostream) < 0) {
 		http_client_connection_error(conn, "Couldn't initialize SSL client");
 		return -1;
@@ -722,7 +721,6 @@ http_client_connection_ssl_init(struct http_client_connection *conn)
 	http_client_connection_ready(conn);
 	return 0;
 }
-#endif
 
 static void 
 http_client_connection_connected(struct connection *_conn, bool success)
@@ -736,13 +734,11 @@ http_client_connection_connected(struct connection *_conn, bool success)
 
 	} else {
 		http_client_connection_debug(conn, "Connected");
-#ifdef HTTP_BUILD_SSL
 		if (conn->peer->addr.ssl) {
 			if (http_client_connection_ssl_init(conn) < 0)
 				http_client_peer_connection_failure(conn->peer);
 			return;
 		}
-#endif
 		http_client_connection_ready(conn);
 	}
 }
@@ -829,10 +825,8 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 	conn->closing = TRUE;
 	conn->connected = FALSE;
 
-#ifdef HTTP_BUILD_SSL
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
-#endif
 
 	connection_deinit(&conn->conn);
 
