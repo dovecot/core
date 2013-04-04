@@ -320,8 +320,8 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 
 	/* We need to create a prefix="" namespace for the owner */
 	if (mail_namespaces_init_location(owner, str_c(location), &error) < 0) {
+		/* owner gets freed by namespace deinit */
 		mail_namespace_destroy(new_ns);
-		mail_user_unref(&owner);
 		return -1;
 	}
 
@@ -329,8 +329,8 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 				MAIL_STORAGE_FLAG_NO_AUTOVERIFY, &error) < 0) {
 		mailbox_list_set_critical(list, "Namespace '%s': %s",
 					  new_ns->prefix, error);
+		/* owner gets freed by namespace deinit */
 		mail_namespace_destroy(new_ns);
-		mail_user_unref(&owner);
 		return -1;
 	}
 	if ((new_ns->flags & NAMESPACE_FLAG_UNUSABLE) == 0 &&

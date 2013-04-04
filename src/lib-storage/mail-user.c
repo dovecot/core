@@ -70,15 +70,15 @@ struct mail_user *mail_user_alloc(const char *username,
 	return user;
 }
 
-static int
-mail_user_expand_plugins_envs(struct mail_user *user, const char **error_r)
+static void
+mail_user_expand_plugins_envs(struct mail_user *user)
 {
 	const char **envs, *home;
 	string_t *str;
 	unsigned int i, count;
 
 	if (!array_is_created(&user->set->plugin_envs))
-		return 0;
+		return;
 
 	str = t_str_new(256);
 	envs = array_get_modifiable(&user->set->plugin_envs, &count);
@@ -87,17 +87,16 @@ mail_user_expand_plugins_envs(struct mail_user *user, const char **error_r)
 		if (user->_home == NULL &&
 		    var_has_key(envs[i+1], 'h', "home") &&
 		    mail_user_get_home(user, &home) <= 0) {
-			*error_r = t_strdup_printf(
+			user->error = p_strdup_printf(user->pool,
 				"userdb didn't return a home directory, "
 				"but plugin setting %s used it (%%h): %s",
 				envs[i], envs[i+1]);
-			return -1;
+			return;
 		}
 		str_truncate(str, 0);
 		var_expand(str, envs[i+1], mail_user_var_expand_table(user));
 		envs[i+1] = p_strdup(user->pool, str_c(str));
 	}
-	return 0;
 }
 
 int mail_user_init(struct mail_user *user, const char **error_r)
@@ -115,20 +114,21 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 			    user->pool, mail_user_var_expand_table(user));
 
 	if (need_home_dir && mail_user_get_home(user, &home) <= 0) {
-		*error_r = t_strdup_printf(
+		user->error = p_strdup_printf(user->pool,
 			"userdb didn't return a home directory, "
 			"but %s used it (%%h): %s", key, value);
-		return -1;
 	}
+	mail_user_expand_plugins_envs(user);
 
-	if (mail_user_expand_plugins_envs(user, error_r) < 0)
-		return -1;
+	/* autocreated users for shared mailboxes need to be fully initialized
+	   if they don't exist, since they're going to be used anyway */
+	if (user->error == NULL || user->nonexistent) {
+		mail_set = mail_user_set_get_storage_set(user);
+		user->mail_debug = mail_set->mail_debug;
 
-	mail_set = mail_user_set_get_storage_set(user);
-	user->mail_debug = mail_set->mail_debug;
-
-	user->initialized = TRUE;
-	hook_mail_user_created(user);
+		user->initialized = TRUE;
+		hook_mail_user_created(user);
+	}
 
 	if (user->error != NULL) {
 		*error_r = t_strdup(user->error);
