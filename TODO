@@ -1,6 +1,20 @@
+ - dsync: delete foo, rename bar foo -> foo, foo-temp-1
+ - dsync+imapc:
+     - half-sync [-1], which is the same as normal sync except the other side
+       doesn't do anything (so when migrating from imapc, don't push changes
+       back to it)
+     - mailbox list could be synced pretty optimally by ignoring
+       (name, uidvalidity) matches. for the left if uidvalidities are unique
+       and can be matched -> rename mailbox.
+     - GUID-less sync could optionally use just rfc822.size [and internaldate]
+       to match messages.
+
+ - lib-ssl-iostream: ssl_get_last_error() should return also syscall errors
+   instead of being NULL. most importantly handle handshake code.
  - if transaction log file corruption is noticed, make sure new dovecot.index
    snapshot gets written and don't mark the whole file corrupted.. rather maybe
    just rotate and truncate it
+ - mdbox: purging in alt storage could create files back to alt storage
  - LAYOUT=index:
     - force-resync should fix the index, finding any missing mailboxes, same
       for when internally detecting the error

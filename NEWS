@@ -1,3 +1,10 @@
+v2.2.rc4 2013-04-05  Timo Sirainen <tss@iki.fi>
+
+	+ Added "doveadm replicator" commands
+	- Larger changes to lib-http and lib-ssl-iostream error handling.
+	  The API caller can now get the exact error message as a string.
+	- Various bugfixes to LDAP changes in rc3
+
 v2.2.rc3 2013-03-20  Timo Sirainen <tss@iki.fi>
 
 	+ dsync: Support syncing ACLs (and Sieve scripts with Pigeonhole)
