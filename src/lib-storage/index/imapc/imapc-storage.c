@@ -186,6 +186,7 @@ imapc_storage_get_hierarchy_sep(struct imapc_storage *storage,
 {
 	struct imapc_command *cmd;
 	struct imapc_simple_context sctx;
+	const char *imapc_list_prefix = storage->set->imapc_list_prefix;
 
 	imapc_simple_context_init(&sctx, storage);
 	cmd = imapc_client_cmd(storage->client, imapc_simple_callback, &sctx);
@@ -200,6 +201,12 @@ imapc_storage_get_hierarchy_sep(struct imapc_storage *storage,
 
 	if (storage->list->sep == '\0') {
 		*error_r = "LIST didn't return hierarchy separator";
+		return -1;
+	}
+
+	if (imapc_list_prefix[0] != '\0' &&
+	    imapc_list_prefix[strlen(imapc_list_prefix)-1] == storage->list->sep) {
+		*error_r = "imapc_list_prefix must not end with hierarchy separator";
 		return -1;
 	}
 	return sctx.ret;
