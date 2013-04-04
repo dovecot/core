@@ -350,6 +350,7 @@ static int server_connection_ssl_handshaked(void *context)
 static int server_connection_init_ssl(struct server_connection *conn)
 {
 	struct ssl_iostream_settings ssl_set;
+	const char *error;
 
 	if (conn->server->ssl_ctx == NULL)
 		return 0;
@@ -361,8 +362,8 @@ static int server_connection_init_ssl(struct server_connection *conn)
 
 	if (io_stream_create_ssl(conn->server->ssl_ctx, "doveadm", &ssl_set,
 				 &conn->input, &conn->output,
-				 &conn->ssl_iostream) < 0) {
-		i_error("Couldn't initialize SSL client");
+				 &conn->ssl_iostream, &error) < 0) {
+		i_error("Couldn't initialize SSL client: %s", error);
 		return -1;
 	}
 	ssl_iostream_set_handshake_callback(conn->ssl_iostream,

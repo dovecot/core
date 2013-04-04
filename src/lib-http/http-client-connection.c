@@ -686,7 +686,7 @@ static int
 http_client_connection_ssl_init(struct http_client_connection *conn)
 {
 	struct ssl_iostream_settings ssl_set;
-	const char *source;
+	const char *source, *error;
 
 	if (conn->client->ssl_ctx == NULL) {
 		http_client_connection_error(conn, "No SSL context");
@@ -706,8 +706,10 @@ http_client_connection_ssl_init(struct http_client_connection *conn)
 	source = t_strdup_printf
 		("connection %s: ", http_client_connection_label(conn));
 	if (io_stream_create_ssl(conn->client->ssl_ctx, source, &ssl_set,
-				 &conn->conn.input, &conn->conn.output, &conn->ssl_iostream) < 0) {
-		http_client_connection_error(conn, "Couldn't initialize SSL client");
+				 &conn->conn.input, &conn->conn.output,
+				 &conn->ssl_iostream, &error) < 0) {
+		http_client_connection_error(conn,
+			"Couldn't initialize SSL client: %s", error);
 		return -1;
 	}
 	ssl_iostream_set_handshake_callback(conn->ssl_iostream,

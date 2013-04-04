@@ -30,7 +30,8 @@ static void openssl_info_callback(const SSL *ssl, int where, int ret)
 }
 
 static int
-openssl_iostream_use_certificate(struct ssl_iostream *ssl_io, const char *cert)
+openssl_iostream_use_certificate(struct ssl_iostream *ssl_io, const char *cert,
+				 const char **error_r)
 {
 	BIO *in;
 	X509 *x;
@@ -38,7 +39,8 @@ openssl_iostream_use_certificate(struct ssl_iostream *ssl_io, const char *cert)
 
 	in = BIO_new_mem_buf(t_strdup_noconst(cert), strlen(cert));
 	if (in == NULL) {
-		i_error("BIO_new_mem_buf() failed: %s", openssl_iostream_error());
+		*error_r = t_strdup_printf("BIO_new_mem_buf() failed: %s",
+					   openssl_iostream_error());
 		return -1;
 	}
 
@@ -52,7 +54,7 @@ openssl_iostream_use_certificate(struct ssl_iostream *ssl_io, const char *cert)
 	BIO_free(in);
 
 	if (ret == 0) {
-		i_error("%s: Can't load ssl_cert: %s", ssl_io->source,
+		*error_r = t_strdup_printf("Can't load ssl_cert: %s",
 			ssl_iostream_get_use_certificate_error(cert));
 		return -1;
 	}
@@ -61,16 +63,17 @@ openssl_iostream_use_certificate(struct ssl_iostream *ssl_io, const char *cert)
 
 static int
 openssl_iostream_use_key(struct ssl_iostream *ssl_io,
-			 const struct ssl_iostream_settings *set)
+			 const struct ssl_iostream_settings *set,
+			 const char **error_r)
 {
 	EVP_PKEY *pkey;
 	int ret = 0;
 
-	if (openssl_iostream_load_key(set, ssl_io->source, &pkey) < 0)
+	if (openssl_iostream_load_key(set, &pkey, error_r) < 0)
 		return -1;
 	if (SSL_use_PrivateKey(ssl_io->ssl, pkey) != 1) {
-		i_error("%s: Can't load SSL private key: %s",
-			ssl_io->source, openssl_iostream_key_load_error());
+		*error_r = t_strdup_printf("Can't load SSL private key: %s",
+					   openssl_iostream_key_load_error());
 		ret = -1;
 	}
 	EVP_PKEY_free(pkey);
@@ -116,7 +119,8 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 
 static int
 openssl_iostream_set(struct ssl_iostream *ssl_io,
-		     const struct ssl_iostream_settings *set)
+		     const struct ssl_iostream_settings *set,
+		     const char **error_r)
 {
 	const struct ssl_iostream_settings *ctx_set = ssl_io->ctx->set;
 	int verify_flags;
@@ -127,11 +131,11 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 	if (set->cipher_list != NULL &&
 	    strcmp(ctx_set->cipher_list, set->cipher_list) != 0) {
 		if (!SSL_set_cipher_list(ssl_io->ssl, set->cipher_list)) {
-			i_error("%s: Can't set cipher list to '%s': %s",
-				ssl_io->source, set->cipher_list,
-				openssl_iostream_error());
+			*error_r = t_strdup_printf(
+				"Can't set cipher list to '%s': %s",
+				set->cipher_list, openssl_iostream_error());
+			return -1;
 		}
-		return -1;
 	}
 	if (set->protocols != NULL) {
 		SSL_clear_options(ssl_io->ssl, OPENSSL_ALL_PROTOCOL_OPTIONS);
@@ -140,11 +144,11 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 	}
 
 	if (set->cert != NULL && strcmp(ctx_set->cert, set->cert) != 0) {
-		if (openssl_iostream_use_certificate(ssl_io, set->cert) < 0)
+		if (openssl_iostream_use_certificate(ssl_io, set->cert, error_r) < 0)
 			return -1;
 	}
 	if (set->key != NULL && strcmp(ctx_set->key, set->key) != 0) {
-		if (openssl_iostream_use_key(ssl_io, set) < 0)
+		if (openssl_iostream_use_key(ssl_io, set, error_r) < 0)
 			return -1;
 	}
 	if (set->verify_remote_cert) {
@@ -159,8 +163,10 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 	if (set->cert_username_field != NULL) {
 		ssl_io->username_nid = OBJ_txt2nid(set->cert_username_field);
 		if (ssl_io->username_nid == NID_undef) {
-			i_error("%s: Invalid cert_username_field: %s",
-				ssl_io->source, set->cert_username_field);
+			*error_r = t_strdup_printf(
+				"Invalid cert_username_field: %s",
+				set->cert_username_field);
+			return -1;
 		}
 	} else {
 		ssl_io->username_nid = ssl_io->ctx->username_nid;
@@ -176,16 +182,17 @@ static int
 openssl_iostream_create(struct ssl_iostream_context *ctx, const char *source,
 			const struct ssl_iostream_settings *set,
 			struct istream **input, struct ostream **output,
-			struct ssl_iostream **iostream_r)
+			struct ssl_iostream **iostream_r,
+			const char **error_r)
 {
 	struct ssl_iostream *ssl_io;
 	SSL *ssl;
 	BIO *bio_int, *bio_ext;
-	int ret;
 
 	ssl = SSL_new(ctx->ssl_ctx);
 	if (ssl == NULL) {
-		i_error("SSL_new() failed: %s", openssl_iostream_error());
+		*error_r = t_strdup_printf("SSL_new() failed: %s",
+					   openssl_iostream_error());
 		return -1;
 	}
 
@@ -195,8 +202,8 @@ openssl_iostream_create(struct ssl_iostream_context *ctx, const char *source,
 	   into the given buffer. The bio_int is used by OpenSSL and bio_ext
 	   is used by this library. */
 	if (BIO_new_bio_pair(&bio_int, 0, &bio_ext, 0) != 1) {
-		i_error("BIO_new_bio_pair() failed: %s",
-			openssl_iostream_error());
+		*error_r = t_strdup_printf("BIO_new_bio_pair() failed: %s",
+					   openssl_iostream_error());
 		SSL_free(ssl);
 		return -1;
 	}
@@ -213,10 +220,7 @@ openssl_iostream_create(struct ssl_iostream_context *ctx, const char *source,
 	SSL_set_bio(ssl_io->ssl, bio_int, bio_int);
         SSL_set_ex_data(ssl_io->ssl, dovecot_ssl_extdata_index, ssl_io);
 
-	T_BEGIN {
-		ret = openssl_iostream_set(ssl_io, set);
-	} T_END;
-	if (ret < 0) {
+	if (openssl_iostream_set(ssl_io, set, error_r) < 0) {
 		openssl_iostream_free(ssl_io);
 		return -1;
 	}

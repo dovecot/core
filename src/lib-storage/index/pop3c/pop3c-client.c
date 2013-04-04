@@ -74,7 +74,7 @@ pop3c_client_init(const struct pop3c_client_settings *set)
 {
 	struct pop3c_client *client;
 	struct ssl_iostream_settings ssl_set;
-	const char *source;
+	const char *error;
 	pool_t pool;
 
 	pool = pool_alloconly_create("pop3c client", 1024);
@@ -103,11 +103,10 @@ pop3c_client_init(const struct pop3c_client_settings *set)
 		ssl_set.verify_remote_cert = set->ssl_verify;
 		ssl_set.crypto_device = set->ssl_crypto_device;
 
-		source = t_strdup_printf("%s:%u", set->host, set->port);
-		if (ssl_iostream_context_init_client(source, &ssl_set,
-						     &client->ssl_ctx) < 0) {
-			i_error("pop3c(%s): Couldn't initialize SSL context",
-				source);
+		if (ssl_iostream_context_init_client(&ssl_set, &client->ssl_ctx,
+						     &error) < 0) {
+			i_error("pop3c(%s:%u): Couldn't initialize SSL context: %s",
+				set->host, set->port, error);
 		}
 	}
 	return client;
@@ -445,7 +444,7 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 {
 	struct ssl_iostream_settings ssl_set;
 	struct stat st;
-	const char *source;
+	const char *source, *error;
 
 	if (client->ssl_ctx == NULL) {
 		i_error("pop3c(%s): No SSL context", client->set.host);
@@ -475,9 +474,9 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 	source = t_strdup_printf("pop3c(%s): ", client->set.host);
 	if (io_stream_create_ssl(client->ssl_ctx, source, &ssl_set,
 				 &client->input, &client->output,
-				 &client->ssl_iostream) < 0) {
-		i_error("pop3c(%s): Couldn't initialize SSL client",
-			client->set.host);
+				 &client->ssl_iostream, &error) < 0) {
+		i_error("pop3c(%s): Couldn't initialize SSL client: %s",
+			client->set.host, error);
 		return -1;
 	}
 	ssl_iostream_set_handshake_callback(client->ssl_iostream,

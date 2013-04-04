@@ -569,7 +569,8 @@ static void dsync_connected_callback(enum server_cmd_reply reply, void *context)
 }
 
 static int dsync_init_ssl_ctx(struct dsync_cmd_context *ctx,
-			      const struct mail_storage_settings *mail_set)
+			      const struct mail_storage_settings *mail_set,
+			      const char **error_r)
 {
 	struct ssl_iostream_settings ssl_set;
 
@@ -581,8 +582,7 @@ static int dsync_init_ssl_ctx(struct dsync_cmd_context *ctx,
 	ssl_set.verify_remote_cert = TRUE;
 	ssl_set.crypto_device = mail_set->ssl_crypto_device;
 
-	return ssl_iostream_context_init_client("doveadm", &ssl_set,
-						&ctx->ssl_ctx);
+	return ssl_iostream_context_init_client(&ssl_set, &ctx->ssl_ctx, error_r);
 }
 
 static int
@@ -594,12 +594,14 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	struct server_connection *conn;
 	struct ioloop *ioloop;
 	string_t *cmd;
+	const char *error;
 
 	server = p_new(ctx->ctx.pool, struct doveadm_server, 1);
 	server->name = p_strdup(ctx->ctx.pool, target);
 	if (ssl) {
-		if (dsync_init_ssl_ctx(ctx, mail_set) < 0) {
-			*error_r = "Couldn't initialize SSL context";
+		if (dsync_init_ssl_ctx(ctx, mail_set, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"Couldn't initialize SSL context: %s", error);
 			return -1;
 		}
 		server->ssl_ctx = ctx->ssl_ctx;

@@ -4,22 +4,22 @@
 #include "iostream-ssl.h"
 
 struct iostream_ssl_vfuncs {
-	int (*context_init_client)(const char *source,
-				   const struct ssl_iostream_settings *set,
-				   struct ssl_iostream_context **ctx_r);
-	int (*context_init_server)(const char *source,
-				   const struct ssl_iostream_settings *set,
-				   struct ssl_iostream_context **ctx_r);
+	int (*context_init_client)(const struct ssl_iostream_settings *set,
+				   struct ssl_iostream_context **ctx_r,
+				   const char **error_r);
+	int (*context_init_server)(const struct ssl_iostream_settings *set,
+				   struct ssl_iostream_context **ctx_r,
+				   const char **error_r);
 	void (*context_deinit)(struct ssl_iostream_context *ctx);
 
-	int (*generate_params)(buffer_t *output);
+	int (*generate_params)(buffer_t *output, const char **error_r);
 	int (*context_import_params)(struct ssl_iostream_context *ctx,
 				     const buffer_t *input);
 
 	int (*create)(struct ssl_iostream_context *ctx, const char *source,
 		      const struct ssl_iostream_settings *set,
 		      struct istream **input, struct ostream **output,
-		      struct ssl_iostream **iostream_r);
+		      struct ssl_iostream **iostream_r, const char **error_r);
 	void (*unref)(struct ssl_iostream *ssl_io);
 	void (*destroy)(struct ssl_iostream *ssl_io);
 

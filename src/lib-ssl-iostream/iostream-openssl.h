@@ -10,8 +10,6 @@ struct ssl_iostream_context {
 
 	pool_t pool;
 	const struct ssl_iostream_settings *set;
-	/* Used as logging prefix, e.g. "client" or "server" */
-	const char *source;
 
 	DH *dh_512, *dh_1024;
 	int username_nid;
@@ -57,16 +55,16 @@ extern int dovecot_ssl_extdata_index;
 struct istream *openssl_i_stream_create_ssl(struct ssl_iostream *ssl_io);
 struct ostream *openssl_o_stream_create_ssl(struct ssl_iostream *ssl_io);
 
-int openssl_iostream_context_init_client(const char *source,
-					 const struct ssl_iostream_settings *set,
-					 struct ssl_iostream_context **ctx_r);
-int openssl_iostream_context_init_server(const char *source,
-					 const struct ssl_iostream_settings *set,
-					 struct ssl_iostream_context **ctx_r);
+int openssl_iostream_context_init_client(const struct ssl_iostream_settings *set,
+					 struct ssl_iostream_context **ctx_r,
+					 const char **error_r);
+int openssl_iostream_context_init_server(const struct ssl_iostream_settings *set,
+					 struct ssl_iostream_context **ctx_r,
+					 const char **error_r);
 void openssl_iostream_context_deinit(struct ssl_iostream_context *ctx);
 
 int openssl_iostream_load_key(const struct ssl_iostream_settings *set,
-			      const char *key_source, EVP_PKEY **pkey_r);
+			      EVP_PKEY **pkey_r, const char **error_r);
 const char *ssl_iostream_get_use_certificate_error(const char *cert);
 int openssl_cert_match_name(SSL *ssl, const char *verify_name);
 int openssl_get_protocol_options(const char *protocols);
@@ -92,7 +90,7 @@ int openssl_iostream_handle_write_error(struct ssl_iostream *ssl_io, int ret,
 const char *openssl_iostream_error(void);
 const char *openssl_iostream_key_load_error(void);
 
-int openssl_iostream_generate_params(buffer_t *output);
+int openssl_iostream_generate_params(buffer_t *output, const char **error_r);
 int openssl_iostream_context_import_params(struct ssl_iostream_context *ctx,
 					   const buffer_t *input);
 void openssl_iostream_context_free_params(struct ssl_iostream_context *ctx);

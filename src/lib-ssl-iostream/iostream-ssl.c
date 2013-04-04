@@ -19,7 +19,7 @@ static void ssl_module_unload(void)
 }
 #endif
 
-static int ssl_module_load(void)
+static int ssl_module_load(const char **error_r)
 {
 #ifdef HAVE_SSL
 	const char *plugin_name = "ssl_iostream_openssl";
@@ -31,38 +31,42 @@ static int ssl_module_load(void)
 	ssl_module = module_dir_load(MODULE_DIR, plugin_name, &mod_set);
 
 	ssl_vfuncs = module_get_symbol(ssl_module, "ssl_vfuncs");
-	if (ssl_vfuncs == NULL)
-		i_fatal("%s: ssl_vfuncs symbol not found", plugin_name);
+	if (ssl_vfuncs == NULL) {
+		*error_r = t_strdup_printf("%s: Broken plugin: "
+			"ssl_vfuncs symbol not found", plugin_name);
+		module_dir_unload(&ssl_module);
+		return -1;
+	}
 
 	atexit(ssl_module_unload);
 	ssl_module_loaded = TRUE;
 	return 0;
 #else
-	/* SSL not enabled */
+	*error_r = "SSL support not compiled in";
 	return -1;
 #endif
 }
 
-int ssl_iostream_context_init_client(const char *source,
-				     const struct ssl_iostream_settings *set,
-				     struct ssl_iostream_context **ctx_r)
+int ssl_iostream_context_init_client(const struct ssl_iostream_settings *set,
+				     struct ssl_iostream_context **ctx_r,
+				     const char **error_r)
 {
 	if (!ssl_module_loaded) {
-		if (ssl_module_load() < 0)
+		if (ssl_module_load(error_r) < 0)
 			return -1;
 	}
-	return ssl_vfuncs->context_init_client(source, set, ctx_r);
+	return ssl_vfuncs->context_init_client(set, ctx_r, error_r);
 }
 
-int ssl_iostream_context_init_server(const char *source,
-				     const struct ssl_iostream_settings *set,
-				     struct ssl_iostream_context **ctx_r)
+int ssl_iostream_context_init_server(const struct ssl_iostream_settings *set,
+				     struct ssl_iostream_context **ctx_r,
+				     const char **error_r)
 {
 	if (!ssl_module_loaded) {
-		if (ssl_module_load() < 0)
+		if (ssl_module_load(error_r) < 0)
 			return -1;
 	}
-	return ssl_vfuncs->context_init_server(source, set, ctx_r);
+	return ssl_vfuncs->context_init_server(set, ctx_r, error_r);
 }
 
 void ssl_iostream_context_deinit(struct ssl_iostream_context **_ctx)
@@ -73,13 +77,13 @@ void ssl_iostream_context_deinit(struct ssl_iostream_context **_ctx)
 	ssl_vfuncs->context_deinit(ctx);
 }
 
-int ssl_iostream_generate_params(buffer_t *output)
+int ssl_iostream_generate_params(buffer_t *output, const char **error_r)
 {
 	if (!ssl_module_loaded) {
-		if (ssl_module_load() < 0)
+		if (ssl_module_load(error_r) < 0)
 			return -1;
 	}
-	return ssl_vfuncs->generate_params(output);
+	return ssl_vfuncs->generate_params(output, error_r);
 }
 
 int ssl_iostream_context_import_params(struct ssl_iostream_context *ctx,
@@ -91,9 +95,11 @@ int ssl_iostream_context_import_params(struct ssl_iostream_context *ctx,
 int io_stream_create_ssl(struct ssl_iostream_context *ctx, const char *source,
 			 const struct ssl_iostream_settings *set,
 			 struct istream **input, struct ostream **output,
-			 struct ssl_iostream **iostream_r)
+			 struct ssl_iostream **iostream_r,
+			 const char **error_r)
 {
-	return ssl_vfuncs->create(ctx, source, set, input, output, iostream_r);
+	return ssl_vfuncs->create(ctx, source, set, input, output,
+				  iostream_r, error_r);
 }
 
 void ssl_iostream_unref(struct ssl_iostream **_ssl_io)

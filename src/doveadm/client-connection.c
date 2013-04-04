@@ -350,10 +350,14 @@ static int client_connection_read_settings(struct client_connection *conn)
 
 static int client_connection_init_ssl(struct client_connection *conn)
 {
+	const char *error;
+
 	if (master_service_ssl_init(master_service,
 				    &conn->input, &conn->output,
-				    &conn->ssl_iostream) < 0)
+				    &conn->ssl_iostream, &error) < 0) {
+		i_error("SSL init failed: %s", error);
 		return -1;
+	}
 	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
 		i_error("SSL handshake failed: %s",
 			ssl_iostream_get_last_error(conn->ssl_iostream));

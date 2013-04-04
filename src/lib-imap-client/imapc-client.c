@@ -39,7 +39,7 @@ imapc_client_init(const struct imapc_client_settings *set)
 {
 	struct imapc_client *client;
 	struct ssl_iostream_settings ssl_set;
-	const char *source;
+	const char *error;
 	pool_t pool;
 
 	pool = pool_alloconly_create("imapc client", 1024);
@@ -70,11 +70,10 @@ imapc_client_init(const struct imapc_client_settings *set)
 		ssl_set.verify_remote_cert = set->ssl_verify;
 		ssl_set.crypto_device = set->ssl_crypto_device;
 
-		source = t_strdup_printf("%s:%u", set->host, set->port);
-		if (ssl_iostream_context_init_client(source, &ssl_set,
-						     &client->ssl_ctx) < 0) {
-			i_error("imapc(%s): Couldn't initialize SSL context",
-				source);
+		if (ssl_iostream_context_init_client(&ssl_set, &client->ssl_ctx,
+						     &error) < 0) {
+			i_error("imapc(%s:%u): Couldn't initialize SSL context: %s",
+				set->host, set->port, error);
 		}
 	}
 	client->untagged_callback = default_untagged_callback;

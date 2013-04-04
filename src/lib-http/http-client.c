@@ -186,6 +186,7 @@ void http_client_wait(struct http_client *client)
 int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 {
 	struct ssl_iostream_settings ssl_set;
+	const char *error;
 
 	if (client->ssl_ctx != NULL)
 		return 0;
@@ -196,9 +197,9 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 	ssl_set.verify_remote_cert = TRUE;
 	ssl_set.crypto_device = client->set.ssl_crypto_device;
 
-	if (ssl_iostream_context_init_client("lib-http", &ssl_set,
-					     &client->ssl_ctx) < 0) {
-		*error_r = "Couldn't initialize SSL context";
+	if (ssl_iostream_context_init_client(&ssl_set, &client->ssl_ctx, &error) < 0) {
+		*error_r = t_strdup_printf("Couldn't initialize SSL context: %s",
+					   error);
 		return -1;
 	}
 	return 0;

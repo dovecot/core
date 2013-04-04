@@ -10,7 +10,8 @@
 
 static int dh_param_bitsizes[] = { 512, 1024 };
 
-static int generate_dh_parameters(int bitsize, buffer_t *output)
+static int
+generate_dh_parameters(int bitsize, buffer_t *output, const char **error_r)
 {
         DH *dh;
 	unsigned char *p;
@@ -18,14 +19,16 @@ static int generate_dh_parameters(int bitsize, buffer_t *output)
 
 	dh = DH_generate_parameters(bitsize, DH_GENERATOR, NULL, NULL);
 	if (dh == NULL) {
-		i_error("DH_generate_parameters(bits=%d, gen=%d) failed: %s",
+		*error_r = t_strdup_printf(
+			"DH_generate_parameters(bits=%d, gen=%d) failed: %s",
 			bitsize, DH_GENERATOR, openssl_iostream_error());
 		return -1;
 	}
 
 	len = i2d_DHparams(dh, NULL);
 	if (len < 0) {
-		i_error("i2d_DHparams() failed: %s", openssl_iostream_error());
+		*error_r = t_strdup_printf("i2d_DHparams() failed: %s",
+					   openssl_iostream_error());
 		DH_free(dh);
 		return -1;
 	}
@@ -40,12 +43,13 @@ static int generate_dh_parameters(int bitsize, buffer_t *output)
 	return 0;
 }
 
-int openssl_iostream_generate_params(buffer_t *output)
+int openssl_iostream_generate_params(buffer_t *output, const char **error_r)
 {
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(dh_param_bitsizes); i++) {
-		if (generate_dh_parameters(dh_param_bitsizes[i], output) < 0)
+		if (generate_dh_parameters(dh_param_bitsizes[i],
+					   output, error_r) < 0)
 			return -1;
 	}
 	buffer_append_zero(output, sizeof(int));

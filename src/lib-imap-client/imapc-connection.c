@@ -1161,7 +1161,7 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 {
 	struct ssl_iostream_settings ssl_set;
 	struct stat st;
-	const char *source;
+	const char *source, *error;
 
 	if (conn->client->ssl_ctx == NULL) {
 		i_error("imapc(%s): No SSL context", conn->name);
@@ -1191,9 +1191,9 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	source = t_strdup_printf("imapc(%s): ", conn->name);
 	if (io_stream_create_ssl(conn->client->ssl_ctx, source, &ssl_set,
 				 &conn->input, &conn->output,
-				 &conn->ssl_iostream) < 0) {
-		i_error("imapc(%s): Couldn't initialize SSL client",
-			conn->name);
+				 &conn->ssl_iostream, &error) < 0) {
+		i_error("imapc(%s): Couldn't initialize SSL client: %s",
+			conn->name, error);
 		return -1;
 	}
 	ssl_iostream_set_handshake_callback(conn->ssl_iostream,

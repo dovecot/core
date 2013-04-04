@@ -61,15 +61,18 @@ static int ssl_refresh_parameters(struct master_service *service)
 
 int master_service_ssl_init(struct master_service *service,
 			    struct istream **input, struct ostream **output,
-			    struct ssl_iostream **ssl_iostream_r)
+			    struct ssl_iostream **ssl_iostream_r,
+			    const char **error_r)
 {
 	const struct master_service_ssl_settings *set;
 	struct ssl_iostream_settings ssl_set;
 
 	i_assert(service->ssl_ctx_initialized);
 
-	if (service->ssl_ctx == NULL)
+	if (service->ssl_ctx == NULL) {
+		*error_r = "Failed to initialize SSL context";
 		return -1;
+	}
 
 	(void)ssl_refresh_parameters(service);
 
@@ -80,7 +83,7 @@ int master_service_ssl_init(struct master_service *service,
 	ssl_set.verify_remote_cert = set->ssl_verify_client_cert;
 
 	return io_stream_create_ssl(service->ssl_ctx, service->name, &ssl_set,
-				    input, output, ssl_iostream_r);
+				    input, output, ssl_iostream_r, error_r);
 }
 
 bool master_service_ssl_is_enabled(struct master_service *service)
@@ -92,6 +95,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 {
 	const struct master_service_ssl_settings *set;
 	struct ssl_iostream_settings ssl_set;
+	const char *error;
 
 	if (service->ssl_ctx_initialized)
 		return;
@@ -116,9 +120,10 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	ssl_set.verbose = set->verbose_ssl;
 	ssl_set.verify_remote_cert = set->ssl_verify_client_cert;
 
-	if (ssl_iostream_context_init_server(service->name, &ssl_set,
-					     &service->ssl_ctx) < 0) {
-		i_error("SSL context initialization failed, disabling SSL");
+	if (ssl_iostream_context_init_server(&ssl_set, &service->ssl_ctx,
+					     &error) < 0) {
+		i_error("SSL context initialization failed, disabling SSL: %s",
+			error);
 		master_service_ssl_io_listeners_remove(service);
 		return;
 	}
