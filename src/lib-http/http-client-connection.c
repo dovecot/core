@@ -831,10 +831,7 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 	conn->closing = TRUE;
 	conn->connected = FALSE;
 
-	if (conn->ssl_iostream != NULL)
-		ssl_iostream_unref(&conn->ssl_iostream);
-
-	connection_deinit(&conn->conn);
+	connection_disconnect(&conn->conn);
 
 	/* abort all pending requests */
 	array_foreach_modifiable(&conn->request_wait_list, req) {
@@ -843,6 +840,13 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 		http_client_request_unref(req);
 	}
 	array_free(&conn->request_wait_list);
+
+	if (conn->http_parser != NULL)
+		http_response_parser_deinit(&conn->http_parser);
+
+	if (conn->ssl_iostream != NULL)
+		ssl_iostream_unref(&conn->ssl_iostream);
+	connection_deinit(&conn->conn);
 
 	if (conn->to_input != NULL)
 		timeout_remove(&conn->to_input);
@@ -859,9 +863,6 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 			break;
 		}
 	}
-
-	if (conn->http_parser != NULL)
-		http_response_parser_deinit(&conn->http_parser);
 
 	i_free(conn);
 	*_conn = NULL;
