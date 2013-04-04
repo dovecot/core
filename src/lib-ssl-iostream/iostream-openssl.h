@@ -38,7 +38,7 @@ struct ssl_iostream {
 	bool verbose, verbose_invalid_cert, require_valid_cert;
 	int username_nid;
 
-	int (*handshake_callback)(void *context);
+	ssl_iostream_handshake_callback_t *handshake_callback;
 	void *handshake_context;
 
 	unsigned int handshaked:1;

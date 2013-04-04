@@ -315,7 +315,7 @@ static int server_connection_read_settings(struct server_connection *conn)
 	return 0;
 }
 
-static int server_connection_ssl_handshaked(void *context)
+static int server_connection_ssl_handshaked(const char **error_r, void *context)
 {
 	struct server_connection *conn = context;
 	const char *host, *p;
@@ -326,16 +326,14 @@ static int server_connection_ssl_handshaked(void *context)
 		host = t_strdup_until(host, p);
 
 	if (!ssl_iostream_has_valid_client_cert(conn->ssl_iostream)) {
-		if (!ssl_iostream_has_broken_client_cert(conn->ssl_iostream)) {
-			i_error("%s: SSL certificate not received",
-				conn->server->name);
-		} else {
-			i_error("%s: Received invalid SSL certificate",
-				conn->server->name);
-		}
+		if (!ssl_iostream_has_broken_client_cert(conn->ssl_iostream))
+			*error_r = "SSL certificate not received";
+		else
+			*error_r = "Received invalid SSL certificate";
 	} else if (ssl_iostream_cert_match_name(conn->ssl_iostream, host) < 0) {
-		i_error("%s: SSL certificate doesn't match host name",
-			conn->server->name);
+		*error_r = t_strdup_printf(
+			"SSL certificate doesn't match expected host name %s",
+			host);
 	} else {
 		if (doveadm_debug) {
 			i_debug("%s: SSL handshake successful",

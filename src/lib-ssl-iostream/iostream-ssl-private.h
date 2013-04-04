@@ -25,7 +25,7 @@ struct iostream_ssl_vfuncs {
 
 	int (*handshake)(struct ssl_iostream *ssl_io);
 	void (*set_handshake_callback)(struct ssl_iostream *ssl_io,
-				       int (*callback)(void *context),
+				       ssl_iostream_handshake_callback_t *callback,
 				       void *context);
 
 	bool (*is_handshaked)(const struct ssl_iostream *ssl_io);

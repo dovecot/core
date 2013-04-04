@@ -124,7 +124,7 @@ int ssl_iostream_handshake(struct ssl_iostream *ssl_io)
 }
 
 void ssl_iostream_set_handshake_callback(struct ssl_iostream *ssl_io,
-					 int (*callback)(void *context),
+					 ssl_iostream_handshake_callback_t *callback,
 					 void *context)
 {
 	ssl_vfuncs->set_handshake_callback(ssl_io, callback, context);

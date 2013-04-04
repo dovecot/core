@@ -516,6 +516,7 @@ openssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
 
 static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 {
+	const char *error = NULL;
 	int ret;
 
 	i_assert(!ssl_io->handshaked);
@@ -542,7 +543,9 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 	ssl_io->handshaked = TRUE;
 
 	if (ssl_io->handshake_callback != NULL) {
-		if (ssl_io->handshake_callback(ssl_io->handshake_context) < 0) {
+		if (ssl_io->handshake_callback(&error, ssl_io->handshake_context) < 0) {
+			i_assert(error != NULL);
+			openssl_iostream_set_error(ssl_io, error);
 			errno = EINVAL;
 			return -1;
 		}
@@ -554,7 +557,7 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 
 static void
 openssl_iostream_set_handshake_callback(struct ssl_iostream *ssl_io,
-					int (*callback)(void *context),
+					ssl_iostream_handshake_callback_t *callback,
 					void *context)
 {
 	ssl_io->handshake_callback = callback;

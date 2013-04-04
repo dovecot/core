@@ -652,7 +652,8 @@ http_client_connection_ready(struct http_client_connection *conn)
 	(void)http_client_connection_next_request(conn);
 }
 
-static int http_client_connection_ssl_handshaked(void *context)
+static int
+http_client_connection_ssl_handshaked(const char **error_r, void *context)
 {
 	struct http_client_connection *conn = context;
 
@@ -661,23 +662,22 @@ static int http_client_connection_ssl_handshaked(void *context)
 		http_client_connection_debug(conn, "SSL handshake successful");
 		return 0;
 	} else if (!ssl_iostream_has_valid_client_cert(conn->ssl_iostream)) {
-		if (!ssl_iostream_has_broken_client_cert(conn->ssl_iostream)) {
-			http_client_connection_error(conn, "SSL certificate not received");
-		} else {
-			http_client_connection_error(conn, "Received invalid SSL certificate");
-		}
+		if (!ssl_iostream_has_broken_client_cert(conn->ssl_iostream))
+			*error_r = "SSL certificate not received";
+		else
+			*error_r = "Received invalid SSL certificate";
 	} else {
 		const char *host = http_client_peer_get_hostname(conn->peer);
 
 		i_assert(host != NULL);
 
-		if (ssl_iostream_cert_match_name(conn->ssl_iostream, host) < 0) {
-			http_client_connection_error(conn, 
-				"SSL certificate doesn't match host name");
-		} else {
+		if (ssl_iostream_cert_match_name(conn->ssl_iostream, host) == 0) {
 			http_client_connection_debug(conn, "SSL handshake successful");
 			return 0;
 		}
+
+		*error_r = t_strdup_printf(
+			"SSL certificate doesn't match expected host name %s", host);
 	}
 	i_stream_close(conn->conn.input);
 	return -1;

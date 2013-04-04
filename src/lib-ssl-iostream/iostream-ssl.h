@@ -19,6 +19,11 @@ struct ssl_iostream_settings {
 	bool require_valid_cert; /* stream-only */
 };
 
+/* Returns 0 if ok, -1 and sets error_r if failed. The returned error string
+   becomes available via ssl_iostream_get_last_error() */
+typedef int
+ssl_iostream_handshake_callback_t(const char **error_r, void *context);
+
 int io_stream_create_ssl(struct ssl_iostream_context *ctx, const char *source,
 			 const struct ssl_iostream_settings *set,
 			 struct istream **input, struct ostream **output,
@@ -31,7 +36,7 @@ void ssl_iostream_destroy(struct ssl_iostream **ssl_io);
 
 int ssl_iostream_handshake(struct ssl_iostream *ssl_io);
 void ssl_iostream_set_handshake_callback(struct ssl_iostream *ssl_io,
-					 int (*callback)(void *context),
+					 ssl_iostream_handshake_callback_t *callback,
 					 void *context);
 
 bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io);
