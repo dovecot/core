@@ -193,7 +193,9 @@ imapc_list_get_vname(struct mailbox_list *_list, const char *storage_name)
 	const char *prefix = list->storage->set->imapc_list_prefix;
 	unsigned int prefix_len;
 
-	if (*prefix != '\0' && strcasecmp(storage_name, "INBOX") != 0) {
+	if (*storage_name == '\0') {
+		/* ACL plugin does these lookups */
+	} else if (*prefix != '\0' && strcasecmp(storage_name, "INBOX") != 0) {
 		prefix_len = strlen(prefix);
 		i_assert(strncmp(prefix, storage_name, prefix_len) == 0 &&
 			 storage_name[prefix_len] == list->sep);
