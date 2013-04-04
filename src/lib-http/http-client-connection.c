@@ -21,9 +21,6 @@
 static inline void
 http_client_connection_debug(struct http_client_connection *conn,
 	const char *format, ...) ATTR_FORMAT(2, 3);
-static inline void
-http_client_connection_error(struct http_client_connection *conn,
-	const char *format, ...) ATTR_FORMAT(2, 3);
 
 static inline void
 http_client_connection_debug(struct http_client_connection *conn,
@@ -39,19 +36,6 @@ http_client_connection_debug(struct http_client_connection *conn,
 		va_end(args);
 	}
 }
-
-static inline void
-http_client_connection_error(struct http_client_connection *conn,
-	const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);	
-	i_error("http-client: conn %s: %s",
-		http_client_connection_label(conn),	t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
 
 /*
  * Connection
@@ -482,7 +466,7 @@ static void http_client_connection_input(struct connection *_conn)
 
 		if (req == NULL) {
 			/* server sent response without any requests in the wait list */
-			http_client_connection_error(conn, "Got unexpected input from server");
+			http_client_connection_debug(conn, "Got unexpected input from server");
 			http_client_connection_unref(&conn);
 			return;
 		}
