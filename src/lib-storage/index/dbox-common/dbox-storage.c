@@ -202,7 +202,7 @@ int dbox_mailbox_open(struct mailbox *box)
 		;
 	else if (errno == ENOENT || errno == ENAMETOOLONG) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 		return -1;
 	} else if (errno == EACCES) {
 		mail_storage_set_critical(box->storage, "%s",

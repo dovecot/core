@@ -61,6 +61,7 @@ doveadm_server_DEPENDENCIES = \
 common = \
 	doveadm-mail.c \
 	doveadm-mail-altmove.c \
+	doveadm-mail-batch.c \
 	doveadm-mail-expunge.c \
 	doveadm-mail-fetch.c \
 	doveadm-mail-import.c \

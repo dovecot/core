@@ -1304,6 +1304,18 @@ auth_request_try_update_username(struct auth_request *request,
 	return TRUE;
 }
 
+static void
+auth_request_passdb_import(struct auth_request *request, const char *args,
+			   const char *key_prefix, const char *default_scheme)
+{
+	const char *const *arg, *field;
+
+	for (arg = t_strsplit(args, "\t"); *arg != NULL; arg++) {
+		field = t_strconcat(key_prefix, *arg, NULL);
+		auth_request_set_field_keyvalue(request, field, default_scheme);
+	}
+}
+
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme)
@@ -1350,6 +1362,17 @@ void auth_request_set_field(struct auth_request *request,
 		request->passdb_password = NULL;
 		auth_fields_add(request->extra_fields, name, value, 0);
 		return;
+	} else if (strcmp(name, "passdb_import") == 0) {
+		auth_request_passdb_import(request, value, "", default_scheme);
+		return;
+		if (strcmp(name, "userdb_userdb_import") == 0) {
+			/* we need can't put the whole userdb_userdb_import
+			   value to extra_cache_fields or it doesn't work
+			   properly. so handle this explicitly. */
+			auth_request_passdb_import(request, value,
+						   "userdb_", default_scheme);
+			return;
+		}
 	} else {
 		/* these fields are returned to client */
 		auth_fields_add(request->extra_fields, name, value, 0);
@@ -1422,6 +1445,24 @@ static void auth_request_set_uidgid_file(struct auth_request *request,
 	}
 }
 
+static void
+auth_request_userdb_import(struct auth_request *request, const char *args)
+{
+	const char *key, *value, *const *arg;
+
+	for (arg = t_strsplit(args, "\t"); *arg != NULL; arg++) {
+		value = strchr(*arg, '=');
+		if (value == NULL) {
+			key = *arg;
+			value = "";
+		} else {
+			key = t_strdup_until(*arg, value);
+			value++;
+		}
+		auth_request_set_userdb_field(request, key, value);
+	}
+}
+
 void auth_request_set_userdb_field(struct auth_request *request,
 				   const char *name, const char *value)
 {
@@ -1451,7 +1492,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		auth_request_set_uidgid_file(request, value);
 		return;
 	} else if (strcmp(name, "userdb_import") == 0) {
-		auth_fields_import(request->userdb_reply, value, 0);
+		auth_request_userdb_import(request, value);
 		return;
 	} else if (strcmp(name, "system_user") == 0) {
 		/* FIXME: the system_user is for backwards compatibility */

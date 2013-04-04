@@ -21,6 +21,7 @@ struct quota_client {
 	struct connection conn;
 
 	char *recipient;
+	uoff_t size;
 };
 
 static enum quota_protocol protocol;
@@ -42,7 +43,8 @@ static void client_reset(struct quota_client *client)
 	i_free_and_null(client->recipient);
 }
 
-static int quota_check(struct mail_user *user, const char **error_r)
+static int
+quota_check(struct mail_user *user, uoff_t mail_size, const char **error_r)
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct mail_namespace *ns;
@@ -60,7 +62,7 @@ static int quota_check(struct mail_user *user, const char **error_r)
 	box = mailbox_alloc(ns->list, "INBOX", 0);
 
 	ctx = quota_transaction_begin(box);
-	ret = quota_test_alloc(ctx, 1, &too_large);
+	ret = quota_test_alloc(ctx, I_MAX(1, mail_size), &too_large);
 	quota_transaction_rollback(&ctx);
 
 	mailbox_free(&box);
@@ -77,7 +79,7 @@ static void client_handle_request(struct quota_client *client)
 	struct mail_storage_service_input input;
 	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
-	const char *error;
+	const char *value = NULL, *error;
 	int ret;
 
 	if (client->recipient == NULL) {
@@ -92,21 +94,31 @@ static void client_handle_request(struct quota_client *client)
 					       &service_user, &user, &error);
 	restrict_access_allow_coredumps(TRUE);
 	if (ret == 0) {
-		o_stream_send_str(client->conn.output,
-				  "action=REJECT Unknown user\n\n");
+		value = mail_user_plugin_getenv(user, "quota_status_nouser");
+		if (value == NULL)
+			value = "REJECT Unknown user";
 	} else if (ret > 0) {
-		if ((ret = quota_check(user, &error)) > 0)
-			o_stream_send_str(client->conn.output, "action=OK\n\n");
-		else if (ret == 0) {
-			o_stream_send_str(client->conn.output, t_strdup_printf(
-					  "action=552 5.2.2 %s\n\n", error));
+		if ((ret = quota_check(user, client->size, &error)) > 0) {
+			/* under quota */
+			value = mail_user_plugin_getenv(user, "quota_status_success");
+			if (value == NULL)
+				value = "OK";
+		} else if (ret == 0) {
+			/* over quota */
+			value = mail_user_plugin_getenv(user, "quota_status_overquota");
+			if (value == NULL)
+				value = t_strdup_printf("552 5.2.2 %s\n\n", error);
 		}
 		mail_user_unref(&user);
 		mail_storage_service_user_free(&service_user);
 	}
 	if (ret < 0) {
+		/* temporary failure */
 		o_stream_send_str(client->conn.output, t_strdup_printf(
 			"action=DEFER_IF_PERMIT %s\n\n", error));
+	} else {
+		o_stream_send_str(client->conn.output,
+				  t_strdup_printf("action=%s\n\n", value));
 	}
 }
 
@@ -124,6 +136,10 @@ static int client_input_line(struct connection *conn, const char *line)
 	if (client->recipient == NULL &&
 	    strncmp(line, "recipient=", 10) == 0)
 		client->recipient = i_strdup(line + 10);
+	else if (strncmp(line, "size=", 5) == 0) {
+		if (str_to_uoff(line+5, &client->size) < 0)
+			client->size = 0;
+	}
 	return 1;
 }
 

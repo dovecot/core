@@ -16,6 +16,10 @@
 
 #define MAILBOX_LOG_FILE_NAME "dovecot.mailbox.log"
 
+#define T_MAILBOX_LIST_ERR_NOT_FOUND(list, name) \
+	t_strdup_printf(MAIL_ERRSTR_MAILBOX_NOT_FOUND, \
+			mailbox_list_get_vname(list, name))
+
 struct stat;
 struct dirent;
 struct imap_match_glob;

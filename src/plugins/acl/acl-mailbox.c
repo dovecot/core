@@ -151,7 +151,7 @@ static void acl_mailbox_fail_not_found(struct mailbox *box)
 				       MAIL_ERRSTR_NO_PERMISSION);
 	} else if (ret == 0) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 	}
 }
 

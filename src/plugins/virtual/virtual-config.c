@@ -379,7 +379,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 				"Virtual mailbox missing configuration file");
 		} else if (errno == ENOENT) {
 			mail_storage_set_error(storage, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(mbox->box.name));
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(mbox->box.vname));
 		} else {
 			mail_storage_set_critical(storage,
 				"stat(%s) failed: %m", box_path);
