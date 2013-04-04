@@ -79,7 +79,7 @@ static void client_handle_request(struct quota_client *client)
 	struct mail_storage_service_input input;
 	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
-	const char *error;
+	const char *value = NULL, *error;
 	int ret;
 
 	if (client->recipient == NULL) {
@@ -94,21 +94,31 @@ static void client_handle_request(struct quota_client *client)
 					       &service_user, &user, &error);
 	restrict_access_allow_coredumps(TRUE);
 	if (ret == 0) {
-		o_stream_send_str(client->conn.output,
-				  "action=REJECT Unknown user\n\n");
+		value = mail_user_plugin_getenv(user, "quota_status_nouser");
+		if (value == NULL)
+			value = "REJECT Unknown user";
 	} else if (ret > 0) {
-		if ((ret = quota_check(user, client->size, &error)) > 0)
-			o_stream_send_str(client->conn.output, "action=OK\n\n");
-		else if (ret == 0) {
-			o_stream_send_str(client->conn.output, t_strdup_printf(
-					  "action=552 5.2.2 %s\n\n", error));
+		if ((ret = quota_check(user, client->size, &error)) > 0) {
+			/* under quota */
+			value = mail_user_plugin_getenv(user, "quota_status_success");
+			if (value == NULL)
+				value = "OK";
+		} else if (ret == 0) {
+			/* over quota */
+			value = mail_user_plugin_getenv(user, "quota_status_overquota");
+			if (value == NULL)
+				value = t_strdup_printf("action=552 5.2.2 %s\n\n", error);
 		}
 		mail_user_unref(&user);
 		mail_storage_service_user_free(&service_user);
 	}
 	if (ret < 0) {
+		/* temporary failure */
 		o_stream_send_str(client->conn.output, t_strdup_printf(
 			"action=DEFER_IF_PERMIT %s\n\n", error));
+	} else {
+		o_stream_send_str(client->conn.output,
+				  t_strdup_printf("action=%s\n\n", value));
 	}
 }
 
