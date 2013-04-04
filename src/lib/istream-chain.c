@@ -119,7 +119,7 @@ static void i_stream_chain_read_next(struct chain_istream *cstream)
 	if (link != NULL && link->stream != NULL)
 		i_stream_seek(link->stream, 0);
 
-	if (cstream->istream.buffer == cstream->istream.w_buffer) {
+	if (cstream->prev_stream_left > 0) {
 		/* we've already buffered some of the prev_input. continue
 		   appending the rest to it. */
 		cur_data_pos = cstream->istream.pos -
@@ -145,7 +145,7 @@ static void i_stream_chain_read_next(struct chain_istream *cstream)
 	cstream->istream.pos += data_size;
 	cstream->prev_stream_left += data_size;
 
-	i_stream_skip(prev_input, data_size);
+	i_stream_skip(prev_input, i_stream_get_data_size(prev_input));
 	i_stream_unref(&prev_input);
 }
 
