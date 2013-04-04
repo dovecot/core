@@ -738,8 +738,10 @@ http_client_connection_connected(struct connection *_conn, bool success)
 	} else {
 		http_client_connection_debug(conn, "Connected");
 		if (conn->peer->addr.ssl) {
-			if (http_client_connection_ssl_init(conn) < 0)
+			if (http_client_connection_ssl_init(conn) < 0) {
 				http_client_peer_connection_failure(conn->peer);
+				http_client_connection_unref(&conn);
+			}
 			return;
 		}
 		http_client_connection_ready(conn);
