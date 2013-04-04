@@ -102,7 +102,7 @@ static void i_stream_chain_read_next(struct chain_istream *cstream)
 	struct istream_chain_link *link = cstream->chain.head;
 	struct istream *prev_input;
 	const unsigned char *data;
-	size_t data_size, size;
+	size_t data_size, size, cur_data_pos;
 
 	i_assert(link != NULL && link->stream != NULL);
 	i_assert(link->stream->eof);
@@ -120,21 +120,31 @@ static void i_stream_chain_read_next(struct chain_istream *cstream)
 		i_stream_seek(link->stream, 0);
 
 	if (cstream->istream.buffer == cstream->istream.w_buffer) {
-		/* we've already buffered the prev_input */
+		/* we've already buffered some of the prev_input. continue
+		   appending the rest to it. */
+		cur_data_pos = cstream->istream.pos -
+			(cstream->istream.skip + cstream->prev_stream_left);
+		i_assert(cur_data_pos <= data_size);
+		data += cur_data_pos;
+		data_size -= cur_data_pos;
 	} else {
-		/* we already verified that the data size is less than the
-		   maximum buffer size */
 		cstream->istream.pos = 0;
-		if (data_size > 0) {
-			if (!i_stream_try_alloc(&cstream->istream, data_size, &size))
-				i_unreached();
-			i_assert(size >= data_size);
-		}
-		memcpy(cstream->istream.w_buffer, data, data_size);
 		cstream->istream.skip = 0;
-		cstream->istream.pos = data_size;
-		cstream->prev_stream_left = data_size;
+		cstream->prev_stream_left = 0;
 	}
+
+	/* we already verified that the data size is less than the
+	   maximum buffer size */
+	if (data_size > 0) {
+		if (!i_stream_try_alloc(&cstream->istream, data_size, &size))
+			i_unreached();
+		i_assert(size >= data_size);
+	}
+	memcpy(cstream->istream.w_buffer + cstream->istream.pos,
+	       data, data_size);
+	cstream->istream.pos += data_size;
+	cstream->prev_stream_left += data_size;
+
 	i_stream_skip(prev_input, data_size);
 	i_stream_unref(&prev_input);
 }
