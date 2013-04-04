@@ -21,7 +21,7 @@ static void test_quoted_printable_decode(void)
 		{ "foo = \n=01", "foo \001", 0, 0 },
 		{ "foo =\t\r\nbar", "foo bar", 0, 0 },
 		{ "foo =\r\n=01", "foo \001", 0, 0 },
-		{ "foo  \nbar=", "foo\nbar", 1, 0 },
+		{ "foo  \nbar=", "foo\r\nbar", 1, 0 },
 		{ "=0A=0D  ", "\n\r", 2, 0 },
 		{ "foo_bar", "foo_bar", 0, 0 },
 		{ "foo=", "foo", 1, 0 },

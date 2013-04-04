@@ -3,7 +3,8 @@
 
 /* Translates quoted printable data into binary. dest must be at least the
    size of src, and may be same as src. Returns 0 if input was valid, -1 if
-   there were some decoding errors (which were skipped over).
+   there were some decoding errors (which were skipped over). LFs without
+   preceding CR are returned as CRLF (but =0A isn't).
 
    This function may be called multiple times for parsing the same stream.
    src_pos is updated to first non-translated character in src. */
