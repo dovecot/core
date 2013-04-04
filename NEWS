@@ -1,3 +1,15 @@
+v2.1.16 2013-04-04  Timo Sirainen <tss@iki.fi>
+
+	+ Added quota-status policy service for Postfix
+	+ Added "doveadm batch" command to run multiple commands before moving
+	  onto the next user (useful only with -A and -u <usermask>)
+	+ Added forwards compatibility for v2.2 index files
+	- mdbox: Index rebuilding crashed in some situations
+	- Fixed a race condition with setting \Recent flags
+	- Fixed a crash when decoding a specific message (decoding is done
+	  for SEARCH TEXT/BODY and with full text search indexing, so this
+	  couldn't fully DoS a user)
+
 v2.1.15 2013-02-08  Timo Sirainen <tss@iki.fi>
 
 	- v2.1.14: dovecot.index.cache fixes caused it to use more disk I/O
