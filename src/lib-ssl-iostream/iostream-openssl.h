@@ -21,8 +21,6 @@ struct ssl_iostream {
 	int refcount;
 	struct ssl_iostream_context *ctx;
 
-	const struct ssl_iostream_settings *set;
-
 	SSL *ssl;
 	BIO *bio_ext;
 
@@ -30,8 +28,9 @@ struct ssl_iostream {
 	struct ostream *plain_output;
 	struct ostream *ssl_output;
 
-	char *source;
+	char *host;
 	char *last_error;
+	char *log_prefix;
 	int plain_stream_errno;
 
 	/* copied settings */

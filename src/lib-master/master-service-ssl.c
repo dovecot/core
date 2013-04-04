@@ -82,8 +82,8 @@ int master_service_ssl_init(struct master_service *service,
 	ssl_set.verbose = set->verbose_ssl;
 	ssl_set.verify_remote_cert = set->ssl_verify_client_cert;
 
-	return io_stream_create_ssl(service->ssl_ctx, service->name, &ssl_set,
-				    input, output, ssl_iostream_r, error_r);
+	return io_stream_create_ssl_server(service->ssl_ctx, &ssl_set,
+					   input, output, ssl_iostream_r, error_r);
 }
 
 bool master_service_ssl_is_enabled(struct master_service *service)

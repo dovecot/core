@@ -358,9 +358,10 @@ static int server_connection_init_ssl(struct server_connection *conn)
 	ssl_set.require_valid_cert = TRUE;
 	ssl_set.verbose_invalid_cert = TRUE;
 
-	if (io_stream_create_ssl(conn->server->ssl_ctx, "doveadm", &ssl_set,
-				 &conn->input, &conn->output,
-				 &conn->ssl_iostream, &error) < 0) {
+	if (io_stream_create_ssl_client(conn->server->ssl_ctx,
+					conn->server->name, &ssl_set,
+					&conn->input, &conn->output,
+					&conn->ssl_iostream, &error) < 0) {
 		i_error("Couldn't initialize SSL client: %s", error);
 		return -1;
 	}

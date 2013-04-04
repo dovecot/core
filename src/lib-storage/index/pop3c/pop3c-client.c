@@ -441,7 +441,7 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 {
 	struct ssl_iostream_settings ssl_set;
 	struct stat st;
-	const char *source, *error;
+	const char *error;
 
 	if (client->ssl_ctx == NULL) {
 		i_error("pop3c(%s): No SSL context", client->set.host);
@@ -468,10 +468,9 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 		client->output = client->raw_output;
 	}
 
-	source = t_strdup_printf("pop3c(%s): ", client->set.host);
-	if (io_stream_create_ssl(client->ssl_ctx, source, &ssl_set,
-				 &client->input, &client->output,
-				 &client->ssl_iostream, &error) < 0) {
+	if (io_stream_create_ssl_client(client->ssl_ctx, client->set.host,
+					&ssl_set, &client->input, &client->output,
+					&client->ssl_iostream, &error) < 0) {
 		i_error("pop3c(%s): Couldn't initialize SSL client: %s",
 			client->set.host, error);
 		return -1;

@@ -291,6 +291,25 @@ ssl_iostream_settings_dup(pool_t pool,
 	return new_set;
 }
 
+#ifdef HAVE_SSL_GET_SERVERNAME
+static int ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
+				   void *context ATTR_UNUSED)
+{
+	struct ssl_iostream *ssl_io;
+	const char *host;
+
+	ssl_io = SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
+	host = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+	if (SSL_get_servername_type(ssl) != -1) {
+		i_free(ssl_io->host);
+		ssl_io->host = i_strdup(host);
+	} else if (ssl_io->verbose) {
+		i_debug("SSL_get_servername() failed");
+	}
+	return SSL_TLSEXT_ERR_OK;
+}
+#endif
+
 static int
 ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			 const struct ssl_iostream_settings *set,
@@ -355,6 +374,15 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			return -1;
 		}
 	}
+#ifdef HAVE_SSL_GET_SERVERNAME
+	if (!ctx->client_ctx) {
+		if (SSL_CTX_set_tlsext_servername_callback(ctx->ssl_ctx,
+					ssl_servername_callback) != 1) {
+			if (set->verbose)
+				i_debug("OpenSSL library doesn't support SNI");
+		}
+	}
+#endif
 	return 0;
 }
 

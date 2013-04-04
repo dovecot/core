@@ -667,7 +667,7 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 				const char **error_r)
 {
 	struct ssl_iostream_settings ssl_set;
-	const char *source, *error;
+	const char *error;
 
 	i_assert(conn->client->ssl_ctx != NULL);
 
@@ -681,11 +681,10 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 	if (conn->client->set.debug)
 		http_client_connection_debug(conn, "Starting SSL handshake");
 
-	source = t_strdup_printf
-		("connection %s: ", http_client_connection_label(conn));
-	if (io_stream_create_ssl(conn->client->ssl_ctx, source, &ssl_set,
-				 &conn->conn.input, &conn->conn.output,
-				 &conn->ssl_iostream, &error) < 0) {
+	if (io_stream_create_ssl_client(conn->client->ssl_ctx,
+					conn->peer->addr.https_name, &ssl_set,
+					&conn->conn.input, &conn->conn.output,
+					&conn->ssl_iostream, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Couldn't initialize SSL client for %s: %s",
 			conn->conn.name, error);

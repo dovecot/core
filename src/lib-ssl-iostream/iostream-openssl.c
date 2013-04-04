@@ -15,16 +15,16 @@ static void openssl_info_callback(const SSL *ssl, int where, int ret)
 
 	ssl_io = SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
 	if ((where & SSL_CB_ALERT) != 0) {
-		i_warning("%s: SSL alert: where=0x%x, ret=%d: %s %s",
-			  ssl_io->source, where, ret,
+		i_warning("%sSSL alert: where=0x%x, ret=%d: %s %s",
+			  ssl_io->log_prefix, where, ret,
 			  SSL_alert_type_string_long(ret),
 			  SSL_alert_desc_string_long(ret));
 	} else if (ret == 0) {
-		i_warning("%s: SSL failed: where=0x%x: %s",
-			  ssl_io->source, where, SSL_state_string_long(ssl));
+		i_warning("%sSSL failed: where=0x%x: %s",
+			  ssl_io->log_prefix, where, SSL_state_string_long(ssl));
 	} else {
-		i_debug("%s: SSL: where=0x%x, ret=%d: %s",
-			ssl_io->source, where, ret,
+		i_debug("%sSSL: where=0x%x, ret=%d: %s",
+			ssl_io->log_prefix, where, ret,
 			SSL_state_string_long(ssl));
 	}
 }
@@ -128,7 +128,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 	if (set->verbose)
 		SSL_set_info_callback(ssl_io->ssl, openssl_info_callback);
 
-	if (set->cipher_list != NULL &&
+       if (set->cipher_list != NULL &&
 	    strcmp(ctx_set->cipher_list, set->cipher_list) != 0) {
 		if (!SSL_set_cipher_list(ssl_io->ssl, set->cipher_list)) {
 			*error_r = t_strdup_printf(
@@ -179,7 +179,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 }
 
 static int
-openssl_iostream_create(struct ssl_iostream_context *ctx, const char *source,
+openssl_iostream_create(struct ssl_iostream_context *ctx, const char *host,
 			const struct ssl_iostream_settings *set,
 			struct istream **input, struct ostream **output,
 			struct ssl_iostream **iostream_r,
@@ -215,10 +215,15 @@ openssl_iostream_create(struct ssl_iostream_context *ctx, const char *source,
 	ssl_io->bio_ext = bio_ext;
 	ssl_io->plain_input = *input;
 	ssl_io->plain_output = *output;
-	ssl_io->source = i_strdup(source);
+	ssl_io->host = i_strdup(host);
+	ssl_io->log_prefix = host == NULL ? i_strdup("") :
+		i_strdup_printf("%s: ", host);
 	/* bio_int will be freed by SSL_free() */
 	SSL_set_bio(ssl_io->ssl, bio_int, bio_int);
         SSL_set_ex_data(ssl_io->ssl, dovecot_ssl_extdata_index, ssl_io);
+#ifdef HAVE_SSL_GET_SERVERNAME
+	SSL_set_tlsext_host_name(ssl_io->ssl, host);
+#endif
 
 	if (openssl_iostream_set(ssl_io, set, error_r) < 0) {
 		openssl_iostream_free(ssl_io);
@@ -249,7 +254,8 @@ static void openssl_iostream_free(struct ssl_iostream *ssl_io)
 	BIO_free(ssl_io->bio_ext);
 	SSL_free(ssl_io->ssl);
 	i_free(ssl_io->last_error);
-	i_free(ssl_io->source);
+	i_free(ssl_io->host);
+	i_free(ssl_io->log_prefix);
 	i_free(ssl_io);
 }
 
@@ -566,6 +572,13 @@ openssl_iostream_set_handshake_callback(struct ssl_iostream *ssl_io,
 	ssl_io->handshake_context = context;
 }
 
+static void openssl_iostream_set_log_prefix(struct ssl_iostream *ssl_io,
+					    const char *prefix)
+{
+	i_free(ssl_io->log_prefix);
+	ssl_io->log_prefix = i_strdup(prefix);
+}
+
 static bool openssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io)
 {
 	return ssl_io->handshaked;
@@ -617,6 +630,11 @@ openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
 	return *name == '\0' ? NULL : name;
 }
 
+static const char *openssl_iostream_get_server_name(struct ssl_iostream *ssl_io)
+{
+	return ssl_io->host;
+}
+
 static const char *
 openssl_iostream_get_security_string(struct ssl_iostream *ssl_io)
 {
@@ -666,11 +684,13 @@ const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	openssl_iostream_handshake,
 	openssl_iostream_set_handshake_callback,
 
+	openssl_iostream_set_log_prefix,
 	openssl_iostream_is_handshaked,
 	openssl_iostream_has_valid_client_cert,
 	openssl_iostream_has_broken_client_cert,
 	openssl_iostream_cert_match_name,
 	openssl_iostream_get_peer_name,
+	openssl_iostream_get_server_name,
 	openssl_iostream_get_security_string,
 	openssl_iostream_get_last_error
 };
