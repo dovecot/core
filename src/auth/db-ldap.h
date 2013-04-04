@@ -101,6 +101,8 @@ struct ldap_request {
 	/* timestamp when request was created */
 	time_t create_time;
 
+	bool failed;
+
 	db_search_callback_t *callback;
 	struct auth_request *auth_request;
 };

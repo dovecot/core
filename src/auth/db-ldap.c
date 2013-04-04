@@ -788,6 +788,13 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 				res = NULL;
 		}
 	}
+	if (res == NULL && !final_result) {
+		/* wait for the final reply */
+		request->failed = TRUE;
+		return TRUE;
+	}
+	if (request->failed)
+		res = NULL;
 	if (final_result) {
 		conn->pending_count--;
 		aqueue_delete(conn->request_queue, idx);
@@ -837,6 +844,7 @@ static void db_ldap_request_free(struct ldap_request *request, LDAPMessage *res)
 static void
 db_ldap_handle_result(struct ldap_connection *conn, LDAPMessage *res)
 {
+	struct auth_request *auth_request;
 	struct ldap_request *request;
 	unsigned int idx;
 	int msgid;
@@ -854,8 +862,12 @@ db_ldap_handle_result(struct ldap_connection *conn, LDAPMessage *res)
 		ldap_msgfree(res);
 		return;
 	}
+	/* request is allocated from auth_request's pool */
+	auth_request = request->auth_request;
+	auth_request_ref(auth_request);
 	if (db_ldap_handle_request_result(conn, request, idx, res))
 		db_ldap_request_free(request, res);
+	auth_request_unref(&auth_request);
 }
 
 static void ldap_input(struct ldap_connection *conn)
