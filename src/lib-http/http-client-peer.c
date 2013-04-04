@@ -36,18 +36,6 @@ http_client_peer_debug(struct http_client_peer *peer,
 	}
 }
 
-static inline void ATTR_FORMAT(2, 3)
-http_client_peer_error(struct http_client_peer *peer,
-	const char *format, ...)
-{
-	va_list args;
-	va_start(args, format);	
-	i_error("http-client: peer %s:%u: %s", 
-		net_ip2addr(&peer->addr.ip), peer->addr.port,
-		t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
 /*
  * Peer address
  */
