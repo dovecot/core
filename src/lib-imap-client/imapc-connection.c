@@ -116,7 +116,6 @@ struct imapc_connection {
 	unsigned int idling:1;
 	unsigned int idle_stopping:1;
 	unsigned int idle_plus_waiting:1;
-	unsigned int handshake_failed:1;
 };
 
 static int imapc_connection_output(struct imapc_connection *conn);
@@ -1112,7 +1111,7 @@ static void imapc_connection_input(struct imapc_connection *conn)
 		if (conn->ssl_iostream == NULL) {
 			i_error("imapc(%s): Server disconnected unexpectedly",
 				conn->name);
-		} else if (!conn->handshake_failed) {
+		} else {
 			errstr = ssl_iostream_get_last_error(conn->ssl_iostream);
 			if (errstr == NULL) {
 				errstr = conn->input->stream_errno == 0 ? "EOF" :
@@ -1146,7 +1145,6 @@ static int imapc_connection_ssl_handshaked(const char **error_r, void *context)
 		}
 		return 0;
 	} else {
-		conn->handshake_failed = TRUE;
 		*error_r = error;
 		return -1;
 	}

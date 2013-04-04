@@ -61,7 +61,6 @@ struct pop3c_client {
 	const char *input_line;
 	struct istream *dot_input;
 
-	unsigned int handshake_failed:1;
 	unsigned int running:1;
 };
 
@@ -396,7 +395,7 @@ static void pop3c_client_prelogin_input(struct pop3c_client *client)
 		if (client->ssl_iostream == NULL) {
 			i_error("pop3c(%s): Server disconnected unexpectedly",
 				client->set.host);
-		} else if (!client->handshake_failed) {
+		} else {
 			errstr = ssl_iostream_get_last_error(client->ssl_iostream);
 			if (errstr == NULL) {
 				errstr = client->input->stream_errno == 0 ? "EOF" :
@@ -429,7 +428,6 @@ static int pop3c_client_ssl_handshaked(const char **error_r, void *context)
 		}
 		return 0;
 	} else {
-		client->handshake_failed = TRUE;
 		*error_r = error;
 		return -1;
 	}
