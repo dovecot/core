@@ -118,21 +118,24 @@ static void i_stream_chain_read_next(struct chain_istream *cstream)
 	if (link != NULL && link->stream != NULL)
 		i_stream_seek(link->stream, 0);
 
-	/* we already verified that the data size is less than the
-	   maximum buffer size */
-	cstream->istream.pos = 0;
-	if (data_size > 0) {
-		if (!i_stream_try_alloc(&cstream->istream, data_size, &size))
-			i_unreached();
-		i_assert(size >= data_size);
+	if (cstream->istream.buffer == cstream->istream.w_buffer) {
+		/* we've already buffered the prev_input */
+	} else {
+		/* we already verified that the data size is less than the
+		   maximum buffer size */
+		cstream->istream.pos = 0;
+		if (data_size > 0) {
+			if (!i_stream_try_alloc(&cstream->istream, data_size, &size))
+				i_unreached();
+			i_assert(size >= data_size);
+		}
+		memcpy(cstream->istream.w_buffer, data, data_size);
+		cstream->istream.skip = 0;
+		cstream->istream.pos = data_size;
+		cstream->prev_stream_left = data_size;
 	}
-
-	memcpy(cstream->istream.w_buffer, data, data_size);
 	i_stream_skip(prev_input, data_size);
 	i_stream_unref(&prev_input);
-	cstream->istream.skip = 0;
-	cstream->istream.pos = data_size;
-	cstream->prev_stream_left = data_size;
 }
 
 static ssize_t i_stream_chain_read(struct istream_private *stream)
