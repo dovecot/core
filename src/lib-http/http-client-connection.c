@@ -640,26 +640,18 @@ static int
 http_client_connection_ssl_handshaked(const char **error_r, void *context)
 {
 	struct http_client_connection *conn = context;
-	const char *host = conn->peer->addr.https_name;
+	const char *error, *host = conn->peer->addr.https_name;
 
-	if (conn->client->set.ssl_allow_invalid_cert) {
-		/* skip certificate checks */
+	if (ssl_iostream_check_cert_validity(conn->ssl_iostream, host, &error) == 0)
 		http_client_connection_debug(conn, "SSL handshake successful");
-		return 0;
-	} else if (!ssl_iostream_has_valid_client_cert(conn->ssl_iostream)) {
-		if (!ssl_iostream_has_broken_client_cert(conn->ssl_iostream))
-			*error_r = "SSL certificate not received";
-		else
-			*error_r = "Received invalid SSL certificate";
-		return -1;
-	} else if (ssl_iostream_cert_match_name(conn->ssl_iostream, host) == 0) {
-		http_client_connection_debug(conn, "SSL handshake successful");
-		return 0;
+	else if (conn->client->set.ssl_allow_invalid_cert) {
+		http_client_connection_debug(conn, "SSL handshake successful, "
+			"ignoring invalid certificate: %s", error);
 	} else {
-		*error_r = t_strdup_printf(
-			"SSL certificate doesn't match expected host name %s", host);
+		*error_r = error;
 		return -1;
 	}
+	return 0;
 }
 
 static int 

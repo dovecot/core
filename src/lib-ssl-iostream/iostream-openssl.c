@@ -9,6 +9,13 @@
 
 static void openssl_iostream_free(struct ssl_iostream *ssl_io);
 
+static void
+openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
+{
+	i_free(ssl_io->last_error);
+	ssl_io->last_error = i_strdup(str);
+}
+
 static void openssl_info_callback(const SSL *ssl, int where, int ret)
 {
 	struct ssl_iostream *ssl_io;
@@ -86,28 +93,27 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	int ssl_extidx = SSL_get_ex_data_X509_STORE_CTX_idx();
 	SSL *ssl;
 	struct ssl_iostream *ssl_io;
+	char certname[1024];
+	X509_NAME *subject;
 
 	ssl = X509_STORE_CTX_get_ex_data(ctx, ssl_extidx);
 	ssl_io = SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
 	ssl_io->cert_received = TRUE;
 
-	if (ssl_io->verbose ||
-	    (ssl_io->verbose_invalid_cert && !preverify_ok)) {
-		char buf[1024];
-		X509_NAME *subject;
-
-		subject = X509_get_subject_name(ctx->current_cert);
-		if (subject == NULL ||
-		    X509_NAME_oneline(subject, buf, sizeof(buf)) == NULL)
-			buf[0] = '\0';
-		else
-			buf[sizeof(buf)-1] = '\0'; /* just in case.. */
-		if (!preverify_ok) {
-			i_info("Invalid certificate: %s: %s",
-			       X509_verify_cert_error_string(ctx->error), buf);
-		} else {
-			i_info("Valid certificate: %s", buf);
-		}
+	subject = X509_get_subject_name(ctx->current_cert);
+	if (subject == NULL ||
+	    X509_NAME_oneline(subject, certname, sizeof(certname)) == NULL)
+		certname[0] = '\0';
+	else
+		certname[sizeof(certname)-1] = '\0'; /* just in case.. */
+	if (!preverify_ok) {
+		openssl_iostream_set_error(ssl_io, t_strdup_printf(
+			"Received invalid SSL certificate: %s: %s",
+			X509_verify_cert_error_string(ctx->error), certname));
+		if (ssl_io->verbose_invalid_cert)
+			i_info("%s", ssl_io->last_error);
+	} else if (ssl_io->verbose) {
+		i_info("Received valid SSL certificate: %s", certname);
 	}
 	if (!preverify_ok) {
 		ssl_io->cert_broken = TRUE;
@@ -173,7 +179,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 	}
 
 	ssl_io->verbose = set->verbose;
-	ssl_io->verbose_invalid_cert = set->verbose_invalid_cert;
+	ssl_io->verbose_invalid_cert = set->verbose_invalid_cert || set->verbose;
 	ssl_io->require_valid_cert = set->require_valid_cert;
 	return 0;
 }
@@ -422,13 +428,6 @@ int openssl_iostream_more(struct ssl_iostream *ssl_io)
 	return 1;
 }
 
-static void
-openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
-{
-	i_free(ssl_io->last_error);
-	ssl_io->last_error = i_strdup(str);
-}
-
 static int
 openssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
 				   const char *func_name, bool write_error)
@@ -545,9 +544,6 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 	/* handshake finished */
 	(void)openssl_iostream_bio_sync(ssl_io);
 
-	i_free_and_null(ssl_io->last_error);
-	ssl_io->handshaked = TRUE;
-
 	if (ssl_io->handshake_callback != NULL) {
 		if (ssl_io->handshake_callback(&error, ssl_io->handshake_context) < 0) {
 			i_assert(error != NULL);
@@ -558,6 +554,9 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 			return -1;
 		}
 	}
+	i_free_and_null(ssl_io->last_error);
+	ssl_io->handshaked = TRUE;
+
 	if (ssl_io->ssl_output != NULL)
 		(void)o_stream_flush(ssl_io->ssl_output);
 	return 1;

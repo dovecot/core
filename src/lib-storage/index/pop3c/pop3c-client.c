@@ -412,29 +412,27 @@ static void pop3c_client_prelogin_input(struct pop3c_client *client)
 static int pop3c_client_ssl_handshaked(const char **error_r, void *context)
 {
 	struct pop3c_client *client = context;
+	const char *error;
 
-	if (!client->set.ssl_verify) {
-		/* skip certificate checks */
-		return 0;
-	} else if (!ssl_iostream_has_valid_client_cert(client->ssl_iostream)) {
-		if (!ssl_iostream_has_broken_client_cert(client->ssl_iostream))
-			*error_r = "SSL certificate not received";
-		else
-			*error_r = "Received invalid SSL certificate";
-	} else if (ssl_iostream_cert_match_name(client->ssl_iostream,
-						client->set.host) < 0) {
-		*error_r = t_strdup_printf(
-			"SSL certificate doesn't match expected host name %s",
-			client->set.host);
-	} else {
+	if (ssl_iostream_check_cert_validity(client->ssl_iostream,
+					     client->set.host, &error) == 0) {
 		if (client->set.debug) {
 			i_debug("pop3c(%s): SSL handshake successful",
 				client->set.host);
 		}
 		return 0;
+	} else if (!client->set.ssl_verify) {
+		if (client->set.debug) {
+			i_debug("pop3c(%s): SSL handshake successful, "
+				"ignoring invalid certificate: %s",
+				client->set.host, error);
+		}
+		return 0;
+	} else {
+		client->handshake_failed = TRUE;
+		*error_r = error;
+		return -1;
 	}
-	client->handshake_failed = TRUE;
-	return -1;
 }
 
 static int pop3c_client_ssl_init(struct pop3c_client *client)

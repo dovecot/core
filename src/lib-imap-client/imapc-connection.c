@@ -1129,29 +1129,27 @@ static void imapc_connection_input(struct imapc_connection *conn)
 static int imapc_connection_ssl_handshaked(const char **error_r, void *context)
 {
 	struct imapc_connection *conn = context;
+	const char *error;
 
-	if (!conn->client->set.ssl_verify) {
-		/* skip certificate checks */
-		return 0;
-	} else if (!ssl_iostream_has_valid_client_cert(conn->ssl_iostream)) {
-		if (!ssl_iostream_has_broken_client_cert(conn->ssl_iostream))
-			*error_r = "SSL certificate not received";
-		else
-			*error_r = "Received invalid SSL certificate";
-	} else if (ssl_iostream_cert_match_name(conn->ssl_iostream,
-						conn->client->set.host) < 0) {
-		*error_r = t_strdup_printf(
-			"SSL certificate doesn't match expected host name %s",
-			conn->client->set.host);
-	} else {
+	if (ssl_iostream_check_cert_validity(conn->ssl_iostream,
+					     conn->client->set.host, &error) == 0) {
 		if (conn->client->set.debug) {
 			i_debug("imapc(%s): SSL handshake successful",
 				conn->name);
 		}
 		return 0;
+	} else if (!conn->client->set.ssl_verify) {
+		if (conn->client->set.debug) {
+			i_debug("imapc(%s): SSL handshake successful, "
+				"ignoring invalid certificate: %s",
+				conn->name, error);
+		}
+		return 0;
+	} else {
+		conn->handshake_failed = TRUE;
+		*error_r = error;
+		return -1;
 	}
-	conn->handshake_failed = TRUE;
-	return -1;
 }
 
 static int imapc_connection_ssl_init(struct imapc_connection *conn)
