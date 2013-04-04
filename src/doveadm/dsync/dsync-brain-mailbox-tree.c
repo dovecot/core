@@ -245,13 +245,14 @@ dsync_fix_mailbox_name(struct mail_namespace *ns, string_t *vname,
 			return;
 	}
 	/* 3) probably some reserved name (e.g. dbox-Mails) */
-	str_insert(vname, 0, "_");
+	str_insert(vname, ns->prefix_len, "_");
 	if (dsync_is_valid_name(ns, str_c(vname)))
 		return;
 
 	/* 4) name is too long? just give up and generate a unique name */
 	guid_128_generate(guid);
 	str_truncate(vname, 0);
+	str_append(vname, ns->prefix);
 	str_append(vname, guid_128_to_string(guid));
 	i_assert(dsync_is_valid_name(ns, str_c(vname)));
 }
