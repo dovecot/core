@@ -123,6 +123,13 @@ int main(int argc, char *argv[])
 		i_fatal("Error reading configuration: %s", error);
 	master_service_init_log(master_service, "replicator: ");
 
+	/* this check is here mainly so that "doveadm replicator" commands
+	   don't accidentally start an unconfigured replicator */
+	if (master_service_get_process_min_avail(master_service) == 0) {
+		i_fatal("Replicator not configured: "
+			"service replicator { process_min_avail } must be 1");
+	}
+
 	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);
 	master_service_init_finish(master_service);
