@@ -133,6 +133,7 @@ struct http_client_connection {
 	const char *label;
 
 	unsigned int id; // DEBUG: identify parallel connections
+	int connect_errno;
 
 	struct ssl_iostream *ssl_iostream;
 	struct http_response_parser *http_parser;

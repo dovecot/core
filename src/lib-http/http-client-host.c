@@ -118,33 +118,8 @@ http_client_host_connection_setup(struct http_client_host *host,
 {
 	struct http_client_peer *peer = NULL;
 	struct http_client_peer_addr addr;
-	const char *error;
 
-	if (hport->ssl && host->client->ssl_ctx == NULL) {
-		if (http_client_init_ssl_ctx(host->client, &error) < 0) {
-			http_client_host_port_error(hport,
-				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, error);
-			if (host->client->ioloop != NULL)
-				io_loop_stop(host->client->ioloop);
-			return;
-		}
-	}
-
-	while (hport->ips_connect_idx < host->ips_count) {
-		addr.ip = host->ips[hport->ips_connect_idx];
-		addr.port = hport->port;
-		addr.ssl = hport->ssl;
-
-		http_client_host_debug(host, "Setting up connection to %s:%u (ssl=%s)", 
-			net_ip2addr(&addr.ip), addr.port, (addr.ssl ? "yes" : "no"));
-
-		if ((peer=http_client_peer_get(host->client, &addr)) != NULL)
-			break;
-
-		hport->ips_connect_idx++;
-	}
-
-	if (peer == NULL) {
+	if (hport->ips_connect_idx == host->ips_count) {
 		/* all IPs failed, but retry all of them again on the
 		   next request. */
 		hport->ips_connect_idx = 0;
@@ -155,6 +130,14 @@ http_client_host_connection_setup(struct http_client_host *host,
 		return;
 	}
 
+	addr.ip = host->ips[hport->ips_connect_idx];
+	addr.port = hport->port;
+	addr.ssl = hport->ssl;
+
+	http_client_host_debug(host, "Setting up connection to %s:%u (ssl=%s)",
+		net_ip2addr(&addr.ip), addr.port, (addr.ssl ? "yes" : "no"));
+
+	peer = http_client_peer_get(host->client, &addr);
 	http_client_peer_add_host(peer, host);
 }
 
@@ -293,8 +276,17 @@ void http_client_host_submit_request(struct http_client_host *host,
 	struct http_client_request *req)
 {
 	struct http_client_host_port *hport;
+	const char *error;
 
 	req->host = host;
+
+	if (req->ssl && host->client->ssl_ctx == NULL) {
+		if (http_client_init_ssl_ctx(host->client, &error) < 0) {
+			http_client_request_error(req,
+				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, error);
+			return;
+		}
+	}
 
 	/* add request to host (grouped by tcp port) */
 	hport = http_client_host_port_init(host, req->port, req->ssl);

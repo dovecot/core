@@ -78,23 +78,15 @@ http_client_peer_get_hostname(struct http_client_peer *peer)
 	return (*host)->name;
 }
 
-static int
+static void
 http_client_peer_connect(struct http_client_peer *peer, unsigned int count)
 {
-	struct http_client_connection *conn;
 	unsigned int i;
 
 	for (i = 0; i < count; i++) {
 		http_client_peer_debug(peer, "Making new connection %u of %u", i+1, count);
-
-		conn = http_client_connection_create(peer);
-		if (conn == NULL) {
-			http_client_peer_debug(peer, "Failed to make new connection");
-			return -1;
-		}
+		(void)http_client_connection_create(peer);
 	}
-
-	return 0;
 }
 
 static unsigned int
@@ -173,13 +165,7 @@ http_client_peer_next_request(struct http_client_peer *peer)
 	} else {
 		new_connections = (num_urgent > connecting ? num_urgent - connecting : 0);
 	}
-	if (http_client_peer_connect(peer, new_connections) < 0) {
-		/* connection failed */
-		if (conn == NULL)
-			return FALSE;
-		/* pipeline it on the least busy connection we found */
-		return http_client_connection_next_request(conn);
-	}
+	http_client_peer_connect(peer, new_connections);
 
 	/* now we wait until it is connected */
 	return FALSE;
@@ -209,12 +195,7 @@ http_client_peer_create(struct http_client *client,
 	DLLIST_PREPEND(&client->peers_list, peer);
 
 	http_client_peer_debug(peer, "Peer created");
-
-	if (http_client_peer_connect(peer, 1) < 0) {
-		http_client_peer_free(&peer);
-		return NULL;
-	}
-
+	http_client_peer_connect(peer, 1);
 	return peer;
 }
 

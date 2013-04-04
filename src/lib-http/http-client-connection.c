@@ -731,7 +731,8 @@ http_client_connection_connected(struct connection *_conn, bool success)
 		(struct http_client_connection *)_conn;
 
 	if (!success) {
-		http_client_connection_error(conn, "Connect failed: %m");
+		http_client_connection_error(conn, "connect(%s) failed: %m",
+					     _conn->name);
 		http_client_peer_connection_failure(conn->peer);
 
 	} else {
@@ -764,16 +765,21 @@ http_client_connection_list_init(void)
 		(&http_client_connection_set, &http_client_connection_vfuncs);
 }
 
-static int http_client_connection_connect(struct http_client_connection *conn)
+static void
+http_client_connection_delayed_connect_error(struct http_client_connection *conn)
 {
-	if (conn->conn.fd_in == -1) {
-		if (connection_client_connect(&conn->conn) < 0) {
-			http_client_connection_error(conn, "Could not connect");
-			return -1;
-		}
-	}
+	timeout_remove(&conn->to_input);
+	errno = conn->connect_errno;
+	http_client_connection_connected(&conn->conn, FALSE);
+}
 
-	return 0;
+static void http_client_connection_connect(struct http_client_connection *conn)
+{
+	if (connection_client_connect(&conn->conn) < 0) {
+		conn->connect_errno = errno;
+		conn->to_input = timeout_add_short(0,
+			http_client_connection_delayed_connect_error, conn);
+	}
 }
 
 struct http_client_connection *
@@ -790,11 +796,7 @@ http_client_connection_create(struct http_client_peer *peer)
 
 	connection_init_client_ip
 		(peer->client->conn_list, &conn->conn, &peer->addr.ip, peer->addr.port);
-
-	if (http_client_connection_connect(conn) < 0) {
-		http_client_connection_unref(&conn);
-		return NULL;
-	}
+	http_client_connection_connect(conn);
 
 	conn->id = id++;
 	array_append(&peer->conns, &conn, 1);
