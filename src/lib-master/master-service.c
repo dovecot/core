@@ -216,6 +216,11 @@ master_service_init(const char *name, enum master_service_flags flags,
 		    count > 0)
 			service->process_limit = count;
 
+		value = getenv(MASTER_PROCESS_MIN_AVAIL_ENV);
+		if (value != NULL && str_to_uint(value, &count) == 0 &&
+		    count > 0)
+			service->process_min_avail = count;
+
 		/* set the default service count */
 		value = getenv(MASTER_SERVICE_COUNT_ENV);
 		if (value != NULL && str_to_uint(value, &count) == 0 &&
@@ -489,6 +494,11 @@ unsigned int master_service_get_client_limit(struct master_service *service)
 unsigned int master_service_get_process_limit(struct master_service *service)
 {
 	return service->process_limit;
+}
+
+unsigned int master_service_get_process_min_avail(struct master_service *service)
+{
+	return service->process_min_avail;
 }
 
 unsigned int master_service_get_idle_kill_secs(struct master_service *service)
