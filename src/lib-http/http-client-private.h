@@ -50,6 +50,10 @@ struct http_client_request {
 	unsigned int attempts;
 	unsigned int redirects;
 
+	unsigned int delayed_error_status;
+	const char *delayed_error;
+	struct timeout *to_delayed_error;
+
 	http_client_request_callback_t *callback;
 	void *context;
 
@@ -63,6 +67,7 @@ struct http_client_request {
 	unsigned int payload_wait:1;
 	unsigned int ssl:1;
 	unsigned int urgent:1;
+	unsigned int submitted:1;
 };
 
 struct http_client_host_port {
@@ -86,6 +91,9 @@ struct http_client_host {
 	/* the ip addresses DNS returned for this host */
 	unsigned int ips_count;
 	struct ip_addr *ips;
+
+	/* list of requests in this host that are waiting for ioloop */
+	ARRAY(struct http_client_request *) delayed_failing_requests;
 
 	/* requests are managed on a per-port basis */
 	ARRAY_TYPE(http_client_host_port) ports;

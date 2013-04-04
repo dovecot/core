@@ -278,6 +278,7 @@ struct http_client_host *http_client_host_get
 		host->client = client;
 		host->name = i_strdup(hostname);
 		i_array_init(&host->ports, 4);
+		i_array_init(&host->delayed_failing_requests, 1);
 
 		hostname = host->name;
 		hash_table_insert(client->hosts, hostname, host);
@@ -397,6 +398,9 @@ void http_client_host_free(struct http_client_host **_host)
 	}
 	array_free(&host->ports);
 
+	i_assert(array_count(&host->delayed_failing_requests) == 0);
+	array_free(&host->delayed_failing_requests);
+
 	i_free(host->ips);
 	i_free(host->name);
 	i_free(host);
@@ -404,6 +408,13 @@ void http_client_host_free(struct http_client_host **_host)
 
 void http_client_host_switch_ioloop(struct http_client_host *host)
 {
+	struct http_client_request **req;
+
 	if (host->dns_lookup != NULL)
 		dns_lookup_switch_ioloop(host->dns_lookup);
+	array_foreach_modifiable(&host->delayed_failing_requests, req) {
+		(*req)->to_delayed_error =
+			io_loop_move_timeout(&(*req)->to_delayed_error);
+	}
+
 }
