@@ -133,6 +133,7 @@ ssize_t i_stream_read(struct istream *stream)
 
 	old_size = _stream->pos - _stream->skip;
 	ret = _stream->read(_stream);
+	i_assert(old_size <= _stream->pos - _stream->skip);
 	switch (ret) {
 	case -2:
 		i_assert(_stream->skip != _stream->pos);
