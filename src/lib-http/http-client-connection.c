@@ -734,7 +734,6 @@ http_client_connection_connected(struct connection *_conn, bool success)
 		http_client_connection_error(conn, "connect(%s) failed: %m",
 					     _conn->name);
 		http_client_peer_connection_failure(conn->peer);
-		http_client_connection_unref(&conn);
 	} else {
 		http_client_connection_debug(conn, "Connected");
 		if (conn->peer->addr.ssl) {
@@ -773,6 +772,7 @@ http_client_connection_delayed_connect_error(struct http_client_connection *conn
 	timeout_remove(&conn->to_input);
 	errno = conn->connect_errno;
 	http_client_connection_connected(&conn->conn, FALSE);
+	http_client_connection_unref(&conn);
 }
 
 static void http_client_connection_connect(struct http_client_connection *conn)
