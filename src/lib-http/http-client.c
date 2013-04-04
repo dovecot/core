@@ -196,6 +196,8 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 	ssl_set.ca = client->set.ssl_ca;
 	ssl_set.verify_remote_cert = TRUE;
 	ssl_set.crypto_device = client->set.ssl_crypto_device;
+	ssl_set.verbose = client->set.debug;
+	ssl_set.verbose_invalid_cert = client->set.debug;
 
 	if (ssl_iostream_context_init_client(&ssl_set, &client->ssl_ctx, &error) < 0) {
 		*error_r = t_strdup_printf("Couldn't initialize SSL context: %s",
