@@ -607,7 +607,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		} else {
 			/* this passdb lookup failed, remove any extra fields
 			   it set */
-			auth_fields_snapshot(request->extra_fields);
+			auth_fields_rollback(request->extra_fields);
 		}
 
 		if (*result == PASSDB_RESULT_USER_UNKNOWN) {
