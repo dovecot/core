@@ -69,7 +69,6 @@ imap_urlauth_backend_trans_get_mailbox_key(struct mailbox_transaction_context *t
 				mailbox_get_vname(box));
 			return -1;
 		}
-		memcpy(mailbox_key_r, key_buf.data, IMAP_URLAUTH_KEY_LEN);
 	}
 	return 1;
 }
