@@ -44,7 +44,7 @@ unsigned int http_client_peer_addr_hash
 (const struct http_client_peer_addr *peer)
 {
 	return net_ip_hash(&peer->ip) + peer->port +
-		str_hash(peer->https_name);
+		(peer->https_name == NULL ? 0 : str_hash(peer->https_name));
 }
 
 int http_client_peer_addr_cmp
