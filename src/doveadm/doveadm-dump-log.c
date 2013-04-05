@@ -421,12 +421,37 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 	}
 	case MAIL_TRANSACTION_ATTRIBUTE_UPDATE: {
 		const char *keys = data;
-		unsigned int i;
+		const uint32_t *extra;
+		unsigned int i, extra_pos, extra_count = 0;
 
 		for (i = 0; i < size && keys[i] != '\0'; ) {
-			printf(" - %s\n", keys+i);
+			if (keys[i] == '+')
+				extra_count++;
+			extra_count++;
 			i += strlen(keys+i) + 1;
 		}
+		if (i % sizeof(uint32_t) != 0)
+			i += sizeof(uint32_t) - i%sizeof(uint32_t);
+		extra = (const void *)(keys+i);
+
+		if ((size-i) != extra_count*sizeof(uint32_t)) {
+			printf(" - broken entry\n");
+			break;
+		}
+
+		extra_pos = 0;
+		for (i = 0; i < size && keys[i] != '\0'; ) {
+			printf(" - %s: %s/%s : timestamp=%s",
+			       keys[i] == '+' ? "add" : keys[i] == '-' ? "remove" : "?",
+			       keys[i+1] == 'p' ? "private" :
+			       keys[i+1] == 's' ? "shared" : "?error?",
+			       keys+i+2, unixdate2str(extra[extra_pos++]));
+			if (keys[i] == '+')
+				printf(" value_len=%u", extra[extra_pos++]);
+			printf("\n");
+			i += strlen(keys+i) + 1;
+		}
+
 		break;
 	}
 	default:

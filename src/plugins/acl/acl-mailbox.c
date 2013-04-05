@@ -6,6 +6,7 @@
    problem actually exists when opening read-only mailboxes. */
 #include "lib.h"
 #include "array.h"
+#include "ioloop.h"
 #include "istream.h"
 #include "mailbox-list-private.h"
 #include "acl-api-private.h"
@@ -620,6 +621,8 @@ int acl_mailbox_update_acl(struct mailbox_transaction_context *t,
 {
 	struct acl_object *aclobj;
 	const char *key;
+	time_t ts = update->last_change != 0 ?
+		update->last_change : ioloop_time;
 
 	key = t_strdup_printf(MAILBOX_ATTRIBUTE_PREFIX_ACL"%s",
 			      acl_rights_get_id(&update->rights));
@@ -629,9 +632,11 @@ int acl_mailbox_update_acl(struct mailbox_transaction_context *t,
 		return -1;
 	}
 
+	/* FIXME: figure out some value lengths, so maybe some day
+	   quota could apply to ACLs as well. */
 	if (acl_mailbox_update_removed_id(aclobj, update))
-		mail_index_attribute_unset(t->itrans, FALSE, key);
+		mail_index_attribute_unset(t->itrans, FALSE, key, ts);
 	else
-		mail_index_attribute_set(t->itrans, FALSE, key);
+		mail_index_attribute_set(t->itrans, FALSE, key, ts, 0);
 	return 0;
 }

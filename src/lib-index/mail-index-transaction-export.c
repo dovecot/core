@@ -399,6 +399,11 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 			buffer_append_zero(t->attribute_updates,
 					   4 - t->attribute_updates->used % 4);
 		}
+		/* append the timestamp and value lengths */
+		buffer_append(t->attribute_updates,
+			      t->attribute_updates_suffix->data,
+			      t->attribute_updates_suffix->used);
+		i_assert(t->attribute_updates->used % 4 == 0);
 		log_append_buffer(&ctx, t->attribute_updates,
 				  MAIL_TRANSACTION_ATTRIBUTE_UPDATE);
 	}

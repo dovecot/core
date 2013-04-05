@@ -1,6 +1,7 @@
 /* Copyright (c) 2013 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "dict.h"
 #include "index-storage.h"
 
@@ -179,6 +180,7 @@ int index_storage_attribute_set(struct mailbox_transaction_context *t,
 	struct dict_transaction_context *dtrans;
 	const char *mailbox_prefix;
 	bool pvt = type == MAIL_ATTRIBUTE_TYPE_PRIVATE;
+	time_t ts = value->last_change != 0 ? value->last_change : ioloop_time;
 	int ret = 0;
 
 	if (strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT,
@@ -202,10 +204,11 @@ int index_storage_attribute_set(struct mailbox_transaction_context *t,
 			ret = -1;
 		} else if (value_str != NULL) {
 			dict_set(dtrans, prefixed_key, value_str);
-			mail_index_attribute_set(t->itrans, pvt, key);
+			mail_index_attribute_set(t->itrans, pvt, key,
+						 ts, strlen(value_str));
 		} else {
 			dict_unset(dtrans, prefixed_key);
-			mail_index_attribute_unset(t->itrans, pvt, key);
+			mail_index_attribute_unset(t->itrans, pvt, key, ts);
 		}
 	} T_END;
 	return ret;

@@ -468,10 +468,11 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
    change gets assigned its own modseq and any log readers can find out about
    this change. */
 void mail_index_attribute_set(struct mail_index_transaction *t,
-			      bool pvt, const char *key);
+			      bool pvt, const char *key,
+			      time_t timestamp, uint32_t value_len);
 /* Attribute was deleted. */
 void mail_index_attribute_unset(struct mail_index_transaction *t,
-				bool pvt, const char *key);
+				bool pvt, const char *key, time_t timestamp);
 /* Update message's modseq to be at least min_modseq. */
 void mail_index_update_modseq(struct mail_index_transaction *t, uint32_t seq,
 			      uint64_t min_modseq);

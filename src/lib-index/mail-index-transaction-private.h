@@ -71,6 +71,7 @@ struct mail_index_transaction {
 
 	ARRAY(struct mail_index_transaction_keyword_update) keyword_updates;
 	buffer_t *attribute_updates; /* [+-][ps]key\0.. */
+	buffer_t *attribute_updates_suffix; /* <timestamp>[<value len>].. */
 
 	uint64_t min_highest_modseq;
 	uint64_t max_modseq;
