@@ -687,7 +687,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			    const char **error_r)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
-	const char *local_location = NULL, *const *remote_cmd_args = NULL;
+	const char *const *remote_cmd_args = NULL;
 	const struct mail_user_settings *user_set;
 	const struct mail_storage_settings *mail_set;
 	const char *username = "";
@@ -710,7 +710,6 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			_ctx->exit_code = DOVEADM_EX_NOTFOUND;
 			return -1;
 		}
-		local_location = ctx->local_location;
 	} else {
 		/* if we're executing remotely, give -u parameter if we also
 		   did a userdb lookup. */
@@ -721,13 +720,13 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			/* it's a mail_location */
 			if (_ctx->args[1] != NULL)
 				doveadm_mail_help_name(_ctx->cmd->name);
+			ctx->local_location = _ctx->args[0];
 			ctx->local_location_from_arg = TRUE;
-			local_location = _ctx->args[0];
 		}
 	}
 
 	if (remote_cmd_args == NULL && ctx->local_location != NULL) {
-		if (parse_location(ctx, mail_set, local_location,
+		if (parse_location(ctx, mail_set, ctx->local_location,
 				   &remote_cmd_args, error_r) < 0)
 			return -1;
 	}
