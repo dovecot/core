@@ -337,7 +337,7 @@ index_list_mailbox_update(struct mailbox *box,
 		return -1;
 
 	/* rename the directory */
-	if (!guid_128_is_empty(update->mailbox_guid) &&
+	if (!guid_128_is_empty(update->mailbox_guid) && old_path != NULL &&
 	    mailbox_list_set_get_root_path(&box->list->set,
 					   MAILBOX_LIST_PATH_TYPE_MAILBOX,
 					   &root_dir)) {
