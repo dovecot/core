@@ -1,3 +1,7 @@
+v2.2.rc5 2013-04-05  Timo Sirainen <tss@iki.fi>
+
+	- A few small random fixes
+
 v2.2.rc4 2013-04-05  Timo Sirainen <tss@iki.fi>
 
 	+ Added "doveadm replicator" commands
