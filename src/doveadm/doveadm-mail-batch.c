@@ -37,10 +37,14 @@ static int cmd_batch_run(struct doveadm_mail_cmd_context *_ctx,
 	int ret = 0;
 
 	array_foreach(&ctx->commands, cmdp) {
+		(*cmdp)->cur_mail_user = user;
 		if ((*cmdp)->v.run(*cmdp, user) < 0) {
+			i_assert((*cmdp)->exit_code != 0);
+			_ctx->exit_code = (*cmdp)->exit_code;
 			ret = -1;
 			break;
 		}
+		(*cmdp)->cur_mail_user = NULL;
 	}
 	return ret;
 }
@@ -149,6 +153,7 @@ static struct doveadm_mail_cmd_context *cmd_batch_alloc(void)
 	struct batch_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct batch_cmd_context);
+	ctx->ctx.getopt_args = "+"; /* disable processing -args in the middle */
 	ctx->ctx.v.preinit = cmd_batch_preinit;
 	ctx->ctx.v.init = cmd_batch_init;
 	ctx->ctx.v.prerun = cmd_batch_prerun;
