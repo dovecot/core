@@ -95,7 +95,7 @@ int imap_urlauth_backend_reset_mailbox_key(struct mailbox *box)
 
 	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL);
 	ret = mailbox_attribute_unset(t, MAIL_ATTRIBUTE_TYPE_PRIVATE,
-				      IMAP_URLAUTH_KEY) < 0 ? -1 : 1;
+				      IMAP_URLAUTH_KEY);
 	if (mailbox_transaction_commit(&t) < 0)
 		ret = -1;
 	return ret;
@@ -114,7 +114,7 @@ static int imap_urlauth_backend_mailbox_reset_key(struct mailbox *box)
 			mailbox_get_vname(box), errstr);
 		return -1;
 	}
-	return imap_urlauth_backend_reset_mailbox_key(box) < 0 ? -1 : 0;
+	return imap_urlauth_backend_reset_mailbox_key(box);
 }
 
 int imap_urlauth_backend_reset_all_keys(struct mail_user *user)

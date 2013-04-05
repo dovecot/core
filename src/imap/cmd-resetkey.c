@@ -7,7 +7,7 @@
 
 static bool cmd_resetkey_all(struct client_command_context *cmd)
 {
-	if (imap_urlauth_reset_all_keys(cmd->client->urlauth_ctx) <= 0) {
+	if (imap_urlauth_reset_all_keys(cmd->client->urlauth_ctx) < 0) {
 		client_send_internal_error(cmd);
 		return TRUE;
 	}
@@ -23,7 +23,6 @@ cmd_resetkey_mailbox(struct client_command_context *cmd,
 	struct mail_namespace *ns;
 	enum mailbox_flags flags = MAILBOX_FLAG_READONLY;
 	struct mailbox *box;
-	int ret;
 
 	/* check mechanism arguments (we support only INTERNAL mechanism) */
 	while (!IMAP_ARG_IS_EOL(mech_args)) {
@@ -57,12 +56,8 @@ cmd_resetkey_mailbox(struct client_command_context *cmd,
 	}
 
 	/* check urlauth environment and reset requested key */
-	ret = imap_urlauth_reset_mailbox_key(cmd->client->urlauth_ctx, box);
-	if (ret <= 0) {
-		if (ret < 0)
-			client_send_internal_error(cmd);
-		else
-			client_send_storage_error(cmd, mailbox_get_storage(box));
+	if (imap_urlauth_reset_mailbox_key(cmd->client->urlauth_ctx, box) < 0) {
+		client_send_internal_error(cmd);
 		mailbox_free(&box);
 		return TRUE;
 	}
