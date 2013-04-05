@@ -132,6 +132,7 @@ void http_client_deinit(struct http_client **_client)
 void http_client_switch_ioloop(struct http_client *client)
 {
 	struct connection *_conn = client->conn_list->connections;
+	struct http_client_host *host;
 
 	/* move connections */
 	/* FIXME: we wouldn't necessarily need to switch all of them
@@ -144,13 +145,9 @@ void http_client_switch_ioloop(struct http_client *client)
 		http_client_connection_switch_ioloop(conn);
 	}
 
-	/* move dns lookups */
-	if (client->set.dns_client_socket_path != '\0') {
-		struct http_client_host *host;
-	
-		for (host = client->hosts_list; host != NULL; host = host->next)
-			http_client_host_switch_ioloop(host);
-	}
+	/* move dns lookups and delayed requests */
+	for (host = client->hosts_list; host != NULL; host = host->next)
+		http_client_host_switch_ioloop(host);
 }
 
 void http_client_wait(struct http_client *client)
