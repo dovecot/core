@@ -218,6 +218,8 @@ void http_client_request_submit(struct http_client_request *req)
 static void
 http_client_request_finish_payload_out(struct http_client_request *req)
 {
+	i_assert(req->conn != NULL);
+
 	if (req->payload_output != NULL) {
 		o_stream_unref(&req->payload_output);
 		req->payload_output = NULL;

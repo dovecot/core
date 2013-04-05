@@ -481,13 +481,11 @@ dsync_mailbox_export_init(struct mailbox *box,
 static int
 dsync_mailbox_export_iter_next_nonexistent_attr(struct dsync_mailbox_exporter *exporter)
 {
-	HASH_TABLE_TYPE(dsync_attr_change) attr_changes;
 	struct dsync_mailbox_attribute *attr;
 	struct mail_attribute_value value;
 
-	attr_changes = dsync_transaction_log_scan_get_attr_hash(exporter->log_scan);
-
-	while (hash_table_iterate(exporter->attr_change_iter, attr_changes,
+	while (hash_table_iterate(exporter->attr_change_iter,
+				  dsync_transaction_log_scan_get_attr_hash(exporter->log_scan),
 				  &attr, &attr)) {
 		if (attr->exported || !attr->deleted)
 			continue;

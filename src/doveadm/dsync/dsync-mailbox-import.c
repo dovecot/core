@@ -1656,6 +1656,8 @@ dsync_mailbox_import_handle_mail(struct dsync_mailbox_importer *importer,
 	const char *request_guid = NULL;
 	uint32_t request_uid = 0;
 
+	i_assert(all_newmails != NULL);
+
 	/* get the list of the current local UIDs and the wanted UIDs.
 	   find the first remote instance that we can request in case there are
 	   no local instances */

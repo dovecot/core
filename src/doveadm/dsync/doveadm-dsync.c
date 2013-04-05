@@ -450,7 +450,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	struct mail_namespace *sync_ns = NULL;
 	enum dsync_brain_flags brain_flags;
 	bool remote_errors_logged = FALSE;
-	int status, ret = 0;
+	int status = 0, ret = 0;
 
 	user->admin = TRUE;
 	user->dsyncing = TRUE;
