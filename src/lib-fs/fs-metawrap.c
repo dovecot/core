@@ -368,8 +368,12 @@ static int fs_metawrap_copy(struct fs_file *_src, struct fs_file *_dest)
 	struct metawrap_fs_file *src = (struct metawrap_fs_file *)_src;
 	struct metawrap_fs_file *dest = (struct metawrap_fs_file *)_dest;
 
-	if (!dest->fs->wrap_metadata)
-		return fs_copy(src->super, dest->super);
+	if (!dest->fs->wrap_metadata) {
+		if (_src != NULL)
+			return fs_copy(src->super, dest->super);
+		else
+			return fs_copy_finish_async(dest->super);
+	}
 	return fs_default_copy(_src, _dest);
 }
 
