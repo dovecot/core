@@ -394,6 +394,7 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 				  MAIL_TRANSACTION_HEADER_UPDATE);
 	}
 	if (t->attribute_updates != NULL) {
+		buffer_append_c(t->attribute_updates, '\0');
 		/* need to have 32bit alignment */
 		if (t->attribute_updates->used % 4 != 0) {
 			buffer_append_zero(t->attribute_updates,
