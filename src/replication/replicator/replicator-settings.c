@@ -9,7 +9,7 @@
 /* <settings checks> */
 static struct file_listener_settings replicator_unix_listeners_array[] = {
 	{ "replicator", 0600, "$default_internal_user", "" },
-	{ "replicator-doveadm", 0600, "$default_internal_user", "" }
+	{ "replicator-doveadm", 0, "$default_internal_user", "" }
 };
 static struct file_listener_settings *replicator_unix_listeners[] = {
 	&replicator_unix_listeners_array[0],
