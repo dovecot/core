@@ -25,9 +25,12 @@ o_stream_metawrap_sendv(struct ostream_private *stream,
 			const struct const_iovec *iov, unsigned int iov_count)
 {
 	struct metawrap_ostream *mstream = (struct metawrap_ostream *)stream;
+	ssize_t ret;
 
 	o_stream_metawrap_call_callback(mstream);
-	return o_stream_sendv(stream->parent, iov, iov_count);
+	if ((ret = o_stream_sendv(stream->parent, iov, iov_count)) < 0)
+		o_stream_copy_error_from_parent(stream);
+	return ret;
 }
 
 static off_t
@@ -36,9 +39,12 @@ o_stream_metawrap_send_istream(struct ostream_private *_outstream,
 {
 	struct metawrap_ostream *outstream =
 		(struct metawrap_ostream *)_outstream;
+	off_t ret;
 
 	o_stream_metawrap_call_callback(outstream);
-	return o_stream_send_istream(_outstream->parent, instream);
+	if ((ret = o_stream_send_istream(_outstream->parent, instream)) < 0)
+		o_stream_copy_error_from_parent(stream);
+	return ret;
 }
 
 struct ostream *
