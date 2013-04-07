@@ -259,6 +259,7 @@ static void fs_posix_file_close(struct posix_fs_file *file)
 			fs_set_critical(file->file.fs, "close(%s) failed: %m",
 					file->file.path);
 		}
+		file->fd = -1;
 	}
 }
 
