@@ -487,7 +487,6 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	struct mail_namespace *sync_ns = NULL;
 	enum dsync_brain_flags brain_flags;
 	bool remote_errors_logged = FALSE;
-	string_t *state_str = NULL;
 	int status = 0, ret = 0;
 
 	user->admin = TRUE;
@@ -539,7 +538,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	}
 
 	if (ctx->state_input != NULL) {
-		state_str = t_str_new(128);
+		string_t *state_str = t_str_new(128);
 		dsync_brain_get_state(brain, state_str);
 		doveadm_print(str_c(state_str));
 	}
@@ -581,10 +580,6 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	ctx->input = NULL;
 	ctx->output = NULL;
 
-	if (ctx->replicator_notify) {
-		dsync_replicator_notify(ctx, state_str == NULL ? "" :
-					str_c(state_str));
-	}
 	return ret;
 }
 
@@ -669,6 +664,8 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	str_append_tabescaped(cmd, ctx->ctx.cur_username);
 	str_append(cmd, "\tdsync-server\t-u");
 	str_append_tabescaped(cmd, ctx->ctx.cur_username);
+	if (ctx->replicator_notify)
+		str_append(cmd, "\t-U");
 	str_append_c(cmd, '\n');
 
 	ctx->tcp_conn = conn;
@@ -945,6 +942,12 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		o_stream_close(_ctx->conn->output);
 	}
 
+	if (ctx->replicator_notify) {
+		string_t *state_str = t_str_new(128);
+		dsync_brain_get_state(brain, state_str);
+		dsync_replicator_notify(ctx, str_c(state_str));
+	}
+
 	return _ctx->exit_code == 0 ? 0 : -1;
 }
 
@@ -961,6 +964,9 @@ cmd_mailbox_dsync_server_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 'r':
 		ctx->rawlog_path = optarg;
 		break;
+	case 'U':
+		ctx->replicator_notify = TRUE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -972,7 +978,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 	struct dsync_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
-	ctx->ctx.getopt_args = "Er:";
+	ctx->ctx.getopt_args = "Er:U";
 	ctx->ctx.v.parse_arg = cmd_mailbox_dsync_server_parse_arg;
 	ctx->ctx.v.run = cmd_dsync_server_run;
 	ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_CHANGED;
