@@ -1433,7 +1433,7 @@ static bool mailbox_list_init_changelog(struct mailbox_list *list)
 	list->changelog = mailbox_log_alloc(path);
 
 	mailbox_list_get_root_permissions(list, &perm);
-	mailbox_log_set_permissions(list->changelog, perm.dir_create_mode,
+	mailbox_log_set_permissions(list->changelog, perm.file_create_mode,
 				    perm.file_create_gid,
 				    perm.file_create_gid_origin);
 	return TRUE;
