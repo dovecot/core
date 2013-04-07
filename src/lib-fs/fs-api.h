@@ -74,6 +74,9 @@ struct fs_settings {
 	/* When creating temporary files, use this prefix
 	   (to avoid conflicts with existing files). */
 	const char *temp_file_prefix;
+
+	/* Enable debugging */
+	bool debug;
 };
 
 struct fs_metadata {
