@@ -64,6 +64,7 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(SET_STR, doveadm_allowed_commands),
 	DEF(SET_STR, dsync_alt_char),
 	DEF(SET_STR, dsync_remote_cmd),
+	DEF(SET_STR, ssl_client_ca_dir),
 
 	{ SET_STRLIST, "plugin", offsetof(struct doveadm_settings, plugin_envs), NULL },
 
@@ -82,6 +83,7 @@ const struct doveadm_settings doveadm_default_settings = {
 	.doveadm_allowed_commands = "",
 	.dsync_alt_char = "_",
 	.dsync_remote_cmd = "ssh -l%{login} %{host} doveadm dsync-server -u%u -U",
+	.ssl_client_ca_dir = "",
 
 	.plugin_envs = ARRAY_INIT
 };

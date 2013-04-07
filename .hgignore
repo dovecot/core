@@ -77,7 +77,6 @@ src/indexer/indexer-worker
 src/ipc/ipc
 src/lib/unicodemap.c
 src/lib/UnicodeData.txt
-src/lib-fs/fs-test
 src/lib-dict/dict-drivers-register.c
 src/lib-sql/sql-drivers-register.c
 src/lib-storage/register/mail-storage-register.c

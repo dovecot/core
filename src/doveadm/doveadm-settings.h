@@ -13,6 +13,7 @@ struct doveadm_settings {
 	const char *doveadm_allowed_commands;
 	const char *dsync_alt_char;
 	const char *dsync_remote_cmd;
+	const char *ssl_client_ca_dir;
 
 	ARRAY(const char *) plugin_envs;
 };

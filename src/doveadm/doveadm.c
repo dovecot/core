@@ -368,6 +368,7 @@ int main(int argc, char *argv[])
 		doveadm_register_proxy_commands();
 		doveadm_register_log_commands();
 		doveadm_register_replicator_commands();
+		doveadm_register_fs_commands();
 		doveadm_dump_init();
 		doveadm_mail_init();
 		doveadm_load_modules();
