@@ -45,15 +45,16 @@ i_stream_qp_try_decode_input(struct qp_decoder_istream *bstream, bool eof)
 	if (size == 0)
 		return 0;
 
-	/* the decoded quoted-printable content can never be larger than the
-	   encoded content. at worst they are equal. */
+	/* normally the decoded quoted-printable content can't be larger than
+	   the encoded content, but because we always use CRLFs, it may use
+	   twice as much space by only converting LFs to CRLFs. */
 	i_stream_try_alloc(stream, size, &avail);
 	buffer_avail = stream->buffer_size - stream->pos;
 
-	if (size > buffer_avail) {
+	if (size > buffer_avail/2) {
 		/* can't fit everything to destination buffer.
 		   write as much as we can. */
-		size = buffer_avail;
+		size = buffer_avail/2;
 		if (size == 0)
 			return -2;
 	}
