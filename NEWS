@@ -1,3 +1,17 @@
+v2.2.rc6 2013-04-08  Timo Sirainen <tss@iki.fi>
+
+	* replicator: Don't create replicator-doveadm socket by default.
+	  This way doveadm replicator commands don't accidentally start an
+	  unconfigured replicator server.
+	+ replicator: Have remote dsync notify the remote replicator that
+	  a user was just synced. This way the replicators are kept roughly
+	  in sync.
+	+ Added ssl_client_ca_file to specify the CA certs as a file. This is
+	  needed (instead of ssl_client_ca_dir) in RedHat-based systems.
+	+ Added "doveadm fs" commands, mainly to debug lib-fs backends.
+	- Mailbox list indexes weren't using proper file permissions based
+	  on the root directory.
+
 v2.2.rc5 2013-04-05  Timo Sirainen <tss@iki.fi>
 
 	- A few small random fixes
