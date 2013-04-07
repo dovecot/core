@@ -1825,7 +1825,8 @@ int mailbox_transaction_commit_get_changes(
 	/* either all the saved messages get UIDs or none, because a) we
 	   failed, b) MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS not set,
 	   c) backend doesn't support it (e.g. virtual plugin) */
-	i_assert(seq_range_count(&changes_r->saved_uids) == save_count ||
+	i_assert(ret < 0 ||
+		 seq_range_count(&changes_r->saved_uids) == save_count ||
 		 array_count(&changes_r->saved_uids) == 0);
 	if (ret < 0 && changes_r->pool != NULL)
 		pool_unref(&changes_r->pool);
