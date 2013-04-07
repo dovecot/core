@@ -484,6 +484,11 @@ static void http_client_connection_input(struct connection *_conn)
 		   ignored by a user agent.
 		 */
 		if (req->payload_sync && response->status == 100) {
+			if (conn->payload_continue) {
+				http_client_connection_debug(conn,
+					"Got 100-continue response after timeout");
+				return;
+			}
 			conn->payload_continue = TRUE;
 			http_client_connection_debug(conn,
 				"Got expected 100-continue response");
