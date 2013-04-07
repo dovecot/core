@@ -43,7 +43,7 @@ o_stream_metawrap_send_istream(struct ostream_private *_outstream,
 
 	o_stream_metawrap_call_callback(outstream);
 	if ((ret = o_stream_send_istream(_outstream->parent, instream)) < 0)
-		o_stream_copy_error_from_parent(stream);
+		o_stream_copy_error_from_parent(_outstream);
 	return ret;
 }
 
