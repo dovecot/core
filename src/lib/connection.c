@@ -243,10 +243,14 @@ void connection_disconnect(struct connection *conn)
 		timeout_remove(&conn->to);
 	if (conn->io != NULL)
 		io_remove(&conn->io);
-	if (conn->input != NULL)
+	if (conn->input != NULL) {
+		i_stream_close(conn->input);
 		i_stream_destroy(&conn->input);
-	if (conn->output != NULL)
+	}
+	if (conn->output != NULL) {
+		o_stream_close(conn->output);
 		o_stream_destroy(&conn->output);
+	}
 	if (conn->fd_in != -1) {
 		if (close(conn->fd_in) < 0)
 			i_error("close(%s) failed: %m", conn->name);
