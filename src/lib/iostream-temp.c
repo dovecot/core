@@ -253,7 +253,7 @@ struct istream *iostream_temp_finish(struct ostream **output,
 						  tstream->buf->used);
 		i_stream_set_name(input, t_strdup_printf(
 			"(Temp file in %s)", tstream->temp_path_prefix));
-		i_stream_set_destroy_callback(input, iostream_temp_buf_destroyed,
+		i_stream_add_destroy_callback(input, iostream_temp_buf_destroyed,
 					      tstream->buf);
 		tstream->buf = NULL;
 	}

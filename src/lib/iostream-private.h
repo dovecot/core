@@ -3,6 +3,11 @@
 
 /* This file is private to input stream and output stream implementations */
 
+struct iostream_destroy_callback {
+	void (*callback)(void *context);
+	void *context;
+};
+
 struct iostream_private {
 	int refcount;
 	char *name;
@@ -12,8 +17,7 @@ struct iostream_private {
 	void (*set_max_buffer_size)(struct iostream_private *stream,
 				    size_t max_size);
 
-	void (*destroy_callback)(void *context);
-	void *destroy_context;
+	ARRAY(struct iostream_destroy_callback) destroy_callbacks;
 };
 
 void io_stream_init(struct iostream_private *stream);

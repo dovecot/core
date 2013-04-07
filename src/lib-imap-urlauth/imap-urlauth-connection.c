@@ -604,7 +604,7 @@ imap_urlauth_fetch_reply_set_literal_stream(struct imap_urlauth_connection *conn
 		data = buffer_get_data(conn->literal_buf, &size);
 		i_assert(size == conn->literal_size);
 		reply->input = i_stream_create_from_data(data, size);
-		i_stream_set_destroy_callback(reply->input,
+		i_stream_add_destroy_callback(reply->input,
 					      literal_stream_destroy,
 					      conn->literal_buf);
 	}

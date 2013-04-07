@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2013 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "iostream-private.h"
 
 static void
@@ -31,14 +32,19 @@ void io_stream_ref(struct iostream_private *stream)
 
 void io_stream_unref(struct iostream_private *stream)
 {
+	const struct iostream_destroy_callback *dc;
+
 	i_assert(stream->refcount > 0);
 	if (--stream->refcount != 0)
 		return;
 
 	stream->close(stream, FALSE);
 	stream->destroy(stream);
-	if (stream->destroy_callback != NULL)
-		stream->destroy_callback(stream->destroy_context);
+	if (array_is_created(&stream->destroy_callbacks)) {
+		array_foreach(&stream->destroy_callbacks, dc)
+			dc->callback(dc->context);
+		array_free(&stream->destroy_callbacks);
+	}
 
         i_free(stream->name);
         i_free(stream);

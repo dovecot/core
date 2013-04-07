@@ -596,7 +596,7 @@ json_try_parse_stream_start(struct json_parser *parser,
 	parser->state = parser->state == JSON_STATE_OBJECT_VALUE ?
 		JSON_STATE_OBJECT_SKIP_STRING : JSON_STATE_ARRAY_SKIP_STRING;
 	parser->strinput = i_stream_create_jsonstr(parser->input);
-	i_stream_set_destroy_callback(parser->strinput,
+	i_stream_add_destroy_callback(parser->strinput,
 				      json_strinput_destroyed, parser);
 
 	*input_r = parser->strinput;

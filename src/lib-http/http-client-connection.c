@@ -370,7 +370,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		   actual payload stream. */
 		conn->incoming_payload = response->payload =
 			i_stream_create_limit(response->payload, (uoff_t)-1);
-		i_stream_set_destroy_callback(response->payload,
+		i_stream_add_destroy_callback(response->payload,
 					      http_client_payload_destroyed,
 					      req);
 		/* the callback may add its own I/O, so we need to remove
@@ -391,7 +391,8 @@ http_client_connection_return_response(struct http_client_connection *conn,
 	if (retrying) {
 		/* retrying, don't destroy the request */
 		if (response->payload != NULL) {
-			i_stream_unset_destroy_callback(conn->incoming_payload);
+			i_stream_remove_destroy_callback(conn->incoming_payload,
+							 http_client_payload_destroyed);
 			i_stream_unref(&conn->incoming_payload);
 			conn->conn.io = io_add(conn->conn.fd_in, IO_READ,
 					       http_client_connection_input,

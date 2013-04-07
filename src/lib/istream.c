@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "array.h"
 #include "str.h"
 #include "istream-private.h"
 
@@ -53,22 +54,35 @@ void i_stream_unref(struct istream **stream)
 	*stream = NULL;
 }
 
-#undef i_stream_set_destroy_callback
-void i_stream_set_destroy_callback(struct istream *stream,
+#undef i_stream_add_destroy_callback
+void i_stream_add_destroy_callback(struct istream *stream,
 				   istream_callback_t *callback, void *context)
 {
 	struct iostream_private *iostream = &stream->real_stream->iostream;
+	struct iostream_destroy_callback *dc;
 
-	iostream->destroy_callback = callback;
-	iostream->destroy_context = context;
+	if (!array_is_created(&iostream->destroy_callbacks))
+		i_array_init(&iostream->destroy_callbacks, 2);
+	dc = array_append_space(&iostream->destroy_callbacks);
+	dc->callback = callback;
+	dc->context = context;
 }
 
-void i_stream_unset_destroy_callback(struct istream *stream)
+void i_stream_remove_destroy_callback(struct istream *stream,
+				      void (*callback)())
 {
 	struct iostream_private *iostream = &stream->real_stream->iostream;
+	const struct iostream_destroy_callback *dcs;
+	unsigned int i, count;
 
-	iostream->destroy_callback = NULL;
-	iostream->destroy_context = NULL;
+	dcs = array_get(&iostream->destroy_callbacks, &count);
+	for (i = 0; i < count; i++) {
+		if (dcs[i].callback == callback) {
+			array_delete(&iostream->destroy_callbacks, i, 1);
+			return;
+		}
+	}
+	i_unreached();
 }
 
 int i_stream_get_fd(struct istream *stream)

@@ -52,15 +52,16 @@ void i_stream_ref(struct istream *stream);
 /* Unreferences the stream and sets stream pointer to NULL. */
 void i_stream_unref(struct istream **stream);
 /* Call the given callback function when stream is destroyed. */
-void i_stream_set_destroy_callback(struct istream *stream,
+void i_stream_add_destroy_callback(struct istream *stream,
 				   istream_callback_t *callback, void *context)
 	ATTR_NULL(3);
-#define i_stream_set_destroy_callback(stream, callback, context) \
-	i_stream_set_destroy_callback(stream + \
+#define i_stream_add_destroy_callback(stream, callback, context) \
+	i_stream_add_destroy_callback(stream + \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(istream_callback_t *)callback, context)
 /* Remove the destroy callback. */
-void i_stream_unset_destroy_callback(struct istream *stream);
+void i_stream_remove_destroy_callback(struct istream *stream,
+				      void (*callback)());
 
 /* Return file descriptor for stream, or -1 if none is available. */
 int i_stream_get_fd(struct istream *stream);

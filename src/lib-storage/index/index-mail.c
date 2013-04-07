@@ -948,7 +948,7 @@ int index_mail_init_stream(struct index_mail *mail,
 		/* do this only once in case a plugin changes the stream.
 		   otherwise the check would break. */
 		data->destroy_callback_set = TRUE;
-		i_stream_set_destroy_callback(data->stream,
+		i_stream_add_destroy_callback(data->stream,
 			index_mail_stream_destroy_callback, mail);
 	}
 
@@ -1260,11 +1260,12 @@ static void index_mail_close_streams_full(struct index_mail *mail, bool closing)
 		i_stream_unref(&data->filter_stream);
 	if (data->stream != NULL) {
 		data->destroying_stream = TRUE;
-		if (!closing) {
+		if (!closing && data->destroy_callback_set) {
 			/* we're replacing the stream with a new one. it's
 			   allowed to have references until the mail is closed
 			   (but we can't really check that) */
-			i_stream_unset_destroy_callback(data->stream);
+			i_stream_remove_destroy_callback(data->stream,
+				index_mail_stream_destroy_callback);
 		}
 		i_stream_unref(&data->stream);
  		if (closing) {
