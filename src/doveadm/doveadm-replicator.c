@@ -215,11 +215,41 @@ static void cmd_replicator_replicate(int argc, char *argv[])
 	replicator_disconnect(ctx);
 }
 
+static void cmd_replicator_remove(int argc, char *argv[])
+{
+	struct replicator_context *ctx;
+	string_t *str;
+	const char *line;
+
+	if (argv[1] == NULL)
+		replicator_cmd_help(cmd_replicator_remove);
+
+	ctx = cmd_replicator_init(argc, argv, "a:", cmd_replicator_remove);
+
+	str = t_str_new(128);
+	str_append(str, "REMOVE\t");
+	str_append_tabescaped(str, argv[1]);
+	str_append_c(str, '\n');
+	replicator_send(ctx, str_c(str));
+
+	line = i_stream_read_next_line(ctx->input);
+	if (line == NULL) {
+		i_error("Replicator disconnected unexpectedly");
+		doveadm_exit_code = EX_TEMPFAIL;
+	} else if (line[0] != '+') {
+		i_error("Replicator failed: %s", line+1);
+		doveadm_exit_code = EX_USAGE;
+	}
+	replicator_disconnect(ctx);
+}
+
 struct doveadm_cmd doveadm_cmd_replicator[] = {
 	{ cmd_replicator_status, "replicator status",
 	  "[-a <replicator socket path>] [<user mask>]" },
 	{ cmd_replicator_replicate, "replicator replicate",
 	  "[-a <replicator socket path>] [-p <priority>] <user mask>" },
+	{ cmd_replicator_remove, "replicator remove",
+	  "[-a <replicator socket path>] <username>" },
 };
 
 static void replicator_cmd_help(doveadm_command_t *cmd)

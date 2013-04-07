@@ -35,6 +35,9 @@ void replicator_queue_set_change_callback(struct replicator_queue *queue,
 					  void (*callback)(void *context),
 					  void *context);
 
+/* Lookup an existing user */
+struct replicator_user *
+replicator_queue_lookup(struct replicator_queue *queue, const char *username);
 /* Add a user to queue and return it. If the user already exists, it's updated
    only if the new priority is higher. */
 struct replicator_user *

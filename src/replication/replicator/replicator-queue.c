@@ -120,13 +120,19 @@ void replicator_queue_set_change_callback(struct replicator_queue *queue,
 	queue->change_context = context;
 }
 
+struct replicator_user *
+replicator_queue_lookup(struct replicator_queue *queue, const char *username)
+{
+	return hash_table_lookup(queue->user_hash, username);
+}
+
 static struct replicator_user *
 replicator_queue_add_int(struct replicator_queue *queue, const char *username,
 			 enum replication_priority priority)
 {
 	struct replicator_user *user;
 
-	user = hash_table_lookup(queue->user_hash, username);
+	user = replicator_queue_lookup(queue, username);
 	if (user == NULL) {
 		user = i_new(struct replicator_user, 1);
 		user->username = i_strdup(username);
