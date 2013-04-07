@@ -36,7 +36,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+dEfg:l:m:n:Nr:Rs:"
+#define DSYNC_COMMON_GETOPT_ARGS "+dEfg:l:m:n:Nr:Rs:U"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 
 enum dsync_run_type {
@@ -78,6 +78,7 @@ struct dsync_cmd_context {
 	unsigned int remote_user_prefix:1;
 	unsigned int no_mail_sync:1;
 	unsigned int local_location_from_arg:1;
+	unsigned int replicator_notify:1;
 };
 
 static bool legacy_dsync = FALSE;
@@ -441,6 +442,42 @@ cmd_dsync_icb_stream_init(struct dsync_cmd_context *ctx,
 				     name, temp_prefix);
 }
 
+static void
+dsync_replicator_notify(struct dsync_cmd_context *ctx, const char *state_str)
+{
+#define REPLICATOR_HANDSHAKE "VERSION\treplicator-doveadm-client\t1\t0\n"
+	const char *path;
+	string_t *str;
+	int fd;
+
+	path = t_strdup_printf("%s/replicator-doveadm",
+			       ctx->ctx.cur_mail_user->set->base_dir);
+	fd = net_connect_unix(path);
+	if (fd == -1) {
+		if (errno == ECONNREFUSED || errno == ENOENT) {
+			/* replicator not running on this server. ignore. */
+			return;
+		}
+		i_error("net_connect_unix(%s) failed: %m", path);
+		return;
+	}
+	str = t_str_new(128);
+	str_append(str, REPLICATOR_HANDSHAKE"NOTIFY\t");
+	str_append_tabescaped(str, ctx->ctx.cur_mail_user->username);
+	str_append_c(str, '\t');
+	if (ctx->sync_type == DSYNC_BRAIN_SYNC_TYPE_FULL)
+		str_append_c(str, 'f');
+	str_append_c(str, '\t');
+	str_append_tabescaped(str, state_str);
+	str_append_c(str, '\n');
+	if (write_full(fd, str_data(str), str_len(str)) < 0)
+		i_error("write(%s) failed: %m", path);
+	/* we only wanted to notify replicator. we don't care enough about the
+	   answer to wait for it. */
+	if (close(fd) < 0)
+		i_error("close(%s) failed: %m", path);
+}
+
 static int
 cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
@@ -450,6 +487,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	struct mail_namespace *sync_ns = NULL;
 	enum dsync_brain_flags brain_flags;
 	bool remote_errors_logged = FALSE;
+	string_t *state_str = NULL;
 	int status = 0, ret = 0;
 
 	user->admin = TRUE;
@@ -501,13 +539,15 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	}
 
 	if (ctx->state_input != NULL) {
-		string_t *str = t_str_new(128);
-		dsync_brain_get_state(brain, str);
-		doveadm_print(str_c(str));
+		state_str = t_str_new(128);
+		dsync_brain_get_state(brain, state_str);
+		doveadm_print(str_c(state_str));
 	}
 
-	if (dsync_brain_deinit(&brain) < 0)
+	if (dsync_brain_deinit(&brain) < 0) {
 		ctx->ctx.exit_code = EX_TEMPFAIL;
+		ret = -1;
+	}
 	dsync_ibc_deinit(&ibc);
 	if (ibc2 != NULL)
 		dsync_ibc_deinit(&ibc2);
@@ -540,6 +580,11 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		i_close_fd(&ctx->fd_err);
 	ctx->input = NULL;
 	ctx->output = NULL;
+
+	if (ctx->replicator_notify) {
+		dsync_replicator_notify(ctx, state_str == NULL ? "" :
+					str_c(state_str));
+	}
 	return ret;
 }
 
@@ -819,6 +864,9 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		    *optarg != '\0')
 			ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_STATE;
 		ctx->state_input = optarg;
+		break;
+	case 'U':
+		ctx->replicator_notify = TRUE;
 		break;
 	default:
 		return FALSE;

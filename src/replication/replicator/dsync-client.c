@@ -209,7 +209,7 @@ void dsync_client_sync(struct dsync_client *client,
 		str_printfa(cmd, "\tsync\t-d\t-N\t-l\t%u", DSYNC_LOCK_TIMEOUT_SECS);
 		if (full)
 			str_append(cmd, "\t-f");
-		str_append(cmd, "\t-s\t");
+		str_append(cmd, "\t-U\t-s\t");
 		if (state != NULL)
 			str_append(cmd, state);
 		str_append_c(cmd, '\n');

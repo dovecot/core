@@ -137,6 +137,32 @@ client_input_replicate(struct doveadm_connection *client, const char *const *arg
 	return 0;
 }
 
+static int
+client_input_notify(struct doveadm_connection *client, const char *const *args)
+{
+	struct replicator_user *user;
+
+	/* <username> <flags> <state> */
+	if (str_array_length(args) < 3) {
+		i_error("%s: NOTIFY: Invalid parameters", client->conn.name);
+		return -1;
+	}
+
+	user = replicator_queue_add(client->queue, args[0],
+				    REPLICATION_PRIORITY_NONE);
+	if (args[1][0] == 'f')
+		user->last_full_sync = ioloop_time;
+	user->last_fast_sync = ioloop_time;
+	user->last_update = ioloop_time;
+
+	if (args[2][0] != '\0') {
+		i_free(user->state);
+		user->state = i_strdup(args[2]);
+	}
+	o_stream_send_str(client->conn.output, "+\n");
+	return 0;
+}
+
 static int client_input_args(struct connection *conn, const char *const *args)
 {
 	struct doveadm_connection *client = (struct doveadm_connection *)conn;
@@ -152,6 +178,8 @@ static int client_input_args(struct connection *conn, const char *const *args)
 		return client_input_status(client, args);
 	else if (strcmp(cmd, "REPLICATE") == 0)
 		return client_input_replicate(client, args);
+	else if (strcmp(cmd, "NOTIFY") == 0)
+		return client_input_notify(client, args);
 	i_error("%s: Unknown command: %s", conn->name, cmd);
 	return -1;
 }
