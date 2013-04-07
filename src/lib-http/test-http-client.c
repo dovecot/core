@@ -329,7 +329,8 @@ int main(int argc, char *argv[])
 	memset(&http_set, 0, sizeof(http_set));
 	http_set.dns_client_socket_path = "/var/run/dovecot/dns-client";
 	http_set.ssl_allow_invalid_cert = TRUE;
-	http_set.ssl_ca_dir = "/etc/ssl/certs";
+	http_set.ssl_ca_dir = "/etc/ssl/certs"; /* debian */
+	http_set.ssl_ca_file = "/etc/pki/tls/cert.pem"; /* redhat */
 	http_set.max_idle_time_msecs = 5*1000;
 	http_set.max_parallel_connections = 4;
 	http_set.max_pipelined_requests = 4;

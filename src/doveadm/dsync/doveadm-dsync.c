@@ -619,6 +619,7 @@ static int dsync_init_ssl_ctx(struct dsync_cmd_context *ctx,
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
 	ssl_set.ca_dir = mail_set->ssl_client_ca_dir;
+	ssl_set.ca_file = mail_set->ssl_client_ca_file;
 	ssl_set.verify_remote_cert = TRUE;
 	ssl_set.crypto_device = mail_set->ssl_crypto_device;
 

@@ -82,6 +82,7 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
 		client->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
 	client->set.ssl_ca_dir = p_strdup(pool, set->ssl_ca_dir);
+	client->set.ssl_ca_file = p_strdup(pool, set->ssl_ca_file);
 	client->set.ssl_ca = p_strdup(pool, set->ssl_ca);
 	client->set.ssl_crypto_device = p_strdup(pool, set->ssl_crypto_device);
 	client->set.ssl_allow_invalid_cert = set->ssl_allow_invalid_cert;
@@ -192,6 +193,7 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
 	ssl_set.ca_dir = client->set.ssl_ca_dir;
+	ssl_set.ca_file = client->set.ssl_ca_file;
 	ssl_set.ca = client->set.ssl_ca;
 	ssl_set.verify_remote_cert = TRUE;
 	ssl_set.crypto_device = client->set.ssl_crypto_device;

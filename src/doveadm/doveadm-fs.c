@@ -24,6 +24,7 @@ cmd_fs_init(int *argc, char **argv[], int own_arg_count, doveadm_command_t *cmd)
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
 	ssl_set.ca_dir = doveadm_settings->ssl_client_ca_dir;
+	ssl_set.ca_file = doveadm_settings->ssl_client_ca_file;
 	ssl_set.verbose = doveadm_debug;
 
 	memset(&fs_set, 0, sizeof(fs_set));

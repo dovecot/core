@@ -63,10 +63,12 @@ imapc_client_init(const struct imapc_client_settings *set)
 	if (set->ssl_mode != IMAPC_CLIENT_SSL_MODE_NONE) {
 		client->set.ssl_mode = set->ssl_mode;
 		client->set.ssl_ca_dir = p_strdup(pool, set->ssl_ca_dir);
+		client->set.ssl_ca_file = p_strdup(pool, set->ssl_ca_file);
 		client->set.ssl_verify = set->ssl_verify;
 
 		memset(&ssl_set, 0, sizeof(ssl_set));
 		ssl_set.ca_dir = set->ssl_ca_dir;
+		ssl_set.ca_file = set->ssl_ca_file;
 		ssl_set.verify_remote_cert = set->ssl_verify;
 		ssl_set.crypto_device = set->ssl_crypto_device;
 

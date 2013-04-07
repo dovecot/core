@@ -31,7 +31,7 @@ struct pop3c_client_settings {
 	const char *temp_path_prefix;
 
 	enum pop3c_client_ssl_mode ssl_mode;
-	const char *ssl_ca_dir;
+	const char *ssl_ca_dir, *ssl_ca_file;
 	bool ssl_verify;
 
 	const char *rawlog_dir;

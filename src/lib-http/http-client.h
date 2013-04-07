@@ -33,7 +33,7 @@ extern const char *http_request_state_names[];
 struct http_client_settings {
 	const char *dns_client_socket_path;
 
-	const char *ssl_ca_dir, *ssl_ca;
+	const char *ssl_ca_dir, *ssl_ca_file, *ssl_ca;
 	const char *ssl_crypto_device;
 	bool ssl_allow_invalid_cert;
 

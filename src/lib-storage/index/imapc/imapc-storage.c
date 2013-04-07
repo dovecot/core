@@ -251,6 +251,7 @@ imapc_storage_create(struct mail_storage *_storage,
 	set.temp_path_prefix = str_c(str);
 
 	set.ssl_ca_dir = _storage->set->ssl_client_ca_dir;
+	set.ssl_ca_file = _storage->set->ssl_client_ca_file;
 	set.ssl_verify = storage->set->imapc_ssl_verify;
 	if (strcmp(storage->set->imapc_ssl, "imaps") == 0)
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_IMMEDIATE;

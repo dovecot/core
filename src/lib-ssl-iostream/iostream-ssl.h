@@ -7,7 +7,7 @@ struct ssl_iostream_context;
 struct ssl_iostream_settings {
 	const char *protocols;
 	const char *cipher_list;
-	const char *ca, *ca_dir; /* context-only */
+	const char *ca, *ca_file, *ca_dir; /* context-only */
 	const char *cert;
 	const char *key;
 	const char *key_password;

@@ -54,6 +54,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_STR, pop3_uidl_format),
 
 	DEF(SET_STR, ssl_client_ca_dir),
+	DEF(SET_STR, ssl_client_ca_file),
 	DEF(SET_STR, ssl_crypto_device),
 
 	SETTING_DEFINE_LIST_END
@@ -89,6 +90,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.pop3_uidl_format = "%08Xu%08Xv",
 
 	.ssl_client_ca_dir = "",
+	.ssl_client_ca_file = "",
 	.ssl_crypto_device = ""
 };
 
