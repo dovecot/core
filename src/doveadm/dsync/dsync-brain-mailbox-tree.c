@@ -124,7 +124,7 @@ void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 			return;
 	}
 	dsync_mailbox_tree_iter_deinit(&brain->local_tree_iter);
-	dsync_ibc_send_end_of_list(brain->ibc);
+	dsync_ibc_send_end_of_list(brain->ibc, DSYNC_IBC_EOL_MAILBOX_TREE);
 
 	brain->state = DSYNC_STATE_SEND_MAILBOX_TREE_DELETES;
 }

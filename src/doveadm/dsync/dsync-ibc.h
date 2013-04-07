@@ -29,6 +29,16 @@ enum dsync_ibc_recv_ret {
 	DSYNC_IBC_RECV_RET_OK		= 1
 };
 
+enum dsync_ibc_eol_type {
+	DSYNC_IBC_EOL_MAILBOX_STATE,
+	DSYNC_IBC_EOL_MAILBOX_TREE,
+	DSYNC_IBC_EOL_MAILBOX_ATTRIBUTE,
+	DSYNC_IBC_EOL_MAILBOX,
+	DSYNC_IBC_EOL_MAIL_CHANGES,
+	DSYNC_IBC_EOL_MAIL_REQUESTS,
+	DSYNC_IBC_EOL_MAILS
+};
+
 struct dsync_ibc_settings {
 	/* Server hostname. Used for determining which server does the
 	   locking. */
@@ -64,7 +74,7 @@ dsync_ibc_recv_handshake(struct dsync_ibc *ibc,
 			 const struct dsync_ibc_settings **set_r);
 
 enum dsync_ibc_send_ret ATTR_NOWARN_UNUSED_RESULT
-dsync_ibc_send_end_of_list(struct dsync_ibc *ibc);
+dsync_ibc_send_end_of_list(struct dsync_ibc *ibc, enum dsync_ibc_eol_type type);
 
 enum dsync_ibc_send_ret ATTR_NOWARN_UNUSED_RESULT
 dsync_ibc_send_mailbox_state(struct dsync_ibc *ibc,

@@ -195,7 +195,8 @@ static bool dsync_ibc_pipe_has_pending_data(struct dsync_ibc *ibc)
 }
 
 static void
-dsync_ibc_pipe_send_end_of_list(struct dsync_ibc *ibc)
+dsync_ibc_pipe_send_end_of_list(struct dsync_ibc *ibc,
+				enum dsync_ibc_eol_type type ATTR_UNUSED)
 {
 	struct dsync_ibc_pipe *pipe = (struct dsync_ibc_pipe *)ibc;
 

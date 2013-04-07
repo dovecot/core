@@ -412,7 +412,7 @@ void dsync_brain_master_send_mailbox(struct dsync_brain *brain)
 
 	if (!dsync_brain_next_mailbox(brain, &box, &dsync_box)) {
 		brain->state = DSYNC_STATE_DONE;
-		dsync_ibc_send_end_of_list(brain->ibc);
+		dsync_ibc_send_end_of_list(brain->ibc, DSYNC_IBC_EOL_MAILBOX);
 		return;
 	}
 

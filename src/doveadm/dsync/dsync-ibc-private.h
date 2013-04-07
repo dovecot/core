@@ -12,7 +12,8 @@ struct dsync_ibc_vfuncs {
 		(*recv_handshake)(struct dsync_ibc *ibc,
 				  const struct dsync_ibc_settings **set_r);
 
-	void (*send_end_of_list)(struct dsync_ibc *ibc);
+	void (*send_end_of_list)(struct dsync_ibc *ibc,
+				 enum dsync_ibc_eol_type type);
 
 	void (*send_mailbox_state)(struct dsync_ibc *ibc,
 				   const struct dsync_mailbox_state *state);

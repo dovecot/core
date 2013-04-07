@@ -61,8 +61,9 @@ static const struct {
 	char chr;
 	const char *required_keys;
 	const char *optional_keys;
+	unsigned int min_minor_version;
 } items[ITEM_END_OF_LIST+1] = {
-	{ NULL, '\0', NULL, NULL },
+	{ NULL, '\0', NULL, NULL, 0 },
 	{ .name = "done",
 	  .chr = 'X',
 	  .optional_keys = ""
@@ -100,7 +101,8 @@ static const struct {
 	{ .name = "mailbox_attribute",
 	  .chr = 'A',
 	  .required_keys = "type key",
-	  .optional_keys = "value stream deleted last_change modseq"
+	  .optional_keys = "value stream deleted last_change modseq",
+	  .min_minor_version = DSYNC_PROTOCOL_MINOR_HAVE_ATTRIBUTES
 	},
 	{ .name = "mail_change",
 	  .chr = 'C',
@@ -123,7 +125,7 @@ static const struct {
 	  .optional_keys = "last_used"
 	},
 
-	{ "end_of_list", '\0', NULL, NULL }
+	{ "end_of_list", '\0', NULL, NULL, 0 }
 };
 
 struct dsync_ibc_stream {
@@ -453,6 +455,7 @@ dsync_ibc_check_missing_deserializers(struct dsync_ibc_stream *ibc)
 
 	for (i = ITEM_DONE + 1; i < ITEM_END_OF_LIST; i++) {
 		if (ibc->deserializers[i] == NULL &&
+		    ibc->minor_version >= items[i].min_minor_version &&
 		    (items[i].required_keys != NULL ||
 		     items[i].optional_keys != NULL)) {
 			dsync_ibc_input_error(ibc, NULL,
@@ -707,11 +710,21 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 }
 
 static void
-dsync_ibc_stream_send_end_of_list(struct dsync_ibc *_ibc)
+dsync_ibc_stream_send_end_of_list(struct dsync_ibc *_ibc,
+				  enum dsync_ibc_eol_type type)
 {
 	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
 
 	i_assert(ibc->value_output == NULL);
+
+	switch (type) {
+	case DSYNC_IBC_EOL_MAILBOX_ATTRIBUTE:
+		if (ibc->minor_version < DSYNC_PROTOCOL_MINOR_HAVE_ATTRIBUTES)
+			return;
+		break;
+	default:
+		break;
+	}
 
 	o_stream_nsend_str(ibc->output, END_OF_LIST_LINE"\n");
 }

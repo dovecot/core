@@ -41,9 +41,9 @@ dsync_ibc_send_ret(struct dsync_ibc *ibc)
 }
 
 enum dsync_ibc_send_ret
-dsync_ibc_send_end_of_list(struct dsync_ibc *ibc)
+dsync_ibc_send_end_of_list(struct dsync_ibc *ibc, enum dsync_ibc_eol_type type)
 {
-	ibc->v.send_end_of_list(ibc);
+	ibc->v.send_end_of_list(ibc, type);
 	return dsync_ibc_send_ret(ibc);
 }
 

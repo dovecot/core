@@ -344,7 +344,7 @@ static void dsync_brain_master_send_last_common(struct dsync_brain *brain)
 	}
 	hash_table_iterate_deinit(&brain->mailbox_states_iter);
 
-	dsync_ibc_send_end_of_list(brain->ibc);
+	dsync_ibc_send_end_of_list(brain->ibc, DSYNC_IBC_EOL_MAILBOX_STATE);
 	brain->state = DSYNC_STATE_SEND_MAILBOX_TREE;
 }
 
