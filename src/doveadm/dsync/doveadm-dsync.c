@@ -909,7 +909,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	struct dsync_ibc *ibc;
 	struct dsync_brain *brain;
-	string_t *temp_prefix;
+	string_t *temp_prefix, *state_str = NULL;
 
 	if (_ctx->conn != NULL) {
 		/* doveadm-server connection. start with a success reply.
@@ -933,6 +933,11 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 
 	io_loop_run(current_ioloop);
 
+	if (ctx->replicator_notify) {
+		state_str = t_str_new(128);
+		dsync_brain_get_state(brain, state_str);
+	}
+
 	if (dsync_brain_deinit(&brain) < 0)
 		_ctx->exit_code = EX_TEMPFAIL;
 	dsync_ibc_deinit(&ibc);
@@ -943,12 +948,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		o_stream_close(_ctx->conn->output);
 	}
 
-	if (ctx->replicator_notify) {
-		string_t *state_str = t_str_new(128);
-		dsync_brain_get_state(brain, state_str);
+	if (ctx->replicator_notify)
 		dsync_replicator_notify(ctx, str_c(state_str));
-	}
-
 	return _ctx->exit_code == 0 ? 0 : -1;
 }
 
