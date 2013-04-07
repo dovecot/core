@@ -24,10 +24,12 @@ cmd_fs_init(int *argc, char **argv[], int own_arg_count, doveadm_command_t *cmd)
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
 	ssl_set.ca_dir = doveadm_settings->ssl_client_ca_dir;
+	ssl_set.verbose = doveadm_debug;
 
 	memset(&fs_set, 0, sizeof(fs_set));
 	fs_set.ssl_client_set = &ssl_set;
 	fs_set.temp_dir = "/tmp";
+	fs_set.debug = doveadm_debug;
 
 	if (fs_init((*argv)[1], (*argv)[2], &fs_set, &fs, &error) < 0)
 		i_fatal("fs_init() failed: %s", error);
