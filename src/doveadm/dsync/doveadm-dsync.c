@@ -443,7 +443,9 @@ cmd_dsync_icb_stream_init(struct dsync_cmd_context *ctx,
 }
 
 static void
-dsync_replicator_notify(struct dsync_cmd_context *ctx, const char *state_str)
+dsync_replicator_notify(struct dsync_cmd_context *ctx,
+			enum dsync_brain_sync_type sync_type,
+			const char *state_str)
 {
 #define REPLICATOR_HANDSHAKE "VERSION\treplicator-doveadm-client\t1\t0\n"
 	const char *path;
@@ -465,7 +467,7 @@ dsync_replicator_notify(struct dsync_cmd_context *ctx, const char *state_str)
 	str_append(str, REPLICATOR_HANDSHAKE"NOTIFY\t");
 	str_append_tabescaped(str, ctx->ctx.cur_mail_user->username);
 	str_append_c(str, '\t');
-	if (ctx->sync_type == DSYNC_BRAIN_SYNC_TYPE_FULL)
+	if (sync_type == DSYNC_BRAIN_SYNC_TYPE_FULL)
 		str_append_c(str, 'f');
 	str_append_c(str, '\t');
 	str_append_tabescaped(str, state_str);
@@ -910,6 +912,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	struct dsync_ibc *ibc;
 	struct dsync_brain *brain;
 	string_t *temp_prefix, *state_str = NULL;
+	enum dsync_brain_sync_type sync_type;
 
 	if (_ctx->conn != NULL) {
 		/* doveadm-server connection. start with a success reply.
@@ -937,6 +940,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		state_str = t_str_new(128);
 		dsync_brain_get_state(brain, state_str);
 	}
+	sync_type = dsync_brain_get_sync_type(brain);
 
 	if (dsync_brain_deinit(&brain) < 0)
 		_ctx->exit_code = EX_TEMPFAIL;
@@ -949,7 +953,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	}
 
 	if (ctx->replicator_notify)
-		dsync_replicator_notify(ctx, str_c(state_str));
+		dsync_replicator_notify(ctx, sync_type, str_c(state_str));
 	return _ctx->exit_code == 0 ? 0 : -1;
 }
 

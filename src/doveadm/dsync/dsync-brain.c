@@ -498,6 +498,11 @@ void dsync_brain_get_state(struct dsync_brain *brain, string_t *output)
 	dsync_mailbox_states_export(brain->mailbox_states, output);
 }
 
+enum dsync_brain_sync_type dsync_brain_get_sync_type(struct dsync_brain *brain)
+{
+	return brain->sync_type;
+}
+
 bool dsync_brain_has_failed(struct dsync_brain *brain)
 {
 	return brain->failed;
