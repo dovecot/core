@@ -226,7 +226,18 @@ static void env_put_auth_vars(struct auth_request *request)
 
 	tab = auth_request_get_var_expand_table(request, NULL);
 	for (i = 0; tab[i].key != '\0' || tab[i].long_key != NULL; i++) {
-		if (tab[i].long_key != NULL && tab[i].value != NULL) {
+		/* avoid keeping passwords in environment .. just in case
+		   an attacker might find it from there. environment is no
+		   longer world-readable in modern OSes, but maybe the attacker
+		   could be running with the same UID. of course then the
+		   attacker could usually ptrace() the process, except that is
+		   disabled on some secured systems. so, although I find it
+		   highly unlikely anyone could actually attack Dovecot this
+		   way in a real system, be safe just in case. besides, lets
+		   try to keep at least minimally compatible with the
+		   checkpassword API. */
+		if (tab[i].long_key != NULL && tab[i].value != NULL &&
+		    strcasecmp(tab[i].long_key, "password") != 0) {
 			env_put(t_strdup_printf("AUTH_%s=%s",
 						t_str_ucase(tab[i].long_key),
 						tab[i].value));
