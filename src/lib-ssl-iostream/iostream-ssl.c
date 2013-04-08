@@ -151,6 +151,11 @@ bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io)
 	return ssl_vfuncs->is_handshaked(ssl_io);
 }
 
+bool ssl_iostream_has_handshake_failed(const struct ssl_iostream *ssl_io)
+{
+	return ssl_vfuncs->has_handshake_failed(ssl_io);
+}
+
 bool ssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io)
 {
 	return ssl_vfuncs->has_valid_client_cert(ssl_io);

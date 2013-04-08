@@ -49,6 +49,9 @@ void ssl_iostream_set_handshake_callback(struct ssl_iostream *ssl_io,
 					 void *context);
 
 bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io);
+/* Returns TRUE if the remote cert is invalid, or handshake callback returned
+   failure. */
+bool ssl_iostream_has_handshake_failed(const struct ssl_iostream *ssl_io);
 bool ssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io);
 bool ssl_iostream_has_broken_client_cert(struct ssl_iostream *ssl_io);
 int ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,

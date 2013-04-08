@@ -117,8 +117,10 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	}
 	if (!preverify_ok) {
 		ssl_io->cert_broken = TRUE;
-		if (ssl_io->require_valid_cert)
+		if (ssl_io->require_valid_cert) {
+			ssl_io->handshake_failed = TRUE;
 			return 0;
+		}
 	}
 	return 1;
 }
@@ -550,6 +552,7 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 			i_stream_close(ssl_io->plain_input);
 			o_stream_close(ssl_io->plain_output);
 			openssl_iostream_set_error(ssl_io, error);
+			ssl_io->handshake_failed = TRUE;
 			errno = EINVAL;
 			return -1;
 		}
@@ -581,6 +584,12 @@ static void openssl_iostream_set_log_prefix(struct ssl_iostream *ssl_io,
 static bool openssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io)
 {
 	return ssl_io->handshaked;
+}
+
+static bool
+openssl_iostream_has_handshake_failed(const struct ssl_iostream *ssl_io)
+{
+	return ssl_io->handshake_failed;
 }
 
 static bool
@@ -685,6 +694,7 @@ const struct iostream_ssl_vfuncs ssl_vfuncs = {
 
 	openssl_iostream_set_log_prefix,
 	openssl_iostream_is_handshaked,
+	openssl_iostream_has_handshake_failed,
 	openssl_iostream_has_valid_client_cert,
 	openssl_iostream_has_broken_client_cert,
 	openssl_iostream_cert_match_name,

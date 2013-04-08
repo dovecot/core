@@ -41,6 +41,7 @@ struct ssl_iostream {
 	void *handshake_context;
 
 	unsigned int handshaked:1;
+	unsigned int handshake_failed:1;
 	unsigned int cert_received:1;
 	unsigned int cert_broken:1;
 	unsigned int want_read:1;
