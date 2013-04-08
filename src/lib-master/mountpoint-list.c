@@ -39,6 +39,7 @@ const char *const mountpoint_list_default_ignore_types[] = {
 	"rpc_pipefs", /* Linux */
 	"fusectl", /* Linux */
 	"nfsd", /* Linux */
+	"cgroup", /* Linux */
 	"binfmt_misc", /* Linux */
 	"devfs", /* Solaris, OSX, BSD */
 	"ctfs", /* Solaris */
