@@ -1949,6 +1949,9 @@ void dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
 	i_assert(mail->input == NULL || mail->input->seekable);
 	i_assert(importer->new_uids_assigned);
 
+	if (importer->failed)
+		return;
+
 	all_newmails = *mail->guid != '\0' ?
 		hash_table_lookup(importer->import_guids, mail->guid) :
 		hash_table_lookup(importer->import_uids, POINTER_CAST(mail->uid));
