@@ -156,6 +156,7 @@ struct quota_transaction_context {
 	unsigned int limits_set:1;
 	unsigned int failed:1;
 	unsigned int recalculate:1;
+	unsigned int sync_transaction:1;
 };
 
 /* Register storage to all user's quota roots. */

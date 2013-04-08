@@ -32,6 +32,7 @@ struct quota_mailbox {
 	ARRAY(uoff_t) expunge_sizes;
 
 	unsigned int recalculate:1;
+	unsigned int sync_transaction_expunge:1;
 };
 
 struct quota_user_module quota_user_module =
@@ -61,6 +62,14 @@ static void quota_mail_expunge(struct mail *_mail)
 		}
 		array_append(&qbox->expunge_uids, &_mail->uid, 1);
 		array_append(&qbox->expunge_sizes, &size, 1);
+		if ((_mail->transaction->flags & MAILBOX_TRANSACTION_FLAG_SYNC) != 0) {
+			/* we're running dsync. if this brings the quota below
+			   a negative quota warning, don't execute it, because
+			   it probably was already executed by the replica. */
+			qbox->sync_transaction_expunge = TRUE;
+		} else {
+			qbox->sync_transaction_expunge = FALSE;
+		}
 	}
 
 	qmail->super.expunge(_mail);
@@ -106,6 +115,7 @@ quota_mailbox_transaction_begin(struct mailbox *box,
 
 	t = qbox->module_ctx.super.transaction_begin(box, flags);
 	qt = quota_transaction_begin(box);
+	qt->sync_transaction = (flags & MAILBOX_TRANSACTION_FLAG_SYNC) != 0;
 
 	MODULE_CONTEXT_SET(t, quota_storage_module, qt);
 	return t;
@@ -285,6 +295,7 @@ static void quota_mailbox_sync_cleanup(struct quota_mailbox *qbox)
 		mail_free(&qbox->expunge_qt->tmp_mail);
 		mailbox_transaction_rollback(&qbox->expunge_trans);
 	}
+	qbox->sync_transaction_expunge = FALSE;
 }
 
 static void quota_mailbox_sync_commit(struct quota_mailbox *qbox)
@@ -330,8 +341,11 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 		}
 	}
 
-	if (qbox->expunge_qt == NULL)
+	if (qbox->expunge_qt == NULL) {
 		qbox->expunge_qt = quota_transaction_begin(box);
+		qbox->expunge_qt->sync_transaction =
+			qbox->sync_transaction_expunge;
+	}
 
 	if (i != count) {
 		/* we already know the size */

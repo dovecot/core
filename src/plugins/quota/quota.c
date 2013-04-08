@@ -1210,12 +1210,15 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 
 			if (roots[i]->backend.v.update(roots[i], ctx) < 0)
 				ret = -1;
-			else
+			else if (!ctx->sync_transaction)
 				array_append(&warn_roots, &roots[i], 1);
 		}
 		/* execute quota warnings after all updates. this makes it
 		   work correctly regardless of whether backend.get_resource()
-		   returns updated values before backend.update() or not */
+		   returns updated values before backend.update() or not.
+		   warnings aren't executed when dsync bring the user over,
+		   because the user probably already got the warning on the
+		   other replica. */
 		array_foreach(&warn_roots, roots)
 			quota_warnings_execute(ctx, *roots);
 	} T_END;
