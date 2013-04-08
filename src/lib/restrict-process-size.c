@@ -30,7 +30,7 @@ void restrict_process_count(rlim_t count ATTR_UNUSED)
 
 	rlim.rlim_max = rlim.rlim_cur = count;
 	if (setrlimit(RLIMIT_NPROC, &rlim) < 0) {
-		i_fatal("setrlimit(RLIMIT_NPROC, %llu): %m",
+		i_error("setrlimit(RLIMIT_NPROC, %llu): %m",
 			(unsigned long long)count);
 	}
 #endif
