@@ -238,7 +238,12 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 		if (file_wait_lock(brain->lock_fd, brain->lock_path, F_WRLCK,
 				   FILE_LOCK_METHOD_FCNTL, brain->lock_timeout,
 				   &brain->lock) <= 0) {
-			i_error("Couldn't lock %s: %m", brain->lock_path);
+			if (errno == EAGAIN) {
+				i_error("Couldn't lock %s: Timed out after %u seconds",
+					brain->lock_path, brain->lock_timeout);
+			} else {
+				i_error("Couldn't lock %s: %m", brain->lock_path);
+			}
 			break;
 		}
 		if (fstat(brain->lock_fd, &st1) < 0) {
