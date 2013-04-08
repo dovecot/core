@@ -97,29 +97,6 @@ http_client_connection_server_close(struct http_client_connection **_conn)
 }
 
 static void
-http_client_connection_abort_temp_error(struct http_client_connection **_conn,
-	unsigned int status, const char *error)
-{
-	struct http_client_connection *conn = *_conn;
-	const char *sslerr;
-
-	if (status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST &&
-	    conn->ssl_iostream != NULL) {
-		sslerr = ssl_iostream_get_last_error(conn->ssl_iostream);
-		if (sslerr != NULL) {
-			error = t_strdup_printf("%s (last SSL error: %s)",
-						error, sslerr);
-		}
-	}
-
-	conn->connected = FALSE;
-	conn->closing = TRUE;
-	
-	http_client_connection_retry_requests(conn, status, error);
-	http_client_connection_unref(_conn);
-}
-
-static void
 http_client_connection_abort_error(struct http_client_connection **_conn,
 	unsigned int status, const char *error)
 {
@@ -134,6 +111,37 @@ http_client_connection_abort_error(struct http_client_connection **_conn,
 		http_client_request_unref(req);
 	}	
 	array_clear(&conn->request_wait_list);
+	http_client_connection_unref(_conn);
+}
+
+static void
+http_client_connection_abort_temp_error(struct http_client_connection **_conn,
+	unsigned int status, const char *error)
+{
+	struct http_client_connection *conn = *_conn;
+	const char *sslerr;
+
+	if (status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST &&
+	    conn->ssl_iostream != NULL) {
+		sslerr = ssl_iostream_get_last_error(conn->ssl_iostream);
+		if (sslerr != NULL) {
+			error = t_strdup_printf("%s (last SSL error: %s)",
+						error, sslerr);
+		}
+		if (ssl_iostream_has_handshake_failed(conn->ssl_iostream)) {
+			/* this isn't really a "connection lost", but that we
+			   don't trust the remote's SSL certificate. don't
+			   retry. */
+			http_client_connection_abort_error(_conn,
+				HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE, error);
+			return;
+		}
+	}
+
+	conn->connected = FALSE;
+	conn->closing = TRUE;
+	
+	http_client_connection_retry_requests(conn, status, error);
 	http_client_connection_unref(_conn);
 }
 
