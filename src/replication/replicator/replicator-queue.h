@@ -69,9 +69,11 @@ int replicator_queue_export(struct replicator_queue *queue, const char *path);
 bool replicator_queue_want_sync_now(struct replicator_queue *queue,
 				    struct replicator_user *user,
 				    unsigned int *next_secs_r);
-/* Returns an (unsorted) array of all users in the queue. */
-struct replicator_user *const *
-replicator_queue_get_users(struct replicator_queue *queue,
-			   unsigned int *count_r);
+/* Iterate through all users in the queue. */
+struct replicator_queue_iter *
+replicator_queue_iter_init(struct replicator_queue *queue);
+struct replicator_user *
+replicator_queue_iter_next(struct replicator_queue_iter *iter);
+void replicator_queue_iter_deinit(struct replicator_queue_iter **iter);
 
 #endif

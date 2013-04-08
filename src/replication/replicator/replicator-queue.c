@@ -36,6 +36,11 @@ struct replicator_queue {
 	void *change_context;
 };
 
+struct replicator_queue_iter {
+	struct replicator_queue *queue;
+	struct hash_iterate_context *iter;
+};
+
 static int user_priority_cmp(const void *p1, const void *p2)
 {
 	const struct replicator_user *user1 = p1, *user2 = p2;
@@ -387,9 +392,9 @@ replicator_queue_export_user(struct replicator_user *user, string_t *str)
 
 int replicator_queue_export(struct replicator_queue *queue, const char *path)
 {
+	struct replicator_queue_iter *iter;
+	struct replicator_user *user;
 	struct ostream *output;
-	struct priorityq_item *const *items;
-	unsigned int i, count;
 	string_t *str;
 	int fd, ret = 0;
 
@@ -402,17 +407,14 @@ int replicator_queue_export(struct replicator_queue *queue, const char *path)
 	o_stream_cork(output);
 
 	str = t_str_new(128);
-	items = priorityq_items(queue->user_queue);
-	count = priorityq_count(queue->user_queue);
-	for (i = 0; i < count; i++) {
-		struct replicator_user *user =
-			(struct replicator_user *)items[i];
-
+	iter = replicator_queue_iter_init(queue);
+	while ((user = replicator_queue_iter_next(iter)) != NULL) {
 		str_truncate(str, 0);
 		replicator_queue_export_user(user, str);
 		if (o_stream_send(output, str_data(str), str_len(str)) < 0)
 			break;
 	}
+	replicator_queue_iter_deinit(&iter);
 	if (o_stream_nfinish(output) < 0) {
 		i_error("write(%s) failed: %m", path);
 		ret = -1;
@@ -421,13 +423,35 @@ int replicator_queue_export(struct replicator_queue *queue, const char *path)
 	return ret;
 }
 
-struct replicator_user *const *
-replicator_queue_get_users(struct replicator_queue *queue,
-			   unsigned int *count_r)
+struct replicator_queue_iter *
+replicator_queue_iter_init(struct replicator_queue *queue)
 {
-	struct priorityq_item *const *items =
-		priorityq_items(queue->user_queue);
+	struct replicator_queue_iter *iter;
 
-	*count_r = priorityq_count(queue->user_queue);
-	return (void *)items;
+	iter = i_new(struct replicator_queue_iter, 1);
+	iter->queue = queue;
+	iter->iter = hash_table_iterate_init(queue->user_hash);
+	return iter;
+}
+
+struct replicator_user *
+replicator_queue_iter_next(struct replicator_queue_iter *iter)
+{
+	struct replicator_user *user;
+	char *username;
+
+	if (!hash_table_iterate(iter->iter, iter->queue->user_hash,
+				&username, &user))
+		return NULL;
+	return user;
+}
+
+void replicator_queue_iter_deinit(struct replicator_queue_iter **_iter)
+{
+	struct replicator_queue_iter *iter = *_iter;
+
+	*_iter = NULL;
+
+	hash_table_iterate_deinit(&iter->iter);
+	i_free(iter);
 }

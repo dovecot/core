@@ -23,10 +23,11 @@ static struct connection_list *doveadm_connections;
 
 static int client_input_status_overview(struct doveadm_connection *client)
 {
-	struct replicator_user *const *users;
+	struct replicator_queue_iter *iter;
+	struct replicator_user *user;
 	enum replication_priority priority;
 	unsigned int pending_counts[REPLICATION_PRIORITY_SYNC+1];
-	unsigned int i, count, next_secs, pending_failed_count;
+	unsigned int user_count, next_secs, pending_failed_count;
 	unsigned int pending_full_resync_count, waiting_failed_count;
 	string_t *str = t_str_new(256);
 
@@ -34,21 +35,24 @@ static int client_input_status_overview(struct doveadm_connection *client)
 	pending_failed_count = 0; waiting_failed_count = 0;
 	pending_full_resync_count = 0;
 
-	users = replicator_queue_get_users(client->queue, &count);
-	for (i = 0; i < count; i++) {
-		if (users[i]->priority != REPLICATION_PRIORITY_NONE)
-			pending_counts[users[i]->priority]++;
+	user_count = 0;
+	iter = replicator_queue_iter_init(client->queue);
+	while ((user = replicator_queue_iter_next(iter)) != NULL) {
+		if (user->priority != REPLICATION_PRIORITY_NONE)
+			pending_counts[user->priority]++;
 		else if (replicator_queue_want_sync_now(client->queue,
-							users[i], &next_secs)) {
-			if (users[i]->last_sync_failed)
+							user, &next_secs)) {
+			if (user->last_sync_failed)
 				pending_failed_count++;
 			else
 				pending_full_resync_count++;
 		} else {
-			if (users[i]->last_sync_failed)
+			if (user->last_sync_failed)
 				waiting_failed_count++;
 		}
+		user_count++;
 	}
+	replicator_queue_iter_deinit(&iter);
 
 	for (priority = REPLICATION_PRIORITY_SYNC; priority > 0; priority--) {
 		str_printfa(str, "Queued '%s' requests\t%u\n",
@@ -61,7 +65,7 @@ static int client_input_status_overview(struct doveadm_connection *client)
 		    pending_full_resync_count);
 	str_printfa(str, "Waiting 'failed' requests\t%u\n",
 		    waiting_failed_count);
-	str_printfa(str, "Total number of known users\t%u\n", count);
+	str_printfa(str, "Total number of known users\t%u\n", user_count);
 	str_append_c(str, '\n');
 	o_stream_send(client->conn.output, str_data(str), str_len(str));
 	return 0;
@@ -70,17 +74,16 @@ static int client_input_status_overview(struct doveadm_connection *client)
 static int
 client_input_status(struct doveadm_connection *client, const char *const *args)
 {
-	struct replicator_user *const *users, *user;
-	unsigned int i, count;
+	struct replicator_queue_iter *iter;
+	struct replicator_user *user;
 	const char *mask = args[0];
 	string_t *str = t_str_new(128);
 
 	if (mask == NULL)
 		return client_input_status_overview(client);
 
-	users = replicator_queue_get_users(client->queue, &count);
-	for (i = 0; i < count; i++) {
-		user = users[i];
+	iter = replicator_queue_iter_init(client->queue);
+	while ((user = replicator_queue_iter_next(iter)) != NULL) {
 		if (!wildcard_match(user->username, mask))
 			continue;
 
@@ -94,6 +97,7 @@ client_input_status(struct doveadm_connection *client, const char *const *args)
 			    user->last_sync_failed);
 		o_stream_send(client->conn.output, str_data(str), str_len(str));
 	}
+	replicator_queue_iter_deinit(&iter);
 	o_stream_send(client->conn.output, "\n", 1);
 	return 0;
 }
@@ -101,10 +105,11 @@ client_input_status(struct doveadm_connection *client, const char *const *args)
 static int
 client_input_replicate(struct doveadm_connection *client, const char *const *args)
 {
-	struct replicator_user *const *queue_users, **users_dup;
-	unsigned int i, count, match_count;
+	struct replicator_queue_iter *iter;
+	struct replicator_user *user;
 	const char *usermask;
 	enum replication_priority priority;
+	unsigned int match_count;
 
 	/* <priority> <username>|<mask> */
 	if (str_array_length(args) != 2) {
@@ -122,16 +127,15 @@ client_input_replicate(struct doveadm_connection *client, const char *const *arg
 		return 0;
 	}
 
-	queue_users = replicator_queue_get_users(client->queue, &count);
-	users_dup = i_new(struct replicator_user *, count+1);
-	for (i = match_count = 0; i < count; i++) {
-		if (wildcard_match(queue_users[i]->username, usermask))
-			users_dup[match_count++] = queue_users[i];
+	match_count = 0;
+	iter = replicator_queue_iter_init(client->queue);
+	while ((user = replicator_queue_iter_next(iter)) != NULL) {
+		if (!wildcard_match(user->username, usermask))
+			continue;
+		replicator_queue_add(client->queue, user->username, priority);
+		match_count++;
 	}
-	for (i = 0; i < match_count; i++) {
-		replicator_queue_add(client->queue, users_dup[i]->username,
-				     priority);
-	}
+	replicator_queue_iter_deinit(&iter);
 	o_stream_send_str(client->conn.output,
 			  t_strdup_printf("+%u\n", match_count));
 	return 0;
