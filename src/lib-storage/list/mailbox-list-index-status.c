@@ -498,7 +498,7 @@ void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 	view = mail_index_view_open(ilist->index);
 	if (!mail_index_lookup_seq(view, uid, &seq)) {
 		/* our in-memory tree is out of sync */
-		ret = 0;
+		ret = 1;
 	} else T_BEGIN {
 		ret = box->v.list_index_has_changed == NULL ? 0 :
 			box->v.list_index_has_changed(box, view, seq);
