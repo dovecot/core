@@ -254,7 +254,7 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 	if (stream->istream.v_offset + stream->pos == sstream->write_peak) {
 		/* need to read more */
 		ret = read_more(sstream);
-		if (ret <= 0)
+		if (ret == -1 || ret == 0)
 			return ret;
 
 		/* save to our file */
