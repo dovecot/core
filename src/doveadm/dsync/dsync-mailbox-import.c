@@ -1756,11 +1756,6 @@ void dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer
 	while (importer->cur_mail != NULL)
 		(void)dsync_mailbox_try_save(importer, NULL);
 
-	dsync_mailbox_import_assign_new_uids(importer);
-	/* save mails from local sources where possible,
-	   request the rest from remote */
-	dsync_mailbox_import_handle_local_mails(importer);
-
 	if (importer->search_ctx != NULL) {
 		if (mailbox_search_deinit(&importer->search_ctx) < 0) {
 			i_error("Mailbox %s: Search failed: %s",
@@ -1769,6 +1764,11 @@ void dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer
 			importer->failed = TRUE;
 		}
 	}
+
+	dsync_mailbox_import_assign_new_uids(importer);
+	/* save mails from local sources where possible,
+	   request the rest from remote */
+	dsync_mailbox_import_handle_local_mails(importer);
 }
 
 const struct dsync_mail_request *
