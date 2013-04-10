@@ -365,8 +365,8 @@ int http_client_request_send_more(struct http_client_request *req,
 	return ret < 0 ? -1 : 0;
 }
 
-int http_client_request_send(struct http_client_request *req,
-			     const char **error_r)
+static int http_client_request_send_real(struct http_client_request *req,
+					 const char **error_r)
 {
 	struct http_client_connection *conn = req->conn;
 	struct ostream *output = conn->conn.output;
@@ -432,6 +432,17 @@ int http_client_request_send(struct http_client_request *req,
 		conn->output_locked = FALSE;
 	}
 	o_stream_uncork(output);
+	return ret;
+}
+
+int http_client_request_send(struct http_client_request *req,
+			     const char **error_r)
+{
+	int ret;
+
+	T_BEGIN {
+		ret = http_client_request_send_real(req, error_r);
+	} T_END;
 	return ret;
 }
 
