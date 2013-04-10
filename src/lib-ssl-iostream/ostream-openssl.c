@@ -47,8 +47,14 @@ o_stream_ssl_buffer(struct ssl_ostream *sstream, const struct const_iovec *iov,
 		skip_left -= iov[i].iov_len;
 	}
 
-	avail = sstream->ostream.max_buffer_size > sstream->buffer->used ?
-		sstream->ostream.max_buffer_size - sstream->buffer->used : 0;
+	if (sstream->ostream.max_buffer_size == 0) {
+		/* we're requeted to use whatever space is available in
+		   the buffer */
+		avail = buffer_get_size(sstream->buffer) - sstream->buffer->used;
+	} else {
+		avail = sstream->ostream.max_buffer_size > sstream->buffer->used ?
+			sstream->ostream.max_buffer_size - sstream->buffer->used : 0;
+	}
 	if (i < iov_count && skip_left > 0) {
 		size = I_MIN(iov[i].iov_len - skip_left, avail);
 		buffer_append(sstream->buffer,
