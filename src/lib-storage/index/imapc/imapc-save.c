@@ -184,6 +184,17 @@ static void imapc_save_callback(const struct imapc_command_reply *reply,
 }
 
 static void
+imapc_save_noop_callback(const struct imapc_command_reply *reply ATTR_UNUSED,
+			 void *context)
+{
+	struct imapc_save_cmd_context *ctx = context;
+
+	/* we don't really care about the reply */
+	ctx->ret = 0;
+	imapc_client_stop(ctx->ctx->mbox->storage->client);
+}
+
+static void
 imapc_append_keywords(string_t *str, struct mail_keywords *kw)
 {
 	const ARRAY_TYPE(keywords) *kw_arr;
@@ -223,6 +234,8 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 			imap_to_datetime(mdata->received_date));
 	}
 
+	ctx->mbox->exists_received = FALSE;
+
 	input = i_stream_create_fd(ctx->fd, IO_BLOCK_SIZE, FALSE);
 	sctx.ctx = ctx;
 	sctx.ret = -2;
@@ -233,6 +246,20 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 	i_stream_unref(&input);
 	while (sctx.ret == -2)
 		imapc_storage_run(ctx->mbox->storage);
+
+	if (sctx.ret == 0 && ctx->mbox->selected &&
+	    !ctx->mbox->exists_received) {
+		/* e.g. Courier doesn't send EXISTS reply before the tagged
+		   APPEND reply. That isn't exactly required by the IMAP RFC,
+		   but it makes the behavior better. See if NOOP finds
+		   the mail. */
+		sctx.ret = -2;
+		cmd = imapc_client_cmd(ctx->mbox->storage->client,
+				       imapc_save_noop_callback, &sctx);
+		imapc_command_send(cmd, "NOOP");
+		while (sctx.ret == -2)
+			imapc_storage_run(ctx->mbox->storage);
+	}
 	return sctx.ret;
 }
 

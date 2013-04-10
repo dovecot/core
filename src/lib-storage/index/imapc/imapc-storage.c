@@ -424,6 +424,7 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 	struct imapc_open_context *ctx = context;
 
 	ctx->mbox->selecting = FALSE;
+	ctx->mbox->selected = TRUE;
 	if (reply->state == IMAPC_COMMAND_STATE_OK)
 		ctx->ret = 0;
 	else if (reply->state == IMAPC_COMMAND_STATE_NO) {

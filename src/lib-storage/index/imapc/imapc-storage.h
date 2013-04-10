@@ -103,6 +103,8 @@ struct imapc_mailbox {
 	unsigned int selecting:1;
 	unsigned int syncing:1;
 	unsigned int initial_sync_done:1;
+	unsigned int selected:1;
+	unsigned int exists_received:1;
 };
 
 struct imapc_simple_context {

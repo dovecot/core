@@ -145,6 +145,7 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 		mbox->sync_fetch_first_uid = hdr->next_uid;
 	}
 	mbox->exists_count = exists_count;
+	mbox->exists_received = TRUE;
 	imapc_mailbox_idle_notify(mbox);
 }
 
