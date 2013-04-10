@@ -24,6 +24,8 @@
     - quota recalc + dict-file [+acl?] assert-crashes in !indexing->syncing
  - imaptest: add condstore, qresync tests
 
+ - SASL client library, initially supporting only PLAIN and plugins. Use it
+   everywhere we currently use hardcoded PLAIN (proxy, doveadm, ..)
  - zlib plugin should do caching similar to binary fetches. otherwise
    partial fetches from large compressed mails are hopelessly slow.
  - Track highestmodseq always, just don't keep per-message modseqs unless

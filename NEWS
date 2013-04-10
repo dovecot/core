@@ -1,3 +1,15 @@
+v2.2.rc7 2013-04-10  Timo Sirainen <tss@iki.fi>
+
+	* checkpasword: AUTH_PASSWORD environment is no longer set.
+	* Running dsync no longer triggers quota warnings.
+
+	+ dsync: Commit large transactions every 100 new messages, so if a
+	  large sync crashes it doesn't have to be restarted from the
+	  beginning.
+	- replicator: doveadm commands and user list export may have skipped
+	  some users.
+	- Various fixes to mailbox_list_index=yes
+
 v2.2.rc6 2013-04-08  Timo Sirainen <tss@iki.fi>
 
 	* replicator: Don't create replicator-doveadm socket by default.
