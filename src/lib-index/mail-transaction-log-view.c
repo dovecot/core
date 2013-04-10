@@ -63,13 +63,11 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 				  uint32_t max_file_seq, uoff_t max_file_offset,
 				  bool *reset_r)
 {
-	struct mail_transaction_log_file *file, *const *files, *tail;
+	struct mail_transaction_log_file *file, *const *files;
 	uoff_t start_offset, end_offset;
 	unsigned int i;
 	uint32_t seq;
 	int ret;
-
-	i_assert(min_file_seq <= max_file_seq);
 
 	*reset_r = FALSE;
 
@@ -79,28 +77,35 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
-	tail = view->log->files;
 	if (min_file_seq == 0) {
 		/* index file doesn't exist yet. this transaction log should
 		   start from the beginning */
-		if (tail->hdr.prev_file_seq != 0) {
+		if (view->log->files->hdr.prev_file_seq != 0) {
 			/* but it doesn't */
 			return 0;
 		}
 
-		min_file_seq = tail->hdr.file_seq;
+		min_file_seq = view->log->files->hdr.file_seq;
 		min_file_offset = 0;
 
 		if (max_file_seq == 0) {
 			max_file_seq = min_file_seq;
 			max_file_offset = min_file_offset;
 		}
-	} 
+	}
 
-	if (min_file_seq == tail->hdr.prev_file_seq &&
-	    min_file_offset == tail->hdr.prev_file_offset) {
-		/* we can skip this */
-		min_file_seq = tail->hdr.file_seq;
+	for (file = view->log->files; file != NULL; file = file->next) {
+		if (file->hdr.prev_file_seq == min_file_seq)
+			break;
+	}
+	if (file != NULL && min_file_offset == file->hdr.prev_file_offset) {
+		/* we can skip to the next file. we've delayed checking for
+		   min_file_seq <= max_file_seq until now, because it's not
+		   really an error to specify the same position twice (even if
+		   in "wrong" order) */
+		i_assert(min_file_seq <= max_file_seq ||
+			 file->hdr.file_seq <= max_file_seq);
+		min_file_seq = file->hdr.file_seq;
 		min_file_offset = 0;
 
 		if (min_file_seq > max_file_seq) {
@@ -108,6 +113,8 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			max_file_seq = min_file_seq;
 			max_file_offset = min_file_offset;
 		}
+	} else {
+		i_assert(min_file_seq <= max_file_seq);
 	}
 
 	if (min_file_seq == max_file_seq && min_file_offset > max_file_offset) {
@@ -119,12 +126,13 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
-	if (min_file_offset > 0 && min_file_offset < tail->hdr.hdr_size) {
+	if (min_file_offset > 0 && file != NULL &&
+	    min_file_offset < file->hdr.hdr_size) {
 		/* log file offset is probably corrupted in the index file. */
 		mail_transaction_log_view_set_corrupted(view,
 			"file_seq=%u, min_file_offset (%"PRIuUOFF_T
 			") < hdr_size (%u)",
-			min_file_seq, min_file_offset, tail->hdr.hdr_size);
+			min_file_seq, min_file_offset, file->hdr.hdr_size);
 		return -1;
 	}
 
