@@ -350,7 +350,7 @@ int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 {
 	struct dsync_mailbox_attribute *local_attr;
 	struct mail_attribute_value value;
-	int ret, cmp;
+	int cmp;
 	bool ignore = FALSE;
 
 	i_assert(DSYNC_ATTR_HAS_VALUE(attr) || attr->deleted);
@@ -416,17 +416,17 @@ int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 	value.value = attr->value;
 	value.value_stream = attr->value_stream;
 	value.last_change = attr->last_change;
-	ret = mailbox_attribute_set(importer->trans, attr->type,
-				    attr->key, &value);
-	if (ret < 0) {
+	if (mailbox_attribute_set(importer->trans, attr->type,
+				  attr->key, &value) < 0) {
 		i_error("Mailbox %s: Failed to set attribute %s: %s",
 			mailbox_get_vname(importer->box), attr->key,
 			mailbox_get_last_error(importer->box, NULL));
-		importer->failed = TRUE;
+		/* the attributes aren't vital, don't fail everything just
+		   because of them. */
 	}
 	if (local_attr != NULL && local_attr->value_stream != NULL)
 		i_stream_unref(&local_attr->value_stream);
-	return ret;
+	return 0;
 }
 
 static void dsync_mail_error(struct dsync_mailbox_importer *importer,
