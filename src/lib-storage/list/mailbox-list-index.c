@@ -615,7 +615,7 @@ static void mailbox_list_index_init_finish(struct mailbox_list *list)
 }
 
 static void
-mailbox_list_index_namespaces_created(struct mail_namespace *namespaces)
+mailbox_list_index_namespaces_added(struct mail_namespace *namespaces)
 {
 	struct mail_namespace *ns;
 
@@ -645,7 +645,7 @@ static void mailbox_list_index_mailbox_allocated(struct mailbox *box)
 
 static struct mail_storage_hooks mailbox_list_index_hooks = {
 	.mailbox_list_created = mailbox_list_index_created,
-	.mail_namespaces_created = mailbox_list_index_namespaces_created,
+	.mail_namespaces_added = mailbox_list_index_namespaces_added,
 	.mailbox_allocated = mailbox_list_index_mailbox_allocated
 };
 
