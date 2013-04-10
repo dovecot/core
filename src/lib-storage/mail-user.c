@@ -258,6 +258,10 @@ void mail_user_add_namespace(struct mail_user *user,
 		*tmp = ns;
 	}
 	*namespaces = user->namespaces;
+
+	T_BEGIN {
+		hook_mail_namespaces_added(user->namespaces);
+	} T_END;
 }
 
 void mail_user_drop_useless_namespaces(struct mail_user *user)

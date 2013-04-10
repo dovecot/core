@@ -12,7 +12,13 @@ struct mail;
 struct mail_storage_hooks {
 	void (*mail_user_created)(struct mail_user *user);
 	void (*mail_namespace_storage_added)(struct mail_namespace *ns);
+	/* called the first time user's initial namespaces were added */
 	void (*mail_namespaces_created)(struct mail_namespace *namespaces);
+	/* called every time namespaces are added. most importantly called
+	   when shared mailbox accesses trigger creating new namespaces.
+	   this is called before mail_namespaces_created() at startup.
+	   The namespaces parameter contains all of the current namespaces. */
+	void (*mail_namespaces_added)(struct mail_namespace *namespaces);
 	void (*mail_storage_created)(struct mail_storage *storage);
 	void (*mailbox_list_created)(struct mailbox_list *list);
 	void (*mailbox_allocated)(struct mailbox *box);
@@ -37,6 +43,7 @@ void mail_storage_hooks_remove_internal(const struct mail_storage_hooks *hooks);
 void hook_mail_user_created(struct mail_user *user);
 void hook_mail_namespace_storage_added(struct mail_namespace *ns);
 void hook_mail_namespaces_created(struct mail_namespace *namespaces);
+void hook_mail_namespaces_added(struct mail_namespace *namespaces);
 void hook_mail_storage_created(struct mail_storage *storage);
 void hook_mailbox_list_created(struct mailbox_list *list);
 void hook_mailbox_allocated(struct mailbox *box);
