@@ -117,6 +117,14 @@ static void fs_sis_queue_file_deinit(struct fs_file *_file)
 	i_free(file);
 }
 
+static void fs_sis_queue_file_close(struct fs_file *_file)
+{
+	struct sis_queue_fs_file *file = (struct sis_queue_fs_file *)_file;
+
+	if (file->super != NULL)
+		fs_file_close(file->super);
+}
+
 static const char *fs_sis_queue_file_get_path(struct fs_file *_file)
 {
 	struct sis_queue_fs_file *file = (struct sis_queue_fs_file *)_file;
@@ -352,6 +360,7 @@ const struct fs fs_class_sis_queue = {
 		fs_sis_queue_get_properties,
 		fs_sis_queue_file_init,
 		fs_sis_queue_file_deinit,
+		fs_sis_queue_file_close,
 		fs_sis_queue_file_get_path,
 		fs_sis_queue_set_async_callback,
 		fs_sis_queue_wait_async,

@@ -123,13 +123,23 @@ static void fs_metawrap_file_deinit(struct fs_file *_file)
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
 
-	if (file->input != NULL)
-		i_stream_unref(&file->input);
-	if (file->super_read != file->super)
+	if (file->super_read != file->super && file->super_read != NULL)
 		fs_file_deinit(&file->super_read);
 	fs_file_deinit(&file->super);
 	i_free(file->file.path);
 	i_free(file);
+}
+
+static void fs_metawrap_file_close(struct fs_file *_file)
+{
+	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
+
+	if (file->input != NULL)
+		i_stream_unref(&file->input);
+	if (file->super_read != NULL)
+		fs_file_close(file->super_read);
+	if (file->super != NULL)
+		fs_file_close(file->super);
 }
 
 static const char *fs_metawrap_file_get_path(struct fs_file *_file)
@@ -408,6 +418,7 @@ const struct fs fs_class_metawrap = {
 		fs_metawrap_get_properties,
 		fs_metawrap_file_init,
 		fs_metawrap_file_deinit,
+		fs_metawrap_file_close,
 		fs_metawrap_file_get_path,
 		fs_metawrap_set_async_callback,
 		fs_metawrap_wait_async,

@@ -95,6 +95,9 @@ void fs_deinit(struct fs **fs);
 struct fs_file *fs_file_init(struct fs *fs, const char *path, int mode_flags);
 void fs_file_deinit(struct fs_file **file);
 
+/* If the file has an input streams open, close them. */
+void fs_file_close(struct fs_file *file);
+
 /* Return properties supported by backend. */
 enum fs_properties fs_get_properties(struct fs *fs);
 

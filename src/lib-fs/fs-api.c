@@ -164,6 +164,19 @@ void fs_file_deinit(struct fs_file **_file)
 
 	*_file = NULL;
 
+	fs_file_close(file);
+
+	file->fs->files_open_count--;
+	T_BEGIN {
+		file->fs->v.file_deinit(file);
+	} T_END;
+
+	if (metadata_pool != NULL)
+		pool_unref(&metadata_pool);
+}
+
+void fs_file_close(struct fs_file *file)
+{
 	if (file->pending_read_input != NULL)
 		i_stream_unref(&file->pending_read_input);
 	if (file->seekable_input != NULL)
@@ -173,14 +186,9 @@ void fs_file_deinit(struct fs_file **_file)
 		i_stream_unref(&file->copy_input);
 		(void)fs_write_stream_abort(file, &file->copy_output);
 	}
-
-	file->fs->files_open_count--;
-	T_BEGIN {
-		file->fs->v.file_deinit(file);
+	if (file->fs->v.file_close != NULL) T_BEGIN {
+		file->fs->v.file_close(file);
 	} T_END;
-
-	if (metadata_pool != NULL)
-		pool_unref(&metadata_pool);
 }
 
 enum fs_properties fs_get_properties(struct fs *fs)

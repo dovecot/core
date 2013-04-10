@@ -252,8 +252,10 @@ fs_posix_file_init(struct fs *_fs, const char *path,
 	return &file->file;
 }
 
-static void fs_posix_file_close(struct posix_fs_file *file)
+static void fs_posix_file_close(struct fs_file *_file)
 {
+	struct posix_fs_file *file = (struct posix_fs_file *)_file;
+
 	if (file->fd != -1 && file->file.output == NULL) {
 		if (close(file->fd) < 0) {
 			fs_set_critical(file->file.fs, "close(%s) failed: %m",
@@ -286,7 +288,6 @@ static void fs_posix_file_deinit(struct fs_file *_file)
 		break;
 	}
 
-	fs_posix_file_close(file);
 	i_free(file->temp_path);
 	i_free(file->file.path);
 	i_free(file);
@@ -333,7 +334,7 @@ static ssize_t fs_posix_read(struct fs_file *_file, void *buf, size_t size)
 	ret = read(file->fd, buf, size);
 	if (ret < 0)
 		fs_set_error(_file->fs, "read(%s) failed: %m", _file->path);
-	fs_posix_file_close(file);
+	fs_posix_file_close(_file);
 	return ret;
 }
 
@@ -349,7 +350,7 @@ fs_posix_read_stream(struct fs_file *_file, size_t max_buffer_size)
 	} else {
 		input = i_stream_create_fd(file->fd, max_buffer_size, FALSE);
 	}
-	i_stream_add_destroy_callback(input, fs_posix_file_close, file);
+	i_stream_add_destroy_callback(input, fs_posix_file_close, _file);
 	return input;
 }
 
@@ -754,6 +755,7 @@ const struct fs fs_class_posix = {
 		fs_posix_get_properties,
 		fs_posix_file_init,
 		fs_posix_file_deinit,
+		fs_posix_file_close,
 		NULL,
 		NULL, NULL,
 		NULL, NULL,

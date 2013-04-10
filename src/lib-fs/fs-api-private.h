@@ -15,6 +15,7 @@ struct fs_vfuncs {
 				     enum fs_open_mode mode,
 				     enum fs_open_flags flags);
 	void (*file_deinit)(struct fs_file *file);
+	void (*file_close)(struct fs_file *file);
 	const char *(*get_path)(struct fs_file *file);
 
 	void (*set_async_callback)(struct fs_file *file,
