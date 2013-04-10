@@ -379,6 +379,7 @@ void http_client_host_free(struct http_client_host **_host)
 {
 	struct http_client_host *host = *_host;
 	struct http_client_host_port *hport;
+	struct http_client_request *req, *const *reqp;
 	const char *hostname = host->name;
 
 	http_client_host_debug(host, "Host destroy");
@@ -395,7 +396,13 @@ void http_client_host_free(struct http_client_host **_host)
 	}
 	array_free(&host->ports);
 
-	i_assert(array_count(&host->delayed_failing_requests) == 0);
+	while (array_count(&host->delayed_failing_requests) > 0) {
+		reqp = array_idx(&host->delayed_failing_requests, 0);
+		req = *reqp;
+
+		i_assert(req->refcount == 1);
+		http_client_request_unref(&req);
+	}
 	array_free(&host->delayed_failing_requests);
 
 	i_free(host->ips);

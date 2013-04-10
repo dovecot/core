@@ -49,6 +49,7 @@ http_client_request_debug(struct http_client_request *req,
 /*
  * Request
  */
+static void http_client_request_remove_delayed(struct http_client_request *req);
 
 #undef http_client_request
 struct http_client_request *
@@ -79,23 +80,6 @@ http_client_request(struct http_client *client,
 void http_client_request_ref(struct http_client_request *req)
 {
 	req->refcount++;
-}
-
-static void http_client_request_remove_delayed(struct http_client_request *req)
-{
-	struct http_client_request *const *reqs;
-	unsigned int i, count;
-
-	timeout_remove(&req->to_delayed_error);
-
-	reqs = array_get(&req->host->delayed_failing_requests, &count);
-	for (i = 0; i < count; i++) {
-		if (reqs[i] == req) {
-			array_delete(&req->host->delayed_failing_requests, i, 1);
-			return;
-		}
-	}
-	i_unreached();
 }
 
 void http_client_request_unref(struct http_client_request **_req)
@@ -487,11 +471,29 @@ http_client_request_send_error(struct http_client_request *req,
 	}
 }
 
+static void http_client_request_remove_delayed(struct http_client_request *req)
+{
+	struct http_client_request *const *reqs;
+	unsigned int i, count;
+
+	http_client_request_send_error(req, req->delayed_error_status,
+				       req->delayed_error);
+
+	timeout_remove(&req->to_delayed_error);
+
+	reqs = array_get(&req->host->delayed_failing_requests, &count);
+	for (i = 0; i < count; i++) {
+		if (reqs[i] == req) {
+			array_delete(&req->host->delayed_failing_requests, i, 1);
+			return;
+		}
+	}
+	i_unreached();
+}
+
 static void http_client_request_error_delayed(struct http_client_request *req)
 {
 	http_client_request_remove_delayed(req);
-	http_client_request_send_error(req, req->delayed_error_status,
-				       req->delayed_error);
 	http_client_request_unref(&req);
 }
 
