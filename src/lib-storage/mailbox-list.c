@@ -1107,6 +1107,8 @@ int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
 		mailbox_list_set_critical(list, "%s", error);
 		return -1;
 	}
+	if (type == MAILBOX_LIST_PATH_TYPE_INDEX)
+		list->index_root_dir_created = TRUE;
 	return 0;
 }
 
@@ -1439,32 +1441,46 @@ static bool mailbox_list_init_changelog(struct mailbox_list *list)
 	return TRUE;
 }
 
+int mailbox_list_mkdir_missing_index_root(struct mailbox_list *list)
+{
+	const char *root_dir, *index_dir;
+	int ret;
+
+	if (list->index_root_dir_created)
+		return 1;
+
+	/* if index root dir hasn't been created yet, do it now */
+	ret = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
+					 &index_dir);
+	if (ret <= 0)
+		return ret;
+	ret = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					 &root_dir);
+	if (ret <= 0)
+		return ret;
+
+	if (strcmp(root_dir, index_dir) != 0) {
+		if (mailbox_list_mkdir_root(list, index_dir,
+					    MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
+			return -1;
+	}
+	list->index_root_dir_created = TRUE;
+	return 1;
+}
+
 void mailbox_list_add_change(struct mailbox_list *list,
 			     enum mailbox_log_record_type type,
 			     const guid_128_t mailbox_guid)
 {
 	struct mailbox_log_record rec;
-	const char *root_dir, *index_dir;
 	time_t stamp;
 
 	if (!mailbox_list_init_changelog(list) ||
 	    guid_128_is_empty(mailbox_guid))
 		return;
 
-	if (!list->index_root_dir_created) {
-		/* if index root dir hasn't been created yet, do it now */
-		if (mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
-					       &index_dir) <= 0)
-			return;
-		if (mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
-					       &root_dir) <= 0 ||
-		    strcmp(root_dir, index_dir) != 0) {
-			if (mailbox_list_mkdir_root(list, index_dir,
-						    MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
-				return;
-		}
-		list->index_root_dir_created = TRUE;
-	}
+	if (mailbox_list_mkdir_missing_index_root(list) <= 0)
+		return;
 
 	stamp = list->changelog_timestamp != (time_t)-1 ?
 		list->changelog_timestamp : ioloop_time;

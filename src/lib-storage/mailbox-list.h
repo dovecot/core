@@ -181,6 +181,10 @@ int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
 int mailbox_list_try_mkdir_root(struct mailbox_list *list, const char *path,
 				enum mailbox_list_path_type type,
 				const char **error_r);
+/* Call mailbox_list_mkdir_root() for index, unless the index root is the
+   same as mailbox root. Returns 1 if ok, 0 if there are no indexes, -1 if
+   error. Calling this multiple times does the check only once. */
+int mailbox_list_mkdir_missing_index_root(struct mailbox_list *list);
 
 /* Returns TRUE if name is ok, FALSE if it can't be safely passed to
    mailbox_list_*() functions */
