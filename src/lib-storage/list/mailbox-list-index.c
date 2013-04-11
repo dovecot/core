@@ -536,8 +536,9 @@ mailbox_list_index_set_subscribed(struct mailbox_list *_list,
 	return 0;
 }
 
-static void mailbox_list_index_created_last(struct mailbox_list *list)
+static void mailbox_list_index_created(struct mailbox_list *list)
 {
+	struct mailbox_list_vfuncs *v = list->vlast;
 	struct mailbox_list_index *ilist;
 	bool has_backing_store;
 
@@ -555,24 +556,25 @@ static void mailbox_list_index_created_last(struct mailbox_list *list)
 	}
 
 	ilist = p_new(list->pool, struct mailbox_list_index, 1);
-	ilist->module_ctx.super = list->v;
+	ilist->module_ctx.super = *v;
+	list->vlast = &ilist->module_ctx.super;
 	ilist->has_backing_store = has_backing_store;
 	ilist->pending_init = TRUE;
 
-	list->v.deinit = mailbox_list_index_deinit;
-	list->v.iter_init = mailbox_list_index_iter_init;
-	list->v.iter_deinit = mailbox_list_index_iter_deinit;
-	list->v.iter_next = mailbox_list_index_iter_next;
+	v->deinit = mailbox_list_index_deinit;
+	v->iter_init = mailbox_list_index_iter_init;
+	v->iter_deinit = mailbox_list_index_iter_deinit;
+	v->iter_next = mailbox_list_index_iter_next;
 
-	list->v.delete_mailbox = mailbox_list_index_delete_mailbox;
-	list->v.delete_dir = mailbox_list_index_delete_dir;
-	list->v.rename_mailbox = mailbox_list_index_rename_mailbox;
-	list->v.set_subscribed = mailbox_list_index_set_subscribed;
+	v->delete_mailbox = mailbox_list_index_delete_mailbox;
+	v->delete_dir = mailbox_list_index_delete_dir;
+	v->rename_mailbox = mailbox_list_index_rename_mailbox;
+	v->set_subscribed = mailbox_list_index_set_subscribed;
 
-	list->v.notify_init = mailbox_list_index_notify_init;
-	list->v.notify_next = mailbox_list_index_notify_next;
-	list->v.notify_deinit = mailbox_list_index_notify_deinit;
-	list->v.notify_wait = mailbox_list_index_notify_wait;
+	v->notify_init = mailbox_list_index_notify_init;
+	v->notify_next = mailbox_list_index_notify_next;
+	v->notify_deinit = mailbox_list_index_notify_deinit;
+	v->notify_wait = mailbox_list_index_notify_wait;
 
 	MODULE_CONTEXT_SET(list, mailbox_list_index_module, ilist);
 }
@@ -641,24 +643,6 @@ static void mailbox_list_index_mailbox_allocated(struct mailbox *box)
 
 	mailbox_list_index_status_init_mailbox(box);
 	mailbox_list_index_backend_init_mailbox(box);
-}
-
-static struct mail_storage_hooks mailbox_list_index_hooks_last = {
-	.mailbox_list_created = mailbox_list_index_created_last
-};
-static bool mailbox_list_index_hooks_last_added = FALSE;
-
-static void mailbox_list_index_created(struct mailbox_list *list ATTR_UNUSED)
-{
-	/* We want our mailbox list index hooks to be called just before the
-	   backend methods are called. Most importantly the ACL plugin's hooks
-	   must be called before us, otherwise we'll end up skipping them and
-	   showing all the mailboxes. So we do this dual-registration where
-	   this second one gets us into the correct position. */
-	if (!mailbox_list_index_hooks_last_added) {
-		mailbox_list_index_hooks_last_added = TRUE;
-		mail_storage_hooks_add_internal(&mailbox_list_index_hooks_last);
-	}
 }
 
 static struct mail_storage_hooks mailbox_list_index_hooks = {
