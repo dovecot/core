@@ -137,7 +137,11 @@ struct mountpoint_iter {
 #elif defined(MOUNTPOINT_SOLARIS) || defined(MOUNTPOINT_LINUX)
 	FILE *f;
 #elif defined(HAVE_GETMNTINFO) /* BSDs */
+#ifndef __NetBSD__
 	struct statfs *fs;
+#else
+	struct statvfs *fs;
+#endif
 	int count;
 #endif
 	struct mountpoint mnt;
@@ -287,7 +291,11 @@ const struct mountpoint *mountpoint_iter_next(struct mountpoint_iter *iter)
 	return NULL;
 #elif defined(HAVE_GETMNTINFO) /* BSDs */
 	while (iter->count > 0) {
+#ifndef __NetBSD__
 		struct statfs *fs = iter->fs;
+#else
+		struct statvfs *fs = iter->fs;
+#endif
 
 		iter->fs++;
 		iter->count--;
