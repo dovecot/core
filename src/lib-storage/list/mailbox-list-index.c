@@ -536,7 +536,7 @@ mailbox_list_index_set_subscribed(struct mailbox_list *_list,
 	return 0;
 }
 
-static void mailbox_list_index_created(struct mailbox_list *list)
+static void mailbox_list_index_created_last(struct mailbox_list *list)
 {
 	struct mailbox_list_index *ilist;
 	bool has_backing_store;
@@ -641,6 +641,24 @@ static void mailbox_list_index_mailbox_allocated(struct mailbox *box)
 
 	mailbox_list_index_status_init_mailbox(box);
 	mailbox_list_index_backend_init_mailbox(box);
+}
+
+static struct mail_storage_hooks mailbox_list_index_hooks_last = {
+	.mailbox_list_created = mailbox_list_index_created_last
+};
+static bool mailbox_list_index_hooks_last_added = FALSE;
+
+static void mailbox_list_index_created(struct mailbox_list *list ATTR_UNUSED)
+{
+	/* We want our mailbox list index hooks to be called just before the
+	   backend methods are called. Most importantly the ACL plugin's hooks
+	   must be called before us, otherwise we'll end up skipping them and
+	   showing all the mailboxes. So we do this dual-registration where
+	   this second one gets us into the correct position. */
+	if (!mailbox_list_index_hooks_last_added) {
+		mailbox_list_index_hooks_last_added = TRUE;
+		mail_storage_hooks_add_internal(&mailbox_list_index_hooks_last);
+	}
 }
 
 static struct mail_storage_hooks mailbox_list_index_hooks = {
