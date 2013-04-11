@@ -1809,6 +1809,8 @@ void index_mail_update_modseq(struct mail *mail, uint64_t min_modseq)
 
 void index_mail_update_pvt_modseq(struct mail *mail, uint64_t min_pvt_modseq)
 {
+	if (mail->box->view_pvt == NULL)
+		return;
 	index_transaction_init_pvt(mail->transaction);
 	mail_index_update_modseq(mail->transaction->itrans_pvt, mail->seq,
 				 min_pvt_modseq);
