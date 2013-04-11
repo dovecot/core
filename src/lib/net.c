@@ -837,6 +837,7 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r)
 	}
 	cred_r->uid = sc->sc_euid;
 	cred_r->gid = sc->sc_egid;
+	cred_r->pid = (pid_t)-1;
 	return 0;
 #else
 	errno = EINVAL;
