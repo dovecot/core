@@ -320,7 +320,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		ctx->ctx.exit_code = ret == -1 ? EX_TEMPFAIL : EX_CONFIG;
 		return -1;
 	}
-	user2->admin = TRUE;
+	user2->dsyncing = TRUE;
 
 	if (mail_namespaces_get_root_sep(user->namespaces) !=
 	    mail_namespaces_get_root_sep(user2->namespaces)) {
@@ -491,7 +491,6 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	bool remote_errors_logged = FALSE;
 	int status = 0, ret = 0;
 
-	user->admin = TRUE;
 	user->dsyncing = TRUE;
 
 	if (ctx->namespace_prefix != NULL) {
@@ -922,8 +921,6 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		ctx->output = _ctx->conn->output;
 		o_stream_nsend(ctx->output, "\n+\n", 3);
 	}
-
-	user->admin = TRUE;
 	user->dsyncing = TRUE;
 
 	i_set_failure_prefix("dsync-remote(%s): ", user->username);

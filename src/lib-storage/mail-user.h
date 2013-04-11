@@ -51,9 +51,6 @@ struct mail_user {
 	unsigned int nonexistent:1;
 	/* Either home is set or there is no home for the user. */
 	unsigned int home_looked_up:1;
-	/* User is an administrator. Allow operations not normally allowed
-	   for other people. */
-	unsigned int admin:1;
 	/* User is anonymous */
 	unsigned int anonymous:1;
 	/* This is an autocreated user (e.g. for shared namespace or

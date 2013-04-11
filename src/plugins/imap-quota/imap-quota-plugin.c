@@ -90,8 +90,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 		client_send_tagline(cmd, "OK No quota.");
 		return TRUE;
 	}
-	if (ns->owner != NULL && ns->owner != client->user &&
-	    !client->user->admin) {
+	if (ns->owner != NULL && ns->owner != client->user) {
 		client_send_tagline(cmd, "NO Not showing other users' quota.");
 		return TRUE;
 	}
@@ -131,7 +130,7 @@ static bool cmd_getquota(struct client_command_context *cmd)
 {
 	struct mail_user *owner = cmd->client->user;
         struct quota_root *root;
-	const char *root_name, *p;
+	const char *root_name;
 	string_t *quota_reply;
 
 	/* <quota root> */
@@ -139,10 +138,11 @@ static bool cmd_getquota(struct client_command_context *cmd)
 		return FALSE;
 
 	root = quota_root_lookup(cmd->client->user, root_name);
+#if 0
 	if (root == NULL && cmd->client->user->admin) {
 		/* we're an admin. see if there's a quota root for another
 		   user. */
-		p = strchr(root_name, QUOTA_USER_SEPARATOR);
+		const char *p = strchr(root_name, QUOTA_USER_SEPARATOR);
 		if (p != NULL) {
 			owner = mail_user_find(cmd->client->user,
 					       t_strdup_until(root_name, p));
@@ -150,6 +150,7 @@ static bool cmd_getquota(struct client_command_context *cmd)
 				quota_root_lookup(owner, p + 1);
 		}
 	}
+#endif
 	if (root == NULL) {
 		client_send_tagline(cmd, "NO Quota root doesn't exist.");
 		return TRUE;

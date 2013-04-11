@@ -33,12 +33,7 @@ int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)
 {
 	struct acl_backend *backend = aclobj->backend;
 	const struct acl_mask *have_mask;
-
-	if (mailbox_list_get_user(aclobj->backend->list)->admin) {
-		/* admin user (especially dsync) can do anything regardless
-		   of ACLs */
-		return 1;
-	}
+	unsigned int read_idx;
 
 	if (backend->v.object_refresh_cache(aclobj) < 0)
 		return -1;
@@ -49,7 +44,20 @@ int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)
 			return -1;
 	}
 
-	return acl_cache_mask_isset(have_mask, right_idx);
+	if (acl_cache_mask_isset(have_mask, right_idx))
+		return 1;
+
+	if (mailbox_list_get_user(aclobj->backend->list)->dsyncing) {
+		/* when dsync is running on a shared mailbox, it must be able
+		   to do everything inside it. however, dsync shouldn't touch
+		   mailboxes where user doesn't have any read access, because
+		   that could make them readable on the replica. */
+		read_idx = acl_backend_lookup_right(aclobj->backend,
+						    MAIL_ACL_READ);
+		if (acl_cache_mask_isset(have_mask, read_idx))
+			return 1;
+	}
+	return 0;
 }
 
 const char *const *

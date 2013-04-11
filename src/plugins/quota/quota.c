@@ -997,8 +997,8 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 	ctx->bytes_ceil2 = (uint64_t)-1;
 	ctx->count_ceil = (uint64_t)-1;
 
-	if (box->storage->user->admin) {
-		/* ignore quota for admins */
+	if (box->storage->user->dsyncing) {
+		/* ignore quota for dsync */
 		ctx->limits_set = TRUE;
 	}
 	return ctx;

@@ -24,12 +24,12 @@ acl_attribute_update_acl(struct mailbox_transaction_context *t, const char *key,
 	const char *value_str, *id, *const *rights, *error;
 	struct acl_rights_update update;
 
-	/* for now allow only admin (=dsync) to update ACLs this way.
+	/* for now allow only dsync to update ACLs this way.
 	   if this check is removed, it should be replaced by a setting, since
 	   some admins may still have configured Dovecot using dovecot-acl
 	   files directly that they don't want users to update. and in any case
 	   ACL_STORAGE_RIGHT_ADMIN must be checked then. */
-	if (!t->box->storage->user->admin) {
+	if (!t->box->storage->user->dsyncing) {
 		mail_storage_set_error(t->box->storage, MAIL_ERROR_PERM,
 				       MAIL_ERRSTR_NO_PERMISSION);
 		return -1;
@@ -64,7 +64,7 @@ static int acl_attribute_get_acl(struct mailbox *box, const char *key,
 
 	memset(value_r, 0, sizeof(*value_r));
 
-	if (!box->storage->user->admin) {
+	if (!box->storage->user->dsyncing) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PERM,
 				       MAIL_ERRSTR_NO_PERMISSION);
 		return -1;
@@ -172,7 +172,7 @@ acl_attribute_iter_init(struct mailbox *box, enum mail_attribute_type type,
 	else {
 		aiter->super = abox->module_ctx.super.
 			attribute_iter_init(box, type, prefix);
-		if (box->storage->user->admin &&
+		if (box->storage->user->dsyncing &&
 		    type == MAIL_ATTRIBUTE_TYPE_SHARED &&
 		    strncmp(prefix, MAILBOX_ATTRIBUTE_PREFIX_ACL,
 			    strlen(prefix)) == 0) {
