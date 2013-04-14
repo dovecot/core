@@ -150,6 +150,6 @@ extern struct doveadm_mail_cmd cmd_mailbox_rename;
 extern struct doveadm_mail_cmd cmd_mailbox_subscribe;
 extern struct doveadm_mail_cmd cmd_mailbox_unsubscribe;
 extern struct doveadm_mail_cmd cmd_mailbox_status;
-struct doveadm_mail_cmd cmd_batch;
+extern struct doveadm_mail_cmd cmd_batch;
 
 #endif
