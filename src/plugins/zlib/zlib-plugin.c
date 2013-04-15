@@ -295,6 +295,10 @@ static void zlib_mail_user_created(struct mail_user *user)
 		zuser->save_handler = compression_lookup_handler(name);
 		if (zuser->save_handler == NULL)
 			i_error("zlib_save: Unknown handler: %s", name);
+		else if (zuser->save_handler->create_ostream == NULL) {
+			i_error("zlib_save: Support not compiled in for handler: %s", name);
+			zuser->save_handler = NULL;
+		}
 	}
 	name = mail_user_plugin_getenv(user, "zlib_save_level");
 	if (name != NULL) {
