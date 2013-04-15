@@ -839,7 +839,10 @@ static int preparsed_parse_body_init(struct message_parser_ctx *ctx,
 	}
 	i_stream_skip(ctx->input, offset - ctx->input->v_offset);
 
-	if ((ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0)
+	/* multipart messages may begin with --boundary--, which makes them
+	   not have any children. */
+	if ((ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
+	    ctx->part->children == NULL)
 		ctx->parse_next_block = preparsed_parse_body_more;
 	else
 		ctx->parse_next_block = preparsed_parse_prologue_more;
