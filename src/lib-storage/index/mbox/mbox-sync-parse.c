@@ -79,24 +79,31 @@ static enum mail_flags mbox_flag_find(struct mbox_flag_type *flags, char chr)
 	return 0;
 }
 
-static void parse_status_flags(struct mbox_sync_mail_context *ctx,
+static bool parse_status_flags(struct mbox_sync_mail_context *ctx,
 			       struct message_header_line *hdr,
 			       struct mbox_flag_type *flags_list)
 {
+	enum mail_flags flag;
 	size_t i;
+	bool duplicates = FALSE;
 
 	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 	for (i = 0; i < hdr->full_value_len; i++) {
-		ctx->mail.flags |=
-			mbox_flag_find(flags_list, hdr->full_value[i]);
+		flag = mbox_flag_find(flags_list, hdr->full_value[i]);
+		if ((ctx->mail.flags & flag) != 0)
+			duplicates = TRUE;
+		else
+			ctx->mail.flags |= flag;
 	}
 	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
+	return duplicates;
 }
 
 static bool parse_status(struct mbox_sync_mail_context *ctx,
 			 struct message_header_line *hdr)
 {
-	parse_status_flags(ctx, hdr, mbox_status_flags);
+	if (parse_status_flags(ctx, hdr, mbox_status_flags))
+		ctx->mail.status_broken = TRUE;
 	ctx->hdr_pos[MBOX_HDR_STATUS] = str_len(ctx->header);
 	return TRUE;
 }
@@ -104,7 +111,8 @@ static bool parse_status(struct mbox_sync_mail_context *ctx,
 static bool parse_x_status(struct mbox_sync_mail_context *ctx,
 			   struct message_header_line *hdr)
 {
-	parse_status_flags(ctx, hdr, mbox_xstatus_flags);
+	if (parse_status_flags(ctx, hdr, mbox_xstatus_flags))
+		ctx->mail.xstatus_broken = TRUE;
 	ctx->hdr_pos[MBOX_HDR_X_STATUS] = str_len(ctx->header);
 	return TRUE;
 }

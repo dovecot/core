@@ -409,7 +409,8 @@ static void
 mbox_sync_update_header_from_real(struct mbox_sync_mail_context *ctx,
 				  const struct mbox_sync_mail *mail)
 {
-	if ((ctx->mail.flags & STATUS_FLAGS_MASK) !=
+	if (mail->status_broken ||
+	    (ctx->mail.flags & STATUS_FLAGS_MASK) !=
 	    (mail->flags & STATUS_FLAGS_MASK) ||
 	    (ctx->mail.flags & MAIL_RECENT) != 0) {
 		ctx->mail.flags = (ctx->mail.flags & ~STATUS_FLAGS_MASK) |
@@ -418,7 +419,8 @@ mbox_sync_update_header_from_real(struct mbox_sync_mail_context *ctx,
                         ctx->mail.flags &= ~MAIL_RECENT;
 		mbox_sync_update_status(ctx);
 	}
-	if ((ctx->mail.flags & XSTATUS_FLAGS_MASK) !=
+	if (mail->xstatus_broken ||
+	    (ctx->mail.flags & XSTATUS_FLAGS_MASK) !=
 	    (mail->flags & XSTATUS_FLAGS_MASK)) {
 		ctx->mail.flags = (ctx->mail.flags & ~XSTATUS_FLAGS_MASK) |
 			(mail->flags & XSTATUS_FLAGS_MASK);

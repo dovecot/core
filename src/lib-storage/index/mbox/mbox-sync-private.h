@@ -52,6 +52,8 @@ struct mbox_sync_mail {
 	unsigned int uid_broken:1;
 	unsigned int expunged:1;
 	unsigned int pseudo:1;
+	unsigned int status_broken:1;
+	unsigned int xstatus_broken:1;
 
 	uoff_t from_offset;
 	uoff_t body_size;
