@@ -583,7 +583,8 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		request->skip_password_check = TRUE;
 	}
 
-	if (request->requested_login_user != NULL) {
+	if (request->requested_login_user != NULL &&
+	    *result == PASSDB_RESULT_OK) {
 		auth_request_master_lookup_finish(request);
 		/* if the passdb lookup continues, it continues with non-master
 		   passdbs for the requested_login_user. */
