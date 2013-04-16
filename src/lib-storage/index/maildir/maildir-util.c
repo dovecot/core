@@ -87,6 +87,9 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 		fname = maildir_filename_guess(mbox, uid, fname,
 					       &flags, &have_flags);
 	}
+	/* make a copy, just in case callback refreshes uidlist and
+	   the pointer becomes invalid. */
+	fname = t_strdup(fname);
 
 	ret = 0;
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0) {
