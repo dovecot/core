@@ -48,6 +48,18 @@
 #define DLLIST2_APPEND(head, tail, item) \
 	DLLIST2_APPEND_FULL(head, tail, item, prev, next)
 
+#define DLLIST2_INSERT_AFTER_FULL(head, tail, after, item, prev, next) \
+	STMT_START { \
+	(item)->prev = (after); \
+	(item)->next = (after)->next; \
+	(after)->next = (item); \
+	if (*(tail) == (after)) \
+		*(tail) = (item); \
+	} STMT_END
+
+#define DLLIST2_INSERT_AFTER(head, tail, after, item) \
+	DLLIST2_INSERT_AFTER_FULL(head, tail, after, item, prev, next)
+
 #define DLLIST2_REMOVE_FULL(head, tail, item, prev, next) STMT_START { \
 	if ((item)->prev == NULL) \
 		*(head) = (item)->next; \
