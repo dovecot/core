@@ -30,6 +30,7 @@ cmd_fs_init(int *argc, char **argv[], int own_arg_count, doveadm_command_t *cmd)
 	memset(&fs_set, 0, sizeof(fs_set));
 	fs_set.ssl_client_set = &ssl_set;
 	fs_set.temp_dir = "/tmp";
+	fs_set.base_dir = doveadm_settings->base_dir;
 	fs_set.debug = doveadm_debug;
 
 	if (fs_init((*argv)[1], (*argv)[2], &fs_set, &fs, &error) < 0)
