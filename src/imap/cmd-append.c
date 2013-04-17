@@ -342,9 +342,6 @@ static void cmd_append_finish_catenate(struct client_command_context *cmd)
 		if (ctx->save_ctx != NULL)
 			mailbox_save_cancel(&ctx->save_ctx);
 	} else {
-		/* do mailbox_save_continue() once more after appending EOF,
-		   to finish any pending reads */
-		(void)mailbox_save_continue(ctx->save_ctx);
 		if (mailbox_save_finish(&ctx->save_ctx) < 0) {
 			client_send_storage_error(cmd, ctx->storage);
 			ctx->failed = TRUE;

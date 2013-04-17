@@ -2018,7 +2018,17 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 	bool copying_via_save = ctx->copying_via_save;
 	int ret;
 
+	/* Do one final continue. The caller may not have done it if the
+	   input stream's offset already matched the number of bytes that
+	   were wanted to be saved. But due to nested istreams some of the
+	   underlying ones may not have seen the EOF yet, and haven't flushed
+	   out the pending data. */
+	if (mailbox_save_continue(ctx) < 0) {
+		mailbox_save_cancel(_ctx);
+		return -1;
+	}
 	*_ctx = NULL;
+
 	ret = t->box->v.save_finish(ctx);
 	if (ret == 0 && !copying_via_save) {
 		if (pvt_flags != 0)
