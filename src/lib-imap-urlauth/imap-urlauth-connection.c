@@ -873,6 +873,7 @@ imap_urlauth_connection_do_connect(struct imap_urlauth_connection *conn)
 	if (conn->user->auth_token == NULL) {
 		i_error("imap-urlauth: cannot authenticate because no auth token "
 			"is available for this session (standalone IMAP?).");
+		imap_urlauth_connection_abort(conn, NULL);
 		return -1;
 	}
 
@@ -884,6 +885,7 @@ imap_urlauth_connection_do_connect(struct imap_urlauth_connection *conn)
 	if (fd == -1) {
 		i_error("imap-urlauth: net_connect_unix(%s) failed: %m",
 			conn->path);
+		imap_urlauth_connection_abort(conn, NULL);
 		return -1;
 	}
 
