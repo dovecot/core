@@ -1,3 +1,11 @@
+v2.2.1 2013-04-19  Timo Sirainen <tss@iki.fi>
+
+	- mailbox_list_index=yes was broken.
+	- LAYOUT=index didn't list subscriptions.
+	- auth: Multiple master passdbs didn't work.
+	- Message parsing (e.g. during search) crashed when multipart message
+	  didn't actually contain any parts.
+
 v2.2.0 2013-04-11  Timo Sirainen <tss@iki.fi>
 
 	* When creating home directories, the permissions are copied from the

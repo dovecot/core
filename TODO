@@ -8,6 +8,7 @@
        and can be matched -> rename mailbox.
      - GUID-less sync could optionally use just rfc822.size [and internaldate]
        to match messages.
+     - why does it use separate FETCH INTERNALDATE + FETCH BODY[HEADER]
 
  - lib-ssl-iostream: ssl_get_last_error() should return also syscall errors
    instead of being NULL. most importantly handle handshake code.
