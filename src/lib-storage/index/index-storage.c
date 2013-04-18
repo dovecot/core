@@ -795,6 +795,23 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 		if (mail_cache_lookup_field(src_mail->transaction->cache_view, buf,
 					    src_mail->seq, src_field_idx) <= 0)
 			buffer_set_used_size(buf, 0);
+		else if (ctx->dest_mail != NULL &&
+			 (strcmp(name, "size.physical") == 0 ||
+			  strcmp(name, "size.virtual") == 0)) {
+			/* FIXME: until mail_cache_lookup() can read unwritten
+			   cached data from buffer, we'll do this optimization
+			   to make quota plugin's work faster */
+			struct index_mail *imail =
+				(struct index_mail *)ctx->dest_mail;
+			uoff_t size;
+
+			i_assert(buf->used == sizeof(size));
+			memcpy(&size, buf->data, sizeof(size));
+			if (strcmp(name, "size.physical") == 0)
+				imail->data.physical_size = size;
+			else
+				imail->data.virtual_size = size;
+		}
 	}
 	if (buf->used > 0) {
 		mail_cache_add(dest_trans->cache_trans, dest_seq,
