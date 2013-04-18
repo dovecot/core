@@ -806,13 +806,20 @@ void index_copy_cache_fields(struct mail_save_context *ctx,
 			     struct mail *src_mail, uint32_t dest_seq)
 {
 	T_BEGIN {
-		struct mailbox_metadata src_metadata;
+		struct mailbox_metadata src_metadata, dest_metadata;
 		const struct mailbox_cache_field *field;
 		buffer_t *buf;
 
 		if (mailbox_get_metadata(src_mail->box,
 					 MAILBOX_METADATA_CACHE_FIELDS,
 					 &src_metadata) < 0)
+			i_unreached();
+		/* the only reason we're doing the destination lookup is to
+		   make sure that the cache file is opened and the cache
+		   decisinos are up to date */
+		if (mailbox_get_metadata(ctx->transaction->box,
+					 MAILBOX_METADATA_CACHE_FIELDS,
+					 &dest_metadata) < 0)
 			i_unreached();
 
 		buf = buffer_create_dynamic(pool_datastack_create(), 1024);
