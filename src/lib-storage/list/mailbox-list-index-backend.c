@@ -613,11 +613,16 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 
 static struct mailbox_list_iterate_context *
 index_list_iter_init(struct mailbox_list *list,
-		     const char *const *patterns ATTR_UNUSED,
+		     const char *const *patterns,
 		     enum mailbox_list_iter_flags flags)
 {
 	struct mailbox_list_iterate_context *ctx;
 	pool_t pool;
+
+	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
+		return mailbox_list_subscriptions_iter_init(list, patterns,
+							    flags);
+	}
 
 	pool = pool_alloconly_create("mailbox list index backend iter", 1024);
 	ctx = p_new(pool, struct mailbox_list_iterate_context, 1);
@@ -629,13 +634,17 @@ index_list_iter_init(struct mailbox_list *list,
 }
 
 static const struct mailbox_info *
-index_list_iter_next(struct mailbox_list_iterate_context *ctx ATTR_UNUSED)
+index_list_iter_next(struct mailbox_list_iterate_context *ctx)
 {
+	if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
+		return mailbox_list_subscriptions_iter_next(ctx);
 	return NULL;
 }
 
 static int index_list_iter_deinit(struct mailbox_list_iterate_context *ctx)
 {
+	if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
+		return mailbox_list_subscriptions_iter_deinit(ctx);
 	pool_unref(&ctx->pool);
 	return 0;
 }
