@@ -663,7 +663,7 @@ struct timeout *io_loop_move_timeout(struct timeout **_timeout)
 
 bool io_loop_have_ios(struct ioloop *ioloop)
 {
-	return ioloop->io_files;
+	return ioloop->io_files != NULL;
 }
 
 bool io_loop_have_immediate_timeouts(struct ioloop *ioloop)

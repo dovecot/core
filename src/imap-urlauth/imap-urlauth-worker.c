@@ -941,7 +941,7 @@ static void main_stdio_run(const char *access_user,
 {
 	bool debug;
 
-	debug = getenv("DEBUG");
+	debug = getenv("DEBUG") != NULL;
 	access_user = access_user != NULL ? access_user : getenv("USER");
 	if (access_user == NULL && IS_STANDALONE())
 		access_user = getlogin();
