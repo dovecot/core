@@ -1377,7 +1377,9 @@ static int search_match_next(struct index_search_context *ctx)
 	}
 	for (i = 0; i < n && ret < 0; i++) {
 		ctx->cur_mail->lookup_abort = cache_lookups[i];
-		ret = search_match_once(ctx);
+		T_BEGIN {
+			ret = search_match_once(ctx);
+		} T_END;
 	}
 	ctx->cur_mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
 	search_match_finish(ctx, ret);
@@ -1556,7 +1558,9 @@ static int search_more_with_prefetching(struct index_search_context *ctx,
 	int ret = 0;
 
 	while ((mail = index_search_get_mail(ctx)) != NULL) {
-		ret = search_more_with_mail(ctx, mail);
+		T_BEGIN {
+			ret = search_more_with_mail(ctx, mail);
+		} T_END;
 		if (ret <= 0)
 			break;
 
@@ -1612,8 +1616,10 @@ static bool search_finish_prefetch(struct index_search_context *ctx,
 	mail_search_args_result_deserialize(ctx->mail_ctx.args,
 					    imail->data.search_results->data,
 					    imail->data.search_results->used);
-	ret = search_match_once(ctx);
-	search_match_finish(ctx, ret);
+	T_BEGIN {
+		ret = search_match_once(ctx);
+		search_match_finish(ctx, ret);
+	} T_END;
 	ctx->cur_mail = NULL;
 	return ret > 0;
 }
