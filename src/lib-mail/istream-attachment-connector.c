@@ -88,6 +88,20 @@ int istream_attachment_connector_add(struct istream_attachment_connector *conn,
 	return 0;
 }
 
+static void
+istream_attachment_connector_free(struct istream_attachment_connector *conn)
+{
+	struct istream *const *streamp, *stream;
+
+	array_foreach(&conn->streams, streamp) {
+		stream = *streamp;
+		if (stream != NULL)
+			i_stream_unref(&stream);
+	}
+	i_stream_unref(&conn->base_input);
+	pool_unref(&conn->pool);
+}
+
 struct istream *
 istream_attachment_connector_finish(struct istream_attachment_connector **_conn)
 {
@@ -111,8 +125,7 @@ istream_attachment_connector_finish(struct istream_attachment_connector **_conn)
 	inputs = array_idx_modifiable(&conn->streams, 0);
 	input = i_stream_create_concat(inputs);
 
-	i_stream_unref(&conn->base_input);
-	pool_unref(&conn->pool);
+	istream_attachment_connector_free(conn);
 	return input;
 }
 
@@ -122,6 +135,5 @@ void istream_attachment_connector_abort(struct istream_attachment_connector **_c
 
 	*_conn = NULL;
 
-	i_stream_unref(&conn->base_input);
-	pool_unref(&conn->pool);
+	istream_attachment_connector_free(conn);
 }
