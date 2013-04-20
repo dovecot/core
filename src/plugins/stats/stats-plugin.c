@@ -388,6 +388,7 @@ static void stats_transaction_free(struct stats_user *suser,
 
 	trans_stats_add(&suser->session_stats.trans_stats,
 			&strans->trans->stats);
+	i_free(strans);
 }
 
 static int
