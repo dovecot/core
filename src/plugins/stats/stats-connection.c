@@ -23,7 +23,7 @@ static bool stats_connection_open(struct stats_connection *conn)
 	if (conn->open_failed)
 		return FALSE;
 
-	conn->fd = open(conn->path, O_WRONLY);
+	conn->fd = open(conn->path, O_WRONLY | O_NONBLOCK);
 	if (conn->fd == -1) {
 		i_error("stats: open(%s) failed: %m", conn->path);
 		conn->open_failed = TRUE;
