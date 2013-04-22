@@ -3,7 +3,9 @@
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
+#include "istream-seekable.h"
 #include "ostream.h"
+#include "str.h"
 #include "mail-user.h"
 #include "dbox-single/sdbox-storage.h"
 #include "dbox-multi/mdbox-storage.h"
@@ -26,6 +28,7 @@
 	MODULE_CONTEXT(obj, zlib_user_module)
 
 #define MAX_INBUF_SIZE (1024*1024)
+#define ZLIB_MAIL_CACHE_EXPIRE_MSECS (60*1000)
 
 struct zlib_transaction_context {
 	union mailbox_transaction_module_context module_ctx;
@@ -33,8 +36,18 @@ struct zlib_transaction_context {
 	struct mail *tmp_mail;
 };
 
+struct zlib_mail_cache {
+	struct timeout *to;
+	struct mailbox *box;
+	uint32_t uid;
+
+	struct istream *input;
+};
+
 struct zlib_user {
 	union mail_user_module_context module_ctx;
+
+	struct zlib_mail_cache cache;
 
 	const struct compression_handler *save_handler;
 	unsigned int save_level;
@@ -48,9 +61,58 @@ static MODULE_CONTEXT_DEFINE_INIT(zlib_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(zlib_mail_module, &mail_module_register);
 
+static void zlib_mail_cache_close(struct zlib_user *zuser)
+{
+	struct zlib_mail_cache *cache = &zuser->cache;
+
+	if (cache->to != NULL)
+		timeout_remove(&cache->to);
+	if (cache->input != NULL)
+		i_stream_unref(&cache->input);
+	memset(cache, 0, sizeof(*cache));
+}
+
+static struct istream *
+zlib_mail_cache_open(struct zlib_user *zuser, struct mail *mail,
+		     struct istream *input)
+{
+	struct zlib_mail_cache *cache = &zuser->cache;
+	struct istream *inputs[2];
+	string_t *temp_prefix = t_str_new(128);
+
+	zlib_mail_cache_close(zuser);
+
+	/* zlib istream is seekable, but very slow. create a seekable istream
+	   which we can use to quickly seek around in the stream that's been
+	   read so far. usually the partial IMAP FETCHes continue from where
+	   the previous left off, so this isn't strictly necessary, but with
+	   the way lib-imap-storage's CRLF-cache works it has to seek backwards
+	   somewhat, which causes a zlib stream reset. And the CRLF-cache isn't
+	   easy to fix.. */
+	input->seekable = FALSE;
+	inputs[0] = input;
+	inputs[1] = NULL;
+	mail_user_set_get_temp_prefix(temp_prefix, mail->box->storage->user->set);
+	input = i_stream_create_seekable_path(inputs,
+				i_stream_get_max_buffer_size(inputs[0]),
+				str_c(temp_prefix));
+	i_stream_unref(&inputs[0]);
+
+	cache->to = timeout_add(ZLIB_MAIL_CACHE_EXPIRE_MSECS,
+				zlib_mail_cache_close, zuser);
+	cache->box = mail->box;
+	cache->uid = mail->uid;
+	cache->input = input;
+
+	/* index-mail wants the stream to be destroyed at close, so create
+	   a new stream instead of just increasing reference. */
+	return i_stream_create_limit(cache->input, (uoff_t)-1);
+}
+
 static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 {
 	struct zlib_user *zuser = ZLIB_USER_CONTEXT(_mail->box->storage->user);
+	struct zlib_mail_cache *cache = &zuser->cache;
 	struct mail_private *mail = (struct mail_private *)_mail;
 	union mail_module_context *zmail = ZLIB_MAIL_CONTEXT(mail);
 	struct istream *input;
@@ -62,6 +124,15 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 	   looks compressed */
 	if (_mail->saving && zuser->save_handler == NULL)
 		return zmail->super.istream_opened(_mail, stream);
+
+	if (cache->uid == _mail->uid && cache->box == _mail->box) {
+		/* use the cached stream. when doing partial reads it should
+		   already be seeked into the wanted offset. */
+		i_stream_unref(stream);
+		i_stream_seek(cache->input, 0);
+		*stream = i_stream_create_limit(cache->input, (uoff_t)-1);
+		return zmail->super.istream_opened(_mail, stream);
+	}
 
 	handler = compression_detect_handler(*stream);
 	if (handler != NULL) {
@@ -75,6 +146,8 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 		input = *stream;
 		*stream = handler->create_istream(input, TRUE);
 		i_stream_unref(&input);
+
+		*stream = zlib_mail_cache_open(zuser, _mail, *stream);
 	}
 	return zmail->super.istream_opened(_mail, stream);
 }
@@ -265,6 +338,16 @@ static int zlib_mailbox_open(struct mailbox *box)
 	return zbox->super.open(box);
 }
 
+static void zlib_mailbox_close(struct mailbox *box)
+{
+	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
+	struct zlib_user *zuser = ZLIB_USER_CONTEXT(box->storage->user);
+
+	if (zuser->cache.box == box)
+		zlib_mail_cache_close(zuser);
+	zbox->super.close(box);
+}
+
 static void zlib_mailbox_allocated(struct mailbox *box)
 {
 	struct mailbox_vfuncs *v = box->vlast;
@@ -274,6 +357,7 @@ static void zlib_mailbox_allocated(struct mailbox *box)
 	zbox->super = *v;
 	box->vlast = &zbox->super;
 	v->open = zlib_mailbox_open;
+	v->close = zlib_mailbox_close;
 
 	MODULE_CONTEXT_SET_SELF(box, zlib_storage_module, zbox);
 
@@ -283,12 +367,24 @@ static void zlib_mailbox_allocated(struct mailbox *box)
 		zlib_permail_alloc_init(box, v);
 }
 
+static void zlib_mail_user_deinit(struct mail_user *user)
+{
+	struct zlib_user *zuser = ZLIB_USER_CONTEXT(user);
+
+	zlib_mail_cache_close(zuser);
+	zuser->module_ctx.super.deinit(user);
+}
+
 static void zlib_mail_user_created(struct mail_user *user)
 {
+	struct mail_user_vfuncs *v = user->vlast;
 	struct zlib_user *zuser;
 	const char *name;
 
 	zuser = p_new(user->pool, struct zlib_user, 1);
+	zuser->module_ctx.super = *v;
+	user->vlast = &zuser->module_ctx.super;
+	v->deinit = zlib_mail_user_deinit;
 
 	name = mail_user_plugin_getenv(user, "zlib_save");
 	if (name != NULL && *name != '\0') {
