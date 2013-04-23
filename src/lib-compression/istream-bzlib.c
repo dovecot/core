@@ -15,7 +15,7 @@ struct bzlib_istream {
 
 	bz_stream zs;
 	uoff_t eof_offset, stream_size;
-	size_t prev_size, high_pos;
+	size_t high_pos;
 	struct stat last_parent_statbuf;
 
 	unsigned int log_errors:1;
@@ -49,7 +49,7 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 	struct bzlib_istream *zstream = (struct bzlib_istream *)stream;
 	const unsigned char *data;
 	uoff_t high_offset;
-	size_t size;
+	size_t size, out_size;
 	int ret;
 
 	high_offset = stream->istream.v_offset + (stream->pos - stream->skip);
@@ -98,42 +98,36 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 		}
 	}
 
-	if (zstream->zs.avail_in == 0) {
-		/* need to read more data. try to read a full CHUNK_SIZE */
-		i_stream_skip(stream->parent, zstream->prev_size);
-		if (i_stream_read_data(stream->parent, &data, &size,
-				       CHUNK_SIZE-1) == -1 && size == 0) {
-			if (stream->parent->stream_errno != 0) {
-				stream->istream.stream_errno =
-					stream->parent->stream_errno;
-			} else {
-				i_assert(stream->parent->eof);
-				if (zstream->log_errors) {
-					bzlib_read_error(zstream,
-							 "unexpected EOF");
-				}
-				stream->istream.stream_errno = EINVAL;
-			}
-			return -1;
+	if (i_stream_read_data(stream->parent, &data, &size, 0) < 0) {
+		if (stream->parent->stream_errno != 0) {
+			stream->istream.stream_errno =
+				stream->parent->stream_errno;
+		} else {
+			i_assert(stream->parent->eof);
+			if (zstream->log_errors)
+				bzlib_read_error(zstream, "unexpected EOF");
+			stream->istream.stream_errno = EINVAL;
 		}
-		zstream->prev_size = size;
-		if (size == 0) {
-			/* no more input */
-			i_assert(!stream->istream.blocking);
-			return 0;
-		}
-
-		zstream->zs.next_in = (char *)data;
-		zstream->zs.avail_in = size;
+		return -1;
+	}
+	if (size == 0) {
+		/* no more input */
+		i_assert(!stream->istream.blocking);
+		return 0;
 	}
 
-	size = stream->buffer_size - stream->pos;
+	zstream->zs.next_in = (char *)data;
+	zstream->zs.avail_in = size;
+
+	out_size = stream->buffer_size - stream->pos;
 	zstream->zs.next_out = (char *)stream->w_buffer + stream->pos;
-	zstream->zs.avail_out = size;
+	zstream->zs.avail_out = out_size;
 	ret = BZ2_bzDecompress(&zstream->zs);
 
-	size -= zstream->zs.avail_out;
-	stream->pos += size;
+	out_size -= zstream->zs.avail_out;
+	stream->pos += out_size;
+
+	i_stream_skip(stream->parent, size - zstream->zs.avail_in);
 
 	switch (ret) {
 	case BZ_OK:
@@ -159,7 +153,7 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 		zstream->eof_offset = stream->istream.v_offset +
 			(stream->pos - stream->skip);
 		zstream->stream_size = zstream->eof_offset;
-		if (size == 0) {
+		if (out_size == 0) {
 			stream->istream.eof = TRUE;
 			return -1;
 		}
@@ -167,11 +161,11 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 	default:
 		i_fatal("BZ2_bzDecompress() failed with %d", ret);
 	}
-	if (size == 0) {
+	if (out_size == 0) {
 		/* read more input */
 		return i_stream_bzlib_read(stream);
 	}
-	return size;
+	return out_size;
 }
 
 static void i_stream_bzlib_init(struct bzlib_istream *zstream)
@@ -206,7 +200,6 @@ static void i_stream_bzlib_reset(struct bzlib_istream *zstream)
 	stream->skip = stream->pos = 0;
 	stream->istream.v_offset = 0;
 	zstream->high_pos = 0;
-	zstream->prev_size = 0;
 
 	(void)BZ2_bzDecompressEnd(&zstream->zs);
 	i_stream_bzlib_init(zstream);

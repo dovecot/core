@@ -122,6 +122,7 @@ static int i_stream_zlib_read_header(struct istream_private *stream)
 		pos += 2;
 	}
 	i_stream_skip(stream->parent, pos);
+	zstream->prev_size = 0;
 	return 1;
 }
 
@@ -172,7 +173,7 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 	struct zlib_istream *zstream = (struct zlib_istream *)stream;
 	const unsigned char *data;
 	uoff_t high_offset;
-	size_t size;
+	size_t size, out_size;
 	int ret;
 
 	high_offset = stream->istream.v_offset + (stream->pos - stream->skip);
@@ -208,7 +209,6 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 		if (ret <= 0)
 			return ret;
 		zstream->header_read = TRUE;
-		zstream->prev_size = 0;
 	}
 
 	if (stream->pos < zstream->high_pos) {
@@ -248,44 +248,39 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 		}
 	}
 
-	if (zstream->zs.avail_in == 0) {
-		/* need to read more data. try to read a full CHUNK_SIZE */
-		i_stream_skip(stream->parent, zstream->prev_size);
-		if (i_stream_read_data(stream->parent, &data, &size,
-				       CHUNK_SIZE-1) == -1 && size == 0) {
-			if (stream->parent->stream_errno != 0) {
-				stream->istream.stream_errno =
-					stream->parent->stream_errno;
-			} else {
-				i_assert(stream->parent->eof);
-				if (zstream->log_errors) {
-					zlib_read_error(zstream,
-							"unexpected EOF");
-				}
-				stream->istream.stream_errno = EPIPE;
-			}
-			return -1;
+	if (i_stream_read_data(stream->parent, &data, &size, 0) < 0) {
+		if (stream->parent->stream_errno != 0) {
+			stream->istream.stream_errno =
+				stream->parent->stream_errno;
+		} else {
+			i_assert(stream->parent->eof);
+			if (zstream->log_errors)
+				zlib_read_error(zstream, "unexpected EOF");
+			stream->istream.stream_errno = EPIPE;
 		}
-		zstream->prev_size = size;
-		if (size == 0) {
-			/* no more input */
-			i_assert(!stream->istream.blocking);
-			return 0;
-		}
-
-		zstream->zs.next_in = (void *)data;
-		zstream->zs.avail_in = size;
+		return -1;
+	}
+	if (size == 0) {
+		/* no more input */
+		i_assert(!stream->istream.blocking);
+		return 0;
 	}
 
-	size = stream->buffer_size - stream->pos;
+	zstream->zs.next_in = (void *)data;
+	zstream->zs.avail_in = size;
+
+	out_size = stream->buffer_size - stream->pos;
 	zstream->zs.next_out = stream->w_buffer + stream->pos;
-	zstream->zs.avail_out = size;
+	zstream->zs.avail_out = out_size;
 	ret = inflate(&zstream->zs, Z_SYNC_FLUSH);
 
-	size -= zstream->zs.avail_out;
+	out_size -= zstream->zs.avail_out;
 	zstream->crc32 = crc32_data_more(zstream->crc32,
-					 stream->w_buffer + stream->pos, size);
-	stream->pos += size;
+					 stream->w_buffer + stream->pos,
+					 out_size);
+	stream->pos += out_size;
+
+	i_stream_skip(stream->parent, size - zstream->zs.avail_in);
 
 	switch (ret) {
 	case Z_OK:
@@ -307,10 +302,7 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 		zstream->eof_offset = stream->istream.v_offset +
 			(stream->pos - stream->skip);
 		zstream->stream_size = zstream->eof_offset;
-		i_stream_skip(stream->parent,
-			      zstream->prev_size - zstream->zs.avail_in);
 		zstream->zs.avail_in = 0;
-		zstream->prev_size = 0;
 
 		if (!zstream->trailer_read) {
 			/* try to read and verify the trailer, we might not
@@ -322,11 +314,11 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 	default:
 		i_fatal("inflate() failed with %d", ret);
 	}
-	if (size == 0) {
+	if (out_size == 0) {
 		/* read more input */
 		return i_stream_zlib_read(stream);
 	}
-	return size;
+	return out_size;
 }
 
 static void i_stream_zlib_init(struct zlib_istream *zstream)
