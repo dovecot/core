@@ -215,7 +215,7 @@ static int dbox_file_open_full(struct dbox_file *file, bool try_altpath,
 		}
 	}
 
-	file->input = i_stream_create_fd(file->fd, DBOX_READ_BLOCK_SIZE, FALSE);
+	file->input = i_stream_create_fd(file->fd, DBOX_READ_BLOCK_SIZE, TRUE);
 	i_stream_set_name(file->input, file->cur_path);
 	i_stream_set_init_buffer_size(file->input, DBOX_READ_BLOCK_SIZE);
 	return dbox_file_read_header(file);
@@ -286,9 +286,12 @@ int dbox_file_header_write(struct dbox_file *file, struct ostream *output)
 void dbox_file_close(struct dbox_file *file)
 {
 	dbox_file_unlock(file);
-	if (file->input != NULL)
+	if (file->input != NULL) {
+		/* stream autocloses the fd when it gets destroyed. note that
+		   the stream may outlive the struct dbox_file. */
 		i_stream_unref(&file->input);
-	if (file->fd != -1) {
+		file->fd = -1;
+	} else if (file->fd != -1) {
 		if (close(file->fd) < 0)
 			dbox_file_set_syscall_error(file, "close()");
 		file->fd = -1;
