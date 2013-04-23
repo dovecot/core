@@ -345,6 +345,20 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 	return 0;
 }
 
+static void i_stream_seekable_seek(struct istream_private *stream,
+				   uoff_t v_offset, bool mark)
+{
+	if (v_offset <= stream->istream.v_offset) {
+		/* seeking backwards */
+		stream->istream.v_offset = v_offset;
+		stream->skip = stream->pos = 0;
+	} else {
+		/* we can't skip over data we haven't yet read and written to
+		   our buffer/temp file */
+		i_stream_default_seek_nonseekable(stream, v_offset, mark);
+	}
+}
+
 struct istream *
 i_streams_merge(struct istream *input[], size_t max_buffer_size,
 		int (*fd_callback)(const char **path_r, void *context),
@@ -388,6 +402,7 @@ i_streams_merge(struct istream *input[], size_t max_buffer_size,
 
 	sstream->istream.read = i_stream_seekable_read;
 	sstream->istream.stat = i_stream_seekable_stat;
+	sstream->istream.seek = i_stream_seekable_seek;
 
 	sstream->istream.istream.readable_fd = FALSE;
 	sstream->istream.istream.blocking = blocking;
