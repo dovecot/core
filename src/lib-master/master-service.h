@@ -141,6 +141,9 @@ void master_service_stop(struct master_service *service);
 void master_service_stop_new_connections(struct master_service *service);
 /* Returns TRUE if we've received a SIGINT/SIGTERM and we've decided to stop. */
 bool master_service_is_killed(struct master_service *service);
+/* Returns TRUE if our master process is already stopped. This process may or
+   may not be dying itself. */
+bool master_service_is_master_stopped(struct master_service *service);
 
 /* Send command to anvil process, if we have fd to it. */
 void master_service_anvil_send(struct master_service *service, const char *cmd);
