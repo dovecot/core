@@ -68,8 +68,8 @@ void hash_table_destroy(struct hash_table **table);
 #define hash_table_destroy(table) \
 	hash_table_destroy(&(*table)._table)
 /* Remove all nodes from hash table. If free_collisions is TRUE, the
-   memory allocated from node_pool is freed, or discarded with
-   alloconly pools. */
+   memory allocated from node_pool is freed, or discarded with alloconly pools.
+   WARNING: If you p_clear() the node_pool, the free_collisions must be TRUE. */
 void hash_table_clear(struct hash_table *table, bool free_collisions);
 #define hash_table_clear(table, free_collisions) \
 	hash_table_clear((table)._table, free_collisions)
