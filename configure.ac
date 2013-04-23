@@ -433,7 +433,7 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
 	       walkcontext dirfd clearenv malloc_usable_size glob fallocate \
 	       posix_fadvise getpeereid getpeerucred)
 
-AC_CHECK_TYPES([struct sockpeercred])
+AC_CHECK_TYPES([struct sockpeercred],,,[#include <sys/socket.h>])
 
 AC_SEARCH_LIBS(clock_gettime, rt, [
   AC_DEFINE(HAVE_CLOCK_GETTIME,, Define if you have the clock_gettime function)
