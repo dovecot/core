@@ -5,6 +5,7 @@
 #include "net.h"
 #include "str.h"
 #include "strescape.h"
+#include "master-service.h"
 #include "mail-storage.h"
 #include "stats-plugin.h"
 #include "stats-connection.h"
@@ -70,6 +71,12 @@ void stats_connection_send(struct stats_connection *conn, const string_t *str)
 {
 	static bool pipe_warned = FALSE;
 	ssize_t ret;
+
+	/* if master process has been stopped (and restarted), don't even try
+	   to notify the stats process anymore. even if one exists, it doesn't
+	   know about us. */
+	if (master_service_is_master_stopped(master_service))
+		return;
 
 	if (conn->fd == -1) {
 		if (!stats_connection_open(conn))
