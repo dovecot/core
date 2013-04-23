@@ -417,7 +417,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	const struct service_settings *default_service;
 #else
 	rlim_t fd_limit;
-	const char *max_client_limit_source = "default_client_count";
+	const char *max_client_limit_source = "default_client_limit";
 	unsigned int max_client_limit = set->default_client_limit;
 #endif
 
