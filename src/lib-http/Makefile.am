@@ -50,7 +50,7 @@ test_libs = \
 	$(MODULE_LIBS)
 
 test_deps = \
-	$(noinst_LTLIBRARIES)
+	$(noinst_LTLIBRARIES) \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
