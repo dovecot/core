@@ -104,7 +104,7 @@ void maildir_keywords_deinit(struct maildir_keywords **_mk)
 static void maildir_keywords_clear(struct maildir_keywords *mk)
 {
 	array_clear(&mk->list);
-	hash_table_clear(mk->hash, FALSE);
+	hash_table_clear(mk->hash, TRUE);
 	p_clear(mk->pool);
 }
 
