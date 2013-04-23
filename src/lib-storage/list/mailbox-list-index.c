@@ -27,8 +27,8 @@ void mailbox_list_index_reset(struct mailbox_list_index *ilist)
 {
 	i_assert(ilist->iter_refcount == 0);
 
-	hash_table_clear(ilist->mailbox_names, FALSE);
-	hash_table_clear(ilist->mailbox_hash, FALSE);
+	hash_table_clear(ilist->mailbox_names, TRUE);
+	hash_table_clear(ilist->mailbox_hash, TRUE);
 	p_clear(ilist->mailbox_pool);
 	ilist->mailbox_tree = NULL;
 	ilist->highest_name_id = 0;
