@@ -229,11 +229,14 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 {
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(_backend->ns->user);
-	const struct fts_solr_settings *set = &fuser->set;
 	const char *str;
 
+	if (fuser == NULL) {
+		*error_r = "Invalid fts_solr setting";
+		return -1;
+	}
 	if (solr_conn == NULL) {
-		if (solr_connection_init(set->url, set->debug,
+		if (solr_connection_init(fuser->set.url, fuser->set.debug,
 					 &solr_conn, error_r) < 0)
 			return -1;
 	}
