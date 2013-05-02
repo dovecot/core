@@ -54,7 +54,7 @@ struct client {
 	struct io *io, *ctrl_io;
 	struct istream *input, *ctrl_input;
 	struct ostream *output, *ctrl_output;
-	struct timeout *to_idle, *to_delay;
+	struct timeout *to_idle;
 
 	char *access_user;
 	ARRAY_TYPE(string) access_apps;
@@ -245,8 +245,6 @@ static void client_destroy(struct client *client)
 		io_remove(&client->ctrl_io);
 	if (client->to_idle != NULL)
 		timeout_remove(&client->to_idle);
-	if (client->to_delay != NULL)
-		timeout_remove(&client->to_delay);
 
 	if (client->input != NULL)
 		i_stream_destroy(&client->input);
@@ -605,7 +603,6 @@ client_handle_user_command(struct client *client, const char *cmd,
 			i_debug("User %s doesn't exist", input.username);
 
 		client_send_line(client, "NO");
-		timeout_remove(&client->to_delay);
 		return 1;
 	}
 
@@ -669,7 +666,7 @@ static bool client_handle_input(struct client *client)
 	const char *line, *cmd, *error;
 	int ret;
 
-	if (client->url != NULL || client->to_delay != NULL) {
+	if (client->url != NULL) {
 		/* we're still processing a URL. wait until it's
 		   finished. */
 		io_remove(&client->io);
