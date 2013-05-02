@@ -586,6 +586,10 @@ cmd_append_handle_args(struct client_command_context *cmd,
 	if (cat_list == NULL) {
 		/* normal APPEND */
 		return 1;
+	} else if (cat_list->type == IMAP_ARG_EOL) {
+		/* zero parts */
+		client_send_command_error(cmd, "Empty CATENATE list.");
+		return -1;
 	} else if ((ret = cmd_append_catenate(cmd, cat_list, nonsync_r)) < 0) {
 		/* invalid parameters, abort immediately */
 		return -1;
@@ -734,6 +738,8 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 	ret = cmd_append_handle_args(cmd, args, &nonsync);
 	if (ret < 0) {
 		/* invalid parameters, abort immediately */
+		if (ctx->catenate)
+			client->input_skip_line = TRUE;
 		cmd_append_finish(ctx);
 		return TRUE;
 	}
