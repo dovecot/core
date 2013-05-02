@@ -349,6 +349,30 @@ static void cmd_append_finish_catenate(struct client_command_context *cmd)
 	}
 }
 
+static bool catenate_args_can_stop(struct cmd_append_context *ctx,
+				   const struct imap_arg *args)
+{
+	/* eat away literal_sizes from URLs */
+	while (args->type != IMAP_ARG_EOL) {
+		if (imap_arg_atom_equals(args, "TEXT"))
+			return TRUE;
+		if (!imap_arg_atom_equals(args, "URL")) {
+			/* error - handle it later */
+			return TRUE;
+		}
+		args++;
+		if (args->type == IMAP_ARG_LITERAL_SIZE ||
+		    args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC) {
+			if (args->type == IMAP_ARG_LITERAL_SIZE)
+				cmd_append_send_literal_continue(ctx->client);
+			imap_parser_read_last_literal(ctx->save_parser);
+			return FALSE;
+		}
+		args++;
+	}
+	return TRUE;
+}
+
 static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
@@ -368,10 +392,12 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 	   it's fine that this would need to fully fit into input buffer
 	   (although clients attempting to DoS could simply insert an extra
 	   {1+} between the URLs) */
-	ret = imap_parser_read_args(ctx->save_parser, 0,
-				    IMAP_PARSE_FLAG_LITERAL_SIZE |
-				    IMAP_PARSE_FLAG_LITERAL8 |
-				    IMAP_PARSE_FLAG_INSIDE_LIST, &args);
+	do {
+		ret = imap_parser_read_args(ctx->save_parser, 0,
+					    IMAP_PARSE_FLAG_LITERAL_SIZE |
+					    IMAP_PARSE_FLAG_LITERAL8 |
+					    IMAP_PARSE_FLAG_INSIDE_LIST, &args);
+	} while (ret > 0 && !catenate_args_can_stop(ctx, args));
 	if (ret == -1) {
 		msg = imap_parser_get_error(ctx->save_parser, &fatal);
 		if (fatal)
@@ -630,8 +656,11 @@ static bool cmd_append_finish_parsing(struct client_command_context *cmd)
 	return cmd_sync(cmd, sync_flags, imap_flags, str_c(msg));
 }
 
-static bool cmd_append_args_can_stop(const struct imap_arg *args)
+static bool cmd_append_args_can_stop(struct cmd_append_context *ctx,
+				     const struct imap_arg *args)
 {
+	const struct imap_arg *cat_list;
+
 	if (args->type == IMAP_ARG_EOL)
 		return TRUE;
 
@@ -645,8 +674,8 @@ static bool cmd_append_args_can_stop(const struct imap_arg *args)
 	    args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC)
 		return TRUE;
 	if (imap_arg_atom_equals(args, "CATENATE") &&
-	    args[1].type == IMAP_ARG_LIST)
-		return TRUE;
+	    imap_arg_get_list(&args[1], &cat_list))
+		return catenate_args_can_stop(ctx, cat_list);
 	return FALSE;
 }
 
@@ -680,7 +709,7 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 		ret = imap_parser_read_args(ctx->save_parser, arg_min_count++,
 					    IMAP_PARSE_FLAG_LITERAL_SIZE |
 					    IMAP_PARSE_FLAG_LITERAL8, &args);
-	} while (ret > 0 && !cmd_append_args_can_stop(args));
+	} while (ret > 0 && !cmd_append_args_can_stop(ctx, args));
 	if (ret == -1) {
 		if (!ctx->failed) {
 			msg = imap_parser_get_error(ctx->save_parser, &fatal);
