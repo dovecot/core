@@ -362,6 +362,7 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 	unsigned char mailbox_key[IMAP_URLAUTH_KEY_LEN];
 	int ret;
 
+	*mpurl_r = NULL;
 	*error_r = NULL;
 	*error_code_r = MAIL_ERROR_NONE;
 
