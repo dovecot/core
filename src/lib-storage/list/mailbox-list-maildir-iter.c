@@ -372,6 +372,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 	struct mail_namespace *ns = list->ns;
 	DIR *dirp;
 	struct dirent *d;
+	const char *vname;
 	int ret = 0;
 
 	dirp = opendir(ctx->dir);
@@ -409,8 +410,8 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		return maildir_fill_inbox(ctx, glob, "INBOX", update_only);
 	} else if ((ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
 		/* show shared INBOX. */
-		return maildir_fill_inbox(ctx, glob,
-			t_strconcat(ns->prefix, "INBOX", NULL), update_only);
+		vname = mailbox_list_get_vname(ns->list, "INBOX");
+		return maildir_fill_inbox(ctx, glob, vname, update_only);
 	} else {
 		return 0;
 	}
