@@ -501,9 +501,8 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		ctx->binary_input = args->literal8;
 		valid = TRUE;
 	}
-	/* we parsed the args only up to here. */
-	i_assert(IMAP_ARG_IS_EOL(&args[1]));
-
+	if (!IMAP_ARG_IS_EOL(&args[1]))
+		valid = FALSE;
 	if (!valid) {
 		client->input_skip_line = TRUE;
 		if (!ctx->failed)
