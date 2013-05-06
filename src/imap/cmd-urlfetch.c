@@ -39,6 +39,8 @@ static void cmd_urlfetch_finish(struct client_command_context *cmd)
 		return;
 	ctx->finished = TRUE;
 
+	if (ctx->input != NULL)
+		i_stream_unref(&ctx->input);
 	if (ctx->ufetch != NULL)
 		imap_urlauth_fetch_deinit(&ctx->ufetch);
 
@@ -225,7 +227,7 @@ static int cmd_urlfetch_url_sucess(struct client_command_context *cmd,
 	if (reply->input != NULL) {
 		ctx->input = reply->input;
 		ctx->size = reply->size;
-		i_stream_ref(reply->input);
+		i_stream_ref(ctx->input);
 
 		ret = cmd_urlfetch_transfer_literal(cmd);
 		if (ret < 0) {
