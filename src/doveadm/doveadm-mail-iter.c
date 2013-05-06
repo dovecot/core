@@ -21,7 +21,6 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 			   struct mail_search_args *search_args,
 			   enum mail_fetch_field wanted_fields,
 			   const char *const *wanted_headers,
-			   struct mailbox_transaction_context **trans_r,
 			   struct doveadm_mail_iter **iter_r)
 {
 	struct doveadm_mail_iter *iter;
@@ -49,8 +48,6 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 	iter->t = mailbox_transaction_begin(iter->box, 0);
 	iter->search_ctx = mailbox_search_init(iter->t, search_args, NULL,
 					       wanted_fields, headers_ctx);
-
-	*trans_r = iter->t;
 	*iter_r = iter;
 	return 0;
 }
@@ -127,4 +124,9 @@ bool doveadm_mail_iter_next(struct doveadm_mail_iter *iter,
 			    struct mail **mail_r)
 {
 	return mailbox_search_next(iter->search_ctx, mail_r);
+}
+
+struct mailbox *doveadm_mail_iter_get_mailbox(struct doveadm_mail_iter *iter)
+{
+	return iter->box;
 }

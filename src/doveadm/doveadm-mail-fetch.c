@@ -507,13 +507,12 @@ static int
 cmd_fetch_box(struct fetch_cmd_context *ctx, const struct mailbox_info *info)
 {
 	struct doveadm_mail_iter *iter;
-	struct mailbox_transaction_context *trans;
 	int ret = 0;
 
 	if (doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args,
 				   ctx->wanted_fields,
 				   array_idx(&ctx->header_fields, 0),
-				   &trans, &iter) < 0)
+				   &iter) < 0)
 		return -1;
 
 	while (doveadm_mail_iter_next(iter, &ctx->mail)) {

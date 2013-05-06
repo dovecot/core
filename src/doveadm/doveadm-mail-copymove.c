@@ -25,14 +25,13 @@ cmd_copy_box(struct copy_cmd_context *ctx, struct mailbox *destbox,
 	     const struct mailbox_info *info)
 {
 	struct doveadm_mail_iter *iter;
-	struct mailbox_transaction_context *trans;
 	struct mailbox_transaction_context *desttrans;
 	struct mail_save_context *save_ctx;
 	struct mail *mail;
 	int ret = 0;
 
 	if (doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args, 0,
-				   NULL, &trans, &iter) < 0)
+				   NULL, &iter) < 0)
 		return -1;
 
 	/* use a separately committed transaction for each mailbox.

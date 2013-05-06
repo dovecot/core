@@ -20,13 +20,12 @@ cmd_altmove_box(struct doveadm_mail_cmd_context *ctx,
 		struct mail_search_args *search_args, bool reverse)
 {
 	struct doveadm_mail_iter *iter;
-	struct mailbox_transaction_context *trans;
 	struct mail *mail;
 	enum modify_type modify_type =
 		!reverse ? MODIFY_ADD : MODIFY_REMOVE;
 
 	if (doveadm_mail_iter_init(ctx, info, search_args, 0, NULL,
-				   &trans, &iter) < 0)
+				   &iter) < 0)
 		return -1;
 
 	while (doveadm_mail_iter_next(iter, &mail)) {

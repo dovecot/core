@@ -22,13 +22,12 @@ cmd_expunge_box(struct doveadm_mail_cmd_context *_ctx,
 	struct expunge_cmd_context *ctx = (struct expunge_cmd_context *)_ctx;
 	struct doveadm_mail_iter *iter;
 	struct mailbox *box;
-	struct mailbox_transaction_context *trans;
 	struct mail *mail;
 	enum mail_error error;
 	int ret = 0;
 
 	if (doveadm_mail_iter_init(_ctx, info, search_args, 0, NULL,
-				   &trans, &iter) < 0)
+				   &iter) < 0)
 		return -1;
 
 	while (doveadm_mail_iter_next(iter, &mail)) {

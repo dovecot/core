@@ -103,13 +103,12 @@ cmd_import_box(struct import_cmd_context *ctx, struct mail_user *dest_user,
 	       struct mail_search_args *search_args)
 {
 	struct doveadm_mail_iter *iter;
-	struct mailbox_transaction_context *trans;
 	struct mailbox *box;
 	struct mail *mail;
 	int ret = 0;
 
 	if (doveadm_mail_iter_init(&ctx->ctx, info, search_args, 0, NULL,
-				   &trans, &iter) < 0)
+				   &iter) < 0)
 		return -1;
 
 	if (doveadm_mail_iter_next(iter, &mail)) {

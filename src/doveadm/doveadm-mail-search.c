@@ -15,16 +15,15 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 {
 	struct doveadm_mail_iter *iter;
 	struct mailbox *box;
-	struct mailbox_transaction_context *trans;
 	struct mail *mail;
 	struct mailbox_metadata metadata;
 	const char *guid_str;
 	int ret = 0;
 
 	if (doveadm_mail_iter_init(ctx, info, ctx->search_args, 0, NULL,
-				   &trans, &iter) < 0)
+				   &iter) < 0)
 		return -1;
-	box = mailbox_transaction_get_mailbox(trans);
+	box = doveadm_mail_iter_get_mailbox(iter);
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
 		ret = -1;
