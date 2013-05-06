@@ -711,11 +711,7 @@ static int finish_line(struct imap_parser *parser, unsigned int count,
 
 	arg = array_append_space(&parser->root_list);
 	arg->type = IMAP_ARG_EOL;
-
-	if (!parser->eol)
-		parser->args_added_extra_eol = TRUE;
-	else
-		i_assert(!parser->literal_size_return);
+	parser->args_added_extra_eol = TRUE;
 
 	*args_r = array_get(&parser->root_list, &count);
 	return ret;
