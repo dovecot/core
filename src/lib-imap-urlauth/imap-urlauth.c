@@ -227,7 +227,7 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 	enum imap_url_parse_flags url_flags =
 		IMAP_URL_PARSE_ALLOW_URLAUTH;
 	struct imap_url *url;
-	struct imap_msgpart_url *mpurl;
+	struct imap_msgpart_url *mpurl = NULL;
 	struct mailbox *box;
 	const char *error;
 	enum mail_error error_code;
@@ -284,7 +284,8 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 	if ((ret = imap_msgpart_url_create(user, url, &mpurl, &error)) < 0 ||
 	    imap_msgpart_url_verify(mpurl, &error) <= 0) {
 		*error_r = t_strdup_printf("Invalid URL: %s", error);
-		imap_msgpart_url_free(&mpurl);
+		if (mpurl != NULL)
+			imap_msgpart_url_free(&mpurl);
 		return ret;
 	}
 	box = imap_msgpart_url_get_mailbox(mpurl);

@@ -150,7 +150,7 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 	const char *error, *errormsg = NULL, *bpstruct = NULL;
 	bool debug = ufetch->uctx->user->mail_debug, success;
 	enum mail_error error_code;
-	struct imap_msgpart_url *mpurl;
+	struct imap_msgpart_url *mpurl = NULL;
 	int ret;
 
 	ufetch->pending_requests--;
