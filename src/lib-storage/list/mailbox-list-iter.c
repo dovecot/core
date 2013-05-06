@@ -256,6 +256,9 @@ static bool ns_match_next(struct ns_list_iterate_context *ctx,
 		/* non-listable namespace matches only with exact prefix */
 		if (strncmp(ns->prefix, pattern, ns->prefix_len) != 0)
 			return FALSE;
+		/* prefix="" list=no is never listed */
+		if (ns->prefix_len == 0)
+			return FALSE;
 	}
 
 	prefix_without_sep = t_strndup(ns->prefix, len);
