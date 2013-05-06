@@ -708,12 +708,13 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 	/* parse the entire line up to the first message literal, or in case
 	   the input buffer is full of MULTIAPPEND CATENATE URLs, parse at
 	   least until the beginning of the next message */
-	arg_min_count = 1;
+	arg_min_count = 0;
 	do {
-		ret = imap_parser_read_args(ctx->save_parser, arg_min_count++,
+		ret = imap_parser_read_args(ctx->save_parser, ++arg_min_count,
 					    IMAP_PARSE_FLAG_LITERAL_SIZE |
 					    IMAP_PARSE_FLAG_LITERAL8, &args);
-	} while (ret > 0 && !cmd_append_args_can_stop(ctx, args));
+	} while (ret >= (int)arg_min_count &&
+		 !cmd_append_args_can_stop(ctx, args));
 	if (ret == -1) {
 		if (!ctx->failed) {
 			msg = imap_parser_get_error(ctx->save_parser, &fatal);
