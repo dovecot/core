@@ -43,7 +43,14 @@ static void cmd_urlfetch_finish(struct client_command_context *cmd)
 		imap_urlauth_fetch_deinit(&ctx->ufetch);
 
 	if (ctx->failed) {
-		client_send_internal_error(cmd);
+		if (cmd->client->output_cmd_lock == cmd) {
+			/* failed in the middle of a literal.
+			   we need to disconnect. */
+			cmd->client->output_cmd_lock = NULL;
+			client_disconnect(cmd->client, "URLFETCH failed");
+		} else {
+			client_send_internal_error(cmd);
+		}
 		return;
 	}
 
@@ -147,12 +154,12 @@ static bool cmd_urlfetch_continue(struct client_command_context *cmd)
 		client_send_line(client, ")");
 	else
 		client_send_line(client, "");
+	client->output_cmd_lock = NULL;
 
 	if (imap_urlauth_fetch_continue(ctx->ufetch)) {
 		/* waiting for imap urlauth service */
 		cmd->state = CLIENT_COMMAND_STATE_WAIT_EXTERNAL;
 		cmd->func = cmd_urlfetch_cancel;
-		client->output_cmd_lock = NULL;
 
 		/* retrieve next url */
 		return FALSE;
