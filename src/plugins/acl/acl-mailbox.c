@@ -118,8 +118,23 @@ acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
 	int ret;
 
-	/* we already checked permissions in list.mailbox_create_dir().
-	   ignore ACLs in this mailbox until creation is complete, because
+	/* we're looking up CREATE permission from our parent's rights */
+	ret = acl_mailbox_list_have_right(box->list, box->name, TRUE,
+					  ACL_STORAGE_RIGHT_CREATE, NULL);
+	if (ret <= 0) {
+		if (ret < 0) {
+			mail_storage_set_internal_error(box->storage);
+			return -1;
+		}
+		/* Note that if user didn't have LOOKUP permission to parent
+		   mailbox, this may reveal the mailbox's existence to user.
+		   Can't help it. */
+		mail_storage_set_error(box->storage, MAIL_ERROR_PERM,
+				       MAIL_ERRSTR_NO_PERMISSION);
+		return -1;
+	}
+
+	/* ignore ACLs in this mailbox until creation is complete, because
 	   super.create() may call e.g. mailbox_open() which will fail since
 	   we haven't yet copied ACLs to this mailbox. */
 	abox->skip_acl_checks = TRUE;
