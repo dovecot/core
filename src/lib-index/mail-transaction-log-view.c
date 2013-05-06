@@ -95,6 +95,17 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	}
 
 	for (file = view->log->files; file != NULL; file = file->next) {
+		if (file->hdr.prev_file_seq == min_file_seq)
+			break;
+	}
+
+	if (file != NULL && min_file_offset == file->hdr.prev_file_offset) {
+		/* we can (and sometimes must) skip to the next file */
+		min_file_seq = file->hdr.file_seq;
+		min_file_offset = file->hdr.hdr_size;
+	}
+
+	for (file = view->log->files; file != NULL; file = file->next) {
 		if (file->hdr.prev_file_seq == max_file_seq)
 			break;
 	}
