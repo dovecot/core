@@ -4,6 +4,7 @@
 #include "hash.h"
 #include "mail-storage-settings.h"
 #include "mailbox-list.h"
+#include "mail-namespace.h"
 #include "mail-user.h"
 #include "acl-cache.h"
 #include "acl-api-private.h"
@@ -157,17 +158,35 @@ unsigned int acl_backend_lookup_right(struct acl_backend *backend,
 	return acl_cache_right_lookup(backend->cache, right);
 }
 
+struct acl_object *acl_backend_get_default_object(struct acl_backend *backend)
+{
+	struct mail_user *user = mailbox_list_get_user(backend->list);
+	struct mail_namespace *ns = mailbox_list_get_namespace(backend->list);
+	const char *default_name = "";
+
+	if (backend->default_aclobj != NULL)
+		return backend->default_aclobj;
+
+	/* FIXME: this should probably be made default in v2.3 */
+	if (mail_user_plugin_getenv(user, "acl_defaults_from_inbox") != NULL) {
+		if (ns->type == MAIL_NAMESPACE_TYPE_PRIVATE ||
+		    ns->type == MAIL_NAMESPACE_TYPE_SHARED)
+			default_name = "INBOX";
+	}
+	backend->default_aclobj =
+		acl_object_init_from_name(backend, default_name);
+	return backend->default_aclobj;
+}
+
 int acl_backend_get_default_rights(struct acl_backend *backend,
 				   const struct acl_mask **mask_r)
 {
-	if (backend->default_aclobj == NULL) {
-		backend->default_aclobj =
-			acl_object_init_from_name(backend, "");
-	}
-	if (backend->v.object_refresh_cache(backend->default_aclobj) < 0)
+	struct acl_object *aclobj = acl_backend_get_default_object(backend);
+
+	if (backend->v.object_refresh_cache(aclobj) < 0)
 		return -1;
 
-	*mask_r = acl_cache_get_my_rights(backend->cache, "");
+	*mask_r = acl_cache_get_my_rights(backend->cache, aclobj->name);
 	if (*mask_r == NULL)
 		*mask_r = backend->default_aclmask;
 	return 0;

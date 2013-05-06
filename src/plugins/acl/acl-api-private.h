@@ -81,6 +81,7 @@ extern const char *const all_mailbox_rights[];
 const char *const *
 acl_backend_mask_get_names(struct acl_backend *backend,
 			   const struct acl_mask *mask, pool_t pool);
+struct acl_object *acl_backend_get_default_object(struct acl_backend *backend);
 int acl_backend_get_default_rights(struct acl_backend *backend,
 				   const struct acl_mask **mask_r);
 void acl_rights_write_id(string_t *dest, const struct acl_rights *right);
