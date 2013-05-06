@@ -116,7 +116,7 @@ static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 		client_disconnect(client, "URLFETCH failed");
 		return -1;
 	}
-	if (!ctx->input->eof) {
+	if (i_stream_have_bytes_left(ctx->input)) {
 		o_stream_set_flush_pending(client->output, TRUE);
 		return 0;
 	}
