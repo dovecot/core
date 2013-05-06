@@ -324,7 +324,6 @@ cmd_append_catenate(struct client_command_context *cmd,
 	}
 	if (!ctx->failed)
 		client_send_command_error(cmd, "Invalid arguments.");
-	cmd->client->input_skip_line = TRUE;
 	return -1;
 }
 
@@ -430,9 +429,6 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 	}
 
 	/* TEXT <literal> */
-
-	/* after literal comes CRLF, if we fail make sure we eat it away */
-	client->input_skip_line = TRUE;
 
 	if (!nonsync) {
 		if (ctx->failed) {
@@ -738,8 +734,6 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 	ret = cmd_append_handle_args(cmd, args, &nonsync);
 	if (ret < 0) {
 		/* invalid parameters, abort immediately */
-		if (ctx->catenate)
-			client->input_skip_line = TRUE;
 		cmd_append_finish(ctx);
 		return TRUE;
 	}
