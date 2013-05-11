@@ -287,7 +287,7 @@ static void uni_ucs4_decompose_hangul_utf8(unichar_t chr, buffer_t *output)
 
 static bool uni_ucs4_decompose_multi_utf8(unichar_t chr, buffer_t *output)
 {
-	const uint16_t *value;
+	const uint32_t *value;
 	unsigned int idx;
 
 	if (chr < multidecomp_keys[0] || chr > 0xffff)

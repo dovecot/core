@@ -30,14 +30,14 @@ while (<>) {
       push @titlecase32_keys, $code;
       push @titlecase32_values, $value;
     }
-  } elsif ($decomp =~ /\<[^>]*> (.+)/) {
+  } elsif ($decomp =~ /(?:\<[^>]*> )?(.+)/) {
     # decompositions
     my $decomp_codes = $1;
     if ($decomp_codes =~ /^([0-9A-Z]*)$/i) {
       # unicharacter decomposition. use separate lists for this
       my $value = eval("0x$1");
-      if ($value > 0xffff) {
-	print STDERR "Error: We've assumed decomposition codes are max. 16bit\n";
+      if ($value > 0xffffffff) {
+	print STDERR "Error: We've assumed decomposition codes are max. 32bit\n";
 	exit 1;
       }
       if ($code <= 0xff) {
@@ -61,8 +61,8 @@ while (<>) {
 
       foreach my $dcode (split(" ", $decomp_codes)) {
 	my $value = eval("0x$dcode");
-	if ($value > 0xffff) {
-	  print STDERR "Error: We've assumed decomposition codes are max. 16bit\n";
+	if ($value > 0xffffffff) {
+	  print STDERR "Error: We've assumed decomposition codes are max. 32bit\n";
 	  exit 1;
 	}
 	push @multidecomp_values, $value;
@@ -78,7 +78,7 @@ sub print_list {
   my $last = $#list;
   my $n = 0;
   foreach my $key (@list) {
-    printf("0x%04x", $key);
+    printf("0x%05x", $key);
     last if ($n == $last);
     print ",";
     
@@ -137,7 +137,7 @@ print "static const uint16_t uni16_decomp_keys[] = {\n\t";
 print_list(\@uni16_decomp_keys);
 print "\n};\n";
 
-print "static const uint16_t uni16_decomp_values[] = {\n\t";
+print "static const uint32_t uni16_decomp_values[] = {\n\t";
 print_list(\@uni16_decomp_values);
 print "\n};\n";
 
@@ -145,7 +145,7 @@ print "static const uint32_t uni32_decomp_keys[] = {\n\t";
 print_list(\@uni32_decomp_keys);
 print "\n};\n";
 
-print "static const uint16_t uni32_decomp_values[] = {\n\t";
+print "static const uint32_t uni32_decomp_values[] = {\n\t";
 print_list(\@uni32_decomp_values);
 print "\n};\n";
 
@@ -157,6 +157,6 @@ print "static const uint16_t multidecomp_offsets[] = {\n\t";
 print_list(\@multidecomp_offsets);
 print "\n};\n";
 
-print "static const uint16_t multidecomp_values[] = {\n\t";
+print "static const uint32_t multidecomp_values[] = {\n\t";
 print_list(\@multidecomp_values);
 print "\n};\n";
