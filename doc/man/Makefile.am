@@ -85,4 +85,4 @@ CLEANFILES = $(nodist_man1_MANS)
 
 .1.in.1: $(man_includefiles) Makefile
 	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
-		< $(srcdir)/$< > $@
+		< $< > $@
