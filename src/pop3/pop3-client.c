@@ -141,6 +141,7 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
         struct mailbox_status status;
         struct mailbox_transaction_context *t;
 	struct mail_search_args *search_args;
+	struct mail_search_arg *sarg;
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	uoff_t size;
@@ -158,7 +159,17 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 	t = mailbox_transaction_begin(client->mailbox, 0);
 
 	search_args = mail_search_build_init();
-	mail_search_build_add_all(search_args);
+	if (client->deleted_kw != NULL) {
+		sarg = mail_search_build_add(search_args, SEARCH_KEYWORDS);
+		sarg->match_not = TRUE;
+		sarg->value.str = p_strdup(search_args->pool,
+					   client->set->pop3_deleted_flag);
+		i_array_init(&client->all_seqs, 32);
+	} else {
+		mail_search_build_add_all(search_args);
+	}
+	mail_search_args_init(search_args, client->mailbox, TRUE, NULL);
+
 	ctx = mailbox_search_init(t, search_args, pop3_sort_program,
 				  client->set->pop3_fast_size_lookups ? 0 :
 				  MAIL_FETCH_VIRTUAL_SIZE, NULL);
@@ -175,6 +186,8 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 			*failed_uid_r = mail->uid;
 			break;
 		}
+		if (array_is_created(&client->all_seqs))
+			seq_range_array_add(&client->all_seqs, mail->seq);
 		msgnum_to_seq_map_add(&msgnum_to_seq_map, client, mail, msgnum);
 
 		if ((mail_get_flags(mail) & MAIL_SEEN) != 0)
@@ -197,7 +210,13 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 			array_free(&msgnum_to_seq_map);
 		return ret;
 	}
-	i_assert(msgnum == client->messages_count);
+	i_assert(msgnum <= client->messages_count);
+	client->messages_count = msgnum;
+
+	if (!array_is_created(&client->all_seqs)) {
+		i_array_init(&client->all_seqs, 1);
+		seq_range_array_add_range(&client->all_seqs, 1, msgnum);
+	}
 
 	client->trans = t;
 	client->message_sizes =
@@ -209,6 +228,26 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 			buffer_free_without_data(&msgnum_to_seq_map.arr.buffer);
 	}
 	return 1;
+}
+
+static int init_pop3_deleted_flag(struct client *client, const char **error_r)
+{
+	const char *deleted_keywords[2];
+
+	if (client->set->pop3_deleted_flag[0] == '\0')
+		return 0;
+
+	deleted_keywords[0] = client->set->pop3_deleted_flag;
+	deleted_keywords[1] = NULL;
+	if (mailbox_keywords_create(client->mailbox, deleted_keywords,
+				    &client->deleted_kw) < 0) {
+		*error_r = t_strdup_printf(
+			"pop3_deleted_flags: Invalid keyword '%s': %s",
+			client->set->pop3_deleted_flag,
+			mailbox_get_last_error(client->mailbox, NULL));
+		return -1;
+	}
+	return 0;
 }
 
 static int init_mailbox(struct client *client, const char **error_r)
@@ -392,7 +431,8 @@ int client_create(int fd_in, int fd_out, const char *session_id,
 	}
 	client->mail_set = mail_storage_get_settings(storage);
 
-	if (init_mailbox(client, &errmsg) < 0) {
+	if (init_pop3_deleted_flag(client, &errmsg) < 0 ||
+	    init_mailbox(client, &errmsg) < 0) {
 		i_error("Couldn't init INBOX: %s", errmsg);
 		client_destroy(client, "Mailbox init failed");
 		return -1;
@@ -553,6 +593,9 @@ static void client_default_destroy(struct client *client, const char *reason)
 		   message sizes. */
 		(void)mailbox_transaction_commit(&client->trans);
 	}
+	array_free(&client->all_seqs);
+	if (client->deleted_kw != NULL)
+		mailbox_keywords_unref(&client->deleted_kw);
 	if (client->mailbox != NULL)
 		mailbox_free(&client->mailbox);
 	if (client->anvil_sent) {

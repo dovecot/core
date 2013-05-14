@@ -196,11 +196,12 @@ static struct mail_search_args *
 pop3_search_build(struct client *client, uint32_t seq)
 {
 	struct mail_search_args *search_args;
+	struct mail_search_arg *sarg;
 
 	search_args = mail_search_build_init();
 	if (seq == 0) {
-		mail_search_build_add_seqset(search_args,
-					     1, client->messages_count);
+		sarg = mail_search_build_add(search_args, SEARCH_SEQSET);
+		sarg->value.seqset = client->all_seqs;
 	} else {
 		mail_search_build_add_seqset(search_args, seq, seq);
 	}
@@ -220,6 +221,15 @@ static int client_verify_ordering(struct client *client,
 		return -1;
 	}
 	return 0;
+}
+
+static void client_expunge(struct client *client, struct mail *mail)
+{
+	if (client->deleted_kw != NULL)
+		mail_update_keywords(mail, MODIFY_ADD, client->deleted_kw);
+	else
+		mail_expunge(mail);
+	client->expunged_count++;
 }
 
 bool client_update_mails(struct client *client)
@@ -250,8 +260,7 @@ bool client_update_mails(struct client *client)
 		bit = 1 << (msgnum % CHAR_BIT);
 		if (client->deleted_bitmask != NULL &&
 		    (client->deleted_bitmask[msgnum / CHAR_BIT] & bit) != 0) {
-			mail_expunge(mail);
-			client->expunged_count++;
+			client_expunge(client, mail);
 		} else if (client->seen_bitmask != NULL &&
 			   (client->seen_bitmask[msgnum / CHAR_BIT] & bit) != 0) {
 			mail_update_flags(mail, MODIFY_ADD, MAIL_SEEN);

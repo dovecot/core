@@ -23,6 +23,7 @@ struct pop3_settings {
 	const char *pop3_client_workarounds;
 	const char *pop3_logout_format;
 	const char *pop3_uidl_duplicates;
+	const char *pop3_deleted_flag;
 
 	enum pop3_client_workarounds parsed_workarounds;
 };

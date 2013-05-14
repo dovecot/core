@@ -1,6 +1,8 @@
 #ifndef POP3_CLIENT_H
 #define POP3_CLIENT_H
 
+#include "seq-range-array.h"
+
 struct client;
 struct mail_storage;
 
@@ -48,6 +50,7 @@ struct client {
 	struct mail_namespace *inbox_ns;
 	struct mailbox *mailbox;
 	struct mailbox_transaction_context *trans;
+	struct mail_keywords *deleted_kw;
 
 	struct timeout *to_session_dotlock_refresh;
 	struct dotlock *session_dotlock;
@@ -62,6 +65,9 @@ struct client {
 	uoff_t total_size;
 	uoff_t deleted_size;
 	uint32_t last_seen_pop3_msn, lowest_retr_pop3_msn;
+
+	/* All sequences currently visible in the mailbox. */
+	ARRAY_TYPE(seq_range) all_seqs;
 
 	/* [msgnum] contains mail seq. anything after it has seq = msgnum+1 */
 	uint32_t *msgnum_to_seq_map;
