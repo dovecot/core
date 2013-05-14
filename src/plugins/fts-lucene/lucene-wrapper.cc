@@ -1322,11 +1322,10 @@ lucene_index_search_multi(struct lucene_index *index,
 
 	BooleanQuery mailbox_query;
 	struct hash_iterate_context *iter;
-	wchar_t *key;
-	struct fts_result *value;
+	void *key, *value;
 	iter = hash_table_iterate_init(guids);
 	while (hash_table_iterate(iter, guids, &key, &value)) {
-		Term *term = _CLNEW Term(_T("box"), key);
+		Term *term = _CLNEW Term(_T("box"), (wchar_t *)key);
 		TermQuery *q = _CLNEW TermQuery(term);
 		mailbox_query.add(q, true, BooleanClause::SHOULD);
 	}

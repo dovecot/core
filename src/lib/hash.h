@@ -82,13 +82,20 @@ void *hash_table_lookup(const struct hash_table *table, const void *key) ATTR_PU
 bool hash_table_lookup_full(const struct hash_table *table,
 			    const void *lookup_key,
 			    void **orig_key_r, void **value_r);
-#define hash_table_lookup_full(table, lookup_key, orig_key_r, value_r) \
+#ifndef __cplusplus
+#  define hash_table_lookup_full(table, lookup_key, orig_key_r, value_r) \
 	hash_table_lookup_full((table)._table, \
 		(void *)((const char *)(lookup_key) + COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE((table)._const_key, (table)._key, lookup_key)), \
-		(void **)(void *)((orig_key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, orig_key_r) + \
+		(void *)((orig_key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, orig_key_r) + \
 			COMPILE_ERROR_IF_TRUE(sizeof(*orig_key_r) != sizeof(void *))), \
-		(void **)(void *)((value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r) + \
+		(void *)((value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r) + \
 			COMPILE_ERROR_IF_TRUE(sizeof(*value_r) != sizeof(void *))))
+#else
+/* C++ requires (void **) casting, but that's not possible with strict
+   aliasing, so .. we'll just disable the type checks */
+#  define hash_table_lookup_full(table, lookup_key, orig_key_r, value_r) \
+	hash_table_lookup_full((table)._table, lookup_key, orig_key_r, value_r)
+#endif
 
 /* Insert/update node in hash table. The difference is that hash_table_insert()
    replaces the key in table to given one, while hash_table_update() doesnt. */
@@ -119,12 +126,20 @@ struct hash_iterate_context *hash_table_iterate_init(struct hash_table *table);
 	hash_table_iterate_init((table)._table)
 bool hash_table_iterate(struct hash_iterate_context *ctx,
 			void **key_r, void **value_r);
-#define hash_table_iterate(ctx, table, key_r, value_r) \
+#ifndef __cplusplus
+#  define hash_table_iterate(ctx, table, key_r, value_r) \
 	hash_table_iterate(ctx, \
-		(void **)(void *)((key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, key_r) + \
+		(void *)((key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, key_r) + \
 			COMPILE_ERROR_IF_TRUE(sizeof(*key_r) != sizeof(void *)) + \
 			COMPILE_ERROR_IF_TRUE(sizeof(*value_r) != sizeof(void *))), \
-		(void **)(void *)((value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r)))
+		(void *)((value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r)))
+#else
+/* C++ requires (void **) casting, but that's not possible with strict
+   aliasing, so .. we'll just disable the type checks */
+#  define hash_table_iterate(ctx, table, key_r, value_r) \
+	hash_table_iterate(ctx, key_r, value_r)
+#endif
+
 void hash_table_iterate_deinit(struct hash_iterate_context **ctx);
 
 /* Hash table isn't resized, and removed nodes aren't removed from
