@@ -6,8 +6,9 @@
 struct login_proxy_record {
 	struct ip_addr ip;
 	unsigned int port;
-	unsigned int num_waiting_connections;
 
+	/* these are tracking connect()s, not necessarily logins: */
+	unsigned int num_waiting_connections;
 	struct timeval last_failure;
 	struct timeval last_success;
 };

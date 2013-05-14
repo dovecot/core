@@ -254,7 +254,8 @@ static void proxy_connect_timeout(struct login_proxy *proxy)
 {
 	errno = ETIMEDOUT;
 	proxy_log_connect_error(proxy);
-	proxy_fail_connect(proxy);
+	if (!proxy->connected)
+		proxy_fail_connect(proxy);
 	login_proxy_free(&proxy);
 }
 
