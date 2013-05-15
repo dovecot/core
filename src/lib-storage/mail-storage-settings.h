@@ -18,6 +18,7 @@ struct mail_storage_settings {
 	const char *mail_attribute_dict;
 	unsigned int mail_prefetch_count;
 	const char *mail_cache_fields;
+	const char *mail_always_cache_fields;
 	const char *mail_never_cache_fields;
 	unsigned int mail_cache_min_mail_count;
 	unsigned int mailbox_idle_check_interval;

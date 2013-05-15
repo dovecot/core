@@ -65,6 +65,10 @@ static void index_cache_register_defaults(struct mailbox *box)
 		set_cache_decisions("mail_cache_fields",
 				    set->mail_cache_fields,
 				    MAIL_CACHE_DECISION_TEMP);
+		set_cache_decisions("mail_always_cache_fields",
+				    set->mail_always_cache_fields,
+				    MAIL_CACHE_DECISION_YES |
+				    MAIL_CACHE_DECISION_FORCED);
 		set_cache_decisions("mail_never_cache_fields",
 				    set->mail_never_cache_fields,
 				    MAIL_CACHE_DECISION_NO |
