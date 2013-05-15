@@ -390,10 +390,11 @@ maildir_sync_mail_keywords(struct maildir_index_sync_context *ctx, uint32_t seq)
 	old_indexes = array_get(&ctx->idx_keywords, &old_count);
 	have_indexonly_keywords = FALSE;
 	for (i = old_count; i > 0; i--) {
-		if (old_indexes[i-1] < MAILDIR_MAX_KEYWORDS)
-			break;
-		have_indexonly_keywords = TRUE;
-		array_delete(&ctx->idx_keywords, i-1, 1);
+		if (maildir_keywords_idx_char(ctx->keywords_sync_ctx,
+					      old_indexes[i-1]) == '\0') {
+			have_indexonly_keywords = TRUE;
+			array_delete(&ctx->idx_keywords, i-1, 1);
+		}
 	}
 
 	if (!have_indexonly_keywords) {
