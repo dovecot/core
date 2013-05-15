@@ -70,18 +70,26 @@ mail_cache_field_update(struct mail_cache *cache,
 			const struct mail_cache_field *newfield)
 {
 	struct mail_cache_field_private *orig;
+	bool initial_registering;
 
 	i_assert(newfield->type < MAIL_CACHE_FIELD_COUNT);
 
+	/* are we still doing the initial cache field registering for
+	   internal fields and for mail_*cache_fields settings? */
+	initial_registering = cache->file_fields_count == 0;
+
 	orig = &cache->fields[newfield->idx];
 	if ((newfield->decision & MAIL_CACHE_DECISION_FORCED) != 0 ||
-	    newfield->decision > orig->field.decision) {
+	    ((orig->field.decision & MAIL_CACHE_DECISION_FORCED) == 0 &&
+	     newfield->decision > orig->field.decision)) {
 		orig->field.decision = newfield->decision;
-		orig->decision_dirty = TRUE;
+		if (!initial_registering)
+			orig->decision_dirty = TRUE;
 	}
 	if (orig->field.last_used < newfield->last_used) {
 		orig->field.last_used = newfield->last_used;
-		orig->decision_dirty = TRUE;
+		if (!initial_registering)
+			orig->decision_dirty = TRUE;
 	}
 	if (orig->decision_dirty)
 		cache->field_header_write_pending = TRUE;
