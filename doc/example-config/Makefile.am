@@ -12,7 +12,6 @@ README: README.in Makefile
 exampledir = $(docdir)/example-config
 example_DATA = \
 	dovecot.conf \
-	dovecot-db.conf.ext \
 	dovecot-dict-auth.conf.ext \
 	dovecot-dict-sql.conf.ext \
 	dovecot-ldap.conf.ext \
