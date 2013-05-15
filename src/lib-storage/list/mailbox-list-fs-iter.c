@@ -682,6 +682,7 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 			return 0;
 		}
 		inbox_flags_set(ctx, child_dir_match);
+		ctx->info.vname = "INBOX"; /* always return uppercased */
 		ctx->inbox_found = TRUE;
 	} else if (strcmp(storage_name, "INBOX") == 0 &&
 		   (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
