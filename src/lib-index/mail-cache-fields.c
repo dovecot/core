@@ -74,8 +74,8 @@ mail_cache_field_update(struct mail_cache *cache,
 	i_assert(newfield->type < MAIL_CACHE_FIELD_COUNT);
 
 	orig = &cache->fields[newfield->idx];
-	if (newfield->decision != MAIL_CACHE_DECISION_NO &&
-	    orig->field.decision != newfield->decision) {
+	if ((newfield->decision & MAIL_CACHE_DECISION_FORCED) != 0 ||
+	    newfield->decision > orig->field.decision) {
 		orig->field.decision = newfield->decision;
 		orig->decision_dirty = TRUE;
 	}
