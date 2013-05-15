@@ -28,27 +28,35 @@
 struct index_storage_module index_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 
-static void set_cache_decisions(const char *set, const char *fields,
+static void set_cache_decisions(struct mail_cache *cache,
+				const char *set, const char *fields,
 				enum mail_cache_decision_type dec)
 {
+	struct mail_cache_field field;
 	const char *const *arr;
-	int i;
+	unsigned int idx;
 
 	if (fields == NULL || *fields == '\0')
 		return;
 
 	for (arr = t_strsplit_spaces(fields, " ,"); *arr != NULL; arr++) {
-		for (i = 0; i < MAIL_INDEX_CACHE_FIELD_COUNT; i++) {
-			if (strcasecmp(global_cache_fields[i].name,
-				       *arr) == 0) {
-				global_cache_fields[i].decision = dec;
-				break;
-			}
-		}
-		if (i == MAIL_INDEX_CACHE_FIELD_COUNT) {
-			i_error("%s: Invalid cache field name '%s', ignoring ",
+		const char *name = *arr;
+
+		idx = mail_cache_register_lookup(cache, name);
+		if (idx != UINT_MAX) {
+			field = *mail_cache_register_get_field(cache, idx);
+		} else if (strncasecmp(name, "hdr.", 4) == 0) {
+			memset(&field, 0, sizeof(field));
+			field.name = name;
+			field.type = MAIL_CACHE_FIELD_HEADER;
+		} else {
+			i_error("%s: Unknown cache field name '%s', ignoring",
 				set, *arr);
+			continue;
 		}
+
+		field.decision = dec;
+		mail_cache_register_fields(cache, &field, 1);
 	}
 }
 
@@ -56,30 +64,24 @@ static void index_cache_register_defaults(struct mailbox *box)
 {
 	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 	const struct mail_storage_settings *set = box->storage->set;
-	static bool initialized = FALSE;
 	struct mail_cache *cache = box->cache;
-
-	if (!initialized) {
-		initialized = TRUE;
-
-		set_cache_decisions("mail_cache_fields",
-				    set->mail_cache_fields,
-				    MAIL_CACHE_DECISION_TEMP);
-		set_cache_decisions("mail_always_cache_fields",
-				    set->mail_always_cache_fields,
-				    MAIL_CACHE_DECISION_YES |
-				    MAIL_CACHE_DECISION_FORCED);
-		set_cache_decisions("mail_never_cache_fields",
-				    set->mail_never_cache_fields,
-				    MAIL_CACHE_DECISION_NO |
-				    MAIL_CACHE_DECISION_FORCED);
-	}
 
 	ibox->cache_fields = i_malloc(sizeof(global_cache_fields));
 	memcpy(ibox->cache_fields, global_cache_fields,
 	       sizeof(global_cache_fields));
 	mail_cache_register_fields(cache, ibox->cache_fields,
 				   MAIL_INDEX_CACHE_FIELD_COUNT);
+	set_cache_decisions(cache, "mail_cache_fields",
+			    set->mail_cache_fields,
+			    MAIL_CACHE_DECISION_TEMP);
+	set_cache_decisions(cache, "mail_always_cache_fields",
+			    set->mail_always_cache_fields,
+			    MAIL_CACHE_DECISION_YES |
+			    MAIL_CACHE_DECISION_FORCED);
+	set_cache_decisions(cache, "mail_never_cache_fields",
+			    set->mail_never_cache_fields,
+			    MAIL_CACHE_DECISION_NO |
+			    MAIL_CACHE_DECISION_FORCED);
 }
 
 void index_storage_lock_notify(struct mailbox *box,
