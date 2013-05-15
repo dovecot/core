@@ -402,6 +402,7 @@ mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
 
 	updates = array_get(&t->updates, &count);
 	i_assert(left_idx <= right_idx && right_idx <= count);
+	i_assert(count < INT_MAX);
 
 	/* find the first update with either overlapping range,
 	   or the update which will come after our insert */

@@ -382,6 +382,7 @@ index_sort_bsearch(struct sort_string_context *ctx, const char *key,
 	int ret;
 
 	nodes = array_get_modifiable(&ctx->nonzero_nodes, &right_idx);
+	i_assert(right_idx < INT_MAX);
 	idx = left_idx = start_idx;
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;

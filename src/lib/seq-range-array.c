@@ -12,6 +12,7 @@ seq_range_lookup(const ARRAY_TYPE(seq_range) *array,
 	unsigned int idx, left_idx, right_idx, count;
 
 	data = array_get(array, &count);
+	i_assert(count < INT_MAX);
 
 	idx = 0; left_idx = 0; right_idx = count;
 	while (left_idx < right_idx) {
@@ -198,6 +199,7 @@ bool seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 
 	/* somewhere in the middle, array is sorted so find it with
 	   binary search */
+	i_assert(count < INT_MAX);
 	left_idx = 0; right_idx = count;
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;

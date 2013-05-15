@@ -13,6 +13,8 @@ bool bsearch_insert_pos(const void *key, const void *base, unsigned int nmemb,
 	unsigned int idx, left_idx, right_idx;
 	int ret;
 
+	i_assert(nmemb < INT_MAX);
+
 	idx = 0; left_idx = 0; right_idx = nmemb;
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;

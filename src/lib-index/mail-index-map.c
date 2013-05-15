@@ -514,6 +514,7 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_map *map,
 	idx = left_idx;
 	right_idx = I_MIN(map->hdr.messages_count, uid);
 
+	i_assert(right_idx < INT_MAX);
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
 

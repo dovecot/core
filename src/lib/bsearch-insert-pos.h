@@ -5,6 +5,7 @@
 #define BINARY_NUMBER_SEARCH(data, count, value, idx_r) \
 	unsigned int idx, left_idx, right_idx;        \
 						      \
+	i_assert((count) < INT_MAX);                  \
 	idx = 0; left_idx = 0; right_idx = (count);   \
 	while (left_idx < right_idx) {                \
 		idx = (left_idx + right_idx) / 2;     \
