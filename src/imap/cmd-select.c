@@ -2,6 +2,7 @@
 
 #include "imap-common.h"
 #include "seq-range-array.h"
+#include "time-util.h"
 #include "imap-commands.h"
 #include "mail-search-build.h"
 #include "imap-search-args.h"
@@ -16,6 +17,7 @@ struct imap_select_context {
 	struct mail_namespace *ns;
 	struct mailbox *box;
 
+	struct timeval start_time;
 	struct imap_fetch_context *fetch_ctx;
 
 	uint32_t qresync_uid_validity;
@@ -198,14 +200,24 @@ static void select_context_free(struct imap_select_context *ctx)
 
 static void cmd_select_finish(struct imap_select_context *ctx, int ret)
 {
+	const char *resp_code;
+	struct timeval end_time;
+	int time_msecs;
+
 	if (ret < 0) {
 		if (ctx->box != NULL)
 			mailbox_free(&ctx->box);
 		ctx->cmd->client->mailbox = NULL;
 	} else {
-		client_send_tagline(ctx->cmd, mailbox_is_readonly(ctx->box) ?
-				    "OK [READ-ONLY] Select completed." :
-				    "OK [READ-WRITE] Select completed.");
+		resp_code = mailbox_is_readonly(ctx->box) ?
+			"READ-ONLY" : "READ-WRITE";
+		if (gettimeofday(&end_time, NULL) < 0)
+			memset(&end_time, 0, sizeof(end_time));
+		time_msecs = timeval_diff_msecs(&end_time, &ctx->start_time);
+		client_send_tagline(ctx->cmd, t_strdup_printf(
+			"OK [%s] %s completed (%d.%03d secs).", resp_code,
+			ctx->cmd->client->mailbox_examined ? "Examine" : "Select",
+			time_msecs/1000, time_msecs%1000));
 	}
 	select_context_free(ctx);
 }
@@ -398,6 +410,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	ctx = p_new(cmd->pool, struct imap_select_context, 1);
 	ctx->cmd = cmd;
 	ctx->ns = client_find_namespace(cmd, &mailbox);
+	(void)gettimeofday(&ctx->start_time, NULL);
 	if (ctx->ns == NULL) {
 		close_selected_mailbox(client);
 		return TRUE;
