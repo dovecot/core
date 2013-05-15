@@ -1,4 +1,4 @@
-# Authentication for passwd-file users. Included from auth.conf.
+# Authentication for passwd-file users. Included from 10-auth.conf.
 #
 # passwd-like file with specified location.
 # <doc/wiki/AuthDatabase.PasswdFile.txt>

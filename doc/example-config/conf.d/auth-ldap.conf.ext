@@ -1,4 +1,4 @@
-# Authentication for LDAP users. Included from auth.conf.
+# Authentication for LDAP users. Included from 10-auth.conf.
 #
 # <doc/wiki/AuthDatabase.LDAP.txt>
 

@@ -1,4 +1,4 @@
-# Authentication for vpopmail users. Included from auth.conf.
+# Authentication for vpopmail users. Included from 10-auth.conf.
 #
 # <doc/wiki/AuthDatabase.VPopMail.txt>
 

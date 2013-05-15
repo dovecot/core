@@ -1,4 +1,4 @@
-# Authentication via dict backend. Included from auth.conf.
+# Authentication via dict backend. Included from 10-auth.conf.
 #
 # <doc/wiki/AuthDatabase.Dict.txt>
 

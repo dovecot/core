@@ -1,4 +1,4 @@
-# Authentication for SQL users. Included from auth.conf.
+# Authentication for SQL users. Included from 10-auth.conf.
 #
 # <doc/wiki/AuthDatabase.SQL.txt>
 

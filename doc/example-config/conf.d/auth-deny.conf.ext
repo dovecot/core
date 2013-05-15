@@ -1,4 +1,4 @@
-# Deny access for users. Included from auth.conf.
+# Deny access for users. Included from 10-auth.conf.
 
 # Users can be (temporarily) disabled by adding a passdb with deny=yes.
 # If the user is found from that database, authentication will fail.

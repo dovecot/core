@@ -1,4 +1,4 @@
-# Static passdb. Included from auth.conf.
+# Static passdb. Included from 10-auth.conf.
 
 # This can be used for situations where Dovecot doesn't need to verify the
 # username or the password, or if there is a single password for all users:
