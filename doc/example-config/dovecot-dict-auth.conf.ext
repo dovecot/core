@@ -1,3 +1,5 @@
+# This file is commonly accessed via dict {} section in dovecot.conf
+
 # Dictionary URI
 #uri = 
 
