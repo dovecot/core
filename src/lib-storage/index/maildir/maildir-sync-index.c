@@ -181,6 +181,7 @@ static int maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
 	if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RACING) == 0) {
 		/* mark it racy and check in next sync */
 		ctx->mbox->maildir_hdr.cur_check_time = 0;
+		maildir_sync_set_racing(ctx->maildir_sync_ctx);
 		maildir_uidlist_add_flags(ctx->mbox->uidlist, filename,
 					  MAILDIR_UIDLIST_REC_FLAG_RACING);
 		return 0;

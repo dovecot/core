@@ -38,6 +38,7 @@ void maildir_sync_index_rollback(struct maildir_index_sync_context **_ctx);
 
 struct maildir_keywords_sync_ctx *
 maildir_sync_get_keywords_sync_ctx(struct maildir_index_sync_context *ctx);
+void maildir_sync_set_racing(struct maildir_sync_context *ctx);
 void maildir_sync_notify(struct maildir_sync_context *ctx);
 void maildir_sync_set_new_msgs_count(struct maildir_index_sync_context *ctx,
 				     unsigned int count);

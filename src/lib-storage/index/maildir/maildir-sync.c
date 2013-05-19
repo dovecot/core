@@ -229,7 +229,13 @@ struct maildir_sync_context {
 
 	unsigned int partial:1;
 	unsigned int locked:1;
+	unsigned int racing:1;
 };
+
+void maildir_sync_set_racing(struct maildir_sync_context *ctx)
+{
+	ctx->racing = TRUE;
+}
 
 void maildir_sync_notify(struct maildir_sync_context *ctx)
 {
@@ -981,26 +987,43 @@ int maildir_sync_lookup(struct maildir_mailbox *mbox, uint32_t uid,
 	return maildir_uidlist_lookup(mbox->uidlist, uid, flags_r, fname_r);
 }
 
-int maildir_storage_sync_force(struct maildir_mailbox *mbox, uint32_t uid)
+static int maildir_sync_run(struct maildir_mailbox *mbox,
+			    enum mailbox_sync_flags flags, bool force_resync,
+			    uint32_t *uid, bool *lost_files_r)
 {
-        struct maildir_sync_context *ctx;
-	bool lost_files;
+	struct maildir_sync_context *ctx;
+	bool retry, lost_files;
 	int ret;
 
 	T_BEGIN {
-		ctx = maildir_sync_context_new(mbox, MAILBOX_SYNC_FLAG_FAST);
-		ret = maildir_sync_context(ctx, TRUE, &uid, &lost_files);
+		ctx = maildir_sync_context_new(mbox, flags);
+		ret = maildir_sync_context(ctx, force_resync, uid, lost_files_r);
+		retry = ctx->racing;
 		maildir_sync_deinit(ctx);
 	} T_END;
 
+	if (retry) T_BEGIN {
+		/* we're racing some file. retry the sync again to see if the
+		   file is really gone or not. if it is, this is a bit of
+		   unnecessary work, but if it's not, this is necessary for
+		   e.g. doveadm force-resync to work. */
+		ctx = maildir_sync_context_new(mbox, 0);
+		ret = maildir_sync_context(ctx, TRUE, NULL, &lost_files);
+		maildir_sync_deinit(ctx);
+	} T_END;
+	return ret;
+}
+
+int maildir_storage_sync_force(struct maildir_mailbox *mbox, uint32_t uid)
+{
+	bool lost_files;
+	int ret;
+
+	ret = maildir_sync_run(mbox, MAILBOX_SYNC_FLAG_FAST,
+			       TRUE, &uid, &lost_files);
 	if (uid != 0) {
 		/* maybe it's expunged. check again. */
-		T_BEGIN {
-			ctx = maildir_sync_context_new(mbox, 0);
-			ret = maildir_sync_context(ctx, TRUE, NULL,
-						   &lost_files);
-			maildir_sync_deinit(ctx);
-		} T_END;
+		ret = maildir_sync_run(mbox, 0, TRUE, NULL, &lost_files);
 	}
 	return ret;
 }
@@ -1037,7 +1060,6 @@ struct mailbox_sync_context *
 maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
-	struct maildir_sync_context *ctx;
 	bool lost_files, force_resync;
 	int ret = 0;
 
@@ -1048,13 +1070,8 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 
 	force_resync = (flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0;
 	if (index_mailbox_want_full_sync(&mbox->box, flags)) {
-		T_BEGIN {
-			ctx = maildir_sync_context_new(mbox, flags);
-			ret = maildir_sync_context(ctx, force_resync, NULL,
-						   &lost_files);
-			maildir_sync_deinit(ctx);
-		} T_END;
-
+		ret = maildir_sync_run(mbox, flags, force_resync,
+				       NULL, &lost_files);
 		i_assert(!maildir_uidlist_is_locked(mbox->uidlist) ||
 			 (box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0);
 
