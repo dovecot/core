@@ -305,7 +305,7 @@ void http_client_host_submit_request(struct http_client_host *host,
 	/* make a connection if we have an IP already */
 	if (host->ips_count == 0)
 		return;
-	i_assert(hport->ips_connect_idx == 0);
+	i_assert(hport->ips_connect_idx < host->ips_count);
 	http_client_host_connection_setup(host, hport);
 }
 
