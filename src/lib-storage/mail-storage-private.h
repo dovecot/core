@@ -66,7 +66,10 @@ enum mail_storage_class_flags {
 	/* Storage uses one file per message */
 	MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG	= 0x20,
 	/* Messages have GUIDs (always set mailbox_status.have_guids=TRUE) */
-	MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS	= 0x40
+	MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS	= 0x40,
+	/* mailbox_save_set_guid() works (always set
+	   mailbox_status.have_save_guids=TRUE) */
+	MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_SAVE_GUIDS	= 0x80
 };
 
 struct mail_binary_cache {

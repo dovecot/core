@@ -410,7 +410,8 @@ mdbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 struct mail_storage mdbox_storage = {
 	.name = MDBOX_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT |
-		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS,
+		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS |
+		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_SAVE_GUIDS,
 
 	.v = {
                 mdbox_get_setting_parser_info,

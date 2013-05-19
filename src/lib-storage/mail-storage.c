@@ -1471,6 +1471,8 @@ mailbox_get_status_set_defaults(struct mailbox *box,
 	memset(status_r, 0, sizeof(*status_r));
 	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS) != 0)
 		status_r->have_guids = TRUE;
+	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_SAVE_GUIDS) != 0)
+		status_r->have_save_guids = TRUE;
 }
 
 int mailbox_get_status(struct mailbox *box,
@@ -1480,7 +1482,10 @@ int mailbox_get_status(struct mailbox *box,
 	mailbox_get_status_set_defaults(box, status_r);
 	if (mailbox_verify_existing_name(box) < 0)
 		return -1;
-	return box->v.get_status(box, items, status_r);
+	if (box->v.get_status(box, items, status_r) < 0)
+		return -1;
+	i_assert(status_r->have_guids || !status_r->have_save_guids);
+	return 0;
 }
 
 void mailbox_get_open_status(struct mailbox *box,

@@ -390,7 +390,8 @@ dbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 struct mail_storage sdbox_storage = {
 	.name = SDBOX_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG |
-		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS,
+		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS |
+		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_SAVE_GUIDS,
 
 	.v = {
                 NULL,

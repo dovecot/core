@@ -275,6 +275,8 @@ struct mailbox_status {
 
 	/* Messages have GUIDs (always set) */
 	unsigned int have_guids:1;
+	/* mailbox_save_set_guid() works (always set) */
+	unsigned int have_save_guids:1;
 };
 
 struct mailbox_cache_field {

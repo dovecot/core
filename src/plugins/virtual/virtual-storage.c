@@ -182,6 +182,8 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 	mailbox_get_open_status(bbox->box, 0, &status);
 	if (!status.have_guids)
 		mbox->have_guids = FALSE;
+	if (!status.have_save_guids)
+		mbox->have_save_guids = FALSE;
 	return 1;
 }
 
@@ -193,6 +195,7 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 	int ret;
 
 	mbox->have_guids = TRUE;
+	mbox->have_save_guids = TRUE;
 
 	bboxes = array_get(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; ) {
@@ -365,6 +368,8 @@ virtual_storage_get_status(struct mailbox *box,
 	}
 	if (mbox->have_guids)
 		status_r->have_guids = TRUE;
+	if (mbox->have_save_guids)
+		status_r->have_save_guids = TRUE;
 	return 0;
 }
 
