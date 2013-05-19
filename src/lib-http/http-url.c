@@ -285,5 +285,5 @@ const char *http_url_create(const struct http_url *url)
 
 void http_url_escape_param(string_t *out, const char *data)
 {
-	uri_append_query_data(out, "&;", data);
+	uri_append_query_data(out, "&;/?=+", data);
 }
