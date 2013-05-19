@@ -100,7 +100,6 @@ struct maildir_uidlist {
 	unsigned int unsorted:1;
 	unsigned int have_mailbox_guid:1;
 	unsigned int opened_readonly:1;
-	unsigned int reread:1;
 };
 
 struct maildir_uidlist_sync_ctx {
@@ -875,11 +874,6 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
 	if ((ret = maildir_uidlist_stat(uidlist, &st)) < 0)
 		return -1;
 	if (ret == 0) {
-		*recreated_r = TRUE;
-		return 1;
-	}
-	if (uidlist->reread) {
-		uidlist->reread = FALSE;
 		*recreated_r = TRUE;
 		return 1;
 	}
@@ -2074,9 +2068,6 @@ void maildir_uidlist_add_flags(struct maildir_uidlist *uidlist,
 
 	rec = hash_table_lookup(uidlist->files, filename);
 	i_assert(rec != NULL);
-
-	if ((flags & MAILDIR_UIDLIST_REC_FLAG_RACING) != 0)
-		uidlist->reread = TRUE;
 
 	rec->flags |= flags;
 }
