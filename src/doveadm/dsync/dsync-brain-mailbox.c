@@ -173,8 +173,9 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_REVERT_LOCAL_CHANGES;
 	if (brain->debug)
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_DEBUG;
-	if (brain->local_dsync_box.have_guids &&
-	    remote_dsync_box->have_guids)
+	if (brain->local_dsync_box.have_save_guids &&
+	    (remote_dsync_box->have_save_guids ||
+	     (brain->backup_recv && remote_dsync_box->have_guids)))
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS;
 
 	brain->box_importer = brain->backup_send ? NULL :
@@ -216,8 +217,9 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 
 	if (!brain->mail_requests)
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_AUTO_EXPORT_MAILS;
-	if (brain->local_dsync_box.have_guids &&
-	    remote_dsync_box->have_guids)
+	if (remote_dsync_box->have_save_guids &&
+	    (brain->local_dsync_box.have_save_guids ||
+	     (brain->backup_send && brain->local_dsync_box.have_guids)))
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_MAILS_HAVE_GUIDS;
 
 	brain->box_exporter = brain->backup_recv ? NULL :
@@ -303,6 +305,7 @@ static int dsync_box_get(struct mailbox *box, struct dsync_mailbox *dsync_box_r)
 	dsync_box_r->highest_pvt_modseq = status.highest_pvt_modseq;
 	dsync_box_r->cache_fields = *metadata.cache_fields;
 	dsync_box_r->have_guids = status.have_guids;
+	dsync_box_r->have_save_guids = status.have_save_guids;
 	return 1;
 }
 
