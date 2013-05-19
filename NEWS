@@ -1,3 +1,34 @@
+v2.2.2 2013-05-20  Timo Sirainen <tss@iki.fi>
+
+	+ zlib: Keep the last mail cached uncompressed in a temp file. This
+	  fixes performance when doing small partial fetches from a large
+	  mail.
+	+ acl: If plugin { acl_defaults_from_inbox = yes } is set, get the
+	  default ACLs for private and shared namespaces from the user's INBOX.
+	  (This probably will become default in v2.3.)
+	+ pop3: Added pop3_deleted_flag setting to switch POP3 deletions to
+	  only hide the messages from POP3, but still be visible via IMAP.
+	- ACL plugin: Mailbox creation wasn't actually checking any ACLs
+	  and always succeeded (due to some v2.2 API changes). The created
+	  mailbox couldn't have been accessed though, so this couldn't have
+	  caused any data leak.
+	- IMAP: Various URLAUTH fixes.
+	- IMAP: Fixed a hang with invalid APPEND parameters.
+	- IMAP LIST-EXTENDED: INBOX was never listed with \Subscribed flag.
+	- mailbox_list_index=yes still caused crashes.
+	- maildir: Fixed a crash after dovecot-keywords file was re-read.
+	- maildir: If files had reappeared unexpectedly to a Maildir, they
+	  were ignored until index files were deleted.
+	- Maildir: Fixed handling over 26 keywords in a mailbox. 
+	- Maildir++: Fixed mail_shared_explicit_inbox=no 
+	- namespace { prefix="" list=no } was listing mailboxes.
+	- imap/pop3-login proxying: Fixed a crash if TCP connection succeeded,
+	  but the remote login timed out.
+	- Case-insensitive search/sort didn't work correctly for all unicode
+	  characters, as specified by i;unicode-casemap comparator. If full
+	  text search indexes were used, they need to be rebuilt for old mails
+	  to be handled correctly. (This bug has existed always in Dovecot.)
+
 v2.2.1 2013-04-19  Timo Sirainen <tss@iki.fi>
 
 	- mailbox_list_index=yes was broken.
