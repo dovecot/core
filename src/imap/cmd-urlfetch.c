@@ -258,20 +258,14 @@ cmd_urlfetch_url_callback(struct imap_urlauth_fetch_reply *reply,
 	struct cmd_urlfetch_context *ctx = cmd->context;
 	int ret;
 
+	o_stream_cork(cmd->client->output);
 	if (reply == NULL) {
 		/* fatal failure */
-		last = TRUE;
 		ctx->failed = TRUE;
+		ret = -1;
 	} else if (reply->succeeded) {
 		/* URL fetch succeeded */
 		ret = cmd_urlfetch_url_sucess(cmd, reply);
-		if (ret == 0)
-			return 0;
-		if (ret < 0) {
-			ctx->ufetch = NULL;
-			cmd_urlfetch_finish(cmd);
-			return -1;
-		}
 	} else {
 		/* URL fetch failed */
 		string_t *response = t_str_new(128);
@@ -284,14 +278,17 @@ cmd_urlfetch_url_callback(struct imap_urlauth_fetch_reply *reply,
 			client_send_line(cmd->client, t_strdup_printf(
 				"* NO %s.", reply->error));
 		}
+		ret = 1;
 	}
+	o_stream_uncork(cmd->client->output);
 
-	if (last && cmd->state == CLIENT_COMMAND_STATE_WAIT_EXTERNAL) {
+	if ((last && cmd->state == CLIENT_COMMAND_STATE_WAIT_EXTERNAL) ||
+	    ret < 0) {
 		ctx->ufetch = NULL;
 		cmd_urlfetch_finish(cmd);
 		client_command_free(&cmd);
 	}
-	return 1;
+	return ret;
 }
 
 static int
