@@ -28,10 +28,11 @@
 #define DSYNC_IBC_STREAM_OUTBUF_THROTTLE_SIZE (1024*128)
 
 #define DSYNC_PROTOCOL_VERSION_MAJOR 3
-#define DSYNC_PROTOCOL_VERSION_MINOR 1
+#define DSYNC_PROTOCOL_VERSION_MINOR 2
 #define DSYNC_HANDSHAKE_VERSION "VERSION\tdsync\t3\t1\n"
 
 #define DSYNC_PROTOCOL_MINOR_HAVE_ATTRIBUTES 1
+#define DSYNC_PROTOCOL_MINOR_HAVE_SAVE_GUID 2
 
 enum item_type {
 	ITEM_NONE,
@@ -1227,7 +1228,8 @@ dsync_ibc_stream_recv_mailbox(struct dsync_ibc *_ibc,
 		box->mailbox_lost = TRUE;
 	if (dsync_deserializer_decode_try(decoder, "have_guids", &value))
 		box->have_guids = TRUE;
-	if (dsync_deserializer_decode_try(decoder, "have_save_guids", &value))
+	if (dsync_deserializer_decode_try(decoder, "have_save_guids", &value) ||
+	    (box->have_guids && ibc->minor_version < DSYNC_PROTOCOL_MINOR_HAVE_SAVE_GUID))
 		box->have_save_guids = TRUE;
 	value = dsync_deserializer_decode_get(decoder, "uid_validity");
 	if (str_to_uint32(value, &box->uid_validity) < 0) {
