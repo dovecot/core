@@ -90,7 +90,7 @@ static const struct {
 	{ .name = "mailbox_delete",
 	  .chr = 'D',
 	  .required_keys = "hierarchy_sep",
-	  .optional_keys = "mailboxes dirs"
+	  .optional_keys = "mailboxes dirs unsubscribes"
 	},
 	{ .name = "mailbox",
 	  .chr = 'B',
@@ -936,6 +936,28 @@ dsync_ibc_stream_recv_mailbox_tree_node(struct dsync_ibc *_ibc,
 }
 
 static void
+dsync_ibc_stream_encode_delete(string_t *str,
+			       struct dsync_serializer_encoder *encoder,
+			       const struct dsync_mailbox_delete *deletes,
+			       unsigned int count, const char *key,
+			       enum dsync_mailbox_delete_type type)
+{
+	unsigned int i;
+
+	str_truncate(str, 0);
+	for (i = 0; i < count; i++) {
+		if (deletes[i].type == type) {
+			str_append(str, guid_128_to_string(deletes[i].guid));
+			str_printfa(str, " %ld ", (long)deletes[i].timestamp);
+		}
+	}
+	if (str_len(str) > 0) {
+		str_truncate(str, str_len(str)-1);
+		dsync_serializer_encode_add(encoder, key, str_c(str));
+	}
+}
+
+static void
 dsync_ibc_stream_send_mailbox_deletes(struct dsync_ibc *_ibc,
 				      const struct dsync_mailbox_delete *deletes,
 				      unsigned int count, char hierarchy_sep)
@@ -944,7 +966,6 @@ dsync_ibc_stream_send_mailbox_deletes(struct dsync_ibc *_ibc,
 	struct dsync_serializer_encoder *encoder;
 	string_t *str, *substr;
 	char sep[2];
-	unsigned int i;
 
 	str = t_str_new(128);
 	str_append_c(str, items[ITEM_MAILBOX_DELETE].chr);
@@ -954,29 +975,15 @@ dsync_ibc_stream_send_mailbox_deletes(struct dsync_ibc *_ibc,
 	dsync_serializer_encode_add(encoder, "hierarchy_sep", sep);
 
 	substr = t_str_new(128);
-	for (i = 0; i < count; i++) {
-		if (deletes[i].delete_mailbox) {
-			str_append(substr, guid_128_to_string(deletes[i].guid));
-			str_printfa(substr, " %ld ", (long)deletes[i].timestamp);
-		}
-	}
-	if (str_len(substr) > 0) {
-		str_truncate(substr, str_len(substr)-1);
-		dsync_serializer_encode_add(encoder, "mailboxes",
-					    str_c(substr));
-	}
-
-	str_truncate(substr, 0);
-	for (i = 0; i < count; i++) {
-		if (!deletes[i].delete_mailbox) {
-			str_append(substr, guid_128_to_string(deletes[i].guid));
-			str_printfa(substr, " %ld ", (long)deletes[i].timestamp);
-		}
-	}
-	if (str_len(substr) > 0) {
-		str_truncate(substr, str_len(substr)-1);
-		dsync_serializer_encode_add(encoder, "dirs", str_c(substr));
-	}
+	dsync_ibc_stream_encode_delete(substr, encoder, deletes, count,
+				       "mailboxes",
+				       DSYNC_MAILBOX_DELETE_TYPE_MAILBOX);
+	dsync_ibc_stream_encode_delete(substr, encoder, deletes, count,
+				       "dirs",
+				       DSYNC_MAILBOX_DELETE_TYPE_DIR);
+	dsync_ibc_stream_encode_delete(substr, encoder, deletes, count,
+				       "unsubscribes",
+				       DSYNC_MAILBOX_DELETE_TYPE_UNSUBSCRIBE);
 	dsync_serializer_encode_finish(&encoder, str);
 	dsync_ibc_stream_send_string(ibc, str);
 }
@@ -984,7 +991,7 @@ dsync_ibc_stream_send_mailbox_deletes(struct dsync_ibc *_ibc,
 ARRAY_DEFINE_TYPE(dsync_mailbox_delete, struct dsync_mailbox_delete);
 static int
 decode_mailbox_deletes(ARRAY_TYPE(dsync_mailbox_delete) *deletes,
-		       const char *value, bool delete_mailbox)
+		       const char *value, enum dsync_mailbox_delete_type type)
 {
 	struct dsync_mailbox_delete *del;
 	const char *const *tmp;
@@ -993,7 +1000,7 @@ decode_mailbox_deletes(ARRAY_TYPE(dsync_mailbox_delete) *deletes,
 	tmp = t_strsplit(value, " ");
 	for (i = 0; tmp[i] != NULL; i += 2) {
 		del = array_append_space(deletes);
-		del->delete_mailbox = delete_mailbox;
+		del->type = type;
 		if (guid_128_from_string(tmp[i], del->guid) < 0)
 			return -1;
 		if (tmp[i+1] == NULL ||
@@ -1029,12 +1036,20 @@ dsync_ibc_stream_recv_mailbox_deletes(struct dsync_ibc *_ibc,
 	*hierarchy_sep_r = value[0];
 
 	if (dsync_deserializer_decode_try(decoder, "mailboxes", &value) &&
-	    decode_mailbox_deletes(&deletes, value, TRUE) < 0) {
+	    decode_mailbox_deletes(&deletes, value,
+				   DSYNC_MAILBOX_DELETE_TYPE_MAILBOX) < 0) {
 		dsync_ibc_input_error(ibc, decoder, "Invalid mailboxes");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
 	if (dsync_deserializer_decode_try(decoder, "dirs", &value) &&
-	    decode_mailbox_deletes(&deletes, value, FALSE) < 0) {
+	    decode_mailbox_deletes(&deletes, value,
+				   DSYNC_MAILBOX_DELETE_TYPE_DIR) < 0) {
+		dsync_ibc_input_error(ibc, decoder, "Invalid dirs");
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
+	if (dsync_deserializer_decode_try(decoder, "unsubscribes", &value) &&
+	    decode_mailbox_deletes(&deletes, value,
+				   DSYNC_MAILBOX_DELETE_TYPE_UNSUBSCRIBE) < 0) {
 		dsync_ibc_input_error(ibc, decoder, "Invalid dirs");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}

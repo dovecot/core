@@ -163,7 +163,7 @@ dsync_mailbox_tree_add_change_timestamps(struct dsync_mailbox_tree *tree,
 				break;
 			}
 			del = array_append_space(&tree->deletes);
-			del->delete_mailbox = TRUE;
+			del->type = DSYNC_MAILBOX_DELETE_TYPE_MAILBOX;
 			del->timestamp = timestamp;
 			memcpy(del->guid, rec->mailbox_guid, sizeof(del->guid));
 			break;
@@ -177,6 +177,7 @@ dsync_mailbox_tree_add_change_timestamps(struct dsync_mailbox_tree *tree,
 			   dsync side, it can match this deletion to the
 			   name. */
 			del = array_append_space(&tree->deletes);
+			del->type = DSYNC_MAILBOX_DELETE_TYPE_DIR;
 			del->timestamp = timestamp;
 			memcpy(del->guid, rec->mailbox_guid, sizeof(del->guid));
 			break;
@@ -195,9 +196,21 @@ dsync_mailbox_tree_add_change_timestamps(struct dsync_mailbox_tree *tree,
 				node->last_renamed_or_created = timestamp;
 			break;
 		case MAILBOX_LOG_RECORD_SUBSCRIBE:
-		case MAILBOX_LOG_RECORD_UNSUBSCRIBE:
 			if (node != NULL)
 				node->last_subscription_change = timestamp;
+			break;
+		case MAILBOX_LOG_RECORD_UNSUBSCRIBE:
+			if (node != NULL) {
+				node->last_subscription_change = timestamp;
+				break;
+			}
+			/* The mailbox is already deleted, but it may still
+			   exist on the other side (even the subscription
+			   alone). */
+			del = array_append_space(&tree->deletes);
+			del->type = DSYNC_MAILBOX_DELETE_TYPE_UNSUBSCRIBE;
+			del->timestamp = timestamp;
+			memcpy(del->guid, rec->mailbox_guid, sizeof(del->guid));
 			break;
 		}
 	}

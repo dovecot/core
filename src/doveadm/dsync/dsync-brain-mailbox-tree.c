@@ -371,11 +371,24 @@ dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 	if (node == NULL)
 		return;
 
-	if (!other_del->delete_mailbox &&
-	    other_del->timestamp <= node->last_renamed_or_created) {
-		/* we don't want to delete this directory, we already have a
-		   newer timestamp for it */
-		return;
+	switch (other_del->type) {
+	case DSYNC_MAILBOX_DELETE_TYPE_MAILBOX:
+		/* mailbox is always deleted */
+		break;
+	case DSYNC_MAILBOX_DELETE_TYPE_DIR:
+		if (other_del->timestamp <= node->last_renamed_or_created) {
+			/* we don't want to delete this directory, we already
+			   have a newer timestamp for it */
+			return;
+		}
+		break;
+	case DSYNC_MAILBOX_DELETE_TYPE_UNSUBSCRIBE:
+		if (other_del->timestamp <= node->last_subscription_change) {
+			/* we don't want to unsubscribe, since we already have
+			   a newer subscription timestamp */
+			return;
+		}
+		break;
 	}
 
 	/* make a node for it in the other mailbox tree */
@@ -384,20 +397,25 @@ dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 
 	if (!guid_128_is_empty(other_node->mailbox_guid) ||
 	    (other_node->existence == DSYNC_MAILBOX_NODE_EXISTS &&
-	     !other_del->delete_mailbox)) {
+	     other_del->type != DSYNC_MAILBOX_DELETE_TYPE_MAILBOX)) {
 		/* other side has already created a new mailbox or
 		   directory with this name, we can't delete it */
 		return;
 	}
 
 	/* ok, mark the other node deleted */
-	if (other_del->delete_mailbox) {
+	if (other_del->type == DSYNC_MAILBOX_DELETE_TYPE_MAILBOX) {
 		memcpy(other_node->mailbox_guid, node->mailbox_guid,
 		       sizeof(other_node->mailbox_guid));
 	}
 	i_assert(other_node->ns == NULL || other_node->ns == node->ns);
 	other_node->ns = node->ns;
-	other_node->existence = DSYNC_MAILBOX_NODE_DELETED;
+	if (other_del->type != DSYNC_MAILBOX_DELETE_TYPE_UNSUBSCRIBE)
+		other_node->existence = DSYNC_MAILBOX_NODE_DELETED;
+	else {
+		other_node->last_subscription_change = other_del->timestamp;
+		other_node->subscribed = FALSE;
+	}
 
 	if (dsync_mailbox_tree_guid_hash_add(other_tree, other_node,
 					     &old_node) < 0)

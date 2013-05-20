@@ -359,7 +359,7 @@ dsync_mailbox_tree_find_delete(struct dsync_mailbox_tree *tree,
 	i_assert(hash_table_is_created(tree->guid_hash));
 	i_assert(tree->remote_sep != '\0');
 
-	if (del->delete_mailbox) {
+	if (del->type == DSYNC_MAILBOX_DELETE_TYPE_MAILBOX) {
 		/* find node by GUID */
 		return hash_table_lookup(tree->guid_hash, guid_p);
 	}
