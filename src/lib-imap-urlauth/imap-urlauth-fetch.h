@@ -31,7 +31,7 @@ struct imap_urlauth_fetch_reply {
 
 /* Callback to handle fetch reply. Returns 1 if handled completely and ready
    for next reply, 0 if not all data was processed, and -1 for error. If a
-   callback returns 0, imap_urlauth_connection_continue() must be called once
+   callback returns 0, imap_urlauth_fetch_continue() must be called once
    new replies may be processed. If this is the last request to yield a reply,
    argument last is TRUE. The callback must not call
    imap_urlauth_fetch_deinit(). */
@@ -45,7 +45,7 @@ imap_urlauth_fetch_init(struct imap_urlauth_context *uctx,
 void imap_urlauth_fetch_deinit(struct imap_urlauth_fetch **_ufetch);
 
 int imap_urlauth_fetch_url(struct imap_urlauth_fetch *ufetch, const char *url,
-			   enum imap_urlauth_fetch_flags flags);
+			   enum imap_urlauth_fetch_flags url_flags);
 bool imap_urlauth_fetch_continue(struct imap_urlauth_fetch *ufetch);
 
 #endif

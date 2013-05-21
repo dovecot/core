@@ -55,8 +55,10 @@ static void imap_urlauth_fetch_abort_local(struct imap_urlauth_fetch *ufetch)
 {
 	struct imap_urlauth_fetch_url *url, *url_next;
 
-	if (ufetch->local_url != NULL)
+	if (ufetch->local_url != NULL) {
+		ufetch->pending_requests--;
 		imap_msgpart_url_free(&ufetch->local_url);
+	}
 
 	i_free_and_null(ufetch->pending_reply.url);
 	i_free_and_null(ufetch->pending_reply.bodypartstruct);
@@ -153,7 +155,6 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 	struct imap_msgpart_url *mpurl = NULL;
 	int ret;
 
-	ufetch->pending_requests--;
 	success = TRUE;
 
 	if (debug)
@@ -226,6 +227,7 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 	}
 
 	if (!success && ret < 0) {
+		ufetch->pending_requests--;
 		(void)ufetch->callback(NULL, TRUE, ufetch->context);
 		imap_urlauth_fetch_fail(ufetch);
 		return;
@@ -242,12 +244,14 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 	reply.size = mpresult.size;
 	reply.input = mpresult.input;
 
-	ret = ufetch->callback(&reply, ufetch->pending_requests == 0,
+	ret = ufetch->callback(&reply, ufetch->pending_requests == 1,
 			       ufetch->context);
 	if (ret == 0) {
 		ufetch->local_url = mpurl;
 		ufetch->waiting = TRUE;
 	} else {
+		ufetch->pending_requests--;
+
 		if (mpurl != NULL)
 			imap_msgpart_url_free(&mpurl);
 		if (ret < 0)
@@ -302,15 +306,12 @@ imap_urlauth_fetch_request_callback(struct imap_urlauth_fetch_reply *reply,
 int imap_urlauth_fetch_url(struct imap_urlauth_fetch *ufetch, const char *url,
 			   enum imap_urlauth_fetch_flags url_flags)
 {
+	struct imap_urlauth_context *uctx = ufetch->uctx;
 	enum imap_url_parse_flags url_parse_flags =
 		IMAP_URL_PARSE_ALLOW_URLAUTH;
-	struct imap_urlauth_context *uctx = ufetch->uctx;
 	struct mail_user *mail_user = uctx->user;
-	struct imap_url *imap_url = NULL;
+	struct imap_url *imap_url;
 	const char *error, *errormsg;
-
-	ufetch->failed = FALSE;
-	ufetch->pending_requests++;
 
 	/* parse the url */
 	if (imap_url_parse(url, NULL, url_parse_flags, &imap_url, &error) < 0) {
@@ -318,10 +319,17 @@ int imap_urlauth_fetch_url(struct imap_urlauth_fetch *ufetch, const char *url,
 			"Failed to fetch URLAUTH \"%s\": %s", url, error);
 		if (mail_user->mail_debug)
 			i_debug("%s", errormsg);
+		ufetch->pending_requests++;
 		imap_urlauth_fetch_error(ufetch, url, url_flags, errormsg);
-	
+		return 1;
+	}
+
+	ufetch->failed = FALSE;
+	ufetch->pending_requests++;
+
 	/* if access user and target user match, handle fetch request locally */
-	} else if (strcmp(mail_user->username, imap_url->userid) == 0) {
+	if (imap_url->userid != NULL &&
+		strcmp(mail_user->username, imap_url->userid) == 0) {
 
 		if (ufetch->waiting) {
 			struct imap_urlauth_fetch_url *url_local;
@@ -352,15 +360,11 @@ int imap_urlauth_fetch_url(struct imap_urlauth_fetch *ufetch, const char *url,
 		(void)imap_urlauth_request_new(uctx->conn, imap_url->userid,
 				url, url_flags,
 				imap_urlauth_fetch_request_callback, ufetch);
-	}
-
-	if (ufetch->pending_requests > 0) {
 		i_assert(uctx->conn != NULL);
 		if (imap_urlauth_connection_connect(uctx->conn) < 0)
 			return -1;
-		return 0;
 	}
-	return 1;
+	return (ufetch->pending_requests > 0 ? 0 : 1);
 }
 
 bool imap_urlauth_fetch_continue(struct imap_urlauth_fetch *ufetch)
@@ -377,8 +381,10 @@ bool imap_urlauth_fetch_continue(struct imap_urlauth_fetch *ufetch)
 		return ufetch->pending_requests > 0;
 	} 
 
-	if (ufetch->local_url != NULL)
+	if (ufetch->local_url != NULL) {
+		ufetch->pending_requests--;
 		imap_msgpart_url_free(&ufetch->local_url);
+	}
 	ufetch->waiting = FALSE;
 
 	/* handle pending remote reply */
