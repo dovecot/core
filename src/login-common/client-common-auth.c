@@ -538,7 +538,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		} else {
 			client_auth_result(client,
 				CLIENT_AUTH_RESULT_AUTHFAILED_REASON, NULL,
-				AUTH_FAILED_MSG);
+				data);
 		}
 
 		if (!client->destroyed)
