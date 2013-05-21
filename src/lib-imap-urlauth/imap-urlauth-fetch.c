@@ -48,7 +48,8 @@ struct imap_urlauth_fetch {
 	} pending_reply;
 
 	unsigned int failed:1;
-	unsigned int waiting:1;
+	unsigned int waiting_local:1;
+	unsigned int waiting_service:1;
 };
 
 static void imap_urlauth_fetch_abort_local(struct imap_urlauth_fetch *ufetch)
@@ -112,6 +113,10 @@ void imap_urlauth_fetch_deinit(struct imap_urlauth_fetch **_ufetch)
 	*_ufetch = NULL;
 
 	imap_urlauth_fetch_abort(ufetch);
+
+	/* dont leave the connection in limbo; make sure resume is called */
+	if (ufetch->waiting_service)
+		imap_urlauth_connection_continue(ufetch->uctx->conn);
 	i_free(ufetch);
 }
 
@@ -137,7 +142,7 @@ imap_urlauth_fetch_error(struct imap_urlauth_fetch *ufetch, const char *url,
 	} T_END;
 
 	if (ret == 0)
-		ufetch->waiting = TRUE;
+		ufetch->waiting_local = TRUE;
 	else if (ret < 0)
 		imap_urlauth_fetch_fail(ufetch);
 }
@@ -248,7 +253,7 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 			       ufetch->context);
 	if (ret == 0) {
 		ufetch->local_url = mpurl;
-		ufetch->waiting = TRUE;
+		ufetch->waiting_local = TRUE;
 	} else {
 		ufetch->pending_requests--;
 
@@ -267,7 +272,7 @@ imap_urlauth_fetch_request_callback(struct imap_urlauth_fetch_reply *reply,
 		(struct imap_urlauth_fetch *)context;
 	int ret = 1;
 
-	if (ufetch->waiting && reply != NULL) {
+	if (ufetch->waiting_local && reply != NULL) {
 		i_assert(ufetch->pending_reply.url == NULL);
 		ufetch->pending_reply.url = i_strdup(reply->url);
 		ufetch->pending_reply.flags = reply->flags;
@@ -284,7 +289,7 @@ imap_urlauth_fetch_request_callback(struct imap_urlauth_fetch_reply *reply,
 		return 0;
 	}
 
-	ufetch->waiting = FALSE;
+	ufetch->waiting_local = FALSE;
 	ufetch->pending_requests--;
 
 	if (!ufetch->failed) {
@@ -297,6 +302,8 @@ imap_urlauth_fetch_request_callback(struct imap_urlauth_fetch_reply *reply,
 		if (!ufetch->failed)
 			imap_urlauth_fetch_abort_local(ufetch);
 		ufetch->failed = TRUE;
+	} else if (ret == 0) {
+		ufetch->waiting_service = TRUE;
 	}
 	if (ret != 0)
 		imap_urlauth_fetch_deinit(&ufetch);
@@ -331,7 +338,7 @@ int imap_urlauth_fetch_url(struct imap_urlauth_fetch *ufetch, const char *url,
 	if (imap_url->userid != NULL &&
 		strcmp(mail_user->username, imap_url->userid) == 0) {
 
-		if (ufetch->waiting) {
+		if (ufetch->waiting_local) {
 			struct imap_urlauth_fetch_url *url_local;
 
 			url_local = i_new(struct imap_urlauth_fetch_url, 1);
@@ -375,17 +382,22 @@ bool imap_urlauth_fetch_continue(struct imap_urlauth_fetch *ufetch)
 	if (ufetch->failed)
 		return FALSE;
 
-	if (!ufetch->waiting) {
+	if (!ufetch->waiting_local && !ufetch->waiting_service)
+		return ufetch->pending_requests > 0;
+
+	if (!ufetch->waiting_local) {
 		/* not waiting for local request handling */
+		ufetch->waiting_service = FALSE;
 		imap_urlauth_connection_continue(ufetch->uctx->conn);
 		return ufetch->pending_requests > 0;
 	} 
 
+	/* finished local request */
 	if (ufetch->local_url != NULL) {
 		ufetch->pending_requests--;
 		imap_msgpart_url_free(&ufetch->local_url);
 	}
-	ufetch->waiting = FALSE;
+	ufetch->waiting_local = FALSE;
 
 	/* handle pending remote reply */
 	if (ufetch->pending_reply.url != NULL) {
@@ -419,11 +431,9 @@ bool imap_urlauth_fetch_continue(struct imap_urlauth_fetch *ufetch)
 			imap_urlauth_fetch_fail(ufetch);
 			return FALSE;
 		} 
-		
-		imap_urlauth_connection_continue(ufetch->uctx->conn);
 
 		if (ret == 0) {
-			ufetch->waiting = TRUE;
+			ufetch->waiting_service = TRUE;
 			return TRUE;
 		}
 	}
@@ -440,7 +450,7 @@ bool imap_urlauth_fetch_continue(struct imap_urlauth_fetch *ufetch)
 			       &ufetch->local_urls_tail, url);
 		i_free(url->url);
 		i_free(url);
-		if (ufetch->waiting) 
+		if (ufetch->waiting_local) 
 			return TRUE;
 		url = url_next;
 	}
