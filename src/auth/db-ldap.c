@@ -825,8 +825,10 @@ static void db_ldap_request_free(struct ldap_request *request, LDAPMessage *res)
 
 		if (srequest->result == res)
 			res = NULL;
-		if (srequest->result != NULL)
+		if (srequest->result != NULL) {
 			ldap_msgfree(srequest->result);
+			srequest->result = NULL;
+		}
 
 		if (array_is_created(&srequest->named_results)) {
 			array_foreach(&srequest->named_results, named_res) {
@@ -835,6 +837,7 @@ static void db_ldap_request_free(struct ldap_request *request, LDAPMessage *res)
 				if (named_res->result != NULL)
 					ldap_msgfree(named_res->result);
 			}
+			array_clear(&srequest->named_results);
 		}
 	}
 	if (res != NULL)
