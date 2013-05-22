@@ -904,12 +904,13 @@ static void search_limit_lowwater(struct index_search_context *ctx,
 		*first_seq = seq1;
 }
 
-static bool search_limit_by_flags(struct index_search_context *ctx,
-				  struct mail_search_arg *args,
-				  uint32_t *seq1, uint32_t *seq2)
+static bool search_limit_by_hdr(struct index_search_context *ctx,
+				struct mail_search_arg *args,
+				uint32_t *seq1, uint32_t *seq2)
 {
 	const struct mail_index_header *hdr;
 	enum mail_flags pvt_flags_mask;
+	uint64_t highest_modseq;
 
 	hdr = mail_index_get_header(ctx->view);
 	/* we can't trust that private view's header is fully up to date,
@@ -918,12 +919,23 @@ static bool search_limit_by_flags(struct index_search_context *ctx,
 		mailbox_get_private_flags_mask(ctx->box);
 
 	for (; args != NULL; args = args->next) {
-		if (args->type != SEARCH_FLAGS) {
-			if (args->type == SEARCH_ALL) {
-				if (args->match_not)
-					return FALSE;
+		switch (args->type) {
+		case SEARCH_ALL:
+			if (args->match_not) {
+				/* NOT ALL - pointless noop query */
+				return FALSE;
 			}
 			continue;
+		case SEARCH_MODSEQ:
+			/* MODSEQ higher than current HIGHESTMODSEQ? */
+			highest_modseq = mail_index_modseq_get_highest(ctx->view);
+			if (args->value.modseq->modseq > highest_modseq)
+				return FALSE;
+			continue;
+		default:
+			continue;
+		case SEARCH_FLAGS:
+			break;
 		}
 		if ((args->value.flags & MAIL_SEEN) != 0 &&
 		    (pvt_flags_mask & MAIL_SEEN) == 0) {
@@ -995,8 +1007,10 @@ static void search_get_seqset(struct index_search_context *ctx,
 		return;
 	}
 
-	/* UNSEEN and DELETED in root search level may limit the range */
-	if (!search_limit_by_flags(ctx, args, &ctx->seq1, &ctx->seq2)) {
+	/* See if this search query can never match based on data in index's
+	   header. We'll scan only the root level args, which is usually
+	   enough. */
+	if (!search_limit_by_hdr(ctx, args, &ctx->seq1, &ctx->seq2)) {
 		/* no matches */
 		ctx->seq1 = 1;
 		ctx->seq2 = 0;
