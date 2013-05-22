@@ -949,7 +949,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		o_stream_close(_ctx->conn->output);
 	}
 
-	if (ctx->replicator_notify)
+	if (ctx->replicator_notify && _ctx->exit_code == 0)
 		dsync_replicator_notify(ctx, sync_type, str_c(state_str));
 	return _ctx->exit_code == 0 ? 0 : -1;
 }
