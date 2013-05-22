@@ -395,8 +395,8 @@ dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 	name = dsync_mailbox_node_get_full_name(tree, node);
 	other_node = dsync_mailbox_tree_get(other_tree, name);
 
-	if (!guid_128_is_empty(other_node->mailbox_guid) ||
-	    (other_node->existence == DSYNC_MAILBOX_NODE_EXISTS &&
+	if (other_node->existence == DSYNC_MAILBOX_NODE_EXISTS &&
+	    (!guid_128_is_empty(other_node->mailbox_guid) ||
 	     other_del->type != DSYNC_MAILBOX_DELETE_TYPE_MAILBOX)) {
 		/* other side has already created a new mailbox or
 		   directory with this name, we can't delete it */
