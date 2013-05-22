@@ -12,6 +12,7 @@
 #include "imap-id.h"
 #include "imap-resp-code.h"
 #include "master-service.h"
+#include "master-service-ssl-settings.h"
 #include "master-auth.h"
 #include "client.h"
 #include "client-authenticate.h"
@@ -64,7 +65,8 @@ static const char *get_capability(struct client *client)
 
 	if (client_is_tls_enabled(client) && !client->tls)
 		str_append(cap_str, " STARTTLS");
-	if (client->set->disable_plaintext_auth && !client->secured)
+	if (!client->secured & (client->set->disable_plaintext_auth ||
+				strcmp(client->ssl_set->ssl, "required") == 0))
 		str_append(cap_str, " LOGINDISABLED");
 
 	client_authenticate_get_capabilities(client, cap_str);

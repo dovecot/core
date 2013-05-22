@@ -615,7 +615,8 @@ int client_auth_begin(struct client *client, const char *mech_name,
 
 bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 {
-	if (client->secured || !client->set->disable_plaintext_auth)
+	if (client->secured || (!client->set->disable_plaintext_auth &&
+				strcmp(client->ssl_set->ssl, "required") != 0))
 		return TRUE;
 
 	if (client->set->auth_verbose) {
