@@ -13,6 +13,7 @@
 #include "auth-client.h"
 #include "ssl-proxy.h"
 #include "master-service.h"
+#include "master-service-ssl-settings.h"
 #include "master-interface.h"
 #include "master-auth.h"
 #include "client-common.h"
@@ -38,7 +39,8 @@ sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
 	unsigned int i, j, count;
 
 	mech = auth_client_get_available_mechs(auth_client, &count);
-	if (count == 0) {
+	if (count == 0 || (!client->secured &&
+			   strcmp(client->ssl_set->ssl, "required") == 0)) {
 		*count_r = 0;
 		return NULL;
 	}
