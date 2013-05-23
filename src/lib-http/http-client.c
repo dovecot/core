@@ -86,6 +86,9 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	client->set.ssl_ca = p_strdup(pool, set->ssl_ca);
 	client->set.ssl_crypto_device = p_strdup(pool, set->ssl_crypto_device);
 	client->set.ssl_allow_invalid_cert = set->ssl_allow_invalid_cert;
+	client->set.ssl_cert = p_strdup(pool, set->ssl_cert);
+	client->set.ssl_key = p_strdup(pool, set->ssl_key);
+	client->set.ssl_key_password = p_strdup(pool, set->ssl_key_password);
 	client->set.max_idle_time_msecs = set->max_idle_time_msecs;
 	client->set.max_parallel_connections =
 		(set->max_parallel_connections > 0 ? set->max_parallel_connections : 1);
@@ -197,6 +200,9 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 	ssl_set.ca = client->set.ssl_ca;
 	ssl_set.verify_remote_cert = TRUE;
 	ssl_set.crypto_device = client->set.ssl_crypto_device;
+	ssl_set.cert = client->set.ssl_cert;
+	ssl_set.key = client->set.ssl_key;
+	ssl_set.key_password = client->set.ssl_key_password;
 	ssl_set.verbose = client->set.debug;
 	ssl_set.verbose_invalid_cert = client->set.debug;
 
