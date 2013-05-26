@@ -18,6 +18,26 @@ struct imapc_mailbox_list_iterate_context {
 
 	struct mailbox_tree_iterate_context *iter;
 	struct mailbox_info info;
+	string_t *special_use;
+};
+
+static struct {
+	const char *str;
+	enum mailbox_info_flags flag;
+} imap_list_flags[] = {
+	{ "\\NoSelect", MAILBOX_NOSELECT },
+	{ "\\NonExistent", MAILBOX_NONEXISTENT },
+	{ "\\NoInferiors", MAILBOX_NOINFERIORS },
+	{ "\\Subscribed", MAILBOX_SUBSCRIBED },
+	{ "\\Subscribed", MAILBOX_SUBSCRIBED },
+	{ "\\All", MAILBOX_SPECIALUSE_ALL },
+	{ "\\Archive", MAILBOX_SPECIALUSE_ARCHIVE },
+	{ "\\Drafts", MAILBOX_SPECIALUSE_DRAFTS },
+	{ "\\Flagged", MAILBOX_SPECIALUSE_FLAGGED },
+	{ "\\Junk", MAILBOX_SPECIALUSE_JUNK },
+	{ "\\Sent", MAILBOX_SPECIALUSE_SENT },
+	{ "\\Trash", MAILBOX_SPECIALUSE_TRASH },
+	{ "\\Important", MAILBOX_SPECIALUSE_IMPORTANT }
 };
 
 extern struct mailbox_list imapc_mailbox_list;
@@ -63,6 +83,20 @@ static void imapc_list_simple_callback(const struct imapc_command_reply *reply,
 	}
 }
 
+static bool
+imap_list_flag_parse(const char *str, enum mailbox_info_flags *flag_r)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(imap_list_flags); i++) {
+		if (strcasecmp(str, imap_list_flags[i].str) == 0) {
+			*flag_r = imap_list_flags[i].flag;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static struct mailbox_node *
 imapc_list_update_tree(struct imapc_mailbox_list *list,
 		       struct mailbox_tree_context *tree,
@@ -71,7 +105,7 @@ imapc_list_update_tree(struct imapc_mailbox_list *list,
 	struct mailbox_node *node;
 	const struct imap_arg *flags;
 	const char *name, *flag;
-	enum mailbox_info_flags info_flags = 0;
+	enum mailbox_info_flags info_flag, info_flags = 0;
 	bool created;
 
 	if (!imap_arg_get_list(&args[0], &flags) ||
@@ -80,14 +114,8 @@ imapc_list_update_tree(struct imapc_mailbox_list *list,
 		return NULL;
 
 	while (imap_arg_get_atom(flags, &flag)) {
-		if (strcasecmp(flag, "\\NoSelect") == 0)
-			info_flags |= MAILBOX_NOSELECT;
-		else if (strcasecmp(flag, "\\NonExistent") == 0)
-			info_flags |= MAILBOX_NONEXISTENT;
-		else if (strcasecmp(flag, "\\NoInferiors") == 0)
-			info_flags |= MAILBOX_NOINFERIORS;
-		else if (strcasecmp(flag, "\\Subscribed") == 0)
-			info_flags |= MAILBOX_SUBSCRIBED;
+		if (imap_list_flag_parse(flag, &info_flag))
+			info_flags |= info_flag;
 		flags++;
 	}
 
@@ -450,6 +478,31 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	return &ctx->ctx;
 }
 
+static void
+imapc_list_write_special_use(struct imapc_mailbox_list_iterate_context *ctx,
+			     struct mailbox_node *node)
+{
+	unsigned int i;
+
+	if (ctx->special_use == NULL)
+		ctx->special_use = str_new(ctx->ctx.pool, 64);
+	str_truncate(ctx->special_use, 0);
+
+	for (i = 0; i < N_ELEMENTS(imap_list_flags); i++) {
+		if ((node->flags & imap_list_flags[i].flag) != 0) {
+			str_append(ctx->special_use, imap_list_flags[i].str);
+			str_append_c(ctx->special_use, ' ');
+		}
+	}
+
+	if (str_len(ctx->special_use) > 0) {
+		str_truncate(ctx->special_use, str_len(ctx->special_use) - 1);
+		ctx->info.special_use = str_c(ctx->special_use);
+	} else {
+		ctx->info.special_use = NULL;
+	}
+}
+
 static const struct mailbox_info *
 imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
@@ -472,6 +525,13 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 
 	ctx->info.vname = vname;
 	ctx->info.flags = node->flags;
+	if ((_ctx->list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+		/* we're iterating the INBOX namespace. pass through the
+		   SPECIAL-USE flags if they exist. */
+		imapc_list_write_special_use(ctx, node);
+	} else {
+		ctx->info.special_use = NULL;
+	}
 	return &ctx->info;
 }
 
