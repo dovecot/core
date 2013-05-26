@@ -21,6 +21,11 @@
 #define CACHE_TRANS_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, cache_mail_index_transaction_module)
 
+struct mail_cache_transaction_rec {
+	uint32_t seq;
+	uint32_t cache_data_pos;
+};
+
 struct mail_cache_transaction_ctx {
 	union mail_index_transaction_module_context module_ctx;
 	struct mail_index_transaction_vfuncs super;
@@ -33,7 +38,7 @@ struct mail_cache_transaction_ctx {
 	uint32_t first_new_seq;
 
 	buffer_t *cache_data;
-	ARRAY(uint32_t) cache_data_seq;
+	ARRAY(struct mail_cache_transaction_rec) cache_data_seq;
 	uint32_t prev_seq, min_seq;
 	size_t last_rec_pos;
 
@@ -272,13 +277,33 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 	return 1;
 }
 
+const struct mail_cache_record *
+mail_cache_transaction_lookup_rec(struct mail_cache_transaction_ctx *ctx,
+				  unsigned int seq,
+				  unsigned int *trans_next_idx)
+{
+	const struct mail_cache_transaction_rec *recs;
+	unsigned int i, count;
+
+	recs = array_get(&ctx->cache_data_seq, &count);
+	for (i = *trans_next_idx; i < count; i++) {
+		if (recs[i].seq == seq) {
+			*trans_next_idx = i + 1;
+			return CONST_PTR_OFFSET(ctx->cache_data->data,
+						recs[i].cache_data_pos);
+		}
+	}
+	*trans_next_idx = i;
+	return NULL;
+}
+
 static int
 mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 				    uint32_t write_offset)
 {
 	struct mail_cache *cache = ctx->cache;
 	const struct mail_cache_record *rec = ctx->cache_data->data;
-	const uint32_t *seqs;
+	const struct mail_cache_transaction_rec *recs;
 	uint32_t i, seq_count;
 
 	mail_index_ext_using_reset_id(ctx->trans, ctx->cache->ext_id,
@@ -287,9 +312,9 @@ mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 	/* write the cache_offsets to index file. records' prev_offset
 	   is updated to point to old cache record when index is being
 	   synced. */
-	seqs = array_get(&ctx->cache_data_seq, &seq_count);
+	recs = array_get(&ctx->cache_data_seq, &seq_count);
 	for (i = 0; i < seq_count; i++) {
-		mail_index_update_ext(ctx->trans, seqs[i], cache->ext_id,
+		mail_index_update_ext(ctx->trans, recs[i].seq, cache->ext_id,
 				      &write_offset, NULL);
 
 		write_offset += rec->size;
@@ -304,7 +329,8 @@ mail_cache_link_records(struct mail_cache_transaction_ctx *ctx,
 {
 	struct mail_index_map *map;
 	struct mail_cache_record *rec;
-	const uint32_t *seqs, *prev_offsetp;
+	const struct mail_cache_transaction_rec *recs;
+	const uint32_t *prev_offsetp;
 	ARRAY_TYPE(uint32_t) seq_offsets;
 	uint32_t i, seq_count, reset_id, prev_offset, *offsetp;
 	const void *data;
@@ -312,15 +338,15 @@ mail_cache_link_records(struct mail_cache_transaction_ctx *ctx,
 	i_assert(ctx->min_seq != 0);
 
 	i_array_init(&seq_offsets, 64);
-	seqs = array_get(&ctx->cache_data_seq, &seq_count);
+	recs = array_get(&ctx->cache_data_seq, &seq_count);
 	rec = buffer_get_modifiable_data(ctx->cache_data, NULL);
 	for (i = 0; i < seq_count; i++) {
 		offsetp = array_idx_modifiable(&seq_offsets,
-					       seqs[i] - ctx->min_seq);
+					       recs[i].seq - ctx->min_seq);
 		if (*offsetp != 0)
 			prev_offset = *offsetp;
 		else {
-			mail_index_lookup_ext_full(ctx->view->trans_view, seqs[i],
+			mail_index_lookup_ext_full(ctx->view->trans_view, recs[i].seq,
 						   ctx->cache->ext_id, &map,
 						   &data, NULL);
 			prev_offsetp = data;
@@ -423,6 +449,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 static void
 mail_cache_transaction_update_last_rec(struct mail_cache_transaction_ctx *ctx)
 {
+	struct mail_cache_transaction_rec *trans_rec;
 	struct mail_cache_record *rec;
 	void *data;
 	size_t size;
@@ -439,7 +466,9 @@ mail_cache_transaction_update_last_rec(struct mail_cache_transaction_ctx *ctx)
 
 	if (ctx->min_seq > ctx->prev_seq || ctx->min_seq == 0)
 		ctx->min_seq = ctx->prev_seq;
-	array_append(&ctx->cache_data_seq, &ctx->prev_seq, 1);
+	trans_rec = array_append_space(&ctx->cache_data_seq);
+	trans_rec->seq = ctx->prev_seq;
+	trans_rec->cache_data_pos = ctx->last_rec_pos;
 	ctx->last_rec_pos = size;
 }
 

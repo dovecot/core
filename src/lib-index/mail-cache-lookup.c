@@ -163,30 +163,57 @@ void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,
 	memset(&view->loop_track, 0, sizeof(view->loop_track));
 }
 
+static bool
+mail_cache_lookup_iter_transaction(struct mail_cache_lookup_iterate_ctx *ctx)
+{
+	ctx->rec = mail_cache_transaction_lookup_rec(ctx->view->transaction,
+						     ctx->seq,
+						     &ctx->trans_next_idx);
+	if (ctx->rec == NULL)
+		return FALSE;
+
+	ctx->remap_counter = ctx->view->cache->remap_counter;
+	ctx->pos = sizeof(*ctx->rec);
+	ctx->rec_size = ctx->rec->size;
+	return TRUE;
+}
+
 static int
 mail_cache_lookup_iter_next_record(struct mail_cache_lookup_iterate_ctx *ctx)
 {
 	struct mail_cache_view *view = ctx->view;
 
-	if (ctx->stop)
-		return ctx->failed ? -1 : 0;
+	if (ctx->failed)
+		return -1;
 
 	if (ctx->rec != NULL)
 		ctx->offset = ctx->rec->prev_offset;
 	if (ctx->offset == 0) {
 		/* end of this record list. check newly appended data. */
-		if (ctx->appends_checked ||
-		    view->trans_seq1 > ctx->seq ||
+		if (view->trans_seq1 > ctx->seq ||
 		    view->trans_seq2 < ctx->seq ||
-		    MAIL_CACHE_IS_UNUSABLE(view->cache) ||
+		    MAIL_CACHE_IS_UNUSABLE(view->cache))
+			return 0;
+		/* check data still in memory */
+		if (!ctx->memory_appends_checked) {
+			if (mail_cache_lookup_iter_transaction(ctx))
+				return 1;
+			ctx->memory_appends_checked = TRUE;
+		}
+
+		/* check data already written to cache file */
+		if (ctx->disk_appends_checked ||
 		    mail_cache_lookup_offset(view->cache, view->trans_view,
 					     ctx->seq, &ctx->offset) <= 0)
 			return 0;
 
-		ctx->appends_checked = TRUE;
+		ctx->disk_appends_checked = TRUE;
 		ctx->remap_counter = view->cache->remap_counter;
 		memset(&view->loop_track, 0, sizeof(view->loop_track));
 	}
+
+	if (ctx->stop)
+		return 0;
 
 	/* look up the next record */
 	if (mail_cache_get_record(view->cache, ctx->offset, &ctx->rec) < 0)

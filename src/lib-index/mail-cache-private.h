@@ -202,9 +202,12 @@ struct mail_cache_lookup_iterate_ctx {
 	unsigned int pos, rec_size;
 	uint32_t offset;
 
+	unsigned int trans_next_idx;
+
 	unsigned int stop:1;
 	unsigned int failed:1;
-	unsigned int appends_checked:1;
+	unsigned int memory_appends_checked:1;
+	unsigned int disk_appends_checked:1;
 };
 
 /* Explicitly lock the cache file. Returns -1 if error / timed out,
@@ -243,6 +246,10 @@ void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,
 /* Returns 1 if field was returned, 0 if end of fields, or -1 if error */
 int mail_cache_lookup_iter_next(struct mail_cache_lookup_iterate_ctx *ctx,
 				struct mail_cache_iterate_field *field_r);
+const struct mail_cache_record *
+mail_cache_transaction_lookup_rec(struct mail_cache_transaction_ctx *ctx,
+				  unsigned int seq,
+				  unsigned int *trans_next_idx);
 
 int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 		   const void **data_r);
