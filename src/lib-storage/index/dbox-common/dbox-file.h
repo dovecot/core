@@ -45,6 +45,8 @@ enum dbox_metadata_key {
 	DBOX_METADATA_GUID		= 'G',
 	/* POP3 UIDL overriding the default format */
 	DBOX_METADATA_POP3_UIDL		= 'P',
+	/* POP3 message ordering (for migrated mails) */
+	DBOX_METADATA_POP3_ORDER	= 'O',
 	/* Received UNIX timestamp in hex */
 	DBOX_METADATA_RECEIVED_TIME	= 'R',
 	/* Physical message size in hex. Necessary only if it differs from

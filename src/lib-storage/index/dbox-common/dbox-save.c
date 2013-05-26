@@ -164,6 +164,10 @@ void dbox_save_write_metadata(struct mail_save_context *_ctx,
 		str_printfa(str, "%c%s\n", DBOX_METADATA_POP3_UIDL,
 			    mdata->pop3_uidl);
 	}
+	if (mdata->pop3_order != 0) {
+		str_printfa(str, "%c%u\n", DBOX_METADATA_POP3_ORDER,
+			    mdata->pop3_order);
+	}
 
 	guid = mdata->guid;
 	if (guid != NULL)

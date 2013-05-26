@@ -148,6 +148,9 @@ static void dump_msg_metadata(struct istream *input)
 		case DBOX_METADATA_POP3_UIDL:
 			printf("msg.pop3-uidl = %s\n", line + 1);
 			break;
+		case DBOX_METADATA_POP3_ORDER:
+			printf("msg.pop3-order = %s\n", line + 1);
+			break;
 		case DBOX_METADATA_RECEIVED_TIME:
 			dump_timestamp(input, "msg.received", line + 1);
 			break;

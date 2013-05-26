@@ -46,6 +46,9 @@ struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 	  .type = MAIL_CACHE_FIELD_STRING },
 	{ .name = "pop3.uidl",
 	  .type = MAIL_CACHE_FIELD_STRING },
+	{ .name = "pop3.order",
+	  .type = MAIL_CACHE_FIELD_FIXED_SIZE,
+	  .field_size = sizeof(uint32_t) },
 	{ .name = "guid",
 	  .type = MAIL_CACHE_FIELD_STRING },
 	{ .name = "mime.parts",
@@ -1871,6 +1874,8 @@ void index_mail_precache(struct mail *mail)
 		(void)mail_get_physical_size(mail, &size);
 	if ((cache & MAIL_FETCH_UIDL_BACKEND) != 0)
 		(void)mail_get_special(mail, MAIL_FETCH_UIDL_BACKEND, &str);
+	if ((cache & MAIL_FETCH_POP3_ORDER) != 0)
+		(void)mail_get_special(mail, MAIL_FETCH_POP3_ORDER, &str);
 	if ((cache & MAIL_FETCH_GUID) != 0)
 		(void)mail_get_special(mail, MAIL_FETCH_GUID, &str);
 }
