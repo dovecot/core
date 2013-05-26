@@ -37,6 +37,9 @@ struct dsync_brain_settings {
 	const char *sync_box;
 	/* Sync only this mailbox GUID */
 	guid_128_t sync_box_guid;
+	/* Exclude these mailboxes from the sync. They can contain '*'
+	   wildcards and be \special-use flags. */
+	const char *const *exclude_mailboxes;
 
 	/* If non-zero, use dsync lock file for this user */
 	unsigned int lock_timeout_secs;

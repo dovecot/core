@@ -132,7 +132,8 @@ void dsync_mailbox_node_copy_data(struct dsync_mailbox_node *dest,
    non-NULL, add only that mailbox to the tree. */
 int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 			    struct mail_namespace *ns, const char *box_name,
-			    const guid_128_t box_guid);
+			    const guid_128_t box_guid,
+			    const char *const *exclude_mailboxes);
 
 /* Return all known deleted mailboxes and directories. */
 const struct dsync_mailbox_delete *

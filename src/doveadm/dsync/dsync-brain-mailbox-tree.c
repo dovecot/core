@@ -83,20 +83,14 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 					doveadm_settings->dsync_alt_char[0]);
 
 	/* fill the local mailbox tree */
-	if (brain->sync_ns != NULL) {
-		if (dsync_mailbox_tree_fill(brain->local_mailbox_tree,
-					    brain->sync_ns, brain->sync_box,
-					    brain->sync_box_guid) < 0)
+	for (ns = brain->user->namespaces; ns != NULL; ns = ns->next) {
+		if (!dsync_brain_want_namespace(brain, ns))
+			continue;
+		if (dsync_mailbox_tree_fill(brain->local_mailbox_tree, ns,
+					    brain->sync_box,
+					    brain->sync_box_guid,
+					    brain->exclude_mailboxes) < 0)
 			brain->failed = TRUE;
-	} else {
-		for (ns = brain->user->namespaces; ns != NULL; ns = ns->next) {
-			if (!dsync_brain_want_namespace(brain, ns))
-				continue;
-			if (dsync_mailbox_tree_fill(brain->local_mailbox_tree,
-						    ns, brain->sync_box,
-						    brain->sync_box_guid) < 0)
-				brain->failed = TRUE;
-		}
 	}
 
 	brain->local_tree_iter =

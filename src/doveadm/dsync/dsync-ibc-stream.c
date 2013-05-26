@@ -73,7 +73,7 @@ static const struct {
 	  .chr = 'H',
 	  .required_keys = "hostname",
 	  .optional_keys = "sync_ns_prefix sync_box sync_box_guid sync_type "
-	  	"debug sync_visible_namespaces "
+	  	"debug sync_visible_namespaces exclude_mailboxes"
 	  	"send_mail_requests backup_send backup_recv lock_timeout"
 	},
 	{ .name = "mailbox_state",
@@ -594,6 +594,18 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 	}
 	if (set->sync_box != NULL)
 		dsync_serializer_encode_add(encoder, "sync_box", set->sync_box);
+	if (set->exclude_mailboxes != NULL) {
+		string_t *substr = t_str_new(64);
+		unsigned int i;
+
+		for (i = 0; set->exclude_mailboxes[i] != NULL; i++) {
+			if (i != 0)
+				str_append_c(substr, '\t');
+			str_append_tabescaped(substr, set->exclude_mailboxes[i]);
+		}
+		dsync_serializer_encode_add(encoder, "exclude_mailboxes",
+					    str_c(substr));
+	}
 	if (!guid_128_is_empty(set->sync_box_guid)) {
 		dsync_serializer_encode_add(encoder, "sync_box_guid",
 			guid_128_to_string(set->sync_box_guid));
@@ -669,6 +681,11 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 		dsync_ibc_input_error(ibc, decoder,
 				      "Invalid sync_box_guid: %s", value);
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
+	if (dsync_deserializer_decode_try(decoder, "exclude_mailboxes", &value) &&
+	    *value != '\0') {
+		char **boxes = p_strsplit_tabescaped(pool, value);
+		set->exclude_mailboxes = (const void *)boxes;
 	}
 	if (dsync_deserializer_decode_try(decoder, "sync_type", &value)) {
 		switch (value[0]) {

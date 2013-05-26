@@ -36,7 +36,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+dEfg:l:m:n:Nr:Rs:U"
+#define DSYNC_COMMON_GETOPT_ARGS "+dEfg:l:m:n:Nr:Rs:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 
 enum dsync_run_type {
@@ -51,6 +51,7 @@ struct dsync_cmd_context {
 	const char *mailbox, *namespace_prefix;
 	guid_128_t mailbox_guid;
 	const char *state_input, *rawlog_path;
+	ARRAY_TYPE(const_string) exclude_mailboxes;
 
 	const char *remote_name;
 	const char *local_location;
@@ -496,6 +497,10 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	memcpy(set.sync_box_guid, ctx->mailbox_guid, sizeof(set.sync_box_guid));
 	set.lock_timeout_secs = ctx->lock_timeout;
 	set.state = ctx->state_input;
+	if (array_count(&ctx->exclude_mailboxes) > 0) {
+		/* array is NULL-terminated in init() */
+		set.exclude_mailboxes = array_idx(&ctx->exclude_mailboxes, 0);
+	}
 
 	user->dsyncing = TRUE;
 
@@ -803,6 +808,8 @@ static void cmd_dsync_init(struct doveadm_mail_cmd_context *_ctx,
 		if (args[0] == NULL)
 			doveadm_mail_help_name(_ctx->cmd->name);
 	}
+	if (array_count(&ctx->exclude_mailboxes) > 0)
+		array_append_zero(&ctx->exclude_mailboxes);
 
 	lib_signals_ignore(SIGHUP, TRUE);
 }
@@ -817,6 +824,7 @@ static bool
 cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
+	const char *str;
 
 	switch (c) {
 	case 'd':
@@ -846,6 +854,10 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 			ctx->no_mail_sync = TRUE;
 		else
 			ctx->mailbox = optarg;
+		break;
+	case 'x':
+		str = optarg;
+		array_append(&ctx->exclude_mailboxes, &str, 1);
 		break;
 	case 'n':
 		ctx->namespace_prefix = optarg;
@@ -891,6 +903,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
 	doveadm_print_header("state", "state",
 			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+	p_array_init(&ctx->exclude_mailboxes, ctx->ctx.pool, 4);
 	return &ctx->ctx;
 }
 
@@ -995,11 +1008,11 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 
 struct doveadm_mail_cmd cmd_dsync_mirror = {
 	cmd_dsync_alloc, "sync",
-	"[-dfR] [-l <secs>] [-m <mailbox>] [-n <namespace>] [-s <state>] <dest>"
+	"[-dfR] [-l <secs>] [-m <mailbox>] [-n <namespace>] [-x <exclude>] [-s <state>] <dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_backup = {
 	cmd_dsync_backup_alloc, "backup",
-	"[-dfR] [-l <secs>] [-m <mailbox>] [-n <namespace>] [-s <state>] <dest>"
+	"[-dfR] [-l <secs>] [-m <mailbox>] [-n <namespace>] [-x <exclude>] [-s <state>] <dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_server = {
 	cmd_dsync_server_alloc, "dsync-server", &doveadm_mail_cmd_hide

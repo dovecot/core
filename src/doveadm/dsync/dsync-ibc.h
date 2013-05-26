@@ -49,6 +49,9 @@ struct dsync_ibc_settings {
 	const char *sync_box;
 	/* if non-empty, sync only this mailbox GUID */
 	guid_128_t sync_box_guid;
+	/* Exclude these mailboxes from the sync. They can contain '*'
+	   wildcards and be \special-use flags. */
+	const char *const *exclude_mailboxes;
 
 	enum dsync_brain_sync_type sync_type;
 	enum dsync_brain_flags brain_flags;
