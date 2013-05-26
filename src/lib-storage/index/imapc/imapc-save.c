@@ -422,6 +422,7 @@ int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 		while (sctx.ret == -2)
 			imapc_storage_run(src_mbox->storage);
 		ctx->finished = TRUE;
+		index_save_context_free(_ctx);
 		return sctx.ret;
 	}
 	return mail_storage_copy(_ctx, mail);
