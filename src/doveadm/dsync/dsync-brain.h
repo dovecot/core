@@ -30,13 +30,25 @@ enum dsync_brain_sync_type {
 	DSYNC_BRAIN_SYNC_TYPE_STATE
 };
 
+struct dsync_brain_settings {
+	/* Sync only this namespace */
+	struct mail_namespace *sync_ns;
+	/* Sync only this mailbox name */
+	const char *sync_box;
+	/* Sync only this mailbox GUID */
+	guid_128_t sync_box_guid;
+
+	/* If non-zero, use dsync lock file for this user */
+	unsigned int lock_timeout_secs;
+	/* Input state for DSYNC_BRAIN_SYNC_TYPE_STATE */
+	const char *state;
+};
+
 struct dsync_brain *
 dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
-			struct mail_namespace *sync_ns, const char *sync_box,
-			const guid_128_t sync_box_guid,
 			enum dsync_brain_sync_type sync_type,
-			enum dsync_brain_flags flags, unsigned int lock_timeout,
-			const char *state);
+			enum dsync_brain_flags flags,
+			const struct dsync_brain_settings *set);
 struct dsync_brain *
 dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc);
 /* Returns 0 if everything was successful, -1 if syncing failed in some way */

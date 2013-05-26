@@ -86,32 +86,32 @@ dsync_brain_set_flags(struct dsync_brain *brain, enum dsync_brain_flags flags)
 
 struct dsync_brain *
 dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
-			struct mail_namespace *sync_ns, const char *sync_box,
-			const guid_128_t sync_box_guid,
 			enum dsync_brain_sync_type sync_type,
-			enum dsync_brain_flags flags, unsigned int lock_timeout,
-			const char *state)
+			enum dsync_brain_flags flags,
+			const struct dsync_brain_settings *set)
 {
 	struct dsync_ibc_settings ibc_set;
 	struct dsync_brain *brain;
 	const char *error;
 
 	i_assert(sync_type != DSYNC_BRAIN_SYNC_TYPE_UNKNOWN);
-	i_assert(sync_type != DSYNC_BRAIN_SYNC_TYPE_STATE || *state != '\0');
+	i_assert(sync_type != DSYNC_BRAIN_SYNC_TYPE_STATE ||
+		 (set->state != NULL && *set->state != '\0'));
 
 	brain = dsync_brain_common_init(user, ibc);
 	brain->sync_type = sync_type;
-	if (sync_ns != NULL)
-		brain->sync_ns = sync_ns;
-	brain->sync_box = p_strdup(brain->pool, sync_box);
-	memcpy(brain->sync_box_guid, sync_box_guid, sizeof(brain->sync_box_guid));
-	brain->lock_timeout = lock_timeout;
+	if (set->sync_ns != NULL)
+		brain->sync_ns = set->sync_ns;
+	brain->sync_box = p_strdup(brain->pool, set->sync_box);
+	memcpy(brain->sync_box_guid, set->sync_box_guid,
+	       sizeof(brain->sync_box_guid));
+	brain->lock_timeout = set->lock_timeout_secs;
 	brain->master_brain = TRUE;
 	dsync_brain_set_flags(brain, flags);
 
 	if (sync_type == DSYNC_BRAIN_SYNC_TYPE_STATE &&
 	    dsync_mailbox_states_import(brain->mailbox_states,
-					brain->pool, state, &error) < 0) {
+					brain->pool, set->state, &error) < 0) {
 		hash_table_clear(brain->mailbox_states, FALSE);
 		i_error("Saved sync state is invalid, "
 			"falling back to full sync: %s", error);
@@ -121,12 +121,13 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 
 	memset(&ibc_set, 0, sizeof(ibc_set));
 	ibc_set.hostname = my_hostdomain();
-	ibc_set.sync_ns_prefix = sync_ns == NULL ? NULL : sync_ns->prefix;
-	ibc_set.sync_box = sync_box;
-	memcpy(ibc_set.sync_box_guid, sync_box_guid,
+	ibc_set.sync_ns_prefix = set->sync_ns == NULL ? NULL :
+		set->sync_ns->prefix;
+	ibc_set.sync_box = set->sync_box;
+	memcpy(ibc_set.sync_box_guid, set->sync_box_guid,
 	       sizeof(ibc_set.sync_box_guid));
 	ibc_set.sync_type = sync_type;
-	ibc_set.lock_timeout = lock_timeout;
+	ibc_set.lock_timeout = set->lock_timeout_secs;
 	/* reverse the backup direction for the slave */
 	ibc_set.brain_flags = flags & ~(DSYNC_BRAIN_FLAG_BACKUP_SEND |
 					DSYNC_BRAIN_FLAG_BACKUP_RECV);

@@ -486,16 +486,22 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	struct dsync_ibc *ibc, *ibc2 = NULL;
 	struct dsync_brain *brain;
-	struct mail_namespace *sync_ns = NULL;
+	struct dsync_brain_settings set;
 	enum dsync_brain_flags brain_flags;
 	bool remote_errors_logged = FALSE;
 	int status = 0, ret = 0;
 
+	memset(&set, 0, sizeof(set));
+	set.sync_box = ctx->mailbox;
+	memcpy(set.sync_box_guid, ctx->mailbox_guid, sizeof(set.sync_box_guid));
+	set.lock_timeout_secs = ctx->lock_timeout;
+	set.state = ctx->state_input;
+
 	user->dsyncing = TRUE;
 
 	if (ctx->namespace_prefix != NULL) {
-		sync_ns = mail_namespace_find(user->namespaces,
-					      ctx->namespace_prefix);
+		set.sync_ns = mail_namespace_find(user->namespaces,
+						  ctx->namespace_prefix);
 	}
 
 	if (ctx->run_type == DSYNC_RUN_TYPE_LOCAL)
@@ -524,12 +530,9 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		brain_flags |= DSYNC_BRAIN_FLAG_NO_MAIL_SYNC;
 	if (doveadm_debug)
 		brain_flags |= DSYNC_BRAIN_FLAG_DEBUG;
-	brain = dsync_brain_master_init(user, ibc, sync_ns, ctx->mailbox,
-					ctx->mailbox_guid,
-					ctx->sync_type, brain_flags,
-					ctx->lock_timeout,
-					ctx->state_input == NULL ? "" :
-					ctx->state_input);
+
+	brain = dsync_brain_master_init(user, ibc, ctx->sync_type,
+					brain_flags, &set);
 
 	if (ctx->run_type == DSYNC_RUN_TYPE_LOCAL) {
 		if (cmd_dsync_run_local(ctx, user, brain, ibc2) < 0)
