@@ -140,6 +140,13 @@ void fs_deinit(struct fs **_fs)
 	str_free(&last_error);
 }
 
+const char *fs_get_root_driver(struct fs *fs)
+{
+	while (fs->parent != NULL)
+		fs = fs->parent;
+	return fs->name;
+}
+
 struct fs_file *fs_file_init(struct fs *fs, const char *path, int mode_flags)
 {
 	struct fs_file *file;

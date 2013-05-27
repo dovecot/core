@@ -92,6 +92,9 @@ int fs_init(const char *driver, const char *args,
 	    struct fs **fs_r, const char **error_r);
 void fs_deinit(struct fs **fs);
 
+/* Returns the root fs's driver name (bypassing all wrapper fses) */
+const char *fs_get_root_driver(struct fs *fs);
+
 struct fs_file *fs_file_init(struct fs *fs, const char *path, int mode_flags);
 void fs_file_deinit(struct fs_file **file);
 
