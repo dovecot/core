@@ -176,7 +176,7 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 		else {
 			i_assert(str_len(str) == sizeof(order));
 			memcpy(&order, str_data(str), sizeof(order));
-			*value_r = dec2str(order);
+			*value_r = order == 0 ? "" : dec2str(order);
 		}
 		return 0;
 	}
