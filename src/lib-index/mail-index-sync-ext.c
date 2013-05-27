@@ -289,6 +289,13 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u,
 				   new_size - old_size);
 		ext->hdr_size = u->hdr_size;
 		modified = TRUE;
+	} else {
+		if (ext->hdr_size != u->hdr_size) {
+			/* aligned sizes were the same, but the actual sizes
+			   had changed */
+			ext->hdr_size = u->hdr_size;
+			modified = TRUE;
+		}
 	}
 
 	if (ext->record_align < u->record_align ||
