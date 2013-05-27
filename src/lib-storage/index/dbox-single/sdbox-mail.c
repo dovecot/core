@@ -65,6 +65,7 @@ static int
 sdbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		       const char **value_r)
 {
+	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)_mail->box;
 	struct dbox_mail *mail = (struct dbox_mail *)_mail;
 	struct stat st;
 
@@ -82,9 +83,26 @@ sdbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		*value_r = p_strdup_printf(mail->imail.mail.data_pool, "%lu",
 					   (unsigned long)st.st_nlink);
 		return 0;
+	case MAIL_FETCH_UIDL_BACKEND:
+		if (!dbox_header_have_flag(&mbox->box, mbox->hdr_ext_id,
+				offsetof(struct sdbox_index_header, flags),
+				DBOX_INDEX_HEADER_FLAG_HAVE_POP3_UIDLS)) {
+			*value_r = "";
+			return 0;
+		}
+		break;
+	case MAIL_FETCH_POP3_ORDER:
+		if (!dbox_header_have_flag(&mbox->box, mbox->hdr_ext_id,
+				offsetof(struct sdbox_index_header, flags),
+				DBOX_INDEX_HEADER_FLAG_HAVE_POP3_ORDERS)) {
+			*value_r = "";
+			return 0;
+		}
+		break;
 	default:
-		return dbox_mail_get_special(_mail, field, value_r);
+		break;
 	}
+	return dbox_mail_get_special(_mail, field, value_r);
 }
 
 int sdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,

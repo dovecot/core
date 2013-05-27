@@ -16,6 +16,8 @@ struct dbox_save_context {
 
 	unsigned int failed:1;
 	unsigned int finished:1;
+	unsigned int have_pop3_uidls:1;
+	unsigned int have_pop3_orders:1;
 };
 
 void dbox_save_begin(struct dbox_save_context *ctx, struct istream *input);
@@ -28,5 +30,10 @@ void dbox_save_write_metadata(struct mail_save_context *ctx,
 			      guid_128_t guid_128_r) ATTR_NULL(4);
 
 void dbox_save_add_to_index(struct dbox_save_context *ctx);
+
+void dbox_save_update_header_flags(struct dbox_save_context *ctx,
+				   struct mail_index_view *sync_view,
+				   uint32_t ext_id,
+				   unsigned int flags_offset);
 
 #endif

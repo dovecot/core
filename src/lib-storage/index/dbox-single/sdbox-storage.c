@@ -138,7 +138,8 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 }
 
 int sdbox_read_header(struct sdbox_mailbox *mbox,
-		      struct sdbox_index_header *hdr, bool log_error)
+		      struct sdbox_index_header *hdr, bool log_error,
+		      bool *need_resize_r)
 {
 	struct mail_index_view *view;
 	const void *data;
@@ -173,6 +174,7 @@ int sdbox_read_header(struct sdbox_mailbox *mbox,
 		}
 	}
 	mail_index_view_close(&view);
+	*need_resize_r = data_size < sizeof(*hdr);
 	return ret;
 }
 
@@ -181,8 +183,9 @@ static void sdbox_update_header(struct sdbox_mailbox *mbox,
 				const struct mailbox_update *update)
 {
 	struct sdbox_index_header hdr, new_hdr;
+	bool need_resize;
 
-	if (sdbox_read_header(mbox, &hdr, TRUE) < 0)
+	if (sdbox_read_header(mbox, &hdr, TRUE, &need_resize) < 0)
 		memset(&hdr, 0, sizeof(hdr));
 
 	new_hdr = hdr;
@@ -194,6 +197,10 @@ static void sdbox_update_header(struct sdbox_mailbox *mbox,
 		guid_128_generate(new_hdr.mailbox_guid);
 	}
 
+	if (need_resize) {
+		mail_index_ext_resize_hdr(trans, mbox->hdr_ext_id,
+					  sizeof(new_hdr));
+	}
 	if (memcmp(&hdr, &new_hdr, sizeof(hdr)) != 0) {
 		mail_index_update_header_ext(trans, mbox->hdr_ext_id, 0,
 					     &new_hdr, sizeof(new_hdr));
@@ -278,8 +285,10 @@ void sdbox_set_mailbox_corrupted(struct mailbox *box)
 {
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
 	struct sdbox_index_header hdr;
+	bool need_resize;
 
-	if (sdbox_read_header(mbox, &hdr, TRUE) < 0 || hdr.rebuild_count == 0)
+	if (sdbox_read_header(mbox, &hdr, TRUE, &need_resize) < 0 ||
+	    hdr.rebuild_count == 0)
 		mbox->corrupted_rebuild_count = 1;
 	else
 		mbox->corrupted_rebuild_count = hdr.rebuild_count;
@@ -314,6 +323,7 @@ static int sdbox_mailbox_open(struct mailbox *box)
 {
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
 	struct sdbox_index_header hdr;
+	bool need_resize;
 
 	if (sdbox_mailbox_alloc_index(mbox) < 0)
 		return -1;
@@ -332,17 +342,17 @@ static int sdbox_mailbox_open(struct mailbox *box)
 	}
 
 	/* get/generate mailbox guid */
-	if (sdbox_read_header(mbox, &hdr, FALSE) < 0) {
+	if (sdbox_read_header(mbox, &hdr, FALSE, &need_resize) < 0) {
 		/* looks like the mailbox is corrupted */
 		(void)sdbox_sync(mbox, SDBOX_SYNC_FLAG_FORCE);
-		if (sdbox_read_header(mbox, &hdr, TRUE) < 0)
+		if (sdbox_read_header(mbox, &hdr, TRUE, &need_resize) < 0)
 			memset(&hdr, 0, sizeof(hdr));
 	}
 
 	if (guid_128_is_empty(hdr.mailbox_guid)) {
 		/* regenerate it */
 		if (sdbox_mailbox_create_indexes(box, NULL, NULL) < 0 ||
-		    sdbox_read_header(mbox, &hdr, TRUE) < 0)
+		    sdbox_read_header(mbox, &hdr, TRUE, &need_resize) < 0)
 			return -1;
 	}
 	memcpy(mbox->mailbox_guid, hdr.mailbox_guid,

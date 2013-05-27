@@ -164,10 +164,11 @@ sdbox_refresh_header(struct sdbox_mailbox *mbox, bool retry, bool log_error)
 {
 	struct mail_index_view *view;
 	struct sdbox_index_header hdr;
+	bool need_resize;
 	int ret;
 
 	view = mail_index_view_open(mbox->box.index);
-	ret = sdbox_read_header(mbox, &hdr, log_error);
+	ret = sdbox_read_header(mbox, &hdr, log_error, &need_resize);
 	mail_index_view_close(&view);
 
 	if (ret < 0 && retry) {

@@ -36,10 +36,14 @@ struct mbox_index_header {
 struct sdbox_index_header {
 	uint32_t rebuild_count;
 	guid_128_t mailbox_guid;
+	uint8_t flags;
+	uint8_t unused[3];
 };
 struct mdbox_index_header {
 	uint32_t map_uid_validity;
 	guid_128_t mailbox_guid;
+	uint8_t flags;
+	uint8_t unused[3];
 };
 struct mdbox_mail_index_record {
 	uint32_t map_uid;
@@ -122,11 +126,18 @@ static void dump_extension_header(struct mail_index *index,
 				  const struct mail_index_ext *ext)
 {
 	const void *data;
+	void *buf;
 
 	if (strcmp(ext->name, MAIL_INDEX_EXT_KEYWORDS) == 0)
 		return;
 
+	/* add some padding, since we don't bother to handle undersized
+	   headers correctly */
+	buf = t_malloc0(ext->hdr_size + 128);
 	data = CONST_PTR_OFFSET(index->map->hdr_base, ext->hdr_offset);
+	memcpy(buf, data, ext->hdr_size);
+	data = buf;
+
 	if (strcmp(ext->name, "hdr-vsize") == 0) {
 		const struct index_vsize_header *hdr = data;
 
@@ -164,6 +175,7 @@ static void dump_extension_header(struct mail_index *index,
 		printf(" - map_uid_validity .. = %u\n", hdr->map_uid_validity);
 		printf(" - mailbox_guid ...... = %s\n",
 		       guid_128_to_string(hdr->mailbox_guid));
+		printf(" - flags ............. = 0x%x\n", hdr->flags);
 	} else if (strcmp(ext->name, "dbox-hdr") == 0) {
 		const struct sdbox_index_header *hdr = data;
 
@@ -171,6 +183,7 @@ static void dump_extension_header(struct mail_index *index,
 		printf(" - rebuild_count . = %u\n", hdr->rebuild_count);
 		printf(" - mailbox_guid .. = %s\n",
 		       guid_128_to_string(hdr->mailbox_guid));
+		printf(" - flags ......... = 0x%x\n", hdr->flags);
 	} else if (strcmp(ext->name, "modseq") == 0) {
 		const struct mail_index_modseq_header *hdr = data;
 
@@ -241,8 +254,9 @@ static void dump_extensions(struct mail_index *index)
 		printf("record_offset = %u\n", ext->record_offset);
 		printf("record_size . = %u\n", ext->record_size);
 		printf("record_align  = %u\n", ext->record_align);
-		if (ext->hdr_size > 0)
+		if (ext->hdr_size > 0) T_BEGIN {
 			dump_extension_header(index, ext);
+		} T_END;
 	}
 }
 

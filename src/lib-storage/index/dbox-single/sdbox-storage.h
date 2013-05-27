@@ -13,6 +13,8 @@ struct sdbox_index_header {
 	/* increased every time a full mailbox rebuild is done */
 	uint32_t rebuild_count;
 	guid_128_t mailbox_guid;
+	uint8_t flags; /* enum dbox_index_header_flags */
+	uint8_t unused[3];
 };
 
 struct sdbox_storage {
@@ -37,7 +39,8 @@ int sdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 		    struct dbox_file **file_r);
 
 int sdbox_read_header(struct sdbox_mailbox *mbox,
-		      struct sdbox_index_header *hdr, bool log_error);
+		      struct sdbox_index_header *hdr, bool log_error,
+		      bool *need_resize_r);
 void sdbox_set_mailbox_corrupted(struct mailbox *box);
 
 struct mail_save_context *

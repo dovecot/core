@@ -163,10 +163,12 @@ void dbox_save_write_metadata(struct mail_save_context *_ctx,
 		i_assert(strchr(mdata->pop3_uidl, '\n') == NULL);
 		str_printfa(str, "%c%s\n", DBOX_METADATA_POP3_UIDL,
 			    mdata->pop3_uidl);
+		ctx->have_pop3_uidls = TRUE;
 	}
 	if (mdata->pop3_order != 0) {
 		str_printfa(str, "%c%u\n", DBOX_METADATA_POP3_ORDER,
 			    mdata->pop3_order);
+		ctx->have_pop3_orders = TRUE;
 	}
 
 	guid = mdata->guid;
@@ -192,4 +194,33 @@ void dbox_save_write_metadata(struct mail_save_context *_ctx,
 
 	str_append_c(str, '\n');
 	o_stream_nsend(output, str_data(str), str_len(str));
+}
+
+void dbox_save_update_header_flags(struct dbox_save_context *ctx,
+				   struct mail_index_view *sync_view,
+				   uint32_t ext_id,
+				   unsigned int flags_offset)
+{
+	const void *data;
+	size_t data_size;
+	uint8_t old_flags = 0, flags;
+
+	mail_index_get_header_ext(sync_view, ext_id, &data, &data_size);
+	if (flags_offset < data_size)
+		old_flags = *((const uint8_t *)data + flags_offset);
+	else {
+		/* grow old dbox header */
+		mail_index_ext_resize_hdr(ctx->trans, ext_id, flags_offset+1);
+	}
+
+	flags = old_flags;
+	if (ctx->have_pop3_uidls)
+		flags |= DBOX_INDEX_HEADER_FLAG_HAVE_POP3_UIDLS;
+	if (ctx->have_pop3_orders)
+		flags |= DBOX_INDEX_HEADER_FLAG_HAVE_POP3_ORDERS;
+	if (flags != old_flags) {
+		/* flags changed, update them */
+		mail_index_update_header_ext(ctx->trans, ext_id,
+					     flags_offset, &flags, 1);
+	}
 }

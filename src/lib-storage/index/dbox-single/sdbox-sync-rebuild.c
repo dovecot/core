@@ -140,8 +140,9 @@ static void sdbox_sync_update_header(struct index_rebuild_context *ctx)
 {
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)ctx->box;
 	struct sdbox_index_header hdr;
+	bool need_resize;
 
-	if (sdbox_read_header(mbox, &hdr, FALSE) < 0)
+	if (sdbox_read_header(mbox, &hdr, FALSE, &need_resize) < 0)
 		memset(&hdr, 0, sizeof(hdr));
 	if (guid_128_is_empty(hdr.mailbox_guid))
 		guid_128_generate(hdr.mailbox_guid);
@@ -187,9 +188,10 @@ int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox, bool force)
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
 	struct sdbox_index_header hdr;
+	bool need_resize;
 	int ret;
 
-	if (!force && sdbox_read_header(mbox, &hdr, FALSE) == 0) {
+	if (!force && sdbox_read_header(mbox, &hdr, FALSE, &need_resize) == 0) {
 		if (hdr.rebuild_count != mbox->corrupted_rebuild_count &&
 		    hdr.rebuild_count != 0) {
 			/* already rebuilt by someone else */

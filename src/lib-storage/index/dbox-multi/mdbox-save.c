@@ -314,6 +314,10 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		return -1;
 	}
 
+	/* update dbox header flags */
+	dbox_save_update_header_flags(&ctx->ctx, ctx->sync_ctx->sync_view,
+		ctx->mbox->hdr_ext_id, offsetof(struct mdbox_index_header, flags));
+
 	/* assign UIDs for new messages */
 	hdr = mail_index_get_header(ctx->sync_ctx->sync_view);
 	mail_index_append_finish_uids(ctx->ctx.trans, hdr->next_uid,

@@ -17,6 +17,8 @@
 struct mdbox_index_header {
 	uint32_t map_uid_validity;
 	guid_128_t mailbox_guid;
+	uint8_t flags; /* enum dbox_index_header_flags */
+	uint8_t unused[3];
 };
 
 struct mdbox_storage {
@@ -69,7 +71,7 @@ int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,
 		      uint32_t seq, uint32_t *map_uid_r);
 uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list);
 int mdbox_read_header(struct mdbox_mailbox *mbox,
-		      struct mdbox_index_header *hdr);
+		      struct mdbox_index_header *hdr, bool *need_resize_r);
 void mdbox_update_header(struct mdbox_mailbox *mbox,
 			 struct mail_index_transaction *trans,
 			 const struct mailbox_update *update) ATTR_NULL(3);

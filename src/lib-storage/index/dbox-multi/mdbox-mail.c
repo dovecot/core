@@ -21,6 +21,7 @@ int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,
 	struct mdbox_index_header hdr;
 	const void *data;
 	uint32_t uid, cur_map_uid_validity;
+	bool need_resize;
 
 	mail_index_lookup_ext(view, seq, mbox->ext_id, &data, NULL);
 	dbox_rec = data;
@@ -34,7 +35,7 @@ int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,
 	}
 
 	if (mbox->map_uid_validity == 0) {
-		if (mdbox_read_header(mbox, &hdr) < 0)
+		if (mdbox_read_header(mbox, &hdr, &need_resize) < 0)
 			return -1;
 		mbox->map_uid_validity = hdr.map_uid_validity;
 	}
@@ -190,9 +191,26 @@ mdbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		*value_r = p_strdup_printf(mail->imail.mail.data_pool, "%u",
 					   refcount);
 		return 0;
+	case MAIL_FETCH_UIDL_BACKEND:
+		if (!dbox_header_have_flag(&mbox->box, mbox->hdr_ext_id,
+				offsetof(struct mdbox_index_header, flags),
+				DBOX_INDEX_HEADER_FLAG_HAVE_POP3_UIDLS)) {
+			*value_r = "";
+			return 0;
+		}
+		break;
+	case MAIL_FETCH_POP3_ORDER:
+		if (!dbox_header_have_flag(&mbox->box, mbox->hdr_ext_id,
+				offsetof(struct mdbox_index_header, flags),
+				DBOX_INDEX_HEADER_FLAG_HAVE_POP3_ORDERS)) {
+			*value_r = "";
+			return 0;
+		}
+		break;
 	default:
-		return dbox_mail_get_special(_mail, field, value_r);
+		break;
 	}
+	return dbox_mail_get_special(_mail, field, value_r);
 }
 
 static void

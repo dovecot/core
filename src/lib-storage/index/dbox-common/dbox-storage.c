@@ -336,3 +336,16 @@ int dbox_verify_alt_storage(struct mailbox_list *list)
 		return -1;
 	return 0;
 }
+
+bool dbox_header_have_flag(struct mailbox *box, uint32_t ext_id,
+			   unsigned int flags_offset, uint8_t flag)
+{
+	const void *data;
+	size_t data_size;
+	uint8_t flags = 0;
+
+	mail_index_get_header_ext(box->view, ext_id, &data, &data_size);
+	if (flags_offset < data_size)
+		flags = *((const uint8_t *)data + flags_offset);
+	return (flags & flag) != 0;
+}
