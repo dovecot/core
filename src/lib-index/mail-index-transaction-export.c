@@ -86,6 +86,7 @@ static void log_append_ext_intro(struct mail_index_export_context *ctx,
 {
 	struct mail_index_transaction *t = ctx->trans;
 	const struct mail_index_registered_ext *rext;
+	const struct mail_index_ext *ext;
         struct mail_transaction_ext_intro *intro, *resizes;
 	buffer_t *buf;
 	uint32_t idx;
@@ -120,12 +121,19 @@ static void log_append_ext_intro(struct mail_index_export_context *ctx,
 		/* generate a new intro structure */
 		intro = buffer_append_space_unsafe(buf, sizeof(*intro));
 		intro->ext_id = idx;
-		intro->hdr_size = rext->hdr_size;
-		intro->record_size = rext->record_size;
-		intro->record_align = rext->record_align;
+		if (idx == (uint32_t)-1) {
+			intro->hdr_size = rext->hdr_size;
+			intro->record_size = rext->record_size;
+			intro->record_align = rext->record_align;
+			intro->name_size = strlen(rext->name);
+		} else {
+			ext = array_idx(&t->view->index->map->extensions, idx);
+			intro->hdr_size = ext->hdr_size;
+			intro->record_size = ext->record_size;
+			intro->record_align = ext->record_align;
+			intro->name_size = 0;
+		}
 		intro->flags = MAIL_TRANSACTION_EXT_INTRO_FLAG_NO_SHRINK;
-		intro->name_size = idx != (uint32_t)-1 ? 0 :
-			strlen(rext->name);
 	}
 	if (reset_id != 0) {
 		/* we're going to reset this extension in this transaction */
