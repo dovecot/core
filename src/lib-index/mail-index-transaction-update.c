@@ -717,7 +717,7 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 			   uint16_t record_align)
 {
 	struct mail_transaction_ext_intro intro;
-	uint32_t old_record_size, old_record_align;
+	uint32_t old_record_size, old_record_align, old_header_size;
 
 	memset(&intro, 0, sizeof(intro));
 
@@ -730,17 +730,20 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 		rext = array_idx(&t->view->index->extensions, ext_id);
 		old_record_size = rext->record_size;
 		old_record_align = rext->record_align;
+		old_header_size = rext->hdr_size;
 	} else {
 		const struct mail_index_ext *ext;
 
 		ext = array_idx(&t->view->map->extensions, intro.ext_id);
 		old_record_size = ext->record_size;
 		old_record_align = ext->record_align;
+		old_header_size = ext->hdr_size;
 	}
 
 	/* allow only header size changes if extension records have already
 	   been changed in transaction */
 	i_assert(!array_is_created(&t->ext_rec_updates) ||
+		 record_size == (uint16_t)-1 ||
 		 (old_record_size == record_size &&
 		  old_record_align == record_align));
 
@@ -749,11 +752,24 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 	if (!array_is_created(&t->ext_resizes))
 		i_array_init(&t->ext_resizes, ext_id + 2);
 
-	intro.hdr_size = hdr_size;
-	intro.record_size = record_size;
-	intro.record_align = record_align;
+	intro.hdr_size = hdr_size != (uint32_t)-1 ? hdr_size : old_header_size;
+	if (record_size != (uint16_t)-1) {
+		i_assert(record_align != (uint16_t)-1);
+		intro.record_size = record_size;
+		intro.record_align = record_align;
+	} else {
+		i_assert(record_align == (uint16_t)-1);
+		intro.record_size = old_record_size;
+		intro.record_align = old_record_align;
+	}
 	intro.name_size = 1;
 	array_idx_set(&t->ext_resizes, ext_id, &intro);
+}
+
+void mail_index_ext_resize_hdr(struct mail_index_transaction *t,
+			       uint32_t ext_id, uint32_t hdr_size)
+{
+	mail_index_ext_resize(t, ext_id, hdr_size, (uint16_t)-1, (uint16_t)-1);
 }
 
 void mail_index_ext_reset(struct mail_index_transaction *t, uint32_t ext_id,

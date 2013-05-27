@@ -555,6 +555,9 @@ bool mail_index_ext_lookup(struct mail_index *index, const char *name,
 void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 			   uint32_t hdr_size, uint16_t record_size,
 			   uint16_t record_align);
+/* Resize header, keeping the old record size. */
+void mail_index_ext_resize_hdr(struct mail_index_transaction *t,
+			       uint32_t ext_id, uint32_t hdr_size);
 
 /* Reset extension. Any updates for this extension which were issued before the
    writer had seen this reset are discarded. reset_id is used to figure this
