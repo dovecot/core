@@ -190,6 +190,10 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 
 	memset(&info, 0, sizeof(info));
 	info.service = master_service_get_name(master_service);
+	info.local_ip = input->local_ip;
+	info.remote_ip = input->remote_ip;
+	info.local_port = input->local_port;
+	info.remote_port = input->remote_port;
 
 	pool = pool_alloconly_create("auth lookup", 1024);
 	auth_conn = mail_storage_service_get_auth_conn(ctx->storage_service);

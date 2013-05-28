@@ -12,6 +12,7 @@ struct client_connection {
 	struct ostream *output;
 	struct ssl_iostream *ssl_iostream;
 	struct ip_addr local_ip, remote_ip;
+	unsigned int local_port, remote_port;
 	const struct doveadm_settings *set;
 
 	unsigned int handshaked:1;

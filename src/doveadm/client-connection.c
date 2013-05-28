@@ -166,6 +166,10 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 
 	memset(&input, 0, sizeof(input));
 	input.service = "doveadm";
+	input.local_ip = conn->local_ip;
+	input.remote_ip = conn->remote_ip;
+	input.local_port = conn->local_port;
+	input.remote_port = conn->remote_port;
 
 	for (argc = 0; args[argc] != NULL; argc++)
 		args[argc] = str_tabunescape(args[argc]);
@@ -390,7 +394,6 @@ struct client_connection *
 client_connection_create(int fd, int listen_fd, bool ssl)
 {
 	struct client_connection *conn;
-	unsigned int port;
 	pool_t pool;
 
 	pool = pool_alloconly_create("doveadm client", 1024*16);
@@ -402,8 +405,8 @@ client_connection_create(int fd, int listen_fd, bool ssl)
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
-	(void)net_getsockname(fd, &conn->local_ip, &port);
-	(void)net_getpeername(fd, &conn->remote_ip, &port);
+	(void)net_getsockname(fd, &conn->local_ip, &conn->local_port);
+	(void)net_getpeername(fd, &conn->remote_ip, &conn->remote_port);
 
 	if (client_connection_read_settings(conn) < 0) {
 		client_connection_destroy(&conn);
