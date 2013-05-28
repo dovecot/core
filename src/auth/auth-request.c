@@ -1656,6 +1656,7 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 	}
 	if (ctx->callback != NULL)
 		ctx->callback(result->ret == 0, request);
+	auth_request_unref(&request);
 }
 
 static int auth_request_proxy_host_lookup(struct auth_request *request,
@@ -1683,12 +1684,14 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 
 	ctx = p_new(request->pool, struct auth_request_proxy_dns_lookup_ctx, 1);
 	ctx->request = request;
+	auth_request_ref(request);
 
 	if (dns_lookup(host, &dns_set, auth_request_proxy_dns_callback, ctx,
 		       &ctx->dns_lookup) < 0) {
 		/* failed early */
 		request->internal_failure = TRUE;
 		auth_request_proxy_finish_failure(request);
+		auth_request_unref(&request);
 		return -1;
 	}
 	ctx->callback = callback;
