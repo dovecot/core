@@ -10,6 +10,7 @@
 #include "hash.h"
 #include "aqueue.h"
 #include "str.h"
+#include "time-util.h"
 #include "env-util.h"
 #include "var-expand.h"
 #include "settings.h"
@@ -1099,11 +1100,17 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 
 int db_ldap_connect(struct ldap_connection *conn)
 {
+	bool debug = atoi(conn->set.debug_level) > 0;
+	struct timeval start, end;
 	int ret;
 
 	if (conn->conn_state != LDAP_CONN_STATE_DISCONNECTED)
 		return 0;
 
+	if (debug) {
+		if (gettimeofday(&start, NULL) < 0)
+			memset(&start, 0, sizeof(start));
+	}
 	i_assert(conn->pending_count == 0);
 	if (conn->ld == NULL) {
 		if (conn->set.uris != NULL) {
@@ -1169,6 +1176,12 @@ int db_ldap_connect(struct ldap_connection *conn)
 	} else {
 		if (db_ldap_bind(conn) < 0)
 			return -1;
+	}
+	if (debug) {
+		if (gettimeofday(&end, NULL) == 0) {
+			int msecs = timeval_diff_msecs(&end, &start);
+			i_debug("LDAP initialization took %d msecs", msecs);
+		}
 	}
 
 	db_ldap_get_fd(conn);
