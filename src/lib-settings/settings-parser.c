@@ -362,12 +362,14 @@ int settings_get_time(const char *str, unsigned int *secs_r,
 	switch (i_toupper(*p)) {
 	case 'S':
 		multiply = 1;
-		if (strncasecmp(p, "secs", strlen(p)) == 0)
+		if (strncasecmp(p, "secs", strlen(p)) == 0 ||
+		    strncasecmp(p, "seconds", strlen(p)) == 0)
 			p = "";
 		break;
 	case 'M':
 		multiply = 60;
-		if (strncasecmp(p, "mins", strlen(p)) == 0)
+		if (strncasecmp(p, "mins", strlen(p)) == 0 ||
+		    strncasecmp(p, "minutes", strlen(p)) == 0)
 			p = "";
 		break;
 	case 'H':
