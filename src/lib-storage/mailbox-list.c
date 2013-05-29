@@ -1454,6 +1454,8 @@ int mailbox_list_mkdir_missing_index_root(struct mailbox_list *list)
 					 &index_dir);
 	if (ret <= 0)
 		return ret;
+	if (index_dir[0] == '\0')
+		return 0;
 	ret = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
 					 &root_dir);
 	if (ret <= 0)
