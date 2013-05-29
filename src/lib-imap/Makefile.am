@@ -44,6 +44,7 @@ test_programs = \
 	test-imap-bodystructure \
 	test-imap-match \
 	test-imap-parser \
+	test-imap-quote \
 	test-imap-url \
 	test-imap-utf7 \
 	test-imap-util
@@ -67,6 +68,10 @@ test_imap_match_DEPENDENCIES = $(test_deps)
 test_imap_parser_SOURCES = test-imap-parser.c
 test_imap_parser_LDADD = imap-parser.lo imap-arg.lo $(test_libs)
 test_imap_parser_DEPENDENCIES = $(test_deps)
+
+test_imap_quote_SOURCES = test-imap-quote.c
+test_imap_quote_LDADD = imap-quote.lo $(test_libs)
+test_imap_quote_DEPENDENCIES = $(test_deps)
 
 test_imap_url_SOURCES = test-imap-url.c
 test_imap_url_LDADD = imap-url.lo  $(test_libs)

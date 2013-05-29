@@ -119,7 +119,7 @@ void imap_append_string_for_humans(string_t *dest,
 				   const unsigned char *src, size_t size)
 {
 	size_t i, pos, remove_count = 0;
-	bool last_lwsp = TRUE, modify = FALSE;
+	bool whitespace_prefix = TRUE, last_lwsp = TRUE, modify = FALSE;
 
 	/* first check if there is anything to change */
 	for (i = 0; i < size; i++) {
@@ -155,8 +155,10 @@ void imap_append_string_for_humans(string_t *dest,
 			last_lwsp = FALSE;
 			break;
 		}
+		if (!last_lwsp)
+			whitespace_prefix = FALSE;
 	}
-	if (last_lwsp && i > 0) {
+	if (last_lwsp && i > 0 && !whitespace_prefix) {
 		modify = TRUE;
 		remove_count++;
 	}
@@ -168,11 +170,16 @@ void imap_append_string_for_humans(string_t *dest,
 		str_append_c(dest, '"');
 		return;
 	}
+	if (size == remove_count) {
+		/* contained only whitespace */
+		str_append(dest, "\"\"");
+		return;
+	}
 
 	str_printfa(dest, "{%"PRIuSIZE_T"}\r\n", size - remove_count);
 	pos = str_len(dest);
 
-	last_lwsp = TRUE;
+	last_lwsp = TRUE; whitespace_prefix = TRUE;
 	for (i = 0; i < size; i++) {
 		switch (src[i]) {
 		case 0:
@@ -193,8 +200,10 @@ void imap_append_string_for_humans(string_t *dest,
 			str_append_c(dest, src[i]);
 			break;
 		}
+		if (!last_lwsp)
+			whitespace_prefix = FALSE;
 	}
-	if (last_lwsp)
+	if (last_lwsp && i > 0 && !whitespace_prefix)
 		str_truncate(dest, str_len(dest)-1);
 	i_assert(str_len(dest) - pos == size - remove_count);
 }
