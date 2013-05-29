@@ -142,7 +142,7 @@
 #endif
 
 /* Macros to provide type safety for callback functions' context parameters */
-#ifdef __GNUC__
+#if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 3))
 #  define CALLBACK_TYPECHECK(callback, type) \
 	(COMPILE_ERROR_IF_TRUE(!__builtin_types_compatible_p( \
 		typeof(&callback), type)) ? 1 : 0)
