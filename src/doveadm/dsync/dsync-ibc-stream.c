@@ -73,7 +73,7 @@ static const struct {
 	  .chr = 'H',
 	  .required_keys = "hostname",
 	  .optional_keys = "sync_ns_prefix sync_box sync_box_guid sync_type "
-	  	"debug sync_visible_namespaces exclude_mailboxes"
+	  	"debug sync_visible_namespaces exclude_mailboxes "
 	  	"send_mail_requests backup_send backup_recv lock_timeout"
 	},
 	{ .name = "mailbox_state",
