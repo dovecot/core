@@ -1271,8 +1271,15 @@ bool mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 			set->control_dir : set->root_dir;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
-		path = set->index_dir != NULL ?
-			set->index_dir : set->root_dir;
+		if (set->index_dir != NULL) {
+			if (set->index_dir[0] == '\0') {
+				/* in-memory indexes */
+				return 0;
+			}
+			path = set->index_dir;
+		} else {
+			path = set->root_dir;
+		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
 		path = set->index_pvt_dir;
