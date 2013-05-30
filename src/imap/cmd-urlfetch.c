@@ -255,10 +255,11 @@ cmd_urlfetch_url_callback(struct imap_urlauth_fetch_reply *reply,
 			  bool last, void *context)
 {
 	struct client_command_context *cmd = context;
+	struct client *client = cmd->client;
 	struct cmd_urlfetch_context *ctx = cmd->context;
 	int ret;
 
-	o_stream_cork(cmd->client->output);
+	o_stream_cork(client->output);
 	if (reply == NULL) {
 		/* fatal failure */
 		ctx->failed = TRUE;
@@ -273,20 +274,20 @@ cmd_urlfetch_url_callback(struct imap_urlauth_fetch_reply *reply,
 		str_append(response, "* URLFETCH ");
 		imap_append_astring(response, reply->url);
 		str_append(response, " NIL");
-		client_send_line(cmd->client, str_c(response));
+		client_send_line(client, str_c(response));
 		if (reply->error != NULL) {
-			client_send_line(cmd->client, t_strdup_printf(
+			client_send_line(client, t_strdup_printf(
 				"* NO %s.", reply->error));
 		}
 		ret = 1;
 	}
-	o_stream_uncork(cmd->client->output);
 
 	if ((last && cmd->state == CLIENT_COMMAND_STATE_WAIT_EXTERNAL) ||
 	    ret < 0) {
 		cmd_urlfetch_finish(cmd);
 		client_command_free(&cmd);
 	}
+	o_stream_uncork(client->output);
 	return ret;
 }
 
