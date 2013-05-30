@@ -393,13 +393,6 @@ auth_worker_call(pool_t pool, const char *data,
 	struct auth_worker_connection *conn;
 	struct auth_worker_request *request;
 
-	if (worker_request_queue == NULL) {
-		/* we're deinitializing */
-		callback(t_strdup_printf("FAIL\t%d",
-			PASSDB_RESULT_INTERNAL_FAILURE), context);
-		return NULL;
-	}
-
 	request = p_new(pool, struct auth_worker_request, 1);
 	request->created = ioloop_time;
 	request->data = p_strdup(pool, data);
