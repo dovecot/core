@@ -121,10 +121,13 @@ static void imap_urlauth_fetch_unref(struct imap_urlauth_fetch **_ufetch)
 	i_assert(ufetch->refcount > 0);
 
 	*_ufetch = NULL;
-	if (--ufetch->refcount > 0)
+	if (ufetch->refcount-1 > 0)
 		return;
 
 	imap_urlauth_fetch_abort(ufetch);
+
+	ufetch->refcount--;
+	i_assert(ufetch->refcount == 0);
 
 	/* dont leave the connection in limbo; make sure resume is called */
 	if (ufetch->waiting_service)
