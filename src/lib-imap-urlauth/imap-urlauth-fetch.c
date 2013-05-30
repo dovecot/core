@@ -311,6 +311,7 @@ imap_urlauth_fetch_request_callback(struct imap_urlauth_fetch_reply *reply,
 		ufetch->pending_reply.size = reply->size;
 		ufetch->pending_reply.succeeded = reply->succeeded;
 		ufetch->pending_reply.binary_has_nuls = reply->binary_has_nuls;
+		ufetch->waiting_service = TRUE;
 		return 0;
 	}
 
@@ -479,6 +480,9 @@ static bool imap_urlauth_fetch_do_continue(struct imap_urlauth_fetch *ufetch)
 			ufetch->pending_requests++;
 			return TRUE;
 		}
+
+		ufetch->waiting_service = FALSE;
+		imap_urlauth_connection_continue(ufetch->uctx->conn);
 	}
 
 	/* handle pending local urls */
