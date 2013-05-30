@@ -516,3 +516,7 @@ bool imap_urlauth_fetch_continue(struct imap_urlauth_fetch *ufetch)
 	return pending;
 }
 
+bool imap_urlauth_fetch_is_pending(struct imap_urlauth_fetch *ufetch)
+{
+	return ufetch->pending_requests > 0;
+}

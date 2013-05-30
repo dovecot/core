@@ -357,7 +357,6 @@ bool cmd_urlfetch(struct client_command_context *cmd)
 	const struct cmd_urlfetch_url *url;
 	const struct imap_arg *args;
 	struct cmd_urlfetch_url *ufurl;
-	int ret;
 
 	if (client->urlauth_ctx == NULL) {
 		client_send_command_error(cmd, "URLAUTH disabled.");
@@ -387,17 +386,16 @@ bool cmd_urlfetch(struct client_command_context *cmd)
 	ctx->ufetch = imap_urlauth_fetch_init(client->urlauth_ctx,
 					      cmd_urlfetch_url_callback, cmd);
 
-	ret = 1;
 	array_foreach(&urls, url) {
-		ret = imap_urlauth_fetch_url(ctx->ufetch, url->url, url->flags);
-		if (ret < 0) {
+		if (imap_urlauth_fetch_url(ctx->ufetch, url->url, url->flags) < 0) {
 			/* fatal error */
 			ctx->failed = TRUE;
 			break;
 		}
 	}
 
-	if (ret != 0 && cmd->client->output_cmd_lock != cmd) {
+	if ((ctx->failed || !imap_urlauth_fetch_is_pending(ctx->ufetch))
+		&& cmd->client->output_cmd_lock != cmd) {
 		/* finished */
 		cmd_urlfetch_finish(cmd);
 		return TRUE;

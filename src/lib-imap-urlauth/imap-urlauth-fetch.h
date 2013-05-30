@@ -45,6 +45,8 @@ void imap_urlauth_fetch_deinit(struct imap_urlauth_fetch **ufetch);
 
 int imap_urlauth_fetch_url(struct imap_urlauth_fetch *ufetch, const char *url,
 			   enum imap_urlauth_fetch_flags url_flags);
+
 bool imap_urlauth_fetch_continue(struct imap_urlauth_fetch *ufetch);
+bool imap_urlauth_fetch_is_pending(struct imap_urlauth_fetch *ufetch);
 
 #endif
