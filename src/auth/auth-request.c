@@ -1689,9 +1689,6 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 	if (dns_lookup(host, &dns_set, auth_request_proxy_dns_callback, ctx,
 		       &ctx->dns_lookup) < 0) {
 		/* failed early */
-		request->internal_failure = TRUE;
-		auth_request_proxy_finish_failure(request);
-		auth_request_unref(&request);
 		return -1;
 	}
 	ctx->callback = callback;
