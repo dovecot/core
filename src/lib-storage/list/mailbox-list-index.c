@@ -23,17 +23,25 @@ void mailbox_list_index_set_index_error(struct mailbox_list *list)
 	mail_index_reset_error(ilist->index);
 }
 
+static void mailbox_list_index_init_pool(struct mailbox_list_index *ilist)
+{
+	ilist->mailbox_pool = pool_alloconly_create("mailbox list index", 4096);
+	hash_table_create_direct(&ilist->mailbox_names, ilist->mailbox_pool, 0);
+	hash_table_create_direct(&ilist->mailbox_hash, ilist->mailbox_pool, 0);
+}
+
 void mailbox_list_index_reset(struct mailbox_list_index *ilist)
 {
-	i_assert(ilist->iter_refcount == 0);
+	hash_table_destroy(&ilist->mailbox_names);
+	hash_table_destroy(&ilist->mailbox_hash);
+	pool_unref(&ilist->mailbox_pool);
 
-	hash_table_clear(ilist->mailbox_names, TRUE);
-	hash_table_clear(ilist->mailbox_hash, TRUE);
-	p_clear(ilist->mailbox_pool);
 	ilist->mailbox_tree = NULL;
 	ilist->highest_name_id = 0;
 	ilist->sync_log_file_seq = 0;
 	ilist->sync_log_file_offset = 0;
+
+	mailbox_list_index_init_pool(ilist);
 }
 
 static int mailbox_list_index_index_open(struct mailbox_list *list)
@@ -300,8 +308,6 @@ int mailbox_list_index_parse(struct mailbox_list *list,
 	const struct mail_index_header *hdr;
 	const char *error;
 
-	i_assert(ilist->iter_refcount == 0);
-
 	hdr = mail_index_get_header(view);
 	if (!force &&
 	    hdr->log_file_seq == ilist->sync_log_file_seq &&
@@ -356,11 +362,6 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 	struct mail_index_view *view;
 	int ret;
-
-	if (ilist->iter_refcount > 0) {
-		/* someone's already iterating. don't break them. */
-		return 0;
-	}
 
 	if (mailbox_list_index_index_open(list) < 0)
 		return -1;
@@ -608,10 +609,7 @@ static void mailbox_list_index_init_finish(struct mailbox_list *list)
 	ilist->subs_hdr_ext_id = mail_index_ext_register(ilist->index, "subs",
 							 sizeof(uint32_t), 0,
 							 sizeof(uint32_t));
-
-	ilist->mailbox_pool = pool_alloconly_create("mailbox list index", 4096);
-	hash_table_create_direct(&ilist->mailbox_names, ilist->mailbox_pool, 0);
-	hash_table_create_direct(&ilist->mailbox_hash, ilist->mailbox_pool, 0);
+	mailbox_list_index_init_pool(ilist);
 
 	mailbox_list_index_status_init_finish(list);
 }

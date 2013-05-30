@@ -59,7 +59,8 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 		ctx->info.ns = list->ns;
 		ctx->path = str_new(pool, 128);
 		ctx->next_node = ilist->mailbox_tree;
-		ilist->iter_refcount++;
+		ctx->mailbox_pool = ilist->mailbox_pool;
+		pool_ref(ctx->mailbox_pool);
 	}
 	return &ctx->ctx;
 }
@@ -188,10 +189,8 @@ int mailbox_list_index_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 
 	if (ctx->backend_ctx != NULL)
 		ret = ilist->module_ctx.super.iter_deinit(ctx->backend_ctx);
-	else {
-		i_assert(ilist->iter_refcount > 0);
-		ilist->iter_refcount--;
-	}
+	else
+		pool_unref(&ctx->mailbox_pool);
 
 	pool_unref(&ctx->info_pool);
 	pool_unref(&_ctx->pool);
