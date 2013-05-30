@@ -22,6 +22,7 @@ struct cmd_urlfetch_context {
 	unsigned int failed:1;
 	unsigned int finished:1;
 	unsigned int extended:1;
+	unsigned int in_io_handler:1;
 };
 
 struct cmd_urlfetch_url {
@@ -132,6 +133,7 @@ static bool cmd_urlfetch_continue(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct cmd_urlfetch_context *ctx =
 		(struct cmd_urlfetch_context *)cmd->context;
+	bool urls_pending;
 	int ret = 1;
 
 	if (cmd->cancel)
@@ -158,7 +160,11 @@ static bool cmd_urlfetch_continue(struct client_command_context *cmd)
 		client_send_line(client, "");
 	client->output_cmd_lock = NULL;
 
-	if (imap_urlauth_fetch_continue(ctx->ufetch)) {
+	ctx->in_io_handler = TRUE;
+	urls_pending = imap_urlauth_fetch_continue(ctx->ufetch);
+	ctx->in_io_handler = FALSE;
+
+	if (urls_pending) {
 		/* waiting for imap urlauth service */
 		cmd->state = CLIENT_COMMAND_STATE_WAIT_EXTERNAL;
 		cmd->func = cmd_urlfetch_cancel;
@@ -257,9 +263,11 @@ cmd_urlfetch_url_callback(struct imap_urlauth_fetch_reply *reply,
 	struct client_command_context *cmd = context;
 	struct client *client = cmd->client;
 	struct cmd_urlfetch_context *ctx = cmd->context;
+	bool in_io_handler = ctx->in_io_handler;
 	int ret;
 
-	o_stream_cork(client->output);
+	if (!in_io_handler)
+		o_stream_cork(client->output);
 	if (reply == NULL) {
 		/* fatal failure */
 		ctx->failed = TRUE;
@@ -287,7 +295,8 @@ cmd_urlfetch_url_callback(struct imap_urlauth_fetch_reply *reply,
 		cmd_urlfetch_finish(cmd);
 		client_command_free(&cmd);
 	}
-	o_stream_uncork(client->output);
+	if (!in_io_handler)
+		o_stream_uncork(client->output);
 	return ret;
 }
 
@@ -387,6 +396,7 @@ bool cmd_urlfetch(struct client_command_context *cmd)
 	ctx->ufetch = imap_urlauth_fetch_init(client->urlauth_ctx,
 					      cmd_urlfetch_url_callback, cmd);
 
+	ctx->in_io_handler = TRUE;
 	array_foreach(&urls, url) {
 		if (imap_urlauth_fetch_url(ctx->ufetch, url->url, url->flags) < 0) {
 			/* fatal error */
@@ -394,6 +404,7 @@ bool cmd_urlfetch(struct client_command_context *cmd)
 			break;
 		}
 	}
+	ctx->in_io_handler = FALSE;
 
 	if ((ctx->failed || !imap_urlauth_fetch_is_pending(ctx->ufetch))
 		&& cmd->client->output_cmd_lock != cmd) {
