@@ -320,9 +320,13 @@ static void imap_urlauth_request_free(struct imap_urlauth_request *urlreq)
 void imap_urlauth_request_abort(struct imap_urlauth_connection *conn,
 				struct imap_urlauth_request *urlreq)
 {
-	if (urlreq->callback != NULL) {
+	imap_urlauth_request_callback_t *callback;
+
+	callback = urlreq->callback;
+	urlreq->callback = NULL;
+	if (callback != NULL) {
 		T_BEGIN {
-			urlreq->callback(NULL, urlreq->context);
+			callback(NULL, urlreq->context);
 		} T_END;
 	}
 
@@ -331,7 +335,6 @@ void imap_urlauth_request_abort(struct imap_urlauth_connection *conn,
 	    conn->targets_head->requests_head == urlreq) {
 		/* cannot just drop pending request without breaking
 		   protocol state */
-		urlreq->callback = NULL;
 		return;
 	}
 	imap_urlauth_request_free(urlreq);
@@ -343,22 +346,26 @@ imap_urlauth_request_fail(struct imap_urlauth_connection *conn,
 			  const char *error)
 {
 	struct imap_urlauth_fetch_reply reply;
+	imap_urlauth_request_callback_t *callback;
 
-	memset(&reply, 0, sizeof(reply));
-	reply.url = urlreq->url;
-	reply.flags = urlreq->flags;
-	reply.succeeded = FALSE;
-	reply.error = error;
+	callback = urlreq->callback;
+	urlreq->callback = NULL;
+	if (callback != NULL) {
+		memset(&reply, 0, sizeof(reply));
+		reply.url = urlreq->url;
+		reply.flags = urlreq->flags;
+		reply.succeeded = FALSE;
+		reply.error = error;
 
-	if (urlreq->callback != NULL) T_BEGIN {
-		(void)urlreq->callback(&reply, urlreq->context);
-	} T_END;
+		T_BEGIN {
+			(void)callback(&reply, urlreq->context);
+		} T_END;
+	}
 
 	if (conn->state == IMAP_URLAUTH_STATE_REQUEST_PENDING &&
 	    conn->targets_head != NULL &&
 	    conn->targets_head->requests_head == urlreq) {
 		/* cannot just drop pending request without breaking protocol state */
-		urlreq->callback = NULL;
 		return;
 	}
 
@@ -617,6 +624,7 @@ imap_urlauth_connection_read_literal(struct imap_urlauth_connection *conn)
 {
 	struct imap_urlauth_request *urlreq = conn->targets_head->requests_head;
 	struct imap_urlauth_fetch_reply reply;
+	imap_urlauth_request_callback_t *callback;
 	int ret;
 
 	i_assert(conn->reading_literal);
@@ -643,8 +651,10 @@ imap_urlauth_connection_read_literal(struct imap_urlauth_connection *conn)
 	reply.succeeded = TRUE;
 
 	ret = 1;
-	if (urlreq->callback != NULL) T_BEGIN {
-		ret = urlreq->callback(&reply, urlreq->context);
+	callback = urlreq->callback;
+	urlreq->callback = NULL;
+	if (callback != NULL) T_BEGIN {
+		ret = callback(&reply, urlreq->context);
 	} T_END;
 
 	if (reply.input != NULL)
