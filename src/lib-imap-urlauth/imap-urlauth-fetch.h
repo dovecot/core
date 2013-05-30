@@ -1,6 +1,7 @@
 #ifndef IMAP_URLAUTH_FETCH_H
 #define IMAP_URLAUTH_FETCH_H
 
+struct imap_url;
 struct imap_urlauth_context;
 struct imap_urlauth_fetch;
 
@@ -44,6 +45,9 @@ imap_urlauth_fetch_init(struct imap_urlauth_context *uctx,
 void imap_urlauth_fetch_deinit(struct imap_urlauth_fetch **ufetch);
 
 int imap_urlauth_fetch_url(struct imap_urlauth_fetch *ufetch, const char *url,
+			   enum imap_urlauth_fetch_flags url_flags);
+int imap_urlauth_fetch_url_parsed(struct imap_urlauth_fetch *ufetch,
+			   const char *url, struct imap_url *imap_url,
 			   enum imap_urlauth_fetch_flags url_flags);
 
 bool imap_urlauth_fetch_continue(struct imap_urlauth_fetch *ufetch);

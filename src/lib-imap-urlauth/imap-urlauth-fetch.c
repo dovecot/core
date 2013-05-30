@@ -348,7 +348,6 @@ int imap_urlauth_fetch_url(struct imap_urlauth_fetch *ufetch, const char *url,
 	struct mail_user *mail_user = uctx->user;
 	struct imap_url *imap_url;
 	const char *error, *errormsg;
-	int ret = 0;
 
 	/* parse the url */
 	if (imap_url_parse(url, NULL, url_parse_flags, &imap_url, &error) < 0) {
@@ -362,6 +361,18 @@ int imap_urlauth_fetch_url(struct imap_urlauth_fetch *ufetch, const char *url,
 		imap_urlauth_fetch_unref(&ufetch);
 		return 1;
 	}
+
+	return imap_urlauth_fetch_url_parsed(ufetch, url, imap_url, url_flags);
+}
+
+int imap_urlauth_fetch_url_parsed(struct imap_urlauth_fetch *ufetch,
+			   const char *url, struct imap_url *imap_url,
+			   enum imap_urlauth_fetch_flags url_flags)
+{
+	struct imap_urlauth_context *uctx = ufetch->uctx;
+	struct mail_user *mail_user = uctx->user;
+	const char *error, *errormsg;
+	int ret = 0;
 
 	ufetch->failed = FALSE;
 	ufetch->pending_requests++;
