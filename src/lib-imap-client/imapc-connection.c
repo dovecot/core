@@ -115,6 +115,8 @@ struct imapc_connection {
 	unsigned int idle_plus_waiting:1;
 };
 
+static void imapc_connection_capability_cb(const struct imapc_command_reply *reply,
+					   void *context);
 static int imapc_connection_output(struct imapc_connection *conn);
 static int imapc_connection_ssl_init(struct imapc_connection *conn);
 static void imapc_command_free(struct imapc_command *cmd);
@@ -752,6 +754,7 @@ imapc_connection_starttls_cb(const struct imapc_command_reply *reply,
 			     void *context)
 {
 	struct imapc_connection *conn = context;
+	struct imapc_command *cmd;
 
 	if (reply->state != IMAPC_COMMAND_STATE_OK) {
 		imapc_connection_input_error(conn, "STARTTLS failed: %s",
@@ -761,8 +764,13 @@ imapc_connection_starttls_cb(const struct imapc_command_reply *reply,
 
 	if (imapc_connection_ssl_init(conn) < 0)
 		imapc_connection_disconnect(conn);
-	else
-		imapc_connection_authenticate(conn);
+	else {
+		/* get updated capabilities */
+		cmd = imapc_connection_cmd(conn, imapc_connection_capability_cb,
+					   conn);
+		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
+		imapc_command_send(cmd, "CAPABILITY");
+	}
 }
 
 static void imapc_connection_starttls(struct imapc_connection *conn)
