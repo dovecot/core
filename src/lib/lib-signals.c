@@ -97,6 +97,7 @@ static void sig_handler(int signo)
 #endif
 {
 	struct signal_handler *h;
+	int saved_errno;
 	char c = 0;
 
 #if defined(SI_NOINFO) || !defined(SA_SIGINFO)
@@ -123,21 +124,20 @@ static void sig_handler(int signo)
 	/* remember that we're inside a signal handler which might have been
 	   called at any time. don't do anything that's unsafe. we might also
 	   get interrupted by another signal while inside this handler. */
+	saved_errno = errno;
 	for (h = signal_handlers[signo]; h != NULL; h = h->next) {
 		if ((h->flags & LIBSIG_FLAG_DELAYED) == 0)
 			h->handler(si, h->context);
 		else if (pending_signals[signo].si_signo == 0) {
 			pending_signals[signo] = *si;
 			if (!have_pending_signals) {
-				int saved_errno = errno;
-
 				if (write(sig_pipe_fd[1], &c, 1) != 1)
 					i_error("write(sigpipe) failed: %m");
 				have_pending_signals = TRUE;
-				errno = saved_errno;
 			}
 		}
 	}
+	errno = saved_errno;
 }
 
 #ifdef SA_SIGINFO
