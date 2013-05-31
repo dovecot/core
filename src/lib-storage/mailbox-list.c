@@ -1188,10 +1188,14 @@ mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name,
 bool mailbox_list_is_valid_name(struct mailbox_list *list,
 				const char *name, const char **error_r)
 {
-	if (*name == '\0' && *list->ns->prefix != '\0') {
-		/* an ugly way to get to mailbox root (e.g. Maildir/ when
-		   it's not the INBOX) */
-		return TRUE;
+	if (*name == '\0') {
+		if (*list->ns->prefix != '\0') {
+			/* an ugly way to get to mailbox root (e.g. Maildir/
+			   when it's not the INBOX) */
+			return TRUE;
+		}
+		*error_r = "Name is empty";
+		return FALSE;
 	}
 
 	return mailbox_list_is_valid_fs_name(list, name, error_r);
