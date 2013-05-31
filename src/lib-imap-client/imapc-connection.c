@@ -20,9 +20,6 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#define IMAPC_DNS_LOOKUP_TIMEOUT_MSECS (1000*30)
-#define IMAPC_CONNECT_TIMEOUT_MSECS (1000*30)
-#define IMAPC_COMMAND_TIMEOUT_MSECS (1000*60*5)
 #define IMAPC_MAX_INLINE_LITERAL_SIZE (1024*32)
 
 enum imapc_input_state {
@@ -1238,11 +1235,11 @@ static void imapc_connection_timeout(struct imapc_connection *conn)
 	case IMAPC_CONNECTION_STATE_CONNECTING:
 		i_error("imapc(%s): connect(%s, %u) timed out after %u seconds",
 			conn->name, net_ip2addr(ip), conn->client->set.port,
-			IMAPC_CONNECT_TIMEOUT_MSECS/1000);
+			conn->client->set.connect_timeout_msecs/1000);
 		break;
 	case IMAPC_CONNECTION_STATE_AUTHENTICATING:
 		i_error("imapc(%s): Authentication timed out after %u seconds",
-			conn->name, IMAPC_CONNECT_TIMEOUT_MSECS/1000);
+			conn->name, conn->client->set.connect_timeout_msecs/1000);
 		break;
 	default:
 		i_unreached();
@@ -1307,7 +1304,7 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 				    conn);
 	conn->io = io_add(fd, IO_WRITE, imapc_connection_connected, conn);
 	conn->parser = imap_parser_create(conn->input, NULL, (size_t)-1);
-	conn->to = timeout_add(IMAPC_CONNECT_TIMEOUT_MSECS,
+	conn->to = timeout_add(conn->client->set.connect_timeout_msecs,
 			       imapc_connection_timeout, conn);
 	conn->to_output = timeout_add(conn->client->set.max_idle_time*1000,
 				      imapc_connection_reset_idle, conn);
@@ -1364,7 +1361,7 @@ void imapc_connection_connect(struct imapc_connection *conn,
 	memset(&dns_set, 0, sizeof(dns_set));
 	dns_set.dns_client_socket_path =
 		conn->client->set.dns_client_socket_path;
-	dns_set.timeout_msecs = IMAPC_DNS_LOOKUP_TIMEOUT_MSECS;
+	dns_set.timeout_msecs = conn->client->set.connect_timeout_msecs;
 
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_CONNECTING);
 	if (conn->ips_count == 0 &&
@@ -1679,7 +1676,7 @@ static void imapc_connection_cmd_send(struct imapc_command *cmd)
 		/* add timeout for commands if there's not one yet
 		   (pre-login has its own timeout) */
 		if (conn->to == NULL) {
-			conn->to = timeout_add(IMAPC_COMMAND_TIMEOUT_MSECS,
+			conn->to = timeout_add(conn->client->set.cmd_timeout_msecs,
 					       imapc_command_timeout, conn);
 		}
 	}

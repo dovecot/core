@@ -49,6 +49,9 @@ enum imapc_client_ssl_mode {
 	IMAPC_CLIENT_SSL_MODE_STARTTLS
 };
 
+#define IMAPC_DEFAULT_CONNECT_TIMEOUT_MSECS (1000*30)
+#define IMAPC_DEFAULT_COMMAND_TIMEOUT_MSECS (1000*60*5)
+
 struct imapc_client_settings {
 	const char *host;
 	unsigned int port;
@@ -68,6 +71,12 @@ struct imapc_client_settings {
 	const char *rawlog_dir;
 	const char *ssl_crypto_device;
 	bool debug;
+
+	/* Timeout for logging in. 0 = default. */
+	unsigned int connect_timeout_msecs;
+	/* Timeout for IMAP commands. Reset every time more data is being
+	   sent or received. 0 = default. */
+	unsigned int cmd_timeout_msecs;
 };
 
 struct imapc_command_reply {
