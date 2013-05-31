@@ -230,7 +230,12 @@ imapc_storage_create(struct mail_storage *_storage,
 		return -1;
 	}
 	set.port = storage->set->imapc_port;
-	set.username = storage->set->imapc_user;
+	if (storage->set->imapc_user[0] != '\0')
+		set.username = storage->set->imapc_user;
+	else if (ns->owner != NULL)
+		set.username = ns->owner->username;
+	else
+		set.username = ns->user->username;
 	set.master_user = storage->set->imapc_master_user;
 	set.password = storage->set->imapc_password;
 	if (*set.password == '\0') {
