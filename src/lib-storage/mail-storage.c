@@ -731,7 +731,7 @@ static int mailbox_autocreate(struct mailbox *box)
 
 	if (mailbox_create(box, NULL, FALSE) < 0) {
 		errstr = mailbox_get_last_error(box, &error);
-		if (error != MAIL_ERROR_NOTFOUND) {
+		if (error != MAIL_ERROR_EXISTS) {
 			mail_storage_set_critical(box->storage,
 				"Failed to autocreate mailbox %s: %s",
 				box->vname, errstr);
