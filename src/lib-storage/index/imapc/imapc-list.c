@@ -272,12 +272,37 @@ static const char *
 imapc_list_get_fs_name(struct imapc_mailbox_list *list, const char *name)
 {
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
+	struct mail_namespace *ns = list->list.ns;
 	const char *vname;
+	char ns_sep = mail_namespace_get_sep(ns);
 
 	if (name == NULL)
-		return name;
+		return NULL;
 
 	vname = mailbox_list_get_vname(&list->list, name);
+	if (list->storage->set->imapc_list_prefix[0] != '\0') {
+		/* put back the prefix, so it gets included in the filesystem. */
+		unsigned int vname_len = strlen(vname);
+
+		if (ns->prefix_len > 0) {
+			/* skip over the namespace prefix */
+			i_assert(strncmp(vname, ns->prefix, ns->prefix_len-1) == 0);
+			if (vname_len == ns->prefix_len-1)
+				vname = "";
+			else {
+				i_assert(vname[ns->prefix_len-1] == ns_sep);
+				vname += ns->prefix_len;
+			}
+		}
+		if (vname[0] == '\0') {
+			vname = t_strconcat(ns->prefix,
+				list->storage->set->imapc_list_prefix, NULL);
+		} else {
+			vname = t_strdup_printf("%s%s%c%s", ns->prefix,
+						list->storage->set->imapc_list_prefix,
+						ns_sep, vname);
+		}
+	}
 	return mailbox_list_get_storage_name(fs_list, vname);
 }
 
