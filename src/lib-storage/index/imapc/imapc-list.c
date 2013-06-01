@@ -370,8 +370,11 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	if (*list->storage->set->imapc_list_prefix == '\0')
 		pattern = "*";
 	else {
-		pattern = t_strdup_printf("%s%c*",
-			list->storage->set->imapc_list_prefix, list->sep);
+		/* list "prefix*" instead of "prefix.*". this may return a bit
+		   more than we want, but we're also interested in the flags
+		   of the prefix itself. */
+		pattern = t_strdup_printf("%s*",
+			list->storage->set->imapc_list_prefix);
 	}
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
