@@ -208,8 +208,8 @@ imapc_list_get_storage_name(struct mailbox_list *_list, const char *vname)
 
 	storage_name = mailbox_list_default_get_storage_name(_list, vname);
 	if (*prefix != '\0' && strcasecmp(storage_name, "INBOX") != 0) {
-		storage_name = t_strdup_printf("%s%c%s", prefix, list->sep,
-					       storage_name);
+		storage_name = storage_name[0] == '\0' ? prefix :
+			t_strdup_printf("%s%c%s", prefix, list->sep, storage_name);
 	}
 	return storage_name;
 }
