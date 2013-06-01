@@ -293,8 +293,10 @@ static void expunges_convert_to_uids(struct mail_index_transaction *t)
 		expunges[dest].uid =
 			mail_index_transaction_get_uid(t, expunges[src].uid);
 		if (expunges[dest-1].uid != expunges[dest].uid) {
-			memcpy(expunges[dest].guid_128, expunges[src].guid_128,
-			       sizeof(expunges[dest].guid_128));
+			if (dest != src) {
+				memcpy(expunges[dest].guid_128, expunges[src].guid_128,
+				       sizeof(expunges[dest].guid_128));
+			}
 			dest++;
 		}
 	}
