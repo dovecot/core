@@ -371,6 +371,20 @@ const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx)
 			       count++, ctx->set->hostname);
 }
 
+static bool mail_deliver_is_tempfailed(struct mail_deliver_context *ctx,
+				       struct mail_storage *storage)
+{
+	enum mail_error error;
+
+	if (ctx->tempfail_error != NULL)
+		return TRUE;
+	if (storage != NULL) {
+		(void)mail_storage_get_last_error(storage, &error);
+		return error == MAIL_ERROR_TEMP;
+	}
+	return FALSE;
+}
+
 int mail_deliver(struct mail_deliver_context *ctx,
 		 struct mail_storage **storage_r)
 {
@@ -390,12 +404,16 @@ int mail_deliver(struct mail_deliver_context *ctx,
 			ret = 0;
 		}
 		duplicate_deinit(&ctx->dup_ctx);
+		if (ret < 0 && mail_deliver_is_tempfailed(ctx, *storage_r))
+			return -1;
 	}
 
 	if (ret < 0 && !ctx->tried_default_save) {
 		/* plugins didn't handle this. save into the default mailbox. */
 		ret = mail_deliver_save(ctx, ctx->dest_mailbox_name, 0, NULL,
 					storage_r);
+		if (ret < 0 && mail_deliver_is_tempfailed(ctx, *storage_r))
+			return -1;
 	}
 	if (ret < 0 && strcasecmp(ctx->dest_mailbox_name, "INBOX") != 0) {
 		/* still didn't work. try once more to save it

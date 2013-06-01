@@ -436,13 +436,16 @@ int main(int argc, char *argv[])
 	lda_set_dest_addr(&ctx, user, destaddr_source);
 
 	if (mail_deliver(&ctx, &storage) < 0) {
-		if (storage == NULL) {
+		if (storage != NULL) {
+			errstr = mail_storage_get_last_error(storage, &error);
+		} else if (ctx.tempfail_error != NULL) {
+			errstr = ctx.tempfail_error;
+			error = MAIL_ERROR_TEMP;
+		} else {
 			/* This shouldn't happen */
 			i_error("BUG: Saving failed to unknown storage");
 			return EX_TEMPFAIL;
 		}
-
-		errstr = mail_storage_get_last_error(storage, &error);
 
 		if (stderr_rejection) {
 			/* write to stderr also for tempfails so that MTA
