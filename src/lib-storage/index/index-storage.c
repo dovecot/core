@@ -691,13 +691,15 @@ int index_storage_mailbox_delete(struct mailbox *box)
 	if (mailbox_mark_index_deleted(box, TRUE) < 0)
 		return -1;
 
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
-		return -1;
-	mailbox_get_open_status(box, STATUS_MESSAGES, &status);
-	if (status.messages != 0) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
-			"New mails were added to mailbox during deletion");
-		return -1;
+	if (!box->delete_skip_empty_check || box->deleting_must_be_empty) {
+		if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
+			return -1;
+		mailbox_get_open_status(box, STATUS_MESSAGES, &status);
+		if (status.messages != 0) {
+			mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
+				"New mails were added to mailbox during deletion");
+			return -1;
+		}
 	}
 
 	ret_guid = mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata);

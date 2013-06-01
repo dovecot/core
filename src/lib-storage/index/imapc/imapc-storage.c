@@ -666,6 +666,12 @@ static void imapc_mailbox_get_selected_status(struct imapc_mailbox *mbox,
 		status_r->permanent_flags = mbox->permanent_flags;
 }
 
+static int imapc_mailbox_delete(struct mailbox *box)
+{
+	box->delete_skip_empty_check = TRUE;
+	return index_storage_mailbox_delete(box);
+}
+
 static int imapc_mailbox_get_status(struct mailbox *box,
 				    enum mailbox_status_items items,
 				    struct mailbox_status *status_r)
@@ -906,7 +912,7 @@ struct mailbox imapc_mailbox = {
 		index_storage_mailbox_free,
 		imapc_mailbox_create,
 		imapc_mailbox_update,
-		index_storage_mailbox_delete,
+		imapc_mailbox_delete,
 		index_storage_mailbox_rename,
 		imapc_mailbox_get_status,
 		imapc_mailbox_get_metadata,
