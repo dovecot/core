@@ -771,6 +771,7 @@ static struct istream *client_get_input(struct client *client)
 	inputs[2] = NULL;
 
 	cinput = i_stream_create_concat(inputs);
+	i_stream_set_name(cinput, "<lmtp DATA>");
 	i_stream_unref(&inputs[0]);
 	i_stream_unref(&inputs[1]);
 	return cinput;
