@@ -19,7 +19,7 @@
 #include "mail-storage-service.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
-#include "mailbox-list.h"
+#include "mailbox-list-private.h"
 #include "doveadm-settings.h"
 #include "doveadm-mail.h"
 #include "doveadm-print.h"
@@ -38,6 +38,12 @@
 
 #define DSYNC_COMMON_GETOPT_ARGS "+dEfg:l:m:n:Nr:Rs:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
+/* The broken_char is mainly set to get a proper error message when trying to
+   convert a mailbox with a name that can't be used properly translated between
+   vname/storage_name and would otherwise be mixed up with a normal "mailbox
+   doesn't exist" error message. This could be any control character, since
+   none of them are allowed to be created in regular mailbox names. */
+#define DSYNC_LIST_BROKEN_CHAR '\003'
 
 enum dsync_run_type {
 	DSYNC_RUN_TYPE_LOCAL,
@@ -279,6 +285,15 @@ static bool mirror_get_remote_cmd(struct dsync_cmd_context *ctx,
 	return TRUE;
 }
 
+static void doveadm_user_init_dsync(struct mail_user *user)
+{
+	struct mail_namespace *ns;
+
+	user->dsyncing = TRUE;
+	for (ns = user->namespaces; ns != NULL; ns = ns->next)
+		ns->list->set.broken_char = DSYNC_LIST_BROKEN_CHAR;
+}
+
 static bool paths_are_equal(struct mail_user *user1, struct mail_user *user2,
 			    enum mailbox_list_path_type type)
 {
@@ -322,7 +337,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		ctx->ctx.exit_code = ret == -1 ? EX_TEMPFAIL : EX_CONFIG;
 		return -1;
 	}
-	user2->dsyncing = TRUE;
+	doveadm_user_init_dsync(user2);
 
 	if (mail_namespaces_get_root_sep(user->namespaces) !=
 	    mail_namespaces_get_root_sep(user2->namespaces)) {
@@ -504,8 +519,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		/* array is NULL-terminated in init() */
 		set.exclude_mailboxes = array_idx(&ctx->exclude_mailboxes, 0);
 	}
-
-	user->dsyncing = TRUE;
+	doveadm_user_init_dsync(user);
 
 	if (ctx->namespace_prefix != NULL) {
 		set.sync_ns = mail_namespace_find(user->namespaces,
@@ -946,7 +960,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		ctx->output = _ctx->conn->output;
 		o_stream_nsend(ctx->output, "\n+\n", 3);
 	}
-	user->dsyncing = TRUE;
+	doveadm_user_init_dsync(user);
 
 	i_set_failure_prefix("dsync-remote(%s): ", user->username);
 
