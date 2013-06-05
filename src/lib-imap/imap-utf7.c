@@ -179,8 +179,10 @@ static int mbase64_decode_to_utf8(string_t *dest, const char **_src)
 
 	while (*src != '-') {
 		input[0] = imap_b64dec[(uint8_t)src[0]];
+		if (input[0] == 0xff)
+			return -1;
 		input[1] = imap_b64dec[(uint8_t)src[1]];
-		if (input[0] == 0xff || input[1] == 0xff)
+		if (input[1] == 0xff)
 			return -1;
 
 		output[outpos % 4] = (input[0] << 2) | (input[1] >> 4);
