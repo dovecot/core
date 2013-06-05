@@ -67,5 +67,7 @@ bool dsync_brain_has_failed(struct dsync_brain *brain);
 void dsync_brain_get_state(struct dsync_brain *brain, string_t *output);
 /* Returns the sync type that was used. Mainly useful with slave brain. */
 enum dsync_brain_sync_type dsync_brain_get_sync_type(struct dsync_brain *brain);
+/* Returns TRUE if there were any unexpected changes during the sync. */
+bool dsync_brain_has_unexpected_changes(struct dsync_brain *brain);
 
 #endif

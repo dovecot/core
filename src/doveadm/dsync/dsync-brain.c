@@ -513,3 +513,8 @@ bool dsync_brain_has_failed(struct dsync_brain *brain)
 {
 	return brain->failed;
 }
+
+bool dsync_brain_has_unexpected_changes(struct dsync_brain *brain)
+{
+	return brain->changes_during_sync;
+}

@@ -291,7 +291,8 @@ static bool paths_are_equal(struct mail_user *user1, struct mail_user *user2,
 
 static int
 cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
-		    struct dsync_brain *brain, struct dsync_ibc *ibc2)
+		    struct dsync_brain *brain, struct dsync_ibc *ibc2,
+		    bool *changes_during_sync_r)
 {
 	struct dsync_brain *brain2;
 	struct mail_user *user2;
@@ -357,6 +358,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		brain2_running = dsync_brain_run(brain2, &changed2);
 	}
 	mail_user_unref(&user2);
+	*changes_during_sync_r = dsync_brain_has_unexpected_changes(brain2);
 	if (dsync_brain_deinit(&brain2) < 0) {
 		ctx->ctx.exit_code = EX_TEMPFAIL;
 		return -1;
@@ -490,6 +492,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	struct dsync_brain_settings set;
 	enum dsync_brain_flags brain_flags;
 	bool remote_errors_logged = FALSE;
+	bool changes_during_sync = FALSE;
 	int status = 0, ret = 0;
 
 	memset(&set, 0, sizeof(set));
@@ -540,7 +543,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 					brain_flags, &set);
 
 	if (ctx->run_type == DSYNC_RUN_TYPE_LOCAL) {
-		if (cmd_dsync_run_local(ctx, user, brain, ibc2) < 0)
+		if (cmd_dsync_run_local(ctx, user, brain, ibc2,
+					&changes_during_sync) < 0)
 			ret = -1;
 	} else {
 		cmd_dsync_run_remote(user);
@@ -552,6 +556,11 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		doveadm_print(str_c(state_str));
 	}
 
+	if (dsync_brain_has_unexpected_changes(brain) || changes_during_sync) {
+		i_warning("Mailbox changes caused a desync. "
+			  "You may want to run dsync again.");
+		ctx->ctx.exit_code = 2;
+	}
 	if (dsync_brain_deinit(&brain) < 0) {
 		ctx->ctx.exit_code = EX_TEMPFAIL;
 		ret = -1;
