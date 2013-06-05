@@ -637,7 +637,7 @@ mailbox_list_escape_broken_name(struct mailbox_list *list,
 	for (; *vname != '\0'; vname++) {
 		if (*vname == '&' || (unsigned char)*vname >= 0x80) {
 			str_printfa(str, "%c%02x", list->set.broken_char,
-				    *vname);
+				    (unsigned char)*vname);
 		} else {
 			str_append_c(str, *vname);
 		}
