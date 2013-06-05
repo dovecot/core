@@ -665,6 +665,7 @@ http_client_connection_ssl_handshaked(const char **error_r, void *context)
 		*error_r = error;
 		return -1;
 	}
+	http_client_connection_ready(conn);
 	return 0;
 }
 
@@ -703,8 +704,6 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 			conn->conn.name, ssl_iostream_get_last_error(conn->ssl_iostream));
 		return -1;
 	}
-
-	http_client_connection_ready(conn);
 	return 0;
 }
 
