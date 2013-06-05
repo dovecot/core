@@ -134,10 +134,13 @@ struct http_client_connection {
 
 	unsigned int id; // DEBUG: identify parallel connections
 	int connect_errno;
+	struct timeval connect_start_timestamp;
+	struct timeval connected_timestamp;
 
 	struct ssl_iostream *ssl_iostream;
 	struct http_response_parser *http_parser;
-	struct timeout *to_input, *to_idle, *to_response;
+	struct timeout *to_connect, *to_input, *to_idle, *to_response;
+	struct timeout *to_requests;
 
 	struct http_client_request *pending_request;
 	struct istream *incoming_payload;

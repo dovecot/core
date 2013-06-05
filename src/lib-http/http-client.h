@@ -57,6 +57,13 @@ struct http_client_settings {
 	/* maximum number of attempts for a request */
 	unsigned int max_attempts;
 
+	/* max time to wait for HTTP request to finish before retrying
+	   (default = unlimited) */
+	unsigned int request_timeout_msecs;
+	/* max time to wait for connect() (and SSL handshake) to finish before
+	   retrying (default = request_timeout_msecs) */
+	unsigned int connect_timeout_msecs;
+
 	bool debug;
 };
 

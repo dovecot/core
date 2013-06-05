@@ -8,6 +8,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "time-util.h"
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
 #include "http-response-parser.h"
@@ -202,6 +203,17 @@ http_client_connection_check_idle(struct http_client_connection *conn)
 }
 
 static void
+http_client_connection_request_timeout(struct http_client_connection *conn)
+{
+	unsigned int msecs = conn->client->set.request_timeout_msecs;
+
+	http_client_connection_abort_temp_error(&conn,
+		HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT, t_strdup_printf(
+		"No response for request in %u.%03u secs",
+		msecs/1000, msecs%1000));
+}
+
+static void
 http_client_connection_continue_timeout(struct http_client_connection *conn)
 {
 	struct http_client_request *const *req_idx;
@@ -249,6 +261,11 @@ bool http_client_connection_next_request(struct http_client_connection *conn)
 	if (conn->to_idle != NULL)
 		timeout_remove(&conn->to_idle);
 
+	if (conn->client->set.request_timeout_msecs > 0 &&
+	    conn->to_requests == NULL) {
+		conn->to_requests = timeout_add(conn->client->set.request_timeout_msecs,
+						http_client_connection_request_timeout, conn);
+	}
 	req->conn = conn;
 	conn->payload_continue = FALSE;
 	if (conn->peer->no_payload_sync)
@@ -293,14 +310,26 @@ static void http_client_connection_destroy(struct connection *_conn)
 	struct http_client_connection *conn =
 		(struct http_client_connection *)_conn;
 	const char *error;
+	unsigned int msecs;
 
 	conn->closing = TRUE;
 	conn->connected = FALSE;
 
 	switch (_conn->disconnect_reason) {
 	case CONNECTION_DISCONNECT_CONNECT_TIMEOUT:
-		http_client_peer_connection_failure(conn->peer, t_strdup_printf(
-			"connect(%s) failed: Connection timed out", _conn->name));
+		if (conn->connected_timestamp.tv_sec == 0) {
+			msecs = timeval_diff_msecs(&ioloop_timeval,
+						   &conn->connect_start_timestamp);
+			http_client_peer_connection_failure(conn->peer, t_strdup_printf(
+				"connect(%s) failed: Connection timed out in %u.%03u secs",
+				_conn->name, msecs/1000, msecs%1000));
+		} else {
+			msecs = timeval_diff_msecs(&ioloop_timeval,
+						   &conn->connected_timestamp);
+			http_client_peer_connection_failure(conn->peer, t_strdup_printf(
+				"SSL handshaking to %s failed: Connection timed out in %u.%03u secs",
+				_conn->name, msecs/1000, msecs%1000));
+		}
 		break;
 	case CONNECTION_DISCONNECT_CONN_CLOSED:
 		/* retry pending requests if possible */
@@ -453,6 +482,8 @@ static void http_client_connection_input(struct connection *_conn)
 		http_client_payload_finished(conn);
 		finished++;
 	}
+	if (conn->to_requests != NULL)
+		timeout_reset(conn->to_requests);
 
 	/* get first waiting request */
 	if (array_count(&conn->request_wait_list) > 0) {
@@ -560,6 +591,9 @@ static void http_client_connection_input(struct connection *_conn)
 			req = req_idx[0];
 			no_payload = (strcmp(req->method, "HEAD") == 0);
 		} else {
+			/* no more requests waiting for the connection */
+			if (conn->to_requests != NULL)
+				timeout_remove(&conn->to_requests);
 			req = NULL;
 			no_payload = FALSE;
 		}
@@ -596,6 +630,9 @@ static int http_client_connection_output(struct http_client_connection *conn)
 	struct ostream *output = conn->conn.output;
 	const char *error;
 	int ret;
+
+	if (conn->to_requests != NULL)
+		timeout_reset(conn->to_requests);
 
 	if ((ret = o_stream_flush(output)) <= 0) {
 		if (ret < 0) {
@@ -635,6 +672,8 @@ http_client_connection_ready(struct http_client_connection *conn)
 
 	conn->connected = TRUE;
 	conn->peer->last_connect_failed = FALSE;
+	if (conn->to_connect != NULL)
+		timeout_remove(&conn->to_connect);
 
 	if (conn->client->set.rawlog_dir != NULL &&
 		stat(conn->client->set.rawlog_dir, &st) == 0) {
@@ -718,6 +757,7 @@ http_client_connection_connected(struct connection *_conn, bool success)
 		http_client_peer_connection_failure(conn->peer, t_strdup_printf(
 			"connect(%s) failed: %m", _conn->name));
 	} else {
+		conn->connected_timestamp = ioloop_timeval;
 		http_client_connection_debug(conn, "Connected");
 		if (conn->peer->addr.https_name != NULL) {
 			if (http_client_connection_ssl_init(conn, &error) < 0) {
@@ -758,12 +798,32 @@ http_client_connection_delayed_connect_error(struct http_client_connection *conn
 	http_client_connection_unref(&conn);
 }
 
+static void http_client_connect_timeout(struct http_client_connection *conn)
+{
+	conn->conn.disconnect_reason = CONNECTION_DISCONNECT_CONNECT_TIMEOUT;
+	http_client_connection_destroy(&conn->conn);
+}
+
 static void http_client_connection_connect(struct http_client_connection *conn)
 {
+	unsigned int msecs;
+
+	conn->connect_start_timestamp = ioloop_timeval;
 	if (connection_client_connect(&conn->conn) < 0) {
 		conn->connect_errno = errno;
 		conn->to_input = timeout_add_short(0,
 			http_client_connection_delayed_connect_error, conn);
+		return;
+	}
+
+	/* don't use connection.h timeout because we want this timeout
+	   to include also the SSL handshake */
+	msecs = conn->client->set.connect_timeout_msecs;
+	if (msecs == 0)
+		msecs = conn->client->set.request_timeout_msecs;
+	if (msecs > 0) {
+		conn->to_connect =
+			timeout_add(msecs, http_client_connect_timeout, conn);
 	}
 }
 
@@ -831,6 +891,10 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 		ssl_iostream_unref(&conn->ssl_iostream);
 	connection_deinit(&conn->conn);
 
+	if (conn->to_requests != NULL)
+		timeout_remove(&conn->to_requests);
+	if (conn->to_connect != NULL)
+		timeout_remove(&conn->to_connect);
 	if (conn->to_input != NULL)
 		timeout_remove(&conn->to_input);
 	if (conn->to_idle != NULL)
@@ -855,6 +919,10 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 
 void http_client_connection_switch_ioloop(struct http_client_connection *conn)
 {
+	if (conn->to_requests != NULL)
+		conn->to_requests = io_loop_move_timeout(&conn->to_requests);
+	if (conn->to_connect != NULL)
+		conn->to_requests = io_loop_move_timeout(&conn->to_connect);
 	if (conn->to_input != NULL)
 		conn->to_input = io_loop_move_timeout(&conn->to_input);
 	if (conn->to_idle != NULL)
