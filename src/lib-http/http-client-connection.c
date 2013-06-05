@@ -542,9 +542,6 @@ static void http_client_connection_input(struct connection *_conn)
 			/* ignore them for now */
 			http_client_connection_debug(conn,
 				"Got unexpected %u response; ignoring", response->status);
-			/* restart timeout */
-			conn->to_response =	timeout_add(HTTP_CLIENT_CONTINUE_TIMEOUT_MSECS,
-				http_client_connection_continue_timeout, conn);
 			continue;
 		} 
 
