@@ -295,7 +295,7 @@ bool http_client_connection_next_request(struct http_client_connection *conn)
 	   (Continue) status code, the client SHOULD NOT wait for an indefinite
 	   period before sending the payload body.
 	 */
-	if (req->payload_sync) {
+	if (req->payload_sync && !conn->peer->seen_100_response) {
 		i_assert(req->payload_chunked || req->payload_size > 0);
 		i_assert(conn->to_response == NULL);
 		conn->to_response =	timeout_add(HTTP_CLIENT_CONTINUE_TIMEOUT_MSECS,
@@ -529,6 +529,8 @@ static void http_client_connection_input(struct connection *_conn)
 					"Got 100-continue response after timeout");
 				return;
 			}
+			conn->peer->no_payload_sync = FALSE;
+			conn->peer->seen_100_response = TRUE;
 			conn->payload_continue = TRUE;
 			http_client_connection_debug(conn,
 				"Got expected 100-continue response");

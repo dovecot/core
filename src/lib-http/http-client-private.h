@@ -121,6 +121,7 @@ struct http_client_peer {
 
 	unsigned int destroyed:1;        /* peer is being destroyed */
 	unsigned int no_payload_sync:1;  /* expect: 100-continue failed before */
+	unsigned int seen_100_response:1;/* expect: 100-continue succeeded before */
 	unsigned int last_connect_failed:1;
 };
 
