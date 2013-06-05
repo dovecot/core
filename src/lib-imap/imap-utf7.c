@@ -271,3 +271,22 @@ int imap_utf7_to_utf8(const char *src, string_t *dest)
 	}
 	return 0;
 }
+
+bool imap_utf7_is_valid(const char *src)
+{
+	const char *p;
+	int ret;
+
+	for (p = src; *p != '\0'; p++) {
+		if (*p == '&' || (unsigned char)*p >= 0x80) {
+			/* slow scan */
+			T_BEGIN {
+				string_t *tmp = t_str_new(128);
+				ret = imap_utf7_to_utf8(p, tmp);
+			} T_END;
+			if (ret < 0)
+				return FALSE;
+		}
+	}
+	return TRUE;
+}

@@ -8,53 +8,46 @@
 
 static void test_imap_utf7(void)
 {
-	static const char *to_utf7[] = {
-		"&&x&&", "&-&-x&-&-",
-		"~peter/mail/台北/日本語", "~peter/mail/&U,BTFw-/&ZeVnLIqe-",
-		"tietäjä", "tiet&AOQ-j&AOQ-",
-		"p\xe4\xe4", NULL,
-		NULL
-	};
-	static const char *invalid_utf7[] = {
-		"&Jjo!",
-		"&U,BTFw-&ZeVnLIqe-",
-		NULL
+	static struct test {
+		const char *utf8;
+		const char *mutf7;
+	} tests[] = {
+		{ "&&x&&", "&-&-x&-&-" },
+		{ "~peter/mail/台北/日本語", "~peter/mail/&U,BTFw-/&ZeVnLIqe-" },
+		{ "tietäjä", "tiet&AOQ-j&AOQ-" },
+		{ "p\xe4\xe4", NULL },
+		{ NULL, "&" },
+		{ NULL, "&Jjo" },
+		{ NULL, "&Jjo!" },
+		{ NULL, "&U,BTFw-&ZeVnLIqe-" }
 	};
 	string_t *src, *dest;
 	const char *orig_src;
 	unsigned int i, j;
 	unichar_t chr;
-	bool success, all_success = TRUE;
 
 	src = t_str_new(256);
 	dest = t_str_new(256);
 
-	for (i = 0; to_utf7[i] != NULL; i += 2) {
-		str_truncate(dest, 0);
-		if (imap_utf8_to_utf7(to_utf7[i], dest) < 0)
-			success = to_utf7[i+1] == NULL;
-		else {
-			success = to_utf7[i+1] != NULL &&
-				strcmp(to_utf7[i+1], str_c(dest)) == 0;
-		}
-		if (!success) {
-			test_out(t_strdup_printf("imap_utf8_to_utf7(%d)", i/2),
-				 FALSE);
-			all_success = FALSE;
-		} else if (to_utf7[i+1] != NULL) {
+	test_begin("imap mutf7");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		if (tests[i].utf8 != NULL) {
 			str_truncate(dest, 0);
-			if (imap_utf7_to_utf8(to_utf7[i+1], dest) < 0 ||
-			    strcmp(to_utf7[i], str_c(dest)) != 0) {
-				test_out(t_strdup_printf("imap_utf7_to_utf8(%d)", i/2),
-					 FALSE);
-				all_success = FALSE;
-			}
+			if (imap_utf8_to_utf7(tests[i].utf8, dest) < 0)
+				test_assert(tests[i].mutf7 == NULL);
+			else
+				test_assert(null_strcmp(tests[i].mutf7, str_c(dest)) == 0);
+		}
+		if (tests[i].mutf7 != NULL) {
+			str_truncate(dest, 0);
+			if (imap_utf7_to_utf8(tests[i].mutf7, dest) < 0)
+				test_assert(tests[i].utf8 == NULL);
+			else
+				test_assert(null_strcmp(tests[i].utf8, str_c(dest)) == 0);
+			test_assert(imap_utf7_is_valid(tests[i].mutf7) != (tests[i].utf8 == NULL));
 		}
 	}
-	if (all_success)
-		test_out("imap_utf8_to_utf7()", TRUE);
 
-	success = TRUE;
 	for (chr = 0xffff; chr <= 0x10010; chr++) {
 		for (i = 1; i <= 10; i++) {
 			str_truncate(src, 0);
@@ -70,28 +63,12 @@ static void test_imap_utf7(void)
 			orig_src = t_strdup(str_c(src));
 			str_truncate(src, 0);
 
-			if (imap_utf8_to_utf7(orig_src, dest) < 0)
-				success = FALSE;
-			else if (imap_utf7_to_utf8(str_c(dest), src) < 0)
-				success = FALSE;
-			else
-				success = strcmp(str_c(src), orig_src) == 0;
-			if (!success)
-				goto end;
+			test_assert(imap_utf8_to_utf7(orig_src, dest) == 0);
+			test_assert(imap_utf7_to_utf8(str_c(dest), src) == 0);
+			test_assert(strcmp(str_c(src), orig_src) == 0);
 		}
 	}
-end:
-	test_out("imap_utf7_to_utf8(reverse)", success);
-	for (i = 0; invalid_utf7[i] != NULL; i++) {
-		str_truncate(dest, 0);
-		if (imap_utf7_to_utf8(invalid_utf7[i], dest) == 0) {
-			test_out(t_strdup_printf("imap_utf7_to_utf8(invalid.%d)", i),
-				 FALSE);
-			all_success = FALSE;
-		}
-	}
-	if (all_success)
-		test_out("imap_utf7_to_utf8(invalid)", TRUE);
+	test_end();
 }
 
 int main(void)
