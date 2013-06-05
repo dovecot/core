@@ -147,7 +147,7 @@ http_client_peer_next_request(struct http_client_peer *peer)
 		   finished connecting successfully. */
 		new_connections = 0;
 	} else if (num_urgent == 0) {
-		new_connections = 1;
+		new_connections = connecting == 0 ? 1 : 0;
 	} else {
 		new_connections = (num_urgent > connecting ? num_urgent - connecting : 0);
 	}
