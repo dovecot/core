@@ -671,7 +671,10 @@ http_client_connection_ready(struct http_client_connection *conn)
 
 	conn->connected = TRUE;
 	conn->peer->last_connect_failed = FALSE;
-	if (conn->to_connect != NULL)
+
+	if (conn->to_connect != NULL &&
+	    (conn->ssl_iostream == NULL ||
+	     ssl_iostream_is_handshaked(conn->ssl_iostream)))
 		timeout_remove(&conn->to_connect);
 
 	if (conn->client->set.rawlog_dir != NULL &&
@@ -703,7 +706,8 @@ http_client_connection_ssl_handshaked(const char **error_r, void *context)
 		*error_r = error;
 		return -1;
 	}
-	http_client_connection_ready(conn);
+	if (conn->to_connect != NULL)
+		timeout_remove(&conn->to_connect);
 	return 0;
 }
 
@@ -742,6 +746,8 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 			conn->conn.name, ssl_iostream_get_last_error(conn->ssl_iostream));
 		return -1;
 	}
+
+	http_client_connection_ready(conn);
 	return 0;
 }
 
