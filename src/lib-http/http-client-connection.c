@@ -320,16 +320,18 @@ static void http_client_connection_destroy(struct connection *_conn)
 		if (conn->connected_timestamp.tv_sec == 0) {
 			msecs = timeval_diff_msecs(&ioloop_timeval,
 						   &conn->connect_start_timestamp);
-			http_client_peer_connection_failure(conn->peer, t_strdup_printf(
+			error = t_strdup_printf(
 				"connect(%s) failed: Connection timed out in %u.%03u secs",
-				_conn->name, msecs/1000, msecs%1000));
+				_conn->name, msecs/1000, msecs%1000);
 		} else {
 			msecs = timeval_diff_msecs(&ioloop_timeval,
 						   &conn->connected_timestamp);
-			http_client_peer_connection_failure(conn->peer, t_strdup_printf(
+			error = t_strdup_printf(
 				"SSL handshaking to %s failed: Connection timed out in %u.%03u secs",
-				_conn->name, msecs/1000, msecs%1000));
+				_conn->name, msecs/1000, msecs%1000);
 		}
+		http_client_connection_retry_requests(conn,
+			HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT, error);
 		break;
 	case CONNECTION_DISCONNECT_CONN_CLOSED:
 		/* retry pending requests if possible */
