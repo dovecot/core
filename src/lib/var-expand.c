@@ -93,7 +93,7 @@ m_str_newhash(const char *str, struct var_expand_context *ctx)
 	string_t *hash = t_str_new(20);
 	unsigned char result[MD5_RESULTLEN];
 	unsigned int i;
-	uint64_t value;
+	uint64_t value = 0;
 
 	md5_get_digest(str, strlen(str), result);
 	for (i = 0; i < sizeof(value); i++) {
