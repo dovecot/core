@@ -180,36 +180,61 @@ static void imapc_storage_untagged_cb(const struct imapc_untagged_reply *reply,
 	}
 }
 
-static int
-imapc_storage_get_hierarchy_sep(struct imapc_storage *storage,
-				const char **error_r)
+static void imapc_storage_sep_verify(struct imapc_storage *storage)
 {
-	struct imapc_command *cmd;
-	struct imapc_simple_context sctx;
 	const char *imapc_list_prefix = storage->set->imapc_list_prefix;
 
-	imapc_simple_context_init(&sctx, storage);
-	cmd = imapc_client_cmd(storage->client, imapc_simple_callback, &sctx);
+	if (storage->root_sep == '\0') {
+		mail_storage_set_critical(&storage->storage,
+			"imapc: LIST didn't return hierarchy separator");
+	} else if (imapc_list_prefix[0] != '\0' &&
+		   imapc_list_prefix[strlen(imapc_list_prefix)-1] == storage->root_sep) {
+		mail_storage_set_critical(&storage->storage,
+			"imapc_list_prefix must not end with hierarchy separator");
+	}
+}
+
+static void imapc_storage_sep_callback(const struct imapc_command_reply *reply,
+				       void *context)
+{
+	struct imapc_storage *storage = context;
+
+	storage->root_sep_pending = FALSE;
+	if (reply->state == IMAPC_COMMAND_STATE_OK)
+		imapc_storage_sep_verify(storage);
+	else if (reply->state == IMAPC_COMMAND_STATE_NO)
+		imapc_copy_error_from_reply(storage, MAIL_ERROR_PARAMS, reply);
+	else {
+		mail_storage_set_critical(&storage->storage,
+			"imapc: Command failed: %s", reply->text_full);
+	}
+	imapc_client_stop(storage->client);
+}
+
+static void imapc_storage_send_hierarcy_sep_lookup(struct imapc_storage *storage)
+{
+	struct imapc_command *cmd;
+
+	if (storage->root_sep_pending)
+		return;
+	storage->root_sep_pending = TRUE;
+
+	cmd = imapc_client_cmd(storage->client,
+			       imapc_storage_sep_callback, storage);
 	imapc_command_send(cmd, "LIST \"\" \"\"");
-	imapc_simple_run(&sctx);
+}
 
-	if (sctx.ret < 0) {
-		*error_r = t_strdup_printf("LIST failed: %s",
-			mail_storage_get_last_error(&storage->storage, NULL));
-		return -1;
+int imapc_storage_try_get_root_sep(struct imapc_storage *storage, char *sep_r)
+{
+	if (storage->root_sep == '\0') {
+		imapc_storage_send_hierarcy_sep_lookup(storage);
+		while (storage->root_sep_pending)
+			imapc_client_run(storage->client);
+		if (storage->root_sep == '\0')
+			return -1;
 	}
-
-	if (storage->list->sep == '\0') {
-		*error_r = "LIST didn't return hierarchy separator";
-		return -1;
-	}
-
-	if (imapc_list_prefix[0] != '\0' &&
-	    imapc_list_prefix[strlen(imapc_list_prefix)-1] == storage->list->sep) {
-		*error_r = "imapc_list_prefix must not end with hierarchy separator";
-		return -1;
-	}
-	return sctx.ret;
+	*sep_r = storage->root_sep;
+	return 0;
 }
 
 static int
@@ -220,6 +245,7 @@ imapc_storage_create(struct mail_storage *_storage,
 	struct imapc_storage *storage = (struct imapc_storage *)_storage;
 	struct imapc_client_settings set;
 	string_t *str;
+	char sep;
 
 	storage->set = mail_storage_get_driver_settings(_storage);
 
@@ -279,10 +305,19 @@ imapc_storage_create(struct mail_storage *_storage,
 					imapc_untagged_status);
 	imapc_storage_register_untagged(storage, "NAMESPACE",
 					imapc_untagged_namespace);
-	/* connect to imap server and get the hierarchy separator. */
-	if (imapc_storage_get_hierarchy_sep(storage, error_r) < 0) {
-		imapc_client_deinit(&storage->client);
-		return -1;
+	/* start connecting to imap server and get the hierarchy separator. */
+	imapc_client_login(storage->client, NULL, NULL);
+	imapc_storage_send_hierarcy_sep_lookup(storage);
+	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+		/* we're using imapc for the INBOX namespace. wait and make
+		   sure we can successfully access the IMAP server (so if the
+		   username is invalid we don't just keep failing every
+		   command). */
+		if (imapc_storage_try_get_root_sep(storage, &sep) < 0) {
+			imapc_client_deinit(&storage->client);
+			*error_r = "Failed to access imapc backend";
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -302,10 +337,7 @@ static void imapc_storage_add_list(struct mail_storage *_storage,
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 
 	i_assert(storage->list != NULL);
-	i_assert(storage->list->sep != '\0');
-
 	list->storage = storage;
-	list->sep = storage->list->sep;
 }
 
 void imapc_storage_register_untagged(struct imapc_storage *storage,

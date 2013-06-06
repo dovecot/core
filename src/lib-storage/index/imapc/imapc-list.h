@@ -13,7 +13,6 @@ struct imapc_mailbox_list {
 	struct mailbox_list *index_list;
 
 	struct mailbox_tree_context *mailboxes, *tmp_subscriptions;
-	char sep;
 
 	unsigned int iter_count;
 

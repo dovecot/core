@@ -47,6 +47,7 @@ struct imapc_storage {
 	struct ioloop *root_ioloop;
 	struct imapc_mailbox_list *list;
 	struct imapc_client *client;
+	char root_sep;
 
 	struct imapc_mailbox *cur_status_box;
 	struct mailbox_status *cur_status;
@@ -56,6 +57,7 @@ struct imapc_storage {
 	ARRAY(struct imapc_storage_event_callback) untagged_callbacks;
 
 	unsigned int namespaces_requested:1;
+	unsigned int root_sep_pending:1;
 };
 
 struct imapc_mail_cache {
@@ -128,6 +130,7 @@ void imapc_transaction_save_rollback(struct mail_save_context *ctx);
 void imapc_storage_run(struct imapc_storage *storage);
 void imapc_mail_cache_free(struct imapc_mail_cache *cache);
 int imapc_mailbox_select(struct imapc_mailbox *mbox);
+int imapc_storage_try_get_root_sep(struct imapc_storage *storage, char *sep_r);
 
 void imapc_copy_error_from_reply(struct imapc_storage *storage,
 				 enum mail_error default_error,

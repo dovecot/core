@@ -140,7 +140,7 @@ static void imapc_untagged_list(const struct imapc_untagged_reply *reply,
 	const struct imap_arg *args = reply->args;
 	const char *sep, *name;
 
-	if (list->sep == '\0') {
+	if (storage->root_sep == '\0') {
 		/* we haven't asked for the separator yet.
 		   lets see if this is the reply for its request. */
 		if (args[0].type == IMAP_ARG_EOL ||
@@ -149,8 +149,8 @@ static void imapc_untagged_list(const struct imapc_untagged_reply *reply,
 			return;
 
 		/* we can't handle NIL separator yet */
-		list->sep = sep == NULL ? '/' : sep[0];
-		mailbox_tree_set_separator(list->mailboxes, list->sep);
+		storage->root_sep = sep == NULL ? '/' : sep[0];
+		mailbox_tree_set_separator(list->mailboxes, storage->root_sep);
 	} else {
 		(void)imapc_list_update_tree(list, list->mailboxes, args);
 	}
@@ -163,7 +163,7 @@ static void imapc_untagged_lsub(const struct imapc_untagged_reply *reply,
 	const struct imap_arg *args = reply->args;
 	struct mailbox_node *node;
 
-	if (list->sep == '\0') {
+	if (storage->root_sep == '\0') {
 		/* we haven't asked for the separator yet */
 		return;
 	}
@@ -192,11 +192,14 @@ void imapc_list_register_callbacks(struct imapc_mailbox_list *list)
 static char imapc_list_get_hierarchy_sep(struct mailbox_list *_list)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+	char sep;
 
-	/* storage should have looked this up when it was created */
-	i_assert(list->sep != '\0');
-
-	return list->sep;
+	if (imapc_storage_try_get_root_sep(list->storage, &sep) < 0) {
+		/* we can't really fail here. just return a common separator
+		   and keep failing all list commands until it succeeds. */
+		return '/';
+	}
+	return sep;
 }
 
 static const char *
@@ -209,7 +212,9 @@ imapc_list_get_storage_name(struct mailbox_list *_list, const char *vname)
 	storage_name = mailbox_list_default_get_storage_name(_list, vname);
 	if (*prefix != '\0' && strcasecmp(storage_name, "INBOX") != 0) {
 		storage_name = storage_name[0] == '\0' ? prefix :
-			t_strdup_printf("%s%c%s", prefix, list->sep, storage_name);
+			t_strdup_printf("%s%c%s", prefix,
+			mailbox_list_get_hierarchy_sep(_list),
+			storage_name);
 	}
 	return storage_name;
 }
@@ -230,7 +235,8 @@ imapc_list_get_vname(struct mailbox_list *_list, const char *storage_name)
 		if (storage_name[0] == '\0') {
 			/* we're looking up the prefix itself */
 		} else {
-			i_assert(storage_name[0] == list->sep);
+			i_assert(storage_name[0] ==
+				 mailbox_list_get_hierarchy_sep(_list));
 			storage_name++;
 		}
 	}
@@ -408,8 +414,12 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	struct imapc_simple_context ctx;
 	struct mailbox_node *node;
 	const char *pattern;
+	char sep;
 
-	i_assert(list->sep != '\0');
+	if (imapc_storage_try_get_root_sep(list->storage, &sep) < 0) {
+		mailbox_list_set_internal_error(&list->list);
+		return -1;
+	}
 
 	if (list->refreshed_mailboxes)
 		return 0;
@@ -427,7 +437,7 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_sendf(cmd, "LIST \"\" %s", pattern);
 	mailbox_tree_deinit(&list->mailboxes);
-	list->mailboxes = mailbox_tree_init(list->sep);
+	list->mailboxes = mailbox_tree_init(sep);
 	mailbox_tree_set_parents_nonexistent(list->mailboxes);
 	imapc_simple_run(&ctx);
 
@@ -505,7 +515,10 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		return _ctx;
 	}
 
-	sep = mailbox_list_get_hierarchy_sep(_list);
+	if (imapc_storage_try_get_root_sep(list->storage, &sep) < 0) {
+		mailbox_list_set_internal_error(_list);
+		ret = -1;
+	}
 
 	pool = pool_alloconly_create("mailbox list imapc iter", 1024);
 	ctx = p_new(pool, struct imapc_mailbox_list_iterate_context, 1);
@@ -623,23 +636,25 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 	struct imapc_simple_context ctx;
 	struct imapc_command *cmd;
 	const char *pattern;
-	char sep;
+	char src_sep, dest_sep;
 
 	i_assert(src_list->tmp_subscriptions == NULL);
 
 	if (src_list->refreshed_subscriptions) {
 		if (dest_list->subscriptions == NULL) {
-			sep = mailbox_list_get_hierarchy_sep(dest_list);
+			dest_sep = mailbox_list_get_hierarchy_sep(dest_list);
 			dest_list->subscriptions =
-				mailbox_tree_init(sep);
+				mailbox_tree_init(dest_sep);
 		}
 		return 0;
 	}
 
-	if (src_list->sep == '\0')
-		(void)mailbox_list_get_hierarchy_sep(_src_list);
+	if (imapc_storage_try_get_root_sep(src_list->storage, &src_sep) < 0) {
+		mailbox_list_set_internal_error(dest_list);
+		return -1;
+	}
 
-	src_list->tmp_subscriptions = mailbox_tree_init(src_list->sep);
+	src_list->tmp_subscriptions = mailbox_tree_init(src_sep);
 
 	cmd = imapc_list_simple_context_init(&ctx, src_list);
 	if (*src_list->storage->set->imapc_list_prefix == '\0')
@@ -647,7 +662,7 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 	else {
 		pattern = t_strdup_printf("%s%c*",
 				src_list->storage->set->imapc_list_prefix,
-				src_list->sep);
+				src_sep);
 	}
 	imapc_command_sendf(cmd, "LSUB \"\" %s", pattern);
 	imapc_simple_run(&ctx);
@@ -763,8 +778,12 @@ int imapc_list_get_mailbox_flags(struct mailbox_list *_list, const char *name,
 	struct imapc_simple_context sctx;
 	struct mailbox_node *node;
 	const char *vname;
+	char sep;
 
-	i_assert(list->sep != '\0');
+	if (imapc_storage_try_get_root_sep(list->storage, &sep) < 0) {
+		mailbox_list_set_internal_error(_list);
+		return -1;
+	}
 
 	vname = mailbox_list_get_vname(_list, name);
 	if (!list->refreshed_mailboxes) {
