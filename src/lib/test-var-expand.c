@@ -21,9 +21,15 @@ static void test_var_expand_builtin(void)
 	static struct var_expand_test tests[] = {
 		{ "%{hostname}", NULL },
 		{ "%{pid}", NULL },
-		{ "a%{env:FOO}b", "abaRb" }
+		{ "a%{env:FOO}b", "abaRb" },
+		{ "%50Hv", "1f" },
+		{ "%50Hw", "2e" },
+		{ "%50Nv", "25" },
+		{ "%50Nw", "e" }
 	};
 	static struct var_expand_table table[] = {
+		{ 'v', "value", NULL },
+		{ 'w', "value2", NULL },
 		{ '\0', NULL, NULL }
 	};
 	string_t *str = t_str_new(128);
