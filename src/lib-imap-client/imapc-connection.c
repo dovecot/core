@@ -92,6 +92,7 @@ struct imapc_connection {
 
 	struct imapc_client_mailbox *selecting_box, *selected_box;
 	enum imapc_connection_state state;
+	char *disconnect_reason;
 
 	enum imapc_capability capabilities;
 	char **capabilities_list;
@@ -158,6 +159,8 @@ static void imapc_connection_unref(struct imapc_connection **_conn)
 	*_conn = NULL;
 	if (--conn->refcount > 0)
 		return;
+
+	i_assert(conn->disconnect_reason == NULL);
 
 	if (conn->capabilities_list != NULL)
 		p_strsplit_free(default_pool, conn->capabilities_list);
@@ -299,8 +302,13 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 	case IMAPC_CONNECTION_STATE_DISCONNECTED:
 		memset(&reply, 0, sizeof(reply));
 		reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
-		reply.text_without_resp = reply.text_full =
-			"Disconnected from server";
+		reply.text_full = "Disconnected from server";
+		if (conn->disconnect_reason != NULL) {
+			reply.text_full = t_strdup_printf("%s: %s",
+				reply.text_full, conn->disconnect_reason);
+			i_free_and_null(conn->disconnect_reason);
+		}
+		reply.text_without_resp = reply.text_full;
 		imapc_login_callback(conn, &reply);
 
 		conn->idling = FALSE;
@@ -899,6 +907,9 @@ static int imapc_connection_input_untagged(struct imapc_connection *conn)
 		value = imap_args_to_str(imap_args);
 		if (imapc_connection_parse_capability(conn, value) < 0)
 			return -1;
+	} else if (strcasecmp(name, "BYE") == 0) {
+		i_free(conn->disconnect_reason);
+		conn->disconnect_reason = i_strdup(imap_args_to_str(imap_args));
 	}
 
 	reply.name = name;
@@ -1120,7 +1131,10 @@ static void imapc_connection_input(struct imapc_connection *conn)
 
 	if (ret < 0) {
 		/* disconnected */
-		if (conn->ssl_iostream == NULL) {
+		if (conn->disconnect_reason != NULL) {
+			i_error("imapc(%s): Server disconnected with message: %s",
+				conn->name, conn->disconnect_reason);
+		} else if (conn->ssl_iostream == NULL) {
 			i_error("imapc(%s): Server disconnected unexpectedly",
 				conn->name);
 		} else {
