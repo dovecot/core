@@ -92,17 +92,21 @@ m_str_newhash(const char *str, struct var_expand_context *ctx)
 {
 	string_t *hash = t_str_new(20);
 	unsigned char result[MD5_RESULTLEN];
-	unsigned int value;
+	unsigned int i;
+	uint64_t value;
 
 	md5_get_digest(str, strlen(str), result);
-	memcpy(&value, result, sizeof(value));
+	for (i = 0; i < sizeof(value); i++) {
+		value <<= 8;
+		value |= result[i];
+	}
 
 	if (ctx->width != 0) {
 		value %= ctx->width;
 		ctx->width = 0;
 	}
 
-	str_printfa(hash, "%x", value);
+	str_printfa(hash, "%x", (unsigned int)value);
 	while ((int)str_len(hash) < ctx->offset)
 		str_insert(hash, 0, "0");
         ctx->offset = 0;
