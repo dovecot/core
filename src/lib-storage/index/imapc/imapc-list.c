@@ -682,8 +682,19 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
+	enum imapc_capability capa;
 	struct imapc_command *cmd;
 	struct imapc_simple_context ctx;
+
+	capa = imapc_client_get_capabilities(list->storage->client);
+
+	cmd = imapc_list_simple_context_init(&ctx, list);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
+	if ((capa & IMAPC_CAPABILITY_UNSELECT) != 0)
+		imapc_command_sendf(cmd, "UNSELECT");
+	else
+		imapc_command_sendf(cmd, "SELECT \"~~~\"");
+	imapc_simple_run(&ctx);
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_sendf(cmd, "DELETE %s", name);
