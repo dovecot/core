@@ -352,7 +352,7 @@ void imapc_connection_disconnect(struct imapc_connection *conn)
 	bool reconnecting = conn->selected_box != NULL &&
 		conn->selected_box->reconnecting;
 
-	if (conn->fd == -1)
+	if (conn->state == IMAPC_CONNECTION_STATE_DISCONNECTED)
 		return;
 
 	if (conn->client->set.debug)
@@ -366,14 +366,18 @@ void imapc_connection_disconnect(struct imapc_connection *conn)
 		timeout_remove(&conn->to);
 	if (conn->to_output != NULL)
 		timeout_remove(&conn->to_output);
-	imap_parser_unref(&conn->parser);
-	io_remove(&conn->io);
+	if (conn->parser != NULL)
+		imap_parser_unref(&conn->parser);
+	if (conn->io != NULL)
+		io_remove(&conn->io);
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
-	i_stream_destroy(&conn->input);
-	o_stream_destroy(&conn->output);
-	net_disconnect(conn->fd);
-	conn->fd = -1;
+	if (conn->fd != -1) {
+		i_stream_destroy(&conn->input);
+		o_stream_destroy(&conn->output);
+		net_disconnect(conn->fd);
+		conn->fd = -1;
+	}
 
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DISCONNECTED);
 	imapc_connection_abort_commands(conn, NULL, reconnecting);
