@@ -776,7 +776,7 @@ int mailbox_list_get_storage(struct mailbox_list **list, const char *vname,
 	if ((*list)->v.get_storage != NULL)
 		return (*list)->v.get_storage(list, vname, storage_r);
 	else {
-		*storage_r = (*list)->ns->storage;
+		*storage_r = mail_namespace_get_default_storage((*list)->ns);
 		return 0;
 	}
 }
@@ -784,7 +784,7 @@ int mailbox_list_get_storage(struct mailbox_list **list, const char *vname,
 void mailbox_list_get_default_storage(struct mailbox_list *list,
 				      struct mail_storage **storage)
 {
-	*storage = list->ns->storage;
+	*storage = mail_namespace_get_default_storage(list->ns);
 }
 
 char mailbox_list_get_hierarchy_sep(struct mailbox_list *list)

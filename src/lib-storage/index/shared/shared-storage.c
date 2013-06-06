@@ -346,7 +346,8 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	*_ns = new_ns;
 	if (_storage->class_flags == 0) {
 		/* flags are unset if we were using "auto" storage */
-		_storage->class_flags = new_ns->storage->class_flags;
+		_storage->class_flags =
+			mail_namespace_get_default_storage(new_ns)->class_flags;
 	}
 
 	mail_user_add_namespace(user, &new_ns);

@@ -84,7 +84,7 @@ int acl_shared_namespaces_add(struct mail_namespace *ns)
 {
 	struct acl_user *auser = ACL_USER_CONTEXT(ns->user);
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ns->list);
-	struct mail_storage *storage = ns->storage;
+	struct mail_storage *storage = mail_namespace_get_default_storage(ns);
 	struct acl_lookup_dict_iter *iter;
 	const char *name;
 

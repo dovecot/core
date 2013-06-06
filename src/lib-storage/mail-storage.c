@@ -655,8 +655,8 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 	}
 
 	if (mailbox_list_get_storage(&new_list, vname, &storage) < 0) {
-		/* just use the first storage. FIXME: does this break? */
-		storage = list->ns->storage;
+		/* just use the default storage. FIXME: does this break? */
+		storage = mail_namespace_get_default_storage(list->ns);
 	}
 
 	T_BEGIN {

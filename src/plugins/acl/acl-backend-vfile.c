@@ -127,35 +127,43 @@ static void acl_backend_vfile_deinit(struct acl_backend *_backend)
 }
 
 static const char *
-acl_backend_vfile_get_local_dir(struct acl_backend *backend, const char *name)
+acl_backend_vfile_get_local_dir(struct acl_backend *backend,
+				const char *name)
 {
 	struct mail_namespace *ns = mailbox_list_get_namespace(backend->list);
+	struct mailbox_list *list = ns->list;
+	struct mail_storage *storage;
 	enum mailbox_list_path_type type;
-	const char *dir, *inbox, *error;
+	const char *dir, *inbox, *vname, *error;
 
 	if (*name == '\0')
 		name = NULL;
-	else if (!mailbox_list_is_valid_name(ns->list, name, &error))
+	else if (!mailbox_list_is_valid_name(list, name, &error))
 		return NULL;
 
 	/* ACL files are very important. try to keep them among the main
 	   mail files. that's not possible though with a) if the mailbox is
 	   a file or b) if the mailbox path doesn't point to filesystem. */
-	type = mail_storage_is_mailbox_file(ns->storage) ||
-		(ns->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0 ?
+	vname = mailbox_list_get_vname(backend->list, name);
+	if (mailbox_list_get_storage(&list, vname, &storage) < 0)
+		return NULL;
+	i_assert(list == ns->list);
+
+	type = mail_storage_is_mailbox_file(storage) ||
+		(storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0 ?
 		MAILBOX_LIST_PATH_TYPE_CONTROL : MAILBOX_LIST_PATH_TYPE_MAILBOX;
 	if (name == NULL) {
-		if (!mailbox_list_get_root_path(ns->list, type, &dir))
+		if (!mailbox_list_get_root_path(list, type, &dir))
 			return FALSE;
 	} else {
-		if (mailbox_list_get_path(ns->list, name, type, &dir) <= 0)
+		if (mailbox_list_get_path(list, name, type, &dir) <= 0)
 			return NULL;
 	}
 
 	/* verify that the directory isn't same as INBOX's directory.
 	   this is mainly for Maildir. */
 	if (name == NULL &&
-	    mailbox_list_get_path(ns->list, "INBOX",
+	    mailbox_list_get_path(list, "INBOX",
 				  MAILBOX_LIST_PATH_TYPE_MAILBOX, &inbox) > 0 &&
 	    strcmp(inbox, dir) == 0) {
 		/* can't have default ACLs with this setup */
@@ -177,15 +185,17 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 	aclobj->aclobj.backend = _backend;
 	aclobj->aclobj.name = i_strdup(name);
 
-	if (backend->global_dir != NULL) T_BEGIN {
-		vname = mailbox_list_get_vname(backend->backend.list, name);
-		aclobj->global_path = i_strconcat(backend->global_dir, "/",
-						  vname, NULL);
-	} T_END;
+	T_BEGIN {
+		if (backend->global_dir != NULL) {
+			vname = mailbox_list_get_vname(backend->backend.list, name);
+			aclobj->global_path =
+				i_strconcat(backend->global_dir, "/", vname, NULL);
+		}
 
-	dir = acl_backend_vfile_get_local_dir(_backend, name);
-	aclobj->local_path = dir == NULL ? NULL :
-		i_strconcat(dir, "/"ACL_FILENAME, NULL);
+		dir = acl_backend_vfile_get_local_dir(_backend, name);
+		aclobj->local_path = dir == NULL ? NULL :
+			i_strconcat(dir, "/"ACL_FILENAME, NULL);
+	} T_END;
 	return &aclobj->aclobj;
 }
 

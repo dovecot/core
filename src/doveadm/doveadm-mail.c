@@ -107,6 +107,7 @@ static int
 cmd_purge_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 {
 	struct mail_namespace *ns;
+	struct mail_storage *storage;
 	int ret = 0;
 
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
@@ -114,10 +115,11 @@ cmd_purge_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 		    ns->alias_for != NULL)
 			continue;
 
-		if (mail_storage_purge(ns->storage) < 0) {
+		storage = mail_namespace_get_default_storage(ns);
+		if (mail_storage_purge(storage) < 0) {
 			i_error("Purging namespace '%s' failed: %s", ns->prefix,
-				mail_storage_get_last_error(ns->storage, NULL));
-			doveadm_mail_failed_storage(ctx, ns->storage);
+				mail_storage_get_last_error(storage, NULL));
+			doveadm_mail_failed_storage(ctx, storage);
 			ret = -1;
 		}
 	}

@@ -51,8 +51,7 @@ shared_get_storage(struct mailbox_list **list, const char *vname,
 			return -1;
 	}
 	*list = ns->list;
-	*storage_r = ns->storage;
-	return 0;
+	return mailbox_list_get_storage(list, vname, storage_r);
 }
 
 static char shared_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
@@ -66,7 +65,8 @@ shared_list_get_path(struct mailbox_list *list, const char *name,
 {
 	struct mail_namespace *ns = list->ns;
 
-	if (list->ns->storage == NULL || name == NULL ||
+	if (mail_namespace_get_default_storage(list->ns) == NULL ||
+	    name == NULL ||
 	    shared_storage_get_namespace(&ns, &name) < 0) {
 		/* we don't have a directory we can use. */
 		*path_r = NULL;
