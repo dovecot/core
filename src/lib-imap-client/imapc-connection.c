@@ -1374,7 +1374,7 @@ void imapc_connection_connect(struct imapc_connection *conn,
 	unsigned int ips_count;
 	int ret;
 
-	if (conn->fd != -1) {
+	if (conn->fd != -1 || conn->dns_lookup != NULL) {
 		i_assert(login_callback == NULL);
 		return;
 	}
