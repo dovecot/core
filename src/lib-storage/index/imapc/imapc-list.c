@@ -29,7 +29,6 @@ static struct {
 	{ "\\NonExistent", MAILBOX_NONEXISTENT },
 	{ "\\NoInferiors", MAILBOX_NOINFERIORS },
 	{ "\\Subscribed", MAILBOX_SUBSCRIBED },
-	{ "\\Subscribed", MAILBOX_SUBSCRIBED },
 	{ "\\All", MAILBOX_SPECIALUSE_ALL },
 	{ "\\Archive", MAILBOX_SPECIALUSE_ARCHIVE },
 	{ "\\Drafts", MAILBOX_SPECIALUSE_DRAFTS },
