@@ -781,7 +781,7 @@ int mailbox_list_get_storage(struct mailbox_list **list, const char *vname,
 	}
 }
 
-void mailbox_list_get_closest_storage(struct mailbox_list *list,
+void mailbox_list_get_default_storage(struct mailbox_list *list,
 				      struct mail_storage **storage)
 {
 	*storage = list->ns->storage;

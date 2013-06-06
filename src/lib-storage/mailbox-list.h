@@ -171,7 +171,7 @@ struct mail_user *
 mailbox_list_get_user(const struct mailbox_list *list) ATTR_PURE;
 int mailbox_list_get_storage(struct mailbox_list **list, const char *vname,
 			     struct mail_storage **storage_r);
-void mailbox_list_get_closest_storage(struct mailbox_list *list,
+void mailbox_list_get_default_storage(struct mailbox_list *list,
 				      struct mail_storage **storage);
 char mailbox_list_get_hierarchy_sep(struct mailbox_list *list);
 
