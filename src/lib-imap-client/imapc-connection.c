@@ -187,6 +187,8 @@ void imapc_connection_ioloop_changed(struct imapc_connection *conn)
 		conn->to = io_loop_move_timeout(&conn->to);
 	if (conn->output != NULL)
 		o_stream_switch_ioloop(conn->output);
+	if (conn->dns_lookup != NULL)
+		dns_lookup_switch_ioloop(conn->dns_lookup);
 
 	if (conn->client->ioloop == NULL && conn->to_output != NULL) {
 		/* we're only once moving the to_output to the main ioloop,
