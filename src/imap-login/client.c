@@ -48,6 +48,22 @@ bool client_skip_line(struct imap_client *client)
 	return FALSE;
 }
 
+static bool is_login_cmd_disabled(struct client *client)
+{
+	if (client->secured) {
+		if (auth_client_find_mech(auth_client, "PLAIN") == NULL) {
+			/* no PLAIN authentication, can't use LOGIN command */
+			return TRUE;
+		}
+		return FALSE;
+	}
+	if (client->set->disable_plaintext_auth)
+		return TRUE;
+	if (strcmp(client->ssl_set->ssl, "required") == 0)
+		return TRUE;
+	return FALSE;
+}
+
 static const char *get_capability(struct client *client)
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
@@ -65,8 +81,7 @@ static const char *get_capability(struct client *client)
 
 	if (client_is_tls_enabled(client) && !client->tls)
 		str_append(cap_str, " STARTTLS");
-	if (!client->secured & (client->set->disable_plaintext_auth ||
-				strcmp(client->ssl_set->ssl, "required") == 0))
+	if (is_login_cmd_disabled(client))
 		str_append(cap_str, " LOGINDISABLED");
 
 	client_authenticate_get_capabilities(client, cap_str);
