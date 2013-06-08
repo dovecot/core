@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2012 Dovecot authors, see the included COPYING file
-.TH DOVECONF 1 "2012-01-29" "Dovecot v2.1" "Dovecot"
+.TH DOVECONF 1 "2012-01-29" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveconf \- Dovecot\(aqs configuration dumping utility
 .\"------------------------------------------------------------------------

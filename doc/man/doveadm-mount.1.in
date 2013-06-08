@@ -1,5 +1,5 @@
 .\" Copyright (c) 2012 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-MOUNT 1 "2012-02-16" "Dovecot v2.1" "Dovecot"
+.TH DOVEADM\-MOUNT 1 "2012-02-16" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-mount \- Manage the list of mountpoints where mails are stored
 .\"------------------------------------------------------------------------
