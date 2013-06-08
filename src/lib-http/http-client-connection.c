@@ -672,12 +672,12 @@ http_client_connection_ready(struct http_client_connection *conn)
 	struct stat st;
 
 	conn->connected = TRUE;
-	conn->peer->last_connect_failed = FALSE;
-
 	if (conn->to_connect != NULL &&
 	    (conn->ssl_iostream == NULL ||
 	     ssl_iostream_is_handshaked(conn->ssl_iostream)))
 		timeout_remove(&conn->to_connect);
+
+	http_client_peer_connection_success(conn->peer);
 
 	if (conn->client->set.rawlog_dir != NULL &&
 		stat(conn->client->set.rawlog_dir, &st) == 0) {

@@ -71,15 +71,20 @@ struct http_client_request {
 };
 
 struct http_client_host_port {
+	struct http_client_host *host;
+
 	unsigned int port;
+	char *https_name;
 
 	/* current index in host->ips */
 	unsigned int ips_connect_idx;
+	/* number of connections trying to connect for this host+port */
+	unsigned int pending_connection_count;
 
 	/* requests pending in queue to be picked up by connections */
 	ARRAY_TYPE(http_client_request) request_queue;
 
-	char *https_name;
+	struct timeout *to_connect;
 };
 
 struct http_client_host {
@@ -228,12 +233,15 @@ struct http_client_peer *
 	http_client_peer_get(struct http_client *client,
 		const struct http_client_peer_addr *addr);
 void http_client_peer_free(struct http_client_peer **_peer);
+bool http_client_peer_have_host(struct http_client_peer *peer,
+				struct http_client_host *host);
 void http_client_peer_add_host(struct http_client_peer *peer,
 	struct http_client_host *host);
 struct http_client_request *
 	http_client_peer_claim_request(struct http_client_peer *peer,
 		bool no_urgent);
 void http_client_peer_handle_requests(struct http_client_peer *peer);
+void http_client_peer_connection_success(struct http_client_peer *peer);
 void http_client_peer_connection_failure(struct http_client_peer *peer,
 					 const char *reason);
 void http_client_peer_connection_lost(struct http_client_peer *peer);
@@ -247,6 +255,8 @@ void http_client_host_submit_request(struct http_client_host *host,
 struct http_client_request *
 http_client_host_claim_request(struct http_client_host *host,
 	const struct http_client_peer_addr *addr, bool no_urgent);
+void http_client_host_connection_success(struct http_client_host *host,
+	const struct http_client_peer_addr *addr);
 void http_client_host_connection_failure(struct http_client_host *host,
 	const struct http_client_peer_addr *addr, const char *reason);
 unsigned int http_client_host_requests_pending(struct http_client_host *host,

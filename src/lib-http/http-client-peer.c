@@ -76,7 +76,8 @@ http_client_peer_connect(struct http_client_peer *peer, unsigned int count)
 }
 
 static unsigned int
-http_client_peer_requests_pending(struct http_client_peer *peer, unsigned int *num_urgent_r)
+http_client_peer_requests_pending(struct http_client_peer *peer,
+				  unsigned int *num_urgent_r)
 {
 	struct http_client_host *const *host;
 	unsigned int num_requests = 0, num_urgent = 0, requests, urgent;
@@ -232,20 +233,22 @@ http_client_peer_get(struct http_client *client,
 	return peer;
 }
 
-void http_client_peer_add_host(struct http_client_peer *peer,
-			   struct http_client_host *host)
+bool http_client_peer_have_host(struct http_client_peer *peer,
+				struct http_client_host *host)
 {
 	struct http_client_host *const *host_idx;
-	bool exists = FALSE;
 
 	array_foreach(&peer->hosts, host_idx) {
-		if (*host_idx == host) {
-			exists = TRUE;
-			break;
-		}
+		if (*host_idx == host)
+			return TRUE;
 	}
+	return FALSE;
+}
 
-	if (!exists)
+void http_client_peer_add_host(struct http_client_peer *peer,
+			       struct http_client_host *host)
+{
+	if (!http_client_peer_have_host(peer, host))
 		array_append(&peer->hosts, &host, 1);
 	http_client_peer_handle_requests(peer);
 }
@@ -265,6 +268,17 @@ http_client_peer_claim_request(struct http_client_peer *peer, bool no_urgent)
 	}
 
 	return NULL;
+}
+
+void http_client_peer_connection_success(struct http_client_peer *peer)
+{
+	struct http_client_host *const *host;
+
+	peer->last_connect_failed = FALSE;
+
+	array_foreach(&peer->hosts, host) {
+		http_client_host_connection_success(*host, &peer->addr);
+	}
 }
 
 void http_client_peer_connection_failure(struct http_client_peer *peer,

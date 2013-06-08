@@ -63,6 +63,10 @@ struct http_client_settings {
 	/* max time to wait for connect() (and SSL handshake) to finish before
 	   retrying (default = request_timeout_msecs) */
 	unsigned int connect_timeout_msecs;
+	/* time to wait for connect() (and SSL handshake) to finish for the first
+	   connection before trying the next IP in parallel
+	   (default = 0; wait until current connection attempt finishes) */
+	unsigned int soft_connect_timeout_msecs;
 
 	bool debug;
 };
