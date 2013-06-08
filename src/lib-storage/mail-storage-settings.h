@@ -75,6 +75,7 @@ struct mailbox_settings {
 	const char *name;
 	const char *autocreate;
 	const char *special_use;
+	const char *driver;
 };
 
 struct mail_user_settings {

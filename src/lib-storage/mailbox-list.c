@@ -15,7 +15,7 @@
 #include "imap-utf7.h"
 #include "mailbox-log.h"
 #include "mailbox-tree.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mail-storage-hooks.h"
 #include "mailbox-list-private.h"
 
@@ -770,15 +770,50 @@ mailbox_list_get_user(const struct mailbox_list *list)
 	return list->ns->user;
 }
 
+static int
+mailbox_list_get_storage_driver(struct mailbox_list *list, const char *driver,
+				struct mail_storage **storage_r)
+{
+	struct mail_storage *const *storagep;
+	const char *error, *data;
+
+	array_foreach(&list->ns->all_storages, storagep) {
+		if (strcmp((*storagep)->name, driver) == 0) {
+			*storage_r = *storagep;
+			return 0;
+		}
+	}
+
+	data = strchr(list->ns->set->location, ':');
+	if (data == NULL)
+		data = "";
+	else
+		data++;
+	if (mail_storage_create_full(list->ns, driver, data, 0,
+				     storage_r, &error) < 0) {
+		mailbox_list_set_critical(list,
+			"Namespace %s: Failed to create storage '%s': %s",
+			list->ns->prefix, driver, error);
+		return -1;
+	}
+	return 0;
+}
+
 int mailbox_list_get_storage(struct mailbox_list **list, const char *vname,
 			     struct mail_storage **storage_r)
 {
+	const struct mailbox_settings *set;
+
 	if ((*list)->v.get_storage != NULL)
 		return (*list)->v.get_storage(list, vname, storage_r);
-	else {
-		*storage_r = mail_namespace_get_default_storage((*list)->ns);
-		return 0;
+
+	set = mailbox_settings_find((*list)->ns->user, vname);
+	if (set != NULL && set->driver[0] != '\0') {
+		return mailbox_list_get_storage_driver(*list, set->driver,
+						       storage_r);
 	}
+	*storage_r = mail_namespace_get_default_storage((*list)->ns);
+	return 0;
 }
 
 void mailbox_list_get_default_storage(struct mailbox_list *list,
