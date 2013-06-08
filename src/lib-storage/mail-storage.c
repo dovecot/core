@@ -298,14 +298,15 @@ mail_storage_find(struct mail_user *user,
 	return NULL;
 }
 
-int mail_storage_create(struct mail_namespace *ns, const char *driver,
-			enum mail_storage_flags flags, const char **error_r)
+int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
+			     const char *data, enum mail_storage_flags flags,
+			     struct mail_storage **storage_r,
+			     const char **error_r)
 {
 	struct mail_storage *storage_class, *storage = NULL;
 	struct mailbox_list *list;
 	struct mailbox_list_settings list_set;
 	enum mailbox_list_flags list_flags = 0;
-	const char *data = ns->set->location;
 	const char *p;
 
 	if ((flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) == 0 &&
@@ -369,6 +370,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		/* using an existing storage */
 		storage->refcount++;
 		mail_namespace_add_storage(ns, storage);
+		*storage_r = storage;
 		return 0;
 	}
 
@@ -392,8 +394,18 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 	} T_END;
 
 	DLLIST_PREPEND(&ns->user->storages, storage);
-        mail_namespace_add_storage(ns, storage);
+	mail_namespace_add_storage(ns, storage);
+	*storage_r = storage;
 	return 0;
+}
+
+int mail_storage_create(struct mail_namespace *ns, const char *driver,
+			enum mail_storage_flags flags, const char **error_r)
+{
+	struct mail_storage *storage;
+
+	return mail_storage_create_full(ns, driver, ns->set->location,
+					flags, &storage, error_r);
 }
 
 void mail_storage_unref(struct mail_storage **_storage)
@@ -639,6 +651,8 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 	struct mailbox_list *new_list = list;
 	struct mail_storage *storage;
 	struct mailbox *box;
+	enum mail_error open_error = 0;
+	const char *errstr = NULL;
 
 	i_assert(uni_utf8_str_is_valid(vname));
 
@@ -654,14 +668,19 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			vname = t_strconcat("INBOX", vname + 5, NULL);
 	}
 
-	if (mailbox_list_get_storage(&new_list, vname, &storage) < 0) {
-		/* just use the default storage. FIXME: does this break? */
-		storage = mail_namespace_get_default_storage(list->ns);
-	}
-
 	T_BEGIN {
+		if (mailbox_list_get_storage(&new_list, vname, &storage) < 0) {
+			/* do a delayed failure at mailbox_open() */
+			storage = mail_namespace_get_default_storage(list->ns);
+			errstr = mailbox_list_get_last_error(new_list, &open_error);
+			errstr = t_strdup(errstr);
+		}
+
 		box = storage->v.mailbox_alloc(storage, new_list, vname, flags);
 		box->set = mailbox_settings_find(storage->user, vname);
+		box->open_error = open_error;
+		if (open_error != 0)
+			mail_storage_set_error(storage, open_error, errstr);
 		hook_mailbox_allocated(box);
 	} T_END;
 

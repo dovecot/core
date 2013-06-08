@@ -67,8 +67,8 @@ struct mail_namespace {
 
 	struct mail_user *user, *owner;
 	struct mailbox_list *list;
-	/* FIXME: we should support multiple storages in one namespace */
-	struct mail_storage *storage;
+	struct mail_storage *storage; /* default storage */
+	ARRAY(struct mail_storage *) all_storages;
 
 	const struct mail_namespace_settings *set, *unexpanded_set;
 	const struct mail_storage_settings *mail_set;

@@ -541,7 +541,11 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY |
 			    MAILBOX_FLAG_IGNORE_ACLS);
-	i_assert(box->storage == &ctx->storage->storage.storage);
+	if (box->storage != &ctx->storage->storage.storage) {
+		/* the namespace has multiple storages. */
+		mailbox_free(&box);
+		return 0;
+	}
 	if (mailbox_open(box) < 0) {
 		error = mailbox_get_last_mail_error(box);
 		i_error("Couldn't open mailbox '%s': %s",

@@ -419,6 +419,10 @@ struct mail_storage *mail_storage_find_class(const char *name);
 int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			enum mail_storage_flags flags, const char **error_r)
 	ATTR_NULL(2);
+int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
+			     const char *data, enum mail_storage_flags flags,
+			     struct mail_storage **storage_r,
+			     const char **error_r) ATTR_NULL(2);
 void mail_storage_unref(struct mail_storage **storage);
 
 /* Returns the mail storage settings. */

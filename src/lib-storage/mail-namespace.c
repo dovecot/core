@@ -34,9 +34,9 @@ static struct mail_namespace_settings prefixless_ns_set;
 void mail_namespace_add_storage(struct mail_namespace *ns,
 				struct mail_storage *storage)
 {
-	/* currently we support only a single storage */
-	i_assert(ns->storage == NULL);
-	ns->storage = storage;
+	if (ns->storage == NULL)
+		ns->storage = storage;
+	array_append(&ns->all_storages, &storage, 1);
 
 	if (storage->v.add_list != NULL)
 		storage->v.add_list(storage, ns->list);
@@ -52,8 +52,11 @@ void mail_namespace_finish_list_init(struct mail_namespace *ns,
 
 static void mail_namespace_free(struct mail_namespace *ns)
 {
-	if (ns->storage != NULL)
-		mail_storage_unref(&ns->storage);
+	struct mail_storage **storagep;
+
+	array_foreach_modifiable(&ns->all_storages, storagep)
+		mail_storage_unref(storagep);
+	array_free(&ns->all_storages);
 	if (ns->list != NULL)
 		mailbox_list_destroy(&ns->list);
 
@@ -150,6 +153,7 @@ namespace_add(struct mail_user *user,
 	ns->mail_set = mail_set;
 	ns->prefix = i_strdup(ns_set->prefix);
 	ns->special_use_mailboxes = namespace_has_special_use_mailboxes(ns_set);
+	i_array_init(&ns->all_storages, 2);
 
 	if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 	    (strchr(ns->prefix, '%') != NULL ||
@@ -510,9 +514,12 @@ void mail_namespaces_set_storage_callbacks(struct mail_namespace *namespaces,
 					   void *context)
 {
 	struct mail_namespace *ns;
+	struct mail_storage *const *storagep;
 
-	for (ns = namespaces; ns != NULL; ns = ns->next)
-		mail_storage_set_callbacks(ns->storage, callbacks, context);
+	for (ns = namespaces; ns != NULL; ns = ns->next) {
+		array_foreach(&ns->all_storages, storagep)
+			mail_storage_set_callbacks(*storagep, callbacks, context);
+	}
 }
 
 void mail_namespace_ref(struct mail_namespace *ns)
@@ -558,7 +565,6 @@ void mail_namespace_destroy(struct mail_namespace *ns)
 struct mail_storage *
 mail_namespace_get_default_storage(struct mail_namespace *ns)
 {
-	/* currently we don't support more than one storage per namespace */
 	return ns->storage;
 }
 
