@@ -226,6 +226,8 @@ static void imapc_storage_send_hierarcy_sep_lookup(struct imapc_storage *storage
 
 int imapc_storage_try_get_root_sep(struct imapc_storage *storage, char *sep_r)
 {
+	i_assert(storage->list != NULL);
+
 	if (storage->root_sep == '\0') {
 		imapc_storage_send_hierarcy_sep_lookup(storage);
 		while (storage->root_sep_pending)
@@ -292,23 +294,28 @@ imapc_storage_create(struct mail_storage *_storage,
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
 	set.ssl_crypto_device = _storage->set->ssl_crypto_device;
 
-	storage->list = (struct imapc_mailbox_list *)ns->list;
-	storage->list->storage = storage;
 	storage->client = imapc_client_init(&set);
 
 	p_array_init(&storage->remote_namespaces, _storage->pool, 4);
 	p_array_init(&storage->untagged_callbacks, _storage->pool, 16);
+	if (strcmp(ns->list->name, MAILBOX_LIST_NAME_IMAPC) == 0) {
+		storage->list = (struct imapc_mailbox_list *)ns->list;
+		storage->list->storage = storage;
+		imapc_list_register_callbacks(storage->list);
+	}
+
 	imapc_client_register_untagged(storage->client,
 				       imapc_storage_untagged_cb, storage);
-	imapc_list_register_callbacks(storage->list);
 	imapc_storage_register_untagged(storage, "STATUS",
 					imapc_untagged_status);
 	imapc_storage_register_untagged(storage, "NAMESPACE",
 					imapc_untagged_namespace);
 	/* start connecting to imap server and get the hierarchy separator. */
 	imapc_client_login(storage->client, NULL, NULL);
-	imapc_storage_send_hierarcy_sep_lookup(storage);
-	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+	if (storage->list != NULL)
+		imapc_storage_send_hierarcy_sep_lookup(storage);
+	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+	    storage->list != NULL) {
 		/* we're using imapc for the INBOX namespace. wait and make
 		   sure we can successfully access the IMAP server (so if the
 		   username is invalid we don't just keep failing every
@@ -336,8 +343,10 @@ static void imapc_storage_add_list(struct mail_storage *_storage,
 	struct imapc_storage *storage = (struct imapc_storage *)_storage;
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 
-	i_assert(storage->list != NULL);
-	list->storage = storage;
+	if (strcmp(_list->name, MAILBOX_LIST_NAME_IMAPC) == 0) {
+		i_assert(storage->list != NULL);
+		list->storage = storage;
+	}
 }
 
 void imapc_storage_register_untagged(struct imapc_storage *storage,
