@@ -289,6 +289,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_HIDDEN |
 		NAMESPACE_FLAG_AUTOCREATED | NAMESPACE_FLAG_INBOX_ANY;
 	new_ns->mail_set = _storage->set;
+	i_array_init(&new_ns->all_storages, 2);
 
 	location = t_str_new(256);
 	if (ret > 0)

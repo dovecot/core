@@ -408,6 +408,7 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 	ns->flags = NAMESPACE_FLAG_INBOX_USER | NAMESPACE_FLAG_INBOX_ANY |
 		NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_SUBSCRIPTIONS;
 	ns->owner = user;
+	i_array_init(&ns->all_storages, 2);
 
 	inbox_set = p_new(user->pool, struct mail_namespace_settings, 1);
 	*inbox_set = mail_namespace_default_settings;
@@ -489,6 +490,7 @@ struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user)
 	ns->flags = NAMESPACE_FLAG_INBOX_USER | NAMESPACE_FLAG_INBOX_ANY |
 		NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_SUBSCRIPTIONS;
 	ns->mail_set = mail_user_set_get_storage_set(user);
+	i_array_init(&ns->all_storages, 2);
 	user->namespaces = ns;
 	return ns;
 }
