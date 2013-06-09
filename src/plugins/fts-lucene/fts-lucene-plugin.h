@@ -13,6 +13,7 @@ struct fts_lucene_settings {
 	const char *textcat_conf, *textcat_dir;
 	const char *whitespace_chars;
 	bool normalize;
+	bool no_snowball;
 };
 
 struct fts_lucene_user {

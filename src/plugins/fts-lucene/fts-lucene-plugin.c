@@ -30,6 +30,8 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 			set->whitespace_chars = p_strdup(user->pool, *tmp + 17);
 		} else if (strcmp(*tmp, "normalize") == 0) {
 			set->normalize = TRUE;
+		} else if (strcmp(*tmp, "no_snowball") == 0) {
+			set->no_snowball = TRUE;
 		} else {
 			i_error("fts_lucene: Invalid setting: %s", *tmp);
 			return -1;
@@ -49,11 +51,6 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 	if (set->default_language != NULL) {
 		i_error("fts_lucene: default_language set, "
 			"but Dovecot built without stemmer support");
-		return -1;
-	}
-	if (set->normalize) {
-		i_error("fts_lucene: normalize not currently supported "
-			"without stemmer support");
 		return -1;
 	}
 #else
@@ -80,6 +77,8 @@ uint32_t fts_lucene_settings_checksum(const struct fts_lucene_settings *set)
 	crc = crc32_str_more(crc, set->whitespace_chars);
 	if (set->normalize)
 		crc = crc32_str_more(crc, "n");
+	if (set->no_snowball)
+		crc = crc32_str_more(crc, "s");
 	return crc;
 }
 

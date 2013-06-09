@@ -67,6 +67,7 @@ struct lucene_index {
 	IndexWriter *writer;
 	IndexSearcher *searcher;
 
+	buffer_t *normalizer_buf;
 	Analyzer *default_analyzer, *cur_analyzer;
 	ARRAY(struct lucene_analyzer) analyzers;
 
@@ -118,13 +119,20 @@ struct lucene_index *lucene_index_init(const char *path,
 		index->set.default_language = "";
 	}
 #ifdef HAVE_LUCENE_STEMMER
-	index->default_analyzer =
-		_CLNEW snowball::SnowballAnalyzer(index->normalizer,
-						  index->set.default_language);
-#else
-	index->default_analyzer = _CLNEW standard::StandardAnalyzer();
-	i_assert(index->normalizer == NULL);
+	if (!set->no_snowball) {
+		index->default_analyzer =
+			_CLNEW snowball::SnowballAnalyzer(index->normalizer,
+							  index->set.default_language);
+	}
 #endif
+	else {
+		index->default_analyzer = _CLNEW standard::StandardAnalyzer();
+		if (index->normalizer != NULL) {
+			index->normalizer_buf =
+				buffer_create_dynamic(default_pool, 1024);
+		}
+	}
+
 	i_array_init(&index->analyzers, 32);
 	textcat_refcount++;
 
@@ -155,6 +163,8 @@ void lucene_index_deinit(struct lucene_index *index)
 		textcat = NULL;
 	}
 	_CLDELETE(index->default_analyzer);
+	if (index->normalizer_buf != NULL)
+		buffer_free(&index->normalizer_buf);
 	i_free(index->path);
 	i_free(index);
 }
@@ -515,6 +525,13 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 		swprintf(id, N_ELEMENTS(id), L"%u", uid);
 		index->doc->add(*_CLNEW Field(_T("uid"), id, Field::STORE_YES | Field::INDEX_UNTOKENIZED));
 		index->doc->add(*_CLNEW Field(_T("box"), index->mailbox_guid, Field::STORE_YES | Field::INDEX_UNTOKENIZED));
+	}
+
+	if (index->normalizer_buf != NULL) {
+		buffer_set_used_size(index->normalizer_buf, 0);
+		index->normalizer(data, size, index->normalizer_buf);
+		data = (const unsigned char *)index->normalizer_buf->data;
+		size = index->normalizer_buf->used;
 	}
 
 	datasize = uni_utf8_strlen_n(data, size) + 1;
@@ -1055,8 +1072,18 @@ static Query *
 lucene_get_query_str(struct lucene_index *index,
 		     const TCHAR *key, const char *str, bool fuzzy)
 {
-	const TCHAR *wvalue = t_lucene_utf8_to_tchar(index, str, TRUE);
-	Analyzer *analyzer = guess_analyzer(index, str, strlen(str));
+	const TCHAR *wvalue;
+	Analyzer *analyzer;
+
+	if (index->normalizer_buf != NULL) {
+		buffer_set_used_size(index->normalizer_buf, 0);
+		index->normalizer(str, strlen(str), index->normalizer_buf);
+		buffer_append_c(index->normalizer_buf, '\0');
+		str = (const char *)index->normalizer_buf->data;
+	}
+
+	wvalue = t_lucene_utf8_to_tchar(index, str, TRUE);
+	analyzer = guess_analyzer(index, str, strlen(str));
 	if (analyzer == NULL)
 		analyzer = index->default_analyzer;
 
