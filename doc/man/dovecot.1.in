@@ -148,7 +148,7 @@ Configuration files of different services and settings.
 .SH AUTHOR
 Dovecot <http://dovecot.org> and its manual pages were written by the
 Dovecot authors <http://dovecot.org/doc/AUTHORS>, mainly Timo Sirainen <tss
-at iki.fi>, and are licensed under the terms of the MIT and LGPLv2.2
+at iki.fi>, and are licensed under the terms of the MIT and LGPLv2.1
 licenses, see <http://dovecot.org/doc/COPYING> for details.
 .\"------------------------------------------------------------------------
 .SH SEE ALSO
