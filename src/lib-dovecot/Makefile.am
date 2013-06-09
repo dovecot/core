@@ -7,6 +7,7 @@ libs = \
 	../lib-dict/libdict.la \
 	../lib-imap/libimap.la \
 	../lib-mail/libmail.la \
+	../lib-sasl/libsasl.la \
 	../lib-auth/libauth.la \
 	../lib-dns/libdns.la \
 	../lib-charset/libcharset.la \
