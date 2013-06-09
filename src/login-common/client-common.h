@@ -55,7 +55,7 @@ enum client_auth_result {
 struct client_auth_reply {
 	const char *master_user, *reason;
 	/* for proxying */
-	const char *host, *hostip, *destuser, *password;
+	const char *host, *hostip, *destuser, *password, *proxy_mech;
 	unsigned int port;
 	unsigned int proxy_timeout_msecs;
 	unsigned int proxy_refresh_secs;
@@ -122,6 +122,8 @@ struct client {
 
 	struct login_proxy *login_proxy;
 	char *proxy_user, *proxy_master_user, *proxy_password;
+	const struct sasl_client_mech *proxy_mech;
+	struct sasl_client *proxy_sasl_client;
 	unsigned int proxy_state;
 	unsigned int proxy_ttl;
 

@@ -13,6 +13,7 @@
 #include "access-lookup.h"
 #include "anvil-client.h"
 #include "auth-client.h"
+#include "sasl-client.h"
 #include "master-service-ssl-settings.h"
 #include "ssl-proxy.h"
 #include "login-proxy.h"
@@ -281,6 +282,7 @@ static void main_preinit(bool allow_core_dumps)
 	/* Initialize SSL proxy so it can read certificate and private
 	   key file. */
 	ssl_proxy_init();
+	sasl_clients_init();
 
 	/* set the number of fds we want to use. it may get increased or
 	   decreased. leave a couple of extra fds for auth sockets and such.
@@ -356,6 +358,7 @@ static void main_deinit(void)
 		anvil_client_deinit(&anvil);
 	if (auth_client_to != NULL)
 		timeout_remove(&auth_client_to);
+	sasl_clients_deinit();
 	login_settings_deinit();
 }
 
