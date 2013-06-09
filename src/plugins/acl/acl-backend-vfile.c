@@ -144,7 +144,7 @@ acl_backend_vfile_get_local_dir(struct acl_backend *backend,
 	/* ACL files are very important. try to keep them among the main
 	   mail files. that's not possible though with a) if the mailbox is
 	   a file or b) if the mailbox path doesn't point to filesystem. */
-	vname = mailbox_list_get_vname(backend->list, name);
+	vname = name == NULL ? "" : mailbox_list_get_vname(backend->list, name);
 	if (mailbox_list_get_storage(&list, vname, &storage) < 0)
 		return NULL;
 	i_assert(list == ns->list);
