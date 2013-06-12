@@ -481,6 +481,8 @@ void mailbox_free(struct mailbox **box);
 bool mailbox_equals(const struct mailbox *box1,
 		    const struct mail_namespace *ns2,
 		    const char *vname2) ATTR_PURE;
+/* Returns TRUE if the mailbox is user's INBOX or another user's shared INBOX */
+bool mailbox_is_any_inbox(struct mailbox *box);
 
 /* Returns -1 if mailbox_create() is guaranteed to fail because the mailbox
    name is invalid, 0 not. The error message contains a reason. */

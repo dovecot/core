@@ -1213,6 +1213,11 @@ bool mailbox_equals(const struct mailbox *box1,
 		strcasecmp(vname2, "INBOX") == 0;
 }
 
+bool mailbox_is_any_inbox(struct mailbox *box)
+{
+	return box->inbox_any;
+}
+
 int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)
 {
@@ -1286,11 +1291,6 @@ int mailbox_delete(struct mailbox *box)
 	if (*box->name == '\0') {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
 				       "Storage root can't be deleted");
-		return -1;
-	}
-	if (box->inbox_any) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
-				       "INBOX can't be deleted.");
 		return -1;
 	}
 

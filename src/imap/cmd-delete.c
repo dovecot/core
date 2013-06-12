@@ -16,17 +16,18 @@ bool cmd_delete(struct client_command_context *cmd)
 	if (!client_read_string_args(cmd, 1, &name))
 		return FALSE;
 
-	if (strcasecmp(name, "INBOX") == 0) {
-		/* INBOX can't be deleted */
-		client_send_tagline(cmd, "NO INBOX can't be deleted.");
-		return TRUE;
-	}
-
 	ns = client_find_namespace(cmd, &name);
 	if (ns == NULL)
 		return TRUE;
 
 	box = mailbox_alloc(ns->list, name, 0);
+	if (mailbox_is_any_inbox(box)) {
+		/* IMAP protocol allows this, but I think it's safer to
+		   not allow it. */
+		mailbox_free(&box);
+		client_send_tagline(cmd, "NO INBOX can't be deleted.");
+		return TRUE;
+	}
 	if (client->mailbox != NULL &&
 	    mailbox_backends_equal(box, client->mailbox)) {
 		/* deleting selected mailbox. close it first */
