@@ -209,6 +209,23 @@ pop3c_mailbox_update(struct mailbox *box,
 	return -1;
 }
 
+static int pop3c_mailbox_get_metadata(struct mailbox *box,
+				      enum mailbox_metadata_items items,
+				      struct mailbox_metadata *metadata_r)
+{
+	if ((items & MAILBOX_METADATA_GUID) != 0) {
+		/* a bit ugly way to do this, but better than nothing for now.
+		   FIXME: if indexes are enabled, keep this there. */
+		mail_generate_guid_128_hash(box->name, metadata_r->guid);
+		items &= ~MAILBOX_METADATA_GUID;
+	}
+	if (items != 0) {
+		if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 static void pop3c_notify_changes(struct mailbox *box ATTR_UNUSED)
 {
 }
@@ -251,7 +268,7 @@ struct mailbox pop3c_mailbox = {
 		index_storage_mailbox_delete,
 		index_storage_mailbox_rename,
 		index_storage_get_status,
-		index_mailbox_get_metadata,
+		pop3c_mailbox_get_metadata,
 		index_storage_set_subscribed,
 		index_storage_attribute_set,
 		index_storage_attribute_get,
