@@ -9,18 +9,25 @@
 
 static int pop3c_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
-	mail_storage_set_error(_mail->box->storage, MAIL_ERROR_NOTPOSSIBLE,
-			       "POP3 has no received date");
-	*date_r = (time_t)-1;
-	return -1;
+	int tz;
+
+	/* FIXME: we could also parse the first Received: header and get
+	   the date from there, but since this code is unlikely to be called
+	   except during migration, I don't think it really matters. */
+	return index_mail_get_date(_mail, date_r, &tz);
 }
 
 static int pop3c_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
-	mail_storage_set_error(_mail->box->storage, MAIL_ERROR_NOTPOSSIBLE,
-			       "POP3 has no save date");
-	*date_r = (time_t)-1;
-	return -1;
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail_data *data = &mail->data;
+
+	if (data->save_date == (time_t)-1) {
+		/* FIXME: we could use a value stored in cache */
+		return pop3c_mail_get_received_date(_mail, date_r);
+	}
+	*date_r = data->save_date;
+	return 0;
 }
 
 static int pop3c_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
