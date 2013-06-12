@@ -110,7 +110,8 @@ static void cydir_notify_changes(struct mailbox *box)
 
 struct mail_storage cydir_storage = {
 	.name = CYDIR_STORAGE_NAME,
-	.class_flags = MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG |
+		MAIL_STORAGE_CLASS_FLAG_BINARY_DATA,
 
 	.v = {
 		NULL,

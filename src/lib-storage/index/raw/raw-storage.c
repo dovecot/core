@@ -200,7 +200,8 @@ static void raw_notify_changes(struct mailbox *box ATTR_UNUSED)
 struct mail_storage raw_storage = {
 	.name = RAW_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE |
-		MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS,
+		MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS |
+		MAIL_STORAGE_CLASS_FLAG_BINARY_DATA,
 
 	.v = {
 		NULL,
