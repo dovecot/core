@@ -204,9 +204,13 @@ static int
 pop3c_mailbox_update(struct mailbox *box,
 		     const struct mailbox_update *update ATTR_UNUSED)
 {
-	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
-			       "POP3 mailbox update isn't supported");
-	return -1;
+	if (!guid_128_is_empty(update->mailbox_guid) ||
+	    update->uid_validity != 0 || update->min_next_uid != 0 ||
+	    update->min_first_recent_uid != 0) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "POP3 mailbox update isn't supported");
+	}
+	return index_storage_mailbox_update(box, update);
 }
 
 static int pop3c_mailbox_get_metadata(struct mailbox *box,
