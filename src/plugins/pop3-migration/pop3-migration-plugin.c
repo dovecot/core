@@ -43,7 +43,6 @@ struct pop3_migration_mail_storage {
 	union mail_storage_module_context module_ctx;
 
 	const char *pop3_box_vname;
-	struct mailbox *pop3_box;
 	ARRAY(struct pop3_uidl_map) pop3_uidl_map;
 
 	unsigned int all_mailboxes:1;
@@ -149,31 +148,23 @@ static int get_hdr_sha1(struct mail *mail, unsigned char sha1[SHA1_RESULTLEN])
 	return 0;
 }
 
-static int pop3_mailbox_open(struct mail_storage *storage)
+static struct mailbox *pop3_mailbox_alloc(struct mail_storage *storage)
 {
 	struct pop3_migration_mail_storage *mstorage =
 		POP3_MIGRATION_CONTEXT(storage);
 	struct mail_namespace *ns;
 
-	if (mstorage->pop3_box != NULL)
-		return 0;
-
 	ns = mail_namespace_find(storage->user->namespaces,
 				 mstorage->pop3_box_vname);
-	mstorage->pop3_box = mailbox_alloc(ns->list, mstorage->pop3_box_vname,
-					   MAILBOX_FLAG_READONLY |
-					   MAILBOX_FLAG_POP3_SESSION);
-	mstorage->all_mailboxes =
-		mail_user_plugin_getenv(storage->user,
-					"pop3_migration_all_mailboxes") != NULL;
-	return 0;
+	i_assert(ns != NULL);
+	return mailbox_alloc(ns->list, mstorage->pop3_box_vname,
+			     MAILBOX_FLAG_READONLY | MAILBOX_FLAG_POP3_SESSION);
 }
 
-static int pop3_map_read(struct mail_storage *storage)
+static int pop3_map_read(struct mail_storage *storage, struct mailbox *pop3_box)
 {
 	struct pop3_migration_mail_storage *mstorage =
 		POP3_MIGRATION_CONTEXT(storage);
-	struct mailbox *pop3_box = mstorage->pop3_box;
 	struct mailbox_transaction_context *t;
 	struct mail_search_args *search_args;
 	struct mail_search_context *ctx;
@@ -237,8 +228,9 @@ static int pop3_map_read(struct mail_storage *storage)
 	return ret;
 }
 
-static int pop3_map_read_hdr_hashes(struct mail_storage *storage,
-				    unsigned first_seq)
+static int
+pop3_map_read_hdr_hashes(struct mail_storage *storage, struct mailbox *pop3_box,
+			 unsigned first_seq)
 {
 	struct pop3_migration_mail_storage *mstorage =
 		POP3_MIGRATION_CONTEXT(storage);
@@ -257,7 +249,7 @@ static int pop3_map_read_hdr_hashes(struct mail_storage *storage,
 		first_seq = 1;
 	}
 
-	t = mailbox_transaction_begin(mstorage->pop3_box, 0);
+	t = mailbox_transaction_begin(pop3_box, 0);
 	search_args = mail_search_build_init();
 	mail_search_build_add_seqset(search_args, first_seq,
 				     array_count(&mstorage->pop3_uidl_map)+1);
@@ -390,7 +382,8 @@ static bool pop3_uidl_assign_by_size(struct mailbox *box)
 	return i == count;
 }
 
-static int pop3_uidl_assign_by_hdr_hash(struct mailbox *box)
+static int
+pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 {
 	struct pop3_migration_mail_storage *mstorage =
 		POP3_MIGRATION_CONTEXT(box->storage);
@@ -402,7 +395,7 @@ static int pop3_uidl_assign_by_hdr_hash(struct mailbox *box)
 	int ret;
 
 	first_seq = mbox->first_unfound_idx+1;
-	if (pop3_map_read_hdr_hashes(box->storage, first_seq) < 0 ||
+	if (pop3_map_read_hdr_hashes(box->storage, pop3_box, first_seq) < 0 ||
 	    imap_map_read_hdr_hashes(box) < 0)
 		return -1;
 
@@ -458,6 +451,7 @@ static int pop3_migration_uidl_sync(struct mailbox *box)
 	struct pop3_migration_mailbox *mbox = POP3_MIGRATION_CONTEXT(box);
 	struct pop3_migration_mail_storage *mstorage =
 		POP3_MIGRATION_CONTEXT(box->storage);
+	struct mailbox *pop3_box;
 	const struct pop3_uidl_map *pop3_map;
 	unsigned int i, count;
 	uint32_t prev_uid;
@@ -465,22 +459,23 @@ static int pop3_migration_uidl_sync(struct mailbox *box)
 	if (mbox->uidl_synced)
 		return 0;
 
-	if (pop3_mailbox_open(box->storage) < 0)
-		return -1;
+	pop3_box = pop3_mailbox_alloc(box->storage);
 	/* the POP3 server isn't connected to yet. handle all IMAP traffic
 	   first before connecting, so POP3 server won't disconnect us due to
 	   idling. */
-	if (imap_map_read(box) < 0)
+	if (imap_map_read(box) < 0 ||
+	    pop3_map_read(box->storage, pop3_box) < 0) {
+		mailbox_free(&pop3_box);
 		return -1;
-
-	if (pop3_map_read(box->storage) < 0)
-		return -1;
+	}
 
 	if (!pop3_uidl_assign_by_size(box)) {
 		/* everything wasn't assigned, figure out the rest with
 		   header hashes */
-		if (pop3_uidl_assign_by_hdr_hash(box) < 0)
+		if (pop3_uidl_assign_by_hdr_hash(box, pop3_box) < 0) {
+			mailbox_free(&pop3_box);
 			return -1;
+		}
 	}
 
 	/* see if the POP3 UIDL order is the same as IMAP UID order */
@@ -499,6 +494,7 @@ static int pop3_migration_uidl_sync(struct mailbox *box)
 	}
 
 	mbox->uidl_synced = TRUE;
+	mailbox_free(&pop3_box);
 	return 0;
 }
 
@@ -585,8 +581,6 @@ static void pop3_migration_mail_storage_destroy(struct mail_storage *storage)
 	struct pop3_migration_mail_storage *mstorage =
 		POP3_MIGRATION_CONTEXT(storage);
 
-	if (mstorage->pop3_box != NULL)
-		mailbox_free(&mstorage->pop3_box);
 	if (array_is_created(&mstorage->pop3_uidl_map))
 		array_free(&mstorage->pop3_uidl_map);
 
@@ -610,6 +604,9 @@ static void pop3_migration_mail_storage_created(struct mail_storage *storage)
 	v->destroy = pop3_migration_mail_storage_destroy;
 
 	mstorage->pop3_box_vname = p_strdup(storage->pool, pop3_box_vname);
+	mstorage->all_mailboxes =
+		mail_user_plugin_getenv(storage->user,
+					"pop3_migration_all_mailboxes") != NULL;
 
 	MODULE_CONTEXT_SET(storage, pop3_migration_storage_module, mstorage);
 }
