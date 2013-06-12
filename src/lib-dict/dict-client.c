@@ -73,6 +73,7 @@ struct client_dict_transaction_context {
 	unsigned int failed:1;
 	unsigned int sent_begin:1;
 	unsigned int async:1;
+	unsigned int committed:1;
 };
 
 static int client_dict_connect(struct client_dict *dict);
@@ -262,6 +263,9 @@ client_dict_finish_transaction(struct client_dict *dict,
 		i_error("dict-client: Unknown transaction id %u", id);
 		return;
 	}
+	ctx->failed = TRUE;
+	if (!ctx->committed)
+		return;
 
 	/* the callback may call the dict code again, so remove this
 	   transaction before calling it */
@@ -402,8 +406,6 @@ static int client_dict_connect(struct client_dict *dict)
 {
 	const char *query;
 
-	i_assert(dict->fd == -1);
-
 	if (dict->last_failed_connect == ioloop_time) {
 		/* Try again later */
 		return -1;
@@ -427,8 +429,6 @@ static int client_dict_connect(struct client_dict *dict)
 
 	dict->input = i_stream_create_fd(dict->fd, (size_t)-1, FALSE);
 	dict->output = o_stream_create_fd(dict->fd, 4096, FALSE);
-	dict->transaction_id_counter = 0;
-	dict->async_commits = 0;
 
 	query = t_strdup_printf("%c%u\t%u\t%d\t%s\t%s\n",
 				DICT_PROTOCOL_CMD_HELLO,
@@ -518,6 +518,7 @@ static void client_dict_deinit(struct dict *_dict)
 	struct client_dict *dict = (struct client_dict *)_dict;
 
         client_dict_disconnect(dict);
+	i_assert(dict->transactions == NULL);
 	pool_unref(&dict->pool);
 }
 
@@ -706,6 +707,7 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 	struct client_dict *dict = (struct client_dict *)_ctx->dict;
 	int ret = ctx->failed ? -1 : 1;
 
+	ctx->committed = TRUE;
 	if (ctx->sent_begin && !ctx->failed) T_BEGIN {
 		const char *query, *line;
 
