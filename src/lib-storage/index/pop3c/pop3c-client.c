@@ -199,7 +199,7 @@ static void pop3c_client_timeout(struct pop3c_client *client)
 void pop3c_client_run(struct pop3c_client *client)
 {
 	struct ioloop *ioloop, *prev_ioloop = current_ioloop;
-	bool timeout_added = FALSE;
+	bool timeout_added = FALSE, failed = FALSE;
 
 	i_assert(client->fd != -1 ||
 		 client->state == POP3C_CLIENT_STATE_CONNECTING);
@@ -217,18 +217,21 @@ void pop3c_client_run(struct pop3c_client *client)
 		dns_set.dns_client_socket_path =
 			client->set.dns_client_socket_path;
 		dns_set.timeout_msecs = POP3C_DNS_LOOKUP_TIMEOUT_MSECS;
-		(void)dns_lookup(client->set.host, &dns_set,
-				 pop3c_dns_callback, client,
-				 &client->dns_lookup);
+		if (dns_lookup(client->set.host, &dns_set,
+			       pop3c_dns_callback, client,
+			       &client->dns_lookup) < 0)
+			failed = TRUE;
 	} else if (client->to == NULL) {
 		client->to = timeout_add(POP3C_COMMAND_TIMEOUT_MSECS,
 					 pop3c_client_timeout, client);
 		timeout_added = TRUE;
 	}
 
-	client->running = TRUE;
-	io_loop_run(ioloop);
-	client->running = FALSE;
+	if (!failed) {
+		client->running = TRUE;
+		io_loop_run(ioloop);
+		client->running = FALSE;
+	}
 
 	if (timeout_added && client->to != NULL)
 		timeout_remove(&client->to);
