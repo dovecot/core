@@ -349,6 +349,7 @@ static void zlib_mailbox_allocated(struct mailbox *box)
 {
 	struct mailbox_vfuncs *v = box->vlast;
 	union mailbox_module_context *zbox;
+	enum mail_storage_class_flags class_flags = box->storage->class_flags;
 
 	zbox = p_new(box->pool, union mailbox_module_context, 1);
 	zbox->super = *v;
@@ -358,8 +359,8 @@ static void zlib_mailbox_allocated(struct mailbox *box)
 
 	MODULE_CONTEXT_SET_SELF(box, zlib_storage_module, zbox);
 
-	if ((box->storage->class_flags &
-	     MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS) == 0)
+	if ((class_flags & MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS) == 0 &&
+	    (class_flags & MAIL_STORAGE_CLASS_FLAG_BINARY_DATA) != 0)
 		zlib_permail_alloc_init(box, v);
 }
 
