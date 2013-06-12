@@ -180,6 +180,12 @@ static int maildir_list_set_subscribed(struct mailbox_list *_list,
 		(struct maildir_mailbox_list *)_list;
 	const char *path;
 
+	if (_list->set.subscription_fname == NULL) {
+		mailbox_list_set_error(_list, MAIL_ERROR_NOTPOSSIBLE,
+				       "Subscriptions not supported");
+		return -1;
+	}
+
 	path = t_strconcat(_list->set.control_dir != NULL ?
 			   _list->set.control_dir : _list->set.root_dir,
 			   "/", _list->set.subscription_fname, NULL);

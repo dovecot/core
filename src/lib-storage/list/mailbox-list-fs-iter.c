@@ -153,7 +153,8 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 		dir->info_flags |= MAILBOX_SELECT;
 		return 0;
 	}
-	if (strcmp(d->d_name, ctx->ctx.list->set.subscription_fname) == 0) {
+	if (ctx->ctx.list->set.subscription_fname != NULL &&
+	    strcmp(d->d_name, ctx->ctx.list->set.subscription_fname) == 0) {
 		/* if this is the subscriptions file, skip it */
 		root_dir = mailbox_list_get_root_forced(ctx->ctx.list,
 							MAILBOX_LIST_PATH_TYPE_DIR);

@@ -170,6 +170,12 @@ static int fs_list_set_subscribed(struct mailbox_list *_list,
 	enum mailbox_list_path_type type;
 	const char *path;
 
+	if (_list->set.subscription_fname == NULL) {
+		mailbox_list_set_error(_list, MAIL_ERROR_NOTPOSSIBLE,
+				       "Subscriptions not supported");
+		return -1;
+	}
+
 	type = _list->set.control_dir != NULL ?
 		MAILBOX_LIST_PATH_TYPE_CONTROL : MAILBOX_LIST_PATH_TYPE_DIR;
 
