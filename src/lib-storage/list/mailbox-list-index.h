@@ -119,7 +119,6 @@ struct mailbox_list_index_iterate_context {
 	unsigned int parent_len;
 	string_t *path;
 	struct mailbox_list_index_node *next_node;
-	char sep;
 
 	unsigned int failed:1;
 };
