@@ -413,12 +413,6 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	struct imapc_simple_context ctx;
 	struct mailbox_node *node;
 	const char *pattern;
-	char sep;
-
-	if (imapc_storage_try_get_root_sep(list->storage, &sep) < 0) {
-		mailbox_list_set_internal_error(&list->list);
-		return -1;
-	}
 
 	if (list->refreshed_mailboxes)
 		return 0;
@@ -436,7 +430,7 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_sendf(cmd, "LIST \"\" %s", pattern);
 	mailbox_tree_deinit(&list->mailboxes);
-	list->mailboxes = mailbox_tree_init(sep);
+	list->mailboxes = mailbox_tree_init(mail_namespace_get_sep(list->list.ns));
 	mailbox_tree_set_parents_nonexistent(list->mailboxes);
 	imapc_simple_run(&ctx);
 
@@ -495,7 +489,7 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	struct imapc_mailbox_list_iterate_context *ctx;
 	pool_t pool;
 	const char *ns_root_name;
-	char sep;
+	char ns_sep;
 	int ret = 0;
 
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 ||
@@ -514,22 +508,19 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		return _ctx;
 	}
 
-	if (imapc_storage_try_get_root_sep(list->storage, &sep) < 0) {
-		mailbox_list_set_internal_error(_list);
-		ret = -1;
-	}
+	ns_sep = mail_namespace_get_sep(_list->ns);
 
 	pool = pool_alloconly_create("mailbox list imapc iter", 1024);
 	ctx = p_new(pool, struct imapc_mailbox_list_iterate_context, 1);
 	ctx->ctx.pool = pool;
 	ctx->ctx.list = _list;
 	ctx->ctx.flags = flags;
-	ctx->ctx.glob = imap_match_init_multiple(pool, patterns, FALSE, sep);
+	ctx->ctx.glob = imap_match_init_multiple(pool, patterns, FALSE, ns_sep);
 	array_create(&ctx->ctx.module_contexts, pool, sizeof(void *), 5);
 
 	ctx->info.ns = _list->ns;
 
-	ctx->tree = mailbox_tree_init(sep);
+	ctx->tree = mailbox_tree_init(ns_sep);
 	mailbox_tree_set_parents_nonexistent(ctx->tree);
 	imapc_list_build_match_tree(ctx);
 
@@ -635,44 +626,35 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 	struct imapc_simple_context ctx;
 	struct imapc_command *cmd;
 	const char *pattern;
-	char src_sep, dest_sep;
+	char dest_sep = mail_namespace_get_sep(dest_list->ns);
 
 	i_assert(src_list->tmp_subscriptions == NULL);
 
 	if (src_list->refreshed_subscriptions) {
-		if (dest_list->subscriptions == NULL) {
-			dest_sep = mailbox_list_get_hierarchy_sep(dest_list);
-			dest_list->subscriptions =
-				mailbox_tree_init(dest_sep);
-		}
+		if (dest_list->subscriptions == NULL)
+			dest_list->subscriptions = mailbox_tree_init(dest_sep);
 		return 0;
 	}
 
-	if (imapc_storage_try_get_root_sep(src_list->storage, &src_sep) < 0) {
-		mailbox_list_set_internal_error(dest_list);
-		return -1;
-	}
-
-	src_list->tmp_subscriptions = mailbox_tree_init(src_sep);
+	src_list->tmp_subscriptions =
+		mailbox_tree_init(mail_namespace_get_sep(_src_list->ns));
 
 	cmd = imapc_list_simple_context_init(&ctx, src_list);
 	if (*src_list->storage->set->imapc_list_prefix == '\0')
 		pattern = "*";
 	else {
-		pattern = t_strdup_printf("%s%c*",
-				src_list->storage->set->imapc_list_prefix,
-				src_sep);
+		pattern = t_strdup_printf("%s*",
+				src_list->storage->set->imapc_list_prefix);
 	}
 	imapc_command_sendf(cmd, "LSUB \"\" %s", pattern);
 	imapc_simple_run(&ctx);
 
 	/* replace subscriptions tree in destination */
-	mailbox_tree_set_separator(src_list->tmp_subscriptions,
-				   mailbox_list_get_hierarchy_sep(dest_list));
 	if (dest_list->subscriptions != NULL)
 		mailbox_tree_deinit(&dest_list->subscriptions);
 	dest_list->subscriptions = src_list->tmp_subscriptions;
 	src_list->tmp_subscriptions = NULL;
+	mailbox_tree_set_separator(dest_list->subscriptions, dest_sep);
 
 	src_list->refreshed_subscriptions = TRUE;
 	return 0;
@@ -777,12 +759,6 @@ int imapc_list_get_mailbox_flags(struct mailbox_list *_list, const char *name,
 	struct imapc_simple_context sctx;
 	struct mailbox_node *node;
 	const char *vname;
-	char sep;
-
-	if (imapc_storage_try_get_root_sep(list->storage, &sep) < 0) {
-		mailbox_list_set_internal_error(_list);
-		return -1;
-	}
 
 	vname = mailbox_list_get_vname(_list, name);
 	if (!list->refreshed_mailboxes) {
