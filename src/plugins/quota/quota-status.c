@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
 	if (protocol == QUOTA_PROTOCOL_UNKNOWN)
 		i_fatal("Missing -p parameter");
 
-	master_service_init_log(master_service, "doveadm: ");
+	master_service_init_log(master_service, "quota-status: ");
 	main_preinit();
 
 	main_init();
