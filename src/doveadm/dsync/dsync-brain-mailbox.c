@@ -401,6 +401,9 @@ dsync_brain_next_mailbox(struct dsync_brain *brain, struct mailbox **box_r,
 {
 	int ret;
 
+	if (brain->no_mail_sync)
+		return FALSE;
+
 	while ((ret = dsync_brain_try_next_mailbox(brain, box_r, dsync_box_r)) == 0)
 		;
 	return ret > 0;
