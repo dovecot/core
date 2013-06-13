@@ -717,6 +717,7 @@ static bool sync_rename_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 	struct dsync_mailbox_node **local_nodep = &local_parent->first_child;
 	struct dsync_mailbox_node **remote_nodep = &remote_parent->first_child;
 	struct dsync_mailbox_node *local_node, *remote_node;
+	bool changed;
 
 	/* the nodes are sorted by their names. */
 	while (*local_nodep != NULL || *remote_nodep != NULL) {
@@ -750,11 +751,19 @@ static bool sync_rename_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 			/* mailboxes are equal, no need to rename */
 		} else {
 			/* mailbox naming conflict */
-			if (sync_rename_conflict(ctx, local_node, remote_node))
+			T_BEGIN {
+				changed = sync_rename_conflict(ctx, local_node,
+							       remote_node);
+			} T_END;
+			if (changed)
 				return TRUE;
 		}
 		/* handle children, if there are any */
-		if (sync_rename_mailboxes(ctx, local_node, remote_node))
+		T_BEGIN {
+			changed = sync_rename_mailboxes(ctx, local_node,
+							remote_node);
+		} T_END;
+		if (changed)
 			return TRUE;
 
 		local_nodep = &local_node->next;
