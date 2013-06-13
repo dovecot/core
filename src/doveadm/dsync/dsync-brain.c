@@ -186,6 +186,8 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 		dsync_brain_sync_mailbox_deinit(brain);
 	if (brain->local_tree_iter != NULL)
 		dsync_mailbox_tree_iter_deinit(&brain->local_tree_iter);
+	dsync_mailbox_tree_deinit(&brain->local_mailbox_tree);
+	dsync_mailbox_tree_deinit(&brain->remote_mailbox_tree);
 	if (brain->mailbox_states_iter != NULL)
 		hash_table_iterate_deinit(&brain->mailbox_states_iter);
 	hash_table_destroy(&brain->mailbox_states);

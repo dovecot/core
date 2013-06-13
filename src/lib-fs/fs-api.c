@@ -43,6 +43,11 @@ static void fs_class_register(const struct fs *fs_class)
 	array_append(&fs_classes, &fs_class, 1);
 }
 
+static void fs_classes_deinit(void)
+{
+	array_free(&fs_classes);
+}
+
 static void fs_classes_init(void)
 {
 	i_array_init(&fs_classes, 8);
@@ -50,6 +55,7 @@ static void fs_classes_init(void)
 	fs_class_register(&fs_class_metawrap);
 	fs_class_register(&fs_class_sis);
 	fs_class_register(&fs_class_sis_queue);
+	lib_atexit(fs_classes_deinit);
 }
 
 static const struct fs *fs_class_find(const char *driver)

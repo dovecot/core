@@ -844,6 +844,7 @@ int dsync_mailbox_export_deinit(struct dsync_mailbox_exporter **_exporter,
 	if (exporter->attr.value_stream != NULL)
 		i_stream_unref(&exporter->attr.value_stream);
 	hash_table_destroy(&exporter->export_guids);
+	hash_table_destroy(&exporter->changes);
 
 	*error_r = t_strdup(exporter->error);
 	pool_unref(&exporter->pool);

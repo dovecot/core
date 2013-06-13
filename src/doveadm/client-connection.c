@@ -74,6 +74,7 @@ doveadm_mail_cmd_server_parse(const char *cmd_name,
 					"Client sent unknown parameter: %c",
 					cmd->name, c);
 				ctx->v.deinit(ctx);
+				pool_unref(&ctx->pool);
 				return NULL;
 			}
 		}
@@ -86,6 +87,7 @@ doveadm_mail_cmd_server_parse(const char *cmd_name,
 		i_error("doveadm %s: Client sent unknown parameter: %s",
 			cmd->name, argv[0]);
 		ctx->v.deinit(ctx);
+		pool_unref(&ctx->pool);
 		return NULL;
 	}
 	ctx->args = (const void *)argv;

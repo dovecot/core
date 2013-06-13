@@ -61,6 +61,7 @@ static void main_deinit(void)
 		client_connection_destroy(&doveadm_client);
 	doveadm_mail_deinit();
 	doveadm_unload_modules();
+	doveadm_print_deinit();
 }
 
 int main(int argc, char *argv[])

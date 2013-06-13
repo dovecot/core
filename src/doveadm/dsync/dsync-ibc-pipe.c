@@ -134,6 +134,7 @@ static bool dsync_ibc_pipe_try_pop_eol(struct dsync_ibc_pipe *pipe)
 static void dsync_ibc_pipe_deinit(struct dsync_ibc *ibc)
 {
 	struct dsync_ibc_pipe *pipe = (struct dsync_ibc_pipe *)ibc;
+	struct item *item;
 	pool_t *poolp;
 
 	if (pipe->remote != NULL) {
@@ -143,6 +144,10 @@ static void dsync_ibc_pipe_deinit(struct dsync_ibc *ibc)
 
 	if (pipe->pop_pool != NULL)
 		pool_unref(&pipe->pop_pool);
+	array_foreach_modifiable(&pipe->item_queue, item) {
+		if (item->pool != NULL)
+			pool_unref(&item->pool);
+	}
 	array_foreach_modifiable(&pipe->pools, poolp)
 		pool_unref(poolp);
 	array_free(&pipe->pools);

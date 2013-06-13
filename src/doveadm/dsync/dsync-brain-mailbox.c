@@ -197,6 +197,7 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 	uint64_t last_common_modseq, last_common_pvt_modseq;
 
 	i_assert(brain->log_scan == NULL);
+	i_assert(brain->box_exporter == NULL);
 
 	last_common_uid = brain->mailbox_state.last_common_uid;
 	last_common_modseq = brain->mailbox_state.last_common_modseq;
