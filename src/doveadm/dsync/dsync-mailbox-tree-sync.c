@@ -868,13 +868,14 @@ sync_rename_delete_node_dirs(struct dsync_mailbox_tree_sync_ctx *ctx,
 	for (child = node->first_child; child != NULL; child = child->next)
 		sync_rename_delete_node_dirs(ctx, tree, child);
 
-	node->existence = DSYNC_MAILBOX_NODE_NONEXISTENT;
-	node->sync_temporary_name = FALSE;
 	if (tree == ctx->local_tree &&
-	    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL) {
+	    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL &&
+	    node->existence != DSYNC_MAILBOX_NODE_NONEXISTENT) {
 		sync_add_dir_change(ctx, node,
 				    DSYNC_MAILBOX_TREE_SYNC_TYPE_DELETE_DIR);
 	}
+	node->existence = DSYNC_MAILBOX_NODE_NONEXISTENT;
+	node->sync_temporary_name = FALSE;
 }
 
 static bool
