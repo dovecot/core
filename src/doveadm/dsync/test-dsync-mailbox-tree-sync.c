@@ -154,9 +154,10 @@ static void trees_dump(struct dsync_mailbox_tree *tree1,
 	nodes_dump(tree2->root.first_child, 1);
 }
 
-static void test_trees(struct dsync_mailbox_tree *tree1,
-		       struct dsync_mailbox_tree *tree2)
+static void test_trees_nofree(struct dsync_mailbox_tree *tree1,
+			      struct dsync_mailbox_tree **_tree2)
 {
+	struct dsync_mailbox_tree *tree2 = *_tree2;
 	struct dsync_mailbox_tree *orig_tree1, *orig_tree2;
 	struct dsync_mailbox_tree_sync_ctx *ctx;
 	struct dsync_mailbox_node *dup_node1, *dup_node2;
@@ -201,10 +202,16 @@ static void test_trees(struct dsync_mailbox_tree *tree1,
 		trees_dump(tree1, orig_tree1);
 	}
 
-	dsync_mailbox_tree_deinit(&tree1);
-	dsync_mailbox_tree_deinit(&tree2);
+	dsync_mailbox_tree_deinit(_tree2);
 	dsync_mailbox_tree_deinit(&orig_tree1);
 	dsync_mailbox_tree_deinit(&orig_tree2);
+}
+
+static void test_trees(struct dsync_mailbox_tree *tree1,
+		       struct dsync_mailbox_tree *tree2)
+{
+	test_trees_nofree(tree1, &tree2);
+	dsync_mailbox_tree_deinit(&tree1);
 }
 
 static void test_dsync_mailbox_tree_sync_creates(void)
@@ -600,9 +607,32 @@ static void test_dsync_mailbox_tree_sync_renames19(void)
 	test_end();
 }
 
+static void test_dsync_mailbox_tree_sync_renames20(void)
+{
+	struct dsync_mailbox_tree *tree1, *tree2;
+
+	test_begin("dsync mailbox tree sync renames 20");
+	tree1 = dsync_mailbox_tree_init('/', '_');
+	tree2 = dsync_mailbox_tree_init('/', '_');
+
+	node_create(tree1, 1, "1", 0);
+	node_create(tree1, 2, "0", 0);
+	node_create(tree1, 3, "0/2", 0);
+	/* rename 0 -> 1/0 */
+	node_create(tree2, 1, "1", 0);
+	node_create(tree2, 2, "1/0", 1);
+	node_create(tree2, 3, "1/0/2", 0);
+
+	test_trees_nofree(tree1, &tree2);
+	test_assert(tree1->root.first_child->next == NULL);
+	dsync_mailbox_tree_deinit(&tree1);
+	test_end();
+}
+
 static void test_dsync_mailbox_tree_sync_random(void)
 {
 	struct dsync_mailbox_tree *tree1, *tree2;
+	unsigned int i;
 
 	test_begin("dsync mailbox tree sync random");
 	tree1 = create_random_tree();
@@ -635,6 +665,7 @@ int main(void)
 		test_dsync_mailbox_tree_sync_renames17,
 		test_dsync_mailbox_tree_sync_renames18,
 		test_dsync_mailbox_tree_sync_renames19,
+		test_dsync_mailbox_tree_sync_renames20,
 		test_dsync_mailbox_tree_sync_random,
 		NULL
 	};

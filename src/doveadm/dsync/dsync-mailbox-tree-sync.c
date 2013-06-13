@@ -1140,6 +1140,20 @@ static void sync_mailbox_dirs(struct dsync_mailbox_tree_sync_ctx *ctx)
 				&ctx->remote_tree->root);
 }
 
+static void
+dsync_mailbox_tree_update_child_timestamps(struct dsync_mailbox_node *node,
+					   time_t parent_timestamp)
+{
+	time_t ts;
+
+	if (node->last_renamed_or_created < parent_timestamp)
+		node->last_renamed_or_created = parent_timestamp;
+	ts = node->last_renamed_or_created;
+
+	for (node = node->first_child; node != NULL; node = node->next)
+		dsync_mailbox_tree_update_child_timestamps(node, ts);
+}
+
 struct dsync_mailbox_tree_sync_ctx *
 dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 			      struct dsync_mailbox_tree *remote_tree,
@@ -1166,6 +1180,8 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 	ignore_deletes = sync_type == DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE;
 	sync_tree_sort_and_delete_mailboxes(ctx, local_tree, ignore_deletes);
 
+	dsync_mailbox_tree_update_child_timestamps(&local_tree->root, 0);
+	dsync_mailbox_tree_update_child_timestamps(&remote_tree->root, 0);
 	while (sync_rename_mailboxes(ctx, &local_tree->root, &remote_tree->root)) ;
 	while (sync_rename_temp_mailboxes(ctx, local_tree, &local_tree->root)) ;
 	while (sync_rename_temp_mailboxes(ctx, remote_tree, &remote_tree->root)) ;
