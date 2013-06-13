@@ -594,9 +594,9 @@ int main(int argc, char *argv[])
 		i_fatal("director-doveadm socket path missing");
 
 	master_service_init_log(master_service, "director-test: ");
-	master_service_init_finish(master_service);
 
 	main_init(admin_path);
+	master_service_init_finish(master_service);
 	master_service_run(master_service, client_connected);
 	main_deinit();
 

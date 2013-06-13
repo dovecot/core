@@ -110,7 +110,6 @@ int main(int argc, char *argv[])
 	if (t_get_current_dir(&base_dir) < 0)
 		i_fatal("getcwd() failed: %m");
 	drop_privileges();
-	master_service_init_finish(master_service);
 	master_service_init_log(master_service,
 				t_strdup_printf("lmtp(%s): ", my_pid));
 
@@ -119,6 +118,7 @@ int main(int argc, char *argv[])
 	restrict_access_allow_coredumps(TRUE);
 
 	main_init();
+	master_service_init_finish(master_service);
 	master_service_run(master_service, client_connected);
 
 	main_deinit();

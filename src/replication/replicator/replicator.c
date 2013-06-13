@@ -125,9 +125,9 @@ int main(int argc, char *argv[])
 
 	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);
-	master_service_init_finish(master_service);
 
 	main_init();
+	master_service_init_finish(master_service);
 	master_service_run(master_service, client_connected);
 	main_deinit();
 

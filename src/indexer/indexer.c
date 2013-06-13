@@ -134,11 +134,11 @@ int main(int argc, char *argv[])
 	restrict_access_allow_coredumps(TRUE);
 	master_service_set_idle_die_callback(master_service, idle_die);
 
-	master_service_init_finish(master_service);
 	queue = indexer_queue_init(indexer_client_status_callback);
 	indexer_queue_set_listen_callback(queue, queue_listen_callback);
 	worker_pool = worker_pool_init("indexer-worker",
 				       worker_status_callback);
+	master_service_init_finish(master_service);
 
 	master_service_run(master_service, client_connected);
 

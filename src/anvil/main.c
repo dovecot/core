@@ -73,11 +73,11 @@ int main(int argc, char *argv[])
 	/* delay dying until all of our clients are gone */
 	master_service_set_die_with_master(master_service, FALSE);
 
-	master_service_init_finish(master_service);
 	connect_limit = connect_limit_init();
 	penalty = penalty_init();
 	log_fdpass_io = io_add(MASTER_ANVIL_LOG_FDPASS_FD, IO_READ,
 			       log_fdpass_input, (void *)NULL);
+	master_service_init_finish(master_service);
 
 	master_service_run(master_service, client_connected);
 

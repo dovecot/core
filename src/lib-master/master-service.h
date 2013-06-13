@@ -66,7 +66,10 @@ int master_getopt(struct master_service *service);
 bool master_service_parse_option(struct master_service *service,
 				 int opt, const char *arg);
 /* Finish service initialization. The caller should drop privileges
-   before calling this. */
+   before calling this. This also notifies the master that the service was
+   successfully started and there shouldn't be any service throttling even if
+   it crashes afterwards, so this should be called after all of the
+   initialization code is finished. */
 void master_service_init_finish(struct master_service *service);
 
 /* Clean environment from everything except the ones listed in

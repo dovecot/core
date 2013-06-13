@@ -211,14 +211,13 @@ int main(int argc, char *argv[])
 	argv += optind;
 
 	master_service_init_log(master_service, "script: ");
+	if (argv[0] == NULL)
+		i_fatal("Missing script path");
 	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);
 
 	master_service_init_finish(master_service);
 	master_service_set_service_count(master_service, 1);
-
-	if (argv[0] == NULL)
-		i_fatal("Missing script path");
 
 	if (argv[0][0] == '/')
 		binary = argv[0];

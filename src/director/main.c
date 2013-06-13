@@ -213,7 +213,6 @@ int main(int argc, char *argv[])
 	master_service_init_log(master_service, "director: ");
 
 	main_preinit();
-	master_service_init_finish(master_service);
 	director->test_port = test_port;
 	director_debug = debug;
 	director_connect(director);
@@ -225,6 +224,7 @@ int main(int argc, char *argv[])
 			t_strdup_printf("director(%s): ",
 					net_ip2addr(&director->self_ip)));
 	}
+	master_service_init_finish(master_service);
 
 	master_service_run(master_service, client_connected);
 	main_deinit();

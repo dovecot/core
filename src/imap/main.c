@@ -363,7 +363,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	master_service_init_finish(master_service);
 	master_service_set_die_callback(master_service, imap_die);
 
 	/* plugins may want to add commands, so this needs to be called early */
@@ -374,6 +373,7 @@ int main(int argc, char *argv[])
 	storage_service =
 		mail_storage_service_init(master_service,
 					  set_roots, storage_service_flags);
+	master_service_init_finish(master_service);
 
 	/* fake that we're running, so we know if client was destroyed
 	   while handling its initial input */

@@ -85,10 +85,10 @@ int main(int argc, char *argv[])
 
 	master_service_init_log(master_service, "doveadm: ");
 	main_preinit();
-	master_service_init_finish(master_service);
 	master_service_set_die_callback(master_service, doveadm_die);
 
 	main_init();
+	master_service_init_finish(master_service);
 	master_service_run(master_service, client_connected);
 
 	main_deinit();

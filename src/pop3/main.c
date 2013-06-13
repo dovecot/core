@@ -253,12 +253,12 @@ int main(int argc, char *argv[])
 	login_set.callback = login_client_connected;
 	login_set.failure_callback = login_client_failed;
 
-	master_service_init_finish(master_service);
 	master_service_set_die_callback(master_service, pop3_die);
 
 	storage_service =
 		mail_storage_service_init(master_service,
 					  set_roots, storage_service_flags);
+	master_service_init_finish(master_service);
 
 	/* fake that we're running, so we know if client was destroyed
 	   while handling its initial input */

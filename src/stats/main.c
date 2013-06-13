@@ -54,7 +54,6 @@ int main(int argc, char *argv[])
 
 	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);
-	master_service_init_finish(master_service);
 
 	sets = master_service_settings_get_others(master_service);
 	stats_settings = sets[0];
@@ -65,6 +64,7 @@ int main(int argc, char *argv[])
 	mail_domains_init();
 	mail_ips_init();
 
+	master_service_init_finish(master_service);
 	master_service_run(master_service, client_connected);
 
 	clients_destroy_all();
