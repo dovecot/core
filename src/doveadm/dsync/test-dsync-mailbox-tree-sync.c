@@ -632,7 +632,6 @@ static void test_dsync_mailbox_tree_sync_renames20(void)
 static void test_dsync_mailbox_tree_sync_random(void)
 {
 	struct dsync_mailbox_tree *tree1, *tree2;
-	unsigned int i;
 
 	test_begin("dsync mailbox tree sync random");
 	tree1 = create_random_tree();
