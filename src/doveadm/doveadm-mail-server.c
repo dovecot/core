@@ -81,7 +81,7 @@ static bool doveadm_server_have_used_connections(struct doveadm_server *server)
 	return FALSE;
 }
 
-static void doveadm_cmd_callback(enum server_cmd_reply reply, void *context)
+static void doveadm_cmd_callback(int exit_code, void *context)
 {
 	struct doveadm_mail_server_cmd *servercmd = context;
 	struct doveadm_server *server =
@@ -91,21 +91,22 @@ static void doveadm_cmd_callback(enum server_cmd_reply reply, void *context)
 	i_free(servercmd->username);
 	i_free(servercmd);
 
-	switch (reply) {
-	case SERVER_CMD_REPLY_INTERNAL_FAILURE:
+	switch (exit_code) {
+	case 0:
+		break;
+	case SERVER_EXIT_CODE_DISCONNECTED:
 		i_error("%s: Internal failure for %s", server->name, username);
 		internal_failure = TRUE;
 		master_service_stop(master_service);
 		return;
-	case SERVER_CMD_REPLY_UNKNOWN_USER:
+	case EX_NOUSER:
 		i_error("%s: No such user: %s", server->name, username);
 		if (cmd_ctx->exit_code == 0)
 			cmd_ctx->exit_code = EX_NOUSER;
 		break;
-	case SERVER_CMD_REPLY_FAIL:
-		doveadm_mail_failed_error(cmd_ctx, MAIL_ERROR_TEMP);
-		break;
-	case SERVER_CMD_REPLY_OK:
+	default:
+		if (cmd_ctx->exit_code == 0 || exit_code == EX_TEMPFAIL)
+			cmd_ctx->exit_code = exit_code;
 		break;
 	}
 

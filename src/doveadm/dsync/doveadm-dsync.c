@@ -615,27 +615,26 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	return ret;
 }
 
-static void dsync_connected_callback(enum server_cmd_reply reply, void *context)
+static void dsync_connected_callback(int exit_code, void *context)
 {
 	struct dsync_cmd_context *ctx = context;
 
-	switch (reply) {
-	case SERVER_CMD_REPLY_UNKNOWN_USER:
-		ctx->error = "Unknown user in remote";
-		ctx->ctx.exit_code = EX_NOUSER;
-		break;
-	case SERVER_CMD_REPLY_FAIL:
-		ctx->error = "Failed to start dsync-server command";
-		break;
-	case SERVER_CMD_REPLY_OK:
+	ctx->ctx.exit_code = exit_code;
+	switch (exit_code) {
+	case 0:
 		server_connection_extract(ctx->tcp_conn, &ctx->input,
 					  &ctx->output, &ctx->ssl_iostream);
 		break;
-	case SERVER_CMD_REPLY_INTERNAL_FAILURE:
+	case SERVER_EXIT_CODE_DISCONNECTED:
 		ctx->error = "Disconnected from remote";
 		break;
+	case EX_NOUSER:
+		ctx->error = "Unknown user in remote";
+		break;
 	default:
-		i_unreached();
+		ctx->error = p_strdup_printf(ctx->ctx.pool,
+			"Failed to start dsync-server command: %u", exit_code);
+		break;
 	}
 	io_loop_stop(current_ioloop);
 }

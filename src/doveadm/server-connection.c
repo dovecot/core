@@ -19,6 +19,7 @@
 #include "doveadm-settings.h"
 #include "server-connection.h"
 
+#include <sysexits.h>
 #include <unistd.h>
 
 #define MAX_INBUF_SIZE (1024*32)
@@ -78,13 +79,12 @@ static void print_connection_released(void)
 }
 
 static void
-server_connection_callback(struct server_connection *conn,
-			   enum server_cmd_reply reply)
+server_connection_callback(struct server_connection *conn, int exit_code)
 {
 	server_cmd_callback_t *callback = conn->callback;
 
 	conn->callback = NULL;
-	callback(reply, conn->context);
+	callback(exit_code, conn->context);
 }
 
 static void stream_data(string_t *str, const unsigned char *data, size_t size)
@@ -203,7 +203,7 @@ static void server_connection_input(struct server_connection *conn)
 	const unsigned char *data;
 	size_t size;
 	const char *line;
-	enum server_cmd_reply reply;
+	int exit_code;
 
 	if (!conn->handshaked) {
 		if ((line = i_stream_read_next_line(conn->input)) == NULL) {
@@ -266,12 +266,16 @@ static void server_connection_input(struct server_connection *conn)
 		if (line == NULL)
 			return;
 		if (line[0] == '+')
-			server_connection_callback(conn, SERVER_CMD_REPLY_OK);
+			server_connection_callback(conn, 0);
 		else if (line[0] == '-') {
-			reply = strcmp(line+1, "NOUSER") == 0 ?
-				SERVER_CMD_REPLY_UNKNOWN_USER :
-				SERVER_CMD_REPLY_FAIL;
-			server_connection_callback(conn, reply);
+			line++;
+			if (strcmp(line, "NOUSER") == 0)
+				exit_code = EX_NOUSER;
+			else if (str_to_int(line, &exit_code) < 0) {
+				/* old doveadm-server */
+				exit_code = EX_TEMPFAIL;
+			}
+			server_connection_callback(conn, exit_code);
 		} else {
 			i_error("doveadm server sent broken input "
 				"(expected cmd reply): %s", line);
@@ -413,10 +417,8 @@ void server_connection_destroy(struct server_connection **_conn)
 		}
 	}
 
-	if (conn->callback != NULL) {
-		server_connection_callback(conn,
-					   SERVER_CMD_REPLY_INTERNAL_FAILURE);
-	}
+	if (conn->callback != NULL)
+		server_connection_callback(conn, SERVER_EXIT_CODE_DISCONNECTED);
 	if (printing_conn == conn)
 		print_connection_released();
 

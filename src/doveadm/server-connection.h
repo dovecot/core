@@ -1,18 +1,13 @@
 #ifndef SERVER_CONNECTION_H
 #define SERVER_CONNECTION_H
 
-enum server_cmd_reply {
-	SERVER_CMD_REPLY_INTERNAL_FAILURE,
-	SERVER_CMD_REPLY_UNKNOWN_USER,
-	SERVER_CMD_REPLY_FAIL,
-	SERVER_CMD_REPLY_OK
-};
+#define SERVER_EXIT_CODE_DISCONNECTED 1000
 
 struct doveadm_server;
 struct server_connection;
 struct ssl_iostream;
 
-typedef void server_cmd_callback_t(enum server_cmd_reply reply, void *context);
+typedef void server_cmd_callback_t(int exit_code, void *context);
 
 int server_connection_create(struct doveadm_server *server,
 			     struct server_connection **conn_r);

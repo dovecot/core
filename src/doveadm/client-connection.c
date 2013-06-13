@@ -127,7 +127,8 @@ doveadm_mail_cmd_server_run(struct client_connection *conn,
 		o_stream_nsend_str(conn->output, "\n-NOUSER\n");
 	} else if (ctx->exit_code != 0) {
 		/* maybe not an error, but not a full success either */
-		o_stream_nsend(conn->output, "\n-\n", 3);
+		o_stream_nsend_str(conn->output,
+				   t_strdup_printf("\n-%u\n", ctx->exit_code));
 	} else {
 		o_stream_nsend(conn->output, "\n+\n", 3);
 	}
