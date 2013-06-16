@@ -10,6 +10,18 @@
        to match messages.
      - why does it use separate FETCH INTERNALDATE + FETCH BODY[HEADER]
 
+ - virtual plugin doesn't verify the index file's data, crashes if broken.
+ - imapc {} groups
+ - libsasl: use it in imapc, pop3c, managesieve-login, doveadm auth
+ - nonblocking passdb + blocking passdb -> deinit -> nonblocking passdb gets
+   aborted -> calls auth_worker_call() which crashes because deinit is
+   already done?
+ - ldap lookups should be done via auth worker processes? maybe automatically
+   if the lookups are queuing start creating workers? although multiple LDAP
+   connections within the same process would work too..
+ - per-msg checksums? per-cache-msg checksums? per-log record checksums?
+ - lazy_expunge_only_last_instance=yes + mdbox doesn't work, because refcounts
+   don't update immediately
  - lib-ssl-iostream: ssl_get_last_error() should return also syscall errors
    instead of being NULL. most importantly handle handshake code.
  - if transaction log file corruption is noticed, make sure new dovecot.index

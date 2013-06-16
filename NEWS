@@ -1,3 +1,31 @@
+v2.2.3 2013-06-17  Timo Sirainen <tss@iki.fi>
+
+	* LDA/LMTP: If new mail delivery first fails with "temporary
+	  failure", tempfail the whole delivery instead of falling back to
+	  delivering the mail to INBOX. (Requires new Pigeonhole as well.)
+	* doc/solr-schema.xml was updated to Solr v4.x format. Also the
+	  default analyzers were changed, hopefully for the better. Note that
+	  the schema can't be changed for existing Solr indexes without
+	  rebuilding everything.
+	* Solr plugin does only soft commits from now on. You'll need a
+	  cronjob to send a hard commit command to it every few minutes.
+
+	+ Added %N modifier for variables as %H-like "new hash"
+	+ sdbox, mdbox: Support POP3 message order field (for migrations)
+	+ Added mailbox { driver } to specify a different mail storage
+	  format for the mailbox than generally used within the namespace.
+	+ Added initial lib-sasl library for client side SASL support.
+	  Currently supports only PLAIN, LOGIN and plugins. Used currently
+	  by IMAP and POP3 proxying when authenticating to the remote server.
+	- IMAP: If subject contained only whitespace, Dovecot returned an
+	  ENVELOPE reply with a huge literal value, effectively causing the
+	  IMAP client to wait for more data forever.
+	- IMAP: Various URLAUTH fixes.
+	- imapc: Various bugfixes and improvements
+	- pop3c: Various fixes to make it work in dsync (without imapc)
+	- dsync: Fixes to syncing subscriptions. Fixes to syncing mailbox
+	  renames.
+
 v2.2.2 2013-05-20  Timo Sirainen <tss@iki.fi>
 
 	+ zlib: Keep the last mail cached uncompressed in a temp file. This
