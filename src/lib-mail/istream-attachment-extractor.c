@@ -524,6 +524,7 @@ static int
 astream_end_of_part(struct attachment_istream *astream)
 {
 	struct attachment_istream_part *part = &astream->part;
+	size_t old_size;
 	int ret = 0;
 
 	/* MIME part changed. we're now parsing the end of a boundary,
@@ -540,8 +541,15 @@ astream_end_of_part(struct attachment_istream *astream)
 		}
 		break;
 	case MAIL_ATTACHMENT_STATE_YES:
+		old_size = astream->istream.pos - astream->istream.skip;
 		if (astream_part_finish(astream) < 0)
 			ret = -1;
+		else {
+			/* finished base64 may have added a few more trailing
+			   bytes to the stream */
+			ret = astream->istream.pos -
+				astream->istream.skip - old_size;
+		}
 		break;
 	}
 	part->state = MAIL_ATTACHMENT_STATE_NO;
