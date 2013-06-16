@@ -234,6 +234,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			client_proxy_failed(client, TRUE);
 			return -1;
 		}
+		i_assert(ret == 0);
 
 		str_truncate(str, 0);
 		base64_encode(data, data_len, str);

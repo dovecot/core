@@ -299,6 +299,9 @@ static bool paths_are_equal(struct mail_user *user1, struct mail_user *user2,
 {
 	const char *path1, *path2;
 
+	i_assert(user1->namespaces != NULL);
+	i_assert(user2->namespaces != NULL);
+
 	return mailbox_list_get_root_path(user1->namespaces->list, type, &path1) &&
 		mailbox_list_get_root_path(user2->namespaces->list, type, &path2) &&
 		strcmp(path1, path2) == 0;

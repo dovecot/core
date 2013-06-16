@@ -624,7 +624,8 @@ static void test_dsync_mailbox_tree_sync_renames20(void)
 	node_create(tree2, 3, "1/0/2", 0);
 
 	test_trees_nofree(tree1, &tree2);
-	test_assert(tree1->root.first_child->next == NULL);
+	test_assert(tree1->root.first_child != NULL &&
+		    tree1->root.first_child->next == NULL);
 	dsync_mailbox_tree_deinit(&tree1);
 	test_end();
 }

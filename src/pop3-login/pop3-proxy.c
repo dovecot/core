@@ -110,6 +110,7 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 			error));
 		return -1;
 	}
+	i_assert(ret == 0);
 
 	str_truncate(str, 0);
 	base64_encode(data, data_len, str);
