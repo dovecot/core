@@ -123,9 +123,9 @@ struct lucene_index *lucene_index_init(const char *path,
 		index->default_analyzer =
 			_CLNEW snowball::SnowballAnalyzer(index->normalizer,
 							  index->set.default_language);
-	}
+	} else
 #endif
-	else {
+	{
 		index->default_analyzer = _CLNEW standard::StandardAnalyzer();
 		if (index->normalizer != NULL) {
 			index->normalizer_buf =
