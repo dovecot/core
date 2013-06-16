@@ -658,7 +658,7 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 			parser->error = "Expected '{'";
 			return FALSE;
 		}
-		parser->cur_type = ARG_PARSE_LITERAL8;
+		parser->cur_type = ARG_PARSE_LITERAL;
 		parser->cur_pos++;
 		/* fall through */
 	case ARG_PARSE_LITERAL:
