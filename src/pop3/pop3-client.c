@@ -593,7 +593,8 @@ static void client_default_destroy(struct client *client, const char *reason)
 		   message sizes. */
 		(void)mailbox_transaction_commit(&client->trans);
 	}
-	array_free(&client->all_seqs);
+	if (array_is_created(&client->all_seqs))
+		array_free(&client->all_seqs);
 	if (client->deleted_kw != NULL)
 		mailbox_keywords_unref(&client->deleted_kw);
 	if (client->mailbox != NULL)
