@@ -4,7 +4,8 @@
 struct sasl_client_settings {
 	/* authentication ID - must be set with most mechanisms */
 	const char *authid;
-	/* authorization ID ("master user") */
+	/* authorization ID (who to log in as, if authentication ID is a
+	   master user) */
 	const char *authzid;
 	/* password - must be set with most mechanisms */
 	const char *password;
