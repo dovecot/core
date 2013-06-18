@@ -229,7 +229,7 @@ void mdbox_update_header(struct mdbox_mailbox *mbox,
 
 	if (mdbox_read_header(mbox, &hdr, &need_resize) < 0) {
 		memset(&hdr, 0, sizeof(hdr));
-		need_resize = FALSE;
+		need_resize = TRUE;
 	}
 
 	new_hdr = hdr;
