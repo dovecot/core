@@ -55,8 +55,9 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 
 	i_assert(client->common.proxy_sasl_client == NULL);
 	memset(&sasl_set, 0, sizeof(sasl_set));
-	sasl_set.authid = client->common.proxy_user;
-	sasl_set.authzid = client->common.proxy_master_user;
+	sasl_set.authid = client->common.proxy_master_user != NULL ?
+		client->common.proxy_master_user : client->common.proxy_user;
+	sasl_set.authzid = client->common.proxy_user;
 	sasl_set.password = client->common.proxy_password;
 	client->common.proxy_sasl_client =
 		sasl_client_new(client->common.proxy_mech, &sasl_set);
