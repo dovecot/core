@@ -119,9 +119,6 @@ static int mail_index_recreate(struct mail_index *index)
 	return ret;
 }
 
-#define mail_index_map_has_changed(map) \
-	((map)->header_changed || (map)->rec_map->records_changed)
-
 void mail_index_write(struct mail_index *index, bool want_rotate)
 {
 	struct mail_index_map *map = index->map;
@@ -129,7 +126,7 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 
 	i_assert(index->log_sync_locked);
 
-	if (!mail_index_map_has_changed(map) || index->readonly)
+	if (index->readonly)
 		return;
 
 	if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
@@ -142,9 +139,6 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 	index->last_read_log_file_seq = hdr->log_file_seq;
 	index->last_read_log_file_head_offset = hdr->log_file_head_offset;
 	index->last_read_log_file_tail_offset = hdr->log_file_tail_offset;
-
-	map->rec_map->records_changed = FALSE;
-	map->header_changed = FALSE;
 
 	if (want_rotate &&
 	    hdr->log_file_seq == index->log->head->hdr.file_seq &&

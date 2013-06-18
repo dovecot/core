@@ -127,9 +127,6 @@ struct mail_index_record_map {
 
 	struct mail_index_map_modseq *modseq;
 	uint32_t last_appended_uid;
-
-	/* The records have changed since it was read */
-	bool records_changed;
 };
 
 struct mail_index_map {
@@ -147,8 +144,6 @@ struct mail_index_map {
 	ARRAY(unsigned int) keyword_idx_map; /* file -> index */
 
 	struct mail_index_record_map *rec_map;
-
-	unsigned int header_changed:1;
 };
 
 struct mail_index_module_register {

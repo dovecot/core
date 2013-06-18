@@ -332,8 +332,6 @@ static void mail_index_map_copy_records(struct mail_index_record_map *dest,
 
 	dest->records = buffer_get_modifiable_data(dest->buffer, NULL);
 	dest->records_count = src->records_count;
-
-	dest->records_changed = src->records_changed;
 }
 
 static void mail_index_map_copy_header(struct mail_index_map *dest,
@@ -395,8 +393,6 @@ struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map)
 	}
 
 	mail_index_map_copy_header(mem_map, map);
-
-	mem_map->header_changed = map->header_changed;
 
 	/* copy extensions */
 	if (array_is_created(&map->ext_id_map)) {

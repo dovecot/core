@@ -380,7 +380,6 @@ static int sync_append(const struct mail_index_record *rec,
 		map->rec_map->last_appended_uid = rec->uid;
 		new_flags = rec->flags;
 
-		map->rec_map->records_changed = TRUE;
 		mail_index_modseq_append(ctx->modseq_ctx,
 					 map->rec_map->records_count);
 	}
@@ -408,7 +407,6 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	if (!mail_index_lookup_seq_range(view, u->uid1, u->uid2, &seq1, &seq2))
 		return 1;
 
-	view->map->rec_map->records_changed = TRUE;
 	if (!MAIL_TRANSACTION_FLAG_UPDATE_IS_INTERNAL(u)) {
 		mail_index_modseq_update_flags(ctx->modseq_ctx,
 					       u->add_flags | u->remove_flags,
@@ -464,7 +462,6 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 
 	buffer_write(map->hdr_copy_buf, u->offset, u + 1, u->size);
 	map->hdr_base = map->hdr_copy_buf->data;
-	map->header_changed = TRUE;
 
 	/* @UNSAFE */
 	if ((uint32_t)(u->offset + u->size) <= sizeof(map->hdr)) {
@@ -945,10 +942,8 @@ int mail_index_sync_map(struct mail_index_map **_map,
 	map->refcount--;
 
 	had_dirty = (map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0;
-	if (had_dirty) {
+	if (had_dirty)
 		map->hdr.flags &= ~MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
-		map->header_changed = TRUE;
-	}
 
 	if (map->hdr_base != map->hdr_copy_buf->data) {
 		/* if syncing updates the header, it updates hdr_copy_buf
