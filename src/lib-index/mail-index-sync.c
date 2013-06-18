@@ -895,6 +895,9 @@ void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx,
 	uoff_t offset;
 
 	ctx->errors = TRUE;
+	/* make sure we don't get to this same error again by updating the
+	   dovecot.index */
+	ctx->view->index->need_recreate = TRUE;
 
 	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
 					       &seq, &offset);
