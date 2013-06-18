@@ -185,8 +185,10 @@ static void sdbox_update_header(struct sdbox_mailbox *mbox,
 	struct sdbox_index_header hdr, new_hdr;
 	bool need_resize;
 
-	if (sdbox_read_header(mbox, &hdr, TRUE, &need_resize) < 0)
+	if (sdbox_read_header(mbox, &hdr, TRUE, &need_resize) < 0) {
 		memset(&hdr, 0, sizeof(hdr));
+		need_resize = TRUE;
+	}
 
 	new_hdr = hdr;
 
