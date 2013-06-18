@@ -808,7 +808,7 @@ int mailbox_list_get_storage(struct mailbox_list **list, const char *vname,
 		return (*list)->v.get_storage(list, vname, storage_r);
 
 	set = mailbox_settings_find((*list)->ns->user, vname);
-	if (set != NULL && set->driver[0] != '\0') {
+	if (set != NULL && set->driver != NULL && set->driver[0] != '\0') {
 		return mailbox_list_get_storage_driver(*list, set->driver,
 						       storage_r);
 	}
