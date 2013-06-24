@@ -699,7 +699,7 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 	array_append_array(&exporter->search_uids, &exporter->requested_uids);
 	array_clear(&exporter->requested_uids);
 
-	exporter->search_count = seq_range_count(&exporter->search_uids);
+	exporter->search_count += seq_range_count(&sarg->value.seqset);
 	exporter->search_ctx =
 		mailbox_search_init(exporter->trans, search_args, NULL,
 				    MAIL_FETCH_GUID |
