@@ -68,6 +68,7 @@ struct dsync_brain {
 	enum dsync_state state, pre_box_state;
 	enum dsync_box_state box_recv_state;
 	enum dsync_box_state box_send_state;
+	unsigned int proctitle_update_counter;
 
 	struct dsync_transaction_log_scan *log_scan;
 	struct dsync_mailbox_importer *box_importer;
@@ -95,6 +96,7 @@ struct dsync_brain {
 	unsigned int sync_visible_namespaces:1;
 	unsigned int no_mail_sync:1;
 	unsigned int changes_during_sync:1;
+	unsigned int verbose_proctitle:1;
 	unsigned int failed:1;
 };
 

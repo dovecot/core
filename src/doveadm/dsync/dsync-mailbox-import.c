@@ -89,6 +89,7 @@ struct dsync_mailbox_importer {
 
 	uint32_t prev_uid, next_local_seq, local_uid_next;
 	uint64_t local_initial_highestmodseq, local_initial_highestpvtmodseq;
+	unsigned int import_pos, import_count;
 
 	unsigned int failed:1;
 	unsigned int debug:1;
@@ -1712,6 +1713,7 @@ dsync_mailbox_import_handle_mail(struct dsync_mailbox_importer *importer,
 		return FALSE;
 	}
 	/* successfully handled all the mails locally */
+	importer->import_pos++;
 	return TRUE;
 }
 
@@ -1764,6 +1766,8 @@ void dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer
 			importer->failed = TRUE;
 		}
 	}
+	importer->import_count = hash_table_count(importer->import_guids) +
+		hash_table_count(importer->import_uids);
 
 	dsync_mailbox_import_assign_new_uids(importer);
 	/* save mails from local sources where possible,
@@ -2002,6 +2006,7 @@ void dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
 		hash_table_remove(importer->import_uids,
 				  POINTER_CAST(mail->uid));
 	}
+	importer->import_pos++;
 	dsync_mailbox_save_newmails(importer, mail, all_newmails);
 }
 
@@ -2309,4 +2314,12 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 	ret = importer->failed ? -1 : 0;
 	pool_unref(&importer->pool);
 	return ret;
+}
+
+const char *dsync_mailbox_import_get_proctitle(struct dsync_mailbox_importer *importer)
+{
+	if (importer->search_ctx != NULL)
+		return "";
+	return t_strdup_printf("%u/%u", importer->import_pos,
+			       importer->import_count);
 }

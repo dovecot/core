@@ -53,7 +53,8 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 			enum dsync_brain_flags flags,
 			const struct dsync_brain_settings *set);
 struct dsync_brain *
-dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc);
+dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc,
+		       bool local);
 /* Returns 0 if everything was successful, -1 if syncing failed in some way */
 int dsync_brain_deinit(struct dsync_brain **brain);
 

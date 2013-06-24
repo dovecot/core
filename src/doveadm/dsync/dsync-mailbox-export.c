@@ -26,6 +26,7 @@ struct dsync_mailbox_exporter {
 
 	struct mailbox_transaction_context *trans;
 	struct mail_search_context *search_ctx;
+	unsigned int search_pos, search_count;
 
 	/* GUID => instances */
 	HASH_TABLE(char *, struct dsync_mail_guid_instances *) export_guids;
@@ -698,6 +699,7 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 	array_append_array(&exporter->search_uids, &exporter->requested_uids);
 	array_clear(&exporter->requested_uids);
 
+	exporter->search_count = seq_range_count(&exporter->search_uids);
 	exporter->search_ctx =
 		mailbox_search_init(exporter->trans, search_args, NULL,
 				    MAIL_FETCH_GUID |
@@ -797,6 +799,7 @@ dsync_mailbox_export_next_mail(struct dsync_mailbox_exporter *exporter)
 	}
 
 	while (mailbox_search_next(exporter->search_ctx, &mail)) {
+		exporter->search_pos++;
 		if ((ret = dsync_mailbox_export_mail(exporter, mail)) > 0)
 			return &exporter->dsync_mail;
 		if (ret < 0) {
@@ -849,4 +852,12 @@ int dsync_mailbox_export_deinit(struct dsync_mailbox_exporter **_exporter,
 	*error_r = t_strdup(exporter->error);
 	pool_unref(&exporter->pool);
 	return *error_r != NULL ? -1 : 0;
+}
+
+const char *dsync_mailbox_export_get_proctitle(struct dsync_mailbox_exporter *exporter)
+{
+	if (exporter->search_ctx == NULL)
+		return "";
+	return t_strdup_printf("%u/%u", exporter->search_pos,
+			       exporter->search_count);
 }
