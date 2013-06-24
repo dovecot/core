@@ -80,7 +80,7 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 	while (doveadm_mail_iter_next(iter, &mail)) {
 		if (ctx->by_msgid) {
 			if (mail_get_first_header(mail, "Message-ID", &key) < 0) {
-				errstr = mailbox_get_last_error(box, &error);
+				errstr = mailbox_get_last_error(mail->box, &error);
 				if (error == MAIL_ERROR_NOTFOUND)
 					continue;
 				i_error("Couldn't lookup Message-ID: for UID=%u: %s",
@@ -90,7 +90,7 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 			}
 		} else {
 			if (mail_get_special(mail, MAIL_FETCH_GUID, &key) < 0) {
-				errstr = mailbox_get_last_error(box, &error);
+				errstr = mailbox_get_last_error(mail->box, &error);
 				if (error == MAIL_ERROR_NOTFOUND)
 					continue;
 				i_error("Couldn't lookup GUID: for UID=%u: %s",
