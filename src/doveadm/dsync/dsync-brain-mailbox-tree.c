@@ -27,7 +27,7 @@ static void dsync_brain_check_namespaces(struct dsync_brain *brain)
 			continue;
 
 		sep = mail_namespace_get_sep(ns);
-		if (brain->hierarchy_sep == '\0') {
+		if (first_ns == NULL) {
 			brain->hierarchy_sep = sep;
 			first_ns = ns;
 		} else if (brain->hierarchy_sep != sep) {
