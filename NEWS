@@ -1,3 +1,13 @@
+v2.2.4 2013-06-25  Timo Sirainen <tss@iki.fi>
+
+	+ doveadm: Added "flags" command to modify message flags.
+	+ doveadm: Added "deduplicate" command to expunge message duplicates.
+	+ dsync: Show the state in process title with verbose_proctitle=yes.
+	- imap/pop3 proxy: Master user logins were broken in v2.2.3
+	- sdbox/mdbox: A corrupted index header with wrong size was never
+	  automatically fixed in v2.2.3.
+	- mbox: Fixed assert-crashes related to locking.
+
 v2.2.3 2013-06-17  Timo Sirainen <tss@iki.fi>
 
 	* LDA/LMTP: If new mail delivery first fails with "temporary
