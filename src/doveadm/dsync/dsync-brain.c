@@ -11,10 +11,11 @@
 
 #include <sys/stat.h>
 
-static const char *dsync_state_names[DSYNC_STATE_DONE+1] = {
-	"recv_handshake",
-	"send_last_common",
-	"recv_last_common",
+static const char *dsync_state_names[] = {
+	"master_recv_handshake",
+	"slave_recv_handshake",
+	"master_send_last_common",
+	"slave_recv_last_common",
 	"send_mailbox_tree",
 	"send_mailbox_tree_deletes",
 	"recv_mailbox_tree",
@@ -97,6 +98,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	i_assert(sync_type != DSYNC_BRAIN_SYNC_TYPE_UNKNOWN);
 	i_assert(sync_type != DSYNC_BRAIN_SYNC_TYPE_STATE ||
 		 (set->state != NULL && *set->state != '\0'));
+	i_assert(N_ELEMENTS(dsync_state_names) == DSYNC_STATE_DONE+1);
 
 	brain = dsync_brain_common_init(user, ibc);
 	brain->sync_type = sync_type;
