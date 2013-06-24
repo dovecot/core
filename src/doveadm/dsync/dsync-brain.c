@@ -6,6 +6,7 @@
 #include "hostpid.h"
 #include "str.h"
 #include "process-title.h"
+#include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "mail-namespace.h"
@@ -583,4 +584,26 @@ bool dsync_brain_has_failed(struct dsync_brain *brain)
 bool dsync_brain_has_unexpected_changes(struct dsync_brain *brain)
 {
 	return brain->changes_during_sync;
+}
+
+bool dsync_brain_want_namespace(struct dsync_brain *brain,
+				struct mail_namespace *ns)
+{
+	if (brain->sync_ns != NULL)
+		return brain->sync_ns == ns;
+	if (ns->alias_for != NULL) {
+		/* always skip aliases */
+		return FALSE;
+	}
+	if (brain->sync_visible_namespaces) {
+		if ((ns->flags & NAMESPACE_FLAG_HIDDEN) == 0)
+			return TRUE;
+		if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+				  NAMESPACE_FLAG_LIST_CHILDREN)) != 0)
+			return TRUE;
+		return FALSE;
+	} else {
+		return strcmp(ns->unexpanded_set->location,
+			      SETTING_STRVAR_UNEXPANDED) == 0;
+	}
 }

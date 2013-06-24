@@ -50,6 +50,8 @@ int dsync_brain_mailbox_alloc(struct dsync_brain *brain, const guid_128_t guid,
 	}
 
 	for (ns = brain->user->namespaces; ns != NULL; ns = ns->next) {
+		if (!dsync_brain_want_namespace(brain, ns))
+			continue;
 		if ((ret = ns_mailbox_try_alloc(ns, guid, box_r)) != 0) {
 			if (ret < 0)
 				brain->failed = TRUE;

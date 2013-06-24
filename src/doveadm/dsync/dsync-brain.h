@@ -70,5 +70,8 @@ void dsync_brain_get_state(struct dsync_brain *brain, string_t *output);
 enum dsync_brain_sync_type dsync_brain_get_sync_type(struct dsync_brain *brain);
 /* Returns TRUE if there were any unexpected changes during the sync. */
 bool dsync_brain_has_unexpected_changes(struct dsync_brain *brain);
+/* Returns TRUE if we want to sync this namespace. */
+bool dsync_brain_want_namespace(struct dsync_brain *brain,
+				struct mail_namespace *ns);
 
 #endif

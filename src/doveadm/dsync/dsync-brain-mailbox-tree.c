@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "str.h"
-#include "settings-parser.h"
 #include "mail-namespace.h"
 #include "doveadm-settings.h"
 #include "dsync-ibc.h"
@@ -10,28 +9,6 @@
 #include "dsync-brain-private.h"
 
 #include <ctype.h>
-
-static bool dsync_brain_want_namespace(struct dsync_brain *brain,
-				       struct mail_namespace *ns)
-{
-	if (brain->sync_ns != NULL)
-		return brain->sync_ns == ns;
-	if (ns->alias_for != NULL) {
-		/* always skip aliases */
-		return FALSE;
-	}
-	if (brain->sync_visible_namespaces) {
-		if ((ns->flags & NAMESPACE_FLAG_HIDDEN) == 0)
-			return TRUE;
-		if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
-				  NAMESPACE_FLAG_LIST_CHILDREN)) != 0)
-			return TRUE;
-		return FALSE;
-	} else {
-		return strcmp(ns->unexpanded_set->location,
-			      SETTING_STRVAR_UNEXPANDED) == 0;
-	}
-}
 
 static void dsync_brain_check_namespaces(struct dsync_brain *brain)
 {
