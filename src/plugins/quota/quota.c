@@ -564,7 +564,7 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 			root_set->force_default_rule = TRUE;
 		} else {
 			rule = array_append_space(&root_set->rules);
-			rule->mailbox_name =
+			rule->mailbox_name = strcasecmp(mailbox_name, "INBOX") == 0 ? "INBOX" :
 				p_strdup(root_set->set->pool, mailbox_name);
 		}
 	}
