@@ -63,7 +63,8 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 	unsigned int len;
 	const char *mech_name, *error;
 
-	str_append(str, "C CAPABILITY\r\n");
+	if (client->proxy_backend_capability == NULL)
+		str_append(str, "C CAPABILITY\r\n");
 
 	if (client->common.proxy_mech == NULL) {
 		/* logging in normally - use LOGIN command */
@@ -129,6 +130,9 @@ static int proxy_input_banner(struct imap_client *client,
 			proxy_write_id(client, str);
 		if (str_array_icase_find(capabilities, "SASL-IR"))
 			client->proxy_sasl_ir = TRUE;
+		i_free(client->proxy_backend_capability);
+		client->proxy_backend_capability =
+			i_strdup(t_strcut(line + 5 + 12, ']'));
 	}
 
 	ssl_flags = login_proxy_get_ssl_flags(client->common.login_proxy);
