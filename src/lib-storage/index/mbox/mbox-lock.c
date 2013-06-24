@@ -784,7 +784,8 @@ int mbox_lock(struct mbox_mailbox *mbox, int lock_type,
 	bool fcntl_locked;
 	int ret;
 
-	if (lock_type == F_RDLCK && mbox->external_transactions > 0) {
+	if (lock_type == F_RDLCK && mbox->external_transactions > 0 &&
+	    mbox->mbox_lock_type != F_RDLCK) {
 		/* we have a transaction open that is going to save mails
 		   and apparently also wants to read from the same mailbox
 		   (copy, move, catenate). we need to write lock the mailbox,
