@@ -479,7 +479,7 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 
 static void
 mdbox_rebuild_get_header(struct mail_index_view *view, uint32_t hdr_ext_id,
-			 struct mdbox_index_header *hdr_r)
+			 struct mdbox_index_header *hdr_r, bool *need_resize_r)
 {
 	const void *data;
 	size_t data_size;
@@ -487,6 +487,7 @@ mdbox_rebuild_get_header(struct mail_index_view *view, uint32_t hdr_ext_id,
 	mail_index_get_header_ext(view, hdr_ext_id, &data, &data_size);
 	memset(hdr_r, 0, sizeof(*hdr_r));
 	memcpy(hdr_r, data, I_MIN(data_size, sizeof(*hdr_r)));
+	*need_resize_r = data_size < sizeof(*hdr_r);
 }
 
 static void mdbox_header_update(struct mdbox_storage_rebuild_context *ctx,
@@ -494,13 +495,17 @@ static void mdbox_header_update(struct mdbox_storage_rebuild_context *ctx,
 				struct mdbox_mailbox *mbox)
 {
 	struct mdbox_index_header hdr, backup_hdr;
+	bool need_resize, need_resize_backup;
 
-	mdbox_rebuild_get_header(rebuild_ctx->view, mbox->hdr_ext_id, &hdr);
-	if (rebuild_ctx->backup_view == NULL)
+	mdbox_rebuild_get_header(rebuild_ctx->view, mbox->hdr_ext_id,
+				 &hdr, &need_resize);
+	if (rebuild_ctx->backup_view == NULL) {
 		memset(&backup_hdr, 0, sizeof(backup_hdr));
-	else {
+		need_resize = TRUE;
+	} else {
 		mdbox_rebuild_get_header(rebuild_ctx->backup_view,
-					 mbox->hdr_ext_id, &backup_hdr);
+					 mbox->hdr_ext_id, &backup_hdr,
+					 &need_resize_backup);
 	}
 
 	/* make sure we have valid mailbox guid */
@@ -522,6 +527,10 @@ static void mdbox_header_update(struct mdbox_storage_rebuild_context *ctx,
 		hdr.flags |= DBOX_INDEX_HEADER_FLAG_HAVE_POP3_ORDERS;
 
 	/* and write changes */
+	if (need_resize) {
+		mail_index_ext_resize_hdr(rebuild_ctx->trans, mbox->hdr_ext_id,
+					  sizeof(hdr));
+	}
 	mail_index_update_header_ext(rebuild_ctx->trans, mbox->hdr_ext_id, 0,
 				     &hdr, sizeof(hdr));
 }
