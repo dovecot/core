@@ -348,8 +348,8 @@ dsync_log_set(struct dsync_transaction_log_scan *ctx,
 	      struct mail_index_view *view, bool pvt_scan,
 	      struct mail_transaction_log_view *log_view, uint64_t modseq)
 {
-	uint32_t log_seq;
-	uoff_t log_offset;
+	uint32_t log_seq, end_seq;
+	uoff_t log_offset, end_offset;
 	bool reset;
 	int ret;
 
@@ -358,10 +358,20 @@ dsync_log_set(struct dsync_transaction_log_scan *ctx,
 						   &log_seq, &log_offset))
 		ret = 0;
 	else {
+		/* scan the view only up to end of the current view.
+		   if there are more changes, we don't care about them until
+		   the next sync. the modseq may however already point to
+		   beyond the current view's end (FIXME: why?) */
+		end_seq = view->log_file_head_seq;
+		end_offset = view->log_file_head_offset;
+		if (log_seq > end_seq ||
+		    (log_seq == end_seq && log_offset > end_offset)) {
+			end_seq = log_seq;
+			end_offset = log_offset;
+		}
 		ret = mail_transaction_log_view_set(log_view,
 						    log_seq, log_offset,
-						    view->log_file_head_seq,
-						    view->log_file_head_offset,
+						    end_seq, end_offset,
 						    &reset);
 	}
 	if (ret == 0) {
