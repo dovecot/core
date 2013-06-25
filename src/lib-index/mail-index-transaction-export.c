@@ -114,8 +114,12 @@ static void log_append_ext_intro(struct mail_index_export_context *ctx,
 		intro = &resizes[ext_id];
 
 		i_assert(intro->ext_id == idx || idx == (uint32_t)-1);
-		intro->name_size = idx != (uint32_t)-1 ? 0 :
-			strlen(rext->name);
+		if (idx != (uint32_t)-1)
+			intro->name_size = 0;
+		else {
+			intro->ext_id = (uint32_t)-1;
+			intro->name_size = strlen(rext->name);
+		}
 		buffer_append(buf, intro, sizeof(*intro));
 	} else {
 		/* generate a new intro structure */
