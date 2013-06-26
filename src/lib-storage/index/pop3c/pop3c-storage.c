@@ -234,6 +234,40 @@ static void pop3c_notify_changes(struct mailbox *box ATTR_UNUSED)
 {
 }
 
+static struct mail_save_context *
+pop3c_save_alloc(struct mailbox_transaction_context *t)
+{
+	struct mail_save_context *ctx;
+
+	ctx = i_new(struct mail_save_context, 1);
+	ctx->transaction = t;
+	return ctx;
+}
+
+static int
+pop3c_save_begin(struct mail_save_context *ctx ATTR_UNUSED,
+		 struct istream *input ATTR_UNUSED)
+{
+	mail_storage_set_error(ctx->transaction->box->storage,
+		MAIL_ERROR_NOTPOSSIBLE, "POP3 doesn't support saving mails");
+	return -1;
+}
+
+static int pop3c_save_continue(struct mail_save_context *ctx ATTR_UNUSED)
+{
+	return -1;
+}
+
+static int pop3c_save_finish(struct mail_save_context *ctx ATTR_UNUSED)
+{
+	return -1;
+}
+
+static void
+pop3c_save_cancel(struct mail_save_context *ctx ATTR_UNUSED)
+{
+}
+
 static bool pop3c_storage_is_inconsistent(struct mailbox *box)
 {
 	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)box;
@@ -295,11 +329,11 @@ struct mailbox pop3c_mailbox = {
 		index_storage_search_deinit,
 		index_storage_search_next_nonblock,
 		index_storage_search_next_update_seq,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
+		pop3c_save_alloc,
+		pop3c_save_begin,
+		pop3c_save_continue,
+		pop3c_save_finish,
+		pop3c_save_cancel,
 		mail_storage_copy,
 		NULL,
 		NULL,
