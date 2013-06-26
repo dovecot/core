@@ -1283,6 +1283,11 @@ dsync_mailbox_import_match_msg(struct dsync_mailbox_importer *importer,
 	/* verify hdr_hash if it exists */
 	if (change->hdr_hash == NULL) {
 		i_assert(*importer->cur_guid == '\0');
+		if (change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE) {
+			/* the message was already expunged, so we don't know
+			   its header. return "unknown". */
+			return -1;
+		}
 		i_error("Mailbox %s: GUIDs not supported, "
 			"sync with header hashes instead",
 			mailbox_get_vname(importer->box));
