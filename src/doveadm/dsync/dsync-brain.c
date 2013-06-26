@@ -130,6 +130,8 @@ dsync_brain_set_flags(struct dsync_brain *brain, enum dsync_brain_flags flags)
 	brain->sync_visible_namespaces =
 		(flags & DSYNC_BRAIN_FLAG_SYNC_VISIBLE_NAMESPACES) != 0;
 	brain->no_mail_sync = (flags & DSYNC_BRAIN_FLAG_NO_MAIL_SYNC) != 0;
+	brain->no_backup_overwrite =
+		(flags & DSYNC_BRAIN_FLAG_NO_BACKUP_OVERWRITE) != 0;
 }
 
 struct dsync_brain *

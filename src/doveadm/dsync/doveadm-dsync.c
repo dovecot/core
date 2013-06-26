@@ -36,7 +36,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+dEfg:l:m:n:Nr:Rs:Ux:"
+#define DSYNC_COMMON_GETOPT_ARGS "+1dEfg:l:m:n:Nr:Rs:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 /* The broken_char is mainly set to get a proper error message when trying to
    convert a mailbox with a name that can't be used properly translated between
@@ -80,6 +80,7 @@ struct dsync_cmd_context {
 	unsigned int lock:1;
 	unsigned int sync_visible_namespaces:1;
 	unsigned int default_replica_location:1;
+	unsigned int oneway:1;
 	unsigned int backup:1;
 	unsigned int reverse_backup:1;
 	unsigned int remote_user_prefix:1;
@@ -553,6 +554,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	if (ctx->no_mail_sync)
 		brain_flags |= DSYNC_BRAIN_FLAG_NO_MAIL_SYNC;
+	if (ctx->oneway)
+		brain_flags |= DSYNC_BRAIN_FLAG_NO_BACKUP_OVERWRITE;
 	if (doveadm_debug)
 		brain_flags |= DSYNC_BRAIN_FLAG_DEBUG;
 
@@ -852,6 +855,10 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	const char *str;
 
 	switch (c) {
+	case '1':
+		ctx->oneway = TRUE;
+		ctx->backup = TRUE;
+		break;
 	case 'd':
 		ctx->default_replica_location = TRUE;
 		break;
@@ -894,8 +901,6 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		ctx->rawlog_path = optarg;
 		break;
 	case 'R':
-		if (!ctx->backup)
-			return FALSE;
 		ctx->reverse_backup = TRUE;
 		break;
 	case 's':
@@ -1033,11 +1038,11 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 
 struct doveadm_mail_cmd cmd_dsync_mirror = {
 	cmd_dsync_alloc, "sync",
-	"[-dfR] [-l <secs>] [-m <mailbox>] [-n <namespace>] [-x <exclude>] [-s <state>] <dest>"
+	"[-1dfR] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] <dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_backup = {
 	cmd_dsync_backup_alloc, "backup",
-	"[-dfR] [-l <secs>] [-m <mailbox>] [-n <namespace>] [-x <exclude>] [-s <state>] <dest>"
+	"[-dfR] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] <dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_server = {
 	cmd_dsync_server_alloc, "dsync-server", &doveadm_mail_cmd_hide

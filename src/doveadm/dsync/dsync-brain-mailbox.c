@@ -171,7 +171,7 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_WANT_MAIL_REQUESTS;
 	if (brain->master_brain)
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_MASTER_BRAIN;
-	if (brain->backup_recv)
+	if (brain->backup_recv && !brain->no_backup_overwrite)
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_REVERT_LOCAL_CHANGES;
 	if (brain->debug)
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_DEBUG;

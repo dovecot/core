@@ -95,6 +95,7 @@ struct dsync_brain {
 	unsigned int debug:1;
 	unsigned int sync_visible_namespaces:1;
 	unsigned int no_mail_sync:1;
+	unsigned int no_backup_overwrite:1;
 	unsigned int changes_during_sync:1;
 	unsigned int verbose_proctitle:1;
 	unsigned int failed:1;

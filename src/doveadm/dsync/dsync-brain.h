@@ -15,7 +15,11 @@ enum dsync_brain_flags {
 	DSYNC_BRAIN_FLAG_SYNC_VISIBLE_NAMESPACES= 0x10,
 	/* Sync everything but the actual mails (e.g. mailbox creates,
 	   deletes) */
-	DSYNC_BRAIN_FLAG_NO_MAIL_SYNC		= 0x20
+	DSYNC_BRAIN_FLAG_NO_MAIL_SYNC		= 0x20,
+	/* Used with BACKUP_SEND/RECV: Don't force the
+	   Use the two-way syncing algorithm, but don't actually modify
+	   anything locally. (Useful during migration.) */
+	DSYNC_BRAIN_FLAG_NO_BACKUP_OVERWRITE	= 0x40
 };
 
 enum dsync_brain_sync_type {

@@ -102,7 +102,10 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 	enum mail_error error;
 	int ret = -1;
 
-	i_assert(!brain->backup_send);
+	if (brain->backup_send) {
+		i_assert(brain->no_backup_overwrite);
+		return 0;
+	}
 
 	switch (change->type) {
 	case DSYNC_MAILBOX_TREE_SYNC_TYPE_DELETE_BOX:

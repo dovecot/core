@@ -269,7 +269,9 @@ static void dsync_brain_mailbox_trees_sync(struct dsync_brain *brain)
 	const struct dsync_mailbox_tree_sync_change *change;
 	enum dsync_mailbox_trees_sync_type sync_type;
 
-	if (brain->backup_send)
+	if (brain->no_backup_overwrite)
+		sync_type = DSYNC_MAILBOX_TREES_SYNC_TYPE_TWOWAY;
+	else if (brain->backup_send)
 		sync_type = DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL;
 	else if (brain->backup_recv)
 		sync_type = DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE;
