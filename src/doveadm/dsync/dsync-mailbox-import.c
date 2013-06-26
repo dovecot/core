@@ -758,7 +758,8 @@ static bool dsync_check_cur_guid(struct dsync_mailbox_importer *importer,
 {
 	const char *cmp_guid;
 
-	if (change->guid == NULL || *change->guid == '\0')
+	if (change->guid == NULL || change->guid[0] == '\0' ||
+	    importer->cur_guid[0] == '\0')
 		return TRUE;
 	if (!dsync_mail_change_guid_equals(change, importer->cur_guid, &cmp_guid)) {
 		dsync_import_unexpected_state(importer, t_strdup_printf(
