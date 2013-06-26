@@ -245,7 +245,7 @@ pop3c_save_alloc(struct mailbox_transaction_context *t)
 }
 
 static int
-pop3c_save_begin(struct mail_save_context *ctx ATTR_UNUSED,
+pop3c_save_begin(struct mail_save_context *ctx,
 		 struct istream *input ATTR_UNUSED)
 {
 	mail_storage_set_error(ctx->transaction->box->storage,
@@ -258,14 +258,16 @@ static int pop3c_save_continue(struct mail_save_context *ctx ATTR_UNUSED)
 	return -1;
 }
 
-static int pop3c_save_finish(struct mail_save_context *ctx ATTR_UNUSED)
+static int pop3c_save_finish(struct mail_save_context *ctx)
 {
+	index_save_context_free(ctx);
 	return -1;
 }
 
 static void
-pop3c_save_cancel(struct mail_save_context *ctx ATTR_UNUSED)
+pop3c_save_cancel(struct mail_save_context *ctx)
 {
+	index_save_context_free(ctx);
 }
 
 static bool pop3c_storage_is_inconsistent(struct mailbox *box)
