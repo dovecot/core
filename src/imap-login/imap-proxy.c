@@ -9,7 +9,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "safe-memset.h"
-#include "sasl-client.h"
+#include "dsasl-client.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "imap-resp-code.h"
@@ -58,7 +58,7 @@ static void proxy_free_password(struct client *client)
 
 static int proxy_write_login(struct imap_client *client, string_t *str)
 {
-	struct sasl_client_settings sasl_set;
+	struct dsasl_client_settings sasl_set;
 	const unsigned char *output;
 	unsigned int len;
 	const char *mech_name, *error;
@@ -85,14 +85,14 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 	sasl_set.authzid = client->common.proxy_user;
 	sasl_set.password = client->common.proxy_password;
 	client->common.proxy_sasl_client =
-		sasl_client_new(client->common.proxy_mech, &sasl_set);
-	mech_name = sasl_client_mech_get_name(client->common.proxy_mech);
+		dsasl_client_new(client->common.proxy_mech, &sasl_set);
+	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
 
 	str_append(str, "L AUTHENTICATE ");
 	str_append(str, mech_name);
 	if (client->proxy_sasl_ir) {
-		if (sasl_client_output(client->common.proxy_sasl_client,
-				       &output, &len, &error) < 0) {
+		if (dsasl_client_output(client->common.proxy_sasl_client,
+					&output, &len, &error) < 0) {
 			client_log_err(&client->common, t_strdup_printf(
 				"proxy: SASL mechanism %s init failed: %s",
 				mech_name, error));
@@ -226,11 +226,11 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			client_proxy_failed(client, TRUE);
 			return -1;
 		}
-		ret = sasl_client_input(client->proxy_sasl_client,
-					str_data(str), str_len(str), &error);
+		ret = dsasl_client_input(client->proxy_sasl_client,
+					 str_data(str), str_len(str), &error);
 		if (ret == 0) {
-			ret = sasl_client_output(client->proxy_sasl_client,
-						 &data, &data_len, &error);
+			ret = dsasl_client_output(client->proxy_sasl_client,
+						  &data, &data_len, &error);
 		}
 		if (ret < 0) {
 			client_log_err(client, t_strdup_printf(

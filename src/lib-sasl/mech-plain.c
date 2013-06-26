@@ -2,19 +2,20 @@
 
 #include "lib.h"
 #include "str.h"
-#include "sasl-client-private.h"
+#include "dsasl-client-private.h"
 
-struct plain_sasl_client {
-	struct sasl_client client;
+struct plain_dsasl_client {
+	struct dsasl_client client;
 	bool output_sent;
 };
 
 static int
-mech_plain_input(struct sasl_client *_client,
+mech_plain_input(struct dsasl_client *_client,
 		 const unsigned char *input ATTR_UNUSED, unsigned int input_len,
 		 const char **error_r)
 {
-	struct plain_sasl_client *client = (struct plain_sasl_client *)_client;
+	struct plain_dsasl_client *client =
+		(struct plain_dsasl_client *)_client;
 
 	if (!client->output_sent) {
 		if (input_len > 0) {
@@ -29,11 +30,12 @@ mech_plain_input(struct sasl_client *_client,
 }
 
 static int
-mech_plain_output(struct sasl_client *_client,
+mech_plain_output(struct dsasl_client *_client,
 		  const unsigned char **output_r, unsigned int *output_len_r,
 		  const char **error_r)
 {
-	struct plain_sasl_client *client = (struct plain_sasl_client *)_client;
+	struct plain_dsasl_client *client =
+		(struct plain_dsasl_client *)_client;
 	string_t *str;
 
 	if (_client->set.authid == NULL) {
@@ -59,9 +61,9 @@ mech_plain_output(struct sasl_client *_client,
 	return 0;
 }
 
-const struct sasl_client_mech sasl_client_mech_plain = {
+const struct dsasl_client_mech dsasl_client_mech_plain = {
 	.name = "PLAIN",
-	.struct_size = sizeof(struct plain_sasl_client),
+	.struct_size = sizeof(struct plain_dsasl_client),
 
 	.input = mech_plain_input,
 	.output = mech_plain_output

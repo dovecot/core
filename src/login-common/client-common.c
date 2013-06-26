@@ -18,7 +18,7 @@
 #include "master-service-ssl-settings.h"
 #include "master-auth.h"
 #include "auth-client.h"
-#include "sasl-client.h"
+#include "dsasl-client.h"
 #include "login-proxy.h"
 #include "ssl-proxy.h"
 #include "client-common.h"
@@ -211,7 +211,7 @@ void client_destroy(struct client *client, const char *reason)
 	}
 
 	if (client->proxy_sasl_client != NULL)
-		sasl_client_free(&client->proxy_sasl_client);
+		dsasl_client_free(&client->proxy_sasl_client);
 	if (client->login_proxy != NULL)
 		login_proxy_free(&client->login_proxy);
 	if (client->v.destroy != NULL)

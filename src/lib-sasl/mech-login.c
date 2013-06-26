@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
-#include "sasl-client-private.h"
+#include "dsasl-client-private.h"
 
 enum login_state {
 	STATE_INIT = 0,
@@ -10,18 +10,19 @@ enum login_state {
 	STATE_PASS
 };
 
-struct login_sasl_client {
-	struct sasl_client client;
+struct login_dsasl_client {
+	struct dsasl_client client;
 	enum login_state state;
 };
 
 static int
-mech_login_input(struct sasl_client *_client,
+mech_login_input(struct dsasl_client *_client,
 		 const unsigned char *input ATTR_UNUSED,
 		 unsigned int input_len ATTR_UNUSED,
 		 const char **error_r)
 {
-	struct login_sasl_client *client = (struct login_sasl_client *)_client;
+	struct login_dsasl_client *client =
+		(struct login_dsasl_client *)_client;
 
 	if (client->state == STATE_PASS) {
 		*error_r = "Server didn't finish authentication";
@@ -32,11 +33,12 @@ mech_login_input(struct sasl_client *_client,
 }
 
 static int
-mech_login_output(struct sasl_client *_client,
+mech_login_output(struct dsasl_client *_client,
 		  const unsigned char **output_r, unsigned int *output_len_r,
 		  const char **error_r)
 {
-	struct login_sasl_client *client = (struct login_sasl_client *)_client;
+	struct login_dsasl_client *client =
+		(struct login_dsasl_client *)_client;
 
 	if (_client->set.authid == NULL) {
 		*error_r = "authid not set";
@@ -64,9 +66,9 @@ mech_login_output(struct sasl_client *_client,
 	i_unreached();
 }
 
-const struct sasl_client_mech sasl_client_mech_login = {
+const struct dsasl_client_mech dsasl_client_mech_login = {
 	.name = "LOGIN",
-	.struct_size = sizeof(struct login_sasl_client),
+	.struct_size = sizeof(struct login_dsasl_client),
 
 	.input = mech_login_input,
 	.output = mech_login_output

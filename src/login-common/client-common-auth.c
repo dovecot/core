@@ -9,7 +9,7 @@
 #include "time-util.h"
 #include "login-proxy.h"
 #include "auth-client.h"
-#include "sasl-client.h"
+#include "dsasl-client.h"
 #include "master-service-ssl-settings.h"
 #include "client-common.h"
 
@@ -202,7 +202,7 @@ void client_proxy_failed(struct client *client, bool send_line)
 	}
 
 	if (client->proxy_sasl_client != NULL)
-		sasl_client_free(&client->proxy_sasl_client);
+		dsasl_client_free(&client->proxy_sasl_client);
 	login_proxy_free(&client->login_proxy);
 	proxy_free_password(client);
 	i_free_and_null(client->proxy_user);
@@ -275,7 +275,7 @@ static int proxy_start(struct client *client,
 		       const struct client_auth_reply *reply)
 {
 	struct login_proxy_settings proxy_set;
-	const struct sasl_client_mech *sasl_mech = NULL;
+	const struct dsasl_client_mech *sasl_mech = NULL;
 
 	i_assert(reply->destuser != NULL);
 	i_assert(!client->destroyed);
@@ -296,7 +296,7 @@ static int proxy_start(struct client *client,
 	}
 
 	if (reply->proxy_mech != NULL) {
-		sasl_mech = sasl_client_mech_find(reply->proxy_mech);
+		sasl_mech = dsasl_client_mech_find(reply->proxy_mech);
 		if (sasl_mech == NULL) {
 			client_log_err(client, t_strdup_printf(
 				"proxy: Unsupported SASL mechanism %s",
@@ -306,7 +306,7 @@ static int proxy_start(struct client *client,
 		}
 	} else if (reply->master_user != NULL) {
 		/* have to use PLAIN authentication with master user logins */
-		sasl_mech = &sasl_client_mech_plain;
+		sasl_mech = &dsasl_client_mech_plain;
 	}
 
 	i_assert(client->refcount > 1);

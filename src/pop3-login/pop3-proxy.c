@@ -8,7 +8,7 @@
 #include "safe-memset.h"
 #include "str.h"
 #include "str-sanitize.h"
-#include "sasl-client.h"
+#include "dsasl-client.h"
 #include "client.h"
 #include "pop3-proxy.h"
 
@@ -23,7 +23,7 @@ static void proxy_free_password(struct client *client)
 
 static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 {
-	struct sasl_client_settings sasl_set;
+	struct dsasl_client_settings sasl_set;
 	const unsigned char *sasl_output;
 	unsigned int len;
 	const char *mech_name, *error;
@@ -60,12 +60,12 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 	sasl_set.authzid = client->common.proxy_user;
 	sasl_set.password = client->common.proxy_password;
 	client->common.proxy_sasl_client =
-		sasl_client_new(client->common.proxy_mech, &sasl_set);
-	mech_name = sasl_client_mech_get_name(client->common.proxy_mech);
+		dsasl_client_new(client->common.proxy_mech, &sasl_set);
+	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
 
 	str_printfa(str, "AUTH %s ", mech_name);
-	if (sasl_client_output(client->common.proxy_sasl_client,
-			       &sasl_output, &len, &error) < 0) {
+	if (dsasl_client_output(client->common.proxy_sasl_client,
+				&sasl_output, &len, &error) < 0) {
 		client_log_err(&client->common, t_strdup_printf(
 			"proxy: SASL mechanism %s init failed: %s",
 			mech_name, error));
@@ -99,11 +99,11 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 		client_log_err(client, "proxy: Server sent invalid base64 data in AUTH response");
 		return -1;
 	}
-	ret = sasl_client_input(client->proxy_sasl_client,
-				str_data(str), str_len(str), &error);
+	ret = dsasl_client_input(client->proxy_sasl_client,
+				 str_data(str), str_len(str), &error);
 	if (ret == 0) {
-		ret = sasl_client_output(client->proxy_sasl_client,
-					 &data, &data_len, &error);
+		ret = dsasl_client_output(client->proxy_sasl_client,
+					  &data, &data_len, &error);
 	}
 	if (ret < 0) {
 		client_log_err(client, t_strdup_printf(

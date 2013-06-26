@@ -6,11 +6,11 @@ AM_CPPFLAGS = \
 libsasl_la_SOURCES = \
 	mech-login.c \
 	mech-plain.c \
-	sasl-client.c 
+	dsasl-client.c 
 
 headers = \
-	sasl-client.h \
-	sasl-client-private.h
+	dsasl-client.h \
+	dsasl-client-private.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)

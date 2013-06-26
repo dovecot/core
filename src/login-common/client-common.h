@@ -122,8 +122,8 @@ struct client {
 
 	struct login_proxy *login_proxy;
 	char *proxy_user, *proxy_master_user, *proxy_password;
-	const struct sasl_client_mech *proxy_mech;
-	struct sasl_client *proxy_sasl_client;
+	const struct dsasl_client_mech *proxy_mech;
+	struct dsasl_client *proxy_sasl_client;
 	unsigned int proxy_state;
 	unsigned int proxy_ttl;
 
