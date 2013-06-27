@@ -896,6 +896,10 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 		http_client_request_error(*req, HTTP_CLIENT_REQUEST_ERROR_ABORTED,
 			"Aborting");
 	}
+	if (conn->pending_request != NULL) {
+		http_client_request_error(conn->pending_request,
+			HTTP_CLIENT_REQUEST_ERROR_ABORTED, "Aborting");
+	}
 	array_free(&conn->request_wait_list);
 
 	if (conn->http_parser != NULL)
