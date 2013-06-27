@@ -135,8 +135,12 @@ http_client_peer_next_request(struct http_client_peer *peer)
 	if (num_urgent == 0 &&
 	    working_conn_count >= peer->client->set.max_parallel_connections) {
 		/* no */
-		if (conn == NULL)
+		if (conn == NULL) {
+			http_client_peer_debug(peer,
+				"Only non-urgent requests, and we already have "
+				"%u pending connections", working_conn_count);
 			return FALSE;
+		}
 		/* pipeline it */
 		return http_client_connection_next_request(conn);
 	}
@@ -152,6 +156,11 @@ http_client_peer_next_request(struct http_client_peer *peer)
 	} else {
 		new_connections = (num_urgent > connecting ? num_urgent - connecting : 0);
 	}
+	http_client_peer_debug(peer,
+		"Creating %u new connections to handle requests "
+		"(already %u usable, connecting to %u, closing %u)",
+		new_connections, working_conn_count - connecting,
+		connecting, closing);
 	http_client_peer_connect(peer, new_connections);
 
 	/* now we wait until it is connected */

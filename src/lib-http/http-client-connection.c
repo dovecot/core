@@ -111,6 +111,8 @@ http_client_connection_abort_error(struct http_client_connection **_conn,
 	struct http_client_connection *conn = *_conn;
 	struct http_client_request **req;
 
+	http_client_connection_debug(conn, "Aborting connection: %s", error);
+
 	conn->connected = FALSE;
 	conn->closing = TRUE;
 	
@@ -145,6 +147,9 @@ http_client_connection_abort_temp_error(struct http_client_connection **_conn,
 			return;
 		}
 	}
+
+	http_client_connection_debug(conn,
+		"Aborting connection with temporary error: %s", error);
 
 	conn->connected = FALSE;
 	conn->closing = TRUE;
@@ -341,6 +346,7 @@ static void http_client_connection_destroy(struct connection *_conn)
 				"SSL handshaking to %s failed: Connection timed out in %u.%03u secs",
 				_conn->name, msecs/1000, msecs%1000);
 		}
+		http_client_connection_debug(conn, "%s", error);
 		http_client_connection_retry_requests(conn,
 			HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT, error);
 		break;
@@ -349,6 +355,7 @@ static void http_client_connection_destroy(struct connection *_conn)
 		error = _conn->input == NULL ? "Connection lost" :
 			t_strdup_printf("Connection lost: %s",
 					strerror(_conn->input->stream_errno));
+		http_client_connection_debug(conn, "%s", error);
 		http_client_connection_retry_requests(conn,
 			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST, error);
 	default:
@@ -784,6 +791,7 @@ http_client_connection_connected(struct connection *_conn, bool success)
 		if (conn->peer->addr.https_name != NULL) {
 			if (http_client_connection_ssl_init(conn, &error) < 0) {
 				http_client_peer_connection_failure(conn->peer, error);
+				http_client_connection_debug(conn, "%s", error);
 				http_client_connection_unref(&conn);
 			}
 			return;
@@ -833,6 +841,7 @@ static void http_client_connection_connect(struct http_client_connection *conn)
 	conn->connect_start_timestamp = ioloop_timeval;
 	if (connection_client_connect(&conn->conn) < 0) {
 		conn->connect_errno = errno;
+		http_client_connection_debug(conn, "Connect failed: %m");
 		conn->to_input = timeout_add_short(0,
 			http_client_connection_delayed_connect_error, conn);
 		return;
