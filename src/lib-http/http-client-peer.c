@@ -98,7 +98,7 @@ http_client_peer_next_request(struct http_client_peer *peer)
 	struct http_client_connection *const *conn_idx;
 	struct http_client_connection *conn = NULL;
 	unsigned int connecting = 0, closing = 0, min_waiting = UINT_MAX;
-	unsigned int num_urgent, new_connections;
+	unsigned int num_urgent, new_connections, working_conn_count;
 
 	if (http_client_peer_requests_pending(peer, &num_urgent) == 0)
 		return FALSE;
@@ -124,6 +124,7 @@ http_client_peer_next_request(struct http_client_peer *peer)
 		else if (!(*conn_idx)->connected)
 			connecting++;
 	}
+	working_conn_count = array_count(&peer->conns) - closing;
 
 	/* did we find an idle connection? */
 	if (conn != NULL && min_waiting == 0) {
@@ -132,8 +133,8 @@ http_client_peer_next_request(struct http_client_peer *peer)
 	}
 
 	/* no, but can we create a new connection? */		
-	if (num_urgent == 0 && (array_count(&peer->conns) - closing) >=
-		peer->client->set.max_parallel_connections) {
+	if (num_urgent == 0 &&
+	    working_conn_count >= peer->client->set.max_parallel_connections) {
 		/* no */
 		if (conn == NULL)
 			return FALSE;
@@ -142,8 +143,8 @@ http_client_peer_next_request(struct http_client_peer *peer)
 	}
 
 	/* yes, determine how many connections to set up */
-	if (peer->last_connect_failed && array_count(&peer->conns) > 0 &&
-	    array_count(&peer->conns) == connecting+closing) {
+	if (peer->last_connect_failed && working_conn_count > 0 &&
+	    working_conn_count == connecting) {
 		/* don't create new connections until the existing ones have
 		   finished connecting successfully. */
 		new_connections = 0;
