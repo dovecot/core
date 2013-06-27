@@ -269,8 +269,11 @@ bool http_client_connection_next_request(struct http_client_connection *conn)
 	if (conn->to_idle != NULL)
 		timeout_remove(&conn->to_idle);
 
-	if (conn->client->set.request_timeout_msecs > 0 &&
-	    conn->to_requests == NULL) {
+	if (conn->client->set.request_timeout_msecs == 0)
+		;
+	else if (conn->to_requests != NULL)
+		timeout_reset(conn->to_requests);
+	else {
 		conn->to_requests = timeout_add(conn->client->set.request_timeout_msecs,
 						http_client_connection_request_timeout, conn);
 	}
@@ -423,6 +426,10 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		/* the callback may add its own I/O, so we need to remove
 		   our one before calling it */
 		io_remove(&conn->conn.io);
+		/* we've received the request itself, and we can't reset the
+		   timeout during the payload reading. */
+		if (conn->to_requests != NULL)
+			timeout_remove(&conn->to_requests);
 	}
 
 	http_client_connection_ref(conn);
