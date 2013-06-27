@@ -44,15 +44,22 @@ http_client_connection_debug(struct http_client_connection *conn,
 
 static void http_client_connection_input(struct connection *_conn);
 
-bool http_client_connection_is_ready(struct http_client_connection *conn)
+unsigned int
+http_client_connection_count_pending(struct http_client_connection *conn)
 {
 	unsigned int pending_count = array_count(&conn->request_wait_list);
 
 	if (conn->pending_request != NULL)
 		pending_count++;
+	return pending_count;
+}
+
+bool http_client_connection_is_ready(struct http_client_connection *conn)
+{
 	return (conn->connected && !conn->output_locked &&
 		!conn->close_indicated &&
-		pending_count < conn->client->set.max_pipelined_requests);
+		http_client_connection_count_pending(conn) <
+			conn->client->set.max_pipelined_requests);
 }
 
 bool http_client_connection_is_idle(struct http_client_connection *conn)

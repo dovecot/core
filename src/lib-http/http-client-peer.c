@@ -106,9 +106,8 @@ http_client_peer_next_request(struct http_client_peer *peer)
 	/* find the least busy connection */
 	array_foreach(&peer->conns, conn_idx) {
 		if (http_client_connection_is_ready(*conn_idx)) {
-			unsigned int waiting = array_count(&(*conn_idx)->request_wait_list);
-			if ((*conn_idx)->pending_request != NULL)
-				waiting++;
+			unsigned int waiting = http_client_connection_count_pending(*conn_idx);
+
 			if (waiting < min_waiting) {
 				min_waiting = waiting;
 				conn = *conn_idx;
