@@ -92,6 +92,11 @@ void http_client_request_unref(struct http_client_request **_req)
 	if (--req->refcount > 0)
 		return;
 
+	if (req->destroy_callback != NULL) {
+		req->destroy_callback(req->destroy_context);
+		req->destroy_callback = NULL;
+	}
+
 	/* only decrease pending request counter if this request was submitted */
 	if (req->state > HTTP_REQUEST_STATE_NEW)
 		req->client->pending_requests--;
@@ -540,9 +545,6 @@ void http_client_request_finish(struct http_client_request **_req)
 
 	req->callback = NULL;
 	req->state = HTTP_REQUEST_STATE_FINISHED;
-
-	if (req->destroy_callback != NULL)
-		req->destroy_callback(req->destroy_context);
 
 	if (req->payload_wait && req->client->ioloop != NULL)
 		io_loop_stop(req->client->ioloop);
