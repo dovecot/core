@@ -214,6 +214,7 @@ http_client_connection_request_timeout(struct http_client_connection *conn)
 {
 	unsigned int msecs = conn->client->set.request_timeout_msecs;
 
+	conn->conn.input->stream_errno = ETIMEDOUT;
 	http_client_connection_abort_temp_error(&conn,
 		HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT, t_strdup_printf(
 		"No response for request in %u.%03u secs",
