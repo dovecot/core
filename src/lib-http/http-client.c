@@ -189,6 +189,11 @@ void http_client_wait(struct http_client *client)
 	io_loop_destroy(&client->ioloop);
 }
 
+unsigned int http_client_get_pending_request_count(struct http_client *client)
+{
+	return client->pending_requests;
+}
+
 int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 {
 	struct ssl_iostream_settings ssl_set;

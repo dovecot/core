@@ -121,5 +121,7 @@ void http_client_switch_ioloop(struct http_client *client);
 
 /* blocks until all currently submitted requests are handled */
 void http_client_wait(struct http_client *client);
+/* Returns number of pending HTTP requests. */
+unsigned int http_client_get_pending_request_count(struct http_client *client);
 
 #endif
