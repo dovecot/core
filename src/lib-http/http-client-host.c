@@ -169,13 +169,21 @@ http_client_host_port_connection_setup(struct http_client_host_port *hport)
 }
 
 static void
-http_client_host_drop_pending_connections(struct http_client_host_port *hport)
+http_client_host_drop_pending_connections(struct http_client_host_port *hport,
+					  const struct http_client_peer_addr *addr)
 {
 	struct http_client_peer *peer;
 	struct http_client_connection *const *conns, *conn;
 	unsigned int i, count;
 
 	for (peer = hport->host->client->peers_list; peer != NULL; peer = peer->next) {
+		if (http_client_peer_addr_cmp(&peer->addr, addr) == 0) {
+			/* don't drop any connections to the successfully
+			   connected peer, even if some of the connections
+			   are pending. they may be intended for urgent
+			   requests. */
+			continue;
+		}
 		if (!http_client_peer_have_host(peer, hport->host))
 			continue;
 
@@ -193,7 +201,8 @@ http_client_host_drop_pending_connections(struct http_client_host_port *hport)
 }
 
 static void
-http_client_host_port_connection_success(struct http_client_host_port *hport)
+http_client_host_port_connection_success(struct http_client_host_port *hport,
+					 const struct http_client_peer_addr *addr)
 {
 	/* we achieved at least one connection the the addr->ip */
 
@@ -201,10 +210,11 @@ http_client_host_port_connection_success(struct http_client_host_port *hport)
 	if (hport->to_connect != NULL)
 		timeout_remove(&hport->to_connect);
 
-	/* drop all other attempts. note that we get here whenever a connection
-	   is successfully created, so pending_connection_count may be 0. */
+	/* drop all other attempts to the hport. note that we get here whenever
+	   a connection is successfully created, so pending_connection_count
+	   may be 0. */
 	if (hport->pending_connection_count > 1)
-		http_client_host_drop_pending_connections(hport);
+		http_client_host_drop_pending_connections(hport, addr);
 	/* since this hport is now successfully connected, we won't be
 	   getting any connection failures to it anymore. so we need
 	   to reset the pending_connection_count count here. */
@@ -257,7 +267,7 @@ void http_client_host_connection_success(struct http_client_host *host,
 	if (hport == NULL)
 		return;
 
-	http_client_host_port_connection_success(hport);
+	http_client_host_port_connection_success(hport, addr);
 }
 
 void http_client_host_connection_failure(struct http_client_host *host,
