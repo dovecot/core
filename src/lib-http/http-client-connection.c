@@ -896,6 +896,12 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 	conn->closing = TRUE;
 	conn->connected = FALSE;
 
+	if (conn->incoming_payload != NULL) {
+		/* the stream is still accessed by lib-http caller. */
+		i_stream_remove_destroy_callback(conn->incoming_payload,
+						 http_client_payload_destroyed);
+	}
+
 	connection_disconnect(&conn->conn);
 
 	/* abort all pending requests */
