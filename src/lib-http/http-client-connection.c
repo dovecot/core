@@ -936,7 +936,7 @@ void http_client_connection_switch_ioloop(struct http_client_connection *conn)
 	if (conn->to_requests != NULL)
 		conn->to_requests = io_loop_move_timeout(&conn->to_requests);
 	if (conn->to_connect != NULL)
-		conn->to_requests = io_loop_move_timeout(&conn->to_connect);
+		conn->to_connect = io_loop_move_timeout(&conn->to_connect);
 	if (conn->to_input != NULL)
 		conn->to_input = io_loop_move_timeout(&conn->to_input);
 	if (conn->to_idle != NULL)
