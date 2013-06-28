@@ -105,6 +105,9 @@ ssize_t net_transmit(int fd, const void *data, size_t len);
    to be free'd. Returns 0 = ok, others = error code for net_gethosterror() */
 int net_gethostbyname(const char *addr, struct ip_addr **ips,
 		      unsigned int *ips_count);
+/* Return host for the IP address. Returns 0 = ok, others = error code for
+   net_gethosterror(). */
+int net_gethostbyaddr(const struct ip_addr *ip, const char **name_r);
 /* get error of net_gethostname() */
 const char *net_gethosterror(int error) ATTR_CONST;
 /* return TRUE if host lookup failed because it didn't exist (ie. not

@@ -663,6 +663,24 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 	return 0;
 }
 
+int net_gethostbyaddr(const struct ip_addr *ip, const char **name_r)
+{
+	union sockaddr_union so;
+	socklen_t addrlen = sizeof(so);
+	char hbuf[NI_MAXHOST];
+	int ret;
+
+	memset(&so, 0, sizeof(so));
+	sin_set_ip(&so, ip);
+	ret = getnameinfo(&so.sa, addrlen, hbuf, sizeof(hbuf), NULL, 0,
+			  NI_NAMEREQD);
+	if (ret != 0)
+		return ret;
+
+	*name_r = t_strdup(hbuf);
+	return 0;
+}
+
 int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port)
 {
 	union sockaddr_union so;
