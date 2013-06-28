@@ -27,7 +27,8 @@ static void dns_client_destroy(struct dns_client **client);
 
 static int dns_client_input_line(struct dns_client *client, const char *line)
 {
-	struct ip_addr *ips;
+	struct ip_addr *ips, ip;
+	const char *name;
 	unsigned int i, ips_count;
 	int ret;
 
@@ -47,6 +48,16 @@ static int dns_client_input_line(struct dns_client *client, const char *line)
 				o_stream_nsend_str(client->output, t_strconcat(
 					net_ip2addr(&ips[i]), "\n", NULL));
 			}
+		}
+	} else if (strncmp(line, "NAME\t", 5) == 0) {
+		if (net_addr2ip(line+5, &ip) < 0)
+			o_stream_nsend_str(client->output, "-1\n");
+		else if ((ret = net_gethostbyaddr(&ip, &name)) != 0) {
+			o_stream_nsend_str(client->output,
+				t_strdup_printf("%d\n", ret));
+		} else {
+			o_stream_nsend_str(client->output,
+				t_strdup_printf("0 %s\n", name));
 		}
 	} else if (strcmp(line, "QUIT") == 0) {
 		return -1;

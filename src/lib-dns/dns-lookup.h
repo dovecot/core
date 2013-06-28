@@ -19,8 +19,11 @@ struct dns_lookup_result {
 	/* how many milliseconds the lookup took. */
 	unsigned int msecs;
 
+	/* for IP lookup: */
 	unsigned int ips_count;
 	const struct ip_addr *ips;
+	/* for PTR lookup: */
+	const char *name;
 };
 
 typedef void dns_lookup_callback_t(const struct dns_lookup_result *result,
@@ -35,6 +38,15 @@ int dns_lookup(const char *host, const struct dns_lookup_settings *set,
 	       struct dns_lookup **lookup_r) ATTR_NULL(4);
 #define dns_lookup(host, set, callback, context, lookup_r) \
 	dns_lookup(host + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			const struct dns_lookup_result *, typeof(context))), \
+		set, (dns_lookup_callback_t *)callback, context, lookup_r)
+int dns_lookup_ptr(const struct ip_addr *ip,
+		   const struct dns_lookup_settings *set,
+		   dns_lookup_callback_t *callback, void *context,
+		   struct dns_lookup **lookup_r) ATTR_NULL(4);
+#define dns_lookup_ptr(host, set, callback, context, lookup_r) \
+	dns_lookup_ptr(host + \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct dns_lookup_result *, typeof(context))), \
 		set, (dns_lookup_callback_t *)callback, context, lookup_r)
