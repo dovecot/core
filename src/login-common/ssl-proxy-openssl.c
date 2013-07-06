@@ -119,6 +119,10 @@ ssl_server_context_init(const struct login_settings *login_set,
 			const struct master_service_ssl_settings *ssl_set);
 static void ssl_server_context_deinit(struct ssl_server_context **_ctx);
 
+static void ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
+                                            const struct master_service_ssl_settings *set);
+static int ssl_proxy_ctx_get_pkey_ec_curve_name(const struct master_service_ssl_settings *set);
+
 static unsigned int ssl_server_context_hash(const struct ssl_server_context *ctx)
 {
 	unsigned int i, g, h = 0;
@@ -993,11 +997,58 @@ ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct master_service_ssl_settings *s
 		store = SSL_CTX_get_cert_store(ssl_ctx);
 		load_ca(store, set->ssl_ca, load_xnames ? &xnames : NULL);
 	}
+	ssl_proxy_ctx_set_crypto_params(ssl_ctx, set);
 	SSL_CTX_set_info_callback(ssl_ctx, ssl_info_callback);
+	return xnames;
+}
+
+static void
+ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
+                                const struct master_service_ssl_settings *set)
+{
+#if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L && OPENSSL_VERSION_NUMBER < 0x10002000L
+	EC_KEY *ecdh;
+	int nid;
+	const char *curve_name;
+#endif
 	if (SSL_CTX_need_tmp_RSA(ssl_ctx))
 		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
 	SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
-	return xnames;
+#if !defined(OPENSSL_NO_ECDH)
+	/* In the non-recommended situation where ECDH cipher suites are being
+	   used instead of ECDHE, do not reuse the same ECDH key pair for
+	   different sessions. This option improves forward secrecy. */
+	SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
+#endif
+#if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10002000L
+	/* OpenSSL >= 1.0.2 automatically handles ECDH temporary key parameter
+	   selection. */
+	SSL_CTX_set_ecdh_auto(ssl_ctx, 1);
+#elif !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L
+	/* For OpenSSL < 1.0.2, ECDH temporary key parameter selection must be
+	   performed manually. Attempt to select the same curve as that used
+	   in the server's private EC key file. Otherwise fall back to the
+	   NIST P-384 (secp384r1) curve to be compliant with RFC 6460 when
+	   AES-256 TLS cipher suites are in use. This fall back option does
+	   however make Dovecot non-compliant with RFC 6460 which requires
+	   curve NIST P-256 (prime256v1) be used when AES-128 TLS cipher
+	   suites are in use. At least the non-compliance is in the form of
+	   providing too much security rather than too little. */
+	nid = ssl_proxy_ctx_get_pkey_ec_curve_name(set);
+	ecdh = EC_KEY_new_by_curve_name(nid);
+	if (ecdh == NULL) {
+		/* Fall back option */
+		nid = NID_secp384r1;
+		ecdh = EC_KEY_new_by_curve_name(nid);
+	}
+	if ((curve_name = OBJ_nid2sn(nid)) != NULL && set->verbose_ssl)
+		i_debug("SSL: elliptic curve %s will be used for ECDH and"
+		        " ECDHE key exchanges", curve_name);
+	if (ecdh != NULL) {
+		SSL_CTX_set_tmp_ecdh(ssl_ctx, ecdh);
+		EC_KEY_free(ecdh);
+	}
+#endif
 }
 
 static void
@@ -1081,6 +1132,28 @@ ssl_proxy_ctx_use_key(SSL_CTX *ctx,
 	if (SSL_CTX_use_PrivateKey(ctx, pkey) != 1)
 		i_fatal("Can't load private ssl_key: %s", ssl_key_load_error());
 	EVP_PKEY_free(pkey);
+}
+
+static int
+ssl_proxy_ctx_get_pkey_ec_curve_name(const struct master_service_ssl_settings *set)
+{
+	int nid = 0;
+#if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L && OPENSSL_VERSION_NUMBER < 0x10002000L
+	EVP_PKEY *pkey;
+	const char *password;
+	EC_KEY *eckey;
+	const EC_GROUP *ecgrp;
+
+	password = *set->ssl_key_password != '\0' ? set->ssl_key_password :
+		getenv(MASTER_SSL_KEY_PASSWORD_ENV);
+	pkey = ssl_proxy_load_key(set->ssl_key, password);
+	if (pkey != NULL &&
+	    (eckey = EVP_PKEY_get1_EC_KEY(pkey)) != NULL &&
+	    (ecgrp = EC_KEY_get0_group(eckey)) != NULL)
+		nid = EC_GROUP_get_curve_name(ecgrp);
+	EVP_PKEY_free(pkey);
+#endif
+	return nid;
 }
 
 static int
@@ -1209,7 +1282,6 @@ ssl_server_context_init(const struct login_settings *login_set,
 #endif
 
 	ssl_proxy_ctx_use_key(ctx->ctx, ssl_set);
-	SSL_CTX_set_info_callback(ctx->ctx, ssl_info_callback);
 
 	if (ctx->verify_client_cert)
 		ssl_proxy_ctx_verify_client(ctx->ctx, xnames);
