@@ -114,6 +114,20 @@ http_client_host_port_drop_request(struct http_client_host_port *hport,
 	}
 }
 
+static bool
+http_client_hport_is_last_connect_ip(struct http_client_host_port *hport)
+{
+	i_assert(hport->ips_connect_idx < hport->host->ips_count);
+	i_assert(hport->ips_connect_start_idx < hport->host->ips_count);
+
+	/* we'll always go through all the IPs. we don't necessarily start
+	   connecting from the first IP, so we'll need to treat the IPs as
+	   a ring buffer where we automatically wrap back to the first IP
+	   when necessary. */
+	return (hport->ips_connect_idx + 1) % hport->host->ips_count ==
+		hport->ips_connect_start_idx;
+}
+
 static void
 http_client_host_port_soft_connect_timeout(struct http_client_host_port *hport)
 {
@@ -122,7 +136,7 @@ http_client_host_port_soft_connect_timeout(struct http_client_host_port *hport)
 	if (hport->to_connect != NULL)
 		timeout_remove(&hport->to_connect);
 
-	if (hport->ips_connect_idx + 1 >= host->ips_count)
+	if (http_client_hport_is_last_connect_ip(hport))
 		return;
 
 	/* if our our previous connection attempt takes longer than the
@@ -135,7 +149,7 @@ http_client_host_port_soft_connect_timeout(struct http_client_host_port *hport)
 		hport->https_name == NULL ? "" :
 			t_strdup_printf(" (SSL=%s)", hport->https_name));
 
-	hport->ips_connect_idx++;
+	hport->ips_connect_idx = (hport->ips_connect_idx + 1) % host->ips_count;
 	http_client_host_port_connection_setup(hport);
 }
 
@@ -161,7 +175,7 @@ http_client_host_port_connection_setup(struct http_client_host_port *hport)
 
 	/* start soft connect time-out (but only if we have another IP left) */
 	msecs = host->client->set.soft_connect_timeout_msecs;
-	if (host->ips_count - hport->ips_connect_idx > 1 && msecs > 0 &&
+	if (!http_client_hport_is_last_connect_ip(hport) && msecs > 0 &&
 	    hport->to_connect == NULL) {
 		hport->to_connect =
 			timeout_add(msecs, http_client_host_port_soft_connect_timeout, hport);
@@ -200,11 +214,26 @@ http_client_host_drop_pending_connections(struct http_client_host_port *hport,
 	}
 }
 
+static unsigned int
+http_client_host_get_ip_idx(struct http_client_host *host,
+			    const struct ip_addr *ip)
+{
+	unsigned int i;
+
+	for (i = 0; i < host->ips_count; i++) {
+		if (net_ip_compare(&host->ips[i], ip))
+			return i;
+	}
+	i_unreached();
+}
+
 static void
 http_client_host_port_connection_success(struct http_client_host_port *hport,
 					 const struct http_client_peer_addr *addr)
 {
 	/* we achieved at least one connection the the addr->ip */
+	hport->ips_connect_start_idx =
+		http_client_host_get_ip_idx(hport->host, &addr->ip);
 
 	/* stop soft connect time-out */
 	if (hport->to_connect != NULL)
@@ -237,15 +266,16 @@ http_client_host_port_connection_failure(struct http_client_host_port *hport,
 	if (hport->to_connect != NULL)
 		timeout_remove(&hport->to_connect);
 
-	i_assert(hport->ips_connect_idx < host->ips_count);
-	if (++hport->ips_connect_idx == host->ips_count) {
+	if (http_client_hport_is_last_connect_ip(hport)) {
 		/* all IPs failed, but retry all of them again on the
 		   next request. */
-		hport->ips_connect_idx = 0;
+		hport->ips_connect_idx = hport->ips_connect_start_idx =
+			(hport->ips_connect_idx + 1) % host->ips_count;
 		http_client_host_port_error(hport,
 			HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, reason);
 		return FALSE;
 	}
+	hport->ips_connect_idx = (hport->ips_connect_idx + 1) % host->ips_count;
 
 	http_client_host_port_connection_setup(hport);
 	return TRUE;
@@ -329,7 +359,7 @@ http_client_host_dns_callback(const struct dns_lookup_result *result,
 	/* make connections to requested ports */
 	array_foreach_modifiable(&host->ports, hport) {
 		unsigned int count = array_count(&hport->request_queue);
-		hport->ips_connect_idx = 0;
+		hport->ips_connect_idx = hport->ips_connect_start_idx = 0;
 		if (count > 0)
 			http_client_host_port_connection_setup(hport);
 		requests += count;
