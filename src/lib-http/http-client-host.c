@@ -256,9 +256,14 @@ http_client_host_port_connection_failure(struct http_client_host_port *hport,
 {
 	struct http_client_host *host = hport->host;
 
-	i_assert(hport->pending_connection_count > 0);
-	if (--hport->pending_connection_count > 0)
-		return TRUE;
+	if (hport->pending_connection_count > 0) {
+		/* we're still doing the initial connections to this hport. if
+		   we're also doing parallel connections with soft timeouts
+		   (pending_connection_count>1), wait for them to finish
+		   first. */
+		if (--hport->pending_connection_count > 0)
+			return TRUE;
+	}
 
 	/* one of the connections failed. if we're not using soft timeouts,
 	   we need to try to connect to the next IP. if we are using soft
