@@ -171,7 +171,8 @@ http_client_host_port_connection_setup(struct http_client_host_port *hport)
 
 	peer = http_client_peer_get(host->client, &addr);
 	http_client_peer_add_host(peer, host);
-	hport->pending_connection_count++;
+	if (http_client_peer_handle_requests(peer))
+		hport->pending_connection_count++;
 
 	/* start soft connect time-out (but only if we have another IP left) */
 	msecs = host->client->set.soft_connect_timeout_msecs;

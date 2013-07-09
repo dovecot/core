@@ -93,7 +93,8 @@ http_client_peer_requests_pending(struct http_client_peer *peer,
 }
 
 static bool
-http_client_peer_next_request(struct http_client_peer *peer)
+http_client_peer_next_request(struct http_client_peer *peer,
+			      bool *created_connections)
 {
 	struct http_client_connection *const *conn_idx;
 	struct http_client_connection *conn = NULL;
@@ -161,15 +162,21 @@ http_client_peer_next_request(struct http_client_peer *peer)
 		"(already %u usable, connecting to %u, closing %u)",
 		new_connections, working_conn_count - connecting,
 		connecting, closing);
-	http_client_peer_connect(peer, new_connections);
+	if (new_connections > 0) {
+		*created_connections = TRUE;
+		http_client_peer_connect(peer, new_connections);
+	}
 
 	/* now we wait until it is connected */
 	return FALSE;
 }
 
-void http_client_peer_handle_requests(struct http_client_peer *peer)
+bool http_client_peer_handle_requests(struct http_client_peer *peer)
 {
-	while (http_client_peer_next_request(peer)) ;
+	bool created_connections = FALSE;
+
+	while (http_client_peer_next_request(peer, &created_connections)) ;
+	return created_connections;
 }
 
 static struct http_client_peer *
@@ -259,7 +266,6 @@ void http_client_peer_add_host(struct http_client_peer *peer,
 {
 	if (!http_client_peer_have_host(peer, host))
 		array_append(&peer->hosts, &host, 1);
-	http_client_peer_handle_requests(peer);
 }
 
 struct http_client_request *

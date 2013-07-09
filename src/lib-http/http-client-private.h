@@ -246,7 +246,7 @@ void http_client_peer_add_host(struct http_client_peer *peer,
 struct http_client_request *
 	http_client_peer_claim_request(struct http_client_peer *peer,
 		bool no_urgent);
-void http_client_peer_handle_requests(struct http_client_peer *peer);
+bool http_client_peer_handle_requests(struct http_client_peer *peer);
 void http_client_peer_connection_success(struct http_client_peer *peer);
 void http_client_peer_connection_failure(struct http_client_peer *peer,
 					 const char *reason);
