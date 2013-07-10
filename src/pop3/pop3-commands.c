@@ -132,6 +132,8 @@ static void cmd_list_callback(struct client *client)
 	struct cmd_list_context *ctx = client->cmd_context;
 
 	for (; ctx->msgnum != client->messages_count; ctx->msgnum++) {
+		if (client->output->closed)
+			break;
 		if (POP3_CLIENT_OUTPUT_FULL(client)) {
 			/* buffer full */
 			return;
@@ -145,8 +147,6 @@ static void cmd_list_callback(struct client *client)
 
 		client_send_line(client, "%u %"PRIuUOFF_T, ctx->msgnum+1,
 				 client->message_sizes[ctx->msgnum]);
-		if (client->output->closed)
-			break;
 	}
 
 	client_send_line(client, ".");
