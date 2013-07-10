@@ -1134,11 +1134,11 @@ ssl_proxy_ctx_use_key(SSL_CTX *ctx,
 	EVP_PKEY_free(pkey);
 }
 
+#if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L && OPENSSL_VERSION_NUMBER < 0x10002000L
 static int
 ssl_proxy_ctx_get_pkey_ec_curve_name(const struct master_service_ssl_settings *set)
 {
 	int nid = 0;
-#if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L && OPENSSL_VERSION_NUMBER < 0x10002000L
 	EVP_PKEY *pkey;
 	const char *password;
 	EC_KEY *eckey;
@@ -1152,9 +1152,9 @@ ssl_proxy_ctx_get_pkey_ec_curve_name(const struct master_service_ssl_settings *s
 	    (ecgrp = EC_KEY_get0_group(eckey)) != NULL)
 		nid = EC_GROUP_get_curve_name(ecgrp);
 	EVP_PKEY_free(pkey);
-#endif
 	return nid;
 }
+#endif
 
 static int
 ssl_proxy_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
