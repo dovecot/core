@@ -56,6 +56,17 @@ static struct mailbox_list *imapc_list_alloc(void)
 	return &list->list;
 }
 
+static int
+imapc_list_init(struct mailbox_list *_list, const char **error_r ATTR_UNUSED)
+{
+	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+
+	list->set = mail_user_set_get_driver_settings(_list->ns->user->set_info,
+						      _list->ns->user->set,
+						      IMAPC_STORAGE_NAME);
+	return 0;
+}
+
 static void imapc_list_deinit(struct mailbox_list *_list)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
@@ -205,7 +216,7 @@ static const char *
 imapc_list_get_storage_name(struct mailbox_list *_list, const char *vname)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
-	const char *prefix = list->storage->set->imapc_list_prefix;
+	const char *prefix = list->set->imapc_list_prefix;
 	const char *storage_name;
 
 	storage_name = mailbox_list_default_get_storage_name(_list, vname);
@@ -222,7 +233,7 @@ static const char *
 imapc_list_get_vname(struct mailbox_list *_list, const char *storage_name)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
-	const char *prefix = list->storage->set->imapc_list_prefix;
+	const char *prefix = list->set->imapc_list_prefix;
 	unsigned int prefix_len;
 
 	if (*storage_name == '\0') {
@@ -285,7 +296,7 @@ imapc_list_get_fs_name(struct imapc_mailbox_list *list, const char *name)
 		return NULL;
 
 	vname = mailbox_list_get_vname(&list->list, name);
-	if (list->storage->set->imapc_list_prefix[0] != '\0') {
+	if (list->set->imapc_list_prefix[0] != '\0') {
 		/* put back the prefix, so it gets included in the filesystem. */
 		unsigned int vname_len = strlen(vname);
 
@@ -301,10 +312,10 @@ imapc_list_get_fs_name(struct imapc_mailbox_list *list, const char *name)
 		}
 		if (vname[0] == '\0') {
 			vname = t_strconcat(ns->prefix,
-				list->storage->set->imapc_list_prefix, NULL);
+				list->set->imapc_list_prefix, NULL);
 		} else {
 			vname = t_strdup_printf("%s%s%c%s", ns->prefix,
-						list->storage->set->imapc_list_prefix,
+						list->set->imapc_list_prefix,
 						ns_sep, vname);
 		}
 	}
@@ -366,7 +377,7 @@ static void imapc_list_delete_unused_indexes(struct imapc_mailbox_list *list)
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
-	const char *imapc_list_prefix = list->storage->set->imapc_list_prefix;
+	const char *imapc_list_prefix = list->set->imapc_list_prefix;
 	unsigned int imapc_list_prefix_len = strlen(imapc_list_prefix);
 	const char *fs_name, *vname;
 
@@ -417,14 +428,13 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	if (list->refreshed_mailboxes)
 		return 0;
 
-	if (*list->storage->set->imapc_list_prefix == '\0')
+	if (*list->set->imapc_list_prefix == '\0')
 		pattern = "*";
 	else {
 		/* list "prefix*" instead of "prefix.*". this may return a bit
 		   more than we want, but we're also interested in the flags
 		   of the prefix itself. */
-		pattern = t_strdup_printf("%s*",
-			list->storage->set->imapc_list_prefix);
+		pattern = t_strdup_printf("%s*", list->set->imapc_list_prefix);
 	}
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
@@ -440,7 +450,7 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 		   imapc_list_prefix doesn't match it */
 		bool created;
 		node = mailbox_tree_get(list->mailboxes, "INBOX", &created);
-		if (*list->storage->set->imapc_list_prefix != '\0') {
+		if (*list->set->imapc_list_prefix != '\0') {
 			/* this listing didn't include the INBOX itself, but
 			   might have included its children. make sure there
 			   aren't any extra flags in it (especially
@@ -640,12 +650,10 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 		mailbox_tree_init(mail_namespace_get_sep(_src_list->ns));
 
 	cmd = imapc_list_simple_context_init(&ctx, src_list);
-	if (*src_list->storage->set->imapc_list_prefix == '\0')
+	if (*src_list->set->imapc_list_prefix == '\0')
 		pattern = "*";
-	else {
-		pattern = t_strdup_printf("%s*",
-				src_list->storage->set->imapc_list_prefix);
-	}
+	else
+		pattern = t_strdup_printf("%s*", src_list->set->imapc_list_prefix);
 	imapc_command_sendf(cmd, "LSUB \"\" %s", pattern);
 	imapc_simple_run(&ctx);
 
@@ -789,7 +797,7 @@ struct mailbox_list imapc_mailbox_list = {
 
 	{
 		imapc_list_alloc,
-		NULL,
+		imapc_list_init,
 		imapc_list_deinit,
 		NULL,
 		imapc_list_get_hierarchy_sep,
