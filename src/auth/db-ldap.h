@@ -199,7 +199,7 @@ const char *ldap_get_error(struct ldap_connection *conn);
 struct db_ldap_result_iterate_context *
 db_ldap_result_iterate_init(struct ldap_connection *conn,
 			    struct ldap_request_search *ldap_request,
-			    LDAPMessage *res);
+			    LDAPMessage *res, bool skip_null_values);
 bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
 				 const char **name_r,
 				 const char *const **values_r);

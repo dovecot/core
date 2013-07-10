@@ -47,8 +47,12 @@ ldap_query_save_result(struct ldap_connection *conn,
 	struct db_ldap_result_iterate_context *ldap_iter;
 	const char *name, *const *values;
 
-	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request, res);
+	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request, res, FALSE);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
+		if (values[0] == NULL) {
+			auth_request_set_null_field(auth_request, name);
+			continue;
+		}
 		if (values[1] != NULL) {
 			auth_request_log_warning(auth_request, "ldap",
 				"Multiple values found for '%s', "
