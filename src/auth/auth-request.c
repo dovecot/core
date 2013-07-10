@@ -1397,6 +1397,16 @@ void auth_request_set_field(struct auth_request *request,
 	}
 }
 
+void auth_request_set_null_field(struct auth_request *request, const char *name)
+{
+	if (strncmp(name, "userdb_", 7) == 0) {
+		/* make sure userdb prefetch is used even if all the fields
+		   were returned as NULL. */
+		if (request->userdb_reply == NULL)
+			auth_request_init_userdb_reply(request);
+	}
+}
+
 void auth_request_set_field_keyvalue(struct auth_request *request,
 				     const char *field,
 				     const char *default_scheme)

@@ -192,6 +192,7 @@ bool auth_request_set_login_username(struct auth_request *request,
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme) ATTR_NULL(4);
+void auth_request_set_null_field(struct auth_request *request, const char *name);
 void auth_request_set_field_keyvalue(struct auth_request *request,
 				     const char *field,
 				     const char *default_scheme) ATTR_NULL(3);

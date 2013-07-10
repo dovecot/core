@@ -45,7 +45,11 @@ static void sql_query_save_results(struct sql_result *result,
 		name = sql_result_get_field_name(result, i);
 		value = sql_result_get_field_value(result, i);
 
-		if (*name != '\0' && value != NULL) {
+		if (*name == '\0')
+			;
+		else if (value == NULL)
+			auth_request_set_null_field(auth_request, name);
+		else {
 			auth_request_set_field(auth_request, name, value,
 				module->conn->set.default_pass_scheme);
 		}
