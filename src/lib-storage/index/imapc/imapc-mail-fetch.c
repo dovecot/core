@@ -48,7 +48,7 @@ imapc_mail_prefetch_callback(const struct imapc_command_reply *reply,
 			"imapc: Mail prefetch failed: %s", reply->text_full);
 	}
 	pool_unref(&mail->imail.mail.pool);
-	imapc_client_stop(mbox->storage->client);
+	imapc_client_stop(mbox->storage->client->client);
 }
 
 static int
@@ -407,6 +407,6 @@ void imapc_mail_fetch_update(struct imapc_mail *mail,
 	if (!match) {
 		/* this is only a FETCH FLAGS update for the wanted mail */
 	} else {
-		imapc_client_stop(mbox->storage->client);
+		imapc_client_stop(mbox->storage->client->client);
 	}
 }

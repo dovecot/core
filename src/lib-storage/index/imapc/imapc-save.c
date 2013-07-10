@@ -66,7 +66,8 @@ int imapc_save_begin(struct mail_save_context *_ctx, struct istream *input)
 
 	i_assert(ctx->fd == -1);
 
-	ctx->fd = imapc_client_create_temp_fd(ctx->mbox->storage->client, &path);
+	ctx->fd = imapc_client_create_temp_fd(ctx->mbox->storage->client->client,
+					      &path);
 	if (ctx->fd == -1) {
 		mail_storage_set_critical(storage,
 					  "Couldn't create temp file %s", path);
@@ -180,7 +181,7 @@ static void imapc_save_callback(const struct imapc_command_reply *reply,
 			"imapc: COPY failed: %s", reply->text_full);
 		ctx->ret = -1;
 	}
-	imapc_client_stop(ctx->ctx->mbox->storage->client);
+	imapc_client_stop(ctx->ctx->mbox->storage->client->client);
 }
 
 static void
@@ -191,7 +192,7 @@ imapc_save_noop_callback(const struct imapc_command_reply *reply ATTR_UNUSED,
 
 	/* we don't really care about the reply */
 	ctx->ret = 0;
-	imapc_client_stop(ctx->ctx->mbox->storage->client);
+	imapc_client_stop(ctx->ctx->mbox->storage->client->client);
 }
 
 static void
@@ -239,7 +240,7 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 	input = i_stream_create_fd(ctx->fd, IO_BLOCK_SIZE, FALSE);
 	sctx.ctx = ctx;
 	sctx.ret = -2;
-	cmd = imapc_client_cmd(ctx->mbox->storage->client,
+	cmd = imapc_client_cmd(ctx->mbox->storage->client->client,
 			       imapc_save_callback, &sctx);
 	imapc_command_sendf(cmd, "APPEND %s%1s%1s %p",
 			    ctx->mbox->box.name, flags, internaldate, input);
@@ -254,7 +255,7 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 		   but it makes the behavior better. See if NOOP finds
 		   the mail. */
 		sctx.ret = -2;
-		cmd = imapc_client_cmd(ctx->mbox->storage->client,
+		cmd = imapc_client_cmd(ctx->mbox->storage->client->client,
 				       imapc_save_noop_callback, &sctx);
 		imapc_command_send(cmd, "NOOP");
 		while (sctx.ret == -2)
@@ -398,7 +399,7 @@ static void imapc_copy_callback(const struct imapc_command_reply *reply,
 			"imapc: COPY failed: %s", reply->text_full);
 		ctx->ret = -1;
 	}
-	imapc_client_stop(ctx->ctx->mbox->storage->client);
+	imapc_client_stop(ctx->ctx->mbox->storage->client->client);
 }
 
 int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)

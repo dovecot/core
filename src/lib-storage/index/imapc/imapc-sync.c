@@ -34,7 +34,7 @@ static void imapc_sync_callback(const struct imapc_command_reply *reply,
 	}
 	
 	if (--ctx->sync_command_count == 0)
-		imapc_client_stop(ctx->mbox->storage->client);
+		imapc_client_stop(ctx->mbox->storage->client->client);
 }
 
 static void imapc_sync_cmd(struct imapc_sync_context *ctx, const char *cmd_str)
@@ -136,7 +136,7 @@ static void imapc_sync_expunge_finish(struct imapc_sync_context *ctx)
 	if (array_count(&ctx->expunged_uids) == 0)
 		return;
 
-	caps = imapc_client_get_capabilities(ctx->mbox->storage->client);
+	caps = imapc_client_get_capabilities(ctx->mbox->storage->client->client);
 	if ((caps & IMAPC_CAPABILITY_UIDPLUS) == 0) {
 		/* just expunge everything */
 		imapc_sync_cmd(ctx, "EXPUNGE");
@@ -457,7 +457,7 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			ret = -1;
 	}
 
-	capabilities = imapc_client_get_capabilities(mbox->storage->client);
+	capabilities = imapc_client_get_capabilities(mbox->storage->client->client);
 	if ((capabilities & IMAPC_CAPABILITY_IDLE) == 0) {
 		/* IDLE not supported. do NOOP to get latest changes
 		   before starting sync. */

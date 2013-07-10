@@ -41,6 +41,12 @@ static struct {
 
 extern struct mailbox_list imapc_mailbox_list;
 
+static void imapc_list_send_hierarcy_sep_lookup(struct imapc_mailbox_list *list);
+static void imapc_untagged_list(const struct imapc_untagged_reply *reply,
+				struct imapc_storage_client *client);
+static void imapc_untagged_lsub(const struct imapc_untagged_reply *reply,
+				struct imapc_storage_client *client);
+
 static struct mailbox_list *imapc_list_alloc(void)
 {
 	struct imapc_mailbox_list *list;
@@ -50,20 +56,41 @@ static struct mailbox_list *imapc_list_alloc(void)
 	list = p_new(pool, struct imapc_mailbox_list, 1);
 	list->list = imapc_mailbox_list;
 	list->list.pool = pool;
-	/* separator is set when storage is created */
+	/* separator is set lazily */
 	list->mailboxes = mailbox_tree_init('\0');
 	mailbox_tree_set_parents_nonexistent(list->mailboxes);
 	return &list->list;
 }
 
-static int
-imapc_list_init(struct mailbox_list *_list, const char **error_r ATTR_UNUSED)
+static int imapc_list_init(struct mailbox_list *_list, const char **error_r)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+	char sep;
 
 	list->set = mail_user_set_get_driver_settings(_list->ns->user->set_info,
 						      _list->ns->user->set,
 						      IMAPC_STORAGE_NAME);
+	if (imapc_storage_client_create(_list->ns, list->set, _list->mail_set,
+					&list->client, error_r) < 0)
+		return -1;
+	list->client->_list = list;
+
+	imapc_storage_client_register_untagged(list->client, "LIST",
+					       imapc_untagged_list);
+	imapc_storage_client_register_untagged(list->client, "LSUB",
+					       imapc_untagged_lsub);
+	imapc_list_send_hierarcy_sep_lookup(list);
+	if ((_list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+		/* we're using imapc for the INBOX namespace. wait and make
+		   sure we can successfully access the IMAP server (so if the
+		   username is invalid we don't just keep failing every
+		   command). */
+		if (imapc_list_try_get_root_sep(list, &sep) < 0) {
+			imapc_storage_client_unref(&list->client);
+			*error_r = "Failed to access imapc backend";
+			return -1;
+		}
+	}
 	return 0;
 }
 
@@ -76,21 +103,43 @@ static void imapc_list_deinit(struct mailbox_list *_list)
 	mailbox_tree_deinit(&list->mailboxes);
 	if (list->tmp_subscriptions != NULL)
 		mailbox_tree_deinit(&list->tmp_subscriptions);
+	imapc_storage_client_unref(&list->client);
 	pool_unref(&list->list.pool);
+}
+
+static void
+imapc_list_copy_error_from_reply(struct imapc_mailbox_list *list,
+				 enum mail_error default_error,
+				 const struct imapc_command_reply *reply)
+{
+	enum mail_error error;
+
+	if (imap_resp_text_code_parse(reply->resp_text_key, &error)) {
+		mailbox_list_set_error(&list->list, error,
+				       reply->text_without_resp);
+	} else {
+		mailbox_list_set_error(&list->list, default_error,
+				       reply->text_without_resp);
+	}
 }
 
 static void imapc_list_simple_callback(const struct imapc_command_reply *reply,
 				       void *context)
 {
 	struct imapc_simple_context *ctx = context;
-	const char *str;
-	enum mail_error error;
 
-	imapc_simple_callback(reply, context);
-	if (ctx->ret < 0) {
-		str = mail_storage_get_last_error(&ctx->storage->storage, &error);
-		mailbox_list_set_error(&ctx->storage->list->list, error, str);
+	if (reply->state == IMAPC_COMMAND_STATE_OK)
+		ctx->ret = 0;
+	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
+		imapc_list_copy_error_from_reply(ctx->client->_list,
+						 MAIL_ERROR_PARAMS, reply);
+		ctx->ret = -1;
+	} else {
+		mailbox_list_set_critical(&ctx->client->_list->list,
+			"imapc: Command failed: %s", reply->text_full);
+		ctx->ret = -1;
 	}
+	imapc_client_stop(ctx->client->client);
 }
 
 static bool
@@ -144,13 +193,13 @@ imapc_list_update_tree(struct imapc_mailbox_list *list,
 }
 
 static void imapc_untagged_list(const struct imapc_untagged_reply *reply,
-				struct imapc_storage *storage)
+				struct imapc_storage_client *client)
 {
-	struct imapc_mailbox_list *list = storage->list;
+	struct imapc_mailbox_list *list = client->_list;
 	const struct imap_arg *args = reply->args;
 	const char *sep, *name;
 
-	if (storage->root_sep == '\0') {
+	if (list->root_sep == '\0') {
 		/* we haven't asked for the separator yet.
 		   lets see if this is the reply for its request. */
 		if (args[0].type == IMAP_ARG_EOL ||
@@ -159,21 +208,21 @@ static void imapc_untagged_list(const struct imapc_untagged_reply *reply,
 			return;
 
 		/* we can't handle NIL separator yet */
-		storage->root_sep = sep == NULL ? '/' : sep[0];
-		mailbox_tree_set_separator(list->mailboxes, storage->root_sep);
+		list->root_sep = sep == NULL ? '/' : sep[0];
+		mailbox_tree_set_separator(list->mailboxes, list->root_sep);
 	} else {
 		(void)imapc_list_update_tree(list, list->mailboxes, args);
 	}
 }
 
 static void imapc_untagged_lsub(const struct imapc_untagged_reply *reply,
-				struct imapc_storage *storage)
+				struct imapc_storage_client *client)
 {
-	struct imapc_mailbox_list *list = storage->list;
+	struct imapc_mailbox_list *list = client->_list;
 	const struct imap_arg *args = reply->args;
 	struct mailbox_node *node;
 
-	if (storage->root_sep == '\0') {
+	if (list->root_sep == '\0') {
 		/* we haven't asked for the separator yet */
 		return;
 	}
@@ -191,12 +240,61 @@ static void imapc_untagged_lsub(const struct imapc_untagged_reply *reply,
 	}
 }
 
-void imapc_list_register_callbacks(struct imapc_mailbox_list *list)
+static void imapc_list_sep_verify(struct imapc_mailbox_list *list)
 {
-	imapc_storage_register_untagged(list->storage, "LIST",
-					imapc_untagged_list);
-	imapc_storage_register_untagged(list->storage, "LSUB",
-					imapc_untagged_lsub);
+	const char *imapc_list_prefix = list->set->imapc_list_prefix;
+
+	if (list->root_sep == '\0') {
+		mailbox_list_set_critical(&list->list,
+			"imapc: LIST didn't return hierarchy separator");
+	} else if (imapc_list_prefix[0] != '\0' &&
+		   imapc_list_prefix[strlen(imapc_list_prefix)-1] == list->root_sep) {
+		mailbox_list_set_critical(&list->list,
+			"imapc_list_prefix must not end with hierarchy separator");
+	}
+}
+
+static void imapc_storage_sep_callback(const struct imapc_command_reply *reply,
+				       void *context)
+{
+	struct imapc_mailbox_list *list = context;
+
+	list->root_sep_pending = FALSE;
+	if (reply->state == IMAPC_COMMAND_STATE_OK)
+		imapc_list_sep_verify(list);
+	else if (reply->state == IMAPC_COMMAND_STATE_NO)
+		imapc_list_copy_error_from_reply(list, MAIL_ERROR_PARAMS, reply);
+	else {
+		mailbox_list_set_critical(&list->list,
+			"imapc: Command failed: %s", reply->text_full);
+	}
+	imapc_client_stop(list->client->client);
+}
+
+static void imapc_list_send_hierarcy_sep_lookup(struct imapc_mailbox_list *list)
+{
+	struct imapc_command *cmd;
+
+	if (list->root_sep_pending)
+		return;
+	list->root_sep_pending = TRUE;
+
+	cmd = imapc_client_cmd(list->client->client,
+			       imapc_storage_sep_callback, list);
+	imapc_command_send(cmd, "LIST \"\" \"\"");
+}
+
+int imapc_list_try_get_root_sep(struct imapc_mailbox_list *list, char *sep_r)
+{
+	if (list->root_sep == '\0') {
+		imapc_list_send_hierarcy_sep_lookup(list);
+		while (list->root_sep_pending)
+			imapc_client_run(list->client->client);
+		if (list->root_sep == '\0')
+			return -1;
+	}
+	*sep_r = list->root_sep;
+	return 0;
 }
 
 static char imapc_list_get_hierarchy_sep(struct mailbox_list *_list)
@@ -204,7 +302,7 @@ static char imapc_list_get_hierarchy_sep(struct mailbox_list *_list)
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 	char sep;
 
-	if (imapc_storage_try_get_root_sep(list->storage, &sep) < 0) {
+	if (imapc_list_try_get_root_sep(list, &sep) < 0) {
 		/* we can't really fail here. just return a common separator
 		   and keep failing all list commands until it succeeds. */
 		return '/';
@@ -367,8 +465,8 @@ static struct imapc_command *
 imapc_list_simple_context_init(struct imapc_simple_context *ctx,
 			       struct imapc_mailbox_list *list)
 {
-	imapc_simple_context_init(ctx, list->storage);
-	return imapc_client_cmd(list->storage->client,
+	imapc_simple_context_init(ctx, list->client);
+	return imapc_client_cmd(list->client->client,
 				imapc_list_simple_callback, ctx);
 }
 
@@ -690,7 +788,7 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	struct imapc_command *cmd;
 	struct imapc_simple_context ctx;
 
-	capa = imapc_client_get_capabilities(list->storage->client);
+	capa = imapc_client_get_capabilities(list->client->client);
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
