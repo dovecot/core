@@ -6,10 +6,12 @@
 #include <openssl/x509v3.h>
 
 enum {
-	DOVECOT_SSL_PROTO_SSLv2	= 0x01,
-	DOVECOT_SSL_PROTO_SSLv3	= 0x02,
-	DOVECOT_SSL_PROTO_TLSv1	= 0x04,
-	DOVECOT_SSL_PROTO_ALL	= 0x07
+	DOVECOT_SSL_PROTO_SSLv2		= 0x01,
+	DOVECOT_SSL_PROTO_SSLv3		= 0x02,
+	DOVECOT_SSL_PROTO_TLSv1		= 0x04,
+	DOVECOT_SSL_PROTO_TLSv1_1	= 0x08,
+	DOVECOT_SSL_PROTO_TLSv1_2	= 0x10,
+	DOVECOT_SSL_PROTO_ALL		= 0x1f
 };
 
 int openssl_get_protocol_options(const char *protocols)
@@ -34,6 +36,14 @@ int openssl_get_protocol_options(const char *protocols)
 			proto = DOVECOT_SSL_PROTO_SSLv3;
 		else if (strcasecmp(name, SSL_TXT_TLSV1) == 0)
 			proto = DOVECOT_SSL_PROTO_TLSv1;
+#ifdef SSL_TXT_TLSV1_1
+		else if (strcasecmp(name, SSL_TXT_TLSV1_1) == 0)
+			proto = DOVECOT_SSL_PROTO_TLSv1_1;
+#endif
+#ifdef SSL_TXT_TLSV1_2
+		else if (strcasecmp(name, SSL_TXT_TLSV1_2) == 0)
+			proto = DOVECOT_SSL_PROTO_TLSv1_2;
+#endif
 		else {
 			i_fatal("Invalid ssl_protocols setting: "
 				"Unknown protocol '%s'", name);
@@ -51,6 +61,12 @@ int openssl_get_protocol_options(const char *protocols)
 	if ((exclude & DOVECOT_SSL_PROTO_SSLv2) != 0) op |= SSL_OP_NO_SSLv2;
 	if ((exclude & DOVECOT_SSL_PROTO_SSLv3) != 0) op |= SSL_OP_NO_SSLv3;
 	if ((exclude & DOVECOT_SSL_PROTO_TLSv1) != 0) op |= SSL_OP_NO_TLSv1;
+#ifdef SSL_OP_NO_TLSv1_1
+	if ((exclude & DOVECOT_SSL_PROTO_TLSv1_1) != 0) op |= SSL_OP_NO_TLSv1_1;
+#endif
+#ifdef SSL_OP_NO_TLSv1_2
+	if ((exclude & DOVECOT_SSL_PROTO_TLSv1_2) != 0) op |= SSL_OP_NO_TLSv1_2;
+#endif
 	return op;
 }
 
