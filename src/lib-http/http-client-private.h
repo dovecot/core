@@ -79,7 +79,7 @@ struct http_client_host_port {
 	/* current index in host->ips */
 	unsigned int ips_connect_idx;
 	/* the first IP that started the current round of connection attempts.
-	   initially 0, and later set to the (ip_idx+1) of the last successful
+	   initially 0, and later set to the ip index of the last successful
 	   connected IP */
 	unsigned int ips_connect_start_idx;
 	/* number of connections trying to connect for this host+port */
