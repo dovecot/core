@@ -159,6 +159,7 @@ struct http_client_connection {
 	ARRAY_TYPE(http_client_request) request_wait_list;
 
 	unsigned int connected:1;           /* connection is connected */
+	unsigned int connect_succeeded:1;
 	unsigned int closing:1;
 	unsigned int close_indicated:1;
 	unsigned int output_locked:1;       /* output is locked; no pipelining */

@@ -329,17 +329,20 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 {
 	unsigned int num_urgent;
 
+	/* we get here when an already connected connection fails. if the
+	   connect itself fails, http_client_peer_connection_failure() is
+	   called instead. */
+
 	if (peer->destroyed)
 		return;
 
 	http_client_peer_debug(peer, "Lost a connection (%d connections left)",
 		array_count(&peer->conns));
 
-	if (!peer->last_connect_failed) {
-		/* if there are pending requests, create a new
-		   connection for them. */
-		http_client_peer_handle_requests(peer);
-	}
+	/* if there are pending requests for this peer, create a new connection
+	   for them. */
+	http_client_peer_handle_requests(peer);
+
 	if (array_count(&peer->conns) == 0 &&
 	    http_client_peer_requests_pending(peer, &num_urgent) == 0)
 		http_client_peer_free(&peer);

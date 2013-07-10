@@ -694,6 +694,7 @@ http_client_connection_ready(struct http_client_connection *conn)
 	struct stat st;
 
 	conn->connected = TRUE;
+	conn->connect_succeeded = TRUE;
 	if (conn->to_connect != NULL &&
 	    (conn->ssl_iostream == NULL ||
 	     ssl_iostream_is_handshaked(conn->ssl_iostream)))
@@ -952,10 +953,10 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 		}
 	}
 
+	if (conn->connect_succeeded)
+		http_client_peer_connection_lost(peer);
 	i_free(conn);
 	*_conn = NULL;
-
-	http_client_peer_connection_lost(peer);
 }
 
 void http_client_connection_switch_ioloop(struct http_client_connection *conn)
