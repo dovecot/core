@@ -413,11 +413,9 @@ ssl_proxy_ctx_get_pkey_ec_curve_name(const struct ssl_iostream_settings *set,
 {
 	int nid = 0;
 	EVP_PKEY *pkey;
-	const char *password;
 	EC_KEY *eckey;
 	const EC_GROUP *ecgrp;
 
-	password = set->key_password[0] != '\0' ? set->key_password : NULL;
 	if (openssl_iostream_load_key(set, &pkey, error_r) < 0)
 		return -1;
 
