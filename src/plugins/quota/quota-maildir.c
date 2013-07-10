@@ -4,7 +4,7 @@
 #include "array.h"
 #include "ioloop.h"
 #include "nfs-workarounds.h"
-#include "file-dotlock.h"
+#include "safe-mkstemp.h"
 #include "mkdir-parents.h"
 #include "read-full.h"
 #include "write-full.h"
@@ -234,10 +234,9 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	struct quota_root *_root = &root->root;
 	struct mail_namespace *const *namespaces;
 	unsigned int i, count;
-	struct dotlock *dotlock;
 	struct mailbox_permissions perm;
 	const char *p, *dir;
-	string_t *str;
+	string_t *str, *temp_path;
 	int fd;
 
 	i_assert(root->fd == -1);
@@ -260,11 +259,12 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 
 	dotlock_settings.use_excl_lock = set->dotlock_use_excl;
 	dotlock_settings.nfs_flush = set->mail_nfs_storage;
-	fd = file_dotlock_open_group(&dotlock_settings, path,
-				     DOTLOCK_CREATE_FLAG_NONBLOCK,
-				     perm.file_create_mode,
-				     perm.file_create_gid,
-				     perm.file_create_gid_origin, &dotlock);
+
+	temp_path = t_str_new(128);
+	str_append(temp_path, path);
+	fd = safe_mkstemp_hostpid_group(temp_path, perm.file_create_mode,
+					perm.file_create_gid,
+					perm.file_create_gid_origin);
 	if (fd == -1 && errno == ENOENT) {
 		/* the control directory doesn't exist yet? create it */
 		p = strrchr(path, '/');
@@ -276,20 +276,13 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 			i_error("mkdir_parents(%s) failed: %m", dir);
 			return -1;
 		}
-		fd = file_dotlock_open_group(&dotlock_settings, path,
-					     DOTLOCK_CREATE_FLAG_NONBLOCK,
-					     perm.file_create_mode,
-					     perm.file_create_gid,
-					     perm.file_create_gid_origin,
-					     &dotlock);
+		fd = safe_mkstemp_hostpid_group(temp_path,
+						perm.file_create_mode,
+						perm.file_create_gid,
+						perm.file_create_gid_origin);
 	}
 	if (fd == -1) {
-		if (errno == EAGAIN) {
-			/* someone's just in the middle of updating it */
-			return 1;
-		}
-
-		i_error("file_dotlock_open(%s) failed: %m", path);
+		i_error("safe_mkstemp(%s) failed: %m", path);
 		return -1;
 	}
 
@@ -309,13 +302,18 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 		    (unsigned long long)root->total_bytes,
 		    (unsigned long long)root->total_count);
 	if (write_full(fd, str_data(str), str_len(str)) < 0) {
-		i_error("write_full(%s) failed: %m", path);
-		file_dotlock_delete(&dotlock);
+		i_error("write_full(%s) failed: %m", str_c(temp_path));
+		i_close_fd(&fd);
+		if (unlink(str_c(temp_path)) < 0)
+			i_error("unlink(%s) failed: %m", str_c(temp_path));
 		return -1;
 	}
+	i_close_fd(&fd);
 
-	if (file_dotlock_replace(&dotlock, 0) < 0) {
-		i_error("file_dotlock_replace(%s) failed: %m", path);
+	if (rename(str_c(temp_path), path) < 0) {
+		i_error("rename(%s, %s) failed: %m", str_c(temp_path), path);
+		if (unlink(str_c(temp_path)) < 0 && errno != ENOENT)
+			i_error("unlink(%s) failed: %m", str_c(temp_path));
 		return -1;
 	}
 	return 0;
