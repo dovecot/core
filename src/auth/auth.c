@@ -268,15 +268,17 @@ struct auth *auth_find_service(const char *name)
 	unsigned int i, count;
 
 	a = array_get(&auths, &count);
-	for (i = 1; i < count; i++) {
-		if (strcmp(a[i]->service, name) == 0)
-			return a[i];
-	}
-	/* not found. maybe we can instead find a !service */
-	for (i = 1; i < count; i++) {
-		if (a[i]->service[0] == '!' &&
-		    strcmp(a[i]->service + 1, name) != 0)
-			return a[i];
+	if (name != NULL) {
+		for (i = 1; i < count; i++) {
+			if (strcmp(a[i]->service, name) == 0)
+				return a[i];
+		}
+		/* not found. maybe we can instead find a !service */
+		for (i = 1; i < count; i++) {
+			if (a[i]->service[0] == '!' &&
+			    strcmp(a[i]->service + 1, name) != 0)
+				return a[i];
+		}
 	}
 	return a[0];
 }
