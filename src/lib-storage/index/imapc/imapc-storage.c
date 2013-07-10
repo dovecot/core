@@ -240,61 +240,72 @@ int imapc_storage_try_get_root_sep(struct imapc_storage *storage, char *sep_r)
 }
 
 static int
+imapc_client_create(struct mail_namespace *ns,
+		    const struct imapc_settings *imapc_set,
+		    const struct mail_storage_settings *mail_set,
+		    struct imapc_client **client_r, const char **error_r)
+{
+	struct imapc_client_settings set;
+	string_t *str;
+
+	memset(&set, 0, sizeof(set));
+	set.host = imapc_set->imapc_host;
+	if (*set.host == '\0') {
+		*error_r = "missing imapc_host";
+		return -1;
+	}
+	set.port = imapc_set->imapc_port;
+	if (imapc_set->imapc_user[0] != '\0')
+		set.username = imapc_set->imapc_user;
+	else if (ns->owner != NULL)
+		set.username = ns->owner->username;
+	else
+		set.username = ns->user->username;
+	set.master_user = imapc_set->imapc_master_user;
+	set.password = imapc_set->imapc_password;
+	if (*set.password == '\0') {
+		*error_r = "missing imapc_password";
+		return -1;
+	}
+	set.max_idle_time = imapc_set->imapc_max_idle_time;
+	set.dns_client_socket_path = *ns->user->set->base_dir == '\0' ? "" :
+		t_strconcat(ns->user->set->base_dir, "/",
+			    DNS_CLIENT_SOCKET_NAME, NULL);
+	set.debug = mail_set->mail_debug;
+	set.rawlog_dir = mail_user_home_expand(ns->user,
+					       imapc_set->imapc_rawlog_dir);
+
+	str = t_str_new(128);
+	mail_user_set_get_temp_prefix(str, ns->user->set);
+	set.temp_path_prefix = str_c(str);
+
+	set.ssl_ca_dir = mail_set->ssl_client_ca_dir;
+	set.ssl_ca_file = mail_set->ssl_client_ca_file;
+	set.ssl_verify = imapc_set->imapc_ssl_verify;
+	if (strcmp(imapc_set->imapc_ssl, "imaps") == 0)
+		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_IMMEDIATE;
+	else if (strcmp(imapc_set->imapc_ssl, "starttls") == 0)
+		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_STARTTLS;
+	else
+		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
+	set.ssl_crypto_device = mail_set->ssl_crypto_device;
+
+	*client_r = imapc_client_init(&set);
+	return 0;
+}
+
+static int
 imapc_storage_create(struct mail_storage *_storage,
 		     struct mail_namespace *ns,
 		     const char **error_r)
 {
 	struct imapc_storage *storage = (struct imapc_storage *)_storage;
-	struct imapc_client_settings set;
-	string_t *str;
 	char sep;
 
 	storage->set = mail_storage_get_driver_settings(_storage);
-
-	memset(&set, 0, sizeof(set));
-	set.host = storage->set->imapc_host;
-	if (*set.host == '\0') {
-		*error_r = "missing imapc_host";
+	if (imapc_client_create(ns, storage->set, _storage->set,
+				&storage->client, error_r) < 0)
 		return -1;
-	}
-	set.port = storage->set->imapc_port;
-	if (storage->set->imapc_user[0] != '\0')
-		set.username = storage->set->imapc_user;
-	else if (ns->owner != NULL)
-		set.username = ns->owner->username;
-	else
-		set.username = ns->user->username;
-	set.master_user = storage->set->imapc_master_user;
-	set.password = storage->set->imapc_password;
-	if (*set.password == '\0') {
-		*error_r = "missing imapc_password";
-		return -1;
-	}
-	set.max_idle_time = storage->set->imapc_max_idle_time;
-	set.dns_client_socket_path =
-		*_storage->user->set->base_dir == '\0' ? "" :
-		t_strconcat(_storage->user->set->base_dir, "/",
-			    DNS_CLIENT_SOCKET_NAME, NULL);
-	set.debug = _storage->set->mail_debug;
-	set.rawlog_dir = mail_user_home_expand(_storage->user,
-					       storage->set->imapc_rawlog_dir);
-
-	str = t_str_new(128);
-	mail_user_set_get_temp_prefix(str, _storage->user->set);
-	set.temp_path_prefix = str_c(str);
-
-	set.ssl_ca_dir = _storage->set->ssl_client_ca_dir;
-	set.ssl_ca_file = _storage->set->ssl_client_ca_file;
-	set.ssl_verify = storage->set->imapc_ssl_verify;
-	if (strcmp(storage->set->imapc_ssl, "imaps") == 0)
-		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_IMMEDIATE;
-	else if (strcmp(storage->set->imapc_ssl, "starttls") == 0)
-		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_STARTTLS;
-	else
-		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
-	set.ssl_crypto_device = _storage->set->ssl_crypto_device;
-
-	storage->client = imapc_client_init(&set);
 
 	p_array_init(&storage->remote_namespaces, _storage->pool, 4);
 	p_array_init(&storage->untagged_callbacks, _storage->pool, 16);
