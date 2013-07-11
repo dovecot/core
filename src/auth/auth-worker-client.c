@@ -455,8 +455,10 @@ static void list_iter_callback(const char *user, void *context)
 	do {
 		ctx->sending = TRUE;
 		ctx->sent = FALSE;
-		ctx->auth_request->userdb->userdb->iface->
-			iterate_next(ctx->iter);
+		T_BEGIN {
+			ctx->auth_request->userdb->userdb->iface->
+				iterate_next(ctx->iter);
+		} T_END;
 	} while (ctx->sent &&
 		 o_stream_get_buffer_used_size(ctx->client->output) == 0);
 	ctx->sending = FALSE;
@@ -472,10 +474,10 @@ static int auth_worker_list_output(struct auth_worker_list_context *ctx)
 		list_iter_deinit(ctx);
 		return 1;
 	}
-	if (ret > 0) {
+	if (ret > 0) T_BEGIN {
 		ctx->auth_request->userdb->userdb->iface->
 			iterate_next(ctx->iter);
-	}
+	} T_END;
 	return 1;
 }
 
