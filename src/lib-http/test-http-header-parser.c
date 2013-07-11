@@ -127,19 +127,27 @@ static void test_http_header_parse_valid(void)
 		const unsigned char *field_data;
 		size_t field_size;
 		int ret;
-		int j;
+		unsigned int j, pos, header_len;
 
 		header = valid_header_parse_tests[i].header;
-		input = i_stream_create_from_data(header, strlen(header));
+		header_len = strlen(header);
+		input = test_istream_create_data(header, header_len);
 		parser = http_header_parser_init(input);
 
 		test_begin(t_strdup_printf("http header valid [%d]", i));
 
-		j = 0;
+		j = 0; pos = 0; test_istream_set_size(input, 0);
 		while ((ret=http_header_parse_next_field
-			(parser, &field_name, &field_data, &field_size, &error)) > 0) {
+			(parser, &field_name, &field_data, &field_size, &error)) >= 0) {
 			const struct http_header_parse_result *result;
 			const char *field_value;
+
+			if (ret == 0) {
+				if (pos == header_len)
+					break;
+				test_istream_set_size(input, ++pos);
+				continue;
+			}
 
 			if (field_name == NULL) break;
 
