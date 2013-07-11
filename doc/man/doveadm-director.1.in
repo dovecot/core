@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-DIRECTOR 1 "2011-05-11" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2013 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-DIRECTOR 1 "2013-07-12" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-director \- Manage Dovecot directors
 .\"------------------------------------------------------------------------
@@ -121,7 +121,9 @@ The command
 .B doveadm director map
 is used to list current
 .IR user "\ \(->\ " host
-mappings.
+mappings. Note that the director works using 32bit hashes which makes
+collisions quite likely, so this command can\(aqt reliably list exactly
+which users have recently logged in.
 .PP
 .TP
 .BI \-f\  users_file
