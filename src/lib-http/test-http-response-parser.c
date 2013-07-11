@@ -173,20 +173,25 @@ static const char *invalid_response_parse_tests[] = {
 	"Cache-Control: private\n\r"
 };
 
+static unsigned char invalid_response_with_nuls[] =
+	"HTTP/1.1 200 OK\r\n"
+	"Server: text\0server\r\n"
+	"\r\n";
+
 unsigned int invalid_response_parse_test_count =
 	N_ELEMENTS(invalid_response_parse_tests);
 
 static void test_http_response_parse_invalid(void)
 {
+	struct http_response_parser *parser;
+	struct http_response *response;
+	const char *response_text, *error;
+	struct istream *input;
+	int ret;
 	unsigned int i;
 
 	for (i = 0; i < invalid_response_parse_test_count; i++) T_BEGIN {
-		struct istream *input;
 		const char *test;
-		struct http_response_parser *parser;
-		struct http_response *response;
-		const char *response_text, *error;
-		int ret;
 
 		test = invalid_response_parse_tests[i];
 		response_text = test;
@@ -197,10 +202,20 @@ static void test_http_response_parse_invalid(void)
 
 		while ((ret=http_response_parse_next(parser, FALSE, &response, &error)) > 0);
 
-		test_out("parse failure", ret < 0);
+		test_assert(ret < 0);
 		test_end();
 		http_response_parser_deinit(&parser);
 	} T_END;
+
+	/* parse failure guarantees http_response_header.size equals
+	   strlen(http_response_header.value) */
+	test_begin("http response with NULs");
+	input = i_stream_create_from_data(invalid_response_with_nuls,
+					  sizeof(invalid_response_with_nuls)-1);
+	parser = http_response_parser_init(input);
+	while ((ret=http_response_parse_next(parser, FALSE, &response, &error)) > 0);
+	test_assert(ret < 0);
+	test_end();
 }
 
 int main(void)
