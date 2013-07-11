@@ -343,25 +343,19 @@ int http_response_parse_next(struct http_response_parser *parser,
 	   before we continue. */
 	if (parser->payload != NULL) {
 		struct istream *payload = parser->payload;
+		const unsigned char *data;
+		size_t size;
 
 		i_assert(parser->state == HTTP_RESPONSE_PARSE_STATE_INIT);
 
-		if (i_stream_have_bytes_left(payload)) {
-			do {
-				i_stream_skip(payload, i_stream_get_data_size(payload));
-			} while ((ret=i_stream_read(payload)) > 0);
-			if (ret == 0)
-				return 0;
-			if (ret < 0 && !payload->eof) {
+		while ((ret = i_stream_read_data(payload, &data, &size, 0)) > 0)
+			i_stream_skip(payload, size);
+		if (ret == 0 || payload->stream_errno != 0) {
+			if (ret < 0)
 				*error_r = "Stream error while skipping payload";
-				return -1;
-			}
+			return ret;
 		}
-
-		if (payload->eof)	{
-			i_stream_unref(&parser->payload);
-			parser->payload = NULL;
-		}
+		i_stream_unref(&parser->payload);
 	}
 
 	/* HTTP-message   = start-line
