@@ -45,7 +45,8 @@ test_programs = \
 	test-http-response-parser
 
 test_nocheck_programs = \
-	test-http-client
+	test-http-client \
+	test-http-server
 
 noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 
@@ -98,6 +99,19 @@ test_http_client_LDADD = \
 	../lib-ssl-iostream/libssl_iostream.la \
 	$(test_libs)
 test_http_client_DEPENDENCIES = \
+	libhttp.la \
+	../lib-dns/libdns.la \
+	../lib-ssl-iostream/libssl_iostream.la \
+	$(test_deps)
+
+test_http_server_SOURCES = test-http-server.c
+test_http_server_LDFLAGS = -export-dynamic
+test_http_server_LDADD = \
+	libhttp.la \
+	../lib-dns/libdns.la \
+	../lib-ssl-iostream/libssl_iostream.la \
+	$(test_libs)
+test_http_server_DEPENDENCIES = \
 	libhttp.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
