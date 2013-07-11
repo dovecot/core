@@ -416,13 +416,15 @@ ssl_proxy_ctx_get_pkey_ec_curve_name(const struct ssl_iostream_settings *set,
 	EC_KEY *eckey;
 	const EC_GROUP *ecgrp;
 
-	if (openssl_iostream_load_key(set, &pkey, error_r) < 0)
-		return -1;
+	if (set->key != NULL) {
+		if (openssl_iostream_load_key(set, &pkey, error_r) < 0)
+			return -1;
 
-	if ((eckey = EVP_PKEY_get1_EC_KEY(pkey)) != NULL &&
-	    (ecgrp = EC_KEY_get0_group(eckey)) != NULL)
-		nid = EC_GROUP_get_curve_name(ecgrp);
-	EVP_PKEY_free(pkey);
+		if ((eckey = EVP_PKEY_get1_EC_KEY(pkey)) != NULL &&
+		    (ecgrp = EC_KEY_get0_group(eckey)) != NULL)
+			nid = EC_GROUP_get_curve_name(ecgrp);
+		EVP_PKEY_free(pkey);
+	}
 
 	*nid_r = nid;
 	return 0;
