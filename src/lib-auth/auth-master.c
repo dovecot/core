@@ -31,7 +31,7 @@ struct auth_master_connection {
 	enum auth_master_flags flags;
 
 	int fd;
-	struct ioloop *ioloop;
+	struct ioloop *ioloop, *prev_ioloop;
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
@@ -61,10 +61,8 @@ struct auth_master_lookup_ctx {
 
 struct auth_master_user_list_ctx {
 	struct auth_master_connection *conn;
-	pool_t pool;
-	ARRAY_TYPE(const_string) users;
-	const char *const *user_strings;
-	unsigned int idx, user_count;
+	string_t *username;
+	bool finished;
 	bool failed;
 };
 
@@ -338,6 +336,7 @@ static void auth_master_set_io(struct auth_master_connection *conn)
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
 
+	conn->prev_ioloop = current_ioloop;
 	conn->ioloop = io_loop_create();
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(conn->fd, MAX_OUTBUF_SIZE, FALSE);
@@ -347,11 +346,10 @@ static void auth_master_set_io(struct auth_master_connection *conn)
 	lib_signals_reset_ioloop();
 }
 
-static void auth_master_unset_io(struct auth_master_connection *conn,
-				 struct ioloop *prev_ioloop)
+static void auth_master_unset_io(struct auth_master_connection *conn)
 {
-	if (prev_ioloop != NULL) {
-		io_loop_set_current(prev_ioloop);
+	if (conn->prev_ioloop != NULL) {
+		io_loop_set_current(conn->prev_ioloop);
 		lib_signals_reset_ioloop();
 	}
 	io_loop_set_current(conn->ioloop);
@@ -363,7 +361,7 @@ static void auth_master_unset_io(struct auth_master_connection *conn,
 	io_loop_destroy(&conn->ioloop);
 
 	if ((conn->flags & AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT) == 0) {
-		if (prev_ioloop == NULL)
+		if (conn->prev_ioloop == NULL)
 			auth_connection_close(conn);
 		else {
 			conn->to = timeout_add(1000*AUTH_MASTER_IDLE_SECS,
@@ -385,18 +383,15 @@ static bool is_valid_string(const char *str)
 	return TRUE;
 }
 
-static int auth_master_run_cmd(struct auth_master_connection *conn,
-			       const char *cmd)
+static int auth_master_run_cmd_pre(struct auth_master_connection *conn,
+				   const char *cmd)
 {
-	struct ioloop *prev_ioloop;
 	const char *str;
 
 	if (conn->fd == -1) {
 		if (auth_master_connect(conn) < 0)
 			return -1;
 	}
-
-	prev_ioloop = current_ioloop;
 	auth_master_set_io(conn);
 
 	o_stream_cork(conn->output);
@@ -412,18 +407,31 @@ static int auth_master_run_cmd(struct auth_master_connection *conn,
 
 	if (o_stream_nfinish(conn->output) < 0) {
 		i_error("write(auth socket) failed: %m");
-		conn->aborted = TRUE;
-	} else {
-		io_loop_run(conn->ioloop);
+		auth_master_unset_io(conn);
+		auth_connection_close(conn);
+		return -1;
 	}
+	return 0;
+}
 
-	auth_master_unset_io(conn, prev_ioloop);
+static int auth_master_run_cmd_post(struct auth_master_connection *conn)
+{
+	auth_master_unset_io(conn);
 	if (conn->aborted) {
 		conn->aborted = FALSE;
 		auth_connection_close(conn);
 		return -1;
 	}
 	return 0;
+}
+
+static int auth_master_run_cmd(struct auth_master_connection *conn,
+			       const char *cmd)
+{
+	if (auth_master_run_cmd_pre(conn, cmd) < 0)
+		return -1;
+	io_loop_run(conn->ioloop);
+	return auth_master_run_cmd_post(conn);
 }
 
 static unsigned int
@@ -617,26 +625,26 @@ auth_user_list_reply_callback(const char *cmd, const char *const *args,
 			      void *context)
 {
 	struct auth_master_user_list_ctx *ctx = context;
-	const char *user;
 
 	timeout_reset(ctx->conn->to);
+	str_truncate(ctx->username, 0);
+	io_loop_stop(ctx->conn->ioloop);
 
 	if (strcmp(cmd, "DONE") == 0) {
-		io_loop_stop(ctx->conn->ioloop);
 		if (args[0] != NULL && strcmp(args[0], "fail") == 0) {
 			i_error("User listing returned failure");
 			ctx->failed = TRUE;
 		}
-		return TRUE;
-	}
-	if (strcmp(cmd, "LIST") == 0 && args[0] != NULL) {
+		ctx->finished = TRUE;
+	} else if (strcmp(cmd, "LIST") == 0 && args[0] != NULL) {
 		/* we'll just read all the users into memory. otherwise we'd
 		   have to use a separate connection for listing and there's
 		   a higher chance of a failure since the connection could be
 		   open to dovecot-auth for a long time. */
-		user = p_strdup(ctx->pool, args[0]);
-		array_append(&ctx->users, &user, 1);
-		return TRUE;
+		str_append(ctx->username, args[0]);
+	} else {
+		i_error("User listing returned invalid input");
+		ctx->failed = TRUE;
 	}
 	return FALSE;
 }
@@ -648,13 +656,10 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 {
 	struct auth_master_user_list_ctx *ctx;
 	string_t *str;
-	pool_t pool;
 
-	pool = pool_alloconly_create("auth master user list", 10240);
-	ctx = p_new(pool, struct auth_master_user_list_ctx, 1);
-	ctx->pool = pool;
+	ctx = i_new(struct auth_master_user_list_ctx, 1);
 	ctx->conn = conn;
-	i_array_init(&ctx->users, 128);
+	ctx->username = str_new(default_pool, 128);
 
 	conn->reply_callback = auth_user_list_reply_callback;
 	conn->reply_context = ctx;
@@ -669,23 +674,31 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 	str_append_c(str, '\n');
 
 	conn->prefix = "userdb list";
-	if (auth_master_run_cmd(conn, str_c(str)) < 0)
+
+	if (auth_master_run_cmd_pre(conn, str_c(str)) < 0)
 		ctx->failed = TRUE;
-	ctx->user_strings = array_get(&ctx->users, &ctx->user_count);
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
 	return ctx;
 }
 
 const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
 {
-	if (ctx->idx == ctx->user_count)
-		return NULL;
-	return ctx->user_strings[ctx->idx++];
-}
+	const char *line;
 
-unsigned int auth_master_user_list_count(struct auth_master_user_list_ctx *ctx)
-{
-	return ctx->user_count;
+	/* try to read already buffered input */
+	line = i_stream_next_line(ctx->conn->input);
+	if (line != NULL) {
+		T_BEGIN {
+			auth_handle_line(ctx->conn, line);
+		} T_END;
+	} else if (!ctx->failed) {
+		/* wait for more data */
+		io_loop_run(ctx->conn->ioloop);
+	}
+
+	if (ctx->finished || ctx->failed)
+		return NULL;
+	return str_c(ctx->username);
 }
 
 int auth_master_user_list_deinit(struct auth_master_user_list_ctx **_ctx)
@@ -694,7 +707,8 @@ int auth_master_user_list_deinit(struct auth_master_user_list_ctx **_ctx)
 	int ret = ctx->failed ? -1 : 0;
 
 	*_ctx = NULL;
-	array_free(&ctx->users);
-	pool_unref(&ctx->pool);
+	auth_master_run_cmd_post(ctx->conn);
+	str_free(&ctx->username);
+	i_free(ctx);
 	return ret;
 }
