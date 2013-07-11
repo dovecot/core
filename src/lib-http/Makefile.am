@@ -12,6 +12,8 @@ libhttp_la_SOURCES = \
 	http-parser.c \
 	http-header-parser.c \
 	http-transfer-chunked.c \
+	http-message-parser.c \
+	http-request-parser.c \
 	http-response-parser.c \
 	http-client-request.c \
 	http-client-connection.c \
@@ -25,6 +27,8 @@ headers = \
 	http-parser.h \
 	http-header-parser.h \
 	http-transfer.h \
+	http-message-parser.h \
+	http-request-parser.h \
 	http-response.h \
 	http-response-parser.h \
 	http-client-private.h \
@@ -81,6 +85,7 @@ test_http_response_parser_LDADD = \
 	http-parser.lo \
 	http-header-parser.lo \
 	http-transfer-chunked.lo \
+	http-message-parser.lo \
 	http-response-parser.lo \
 	$(test_libs)
 test_http_response_parser_DEPENDENCIES = $(test_deps)
