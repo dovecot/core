@@ -32,7 +32,6 @@
 #define AUTH_DNS_DEFAULT_TIMEOUT_MSECS (1000*10)
 #define AUTH_DNS_WARN_MSECS 500
 #define CACHED_PASSWORD_SCHEME "SHA1"
-#define AUTH_REQUEST_KEY_IGNORE " "
 
 struct auth_request_proxy_dns_lookup_ctx {
 	struct auth_request *request;
@@ -928,7 +927,7 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 		if (str_len(str) == 0) {
 			/* no userdb fields. but we can't save an empty string,
 			   since that means "user unknown". */
-			str_append(str, AUTH_REQUEST_KEY_IGNORE);
+			str_append(str, AUTH_REQUEST_USER_KEY_IGNORE);
 		}
 		cache_value = str_c(str);
 	}
@@ -1520,7 +1519,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 			warned = TRUE;
 		}
 		name = "system_groups_user";
-	} else if (strcmp(name, AUTH_REQUEST_KEY_IGNORE) == 0) {
+	} else if (strcmp(name, AUTH_REQUEST_USER_KEY_IGNORE) == 0) {
 		return;
 	}
 

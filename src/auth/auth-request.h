@@ -7,6 +7,8 @@
 #include "userdb.h"
 #include "passdb.h"
 
+#define AUTH_REQUEST_USER_KEY_IGNORE " "
+
 struct auth_client_connection;
 
 enum auth_request_state {

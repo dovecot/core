@@ -109,6 +109,21 @@ static void auth_worker_send_reply(struct auth_worker_client *client,
 	o_stream_nsend(client->output, str_data(str), str_len(str));
 }
 
+static void
+reply_append_extra_fields(string_t *str, struct auth_request *request)
+{
+	if (!auth_fields_is_empty(request->extra_fields)) {
+		str_append_c(str, '\t');
+		auth_fields_append(request->extra_fields, str, 0, 0);
+	}
+	if (request->userdb_reply != NULL &&
+	    auth_fields_is_empty(request->userdb_reply)) {
+		/* all userdb_* fields had NULL values. we'll still
+		   need to tell this to the master */
+		str_append(str, "\tuserdb_"AUTH_REQUEST_USER_KEY_IGNORE);
+	}
+}
+
 static void verify_plain_callback(enum passdb_result result,
 				  struct auth_request *request)
 {
@@ -131,10 +146,7 @@ static void verify_plain_callback(enum passdb_result result,
 		str_append_c(str, '\t');
 		if (request->passdb_password != NULL)
 			str_append_tabescaped(str, request->passdb_password);
-		if (!auth_fields_is_empty(request->extra_fields)) {
-			str_append_c(str, '\t');
-			auth_fields_append(request->extra_fields, str, 0, 0);
-		}
+		reply_append_extra_fields(str, request);
 	}
 	str_append_c(str, '\n');
 	auth_worker_send_reply(client, str);
@@ -215,11 +227,7 @@ lookup_credentials_callback(enum passdb_result result,
 		str_append_tabescaped(str, request->user);
 		str_printfa(str, "\t{%s.b64}", request->credentials_scheme);
 		base64_encode(credentials, size, str);
-
-		if (!auth_fields_is_empty(request->extra_fields)) {
-			str_append_c(str, '\t');
-			auth_fields_append(request->extra_fields, str, 0, 0);
-		}
+		reply_append_extra_fields(str, request);
 	}
 	str_append_c(str, '\n');
 	auth_worker_send_reply(client, str);
