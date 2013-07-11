@@ -342,7 +342,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 		       const char *wildcard_user)
 {
 	struct mail_storage_service_input input;
-	unsigned int user_idx, user_count, interval, n;
+	unsigned int user_idx;
 	const char *user, *error;
 	int ret;
 
@@ -359,10 +359,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 
 	ctx->v.init(ctx, (const void *)argv);
 
-	user_count = mail_storage_service_all_init(ctx->storage_service);
-	n = user_count / 10000;
-	for (interval = 10; n > 0 && interval < 1000; interval *= 10)
-		n /= 10;
+	mail_storage_service_all_init(ctx->storage_service);
 
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
@@ -386,8 +383,8 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 		if (ret == -1)
 			break;
 		if (doveadm_verbose) {
-			if (++user_idx % interval == 0) {
-				printf("\r%d / %d", user_idx, user_count);
+			if (++user_idx % 100 == 0) {
+				printf("\r%d", user_idx);
 				fflush(stdout);
 			}
 		}

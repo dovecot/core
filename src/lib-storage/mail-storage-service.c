@@ -1243,15 +1243,13 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 	pool_unref(&temp_pool);
 }
 
-unsigned int
-mail_storage_service_all_init(struct mail_storage_service_ctx *ctx)
+void mail_storage_service_all_init(struct mail_storage_service_ctx *ctx)
 {
 	if (ctx->auth_list != NULL)
 		(void)auth_master_user_list_deinit(&ctx->auth_list);
 	mail_storage_service_init_settings(ctx, NULL);
 
 	ctx->auth_list = auth_master_user_list_init(ctx->conn, "", NULL);
-	return auth_master_user_list_count(ctx->auth_list);
 }
 
 int mail_storage_service_all_next(struct mail_storage_service_ctx *ctx,

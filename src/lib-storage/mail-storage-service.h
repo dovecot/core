@@ -98,9 +98,8 @@ int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 				     struct mail_user **mail_user_r,
 				     const char **error_r);
 void mail_storage_service_user_free(struct mail_storage_service_user **user);
-/* Initialize iterating through all users. Return the number of users. */
-unsigned int
-mail_storage_service_all_init(struct mail_storage_service_ctx *ctx);
+/* Initialize iterating through all users. */
+void mail_storage_service_all_init(struct mail_storage_service_ctx *ctx);
 /* Iterate through all usernames. Returns 1 if username was returned, 0 if
    there are no more users, -1 if error. */
 int mail_storage_service_all_next(struct mail_storage_service_ctx *ctx,
