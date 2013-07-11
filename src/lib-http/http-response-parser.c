@@ -376,13 +376,12 @@ int http_response_parse_next(struct http_response_parser *parser,
 			*error_r = parser->error;
 			return ret;
 		}
+		/* *( header-field CRLF ) CRLF */
+		if (parser->header_parser == NULL)
+			parser->header_parser = http_header_parser_init(parser->input);
+		else
+			http_header_parser_reset(parser->header_parser);
 	} 
-
-	/* *( header-field CRLF ) CRLF */
-	if (parser->header_parser == NULL)
-		parser->header_parser = http_header_parser_init(parser->input);
-	else
-		http_header_parser_reset(parser->header_parser);
 
 	while ((ret=http_header_parse_next_field
 		(parser->header_parser, &field_name, &field_data, &field_size, &error)) > 0) {
