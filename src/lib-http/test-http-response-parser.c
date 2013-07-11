@@ -101,7 +101,7 @@ static void test_http_response_parse_valid(void)
 		struct http_response_parser *parser;
 		struct http_response *response = NULL;
 		const char *response_text, *payload, *error;
-		unsigned int response_text_len;
+		unsigned int pos, response_text_len;
 		int ret = 0;
 
 		test = &valid_response_parse_tests[i];
@@ -113,8 +113,8 @@ static void test_http_response_parse_valid(void)
 		test_begin(t_strdup_printf("http response valid [%d]", i));
 
 		payload = NULL;
-		for (i = 0; i < response_text_len && ret == 0; i++) {
-			test_istream_set_size(input, i);
+		for (pos = 0; pos < response_text_len && ret == 0; pos++) {
+			test_istream_set_size(input, pos);
 			ret = http_response_parse_next(parser, FALSE, &response, &error);
 		}
 		test_istream_set_size(input, response_text_len);
