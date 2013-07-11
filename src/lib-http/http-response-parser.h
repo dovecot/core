@@ -1,28 +1,7 @@
 #ifndef HTTP_RESPONSE_PARSER_H
 #define HTTP_RESPONSE_PARSER_H
 
-struct http_response_header {
-	const char *key;
-	const char *value;
-	size_t size;
-};
-
-struct http_response {
-	unsigned char version_major;
-	unsigned char version_minor;
-
-	unsigned int status;
-
-	const char *reason;
-	const char *location;
-
-	time_t date;
-	struct istream *payload;
-
-	ARRAY(struct http_response_header) headers;
-
-	unsigned int connection_close:1;
-};
+#include "http-response.h"
 
 struct http_response_parser;
 

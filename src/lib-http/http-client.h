@@ -1,7 +1,7 @@
 #ifndef HTTP_CLIENT_H
 #define HTTP_CLIENT_H
 
-#include "http-response-parser.h"
+#include "http-response.h"
 
 struct http_response;
 

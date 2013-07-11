@@ -25,6 +25,7 @@ headers = \
 	http-parser.h \
 	http-header-parser.h \
 	http-transfer.h \
+	http-response.h \
 	http-response-parser.h \
 	http-client-private.h \
 	http-client.h
