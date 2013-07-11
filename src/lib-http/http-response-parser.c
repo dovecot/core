@@ -267,10 +267,12 @@ http_response_parse_header(struct http_response_parser *parser,
 {
 	struct http_response_header *hdr;
 	struct http_parser hparser;
+	void *value;
 
 	hdr = array_append_space(&parser->response->headers);
 	hdr->key = p_strdup(parser->response_pool, name);
-	hdr->value = p_strndup(parser->response_pool, data, size);
+	hdr->value = value = p_malloc(parser->response_pool, size+1);
+	memcpy(value, data, size);
 	hdr->size = size;
 
 	switch (name[0]) {
