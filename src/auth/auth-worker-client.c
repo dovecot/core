@@ -421,6 +421,7 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 	auth_worker_send_reply(client, str);
 
 	client->io = io_add(client->fd, IO_READ, auth_worker_input, client);
+	o_stream_uncork(ctx->client->output);
 	o_stream_set_flush_callback(client->output, auth_worker_output, client);
 	auth_request_unref(&ctx->auth_request);
 	auth_worker_client_unref(&client);
@@ -459,8 +460,14 @@ static void list_iter_callback(const char *user, void *context)
 			ctx->auth_request->userdb->userdb->iface->
 				iterate_next(ctx->iter);
 		} T_END;
+		if (o_stream_get_buffer_used_size(ctx->client->output) > OUTBUF_THROTTLE_SIZE) {
+			if (o_stream_flush(ctx->client->output) < 0) {
+				ctx->done = TRUE;
+				break;
+			}
+		}
 	} while (ctx->sent &&
-		 o_stream_get_buffer_used_size(ctx->client->output) == 0);
+		 o_stream_get_buffer_used_size(ctx->client->output) <= OUTBUF_THROTTLE_SIZE);
 	ctx->sending = FALSE;
 	if (ctx->done)
 		list_iter_deinit(ctx);
@@ -513,6 +520,7 @@ auth_worker_handle_list(struct auth_worker_client *client,
 	}
 
 	io_remove(&ctx->client->io);
+	o_stream_cork(ctx->client->output);
 	o_stream_set_flush_callback(ctx->client->output,
 				    auth_worker_list_output, ctx);
 	ctx->iter = ctx->auth_request->userdb->userdb->iface->

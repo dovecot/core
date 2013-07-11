@@ -432,6 +432,7 @@ static void master_input_list_finish(struct master_list_iter_ctx *ctx)
 
 	if (ctx->iter != NULL)
 		(void)userdb_blocking_iter_deinit(&ctx->iter);
+	o_stream_uncork(ctx->conn->output);
 	o_stream_unset_flush_callback(ctx->conn->output);
 	auth_request_unref(&ctx->auth_request);
 	auth_master_connection_unref(&ctx->conn);
@@ -492,12 +493,14 @@ static void master_input_list_callback(const char *user, void *context)
 				      str_tabescape(user));
 		ret = o_stream_send_str(ctx->conn->output, str);
 	} T_END;
+	if (o_stream_get_buffer_used_size(ctx->conn->output) >= MAX_OUTBUF_SIZE)
+		ret = o_stream_flush(ctx->conn->output);
 	if (ret < 0) {
 		/* disconnected, don't bother finishing */
 		master_input_list_finish(ctx);
 		return;
 	}
-	if (o_stream_get_buffer_used_size(ctx->conn->output) == 0)
+	if (o_stream_get_buffer_used_size(ctx->conn->output) < MAX_OUTBUF_SIZE)
 		userdb_blocking_iter_next(ctx->iter);
 }
 
@@ -569,6 +572,7 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 	ctx->auth_request->userdb = userdb;
 
 	io_remove(&conn->io);
+	o_stream_cork(conn->output);
 	o_stream_set_flush_callback(conn->output, master_output_list, ctx);
 	ctx->iter = userdb_blocking_iter_init(auth_request,
 					      master_input_list_callback, ctx);
