@@ -32,8 +32,6 @@ struct http_response_parser {
 	const unsigned char *begin, *cur, *end;
 	const char *error;
 
-	string_t *strbuf;
-
 	enum http_response_parser_state state;
 	struct http_header_parser *header_parser;
 
@@ -51,7 +49,6 @@ struct http_response_parser *http_response_parser_init(struct istream *input)
 
 	parser = i_new(struct http_response_parser, 1);
 	parser->input = input;
-	parser->strbuf = str_new(default_pool, 128);
 	return parser;
 }
 
@@ -59,7 +56,6 @@ void http_response_parser_deinit(struct http_response_parser **_parser)
 {
 	struct http_response_parser *parser = *_parser;
 
-	str_free(&parser->strbuf);
 	if (parser->header_parser != NULL)
 		http_header_parser_deinit(&parser->header_parser);
 	if (parser->response_pool != NULL)
@@ -75,7 +71,6 @@ http_response_parser_restart(struct http_response_parser *parser)
 	i_assert(parser->payload == NULL);
 	parser->content_length = 0;
 	parser->transfer_encoding = NULL;
-	str_truncate(parser->strbuf, 0);
 	if (parser->response_pool != NULL)
 		pool_unref(&parser->response_pool);
 	parser->response_pool = pool_alloconly_create("http_response", 4096);
@@ -86,85 +81,54 @@ http_response_parser_restart(struct http_response_parser *parser)
 
 static int http_response_parse_version(struct http_response_parser *parser)
 {
-	const unsigned char *first = parser->cur;
-	const char *p;
+	const unsigned char *p = parser->cur;
+	const size_t size = parser->end - parser->cur;
 
 	/* HTTP-version  = HTTP-name "/" DIGIT "." DIGIT
 	   HTTP-name     = %x48.54.54.50 ; "HTTP", case-sensitive
 	 */
-	while (parser->cur < parser->end && http_char_is_value(*parser->cur))
-		parser->cur++;
-
-	if (str_len(parser->strbuf) + (parser->cur-first) > 8)
-		return -1;
-
-	if ((parser->cur - first) > 0)
-		str_append_n(parser->strbuf, first, parser->cur-first);
-	if (parser->cur == parser->end)
+	if (size < 8)
 		return 0;
-
-	if (str_len(parser->strbuf) != 8)
+	if (memcmp(p, "HTTP/", 5) != 0 ||
+	    !i_isdigit(p[5]) || p[6] != '.' || !i_isdigit(p[7]))
 		return -1;
-	if (strncmp(str_c(parser->strbuf), "HTTP/",5) != 0)
-		return -1;
-	p = str_c(parser->strbuf) + 5;
-	if (!i_isdigit(*p))
-		return -1;
-	parser->response->version_major = *p - '0';
-	p++;
-	if (*(p++) != '.')
-		return -1;
-	if (!i_isdigit(*p))
-		return -1;
-	parser->response->version_minor = *p - '0';
-	str_truncate(parser->strbuf, 0);
+	parser->response->version_major = p[5] - '0';
+	parser->response->version_minor = p[7] - '0';
+	parser->cur += 8;
 	return 1;
 }
 
 static int http_response_parse_status(struct http_response_parser *parser)
 {
-	const unsigned char *first = parser->cur;
-	const unsigned char *p;
+	const unsigned char *p = parser->cur;
+	const size_t size = parser->end - parser->cur;
 
 	/* status-code   = 3DIGIT
 	 */
-	while (parser->cur < parser->end && i_isdigit(*parser->cur)) {
-		parser->cur++;
-		if ((parser->cur - first) > 3)
-			return -1;
-	}
-
-	if (str_len(parser->strbuf) + (parser->cur - first) > 3)
-		return -1;
-	if ((parser->cur - first) > 0)
-		str_append_n(parser->strbuf, first, parser->cur-first);
-	if (parser->cur == parser->end)
+	if (size < 3)
 		return 0;
-	if (str_len(parser->strbuf) != 3)
+	if (!i_isdigit(p[0]) || !i_isdigit(p[1]) || !i_isdigit(p[2]))
 		return -1;
-	p = str_data(parser->strbuf);
 	parser->response->status =
 		(p[0] - '0')*100 + (p[1] - '0')*10 + (p[2] - '0');
-	str_truncate(parser->strbuf, 0);
+	parser->cur += 3;
 	return 1;
 }
 
 static int http_response_parse_reason(struct http_response_parser *parser)
 {
-	const unsigned char *first = parser->cur;
+	const unsigned char *p = parser->cur;
 
 	/* reason-phrase = *( HTAB / SP / VCHAR / obs-text )
 	 */
-	while (parser->cur < parser->end && http_char_is_text(*parser->cur))
-		parser->cur++;
+	while (p < parser->end && http_char_is_text(*p))
+		p++;
 
-	if ((parser->cur - first) > 0)
-		str_append_n(parser->strbuf, first, parser->cur-first);
-	if (parser->cur == parser->end)
+	if (p == parser->end)
 		return 0;
 	parser->response->reason =
-		p_strdup(parser->response_pool, str_c(parser->strbuf));
-	str_truncate(parser->strbuf, 0);
+		p_strdup_until(parser->response_pool, parser->cur, p);
+	parser->cur = p;
 	return 1;
 }
 
@@ -270,11 +234,11 @@ static int http_response_parse(struct http_response_parser *parser)
 
 static int http_response_parse_status_line(struct http_response_parser *parser)
 {
-	size_t size;
+	size_t size, old_bytes = 0;
 	int ret;
 
 	while ((ret = i_stream_read_data(parser->input,
-					 &parser->begin, &size, 0)) > 0) {
+					 &parser->begin, &size, old_bytes)) > 0) {
 		parser->cur = parser->begin;
 		parser->end = parser->cur + size;
 
@@ -284,6 +248,7 @@ static int http_response_parse_status_line(struct http_response_parser *parser)
 		i_stream_skip(parser->input, parser->cur - parser->begin);
 		if (ret > 0)
 			return 1;
+		old_bytes = i_stream_get_data_size(parser->input);
 	}
 
 	i_assert(ret != -2);
