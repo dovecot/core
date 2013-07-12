@@ -605,10 +605,20 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			/* this passdb lookup succeeded, preserve its extra
 			   fields */
 			auth_fields_snapshot(request->extra_fields);
+			request->snapshot_has_userdb_reply =
+				request->userdb_reply != NULL;
+			if (request->userdb_reply != NULL)
+				auth_fields_snapshot(request->userdb_reply);
 		} else {
 			/* this passdb lookup failed, remove any extra fields
 			   it set */
 			auth_fields_rollback(request->extra_fields);
+			if (request->userdb_reply == NULL)
+				;
+			else if (!request->snapshot_has_userdb_reply)
+				request->userdb_reply = NULL;
+			else
+				auth_fields_rollback(request->userdb_reply);
 		}
 
 		if (*result == PASSDB_RESULT_USER_UNKNOWN) {

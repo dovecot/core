@@ -123,6 +123,7 @@ struct auth_request {
 	unsigned int prefer_plain_credentials:1;
 	unsigned int in_delayed_failure_queue:1;
 	unsigned int removed_from_handler:1;
+	unsigned int snapshot_has_userdb_reply:1;
 	/* each passdb lookup can update the current success-status using the
 	   result_* rules. the authentication succeeds only if this is TRUE
 	   at the end. mechanisms that don't require passdb, but do a passdb
