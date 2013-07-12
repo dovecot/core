@@ -47,7 +47,8 @@ static void login_connection_input(struct login_connection *conn)
 		if (ret < 0) {
 			if (errno == EAGAIN)
 				return;
-			i_error("read(login connection) failed: %m");
+			if (errno != ECONNRESET)
+				i_error("read(login connection) failed: %m");
 		}
 		login_connection_deinit(&conn);
 		return;
