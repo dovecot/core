@@ -11,7 +11,8 @@
 
 /* n% of timeout_secs */
 #define USER_NEAR_EXPIRING_PERCENTAGE 10
-/* but max. of this many secs */
+/* but min/max. of this many secs */
+#define USER_NEAR_EXPIRING_MIN 3
 #define USER_NEAR_EXPIRING_MAX 30
 
 struct user_directory_iter {
@@ -65,7 +66,7 @@ static bool user_directory_user_has_connections(struct user_directory *dir,
 {
 	time_t expire_timestamp = user->timestamp + dir->timeout_secs;
 
-	if (expire_timestamp >= ioloop_time)
+	if (expire_timestamp > ioloop_time)
 		return TRUE;
 
 	if (user->kill_state != USER_KILL_STATE_NONE) {
@@ -93,9 +94,15 @@ static void user_directory_drop_expired(struct user_directory *dir)
 struct user *user_directory_lookup(struct user_directory *dir,
 				   unsigned int username_hash)
 {
-	user_directory_drop_expired(dir);
+	struct user *user;
 
-	return hash_table_lookup(dir->hash, POINTER_CAST(username_hash));
+	user_directory_drop_expired(dir);
+	user = hash_table_lookup(dir->hash, POINTER_CAST(username_hash));
+	if (user != NULL && !user_directory_user_has_connections(dir, user)) {
+		user_free(dir, user);
+		user = NULL;
+	}
+	return user;
 }
 
 static void
@@ -230,6 +237,8 @@ user_directory_init(unsigned int timeout_secs, const char *username_hash_fmt)
 {
 	struct user_directory *dir;
 
+	i_assert(timeout_secs > USER_NEAR_EXPIRING_MIN);
+
 	dir = i_new(struct user_directory, 1);
 	dir->timeout_secs = timeout_secs;
 	dir->user_near_expiring_secs =
@@ -237,7 +246,8 @@ user_directory_init(unsigned int timeout_secs, const char *username_hash_fmt)
 	dir->user_near_expiring_secs =
 		I_MIN(dir->user_near_expiring_secs, USER_NEAR_EXPIRING_MAX);
 	dir->user_near_expiring_secs =
-		I_MAX(dir->user_near_expiring_secs, 1);
+		I_MAX(dir->user_near_expiring_secs, USER_NEAR_EXPIRING_MIN);
+	i_assert(dir->timeout_secs/2 > dir->user_near_expiring_secs);
 
 	dir->username_hash_fmt = i_strdup(username_hash_fmt);
 	hash_table_create_direct(&dir->hash, default_pool, 0);
