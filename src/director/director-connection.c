@@ -119,6 +119,7 @@ struct director_connection {
 	unsigned int synced:1;
 	unsigned int wrong_host:1;
 	unsigned int verifying_left:1;
+	unsigned int users_unsorted:1;
 };
 
 static void director_connection_disconnected(struct director_connection **conn);
@@ -578,6 +579,10 @@ director_handshake_cmd_user(struct director_connection *conn,
 
 	(void)director_user_refresh(conn, username_hash, host,
 				    timestamp, weak, &user);
+	if (user->timestamp < timestamp) {
+		conn->users_unsorted = TRUE;
+		user->timestamp = timestamp;
+	}
 	return TRUE;
 }
 
@@ -974,6 +979,12 @@ static bool director_handshake_cmd_done(struct director_connection *conn)
 	struct director *dir = conn->dir;
 	unsigned int handshake_secs = time(NULL) - conn->created;
 	string_t *str;
+
+	if (conn->users_unsorted && conn->user_iter == NULL) {
+		/* we sent our user list before receiving remote's */
+		conn->users_unsorted = FALSE;
+		user_directory_sort(conn->dir->users);
+	}
 
 	if (handshake_secs >= DIRECTOR_HANDSHAKE_WARN_SECS || director_debug) {
 		str = t_str_new(128);
@@ -1436,6 +1447,12 @@ static int director_connection_send_users(struct director_connection *conn)
 	}
 	user_directory_iter_deinit(&conn->user_iter);
 	director_connection_send(conn, "DONE\n");
+
+	if (conn->users_unsorted && conn->handshake_received) {
+		/* we received remote's list of users before sending ours */
+		conn->users_unsorted = FALSE;
+		user_directory_sort(conn->dir->users);
+	}
 
 	ret = o_stream_flush(conn->output);
 	timeout_reset(conn->to_ping);

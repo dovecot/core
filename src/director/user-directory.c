@@ -210,6 +210,43 @@ void user_directory_remove_host(struct user_directory *dir,
 	}
 }
 
+static int user_timestamp_cmp(struct user *const *user1,
+			      struct user *const *user2)
+{
+	if ((*user1)->timestamp < (*user2)->timestamp)
+		return -1;
+	if ((*user1)->timestamp > (*user2)->timestamp)
+		return 1;
+	return 0;
+}
+
+void user_directory_sort(struct user_directory *dir)
+{
+	ARRAY(struct user *) users;
+	struct user *user, *const *userp;
+	unsigned int i, users_count = hash_table_count(dir->hash);
+
+	if (users_count == 0) {
+		i_assert(dir->head == NULL);
+		return;
+	}
+
+	/* place all users into array and sort it */
+	i_array_init(&users, users_count);
+	user = dir->head;
+	for (i = 0; i < users_count; i++, user = user->next)
+		array_append(&users, &user, 1);
+	i_assert(user == NULL);
+	array_sort(&users, user_timestamp_cmp);
+
+	/* recreate the linked list */
+	dir->head = dir->tail = NULL;
+	array_foreach(&users, userp)
+		DLLIST2_APPEND(&dir->head, &dir->tail, *userp);
+	i_assert(dir->head->timestamp <= dir->tail->timestamp);
+	array_free(&users);
+}
+
 unsigned int user_directory_get_username_hash(struct user_directory *dir,
 					      const char *username)
 {

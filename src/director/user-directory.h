@@ -64,6 +64,9 @@ void user_directory_refresh(struct user_directory *dir, struct user *user);
 /* Remove all users that have pointers to given host */
 void user_directory_remove_host(struct user_directory *dir,
 				struct mail_host *host);
+/* Sort users based on the timestamp. This is called only after updating
+   timestamps based on remote director's user list after handshake. */
+void user_directory_sort(struct user_directory *dir);
 
 unsigned int user_directory_get_username_hash(struct user_directory *dir,
 					      const char *username);
