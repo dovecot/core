@@ -475,7 +475,24 @@ director_user_refresh(struct director_connection *conn,
 		dir_debug("user refresh: %u set weak", username_hash);
 		user->weak = TRUE;
 		ret = TRUE;
-	} else if (user->host != host) {
+	} else if (weak) {
+		dir_debug("user refresh: %u weak update to %s ignored, "
+			  "we recently changed it to %s",
+			  username_hash, net_ip2addr(&host->ip),
+			  net_ip2addr(&user->host->ip));
+		host = user->host;
+		ret = TRUE;
+	} else if (user->host == host) {
+		/* update to the same host */
+	} else if (user_directory_user_is_near_expiring(dir->users, user)) {
+		/* host conflict for a user that is already near expiring. we can
+		   assume that the other director had already dropped this user
+		   and we should have as well. use the new host. */
+		dir_debug("user refresh: %u is nearly expired, "
+			  "replacing host %s with %s", username_hash,
+			  net_ip2addr(&user->host->ip), net_ip2addr(&host->ip));
+		ret = TRUE;
+	} else {
 		/* non-weak user received a non-weak update with
 		   conflicting host. this shouldn't happen. */
 		string_t *str = t_str_new(128);
@@ -729,7 +746,7 @@ director_cmd_user_weak(struct director_connection *conn,
 	struct mail_host *host;
 	struct user *user;
 	struct director_host *src_host = conn->host;
-	bool weak = TRUE;
+	bool weak = TRUE, weak_forward = FALSE;
 	int ret;
 
 	/* note that unlike other commands we don't want to just ignore
@@ -750,15 +767,28 @@ director_cmd_user_weak(struct director_connection *conn,
 		return TRUE;
 	}
 
-	if (ret > 0) {
-		/* The entire ring has seen this USER-WEAK.
-		   make it non-weak now. */
-		weak = FALSE;
+	if (ret == 0)
+		;
+	else if (dir_host == conn->dir->self_host) {
+		/* We originated this USER-WEAK request. The entire ring has seen
+		   it and there weren't any conflicts. Make the user non-weak. */
+		dir_debug("user refresh: %u Our USER-WEAK seen by the entire ring",
+			  username_hash);
 		src_host = conn->dir->self_host;
+		weak = FALSE;
+	} else {
+		/* The original USER-WEAK sender will send a new non-weak USER
+		   update saying what really happened. We'll still need to forward
+		   this around the ring to the origin so it also knows it has
+		   travelled through the ring. */
+		dir_debug("user refresh: %u Remote USER-WEAK from %s seen by the entire ring, ignoring",
+			  username_hash, net_ip2addr(&dir_host->ip));
+		weak_forward = TRUE;
 	}
 
 	if (director_user_refresh(conn, username_hash,
-				  host, ioloop_time, weak, &user)) {
+				  host, ioloop_time, weak, &user) ||
+	    weak_forward) {
 		if (!user->weak)
 			director_update_user(conn->dir, src_host, user);
 		else {
