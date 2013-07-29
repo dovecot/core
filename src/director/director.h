@@ -103,7 +103,8 @@ void director_set_ring_synced(struct director *dir);
 void director_set_ring_unsynced(struct director *dir);
 void director_set_state_changed(struct director *dir);
 void director_sync_send(struct director *dir, struct director_host *host,
-			uint32_t seq, unsigned int minor_version);
+			uint32_t seq, unsigned int minor_version,
+			unsigned int timestamp);
 bool director_resend_sync(struct director *dir);
 
 void director_notify_ring_added(struct director_host *added_host,
