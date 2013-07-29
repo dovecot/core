@@ -33,7 +33,7 @@
 #define IMAP_PORT 14300
 #define DIRECTOR_IN_PORT 9091
 #define DIRECTOR_OUT_PORT 9090
-#define USER_TIMEOUT_MSECS (1000*60)
+#define USER_TIMEOUT_MSECS (1000*10) /* FIXME: this should be based on director_user_expire */
 #define ADMIN_RANDOM_TIMEOUT_MSECS 500
 #define DIRECTOR_CONN_MAX_DELAY_MSECS 100
 #define DIRECTOR_DISCONNECT_TIMEOUT_SECS 10
@@ -126,7 +126,7 @@ static void client_username_check(struct imap_client *client)
 		i_error("User logging into unknown host %s",
 			net_ip2addr(&local_ip));
 		host = i_new(struct host, 1);
-		host->refcount++;
+		host->refcount = 1;
 		host->ip = local_ip;
 		host->vhost_count = 100;
 		hash_table_insert(hosts, &host->ip, host);
@@ -331,12 +331,13 @@ static void director_connection_timeout(struct director_connection *conn)
 }
 
 static void
-director_connection_create(int in_fd, const struct ip_addr *local_ip)
+director_connection_create(int in_fd, const struct ip_addr *local_ip,
+			   const struct ip_addr *remote_ip)
 {
 	struct director_connection *conn;
 	int out_fd;
 
-	out_fd = net_connect_ip(local_ip, DIRECTOR_OUT_PORT, NULL);
+	out_fd = net_connect_ip(local_ip, DIRECTOR_OUT_PORT, remote_ip);
 	if (out_fd == -1) {
 		i_close_fd(&in_fd);
 		return;
@@ -386,16 +387,18 @@ static void director_connection_destroy(struct director_connection **_conn)
 
 static void client_connected(struct master_service_connection *conn)
 {
-	struct ip_addr local_ip;
+	struct ip_addr local_ip, remote_ip;
 	unsigned int local_port;
 
 	if (net_getsockname(conn->fd, &local_ip, &local_port) < 0)
+		i_fatal("net_getsockname() failed: %m");
+	if (net_getpeername(conn->fd, &remote_ip, NULL) < 0)
 		i_fatal("net_getsockname() failed: %m");
 
 	if (local_port == IMAP_PORT)
 		imap_client_create(conn->fd);
 	else if (local_port == DIRECTOR_IN_PORT)
-		director_connection_create(conn->fd, &local_ip);
+		director_connection_create(conn->fd, &local_ip, &remote_ip);
 	else {
 		i_error("Connection to unknown port %u", local_port);
 		return;
@@ -499,6 +502,7 @@ static void admin_read_hosts(struct admin_connection *conn)
 			struct host *host;
 
 			host = i_new(struct host, 1);
+			host->refcount = 1;
 			if (net_addr2ip(args[0], &host->ip) < 0 ||
 			    str_to_uint(args[1], &host->vhost_count) < 0)
 				i_fatal("host list broken");
@@ -542,7 +546,7 @@ static void main_init(const char *admin_path)
 	admin_read_hosts(admin);
 
 	to_disconnect =
-		timeout_add(1000*(1 + rand()%DIRECTOR_DISCONNECT_TIMEOUT_SECS),
+		timeout_add(1000*(5 + rand()%DIRECTOR_DISCONNECT_TIMEOUT_SECS),
 			    director_connection_disconnect_timeout, (void *)NULL);
 }
 

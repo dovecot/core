@@ -26,6 +26,7 @@ log_path = /var/log/dovecot.log
 info_log_path = /var/log/dovecot-access.log
 director_servers =$dirs
 director_mail_servers = 127.0.0.1-127.0.0.255
+director_user_expire = 15s
 disable_plaintext_auth = no
 
 ssl = no
@@ -90,4 +91,4 @@ echo 'for conf in dovecot*.conf; do dovecot -c $conf; done'
 echo
 echo "Start testing:"
 echo
-echo "imaptest host=director user=test%d.%d - select=0 no_tracking"
+echo "imaptest host=director user=test%d.%d - select=0 no_tracking clients=1000"
