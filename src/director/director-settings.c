@@ -7,6 +7,8 @@
 #include "director-settings.h"
 
 /* <settings checks> */
+static bool director_settings_verify(void *_set, pool_t pool, const char **error_r);
+
 static struct file_listener_settings director_unix_listeners_array[] = {
 	{ "login/director", 0, "", "" },
 	{ "director-admin", 0600, "", "" }
@@ -93,5 +95,21 @@ const struct setting_parser_info director_setting_parser_info = {
 	.type_offset = (size_t)-1,
 	.struct_size = sizeof(struct director_settings),
 
-	.parent_offset = (size_t)-1
+	.parent_offset = (size_t)-1,
+
+	.check_func = director_settings_verify
 };
+
+/* <settings checks> */
+static bool
+director_settings_verify(void *_set, pool_t pool ATTR_UNUSED, const char **error_r)
+{
+	struct director_settings *set = _set;
+
+	if (set->director_user_expire < 10) {
+		*error_r = "director_user_expire is too low";
+		return FALSE;
+	}
+	return TRUE;
+}
+/* </settings checks> */
