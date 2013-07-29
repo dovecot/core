@@ -124,7 +124,8 @@ struct director_connection {
 static void director_connection_disconnected(struct director_connection **conn);
 static void director_connection_reconnect(struct director_connection **conn,
 					  const char *reason);
-static void director_connection_log_disconnect(struct director_connection *conn);
+static void
+director_connection_log_disconnect(struct director_connection *conn, int err);
 
 static void ATTR_FORMAT(2, 3)
 director_cmd_error(struct director_connection *conn, const char *fmt, ...)
@@ -175,7 +176,7 @@ director_connection_set_ping_timeout(struct director_connection *conn)
 
 static void director_connection_wait_timeout(struct director_connection *conn)
 {
-	director_connection_log_disconnect(conn);
+	director_connection_log_disconnect(conn, ETIMEDOUT);
 	director_connection_deinit(&conn,
 		"Timeout waiting for disconnect after CONNECT");
 }
@@ -1271,7 +1272,7 @@ director_connection_handle_line(struct director_connection *conn,
 }
 
 static void
-director_connection_log_disconnect(struct director_connection *conn)
+director_connection_log_disconnect(struct director_connection *conn, int err)
 {
 	unsigned int secs = ioloop_time - conn->created;
 	string_t *str = t_str_new(128);
@@ -1287,8 +1288,10 @@ director_connection_log_disconnect(struct director_connection *conn)
 
 	str_printfa(str, "Director %s disconnected: ", conn->name);
 	str_append(str, "Connection closed");
-	if (errno != 0 && errno != EPIPE)
+	if (err != 0 && err != EPIPE) {
+		errno = err;
 		str_printfa(str, ": %m");
+	}
 
 	str_printfa(str, " (connected %u secs, "
 		    "in=%"PRIuUOFF_T" out=%"PRIuUOFF_T,
@@ -1312,7 +1315,7 @@ static void director_connection_input(struct director_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
-		director_connection_log_disconnect(conn);
+		director_connection_log_disconnect(conn, conn->input->stream_errno);
 		director_connection_disconnected(&conn);
 		return;
 	case -2:
