@@ -215,10 +215,12 @@ static void main_deinit(void)
 
 int main(int argc, char *argv[])
 {
+	enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
 	int c;
 
 	protocol = QUOTA_PROTOCOL_UNKNOWN;
-	master_service = master_service_init("quota-status", 0,
+	master_service = master_service_init("quota-status", service_flags,
 					     &argc, &argv, "p:");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
