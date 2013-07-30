@@ -967,6 +967,16 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	int ret = 1;
 
 	user_pool = pool_alloconly_create("mail storage service user", 1024*6);
+	flags = mail_storage_service_input_get_flags(ctx, input);
+
+	if ((flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0 &&
+	    geteuid() != 0) {
+		/* we dropped privileges only temporarily. switch back to root
+		   before reading settings, so we'll definitely have enough
+		   permissions to connect to the config socket. */
+		if (seteuid(0) < 0)
+			i_fatal("seteuid(0) failed: %m");
+	}
 
 	if (mail_storage_service_read_settings(ctx, input, user_pool,
 					       &user_info, &set_parser,
@@ -977,7 +987,6 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 		return -1;
 	}
 
-	flags = mail_storage_service_input_get_flags(ctx, input);
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0 &&
 	    !ctx->log_initialized) {
 		/* initialize logging again, in case we only read the
