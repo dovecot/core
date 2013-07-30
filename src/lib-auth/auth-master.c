@@ -352,13 +352,15 @@ static void auth_master_unset_io(struct auth_master_connection *conn)
 		io_loop_set_current(conn->prev_ioloop);
 		lib_signals_reset_ioloop();
 	}
-	io_loop_set_current(conn->ioloop);
+	if (conn->ioloop != NULL) {
+		io_loop_set_current(conn->ioloop);
 
-	timeout_remove(&conn->to);
-	io_remove(&conn->io);
-	i_stream_unref(&conn->input);
-	o_stream_unref(&conn->output);
-	io_loop_destroy(&conn->ioloop);
+		timeout_remove(&conn->to);
+		io_remove(&conn->io);
+		i_stream_unref(&conn->input);
+		o_stream_unref(&conn->output);
+		io_loop_destroy(&conn->ioloop);
+	}
 
 	if ((conn->flags & AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT) == 0) {
 		if (conn->prev_ioloop == NULL)
@@ -685,13 +687,16 @@ const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
 {
 	const char *line;
 
+	if (ctx->failed)
+		return NULL;
+
 	/* try to read already buffered input */
 	line = i_stream_next_line(ctx->conn->input);
 	if (line != NULL) {
 		T_BEGIN {
 			auth_handle_line(ctx->conn, line);
 		} T_END;
-	} else if (!ctx->failed) {
+	} else {
 		/* wait for more data */
 		io_loop_run(ctx->conn->ioloop);
 	}
