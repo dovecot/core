@@ -336,6 +336,23 @@ config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
 	return 0;
 }
 
+void master_service_config_socket_try_open(struct master_service *service)
+{
+	struct master_service_settings_input input;
+	const char *path, *error;
+	int fd;
+
+	if (getenv("DOVECONF_ENV") != NULL ||
+	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) != 0)
+		return;
+
+	memset(&input, 0, sizeof(input));
+	input.never_exec = TRUE;
+	fd = master_service_open_config(service, &input, &path, &error);
+	if (fd != -1)
+		service->config_fd = fd;
+}
+
 int master_service_settings_read(struct master_service *service,
 				 const struct master_service_settings_input *input,
 				 struct master_service_settings_output *output_r,
