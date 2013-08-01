@@ -65,6 +65,7 @@ struct mail_storage_service_ctx {
 
 	unsigned int debug:1;
 	unsigned int log_initialized:1;
+	unsigned int config_permission_denied:1;
 };
 
 struct mail_storage_service_user {
@@ -831,6 +832,8 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	enum mail_storage_service_flags flags;
 	unsigned int i;
 
+	ctx->config_permission_denied = FALSE;
+
 	flags = input == NULL ? ctx->flags :
 		mail_storage_service_input_get_flags(ctx, input);
 
@@ -879,6 +882,8 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 						 &set_output, error_r) < 0) {
 			*error_r = t_strdup_printf(
 				"Error reading configuration: %s", *error_r);
+			ctx->config_permission_denied =
+				set_output.permission_denied;
 			return -1;
 		}
 		*parser_r = ctx->service->set_parser;
@@ -988,6 +993,11 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	if (mail_storage_service_read_settings(ctx, input, user_pool,
 					       &user_info, &set_parser,
 					       &error) < 0) {
+		if (ctx->config_permission_denied) {
+			/* just restart and maybe next time we will open the
+			   config socket before dropping privileges */
+			i_fatal("user %s: %s", username, error);
+		}
 		i_error("user %s: %s", username, error);
 		pool_unref(&user_pool);
 		*error_r = MAIL_ERRSTR_CRITICAL_MSG;
