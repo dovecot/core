@@ -850,10 +850,19 @@ static void ssl_info_callback(const SSL *ssl, int where, int ret)
 		return;
 
 	if ((where & SSL_CB_ALERT) != 0) {
-		i_warning("SSL alert: where=0x%x, ret=%d: %s %s [%s]",
-			  where, ret, SSL_alert_type_string_long(ret),
-			  SSL_alert_desc_string_long(ret),
-			  net_ip2addr(&proxy->ip));
+		switch (ret & 0xff) {
+		case SSL_AD_CLOSE_NOTIFY:
+			i_debug("SSL alert: %s [%s]",
+				SSL_alert_desc_string_long(ret),
+				net_ip2addr(&proxy->ip));
+			break;
+		default:
+			i_warning("SSL alert: where=0x%x, ret=%d: %s %s [%s]",
+				  where, ret, SSL_alert_type_string_long(ret),
+				  SSL_alert_desc_string_long(ret),
+				  net_ip2addr(&proxy->ip));
+			break;
+		}
 	} else if (ret == 0) {
 		i_warning("SSL failed: where=0x%x: %s [%s]",
 			  where, SSL_state_string_long(ssl),

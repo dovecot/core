@@ -22,10 +22,19 @@ static void openssl_info_callback(const SSL *ssl, int where, int ret)
 
 	ssl_io = SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
 	if ((where & SSL_CB_ALERT) != 0) {
-		i_warning("%sSSL alert: where=0x%x, ret=%d: %s %s",
-			  ssl_io->log_prefix, where, ret,
-			  SSL_alert_type_string_long(ret),
-			  SSL_alert_desc_string_long(ret));
+		switch (ret & 0xff) {
+		case SSL_AD_CLOSE_NOTIFY:
+			i_debug("%sSSL alert: %s",
+				ssl_io->log_prefix,
+				SSL_alert_desc_string_long(ret));
+			break;
+		default:
+			i_warning("%sSSL alert: where=0x%x, ret=%d: %s %s",
+				  ssl_io->log_prefix, where, ret,
+				  SSL_alert_type_string_long(ret),
+				  SSL_alert_desc_string_long(ret));
+			break;
+		}
 	} else if (ret == 0) {
 		i_warning("%sSSL failed: where=0x%x: %s",
 			  ssl_io->log_prefix, where, SSL_state_string_long(ssl));
