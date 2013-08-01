@@ -597,11 +597,13 @@ static void quota_root_set_namespace(struct quota_root *root,
 	const struct quota_rule *rule;
 	const char *name;
 	struct mail_namespace *ns;
+	/* silence errors for autocreated (shared) users */
+	bool silent_errors = namespaces->user->autocreated;
 
 	if (root->ns_prefix != NULL && root->ns == NULL) {
 		root->ns = mail_namespace_find_prefix(namespaces,
 						      root->ns_prefix);
-		if (root->ns == NULL) {
+		if (root->ns == NULL && !silent_errors) {
 			i_error("quota: Unknown namespace: %s",
 				root->ns_prefix);
 		}
@@ -610,7 +612,8 @@ static void quota_root_set_namespace(struct quota_root *root,
 	array_foreach(&root->set->rules, rule) {
 		name = rule->mailbox_name;
 		ns = mail_namespace_find(namespaces, name);
-		if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0)
+		if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0 &&
+		    !silent_errors)
 			i_error("quota: Unknown namespace: %s", name);
 	}
 }
