@@ -367,20 +367,29 @@ int master_service_settings_read(struct master_service *service,
 	unsigned int i;
 	int ret, fd = -1;
 	time_t now, timeout;
-	bool use_environment;
+	bool use_environment, retry;
 
 	memset(output_r, 0, sizeof(*output_r));
 
 	if (getenv("DOVECONF_ENV") == NULL &&
 	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
-		fd = master_service_open_config(service, input, &path, error_r);
-		if (fd == -1)
-			return -1;
+		retry = service->config_fd != -1;
+		for (;;) {
+			fd = master_service_open_config(service, input,
+							&path, error_r);
+			if (fd == -1)
+				return -1;
 
-		if (config_send_request(service, input, fd, path, error_r) < 0) {
-			i_close_fd(&fd);
-			config_exec_fallback(service, input);
-			return -1;
+			if (config_send_request(service, input, fd,
+						path, error_r) == 0)
+				break;
+			if (!retry) {
+				i_close_fd(&fd);
+				config_exec_fallback(service, input);
+				return -1;
+			}
+			/* config process died, retry connecting */
+			retry = FALSE;
 		}
 	}
 
