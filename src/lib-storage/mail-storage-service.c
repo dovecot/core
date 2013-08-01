@@ -748,6 +748,13 @@ mail_storage_service_init(struct master_service *service,
 			PACKAGE_VERSION, version);
 	}
 
+	if ((flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0 &&
+	    geteuid() != 0) {
+		/* service { user } isn't root. the permission drop can't be
+		   temporary. */
+		flags &= ~MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
+	}
+
 	(void)umask(0077);
 	io_loop_set_time_moved_callback(current_ioloop,
 					mail_storage_service_time_moved);
