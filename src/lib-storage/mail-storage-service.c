@@ -495,6 +495,15 @@ service_parse_privileges(struct mail_storage_service_ctx *ctx,
 	return 0;
 }
 
+static void mail_storage_service_seteuid_root(void)
+{
+	if (seteuid(0) < 0) {
+		i_fatal("mail-storage-service: "
+			"Failed to restore temporarily dropped root privileges: "
+			"seteuid(0) failed: %m");
+	}
+}
+
 static int
 service_drop_privileges(struct mail_storage_service_user *user,
 			struct mail_storage_service_privileges *priv,
@@ -572,8 +581,7 @@ service_drop_privileges(struct mail_storage_service_user *user,
 			if (current_euid != 0) {
 				/* we're changing the UID,
 				   switch back to root first */
-				if (seteuid(0) < 0)
-					i_fatal("seteuid(0) failed: %m");
+				mail_storage_service_seteuid_root();
 			}
 			setuid_uid = rset.uid;
 		}
@@ -588,7 +596,8 @@ service_drop_privileges(struct mail_storage_service_user *user,
 	}
 	if (setuid_uid != 0 && !setenv_only) {
 		if (seteuid(setuid_uid) < 0)
-			i_fatal("seteuid(%s) failed: %m", dec2str(setuid_uid));
+			i_fatal("mail-storage-service: seteuid(%s) failed: %m",
+				dec2str(setuid_uid));
 	}
 	return 0;
 }
@@ -986,8 +995,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 		/* we dropped privileges only temporarily. switch back to root
 		   before reading settings, so we'll definitely have enough
 		   permissions to connect to the config socket. */
-		if (seteuid(0) < 0)
-			i_fatal("seteuid(0) failed: %m");
+		mail_storage_service_seteuid_root();
 	}
 
 	if (mail_storage_service_read_settings(ctx, input, user_pool,
