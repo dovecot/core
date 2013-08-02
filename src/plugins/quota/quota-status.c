@@ -46,13 +46,13 @@ static void client_reset(struct quota_client *client)
 }
 
 static int
-quota_check(struct mail_user *user, uoff_t mail_size, const char **error_r)
+quota_check(struct mail_user *user, uoff_t mail_size,
+	    const char **error_r, bool *too_large_r)
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct quota_transaction_context *ctx;
-	bool too_large;
 	int ret;
 
 	if (quser == NULL) {
@@ -64,7 +64,7 @@ quota_check(struct mail_user *user, uoff_t mail_size, const char **error_r)
 	box = mailbox_alloc(ns->list, "INBOX", 0);
 
 	ctx = quota_transaction_begin(box);
-	ret = quota_test_alloc(ctx, I_MAX(1, mail_size), &too_large);
+	ret = quota_test_alloc(ctx, I_MAX(1, mail_size), too_large_r);
 	quota_transaction_rollback(&ctx);
 
 	mailbox_free(&box);
@@ -82,6 +82,7 @@ static void client_handle_request(struct quota_client *client)
 	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
 	const char *value = NULL, *error;
+	bool too_large;
 	int ret;
 
 	if (client->recipient == NULL) {
@@ -98,14 +99,18 @@ static void client_handle_request(struct quota_client *client)
 	if (ret == 0) {
 		value = nouser_reply;
 	} else if (ret > 0) {
-		if ((ret = quota_check(user, client->size, &error)) > 0) {
+		if ((ret = quota_check(user, client->size, &error, &too_large)) > 0) {
 			/* under quota */
 			value = mail_user_plugin_getenv(user, "quota_status_success");
 			if (value == NULL)
 				value = "OK";
 		} else if (ret == 0) {
-			/* over quota */
-			value = mail_user_plugin_getenv(user, "quota_status_overquota");
+			if (too_large) {
+				/* even over maximum quota */
+				value = mail_user_plugin_getenv(user, "quota_status_toolarge");
+			}
+			if (value == NULL)
+				value = mail_user_plugin_getenv(user, "quota_status_overquota");
 			if (value == NULL)
 				value = t_strdup_printf("554 5.2.2 %s", error);
 		}
