@@ -1,0 +1,103 @@
+.\" Copyright (c) 2013 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-FLAGS 1 "2013-08-02" "Dovecot v2.2" "Dovecot"
+.SH NAME
+doveadm\-flags \- add, remove or replace messages\(aq flags
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " flags " [" \-S
+.IR socket_path "] " "command flags search_query"
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " flags " [" \-S
+.IR socket_path "] " "command flags search_query"
+.B \-A
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " flags " [" \-S
+.IR socket_path "] " "command flags search_query"
+.BI "\-u " user
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+This command is used to manipulate flags of messages.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\"-------------------------------------
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I flags
+Message flags as described in RFC 3501, section 2.3.2 (Flags Message
+Attribute):
+.BR \(rsAnswered ", " \(rsDeleted ", " \(rsDraft ", " \(rsFlagged ", "
+.BR \(rsRecent " and " \(rsSeen .
+And the IMAP keywords
+.BR \(DoForwarded ", " \(DoMDNSent ", " \(DoSubmitPending " and "
+.B \(DoSubmitted
+or user\-defined keywords, e.g. Junk, \(DoNonSpam or \(DoLabel1.
+.br
+One or multiple flags and/or keywords can be specified.
+.\"-------------------------------------
+.TP
+.I search_query
+Manipulate the flags of messages matching the given search query.
+See
+.BR doveadm\-search\-query (7)
+for details.
+.\"------------------------------------------------------------------------
+.SH COMMANDS
+.SS flags add
+.BR "doveadm flags add" " [" \-u
+.IR user |\c
+.BR \-A "] [" \-S
+.IR socket_path "] " "flags search_query"
+.PP
+This command is used to extend the current set of flags with the given
+.IR flags .
+.\"-------------------------------------
+.SS flags remove
+.BR "doveadm flags remove" " [" \-u
+.IR user |\c
+.BR \-A "] [" \-S
+.IR socket_path "] " "flags search_query"
+.PP
+In order to remove the given
+.I flags
+from the current set of flags, use this command.
+.\"-------------------------------------
+.SS flags replace
+.BR "doveadm flags replace" " [" \-u
+.IR user |\c
+.BR \-A "] [" \-S
+.IR socket_path "] " "flags search_query"
+.PP
+This command is used to replace ALL current flags with the given
+.IR flags .
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+List and manipulate the message flags of the message with uid 81563
+.sp
+.nf
+.B doveadm fetch \-u bob \(aquid flags\(aq mailbox dovecot uid 81563
+uid: 81563
+flags: \(rsAnswered \(rsSeen NonJunk
+
+.B doveadm flags \-u bob remove NonJunk mailbox dovecot uid 81563
+.B doveadm flags \-u bob add \(aq\(rsFlagged \(DoForwarded\(aq \
+mailbox dovecot uid 81563
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveadm\-fetch (1),
+.BR doveadm\-search\-query (7)

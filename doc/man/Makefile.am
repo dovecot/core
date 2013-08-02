@@ -15,10 +15,12 @@ nodist_man1_MANS = \
 	doveadm.1 \
 	doveadm-altmove.1 \
 	doveadm-auth.1 \
+	doveadm-deduplicate.1 \
 	doveadm-director.1 \
 	doveadm-dump.1 \
 	doveadm-expunge.1 \
 	doveadm-fetch.1 \
+	doveadm-flags.1 \
 	doveadm-import.1 \
 	doveadm-instance.1 \
 	doveadm-index.1 \
@@ -53,10 +55,12 @@ EXTRA_DIST = \
 	doveadm.1.in \
 	doveadm-altmove.1.in \
 	doveadm-auth.1.in \
+	doveadm-deduplicate.1.in \
 	doveadm-director.1.in \
 	doveadm-dump.1.in \
 	doveadm-expunge.1.in \
 	doveadm-fetch.1.in \
+	doveadm-flags.1.in
 	doveadm-import.1.in \
 	doveadm-instance.1.in \
 	doveadm-index.1.in \
