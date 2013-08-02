@@ -80,8 +80,17 @@ static void cmd_flags_init(struct doveadm_mail_cmd_context *_ctx,
 	enum mail_flags flag;
 	ARRAY_TYPE(const_string) keywords;
 
-	if (args[0] == NULL || args[1] == NULL)
-		doveadm_mail_help_name("flags");
+	if (args[0] == NULL || args[1] == NULL) {
+		switch (ctx->modify_type) {
+		case MODIFY_ADD:
+			doveadm_mail_help_name("flags add");
+		case MODIFY_REMOVE:
+			doveadm_mail_help_name("flags remove");
+		case MODIFY_REPLACE:
+			doveadm_mail_help_name("flags replace");
+		}
+		i_unreached();
+	}
 
 	p_array_init(&keywords, _ctx->pool, 8);
 	for (tmp = t_strsplit(args[0], " "); *tmp != NULL; tmp++) {
