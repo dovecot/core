@@ -60,7 +60,7 @@ EXTRA_DIST = \
 	doveadm-dump.1.in \
 	doveadm-expunge.1.in \
 	doveadm-fetch.1.in \
-	doveadm-flags.1.in
+	doveadm-flags.1.in \
 	doveadm-import.1.in \
 	doveadm-instance.1.in \
 	doveadm-index.1.in \
