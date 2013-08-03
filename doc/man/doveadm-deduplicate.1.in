@@ -1,5 +1,5 @@
 .\" Copyright (c) 2013 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-DEDUPLICATE 1 "2013-08-02" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-DEDUPLICATE 1 "2013-08-03" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-deduplicate \- expunge duplicate messages
 .\"------------------------------------------------------------------------
@@ -48,13 +48,11 @@ By default deduplication will be done by message GUIDs.
 .TP
 .I search_query
 expunge duplicates found from messages matching the given search query.
-Typically a search query like \(aq\c
-.BI "mailbox  " mailbox_name " OR  mailbox " other_box\c
-\(aq will be sufficient.
+Typically a search query like \(aq\fBmailbox\fP \fImailbox_name\fP
+\fBOR mailbox\fP \fIother_box\fP\(aq will be sufficient.
 See
 .BR doveadm\-search\-query (7)
 for details.
-
 .\"------------------------------------------------------------------------
 .SH EXAMPLE
 This example shows how to list and expunge duplicate messages from a
