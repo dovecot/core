@@ -590,8 +590,9 @@ static void http_client_connection_input(struct connection *_conn)
 				req->payload_sync = FALSE;
 				conn->peer->no_payload_sync = TRUE;
 				http_client_request_retry(req, response->status, response->reason);
-				return;								
-			} else if (response->status / 100 == 3) {
+				return;
+			} else if (response->status / 100 == 3 && response->status != 304 &&
+				response->location != NULL) {
 				/* redirect */
 				http_client_request_redirect(req, response->status, response->location);
 			} else {
