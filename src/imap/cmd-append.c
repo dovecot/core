@@ -102,7 +102,8 @@ static void client_input_append(struct client_command_context *cmd)
 		   until newline is found. */
 		client->input_skip_line = TRUE;
 
-		client_send_command_error(cmd, "Too long argument.");
+		if (!ctx->failed)
+			client_send_command_error(cmd, "Too long argument.");
 		cmd->param_error = TRUE;
 		client_command_free(&cmd);
 		return;
@@ -125,11 +126,13 @@ static void client_input_append(struct client_command_context *cmd)
 
 static void cmd_append_finish(struct cmd_append_context *ctx)
 {
-	imap_parser_unref(&ctx->save_parser);
+	if (ctx->save_parser != NULL)
+		imap_parser_unref(&ctx->save_parser);
 
 	i_assert(ctx->client->input_lock == ctx->cmd);
 
-	io_remove(&ctx->client->io);
+	if (ctx->client->io != NULL)
+		io_remove(&ctx->client->io);
 	/* we must put back the original flush callback before beginning to
 	   sync (the command is still unfinished at that point) */
 	o_stream_set_flush_callback(ctx->client->output,
@@ -147,12 +150,18 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 		mailbox_free(&ctx->box);
 }
 
-static void cmd_append_send_literal_continue(struct client *client)
+static bool cmd_append_send_literal_continue(struct cmd_append_context *ctx)
 {
-	o_stream_nsend(client->output, "+ OK\r\n", 6);
-	o_stream_nflush(client->output);
-	o_stream_uncork(client->output);
-	o_stream_cork(client->output);
+	if (ctx->failed) {
+		/* tagline was already sent, we can abort here */
+		return FALSE;
+	}
+
+	o_stream_nsend(ctx->client->output, "+ OK\r\n", 6);
+	o_stream_nflush(ctx->client->output);
+	o_stream_uncork(ctx->client->output);
+	o_stream_cork(ctx->client->output);
+	return TRUE;
 }
 
 static int
@@ -362,8 +371,10 @@ static bool catenate_args_can_stop(struct cmd_append_context *ctx,
 		args++;
 		if (args->type == IMAP_ARG_LITERAL_SIZE ||
 		    args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC) {
-			if (args->type == IMAP_ARG_LITERAL_SIZE)
-				cmd_append_send_literal_continue(ctx->client);
+			if (args->type == IMAP_ARG_LITERAL_SIZE) {
+				if (!cmd_append_send_literal_continue(ctx))
+					return TRUE;
+			}
 			imap_parser_read_last_literal(ctx->save_parser);
 			return FALSE;
 		}
@@ -431,12 +442,10 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 	/* TEXT <literal> */
 
 	if (!nonsync) {
-		if (ctx->failed) {
-			/* tagline was already sent, we can abort here */
+		if (!cmd_append_send_literal_continue(ctx)) {
 			cmd_append_finish(ctx);
 			return TRUE;
 		}
-		cmd_append_send_literal_continue(client);
 	}
 
 	i_assert(ctx->litinput != NULL);
@@ -549,8 +558,13 @@ cmd_append_handle_args(struct client_command_context *cmd,
 			if (!ctx->failed) {
 				client_send_tagline(cmd,
 					"NO Can't save a zero byte message.");
+				ctx->failed = TRUE;
 			}
-			return -1;
+			if (!*nonsync_r)
+				return -1;
+			/* {0+} used. although there isn't any point in using
+			   MULTIAPPEND here and adding more messages, it is
+			   technically valid so we'll continue parsing.. */
 		}
 		ctx->litinput = i_stream_create_limit(client->input, ctx->literal_size);
 		ctx->input = ctx->litinput;
@@ -583,7 +597,9 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		return 1;
 	} else if (cat_list->type == IMAP_ARG_EOL) {
 		/* zero parts */
-		client_send_command_error(cmd, "Empty CATENATE list.");
+		if (!ctx->failed)
+			client_send_command_error(cmd, "Empty CATENATE list.");
+		client->input_skip_line = TRUE;
 		return -1;
 	} else if ((ret = cmd_append_catenate(cmd, cat_list, nonsync_r)) < 0) {
 		/* invalid parameters, abort immediately */
@@ -599,7 +615,6 @@ cmd_append_handle_args(struct client_command_context *cmd,
 
 static bool cmd_append_finish_parsing(struct client_command_context *cmd)
 {
-	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
 	enum mailbox_sync_flags sync_flags;
 	enum imap_sync_flags imap_flags;
@@ -609,7 +624,7 @@ static bool cmd_append_finish_parsing(struct client_command_context *cmd)
 	int ret;
 
 	/* eat away the trailing CRLF */
-	client->input_skip_line = TRUE;
+	cmd->client->input_skip_line = TRUE;
 
 	if (ctx->failed) {
 		/* we failed earlier, error message is sent */
@@ -656,10 +671,12 @@ static bool cmd_append_finish_parsing(struct client_command_context *cmd)
 }
 
 static bool cmd_append_args_can_stop(struct cmd_append_context *ctx,
-				     const struct imap_arg *args)
+				     const struct imap_arg *args,
+				     bool *last_literal_r)
 {
 	const struct imap_arg *cat_list;
 
+	*last_literal_r = FALSE;
 	if (args->type == IMAP_ARG_EOL)
 		return TRUE;
 
@@ -673,8 +690,11 @@ static bool cmd_append_args_can_stop(struct cmd_append_context *ctx,
 	    args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC)
 		return TRUE;
 	if (imap_arg_atom_equals(args, "CATENATE") &&
-	    imap_arg_get_list(&args[1], &cat_list))
-		return catenate_args_can_stop(ctx, cat_list);
+	    imap_arg_get_list(&args[1], &cat_list)) {
+		if (catenate_args_can_stop(ctx, cat_list))
+			return TRUE;
+		*last_literal_r = TRUE;
+	}
 	return FALSE;
 }
 
@@ -685,7 +705,7 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 	const struct imap_arg *args;
 	const char *msg;
 	unsigned int arg_min_count;
-	bool fatal, nonsync;
+	bool fatal, nonsync, last_literal;
 	int ret;
 
 	/* this function gets called 1) after parsing APPEND <mailbox> and
@@ -703,13 +723,19 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 	/* parse the entire line up to the first message literal, or in case
 	   the input buffer is full of MULTIAPPEND CATENATE URLs, parse at
 	   least until the beginning of the next message */
-	arg_min_count = 0;
+	arg_min_count = 0; last_literal = FALSE;
 	do {
-		ret = imap_parser_read_args(ctx->save_parser, ++arg_min_count,
+		if (!last_literal)
+			arg_min_count++;
+		else {
+			/* we only read the literal size. now we read the
+			   literal itself. */
+		}
+		ret = imap_parser_read_args(ctx->save_parser, arg_min_count,
 					    IMAP_PARSE_FLAG_LITERAL_SIZE |
 					    IMAP_PARSE_FLAG_LITERAL8, &args);
 	} while (ret >= (int)arg_min_count &&
-		 !cmd_append_args_can_stop(ctx, args));
+		 !cmd_append_args_can_stop(ctx, args, &last_literal));
 	if (ret == -1) {
 		if (!ctx->failed) {
 			msg = imap_parser_get_error(ctx->save_parser, &fatal);
@@ -745,19 +771,11 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 		return cmd_append_parse_new_msg(cmd);
 	}
 
-	if (!ctx->catenate) {
-		/* after literal comes CRLF, if we fail make sure
-		   we eat it away */
-		client->input_skip_line = TRUE;
-	}
-
 	if (!nonsync) {
-		if (ctx->failed) {
-			/* tagline was already sent, we can abort here */
+		if (!cmd_append_send_literal_continue(ctx)) {
 			cmd_append_finish(ctx);
 			return TRUE;
 		}
-		cmd_append_send_literal_continue(client);
 	}
 
 	i_assert(ctx->litinput != NULL);
