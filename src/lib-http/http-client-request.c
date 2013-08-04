@@ -68,7 +68,7 @@ http_client_request(struct http_client *client,
 	req->method = p_strdup(pool, method);
 	req->hostname = p_strdup(pool, host);
 	req->port = HTTP_DEFAULT_PORT;
-	req->target = p_strdup(pool, target);
+	req->target = (target == NULL ? "/" : p_strdup(pool, target));
 	req->callback = callback;
 	req->context = context;
 	req->headers = str_new(default_pool, 256);
@@ -555,7 +555,7 @@ void http_client_request_redirect(struct http_client_request *req,
 	unsigned int status, const char *location)
 {
 	struct http_url *url;
-	const char *error;
+	const char *error, *target;
 	unsigned int newport;
 
 	/* parse URL */
@@ -607,16 +607,17 @@ void http_client_request_redirect(struct http_client_request *req,
 	}
 
 	newport = (url->have_port ? url->port : (url->have_ssl ? 443 : 80));
+	target = http_url_create_target(url);
 
-	http_client_request_debug(req, "Redirecting to http://%s:%u%s",
-		url->host_name, newport, url->path);
+	http_client_request_debug(req, "Redirecting to http%s://%s:%u%s",
+		(url->have_ssl ? "s" : ""), url->host_name, newport, target);
 
 	// FIXME: handle literal IP specially (avoid duplicate parsing)
 	req->host = NULL;
 	req->conn = NULL;
 	req->hostname = p_strdup(req->pool, url->host_name);
 	req->port = newport;
-	req->target = p_strdup(req->pool, url->path);
+	req->target = p_strdup(req->pool, target);
 	req->ssl = url->have_ssl;
 
 	/* https://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-21

@@ -237,6 +237,24 @@ int http_url_parse(const char *url, struct http_url *base,
  * HTTP URL construction
  */
 
+static void http_url_add_target(string_t *urlstr, const struct http_url *url)
+{
+	if (url->path == NULL || *url->path == '\0') {
+		/* Older syntax of RFC 2616 requires this slash at all times for an
+			 absolute URL
+		 */
+		str_append_c(urlstr, '/');
+	} else {
+		uri_append_path_data(urlstr, "", url->path);
+	}
+
+	/* query (pre-encoded) */
+	if (url->enc_query != NULL) {
+		str_append_c(urlstr, '?');
+		str_append(urlstr, url->enc_query);
+	}
+}
+
 const char *http_url_create(const struct http_url *url)
 {
 	string_t *urlstr = t_str_new(512);
@@ -259,26 +277,22 @@ const char *http_url_create(const struct http_url *url)
 	if (url->have_port)
 		uri_append_port(urlstr, url->port);
 
-	if (url->path == NULL || *url->path == '\0') {
-		/* Older syntax of RFC 2616 requires this slash at all times for an
-			 absolute URL
-		 */
-		str_append_c(urlstr, '/');
-	} else {
-		uri_append_path_data(urlstr, "", url->path);
-	}
-
-	/* query (pre-encoded) */
-	if (url->enc_query != NULL) {
-		str_append_c(urlstr, '?');
-		str_append(urlstr, url->enc_query);
-	}
+	http_url_add_target(urlstr, url);
 
 	/* fragment */
 	if (url->enc_fragment != NULL) {
 		str_append_c(urlstr, '#');
 		str_append(urlstr, url->enc_fragment);
 	}
+
+	return str_c(urlstr);
+}
+
+const char *http_url_create_target(const struct http_url *url)
+{
+	string_t *urlstr = t_str_new(256);
+
+	http_url_add_target(urlstr, url);
 
 	return str_c(urlstr);
 }

@@ -45,6 +45,8 @@ int http_url_parse(const char *url, struct http_url *base,
 
 const char *http_url_create(const struct http_url *url);
 
+const char *http_url_create_target(const struct http_url *url);
+
 void http_url_escape_param(string_t *out, const char *data);
 
 #endif
