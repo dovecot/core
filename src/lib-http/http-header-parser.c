@@ -124,7 +124,7 @@ static int http_header_parse(struct http_header_parser *parser)
 	int ret;
 
 	/* 'header'       = *( header-field CRLF ) CRLF
-	   header-field   = field-name ":" OWS field-value BWS
+	   header-field   = field-name ":" OWS field-value OWS
 	   field-name     = token
 	   field-value    = *( field-content / obs-fold )
 	   field-content  = *( HTAB / SP / VCHAR / obs-text )
@@ -247,6 +247,7 @@ int http_header_parse_next_field(struct http_header_parser *parser,
 	const char **name_r, const unsigned char **data_r, size_t *size_r,
 	const char **error_r)
 {
+	const unsigned char *data;
 	size_t size;
 	int ret;
 
@@ -264,8 +265,16 @@ int http_header_parse_next_field(struct http_header_parser *parser,
 
 		if (ret == 1) {
 			if (parser->state != HTTP_HEADER_PARSE_STATE_EOH) {
+				data = buffer_get_data(parser->value_buf, &size);
+			
+				/* trim trailing OWS */
+				while (size > 0 &&
+					(data[size-1] == ' ' || data[size-1] == '\t'))
+					size--;
+
 				*name_r = str_c(parser->name);
-				*data_r = buffer_get_data(parser->value_buf, size_r);
+				*data_r = data;
+				*size_r = size;
 				parser->state = HTTP_HEADER_PARSE_STATE_INIT;
 			} else {
 				*name_r = NULL;

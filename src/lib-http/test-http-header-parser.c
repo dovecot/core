@@ -62,6 +62,22 @@ static struct http_header_parse_result valid_header_parse_result3[] = {
 };
 
 static struct http_header_parse_result valid_header_parse_result4[] = {
+	{ "Age", "58" },
+	{ "Date", "Sun, 04 Aug 2013 09:33:09 GMT" },
+	{ "Expires", "Sun, 04 Aug 2013 09:34:08 GMT" },
+	{ "Cache-Control", "max-age=60" },
+	{ "Content-Length", "17336" },
+	{ "Connection", "Keep-Alive" },
+	{ "Via", "NS-CACHE-9.3" },
+	{ "Server", "Apache" },
+	{ "Vary", "Host" },
+	{ "Last-Modified", "Sun, 04 Aug 2013 09:33:07 GMT" },
+	{ "Content-Type", "text/html; charset=utf-8" },
+	{ "Content-Encoding", "gzip" },
+	{ NULL, NULL }
+};
+
+static struct http_header_parse_result valid_header_parse_result5[] = {
 	{ NULL, NULL }
 };
 
@@ -108,9 +124,25 @@ static const struct http_header_parse_test valid_header_parse_tests[] = {
 			"\r\n",
 		.fields = valid_header_parse_result3
 	},{
-		.header =
+		.header = 
+			"Age: 58        \r\n"
+			"Date: Sun, 04 Aug 2013 09:33:09 GMT\r\n"
+			"Expires: Sun, 04 Aug 2013 09:34:08 GMT\r\n"
+			"Cache-Control: max-age=60        \r\n"
+			"Content-Length: 17336     \r\n"
+			"Connection: Keep-Alive\r\n"
+			"Via: NS-CACHE-9.3\r\n"
+			"Server: Apache\r\n"
+			"Vary: Host\r\n"
+			"Last-Modified: Sun, 04 Aug 2013 09:33:07 GMT\r\n"
+			"Content-Type: text/html; charset=utf-8\r\n"
+			"Content-Encoding: gzip\r\n"
 			"\r\n",
 		.fields = valid_header_parse_result4
+	},{
+		.header =
+			"\r\n",
+		.fields = valid_header_parse_result5
 	}
 };
 
