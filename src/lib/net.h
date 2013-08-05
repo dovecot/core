@@ -44,6 +44,13 @@ struct net_unix_cred {
 #  define MAX_IP_LEN 20
 #endif
 
+#ifndef HAVE_IPV6
+#  undef EAI_ADDRFAMILY
+#  define EAI_ADDRFAMILY NO_ADDRESS
+#  undef EAI_FAIL
+#  define EAI_FAIL NO_RECOVERY
+#endif
+
 #define IPADDR_IS_V4(ip) ((ip)->family == AF_INET)
 #define IPADDR_IS_V6(ip) ((ip)->family == AF_INET6)
 #define IPADDR_BITS(ip) (IPADDR_IS_V4(ip) ? 32 : 128)

@@ -146,7 +146,7 @@ dns_lookup_common(const char *cmd, bool ptr_lookup,
 	int fd;
 
 	memset(&result, 0, sizeof(result));
-	result.ret = NO_RECOVERY;
+	result.ret = EAI_FAIL;
 
 	fd = net_connect_unix(set->dns_client_socket_path);
 	if (fd == -1) {
@@ -174,7 +174,7 @@ dns_lookup_common(const char *cmd, bool ptr_lookup,
 		lookup->to = timeout_add(set->timeout_msecs,
 					 dns_lookup_timeout, lookup);
 	}
-	lookup->result.ret = NO_RECOVERY;
+	lookup->result.ret = EAI_FAIL;
 	lookup->callback = callback;
 	lookup->context = context;
 	if (gettimeofday(&lookup->start_time, NULL) < 0)

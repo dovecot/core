@@ -36,7 +36,7 @@ static int dns_client_input_line(struct dns_client *client, const char *line)
 		ret = net_gethostbyname(line + 3, &ips, &ips_count);
 		if (ret == 0 && ips_count == 0) {
 			/* shouldn't happen, but fix it anyway.. */
-			ret = NO_ADDRESS;
+			ret = EAI_ADDRFAMILY;
 		}
 		if (ret != 0) {
 			o_stream_nsend_str(client->output,
