@@ -1,0 +1,47 @@
+.\" Copyright (c) 2013 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-EXEC 1 "2013-08-05" "Dovecot v2.2" "Dovecot"
+.SH NAME
+doveadm\-exec \- easily execute commands from Dovecot\(aqs libexec_dir
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " exec
+.IR binary " [" "binary arguments" ]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+This command allows administrators and local users to simply execute
+commands from within
+.IR libexec_dir .
+So for example a logged in system user could start a pre\-authenticated
+imap session, using the command:
+.BR "doveadm exec imap" .
+An administrator would use the command:
+.B "doveadm exec imap \-u"
+.IR username .
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I binary
+the name of an executable located in
+.IR @pkglibexecdir@ .
+.\"-------------------------------------
+.TP
+.I binary arguments
+options and arguments, wich will be passed through to the
+.IR binary .
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+This example demonstrates how to deliver a message from a file to a
+user\(aqs mailbox.
+.sp
+.nf
+.B doveadm exec dovecot\-lda \-d user@example.net \(rs
+.B \-f admin@example.net < \(ti/stuff/welcome.msg
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR dovecot\-lda (1)

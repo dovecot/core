@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2013 Dovecot authors, see the included COPYING file
-.TH DOVEADM 1 "2013-08-02" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM 1 "2013-08-05" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm \- Dovecot\(aqs administration utility
 .\"------------------------------------------------------------------------
@@ -42,6 +42,11 @@ and all its child processes.
 .B doveadm director
 .BR doveadm\-director (1),
 Manage Dovecot directors (if used by proxy servers).
+.\"-------------------------------------
+.TP
+.B doveadm exec
+.BR doveadm\-exec (1),
+Easily execute commands from Dovecot\(aqs libexec_dir.
 .\"-------------------------------------
 .TP
 .B doveadm instance

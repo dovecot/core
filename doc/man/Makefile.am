@@ -18,6 +18,7 @@ nodist_man1_MANS = \
 	doveadm-deduplicate.1 \
 	doveadm-director.1 \
 	doveadm-dump.1 \
+	doveadm-exec.1 \
 	doveadm-expunge.1 \
 	doveadm-fetch.1 \
 	doveadm-flags.1 \
@@ -58,6 +59,7 @@ EXTRA_DIST = \
 	doveadm-deduplicate.1.in \
 	doveadm-director.1.in \
 	doveadm-dump.1.in \
+	doveadm-exec.1.in \
 	doveadm-expunge.1.in \
 	doveadm-fetch.1.in \
 	doveadm-flags.1.in \
@@ -89,4 +91,4 @@ CLEANFILES = $(nodist_man1_MANS)
 
 .1.in.1: $(man_includefiles) Makefile
 	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
-		< $< > $@
+		$(pkglibexecdir) < $< > $@
