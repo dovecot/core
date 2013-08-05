@@ -287,7 +287,9 @@ static void auth_input(struct auth_master_connection *conn)
 
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
 		T_BEGIN {
+			io_loop_set_current(conn->prev_ioloop);
 			ret = auth_handle_line(conn, line);
+			io_loop_set_current(conn->ioloop);
 		} T_END;
 		if (!ret)
 			return;
@@ -369,6 +371,7 @@ static void auth_master_unset_io(struct auth_master_connection *conn)
 		if (conn->prev_ioloop == NULL)
 			auth_connection_close(conn);
 		else {
+			i_assert(conn->to == NULL);
 			conn->to = timeout_add(1000*AUTH_MASTER_IDLE_SECS,
 					       auth_idle_timeout, conn);
 		}
@@ -682,6 +685,7 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 
 	if (auth_master_run_cmd_pre(conn, str_c(str)) < 0)
 		ctx->failed = TRUE;
+	io_loop_set_current(conn->prev_ioloop);
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
 	return ctx;
 }
@@ -701,7 +705,9 @@ const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
 		} T_END;
 	} else {
 		/* wait for more data */
+		io_loop_set_current(ctx->conn->ioloop);
 		io_loop_run(ctx->conn->ioloop);
+		io_loop_set_current(ctx->conn->prev_ioloop);
 	}
 
 	if (ctx->finished || ctx->failed)
