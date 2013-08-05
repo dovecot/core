@@ -52,7 +52,7 @@ struct mail_storage_service_ctx {
 	struct master_service *service;
 	const char *default_log_prefix;
 
-	struct auth_master_connection *conn;
+	struct auth_master_connection *conn, *iter_conn;
 	struct auth_master_user_list_ctx *auth_list;
 	const struct setting_parser_info **set_roots;
 	enum mail_storage_service_flags flags;
@@ -1277,13 +1277,33 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 	pool_unref(&temp_pool);
 }
 
+static int
+mail_storage_service_all_iter_deinit(struct mail_storage_service_ctx *ctx)
+{
+	int ret = 0;
+
+	if (ctx->auth_list != NULL) {
+		ret = auth_master_user_list_deinit(&ctx->auth_list);
+		auth_master_deinit(&ctx->iter_conn);
+	}
+	return ret;
+}
+
 void mail_storage_service_all_init(struct mail_storage_service_ctx *ctx)
 {
-	if (ctx->auth_list != NULL)
-		(void)auth_master_user_list_deinit(&ctx->auth_list);
+	enum auth_master_flags flags = 0;
+
+	(void)mail_storage_service_all_iter_deinit(ctx);
 	mail_storage_service_init_settings(ctx, NULL);
 
-	ctx->auth_list = auth_master_user_list_init(ctx->conn, "", NULL);
+	/* create a new connection, because the iteration might take a while
+	   and we might want to do USER lookups during it, which don't mix
+	   well in the same connection. */
+	if (ctx->debug)
+		flags |= AUTH_MASTER_FLAG_DEBUG;
+	ctx->iter_conn = auth_master_init(auth_master_get_socket_path(ctx->conn),
+					  flags);
+	ctx->auth_list = auth_master_user_list_init(ctx->iter_conn, "", NULL);
 }
 
 int mail_storage_service_all_next(struct mail_storage_service_ctx *ctx,
@@ -1294,7 +1314,7 @@ int mail_storage_service_all_next(struct mail_storage_service_ctx *ctx,
 	*username_r = auth_master_user_list_next(ctx->auth_list);
 	if (*username_r != NULL)
 		return 1;
-	return auth_master_user_list_deinit(&ctx->auth_list);
+	return mail_storage_service_all_iter_deinit(ctx);
 }
 
 void mail_storage_service_deinit(struct mail_storage_service_ctx **_ctx)
@@ -1302,8 +1322,7 @@ void mail_storage_service_deinit(struct mail_storage_service_ctx **_ctx)
 	struct mail_storage_service_ctx *ctx = *_ctx;
 
 	*_ctx = NULL;
-	if (ctx->auth_list != NULL)
-		(void)auth_master_user_list_deinit(&ctx->auth_list);
+	(void)mail_storage_service_all_iter_deinit(ctx);
 	if (ctx->conn != NULL) {
 		if (mail_user_auth_master_conn == ctx->conn)
 			mail_user_auth_master_conn = NULL;
