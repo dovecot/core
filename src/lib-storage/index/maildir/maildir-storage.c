@@ -509,6 +509,7 @@ maildir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 
 	if ((ret = index_storage_mailbox_create(box, directory)) <= 0)
 		return ret;
+	ret = 0;
 	/* the maildir is created now. finish the creation as best as we can */
 	if (create_maildir_subdirs(box, FALSE) < 0)
 		ret = -1;
