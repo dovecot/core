@@ -333,6 +333,9 @@ static void auth_idle_timeout(struct auth_master_connection *conn)
 
 static void auth_master_set_io(struct auth_master_connection *conn)
 {
+	if (conn->ioloop != NULL)
+		return;
+
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
 
