@@ -45,8 +45,8 @@ struct net_unix_cred {
 #endif
 
 #ifndef HAVE_IPV6
-#  undef EAI_ADDRFAMILY
-#  define EAI_ADDRFAMILY NO_ADDRESS
+#  undef EAI_NONAME
+#  define EAI_NONAME NO_ADDRESS
 #  undef EAI_FAIL
 #  define EAI_FAIL NO_RECOVERY
 #endif
