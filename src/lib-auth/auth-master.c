@@ -687,7 +687,7 @@ const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
 {
 	const char *line;
 
-	if (ctx->failed)
+	if (ctx->conn->input == NULL)
 		return NULL;
 
 	/* try to read already buffered input */
