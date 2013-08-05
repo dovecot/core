@@ -473,11 +473,10 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 	}
 
 	if (map->hdr.next_uid < orig_next_uid) {
-		mail_index_sync_set_corrupted(ctx,
-			"next_uid shrank ignored: %u -> %u",
-			orig_next_uid, map->hdr.next_uid);
+		/* next_uid update tried to shrink its value. this can happen
+		   in some race conditions with e.g. with dsync, so just
+		   silently ignore it. */
 		map->hdr.next_uid = orig_next_uid;
-		return -1;
 	}
 
 	/* the tail offset updates are intended for internal transaction
