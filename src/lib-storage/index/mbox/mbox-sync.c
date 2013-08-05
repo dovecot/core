@@ -1254,6 +1254,32 @@ static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
 	return 0;
 }
 
+static int mbox_append_zero(struct mbox_sync_context *sync_ctx,
+			    uoff_t orig_file_size, uoff_t count)
+{
+	char block[IO_BLOCK_SIZE];
+	uoff_t offset = orig_file_size;
+	ssize_t ret = 0;
+
+	memset(block, 0, I_MIN(sizeof(block), count));
+	while (count > 0) {
+		ret = pwrite(sync_ctx->write_fd, block,
+			     I_MIN(sizeof(block), count), offset);
+		if (ret < 0)
+			break;
+		offset += ret;
+		count -= ret;
+	}
+
+	if (ret < 0) {
+		mbox_set_syscall_error(sync_ctx->mbox, "pwrite()");
+		if (ftruncate(sync_ctx->write_fd, orig_file_size) < 0)
+			mbox_set_syscall_error(sync_ctx->mbox, "ftruncate()");
+		return -1;
+	}
+	return 0;
+}
+
 static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 					struct mbox_sync_mail_context *mail_ctx)
 {
@@ -1303,16 +1329,9 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 
 		i_assert(sync_ctx->space_diff < 0);
 
-		if (file_set_size(sync_ctx->write_fd,
-				  file_size + -sync_ctx->space_diff) < 0) {
-			mbox_set_syscall_error(sync_ctx->mbox,
-					       "file_set_size()");
-			if (ftruncate(sync_ctx->write_fd, file_size) < 0) {
-				mbox_set_syscall_error(sync_ctx->mbox,
-						       "ftruncate()");
-			}
+		if (mbox_append_zero(sync_ctx, file_size,
+				     -sync_ctx->space_diff) < 0)
 			return -1;
-		}
 		mbox_sync_file_updated(sync_ctx, FALSE);
 
 		if (mbox_sync_rewrite(sync_ctx, mail_ctx, file_size,
