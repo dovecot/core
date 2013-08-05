@@ -967,10 +967,9 @@ const char *net_gethosterror(int error)
 		return "A non-recoverable name server error occurred";
 	case TRY_AGAIN:
 		return "A temporary error on an authoritative name server";
+	default:
+		return t_strdup_printf("Unknown error %d", error);
 	}
-
-	/* unknown error */
-	return NULL;
 #endif
 }
 
