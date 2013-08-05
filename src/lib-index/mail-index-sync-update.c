@@ -172,8 +172,10 @@ mail_index_sync_header_update_counts(struct mail_index_sync_map_ctx *ctx,
 	if (all) {
 		mail_index_sync_header_update_counts_all(ctx, uid, old_flags,
 							 new_flags);
+	} else if (uid >= ctx->view->map->hdr.next_uid) {
+		mail_index_sync_set_corrupted(ctx, "uid %u >= next_uid %u",
+					      uid, ctx->view->map->hdr.next_uid);
 	} else {
-		i_assert(uid < ctx->view->map->hdr.next_uid);
 		if (mail_index_header_update_counts(&ctx->view->map->hdr,
 						    old_flags, new_flags,
 						    &error) < 0)
