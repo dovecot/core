@@ -1,3 +1,18 @@
+v2.2.5 2013-08-05  Timo Sirainen <tss@iki.fi>
+
+	+ SSL: Added support for ECDH/ECDHE cipher suites (by David Hicks)
+	+ Added some missing man pages (by Pascal Volk)
+	+ quota-status: Added quota_status_toolarge setting (by Ulrich Zehl)
+	- director: Users near expiration could have been redirected to
+	  different servers at the same time.
+	- pop3: Avoid assert-crash if client disconnects during LIST. 
+	- mdbox: Corrupted index header still wasn't automatically fixed.
+	- dsync: Various fixes to work better with imapc and pop3c storages.
+	- ldap: sasl_bind=yes caused crashes, because Dovecot's lib-sasl
+	  symbols conflicted with Cyrus SASL library.
+	- imap: Various error handling fixes to CATENATE. (Found using
+	  Apple's stress test script.)
+
 v2.2.4 2013-06-25  Timo Sirainen <tss@iki.fi>
 
 	+ doveadm: Added "flags" command to modify message flags.
