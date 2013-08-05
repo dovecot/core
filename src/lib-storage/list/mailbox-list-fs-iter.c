@@ -671,9 +671,16 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 				/* no children */
 			} else if ((ctx->ctx.list->flags &
 				    MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0) {
-				/* skip its children also */
-				ctx->dir = dir;
-				pool_unref(&subdir->pool);
+				if (strcmp(storage_name, "INBOX") == 0) {
+					/* INBOX and its children are in
+					   different paths */
+					ctx->inbox_has_children = TRUE;
+				} else {
+					/* naming conflict, skip its
+					   children also */
+					ctx->dir = dir;
+					pool_unref(&subdir->pool);
+				}
 			} else if ((ctx->info.flags & MAILBOX_NOINFERIORS) == 0) {
 				/* INBOX itself is \NoInferiors, but this INBOX
 				   is a directory, and we can make INBOX have
