@@ -243,7 +243,8 @@ void user_directory_sort(struct user_directory *dir)
 	dir->head = dir->tail = NULL;
 	array_foreach(&users, userp)
 		DLLIST2_APPEND(&dir->head, &dir->tail, *userp);
-	i_assert(dir->head->timestamp <= dir->tail->timestamp);
+	i_assert(dir->head != NULL &&
+		 dir->head->timestamp <= dir->tail->timestamp);
 	array_free(&users);
 }
 

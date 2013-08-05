@@ -136,6 +136,7 @@ static void test_http_response_parse_valid(void)
 		
 		if (ret == 0) {
 			/* verify last response only */
+			i_assert(response != NULL);
 			test_out(t_strdup_printf("response->status = %d",test->status),
 					response->status == test->status);
 			if (payload == NULL || test->payload == NULL) {
