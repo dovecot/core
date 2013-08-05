@@ -4,6 +4,7 @@
 #include "str.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
+#include "mail-search.h"
 #include "doveadm-print.h"
 #include "doveadm-mail.h"
 #include "doveadm-mailbox-list-iter.h"
@@ -207,6 +208,13 @@ static void cmd_mailbox_status_init(struct doveadm_mail_cmd_context *_ctx,
 		doveadm_print_header_simple("guid");
 }
 
+static void cmd_mailbox_status_deinit(struct doveadm_mail_cmd_context *_ctx)
+{
+	struct status_cmd_context *ctx = (struct status_cmd_context *)_ctx;
+
+	mail_search_args_unref(&ctx->search_args);
+}
+
 static bool
 cmd_mailbox_status_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 {
@@ -230,6 +238,7 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_status_alloc(void)
 	ctx->ctx.getopt_args = "t";
 	ctx->ctx.v.parse_arg = cmd_mailbox_status_parse_arg;
 	ctx->ctx.v.init = cmd_mailbox_status_init;
+	ctx->ctx.v.deinit = cmd_mailbox_status_deinit;
 	ctx->ctx.v.run = cmd_mailbox_status_run;
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
 	return &ctx->ctx;

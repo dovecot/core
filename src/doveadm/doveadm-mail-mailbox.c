@@ -172,12 +172,20 @@ static void cmd_mailbox_list_init(struct doveadm_mail_cmd_context *_ctx,
 	ctx->search_args = doveadm_mail_mailbox_search_args_build(args);
 }
 
+static void cmd_mailbox_list_deinit(struct doveadm_mail_cmd_context *_ctx)
+{
+	struct list_cmd_context *ctx = (struct list_cmd_context *)_ctx;
+
+	mail_search_args_unref(&ctx->search_args);
+}
+
 static struct doveadm_mail_cmd_context *cmd_mailbox_list_alloc(void)
 {
 	struct list_cmd_context *ctx;
 
 	ctx = doveadm_mailbox_cmd_alloc(struct list_cmd_context);
 	ctx->ctx.ctx.v.init = cmd_mailbox_list_init;
+	ctx->ctx.ctx.v.deinit = cmd_mailbox_list_deinit;
 	ctx->ctx.ctx.v.run = cmd_mailbox_list_run;
 	ctx->ctx.ctx.v.parse_arg = cmd_mailbox_list_parse_arg;
 	ctx->ctx.ctx.getopt_args = "78s";
