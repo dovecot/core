@@ -7,7 +7,8 @@ struct doveadm_server;
 struct server_connection;
 struct ssl_iostream;
 
-typedef void server_cmd_callback_t(int exit_code, void *context);
+typedef void server_cmd_callback_t(int exit_code, const char *error,
+				   void *context);
 
 int server_connection_create(struct doveadm_server *server,
 			     struct server_connection **conn_r);

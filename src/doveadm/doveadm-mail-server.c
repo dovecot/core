@@ -81,7 +81,8 @@ static bool doveadm_server_have_used_connections(struct doveadm_server *server)
 	return FALSE;
 }
 
-static void doveadm_cmd_callback(int exit_code, void *context)
+static void doveadm_cmd_callback(int exit_code, const char *error,
+				 void *context)
 {
 	struct doveadm_mail_server_cmd *servercmd = context;
 	struct doveadm_server *server =
@@ -95,7 +96,8 @@ static void doveadm_cmd_callback(int exit_code, void *context)
 	case 0:
 		break;
 	case SERVER_EXIT_CODE_DISCONNECTED:
-		i_error("%s: Internal failure for %s", server->name, username);
+		i_error("%s: Internal failure for %s: %s",
+			server->name, username, error);
 		internal_failure = TRUE;
 		master_service_stop(master_service);
 		return;

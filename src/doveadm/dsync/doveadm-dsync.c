@@ -621,7 +621,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	return ret;
 }
 
-static void dsync_connected_callback(int exit_code, void *context)
+static void dsync_connected_callback(int exit_code, const char *error,
+				     void *context)
 {
 	struct dsync_cmd_context *ctx = context;
 
@@ -632,7 +633,8 @@ static void dsync_connected_callback(int exit_code, void *context)
 					  &ctx->output, &ctx->ssl_iostream);
 		break;
 	case SERVER_EXIT_CODE_DISCONNECTED:
-		ctx->error = "Disconnected from remote";
+		ctx->error = p_strdup_printf(ctx->ctx.pool,
+			"Disconnected from remote: %s", error);
 		break;
 	case EX_NOUSER:
 		ctx->error = "Unknown user in remote";
