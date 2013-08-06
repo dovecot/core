@@ -799,8 +799,6 @@ void uri_append_host_ip(string_t *out, const struct ip_addr *host_ip)
 {
 	const char *addr = net_ip2addr(host_ip);
 
-	i_assert(addr != NULL);
-
 	if (host_ip->family == AF_INET) {
 		str_append(out, addr);
 		return;

@@ -153,7 +153,7 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	    strcasecmp(request->service, "IMAP") == 0) {
 		const char *host = net_ip2addr(&request->remote_ip);
 		/* vpopmail 5.4 does not understand IPv6 */
-		if (host != NULL && IPADDR_IS_V4(&request->remote_ip)) {
+		if (host[0] != '\0' && IPADDR_IS_V4(&request->remote_ip)) {
 			/* use putenv() directly rather than env_put() which
 			   would leak memory every time we got here. use a
 			   static buffer for putenv() as SUSv2 requirements

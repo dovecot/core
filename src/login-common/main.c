@@ -64,11 +64,14 @@ void login_refresh_proctitle(void)
 	} else if (clients_get_count() > 1 || client == NULL) {
 		process_title_set(t_strdup_printf("[%u connections (%u TLS)]",
 			clients_get_count(), ssl_proxy_get_count()));
-	} else if ((addr = net_ip2addr(&client->ip)) != NULL) {
-		process_title_set(t_strdup_printf(client->tls ?
-						  "[%s TLS]" : "[%s]", addr));
 	} else {
-		process_title_set(client->tls ? "[TLS]" : "");
+		addr = net_ip2addr(&client->ip);
+		if (addr[0] != '\0') {
+			process_title_set(t_strdup_printf(client->tls ?
+				"[%s TLS]" : "[%s]", addr));
+		} else {
+			process_title_set(client->tls ? "[TLS]" : "");
+		}
 	}
 }
 

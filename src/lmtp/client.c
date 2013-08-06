@@ -195,7 +195,7 @@ const char *client_remote_id(struct client *client)
 	const char *addr;
 
 	addr = net_ip2addr(&client->remote_ip);
-	if (addr == NULL)
+	if (addr[0] == '\0')
 		addr = "local";
 	return addr;
 }

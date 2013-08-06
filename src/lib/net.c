@@ -870,14 +870,14 @@ const char *net_ip2addr(const struct ip_addr *ip)
 
 	addr[MAX_IP_LEN] = '\0';
 	if (inet_ntop(ip->family, &ip->u.ip6, addr, MAX_IP_LEN) == NULL)
-		return NULL;
+		return "";
 
 	return t_strdup(addr);
 #else
 	unsigned long ip4;
 
 	if (ip->family != AF_INET)
-		return NULL;
+		return "";
 
 	ip4 = ntohl(ip->u.ip4.s_addr);
 	return t_strdup_printf("%lu.%lu.%lu.%lu",

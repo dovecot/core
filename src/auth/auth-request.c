@@ -2021,7 +2021,7 @@ static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 	}
 
 	ip = net_ip2addr(&auth_request->remote_ip);
-	if (ip != NULL) {
+	if (ip[0] != '\0') {
 		str_append_c(str, ',');
 		str_append(str, ip);
 	}

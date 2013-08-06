@@ -238,7 +238,7 @@ static void set_pam_items(struct auth_request *request, pam_handle_t *pamh)
 
 	/* These shouldn't fail, and we don't really care if they do. */
 	host = net_ip2addr(&request->remote_ip);
-	if (host != NULL)
+	if (host[0] != '\0')
 		(void)pam_set_item(pamh, PAM_RHOST, host);
 	(void)pam_set_item(pamh, PAM_RUSER, request->user);
 	/* TTY is needed by eg. pam_access module */

@@ -133,7 +133,7 @@ int net_getunixname(int fd, const char **name_r);
    unavailable. */
 int net_getunixcred(int fd, struct net_unix_cred *cred_r);
 
-/* Returns ip_addr as string, or NULL if ip is invalid. */
+/* Returns ip_addr as string, or "" if ip isn't valid IPv4 or IPv6 address. */
 const char *net_ip2addr(const struct ip_addr *ip);
 /* char* -> struct ip_addr translation. */
 int net_addr2ip(const char *addr, struct ip_addr *ip);
