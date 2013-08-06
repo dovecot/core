@@ -357,6 +357,7 @@ static void dsync_ibc_stream_deinit(struct dsync_ibc *_ibc)
 static int dsync_ibc_stream_next_line(struct dsync_ibc_stream *ibc,
 				      const char **line_r)
 {
+	string_t *error;
 	const char *line;
 
 	line = i_stream_next_line(ibc->input);
@@ -368,13 +369,19 @@ static int dsync_ibc_stream_next_line(struct dsync_ibc_stream *ibc,
 	if (i_stream_read(ibc->input) == -1) {
 		if (ibc->stopped)
 			return -1;
+		error = t_str_new(128);
 		if (ibc->input->stream_errno != 0) {
 			errno = ibc->input->stream_errno;
-			i_error("read(%s) failed: %m", ibc->name);
+			str_printfa(error, "read(%s) failed: %m", ibc->name);
 		} else {
 			i_assert(ibc->input->eof);
-			i_error("read(%s) failed: EOF", ibc->name);
+			str_printfa(error, "read(%s) failed: EOF", ibc->name);
 		}
+		if (!ibc->version_received)
+			str_append(error, " (version not received)");
+		else if (!ibc->handshake_received)
+			str_append(error, " (handshake not received)");
+		i_error("%s", str_c(error));
 		dsync_ibc_stream_stop(ibc);
 		return -1;
 	}
