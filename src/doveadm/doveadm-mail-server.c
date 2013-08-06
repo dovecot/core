@@ -96,8 +96,8 @@ static void doveadm_cmd_callback(int exit_code, const char *error,
 	case 0:
 		break;
 	case SERVER_EXIT_CODE_DISCONNECTED:
-		i_error("%s: Internal failure for %s: %s",
-			server->name, username, error);
+		i_error("%s: Command %s failed for %s: %s",
+			server->name, cmd_ctx->cmd->name, username, error);
 		internal_failure = TRUE;
 		master_service_stop(master_service);
 		return;

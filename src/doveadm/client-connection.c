@@ -281,6 +281,19 @@ client_connection_authenticate(struct client_connection *conn)
 	return 1;
 }
 
+static void client_log_disconnect_error(struct client_connection *conn)
+{
+	const char *error;
+
+	error = conn->ssl_iostream == NULL ? NULL :
+		ssl_iostream_get_last_error(conn->ssl_iostream);
+	if (error == NULL) {
+		error = conn->input->stream_errno == 0 ? "EOF" :
+			strerror(conn->input->stream_errno);
+	}
+	i_error("doveadm client disconnected before handshake: %s", error);
+}
+
 static void client_connection_input(struct client_connection *conn)
 {
 	const char *line;
@@ -289,8 +302,10 @@ static void client_connection_input(struct client_connection *conn)
 
 	if (!conn->handshaked) {
 		if ((line = i_stream_read_next_line(conn->input)) == NULL) {
-			if (conn->input->eof || conn->input->stream_errno != 0)
+			if (conn->input->eof || conn->input->stream_errno != 0) {
+				client_log_disconnect_error(conn);
 				client_connection_destroy(&conn);
+			}
 			return;
 		}
 
