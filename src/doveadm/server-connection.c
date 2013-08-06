@@ -199,6 +199,19 @@ server_connection_authenticate(struct server_connection *conn)
 	return 0;
 }
 
+static void server_log_disconnect_error(struct server_connection *conn)
+{
+	const char *error;
+
+	error = conn->ssl_iostream == NULL ? NULL :
+		ssl_iostream_get_last_error(conn->ssl_iostream);
+	if (error == NULL) {
+		error = conn->input->stream_errno == 0 ? "EOF" :
+			strerror(conn->input->stream_errno);
+	}
+	i_error("doveadm server disconnected before handshake: %s", error);
+}
+
 static void server_connection_input(struct server_connection *conn)
 {
 	const unsigned char *data;
@@ -208,8 +221,10 @@ static void server_connection_input(struct server_connection *conn)
 
 	if (!conn->handshaked) {
 		if ((line = i_stream_read_next_line(conn->input)) == NULL) {
-			if (conn->input->eof || conn->input->stream_errno != 0)
+			if (conn->input->eof || conn->input->stream_errno != 0) {
+				server_log_disconnect_error(conn);
 				server_connection_destroy(&conn);
+			}
 			return;
 		}
 
@@ -232,6 +247,7 @@ static void server_connection_input(struct server_connection *conn)
 
 	if (i_stream_read(conn->input) < 0) {
 		/* disconnected */
+		server_log_disconnect_error(conn);
 		server_connection_destroy(&conn);
 		return;
 	}
