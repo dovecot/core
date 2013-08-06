@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVECOT 1 "2010-07-02" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2013 Dovecot authors, see the included COPYING file
+.TH DOVECOT 1 "2013-08-06" "Dovecot v2.2" "Dovecot"
 .SH NAME
 dovecot \- a secure and highly configurable IMAP and POP3 server
 .\"------------------------------------------------------------------------
@@ -15,6 +15,8 @@ dovecot \- a secure and highly configurable IMAP and POP3 server
 .B dovecot \-\-build\-options
 .br
 .B dovecot \-\-help
+.br
+.B dovecot \-\-hostdomain
 .br
 .B dovecot \-\-version
 .br
@@ -61,6 +63,13 @@ Show Dovecot\(aqs build options and exit successfully.
 .TP
 .B \-\-help
 Print a usage message to stdout and exit successfully.
+.TP
+.B \-\-hostdomain
+Shows the current
+.IR host . domain
+name of the system.
+If the domain lookup should fail for some reason, only the hostname will
+be shown.
 .TP
 .B \-\-version
 Show Dovecot\(aqs version and exit successfully.
