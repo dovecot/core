@@ -323,7 +323,14 @@ static void dsync_ibc_stream_init(struct dsync_ibc_stream *ibc)
 static void dsync_ibc_stream_deinit(struct dsync_ibc *_ibc)
 {
 	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
+	unsigned int i;
 
+	for (i = ITEM_DONE + 1; i < ITEM_END_OF_LIST; i++) {
+		if (ibc->serializers[i] != NULL)
+			dsync_serializer_deinit(&ibc->serializers[i]);
+		if (ibc->deserializers[i] != NULL)
+			dsync_deserializer_deinit(&ibc->deserializers[i]);
+	}
 	if (ibc->cur_decoder != NULL)
 		dsync_deserializer_decode_finish(&ibc->cur_decoder);
 	if (ibc->value_output != NULL)
