@@ -4,6 +4,7 @@
 #include "iostream-ssl.h"
 
 struct iostream_ssl_vfuncs {
+	void (*global_deinit)(void);
 	int (*context_init_client)(const struct ssl_iostream_settings *set,
 				   struct ssl_iostream_context **ctx_r,
 				   const char **error_r);

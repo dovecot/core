@@ -15,6 +15,8 @@ static const struct iostream_ssl_vfuncs *ssl_vfuncs = NULL;
 #ifdef HAVE_SSL
 static void ssl_module_unload(void)
 {
+	module_dir_deinit(ssl_module);
+	ssl_vfuncs->global_deinit();
 	module_dir_unload(&ssl_module);
 }
 #endif
@@ -38,7 +40,7 @@ static int ssl_module_load(const char **error_r)
 		return -1;
 	}
 
-	atexit(ssl_module_unload);
+	lib_atexit(ssl_module_unload);
 	ssl_module_loaded = TRUE;
 	return 0;
 #else

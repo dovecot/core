@@ -687,6 +687,8 @@ openssl_iostream_get_last_error(struct ssl_iostream *ssl_io)
 }
 
 const struct iostream_ssl_vfuncs ssl_vfuncs = {
+	openssl_iostream_global_deinit,
+
 	openssl_iostream_context_init_client,
 	openssl_iostream_context_init_server,
 	openssl_iostream_context_deinit,

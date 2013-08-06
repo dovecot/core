@@ -62,6 +62,7 @@ int openssl_iostream_context_init_server(const struct ssl_iostream_settings *set
 					 struct ssl_iostream_context **ctx_r,
 					 const char **error_r);
 void openssl_iostream_context_deinit(struct ssl_iostream_context *ctx);
+void openssl_iostream_global_deinit(void);
 
 int openssl_iostream_load_key(const struct ssl_iostream_settings *set,
 			      EVP_PKEY **pkey_r, const char **error_r);

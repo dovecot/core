@@ -561,7 +561,7 @@ void openssl_iostream_context_deinit(struct ssl_iostream_context *ctx)
 	i_free(ctx);
 }
 
-static void ssl_iostream_deinit_global(void)
+void openssl_iostream_global_deinit(void)
 {
 	if (ssl_iostream_engine != NULL)
 		ENGINE_finish(ssl_iostream_engine);
@@ -581,7 +581,6 @@ static int ssl_iostream_init_global(const struct ssl_iostream_settings *set,
 	if (ssl_global_initialized)
 		return 0;
 
-	atexit(ssl_iostream_deinit_global);
 	ssl_global_initialized = TRUE;
 	SSL_library_init();
 	SSL_load_error_strings();
@@ -603,7 +602,7 @@ static int ssl_iostream_init_global(const struct ssl_iostream_settings *set,
 			*error_r = t_strdup_printf(
 				"Unknown ssl_crypto_device: %s",
 				set->crypto_device);
-			ssl_iostream_deinit_global();
+			/* we'll deinit at exit in any case */
 			return -1;
 		}
 		ENGINE_init(ssl_iostream_engine);
