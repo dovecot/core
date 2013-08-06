@@ -68,6 +68,10 @@ static void dsync_callback(struct dsync_client *client,
 
 static void dsync_close(struct dsync_client *client)
 {
+	client->cmd_sent = FALSE;
+	client->handshaked = FALSE;
+	i_free_and_null(client->state);
+
 	if (client->fd == -1)
 		return;
 
@@ -77,9 +81,6 @@ static void dsync_close(struct dsync_client *client)
 	if (close(client->fd) < 0)
 		i_error("close(dsync) failed: %m");
 	client->fd = -1;
-	i_free_and_null(client->state);
-	client->cmd_sent = FALSE;
-	client->handshaked = FALSE;
 }
 
 static void dsync_disconnect(struct dsync_client *client)
