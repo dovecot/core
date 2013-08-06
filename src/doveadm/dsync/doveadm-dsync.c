@@ -958,6 +958,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	struct dsync_brain *brain;
 	string_t *temp_prefix, *state_str = NULL;
 	enum dsync_brain_sync_type sync_type;
+	const char *name;
 
 	if (_ctx->conn != NULL) {
 		/* doveadm-server connection. start with a success reply.
@@ -966,15 +967,21 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		ctx->input = _ctx->conn->input;
 		ctx->output = _ctx->conn->output;
 		o_stream_nsend(ctx->output, "\n+\n", 3);
+		i_set_failure_prefix("dsync-server(%s): ", user->username);
+		name = i_stream_get_name(ctx->input);
+	} else {
+		/* the log messages go via stderr to the remote dsync,
+		   so the names are reversed */
+		i_set_failure_prefix("dsync-remote(%s): ", user->username);
+		name = "local";
 	}
-	doveadm_user_init_dsync(user);
 
-	i_set_failure_prefix("dsync-remote(%s): ", user->username);
+	doveadm_user_init_dsync(user);
 
 	temp_prefix = t_str_new(64);
 	mail_user_set_get_temp_prefix(temp_prefix, user->set);
 
-	ibc = cmd_dsync_icb_stream_init(ctx, "local", str_c(temp_prefix));
+	ibc = cmd_dsync_icb_stream_init(ctx, name, str_c(temp_prefix));
 	brain = dsync_brain_slave_init(user, ibc, FALSE);
 
 	io_loop_run(current_ioloop);

@@ -411,6 +411,9 @@ client_connection_create(int fd, int listen_fd, bool ssl)
 	(void)net_getsockname(fd, &conn->local_ip, &conn->local_port);
 	(void)net_getpeername(fd, &conn->remote_ip, &conn->remote_port);
 
+	i_stream_set_name(conn->input, net_ip2addr(&conn->remote_ip));
+	o_stream_set_name(conn->output, net_ip2addr(&conn->remote_ip));
+
 	if (client_connection_read_settings(conn) < 0) {
 		client_connection_destroy(&conn);
 		return NULL;
