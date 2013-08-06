@@ -823,6 +823,9 @@ int main(int argc, char *argv[])
 	} else if (strcmp(argv[optind], "version") == 0) {
 		printf("%s\n", DOVECOT_VERSION_FULL);
 		return 0;
+	} else if (strcmp(argv[optind], "hostdomain") == 0) {
+		printf("%s\n", my_hostdomain());
+		return 0;
 	} else if (strcmp(argv[optind], "build-options") == 0) {
 		print_build_options();
 		return 0;
