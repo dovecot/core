@@ -677,6 +677,11 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 
 	value = dsync_deserializer_decode_get(decoder, "hostname");
 	set->hostname = p_strdup(pool, value);
+	/* now that we know the remote's hostname, use it for the
+	   stream's name */
+	i_free(ibc->name);
+	ibc->name = i_strdup(set->hostname);
+
 	if (dsync_deserializer_decode_try(decoder, "sync_ns_prefix", &value))
 		set->sync_ns_prefix = p_strdup(pool, value);
 	if (dsync_deserializer_decode_try(decoder, "sync_box", &value))
