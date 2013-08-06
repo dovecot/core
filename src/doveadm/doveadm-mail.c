@@ -270,10 +270,14 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		       const struct mail_storage_service_input *input,
 		       const char **error_r)
 {
-	const char *error;
+	const char *error, *ip;
 	int ret;
 
-	i_set_failure_prefix("doveadm(%s): ", input->username);
+	ip = net_ip2addr(&input->remote_ip);
+	if (ip[0] == '\0')
+		i_set_failure_prefix("doveadm(%s): ", input->username);
+	else
+		i_set_failure_prefix("doveadm(%s,%s): ", ip, input->username);
 
 	/* see if we want to execute this command via (another)
 	   doveadm server */
@@ -321,6 +325,7 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 {
 	i_assert(input->username != NULL);
 
+	ctx->cur_client_ip = input->remote_ip;
 	ctx->cur_username = input->username;
 	ctx->storage_service_input = *input;
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
@@ -343,7 +348,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 {
 	struct mail_storage_service_input input;
 	unsigned int user_idx;
-	const char *user, *error;
+	const char *ip, *user, *error;
 	int ret;
 
 	ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
@@ -396,7 +401,11 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 	}
 	if (doveadm_verbose)
 		printf("\n");
-	i_set_failure_prefix("doveadm: ");
+	ip = net_ip2addr(&ctx->cur_client_ip);
+	if (ip[0] == '\0')
+		i_set_failure_prefix("doveadm: ");
+	else
+		i_set_failure_prefix("doveadm(%s): ", ip);
 	if (ret < 0) {
 		i_error("Failed to iterate through some users");
 		ctx->exit_code = EX_TEMPFAIL;

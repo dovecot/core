@@ -397,6 +397,7 @@ struct client_connection *
 client_connection_create(int fd, int listen_fd, bool ssl)
 {
 	struct client_connection *conn;
+	const char *ip;
 	pool_t pool;
 
 	pool = pool_alloconly_create("doveadm client", 1024*16);
@@ -413,6 +414,10 @@ client_connection_create(int fd, int listen_fd, bool ssl)
 
 	i_stream_set_name(conn->input, net_ip2addr(&conn->remote_ip));
 	o_stream_set_name(conn->output, net_ip2addr(&conn->remote_ip));
+
+	ip = net_ip2addr(&conn->remote_ip);
+	if (ip[0] != '\0')
+		i_set_failure_prefix("doveadm(%s): ", ip);
 
 	if (client_connection_read_settings(conn) < 0) {
 		client_connection_destroy(&conn);
