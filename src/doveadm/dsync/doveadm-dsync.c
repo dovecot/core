@@ -452,10 +452,9 @@ cmd_dsync_icb_stream_init(struct dsync_cmd_context *ctx,
 		fd_set_nonblock(ctx->fd_out, TRUE);
 		ctx->input = i_stream_create_fd(ctx->fd_in, (size_t)-1, FALSE);
 		ctx->output = o_stream_create_fd(ctx->fd_out, (size_t)-1, FALSE);
-	} else {
-		i_stream_ref(ctx->input);
-		o_stream_ref(ctx->output);
 	}
+	i_stream_ref(ctx->input);
+	o_stream_ref(ctx->output);
 	if (ctx->rawlog_path != NULL) {
 		iostream_rawlog_create_path(ctx->rawlog_path,
 					    &ctx->input, &ctx->output);
@@ -592,6 +591,10 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		ssl_iostream_destroy(&ctx->ssl_iostream);
 	if (ctx->ssl_ctx != NULL)
 		ssl_iostream_context_deinit(&ctx->ssl_ctx);
+	if (ctx->input != NULL)
+		i_stream_unref(&ctx->input);
+	if (ctx->output != NULL)
+		o_stream_unref(&ctx->output);
 	if (ctx->fd_in != -1) {
 		if (ctx->fd_out != ctx->fd_in)
 			i_close_fd(&ctx->fd_out);
@@ -615,8 +618,6 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		io_remove(&ctx->io_err);
 	if (ctx->fd_err != -1)
 		i_close_fd(&ctx->fd_err);
-	ctx->input = NULL;
-	ctx->output = NULL;
 
 	return ret;
 }
