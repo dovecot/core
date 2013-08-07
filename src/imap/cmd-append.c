@@ -539,6 +539,8 @@ cmd_append_handle_args(struct client_command_context *cmd,
 	} else if (!imap_parse_datetime(internal_date_str,
 					&internal_date, &timezone_offset)) {
 		client_send_command_error(cmd, "Invalid internal date.");
+		if (keywords != NULL)
+			mailbox_keywords_unref(&keywords);
 		return -1;
 	}
 
@@ -560,8 +562,11 @@ cmd_append_handle_args(struct client_command_context *cmd,
 					"NO Can't save a zero byte message.");
 				ctx->failed = TRUE;
 			}
-			if (!*nonsync_r)
+			if (!*nonsync_r) {
+				if (keywords != NULL)
+					mailbox_keywords_unref(&keywords);
 				return -1;
+			}
 			/* {0+} used. although there isn't any point in using
 			   MULTIAPPEND here and adding more messages, it is
 			   technically valid so we'll continue parsing.. */
@@ -580,8 +585,6 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		/* save the mail */
 		ctx->save_ctx = mailbox_save_alloc(ctx->t);
 		mailbox_save_set_flags(ctx->save_ctx, flags, keywords);
-		if (keywords != NULL)
-			mailbox_keywords_unref(&keywords);
 		mailbox_save_set_received_date(ctx->save_ctx,
 					       internal_date, timezone_offset);
 		if (mailbox_save_begin(&ctx->save_ctx, ctx->input) < 0) {
@@ -590,6 +593,8 @@ cmd_append_handle_args(struct client_command_context *cmd,
 			ctx->failed = TRUE;
 		}
 	}
+	if (keywords != NULL)
+		mailbox_keywords_unref(&keywords);
 	ctx->count++;
 
 	if (cat_list == NULL) {
