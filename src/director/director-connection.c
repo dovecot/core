@@ -1175,7 +1175,7 @@ static bool director_connection_sync(struct director_connection *conn,
 	}
 
 	if ((host == NULL || !host->self) &&
-	    dir->self_host->last_sync_timestamp != ioloop_time)
+	    (time_t)dir->self_host->last_sync_timestamp != ioloop_time)
 		(void)director_resend_sync(dir);
 	return TRUE;
 }

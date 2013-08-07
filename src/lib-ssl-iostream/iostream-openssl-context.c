@@ -433,8 +433,8 @@ ssl_proxy_ctx_get_pkey_ec_curve_name(const struct ssl_iostream_settings *set,
 
 static int
 ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
-				const struct ssl_iostream_settings *set,
-				const char **error_r)
+				const struct ssl_iostream_settings *set ATTR_UNUSED,
+				const char **error_r ATTR_UNUSED)
 {
 #if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L && OPENSSL_VERSION_NUMBER < 0x10002000L
 	EC_KEY *ecdh;

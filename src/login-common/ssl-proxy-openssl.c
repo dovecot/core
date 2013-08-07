@@ -121,7 +121,9 @@ static void ssl_server_context_deinit(struct ssl_server_context **_ctx);
 
 static void ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
                                             const struct master_service_ssl_settings *set);
+#if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L && OPENSSL_VERSION_NUMBER < 0x10002000L
 static int ssl_proxy_ctx_get_pkey_ec_curve_name(const struct master_service_ssl_settings *set);
+#endif
 
 static unsigned int ssl_server_context_hash(const struct ssl_server_context *ctx)
 {
@@ -1013,7 +1015,7 @@ ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct master_service_ssl_settings *s
 
 static void
 ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
-                                const struct master_service_ssl_settings *set)
+	const struct master_service_ssl_settings *set ATTR_UNUSED)
 {
 #if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L && OPENSSL_VERSION_NUMBER < 0x10002000L
 	EC_KEY *ecdh;
