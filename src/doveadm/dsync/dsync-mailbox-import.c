@@ -1395,8 +1395,11 @@ int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 	if (importer->failed)
 		return -1;
 
-	if (!importer->last_common_uid_found)
+	if (!importer->last_common_uid_found) {
 		dsync_mailbox_find_common_uid(importer, change);
+		if (importer->failed)
+			return -1;
+	}
 
 	if (importer->last_common_uid_found) {
 		/* a) uid <= last_common_uid for flag changes and expunges.
