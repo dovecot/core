@@ -95,7 +95,8 @@ static struct quota_root *fs_quota_alloc(void)
 	return &root->root;
 }
 
-static int fs_quota_init(struct quota_root *_root, const char *args)
+static int fs_quota_init(struct quota_root *_root, const char *args,
+			 const char **error_r)
 {
 	struct fs_quota_root *root = (struct fs_quota_root *)_root;
 	const char *const *tmp;
@@ -116,7 +117,7 @@ static int fs_quota_init(struct quota_root *_root, const char *args)
 			i_free(root->storage_mount_path);
 			root->storage_mount_path = i_strdup(*tmp + 6);
 		} else {
-			i_error("fs quota: Invalid parameter: %s", *tmp);
+			*error_r = t_strdup_printf("Invalid parameter: %s", *tmp);
 			return -1;
 		}
 	}

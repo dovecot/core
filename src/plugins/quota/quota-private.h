@@ -48,7 +48,8 @@ struct quota_warning_rule {
 
 struct quota_backend_vfuncs {
 	struct quota_root *(*alloc)(void);
-	int (*init)(struct quota_root *root, const char *args);
+	int (*init)(struct quota_root *root, const char *args,
+		    const char **error_r);
 	void (*deinit)(struct quota_root *root);
 
 	bool (*parse_rule)(struct quota_root_settings *root_set,

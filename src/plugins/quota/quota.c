@@ -270,8 +270,9 @@ quota_root_init(struct quota_root_settings *root_set, struct quota *quota,
 		     sizeof(void *), 10);
 
 	if (root->backend.v.init != NULL) {
-		if (root->backend.v.init(root, root_set->args) < 0) {
-			*error_r = "init() failed";
+		if (root->backend.v.init(root, root_set->args, error_r) < 0) {
+			*error_r = t_strdup_printf("%s quota init failed: %s",
+					root->backend.name, *error_r);
 			return -1;
 		}
 	} else if (root_set->args != NULL) {

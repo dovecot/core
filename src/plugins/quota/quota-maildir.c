@@ -753,7 +753,8 @@ static struct quota_root *maildir_quota_alloc(void)
 	return &root->root;
 }
 
-static int maildir_quota_init(struct quota_root *_root, const char *args)
+static int maildir_quota_init(struct quota_root *_root, const char *args,
+			      const char **error_r)
 {
 	const char *const *tmp;
 
@@ -768,7 +769,7 @@ static int maildir_quota_init(struct quota_root *_root, const char *args)
 		else if (strncmp(*tmp, "ns=", 3) == 0)
 			_root->ns_prefix = p_strdup(_root->pool, *tmp + 3);
 		else {
-			i_error("maildir quota: Invalid parameter: %s", *tmp);
+			*error_r = t_strdup_printf("Invalid parameter: %s", *tmp);
 			return -1;
 		}
 	}
