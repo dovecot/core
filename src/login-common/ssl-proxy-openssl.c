@@ -29,6 +29,10 @@
 #include <openssl/err.h>
 #include <openssl/rand.h>
 
+#if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L
+#  define HAVE_ECDH
+#endif
+
 /* Check every 30 minutes if parameters file has been updated */
 #define SSL_PARAMFILE_CHECK_INTERVAL (60*30)
 
@@ -121,7 +125,7 @@ static void ssl_server_context_deinit(struct ssl_server_context **_ctx);
 
 static void ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
                                             const struct master_service_ssl_settings *set);
-#if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L && OPENSSL_VERSION_NUMBER < 0x10002000L
+#if defined(HAVE_ECDH) && OPENSSL_VERSION_NUMBER < 0x10002000L
 static int ssl_proxy_ctx_get_pkey_ec_curve_name(const struct master_service_ssl_settings *set);
 #endif
 
@@ -1017,7 +1021,7 @@ static void
 ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 	const struct master_service_ssl_settings *set ATTR_UNUSED)
 {
-#if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L && OPENSSL_VERSION_NUMBER < 0x10002000L
+#if defined(HAVE_ECDH) && OPENSSL_VERSION_NUMBER < 0x10002000L
 	EC_KEY *ecdh;
 	int nid;
 	const char *curve_name;
@@ -1025,17 +1029,16 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 	if (SSL_CTX_need_tmp_RSA(ssl_ctx))
 		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
 	SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
-#if !defined(OPENSSL_NO_ECDH)
+#ifdef HAVE_ECDH
 	/* In the non-recommended situation where ECDH cipher suites are being
 	   used instead of ECDHE, do not reuse the same ECDH key pair for
 	   different sessions. This option improves forward secrecy. */
 	SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
-#endif
-#if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10002000L
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
 	/* OpenSSL >= 1.0.2 automatically handles ECDH temporary key parameter
 	   selection. */
 	SSL_CTX_set_ecdh_auto(ssl_ctx, 1);
-#elif !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L
+#else
 	/* For OpenSSL < 1.0.2, ECDH temporary key parameter selection must be
 	   performed manually. Attempt to select the same curve as that used
 	   in the server's private EC key file. Otherwise fall back to the
@@ -1059,6 +1062,7 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 		SSL_CTX_set_tmp_ecdh(ssl_ctx, ecdh);
 		EC_KEY_free(ecdh);
 	}
+#endif
 #endif
 }
 
@@ -1145,7 +1149,7 @@ ssl_proxy_ctx_use_key(SSL_CTX *ctx,
 	EVP_PKEY_free(pkey);
 }
 
-#if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L && OPENSSL_VERSION_NUMBER < 0x10002000L
+#if defined(HAVE_ECDH) && OPENSSL_VERSION_NUMBER < 0x10002000L
 static int
 ssl_proxy_ctx_get_pkey_ec_curve_name(const struct master_service_ssl_settings *set)
 {
