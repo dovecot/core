@@ -910,7 +910,8 @@ static const char *client_get_added_headers(struct client *client)
 	}
 
 	str_printfa(str, "Received: from %s", client->lhlo);
-	if ((host = net_ip2addr(&client->remote_ip)) != NULL)
+	host = net_ip2addr(&client->remote_ip);
+	if (host[0] != '\0')
 		str_printfa(str, " ([%s])", host);
 	str_printfa(str, "\r\n\tby %s ("PACKAGE_NAME") with LMTP id %s",
 		    client->my_domain, client->state.session_id);
