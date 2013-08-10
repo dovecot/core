@@ -627,26 +627,6 @@ void http_client_request_redirect(struct http_client_request *req,
 		req->payload_offset = 0;
 	}
 
-	/* https://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-21
-	      Section-7.4.4
-	
-	   -> A 303 `See Other' redirect status response is handled a bit differently.
-	   Basically, the response content is located elsewhere, but the original
-	   (POST) request is handled already.
-	 */
-	if (status == 303 && strcasecmp(req->method, "HEAD") != 0 &&
-		strcasecmp(req->method, "GET") != 0) {
-		// FIXME: should we provide the means to skip this step? The original
-		// request was already handled at this point.
-		req->method = p_strdup(req->pool, "GET");
-
-		/* drop payload */
-		if (req->payload_input != NULL)
-			i_stream_unref(&req->payload_input);
-		req->payload_size = 0;
-		req->payload_offset = 0;
-	}
-
 	/* resubmit */
 	req->state = HTTP_REQUEST_STATE_NEW;
 	http_client_request_do_submit(req);
