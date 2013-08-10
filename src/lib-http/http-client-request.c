@@ -593,19 +593,6 @@ void http_client_request_redirect(struct http_client_request *req,
 		}
 	}
 
-	/* rewind payload stream */
-	if (req->payload_input != NULL && req->payload_size > 0 && status != 303) {
-		if (req->payload_input->v_offset != req->payload_offset &&
-			!req->payload_input->seekable) {
-			http_client_request_error(req,
-				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
-				"Redirect failed: Cannot resend payload; stream is not seekable");
-			return;
-		} else {
-			i_stream_seek(req->payload_input, req->payload_offset);
-		}
-	}
-
 	newport = (url->have_port ? url->port : (url->have_ssl ? 443 : 80));
 	target = http_url_create_target(url);
 
