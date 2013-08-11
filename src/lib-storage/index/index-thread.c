@@ -98,7 +98,8 @@ mail_strmap_rec_get_msgid(struct mail *mail,
 	if (msgid == NULL) {
 		/* shouldn't have happened */
 		mail_storage_set_critical(mail->box->storage,
-					  "Threading lost Message ID");
+			"Threading in %s UID %u lost Message ID %u",
+			mail->box->vname, mail->uid, rec->ref_index);
 		return -1;
 	}
 	*msgid_r = msgid;
