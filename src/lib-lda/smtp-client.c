@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "buffer.h"
+#include "array.h"
 #include "str.h"
 #include "safe-mkstemp.h"
 #include "execv-const.h"
@@ -55,27 +55,32 @@ smtp_client_run_sendmail(const struct lda_settings *set,
 			 const char *destination,
 			 const char *return_path, int fd)
 {
-	const char *argv[7], *sendmail_path;
+	const char *const *sendmail_args, *const *argv, *str;
+	ARRAY_TYPE(const_string) args;
+	unsigned int i;
 
-	/* deliver_set's contents may point to environment variables.
-	   deliver_env_clean() cleans them up, so they have to be copied. */
-	sendmail_path = t_strdup(set->sendmail_path);
+	sendmail_args = t_strsplit(set->sendmail_path, " ");
+	t_array_init(&args, 16);
+	for (i = 0; sendmail_args[i] != NULL; i++)
+		array_append(&args, &sendmail_args[i], 1);
 
-	argv[0] = sendmail_path;
-	argv[1] = "-i"; /* ignore dots */
-	argv[2] = "-f";
-	argv[3] = return_path != NULL && *return_path != '\0' ?
+	str = "-i"; array_append(&args, &str, 1); /* ignore dots */
+	str = "-f"; array_append(&args, &str, 1);
+	str = return_path != NULL && *return_path != '\0' ?
 		return_path : "<>";
-	argv[4] = "--";
-	argv[5] = destination;
-	argv[6] = NULL;
+	array_append(&args, &str, 1);
+
+	str = "--"; array_append(&args, &str, 1);
+	array_append(&args, &destination, 1);
+	array_append_zero(&args);
+	argv = array_idx(&args, 0);
 
 	if (dup2(fd, STDIN_FILENO) < 0)
 		i_fatal("dup2() failed: %m");
 
 	master_service_env_clean();
 
-	execv_const(sendmail_path, argv);
+	execv_const(argv[0], argv);
 }
 
 static struct smtp_client *
