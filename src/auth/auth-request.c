@@ -1915,6 +1915,9 @@ const struct var_expand_table auth_request_var_expand_static_tab[] = {
 	{ '\0', NULL, "real_rip" },
 	{ '\0', NULL, "real_lport" },
 	{ '\0', NULL, "real_rport" },
+	{ '\0', NULL, "domain_first" },
+	{ '\0', NULL, "domain_last" },
+	/* be sure to update AUTH_REQUEST_VAR_TAB_COUNT */
 	{ '\0', NULL, NULL }
 };
 
@@ -1991,6 +1994,14 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		tab[20].value = net_ip2addr(&auth_request->real_remote_ip);
 	tab[21].value = dec2str(auth_request->real_local_port);
 	tab[22].value = dec2str(auth_request->real_remote_port);
+	tab[23].value = strchr(auth_request->user, '@');
+	if (tab[23].value != NULL) {
+		tab[23].value = escape_func(t_strcut(tab[23].value+1, '@'),
+					    auth_request);
+	}
+	tab[24].value = strrchr(auth_request->user, '@');
+	if (tab[24].value != NULL)
+		tab[24].value = escape_func(tab[24].value+1, auth_request);
 	return ret_tab;
 }
 
