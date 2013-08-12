@@ -238,8 +238,7 @@ static void mail_index_strmap_view_reset(struct mail_index_strmap_view *view)
 	view->desynced = FALSE;
 }
 
-static void
-mail_index_strmap_view_set_corrupted(struct mail_index_strmap_view *view)
+void mail_index_strmap_view_set_corrupted(struct mail_index_strmap_view *view)
 {
 	mail_index_set_error(view->strmap->index,
 			     "Corrupted strmap index file: %s",
