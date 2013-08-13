@@ -222,7 +222,7 @@ static const char *
 address_add_detail(struct client *client, const char *username,
 		   const char *detail)
 {
-	const char *delim = client->set->recipient_delimiter;
+	const char *delim = client->unexpanded_lda_set->recipient_delimiter;
 	const char *domain;
 
 	domain = strchr(username, '@');
@@ -317,7 +317,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 		struct lmtp_proxy_settings proxy_set;
 
 		memset(&proxy_set, 0, sizeof(proxy_set));
-		proxy_set.my_hostname = client->set->hostname;
+		proxy_set.my_hostname = client->my_domain;
 		proxy_set.dns_client_socket_path = dns_client_socket_path;
 		proxy_set.session_id = client->state.session_id;
 		proxy_set.source_ip = client->remote_ip;
@@ -383,11 +383,11 @@ static void rcpt_address_parse(struct client *client, const char *address,
 	*username_r = address;
 	*detail_r = "";
 
-	if (*client->set->recipient_delimiter == '\0')
+	if (*client->unexpanded_lda_set->recipient_delimiter == '\0')
 		return;
 
 	domain = strchr(address, '@');
-	p = strstr(address, client->set->recipient_delimiter);
+	p = strstr(address, client->unexpanded_lda_set->recipient_delimiter);
 	if (p != NULL && (domain == NULL || p < domain)) {
 		/* user+detail@domain */
 		*username_r = t_strdup_until(*username_r, p);

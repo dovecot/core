@@ -175,7 +175,7 @@ static void client_read_settings(struct client *client)
 		mail_storage_service_get_var_expand_table(storage_service, &input));
 	client->service_set = master_service_settings_get(master_service);
 	client->lmtp_set = lmtp_set;
-	client->set = lda_set;
+	client->unexpanded_lda_set = lda_set;
 }
 
 static void client_generate_session_id(struct client *client)
@@ -241,7 +241,7 @@ struct client *client_create(int fd_in, int fd_out,
 	client_read_settings(client);
 	client_raw_user_create(client);
 	client_generate_session_id(client);
-	client->my_domain = client->set->hostname;
+	client->my_domain = client->unexpanded_lda_set->hostname;
 	client->lhlo = i_strdup("missing");
 	client->proxy_ttl = LMTP_PROXY_DEFAULT_TTL;
 

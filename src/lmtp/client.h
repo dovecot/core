@@ -41,7 +41,7 @@ struct client {
 	pool_t pool;
 
 	const struct setting_parser_info *user_set_info;
-	const struct lda_settings *set;
+	const struct lda_settings *unexpanded_lda_set;
 	const struct lmtp_settings *lmtp_set;
 	const struct master_service_settings *service_set;
 	int fd_in, fd_out;
