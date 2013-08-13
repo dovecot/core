@@ -144,7 +144,8 @@ extern unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 #define AUTH_REQUEST_VAR_TAB_USERNAME_IDX 1
 #define AUTH_REQUEST_VAR_TAB_DOMAIN_IDX 2
 #define AUTH_REQUEST_VAR_TAB_COUNT 25
-extern const struct var_expand_table auth_request_var_expand_static_tab[];
+extern const struct var_expand_table
+auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1];
 
 struct auth_request *
 auth_request_new(const struct mech_module *mech);

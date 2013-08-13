@@ -1891,7 +1891,8 @@ auth_request_str_escape(const char *string,
 	return str_escape(string);
 }
 
-const struct var_expand_table auth_request_var_expand_static_tab[] = {
+const struct var_expand_table
+auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1] = {
 	{ 'u', NULL, "user" },
 	{ 'n', NULL, "username" },
 	{ 'd', NULL, "domain" },
