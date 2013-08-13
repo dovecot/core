@@ -19,7 +19,7 @@ static bool lda_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define lda_setting_defines[] = {
 	DEF(SET_STR_VARS, postmaster_address),
-	DEF(SET_STR_VARS, hostname),
+	DEF(SET_STR, hostname),
 	DEF(SET_STR_VARS, submission_host),
 	DEF(SET_STR_VARS, sendmail_path),
 	DEF(SET_STR, rejection_subject),
