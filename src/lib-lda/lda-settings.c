@@ -77,14 +77,16 @@ static bool lda_settings_check(void *_set, pool_t pool, const char **error_r)
 
 	if (*set->hostname == '\0')
 		set->hostname = p_strdup(pool, my_hostdomain());
-	if (*set->postmaster_address == '\0') {
+	i_assert(set->postmaster_address[0] == SETTING_STRVAR_UNEXPANDED[0]);
+	if (set->postmaster_address[1] == '\0') {
 		/* check for valid looking fqdn in hostname */
 		if (strchr(set->hostname, '.') == NULL) {
 			*error_r = "postmaster_address setting not given";
 			return FALSE;
 		}
-		set->postmaster_address = p_strconcat(pool, "postmaster@",
-						      set->hostname, NULL);
+		set->postmaster_address =
+			p_strconcat(pool, SETTING_STRVAR_UNEXPANDED,
+				    "postmaster@", set->hostname, NULL);
 	}
 	return TRUE;
 }
