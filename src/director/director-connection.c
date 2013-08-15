@@ -1124,7 +1124,7 @@ director_connection_sync_host(struct director_connection *conn,
 			/* stale SYNC event */
 			return FALSE;
 		} else if (host->last_sync_seq != seq ||
-			   timestamp < host->last_sync_timestamp) {
+			   timestamp > host->last_sync_timestamp) {
 			host->last_sync_seq = seq;
 			host->last_sync_timestamp = timestamp;
 			host->last_sync_seq_counter = 1;
