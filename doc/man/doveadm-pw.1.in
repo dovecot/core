@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010-2012 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-PW 1 "2012-02-13" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2013 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-PW 1 "2013-08-17" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-pw \- Dovecot\(aqs password hash generator
 .\"------------------------------------------------------------------------
@@ -17,6 +17,7 @@ doveadm\-pw \- Dovecot\(aqs password hash generator
 .br
 .BR doveadm " [" \-Dv "] " "pw \-t"
 .I hash
+[\fB\-p\fP \fIpassword\fP]
 [\fB\-u\fP \fIuser\fP]
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
@@ -115,6 +116,11 @@ details about password schemes.
 Test if the given password
 .IR hash
 matches a given plain text password.
+The plain text password may be passed using the
+.BR \-p " option."
+When no password was specified,
+.BR doveadm (1)
+will prompt interactively for one.
 .\"-------------------------------------
 .TP
 .BI \-u\  user
