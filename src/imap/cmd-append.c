@@ -829,7 +829,9 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 		/* finished - do one more read, to make sure istream-chain
 		   unreferences its stream, which is needed for litinput's
 		   unreferencing to seek the client->input to correct
-		   position */
+		   position. the seek is needed to avoid trying to seek
+		   backwards in the ctx->input's parent stream. */
+		i_stream_seek(ctx->input, ctx->input->v_offset);
 		(void)i_stream_read(ctx->input);
 		i_stream_unref(&ctx->litinput);
 
