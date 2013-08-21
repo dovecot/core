@@ -80,6 +80,14 @@ void director_host_unref(struct director_host *host)
 	i_free(host);
 }
 
+void director_host_restarted(struct director_host *host)
+{
+	host->last_seq = 0;
+	host->last_sync_seq = 0;
+	host->last_sync_seq_counter = 0;
+	host->last_sync_timestamp = 0;
+}
+
 struct director_host *
 director_host_get(struct director *dir, const struct ip_addr *ip,
 		  unsigned int port)

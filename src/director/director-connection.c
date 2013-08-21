@@ -405,7 +405,7 @@ static bool director_cmd_me(struct director_connection *conn,
 	conn->host->removed = FALSE;
 	director_host_ref(conn->host);
 	/* make sure we don't keep old sequence values across restarts */
-	conn->host->last_seq = 0;
+	director_host_restarted(conn->host);
 
 	next_comm_attempt = conn->host->last_protocol_failure +
 		DIRECTOR_PROTOCOL_FAILURE_RETRY_SECS;
@@ -646,7 +646,7 @@ static bool director_cmd_director(struct director_connection *conn,
 		host->last_network_failure = 0;
 		if (host->last_seq != 0) {
 			/* it also may have been restarted, reset last_seq */
-			host->last_seq = 0;
+			director_host_restarted(host);
 			forward = TRUE;
 		}
 	} else {
@@ -1591,7 +1591,7 @@ director_connection_init_out(struct director *dir, int fd,
 	i_assert(!host->removed);
 
 	/* make sure we don't keep old sequence values across restarts */
-	host->last_seq = 0;
+	director_host_restarted(host);
 
 	conn = director_connection_init_common(dir, fd);
 	conn->name = i_strdup_printf("%s/out", host->name);

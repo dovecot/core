@@ -39,6 +39,8 @@ void director_host_free(struct director_host **host);
 void director_host_ref(struct director_host *host);
 void director_host_unref(struct director_host *host);
 
+void director_host_restarted(struct director_host *host);
+
 struct director_host *
 director_host_get(struct director *dir, const struct ip_addr *ip,
 		  unsigned int port);
