@@ -218,6 +218,11 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 			mail_index_view_get_messages_count(box->view);
 	}
 
+	if ((flags & MAILBOX_SYNC_FLAG_FAST) != 0) {
+		/* we most likely did a fast sync. refresh the index anyway in
+		   case there were some new changes. */
+		(void)mail_index_refresh(box->index);
+	}
 	ctx->sync_ctx = mail_index_view_sync_begin(box->view, sync_flags);
 	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) == 0) {
 		mail_index_view_sync_get_expunges(ctx->sync_ctx,
