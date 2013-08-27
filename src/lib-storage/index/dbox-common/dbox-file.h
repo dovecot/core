@@ -39,6 +39,8 @@ enum dbox_header_key {
 	DBOX_HEADER_OLDV1_APPEND_OFFSET	= 'A'
 };
 
+/* NOTE: all valid keys are uppercase characters. if this changes, change
+   dbox-file-fix.c:dbox_file_match_post_magic() to recognize them */
 enum dbox_metadata_key {
 	/* Globally unique identifier for the message. Preserved when
 	   copying. */
