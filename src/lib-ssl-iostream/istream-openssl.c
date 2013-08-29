@@ -101,9 +101,7 @@ static ssize_t i_stream_ssl_read(struct istream_private *stream)
 	ssize_t ret;
 
 	sstream->ssl_io->input_handler = TRUE;
-	if ((ret = i_stream_ssl_read_real(stream)) < 0)
-		ret = -1;
-	else {
+	if ((ret = i_stream_ssl_read_real(stream)) >= 0) {
 		i_assert(i_stream_get_data_size(sstream->ssl_io->plain_input) == 0);
 	}
 	sstream->ssl_io->input_handler = FALSE;
