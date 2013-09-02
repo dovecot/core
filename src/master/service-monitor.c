@@ -360,7 +360,9 @@ static void service_monitor_start_extra_avail(struct service *service)
 			return;
 	}
 	if (service->to_prefork == NULL) {
-		service->prefork_counter = service->list->fork_counter;
+		/* ioloop handles timeouts before fds (= SIGCHLD callback),
+		   so let the first timeout handler call simply update the fork
+		   counter and the second one check if we're busy or not. */
 		service->to_prefork =
 			timeout_add_short(0, service_monitor_prefork_timeout, service);
 	}
