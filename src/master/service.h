@@ -100,6 +100,10 @@ struct service {
 	   start dropping pending connections */
 	struct timeout *to_drop;
 
+	/* prefork processes up to process_min_avail if there's time */
+	struct timeout *to_prefork;
+	unsigned int prefork_counter;
+
 	/* Last time a "dropping client connections" warning was logged */
 	time_t last_drop_warning;
 
@@ -120,6 +124,7 @@ struct service_list {
 	pool_t set_pool;
 	int refcount;
 	struct timeout *to_kill;
+	unsigned int fork_counter;
 
 	const struct master_settings *set;
 	const struct master_service_settings *service_set;

@@ -295,6 +295,7 @@ struct service_process *service_process_create(struct service *service)
 	} else {
 		pid = fork();
 		process_forked = TRUE;
+		service->list->fork_counter++;
 	}
 
 	if (pid < 0) {

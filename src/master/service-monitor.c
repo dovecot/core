@@ -24,6 +24,7 @@
 #define SERVICE_DROP_TIMEOUT_MSECS (10*1000)
 #define MAX_DIE_WAIT_SECS 5
 #define SERVICE_MAX_EXIT_FAILURES_IN_SEC 10
+#define SERVICE_PREFORK_MAX_AT_ONCE 10
 
 static void service_monitor_start_extra_avail(struct service *service);
 static void service_status_more(struct service_process *process,
@@ -81,7 +82,7 @@ static void service_status_more(struct service_process *process,
 	    service->process_count == service->process_limit)
 		service_login_notify(service, TRUE);
 
-	/* we may need to start more  */
+	/* we may need to start more */
 	service_monitor_start_extra_avail(service);
 	service_monitor_listen_start(service);
 }
@@ -302,17 +303,18 @@ static void service_accept(struct service_listener *l)
 		service_monitor_listen_stop(service);
 }
 
-static void service_monitor_start_extra_avail(struct service *service)
+static bool
+service_monitor_start_count(struct service *service, unsigned int limit)
 {
 	unsigned int i, count;
 
-	if (service->process_avail >= service->set->process_min_avail ||
-	    service->list->destroying)
-		return;
+	i_assert(service->set->process_min_avail >= service->process_avail);
 
 	count = service->set->process_min_avail - service->process_avail;
 	if (service->process_count + count > service->process_limit)
 		count = service->process_limit - service->process_count;
+	if (count > limit)
+		count = limit;
 
 	for (i = 0; i < count; i++) {
 		if (service_process_create(service) == NULL) {
@@ -323,6 +325,44 @@ static void service_monitor_start_extra_avail(struct service *service)
 	if (i > 0) {
 		/* we created some processes, they'll do the listening now */
 		service_monitor_listen_stop(service);
+	}
+	return i == count;
+}
+
+static void service_monitor_prefork_timeout(struct service *service)
+{
+	/* don't prefork more processes if other more important processes had
+	   been forked while we were waiting for this timeout (= master seems
+	   busy) */
+	if (service->list->fork_counter != service->prefork_counter) {
+		service->prefork_counter = service->list->fork_counter;
+		return;
+	}
+	if (service->process_avail < service->set->process_min_avail) {
+		if (service_monitor_start_count(service, SERVICE_PREFORK_MAX_AT_ONCE) &&
+		    service->process_avail < service->set->process_min_avail)
+			return;
+	}
+	timeout_remove(&service->to_prefork);
+}
+
+static void service_monitor_start_extra_avail(struct service *service)
+{
+	if (service->process_avail >= service->set->process_min_avail ||
+	    service->list->destroying)
+		return;
+
+	if (service->process_avail == 0) {
+		/* quickly start one process now */
+		if (!service_monitor_start_count(service, 1))
+			return;
+		if (service->process_avail >= service->set->process_min_avail)
+			return;
+	}
+	if (service->to_prefork == NULL) {
+		service->prefork_counter = service->list->fork_counter;
+		service->to_prefork =
+			timeout_add_short(0, service_monitor_prefork_timeout, service);
 	}
 }
 
@@ -491,6 +531,8 @@ void service_monitor_stop(struct service *service)
 
 	if (service->to_throttle != NULL)
 		timeout_remove(&service->to_throttle);
+	if (service->to_prefork != NULL)
+		timeout_remove(&service->to_prefork);
 }
 
 static void services_monitor_wait(struct service_list *service_list)
@@ -610,6 +652,8 @@ void services_monitor_reap_children(void)
 		service_stopped = service->status_fd[0] == -1;
 		if (!service_stopped) {
 			service_monitor_start_extra_avail(service);
+			/* if there are no longer listening processes,
+			   start listening for more */
 			if (service->to_throttle == NULL)
 				service_monitor_listen_start(service);
 		}
