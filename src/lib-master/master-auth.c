@@ -186,7 +186,9 @@ void master_auth_request(struct master_auth *auth, int fd,
 	conn->fd = net_connect_unix_with_retries(auth->path,
 						 SOCKET_CONNECT_RETRY_MSECS);
 	if (conn->fd == -1) {
-		i_error("net_connect_unix(%s) failed: %m", auth->path);
+		i_error("net_connect_unix(%s) failed: %m%s",
+			auth->path, errno != EAGAIN ? "" :
+			" - http://wiki2.dovecot.org/SocketUnavailable");
 		master_auth_connection_deinit(&conn);
 		return;
 	}

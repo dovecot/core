@@ -307,8 +307,9 @@ static int master_login_postlogin(struct master_login_client *client,
 
 	fd = net_connect_unix_with_retries(login->postlogin_socket_path, 1000);
 	if (fd == -1) {
-		i_error("net_connect_unix(%s) failed: %m",
-			login->postlogin_socket_path);
+		i_error("net_connect_unix(%s) failed: %m%s",
+			login->postlogin_socket_path, errno != EAGAIN ? "" :
+			" - http://wiki2.dovecot.org/SocketUnavailable");
 		return -1;
 	}
 
