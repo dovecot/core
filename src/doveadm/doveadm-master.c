@@ -23,7 +23,7 @@ static bool pid_file_read(const char *path, pid_t *pid_r)
 		i_fatal("open(%s) failed: %m", path);
 	}
 
-	ret = read(fd, buf, sizeof(buf));
+	ret = read(fd, buf, sizeof(buf)-1);
 	if (ret <= 0) {
 		if (ret == 0)
 			i_error("Empty PID file in %s", path);

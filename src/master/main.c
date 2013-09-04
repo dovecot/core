@@ -201,7 +201,7 @@ static void fatal_log_check(const struct master_settings *set)
 	if (fd == -1)
 		return;
 
-	ret = read(fd, buf, sizeof(buf));
+	ret = read(fd, buf, sizeof(buf)-1);
 	if (ret < 0)
 		i_error("read(%s) failed: %m", path);
 	else {
@@ -231,7 +231,7 @@ static bool pid_file_read(const char *path, pid_t *pid_r)
 		i_fatal("open(%s) failed: %m", path);
 	}
 
-	ret = read(fd, buf, sizeof(buf));
+	ret = read(fd, buf, sizeof(buf)-1);
 	if (ret <= 0) {
 		if (ret == 0)
 			i_error("Empty PID file in %s, overriding", path);
