@@ -322,7 +322,7 @@ sync_modseq_update(struct mail_index_sync_map_ctx *ctx,
 		else if (!mail_index_lookup_seq(view, u->uid, &seq))
 			continue;
 
-		min_modseq = ((uint64_t)u->modseq_high32 >> 32) |
+		min_modseq = ((uint64_t)u->modseq_high32 << 32) |
 			u->modseq_low32;
 		if (highest_modseq < min_modseq)
 			highest_modseq = min_modseq;

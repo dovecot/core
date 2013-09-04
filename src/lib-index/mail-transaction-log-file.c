@@ -1031,7 +1031,7 @@ void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 
 		end = CONST_PTR_OFFSET(data, trans_size - sizeof(*hdr));
 		for (rec = data; rec < end; rec++) {
-			uint64_t modseq = ((uint64_t)rec->modseq_high32 >> 32) |
+			uint64_t modseq = ((uint64_t)rec->modseq_high32 << 32) |
 				rec->modseq_low32;
 			if (*cur_modseq < modseq)
 				*cur_modseq = modseq;
