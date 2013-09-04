@@ -290,6 +290,7 @@ mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 		if (access(fname, R_OK) < 0) {
 			mail_storage_set_critical(&mbox->storage->storage,
 				"access(%s) failed: %m", box_path);
+			i_close_fd(&orig_dir_fd);
 			return -1;
 		}
 	}

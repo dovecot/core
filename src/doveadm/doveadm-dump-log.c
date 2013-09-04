@@ -524,6 +524,7 @@ static void cmd_dump_log(int argc ATTR_UNUSED, char *argv[])
 			ret = dump_record(fd, &modseq);
 		} T_END;
 	} while (ret > 0);
+	i_close_fd(&fd);
 }
 
 static bool test_dump_log(const char *path)

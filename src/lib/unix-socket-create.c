@@ -27,6 +27,7 @@ int unix_socket_create(const char *path, int mode,
 		if (chown(path, uid, gid) < 0) {
 			i_error("chown(%s, %s, %s) failed: %m",
 				path, dec2str(uid), dec2str(gid));
+			i_close_fd(&fd);
 			return -1;
 		}
 	}

@@ -1556,6 +1556,7 @@ int squat_trie_create_fd(struct squat_trie *trie, const char *path, int flags)
 		if (fchown(fd, (uid_t)-1, trie->create_gid) < 0) {
 			i_error("fchown(%s, -1, %ld) failed: %m",
 				path, (long)trie->create_gid);
+			i_close_fd(&fd);
 			return -1;
 		}
 	}

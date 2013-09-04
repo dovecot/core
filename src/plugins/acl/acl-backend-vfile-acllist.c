@@ -139,6 +139,7 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 			i_error("Broken acllist file: %s", path);
 			if (unlink(path) < 0 && errno != ENOENT)
 				i_error("unlink(%s) failed: %m", path);
+			i_close_fd(&fd);
 			return -1;
 		}
 		acllist.name = p_strdup(backend->acllist_pool, p + 1);

@@ -73,6 +73,7 @@ static void cmd_dump_mailboxlog(int argc ATTR_UNUSED, char *argv[])
 			ret = dump_record(fd);
 		} T_END;
 	} while (ret > 0);
+	i_close_fd(&fd);
 }
 
 static bool test_dump_mailboxlog(const char *path)

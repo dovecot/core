@@ -221,8 +221,10 @@ uint32_t mailbox_uidvalidity_next(struct mailbox_list *list, const char *path)
 	}
 
 	/* we now have the current uidvalidity value that's hopefully correct */
-	if (mailbox_uidvalidity_rename(path, &cur_value, FALSE) < 0)
+	if (mailbox_uidvalidity_rename(path, &cur_value, FALSE) < 0) {
+		i_close_fd(&fd);
 		return mailbox_uidvalidity_next_rescan(list, path);
+	}
 
 	/* fast path succeeded. write the current value to the main
 	   uidvalidity file. */

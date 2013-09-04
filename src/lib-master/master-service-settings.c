@@ -388,8 +388,8 @@ int master_service_settings_read(struct master_service *service,
 			if (config_send_request(service, input, fd,
 						path, error_r) == 0)
 				break;
+			i_close_fd(&fd);
 			if (!retry) {
-				i_close_fd(&fd);
 				config_exec_fallback(service, input);
 				return -1;
 			}
