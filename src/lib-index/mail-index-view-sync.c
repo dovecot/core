@@ -273,7 +273,7 @@ static bool view_sync_lost_keywords_equal(struct mail_index_view_sync_ctx *ctx)
 
 	qsort(old_idx, old_count, sizeof(*old_idx), uint_cmp);
 	qsort(new_idx, new_count, sizeof(*new_idx), uint_cmp);
-	return memcmp(old_idx, new_idx, old_count * sizeof(old_idx)) == 0;
+	return memcmp(old_idx, new_idx, old_count * sizeof(*old_idx)) == 0;
 }
 
 static int view_sync_update_keywords(struct mail_index_view_sync_ctx *ctx,
