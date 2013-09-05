@@ -1854,7 +1854,8 @@ void imapc_command_sendvf(struct imapc_command *cmd,
 			/* %1s - no quoting */
 			const char *arg = va_arg(args, const char *);
 
-			i_assert(cmd_fmt[++i] == 's');
+			i++;
+			i_assert(cmd_fmt[i] == 's');
 			str_append(cmd->data, arg);
 			break;
 		}
