@@ -282,8 +282,10 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	mailbox_name = str_sanitize(mailbox, 80);
 	if (mail_deliver_save_open(&open_ctx, mailbox, &box,
 				   &error, &errstr) < 0) {
-		if (box != NULL)
+		if (box != NULL) {
+			*storage_r = mailbox_get_storage(box);
 			mailbox_free(&box);
+		}
 		mail_deliver_log(ctx, "save failed to open mailbox %s: %s",
 				 mailbox_name, errstr);
 		return -1;
