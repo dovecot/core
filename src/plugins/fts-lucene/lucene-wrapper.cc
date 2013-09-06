@@ -110,11 +110,11 @@ struct lucene_index *lucene_index_init(const char *path,
 	index = i_new(struct lucene_index, 1);
 	index->path = i_strdup(path);
 	index->list = list;
-	index->normalizer = !set->normalize ? NULL :
-		mailbox_list_get_namespace(list)->user->default_normalizer;
-	if (set != NULL)
+	if (set != NULL) {
 		index->set = *set;
-	else {
+		index->normalizer = !set->normalize ? NULL :
+			mailbox_list_get_namespace(list)->user->default_normalizer;
+	} else {
 		/* this is valid only for doveadm dump, so it doesn't matter */
 		index->set.default_language = "";
 	}
