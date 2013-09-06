@@ -60,7 +60,7 @@ auth_request_new(const struct mech_module *mech)
 
 	request->set = global_auth_settings;
 	request->mech = mech;
-	request->mech_name = mech == NULL ? NULL : mech->mech_name;
+	request->mech_name = mech->mech_name;
 	request->extra_fields = auth_fields_init(request->pool);
 	return request;
 }
