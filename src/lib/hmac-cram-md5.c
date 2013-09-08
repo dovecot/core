@@ -9,9 +9,10 @@
 #include "md5.h"
 #include "hmac-cram-md5.h"
 
-void hmac_md5_get_cram_context(struct hmac_context *hmac_ctx,
+void hmac_md5_get_cram_context(struct hmac_context *_hmac_ctx,
 			unsigned char context_digest[CRAM_MD5_CONTEXTLEN])
 {
+	struct hmac_context_priv *hmac_ctx = &_hmac_ctx->u.priv;
 	unsigned char *cdp;
 
 	struct md5_context *ctx = (void*)hmac_ctx->ctx;
@@ -34,9 +35,10 @@ void hmac_md5_get_cram_context(struct hmac_context *hmac_ctx,
 	CDPUT(cdp, ctx->d);
 }
 
-void hmac_md5_set_cram_context(struct hmac_context *hmac_ctx,
+void hmac_md5_set_cram_context(struct hmac_context *_hmac_ctx,
 			const unsigned char context_digest[CRAM_MD5_CONTEXTLEN])
 {
+	struct hmac_context_priv *hmac_ctx = &_hmac_ctx->u.priv;
 	const unsigned char *cdp;
 
 	struct md5_context *ctx = (void*)hmac_ctx->ctx;

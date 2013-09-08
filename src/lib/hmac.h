@@ -6,10 +6,17 @@
 
 #define HMAC_MAX_CONTEXT_SIZE 256
 
-struct hmac_context {
+struct hmac_context_priv {
 	char ctx[HMAC_MAX_CONTEXT_SIZE];
 	char ctxo[HMAC_MAX_CONTEXT_SIZE];
 	const struct hash_method *hash;
+};
+
+struct hmac_context {
+	union {
+		struct hmac_context_priv priv;
+		uint64_t padding_requirement;
+	} u;
 };
 
 void hmac_init(struct hmac_context *ctx, const unsigned char *key,
@@ -18,8 +25,10 @@ void hmac_final(struct hmac_context *ctx, unsigned char *digest);
 
 
 static inline void
-hmac_update(struct hmac_context *ctx, const void *data, size_t size)
+hmac_update(struct hmac_context *_ctx, const void *data, size_t size)
 {
+	struct hmac_context_priv *ctx = &_ctx->u.priv;
+
 	ctx->hash->loop(ctx->ctx, data, size);
 }
 

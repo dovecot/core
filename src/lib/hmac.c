@@ -11,9 +11,10 @@
 #include "hmac.h"
 #include "safe-memset.h"
 
-void hmac_init(struct hmac_context *ctx, const unsigned char *key,
+void hmac_init(struct hmac_context *_ctx, const unsigned char *key,
 		size_t key_len, const struct hash_method *meth)
 {
+	struct hmac_context_priv *ctx = &_ctx->u.priv;
 	int i;
 	unsigned char k_ipad[64];
 	unsigned char k_opad[64];
@@ -49,8 +50,10 @@ void hmac_init(struct hmac_context *ctx, const unsigned char *key,
 	safe_memset(k_opad, 0, 64);
 }
 
-void hmac_final(struct hmac_context *ctx, unsigned char *digest)
+void hmac_final(struct hmac_context *_ctx, unsigned char *digest)
 {
+	struct hmac_context_priv *ctx = &_ctx->u.priv;
+
 	ctx->hash->result(ctx->ctx, digest);
 
 	ctx->hash->loop(ctx->ctxo, digest, ctx->hash->digest_size);
