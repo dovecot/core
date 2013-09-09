@@ -4,6 +4,7 @@
 #include "array.h"
 #include "module-dir.h"
 #include "str.h"
+#include "hash-method.h"
 #include "istream.h"
 #include "istream-seekable.h"
 #include "ostream.h"
@@ -199,6 +200,7 @@ void fs_file_close(struct fs_file *file)
 		i_stream_unref(&file->copy_input);
 		(void)fs_write_stream_abort(file, &file->copy_output);
 	}
+	i_free_and_null(file->write_digest);
 	if (file->fs->v.file_close != NULL) T_BEGIN {
 		file->fs->v.file_close(file);
 	} T_END;
@@ -249,6 +251,11 @@ const char *fs_file_path(struct fs_file *file)
 {
 	return file->fs->v.get_path == NULL ? file->path :
 		file->fs->v.get_path(file);
+}
+
+struct fs *fs_file_fs(struct fs_file *file)
+{
+	return file->fs;
 }
 
 static void ATTR_FORMAT(2, 0)
@@ -473,6 +480,16 @@ void fs_write_stream_abort(struct fs_file *file, struct ostream **output)
 	T_BEGIN {
 		(void)file->fs->v.write_stream_finish(file, FALSE);
 	} T_END;
+}
+
+void fs_write_set_hash(struct fs_file *file, const struct hash_method *method,
+		       const void *digest)
+{
+	file->write_digest_method = method;
+
+	i_free(file->write_digest);
+	file->write_digest = i_malloc(method->digest_size);
+	memcpy(file->write_digest, digest, method->digest_size);
 }
 
 void fs_file_set_async_callback(struct fs_file *file,

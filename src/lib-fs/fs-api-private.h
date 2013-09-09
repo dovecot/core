@@ -75,6 +75,9 @@ struct fs_file {
 	struct istream *pending_read_input;
 	bool write_pending;
 
+	const struct hash_method *write_digest_method;
+	void *write_digest;
+
 	pool_t metadata_pool;
 	ARRAY_TYPE(fs_metadata) metadata;
 

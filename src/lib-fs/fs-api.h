@@ -5,6 +5,7 @@ struct stat;
 struct fs;
 struct fs_file;
 struct fs_lock;
+struct hash_method;
 
 enum fs_properties {
 	FS_PROPERTY_METADATA	= 0x01,
@@ -19,7 +20,9 @@ enum fs_properties {
 	FS_PROPERTY_RELIABLEITER= 0x40,
 	/* Backend uses directories, which aren't automatically deleted
 	   when its children are deleted. */
-	FS_PROPERTY_DIRECTORIES	= 0x80
+	FS_PROPERTY_DIRECTORIES	= 0x80,
+	FS_PROPERTY_WRITE_HASH_MD5	= 0x100,
+	FS_PROPERTY_WRITE_HASH_SHA256	= 0x200
 };
 
 enum fs_open_mode {
@@ -115,6 +118,8 @@ int fs_get_metadata(struct fs_file *file,
    FS_OPEN_MODE_CREATE_UNIQUE_128 and the write has already finished,
    return the path including the generated filename. */
 const char *fs_file_path(struct fs_file *file);
+/* Returns the file's fs. */
+struct fs *fs_file_fs(struct fs_file *file);
 
 /* Return the error message for the last failed operation. */
 const char *fs_last_error(struct fs *fs);
@@ -150,6 +155,12 @@ int fs_write_stream_finish(struct fs_file *file, struct ostream **output);
 int fs_write_stream_finish_async(struct fs_file *file);
 /* Abort writing via stream. Anything written to the stream is discarded. */
 void fs_write_stream_abort(struct fs_file *file, struct ostream **output);
+
+/* Set a hash to the following write. The storage can then verify that the
+   input data matches the specified hash, or fail if it doesn't. Typically
+   implemented by Content-MD5 header. */
+void fs_write_set_hash(struct fs_file *file, const struct hash_method *method,
+		       const void *digest);
 
 /* Call the specified callback whenever the file can be read/written to.
    May call the callback immediately. */
