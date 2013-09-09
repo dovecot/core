@@ -1,6 +1,8 @@
 #ifndef OSTREAM_HASH_H
 #define OSTREAM_HASH_H
 
+struct hash_method;
+
 /* hash_context must be allocated and initialized by caller. This ostream will
    simply call method->loop() for all the data going through the ostream. */
 struct ostream *
