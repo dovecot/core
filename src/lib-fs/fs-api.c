@@ -670,6 +670,19 @@ const char *fs_iter_next(struct fs_iter *iter)
 	return iter->fs->v.iter_next(iter);
 }
 
+void fs_iter_set_async_callback(struct fs_iter *iter,
+				fs_file_async_callback_t *callback,
+				void *context)
+{
+	iter->async_callback = callback;
+	iter->async_context = context;
+}
+
+bool fs_iter_have_more(struct fs_iter *iter)
+{
+	return iter->async_have_more;
+}
+
 void fs_set_error(struct fs *fs, const char *fmt, ...)
 {
 	va_list args;

@@ -59,7 +59,9 @@ enum fs_open_flags {
 
 enum fs_iter_flags {
 	/* Iterate only directories, not files */
-	FS_ITER_FLAG_DIRS	= 0x01
+	FS_ITER_FLAG_DIRS	= 0x01,
+	/* Request asynchronous iteration. */
+	FS_ITER_FLAG_ASYNC	= 0x02
 };
 
 struct fs_settings {
@@ -205,5 +207,14 @@ fs_iter_init(struct fs *fs, const char *path, enum fs_iter_flags flags);
 int fs_iter_deinit(struct fs_iter **iter);
 /* Returns the next filename. */
 const char *fs_iter_next(struct fs_iter *iter);
+
+/* For asynchronous iterations: Specify the callback that is called whenever
+   there's more data available for reading. */
+void fs_iter_set_async_callback(struct fs_iter *iter,
+				fs_file_async_callback_t *callback,
+				void *context);
+/* For asynchronous iterations: If fs_iter_next() returns NULL, use this
+   function to determine if you should wait for more data or finish up. */
+bool fs_iter_have_more(struct fs_iter *iter);
 
 #endif

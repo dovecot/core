@@ -93,6 +93,10 @@ struct fs_lock {
 struct fs_iter {
 	struct fs *fs;
 	enum fs_iter_flags flags;
+
+	bool async_have_more;
+	fs_file_async_callback_t *async_callback;
+	void *async_context;
 };
 
 extern const struct fs fs_class_posix;
