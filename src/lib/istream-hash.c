@@ -10,6 +10,7 @@ struct hash_istream {
 
 	const struct hash_method *method;
 	void *hash_context;
+	uoff_t high_offset;
 };
 
 static ssize_t
@@ -18,6 +19,7 @@ i_stream_hash_read(struct istream_private *stream)
 	struct hash_istream *hstream = (struct hash_istream *)stream;
 	const unsigned char *data;
 	size_t size;
+	uoff_t skip;
 	ssize_t ret;
 
 	i_stream_seek(stream->parent, stream->parent_start_offset +
@@ -27,8 +29,14 @@ i_stream_hash_read(struct istream_private *stream)
 	if (ret > 0 && hstream->hash_context != NULL) {
 		data = i_stream_get_data(&stream->istream, &size);
 		i_assert((size_t)ret <= size);
-		hstream->method->loop(hstream->hash_context,
-				      data+(size-ret), ret);
+
+		i_assert(stream->istream.v_offset <= hstream->high_offset);
+		skip = hstream->high_offset - stream->istream.v_offset;
+		if (skip < (size_t)size) {
+			hstream->high_offset += (size-skip);
+			hstream->method->loop(hstream->hash_context,
+					      data+skip, size-skip);
+		}
 	} else if (ret < 0) {
 		/* we finished hashing it. don't access it anymore, because
 		   the memory pointed by the hash may be freed before the
