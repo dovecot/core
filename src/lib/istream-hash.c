@@ -38,6 +38,20 @@ i_stream_hash_read(struct istream_private *stream)
 	return ret;
 }
 
+static void
+i_stream_hash_seek(struct istream_private *stream,
+		   uoff_t v_offset, bool mark ATTR_UNUSED)
+{
+	struct hash_istream *hstream = (struct hash_istream *)stream;
+
+	if (hstream->hash_context != NULL) {
+		/* we support seeking only after the hash is finished */
+		stream->istream.stream_errno = ESPIPE;
+	}
+	stream->istream.v_offset = v_offset;
+	stream->skip = stream->pos = 0;
+}
+
 struct istream *
 i_stream_create_hash(struct istream *input, const struct hash_method *method,
 		     void *hash_context)
@@ -49,9 +63,10 @@ i_stream_create_hash(struct istream *input, const struct hash_method *method,
 	hstream->istream.stream_size_passthrough = TRUE;
 
 	hstream->istream.read = i_stream_hash_read;
+	hstream->istream.seek = i_stream_hash_seek;
 
 	hstream->istream.istream.blocking = input->blocking;
-	hstream->istream.istream.seekable = FALSE;
+	hstream->istream.istream.seekable = input->seekable;
 
 	hstream->method = method;
 	hstream->hash_context = hash_context;
