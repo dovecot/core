@@ -634,7 +634,8 @@ void i_stream_default_seek_nonseekable(struct istream_private *stream,
 	size_t available;
 
 	if (stream->istream.v_offset > v_offset)
-		i_panic("stream doesn't support seeking backwards");
+		i_panic("stream %s doesn't support seeking backwards",
+			i_stream_get_name(&stream->istream));
 
 	while (stream->istream.v_offset < v_offset) {
 		(void)i_stream_read(&stream->istream);
