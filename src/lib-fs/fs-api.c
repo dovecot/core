@@ -536,8 +536,16 @@ void fs_unlock(struct fs_lock **_lock)
 
 int fs_exists(struct fs_file *file)
 {
+	struct stat st;
 	int ret;
 
+	if (file->fs->v.exists == NULL) {
+		/* fallback to stat() */
+		if (fs_stat(file, &st) == 0)
+			return 1;
+		else
+			return errno == ENOENT ? 0 : -1;
+	}
 	T_BEGIN {
 		ret = file->fs->v.exists(file);
 	} T_END;
