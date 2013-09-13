@@ -36,7 +36,8 @@ struct connection_vfuncs {
 	void (*client_connected)(struct connection *conn, bool success);
 
 	/* implement one of the input*() methods.
-	   They return 0 = ok, -1 = error, disconnect the client */
+	   They return 1 = ok, continue. 0 = ok, but stop processing more
+	   lines, -1 = error, disconnect the client. */
 	void (*input)(struct connection *conn);
 	int (*input_line)(struct connection *conn, const char *line);
 	int (*input_args)(struct connection *conn, const char *const *args);
