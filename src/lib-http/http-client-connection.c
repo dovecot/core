@@ -167,8 +167,7 @@ http_client_connection_idle_timeout(struct http_client_connection *conn)
 	http_client_connection_unref(&conn);
 }
 
-static void
-http_client_connection_check_idle(struct http_client_connection *conn)
+void http_client_connection_check_idle(struct http_client_connection *conn)
 {
 	unsigned int timeout, count;
 
@@ -254,7 +253,7 @@ http_client_connection_continue_timeout(struct http_client_connection *conn)
 	}
 }
 
-bool http_client_connection_next_request(struct http_client_connection *conn)
+int http_client_connection_next_request(struct http_client_connection *conn)
 {
 	struct http_client_request *req = NULL;
 	const char *error;
@@ -262,17 +261,15 @@ bool http_client_connection_next_request(struct http_client_connection *conn)
 
 	if (!http_client_connection_is_ready(conn)) {
 		http_client_connection_debug(conn, "Not ready for next request");
-		return FALSE;
+		return 0;
 	}
 
 	/* claim request, but no urgent request can be second in line */
 	have_pending_requests = array_count(&conn->request_wait_list) > 0 ||
 		conn->pending_request != NULL;
 	req = http_client_peer_claim_request(conn->peer, have_pending_requests);
-	if (req == NULL) {
-		http_client_connection_check_idle(conn);
-		return FALSE;	
-	}
+	if (req == NULL)
+		return 0;	
 
 	if (conn->to_idle != NULL)
 		timeout_remove(&conn->to_idle);
@@ -300,7 +297,7 @@ bool http_client_connection_next_request(struct http_client_connection *conn)
 		http_client_connection_abort_temp_error(&conn,
 			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
 			t_strdup_printf("Failed to send request: %s", error));
-		return FALSE;
+		return -1;
 	}
 
 	/* https://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-21;
@@ -321,7 +318,7 @@ bool http_client_connection_next_request(struct http_client_connection *conn)
 			http_client_connection_continue_timeout, conn);
 	}
 
-	return TRUE;
+	return 1;
 }
 
 static void http_client_connection_destroy(struct connection *_conn)
@@ -595,7 +592,7 @@ static void http_client_connection_input(struct connection *_conn)
 				conn->output_locked = FALSE;
 				conn->peer->no_payload_sync = TRUE;
 				http_client_request_retry(req, response->status, response->reason);
-				return;
+	
 			} else if (response->status / 100 == 3 && response->status != 304 &&
 				response->location != NULL) {
 				/* redirect */
@@ -648,9 +645,13 @@ static void http_client_connection_input(struct connection *_conn)
 	}
 
 	if (finished > 0) {
+		/* connection still alive after (at least one) request;
+		   we can pipeline -> mark for subsequent connections */
+		conn->peer->allows_pipelining = TRUE;
+
 		/* room for new requests */
-		http_client_peer_handle_requests(conn->peer);
-		http_client_connection_check_idle(conn);
+		if (http_client_connection_is_ready(conn))
+			http_client_peer_trigger_request_handler(conn->peer);
 	}
 }
 
@@ -688,8 +689,8 @@ static int http_client_connection_output(struct http_client_connection *conn)
 			}
 			if (!conn->output_locked) {
 				/* room for new requests */
-				http_client_peer_handle_requests(conn->peer);
-				http_client_connection_check_idle(conn);
+				if (http_client_connection_is_ready(conn))
+					http_client_peer_trigger_request_handler(conn->peer);
 			}
 		}
 	}
@@ -701,27 +702,28 @@ http_client_connection_ready(struct http_client_connection *conn)
 {
 	struct stat st;
 
+	/* connected */
 	conn->connected = TRUE;
-	conn->connect_succeeded = TRUE;
 	if (conn->to_connect != NULL &&
 	    (conn->ssl_iostream == NULL ||
 	     ssl_iostream_is_handshaked(conn->ssl_iostream)))
 		timeout_remove(&conn->to_connect);
 
+	/* indicate connection success */
+	conn->connect_succeeded = TRUE;
 	http_client_peer_connection_success(conn->peer);
 
+	/* start raw log */
 	if (conn->client->set.rawlog_dir != NULL &&
 		stat(conn->client->set.rawlog_dir, &st) == 0) {
 		iostream_rawlog_create(conn->client->set.rawlog_dir,
 				       &conn->conn.input, &conn->conn.output);
 	}
 
+	/* start protocol I/O */
 	conn->http_parser = http_response_parser_init(conn->conn.input);
 	o_stream_set_flush_callback(conn->conn.output,
     http_client_connection_output, conn);
-
-	/* we never pipeline before the first response */
-	(void)http_client_connection_next_request(conn);
 }
 
 static int
@@ -872,23 +874,24 @@ http_client_connection_create(struct http_client_peer *peer)
 {
 	struct http_client_connection *conn;
 	static unsigned int id = 0;
+	const struct http_client_peer_addr *addr = &peer->addr;
 
 	conn = i_new(struct http_client_connection, 1);
 	conn->refcount = 1;
 	conn->client = peer->client;
+	conn->id = id++;
 	conn->peer = peer;
 	i_array_init(&conn->request_wait_list, 16);
 
 	connection_init_client_ip
-		(peer->client->conn_list, &conn->conn, &peer->addr.ip, peer->addr.port);
+		(peer->client->conn_list, &conn->conn, &addr->ip, addr->port);
 	http_client_connection_connect(conn);
 
-	conn->id = id++;
 	array_append(&peer->conns, &conn, 1);
 
 	http_client_connection_debug(conn,
-		"Connection created (%d parallel connections exist)",
-		array_count(&peer->conns));
+		"Connection created (%d parallel connections exist)%s",
+		array_count(&peer->conns), (conn->to_input == NULL ? "" : " [broken]"));
 	return conn;
 }
 

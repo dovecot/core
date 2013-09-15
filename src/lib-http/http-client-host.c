@@ -46,13 +46,13 @@ http_client_host_port_connection_setup(struct http_client_host_port *hport);
 
 static struct http_client_host_port *
 http_client_host_port_find(struct http_client_host *host,
-	unsigned int port, const char *https_name)
+	in_port_t port, const char *https_name)
 {
 	struct http_client_host_port *hport;
 
 	array_foreach_modifiable(&host->ports, hport) {
-		if (hport->port == port &&
-		    null_strcmp(hport->https_name, https_name) == 0)
+		if (hport->addr.port == port &&
+		    null_strcmp(hport->addr.https_name, https_name) == 0)
 			return hport;
 	}
 
@@ -61,7 +61,7 @@ http_client_host_port_find(struct http_client_host *host,
 
 static struct http_client_host_port *
 http_client_host_port_init(struct http_client_host *host,
-	unsigned int port, const char *https_name)
+	in_port_t port, const char *https_name)
 {
 	struct http_client_host_port *hport;
 
@@ -69,8 +69,8 @@ http_client_host_port_init(struct http_client_host *host,
 	if (hport == NULL) {
 		hport = array_append_space(&host->ports);
 		hport->host = host;
-		hport->port = port;
-		hport->https_name = i_strdup(https_name);
+		hport->addr.port = port;
+		hport->addr.https_name = i_strdup(https_name);
 		hport->ips_connect_idx = 0;
 		i_array_init(&hport->request_queue, 16);
 	}
@@ -94,7 +94,9 @@ static void http_client_host_port_deinit(struct http_client_host_port *hport)
 {
 	http_client_host_port_error
 		(hport, HTTP_CLIENT_REQUEST_ERROR_ABORTED, "Aborted");
-	i_free(hport->https_name);
+	i_free(hport->addr.https_name);
+	if (array_is_created(&hport->pending_peers))
+		array_free(&hport->pending_peers);
 	array_free(&hport->request_queue);
 }
 
@@ -136,20 +138,25 @@ http_client_host_port_soft_connect_timeout(struct http_client_host_port *hport)
 	if (hport->to_connect != NULL)
 		timeout_remove(&hport->to_connect);
 
-	if (http_client_hport_is_last_connect_ip(hport))
+	if (http_client_hport_is_last_connect_ip(hport)) {
+		/* no more IPs to try */
 		return;
+	}
 
 	/* if our our previous connection attempt takes longer than the
-	   soft_connect_timeout we start a connection attempt to the next IP in
+	   soft_connect_timeout, we start a connection attempt to the next IP in
 	   parallel */
 
 	http_client_host_debug(host, "Connection to %s:%u%s is taking a long time; "
 		"starting parallel connection attempt to next IP",
-		net_ip2addr(&host->ips[hport->ips_connect_idx]), hport->port,
-		hport->https_name == NULL ? "" :
-			t_strdup_printf(" (SSL=%s)", hport->https_name));
+		net_ip2addr(&hport->addr.ip), hport->addr.port,
+		hport->addr.https_name == NULL ? "" :
+			t_strdup_printf(" (SSL=%s)", hport->addr.https_name));
 
+	/* next IP */
 	hport->ips_connect_idx = (hport->ips_connect_idx + 1) % host->ips_count;
+
+	/* setup connection to new peer (can start new soft timeout) */
 	http_client_host_port_connection_setup(hport);
 }
 
@@ -158,59 +165,41 @@ http_client_host_port_connection_setup(struct http_client_host_port *hport)
 {
 	struct http_client_host *host = hport->host;
 	struct http_client_peer *peer = NULL;
-	struct http_client_peer_addr addr;
-	unsigned int msecs;
+	const struct http_client_peer_addr *addr = &hport->addr;
+	unsigned int num_requests = array_count(&hport->request_queue);
 
-	addr.ip = host->ips[hport->ips_connect_idx];
-	addr.port = hport->port;
-	addr.https_name = hport->https_name;
+	if (num_requests == 0)
+		return;
 
-	http_client_host_debug(host, "Setting up connection to %s:%u%s",
-		net_ip2addr(&addr.ip), addr.port, addr.https_name == NULL ? "" :
-		t_strdup_printf(" (SSL=%s)", addr.https_name));
+	/* update our peer address */
+	hport->addr.ip = host->ips[hport->ips_connect_idx];
 
-	peer = http_client_peer_get(host->client, &addr);
+	http_client_host_debug(host, "Setting up connection to %s:%u%s "
+		"(%u requests pending)", net_ip2addr(&addr->ip), addr->port,
+		addr->https_name == NULL ? "" :
+			t_strdup_printf(" (SSL=%s)", addr->https_name), num_requests);
+
+	/* create/get peer */
+	peer = http_client_peer_get(host->client, addr);
 	http_client_peer_add_host(peer, host);
-	if (http_client_peer_handle_requests(peer))
-		hport->pending_connection_count++;
 
-	/* start soft connect time-out (but only if we have another IP left) */
-	msecs = host->client->set.soft_connect_timeout_msecs;
-	if (!http_client_hport_is_last_connect_ip(hport) && msecs > 0 &&
-	    hport->to_connect == NULL) {
-		hport->to_connect =
-			timeout_add(msecs, http_client_host_port_soft_connect_timeout, hport);
-	}
-}
+	/* handle requests; creates new connections when needed/possible */
+	http_client_peer_trigger_request_handler(peer);
 
-static void
-http_client_host_drop_pending_connections(struct http_client_host_port *hport,
-					  const struct http_client_peer_addr *addr)
-{
-	struct http_client_peer *peer;
-	struct http_client_connection *const *conns, *conn;
-	unsigned int i, count;
+	if (!http_client_peer_is_connected(peer)) {
+		unsigned int msecs;
 
-	for (peer = hport->host->client->peers_list; peer != NULL; peer = peer->next) {
-		if (http_client_peer_addr_cmp(&peer->addr, addr) == 0) {
-			/* don't drop any connections to the successfully
-			   connected peer, even if some of the connections
-			   are pending. they may be intended for urgent
-			   requests. */
-			continue;
-		}
-		if (!http_client_peer_have_host(peer, hport->host))
-			continue;
+		/* not already connected, wait for connections */
+		if (!array_is_created(&hport->pending_peers))
+			i_array_init(&hport->pending_peers, 8);
+		array_append(&hport->pending_peers, &peer, 1);			
 
-		conns = array_get(&peer->conns, &count);
-		for (i = count; i > 0; i--) {
-			conn = conns[i-1];
-			if (!conn->connected) {
-				i_assert(conn->refcount == 1);
-				/* avoid recreating the connection */
-				peer->last_connect_failed = TRUE;
-				http_client_connection_unref(&conn);
-			}
+		/* start soft connect time-out (but only if we have another IP left) */
+		msecs = host->client->set.soft_connect_timeout_msecs;
+		if (!http_client_hport_is_last_connect_ip(hport) && msecs > 0 &&
+		    hport->to_connect == NULL) {
+			hport->to_connect =
+				timeout_add(msecs, http_client_host_port_soft_connect_timeout, hport);
 		}
 	}
 }
@@ -241,28 +230,51 @@ http_client_host_port_connection_success(struct http_client_host_port *hport,
 		timeout_remove(&hport->to_connect);
 
 	/* drop all other attempts to the hport. note that we get here whenever
-	   a connection is successfully created, so pending_connection_count
-	   may be 0. */
-	if (hport->pending_connection_count > 1)
-		http_client_host_drop_pending_connections(hport, addr);
-	/* since this hport is now successfully connected, we won't be
-	   getting any connection failures to it anymore. so we need
-	   to reset the pending_connection_count count here. */
-	hport->pending_connection_count = 0;
+	   a connection is successfully created, so pending_peers array
+	   may be empty. */
+	if (array_is_created(&hport->pending_peers) &&
+		array_count(&hport->pending_peers) > 0) {
+		struct http_client_peer *const *peer_idx;
+
+		array_foreach(&hport->pending_peers, peer_idx) {
+			if (http_client_peer_addr_cmp(&(*peer_idx)->addr, addr) == 0) {
+				/* don't drop any connections to the successfully
+				   connected peer, even if some of the connections
+				   are pending. they may be intended for urgent
+				   requests. */
+				continue;
+			}
+			/* remove this host from the peer; if this was the last/only host, the
+			   peer will be freed, closing all connections.
+			 */
+			http_client_peer_remove_host(*peer_idx, hport->host);
+		}
+		array_clear(&hport->pending_peers);
+	}
 }
 
 static bool
 http_client_host_port_connection_failure(struct http_client_host_port *hport,
-	const char *reason)
+	const struct http_client_peer_addr *addr, const char *reason)
 {
 	struct http_client_host *host = hport->host;
 
-	if (hport->pending_connection_count > 0) {
+	if (array_is_created(&hport->pending_peers) &&
+		array_count(&hport->pending_peers) > 0) {
+		struct http_client_peer *const *peer_idx;
+
 		/* we're still doing the initial connections to this hport. if
 		   we're also doing parallel connections with soft timeouts
-		   (pending_connection_count>1), wait for them to finish
+		   (pending_peer_count>1), wait for them to finish
 		   first. */
-		if (--hport->pending_connection_count > 0)
+		array_foreach(&hport->pending_peers, peer_idx) {
+			if (http_client_peer_addr_cmp(&(*peer_idx)->addr, addr) == 0) {
+				array_delete(&hport->pending_peers,
+					array_foreach_idx(&hport->pending_peers, peer_idx), 1);
+				break;
+			}
+		}
+		if (array_count(&hport->pending_peers) > 0)
 			return TRUE;
 	}
 
@@ -282,7 +294,6 @@ http_client_host_port_connection_failure(struct http_client_host_port *hport,
 		return FALSE;
 	}
 	hport->ips_connect_idx = (hport->ips_connect_idx + 1) % host->ips_count;
-
 	http_client_host_port_connection_setup(hport);
 	return TRUE;
 }
@@ -318,7 +329,7 @@ void http_client_host_connection_failure(struct http_client_host *host,
 	if (hport == NULL)
 		return;
 
-	if (!http_client_host_port_connection_failure(hport, reason)) {
+	if (!http_client_host_port_connection_failure(hport, addr, reason)) {
 		/* failed definitively for currently queued requests */
 		if (host->client->ioloop != NULL)
 			io_loop_stop(host->client->ioloop);
@@ -359,8 +370,8 @@ http_client_host_dns_callback(const struct dns_lookup_result *result,
 	host->ips_count = result->ips_count;
 	host->ips = i_new(struct ip_addr, host->ips_count);
 	memcpy(host->ips, result->ips, sizeof(*host->ips) * host->ips_count);
-
-	// FIXME: make DNS result expire 
+	
+	/* FIXME: make DNS result expire */
 
 	/* make connections to requested ports */
 	array_foreach_modifiable(&host->ports, hport) {
@@ -488,7 +499,7 @@ http_client_host_claim_request(struct http_client_host *host,
 	if (hport == NULL)
 		return NULL;
 
-	requests = array_get(&hport->request_queue, &count);
+ 	requests = array_get(&hport->request_queue, &count);
 	if (count == 0)
 		return NULL;
 	i = 0;

@@ -142,6 +142,7 @@ void http_client_switch_ioloop(struct http_client *client)
 {
 	struct connection *_conn = client->conn_list->connections;
 	struct http_client_host *host;
+	struct http_client_peer *peer;
 
 	/* move connections */
 	/* FIXME: we wouldn't necessarily need to switch all of them
@@ -153,6 +154,10 @@ void http_client_switch_ioloop(struct http_client *client)
 
 		http_client_connection_switch_ioloop(conn);
 	}
+
+	/* move peers */
+	for (peer = client->peers_list; peer != NULL; peer = peer->next)
+		http_client_peer_switch_ioloop(peer);
 
 	/* move dns lookups and delayed requests */
 	for (host = client->hosts_list; host != NULL; host = host->next)

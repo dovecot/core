@@ -1,6 +1,8 @@
 #ifndef HTTP_CLIENT_H
 #define HTTP_CLIENT_H
 
+#include "net.h"
+
 #include "http-response.h"
 
 struct http_response;
@@ -89,7 +91,7 @@ http_client_request(struct http_client *client,
 		(http_client_request_callback_t *)callback, context)
 
 void http_client_request_set_port(struct http_client_request *req,
-	unsigned int port);
+	in_port_t port);
 void http_client_request_set_ssl(struct http_client_request *req,
 	bool ssl);
 void http_client_request_set_urgent(struct http_client_request *req);

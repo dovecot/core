@@ -119,7 +119,7 @@ void http_client_request_unref(struct http_client_request **_req)
 }
 
 void http_client_request_set_port(struct http_client_request *req,
-	unsigned int port)
+	in_port_t port)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
 	req->port = port;

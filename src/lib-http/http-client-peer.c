@@ -75,6 +75,27 @@ http_client_peer_connect(struct http_client_peer *peer, unsigned int count)
 	}
 }
 
+bool http_client_peer_is_connected(struct http_client_peer *peer)
+{
+	struct http_client_connection *const *conn_idx;
+
+	array_foreach(&peer->conns, conn_idx) {
+		if ((*conn_idx)->connected)
+			return TRUE;
+	}
+
+	return FALSE;
+}
+
+static void http_client_peer_check_idle(struct http_client_peer *peer)
+{
+	struct http_client_connection *const *conn_idx;
+
+	array_foreach(&peer->conns, conn_idx) {
+		http_client_connection_check_idle(*conn_idx);
+	}
+}
+
 static unsigned int
 http_client_peer_requests_pending(struct http_client_peer *peer,
 				  unsigned int *num_urgent_r)
@@ -92,91 +113,220 @@ http_client_peer_requests_pending(struct http_client_peer *peer,
 	return num_requests;
 }
 
-static bool
-http_client_peer_next_request(struct http_client_peer *peer,
-			      bool *created_connections)
+static void
+http_client_peer_handle_requests_real(struct http_client_peer *peer)
 {
+	struct _conn_available {
+		struct http_client_connection *conn;
+		unsigned int pending_requests;
+	};
 	struct http_client_connection *const *conn_idx;
-	struct http_client_connection *conn = NULL;
-	unsigned int connecting = 0, closing = 0, min_waiting = UINT_MAX;
-	unsigned int num_urgent, new_connections, working_conn_count;
+	ARRAY(struct _conn_available) conns_avail;
+	struct _conn_available *conn_avail_idx;
+	unsigned int connecting, closing, idle;
+	unsigned int num_pending, num_urgent, new_connections, 	working_conn_count;
+	bool statistics_dirty = TRUE;
 
-	if (http_client_peer_requests_pending(peer, &num_urgent) == 0)
-		return FALSE;
+	/* FIXME: limit the number of requests handled in one run to prevent
+	   I/O starvation. */
 
-	/* find the least busy connection */
-	array_foreach(&peer->conns, conn_idx) {
-		if (http_client_connection_is_ready(*conn_idx)) {
-			unsigned int waiting = http_client_connection_count_pending(*conn_idx);
+	/* don't do anything unless we have pending requests */
+	num_pending = http_client_peer_requests_pending(peer, &num_urgent);
+	if (num_pending == 0) {
+		http_client_peer_check_idle(peer);
+		return;
+	}
 
-			if (waiting < min_waiting) {
-				min_waiting = waiting;
-				conn = *conn_idx;
-				if (min_waiting == 0) {
-					/* found idle connection, use it now */
+	t_array_init(&conns_avail, array_count(&peer->conns));
+	do {
+		array_clear(&conns_avail);
+		connecting = closing = idle = 0;
+
+		/* gather connection statistics */
+		array_foreach(&peer->conns, conn_idx) {
+			if (http_client_connection_is_ready(*conn_idx)) {			
+				struct _conn_available *conn_avail;
+				unsigned int insert_idx, pending_requests;
+
+				/* compile sorted availability list */
+				pending_requests = http_client_connection_count_pending(*conn_idx);
+				if (array_count(&conns_avail) == 0) {
+					insert_idx = 0;
+				} else {
+					insert_idx = array_count(&conns_avail);
+					array_foreach_modifiable(&conns_avail, conn_avail_idx) {
+						if (conn_avail_idx->pending_requests > pending_requests) {
+							insert_idx = array_foreach_idx(&conns_avail, conn_avail_idx);
+							break;
+						}
+					}
+				}
+				conn_avail = array_insert_space(&conns_avail, insert_idx);
+				conn_avail->conn = *conn_idx;
+				conn_avail->pending_requests = pending_requests;
+				if (pending_requests == 0)
+					idle++;
+			}
+			/* count the number of connecting and closing connections */
+			if ((*conn_idx)->closing)
+				closing++;
+			else if (!(*conn_idx)->connected)
+				connecting++;
+		}
+
+		working_conn_count = array_count(&peer->conns) - closing;
+		statistics_dirty = FALSE;
+
+		/* use idle connections right away */
+		if (idle > 0) {
+			http_client_peer_debug(peer,
+				"Using %u idle connections to handle %u requests "
+				"(%u total connections ready)",
+				idle, num_pending > idle ? idle : num_pending,
+				array_count(&conns_avail));
+
+			array_foreach_modifiable(&conns_avail, conn_avail_idx) {
+				if (num_pending == 0 || conn_avail_idx->pending_requests > 0)
 					break;
+				idle--;
+				if (http_client_connection_next_request(conn_avail_idx->conn) <= 0) {
+					/* no longer available (probably connection error/closed) */
+					statistics_dirty = TRUE;
+					conn_avail_idx->conn = NULL;
+				} else {
+					/* update statistics */
+					conn_avail_idx->pending_requests++;
+					if (num_urgent > 0)
+						num_urgent--;
+					num_pending--;
 				}
 			}
 		}
-		/* count the number of connecting and closing connections */
-		if ((*conn_idx)->closing)
-			closing++;
-		else if (!(*conn_idx)->connected)
-			connecting++;
-	}
-	working_conn_count = array_count(&peer->conns) - closing;
-
-	/* did we find an idle connection? */
-	if (conn != NULL && min_waiting == 0) {
-		/* yes, use it */
-		return http_client_connection_next_request(conn);
-	}
-
-	/* no, but can we create a new connection? */		
-	if (num_urgent == 0 &&
-	    working_conn_count >= peer->client->set.max_parallel_connections) {
-		/* no */
-		if (conn == NULL) {
-			http_client_peer_debug(peer,
-				"Only non-urgent requests, and we already have "
-				"%u pending connections", working_conn_count);
-			return FALSE;
+	
+		/* don't continue unless we have more pending requests */
+		num_pending = http_client_peer_requests_pending(peer, &num_urgent);
+		if (num_pending == 0) {
+			http_client_peer_check_idle(peer);
+			return;
 		}
-		/* pipeline it */
-		return http_client_connection_next_request(conn);
-	}
+	} while (statistics_dirty);
 
-	/* yes, determine how many connections to set up */
+	i_assert(idle == 0);
+
+	/* determine how many new connections we can set up */
 	if (peer->last_connect_failed && working_conn_count > 0 &&
 	    working_conn_count == connecting) {
 		/* don't create new connections until the existing ones have
 		   finished connecting successfully. */
 		new_connections = 0;
-	} else if (num_urgent == 0) {
-		new_connections = connecting == 0 ? 1 : 0;
 	} else {
-		new_connections = (num_urgent > connecting ? num_urgent - connecting : 0);
-	}
-	http_client_peer_debug(peer,
-		"Creating %u new connections to handle requests "
-		"(already %u usable, connecting to %u, closing %u)",
-		new_connections, working_conn_count - connecting,
-		connecting, closing);
-	if (new_connections > 0) {
-		*created_connections = TRUE;
-		http_client_peer_connect(peer, new_connections);
+		if (working_conn_count - connecting + num_urgent >=
+			peer->client->set.max_parallel_connections) {
+			/* only create connections for urgent requests */
+			new_connections = (num_urgent > connecting ? num_urgent - connecting : 0);
+		} else if (num_pending <= connecting) {
+			/* there are already enough connections being made */
+			new_connections = 0;
+		} else if (working_conn_count == connecting) {
+			/* no connections succeeded so far, don't hammer the server with more
+			   than one connection attempt unless its urgent */
+			if (num_urgent > 0) {
+				new_connections =
+					(num_urgent > connecting ? num_urgent - connecting : 0);
+			} else {
+				new_connections = (connecting == 0 ? 1 : 0);
+			}
+		} else if (num_pending - connecting >
+			peer->client->set.max_parallel_connections - working_conn_count) {
+			/* create maximum allowed connections */
+			new_connections =
+				peer->client->set.max_parallel_connections - working_conn_count;
+		} else {
+			/* create as many connections as we need */
+			new_connections = num_pending - connecting;
+		}
 	}
 
-	/* now we wait until it is connected */
-	return FALSE;
+	/* create connections */
+	if (new_connections > 0) {
+		http_client_peer_debug(peer,
+			"Creating %u new connections to handle requests "
+			"(already %u usable, connecting to %u, closing %u)",
+			new_connections, working_conn_count - connecting,
+			connecting, closing);
+		http_client_peer_connect(peer, new_connections);
+		return;
+	}
+
+	/* cannot create new connections for normal request; attempt pipelining */
+	if (working_conn_count - connecting >=
+		peer->client->set.max_parallel_connections) {
+		unsigned int pipeline_level = 0, total_handled = 0, handled;
+
+		if (!peer->allows_pipelining) {
+			http_client_peer_debug(peer,
+				"Will not pipeline until peer has shown support");
+			return;
+		}
+
+		/* fill pipelines */
+		do {
+			handled = 0;
+			/* fill smallest pipelines first,
+			   until all pipelines are filled to the same level */
+			array_foreach_modifiable(&conns_avail, conn_avail_idx) {
+				if (conn_avail_idx->conn == NULL)
+					continue;
+				if (pipeline_level == 0) {
+					pipeline_level = conn_avail_idx->pending_requests;
+				} else if (conn_avail_idx->pending_requests > pipeline_level) {
+					pipeline_level = conn_avail_idx->pending_requests;
+					break; /* restart from least busy connection */
+				}
+				/* pipeline it */
+				if (http_client_connection_next_request(conn_avail_idx->conn) <= 0) {
+					/* connection now unavailable */
+					conn_avail_idx->conn = NULL;
+				} else {
+					/* successfully pipelined */
+					conn_avail_idx->pending_requests++;
+					num_pending--;
+					handled++;
+				}
+			}
+			
+			total_handled += handled;
+		} while (num_pending > num_urgent && handled > 0);
+
+		http_client_peer_debug(peer,
+			"Pipelined %u requests (filled pipelines up to %u requests)",
+			total_handled, pipeline_level);
+		return;
+	}
+
+	/* still waiting for connections to finish */
+	http_client_peer_debug(peer,
+		"No request handled; waiting for new connections");
+	return;
 }
 
-bool http_client_peer_handle_requests(struct http_client_peer *peer)
+static void http_client_peer_handle_requests(struct http_client_peer *peer)
 {
-	bool created_connections = FALSE;
+	if (peer->to_req_handling != NULL)
+		timeout_remove(&peer->to_req_handling);
+	
+	T_BEGIN {
+		http_client_peer_handle_requests_real(peer);
+	} T_END;
+}
 
-	while (http_client_peer_next_request(peer, &created_connections)) ;
-	return created_connections;
+void http_client_peer_trigger_request_handler(struct http_client_peer *peer)
+{
+	/* trigger request handling through timeout */
+	if (peer->to_req_handling == NULL) {
+		peer->to_req_handling =
+			timeout_add_short(0, http_client_peer_handle_requests, peer);
+	}
 }
 
 static struct http_client_peer *
@@ -214,6 +364,9 @@ void http_client_peer_free(struct http_client_peer **_peer)
 	peer->destroyed = TRUE;
 
 	http_client_peer_debug(peer, "Peer destroy");
+
+	if (peer->to_req_handling != NULL)
+		timeout_remove(&peer->to_req_handling);
 
 	/* make a copy of the connection array; freed connections modify it */
 	t_array_init(&conns, array_count(&peer->conns));
@@ -268,6 +421,21 @@ void http_client_peer_add_host(struct http_client_peer *peer,
 		array_append(&peer->hosts, &host, 1);
 }
 
+void http_client_peer_remove_host(struct http_client_peer *peer,
+				struct http_client_host *host)
+{
+	struct http_client_host *const *host_idx;
+
+	array_foreach(&peer->hosts, host_idx) {
+		if (*host_idx == host) {
+			array_delete(&peer->hosts, array_foreach_idx(&peer->hosts, host_idx), 1);
+			if (array_count(&peer->hosts) == 0)
+				http_client_peer_free(&peer);
+			return;
+		}
+	}
+}
+
 struct http_client_request *
 http_client_peer_claim_request(struct http_client_peer *peer, bool no_urgent)
 {
@@ -294,6 +462,8 @@ void http_client_peer_connection_success(struct http_client_peer *peer)
 	array_foreach(&peer->hosts, host) {
 		http_client_host_connection_success(*host, &peer->addr);
 	}
+
+	http_client_peer_trigger_request_handler(peer);
 }
 
 void http_client_peer_connection_failure(struct http_client_peer *peer,
@@ -315,7 +485,8 @@ void http_client_peer_connection_failure(struct http_client_peer *peer,
 	} else {
 		/* this was the only/last connection and connecting to it
 		   failed. a second connect will probably also fail, so just
-		   abort all requests. */
+		   try another IP for the hosts(s) or abort all requests if this
+		   was the only/last option. */
 		array_foreach(&peer->hosts, host) {
 			http_client_host_connection_failure(*host, &peer->addr, reason);
 		}
@@ -341,7 +512,7 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 
 	/* if there are pending requests for this peer, create a new connection
 	   for them. */
-	http_client_peer_handle_requests(peer);
+	http_client_peer_trigger_request_handler(peer);
 
 	if (array_count(&peer->conns) == 0 &&
 	    http_client_peer_requests_pending(peer, &num_urgent) == 0)
@@ -350,15 +521,23 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 
 unsigned int http_client_peer_idle_connections(struct http_client_peer *peer)
 {
-    struct http_client_connection *const *conn_idx;
-    unsigned int idle = 0;
+	struct http_client_connection *const *conn_idx;
+	unsigned int idle = 0;
 
 	/* find idle connections */
-    array_foreach(&peer->conns, conn_idx) {
-        if (http_client_connection_is_idle(*conn_idx))
+	array_foreach(&peer->conns, conn_idx) {
+		if (http_client_connection_is_idle(*conn_idx))
 			idle++;
-    }
+	}
 
 	return idle;
+}
+
+void http_client_peer_switch_ioloop(struct http_client_peer *peer)
+{
+	if (peer->to_req_handling != NULL) {
+		peer->to_req_handling =
+			io_loop_move_timeout(&peer->to_req_handling);
+	}
 }
 
