@@ -48,6 +48,8 @@ struct http_client_request {
 	struct http_client_connection *conn;
 
 	string_t *headers;
+	time_t date;
+
 	struct istream *payload_input;
 	uoff_t payload_size, payload_offset;
 	struct ostream *payload_output;

@@ -98,6 +98,9 @@ void http_client_request_set_urgent(struct http_client_request *req);
 
 void http_client_request_add_header(struct http_client_request *req,
 				    const char *key, const char *value);
+void http_client_request_set_date(struct http_client_request *req,
+				    time_t date);
+
 void http_client_request_set_payload(struct http_client_request *req,
 				     struct istream *input, bool sync);
 

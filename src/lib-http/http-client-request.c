@@ -8,6 +8,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "http-url.h"
+#include "http-date.h"
 #include "http-response-parser.h"
 #include "http-transfer.h"
 
@@ -72,6 +73,7 @@ http_client_request(struct http_client *client,
 	req->callback = callback;
 	req->context = context;
 	req->headers = str_new(default_pool, 256);
+	req->date = (time_t)-1;
 
 	req->state = HTTP_REQUEST_STATE_NEW;
 	return req;
@@ -149,7 +151,18 @@ void http_client_request_add_header(struct http_client_request *req,
 				    const char *key, const char *value)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
+	/* don't allow setting Date header directly;
+	   this is ignored for now for backwards compatibility */
+	if (strcasecmp(key, "Date") == 0)
+		return;
 	str_printfa(req->headers, "%s: %s\r\n", key, value);
+}
+
+void http_client_request_set_date(struct http_client_request *req,
+				    time_t date)
+{
+	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
+	req->date = date;
 }
 
 void http_client_request_set_payload(struct http_client_request *req,
@@ -188,6 +201,10 @@ static void http_client_request_do_submit(struct http_client_request *req)
 	struct http_client_host *host;
 
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
+
+	/* use submission date if no date is set explicitly */
+	if (req->date == (time_t)-1)
+		req->date = ioloop_time;
 	
 	host = http_client_host_get(req->client, req->hostname);
 	req->state = HTTP_REQUEST_STATE_QUEUED;
@@ -369,13 +386,14 @@ static int http_client_request_send_real(struct http_client_request *req,
 	str_append(rtext, req->method);
 	str_append(rtext, " ");
 	str_append(rtext, req->target);
-	str_append(rtext, " HTTP/1.1\r\n");
-	str_append(rtext, "Host: ");
+	str_append(rtext, " HTTP/1.1\r\nHost: ");
 	str_append(rtext, req->hostname);
 	if ((!req->ssl &&req->port != HTTP_DEFAULT_PORT) ||
 		(req->ssl && req->port != HTTPS_DEFAULT_PORT)) {
 		str_printfa(rtext, ":%u", req->port);
 	}
+	str_append(rtext, "\r\nDate: ");
+	str_append(rtext, http_date_create(req->date));
 	str_append(rtext, "\r\n");
 	if (req->payload_sync) {
 		str_append(rtext, "Expect: 100-continue\r\n");
