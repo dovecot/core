@@ -24,4 +24,6 @@ int http_request_parse_next(struct http_request_parser *parser,
 			    pool_t pool, struct http_request *request,
 			    enum http_request_parse_error *error_code_r, const char **error_r);
 
+bool http_request_parser_pending_payload(struct http_request_parser *parser);
+
 #endif

@@ -327,6 +327,13 @@ http_request_parser_message_error(struct http_request_parser *parser)
 	return HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST;
 }
 
+bool http_request_parser_pending_payload(struct http_request_parser *parser)
+{
+	if (parser->parser.payload == NULL)
+		return FALSE;
+	return i_stream_have_bytes_left(parser->parser.payload);
+}
+
 int http_request_parse_next(struct http_request_parser *parser,
 			    pool_t pool, struct http_request *request,
 			    enum http_request_parse_error *error_code_r, const char **error_r)
