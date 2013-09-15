@@ -1,23 +1,7 @@
 #ifndef HTTP_REQUEST_PARSER_H
 #define HTTP_REQUEST_PARSER_H
 
-#include "http-response.h"
-
-struct http_request {
-	const char *method;
-	const char *target;
-
-	unsigned char version_major;
-	unsigned char version_minor;
-
-	time_t date;
-	struct istream *payload;
-
-	ARRAY_TYPE(http_response_header) headers;
-	ARRAY_TYPE(const_string) connection_options;
-
-	unsigned int connection_close:1;
-};
+#include "http-request.h"
 
 struct http_request_parser *
 http_request_parser_init(struct istream *input);

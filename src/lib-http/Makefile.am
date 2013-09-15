@@ -10,10 +10,13 @@ libhttp_la_SOURCES = \
 	http-date.c \
 	http-url.c \
 	http-parser.c \
+	http-header.c \
 	http-header-parser.c \
 	http-transfer-chunked.c \
 	http-message-parser.c \
+	http-request.c \
 	http-request-parser.c \
+	http-response.c \
 	http-response-parser.c \
 	http-client-request.c \
 	http-client-connection.c \
@@ -25,9 +28,11 @@ headers = \
 	http-date.h \
 	http-url.h \
 	http-parser.h \
+	http-header.h \
 	http-header-parser.h \
 	http-transfer.h \
 	http-message-parser.h \
+	http-request.h \
 	http-request-parser.h \
 	http-response.h \
 	http-response-parser.h \
@@ -84,6 +89,7 @@ test_http_response_parser_SOURCES = test-http-response-parser.c
 test_http_response_parser_LDADD = \
 	http-date.lo \
 	http-parser.lo \
+	http-header.lo \
 	http-header-parser.lo \
 	http-transfer-chunked.lo \
 	http-message-parser.lo \

@@ -513,9 +513,7 @@ http_client_request_send_error(struct http_client_request *req,
 	if (callback != NULL) {
 		struct http_response response;
 
-		memset(&response, 0, sizeof(response));
-		response.status = status;
-		response.reason = error;
+		http_response_init(&response, status, error);
 		(void)callback(&response, req->context);
 	}
 }

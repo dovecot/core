@@ -4,15 +4,17 @@
 #include "http-response.h"
 #include "http-transfer.h"
 
+struct http_header;
+
 struct http_message {
 	pool_t pool;
 
 	unsigned int version_major;
 	unsigned int version_minor;
 
-	ARRAY_TYPE(http_response_header) headers;
-	time_t date;
+	struct http_header *header;
 
+	time_t date;
 	uoff_t content_length;
 	const char *location;
 	ARRAY_TYPE(http_transfer_coding) transfer_encoding;

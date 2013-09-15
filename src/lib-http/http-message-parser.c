@@ -4,6 +4,7 @@
 #include "array.h"
 #include "istream.h"
 #include "http-parser.h"
+#include "http-header.h"
 #include "http-header-parser.h"
 #include "http-date.h"
 #include "http-transfer.h"
@@ -48,7 +49,7 @@ void http_message_parser_restart(struct http_message_parser *parser,
 		pool_ref(pool);
 	}
 	parser->msg.date = (time_t)-1;
-	p_array_init(&parser->msg.headers, parser->msg.pool, 32);
+	parser->msg.header = http_header_create(parser->msg.pool, 32);
 	p_array_init(&parser->msg.connection_options, parser->msg.pool, 4);
 }
 
@@ -93,19 +94,14 @@ int http_message_parse_finish_payload(struct http_message_parser *parser,
 }
 
 static int
-http_message_parse_header(struct http_message_parser *parser, const char *name,
-			  const unsigned char *data, size_t size,
+http_message_parse_header(struct http_message_parser *parser,
+			  const char *name, const unsigned char *data, size_t size,
 			  const char **error_r)
 {
-	struct http_response_header *hdr;
+	const struct http_header_field *hdr;
 	struct http_parser hparser;
-	void *value;
 
-	hdr = array_append_space(&parser->msg.headers);
-	hdr->key = p_strdup(parser->msg.pool, name);
-	hdr->value = value = p_malloc(parser->msg.pool, size+1);
-	memcpy(value, data, size);
-	hdr->size = size;
+	hdr = http_header_field_add(parser->msg.header, name, data, size);
 
 	/* https://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-23
 	     Section 3.2.2:
@@ -284,20 +280,21 @@ http_message_parse_header(struct http_message_parser *parser, const char *name,
 int http_message_parse_headers(struct http_message_parser *parser,
 			       const char **error_r)
 {
-	const char *field_name, *error;
 	const unsigned char *field_data;
+	const char *field_name, *error;
 	size_t field_size;
 	int ret;
 
 	/* *( header-field CRLF ) CRLF */
-	while ((ret=http_header_parse_next_field
-		(parser->header_parser, &field_name, &field_data, &field_size, &error)) > 0) {
+	while ((ret=http_header_parse_next_field(parser->header_parser,
+		&field_name, &field_data, &field_size, &error)) > 0) {
 		if (field_name == NULL) {
 			/* EOH */
 			return 1;
 		}
-		if (http_message_parse_header(parser, field_name, field_data,
-					      field_size, error_r) < 0)
+
+		if (http_message_parse_header(parser,
+			field_name, field_data, field_size, error_r) < 0)
 			return -1;
 	}
 
@@ -378,17 +375,9 @@ int http_message_parse_body(struct http_message_parser *parser, bool request,
        handled as an error.  A sender MUST remove the received Content-
        Length field prior to forwarding such a message downstream.
 		 */
-		if (parser->msg.have_content_length) {
-			ARRAY_TYPE(http_response_header) *headers = &parser->msg.headers;
-			const struct http_response_header *hdr;
+		if (parser->msg.have_content_length)
+			http_header_field_delete(parser->msg.header, "Content-Length");
 
-			array_foreach(headers, hdr) {
-				if (strcasecmp(hdr->key, "Content-Length") == 0) {
-					array_delete(headers, array_foreach_idx(headers, hdr), 1);
-					break;
-				}
-			}
-		}
 	} else if (parser->msg.content_length > 0) {
 		/* Got explicit message size from Content-Length: header */
 		parser->payload =

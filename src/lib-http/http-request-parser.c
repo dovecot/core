@@ -281,7 +281,7 @@ int http_request_parse_next(struct http_request_parser *parser,
 	request->version_minor = parser->parser.msg.version_minor;
 	request->date = parser->parser.msg.date;
 	request->payload = parser->parser.payload;
-	request->headers = parser->parser.msg.headers;
+	request->header = parser->parser.msg.header;
 	request->connection_options = parser->parser.msg.connection_options;
 	request->connection_close = parser->parser.msg.connection_close;
 	return 1;
