@@ -241,7 +241,9 @@ http_client_connection_continue_timeout(struct http_client_connection *conn)
 	http_client_connection_debug(conn, 
 		"Expected 100-continue response timed out; sending payload anyway");
 
-	req_idx = array_idx(&conn->request_wait_list, 0);
+	i_assert(array_count(&conn->request_wait_list) > 0);
+	req_idx = array_idx(&conn->request_wait_list,
+		array_count(&conn->request_wait_list)-1);
 	req = req_idx[0];
 
 	conn->payload_continue = TRUE;
@@ -673,7 +675,8 @@ static int http_client_connection_output(struct http_client_connection *conn)
 	}
 
 	if (array_count(&conn->request_wait_list) > 0 && conn->output_locked) {
-		req_idx = array_idx(&conn->request_wait_list, 0);
+		req_idx = array_idx(&conn->request_wait_list,
+			array_count(&conn->request_wait_list)-1);
 		req = req_idx[0];
 
 		if (!req->payload_sync || conn->payload_continue) {
