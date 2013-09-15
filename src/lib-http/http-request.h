@@ -3,6 +3,20 @@
 
 #include "http-header.h"
 
+struct http_url;
+
+enum http_request_target_format {
+	HTTP_REQUEST_TARGET_FORMAT_ORIGIN = 0,
+	HTTP_REQUEST_TARGET_FORMAT_ABSOLUTE,
+	HTTP_REQUEST_TARGET_FORMAT_AUTHORITY,
+	HTTP_REQUEST_TARGET_FORMAT_ASTERISK
+};
+
+struct http_request_target {
+	enum http_request_target_format format;
+	struct http_url *url;
+};
+
 struct http_request {
 	const char *method;
 

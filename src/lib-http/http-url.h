@@ -3,6 +3,8 @@
 
 #include "net.h"
 
+struct http_request_target;
+
 struct http_url {
 	/* server */
 	const char *host_name;
@@ -38,6 +40,10 @@ enum http_url_parse_flags {
 int http_url_parse(const char *url, struct http_url *base,
 		   enum http_url_parse_flags flags, pool_t pool,
 		   struct http_url **url_r, const char **error_r);
+
+int http_url_request_target_parse(const char *request_target,
+	const char *host_header, pool_t pool,
+	struct http_request_target *target, const char **error_r);
 
 /*
  * HTTP URL construction
