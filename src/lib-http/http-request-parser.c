@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
+#include "http-url.h"
 #include "http-parser.h"
 #include "http-message-parser.h"
 #include "http-request-parser.h"
@@ -258,6 +259,8 @@ int http_request_parse_next(struct http_request_parser *parser,
 			    pool_t pool, struct http_request *request,
 			    const char **error_r)
 {
+	const struct http_header_field *hdr;
+	const char *error;
 	int ret;
 
 	/* make sure we finished streaming payload from previous request
@@ -280,9 +283,34 @@ int http_request_parse_next(struct http_request_parser *parser,
 		return -1;
 	parser->state = HTTP_REQUEST_PARSE_STATE_INIT;
 
+	/* https://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-23
+	     Section 5.4:
+
+	   A server MUST respond with a 400 (Bad Request) status code to any
+	   HTTP/1.1 request message that lacks a Host header field and to any
+	   request message that contains more than one Host header field or a
+	   Host header field with an invalid field-value.
+	 */
+	if ((ret=http_header_field_find_unique
+		(parser->parser.msg.header, "Host", &hdr)) <= 0) {
+		if (ret == 0)
+			*error_r = "Missing Host header";
+		else
+			*error_r = "Duplicate Host header";
+		return -1;
+	}
+
 	memset(request, 0, sizeof(*request));
+
+	if (http_url_request_target_parse(parser->request_target, hdr->value,
+		parser->parser.msg.pool, &request->target, &error) < 0) {
+		*error_r = t_strdup_printf("Bad request target `%s': %s",
+			parser->request_target, error);
+		return -1;
+	}
+
 	request->method = parser->request_method;
-	request->target = parser->request_target;
+	request->target_raw = parser->request_target;
 	request->version_major = parser->parser.msg.version_major;
 	request->version_minor = parser->parser.msg.version_minor;
 	request->date = parser->parser.msg.date;

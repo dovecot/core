@@ -37,10 +37,10 @@ client_handle_request(struct client *client, struct http_request *request)
 	}
 	str_append(str, "HTTP/1.1 200 OK\r\n");
 	str_printfa(str, "Date: %s\r\n", http_date_create(ioloop_time));
-	str_printfa(str, "Content-Length: %d\r\n", (int)strlen(request->target));
+	str_printfa(str, "Content-Length: %d\r\n", (int)strlen(request->target_raw));
 	str_append(str, "Content-Type: text/plain\r\n");
 	str_append(str, "\r\n");
-	str_append(str, request->target);
+	str_append(str, request->target_raw);
 	o_stream_send(client->conn.output, str_data(str), str_len(str));
 	return 0;
 }

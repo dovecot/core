@@ -20,7 +20,8 @@ struct http_request_target {
 struct http_request {
 	const char *method;
 
-	const char *target;
+	const char *target_raw;
+	struct http_request_target target;
 
 	unsigned char version_major;
 	unsigned char version_minor;
