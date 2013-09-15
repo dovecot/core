@@ -69,7 +69,7 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 	}
 
 	/* "//" host [ ":" port ] */
-	if ((ret = uri_parse_authority(parser, &auth)) < 0)
+	if ((ret = uri_parse_slashslash_authority(parser, &auth)) < 0)
 		return FALSE;
 	if (ret > 0) {
 		if (auth.enc_userinfo != NULL) {

@@ -35,7 +35,10 @@ bool uri_data_decode(struct uri_parser *parser, const char *data,
 
 int uri_cut_scheme(const char **uri_p, const char **scheme_r);
 int uri_parse_scheme(struct uri_parser *parser, const char **scheme_r);
-int uri_parse_authority(struct uri_parser *parser, struct uri_authority *auth);
+int uri_parse_authority(struct uri_parser *parser,
+	struct uri_authority *auth);
+int uri_parse_slashslash_authority(struct uri_parser *parser,
+	struct uri_authority *auth);
 
 int uri_parse_path_segment(struct uri_parser *parser, const char **segment_r);
 int uri_parse_path(struct uri_parser *parser, int *relative_r,
