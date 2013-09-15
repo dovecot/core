@@ -39,8 +39,6 @@ struct http_client_request {
 	pool_t pool;
 	unsigned int refcount;
 
-	struct http_client_request *prev, *next;
-
 	const char *method, *hostname, *target;
 	in_port_t port;
 
