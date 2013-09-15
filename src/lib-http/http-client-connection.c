@@ -552,7 +552,7 @@ static void http_client_connection_input(struct connection *_conn)
 			if (conn->payload_continue) {
 				http_client_connection_debug(conn,
 					"Got 100-continue response after timeout");
-				return;
+				continue;
 			}
 			conn->peer->no_payload_sync = FALSE;
 			conn->peer->seen_100_response = TRUE;
@@ -583,11 +583,14 @@ static void http_client_connection_input(struct connection *_conn)
 		http_client_request_unref(&req);
 		
 		conn->close_indicated = response->connection_close;
+		if (req->payload_sync && !conn->payload_continue)
+			conn->output_locked = FALSE;	
 
 		if (!aborted) {
 			if (response->status == 417 && req->payload_sync) {
 				/* drop Expect: continue */
 				req->payload_sync = FALSE;
+				conn->output_locked = FALSE;
 				conn->peer->no_payload_sync = TRUE;
 				http_client_request_retry(req, response->status, response->reason);
 				return;

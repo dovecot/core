@@ -415,6 +415,7 @@ static int http_client_request_send_real(struct http_client_request *req,
 				ret = -1;
 		} else {
 			http_client_request_debug(req, "Waiting for 100-continue");
+			conn->output_locked = TRUE;
 		}
 	} else {
 		req->state = HTTP_REQUEST_STATE_WAITING;
