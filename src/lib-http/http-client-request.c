@@ -364,6 +364,7 @@ static int http_client_request_send_real(struct http_client_request *req,
 	int ret = 0;
 
 	i_assert(!req->conn->output_locked);
+	i_assert(req->payload_output == NULL);
 
 	str_append(rtext, req->method);
 	str_append(rtext, " ");
@@ -594,6 +595,10 @@ void http_client_request_redirect(struct http_client_request *req,
 		}
 	}
 
+	/* drop payload output stream from previous attempt */
+	if (req->payload_output != NULL)
+		o_stream_unref(&req->payload_output);
+
 	newport = (url->have_port ? url->port : (url->have_ssl ? 443 : 80));
 	target = http_url_create_target(url);
 
@@ -662,6 +667,10 @@ void http_client_request_resubmit(struct http_client_request *req)
 			i_stream_seek(req->payload_input, req->payload_offset);
 		}
 	}
+
+	/* drop payload output stream from previous attempt */
+	if (req->payload_output != NULL)
+		o_stream_unref(&req->payload_output);
 
 	req->conn = NULL;
 	req->peer = NULL;
