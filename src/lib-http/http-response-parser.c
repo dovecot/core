@@ -48,7 +48,7 @@ void http_response_parser_deinit(struct http_response_parser **_parser)
 static void
 http_response_parser_restart(struct http_response_parser *parser)
 {
-	http_message_parser_restart(&parser->parser);
+	http_message_parser_restart(&parser->parser, NULL);
 	parser->response_status = 0;
 	parser->response_reason = NULL;
 }
@@ -83,7 +83,7 @@ static int http_response_parse_reason(struct http_response_parser *parser)
 	if (p == parser->parser.end)
 		return 0;
 	parser->response_reason =
-		p_strdup_until(parser->parser.msg_pool, parser->parser.cur, p);
+		p_strdup_until(parser->parser.msg.pool, parser->parser.cur, p);
 	parser->parser.cur = p;
 	return 1;
 }

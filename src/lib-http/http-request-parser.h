@@ -23,7 +23,7 @@ http_request_parser_init(struct istream *input);
 void http_request_parser_deinit(struct http_request_parser **_parser);
 
 int http_request_parse_next(struct http_request_parser *parser,
-			    struct http_request *request,
+			    pool_t pool, struct http_request *request,
 			    const char **error_r);
 
 #endif

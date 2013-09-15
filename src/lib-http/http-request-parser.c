@@ -47,9 +47,10 @@ void http_request_parser_deinit(struct http_request_parser **_parser)
 }
 
 static void
-http_request_parser_restart(struct http_request_parser *parser)
+http_request_parser_restart(struct http_request_parser *parser,
+	pool_t pool)
 {
-	http_message_parser_restart(&parser->parser);
+	http_message_parser_restart(&parser->parser, pool);
 	parser->request_method = NULL;
 	parser->request_target = NULL;
 }
@@ -66,7 +67,7 @@ static int http_request_parse_method(struct http_request_parser *parser)
 	if (p == parser->parser.end)
 		return 0;
 	parser->request_method =
-		p_strdup_until(parser->parser.msg_pool, parser->parser.cur, p);
+		p_strdup_until(parser->parser.msg.pool, parser->parser.cur, p);
 	parser->parser.cur = p;
 	return 1;
 }
@@ -85,7 +86,7 @@ static int http_request_parse_target(struct http_request_parser *parser)
 	if (p == parser->parser.end)
 		return 0;
 	parser->request_target =
-		p_strdup_until(parser->parser.msg_pool, parser->parser.cur, p);
+		p_strdup_until(parser->parser.msg.pool, parser->parser.cur, p);
 	parser->parser.cur = p;
 	return 1;
 }
@@ -98,7 +99,7 @@ static inline const char *_chr_sanitize(unsigned char c)
 }
 
 static int http_request_parse(struct http_request_parser *parser,
-			      const char **error_r)
+			      pool_t pool, const char **error_r)
 {
 	struct http_message_parser *_parser = &parser->parser;
 	int ret;
@@ -109,7 +110,7 @@ static int http_request_parse(struct http_request_parser *parser,
 	for (;;) {
 		switch (parser->state) {
 		case HTTP_REQUEST_PARSE_STATE_INIT:
-			http_request_parser_restart(parser);
+			http_request_parser_restart(parser, pool);
 			parser->state = HTTP_REQUEST_PARSE_STATE_SKIP_LINE;
 			if (_parser->cur == _parser->end)
 				return 0;
@@ -215,7 +216,7 @@ static int http_request_parse(struct http_request_parser *parser,
 }
 
 static int http_request_parse_request_line(struct http_request_parser *parser,
-					   const char **error_r)
+					   pool_t pool, const char **error_r)
 {
 	struct http_message_parser *_parser = &parser->parser;
 	const unsigned char *begin;
@@ -227,7 +228,7 @@ static int http_request_parse_request_line(struct http_request_parser *parser,
 		_parser->cur = begin;
 		_parser->end = _parser->cur + size;
 
-		if ((ret = http_request_parse(parser, error_r)) < 0)
+		if ((ret = http_request_parse(parser, pool, error_r)) < 0)
 			return -1;
 
 		i_stream_skip(_parser->input, _parser->cur - begin);
@@ -248,7 +249,7 @@ static int http_request_parse_request_line(struct http_request_parser *parser,
 }
 
 int http_request_parse_next(struct http_request_parser *parser,
-			    struct http_request *request,
+			    pool_t pool, struct http_request *request,
 			    const char **error_r)
 {
 	int ret;
@@ -264,7 +265,7 @@ int http_request_parse_next(struct http_request_parser *parser,
 	                    [ message-body ]
 	 */
 	if (parser->state != HTTP_REQUEST_PARSE_STATE_HEADER) {
-		if ((ret = http_request_parse_request_line(parser, error_r)) <= 0)
+		if ((ret = http_request_parse_request_line(parser, pool, error_r)) <= 0)
 			return ret;
 	} 
 	if ((ret = http_message_parse_headers(&parser->parser, error_r)) <= 0)

@@ -22,13 +22,14 @@ void http_message_parser_deinit(struct http_message_parser *parser)
 {
 	if (parser->header_parser != NULL)
 		http_header_parser_deinit(&parser->header_parser);
-	if (parser->msg_pool != NULL)
-		pool_unref(&parser->msg_pool);
+	if (parser->msg.pool != NULL)
+		pool_unref(&parser->msg.pool);
 	if (parser->payload != NULL)
 		i_stream_unref(&parser->payload);
 }
 
-void http_message_parser_restart(struct http_message_parser *parser)
+void http_message_parser_restart(struct http_message_parser *parser,
+	pool_t pool)
 {
 	i_assert(parser->payload == NULL);
 
@@ -37,12 +38,17 @@ void http_message_parser_restart(struct http_message_parser *parser)
 	else
 		http_header_parser_reset(parser->header_parser);
 
-	if (parser->msg_pool != NULL)
-		pool_unref(&parser->msg_pool);
-	parser->msg_pool = pool_alloconly_create("http_message", 4096);
+	if (parser->msg.pool != NULL)
+		pool_unref(&parser->msg.pool);
 	memset(&parser->msg, 0, sizeof(parser->msg));
+	if (pool == NULL) {
+		parser->msg.pool = pool_alloconly_create("http_message", 4096);
+	} else {
+		parser->msg.pool = pool;
+		pool_ref(pool);
+	}
 	parser->msg.date = (time_t)-1;
-	p_array_init(&parser->msg.headers, parser->msg_pool, 32);
+	p_array_init(&parser->msg.headers, parser->msg.pool, 32);
 }
 
 int http_message_parse_version(struct http_message_parser *parser)
@@ -95,8 +101,8 @@ http_message_parse_header(struct http_message_parser *parser, const char *name,
 	void *value;
 
 	hdr = array_append_space(&parser->msg.headers);
-	hdr->key = p_strdup(parser->msg_pool, name);
-	hdr->value = value = p_malloc(parser->msg_pool, size+1);
+	hdr->key = p_strdup(parser->msg.pool, name);
+	hdr->value = value = p_malloc(parser->msg.pool, size+1);
 	memcpy(value, data, size);
 	hdr->size = size;
 

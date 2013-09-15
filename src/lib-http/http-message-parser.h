@@ -4,6 +4,8 @@
 #include "http-response.h"
 
 struct http_message {
+	pool_t pool;
+
 	unsigned int version_major;
 	unsigned int version_minor;
 
@@ -32,7 +34,8 @@ struct http_message_parser {
 void http_message_parser_init(struct http_message_parser *parser,
 			      struct istream *input);
 void http_message_parser_deinit(struct http_message_parser *parser);
-void http_message_parser_restart(struct http_message_parser *parser);
+void http_message_parser_restart(struct http_message_parser *parser,
+	pool_t pool);
 
 int http_message_parse_finish_payload(struct http_message_parser *parser,
 				      const char **error_r);
