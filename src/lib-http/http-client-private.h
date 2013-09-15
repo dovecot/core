@@ -190,6 +190,14 @@ struct http_client {
 };
 
 static inline const char *
+http_client_peer_addr2str(const struct http_client_peer_addr *addr)
+{
+	if (addr->ip.family == AF_INET6)
+		return t_strdup_printf("[%s]:%u", net_ip2addr(&addr->ip), addr->port);
+	return t_strdup_printf("%s:%u", net_ip2addr(&addr->ip), addr->port);
+}
+
+static inline const char *
 http_client_request_label(struct http_client_request *req)
 {
 	return t_strdup_printf("[%s http%s://%s:%d%s]",
@@ -199,8 +207,14 @@ http_client_request_label(struct http_client_request *req)
 static inline const char *
 http_client_connection_label(struct http_client_connection *conn)
 {
-	return t_strdup_printf("%s:%u [%d]",
-		net_ip2addr(&conn->conn.ip), conn->conn.port, conn->id);
+	return t_strdup_printf("%s [%d]",
+		 http_client_peer_addr2str(&conn->peer->addr), conn->id);
+}
+
+static inline const char *
+http_client_peer_label(struct http_client_peer *peer)
+{
+	return http_client_peer_addr2str(&peer->addr);
 }
 
 int http_client_init_ssl_ctx(struct http_client *client, const char **error_r);

@@ -134,6 +134,7 @@ static void
 http_client_host_port_soft_connect_timeout(struct http_client_host_port *hport)
 {
 	struct http_client_host *host = hport->host;
+	const struct http_client_peer_addr *addr = &hport->addr;
 
 	if (hport->to_connect != NULL)
 		timeout_remove(&hport->to_connect);
@@ -146,12 +147,10 @@ http_client_host_port_soft_connect_timeout(struct http_client_host_port *hport)
 	/* if our our previous connection attempt takes longer than the
 	   soft_connect_timeout, we start a connection attempt to the next IP in
 	   parallel */
-
-	http_client_host_debug(host, "Connection to %s:%u%s is taking a long time; "
+	http_client_host_debug(host, "Connection to %s%s is taking a long time; "
 		"starting parallel connection attempt to next IP",
-		net_ip2addr(&hport->addr.ip), hport->addr.port,
-		hport->addr.https_name == NULL ? "" :
-			t_strdup_printf(" (SSL=%s)", hport->addr.https_name));
+		http_client_peer_addr2str(addr), addr->https_name == NULL ? "" :
+			t_strdup_printf(" (SSL=%s)", addr->https_name)); 
 
 	/* next IP */
 	hport->ips_connect_idx = (hport->ips_connect_idx + 1) % host->ips_count;
@@ -174,10 +173,10 @@ http_client_host_port_connection_setup(struct http_client_host_port *hport)
 	/* update our peer address */
 	hport->addr.ip = host->ips[hport->ips_connect_idx];
 
-	http_client_host_debug(host, "Setting up connection to %s:%u%s "
-		"(%u requests pending)", net_ip2addr(&addr->ip), addr->port,
-		addr->https_name == NULL ? "" :
-			t_strdup_printf(" (SSL=%s)", addr->https_name), num_requests);
+	http_client_host_debug(host, "Setting up connection to %s%s "
+		"(%u requests pending)", http_client_peer_addr2str(addr),
+		(addr->https_name == NULL ? "" :
+			t_strdup_printf(" (SSL=%s)", addr->https_name)), num_requests);
 
 	/* create/get peer */
 	peer = http_client_peer_get(host->client, addr);
@@ -307,8 +306,8 @@ void http_client_host_connection_success(struct http_client_host *host,
 {
 	struct http_client_host_port *hport;
 
-	http_client_host_debug(host, "Successfully connected to %s:%u",
-		net_ip2addr(&addr->ip), addr->port);
+	http_client_host_debug(host, "Successfully connected to %s",
+		http_client_peer_addr2str(addr));
 
 	hport = http_client_host_port_find(host, addr->port, addr->https_name);
 	if (hport == NULL)
@@ -322,8 +321,8 @@ void http_client_host_connection_failure(struct http_client_host *host,
 {
 	struct http_client_host_port *hport;
 
-	http_client_host_debug(host, "Failed to connect to %s:%u: %s",
-		net_ip2addr(&addr->ip), addr->port, reason);
+	http_client_host_debug(host, "Failed to connect to %s: %s",
+		http_client_peer_addr2str(addr), reason);
 
 	hport = http_client_host_port_find(host, addr->port, addr->https_name);
 	if (hport == NULL)
@@ -513,8 +512,8 @@ http_client_host_claim_request(struct http_client_host *host,
 	array_delete(&hport->request_queue, i, 1);
 
 	http_client_host_debug(host,
-		"Connection to peer %s:%u claimed request %s %s",
-		net_ip2addr(&addr->ip), addr->port, http_client_request_label(req),
+		"Connection to peer %s claimed request %s %s",
+		http_client_peer_addr2str(addr), http_client_request_label(req),
 		(req->urgent ? "(urgent)" : ""));
 
 	return req;

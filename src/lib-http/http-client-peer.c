@@ -29,9 +29,8 @@ http_client_peer_debug(struct http_client_peer *peer,
 
 	if (peer->client->set.debug) {
 		va_start(args, format);	
-		i_debug("http-client: peer %s:%u: %s", 
-			net_ip2addr(&peer->addr.ip), peer->addr.port,
-			t_strdup_vprintf(format, args));
+		i_debug("http-client: peer %s: %s", 
+			http_client_peer_label(peer), t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
