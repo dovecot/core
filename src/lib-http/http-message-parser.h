@@ -2,6 +2,7 @@
 #define HTTP_MESSAGE_PARSER_H
 
 #include "http-response.h"
+#include "http-transfer.h"
 
 struct http_message {
 	pool_t pool;
@@ -14,9 +15,11 @@ struct http_message {
 
 	uoff_t content_length;
 	const char *location;
-	const char *transfer_encoding;
+	ARRAY_TYPE(http_transfer_coding) transfer_encoding;
+	ARRAY_TYPE(const_string) connection_options;
 
 	unsigned int connection_close:1;
+	unsigned int have_content_length:1;
 };
 
 struct http_message_parser {
@@ -42,7 +45,7 @@ int http_message_parse_finish_payload(struct http_message_parser *parser,
 int http_message_parse_version(struct http_message_parser *parser);
 int http_message_parse_headers(struct http_message_parser *parser,
 			       const char **error_r);
-int http_message_parse_body(struct http_message_parser *parser,
+int http_message_parse_body(struct http_message_parser *parser, bool request,
 			    const char **error_r);
 
 #endif

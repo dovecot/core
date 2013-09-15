@@ -279,7 +279,7 @@ int http_response_parse_next(struct http_response_parser *parser,
 
 	if (!no_payload) {
 		/* [ message-body ] */
-		if (http_message_parse_body(&parser->parser, error_r) < 0)
+		if (http_message_parse_body(&parser->parser, FALSE, error_r) < 0)
 			return -1;
 	}
 	parser->state = HTTP_RESPONSE_PARSE_STATE_INIT;
@@ -293,6 +293,7 @@ int http_response_parse_next(struct http_response_parser *parser,
 	response->date = parser->parser.msg.date;
 	response->payload = parser->parser.payload;
 	response->headers = parser->parser.msg.headers;
+	response->connection_options = parser->parser.msg.connection_options;
 	response->connection_close = parser->parser.msg.connection_close;
 	return 1;
 }

@@ -14,6 +14,7 @@ struct http_request {
 	struct istream *payload;
 
 	ARRAY_TYPE(http_response_header) headers;
+	ARRAY_TYPE(const_string) connection_options;
 
 	unsigned int connection_close:1;
 };
