@@ -308,6 +308,7 @@ http_message_parse_header(struct http_message_parser *parser,
 int http_message_parse_headers(struct http_message_parser *parser)
 {
 	const unsigned char *field_data;
+	struct http_message *msg = &parser->msg;
 	const char *field_name, *error;
 	size_t field_size;
 	int ret;
@@ -320,6 +321,20 @@ int http_message_parse_headers(struct http_message_parser *parser)
 		&field_name, &field_data, &field_size, &error)) > 0) {
 		if (field_name == NULL) {
 			/* EOH */
+
+			/* handle HTTP/1.0 persistence */
+			if (msg->version_major == 1 && msg->version_minor == 0 &&
+				!msg->connection_close) {
+				const char *const *option;
+
+				msg->connection_close = TRUE;	
+				array_foreach(&msg->connection_options, option) {
+					if (strcasecmp(*option, "Keep-Alive") == 0) {
+						msg->connection_close = FALSE;
+						break;
+					}
+				}			
+			}
 			return 1;
 		}
 
