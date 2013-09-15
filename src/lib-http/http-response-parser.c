@@ -102,8 +102,7 @@ static inline const char *_chr_sanitize(unsigned char c)
 	return t_strdup_printf("<0x%02x>", c);
 }
 
-static int http_response_parse(struct http_response_parser *parser,
-			       const char **error_r)
+static int http_response_parse(struct http_response_parser *parser)
 {
 	struct http_message_parser *_parser = &parser->parser;
 	int ret;
@@ -113,94 +112,92 @@ static int http_response_parse(struct http_response_parser *parser,
 	   reason-phrase = *( HTAB / SP / VCHAR / obs-text )
 	 */
 
-	for (;;) {
-		switch (parser->state) {
-		case HTTP_RESPONSE_PARSE_STATE_INIT:
-			http_response_parser_restart(parser);
-			parser->state = HTTP_RESPONSE_PARSE_STATE_VERSION;
-			/* fall through */
-		case HTTP_RESPONSE_PARSE_STATE_VERSION:
-			if ((ret=http_message_parse_version(_parser)) <= 0) {
-				if (ret < 0)
-					*error_r = "Invalid HTTP version in response";
-				return ret;
-			}
-			parser->state = HTTP_RESPONSE_PARSE_STATE_SP1;
-			if (_parser->cur == _parser->end)
-				return 0;
-			/* fall through */
-		case HTTP_RESPONSE_PARSE_STATE_SP1:
-			if (*_parser->cur != ' ') {
-				*error_r = t_strdup_printf
-					("Expected ' ' after response version, but found %s",
-						_chr_sanitize(*_parser->cur));
-				return -1;
-			}
-			_parser->cur++;
-			parser->state = HTTP_RESPONSE_PARSE_STATE_STATUS;
-			if (_parser->cur >= _parser->end)
-				return 0;
-			/* fall through */
-		case HTTP_RESPONSE_PARSE_STATE_STATUS:
-			if ((ret=http_response_parse_status(parser)) <= 0) {
-				if (ret < 0)
-					*error_r = "Invalid HTTP status code in response";
-				return ret;
-			}
-			parser->state = HTTP_RESPONSE_PARSE_STATE_SP2;
-			if (_parser->cur == _parser->end)
-				return 0;
-			/* fall through */
-		case HTTP_RESPONSE_PARSE_STATE_SP2:
-			if (*_parser->cur != ' ') {
-				*error_r = t_strdup_printf
-					("Expected ' ' after response status code, but found %s",
-						_chr_sanitize(*_parser->cur));
-				return -1;
-			}
-			_parser->cur++;
-			parser->state = HTTP_RESPONSE_PARSE_STATE_REASON;
-			if (_parser->cur >= _parser->end)
-				return 0;
-			/* fall through */
-		case HTTP_RESPONSE_PARSE_STATE_REASON:
-			if ((ret=http_response_parse_reason(parser)) <= 0) {
-				i_assert(ret == 0);
-				return 0;
-			}
-			parser->state = HTTP_RESPONSE_PARSE_STATE_CR;
-			if (_parser->cur == _parser->end)
-				return 0;
-			/* fall through */
-		case HTTP_RESPONSE_PARSE_STATE_CR:
-			if (*_parser->cur == '\r')
-				_parser->cur++;
-			parser->state = HTTP_RESPONSE_PARSE_STATE_LF;
-			if (_parser->cur == _parser->end)
-				return 0;
-			/* fall through */
-		case HTTP_RESPONSE_PARSE_STATE_LF:
-			if (*_parser->cur != '\n') {
-				*error_r = t_strdup_printf
-					("Expected line end after response, but found %s",
-						_chr_sanitize(*_parser->cur));
-				return -1;
-			}
-			_parser->cur++;
-			parser->state = HTTP_RESPONSE_PARSE_STATE_HEADER;
-			return 1;
-		case HTTP_RESPONSE_PARSE_STATE_HEADER:
-		default:
-			i_unreached();
+	switch (parser->state) {
+	case HTTP_RESPONSE_PARSE_STATE_INIT:
+		http_response_parser_restart(parser);
+		parser->state = HTTP_RESPONSE_PARSE_STATE_VERSION;
+		/* fall through */
+	case HTTP_RESPONSE_PARSE_STATE_VERSION:
+		if ((ret=http_message_parse_version(_parser)) <= 0) {
+			if (ret < 0)
+				_parser->error = "Invalid HTTP version in response";
+			return ret;
 		}
+		parser->state = HTTP_RESPONSE_PARSE_STATE_SP1;
+		if (_parser->cur == _parser->end)
+			return 0;
+		/* fall through */
+	case HTTP_RESPONSE_PARSE_STATE_SP1:
+		if (*_parser->cur != ' ') {
+			_parser->error = t_strdup_printf
+				("Expected ' ' after response version, but found %s",
+					_chr_sanitize(*_parser->cur));
+			return -1;
+		}
+		_parser->cur++;
+		parser->state = HTTP_RESPONSE_PARSE_STATE_STATUS;
+		if (_parser->cur >= _parser->end)
+			return 0;
+		/* fall through */
+	case HTTP_RESPONSE_PARSE_STATE_STATUS:
+		if ((ret=http_response_parse_status(parser)) <= 0) {
+			if (ret < 0)
+				_parser->error = "Invalid HTTP status code in response";
+			return ret;
+		}
+		parser->state = HTTP_RESPONSE_PARSE_STATE_SP2;
+		if (_parser->cur == _parser->end)
+			return 0;
+		/* fall through */
+	case HTTP_RESPONSE_PARSE_STATE_SP2:
+		if (*_parser->cur != ' ') {
+			_parser->error = t_strdup_printf
+				("Expected ' ' after response status code, but found %s",
+					_chr_sanitize(*_parser->cur));
+			return -1;
+		}
+		_parser->cur++;
+		parser->state = HTTP_RESPONSE_PARSE_STATE_REASON;
+		if (_parser->cur >= _parser->end)
+			return 0;
+		/* fall through */
+	case HTTP_RESPONSE_PARSE_STATE_REASON:
+		if ((ret=http_response_parse_reason(parser)) <= 0) {
+			i_assert(ret == 0);
+			return 0;
+		}
+		parser->state = HTTP_RESPONSE_PARSE_STATE_CR;
+		if (_parser->cur == _parser->end)
+			return 0;
+		/* fall through */
+	case HTTP_RESPONSE_PARSE_STATE_CR:
+		if (*_parser->cur == '\r')
+			_parser->cur++;
+		parser->state = HTTP_RESPONSE_PARSE_STATE_LF;
+		if (_parser->cur == _parser->end)
+			return 0;
+		/* fall through */
+	case HTTP_RESPONSE_PARSE_STATE_LF:
+		if (*_parser->cur != '\n') {
+			_parser->error = t_strdup_printf
+				("Expected line end after response, but found %s",
+					_chr_sanitize(*_parser->cur));
+			return -1;
+		}
+		_parser->cur++;
+		parser->state = HTTP_RESPONSE_PARSE_STATE_HEADER;
+		return 1;
+	case HTTP_RESPONSE_PARSE_STATE_HEADER:
+	default:
+		break;
 	}
 
 	i_unreached();
 	return -1;
 }
 
-static int http_response_parse_status_line(struct http_response_parser *parser,
-					   const char **error_r)
+static int
+http_response_parse_status_line(struct http_response_parser *parser)
 {
 	struct http_message_parser *_parser = &parser->parser;
 	const unsigned char *begin;
@@ -212,7 +209,7 @@ static int http_response_parse_status_line(struct http_response_parser *parser,
 		_parser->cur = begin;
 		_parser->end = _parser->cur + size;
 
-		if ((ret = http_response_parse(parser, error_r)) < 0)
+		if ((ret = http_response_parse(parser)) < 0)
 			return -1;
 
 		i_stream_skip(_parser->input, _parser->cur - begin);
@@ -221,12 +218,15 @@ static int http_response_parse_status_line(struct http_response_parser *parser,
 		old_bytes = i_stream_get_data_size(_parser->input);
 	}
 
-	i_assert(ret != -2);
+	if (ret == -2) {
+		_parser->error = "HTTP status line is too long";
+		return -1;
+	}
 	if (ret < 0) {
 		if (_parser->input->eof &&
 		    parser->state == HTTP_RESPONSE_PARSE_STATE_INIT)
 			return 0;
-		*error_r = "Stream error";
+		_parser->error = "Stream error";
 		return -1;
 	}
 	return 0;
@@ -240,8 +240,10 @@ int http_response_parse_next(struct http_response_parser *parser,
 
 	/* make sure we finished streaming payload from previous response
 	   before we continue. */
-	if ((ret = http_message_parse_finish_payload(&parser->parser, error_r)) <= 0)
+	if ((ret = http_message_parse_finish_payload(&parser->parser)) <= 0) {
+		*error_r = parser->parser.error;
 		return ret;
+	}
 
 	/* HTTP-message   = start-line
 	                   *( header-field CRLF )
@@ -249,11 +251,15 @@ int http_response_parse_next(struct http_response_parser *parser,
 	                    [ message-body ]
 	 */
 	if (parser->state != HTTP_RESPONSE_PARSE_STATE_HEADER) {
-		if ((ret = http_response_parse_status_line(parser, error_r)) <= 0)
+		if ((ret = http_response_parse_status_line(parser)) <= 0) {
+			*error_r = parser->parser.error;
 			return ret;
+		}
 	} 
-	if ((ret = http_message_parse_headers(&parser->parser, error_r)) <= 0)
+	if ((ret = http_message_parse_headers(&parser->parser)) <= 0) {
+		*error_r = parser->parser.error;
 		return ret;
+	}
 
 	/* http://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-21
 	     Section 3.3.2:
@@ -286,9 +292,12 @@ int http_response_parse_next(struct http_response_parser *parser,
 
 	if (!no_payload) {
 		/* [ message-body ] */
-		if (http_message_parse_body(&parser->parser, FALSE, error_r) < 0)
-			return -1;
+		if (http_message_parse_body(&parser->parser, FALSE) < 0) {
+			*error_r = parser->parser.error;
+ 			return -1;
+		}
 	}
+
 	parser->state = HTTP_RESPONSE_PARSE_STATE_INIT;
 
 	memset(response, 0, sizeof(*response));

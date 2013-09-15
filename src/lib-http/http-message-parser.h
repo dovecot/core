@@ -6,6 +6,15 @@
 
 #include "http-header.h"
 
+enum http_message_parse_error {
+	HTTP_MESSAGE_PARSE_ERROR_NONE = 0,        /* no error */
+	HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM,   /* stream error */
+	HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE,  /* unrecoverable generic error */
+	HTTP_MESSAGE_PARSE_ERROR_BAD_MESSAGE,     /* recoverable generic error */
+	HTTP_MESSAGE_PARSE_ERROR_NOT_IMPLEMENTED, /* used unimplemented feature
+	                                            (recoverable) */
+};
+
 struct http_message {
 	pool_t pool;
 
@@ -30,6 +39,9 @@ struct http_message_parser {
 
 	const unsigned char *cur, *end;
 
+	const char *error;
+	enum http_message_parse_error error_code;
+
 	struct http_header_parser *header_parser;
 	struct istream *payload;
 
@@ -44,12 +56,9 @@ void http_message_parser_deinit(struct http_message_parser *parser);
 void http_message_parser_restart(struct http_message_parser *parser,
 	pool_t pool);
 
-int http_message_parse_finish_payload(struct http_message_parser *parser,
-				      const char **error_r);
+int http_message_parse_finish_payload(struct http_message_parser *parser);
 int http_message_parse_version(struct http_message_parser *parser);
-int http_message_parse_headers(struct http_message_parser *parser,
-			       const char **error_r);
-int http_message_parse_body(struct http_message_parser *parser, bool request,
-			    const char **error_r);
+int http_message_parse_headers(struct http_message_parser *parser);
+int http_message_parse_body(struct http_message_parser *parser, bool request);
 
 #endif

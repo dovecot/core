@@ -24,6 +24,8 @@ struct http_request_parser {
 	struct http_message_parser parser;
 	enum http_request_parser_state state;
 
+	enum http_request_parse_error error_code;
+
 	const char *request_method;
 	const char *request_target;
 
@@ -106,7 +108,7 @@ static inline const char *_chr_sanitize(unsigned char c)
 }
 
 static int http_request_parse(struct http_request_parser *parser,
-			      pool_t pool, const char **error_r)
+			      pool_t pool)
 {
 	struct http_message_parser *_parser = &parser->parser;
 	int ret;
@@ -125,7 +127,8 @@ static int http_request_parse(struct http_request_parser *parser,
 			if (*_parser->cur == '\r' || *_parser->cur == '\n') {
 				if (parser->skipping_line) {
 					/* second extra CRLF; not allowed */
-					*error_r = "Empty request line";
+					parser->error_code = HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST;
+					_parser->error = "Empty request line";
 					return -1;
 				}
 				/* HTTP/1.0 client sent one extra CRLF after body.
@@ -138,19 +141,17 @@ static int http_request_parse(struct http_request_parser *parser,
 			parser->skipping_line = FALSE;
 			/* fall through */
 		case HTTP_REQUEST_PARSE_STATE_METHOD:
-			if ((ret=http_request_parse_method(parser)) <= 0) {
-				if (ret < 0)
-					*error_r = "Invalid HTTP method in request";
+			if ((ret=http_request_parse_method(parser)) <= 0)
 				return ret;
-			}
 			parser->state = HTTP_REQUEST_PARSE_STATE_SP1;
 			if (_parser->cur == _parser->end)
 				return 0;
 			/* fall through */
 		case HTTP_REQUEST_PARSE_STATE_SP1:
 			if (*_parser->cur != ' ') {
-				*error_r = t_strdup_printf
-					("Expected ' ' after request method, but found %s",
+				parser->error_code = HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST;
+				_parser->error = t_strdup_printf
+					("Unexpected character %s in request method",
 						_chr_sanitize(*_parser->cur));
 				return -1;
 			}
@@ -160,19 +161,17 @@ static int http_request_parse(struct http_request_parser *parser,
 				return 0;
 			/* fall through */
 		case HTTP_REQUEST_PARSE_STATE_TARGET:
-			if ((ret=http_request_parse_target(parser)) <= 0) {
-				if (ret < 0)
-					*error_r = "Invalid HTTP target in request";
+			if ((ret=http_request_parse_target(parser)) <= 0)
 				return ret;
-			}
 			parser->state = HTTP_REQUEST_PARSE_STATE_SP2;
 			if (_parser->cur == _parser->end)
 				return 0;
 			/* fall through */
 		case HTTP_REQUEST_PARSE_STATE_SP2:
 			if (*_parser->cur != ' ') {
-				*error_r = t_strdup_printf
-					("Expected ' ' after request target, but found %s",
+				parser->error_code = HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST;
+				_parser->error = t_strdup_printf
+					("Unexpected character %s in request target",
 						_chr_sanitize(*_parser->cur));
 				return -1;
 			}
@@ -183,8 +182,10 @@ static int http_request_parse(struct http_request_parser *parser,
 			/* fall through */
 		case HTTP_REQUEST_PARSE_STATE_VERSION:
 			if ((ret=http_message_parse_version(&parser->parser)) <= 0) {
-				if (ret < 0)
-					*error_r = "Invalid HTTP version in request";
+				if (ret < 0) {
+					parser->error_code = HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST;
+					_parser->error = "Invalid HTTP version in request";
+				}
 				return ret;
 			}
 			parser->state = HTTP_REQUEST_PARSE_STATE_CR;
@@ -200,8 +201,9 @@ static int http_request_parse(struct http_request_parser *parser,
 			/* fall through */
 		case HTTP_REQUEST_PARSE_STATE_LF:
 			if (*_parser->cur != '\n') {
-				*error_r = t_strdup_printf
-					("Expected line end after request, but found %s",
+				parser->error_code = HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST;
+				_parser->error = t_strdup_printf
+					("Unexpected character %s at end of request line",
 						_chr_sanitize(*_parser->cur));
 				return -1;
 			}
@@ -223,7 +225,7 @@ static int http_request_parse(struct http_request_parser *parser,
 }
 
 static int http_request_parse_request_line(struct http_request_parser *parser,
-					   pool_t pool, const char **error_r)
+					   pool_t pool)
 {
 	struct http_message_parser *_parser = &parser->parser;
 	const unsigned char *begin;
@@ -235,7 +237,7 @@ static int http_request_parse_request_line(struct http_request_parser *parser,
 		_parser->cur = begin;
 		_parser->end = _parser->cur + size;
 
-		if ((ret = http_request_parse(parser, pool, error_r)) < 0)
+		if ((ret = http_request_parse(parser, pool)) < 0)
 			return -1;
 
 		i_stream_skip(_parser->input, _parser->cur - begin);
@@ -244,29 +246,61 @@ static int http_request_parse_request_line(struct http_request_parser *parser,
 		old_bytes = i_stream_get_data_size(_parser->input);
 	}
 
-	i_assert(ret != -2);
+	if (ret == -2) {
+		parser->error_code = HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST;
+		_parser->error = "HTTP request line is too long";
+		return -1;
+	}
 	if (ret < 0) {
 		if (_parser->input->eof &&
-		    parser->state == HTTP_REQUEST_PARSE_STATE_INIT)
+	    parser->state == HTTP_REQUEST_PARSE_STATE_INIT)
 			return 0;
-		*error_r = "Stream error";
+		parser->error_code = HTTP_REQUEST_PARSE_ERROR_BROKEN_STREAM;
+		_parser->error = "Broken stream";
 		return -1;
 	}
 	return 0;
 }
 
+static inline enum http_request_parse_error
+http_request_parser_message_error(struct http_request_parser *parser)
+{
+	switch (parser->parser.error_code) {
+	case HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM:
+		return HTTP_REQUEST_PARSE_ERROR_BROKEN_STREAM;
+	case HTTP_MESSAGE_PARSE_ERROR_BAD_MESSAGE:
+		return HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST;
+	case HTTP_MESSAGE_PARSE_ERROR_NOT_IMPLEMENTED:
+		return HTTP_REQUEST_PARSE_ERROR_NOT_IMPLEMENTED;
+	case HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE:
+		return HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST;
+	default:
+		break;
+	}
+	i_unreached();
+	return HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST;
+}
+
 int http_request_parse_next(struct http_request_parser *parser,
 			    pool_t pool, struct http_request *request,
-			    const char **error_r)
+			    enum http_request_parse_error *error_code_r, const char **error_r)
 {
 	const struct http_header_field *hdr;
 	const char *error;
 	int ret;
 
+	*error_code_r = parser->error_code = HTTP_REQUEST_PARSE_ERROR_NONE;
+	*error_r = parser->parser.error = NULL;
+
 	/* make sure we finished streaming payload from previous request
 	   before we continue. */
-	if ((ret = http_message_parse_finish_payload(&parser->parser, error_r)) <= 0)
+	if ((ret = http_message_parse_finish_payload(&parser->parser)) <= 0) {
+		if (ret < 0) {
+			*error_code_r = http_request_parser_message_error(parser);
+			*error_r = parser->parser.error;
+		}
 		return ret;
+	}
 
 	/* HTTP-message   = start-line
 	                   *( header-field CRLF )
@@ -274,13 +308,36 @@ int http_request_parse_next(struct http_request_parser *parser,
 	                    [ message-body ]
 	 */
 	if (parser->state != HTTP_REQUEST_PARSE_STATE_HEADER) {
-		if ((ret = http_request_parse_request_line(parser, pool, error_r)) <= 0)
+		ret = http_request_parse_request_line(parser, pool);
+
+		/* assign early for error reporting */
+		request->method = parser->request_method;
+		request->target_raw = parser->request_target; 
+		request->version_major = parser->parser.msg.version_major;
+		request->version_minor = parser->parser.msg.version_minor;
+
+		if (ret <= 0) {
+			if (ret < 0) {
+				*error_code_r = parser->error_code;
+				*error_r = parser->parser.error;
+			}
 			return ret;
-	} 
-	if ((ret = http_message_parse_headers(&parser->parser, error_r)) <= 0)
+		}
+	}
+
+	if ((ret = http_message_parse_headers(&parser->parser)) <= 0) {
+		if (ret < 0) {
+			*error_code_r = http_request_parser_message_error(parser);
+			*error_r = parser->parser.error;
+		}
 		return ret;
-	if (http_message_parse_body(&parser->parser, TRUE, error_r) < 0)
+	}
+
+	if (http_message_parse_body(&parser->parser, TRUE) < 0) {
+		*error_code_r = http_request_parser_message_error(parser);
+		*error_r = parser->parser.error;
 		return -1;
+	}
 	parser->state = HTTP_REQUEST_PARSE_STATE_INIT;
 
 	/* https://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-23
@@ -293,6 +350,7 @@ int http_request_parse_next(struct http_request_parser *parser,
 	 */
 	if ((ret=http_header_field_find_unique
 		(parser->parser.msg.header, "Host", &hdr)) <= 0) {
+		*error_code_r = HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST;
 		if (ret == 0)
 			*error_r = "Missing Host header";
 		else
@@ -304,6 +362,7 @@ int http_request_parse_next(struct http_request_parser *parser,
 
 	if (http_url_request_target_parse(parser->request_target, hdr->value,
 		parser->parser.msg.pool, &request->target, &error) < 0) {
+		*error_code_r = HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST;
 		*error_r = t_strdup_printf("Bad request target `%s': %s",
 			parser->request_target, error);
 		return -1;

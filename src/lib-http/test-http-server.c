@@ -49,11 +49,12 @@ static void client_input(struct connection *conn)
 {
 	struct client *client = (struct client *)conn;
 	struct http_request request;
+	enum http_request_parse_error error_code;
 	const char *error;
 	int ret;
 
 	while ((ret = http_request_parse_next
-		(client->parser, NULL, &request, &error)) > 0) {
+		(client->parser, NULL, &request, &error_code, &error)) > 0) {
 		if (client_handle_request(client, &request) < 0 ||
 		    request.connection_close) {
 			client_destroy(conn);

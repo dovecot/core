@@ -62,26 +62,34 @@ int http_message_parse_version(struct http_message_parser *parser)
 	const unsigned char *p = parser->cur;
 	const size_t size = parser->end - parser->cur;
 
+	parser->error_code = HTTP_MESSAGE_PARSE_ERROR_NONE;
+	parser->error = NULL;
+
 	/* HTTP-version  = HTTP-name "/" DIGIT "." DIGIT
 	   HTTP-name     = %x48.54.54.50 ; "HTTP", case-sensitive
 	 */
 	if (size < 8)
 		return 0;
 	if (memcmp(p, "HTTP/", 5) != 0 ||
-	    !i_isdigit(p[5]) || p[6] != '.' || !i_isdigit(p[7]))
+	    !i_isdigit(p[5]) || p[6] != '.' || !i_isdigit(p[7])) {
+		parser->error = "Bad HTTP version";
+		parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
 		return -1;
+	}
 	parser->msg.version_major = p[5] - '0';
 	parser->msg.version_minor = p[7] - '0';
 	parser->cur += 8;
 	return 1;
 }
 
-int http_message_parse_finish_payload(struct http_message_parser *parser,
-				      const char **error_r)
+int http_message_parse_finish_payload(struct http_message_parser *parser)
 {
 	const unsigned char *data;
 	size_t size;
 	int ret;
+
+	parser->error_code = HTTP_MESSAGE_PARSE_ERROR_NONE;
+	parser->error = NULL;
 
 	if (parser->payload == NULL)
 		return 1;
@@ -89,8 +97,10 @@ int http_message_parse_finish_payload(struct http_message_parser *parser,
 	while ((ret = i_stream_read_data(parser->payload, &data, &size, 0)) > 0)
 		i_stream_skip(parser->payload, size);
 	if (ret == 0 || parser->payload->stream_errno != 0) {
-		if (ret < 0)
-			*error_r = "Stream error while skipping payload";
+		if (ret < 0) {
+			parser->error = "Stream error while skipping payload";
+			parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM;
+		}
 		return ret;
 	}
 	i_stream_unref(&parser->payload);
@@ -99,8 +109,7 @@ int http_message_parse_finish_payload(struct http_message_parser *parser,
 
 static int
 http_message_parse_header(struct http_message_parser *parser,
-			  const char *name, const unsigned char *data, size_t size,
-			  const char **error_r)
+			  const char *name, const unsigned char *data, size_t size)
 {
 	const struct http_header_field *hdr;
 	struct http_parser hparser;
@@ -141,7 +150,8 @@ http_message_parse_header(struct http_message_parser *parser,
 			}
 
 			if (hparser.cur < hparser.end || num_tokens == 0) {
-				*error_r = "Invalid Connection header";
+				parser->error = "Invalid Connection header";
+				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
 				return -1;
 			}
 
@@ -150,12 +160,14 @@ http_message_parse_header(struct http_message_parser *parser,
 		/* Content-Length: */
 		if (strcasecmp(name, "Content-Length") == 0) {
 			if (parser->msg.have_content_length) {
-				*error_r = "Duplicate Content-Length header";
+				parser->error = "Duplicate Content-Length header";
+				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
 				return -1;
 			}
 			/* Content-Length = 1*DIGIT */
 			if (str_to_uoff(hdr->value, &parser->msg.content_length) < 0) {
-				*error_r = "Invalid Content-Length header";
+				parser->error= "Invalid Content-Length header";
+				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
 				return -1;
 			}
 			parser->msg.have_content_length = TRUE;
@@ -165,7 +177,8 @@ http_message_parse_header(struct http_message_parser *parser,
 	case 'D': case 'd':
 		if (strcasecmp(name, "Date") == 0) {
 			if (parser->msg.date != (time_t)-1) {
-				*error_r = "Duplicate Date header";
+				parser->error = "Duplicate Date header";
+				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
 				return -1;
 			}
 
@@ -269,7 +282,8 @@ http_message_parse_header(struct http_message_parser *parser,
 
 			if (hparser.cur < hparser.end ||
 				array_count(&parser->msg.transfer_encoding) == 0) {
-				*error_r = "Invalid Transfer-Encoding header";
+				parser->error = "Invalid Transfer-Encoding header";
+				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
 				return -1;
 			}
 			return 0;
@@ -281,13 +295,15 @@ http_message_parse_header(struct http_message_parser *parser,
 	return 0;
 }
 
-int http_message_parse_headers(struct http_message_parser *parser,
-			       const char **error_r)
+int http_message_parse_headers(struct http_message_parser *parser)
 {
 	const unsigned char *field_data;
 	const char *field_name, *error;
 	size_t field_size;
 	int ret;
+
+	parser->error_code = HTTP_MESSAGE_PARSE_ERROR_NONE;
+	parser->error = NULL;
 
 	/* *( header-field CRLF ) CRLF */
 	while ((ret=http_header_parse_next_field(parser->header_parser,
@@ -298,23 +314,28 @@ int http_message_parse_headers(struct http_message_parser *parser,
 		}
 
 		if (http_message_parse_header(parser,
-			field_name, field_data, field_size, error_r) < 0)
+			field_name, field_data, field_size) < 0)
 			return -1;
 	}
 
 	if (ret < 0) {
-		*error_r = t_strdup_printf(
-			"Failed to parse response header: %s", error);
+		if (parser->input->eof || parser->input->stream_errno != 0)  {			
+			parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM;
+			parser->error = "Broken stream";
+		} else {
+			parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
+			parser->error = t_strdup_printf("Failed to parse header: %s", error);
+		}
+	
 	}
 	return ret;
 }
 
-
-int http_message_parse_body(struct http_message_parser *parser, bool request,
-			    const char **error_r)
+int http_message_parse_body(struct http_message_parser *parser, bool request)
 {
-	*error_r = NULL;
-
+	parser->error_code = HTTP_MESSAGE_PARSE_ERROR_NONE;
+	parser->error = NULL;
+ 
 	if (array_is_created(&parser->msg.transfer_encoding)) {
 		const struct http_transfer_coding *coding;
 
@@ -324,20 +345,27 @@ int http_message_parse_body(struct http_message_parser *parser, bool request,
 			if (strcasecmp(coding->name, "chunked") == 0) {
 				chunked_last = TRUE;
 		
-				if (*error_r == NULL && array_is_created(&coding->parameters) &&
-					array_count(&coding->parameters) > 0) {
+				if ((parser->error_code == HTTP_MESSAGE_PARSE_ERROR_NONE)
+					&& array_is_created(&coding->parameters)
+					&& array_count(&coding->parameters) > 0) {
 					const struct http_transfer_param *param =
 						array_idx(&coding->parameters, 0);
-					
-					*error_r = t_strdup_printf("Unexpected parameter `%s' specified"
+
+					parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BAD_MESSAGE;
+					parser->error = t_strdup_printf(
+						"Unexpected parameter `%s' specified"
 						"for the `%s' transfer coding", param->attribute, coding->name);
+					/* recoverable */
 				}
 			} else if (chunked_last) {
-				*error_r = "Chunked Transfer-Encoding must be last";
+				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
+				parser->error = "Chunked Transfer-Encoding must be last";
 				return -1;
-			} else if (*error_r == NULL) {
- 				*error_r = t_strdup_printf(
+			} else if (parser->error_code == HTTP_MESSAGE_PARSE_ERROR_NONE) {
+				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_NOT_IMPLEMENTED;
+				parser->error = t_strdup_printf(
   				"Unknown transfer coding `%s'", coding->name);
+				/* recoverable */
   		}
   	}
 
@@ -364,7 +392,8 @@ int http_message_parse_body(struct http_message_parser *parser, bool request,
 			   length cannot be determined reliably; the server MUST respond with
 			   the 400 (Bad Request) status code and then close the connection.
 			 */
-			*error_r = "Final Transfer-Encoding in request is not `chunked'";
+			parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
+			parser->error = "Final Transfer-Encoding in request is not chunked";
 			return -1;
 		}
 
@@ -401,5 +430,7 @@ int http_message_parse_body(struct http_message_parser *parser, bool request,
 		parser->payload =
 			i_stream_create_limit(parser->input, (size_t)-1);
 	}
+	if (parser->error_code != HTTP_MESSAGE_PARSE_ERROR_NONE)
+		return -1;
 	return 0;
 }
