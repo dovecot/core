@@ -334,6 +334,159 @@ bool http_request_parser_pending_payload(struct http_request_parser *parser)
 	return i_stream_have_bytes_left(parser->parser.payload);
 }
 
+static int
+http_request_parse_expect_header(struct http_request_parser *parser,
+	struct http_request *request, const struct http_header_field *hdr)
+{
+	struct http_message_parser *_parser = &parser->parser;
+	struct http_parser hparser;
+	bool parse_error = FALSE;
+	unsigned int num_expectations = 0;
+
+	/* Expect       = 1#expectation
+	   expectation  = expect-name [ BWS "=" BWS expect-value ]
+	                    *( OWS ";" [ OWS expect-param ] )
+	   expect-param = expect-name [ BWS "=" BWS expect-value ]
+	   expect-name  = token
+	   expect-value = token / quoted-string
+	 */
+	http_parser_init(&hparser, (const unsigned char *)hdr->value, hdr->size);
+	while (!parse_error) {
+		const char *expect_name, *expect_value;
+
+		/* expect-name */
+		if (http_parse_token(&hparser, &expect_name) > 0) {
+			num_expectations++;
+			if (strcasecmp(expect_name, "100-continue") == 0) {
+				request->expect_100_continue = TRUE;
+			} else {
+				/* http://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-23
+				     Section 5.1.1:
+
+				   If all received Expect header field(s) are syntactically valid but
+				   contain an expectation that the recipient does not understand or
+				   cannot comply with, the recipient MUST respond with a 417
+				   (Expectation Failed) status code.  A recipient of a syntactically
+				   invalid Expectation header field MUST respond with a 4xx status code
+				   other than 417.
+
+				   --> Must check rest of expect header syntax before returning error.
+				 */
+				if (parser->error_code == HTTP_REQUEST_PARSE_ERROR_NONE) {
+					parser->error_code = HTTP_REQUEST_PARSE_ERROR_EXPECTATION_FAILED;
+					_parser->error = t_strdup_printf
+						("Unknown Expectation `%s'", expect_name);
+				}
+			}
+
+			/* BWS "=" BWS */
+			http_parse_ows(&hparser);
+			if (hparser.cur >= hparser.end)
+				break;
+			
+			if (*hparser.cur == '=') {
+				hparser.cur++;
+				http_parse_ows(&hparser);
+
+				/* value */
+				if (http_parse_word(&hparser, &expect_value) <= 0) {
+					parse_error = TRUE;
+					break;
+				}
+		
+				if (parser->error_code == HTTP_REQUEST_PARSE_ERROR_NONE) {
+					parser->error_code = HTTP_REQUEST_PARSE_ERROR_EXPECTATION_FAILED;
+					_parser->error = t_strdup_printf
+						("Expectation `%s' has unexpected value", expect_name);
+				}
+			}
+
+			/* *( OWS ";" [ OWS expect-param ] ) */
+			while (!parse_error) {
+				const char *attribute, *value;
+
+				/* OWS ";" */
+				http_parse_ows(&hparser);
+				if (hparser.cur >= hparser.end || *hparser.cur != ';')
+					break;
+				hparser.cur++;
+				http_parse_ows(&hparser);
+
+				/* expect-param */
+				if (http_parse_token(&hparser, &attribute) <= 0) {
+					parse_error = TRUE;
+					break;
+				}
+
+				/* BWS "=" BWS */
+				http_parse_ows(&hparser);
+				if (hparser.cur >= hparser.end || *hparser.cur != '=') {
+					parse_error = TRUE;
+					break;
+				}
+				hparser.cur++;
+				http_parse_ows(&hparser);
+
+				/* value */
+				if (http_parse_word(&hparser, &value) <= 0) {
+					parse_error = TRUE;
+					break;
+				}
+
+				if (parser->error_code == HTTP_REQUEST_PARSE_ERROR_NONE) {
+					parser->error_code = HTTP_REQUEST_PARSE_ERROR_EXPECTATION_FAILED;
+					_parser->error = t_strdup_printf
+						("Expectation `%s' has unknown parameter `'%s'",
+							expect_name, attribute);
+				}
+			}
+			if (parse_error)
+				break;		
+		}
+		http_parse_ows(&hparser);
+		if (hparser.cur >= hparser.end || *hparser.cur != ',')
+			break;
+		hparser.cur++;
+		http_parse_ows(&hparser);
+	}
+
+	if (parse_error || hparser.cur < hparser.end) {
+		parser->error_code = HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST;
+		_parser->error = "Invalid Expect header";
+		return -1;
+	}
+
+	if (parser->error_code != HTTP_REQUEST_PARSE_ERROR_NONE)
+		return -1;
+
+	if (num_expectations == 0) {
+		parser->error_code = HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST;
+		_parser->error = "Empty Expect header";
+		return -1;
+	}
+	return 0;
+}
+
+static int
+http_request_parse_headers(struct http_request_parser *parser,
+	struct http_request *request)
+{
+	const ARRAY_TYPE(http_header_field) *hdrs;
+	const struct http_header_field *hdr;
+	
+	hdrs = http_header_get_fields(parser->parser.msg.header);
+	array_foreach(hdrs, hdr) {
+		int ret = 0;
+
+		if (http_header_field_is(hdr, "Expect"))
+			ret = http_request_parse_expect_header(parser, request, hdr);
+
+		if (ret < 0)
+			return -1;
+	}
+	return 0;
+}
+
 int http_request_parse_next(struct http_request_parser *parser,
 			    pool_t pool, struct http_request *request,
 			    enum http_request_parse_error *error_code_r, const char **error_r)
@@ -418,6 +571,13 @@ int http_request_parse_next(struct http_request_parser *parser,
 		*error_code_r = HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST;
 		*error_r = t_strdup_printf("Bad request target `%s': %s",
 			parser->request_target, error);
+		return -1;
+	}
+
+	/* parse request-specific headers */
+	if (http_request_parse_headers(parser, request) < 0) {
+		*error_code_r = parser->error_code;
+		*error_r = parser->parser.error;
 		return -1;
 	}
 

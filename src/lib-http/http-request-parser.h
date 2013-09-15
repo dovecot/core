@@ -10,6 +10,8 @@ enum http_request_parse_error {
 	HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST,        /* recoverable generic error */
 	HTTP_REQUEST_PARSE_ERROR_NOT_IMPLEMENTED,    /* used unimplemented feature
 	                                                (recoverable) */
+	HTTP_REQUEST_PARSE_ERROR_EXPECTATION_FAILED, /* unknown item in Expect:
+	                                                header (recoverable) */
 	HTTP_REQUEST_PARSE_ERROR_METHOD_TOO_LONG,    /* method too long (fatal) */
 	HTTP_REQUEST_PARSE_ERROR_TARGET_TOO_LONG,    /* target too long (fatal) */
 	HTTP_REQUEST_PARSE_ERROR_PAYLOAD_TOO_LARGE   /* payload too large (fatal) */
