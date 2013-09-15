@@ -7,6 +7,8 @@
 #include "http-message-parser.h"
 #include "http-request-parser.h"
 
+#define HTTP_REQUEST_PARSER_MAX_METHOD_LENGTH 32
+
 enum http_request_parser_state {
 	HTTP_REQUEST_PARSE_STATE_INIT = 0,
 	HTTP_REQUEST_PARSE_STATE_SKIP_LINE,
@@ -24,6 +26,8 @@ struct http_request_parser {
 	struct http_message_parser parser;
 	enum http_request_parser_state state;
 
+	uoff_t max_target_length;
+
 	enum http_request_parse_error error_code;
 
 	const char *request_method;
@@ -34,12 +38,34 @@ struct http_request_parser {
 
 struct http_request_parser *
 http_request_parser_init(struct istream *input,
-	const struct http_header_limits *hdr_limits)
+	const struct http_request_limits *limits)
 {
 	struct http_request_parser *parser;
+	struct http_header_limits hdr_limits;
+	uoff_t max_payload_size = limits->max_payload_size;
 
 	parser = i_new(struct http_request_parser, 1);
-	http_message_parser_init(&parser->parser, input, hdr_limits, 0);
+	parser->max_target_length = limits->max_target_length;
+	
+	if (limits != NULL)
+		hdr_limits = limits->header;
+	else
+		memset(&hdr_limits, 0, sizeof(hdr_limits));
+
+	/* substitute default limits */
+	if (parser->max_target_length == 0)
+		parser->max_target_length =	HTTP_REQUEST_DEFAULT_MAX_TARGET_LENGTH;
+	if (hdr_limits.max_size == 0)
+		hdr_limits.max_size =	HTTP_REQUEST_DEFAULT_MAX_HEADER_SIZE;
+	if (hdr_limits.max_field_size == 0)
+		hdr_limits.max_field_size =	HTTP_REQUEST_DEFAULT_MAX_HEADER_FIELD_SIZE;
+	if (hdr_limits.max_fields == 0)
+		hdr_limits.max_fields =	HTTP_REQUEST_DEFAULT_MAX_HEADER_FIELDS;
+	if (max_payload_size == 0)
+		max_payload_size = HTTP_REQUEST_DEFAULT_MAX_PAYLOAD_SIZE;
+
+	http_message_parser_init
+		(&parser->parser, input, &hdr_limits, max_payload_size);
 	return parser;
 }
 
@@ -69,6 +95,11 @@ static int http_request_parse_method(struct http_request_parser *parser)
 	while (p < parser->parser.end && http_char_is_token(*p))
 		p++;
 
+	if ((p - parser->parser.cur) > HTTP_REQUEST_PARSER_MAX_METHOD_LENGTH) {
+		parser->error_code = HTTP_REQUEST_PARSE_ERROR_METHOD_TOO_LONG;
+		parser->parser.error = "HTTP request method is too long";
+		return -1;
+	}
 	if (p == parser->parser.end)
 		return 0;
 	parser->request_method =
@@ -79,19 +110,32 @@ static int http_request_parse_method(struct http_request_parser *parser)
 
 static int http_request_parse_target(struct http_request_parser *parser)
 {
+	struct http_message_parser *_parser = &parser->parser;
 	const unsigned char *p = parser->parser.cur;
 
 	/* We'll just parse anything up to the first SP or a control char.
 	   We could also implement workarounds for buggy HTTP clients and
 	   parse anything up to the HTTP-version and return 301 with the
-	   target properly encoded. */
-	while (p < parser->parser.end && *p > ' ')
+	   target properly encoded (FIXME). */
+	while (p < _parser->end && *p > ' ')
 		p++;
 
-	if (p == parser->parser.end)
+	/* target is too long when explicit limit is exceeded or when input buffer
+	   runs out of space */
+	/* FIXME: put limit on full request line rather than target and method
+	   separately */
+	/* FIXME: is it wise to keep target in stream buffer? It can become very
+	   large for some applications, increasing the stream buffer size */
+	if ((uoff_t)(p - _parser->cur) > parser->max_target_length ||
+		(p == _parser->end && ((uoff_t)(p - _parser->cur) >=
+			i_stream_get_max_buffer_size(_parser->input)))) {
+		parser->error_code = HTTP_REQUEST_PARSE_ERROR_TARGET_TOO_LONG;
+		parser->parser.error = "HTTP request target is too long";
+		return -1;
+	}
+	if (p == _parser->end)
 		return 0;
-	parser->request_target =
-		p_strdup_until(parser->parser.msg.pool, parser->parser.cur, p);
+	parser->request_target = p_strdup_until(_parser->msg.pool, _parser->cur, p);
 	parser->parser.cur = p;
 	return 1;
 }
@@ -272,6 +316,8 @@ http_request_parser_message_error(struct http_request_parser *parser)
 		return HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST;
 	case HTTP_MESSAGE_PARSE_ERROR_NOT_IMPLEMENTED:
 		return HTTP_REQUEST_PARSE_ERROR_NOT_IMPLEMENTED;
+	case HTTP_MESSAGE_PARSE_ERROR_PAYLOAD_TOO_LARGE:
+		return HTTP_REQUEST_PARSE_ERROR_PAYLOAD_TOO_LARGE;
 	case HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE:
 		return HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST;
 	default:

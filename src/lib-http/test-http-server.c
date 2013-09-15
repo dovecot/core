@@ -81,11 +81,15 @@ static const struct connection_vfuncs client_vfuncs = {
 static void client_init(int fd)
 {
 	struct client *client;
+	struct http_request_limits req_limits;
+
+	memset(&req_limits, 0, sizeof(req_limits));
+	req_limits.max_target_length = 4096;
 
 	client = i_new(struct client, 1);
 	connection_init_server(clients, &client->conn,
 			       "(http client)", fd, fd);
-	client->parser = http_request_parser_init(client->conn.input, 0);
+	client->parser = http_request_parser_init(client->conn.input, &req_limits);
 }
 
 static void client_accept(void *context ATTR_UNUSED)

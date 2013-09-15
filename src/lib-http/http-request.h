@@ -5,6 +5,19 @@
 
 struct http_url;
 
+#define HTTP_REQUEST_DEFAULT_MAX_TARGET_LENGTH      (8 * 1024)
+#define HTTP_REQUEST_DEFAULT_MAX_HEADER_SIZE        (200 * 1024)
+#define HTTP_REQUEST_DEFAULT_MAX_HEADER_FIELD_SIZE  (8 * 1024)
+#define HTTP_REQUEST_DEFAULT_MAX_HEADER_FIELDS      50
+#define HTTP_REQUEST_DEFAULT_MAX_PAYLOAD_SIZE       (1 * 1024 * 1024)
+
+struct http_request_limits {
+	uoff_t max_target_length;
+	uoff_t max_payload_size;
+
+	struct http_header_limits header;
+};
+
 enum http_request_target_format {
 	HTTP_REQUEST_TARGET_FORMAT_ORIGIN = 0,
 	HTTP_REQUEST_TARGET_FORMAT_ABSOLUTE,
