@@ -50,4 +50,7 @@ int http_parse_token(struct http_parser *parser, const char **token_r);
 int http_parse_token_list_next(struct http_parser *parser,
 	const char **token_r);
 
+int http_parse_quoted_string(struct http_parser *parser, const char **str_r);
+int http_parse_word(struct http_parser *parser, const char **word_r);
+
 #endif

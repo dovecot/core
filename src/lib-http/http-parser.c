@@ -23,8 +23,12 @@
  ctext          = OWS / %x21-27 / %x2A-5B / %x5D-7E / obs-text 
  obs-text       = %x80-FF
  OWS            = *( SP / HTAB )
+ VCHAR          =  %x21-7E
 
- Mapping
+ 'text'         = ( HTAB / SP / VCHAR / obs-text )
+ 
+ Character bit mappings:
+
  (1<<0) => tchar
  (1<<1) => special
  (1<<2) => %x21 / %x2A-5B / %x5D-7E
@@ -127,6 +131,65 @@ int http_parse_token_list_next(struct http_parser *parser,
 	return 1;
 }
 
+int http_parse_quoted_string(struct http_parser *parser, const char **str_r)
+{
+	string_t *str;
 
+	/* quoted-string = DQUOTE *( qdtext / quoted-pair ) DQUOTE
+	   qdtext        = HTAB / SP / "!" / %x23-5B ; '#'-'['
+	                   / %x5D-7E ; ']'-'~'
+	                   / obs-text
+	   quoted-pair   = "\" ( HTAB / SP / VCHAR / obs-text )
+	   obs-text      = %x80-FF
+	 */
 
+	/* DQUOTE */
+	if (parser->cur >= parser->end || parser->cur[0] != '"')
+		return 0;
+	parser->cur++;
 
+	/* *( qdtext / quoted-pair ) */
+	str = t_str_new(256);
+	for (;;) {
+		const unsigned char *first;
+
+		/* *qdtext */
+		first = parser->cur;
+		while (parser->cur < parser->end && http_char_is_qdtext(*parser->cur))
+			parser->cur++;
+
+		if (parser->cur >= parser->end)
+			return -1;
+
+		str_append_n(str, first, parser->cur - first);
+
+		/* DQUOTE */
+		if (*parser->cur == '"') {
+			parser->cur++;
+			break;
+
+		/* "\" */
+		} else if (*parser->cur == '\\') {
+			parser->cur++;
+			
+			if (parser->cur >= parser->end || !http_char_is_text(*parser->cur))
+				return -1;
+			str_append_c(str, *parser->cur);
+
+		/* ERROR */
+		} else {
+			return -1;
+		}
+	}
+	*str_r = str_c(str);
+	return 1;
+}
+
+int http_parse_word(struct http_parser *parser, const char **word_r)
+{
+	if (parser->cur >= parser->end)
+		return 0;
+	if (parser->cur[0] == '"')
+		return http_parse_quoted_string(parser, word_r);
+	return http_parse_token(parser, word_r);
+}
