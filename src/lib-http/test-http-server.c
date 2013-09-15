@@ -48,13 +48,14 @@ client_handle_request(struct client *client, struct http_request *request)
 static void client_input(struct connection *conn)
 {
 	struct client *client = (struct client *)conn;
-	struct http_request *request;
+	struct http_request request;
 	const char *error;
 	int ret;
 
-	while ((ret = http_request_parse_next(client->parser, &request, &error)) > 0) {
-		if (client_handle_request(client, request) < 0 ||
-		    request->connection_close) {
+	while ((ret = http_request_parse_next
+		(client->parser, &request, &error)) > 0) {
+		if (client_handle_request(client, &request) < 0 ||
+		    request.connection_close) {
 			client_destroy(conn);
 			return;
 		}

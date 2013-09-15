@@ -23,7 +23,8 @@ struct http_request_parser {
 	struct http_message_parser parser;
 	enum http_request_parser_state state;
 
-	struct http_request request;
+	const char *request_method;
+	const char *request_target;
 
 	unsigned int skipping_line:1;
 };
@@ -49,7 +50,8 @@ static void
 http_request_parser_restart(struct http_request_parser *parser)
 {
 	http_message_parser_restart(&parser->parser);
-	memset(&parser->request, 0, sizeof(parser->request));
+	parser->request_method = NULL;
+	parser->request_target = NULL;
 }
 
 static int http_request_parse_method(struct http_request_parser *parser)
@@ -63,7 +65,7 @@ static int http_request_parse_method(struct http_request_parser *parser)
 
 	if (p == parser->parser.end)
 		return 0;
-	parser->request.method =
+	parser->request_method =
 		p_strdup_until(parser->parser.msg_pool, parser->parser.cur, p);
 	parser->parser.cur = p;
 	return 1;
@@ -82,7 +84,7 @@ static int http_request_parse_target(struct http_request_parser *parser)
 
 	if (p == parser->parser.end)
 		return 0;
-	parser->request.target =
+	parser->request_target =
 		p_strdup_until(parser->parser.msg_pool, parser->parser.cur, p);
 	parser->parser.cur = p;
 	return 1;
@@ -246,7 +248,7 @@ static int http_request_parse_request_line(struct http_request_parser *parser,
 }
 
 int http_request_parse_next(struct http_request_parser *parser,
-			    struct http_request **request_r,
+			    struct http_request *request,
 			    const char **error_r)
 {
 	int ret;
@@ -271,13 +273,14 @@ int http_request_parse_next(struct http_request_parser *parser,
 		return -1;
 	parser->state = HTTP_REQUEST_PARSE_STATE_INIT;
 
-	parser->request.version_major = parser->parser.msg.version_major;
-	parser->request.version_minor = parser->parser.msg.version_minor;
-	parser->request.date = parser->parser.msg.date;
-	parser->request.payload = parser->parser.payload;
-	parser->request.headers = parser->parser.msg.headers;
-	parser->request.connection_close = parser->parser.msg.connection_close;
-
-	*request_r = &parser->request;
+	memset(request, 0, sizeof(*request));
+	request->method = parser->request_method;
+	request->target = parser->request_target;
+	request->version_major = parser->parser.msg.version_major;
+	request->version_minor = parser->parser.msg.version_minor;
+	request->date = parser->parser.msg.date;
+	request->payload = parser->parser.payload;
+	request->headers = parser->parser.msg.headers;
+	request->connection_close = parser->parser.msg.connection_close;
 	return 1;
 }

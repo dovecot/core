@@ -10,7 +10,7 @@ http_response_parser_init(struct istream *input);
 void http_response_parser_deinit(struct http_response_parser **_parser);
 
 int http_response_parse_next(struct http_response_parser *parser,
-			     bool no_payload, struct http_response **response_r,
+			     bool no_payload, struct http_response *response,
 			     const char **error_r);
 
 #endif

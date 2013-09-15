@@ -99,7 +99,7 @@ static void test_http_response_parse_valid(void)
 		struct ostream *output;
 		const struct http_response_parse_test *test;
 		struct http_response_parser *parser;
-		struct http_response *response = NULL;
+		struct http_response response;
 		const char *response_text, *payload, *error;
 		unsigned int pos, response_text_len;
 		int ret = 0;
@@ -119,11 +119,11 @@ static void test_http_response_parse_valid(void)
 		}
 		test_istream_set_size(input, response_text_len);
 		while (ret > 0) {
-			if (response->payload != NULL) {
+			if (response.payload != NULL) {
 				buffer_set_used_size(payload_buffer, 0);
 				output = o_stream_create_buffer(payload_buffer);
 				test_out("payload receive", 
-					o_stream_send_istream(output, response->payload));
+					o_stream_send_istream(output, response.payload));
 				o_stream_destroy(&output);
 				payload = str_c(payload_buffer);
 			} else {
@@ -136,9 +136,8 @@ static void test_http_response_parse_valid(void)
 		
 		if (ret == 0) {
 			/* verify last response only */
-			i_assert(response != NULL);
 			test_out(t_strdup_printf("response->status = %d",test->status),
-					response->status == test->status);
+					response.status == test->status);
 			if (payload == NULL || test->payload == NULL) {
 				test_out(t_strdup_printf("response->payload = %s",
 					str_sanitize(payload, 80)),
@@ -185,7 +184,7 @@ unsigned int invalid_response_parse_test_count =
 static void test_http_response_parse_invalid(void)
 {
 	struct http_response_parser *parser;
-	struct http_response *response;
+	struct http_response response;
 	const char *response_text, *error;
 	struct istream *input;
 	int ret;

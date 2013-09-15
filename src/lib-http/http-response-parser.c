@@ -24,7 +24,8 @@ struct http_response_parser {
 	struct http_message_parser parser;
 	enum http_response_parser_state state;
 
-	struct http_response response;
+	unsigned int response_status;
+	const char *response_reason;
 };
 
 struct http_response_parser *http_response_parser_init(struct istream *input)
@@ -48,7 +49,8 @@ static void
 http_response_parser_restart(struct http_response_parser *parser)
 {
 	http_message_parser_restart(&parser->parser);
-	memset(&parser->response, 0, sizeof(parser->response));
+	parser->response_status = 0;
+	parser->response_reason = NULL;
 }
 
 static int http_response_parse_status(struct http_response_parser *parser)
@@ -62,7 +64,7 @@ static int http_response_parse_status(struct http_response_parser *parser)
 		return 0;
 	if (!i_isdigit(p[0]) || !i_isdigit(p[1]) || !i_isdigit(p[2]))
 		return -1;
-	parser->response.status =
+	parser->response_status =
 		(p[0] - '0')*100 + (p[1] - '0')*10 + (p[2] - '0');
 	parser->parser.cur += 3;
 	return 1;
@@ -74,12 +76,13 @@ static int http_response_parse_reason(struct http_response_parser *parser)
 
 	/* reason-phrase = *( HTAB / SP / VCHAR / obs-text )
 	 */
+	// FIXME: limit length
 	while (p < parser->parser.end && http_char_is_text(*p))
 		p++;
 
 	if (p == parser->parser.end)
 		return 0;
-	parser->response.reason =
+	parser->response_reason =
 		p_strdup_until(parser->parser.msg_pool, parser->parser.cur, p);
 	parser->parser.cur = p;
 	return 1;
@@ -223,7 +226,7 @@ static int http_response_parse_status_line(struct http_response_parser *parser,
 }
 
 int http_response_parse_next(struct http_response_parser *parser,
-			     bool no_payload, struct http_response **response_r,
+			     bool no_payload, struct http_response *response,
 			     const char **error_r)
 {
 	int ret;
@@ -251,11 +254,11 @@ int http_response_parse_next(struct http_response_parser *parser,
 	   A server MUST NOT send a Content-Length header field in any response
 	   with a status code of 1xx (Informational) or 204 (No Content). [...]
 	 */
-	if ((parser->response.status / 100 == 1 || parser->response.status == 204) &&
+	if ((parser->response_status / 100 == 1 || parser->response_status == 204) &&
 	    parser->parser.msg.content_length > 0) {
 		*error_r = t_strdup_printf(
 			"Unexpected Content-Length header field for %u response "
-			"(length=%"PRIuUOFF_T")", parser->response.status,
+			"(length=%"PRIuUOFF_T")", parser->response_status,
 			parser->parser.msg.content_length);
 		return -1;
 	}
@@ -269,8 +272,8 @@ int http_response_parse_next(struct http_response_parser *parser,
 	   header fields, regardless of the header fields present in the
 	   message, and thus cannot contain a message body.
 	 */
-	if (parser->response.status / 100 == 1 || parser->response.status == 204
-		|| parser->response.status == 304) { // HEAD is handled in caller
+	if (parser->response_status / 100 == 1 || parser->response_status == 204
+		|| parser->response_status == 304) { // HEAD is handled in caller
 		no_payload = TRUE;
 	}
 
@@ -281,14 +284,15 @@ int http_response_parse_next(struct http_response_parser *parser,
 	}
 	parser->state = HTTP_RESPONSE_PARSE_STATE_INIT;
 
-	parser->response.version_major = parser->parser.msg.version_major;
-	parser->response.version_minor = parser->parser.msg.version_minor;
-	parser->response.location = parser->parser.msg.location;
-	parser->response.date = parser->parser.msg.date;
-	parser->response.payload = parser->parser.payload;
-	parser->response.headers = parser->parser.msg.headers;
-	parser->response.connection_close = parser->parser.msg.connection_close;
-
-	*response_r = &parser->response;
+	memset(response, 0, sizeof(*response));
+	response->status = parser->response_status;
+	response->reason = parser->response_reason;
+	response->version_major = parser->parser.msg.version_major;
+	response->version_minor = parser->parser.msg.version_minor;
+	response->location = parser->parser.msg.location;
+	response->date = parser->parser.msg.date;
+	response->payload = parser->parser.payload;
+	response->headers = parser->parser.msg.headers;
+	response->connection_close = parser->parser.msg.connection_close;
 	return 1;
 }

@@ -488,7 +488,7 @@ static void http_client_connection_input(struct connection *_conn)
 {
 	struct http_client_connection *conn =
 		(struct http_client_connection *)_conn;
-	struct http_response *response;
+	struct http_response response;
 	struct http_client_request *const *req_idx;
 	struct http_client_request *req = NULL;
 	int finished = 0, ret;
@@ -547,7 +547,7 @@ static void http_client_connection_input(struct connection *_conn)
 		   (Continue) status message.  Unexpected 1xx status responses MAY be
 		   ignored by a user agent.
 		 */
-		if (req->payload_sync && response->status == 100) {
+		if (req->payload_sync && response.status == 100) {
 			if (conn->payload_continue) {
 				http_client_connection_debug(conn,
 					"Got 100-continue response after timeout");
@@ -564,16 +564,16 @@ static void http_client_connection_input(struct connection *_conn)
 					t_strdup_printf("Failed to send request: %s", error));
 			}
 			return;
-		} else if (response->status / 100 == 1) {
+		} else if (response.status / 100 == 1) {
 			/* ignore them for now */
 			http_client_connection_debug(conn,
-				"Got unexpected %u response; ignoring", response->status);
+				"Got unexpected %u response; ignoring", response.status);
 			continue;
 		} 
 
 		http_client_connection_debug(conn,
 			"Got %u response for request %s",
-			response->status, http_client_request_label(req));
+			response.status, http_client_request_label(req));
 
 		/* remove request from queue */
 		array_delete(&conn->request_wait_list, 0, 1);
@@ -581,25 +581,25 @@ static void http_client_connection_input(struct connection *_conn)
 		i_assert(req->refcount > 1 || aborted);
 		http_client_request_unref(&req);
 		
-		conn->close_indicated = response->connection_close;
+		conn->close_indicated = response.connection_close;
 		if (req->payload_sync && !conn->payload_continue)
 			conn->output_locked = FALSE;	
 
 		if (!aborted) {
-			if (response->status == 417 && req->payload_sync) {
+			if (response.status == 417 && req->payload_sync) {
 				/* drop Expect: continue */
 				req->payload_sync = FALSE;
 				conn->output_locked = FALSE;
 				conn->peer->no_payload_sync = TRUE;
-				http_client_request_retry(req, response->status, response->reason);
+				http_client_request_retry(req, response.status, response.reason);
 	
-			} else if (response->status / 100 == 3 && response->status != 304 &&
-				response->location != NULL) {
+			} else if (response.status / 100 == 3 && response.status != 304 &&
+				response.location != NULL) {
 				/* redirect */
-				http_client_request_redirect(req, response->status, response->location);
+				http_client_request_redirect(req, response.status, response.location);
 			} else {
 				/* response for application */
-				if (!http_client_connection_return_response(conn, req, response))
+				if (!http_client_connection_return_response(conn, req, &response))
 					return;
 			}
 
