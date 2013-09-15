@@ -28,12 +28,15 @@ struct http_response_parser {
 	const char *response_reason;
 };
 
-struct http_response_parser *http_response_parser_init(struct istream *input)
+struct http_response_parser *
+http_response_parser_init(struct istream *input,
+	const struct http_header_limits *hdr_limits)
 {
 	struct http_response_parser *parser;
 
+	/* FIXME: implement status line limit */
 	parser = i_new(struct http_response_parser, 1);
-	http_message_parser_init(&parser->parser, input);
+	http_message_parser_init(&parser->parser, input, hdr_limits);
 	return parser;
 }
 

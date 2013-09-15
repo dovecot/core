@@ -84,7 +84,7 @@ static void client_init(int fd)
 	client = i_new(struct client, 1);
 	connection_init_server(clients, &client->conn,
 			       "(http client)", fd, fd);
-	client->parser = http_request_parser_init(client->conn.input);
+	client->parser = http_request_parser_init(client->conn.input, 0);
 }
 
 static void client_accept(void *context ATTR_UNUSED)

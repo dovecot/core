@@ -425,7 +425,9 @@ static int http_transfer_chunked_parse_trailer(
 	int ret;
 
 	if (tcstream->header_parser == NULL) {
-		tcstream->header_parser = http_header_parser_init(tcstream->istream.parent);
+		/* FIXME: limit trailer size */
+		tcstream->header_parser =
+			http_header_parser_init(tcstream->istream.parent, 0);
 	}
 
 	while ((ret=http_header_parse_next_field(tcstream->header_parser,

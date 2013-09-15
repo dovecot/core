@@ -59,6 +59,9 @@ struct http_client_settings {
 	/* maximum number of attempts for a request */
 	unsigned int max_attempts;
 
+	/* response header limits */
+	struct http_header_limits response_hdr_limits;
+
 	/* max time to wait for HTTP request to finish before retrying
 	   (default = unlimited) */
 	unsigned int request_timeout_msecs;

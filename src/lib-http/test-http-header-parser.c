@@ -3,6 +3,7 @@
 #include "test-lib.h"
 #include "istream.h"
 #include "test-common.h"
+#include "http-response.h"
 #include "http-header-parser.h"
 
 #include <time.h>
@@ -14,6 +15,7 @@ struct http_header_parse_result {
 
 struct http_header_parse_test {
 	const char *header;
+	struct http_header_limits limits;
 	const struct http_header_parse_result *fields;
 };
 
@@ -138,7 +140,12 @@ static const struct http_header_parse_test valid_header_parse_tests[] = {
 			"Content-Type: text/html; charset=utf-8\r\n"
 			"Content-Encoding: gzip\r\n"
 			"\r\n",
-		.fields = valid_header_parse_result4
+		.fields = valid_header_parse_result4,
+		.limits = {
+			.max_size = 340,
+			.max_field_size = 46,
+			.max_fields = 12
+		}
 	},{
 		.header =
 			"\r\n",
@@ -155,7 +162,8 @@ static void test_http_header_parse_valid(void)
 	for (i = 0; i < valid_header_parse_test_count; i++) T_BEGIN {
 		struct istream *input;
 		struct http_header_parser *parser;
-		const char *header, *field_name, *error;
+		const struct http_header_limits *limits;
+		const char *header, *field_name, *error = NULL;
 		const unsigned char *field_data;
 		size_t field_size;
 		int ret;
@@ -163,8 +171,9 @@ static void test_http_header_parse_valid(void)
 
 		header = valid_header_parse_tests[i].header;
 		header_len = strlen(header);
+		limits = &valid_header_parse_tests[i].limits;
 		input = test_istream_create_data(header, header_len);
-		parser = http_header_parser_init(input);
+		parser = http_header_parser_init(input, limits);
 
 		test_begin(t_strdup_printf("http header valid [%d]", i));
 
@@ -199,35 +208,96 @@ static void test_http_header_parse_valid(void)
 			j++;
 		}
 
-		test_out("parse success", ret > 0);
+		test_out_reason("parse success", ret > 0, error);
 		test_end();
 		http_header_parser_deinit(&parser);
 	} T_END;
 }
 
-static const char *invalid_header_parse_tests[] = {
-	"Date: Sat, 06 Oct 2012 16:01:44 GMT\r\n"
-	"Server : Apache/2.2.16 (Debian)\r\n"
-	"Last-Modified: Mon, 30 Jul 2012 11:09:28 GMT\r\n"
-	"\r\n",
-	"Date: Sat, 06 Oct 2012 17:18:22 GMT\r\n"
-	"Server: Apache/2.2.3 (CentOS)\r\n"
-	"X Powered By: PHP/5.3.6\r\n"
-	"\r\n",
-	"Host: www.example.com\n\r"
-	"Accept: image/png,image/*;q=0.8,*/*;q=0.5\n\r"
-	"Accept-Language: en-us,en;q=0.5\n\r"
-	"Accept-Encoding: gzip, deflate\n\r"
-	"\n\r",
-	"Host: p5-lrqzb4yavu4l7nagydw-428649-i2-v6exp3-ds.metric.example.com\n"
-	"User-Agent:Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0)\n"
-	"Accept:\t\timage/png,image/*;q=0.8,*/\177;q=0.5\n"
-	"\n",
-	"Date: Sat, 06 Oct 2012 17:12:37 GMT\r\n"
-	"Server: Apache/2.2.16 (Debian) PHP/5.3.3-7+squeeze14 with\r\n"
-	"Suhosin-Patch proxy_html/3.0.1 mod_python/3.3.1 Python/2.6.6\r\n"
-	"mod_ssl/2.2.16 OpenSSL/0.9.8o mod_perl/2.0.4 Perl/v5.10.1\r\n"
-	"\r\n",
+static const struct http_header_parse_test invalid_header_parse_tests[] = {
+	{
+		.header = 
+			"Date: Sat, 06 Oct 2012 16:01:44 GMT\r\n"
+			"Server : Apache/2.2.16 (Debian)\r\n"
+			"Last-Modified: Mon, 30 Jul 2012 11:09:28 GMT\r\n"
+			"\r\n"
+	},{
+		.header = 
+			"Date: Sat, 06 Oct 2012 17:18:22 GMT\r\n"
+			"Server: Apache/2.2.3 (CentOS)\r\n"
+			"X Powered By: PHP/5.3.6\r\n"
+			"\r\n"
+	},{
+		.header = 
+			"Host: www.example.com\n\r"
+			"Accept: image/png,image/*;q=0.8,*/*;q=0.5\n\r"
+			"Accept-Language: en-us,en;q=0.5\n\r"
+			"Accept-Encoding: gzip, deflate\n\r"
+			"\n\r"
+	},{
+		.header = 
+			"Host: p5-lrqzb4yavu4l7nagydw-428649-i2-v6exp3-ds.metric.example.com\n"
+			"User-Agent:Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0)\n"
+			"Accept:\t\timage/png,image/*;q=0.8,*/\177;q=0.5\n"
+			"\n"
+	},{
+		.header = 
+			"Date: Sat, 06 Oct 2012 17:12:37 GMT\r\n"
+			"Server: Apache/2.2.16 (Debian) PHP/5.3.3-7+squeeze14 with\r\n"
+			"Suhosin-Patch proxy_html/3.0.1 mod_python/3.3.1 Python/2.6.6\r\n"
+			"mod_ssl/2.2.16 OpenSSL/0.9.8o mod_perl/2.0.4 Perl/v5.10.1\r\n"
+			"\r\n"
+	},{
+		.header = 
+			"Age: 58        \r\n"
+			"Date: Sun, 04 Aug 2013 09:33:09 GMT\r\n"
+			"Expires: Sun, 04 Aug 2013 09:34:08 GMT\r\n"
+			"Cache-Control: max-age=60        \r\n"
+			"Content-Length: 17336     \r\n"
+			"Connection: Keep-Alive\r\n"
+			"Via: NS-CACHE-9.3\r\n"
+			"Server: Apache\r\n"
+			"Vary: Host\r\n"
+			"Last-Modified: Sun, 04 Aug 2013 09:33:07 GMT\r\n"
+			"Content-Type: text/html; charset=utf-8\r\n"
+			"Content-Encoding: gzip\r\n"
+			"\r\n",
+		.limits = { .max_size = 339 }
+	},{
+		.header = 
+			"Age: 58        \r\n"
+			"Date: Sun, 04 Aug 2013 09:33:09 GMT\r\n"
+			"Expires: Sun, 04 Aug 2013 09:34:08 GMT\r\n"
+			"Cache-Control: max-age=60        \r\n"
+			"Content-Length: 17336     \r\n"
+			"Connection: Keep-Alive\r\n"
+			"Via: NS-CACHE-9.3\r\n"
+			"Server: Apache\r\n"
+			"Vary: Host\r\n"
+			"Last-Modified: Sun, 04 Aug 2013 09:33:07 GMT\r\n"
+			"Content-Type: text/html; charset=utf-8\r\n"
+			"Content-Encoding: gzip\r\n"
+			"\r\n",
+		.fields = valid_header_parse_result4,
+		.limits = { .max_field_size = 45 }
+	},{
+		.header = 
+			"Age: 58        \r\n"
+			"Date: Sun, 04 Aug 2013 09:33:09 GMT\r\n"
+			"Expires: Sun, 04 Aug 2013 09:34:08 GMT\r\n"
+			"Cache-Control: max-age=60        \r\n"
+			"Content-Length: 17336     \r\n"
+			"Connection: Keep-Alive\r\n"
+			"Via: NS-CACHE-9.3\r\n"
+			"Server: Apache\r\n"
+			"Vary: Host\r\n"
+			"Last-Modified: Sun, 04 Aug 2013 09:33:07 GMT\r\n"
+			"Content-Type: text/html; charset=utf-8\r\n"
+			"Content-Encoding: gzip\r\n"
+			"\r\n",
+		.fields = valid_header_parse_result4,
+		.limits = { .max_fields = 11 }
+	}
 };
 
 unsigned int invalid_header_parse_test_count = N_ELEMENTS(invalid_header_parse_tests);
@@ -239,14 +309,16 @@ static void test_http_header_parse_invalid(void)
 	for (i = 0; i < invalid_header_parse_test_count; i++) T_BEGIN {
 		struct istream *input;
 		struct http_header_parser *parser;
-		const char *header, *field_name, *error;
+		const struct http_header_limits *limits;
+		const char *header, *field_name, *error = NULL;
 		const unsigned char *field_data;
 		size_t field_size;
 		int ret;
 
-		header = invalid_header_parse_tests[i];
+		header = invalid_header_parse_tests[i].header;
+		limits = &invalid_header_parse_tests[i].limits;
 		input = i_stream_create_from_data(header, strlen(header));
-		parser = http_header_parser_init(input);
+		parser = http_header_parser_init(input, limits);
 
 		test_begin(t_strdup_printf("http header invalid [%d]", i));
 
@@ -255,7 +327,7 @@ static void test_http_header_parse_invalid(void)
 			if (field_name == NULL) break;
 		}
 
-		test_out("parse failure", ret < 0);
+		test_out_reason("parse failure", ret < 0, error);
 		test_end();
 		http_header_parser_deinit(&parser);
 	} T_END;

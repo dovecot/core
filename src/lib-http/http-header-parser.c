@@ -6,6 +6,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "http-parser.h"
+#include "http-header.h"
 
 #include "http-header-parser.h"
 
@@ -25,6 +26,10 @@ enum http_header_parse_state {
 struct http_header_parser {
 	struct istream *input;
 
+	struct http_header_limits limits;
+	uoff_t size, field_size;
+	unsigned int field_count;
+
 	const unsigned char *begin, *cur, *end;
 	const char *error;
 
@@ -34,9 +39,9 @@ struct http_header_parser {
 	enum http_header_parse_state state;
 };
 
-// FIXME(Stephan): Add support for limiting maximum header size.
-
-struct http_header_parser *http_header_parser_init(struct istream *input)
+struct http_header_parser *
+http_header_parser_init(struct istream *input,
+	const struct http_header_limits *limits)
 {
 	struct http_header_parser *parser;
 
@@ -44,6 +49,16 @@ struct http_header_parser *http_header_parser_init(struct istream *input)
 	parser->input = input;
 	parser->name = str_new(default_pool, 128);
 	parser->value_buf = buffer_create_dynamic(default_pool, 4096);
+
+	if (limits != NULL)
+		parser->limits = *limits;
+
+	if (parser->limits.max_size == 0)
+		parser->limits.max_size = (uoff_t)-1;
+	if (parser->limits.max_field_size == 0)
+		parser->limits.max_field_size = (uoff_t)-1;
+	if (parser->limits.max_fields == 0)
+		parser->limits.max_fields = (unsigned int)-1;
 
 	return parser;
 }
@@ -62,6 +77,9 @@ void http_header_parser_deinit(struct http_header_parser **_parser)
 void http_header_parser_reset(struct http_header_parser *parser)
 {
 	parser->state = HTTP_HEADER_PARSE_STATE_INIT;
+	parser->size = 0;
+	parser->field_size = 0;
+	parser->field_count = 0;
 }
 
 static int http_header_parse_name(struct http_header_parser *parser)
@@ -144,7 +162,7 @@ static int http_header_parse(struct http_header_parser *parser)
 			if (http_char_is_token(*parser->cur)) {
 				if ((ret=http_header_parse_name(parser)) <= 0)
 					return ret;
-			} else if (str_len(parser->name) == 0) {
+			} else if (*parser->cur != ':' && str_len(parser->name) == 0) {
 				parser->state = HTTP_HEADER_PARSE_STATE_LAST_LINE;
 				break;
 			}
@@ -161,6 +179,10 @@ static int http_header_parse(struct http_header_parser *parser)
 			parser->cur++;
 			if (str_len(parser->name) == 0) {
 				parser->error = "Empty header field name";
+				return -1;
+			}
+			if (++parser->field_count > parser->limits.max_fields) {
+				parser->error = "Excessive number of header fields";
 				return -1;
 			}
 			parser->state = HTTP_HEADER_PARSE_STATE_OWS;
@@ -203,7 +225,7 @@ static int http_header_parse(struct http_header_parser *parser)
 				parser->state = HTTP_HEADER_PARSE_STATE_OWS;
 				break;
 			}
-			parser->state = HTTP_HEADER_PARSE_STATE_NAME;
+			parser->state = HTTP_HEADER_PARSE_STATE_INIT;
 			return 1;
 		case HTTP_HEADER_PARSE_STATE_LAST_LINE:
 			if (*parser->cur == '\r') {
@@ -247,12 +269,35 @@ int http_header_parse_next_field(struct http_header_parser *parser,
 	const char **name_r, const unsigned char **data_r, size_t *size_r,
 	const char **error_r)
 {
+	const uoff_t max_size = parser->limits.max_size;
+	const uoff_t max_field_size = parser->limits.max_field_size;
 	const unsigned char *data;
-	size_t size;
+	uoff_t size;
 	int ret;
+
+	*error_r = NULL;
 
 	while ((ret=i_stream_read_data
 		(parser->input, &parser->begin, &size, 0)) > 0) {
+
+		/* check header size limits */
+		if (parser->size >= max_size) {
+			*error_r = "Excessive header size";
+			return -1;
+		}
+		if (parser->field_size > max_field_size) {
+			*error_r = "Excessive header field size";
+			return -1;
+		}
+
+		/* don't parse beyond header size limits */
+		if (size > (max_size - parser->size))
+			size = max_size - parser->size;
+		if (size > (max_field_size - parser->field_size)) {
+			size = max_field_size - parser->field_size;
+			size = (size == 0 ? 1 : size); /* need to parse one more byte */
+		}
+
 		parser->cur = parser->begin;
 		parser->end = parser->cur + size;
 
@@ -262,8 +307,12 @@ int http_header_parse_next_field(struct http_header_parser *parser,
 		}
 
 		i_stream_skip(parser->input, parser->cur - parser->begin);
+		parser->size += parser->cur - parser->begin;
+		parser->field_size += parser->cur - parser->begin;
 
 		if (ret == 1) {
+			parser->field_size = 0;
+
 			if (parser->state != HTTP_HEADER_PARSE_STATE_EOH) {
 				data = buffer_get_data(parser->value_buf, &size);
 			

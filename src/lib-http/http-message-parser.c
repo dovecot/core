@@ -13,10 +13,12 @@
 #include <ctype.h>
 
 void http_message_parser_init(struct http_message_parser *parser,
-			      struct istream *input)
+	struct istream *input, const struct http_header_limits *hdr_limits)
 {
 	memset(parser, 0, sizeof(*parser));
 	parser->input = input;
+	if (hdr_limits != NULL)
+		parser->header_limits = *hdr_limits;
 }
 
 void http_message_parser_deinit(struct http_message_parser *parser)
@@ -34,10 +36,12 @@ void http_message_parser_restart(struct http_message_parser *parser,
 {
 	i_assert(parser->payload == NULL);
 
-	if (parser->header_parser == NULL)
-		parser->header_parser = http_header_parser_init(parser->input);
-	else
+	if (parser->header_parser == NULL) {
+		parser->header_parser =
+			http_header_parser_init(parser->input, &parser->header_limits);
+	} else {
 		http_header_parser_reset(parser->header_parser);
+	}
 
 	if (parser->msg.pool != NULL)
 		pool_unref(&parser->msg.pool);

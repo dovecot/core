@@ -4,7 +4,7 @@
 #include "http-response.h"
 #include "http-transfer.h"
 
-struct http_header;
+#include "http-header.h"
 
 struct http_message {
 	pool_t pool;
@@ -26,6 +26,7 @@ struct http_message {
 
 struct http_message_parser {
 	struct istream *input;
+	struct http_header_limits header_limits;
 
 	const unsigned char *cur, *end;
 
@@ -37,7 +38,8 @@ struct http_message_parser {
 };
 
 void http_message_parser_init(struct http_message_parser *parser,
-			      struct istream *input);
+	struct istream *input, const struct http_header_limits *hdr_limits)
+	ATTR_NULL(3);
 void http_message_parser_deinit(struct http_message_parser *parser);
 void http_message_parser_restart(struct http_message_parser *parser,
 	pool_t pool);

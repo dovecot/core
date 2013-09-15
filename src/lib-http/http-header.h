@@ -3,6 +3,12 @@
 
 struct http_header;
 
+struct http_header_limits {
+	uoff_t max_size;
+	uoff_t max_field_size;
+	unsigned int max_fields;
+};
+
 struct http_header_field {
 	const char *key; /* FIXME: rename to 'name' for v2.3 */
 	const char *value;

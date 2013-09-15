@@ -108,7 +108,7 @@ static void test_http_response_parse_valid(void)
 		response_text = test->response;
 		response_text_len = strlen(response_text);
 		input = test_istream_create_data(response_text, response_text_len);
-		parser = http_response_parser_init(input);
+		parser = http_response_parser_init(input, NULL);
 
 		test_begin(t_strdup_printf("http response valid [%d]", i));
 
@@ -196,7 +196,7 @@ static void test_http_response_parse_invalid(void)
 		test = invalid_response_parse_tests[i];
 		response_text = test;
 		input = i_stream_create_from_data(response_text, strlen(response_text));
-		parser = http_response_parser_init(input);
+		parser = http_response_parser_init(input, NULL);
 
 		test_begin(t_strdup_printf("http response invalid [%d]", i));
 
@@ -212,7 +212,7 @@ static void test_http_response_parse_invalid(void)
 	test_begin("http response with NULs");
 	input = i_stream_create_from_data(invalid_response_with_nuls,
 					  sizeof(invalid_response_with_nuls)-1);
-	parser = http_response_parser_init(input);
+	parser = http_response_parser_init(input, 0);
 	while ((ret=http_response_parse_next(parser, FALSE, &response, &error)) > 0);
 	test_assert(ret < 0);
 	test_end();
