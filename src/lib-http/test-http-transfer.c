@@ -99,7 +99,7 @@ static void test_http_transfer_chunked_input_valid(void)
 		test_begin(t_strdup_printf("http transfer_chunked input valid [%d]", i));
 
 		input = i_stream_create_from_data(in, strlen(in));
-		chunked = http_transfer_chunked_istream_create(input);
+		chunked = http_transfer_chunked_istream_create(input, 0);
 
 		buffer_set_used_size(payload_buffer, 0);
 		output = o_stream_create_buffer(payload_buffer);
@@ -193,7 +193,7 @@ static void test_http_transfer_chunked_input_invalid(void)
 		test_begin(t_strdup_printf("http transfer_chunked input invalid [%d]", i));
 
 		input = i_stream_create_from_data(in, strlen(in));
-		chunked = http_transfer_chunked_istream_create(input);
+		chunked = http_transfer_chunked_istream_create(input, 0);
 
 		buffer_set_used_size(payload_buffer, 0);
 		output = o_stream_create_buffer(payload_buffer);
@@ -306,7 +306,7 @@ static void test_http_transfer_chunked_output_valid(void)
 		/* create chunked input stream */
 		input = i_stream_create_from_data
 			(chunked_buffer->data, chunked_buffer->used);
-		ichunked = http_transfer_chunked_istream_create(input);
+		ichunked = http_transfer_chunked_istream_create(input, 0);
 
 		/* read back chunk */
 		buffer_set_used_size(plain_buffer, 0);

@@ -7,12 +7,14 @@
 #include "http-header.h"
 
 enum http_message_parse_error {
-	HTTP_MESSAGE_PARSE_ERROR_NONE = 0,        /* no error */
-	HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM,   /* stream error */
-	HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE,  /* unrecoverable generic error */
-	HTTP_MESSAGE_PARSE_ERROR_BAD_MESSAGE,     /* recoverable generic error */
-	HTTP_MESSAGE_PARSE_ERROR_NOT_IMPLEMENTED, /* used unimplemented feature
-	                                            (recoverable) */
+	HTTP_MESSAGE_PARSE_ERROR_NONE = 0,          /* no error */
+	HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM,     /* stream error */
+	HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE,    /* unrecoverable generic error */
+	HTTP_MESSAGE_PARSE_ERROR_BAD_MESSAGE,       /* recoverable generic error */
+	HTTP_MESSAGE_PARSE_ERROR_NOT_IMPLEMENTED,   /* used unimplemented feature
+	                                              (recoverable) */
+	HTTP_MESSAGE_PARSE_ERROR_PAYLOAD_TOO_LARGE  /* message payload is too large
+	                                              (fatal) */
 };
 
 struct http_message {
@@ -35,7 +37,9 @@ struct http_message {
 
 struct http_message_parser {
 	struct istream *input;
+
 	struct http_header_limits header_limits;
+	uoff_t max_payload_size;
 
 	const unsigned char *cur, *end;
 
@@ -50,8 +54,8 @@ struct http_message_parser {
 };
 
 void http_message_parser_init(struct http_message_parser *parser,
-	struct istream *input, const struct http_header_limits *hdr_limits)
-	ATTR_NULL(3);
+	struct istream *input, const struct http_header_limits *hdr_limits,
+	uoff_t max_payload_size) ATTR_NULL(3);
 void http_message_parser_deinit(struct http_message_parser *parser);
 void http_message_parser_restart(struct http_message_parser *parser,
 	pool_t pool);

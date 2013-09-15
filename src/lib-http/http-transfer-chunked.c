@@ -43,6 +43,7 @@ struct http_transfer_chunked_istream {
 	unsigned int parsed_chars;
 
 	uoff_t chunk_size, chunk_v_offset, chunk_pos;
+	uoff_t size, max_size;
 	const char *error;
 
 	struct http_header_parser *header_parser;
@@ -327,8 +328,16 @@ static int http_transfer_chunked_parse_next(
 		i_stream_skip(input, tcstream->cur - tcstream->begin);
 
 		if (ret > 0) {
-			if (tcstream->state == HTTP_CHUNKED_PARSE_STATE_DATA)
+			if (tcstream->state == HTTP_CHUNKED_PARSE_STATE_DATA) {
 				tcstream->chunk_v_offset = input->v_offset;
+
+				tcstream->size += tcstream->chunk_size;
+				if (tcstream->max_size > 0 && tcstream->size > tcstream->max_size) {
+					tcstream->error = "Total chunked payload size exceeds maximum";
+					stream->istream.stream_errno = EMSGSIZE;
+					return -1;
+				}
+			}
 			return ret;
 		}
 	}
@@ -495,11 +504,12 @@ http_transfer_chunked_istream_destroy(struct iostream_private *stream)
 }
 
 struct istream *
-http_transfer_chunked_istream_create(struct istream *input)
+http_transfer_chunked_istream_create(struct istream *input, uoff_t max_size)
 {
 	struct http_transfer_chunked_istream *tcstream;
 
 	tcstream = i_new(struct http_transfer_chunked_istream, 1);
+	tcstream->max_size = max_size;
 
 	tcstream->istream.max_buffer_size =
 		input->real_stream->max_buffer_size;

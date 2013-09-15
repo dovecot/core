@@ -36,7 +36,7 @@ http_response_parser_init(struct istream *input,
 
 	/* FIXME: implement status line limit */
 	parser = i_new(struct http_response_parser, 1);
-	http_message_parser_init(&parser->parser, input, hdr_limits);
+	http_message_parser_init(&parser->parser, input, hdr_limits, 0);
 	return parser;
 }
 

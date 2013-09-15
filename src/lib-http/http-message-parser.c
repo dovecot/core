@@ -13,12 +13,14 @@
 #include <ctype.h>
 
 void http_message_parser_init(struct http_message_parser *parser,
-	struct istream *input, const struct http_header_limits *hdr_limits)
+	struct istream *input, const struct http_header_limits *hdr_limits,
+	uoff_t max_payload_size)
 {
 	memset(parser, 0, sizeof(*parser));
 	parser->input = input;
 	if (hdr_limits != NULL)
 		parser->header_limits = *hdr_limits;
+	parser->max_payload_size = max_payload_size;
 }
 
 void http_message_parser_deinit(struct http_message_parser *parser)
@@ -98,8 +100,16 @@ int http_message_parse_finish_payload(struct http_message_parser *parser)
 		i_stream_skip(parser->payload, size);
 	if (ret == 0 || parser->payload->stream_errno != 0) {
 		if (ret < 0) {
-			parser->error = "Stream error while skipping payload";
-			parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM;
+			if (parser->payload->stream_errno == EMSGSIZE) {
+				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_PAYLOAD_TOO_LARGE;
+				parser->error = "Payload is too large";
+			} else if (parser->payload->stream_errno == EIO) {
+				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
+				parser->error = "Invalid payload";
+			} else {
+				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM;
+				parser->error = "Stream error while skipping payload";
+			}
 		}
 		return ret;
 	}
@@ -370,8 +380,8 @@ int http_message_parse_body(struct http_message_parser *parser, bool request)
   	}
 
 		if (chunked_last) {	
-			parser->payload =
-				http_transfer_chunked_istream_create(parser->input);
+			parser->payload = http_transfer_chunked_istream_create
+				(parser->input, parser->max_payload_size);
 		} else if (!request) {
 			/*  https://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-23
 			      Section 3.3.3.:
@@ -381,7 +391,8 @@ int http_message_parse_body(struct http_message_parser *parser, bool request)
 			    message body length is determined by reading the connection until
 			    it is closed by the server.
 			 */
-			parser->payload =
+			/* FIXME: enforce max payload size (relevant to http-client only) */
+			parser->payload = 
 					i_stream_create_limit(parser->input, (size_t)-1);
 		} else {
 			/* https://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-23
@@ -412,6 +423,13 @@ int http_message_parse_body(struct http_message_parser *parser, bool request)
 			http_header_field_delete(parser->msg.header, "Content-Length");
 
 	} else if (parser->msg.content_length > 0) {
+		if (parser->max_payload_size > 0
+			&& parser->msg.content_length > parser->max_payload_size) {
+			parser->error_code = HTTP_MESSAGE_PARSE_ERROR_PAYLOAD_TOO_LARGE;
+			parser->error = "Payload is too large";
+			return -1;
+		}
+
 		/* Got explicit message size from Content-Length: header */
 		parser->payload =
 			i_stream_create_limit(parser->input,
@@ -427,6 +445,7 @@ int http_message_parse_body(struct http_message_parser *parser, bool request)
 		   body length, so the message body length is determined by the
 		   number of octets received prior to the server closing the connection.
 		 */
+		/* FIXME: enforce max payload size (relevant to http-client only) */
 		parser->payload =
 			i_stream_create_limit(parser->input, (size_t)-1);
 	}
