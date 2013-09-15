@@ -151,9 +151,9 @@ void http_client_request_add_header(struct http_client_request *req,
 				    const char *key, const char *value)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
-	/* don't allow setting Date header directly;
+	/* don't allow setting Date or Connection header directly;
 	   this is ignored for now for backwards compatibility */
-	if (strcasecmp(key, "Date") == 0)
+	if (strcasecmp(key, "Date") == 0 || strcasecmp(key, "Connection") == 0)
 		return;
 	str_printfa(req->headers, "%s: %s\r\n", key, value);
 }
@@ -423,6 +423,7 @@ static int http_client_request_send_real(struct http_client_request *req,
 		str_append(rtext, "Expect: 100-continue\r\n");
 	}
 	if (req->payload_chunked) {
+		// FIXME: can't do this for a HTTP/1.0 server
 		str_append(rtext, "Transfer-Encoding: chunked\r\n");
 		req->payload_output =
 			http_transfer_chunked_ostream_create(output);
@@ -434,6 +435,7 @@ static int http_client_request_send_real(struct http_client_request *req,
 		req->payload_output = output;
 		o_stream_ref(output);
 	}
+	str_append(rtext, "Connection: Keep-Alive\r\n");
 
 	iov[0].iov_base = str_data(rtext);
 	iov[0].iov_len = str_len(rtext);
