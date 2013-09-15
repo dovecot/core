@@ -8,6 +8,7 @@
 
 enum http_request_parser_state {
 	HTTP_REQUEST_PARSE_STATE_INIT = 0,
+	HTTP_REQUEST_PARSE_STATE_SKIP_LINE,
 	HTTP_REQUEST_PARSE_STATE_METHOD,
 	HTTP_REQUEST_PARSE_STATE_SP1,
 	HTTP_REQUEST_PARSE_STATE_TARGET,
@@ -23,6 +24,8 @@ struct http_request_parser {
 	enum http_request_parser_state state;
 
 	struct http_request request;
+
+	unsigned int skipping_line:1;
 };
 
 struct http_request_parser *http_request_parser_init(struct istream *input)
@@ -105,15 +108,24 @@ static int http_request_parse(struct http_request_parser *parser,
 		switch (parser->state) {
 		case HTTP_REQUEST_PARSE_STATE_INIT:
 			http_request_parser_restart(parser);
-			parser->state = HTTP_REQUEST_PARSE_STATE_VERSION;
+			parser->state = HTTP_REQUEST_PARSE_STATE_SKIP_LINE;
 			if (_parser->cur == _parser->end)
 				return 0;
+		case HTTP_REQUEST_PARSE_STATE_SKIP_LINE:
 			if (*_parser->cur == '\r' || *_parser->cur == '\n') {
-				/* HTTP/1.0 client sent a CRLF after body.
+				if (parser->skipping_line) {
+					/* second extra CRLF; not allowed */
+					*error_r = "Empty request line";
+					return -1;
+				}
+				/* HTTP/1.0 client sent one extra CRLF after body.
 				   ignore it. */
+				parser->skipping_line = TRUE;
 				parser->state = HTTP_REQUEST_PARSE_STATE_CR;
-				return http_request_parse(parser, error_r);
+				break;
 			}
+			parser->state = HTTP_REQUEST_PARSE_STATE_METHOD;
+			parser->skipping_line = FALSE;
 			/* fall through */
 		case HTTP_REQUEST_PARSE_STATE_METHOD:
 			if ((ret=http_request_parse_method(parser)) <= 0) {
@@ -184,11 +196,15 @@ static int http_request_parse(struct http_request_parser *parser,
 				return -1;
 			}
 			_parser->cur++;
-			parser->state = HTTP_REQUEST_PARSE_STATE_HEADER;
-			return 1;
-		case HTTP_REQUEST_PARSE_STATE_HEADER:
-		default:
-			i_unreached();
+			if (!parser->skipping_line) {
+				parser->state = HTTP_REQUEST_PARSE_STATE_HEADER;
+				return 1;
+			}
+			parser->state = HTTP_REQUEST_PARSE_STATE_INIT;
+			break;
+ 		case HTTP_REQUEST_PARSE_STATE_HEADER:
+ 		default:
+ 			i_unreached();
 		}
 	}
 
