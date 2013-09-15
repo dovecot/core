@@ -655,7 +655,7 @@ static void http_client_connection_input(struct connection *_conn)
 	}
 }
 
-static int http_client_connection_output(struct http_client_connection *conn)
+int http_client_connection_output(struct http_client_connection *conn)
 {
 	struct http_client_request *const *req_idx, *req;
 	struct ostream *output = conn->conn.output;
@@ -944,6 +944,8 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 		ssl_iostream_unref(&conn->ssl_iostream);
 	connection_deinit(&conn->conn);
 
+	if (conn->io_req_payload != NULL)
+		io_remove(&conn->io_req_payload);
 	if (conn->to_requests != NULL)
 		timeout_remove(&conn->to_requests);
 	if (conn->to_connect != NULL)
@@ -972,6 +974,8 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 
 void http_client_connection_switch_ioloop(struct http_client_connection *conn)
 {
+	if (conn->io_req_payload != NULL)
+		conn->io_req_payload = io_loop_move_io(&conn->io_req_payload);
 	if (conn->to_requests != NULL)
 		conn->to_requests = io_loop_move_timeout(&conn->to_requests);
 	if (conn->to_connect != NULL)

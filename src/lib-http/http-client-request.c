@@ -232,7 +232,8 @@ http_client_request_finish_payload_out(struct http_client_request *req)
 	}
 	req->state = HTTP_REQUEST_STATE_WAITING;
 	req->conn->output_locked = FALSE;
-	http_client_request_debug(req, "Sent all payload");
+
+	http_client_request_debug(req, "Finished sending payload");
 }
 
 static int
@@ -321,15 +322,29 @@ int http_client_request_finish_payload(struct http_client_request **_req)
 	return http_client_request_continue_payload(_req, NULL, 0);
 }
 
+static void http_client_request_payload_input(struct http_client_request *req)
+{	
+	struct http_client_connection *conn = req->conn;
+
+	if (conn->io_req_payload != NULL)
+		io_remove(&conn->io_req_payload);
+
+	(void)http_client_connection_output(conn);
+}
+
 int http_client_request_send_more(struct http_client_request *req,
 				  const char **error_r)
 {
 	struct http_client_connection *conn = req->conn;
 	struct ostream *output = req->payload_output;
 	off_t ret;
+	int fd;
 
 	i_assert(req->payload_input != NULL);
 	i_assert(req->payload_output != NULL);
+
+	if (conn->io_req_payload != NULL)
+		io_remove(&conn->io_req_payload);
 
 	/* chunked ostream needs to write to the parent stream's buffer */
 	o_stream_set_max_buffer_size(output, IO_BLOCK_SIZE);
@@ -340,15 +355,17 @@ int http_client_request_send_more(struct http_client_request *req,
 		errno = req->payload_input->stream_errno;
 		*error_r = t_strdup_printf("read(%s) failed: %m",
 					   i_stream_get_name(req->payload_input));
+		ret = -1;
 	} else if (output->stream_errno != 0) {
 		errno = output->stream_errno;
 		*error_r = t_strdup_printf("write(%s) failed: %m",
 					   o_stream_get_name(output));
+		ret = -1;
 	} else {
 		i_assert(ret >= 0);
 	}
 
-	if (!i_stream_have_bytes_left(req->payload_input)) {
+	if (ret < 0 || i_stream_is_eof(req->payload_input)) {
 		if (!req->payload_chunked &&
 			req->payload_input->v_offset - req->payload_offset != req->payload_size) {
 			i_error("stream input size changed"); //FIXME
@@ -362,11 +379,18 @@ int http_client_request_send_more(struct http_client_request *req,
 		} else {
 			http_client_request_finish_payload_out(req);
 		}
-
-	} else {
+	} else if (i_stream_get_data_size(req->payload_input) > 0) {
+		/* output is blocking */
 		conn->output_locked = TRUE;
 		o_stream_set_flush_pending(output, TRUE);
 		http_client_request_debug(req, "Partially sent payload");
+	} else {
+		/* input is blocking */
+		fd = i_stream_get_fd(req->payload_input);
+		conn->output_locked = TRUE;	
+		i_assert(fd >= 0);
+		conn->io_req_payload = io_add
+			(fd, IO_READ, http_client_request_payload_input, req);
 	}
 	return ret < 0 ? -1 : 0;
 }

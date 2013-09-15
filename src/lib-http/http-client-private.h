@@ -161,6 +161,7 @@ struct http_client_connection {
 
 	struct http_client_request *pending_request;
 	struct istream *incoming_payload;
+	struct io *io_req_payload;
 
 	/* requests that have been sent, waiting for response */
 	ARRAY_TYPE(http_client_request) request_wait_list;
@@ -244,6 +245,7 @@ struct http_client_connection *
 	http_client_connection_create(struct http_client_peer *peer);
 void http_client_connection_ref(struct http_client_connection *conn);
 void http_client_connection_unref(struct http_client_connection **_conn);
+int http_client_connection_output(struct http_client_connection *conn);
 unsigned int
 http_client_connection_count_pending(struct http_client_connection *conn);
 bool http_client_connection_is_ready(struct http_client_connection *conn);
