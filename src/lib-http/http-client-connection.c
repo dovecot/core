@@ -575,6 +575,10 @@ static void http_client_connection_input(struct connection *_conn)
 			"Got %u response for request %s",
 			response.status, http_client_request_label(req));
 
+		/* make sure connection output is unlocked if 100-continue failed */
+		if (req->payload_sync && !conn->payload_continue)
+			conn->output_locked = FALSE;	
+
 		/* remove request from queue */
 		array_delete(&conn->request_wait_list, 0, 1);
 		aborted = (req->state == HTTP_REQUEST_STATE_ABORTED);
@@ -582,8 +586,6 @@ static void http_client_connection_input(struct connection *_conn)
 		http_client_request_unref(&req);
 		
 		conn->close_indicated = response.connection_close;
-		if (req->payload_sync && !conn->payload_continue)
-			conn->output_locked = FALSE;	
 
 		if (!aborted) {
 			if (response.status == 417 && req->payload_sync) {
