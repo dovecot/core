@@ -569,6 +569,7 @@ int uri_parse_slashslash_authority(struct uri_parser *parser,
 	    parser->cur[1] != '/')
 		return 0;
 
+	parser->cur += 2;
 	return uri_parse_authority(parser, auth);
 }
 
