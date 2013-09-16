@@ -69,6 +69,12 @@ struct http_client_request {
 
 	enum http_request_state state;
 
+	unsigned int	have_hdr_connection:1;
+	unsigned int	have_hdr_date:1;
+	unsigned int have_hdr_expect:1;
+	unsigned int	have_hdr_host:1;
+	unsigned int have_hdr_body_spec:1;
+
 	unsigned int payload_sync:1;
 	unsigned int payload_chunked:1;
 	unsigned int payload_wait:1;

@@ -151,10 +151,31 @@ void http_client_request_add_header(struct http_client_request *req,
 				    const char *key, const char *value)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
-	/* don't allow setting Date or Connection header directly;
-	   this is ignored for now for backwards compatibility */
-	if (strcasecmp(key, "Date") == 0 || strcasecmp(key, "Connection") == 0)
-		return;
+	/* mark presence of special headers */
+	switch (key[0]) {
+	case 'c': case 'C':
+		if (strcasecmp(key, "Connection") == 0)
+			req->have_hdr_connection = TRUE;
+		else 	if (strcasecmp(key, "Content-Length") == 0)
+			req->have_hdr_body_spec = TRUE;
+		break;
+	case 'd': case 'D':
+		if (strcasecmp(key, "Date") == 0)
+			req->have_hdr_date = TRUE;
+		break;
+	case 'e': case 'E':
+		if (strcasecmp(key, "Expect") == 0)
+			req->have_hdr_expect = TRUE;
+		break;
+	case 'h': case 'H':
+		if (strcasecmp(key, "Host") == 0)
+			req->have_hdr_host = TRUE;
+		break;
+	case 't': case 'T':
+		if (strcasecmp(key, "Transfer-Encoding") == 0)
+			req->have_hdr_body_spec = TRUE;
+		break;
+	}
 	str_printfa(req->headers, "%s: %s\r\n", key, value);
 }
 
@@ -407,40 +428,57 @@ static int http_client_request_send_real(struct http_client_request *req,
 	i_assert(!req->conn->output_locked);
 	i_assert(req->payload_output == NULL);
 
+	/* create request line */
 	str_append(rtext, req->method);
 	str_append(rtext, " ");
 	str_append(rtext, req->target);
-	str_append(rtext, " HTTP/1.1\r\nHost: ");
-	str_append(rtext, req->hostname);
-	if ((!req->ssl &&req->port != HTTP_DEFAULT_PORT) ||
-		(req->ssl && req->port != HTTPS_DEFAULT_PORT)) {
-		str_printfa(rtext, ":%u", req->port);
+	str_append(rtext, " HTTP/1.1\r\n");
+
+	/* create special headers implicitly if not set explicitly using
+	   http_client_request_add_header() */
+	if (!req->have_hdr_host) {
+		str_append(rtext, "Host: ");
+		str_append(rtext, req->hostname);
+		if ((!req->ssl &&req->port != HTTP_DEFAULT_PORT) ||
+			(req->ssl && req->port != HTTPS_DEFAULT_PORT)) {
+			str_printfa(rtext, ":%u", req->port);
+		}
+		str_append(rtext, "\r\n");
 	}
-	str_append(rtext, "\r\nDate: ");
-	str_append(rtext, http_date_create(req->date));
-	str_append(rtext, "\r\n");
-	if (req->payload_sync) {
+	if (!req->have_hdr_date) {
+		str_append(rtext, "Date: ");
+		str_append(rtext, http_date_create(req->date));
+		str_append(rtext, "\r\n");
+	}
+	if (!req->have_hdr_expect && req->payload_sync) {
 		str_append(rtext, "Expect: 100-continue\r\n");
 	}
 	if (req->payload_chunked) {
 		// FIXME: can't do this for a HTTP/1.0 server
-		str_append(rtext, "Transfer-Encoding: chunked\r\n");
+		if (!req->have_hdr_body_spec)
+			str_append(rtext, "Transfer-Encoding: chunked\r\n");
 		req->payload_output =
 			http_transfer_chunked_ostream_create(output);
 	} else if (req->payload_input != NULL) {
 		/* send Content-Length if we have specified a payload,
 		   even if it's 0 bytes. */
-		str_printfa(rtext, "Content-Length: %"PRIuUOFF_T"\r\n",
-			    req->payload_size);
+		if (!req->have_hdr_body_spec) {
+			str_printfa(rtext, "Content-Length: %"PRIuUOFF_T"\r\n",
+				req->payload_size);
+		}
 		req->payload_output = output;
 		o_stream_ref(output);
 	}
-	str_append(rtext, "Connection: Keep-Alive\r\n");
+	if (!req->have_hdr_connection)
+		str_append(rtext, "Connection: Keep-Alive\r\n");
 
+	/* request line + implicit headers */
 	iov[0].iov_base = str_data(rtext);
-	iov[0].iov_len = str_len(rtext);
+	iov[0].iov_len = str_len(rtext);	
+	/* explicit headers */
 	iov[1].iov_base = str_data(req->headers);
 	iov[1].iov_len = str_len(req->headers);
+	/* end of header */
 	iov[2].iov_base = "\r\n";
 	iov[2].iov_len = 2;
 
