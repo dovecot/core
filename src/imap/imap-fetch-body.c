@@ -34,8 +34,8 @@ static void fetch_read_error(struct imap_fetch_context *ctx)
 	errno = state->cur_input->stream_errno;
 	mail_storage_set_critical(state->cur_mail->box->storage,
 		"read(%s) failed: %m (FETCH %s for mailbox %s UID %u)",
-		state->cur_human_name,
 		i_stream_get_name(state->cur_input),
+		state->cur_human_name,
 		mailbox_get_vname(state->cur_mail->box), state->cur_mail->uid);
 }
 
@@ -102,9 +102,10 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 		}
 		if (!i_stream_have_bytes_left(state->cur_input)) {
 			/* Input stream gave less data than expected */
-			i_error("FETCH %s for mailbox %s UID %u "
+			i_error("read(%s): FETCH %s for mailbox %s UID %u "
 				"got too little data: "
 				"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
+				i_stream_get_name(state->cur_input),
 				state->cur_human_name,
 				mailbox_get_vname(state->cur_mail->box),
 				state->cur_mail->uid,
