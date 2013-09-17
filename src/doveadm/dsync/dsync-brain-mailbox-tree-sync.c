@@ -28,6 +28,11 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 			return -1;
 		}
 	}
+	if (brain->no_mail_sync) {
+		/* trust that create worked, we can't actually open it
+		   and verify. */
+		return 0;
+	}
 	/* sync the mailbox so we can look up its latest status */
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		i_error("Can't sync mailbox %s: %s",
