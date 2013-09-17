@@ -209,7 +209,12 @@ enum mailbox_sync_type {
 #define MAILBOX_ATTRIBUTE_PREFIX_DOVECOT "vendor/vendor.dovecot/"
 /* Prefix used for attributes reserved for Dovecot's internal use. Normal
    users cannot access these in any way. */
-#define MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT "vendor/vendor.dovecot/pvt/"
+#define MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT \
+	MAILBOX_ATTRIBUTE_PREFIX_DOVECOT"pvt/"
+/* Prefix used for server attributes in INBOX. INBOX deletion won't delete
+   any attributes under this prefix. */
+#define MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER \
+	MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT"server/"
 
 enum mail_attribute_type {
 	MAIL_ATTRIBUTE_TYPE_PRIVATE,

@@ -614,9 +614,15 @@ mailbox_delete_all_attributes(struct mailbox_transaction_context *t,
 	struct mailbox_attribute_iter *iter;
 	const char *key;
 	int ret = 0;
+	bool inbox = t->box->inbox_any;
 
 	iter = mailbox_attribute_iter_init(t->box, type, "");
 	while ((key = mailbox_attribute_iter_next(iter)) != NULL) {
+		if (inbox &&
+		    strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
+			    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER)) == 0)
+			continue;
+
 		if (mailbox_attribute_unset(t, type, key) < 0)
 			ret = -1;
 	}
