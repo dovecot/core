@@ -48,6 +48,23 @@ static struct valid_http_url_test valid_url_tests[] = {
 			.port = 8080, .have_port = TRUE }
 #endif
 	},{
+		.url = "http://user@api.dovecot.org",
+		.flags = HTTP_URL_ALLOW_USERINFO_PART,
+		.url_parsed = {
+			.host_name = "api.dovecot.org", .user = "user" }
+	},{
+		.url = "http://userid:secret@api.dovecot.org",
+		.flags = HTTP_URL_ALLOW_USERINFO_PART,
+		.url_parsed = {
+			.host_name = "api.dovecot.org",
+			.user = "userid", .password = "secret" }
+	},{
+		.url = "http://su%3auserid:secret@api.dovecot.org",
+		.flags = HTTP_URL_ALLOW_USERINFO_PART,
+		.url_parsed = {
+			.host_name = "api.dovecot.org",
+			.user = "su:userid", .password = "secret" }
+	},{
 		.url = "http://www.example.com/"
 			"?question=What%20are%20you%20doing%3f&answer=Nothing.",
 		.url_parsed = {
@@ -295,6 +312,20 @@ static void test_http_url_valid(void)
 			} else {
 				test_out("url->host_ip = (valid)",
 					urlp->have_host_ip == urlt->have_host_ip);
+			}
+			if (urlp->user == NULL || urlt->user == NULL) {
+				test_out(t_strdup_printf("url->user = %s", urlp->user),
+					urlp->user == urlt->user);
+			} else {
+				test_out(t_strdup_printf("url->user = %s", urlp->user),
+					strcmp(urlp->user, urlt->user) == 0);
+			}
+			if (urlp->password == NULL || urlt->password == NULL) {
+				test_out(t_strdup_printf("url->password = %s", urlp->password),
+					urlp->password == urlt->password);
+			} else {
+				test_out(t_strdup_printf("url->password = %s", urlp->password),
+					strcmp(urlp->password, urlt->password) == 0);
 			}
 			if (urlp->path == NULL || urlt->path == NULL) {
 				test_out(t_strdup_printf("url->path = %s", urlp->path),

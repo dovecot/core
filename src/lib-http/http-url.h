@@ -11,6 +11,10 @@ struct http_url {
 	struct ip_addr host_ip;
 	in_port_t port;
 
+	/* userinfo (not parsed by default) */
+	const char *user;
+	const char *password;
+
 	/* path */
 	const char *path;
 
@@ -33,8 +37,10 @@ enum http_url_parse_flags {
 	/* Scheme part 'http:' is already parsed externally. This implies that
 	   this is an absolute HTTP URL. */
 	HTTP_URL_PARSE_SCHEME_EXTERNAL	= 0x01,
-	/* Allow '#fragment' part in URL */
-	HTTP_URL_ALLOW_FRAGMENT_PART = 0x02
+	/* Allow '#fragment' part in HTTP URL */
+	HTTP_URL_ALLOW_FRAGMENT_PART = 0x02,
+	/* Allow 'user:password@' part in HTTP URL */
+	HTTP_URL_ALLOW_USERINFO_PART = 0x04
 };
 
 int http_url_parse(const char *url, struct http_url *base,

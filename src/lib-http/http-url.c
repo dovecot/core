@@ -32,25 +32,41 @@ static bool http_url_parse_authority(struct http_url_parser *url_parser)
 	struct uri_parser *parser = &url_parser->parser;
 	struct http_url *url = url_parser->url;
 	struct uri_authority auth;
+	const char *user = NULL, *password = NULL;
 	int ret;
 
 	if ((ret = uri_parse_authority(parser, &auth)) < 0)
 		return FALSE;
 	if (ret > 0) {
 		if (auth.enc_userinfo != NULL) {
-			/* http://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-20
+			const char *p;
 
-				 Section 2.8.1:
+			if ((url_parser->flags & HTTP_URL_ALLOW_USERINFO_PART) == 0) {
+				/* http://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-20
 
-			   {...} Senders MUST NOT include a userinfo subcomponent (and its "@"
-			   delimiter) when transmitting an "http" URI in a message. Recipients
-			   of HTTP messages that contain a URI reference SHOULD parse for the
-			   existence of userinfo and treat its presence as an error, likely
-			   indicating that the deprecated subcomponent is being used to
-			   obscure the authority for the sake of phishing attacks.
-			 */
-			parser->error = "HTTP URL does not allow `userinfo@' part";
-			return FALSE;
+					 Section 2.8.1:
+
+					 {...} Senders MUST NOT include a userinfo subcomponent (and its "@"
+					 delimiter) when transmitting an "http" URI in a message. Recipients
+					 of HTTP messages that contain a URI reference SHOULD parse for the
+					 existence of userinfo and treat its presence as an error, likely
+					 indicating that the deprecated subcomponent is being used to
+					 obscure the authority for the sake of phishing attacks.
+				 */
+				parser->error = "HTTP URL does not allow `userinfo@' part";
+				return FALSE;
+			}
+
+			p = strchr(auth.enc_userinfo, ':');
+			if (p == NULL) {
+				if (!uri_data_decode(parser, auth.enc_userinfo, NULL, &user))
+					return FALSE;
+			} else {
+				if (!uri_data_decode(parser, auth.enc_userinfo, p, &user))
+					return FALSE;
+				if (!uri_data_decode(parser, p+1, NULL, &password))
+					return FALSE;
+			}
 		}
 	}
 	if (url != NULL) {
@@ -59,6 +75,8 @@ static bool http_url_parse_authority(struct http_url_parser *url_parser)
 		url->have_host_ip = auth.have_host_ip;
 		url->port = auth.port;
 		url->have_port = auth.have_port;
+		url->user = p_strdup(parser->pool, user);
+		url->password = p_strdup(parser->pool, password);
 	}
 	return TRUE;
 }
@@ -210,12 +228,14 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 			parser->error = "Relative HTTP URL not allowed";
 			return FALSE;
 		} else if (!have_authority && url != NULL) {
-			url->host_name = p_strdup(parser->pool, base->host_name); 
+			url->host_name = p_strdup_empty(parser->pool, base->host_name); 
 			url->host_ip = base->host_ip;
 			url->have_host_ip = base->have_host_ip;
 			url->port = base->port;
 			url->have_port = base->have_port;
 			url->have_ssl = base->have_ssl;
+			url->user = p_strdup_empty(parser->pool, base->user);
+			url->password = p_strdup_empty(parser->pool, base->password);
 		}
 
 		url_parser->relative = TRUE;
