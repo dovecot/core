@@ -15,20 +15,25 @@
 
 static int
 ns_mailbox_try_alloc(struct mail_namespace *ns, const guid_128_t guid,
-		     struct mailbox **box_r)
+		     struct mailbox **box_r, const char **error_r)
 {
 	struct mailbox *box;
 	enum mailbox_existence existence;
+	enum mail_error err;
 	int ret;
 
 	box = mailbox_alloc_guid(ns->list, guid, 0);
 	ret = mailbox_exists(box, FALSE, &existence);
 	if (ret < 0) {
+		*error_r = mailbox_get_last_error(box, &err);
 		mailbox_free(&box);
 		return -1;
 	}
 	if (existence != MAILBOX_EXISTENCE_SELECT) {
 		mailbox_free(&box);
+		*error_r = existence == MAILBOX_EXISTENCE_NONE ?
+			"Mailbox was already deleted" :
+			"Mailbox is no longer selectable";
 		return 0;
 	}
 	*box_r = box;
@@ -36,14 +41,14 @@ ns_mailbox_try_alloc(struct mail_namespace *ns, const guid_128_t guid,
 }
 
 int dsync_brain_mailbox_alloc(struct dsync_brain *brain, const guid_128_t guid,
-			      struct mailbox **box_r)
+			      struct mailbox **box_r, const char **error_r)
 {
 	struct mail_namespace *ns;
 	int ret;
 
 	*box_r = NULL;
 	if (brain->sync_ns != NULL) {
-		ret = ns_mailbox_try_alloc(brain->sync_ns, guid, box_r);
+		ret = ns_mailbox_try_alloc(brain->sync_ns, guid, box_r, error_r);
 		if (ret < 0)
 			brain->failed = TRUE;
 		return ret;
@@ -52,7 +57,7 @@ int dsync_brain_mailbox_alloc(struct dsync_brain *brain, const guid_128_t guid,
 	for (ns = brain->user->namespaces; ns != NULL; ns = ns->next) {
 		if (!dsync_brain_want_namespace(brain, ns))
 			continue;
-		if ((ret = ns_mailbox_try_alloc(ns, guid, box_r)) != 0) {
+		if ((ret = ns_mailbox_try_alloc(ns, guid, box_r, error_r)) != 0) {
 			if (ret < 0)
 				brain->failed = TRUE;
 			return ret;
@@ -596,6 +601,7 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	const struct dsync_mailbox *dsync_box;
 	struct dsync_mailbox local_dsync_box;
 	struct mailbox *box;
+	const char *error;
 	int ret;
 
 	i_assert(!brain->master_brain);
@@ -608,13 +614,22 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 		return TRUE;
 	}
 
-	if (dsync_brain_mailbox_alloc(brain, dsync_box->mailbox_guid, &box) < 0) {
+	if (dsync_brain_mailbox_alloc(brain, dsync_box->mailbox_guid,
+				      &box, &error) < 0) {
+		i_error("Couldn't allocate mailbox GUID %s: %s",
+			guid_128_to_string(dsync_box->mailbox_guid), error);
 		i_assert(brain->failed);
 		return TRUE;
 	}
 	if (box == NULL) {
 		/* mailbox was probably deleted/renamed during sync */
 		//FIXME: verify this from log, and if not log an error.
+		if (brain->debug) {
+			i_debug("brain %c: Mailbox GUID %s sync: "
+				"Mailbox was lost during sync",
+				brain->master_brain ? 'M' : 'S',
+				guid_128_to_string(dsync_box->mailbox_guid));
+		}
 		brain->changes_during_sync = TRUE;
 		dsync_brain_slave_send_mailbox_lost(brain, dsync_box);
 		return TRUE;

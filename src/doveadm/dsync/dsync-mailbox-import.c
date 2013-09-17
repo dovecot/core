@@ -2020,9 +2020,10 @@ void dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
 }
 
 static int
-reassign_uids_in_seq_range(struct mailbox *box,
+reassign_uids_in_seq_range(struct dsync_mailbox_importer *importer,
 			   const ARRAY_TYPE(seq_range) *unwanted_uids)
 {
+	struct mailbox *box = importer->box;
 	const enum mailbox_transaction_flags trans_flags =
 		MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 		MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS;
@@ -2032,6 +2033,7 @@ reassign_uids_in_seq_range(struct mailbox *box,
 	struct mail_search_context *search_ctx;
 	struct mail_save_context *save_ctx;
 	struct mail *mail;
+	unsigned int renumber_count = 0;
 	int ret = 1;
 
 	if (array_count(unwanted_uids) == 0)
@@ -2058,6 +2060,7 @@ reassign_uids_in_seq_range(struct mailbox *box,
 		} else if (ret > 0) {
 			ret = 0;
 		}
+		renumber_count++;
 	}
 	if (mailbox_search_deinit(&search_ctx) < 0) {
 		i_error("Mailbox %s: mail search failed: %s",
@@ -2071,6 +2074,11 @@ reassign_uids_in_seq_range(struct mailbox *box,
 			mailbox_get_vname(box),
 			mailbox_get_last_error(box, NULL));
 		ret = -1;
+	}
+	if (ret == 0 && importer->debug) {
+		i_debug("Mailbox %s: Renumbered %u of %u unwanted UIDs",
+			mailbox_get_vname(box),
+			renumber_count, array_count(unwanted_uids));
 	}
 	return ret;
 }
@@ -2119,7 +2127,7 @@ reassign_unwanted_uids(struct dsync_mailbox_importer *importer,
 			seq_range_array_remove(&unwanted_uids, saved_uids[i]);
 	}
 
-	ret = reassign_uids_in_seq_range(importer->box, &unwanted_uids);
+	ret = reassign_uids_in_seq_range(importer, &unwanted_uids);
 	if (ret == 0) {
 		*changes_during_sync_r = TRUE;
 		/* conflicting changes during sync, revert our last-common-uid

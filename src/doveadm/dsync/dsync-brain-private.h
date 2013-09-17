@@ -113,7 +113,7 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 
 void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain);
 int dsync_brain_mailbox_alloc(struct dsync_brain *brain, const guid_128_t guid,
-			      struct mailbox **box_r);
+			      struct mailbox **box_r, const char **error_r);
 void dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 				    struct mailbox *box,
 				    const struct dsync_mailbox *local_box,
