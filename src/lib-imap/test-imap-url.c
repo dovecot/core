@@ -759,6 +759,10 @@ struct invalid_imap_url_test invalid_url_tests[] = {
 	},{
 		.url = "imap://user;AUTH=@example.com"
 	},{
+		.url = "imap://user:password@example.com"
+	},{
+		.url = "imap://user;AUTH=A:B@example.com"
+	},{
 		.url = "imap://user%@example.com"
 	},{
 		.url = "imap://user%00@example.com"
@@ -903,6 +907,7 @@ const char *parse_create_url_tests[] = {
 #endif
 	"imap://user@host.example.com/",
 	"imap://user@host.example.com:993/",
+	"imap://su%3auser@host.example.com/",
 	"imap://user;AUTH=PLAIN@host.example.com/",
 	"imap://user;AUTH=PLAIN@host.example.com/INBOX",
 	"imap://user;AUTH=PLAIN@host.example.com/INBOX/;UID=5",

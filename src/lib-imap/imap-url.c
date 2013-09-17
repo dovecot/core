@@ -226,34 +226,49 @@ static int imap_url_parse_iserver(struct imap_url_parser *url_parser)
 
 	/* iuserinfo        = enc-user [iauth] / [enc-user] iauth */
 	if (auth.enc_userinfo != NULL) {
-		const char *p;
+		const char *p, *uend;
 
 		/* Scan for ";AUTH=" */
-		p = strchr(auth.enc_userinfo, ';');
-		if (p != NULL) {
-			if (strncasecmp(p, ";AUTH=",6) != 0) {
+		for (p = auth.enc_userinfo; *p != '\0'; p++) {
+			if (*p == ';')
+				break;
+			/* check for unallowed userinfo characters */
+			if (*p == ':') {
+				parser->error = t_strdup_printf(
+					"Stray ':' in userinfo `%s'", auth.enc_userinfo);
+				return -1;
+			}
+		}
+
+		uend = p;
+
+		if (*p == ';') {
+			if (strncasecmp(p, ";AUTH=", 6) != 0) {
 				parser->error = t_strdup_printf(
 					"Stray ';' in userinfo `%s'",
 					auth.enc_userinfo);
 				return -1;
 			}
 
-			if (strchr(p+1, ';') != NULL) {
-				parser->error = "Stray ';' after `;AUTH='";
-				return -1;
+			for (p += 6; *p != '\0'; p++) {
+				if (*p == ';' || *p == ':') {
+					parser->error = t_strdup_printf(
+						"Stray '%c' in userinfo `%s'", *p, auth.enc_userinfo);
+					return -1;
+				}
 			}
 		}
 
 		/* enc-user */
-		if (url != NULL && p != auth.enc_userinfo) {
-			if (!uri_data_decode(parser, auth.enc_userinfo, p, &data))
+		if (url != NULL && uend > auth.enc_userinfo) {
+			if (!uri_data_decode(parser, auth.enc_userinfo, uend, &data))
 				return -1;
 			url->userid = p_strdup(parser->pool, data);
 		}
 
 		/* ( "*" / enc-auth-type ) */
-		if (p != NULL) {
-			p += 6;
+		if (*uend == ';') {
+			p = uend + 6;
 			if (*p == '\0') {
 				parser->error = "Empty auth-type value after ';AUTH='";
 				return -1;
@@ -989,10 +1004,10 @@ const char *imap_url_create(const struct imap_url *url)
 	/* user */
 	if (url->userid != NULL || url->auth_type != NULL) {
 		if (url->userid != NULL)
-			uri_append_user_data(urlstr, ";", url->userid);
+			uri_append_user_data(urlstr, ";:", url->userid);
 		if (url->auth_type != NULL) {
 			str_append(urlstr, ";AUTH=");
-			uri_append_user_data(urlstr, ";", url->auth_type);
+			uri_append_user_data(urlstr, ";:", url->auth_type);
 		}
 		str_append_c(urlstr, '@');
 	}
