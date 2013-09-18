@@ -543,7 +543,10 @@ int uri_parse_authority(struct uri_parser *parser,
 	/* host */
 	if ((ret = uri_parse_host(parser, auth)) <= 0) {
 		if (ret == 0) {
-			parser->error = "Missing 'host' component";
+			if (p == parser->end || *p == ':' || *p == '/')
+				parser->error = "Missing 'host' component";
+			else
+				parser->error = "Invalid 'host' component";
 			return -1;
 		}
 		return ret;
