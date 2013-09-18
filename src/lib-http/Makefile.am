@@ -47,7 +47,8 @@ test_programs = \
 	test-http-url \
 	test-http-header-parser \
 	test-http-transfer \
-	test-http-response-parser
+	test-http-response-parser \
+	test-http-request-parser
 
 test_nocheck_programs = \
 	test-http-client \
@@ -96,6 +97,20 @@ test_http_response_parser_LDADD = \
 	http-response-parser.lo \
 	$(test_libs)
 test_http_response_parser_DEPENDENCIES = $(test_deps)
+
+test_http_request_parser_SOURCES = test-http-request-parser.c
+test_http_request_parser_LDADD = \
+	http-date.lo \
+	http-parser.lo \
+	http-url.lo \
+	http-header.lo \
+	http-header-parser.lo \
+	http-transfer-chunked.lo \
+	http-message-parser.lo \
+	http-request-parser.lo \
+	$(test_libs)
+test_http_request_parser_DEPENDENCIES = $(test_deps)
+
 
 test_http_client_SOURCES = test-http-client.c
 test_http_client_LDFLAGS = -export-dynamic
