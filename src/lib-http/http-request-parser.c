@@ -42,15 +42,16 @@ http_request_parser_init(struct istream *input,
 {
 	struct http_request_parser *parser;
 	struct http_header_limits hdr_limits;
-	uoff_t max_payload_size = limits->max_payload_size;
+	uoff_t max_payload_size;
 
 	parser = i_new(struct http_request_parser, 1);
-	parser->max_target_length = limits->max_target_length;
-	
-	if (limits != NULL)
+	if (limits != NULL) {
 		hdr_limits = limits->header;
-	else
+		max_payload_size = limits->max_payload_size;
+	} else {
 		memset(&hdr_limits, 0, sizeof(hdr_limits));
+		max_payload_size = 0;
+	}
 
 	/* substitute default limits */
 	if (parser->max_target_length == 0)
