@@ -370,12 +370,12 @@ int http_url_request_target_parse(const char *request_target,
 	uri_parser_init(parser, pool, host_header);
 
 	if (uri_parse_authority(parser, &host) <= 0) {
-		parser->error = t_strdup_printf("Invalid Host header: %s", parser->error);
+		*error_r = t_strdup_printf("Invalid Host header: %s", parser->error);
 		return -1;
 	}
 
 	if (parser->cur != parser->end || host.enc_userinfo != NULL) {
-		parser->error = "Invalid Host header: Contains invalid character";
+		*error_r = "Invalid Host header: Contains invalid character";
 		return -1;
 	}
 
