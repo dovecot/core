@@ -131,6 +131,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	/* reference all IOs */
 	for (i = 0; i < ret; i++) {
 		io = (void *)events[i].udata;
+		i_assert(io->refcount > 0);
 		io->refcount++;
 	}
 
