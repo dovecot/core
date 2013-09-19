@@ -98,12 +98,16 @@ static void imapc_list_deinit(struct mailbox_list *_list)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 
+	/* make sure all pending commands are aborted before anything is
+	   deinitialized */
+	imapc_client_disconnect(list->client->client);
+
+	imapc_storage_client_unref(&list->client);
 	if (list->index_list != NULL)
 		mailbox_list_destroy(&list->index_list);
 	mailbox_tree_deinit(&list->mailboxes);
 	if (list->tmp_subscriptions != NULL)
 		mailbox_tree_deinit(&list->tmp_subscriptions);
-	imapc_storage_client_unref(&list->client);
 	pool_unref(&list->list.pool);
 }
 

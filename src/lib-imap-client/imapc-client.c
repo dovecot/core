@@ -110,17 +110,27 @@ void imapc_client_unref(struct imapc_client **_client)
 	pool_unref(&client->pool);
 }
 
+void imapc_client_disconnect(struct imapc_client *client)
+{
+	struct imapc_client_connection *const *conns, *conn;
+	unsigned int i, count;
+
+	conns = array_get(&client->conns, &count);
+	for (i = count; i > 0; i--) {
+		conn = conns[i-1];
+		array_delete(&client->conns, i-1, 1);
+
+		i_assert(imapc_connection_get_mailbox(conn->conn) == NULL);
+		imapc_connection_deinit(&conn->conn);
+		i_free(conn);
+	}
+}
+
 void imapc_client_deinit(struct imapc_client **_client)
 {
 	struct imapc_client *client = *_client;
-	struct imapc_client_connection **connp;
 
-	array_foreach_modifiable(&client->conns, connp) {
-		i_assert(imapc_connection_get_mailbox((*connp)->conn) == NULL);
-		imapc_connection_deinit(&(*connp)->conn);
-		i_free(*connp);
-	}
-	array_clear(&client->conns);
+	imapc_client_disconnect(client);
 	imapc_client_unref(_client);
 }
 

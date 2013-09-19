@@ -295,6 +295,10 @@ static void imapc_storage_destroy(struct mail_storage *_storage)
 {
 	struct imapc_storage *storage = (struct imapc_storage *)_storage;
 
+	/* make sure all pending commands are aborted before anything is
+	   deinitialized */
+	imapc_client_disconnect(storage->client->client);
+
 	imapc_storage_client_unref(&storage->client);
 	index_storage_destroy(_storage);
 }

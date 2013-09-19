@@ -134,6 +134,7 @@ typedef void imapc_untagged_callback_t(const struct imapc_untagged_reply *reply,
 
 struct imapc_client *
 imapc_client_init(const struct imapc_client_settings *set);
+void imapc_client_disconnect(struct imapc_client *client);
 void imapc_client_deinit(struct imapc_client **client);
 
 /* Explicitly login to server (also done automatically). */
