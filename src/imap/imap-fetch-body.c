@@ -33,8 +33,9 @@ static void fetch_read_error(struct imap_fetch_context *ctx)
 
 	errno = state->cur_input->stream_errno;
 	mail_storage_set_critical(state->cur_mail->box->storage,
-		"read(%s) failed: %m (FETCH %s for mailbox %s UID %u)",
+		"read(%s) failed: %s (FETCH %s for mailbox %s UID %u)",
 		i_stream_get_name(state->cur_input),
+		i_stream_get_error(state->cur_input),
 		state->cur_human_name,
 		mailbox_get_vname(state->cur_mail->box), state->cur_mail->uid);
 }

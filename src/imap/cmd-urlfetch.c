@@ -112,8 +112,9 @@ static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 	}
 	if (ctx->input->stream_errno != 0) {
 		errno = ctx->input->stream_errno;
-		i_error("read(%s) failed: %m (URLFETCH)",
-			i_stream_get_name(ctx->input));
+		i_error("read(%s) failed: %s (URLFETCH)",
+			i_stream_get_name(ctx->input),
+			i_stream_get_error(ctx->input));
 		client_disconnect(client, "URLFETCH failed");
 		return -1;
 	}
