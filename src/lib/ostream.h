@@ -46,6 +46,9 @@ const char *o_stream_get_name(struct ostream *stream);
 
 /* Return file descriptor for stream, or -1 if none is available. */
 int o_stream_get_fd(struct ostream *stream);
+/* Returns error string for the previous error (stream_errno,
+   not last_failed_errno). */
+const char *o_stream_get_error(struct ostream *stream);
 
 /* Close this stream (but not its parents) and unreference it. */
 void o_stream_destroy(struct ostream **stream);

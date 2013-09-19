@@ -92,6 +92,24 @@ int i_stream_get_fd(struct istream *stream)
 	return _stream->fd;
 }
 
+const char *i_stream_get_error(struct istream *stream)
+{
+	struct istream *s;
+
+	/* we'll only return errors for streams that have stream_errno set.
+	   we might be returning unintended error otherwise. */
+	if (stream->stream_errno == 0)
+		return "<no error>";
+
+	for (s = stream; s != NULL; s = s->real_stream->parent) {
+		if (s->stream_errno == 0)
+			break;
+		if (s->real_stream->iostream.error != NULL)
+			return s->real_stream->iostream.error;
+	}
+	return strerror(stream->stream_errno);
+}
+
 void i_stream_close(struct istream *stream)
 {
 	i_stream_close_full(stream, TRUE);
