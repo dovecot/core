@@ -94,6 +94,9 @@ static ssize_t i_stream_file_read(struct istream_private *stream)
 			ret = 0;
 		} else {
 			i_assert(errno != 0);
+			/* if we get EBADF for a valid fd, it means something's
+			   really wrong and we'd better just crash. */
+			i_assert(errno != EBADF);
 			stream->istream.stream_errno = errno;
 			return -1;
 		}
