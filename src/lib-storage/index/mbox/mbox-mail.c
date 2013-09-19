@@ -152,26 +152,29 @@ static int mbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 static bool
 mbox_mail_get_md5_header(struct index_mail *mail, const char **value_r)
 {
+	struct mail *_mail = &mail->mail.mail;
 	static uint8_t empty_md5[16] =
 		{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->mail.mail.box;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)_mail->box;
 	const void *ext_data;
 
 	if (mail->data.guid != NULL) {
 		*value_r = mail->data.guid;
-		return TRUE;
+		return 1;
 	}
 
-	mail_index_lookup_ext(mail->mail.mail.transaction->view,
-			      mail->mail.mail.seq, mbox->md5hdr_ext_idx,
-			      &ext_data, NULL);
+	mail_index_lookup_ext(_mail->transaction->view, _mail->seq,
+			      mbox->md5hdr_ext_idx, &ext_data, NULL);
 	if (ext_data != NULL && memcmp(ext_data, empty_md5, 16) != 0) {
 		mail->data.guid = p_strdup(mail->mail.data_pool,
 					   binary_to_hex(ext_data, 16));
 		*value_r = mail->data.guid;
-		return TRUE;
+		return 1;
+	} else if (mail_index_is_expunged(_mail->transaction->view, _mail->seq)) {
+		mail_set_expunged(_mail);
+		return -1;
 	} else {
-		return FALSE;
+		return 0;
 	}
 }
 
@@ -183,6 +186,7 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)_mail->box;
 	uoff_t offset;
 	bool move_offset;
+	int ret;
 
 	switch (field) {
 	case MAIL_FETCH_FROM_ENVELOPE:
@@ -193,8 +197,8 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		return 0;
 	case MAIL_FETCH_GUID:
 	case MAIL_FETCH_HEADER_MD5:
-		if (mbox_mail_get_md5_header(mail, value_r))
-			return 0;
+		if ((ret = mbox_mail_get_md5_header(mail, value_r)) != 0)
+			return ret < 0 ? -1 : 0;
 
 		/* i guess in theory the empty_md5 is valid and can happen,
 		   but it's almost guaranteed that it means the MD5 sum is
@@ -220,12 +224,12 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			}
 		}
 
-		if (!mbox_mail_get_md5_header(mail, value_r)) {
+		if ((ret = mbox_mail_get_md5_header(mail, value_r)) == 0) {
 			i_error("mbox %s resyncing didn't save header MD5 values",
 				_mail->box->name);
 			return -1;
 		}
-		return 0;
+		return ret < 0 ? -1 : 0;
 	default:
 		break;
 	}
