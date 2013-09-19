@@ -517,6 +517,7 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 		*username_r = ctx.fields[0];
 		*fields_r = ctx.fields + 1;
 	}
+	conn->reply_context = NULL;
 	return ctx.return_value;
 }
 
@@ -583,6 +584,7 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 
 	*fields_r = ctx.fields != NULL ? ctx.fields :
 		p_new(pool, const char *, 1);
+	conn->reply_context = NULL;
 	return ctx.return_value;
 }
 
@@ -625,6 +627,7 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	(void)auth_master_run_cmd(conn, str_c(str));
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
 
+	conn->reply_context = NULL;
 	return *count_r == UINT_MAX ? -1 : 0;
 }
 
@@ -687,6 +690,7 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 		ctx->failed = TRUE;
 	io_loop_set_current(conn->prev_ioloop);
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
+	conn->reply_context = NULL;
 	return ctx;
 }
 
