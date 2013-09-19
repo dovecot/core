@@ -203,6 +203,10 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 
 		if (ret == -1) {
 			if (link->stream->stream_errno != 0) {
+				io_stream_set_error(&stream->iostream,
+					"read(%s) failed: %s",
+					i_stream_get_name(link->stream),
+					i_stream_get_error(link->stream));
 				stream->istream.stream_errno =
 					link->stream->stream_errno;
 				return -1;

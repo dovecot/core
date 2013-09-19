@@ -133,6 +133,10 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 			return ret;
 
 		if (ret == -1 && cstream->cur_input->stream_errno != 0) {
+			io_stream_set_error(&cstream->istream.iostream,
+				"read(%s) failed: %s",
+				i_stream_get_name(cstream->cur_input),
+				i_stream_get_error(cstream->cur_input));
 			stream->istream.stream_errno =
 				cstream->cur_input->stream_errno;
 			return -1;
