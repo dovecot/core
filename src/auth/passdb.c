@@ -92,7 +92,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 		/* anything goes. change the credentials_scheme to what we
 		   actually got, so blocking passdbs work. */
 		auth_request->credentials_scheme =
-			p_strdup(auth_request->pool, input_scheme);
+			p_strdup(auth_request->pool, t_strcut(input_scheme, '.'));
 		return TRUE;
 	}
 
