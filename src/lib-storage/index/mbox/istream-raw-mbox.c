@@ -85,6 +85,8 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 			    &received_time, &tz, &sender) < 0) {
 		/* broken From - should happen only at beginning of
 		   file if this isn't a mbox.. */
+		io_stream_set_error(&rstream->istream.iostream,
+			"mbox file doesn't begin with 'From ' line");
 		rstream->istream.istream.stream_errno = EINVAL;
 		return -1;
 	}
@@ -253,12 +255,13 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 			return i_stream_raw_mbox_read(stream);
 		}
 		if (mbox_read_from_line(rstream) < 0) {
-			if (stream->istream.v_offset != 0) {
-				i_error("Next message unexpectedly corrupted in mbox file "
-					"%s at %"PRIuUOFF_T,
-					i_stream_get_name(&stream->istream),
-					stream->istream.v_offset);
-			}
+			io_stream_set_error(&stream->iostream,
+				"Next message unexpectedly corrupted in mbox file "
+				"%s at %"PRIuUOFF_T,
+				i_stream_get_name(&stream->istream),
+				stream->istream.v_offset);
+			if (stream->istream.v_offset != 0)
+				i_error("%s", stream->iostream.error);
 			stream->pos = 0;
 			rstream->eof = TRUE;
 			rstream->corrupted = TRUE;
@@ -356,11 +359,13 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 	    rstream->hdr_offset + new_pos > rstream->mail_size) {
 		/* istream_raw_mbox_set_next_offset() used invalid
 		   cached next_offset? */
-		i_error("Next message unexpectedly lost from mbox file "
+		io_stream_set_error(&stream->iostream,
+			"Next message unexpectedly lost from mbox file "
 			"%s at %"PRIuUOFF_T" (%s)",
 			i_stream_get_name(&stream->istream),
 			rstream->hdr_offset + rstream->mail_size,
 			rstream->mail_size_forced ? "cached" : "noncached");
+		i_error("%s", stream->iostream.error);
 		rstream->eof = TRUE;
 		rstream->corrupted = TRUE;
 		rstream->istream.istream.stream_errno = EINVAL;

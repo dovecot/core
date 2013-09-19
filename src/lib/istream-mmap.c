@@ -119,6 +119,8 @@ static ssize_t i_stream_mmap_read(struct istream_private *stream)
 			stream->buffer = NULL;
 			stream->buffer_size = 0;
 			stream->skip = stream->pos = 0;
+			io_stream_set_error(&stream->iostream,
+					    "mmap() failed: %m");
 			i_error("mmap_istream.mmap(%s) failed: %m",
 				i_stream_get_name(&stream->istream));
 			return -1;

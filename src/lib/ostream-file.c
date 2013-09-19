@@ -153,11 +153,15 @@ static int o_stream_lseek(struct file_ostream *fstream)
 
 	ret = lseek(fstream->fd, (off_t)fstream->buffer_offset, SEEK_SET);
 	if (ret < 0) {
+		io_stream_set_error(&fstream->ostream.iostream,
+				    "lseek() failed: %m");
 		fstream->ostream.ostream.stream_errno = errno;
 		return -1;
 	}
 
 	if (ret != (off_t)fstream->buffer_offset) {
+		io_stream_set_error(&fstream->ostream.iostream,
+				    "lseek() returned wrong value");
 		fstream->ostream.ostream.stream_errno = EINVAL;
 		return -1;
 	}
@@ -397,8 +401,12 @@ static int o_stream_file_seek(struct ostream_private *stream, uoff_t offset)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
-	if (offset > OFF_T_MAX || !fstream->file) {
+	if (offset > OFF_T_MAX) {
 		stream->ostream.stream_errno = EINVAL;
+		return -1;
+	}
+	if (!fstream->file) {
+		stream->ostream.stream_errno = ESPIPE;
 		return -1;
 	}
 

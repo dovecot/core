@@ -46,8 +46,14 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 	if (pos == left)
 		stream->istream.eof = TRUE;
 	else if (pos > left) {
-		i_error("%s is larger than expected (%"PRIuUOFF_T")",
-			i_stream_get_name(stream->parent), sstream->size);
+		io_stream_set_error(&stream->iostream,
+			"Stream is larger than expected "
+			"(%"PRIuUOFF_T" > %"PRIuUOFF_T", eof=%d)",
+			stream->istream.v_offset+pos, sstream->size,
+			stream->istream.eof);
+		i_error("read(%s) failed: %s",
+			i_stream_get_name(stream->parent),
+			stream->iostream.error);
 		pos = left;
 		stream->istream.eof = TRUE;
 	} else if (!stream->istream.eof) {
@@ -55,10 +61,13 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 	} else if (stream->istream.stream_errno == ENOENT) {
 		/* lost the file */
 	} else {
-		i_error("%s smaller than expected "
-			"(%"PRIuUOFF_T" < %"PRIuUOFF_T")",
+		io_stream_set_error(&stream->iostream,
+				    "Stream is smaller than expected "
+				    "(%"PRIuUOFF_T" < %"PRIuUOFF_T")",
+				    stream->istream.v_offset+pos, sstream->size);
+		i_error("read(%s) failed: %s",
 			i_stream_get_name(stream->parent),
-			stream->istream.v_offset, sstream->size);
+			stream->iostream.error);
 		stream->istream.stream_errno = EINVAL;
 	}
 

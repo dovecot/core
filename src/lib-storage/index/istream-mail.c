@@ -46,10 +46,12 @@ i_stream_mail_set_size_corrupted(struct mail_istream *mstream, size_t size)
 		chr = '>';
 	}
 
-	mail_storage_set_critical(mstream->mail->box->storage,
+	io_stream_set_error(&mstream->istream.iostream,
 		"Cached message size %s than expected "
 		"(%"PRIuUOFF_T" %c %"PRIuUOFF_T")", str,
 		mstream->expected_size, chr, cur_size);
+	mail_storage_set_critical(mstream->mail->box->storage, "%s",
+				  mstream->istream.iostream.error);
 	mail_set_cache_corrupted(mstream->mail, MAIL_FETCH_PHYSICAL_SIZE);
 	mstream->istream.istream.stream_errno = EINVAL;
 }

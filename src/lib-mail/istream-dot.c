@@ -36,6 +36,8 @@ static int i_stream_dot_read_some(struct dot_istream *dstream)
 					stream->parent->stream_errno;
 			} else if (ret < 0 && stream->parent->eof) {
 				/* we didn't see "." line */
+				io_stream_set_error(&stream->iostream,
+					"dot-input stream ends without '.' line");
 				stream->istream.stream_errno = EPIPE;
 			}
 			return ret;

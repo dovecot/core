@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "base64.h"
+#include "hex-binary.h"
 #include "istream-private.h"
 #include "istream-base64.h"
 
@@ -58,6 +59,9 @@ i_stream_base64_try_decode_block(struct base64_decoder_istream *bstream)
 	buffer_create_from_data(&buf, stream->w_buffer + stream->pos,
 				buffer_avail);
 	if (base64_decode(data, size, &pos, &buf) < 0) {
+		io_stream_set_error(&stream->iostream,
+			"Invalid base64 data: 0x%s",
+			binary_to_hex(data+pos, I_MAX(size-pos, 8)));
 		stream->istream.stream_errno = EINVAL;
 		return -1;
 	}
@@ -71,7 +75,8 @@ static ssize_t i_stream_base64_decoder_read(struct istream_private *stream)
 {
 	struct base64_decoder_istream *bstream =
 		(struct base64_decoder_istream *)stream;
-	size_t pre_count, post_count;
+	const unsigned char *data;
+	size_t pre_count, post_count, size;
 	int ret;
 
 	do {
@@ -80,6 +85,10 @@ static ssize_t i_stream_base64_decoder_read(struct istream_private *stream)
 			if (ret < 0 && stream->istream.stream_errno == 0 &&
 			    i_stream_get_data_size(stream->parent) > 0) {
 				/* base64 input with a partial block */
+				data = i_stream_get_data(stream->parent, &size);
+				io_stream_set_error(&stream->iostream,
+					"base64 input ends with a partial block: 0x%s",
+					binary_to_hex(data, size));
 				stream->istream.stream_errno = EINVAL;
 			}
 			return ret;

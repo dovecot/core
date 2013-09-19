@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "hex-binary.h"
 #include "istream-private.h"
 #include "quoted-printable.h"
 #include "istream-qp.h"
@@ -64,6 +65,9 @@ i_stream_qp_try_decode_input(struct qp_decoder_istream *bstream, bool eof)
 	ret = !eof ? quoted_printable_decode(data, size, &pos, &buf) :
 		quoted_printable_decode_final(data, size, &pos, &buf);
 	if (ret < 0) {
+		io_stream_set_error(&stream->iostream,
+			"Invalid quoted-printable data: 0x%s",
+			binary_to_hex(data+pos, I_MAX(size-pos, 8)));
 		stream->istream.stream_errno = EINVAL;
 		return -1;
 	}
@@ -77,7 +81,8 @@ static ssize_t i_stream_qp_decoder_read(struct istream_private *stream)
 {
 	struct qp_decoder_istream *bstream =
 		(struct qp_decoder_istream *)stream;
-	size_t pre_count, post_count;
+	const unsigned char *data;
+	size_t pre_count, post_count, size;
 	int ret;
 	size_t prev_size = 0;
 
@@ -95,6 +100,10 @@ static ssize_t i_stream_qp_decoder_read(struct istream_private *stream)
 			}
 			/* partial qp input */
 			i_assert(ret < 0);
+			data = i_stream_get_data(stream->parent, &size);
+			io_stream_set_error(&stream->iostream,
+				"quoted-printable input ends with a partial block: 0x%s",
+				binary_to_hex(data, size));
 			stream->istream.stream_errno = EINVAL;
 			return -1;
 		}

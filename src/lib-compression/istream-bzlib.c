@@ -38,10 +38,13 @@ static void i_stream_bzlib_close(struct iostream_private *stream,
 
 static void bzlib_read_error(struct bzlib_istream *zstream, const char *error)
 {
-	i_error("bzlib.read(%s): %s at %"PRIuUOFF_T,
-		i_stream_get_name(&zstream->istream.istream), error,
-		zstream->istream.abs_start_offset +
-		zstream->istream.istream.v_offset);
+	io_stream_set_error(&zstream->istream.iostream,
+			    "bzlib.read(%s): %s at %"PRIuUOFF_T,
+			    i_stream_get_name(&zstream->istream.istream), error,
+			    zstream->istream.abs_start_offset +
+			    zstream->istream.istream.v_offset);
+	if (zstream->log_errors)
+		i_error("%s", zstream->istream.iostream.error);
 }
 
 static ssize_t i_stream_bzlib_read(struct istream_private *stream)
@@ -104,8 +107,7 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 				stream->parent->stream_errno;
 		} else {
 			i_assert(stream->parent->eof);
-			if (zstream->log_errors)
-				bzlib_read_error(zstream, "unexpected EOF");
+			bzlib_read_error(zstream, "unexpected EOF");
 			stream->istream.stream_errno = EINVAL;
 		}
 		return -1;
@@ -135,15 +137,12 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 	case BZ_PARAM_ERROR:
 		i_unreached();
 	case BZ_DATA_ERROR:
-		if (zstream->log_errors)
-			bzlib_read_error(zstream, "corrupted data");
+		bzlib_read_error(zstream, "corrupted data");
 		stream->istream.stream_errno = EINVAL;
 		return -1;
 	case BZ_DATA_ERROR_MAGIC:
-		if (zstream->log_errors) {
-			bzlib_read_error(zstream,
-				"wrong magic in header (not bz2 file?)");
-		}
+		bzlib_read_error(zstream,
+			"wrong magic in header (not bz2 file?)");
 		stream->istream.stream_errno = EINVAL;
 		return -1;
 	case BZ_MEM_ERROR:

@@ -135,6 +135,8 @@ static ssize_t i_stream_jsonstr_read(struct istream_private *stream)
 						   stream->w_buffer + dest,
 						   &srcskip, &destskip) < 0) {
 				/* invalid string */
+				io_stream_set_error(&stream->iostream,
+						    "Invalid JSON string");
 				stream->istream.stream_errno = EINVAL;
 				return -1;
 			}

@@ -53,7 +53,8 @@ i_stream_hash_seek(struct istream_private *stream,
 	struct hash_istream *hstream = (struct hash_istream *)stream;
 
 	if (hstream->hash_context != NULL) {
-		/* we support seeking only after the hash is finished */
+		io_stream_set_error(&stream->iostream,
+			"Seeking not supported before hashing is finished");
 		stream->istream.stream_errno = ESPIPE;
 	}
 	stream->istream.v_offset = v_offset;

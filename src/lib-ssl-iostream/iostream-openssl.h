@@ -31,6 +31,7 @@ struct ssl_iostream {
 	char *host;
 	char *last_error;
 	char *log_prefix;
+	char *plain_stream_errstr;
 	int plain_stream_errno;
 
 	/* copied settings */

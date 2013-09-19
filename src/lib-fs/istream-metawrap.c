@@ -24,6 +24,8 @@ static int metadata_header_read(struct metawrap_istream *mstream)
 		}
 		p = strchr(line, ':');
 		if (p == NULL) {
+			io_stream_set_error(&mstream->istream.iostream,
+				"Metadata header line is missing ':'");
 			mstream->istream.istream.stream_errno = EINVAL;
 			return -1;
 		}

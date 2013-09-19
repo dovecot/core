@@ -43,8 +43,9 @@ static int i_stream_file_open(struct istream_private *stream)
 
 	stream->fd = open(path, O_RDONLY);
 	if (stream->fd == -1) {
+		io_stream_set_error(&stream->iostream,
+				    "open(%s) failed: %m", path);
 		stream->istream.stream_errno = errno;
-		i_error("file_istream.open(%s) failed: %m", path);
 		return -1;
 	}
 	return 0;
@@ -169,7 +170,8 @@ i_stream_file_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 }
 
 static struct istream *
-i_stream_create_file_common(int fd, size_t max_buffer_size, bool autoclose_fd)
+i_stream_create_file_common(int fd, const char *path,
+			    size_t max_buffer_size, bool autoclose_fd)
 {
 	struct file_istream *fstream;
 	struct istream *input;
@@ -198,6 +200,9 @@ i_stream_create_file_common(int fd, size_t max_buffer_size, bool autoclose_fd)
 	else {
 		/* we're trying to open a directory.
 		   we're not designed for it. */
+		io_stream_set_error(&fstream->istream.iostream,
+			"%s is a directory, can't read it as file",
+			path != NULL ? path : t_strdup_printf("<fd %d>", fd));
 		fstream->istream.istream.stream_errno = EISDIR;
 		is_file = FALSE;
 	}
@@ -218,14 +223,14 @@ struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
 {
 	i_assert(fd != -1);
 
-	return i_stream_create_file_common(fd, max_buffer_size, autoclose_fd);
+	return i_stream_create_file_common(fd, NULL, max_buffer_size, autoclose_fd);
 }
 
 struct istream *i_stream_create_file(const char *path, size_t max_buffer_size)
 {
 	struct istream *input;
 
-	input = i_stream_create_file_common(-1, max_buffer_size, TRUE);
+	input = i_stream_create_file_common(-1, path, max_buffer_size, TRUE);
 	i_stream_set_name(input, path);
 	return input;
 }

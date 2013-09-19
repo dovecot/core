@@ -98,6 +98,8 @@ static int o_stream_ssl_flush_buffer(struct ssl_ostream *sstream)
 			ret = openssl_iostream_handle_write_error(sstream->ssl_io,
 								  ret, "SSL_write");
 			if (ret < 0) {
+				io_stream_set_error(&sstream->ostream.iostream,
+					"%s", sstream->ssl_io->last_error);
 				sstream->ostream.ostream.stream_errno = errno;
 				break;
 			}
@@ -119,6 +121,8 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 
 	if ((ret = openssl_iostream_more(sstream->ssl_io)) < 0) {
 		/* handshake failed */
+		io_stream_set_error(&stream->iostream, "%s",
+				    sstream->ssl_io->last_error);
 		stream->ostream.stream_errno = errno;
 	} else if (ret > 0 && sstream->buffer != NULL &&
 		   sstream->buffer->used > 0) {
