@@ -5,6 +5,7 @@
 #include "buffer.h"
 #include "file-lock.h"
 #include "read-full.h"
+#include "master-service.h"
 #include "master-service-settings.h"
 #include "ssl-params-settings.h"
 #include "ssl-params.h"
@@ -118,7 +119,9 @@ static void ssl_params_rebuild(struct ssl_params *param)
 	case -1:
 		i_fatal("fork() failed: %m");
 	case 0:
-		/* child */
+		/* child - close listener fds so a long-running ssl-params
+		   doesn't cause Dovecot restart to fail */
+		master_service_stop_new_connections(master_service);
 		ssl_params_if_unchanged(param->path, param->last_mtime);
 		exit(0);
 	default:
