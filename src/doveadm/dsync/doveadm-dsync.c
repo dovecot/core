@@ -576,8 +576,12 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	}
 
 	if (dsync_brain_has_unexpected_changes(brain) || changes_during_sync) {
-		i_warning("Mailbox changes caused a desync. "
-			  "You may want to run dsync again.");
+		/* don't log a warning when running via doveadm server
+		   (e.g. called by replicator) */
+		if (ctx->ctx.conn == NULL) {
+			i_warning("Mailbox changes caused a desync. "
+				  "You may want to run dsync again.");
+		}
 		ctx->ctx.exit_code = 2;
 	}
 	if (dsync_brain_deinit(&brain) < 0) {
