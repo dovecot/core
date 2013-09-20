@@ -77,7 +77,7 @@ login_host_callback(const struct ip_addr *ip, const char *errormsg,
 {
 	struct login_host_request *request = context;
 	struct director *dir = request->conn->dir;
-	const char *line;
+	const char *line, *line_params;
 	unsigned int secs;
 
 	if (ip != NULL) {
@@ -85,11 +85,16 @@ login_host_callback(const struct ip_addr *ip, const char *errormsg,
 		line = t_strdup_printf("%s\thost=%s\tproxy_refresh=%u",
 				       request->line, net_ip2addr(ip), secs);
 	} else {
-		i_assert(strncmp(request->line, "OK\t", 3) == 0);
+		if (strncmp(request->line, "OK\t", 3) == 0)
+			line_params = request->line + 3;
+		else if (strncmp(request->line, "PASS\t", 5) == 0)
+			line_params = request->line + 5;
+		else
+			i_panic("BUG: Unexpected line: %s", request->line);
 
 		i_error("director: User %s host lookup failed: %s",
 			request->username, errormsg);
-		line = t_strconcat("FAIL\t", t_strcut(request->line + 3, '\t'),
+		line = t_strconcat("FAIL\t", t_strcut(line_params, '\t'),
 				   "\ttemp", NULL);
 	}
 	login_connection_send_line(request->conn, line);
