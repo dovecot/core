@@ -1122,15 +1122,23 @@ director_connection_sync_host(struct director_connection *conn,
 	} else {
 		if (seq < host->last_sync_seq) {
 			/* stale SYNC event */
+			dir_debug("Ignore stale SYNC event for %s (seq %u < %u)",
+				  host->name, seq, host->last_sync_seq);
 			return FALSE;
 		} else if (host->last_sync_seq != seq ||
 			   timestamp > host->last_sync_timestamp) {
 			host->last_sync_seq = seq;
 			host->last_sync_timestamp = timestamp;
 			host->last_sync_seq_counter = 1;
+			dir_debug("Update SYNC for %s (seq=%u, timestamp=%u)",
+				  host->name, seq, timestamp);
 		} else if (++host->last_sync_seq_counter >
 			   DIRECTOR_MAX_SYNC_SEQ_DUPLICATES) {
 			/* we've received this too many times already */
+			dir_debug("Ignore duplicate #%u SYNC event for %s "
+				  "(seq=%u, timestamp %u <= %u)",
+				  host->name, host->last_sync_seq_counter, seq,
+				  timestamp, host->last_sync_timestamp);
 			return FALSE;
 		}
 
