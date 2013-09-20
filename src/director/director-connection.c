@@ -74,6 +74,10 @@
 #define DIRECTOR_HANDSHAKE_WARN_SECS 29
 #define DIRECTOR_HANDSHAKE_BYTES_LOG_MIN_SECS (60*30)
 #define DIRECTOR_MAX_SYNC_SEQ_DUPLICATES 4
+/* If we receive SYNCs with a timestamp this many seconds higher than the last
+   valid received SYNC timestamp, assume that we lost the director's restart
+   notification and reset the last_sync_seq */
+#define DIRECTOR_SYNC_STALE_TIMESTAMP_RESET_SECS (60*2)
 
 #if DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS <= DIRECTOR_CONNECTION_PING_TIMEOUT_MSECS
 #  error DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS is too low
@@ -1117,20 +1121,32 @@ director_connection_sync_host(struct director_connection *conn,
 			director_set_ring_synced(dir);
 		}
 	} else {
-		if (seq < host->last_sync_seq) {
+		if (seq < host->last_sync_seq &&
+		    timestamp < host->last_sync_timestamp +
+		    DIRECTOR_SYNC_STALE_TIMESTAMP_RESET_SECS) {
 			/* stale SYNC event */
 			dir_debug("Ignore stale SYNC event for %s "
 				  "(seq %u < %u, timestamp=%u)",
 				  host->name, seq, host->last_sync_seq,
 				  timestamp);
 			return FALSE;
-		} else if (host->last_sync_seq != seq ||
+		} else if (seq < host->last_sync_seq) {
+			i_warning("Last SYNC seq for %s appears to be stale, reseting "
+				  "(seq=%u, timestamp=%u -> seq=%u, timestamp=%u)",
+				  host->name, host->last_sync_seq,
+				  host->last_sync_timestamp, seq, timestamp);
+			host->last_sync_seq = seq;
+			host->last_sync_timestamp = timestamp;
+			host->last_sync_seq_counter = 1;
+		} else if (seq > host->last_sync_seq ||
 			   timestamp > host->last_sync_timestamp) {
 			host->last_sync_seq = seq;
 			host->last_sync_timestamp = timestamp;
 			host->last_sync_seq_counter = 1;
-			dir_debug("Update SYNC for %s (seq=%u, timestamp=%u)",
-				  host->name, seq, timestamp);
+			dir_debug("Update SYNC for %s "
+				  "(seq=%u, timestamp=%u -> seq=%u, timestamp=%u)",
+				  host->name, host->last_sync_seq,
+				  host->last_sync_timestamp, seq, timestamp);
 		} else if (++host->last_sync_seq_counter >
 			   DIRECTOR_MAX_SYNC_SEQ_DUPLICATES) {
 			/* we've received this too many times already */
