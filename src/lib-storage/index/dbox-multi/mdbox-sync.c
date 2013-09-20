@@ -137,8 +137,16 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity == 0) {
 		/* newly created index file */
+		if (hdr->next_uid == 1) {
+			/* could be just a race condition where we opened the
+			   mailbox between mkdir and index creation. fix this
+			   silently. */
+			if (mdbox_mailbox_create_indexes(box, NULL, ctx->trans) < 0)
+				return -1;
+			return 1;
+		}
 		mail_storage_set_critical(box->storage,
-			"Mailbox %s: Corrupted index, uidvalidity=0",
+			"Mailbox %s: Broken index: missing UIDVALIDITY",
 			box->vname);
 		return 0;
 	}

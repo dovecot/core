@@ -319,9 +319,9 @@ mdbox_write_index_header(struct mailbox *box,
 	return 0;
 }
 
-static int mdbox_mailbox_create_indexes(struct mailbox *box,
-					const struct mailbox_update *update,
-					struct mail_index_transaction *trans)
+int mdbox_mailbox_create_indexes(struct mailbox *box,
+				 const struct mailbox_update *update,
+				 struct mail_index_transaction *trans)
 {
 	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
 	int ret;
