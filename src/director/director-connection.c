@@ -625,7 +625,6 @@ static bool director_cmd_director(struct director_connection *conn,
 	struct director_host *host;
 	struct ip_addr ip;
 	unsigned int port;
-	bool forward = FALSE;
 
 	if (!director_args_parse_ip_port(conn, args, &ip, &port))
 		return FALSE;
@@ -644,20 +643,18 @@ static bool director_cmd_director(struct director_connection *conn,
 		/* already have this. just reset its last_network_failure
 		   timestamp, since it might be up now. */
 		host->last_network_failure = 0;
-		if (host->last_seq != 0 || host->last_sync_seq != 0) {
-			/* it also may have been restarted, reset its state */
-			director_host_restarted(host);
-			forward = TRUE;
-		}
+		/* it also may have been restarted, reset its state */
+		director_host_restarted(host);
 	} else {
 		/* save the director and forward it */
 		host = director_host_add(conn->dir, &ip, port);
-		forward = TRUE;
 	}
-	if (forward) {
-		director_notify_ring_added(host,
-			director_connection_get_host(conn));
-	}
+	/* just forward this to the entire ring until it reaches back to
+	   itself. some hosts may see this twice, but that's the only way to
+	   guarantee that it gets seen by everyone. reseting the host multiple
+	   times may cause us to handle its commands multiple times, but the
+	   commands can handle that. */
+	director_notify_ring_added(host, director_connection_get_host(conn));
 	return TRUE;
 }
 
