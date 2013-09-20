@@ -68,6 +68,8 @@ struct mail_user {
 	unsigned int dsyncing:1;
 	/* Failed to create attribute dict, don't try again */
 	unsigned int attr_dict_failed:1;
+	/* We're deinitializing the user */
+	unsigned int deinitializing:1;
 };
 
 struct mail_user_module_register {

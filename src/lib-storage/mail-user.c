@@ -156,6 +156,8 @@ void mail_user_unref(struct mail_user **_user)
 		return;
 	}
 
+	user->deinitializing = TRUE;
+
 	/* call deinit() with refcount=1, otherwise we may assert-crash in
 	   mail_user_ref() that is called by some deinit() handler. */
 	user->v.deinit(user);
