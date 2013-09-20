@@ -438,6 +438,9 @@ static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 		  si->si_signo, dec2str(si->si_pid),
 		  dec2str(si->si_uid),
 		  lib_signal_code_to_str(si->si_signo, si->si_code));
+	/* make sure new processes won't be created by the currently
+	   running ioloop. */
+	services->destroying = TRUE;
 	master_service_stop(master_service);
 }
 
