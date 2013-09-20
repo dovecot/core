@@ -1122,8 +1122,10 @@ director_connection_sync_host(struct director_connection *conn,
 	} else {
 		if (seq < host->last_sync_seq) {
 			/* stale SYNC event */
-			dir_debug("Ignore stale SYNC event for %s (seq %u < %u)",
-				  host->name, seq, host->last_sync_seq);
+			dir_debug("Ignore stale SYNC event for %s "
+				  "(seq %u < %u, timestamp=%u)",
+				  host->name, seq, host->last_sync_seq,
+				  timestamp);
 			return FALSE;
 		} else if (host->last_sync_seq != seq ||
 			   timestamp > host->last_sync_timestamp) {
@@ -1137,7 +1139,7 @@ director_connection_sync_host(struct director_connection *conn,
 			/* we've received this too many times already */
 			dir_debug("Ignore duplicate #%u SYNC event for %s "
 				  "(seq=%u, timestamp %u <= %u)",
-				  host->name, host->last_sync_seq_counter, seq,
+				  host->last_sync_seq_counter, host->name, seq,
 				  timestamp, host->last_sync_timestamp);
 			return FALSE;
 		}
