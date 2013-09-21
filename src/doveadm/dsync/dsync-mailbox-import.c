@@ -2110,10 +2110,11 @@ reassign_uids_in_seq_range(struct dsync_mailbox_importer *importer,
 			mailbox_get_last_error(box, NULL));
 		ret = -1;
 	}
-	if (ret == 0 && importer->debug) {
-		i_debug("Mailbox %s: Renumbered %u of %u unwanted UIDs",
-			mailbox_get_vname(box),
-			renumber_count, array_count(unwanted_uids));
+	if (ret == 0) {
+		imp_debug(importer, "Mailbox %s: Change during sync: "
+			  "Renumbered %u of %u unwanted UIDs",
+			  mailbox_get_vname(box),
+			  renumber_count, array_count(unwanted_uids));
 	}
 	return ret;
 }
