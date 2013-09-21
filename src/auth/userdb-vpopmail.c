@@ -42,7 +42,7 @@ struct vqpasswd *vpopmail_lookup_vqp(struct auth_request *request,
 
 	vpw = vauth_getpw(vpop_user, vpop_domain);
 	if (vpw == NULL) {
-		auth_request_log_info(request, "vpopmail", "unknown user");
+		auth_request_log_unknown_user(request, "vpopmail");
 		return NULL;
 	}
 

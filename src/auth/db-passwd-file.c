@@ -463,7 +463,7 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request,
 
 	pu = hash_table_lookup(pw->users, str_c(username));
 	if (pu == NULL)
-                auth_request_log_info(request, "passwd-file", "unknown user");
+                auth_request_log_unknown_user(request, "passwd-file");
 	return pu;
 }
 

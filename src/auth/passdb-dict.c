@@ -64,7 +64,7 @@ passdb_dict_lookup_key(struct auth_request *auth_request,
 		auth_request_log_error(auth_request, "dict", "Lookup failed");
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (ret == 0) {
-		auth_request_log_info(auth_request, "dict", "unknown user");
+		auth_request_log_unknown_user(auth_request, "dict");
 		return PASSDB_RESULT_USER_UNKNOWN;
 	} else {
 		auth_request_log_debug(auth_request, "dict",

@@ -245,6 +245,8 @@ void auth_request_log_warning(struct auth_request *auth_request,
 void auth_request_log_error(struct auth_request *auth_request,
 			    const char *subsystem,
 			    const char *format, ...) ATTR_FORMAT(3, 4);
+void auth_request_log_unknown_user(struct auth_request *auth_request,
+				   const char *subsystem);
 
 void auth_request_verify_plain_callback(enum passdb_result result,
 					struct auth_request *request);

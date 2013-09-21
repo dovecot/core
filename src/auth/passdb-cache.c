@@ -48,7 +48,7 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 
 	if (*value == '\0') {
 		/* negative cache entry */
-		auth_request_log_info(request, "cache", "User unknown");
+		auth_request_log_unknown_user(request, "cache");
 		*result_r = PASSDB_RESULT_USER_UNKNOWN;
 		return TRUE;
 	}

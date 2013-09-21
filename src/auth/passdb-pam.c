@@ -181,7 +181,10 @@ static int try_pam_auth(struct auth_request *request, pam_handle_t *pamh,
 			}
 			auth_request_log_info(request, "pam", "%s", str);
 		} else {
-			auth_request_log_info(request, "pam", "%s", str);
+			if (status == PAM_USER_UNKNOWN)
+				auth_request_log_unknown_user(request, "pam");
+			else
+				auth_request_log_info(request, "pam", "%s", str);
 		}
 		return status;
 	}

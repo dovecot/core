@@ -83,7 +83,7 @@ static void sql_query_callback(struct sql_result *sql_result,
 		}
 	} else if (ret == 0) {
 		result = USERDB_RESULT_USER_UNKNOWN;
-		auth_request_log_info(auth_request, "sql", "Unknown user");
+		auth_request_log_unknown_user(auth_request, "sql");
 	} else {
 		sql_query_get_result(sql_result, auth_request);
 		result = USERDB_RESULT_OK;

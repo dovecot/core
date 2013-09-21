@@ -23,7 +23,7 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 
 	spw = getspnam(request->user);
 	if (spw == NULL) {
-		auth_request_log_info(request, "shadow", "unknown user");
+		auth_request_log_unknown_user(request, "shadow");
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}

@@ -2114,6 +2114,12 @@ void auth_request_log_error(struct auth_request *auth_request,
 	va_end(va);
 }
 
+void auth_request_log_unknown_user(struct auth_request *auth_request,
+				   const char *subsystem)
+{
+	auth_request_log_info(auth_request, subsystem, "unknown user");
+}
+
 void auth_request_refresh_last_access(struct auth_request *request)
 {
 	request->last_access = ioloop_time;

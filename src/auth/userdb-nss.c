@@ -52,7 +52,7 @@ userdb_nss_lookup(struct auth_request *auth_request,
 				       "unavailable (err=%d)", err);
 		break;
 	case NSS_STATUS_NOTFOUND:
-		auth_request_log_info(auth_request, "nss", "unknown user");
+		auth_request_log_unknown_user(auth_request, "nss");
 		result = USERDB_RESULT_USER_UNKNOWN;
 		break;
 	case NSS_STATUS_SUCCESS:
