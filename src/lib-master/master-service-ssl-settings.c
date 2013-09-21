@@ -27,6 +27,7 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 	DEF(SET_BOOL, ssl_verify_client_cert),
 	DEF(SET_BOOL, ssl_require_crl),
 	DEF(SET_BOOL, verbose_ssl),
+	DEF(SET_BOOL, ssl_prefer_server_ciphers),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -47,7 +48,8 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_crypto_device = "",
 	.ssl_verify_client_cert = FALSE,
 	.ssl_require_crl = TRUE,
-	.verbose_ssl = FALSE
+	.verbose_ssl = FALSE,
+	.ssl_prefer_server_ciphers = FALSE
 };
 
 const struct setting_parser_info master_service_ssl_setting_parser_info = {

@@ -119,6 +119,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 
 	ssl_set.verbose = set->verbose_ssl;
 	ssl_set.verify_remote_cert = set->ssl_verify_client_cert;
+	ssl_set.prefer_server_ciphers = set->ssl_prefer_server_ciphers;
 
 	if (ssl_iostream_context_init_server(&ssl_set, &service->ssl_ctx,
 					     &error) < 0) {

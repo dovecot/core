@@ -99,6 +99,7 @@ struct ssl_server_context {
 	const char *cipher_list;
 	const char *protocols;
 	bool verify_client_cert;
+	bool prefer_server_ciphers;
 };
 
 static int extdata_index;
@@ -634,6 +635,7 @@ ssl_server_context_get(const struct login_settings *login_set,
 	lookup_ctx.verify_client_cert = set->ssl_verify_client_cert ||
 		login_set->auth_ssl_require_client_cert ||
 		login_set->auth_ssl_username_from_cert;
+	lookup_ctx.prefer_server_ciphers = set->ssl_prefer_server_ciphers;
 
 	ctx = hash_table_lookup(ssl_servers, &lookup_ctx);
 	if (ctx == NULL)
@@ -1271,6 +1273,7 @@ ssl_server_context_init(const struct login_settings *login_set,
 	ctx->verify_client_cert = ssl_set->ssl_verify_client_cert ||
 		login_set->auth_ssl_require_client_cert ||
 		login_set->auth_ssl_username_from_cert;
+	ctx->prefer_server_ciphers = ssl_set->ssl_prefer_server_ciphers;
 
 	ctx->ctx = ssl_ctx = SSL_CTX_new(SSLv23_server_method());
 	if (ssl_ctx == NULL)
@@ -1281,6 +1284,8 @@ ssl_server_context_init(const struct login_settings *login_set,
 		i_fatal("Can't set cipher list to '%s': %s",
 			ctx->cipher_list, ssl_last_error());
 	}
+	if (ctx->prefer_server_ciphers)
+		SSL_CTX_set_options(ssl_ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
 	SSL_CTX_set_options(ssl_ctx, openssl_get_protocol_options(ctx->protocols));
 
 	if (ssl_proxy_ctx_use_certificate_chain(ctx->ctx, ctx->cert) != 1) {

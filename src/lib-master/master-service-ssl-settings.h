@@ -16,6 +16,7 @@ struct master_service_ssl_settings {
 	bool ssl_verify_client_cert;
 	bool ssl_require_crl;
 	bool verbose_ssl;
+	bool ssl_prefer_server_ciphers;
 };
 
 extern const struct setting_parser_info master_service_ssl_setting_parser_info;

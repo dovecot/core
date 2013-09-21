@@ -369,6 +369,10 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			set->cipher_list, openssl_iostream_error());
 		return -1;
 	}
+	if (set->prefer_server_ciphers) {
+		SSL_CTX_set_options(ctx->ssl_ctx,
+				    SSL_OP_CIPHER_SERVER_PREFERENCE);
+	}
 	if (ctx->set->protocols != NULL) {
 		SSL_CTX_set_options(ctx->ssl_ctx,
 			    openssl_get_protocol_options(ctx->set->protocols));
