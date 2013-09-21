@@ -690,7 +690,6 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 		ctx->failed = TRUE;
 	io_loop_set_current(conn->prev_ioloop);
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
-	conn->reply_context = NULL;
 	return ctx;
 }
 
