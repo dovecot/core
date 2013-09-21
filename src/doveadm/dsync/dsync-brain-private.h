@@ -92,6 +92,7 @@ struct dsync_brain {
 	unsigned int mail_requests:1;
 	unsigned int backup_send:1;
 	unsigned int backup_recv:1;
+	unsigned int purge:1;
 	unsigned int debug:1;
 	unsigned int sync_visible_namespaces:1;
 	unsigned int no_mail_sync:1;

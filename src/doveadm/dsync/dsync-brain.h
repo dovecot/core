@@ -19,7 +19,10 @@ enum dsync_brain_flags {
 	/* Used with BACKUP_SEND/RECV: Don't force the
 	   Use the two-way syncing algorithm, but don't actually modify
 	   anything locally. (Useful during migration.) */
-	DSYNC_BRAIN_FLAG_NO_BACKUP_OVERWRITE	= 0x40
+	DSYNC_BRAIN_FLAG_NO_BACKUP_OVERWRITE	= 0x40,
+	/* Run storage purge on the remote after syncing.
+	   Useful with e.g. a nightly doveadm backup. */
+	DSYNC_BRAIN_FLAG_PURGE_REMOTE		= 0x80
 };
 
 enum dsync_brain_sync_type {

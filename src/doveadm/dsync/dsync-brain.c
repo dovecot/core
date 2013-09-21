@@ -104,6 +104,7 @@ dsync_brain_common_init(struct mail_user *user, struct dsync_ibc *ibc)
 	pool_t pool;
 
 	service_set = master_service_settings_get(master_service);
+	mail_user_ref(user);
 
 	pool = pool_alloconly_create("dsync brain", 10240);
 	brain = p_new(pool, struct dsync_brain, 1);
@@ -220,6 +221,23 @@ dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc,
 	return brain;
 }
 
+static void dsync_brain_purge(struct dsync_brain *brain)
+{
+	struct mail_namespace *ns;
+	struct mail_storage *storage;
+
+	for (ns = brain->user->namespaces; ns != NULL; ns = ns->next) {
+		if (!dsync_brain_want_namespace(brain, ns))
+			continue;
+
+		storage = mail_namespace_get_default_storage(ns);
+		if (mail_storage_purge(storage) < 0) {
+			i_error("Purging namespace '%s' failed: %s", ns->prefix,
+				mail_storage_get_last_error(storage, NULL));
+		}
+	}
+}
+
 int dsync_brain_deinit(struct dsync_brain **_brain)
 {
 	struct dsync_brain *brain = *_brain;
@@ -239,6 +257,9 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 	    brain->state != DSYNC_STATE_DONE)
 		brain->failed = TRUE;
 	dsync_ibc_close_mail_streams(brain->ibc);
+
+	if (brain->purge && !brain->failed)
+		dsync_brain_purge(brain);
 
 	if (brain->box != NULL)
 		dsync_brain_sync_mailbox_deinit(brain);
@@ -261,6 +282,7 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 	}
 
 	ret = brain->failed ? -1 : 0;
+	mail_user_unref(&brain->user);
 	pool_unref(&brain->pool);
 	return ret;
 }
@@ -383,7 +405,11 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 	       sizeof(brain->sync_box_guid));
 	i_assert(brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_UNKNOWN);
 	brain->sync_type = ibc_set->sync_type;
+
 	dsync_brain_set_flags(brain, ibc_set->brain_flags);
+	/* this flag is only set on the remote slave brain */
+	brain->purge = (ibc_set->brain_flags &
+			DSYNC_BRAIN_FLAG_PURGE_REMOTE) != 0;
 
 	dsync_brain_mailbox_trees_init(brain);
 

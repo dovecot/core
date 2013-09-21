@@ -36,7 +36,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+1dEfg:l:m:n:Nr:Rs:Ux:"
+#define DSYNC_COMMON_GETOPT_ARGS "+1dEfg:l:m:n:NPr:Rs:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 /* The broken_char is mainly set to get a proper error message when trying to
    convert a mailbox with a name that can't be used properly translated between
@@ -78,6 +78,7 @@ struct dsync_cmd_context {
 	unsigned int lock_timeout;
 
 	unsigned int lock:1;
+	unsigned int purge_remote:1;
 	unsigned int sync_visible_namespaces:1;
 	unsigned int default_replica_location:1;
 	unsigned int oneway:1;
@@ -364,6 +365,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	}
 
 	brain2 = dsync_brain_slave_init(user2, ibc2, TRUE);
+	mail_user_unref(&user2);
 
 	brain1_running = brain2_running = TRUE;
 	changed1 = changed2 = TRUE;
@@ -376,7 +378,6 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		brain1_running = dsync_brain_run(brain, &changed1);
 		brain2_running = dsync_brain_run(brain2, &changed2);
 	}
-	mail_user_unref(&user2);
 	*changes_during_sync_r = dsync_brain_has_unexpected_changes(brain2);
 	if (dsync_brain_deinit(&brain2) < 0) {
 		ctx->ctx.exit_code = EX_TEMPFAIL;
@@ -545,6 +546,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	brain_flags = DSYNC_BRAIN_FLAG_SEND_MAIL_REQUESTS;
 	if (ctx->sync_visible_namespaces)
 		brain_flags |= DSYNC_BRAIN_FLAG_SYNC_VISIBLE_NAMESPACES;
+	if (ctx->purge_remote)
+		brain_flags |= DSYNC_BRAIN_FLAG_PURGE_REMOTE;
 
 	if (ctx->reverse_backup)
 		brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_RECV;
@@ -903,6 +906,9 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		break;
 	case 'N':
 		ctx->sync_visible_namespaces = TRUE;
+		break;
+	case 'P':
+		ctx->purge_remote = TRUE;
 		break;
 	case 'r':
 		ctx->rawlog_path = optarg;
