@@ -447,8 +447,10 @@ static int master_output_list(struct master_list_iter_ctx *ctx)
 		master_input_list_finish(ctx);
 		return 1;
 	}
-	if (ret > 0)
+	if (ret > 0) {
+		o_stream_cork(ctx->conn->output);
 		userdb_blocking_iter_next(ctx->iter);
+	}
 	return 1;
 }
 
@@ -502,6 +504,8 @@ static void master_input_list_callback(const char *user, void *context)
 	}
 	if (o_stream_get_buffer_used_size(ctx->conn->output) < MAX_OUTBUF_SIZE)
 		userdb_blocking_iter_next(ctx->iter);
+	else
+		o_stream_uncork(ctx->conn->output);
 }
 
 static bool
