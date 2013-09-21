@@ -1782,20 +1782,10 @@ static void log_password_failure(struct auth_request *request,
 	auth_request_log_debug(request, subsystem, "%s", str_c(str));
 }
 
-void auth_request_log_password_mismatch(struct auth_request *request,
-					const char *subsystem)
+static void
+auth_request_append_password(struct auth_request *request, string_t *str)
 {
-	string_t *str;
 	const char *log_type = request->set->verbose_passwords;
-
-	if (strcmp(log_type, "no") == 0) {
-		auth_request_log_info(request, subsystem, "Password mismatch");
-		return;
-	}
-
-	str = t_str_new(128);
-	get_log_prefix(str, request, subsystem);
-	str_append(str, "Password mismatch ");
 
 	if (strcmp(log_type, "plain") == 0) {
 		str_printfa(str, "(given password: %s)",
@@ -1810,7 +1800,41 @@ void auth_request_log_password_mismatch(struct auth_request *request,
 	} else {
 		i_unreached();
 	}
+}
 
+void auth_request_log_password_mismatch(struct auth_request *request,
+					const char *subsystem)
+{
+	string_t *str;
+
+	if (strcmp(request->set->verbose_passwords, "no") == 0) {
+		auth_request_log_info(request, subsystem, "Password mismatch");
+		return;
+	}
+
+	str = t_str_new(128);
+	get_log_prefix(str, request, subsystem);
+	str_append(str, "Password mismatch ");
+
+	auth_request_append_password(request, str);
+	i_info("%s", str_c(str));
+}
+
+void auth_request_log_unknown_user(struct auth_request *request,
+				   const char *subsystem)
+{
+	string_t *str;
+
+	if (strcmp(request->set->verbose_passwords, "no") == 0 ||
+	    !request->set->verbose) {
+		auth_request_log_info(request, subsystem, "unknown user");
+		return;
+	}
+	str = t_str_new(128);
+	get_log_prefix(str, request, subsystem);
+	str_append(str, "unknown user ");
+
+	auth_request_append_password(request, str);
 	i_info("%s", str_c(str));
 }
 
@@ -2112,12 +2136,6 @@ void auth_request_log_error(struct auth_request *auth_request,
 		i_error("%s", get_log_str(auth_request, subsystem, format, va));
 	} T_END;
 	va_end(va);
-}
-
-void auth_request_log_unknown_user(struct auth_request *auth_request,
-				   const char *subsystem)
-{
-	auth_request_log_info(auth_request, subsystem, "unknown user");
 }
 
 void auth_request_refresh_last_access(struct auth_request *request)
