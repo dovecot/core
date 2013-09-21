@@ -429,7 +429,7 @@ mailbox_list_escape_name(struct mailbox_list *list, const char *vname)
 	}
 	for (; *vname != '\0'; vname++) {
 		if (*vname == ns_sep)
-			str_append_c(escaped_name, *vname);
+			str_append_c(escaped_name, list_sep);
 		else if (*vname == list_sep ||
 			 *vname == list->set.escape_char ||
 			 *vname == '/' ||
@@ -541,7 +541,7 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 		storage_name = "INBOX";
 	}
 
-	if (list_sep != ns_sep) {
+	if (list_sep != ns_sep && list->set.escape_char == '\0') {
 		if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 		    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
 			/* shared namespace root. the backend storage's
@@ -689,6 +689,12 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 	}
 
 	prefix_len = strlen(list->ns->prefix);
+	if (list->set.escape_char != '\0') {
+		vname = mailbox_list_unescape_name(list, vname);
+		return prefix_len == 0 ? vname :
+			t_strconcat(list->ns->prefix, vname, NULL);
+	}
+
 	list_sep = mailbox_list_get_hierarchy_sep(list);
 	ns_sep = mail_namespace_get_sep(list->ns);
 
@@ -704,8 +710,6 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 		ret[i + prefix_len] = '\0';
 		vname = ret;
 	}
-	if (list->set.escape_char != '\0')
-		vname = mailbox_list_unescape_name(list, vname);
 	return vname;
 }
 
