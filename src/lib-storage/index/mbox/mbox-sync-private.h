@@ -183,4 +183,11 @@ void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 				 size_t size);
 int mbox_sync_get_guid(struct mbox_mailbox *mbox);
 
+int mbox_list_index_has_changed(struct mailbox *box,
+				struct mail_index_view *list_view,
+				uint32_t seq);
+void mbox_list_index_update_sync(struct mailbox *box,
+				 struct mail_index_transaction *trans,
+				 uint32_t seq);
+
 #endif

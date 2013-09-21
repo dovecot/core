@@ -19,6 +19,7 @@ libstorage_mbox_la_SOURCES = \
 	mbox-md5-all.c \
 	mbox-save.c \
 	mbox-settings.c \
+	mbox-sync-list-index.c \
 	mbox-sync-parse.c \
 	mbox-sync-rewrite.c \
 	mbox-sync-update.c \

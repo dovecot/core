@@ -22,6 +22,12 @@ struct mbox_index_header {
 	uint8_t unused[3];
 	guid_128_t mailbox_guid;
 };
+
+struct mbox_list_index_record {
+	uint32_t mtime;
+	uint32_t size;
+};
+
 struct mbox_storage {
 	struct mail_storage storage;
 
@@ -47,7 +53,7 @@ struct mbox_mailbox {
 	bool mbox_writeonly;
 	unsigned int external_transactions;
 
-	uint32_t mbox_ext_idx, md5hdr_ext_idx;
+	uint32_t mbox_ext_idx, md5hdr_ext_idx, mbox_list_index_ext_id;
 	struct mbox_index_header mbox_hdr;
 	const struct mailbox_update *sync_hdr_update;
 
