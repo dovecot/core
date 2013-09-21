@@ -226,7 +226,7 @@ int i_my_clock_gettime(int clk_id, struct timespec *tp);
 #define i_isxdigit(x) isxdigit((int) (unsigned char) (x))
 
 #ifndef EOVERFLOW
-#  define EOVERFLOW EINVAL
+#  define EOVERFLOW ERANGE
 #endif
 
 #ifdef EDQUOT
