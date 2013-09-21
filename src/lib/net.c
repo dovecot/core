@@ -461,7 +461,7 @@ int net_listen_unix(const char *path, int backlog)
 	sa.un.sun_family = AF_UNIX;
 	if (i_strocpy(sa.un.sun_path, path, sizeof(sa.un.sun_path)) < 0) {
 		/* too long path */
-		errno = EINVAL;
+		errno = EOVERFLOW;
 		return -1;
 	}
 
