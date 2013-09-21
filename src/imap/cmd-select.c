@@ -394,7 +394,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	struct client *client = cmd->client;
 	struct imap_select_context *ctx;
 	const struct imap_arg *args, *list_args;
-	const char *mailbox;
+	const char *mailbox, *error;
 	int ret;
 
 	/* <mailbox> [(optional parameters)] */
@@ -402,19 +402,20 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 		return FALSE;
 
 	if (!imap_arg_get_astring(args, &mailbox)) {
-		client_send_command_error(cmd, "Invalid arguments.");
 		close_selected_mailbox(client);
+		client_send_command_error(cmd, "Invalid arguments.");
 		return FALSE;
 	}
 
 	ctx = p_new(cmd->pool, struct imap_select_context, 1);
 	ctx->cmd = cmd;
-	ctx->ns = client_find_namespace(cmd, &mailbox);
-	(void)gettimeofday(&ctx->start_time, NULL);
+	ctx->ns = client_find_namespace_full(cmd->client, &mailbox, &error);
 	if (ctx->ns == NULL) {
 		close_selected_mailbox(client);
+		client_send_tagline(cmd, error);
 		return TRUE;
 	}
+	(void)gettimeofday(&ctx->start_time, NULL);
 
 	if (imap_arg_get_list(&args[1], &list_args)) {
 		if (!select_parse_options(ctx, list_args)) {

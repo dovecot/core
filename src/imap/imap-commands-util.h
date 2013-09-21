@@ -13,6 +13,9 @@ struct mailbox_keywords;
    or mailbox name is invalid, sends a tagged NO reply to client. */
 struct mail_namespace *
 client_find_namespace(struct client_command_context *cmd, const char **mailbox);
+struct mail_namespace *
+client_find_namespace_full(struct client *client,
+			   const char **mailbox, const char **error_r);
 
 /* Returns TRUE if mailbox is selected. If not, sends "No mailbox selected"
    error message to client. */
