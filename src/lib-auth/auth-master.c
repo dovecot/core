@@ -713,7 +713,7 @@ const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
 		io_loop_set_current(ctx->conn->prev_ioloop);
 	}
 
-	if (ctx->finished || ctx->failed)
+	if (ctx->finished || ctx->failed || ctx->conn->aborted)
 		return NULL;
 	return str_c(ctx->username);
 }
