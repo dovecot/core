@@ -623,6 +623,16 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	}
 	if (box == NULL) {
 		/* mailbox was probably deleted/renamed during sync */
+		if (brain->backup_send && brain->no_backup_overwrite) {
+			if (brain->debug) {
+				i_debug("brain %c: Ignore nonexistent "
+					"mailbox GUID %s with -1 sync",
+					brain->master_brain ? 'M' : 'S',
+					guid_128_to_string(dsync_box->mailbox_guid));
+			}
+			dsync_brain_slave_send_mailbox_lost(brain, dsync_box);
+			return TRUE;
+		}
 		//FIXME: verify this from log, and if not log an error.
 		if (brain->debug) {
 			i_debug("brain %c: Change during sync: "
