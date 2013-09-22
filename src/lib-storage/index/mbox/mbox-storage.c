@@ -737,7 +737,8 @@ mbox_transaction_unlock(struct mailbox *box, unsigned int lock_id1,
 	if (lock_id2 != 0)
 		mbox_unlock(mbox, lock_id2);
 	if (mbox->mbox_global_lock_id == 0) {
-		i_assert(mbox->box.transaction_count > 0 ||
+		i_assert(mbox->box.transaction_count > 0);
+		i_assert(mbox->box.transaction_count > 1 ||
 			 mbox->external_transactions > 0 ||
 			 mbox->mbox_lock_type == F_UNLCK);
 	} else {

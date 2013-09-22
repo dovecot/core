@@ -1836,15 +1836,15 @@ int mailbox_transaction_commit_get_changes(
 	struct mail_transaction_commit_changes *changes_r)
 {
 	struct mailbox_transaction_context *t = *_t;
+	struct mailbox *box = t->box;
 	unsigned int save_count = t->save_count;
 	int ret;
 
-	t->box->transaction_count--;
 	changes_r->pool = NULL;
 
 	*_t = NULL;
 	T_BEGIN {
-		ret = t->box->v.transaction_commit(t, changes_r);
+		ret = box->v.transaction_commit(t, changes_r);
 	} T_END;
 	/* either all the saved messages get UIDs or none, because a) we
 	   failed, b) MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS not set,
@@ -1852,6 +1852,11 @@ int mailbox_transaction_commit_get_changes(
 	i_assert(ret < 0 ||
 		 seq_range_count(&changes_r->saved_uids) == save_count ||
 		 array_count(&changes_r->saved_uids) == 0);
+	/* decrease the transaction count only after transaction_commit().
+	   that way if it creates and destroys transactions internally, we
+	   don't see transaction_count=0 until the parent transaction is fully
+	   finished */
+	box->transaction_count--;
 	if (ret < 0 && changes_r->pool != NULL)
 		pool_unref(&changes_r->pool);
 	return ret;
@@ -1860,11 +1865,11 @@ int mailbox_transaction_commit_get_changes(
 void mailbox_transaction_rollback(struct mailbox_transaction_context **_t)
 {
 	struct mailbox_transaction_context *t = *_t;
-
-	t->box->transaction_count--;
+	struct mailbox *box = t->box;
 
 	*_t = NULL;
-	t->box->v.transaction_rollback(t);
+	box->v.transaction_rollback(t);
+	box->transaction_count--;
 }
 
 unsigned int mailbox_transaction_get_count(const struct mailbox *box)
