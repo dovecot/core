@@ -234,10 +234,12 @@ static void fs_sis_queue_write_stream(struct fs_file *_file)
 
 	i_assert(_file->output == NULL);
 
-	if (file->super == NULL)
-		_file->output = o_stream_create_error(EINVAL);
-	else
+	if (file->super == NULL) {
+		_file->output = o_stream_create_error_str(EINVAL, "%s",
+						fs_file_last_error(_file));
+	} else {
 		_file->output = fs_write_stream(file->super);
+	}
 	o_stream_set_name(_file->output, _file->path);
 }
 
