@@ -557,6 +557,7 @@ struct ostream *o_stream_create_error(int stream_errno)
 	stream = i_new(struct ostream_private, 1);
 	stream->ostream.closed = TRUE;
 	stream->ostream.stream_errno = stream_errno;
+	stream->ostream.last_failed_errno = stream_errno;
 
 	output = o_stream_create(stream, NULL, -1);
 	o_stream_set_name(output, "(error)");
