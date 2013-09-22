@@ -81,6 +81,10 @@ int istream_attachment_connector_add(struct istream_attachment_connector *conn,
 		input = i_stream_create_base64_encoder(decoded_input,
 						       base64_blocks_per_line*4,
 						       base64_have_crlf);
+		i_stream_set_name(input, t_strdup_printf("%s[base64:%u b/l%s]",
+				  i_stream_get_name(decoded_input),
+				  base64_blocks_per_line,
+				  base64_have_crlf ? ",crlf" : ""));
 	}
 	input2 = i_stream_create_sized(input, encoded_size);
 	array_append(&conn->streams, &input2, 1);
