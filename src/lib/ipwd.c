@@ -50,6 +50,11 @@ int i_getpwnam(const char *name, struct passwd *pwd_r)
 	do {
 		pw_init();
 		errno = getpwnam_r(name, pwd_r, pwbuf, pwbuf_size, &result);
+#ifdef __OpenBSD__
+		/* OpenBSD returns 1 for all errors, assume it's ERANGE */
+		if (errno == 1)
+			errno = ERANGE;
+#endif
 	} while (errno == ERANGE);
 	if (result != NULL)
 		return 1;
@@ -68,6 +73,11 @@ int i_getpwuid(uid_t uid, struct passwd *pwd_r)
 	do {
 		pw_init();
 		errno = getpwuid_r(uid, pwd_r, pwbuf, pwbuf_size, &result);
+#ifdef __OpenBSD__
+		/* OpenBSD returns 1 for all errors, assume it's ERANGE */
+		if (errno == 1)
+			errno = ERANGE;
+#endif
 	} while (errno == ERANGE);
 	if (result != NULL)
 		return 1;
