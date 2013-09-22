@@ -131,7 +131,9 @@ index_attachment_close_ostream(struct ostream *output, bool success,
 	if (ret < 0)
 		fs_write_stream_abort(attach->cur_file, &output);
 	else if (fs_write_stream_finish(attach->cur_file, &output) < 0) {
-		*error_r = t_strdup(fs_file_last_error(attach->cur_file));
+		*error_r = t_strdup_printf("Couldn't create attachment %s: %s",
+					   fs_file_path(attach->cur_file),
+					   fs_file_last_error(attach->cur_file));
 		ret = -1;
 	}
 	fs_file_deinit(&attach->cur_file);
