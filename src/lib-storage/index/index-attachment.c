@@ -75,7 +75,8 @@ static int index_attachment_open_temp_fd(void *context)
 
 static int
 index_attachment_open_ostream(struct istream_attachment_info *info,
-			      struct ostream **output_r, void *context)
+			      struct ostream **output_r,
+			      const char **error_r ATTR_UNUSED, void *context)
 {
 	struct mail_save_context *ctx = context;
 	struct mail_save_attachment *attach = ctx->data.attach;
@@ -118,12 +119,11 @@ index_attachment_open_ostream(struct istream_attachment_info *info,
 }
 
 static int
-index_attachment_close_ostream(struct ostream *output,
-			       bool success, void *context)
+index_attachment_close_ostream(struct ostream *output, bool success,
+			       const char **error_r, void *context)
 {
 	struct mail_save_context *ctx = context;
 	struct mail_save_attachment *attach = ctx->data.attach;
-	struct mail_storage *storage = ctx->transaction->box->storage;
 	int ret = success ? 0 : -1;
 
 	i_assert(attach->cur_file != NULL);
@@ -131,8 +131,7 @@ index_attachment_close_ostream(struct ostream *output,
 	if (ret < 0)
 		fs_write_stream_abort(attach->cur_file, &output);
 	else if (fs_write_stream_finish(attach->cur_file, &output) < 0) {
-		mail_storage_set_critical(storage, "%s",
-			fs_file_last_error(attach->cur_file));
+		*error_r = t_strdup(fs_file_last_error(attach->cur_file));
 		ret = -1;
 	}
 	fs_file_deinit(&attach->cur_file);
@@ -202,6 +201,9 @@ int index_attachment_save_continue(struct mail_save_context *ctx)
 	size_t size;
 	ssize_t ret;
 
+	if (attach->input->stream_errno != 0)
+		return -1;
+
 	do {
 		ret = i_stream_read(attach->input);
 		if (ret > 0) {
@@ -216,6 +218,12 @@ int index_attachment_save_continue(struct mail_save_context *ctx)
 		}
 	} while (ret != -1);
 
+	if (attach->input->stream_errno != 0) {
+		mail_storage_set_critical(storage, "read(%s) failed: %s",
+					  i_stream_get_name(attach->input),
+					  i_stream_get_error(attach->input));
+		return -1;
+	}
 	if (ctx->data.output != NULL) {
 		if (save_check_write_error(storage, ctx->data.output) < 0)
 			return -1;
@@ -229,7 +237,7 @@ int index_attachment_save_finish(struct mail_save_context *ctx)
 
 	(void)i_stream_read(attach->input);
 	i_assert(attach->input->eof);
-	return attach->input->stream_errno == 0;
+	return attach->input->stream_errno == 0 ? 0 : -1;
 }
 
 void index_attachment_save_free(struct mail_save_context *ctx)

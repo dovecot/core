@@ -40,10 +40,10 @@ struct istream_attachment_settings {
 	/* Create output stream for attachment */
 	int (*open_attachment_ostream)(struct istream_attachment_info *info,
 				       struct ostream **output_r,
-				       void *context);
+				       const char **error_r, void *context);
 	/* Finish output stream */
 	int (*close_attachment_ostream)(struct ostream *output, bool success,
-					void *context);
+					const char **error_r, void *context);
 };
 
 struct istream *

@@ -84,6 +84,7 @@ static int test_open_temp_fd(void *context ATTR_UNUSED)
 
 static int test_open_attachment_ostream(struct istream_attachment_info *info,
 					struct ostream **output_r,
+					const char **error_r ATTR_UNUSED,
 					void *context ATTR_UNUSED)
 {
 	struct attachment *a;
@@ -106,6 +107,7 @@ static int test_open_attachment_ostream(struct istream_attachment_info *info,
 }
 
 static int test_close_attachment_ostream(struct ostream *output, bool success,
+					 const char **error_r ATTR_UNUSED,
 					 void *context ATTR_UNUSED)
 {
 	struct attachment *a;

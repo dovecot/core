@@ -59,6 +59,7 @@ struct attachment_istream {
 	struct attachment_istream_part part;
 
 	bool retry_read;
+	bool failed;
 };
 
 static void stream_add_data(struct attachment_istream *astream,
@@ -416,7 +417,8 @@ static int astream_decode_base64(struct attachment_istream *astream)
 	return 0;
 }
 
-static int astream_part_finish(struct attachment_istream *astream)
+static int
+astream_part_finish(struct attachment_istream *astream, const char **error_r)
 {
 	struct attachment_istream_part *part = &astream->part;
 	struct istream_attachment_info info;
@@ -428,8 +430,9 @@ static int astream_part_finish(struct attachment_istream *astream)
 	int ret = 0;
 
 	if (o_stream_nfinish(part->temp_output) < 0) {
-		i_error("istream-attachment: write(%s) failed: %m",
-			o_stream_get_name(part->temp_output));
+		*error_r = t_strdup_printf("write(%s) failed: %s",
+					   o_stream_get_name(part->temp_output),
+					   o_stream_get_error(part->temp_output));
 		return -1;
 	}
 
@@ -477,7 +480,7 @@ static int astream_part_finish(struct attachment_istream *astream)
 		   as attachment */
 		info.encoded_size = part->temp_output->offset;
 	}
-	if (astream->set.open_attachment_ostream(&info, &output,
+	if (astream->set.open_attachment_ostream(&info, &output, error_r,
 						 astream->context) < 0)
 		return -1;
 
@@ -489,13 +492,13 @@ static int astream_part_finish(struct attachment_istream *astream)
 	}
 
 	if (input->stream_errno != 0) {
-		i_error("istream-attachment: read(%s) failed: %m",
-			i_stream_get_name(input));
+		*error_r = t_strdup_printf("read(%s) failed: %s",
+			i_stream_get_name(input), i_stream_get_error(input));
 		ret = -1;
 	}
 	i_stream_destroy(&input);
 
-	if (astream->set.close_attachment_ostream(output, ret == 0,
+	if (astream->set.close_attachment_ostream(output, ret == 0, error_r,
 						  astream->context) < 0)
 		ret = -1;
 	return ret;
@@ -521,7 +524,7 @@ static void astream_part_reset(struct attachment_istream *astream)
 }
 
 static int
-astream_end_of_part(struct attachment_istream *astream)
+astream_end_of_part(struct attachment_istream *astream, const char **error_r)
 {
 	struct attachment_istream_part *part = &astream->part;
 	size_t old_size;
@@ -542,7 +545,7 @@ astream_end_of_part(struct attachment_istream *astream)
 		break;
 	case MAIL_ATTACHMENT_STATE_YES:
 		old_size = astream->istream.pos - astream->istream.skip;
-		if (astream_part_finish(astream) < 0)
+		if (astream_part_finish(astream, error_r) < 0)
 			ret = -1;
 		else {
 			/* finished base64 may have added a few more trailing
@@ -562,6 +565,7 @@ static int astream_read_next(struct attachment_istream *astream, bool *retry_r)
 	struct istream_private *stream = &astream->istream;
 	struct message_block block;
 	size_t old_size, new_size;
+	const char *error;
 	int ret;
 
 	*retry_r = FALSE;
@@ -569,11 +573,16 @@ static int astream_read_next(struct attachment_istream *astream, bool *retry_r)
 	if (stream->pos - stream->skip >= stream->max_buffer_size)
 		return -2;
 
+	if (astream->failed) {
+		stream->istream.stream_errno = EINVAL;
+		return -1;
+	}
+
 	old_size = stream->pos - stream->skip;
 	switch (message_parser_parse_next_block(astream->parser, &block)) {
 	case -1:
 		/* done / error */
-		ret = astream_end_of_part(astream);
+		ret = astream_end_of_part(astream, &error);
 		if (ret > 0) {
 			/* final data */
 			new_size = stream->pos - stream->skip;
@@ -582,8 +591,11 @@ static int astream_read_next(struct attachment_istream *astream, bool *retry_r)
 		stream->istream.eof = TRUE;
 		stream->istream.stream_errno = stream->parent->stream_errno;
 
-		if (ret < 0)
+		if (ret < 0) {
+			io_stream_set_error(&stream->iostream, "%s", error);
 			stream->istream.stream_errno = EINVAL;
+			astream->failed = TRUE;
+		}
 		astream->cur_part = NULL;
 		return -1;
 	case 0:
@@ -595,8 +607,10 @@ static int astream_read_next(struct attachment_istream *astream, bool *retry_r)
 
 	if (block.part != astream->cur_part && astream->cur_part != NULL) {
 		/* end of a MIME part */
-		if (astream_end_of_part(astream) < 0) {
+		if (astream_end_of_part(astream, &error) < 0) {
+			io_stream_set_error(&stream->iostream, "%s", error);
 			stream->istream.stream_errno = EINVAL;
+			astream->failed = TRUE;
 			return -1;
 		}
 	}
