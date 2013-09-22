@@ -766,3 +766,16 @@ struct istream *i_stream_create_error(int stream_errno)
 	i_stream_set_name(&stream->istream, "(error)");
 	return &stream->istream;
 }
+
+struct istream *
+i_stream_create_error_str(int stream_errno, const char *fmt, ...)
+{
+	struct istream *input;
+	va_list args;
+
+	va_start(args, fmt);
+	input = i_stream_create_error(stream_errno);
+	io_stream_set_verror(&input->real_stream->iostream, fmt, args);
+	va_end(args);
+	return input;
+}

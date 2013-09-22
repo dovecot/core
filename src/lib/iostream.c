@@ -68,7 +68,13 @@ void io_stream_set_error(struct iostream_private *stream,
 	va_list args;
 
 	va_start(args, fmt);
+	io_stream_set_verror(stream, fmt, args);
+	va_end(args);
+}
+
+void io_stream_set_verror(struct iostream_private *stream,
+			  const char *fmt, va_list args)
+{
 	i_free(stream->error);
 	stream->error = i_strdup_vprintf(fmt, args);
-	va_end(args);
 }

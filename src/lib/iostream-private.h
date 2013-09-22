@@ -33,5 +33,7 @@ void io_stream_set_max_buffer_size(struct iostream_private *stream,
    Setting this error replaces the previously set error. */
 void io_stream_set_error(struct iostream_private *stream,
 			 const char *fmt, ...) ATTR_FORMAT(2, 3);
+void io_stream_set_verror(struct iostream_private *stream,
+			  const char *fmt, va_list args) ATTR_FORMAT(2, 0);
 
 #endif

@@ -560,6 +560,20 @@ struct ostream *o_stream_create_error(int stream_errno)
 	stream->ostream.last_failed_errno = stream_errno;
 
 	output = o_stream_create(stream, NULL, -1);
+	o_stream_set_no_error_handling(output, TRUE);
 	o_stream_set_name(output, "(error)");
+	return output;
+}
+
+struct ostream *
+o_stream_create_error_str(int stream_errno, const char *fmt, ...)
+{
+	struct ostream *output;
+	va_list args;
+
+	va_start(args, fmt);
+	output = o_stream_create_error(stream_errno);
+	io_stream_set_verror(&output->real_stream->iostream, fmt, args);
+	va_end(args);
 	return output;
 }

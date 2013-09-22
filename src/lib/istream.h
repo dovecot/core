@@ -35,6 +35,9 @@ struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size);
 struct istream *i_stream_create_range(struct istream *input,
 				      uoff_t v_offset, uoff_t v_size);
 struct istream *i_stream_create_error(int stream_errno);
+struct istream *
+i_stream_create_error_str(int stream_errno, const char *fmt, ...)
+	ATTR_FORMAT(2, 3);
 
 /* Set name (e.g. path) for input stream. */
 void i_stream_set_name(struct istream *stream, const char *name);
