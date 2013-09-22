@@ -351,7 +351,14 @@ static int maildir_mailbox_open(struct mailbox *box)
 	if (ret < 0)
 		return -1;
 
-	/* tmp/ directory doesn't exist. does the maildir? */
+	/* tmp/ directory doesn't exist. does the maildir? autocreate missing
+	   dirs only with Maildir++ and imapdir layouts. */
+	if (strcmp(box->list->name, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) != 0 &&
+	    strcmp(box->list->name, MAILBOX_LIST_NAME_IMAPDIR) != 0) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
+		return -1;
+	}
 	root_dir = mailbox_list_get_root_forced(box->list,
 						MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (strcmp(box_path, root_dir) == 0) {
