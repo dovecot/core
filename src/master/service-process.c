@@ -23,6 +23,7 @@
 #include "dup2-array.h"
 #include "service.h"
 #include "service-anvil.h"
+#include "service-listen.h"
 #include "service-log.h"
 #include "service-process-notify.h"
 #include "service-process.h"
@@ -33,6 +34,24 @@
 #include <syslog.h>
 #include <signal.h>
 #include <sys/wait.h>
+
+static void service_reopen_inet_listeners(struct service *service)
+{
+	struct service_listener *const *listeners;
+	unsigned int i, count;
+	int old_fd;
+
+	listeners = array_get(&service->listeners, &count);
+	for (i = 0; i < count; i++) {
+		if (!listeners[i]->reuse_port || listeners[i]->fd == -1)
+			continue;
+
+		old_fd = listeners[i]->fd;
+		listeners[i]->fd = -1;
+		if (service_listener_listen(listeners[i]) < 0)
+			listeners[i]->fd = old_fd;
+	}
+}
 
 static void
 service_dup_fds(struct service *service)
@@ -305,6 +324,7 @@ struct service_process *service_process_create(struct service *service)
 	if (pid == 0) {
 		/* child */
 		service_process_setup_environment(service, uid);
+		service_reopen_inet_listeners(service);
 		service_dup_fds(service);
 		drop_privileges(service);
 		process_exec(service->executable, NULL);

@@ -31,6 +31,7 @@ struct inet_listener_settings {
 	const char *address;
 	unsigned int port;
 	bool ssl;
+	bool reuse_port;
 };
 ARRAY_DEFINE_TYPE(inet_listener_settings, struct inet_listener_settings *);
 

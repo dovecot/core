@@ -11,8 +11,8 @@
 
 /* <settings checks> */
 static struct inet_listener_settings imap_login_inet_listeners_array[] = {
-	{ "imap", "", 143, FALSE },
-	{ "imaps", "", 993, TRUE }
+	{ .name = "imap", .address = "", .port = 143 },
+	{ .name = "imaps", .address = "", .port = 993, .ssl = TRUE }
 };
 static struct inet_listener_settings *imap_login_inet_listeners[] = {
 	&imap_login_inet_listeners_array[0],

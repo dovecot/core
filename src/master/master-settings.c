@@ -64,6 +64,7 @@ static const struct setting_define inet_listener_setting_defines[] = {
 	DEF(SET_STR, address),
 	DEF(SET_UINT, port),
 	DEF(SET_BOOL, ssl),
+	DEF(SET_BOOL, reuse_port),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -72,7 +73,8 @@ static const struct inet_listener_settings inet_listener_default_settings = {
 	.name = "",
 	.address = "",
 	.port = 0,
-	.ssl = FALSE
+	.ssl = FALSE,
+	.reuse_port = FALSE
 };
 
 static const struct setting_parser_info inet_listener_setting_parser_info = {

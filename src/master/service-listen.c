@@ -189,9 +189,11 @@ systemd_listen_fd(const struct ip_addr *ip, unsigned int port, int *fd_r)
 static int service_inet_listener_listen(struct service_listener *l)
 {
         struct service *service = l->service;
+	enum net_listen_flags flags = 0;
 	const struct inet_listener_settings *set = l->set.inetset.set;
 	unsigned int port = set->port;
 	int fd;
+
 #ifdef HAVE_SYSTEMD
 	if (systemd_listen_fd(&l->set.inetset.ip, port, &fd) < 0)
 		return -1;
@@ -199,19 +201,35 @@ static int service_inet_listener_listen(struct service_listener *l)
 	if (fd == -1)
 #endif
 	{
-		fd = net_listen(&l->set.inetset.ip, &port,
-				service_get_backlog(service));
+		if (set->reuse_port)
+			flags |= NET_LISTEN_FLAG_REUSEPORT;
+		fd = net_listen_full(&l->set.inetset.ip, &port, &flags,
+				     service_get_backlog(service));
 		if (fd < 0) {
 			service_error(service, "listen(%s, %u) failed: %m",
 				      l->inet_address, set->port);
 			return errno == EADDRINUSE ? 0 : -1;
 		}
+		l->reuse_port = (flags & NET_LISTEN_FLAG_REUSEPORT) != 0;
 	}
 	net_set_nonblock(fd, TRUE);
 	fd_close_on_exec(fd, TRUE);
 
 	l->fd = fd;
 	return 1;
+}
+
+int service_listener_listen(struct service_listener *l)
+{
+	switch (l->type) {
+	case SERVICE_LISTENER_UNIX:
+		return service_unix_listener_listen(l);
+	case SERVICE_LISTENER_FIFO:
+		return service_fifo_listener_listen(l);
+	case SERVICE_LISTENER_INET:
+		return service_inet_listener_listen(l);
+	}
+	i_unreached();
 }
 
 static int service_listen(struct service *service)
@@ -225,18 +243,7 @@ static int service_listen(struct service *service)
 		if (l->fd != -1)
 			continue;
 
-		switch (l->type) {
-		case SERVICE_LISTENER_UNIX:
-			ret2 = service_unix_listener_listen(l);
-			break;
-		case SERVICE_LISTENER_FIFO:
-			ret2 = service_fifo_listener_listen(l);
-			break;
-		case SERVICE_LISTENER_INET:
-			ret2 = service_inet_listener_listen(l);
-			break;
-		}
-
+		ret2 = service_listener_listen(l);
 		if (ret2 < ret)
 			ret = ret2;
 	}
