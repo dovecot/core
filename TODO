@@ -1,8 +1,5 @@
  - dsync: delete foo, rename bar foo -> foo, foo-temp-1
  - dsync+imapc:
-     - half-sync [-1], which is the same as normal sync except the other side
-       doesn't do anything (so when migrating from imapc, don't push changes
-       back to it)
      - mailbox list could be synced pretty optimally by ignoring
        (name, uidvalidity) matches. for the left if uidvalidities are unique
        and can be matched -> rename mailbox.

@@ -1,3 +1,24 @@
+v2.2.6 2013-09-25  Timo Sirainen <tss@iki.fi>
+
+	* acl: If public/shared namespace has a shared subscriptions file for
+	  all users, don't list subscription entries that are not visible to
+	  the user accessing it.
+
+	+ doveadm: Added "auth lookup" command for doing passdb lookup.
+	+ login_log_format_elements: Added %{orig_user}, %{orig_username}
+	  and %{orig_domain} expanding to the username exactly as sent by
+	  the client (before any changes auth process made).
+	+ Added ssl_prefer_server_ciphers setting.
+	+ auth_verbose_passwords: Log the password also for unknown users.
+	+ Linux: Added optional support for SO_REUSEPORT with
+	  inet_listener { reuse_port=yes }
+	- director: v2.2.5 changes caused "SYNC lost" errors
+	- dsync: Many fixes and error handling improvements
+	- doveadm -A: Don't waste CPU by doing a separate config lookup
+	  for each user
+	- Long-running ssl-params process no longer prevents Dovecot restart
+	- mbox: Fixed mailbox_list_index=yes to work correctly
+
 v2.2.5 2013-08-05  Timo Sirainen <tss@iki.fi>
 
 	+ SSL: Added support for ECDH/ECDHE cipher suites (by David Hicks)
