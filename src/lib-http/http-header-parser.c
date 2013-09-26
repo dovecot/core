@@ -272,7 +272,7 @@ int http_header_parse_next_field(struct http_header_parser *parser,
 	const uoff_t max_size = parser->limits.max_size;
 	const uoff_t max_field_size = parser->limits.max_field_size;
 	const unsigned char *data;
-	uoff_t size;
+	size_t size;
 	int ret;
 
 	*error_r = NULL;
