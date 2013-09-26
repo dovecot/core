@@ -143,8 +143,13 @@ void io_loop_handle_remove(struct io_file *io, bool closed)
 		op = last ? EPOLL_CTL_DEL : EPOLL_CTL_MOD;
 
 		if (epoll_ctl(ctx->epfd, op, io->fd, &event) < 0) {
-			i_error("epoll_ctl(%s, %d) failed: %m",
+			const char *errstr = t_strdup_printf(
+				"epoll_ctl(%s, %d) failed: %m",
 				op == EPOLL_CTL_DEL ? "del" : "mod", io->fd);
+			if (errno == EBADF)
+				i_panic("%s", errstr);
+			else
+				i_error("%s", errstr);
 		}
 	}
 	if (last) {
