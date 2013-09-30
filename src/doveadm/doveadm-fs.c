@@ -1,6 +1,7 @@
 /* Copyright (c) 2013 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "istream.h"
 #include "ostream.h"
 #include "iostream-ssl.h"
@@ -10,6 +11,7 @@
 #include <stdio.h>
 
 static void fs_cmd_help(doveadm_command_t *cmd);
+static void cmd_fs_delete(int argc, char *argv[]);
 
 static struct fs *
 cmd_fs_init(int *argc, char **argv[], int own_arg_count, doveadm_command_t *cmd)
@@ -154,10 +156,68 @@ static void cmd_fs_stat(int argc, char *argv[])
 	fs_deinit(&fs);
 }
 
+static void cmd_fs_delete_dir_recursive(struct fs *fs, const char *path)
+{
+	struct fs_iter *iter;
+	struct fs_file *file;
+	ARRAY_TYPE(const_string) dirs;
+	const char *fname, *const *fnamep;
+
+	/* delete subdirs first. all fs backends can't handle recursive
+	   lookups, so save the list first. */
+	t_array_init(&dirs, 8);
+	iter = fs_iter_init(fs, path, FS_ITER_FLAG_DIRS);
+	while ((fname = fs_iter_next(iter)) != NULL) {
+		fname = t_strdup(fname);
+		array_append(&dirs, &fname, 1);
+	}
+	if (fs_iter_deinit(&iter) < 0) {
+		i_error("fs_iter_deinit(%s) failed: %s",
+			path, fs_last_error(fs));
+		doveadm_exit_code = EX_TEMPFAIL;
+	}
+	array_foreach(&dirs, fnamep) T_BEGIN {
+		cmd_fs_delete_dir_recursive(fs,
+			t_strdup_printf("%s/%s", path, *fnamep));
+	} T_END;
+
+	/* delete files */
+	iter = fs_iter_init(fs, path, 0);
+	while ((fname = fs_iter_next(iter)) != NULL) T_BEGIN {
+		file = fs_file_init(fs, t_strdup_printf("%s/%s", path, fname),
+				    FS_OPEN_MODE_READONLY);
+		if (fs_delete(file) < 0) {
+			i_error("fs_delete(%s) failed: %s",
+				fs_file_path(file), fs_file_last_error(file));
+			doveadm_exit_code = EX_TEMPFAIL;
+		}
+		fs_file_deinit(&file);
+	} T_END;
+	if (fs_iter_deinit(&iter) < 0) {
+		i_error("fs_iter_deinit(%s) failed: %s",
+			path, fs_last_error(fs));
+		doveadm_exit_code = EX_TEMPFAIL;
+	}
+}
+
+static void cmd_fs_delete_recursive(int argc, char *argv[])
+{
+	struct fs *fs;
+
+	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_delete);
+	cmd_fs_delete_dir_recursive(fs, argv[0]);
+	fs_deinit(&fs);
+}
+
 static void cmd_fs_delete(int argc, char *argv[])
 {
 	struct fs *fs;
 	struct fs_file *file;
+
+	if (null_strcmp(argv[1], "-R") == 0) {
+		cmd_fs_delete_recursive(argc-1, argv+1);
+		return;
+	}
 
 	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_delete);
 
@@ -211,7 +271,7 @@ struct doveadm_cmd doveadm_cmd_fs[] = {
 	{ cmd_fs_put, "fs put", "<fs-driver> <fs-args> <input path> <path>" },
 	{ cmd_fs_copy, "fs copy", "<fs-driver> <fs-args> <source path> <dest path>" },
 	{ cmd_fs_stat, "fs stat", "<fs-driver> <fs-args> <path>" },
-	{ cmd_fs_delete, "fs delete", "<fs-driver> <fs-args> <path>" },
+	{ cmd_fs_delete, "fs delete", "[-R] <fs-driver> <fs-args> <path>" },
 	{ cmd_fs_iter, "fs iter", "<fs-driver> <fs-args> <path>" },
 	{ cmd_fs_iter_dirs, "fs iter-dirs", "<fs-driver> <fs-args> <path>" },
 };
