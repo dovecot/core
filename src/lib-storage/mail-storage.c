@@ -664,8 +664,18 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 		   server's internal configuration. */
 		if (vname[5] == '\0')
 			vname = "INBOX";
-		else if (vname[5] == mail_namespace_get_sep(list->ns))
+		else if (vname[5] != mail_namespace_get_sep(list->ns))
+			/* not INBOX prefix */ ;
+		else if (strncasecmp(list->ns->prefix, vname, 6) == 0 &&
+			 strncmp(list->ns->prefix, "INBOX", 5) != 0) {
+			mailbox_list_set_critical(list,
+				"Invalid server configuration: "
+				"Namespace prefix=%s must be uppercase INBOX",
+				list->ns->prefix);
+			open_error = MAIL_ERROR_TEMP;
+		} else {
 			vname = t_strconcat("INBOX", vname + 5, NULL);
+		}
 	}
 
 	T_BEGIN {
