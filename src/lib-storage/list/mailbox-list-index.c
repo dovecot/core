@@ -363,6 +363,9 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 	struct mail_index_view *view;
 	int ret;
 
+	if (ilist->syncing)
+		return 0;
+
 	if (mailbox_list_index_index_open(list) < 0)
 		return -1;
 	if (mail_index_refresh(ilist->index) < 0) {
