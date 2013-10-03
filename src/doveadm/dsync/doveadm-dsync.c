@@ -405,6 +405,7 @@ static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx,
 		}
 		*status_r = -1;
 	}
+	alarm(0);
 }
 
 static void cmd_dsync_log_remote_status(int status, bool remote_errors_logged)
