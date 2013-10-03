@@ -187,7 +187,8 @@ default_fatal_finish(enum log_type type, int status)
 			i_error("Raw backtrace: %s", backtrace);
 	}
 
-	if (type == LOG_TYPE_PANIC)
+	if (type == LOG_TYPE_PANIC ||
+	    (status == FATAL_OUTOFMEM && getenv("DEBUG_OUTOFMEM") != NULL))
 		abort();
 	else
 		failure_exit(status);

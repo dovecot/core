@@ -405,6 +405,8 @@ void service_process_unref(struct service_process *process)
 static const char *
 get_exit_status_message(struct service *service, enum fatal_exit_status status)
 {
+	string_t *str;
+
 	switch (status) {
 	case FATAL_LOGOPEN:
 		return "Can't open log file";
@@ -413,12 +415,17 @@ get_exit_status_message(struct service *service, enum fatal_exit_status status)
 	case FATAL_LOGERROR:
 		return "Internal logging error";
 	case FATAL_OUTOFMEM:
-		if (service->vsz_limit == 0)
-			return "Out of memory";
-		return t_strdup_printf("Out of memory (service %s { vsz_limit=%u MB }, "
-				"you may need to increase it)",
-				service->set->name,
-				(unsigned int)(service->vsz_limit/1024/1024));
+		str = t_str_new(128);
+		str_append(str, "Out of memory");
+		if (service->vsz_limit != 0) {
+			str_printfa(str, " (service %s { vsz_limit=%u MB }, "
+				    "you may need to increase it)",
+				    service->set->name,
+				    (unsigned int)(service->vsz_limit/1024/1024));
+		}
+		if (getenv("DEBUG_OUTOFMEM") == NULL)
+			str_append(str, " - set DEBUG_OUTOFMEM=1 environment to get core dump");
+		return str_c(str);
 	case FATAL_EXEC:
 		return "exec() failed";
 
