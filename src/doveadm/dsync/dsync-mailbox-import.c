@@ -15,8 +15,6 @@
 #include "dsync-mailbox.h"
 #include "dsync-mailbox-import.h"
 
-#define DSYNC_COMMIT_MSGS_INTERVAL 100
-
 struct importer_mail {
 	const char *guid;
 	uint32_t uid;
@@ -1553,13 +1551,6 @@ dsync_mailbox_import_saved_uid(struct dsync_mailbox_importer *importer,
 	if (importer->highest_wanted_uid < uid)
 		importer->highest_wanted_uid = uid;
 	array_append(&importer->wanted_uids, &uid, 1);
-
-	/* commit the transaction once in a while, so if we fail we don't
-	   rollback everything. */
-	if (array_count(&importer->wanted_uids) % DSYNC_COMMIT_MSGS_INTERVAL == 0) {
-		if (dsync_mailbox_import_commit(importer, FALSE) < 0)
-			importer->failed = TRUE;
-	}
 }
 
 static bool
