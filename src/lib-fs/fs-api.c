@@ -159,6 +159,8 @@ struct fs_file *fs_file_init(struct fs *fs, const char *path, int mode_flags)
 	struct fs_file *file;
 
 	i_assert(path != NULL);
+	i_assert((mode_flags & FS_OPEN_FLAG_ASYNC_NOQUEUE) == 0 ||
+		 (mode_flags & FS_OPEN_FLAG_ASYNC) != 0);
 
 	T_BEGIN {
 		file = fs->v.file_init(fs, path, mode_flags & FS_OPEN_MODE_MASK,

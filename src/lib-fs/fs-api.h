@@ -54,7 +54,12 @@ enum fs_open_flags {
 	   finished and fs_read_stream() returns a nonblocking stream. */
 	FS_OPEN_FLAG_ASYNC		= 0x20,
 	/* fs_read_stream() must return a seekable input stream */
-	FS_OPEN_FLAG_SEEKABLE		= 0x40
+	FS_OPEN_FLAG_SEEKABLE		= 0x40,
+	/* Backend should handle this file's operations immediately without
+	   any additional command queueing. The caller is assumed to be the one
+	   doing any rate limiting if needed. This flag can only be used with
+	   ASYNC flag, synchronous requests are never queued. */
+	FS_OPEN_FLAG_ASYNC_NOQUEUE	= 0x80
 };
 
 enum fs_iter_flags {
