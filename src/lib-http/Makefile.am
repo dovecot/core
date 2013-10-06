@@ -67,7 +67,7 @@ test_deps = \
 	../lib/liblib.la
 
 test_http_url_SOURCES = test-http-url.c
-test_http_url_LDADD = http-url.lo  $(test_libs)
+test_http_url_LDADD = http-url.lo http-header.lo $(test_libs)
 test_http_url_DEPENDENCIES = $(test_deps)
 
 test_http_date_SOURCES = test-http-date.c
@@ -75,7 +75,7 @@ test_http_date_LDADD = http-date.lo  $(test_libs)
 test_http_date_DEPENDENCIES = $(test_deps)
 
 test_http_header_parser_SOURCES = test-http-header-parser.c
-test_http_header_parser_LDADD = http-parser.lo http-header-parser.lo $(test_libs)
+test_http_header_parser_LDADD = http-parser.lo http-header-parser.lo http-header.lo $(test_libs)
 test_http_header_parser_DEPENDENCIES = $(test_deps)
 
 test_http_transfer_SOURCES = test-http-transfer.c
@@ -83,6 +83,7 @@ test_http_transfer_LDADD = \
 	http-parser.lo \
 	http-header-parser.lo \
 	http-transfer-chunked.lo \
+	http-header.lo \
 	$(test_libs)
 test_http_transfer_DEPENDENCIES = $(test_deps)
 
