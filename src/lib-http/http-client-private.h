@@ -74,6 +74,7 @@ struct http_client_request {
 	unsigned int have_hdr_expect:1;
 	unsigned int	have_hdr_host:1;
 	unsigned int have_hdr_body_spec:1;
+	unsigned int have_hdr_user_agent:1;
 
 	unsigned int payload_sync:1;
 	unsigned int payload_chunked:1;

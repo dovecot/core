@@ -41,6 +41,9 @@ struct http_client_settings {
 	/* user cert */
 	const char *ssl_cert, *ssl_key, *ssl_key_password;
 
+	/* User-Agent: header (default: none) */
+	const char *user_agent;
+
 	const char *rawlog_dir;
 
 	unsigned int max_idle_time_msecs;

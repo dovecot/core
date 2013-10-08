@@ -175,6 +175,10 @@ void http_client_request_add_header(struct http_client_request *req,
 		if (strcasecmp(key, "Transfer-Encoding") == 0)
 			req->have_hdr_body_spec = TRUE;
 		break;
+	case 'u': case 'U':
+		if (strcasecmp(key, "User-Agent") == 0)
+			req->have_hdr_user_agent = TRUE;
+		break;
 	}
 	str_printfa(req->headers, "%s: %s\r\n", key, value);
 }
@@ -449,6 +453,10 @@ static int http_client_request_send_real(struct http_client_request *req,
 		str_append(rtext, "Date: ");
 		str_append(rtext, http_date_create(req->date));
 		str_append(rtext, "\r\n");
+	}
+	if (!req->have_hdr_user_agent && req->client->set.user_agent != NULL) {
+		str_printfa(rtext, "User-Agent: %s\r\n",
+			    req->client->set.user_agent);
 	}
 	if (!req->have_hdr_expect && req->payload_sync) {
 		str_append(rtext, "Expect: 100-continue\r\n");

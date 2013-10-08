@@ -75,12 +75,10 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	pool = pool_alloconly_create("http client", 1024);
 	client = p_new(pool, struct http_client, 1);
 	client->pool = pool;
-	if (set->dns_client_socket_path != NULL && *set->dns_client_socket_path != '\0') {
-		client->set.dns_client_socket_path =
-			p_strdup(pool, set->dns_client_socket_path);
-	}
-	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
-		client->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
+	client->set.dns_client_socket_path =
+		p_strdup_empty(pool, set->dns_client_socket_path);
+	client->set.user_agent = p_strdup_empty(pool, set->user_agent);
+	client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 	client->set.ssl_ca_dir = p_strdup(pool, set->ssl_ca_dir);
 	client->set.ssl_ca_file = p_strdup(pool, set->ssl_ca_file);
 	client->set.ssl_ca = p_strdup(pool, set->ssl_ca);
