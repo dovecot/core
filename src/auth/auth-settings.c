@@ -214,7 +214,7 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(SET_BOOL, verbose),
 	DEF(SET_BOOL, debug),
 	DEF(SET_BOOL, debug_passwords),
-	DEF(SET_ENUM, verbose_passwords),
+	DEF(SET_STR, verbose_passwords),
 	DEF(SET_BOOL, ssl_require_client_cert),
 	DEF(SET_BOOL, ssl_username_from_cert),
 	DEF(SET_BOOL, use_winbind),
@@ -253,7 +253,7 @@ static const struct auth_settings auth_default_settings = {
 	.verbose = FALSE,
 	.debug = FALSE,
 	.debug_passwords = FALSE,
-	.verbose_passwords = "no:plain:sha1",
+	.verbose_passwords = "no",
 	.ssl_require_client_cert = FALSE,
 	.ssl_username_from_cert = FALSE,
 	.use_winbind = FALSE,
@@ -314,6 +314,32 @@ auth_settings_set_self_ips(struct auth_settings *set, pool_t pool,
 	return TRUE;
 }
 
+static bool
+auth_verify_verbose_password(const struct auth_settings *set,
+			     const char **error_r)
+{
+	const char *p, *value = set->verbose_passwords;
+	unsigned int num;
+
+	p = strchr(value, ':');
+	if (p != NULL) {
+		if (str_to_uint(p+1, &num) < 0 || num == 0) {
+			*error_r = t_strdup_printf("auth_verbose_passwords: "
+				"Invalid truncation number: '%s'", p+1);
+			return FALSE;
+		}
+		value = t_strdup_until(value, p);
+	}
+	if (strcmp(value, "no") == 0)
+		return TRUE;
+	else if (strcmp(value, "plain") == 0)
+		return TRUE;
+	else if (strcmp(value, "sha1") == 0)
+		return TRUE;
+	else
+		return FALSE;
+}
+
 static bool auth_settings_check(void *_set, pool_t pool,
 				const char **error_r)
 {
@@ -338,6 +364,9 @@ static bool auth_settings_check(void *_set, pool_t pool,
 					   set->cache_size);
 		return FALSE;
 	}
+
+	if (!auth_verify_verbose_password(set, error_r))
+		return FALSE;
 
 	if (*set->username_chars == '\0') {
 		/* all chars are allowed */

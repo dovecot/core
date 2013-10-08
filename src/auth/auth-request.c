@@ -1785,18 +1785,27 @@ static void log_password_failure(struct auth_request *request,
 static void
 auth_request_append_password(struct auth_request *request, string_t *str)
 {
-	const char *log_type = request->set->verbose_passwords;
+	const char *p, *log_type = request->set->verbose_passwords;
+	unsigned int max_len = UINT_MAX;
+
+	p = strchr(log_type, ':');
+	if (p != NULL) {
+		if (str_to_uint(p+1, &max_len) < 0)
+			i_unreached();
+		log_type = t_strdup_until(log_type, p);
+	}
 
 	if (strcmp(log_type, "plain") == 0) {
 		str_printfa(str, "(given password: %s)",
-			    request->mech_password);
+			    t_strndup(request->mech_password, max_len));
 	} else if (strcmp(log_type, "sha1") == 0) {
 		unsigned char sha1[SHA1_RESULTLEN];
 
 		sha1_get_digest(request->mech_password,
 				strlen(request->mech_password), sha1);
 		str_printfa(str, "(SHA1 of given password: %s)",
-			    binary_to_hex(sha1, sizeof(sha1)));
+			    t_strndup(binary_to_hex(sha1, sizeof(sha1)),
+				      max_len));
 	} else {
 		i_unreached();
 	}
