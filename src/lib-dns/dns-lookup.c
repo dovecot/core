@@ -36,6 +36,21 @@ struct dns_lookup {
 
 static void dns_lookup_free(struct dns_lookup **_lookup);
 
+static void dns_lookup_close(struct dns_lookup *lookup)
+{
+	if (lookup->to != NULL)
+		timeout_remove(&lookup->to);
+	if (lookup->io != NULL)
+		io_remove(&lookup->io);
+	if (lookup->input != NULL)
+		i_stream_destroy(&lookup->input);
+	if (lookup->fd != -1) {
+		if (close(lookup->fd) < 0)
+			i_error("close(%s) failed: %m", lookup->path);
+		lookup->fd = -1;
+	}
+}
+
 static int dns_lookup_input_line(struct dns_lookup *lookup, const char *line)
 {
 	struct dns_lookup_result *result = &lookup->result;
@@ -122,6 +137,7 @@ static void dns_lookup_input(struct dns_lookup *lookup)
 	}
 	if (ret != 0) {
 		dns_lookup_save_msecs(lookup);
+		dns_lookup_close(lookup);
 		lookup->callback(result, lookup->context);
 		dns_lookup_free(&lookup);
 	}
@@ -131,6 +147,7 @@ static void dns_lookup_timeout(struct dns_lookup *lookup)
 {
 	lookup->result.error = "DNS lookup timed out";
 
+	dns_lookup_close(lookup);
 	lookup->callback(&lookup->result, lookup->context);
 	dns_lookup_free(&lookup);
 }
@@ -209,13 +226,7 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 
 	*_lookup = NULL;
 
-	if (lookup->to != NULL)
-		timeout_remove(&lookup->to);
-	io_remove(&lookup->io);
-	i_stream_destroy(&lookup->input);
-	if (close(lookup->fd) < 0)
-		i_error("close(%s) failed: %m", lookup->path);
-
+	dns_lookup_close(lookup);
 	i_free(lookup->name);
 	i_free(lookup->ips);
 	i_free(lookup->path);
