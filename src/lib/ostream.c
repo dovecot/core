@@ -45,8 +45,10 @@ const char *o_stream_get_error(struct ostream *stream)
 
 static void o_stream_close_full(struct ostream *stream, bool close_parents)
 {
-	io_stream_close(&stream->real_stream->iostream, close_parents);
-	stream->closed = TRUE;
+	if (!stream->closed) {
+		io_stream_close(&stream->real_stream->iostream, close_parents);
+		stream->closed = TRUE;
+	}
 
 	if (stream->stream_errno == 0)
 		stream->stream_errno = EPIPE;
@@ -428,6 +430,8 @@ void o_stream_copy_error_from_parent(struct ostream_private *_stream)
 	dest->stream_errno = src->stream_errno;
 	dest->last_failed_errno = src->last_failed_errno;
 	dest->overflow = src->overflow;
+	if (src->closed)
+		o_stream_close(dest);
 }
 
 static int o_stream_default_flush(struct ostream_private *_stream)
