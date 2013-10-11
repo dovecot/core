@@ -520,7 +520,7 @@ mail_search_args_analyze(struct mail_search_arg *args,
 
 	*have_headers = have_text || headers->used != 0;
 
-	if (headers->used == 0 || have_text)
+	if (headers->used == 0)
 		return NULL;
 
 	buffer_append(headers, &null, sizeof(const char *));
