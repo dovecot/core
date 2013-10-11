@@ -136,7 +136,10 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 		}
 		return -1;
 	}
-	view = mail_index_view_open(ilist->index);
+	/* we could get here during sync from
+	   index_list_mailbox_create_selectable() */
+	view = ilist->sync_ctx == NULL ? mail_index_view_open(ilist->index) :
+		ilist->sync_ctx->view;
 	if (!mail_index_lookup_seq(view, node->uid, &seq))
 		i_panic("mailbox list index: lost uid=%u", node->uid);
 	if (!mailbox_list_index_status(_list, view, seq, 0,
@@ -149,7 +152,8 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 		*path_r = index_get_guid_path(_list, root_dir, mailbox_guid);
 		ret = 1;
 	}
-	mail_index_view_close(&view);
+	if (ilist->sync_ctx == NULL)
+		mail_index_view_close(&view);
 	return ret;
 }
 
@@ -234,20 +238,23 @@ index_list_mailbox_create_dir(struct index_mailbox_list *list, const char *name)
 }
 
 static int
-index_list_mailbox_create_selectable(struct index_mailbox_list *list,
-				     const char *name, guid_128_t mailbox_guid)
+index_list_mailbox_create_selectable(struct mailbox *box,
+				     const struct mailbox_update *update)
 {
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
+	struct index_mailbox_list *list =
+		(struct index_mailbox_list *)box->list;
 	struct mailbox_list_index_sync_context *sync_ctx;
 	struct mailbox_list_index_record rec;
 	struct mailbox_list_index_node *node;
 	const void *data;
-	bool expunged, created;
+	bool expunged, created, success;
 	uint32_t seq;
 
 	if (mailbox_list_index_sync_begin(&list->list, &sync_ctx) < 0)
 		return -1;
 
-	seq = mailbox_list_index_sync_name(sync_ctx, name, &node, &created);
+	seq = mailbox_list_index_sync_name(sync_ctx, box->name, &node, &created);
 	if (!created &&
 	    (node->flags & (MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
 			    MAILBOX_LIST_INDEX_FLAG_NOSELECT)) == 0) {
@@ -266,11 +273,12 @@ index_list_mailbox_create_selectable(struct index_mailbox_list *list,
 	node->flags = 0;
 	mail_index_update_flags(sync_ctx->trans, seq, MODIFY_REPLACE, 0);
 
-	memcpy(rec.guid, mailbox_guid, sizeof(rec.guid));
+	memcpy(rec.guid, update->mailbox_guid, sizeof(rec.guid));
 	mail_index_update_ext(sync_ctx->trans, seq, sync_ctx->ilist->ext_id,
 			      &rec, NULL);
 
-	if (mailbox_list_index_sync_end(&sync_ctx, TRUE) < 0)
+	success = ibox->module_ctx.super.create_box(box, update, FALSE) == 0;
+	if (mailbox_list_index_sync_end(&sync_ctx, success) < 0)
 		return -1;
 	return 1;
 }
@@ -279,7 +287,6 @@ static int
 index_list_mailbox_create(struct mailbox *box,
 			  const struct mailbox_update *update, bool directory)
 {
-	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 	struct index_mailbox_list *list =
 		(struct index_mailbox_list *)box->list;
 	struct mailbox_update new_update;
@@ -306,14 +313,11 @@ index_list_mailbox_create(struct mailbox *box,
 			new_update = *update;
 		if (guid_128_is_empty(new_update.mailbox_guid))
 			guid_128_generate(new_update.mailbox_guid);
-		ret = index_list_mailbox_create_selectable(list, box->name,
-							   new_update.mailbox_guid);
+		ret = index_list_mailbox_create_selectable(box, &new_update);
 		if (ret < 0) {
 			mail_storage_copy_list_error(box->storage, box->list);
 			return -1;
 		}
-		/* the storage backend needs to use the same GUID */
-		update = &new_update;
 	} else {
 		ret = 0;
 	}
@@ -323,8 +327,7 @@ index_list_mailbox_create(struct mailbox *box,
 				       "Mailbox already exists");
 		return -1;
 	}
-	return directory ? 0 :
-		ibox->module_ctx.super.create_box(box, update, directory);
+	return 0;
 }
 
 static int

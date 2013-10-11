@@ -92,6 +92,7 @@ struct mailbox_list_index {
 	HASH_TABLE(void *, char *) mailbox_names;
 	uint32_t highest_name_id;
 
+	struct mailbox_list_index_sync_context *sync_ctx;
 	uint32_t sync_log_file_seq;
 	uoff_t sync_log_file_offset;
 	uint32_t sync_stamp;

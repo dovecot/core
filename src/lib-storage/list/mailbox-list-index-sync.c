@@ -236,6 +236,8 @@ int mailbox_list_index_sync_begin(struct mailbox_list *list,
 	struct mail_index_transaction *trans;
 	const struct mail_index_header *hdr;
 
+	i_assert(!ilist->syncing);
+
 	if (mail_index_sync_begin(ilist->index, &index_sync_ctx, &view, &trans,
 				  MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES) < 0) {
 		mailbox_list_index_set_index_error(list);
@@ -269,6 +271,7 @@ int mailbox_list_index_sync_begin(struct mailbox_list *list,
 			&uid_validity, sizeof(uid_validity), TRUE);
 	}
 	sync_ctx->view = mail_index_transaction_open_updated_view(trans);
+	ilist->sync_ctx = sync_ctx;
 	ilist->syncing = TRUE;
 
 	*sync_ctx_r = sync_ctx;
@@ -370,6 +373,7 @@ int mailbox_list_index_sync_end(struct mailbox_list_index_sync_context **_sync_c
 		ret = -1;
 	}
 	sync_ctx->ilist->syncing = FALSE;
+	sync_ctx->ilist->sync_ctx = NULL;
 	i_free(sync_ctx);
 	return ret;
 }
