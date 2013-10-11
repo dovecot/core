@@ -69,6 +69,7 @@ struct lmtp_client {
 	struct istream *data_input;
 	unsigned char output_last;
 
+	unsigned int running:1;
 	unsigned int xclient_sent:1;
 	unsigned int rcpt_to_successes:1;
 	unsigned int output_finished:1;
@@ -617,11 +618,13 @@ static void lmtp_client_dns_done(const struct dns_lookup_result *result,
 	if (result->ret != 0) {
 		i_error("lmtp client: DNS lookup of %s failed: %s",
 			client->host, result->error);
-		lmtp_client_fail(client, ERRSTR_TEMP_REMOTE_FAILURE
-				 " (DNS lookup)");
+		if (client->running) {
+			lmtp_client_fail(client, ERRSTR_TEMP_REMOTE_FAILURE
+					 " (DNS lookup)");
+		}
 	} else {
 		client->ip = result->ips[0];
-		if (lmtp_client_connect(client) < 0) {
+		if (lmtp_client_connect(client) < 0 && client->running) {
 			lmtp_client_fail(client, ERRSTR_TEMP_REMOTE_FAILURE
 					 " (connect)");
 		}
@@ -668,6 +671,7 @@ int lmtp_client_connect_tcp(struct lmtp_client *client,
 			       lmtp_client_dns_done, client,
 			       &client->dns_lookup) < 0)
 			return -1;
+		client->running = TRUE;
 		return 0;
 	}
 
