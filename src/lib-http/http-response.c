@@ -1,8 +1,21 @@
 #include "lib.h"
 #include "array.h"
+#include "ioloop.h"
 #include "istream.h"
 
 #include "http-response.h"
+
+void
+http_response_init(struct http_response *resp,
+	unsigned int status, const char *reason)
+{
+	memset(resp, 0, sizeof(*resp));
+	resp->version_major = 1;
+	resp->version_minor = 1;
+	resp->date = ioloop_time;
+	resp->status = status;
+	resp->reason = reason;
+}
 
 bool http_response_has_connection_option(const struct http_response *resp,
 	const char *option)

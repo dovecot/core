@@ -28,14 +28,9 @@ struct http_response {
 	unsigned int connection_close:1;
 };
 
-static inline void
+void
 http_response_init(struct http_response *resp,
-	unsigned int status, const char *reason)
-{
-	memset(resp, 0, sizeof(*resp));
-	resp->status = status;
-	resp->reason = reason;
-}
+	unsigned int status, const char *reason);
 
 static inline const struct http_header_field *
 http_response_header_find(const struct http_response *resp, const char *name)
