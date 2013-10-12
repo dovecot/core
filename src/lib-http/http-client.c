@@ -87,6 +87,15 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	client->set.ssl_cert = p_strdup(pool, set->ssl_cert);
 	client->set.ssl_key = p_strdup(pool, set->ssl_key);
 	client->set.ssl_key_password = p_strdup(pool, set->ssl_key_password);
+
+	if (set->proxy_socket_path != NULL && *set->proxy_socket_path != '\0') {
+		client->set.proxy_socket_path = p_strdup(pool, set->proxy_socket_path);
+	} else if (set->proxy_url != NULL) {
+		client->set.proxy_url = http_url_clone(pool, set->proxy_url);
+	}
+	client->set.proxy_username = p_strdup_empty(pool, set->proxy_username);
+	client->set.proxy_password = p_strdup_empty(pool, set->proxy_password);
+
 	client->set.max_idle_time_msecs = set->max_idle_time_msecs;
 	client->set.max_parallel_connections =
 		(set->max_parallel_connections > 0 ? set->max_parallel_connections : 1);

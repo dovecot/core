@@ -454,12 +454,14 @@ void http_client_host_submit_request(struct http_client_host *host,
 	struct http_client_request *req)
 {
 	struct http_client_host_port *hport;
-	const char *https_name = req->ssl ? req->hostname : NULL;
+	const struct http_url *host_url = req->host_url;
+	const char *https_name = http_client_request_https_name(req);
+	in_port_t port = http_client_request_port(req);
 	const char *error;
 
 	req->host = host;
 
-	if (req->ssl && host->client->ssl_ctx == NULL) {
+	if (host_url->have_ssl && host->client->ssl_ctx == NULL) {
 		if (http_client_init_ssl_ctx(host->client, &error) < 0) {
 			http_client_request_error(req,
 				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, error);
@@ -468,7 +470,7 @@ void http_client_host_submit_request(struct http_client_host *host,
 	}
 
 	/* add request to host (grouped by tcp port) */
-	hport = http_client_host_port_init(host, req->port, https_name);
+	hport = http_client_host_port_init(host, port, https_name);
 	if (req->urgent)
 		array_insert(&hport->request_queue, 0, &req, 1);
 	else
@@ -542,9 +544,10 @@ void http_client_host_drop_request(struct http_client_host *host,
 	struct http_client_request *req)
 {
 	struct http_client_host_port *hport;
-	const char *https_name = req->ssl ? req->hostname : NULL;
+	const char *https_name = http_client_request_https_name(req);
+	in_port_t port = http_client_request_port(req);
 
-	hport = http_client_host_port_find(host, req->port, https_name);
+	hport = http_client_host_port_find(host, port, https_name);
 	if (hport == NULL)
 		return;
 
@@ -596,5 +599,4 @@ void http_client_host_switch_ioloop(struct http_client_host *host)
 		(*req)->to_delayed_error =
 			io_loop_move_timeout(&(*req)->to_delayed_error);
 	}
-
 }

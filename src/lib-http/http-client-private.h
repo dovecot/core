@@ -3,6 +3,7 @@
 
 #include "connection.h"
 
+#include "http-url.h"
 #include "http-client.h"
 
 #define HTTP_DEFAULT_PORT 80
@@ -38,9 +39,13 @@ struct http_client_peer_addr {
 struct http_client_request {
 	pool_t pool;
 	unsigned int refcount;
+	const char *label;
 
-	const char *method, *hostname, *target;
-	in_port_t port;
+	const char *method, *target;
+	struct http_url origin_url;
+
+	const struct http_url *host_url;
+	const char *authority;
 
 	struct http_client *client;
 	struct http_client_host *host;
@@ -79,7 +84,6 @@ struct http_client_request {
 	unsigned int payload_sync:1;
 	unsigned int payload_chunked:1;
 	unsigned int payload_wait:1;
-	unsigned int ssl:1;
 	unsigned int urgent:1;
 	unsigned int submitted:1;
 };
@@ -210,8 +214,28 @@ http_client_peer_addr2str(const struct http_client_peer_addr *addr)
 static inline const char *
 http_client_request_label(struct http_client_request *req)
 {
-	return t_strdup_printf("[%s http%s://%s:%d%s]",
-		req->method, req->ssl ? "s" : "", req->hostname, req->port, req->target);
+	if (req->label == NULL) {
+		return t_strdup_printf("[%s %s%s]",
+			req->method, http_url_create(&req->origin_url), req->target);
+	}
+	return req->label;
+}
+
+static inline in_port_t
+http_client_request_port(const struct http_client_request *req)
+{
+	const struct http_url *host_url = req->host_url;
+
+	return (host_url->have_port ? host_url->port :
+		(host_url->have_ssl ? HTTPS_DEFAULT_PORT : HTTP_DEFAULT_PORT));
+}
+
+static inline const char *
+http_client_request_https_name(const struct http_client_request *req)
+{
+	const struct http_url *host_url = req->host_url;
+
+	return (host_url->have_ssl ? host_url->host_name : NULL);
 }
 
 static inline const char *

@@ -45,6 +45,12 @@ struct http_client_settings {
 	/* User-Agent: header (default: none) */
 	const char *user_agent;
 
+	/* configuration for using a proxy */
+	const char *proxy_socket_path; /* FIXME: implement */
+	const struct http_url *proxy_url;
+	const char *proxy_username; /* FIXME: implement */
+	const char *proxy_password;
+
 	const char *rawlog_dir;
 
 	unsigned int max_idle_time_msecs;
@@ -96,6 +102,16 @@ http_client_request(struct http_client *client,
 		    http_client_request_callback_t *callback, void *context);
 #define http_client_request(client, method, host, target, callback, context) \
 	http_client_request(client, method, host, target + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			const struct http_response *response, typeof(context))), \
+		(http_client_request_callback_t *)callback, context)
+
+struct http_client_request *
+http_client_request_url(struct http_client *client,
+		    const char *method, const struct http_url *target_url,
+		    http_client_request_callback_t *callback, void *context);
+#define http_client_request_url(client, method, target_url, callback, context) \
+	http_client_request_url(client, method, target_url + \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct http_response *response, typeof(context))), \
 		(http_client_request_callback_t *)callback, context)

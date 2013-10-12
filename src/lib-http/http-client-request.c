@@ -52,10 +52,8 @@ http_client_request_debug(struct http_client_request *req,
  */
 static void http_client_request_remove_delayed(struct http_client_request *req);
 
-#undef http_client_request
-struct http_client_request *
-http_client_request(struct http_client *client,
-		    const char *method, const char *host, const char *target,
+static struct http_client_request *
+http_client_request_new(struct http_client *client, const char *method, 
 		    http_client_request_callback_t *callback, void *context)
 {
 	pool_t pool;
@@ -67,15 +65,41 @@ http_client_request(struct http_client *client,
 	req->refcount = 1;
 	req->client = client;
 	req->method = p_strdup(pool, method);
-	req->hostname = p_strdup(pool, host);
-	req->port = HTTP_DEFAULT_PORT;
-	req->target = (target == NULL ? "/" : p_strdup(pool, target));
 	req->callback = callback;
 	req->context = context;
-	req->headers = str_new(default_pool, 256);
 	req->date = (time_t)-1;
 
 	req->state = HTTP_REQUEST_STATE_NEW;
+	return req;
+}
+
+#undef http_client_request
+struct http_client_request *
+http_client_request(struct http_client *client,
+		    const char *method, const char *host, const char *target,
+		    http_client_request_callback_t *callback, void *context)
+{
+	struct http_client_request *req;
+
+	req = http_client_request_new(client, method, callback, context);
+	req->origin_url.host_name = p_strdup(req->pool, host);
+	req->target = (target == NULL ? "/" : p_strdup(req->pool, target));
+	req->headers = str_new(default_pool, 256);
+	return req;
+}
+
+#undef http_client_request_url
+struct http_client_request *
+http_client_request_url(struct http_client *client,
+		    const char *method, const struct http_url *target_url,
+		    http_client_request_callback_t *callback, void *context)
+{
+	struct http_client_request *req;
+
+	req = http_client_request_new(client, method, callback, context);
+	http_url_copy_authority(req->pool, &req->origin_url, target_url);
+	req->target = p_strdup(req->pool, http_url_create_target(target_url));
+	req->headers = str_new(default_pool, 256);
 	return req;
 }
 
@@ -124,21 +148,15 @@ void http_client_request_set_port(struct http_client_request *req,
 	in_port_t port)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
-	req->port = port;
+	req->origin_url.port = port;
+	req->origin_url.have_port = TRUE;
 }
 
 void http_client_request_set_ssl(struct http_client_request *req,
 	bool ssl)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
-	if (ssl) {
-		if (!req->ssl && req->port == HTTP_DEFAULT_PORT)
-			req->port = HTTPS_DEFAULT_PORT;
-	} else {
-		if (req->ssl && req->port == HTTPS_DEFAULT_PORT)
-			req->port = HTTP_DEFAULT_PORT;
-	}
-	req->ssl = ssl;
+	req->origin_url.have_ssl = ssl;
 }
 
 void http_client_request_set_urgent(struct http_client_request *req)
@@ -180,6 +198,8 @@ void http_client_request_add_header(struct http_client_request *req,
 			req->have_hdr_user_agent = TRUE;
 		break;
 	}
+	if (req->headers == NULL)
+		req->headers = str_new(default_pool, 256);
 	str_printfa(req->headers, "%s: %s\r\n", key, value);
 }
 
@@ -223,15 +243,39 @@ http_client_request_get_state(struct http_client_request *req)
 
 static void http_client_request_do_submit(struct http_client_request *req)
 {
+	struct http_client *client = req->client;
 	struct http_client_host *host;
+	const struct http_url *proxy_url = client->set.proxy_url;
+	const char *target;
 
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
+
+	target = t_strconcat
+		(http_url_create_host(&req->origin_url), req->target, NULL);
+
+	/* determine what host to contact to submit this request */
+	if (proxy_url != NULL) {
+		req->host_url = proxy_url;         /* proxy server */
+	} else {
+		req->host_url = &req->origin_url;  /* origin server */
+	}
 
 	/* use submission date if no date is set explicitly */
 	if (req->date == (time_t)-1)
 		req->date = ioloop_time;
 	
-	host = http_client_host_get(req->client, req->hostname);
+	/* prepare value for Host header */
+	req->authority =
+		p_strdup(req->pool, http_url_create_authority(req->host_url));
+
+	/* debug label */
+	req->label = p_strdup_printf(req->pool, "[%s %s]", req->method, target);
+
+	/* request target needs to be made absolute url for proxy requests */
+	if (proxy_url != NULL)
+		req->target = p_strdup(req->pool, target);
+
+	host = http_client_host_get(req->client, req->host_url->host_name);
 	req->state = HTTP_REQUEST_STATE_QUEUED;
 
 	http_client_host_submit_request(host, req);
@@ -239,10 +283,10 @@ static void http_client_request_do_submit(struct http_client_request *req)
 
 void http_client_request_submit(struct http_client_request *req)
 {
-	http_client_request_debug(req, "Submitted");
 	req->client->pending_requests++;
 
 	http_client_request_do_submit(req);
+	http_client_request_debug(req, "Submitted");
 	req->submitted = TRUE;
 }
 
@@ -452,11 +496,7 @@ static int http_client_request_send_real(struct http_client_request *req,
 	   http_client_request_add_header() */
 	if (!req->have_hdr_host) {
 		str_append(rtext, "Host: ");
-		str_append(rtext, req->hostname);
-		if ((!req->ssl &&req->port != HTTP_DEFAULT_PORT) ||
-			(req->ssl && req->port != HTTPS_DEFAULT_PORT)) {
-			str_printfa(rtext, ":%u", req->port);
-		}
+		str_append(rtext, req->authority);
 		str_append(rtext, "\r\n");
 	}
 	if (!req->have_hdr_date) {
@@ -487,8 +527,16 @@ static int http_client_request_send_real(struct http_client_request *req,
 		req->payload_output = output;
 		o_stream_ref(output);
 	}
-	if (!req->have_hdr_connection)
+	if (!req->have_hdr_connection && req->host_url == &req->origin_url) {
+		/* https://tools.ietf.org/html/rfc2068
+		     Section 19.7.1:
+
+		   A client MUST NOT send the Keep-Alive connection token to a proxy
+		   server as HTTP/1.0 proxy servers do not obey the rules of HTTP/1.1
+		   for parsing the Connection header field.
+		 */
 		str_append(rtext, "Connection: Keep-Alive\r\n");
+	}
 
 	/* request line + implicit headers */
 	iov[0].iov_base = str_data(rtext);
@@ -665,8 +713,7 @@ void http_client_request_redirect(struct http_client_request *req,
 	unsigned int status, const char *location)
 {
 	struct http_url *url;
-	const char *error, *target;
-	unsigned int newport;
+	const char *error, *target, *origin_url;
 
 	/* parse URL */
 	if (http_url_parse(location, NULL, 0,
@@ -707,19 +754,25 @@ void http_client_request_redirect(struct http_client_request *req,
 	if (req->payload_output != NULL)
 		o_stream_unref(&req->payload_output);
 
-	newport = (url->have_port ? url->port : (url->have_ssl ? 443 : 80));
 	target = http_url_create_target(url);
 
-	http_client_request_debug(req, "Redirecting to http%s://%s:%u%s",
-		(url->have_ssl ? "s" : ""), url->host_name, newport, target);
-
-	// FIXME: handle literal IP specially (avoid duplicate parsing)
+	http_url_copy(req->pool, &req->origin_url, url);
+	req->target = p_strdup(req->pool, target);
+	if (req->host_url == &req->origin_url) {
+		req->authority =
+			p_strdup(req->pool, http_url_create_authority(req->host_url));
+	}
+	
 	req->host = NULL;
 	req->conn = NULL;
-	req->hostname = p_strdup(req->pool, url->host_name);
-	req->port = newport;
-	req->target = p_strdup(req->pool, target);
-	req->ssl = url->have_ssl;
+
+	origin_url = http_url_create(&req->origin_url);
+
+	http_client_request_debug(req, "Redirecting to %s%s",
+		origin_url, target);
+
+	req->label = p_strdup_printf(req->pool, "[%s %s%s]",
+		req->method, origin_url, req->target);
 
 	/* https://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-21
 	      Section-7.4.4
