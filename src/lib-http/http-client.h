@@ -54,6 +54,9 @@ struct http_client_settings {
 	/* maximum number of pipelined requests per connection (default = 1) */
 	unsigned int max_pipelined_requests;
 
+	/* don't automatically act upon redirect responses */
+	bool no_auto_redirect;
+
 	/* maximum number of redirects for a request
 	   (default = 0; redirects refused) 
    */

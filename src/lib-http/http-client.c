@@ -93,6 +93,7 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	client->set.max_pipelined_requests =
 		(set->max_pipelined_requests > 0 ? set->max_pipelined_requests : 1);
 	client->set.max_attempts = set->max_attempts;
+	client->set.no_auto_redirect = set->no_auto_redirect;
 	client->set.max_redirects = set->max_redirects;
 	client->set.response_hdr_limits = set->response_hdr_limits;
 	client->set.request_timeout_msecs = set->request_timeout_msecs;
