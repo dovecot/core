@@ -84,7 +84,6 @@ http_client_request(struct http_client *client,
 	req = http_client_request_new(client, method, callback, context);
 	req->origin_url.host_name = p_strdup(req->pool, host);
 	req->target = (target == NULL ? "/" : p_strdup(req->pool, target));
-	req->headers = str_new(default_pool, 256);
 	return req;
 }
 
@@ -99,7 +98,24 @@ http_client_request_url(struct http_client *client,
 	req = http_client_request_new(client, method, callback, context);
 	http_url_copy_authority(req->pool, &req->origin_url, target_url);
 	req->target = p_strdup(req->pool, http_url_create_target(target_url));
-	req->headers = str_new(default_pool, 256);
+	return req;
+}
+
+#undef http_client_request_connect
+struct http_client_request *
+http_client_request_connect(struct http_client *client,
+		    const char *host, in_port_t port,
+		    http_client_request_callback_t *callback,
+				void *context)
+{
+	struct http_client_request *req;
+
+	req = http_client_request_new(client, "CONNECT", callback, context);
+	req->origin_url.host_name = p_strdup(req->pool, host);
+	req->origin_url.port = port;
+	req->origin_url.have_port = TRUE;
+	req->connect_tunnel = TRUE;
+	req->target = "";
 	return req;
 }
 
@@ -139,7 +155,8 @@ void http_client_request_unref(struct http_client_request **_req)
 		i_stream_unref(&req->payload_input);
 	if (req->payload_output != NULL)
 		o_stream_unref(&req->payload_output);
-	str_free(&req->headers);
+	if (req->headers != NULL)
+		str_free(&req->headers);
 	pool_unref(&req->pool);
 	*_req = NULL;
 }
@@ -241,17 +258,45 @@ http_client_request_get_state(struct http_client_request *req)
 	return req->state;
 }
 
+enum http_response_payload_type
+http_client_request_get_payload_type(struct http_client_request *req)
+{
+	/* https://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-23
+	     Section 3.3:
+
+	   The presence of a message body in a response depends on both the
+	   request method to which it is responding and the response status code.
+	   Responses to the HEAD request method never include a message body
+	   because the associated response header fields, if present, indicate only
+	   what their values would have been if the request method had been GET
+	   2xx (Successful) responses to CONNECT switch to tunnel mode instead of
+	   having a message body (Section 4.3.6 of [Part2]).
+	 */
+	if (strcmp(req->method, "HEAD") == 0)
+		return HTTP_RESPONSE_PAYLOAD_TYPE_NOT_PRESENT;
+	if (strcmp(req->method, "CONNECT") == 0)
+		return HTTP_RESPONSE_PAYLOAD_TYPE_ONLY_UNSUCCESSFUL;
+	return HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED;
+}
+
 static void http_client_request_do_submit(struct http_client_request *req)
 {
 	struct http_client *client = req->client;
 	struct http_client_host *host;
 	const struct http_url *proxy_url = client->set.proxy_url;
-	const char *target;
+	const char *authority, *target;
 
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
 
-	target = t_strconcat
-		(http_url_create_host(&req->origin_url), req->target, NULL);
+	authority = http_url_create_authority(&req->origin_url);
+	if (req->connect_tunnel) {
+		/* connect requests require authority form for request target */
+		target = authority;
+	} else {
+		/* absolute target url */
+		target = t_strconcat
+			(http_url_create_host(&req->origin_url), req->target, NULL);
+	}
 
 	/* determine what host to contact to submit this request */
 	if (proxy_url != NULL) {
@@ -265,15 +310,22 @@ static void http_client_request_do_submit(struct http_client_request *req)
 		req->date = ioloop_time;
 	
 	/* prepare value for Host header */
-	req->authority =
-		p_strdup(req->pool, http_url_create_authority(req->host_url));
+	req->authority = p_strdup(req->pool, authority);
 
 	/* debug label */
 	req->label = p_strdup_printf(req->pool, "[%s %s]", req->method, target);
 
-	/* request target needs to be made absolute url for proxy requests */
-	if (proxy_url != NULL)
+	/* update request target */
+	if (req->connect_tunnel || proxy_url != NULL)
 		req->target = p_strdup(req->pool, target);
+
+	if (proxy_url == NULL) {
+		/* if we don't have a proxy, CONNECT requests are handled by creating
+		   the requested connection directly */
+		req->connect_direct = req->connect_tunnel;
+		if (req->connect_direct)
+			req->urgent = TRUE;
+	}
 
 	host = http_client_host_get(req->client, req->host_url->host_name);
 	req->state = HTTP_REQUEST_STATE_QUEUED;
@@ -542,8 +594,13 @@ static int http_client_request_send_real(struct http_client_request *req,
 	iov[0].iov_base = str_data(rtext);
 	iov[0].iov_len = str_len(rtext);	
 	/* explicit headers */
-	iov[1].iov_base = str_data(req->headers);
-	iov[1].iov_len = str_len(req->headers);
+	if (req->headers != NULL) {
+		iov[1].iov_base = str_data(req->headers);
+		iov[1].iov_len = str_len(req->headers);
+	} else {
+		iov[1].iov_base = "";
+		iov[1].iov_len = 0;
+	}
 	/* end of header */
 	iov[2].iov_base = "\r\n";
 	iov[2].iov_len = 2;
@@ -875,4 +932,12 @@ void http_client_request_set_destroy_callback(struct http_client_request *req,
 {
 	req->destroy_callback = callback;
 	req->destroy_context = context;
+}
+
+void http_client_request_start_tunnel(struct http_client_request *req,
+	struct http_client_tunnel *tunnel)
+{
+	i_assert(req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
+
+	http_client_connection_start_tunnel(&req->conn, tunnel);
 }

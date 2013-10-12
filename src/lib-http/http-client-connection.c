@@ -57,7 +57,7 @@ http_client_connection_count_pending(struct http_client_connection *conn)
 bool http_client_connection_is_ready(struct http_client_connection *conn)
 {
 	return (conn->connected && !conn->output_locked &&
-		!conn->close_indicated &&
+		!conn->close_indicated && !conn->tunneling &&
 		http_client_connection_count_pending(conn) <
 			conn->client->set.max_pipelined_requests);
 }
@@ -173,7 +173,8 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 {
 	unsigned int timeout, count;
 
-	if (array_count(&conn->request_wait_list) == 0 &&
+	if (array_is_created(&conn->request_wait_list) &&
+		array_count(&conn->request_wait_list) == 0 &&
 		conn->incoming_payload == NULL &&
 		conn->client->set.max_idle_time_msecs > 0) {
 
@@ -302,6 +303,9 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 		return -1;
 	}
 
+	if (req->connect_tunnel)
+		conn->tunneling = TRUE;
+
 	/* https://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-21;
 			Section 6.1.2.1:
 
@@ -388,6 +392,7 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 {
 	struct http_client_connection *conn = req->conn;
 
+	i_assert(conn != NULL);
 	i_assert(conn->pending_request == req);
 	i_assert(conn->incoming_payload != NULL);
 	i_assert(conn->conn.io == NULL);
@@ -479,7 +484,8 @@ http_client_connection_return_response(struct http_client_connection *conn,
 	}
 
 	if (conn->incoming_payload == NULL) {
-		i_assert(conn->conn.io != NULL);
+		i_assert(conn->conn.io != NULL ||
+			conn->peer->addr.type == HTTP_CLIENT_PEER_ADDR_RAW);
 		return TRUE;
 	}
 
@@ -495,7 +501,7 @@ static void http_client_connection_input(struct connection *_conn)
 	struct http_client_request *req = NULL;
 	int finished = 0, ret;
 	const char *error;
-	bool no_payload = FALSE;
+	enum http_response_payload_type payload_type;
 
 	i_assert(conn->incoming_payload == NULL);
 
@@ -516,18 +522,16 @@ static void http_client_connection_input(struct connection *_conn)
 		req_idx = array_idx(&conn->request_wait_list, 0);
 		req = req_idx[0];
 
-		/* https://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-21
-		     Section 3.3.2:
-
-		   A server MAY send a Content-Length header field in a response to a
-		   HEAD request [...]
-		 */
-		no_payload = (strcmp(req->method, "HEAD") == 0);
+		/* determine whether to expect a response payload */
+		payload_type = http_client_request_get_payload_type(req);
+	} else {
+		req = NULL;
+		payload_type = HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED;
 	}
 
 	// FIXME: handle somehow if server replies before request->input is at EOF
 	while ((ret=http_response_parse_next
-		(conn->http_parser, no_payload, &response, &error)) > 0) {
+		(conn->http_parser, payload_type, &response, &error)) > 0) {
 		bool aborted;
 
 		if (req == NULL) {
@@ -621,13 +625,15 @@ static void http_client_connection_input(struct connection *_conn)
 		if (array_count(&conn->request_wait_list) > 0) {
 			req_idx = array_idx(&conn->request_wait_list, 0);
 			req = req_idx[0];
-			no_payload = (strcmp(req->method, "HEAD") == 0);
+
+			/* determine whether to expect a response payload */
+			payload_type = http_client_request_get_payload_type(req);
 		} else {
 			/* no more requests waiting for the connection */
 			if (conn->to_requests != NULL)
 				timeout_remove(&conn->to_requests);
 			req = NULL;
-			no_payload = FALSE;
+			payload_type = HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED;
 		}
 	}
 
@@ -702,6 +708,33 @@ int http_client_connection_output(struct http_client_connection *conn)
 	return 1;
 }
 
+void
+http_client_connection_start_tunnel(struct http_client_connection **_conn,
+	struct http_client_tunnel *tunnel)
+{
+	struct http_client_connection *conn = *_conn;
+
+	i_assert(conn->tunneling);
+
+	/* claim connection streams */
+	memset(tunnel, 0, sizeof(*tunnel));
+	tunnel->input = conn->conn.input;
+	tunnel->output = conn->conn.output;
+	tunnel->fd_in = conn->conn.fd_in;
+	tunnel->fd_out = conn->conn.fd_out;
+
+	/* detach from connection */
+	conn->conn.input = NULL;
+	conn->conn.output = NULL;
+	conn->conn.fd_in = -1;
+	conn->conn.fd_out = -1;
+	conn->closing = TRUE;
+	conn->connected = FALSE;
+	connection_disconnect(&conn->conn);
+
+	http_client_connection_unref(_conn);
+}
+
 static void 
 http_client_connection_ready(struct http_client_connection *conn)
 {
@@ -723,6 +756,34 @@ http_client_connection_ready(struct http_client_connection *conn)
 		stat(conn->client->set.rawlog_dir, &st) == 0) {
 		iostream_rawlog_create(conn->client->set.rawlog_dir,
 				       &conn->conn.input, &conn->conn.output);
+	}
+
+	/* direct tunneling connections handle connect requests just by providing a
+	   raw connection */
+	if (conn->peer->addr.type == HTTP_CLIENT_PEER_ADDR_RAW) {
+		struct http_client_request *req;
+		
+		req = http_client_peer_claim_request(conn->peer, FALSE);
+		if (req != NULL) {
+			struct http_response response;
+
+			http_client_request_ref(req);
+			req->conn = conn;
+			conn->tunneling = TRUE;
+
+			memset(&response, 0, sizeof(response));
+			response.status = 200;
+			response.reason = "OK";
+
+			(void)http_client_connection_return_response(conn, req, &response);
+			http_client_request_unref(&req);
+			return;
+		} 
+		
+		http_client_connection_debug(conn,
+			"No raw connect requests pending; closing useless connection");
+		http_client_connection_unref(&conn);
+		return;
 	}
 
 	/* start protocol I/O */
@@ -881,13 +942,27 @@ http_client_connection_create(struct http_client_peer *peer)
 	struct http_client_connection *conn;
 	static unsigned int id = 0;
 	const struct http_client_peer_addr *addr = &peer->addr;
+	const char *conn_type = "UNKNOWN";
+
+	switch (peer->addr.type) {
+	case HTTP_CLIENT_PEER_ADDR_HTTP:
+		conn_type = "HTTP";
+		break;
+	case HTTP_CLIENT_PEER_ADDR_HTTPS:
+		conn_type = "HTTPS";
+		break;
+	case HTTP_CLIENT_PEER_ADDR_RAW:
+		conn_type = "Raw";
+		break;
+	}
 
 	conn = i_new(struct http_client_connection, 1);
 	conn->refcount = 1;
 	conn->client = peer->client;
 	conn->id = id++;
 	conn->peer = peer;
-	i_array_init(&conn->request_wait_list, 16);
+	if (peer->addr.type != HTTP_CLIENT_PEER_ADDR_RAW)
+		i_array_init(&conn->request_wait_list, 16);
 
 	connection_init_client_ip
 		(peer->client->conn_list, &conn->conn, &addr->ip, addr->port);
@@ -896,8 +971,9 @@ http_client_connection_create(struct http_client_peer *peer)
 	array_append(&peer->conns, &conn, 1);
 
 	http_client_connection_debug(conn,
-		"Connection created (%d parallel connections exist)%s",
-		array_count(&peer->conns), (conn->to_input == NULL ? "" : " [broken]"));
+		"%s connection created (%d parallel connections exist)%s",
+		conn_type, array_count(&peer->conns),
+		(conn->to_input == NULL ? "" : " [broken]"));
 	return conn;
 }
 
@@ -910,6 +986,7 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 {
 	struct http_client_connection *conn = *_conn;
 	struct http_client_connection *const *conn_idx;
+	ARRAY_TYPE(http_client_connection) *conn_arr;
 	struct http_client_peer *peer = conn->peer;
 	struct http_client_request **req;
 
@@ -931,17 +1008,19 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 
 	connection_disconnect(&conn->conn);
 
-	/* abort all pending requests */
-	array_foreach_modifiable(&conn->request_wait_list, req) {
-		i_assert((*req)->submitted);
-		http_client_request_error(*req, HTTP_CLIENT_REQUEST_ERROR_ABORTED,
-			"Aborting");
+	if (array_is_created(&conn->request_wait_list)) {
+		/* abort all pending requests */
+		array_foreach_modifiable(&conn->request_wait_list, req) {
+			i_assert((*req)->submitted);
+			http_client_request_error(*req, HTTP_CLIENT_REQUEST_ERROR_ABORTED,
+				"Aborting");
+		}
+		array_free(&conn->request_wait_list);
 	}
 	if (conn->pending_request != NULL) {
 		http_client_request_error(conn->pending_request,
 			HTTP_CLIENT_REQUEST_ERROR_ABORTED, "Aborting");
 	}
-	array_free(&conn->request_wait_list);
 
 	if (conn->http_parser != NULL)
 		http_response_parser_deinit(&conn->http_parser);
@@ -964,10 +1043,10 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 		timeout_remove(&conn->to_response);
 	
 	/* remove this connection from the list */
-	array_foreach(&conn->peer->conns, conn_idx) {
+	conn_arr = &conn->peer->conns;
+	array_foreach(conn_arr, conn_idx) {
 		if (*conn_idx == conn) {
-			array_delete(&conn->peer->conns,
-				array_foreach_idx(&conn->peer->conns, conn_idx), 1);
+			array_delete(conn_arr, array_foreach_idx(conn_arr, conn_idx), 1);
 			break;
 		}
 	}

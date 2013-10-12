@@ -46,13 +46,13 @@ http_client_host_port_connection_setup(struct http_client_host_port *hport);
 
 static struct http_client_host_port *
 http_client_host_port_find(struct http_client_host *host,
-	in_port_t port, const char *https_name)
+	const struct http_client_peer_addr *addr)
 {
 	struct http_client_host_port *hport;
 
 	array_foreach_modifiable(&host->ports, hport) {
-		if (hport->addr.port == port &&
-		    null_strcmp(hport->addr.https_name, https_name) == 0)
+		if (hport->addr.type == addr->type && hport->addr.port == addr->port &&
+		    null_strcmp(hport->addr.https_name, addr->https_name) == 0)
 			return hport;
 	}
 
@@ -61,16 +61,17 @@ http_client_host_port_find(struct http_client_host *host,
 
 static struct http_client_host_port *
 http_client_host_port_init(struct http_client_host *host,
-	in_port_t port, const char *https_name)
+	const struct http_client_peer_addr *addr)
 {
 	struct http_client_host_port *hport;
 
-	hport = http_client_host_port_find(host, port, https_name);
+	hport = http_client_host_port_find(host, addr);
 	if (hport == NULL) {
 		hport = array_append_space(&host->ports);
 		hport->host = host;
-		hport->addr.port = port;
-		hport->addr.https_name = i_strdup(https_name);
+		hport->addr = *addr;
+		hport->https_name = i_strdup(addr->https_name);
+		hport->addr.https_name = hport->https_name;
 		hport->ips_connect_idx = 0;
 		i_array_init(&hport->request_queue, 16);
 	}
@@ -94,7 +95,7 @@ static void http_client_host_port_deinit(struct http_client_host_port *hport)
 {
 	http_client_host_port_error
 		(hport, HTTP_CLIENT_REQUEST_ERROR_ABORTED, "Aborted");
-	i_free(hport->addr.https_name);
+	i_free(hport->https_name);
 	if (array_is_created(&hport->pending_peers))
 		array_free(&hport->pending_peers);
 	array_free(&hport->request_queue);
@@ -104,13 +105,12 @@ static void
 http_client_host_port_drop_request(struct http_client_host_port *hport,
 	struct http_client_request *req)
 {
+	ARRAY_TYPE(http_client_request) *req_arr = &hport->request_queue;
 	struct http_client_request **req_idx;
-	unsigned int idx;
 
-	array_foreach_modifiable(&hport->request_queue, req_idx) {
+	array_foreach_modifiable(req_arr, req_idx) {
 		if (*req_idx == req) {
-			idx = array_foreach_idx(&hport->request_queue, req_idx);
-			array_delete(&hport->request_queue, idx, 1);
+			array_delete(req_arr, array_foreach_idx(req_arr, req_idx), 1);
 			break;
 		}
 	}
@@ -309,7 +309,7 @@ void http_client_host_connection_success(struct http_client_host *host,
 	http_client_host_debug(host, "Successfully connected to %s",
 		http_client_peer_addr2str(addr));
 
-	hport = http_client_host_port_find(host, addr->port, addr->https_name);
+	hport = http_client_host_port_find(host, addr);
 	if (hport == NULL)
 		return;
 
@@ -324,7 +324,7 @@ void http_client_host_connection_failure(struct http_client_host *host,
 	http_client_host_debug(host, "Failed to connect to %s: %s",
 		http_client_peer_addr2str(addr), reason);
 
-	hport = http_client_host_port_find(host, addr->port, addr->https_name);
+	hport = http_client_host_port_find(host, addr);
 	if (hport == NULL)
 		return;
 
@@ -455,8 +455,7 @@ void http_client_host_submit_request(struct http_client_host *host,
 {
 	struct http_client_host_port *hport;
 	const struct http_url *host_url = req->host_url;
-	const char *https_name = http_client_request_https_name(req);
-	in_port_t port = http_client_request_port(req);
+	struct http_client_peer_addr addr;
 	const char *error;
 
 	req->host = host;
@@ -469,8 +468,10 @@ void http_client_host_submit_request(struct http_client_host *host,
 		}
 	}
 
+	http_client_request_get_peer_addr(req, &addr);
+
 	/* add request to host (grouped by tcp port) */
-	hport = http_client_host_port_init(host, port, https_name);
+	hport = http_client_host_port_init(host, &addr);
 	if (req->urgent)
 		array_insert(&hport->request_queue, 0, &req, 1);
 	else
@@ -496,7 +497,7 @@ http_client_host_claim_request(struct http_client_host *host,
 	struct http_client_request *req;
 	unsigned int i, count;
 
-	hport = http_client_host_port_find(host, addr->port, addr->https_name);
+	hport = http_client_host_port_find(host, addr);
 	if (hport == NULL)
 		return NULL;
 
@@ -530,13 +531,17 @@ unsigned int http_client_host_requests_pending(struct http_client_host *host,
 
 	*num_urgent_r = 0;
 
-	hport = http_client_host_port_find(host, addr->port, addr->https_name);
+	hport = http_client_host_port_find(host, addr);
 	if (hport == NULL)
 		return 0;
 
 	requests = array_get(&hport->request_queue, &count);
-	for (i = 0; i < count && requests[i]->urgent; i++)
-		(*num_urgent_r)++;
+	for (i = 0; i < count; i++) {
+		if (requests[i]->urgent)
+			(*num_urgent_r)++;
+		else
+			break;
+	}
 	return count;
 }
 
@@ -544,10 +549,11 @@ void http_client_host_drop_request(struct http_client_host *host,
 	struct http_client_request *req)
 {
 	struct http_client_host_port *hport;
-	const char *https_name = http_client_request_https_name(req);
-	in_port_t port = http_client_request_port(req);
+	struct http_client_peer_addr addr;
 
-	hport = http_client_host_port_find(host, port, https_name);
+	http_client_request_get_peer_addr(req, &addr);
+
+	hport = http_client_host_port_find(host, &addr);
 	if (hport == NULL)
 		return;
 

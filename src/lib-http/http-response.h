@@ -7,6 +7,12 @@
 
 #define http_response_header http_header_field /* FIXME: remove in v2.3 */
 
+enum http_response_payload_type {
+	HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED,
+	HTTP_RESPONSE_PAYLOAD_TYPE_NOT_PRESENT,
+	HTTP_RESPONSE_PAYLOAD_TYPE_ONLY_UNSUCCESSFUL
+};
+
 struct http_response {
 	unsigned char version_major;
 	unsigned char version_minor;

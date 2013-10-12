@@ -89,6 +89,12 @@ struct http_client_settings {
 	bool debug;
 };
 
+struct http_client_tunnel {
+	int fd_in, fd_out;
+	struct istream *input;
+	struct ostream *output;
+};
+
 typedef void
 http_client_request_callback_t(const struct http_response *response,
 			       void *context);
@@ -96,6 +102,7 @@ http_client_request_callback_t(const struct http_response *response,
 struct http_client *http_client_init(const struct http_client_settings *set);
 void http_client_deinit(struct http_client **_client);
 
+/* create new HTTP request */
 struct http_client_request *
 http_client_request(struct http_client *client,
 		    const char *method, const char *host, const char *target,
@@ -112,6 +119,22 @@ http_client_request_url(struct http_client *client,
 		    http_client_request_callback_t *callback, void *context);
 #define http_client_request_url(client, method, target_url, callback, context) \
 	http_client_request_url(client, method, target_url + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			const struct http_response *response, typeof(context))), \
+		(http_client_request_callback_t *)callback, context)
+
+/* create new HTTP CONNECT request. If this HTTP is configured to use a proxy,
+   a CONNECT request will be submitted at that proxy, otherwise the connection
+   is created directly. Call http_client_request_start_tunnel() to
+   to take over the connection.
+ */
+struct http_client_request *
+http_client_request_connect(struct http_client *client,
+		    const char *host, in_port_t port,
+		    http_client_request_callback_t *callback,
+		    void *context);
+#define http_client_request_connect(client, host, port, callback, context) \
+	http_client_request_connect(client, host, port + \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct http_response *response, typeof(context))), \
 		(http_client_request_callback_t *)callback, context)
@@ -134,6 +157,7 @@ enum http_request_state
 http_client_request_get_state(struct http_client_request *req);
 void http_client_request_submit(struct http_client_request *req);
 bool http_client_request_try_retry(struct http_client_request *req);
+
 void http_client_request_abort(struct http_client_request **req);
 
 /* Call the specified callback when HTTP request is destroyed. */
@@ -147,6 +171,9 @@ void http_client_request_set_destroy_callback(struct http_client_request *req,
 int http_client_request_send_payload(struct http_client_request **req,
 	const unsigned char *data, size_t size);
 int http_client_request_finish_payload(struct http_client_request **req);
+
+void http_client_request_start_tunnel(struct http_client_request *req,
+	struct http_client_tunnel *tunnel);
 
 void http_client_switch_ioloop(struct http_client *client);
 

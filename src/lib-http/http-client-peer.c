@@ -42,8 +42,17 @@ http_client_peer_debug(struct http_client_peer *peer,
 unsigned int http_client_peer_addr_hash
 (const struct http_client_peer_addr *peer)
 {
-	return net_ip_hash(&peer->ip) + peer->port +
-		(peer->https_name == NULL ? 0 : str_hash(peer->https_name));
+	switch (peer->type) {
+	case HTTP_CLIENT_PEER_ADDR_RAW:
+		return net_ip_hash(&peer->ip) + peer->port + 1;
+	case HTTP_CLIENT_PEER_ADDR_HTTP:
+		return net_ip_hash(&peer->ip) + peer->port;
+	case HTTP_CLIENT_PEER_ADDR_HTTPS:
+		return net_ip_hash(&peer->ip) + peer->port +
+			(peer->https_name == NULL ? 0 : str_hash(peer->https_name));
+	}
+	i_unreached();
+	return 0;
 }
 
 int http_client_peer_addr_cmp
@@ -52,10 +61,14 @@ int http_client_peer_addr_cmp
 {
 	int ret;
 
+	if (peer1->type != peer2->type)
+		return (peer1->type > peer2->type ? 1 : -1);
 	if ((ret=net_ip_cmp(&peer1->ip, &peer2->ip)) != 0)
 		return ret;
 	if (peer1->port != peer2->port)
 		return (peer1->port > peer2->port ? 1 : -1);
+	if (peer1->type != HTTP_CLIENT_PEER_ADDR_HTTPS)
+		return 0;
 	return null_strcmp(peer1->https_name, peer2->https_name);
 }
 
@@ -69,7 +82,8 @@ http_client_peer_connect(struct http_client_peer *peer, unsigned int count)
 	unsigned int i;
 
 	for (i = 0; i < count; i++) {
-		http_client_peer_debug(peer, "Making new connection %u of %u", i+1, count);
+		http_client_peer_debug(peer,
+			"Making new connection %u of %u", i+1, count);
 		(void)http_client_connection_create(peer);
 	}
 }
@@ -339,7 +353,8 @@ http_client_peer_create(struct http_client *client,
 	peer = i_new(struct http_client_peer, 1);
 	peer->client = client;
 	peer->addr = *addr;
-	peer->addr.https_name = i_strdup(addr->https_name);
+	peer->https_name = i_strdup(addr->https_name);
+	peer->addr.https_name = peer->https_name;
 	i_array_init(&peer->hosts, 16);
 	i_array_init(&peer->conns, 16);
 
@@ -348,7 +363,6 @@ http_client_peer_create(struct http_client *client,
 	DLLIST_PREPEND(&client->peers_list, peer);
 
 	http_client_peer_debug(peer, "Peer created");
-	http_client_peer_connect(peer, 1);
 	return peer;
 }
 
@@ -370,7 +384,6 @@ void http_client_peer_free(struct http_client_peer **_peer)
 	/* make a copy of the connection array; freed connections modify it */
 	t_array_init(&conns, array_count(&peer->conns));
 	array_copy(&conns.arr, 0, &peer->conns.arr, 0, array_count(&peer->conns));
-
 	array_foreach_modifiable(&conns, conn) {
 		http_client_connection_unref(conn);
 	}
@@ -383,7 +396,7 @@ void http_client_peer_free(struct http_client_peer **_peer)
 		(peer->client->peers, (const struct http_client_peer_addr *)&peer->addr);
 	DLLIST_REMOVE(&peer->client->peers_list, peer);
 
-	i_free(peer->addr.https_name);
+	i_free(peer->https_name);
 	i_free(peer);
 	*_peer = NULL;
 }

@@ -233,8 +233,8 @@ http_response_parse_status_line(struct http_response_parser *parser)
 }
 
 int http_response_parse_next(struct http_response_parser *parser,
-			     bool no_payload, struct http_response *response,
-			     const char **error_r)
+			     enum http_response_payload_type payload_type,
+			     struct http_response *response, const char **error_r)
 {
 	int ret;
 
@@ -287,10 +287,12 @@ int http_response_parse_next(struct http_response_parser *parser,
 	 */
 	if (parser->response_status / 100 == 1 || parser->response_status == 204
 		|| parser->response_status == 304) { // HEAD is handled in caller
-		no_payload = TRUE;
+		payload_type = HTTP_RESPONSE_PAYLOAD_TYPE_NOT_PRESENT;
 	}
 
-	if (!no_payload) {
+	if ((payload_type == HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED) ||
+		(payload_type == HTTP_RESPONSE_PAYLOAD_TYPE_ONLY_UNSUCCESSFUL &&
+			parser->response_status / 100 != 2)) {
 		/* [ message-body ] */
 		if (http_message_parse_body(&parser->parser, FALSE) < 0) {
 			*error_r = parser->parser.error;
