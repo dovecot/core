@@ -543,6 +543,10 @@ bool http_client_request_callback(struct http_client_request *req,
 			req->callback = callback;
 			http_client_request_resubmit(req);
 			return FALSE;
+		} else {
+			/* release payload early (prevents server/client deadlock in proxy) */
+			if (req->payload_input != NULL)
+				i_stream_unref(&req->payload_input);
 		}
 	}
 	return TRUE;
@@ -563,6 +567,10 @@ http_client_request_send_error(struct http_client_request *req,
 
 		http_response_init(&response, status, error);
 		(void)callback(&response, req->context);
+
+		/* release payload early (prevents server/client in proxy) */
+		if (req->payload_input != NULL)
+			i_stream_unref(&req->payload_input);
 	}
 }
 
