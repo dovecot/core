@@ -418,10 +418,78 @@ int http_url_request_target_parse(const char *request_target,
 }
 
 /*
+ * HTTP URL manipulation
+ */
+
+void http_url_copy_authority(pool_t pool, struct http_url *dest,
+	const struct http_url *src)
+{
+	dest->host_name = p_strdup(pool, src->host_name);
+	if (src->have_host_ip) {
+		dest->host_ip = src->host_ip;
+		dest->have_host_ip = TRUE;
+	}
+	if (src->have_port) {
+		dest->port = src->port;
+		dest->have_port = TRUE;
+	}
+	dest->have_ssl = src->have_ssl;
+}
+
+void http_url_copy(pool_t pool, struct http_url *dest,
+	const struct http_url *src)
+{
+	http_url_copy_authority(pool, dest, src);
+	dest->path = p_strdup(pool, src->path);
+	dest->enc_query = p_strdup(pool, src->enc_query);
+	dest->enc_fragment = p_strdup(pool, src->enc_fragment);
+}
+
+struct http_url *http_url_clone(pool_t pool,const struct http_url *src)
+{
+	struct http_url *new_url;
+
+	new_url = p_new(pool, struct http_url, 1);
+	http_url_copy(pool, new_url, src);
+
+	return new_url;
+}
+
+/*
  * HTTP URL construction
  */
 
-static void http_url_add_target(string_t *urlstr, const struct http_url *url)
+static void
+http_url_add_scheme(string_t *urlstr, const struct http_url *url)
+{
+	/* scheme */
+	if (!url->have_ssl)
+		uri_append_scheme(urlstr, "http");
+	else
+		uri_append_scheme(urlstr, "https");
+	str_append(urlstr, "//");
+}
+
+static void
+http_url_add_authority(string_t *urlstr, const struct http_url *url)
+{
+	/* host:port */
+	if (url->host_name != NULL) {
+		/* assume IPv6 literal if starts with '['; avoid encoding */
+		if (*url->host_name == '[')
+			str_append(urlstr, url->host_name);
+		else
+			uri_append_host_name(urlstr, url->host_name);
+	} else if (url->have_host_ip) {
+		uri_append_host_ip(urlstr, &url->host_ip);
+	} else
+		i_unreached();
+	if (url->have_port)
+		uri_append_port(urlstr, url->port);
+}
+
+static void
+http_url_add_target(string_t *urlstr, const struct http_url *url)
 {
 	if (url->path == NULL || *url->path == '\0') {
 		/* Older syntax of RFC 2616 requires this slash at all times for an
@@ -443,24 +511,8 @@ const char *http_url_create(const struct http_url *url)
 {
 	string_t *urlstr = t_str_new(512);
 
-	/* scheme */
-	uri_append_scheme(urlstr, "http");
-	str_append(urlstr, "//");
-
-	/* host:port */
-	if (url->host_name != NULL) {
-		/* assume IPv6 literal if starts with '['; avoid encoding */
-		if (*url->host_name == '[')
-			str_append(urlstr, url->host_name);
-		else
-			uri_append_host_name(urlstr, url->host_name);
-	} else if (url->have_host_ip) {
-		uri_append_host_ip(urlstr, &url->host_ip);
-	} else
-		i_unreached();
-	if (url->have_port)
-		uri_append_port(urlstr, url->port);
-
+	http_url_add_scheme(urlstr, url);
+	http_url_add_authority(urlstr, url);
 	http_url_add_target(urlstr, url);
 
 	/* fragment */
@@ -468,6 +520,25 @@ const char *http_url_create(const struct http_url *url)
 		str_append_c(urlstr, '#');
 		str_append(urlstr, url->enc_fragment);
 	}
+
+	return str_c(urlstr);
+}
+
+const char *http_url_create_host(const struct http_url *url)
+{
+	string_t *urlstr = t_str_new(512);
+
+	http_url_add_scheme(urlstr, url);
+	http_url_add_authority(urlstr, url);
+
+	return str_c(urlstr);
+}
+
+const char *http_url_create_authority(const struct http_url *url)
+{
+	string_t *urlstr = t_str_new(256);
+
+	http_url_add_authority(urlstr, url);
 
 	return str_c(urlstr);
 }

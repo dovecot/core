@@ -52,11 +52,23 @@ int http_url_request_target_parse(const char *request_target,
 	struct http_request_target *target, const char **error_r);
 
 /*
+ * HTTP URL manipulation
+ */
+
+void http_url_copy_authority(pool_t pool, struct http_url *dest,
+	const struct http_url *src);
+void http_url_copy(pool_t pool, struct http_url *dest,
+	const struct http_url *src);
+struct http_url *http_url_clone(pool_t pool,const struct http_url *src);
+
+/*
  * HTTP URL construction
  */
 
 const char *http_url_create(const struct http_url *url);
 
+const char *http_url_create_host(const struct http_url *url);
+const char *http_url_create_authority(const struct http_url *url);
 const char *http_url_create_target(const struct http_url *url);
 
 void http_url_escape_param(string_t *out, const char *data);
