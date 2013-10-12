@@ -115,7 +115,24 @@ http_client_request_connect(struct http_client *client,
 	req->origin_url.port = port;
 	req->origin_url.have_port = TRUE;
 	req->connect_tunnel = TRUE;
-	req->target = "";
+	req->target = req->origin_url.host_name;
+	return req;
+}
+
+#undef http_client_request_connect_ip
+struct http_client_request *
+http_client_request_connect_ip(struct http_client *client,
+		    const struct ip_addr *ip, in_port_t port,
+		    http_client_request_callback_t *callback,
+				void *context)
+{
+	struct http_client_request *req;
+	const char *hostname = net_ip2addr(ip);
+
+	req = http_client_request_connect
+		(client, hostname, port, callback, context);
+	req->origin_url.host_ip = *ip;
+	req->origin_url.have_host_ip = TRUE;
 	return req;
 }
 
@@ -300,9 +317,15 @@ static void http_client_request_do_submit(struct http_client_request *req)
 
 	/* determine what host to contact to submit this request */
 	if (proxy_url != NULL) {
-		req->host_url = proxy_url;         /* proxy server */
+		if (req->origin_url.have_ssl && !client->set.no_ssl_tunnel &&
+			!req->connect_tunnel) {
+			req->host_url = &req->origin_url;  /* tunnel to origin server */
+			req->ssl_tunnel = TRUE;
+		} else {
+			req->host_url = proxy_url;         /* proxy server */
+		}
 	} else {
-		req->host_url = &req->origin_url;  /* origin server */
+		req->host_url = &req->origin_url;    /* origin server */
 	}
 
 	/* use submission date if no date is set explicitly */
@@ -327,7 +350,7 @@ static void http_client_request_do_submit(struct http_client_request *req)
 			req->urgent = TRUE;
 	}
 
-	host = http_client_host_get(req->client, req->host_url->host_name);
+	host = http_client_host_get(req->client, req->host_url);
 	req->state = HTTP_REQUEST_STATE_QUEUED;
 
 	http_client_host_submit_request(host, req);

@@ -48,6 +48,7 @@ unsigned int http_client_peer_addr_hash
 	case HTTP_CLIENT_PEER_ADDR_HTTP:
 		return net_ip_hash(&peer->ip) + peer->port;
 	case HTTP_CLIENT_PEER_ADDR_HTTPS:
+	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
 		return net_ip_hash(&peer->ip) + peer->port +
 			(peer->https_name == NULL ? 0 : str_hash(peer->https_name));
 	}

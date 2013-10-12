@@ -64,6 +64,10 @@ struct http_client_settings {
 	/* don't automatically act upon redirect responses */
 	bool no_auto_redirect;
 
+	/* if we use a proxy, delegate SSL negotiation to proxy, rather than
+	   creating a CONNECT tunnel through the proxy for the SSL link */
+	bool no_ssl_tunnel;
+
 	/* maximum number of redirects for a request
 	   (default = 0; redirects refused) 
    */
@@ -135,6 +139,16 @@ http_client_request_connect(struct http_client *client,
 		    void *context);
 #define http_client_request_connect(client, host, port, callback, context) \
 	http_client_request_connect(client, host, port + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			const struct http_response *response, typeof(context))), \
+		(http_client_request_callback_t *)callback, context)
+struct http_client_request *
+http_client_request_connect_ip(struct http_client *client,
+		    const struct ip_addr *ip, in_port_t port,
+		    http_client_request_callback_t *callback,
+		    void *context);
+#define http_client_request_connect_ip(client, ip, port, callback, context) \
+	http_client_request_connect_ip(client, ip, port + \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct http_response *response, typeof(context))), \
 		(http_client_request_callback_t *)callback, context)

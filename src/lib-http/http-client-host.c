@@ -428,9 +428,10 @@ static void http_client_host_lookup
 }
 
 struct http_client_host *http_client_host_get
-(struct http_client *client, const char *hostname)
+(struct http_client *client, const struct http_url *host_url)
 {
 	struct http_client_host *host;
+	const char *hostname = host_url->host_name;
 
 	host = hash_table_lookup(client->hosts, hostname);
 	if (host == NULL) {
@@ -444,6 +445,12 @@ struct http_client_host *http_client_host_get
 		hostname = host->name;
 		hash_table_insert(client->hosts, hostname, host);
 		DLLIST_PREPEND(&client->hosts_list, host);
+
+		if (host_url->have_host_ip) {
+			host->ips_count = 1;
+			host->ips = i_new(struct ip_addr, host->ips_count);
+			host->ips[0] = host_url->host_ip;
+		}
 
 		http_client_host_debug(host, "Host created");
 	}

@@ -4,6 +4,7 @@
 #include "net.h"
 #include "str.h"
 #include "hash.h"
+#include "llist.h"
 #include "array.h"
 #include "ioloop.h"
 #include "istream.h"
@@ -912,7 +913,8 @@ static void http_client_connect_timeout(struct http_client_connection *conn)
 	http_client_connection_destroy(&conn->conn);
 }
 
-static void http_client_connection_connect(struct http_client_connection *conn)
+static void
+http_client_connection_connect(struct http_client_connection *conn)
 {
 	unsigned int msecs;
 
@@ -936,6 +938,94 @@ static void http_client_connection_connect(struct http_client_connection *conn)
 	}
 }
 
+static void
+http_client_connect_tunnel_timeout(struct http_client_connection *conn)
+{
+	http_client_connection_unref(&conn);
+}
+
+// FIXME: put something like this in lib/connection.c
+static void
+_connection_init_from_streams(struct connection_list *list,
+			    struct connection *conn, const char *name,
+			    struct istream *input, struct ostream *output)
+{
+	i_assert(name != NULL);
+
+	conn->list = list;
+	conn->name = i_strdup(name);
+	conn->fd_in = i_stream_get_fd(input);
+	conn->fd_out = o_stream_get_fd(output);
+
+	i_assert(conn->fd_in >= 0);
+	i_assert(conn->fd_out >= 0);
+	i_assert(conn->io == NULL);
+	i_assert(conn->input == NULL);
+	i_assert(conn->output == NULL);
+	i_assert(conn->to == NULL);
+
+	conn->input = input;
+	i_stream_set_name(conn->input, conn->name);
+
+	conn->output = output;
+	o_stream_set_no_error_handling(conn->output, TRUE);
+	o_stream_set_name(conn->output, conn->name);
+
+	conn->io = io_add(conn->fd_in, IO_READ, *list->v.input, conn);
+	
+	DLLIST_PREPEND(&list->connections, conn);
+	list->connections_count++;
+
+	if (list->v.client_connected != NULL)
+		list->v.client_connected(conn, TRUE);
+}
+
+static void
+http_client_connection_tunnel_response(const struct http_response *response,
+			       struct http_client_connection *conn)
+{
+	struct http_client_tunnel tunnel;
+	const char *name = http_client_peer_addr2str(&conn->peer->addr);
+
+	if (response->status != 200) {
+		http_client_peer_connection_failure(conn->peer, t_strdup_printf(
+			"tunnel connect(%s) failed: %d %s", name,
+				response->status, response->reason));
+		conn->connect_request = NULL;
+		return;
+	}
+
+	http_client_request_start_tunnel(conn->connect_request, &tunnel);
+	conn->connect_request = NULL;
+
+	_connection_init_from_streams
+		(conn->client->conn_list, &conn->conn, name, tunnel.input, tunnel.output);
+}
+
+static void
+http_client_connection_connect_tunnel(struct http_client_connection *conn,
+	const struct ip_addr *ip, unsigned int port)
+{
+	unsigned int msecs;
+
+	conn->connect_start_timestamp = ioloop_timeval;
+
+	conn->connect_request = http_client_request_connect_ip
+		(conn->client, ip, port, http_client_connection_tunnel_response, conn);
+	http_client_request_set_urgent(conn->connect_request);
+	http_client_request_submit(conn->connect_request);
+
+	/* don't use connection.h timeout because we want this timeout
+	   to include also the SSL handshake */
+	msecs = conn->client->set.connect_timeout_msecs;
+	if (msecs == 0)
+		msecs = conn->client->set.request_timeout_msecs;
+	if (msecs > 0) {
+		conn->to_connect =
+			timeout_add(msecs, http_client_connect_tunnel_timeout, conn);
+	}
+}
+
 struct http_client_connection *
 http_client_connection_create(struct http_client_peer *peer)
 {
@@ -951,6 +1041,9 @@ http_client_connection_create(struct http_client_peer *peer)
 	case HTTP_CLIENT_PEER_ADDR_HTTPS:
 		conn_type = "HTTPS";
 		break;
+	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
+		conn_type = "Tunneled HTTPS";
+		break;
 	case HTTP_CLIENT_PEER_ADDR_RAW:
 		conn_type = "Raw";
 		break;
@@ -964,9 +1057,13 @@ http_client_connection_create(struct http_client_peer *peer)
 	if (peer->addr.type != HTTP_CLIENT_PEER_ADDR_RAW)
 		i_array_init(&conn->request_wait_list, 16);
 
-	connection_init_client_ip
-		(peer->client->conn_list, &conn->conn, &addr->ip, addr->port);
-	http_client_connection_connect(conn);
+	if (peer->addr.type == HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL) {
+		http_client_connection_connect_tunnel(conn, &addr->ip, addr->port);
+	} else {
+		connection_init_client_ip
+			(peer->client->conn_list, &conn->conn, &addr->ip, addr->port);
+		http_client_connection_connect(conn);
+	}
 
 	array_append(&peer->conns, &conn, 1);
 
@@ -999,6 +1096,9 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 
 	conn->closing = TRUE;
 	conn->connected = FALSE;
+
+	if (conn->connect_request != NULL)
+		http_client_request_abort(&conn->connect_request);
 
 	if (conn->incoming_payload != NULL) {
 		/* the stream is still accessed by lib-http caller. */

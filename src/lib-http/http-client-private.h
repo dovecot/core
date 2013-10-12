@@ -35,6 +35,7 @@ HASH_TABLE_DEFINE_TYPE(http_client_peer, const struct http_client_peer_addr *,
 enum http_client_peer_addr_type {
 	HTTP_CLIENT_PEER_ADDR_HTTP = 0,
 	HTTP_CLIENT_PEER_ADDR_HTTPS,
+	HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL,
 	HTTP_CLIENT_PEER_ADDR_RAW
 };
 
@@ -97,6 +98,7 @@ struct http_client_request {
 	unsigned int submitted:1;
 	unsigned int connect_tunnel:1;
 	unsigned int connect_direct:1;
+	unsigned int ssl_tunnel:1;
 };
 
 struct http_client_host_port {
@@ -178,6 +180,7 @@ struct http_client_connection {
 	int connect_errno;
 	struct timeval connect_start_timestamp;
 	struct timeval connected_timestamp;
+	struct http_client_request *connect_request;
 
 	struct ssl_iostream *ssl_iostream;
 	struct http_response_parser *http_parser;
@@ -248,7 +251,10 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 		addr->type = HTTP_CLIENT_PEER_ADDR_RAW;
 		addr->port = (host_url->have_port ? host_url->port : HTTPS_DEFAULT_PORT);
 	} else if (host_url->have_ssl) {
-		addr->type = HTTP_CLIENT_PEER_ADDR_HTTPS;
+		if (req->ssl_tunnel)
+			addr->type = HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL;
+		else
+			addr->type = HTTP_CLIENT_PEER_ADDR_HTTPS;
 		addr->https_name = host_url->host_name;
  		addr->port = (host_url->have_port ? host_url->port : HTTPS_DEFAULT_PORT);
 	} else {
@@ -260,13 +266,19 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 static inline const char *
 http_client_connection_label(struct http_client_connection *conn)
 {
-	return t_strdup_printf("%s [%d]",
-		 http_client_peer_addr2str(&conn->peer->addr), conn->id);
+	return t_strdup_printf("%s%s [%d]",
+		http_client_peer_addr2str(&conn->peer->addr),
+		(conn->peer->addr.type == HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL ?
+			" (tunnel)" : ""), conn->id);
 }
 
 static inline const char *
 http_client_peer_label(struct http_client_peer *peer)
 {
+	if (peer->addr.type == HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL) {
+		return t_strconcat
+			(http_client_peer_addr2str(&peer->addr), " (tunnel)", NULL);
+	}
 	return http_client_peer_addr2str(&peer->addr);
 }
 
@@ -344,7 +356,8 @@ unsigned int http_client_peer_idle_connections(struct http_client_peer *peer);
 void http_client_peer_switch_ioloop(struct http_client_peer *peer);
 
 struct http_client_host *
-	http_client_host_get(struct http_client *client, const char *hostname);
+http_client_host_get(struct http_client *client,
+	const struct http_url *host_url);
 void http_client_host_free(struct http_client_host **_host);
 void http_client_host_submit_request(struct http_client_host *host,
 	struct http_client_request *req);
