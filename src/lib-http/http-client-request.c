@@ -377,11 +377,20 @@ int http_client_request_send_more(struct http_client_request *req,
 	o_stream_set_max_buffer_size(output, (size_t)-1);
 
 	if (req->payload_input->stream_errno != 0) {
+		/* the payload stream assigned to this request is broken,
+		   fail this the request immediately */
+		http_client_request_send_error(req,
+			HTTP_CLIENT_REQUEST_ERROR_BROKEN_PAYLOAD,
+			"Broken payload stream");
+
+		/* we're in the middle of sending a request, so the connection
+		   will also have to be aborted */
 		errno = req->payload_input->stream_errno;
 		*error_r = t_strdup_printf("read(%s) failed: %m",
 					   i_stream_get_name(req->payload_input));
 		ret = -1;
 	} else if (output->stream_errno != 0) {
+		/* failed to send request */
 		errno = output->stream_errno;
 		*error_r = t_strdup_printf("write(%s) failed: %m",
 					   o_stream_get_name(output));
@@ -393,6 +402,7 @@ int http_client_request_send_more(struct http_client_request *req,
 	if (ret < 0 || i_stream_is_eof(req->payload_input)) {
 		if (!req->payload_chunked &&
 			req->payload_input->v_offset - req->payload_offset != req->payload_size) {
+			*error_r = "stream input size changed [BUG]";
 			i_error("stream input size changed"); //FIXME
 			return -1;
 		}
@@ -552,12 +562,14 @@ bool http_client_request_callback(struct http_client_request *req,
 	return TRUE;
 }
 
-static void
+void
 http_client_request_send_error(struct http_client_request *req,
 			       unsigned int status, const char *error)
 {
 	http_client_request_callback_t *callback;
 
+	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
+		return;
 	req->state = HTTP_REQUEST_STATE_ABORTED;
 
 	callback = req->callback;
@@ -603,7 +615,7 @@ static void http_client_request_error_delayed(struct http_client_request *req)
 void http_client_request_error(struct http_client_request *req,
 	unsigned int status, const char *error)
 {
-	if (!req->submitted) {
+	if (!req->submitted && req->state < HTTP_REQUEST_STATE_FINISHED) {
 		/* we're still in http_client_request_submit(). delay
 		   reporting the error, so the caller doesn't have to handle
 		   immediate callbacks. */

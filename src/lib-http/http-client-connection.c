@@ -74,7 +74,8 @@ http_client_connection_retry_requests(struct http_client_connection *conn,
 	struct http_client_request **req;
 
 	array_foreach_modifiable(&conn->request_wait_list, req) {
-		http_client_request_retry(*req, status, error);
+		if ((*req)->state < HTTP_REQUEST_STATE_FINISHED)
+			http_client_request_retry(*req, status, error);
 		http_client_request_unref(req);
 	}	
 	array_clear(&conn->request_wait_list);
@@ -93,7 +94,8 @@ http_client_connection_server_close(struct http_client_connection **_conn)
 		"Server explicitly closed connection");
 
 	array_foreach_modifiable(&conn->request_wait_list, req) {
-		http_client_request_resubmit(*req);
+		if ((*req)->state < HTTP_REQUEST_STATE_FINISHED)
+			http_client_request_resubmit(*req);
 		http_client_request_unref(req);
 	}	
 	array_clear(&conn->request_wait_list);

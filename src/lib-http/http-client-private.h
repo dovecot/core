@@ -232,7 +232,7 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r);
 void http_client_request_ref(struct http_client_request *req);
 void http_client_request_unref(struct http_client_request **_req);
 int http_client_request_send(struct http_client_request *req,
-			     const char **error_r);
+			    const char **error_r);
 int http_client_request_send_more(struct http_client_request *req,
 				  const char **error_r);
 bool http_client_request_callback(struct http_client_request *req,
@@ -242,6 +242,8 @@ void http_client_request_retry(struct http_client_request *req,
 	unsigned int status, const char *error);
 void http_client_request_retry_response(struct http_client_request *req,
 	struct http_response *response);
+void http_client_request_send_error(struct http_client_request *req,
+			       unsigned int status, const char *error);
 void http_client_request_error(struct http_client_request *req,
 	unsigned int status, const char *error);
 void http_client_request_redirect(struct http_client_request *req,
