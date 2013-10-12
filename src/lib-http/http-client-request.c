@@ -773,6 +773,16 @@ void http_client_request_retry(struct http_client_request *req,
 		http_client_request_error(req, status, error);
 }
 
+void http_client_request_retry_response(struct http_client_request *req,
+	struct http_response *response)
+{
+	if (!http_client_request_try_retry(req)) {
+		i_assert(req->submitted || req->state >= HTTP_REQUEST_STATE_FINISHED);
+		(void)http_client_request_callback(req, response);
+		http_client_request_unref(&req);
+	}
+}
+
 bool http_client_request_try_retry(struct http_client_request *req)
 {
 	/* limit the number of attempts for each request */

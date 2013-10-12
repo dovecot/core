@@ -240,6 +240,8 @@ bool http_client_request_callback(struct http_client_request *req,
 void http_client_request_resubmit(struct http_client_request *req);
 void http_client_request_retry(struct http_client_request *req,
 	unsigned int status, const char *error);
+void http_client_request_retry_response(struct http_client_request *req,
+	struct http_response *response);
 void http_client_request_error(struct http_client_request *req,
 	unsigned int status, const char *error);
 void http_client_request_redirect(struct http_client_request *req,

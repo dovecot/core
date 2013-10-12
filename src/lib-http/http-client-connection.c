@@ -593,7 +593,7 @@ static void http_client_connection_input(struct connection *_conn)
 				req->payload_sync = FALSE;
 				conn->output_locked = FALSE;
 				conn->peer->no_payload_sync = TRUE;
-				http_client_request_retry(req, response.status, response.reason);
+				http_client_request_retry_response(req, &response);
 	
 			} else if (response.status / 100 == 3 && response.status != 304 &&
 				response.location != NULL) {
