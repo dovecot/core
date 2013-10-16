@@ -254,6 +254,8 @@ int imap_msgpart_parse(const char *section, struct imap_msgpart **msgpart_r)
 	section = t_str_ucase(section);
 
 	if (strcmp(section, "MIME") == 0) {
+		if (msgpart->section_number[0] == '\0')
+			return -1;
 		msgpart->fetch_type = FETCH_MIME;
 		msgpart->wanted_fields |= MAIL_FETCH_STREAM_BODY;
 	} else if (strcmp(section, "TEXT") == 0) {
