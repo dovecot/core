@@ -4,6 +4,7 @@
 #include "guid.h"
 
 struct mail_namespace;
+struct dsync_brain;
 
 enum dsync_mailbox_trees_sync_type {
 	/* two-way sync for both mailboxes */
@@ -12,6 +13,13 @@ enum dsync_mailbox_trees_sync_type {
 	DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL,
 	/* make local tree look exactly like the remote tree */
 	DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE
+};
+
+enum dsync_mailbox_trees_sync_flags {
+	/* Enable debugging */
+	DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG		= 0x01,
+	/* Show ourself as "master brain" in the debug output */
+	DSYNC_MAILBOX_TREES_SYNC_FLAG_MASTER_BRAIN	= 0x02
 };
 
 enum dsync_mailbox_node_existence {
@@ -174,7 +182,8 @@ void dsync_mailbox_tree_iter_deinit(struct dsync_mailbox_tree_iter **iter);
 struct dsync_mailbox_tree_sync_ctx *
 dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 			      struct dsync_mailbox_tree *remote_tree,
-			      enum dsync_mailbox_trees_sync_type sync_type);
+			      enum dsync_mailbox_trees_sync_type sync_type,
+			      enum dsync_mailbox_trees_sync_flags sync_flags);
 const struct dsync_mailbox_tree_sync_change *
 dsync_mailbox_trees_sync_next(struct dsync_mailbox_tree_sync_ctx *ctx);
 void dsync_mailbox_trees_sync_deinit(struct dsync_mailbox_tree_sync_ctx **ctx);
