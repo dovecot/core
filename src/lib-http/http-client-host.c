@@ -394,18 +394,26 @@ static void http_client_host_lookup
 	unsigned int ips_count;
 	int ret;
 
-	memset(&dns_set, 0, sizeof(dns_set));
-	dns_set.dns_client_socket_path =
-		client->set.dns_client_socket_path;
-	dns_set.timeout_msecs = HTTP_CLIENT_DNS_LOOKUP_TIMEOUT_MSECS;
-
-	if (host->ips_count == 0 &&
-	    net_addr2ip(host->name, &ip) == 0) { // FIXME: remove this?
+	if (net_addr2ip(host->name, &ip) == 0) {
 		host->ips_count = 1;
 		host->ips = i_new(struct ip_addr, host->ips_count);
 		host->ips[0] = ip;
-	} else if (dns_set.dns_client_socket_path == NULL) {
-		ret = net_gethostbyname(host->name,	&ips, &ips_count);
+	} else if (client->set.dns_client != NULL) {
+		http_client_host_debug(host,
+			"Performing asynchronous DNS lookup");
+		(void)dns_client_lookup(client->set.dns_client, host->name,
+			http_client_host_dns_callback, host, &host->dns_lookup);
+	} else if (dns_set.dns_client_socket_path != NULL) {
+		http_client_host_debug(host,
+			"Performing asynchronous DNS lookup");
+		memset(&dns_set, 0, sizeof(dns_set));
+		dns_set.dns_client_socket_path =
+			client->set.dns_client_socket_path;
+		dns_set.timeout_msecs = HTTP_CLIENT_DNS_LOOKUP_TIMEOUT_MSECS;
+		(void)dns_lookup(host->name, &dns_set,
+				 http_client_host_dns_callback, host, &host->dns_lookup);
+	} else {
+		ret = net_gethostbyname(host->name, &ips, &ips_count);
 		if (ret != 0) {
 			http_client_host_lookup_failure(host, net_gethosterror(ret));
 			return;
@@ -417,13 +425,6 @@ static void http_client_host_lookup
 		host->ips_count = ips_count;
 		host->ips = i_new(struct ip_addr, ips_count);
 		memcpy(host->ips, ips, ips_count * sizeof(*ips));
-	}
-
-	if (host->ips_count == 0) {
-		http_client_host_debug(host,
-			"Performing asynchronous DNS lookup");
-		(void)dns_lookup(host->name, &dns_set,
-				 http_client_host_dns_callback, host, &host->dns_lookup);
 	}
 }
 

@@ -34,6 +34,11 @@ enum http_request_state {
 extern const char *http_request_state_names[];
 
 struct http_client_settings {
+	/* a) If dns_client is set, all lookups are done via it.
+	   b) If dns_client_socket_path is set, each DNS lookup does its own
+	   dns-lookup UNIX socket connection.
+	   c) Otherwise, blocking gethostbyname() lookups are used. */
+	struct dns_client *dns_client;
 	const char *dns_client_socket_path;
 
 	const char *ssl_ca_dir, *ssl_ca_file, *ssl_ca;

@@ -75,6 +75,7 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	pool = pool_alloconly_create("http client", 1024);
 	client = p_new(pool, struct http_client, 1);
 	client->pool = pool;
+	client->set.dns_client = set->dns_client;
 	client->set.dns_client_socket_path =
 		p_strdup_empty(pool, set->dns_client_socket_path);
 	client->set.user_agent = p_strdup_empty(pool, set->user_agent);
