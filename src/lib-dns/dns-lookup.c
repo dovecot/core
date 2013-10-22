@@ -159,10 +159,8 @@ static void dns_client_input(struct dns_client *client)
 			return;
 		}
 	}
-	if (ret == 0)
-		return;
 
-	if (lookup->result.error != NULL) {
+	if (ret != 0 && lookup->result.error != NULL) {
 		/* already got the error */
 	} else if (client->input->stream_errno != 0) {
 		dns_client_disconnect(client, t_strdup_printf(
