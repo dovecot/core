@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "net.h"
+#include "llist.h"
 #include "istream.h"
 #include "write-full.h"
 #include "time-util.h"
@@ -14,12 +15,10 @@
 #define MAX_INBUF_SIZE 512
 
 struct dns_lookup {
-	int fd;
-	char *path;
+	struct dns_lookup *prev, *next;
+	struct dns_client *client;
 	bool ptr_lookup;
 
-	struct istream *input;
-	struct io *io;
 	struct timeout *to;
 
 	struct timeval start_time;
@@ -34,20 +33,51 @@ struct dns_lookup {
 	void *context;
 };
 
+struct dns_client {
+	int fd;
+	char *path;
+
+	unsigned int timeout_msecs, idle_timeout_msecs;
+
+	struct istream *input;
+	struct io *io;
+	struct timeout *to_idle;
+
+	struct dns_lookup *head, *tail;
+	bool deinit_client_at_free;
+};
+
+#undef dns_lookup
+#undef dns_lookup_ptr
+#undef dns_client_lookup
+#undef dns_client_lookup_ptr
+
 static void dns_lookup_free(struct dns_lookup **_lookup);
 
-static void dns_lookup_close(struct dns_lookup *lookup)
+static void dns_client_disconnect(struct dns_client *client, const char *error)
 {
-	if (lookup->to != NULL)
-		timeout_remove(&lookup->to);
-	if (lookup->io != NULL)
-		io_remove(&lookup->io);
-	if (lookup->input != NULL)
-		i_stream_destroy(&lookup->input);
-	if (lookup->fd != -1) {
-		if (close(lookup->fd) < 0)
-			i_error("close(%s) failed: %m", lookup->path);
-		lookup->fd = -1;
+	struct dns_lookup *lookup;
+	struct dns_lookup_result result;
+
+	memset(&result, 0, sizeof(result));
+	result.ret = EAI_FAIL;
+	result.error = error;
+
+	while (client->head != NULL) {
+		lookup = client->head;
+		lookup->callback(&result, lookup->context);
+		dns_lookup_free(&lookup);
+	}
+	if (client->to_idle != NULL)
+		timeout_remove(&client->to_idle);
+	if (client->io != NULL)
+		io_remove(&client->io);
+	if (client->input != NULL)
+		i_stream_destroy(&client->input);
+	if (client->fd != -1) {
+		if (close(client->fd) < 0)
+			i_error("close(%s) failed: %m", client->path);
+		client->fd = -1;
 	}
 }
 
@@ -107,129 +137,117 @@ static void dns_lookup_save_msecs(struct dns_lookup *lookup)
 		lookup->result.msecs = diff;
 }
 
-static void dns_lookup_input(struct dns_lookup *lookup)
+static void dns_client_input(struct dns_client *client)
 {
 	const char *line;
-	struct dns_lookup_result *result = &lookup->result;
+	struct dns_lookup *lookup = client->head;
+	bool retry = FALSE;
 	int ret = 0;
 
-	while ((line = i_stream_read_next_line(lookup->input)) != NULL) {
+	while ((line = i_stream_read_next_line(client->input)) != NULL) {
+		if (lookup == NULL) {
+			dns_client_disconnect(client, t_strdup_printf(
+				"Unexpected input from %s", client->path));
+			return;
+		}
 		ret = dns_lookup_input_line(lookup, line);
 		if (ret > 0)
 			break;
 		if (ret < 0) {
-			result->error = t_strdup_printf(
-				"Invalid input from %s", lookup->path);
-			break;
+			dns_client_disconnect(client, t_strdup_printf(
+				"Invalid input from %s", client->path));
+			return;
 		}
 	}
+	if (ret == 0)
+		return;
 
-	if (result->error != NULL) {
+	if (lookup->result.error != NULL) {
 		/* already got the error */
-	} else if (lookup->input->stream_errno != 0) {
-		result->error = t_strdup_printf("read(%s) failed: %m",
-						lookup->path);
-		ret = -1;
-	} else if (lookup->input->eof) {
-		result->error = t_strdup_printf("Unexpected EOF from %s",
-						lookup->path);
-		ret = -1;
+	} else if (client->input->stream_errno != 0) {
+		dns_client_disconnect(client, t_strdup_printf(
+			"read(%s) failed: %s", client->path,
+			i_stream_get_error(client->input)));
+		return;
+	} else if (client->input->eof) {
+		dns_client_disconnect(client, t_strdup_printf(
+			"Unexpected EOF from %s", client->path));
+		return;
 	}
-	if (ret != 0) {
+	if (ret > 0) {
 		dns_lookup_save_msecs(lookup);
-		dns_lookup_close(lookup);
-		lookup->callback(result, lookup->context);
+		lookup->callback(&lookup->result, lookup->context);
+		retry = !lookup->client->deinit_client_at_free;
 		dns_lookup_free(&lookup);
 	}
+	if (retry)
+		dns_client_input(client);
 }
 
 static void dns_lookup_timeout(struct dns_lookup *lookup)
 {
 	lookup->result.error = "DNS lookup timed out";
 
-	dns_lookup_close(lookup);
 	lookup->callback(&lookup->result, lookup->context);
 	dns_lookup_free(&lookup);
 }
 
-static int
-dns_lookup_common(const char *cmd, bool ptr_lookup,
-		  const struct dns_lookup_settings *set,
-		  dns_lookup_callback_t *callback, void *context,
-		  struct dns_lookup **lookup_r)
-{
-	struct dns_lookup *lookup;
-	struct dns_lookup_result result;
-	int fd;
-
-	memset(&result, 0, sizeof(result));
-	result.ret = EAI_FAIL;
-
-	fd = net_connect_unix(set->dns_client_socket_path);
-	if (fd == -1) {
-		result.error = t_strdup_printf("connect(%s) failed: %m",
-					       set->dns_client_socket_path);
-		callback(&result, context);
-		return -1;
-	}
-
-	if (write_full(fd, cmd, strlen(cmd)) < 0) {
-		result.error = t_strdup_printf("write(%s) failed: %m",
-					       set->dns_client_socket_path);
-		i_close_fd(&fd);
-		callback(&result, context);
-		return -1;
-	}
-
-	lookup = i_new(struct dns_lookup, 1);
-	lookup->ptr_lookup = ptr_lookup;
-	lookup->fd = fd;
-	lookup->path = i_strdup(set->dns_client_socket_path);
-	lookup->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
-	lookup->io = io_add(fd, IO_READ, dns_lookup_input, lookup);
-	if (set->timeout_msecs != 0) {
-		lookup->to = timeout_add(set->timeout_msecs,
-					 dns_lookup_timeout, lookup);
-	}
-	lookup->result.ret = EAI_FAIL;
-	lookup->callback = callback;
-	lookup->context = context;
-	if (gettimeofday(&lookup->start_time, NULL) < 0)
-		i_fatal("gettimeofday() failed: %m");
-
-	*lookup_r = lookup;
-	return 0;
-}
-
-#undef dns_lookup
 int dns_lookup(const char *host, const struct dns_lookup_settings *set,
 	       dns_lookup_callback_t *callback, void *context,
 	       struct dns_lookup **lookup_r)
 {
-	return dns_lookup_common(t_strconcat("IP\t", host, "\n", NULL), FALSE,
-				 set, callback, context, lookup_r);
+	struct dns_client *client;
+
+	client = dns_client_init(set);
+	client->deinit_client_at_free = TRUE;
+	if (dns_client_lookup(client, host, callback, context, lookup_r) < 0) {
+		dns_client_deinit(&client);
+		return -1;
+	}
+	return 0;
 }
 
-#undef dns_lookup_ptr
 int dns_lookup_ptr(const struct ip_addr *ip,
 		   const struct dns_lookup_settings *set,
 		   dns_lookup_callback_t *callback, void *context,
 		   struct dns_lookup **lookup_r)
 {
-	const char *cmd = t_strconcat("NAME\t", net_ip2addr(ip), "\n", NULL);
-	return dns_lookup_common(cmd, TRUE, set, callback, context, lookup_r);
+	struct dns_client *client;
+
+	client = dns_client_init(set);
+	client->deinit_client_at_free = TRUE;
+	if (dns_client_lookup_ptr(client, ip, callback, context, lookup_r) < 0) {
+		dns_client_deinit(&client);
+		return -1;
+	}
+	return 0;
+}
+
+static void dns_client_idle_timeout(struct dns_client *client)
+{
+	i_assert(client->head == NULL);
+
+	dns_client_disconnect(client, "Idle timeout");
 }
 
 static void dns_lookup_free(struct dns_lookup **_lookup)
 {
 	struct dns_lookup *lookup = *_lookup;
+	struct dns_client *client = lookup->client;
 
 	*_lookup = NULL;
 
-	dns_lookup_close(lookup);
+	DLLIST2_REMOVE(&client->head, &client->tail, lookup);
+	if (lookup->to != NULL)
+		timeout_remove(&lookup->to);
 	i_free(lookup->name);
 	i_free(lookup->ips);
-	i_free(lookup->path);
+	if (client->deinit_client_at_free)
+		dns_client_deinit(&client);
+	else if (client->head == NULL) {
+		client->to_idle = timeout_add(client->idle_timeout_msecs,
+					      dns_client_idle_timeout, client);
+	}
 	i_free(lookup);
 }
 
@@ -242,5 +260,106 @@ void dns_lookup_switch_ioloop(struct dns_lookup *lookup)
 {
 	if (lookup->to != NULL)
 		lookup->to = io_loop_move_timeout(&lookup->to);
-	lookup->io = io_loop_move_io(&lookup->io);
+	lookup->client->io = io_loop_move_io(&lookup->client->io);
+}
+
+struct dns_client *dns_client_init(const struct dns_lookup_settings *set)
+{
+	struct dns_client *client;
+
+	client = i_new(struct dns_client, 1);
+	client->path = i_strdup(set->dns_client_socket_path);
+	client->timeout_msecs = set->timeout_msecs;
+	client->idle_timeout_msecs = set->idle_timeout_msecs;
+	client->fd = -1;
+	return client;
+}
+
+void dns_client_deinit(struct dns_client **_client)
+{
+	struct dns_client *client = *_client;
+
+	*_client = NULL;
+
+	i_assert(client->head == NULL);
+
+	dns_client_disconnect(client, "deinit");
+	i_free(client->path);
+	i_free(client);
+}
+
+int dns_client_connect(struct dns_client *client, const char **error_r)
+{
+	if (client->fd != -1)
+		return 0;
+
+	client->fd = net_connect_unix(client->path);
+	if (client->fd == -1) {
+		*error_r = t_strdup_printf("connect(%s) failed: %m",
+					   client->path);
+		return -1;
+	}
+	client->input = i_stream_create_fd(client->fd, MAX_INBUF_SIZE, FALSE);
+	client->io = io_add(client->fd, IO_READ, dns_client_input, client);
+	return 0;
+}
+
+static int
+dns_client_lookup_common(struct dns_client *client,
+			 const char *cmd, bool ptr_lookup,
+			 dns_lookup_callback_t *callback, void *context,
+			 struct dns_lookup **lookup_r)
+{
+	struct dns_lookup *lookup;
+	struct dns_lookup_result result;
+
+	memset(&result, 0, sizeof(result));
+	result.ret = EAI_FAIL;
+
+	if (dns_client_connect(client, &result.error) < 0) {
+		callback(&result, context);
+		return -1;
+	}
+	if (write_full(client->fd, cmd, strlen(cmd)) < 0) {
+		dns_client_disconnect(client, t_strdup_printf(
+			"write(%s) failed: %m", client->path));
+		return -1;
+	}
+
+	lookup = i_new(struct dns_lookup, 1);
+	lookup->client = client;
+	lookup->ptr_lookup = ptr_lookup;
+	if (client->timeout_msecs != 0) {
+		lookup->to = timeout_add(client->timeout_msecs,
+					 dns_lookup_timeout, lookup);
+	}
+	lookup->result.ret = EAI_FAIL;
+	lookup->callback = callback;
+	lookup->context = context;
+	if (gettimeofday(&lookup->start_time, NULL) < 0)
+		i_fatal("gettimeofday() failed: %m");
+
+	if (client->to_idle != NULL)
+		timeout_remove(&client->to_idle);
+	DLLIST2_APPEND(&client->head, &client->tail, lookup);
+	*lookup_r = lookup;
+	return 0;
+}
+
+int dns_client_lookup(struct dns_client *client, const char *host,
+		      dns_lookup_callback_t *callback, void *context,
+		      struct dns_lookup **lookup_r)
+{
+	const char *cmd = t_strconcat("IP\t", host, "\n", NULL);
+	return dns_client_lookup_common(client, cmd, FALSE,
+					callback, context, lookup_r);
+}
+
+int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
+			  dns_lookup_callback_t *callback, void *context,
+			  struct dns_lookup **lookup_r)
+{
+	const char *cmd = t_strconcat("NAME\t", net_ip2addr(ip), "\n", NULL);
+	return dns_client_lookup_common(client, cmd, TRUE,
+					callback, context, lookup_r);
 }

@@ -8,6 +8,9 @@ struct dns_lookup;
 struct dns_lookup_settings {
 	const char *dns_client_socket_path;
 	unsigned int timeout_msecs;
+	/* the idle_timeout_msecs works only with the dns_client_* API.
+	   0 = disconnect immediately */
+	unsigned int idle_timeout_msecs;
 };
 
 struct dns_lookup_result {
@@ -54,5 +57,28 @@ int dns_lookup_ptr(const struct ip_addr *ip,
 void dns_lookup_abort(struct dns_lookup **lookup);
 
 void dns_lookup_switch_ioloop(struct dns_lookup *lookup);
+
+/* Alternative API for clients that need to do multiple DNS lookups. */
+struct dns_client *dns_client_init(const struct dns_lookup_settings *set);
+void dns_client_deinit(struct dns_client **client);
+
+/* Connect immediately to the dns-lookup socket. */
+int dns_client_connect(struct dns_client *client, const char **error_r);
+int dns_client_lookup(struct dns_client *client, const char *host,
+		      dns_lookup_callback_t *callback, void *context,
+		      struct dns_lookup **lookup_r) ATTR_NULL(4);
+#define dns_client_lookup(client, host, callback, context, lookup_r) \
+	dns_client_lookup(client, host + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			const struct dns_lookup_result *, typeof(context))), \
+		(dns_lookup_callback_t *)callback, context, lookup_r)
+int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
+			  dns_lookup_callback_t *callback, void *context,
+			  struct dns_lookup **lookup_r) ATTR_NULL(4);
+#define dns_client_lookup_ptr(client, host, callback, context, lookup_r) \
+	dns_client_lookup_ptr(client, host + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			const struct dns_lookup_result *, typeof(context))), \
+		(dns_lookup_callback_t *)callback, context, lookup_r)
 
 #endif
