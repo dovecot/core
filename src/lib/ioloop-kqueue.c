@@ -85,6 +85,7 @@ void io_loop_handle_remove(struct io_file *io, bool closed)
 	struct ioloop_handler_context *ctx = io->io.ioloop->handler_context;
 	struct kevent ev;
 
+	i_assert(io->io.condition != 0);
 	if ((io->io.condition & (IO_READ | IO_ERROR)) != 0 && !closed) {
 		MY_EV_SET(&ev, io->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
@@ -95,6 +96,7 @@ void io_loop_handle_remove(struct io_file *io, bool closed)
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 			i_error("kevent(EV_DELETE, %d) failed: %m", io->fd);
 	}
+	io->io.condition = 0;
 
 	/* since we're not freeing memory in any case, just increase
 	   deleted counter so next handle_add() can just decrease it
