@@ -164,7 +164,7 @@ static void doveadm_server_flush_one(struct doveadm_server *server)
 	unsigned int count = array_count(&server->queue);
 
 	do {
-		master_service_run(master_service, NULL);
+		io_loop_run(current_ioloop);
 	} while (array_count(&server->queue) == count &&
 		 doveadm_server_have_used_connections(server) &&
 		 !DOVEADM_MAIL_SERVER_FAILED());
