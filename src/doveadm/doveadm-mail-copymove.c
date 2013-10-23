@@ -152,7 +152,8 @@ static void cmd_copy_init(struct doveadm_mail_cmd_context *_ctx,
 
 	ctx->destname = p_strdup(ctx->ctx.pool, destname);
 	_ctx->search_args = doveadm_mail_build_search_args(args);
-	expunge_search_args_check(ctx->ctx.search_args, cmdname);
+	if (ctx->move)
+		expunge_search_args_check(ctx->ctx.search_args, cmdname);
 }
 
 static void cmd_copy_deinit(struct doveadm_mail_cmd_context *_ctx)
