@@ -25,6 +25,7 @@ struct ioloop {
 	time_t next_max_time;
 
 	unsigned int running:1;
+	unsigned int iolooping:1;
 };
 
 struct io {

@@ -401,9 +401,15 @@ void io_loop_run(struct ioloop *ioloop)
 	if (ioloop->cur_ctx != NULL)
 		io_loop_context_unref(&ioloop->cur_ctx);
 
+	/* recursive io_loop_run() isn't allowed for the same ioloop.
+	   it can break backends. */
+	i_assert(!ioloop->iolooping);
+	ioloop->iolooping = TRUE;
+
 	ioloop->running = TRUE;
 	while (ioloop->running)
 		io_loop_handler_run(ioloop);
+	ioloop->iolooping = FALSE;
 }
 
 void io_loop_stop(struct ioloop *ioloop)
