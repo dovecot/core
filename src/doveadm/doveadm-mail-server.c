@@ -99,7 +99,7 @@ static void doveadm_cmd_callback(int exit_code, const char *error,
 		i_error("%s: Command %s failed for %s: %s",
 			server->name, cmd_ctx->cmd->name, username, error);
 		internal_failure = TRUE;
-		master_service_stop(master_service);
+		io_loop_stop(current_ioloop);
 		return;
 	case EX_NOUSER:
 		i_error("%s: No such user: %s", server->name, username);
@@ -125,7 +125,7 @@ static void doveadm_cmd_callback(int exit_code, const char *error,
 		}
 	}
 
-	master_service_stop(master_service);
+	io_loop_stop(current_ioloop);
 }
 
 static void doveadm_mail_server_handle(struct server_connection *conn,
