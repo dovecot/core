@@ -224,7 +224,8 @@ void expunge_search_args_check(struct mail_search_args *args, const char *cmd)
 	if (!expunge_search_args_is_msgset_ok(args->args)) {
 		i_fatal_status(EX_USAGE,
 			"%s: To avoid accidents, each branch in search query "
-			"must contain something else besides MAILBOX", cmd);
+			"must contain something else besides MAILBOX "
+			"(e.g. just add \"all\" if you want everything)", cmd);
 	}
 }
 
