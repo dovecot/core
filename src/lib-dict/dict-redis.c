@@ -137,8 +137,7 @@ static int redis_input_get(struct redis_connection *conn)
 		if (line[0] != '$' || str_to_uint(line+1, &conn->bytes_left) < 0) {
 			i_error("redis: Unexpected input (wanted $size): %s",
 				line);
-			redis_conn_destroy(&conn->conn);
-			return 1;
+			return -1;
 		}
 		conn->bytes_left += 2; /* include trailing CRLF */
 	}
