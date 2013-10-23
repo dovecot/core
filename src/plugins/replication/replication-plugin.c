@@ -85,10 +85,14 @@ replication_fifo_notify(struct mail_user *user,
 		return 0;
 	}
 	if (ret != (ssize_t)str_len(str)) {
-		if (ret < 0)
-			i_error("write(%s) failed: %m", fifo_path);
-		else
+		if (ret > 0)
 			i_error("write(%s) wrote partial data", fifo_path);
+		else if (errno != EPIPE)
+			i_error("write(%s) failed: %m", fifo_path);
+		else {
+			/* server was probably restarted, don't bother logging
+			   this. */
+		}
 		if (close(fifo_fd) < 0)
 			i_error("close(%s) failed: %m", fifo_path);
 		fifo_fd = -1;
