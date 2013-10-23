@@ -591,6 +591,11 @@ static int redis_check_transaction(struct redis_dict_transaction_context *ctx)
 
 	if (ctx->failed)
 		return -1;
+	if (!dict->connected) {
+		/* disconnected during transaction */
+		ctx->failed = TRUE;
+		return -1;
+	}
 	if (ctx->ctx.changed)
 		return 0;
 
