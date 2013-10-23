@@ -638,6 +638,15 @@ void master_service_client_connection_created(struct master_service *service)
 	i_assert(service->master_status.available_count > 0);
 	service->master_status.available_count--;
 	master_status_update(service);
+
+	if (service->master_status.available_count == 0 &&
+	    service->service_count_left == 1) {
+		/* we're not going to accept any more connections after this.
+		   go ahead and close the connection early. */
+		i_assert(service->listeners != NULL);
+		master_service_io_listeners_remove(service);
+		master_service_io_listeners_close(service);
+	}
 }
 
 void master_service_client_connection_accept(struct master_service_connection *conn)
@@ -923,6 +932,7 @@ static void master_service_io_listeners_close(struct master_service *service)
 					i_error("close(listener %d) failed: %m",
 						service->listeners[i].fd);
 				}
+				service->listeners[i].fd = -1;
 			}
 		}
 	} else {
