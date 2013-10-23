@@ -588,30 +588,38 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 	return ctx.return_value;
 }
 
+struct auth_master_cache_ctx {
+	struct auth_master_connection *conn;
+	unsigned int count;
+	bool failed;
+};
+
 static bool
 auth_cache_flush_reply_callback(const char *cmd, const char *const *args,
 				void *context)
 {
-	unsigned int *countp = context;
+	struct auth_master_cache_ctx *ctx = context;
 
 	if (strcmp(cmd, "OK") != 0)
-		*countp = UINT_MAX;
-	else if (args[0] == NULL || str_to_uint(args[0], countp) < 0)
-		*countp = UINT_MAX;
+		ctx->failed = TRUE;
+	else if (args[0] == NULL || str_to_uint(args[0], &ctx->count) < 0)
+		ctx->failed = TRUE;
 
-	io_loop_stop(current_ioloop);
+	io_loop_stop(ctx->conn->ioloop);
 	return TRUE;
 }
 
 int auth_master_cache_flush(struct auth_master_connection *conn,
 			    const char *const *users, unsigned int *count_r)
 {
+	struct auth_master_cache_ctx ctx;
 	string_t *str;
 
-	*count_r = UINT_MAX;
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.conn = conn;
 
 	conn->reply_callback = auth_cache_flush_reply_callback;
-	conn->reply_context = count_r;
+	conn->reply_context = &ctx;
 
 	str = t_str_new(128);
 	str_printfa(str, "CACHE-FLUSH\t%u", auth_master_next_request_id(conn));
@@ -628,7 +636,8 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
 
 	conn->reply_context = NULL;
-	return *count_r == UINT_MAX ? -1 : 0;
+	*count_r = ctx.count;
+	return ctx.failed ? -1 : 0;
 }
 
 static bool
