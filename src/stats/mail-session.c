@@ -48,10 +48,17 @@ static void mail_session_disconnect(struct mail_session *session)
 
 static void mail_session_idle_timeout(struct mail_session *session)
 {
-	i_warning("Session %s (user %s, service %s) appears to have crashed, "
-		  "disconnecting it",
-		  guid_128_to_string(session->guid), session->user->name,
-		  session->service);
+	/* user="" service="" pid=0 is used for incoming sessions that were
+	   received after we detected a stats process crash/restart. there's
+	   no point in logging anything about them, since they contain no
+	   useful information. */
+	if (session->user->name[0] == '\0' && session->service[0] != '\0' &&
+	    session->pid == 0) {
+		i_warning("Session %s (user %s, service %s) "
+			  "appears to have crashed, disconnecting it",
+			  guid_128_to_string(session->guid),
+			  session->user->name, session->service);
+	}
 	mail_session_disconnect(session);
 }
 
