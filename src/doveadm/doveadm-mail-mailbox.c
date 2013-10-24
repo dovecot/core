@@ -24,6 +24,12 @@ struct mailbox_cmd_context {
 	ARRAY_TYPE(const_string) mailboxes;
 };
 
+struct create_cmd_context {
+	struct doveadm_mailbox_cmd_context ctx;
+	ARRAY_TYPE(const_string) mailboxes;
+	struct mailbox_update update;
+};
+
 struct delete_cmd_context {
 	struct doveadm_mailbox_cmd_context ctx;
 	ARRAY_TYPE(const_string) mailboxes;
@@ -197,7 +203,7 @@ static int
 cmd_mailbox_create_run(struct doveadm_mail_cmd_context *_ctx,
 		       struct mail_user *user)
 {
-	struct mailbox_cmd_context *ctx = (struct mailbox_cmd_context *)_ctx;
+	struct create_cmd_context *ctx = (struct create_cmd_context *)_ctx;
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	const char *const *namep;
@@ -216,7 +222,7 @@ cmd_mailbox_create_run(struct doveadm_mail_cmd_context *_ctx,
 		}
 
 		box = mailbox_alloc(ns->list, name, 0);
-		if (mailbox_create(box, NULL, directory) < 0) {
+		if (mailbox_create(box, &ctx->update, directory) < 0) {
 			i_error("Can't create mailbox %s: %s", name,
 				mailbox_get_last_error(box, NULL));
 			doveadm_mail_failed_mailbox(_ctx, box);
@@ -252,13 +258,31 @@ static void cmd_mailbox_create_init(struct doveadm_mail_cmd_context *_ctx,
 	}
 }
 
+static bool
+cmd_mailbox_create_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
+{
+	struct create_cmd_context *ctx = (struct create_cmd_context *)_ctx;
+
+	switch (c) {
+	case 'g':
+		if (guid_128_from_string(optarg, ctx->update.mailbox_guid) < 0)
+			doveadm_mail_help_name("mailbox create");
+		break;
+	default:
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static struct doveadm_mail_cmd_context *cmd_mailbox_create_alloc(void)
 {
-	struct mailbox_cmd_context *ctx;
+	struct create_cmd_context *ctx;
 
-	ctx = doveadm_mailbox_cmd_alloc(struct mailbox_cmd_context);
+	ctx = doveadm_mailbox_cmd_alloc(struct create_cmd_context);
 	ctx->ctx.ctx.v.init = cmd_mailbox_create_init;
 	ctx->ctx.ctx.v.run = cmd_mailbox_create_run;
+	ctx->ctx.ctx.v.parse_arg = cmd_mailbox_create_parse_arg;
+	ctx->ctx.ctx.getopt_args = "g:";
 	p_array_init(&ctx->mailboxes, ctx->ctx.ctx.pool, 16);
 	return &ctx->ctx.ctx;
 }
@@ -532,7 +556,7 @@ struct doveadm_mail_cmd cmd_mailbox_list = {
 };
 struct doveadm_mail_cmd cmd_mailbox_create = {
 	cmd_mailbox_create_alloc, "mailbox create",
-	"[-s] <mailbox> [...]"
+	"[-s] [-g <guid>] <mailbox> [...]"
 };
 struct doveadm_mail_cmd cmd_mailbox_delete = {
 	cmd_mailbox_delete_alloc, "mailbox delete",
