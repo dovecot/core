@@ -361,7 +361,9 @@ static void ATTR_NULL(3, 4)
 client_auth_result(struct client *client, enum client_auth_result result,
 		   const struct client_auth_reply *reply, const char *text)
 {
+	o_stream_cork(client->output);
 	client->v.auth_result(client, result, reply, text);
+	o_stream_uncork(client->output);
 }
 
 static bool
