@@ -409,8 +409,7 @@ static void auth_request_save_cache(struct auth_request *request,
 		i_unreached();
 	}
 
-	if (passdb_cache == NULL || passdb->cache_key == NULL ||
-	    request->master_user != NULL)
+	if (passdb_cache == NULL || passdb->cache_key == NULL)
 		return;
 
 	if (result < 0) {
@@ -923,8 +922,7 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 	string_t *str;
 	const char *cache_value;
 
-	if (passdb_cache == NULL || userdb->cache_key == NULL ||
-	    request->master_user != NULL)
+	if (passdb_cache == NULL || userdb->cache_key == NULL)
 		return;
 
 	if (result == USERDB_RESULT_USER_UNKNOWN)
@@ -955,9 +953,6 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 	const char *value;
 	struct auth_cache_node *node;
 	bool expired, neg_expired;
-
-	if (request->master_user != NULL)
-		return FALSE;
 
 	value = auth_cache_lookup(passdb_cache, request, key, &node,
 				  &expired, &neg_expired);
@@ -1951,6 +1946,7 @@ auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1] = {
 	{ '\0', NULL, "real_rport" },
 	{ '\0', NULL, "domain_first" },
 	{ '\0', NULL, "domain_last" },
+	{ '\0', NULL, "master_user" },
 	/* be sure to update AUTH_REQUEST_VAR_TAB_COUNT */
 	{ '\0', NULL, NULL }
 };
@@ -2036,6 +2032,8 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[24].value = strrchr(auth_request->user, '@');
 	if (tab[24].value != NULL)
 		tab[24].value = escape_func(tab[24].value+1, auth_request);
+	tab[25].value = auth_request->master_user == NULL ? NULL :
+		escape_func(auth_request->master_user, auth_request);
 	return ret_tab;
 }
 
