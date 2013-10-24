@@ -78,7 +78,7 @@ static void login_proxy_free_errno(struct login_proxy **proxy,
 static void server_input(struct login_proxy *proxy)
 {
 	unsigned char buf[OUTBUF_THRESHOLD];
-	ssize_t ret;
+	ssize_t ret, ret2;
 
 	proxy->last_io = ioloop_time;
 	if (o_stream_get_buffer_used_size(proxy->client_output) >
@@ -90,9 +90,14 @@ static void server_input(struct login_proxy *proxy)
 	}
 
 	ret = net_receive(proxy->server_fd, buf, sizeof(buf));
-	if (ret < 0)
+	if (ret < 0) {
 		login_proxy_free_errno(&proxy, errno, "server");
-	else if (o_stream_send(proxy->client_output, buf, ret) != ret) {
+		return;
+	}
+	o_stream_cork(proxy->client_output);
+	ret2 = o_stream_send(proxy->client_output, buf, ret);
+	o_stream_uncork(proxy->client_output);
+	if (ret2 != ret) {
 		login_proxy_free_errno(&proxy,
 				       proxy->client_output->stream_errno,
 				       "client");
@@ -102,7 +107,7 @@ static void server_input(struct login_proxy *proxy)
 static void proxy_client_input(struct login_proxy *proxy)
 {
 	unsigned char buf[OUTBUF_THRESHOLD];
-	ssize_t ret;
+	ssize_t ret, ret2;
 
 	proxy->last_io = ioloop_time;
 	if (o_stream_get_buffer_used_size(proxy->server_output) >
@@ -114,9 +119,14 @@ static void proxy_client_input(struct login_proxy *proxy)
 	}
 
 	ret = net_receive(proxy->client_fd, buf, sizeof(buf));
-	if (ret < 0)
+	if (ret < 0) {
 		login_proxy_free_errno(&proxy, errno, "client");
-	else if (o_stream_send(proxy->server_output, buf, ret) != ret) {
+		return;
+	}
+	o_stream_cork(proxy->client_output);
+	ret2 = o_stream_send(proxy->server_output, buf, ret);
+	o_stream_uncork(proxy->server_output);
+	if (ret2 != ret) {
 		login_proxy_free_errno(&proxy,
 				       proxy->server_output->stream_errno,
 				       "server");
