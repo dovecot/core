@@ -455,12 +455,12 @@ cmd_dsync_icb_stream_init(struct dsync_cmd_context *ctx,
 		ctx->input = i_stream_create_fd(ctx->fd_in, (size_t)-1, FALSE);
 		ctx->output = o_stream_create_fd(ctx->fd_out, (size_t)-1, FALSE);
 	}
-	i_stream_ref(ctx->input);
-	o_stream_ref(ctx->output);
 	if (ctx->rawlog_path != NULL) {
 		iostream_rawlog_create_path(ctx->rawlog_path,
 					    &ctx->input, &ctx->output);
 	}
+	i_stream_ref(ctx->input);
+	o_stream_ref(ctx->output);
 	return dsync_ibc_init_stream(ctx->input, ctx->output,
 				     name, temp_prefix);
 }
