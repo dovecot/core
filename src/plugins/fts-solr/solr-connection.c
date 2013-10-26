@@ -9,6 +9,7 @@
 #include "istream.h"
 #include "http-url.h"
 #include "http-client.h"
+#include "fts-solr-plugin.h"
 #include "solr-connection.h"
 
 #include <expat.h>
@@ -54,8 +55,6 @@ struct solr_connection_post {
 };
 
 struct solr_connection {
-	struct http_client *http_client;
-
 	XML_Parser xml_parser;
 
 	char *http_host;
@@ -121,16 +120,16 @@ int solr_connection_init(const char *url, bool debug,
 	conn->http_ssl = http_url->have_ssl;
 	conn->debug = debug;
 
-	memset(&http_set, 0, sizeof(http_set));
-	http_set.debug = TRUE;
-	http_set.max_idle_time_msecs = 5*1000;
-	http_set.max_parallel_connections = 1;
-	http_set.max_pipelined_requests = 1;
-	http_set.max_redirects = 1;
-	http_set.max_attempts = 3;
-	http_set.debug = conn->debug;
-
-	conn->http_client = http_client_init(&http_set);
+	if (solr_http_client == NULL) {
+		memset(&http_set, 0, sizeof(http_set));
+		http_set.max_idle_time_msecs = 5*1000;
+		http_set.max_parallel_connections = 1;
+		http_set.max_pipelined_requests = 1;
+		http_set.max_redirects = 1;
+		http_set.max_attempts = 3;
+		http_set.debug = debug;
+		solr_http_client = http_client_init(&http_set);
+	}
 
 	conn->xml_parser = XML_ParserCreate("UTF-8");
 	if (conn->xml_parser == NULL) {
@@ -143,7 +142,6 @@ int solr_connection_init(const char *url, bool debug,
 
 void solr_connection_deinit(struct solr_connection *conn)
 {
-	http_client_deinit(&conn->http_client);
 	XML_ParserFree(conn->xml_parser);
 	i_free(conn->http_host);
 	i_free(conn->http_base_url);
@@ -423,7 +421,7 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 
 	url = t_strconcat(conn->http_base_url, "select?", query, NULL);
 
-	http_req = http_client_request(conn->http_client, "GET",
+	http_req = http_client_request(solr_http_client, "GET",
 				       conn->http_host, url,
 				       solr_connection_select_response, conn);
 	http_client_request_set_port(http_req, conn->http_port);
@@ -432,7 +430,7 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	http_client_request_submit(http_req);
 
 	conn->request_status = 0;
-	http_client_wait(conn->http_client);
+	http_client_wait(solr_http_client);
 
 	if (conn->request_status < 0)
 		return -1;
@@ -471,7 +469,7 @@ solr_connection_post_request(struct solr_connection *conn)
 
 	url = t_strconcat(conn->http_base_url, "update", NULL);
 
-	http_req = http_client_request(conn->http_client, "POST",
+	http_req = http_client_request(solr_http_client, "POST",
 				       conn->http_host, url,
 				       solr_connection_update_response, conn);
 	http_client_request_set_port(http_req, conn->http_port);
@@ -547,7 +545,7 @@ int solr_connection_post(struct solr_connection *conn, const char *cmd)
 	XML_ParserReset(conn->xml_parser, "UTF-8");
 
 	conn->request_status = 0;
-	http_client_wait(conn->http_client);
+	http_client_wait(solr_http_client);
 
 	return conn->request_status;
 }

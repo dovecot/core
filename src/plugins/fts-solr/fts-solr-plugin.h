@@ -2,6 +2,7 @@
 #define FTS_SOLR_PLUGIN_H
 
 #include "module-context.h"
+#include "mail-user.h"
 #include "fts-api-private.h"
 
 #define FTS_SOLR_USER_CONTEXT(obj) \
@@ -21,7 +22,7 @@ extern const char *fts_solr_plugin_dependencies[];
 extern struct fts_backend fts_backend_solr;
 extern struct fts_backend fts_backend_solr_old;
 extern MODULE_CONTEXT_DEFINE(fts_solr_user_module, &mail_user_module_register);
-extern struct solr_connection *solr_conn;
+extern struct http_client *solr_http_client;
 
 void fts_solr_plugin_init(struct module *module);
 void fts_solr_plugin_deinit(void);

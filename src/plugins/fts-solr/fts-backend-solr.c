@@ -28,6 +28,7 @@
 
 struct solr_fts_backend {
 	struct fts_backend backend;
+	struct solr_connection *solr_conn;
 };
 
 struct solr_fts_field {
@@ -157,18 +158,15 @@ static struct fts_backend *fts_backend_solr_alloc(void)
 static int
 fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 {
+	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(_backend->ns->user);
 
 	if (fuser == NULL) {
 		*error_r = "Invalid fts_solr setting";
 		return -1;
 	}
-	if (solr_conn == NULL) {
-		if (solr_connection_init(fuser->set.url, fuser->set.debug,
-					 &solr_conn, error_r) < 0)
-			return -1;
-	}
-	return 0;
+	return solr_connection_init(fuser->set.url, fuser->set.debug,
+				    &backend->solr_conn, error_r);
 }
 
 static void fts_backend_solr_deinit(struct fts_backend *_backend)
@@ -182,6 +180,7 @@ static int
 get_last_uid_fallback(struct fts_backend *_backend, struct mailbox *box,
 		      uint32_t *last_uid_r)
 {
+	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	const struct seq_range *uidvals;
 	const char *box_guid;
 	unsigned int count;
@@ -203,7 +202,7 @@ get_last_uid_fallback(struct fts_backend *_backend, struct mailbox *box,
 		str_append(str, "%22%22");
 
 	pool = pool_alloconly_create("solr last uid lookup", 1024);
-	if (solr_connection_select(solr_conn, str_c(str),
+	if (solr_connection_select(backend->solr_conn, str_c(str),
 				   pool, &results) < 0)
 		ret = -1;
 	else if (results[0] == NULL) {
@@ -338,8 +337,11 @@ fts_backed_solr_build_commit(struct solr_fts_backend_update_context *ctx)
 static void
 fts_backend_solr_expunge_flush(struct solr_fts_backend_update_context *ctx)
 {
+	struct solr_fts_backend *backend =
+		(struct solr_fts_backend *)ctx->ctx.backend;
+
 	str_append(ctx->cmd_expunge, "</delete>");
-	(void)solr_connection_post(solr_conn, str_c(ctx->cmd_expunge));
+	(void)solr_connection_post(backend->solr_conn, str_c(ctx->cmd_expunge));
 	str_truncate(ctx->cmd_expunge, 0);
 	str_append(ctx->cmd_expunge, "<delete>");
 }
@@ -349,6 +351,8 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 {
 	struct solr_fts_backend_update_context *ctx =
 		(struct solr_fts_backend_update_context *)_ctx;
+	struct solr_fts_backend *backend =
+		(struct solr_fts_backend *)_ctx->backend;
 	struct solr_fts_field *field;
 	const char *str;
 	int ret = _ctx->failed ? -1 : 0;
@@ -363,7 +367,7 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 			fts_backend_solr_expunge_flush(ctx);
 		str = t_strdup_printf("<commit softCommit=\"true\" waitSearcher=\"%s\"/>",
 				      ctx->documents_added ? "true" : "false");
-		if (solr_connection_post(solr_conn, str) < 0)
+		if (solr_connection_post(backend->solr_conn, str) < 0)
 			ret = -1;
 	}
 
@@ -444,11 +448,14 @@ static void
 fts_backend_solr_uid_changed(struct solr_fts_backend_update_context *ctx,
 			     uint32_t uid)
 {
+	struct solr_fts_backend *backend =
+		(struct solr_fts_backend *)ctx->ctx.backend;
+
 	if (ctx->post == NULL) {
 		i_assert(ctx->prev_uid == 0);
 
 		ctx->cmd = str_new(default_pool, SOLR_CMDBUF_SIZE);
-		ctx->post = solr_connection_post_begin(solr_conn);
+		ctx->post = solr_connection_post_begin(backend->solr_conn);
 		str_append(ctx->cmd, "<add>");
 	} else {
 		fts_backend_solr_doc_close(ctx);
@@ -751,6 +758,7 @@ static int solr_search(struct fts_backend *_backend, string_t *str,
 		       const char *box_guid, ARRAY_TYPE(seq_range) *uids_r,
 		       ARRAY_TYPE(fts_score_map) *scores_r)
 {
+	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	pool_t pool = pool_alloconly_create("fts solr search", 1024);
 	struct solr_result **results;
 	int ret;
@@ -763,7 +771,8 @@ static int solr_search(struct fts_backend *_backend, string_t *str,
 	else
 		str_append(str, "%22%22");
 
-	ret = solr_connection_select(solr_conn, str_c(str), pool, &results);
+	ret = solr_connection_select(backend->solr_conn, str_c(str),
+				     pool, &results);
 	if (ret == 0 && results[0] != NULL) {
 		array_append_array(uids_r, &results[0]->uids);
 		array_append_array(scores_r, &results[0]->scores);
@@ -811,6 +820,7 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 		  struct mailbox *const boxes[],
 		  struct fts_multi_result *result)
 {
+	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	struct solr_result **solr_results;
 	struct fts_result *fts_result;
 	ARRAY(struct fts_result) fts_results;
@@ -842,7 +852,7 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 	}
 	str_append_c(str, ')');
 
-	if (solr_connection_select(solr_conn, str_c(str),
+	if (solr_connection_select(backend->solr_conn, str_c(str),
 				   result->pool, &solr_results) < 0) {
 		hash_table_destroy(&mailboxes);
 		return -1;

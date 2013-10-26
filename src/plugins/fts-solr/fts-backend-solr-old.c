@@ -22,6 +22,7 @@
 
 struct solr_fts_backend {
 	struct fts_backend backend;
+	struct solr_connection *solr_conn;
 	char *id_username, *id_namespace;
 	struct mail_namespace *default_ns;
 };
@@ -235,11 +236,9 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 		*error_r = "Invalid fts_solr setting";
 		return -1;
 	}
-	if (solr_conn == NULL) {
-		if (solr_connection_init(fuser->set.url, fuser->set.debug,
-					 &solr_conn, error_r) < 0)
-			return -1;
-	}
+	if (solr_connection_init(fuser->set.url, fuser->set.debug,
+				 &backend->solr_conn, error_r) < 0)
+		return -1;
 
 	str = solr_escape_id_str(_backend->ns->user->username);
 	backend->id_username = i_strdup(str);
@@ -315,7 +314,7 @@ fts_backend_solr_get_last_uid_fallback(struct solr_fts_backend *backend,
 	solr_quote_http(str, ns->user->username);
 
 	pool = pool_alloconly_create("solr last uid lookup", 1024);
-	if (solr_connection_select(solr_conn, str_c(str),
+	if (solr_connection_select(backend->solr_conn, str_c(str),
 				   pool, &results) < 0)
 		ret = -1;
 	else if (results[0] == NULL) {
@@ -442,6 +441,8 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 {
 	struct solr_fts_backend_update_context *ctx =
 		(struct solr_fts_backend_update_context *)_ctx;
+	struct solr_fts_backend *backend =
+		(struct solr_fts_backend *)_ctx->backend;
 	const char *str;
 	int ret;
 
@@ -452,7 +453,7 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 	str = t_strdup_printf("<commit waitFlush=\"false\" "
 			      "waitSearcher=\"%s\"/>",
 			      ctx->documents_added ? "true" : "false");
-	if (solr_connection_post(solr_conn, str) < 0)
+	if (solr_connection_post(backend->solr_conn, str) < 0)
 		ret = -1;
 
 	str_free(&ctx->cmd);
@@ -494,6 +495,8 @@ fts_backend_solr_update_expunge(struct fts_backend_update_context *_ctx,
 {
 	struct solr_fts_backend_update_context *ctx =
 		(struct solr_fts_backend_update_context *)_ctx;
+	struct solr_fts_backend *backend =
+		(struct solr_fts_backend *)_ctx->backend;
 
 	T_BEGIN {
 		string_t *cmd;
@@ -503,7 +506,7 @@ fts_backend_solr_update_expunge(struct fts_backend_update_context *_ctx,
 		xml_encode_id(ctx, cmd, uid);
 		str_append(cmd, "</id></delete>");
 
-		(void)solr_connection_post(solr_conn, str_c(cmd));
+		(void)solr_connection_post(backend->solr_conn, str_c(cmd));
 	} T_END;
 }
 
@@ -511,10 +514,13 @@ static void
 fts_backend_solr_uid_changed(struct solr_fts_backend_update_context *ctx,
 			     uint32_t uid)
 {
+	struct solr_fts_backend *backend =
+		(struct solr_fts_backend *)ctx->ctx.backend;
+
 	if (ctx->post == NULL) {
 		i_assert(ctx->prev_uid == 0);
 
-		ctx->post = solr_connection_post_begin(solr_conn);
+		ctx->post = solr_connection_post_begin(backend->solr_conn);
 		str_append(ctx->cmd, "<add>");
 	} else {
 		ctx->headers_open = FALSE;
@@ -695,7 +701,8 @@ fts_backend_solr_lookup(struct fts_backend *_backend, struct mailbox *box,
 	solr_add_ns_query_http(str, backend, ns);
 
 	pool = pool_alloconly_create("fts solr search", 1024);
-	ret = solr_connection_select(solr_conn, str_c(str), pool, &results);
+	ret = solr_connection_select(backend->solr_conn, str_c(str),
+				     pool, &results);
 	if (ret == 0 && results[0] != NULL) {
 		array_append_array(&result->definite_uids, &results[0]->uids);
 		array_append_array(&result->scores, &results[0]->scores);
@@ -761,7 +768,7 @@ solr_search_multi(struct solr_fts_backend *backend, string_t *str,
 	}
 	str_append_c(str, ')');
 
-	if (solr_connection_select(solr_conn, str_c(str),
+	if (solr_connection_select(backend->solr_conn, str_c(str),
 				   result->pool, &solr_results) < 0) {
 		hash_table_destroy(&mailboxes);
 		return -1;

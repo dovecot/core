@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "http-client.h"
 #include "mail-user.h"
 #include "mail-storage-hooks.h"
 #include "solr-connection.h"
@@ -10,7 +11,7 @@
 #include <stdlib.h>
 
 const char *fts_solr_plugin_version = DOVECOT_ABI_VERSION;
-struct solr_connection *solr_conn = NULL;
+struct http_client *solr_http_client = NULL;
 
 struct fts_solr_user_module fts_solr_user_module =
 	MODULE_CONTEXT_INIT(&mail_user_module_register);
@@ -84,8 +85,8 @@ void fts_solr_plugin_deinit(void)
 	fts_backend_unregister(fts_backend_solr.name);
 	fts_backend_unregister(fts_backend_solr_old.name);
 	mail_storage_hooks_remove(&fts_solr_mail_storage_hooks);
-	if (solr_conn != NULL)
-		solr_connection_deinit(solr_conn);
+	if (solr_http_client != NULL)
+		http_client_deinit(&solr_http_client);
 
 }
 
