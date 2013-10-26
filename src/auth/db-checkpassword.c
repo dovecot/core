@@ -251,6 +251,7 @@ static void checkpassword_setup_env(struct auth_request *request)
 	   pipe, also pass some other possibly interesting information
 	   via environment. Use UCSPI names for local/remote IPs. */
 	env_put("PROTO=TCP"); /* UCSPI */
+	env_put(t_strdup_printf("ORIG_UID=%s", dec2str(getuid())));
 	env_put(t_strconcat("SERVICE=", request->service, NULL));
 	if (request->local_ip.family != 0) {
 		env_put(t_strconcat("TCPLOCALIP=",
