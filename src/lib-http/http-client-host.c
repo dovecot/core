@@ -403,7 +403,7 @@ static void http_client_host_lookup
 			"Performing asynchronous DNS lookup");
 		(void)dns_client_lookup(client->set.dns_client, host->name,
 			http_client_host_dns_callback, host, &host->dns_lookup);
-	} else if (dns_set.dns_client_socket_path != NULL) {
+	} else if (client->set.dns_client_socket_path != NULL) {
 		http_client_host_debug(host,
 			"Performing asynchronous DNS lookup");
 		memset(&dns_set, 0, sizeof(dns_set));
