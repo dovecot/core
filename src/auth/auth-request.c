@@ -1781,7 +1781,7 @@ static void
 auth_request_append_password(struct auth_request *request, string_t *str)
 {
 	const char *p, *log_type = request->set->verbose_passwords;
-	unsigned int max_len = UINT_MAX;
+	unsigned int max_len = 1024;
 
 	p = strchr(log_type, ':');
 	if (p != NULL) {
