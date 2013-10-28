@@ -129,6 +129,7 @@ doveadm_mail_cmd_server_run(struct client_connection *conn,
 
 	current_ioloop = prev_ioloop;
 	lib_signals_reset_ioloop();
+	o_stream_switch_ioloop(conn->output);
 	current_ioloop = ioloop;
 	io_loop_destroy(&ioloop);
 
