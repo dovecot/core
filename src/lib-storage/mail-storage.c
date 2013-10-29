@@ -118,7 +118,7 @@ mail_storage_set_autodetection(const char **data, const char **driver)
 
 	/* check if data is in driver:data format (eg. mbox:~/mail) */
 	p = *data;
-	while (i_isalnum(*p)) p++;
+	while (i_isalnum(*p) || *p == '_') p++;
 
 	if (*p == ':' && p != *data) {
 		/* no autodetection if the storage driver is given. */
