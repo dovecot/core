@@ -97,7 +97,8 @@ mail_index_alloc_cache_find(const char *mailbox_path, const char *index_dir,
 				else
 					match = rec;
 			}
-		} else if (mailbox_path != NULL && rec->mailbox_path != NULL) {
+		} else if (mailbox_path != NULL && rec->mailbox_path != NULL &&
+			   index_dir == NULL && rec->index_dir_ino == 0) {
 			if (strcmp(mailbox_path, rec->mailbox_path) == 0)
 				match = rec;
 		}
