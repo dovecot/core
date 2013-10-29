@@ -6,6 +6,7 @@
 #include "mdbox-settings.h"
 
 #define MDBOX_STORAGE_NAME "mdbox"
+#define MDBOX_DELETED_STORAGE_NAME "mdbox_deleted"
 #define MDBOX_GLOBAL_INDEX_PREFIX "dovecot.map.index"
 #define MDBOX_GLOBAL_DIR_NAME "storage"
 #define MDBOX_MAIL_FILE_PREFIX "m."
@@ -58,9 +59,11 @@ struct mdbox_mailbox {
 	uint32_t map_uid_validity;
 	uint32_t ext_id, hdr_ext_id, guid_ext_id;
 
+	unsigned int mdbox_deleted_synced:1;
 	unsigned int creating:1;
 };
 
+extern struct dbox_storage_vfuncs mdbox_dbox_storage_vfuncs;
 extern struct mail_vfuncs mdbox_mail_vfuncs;
 
 int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
@@ -99,6 +102,13 @@ int mdbox_copy(struct mail_save_context *ctx, struct mail *mail);
 void mdbox_purge_alt_flag_change(struct mail *mail, bool move_to_alt);
 int mdbox_purge(struct mail_storage *storage);
 
+int mdbox_storage_create(struct mail_storage *_storage,
+			 struct mail_namespace *ns, const char **error_r);
+void mdbox_storage_destroy(struct mail_storage *_storage);
+int mdbox_mailbox_open(struct mailbox *box);
+
 void mdbox_storage_set_corrupted(struct mdbox_storage *storage);
+void mdbox_set_mailbox_corrupted(struct mailbox *box);
+void mdbox_set_file_corrupted(struct dbox_file *file);
 
 #endif

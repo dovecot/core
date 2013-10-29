@@ -53,6 +53,14 @@ int mdbox_map_lookup(struct mdbox_map *map, uint32_t map_uid,
 int mdbox_map_lookup_full(struct mdbox_map *map, uint32_t map_uid,
 			  struct mdbox_map_mail_index_record *rec_r,
 			  uint16_t *refcount_r);
+/* Like mdbox_map_lookup_full(), but look up with sequence. */
+int mdbox_map_lookup_seq_full(struct mdbox_map *map, uint32_t seq,
+			      struct mdbox_map_mail_index_record *rec_r,
+			      uint16_t *refcount_r);
+/* Return map UID for the map sequence. */
+uint32_t mdbox_map_lookup_uid(struct mdbox_map *map, uint32_t seq);
+/* Returns the total number of messages in the map. */
+unsigned int mdbox_map_get_messages_count(struct mdbox_map *map);
 
 /* Get all messages from file */
 int mdbox_map_get_file_msgs(struct mdbox_map *map, uint32_t file_id,

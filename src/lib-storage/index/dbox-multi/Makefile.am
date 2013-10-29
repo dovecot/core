@@ -12,6 +12,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index/dbox-common
 
 libstorage_dbox_multi_la_SOURCES = \
+	mdbox-deleted-storage.c \
 	mdbox-file.c \
 	mdbox-mail.c \
 	mdbox-map.c \

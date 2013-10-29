@@ -19,7 +19,6 @@
 
 extern struct mail_storage mdbox_storage;
 extern struct mailbox mdbox_mailbox;
-extern struct dbox_storage_vfuncs mdbox_dbox_storage_vfuncs;
 
 static struct mail_storage *mdbox_storage_alloc(void)
 {
@@ -34,9 +33,8 @@ static struct mail_storage *mdbox_storage_alloc(void)
 	return &storage->storage.storage;
 }
 
-static int
-mdbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
-		     const char **error_r)
+int mdbox_storage_create(struct mail_storage *_storage,
+			 struct mail_namespace *ns, const char **error_r)
 {
 	struct mdbox_storage *storage = (struct mdbox_storage *)_storage;
 	const char *dir;
@@ -64,7 +62,7 @@ mdbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	return dbox_storage_create(_storage, ns, error_r);
 }
 
-static void mdbox_storage_destroy(struct mail_storage *_storage)
+void mdbox_storage_destroy(struct mail_storage *_storage)
 {
 	struct mdbox_storage *storage = (struct mdbox_storage *)_storage;
 
@@ -166,7 +164,7 @@ mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	return &mbox->box;
 }
 
-static int mdbox_mailbox_open(struct mailbox *box)
+int mdbox_mailbox_open(struct mailbox *box)
 {
 	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
 
@@ -355,14 +353,14 @@ mdbox_get_attachment_path_suffix(struct dbox_file *file ATTR_UNUSED)
 	return "";
 }
 
-static void mdbox_set_mailbox_corrupted(struct mailbox *box)
+void mdbox_set_mailbox_corrupted(struct mailbox *box)
 {
 	struct mdbox_storage *mstorage = (struct mdbox_storage *)box->storage;
 
 	mdbox_storage_set_corrupted(mstorage);
 }
 
-static void mdbox_set_file_corrupted(struct dbox_file *file)
+void mdbox_set_file_corrupted(struct dbox_file *file)
 {
 	struct mdbox_storage *mstorage = (struct mdbox_storage *)file->storage;
 
