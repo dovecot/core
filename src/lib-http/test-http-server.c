@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
 	fd_listen = net_listen(&my_ip, &port, 128);
 	if (fd_listen == -1)
 		i_fatal("listen(port=%u) failed: %m", port);
-	io_listen = io_add(fd_listen, IO_READ, client_accept, NULL);
+	io_listen = io_add(fd_listen, IO_READ, client_accept, (void *)NULL);
 
 	io_loop_run(ioloop);
 
