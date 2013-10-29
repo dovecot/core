@@ -356,7 +356,6 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 {
 	struct mail_storage *storage = mbox->box.storage;
 	struct virtual_parse_context ctx;
-	struct stat st;
 	const char *box_path, *path, *line, *error;
 	unsigned int linenum = 0;
 	int fd, ret = 0;
@@ -374,9 +373,6 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 		} else if (errno != ENOENT) {
 			mail_storage_set_critical(storage,
 						  "open(%s) failed: %m", path);
-		} else if (stat(box_path, &st) == 0) {
-			mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
-				"Virtual mailbox missing configuration file");
 		} else if (errno == ENOENT) {
 			mail_storage_set_error(storage, MAIL_ERROR_NOTFOUND,
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(mbox->box.vname));
