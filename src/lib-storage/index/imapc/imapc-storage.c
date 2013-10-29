@@ -669,7 +669,7 @@ static int imapc_mailbox_delete(struct mailbox *box)
 	return index_storage_mailbox_delete(box);
 }
 
-static int imapc_mailbox_get_status(struct mailbox *box,
+static int imapc_mailbox_run_status(struct mailbox *box,
 				    enum mailbox_status_items items,
 				    struct mailbox_status *status_r)
 {
@@ -677,25 +677,6 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 	struct imapc_command *cmd;
 	struct imapc_simple_context sctx;
 	string_t *str;
-
-	if (mbox->guid_fetch_field_name != NULL ||
-	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GUID_FORCED))
-		status_r->have_guids = TRUE;
-
-	if (box->opened) {
-		imapc_mailbox_get_selected_status(mbox, items, status_r);
-		return 0;
-	}
-
-	/* mailbox isn't opened yet */
-	if ((items & (STATUS_FIRST_UNSEEN_SEQ | STATUS_KEYWORDS |
-		      STATUS_PERMANENT_FLAGS)) != 0) {
-		/* getting these requires opening the mailbox */
-		if (mailbox_open(box) < 0)
-			return -1;
-		imapc_mailbox_get_selected_status(mbox, items, status_r);
-		return 0;
-	}
 
 	str = t_str_new(256);
 	if ((items & STATUS_MESSAGES) != 0)
@@ -724,6 +705,38 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 	mbox->storage->cur_status_box = NULL;
 	mbox->storage->cur_status = NULL;
 	return sctx.ret;
+}
+
+static int imapc_mailbox_get_status(struct mailbox *box,
+				    enum mailbox_status_items items,
+				    struct mailbox_status *status_r)
+{
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+
+	if (mbox->guid_fetch_field_name != NULL ||
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GUID_FORCED))
+		status_r->have_guids = TRUE;
+
+	if (box->opened) {
+		imapc_mailbox_get_selected_status(mbox, items, status_r);
+	} else if ((items & (STATUS_FIRST_UNSEEN_SEQ | STATUS_KEYWORDS |
+			     STATUS_PERMANENT_FLAGS)) != 0) {
+		/* getting these requires opening the mailbox */
+		if (mailbox_open(box) < 0)
+			return -1;
+		imapc_mailbox_get_selected_status(mbox, items, status_r);
+	} else {
+		if (imapc_mailbox_run_status(box, items, status_r) < 0)
+			return -1;
+	}
+
+	if (box->opened && (items & STATUS_UIDNEXT) != 0 &&
+	    mbox->sync_uid_next == 0) {
+		/* Courier-workaround, it doesn't send UIDNEXT on SELECT */
+		if (imapc_mailbox_run_status(box, STATUS_UIDNEXT, status_r) < 0)
+			return -1;
+	}
+	return 0;
 }
 
 static int imapc_mailbox_get_namespaces(struct imapc_storage *storage)
