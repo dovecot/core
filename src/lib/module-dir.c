@@ -242,7 +242,7 @@ module_load(const char *path, const char *name,
 	module->init = (void (*)(struct module *))
 		get_symbol(module, t_strconcat(name, "_init", NULL),
 			   !set->require_init_funcs);
-	module->deinit = module->init == NULL ? NULL : (void (*)(void))
+	module->deinit = (void (*)(void))
 		get_symbol(module, t_strconcat(name, "_deinit", NULL),
 			   !set->require_init_funcs);
 
@@ -492,10 +492,12 @@ void module_dir_init(struct module *modules)
 	struct module *module;
 
 	for (module = modules; module != NULL; module = module->next) {
-		if (module->init != NULL && !module->initialized) T_BEGIN {
+		if (!module->initialized) {
 			module->initialized = TRUE;
-			module->init(module);
-		} T_END;
+			if (module->init != NULL) T_BEGIN {
+				module->init(module);
+			} T_END;
+		}
 	}
 }
 
