@@ -121,6 +121,12 @@ mail_storage_module_hooks_cmp(const struct mail_storage_module_hooks *h1,
 			      const struct mail_storage_module_hooks *h2)
 {
 	const char *s1 = h1->module->path, *s2 = h2->module->path;
+	const char *p;
+
+	p = strrchr(s1, '/');
+	if (p != NULL) s1 = p+1;
+	p = strrchr(s2, '/');
+	if (p != NULL) s2 = p+1;
 
 	if (strncmp(s1, "lib", 3) == 0)
 		s1 += 3;
