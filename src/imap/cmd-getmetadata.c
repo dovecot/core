@@ -327,7 +327,7 @@ bool cmd_getmetadata(struct client_command_context *cmd)
 	struct imap_getmetadata_context *ctx;
 	struct mail_namespace *ns;
 	const struct imap_arg *args, *options, *entries;
-	const char *mailbox;
+	const char *mailbox, *entry_name;
 
 	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
@@ -351,7 +351,7 @@ bool cmd_getmetadata(struct client_command_context *cmd)
 		return TRUE;
 	}
 	if (!imap_arg_get_list(&args[2], &entries)) {
-		if (!IMAP_ARG_IS_ASTRING(&args[2]) ||
+		if (!imap_arg_get_astring(&args[2], &entry_name) ||
 		    !IMAP_ARG_IS_EOL(&args[3])) {
 			client_send_command_error(cmd, "Invalid arguments.");
 			return TRUE;
