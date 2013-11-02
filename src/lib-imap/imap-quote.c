@@ -34,7 +34,8 @@ void imap_append_astring(string_t *dest, const char *src)
 			return;
 		}
 	}
-	if (i == 0)
+	/* don't mix up NIL and "NIL"! */
+	if (i == 0 || strcasecmp(src, "NIL") == 0)
 		imap_append_string(dest, src);
 	else
 		str_append(dest, src);
