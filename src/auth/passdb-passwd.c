@@ -11,38 +11,46 @@
 #define PASSWD_CACHE_KEY "%u"
 #define PASSWD_PASS_SCHEME "CRYPT"
 
+static enum passdb_result
+passwd_lookup(struct auth_request *request, struct passwd *pw_r)
+{
+	auth_request_log_debug(request, "passwd", "lookup");
+
+	switch (i_getpwnam(request->user, pw_r)) {
+	case -1:
+		auth_request_log_error(request, "passwd",
+				       "getpwnam() failed: %m");
+		return PASSDB_RESULT_INTERNAL_FAILURE;
+	case 0:
+		auth_request_log_unknown_user(request, "passwd");
+		return PASSDB_RESULT_USER_UNKNOWN;
+	}
+
+	if (!IS_VALID_PASSWD(pw_r->pw_passwd)) {
+		auth_request_log_info(request, "passwd",
+			"invalid password field '%s'", pw_r->pw_passwd);
+		return PASSDB_RESULT_USER_DISABLED;
+	}
+
+	/* save the password so cache can use it */
+	auth_request_set_field(request, "password", pw_r->pw_passwd,
+			       PASSWD_PASS_SCHEME);
+	return PASSDB_RESULT_OK;
+}
+
 static void
 passwd_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
 {
 	struct passwd pw;
+	enum passdb_result res;
 	int ret;
 
-	auth_request_log_debug(request, "passwd", "lookup");
-
-	switch (i_getpwnam(request->user, &pw)) {
-	case -1:
-		auth_request_log_error(request, "passwd",
-				       "getpwnam() failed: %m");
-		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
-		return;
-	case 0:
-		auth_request_log_unknown_user(request, "passwd");
-		callback(PASSDB_RESULT_USER_UNKNOWN, request);
+	res = passwd_lookup(request, &pw);
+	if (res != PASSDB_RESULT_OK) {
+		callback(res, request);
 		return;
 	}
-
-	if (!IS_VALID_PASSWD(pw.pw_passwd)) {
-		auth_request_log_info(request, "passwd",
-			"invalid password field '%s'", pw.pw_passwd);
-		callback(PASSDB_RESULT_USER_DISABLED, request);
-		return;
-	}
-
-	/* save the password so cache can use it */
-	auth_request_set_field(request, "password", pw.pw_passwd,
-			       PASSWD_PASS_SCHEME);
-
 	/* check if the password is valid */
 	ret = auth_request_password_verify(request, password, pw.pw_passwd,
 					   PASSWD_PASS_SCHEME, "passwd");
@@ -59,6 +67,24 @@ passwd_verify_plain(struct auth_request *request, const char *password,
         auth_request_set_field(request, "user", pw.pw_name, NULL);
 
 	callback(PASSDB_RESULT_OK, request);
+}
+
+static void
+passwd_lookup_credentials(struct auth_request *request,
+			  lookup_credentials_callback_t *callback)
+{
+	struct passwd pw;
+	enum passdb_result res;
+
+	res = passwd_lookup(request, &pw);
+	if (res != PASSDB_RESULT_OK) {
+		callback(res, NULL, 0, request);
+		return;
+	}
+	/* make sure we're using the username exactly as it's in the database */
+        auth_request_set_field(request, "user", pw.pw_name, NULL);
+	passdb_handle_credentials(PASSDB_RESULT_OK, pw.pw_passwd,
+				  PASSWD_PASS_SCHEME, callback, request);
 }
 
 static struct passdb_module *
@@ -91,7 +117,7 @@ struct passdb_module_interface passdb_passwd = {
 	passwd_deinit,
 
 	passwd_verify_plain,
-	NULL,
+	passwd_lookup_credentials,
 	NULL
 };
 
