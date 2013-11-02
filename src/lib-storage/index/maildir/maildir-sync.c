@@ -362,6 +362,27 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 }
 
 static int
+maildir_rename_empty_basename(struct maildir_sync_context *ctx,
+			      const char *dir, const char *fname)
+{
+	const char *old_path, *new_fname, *new_path;
+
+	old_path = t_strconcat(dir, "/", fname, NULL);
+	new_fname = maildir_filename_generate();
+	new_path = t_strconcat(mailbox_get_path(&ctx->mbox->box),
+			       "/new/", new_fname, NULL);
+	if (rename(old_path, new_path) == 0)
+		i_warning("Fixed broken filename: %s -> %s", old_path, new_fname);
+	else if (errno != ENOENT) {
+		mail_storage_set_critical(&ctx->mbox->storage->storage,
+			"Couldn't fix a broken filename: rename(%s, %s) failed: %m",
+			old_path, new_path);
+		return -1;
+	}
+	return 0;
+}
+
+static int
 maildir_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st_r)
 {
 	struct mailbox *box = &mbox->box;
@@ -456,6 +477,14 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 	for (; (dp = readdir(dirp)) != NULL; errno = 0) {
 		if (dp->d_name[0] == '.')
 			continue;
+
+		if (dp->d_name[0] == MAILDIR_INFO_SEP) {
+			/* don't even try to use file with empty base name */
+			if (maildir_rename_empty_basename(ctx, path,
+							  dp->d_name) < 0)
+				break;
+			continue;
+		}
 
 		flags = 0;
 		if (move_new) {
