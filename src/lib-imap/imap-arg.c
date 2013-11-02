@@ -32,6 +32,12 @@ bool imap_arg_get_string(const struct imap_arg *arg, const char **str_r)
 
 bool imap_arg_get_astring(const struct imap_arg *arg, const char **str_r)
 {
+	if (arg->type == IMAP_ARG_NIL) {
+		/* RFC 3501 4.5. specifies that NIL is the same as "NIL" when
+		   reading astring. */
+		*str_r = "NIL";
+		return TRUE;
+	}
 	if (!IMAP_ARG_IS_ASTRING(arg))
 		return FALSE;
 

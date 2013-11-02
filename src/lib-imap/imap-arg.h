@@ -60,7 +60,9 @@ struct imap_arg {
 	unsigned int literal8:1; /* BINARY literal8 used */
 };
 
-/* RFC 3501's astring type */
+/* RFC 3501's astring type. Note that this doesn't return TRUE for
+   IMAP_ARG_NIL, although it should be treated the same as "NIL" string when
+   reading an astring. */
 #define IMAP_ARG_TYPE_IS_ASTRING(type) \
 	((type) == IMAP_ARG_ATOM || \
 	 (type) == IMAP_ARG_STRING || \
