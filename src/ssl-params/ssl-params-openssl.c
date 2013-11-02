@@ -29,16 +29,14 @@ static const char *ssl_last_error(void)
 	return buf;
 }
 
-static void generate_dh_parameters(int bitsize, int fd, const char *fname)
+static bool generate_dh_parameters(int bitsize, int fd, const char *fname)
 {
         DH *dh = DH_generate_parameters(bitsize, DH_GENERATOR, NULL, NULL);
 	unsigned char *buf, *p;
 	int len;
 
-	if (dh == NULL) {
-		i_fatal("DH_generate_parameters(bits=%d, gen=%d) failed: %s",
-			bitsize, DH_GENERATOR, ssl_last_error());
-	}
+	if (dh == NULL)
+		return FALSE;
 
 	len = i2d_DHparams(dh, NULL);
 	if (len < 0)
@@ -52,14 +50,19 @@ static void generate_dh_parameters(int bitsize, int fd, const char *fname)
 	    write_full(fd, buf, len) < 0)
 		i_fatal("write_full() failed for file %s: %m", fname);
 	i_free(buf);
+	return TRUE;
 }
 
 void ssl_generate_parameters(int fd, unsigned int dh_length, const char *fname)
 {
 	int bits;
 
-	generate_dh_parameters(512, fd, fname);
-	generate_dh_parameters(dh_length, fd, fname);
+	/* this fails in FIPS mode */
+	(void)generate_dh_parameters(512, fd, fname);
+	if (!generate_dh_parameters(dh_length, fd, fname)) {
+		i_fatal("DH_generate_parameters(bits=%d, gen=%d) failed: %s",
+			dh_length, DH_GENERATOR, ssl_last_error());
+	}
 	bits = 0;
 	if (write_full(fd, &bits, sizeof(bits)) < 0)
 		i_fatal("write_full() failed for file %s: %m", fname);
