@@ -5,6 +5,7 @@
 #include "buffer.h"
 #include "file-lock.h"
 #include "read-full.h"
+#include "master-interface.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "ssl-params-settings.h"
@@ -110,6 +111,22 @@ static void ssl_params_if_unchanged(const char *path, time_t mtime)
 	i_info("SSL parameters regeneration completed");
 }
 
+static void ssl_params_close_listeners(void)
+{
+	unsigned int i;
+
+	/* we have forked, but the fds are still shared. we can't go
+	   io_remove()ing the fds from ioloop, because with many ioloops
+	   (e.g. epoll) the fds get removed from the main process's ioloop
+	   as well. so we'll just do the closing here manually. */
+	for (i = 0; i < master_service_get_socket_count(master_service); i++) {
+		int fd = MASTER_LISTEN_FD_FIRST + i;
+
+		if (close(fd) < 0)
+			i_error("close(listener %d) failed: %m", fd);
+	}
+}
+
 static void ssl_params_rebuild(struct ssl_params *param)
 {
 	if (param->to_rebuild != NULL)
@@ -121,7 +138,7 @@ static void ssl_params_rebuild(struct ssl_params *param)
 	case 0:
 		/* child - close listener fds so a long-running ssl-params
 		   doesn't cause Dovecot restart to fail */
-		master_service_stop_new_connections(master_service);
+		ssl_params_close_listeners();
 		ssl_params_if_unchanged(param->path, param->last_mtime);
 		exit(0);
 	default:
