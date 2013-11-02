@@ -24,7 +24,9 @@ enum imap_parser_flags {
 	/* We're parsing IMAP server replies. Parse the "text" after
 	   OK/NO/BAD/BYE replies as a single atom. We assume that the initial
 	   "*" or tag was already skipped over. */
-	IMAP_PARSE_FLAG_SERVER_TEXT	= 0x80
+	IMAP_PARSE_FLAG_SERVER_TEXT	= 0x80,
+	/* Parse until '(' and return it as an empty list */
+	IMAP_PARSE_FLAG_STOP_AT_LIST	= 0x100
 };
 
 struct imap_parser;

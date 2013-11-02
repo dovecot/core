@@ -609,6 +609,10 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 			break;
 		case '(':
 			imap_parser_open_list(parser);
+			if ((parser->flags & IMAP_PARSE_FLAG_STOP_AT_LIST) != 0) {
+				i_stream_skip(parser->input, 1);
+				return FALSE;
+			}
 			break;
 		case ')':
 			if (!imap_parser_close_list(parser))
@@ -690,7 +694,8 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 /* ARG_PARSE_NONE checks that last argument isn't only partially parsed. */
 #define IS_UNFINISHED(parser) \
         ((parser)->cur_type != ARG_PARSE_NONE || \
-	 (parser)->cur_list != &parser->root_list)
+	 ((parser)->cur_list != &parser->root_list && \
+	 ((parser)->flags & IMAP_PARSE_FLAG_STOP_AT_LIST) == 0))
 
 static int finish_line(struct imap_parser *parser, unsigned int count,
 		       const struct imap_arg **args_r)
@@ -703,7 +708,8 @@ static int finish_line(struct imap_parser *parser, unsigned int count,
 	parser->cur_pos = 0;
 	parser->cur_resp_text = FALSE;
 
-	if (parser->list_arg != NULL && !parser->literal_size_return) {
+	if (parser->list_arg != NULL && !parser->literal_size_return &&
+	    (parser->flags & IMAP_PARSE_FLAG_STOP_AT_LIST) == 0) {
 		parser->error = "Missing ')'";
 		*args_r = NULL;
 		return -1;
