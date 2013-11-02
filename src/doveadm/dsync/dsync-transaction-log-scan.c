@@ -353,17 +353,16 @@ dsync_log_set(struct dsync_transaction_log_scan *ctx,
 	bool reset;
 	int ret;
 
-	if (modseq == 0 ||
-	    !mail_index_modseq_get_next_log_offset(view, modseq,
-						   &log_seq, &log_offset))
-		ret = 0;
-	else {
+	end_seq = view->log_file_head_seq;
+	end_offset = view->log_file_head_offset;
+
+	if (modseq != 0 &&
+	    mail_index_modseq_get_next_log_offset(view, modseq,
+						  &log_seq, &log_offset)) {
 		/* scan the view only up to end of the current view.
 		   if there are more changes, we don't care about them until
 		   the next sync. the modseq may however already point to
 		   beyond the current view's end (FIXME: why?) */
-		end_seq = view->log_file_head_seq;
-		end_offset = view->log_file_head_offset;
 		if (log_seq > end_seq ||
 		    (log_seq == end_seq && log_offset > end_offset)) {
 			end_seq = log_seq;
@@ -373,12 +372,32 @@ dsync_log_set(struct dsync_transaction_log_scan *ctx,
 						    log_seq, log_offset,
 						    end_seq, end_offset,
 						    &reset);
+		if (ret != 0)
+			return ret;
 	}
+
+	/* return everything we've got (until the end of the view) */
+	if (!pvt_scan)
+		ctx->returned_all_changes = TRUE;
+	if (mail_transaction_log_view_set_all(log_view) < 0)
+		return -1;
+
+	mail_transaction_log_view_get_prev_pos(log_view, &log_seq, &log_offset);
+	if (log_seq > end_seq ||
+	    (log_seq == end_seq && log_offset > end_offset)) {
+		end_seq = log_seq;
+		end_offset = log_offset;
+	}
+	ret = mail_transaction_log_view_set(log_view,
+					    log_seq, log_offset,
+					    end_seq, end_offset, &reset);
 	if (ret == 0) {
-		/* return everything we've got */
-		if (!pvt_scan)
-			ctx->returned_all_changes = TRUE;
-		return mail_transaction_log_view_set_all(log_view);
+		/* we shouldn't get here. _view_set_all() already
+		   reserved all the log files, the _view_set() only
+		   removed unwanted ones. */
+		i_error("%s: Couldn't set transaction log view (seq %u..%u)",
+			view->index->filepath, log_seq, end_seq);
+		ret = -1;
 	}
 	return ret < 0 ? -1 : 0;
 }
