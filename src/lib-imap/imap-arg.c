@@ -5,7 +5,7 @@
 
 bool imap_arg_get_atom(const struct imap_arg *arg, const char **str_r)
 {
-	if (arg->type != IMAP_ARG_ATOM)
+	if (arg->type != IMAP_ARG_ATOM && arg->type != IMAP_ARG_NIL)
 		return FALSE;
 
 	*str_r = arg->_data.str;
