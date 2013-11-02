@@ -234,14 +234,16 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 	case ARG_PARSE_ATOM:
 	case ARG_PARSE_TEXT:
 		if (size == 3 && i_memcasecmp(data, "NIL", 3) == 0) {
-			/* NIL argument */
+			/* NIL argument. it might be an actual NIL, but if
+			   we're reading astring, it's an atom and we can't
+			   lose its case. */
 			arg->type = IMAP_ARG_NIL;
 		} else {
 			/* simply save the string */
 			arg->type = IMAP_ARG_ATOM;
-			arg->_data.str = imap_parser_strdup(parser, data, size);
-			arg->str_len = size;
 		}
+		arg->_data.str = imap_parser_strdup(parser, data, size);
+		arg->str_len = size;
 		break;
 	case ARG_PARSE_STRING:
 		/* data is quoted and may contain escapes. */
