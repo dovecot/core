@@ -440,8 +440,9 @@ master_login_auth_send_request(struct master_login_auth *auth,
 	str_printfa(str, "REQUEST\t%u\t%u\t%u\t", req->id,
 		    req->client_pid, req->auth_id);
 	binary_to_hex_append(str, req->cookie, sizeof(req->cookie));
+	str_printfa(str, "\tsession_pid=%s", my_pid);
 	if (auth->request_auth_token)
-		str_printfa(str, "\tsession_pid=%s", my_pid);
+		str_append(str, "\trequest_auth_token");
 	str_append_c(str, '\n');
 	o_stream_nsend(auth->output, str_data(str), str_len(str));
 }

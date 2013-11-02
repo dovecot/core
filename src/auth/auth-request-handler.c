@@ -669,7 +669,8 @@ static void userdb_callback(enum userdb_result result,
 			str_append(str, "\tanonymous");
 		}
 		/* generate auth_token when master service provided session_pid */
-		if (request->session_pid != (pid_t)-1) {
+		if (request->request_auth_token &&
+		    request->session_pid != (pid_t)-1) {
 			const char *auth_token =
 				auth_token_get(request->service,
 					       dec2str(request->session_pid),

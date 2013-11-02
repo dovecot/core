@@ -331,7 +331,9 @@ bool auth_request_import_master(struct auth_request *request,
 	if (strcmp(key, "session_pid") == 0) {
 		if (str_to_pid(value, &pid) == 0)
 			request->session_pid = pid;
-	} else
+	} else if (strcmp(key, "request_auth_token") == 0)
+		request->request_auth_token = TRUE;
+	else
 		return FALSE;
 	return TRUE;
 }
@@ -1950,6 +1952,7 @@ auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1] = {
 	{ '\0', NULL, "domain_first" },
 	{ '\0', NULL, "domain_last" },
 	{ '\0', NULL, "master_user" },
+	{ '\0', NULL, "session_pid" },
 	/* be sure to update AUTH_REQUEST_VAR_TAB_COUNT */
 	{ '\0', NULL, NULL }
 };
@@ -2037,6 +2040,8 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		tab[24].value = escape_func(tab[24].value+1, auth_request);
 	tab[25].value = auth_request->master_user == NULL ? NULL :
 		escape_func(auth_request->master_user, auth_request);
+	tab[26].value = auth_request->session_pid == (pid_t)-1 ? NULL :
+		dec2str(auth_request->session_pid);
 	return ret_tab;
 }
 

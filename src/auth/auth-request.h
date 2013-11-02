@@ -108,6 +108,7 @@ struct auth_request {
 	unsigned int no_penalty:1;
 	unsigned int valid_client_cert:1;
 	unsigned int cert_username:1;
+	unsigned int request_auth_token:1;
 
 	/* success/failure states: */
 	unsigned int successful:1;
@@ -143,7 +144,7 @@ extern unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 #define AUTH_REQUEST_VAR_TAB_USER_IDX 0
 #define AUTH_REQUEST_VAR_TAB_USERNAME_IDX 1
 #define AUTH_REQUEST_VAR_TAB_DOMAIN_IDX 2
-#define AUTH_REQUEST_VAR_TAB_COUNT 26
+#define AUTH_REQUEST_VAR_TAB_COUNT 27
 extern const struct var_expand_table
 auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1];
 
