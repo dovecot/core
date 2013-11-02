@@ -13,8 +13,6 @@
    default.. */
 #define DH_GENERATOR 2
 
-static int dh_param_bitsizes[] = { 512, 1024 };
-
 static const char *ssl_last_error(void)
 {
 	unsigned long err;
@@ -56,13 +54,12 @@ static void generate_dh_parameters(int bitsize, int fd, const char *fname)
 	i_free(buf);
 }
 
-void ssl_generate_parameters(int fd, const char *fname)
+void ssl_generate_parameters(int fd, unsigned int dh_length, const char *fname)
 {
-	unsigned int i;
 	int bits;
 
-	for (i = 0; i < N_ELEMENTS(dh_param_bitsizes); i++)
-		generate_dh_parameters(dh_param_bitsizes[i], fd, fname);
+	generate_dh_parameters(512, fd, fname);
+	generate_dh_parameters(dh_length, fd, fname);
 	bits = 0;
 	if (write_full(fd, &bits, sizeof(bits)) < 0)
 		i_fatal("write_full() failed for file %s: %m", fname);

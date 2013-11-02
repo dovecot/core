@@ -86,7 +86,7 @@ struct ssl_parameters {
 	time_t last_refresh;
 	int fd;
 
-	DH *dh_512, *dh_1024;
+	DH *dh_512, *dh_default;
 };
 
 struct ssl_server_context {
@@ -163,9 +163,9 @@ static int ssl_server_context_cmp(const struct ssl_server_context *ctx1,
 	return ctx1->verify_client_cert == ctx2->verify_client_cert ? 0 : 1;
 }
 
-static void ssl_params_corrupted(void)
+static void ssl_params_corrupted(const char *reason)
 {
-	i_fatal("Corrupted SSL parameters file in state_dir: ssl-parameters.dat");
+	i_fatal("Corrupted SSL ssl-parameters.dat in state_dir: %s", reason);
 }
 
 static void read_next(struct ssl_parameters *params, void *data, size_t size)
@@ -175,7 +175,7 @@ static void read_next(struct ssl_parameters *params, void *data, size_t size)
 	if ((ret = read_full(params->fd, data, size)) < 0)
 		i_fatal("read(%s) failed: %m", params->path);
 	if (ret == 0)
-		ssl_params_corrupted();
+		ssl_params_corrupted("Truncated file");
 }
 
 static bool read_dh_parameters_next(struct ssl_parameters *params)
@@ -194,7 +194,7 @@ static bool read_dh_parameters_next(struct ssl_parameters *params)
 	/* read data size. */
 	read_next(params, &len, sizeof(len));
 	if (len > 1024*100) /* should be enough? */
-		ssl_params_corrupted();
+		ssl_params_corrupted("File too large");
 
 	buf = i_malloc(len);
 	read_next(params, buf, len);
@@ -202,13 +202,15 @@ static bool read_dh_parameters_next(struct ssl_parameters *params)
 	cbuf = buf;
 	switch (bits) {
 	case 512:
+		if (params->dh_512 != NULL)
+			ssl_params_corrupted("Duplicate 512bit parameters");
 		params->dh_512 = d2i_DHparams(NULL, &cbuf, len);
 		break;
-	case 1024:
-		params->dh_1024 = d2i_DHparams(NULL, &cbuf, len);
-		break;
 	default:
-		ssl_params_corrupted();
+		if (params->dh_default != NULL)
+			ssl_params_corrupted("Duplicate default parameters");
+		params->dh_default = d2i_DHparams(NULL, &cbuf, len);
+		break;
 	}
 
 	i_free(buf);
@@ -221,9 +223,9 @@ static void ssl_free_parameters(struct ssl_parameters *params)
 		DH_free(params->dh_512);
                 params->dh_512 = NULL;
 	}
-	if (params->dh_1024 != NULL) {
-		DH_free(params->dh_1024);
-                params->dh_1024 = NULL;
+	if (params->dh_default != NULL) {
+		DH_free(params->dh_default);
+                params->dh_default = NULL;
 	}
 }
 
@@ -250,7 +252,7 @@ static void ssl_refresh_parameters(struct ssl_parameters *params)
 		i_fatal("read(%s) failed: %m", params->path);
 	else if (ret != 0) {
 		/* more data than expected */
-		ssl_params_corrupted();
+		ssl_params_corrupted("More data than expected");
 	}
 
 	if (close(params->fd) < 0)
@@ -840,12 +842,10 @@ static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
 static DH *ssl_tmp_dh_callback(SSL *ssl ATTR_UNUSED,
 			       int is_export, int keylength)
 {
-	/* Well, I'm not exactly sure why the logic in here is this.
-	   It's the same as in Postfix, so it can't be too wrong. */
 	if (is_export && keylength == 512 && ssl_params.dh_512 != NULL)
 		return ssl_params.dh_512;
 
-	return ssl_params.dh_1024;
+	return ssl_params.dh_default;
 }
 
 static void ssl_info_callback(const SSL *ssl, int where, int ret)

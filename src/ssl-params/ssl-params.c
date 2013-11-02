@@ -22,7 +22,7 @@
 #  include <sys/resource.h>
 #endif
 
-#define MAX_PARAM_FILE_SIZE 1024
+#define MAX_PARAM_FILE_SIZE 1024*1024
 #define SSL_BUILD_PARAM_TIMEOUT_SECS (60*30)
 #define SSL_PARAMS_PRIORITY 15
 
@@ -31,11 +31,11 @@ struct ssl_params {
 	struct ssl_params_settings set;
 
 	time_t last_mtime;
-	struct timeout *to_rebuild;
 	ssl_params_callback_t *callback;
 };
 
-static void ssl_params_if_unchanged(const char *path, time_t mtime)
+static void ssl_params_if_unchanged(const char *path, time_t mtime,
+				    unsigned int ssl_dh_parameters_length)
 {
 	const char *temp_path;
 	struct file_lock *lock;
@@ -99,7 +99,7 @@ static void ssl_params_if_unchanged(const char *path, time_t mtime)
 
 	i_info("Generating SSL parameters");
 #ifdef HAVE_SSL
-	ssl_generate_parameters(fd, temp_path);
+	ssl_generate_parameters(fd, ssl_dh_parameters_length, temp_path);
 #endif
 
 	if (rename(temp_path, path) < 0)
@@ -129,9 +129,6 @@ static void ssl_params_close_listeners(void)
 
 static void ssl_params_rebuild(struct ssl_params *param)
 {
-	if (param->to_rebuild != NULL)
-		timeout_remove(&param->to_rebuild);
-
 	switch (fork()) {
 	case -1:
 		i_fatal("fork() failed: %m");
@@ -139,7 +136,8 @@ static void ssl_params_rebuild(struct ssl_params *param)
 		/* child - close listener fds so a long-running ssl-params
 		   doesn't cause Dovecot restart to fail */
 		ssl_params_close_listeners();
-		ssl_params_if_unchanged(param->path, param->last_mtime);
+		ssl_params_if_unchanged(param->path, param->last_mtime,
+					param->set.ssl_dh_parameters_length);
 		exit(0);
 	default:
 		/* parent */
@@ -147,27 +145,38 @@ static void ssl_params_rebuild(struct ssl_params *param)
 	}
 }
 
-static void ssl_params_set_timeout(struct ssl_params *param)
+static bool
+ssl_params_verify(struct ssl_params *param,
+		  const unsigned char *data, size_t size)
 {
-	time_t next_rebuild, diff;
+	unsigned int bitsize, len;
+	bool found = FALSE;
 
-	if (param->to_rebuild != NULL)
-		timeout_remove(&param->to_rebuild);
-	if (param->set.ssl_parameters_regenerate == 0)
-		return;
+	/* <bitsize><length><data>... */
+	while (size >= sizeof(bitsize)) {
+		memcpy(&bitsize, data, sizeof(bitsize));
+		if (bitsize == 0) {
+			if (found)
+				return TRUE;
+			i_warning("Regenerating %s for ssl_dh_parameters_length=%u",
+				  param->path, param->set.ssl_dh_parameters_length);
+			return FALSE;
+		}
+		data += sizeof(bitsize);
+		size -= sizeof(bitsize);
+		if (bitsize == param->set.ssl_dh_parameters_length)
+			found = TRUE;
 
-	next_rebuild = param->last_mtime +
-		param->set.ssl_parameters_regenerate;
-
-	if (ioloop_time >= next_rebuild) {
-		ssl_params_rebuild(param);
-		return;
+		if (size < sizeof(len))
+			break;
+		memcpy(&len, data, sizeof(len));
+		if (len > size - sizeof(len))
+			break;
+		data += sizeof(bitsize) + len;
+		size -= sizeof(bitsize) + len;
 	}
-
-	diff = next_rebuild - ioloop_time;
-	if (diff > INT_MAX / 1000)
-		diff = INT_MAX / 1000;
-	param->to_rebuild = timeout_add(diff * 1000, ssl_params_rebuild, param);
+	i_error("Corrupted %s", param->path);
+	return FALSE;
 }
 
 static int ssl_params_read(struct ssl_params *param)
@@ -188,6 +197,7 @@ static int ssl_params_read(struct ssl_params *param)
 		i_close_fd(&fd);
 		return -1;
 	}
+	param->last_mtime = st.st_mtime;
 	if (st.st_size == 0 || st.st_size > MAX_PARAM_FILE_SIZE) {
 		i_error("Corrupted file: %s", param->path);
 		i_close_fd(&fd);
@@ -202,9 +212,9 @@ static int ssl_params_read(struct ssl_params *param)
 	else if (ret == 0) {
 		i_error("File unexpectedly shrank: %s", param->path);
 		ret = -1;
+	} else if (!ssl_params_verify(param, buffer, st.st_size)) {
+		ret = -1;
 	} else {
-		param->last_mtime = st.st_mtime;
-		ssl_params_set_timeout(param);
 		param->callback(buffer, st.st_size);
 	}
 
@@ -238,8 +248,6 @@ void ssl_params_deinit(struct ssl_params **_param)
 	struct ssl_params *param = *_param;
 
 	*_param = NULL;
-	if (param->to_rebuild != NULL)
-		timeout_remove(&param->to_rebuild);
 	i_free(param->path);
 	i_free(param);
 }

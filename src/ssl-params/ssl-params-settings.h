@@ -5,6 +5,7 @@ struct master_service;
 
 struct ssl_params_settings {
 	unsigned int ssl_parameters_regenerate;
+	unsigned int ssl_dh_parameters_length;
 };
 
 struct ssl_params_settings *
