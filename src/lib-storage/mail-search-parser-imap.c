@@ -26,8 +26,6 @@ static int imap_search_parse_key(struct mail_search_parser *_parser,
 
 	switch (arg->type) {
 	case IMAP_ARG_NIL:
-		_parser->error = "Unexpected NIL";
-		return -1;
 	case IMAP_ARG_ATOM:
 		*key_r = imap_arg_as_astring(arg);
 		break;
@@ -67,8 +65,6 @@ static int imap_search_parse_string(struct mail_search_parser *_parser,
 
 	switch (arg->type) {
 	case IMAP_ARG_NIL:
-		_parser->error = "Unexpected NIL";
-		return -1;
 	case IMAP_ARG_ATOM:
 	case IMAP_ARG_STRING:
 	case IMAP_ARG_LITERAL:
