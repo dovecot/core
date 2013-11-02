@@ -233,7 +233,7 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 	switch (parser->cur_type) {
 	case ARG_PARSE_ATOM:
 	case ARG_PARSE_TEXT:
-		if (size == 3 && memcmp(data, "NIL", 3) == 0) {
+		if (size == 3 && i_memcasecmp(data, "NIL", 3) == 0) {
 			/* NIL argument */
 			arg->type = IMAP_ARG_NIL;
 		} else {
