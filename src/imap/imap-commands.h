@@ -107,6 +107,8 @@ bool cmd_enable(struct client_command_context *cmd);
 bool cmd_id(struct client_command_context *cmd);
 bool cmd_idle(struct client_command_context *cmd);
 bool cmd_namespace(struct client_command_context *cmd);
+bool cmd_getmetadata(struct client_command_context *cmd);
+bool cmd_setmetadata(struct client_command_context *cmd);
 bool cmd_notify(struct client_command_context *cmd);
 bool cmd_sort(struct client_command_context *cmd);
 bool cmd_thread(struct client_command_context *cmd);

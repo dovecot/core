@@ -69,6 +69,7 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(SET_STR, imap_logout_format),
 	DEF(SET_STR, imap_id_send),
 	DEF(SET_STR, imap_id_log),
+	DEF(SET_BOOL, imap_metadata),
 
 	DEF(SET_STR, imap_urlauth_host),
 	DEF(SET_UINT, imap_urlauth_port),
@@ -89,6 +90,7 @@ static const struct imap_settings imap_default_settings = {
 	.imap_logout_format = "in=%i out=%o",
 	.imap_id_send = "name *",
 	.imap_id_log = "",
+	.imap_metadata = FALSE,
 
 	.imap_urlauth_host = "",
 	.imap_urlauth_port = 143

@@ -39,6 +39,7 @@ cmds = \
 	cmd-expunge.c \
 	cmd-fetch.c \
 	cmd-genurlauth.c \
+	cmd-getmetadata.c \
 	cmd-id.c \
 	cmd-idle.c \
 	cmd-list.c \
@@ -51,6 +52,7 @@ cmds = \
 	cmd-resetkey.c \
 	cmd-search.c \
 	cmd-select.c \
+	cmd-setmetadata.c \
 	cmd-sort.c \
 	cmd-status.c \
 	cmd-store.c \
@@ -70,6 +72,7 @@ imap_SOURCES = \
 	imap-fetch.c \
 	imap-fetch-body.c \
 	imap-list.c \
+	imap-metadata.c \
 	imap-notify.c \
 	imap-search.c \
 	imap-search-args.c \
@@ -87,6 +90,7 @@ headers = \
 	imap-expunge.h \
 	imap-fetch.h \
 	imap-list.h \
+	imap-metadata.h \
 	imap-notify.h \
 	imap-search.h \
 	imap-search-args.h \

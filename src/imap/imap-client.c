@@ -138,6 +138,11 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 		if (!explicit_capability)
 			str_append(client->capability_string, " URLAUTH URLAUTH=BINARY");
 	}
+	if (set->imap_metadata && *mail_set->mail_attribute_dict != '\0' &&
+	    !explicit_capability) {
+		client->imap_metadata_enabled = TRUE;
+		str_append(client->capability_string, " METADATA");
+	}
 
 	ident = mail_user_get_anvil_userip_ident(client->user);
 	if (ident != NULL) {

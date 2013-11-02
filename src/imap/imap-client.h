@@ -164,6 +164,7 @@ struct client {
 	unsigned int notify_immediate_expunges:1;
 	unsigned int notify_count_changes:1;
 	unsigned int notify_flag_changes:1;
+	unsigned int imap_metadata_enabled:1;
 };
 
 struct imap_module_register {

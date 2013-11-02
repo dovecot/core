@@ -22,6 +22,7 @@ struct imap_settings {
 	const char *imap_logout_format;
 	const char *imap_id_send;
 	const char *imap_id_log;
+	bool imap_metadata;
 
 	/* imap urlauth: */
 	const char *imap_urlauth_host;
