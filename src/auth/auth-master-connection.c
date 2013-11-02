@@ -340,8 +340,11 @@ static void pass_callback_finish(struct auth_request *auth_request,
 		break;
 	case PASSDB_RESULT_PASSWORD_MISMATCH:
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
 		str_printfa(str, "FAIL\t%u", auth_request->id);
+		break;
+	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
+		str_printfa(str, "FAIL\t%u\treason=Configured passdbs don't support crentials lookups",
+			    auth_request->id);
 		break;
 	}
 
