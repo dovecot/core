@@ -649,7 +649,7 @@ int mdbox_map_update_refcount(struct mdbox_map_transaction_context *ctx,
 					map_uid);
 		return -1;
 	}
-	if (old_diff + new_diff >= 32768) {
+	if (old_diff + new_diff >= 32768 && new_diff > 0) {
 		/* we're getting close to the 64k limit. fail early
 		   to make it less likely that two processes increase
 		   the refcount enough times to cross the limit */
