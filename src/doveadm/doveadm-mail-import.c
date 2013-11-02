@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
 #include "mail-namespace.h"
@@ -17,23 +18,46 @@ struct import_cmd_context {
 	bool subscribe;
 };
 
+static const char *
+convert_vname_separators(const char *vname, char src_sep, char dest_sep)
+{
+	string_t *str = t_str_new(128);
+
+	for (; *vname != '\0'; vname++) {
+		if (*vname == src_sep)
+			str_append_c(str, dest_sep);
+		else if (*vname == dest_sep)
+			str_append_c(str, '_');
+		else
+			str_append_c(str, *vname);
+	}
+	return str_c(str);
+}
+
 static int
 dest_mailbox_open_or_create(struct import_cmd_context *ctx,
-			    struct mail_user *user, const char *name,
+			    struct mail_user *user,
+			    const struct mailbox_info *info,
 			    struct mailbox **box_r)
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	enum mail_error error;
-	const char *errstr;
+	const char *name, *errstr;
 
 	if (*ctx->dest_parent != '\0') {
 		/* prefix destination mailbox name with given parent mailbox */
 		ns = mail_namespace_find(user->namespaces, ctx->dest_parent);
+	} else {
+		ns = mail_namespace_find(user->namespaces, info->vname);
+	}
+	name = convert_vname_separators(info->vname,
+					mail_namespace_get_sep(info->ns),
+					mail_namespace_get_sep(ns));
+
+	if (*ctx->dest_parent != '\0') {
 		name = t_strdup_printf("%s%c%s", ctx->dest_parent,
 				       mail_namespace_get_sep(ns), name);
-	} else {
-		ns = mail_namespace_find(user->namespaces, name);
 	}
 
 	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_SAVEONLY);
@@ -113,8 +137,7 @@ cmd_import_box(struct import_cmd_context *ctx, struct mail_user *dest_user,
 
 	if (doveadm_mail_iter_next(iter, &mail)) {
 		/* at least one mail matches in this mailbox */
-		if (dest_mailbox_open_or_create(ctx, dest_user, info->vname,
-						&box) < 0)
+		if (dest_mailbox_open_or_create(ctx, dest_user, info, &box) < 0)
 			ret = -1;
 		else {
 			if (cmd_import_box_contents(iter, mail, box) < 0) {
