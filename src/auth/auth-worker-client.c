@@ -782,8 +782,9 @@ void auth_worker_client_send_error(void)
 void auth_worker_client_send_success(void)
 {
 	auth_worker_client_error = FALSE;
-	if (auth_worker_client != NULL &&
-	    auth_worker_client->error_sent) {
+	if (auth_worker_client == NULL)
+		return;
+	if (auth_worker_client->error_sent) {
 		o_stream_nsend_str(auth_worker_client->output, "SUCCESS\n");
 		auth_worker_client->error_sent = FALSE;
 	}
