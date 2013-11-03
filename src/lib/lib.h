@@ -50,6 +50,9 @@ int close_keep_errno(int *fd);
    functions are still available. Also if lib_atexit() is called multiple times
    to the same callback, it's added only once. */
 void lib_atexit(lib_atexit_callback_t *callback);
+/* Manually run the atexit callbacks. lib_deinit() also does this if not
+   explicitly called. */
+void lib_atexit_run(void);
 
 void lib_init(void);
 void lib_deinit(void);

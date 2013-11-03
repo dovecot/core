@@ -53,6 +53,17 @@ void lib_atexit(lib_atexit_callback_t *callback)
 	array_append(&atexit_callbacks, &callback, 1);
 }
 
+void lib_atexit_run(void)
+{
+	lib_atexit_callback_t *const *cbp;
+
+	if (array_is_created(&atexit_callbacks)) {
+		array_foreach(&atexit_callbacks, cbp)
+			(**cbp)();
+		array_free(&atexit_callbacks);
+	}
+}
+
 void lib_init(void)
 {
 	struct timeval tv;
@@ -68,14 +79,7 @@ void lib_init(void)
 
 void lib_deinit(void)
 {
-	lib_atexit_callback_t *const *cbp;
-
-	if (array_is_created(&atexit_callbacks)) {
-		array_foreach(&atexit_callbacks, cbp)
-			(**cbp)();
-		array_free(&atexit_callbacks);
-	}
-
+	lib_atexit_run();
 	ipwd_deinit();
 	hostpid_deinit();
 	data_stack_deinit();

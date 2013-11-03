@@ -760,6 +760,8 @@ void master_service_deinit(struct master_service **_service)
 		pool_unref(&service->set_pool);
 	}
 	lib_signals_deinit();
+	/* run atexit callbacks before destroying ioloop */
+	lib_atexit_run();
 	io_loop_destroy(&service->ioloop);
 
 	if (service->listener_names != NULL)
