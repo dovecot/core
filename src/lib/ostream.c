@@ -46,8 +46,8 @@ const char *o_stream_get_error(struct ostream *stream)
 static void o_stream_close_full(struct ostream *stream, bool close_parents)
 {
 	if (!stream->closed) {
-		io_stream_close(&stream->real_stream->iostream, close_parents);
 		stream->closed = TRUE;
+		io_stream_close(&stream->real_stream->iostream, close_parents);
 	}
 
 	if (stream->stream_errno == 0)
