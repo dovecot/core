@@ -150,7 +150,7 @@ master_input_cache_flush(struct auth_master_connection *conn, const char *args)
 	if (passdb_cache == NULL) {
 		/* cache disabled */
 		count = 0;
-	} if (list[1] == NULL) {
+	} else if (list[1] == NULL) {
 		/* flush the whole cache */
 		count = auth_cache_clear(passdb_cache);
 	} else {
