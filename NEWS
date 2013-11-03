@@ -1,3 +1,21 @@
+v2.2.7 2013-11-03  Timo Sirainen <tss@iki.fi>
+
+	* Some usage of passdb checkpassword could have been exploitable by
+	  local users. You may need to modify your setup to keep it working.
+	  See http://wiki2.dovecot.org/AuthDatabase/CheckPassword#Security
+
+	+ auth: Added ability to truncate values logged by
+	  auth_verbose_passwords (see 10-logging.conf comment)
+	+ mdbox: Added "mdbox_deleted" storage, which can be used to access
+	  messages with refcount=0. For example: doveadm import
+	  mdbox_deleted:~/mdbox "" mailbox inbox subject oops
+	+ ssl-params: Added ssl_dh_parameters_length setting.
+	- master process was doing a hostname.domain lookup for each created
+	  process, which may have caused a lot of unnecessary DNS lookups.
+	- dsync: Syncing over 100 messages at once caused problems in some
+	  situations, causing messages to get new UIDs.
+	- fts-solr: Different Solr hosts for different users didn't work.
+
 v2.2.6 2013-09-25  Timo Sirainen <tss@iki.fi>
 
 	* acl: If public/shared namespace has a shared subscriptions file for
