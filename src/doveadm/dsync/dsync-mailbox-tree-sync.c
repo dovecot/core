@@ -424,6 +424,9 @@ sync_rename_node(struct dsync_mailbox_tree_sync_ctx *ctx,
 	struct dsync_mailbox_node *parent;
 	const char *name, *other_name;
 
+	i_assert(node != NULL);
+	i_assert(other_node != NULL);
+
 	/* move/rename node in the tree, so that its position/name is identical
 	   to other_node (in other_tree). temp_node's name is changed to
 	   temporary name (i.e. it assumes that node's name becomes temp_node's
