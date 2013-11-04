@@ -34,8 +34,9 @@ struct ssl_params {
 	ssl_params_callback_t *callback;
 };
 
-static void ssl_params_if_unchanged(const char *path, time_t mtime,
-				    unsigned int ssl_dh_parameters_length)
+static void
+ssl_params_if_unchanged(const char *path, time_t mtime,
+			unsigned int ssl_dh_parameters_length ATTR_UNUSED)
 {
 	const char *temp_path;
 	struct file_lock *lock;
