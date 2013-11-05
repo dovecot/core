@@ -403,7 +403,7 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 	} else if (boundary_start == 0) {
 		/* no linefeeds in this block. we can just skip it. */
 		ret = 0;
-		if (block_r->data[block_r->size-1] == '\r') {
+		if (block_r->data[block_r->size-1] == '\r' && !ctx->eof) {
 			/* this may be the beginning of the \r\n--boundary */
 			block_r->size--;
 		}
