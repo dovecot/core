@@ -125,6 +125,10 @@ struct mailbox_list_settings {
 	bool utf8;
 	/* Don't check/create the alt-dir symlink. */
 	bool alt_dir_nocheck;
+	/* Use maildir_name also for index/control directories. This should
+	   have been the default since the beginning, but for backwards
+	   compatibility it had to be made an option. */
+	bool index_control_use_maildir_name;
 };
 
 struct mailbox_permissions {
