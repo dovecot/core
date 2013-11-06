@@ -12,6 +12,8 @@
 #include "time-util.h"
 #include "unichar.h"
 #include "settings-parser.h"
+#include "iostream-ssl.h"
+#include "fs-api.h"
 #include "imap-utf7.h"
 #include "mailbox-log.h"
 #include "mailbox-tree.h"
@@ -1802,4 +1804,26 @@ bool mailbox_list_set_error_from_errno(struct mailbox_list *list)
 
 	mailbox_list_set_error(list, error, error_string);
 	return TRUE;
+}
+
+int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
+			 const char *args, const char *root_dir,
+			 struct fs **fs_r, const char **error_r)
+{
+	struct fs_settings fs_set;
+	struct ssl_iostream_settings ssl_set;
+
+	memset(&ssl_set, 0, sizeof(ssl_set));
+	ssl_set.ca_dir = list->mail_set->ssl_client_ca_dir;
+	ssl_set.ca_file = list->mail_set->ssl_client_ca_file;
+
+	memset(&fs_set, 0, sizeof(fs_set));
+	fs_set.temp_file_prefix = mailbox_list_get_global_temp_prefix(list);
+	fs_set.base_dir = list->ns->user->set->base_dir;
+	fs_set.temp_dir = list->ns->user->set->mail_temp_dir;
+	fs_set.ssl_client_set = &ssl_set;
+	fs_set.root_path = root_dir;
+	fs_set.debug = list->ns->user->mail_debug;
+
+	return fs_init(driver, args, &fs_set, fs_r, error_r);
 }

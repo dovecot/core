@@ -22,6 +22,7 @@
 
 struct stat;
 struct dirent;
+struct fs;
 struct imap_match_glob;
 struct mailbox_tree_context;
 struct mailbox_list_notify;
@@ -209,5 +210,9 @@ void mailbox_list_set_critical(struct mailbox_list *list, const char *fmt, ...)
 	ATTR_FORMAT(2, 3);
 void mailbox_list_set_internal_error(struct mailbox_list *list);
 bool mailbox_list_set_error_from_errno(struct mailbox_list *list);
+
+int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
+			 const char *args, const char *root_dir,
+			 struct fs **fs_r, const char **error_r);
 
 #endif

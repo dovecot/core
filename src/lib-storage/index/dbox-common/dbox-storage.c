@@ -94,11 +94,7 @@ int dbox_storage_create(struct mail_storage *_storage,
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	const struct mail_storage_settings *set = _storage->set;
-	struct fs_settings fs_set;
 	const char *error;
-
-	memset(&fs_set, 0, sizeof(fs_set));
-	fs_set.temp_file_prefix = mailbox_list_get_global_temp_prefix(ns->list);
 
 	if (*set->mail_attachment_fs != '\0') {
 		const char *name, *args, *dir;
@@ -121,9 +117,10 @@ int dbox_storage_create(struct mail_storage *_storage,
 		dir = mail_user_home_expand(_storage->user,
 					    set->mail_attachment_dir);
 		storage->attachment_dir = p_strdup(_storage->pool, dir);
-		fs_set.root_path = storage->attachment_dir;
-		if (fs_init(name, args, &fs_set, &storage->attachment_fs,
-			    &error) < 0) {
+
+		if (mailbox_list_init_fs(ns->list, name, args,
+					 storage->attachment_dir,
+					 &storage->attachment_fs, &error) < 0) {
 			*error_r = t_strdup_printf("mail_attachment_fs: %s",
 						   error);
 			return -1;
