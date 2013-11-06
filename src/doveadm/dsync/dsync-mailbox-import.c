@@ -299,12 +299,14 @@ dsync_istreams_cmp(struct istream *input1, struct istream *input2, int *cmp_r)
 	}
 	if (input1->stream_errno != 0) {
 		errno = input1->stream_errno;
-		i_error("read(%s) failed: %m", i_stream_get_name(input1));
+		i_error("read(%s) failed: %s", i_stream_get_name(input1),
+			i_stream_get_error(input1));
 		return -1;
 	}
 	if (input2->stream_errno != 0) {
 		errno = input2->stream_errno;
-		i_error("read(%s) failed: %m", i_stream_get_name(input2));
+		i_error("read(%s) failed: %s", i_stream_get_name(input2),
+			i_stream_get_error(input2));
 		return -1;
 	}
 	if (size1 == 0 && size2 == 0)
@@ -1960,9 +1962,9 @@ static void dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 	i_assert(ret == -1);
 
 	if (mail->input->stream_errno != 0) {
-		errno = mail->input->stream_errno;
-		i_error("Mailbox %s: read(msg input) failed: %m",
-			mailbox_get_vname(importer->box));
+		i_error("Mailbox %s: read(msg input) failed: %s",
+			mailbox_get_vname(importer->box),
+			i_stream_get_error(mail->input));
 		mailbox_save_cancel(&save_ctx);
 		importer->failed = TRUE;
 	} else if (save_failed) {

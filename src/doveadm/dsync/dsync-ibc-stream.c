@@ -174,8 +174,8 @@ static int dsync_ibc_stream_read_mail_stream(struct dsync_ibc_stream *ibc)
 	} while (i_stream_read(ibc->value_input) > 0);
 	if (ibc->value_input->eof) {
 		if (ibc->value_input->stream_errno != 0) {
-			errno = ibc->value_input->stream_errno;
-			i_error("dsync(%s): read() failed: %m", ibc->name);
+			i_error("dsync(%s): read() failed: %s", ibc->name,
+				i_stream_get_error(ibc->value_input));
 			dsync_ibc_stream_stop(ibc);
 			return -1;
 		}
@@ -246,8 +246,9 @@ static int dsync_ibc_stream_send_value_stream(struct dsync_ibc_stream *ibc)
 	i_assert(ret == -1);
 
 	if (ibc->value_output->stream_errno != 0) {
-		i_error("dsync(%s): read(%s) failed: %m",
-			ibc->name, i_stream_get_name(ibc->value_output));
+		i_error("dsync(%s): read(%s) failed: %s",
+			ibc->name, i_stream_get_name(ibc->value_output),
+			i_stream_get_error(ibc->value_output));
 		dsync_ibc_stream_stop(ibc);
 		return -1;
 	}
@@ -371,8 +372,8 @@ static int dsync_ibc_stream_next_line(struct dsync_ibc_stream *ibc,
 			return -1;
 		error = t_str_new(128);
 		if (ibc->input->stream_errno != 0) {
-			errno = ibc->input->stream_errno;
-			str_printfa(error, "read(%s) failed: %m", ibc->name);
+			str_printfa(error, "read(%s) failed: %s", ibc->name,
+				    i_stream_get_error(ibc->input));
 		} else {
 			i_assert(ibc->input->eof);
 			str_printfa(error, "read(%s) failed: EOF", ibc->name);
