@@ -12,6 +12,7 @@ libfs_la_SOURCES = \
 	fs-sis.c \
 	fs-sis-common.c \
 	fs-sis-queue.c \
+	istream-fs-file.c \
 	istream-metawrap.c \
 	ostream-metawrap.c \
 	ostream-cmp.c
@@ -20,6 +21,7 @@ headers = \
 	fs-api.h \
 	fs-api-private.h \
 	fs-sis-common.h \
+	istream-fs-file.h \
 	istream-metawrap.h \
 	ostream-metawrap.h \
 	ostream-cmp.h
