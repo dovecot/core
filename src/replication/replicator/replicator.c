@@ -70,7 +70,7 @@ replicator_dump_timeout(void *context ATTR_UNUSED)
 	const char *path;
 
 	path = t_strconcat(service_set->state_dir, "/"REPLICATOR_DB_FNAME, NULL);
-	(void)replicator_queue_import(queue, path);
+	(void)replicator_queue_export(queue, path);
 }
 
 static void main_init(void)
