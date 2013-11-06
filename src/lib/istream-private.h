@@ -52,6 +52,9 @@ struct istream_private {
 struct istream * ATTR_NOWARN_UNUSED_RESULT
 i_stream_create(struct istream_private *stream, struct istream *parent, int fd)
 	ATTR_NULL(2);
+/* Initialize parent lazily after i_stream_create() has already been called. */
+void i_stream_init_parent(struct istream_private *_stream,
+			  struct istream *parent);
 
 void i_stream_compress(struct istream_private *stream);
 void i_stream_grow_buffer(struct istream_private *stream, size_t bytes);

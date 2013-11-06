@@ -703,22 +703,27 @@ i_stream_default_get_size(struct istream_private *stream,
 	return 1;
 }
 
+void i_stream_init_parent(struct istream_private *_stream,
+			  struct istream *parent)
+{
+	_stream->access_counter = parent->real_stream->access_counter;
+	_stream->parent = parent;
+	_stream->parent_start_offset = parent->v_offset;
+	_stream->parent_expected_offset = parent->v_offset;
+	_stream->abs_start_offset = parent->v_offset +
+		parent->real_stream->abs_start_offset;
+	/* if parent stream is an istream-error, copy the error */
+	_stream->istream.stream_errno = parent->stream_errno;
+	_stream->istream.eof = parent->eof;
+	i_stream_ref(parent);
+}
+
 struct istream *
 i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 {
 	_stream->fd = fd;
-	if (parent != NULL) {
-		_stream->access_counter = parent->real_stream->access_counter;
-		_stream->parent = parent;
-		_stream->parent_start_offset = parent->v_offset;
-		_stream->parent_expected_offset = parent->v_offset;
-		_stream->abs_start_offset = parent->v_offset +
-			parent->real_stream->abs_start_offset;
-		/* if parent stream is an istream-error, copy the error */
-		_stream->istream.stream_errno = parent->stream_errno;
-		_stream->istream.eof = parent->eof;
-		i_stream_ref(parent);
-	}
+	if (parent != NULL)
+		i_stream_init_parent(_stream, parent);
 	_stream->istream.real_stream = _stream;
 
 	if (_stream->iostream.close == NULL)
