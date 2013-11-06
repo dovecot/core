@@ -60,7 +60,7 @@ get_disconnect_reason(struct cmd_append_context *ctx, uoff_t lit_offset)
 
 	str_printfa(str, "Disconnected in APPEND (%u msgs, %u secs",
 		    ctx->count, secs);
-	if (ctx->litinput != NULL) {
+	if (ctx->literal_size > 0) {
 		str_printfa(str, ", %"PRIuUOFF_T"/%"PRIuUOFF_T" bytes",
 			    lit_offset, ctx->literal_size);
 	}
@@ -74,6 +74,7 @@ static void client_input_append(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	const char *reason;
 	bool finished;
+	uoff_t lit_offset;
 
 	i_assert(!client->destroyed);
 
@@ -83,7 +84,9 @@ static void client_input_append(struct client_command_context *cmd)
 	switch (i_stream_read(client->input)) {
 	case -1:
 		/* disconnected */
-		reason = get_disconnect_reason(ctx, ctx->litinput->v_offset);
+		lit_offset = ctx->litinput == NULL ? 0 :
+			ctx->litinput->v_offset;
+		reason = get_disconnect_reason(ctx, lit_offset);
 		cmd_append_finish(cmd->context);
 		/* Reset command so that client_destroy() doesn't try to call
 		   cmd_append_continue_message() anymore. */
