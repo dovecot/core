@@ -398,6 +398,7 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 	if (message_skip_virtual(input, virtual_skip, &cr_skipped) < 0) {
 		errinput = i_stream_create_error(errno);
 		i_stream_set_name(errinput, i_stream_get_name(input));
+		i_stream_unref(&input);
 		return errinput;
 	}
 
