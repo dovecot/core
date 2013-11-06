@@ -370,9 +370,19 @@ void mdbox_set_file_corrupted(struct dbox_file *file)
 static int
 mdbox_mailbox_get_guid(struct mdbox_mailbox *mbox, guid_128_t guid_r)
 {
+	const struct mail_index_header *idx_hdr;
 	struct mdbox_index_header hdr;
 	bool need_resize;
+	int ret = 0;
 
+	i_assert(!mbox->creating);
+
+	/* there's a race condition between mkdir and getting the mailbox GUID.
+	   normally this is handled by mdbox syncing, but GUID can be looked up
+	   without syncing. when mbox->creating=TRUE, the errors are hidden
+	   and we'll simply finish the mailbox creation */
+	idx_hdr = mail_index_get_header(mbox->box.view);
+	mbox->creating = idx_hdr->uid_validity == 0 && idx_hdr->next_uid == 1;
 	if (mdbox_read_header(mbox, &hdr, &need_resize) < 0)
 		memset(&hdr, 0, sizeof(hdr));
 
@@ -380,10 +390,12 @@ mdbox_mailbox_get_guid(struct mdbox_mailbox *mbox, guid_128_t guid_r)
 		/* regenerate it */
 		if (mdbox_write_index_header(&mbox->box, NULL, NULL) < 0 ||
 		    mdbox_read_header(mbox, &hdr, &need_resize) < 0)
-			return -1;
+			ret = -1;
 	}
-	memcpy(guid_r, hdr.mailbox_guid, GUID_128_SIZE);
-	return 0;
+	if (ret == 0)
+		memcpy(guid_r, hdr.mailbox_guid, GUID_128_SIZE);
+	mbox->creating = FALSE;
+	return ret;
 }
 
 static int
