@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "istream.h"
 #include "str.h"
+#include "fs-api.h"
+#include "istream-fs-file.h"
 #include "istream-attachment-connector.h"
 #include "dbox-file.h"
 #include "dbox-save.h"
@@ -143,6 +145,7 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 	ARRAY_TYPE(mail_attachment_extref) extrefs_arr;
 	const struct mail_attachment_extref *extref;
 	struct istream_attachment_connector *conn;
+	struct fs_file *fsfile;
 	struct istream *input;
 	const char *path, *path_suffix;
 	uoff_t msg_size;
@@ -170,7 +173,9 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 	array_foreach(&extrefs_arr, extref) {
 		path = t_strdup_printf("%s/%s%s", file->storage->attachment_dir,
 				       extref->path, path_suffix);
-		input = i_stream_create_file(path, IO_BLOCK_SIZE);
+		fsfile = fs_file_init(file->storage->attachment_fs, path,
+				      FS_OPEN_MODE_READONLY);
+		input = i_stream_create_fs_file(&fsfile, IO_BLOCK_SIZE);
 
 		ret = istream_attachment_connector_add(conn, input,
 					extref->start_offset, extref->size,
