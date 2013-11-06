@@ -361,7 +361,7 @@ static void http_client_connection_destroy(struct connection *_conn)
 		/* retry pending requests if possible */
 		error = _conn->input == NULL ? "Connection lost" :
 			t_strdup_printf("Connection lost: %s",
-					strerror(_conn->input->stream_errno));
+					i_stream_get_error(_conn->input));
 		http_client_connection_debug(conn, "%s", error);
 		http_client_connection_retry_requests(conn,
 			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST, error);
@@ -646,7 +646,8 @@ static void http_client_connection_input(struct connection *_conn)
 			t_strdup_printf("Connection lost: read(%s) failed: %s",
 					i_stream_get_name(conn->conn.input),
 					stream_errno != 0 ?
-					strerror(stream_errno) : "EOF"));
+					i_stream_get_error(conn->conn.input) :
+					"EOF"));
 		return;
 	}
 
@@ -681,8 +682,9 @@ int http_client_connection_output(struct http_client_connection *conn)
 		if (ret < 0) {
 			http_client_connection_abort_temp_error(&conn,
 				HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
-				t_strdup_printf("Connection lost: write(%s) failed: %m",
-						o_stream_get_name(output)));
+				t_strdup_printf("Connection lost: write(%s) failed: %s",
+						o_stream_get_name(output),
+						o_stream_get_error(output)));
 		}
 		return ret;
 	}

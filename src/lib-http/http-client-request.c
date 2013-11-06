@@ -256,8 +256,9 @@ void http_client_request_set_payload(struct http_client_request *req,
 	req->payload_input = input;
 	if ((ret = i_stream_get_size(input, TRUE, &req->payload_size)) <= 0) {
 		if (ret < 0) {
-			i_error("i_stream_get_size(%s) failed: %m",
-				i_stream_get_name(input));
+			i_error("i_stream_get_size(%s) failed: %s",
+				i_stream_get_name(input),
+				i_stream_get_error(input));
 		}
 		req->payload_size = 0;
 		req->payload_chunked = TRUE;
@@ -505,14 +506,16 @@ int http_client_request_send_more(struct http_client_request *req,
 		/* we're in the middle of sending a request, so the connection
 		   will also have to be aborted */
 		errno = req->payload_input->stream_errno;
-		*error_r = t_strdup_printf("read(%s) failed: %m",
-					   i_stream_get_name(req->payload_input));
+		*error_r = t_strdup_printf("read(%s) failed: %s",
+					   i_stream_get_name(req->payload_input),
+					   i_stream_get_error(req->payload_input));
 		ret = -1;
 	} else if (output->stream_errno != 0) {
 		/* failed to send request */
 		errno = output->stream_errno;
-		*error_r = t_strdup_printf("write(%s) failed: %m",
-					   o_stream_get_name(output));
+		*error_r = t_strdup_printf("write(%s) failed: %s",
+					   o_stream_get_name(output),
+					   o_stream_get_error(output));
 		ret = -1;
 	} else {
 		i_assert(ret >= 0);
@@ -631,8 +634,9 @@ static int http_client_request_send_real(struct http_client_request *req,
 	req->state = HTTP_REQUEST_STATE_PAYLOAD_OUT;
 	o_stream_cork(output);
 	if (o_stream_sendv(output, iov, N_ELEMENTS(iov)) < 0) {
-		*error_r = t_strdup_printf("write(%s) failed: %m",
-					   o_stream_get_name(output));
+		*error_r = t_strdup_printf("write(%s) failed: %s",
+					   o_stream_get_name(output),
+					   o_stream_get_error(output));
 		ret = -1;
 	}
 

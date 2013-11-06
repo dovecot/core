@@ -31,9 +31,10 @@ static void payload_input(struct http_test_request *req)
 		i_info("DEBUG: REQUEST: NEED MORE DATA");
 		/* we will be called again for this request */
 	} else {
-		if (req->payload->stream_errno != 0)
-			i_error("REQUEST PAYLOAD READ ERROR: %m");
-		else
+		if (req->payload->stream_errno != 0) {
+			i_error("REQUEST PAYLOAD READ ERROR: %s",
+				i_stream_get_error(req->payload));
+		} else
 			i_info("DEBUG: REQUEST: Finished");
 		io_remove(&req->io);
 		i_stream_unref(&req->payload);
