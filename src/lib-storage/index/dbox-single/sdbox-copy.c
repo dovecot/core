@@ -40,7 +40,7 @@ sdbox_file_copy_attachments(struct sdbox_file *src_file,
 
 	pool = pool_alloconly_create("sdbox attachments copy", 1024);
 	p_array_init(&extrefs, pool, 16);
-	if (!dbox_attachment_parse_extref(extrefs_line, pool, &extrefs)) {
+	if (!index_attachment_parse_extrefs(extrefs_line, pool, &extrefs)) {
 		mail_storage_set_critical(&dest_storage->storage,
 			"Can't copy %s with corrupted extref metadata: %s",
 			src_file->file.cur_path, extrefs_line);

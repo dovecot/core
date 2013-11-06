@@ -160,8 +160,9 @@ static void dbox_sync_expunge_files(struct sdbox_sync_context *ctx)
 	/* NOTE: Index is no longer locked. Multiple processes may be unlinking
 	   the files at the same time. */
 	ctx->mbox->box.tmp_sync_view = ctx->sync_view;
-	array_foreach(&ctx->expunged_uids, uidp)
+	array_foreach(&ctx->expunged_uids, uidp) T_BEGIN {
 		dbox_sync_file_expunge(ctx, *uidp);
+	} T_END;
 	if (ctx->mbox->box.v.sync_notify != NULL)
 		ctx->mbox->box.v.sync_notify(&ctx->mbox->box, 0, 0);
 	ctx->mbox->box.tmp_sync_view = NULL;

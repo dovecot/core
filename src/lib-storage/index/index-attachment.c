@@ -10,10 +10,19 @@
 #include "str.h"
 #include "message-parser.h"
 #include "rfc822-parser.h"
+#include "fs-api.h"
+#include "istream-fs-file.h"
+#include "istream-attachment-connector.h"
 #include "istream-attachment-extractor.h"
 #include "mail-user.h"
 #include "index-mail.h"
 #include "index-attachment.h"
+
+enum mail_attachment_decode_option {
+	MAIL_ATTACHMENT_DECODE_OPTION_NONE = '-',
+	MAIL_ATTACHMENT_DECODE_OPTION_BASE64 = 'B',
+	MAIL_ATTACHMENT_DECODE_OPTION_CRLF = 'C'
+};
 
 struct mail_save_attachment {
 	pool_t pool;
@@ -104,7 +113,7 @@ index_attachment_open_ostream(struct istream_attachment_info *info,
 			       digest[2], digest[3], digest,
 			       guid_128_to_string(guid_128));
 	attach->cur_file = fs_file_init(attach->fs, path,
-					FS_OPEN_MODE_CREATE | flags);
+					FS_OPEN_MODE_REPLACE | flags);
 
 	extref = array_append_space(&attach->extrefs);
 	extref->start_offset = info->start_offset;
@@ -285,4 +294,151 @@ int index_attachment_delete(struct mail_storage *storage,
 		ret = index_attachment_delete_real(storage, fs, name);
 	} T_END;
 	return ret;
+}
+
+void index_attachment_append_extrefs(string_t *str,
+	const ARRAY_TYPE(mail_attachment_extref) *extrefs)
+{
+	const struct mail_attachment_extref *extref;
+	bool add_space = FALSE;
+	unsigned int startpos;
+
+	array_foreach(extrefs, extref) {
+		if (!add_space)
+			add_space = TRUE;
+		else
+			str_append_c(str, ' ');
+		str_printfa(str, "%"PRIuUOFF_T" %"PRIuUOFF_T" ",
+			    extref->start_offset, extref->size);
+
+		startpos = str_len(str);
+		if (extref->base64_have_crlf)
+			str_append_c(str, MAIL_ATTACHMENT_DECODE_OPTION_CRLF);
+		if (extref->base64_blocks_per_line > 0) {
+			str_printfa(str, "%c%u",
+				    MAIL_ATTACHMENT_DECODE_OPTION_BASE64,
+				    extref->base64_blocks_per_line * 4);
+		}
+		if (startpos == str_len(str)) {
+			/* make it clear there are no options */
+			str_append_c(str, MAIL_ATTACHMENT_DECODE_OPTION_NONE);
+		}
+		str_append_c(str, ' ');
+		str_append(str, extref->path);
+	}
+}
+
+static bool
+parse_extref_decode_options(const char *str,
+			    struct mail_attachment_extref *extref)
+{
+	unsigned int num;
+
+	if (*str == MAIL_ATTACHMENT_DECODE_OPTION_NONE)
+		return str[1] == '\0';
+
+	while (*str != '\0') {
+		switch (*str) {
+		case MAIL_ATTACHMENT_DECODE_OPTION_BASE64:
+			str++; num = 0;
+			while (*str >= '0' && *str <= '9') {
+				num = num*10 + (*str-'0');
+				str++;
+			}
+			if (num == 0 || num % 4 != 0)
+				return FALSE;
+
+			extref->base64_blocks_per_line = num/4;
+			break;
+		case MAIL_ATTACHMENT_DECODE_OPTION_CRLF:
+			extref->base64_have_crlf = TRUE;
+			str++;
+			break;
+		default:
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+bool index_attachment_parse_extrefs(const char *line, pool_t pool,
+				    ARRAY_TYPE(mail_attachment_extref) *extrefs)
+{
+	struct mail_attachment_extref extref;
+	const char *const *args;
+	unsigned int i, len;
+	uoff_t last_voffset;
+
+	args = t_strsplit(line, " ");
+	len = str_array_length(args);
+	if ((len % 4) != 0)
+		return FALSE;
+
+	last_voffset = 0;
+	for (i = 0; args[i] != NULL; i += 4) {
+		const char *start_offset_str = args[i+0];
+		const char *size_str = args[i+1];
+		const char *decode_options = args[i+2];
+		const char *path = args[i+3];
+
+		memset(&extref, 0, sizeof(extref));
+		if (str_to_uoff(start_offset_str, &extref.start_offset) < 0 ||
+		    str_to_uoff(size_str, &extref.size) < 0 ||
+		    extref.start_offset < last_voffset ||
+		    !parse_extref_decode_options(decode_options, &extref))
+			return FALSE;
+
+		last_voffset += extref.size +
+			(extref.start_offset - last_voffset);
+
+		extref.path = p_strdup(pool, path);
+		array_append(extrefs, &extref, 1);
+	}
+	return TRUE;
+}
+
+int index_attachment_stream_get(struct fs *fs, const char *attachment_dir,
+				const char *path_suffix,
+				struct istream **stream, uoff_t full_size,
+				const char *ext_refs, const char **error_r)
+{
+	ARRAY_TYPE(mail_attachment_extref) extrefs_arr;
+	const struct mail_attachment_extref *extref;
+	struct istream_attachment_connector *conn;
+	struct istream *input;
+	struct fs_file *file;
+	const char *path;
+	int ret;
+
+	*error_r = NULL;
+
+	t_array_init(&extrefs_arr, 16);
+	if (!index_attachment_parse_extrefs(ext_refs, pool_datastack_create(),
+					    &extrefs_arr)) {
+		*error_r = "Broken ext-refs string";
+		return -1;
+	}
+	conn = istream_attachment_connector_begin(*stream, full_size);
+
+	array_foreach(&extrefs_arr, extref) {
+		path = t_strdup_printf("%s/%s%s", attachment_dir,
+				       extref->path, path_suffix);
+		file = fs_file_init(fs, path, FS_OPEN_MODE_READONLY);
+		input = i_stream_create_fs_file(&file, IO_BLOCK_SIZE);
+
+		ret = istream_attachment_connector_add(conn, input,
+					extref->start_offset, extref->size,
+					extref->base64_blocks_per_line,
+					extref->base64_have_crlf, error_r);
+		i_stream_unref(&input);
+		if (ret < 0) {
+			istream_attachment_connector_abort(&conn);
+			return -1;
+		}
+	}
+
+	input = istream_attachment_connector_finish(&conn);
+	i_stream_unref(stream);
+	*stream = input;
+	return 0;
 }

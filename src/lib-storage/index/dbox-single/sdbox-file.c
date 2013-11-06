@@ -436,7 +436,7 @@ int sdbox_file_unlink_with_attachments(struct sdbox_file *sfile)
 
 	pool = pool_alloconly_create("sdbox attachments unlink", 1024);
 	p_array_init(&extrefs, pool, 16);
-	if (!dbox_attachment_parse_extref(extrefs_line, pool, &extrefs)) {
+	if (!index_attachment_parse_extrefs(extrefs_line, pool, &extrefs)) {
 		i_warning("%s: Ignoring corrupted extref: %s",
 			  sfile->file.cur_path, extrefs_line);
 		array_clear(&extrefs);

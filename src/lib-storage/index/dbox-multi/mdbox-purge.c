@@ -147,13 +147,13 @@ mdbox_metadata_get_extrefs(struct dbox_file *file, pool_t ext_refs_pool,
 			/* end of metadata */
 			break;
 		}
-		if (*line == DBOX_METADATA_EXT_REF) {
-			if (!dbox_attachment_parse_extref(line+1, ext_refs_pool,
-							  extrefs)) {
+		if (*line == DBOX_METADATA_EXT_REF) T_BEGIN {
+			if (!index_attachment_parse_extrefs(line+1, ext_refs_pool,
+							    extrefs)) {
 				i_warning("%s: Ignoring corrupted extref: %s",
 					  file->cur_path, line);
 			}
-		}
+		} T_END;
 	}
 	i_stream_set_max_buffer_size(file->input, buf_size);
 

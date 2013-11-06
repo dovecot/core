@@ -37,4 +37,16 @@ index_attachment_save_get_extrefs(struct mail_save_context *ctx);
 int index_attachment_delete(struct mail_storage *storage,
 			    struct fs *fs, const char *name);
 
+void index_attachment_append_extrefs(string_t *str,
+	const ARRAY_TYPE(mail_attachment_extref) *extrefs);
+/* Parse extrefs value to given array. Names are allocated from the
+   given pool. */
+bool index_attachment_parse_extrefs(const char *line, pool_t pool,
+				    ARRAY_TYPE(mail_attachment_extref) *extrefs);
+
+int index_attachment_stream_get(struct fs *fs, const char *attachment_dir,
+				const char *path_suffix,
+				struct istream **stream, uoff_t full_size,
+				const char *ext_refs, const char **error_r);
+
 #endif
