@@ -438,6 +438,8 @@ int index_attachment_stream_get(struct fs *fs, const char *attachment_dir,
 	}
 
 	input = istream_attachment_connector_finish(&conn);
+	i_stream_set_name(input, t_strdup_printf(
+		"attachments-connector(%s)", i_stream_get_name(*stream)));
 	i_stream_unref(stream);
 	*stream = input;
 	return 0;
