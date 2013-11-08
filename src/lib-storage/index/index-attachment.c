@@ -423,7 +423,8 @@ int index_attachment_stream_get(struct fs *fs, const char *attachment_dir,
 	array_foreach(&extrefs_arr, extref) {
 		path = t_strdup_printf("%s/%s%s", attachment_dir,
 				       extref->path, path_suffix);
-		file = fs_file_init(fs, path, FS_OPEN_MODE_READONLY);
+		file = fs_file_init(fs, path, FS_OPEN_MODE_READONLY |
+				    FS_OPEN_FLAG_SEEKABLE);
 		input = i_stream_create_fs_file(&file, IO_BLOCK_SIZE);
 
 		ret = istream_attachment_connector_add(conn, input,
