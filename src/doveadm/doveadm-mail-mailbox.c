@@ -268,6 +268,9 @@ cmd_mailbox_create_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		if (guid_128_from_string(optarg, ctx->update.mailbox_guid) < 0)
 			doveadm_mail_help_name("mailbox create");
 		break;
+	case 's':
+		ctx->ctx.subscriptions = TRUE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -282,7 +285,7 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_create_alloc(void)
 	ctx->ctx.ctx.v.init = cmd_mailbox_create_init;
 	ctx->ctx.ctx.v.run = cmd_mailbox_create_run;
 	ctx->ctx.ctx.v.parse_arg = cmd_mailbox_create_parse_arg;
-	ctx->ctx.ctx.getopt_args = "g:";
+	ctx->ctx.ctx.getopt_args = "g:s";
 	p_array_init(&ctx->mailboxes, ctx->ctx.ctx.pool, 16);
 	return &ctx->ctx.ctx;
 }
