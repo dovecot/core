@@ -153,13 +153,14 @@ mdbox_deleted_save_cancel(struct mail_save_context *ctx)
 }
 
 static int mdbox_deleted_sync(struct mdbox_mailbox *mbox,
-			      enum mdbox_sync_flags flags)
+			      enum mdbox_sync_flags flags ATTR_UNUSED)
 {
         struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
 	struct mail_index_transaction *trans;
 	struct mdbox_mail_index_record rec;
 	struct mdbox_map_mail_index_record map_rec;
+	enum mail_index_sync_flags sync_flags;
 	uint16_t refcount;
 	uint32_t map_seq, map_count, seq, uid = 0;
 	int ret = 0;
@@ -185,8 +186,9 @@ static int mdbox_deleted_sync(struct mdbox_mailbox *mbox,
 	memset(&rec, 0, sizeof(rec));
 	rec.save_date = ioloop_time;
 
+	sync_flags = index_storage_get_sync_flags(&mbox->box);
 	if (mail_index_sync_begin(mbox->box.index, &index_sync_ctx,
-				  &sync_view, &trans, flags) < 0) {
+				  &sync_view, &trans, sync_flags) < 0) {
 		mailbox_set_index_error(&mbox->box);
 		return -1;
 	}
