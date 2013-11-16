@@ -223,6 +223,9 @@ bool imapc_mail_prefetch(struct mail *_mail)
 	if ((data->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0 &&
 	    data->received_date == (time_t)-1)
 		fields |= MAIL_FETCH_RECEIVED_DATE;
+	if ((data->wanted_fields & MAIL_FETCH_SAVE_DATE) != 0 &&
+	    data->save_date == (time_t)-1 && data->received_date == (time_t)-1)
+		fields |= MAIL_FETCH_RECEIVED_DATE;
 	if ((data->wanted_fields & MAIL_FETCH_PHYSICAL_SIZE) != 0 &&
 	    data->physical_size == (uoff_t)-1 &&
 	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE))

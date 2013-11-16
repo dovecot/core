@@ -296,6 +296,12 @@ void imapc_mail_update_access_parts(struct index_mail *mail)
 
 	if ((data->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0)
 		(void)index_mail_get_received_date(_mail, &date);
+	if ((data->wanted_fields & MAIL_FETCH_SAVE_DATE) != 0) {
+		if (index_mail_get_save_date(_mail, &date) < 0) {
+			(void)index_mail_get_received_date(_mail, &date);
+			data->save_date = data->received_date;
+		}
+	}
 	if ((data->wanted_fields & MAIL_FETCH_PHYSICAL_SIZE) != 0) {
 		if (index_mail_get_physical_size(_mail, &size) < 0 &&
 		    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE))
