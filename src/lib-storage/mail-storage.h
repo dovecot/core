@@ -870,7 +870,10 @@ int mail_get_headers(struct mail *mail, const char *field,
    Do not use for structured fields (see mail_get_first_header_utf8()). */
 int mail_get_headers_utf8(struct mail *mail, const char *field,
 			  const char *const **value_r);
-/* Returns stream containing specified headers. */
+/* Returns stream containing specified headers. The returned stream will be
+   automatically freed when the mail is closed, or when another
+   mail_get_header_stream() call is made (so you can't have multiple header
+   streams open at the same time). */
 int mail_get_header_stream(struct mail *mail,
 			   struct mailbox_header_lookup_ctx *headers,
 			   struct istream **stream_r);
