@@ -207,18 +207,13 @@ static void imapc_mail_cache_get(struct imapc_mail *mail,
 	imapc_mail_init_stream(mail, TRUE);
 }
 
-bool imapc_mail_prefetch(struct mail *_mail)
+static enum mail_fetch_field
+imapc_mail_get_wanted_fetch_fields(struct imapc_mail *mail)
 {
-	struct imapc_mail *mail = (struct imapc_mail *)_mail;
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	struct imapc_mailbox *mbox =
+		(struct imapc_mailbox *)mail->imail.mail.mail.box;
 	struct index_mail_data *data = &mail->imail.data;
 	enum mail_fetch_field fields = 0;
-
-	if (mbox->prev_mail_cache.uid == _mail->uid)
-		imapc_mail_cache_get(mail, &mbox->prev_mail_cache);
-
-	/* try to get as much from cache as possible */
-	imapc_mail_update_access_parts(&mail->imail);
 
 	if ((data->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0 &&
 	    data->received_date == (time_t)-1)
@@ -240,6 +235,22 @@ bool imapc_mail_prefetch(struct mail *_mail)
 		else
 			fields |= MAIL_FETCH_STREAM_HEADER;
 	}
+	return fields;
+}
+
+bool imapc_mail_prefetch(struct mail *_mail)
+{
+	struct imapc_mail *mail = (struct imapc_mail *)_mail;
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	struct index_mail_data *data = &mail->imail.data;
+	enum mail_fetch_field fields;
+
+	if (mbox->prev_mail_cache.uid == _mail->uid)
+		imapc_mail_cache_get(mail, &mbox->prev_mail_cache);
+	/* try to get as much from cache as possible */
+	imapc_mail_update_access_parts(&mail->imail);
+
+	fields = imapc_mail_get_wanted_fetch_fields(mail);
 	if (fields != 0) T_BEGIN {
 		(void)imapc_mail_send_fetch(_mail, fields,
 					    data->wanted_headers == NULL ? NULL :
@@ -292,6 +303,7 @@ int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields,
 		return -1;
 	}
 
+	fields |= imapc_mail_get_wanted_fetch_fields(imail);
 	T_BEGIN {
 		ret = imapc_mail_send_fetch(_mail, fields, headers);
 	} T_END;
