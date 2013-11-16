@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2013 Dovecot authors, see the included COPYING file
-.TH DOVEADM 1 "2013-08-05" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM 1 "2013-11-16" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm \- Dovecot\(aqs administration utility
 .\"------------------------------------------------------------------------
@@ -100,6 +100,11 @@ Perform a user lookup in Dovecot\(aqs userdbs
 .B doveadm altmove
 .BR doveadm\-altmove (1),
 Move matching mails to the alternative storage.
+.\"-------------------------------------
+.TP
+.B doveadm copy
+.BR doveadm\-copy (1),
+Copy messages matching the given search query into another mailbox.
 .\"-------------------------------------
 .TP
 .B doveadm deduplicate

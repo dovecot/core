@@ -1,7 +1,10 @@
 .\" Copyright (c) 2011 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-MOVE 1 "2011-09-25" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-MOVE 1 "2013-11-16" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-move \- Move messages matching the given search query into another
+mailbox
+.br
+doveadm\-copy \- Copy messages matching the given search query into another
 mailbox
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
@@ -17,6 +20,20 @@ mailbox
 .BR doveadm " [" \-Dv "] " move " [" \-S
 .IR socket_path "] "
 .BI \-u " user destination search_query"
+.\"-------------------------------------
+.PP
+.BR doveadm " [" \-Dv "] " copy " [" \-S
+.IR socket_path "] " "destination search_query"
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " copy " [" \-S
+.IR socket_path "] "
+.BI \-A " destination search_query"
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " copy " [" \-S
+.IR socket_path "] "
+.BI \-u " user destination search_query"
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 .B doveadm move
@@ -26,23 +43,28 @@ The
 is used to restrict which messages are moved into the
 .I destination
 mailbox.
+.br
+.B doveadm copy
+behaves the same as
+.BR "doveadm move" ,
+except that copied messages will not be expunged after copying.
 .PP
 In the first form,
 .BR doveadm (1)
-will executed the
-.B move
+will execute the
+.BR move / copy
 action with the environment of the logged in system user.
 .PP
 In the second form,
 .BR doveadm (1)
 will iterate over all users, found in the configured
 .IR user_db (s),
-and move each user\(aqs messages, matching the given
+and move or copy each user\(aqs messages, matching the given
 .IR search_query ,
 into the user\(aqs
 .IR destination " mailbox."
 .PP
-In the third form, matching mails will be moved only for given
+In the third form, matching mails will be moved or copied only for given
 .IR user (s).
 .\"------------------------------------------------------------------------
 @INCLUDE:global-options@
@@ -60,14 +82,15 @@ Command specific
 .SH ARGUMENTS
 .TP
 .I destination
-The name of the destination mailbox, into which the mails should be moved.
+The name of the destination mailbox, into which the mails should be moved
+or copied.
 The
 .I destination
 mailbox must exist, otherwise this command will fail.
 .\"-------------------------------------
 .TP
 .I search_query
-Move messages matching the given search query.
+Move/copy messages matching the given search query.
 See
 .BR doveadm\-search\-query (7)
 for details.

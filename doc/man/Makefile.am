@@ -5,6 +5,7 @@ SUFFIXES = .1.in .1
 dist_man1_MANS = \
 	deliver.1 \
 	doveadm-config.1 \
+	doveadm-copy.1 \
 	doveadm-reload.1 \
 	doveadm-stop.1
 
