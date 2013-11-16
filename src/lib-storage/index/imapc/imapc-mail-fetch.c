@@ -156,7 +156,7 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 		str_append(str, "BODY.PEEK[HEADER] ");
 	else if (headers != NULL) {
 		mail->fetching_headers =
-			headers_merge(mail->imail.mail.pool, headers,
+			headers_merge(mail->imail.mail.data_pool, headers,
 				      mail->fetching_headers);
 		str_append(str, "BODY.PEEK[HEADER.FIELDS (");
 		for (i = 0; mail->fetching_headers[i] != NULL; i++) {

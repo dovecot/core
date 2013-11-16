@@ -308,13 +308,15 @@ void imapc_mail_update_access_parts(struct index_mail *mail)
 			data->access_part |= READ_HDR | READ_BODY;
 	}
 
-	if (data->access_part == 0 && data->wanted_headers != NULL) {
+	if (data->access_part == 0 && data->wanted_headers != NULL &&
+	    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_HEADERS)) {
 		/* see if all wanted headers exist in cache */
 		if (!imapc_mail_has_headers_in_cache(mail, data->wanted_headers))
 			data->access_part |= PARSE_HDR;
 	}
 	if (data->access_part == 0 &&
-	    (data->wanted_fields & MAIL_FETCH_IMAP_ENVELOPE) != 0) {
+	    (data->wanted_fields & MAIL_FETCH_IMAP_ENVELOPE) != 0 &&
+	    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_HEADERS)) {
 		/* the common code already checked this partially,
 		   but we need a guaranteed correct answer */
 		header_ctx = mailbox_header_lookup_init(_mail->box,
@@ -360,6 +362,7 @@ static void imapc_mail_close(struct mail *_mail)
 
 	index_mail_close(_mail);
 
+	mail->fetching_headers = NULL;
 	if (mail->body_fetched) {
 		imapc_mail_cache_free(cache);
 		cache->uid = _mail->uid;
