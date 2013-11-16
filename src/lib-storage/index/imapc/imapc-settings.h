@@ -4,7 +4,8 @@
 /* <settings checks> */
 enum imapc_features {
 	IMAPC_FEATURE_RFC822_SIZE	= 0x01,
-	IMAPC_FEATURE_GUID_FORCED	= 0x02
+	IMAPC_FEATURE_GUID_FORCED	= 0x02,
+	IMAPC_FEATURE_FETCH_HEADERS	= 0x04
 };
 /* </settings checks> */
 

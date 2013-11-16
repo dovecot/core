@@ -80,7 +80,7 @@ static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 		return 0;
 
 	if (data->received_date == (time_t)-1) {
-		if (imapc_mail_fetch(_mail, MAIL_FETCH_RECEIVED_DATE) < 0)
+		if (imapc_mail_fetch(_mail, MAIL_FETCH_RECEIVED_DATE, NULL) < 0)
 			return -1;
 		if (data->received_date == (time_t)-1) {
 			if (imapc_mail_failed(_mail, "INTERNALDATE") < 0)
@@ -127,7 +127,7 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE) &&
 	    data->stream == NULL) {
 		/* trust RFC822.SIZE to be correct */
-		if (imapc_mail_fetch(_mail, MAIL_FETCH_PHYSICAL_SIZE) < 0)
+		if (imapc_mail_fetch(_mail, MAIL_FETCH_PHYSICAL_SIZE, NULL) < 0)
 			return -1;
 		if (data->physical_size == (uoff_t)-1) {
 			if (imapc_mail_failed(_mail, "RFC822.SIZE") < 0)
@@ -159,6 +159,70 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 }
 
 static int
+imapc_mail_get_header_stream(struct mail *_mail,
+			     struct mailbox_header_lookup_ctx *headers,
+			     struct istream **stream_r)
+{
+	struct imapc_mail *mail = (struct imapc_mail *)_mail;
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	enum mail_lookup_abort old_abort = _mail->lookup_abort;
+	int ret;
+
+	if (mail->imail.data.access_part != 0 ||
+	    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_HEADERS)) {
+		/* we're going to be reading the header/body anyway */
+		return index_mail_get_header_stream(_mail, headers, stream_r);
+	}
+
+	/* see if the wanted headers are already in cache */
+	_mail->lookup_abort = MAIL_LOOKUP_ABORT_READ_MAIL;
+	ret = index_mail_get_header_stream(_mail, headers, stream_r);
+	_mail->lookup_abort = old_abort;
+	if (ret == 0)
+		return 0;
+
+	/* fetch only the wanted headers */
+	if (imapc_mail_fetch(_mail, 0, headers->name) < 0)
+		return -1;
+	/* the headers should cached now. */
+	return index_mail_get_header_stream(_mail, headers, stream_r);
+}
+
+static int
+imapc_mail_get_headers(struct mail *_mail, const char *field,
+		       bool decode_to_utf8, const char *const **value_r)
+{
+	struct mailbox_header_lookup_ctx *headers;
+	const char *header_names[2];
+	struct istream *input;
+	int ret;
+
+	header_names[0] = field;
+	header_names[1] = NULL;
+	headers = mailbox_header_lookup_init(_mail->box, header_names);
+	ret = mail_get_header_stream(_mail, headers, &input);
+	mailbox_header_lookup_unref(&headers);
+	if (ret < 0)
+		return -1;
+	/* the header should cached now. */
+	return index_mail_get_headers(_mail, field, decode_to_utf8, value_r);
+}
+
+static int
+imapc_mail_get_first_header(struct mail *_mail, const char *field,
+			    bool decode_to_utf8, const char **value_r)
+{
+	const char *const *values;
+	int ret;
+
+	ret = imapc_mail_get_headers(_mail, field, decode_to_utf8, &values);
+	if (ret <= 0)
+		return ret;
+	*value_r = values[0];
+	return 1;
+}
+
+static int
 imapc_mail_get_stream(struct mail *_mail, bool get_body,
 		      struct message_size *hdr_size,
 		      struct message_size *body_size, struct istream **stream_r)
@@ -182,7 +246,7 @@ imapc_mail_get_stream(struct mail *_mail, bool get_body,
 		fetch_field = get_body ||
 			(data->access_part & READ_BODY) != 0 ?
 			MAIL_FETCH_STREAM_BODY : MAIL_FETCH_STREAM_HEADER;
-		if (imapc_mail_fetch(_mail, fetch_field) < 0)
+		if (imapc_mail_fetch(_mail, fetch_field, NULL) < 0)
 			return -1;
 
 		if (data->stream == NULL) {
@@ -359,7 +423,7 @@ static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
 
 	/* GUID not in cache, fetch it */
 	if (mbox->guid_fetch_field_name != NULL) {
-		if (imapc_mail_fetch(_mail, MAIL_FETCH_GUID) < 0)
+		if (imapc_mail_fetch(_mail, MAIL_FETCH_GUID, NULL) < 0)
 			return -1;
 		if (imail->data.guid == NULL) {
 			(void)imapc_mail_failed(_mail, mbox->guid_fetch_field_name);
@@ -420,9 +484,9 @@ struct mail_vfuncs imapc_mail_vfuncs = {
 	imapc_mail_get_save_date,
 	index_mail_get_virtual_size,
 	imapc_mail_get_physical_size,
-	index_mail_get_first_header,
-	index_mail_get_headers,
-	index_mail_get_header_stream,
+	imapc_mail_get_first_header,
+	imapc_mail_get_headers,
+	imapc_mail_get_header_stream,
 	imapc_mail_get_stream,
 	index_mail_get_binary_stream,
 	imapc_mail_get_special,

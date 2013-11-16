@@ -4,8 +4,10 @@
 #include "str.h"
 #include "istream.h"
 #include "istream-header-filter.h"
+#include "message-header-parser.h"
 #include "imap-arg.h"
 #include "imap-date.h"
+#include "imap-quote.h"
 #include "imapc-client.h"
 #include "imapc-mail.h"
 #include "imapc-storage.h"
@@ -51,8 +53,51 @@ imapc_mail_prefetch_callback(const struct imapc_command_reply *reply,
 	imapc_client_stop(mbox->storage->client->client);
 }
 
+static bool
+headers_have_subset(const char *const *superset, const char *const *subset)
+{
+	unsigned int i;
+
+	if (superset == NULL)
+		return FALSE;
+	if (subset != NULL) {
+		for (i = 0; subset[i] != NULL; i++) {
+			if (!str_array_icase_find(superset, subset[i]))
+				return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+static const char *const *
+headers_merge(pool_t pool, const char *const *h1, const char *const *h2)
+{
+	ARRAY_TYPE(const_string) headers;
+	const char *value;
+	unsigned int i;
+
+	p_array_init(&headers, pool, 16);
+	if (h1 != NULL) {
+		for (i = 0; h1[i] != NULL; i++) {
+			value = p_strdup(pool, h1[i]);
+			array_append(&headers, &value, 1);
+		}
+	}
+	if (h2 != NULL) {
+		for (i = 0; h2[i] != NULL; i++) {
+			if (h1 == NULL || !str_array_icase_find(h1, h2[i])) {
+				value = p_strdup(pool, h2[i]);
+				array_append(&headers, &value, 1);
+			}
+		}
+	}
+	array_append_zero(&headers);
+	return array_idx(&headers, 0);
+}
+
 static int
-imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
+imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
+		      const char *const *headers)
 {
 	struct imapc_mail *mail = (struct imapc_mail *)_mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
@@ -60,13 +105,16 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	struct mail_index_view *view;
 	string_t *str;
 	uint32_t seq;
+	unsigned int i;
 
 	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER)
 		return -1;
 
 	/* drop any fields that we may already be fetching currently */
 	fields &= ~mail->fetching_fields;
-	if (fields == 0)
+	if (headers_have_subset(mail->fetching_headers, headers))
+		headers = NULL;
+	if (fields == 0 && headers == NULL)
 		return 0;
 
 	if (!_mail->saving) {
@@ -106,6 +154,19 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 		str_append(str, "BODY.PEEK[] ");
 	else if ((fields & MAIL_FETCH_STREAM_HEADER) != 0)
 		str_append(str, "BODY.PEEK[HEADER] ");
+	else if (headers != NULL) {
+		mail->fetching_headers =
+			headers_merge(mail->imail.mail.pool, headers,
+				      mail->fetching_headers);
+		str_append(str, "BODY.PEEK[HEADER.FIELDS (");
+		for (i = 0; mail->fetching_headers[i] != NULL; i++) {
+			if (i > 0)
+				str_append_c(str, ' ');
+			imap_append_astring(str, mail->fetching_headers[i]);
+		}
+		str_append(str, ")] ");
+		mail->header_list_fetched = FALSE;
+	}
 	str_truncate(str, str_len(str)-1);
 	str_append_c(str, ')');
 
@@ -174,7 +235,8 @@ bool imapc_mail_prefetch(struct mail *_mail)
 			fields |= MAIL_FETCH_STREAM_HEADER;
 	}
 	if (fields != 0) T_BEGIN {
-		(void)imapc_mail_send_fetch(_mail, fields);
+		(void)imapc_mail_send_fetch(_mail, fields,
+					    data->wanted_headers->name);
 	} T_END;
 	return !mail->imail.data.prefetch_sent;
 }
@@ -207,7 +269,8 @@ imapc_mail_have_fields(struct imapc_mail *imail, enum mail_fetch_field fields)
 	return TRUE;
 }
 
-int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields)
+int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields,
+		     const char *const *headers)
 {
 	struct imapc_mail *imail = (struct imapc_mail *)_mail;
 	struct imapc_mailbox *mbox =
@@ -223,7 +286,7 @@ int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	}
 
 	T_BEGIN {
-		ret = imapc_mail_send_fetch(_mail, fields);
+		ret = imapc_mail_send_fetch(_mail, fields, headers);
 	} T_END;
 	if (ret < 0)
 		return -1;
@@ -231,7 +294,9 @@ int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	/* we'll continue waiting until we've got all the fields we wanted,
 	   or until all FETCH replies have been received (i.e. some FETCHes
 	   failed) */
-	while (!imapc_mail_have_fields(imail, fields) && imail->fetch_count > 0)
+	while (imail->fetch_count > 0 &&
+	       (!imapc_mail_have_fields(imail, fields) ||
+		!imail->header_list_fetched))
 		imapc_storage_run(mbox->storage);
 	return 0;
 }
@@ -360,6 +425,72 @@ imapc_fetch_stream(struct imapc_mail *mail,
 	imapc_mail_init_stream(mail, body);
 }
 
+static void
+imapc_fetch_header_stream(struct imapc_mail *mail,
+			  const struct imapc_untagged_reply *reply,
+			  const struct imap_arg *args)
+{
+	const enum message_header_parser_flags hdr_parser_flags =
+		MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP |
+		MESSAGE_HEADER_PARSER_FLAG_DROP_CR;
+	const struct imap_arg *hdr_list;
+	struct mailbox_header_lookup_ctx *headers_ctx;
+	struct message_header_parser_ctx *parser;
+	struct message_header_line *hdr;
+	struct istream *input;
+	ARRAY_TYPE(const_string) hdr_arr;
+	const char *value;
+	int ret, fd;
+
+	if (!imap_arg_get_list(args, &hdr_list))
+		return;
+	if (!imap_arg_atom_equals(args+1, "]"))
+		return;
+	args += 2;
+
+	/* see if this is reply to the latest headers list request
+	   (parse it even if it's not) */
+	t_array_init(&hdr_arr, 16);
+	while (imap_arg_get_astring(hdr_list, &value)) {
+		array_append(&hdr_arr, &value, 1);
+		hdr_list++;
+	}
+	if (hdr_list->type != IMAP_ARG_EOL)
+		return;
+	array_append_zero(&hdr_arr);
+
+	if (headers_have_subset(array_idx(&hdr_arr, 0), mail->fetching_headers))
+		mail->header_list_fetched = TRUE;
+
+	if (args->type == IMAP_ARG_LITERAL_SIZE) {
+		if (!imapc_find_lfile_arg(reply, args, &fd))
+			return;
+		input = i_stream_create_fd(fd, 0, FALSE);
+	} else {
+		if (!imap_arg_get_nstring(args, &value))
+			return;
+		if (value == NULL) {
+			mail_set_expunged(&mail->imail.mail.mail);
+			return;
+		}
+		input = i_stream_create_from_data(value, args->str_len);
+	}
+
+	headers_ctx = mailbox_header_lookup_init(mail->imail.mail.mail.box,
+						 array_idx(&hdr_arr, 0));
+	index_mail_parse_header_init(&mail->imail, headers_ctx);
+
+	parser = message_parse_header_init(input, NULL, hdr_parser_flags);
+	while ((ret = message_parse_header_next(parser, &hdr)) > 0)
+		index_mail_parse_header(NULL, hdr, &mail->imail);
+	i_assert(ret != 0);
+	index_mail_parse_header(NULL, NULL, &mail->imail);
+	message_parse_header_deinit(&parser);
+
+	mailbox_header_lookup_unref(&headers_ctx);
+	i_stream_destroy(&input);
+}
+
 void imapc_mail_fetch_update(struct imapc_mail *mail,
 			     const struct imapc_untagged_reply *reply,
 			     const struct imap_arg *args)
@@ -383,6 +514,9 @@ void imapc_mail_fetch_update(struct imapc_mail *mail,
 			match = TRUE;
 		} else if (strcasecmp(key, "BODY[HEADER]") == 0) {
 			imapc_fetch_stream(mail, reply, &args[i+1], FALSE);
+			match = TRUE;
+		} else if (strcasecmp(key, "BODY[HEADER.FIELDS") == 0) {
+			imapc_fetch_header_stream(mail, reply, &args[i+1]);
 			match = TRUE;
 		} else if (strcasecmp(key, "INTERNALDATE") == 0) {
 			if (imap_arg_get_astring(&args[i+1], &value) &&
