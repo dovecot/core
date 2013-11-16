@@ -32,6 +32,7 @@ enum io_notify_result {
 typedef void io_callback_t(void *context);
 typedef void timeout_callback_t(void *context);
 typedef void io_loop_time_moved_callback_t(time_t old_time, time_t new_time);
+typedef void io_switch_callback_t(struct ioloop *prev_ioloop);
 
 /* Time when the I/O loop started calling handlers.
    Can be used instead of time(NULL). */
@@ -112,6 +113,9 @@ void io_loop_set_time_moved_callback(struct ioloop *ioloop,
 
 /* Change the current_ioloop. */
 void io_loop_set_current(struct ioloop *ioloop);
+/* Call the callback whenever ioloop is changed. */
+void io_loop_add_switch_callback(io_switch_callback_t *callback);
+void io_loop_remove_switch_callback(io_switch_callback_t *callback);
 
 /* This context is used for all further I/O and timeout callbacks that are
    added until returning to ioloop. When a callback is called, this context is

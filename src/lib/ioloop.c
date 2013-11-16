@@ -16,6 +16,7 @@ time_t ioloop_time = 0;
 struct timeval ioloop_timeval;
 
 struct ioloop *current_ioloop = NULL;
+static ARRAY(io_switch_callback_t *) io_switch_callbacks = ARRAY_INIT;
 
 static void io_loop_initialize_handler(struct ioloop *ioloop)
 {
@@ -467,6 +468,10 @@ void io_loop_destroy(struct ioloop **_ioloop)
 
 	*_ioloop = NULL;
 
+	/* ->prev won't work unless loops are destroyed in create order */
+        i_assert(ioloop == current_ioloop);
+	io_loop_set_current(current_ioloop->prev);
+
 	if (ioloop->notify_handler_context != NULL)
 		io_loop_notify_handler_deinit(ioloop);
 
@@ -495,10 +500,6 @@ void io_loop_destroy(struct ioloop **_ioloop)
 	if (ioloop->cur_ctx != NULL)
 		io_loop_context_deactivate(ioloop->cur_ctx);
 
-	/* ->prev won't work unless loops are destroyed in create order */
-        i_assert(ioloop == current_ioloop);
-	io_loop_set_current(current_ioloop->prev);
-
 	i_free(ioloop);
 }
 
@@ -508,9 +509,45 @@ void io_loop_set_time_moved_callback(struct ioloop *ioloop,
 	ioloop->time_moved_callback = callback;
 }
 
+static void io_switch_callbacks_free(void)
+{
+	array_free(&io_switch_callbacks);
+}
+
 void io_loop_set_current(struct ioloop *ioloop)
 {
+	io_switch_callback_t *const *callbackp;
+	struct ioloop *prev_ioloop = current_ioloop;
+
 	current_ioloop = ioloop;
+	if (array_is_created(&io_switch_callbacks)) {
+		array_foreach(&io_switch_callbacks, callbackp)
+			(*callbackp)(prev_ioloop);
+	}
+}
+
+void io_loop_add_switch_callback(io_switch_callback_t *callback)
+{
+	if (!array_is_created(&io_switch_callbacks)) {
+		i_array_init(&io_switch_callbacks, 4);
+		lib_atexit(io_switch_callbacks_free);
+	}
+	array_append(&io_switch_callbacks, &callback, 1);
+}
+
+void io_loop_remove_switch_callback(io_switch_callback_t *callback)
+{
+	io_switch_callback_t *const *callbackp;
+	unsigned int idx;
+
+	array_foreach(&io_switch_callbacks, callbackp) {
+		if (*callbackp == callback) {
+			idx = array_foreach_idx(&io_switch_callbacks, callbackp);
+			array_delete(&io_switch_callbacks, idx, 1);
+			return;
+		}
+	}
+	i_unreached();
 }
 
 struct ioloop_context *io_loop_context_new(struct ioloop *ioloop)
