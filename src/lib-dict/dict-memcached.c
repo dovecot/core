@@ -328,9 +328,9 @@ memcached_dict_lookup_real(struct memcached_dict *dict, pool_t pool,
 		timeout_remove(&to);
 	}
 
-	current_ioloop = prev_ioloop;
+	io_loop_set_current(prev_ioloop);
 	connection_switch_ioloop(&dict->conn.conn);
-	current_ioloop = dict->ioloop;
+	io_loop_set_current(dict->ioloop);
 	io_loop_destroy(&dict->ioloop);
 
 	if (!dict->conn.reply.reply_received) {

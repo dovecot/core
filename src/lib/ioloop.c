@@ -456,8 +456,7 @@ struct ioloop *io_loop_create(void)
 		io_loop_default_time_moved;
 
 	ioloop->prev = current_ioloop;
-        current_ioloop = ioloop;
-
+        io_loop_set_current(ioloop);
         return ioloop;
 }
 
@@ -498,7 +497,7 @@ void io_loop_destroy(struct ioloop **_ioloop)
 
 	/* ->prev won't work unless loops are destroyed in create order */
         i_assert(ioloop == current_ioloop);
-	current_ioloop = current_ioloop->prev;
+	io_loop_set_current(current_ioloop->prev);
 
 	i_free(ioloop);
 }

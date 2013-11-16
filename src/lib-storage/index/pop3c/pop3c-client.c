@@ -236,9 +236,9 @@ void pop3c_client_run(struct pop3c_client *client)
 	if (timeout_added && client->to != NULL)
 		timeout_remove(&client->to);
 
-	current_ioloop = prev_ioloop;
+	io_loop_set_current(prev_ioloop);
 	pop3c_client_ioloop_changed(client);
-	current_ioloop = ioloop;
+	io_loop_set_current(ioloop);
 	io_loop_destroy(&ioloop);
 }
 

@@ -435,9 +435,9 @@ http_client_request_continue_payload(struct http_client_request **_req,
 		}
 	}
 
-	current_ioloop = prev_ioloop;
+	io_loop_set_current(prev_ioloop);
 	http_client_switch_ioloop(client);
-	current_ioloop = client->ioloop;
+	io_loop_set_current(client->ioloop);
 	io_loop_destroy(&client->ioloop);
 
 	if (req->state == HTTP_REQUEST_STATE_FINISHED)

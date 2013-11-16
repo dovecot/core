@@ -219,13 +219,13 @@ static int memcached_ascii_input_wait(struct memcached_ascii_dict *dict)
 {
 	struct ioloop *old_ioloop = current_ioloop;
 
-	current_ioloop = dict->ioloop;
+	io_loop_set_current(dict->ioloop);
 	if (dict->to != NULL)
 		dict->to = io_loop_move_timeout(&dict->to);
 	connection_switch_ioloop(&dict->conn.conn);
 	io_loop_run(dict->ioloop);
 
-	current_ioloop = old_ioloop;
+	io_loop_set_current(old_ioloop);
 	if (dict->to != NULL)
 		dict->to = io_loop_move_timeout(&dict->to);
 	connection_switch_ioloop(&dict->conn.conn);
@@ -406,7 +406,7 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 	i_array_init(&dict->replies, 4);
 
 	dict->ioloop = io_loop_create();
-	current_ioloop = old_ioloop;
+	io_loop_set_current(old_ioloop);
 	*dict_r = &dict->dict;
 	return 0;
 }
@@ -421,9 +421,9 @@ static void memcached_ascii_dict_deinit(struct dict *_dict)
 		(void)memcached_ascii_wait(dict);
 	connection_deinit(&dict->conn.conn);
 
-	current_ioloop = dict->ioloop;
+	io_loop_set_current(dict->ioloop);
 	io_loop_destroy(&dict->ioloop);
-	current_ioloop = old_ioloop;
+	io_loop_set_current(old_ioloop);
 
 	str_free(&dict->conn.reply_str);
 	array_free(&dict->replies);

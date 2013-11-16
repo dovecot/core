@@ -86,10 +86,10 @@ static void driver_pgsql_set_state(struct pgsql_db *db, enum sql_db_state state)
 	/* switch back to original ioloop in case the caller wants to
 	   add/remove timeouts */
 	if (db->ioloop != NULL)
-		current_ioloop = db->orig_ioloop;
+		io_loop_set_current(db->orig_ioloop);
 	sql_db_set_state(&db->api, state);
 	if (db->ioloop != NULL)
-		current_ioloop = db->ioloop;
+		io_loop_set_current(db->ioloop);
 }
 
 static void driver_pgsql_stop_io(struct pgsql_db *db)

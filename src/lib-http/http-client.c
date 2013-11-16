@@ -199,9 +199,9 @@ void http_client_wait(struct http_client *client)
 
 	http_client_debug(client, "All requests finished");
 
-	current_ioloop = prev_ioloop;
+	io_loop_set_current(prev_ioloop);
 	http_client_switch_ioloop(client);
-	current_ioloop = client->ioloop;
+	io_loop_set_current(client->ioloop);
 	io_loop_destroy(&client->ioloop);
 }
 

@@ -109,9 +109,9 @@ static void redis_wait(struct redis_dict *dict)
 		io_loop_run(dict->ioloop);
 	} while (array_count(&dict->input_states) > 0);
 
-	current_ioloop = prev_ioloop;
+	io_loop_set_current(prev_ioloop);
 	connection_switch_ioloop(&dict->conn.conn);
-	current_ioloop = dict->ioloop;
+	io_loop_set_current(dict->ioloop);
 	io_loop_destroy(&dict->ioloop);
 }
 
@@ -464,9 +464,9 @@ redis_dict_lookup_real(struct redis_dict *dict, pool_t pool,
 		timeout_remove(&to);
 	}
 
-	current_ioloop = prev_ioloop;
+	io_loop_set_current(prev_ioloop);
 	connection_switch_ioloop(&dict->conn.conn);
-	current_ioloop = dict->ioloop;
+	io_loop_set_current(dict->ioloop);
 	io_loop_destroy(&dict->ioloop);
 
 	if (!dict->conn.value_received) {

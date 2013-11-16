@@ -159,7 +159,7 @@ static void imapc_client_run_pre(struct imapc_client *client)
 
 	if (io_loop_is_running(client->ioloop))
 		io_loop_run(client->ioloop);
-	current_ioloop = prev_ioloop;
+	io_loop_set_current(prev_ioloop);
 }
 
 static void imapc_client_run_post(struct imapc_client *client)
@@ -171,7 +171,7 @@ static void imapc_client_run_post(struct imapc_client *client)
 	array_foreach(&client->conns, connp)
 		imapc_connection_ioloop_changed((*connp)->conn);
 
-	current_ioloop = ioloop;
+	io_loop_set_current(ioloop);
 	io_loop_destroy(&ioloop);
 }
 
