@@ -485,7 +485,7 @@ mail_cache_transaction_update_last_rec(struct mail_cache_transaction_ctx *ctx)
 	trans_rec = array_append_space(&ctx->cache_data_seq);
 	trans_rec->seq = ctx->prev_seq;
 	trans_rec->cache_data_pos = ctx->last_rec_pos;
-	ctx->last_rec_pos = size;
+	ctx->last_rec_pos = ctx->cache_data->used;
 }
 
 static void
