@@ -28,16 +28,14 @@ static void passwd_file_save_results(struct auth_request *request,
 	string_t *str;
 	char **p;
 
-	*crypted_pass_r = pu->password;
+	*crypted_pass_r = pu->password != NULL ? pu->password : "";
 	*scheme_r = password_get_scheme(crypted_pass_r);
 	if (*scheme_r == NULL)
 		*scheme_r = request->passdb->passdb->default_pass_scheme;
 
 	/* save the password so cache can use it */
-	if (*crypted_pass_r != NULL) {
-		auth_request_set_field(request, "password",
-				       *crypted_pass_r, *scheme_r);
-        }
+	auth_request_set_field(request, "password",
+			       *crypted_pass_r, *scheme_r);
 
 	if (pu->extra_fields != NULL) {
 		str = t_str_new(512);
