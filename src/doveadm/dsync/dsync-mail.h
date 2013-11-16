@@ -4,6 +4,7 @@
 #include "mail-types.h"
 
 struct mail;
+struct mailbox;
 
 struct dsync_mail {
 	/* either GUID="" or uid=0 */
@@ -75,6 +76,9 @@ struct dsync_mail_change {
 	/* +add, -remove, =final, &add_and_final. */
 	ARRAY_TYPE(const_string) keyword_changes;
 };
+
+struct mailbox_header_lookup_ctx *
+dsync_mail_get_hash_headers(struct mailbox *box);
 
 int dsync_mail_get_hdr_hash(struct mail *mail, const char **hdr_hash_r);
 int dsync_mail_fill(struct mail *mail, struct dsync_mail *dmail_r,

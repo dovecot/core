@@ -18,6 +18,12 @@ static const char *hashed_headers[] = {
 	"Date", "Message-ID", NULL
 };
 
+struct mailbox_header_lookup_ctx *
+dsync_mail_get_hash_headers(struct mailbox *box)
+{
+	return mailbox_header_lookup_init(box, hashed_headers);
+}
+
 int dsync_mail_get_hdr_hash(struct mail *mail, const char **hdr_hash_r)
 {
 	struct istream *hdr_input, *input;

@@ -24,6 +24,7 @@ struct dsync_mailbox_exporter {
 	struct dsync_transaction_log_scan *log_scan;
 	uint32_t last_common_uid;
 
+	struct mailbox_header_lookup_ctx *wanted_headers;
 	struct mailbox_transaction_context *trans;
 	struct mail_search_context *search_ctx;
 	unsigned int search_pos, search_count;
@@ -272,6 +273,10 @@ search_add_save(struct dsync_mailbox_exporter *exporter, struct mail *mail)
 	time_t save_timestamp;
 	int ret;
 
+	mail_add_temp_wanted_fields(mail, MAIL_FETCH_GUID |
+				    MAIL_FETCH_SAVE_DATE,
+				    exporter->wanted_headers);
+
 	/* If message is already expunged here, just skip it */
 	if ((ret = exporter_get_guids(exporter, mail, &guid, &hdr_hash)) <= 0)
 		return ret;
@@ -467,6 +472,9 @@ dsync_mailbox_export_init(struct mailbox *box,
 	hash_table_create(&exporter->export_guids, pool, 0, str_hash, strcmp);
 	p_array_init(&exporter->expunged_seqs, pool, 16);
 	p_array_init(&exporter->expunged_guids, pool, 16);
+
+	if (!exporter->mails_have_guids)
+		exporter->wanted_headers = dsync_mail_get_hash_headers(box);
 
 	/* first scan transaction log and save any expunges and flag changes */
 	dsync_mailbox_export_log_scan(exporter, log_scan);
@@ -843,6 +851,8 @@ int dsync_mailbox_export_deinit(struct dsync_mailbox_exporter **_exporter,
 
 	dsync_mailbox_export_body_search_deinit(exporter);
 	(void)mailbox_transaction_commit(&exporter->trans);
+	if (exporter->wanted_headers != NULL)
+		mailbox_header_lookup_unref(&exporter->wanted_headers);
 
 	if (exporter->attr.value_stream != NULL)
 		i_stream_unref(&exporter->attr.value_stream);
