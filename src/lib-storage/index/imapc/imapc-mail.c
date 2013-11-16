@@ -285,7 +285,7 @@ imapc_mail_has_headers_in_cache(struct index_mail *mail,
 	return TRUE;
 }
 
-static void index_mail_update_access_parts(struct index_mail *mail)
+void imapc_mail_update_access_parts(struct index_mail *mail)
 {
 	struct mail *_mail = &mail->mail.mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
@@ -340,7 +340,7 @@ imapc_mail_add_temp_wanted_fields(struct mail *_mail,
 	struct index_mail *mail = (struct index_mail *)_mail;
 
 	index_mail_add_temp_wanted_fields(_mail, fields, headers);
-	index_mail_update_access_parts(mail);
+	imapc_mail_update_access_parts(mail);
 }
 
 static void imapc_mail_close(struct mail *_mail)

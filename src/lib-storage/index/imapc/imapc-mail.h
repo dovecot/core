@@ -33,5 +33,6 @@ void imapc_mail_init_stream(struct imapc_mail *mail, bool have_body);
 void imapc_mail_fetch_update(struct imapc_mail *mail,
 			     const struct imapc_untagged_reply *reply,
 			     const struct imap_arg *args);
+void imapc_mail_update_access_parts(struct index_mail *mail);
 
 #endif
