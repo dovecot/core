@@ -1301,10 +1301,14 @@ static void imapc_connection_reset_idle(struct imapc_connection *conn)
 {
 	struct imapc_command *cmd;
 
-	if (!conn->idling)
-		cmd = imapc_connection_cmd(conn, imapc_noop_callback, NULL);
-	else
+	if (conn->idling)
 		cmd = imapc_connection_cmd(conn, imapc_reidle_callback, conn);
+	else if (array_count(&conn->cmd_wait_list) == 0)
+		cmd = imapc_connection_cmd(conn, imapc_noop_callback, NULL);
+	else {
+		/* IMAP command reply is taking a long time */
+		return;
+	}
 	imapc_command_send(cmd, "NOOP");
 }
 
