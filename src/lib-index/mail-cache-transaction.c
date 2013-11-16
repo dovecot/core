@@ -52,6 +52,7 @@ static MODULE_CONTEXT_DEFINE_INIT(cache_mail_index_transaction_module,
 				  &mail_index_module_register);
 
 static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx);
+static size_t mail_cache_transaction_update_last_rec_size(struct mail_cache_transaction_ctx *ctx);
 
 static void mail_index_transaction_cache_reset(struct mail_index_transaction *t)
 {
@@ -293,7 +294,14 @@ mail_cache_transaction_lookup_rec(struct mail_cache_transaction_ctx *ctx,
 						recs[i].cache_data_pos);
 		}
 	}
-	*trans_next_idx = i;
+	*trans_next_idx = i + 1;
+	if (seq == ctx->prev_seq && i == count) {
+		/* update the unfinished record's (temporary) size and
+		   return it */
+		mail_cache_transaction_update_last_rec_size(ctx);
+		return CONST_PTR_OFFSET(ctx->cache_data->data,
+					ctx->last_rec_pos);
+	}
 	return NULL;
 }
 
@@ -446,10 +454,9 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	return ret;
 }
 
-static void
-mail_cache_transaction_update_last_rec(struct mail_cache_transaction_ctx *ctx)
+static size_t
+mail_cache_transaction_update_last_rec_size(struct mail_cache_transaction_ctx *ctx)
 {
-	struct mail_cache_transaction_rec *trans_rec;
 	struct mail_cache_record *rec;
 	void *data;
 	size_t size;
@@ -458,8 +465,17 @@ mail_cache_transaction_update_last_rec(struct mail_cache_transaction_ctx *ctx)
 	rec = PTR_OFFSET(data, ctx->last_rec_pos);
 	rec->size = size - ctx->last_rec_pos;
 	i_assert(rec->size > sizeof(*rec));
+	return rec->size;
+}
 
-	if (rec->size > MAIL_CACHE_RECORD_MAX_SIZE) {
+static void
+mail_cache_transaction_update_last_rec(struct mail_cache_transaction_ctx *ctx)
+{
+	struct mail_cache_transaction_rec *trans_rec;
+	size_t size;
+
+	size = mail_cache_transaction_update_last_rec_size(ctx);
+	if (size > MAIL_CACHE_RECORD_MAX_SIZE) {
 		buffer_set_used_size(ctx->cache_data, ctx->last_rec_pos);
 		return;
 	}
