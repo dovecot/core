@@ -592,6 +592,20 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	struct mail_cache *cache = ctx->cache;
 	int ret;
 
+	if (MAIL_INDEX_IS_IN_MEMORY(cache->index)) {
+		if (cache->file_fields_count <= field_idx) {
+			cache->file_field_map =
+				i_realloc(cache->file_field_map,
+					  cache->file_fields_count *
+					  sizeof(unsigned int),
+					  (field_idx+1) * sizeof(unsigned int));
+			cache->file_fields_count = field_idx+1;
+		}
+		cache->file_field_map[field_idx] = field_idx;
+		cache->field_file_map[field_idx] = field_idx;
+		return 0;
+	}
+
 	if (mail_cache_transaction_lock(ctx) <= 0) {
 		if (MAIL_CACHE_IS_UNUSABLE(cache))
 			return -1;
@@ -679,8 +693,12 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		if (ret < 0)
 			return;
 
-		if (ctx->cache_file_seq == 0)
-			ctx->cache_file_seq = ctx->cache->hdr->file_seq;
+		if (ctx->cache_file_seq == 0) {
+			if (MAIL_INDEX_IS_IN_MEMORY(ctx->cache->index))
+				ctx->cache_file_seq = 1;
+			else
+				ctx->cache_file_seq = ctx->cache->hdr->file_seq;
+		}
 
 		file_field = ctx->cache->field_file_map[field_idx];
 		i_assert(file_field != (uint32_t)-1);
