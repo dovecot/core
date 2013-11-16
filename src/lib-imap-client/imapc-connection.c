@@ -1481,6 +1481,19 @@ static void imapc_command_free(struct imapc_command *cmd)
 	pool_unref(&cmd->pool);
 }
 
+static void imapc_command_timeout(struct imapc_connection *conn)
+{
+	struct imapc_command *const *cmds;
+	unsigned int count;
+
+	cmds = array_get(&conn->cmd_wait_list, &count);
+	i_assert(count > 0);
+
+	i_error("imapc(%s): Command '%s' timed out, disconnecting",
+		conn->name, imapc_command_get_readable(cmds[0]));
+	imapc_connection_disconnect(conn);
+}
+
 static bool
 parse_sync_literal(const unsigned char *data, unsigned int pos,
 		   unsigned int *value_r)
@@ -1632,6 +1645,13 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 		return;
 	}
 
+	/* add timeout for commands if there's not one yet
+	   (pre-login has its own timeout) */
+	if (conn->to == NULL) {
+		conn->to = timeout_add(conn->client->set.cmd_timeout_msecs,
+				       imapc_command_timeout, conn);
+	}
+
 	timeout_reset(conn->to_output);
 	if ((ret = imapc_command_try_send_stream(conn, cmd)) == 0)
 		return;
@@ -1672,19 +1692,6 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 	}
 }
 
-static void imapc_command_timeout(struct imapc_connection *conn)
-{
-	struct imapc_command *const *cmds;
-	unsigned int count;
-
-	cmds = array_get(&conn->cmd_wait_list, &count);
-	i_assert(count > 0);
-
-	i_error("imapc(%s): Command '%s' timed out, disconnecting",
-		conn->name, imapc_command_get_readable(cmds[0]));
-	imapc_connection_disconnect(conn);
-}
-
 static void imapc_connection_send_idle_done(struct imapc_connection *conn)
 {
 	if ((conn->idling || conn->idle_plus_waiting) && !conn->idle_stopping) {
@@ -1707,14 +1714,6 @@ static void imapc_connection_cmd_send(struct imapc_command *cmd)
 		return;
 	}
 
-	if (conn->state == IMAPC_CONNECTION_STATE_DONE) {
-		/* add timeout for commands if there's not one yet
-		   (pre-login has its own timeout) */
-		if (conn->to == NULL) {
-			conn->to = timeout_add(conn->client->set.cmd_timeout_msecs,
-					       imapc_command_timeout, conn);
-		}
-	}
 	if ((cmd->flags & IMAPC_COMMAND_FLAG_SELECT) != 0 &&
 	    conn->selected_box == NULL) {
 		/* reopening the mailbox. add it before other
