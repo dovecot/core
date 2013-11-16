@@ -236,6 +236,7 @@ bool imapc_mail_prefetch(struct mail *_mail)
 	}
 	if (fields != 0) T_BEGIN {
 		(void)imapc_mail_send_fetch(_mail, fields,
+					    data->wanted_headers == NULL ? NULL :
 					    data->wanted_headers->name);
 	} T_END;
 	return !mail->imail.data.prefetch_sent;
