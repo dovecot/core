@@ -724,7 +724,9 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 				    MAIL_FETCH_GUID |
 				    MAIL_FETCH_UIDL_BACKEND |
 				    MAIL_FETCH_POP3_ORDER |
-				    MAIL_FETCH_RECEIVED_DATE, NULL);
+				    MAIL_FETCH_RECEIVED_DATE |
+				    MAIL_FETCH_STREAM_HEADER |
+				    MAIL_FETCH_STREAM_BODY, NULL);
 	mail_search_args_unref(&search_args);
 	return array_count(&sarg->value.seqset) > 0 ? 1 : 0;
 }
