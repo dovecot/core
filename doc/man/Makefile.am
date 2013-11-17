@@ -16,6 +16,7 @@ nodist_man1_MANS = \
 	doveadm.1 \
 	doveadm-altmove.1 \
 	doveadm-auth.1 \
+	doveadm-batch.1 \
 	doveadm-deduplicate.1 \
 	doveadm-director.1 \
 	doveadm-dump.1 \
@@ -57,6 +58,7 @@ EXTRA_DIST = \
 	doveadm.1.in \
 	doveadm-altmove.1.in \
 	doveadm-auth.1.in \
+	doveadm-batch.1.in \
 	doveadm-deduplicate.1.in \
 	doveadm-director.1.in \
 	doveadm-dump.1.in \

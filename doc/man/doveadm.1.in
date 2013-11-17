@@ -102,6 +102,11 @@ Perform a user lookup in Dovecot\(aqs userdbs
 Move matching mails to the alternative storage.
 .\"-------------------------------------
 .TP
+.B doveadm batch
+.BR doveadm\-batch (1),
+Execute multiple commands for multiple users.
+.\"-------------------------------------
+.TP
 .B doveadm copy
 .BR doveadm\-copy (1),
 Copy messages matching the given search query into another mailbox.
