@@ -273,6 +273,8 @@ search_add_save(struct dsync_mailbox_exporter *exporter, struct mail *mail)
 	time_t save_timestamp;
 	int ret;
 
+	/* update wanted fields in case we didn't already set them for the
+	   search */
 	mail_add_temp_wanted_fields(mail, MAIL_FETCH_GUID |
 				    MAIL_FETCH_SAVE_DATE,
 				    exporter->wanted_headers);
@@ -338,6 +340,8 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 	struct mail_search_args *search_args;
 	struct mail_search_arg *sarg;
 	struct mail *mail;
+	enum mail_fetch_field wanted_fields = 0;
+	struct mailbox_header_lookup_ctx *wanted_headers = NULL;
 	int ret;
 
 	search_args = mail_search_build_init();
@@ -357,9 +361,16 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 					  (uint32_t)-1);
 	}
 
+	if (exporter->last_common_uid == 0) {
+		/* we're syncing all mails, so we can request the wanted
+		   fields for all the mails */
+		wanted_fields = MAIL_FETCH_GUID | MAIL_FETCH_SAVE_DATE;
+		wanted_headers = exporter->wanted_headers;
+	}
+
 	exporter->trans = mailbox_transaction_begin(exporter->box, 0);
 	search_ctx = mailbox_search_init(exporter->trans, search_args, NULL,
-					 0, NULL);
+					 wanted_fields, wanted_headers);
 	mail_search_args_unref(&search_args);
 
 	while (mailbox_search_next(search_ctx, &mail)) {
