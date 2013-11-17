@@ -953,7 +953,7 @@ static int imapc_connection_input_plus(struct imapc_connection *conn)
 		conn->idle_plus_waiting = FALSE;
 		conn->idling = TRUE;
 		/* no timeouting while IDLEing */
-		if (conn->to != NULL)
+		if (conn->to != NULL && !conn->idle_stopping)
 			timeout_remove(&conn->to);
 	} else if (cmds_count > 0 && cmds[0]->wait_for_literal) {
 		/* reply for literal */
@@ -1701,6 +1701,10 @@ static void imapc_connection_send_idle_done(struct imapc_connection *conn)
 	if ((conn->idling || conn->idle_plus_waiting) && !conn->idle_stopping) {
 		conn->idle_stopping = TRUE;
 		o_stream_nsend_str(conn->output, "DONE\r\n");
+		if (conn->to == NULL) {
+			conn->to = timeout_add(conn->client->set.cmd_timeout_msecs,
+					       imapc_command_timeout, conn);
+		}
 	}
 }
 
