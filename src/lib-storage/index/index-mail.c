@@ -1603,6 +1603,8 @@ void index_mail_add_temp_wanted_fields(struct mail *_mail,
 		for (i = 0; i < headers->count; i++)
 			array_append(&names, &headers->name[i], 1);
 		array_append_zero(&names);
+		if (data->wanted_headers != NULL)
+			mailbox_header_lookup_unref(&data->wanted_headers);
 		data->wanted_headers =
 			mailbox_header_lookup_init(_mail->box,
 						   array_idx(&names, 0));
