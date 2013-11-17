@@ -337,6 +337,8 @@ void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 	}
 
 	imapc_msgmap_deinit(&box->msgmap);
+	if (box->to_send_idle != NULL)
+		timeout_remove(&box->to_send_idle);
 	i_free(box);
 }
 
@@ -359,10 +361,22 @@ imapc_client_mailbox_get_msgmap(struct imapc_client_mailbox *box)
 	return box->msgmap;
 }
 
-void imapc_client_mailbox_idle(struct imapc_client_mailbox *box)
+static void imapc_client_mailbox_idle_send(struct imapc_client_mailbox *box)
 {
+	timeout_remove(&box->to_send_idle);
 	if (imapc_client_mailbox_is_opened(box))
 		imapc_connection_idle(box->conn);
+}
+
+void imapc_client_mailbox_idle(struct imapc_client_mailbox *box)
+{
+	/* send the IDLE with a delay to avoid unnecessary IDLEs that are
+	   immediately aborted */
+	if (box->to_send_idle == NULL && imapc_client_mailbox_is_opened(box)) {
+		box->to_send_idle =
+			timeout_add_short(IMAPC_CLIENT_IDLE_SEND_DELAY_MSECS,
+					  imapc_client_mailbox_idle_send, box);
+	}
 	box->reconnect_ok = TRUE;
 }
 

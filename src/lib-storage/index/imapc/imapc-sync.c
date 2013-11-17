@@ -458,9 +458,13 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	}
 
 	capabilities = imapc_client_get_capabilities(mbox->storage->client->client);
-	if ((capabilities & IMAPC_CAPABILITY_IDLE) == 0) {
-		/* IDLE not supported. do NOOP to get latest changes
-		   before starting sync. */
+	if ((capabilities & IMAPC_CAPABILITY_IDLE) == 0 ||
+	    (flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0) {
+		/* do NOOP to make sure we have the latest changes before
+		   starting sync. this is necessary either because se don't
+		   support IDLE at all, or because we want to be sure that we
+		   have the latest changes (IDLE is started with a small delay,
+		   so we might not actually even be in IDLE right not) */
 		imapc_mailbox_noop(mbox);
 	}
 
