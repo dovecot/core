@@ -358,7 +358,7 @@ static void imapc_mail_close(struct mail *_mail)
 	struct imapc_mail_cache *cache = &mbox->prev_mail_cache;
 
 	while (mail->fetch_count > 0)
-		imapc_storage_run(mbox->storage);
+		imapc_mailbox_run(mbox);
 
 	index_mail_close(_mail);
 

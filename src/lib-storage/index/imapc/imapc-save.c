@@ -246,7 +246,7 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 			    ctx->mbox->box.name, flags, internaldate, input);
 	i_stream_unref(&input);
 	while (sctx.ret == -2)
-		imapc_storage_run(ctx->mbox->storage);
+		imapc_mailbox_run(ctx->mbox);
 
 	if (sctx.ret == 0 && ctx->mbox->selected &&
 	    !ctx->mbox->exists_received) {
@@ -259,7 +259,7 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 				       imapc_save_noop_callback, &sctx);
 		imapc_command_send(cmd, "NOOP");
 		while (sctx.ret == -2)
-			imapc_storage_run(ctx->mbox->storage);
+			imapc_mailbox_run(ctx->mbox);
 	}
 	return sctx.ret;
 }
@@ -421,7 +421,7 @@ int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 		imapc_command_sendf(cmd, "UID COPY %u %s",
 				    mail->uid, _t->box->name);
 		while (sctx.ret == -2)
-			imapc_storage_run(src_mbox->storage);
+			imapc_mailbox_run(src_mbox);
 		ctx->finished = TRUE;
 		index_save_context_free(_ctx);
 		return sctx.ret;

@@ -76,6 +76,10 @@ struct imapc_mail_cache {
 	buffer_t *buf;
 };
 
+struct imapc_fetch_request {
+	ARRAY(struct imapc_mail *) mails;
+};
+
 struct imapc_mailbox {
 	struct mailbox box;
 	struct imapc_storage *storage;
@@ -85,7 +89,13 @@ struct imapc_mailbox {
 	struct mail_index_view *sync_view, *delayed_sync_view;
 	struct timeout *to_idle_check, *to_idle_delay;
 
-	ARRAY(struct imapc_mail *) fetch_mails;
+	ARRAY(struct imapc_fetch_request *) fetch_requests;
+	/* if non-empty, contains the latest FETCH command we're going to be
+	   sending soon (but still waiting to see if we can increase its
+	   UID range) */
+	string_t *pending_fetch_cmd;
+	struct imapc_fetch_request *pending_fetch_request;
+	struct timeout *to_pending_fetch_send;
 
 	ARRAY(struct imapc_mailbox_event_callback) untagged_callbacks;
 	ARRAY(struct imapc_mailbox_event_callback) resp_text_callbacks;
@@ -142,7 +152,7 @@ void imapc_transaction_save_commit_post(struct mail_save_context *ctx,
 					struct mail_index_transaction_commit_result *result);
 void imapc_transaction_save_rollback(struct mail_save_context *ctx);
 
-void imapc_storage_run(struct imapc_storage *storage);
+void imapc_mailbox_run(struct imapc_mailbox *mbox);
 void imapc_mail_cache_free(struct imapc_mail_cache *cache);
 int imapc_mailbox_select(struct imapc_mailbox *mbox);
 

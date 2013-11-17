@@ -322,7 +322,7 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 
 	imapc_sync_expunge_finish(ctx);
 	while (ctx->sync_command_count > 0)
-		imapc_storage_run(mbox->storage);
+		imapc_mailbox_run(mbox);
 	array_free(&ctx->expunged_uids);
 
 	/* add uidnext after all appends */

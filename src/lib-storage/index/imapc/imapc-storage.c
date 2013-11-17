@@ -113,11 +113,12 @@ void imapc_simple_run(struct imapc_simple_context *sctx)
 		imapc_client_run(sctx->client->client);
 }
 
-void imapc_storage_run(struct imapc_storage *storage)
+void imapc_mailbox_run(struct imapc_mailbox *mbox)
 {
+	imapc_mail_fetch_flush(mbox);
 	do {
-		imapc_client_run(storage->client->client);
-	} while (storage->reopen_count > 0);
+		imapc_client_run(mbox->storage->client->client);
+	} while (mbox->storage->reopen_count > 0);
 }
 
 void imapc_simple_callback(const struct imapc_command_reply *reply,
@@ -343,8 +344,9 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	p_array_init(&mbox->untagged_callbacks, pool, 16);
 	p_array_init(&mbox->resp_text_callbacks, pool, 16);
-	p_array_init(&mbox->fetch_mails, pool, 16);
+	p_array_init(&mbox->fetch_requests, pool, 16);
 	p_array_init(&mbox->delayed_expunged_uids, pool, 16);
+	mbox->pending_fetch_cmd = str_new(pool, 128);
 	mbox->prev_mail_cache.fd = -1;
 	imapc_mailbox_register_callbacks(mbox);
 	return &mbox->box;
@@ -480,7 +482,7 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 		imapc_command_sendf(cmd, "SELECT %s", mbox->box.name);
 
 	while (ctx.ret == -2)
-		imapc_storage_run(mbox->storage);
+		imapc_mailbox_run(mbox);
 	return ctx.ret;
 }
 
@@ -529,6 +531,7 @@ static void imapc_mailbox_close(struct mailbox *box)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
 
+	imapc_mail_fetch_flush(mbox);
 	if (mbox->client_box != NULL)
 		imapc_client_mailbox_close(&mbox->client_box);
 	if (mbox->delayed_sync_view != NULL)
