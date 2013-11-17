@@ -1439,7 +1439,7 @@ void imapc_connection_input_pending(struct imapc_connection *conn)
 	if (conn->input == NULL)
 		return;
 
-	if (conn->to != NULL)
+	if (conn->to != NULL && !conn->idle_stopping)
 		timeout_reset(conn->to);
 
 	o_stream_cork(conn->output);
