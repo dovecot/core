@@ -184,6 +184,9 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 	    (remote_dsync_box->have_save_guids ||
 	     (brain->backup_recv && remote_dsync_box->have_guids)))
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS;
+	if (brain->local_dsync_box.have_only_guid128 ||
+	    remote_dsync_box->have_only_guid128)
+		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_MAILS_USE_GUID128;
 
 	brain->box_importer = brain->backup_send ? NULL :
 		dsync_mailbox_import_init(brain->box, brain->log_scan,

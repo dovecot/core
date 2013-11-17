@@ -1502,6 +1502,8 @@ mailbox_get_status_set_defaults(struct mailbox *box,
 		status_r->have_guids = TRUE;
 	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_SAVE_GUIDS) != 0)
 		status_r->have_save_guids = TRUE;
+	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUID128) != 0)
+		status_r->have_only_guid128 = TRUE;
 }
 
 int mailbox_get_status(struct mailbox *box,

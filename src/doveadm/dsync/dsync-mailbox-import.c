@@ -103,6 +103,7 @@ struct dsync_mailbox_importer {
 	unsigned int master_brain:1;
 	unsigned int revert_local_changes:1;
 	unsigned int mails_have_guids:1;
+	unsigned int mails_use_guid128:1;
 };
 
 static void dsync_mailbox_save_newmails(struct dsync_mailbox_importer *importer,
@@ -218,6 +219,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer->debug = (flags & DSYNC_MAILBOX_IMPORT_FLAG_DEBUG) != 0;
 	importer->mails_have_guids =
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS) != 0;
+	importer->mails_use_guid128 =
+		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_USE_GUID128) != 0;
 
 	mailbox_get_open_status(importer->box, STATUS_UIDNEXT |
 				STATUS_HIGHESTMODSEQ | STATUS_HIGHESTPVTMODSEQ,
@@ -463,12 +466,14 @@ static void dsync_mail_error(struct dsync_mailbox_importer *importer,
 }
 
 static bool
-dsync_mail_change_guid_equals(const struct dsync_mail_change *change,
+dsync_mail_change_guid_equals(struct dsync_mailbox_importer *importer,
+			      const struct dsync_mail_change *change,
 			      const char *guid, const char **cmp_guid_r)
 {
 	guid_128_t guid_128, change_guid_128;
 
-	if (change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE) {
+	if (change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE &&
+	    !importer->mails_use_guid128) {
 		if (cmp_guid_r != NULL)
 			*cmp_guid_r = change->guid;
 		return strcmp(change->guid, guid) == 0;
@@ -480,7 +485,7 @@ dsync_mail_change_guid_equals(const struct dsync_mail_change *change,
 	mail_generate_guid_128_hash(guid, guid_128);
 	if (memcmp(change_guid_128, guid_128, GUID_128_SIZE) != 0) {
 		if (cmp_guid_r != NULL) {
-			*cmp_guid_r = t_strdup_printf("%s(expunged, orig=%s)",
+			*cmp_guid_r = t_strdup_printf("%s(guid128, orig=%s)",
 				binary_to_hex(change_guid_128, sizeof(change_guid_128)),
 				change->guid);
 		}
@@ -760,7 +765,7 @@ dsync_import_set_mail(struct dsync_mailbox_importer *importer,
 		dsync_mail_error(importer, importer->mail, "GUID");
 		return FALSE;
 	}
-	if (!dsync_mail_change_guid_equals(change, guid, &cmp_guid)) {
+	if (!dsync_mail_change_guid_equals(importer, change, guid, &cmp_guid)) {
 		dsync_import_unexpected_state(importer, t_strdup_printf(
 			"Unexpected GUID mismatch for UID=%u: %s != %s",
 			change->uid, guid, cmp_guid));
@@ -778,7 +783,8 @@ static bool dsync_check_cur_guid(struct dsync_mailbox_importer *importer,
 	if (change->guid == NULL || change->guid[0] == '\0' ||
 	    importer->cur_guid[0] == '\0')
 		return TRUE;
-	if (!dsync_mail_change_guid_equals(change, importer->cur_guid, &cmp_guid)) {
+	if (!dsync_mail_change_guid_equals(importer, change,
+					   importer->cur_guid, &cmp_guid)) {
 		dsync_import_unexpected_state(importer, t_strdup_printf(
 			"Unexpected GUID mismatch (2) for UID=%u: %s != %s",
 			change->uid, importer->cur_guid, cmp_guid));
@@ -1294,7 +1300,8 @@ dsync_mailbox_import_match_msg(struct dsync_mailbox_importer *importer,
 
 	if (*change->guid != '\0' && *importer->cur_guid != '\0') {
 		/* we have GUIDs, verify them */
-		if (dsync_mail_change_guid_equals(change, importer->cur_guid, NULL))
+		if (dsync_mail_change_guid_equals(importer, change,
+						  importer->cur_guid, NULL))
 			return 1;
 		else
 			return 0;
@@ -1343,7 +1350,8 @@ dsync_mailbox_find_common_expunged_uid(struct dsync_mailbox_importer *importer,
 		return FALSE;
 
 	i_assert(local_change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE);
-	if (dsync_mail_change_guid_equals(local_change, change->guid, NULL))
+	if (dsync_mail_change_guid_equals(importer, local_change,
+					  change->guid, NULL))
 		importer->last_common_uid = change->uid;
 	else if (change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE)
 		dsync_mailbox_common_uid_found(importer);
