@@ -388,7 +388,7 @@ static int cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		return 0;
 	}
 
-	if (show_field == NULL) {
+	if (show_field == NULL && !doveadm_print_is_initialized()) {
 		doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
 		doveadm_print_header_simple("field");
 		doveadm_print_header_simple("value");
