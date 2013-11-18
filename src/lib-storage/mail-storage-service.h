@@ -62,6 +62,9 @@ mail_storage_service_init(struct master_service *service,
 			  enum mail_storage_service_flags flags) ATTR_NULL(2);
 struct auth_master_connection *
 mail_storage_service_get_auth_conn(struct mail_storage_service_ctx *ctx);
+/* Set auth connection (instead of creating a new one automatically). */
+void mail_storage_service_set_auth_conn(struct mail_storage_service_ctx *ctx,
+					struct auth_master_connection *conn);
 int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       const struct mail_storage_service_input *input,
 				       pool_t pool,

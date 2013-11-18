@@ -913,6 +913,16 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	return -1;
 }
 
+void mail_storage_service_set_auth_conn(struct mail_storage_service_ctx *ctx,
+					struct auth_master_connection *conn)
+{
+	i_assert(ctx->conn == NULL);
+	i_assert(mail_user_auth_master_conn == NULL);
+
+	ctx->conn = conn;
+	mail_user_auth_master_conn = conn;
+}
+
 static void
 mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 				const struct setting_parser_info *user_info,
@@ -920,17 +930,13 @@ mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 {
 	enum auth_master_flags flags = 0;
 
-	i_assert(ctx->conn == NULL);
-
 	ctx->debug = mail_user_set_get_mail_debug(user_info, user_set);
 	if (ctx->debug)
 		flags |= AUTH_MASTER_FLAG_DEBUG;
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT) != 0)
 		flags |= AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT;
-	ctx->conn = auth_master_init(user_set->auth_socket_path, flags);
-
-	i_assert(mail_user_auth_master_conn == NULL);
-	mail_user_auth_master_conn = ctx->conn;
+	mail_storage_service_set_auth_conn(ctx,
+		auth_master_init(user_set->auth_socket_path, flags));
 }
 
 static void
