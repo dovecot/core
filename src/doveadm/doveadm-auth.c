@@ -388,12 +388,6 @@ static int cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		return 0;
 	}
 
-	if (show_field == NULL && !doveadm_print_is_initialized()) {
-		doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
-		doveadm_print_header_simple("field");
-		doveadm_print_header_simple("value");
-	}
-
 	cmd_user_mail_input_field("uid", user->set->mail_uid, show_field);
 	cmd_user_mail_input_field("gid", user->set->mail_gid, show_field);
 	cmd_user_mail_input_field("home", user->set->mail_home, show_field);
@@ -487,6 +481,11 @@ static void cmd_user(int argc, char *argv[])
 			MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP);
 		mail_storage_service_set_auth_conn(storage_service, conn);
 		conn = NULL;
+		if (show_field == NULL) {
+			doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
+			doveadm_print_header_simple("field");
+			doveadm_print_header_simple("value");
+		}
 	}
 
 	while ((input.username = argv[optind++]) != NULL) {
