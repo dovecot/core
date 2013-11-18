@@ -56,6 +56,7 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(SET_STR, libexec_dir),
 	DEF(SET_STR, mail_plugins),
 	DEF(SET_STR, mail_plugin_dir),
+	DEF(SET_STR, auth_socket_path),
 	DEF(SET_STR, doveadm_socket_path),
 	DEF(SET_UINT, doveadm_worker_count),
 	DEF(SET_UINT, doveadm_port),
@@ -77,6 +78,7 @@ const struct doveadm_settings doveadm_default_settings = {
 	.libexec_dir = PKG_LIBEXECDIR,
 	.mail_plugins = "",
 	.mail_plugin_dir = MODULEDIR,
+	.auth_socket_path = "auth-userdb",
 	.doveadm_socket_path = "doveadm-server",
 	.doveadm_worker_count = 0,
 	.doveadm_port = 0,
@@ -125,6 +127,7 @@ static bool doveadm_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	struct doveadm_settings *set = _set;
 
 #ifndef CONFIG_BINARY
+	fix_base_path(set, pool, &set->auth_socket_path);
 	fix_base_path(set, pool, &set->doveadm_socket_path);
 #endif
 	if (*set->dsync_alt_char == '\0') {
