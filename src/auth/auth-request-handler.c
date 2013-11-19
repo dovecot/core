@@ -174,7 +174,7 @@ auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 			   AUTH_FIELD_FLAG_HIDDEN, 0);
 
 	if (request->original_username != NULL &&
-	    strcmp(request->original_username, request->user) != 0) {
+	    null_strcmp(request->original_username, request->user) != 0) {
 		auth_str_add_keyvalue(dest, "original_user",
 				      request->original_username);
 	}
