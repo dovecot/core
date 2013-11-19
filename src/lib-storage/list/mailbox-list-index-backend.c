@@ -244,6 +244,7 @@ index_list_mailbox_create_selectable(struct mailbox *box,
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 	struct index_mailbox_list *list =
 		(struct index_mailbox_list *)box->list;
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct mailbox_list_index_sync_context *sync_ctx;
 	struct mailbox_list_index_record rec;
 	struct mailbox_list_index_node *node;
@@ -263,7 +264,7 @@ index_list_mailbox_create_selectable(struct mailbox *box,
 		return 0;
 	}
 
-	mail_index_lookup_ext(sync_ctx->view, seq, sync_ctx->ilist->ext_id,
+	mail_index_lookup_ext(sync_ctx->view, seq, ilist->ext_id,
 			      &data, &expunged);
 	i_assert(data != NULL && !expunged);
 	memcpy(&rec, data, sizeof(rec));
@@ -274,12 +275,14 @@ index_list_mailbox_create_selectable(struct mailbox *box,
 	mail_index_update_flags(sync_ctx->trans, seq, MODIFY_REPLACE, 0);
 
 	memcpy(rec.guid, update->mailbox_guid, sizeof(rec.guid));
-	mail_index_update_ext(sync_ctx->trans, seq, sync_ctx->ilist->ext_id,
-			      &rec, NULL);
+	mail_index_update_ext(sync_ctx->trans, seq, ilist->ext_id, &rec, NULL);
 
 	success = ibox->module_ctx.super.create_box(box, update, FALSE) == 0;
-	if (mailbox_list_index_sync_end(&sync_ctx, success) < 0)
+	if (mailbox_list_index_sync_end(&sync_ctx, success) < 0) {
+		/* make sure we forget any changes done internally */
+		mailbox_list_index_reset(ilist);
 		return -1;
+	}
 	return 1;
 }
 
