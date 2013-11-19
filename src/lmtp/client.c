@@ -259,6 +259,7 @@ void client_destroy(struct client *client, const char *prefix,
 		    const char *reason)
 {
 	client_disconnect(client, prefix, reason);
+	o_stream_uncork(client->output);
 
 	clients_count--;
 	DLLIST_REMOVE(&clients, client);
