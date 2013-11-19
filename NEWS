@@ -1,3 +1,31 @@
+v2.2.8 2013-11-19  Timo Sirainen <tss@iki.fi>
+
+	+ Mail cache lookups work for the mail being saved. This improves
+	  performance by avoiding the need to parse the mail multiple times
+	  when using some plugins (e.g. mail_log).
+	+ Mail cache works for recently cached data also with in-memory
+	  indexes.
+	+ imapc: Many performance improvements, especially when working with
+	  dsync. Also added imapc_feature=fetch-headers which allows using
+	  FETCH BODY.PEEK[HEADER.FIELDS (..)] to avoid reading the entire
+	  header.
+	+ mail_location = ..:FULLDIRNAME=dbox-Mails is the same as
+	  :DIRNAME=dbox-Mails, but it will also be used for
+	  :INDEX and :CONTROL directories. (It should have worked this way
+	  from the beginning, but can't be changed anymore without breaking
+	  existing installations).
+	- Fixed infinite loop in message parsing if message ends with
+	  "--boundary" and CR (without LF). Messages saved via SMTP/LMTP can't
+	  trigger this, because messages must end with an "LF.". A user could
+	  trigger this for him/herself though.
+	- lmtp: Client was sometimes disconnected before all the output was
+	  sent to it.
+	- imap_zlib plugin caused crashes during client disconnection in
+	  v2.2.7
+	- replicator: Database wasn't being exported to disk every 15 minutes
+	  as it should have. Instead it was being imported, causing "doveadm
+	  replicator remove" commands to not work very well.
+
 v2.2.7 2013-11-03  Timo Sirainen <tss@iki.fi>
 
 	* Some usage of passdb checkpassword could have been exploitable by
