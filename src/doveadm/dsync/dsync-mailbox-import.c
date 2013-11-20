@@ -472,15 +472,16 @@ dsync_mail_change_guid_equals(struct dsync_mailbox_importer *importer,
 {
 	guid_128_t guid_128, change_guid_128;
 
-	if (change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE &&
-	    !importer->mails_use_guid128) {
+	if (change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE) {
+		if (guid_128_from_string(change->guid, change_guid_128) < 0)
+			i_unreached();
+	} else if (importer->mails_use_guid128) {
+		mail_generate_guid_128_hash(change->guid, change_guid_128);
+	} else {
 		if (cmp_guid_r != NULL)
 			*cmp_guid_r = change->guid;
 		return strcmp(change->guid, guid) == 0;
 	}
-
-	if (guid_128_from_string(change->guid, change_guid_128) < 0)
-		i_unreached();
 
 	mail_generate_guid_128_hash(guid, guid_128);
 	if (memcmp(change_guid_128, guid_128, GUID_128_SIZE) != 0) {
