@@ -603,7 +603,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 	unsigned char *data;
 	unsigned int field_idx;
 	string_t *dest;
-	size_t i, len;
+	size_t i, len, len2;
 	int ret;
 	ARRAY(const char *) header_values;
 
@@ -657,10 +657,10 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 			while (i < len && IS_LWSP(data[i])) i++;
 
 			/* @UNSAFE */
-			len = get_header_size(dest, i);
-			data[i + len] = '\0';
+			len2 = get_header_size(dest, i);
+			data[i + len2] = '\0';
 			value = (const char *)data + i;
-			i += len + 1;
+			i += len2 + 1;
 
 			array_append(&header_values, &value, 1);
 		}
