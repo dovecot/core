@@ -653,8 +653,8 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 	/* cached. skip "header name: " parts in dest. */
 	for (i = 0; i < len; i++) {
 		if (data[i] == ':') {
-			while (IS_LWSP(data[i+1])) i++;
-			if (i+1 != len) i++;
+			i++;
+			while (i < len && IS_LWSP(data[i])) i++;
 
 			/* @UNSAFE */
 			len = get_header_size(dest, i);
