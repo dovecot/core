@@ -156,6 +156,31 @@ static void cmd_fs_stat(int argc, char *argv[])
 	fs_deinit(&fs);
 }
 
+static void cmd_fs_metadata(int argc, char *argv[])
+{
+	struct fs *fs;
+	struct fs_file *file;
+	const struct fs_metadata *m;
+	const ARRAY_TYPE(fs_metadata) *metadata;
+
+	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_metadata);
+
+	file = fs_file_init(fs, argv[0], FS_OPEN_MODE_READONLY);
+	if (fs_get_metadata(file, &metadata) == 0) {
+		array_foreach(metadata, m)
+			printf("%s=%s\n", m->key, m->value);
+	} else if (errno == ENOENT) {
+		i_error("%s doesn't exist", fs_file_path(file));
+		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
+	} else {
+		i_error("fs_stat(%s) failed: %s",
+			fs_file_path(file), fs_file_last_error(file));
+		doveadm_exit_code = EX_TEMPFAIL;
+	}
+	fs_file_deinit(&file);
+	fs_deinit(&fs);
+}
+
 static void cmd_fs_delete_dir_recursive(struct fs *fs, const char *path)
 {
 	struct fs_iter *iter;
@@ -271,6 +296,7 @@ struct doveadm_cmd doveadm_cmd_fs[] = {
 	{ cmd_fs_put, "fs put", "<fs-driver> <fs-args> <input path> <path>" },
 	{ cmd_fs_copy, "fs copy", "<fs-driver> <fs-args> <source path> <dest path>" },
 	{ cmd_fs_stat, "fs stat", "<fs-driver> <fs-args> <path>" },
+	{ cmd_fs_metadata, "fs metadata", "<fs-driver> <fs-args> <path>" },
 	{ cmd_fs_delete, "fs delete", "[-R] <fs-driver> <fs-args> <path>" },
 	{ cmd_fs_iter, "fs iter", "<fs-driver> <fs-args> <path>" },
 	{ cmd_fs_iter_dirs, "fs iter-dirs", "<fs-driver> <fs-args> <path>" },
