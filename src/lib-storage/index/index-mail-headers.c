@@ -760,6 +760,9 @@ int index_mail_get_headers(struct mail *_mail, const char *field,
 			mail_cache_set_corrupted(_mail->box->cache,
 				"Broken header %s for mail UID %u",
 				field, _mail->uid);
+			/* retry by parsing the full header */
+		} else {
+			break;
 		}
 	}
 	return ret;
@@ -788,6 +791,9 @@ int index_mail_get_first_header(struct mail *_mail, const char *field,
 			mail_cache_set_corrupted(_mail->box->cache,
 				"Broken header %s for mail UID %u",
 				field, _mail->uid);
+			/* retry by parsing the full header */
+		} else {
+			break;
 		}
 	}
 	*value_r = list[0];
