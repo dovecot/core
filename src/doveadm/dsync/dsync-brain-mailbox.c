@@ -317,6 +317,7 @@ static int dsync_box_get(struct mailbox *box, struct dsync_mailbox *dsync_box_r)
 	dsync_box_r->cache_fields = *metadata.cache_fields;
 	dsync_box_r->have_guids = status.have_guids;
 	dsync_box_r->have_save_guids = status.have_save_guids;
+	dsync_box_r->have_only_guid128 = status.have_only_guid128;
 	return 1;
 }
 
