@@ -868,7 +868,10 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 	if (path == NULL) {
 		/* no filesystem support in storage */
 	} else if (stat(path, &st) < 0) {
-		if (!ENOTFOUND(errno)) {
+		if (errno == EACCES) {
+			mailbox_list_set_critical(list, "%s",
+				mail_error_eacces_msg("stat", path));
+		} else if (!ENOTFOUND(errno)) {
 			mailbox_list_set_critical(list, "stat(%s) failed: %m",
 						  path);
 		} else if (list->mail_set->mail_debug) {
@@ -1052,7 +1055,9 @@ mailbox_list_try_mkdir_root_parent(struct mailbox_list *list,
 
 	/* get the first existing parent directory's permissions */
 	if (stat_first_parent(expanded, &root_dir, &st) < 0) {
-		*error_r = t_strdup_printf("stat(%s) failed: %m", root_dir);
+		*error_r = errno == EACCES ?
+			mail_error_eacces_msg("stat", root_dir) :
+			t_strdup_printf("stat(%s) failed: %m", root_dir);
 		return -1;
 	}
 
