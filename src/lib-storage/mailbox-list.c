@@ -843,7 +843,6 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 				      const char *name,
 				      struct mailbox_permissions *permissions_r)
 {
-	struct mail_storage *storage;
 	const char *path, *parent_name, *parent_path, *p;
 	struct stat st;
 
@@ -866,10 +865,9 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 		(void)mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_DIR,
 						 &path);
 	}
-	mailbox_list_get_default_storage(list, &storage);
 
 	if (path == NULL ||
-	    (storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0) {
+	    (list->flags & MAILBOX_LIST_FLAG_NO_MAIL_FILES) != 0) {
 		/* no filesystem support in storage */
 	} else if (stat(path, &st) < 0) {
 		if (errno == EACCES) {
