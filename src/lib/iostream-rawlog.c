@@ -41,6 +41,9 @@ rawlog_write_timestamp(struct rawlog_iostream *rstream, bool line_ends)
 	unsigned char data[MAX_INT_STRLEN + 6 + 1 + 3];
 	buffer_t buf;
 
+	if ((rstream->flags & IOSTREAM_RAWLOG_FLAG_TIMESTAMP) == 0)
+		return 0;
+
 	buffer_create_from_data(&buf, data, sizeof(data));
 	str_printfa(&buf, "%lu.%06u ",
 		    (unsigned long)ioloop_timeval.tv_sec,
@@ -187,10 +190,13 @@ int iostream_rawlog_create_prefix(const char *prefix, struct istream **input,
 
 	old_input = *input;
 	old_output = *output;
+
 	*input = i_stream_create_rawlog(old_input, in_path, in_fd,
-					IOSTREAM_RAWLOG_FLAG_AUTOCLOSE);
+					IOSTREAM_RAWLOG_FLAG_AUTOCLOSE |
+					IOSTREAM_RAWLOG_FLAG_TIMESTAMP);
 	*output = o_stream_create_rawlog(old_output, out_path, out_fd,
-					 IOSTREAM_RAWLOG_FLAG_AUTOCLOSE);
+					 IOSTREAM_RAWLOG_FLAG_AUTOCLOSE |
+					 IOSTREAM_RAWLOG_FLAG_TIMESTAMP);
 	i_stream_unref(&old_input);
 	o_stream_unref(&old_output);
 	return 0;
@@ -212,10 +218,12 @@ int iostream_rawlog_create_path(const char *path, struct istream **input,
 	old_input = *input;
 	old_output = *output;
 	*input = i_stream_create_rawlog(old_input, path, fd,
-					IOSTREAM_RAWLOG_FLAG_BUFFERED);
+					IOSTREAM_RAWLOG_FLAG_BUFFERED |
+					IOSTREAM_RAWLOG_FLAG_TIMESTAMP);
 	*output = o_stream_create_rawlog(old_output, path, fd,
 					 IOSTREAM_RAWLOG_FLAG_AUTOCLOSE |
-					 IOSTREAM_RAWLOG_FLAG_BUFFERED);
+					 IOSTREAM_RAWLOG_FLAG_BUFFERED |
+					 IOSTREAM_RAWLOG_FLAG_TIMESTAMP);
 	i_stream_unref(&old_input);
 	o_stream_unref(&old_output);
 	return 0;
