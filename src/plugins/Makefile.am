@@ -20,6 +20,7 @@ SUBDIRS = \
 	lazy-expunge \
 	listescape \
 	notify \
+	mail-filter \
 	mail-log \
 	mailbox-alias \
 	quota \

@@ -2884,6 +2884,7 @@ src/plugins/fts-solr/Makefile
 src/plugins/fts-squat/Makefile
 src/plugins/lazy-expunge/Makefile
 src/plugins/listescape/Makefile
+src/plugins/mail-filter/Makefile
 src/plugins/mail-log/Makefile
 src/plugins/mailbox-alias/Makefile
 src/plugins/notify/Makefile
