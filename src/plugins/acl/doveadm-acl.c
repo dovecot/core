@@ -372,8 +372,8 @@ cmd_acl_debug_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 					&path) <= 0)
 			i_error("Can't open mailbox %s: %s", mailbox, errstr);
 		else {
-			i_error("Mailbox '%s' doesn't exist in %s",
-				mailbox, path);
+			i_error("Mailbox '%s' in namespace '%s' doesn't exist in %s",
+				box->name, ns->prefix, path);
 		}
 		mailbox_free(&box);
 		return -1;
@@ -399,13 +399,18 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 	struct acl_backend *backend = acl_mailbox_list_get_backend(box->list);
 	struct acl_mailbox_list_context *iter;
 	struct acl_lookup_dict_iter *diter;
-	const char *const *rights, *name;
+	const char *const *rights, *name, *path;
 	enum mail_flags private_flags_mask;
 	string_t *str;
 	int ret;
 	bool all_ok = TRUE;
 
 	*retry_r = FALSE;
+
+	i_info("Mailbox '%s' is in namespace '%s'",
+	       box->name, box->list->ns->prefix);
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX, &path) > 0)
+		i_info("Mailbox path: %s", path);
 
 	private_flags_mask = mailbox_get_private_flags_mask(box);
 	if (private_flags_mask == 0)
