@@ -75,7 +75,6 @@ struct http_client_request {
 
 	unsigned int delayed_error_status;
 	const char *delayed_error;
-	struct timeout *to_delayed_error;
 
 	http_client_request_callback_t *callback;
 	void *context;
@@ -200,6 +199,7 @@ struct http_client_host {
 
 	/* list of requests in this host that are waiting for ioloop */
 	ARRAY(struct http_client_request *) delayed_failing_requests;
+	struct timeout *to_failing_requests;
 
 	/* requests are managed on a per-port basis */
 	ARRAY_TYPE(http_client_queue) queues;
@@ -247,6 +247,7 @@ void http_client_request_retry_response(struct http_client_request *req,
 	struct http_response *response);
 void http_client_request_send_error(struct http_client_request *req,
 			       unsigned int status, const char *error);
+void http_client_request_error_delayed(struct http_client_request **_req);
 void http_client_request_error(struct http_client_request *req,
 	unsigned int status, const char *error);
 void http_client_request_redirect(struct http_client_request *req,
@@ -329,6 +330,10 @@ http_client_host_get(struct http_client *client,
 	const struct http_url *host_url);
 void http_client_host_free(struct http_client_host **_host);
 void http_client_host_submit_request(struct http_client_host *host,
+	struct http_client_request *req);
+void http_client_host_delay_request_error(struct http_client_host *host,
+	struct http_client_request *req);
+void http_client_host_remove_request_error(struct http_client_host *host,
 	struct http_client_request *req);
 void http_client_host_switch_ioloop(struct http_client_host *host);
 

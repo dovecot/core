@@ -205,7 +205,7 @@ void http_client_host_free(struct http_client_host **_host)
 {
 	struct http_client_host *host = *_host;
 	struct http_client_queue *const *queue_idx;
-	struct http_client_request *req, *const *reqp;
+	struct http_client_request *req, *const *req_idx;
 	const char *hostname = host->name;
 
 	http_client_host_debug(host, "Host destroy");
@@ -223,30 +223,73 @@ void http_client_host_free(struct http_client_host **_host)
 	array_free(&host->queues);
 
 	while (array_count(&host->delayed_failing_requests) > 0) {
-		reqp = array_idx(&host->delayed_failing_requests, 0);
-		req = *reqp;
+		req_idx = array_idx(&host->delayed_failing_requests, 0);
+		req = *req_idx;
 
 		i_assert(req->refcount == 1);
-		http_client_request_unref(&req);
+		http_client_request_error_delayed(&req);
 	}
 	array_free(&host->delayed_failing_requests);
+
+	if (host->to_failing_requests != NULL)
+		timeout_remove(&host->to_failing_requests);
 
 	i_free(host->ips);
 	i_free(host->name);
 	i_free(host);
 }
 
+static void
+http_client_host_handle_request_errors(struct http_client_host *host)
+{		
+	timeout_remove(&host->to_failing_requests);
+
+	while (array_count(&host->delayed_failing_requests) > 0) {
+		struct http_client_request *const *req_idx =
+			array_idx(&host->delayed_failing_requests, 0);
+		struct http_client_request *req = *req_idx;
+
+		i_assert(req->refcount == 1);
+		http_client_request_error_delayed(&req);
+	}
+	array_clear(&host->delayed_failing_requests);
+}
+
+void http_client_host_delay_request_error(struct http_client_host *host,
+	struct http_client_request *req)
+{
+	if (host->to_failing_requests == NULL) {
+		host->to_failing_requests = timeout_add_short(0,
+			http_client_host_handle_request_errors, host);
+	}
+	array_append(&host->delayed_failing_requests, &req, 1);
+}
+
+void http_client_host_remove_request_error(struct http_client_host *host,
+	struct http_client_request *req)
+{
+	struct http_client_request *const *reqs;
+	unsigned int i, count;
+
+	reqs = array_get(&host->delayed_failing_requests, &count);
+	for (i = 0; i < count; i++) {
+		if (reqs[i] == req) {
+			array_delete(&host->delayed_failing_requests, i, 1);
+			return;
+		}
+	}
+}
+
 void http_client_host_switch_ioloop(struct http_client_host *host)
 {
 	struct http_client_queue *const *queue_idx;
-	struct http_client_request *const *req_idx;
 
 	if (host->dns_lookup != NULL)
 		dns_lookup_switch_ioloop(host->dns_lookup);
 	array_foreach(&host->queues, queue_idx)
 		http_client_queue_switch_ioloop(*queue_idx);
-	array_foreach(&host->delayed_failing_requests, req_idx) {
-		(*req_idx)->to_delayed_error =
-			io_loop_move_timeout(&(*req_idx)->to_delayed_error);
+	if (host->to_failing_requests != NULL) {
+		host->to_failing_requests =
+			io_loop_move_timeout(&host->to_failing_requests);
 	}
 }

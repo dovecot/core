@@ -50,7 +50,6 @@ http_client_request_debug(struct http_client_request *req,
 /*
  * Request
  */
-static void http_client_request_remove_delayed(struct http_client_request *req);
 
 static struct http_client_request *
 http_client_request_new(struct http_client *client, const char *method, 
@@ -166,8 +165,8 @@ void http_client_request_unref(struct http_client_request **_req)
 	if (client->pending_requests == 0 && client->ioloop != NULL)
 		io_loop_stop(client->ioloop);
 
-	if (req->to_delayed_error != NULL)
-		http_client_request_remove_delayed(req);
+	if (req->delayed_error != NULL)
+		http_client_host_remove_request_error(req->host, req);
 	if (req->payload_input != NULL)
 		i_stream_unref(&req->payload_input);
 	if (req->payload_output != NULL)
@@ -718,30 +717,14 @@ http_client_request_send_error(struct http_client_request *req,
 	}
 }
 
-static void http_client_request_remove_delayed(struct http_client_request *req)
+void http_client_request_error_delayed(struct http_client_request **_req)
 {
-	struct http_client_request *const *reqs;
-	unsigned int i, count;
+	struct http_client_request *req = *_req;
 
+	i_assert(req->delayed_error != NULL && req->delayed_error_status != 0);
 	http_client_request_send_error(req, req->delayed_error_status,
 				       req->delayed_error);
-
-	timeout_remove(&req->to_delayed_error);
-
-	reqs = array_get(&req->host->delayed_failing_requests, &count);
-	for (i = 0; i < count; i++) {
-		if (reqs[i] == req) {
-			array_delete(&req->host->delayed_failing_requests, i, 1);
-			return;
-		}
-	}
-	i_unreached();
-}
-
-static void http_client_request_error_delayed(struct http_client_request *req)
-{
-	http_client_request_remove_delayed(req);
-	http_client_request_unref(&req);
+	http_client_request_unref(_req);
 }
 
 void http_client_request_error(struct http_client_request *req,
@@ -754,9 +737,7 @@ void http_client_request_error(struct http_client_request *req,
 		i_assert(req->delayed_error == NULL);
 		req->delayed_error = p_strdup(req->pool, error);
 		req->delayed_error_status = status;
-		req->to_delayed_error = timeout_add_short(0,
-			http_client_request_error_delayed, req);
-		array_append(&req->host->delayed_failing_requests, &req, 1);
+		http_client_host_delay_request_error(req->host, req);
 	} else {
 		http_client_request_send_error(req, status, error);
 		http_client_request_unref(&req);
