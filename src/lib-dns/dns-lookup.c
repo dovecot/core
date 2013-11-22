@@ -319,8 +319,10 @@ dns_client_lookup_common(struct dns_client *client,
 		return -1;
 	}
 	if (write_full(client->fd, cmd, strlen(cmd)) < 0) {
-		dns_client_disconnect(client, t_strdup_printf(
-			"write(%s) failed: %m", client->path));
+		result.error = t_strdup_printf("write(%s) failed: %m",
+					       client->path);
+		dns_client_disconnect(client, result.error);
+		callback(&result, context);
 		return -1;
 	}
 
