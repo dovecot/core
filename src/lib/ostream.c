@@ -45,9 +45,14 @@ const char *o_stream_get_error(struct ostream *stream)
 
 static void o_stream_close_full(struct ostream *stream, bool close_parents)
 {
-	if (!stream->closed) {
-		stream->closed = TRUE;
+	if (!stream->closed && !stream->real_stream->closing) {
+		/* first mark the stream as being closed so the
+		   o_stream_copy_error_from_parent() won't recurse us back
+		   here. but don't immediately mark the stream closed, because
+		   we may still want to write something to it. */
+		stream->real_stream->closing = TRUE;
 		io_stream_close(&stream->real_stream->iostream, close_parents);
+		stream->closed = TRUE;
 	}
 
 	if (stream->stream_errno == 0)

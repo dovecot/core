@@ -37,6 +37,7 @@ struct ostream_private {
 	void *context;
 
 	unsigned int corked:1;
+	unsigned int closing:1;
 	unsigned int last_errors_not_checked:1;
 	unsigned int error_handling_disabled:1;
 };
