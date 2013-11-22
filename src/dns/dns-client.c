@@ -14,7 +14,6 @@ struct dns_client {
 	struct istream *input;
 	struct ostream *output;
 	struct io *io;
-	struct timeout *to;
 };
 
 #define MAX_INBUF_SIZE 1024
@@ -83,15 +82,9 @@ static void dns_client_input(struct dns_client *client)
 		}
 	}
 	o_stream_uncork(client->output);
-	timeout_reset(client->to);
 
 	if (client->input->eof || client->input->stream_errno != 0 || ret < 0)
 		dns_client_destroy(&client);
-}
-
-static void dns_client_timeout(struct dns_client *client)
-{
-	dns_client_destroy(&client);
 }
 
 static struct dns_client *dns_client_create(int fd)
@@ -104,8 +97,6 @@ static struct dns_client *dns_client_create(int fd)
 	client->output = o_stream_create_fd(fd, MAX_OUTBUF_SIZE, FALSE);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	client->io = io_add(fd, IO_READ, dns_client_input, client);
-	client->to = timeout_add(INPUT_TIMEOUT_MSECS, dns_client_timeout,
-				 client);
 	return client;
 }
 
@@ -115,7 +106,6 @@ static void dns_client_destroy(struct dns_client **_client)
 
 	*_client = NULL;
 
-	timeout_remove(&client->to);
 	io_remove(&client->io);
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
