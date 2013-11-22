@@ -354,8 +354,7 @@ static void http_client_connection_destroy(struct connection *_conn)
 				_conn->name, msecs/1000, msecs%1000);
 		}
 		http_client_connection_debug(conn, "%s", error);
-		http_client_connection_retry_requests(conn,
-			HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT, error);
+		http_client_peer_connection_failure(conn->peer, error);
 		break;
 	case CONNECTION_DISCONNECT_CONN_CLOSED:
 		/* retry pending requests if possible */
