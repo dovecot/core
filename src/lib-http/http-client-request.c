@@ -771,8 +771,8 @@ void http_client_request_abort(struct http_client_request **_req)
 		return;
 	req->callback = NULL;
 	req->state = HTTP_REQUEST_STATE_ABORTED;
-	if (req->host != NULL)
-		http_client_host_drop_request(req->host, req);
+	if (req->queue != NULL)
+		http_client_queue_drop_request(req->queue, req);
 	http_client_request_unref(_req);
 }
 
@@ -848,6 +848,7 @@ void http_client_request_redirect(struct http_client_request *req,
 	}
 	
 	req->host = NULL;
+	req->queue = NULL;
 	req->conn = NULL;
 
 	origin_url = http_url_create(&req->origin_url);
@@ -920,7 +921,7 @@ void http_client_request_resubmit(struct http_client_request *req)
 	req->conn = NULL;
 	req->peer = NULL;
 	req->state = HTTP_REQUEST_STATE_QUEUED;
-	http_client_host_submit_request(req->host, req);
+	http_client_queue_submit_request(req->queue, req);
 }
 
 void http_client_request_retry(struct http_client_request *req,

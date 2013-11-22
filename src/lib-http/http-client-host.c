@@ -38,312 +38,19 @@ http_client_host_debug(struct http_client_host *host,
 }
 
 /*
- * Host:port
- */
-
-static void
-http_client_host_port_connection_setup(struct http_client_host_port *hport);
-
-static struct http_client_host_port *
-http_client_host_port_find(struct http_client_host *host,
-	const struct http_client_peer_addr *addr)
-{
-	struct http_client_host_port *hport;
-
-	array_foreach_modifiable(&host->ports, hport) {
-		if (hport->addr.type == addr->type && hport->addr.port == addr->port &&
-		    null_strcmp(hport->addr.https_name, addr->https_name) == 0)
-			return hport;
-	}
-
-	return NULL;
-}
-
-static struct http_client_host_port *
-http_client_host_port_init(struct http_client_host *host,
-	const struct http_client_peer_addr *addr)
-{
-	struct http_client_host_port *hport;
-
-	hport = http_client_host_port_find(host, addr);
-	if (hport == NULL) {
-		hport = array_append_space(&host->ports);
-		hport->host = host;
-		hport->addr = *addr;
-		hport->https_name = i_strdup(addr->https_name);
-		hport->addr.https_name = hport->https_name;
-		hport->ips_connect_idx = 0;
-		i_array_init(&hport->request_queue, 16);
-	}
-
-	return hport;
-}
-
-static void http_client_host_port_error(struct http_client_host_port *hport,
-	unsigned int status, const char *error)
-{
-	struct http_client_request **req;
-
-	/* abort all pending requests */
-	array_foreach_modifiable(&hport->request_queue, req) {
-		http_client_request_error(*req, status, error);
-	}
-	array_clear(&hport->request_queue);
-}
-
-static void http_client_host_port_deinit(struct http_client_host_port *hport)
-{
-	http_client_host_port_error
-		(hport, HTTP_CLIENT_REQUEST_ERROR_ABORTED, "Aborted");
-	i_free(hport->https_name);
-	if (array_is_created(&hport->pending_peers))
-		array_free(&hport->pending_peers);
-	array_free(&hport->request_queue);
-}
-
-static void
-http_client_host_port_drop_request(struct http_client_host_port *hport,
-	struct http_client_request *req)
-{
-	ARRAY_TYPE(http_client_request) *req_arr = &hport->request_queue;
-	struct http_client_request **req_idx;
-
-	array_foreach_modifiable(req_arr, req_idx) {
-		if (*req_idx == req) {
-			array_delete(req_arr, array_foreach_idx(req_arr, req_idx), 1);
-			break;
-		}
-	}
-}
-
-static bool
-http_client_hport_is_last_connect_ip(struct http_client_host_port *hport)
-{
-	i_assert(hport->ips_connect_idx < hport->host->ips_count);
-	i_assert(hport->ips_connect_start_idx < hport->host->ips_count);
-
-	/* we'll always go through all the IPs. we don't necessarily start
-	   connecting from the first IP, so we'll need to treat the IPs as
-	   a ring buffer where we automatically wrap back to the first IP
-	   when necessary. */
-	return (hport->ips_connect_idx + 1) % hport->host->ips_count ==
-		hport->ips_connect_start_idx;
-}
-
-static void
-http_client_host_port_soft_connect_timeout(struct http_client_host_port *hport)
-{
-	struct http_client_host *host = hport->host;
-	const struct http_client_peer_addr *addr = &hport->addr;
-
-	if (hport->to_connect != NULL)
-		timeout_remove(&hport->to_connect);
-
-	if (http_client_hport_is_last_connect_ip(hport)) {
-		/* no more IPs to try */
-		return;
-	}
-
-	/* if our our previous connection attempt takes longer than the
-	   soft_connect_timeout, we start a connection attempt to the next IP in
-	   parallel */
-	http_client_host_debug(host, "Connection to %s%s is taking a long time; "
-		"starting parallel connection attempt to next IP",
-		http_client_peer_addr2str(addr), addr->https_name == NULL ? "" :
-			t_strdup_printf(" (SSL=%s)", addr->https_name)); 
-
-	/* next IP */
-	hport->ips_connect_idx = (hport->ips_connect_idx + 1) % host->ips_count;
-
-	/* setup connection to new peer (can start new soft timeout) */
-	http_client_host_port_connection_setup(hport);
-}
-
-static void
-http_client_host_port_connection_setup(struct http_client_host_port *hport)
-{
-	struct http_client_host *host = hport->host;
-	struct http_client_peer *peer = NULL;
-	const struct http_client_peer_addr *addr = &hport->addr;
-	unsigned int num_requests = array_count(&hport->request_queue);
-
-	if (num_requests == 0)
-		return;
-
-	/* update our peer address */
-	hport->addr.ip = host->ips[hport->ips_connect_idx];
-
-	http_client_host_debug(host, "Setting up connection to %s%s "
-		"(%u requests pending)", http_client_peer_addr2str(addr),
-		(addr->https_name == NULL ? "" :
-			t_strdup_printf(" (SSL=%s)", addr->https_name)), num_requests);
-
-	/* create/get peer */
-	peer = http_client_peer_get(host->client, addr);
-	http_client_peer_add_host(peer, host);
-
-	/* handle requests; creates new connections when needed/possible */
-	http_client_peer_trigger_request_handler(peer);
-
-	if (!http_client_peer_is_connected(peer)) {
-		unsigned int msecs;
-
-		/* not already connected, wait for connections */
-		if (!array_is_created(&hport->pending_peers))
-			i_array_init(&hport->pending_peers, 8);
-		array_append(&hport->pending_peers, &peer, 1);			
-
-		/* start soft connect time-out (but only if we have another IP left) */
-		msecs = host->client->set.soft_connect_timeout_msecs;
-		if (!http_client_hport_is_last_connect_ip(hport) && msecs > 0 &&
-		    hport->to_connect == NULL) {
-			hport->to_connect =
-				timeout_add(msecs, http_client_host_port_soft_connect_timeout, hport);
-		}
-	}
-}
-
-static unsigned int
-http_client_host_get_ip_idx(struct http_client_host *host,
-			    const struct ip_addr *ip)
-{
-	unsigned int i;
-
-	for (i = 0; i < host->ips_count; i++) {
-		if (net_ip_compare(&host->ips[i], ip))
-			return i;
-	}
-	i_unreached();
-}
-
-static void
-http_client_host_port_connection_success(struct http_client_host_port *hport,
-					 const struct http_client_peer_addr *addr)
-{
-	/* we achieved at least one connection the the addr->ip */
-	hport->ips_connect_start_idx =
-		http_client_host_get_ip_idx(hport->host, &addr->ip);
-
-	/* stop soft connect time-out */
-	if (hport->to_connect != NULL)
-		timeout_remove(&hport->to_connect);
-
-	/* drop all other attempts to the hport. note that we get here whenever
-	   a connection is successfully created, so pending_peers array
-	   may be empty. */
-	if (array_is_created(&hport->pending_peers) &&
-		array_count(&hport->pending_peers) > 0) {
-		struct http_client_peer *const *peer_idx;
-
-		array_foreach(&hport->pending_peers, peer_idx) {
-			if (http_client_peer_addr_cmp(&(*peer_idx)->addr, addr) == 0) {
-				/* don't drop any connections to the successfully
-				   connected peer, even if some of the connections
-				   are pending. they may be intended for urgent
-				   requests. */
-				continue;
-			}
-			/* remove this host from the peer; if this was the last/only host, the
-			   peer will be freed, closing all connections.
-			 */
-			http_client_peer_remove_host(*peer_idx, hport->host);
-		}
-		array_clear(&hport->pending_peers);
-	}
-}
-
-static bool
-http_client_host_port_connection_failure(struct http_client_host_port *hport,
-	const struct http_client_peer_addr *addr, const char *reason)
-{
-	struct http_client_host *host = hport->host;
-
-	if (array_is_created(&hport->pending_peers) &&
-		array_count(&hport->pending_peers) > 0) {
-		struct http_client_peer *const *peer_idx;
-
-		/* we're still doing the initial connections to this hport. if
-		   we're also doing parallel connections with soft timeouts
-		   (pending_peer_count>1), wait for them to finish
-		   first. */
-		array_foreach(&hport->pending_peers, peer_idx) {
-			if (http_client_peer_addr_cmp(&(*peer_idx)->addr, addr) == 0) {
-				array_delete(&hport->pending_peers,
-					array_foreach_idx(&hport->pending_peers, peer_idx), 1);
-				break;
-			}
-		}
-		if (array_count(&hport->pending_peers) > 0)
-			return TRUE;
-	}
-
-	/* one of the connections failed. if we're not using soft timeouts,
-	   we need to try to connect to the next IP. if we are using soft
-	   timeouts, we've already tried all of the IPs by now. */
-	if (hport->to_connect != NULL)
-		timeout_remove(&hport->to_connect);
-
-	if (http_client_hport_is_last_connect_ip(hport)) {
-		/* all IPs failed, but retry all of them again on the
-		   next request. */
-		hport->ips_connect_idx = hport->ips_connect_start_idx =
-			(hport->ips_connect_idx + 1) % host->ips_count;
-		http_client_host_port_error(hport,
-			HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, reason);
-		return FALSE;
-	}
-	hport->ips_connect_idx = (hport->ips_connect_idx + 1) % host->ips_count;
-	http_client_host_port_connection_setup(hport);
-	return TRUE;
-}
-
-/*
  * Host
  */
 
-void http_client_host_connection_success(struct http_client_host *host,
-	const struct http_client_peer_addr *addr)
-{
-	struct http_client_host_port *hport;
-
-	http_client_host_debug(host, "Successfully connected to %s",
-		http_client_peer_addr2str(addr));
-
-	hport = http_client_host_port_find(host, addr);
-	if (hport == NULL)
-		return;
-
-	http_client_host_port_connection_success(hport, addr);
-}
-
-void http_client_host_connection_failure(struct http_client_host *host,
-	const struct http_client_peer_addr *addr, const char *reason)
-{
-	struct http_client_host_port *hport;
-
-	http_client_host_debug(host, "Failed to connect to %s: %s",
-		http_client_peer_addr2str(addr), reason);
-
-	hport = http_client_host_port_find(host, addr);
-	if (hport == NULL)
-		return;
-
-	if (!http_client_host_port_connection_failure(hport, addr, reason)) {
-		/* failed definitively for currently queued requests */
-		if (host->client->ioloop != NULL)
-			io_loop_stop(host->client->ioloop);
-	}
-}
-
 static void
-http_client_host_lookup_failure(struct http_client_host *host, const char *error)
+http_client_host_lookup_failure(struct http_client_host *host,
+			      const char *error)
 {
-	struct http_client_host_port *hport;
+	struct http_client_queue *const *queue_idx;
 
 	error = t_strdup_printf("Failed to lookup host %s: %s",
 				host->name, error);
-	array_foreach_modifiable(&host->ports, hport) {
-		http_client_host_port_error(hport,
+	array_foreach_modifiable(&host->queues, queue_idx) {
+		http_client_queue_fail(*queue_idx,
 			HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED, error);
 	}
 }
@@ -352,7 +59,7 @@ static void
 http_client_host_dns_callback(const struct dns_lookup_result *result,
 			      struct http_client_host *host)
 {
-	struct http_client_host_port *hport;
+	struct http_client_queue *const *queue_idx;
 	unsigned int requests = 0;
 
 	host->dns_lookup = NULL;
@@ -373,11 +80,12 @@ http_client_host_dns_callback(const struct dns_lookup_result *result,
 	/* FIXME: make DNS result expire */
 
 	/* make connections to requested ports */
-	array_foreach_modifiable(&host->ports, hport) {
-		unsigned int count = array_count(&hport->request_queue);
-		hport->ips_connect_idx = hport->ips_connect_start_idx = 0;
+	array_foreach_modifiable(&host->queues, queue_idx) {
+		struct http_client_queue *queue = *queue_idx;
+		unsigned int count = array_count(&queue->request_queue);
+		queue->ips_connect_idx = queue->ips_connect_start_idx = 0;
 		if (count > 0)
-			http_client_host_port_connection_setup(hport);
+			http_client_queue_connection_setup(queue);
 		requests += count;
 	}
 
@@ -440,7 +148,7 @@ struct http_client_host *http_client_host_get
 		host = i_new(struct http_client_host, 1);
 		host->client = client;
 		host->name = i_strdup(hostname);
-		i_array_init(&host->ports, 4);
+		i_array_init(&host->queues, 4);
 		i_array_init(&host->delayed_failing_requests, 1);
 
 		hostname = host->name;
@@ -461,7 +169,7 @@ struct http_client_host *http_client_host_get
 void http_client_host_submit_request(struct http_client_host *host,
 	struct http_client_request *req)
 {
-	struct http_client_host_port *hport;
+	struct http_client_queue *queue;
 	const struct http_url *host_url = req->host_url;
 	struct http_client_peer_addr addr;
 	const char *error;
@@ -478,12 +186,9 @@ void http_client_host_submit_request(struct http_client_host *host,
 
 	http_client_request_get_peer_addr(req, &addr);
 
-	/* add request to host (grouped by tcp port) */
-	hport = http_client_host_port_init(host, &addr);
-	if (req->urgent)
-		array_insert(&hport->request_queue, 0, &req, 1);
-	else
-		array_append(&hport->request_queue, &req, 1);
+	/* add request to queue (grouped by tcp port) */
+	queue = http_client_queue_create(host, &addr);
+	http_client_queue_submit_request(queue, req);
 
 	/* start DNS lookup if necessary */
 	if (host->ips_count == 0 && host->dns_lookup == NULL)	
@@ -492,86 +197,14 @@ void http_client_host_submit_request(struct http_client_host *host,
 	/* make a connection if we have an IP already */
 	if (host->ips_count == 0)
 		return;
-	i_assert(hport->ips_connect_idx < host->ips_count);
-	http_client_host_port_connection_setup(hport);
-}
 
-struct http_client_request *
-http_client_host_claim_request(struct http_client_host *host,
-	const struct http_client_peer_addr *addr, bool no_urgent)
-{
-	struct http_client_host_port *hport;
-	struct http_client_request *const *requests;
-	struct http_client_request *req;
-	unsigned int i, count;
-
-	hport = http_client_host_port_find(host, addr);
-	if (hport == NULL)
-		return NULL;
-
- 	requests = array_get(&hport->request_queue, &count);
-	if (count == 0)
-		return NULL;
-	i = 0;
-	if (requests[0]->urgent && no_urgent) {
-		for (; requests[i]->urgent; i++) {
-			if (i == count)
-				return NULL;
-		}
-	}
-	req = requests[i];
-	array_delete(&hport->request_queue, i, 1);
-
-	http_client_host_debug(host,
-		"Connection to peer %s claimed request %s %s",
-		http_client_peer_addr2str(addr), http_client_request_label(req),
-		(req->urgent ? "(urgent)" : ""));
-
-	return req;
-}
-
-unsigned int http_client_host_requests_pending(struct http_client_host *host,
-	const struct http_client_peer_addr *addr, unsigned int *num_urgent_r)
-{
-	struct http_client_host_port *hport;
-	struct http_client_request *const *requests;
-	unsigned int count, i;
-
-	*num_urgent_r = 0;
-
-	hport = http_client_host_port_find(host, addr);
-	if (hport == NULL)
-		return 0;
-
-	requests = array_get(&hport->request_queue, &count);
-	for (i = 0; i < count; i++) {
-		if (requests[i]->urgent)
-			(*num_urgent_r)++;
-		else
-			break;
-	}
-	return count;
-}
-
-void http_client_host_drop_request(struct http_client_host *host,
-	struct http_client_request *req)
-{
-	struct http_client_host_port *hport;
-	struct http_client_peer_addr addr;
-
-	http_client_request_get_peer_addr(req, &addr);
-
-	hport = http_client_host_port_find(host, &addr);
-	if (hport == NULL)
-		return;
-
-	http_client_host_port_drop_request(hport, req);
+	http_client_queue_connection_setup(queue);
 }
 
 void http_client_host_free(struct http_client_host **_host)
 {
 	struct http_client_host *host = *_host;
-	struct http_client_host_port *hport;
+	struct http_client_queue *const *queue_idx;
 	struct http_client_request *req, *const *reqp;
 	const char *hostname = host->name;
 
@@ -584,10 +217,10 @@ void http_client_host_free(struct http_client_host **_host)
 		dns_lookup_abort(&host->dns_lookup);
 
 	/* drop request queues */
-	array_foreach_modifiable(&host->ports, hport) {
-		http_client_host_port_deinit(hport);
+	array_foreach(&host->queues, queue_idx) {
+		http_client_queue_free(*queue_idx);
 	}
-	array_free(&host->ports);
+	array_free(&host->queues);
 
 	while (array_count(&host->delayed_failing_requests) > 0) {
 		reqp = array_idx(&host->delayed_failing_requests, 0);
@@ -605,12 +238,15 @@ void http_client_host_free(struct http_client_host **_host)
 
 void http_client_host_switch_ioloop(struct http_client_host *host)
 {
-	struct http_client_request **req;
+	struct http_client_queue *const *queue_idx;
+	struct http_client_request *const *req_idx;
 
 	if (host->dns_lookup != NULL)
 		dns_lookup_switch_ioloop(host->dns_lookup);
-	array_foreach_modifiable(&host->delayed_failing_requests, req) {
-		(*req)->to_delayed_error =
-			io_loop_move_timeout(&(*req)->to_delayed_error);
+	array_foreach(&host->queues, queue_idx)
+		http_client_queue_switch_ioloop(*queue_idx);
+	array_foreach(&host->delayed_failing_requests, req_idx) {
+		(*req_idx)->to_delayed_error =
+			io_loop_move_timeout(&(*req_idx)->to_delayed_error);
 	}
 }

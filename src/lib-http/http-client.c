@@ -19,28 +19,45 @@
 #define HTTP_DEFAULT_PORT 80
 #define HTTPS_DEFAULT_PORT 443
 
-/* FIXME: This implementation not yet finished. The essence works: it is
-   possible to submit requests through the client. Responses are dumped to
-   stdout
+/* Structure:
 
-    Structure so far:
-    Client - Acts much like a browser; it is not dedicated to a single host.
-             Client can accept requests to different hosts, which can be served
-             at different IPs. Redirects can be handled in the background by
-             making a new connection. Connections to new hosts are created once
-             needed for servicing a request.
-    Requests - Semantics are similar to imapc commands. Create a request, 
-               optionally modify some aspects of it and finally submit it.
-    Hosts - We maintain a 'cache' of hosts for which we have looked up IPs.
-            Requests are first queued in the host struct on a per-port basis.
-    Peers - Group connections to the same ip/port (== peer_addr).
-    Connections - Actual connections to a server. Once a connection is ready to
-                  handle requests, it claims a request from a host object. One
-                  connection hand service multiple hosts and one host can have
-                  multiple associated connections, possibly to different ips and
-                  ports.
+	 http-client:
 
-  TODO: lots of cleanup, authentication, ssl, timeouts,	 rawlog etc.
+	 Acts much like a browser; it is not dedicated to a single host. Client can
+   accept requests to different hosts, which can be served at different IPs.
+   Redirects are handled in the background by making a new connection.
+   Connections to new hosts are created once needed for servicing a request.
+
+	 http-client-request:
+
+	 The request semantics are similar to imapc commands. Create a request, 
+   optionally modify some aspects of it and finally submit it. Once finished,
+   a callback is called with the returned response.
+
+   http-client-host:
+
+   We maintain a 'cache' of hosts for which we have looked up IPs. One host
+   can have multiple IPs.
+
+   http-client-queue:
+
+   Requests are queued in a queue object. These queues are maintained for each
+   host:port target and listed in the host object. The queue object is
+   responsible for starting connection attempts to TCP port at the various IPs
+   known for the host.
+
+   http-client-peer:
+
+   The peer object groups multiple connections to the same ip/port
+   (== peer_addr).
+
+   http-client-connection:
+
+   This is an actual connection to a server. Once a connection is ready to
+   handle requests, it claims a request from a host object. One connection can
+   service multiple hosts and one host can have multiple associated connections,
+   possibly to different ips and ports.
+
  */
 
 /*

@@ -21,6 +21,7 @@ libhttp_la_SOURCES = \
 	http-client-request.c \
 	http-client-connection.c \
 	http-client-peer.c \
+	http-client-queue.c \
 	http-client-host.c \
 	http-client.c
 

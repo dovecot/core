@@ -114,11 +114,11 @@ static unsigned int
 http_client_peer_requests_pending(struct http_client_peer *peer,
 				  unsigned int *num_urgent_r)
 {
-	struct http_client_host *const *host;
+	struct http_client_queue *const *queue;
 	unsigned int num_requests = 0, num_urgent = 0, requests, urgent;
 
-	array_foreach(&peer->hosts, host) {
-		requests = http_client_host_requests_pending(*host, &peer->addr, &urgent);
+	array_foreach(&peer->queues, queue) {
+		requests = http_client_queue_requests_pending(*queue, &urgent);
 
 		num_requests += requests;
 		num_urgent += urgent;
@@ -356,7 +356,7 @@ http_client_peer_create(struct http_client *client,
 	peer->addr = *addr;
 	peer->https_name = i_strdup(addr->https_name);
 	peer->addr.https_name = peer->https_name;
-	i_array_init(&peer->hosts, 16);
+	i_array_init(&peer->queues, 16);
 	i_array_init(&peer->conns, 16);
 
 	hash_table_insert
@@ -391,7 +391,7 @@ void http_client_peer_free(struct http_client_peer **_peer)
 
 	i_assert(array_count(&peer->conns) == 0);
 	array_free(&peer->conns);
-	array_free(&peer->hosts);
+	array_free(&peer->queues);
 
 	hash_table_remove
 		(peer->client->peers, (const struct http_client_peer_addr *)&peer->addr);
@@ -415,34 +415,35 @@ http_client_peer_get(struct http_client *client,
 	return peer;
 }
 
-bool http_client_peer_have_host(struct http_client_peer *peer,
-				struct http_client_host *host)
+bool http_client_peer_have_queue(struct http_client_peer *peer,
+				struct http_client_queue *queue)
 {
-	struct http_client_host *const *host_idx;
+	struct http_client_queue *const *queue_idx;
 
-	array_foreach(&peer->hosts, host_idx) {
-		if (*host_idx == host)
+	array_foreach(&peer->queues, queue_idx) {
+		if (*queue_idx == queue)
 			return TRUE;
 	}
 	return FALSE;
 }
 
-void http_client_peer_add_host(struct http_client_peer *peer,
-			       struct http_client_host *host)
+void http_client_peer_link_queue(struct http_client_peer *peer,
+			       struct http_client_queue *queue)
 {
-	if (!http_client_peer_have_host(peer, host))
-		array_append(&peer->hosts, &host, 1);
+	if (!http_client_peer_have_queue(peer, queue))
+		array_append(&peer->queues, &queue, 1);
 }
 
-void http_client_peer_remove_host(struct http_client_peer *peer,
-				struct http_client_host *host)
+void http_client_peer_unlink_queue(struct http_client_peer *peer,
+				struct http_client_queue *queue)
 {
-	struct http_client_host *const *host_idx;
+	struct http_client_queue *const *queue_idx;
 
-	array_foreach(&peer->hosts, host_idx) {
-		if (*host_idx == host) {
-			array_delete(&peer->hosts, array_foreach_idx(&peer->hosts, host_idx), 1);
-			if (array_count(&peer->hosts) == 0)
+	array_foreach(&peer->queues, queue_idx) {
+		if (*queue_idx == queue) {
+			array_delete(&peer->queues,
+				array_foreach_idx(&peer->queues, queue_idx), 1);
+			if (array_count(&peer->queues) == 0)
 				http_client_peer_free(&peer);
 			return;
 		}
@@ -452,12 +453,12 @@ void http_client_peer_remove_host(struct http_client_peer *peer,
 struct http_client_request *
 http_client_peer_claim_request(struct http_client_peer *peer, bool no_urgent)
 {
-	struct http_client_host *const *host_idx;
+	struct http_client_queue *const *queue_idx;
 	struct http_client_request *req;
 
-	array_foreach(&peer->hosts, host_idx) {
-		if ((req=http_client_host_claim_request
-			(*host_idx, &peer->addr, no_urgent)) != NULL) {
+	array_foreach(&peer->queues, queue_idx) {
+		if ((req=http_client_queue_claim_request
+			(*queue_idx, &peer->addr, no_urgent)) != NULL) {
 			req->peer = peer;
 			return req;
 		}
@@ -468,12 +469,12 @@ http_client_peer_claim_request(struct http_client_peer *peer, bool no_urgent)
 
 void http_client_peer_connection_success(struct http_client_peer *peer)
 {
-	struct http_client_host *const *host;
+	struct http_client_queue *const *queue;
 
 	peer->last_connect_failed = FALSE;
 
-	array_foreach(&peer->hosts, host) {
-		http_client_host_connection_success(*host, &peer->addr);
+	array_foreach(&peer->queues, queue) {
+		http_client_queue_connection_success(*queue, &peer->addr);
 	}
 
 	http_client_peer_trigger_request_handler(peer);
@@ -482,7 +483,7 @@ void http_client_peer_connection_success(struct http_client_peer *peer)
 void http_client_peer_connection_failure(struct http_client_peer *peer,
 					 const char *reason)
 {
-	struct http_client_host *const *host;
+	struct http_client_queue *const *queue;
 	unsigned int num_urgent;
 
 	i_assert(array_count(&peer->conns) > 0);
@@ -500,8 +501,8 @@ void http_client_peer_connection_failure(struct http_client_peer *peer,
 		   failed. a second connect will probably also fail, so just
 		   try another IP for the hosts(s) or abort all requests if this
 		   was the only/last option. */
-		array_foreach(&peer->hosts, host) {
-			http_client_host_connection_failure(*host, &peer->addr, reason);
+		array_foreach(&peer->queues, queue) {
+			http_client_queue_connection_failure(*queue, &peer->addr, reason);
 		}
 	}
 	if (array_count(&peer->conns) == 0 &&
