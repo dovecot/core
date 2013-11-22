@@ -269,6 +269,40 @@ void http_client_request_set_payload(struct http_client_request *req,
 		req->payload_sync = TRUE;
 }
 
+void http_client_request_delay_until(struct http_client_request *req,
+	time_t time)
+{
+	req->release_time.tv_sec = time;
+	req->release_time.tv_usec = 0;
+}
+
+void http_client_request_delay(struct http_client_request *req,
+	time_t seconds)
+{
+	req->release_time = ioloop_timeval;
+	req->release_time.tv_sec += seconds;
+}
+
+int http_client_request_delay_from_response(struct http_client_request *req,
+	const struct http_response *response)
+{
+	time_t retry_after = response->retry_after;
+	unsigned int max;
+
+	if (retry_after == (time_t)-1)
+		return 0;  /* no delay */
+	if (retry_after < ioloop_time)
+		return 0;  /* delay already expired */
+	max = (req->client->set.max_auto_retry_delay == 0 ?
+		req->client->set.request_timeout_msecs / 1000 :
+		req->client->set.max_auto_retry_delay);
+	if ((retry_after - ioloop_time) > max)
+		return -1; /* delay too long */
+	req->release_time.tv_sec = retry_after;
+	req->release_time.tv_usec = 0;
+	return 1;    /* valid delay */
+}
+
 enum http_request_state
 http_client_request_get_state(struct http_client_request *req)
 {
@@ -902,7 +936,7 @@ void http_client_request_resubmit(struct http_client_request *req)
 	req->conn = NULL;
 	req->peer = NULL;
 	req->state = HTTP_REQUEST_STATE_QUEUED;
-	http_client_queue_submit_request(req->queue, req);
+	http_client_host_submit_request(req->host, req);
 }
 
 void http_client_request_retry(struct http_client_request *req,
@@ -910,16 +944,6 @@ void http_client_request_retry(struct http_client_request *req,
 {
 	if (!http_client_request_try_retry(req))
 		http_client_request_error(req, status, error);
-}
-
-void http_client_request_retry_response(struct http_client_request *req,
-	struct http_response *response)
-{
-	if (!http_client_request_try_retry(req)) {
-		i_assert(req->submitted || req->state >= HTTP_REQUEST_STATE_FINISHED);
-		(void)http_client_request_callback(req, response);
-		http_client_request_unref(&req);
-	}
 }
 
 bool http_client_request_try_retry(struct http_client_request *req)

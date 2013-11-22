@@ -95,6 +95,12 @@ struct http_client_settings {
 	   (default = 0; wait until current connection attempt finishes) */
 	unsigned int soft_connect_timeout_msecs;
 
+	/* maximum acceptable delay in seconds for automatically
+	   retrying/redirecting requests. if a server sends a response with a
+	   Retry-After header that causes a delay longer than this, the request
+	   is not automatically retried and the response is returned */
+	unsigned int max_auto_retry_delay;
+
 	bool debug;
 };
 
@@ -171,6 +177,11 @@ void http_client_request_set_date(struct http_client_request *req,
 
 void http_client_request_set_payload(struct http_client_request *req,
 				     struct istream *input, bool sync);
+
+void http_client_request_delay_until(struct http_client_request *req,
+	time_t time);
+void http_client_request_delay(struct http_client_request *req,
+	time_t seconds);
 
 enum http_request_state
 http_client_request_get_state(struct http_client_request *req);

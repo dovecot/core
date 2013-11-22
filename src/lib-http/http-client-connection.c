@@ -595,19 +595,36 @@ static void http_client_connection_input(struct connection *_conn)
 		conn->close_indicated = response.connection_close;
 
 		if (!aborted) {
+			bool handled = FALSE;
+
+			/* failed Expect: */
 			if (response.status == 417 && req->payload_sync) {
 				/* drop Expect: continue */
 				req->payload_sync = FALSE;
 				conn->output_locked = FALSE;
 				conn->peer->no_payload_sync = TRUE;
-				http_client_request_retry_response(req, &response);
-				
+				if (http_client_request_try_retry(req))
+					handled = TRUE;
+			/* redirection */
 			} else if (!req->client->set.no_auto_redirect &&
 				response.status / 100 == 3 && response.status != 304 &&
 				response.location != NULL) {
-				/* redirect */
-				http_client_request_redirect(req, response.status, response.location);
-			} else {
+				/* redirect (possibly after delay) */
+				if (http_client_request_delay_from_response(req, &response) >= 0) {
+					http_client_request_redirect
+						(req, response.status, response.location);
+					handled = TRUE;
+				}
+			/* service unavailable */
+			} else if (response.status == 503) {
+				/* automatically retry after delay if indicated */
+				if ( response.retry_after != (time_t)-1 &&
+					http_client_request_delay_from_response(req, &response) > 0 &&
+					http_client_request_try_retry(req))
+					handled = TRUE;
+			}
+
+			if (!handled) {
 				/* response for application */
 				if (!http_client_connection_return_response(conn, req, &response))
 					return;

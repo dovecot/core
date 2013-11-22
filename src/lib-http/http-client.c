@@ -127,6 +127,7 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	client->set.request_timeout_msecs = set->request_timeout_msecs;
 	client->set.connect_timeout_msecs = set->connect_timeout_msecs;
 	client->set.soft_connect_timeout_msecs = set->soft_connect_timeout_msecs;
+	client->set.max_auto_retry_delay = set->max_auto_retry_delay;
 	client->set.debug = set->debug;
 
 	client->conn_list = http_client_connection_list_init();

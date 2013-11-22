@@ -5,10 +5,12 @@
 #include "str.h"
 #include "hash.h"
 #include "array.h"
+#include "bsearch-insert-pos.h"
 #include "llist.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "time-util.h"
 #include "dns-lookup.h"
 #include "http-response-parser.h"
 
@@ -40,6 +42,10 @@ http_client_queue_debug(struct http_client_queue *queue,
 /*
  * Queue
  */
+
+static void
+http_client_queue_set_delay_timer(struct http_client_queue *queue,
+	struct timeval time);
 
 static struct http_client_queue *
 http_client_queue_find(struct http_client_host *host,
@@ -92,6 +98,7 @@ http_client_queue_create(struct http_client_host *host,
 		queue->name = name;
 		queue->ips_connect_idx = 0;
 		i_array_init(&queue->request_queue, 16);
+		i_array_init(&queue->delayed_request_queue, 4);
 		array_append(&host->queues, &queue, 1);
 	}
 
@@ -106,8 +113,11 @@ void http_client_queue_free(struct http_client_queue *queue)
 	if (array_is_created(&queue->pending_peers))
 		array_free(&queue->pending_peers);
 	array_free(&queue->request_queue);
+	array_free(&queue->delayed_request_queue);
 	if (queue->to_connect != NULL)
 		timeout_remove(&queue->to_connect);
+	if (queue->to_delayed != NULL)
+		timeout_remove(&queue->to_delayed);
 	i_free(queue->name);
 	i_free(queue);
 }
@@ -122,6 +132,12 @@ void http_client_queue_fail(struct http_client_queue *queue,
 		http_client_request_error(*req, status, error);
 	}
 	array_clear(&queue->request_queue);
+
+	/* abort all delayed requests */
+	array_foreach_modifiable(&queue->delayed_request_queue, req) {
+		http_client_request_error(*req, status, error);
+	}
+	array_clear(&queue->delayed_request_queue);
 }
 
 void
@@ -309,15 +325,94 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 	return TRUE;
 }
 
-void http_client_queue_submit_request(struct http_client_queue *queue,
+static void http_client_queue_submit_now(struct http_client_queue *queue,
 	struct http_client_request *req)
 {
-	req->queue = queue;
+	req->release_time.tv_sec = 0;
+	req->release_time.tv_usec = 0;
 
 	if (req->urgent)
 		array_insert(&queue->request_queue, 0, &req, 1);
 	else
 		array_append(&queue->request_queue, &req, 1);
+}
+
+static void
+http_client_queue_delay_timeout(struct http_client_queue *queue)
+{
+	struct http_client_request *const *reqs;
+	unsigned int count, i, finished;
+
+	io_loop_time_refresh();
+
+	finished = 0;
+	reqs = array_get(&queue->delayed_request_queue, &count);
+	for (i = 0; i < count; i++) {
+		if (timeval_cmp(&reqs[i]->release_time, &ioloop_timeval) > 0) {
+			break;
+		}
+
+		http_client_queue_debug(queue,
+			"Activated delayed request %s%s",
+			http_client_request_label(reqs[i]),
+			(reqs[i]->urgent ? " (urgent)" : ""));
+		http_client_queue_submit_now(queue, reqs[i]);
+		finished++;
+	}
+	i_assert(finished > 0);
+	if (i < count) {
+		http_client_queue_set_delay_timer(queue, reqs[i]->release_time);
+	}
+	array_delete(&queue->delayed_request_queue, 0, finished);
+
+	http_client_queue_connection_setup(queue);
+}
+
+static void
+http_client_queue_set_delay_timer(struct http_client_queue *queue,
+	struct timeval time)
+{
+	int usecs = timeval_diff_usecs(&time, &ioloop_timeval);
+	int msecs;
+
+	/* round up to nearest microsecond */
+	msecs = (usecs + 999) / 1000;
+
+	/* set timer */
+	if (queue->to_delayed != NULL)
+		timeout_remove(&queue->to_delayed);	
+	queue->to_delayed = timeout_add
+		(msecs, http_client_queue_delay_timeout, queue);
+}
+
+static int
+http_client_queue_delayed_cmp(struct http_client_request *const *req1,
+	struct http_client_request *const *req2)
+{
+	return timeval_cmp(&(*req1)->release_time, &(*req2)->release_time);
+}
+
+void http_client_queue_submit_request(struct http_client_queue *queue,
+	struct http_client_request *req)
+{
+	unsigned int insert_idx;
+
+	req->queue = queue;
+
+	if (req->release_time.tv_sec > 0) {
+		io_loop_time_refresh();
+
+		if (timeval_cmp(&req->release_time, &ioloop_timeval) > 0) {
+			(void)array_bsearch_insert_pos(&queue->delayed_request_queue,
+					&req, http_client_queue_delayed_cmp, &insert_idx);
+			array_insert(&queue->delayed_request_queue, insert_idx, &req, 1);
+			if (insert_idx == 0)
+				http_client_queue_set_delay_timer(queue, req->release_time);
+			return;
+		}
+	}
+
+	http_client_queue_submit_now(queue, req);
 }
 
 struct http_client_request *
@@ -372,4 +467,6 @@ void http_client_queue_switch_ioloop(struct http_client_queue *queue)
 {
 	if (queue->to_connect != NULL)
 		queue->to_connect = io_loop_move_timeout(&queue->to_connect);
+	if (queue->to_delayed != NULL)
+		queue->to_delayed = io_loop_move_timeout(&queue->to_delayed);
 }

@@ -70,6 +70,8 @@ struct http_client_request {
 	uoff_t payload_size, payload_offset;
 	struct ostream *payload_output;
 
+	struct timeval release_time;
+
 	unsigned int attempts;
 	unsigned int redirects;
 
@@ -182,9 +184,9 @@ struct http_client_queue {
 	ARRAY_TYPE(http_client_peer) pending_peers;
 
 	/* requests pending in queue to be picked up by connections */
-	ARRAY_TYPE(http_client_request) request_queue;
+	ARRAY_TYPE(http_client_request) request_queue, delayed_request_queue;
 
-	struct timeout *to_connect;
+	struct timeout *to_connect, *to_delayed;
 };
 
 struct http_client_host {
@@ -229,6 +231,8 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r);
 
 void http_client_request_ref(struct http_client_request *req);
 void http_client_request_unref(struct http_client_request **_req);
+int http_client_request_delay_from_response(struct http_client_request *req,
+	const struct http_response *response);
 enum http_response_payload_type
 http_client_request_get_payload_type(struct http_client_request *req);
 int http_client_request_send(struct http_client_request *req,
@@ -243,8 +247,6 @@ void http_client_request_connect_callback(struct http_client_request *req,
 void http_client_request_resubmit(struct http_client_request *req);
 void http_client_request_retry(struct http_client_request *req,
 	unsigned int status, const char *error);
-void http_client_request_retry_response(struct http_client_request *req,
-	struct http_response *response);
 void http_client_request_send_error(struct http_client_request *req,
 			       unsigned int status, const char *error);
 void http_client_request_error_delayed(struct http_client_request **_req);
