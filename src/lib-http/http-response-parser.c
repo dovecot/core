@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "istream.h"
 #include "http-parser.h"
+#include "http-date.h"
 #include "http-message-parser.h"
 #include "http-response-parser.h"
 
@@ -232,10 +233,41 @@ http_response_parse_status_line(struct http_response_parser *parser)
 	return 0;
 }
 
+static int
+http_response_parse_retry_after(const char *hdrval, time_t resp_time,
+	time_t *retry_after_r)
+{
+	time_t delta;
+
+	/* http://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-23
+	     Section 7.1.3:
+
+	   The value of this field can be either an HTTP-date or an integer
+	   number of seconds (in decimal) after the time of the response.
+	   Time spans are non-negative decimal integers, representing time in
+	   seconds.
+
+     Retry-After = HTTP-date / delta-seconds
+     delta-seconds  = 1*DIGIT
+	 */
+	if (str_to_time(hdrval, &delta) >= 0) {
+		if (resp_time == (time_t)-1) {
+			return -1;
+		}
+		*retry_after_r = resp_time + delta;
+		return 0;
+	}
+
+	return (http_date_parse
+		((unsigned char *)hdrval, strlen(hdrval), retry_after_r) ? 0 : -1);
+}
+
 int http_response_parse_next(struct http_response_parser *parser,
 			     enum http_response_payload_type payload_type,
 			     struct http_response *response, const char **error_r)
 {
+	const char *hdrval;
+	time_t retry_after = (time_t)-1;
 	int ret;
 
 	/* make sure we finished streaming payload from previous response
@@ -300,6 +332,26 @@ int http_response_parse_next(struct http_response_parser *parser,
 		}
 	}
 
+	/* http://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-23
+	     Section 7.1.3:
+	
+	   Servers send the "Retry-After" header field to indicate how long the
+	   user agent ought to wait before making a follow-up request.  When
+	   sent with a 503 (Service Unavailable) response, Retry-After indicates
+	   how long the service is expected to be unavailable to the client.
+	   When sent with any 3xx (Redirection) response, Retry-After indicates
+	   the minimum time that the user agent is asked to wait before issuing
+	   the redirected request.
+	 */
+	if (parser->response_status == 503 || (parser->response_status / 100) == 3) {		
+		hdrval = http_header_field_get(parser->parser.msg.header, "Retry-After");
+		if (hdrval != NULL) {
+			(void)http_response_parse_retry_after
+				(hdrval, parser->parser.msg.date, &retry_after);
+			/* broken Retry-After header is ignored */
+		}
+	}
+
 	parser->state = HTTP_RESPONSE_PARSE_STATE_INIT;
 
 	memset(response, 0, sizeof(*response));
@@ -309,6 +361,7 @@ int http_response_parse_next(struct http_response_parser *parser,
 	response->version_minor = parser->parser.msg.version_minor;
 	response->location = parser->parser.msg.location;
 	response->date = parser->parser.msg.date;
+	response->retry_after = retry_after;
 	response->payload = parser->parser.payload;
 	response->header = parser->parser.msg.header;
 	response->headers = *http_header_get_fields(response->header); /* FIXME: remove in v2.3 */

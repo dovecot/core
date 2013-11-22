@@ -22,7 +22,7 @@ struct http_response {
 	const char *reason;
 	const char *location;
 
-	time_t date;
+	time_t date, retry_after;
 	const struct http_header *header;
 	struct istream *payload;
 
