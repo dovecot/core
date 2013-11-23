@@ -14,11 +14,6 @@
 #define DSYNC_FAIL_TIMEOUT_MSECS (1000*5)
 #define DOVEADM_HANDSHAKE "VERSION\tdoveadm-server\t1\t0\n"
 
-/* normally there shouldn't be any need for locking, since replicator doesn't
-   start dsync in parallel for the same user. we'll do locking just in case
-   anyway */
-#define DSYNC_LOCK_TIMEOUT_SECS 30
-
 struct dsync_client {
 	char *path;
 	int fd;
@@ -27,6 +22,7 @@ struct dsync_client {
 	struct ostream *output;
 	struct timeout *to;
 
+	char *dsync_params;
 	char *state;
 	dsync_callback_t *callback;
 	void *context;
@@ -36,13 +32,15 @@ struct dsync_client {
 	unsigned int cmd_sent:1;
 };
 
-struct dsync_client *dsync_client_init(const char *path)
+struct dsync_client *
+dsync_client_init(const char *path, const char *dsync_params)
 {
 	struct dsync_client *client;
 
 	client = i_new(struct dsync_client, 1);
 	client->path = i_strdup(path);
 	client->fd = -1;
+	client->dsync_params = i_strdup(dsync_params);
 	return client;
 }
 
@@ -190,6 +188,8 @@ void dsync_client_sync(struct dsync_client *client,
 		       dsync_callback_t *callback, void *context)
 {
 	string_t *cmd;
+	unsigned int pos;
+	char *p;
 
 	i_assert(callback != NULL);
 	i_assert(!dsync_client_is_busy(client));
@@ -207,10 +207,20 @@ void dsync_client_sync(struct dsync_client *client,
 		cmd = t_str_new(256);
 		str_append_c(cmd, '\t');
 		str_append_tabescaped(cmd, username);
-		str_printfa(cmd, "\tsync\t-d\t-N\t-l\t%u", DSYNC_LOCK_TIMEOUT_SECS);
+		str_append(cmd, "\tsync\t");
+		pos = str_len(cmd);
+		/* insert the parameters. we can do it simply by converting
+		   spaces into tabs, it's unlikely we'll ever need anything
+		   more complex here. */
+		str_append(cmd, client->dsync_params);
+		p = str_c_modifiable(cmd) + pos;
+		for (; *p != '\0'; p++) {
+			if (*p == ' ')
+				*p = '\t';
+		}
 		if (full)
 			str_append(cmd, "\t-f");
-		str_append(cmd, "\t-U\t-s\t");
+		str_append(cmd, "\t-s\t");
 		if (state != NULL)
 			str_append(cmd, state);
 		str_append_c(cmd, '\n');

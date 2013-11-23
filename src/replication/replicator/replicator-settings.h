@@ -4,6 +4,7 @@
 struct replicator_settings {
 	const char *auth_socket_path;
 	const char *doveadm_socket_path;
+	const char *replication_dsync_parameters;
 
 	unsigned int replication_full_sync_interval;
 	unsigned int replication_max_conns;

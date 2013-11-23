@@ -10,7 +10,8 @@ enum dsync_reply {
 typedef void dsync_callback_t(enum dsync_reply reply,
 			      const char *state, void *context);
 
-struct dsync_client *dsync_client_init(const char *path);
+struct dsync_client *
+dsync_client_init(const char *path, const char *dsync_params);
 void dsync_client_deinit(struct dsync_client **conn);
 
 void dsync_client_sync(struct dsync_client *conn,

@@ -53,6 +53,7 @@ struct service_settings replicator_service_settings = {
 static const struct setting_define replicator_setting_defines[] = {
 	DEF(SET_STR, auth_socket_path),
 	DEF(SET_STR, doveadm_socket_path),
+	DEF(SET_STR, replication_dsync_parameters),
 
 	DEF(SET_TIME, replication_full_sync_interval),
 	DEF(SET_UINT, replication_max_conns),
@@ -63,6 +64,7 @@ static const struct setting_define replicator_setting_defines[] = {
 const struct replicator_settings replicator_default_settings = {
 	.auth_socket_path = "auth-userdb",
 	.doveadm_socket_path = "doveadm-server",
+	.replication_dsync_parameters = "-d -N -l 30 -U",
 
 	.replication_full_sync_interval = 60*60*24,
 	.replication_max_conns = 10
