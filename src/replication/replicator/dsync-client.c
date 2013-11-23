@@ -95,6 +95,7 @@ void dsync_client_deinit(struct dsync_client **_client)
 	*_client = NULL;
 
 	dsync_disconnect(client);
+	i_free(client->dsync_params);
 	i_free(client->path);
 	i_free(client);
 }
