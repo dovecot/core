@@ -296,7 +296,7 @@ int http_client_request_delay_from_response(struct http_client_request *req,
 	max = (req->client->set.max_auto_retry_delay == 0 ?
 		req->client->set.request_timeout_msecs / 1000 :
 		req->client->set.max_auto_retry_delay);
-	if ((retry_after - ioloop_time) > max)
+	if ((unsigned int)(retry_after - ioloop_time) > max)
 		return -1; /* delay too long */
 	req->release_time.tv_sec = retry_after;
 	req->release_time.tv_usec = 0;
