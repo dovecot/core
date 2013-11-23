@@ -577,7 +577,7 @@ fts_transaction_commit(struct mailbox_transaction_context *t,
 
 	autoindex = ft->mails_saved &&
 		mail_user_plugin_getenv(box->storage->user,
-					"fts_autoindex_on_save") != NULL;
+					"fts_autoindex") != NULL;
 
 	ret = fts_transaction_end(t);
 	if (fbox->module_ctx.super.transaction_commit(t, changes_r) < 0)
