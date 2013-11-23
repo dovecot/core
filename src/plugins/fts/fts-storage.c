@@ -2,6 +2,10 @@
 
 #include "lib.h"
 #include "array.h"
+#include "net.h"
+#include "str.h"
+#include "strescape.h"
+#include "write-full.h"
 #include "mail-search-build.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
@@ -21,6 +25,9 @@
 	MODULE_CONTEXT(obj, fts_mail_module)
 #define FTS_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, fts_mailbox_list_module)
+
+#define INDEXER_SOCKET_NAME "indexer"
+#define INDEXER_HANDSHAKE "VERSION\tindexer\t1\t0\n"
 
 struct fts_mailbox_list {
 	union mailbox_list_module_context module_ctx;
@@ -43,6 +50,7 @@ struct fts_transaction_context {
 	uint32_t highest_virtual_uid;
 
 	unsigned int precached:1;
+	unsigned int mails_saved:1;
 	unsigned int failed:1;
 };
 
@@ -527,17 +535,59 @@ static void fts_transaction_rollback(struct mailbox_transaction_context *t)
 	fbox->module_ctx.super.transaction_rollback(t);
 }
 
+static void fts_queue_index(struct mailbox *box)
+{
+	struct mail_user *user = box->storage->user;
+	string_t *str = t_str_new(256);
+	const char *path, *value;
+	unsigned int max_recent_msgs;
+	int fd;
+
+	path = t_strconcat(user->set->base_dir, "/"INDEXER_SOCKET_NAME, NULL);
+	fd = net_connect_unix(path);
+	if (fd == -1) {
+		i_error("net_connect_unix(%s) failed: %m", path);
+		return;
+	}
+
+	value = mail_user_plugin_getenv(user, "fts_autoindex_max_recent_msgs");
+	if (value == NULL || str_to_uint(value, &max_recent_msgs) < 0)
+		max_recent_msgs = 0;
+
+	str_append(str, INDEXER_HANDSHAKE);
+	str_append(str, "APPEND\t0\t");
+	str_append_tabescaped(str, user->username);
+	str_append_c(str, '\t');
+	str_append_tabescaped(str, box->vname);
+	str_printfa(str, "\t%u\n", max_recent_msgs);
+	if (write_full(fd, str_data(str), str_len(str)) < 0)
+		i_error("write(%s) failed: %m", path);
+	i_close_fd(&fd);
+}
+
 static int
 fts_transaction_commit(struct mailbox_transaction_context *t,
 		       struct mail_transaction_commit_changes *changes_r)
 {
+	struct fts_transaction_context *ft = FTS_CONTEXT(t);
 	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
+	struct mailbox *box = t->box;
+	bool autoindex;
 	int ret;
+
+	autoindex = ft->mails_saved &&
+		mail_user_plugin_getenv(box->storage->user,
+					"fts_autoindex_on_save") != NULL;
 
 	ret = fts_transaction_end(t);
 	if (fbox->module_ctx.super.transaction_commit(t, changes_r) < 0)
 		ret = -1;
-	return ret;
+	if (ret < 0)
+		return -1;
+
+	if (autoindex)
+		fts_queue_index(box);
+	return 0;
 }
 
 static void fts_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
@@ -596,6 +646,28 @@ static int fts_sync_deinit(struct mailbox_sync_context *ctx,
 	return ret;
 }
 
+static int fts_save_finish(struct mail_save_context *ctx)
+{
+	struct fts_transaction_context *ft = FTS_CONTEXT(ctx->transaction);
+	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
+
+	if (fbox->module_ctx.super.save_finish(ctx) < 0)
+		return -1;
+	ft->mails_saved = TRUE;
+	return 0;
+}
+
+static int fts_copy(struct mail_save_context *ctx, struct mail *mail)
+{
+	struct fts_transaction_context *ft = FTS_CONTEXT(ctx->transaction);
+	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
+
+	if (fbox->module_ctx.super.copy(ctx, mail) < 0)
+		return -1;
+	ft->mails_saved = TRUE;
+	return 0;
+}
+
 void fts_mailbox_allocated(struct mailbox *box)
 {
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(box->list);
@@ -619,6 +691,8 @@ void fts_mailbox_allocated(struct mailbox *box)
 	v->transaction_commit = fts_transaction_commit;
 	v->sync_notify = fts_mailbox_sync_notify;
 	v->sync_deinit = fts_sync_deinit;
+	v->save_finish = fts_save_finish;
+	v->copy = fts_copy;
 
 	MODULE_CONTEXT_SET(box, fts_storage_module, fbox);
 }
