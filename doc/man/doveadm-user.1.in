@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010-2011 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-USER 1 "2011-11-04" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2013 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-USER 1 "2013-11-23" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-user \- Perform a user lookup in Dovecot\(aqs userdbs
 .\"------------------------------------------------------------------------
@@ -7,6 +7,7 @@ doveadm\-user \- Perform a user lookup in Dovecot\(aqs userdbs
 .BR doveadm " [" \-Dv "] " user
 [\fB\-a\fP \fIuserdb_socket_path\fP]
 [\fB\-f\fP \fIfield\fP]
+.RB [ \-u ]
 [\fB\-x\fP \fIauth_info\fP]
 .IR user\  ...
 .\"------------------------------------------------------------------------
@@ -63,6 +64,16 @@ setting was overridden in
 When this option and the name of a userdb field is given,
 .BR doveadm (1)
 will show only the value of the specified field.
+.\"-------------------------------------
+.TP
+.B \-u
+When this option is given,
+.BR doveadm (1)
+will only show values from the
+.IR userdb .
+Without \-u parameter if any of the
+.IR uid ", " gid ", " home " or " mail
+fields are missing, their defaults are taken from configuration file.
 .\"-------------------------------------
 .TP
 .BI \-x\  auth_info
