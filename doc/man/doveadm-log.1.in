@@ -1,10 +1,11 @@
-.\" Copyright (c) 2010-2012 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-LOG 1 "2012-02-22" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2013 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-LOG 1 "2013-11-24" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-log \- Locate, test or reopen Dovecot\(aqs log files
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
-.BR doveadm " [" \-Dv "] " "log errors"
+.BR doveadm " [" \-Dv "] " "log errors" " [" \-s
+.IR min_timestamp ]
 .\"-------------------------------------
 .br
 .BR doveadm " [" \-Dv "] " "log find"
@@ -30,12 +31,21 @@ settings.
 .\"------------------------------------------------------------------------
 .SH COMMANDS
 .SS log errors
-.B doveadm log errors
+.BR "doveadm log errors" " [" \-s
+.IR min_timestamp ]
 .PP
 The
 .B log errors
 command is used to show the last  \- up to 1,000 \- errors and warnings.
 If no output is generated, no errors have occurred since the last start.
+.PP
+.TP
+.BI \-s \ min_timestamp
+An integer value, representing seconds since the epoch \- also known as
+Unix timestamp.
+When a min_timestamp was given,
+.BR doveadm (1)
+will only show errors occurred since that point in time.
 .\"-------------------------------------
 .SS log find
 .B doveadm log find
