@@ -32,6 +32,9 @@ struct stack_block {
 	struct stack_block *next;
 
 	size_t size, left, lowwater;
+	/* always NULL and here just in case something accesses
+	   the memory in front of an allocated area */
+	char *nullpad;
 	/* unsigned char data[]; */
 };
 
@@ -299,6 +302,7 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 	block->left = 0;
 	block->lowwater = block->size;
 	block->next = NULL;
+	block->nullpad = NULL;
 
 #ifdef DEBUG
 	memset(STACK_BLOCK_DATA(block), CLEAR_CHR, alloc_size);
