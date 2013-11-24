@@ -18,5 +18,5 @@ lib10_mail_filter_plugin_la_SOURCES = \
 
 noinst_HEADERS = \
 	istream-ext-filter.h \
-	ostream-ext-filter.h
+	ostream-ext-filter.h \
 	mail-filter-plugin.h
