@@ -1,20 +1,24 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-IMPORT 1 "2010-11-26" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2013 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-IMPORT 1 "2013-11-24" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-import \- Import messages matching given search query
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
 .BR doveadm " [" \-Dv "] " import " [" \-S
-.IR socket_path "] " "source_location dest_parent search_query"
+.IR socket_path ]
+.RB [ \-s ]
+.I source_location dest_parent search_query
 .br
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] " import " [" \-S
-.IR socket_path "] "
+.IR socket_path ]
+.RB [ \-s ]
 .BI \-A " source_location dest_parent search_query"
 .br
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] " import " [" \-S
-.IR socket_path "] "
+.IR socket_path ]
+.RB [ \-s ]
 .BI \-u " user source_location dest_parent search_query"
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
@@ -49,6 +53,16 @@ Command specific
 @INCLUDE:option-A@
 .\"-------------------------------------
 @INCLUDE:option-S-socket@
+.\"-------------------------------------
+.TP
+.B \-s
+When the
+.B \-s
+option is present,
+.I dest_parent
+and all new mailboxes under it will be listed in the
+.I subscriptions
+file.
 .\"-------------------------------------
 @INCLUDE:option-u-user@
 .\"------------------------------------------------------------------------
