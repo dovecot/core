@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-MAILBOX 1 "2010-11-25" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2013 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-MAILBOX 1 "2013-11-24" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-mailbox \- Commands related to handling mailboxes
 .\"------------------------------------------------------------------------
@@ -41,6 +41,8 @@ configuration. The mailbox names may also require a namespace prefix.
 .B doveadm mailbox create
 [\fB\-A\fP|\fB\-u\fP \fIuser\fP]
 [\fB\-S\fP \fIsocket_path\fP]
+.RB [ \-g
+.IR guid ]
 .RB [ \-s ]
 .IR mailbox\  ...
 .PP
@@ -51,8 +53,12 @@ setting, or the user\(aqs
 .I mail
 field, returned by the userdb.
 .PP
-When the
+.TP
+.BI \-g \ guid
+Create the mailbox with the specified GUID.
+.TP
 .B \-s
+When this
 option was given, the created mailboxes will be also added to the user\(aqs
 subscriptions.
 .\"------------------------------------------------------------------------
