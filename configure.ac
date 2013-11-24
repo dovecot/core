@@ -179,6 +179,11 @@ AS_HELP_STRING([--with-bzlib], [Build with bzlib compression support]),
   TEST_WITH(bzlib, $withval),
   want_bzlib=auto)
 
+AC_ARG_WITH(lzma,
+AS_HELP_STRING([--with-lzma], [Build with LZMA compression support]),
+  TEST_WITH(lzma, $withval),
+  want_lzma=auto)
+
 AC_ARG_WITH(libcap,
 AS_HELP_STRING([--with-libcap], [Build with libcap support (Dropping capabilities).]),
   TEST_WITH(libcap, $withval),
@@ -2654,6 +2659,25 @@ if test "$want_bzlib" != "no"; then
   ], [
     if test "$want_bzlib" = "yes"; then
       AC_ERROR([Can't build with bzlib support: bzlib.h not found])
+    fi
+  ])
+fi
+
+if test "$want_lzma" != "no"; then
+  AC_CHECK_HEADER(lzma.h, [
+    AC_CHECK_LIB(lzma, lzma_stream_decoder, [
+      have_lzma=yes
+      have_compress_lib=yes
+      AC_DEFINE(HAVE_LZMA,, Define if you have lzma library)
+      COMPRESS_LIBS="$COMPRESS_LIBS -llzma"
+    ], [
+      if test "$want_lzma" = "yes"; then
+	AC_ERROR([Can't build with lzma support: liblzma not found])
+      fi
+    ])
+  ], [
+    if test "$want_lzma" = "yes"; then
+      AC_ERROR([Can't build with lzma support: lzma.h not found])
     fi
   ])
 fi

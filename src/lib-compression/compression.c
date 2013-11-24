@@ -16,6 +16,10 @@
 #  define i_stream_create_bz2 NULL
 #  define o_stream_create_bz2 NULL
 #endif
+#ifndef HAVE_LZMA
+#  define i_stream_create_lzma NULL
+#  define o_stream_create_lzma NULL
+#endif
 
 static bool is_compressed_zlib(struct istream *input)
 {
@@ -47,6 +51,16 @@ static bool is_compressed_bzlib(struct istream *input)
 	if (data[3] < '1' || data[3] > '9')
 		return FALSE;
 	return memcmp(data + 4, "\x31\x41\x59\x26\x53\x59", 6) == 0;
+}
+
+static bool is_compressed_xz(struct istream *input)
+{
+	const unsigned char *data;
+	size_t size;
+
+	if (i_stream_read_data(input, &data, &size, 6 - 1) <= 0)
+		return FALSE;
+	return memcmp(data, "\xfd\x37\x7a\x58\x5a", 6) == 0;
 }
 
 const struct compression_handler *compression_lookup_handler(const char *name)
@@ -97,5 +111,7 @@ const struct compression_handler compression_handlers[] = {
 	  i_stream_create_bz2, o_stream_create_bz2 },
 	{ "deflate", NULL, NULL,
 	  i_stream_create_deflate, o_stream_create_deflate },
+	{ "xz", ".xz", is_compressed_xz,
+	  i_stream_create_lzma, o_stream_create_lzma },
 	{ NULL, NULL, NULL, NULL, NULL }
 };
