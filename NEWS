@@ -1,3 +1,17 @@
+v2.2.9 2013-11-25  Timo Sirainen <tss@iki.fi>
+
+	+ Full text search indexing can now be done automatically after
+	  saving/copying mails by setting plugin { fts_autoindex=yes }
+	+ replicator: Added replication_dsync_parameters setting to pass
+	  "doveadm sync" parameters (for controlling what to replicate).
+	+ Added mail-filter plugin
+	+ Added liblzma/xz support (zlib_save=xz)
+	- v2.2.8's improved cache file handling exposed several old bugs
+	  related to fetching mail headers.
+	- v2.2.7's iostream handling changes were causing some connections
+	  to be disconnected before flushing their output (e.g. POP3 logout
+	  message wasn't being sent)
+
 v2.2.8 2013-11-19  Timo Sirainen <tss@iki.fi>
 
 	+ Mail cache lookups work for the mail being saved. This improves
