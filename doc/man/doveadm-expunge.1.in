@@ -1,20 +1,24 @@
-.\" Copyright (c) 2010-2012 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-EXPUNGE 1 "2012-11-27" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2013 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-EXPUNGE 1 "2013-11-24" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-expunge \- Expunge messages matching given search query
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
 .BR doveadm " [" \-Dv "] " expunge " [" \-S
-.IR socket_path "] " search_query
+.IR socket_path ]
+.RB [ \-d ]
+.I search_query
 .br
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] " expunge " [" \-S
-.IR socket_path "] "
-.BI  \-A " search_query"
+.IR socket_path ]
+.RB [ \-d ]
+.BI \-A " search_query"
 .br
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] " expunge " [" \-S
-.IR socket_path "] "
+.IR socket_path ]
+.RB [ \-d ]
 .BI \-u " user search_query"
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
