@@ -246,7 +246,7 @@ static bool parse_next(char **data, char **key, char **value)
 	*value = p+1;
 
 	/* skip trailing whitespace in key */
-	while (IS_LWS(p[-1]))
+	while (p > *data && IS_LWS(p[-1]))
 		p--;
 	*p = '\0';
 
