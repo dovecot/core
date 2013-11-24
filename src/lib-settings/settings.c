@@ -44,7 +44,7 @@ static const char *get_uint(const char *value, unsigned int *result)
 {
 	int num;
 
-	if (!sscanf(value, "%i", &num) || num < 0)
+	if (sscanf(value, "%i", &num) != 1 || num < 0)
 		return t_strconcat("Invalid number: ", value, NULL);
 	*result = num;
 	return NULL;

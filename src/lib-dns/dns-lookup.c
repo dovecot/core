@@ -102,7 +102,7 @@ static int dns_lookup_input_line(struct dns_lookup *lookup, const char *line)
 		}
 		/* first line: <ret> <ip count> */
 		if (sscanf(line, "%d %u", &result->ret,
-			   &result->ips_count) == 0)
+			   &result->ips_count) != 2)
 			return -1;
 		if (result->ret != 0) {
 			result->error = net_gethosterror(result->ret);
