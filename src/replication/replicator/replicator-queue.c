@@ -366,7 +366,8 @@ int replicator_queue_import(struct replicator_queue *queue, const char *path)
 			ret = replicator_queue_import_line(queue, line);
 		} T_END;
 		if (ret < 0) {
-			i_error("Invalid replicator db record: %s", line);
+			i_error("Corrupted replicator record in %s: %s",
+				path, line);
 			break;
 		}
 	}
