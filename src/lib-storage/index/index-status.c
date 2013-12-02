@@ -138,7 +138,8 @@ void index_storage_get_open_status(struct mailbox *box,
 	status_r->first_recent_uid = hdr->first_recent_uid;
 	if ((items & STATUS_HIGHESTMODSEQ) != 0) {
 		status_r->nonpermanent_modseqs =
-			mail_index_is_in_memory(box->index) ||
+			mail_index_is_in_memory(box->index);
+		status_r->no_modseq_tracking =
 			!mail_index_have_modseq_tracking(box->index);
 		status_r->highest_modseq =
 			mail_index_modseq_get_highest(box->view);

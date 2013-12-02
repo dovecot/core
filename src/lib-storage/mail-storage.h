@@ -277,6 +277,9 @@ struct mailbox_status {
 	unsigned int allow_new_keywords:1;
 	/* Modseqs aren't permanent (index is in memory) (STATUS_HIGHESTMODSEQ) */
 	unsigned int nonpermanent_modseqs:1;
+	/* Modseq tracking has never been enabled for this mailbox
+	   yet. (STATUS_HIGHESTMODSEQ) */
+	unsigned int no_modseq_tracking:1;
 
 	/* Messages have GUIDs (always set) */
 	unsigned int have_guids:1;
