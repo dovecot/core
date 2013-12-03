@@ -359,7 +359,6 @@ http_client_queue_delay_timeout(struct http_client_queue *queue)
 		http_client_queue_submit_now(queue, reqs[i]);
 		finished++;
 	}
-	i_assert(finished > 0);
 	if (i < count) {
 		http_client_queue_set_delay_timer(queue, reqs[i]->release_time);
 	}
