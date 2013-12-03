@@ -226,7 +226,7 @@ void imap_envelope_write_part_data(struct message_part_envelope_data *data,
 }
 
 static bool imap_address_arg_append(const struct imap_arg *arg, string_t *str,
-				    bool *in_group)
+				    bool *in_group, bool *begin_group)
 {
 	const struct imap_arg *list_args;
 	unsigned int list_count;
@@ -250,10 +250,11 @@ static bool imap_address_arg_append(const struct imap_arg *arg, string_t *str,
 		/* end of group */
 		str_append_c(str, ';');
 		*in_group = FALSE;
+		*begin_group = FALSE;
 		return TRUE;
 	}
 
-	if (str_len(str) > 0)
+	if (str_len(str) > 0 && !*begin_group)
 		str_append(str, ", ");
 
 	if (!*in_group && args[0] == NULL && args[1] == NULL &&
@@ -262,8 +263,10 @@ static bool imap_address_arg_append(const struct imap_arg *arg, string_t *str,
 		str_append(str, args[2]);
 		str_append(str, ": ");
 		*in_group = TRUE;
+		*begin_group = TRUE;
 		return TRUE;
 	}
+	*begin_group = FALSE;
 
 	/* a) mailbox@domain
 	   b) name <@route:mailbox@domain> */
@@ -302,15 +305,17 @@ static const char *imap_envelope_parse_address(const struct imap_arg *arg)
 	const struct imap_arg *list_args;
 	string_t *str;
 	bool in_group;
+	bool begin_group;
 
 	if (!imap_arg_get_list(arg, &list_args))
 		return NULL;
 
 	in_group = FALSE;
+	begin_group = FALSE;
 	str = t_str_new(128);
 
 	for (; !IMAP_ARG_IS_EOL(list_args); list_args++) {
-		if (!imap_address_arg_append(list_args, str, &in_group))
+		if (!imap_address_arg_append(list_args, str, &in_group, &begin_group))
 			return NULL;
 	}
 
