@@ -35,8 +35,7 @@ cmd_expunge_finish(struct client_command_context *cmd,
 	if (ret < 0) {
 		errstr = mailbox_get_last_error(client->mailbox, &error);
 		if (error != MAIL_ERROR_PERM) {
-			client_send_storage_error(cmd,
-				mailbox_get_storage(client->mailbox));
+			client_send_box_error(cmd, client->mailbox);
 			return TRUE;
 		} else {
 			return cmd_sync(cmd, 0, IMAP_SYNC_FLAG_SAFE,

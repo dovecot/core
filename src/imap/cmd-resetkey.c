@@ -50,7 +50,7 @@ cmd_resetkey_mailbox(struct client_command_context *cmd,
 	/* open mailbox */
 	box = mailbox_alloc(ns->list, mailbox, flags);
 	if (mailbox_open(box) < 0) {
-		client_send_storage_error(cmd, mailbox_get_storage(box));
+		client_send_box_error(cmd, box);
 		mailbox_free(&box);
 		return TRUE;
 	}

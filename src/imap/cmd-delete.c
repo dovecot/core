@@ -41,7 +41,7 @@ bool cmd_delete(struct client_command_context *cmd)
 	else {
 		errstr = mailbox_get_last_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS)
-			client_send_storage_error(cmd, mailbox_get_storage(box));
+			client_send_box_error(cmd, box);
 		else {
 			/* mailbox has children */
 			client_send_tagline(cmd, t_strdup_printf("NO %s", errstr));

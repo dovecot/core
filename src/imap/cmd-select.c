@@ -233,10 +233,8 @@ static bool cmd_select_continue(struct client_command_context *cmd)
 	}
 
 	ret = imap_fetch_end(ctx->fetch_ctx);
-	if (ret < 0) {
-		client_send_storage_error(ctx->cmd,
-					  mailbox_get_storage(ctx->box));
-	}
+	if (ret < 0)
+		client_send_box_error(ctx->cmd, ctx->box);
 	imap_fetch_free(&ctx->fetch_ctx);
 	cmd_select_finish(ctx, ret);
 	return TRUE;
@@ -302,8 +300,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 		flags |= MAILBOX_FLAG_DROP_RECENT;
 	ctx->box = mailbox_alloc(ctx->ns->list, mailbox, flags);
 	if (mailbox_open(ctx->box) < 0) {
-		client_send_storage_error(ctx->cmd,
-					  mailbox_get_storage(ctx->box));
+		client_send_box_error(ctx->cmd, ctx->box);
 		mailbox_free(&ctx->box);
 		return -1;
 	}
@@ -312,8 +309,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 		ret = mailbox_enable(ctx->box, client->enabled_features);
 	if (ret < 0 ||
 	    mailbox_sync(ctx->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		client_send_storage_error(ctx->cmd,
-					  mailbox_get_storage(ctx->box));
+		client_send_box_error(ctx->cmd, ctx->box);
 		return -1;
 	}
 	mailbox_get_open_status(ctx->box, STATUS_MESSAGES | STATUS_RECENT |
@@ -363,8 +359,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	if (ctx->qresync_uid_validity == status.uidvalidity &&
 	    status.uidvalidity != 0) {
 		if ((ret = select_qresync(ctx)) < 0) {
-			client_send_storage_error(ctx->cmd,
-				mailbox_get_storage(ctx->box));
+			client_send_box_error(ctx->cmd, ctx->box);
 			return -1;
 		}
 	} else {

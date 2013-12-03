@@ -39,7 +39,7 @@ bool cmd_create(struct client_command_context *cmd)
 
 	box = mailbox_alloc(ns->list, mailbox, 0);
 	if (mailbox_create(box, NULL, directory) < 0)
-		client_send_storage_error(cmd, mailbox_get_storage(box));
+		client_send_box_error(cmd, box);
 	else
 		client_send_tagline(cmd, "OK Create completed.");
 	mailbox_free(&box);

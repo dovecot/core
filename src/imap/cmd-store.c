@@ -109,8 +109,7 @@ store_parse_args(struct imap_store_context *ctx, const struct imap_arg *args)
 		if (mailbox_keywords_create(cmd->client->mailbox, keywords_list,
 					    &ctx->keywords) < 0) {
 			/* invalid keywords */
-			client_send_storage_error(cmd,
-				mailbox_get_storage(cmd->client->mailbox));
+			client_send_box_error(cmd, cmd->client->mailbox);
 			return FALSE;
 		}
 	}
@@ -211,8 +210,7 @@ bool cmd_store(struct client_command_context *cmd)
 		ret = mailbox_transaction_commit(&t);
 	if (ret < 0) {
 		array_free(&modified_set);
-		client_send_storage_error(cmd,
-			mailbox_get_storage(client->mailbox));
+		client_send_box_error(cmd, client->mailbox);
 		return TRUE;
 	}
 

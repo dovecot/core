@@ -12,7 +12,7 @@ subscribe_is_valid_name(struct client_command_context *cmd, struct mailbox *box)
 	int ret;
 
 	if ((ret = mailbox_exists(box, TRUE, &existence)) < 0) {
-		client_send_storage_error(cmd, mailbox_get_storage(box));
+		client_send_box_error(cmd, box);
 		return FALSE;
 	}
 	if (existence == MAILBOX_EXISTENCE_NONE) {
@@ -71,7 +71,7 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 
 	if (mailbox_set_subscribed(box, subscribe) < 0 &&
 	    !unsubscribed_mailbox2) {
-		client_send_storage_error(cmd, mailbox_get_storage(box));
+		client_send_box_error(cmd, box);
 	} else {
 		client_send_tagline(cmd, subscribe ?
 				    "OK Subscribe completed." :

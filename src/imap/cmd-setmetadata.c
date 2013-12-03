@@ -244,9 +244,9 @@ static bool cmd_setmetadata_continue(struct client_command_context *cmd)
 	if (ret < 0 || ctx->cmd_error_sent)
 		/* already sent the error to client */ ;
 	else if (ctx->storage_failure)
-		client_send_storage_error(cmd, mailbox_get_storage(ctx->box));
+		client_send_box_error(cmd, ctx->box);
 	else if (mailbox_transaction_commit(&ctx->trans) < 0)
-		client_send_storage_error(cmd, mailbox_get_storage(ctx->box));
+		client_send_box_error(cmd, ctx->box);
 	else
 		client_send_tagline(cmd, "OK Setmetadata completed.");
 	cmd_setmetadata_deinit(ctx);
@@ -301,8 +301,7 @@ bool cmd_setmetadata(struct client_command_context *cmd)
 	else {
 		ctx->box = mailbox_alloc(ns->list, mailbox, 0);
 		if (mailbox_open(ctx->box) < 0) {
-			client_send_storage_error(cmd,
-				mailbox_get_storage(ctx->box));
+			client_send_box_error(cmd, ctx->box);
 			mailbox_free(&ctx->box);
 			return TRUE;
 		}

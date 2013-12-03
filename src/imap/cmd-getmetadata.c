@@ -374,7 +374,7 @@ bool cmd_getmetadata(struct client_command_context *cmd)
 
 	ctx->box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_READONLY);
 	if (mailbox_open(ctx->box) < 0) {
-		client_send_storage_error(cmd, mailbox_get_storage(ctx->box));
+		client_send_box_error(cmd, ctx->box);
 		mailbox_free(&ctx->box);
 		return TRUE;
 	}

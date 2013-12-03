@@ -491,8 +491,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 
 	lost_data = mailbox_search_seen_lost_data(ctx->search_ctx);
 	if (imap_search_deinit(ctx) < 0) {
-		client_send_storage_error(cmd,
-			mailbox_get_storage(cmd->client->mailbox));
+		client_send_box_error(cmd, cmd->client->mailbox);
 		return TRUE;
 	}
 

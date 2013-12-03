@@ -98,14 +98,14 @@ int client_open_save_dest_box(struct client_command_context *cmd,
 			client_send_tagline(cmd,  t_strdup_printf(
 				"NO [TRYCREATE] %s", error_string));
 		} else {
-			client_send_storage_error(cmd, mailbox_get_storage(box));
+			client_send_box_error(cmd, box);
 		}
 		mailbox_free(&box);
 		return -1;
 	}
 	if (cmd->client->enabled_features != 0) {
 		if (mailbox_enable(box, cmd->client->enabled_features) < 0) {
-			client_send_storage_error(cmd, mailbox_get_storage(box));
+			client_send_box_error(cmd, box);
 			mailbox_free(&box);
 			return -1;
 		}
@@ -168,6 +168,18 @@ void client_send_list_error(struct client_command_context *cmd,
 	error_string = mailbox_list_get_last_error(list, &error);
 	client_send_tagline(cmd, imap_get_error_string(cmd, error_string,
 						       error));
+}
+
+void client_send_box_error(struct client_command_context *cmd,
+			   struct mailbox *box)
+{
+	if (mailbox_is_inconsistent(box)) {
+		/* we can't do forced CLOSE, so have to disconnect */
+		client_disconnect_with_error(cmd->client,
+			"IMAP session state is inconsistent, please relogin.");
+		return;
+	}
+	client_send_storage_error(cmd, mailbox_get_storage(box));
 }
 
 void client_send_storage_error(struct client_command_context *cmd,

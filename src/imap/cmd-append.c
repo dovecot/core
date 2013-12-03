@@ -26,7 +26,6 @@
 struct cmd_append_context {
 	struct client *client;
         struct client_command_context *cmd;
-	struct mail_storage *storage;
 	struct mailbox *box;
         struct mailbox_transaction_context *t;
 	time_t started;
@@ -181,7 +180,7 @@ cmd_append_catenate_mpurl(struct client_command_context *cmd,
 	/* catenate URL */
 	ret = imap_msgpart_url_read_part(mpurl, &mpresult, &error);
 	if (ret < 0) {
-		client_send_storage_error(cmd, ctx->storage);
+		client_send_box_error(cmd, ctx->box);
 		return -1;
 	}
 	if (ret == 0) {
@@ -219,11 +218,11 @@ cmd_append_catenate_mpurl(struct client_command_context *cmd,
 			"read(%s) failed: %s (for CATENATE URL %s)",
 			i_stream_get_name(mpresult.input),
 			i_stream_get_error(mpresult.input), caturl);
-		client_send_storage_error(cmd, ctx->storage);
+		client_send_box_error(cmd, ctx->box);
 		ret = -1;
 	} else if (!mpresult.input->eof) {
 		/* save failed */
-		client_send_storage_error(cmd, ctx->storage);
+		client_send_box_error(cmd, ctx->box);
 		ret = -1;
 	} else {
 		/* all the input must be consumed, so istream-chain's read()
@@ -248,7 +247,7 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 	ret = imap_msgpart_url_parse(cmd->client->user, cmd->client->mailbox,
 				     caturl, &mpurl, &error);
 	if (ret < 0) {
-		client_send_storage_error(cmd, ctx->storage);
+		client_send_box_error(cmd, ctx->box);
 		return -1;
 	}
 	if (ret == 0) {
@@ -356,7 +355,7 @@ static void cmd_append_finish_catenate(struct client_command_context *cmd)
 			mailbox_save_cancel(&ctx->save_ctx);
 	} else {
 		if (mailbox_save_finish(&ctx->save_ctx) < 0) {
-			client_send_storage_error(cmd, ctx->storage);
+			client_send_box_error(cmd, ctx->box);
 			ctx->failed = TRUE;
 		}
 	}
@@ -532,7 +531,7 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		else if (mailbox_keywords_create(ctx->box, keywords_list,
 						 &keywords) < 0) {
 			/* invalid keywords - delay failure */
-			client_send_storage_error(cmd, ctx->storage);
+			client_send_box_error(cmd, ctx->box);
 			ctx->failed = TRUE;
 		}
 	}
@@ -594,7 +593,7 @@ cmd_append_handle_args(struct client_command_context *cmd,
 					       internal_date, timezone_offset);
 		if (mailbox_save_begin(&ctx->save_ctx, ctx->input) < 0) {
 			/* save initialization failed */
-			client_send_storage_error(cmd, ctx->storage);
+			client_send_box_error(cmd, ctx->box);
 			ctx->failed = TRUE;
 		}
 	}
@@ -649,7 +648,7 @@ static bool cmd_append_finish_parsing(struct client_command_context *cmd)
 
 	ret = mailbox_transaction_commit_get_changes(&ctx->t, &changes);
 	if (ret < 0) {
-		client_send_storage_error(cmd, ctx->storage);
+		client_send_box_error(cmd, ctx->box);
 		cmd_append_finish(ctx);
 		return TRUE;
 	}
@@ -845,7 +844,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 				mailbox_save_cancel(&ctx->save_ctx);
 		} else if (ctx->save_ctx == NULL) {
 			/* failed above */
-			client_send_storage_error(cmd, ctx->storage);
+			client_send_box_error(cmd, ctx->box);
 			ctx->failed = TRUE;
 		} else if (lit_offset != ctx->literal_size) {
 			/* client disconnected before it finished sending the
@@ -857,7 +856,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 		} else if (ctx->catenate) {
 			/* CATENATE isn't finished yet */
 		} else if (mailbox_save_finish(&ctx->save_ctx) < 0) {
-			client_send_storage_error(cmd, ctx->storage);
+			client_send_box_error(cmd, ctx->box);
 			ctx->failed = TRUE;
 		}
 
@@ -909,8 +908,6 @@ bool cmd_append(struct client_command_context *cmd)
 	if (client_open_save_dest_box(cmd, mailbox, &ctx->box) < 0)
 		ctx->failed = TRUE;
 	else {
-		ctx->storage = mailbox_get_storage(ctx->box);
-
 		ctx->t = mailbox_transaction_begin(ctx->box,
 					MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 					MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS);

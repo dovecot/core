@@ -35,6 +35,9 @@ void client_send_list_error(struct client_command_context *cmd,
 /* Send last mail storage error message to client. */
 void client_send_storage_error(struct client_command_context *cmd,
 			       struct mail_storage *storage);
+/* Send last mailbox's storage error message to client. */
+void client_send_box_error(struct client_command_context *cmd,
+			   struct mailbox *box);
 
 /* Send untagged error message to client. */
 void client_send_untagged_storage_error(struct client *client,
