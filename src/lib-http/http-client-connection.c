@@ -596,31 +596,37 @@ static void http_client_connection_input(struct connection *_conn)
 		if (!aborted) {
 			bool handled = FALSE;
 
-			/* failed Expect: */
-			if (response.status == 417 && req->payload_sync) {
-				/* drop Expect: continue */
-				req->payload_sync = FALSE;
-				conn->output_locked = FALSE;
-				conn->peer->no_payload_sync = TRUE;
-				if (http_client_request_try_retry(req))
-					handled = TRUE;
-			/* redirection */
-			} else if (!req->client->set.no_auto_redirect &&
-				response.status / 100 == 3 && response.status != 304 &&
-				response.location != NULL) {
-				/* redirect (possibly after delay) */
-				if (http_client_request_delay_from_response(req, &response) >= 0) {
-					http_client_request_redirect
-						(req, response.status, response.location);
-					handled = TRUE;
+			/* don't redirect/retry if we're sending data in small
+			   blocks via http_client_request_send_payload()
+			   and we're not waiting for 100 continue */
+			if (!req->payload_wait ||
+				(req->payload_sync && !conn->payload_continue)) {
+				/* failed Expect: */
+				if (response.status == 417 && req->payload_sync) {
+					/* drop Expect: continue */
+					req->payload_sync = FALSE;
+					conn->output_locked = FALSE;
+					conn->peer->no_payload_sync = TRUE;
+					if (http_client_request_try_retry(req))
+						handled = TRUE;
+				/* redirection */
+				} else if (!req->client->set.no_auto_redirect &&
+					response.status / 100 == 3 && response.status != 304 &&
+					response.location != NULL) {
+					/* redirect (possibly after delay) */
+					if (http_client_request_delay_from_response(req, &response) >= 0) {
+						http_client_request_redirect
+							(req, response.status, response.location);
+						handled = TRUE;
+					}
+				/* service unavailable */
+				} else if (response.status == 503) {
+					/* automatically retry after delay if indicated */
+					if ( response.retry_after != (time_t)-1 &&
+						http_client_request_delay_from_response(req, &response) > 0 &&
+						http_client_request_try_retry(req))
+						handled = TRUE;
 				}
-			/* service unavailable */
-			} else if (response.status == 503) {
-				/* automatically retry after delay if indicated */
-				if ( response.retry_after != (time_t)-1 &&
-					http_client_request_delay_from_response(req, &response) > 0 &&
-					http_client_request_try_retry(req))
-					handled = TRUE;
 			}
 
 			if (!handled) {

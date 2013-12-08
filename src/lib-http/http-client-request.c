@@ -622,21 +622,23 @@ static int http_client_request_send_real(struct http_client_request *req,
 	if (!req->have_hdr_expect && req->payload_sync) {
 		str_append(rtext, "Expect: 100-continue\r\n");
 	}
-	if (req->payload_chunked) {
-		// FIXME: can't do this for a HTTP/1.0 server
-		if (!req->have_hdr_body_spec)
-			str_append(rtext, "Transfer-Encoding: chunked\r\n");
-		req->payload_output =
-			http_transfer_chunked_ostream_create(output);
-	} else if (req->payload_input != NULL) {
-		/* send Content-Length if we have specified a payload,
-		   even if it's 0 bytes. */
-		if (!req->have_hdr_body_spec) {
-			str_printfa(rtext, "Content-Length: %"PRIuUOFF_T"\r\n",
-				req->payload_size);
+	if (req->payload_input != NULL) {
+		if (req->payload_chunked) {
+			// FIXME: can't do this for a HTTP/1.0 server
+			if (!req->have_hdr_body_spec)
+				str_append(rtext, "Transfer-Encoding: chunked\r\n");
+			req->payload_output =
+				http_transfer_chunked_ostream_create(output);
+		} else {
+			/* send Content-Length if we have specified a payload,
+				 even if it's 0 bytes. */
+			if (!req->have_hdr_body_spec) {
+				str_printfa(rtext, "Content-Length: %"PRIuUOFF_T"\r\n",
+					req->payload_size);
+			}
+			req->payload_output = output;
+			o_stream_ref(output);
 		}
-		req->payload_output = output;
-		o_stream_ref(output);
 	}
 	if (!req->have_hdr_connection && req->host_url == &req->origin_url) {
 		/* https://tools.ietf.org/html/rfc2068
@@ -814,6 +816,8 @@ void http_client_request_redirect(struct http_client_request *req,
 	struct http_url *url;
 	const char *error, *target, *origin_url;
 
+	i_assert(!req->payload_wait);
+
 	/* parse URL */
 	if (http_url_parse(location, NULL, 0,
 			   pool_datastack_create(), &url, &error) < 0) {
@@ -901,6 +905,8 @@ void http_client_request_redirect(struct http_client_request *req,
 
 void http_client_request_resubmit(struct http_client_request *req)
 {
+	i_assert(!req->payload_wait);
+
 	http_client_request_debug(req, "Resubmitting request");
 
 	/* rewind payload stream */
