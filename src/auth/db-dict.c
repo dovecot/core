@@ -2,11 +2,12 @@
 
 #include "auth-common.h"
 
-#include "settings.h"
-#include "dict.h"
-#include "json-parser.h"
+#include "array.h"
 #include "istream.h"
 #include "str.h"
+#include "json-parser.h"
+#include "settings.h"
+#include "dict.h"
 #include "auth-request.h"
 #include "auth-worker-client.h"
 #include "db-dict.h"
@@ -14,29 +15,80 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+enum dict_settings_section {
+	DICT_SETTINGS_SECTION_ROOT = 0,
+	DICT_SETTINGS_SECTION_KEY,
+	DICT_SETTINGS_SECTION_PASSDB,
+	DICT_SETTINGS_SECTION_USERDB
+};
+
+struct dict_settings_parser_ctx {
+	struct dict_connection *conn;
+	enum dict_settings_section section;
+	struct db_dict_key *cur_key;
+};
+
+struct db_dict_iter_key {
+	const struct db_dict_key *key;
+	bool used;
+	const char *value;
+};
+
+struct db_dict_value_iter {
+	pool_t pool;
+	struct auth_request *auth_request;
+	struct dict_connection *conn;
+	const struct var_expand_table *var_expand_table;
+	ARRAY(struct db_dict_iter_key) keys;
+
+	const ARRAY_TYPE(db_dict_field) *fields;
+	const ARRAY_TYPE(db_dict_key_p) *objects;
+	unsigned int field_idx;
+	unsigned int object_idx;
+
+	struct json_parser *json_parser;
+	string_t *tmpstr;
+	const char *error;
+};
+
 #define DEF_STR(name) DEF_STRUCT_STR(name, db_dict_settings)
 #define DEF_BOOL(name) DEF_STRUCT_BOOL(name, db_dict_settings)
-
 static struct setting_def setting_defs[] = {
 	DEF_STR(uri),
-	DEF_STR(password_key),
-	DEF_STR(user_key),
- 	DEF_STR(iterate_prefix),
- 	DEF_STR(value_format),
- 	DEF_BOOL(iterate_disable),
 	DEF_STR(default_pass_scheme),
+ 	DEF_STR(iterate_prefix),
+ 	DEF_BOOL(iterate_disable),
 
+ 	DEF_STR(passdb_objects),
+ 	DEF_STR(userdb_objects),
 	{ 0, NULL, 0 }
 };
 
 static struct db_dict_settings default_dict_settings = {
 	.uri = NULL,
-	.password_key = "",
-	.user_key = "",
+	.default_pass_scheme = "MD5",
 	.iterate_prefix = "",
 	.iterate_disable = FALSE,
-	.value_format = "json",
-	.default_pass_scheme = "MD5"
+	.passdb_objects = "",
+	.userdb_objects = ""
+};
+
+#undef DEF_STR
+#define DEF_STR(name) DEF_STRUCT_STR(name, db_dict_key)
+static struct setting_def key_setting_defs[] = {
+	DEF_STR(name),
+	DEF_STR(key),
+	DEF_STR(format),
+ 	DEF_STR(default_value),
+
+	{ 0, NULL, 0 }
+};
+
+static struct db_dict_key default_key_settings = {
+	.name = NULL,
+	.key = "",
+	.format = "value",
+	.default_value = NULL
 };
 
 static struct dict_connection *connections = NULL;
@@ -53,15 +105,167 @@ static struct dict_connection *dict_conn_find(const char *config_path)
 	return NULL;
 }
 
-static const char *parse_setting(const char *key, const char *value,
-				 struct dict_connection *conn)
+static bool
+parse_obsolete_setting(const char *key, const char *value,
+		       struct dict_settings_parser_ctx *ctx,
+		       const char **error_r)
 {
-	return parse_setting_from_defs(conn->pool, setting_defs,
-				       &conn->set, key, value);
+	const struct db_dict_key *dbkey;
+
+	if (strcmp(key, "password_key") == 0) {
+		/* key passdb { key=<value> format=json }
+		   passdb_objects = passdb */
+		ctx->cur_key = array_append_space(&ctx->conn->set.keys);
+		*ctx->cur_key = default_key_settings;
+		ctx->cur_key->name = "passdb";
+		ctx->cur_key->format = "json";
+		ctx->cur_key->parsed_format = DB_DICT_VALUE_FORMAT_JSON;
+		ctx->cur_key->key = p_strdup(ctx->conn->pool, value);
+
+		dbkey = ctx->cur_key;
+		array_append(&ctx->conn->set.parsed_passdb_objects, &dbkey, 1);
+		return TRUE;
+	}
+	if (strcmp(key, "user_key") == 0) {
+		/* key userdb { key=<value> format=json }
+		   userdb_objects = userdb */
+		ctx->cur_key = array_append_space(&ctx->conn->set.keys);
+		*ctx->cur_key = default_key_settings;
+		ctx->cur_key->name = "userdb";
+		ctx->cur_key->format = "json";
+		ctx->cur_key->parsed_format = DB_DICT_VALUE_FORMAT_JSON;
+		ctx->cur_key->key = p_strdup(ctx->conn->pool, value);
+
+		dbkey = ctx->cur_key;
+		array_append(&ctx->conn->set.parsed_userdb_objects, &dbkey, 1);
+		return TRUE;
+	}
+	if (strcmp(key, "value_format") == 0) {
+		if (strcmp(value, "json") == 0)
+			return TRUE;
+		*error_r = "Deprecated value_format must be 'json'";
+		return FALSE;
+	}
+	return FALSE;
+}
+
+static const char *parse_setting(const char *key, const char *value,
+				 struct dict_settings_parser_ctx *ctx)
+{
+	struct db_dict_field *field;
+	const char *error = NULL;
+
+	switch (ctx->section) {
+	case DICT_SETTINGS_SECTION_ROOT:
+		if (parse_obsolete_setting(key, value, ctx, &error))
+			return NULL;
+		if (error != NULL)
+			return error;
+		return parse_setting_from_defs(ctx->conn->pool, setting_defs,
+					       &ctx->conn->set, key, value);
+	case DICT_SETTINGS_SECTION_KEY:
+		return parse_setting_from_defs(ctx->conn->pool, key_setting_defs,
+					       ctx->cur_key, key, value);
+	case DICT_SETTINGS_SECTION_PASSDB:
+		field = array_append_space(&ctx->conn->set.passdb_fields);
+		field->name = p_strdup(ctx->conn->pool, key);
+		field->value = p_strdup(ctx->conn->pool, value);
+		return NULL;
+	case DICT_SETTINGS_SECTION_USERDB:
+		field = array_append_space(&ctx->conn->set.userdb_fields);
+		field->name = p_strdup(ctx->conn->pool, key);
+		field->value = p_strdup(ctx->conn->pool, value);
+		return NULL;
+	}
+	return t_strconcat("Unknown setting: ", key, NULL);
+}
+
+static bool parse_section(const char *type, const char *name,
+			  struct dict_settings_parser_ctx *ctx,
+			  const char **errormsg)
+{
+	if (type == NULL) {
+		ctx->section = DICT_SETTINGS_SECTION_ROOT;
+		if (ctx->cur_key != NULL) {
+			if (strcmp(ctx->cur_key->format, "value") == 0) {
+				ctx->cur_key->parsed_format =
+					DB_DICT_VALUE_FORMAT_VALUE;
+			} else if (strcmp(ctx->cur_key->format, "json") == 0) {
+				ctx->cur_key->parsed_format =
+					DB_DICT_VALUE_FORMAT_JSON;
+			} else {
+				return t_strconcat("Unknown key format: ",
+						   ctx->cur_key->format, NULL);
+			}
+		}
+		ctx->cur_key = NULL;
+		return TRUE;
+	}
+	if (ctx->section != DICT_SETTINGS_SECTION_ROOT) {
+		*errormsg = "Nested sections not supported";
+		return FALSE;
+	}
+	if (strcmp(type, "key") == 0) {
+		if (name == NULL)
+			return "Key section is missing name";
+		if (strchr(name, '.') != NULL)
+			return "Key section names must not contain '.'";
+		ctx->section = DICT_SETTINGS_SECTION_KEY;
+		ctx->cur_key = array_append_space(&ctx->conn->set.keys);
+		*ctx->cur_key = default_key_settings;
+		ctx->cur_key->name = p_strdup(ctx->conn->pool, name);
+		return TRUE;
+	}
+	if (strcmp(type, "passdb_fields") == 0) {
+		ctx->section = DICT_SETTINGS_SECTION_PASSDB;
+		return TRUE;
+	}
+	if (strcmp(type, "userdb_fields") == 0) {
+		ctx->section = DICT_SETTINGS_SECTION_USERDB;
+		return TRUE;
+	}
+	*errormsg = "Unknown section";
+	return FALSE;
+}
+
+static void
+db_dict_settings_parse(struct db_dict_settings *set)
+{
+	const struct db_dict_key *key;
+	const char *const *tmp;
+
+	tmp = t_strsplit_spaces(set->passdb_objects, " ");
+	for (; *tmp != NULL; tmp++) {
+		key = db_dict_set_key_find(&set->keys, *tmp);
+		if (key == NULL) {
+			i_fatal("dict: passdb_objects refers to key %s, "
+				"which doesn't exist", *tmp);
+		}
+		if (key->parsed_format == DB_DICT_VALUE_FORMAT_VALUE) {
+			i_fatal("dict: passdb_objects refers to key %s, "
+				"but it's in value-only format", *tmp);
+		}
+		array_append(&set->parsed_passdb_objects, &key, 1);
+	}
+
+	tmp = t_strsplit_spaces(set->userdb_objects, " ");
+	for (; *tmp != NULL; tmp++) {
+		key = db_dict_set_key_find(&set->keys, *tmp);
+		if (key == NULL) {
+			i_fatal("dict: userdb_objects refers to key %s, "
+				"which doesn't exist", *tmp);
+		}
+		if (key->parsed_format == DB_DICT_VALUE_FORMAT_VALUE) {
+			i_fatal("dict: userdb_objects refers to key %s, "
+				"but it's in value-only format", *tmp);
+		}
+		array_append(&set->parsed_userdb_objects, &key, 1);
+	}
 }
 
 struct dict_connection *db_dict_init(const char *config_path)
 {
+	struct dict_settings_parser_ctx ctx;
 	struct dict_connection *conn;
 	const char *error;
 	pool_t pool;
@@ -83,15 +287,21 @@ struct dict_connection *db_dict_init(const char *config_path)
 
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_dict_settings;
-	if (!settings_read_nosection(config_path, parse_setting, conn, &error))
+	p_array_init(&conn->set.keys, pool, 8);
+	p_array_init(&conn->set.passdb_fields, pool, 8);
+	p_array_init(&conn->set.userdb_fields, pool, 8);
+	p_array_init(&conn->set.parsed_passdb_objects, pool, 2);
+	p_array_init(&conn->set.parsed_userdb_objects, pool, 2);
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.conn = conn;
+	if (!settings_read(config_path, NULL, parse_setting,
+			   parse_section, &ctx, &error))
 		i_fatal("dict %s: %s", config_path, error);
+	db_dict_settings_parse(&conn->set);
 
 	if (conn->set.uri == NULL)
 		i_fatal("dict %s: Empty uri setting", config_path);
-	if (strcmp(conn->set.value_format, "json") != 0) {
-		i_fatal("dict %s: Unsupported value_format %s in ",
-			config_path, conn->set.value_format);
-	}
 	if (dict_init(conn->set.uri, DICT_DATA_TYPE_STRING, "",
 		      global_auth_settings->base_dir, &conn->dict, &error) < 0)
 		i_fatal("dict %s: Failed to init dict: %s", config_path, error);
@@ -113,37 +323,160 @@ void db_dict_unref(struct dict_connection **_conn)
 	pool_unref(&conn->pool);
 }
 
-struct db_dict_value_iter {
-	struct json_parser *parser;
-	string_t *key;
-	const char *error;
-};
-
-struct db_dict_value_iter *
-db_dict_value_iter_init(struct dict_connection *conn, const char *value)
+static struct db_dict_iter_key *
+db_dict_iter_find_key(struct db_dict_value_iter *iter, const char *name)
 {
-	struct db_dict_value_iter *iter;
-	struct istream *input;
+	struct db_dict_iter_key *key;
 
-	i_assert(strcmp(conn->set.value_format, "json") == 0);
-
-	/* hardcoded for now for JSON value. make it more modular when other
-	   value types are supported. */
-	iter = i_new(struct db_dict_value_iter, 1);
-	iter->key = str_new(default_pool, 64);
-	input = i_stream_create_from_data(value, strlen(value));
-	iter->parser = json_parser_init(input);
-	i_stream_unref(&input);
-	return iter;
+	array_foreach_modifiable(&iter->keys, key) {
+		if (strcmp(key->key->name, name) == 0)
+			return key;
+	}
+	return NULL;
 }
 
-bool db_dict_value_iter_next(struct db_dict_value_iter *iter,
+static void db_dict_iter_find_used_keys(struct db_dict_value_iter *iter)
+{
+	const struct db_dict_field *field;
+	struct db_dict_iter_key *key;
+	const char *p, *name;
+	unsigned int idx, size;
+
+	array_foreach(iter->fields, field) {
+		for (p = field->value; *p != '\0'; ) {
+			if (*p != '%') {
+				p++;
+				continue;
+			}
+
+			var_get_key_range(++p, &idx, &size);
+			if (size == 0) {
+				/* broken %variable ending too early */
+				break;
+			}
+			p += idx;
+			if (size > 5 && memcmp(p, "dict:", 5) == 0) {
+				name = t_strcut(t_strndup(p+5, size-5), ':');
+				key = db_dict_iter_find_key(iter, name);
+				if (key != NULL)
+					key->used = TRUE;
+			}
+			p += size;
+		}
+	}
+}
+
+static void db_dict_iter_find_used_objects(struct db_dict_value_iter *iter)
+{
+	const struct db_dict_key *const *keyp;
+	struct db_dict_iter_key *key;
+
+	array_foreach(iter->objects, keyp) {
+		key = db_dict_iter_find_key(iter, (*keyp)->name);
+		i_assert(key != NULL); /* checked at init */
+		i_assert(key->key->parsed_format != DB_DICT_VALUE_FORMAT_VALUE);
+		key->used = TRUE;
+	}
+}
+
+static int
+db_dict_iter_key_cmp(const struct db_dict_iter_key *k1,
+		     const struct db_dict_iter_key *k2)
+{
+	return null_strcmp(k1->key->default_value, k2->key->default_value);
+}
+
+static int db_dict_iter_lookup_key_values(struct db_dict_value_iter *iter)
+{
+	struct db_dict_iter_key *key;
+	string_t *path;
+	int ret;
+
+	/* sort the keys so that we'll first lookup the keys without
+	   default value. if their lookup fails, the user doesn't exist. */
+	array_sort(&iter->keys, db_dict_iter_key_cmp);
+
+	path = t_str_new(128);
+	str_append(path, DICT_PATH_SHARED);
+
+	array_foreach_modifiable(&iter->keys, key) {
+		if (!key->used)
+			continue;
+
+		str_truncate(path, strlen(DICT_PATH_SHARED));
+		var_expand(path, key->key->key, iter->var_expand_table);
+		ret = dict_lookup(iter->conn->dict, iter->pool,
+				  str_c(path), &key->value);
+		if (ret > 0) {
+			auth_request_log_debug(iter->auth_request, "dict",
+					       "Lookup: %s = %s", str_c(path),
+					       key->value);
+		} else if (ret < 0) {
+			auth_request_log_error(iter->auth_request, "dict",
+				"Failed to lookup key %s", str_c(path));
+			return -1;
+		} else if (key->key->default_value != NULL) {
+			auth_request_log_debug(iter->auth_request, "dict",
+				"Lookup: %s not found, using default value %s",
+				str_c(path), key->key->default_value);
+			key->value = key->key->default_value;
+		} else {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+int db_dict_value_iter_init(struct dict_connection *conn,
+			    struct auth_request *auth_request,
+			    const ARRAY_TYPE(db_dict_field) *fields,
+			    const ARRAY_TYPE(db_dict_key_p) *objects,
+			    struct db_dict_value_iter **iter_r)
+{
+	struct db_dict_value_iter *iter;
+	struct db_dict_iter_key *iterkey;
+	const struct db_dict_key *key;
+	pool_t pool;
+	int ret;
+
+	pool = pool_alloconly_create("auth dict lookup", 1024);
+	iter = p_new(pool, struct db_dict_value_iter, 1);
+	iter->pool = pool;
+	iter->conn = conn;
+	iter->fields = fields;
+	iter->objects = objects;
+	iter->tmpstr = str_new(pool, 128);
+	iter->auth_request = auth_request;
+	iter->var_expand_table = auth_request_get_var_expand_table(auth_request, NULL);
+
+	/* figure out what keys we need to lookup, and lookup them */
+	p_array_init(&iter->keys, pool, array_count(&conn->set.keys));
+	array_foreach(&conn->set.keys, key) {
+		iterkey = array_append_space(&iter->keys);
+		iterkey->key = key;
+	}
+	T_BEGIN {
+		db_dict_iter_find_used_keys(iter);
+		db_dict_iter_find_used_objects(iter);
+		ret = db_dict_iter_lookup_key_values(iter);
+	} T_END;
+	if (ret <= 0) {
+		pool_unref(&pool);
+		return ret;
+	}
+	*iter_r = iter;
+	return 1;
+}
+
+static bool
+db_dict_value_iter_json_next(struct db_dict_value_iter *iter,
+			     string_t *tmpstr,
 			     const char **key_r, const char **value_r)
 {
 	enum json_type type;
 	const char *value;
 
-	if (json_parse_next(iter->parser, &type, &value) < 0)
+	if (json_parse_next(iter->json_parser, &type, &value) < 0)
 		return FALSE;
 	if (type != JSON_TYPE_OBJECT_KEY) {
 		iter->error = "Object expected";
@@ -153,10 +486,10 @@ bool db_dict_value_iter_next(struct db_dict_value_iter *iter,
 		iter->error = "Empty object key";
 		return FALSE;
 	}
-	str_truncate(iter->key, 0);
-	str_append(iter->key, value);
+	str_truncate(tmpstr, 0);
+	str_append(tmpstr, value);
 
-	if (json_parse_next(iter->parser, &type, &value) < 0) {
+	if (json_parse_next(iter->json_parser, &type, &value) < 0) {
 		iter->error = "Missing value";
 		return FALSE;
 	}
@@ -164,8 +497,103 @@ bool db_dict_value_iter_next(struct db_dict_value_iter *iter,
 		iter->error = "Nested objects not supported";
 		return FALSE;
 	}
-	*key_r = str_c(iter->key);
+	*key_r = str_c(tmpstr);
 	*value_r = value;
+	return TRUE;
+}
+
+static void
+db_dict_value_iter_json_init(struct db_dict_value_iter *iter, const char *data)
+{
+	struct istream *input;
+
+	i_assert(iter->json_parser == NULL);
+
+	input = i_stream_create_from_data(data, strlen(data));
+	iter->json_parser = json_parser_init(input);
+	i_stream_unref(&input);
+}
+
+static bool
+db_dict_value_iter_object_next(struct db_dict_value_iter *iter,
+			       const char **key_r, const char **value_r)
+{
+	const struct db_dict_key *const *keyp;
+	struct db_dict_iter_key *key;
+
+	if (iter->json_parser != NULL)
+		return db_dict_value_iter_json_next(iter, iter->tmpstr, key_r, value_r);
+	if (iter->object_idx == array_count(iter->objects))
+		return FALSE;
+
+	keyp = array_idx(iter->objects, iter->object_idx);
+	key = db_dict_iter_find_key(iter, (*keyp)->name);
+	i_assert(key != NULL); /* checked at init */
+
+	switch (key->key->parsed_format) {
+	case DB_DICT_VALUE_FORMAT_VALUE:
+		i_unreached();
+	case DB_DICT_VALUE_FORMAT_JSON:
+		db_dict_value_iter_json_init(iter, key->value);
+		return db_dict_value_iter_json_next(iter, iter->tmpstr, key_r, value_r);
+	}
+	i_unreached();
+}
+
+static const char *
+db_dict_field_find(const char *data, void *context)
+{
+	struct db_dict_value_iter *iter = context;
+	struct db_dict_iter_key *key;
+	const char *name, *value, *ret, *dotname = strchr(data, '.');
+	string_t *tmpstr;
+
+	if (dotname != NULL)
+		data = t_strdup_until(data, dotname++);
+	key = db_dict_iter_find_key(iter, data);
+	if (key == NULL)
+		return NULL;
+
+	switch (key->key->parsed_format) {
+	case DB_DICT_VALUE_FORMAT_VALUE:
+		return dotname != NULL ? NULL :
+			(key->value == NULL ? "" : key->value);
+	case DB_DICT_VALUE_FORMAT_JSON:
+		if (dotname == NULL)
+			return NULL;
+		db_dict_value_iter_json_init(iter, key->value);
+		ret = "";
+		tmpstr = t_str_new(64);
+		while (db_dict_value_iter_json_next(iter, tmpstr, &name, &value)) {
+			if (strcmp(name, dotname) == 0) {
+				ret = t_strdup(value);
+				break;
+			}
+		}
+		(void)json_parser_deinit(&iter->json_parser, &iter->error);
+		return ret;
+	}
+	i_unreached();
+}
+
+bool db_dict_value_iter_next(struct db_dict_value_iter *iter,
+			     const char **key_r, const char **value_r)
+{
+	static struct var_expand_func_table var_funcs_table[] = {
+		{ "dict", db_dict_field_find },
+		{ NULL, NULL }
+	};
+	const struct db_dict_field *field;
+
+	if (iter->field_idx == array_count(iter->fields))
+		return db_dict_value_iter_object_next(iter, key_r, value_r);
+	field = array_idx(iter->fields, iter->field_idx++);
+
+	str_truncate(iter->tmpstr, 0);
+	var_expand_with_funcs(iter->tmpstr, field->value,
+			      iter->var_expand_table, var_funcs_table, iter);
+	*key_r = field->name;
+	*value_r = str_c(iter->tmpstr);
 	return TRUE;
 }
 
@@ -177,10 +605,12 @@ int db_dict_value_iter_deinit(struct db_dict_value_iter **_iter,
 	*_iter = NULL;
 
 	*error_r = iter->error;
-	if (json_parser_deinit(&iter->parser, &iter->error) < 0 &&
-	    *error_r == NULL)
-		*error_r = iter->error;
-	str_free(&iter->key);
-	i_free(iter);
+	if (iter->json_parser != NULL) {
+		if (json_parser_deinit(&iter->json_parser, &iter->error) < 0 &&
+		    *error_r == NULL)
+			*error_r = iter->error;
+	}
+
+	pool_unref(&iter->pool);
 	return *error_r != NULL ? -1 : 0;
 }

@@ -77,6 +77,7 @@ auth_SOURCES = \
 	auth-worker-server.c \
 	db-checkpassword.c \
 	db-dict.c \
+	db-dict-cache-key.c \
 	db-sql.c \
 	db-passwd-file.c \
 	main.c \
@@ -193,7 +194,8 @@ checkpassword_reply_sources = \
 	checkpassword-reply.c
 
 test_programs = \
-	test-auth-cache
+	test-auth-cache \
+	test-db-dict
 
 noinst_PROGRAMS = $(test_programs)
 
@@ -204,6 +206,10 @@ test_libs = \
 test_auth_cache_SOURCES = test-auth-cache.c
 test_auth_cache_LDADD = auth-cache.o $(test_libs)
 test_auth_cache_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+
+test_db_dict_SOURCES = test-db-dict.c
+test_db_dict_LDADD = db-dict-cache-key.o $(test_libs)
+test_db_dict_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 check: check-am check-test
 check-test: all-am

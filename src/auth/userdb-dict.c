@@ -30,22 +30,18 @@ struct dict_userdb_iterate_context {
 
 static int
 dict_query_save_results(struct auth_request *auth_request,
-			struct dict_connection *conn, const char *result)
+			struct db_dict_value_iter *iter)
 {
-	struct db_dict_value_iter *iter;
 	const char *key, *value, *error;
 
 	auth_request_init_userdb_reply(auth_request);
 
-	iter = db_dict_value_iter_init(conn, result);
 	while (db_dict_value_iter_next(iter, &key, &value)) {
 		if (value != NULL)
 			auth_request_set_userdb_field(auth_request, key, value);
 	}
 	if (db_dict_value_iter_deinit(&iter, &error) < 0) {
-		auth_request_log_error(auth_request, "dict",
-			"Value '%s' not in valid %s format: %s",
-			result, conn->set.value_format, error);
+		auth_request_log_error(auth_request, "dict", "%s", error);
 		return -1;
 	}
 	return 0;
@@ -57,36 +53,29 @@ static void userdb_dict_lookup(struct auth_request *auth_request,
 	struct userdb_module *_module = auth_request->userdb->userdb;
 	struct dict_userdb_module *module =
 		(struct dict_userdb_module *)_module;
-	string_t *key;
+	struct db_dict_value_iter *iter;
 	enum userdb_result userdb_result;
-	const char *value;
 	int ret;
 
-	if (*module->conn->set.user_key == '\0') {
+	if (array_count(&module->conn->set.userdb_fields) == 0 &&
+	    array_count(&module->conn->set.parsed_userdb_objects) == 0) {
 		auth_request_log_error(auth_request, "dict",
-				       "user_key not specified");
+			"No userdb_objects or userdb_fields specified");
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
 	}
 
-	key = t_str_new(512);
-	str_append(key, DICT_PATH_SHARED);
-	var_expand(key, module->conn->set.user_key,
-		   auth_request_get_var_expand_table(auth_request, NULL));
-
-	auth_request_log_debug(auth_request, "dict", "lookup %s", str_c(key));
-	ret = dict_lookup(module->conn->dict, pool_datastack_create(),
-			  str_c(key), &value);
-	if (ret < 0) {
-		auth_request_log_error(auth_request, "dict", "Lookup failed");
+	ret = db_dict_value_iter_init(module->conn, auth_request,
+				      &module->conn->set.userdb_fields,
+				      &module->conn->set.parsed_userdb_objects,
+				      &iter);
+	if (ret < 0)
 		userdb_result = USERDB_RESULT_INTERNAL_FAILURE;
-	} else if (ret == 0) {
+	else if (ret == 0) {
 		auth_request_log_unknown_user(auth_request, "dict");
 		userdb_result = USERDB_RESULT_USER_UNKNOWN;
 	} else {
-		auth_request_log_debug(auth_request, "dict",
-				       "result: %s", value);
-		if (dict_query_save_results(auth_request, module->conn, value) < 0)
+		if (dict_query_save_results(auth_request, iter) < 0)
 			userdb_result = USERDB_RESULT_INTERNAL_FAILURE;
 		else
 			userdb_result = USERDB_RESULT_OK;
@@ -178,8 +167,9 @@ userdb_dict_preinit(pool_t pool, const char *args)
 	module->conn = conn = db_dict_init(args);
 
 	module->module.blocking = TRUE;
-	module->module.cache_key =
-		auth_cache_parse_key(pool, conn->set.user_key);
+	module->module.cache_key = auth_cache_parse_key(pool,
+		db_dict_parse_cache_key(&conn->set.keys, &conn->set.userdb_fields,
+					&conn->set.parsed_userdb_objects));
 	return &module->module;
 }
 
