@@ -119,16 +119,33 @@ process_io_buffer_parse(const char *buf, struct mail_stats *stats)
 
 static int process_io_open(void)
 {
-	if (proc_io_fd == -1) {
-		if (proc_io_disabled)
-			return -1;
-		proc_io_fd = open(PROC_IO_PATH, O_RDONLY);
-		if (proc_io_fd == -1) {
-			if (errno != ENOENT)
-				i_error("open(%s) failed: %m", PROC_IO_PATH);
-			proc_io_disabled = TRUE;
-			return -1;
+	uid_t uid;
+
+	if (proc_io_fd != -1)
+		return proc_io_fd;
+
+	if (proc_io_disabled)
+		return -1;
+	proc_io_fd = open(PROC_IO_PATH, O_RDONLY);
+	if (proc_io_fd == -1 && errno == EACCES) {
+		/* kludge: if we're running with permissions temporarily
+		   dropped, get them temporarily back so we can open
+		   /proc/self/io. */
+		uid = geteuid();
+		if (seteuid(0) == 0) {
+			proc_io_fd = open(PROC_IO_PATH, O_RDONLY);
+			if (seteuid(uid) < 0) {
+				/* oops, this is bad */
+				i_fatal("stats: seteuid(%s) failed", dec2str(uid));
+			}
 		}
+		errno = EACCES;
+	}
+	if (proc_io_fd == -1) {
+		if (errno != ENOENT)
+			i_error("open(%s) failed: %m", PROC_IO_PATH);
+		proc_io_disabled = TRUE;
+		return -1;
 	}
 	return proc_io_fd;
 }
