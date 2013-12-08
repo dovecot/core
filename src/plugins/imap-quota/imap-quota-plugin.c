@@ -186,6 +186,11 @@ static bool cmd_setquota(struct client_command_context *cmd)
 		return TRUE;
 	}
 
+	if (!cmd->client->user->admin) {
+		client_send_tagline(cmd, "NO Quota can be changed only by admin.");
+		return TRUE;
+	}
+
 	for (; !IMAP_ARG_IS_EOL(list_args); list_args += 2) {
 		if (!imap_arg_get_atom(&list_args[0], &name) ||
 		    !imap_arg_get_atom(&list_args[1], &value_str) ||
