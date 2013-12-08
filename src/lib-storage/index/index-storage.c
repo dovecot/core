@@ -760,7 +760,8 @@ bool index_storage_is_readonly(struct mailbox *box)
 
 bool index_storage_is_inconsistent(struct mailbox *box)
 {
-	return mail_index_view_is_inconsistent(box->view);
+	return box->view != NULL &&
+		mail_index_view_is_inconsistent(box->view);
 }
 
 void index_save_context_free(struct mail_save_context *ctx)
