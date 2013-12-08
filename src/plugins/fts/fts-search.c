@@ -23,6 +23,8 @@ uid_range_to_seqs(struct fts_search_context *fctx,
 	if (!array_is_created(seq_range))
 		p_array_init(seq_range, fctx->result_pool, count);
 	for (i = 0; i < count; i++) {
+		if (range[i].seq1 > range[i].seq2)
+			continue;
 		mailbox_get_seq_range(fctx->box, range[i].seq1, range[i].seq2,
 				      &seq1, &seq2);
 		if (seq1 != 0)
