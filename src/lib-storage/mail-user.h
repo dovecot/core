@@ -70,6 +70,8 @@ struct mail_user {
 	unsigned int attr_dict_failed:1;
 	/* We're deinitializing the user */
 	unsigned int deinitializing:1;
+	/* Enable administrator user commands for the user */
+	unsigned int admin:1;
 };
 
 struct mail_user_module_register {

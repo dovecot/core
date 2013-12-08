@@ -83,6 +83,7 @@ struct mail_storage_service_user {
 	struct setting_parser_context *set_parser;
 
 	unsigned int anonymous:1;
+	unsigned int admin:1;
 };
 
 struct module *mail_storage_service_modules = NULL;
@@ -277,6 +278,9 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 #endif
 		} else if (strncmp(line, "auth_token=", 11) == 0) {
 			user->auth_token = p_strdup(user->pool, line+11);
+		} else if (strncmp(line, "admin=", 6) == 0) {
+			user->admin = line[6] == 'y' || line[6] == 'Y' ||
+				line[6] == '1';
 		} else T_BEGIN {
 			ret = set_line(ctx, user, line);
 		} T_END;
@@ -621,6 +625,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_user->uid = priv->uid == (uid_t)-1 ? geteuid() : priv->uid;
 	mail_user->gid = priv->gid == (gid_t)-1 ? getegid() : priv->gid;
 	mail_user->anonymous = user->anonymous;
+	mail_user->admin = user->admin;
 	mail_user->auth_token = p_strdup(mail_user->pool, user->auth_token);
 	
 	mail_set = mail_user_set_get_storage_set(mail_user);
