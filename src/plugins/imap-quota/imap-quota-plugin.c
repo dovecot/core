@@ -138,7 +138,6 @@ static bool cmd_getquota(struct client_command_context *cmd)
 		return FALSE;
 
 	root = quota_root_lookup(cmd->client->user, root_name);
-#if 0
 	if (root == NULL && cmd->client->user->admin) {
 		/* we're an admin. see if there's a quota root for another
 		   user. */
@@ -150,7 +149,6 @@ static bool cmd_getquota(struct client_command_context *cmd)
 				quota_root_lookup(owner, p + 1);
 		}
 	}
-#endif
 	if (root == NULL) {
 		client_send_tagline(cmd, "NO Quota root doesn't exist.");
 		return TRUE;
