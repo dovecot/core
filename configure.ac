@@ -2287,6 +2287,15 @@ if test $want_mysql != no; then
 				  mysql_set_ssl(0, 0, 0, 0, 0, 0);
 				], [
 					AC_DEFINE(HAVE_MYSQL_SSL_CIPHER,, Define if your MySQL library supports setting cipher)
+
+					AC_TRY_COMPILE([
+					  $ssl_define
+					  #include <mysql.h>
+					], [
+					  int i = MYSQL_OPT_SSL_VERIFY_SERVER_CERT;
+					], [
+						AC_DEFINE(HAVE_MYSQL_SSL_VERIFY_SERVER_CERT,, Define if your MySQL library supports verifying the name in the SSL certificate)
+					])
 				])
 			])
 			

@@ -47,13 +47,15 @@
 #     host, port, user, password, dbname
 #
 #   But also adds some new settings:
-#     client_flags        - See MySQL manual
-#     ssl_ca, ssl_ca_path - Set either one or both to enable SSL
-#     ssl_cert, ssl_key   - For sending client-side certificates to server
-#     ssl_cipher          - Set minimum allowed cipher security (default: HIGH)
-#     option_file         - Read options from the given file instead of
-#                           the default my.cnf location
-#     option_group        - Read options from the given group (default: client)
+#     client_flags           - See MySQL manual
+#     ssl_ca, ssl_ca_path    - Set either one or both to enable SSL
+#     ssl_cert, ssl_key      - For sending client-side certificates to server
+#     ssl_cipher             - Set minimum allowed cipher security (default: HIGH)
+#     ssl_verify_server_cert - Verify that the name in the server SSL certificate
+#                              matches the host (default: no)
+#     option_file            - Read options from the given file instead of
+#                              the default my.cnf location
+#     option_group           - Read options from the given group (default: client)
 # 
 #   You can connect to UNIX sockets by using host: host=/var/run/mysql.sock
 #   Note that currently you can't use spaces in parameters.

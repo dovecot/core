@@ -28,6 +28,7 @@ struct mysql_db {
 	pool_t pool;
 	const char *user, *password, *dbname, *host, *unix_socket;
 	const char *ssl_cert, *ssl_key, *ssl_ca, *ssl_ca_path, *ssl_cipher;
+	int ssl_verify_server_cert;
 	const char *option_file, *option_group;
 	unsigned int port, client_flags;
 	time_t last_success;
@@ -104,6 +105,10 @@ static int driver_mysql_connect(struct sql_db *_db)
 			      , db->ssl_cipher
 #endif
 			     );
+#ifdef HAVE_MYSQL_SSL_VERIFY_SERVER_CERT
+		mysql_options(db->mysql, MYSQL_OPT_SSL_VERIFY_SERVER_CERT,
+			      &db->ssl_verify_server_cert);
+#endif
 		db->ssl_set = TRUE;
 #else
 		i_fatal("mysql: SSL support not compiled in "
@@ -152,6 +157,7 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 	const char **field;
 
 	db->ssl_cipher = "HIGH";
+	db->ssl_verify_server_cert = 0; /* FIXME: change to 1 for v2.3 */
 
 	args = t_strsplit_spaces(connect_string, " ");
 	for (; *args != NULL; args++) {
@@ -187,7 +193,14 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 			field = &db->ssl_ca_path;
 		else if (strcmp(name, "ssl_cipher") == 0)
 			field = &db->ssl_cipher;
-		else if (strcmp(name, "option_file") == 0)
+		else if (strcmp(name, "ssl_verify_server_cert") == 0) {
+			if (strcmp(value, "yes") == 0)
+				db->ssl_verify_server_cert = 1;
+			else if (strcmp(value, "no") == 0)
+				db->ssl_verify_server_cert = 0;
+			else
+				i_fatal("mysql: Invalid boolean: %s", value);
+		} else if (strcmp(name, "option_file") == 0)
 			field = &db->option_file;
 		else if (strcmp(name, "option_group") == 0)
 			field = &db->option_group;
