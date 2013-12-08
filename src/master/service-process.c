@@ -428,8 +428,8 @@ get_exit_status_message(struct service *service, enum fatal_exit_status status)
 				    service->set->name,
 				    (unsigned int)(service->vsz_limit/1024/1024));
 		}
-		if (getenv("DEBUG_OUTOFMEM") == NULL)
-			str_append(str, " - set DEBUG_OUTOFMEM=1 environment to get core dump");
+		if (getenv("CORE_OUTOFMEM") == NULL)
+			str_append(str, " - set CORE_OUTOFMEM=1 environment to get core dump");
 		return str_c(str);
 	case FATAL_EXEC:
 		return "exec() failed";
