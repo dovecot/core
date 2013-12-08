@@ -252,7 +252,7 @@ user_callback(enum userdb_result result,
 	string_t *str;
 	const char *value;
 
-	if (auth_request->userdb_lookup_failed)
+	if (auth_request->userdb_lookup_tempfailed)
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 
 	if (result == USERDB_RESULT_OK) {
@@ -264,7 +264,7 @@ user_callback(enum userdb_result result,
 	switch (result) {
 	case USERDB_RESULT_INTERNAL_FAILURE:
 		str_printfa(str, "FAIL\t%u", auth_request->id);
-		if (auth_request->userdb_lookup_failed) {
+		if (auth_request->userdb_lookup_tempfailed) {
 			value = auth_fields_find(auth_request->userdb_reply,
 						 "reason");
 			if (value != NULL)

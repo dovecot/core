@@ -633,14 +633,14 @@ static void userdb_callback(enum userdb_result result,
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 
-	if (request->userdb_lookup_failed)
+	if (request->userdb_lookup_tempfailed)
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 
 	str = t_str_new(128);
 	switch (result) {
 	case USERDB_RESULT_INTERNAL_FAILURE:
 		str_printfa(str, "FAIL\t%u", request->id);
-		if (request->userdb_lookup_failed) {
+		if (request->userdb_lookup_tempfailed) {
 			value = auth_fields_find(request->userdb_reply, "reason");
 			if (value != NULL)
 				auth_str_add_keyvalue(str, "reason", value);

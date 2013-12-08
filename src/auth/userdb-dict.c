@@ -34,8 +34,6 @@ dict_query_save_results(struct auth_request *auth_request,
 {
 	const char *key, *value, *error;
 
-	auth_request_init_userdb_reply(auth_request);
-
 	while (db_dict_value_iter_next(iter, &key, &value)) {
 		if (value != NULL)
 			auth_request_set_userdb_field(auth_request, key, value);

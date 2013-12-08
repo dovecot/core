@@ -9,12 +9,13 @@ struct auth_passdb_settings {
 	const char *args;
 	const char *default_fields;
 	const char *override_fields;
+
 	const char *skip;
 	const char *result_success;
 	const char *result_failure;
 	const char *result_internalfail;
 	bool deny;
-	bool pass;
+	bool pass; /* deprecated, use result_success=continue instead */
 	bool master;
 };
 
@@ -23,6 +24,11 @@ struct auth_userdb_settings {
 	const char *args;
 	const char *default_fields;
 	const char *override_fields;
+
+	const char *skip;
+	const char *result_success;
+	const char *result_failure;
+	const char *result_internalfail;
 };
 
 struct auth_settings {

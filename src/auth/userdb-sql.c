@@ -42,8 +42,6 @@ sql_query_get_result(struct sql_result *result,
 	const char *name, *value;
 	unsigned int i, fields_count;
 
-	auth_request_init_userdb_reply(auth_request);
-
 	fields_count = sql_result_get_fields_count(result);
 	for (i = 0; i < fields_count; i++) {
 		name = sql_result_get_field_name(result, i);

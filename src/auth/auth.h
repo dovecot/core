@@ -11,13 +11,19 @@ enum auth_passdb_skip {
 	AUTH_PASSDB_SKIP_UNAUTHENTICATED
 };
 
-enum auth_passdb_rule {
-	AUTH_PASSDB_RULE_RETURN,
-	AUTH_PASSDB_RULE_RETURN_OK,
-	AUTH_PASSDB_RULE_RETURN_FAIL,
-	AUTH_PASSDB_RULE_CONTINUE,
-	AUTH_PASSDB_RULE_CONTINUE_OK,
-	AUTH_PASSDB_RULE_CONTINUE_FAIL
+enum auth_userdb_skip {
+	AUTH_USERDB_SKIP_NEVER,
+	AUTH_USERDB_SKIP_FOUND,
+	AUTH_USERDB_SKIP_NOTFOUND
+};
+
+enum auth_db_rule {
+	AUTH_DB_RULE_RETURN,
+	AUTH_DB_RULE_RETURN_OK,
+	AUTH_DB_RULE_RETURN_FAIL,
+	AUTH_DB_RULE_CONTINUE,
+	AUTH_DB_RULE_CONTINUE_OK,
+	AUTH_DB_RULE_CONTINUE_FAIL
 };
 
 struct auth_passdb {
@@ -27,9 +33,9 @@ struct auth_passdb {
 	struct passdb_module *passdb;
 
 	enum auth_passdb_skip skip;
-	enum auth_passdb_rule result_success;
-	enum auth_passdb_rule result_failure;
-	enum auth_passdb_rule result_internalfail;
+	enum auth_db_rule result_success;
+	enum auth_db_rule result_failure;
+	enum auth_db_rule result_internalfail;
 };
 
 struct auth_userdb {
@@ -37,6 +43,11 @@ struct auth_userdb {
 
 	const struct auth_userdb_settings *set;
 	struct userdb_module *userdb;
+
+	enum auth_userdb_skip skip;
+	enum auth_db_rule result_success;
+	enum auth_db_rule result_failure;
+	enum auth_db_rule result_internalfail;
 };
 
 struct auth {

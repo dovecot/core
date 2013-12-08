@@ -40,7 +40,7 @@ static bool user_callback(const char *reply, void *context)
 	if (*args != '\0') {
 		auth_fields_import(request->userdb_reply, args, 0);
 		if (auth_fields_exists(request->userdb_reply, "tempfail"))
-			request->userdb_lookup_failed = TRUE;
+			request->userdb_lookup_tempfailed = TRUE;
 	}
 
         auth_request_userdb_callback(result, request);

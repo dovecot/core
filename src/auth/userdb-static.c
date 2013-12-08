@@ -29,7 +29,6 @@ static void static_lookup_real(struct auth_request *auth_request,
 	struct static_userdb_module *module =
 		(struct static_userdb_module *)_module;
 
-	auth_request_init_userdb_reply(auth_request);
 	userdb_template_export(module->tmpl, auth_request);
 	callback(USERDB_RESULT_OK, auth_request);
 }

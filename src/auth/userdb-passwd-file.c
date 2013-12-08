@@ -49,7 +49,6 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 		return;
 	}
 
-	auth_request_init_userdb_reply(auth_request);
 	if (pu->uid != (uid_t)-1) {
 		auth_request_set_userdb_field(auth_request, "uid",
 					      dec2str(pu->uid));

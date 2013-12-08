@@ -50,8 +50,6 @@ ldap_query_get_result(struct ldap_connection *conn,
 	struct db_ldap_result_iterate_context *ldap_iter;
 	const char *name, *const *values;
 
-	auth_request_init_userdb_reply(auth_request);
-
 	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request, res, TRUE);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		auth_request_set_userdb_field_values(auth_request,

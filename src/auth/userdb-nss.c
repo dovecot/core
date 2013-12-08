@@ -71,7 +71,6 @@ userdb_nss_lookup(struct auth_request *auth_request,
 
 	auth_request_set_field(auth_request, "user", pw.pw_name, NULL);
 
-	auth_request_init_userdb_reply(auth_request);
 	auth_request_set_userdb_field(auth_request, "system_groups_user",
 				      pw.pw_name);
 	auth_request_set_userdb_field(auth_request, "uid", dec2str(pw.pw_uid));

@@ -507,11 +507,26 @@ auth_request_want_skip_passdb(struct auth_request *request,
 }
 
 static bool
+auth_request_want_skip_userdb(struct auth_request *request,
+			      struct auth_userdb *userdb)
+{
+	switch (userdb->skip) {
+	case AUTH_USERDB_SKIP_NEVER:
+		return FALSE;
+	case AUTH_USERDB_SKIP_FOUND:
+		return request->userdb_success;
+	case AUTH_USERDB_SKIP_NOTFOUND:
+		return !request->userdb_success;
+	}
+	i_unreached();
+}
+
+static bool
 auth_request_handle_passdb_callback(enum passdb_result *result,
 				    struct auth_request *request)
 {
 	struct auth_passdb *next_passdb;
-	enum auth_passdb_rule result_rule;
+	enum auth_db_rule result_rule;
 	bool passdb_continue = FALSE;
 
 	if (request->passdb_password != NULL) {
@@ -557,22 +572,22 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 	}
 
 	switch (result_rule) {
-	case AUTH_PASSDB_RULE_RETURN:
+	case AUTH_DB_RULE_RETURN:
 		break;
-	case AUTH_PASSDB_RULE_RETURN_OK:
+	case AUTH_DB_RULE_RETURN_OK:
 		request->passdb_success = TRUE;
 		break;
-	case AUTH_PASSDB_RULE_RETURN_FAIL:
+	case AUTH_DB_RULE_RETURN_FAIL:
 		request->passdb_success = FALSE;
 		break;
-	case AUTH_PASSDB_RULE_CONTINUE:
+	case AUTH_DB_RULE_CONTINUE:
 		passdb_continue = TRUE;
 		break;
-	case AUTH_PASSDB_RULE_CONTINUE_OK:
+	case AUTH_DB_RULE_CONTINUE_OK:
 		passdb_continue = TRUE;
 		request->passdb_success = TRUE;
 		break;
-	case AUTH_PASSDB_RULE_CONTINUE_FAIL:
+	case AUTH_DB_RULE_CONTINUE_FAIL:
 		passdb_continue = TRUE;
 		request->passdb_success = FALSE;
 		break;
@@ -982,26 +997,79 @@ void auth_request_userdb_callback(enum userdb_result result,
 				  struct auth_request *request)
 {
 	struct userdb_module *userdb = request->userdb->userdb;
+	struct auth_userdb *next_userdb;
+	enum auth_db_rule result_rule;
+	bool userdb_continue = FALSE;
 
-	if (result != USERDB_RESULT_OK && request->userdb->next != NULL) {
+	switch (result) {
+	case USERDB_RESULT_OK:
+		result_rule = request->userdb->result_success;
+		break;
+	case USERDB_RESULT_INTERNAL_FAILURE:
+		result_rule = request->userdb->result_internalfail;
+		break;
+	case USERDB_RESULT_USER_UNKNOWN:
+	default:
+		result_rule = request->userdb->result_failure;
+		break;
+	}
+
+	switch (result_rule) {
+	case AUTH_DB_RULE_RETURN:
+		break;
+	case AUTH_DB_RULE_RETURN_OK:
+		request->userdb_success = TRUE;
+		break;
+	case AUTH_DB_RULE_RETURN_FAIL:
+		request->userdb_success = FALSE;
+		break;
+	case AUTH_DB_RULE_CONTINUE:
+		userdb_continue = TRUE;
+		break;
+	case AUTH_DB_RULE_CONTINUE_OK:
+		userdb_continue = TRUE;
+		request->userdb_success = TRUE;
+		break;
+	case AUTH_DB_RULE_CONTINUE_FAIL:
+		userdb_continue = TRUE;
+		request->userdb_success = FALSE;
+		break;
+	}
+
+	next_userdb = request->userdb->next;
+	while (next_userdb != NULL &&
+	       auth_request_want_skip_userdb(request, next_userdb))
+		next_userdb = next_userdb->next;
+
+	if (userdb_continue && next_userdb != NULL) {
 		/* try next userdb. */
 		if (result == USERDB_RESULT_INTERNAL_FAILURE)
 			request->userdbs_seen_internal_failure = TRUE;
 
-		request->userdb = request->userdb->next;
+		if (result == USERDB_RESULT_OK) {
+			/* this userdb lookup succeeded, preserve its extra
+			   fields */
+			auth_fields_snapshot(request->userdb_reply);
+		} else {
+			/* this userdb lookup failed, remove any extra fields
+			   it set */
+			auth_fields_rollback(request->userdb_reply);
+		}
+
+		request->userdb = next_userdb;
 		auth_request_lookup_user(request,
 					 request->private_callback.userdb);
 		return;
 	}
 
-	if (result == USERDB_RESULT_OK)
+	if (request->userdb_success)
 		userdb_template_export(userdb->override_fields_tmpl, request);
-	else if (request->userdbs_seen_internal_failure) {
+	else if (request->userdbs_seen_internal_failure ||
+		 result == USERDB_RESULT_INTERNAL_FAILURE) {
 		/* one of the userdb lookups failed. the user might have been
 		   in there, so this is an internal failure */
 		result = USERDB_RESULT_INTERNAL_FAILURE;
-	} else if (result == USERDB_RESULT_USER_UNKNOWN &&
-		   request->client_pid != 0) {
+	} else if (request->client_pid != 0) {
 		/* this was an actual login attempt, the user should
 		   have been found. */
 		if (auth_request_get_auth(request)->userdbs->next == NULL) {
@@ -1014,7 +1082,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 		}
 	}
 
-	if (request->userdb_lookup_failed) {
+	if (request->userdb_lookup_tempfailed) {
 		/* no caching */
 	} else if (result != USERDB_RESULT_INTERNAL_FAILURE)
 		auth_request_userdb_save_cache(request, result);
@@ -1044,6 +1112,8 @@ void auth_request_lookup_user(struct auth_request *request,
 
 	request->private_callback.userdb = callback;
 	request->userdb_lookup = TRUE;
+	if (request->userdb_reply == NULL)
+		auth_request_init_userdb_reply(request);
 
 	/* (for now) auth_cache is shared between passdb and userdb */
 	cache_key = passdb_cache == NULL ? NULL : userdb->cache_key;
@@ -1496,19 +1566,19 @@ void auth_request_set_userdb_field(struct auth_request *request,
 	if (strcmp(name, "uid") == 0) {
 		uid = userdb_parse_uid(request, value);
 		if (uid == (uid_t)-1) {
-			request->userdb_lookup_failed = TRUE;
+			request->userdb_lookup_tempfailed = TRUE;
 			return;
 		}
 		value = dec2str(uid);
 	} else if (strcmp(name, "gid") == 0) {
 		gid = userdb_parse_gid(request, value);
 		if (gid == (gid_t)-1) {
-			request->userdb_lookup_failed = TRUE;
+			request->userdb_lookup_tempfailed = TRUE;
 			return;
 		}
 		value = dec2str(gid);
 	} else if (strcmp(name, "tempfail") == 0) {
-		request->userdb_lookup_failed = TRUE;
+		request->userdb_lookup_tempfailed = TRUE;
 		return;
 	} else if (auth_request_try_update_username(request, name, value)) {
 		return;
@@ -1549,7 +1619,7 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 		for (; *values != NULL; values++) {
 			gid = userdb_parse_gid(request, *values);
 			if (gid == (gid_t)-1) {
-				request->userdb_lookup_failed = TRUE;
+				request->userdb_lookup_tempfailed = TRUE;
 				return;
 			}
 

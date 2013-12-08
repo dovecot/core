@@ -69,13 +69,13 @@ user_callback(enum userdb_result result, struct auth_request *auth_request)
 	string_t *str;
 	const char *value;
 
-	if (auth_request->userdb_lookup_failed)
+	if (auth_request->userdb_lookup_tempfailed)
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 
 	str = t_str_new(128);
 	switch (result) {
 	case USERDB_RESULT_INTERNAL_FAILURE:
-		if (auth_request->userdb_lookup_failed)
+		if (auth_request->userdb_lookup_tempfailed)
 			value = auth_fields_find(auth_request->userdb_reply, "reason");
 		else
 			value = NULL;

@@ -29,20 +29,31 @@ static enum auth_passdb_skip auth_passdb_skip_parse(const char *str)
 	i_unreached();
 }
 
-static enum auth_passdb_rule auth_passdb_rule_parse(const char *str)
+static enum auth_userdb_skip auth_userdb_skip_parse(const char *str)
+{
+	if (strcmp(str, "never") == 0)
+		return AUTH_USERDB_SKIP_NEVER;
+	if (strcmp(str, "found") == 0)
+		return AUTH_USERDB_SKIP_FOUND;
+	if (strcmp(str, "notfound") == 0)
+		return AUTH_USERDB_SKIP_NOTFOUND;
+	i_unreached();
+}
+
+static enum auth_db_rule auth_db_rule_parse(const char *str)
 {
 	if (strcmp(str, "return") == 0)
-		return AUTH_PASSDB_RULE_RETURN;
+		return AUTH_DB_RULE_RETURN;
 	if (strcmp(str, "return-ok") == 0)
-		return AUTH_PASSDB_RULE_RETURN_OK;
+		return AUTH_DB_RULE_RETURN_OK;
 	if (strcmp(str, "return-fail") == 0)
-		return AUTH_PASSDB_RULE_RETURN_FAIL;
+		return AUTH_DB_RULE_RETURN_FAIL;
 	if (strcmp(str, "continue") == 0)
-		return AUTH_PASSDB_RULE_CONTINUE;
+		return AUTH_DB_RULE_CONTINUE;
 	if (strcmp(str, "continue-ok") == 0)
-		return AUTH_PASSDB_RULE_CONTINUE_OK;
+		return AUTH_DB_RULE_CONTINUE_OK;
 	if (strcmp(str, "continue-fail") == 0)
-		return AUTH_PASSDB_RULE_CONTINUE_FAIL;
+		return AUTH_DB_RULE_CONTINUE_FAIL;
 	i_unreached();
 }
 
@@ -56,15 +67,15 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 	auth_passdb->set = set;
 	auth_passdb->skip = auth_passdb_skip_parse(set->skip);
 	auth_passdb->result_success =
-		auth_passdb_rule_parse(set->result_success);
+		auth_db_rule_parse(set->result_success);
 	auth_passdb->result_failure =
-		auth_passdb_rule_parse(set->result_failure);
+		auth_db_rule_parse(set->result_failure);
 	auth_passdb->result_internalfail =
-		auth_passdb_rule_parse(set->result_internalfail);
+		auth_db_rule_parse(set->result_internalfail);
 
 	/* for backwards compatibility: */
 	if (set->pass)
-		auth_passdb->result_success = AUTH_PASSDB_RULE_CONTINUE;
+		auth_passdb->result_success = AUTH_DB_RULE_CONTINUE;
 
 	for (dest = passdbs; *dest != NULL; dest = &(*dest)->next) ;
 	*dest = auth_passdb;
@@ -79,6 +90,13 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 
 	auth_userdb = p_new(auth->pool, struct auth_userdb, 1);
 	auth_userdb->set = set;
+	auth_userdb->skip = auth_userdb_skip_parse(set->skip);
+	auth_userdb->result_success =
+		auth_db_rule_parse(set->result_success);
+	auth_userdb->result_failure =
+		auth_db_rule_parse(set->result_failure);
+	auth_userdb->result_internalfail =
+		auth_db_rule_parse(set->result_internalfail);
 
 	for (dest = &auth->userdbs; *dest != NULL; dest = &(*dest)->next) ;
 	*dest = auth_userdb;

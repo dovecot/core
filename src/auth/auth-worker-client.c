@@ -355,7 +355,7 @@ lookup_user_callback(enum userdb_result result,
 	case USERDB_RESULT_OK:
 		str_append(str, "OK\t");
 		auth_fields_append(auth_request->userdb_reply, str, 0, 0);
-		if (auth_request->userdb_lookup_failed)
+		if (auth_request->userdb_lookup_tempfailed)
 			str_append(str, "\ttempfail");
 		break;
 	}
@@ -409,6 +409,7 @@ auth_worker_handle_user(struct auth_worker_client *client,
 		return FALSE;
 	}
 
+	auth_request_init_userdb_reply(auth_request);
 	auth_request->userdb->userdb->iface->
 		lookup(auth_request, lookup_user_callback);
 	return TRUE;
