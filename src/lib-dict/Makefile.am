@@ -6,6 +6,7 @@ dict_drivers = @dict_drivers@
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-fs \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
 	$(SQL_CFLAGS)
@@ -15,9 +16,11 @@ base_sources = \
 	dict-client.c \
 	dict-file.c \
 	dict-cdb.c \
+	dict-fs.c \
 	dict-memcached.c \
 	dict-memcached-ascii.c \
 	dict-redis.c \
+	dict-register.c \
 	dict-transaction-memory.c
 
 libdict_la_SOURCES = \
