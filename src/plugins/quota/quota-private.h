@@ -30,7 +30,7 @@ struct quota_settings {
 };
 
 struct quota_rule {
-	const char *mailbox_name;
+	const char *mailbox_mask;
 
 	int64_t bytes_limit, count_limit;
 	/* relative to default_rule */

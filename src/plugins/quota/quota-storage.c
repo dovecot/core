@@ -610,7 +610,7 @@ static void quota_root_set_namespace(struct quota_root *root,
 	}
 
 	array_foreach(&root->set->rules, rule) {
-		name = rule->mailbox_name;
+		name = rule->mailbox_mask;
 		ns = mail_namespace_find(namespaces, name);
 		if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0 &&
 		    !silent_errors)

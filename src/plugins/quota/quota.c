@@ -7,6 +7,7 @@
 #include "net.h"
 #include "write-full.h"
 #include "eacces-error.h"
+#include "wildcard-match.h"
 #include "dict.h"
 #include "mailbox-list-private.h"
 #include "quota-private.h"
@@ -384,7 +385,20 @@ quota_root_rule_find(struct quota_root_settings *root_set, const char *name)
 	struct quota_rule *rule;
 
 	array_foreach_modifiable(&root_set->rules, rule) {
-		if (strcmp(rule->mailbox_name, name) == 0)
+		if (wildcard_match(name, rule->mailbox_mask) == 0)
+			return rule;
+	}
+	return NULL;
+}
+
+static struct quota_rule *
+quota_root_rule_find_exact(struct quota_root_settings *root_set,
+			   const char *name)
+{
+	struct quota_rule *rule;
+
+	array_foreach_modifiable(&root_set->rules, rule) {
+		if (strcmp(rule->mailbox_mask, name) == 0)
 			return rule;
 	}
 	return NULL;
@@ -570,7 +584,7 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 			const char *rule_def, const char **error_r)
 {
 	struct quota_rule *rule;
-	const char *p, *mailbox_name;
+	const char *p, *mailbox_mask;
 	int ret = 0;
 
 	p = strchr(rule_def, ':');
@@ -579,20 +593,20 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 		return -1;
 	}
 
-	/* <mailbox name>:<quota limits> */
-	mailbox_name = t_strdup_until(rule_def, p++);
+	/* <mailbox mask>:<quota limits> */
+	mailbox_mask = t_strdup_until(rule_def, p++);
 
-	rule = quota_root_rule_find(root_set, mailbox_name);
+	rule = quota_root_rule_find_exact(root_set, mailbox_mask);
 	if (rule == NULL) {
-		if (strcmp(mailbox_name, RULE_NAME_DEFAULT_NONFORCE) == 0)
+		if (strcmp(mailbox_mask, RULE_NAME_DEFAULT_NONFORCE) == 0)
 			rule = &root_set->default_rule;
-		else if (strcmp(mailbox_name, RULE_NAME_DEFAULT_FORCE) == 0) {
+		else if (strcmp(mailbox_mask, RULE_NAME_DEFAULT_FORCE) == 0) {
 			rule = &root_set->default_rule;
 			root_set->force_default_rule = TRUE;
 		} else {
 			rule = array_append_space(&root_set->rules);
-			rule->mailbox_name = strcasecmp(mailbox_name, "INBOX") == 0 ? "INBOX" :
-				p_strdup(root_set->set->pool, mailbox_name);
+			rule->mailbox_mask = strcasecmp(mailbox_mask, "INBOX") == 0 ? "INBOX" :
+				p_strdup(root_set->set->pool, mailbox_mask);
 		}
 	}
 
@@ -600,7 +614,7 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 		rule->ignore = TRUE;
 		if (root_set->set->debug) {
 			i_debug("Quota rule: root=%s mailbox=%s ignored",
-				root_set->name, mailbox_name);
+				root_set->name, mailbox_mask);
 		}
 		return 0;
 	}
@@ -629,7 +643,7 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 
 		i_debug("Quota rule: root=%s mailbox=%s "
 			"bytes=%s%lld%s messages=%s%lld%s",
-			root_set->name, mailbox_name,
+			root_set->name, mailbox_mask,
 			rule->bytes_limit > 0 ? rule_plus : "",
 			(long long)rule->bytes_limit,
 			rule->bytes_percent == 0 ? "" :
