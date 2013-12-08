@@ -47,6 +47,7 @@ static int log_fd = STDERR_FILENO, log_info_fd = STDERR_FILENO,
 	   log_debug_fd = STDERR_FILENO;
 static char *log_prefix = NULL, *log_stamp_format = NULL;
 static bool failure_ignore_errors = FALSE, log_prefix_sent = FALSE;
+static bool coredump_on_error = FALSE;
 
 static void ATTR_FORMAT(2, 0)
 i_internal_error_handler(const struct failure_context *ctx,
@@ -187,8 +188,8 @@ default_fatal_finish(enum log_type type, int status)
 			i_error("Raw backtrace: %s", backtrace);
 	}
 
-	if (type == LOG_TYPE_PANIC ||
-	    (status == FATAL_OUTOFMEM && getenv("DEBUG_OUTOFMEM") != NULL))
+	if (type == LOG_TYPE_PANIC || getenv("CORE_ERROR") != NULL ||
+	    (status == FATAL_OUTOFMEM && getenv("CORE_OUTOFMEM") != NULL))
 		abort();
 	else
 		failure_exit(status);
@@ -230,6 +231,8 @@ void default_error_handler(const struct failure_context *ctx,
 		i_fatal_status(FATAL_LOGWRITE, "write() failed to %s log: %m",
 			       fd == log_info_fd ? "info" : "debug");
 	}
+	if (ctx->type == LOG_TYPE_ERROR && coredump_on_error)
+		abort();
 }
 
 void i_log_type(const struct failure_context *ctx, const char *format, ...)
@@ -348,6 +351,7 @@ void i_set_fatal_handler(failure_callback_t *callback ATTR_NORETURN)
 
 void i_set_error_handler(failure_callback_t *callback)
 {
+	coredump_on_error = getenv("CORE_ERROR") != NULL;
 	error_handler = callback;
 }
 
