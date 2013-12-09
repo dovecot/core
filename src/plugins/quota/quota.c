@@ -385,7 +385,7 @@ quota_root_rule_find(struct quota_root_settings *root_set, const char *name)
 	struct quota_rule *rule;
 
 	array_foreach_modifiable(&root_set->rules, rule) {
-		if (wildcard_match(name, rule->mailbox_mask) == 0)
+		if (wildcard_match(name, rule->mailbox_mask))
 			return rule;
 	}
 	return NULL;
