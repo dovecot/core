@@ -10,6 +10,7 @@
 #include "hostpid.h"
 #include "abspath.h"
 #include "ipwd.h"
+#include "str.h"
 #include "execv-const.h"
 #include "mountpoint-list.h"
 #include "restrict-process-size.h"
@@ -487,17 +488,25 @@ static void master_set_import_environment(const struct master_settings *set)
 	env_put(t_strconcat(DOVECOT_PRESERVE_ENVS_ENV"=", value, NULL));
 }
 
-static void main_log_startup(void)
+static void main_log_startup(char **protocols)
 {
 #define STARTUP_STRING PACKAGE_NAME" v"DOVECOT_VERSION_FULL" starting up"
+	string_t *str = t_str_new(128);
 	rlim_t core_limit;
+
+	str_append(str, STARTUP_STRING);
+	if (protocols[0] == NULL)
+		str_append(str, " without any protocols");
+	else {
+		str_printfa(str, " for %s",
+			    t_strarray_join((const char **)protocols, ", "));
+	}
 
 	core_dumps_disabled = restrict_get_core_limit(&core_limit) == 0 &&
 		core_limit == 0;
 	if (core_dumps_disabled)
-		i_info(STARTUP_STRING" (core dumps disabled)");
-	else
-		i_info(STARTUP_STRING);
+		str_append(str, " (core dumps disabled)");
+	i_info("%s", str_c(str));
 }
 
 static void master_set_process_limit(void)
@@ -529,7 +538,7 @@ static void main_init(const struct master_settings *set)
 	/* deny file access from everyone else except owner */
         (void)umask(0077);
 
-	main_log_startup();
+	main_log_startup(set->protocols_split);
 
 	lib_signals_init();
         lib_signals_ignore(SIGPIPE, TRUE);
