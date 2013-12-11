@@ -50,6 +50,11 @@
 #  define LDAP_OPT_SUCCESS LDAP_SUCCESS
 #endif
 
+struct db_ldap_result {
+	int refcount;
+	LDAPMessage *msg;
+};
+
 struct db_ldap_value {
 	const char **values;
 	bool used;
@@ -475,14 +480,14 @@ static int db_ldap_connect_finish(struct ldap_connection *conn, int ret)
 }
 
 static void db_ldap_default_bind_finished(struct ldap_connection *conn,
-					  LDAPMessage *res)
+					  struct db_ldap_result *res)
 {
 	int ret;
 
 	i_assert(conn->pending_count == 0);
 	conn->default_bind_msgid = -1;
 
-	ret = ldap_result2error(conn->ld, res, FALSE);
+	ret = ldap_result2error(conn->ld, res->msg, FALSE);
 	if (db_ldap_connect_finish(conn, ret) < 0) {
 		/* lost connection, close it */
 		db_ldap_conn_close(conn);
@@ -551,14 +556,14 @@ db_ldap_find_request(struct ldap_connection *conn, int msgid,
 
 static int db_ldap_fields_get_dn(struct ldap_connection *conn,
 				 struct ldap_request_search *request,
-				 LDAPMessage *res)
+				 struct db_ldap_result *res)
 {
 	struct auth_request *auth_request = request->request.auth_request;
 	struct ldap_request_named_result *named_res;
 	struct db_ldap_result_iterate_context *ldap_iter;
 	const char *name, *const *values;
 
-	ldap_iter = db_ldap_result_iterate_init_full(conn, request, res,
+	ldap_iter = db_ldap_result_iterate_init_full(conn, request, res->msg,
 						     TRUE, TRUE);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		if (values[1] != NULL) {
@@ -654,7 +659,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 }
 
 static int db_ldap_search_save_result(struct ldap_request_search *request,
-				      LDAPMessage *res)
+				      struct db_ldap_result *res)
 {
 	struct ldap_request_named_result *named_res;
 
@@ -669,12 +674,13 @@ static int db_ldap_search_save_result(struct ldap_request_search *request,
 			return -1;
 		named_res->result = res;
 	}
+	res->refcount++;
 	return 0;
 }
 
 static int db_ldap_search_next_subsearch(struct ldap_connection *conn,
 					 struct ldap_request_search *request,
-					 LDAPMessage *res)
+					 struct db_ldap_result *res)
 {
 	struct ldap_request_named_result *named_res;
 	const struct ldap_field *field;
@@ -716,7 +722,7 @@ static int db_ldap_search_next_subsearch(struct ldap_connection *conn,
 static bool
 db_ldap_handle_request_result(struct ldap_connection *conn,
 			      struct ldap_request *request, unsigned int idx,
-			      LDAPMessage *res)
+			      struct db_ldap_result *res)
 {
 	struct ldap_request_search *srequest = NULL;
 	const struct ldap_request_named_result *named_res;
@@ -731,7 +737,7 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 		conn->conn_state = LDAP_CONN_STATE_BOUND_AUTH;
 	} else {
 		srequest = (struct ldap_request_search *)request;
-		switch (ldap_msgtype(res)) {
+		switch (ldap_msgtype(res->msg)) {
 		case LDAP_RES_SEARCH_ENTRY:
 		case LDAP_RES_SEARCH_RESULT:
 			break;
@@ -740,16 +746,16 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 			return FALSE;
 		default:
 			i_error("LDAP: Reply with unexpected type %d",
-				ldap_msgtype(res));
+				ldap_msgtype(res->msg));
 			return TRUE;
 		}
 	}
-	if (ldap_msgtype(res) == LDAP_RES_SEARCH_ENTRY) {
+	if (ldap_msgtype(res->msg) == LDAP_RES_SEARCH_ENTRY) {
 		ret = LDAP_SUCCESS;
 		final_result = FALSE;
 	} else {
 		final_result = TRUE;
-		ret = ldap_result2error(conn->ld, res, 0);
+		ret = ldap_result2error(conn->ld, res->msg, 0);
 	}
 	if (ret != LDAP_SUCCESS && request->type == LDAP_REQUEST_TYPE_SEARCH) {
 		/* handle search failures here */
@@ -778,14 +784,13 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 					"LDAP search returned multiple entries");
 				res = NULL;
 			} else {
-				/* wait for finish, don't free the result yet */
+				/* wait for finish */
 				return FALSE;
 			}
 		} else {
 			ret = db_ldap_search_next_subsearch(conn, srequest, res);
 			if (ret > 0) {
-				/* free this result, but not the others */
-				ldap_msgfree(res);
+				/* more LDAP queries left */
 				return FALSE;
 			}
 			if (ret < 0)
@@ -806,9 +811,9 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 
 	T_BEGIN {
 		if (res != NULL && srequest != NULL && srequest->result != NULL)
-			request->callback(conn, request, srequest->result);
+			request->callback(conn, request, srequest->result->msg);
 
-		request->callback(conn, request, res);
+		request->callback(conn, request, res->msg);
 	} T_END;
 
 	if (idx > 0) {
@@ -820,67 +825,71 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 	return TRUE;
 }
 
-static void db_ldap_request_free(struct ldap_request *request, LDAPMessage *res)
+static void db_ldap_result_unref(struct db_ldap_result **_res)
+{
+	struct db_ldap_result *res = *_res;
+
+	*_res = NULL;
+	i_assert(res->refcount > 0);
+	if (--res->refcount == 0) {
+		ldap_msgfree(res->msg);
+		i_free(res);
+	}
+}
+
+static void
+db_ldap_request_free(struct ldap_request *request)
 {
 	if (request->type == LDAP_REQUEST_TYPE_SEARCH) {
 		struct ldap_request_search *srequest =
 			(struct ldap_request_search *)request;
-		const struct ldap_request_named_result *named_res;
+		struct ldap_request_named_result *named_res;
 
-		if (srequest->result == res)
-			res = NULL;
-		if (srequest->result != NULL) {
-			ldap_msgfree(srequest->result);
-			srequest->result = NULL;
-		}
+		if (srequest->result != NULL)
+			db_ldap_result_unref(&srequest->result);
 
 		if (array_is_created(&srequest->named_results)) {
-			array_foreach(&srequest->named_results, named_res) {
-				if (named_res->result == res)
-					res = NULL;
+			array_foreach_modifiable(&srequest->named_results, named_res) {
 				if (named_res->result != NULL)
-					ldap_msgfree(named_res->result);
+					db_ldap_result_unref(&named_res->result);
 			}
 			array_clear(&srequest->named_results);
 		}
 	}
-	if (res != NULL)
-		ldap_msgfree(res);
 }
 
 static void
-db_ldap_handle_result(struct ldap_connection *conn, LDAPMessage *res)
+db_ldap_handle_result(struct ldap_connection *conn, struct db_ldap_result *res)
 {
 	struct auth_request *auth_request;
 	struct ldap_request *request;
 	unsigned int idx;
 	int msgid;
 
-	msgid = ldap_msgid(res);
+	msgid = ldap_msgid(res->msg);
 	if (msgid == conn->default_bind_msgid) {
 		db_ldap_default_bind_finished(conn, res);
-		ldap_msgfree(res);
 		return;
 	}
 
 	request = db_ldap_find_request(conn, msgid, &idx);
 	if (request == NULL) {
 		i_error("LDAP: Reply with unknown msgid %d", msgid);
-		ldap_msgfree(res);
 		return;
 	}
 	/* request is allocated from auth_request's pool */
 	auth_request = request->auth_request;
 	auth_request_ref(auth_request);
 	if (db_ldap_handle_request_result(conn, request, idx, res))
-		db_ldap_request_free(request, res);
+		db_ldap_request_free(request);
 	auth_request_unref(&auth_request);
 }
 
 static void ldap_input(struct ldap_connection *conn)
 {
 	struct timeval timeout;
-	LDAPMessage *res;
+	struct db_ldap_result *res;
+	LDAPMessage *msg;
 	time_t prev_reply_diff;
 	int ret;
 
@@ -889,18 +898,22 @@ static void ldap_input(struct ldap_connection *conn)
 			return;
 
 		memset(&timeout, 0, sizeof(timeout));
-		ret = ldap_result(conn->ld, LDAP_RES_ANY, 0, &timeout, &res);
+		ret = ldap_result(conn->ld, LDAP_RES_ANY, 0, &timeout, &msg);
 #ifdef OPENLDAP_ASYNC_WORKAROUND
 		if (ret == 0) {
 			/* try again, there may be another in buffer */
 			ret = ldap_result(conn->ld, LDAP_RES_ANY, 0,
-					  &timeout, &res);
+					  &timeout, &msg);
 		}
 #endif
 		if (ret <= 0)
 			break;
 
+		res = i_new(struct db_ldap_result, 1);
+		res->refcount = 1;
+		res->msg = msg;
 		db_ldap_handle_result(conn, res);
+		db_ldap_result_unref(&res);
 	} while (conn->io != NULL);
 
 	prev_reply_diff = ioloop_time - conn->last_reply_stamp;
@@ -1502,8 +1515,10 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 	if (array_is_created(&ldap_request->named_results)) {
 		array_foreach(&ldap_request->named_results, named_res) {
 			suffix = t_strdup_printf("@%s", named_res->field->name);
-			if (named_res->result != NULL)
-				get_ldap_fields(ctx, conn, named_res->result, suffix);
+			if (named_res->result != NULL) {
+				get_ldap_fields(ctx, conn,
+						named_res->result->msg, suffix);
+			}
 		}
 	}
 	return ctx;

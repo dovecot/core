@@ -110,7 +110,7 @@ struct ldap_request {
 struct ldap_request_named_result {
 	const struct ldap_field *field;
 	const char *dn;
-	LDAPMessage *result;
+	struct db_ldap_result *result;
 };
 
 struct ldap_request_search {
@@ -121,7 +121,7 @@ struct ldap_request_search {
 	char **attributes; /* points to pass_attr_names / user_attr_names */
 	const ARRAY_TYPE(ldap_field) *attr_map;
 
-	LDAPMessage *result;
+	struct db_ldap_result *result;
 	ARRAY(struct ldap_request_named_result) named_results;
 	unsigned int name_idx;
 
