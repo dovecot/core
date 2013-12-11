@@ -539,8 +539,10 @@ static void ssl_step(struct ssl_proxy *proxy)
 {
 	proxy->refcount++;
 
-	if (!proxy->handshaked)
+	if (!proxy->handshaked) {
+		ssl_set_io(proxy, SSL_REMOVE_OUTPUT);
 		ssl_handshake(proxy);
+	}
 
 	if (proxy->handshaked) {
 		if (proxy->plainout_size == sizeof(proxy->plainout_buf))
