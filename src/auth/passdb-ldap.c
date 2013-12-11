@@ -236,7 +236,7 @@ static void ldap_bind_lookup_dn_callback(struct ldap_connection *conn,
 	struct passdb_ldap_request *passdb_ldap_request =
 		(struct passdb_ldap_request *)ldap_request;
 	struct auth_request *auth_request = ldap_request->auth_request;
-	struct ldap_request_bind *brequest;
+	struct passdb_ldap_request *brequest;
 	char *dn;
 
 	if (res != NULL && ldap_msgtype(res) == LDAP_RES_SEARCH_ENTRY) {
@@ -257,14 +257,16 @@ static void ldap_bind_lookup_dn_callback(struct ldap_connection *conn,
 		/* failure */
 		ldap_bind_lookup_dn_fail(auth_request, passdb_ldap_request, res);
 	} else {
-		/* convert search request to bind request */
-		brequest = &passdb_ldap_request->request.bind;
-		memset(brequest, 0, sizeof(*brequest));
-		brequest->request.type = LDAP_REQUEST_TYPE_BIND;
-		brequest->request.auth_request = auth_request;
+		/* create a new bind request */
+		brequest = p_new(auth_request->pool,
+				 struct passdb_ldap_request, 1);
 		brequest->dn = passdb_ldap_request->dn;
+		brequest->callback = passdb_ldap_request->callback;
+		brequest->request.bind.dn = brequest->dn;
+		brequest->request.bind.request.type = LDAP_REQUEST_TYPE_BIND;
+		brequest->request.bind.request.auth_request = auth_request;
 
-		ldap_auth_bind(conn, brequest);
+		ldap_auth_bind(conn, &brequest->request.bind);
 	}
 }
 
