@@ -49,6 +49,13 @@ static void lzma_read_error(struct lzma_istream *zstream, const char *error)
 		i_error("%s", zstream->istream.iostream.error);
 }
 
+static void lzma_stream_end(struct lzma_istream *zstream)
+{
+	zstream->eof_offset = zstream->istream.istream.v_offset +
+		(zstream->istream.pos - zstream->istream.skip);
+	zstream->stream_size = zstream->eof_offset;
+}
+
 static ssize_t i_stream_lzma_read(struct istream_private *stream)
 {
 	struct lzma_istream *zstream = (struct lzma_istream *)stream;
@@ -109,8 +116,8 @@ static ssize_t i_stream_lzma_read(struct istream_private *stream)
 				stream->parent->stream_errno;
 		} else {
 			i_assert(stream->parent->eof);
-			lzma_read_error(zstream, "unexpected EOF");
-			stream->istream.stream_errno = EINVAL;
+			lzma_stream_end(zstream);
+			stream->istream.eof = TRUE;
 		}
 		return -1;
 	}
@@ -153,9 +160,7 @@ static ssize_t i_stream_lzma_read(struct istream_private *stream)
 		i_fatal_status(FATAL_OUTOFMEM, "lzma.read(%s): Out of memory",
 			       i_stream_get_name(&stream->istream));
 	case LZMA_STREAM_END:
-		zstream->eof_offset = stream->istream.v_offset +
-			(stream->pos - stream->skip);
-		zstream->stream_size = zstream->eof_offset;
+		lzma_stream_end(zstream);
 		if (out_size == 0) {
 			stream->istream.eof = TRUE;
 			return -1;
