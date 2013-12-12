@@ -172,6 +172,7 @@ static const struct setting_define auth_userdb_setting_defines[] = {
 };
 
 static const struct auth_userdb_settings auth_userdb_default_settings = {
+	/* NOTE: when adding fields, update also auth.c:userdb_dummy_set */
 	.driver = "",
 	.args = "",
 	.default_fields = "",

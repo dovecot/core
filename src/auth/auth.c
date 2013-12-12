@@ -13,7 +13,12 @@ struct auth_userdb_settings userdb_dummy_set = {
 	.driver = "static",
 	.args = "",
 	.default_fields = "",
-	.override_fields = ""
+	.override_fields = "",
+
+	.skip = "never",
+	.result_success = "return-ok",
+	.result_failure = "continue",
+	.result_internalfail = "continue"
 };
 
 static ARRAY(struct auth *) auths;
