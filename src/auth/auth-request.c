@@ -631,10 +631,12 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			auth_fields_rollback(request->extra_fields);
 			if (request->userdb_reply == NULL)
 				;
-			else if (!request->snapshot_has_userdb_reply)
-				request->userdb_reply = NULL;
-			else
+			else if (request->snapshot_has_userdb_reply)
 				auth_fields_rollback(request->userdb_reply);
+			else {
+				request->userdb_reply = NULL;
+				request->userdb_prefetch_set = FALSE;
+			}
 		}
 
 		if (*result == PASSDB_RESULT_USER_UNKNOWN) {
@@ -1426,6 +1428,7 @@ void auth_request_set_field(struct auth_request *request,
 		auth_request_validate_networks(request, value);
 	} else if (strncmp(name, "userdb_", 7) == 0) {
 		/* for prefetch userdb */
+		request->userdb_prefetch_set = TRUE;
 		if (request->userdb_reply == NULL)
 			auth_request_init_userdb_reply(request);
 		auth_request_set_userdb_field(request, name + 7, value);
@@ -1478,8 +1481,7 @@ void auth_request_set_null_field(struct auth_request *request, const char *name)
 	if (strncmp(name, "userdb_", 7) == 0) {
 		/* make sure userdb prefetch is used even if all the fields
 		   were returned as NULL. */
-		if (request->userdb_reply == NULL)
-			auth_request_init_userdb_reply(request);
+		request->userdb_prefetch_set = TRUE;
 	}
 }
 

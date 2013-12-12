@@ -136,6 +136,9 @@ struct auth_request {
 	   or because one of the returned uid/gid fields couldn't be translated
 	   to a number */
 	unsigned int userdb_lookup_tempfailed:1;
+	/* userdb_* fields have been set by the passdb lookup, userdb prefetch
+	   will work. */
+	unsigned int userdb_prefetch_set:1;
 
 	/* ... mechanism specific data ... */
 };
