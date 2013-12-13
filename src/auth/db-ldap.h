@@ -64,6 +64,7 @@ struct ldap_settings {
 
 	const char *default_pass_scheme;
 	bool userdb_warning_disable; /* deprecated for now at least */
+	bool blocking;
 
 	/* ... */
 	int ldap_deref, ldap_scope;

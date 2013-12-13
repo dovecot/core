@@ -120,6 +120,7 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(iterate_filter),
 	DEF_STR(default_pass_scheme),
 	DEF_BOOL(userdb_warning_disable),
+	DEF_BOOL(blocking),
 
 	{ 0, NULL, 0 }
 };
@@ -155,7 +156,8 @@ static struct ldap_settings default_ldap_settings = {
 	.iterate_attrs = "uid=user",
 	.iterate_filter = "(objectClass=posixAccount)",
 	.default_pass_scheme = "crypt",
-	.userdb_warning_disable = FALSE
+	.userdb_warning_disable = FALSE,
+	.blocking = FALSE
 };
 
 static struct ldap_connection *ldap_connections = NULL;
