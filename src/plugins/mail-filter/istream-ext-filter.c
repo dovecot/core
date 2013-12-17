@@ -118,6 +118,13 @@ static ssize_t i_stream_mail_filter_read(struct istream_private *stream)
 		if (!stream->istream.blocking)
 			break;
 	}
+	if (ret == -1 && !i_stream_have_bytes_left(&stream->istream) &&
+	    stream->istream.v_offset == 0) {
+		/* EOF without any input -> assume the script is repoting
+		   failure. pretty ugly way, but currently there's no error
+		   reporting channel. */
+		stream->istream.stream_errno = EIO;
+	}
 	return ret;
 }
 
