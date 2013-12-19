@@ -1084,7 +1084,7 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 
 	ctx->limits_set = TRUE;
 	mailbox_name = mailbox_get_vname(ctx->box);
-	/* use last_mail_max_extra_bytes only for LDA/LMTP */
+	/* use quota_grace only for LDA/LMTP */
 	use_grace = (ctx->box->flags & MAILBOX_FLAG_POST_SESSION) != 0;
 
 	/* find the lowest quota limits from all roots and use them */

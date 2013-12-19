@@ -61,7 +61,7 @@ quota_check(struct mail_user *user, uoff_t mail_size,
 	}
 
 	ns = mail_namespace_find_inbox(user->namespaces);
-	box = mailbox_alloc(ns->list, "INBOX", 0);
+	box = mailbox_alloc(ns->list, "INBOX", MAILBOX_FLAG_POST_SESSION);
 
 	ctx = quota_transaction_begin(box);
 	ret = quota_test_alloc(ctx, I_MAX(1, mail_size), too_large_r);
