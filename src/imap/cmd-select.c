@@ -346,6 +346,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 			 t_strdup_printf("* OK [UIDNEXT %u] Predicted next UID",
 					 status.uidnext));
 
+	client->nonpermanent_modseqs = status.nonpermanent_modseqs;
 	if (status.nonpermanent_modseqs) {
 		client_send_line(client,
 				 "* OK [NOMODSEQ] No permanent modsequences");
