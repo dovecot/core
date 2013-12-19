@@ -233,7 +233,8 @@ static bool cmd_setmetadata_continue(struct client_command_context *cmd)
 
 	while ((ret = cmd_setmetadata_parse_entryvalue(ctx, &entry, &value)) > 0 &&
 	       entry != NULL) {
-		ret = cmd_setmetadata_entry(ctx, entry, value);
+		ret = ctx->failed ? 1 :
+			cmd_setmetadata_entry(ctx, entry, value);
 		imap_parser_reset(ctx->parser);
 		if (ret <= 0)
 			break;
