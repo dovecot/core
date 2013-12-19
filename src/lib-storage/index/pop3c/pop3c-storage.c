@@ -213,6 +213,21 @@ pop3c_mailbox_update(struct mailbox *box,
 	return index_storage_mailbox_update(box, update);
 }
 
+static int pop3c_mailbox_get_status(struct mailbox *box,
+				    enum mailbox_status_items items,
+				    struct mailbox_status *status_r)
+{
+	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)box;
+
+	if (index_storage_get_status(box, items, status_r) < 0)
+		return -1;
+
+	if ((pop3c_client_get_capabilities(mbox->client) &
+	     POP3C_CAPABILITY_UIDL) == 0)
+		status_r->have_guids = FALSE;
+	return 0;
+}
+
 static int pop3c_mailbox_get_metadata(struct mailbox *box,
 				      enum mailbox_metadata_items items,
 				      struct mailbox_metadata *metadata_r)
@@ -308,7 +323,7 @@ struct mailbox pop3c_mailbox = {
 		pop3c_mailbox_update,
 		index_storage_mailbox_delete,
 		index_storage_mailbox_rename,
-		index_storage_get_status,
+		pop3c_mailbox_get_status,
 		pop3c_mailbox_get_metadata,
 		index_storage_set_subscribed,
 		index_storage_attribute_set,
