@@ -435,7 +435,7 @@ bool cmd_getmetadata(struct client_command_context *cmd)
 	} else {
 		/* wildcards in mailbox name. this isn't supported by RFC 5464,
 		   but it was in the earlier drafts and is already used by
-		   some software (Kolab). */
+		   some software (Horde). */
 		const char *patterns[2];
 		patterns[0] = mailbox; patterns[1] = NULL;
 
