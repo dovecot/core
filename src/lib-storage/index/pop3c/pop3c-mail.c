@@ -1,6 +1,7 @@
 /* Copyright (c) 2011-2013 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "istream.h"
 #include "index-mail.h"
 #include "pop3c-client.h"
@@ -153,6 +154,7 @@ pop3c_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 
 	switch (field) {
 	case MAIL_FETCH_UIDL_BACKEND:
+	case MAIL_FETCH_GUID:
 		if (mbox->msg_uidls == NULL) {
 			if (pop3c_sync_get_uidls(mbox) < 0)
 				return -1;

@@ -280,7 +280,8 @@ static bool pop3c_storage_is_inconsistent(struct mailbox *box)
 
 struct mail_storage pop3c_storage = {
 	.name = POP3C_STORAGE_NAME,
-	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT |
+		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS,
 
 	.v = {
 		pop3c_get_setting_parser_info,
