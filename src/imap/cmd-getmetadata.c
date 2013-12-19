@@ -261,7 +261,6 @@ static int cmd_getmetadata_send_entry_tree(struct imap_getmetadata_context *ctx,
 		str_append_c(ctx->iter_entry_prefix, '/');
 
 		imap_metadata_entry2key(entry, ctx->key_prefix, &type, &key);
-		type = type;
 		ctx->iter = mailbox_attribute_iter_init(ctx->box, type,
 			key[0] == '\0' ? "" : t_strconcat(key, "/", NULL));
 		return 1;
