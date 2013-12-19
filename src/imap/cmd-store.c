@@ -57,6 +57,11 @@ store_parse_modifiers(struct imap_store_context *ctx,
 		}
 
 		if (strcasecmp(name, "UNCHANGEDSINCE") == 0) {
+			if (ctx->cmd->client->nonpermanent_modseqs) {
+				client_send_command_error(ctx->cmd,
+					"STORE UNCHANGEDSINCE can't be used with non-permanent modseqs");
+				return FALSE;
+			}
 			if (str_to_uint64(value, &ctx->max_modseq) < 0) {
 				client_send_command_error(ctx->cmd,
 							  "Invalid modseq");

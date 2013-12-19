@@ -804,6 +804,10 @@ static int fetch_modseq(struct imap_fetch_context *ctx, struct mail *mail,
 
 bool imap_fetch_modseq_init(struct imap_fetch_init_context *ctx)
 {
+	if (ctx->fetch_ctx->client->nonpermanent_modseqs) {
+		ctx->error = "FETCH MODSEQ can't be used with non-permanent modseqs";
+		return FALSE;
+	}
 	(void)client_enable(ctx->fetch_ctx->client, MAILBOX_FEATURE_CONDSTORE);
 	imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_BUFFERED,
 			       NULL, fetch_modseq, NULL);

@@ -111,6 +111,11 @@ fetch_parse_modifier(struct imap_fetch_context *ctx,
 	uint64_t modseq;
 
 	if (strcmp(name, "CHANGEDSINCE") == 0) {
+		if (cmd->client->nonpermanent_modseqs) {
+			client_send_command_error(cmd,
+				"FETCH CHANGEDSINCE can't be used with non-permanent modseqs");
+			return FALSE;
+		}
 		if (!imap_arg_get_atom(*args, &str) ||
 		    str_to_uint64(str, &modseq) < 0) {
 			client_send_command_error(cmd,
