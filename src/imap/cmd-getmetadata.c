@@ -98,8 +98,42 @@ imap_metadata_parse_entry_names(struct imap_getmetadata_context *ctx,
 	return TRUE;
 }
 
+static string_t *
+metadata_add_entry(struct imap_getmetadata_context *ctx, const char *entry)
+{
+	string_t *str;
+
+	str = t_str_new(64);
+	if (!ctx->first_entry_sent) {
+		ctx->first_entry_sent = TRUE;
+		str_append(str, "* METADATA ");
+		imap_append_astring(str, mailbox_get_vname(ctx->box));
+		str_append(str, " (");
+
+		/* nothing can be sent until untagged METADATA is finished */
+		ctx->cmd->client->output_cmd_lock = ctx->cmd;
+	} else {
+		str_append_c(str, ' ');
+	}
+	imap_append_astring(str, entry);
+	return str;
+}
+
+static void
+cmd_getmetadata_send_nil_reply(struct imap_getmetadata_context *ctx,
+			       const char *entry)
+{
+	string_t *str;
+
+	/* client requested a specific entry that didn't exist.
+	   we must return it as NIL. */
+	str = metadata_add_entry(ctx, entry);
+	str_append(str, " NIL");
+	o_stream_send(ctx->cmd->client->output, str_data(str), str_len(str));
+}
+
 static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
-				       const char *entry)
+				       const char *entry, bool require_reply)
 {
 	enum mail_attribute_type type;
 	struct mail_attribute_value value;
@@ -115,6 +149,8 @@ static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 		/* skip over dovecot's internal attributes. (if key_prefix
 		   isn't NULL, we're getting server metadata, which is handled
 		   inside the private metadata.) */
+		if (require_reply)
+			cmd_getmetadata_send_nil_reply(ctx, entry);
 		return;
 	}
 
@@ -139,6 +175,8 @@ static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 		}
 	} else {
 		/* skip nonexistent entries */
+		if (require_reply)
+			cmd_getmetadata_send_nil_reply(ctx, entry);
 		return;
 	}
 
@@ -152,19 +190,7 @@ static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 		return;
 	}
 
-	str = t_str_new(64);
-	if (!ctx->first_entry_sent) {
-		ctx->first_entry_sent = TRUE;
-		str_append(str, "* METADATA ");
-		imap_append_astring(str, mailbox_get_vname(ctx->box));
-		str_append(str, " (");
-
-		/* nothing can be sent until untagged METADATA is finished */
-		ctx->cmd->client->output_cmd_lock = ctx->cmd;
-	} else {
-		str_append_c(str, ' ');
-	}
-	imap_append_astring(str, entry);
+	str = metadata_add_entry(ctx, entry);
 	if (value.value != NULL) {
 		str_printfa(str, " {%"PRIuUOFF_T"}\r\n%s", value_len, value.value);
 		o_stream_send(ctx->cmd->client->output, str_data(str), str_len(str));
@@ -244,7 +270,7 @@ static int cmd_getmetadata_send_entry_tree(struct imap_getmetadata_context *ctx,
 		} while (ctx->depth == 1 && strchr(key, '/') != NULL);
 		entry = t_strconcat(str_c(ctx->iter_entry_prefix), key, NULL);
 	}
-	cmd_getmetadata_send_entry(ctx, entry);
+	cmd_getmetadata_send_entry(ctx, entry, ctx->iter == NULL);
 
 	if (ctx->cur_stream != NULL) {
 		if (!cmd_getmetadata_stream_continue(ctx))
