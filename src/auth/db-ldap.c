@@ -283,6 +283,7 @@ static int ldap_handle_error(struct ldap_connection *conn)
 #endif
 	case LDAP_LOCAL_ERROR:
 	case LDAP_INVALID_CREDENTIALS:
+	case LDAP_OPERATIONS_ERROR:
 	default:
 		/* connection problems */
 		ldap_conn_reconnect(conn);
