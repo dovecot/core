@@ -13,6 +13,7 @@ struct pop3c_settings {
 	bool pop3c_ssl_verify;
 
 	const char *pop3c_rawlog_dir;
+	bool pop3c_quick_received_date;
 };
 
 const struct setting_parser_info *pop3c_get_setting_parser_info(void);

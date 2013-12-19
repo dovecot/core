@@ -4,13 +4,21 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "index-mail.h"
+#include "pop3c-settings.h"
 #include "pop3c-client.h"
 #include "pop3c-sync.h"
 #include "pop3c-storage.h"
 
 static int pop3c_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
+	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)_mail->box;
 	int tz;
+
+	if (mbox->storage->set->pop3c_quick_received_date) {
+		/* we don't care about the date, just return the current date */
+		*date_r = ioloop_time;
+		return 0;
+	}
 
 	/* FIXME: we could also parse the first Received: header and get
 	   the date from there, but since this code is unlikely to be called
