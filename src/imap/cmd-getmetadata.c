@@ -344,18 +344,19 @@ bool cmd_getmetadata(struct client_command_context *cmd)
 	if (imap_arg_get_list(&args[0], &options)) {
 		if (!cmd_getmetadata_parse_options(ctx, options))
 			return TRUE;
+		args++;
 	}
-	if (!imap_arg_get_astring(&args[1], &mailbox)) {
+	if (!imap_arg_get_astring(&args[0], &mailbox)) {
 		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
-	if (!imap_arg_get_list(&args[2], &entries)) {
-		if (!imap_arg_get_astring(&args[2], &entry_name) ||
-		    !IMAP_ARG_IS_EOL(&args[3])) {
+	if (!imap_arg_get_list(&args[1], &entries)) {
+		if (!imap_arg_get_astring(&args[1], &entry_name) ||
+		    !IMAP_ARG_IS_EOL(&args[2])) {
 			client_send_command_error(cmd, "Invalid arguments.");
 			return TRUE;
 		}
-		entries = args+2;
+		entries = args+1;
 	}
 	if (!imap_metadata_parse_entry_names(ctx, entries))
 		return TRUE;
