@@ -358,7 +358,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	}
 
 	if (ctx->qresync_uid_validity == status.uidvalidity &&
-	    status.uidvalidity != 0) {
+	    status.uidvalidity != 0 && !client->nonpermanent_modseqs) {
 		if ((ret = select_qresync(ctx)) < 0) {
 			client_send_box_error(ctx->cmd, ctx->box);
 			return -1;
