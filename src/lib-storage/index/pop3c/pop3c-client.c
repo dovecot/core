@@ -762,6 +762,7 @@ int pop3c_client_cmd_stream(struct pop3c_client *client, const char *cmd,
 	client->dot_input =
 		i_stream_create_seekable(inputs, POP3C_MAX_INBUF_SIZE,
 					 seekable_fd_callback, client);
+	i_stream_unref(&inputs[0]);
 
 	i_assert(client->io == NULL);
 	client->io = io_add(client->fd, IO_READ,

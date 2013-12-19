@@ -185,7 +185,8 @@ static void pop3c_mailbox_close(struct mailbox *box)
 
 	if (mbox->uidl_pool != NULL)
 		pool_unref(&mbox->uidl_pool);
-	i_free(mbox->msg_sizes);
+	i_free_and_null(mbox->msg_uids);
+	i_free_and_null(mbox->msg_sizes);
 	pop3c_client_deinit(&mbox->client);
 	index_storage_mailbox_close(box);
 }
