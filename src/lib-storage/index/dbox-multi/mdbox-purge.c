@@ -383,6 +383,11 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file,
 			"(%"PRIuUOFF_T" < %"PRIuUOFF_T")", offset, st.st_size);
 		ret = 0;
 	}
+	if (ret > 0 && ctx->append_ctx != NULL) {
+		/* flush writes before locking the map */
+		if (mdbox_map_append_flush(ctx->append_ctx) < 0)
+			ret = -1;
+	}
 
 	if (ret <= 0)
 		ret = -1;
