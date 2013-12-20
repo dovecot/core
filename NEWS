@@ -1,3 +1,34 @@
+v2.2.10 2013-11-25  Timo Sirainen <tss@iki.fi>
+
+	+ auth: passdb/userdb dict rewrite to support much more complex
+	  setups. See doc/example-config/dovecot-dict-auth.conf.ext.
+	  The old settings will continue to work.
+	+ auth: Added userdb result_success/failure/tempfail and skip
+	  settings, similar to passdb's. See
+	  http://wiki2.dovecot.org/UserDatabase
+	+ imap: Implemented SETQUOTA command for admin user when quota_set is
+	  configured. See http://master.wiki2.dovecot.org/Quota/Configuration
+	+ quota: Support "*" and "?" wildcards in mailbox names in quota_rules
+	+ mysql: Added ssl_verify_server_cert=no|yes parameter. This currently
+	  defaults to "no" to make sure nothing breaks, but likely will become
+	  "yes" in Dovecot v2.3.
+	+ ldap: Added blocking=yes setting to use auth worker processes for
+	  ldap lookups. This is a workaround for now to be able to use multiple
+	  simultaneous LDAP connections.
+	+ pop3c+dsync performance improvements
+	- quota-status: quota_grace was ignored
+	- ldap: Fixed memory leak with auth_bind=yes and without
+	  auth_bind_userdn.
+	- imap: Don't send HIGHESTMODSEQ anymore on SELECT/EXAMINE when
+	  CONDSTORE/QRESYNC has never before been enabled for the mailbox.
+	- imap: Fixes to handling mailboxes without permanent modseqs.
+	  (When [NOMODSEQ] is returned by SELECT, mainly with in-memory
+	  indexes.)
+	- imap: Various fixes to METADATA support.
+	- stats plugin: Processes that only temporarily dropped privileges
+	  (e.g. indexer-worker) may have been logging errors about not being
+	  able to open /proc/self/io.
+
 v2.2.9 2013-11-25  Timo Sirainen <tss@iki.fi>
 
 	+ Full text search indexing can now be done automatically after
