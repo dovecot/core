@@ -126,9 +126,30 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	return TRUE;
 }
 
+static bool
+parse_quota_root(struct mail_user *user, const char *root_name,
+		 struct mail_user **owner_r, struct quota_root **root_r)
+{
+	const char *p;
+
+	*owner_r = user;
+	*root_r = quota_root_lookup(user, root_name);
+	if (*root_r != NULL || !user->admin)
+		return *root_r != NULL;
+
+	/* we're an admin. see if there's a quota root for another user. */
+	p = strchr(root_name, QUOTA_USER_SEPARATOR);
+	if (p != NULL) {
+		*owner_r = mail_user_find(user, t_strdup_until(root_name, p));
+		*root_r = *owner_r == NULL ? NULL :
+			quota_root_lookup(*owner_r, p + 1);
+	}
+	return *root_r != NULL;
+}
+
 static bool cmd_getquota(struct client_command_context *cmd)
 {
-	struct mail_user *owner = cmd->client->user;
+	struct mail_user *owner;
         struct quota_root *root;
 	const char *root_name;
 	string_t *quota_reply;
@@ -137,19 +158,7 @@ static bool cmd_getquota(struct client_command_context *cmd)
 	if (!client_read_string_args(cmd, 1, &root_name))
 		return FALSE;
 
-	root = quota_root_lookup(cmd->client->user, root_name);
-	if (root == NULL && cmd->client->user->admin) {
-		/* we're an admin. see if there's a quota root for another
-		   user. */
-		const char *p = strchr(root_name, QUOTA_USER_SEPARATOR);
-		if (p != NULL) {
-			owner = mail_user_find(cmd->client->user,
-					       t_strdup_until(root_name, p));
-			root = owner == NULL ? NULL :
-				quota_root_lookup(owner, p + 1);
-		}
-	}
-	if (root == NULL) {
+	if (!parse_quota_root(cmd->client->user, root_name, &owner, &root)) {
 		client_send_tagline(cmd, "NO Quota root doesn't exist.");
 		return TRUE;
 	}
@@ -166,6 +175,7 @@ static bool cmd_getquota(struct client_command_context *cmd)
 static bool cmd_setquota(struct client_command_context *cmd)
 {
 	struct quota_root *root;
+	struct mail_user *owner;
         const struct imap_arg *args, *list_args;
 	const char *root_name, *name, *value_str, *error;
 	uint64_t value;
@@ -180,14 +190,13 @@ static bool cmd_setquota(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	root = quota_root_lookup(cmd->client->user, root_name);
-	if (root == NULL) {
-		client_send_tagline(cmd, "NO Quota root doesn't exist.");
+	if (!cmd->client->user->admin) {
+		client_send_tagline(cmd, "NO Quota can be changed only by admin.");
 		return TRUE;
 	}
 
-	if (!cmd->client->user->admin) {
-		client_send_tagline(cmd, "NO Quota can be changed only by admin.");
+	if (!parse_quota_root(cmd->client->user, root_name, &owner, &root)) {
+		client_send_tagline(cmd, "NO Quota root doesn't exist.");
 		return TRUE;
 	}
 
