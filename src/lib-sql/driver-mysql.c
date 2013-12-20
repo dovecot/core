@@ -107,7 +107,7 @@ static int driver_mysql_connect(struct sql_db *_db)
 			     );
 #ifdef HAVE_MYSQL_SSL_VERIFY_SERVER_CERT
 		mysql_options(db->mysql, MYSQL_OPT_SSL_VERIFY_SERVER_CERT,
-			      &db->ssl_verify_server_cert);
+			      (void *)&db->ssl_verify_server_cert);
 #endif
 		db->ssl_set = TRUE;
 #else
