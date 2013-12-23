@@ -107,6 +107,8 @@ static void client_auth_parse_args(struct client *client,
 			reply_r->proxy_refresh_secs = atoi(value);
 		else if (strcmp(key, "proxy_mech") == 0)
 			reply_r->proxy_mech = value;
+		else if (strcmp(key, "proxy_nopipelining") == 0)
+			reply_r->proxy_nopipelining = TRUE;
 		else if (strcmp(key, "master") == 0)
 			reply_r->master_user = value;
 		else if (strcmp(key, "ssl") == 0) {
@@ -350,6 +352,7 @@ static int proxy_start(struct client *client,
 	client->proxy_user = i_strdup(reply->destuser);
 	client->proxy_master_user = i_strdup(reply->master_user);
 	client->proxy_password = i_strdup(reply->password);
+	client->proxy_nopipelining = reply->proxy_nopipelining;
 
 	/* disable input until authentication is finished */
 	if (client->io != NULL)

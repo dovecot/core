@@ -63,8 +63,13 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 	unsigned int len;
 	const char *mech_name, *error;
 
-	if (client->proxy_backend_capability == NULL)
+	if (client->proxy_backend_capability == NULL) {
 		str_append(str, "C CAPABILITY\r\n");
+		if (client->common.proxy_nopipelining) {
+			/* authenticate only after receiving C OK reply. */
+			return 0;
+		}
+	}
 
 	if (client->common.proxy_mech == NULL) {
 		/* logging in normally - use LOGIN command */
@@ -269,6 +274,14 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			client_proxy_failed(client, TRUE);
 			return -1;
 		}
+		o_stream_nsend(output, str_data(str), str_len(str));
+		return 1;
+	} else if (strncmp(line, "C OK ", 5) == 0 &&
+		   client->proxy_password != NULL) {
+		/* pipelining was disabled, send the login now. */
+		str = t_str_new(128);
+		if (proxy_write_login(imap_client, str) < 0)
+			return -1;
 		o_stream_nsend(output, str_data(str), str_len(str));
 		return 1;
 	} else if (strncmp(line, "L OK ", 5) == 0) {
