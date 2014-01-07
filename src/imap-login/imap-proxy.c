@@ -276,14 +276,6 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		}
 		o_stream_nsend(output, str_data(str), str_len(str));
 		return 1;
-	} else if (strncmp(line, "C OK ", 5) == 0 &&
-		   client->proxy_password != NULL) {
-		/* pipelining was disabled, send the login now. */
-		str = t_str_new(128);
-		if (proxy_write_login(imap_client, str) < 0)
-			return -1;
-		o_stream_nsend(output, str_data(str), str_len(str));
-		return 1;
 	} else if (strncmp(line, "L OK ", 5) == 0) {
 		/* Login successful. Send this line to client. */
 		client->proxy_state = IMAP_PROXY_STATE_LOGIN;
@@ -339,8 +331,17 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		imap_client->proxy_backend_capability = i_strdup(line + 13);
 		return 0;
 	} else if (strncmp(line, "C ", 2) == 0) {
-		/* Reply to CAPABILITY command we sent, ignore it */
+		/* Reply to CAPABILITY command we sent */
 		client->proxy_state = IMAP_PROXY_STATE_CAPABILITY;
+		if (strncmp(line, "C OK ", 5) == 0 &&
+		    client->proxy_password != NULL) {
+			/* pipelining was disabled, send the login now. */
+			str = t_str_new(128);
+			if (proxy_write_login(imap_client, str) < 0)
+				return -1;
+			o_stream_nsend(output, str_data(str), str_len(str));
+			return 1;
+		}
 		return 0;
 	} else if (strncasecmp(line, "I ", 2) == 0 ||
 		   strncasecmp(line, "* ID ", 5) == 0) {
