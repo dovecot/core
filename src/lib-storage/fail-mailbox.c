@@ -88,6 +88,16 @@ static int fail_mailbox_get_status(struct mailbox *box ATTR_UNUSED,
 	return -1;
 }
 
+static int
+fail_mailbox_get_metadata(struct mailbox *box,
+			  enum mailbox_metadata_items items ATTR_UNUSED,
+			  struct mailbox_metadata *metadata_r ATTR_UNUSED)
+{
+	mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+			       T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
+	return -1;
+}
+
 static int fail_mailbox_set_subscribed(struct mailbox *box,
 				       bool set ATTR_UNUSED)
 {
@@ -257,7 +267,7 @@ struct mailbox fail_mailbox = {
 		fail_mailbox_delete,
 		fail_mailbox_rename,
 		fail_mailbox_get_status,
-		NULL,
+		fail_mailbox_get_metadata,
 		fail_mailbox_set_subscribed,
 		NULL,
 		NULL,
