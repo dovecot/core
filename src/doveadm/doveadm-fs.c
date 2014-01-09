@@ -9,6 +9,7 @@
 #include "doveadm.h"
 
 #include <stdio.h>
+#include <unistd.h>
 
 static void fs_cmd_help(doveadm_command_t *cmd);
 static void cmd_fs_delete(int argc, char *argv[]);
@@ -181,56 +182,123 @@ static void cmd_fs_metadata(int argc, char *argv[])
 	fs_deinit(&fs);
 }
 
-static void cmd_fs_delete_dir_recursive(struct fs *fs, const char *path)
+struct fs_delete_ctx {
+	unsigned int files_count;
+	struct fs_file **files;
+};
+
+static bool cmd_fs_delete_ctx_run(struct fs_delete_ctx *ctx)
+{
+	unsigned int i;
+	bool ret = FALSE;
+
+	for (i = 0; i < ctx->files_count; i++) {
+		if (ctx->files[i] == NULL)
+			;
+		else if (fs_delete(ctx->files[i]) == 0)
+			fs_file_deinit(&ctx->files[i]);
+		else if (errno == EAGAIN)
+			ret = TRUE;
+		else {
+			i_error("fs_delete(%s) failed: %s",
+				fs_file_path(ctx->files[i]),
+				fs_file_last_error(ctx->files[i]));
+			doveadm_exit_code = EX_TEMPFAIL;
+		}
+	}
+	return ret;
+}
+
+static void
+cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
+			    const char *path)
 {
 	struct fs_iter *iter;
-	struct fs_file *file;
-	ARRAY_TYPE(const_string) dirs;
+	ARRAY_TYPE(const_string) fnames;
+	struct fs_delete_ctx ctx;
 	const char *fname, *const *fnamep;
+	unsigned int i;
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.files_count = I_MAX(async_count, 1);
+	ctx.files = t_new(struct fs_file *, ctx.files_count);
 
 	/* delete subdirs first. all fs backends can't handle recursive
 	   lookups, so save the list first. */
-	t_array_init(&dirs, 8);
+	t_array_init(&fnames, 8);
 	iter = fs_iter_init(fs, path, FS_ITER_FLAG_DIRS);
 	while ((fname = fs_iter_next(iter)) != NULL) {
 		fname = t_strdup(fname);
-		array_append(&dirs, &fname, 1);
+		array_append(&fnames, &fname, 1);
 	}
 	if (fs_iter_deinit(&iter) < 0) {
 		i_error("fs_iter_deinit(%s) failed: %s",
 			path, fs_last_error(fs));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
-	array_foreach(&dirs, fnamep) T_BEGIN {
-		cmd_fs_delete_dir_recursive(fs,
+	array_foreach(&fnames, fnamep) T_BEGIN {
+		cmd_fs_delete_dir_recursive(fs, async_count,
 			t_strdup_printf("%s/%s", path, *fnamep));
 	} T_END;
 
-	/* delete files */
+	/* delete files. again because we're doing this asynchronously finish
+	   the iteration first. */
+	array_clear(&fnames);
 	iter = fs_iter_init(fs, path, 0);
-	while ((fname = fs_iter_next(iter)) != NULL) T_BEGIN {
-		file = fs_file_init(fs, t_strdup_printf("%s/%s", path, fname),
-				    FS_OPEN_MODE_READONLY);
-		if (fs_delete(file) < 0) {
-			i_error("fs_delete(%s) failed: %s",
-				fs_file_path(file), fs_file_last_error(file));
-			doveadm_exit_code = EX_TEMPFAIL;
-		}
-		fs_file_deinit(&file);
-	} T_END;
+	while ((fname = fs_iter_next(iter)) != NULL) {
+		fname = t_strdup(fname);
+		array_append(&fnames, &fname, 1);
+	}
 	if (fs_iter_deinit(&iter) < 0) {
 		i_error("fs_iter_deinit(%s) failed: %s",
 			path, fs_last_error(fs));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
+
+	array_foreach(&fnames, fnamep) T_BEGIN {
+		fname = *fnamep;
+	retry:
+		for (i = 0; i < ctx.files_count; i++) {
+			if (ctx.files[i] != NULL)
+				continue;
+
+			ctx.files[i] = fs_file_init(fs,
+				t_strdup_printf("%s/%s", path, fname),
+				FS_OPEN_MODE_READONLY | FS_OPEN_FLAG_ASYNC |
+				FS_OPEN_FLAG_ASYNC_NOQUEUE);
+			fname = NULL;
+			break;
+		}
+		cmd_fs_delete_ctx_run(&ctx);
+		if (fname != NULL) {
+			if (fs_wait_async(fs) < 0) {
+				i_error("fs_wait_async() failed: %s", fs_last_error(fs));
+				doveadm_exit_code = EX_TEMPFAIL;
+				break;
+			}
+			goto retry;
+		}
+	} T_END;
+	while (doveadm_exit_code == 0 && cmd_fs_delete_ctx_run(&ctx)) {
+		if (fs_wait_async(fs) < 0) {
+			i_error("fs_wait_async() failed: %s", fs_last_error(fs));
+			doveadm_exit_code = EX_TEMPFAIL;
+			break;
+		}
+	}
+	for (i = 0; i < ctx.files_count; i++) {
+		if (ctx.files[i] != NULL)
+			fs_file_deinit(&ctx.files[i]);
+	}
 }
 
-static void cmd_fs_delete_recursive(int argc, char *argv[])
+static void
+cmd_fs_delete_recursive(int argc, char *argv[], unsigned int async_count)
 {
 	struct fs *fs;
 
 	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_delete);
-	cmd_fs_delete_dir_recursive(fs, argv[0]);
+	cmd_fs_delete_dir_recursive(fs, async_count, argv[0]);
 	fs_deinit(&fs);
 }
 
@@ -238,9 +306,27 @@ static void cmd_fs_delete(int argc, char *argv[])
 {
 	struct fs *fs;
 	struct fs_file *file;
+	bool recursive = FALSE;
+	unsigned int async_count = 0;
+	int c;
 
-	if (null_strcmp(argv[1], "-R") == 0) {
-		cmd_fs_delete_recursive(argc-1, argv+1);
+	while ((c = getopt(argc, argv, "Rn:")) > 0) {
+		switch (c) {
+		case 'R':
+			recursive = TRUE;
+			break;
+		case 'n':
+			if (str_to_uint(optarg, &async_count) < 0)
+				i_fatal("Invalid -n parameter: %s", optarg);
+			break;
+		default:
+			fs_cmd_help(cmd_fs_delete);
+		}
+	}
+	argc -= optind; argv += optind;
+
+	if (recursive) {
+		cmd_fs_delete_recursive(argc+1, argv-1, async_count);
 		return;
 	}
 
