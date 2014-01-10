@@ -37,16 +37,19 @@ struct http_header_parser {
 	buffer_t *value_buf;
 
 	enum http_header_parse_state state;
+
+	unsigned int lenient:1;
 };
 
 struct http_header_parser *
 http_header_parser_init(struct istream *input,
-	const struct http_header_limits *limits)
+	const struct http_header_limits *limits, bool lenient)
 {
 	struct http_header_parser *parser;
 
 	parser = i_new(struct http_header_parser, 1);
 	parser->input = input;
+	parser->lenient = lenient;
 	parser->name = str_new(default_pool, 128);
 	parser->value_buf = buffer_create_dynamic(default_pool, 4096);
 
@@ -116,14 +119,27 @@ static int http_header_parse_ows(struct http_header_parser *parser)
 
 static int http_header_parse_content(struct http_header_parser *parser)
 {
-	const unsigned char *first = parser->cur;
+	const unsigned char *first;
 
 	/* field-content  = *( HTAB / SP / VCHAR / obs-text )
 	 */
-	while (parser->cur < parser->end && http_char_is_text(*parser->cur))
-		parser->cur++;
+	do {
+		first = parser->cur;
+		while (parser->cur < parser->end && http_char_is_text(*parser->cur)) {
+			parser->cur++;
+		}
+		buffer_append(parser->value_buf, first, parser->cur-first);
 
-	buffer_append(parser->value_buf, first, parser->cur-first);
+		if (!parser->lenient)
+			break;
+
+		/* We'll be lenient here to accommodate for some bad servers. We just
+		   drop offending characters */
+		while (parser->cur < parser->end && !http_char_is_text(*parser->cur) &&
+			(*parser->cur != '\r' && *parser->cur != '\n'))
+			parser->cur++;
+	} while (parser->cur < parser->end &&
+		(*parser->cur != '\r' && *parser->cur != '\n'));
 
 	if (parser->cur == parser->end)
 		return 0;

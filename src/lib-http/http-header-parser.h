@@ -6,7 +6,7 @@ struct http_header_parser;
 
 struct http_header_parser *
 http_header_parser_init(struct istream *input,
-	const struct http_header_limits *limits);
+	const struct http_header_limits *limits, bool lenient);
 void http_header_parser_deinit(struct http_header_parser **_parser);
 
 void http_header_parser_reset(struct http_header_parser *parser);

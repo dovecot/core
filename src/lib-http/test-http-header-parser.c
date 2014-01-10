@@ -1,6 +1,7 @@
 /* Copyright (c) 2013 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
+#include "str-sanitize.h"
 #include "istream.h"
 #include "test-common.h"
 #include "http-response.h"
@@ -83,6 +84,16 @@ static struct http_header_parse_result valid_header_parse_result5[] = {
 	{ NULL, NULL }
 };
 
+static struct http_header_parse_result valid_header_parse_result6[] = {
+	{ "X-Frop", "This text\x80 contains obs-text\x81 characters" },
+	{ NULL, NULL }
+};
+
+static struct http_header_parse_result valid_header_parse_result7[] = {
+	{ "X-Frop", "This text contains invalid characters" },
+	{ NULL, NULL }
+};
+
 static const struct http_header_parse_test valid_header_parse_tests[] = {
 	{ .header = 
 			"Date: Sat, 06 Oct 2012 16:01:44 GMT\r\n"
@@ -150,6 +161,16 @@ static const struct http_header_parse_test valid_header_parse_tests[] = {
 		.header =
 			"\r\n",
 		.fields = valid_header_parse_result5
+	},{
+		.header =
+			"X-Frop: This text\x80 contains obs-text\x81 characters\r\n"
+			"\r\n",
+		.fields = valid_header_parse_result6
+	},{
+		.header =
+			"X-Frop: This text\x01 contains invalid\x7f characters\r\n"
+			"\r\n",
+		.fields = valid_header_parse_result7
 	}
 };
 
@@ -173,7 +194,7 @@ static void test_http_header_parse_valid(void)
 		header_len = strlen(header);
 		limits = &valid_header_parse_tests[i].limits;
 		input = test_istream_create_data(header, header_len);
-		parser = http_header_parser_init(input, limits);
+		parser = http_header_parser_init(input, limits, TRUE);
 
 		test_begin(t_strdup_printf("http header valid [%d]", i));
 
@@ -196,15 +217,16 @@ static void test_http_header_parse_valid(void)
 			field_value = t_strndup(field_data, field_size);
 
 			if (result->name == NULL) {
-				test_out_reason("valid", FALSE,
-					t_strdup_printf("%s: %s", field_name, field_value));
+				test_out_reason("valid", FALSE,	t_strdup_printf
+					("%s: %s", field_name, str_sanitize(field_value, 100)));
 				break;
 			}
 
 			test_out_reason("valid",
 				strcmp(result->name, field_name) == 0 &&
-				strcmp(result->value, field_value) == 0,
-				t_strdup_printf("%s: %s", field_name, field_value));
+					strcmp(result->value, field_value) == 0,
+				t_strdup_printf("%s: %s", field_name,
+					str_sanitize(field_value, 100)));
 			j++;
 		}
 
@@ -238,8 +260,13 @@ static const struct http_header_parse_test invalid_header_parse_tests[] = {
 		.header = 
 			"Host: p5-lrqzb4yavu4l7nagydw-428649-i2-v6exp3-ds.metric.example.com\n"
 			"User-Agent:Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0)\n"
-			"Accept:\t\timage/png,image/*;q=0.8,*/\177;q=0.5\n"
+			"Accept:\t\timage/png,image/*;q=0.8,*/\1;q=0.5\n"
 			"\n"
+	},{
+		.header = 
+			"Date: Sat, 06 Oct 2012 17:18:22 GMT\r\n"
+			"Server: Apache/2.2.3\177 (CentOS)\r\n"
+			"\r\n"
 	},{
 		.header = 
 			"Date: Sat, 06 Oct 2012 17:12:37 GMT\r\n"
@@ -247,6 +274,9 @@ static const struct http_header_parse_test invalid_header_parse_tests[] = {
 			"Suhosin-Patch proxy_html/3.0.1 mod_python/3.3.1 Python/2.6.6\r\n"
 			"mod_ssl/2.2.16 OpenSSL/0.9.8o mod_perl/2.0.4 Perl/v5.10.1\r\n"
 			"\r\n"
+	},{
+		.header = 
+			"Date: Sat, 06 Oct 2012 17:12:37 GMT\r\n"
 	},{
 		.header = 
 			"Age: 58        \r\n"
@@ -318,7 +348,7 @@ static void test_http_header_parse_invalid(void)
 		header = invalid_header_parse_tests[i].header;
 		limits = &invalid_header_parse_tests[i].limits;
 		input = i_stream_create_from_data(header, strlen(header));
-		parser = http_header_parser_init(input, limits);
+		parser = http_header_parser_init(input, limits, FALSE);
 
 		test_begin(t_strdup_printf("http header invalid [%d]", i));
 
