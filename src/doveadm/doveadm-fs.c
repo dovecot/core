@@ -323,10 +323,10 @@ static void cmd_fs_delete(int argc, char *argv[])
 			fs_cmd_help(cmd_fs_delete);
 		}
 	}
-	argc -= optind; argv += optind;
+	argc -= optind-1; argv += optind-1;
 
 	if (recursive) {
-		cmd_fs_delete_recursive(argc+1, argv-1, async_count);
+		cmd_fs_delete_recursive(argc, argv, async_count);
 		return;
 	}
 
