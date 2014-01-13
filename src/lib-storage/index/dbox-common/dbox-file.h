@@ -121,7 +121,6 @@ struct dbox_file {
 	uoff_t metadata_read_offset;
 
 	unsigned int appending:1;
-	unsigned int deleted:1;
 	unsigned int corrupted:1;
 };
 
