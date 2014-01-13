@@ -188,6 +188,24 @@ static off_t o_stream_temp_send_istream(struct ostream_private *_outstream,
 			      instream, IO_BLOCK_SIZE);
 }
 
+static int
+o_stream_temp_write_at(struct ostream_private *stream,
+		       const void *data, size_t size, uoff_t offset)
+{
+	struct temp_ostream *tstream = (struct temp_ostream *)stream;
+
+	if (tstream->fd == -1) {
+		i_assert(stream->ostream.offset == tstream->buf->used);
+		buffer_write(tstream->buf, offset, data, size);
+		stream->ostream.offset = tstream->buf->used;
+	} else if (pwrite_full(tstream->fd, data, size, offset) < 0) {
+		stream->ostream.stream_errno = errno;
+		i_close_fd(&tstream->fd);
+		return -1;
+	}
+	return 0;
+}
+
 struct ostream *iostream_temp_create(const char *temp_path_prefix,
 				     enum iostream_temp_flags flags)
 {
@@ -197,6 +215,7 @@ struct ostream *iostream_temp_create(const char *temp_path_prefix,
 	tstream = i_new(struct temp_ostream, 1);
 	tstream->ostream.sendv = o_stream_temp_sendv;
 	tstream->ostream.send_istream = o_stream_temp_send_istream;
+	tstream->ostream.write_at = o_stream_temp_write_at;
 	tstream->ostream.iostream.close = o_stream_temp_close;
 	tstream->temp_path_prefix = i_strdup(temp_path_prefix);
 	tstream->flags = flags;
