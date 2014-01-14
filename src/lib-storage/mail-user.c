@@ -207,6 +207,9 @@ mail_user_var_expand_table(struct mail_user *user)
 		{ 'p', NULL, "pid" },
 		{ 'i', NULL, "uid" },
 		{ '\0', NULL, "gid" },
+		{ '\0', NULL, "auth_user" },
+		{ '\0', NULL, "auth_username" },
+		{ '\0', NULL, "auth_domain" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -232,6 +235,15 @@ mail_user_var_expand_table(struct mail_user *user)
 	tab[7].value = my_pid;
 	tab[8].value = p_strdup(user->pool, dec2str(user->uid));
 	tab[9].value = p_strdup(user->pool, dec2str(user->gid));
+	if (user->auth_user == NULL) {
+		tab[10].value = tab[0].value;
+		tab[11].value = tab[1].value;
+		tab[12].value = tab[2].value;
+	} else {
+		tab[10].value = user->auth_user;
+		tab[11].value = t_strcut(user->auth_user, '@');
+		tab[12].value = strchr(user->auth_user, '@');
+	}
 
 	user->var_expand_table = tab;
 	return user->var_expand_table;

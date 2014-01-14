@@ -142,7 +142,7 @@ struct client {
 	unsigned int auth_attempts, auth_successes;
 	pid_t mail_pid;
 
-	char *virtual_user, *virtual_user_orig;
+	char *virtual_user, *virtual_user_orig, *virtual_auth_user;
 	unsigned int destroyed:1;
 	unsigned int input_blocked:1;
 	unsigned int login_success:1;

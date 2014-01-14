@@ -273,6 +273,7 @@ bool client_unref(struct client **_client)
 	i_free(client->proxy_master_user);
 	i_free(client->virtual_user);
 	i_free(client->virtual_user_orig);
+	i_free(client->virtual_auth_user);
 	i_free(client->auth_mech_name);
 	i_free(client->master_data_prefix);
 	pool_unref(&client->pool);
@@ -474,28 +475,37 @@ static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ '\0', NULL, "orig_user" },
 	{ '\0', NULL, "orig_username" },
 	{ '\0', NULL, "orig_domain" },
+	{ '\0', NULL, "auth_user" },
+	{ '\0', NULL, "auth_username" },
+	{ '\0', NULL, "auth_domain" },
 	{ '\0', NULL, NULL }
 };
+
+static void
+get_var_expand_users(struct var_expand_table *tab, const char *user)
+{
+	unsigned int i;
+
+	tab[0].value = user;
+	tab[1].value = t_strcut(user, '@');
+	tab[2].value = strchr(user, '@');
+	if (tab[2].value != NULL) tab[2].value++;
+
+	for (i = 0; i < 3; i++)
+		tab[i].value = str_sanitize(tab[i].value, 80);
+}
 
 static const struct var_expand_table *
 get_var_expand_table(struct client *client)
 {
 	struct var_expand_table *tab;
-	unsigned int i;
 
 	tab = t_malloc(sizeof(login_var_expand_empty_tab));
 	memcpy(tab, login_var_expand_empty_tab,
 	       sizeof(login_var_expand_empty_tab));
 
-	if (client->virtual_user != NULL) {
-		tab[0].value = client->virtual_user;
-		tab[1].value = t_strcut(client->virtual_user, '@');
-		tab[2].value = strchr(client->virtual_user, '@');
-		if (tab[2].value != NULL) tab[2].value++;
-
-		for (i = 0; i < 3; i++)
-			tab[i].value = str_sanitize(tab[i].value, 80);
-	}
+	if (client->virtual_user != NULL)
+		get_var_expand_users(tab, client->virtual_user);
 	tab[3].value = login_binary->protocol;
 	tab[4].value = getenv("HOME");
 	tab[5].value = net_ip2addr(&client->local_ip);
@@ -527,18 +537,19 @@ get_var_expand_table(struct client *client)
 	tab[16].value = net_ip2addr(&client->real_remote_ip);
 	tab[17].value = dec2str(client->real_local_port);
 	tab[18].value = dec2str(client->real_remote_port);
-	if (client->virtual_user_orig == NULL) {
+	if (client->virtual_user_orig != NULL)
+		get_var_expand_users(tab+19, client->virtual_user_orig);
+	else {
 		tab[19].value = tab[0].value;
 		tab[20].value = tab[1].value;
 		tab[21].value = tab[2].value;
-	} else {
-		tab[19].value = client->virtual_user_orig;
-		tab[20].value = t_strcut(client->virtual_user_orig, '@');
-		tab[21].value = strchr(client->virtual_user_orig, '@');
-		if (tab[21].value != NULL) tab[21].value++;
-
-		for (i = 0; i < 3; i++)
-			tab[i].value = str_sanitize(tab[i].value, 80);
+	}
+	if (client->virtual_auth_user != NULL)
+		get_var_expand_users(tab+22, client->virtual_auth_user);
+	else {
+		tab[22].value = tab[0].value;
+		tab[23].value = tab[1].value;
+		tab[24].value = tab[2].value;
 	}
 	return tab;
 }

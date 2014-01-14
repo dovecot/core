@@ -75,7 +75,7 @@ struct mail_storage_service_user {
 	enum mail_storage_service_flags flags;
 
 	struct ioloop_context *ioloop_ctx;
-	const char *log_prefix, *auth_token;
+	const char *log_prefix, *auth_token, *auth_user;
 
 	const char *system_groups_user, *uid_source, *gid_source;
 	const struct mail_user_settings *user_set;
@@ -278,6 +278,8 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 #endif
 		} else if (strncmp(line, "auth_token=", 11) == 0) {
 			user->auth_token = p_strdup(user->pool, line+11);
+		} else if (strncmp(line, "auth_user=", 10) == 0) {
+			user->auth_user = p_strdup(user->pool, line+10);
 		} else if (strncmp(line, "admin=", 6) == 0) {
 			user->admin = line[6] == 'y' || line[6] == 'Y' ||
 				line[6] == '1';
@@ -376,6 +378,7 @@ static bool parse_gid(const char *str, gid_t *gid_r, const char **error_r)
 
 static const struct var_expand_table *
 get_var_expand_table(struct master_service *service,
+		     struct mail_storage_service_user *user,
 		     struct mail_storage_service_input *input,
 		     struct mail_storage_service_privileges *priv)
 {
@@ -390,6 +393,9 @@ get_var_expand_table(struct master_service *service,
 		{ 'i', NULL, "uid" },
 		{ '\0', NULL, "gid" },
 		{ '\0', NULL, "session" },
+		{ '\0', NULL, "auth_user" },
+		{ '\0', NULL, "auth_username" },
+		{ '\0', NULL, "auth_domain" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -408,6 +414,15 @@ get_var_expand_table(struct master_service *service,
 	tab[7].value = dec2str(priv->uid == (uid_t)-1 ? geteuid() : priv->uid);
 	tab[8].value = dec2str(priv->gid == (gid_t)-1 ? getegid() : priv->gid);
 	tab[9].value = input->session_id;
+	if (user == NULL || user->auth_user == NULL) {
+		tab[10].value = tab[0].value;
+		tab[11].value = tab[1].value;
+		tab[12].value = tab[2].value;
+	} else {
+		tab[10].value = user->auth_user;
+		tab[11].value = t_strcut(user->auth_user, '@');
+		tab[12].value = strchr(user->auth_user, '@');
+	}
 	return tab;
 }
 
@@ -420,12 +435,12 @@ mail_storage_service_get_var_expand_table(struct mail_storage_service_ctx *ctx,
 	memset(&priv, 0, sizeof(priv));
 	priv.uid = (uid_t)-1;
 	priv.gid = (gid_t)-1;
-	return get_var_expand_table(ctx->service, input, &priv);
+	return get_var_expand_table(ctx->service, NULL, input, &priv);
 }
 
 static const char *
 user_expand_varstr(struct master_service *service,
-		   struct mail_storage_service_input *input,
+		   struct mail_storage_service_user *user,
 		   struct mail_storage_service_privileges *priv,
 		   const char *str)
 {
@@ -437,7 +452,8 @@ user_expand_varstr(struct master_service *service,
 	i_assert(*str == SETTING_STRVAR_UNEXPANDED[0]);
 
 	ret = t_str_new(256);
-	var_expand(ret, str + 1, get_var_expand_table(service, input, priv));
+	var_expand(ret, str + 1,
+		   get_var_expand_table(service, user, &user->input, priv));
 	return str_c(ret);
 }
 
@@ -492,9 +508,9 @@ service_parse_privileges(struct mail_storage_service_ctx *ctx,
 
 	/* variable strings are expanded in mail_user_init(),
 	   but we need the home and chroot sooner so do them separately here. */
-	priv_r->home = user_expand_varstr(ctx->service, &user->input, priv_r,
+	priv_r->home = user_expand_varstr(ctx->service, user, priv_r,
 					  user->user_set->mail_home);
-	priv_r->chroot = user_expand_varstr(ctx->service, &user->input, priv_r,
+	priv_r->chroot = user_expand_varstr(ctx->service, user, priv_r,
 					    user->user_set->mail_chroot);
 	return 0;
 }
@@ -627,6 +643,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_user->anonymous = user->anonymous;
 	mail_user->admin = user->admin;
 	mail_user->auth_token = p_strdup(mail_user->pool, user->auth_token);
+	mail_user->auth_user = p_strdup(mail_user->pool, user->auth_user);
 	
 	mail_set = mail_user_set_get_storage_set(mail_user);
 
@@ -699,7 +716,7 @@ mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 
 		str = t_str_new(256);
 		var_expand(str, user->user_set->mail_log_prefix,
-			   get_var_expand_table(ctx->service, &user->input, priv));
+			   get_var_expand_table(ctx->service, user, &user->input, priv));
 		user->log_prefix = p_strdup(user->pool, str_c(str));
 	} T_END;
 

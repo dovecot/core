@@ -177,6 +177,8 @@ auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 		auth_str_add_keyvalue(dest, "original_user",
 				      request->original_username);
 	}
+	if (request->master_user != NULL)
+		auth_str_add_keyvalue(dest, "auth_user", request->master_user);
 
 	if (!request->auth_only &&
 	    auth_fields_exists(request->extra_fields, "proxy")) {
@@ -621,6 +623,44 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	return TRUE;
 }
 
+static void auth_str_append_userdb_extra_fields(struct auth_request *request,
+						string_t *dest)
+{
+	str_append_c(dest, '\t');
+	auth_fields_append(request->userdb_reply, dest,
+			   AUTH_FIELD_FLAG_HIDDEN, 0);
+
+	if (request->master_user != NULL &&
+	    !auth_fields_exists(request->userdb_reply, "master_user")) {
+		auth_str_add_keyvalue(dest, "master_user",
+				      request->master_user);
+	}
+	if (*request->set->anonymous_username != '\0' &&
+	    strcmp(request->user, request->set->anonymous_username) == 0) {
+		/* this is an anonymous login, either via ANONYMOUS
+		   SASL mechanism or simply logging in as the anonymous
+		   user via another mechanism */
+		str_append(dest, "\tanonymous");
+	}
+	/* generate auth_token when master service provided session_pid */
+	if (request->request_auth_token &&
+	    request->session_pid != (pid_t)-1) {
+		const char *auth_token =
+			auth_token_get(request->service,
+				       dec2str(request->session_pid),
+				       request->user,
+				       request->session_id);
+		auth_str_add_keyvalue(dest, "auth_token", auth_token);
+	}
+	if (request->master_user != NULL) {
+		auth_str_add_keyvalue(dest, "auth_user", request->master_user);
+	} else if (request->original_username != NULL &&
+		   strcmp(request->original_username, request->user) != 0) {
+		auth_str_add_keyvalue(dest, "auth_user",
+				      request->original_username);
+	}
+}
+
 static void userdb_callback(enum userdb_result result,
 			    struct auth_request *request)
 {
@@ -651,33 +691,7 @@ static void userdb_callback(enum userdb_result result,
 	case USERDB_RESULT_OK:
 		str_printfa(str, "USER\t%u\t", request->id);
 		str_append_tabescaped(str, request->user);
-		str_append_c(str, '\t');
-		auth_fields_append(request->userdb_reply, str,
-				   AUTH_FIELD_FLAG_HIDDEN, 0);
-
-		if (request->master_user != NULL &&
-		    !auth_fields_exists(request->userdb_reply, "master_user")) {
-			auth_str_add_keyvalue(str, "master_user",
-					      request->master_user);
-		}
-		if (*request->set->anonymous_username != '\0' &&
-		    strcmp(request->user,
-			   request->set->anonymous_username) == 0) {
-			/* this is an anonymous login, either via ANONYMOUS
-			   SASL mechanism or simply logging in as the anonymous
-			   user via another mechanism */
-			str_append(str, "\tanonymous");
-		}
-		/* generate auth_token when master service provided session_pid */
-		if (request->request_auth_token &&
-		    request->session_pid != (pid_t)-1) {
-			const char *auth_token =
-				auth_token_get(request->service,
-					       dec2str(request->session_pid),
-					       request->user,
-					       request->session_id);
-			auth_str_add_keyvalue(str, "auth_token", auth_token);
-		}
+		auth_str_append_userdb_extra_fields(request, str);
 		break;
 	}
 	handler->master_callback(str_c(str), request->master);

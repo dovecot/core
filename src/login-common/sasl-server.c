@@ -240,10 +240,15 @@ authenticate_callback(struct auth_client_request *request,
 			if (strncmp(args[i], "user=", 5) == 0) {
 				i_free(client->virtual_user);
 				i_free_and_null(client->virtual_user_orig);
+				i_free_and_null(client->virtual_auth_user);
 				client->virtual_user = i_strdup(args[i] + 5);
 			} else if (strncmp(args[i], "original_user=", 14) == 0) {
 				i_free(client->virtual_user_orig);
 				client->virtual_user_orig = i_strdup(args[i] + 14);
+			} else if (strncmp(args[i], "auth_user=", 10) == 0) {
+				i_free(client->virtual_auth_user);
+				client->virtual_auth_user =
+					i_strdup(args[i] + 10);
 			} else if (strcmp(args[i], "nologin") == 0 ||
 				   strcmp(args[i], "proxy") == 0) {
 				/* user can't login */
@@ -276,12 +281,17 @@ authenticate_callback(struct auth_client_request *request,
 				if (strncmp(args[i], "user=", 5) == 0) {
 					i_free(client->virtual_user);
 					i_free_and_null(client->virtual_user_orig);
+					i_free_and_null(client->virtual_auth_user);
 					client->virtual_user =
 						i_strdup(args[i] + 5);
 				} else if (strncmp(args[i], "original_user=", 14) == 0) {
 					i_free(client->virtual_user_orig);
 					client->virtual_user_orig =
 						i_strdup(args[i] + 14);
+				} else if (strncmp(args[i], "auth_user=", 10) == 0) {
+					i_free(client->virtual_auth_user);
+					client->virtual_auth_user =
+						i_strdup(args[i] + 10);
 				}
 			}
 		}
