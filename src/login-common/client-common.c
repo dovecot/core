@@ -547,9 +547,9 @@ get_var_expand_table(struct client *client)
 	if (client->virtual_auth_user != NULL)
 		get_var_expand_users(tab+22, client->virtual_auth_user);
 	else {
-		tab[22].value = tab[0].value;
-		tab[23].value = tab[1].value;
-		tab[24].value = tab[2].value;
+		tab[22].value = tab[19].value;
+		tab[23].value = tab[20].value;
+		tab[24].value = tab[21].value;
 	}
 	return tab;
 }
