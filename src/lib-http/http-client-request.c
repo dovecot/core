@@ -201,7 +201,11 @@ void http_client_request_set_urgent(struct http_client_request *req)
 void http_client_request_add_header(struct http_client_request *req,
 				    const char *key, const char *value)
 {
-	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
+	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
+		 /* allow calling for retries */
+		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE ||
+		 req->state == HTTP_REQUEST_STATE_ABORTED);
+
 	/* mark presence of special headers */
 	switch (key[0]) {
 	case 'c': case 'C':
