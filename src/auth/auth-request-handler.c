@@ -166,12 +166,11 @@ auth_str_add_keyvalue(string_t *dest, const char *key, const char *value)
 static void
 auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 {
-	if (auth_fields_is_empty(request->extra_fields))
-		return;
-
-	str_append_c(dest, '\t');
-	auth_fields_append(request->extra_fields, dest,
-			   AUTH_FIELD_FLAG_HIDDEN, 0);
+	if (!auth_fields_is_empty(request->extra_fields)) {
+		str_append_c(dest, '\t');
+		auth_fields_append(request->extra_fields, dest,
+				   AUTH_FIELD_FLAG_HIDDEN, 0);
+	}
 
 	if (request->original_username != NULL &&
 	    null_strcmp(request->original_username, request->user) != 0) {
