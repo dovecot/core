@@ -4,6 +4,7 @@
 #include "istream.h"
 #include "istream-zlib.h"
 #include "ostream-zlib.h"
+#include "iostream-lz4.h"
 #include "compression.h"
 
 #ifndef HAVE_ZLIB
@@ -19,6 +20,10 @@
 #ifndef HAVE_LZMA
 #  define i_stream_create_lzma NULL
 #  define o_stream_create_lzma NULL
+#endif
+#ifndef HAVE_LZ4
+#  define i_stream_create_lz4 NULL
+#  define o_stream_create_lz4 NULL
 #endif
 
 static bool is_compressed_zlib(struct istream *input)
@@ -61,6 +66,17 @@ static bool is_compressed_xz(struct istream *input)
 	if (i_stream_read_data(input, &data, &size, 6 - 1) <= 0)
 		return FALSE;
 	return memcmp(data, "\xfd\x37\x7a\x58\x5a", 6) == 0;
+}
+
+static bool is_compressed_lz4(struct istream *input)
+{
+	const unsigned char *data;
+	size_t size;
+
+	if (i_stream_read_data(input, &data, &size, 6 - 1) <= 0)
+		return FALSE;
+	/* there is no standard LZ4 header, so we've created our own */
+	return memcmp(data, IOSTREAM_LZ4_MAGIC, IOSTREAM_LZ4_MAGIC_LEN) == 0;
 }
 
 const struct compression_handler *compression_lookup_handler(const char *name)
@@ -113,5 +129,7 @@ const struct compression_handler compression_handlers[] = {
 	  i_stream_create_deflate, o_stream_create_deflate },
 	{ "xz", ".xz", is_compressed_xz,
 	  i_stream_create_lzma, o_stream_create_lzma },
+	{ "lz4", ".lz4", is_compressed_lz4,
+	  i_stream_create_lz4, o_stream_create_lz4 },
 	{ NULL, NULL, NULL, NULL, NULL }
 };

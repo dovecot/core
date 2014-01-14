@@ -184,6 +184,11 @@ AS_HELP_STRING([--with-lzma], [Build with LZMA compression support]),
   TEST_WITH(lzma, $withval),
   want_lzma=auto)
 
+AC_ARG_WITH(lz4,
+AS_HELP_STRING([--with-lz4], [Build with LZ4 compression support]),
+  TEST_WITH(lz4, $withval),
+  want_lz4=auto)
+
 AC_ARG_WITH(libcap,
 AS_HELP_STRING([--with-libcap], [Build with libcap support (Dropping capabilities).]),
   TEST_WITH(libcap, $withval),
@@ -2691,6 +2696,27 @@ if test "$want_lzma" != "no"; then
   ])
 fi
 AC_SUBST(COMPRESS_LIBS)
+
+if test "$want_lz4" != "no"; then
+  AC_CHECK_HEADER(lz4.h, [
+    AC_CHECK_LIB(lz4, LZ4_compress, [
+      have_lz4=yes
+      have_compress_lib=yes
+      AC_DEFINE(HAVE_LZ4,, Define if you have lz4 library)
+      COMPRESS_LIBS="$COMPRESS_LIBS -llz4"
+    ], [
+      if test "$want_lz4" = "yes"; then
+	AC_ERROR([Can't build with lz4 support: liblz4 not found])
+      fi
+    ])
+  ], [
+    if test "$want_lz4" = "yes"; then
+      AC_ERROR([Can't build with lz4 support: lz4.h not found])
+    fi
+  ])
+fi
+AC_SUBST(COMPRESS_LIBS)
+
 AM_CONDITIONAL(BUILD_ZLIB_PLUGIN, test "$have_compress_lib" = "yes")
 
 RPCGEN=${RPCGEN-rpcgen}
