@@ -196,6 +196,7 @@ void mail_stats_get(struct stats_user *suser, struct mail_stats *stats_r)
 	stats_r->invol_cs = usage.ru_nivcsw;
 	stats_r->disk_input = (unsigned long long)usage.ru_inblock * 512ULL;
 	stats_r->disk_output = (unsigned long long)usage.ru_oublock * 512ULL;
+	(void)gettimeofday(&stats_r->clock_time, NULL);
 	process_read_io_stats(stats_r);
 	user_trans_stats_get(suser, &stats_r->trans_stats);
 }
@@ -251,6 +252,8 @@ void mail_stats_add_diff(struct mail_stats *dest,
 			 &old_stats->user_cpu);
 	timeval_add_diff(&dest->sys_cpu, &new_stats->sys_cpu,
 			 &old_stats->sys_cpu);
+	timeval_add_diff(&dest->clock_time, &new_stats->clock_time,
+			 &old_stats->clock_time);
 	trans_stats_dec(&dest->trans_stats, &old_stats->trans_stats);
 	trans_stats_add(&dest->trans_stats, &new_stats->trans_stats);
 }
@@ -263,6 +266,8 @@ void mail_stats_export(string_t *str, const struct mail_stats *stats)
 		    (long)stats->user_cpu.tv_usec);
 	str_printfa(str, "\tscpu=%ld.%ld", (long)stats->sys_cpu.tv_sec,
 		    (long)stats->sys_cpu.tv_usec);
+	str_printfa(str, "\ttime=%ld.%ld", (long)stats->clock_time.tv_sec,
+		    (long)stats->clock_time.tv_usec);
 	str_printfa(str, "\tminflt=%u", stats->min_faults);
 	str_printfa(str, "\tmajflt=%u", stats->maj_faults);
 	str_printfa(str, "\tvolcs=%u", stats->vol_cs);

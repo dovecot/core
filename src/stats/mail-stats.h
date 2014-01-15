@@ -5,7 +5,7 @@
 #include "guid.h"
 
 struct mail_stats {
-	struct timeval user_cpu, sys_cpu;
+	struct timeval user_cpu, sys_cpu, clock_time;
 	uint32_t min_faults, maj_faults;
 	uint32_t vol_cs, invol_cs;
 	uint64_t disk_input, disk_output;

@@ -14,6 +14,8 @@
 struct mail_stats {
 	/* user/system CPU time used */
 	struct timeval user_cpu, sys_cpu;
+	/* clock time used (not counting the time in ioloop wait) */
+	struct timeval clock_time;
 	/* minor / major page faults */
 	uint32_t min_faults, maj_faults;
 	/* voluntary / involuntary context switches */
