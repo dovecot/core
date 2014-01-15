@@ -69,8 +69,10 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 	   it), send the (unnecessary) CAPABILITY command to backend as well
 	   to avoid sending the CAPABILITY reply twice (untagged and OK resp
 	   code). */
-	if (client->proxy_backend_capability == NULL ||
-	    client->client_ignores_capability_resp_code) {
+	if (!client->proxy_capability_request_sent &&
+	    (client->proxy_backend_capability == NULL ||
+	     client->client_ignores_capability_resp_code)) {
+		client->proxy_capability_request_sent = TRUE;
 		str_append(str, "C CAPABILITY\r\n");
 		if (client->common.proxy_nopipelining) {
 			/* authenticate only after receiving C OK reply. */

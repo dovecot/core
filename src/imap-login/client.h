@@ -21,6 +21,7 @@ struct imap_client {
 	unsigned int proxy_seen_banner:1;
 	unsigned int skip_line:1;
 	unsigned int id_logged:1;
+	unsigned int proxy_capability_request_sent:1;
 	unsigned int client_ignores_capability_resp_code:1;
 	unsigned int auth_mech_name_parsed:1;
 };
