@@ -97,7 +97,7 @@ mail_export_parse_filter(const char *const *args, pool_t pool,
 static void
 client_export_mail_stats(string_t *str, const struct mail_stats *stats)
 {
-#define MAIL_STATS_HEADER "\tuser_cpu\tsys_cpu" \
+#define MAIL_STATS_HEADER "\tuser_cpu\tsys_cpu\tclock_time" \
 	"\tmin_faults\tmaj_faults\tvol_cs\tinvol_cs" \
 	"\tdisk_input\tdisk_output" \
 	"\tread_count\tread_bytes\twrite_count\twrite_bytes" \
@@ -108,6 +108,8 @@ client_export_mail_stats(string_t *str, const struct mail_stats *stats)
 		    (unsigned int)stats->user_cpu.tv_usec);
 	str_printfa(str, "\t%ld.%06u", (long)stats->sys_cpu.tv_sec,
 		    (unsigned int)stats->sys_cpu.tv_usec);
+	str_printfa(str, "\t%ld.%06u", (long)stats->clock_time.tv_sec,
+		    (unsigned int)stats->clock_time.tv_usec);
 	str_printfa(str, "\t%u\t%u", stats->min_faults, stats->maj_faults);
 	str_printfa(str, "\t%u\t%u", stats->vol_cs, stats->invol_cs);
 	str_printfa(str, "\t%llu\t%llu",
