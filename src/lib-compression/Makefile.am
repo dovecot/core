@@ -20,6 +20,7 @@ libcompression_la_LIBADD = \
 pkginc_libdir = $(pkgincludedir)
 pkginc_lib_HEADERS = \
 	compression.h \
+	iostream-lz4.h \
 	istream-zlib.h \
 	ostream-zlib.h
 
