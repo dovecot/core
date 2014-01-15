@@ -376,6 +376,7 @@ void imap_proxy_reset(struct client *client)
 
 	imap_client->proxy_sasl_ir = FALSE;
 	imap_client->proxy_seen_banner = FALSE;
+	imap_client->proxy_capability_request_sent = FALSE;
 	client->proxy_state = IMAP_PROXY_STATE_NONE;
 }
 
