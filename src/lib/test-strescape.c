@@ -25,7 +25,7 @@ void test_strescape(void)
 		{ "\001\001\t\t\r\r\n\n", "\0011\0011\001t\001t\001r\001r\001n\001n" }
 	};
 	unsigned char buf[1 << CHAR_BIT];
-	const char *escaped, *tabstr;
+	const char *escaped, *tabstr, *unesc_str;
 	string_t *str;
 	unsigned int i;
 
@@ -55,6 +55,17 @@ void test_strescape(void)
 		str_append_unescaped(str, unesc[i].input, strlen(unesc[i].input));
 		test_assert(strcmp(str_c(str), unesc[i].output) == 0);
 	}
+	test_end();
+
+	test_begin("str_unescape_next");
+	escaped = "foo\"bar\\\"b\\\\az\"plop";
+	test_assert(str_unescape_next(&escaped, &unesc_str) == 0);
+	test_assert(strcmp(unesc_str, "foo") == 0);
+	test_assert(str_unescape_next(&escaped, &unesc_str) == 0);
+	test_assert(strcmp(unesc_str, "bar\"b\\az") == 0);
+	test_assert(str_unescape_next(&escaped, &unesc_str) == -1);
+	escaped = "foo\\";
+	test_assert(str_unescape_next(&escaped, &unesc_str) == -1);
 	test_end();
 
 	test_begin("str_tabescape");
