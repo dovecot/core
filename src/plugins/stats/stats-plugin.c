@@ -211,6 +211,8 @@ static void stats_io_activate(void *context)
 		   it to NULL. when we get back to one user we'll need to set
 		   the global user again somewhere. do it here. */
 		stats_global_user = user;
+		/* skip time spent waiting in ioloop */
+		suser->pre_io_stats.clock_time = ioloop_timeval;
 	} else {
 		i_assert(stats_global_user == NULL);
 
