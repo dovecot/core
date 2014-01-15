@@ -44,6 +44,7 @@ union mail_index_view_module_context {
 };
 
 struct mail_index_view {
+	struct mail_index_view *prev, *next;
 	int refcount;
 
 	struct mail_index_view_vfuncs v;
@@ -69,6 +70,7 @@ struct mail_index_view {
 	/* Module-specific contexts. */
 	ARRAY(union mail_index_view_module_context *) module_contexts;
 
+	struct mail_index_transaction *transactions_list;
 	int transactions;
 
 	unsigned int inconsistent:1;

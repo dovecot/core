@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "bsearch-insert-pos.h"
+#include "llist.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log-private.h"
 #include "mail-index-transaction-private.h"
@@ -50,6 +51,7 @@ void mail_index_transaction_unref(struct mail_index_transaction **_t)
 
 	mail_index_transaction_reset_v(t);
 
+	DLLIST_REMOVE(&t->view->transactions_list, t);
 	array_free(&t->module_contexts);
 	mail_index_view_transaction_unref(t->view);
 	if (t->latest_view != NULL)
@@ -311,6 +313,7 @@ mail_index_transaction_begin(struct mail_index_view *view,
 
 	i_array_init(&t->module_contexts,
 		     I_MIN(5, mail_index_module_register.id));
+	DLLIST_PREPEND(&view->transactions_list, t);
 
 	if (hook_mail_index_transaction_created != NULL)
 		hook_mail_index_transaction_created(t);

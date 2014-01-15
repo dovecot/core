@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "buffer.h"
+#include "llist.h"
 #include "mail-index-view-private.h"
 #include "mail-transaction-log.h"
 
@@ -47,7 +48,7 @@ void mail_index_view_clone(struct mail_index_view *dest,
 	i_array_init(&dest->module_contexts,
 		     I_MIN(5, mail_index_module_register.id));
 
-	dest->index->view_count++;
+	DLLIST_PREPEND(&dest->index->views, dest);
 }
 
 void mail_index_view_ref(struct mail_index_view *view)
@@ -58,9 +59,9 @@ void mail_index_view_ref(struct mail_index_view *view)
 static void view_close(struct mail_index_view *view)
 {
 	i_assert(view->refcount == 0);
-	i_assert(view->index->view_count > 0);
+	i_assert(view->index->views != NULL);
 
-	view->index->view_count--;
+	DLLIST_REMOVE(&view->index->views, view);
 
 	mail_transaction_log_view_close(&view->log_view);
 
@@ -626,8 +627,7 @@ mail_index_view_open_with_map(struct mail_index *index,
 
 	i_array_init(&view->module_contexts,
 		     I_MIN(5, mail_index_module_register.id));
-
-	index->view_count++;
+	DLLIST_PREPEND(&index->views, view);
 	return view;
 }
 

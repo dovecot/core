@@ -636,7 +636,7 @@ void mail_index_close(struct mail_index *index)
 		return;
 
 	i_assert(!index->syncing);
-	i_assert(index->view_count == 0);
+	i_assert(index->views == NULL);
 
 	if (index->map != NULL)
 		mail_index_unmap(&index->map);

@@ -36,6 +36,7 @@ struct mail_index_flag_update {
 };
 
 struct mail_index_transaction {
+	struct mail_index_transaction *prev, *next;
 	int refcount;
 
 	enum mail_index_transaction_flags flags;
