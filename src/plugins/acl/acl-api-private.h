@@ -92,5 +92,16 @@ int acl_rights_update_import(struct acl_rights_update *update,
 			     const char *id, const char *const *rights,
 			     const char **error_r);
 const char *acl_rights_export(const struct acl_rights *rights);
+int acl_rights_cmp(const struct acl_rights *r1, const struct acl_rights *r2);
+
+const char *const *
+acl_right_names_parse(pool_t pool, const char *acl, const char **error_r);
+void acl_right_names_write(string_t *dest, const char *const *rights);
+void acl_right_names_merge(pool_t pool, const char *const **destp,
+			   const char *const *src, bool dup_strings);
+bool acl_right_names_modify(pool_t pool,
+			    const char *const **rightsp,
+			    const char *const *modify_rights,
+			    enum acl_modify_mode modify_mode);
 
 #endif

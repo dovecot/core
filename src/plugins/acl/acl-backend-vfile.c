@@ -1,14 +1,12 @@
-/* Copyright (c) 2006-2013 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2014 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
-#include "bsearch-insert-pos.h"
 #include "str.h"
 #include "strescape.h"
 #include "istream.h"
 #include "ostream.h"
-#include "file-dotlock.h"
 #include "nfs-workarounds.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
@@ -19,52 +17,10 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <utime.h>
 #include <sys/stat.h>
 
 #define ACL_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
 #define ACL_VFILE_DEFAULT_CACHE_SECS 30
-
-#define VALIDITY_MTIME_NOTFOUND 0
-#define VALIDITY_MTIME_NOACCESS -1
-
-struct acl_vfile_validity {
-	time_t last_check;
-
-	time_t last_read_time;
-	time_t last_mtime;
-	off_t last_size;
-};
-
-struct acl_backend_vfile_validity {
-	struct acl_vfile_validity global_validity, local_validity;
-	struct acl_vfile_validity mailbox_validity;
-};
-
-struct acl_letter_map {
-	char letter;
-	const char *name;
-};
-
-static const struct acl_letter_map acl_letter_map[] = {
-	{ 'l', MAIL_ACL_LOOKUP },
-	{ 'r', MAIL_ACL_READ },
-	{ 'w', MAIL_ACL_WRITE },
-	{ 's', MAIL_ACL_WRITE_SEEN },
-	{ 't', MAIL_ACL_WRITE_DELETED },
-	{ 'i', MAIL_ACL_INSERT },
-	{ 'p', MAIL_ACL_POST },
-	{ 'e', MAIL_ACL_EXPUNGE },
-	{ 'k', MAIL_ACL_CREATE },
-	{ 'x', MAIL_ACL_DELETE },
-	{ 'a', MAIL_ACL_ADMIN },
-	{ '\0', NULL }
-};
-
-static struct dotlock_settings dotlock_set = {
-	.timeout = 30,
-	.stale_timeout = 120
-};
 
 static struct acl_backend *acl_backend_vfile_alloc(void)
 {
@@ -314,129 +270,50 @@ static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
 	i_free(aclobj);
 }
 
-static const char *const *
-acl_rights_alloc(pool_t pool, ARRAY_TYPE(const_string) *rights_arr,
-		 bool dup_strings)
-{
-	const char **ret, *const *rights;
-	unsigned int i, dest, count;
-
-	/* sort the rights first so we can easily drop duplicates */
-	array_sort(rights_arr, i_strcmp_p);
-
-	/* @UNSAFE */
-	rights = array_get(rights_arr, &count);
-	ret = p_new(pool, const char *, count + 1);
-	if (count > 0) {
-		ret[0] = rights[0];
-		for (i = dest = 1; i < count; i++) {
-			if (strcmp(rights[i-1], rights[i]) != 0)
-				ret[dest++] = rights[i];
-		}
-		ret[dest] = NULL;
-		if (dup_strings) {
-			for (i = 0; i < dest; i++)
-				ret[i] = p_strdup(pool, ret[i]);
-		}
-	}
-	return ret;
-}
-
-static const char *const *
-acl_parse_rights(pool_t pool, const char *acl, const char **error_r)
-{
-	ARRAY_TYPE(const_string) rights;
-	const char *const *names;
-	unsigned int i;
-
-	/* parse IMAP ACL list */
-	while (*acl == ' ' || *acl == '\t')
-		acl++;
-
-	t_array_init(&rights, 64);
-	while (*acl != '\0' && *acl != ' ' && *acl != '\t' && *acl != ':') {
-		for (i = 0; acl_letter_map[i].letter != '\0'; i++) {
-			if (acl_letter_map[i].letter == *acl)
-				break;
-		}
-
-		if (acl_letter_map[i].letter == '\0') {
-			*error_r = t_strdup_printf("Unknown ACL '%c'", *acl);
-			return NULL;
-		}
-
-		array_append(&rights, &acl_letter_map[i].name, 1);
-		acl++;
-	}
-	while (*acl == ' ' || *acl == '\t') acl++;
-
-	if (*acl != '\0') {
-		/* parse our own extended ACLs */
-		if (*acl != ':') {
-			*error_r = "Missing ':' prefix in ACL extensions";
-			return NULL;
-		}
-
-		names = t_strsplit_spaces(acl + 1, ", \t");
-		for (; *names != NULL; names++) {
-			const char *name = p_strdup(pool, *names);
-			array_append(&rights, &name, 1);
-		}
-	}
-
-	return acl_rights_alloc(pool, &rights, FALSE);
-}
-
 static int
 acl_object_vfile_parse_line(struct acl_object_vfile *aclobj, bool global,
 			    const char *path, const char *line,
 			    unsigned int linenum)
 {
 	struct acl_rights rights;
-	const char *p, *const *right_names, *error = NULL;
+	const char *id_str, *const *right_names, *error = NULL;
 
 	if (*line == '\0' || *line == '#')
 		return 0;
 
 	/* <id> [<imap acls>] [:<named acls>] */
 	if (*line == '"') {
-		for (p = line + 1; *p != '\0'; p++) {
-			if (*p == '\\' && p[1] != '\0')
-				p++;
-			else if (*p == '"')
-				break;
-		}
-		if (p[0] != '"' || (p[1] != ' ' && p[1] != '\0')) {
+		line++;
+		if (str_unescape_next(&line, &id_str) < 0 ||
+		    (line[0] != ' ' && line[0] != '\0')) {
 			i_error("ACL file %s line %u: Invalid quoted ID",
 				path, linenum);
 			return -1;
 		}
-		line = t_strdup_until(line + 1, p);
-		line = str_unescape(t_strdup_noconst(line));
-		p++;
+		if (line[0] == ' ')
+			line++;
 	} else {
-		p = strchr(line, ' ');
-		if (p == NULL)
-			p = "";
-		else {
-			line = t_strdup_until(line, p);
-			p++;
-		}
+		id_str = line;
+		line = strchr(id_str, ' ');
+		if (line == NULL)
+			line = "";
+		else
+			id_str = t_strdup_until(id_str, line++);
 	}
 
 	memset(&rights, 0, sizeof(rights));
 	rights.global = global;
 
-	right_names = acl_parse_rights(aclobj->rights_pool, p, &error);
-	if (*line != '-')
+	right_names = acl_right_names_parse(aclobj->rights_pool, line, &error);
+	if (*id_str != '-')
 		rights.rights = right_names;
 	else {
-		line++;
+		id_str++;
 		rights.neg_rights = right_names;
 	}
 
-	if (acl_identifier_parse(line, &rights) < 0)
-		error = t_strdup_printf("Unknown ID '%s'", line);
+	if (acl_identifier_parse(id_str, &rights) < 0)
+		error = t_strdup_printf("Unknown ID '%s'", id_str);
 
 	if (error != NULL) {
 		i_error("ACL file %s line %u: %s", path, linenum, error);
@@ -669,44 +546,6 @@ int acl_backend_vfile_object_get_mtime(struct acl_object *aclobj,
 	return 0;
 }
 
-static int acl_rights_cmp(const struct acl_rights *r1,
-			  const struct acl_rights *r2)
-{
-	int ret;
-
-	if (r1->global != r2->global) {
-		/* globals have higher priority than locals */
-		return r1->global ? 1 : -1;
-	}
-
-	ret = r1->id_type - r2->id_type;
-	if (ret != 0)
-		return ret;
-
-	return null_strcmp(r1->identifier, r2->identifier);
-}
-
-static void
-acl_rights_merge(pool_t pool, const char *const **destp, const char *const *src,
-		 bool dup_strings)
-{
-	const char *const *dest = *destp;
-	ARRAY_TYPE(const_string) rights;
-	unsigned int i;
-
-	t_array_init(&rights, 64);
-	if (dest != NULL) {
-		for (i = 0; dest[i] != NULL; i++)
-			array_append(&rights, &dest[i], 1);
-	}
-	if (src != NULL) {
-		for (i = 0; src[i] != NULL; i++)
-			array_append(&rights, &src[i], 1);
-	}
-
-	*destp = acl_rights_alloc(pool, &rights, dup_strings);
-}
-
 static void acl_backend_vfile_rights_sort(struct acl_object_vfile *aclobj)
 {
 	struct acl_rights *rights;
@@ -722,12 +561,12 @@ static void acl_backend_vfile_rights_sort(struct acl_object_vfile *aclobj)
 	for (dest = 0, i = 1; i < count; i++) {
 		if (acl_rights_cmp(&rights[i], &rights[dest]) == 0) {
 			/* add i's rights to dest and delete i */
-			acl_rights_merge(aclobj->rights_pool,
-					 &rights[dest].rights,
-					 rights[i].rights, FALSE);
-			acl_rights_merge(aclobj->rights_pool,
-					 &rights[dest].neg_rights,
-					 rights[i].neg_rights, FALSE);
+			acl_right_names_merge(aclobj->rights_pool,
+					      &rights[dest].rights,
+					      rights[i].rights, FALSE);
+			acl_right_names_merge(aclobj->rights_pool,
+					      &rights[dest].neg_rights,
+					      rights[i].neg_rights, FALSE);
 		} else {
 			if (++dest != i)
 				rights[dest] = rights[i];
@@ -876,339 +715,6 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 
 	if (acl_backend_vfile_object_get_mtime(_aclobj, &mtime) == 0)
 		acl_backend_vfile_acllist_verify(backend, _aclobj->name, mtime);
-	return 0;
-}
-
-static int acl_backend_vfile_update_begin(struct acl_object_vfile *aclobj,
-					  struct dotlock **dotlock_r)
-{
-	struct acl_object *_aclobj = &aclobj->aclobj;
-	struct mailbox_permissions perm;
-	int fd;
-
-	if (aclobj->local_path == NULL) {
-		i_error("Can't update acl object '%s': No local acl file path",
-			aclobj->aclobj.name);
-		return -1;
-	}
-
-	/* first lock the ACL file */
-	mailbox_list_get_permissions(_aclobj->backend->list,
-				     _aclobj->name, &perm);
-	fd = file_dotlock_open_group(&dotlock_set, aclobj->local_path, 0,
-				     perm.file_create_mode,
-				     perm.file_create_gid,
-				     perm.file_create_gid_origin, dotlock_r);
-	if (fd == -1) {
-		i_error("file_dotlock_open(%s) failed: %m", aclobj->local_path);
-		return -1;
-	}
-
-	/* locked successfully, re-read the existing file to make sure we
-	   don't lose any changes. */
-	acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
-	if (acl_backend_vfile_object_refresh_cache(_aclobj) < 0) {
-		file_dotlock_delete(dotlock_r);
-		return -1;
-	}
-	return fd;
-}
-
-static bool modify_right_list(pool_t pool,
-			      const char *const **rightsp,
-			      const char *const *modify_rights,
-			      enum acl_modify_mode modify_mode)
-{
-	const char *const *old_rights = *rightsp;
-	const char *const *new_rights = NULL;
-	const char *null = NULL;
-	ARRAY_TYPE(const_string) rights;
-	unsigned int i, j;
-
-	if (modify_rights == NULL && modify_mode != ACL_MODIFY_MODE_CLEAR) {
-		/* nothing to do here */
-		return FALSE;
-	}
-
-	switch (modify_mode) {
-	case ACL_MODIFY_MODE_REMOVE:
-		if (old_rights == NULL || *old_rights == NULL) {
-			/* nothing to do */
-			return FALSE;
-		}
-		t_array_init(&rights, 64);
-		for (i = 0; old_rights[i] != NULL; i++) {
-			for (j = 0; modify_rights[j] != NULL; j++) {
-				if (strcmp(old_rights[i], modify_rights[j]) == 0)
-					break;
-			}
-			if (modify_rights[j] == NULL)
-				array_append(&rights, &old_rights[i], 1);
-		}
-		new_rights = &null;
-		modify_rights = array_count(&rights) == 0 ? NULL :
-			array_idx(&rights, 0);
-		acl_rights_merge(pool, &new_rights, modify_rights, TRUE);
-		break;
-	case ACL_MODIFY_MODE_ADD:
-		new_rights = old_rights;
-		acl_rights_merge(pool, &new_rights, modify_rights, TRUE);
-		break;
-	case ACL_MODIFY_MODE_REPLACE:
-		new_rights = &null;
-		acl_rights_merge(pool, &new_rights, modify_rights, TRUE);
-		break;
-	case ACL_MODIFY_MODE_CLEAR:
-		if (*rightsp == NULL) {
-			/* ACL didn't exist before either */
-			return FALSE;
-		}
-		*rightsp = NULL;
-		return TRUE;
-	}
-	i_assert(new_rights != NULL);
-	*rightsp = new_rights;
-
-	if (old_rights == NULL)
-		return new_rights[0] != NULL;
-
-	/* see if anything changed */
-	for (i = 0; old_rights[i] != NULL && new_rights[i] != NULL; i++) {
-		if (strcmp(old_rights[i], new_rights[i]) != 0)
-			return TRUE;
-	}
-	return old_rights[i] != NULL || new_rights[i] != NULL;
-}
-
-static bool
-vfile_object_modify_right(struct acl_object_vfile *aclobj, unsigned int idx,
-			  const struct acl_rights_update *update)
-{
-	struct acl_rights *right;
-	bool c1, c2;
-
-	right = array_idx_modifiable(&aclobj->rights, idx);
-	c1 = modify_right_list(aclobj->rights_pool, &right->rights,
-			       update->rights.rights, update->modify_mode);
-	c2 = modify_right_list(aclobj->rights_pool, &right->neg_rights,
-			       update->rights.neg_rights,
-			       update->neg_modify_mode);
-
-	if (right->rights == NULL && right->neg_rights == NULL) {
-		/* this identifier no longer exists */
-		array_delete(&aclobj->rights, idx, 1);
-		c1 = TRUE;
-	}
-	return c1 || c2;
-}
-
-static bool
-vfile_object_add_right(struct acl_object_vfile *aclobj, unsigned int idx,
-		       const struct acl_rights_update *update)
-{
-	struct acl_rights right;
-	bool c1, c2;
-
-	if (update->modify_mode == ACL_MODIFY_MODE_REMOVE &&
-	    update->neg_modify_mode == ACL_MODIFY_MODE_REMOVE) {
-		/* nothing to do */
-		return FALSE;
-	}
-
-	memset(&right, 0, sizeof(right));
-	right.id_type = update->rights.id_type;
-	right.identifier = p_strdup(aclobj->rights_pool,
-				    update->rights.identifier);
-
-	c1 = modify_right_list(aclobj->rights_pool, &right.rights,
-			       update->rights.rights, update->modify_mode);
-	c2 = modify_right_list(aclobj->rights_pool, &right.neg_rights,
-			       update->rights.neg_rights,
-			       update->neg_modify_mode);
-	if (c1 || c2) {
-		array_insert(&aclobj->rights, idx, &right, 1);
-		return TRUE;
-	}
-	return FALSE;
-}
-
-static void vfile_write_rights_list(string_t *dest, const char *const *rights)
-{
-	char c2[2];
-	unsigned int i, j, pos;
-
-	c2[1] = '\0';
-	pos = str_len(dest);
-	for (i = 0; rights[i] != NULL; i++) {
-		/* use letters if possible */
-		for (j = 0; acl_letter_map[j].name != NULL; j++) {
-			if (strcmp(rights[i], acl_letter_map[j].name) == 0) {
-				c2[0] = acl_letter_map[j].letter;
-				str_insert(dest, pos, c2);
-				pos++;
-				break;
-			}
-		}
-		if (acl_letter_map[j].name == NULL) {
-			/* fallback to full name */
-			str_append_c(dest, ' ');
-			str_append(dest, rights[i]);
-		}
-	}
-	if (pos + 1 < str_len(dest)) {
-		c2[0] = ':';
-		str_insert(dest, pos + 1, c2);
-	}
-}
-
-static void
-vfile_write_right(string_t *dest, const struct acl_rights *right,
-		  bool neg)
-{
-	const char *const *rights = neg ? right->neg_rights : right->rights;
-
-	if (neg) str_append_c(dest,'-');
-	acl_rights_write_id(dest, right);
-
-	if (strchr(str_c(dest), ' ') != NULL) T_BEGIN {
-		/* need to escape it */
-		const char *escaped = t_strdup(str_escape(str_c(dest)));
-		str_truncate(dest, 0);
-		str_printfa(dest, "\"%s\"", escaped);
-	} T_END;
-
-	str_append_c(dest, ' ');
-	vfile_write_rights_list(dest, rights);
-	str_append_c(dest, '\n');
-}
-
-static int
-acl_backend_vfile_update_write(struct acl_object_vfile *aclobj,
-			       int fd, const char *path)
-{
-	struct ostream *output;
-	string_t *str;
-	const struct acl_rights *rights;
-	unsigned int i, count;
-	int ret = 0;
-
-	output = o_stream_create_fd_file(fd, 0, FALSE);
-	o_stream_cork(output);
-
-	str = str_new(default_pool, 256);
-	/* rights are sorted with globals at the end, so we can stop at the
-	   first global */
-	rights = array_get(&aclobj->rights, &count);
-	for (i = 0; i < count && !rights[i].global; i++) {
-		if (rights[i].rights != NULL) {
-			vfile_write_right(str, &rights[i], FALSE);
-			o_stream_nsend(output, str_data(str), str_len(str));
-			str_truncate(str, 0);
-		}
-		if (rights[i].neg_rights != NULL) {
-			vfile_write_right(str, &rights[i], TRUE);
-			o_stream_nsend(output, str_data(str), str_len(str));
-			str_truncate(str, 0);
-		}
-	}
-	str_free(&str);
-	if (o_stream_nfinish(output) < 0) {
-		i_error("write(%s) failed: %m", path);
-		ret = -1;
-	}
-	o_stream_destroy(&output);
-	/* we really don't want to lose ACL files' contents, so fsync() always
-	   before renaming */
-	if (fsync(fd) < 0) {
-		i_error("fsync(%s) failed: %m", path);
-		ret = -1;
-	}
-	return ret;
-}
-
-static void acl_backend_vfile_update_cache(struct acl_object *_aclobj, int fd)
-{
-	struct acl_backend_vfile_validity *validity;
-	struct stat st;
-
-	if (fstat(fd, &st) < 0) {
-		/* we'll just recalculate or fail it later */
-		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
-		return;
-	}
-
-	validity = acl_cache_get_validity(_aclobj->backend->cache,
-					  _aclobj->name);
-	validity->local_validity.last_read_time = ioloop_time;
-	validity->local_validity.last_mtime = st.st_mtime;
-	validity->local_validity.last_size = st.st_size;
-}
-
-static int
-acl_backend_vfile_object_update(struct acl_object *_aclobj,
-				const struct acl_rights_update *update)
-{
-	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
-	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)_aclobj->backend;
-	struct acl_backend_vfile_validity *validity;
-	struct dotlock *dotlock;
-	struct utimbuf ut;
-	time_t orig_mtime;
-	const char *path;
-	unsigned int i;
-	int fd;
-	bool changed;
-
-	/* global ACLs can't be updated here */
-	i_assert(!update->rights.global);
-
-	fd = acl_backend_vfile_update_begin(aclobj, &dotlock);
-	if (fd == -1)
-		return -1;
-
-	if (!array_bsearch_insert_pos(&aclobj->rights, &update->rights,
-				      acl_rights_cmp, &i))
-		changed = vfile_object_add_right(aclobj, i, update);
-	else
-		changed = vfile_object_modify_right(aclobj, i, update);
-	if (!changed) {
-		file_dotlock_delete(&dotlock);
-		return 0;
-	}
-
-	validity = acl_cache_get_validity(_aclobj->backend->cache,
-					  _aclobj->name);
-	orig_mtime = validity->local_validity.last_mtime;
-
-	/* ACLs were really changed, write the new ones */
-	path = file_dotlock_get_lock_path(dotlock);
-	if (acl_backend_vfile_update_write(aclobj, fd, path) < 0) {
-		file_dotlock_delete(&dotlock);
-		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
-		return -1;
-	}
-	if (orig_mtime < update->last_change && update->last_change != 0) {
-		/* set mtime to last_change, if it's higher than the file's
-		   original mtime. if original mtime is higher, then we're
-		   merging some changes and it's better for the mtime to get
-		   updated. */
-		ut.actime = ioloop_time;
-		ut.modtime = update->last_change;
-		if (utime(path, &ut) < 0)
-			i_error("utime(%s) failed: %m", path);
-	}
-	acl_backend_vfile_update_cache(_aclobj, fd);
-	if (file_dotlock_replace(&dotlock, 0) < 0) {
-		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
-		return -1;
-	}
-	/* make sure dovecot-acl-list gets updated if we changed any
-	   lookup rights. */
-	if (acl_rights_has_nonowner_lookup_changes(&update->rights) ||
-	    update->modify_mode == ACL_MODIFY_MODE_REPLACE ||
-	    update->modify_mode == ACL_MODIFY_MODE_CLEAR)
-		(void)acl_backend_vfile_acllist_rebuild(backend);
 	return 0;
 }
 

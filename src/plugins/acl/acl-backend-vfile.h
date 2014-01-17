@@ -6,6 +6,22 @@
 #define ACL_FILENAME "dovecot-acl"
 #define ACLLIST_FILENAME "dovecot-acl-list"
 
+#define VALIDITY_MTIME_NOTFOUND 0
+#define VALIDITY_MTIME_NOACCESS -1
+
+struct acl_vfile_validity {
+	time_t last_check;
+
+	time_t last_read_time;
+	time_t last_mtime;
+	off_t last_size;
+};
+
+struct acl_backend_vfile_validity {
+	struct acl_vfile_validity global_validity, local_validity;
+	struct acl_vfile_validity mailbox_validity;
+};
+
 struct acl_object_vfile {
 	struct acl_object aclobj;
 
@@ -35,6 +51,10 @@ struct acl_backend_vfile {
 	unsigned int rebuilding_acllist:1;
 	unsigned int iterating_acllist:1;
 };
+
+void acl_vfile_write_rights_list(string_t *dest, const char *const *rights);
+int acl_backend_vfile_object_update(struct acl_object *aclobj,
+				    const struct acl_rights_update *update);
 
 void acl_backend_vfile_acllist_refresh(struct acl_backend_vfile *backend);
 int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend);
