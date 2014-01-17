@@ -185,6 +185,43 @@ void acl_object_list_deinit(struct acl_object_list_iter **_iter)
         iter->aclobj->backend->v.object_list_deinit(iter);
 }
 
+struct acl_object_list_iter *
+acl_default_object_list_init(struct acl_object *aclobj)
+{
+	struct acl_object_list_iter *iter;
+
+	iter = i_new(struct acl_object_list_iter, 1);
+	iter->aclobj = aclobj;
+
+	if (!array_is_created(&aclobj->rights)) {
+		/* we may have the object cached, but we don't have all the
+		   rights read into memory */
+		acl_cache_flush(aclobj->backend->cache, aclobj->name);
+	}
+
+	if (aclobj->backend->v.object_refresh_cache(aclobj) < 0)
+		iter->failed = TRUE;
+	return iter;
+}
+
+int acl_default_object_list_next(struct acl_object_list_iter *iter,
+				 struct acl_rights *rights_r)
+{
+	const struct acl_rights *rights;
+
+	if (iter->idx == array_count(&iter->aclobj->rights))
+		return 0;
+
+	rights = array_idx(&iter->aclobj->rights, iter->idx++);
+	*rights_r = *rights;
+	return 1;
+}
+
+void acl_default_object_list_deinit(struct acl_object_list_iter *iter)
+{
+	i_free(iter);
+}
+
 struct acl_mailbox_list_context *
 acl_backend_nonowner_lookups_iter_init(struct acl_backend *backend)
 {
@@ -399,6 +436,35 @@ int acl_rights_cmp(const struct acl_rights *r1, const struct acl_rights *r2)
 	return null_strcmp(r1->identifier, r2->identifier);
 }
 
+void acl_rights_sort(struct acl_object *aclobj)
+{
+	struct acl_rights *rights;
+	unsigned int i, dest, count;
+
+	if (!array_is_created(&aclobj->rights))
+		return;
+
+	array_sort(&aclobj->rights, acl_rights_cmp);
+
+	/* merge identical identifiers */
+	rights = array_get_modifiable(&aclobj->rights, &count);
+	for (dest = 0, i = 1; i < count; i++) {
+		if (acl_rights_cmp(&rights[i], &rights[dest]) == 0) {
+			/* add i's rights to dest and delete i */
+			acl_right_names_merge(aclobj->rights_pool,
+					      &rights[dest].rights,
+					      rights[i].rights, FALSE);
+			acl_right_names_merge(aclobj->rights_pool,
+					      &rights[dest].neg_rights,
+					      rights[i].neg_rights, FALSE);
+		} else {
+			if (++dest != i)
+				rights[dest] = rights[i];
+		}
+	}
+	if (++dest != count)
+		array_delete(&aclobj->rights, dest, count - dest);
+}
 
 bool acl_rights_has_nonowner_lookup_changes(const struct acl_rights *rights)
 {
@@ -632,4 +698,108 @@ bool acl_right_names_modify(pool_t pool,
 			return TRUE;
 	}
 	return old_rights[i] != NULL || new_rights[i] != NULL;
+}
+
+static void apply_owner_default_rights(struct acl_object *aclobj)
+{
+	struct acl_rights_update ru;
+	const char *null = NULL;
+
+	memset(&ru, 0, sizeof(ru));
+	ru.modify_mode = ACL_MODIFY_MODE_REPLACE;
+	ru.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
+	ru.rights.id_type = ACL_ID_OWNER;
+	ru.rights.rights = aclobj->backend->default_rights;
+	ru.rights.neg_rights = &null;
+	acl_cache_update(aclobj->backend->cache, aclobj->name, &ru);
+}
+
+void acl_object_rebuild_cache(struct acl_object *aclobj)
+{
+	struct acl_rights_update ru;
+	enum acl_modify_mode add_mode;
+	const struct acl_rights *rights, *prev_match = NULL;
+	unsigned int i, count;
+	bool first_global = TRUE;
+
+	acl_cache_flush(aclobj->backend->cache, aclobj->name);
+
+	if (!array_is_created(&aclobj->rights))
+		return;
+
+	/* Rights are sorted by their 1) locals first, globals next,
+	   2) acl_id_type. We'll apply only the rights matching ourself.
+
+	   Every time acl_id_type or local/global changes, the new ACLs will
+	   replace all of the existing ACLs. Basically this means that if
+	   user belongs to multiple matching groups or group-overrides, their
+	   ACLs are merged. In all other situations the ACLs are replaced
+	   (because there aren't duplicate rights entries and a user can't
+	   match multiple usernames). */
+	memset(&ru, 0, sizeof(ru));
+	rights = array_get(&aclobj->rights, &count);
+	if (!acl_backend_user_is_owner(aclobj->backend))
+		i = 0;
+	else {
+		/* we're the owner. skip over all rights entries until we
+		   reach ACL_ID_OWNER or higher, or alternatively when we
+		   reach a global ACL (even ACL_ID_ANYONE overrides owner's
+		   rights if it's global) */
+		for (i = 0; i < count; i++) {
+			if (rights[i].id_type >= ACL_ID_OWNER ||
+			    rights[i].global)
+				break;
+		}
+		apply_owner_default_rights(aclobj);
+		/* now continue applying the rest of the rights,
+		   if there are any */
+	}
+	for (; i < count; i++) {
+		if (!acl_backend_rights_match_me(aclobj->backend, &rights[i]))
+			continue;
+
+		if (prev_match == NULL ||
+		    prev_match->id_type != rights[i].id_type ||
+		    prev_match->global != rights[i].global) {
+			/* replace old ACLs */
+			add_mode = ACL_MODIFY_MODE_REPLACE;
+		} else {
+			/* merging to existing ACLs */
+			i_assert(rights[i].id_type == ACL_ID_GROUP ||
+				 rights[i].id_type == ACL_ID_GROUP_OVERRIDE);
+			add_mode = ACL_MODIFY_MODE_ADD;
+		}
+		prev_match = &rights[i];
+
+		/* If [neg_]rights is NULL it needs to be ignored.
+		   The easiest way to do that is to just mark it with
+		   REMOVE mode */
+		ru.modify_mode = rights[i].rights == NULL ?
+			ACL_MODIFY_MODE_REMOVE : add_mode;
+		ru.neg_modify_mode = rights[i].neg_rights == NULL ?
+			ACL_MODIFY_MODE_REMOVE : add_mode;
+		ru.rights = rights[i];
+		if (rights[i].global && first_global) {
+			/* first global: reset negative ACLs so local ACLs
+			   can't mess things up via them */
+			first_global = FALSE;
+			ru.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
+		}
+		acl_cache_update(aclobj->backend->cache, aclobj->name, &ru);
+	}
+}
+
+void acl_object_remove_all_access(struct acl_object *aclobj)
+{
+	static const char *null = NULL;
+	struct acl_rights rights;
+
+	memset(&rights, 0, sizeof(rights));
+	rights.id_type = ACL_ID_ANYONE;
+	rights.rights = &null;
+	array_append(&aclobj->rights, &rights, 1);
+
+	rights.id_type = ACL_ID_OWNER;
+	rights.rights = &null;
+	array_append(&aclobj->rights, &rights, 1);
 }

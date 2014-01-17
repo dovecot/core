@@ -56,7 +56,7 @@ static int acl_backend_vfile_update_begin(struct acl_object_vfile *aclobj,
 }
 
 static bool
-vfile_object_modify_right(struct acl_object_vfile *aclobj, unsigned int idx,
+vfile_object_modify_right(struct acl_object *aclobj, unsigned int idx,
 			  const struct acl_rights_update *update)
 {
 	struct acl_rights *right;
@@ -78,7 +78,7 @@ vfile_object_modify_right(struct acl_object_vfile *aclobj, unsigned int idx,
 }
 
 static bool
-vfile_object_add_right(struct acl_object_vfile *aclobj, unsigned int idx,
+vfile_object_add_right(struct acl_object *aclobj, unsigned int idx,
 		       const struct acl_rights_update *update)
 {
 	struct acl_rights right;
@@ -129,7 +129,7 @@ vfile_write_right(string_t *dest, const struct acl_rights *right,
 }
 
 static int
-acl_backend_vfile_update_write(struct acl_object_vfile *aclobj,
+acl_backend_vfile_update_write(struct acl_object *aclobj,
 			       int fd, const char *path)
 {
 	struct ostream *output;
@@ -193,7 +193,8 @@ static void acl_backend_vfile_update_cache(struct acl_object *_aclobj, int fd)
 int acl_backend_vfile_object_update(struct acl_object *_aclobj,
 				    const struct acl_rights_update *update)
 {
-	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
+	struct acl_object_vfile *aclobj =
+		(struct acl_object_vfile *)_aclobj;
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)_aclobj->backend;
 	struct acl_backend_vfile_validity *validity;
@@ -212,11 +213,11 @@ int acl_backend_vfile_object_update(struct acl_object *_aclobj,
 	if (fd == -1)
 		return -1;
 
-	if (!array_bsearch_insert_pos(&aclobj->rights, &update->rights,
+	if (!array_bsearch_insert_pos(&_aclobj->rights, &update->rights,
 				      acl_rights_cmp, &i))
-		changed = vfile_object_add_right(aclobj, i, update);
+		changed = vfile_object_add_right(_aclobj, i, update);
 	else
-		changed = vfile_object_modify_right(aclobj, i, update);
+		changed = vfile_object_modify_right(_aclobj, i, update);
 	if (!changed) {
 		file_dotlock_delete(&dotlock);
 		return 0;
@@ -228,7 +229,7 @@ int acl_backend_vfile_object_update(struct acl_object *_aclobj,
 
 	/* ACLs were really changed, write the new ones */
 	path = file_dotlock_get_lock_path(dotlock);
-	if (acl_backend_vfile_update_write(aclobj, fd, path) < 0) {
+	if (acl_backend_vfile_update_write(_aclobj, fd, path) < 0) {
 		file_dotlock_delete(&dotlock);
 		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
 		return -1;

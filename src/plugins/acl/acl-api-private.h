@@ -67,6 +67,9 @@ struct acl_mailbox_list_context {
 struct acl_object {
 	struct acl_backend *backend;
 	char *name;
+
+	pool_t rights_pool;
+	ARRAY(struct acl_rights) rights;
 };
 
 struct acl_object_list_iter {
@@ -77,6 +80,12 @@ struct acl_object_list_iter {
 };
 
 extern const char *const all_mailbox_rights[];
+
+struct acl_object_list_iter *
+acl_default_object_list_init(struct acl_object *aclobj);
+int acl_default_object_list_next(struct acl_object_list_iter *iter,
+				 struct acl_rights *rights_r);
+void acl_default_object_list_deinit(struct acl_object_list_iter *iter);
 
 const char *const *
 acl_backend_mask_get_names(struct acl_backend *backend,
@@ -95,6 +104,7 @@ const char *acl_rights_export(const struct acl_rights *rights);
 int acl_rights_parse_line(const char *line, pool_t pool,
 			  struct acl_rights *rights_r, const char **error_r);
 int acl_rights_cmp(const struct acl_rights *r1, const struct acl_rights *r2);
+void acl_rights_sort(struct acl_object *aclobj);
 
 const char *const *
 acl_right_names_parse(pool_t pool, const char *acl, const char **error_r);
@@ -105,5 +115,7 @@ bool acl_right_names_modify(pool_t pool,
 			    const char *const **rightsp,
 			    const char *const *modify_rights,
 			    enum acl_modify_mode modify_mode);
+void acl_object_rebuild_cache(struct acl_object *aclobj);
+void acl_object_remove_all_access(struct acl_object *aclobj);
 
 #endif

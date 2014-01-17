@@ -25,9 +25,6 @@ struct acl_backend_vfile_validity {
 struct acl_object_vfile {
 	struct acl_object aclobj;
 
-	pool_t rights_pool;
-	ARRAY(struct acl_rights) rights;
-
 	char *global_path, *local_path;
 };
 

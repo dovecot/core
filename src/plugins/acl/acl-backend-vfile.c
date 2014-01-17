@@ -253,35 +253,19 @@ static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
 {
 	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
 
-	if (array_is_created(&aclobj->rights))
-		array_free(&aclobj->rights);
-	if (aclobj->rights_pool != NULL)
-		pool_unref(&aclobj->rights_pool);
-
 	i_free(aclobj->local_path);
 	i_free(aclobj->global_path);
+
+	if (array_is_created(&aclobj->aclobj.rights))
+		array_free(&aclobj->aclobj.rights);
+	if (aclobj->aclobj.rights_pool != NULL)
+		pool_unref(&aclobj->aclobj.rights_pool);
 	i_free(aclobj->aclobj.name);
 	i_free(aclobj);
 }
 
-static void acl_backend_remove_all_access(struct acl_object_vfile *aclobj)
-{
-	static const char *null = NULL;
-	struct acl_rights rights;
-
-	memset(&rights, 0, sizeof(rights));
-	rights.id_type = ACL_ID_ANYONE;
-	rights.rights = &null;
-	array_append(&aclobj->rights, &rights, 1);
-
-	rights.id_type = ACL_ID_OWNER;
-	rights.rights = &null;
-	array_append(&aclobj->rights, &rights, 1);
-}
-
 static int
-acl_backend_vfile_read(struct acl_object_vfile *aclobj,
-		       bool global, const char *path,
+acl_backend_vfile_read(struct acl_object *aclobj, bool global, const char *path,
 		       struct acl_vfile_validity *validity, bool try_retry,
 		       bool *is_dir_r)
 {
@@ -297,15 +281,15 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj,
 	fd = nfs_safe_open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno == ENOENT || errno == ENOTDIR) {
-			if (aclobj->aclobj.backend->debug)
+			if (aclobj->backend->debug)
 				i_debug("acl vfile: file %s not found", path);
 			validity->last_mtime = VALIDITY_MTIME_NOTFOUND;
 		} else if (errno == EACCES) {
-			if (aclobj->aclobj.backend->debug)
+			if (aclobj->backend->debug)
 				i_debug("acl vfile: no access to file %s",
 					path);
 
-			acl_backend_remove_all_access(aclobj);
+			acl_object_remove_all_access(aclobj);
 			validity->last_mtime = VALIDITY_MTIME_NOACCESS;
 		} else {
 			i_error("open(%s) failed: %m", path);
@@ -334,7 +318,7 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj,
 		return 0;
 	}
 
-	if (aclobj->aclobj.backend->debug)
+	if (aclobj->backend->debug)
 		i_debug("acl vfile: reading file %s", path);
 
 	input = i_stream_create_fd(fd, (size_t)-1, FALSE);
@@ -394,7 +378,7 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj,
 }
 
 static int
-acl_backend_vfile_read_with_retry(struct acl_object_vfile *aclobj,
+acl_backend_vfile_read_with_retry(struct acl_object *aclobj,
 				  bool global, const char *path,
 				  struct acl_vfile_validity *validity)
 {
@@ -493,126 +477,6 @@ int acl_backend_vfile_object_get_mtime(struct acl_object *aclobj,
 	return 0;
 }
 
-static void acl_backend_vfile_rights_sort(struct acl_object_vfile *aclobj)
-{
-	struct acl_rights *rights;
-	unsigned int i, dest, count;
-
-	if (!array_is_created(&aclobj->rights))
-		return;
-
-	array_sort(&aclobj->rights, acl_rights_cmp);
-
-	/* merge identical identifiers */
-	rights = array_get_modifiable(&aclobj->rights, &count);
-	for (dest = 0, i = 1; i < count; i++) {
-		if (acl_rights_cmp(&rights[i], &rights[dest]) == 0) {
-			/* add i's rights to dest and delete i */
-			acl_right_names_merge(aclobj->rights_pool,
-					      &rights[dest].rights,
-					      rights[i].rights, FALSE);
-			acl_right_names_merge(aclobj->rights_pool,
-					      &rights[dest].neg_rights,
-					      rights[i].neg_rights, FALSE);
-		} else {
-			if (++dest != i)
-				rights[dest] = rights[i];
-		}
-	}
-	if (++dest != count)
-		array_delete(&aclobj->rights, dest, count - dest);
-}
-
-static void apply_owner_default_rights(struct acl_object *_aclobj)
-{
-	struct acl_rights_update ru;
-	const char *null = NULL;
-
-	memset(&ru, 0, sizeof(ru));
-	ru.modify_mode = ACL_MODIFY_MODE_REPLACE;
-	ru.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
-	ru.rights.id_type = ACL_ID_OWNER;
-	ru.rights.rights = _aclobj->backend->default_rights;
-	ru.rights.neg_rights = &null;
-	acl_cache_update(_aclobj->backend->cache, _aclobj->name, &ru);
-}
-
-static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
-{
-	struct acl_object *_aclobj = &aclobj->aclobj;
-	struct acl_rights_update ru;
-	enum acl_modify_mode add_mode;
-	const struct acl_rights *rights, *prev_match = NULL;
-	unsigned int i, count;
-	bool first_global = TRUE;
-
-	acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
-
-	if (!array_is_created(&aclobj->rights))
-		return;
-
-	/* Rights are sorted by their 1) locals first, globals next,
-	   2) acl_id_type. We'll apply only the rights matching ourself.
-
-	   Every time acl_id_type or local/global changes, the new ACLs will
-	   replace all of the existing ACLs. Basically this means that if
-	   user belongs to multiple matching groups or group-overrides, their
-	   ACLs are merged. In all other situations the ACLs are replaced
-	   (because there aren't duplicate rights entries and a user can't
-	   match multiple usernames). */
-	memset(&ru, 0, sizeof(ru));
-	rights = array_get(&aclobj->rights, &count);
-	if (!acl_backend_user_is_owner(_aclobj->backend))
-		i = 0;
-	else {
-		/* we're the owner. skip over all rights entries until we
-		   reach ACL_ID_OWNER or higher, or alternatively when we
-		   reach a global ACL (even ACL_ID_ANYONE overrides owner's
-		   rights if it's global) */
-		for (i = 0; i < count; i++) {
-			if (rights[i].id_type >= ACL_ID_OWNER ||
-			    rights[i].global)
-				break;
-		}
-		apply_owner_default_rights(_aclobj);
-		/* now continue applying the rest of the rights,
-		   if there are any */
-	}
-	for (; i < count; i++) {
-		if (!acl_backend_rights_match_me(_aclobj->backend, &rights[i]))
-			continue;
-
-		if (prev_match == NULL ||
-		    prev_match->id_type != rights[i].id_type ||
-		    prev_match->global != rights[i].global) {
-			/* replace old ACLs */
-			add_mode = ACL_MODIFY_MODE_REPLACE;
-		} else {
-			/* merging to existing ACLs */
-			i_assert(rights[i].id_type == ACL_ID_GROUP ||
-				 rights[i].id_type == ACL_ID_GROUP_OVERRIDE);
-			add_mode = ACL_MODIFY_MODE_ADD;
-		}
-		prev_match = &rights[i];
-
-		/* If [neg_]rights is NULL it needs to be ignored.
-		   The easiest way to do that is to just mark it with
-		   REMOVE mode */
-		ru.modify_mode = rights[i].rights == NULL ?
-			ACL_MODIFY_MODE_REMOVE : add_mode;
-		ru.neg_modify_mode = rights[i].neg_rights == NULL ?
-			ACL_MODIFY_MODE_REMOVE : add_mode;
-		ru.rights = rights[i];
-		if (rights[i].global && first_global) {
-			/* first global: reset negative ACLs so local ACLs
-			   can't mess things up via them */
-			first_global = FALSE;
-			ru.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
-		}
-		acl_cache_update(_aclobj->backend->cache, _aclobj->name, &ru);
-	}
-}
-
 static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 {
 	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
@@ -637,26 +501,26 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 		return ret;
 
 	/* either global or local ACLs changed, need to re-read both */
-	if (!array_is_created(&aclobj->rights)) {
-		aclobj->rights_pool =
+	if (!array_is_created(&_aclobj->rights)) {
+		_aclobj->rights_pool =
 			pool_alloconly_create("acl rights", 256);
-		i_array_init(&aclobj->rights, 16);
+		i_array_init(&_aclobj->rights, 16);
 	} else {
-		array_clear(&aclobj->rights);
-		p_clear(aclobj->rights_pool);
+		array_clear(&_aclobj->rights);
+		p_clear(_aclobj->rights_pool);
 	}
 
 	memset(&validity, 0, sizeof(validity));
-	if (acl_backend_vfile_read_with_retry(aclobj, TRUE, aclobj->global_path,
+	if (acl_backend_vfile_read_with_retry(_aclobj, TRUE, aclobj->global_path,
 					      &validity.global_validity) < 0)
 		return -1;
-	if (acl_backend_vfile_read_with_retry(aclobj, FALSE, aclobj->local_path,
+	if (acl_backend_vfile_read_with_retry(_aclobj, FALSE, aclobj->local_path,
 					      &validity.local_validity) < 0)
 		return -1;
 
-	acl_backend_vfile_rights_sort(aclobj);
+	acl_rights_sort(_aclobj);
 	/* update cache only after we've successfully read everything */
-	acl_backend_vfile_cache_rebuild(aclobj);
+	acl_object_rebuild_cache(_aclobj);
 	acl_cache_set_validity(_aclobj->backend->cache,
 			       _aclobj->name, &validity);
 
@@ -686,49 +550,6 @@ static int acl_backend_vfile_object_last_changed(struct acl_object *_aclobj,
 	return 0;
 }
 
-static struct acl_object_list_iter *
-acl_backend_vfile_object_list_init(struct acl_object *_aclobj)
-{
-	struct acl_object_vfile *aclobj =
-		(struct acl_object_vfile *)_aclobj;
-	struct acl_object_list_iter *iter;
-
-	iter = i_new(struct acl_object_list_iter, 1);
-	iter->aclobj = _aclobj;
-
-	if (!array_is_created(&aclobj->rights)) {
-		/* we may have the object cached, but we don't have all the
-		   rights read into memory */
-		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
-	}
-
-	if (_aclobj->backend->v.object_refresh_cache(_aclobj) < 0)
-		iter->failed = TRUE;
-	return iter;
-}
-
-static int
-acl_backend_vfile_object_list_next(struct acl_object_list_iter *iter,
-				   struct acl_rights *rights_r)
-{
-	struct acl_object_vfile *aclobj =
-		(struct acl_object_vfile *)iter->aclobj;
-	const struct acl_rights *rights;
-
-	if (iter->idx == array_count(&aclobj->rights))
-		return 0;
-
-	rights = array_idx(&aclobj->rights, iter->idx++);
-	*rights_r = *rights;
-	return 1;
-}
-
-static void
-acl_backend_vfile_object_list_deinit(struct acl_object_list_iter *iter)
-{
-	i_free(iter);
-}
-
 struct acl_backend_vfuncs acl_backend_vfile = {
 	acl_backend_vfile_alloc,
 	acl_backend_vfile_init,
@@ -743,7 +564,7 @@ struct acl_backend_vfuncs acl_backend_vfile = {
 	acl_backend_vfile_object_refresh_cache,
 	acl_backend_vfile_object_update,
 	acl_backend_vfile_object_last_changed,
-	acl_backend_vfile_object_list_init,
-	acl_backend_vfile_object_list_next,
-	acl_backend_vfile_object_list_deinit
+	acl_default_object_list_init,
+	acl_default_object_list_next,
+	acl_default_object_list_deinit
 };
