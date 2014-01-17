@@ -6,8 +6,8 @@
 #define ACL_FILENAME "dovecot-acl"
 #define ACLLIST_FILENAME "dovecot-acl-list"
 
-#define VALIDITY_MTIME_NOTFOUND 0
-#define VALIDITY_MTIME_NOACCESS -1
+#define ACL_VFILE_VALIDITY_MTIME_NOTFOUND 0
+#define ACL_VFILE_VALIDITY_MTIME_NOACCESS -1
 
 struct acl_vfile_validity {
 	time_t last_check;

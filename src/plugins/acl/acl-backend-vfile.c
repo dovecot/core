@@ -166,17 +166,17 @@ acl_backend_vfile_exists(struct acl_backend_vfile *backend, const char *path,
 
 	if (validity->last_check + (time_t)backend->cache_secs > ioloop_time) {
 		/* use the cached value */
-		return validity->last_mtime != VALIDITY_MTIME_NOTFOUND;
+		return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOTFOUND;
 	}
 
 	validity->last_check = ioloop_time;
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT || errno == ENOTDIR) {
-			validity->last_mtime = VALIDITY_MTIME_NOTFOUND;
+			validity->last_mtime = ACL_VFILE_VALIDITY_MTIME_NOTFOUND;
 			return 0;
 		}
 		if (errno == EACCES) {
-			validity->last_mtime = VALIDITY_MTIME_NOACCESS;
+			validity->last_mtime = ACL_VFILE_VALIDITY_MTIME_NOACCESS;
 			return 1;
 		}
 		i_error("stat(%s) failed: %m", path);
@@ -283,14 +283,14 @@ acl_backend_vfile_read(struct acl_object *aclobj, bool global, const char *path,
 		if (errno == ENOENT || errno == ENOTDIR) {
 			if (aclobj->backend->debug)
 				i_debug("acl vfile: file %s not found", path);
-			validity->last_mtime = VALIDITY_MTIME_NOTFOUND;
+			validity->last_mtime = ACL_VFILE_VALIDITY_MTIME_NOTFOUND;
 		} else if (errno == EACCES) {
 			if (aclobj->backend->debug)
 				i_debug("acl vfile: no access to file %s",
 					path);
 
 			acl_object_remove_all_access(aclobj);
-			validity->last_mtime = VALIDITY_MTIME_NOACCESS;
+			validity->last_mtime = ACL_VFILE_VALIDITY_MTIME_NOACCESS;
 		} else {
 			i_error("open(%s) failed: %m", path);
 			return -1;
@@ -433,10 +433,10 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 	if (ret < 0) {
 		if (errno == ENOENT || errno == ENOTDIR) {
 			/* if the file used to exist, we have to re-read it */
-			return validity->last_mtime != VALIDITY_MTIME_NOTFOUND;
+			return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOTFOUND;
 		} 
 		if (errno == EACCES)
-			return validity->last_mtime != VALIDITY_MTIME_NOACCESS;
+			return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOACCESS;
 		i_error("stat(%s) failed: %m", path);
 		return -1;
 	}
