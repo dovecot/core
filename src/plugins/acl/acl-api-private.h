@@ -92,6 +92,8 @@ int acl_rights_update_import(struct acl_rights_update *update,
 			     const char *id, const char *const *rights,
 			     const char **error_r);
 const char *acl_rights_export(const struct acl_rights *rights);
+int acl_rights_parse_line(const char *line, pool_t pool,
+			  struct acl_rights *rights_r, const char **error_r);
 int acl_rights_cmp(const struct acl_rights *r1, const struct acl_rights *r2);
 
 const char *const *

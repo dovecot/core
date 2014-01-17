@@ -3,18 +3,12 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
-#include "str.h"
-#include "strescape.h"
 #include "istream.h"
-#include "ostream.h"
 #include "nfs-workarounds.h"
 #include "mail-storage-private.h"
-#include "mailbox-list-private.h"
-#include "mail-namespace.h"
 #include "acl-cache.h"
 #include "acl-backend-vfile.h"
 
-#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -270,61 +264,6 @@ static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
 	i_free(aclobj);
 }
 
-static int
-acl_object_vfile_parse_line(struct acl_object_vfile *aclobj, bool global,
-			    const char *path, const char *line,
-			    unsigned int linenum)
-{
-	struct acl_rights rights;
-	const char *id_str, *const *right_names, *error = NULL;
-
-	if (*line == '\0' || *line == '#')
-		return 0;
-
-	/* <id> [<imap acls>] [:<named acls>] */
-	if (*line == '"') {
-		line++;
-		if (str_unescape_next(&line, &id_str) < 0 ||
-		    (line[0] != ' ' && line[0] != '\0')) {
-			i_error("ACL file %s line %u: Invalid quoted ID",
-				path, linenum);
-			return -1;
-		}
-		if (line[0] == ' ')
-			line++;
-	} else {
-		id_str = line;
-		line = strchr(id_str, ' ');
-		if (line == NULL)
-			line = "";
-		else
-			id_str = t_strdup_until(id_str, line++);
-	}
-
-	memset(&rights, 0, sizeof(rights));
-	rights.global = global;
-
-	right_names = acl_right_names_parse(aclobj->rights_pool, line, &error);
-	if (*id_str != '-')
-		rights.rights = right_names;
-	else {
-		id_str++;
-		rights.neg_rights = right_names;
-	}
-
-	if (acl_identifier_parse(id_str, &rights) < 0)
-		error = t_strdup_printf("Unknown ID '%s'", id_str);
-
-	if (error != NULL) {
-		i_error("ACL file %s line %u: %s", path, linenum, error);
-		return -1;
-	}
-
-	rights.identifier = p_strdup(aclobj->rights_pool, rights.identifier);
-	array_append(&aclobj->rights, &rights, 1);
-	return 0;
-}
-
 static void acl_backend_remove_all_access(struct acl_object_vfile *aclobj)
 {
 	static const char *null = NULL;
@@ -348,7 +287,8 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj,
 {
 	struct istream *input;
 	struct stat st;
-	const char *line;
+	struct acl_rights rights;
+	const char *line, *error;
 	unsigned int linenum;
 	int fd, ret = 0;
 
@@ -402,12 +342,19 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj,
 	linenum = 1;
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		T_BEGIN {
-			ret = acl_object_vfile_parse_line(aclobj, global,
-							  path, line,
-							  linenum++);
+			ret = acl_rights_parse_line(line, aclobj->rights_pool,
+						    &rights, &error);
+			rights.global = global;
+			if (ret < 0) {
+				i_error("ACL file %s line %u: %s",
+					path, linenum, error);
+			} else {
+				array_append(&aclobj->rights, &rights, 1);
+			}
 		} T_END;
 		if (ret < 0)
 			break;
+		linenum++;
 	}
 
 	if (ret < 0) {

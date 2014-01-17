@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "strescape.h"
 #include "hash.h"
 #include "mail-user.h"
 #include "mailbox-list.h"
@@ -331,6 +332,55 @@ const char *acl_rights_export(const struct acl_rights *rights)
 		str_append(str, t_strarray_join(rights->neg_rights, " -"));
 	}
 	return str_c(str);
+}
+
+int acl_rights_parse_line(const char *line, pool_t pool,
+			  struct acl_rights *rights_r, const char **error_r)
+{
+	const char *id_str, *const *right_names, *error = NULL;
+
+	if (*line == '\0' || *line == '#')
+		return 0;
+
+	/* <id> [<imap acls>] [:<named acls>] */
+	if (*line == '"') {
+		line++;
+		if (str_unescape_next(&line, &id_str) < 0 ||
+		    (line[0] != ' ' && line[0] != '\0')) {
+			*error_r = "Invalid quoted ID";
+			return -1;
+		}
+		if (line[0] == ' ')
+			line++;
+	} else {
+		id_str = line;
+		line = strchr(id_str, ' ');
+		if (line == NULL)
+			line = "";
+		else
+			id_str = t_strdup_until(id_str, line++);
+	}
+
+	memset(rights_r, 0, sizeof(*rights_r));
+
+	right_names = acl_right_names_parse(pool, line, &error);
+	if (*id_str != '-')
+		rights_r->rights = right_names;
+	else {
+		id_str++;
+		rights_r->neg_rights = right_names;
+	}
+
+	if (acl_identifier_parse(id_str, rights_r) < 0)
+		error = t_strdup_printf("Unknown ID '%s'", id_str);
+
+	if (error != NULL) {
+		*error_r = error;
+		return -1;
+	}
+
+	rights_r->identifier = p_strdup(pool, rights_r->identifier);
+	return 0;
 }
 
 int acl_rights_cmp(const struct acl_rights *r1, const struct acl_rights *r2)

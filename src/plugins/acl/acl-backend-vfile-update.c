@@ -8,12 +8,12 @@
 #include "strescape.h"
 #include "file-dotlock.h"
 #include "ostream.h"
-#include "mailbox-list.h"
-#include "mail-storage-private.h"
+#include "mail-storage.h"
 #include "acl-cache.h"
 #include "acl-backend-vfile.h"
 
 #include <utime.h>
+#include <sys/stat.h>
 
 static struct dotlock_settings dotlock_set = {
 	.timeout = 30,
