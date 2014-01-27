@@ -7,6 +7,7 @@
 #include "hash.h"
 #include "mail-user.h"
 #include "mailbox-list.h"
+#include "acl-global-file.h"
 #include "acl-cache.h"
 #include "acl-api-private.h"
 
@@ -420,6 +421,19 @@ int acl_rights_parse_line(const char *line, pool_t pool,
 	return 0;
 }
 
+void acl_rights_dup(const struct acl_rights *src,
+		    pool_t pool, struct acl_rights *dest_r)
+{
+	memset(dest_r, 0, sizeof(*dest_r));
+	dest_r->id_type = src->id_type;
+	dest_r->identifier = p_strdup(pool, src->identifier);
+	dest_r->rights = src->rights == NULL ? NULL :
+		p_strarray_dup(pool, src->rights);
+	dest_r->neg_rights = src->neg_rights == NULL ? NULL :
+		p_strarray_dup(pool, src->neg_rights);
+	dest_r->global = src->global;
+}
+
 int acl_rights_cmp(const struct acl_rights *r1, const struct acl_rights *r2)
 {
 	int ret;
@@ -802,4 +816,18 @@ void acl_object_remove_all_access(struct acl_object *aclobj)
 	rights.id_type = ACL_ID_OWNER;
 	rights.rights = &null;
 	array_append(&aclobj->rights, &rights, 1);
+}
+
+void acl_object_add_global_acls(struct acl_object *aclobj)
+{
+	struct acl_backend *backend = aclobj->backend;
+	const char *vname, *error;
+
+	if (mailbox_list_is_valid_name(backend->list, aclobj->name, &error))
+		vname = mailbox_list_get_vname(backend->list, aclobj->name);
+	else
+		vname = "";
+
+	acl_global_file_get(backend->global_file, vname,
+			    aclobj->rights_pool, &aclobj->rights);
 }

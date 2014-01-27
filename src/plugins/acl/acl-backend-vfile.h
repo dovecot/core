@@ -25,6 +25,8 @@ struct acl_backend_vfile_validity {
 struct acl_object_vfile {
 	struct acl_object aclobj;
 
+	/* if backend->global_file is NULL, assume legacy separate global
+	   ACL file per mailbox */
 	char *global_path, *local_path;
 };
 
@@ -35,7 +37,7 @@ struct acl_backend_vfile_acllist {
 
 struct acl_backend_vfile {
 	struct acl_backend backend;
-	const char *global_dir;
+	const char *global_path;
 
 	pool_t acllist_pool;
 	ARRAY(struct acl_backend_vfile_acllist) acllist;

@@ -49,6 +49,7 @@ struct acl_backend {
 
 	struct mailbox_list *list;
 	struct acl_cache *cache;
+	struct acl_global_file *global_file;
 
 	struct acl_object *default_aclobj;
 	struct acl_mask *default_aclmask;
@@ -69,7 +70,7 @@ struct acl_object {
 	char *name;
 
 	pool_t rights_pool;
-	ARRAY(struct acl_rights) rights;
+	ARRAY_TYPE(acl_rights) rights;
 };
 
 struct acl_object_list_iter {
@@ -103,6 +104,8 @@ int acl_rights_update_import(struct acl_rights_update *update,
 const char *acl_rights_export(const struct acl_rights *rights);
 int acl_rights_parse_line(const char *line, pool_t pool,
 			  struct acl_rights *rights_r, const char **error_r);
+void acl_rights_dup(const struct acl_rights *src,
+		    pool_t pool, struct acl_rights *dest_r);
 int acl_rights_cmp(const struct acl_rights *r1, const struct acl_rights *r2);
 void acl_rights_sort(struct acl_object *aclobj);
 
@@ -117,5 +120,6 @@ bool acl_right_names_modify(pool_t pool,
 			    enum acl_modify_mode modify_mode);
 void acl_object_rebuild_cache(struct acl_object *aclobj);
 void acl_object_remove_all_access(struct acl_object *aclobj);
+void acl_object_add_global_acls(struct acl_object *aclobj);
 
 #endif
