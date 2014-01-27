@@ -104,7 +104,7 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 		if (ret < 0) {
 			stream->istream.stream_errno =
 				stream->parent->stream_errno;
-			if (stream->istream.stream_errno != 0) {
+			if (stream->istream.stream_errno == 0) {
 				stream->istream.eof = TRUE;
 				zstream->stream_size = stream->istream.v_offset +
 					stream->pos - stream->skip;
