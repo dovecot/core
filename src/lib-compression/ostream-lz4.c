@@ -18,7 +18,7 @@ struct lz4_ostream {
 	unsigned int compressbuf_offset;
 
 	/* chunk size, followed by compressed data */
-	unsigned char outbuf[IOSTREAM_LZ4_CHUNK_PREFIX_LEN + CHUNK_SIZE];
+	unsigned char outbuf[IOSTREAM_LZ4_CHUNK_PREFIX_LEN + LZ4_COMPRESSBOUND(CHUNK_SIZE)];
 	unsigned int outbuf_offset, outbuf_used;
 };
 
