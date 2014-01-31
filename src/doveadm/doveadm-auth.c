@@ -240,7 +240,7 @@ static void cmd_auth_cache_flush(int argc, char *argv[])
 
 	if (master_socket_path == NULL) {
 		master_socket_path = t_strconcat(doveadm_settings->base_dir,
-						 "auth-master", NULL);
+						 "/auth-master", NULL);
 	}
 
 	conn = doveadm_get_auth_master_conn(master_socket_path);
