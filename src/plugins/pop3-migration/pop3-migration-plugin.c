@@ -142,6 +142,17 @@ get_hdr_sha1_stream(struct mail *mail, struct istream *input, uoff_t hdr_size,
 
 	sha1_init(&sha1_ctx);
 	while (i_stream_read_data(input, &data, &size, 0) > 0) {
+		/* if there are NULs in header, replace them with 0x80
+		   character. This is done by at least Dovecot IMAP and also
+		   POP3 with outlook-no-nuls workaround. */
+		while ((p = memchr(data, '\0', size)) != NULL) {
+			idx = p - data;
+			sha1_loop(&sha1_ctx, data, idx);
+			sha1_loop(&sha1_ctx, "\x80", 1);
+			i_assert(size > idx);
+			data += idx + 1;
+			size -= idx + 1;
+		}
 		sha1_loop(&sha1_ctx, data, size);
 		i_stream_skip(input, size);
 	}
