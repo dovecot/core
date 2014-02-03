@@ -6,6 +6,7 @@
 #include "istream-header-filter.h"
 #include "sha1.h"
 #include "message-size.h"
+#include "message-header-parser.h"
 #include "mail-namespace.h"
 #include "mail-search-build.h"
 #include "mail-storage-private.h"
@@ -110,26 +111,33 @@ static int imap_msg_map_hdr_cmp(const struct imap_msg_map *map1,
 	return memcmp(map1->hdr_sha1, map2->hdr_sha1, sizeof(map1->hdr_sha1));
 }
 
-static int get_hdr_sha1(struct mail *mail, unsigned char sha1[SHA1_RESULTLEN])
+static void
+pop3_header_filter_callback(struct header_filter_istream *input ATTR_UNUSED,
+			    struct message_header_line *hdr,
+			    bool *matched ATTR_UNUSED, bool *have_eoh)
 {
-	struct message_size hdr_size;
-	struct istream *input, *input2;
-	const unsigned char *data;
-	size_t size;
+	if (hdr != NULL && hdr->eoh)
+		*have_eoh = TRUE;
+}
+
+static int
+get_hdr_sha1_stream(struct mail *mail, struct istream *input, uoff_t hdr_size,
+		    unsigned char sha1_r[SHA1_RESULTLEN], bool *have_eoh_r)
+{
+	struct istream *input2;
+	const unsigned char *data, *p;
+	size_t size, idx;
 	struct sha1_ctxt sha1_ctx;
 
-	if (mail_get_hdr_stream(mail, &hdr_size, &input) < 0) {
-		i_error("pop3_migration: Failed to get header for msg %u: %s",
-			mail->seq, mailbox_get_last_error(mail->box, NULL));
-		return -1;
-	}
-	input2 = i_stream_create_limit(input, hdr_size.physical_size);
+	*have_eoh_r = FALSE;
+
+	input2 = i_stream_create_limit(input, hdr_size);
 	/* hide headers that might change or be different in IMAP vs. POP3 */
 	input = i_stream_create_header_filter(input2,
 				HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
 				hdr_hash_skip_headers,
 				N_ELEMENTS(hdr_hash_skip_headers),
-				*null_header_filter_callback, (void *)NULL);
+				pop3_header_filter_callback, have_eoh_r);
 	i_stream_unref(&input2);
 
 	sha1_init(&sha1_ctx);
@@ -138,14 +146,58 @@ static int get_hdr_sha1(struct mail *mail, unsigned char sha1[SHA1_RESULTLEN])
 		i_stream_skip(input, size);
 	}
 	if (input->stream_errno != 0) {
-		i_error("pop3_migration: Failed to read header for msg %u: %m",
-			mail->seq);
+		i_error("pop3_migration: Failed to read header for msg %u: %s",
+			mail->seq, i_stream_get_error(input));
 		i_stream_unref(&input);
 		return -1;
 	}
-	sha1_result(&sha1_ctx, sha1);
+	sha1_result(&sha1_ctx, sha1_r);
 	i_stream_unref(&input);
 	return 0;
+}
+
+static int
+get_hdr_sha1(struct mail *mail, unsigned char sha1_r[SHA1_RESULTLEN])
+{
+	struct istream *input;
+	struct message_size hdr_size;
+	bool have_eoh;
+
+	if (mail_get_hdr_stream(mail, &hdr_size, &input) < 0) {
+		i_error("pop3_migration: Failed to get header for msg %u: %s",
+			mail->seq, mailbox_get_last_error(mail->box, NULL));
+		return -1;
+	}
+	if (get_hdr_sha1_stream(mail, input, hdr_size.physical_size,
+				sha1_r, &have_eoh) < 0)
+		return -1;
+	if (have_eoh)
+		return 0;
+
+	/* The empty "end of headers" line is missing. Either this means that
+	   the headers ended unexpectedly (which is ok) or that the remote
+	   server is buggy. Some servers have problems with
+
+	   1) header line continuations that contain only whitespace and
+	   2) headers that have no ":". The header gets truncated when such
+	   line is reached.
+
+	   At least Oracle IMS IMAP FETCH BODY[HEADER] handles 1) by not
+	   returning the whitespace line and 2) by returning the line but
+	   truncating the rest. POP3 TOP instead returns the entire header.
+	   This causes the IMAP and POP3 hashes not to match.
+
+	   So we'll try to avoid this by falling back to full FETCH BODY[]
+	   (and/or RETR) and we'll parse the header ourself from it. This
+	   should work around any similar bugs in all IMAP/POP3 servers. */
+	if (mail_get_stream(mail, &hdr_size, NULL, &input) < 0) {
+		i_error("pop3_migration: Failed to get body for msg %u: %s",
+			mail->seq, mailbox_get_last_error(mail->box, NULL));
+		return -1;
+	}
+	return get_hdr_sha1_stream(mail, input, hdr_size.physical_size,
+				   sha1_r, &have_eoh);
+
 }
 
 static struct mailbox *pop3_mailbox_alloc(struct mail_storage *storage)
