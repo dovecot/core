@@ -48,6 +48,7 @@ struct pop3_migration_mail_storage {
 
 	unsigned int all_mailboxes:1;
 	unsigned int pop3_all_hdr_sha1_set:1;
+	unsigned int ignore_missing_uidls:1;
 };
 
 struct pop3_migration_mailbox {
@@ -501,6 +502,13 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 			missing_uids_count++;
 	}
 	if (missing_uids_count > 0 && !mstorage->all_mailboxes) {
+		if (!mstorage->ignore_missing_uidls) {
+			i_error("pop3_migration: %u POP3 messages have no "
+				"matching IMAP messages (set "
+				"pop3_migration_ignore_missing_uidls=yes "
+				"to continue anyway)", missing_uids_count);
+			return -1;
+		}
 		i_warning("pop3_migration: %u POP3 messages have no "
 			  "matching IMAP messages", missing_uids_count);
 	}
@@ -670,6 +678,9 @@ static void pop3_migration_mail_storage_created(struct mail_storage *storage)
 	mstorage->all_mailboxes =
 		mail_user_plugin_getenv(storage->user,
 					"pop3_migration_all_mailboxes") != NULL;
+	mstorage->ignore_missing_uidls =
+		mail_user_plugin_getenv(storage->user,
+			"pop3_migration_ignore_missing_uidls") != NULL;
 
 	MODULE_CONTEXT_SET(storage, pop3_migration_storage_module, mstorage);
 }
