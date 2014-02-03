@@ -1217,9 +1217,9 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 	ctx->sync_flags = sync_flags;
 	i_array_init(&ctx->changes, 128);
 
-	ignore_deletes = sync_type == DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL;
-	sync_tree_sort_and_delete_mailboxes(ctx, remote_tree, ignore_deletes);
 	ignore_deletes = sync_type == DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE;
+	sync_tree_sort_and_delete_mailboxes(ctx, remote_tree, ignore_deletes);
+	ignore_deletes = sync_type == DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL;
 	sync_tree_sort_and_delete_mailboxes(ctx, local_tree, ignore_deletes);
 
 	dsync_mailbox_tree_update_child_timestamps(&local_tree->root, 0);
