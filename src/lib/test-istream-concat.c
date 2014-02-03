@@ -8,6 +8,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#define TEST_MAX_ISTREAM_COUNT 10
+#define TEST_MAX_ISTREAM_SIZE 1024
+#define TEST_MAX_BUFFER_SIZE 128
+
 static void test_istream_concat_one(unsigned int buffer_size)
 {
 	static const char *input_string = "xyz";
@@ -47,17 +51,17 @@ static void test_istream_concat_one(unsigned int buffer_size)
 
 static void test_istream_concat_random(void)
 {
-	struct istream **streams, *input;
+	struct istream **streams, *input, *input1, *input2;
 	const unsigned char *data;
 	unsigned char *w_data;
 	size_t size = 0;
 	unsigned int i, j, offset, stream_count, data_len;
 
-	srand(1234);
-	stream_count = (rand() % 10) + 2;
+	srand(3);
+	stream_count = (rand() % TEST_MAX_ISTREAM_COUNT) + 2;
 	streams = t_new(struct istream *, stream_count + 1);
 	for (i = 0, offset = 0; i < stream_count; i++) {
-		data_len = rand() % 100 + 1;
+		data_len = rand() % TEST_MAX_ISTREAM_SIZE + 1;
 		w_data = t_malloc(data_len);
 		for (j = 0; j < data_len; j++)
 			w_data[j] = offset++;
@@ -68,14 +72,21 @@ static void test_istream_concat_random(void)
 	i_assert(offset > 0);
 
 	input = i_stream_create_concat(streams);
-	for (i = 0; i < 100; i++) {
+	i_stream_set_max_buffer_size(input, TEST_MAX_BUFFER_SIZE);
+	input1 = i_stream_create_limit(input, (uoff_t)-1);
+	input2 = i_stream_create_limit(input, (uoff_t)-1);
+	i_stream_unref(&input);
+
+	for (i = 0; i < 1000; i++) {
+		input = i % 2 == 0 ? input1 : input2;
 		if (rand() % 3 == 0) {
 			i_stream_seek(input, rand() % offset);
 		} else {
 			ssize_t ret = i_stream_read(input);
-			if (input->v_offset + size == offset)
-				test_assert(ret < 0);
-			else {
+			size = i_stream_get_data_size(input);
+			if (ret == -2) {
+				test_assert(size >= TEST_MAX_BUFFER_SIZE);
+			} else if (input->v_offset + size != offset) {
 				test_assert(ret > 0);
 				test_assert(input->v_offset + ret <= offset);
 				i_stream_skip(input, rand() % ret);
@@ -86,11 +97,11 @@ static void test_istream_concat_random(void)
 				}
 			}
 		}
-		size = i_stream_get_data_size(input);
 	}
 	for (i = 0; i < stream_count; i++)
 		i_stream_unref(&streams[i]);
-	i_stream_unref(&input);
+	i_stream_unref(&input1);
+	i_stream_unref(&input2);
 }
 
 void test_istream_concat(void)
