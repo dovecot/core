@@ -493,7 +493,8 @@ static void imapc_list_delete_unused_indexes(struct imapc_mailbox_list *list)
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
 		vname = info->vname;
-		if (imapc_list_prefix_len > 0) {
+		if (imapc_list_prefix_len > 0 &&
+		    strcasecmp(vname, "INBOX") != 0) {
 			/* skip over the namespace prefix */
 			i_assert(strncmp(vname, fs_list->ns->prefix,
 					 fs_list->ns->prefix_len) == 0);
