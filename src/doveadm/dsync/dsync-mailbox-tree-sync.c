@@ -88,6 +88,8 @@ sync_add_dir_change(struct dsync_mailbox_tree_sync_ctx *ctx,
 	struct dsync_mailbox_tree_sync_change *change;
 	const char *name;
 
+	i_assert(ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL);
+
 	name = dsync_mailbox_node_get_full_name(ctx->local_tree, node);
 
 	change = array_append_space(&ctx->changes);
@@ -101,6 +103,8 @@ sync_add_create_change(struct dsync_mailbox_tree_sync_ctx *ctx,
 		       const struct dsync_mailbox_node *node, const char *name)
 {
 	struct dsync_mailbox_tree_sync_change *change;
+
+	i_assert(ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL);
 
 	change = array_append_space(&ctx->changes);
 	change->type = DSYNC_MAILBOX_TREE_SYNC_TYPE_CREATE_BOX;
@@ -162,6 +166,7 @@ sync_delete_mailbox_node(struct dsync_mailbox_tree_sync_ctx *ctx,
 
 	if (tree == ctx->local_tree) {
 		/* delete this mailbox locally */
+		i_assert(ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL);
 		change = array_append_space(&ctx->changes);
 		change->type = DSYNC_MAILBOX_TREE_SYNC_TYPE_DELETE_BOX;
 		change->ns = node->ns;
@@ -393,6 +398,7 @@ sync_rename_node_to_temp(struct dsync_mailbox_tree_sync_ctx *ctx,
 		/* we're modifying a local tree. remember this change. */
 		new_name = dsync_mailbox_node_get_full_name(tree, node);
 
+		i_assert(ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL);
 		i_assert(strcmp(old_name, "INBOX") != 0);
 		change = array_append_space(&ctx->changes);
 		change->type = DSYNC_MAILBOX_TREE_SYNC_TYPE_RENAME;
@@ -460,6 +466,7 @@ sync_rename_node(struct dsync_mailbox_tree_sync_ctx *ctx,
 		/* we're modifying a local tree. remember this change. */
 		other_name = dsync_mailbox_node_get_full_name(other_tree, other_node);
 
+		i_assert(ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL);
 		i_assert(strcmp(name, "INBOX") != 0);
 		change = array_append_space(&ctx->changes);
 		change->type = DSYNC_MAILBOX_TREE_SYNC_TYPE_RENAME;
