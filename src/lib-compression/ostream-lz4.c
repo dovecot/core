@@ -18,7 +18,8 @@ struct lz4_ostream {
 	unsigned int compressbuf_offset;
 
 	/* chunk size, followed by compressed data */
-	unsigned char outbuf[IOSTREAM_LZ4_CHUNK_PREFIX_LEN + LZ4_COMPRESSBOUND(CHUNK_SIZE)];
+	unsigned char outbuf[IOSTREAM_LZ4_CHUNK_PREFIX_LEN +
+	                     LZ4_COMPRESSBOUND(CHUNK_SIZE)];
 	unsigned int outbuf_offset, outbuf_used;
 };
 
@@ -70,11 +71,13 @@ static int o_stream_lz4_compress(struct lz4_ostream *zstream)
 	i_assert(zstream->outbuf_offset == 0);
 	i_assert(zstream->outbuf_used == 0);
 
-	zstream->outbuf_used = IOSTREAM_LZ4_CHUNK_PREFIX_LEN +
-		LZ4_compress((void *)zstream->compressbuf,
-			     (void *)(zstream->outbuf + IOSTREAM_LZ4_CHUNK_PREFIX_LEN),
-			     zstream->compressbuf_offset);
-	i_assert(zstream->outbuf_used > IOSTREAM_LZ4_CHUNK_PREFIX_LEN);
+	ret = LZ4_compress((void *)zstream->compressbuf,
+			   (void *)(zstream->outbuf +
+			            IOSTREAM_LZ4_CHUNK_PREFIX_LEN),
+			   zstream->compressbuf_offset);
+	i_assert(ret > 0 && (unsigned int)ret <= sizeof(zstream->outbuf) -
+	         IOSTREAM_LZ4_CHUNK_PREFIX_LEN);
+	zstream->outbuf_used = IOSTREAM_LZ4_CHUNK_PREFIX_LEN + ret;
 	chunk_size = zstream->outbuf_used - IOSTREAM_LZ4_CHUNK_PREFIX_LEN;
 	zstream->outbuf[0] = (chunk_size & 0xff000000) >> 24;
 	zstream->outbuf[1] = (chunk_size & 0x00ff0000) >> 16;
