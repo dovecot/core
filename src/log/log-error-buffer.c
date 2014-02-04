@@ -1,4 +1,4 @@
-/* Copyright (c) 2013 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2014 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "log-error-buffer.h"

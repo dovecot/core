@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2013 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2014 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "mailbox-list-private.h"

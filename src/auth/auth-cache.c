@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2013 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2004-2014 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 #include "lib-signals.h"

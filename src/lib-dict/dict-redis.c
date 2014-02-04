@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013 Dovecot authors, see the included COPYING redis */
+/* Copyright (c) 2008-2014 Dovecot authors, see the included COPYING redis */
 
 #include "lib.h"
 #include "array.h"
