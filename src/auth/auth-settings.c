@@ -351,8 +351,10 @@ auth_verify_verbose_password(const struct auth_settings *set,
 		return TRUE;
 	else if (strcmp(value, "sha1") == 0)
 		return TRUE;
-	else
+	else {
+		*error_r = "auth_verbose_passwords: Invalid value";
 		return FALSE;
+	}
 }
 
 static bool auth_settings_check(void *_set, pool_t pool,
