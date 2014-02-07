@@ -201,7 +201,7 @@ cmd_user_list(struct auth_master_connection *conn,
 	      char *const *users)
 {
 	struct auth_master_user_list_ctx *ctx;
-	const char *username, *user_mask = NULL;
+	const char *username, *user_mask = "*";
 	unsigned int i;
 
 	if (users[0] != NULL && users[1] == NULL)
