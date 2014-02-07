@@ -255,9 +255,11 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	}
 
 	if (ret == 0 && backend->global_path != NULL) {
-		if (_backend->global_file != NULL)
-			ret = acl_global_file_have_any(_backend->global_file, vname) ? 1 : 0;
-		else {
+		if (_backend->global_file != NULL) {
+			ret = acl_global_file_refresh(_backend->global_file);
+			if (ret == 0 && acl_global_file_have_any(_backend->global_file, vname))
+				ret = 1;
+		} else {
 			global_path = t_strconcat(backend->global_path, "/", name, NULL);
 			ret = acl_backend_vfile_exists(backend, global_path,
 						       &new_validity.global_validity);
