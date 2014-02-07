@@ -293,64 +293,44 @@ static void test_http_url_valid(void)
 			valid_url_tests[i].url), urlp != NULL, error);
 		if (urlp != NULL) {
 			if (urlp->host_name == NULL || urlt->host_name == NULL) {
-				test_out(t_strdup_printf("url->host_name = %s", urlp->host_name),
-					urlp->host_name == urlt->host_name);
+				test_assert(urlp->host_name == urlt->host_name);
 			} else {
-				test_out(t_strdup_printf("url->host_name = %s", urlp->host_name),
-					strcmp(urlp->host_name, urlt->host_name) == 0);
+				test_assert(strcmp(urlp->host_name, urlt->host_name) == 0);
 			}
 			if (!urlp->have_port) {
-				test_out("url->port = (unspecified)",
-					urlp->have_port == urlt->have_port);
+				test_assert(urlp->have_port == urlt->have_port);
 			} else {
-				test_out(t_strdup_printf("url->port = %u", urlp->port),
-					urlp->have_port == urlt->have_port && urlp->port == urlt->port);
+				test_assert(urlp->have_port == urlt->have_port && urlp->port == urlt->port);
 			}
 			if (!urlp->have_host_ip) {
-				test_out("url->host_ip = (unspecified)",
-					urlp->have_host_ip == urlt->have_host_ip);
+				test_assert(urlp->have_host_ip == urlt->have_host_ip);
 			} else {
-				test_out("url->host_ip = (valid)",
-					urlp->have_host_ip == urlt->have_host_ip);
+				test_assert(urlp->have_host_ip == urlt->have_host_ip);
 			}
 			if (urlp->user == NULL || urlt->user == NULL) {
-				test_out(t_strdup_printf("url->user = %s", urlp->user),
-					urlp->user == urlt->user);
+				test_assert(urlp->user == urlt->user);
 			} else {
-				test_out(t_strdup_printf("url->user = %s", urlp->user),
-					strcmp(urlp->user, urlt->user) == 0);
+				test_assert(strcmp(urlp->user, urlt->user) == 0);
 			}
 			if (urlp->password == NULL || urlt->password == NULL) {
-				test_out(t_strdup_printf("url->password = %s", urlp->password),
-					urlp->password == urlt->password);
+				test_assert(urlp->password == urlt->password);
 			} else {
-				test_out(t_strdup_printf("url->password = %s", urlp->password),
-					strcmp(urlp->password, urlt->password) == 0);
+				test_assert(strcmp(urlp->password, urlt->password) == 0);
 			}
 			if (urlp->path == NULL || urlt->path == NULL) {
-				test_out(t_strdup_printf("url->path = %s", urlp->path),
-					urlp->path == urlt->path);
+				test_assert(urlp->path == urlt->path);
 			} else {
-				test_out(t_strdup_printf("url->path = %s", urlp->path),
-					strcmp(urlp->path, urlt->path) == 0);
+				test_assert(strcmp(urlp->path, urlt->path) == 0);
 			}
 			if (urlp->enc_query == NULL || urlt->enc_query == NULL) {
-				test_out(t_strdup_printf(
-						"url->enc_query = %s", urlp->enc_query),
-					urlp->enc_query == urlt->enc_query);
+				test_assert(urlp->enc_query == urlt->enc_query);
 			} else {
-				test_out(t_strdup_printf(
-						"url->enc_query = %s", urlp->enc_query),
-					strcmp(urlp->enc_query, urlt->enc_query) == 0);
+				test_assert(strcmp(urlp->enc_query, urlt->enc_query) == 0);
 			}
 			if (urlp->enc_fragment == NULL || urlt->enc_fragment == NULL) {
-				test_out(t_strdup_printf(
-						"url->enc_fragment = %s", urlp->enc_fragment),
-					urlp->enc_fragment == urlt->enc_fragment);
+				test_assert(urlp->enc_fragment == urlt->enc_fragment);
 			} else {
-				test_out(t_strdup_printf(
-						"url->enc_fragment = %s", urlp->enc_fragment),
-					strcmp(urlp->enc_fragment, urlt->enc_fragment) == 0);
+				test_assert(strcmp(urlp->enc_fragment, urlt->enc_fragment) == 0);
 			}
 		}
 
