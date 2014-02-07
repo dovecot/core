@@ -237,6 +237,7 @@ bool client_update_mails(struct client *client)
 	struct mail_search_args *search_args;
 	struct mail_search_context *ctx;
 	struct mail *mail;
+	ARRAY_TYPE(seq_range) deleted_msgs, seen_msgs;
 	uint32_t msgnum, bit;
 	bool ret = TRUE;
 
@@ -245,27 +246,35 @@ bool client_update_mails(struct client *client)
 		return TRUE;
 	}
 
+	/* translate msgnums to sequences (in case POP3 ordering is
+	   different) */
+	t_array_init(&deleted_msgs, 8);
+	if (client->deleted_bitmask != NULL) {
+		for (msgnum = 0; msgnum < client->messages_count; msgnum++) {
+			bit = 1 << (msgnum % CHAR_BIT);
+			if ((client->deleted_bitmask[msgnum / CHAR_BIT] & bit) != 0)
+				seq_range_array_add(&deleted_msgs, client->msgnum_to_seq_map[msgnum]);
+		}
+	}
+	t_array_init(&seen_msgs, 8);
+	if (client->seen_bitmask != NULL) {
+		for (msgnum = 0; msgnum < client->messages_count; msgnum++) {
+			bit = 1 << (msgnum % CHAR_BIT);
+			if ((client->seen_bitmask[msgnum / CHAR_BIT] & bit) != 0)
+				seq_range_array_add(&seen_msgs, client->msgnum_to_seq_map[msgnum]);
+		}
+	}
+
 	search_args = pop3_search_build(client, 0);
-	ctx = mailbox_search_init(client->trans, search_args,
-				  pop3_sort_program, 0, NULL);
+	ctx = mailbox_search_init(client->trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
 	msgnum = 0;
 	while (mailbox_search_next(ctx, &mail)) {
-		if (client_verify_ordering(client, mail, msgnum) < 0) {
-			ret = FALSE;
-			break;
-		}
-
-		bit = 1 << (msgnum % CHAR_BIT);
-		if (client->deleted_bitmask != NULL &&
-		    (client->deleted_bitmask[msgnum / CHAR_BIT] & bit) != 0) {
+		if (seq_range_exists(&deleted_msgs, mail->seq))
 			client_expunge(client, mail);
-		} else if (client->seen_bitmask != NULL &&
-			   (client->seen_bitmask[msgnum / CHAR_BIT] & bit) != 0) {
+		else if (seq_range_exists(&seen_msgs, mail->seq))
 			mail_update_flags(mail, MODIFY_ADD, MAIL_SEEN);
-		}
-		msgnum++;
 	}
 
 	client->seen_change_count = 0;
@@ -762,6 +771,7 @@ static void client_uidls_save(struct client *client)
 	struct mail_search_args *search_args;
 	struct mail *mail;
 	HASH_TABLE_TYPE(uidl_counter) prev_uidls;
+	const char **seq_uidls;
 	string_t *str;
 	char *uidl;
 	enum mail_fetch_field wanted_fields;
@@ -776,47 +786,49 @@ static void client_uidls_save(struct client *client)
 		wanted_fields |= MAIL_FETCH_HEADER_MD5;
 
 	search_ctx = mailbox_search_init(client->trans, search_args,
-					 pop3_sort_program,
-					 wanted_fields, NULL);
+					 NULL, wanted_fields, NULL);
 	mail_search_args_unref(&search_args);
 
 	uidl_duplicates_rename =
 		strcmp(client->set->pop3_uidl_duplicates, "rename") == 0;
 	hash_table_create(&prev_uidls, default_pool, 0, str_hash, strcmp);
 	client->uidl_pool = pool_alloconly_create("message uidls", 1024);
-	client->message_uidls = p_new(client->uidl_pool, const char *,
-				      client->messages_count+1);
 
-	str = t_str_new(128); msgnum = 0;
+	/* first read all the UIDLs into a temporary [seq] array */
+	seq_uidls = i_new(const char *, client->messages_count);
+	str = t_str_new(128);
 	while (mailbox_search_next(search_ctx, &mail)) {
-		if (client_verify_ordering(client, mail, msgnum) < 0) {
-			failed = TRUE;
-			break;
-		}
-
 		str_truncate(str, 0);
 		if (pop3_get_uid(client, mail, str, &permanent_uidl) < 0) {
 			failed = TRUE;
 			break;
 		}
-
-		if (client->set->pop3_save_uidl && !permanent_uidl)
-			mail_update_pop3_uidl(mail, str_c(str));
-
 		if (uidl_duplicates_rename)
 			uidl_rename_duplicate(str, prev_uidls);
+
 		uidl = p_strdup(client->uidl_pool, str_c(str));
-		client->message_uidls[msgnum] = uidl;
+		if (client->set->pop3_save_uidl && !permanent_uidl)
+			mail_update_pop3_uidl(mail, uidl);
+
+		seq_uidls[mail->seq-1] = uidl;
 		hash_table_insert(prev_uidls, uidl, POINTER_CAST(1));
-		msgnum++;
 	}
 	(void)mailbox_search_deinit(&search_ctx);
 	hash_table_destroy(&prev_uidls);
 
 	if (failed) {
 		pool_unref(&client->uidl_pool);
-		client->message_uidls = NULL;
+		i_free(seq_uidls);
+		return;
 	}
+	/* map UIDLs to msgnums (in case POP3 sort ordering is different) */
+	client->message_uidls = p_new(client->uidl_pool, const char *,
+				      client->messages_count+1);
+	for (msgnum = 0; msgnum < client->messages_count; msgnum++) {
+		client->message_uidls[msgnum] =
+			seq_uidls[client->msgnum_to_seq_map[msgnum]];
+	}
+	i_free(seq_uidls);
 }
 
 static struct cmd_uidl_context *
