@@ -330,7 +330,7 @@ auth_settings_set_self_ips(struct auth_settings *set, pool_t pool,
 }
 
 static bool
-auth_verify_verbose_password(const struct auth_settings *set,
+auth_verify_verbose_password(struct auth_settings *set,
 			     const char **error_r)
 {
 	const char *p, *value = set->verbose_passwords;
@@ -351,7 +351,11 @@ auth_verify_verbose_password(const struct auth_settings *set,
 		return TRUE;
 	else if (strcmp(value, "sha1") == 0)
 		return TRUE;
-	else {
+	else if (strcmp(value, "yes") == 0) {
+		/* just use it as alias for "plain" */
+		set->verbose_passwords = "plain";
+		return TRUE;
+	} else {
 		*error_r = "auth_verbose_passwords: Invalid value";
 		return FALSE;
 	}
