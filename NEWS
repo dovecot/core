@@ -1,3 +1,18 @@
+v2.2.11 2014-02-12  Timo Sirainen <tss@iki.fi>
+
+	+ acl plugin: Added an alternative global ACL file that can contain
+	  mailbox patterns. See http://wiki2.dovecot.org/ACL for details.
+	+ imap proxy: Added proxy_nopipelining passdb setting to work around
+	  other IMAP servers' bugs (MS Exchange 2013 especially).
+	+ Added %{auth_user}, %{auth_username} and %{auth_domain} variables.
+	  See http://wiki2.dovecot.org/Variables for details.
+	+ Added support for LZ4 compression.
+	+ stats: Track also wall clock time for commands.
+	+ pop3_migration plugin improvements to try harder to match the UIDLs
+	  correctly.
+	- imap: SEARCH/SORT PARTIAL reponses may have been too large.
+	- doveadm backup: Fixed assert-crash when syncing mailbox deletion.
+
 v2.2.10 2013-11-25  Timo Sirainen <tss@iki.fi>
 
 	+ auth: passdb/userdb dict rewrite to support much more complex
