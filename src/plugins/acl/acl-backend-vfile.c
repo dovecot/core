@@ -166,7 +166,7 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 			if (backend->global_path != NULL &&
 			    _backend->global_file == NULL) {
 				aclobj->global_path =
-					i_strconcat(backend->global_path, "/", name, NULL);
+					i_strconcat(backend->global_path, "/", vname, NULL);
 			}
 		} else {
 			/* Invalid mailbox name, just use the default
