@@ -253,7 +253,7 @@ bool client_update_mails(struct client *client)
 		for (msgnum = 0; msgnum < client->messages_count; msgnum++) {
 			bit = 1 << (msgnum % CHAR_BIT);
 			if ((client->deleted_bitmask[msgnum / CHAR_BIT] & bit) != 0)
-				seq_range_array_add(&deleted_msgs, client->msgnum_to_seq_map[msgnum]);
+				seq_range_array_add(&deleted_msgs, msgnum_to_seq(client, msgnum));
 		}
 	}
 	t_array_init(&seen_msgs, 8);
@@ -261,7 +261,7 @@ bool client_update_mails(struct client *client)
 		for (msgnum = 0; msgnum < client->messages_count; msgnum++) {
 			bit = 1 << (msgnum % CHAR_BIT);
 			if ((client->seen_bitmask[msgnum / CHAR_BIT] & bit) != 0)
-				seq_range_array_add(&seen_msgs, client->msgnum_to_seq_map[msgnum]);
+				seq_range_array_add(&seen_msgs, msgnum_to_seq(client, msgnum));
 		}
 	}
 
@@ -826,7 +826,7 @@ static void client_uidls_save(struct client *client)
 				      client->messages_count+1);
 	for (msgnum = 0; msgnum < client->messages_count; msgnum++) {
 		client->message_uidls[msgnum] =
-			seq_uidls[client->msgnum_to_seq_map[msgnum]];
+			seq_uidls[msgnum_to_seq(client, msgnum)];
 	}
 	i_free(seq_uidls);
 }
