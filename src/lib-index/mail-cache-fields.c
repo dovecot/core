@@ -328,8 +328,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 
 	/* check the fixed size of the header. name[] has to be checked
 	   separately */
-	if (field_hdr->size < sizeof(*field_hdr) +
-	    field_hdr->fields_count * (sizeof(uint32_t)*2 + 1 + 2)) {
+	if (field_hdr->size < MAIL_CACHE_FIELD_NAMES(field_hdr->fields_count)) {
 		mail_cache_set_corrupted(cache, "invalid field header size");
 		return -1;
 	}
@@ -356,6 +355,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	names = CONST_PTR_OFFSET(field_hdr,
 		MAIL_CACHE_FIELD_NAMES(field_hdr->fields_count));
 	end = CONST_PTR_OFFSET(field_hdr, field_hdr->size);
+	i_assert(names <= end);
 
 	/* clear the old mapping */
 	for (i = 0; i < cache->fields_count; i++)
