@@ -308,6 +308,7 @@ static void db_passwd_file_set_userdb(struct db_passwd_file *db)
 	/* warn about missing userdb fields only when there aren't any other
 	   userdbs. */
 	db->userdb_warn_missing =
+		array_is_created(&global_auth_settings->userdbs) &&
 		array_count(&global_auth_settings->userdbs) == 1;
 }
 
