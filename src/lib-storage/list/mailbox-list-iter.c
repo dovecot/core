@@ -239,6 +239,15 @@ ns_is_match_within_ns(struct ns_list_iterate_context *ctx,
 	return FALSE;
 }
 
+static bool list_pattern_has_wildcards(const char *pattern)
+{
+	for (; *pattern != '\0'; pattern++) {
+		if (*pattern == '%' || *pattern == '*')
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static bool ns_match_next(struct ns_list_iterate_context *ctx, 
 			  struct mail_namespace *ns, const char *pattern)
 {
@@ -256,8 +265,13 @@ static bool ns_match_next(struct ns_list_iterate_context *ctx,
 		/* non-listable namespace matches only with exact prefix */
 		if (strncmp(ns->prefix, pattern, ns->prefix_len) != 0)
 			return FALSE;
-		/* prefix="" list=no is never listed */
-		if (ns->prefix_len == 0)
+		/* with prefix="", list=no we don't want to show anything,
+		   except when the client explicitly lists a mailbox without
+		   wildcards (e.g. LIST "" mailbox). this is mainly useful
+		   for working around client bugs (and supporting a specific
+		   IMAP client behavior that's not exactly buggy but not very
+		   good IMAP behavior either). */
+		if (ns->prefix_len == 0 && list_pattern_has_wildcards(pattern))
 			return FALSE;
 	}
 
