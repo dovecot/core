@@ -435,6 +435,11 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 		   tb-lsub-flags workaround is explicitly set */
 		ctx->list_flags |= MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 			MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH;
+		/* Return SPECIAL-USE flags for LSUB anyway. Outlook 2013
+		   does this and since it's not expensive for us to return
+		   them, it's not worth the trouble of adding an explicit
+		   workaround setting. */
+		ctx->list_flags |= MAILBOX_LIST_ITER_RETURN_SPECIALUSE;
 		if ((cmd->client->set->parsed_workarounds &
 		     WORKAROUND_TB_LSUB_FLAGS) == 0)
 			ctx->list_flags |= MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
