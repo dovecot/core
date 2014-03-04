@@ -238,6 +238,9 @@ int mailbox_list_index_sync_begin(struct mailbox_list *list,
 
 	i_assert(!ilist->syncing);
 
+	if (mailbox_list_index_index_open(list) < 0)
+		return -1;
+
 	if (mail_index_sync_begin(ilist->index, &index_sync_ctx, &view, &trans,
 				  MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES) < 0) {
 		mailbox_list_index_set_index_error(list);

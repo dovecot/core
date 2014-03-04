@@ -44,7 +44,7 @@ void mailbox_list_index_reset(struct mailbox_list_index *ilist)
 	mailbox_list_index_init_pool(ilist);
 }
 
-static int mailbox_list_index_index_open(struct mailbox_list *list)
+int mailbox_list_index_index_open(struct mailbox_list *list)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 	const struct mail_storage_settings *set = list->mail_set;
