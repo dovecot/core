@@ -165,10 +165,15 @@ mdbox_metadata_get_extrefs(struct dbox_file *file, pool_t ext_refs_pool,
 }
 
 static bool
-mdbox_purge_want_altpath(struct mdbox_purge_context *ctx, uint32_t map_uid)
+mdbox_purge_want_altpath(struct mdbox_purge_context *ctx,
+			 struct dbox_file *file, uint32_t map_uid)
 {
 	enum mdbox_msg_action action;
 	void *value;
+
+	if (dbox_file_is_in_alt(file) &&
+	    ctx->storage->set->mdbox_purge_preserve_alt)
+		return TRUE;
 
 	if (!ctx->have_altmoves)
 		return FALSE;
@@ -193,7 +198,7 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 	if (ctx->append_ctx == NULL)
 		ctx->append_ctx = mdbox_map_append_begin(ctx->atomic);
 
-	append_flags = !mdbox_purge_want_altpath(ctx, msg->map_uid) ? 0 :
+	append_flags = !mdbox_purge_want_altpath(ctx, file, msg->map_uid) ? 0 :
 		DBOX_MAP_APPEND_FLAG_ALT;
 	msg_size = file->msg_header_size + file->cur_physical_size;
 	if (mdbox_map_append_next(ctx->append_ctx, file->cur_physical_size,
