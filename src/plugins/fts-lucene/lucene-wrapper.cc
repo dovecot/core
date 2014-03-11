@@ -1271,7 +1271,9 @@ lucene_index_search(struct lucene_index *index,
 				break;
 			}
 
-			if (result != NULL) {
+			if (seq_range_array_add(uids_r, uid)) {
+				/* duplicate result */
+			} else if (result != NULL) {
 				if (uid < last_uid)
 					result->scores_sorted = false;
 				last_uid = uid;
@@ -1280,7 +1282,6 @@ lucene_index_search(struct lucene_index *index,
 				score->uid = uid;
 				score->score = hits->score(i);
 			}
-			seq_range_array_add(uids_r, uid);
 		}
 		_CLDELETE(hits);
 		return ret;
@@ -1390,10 +1391,13 @@ lucene_index_search_multi(struct lucene_index *index,
 				p_array_init(&br->definite_uids, result->pool, 32);
 				p_array_init(&br->scores, result->pool, 32);
 			}
-			seq_range_array_add(&br->definite_uids, uid);
-			score = array_append_space(&br->scores);
-			score->uid = uid;
-			score->score = hits->score(i);
+			if (seq_range_array_add(&br->definite_uids, uid)) {
+				/* duplicate result */
+			} else {
+				score = array_append_space(&br->scores);
+				score->uid = uid;
+				score->score = hits->score(i);
+			}
 		}
 		_CLDELETE(hits);
 		return ret;
