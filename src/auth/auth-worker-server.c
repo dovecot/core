@@ -26,6 +26,7 @@
 struct auth_worker_request {
 	unsigned int id;
 	time_t created;
+	const char *username;
 	const char *data;
 	auth_worker_callback_t *callback;
 	void *context;
@@ -223,7 +224,9 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 		idle_count--;
 
 	if (conn->request != NULL) {
-		i_error("auth worker: Aborted request: %s", reason);
+		i_error("auth worker: Aborted %s request for %s: %s",
+			t_strcut(conn->request->data, '\t'),
+			conn->request->username, reason);
 		conn->request->callback(t_strdup_printf(
 				"FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE),
 				conn->request->context);
@@ -399,7 +402,7 @@ static void worker_input(struct auth_worker_connection *conn)
 }
 
 struct auth_worker_connection *
-auth_worker_call(pool_t pool, const char *data,
+auth_worker_call(pool_t pool, const char *username, const char *data,
 		 auth_worker_callback_t *callback, void *context)
 {
 	struct auth_worker_connection *conn;
@@ -407,6 +410,7 @@ auth_worker_call(pool_t pool, const char *data,
 
 	request = p_new(pool, struct auth_worker_request, 1);
 	request->created = ioloop_time;
+	request->username = p_strdup(pool, username);
 	request->data = p_strdup(pool, data);
 	request->callback = callback;
 	request->context = context;
