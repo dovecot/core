@@ -109,15 +109,19 @@ static void auth_worker_send_reply(struct auth_worker_client *client,
 				   string_t *str)
 {
 	time_t cmd_duration = time(NULL) - client->cmd_start;
+	const char *p;
 
 	if (worker_restart_request)
 		o_stream_nsend_str(client->output, "RESTART\n");
 	o_stream_nsend(client->output, str_data(str), str_len(str));
 	if (o_stream_nfinish(client->output) < 0 && request != NULL &&
 	    cmd_duration > AUTH_WORKER_WARN_DISCONNECTED_LONG_CMD_SECS) {
+		p = strchr(str_c(str), '\t');
+		p = p == NULL ? "BUG" : t_strcut(p+1, '\t');
+
 		i_warning("Auth master disconnected us while handling "
-			  "request for %s for %ld secs",
-			  request->user, (long)cmd_duration);
+			  "request for %s for %ld secs (result=%s)",
+			  request->user, (long)cmd_duration, p);
 	}
 }
 
