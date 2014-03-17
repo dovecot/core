@@ -19,7 +19,7 @@
 
 struct var_expand_context {
 	int offset;
-	unsigned int width;
+	int width;
 	bool zero_padding;
 };
 
@@ -268,7 +268,8 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 			}
 
 			if (*str == '.') {
-				ctx.offset = sign * (int)ctx.width;
+				ctx.offset = sign * ctx.width;
+				sign = 1;
 				ctx.width = 0;
 				str++;
 
@@ -280,11 +281,16 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 					ctx.zero_padding = TRUE;
 					str++;
 				}
+				if (*str == '-') {
+					sign = -1;
+					str++;
+				}
 
 				while (*str >= '0' && *str <= '9') {
 					ctx.width = ctx.width*10 + (*str - '0');
 					str++;
 				}
+				ctx.width = sign * ctx.width;
 			}
 
                         modifier_count = 0;
@@ -350,11 +356,13 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 				}
 				if (ctx.width == 0)
 					str_append(dest, var);
-				else if (!ctx.zero_padding)
+				else if (!ctx.zero_padding) {
+					if (ctx.width < 0)
+						ctx.width = strlen(var) - (-ctx.width);
 					str_append_n(dest, var, ctx.width);
-				else {
+				} else {
 					/* %05d -like padding. no truncation. */
-					size_t len = strlen(var);
+					int len = strlen(var);
 					while (len < ctx.width) {
 						str_append_c(dest, '0');
 						ctx.width--;
@@ -392,7 +400,7 @@ void var_get_key_range(const char *str, unsigned int *idx_r,
 
 	if (str[i] == '.') {
 		i++;
-		while (str[i] >= '0' && str[i] <= '9')
+		while ((str[i] >= '0' && str[i] <= '9') || str[i] == '-')
 			i++;
 	}
 
