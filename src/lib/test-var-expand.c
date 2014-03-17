@@ -16,6 +16,33 @@ struct var_get_key_range_test {
 	unsigned int idx, size;
 };
 
+static void test_var_expand_ranges(void)
+{
+	static struct var_expand_test tests[] = {
+		{ "%v", "value1234" },
+		{ "%3v", "val" },
+		{ "%3.2v", "ue" },
+		{ "%3.-2v", "ue12" },
+		{ "%-3.2v", "23" },
+		{ "%0.-1v", "value123" },
+		{ "%-4.-1v", "123" }
+	};
+	static struct var_expand_table table[] = {
+		{ 'v', "value1234", NULL },
+		{ '\0', NULL, NULL }
+	};
+	string_t *str = t_str_new(128);
+	unsigned int i;
+
+	test_begin("var_expand");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		str_truncate(str, 0);
+		var_expand(str, tests[i].in, table);
+		test_assert(strcmp(tests[i].out, str_c(str)) == 0);
+	}
+	test_end();
+}
+
 static void test_var_expand_builtin(void)
 {
 	static struct var_expand_test tests[] = {
@@ -75,6 +102,7 @@ static void test_var_get_key_range(void)
 
 void test_var_expand(void)
 {
+	test_var_expand_ranges();
 	test_var_expand_builtin();
 	test_var_get_key_range();
 }
