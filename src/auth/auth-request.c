@@ -1424,6 +1424,8 @@ void auth_request_set_field(struct auth_request *request,
 	if (auth_request_try_update_username(request, name, value)) {
 		/* don't change the original value so it gets saved correctly
 		   to cache. */
+	} else if (strcmp(name, "login_user") == 0) {
+		request->requested_login_user = p_strdup(request->pool, value);
 	} else if (strcmp(name, "allow_nets") == 0) {
 		auth_request_validate_networks(request, value);
 	} else if (strncmp(name, "userdb_", 7) == 0) {
