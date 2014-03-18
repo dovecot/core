@@ -126,6 +126,9 @@ void maildir_save_set_dest_basename(struct mail_save_context *ctx,
 				    const char *basename);
 void maildir_save_set_sizes(struct maildir_filename *mf,
 			    uoff_t size, uoff_t vsize);
+
+int maildir_save_file_get_size(struct mailbox_transaction_context *t,
+			       uint32_t seq, bool vsize, uoff_t *size_r);
 const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
 				       uint32_t seq);
 

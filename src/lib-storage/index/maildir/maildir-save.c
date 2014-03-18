@@ -304,8 +304,9 @@ static const char *maildir_mf_get_path(struct maildir_save_context *ctx,
 	return t_strdup_printf("%s/%s", dir, fname);
 }
 
-const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
-				       uint32_t seq)
+
+static struct maildir_filename *
+maildir_save_get_mf(struct mailbox_transaction_context *t, uint32_t seq)
 {
 	struct maildir_save_context *save_ctx =
 		(struct maildir_save_context *)t->save_ctx;
@@ -320,6 +321,24 @@ const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
 		i_assert(mf != NULL);
 		seq--;
 	}
+	return mf;
+}
+
+int maildir_save_file_get_size(struct mailbox_transaction_context *t,
+			       uint32_t seq, bool vsize, uoff_t *size_r)
+{
+	struct maildir_filename *mf = maildir_save_get_mf(t, seq);
+
+	*size_r = vsize ? mf->vsize : mf->size;
+	return *size_r == (uoff_t)-1 ? -1 : 0;
+}
+
+const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
+				       uint32_t seq)
+{
+	struct maildir_save_context *save_ctx =
+		(struct maildir_save_context *)t->save_ctx;
+	struct maildir_filename *mf = maildir_save_get_mf(t, seq);
 
 	return maildir_mf_get_path(save_ctx, mf);
 }

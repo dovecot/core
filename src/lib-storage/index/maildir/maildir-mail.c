@@ -288,6 +288,10 @@ static int maildir_quick_size_lookup(struct index_mail *mail, bool vsize,
 		if (maildir_mail_get_fname(mbox, _mail, &fname) <= 0)
 			return -1;
 	} else {
+		if (maildir_save_file_get_size(_mail->transaction, _mail->seq,
+					       vsize, size_r) == 0)
+			return 1;
+
 		path = maildir_save_file_get_path(_mail->transaction,
 						  _mail->seq);
 		fname = strrchr(path, '/');
