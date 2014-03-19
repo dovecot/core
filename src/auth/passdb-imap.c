@@ -64,6 +64,7 @@ passdb_imap_login_callback(const struct imapc_command_reply *reply,
 	}
 	request->verify_callback(result, request->auth_request);
 	imapc_client_deinit(&client);
+	auth_request_unref(&request->auth_request);
 }
 
 static void
@@ -105,6 +106,7 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 	request->auth_request = auth_request;
 	request->verify_callback = callback;
 
+	auth_request_ref(auth_request);
 	imapc_client_login(request->client, passdb_imap_login_callback,
 			   request);
 }
