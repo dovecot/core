@@ -385,9 +385,10 @@ void imapc_mail_fetch_flush(struct imapc_mailbox *mbox)
 				       imapc_mail_fetch_callback,
 				       mbox->pending_fetch_request);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
+	array_append(&mbox->fetch_requests, &mbox->pending_fetch_request, 1);
+
 	imapc_command_send(cmd, str_c(mbox->pending_fetch_cmd));
 
-	array_append(&mbox->fetch_requests, &mbox->pending_fetch_request, 1);
 	mbox->pending_fetch_request = NULL;
 	timeout_remove(&mbox->to_pending_fetch_send);
 	str_truncate(mbox->pending_fetch_cmd, 0);
