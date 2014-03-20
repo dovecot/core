@@ -153,6 +153,7 @@ void imapc_transaction_save_commit_post(struct mail_save_context *ctx,
 void imapc_transaction_save_rollback(struct mail_save_context *ctx);
 
 void imapc_mailbox_run(struct imapc_mailbox *mbox);
+void imapc_mailbox_run_nofetch(struct imapc_mailbox *mbox);
 void imapc_mail_cache_free(struct imapc_mail_cache *cache);
 int imapc_mailbox_select(struct imapc_mailbox *mbox);
 

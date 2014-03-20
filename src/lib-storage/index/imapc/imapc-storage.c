@@ -116,6 +116,11 @@ void imapc_simple_run(struct imapc_simple_context *sctx)
 void imapc_mailbox_run(struct imapc_mailbox *mbox)
 {
 	imapc_mail_fetch_flush(mbox);
+	imapc_mailbox_run_nofetch(mbox);
+}
+
+void imapc_mailbox_run_nofetch(struct imapc_mailbox *mbox)
+{
 	do {
 		imapc_client_run(mbox->storage->client->client);
 	} while (mbox->storage->reopen_count > 0);

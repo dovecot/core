@@ -365,10 +365,11 @@ int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	/* we'll continue waiting until we've got all the fields we wanted,
 	   or until all FETCH replies have been received (i.e. some FETCHes
 	   failed) */
+	imapc_mail_fetch_flush(mbox);
 	while (imail->fetch_count > 0 &&
 	       (!imapc_mail_have_fields(imail, fields) ||
 		!imail->header_list_fetched))
-		imapc_mailbox_run(mbox);
+		imapc_mailbox_run_nofetch(mbox);
 	return 0;
 }
 
