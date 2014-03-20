@@ -374,10 +374,12 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 	mail_search_args_unref(&search_args);
 
 	while (mailbox_search_next(search_ctx, &mail)) {
-		if (mail->uid <= exporter->last_common_uid)
-			ret = search_update_flag_change_guid(exporter, mail);
-		else
-			ret = search_add_save(exporter, mail);
+		T_BEGIN {
+			if (mail->uid <= exporter->last_common_uid)
+				ret = search_update_flag_change_guid(exporter, mail);
+			else
+				ret = search_add_save(exporter, mail);
+		} T_END;
 		if (ret < 0)
 			break;
 	}
