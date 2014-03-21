@@ -1,6 +1,7 @@
 /* Copyright (c) 2011-2014 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "str.h"
 #include "imap-arg.h"
 #include "imap-match.h"
@@ -565,6 +566,8 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 
 	if (ctx.ret == 0) {
 		list->refreshed_mailboxes = TRUE;
+		list->refreshed_mailboxes_recently = TRUE;
+		list->last_refreshed_mailboxes = ioloop_time;
 		imapc_list_delete_unused_indexes(list);
 	}
 	return ctx.ret;
@@ -867,23 +870,14 @@ int imapc_list_get_mailbox_flags(struct mailbox_list *_list, const char *name,
 				 enum mailbox_info_flags *flags_r)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
-	struct imapc_command *cmd;
-	struct imapc_simple_context sctx;
 	struct mailbox_node *node;
 	const char *vname;
 
 	vname = mailbox_list_get_vname(_list, name);
-	if (!list->refreshed_mailboxes) {
-		node = mailbox_tree_lookup(list->mailboxes, vname);
-		if (node != NULL)
-			node->flags |= MAILBOX_NONEXISTENT;
-
-		/* refresh the mailbox flags */
-		cmd = imapc_list_simple_context_init(&sctx, list);
-		imapc_command_sendf(cmd, "LIST \"\" %s", name);
-		imapc_simple_run(&sctx);
-		if (sctx.ret < 0)
+	if (!list->refreshed_mailboxes_recently) {
+		if (imapc_list_refresh(list) < 0)
 			return -1;
+		i_assert(list->refreshed_mailboxes_recently);
 	}
 
 	node = mailbox_tree_lookup(list->mailboxes, vname);

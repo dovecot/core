@@ -7,6 +7,7 @@
 #include "index-sync-private.h"
 #include "imapc-client.h"
 #include "imapc-msgmap.h"
+#include "imapc-list.h"
 #include "imapc-storage.h"
 #include "imapc-sync.h"
 
@@ -448,9 +449,16 @@ struct mailbox_sync_context *
 imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_mailbox_list *list = mbox->storage->client->_list;
 	enum imapc_capability capabilities;
 	bool changes;
 	int ret = 0;
+
+	if (list != NULL) {
+		if (!list->refreshed_mailboxes &&
+		    list->last_refreshed_mailboxes < ioloop_time)
+			list->refreshed_mailboxes_recently = FALSE;
+	}
 
 	if (!box->opened) {
 		if (mailbox_open(box) < 0)

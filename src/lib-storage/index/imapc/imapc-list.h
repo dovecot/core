@@ -15,11 +15,18 @@ struct imapc_mailbox_list {
 
 	struct mailbox_tree_context *mailboxes, *tmp_subscriptions;
 	char root_sep;
+	time_t last_refreshed_mailboxes;
 
 	unsigned int iter_count;
 
+	/* mailboxes/subscriptions are fully refreshed only during
+	   mailbox list iteration. */
 	unsigned int refreshed_subscriptions:1;
 	unsigned int refreshed_mailboxes:1;
+	/* mailbox list's "recently refreshed" state is reset by syncing a
+	   mailbox. mainly we use this to cache mailboxes' existence to avoid
+	   issuing a LIST command every time. */
+	unsigned int refreshed_mailboxes_recently:1;
 	unsigned int index_list_failed:1;
 	unsigned int root_sep_pending:1;
 };
