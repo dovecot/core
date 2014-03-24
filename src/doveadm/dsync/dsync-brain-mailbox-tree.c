@@ -135,7 +135,15 @@ dsync_namespace_match_parts(struct mail_namespace *ns,
 			return FALSE;
 		prefix += part_len + 1;
 	}
-	return *name_parts != NULL;
+	if (*name_parts != NULL) {
+		/* namespace prefix found with a mailbox */
+		return TRUE;
+	}
+	if (*prefix == '\0') {
+		/* namespace prefix itself matched */
+		return TRUE;
+	}
+	return FALSE;
 }
 
 static struct mail_namespace *
