@@ -143,6 +143,8 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 {
 	struct dsync_ibc_settings ibc_set;
 	struct dsync_brain *brain;
+	struct mail_namespace *const *nsp;
+	string_t *sync_ns_str = NULL;
 	const char *error;
 
 	i_assert(sync_type != DSYNC_BRAIN_SYNC_TYPE_UNKNOWN);
@@ -152,8 +154,17 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 
 	brain = dsync_brain_common_init(user, ibc);
 	brain->sync_type = sync_type;
-	if (set->sync_ns != NULL)
-		brain->sync_ns = set->sync_ns;
+	if (array_count(&set->sync_namespaces) > 0) {
+		sync_ns_str = t_str_new(128);
+		p_array_init(&brain->sync_namespaces, brain->pool,
+			     array_count(&set->sync_namespaces));
+		array_foreach(&set->sync_namespaces, nsp) {
+			if (str_len(sync_ns_str) > 0)
+				str_append_c(sync_ns_str, '\n');
+			str_append(sync_ns_str, (*nsp)->prefix);
+			array_append(&brain->sync_namespaces, nsp, 1);
+		}
+	}
 	brain->sync_box = p_strdup(brain->pool, set->sync_box);
 	brain->exclude_mailboxes = set->exclude_mailboxes == NULL ? NULL :
 		p_strarray_dup(brain->pool, set->exclude_mailboxes);
@@ -175,8 +186,8 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 
 	memset(&ibc_set, 0, sizeof(ibc_set));
 	ibc_set.hostname = my_hostdomain();
-	ibc_set.sync_ns_prefix = set->sync_ns == NULL ? NULL :
-		set->sync_ns->prefix;
+	ibc_set.sync_ns_prefixes = sync_ns_str == NULL ?
+		NULL : str_c(sync_ns_str);
 	ibc_set.sync_box = set->sync_box;
 	ibc_set.exclude_mailboxes = set->exclude_mailboxes;
 	memcpy(ibc_set.sync_box_guid, set->sync_box_guid,
@@ -380,6 +391,8 @@ static bool dsync_brain_master_recv_handshake(struct dsync_brain *brain)
 static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 {
 	const struct dsync_ibc_settings *ibc_set;
+	struct mail_namespace *ns;
+	const char *const *prefixes;
 
 	i_assert(!brain->master_brain);
 
@@ -394,9 +407,19 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 		}
 	}
 
-	if (ibc_set->sync_ns_prefix != NULL) {
-		brain->sync_ns = mail_namespace_find(brain->user->namespaces,
-						     ibc_set->sync_ns_prefix);
+	if (ibc_set->sync_ns_prefixes != NULL) {
+		p_array_init(&brain->sync_namespaces, brain->pool, 4);
+		prefixes = t_strsplit(ibc_set->sync_ns_prefixes, "\n");
+		for (; *prefixes != NULL; prefixes++) {
+			ns = mail_namespace_find(brain->user->namespaces,
+						 *prefixes);
+			if (ns == NULL) {
+				i_error("Namespace not found: '%s'", *prefixes);
+				brain->failed = TRUE;
+				return FALSE;
+			}
+			array_append(&brain->sync_namespaces, &ns, 1);
+		}
 	}
 	brain->sync_box = p_strdup(brain->pool, ibc_set->sync_box);
 	brain->exclude_mailboxes = ibc_set->exclude_mailboxes == NULL ? NULL :
@@ -619,8 +642,15 @@ bool dsync_brain_has_unexpected_changes(struct dsync_brain *brain)
 bool dsync_brain_want_namespace(struct dsync_brain *brain,
 				struct mail_namespace *ns)
 {
-	if (brain->sync_ns != NULL)
-		return brain->sync_ns == ns;
+	struct mail_namespace *const *nsp;
+
+	if (array_is_created(&brain->sync_namespaces)) {
+		array_foreach(&brain->sync_namespaces, nsp) {
+			if (ns == *nsp)
+				return TRUE;
+		}
+		return FALSE;
+	}
 	if (ns->alias_for != NULL) {
 		/* always skip aliases */
 		return FALSE;

@@ -38,8 +38,8 @@ enum dsync_brain_sync_type {
 };
 
 struct dsync_brain_settings {
-	/* Sync only this namespace */
-	struct mail_namespace *sync_ns;
+	/* Sync only these namespaces */
+	ARRAY(struct mail_namespace *) sync_namespaces;
 	/* Sync only this mailbox name */
 	const char *sync_box;
 	/* Sync only this mailbox GUID */

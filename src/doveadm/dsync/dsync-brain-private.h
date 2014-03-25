@@ -49,7 +49,7 @@ struct dsync_brain {
 	pool_t pool;
 	struct mail_user *user;
 	struct dsync_ibc *ibc;
-	struct mail_namespace *sync_ns;
+	ARRAY(struct mail_namespace *) sync_namespaces;
 	const char *sync_box;
 	guid_128_t sync_box_guid;
 	const char *const *exclude_mailboxes;

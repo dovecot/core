@@ -604,9 +604,9 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 	str_append_c(str, items[ITEM_HANDSHAKE].chr);
 	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_HANDSHAKE]);
 	dsync_serializer_encode_add(encoder, "hostname", set->hostname);
-	if (set->sync_ns_prefix != NULL) {
+	if (set->sync_ns_prefixes != NULL) {
 		dsync_serializer_encode_add(encoder, "sync_ns_prefix",
-					    set->sync_ns_prefix);
+					    set->sync_ns_prefixes);
 	}
 	if (set->sync_box != NULL)
 		dsync_serializer_encode_add(encoder, "sync_box", set->sync_box);
@@ -700,7 +700,7 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 	ibc->name = i_strdup(set->hostname);
 
 	if (dsync_deserializer_decode_try(decoder, "sync_ns_prefix", &value))
-		set->sync_ns_prefix = p_strdup(pool, value);
+		set->sync_ns_prefixes = p_strdup(pool, value);
 	if (dsync_deserializer_decode_try(decoder, "sync_box", &value))
 		set->sync_box = p_strdup(pool, value);
 	if (dsync_deserializer_decode_try(decoder, "sync_box_guid", &value) &&

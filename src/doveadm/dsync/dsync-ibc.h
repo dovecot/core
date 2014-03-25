@@ -43,8 +43,8 @@ struct dsync_ibc_settings {
 	/* Server hostname. Used for determining which server does the
 	   locking. */
 	const char *hostname;
-	/* if non-NULL, sync only this namespace */
-	const char *sync_ns_prefix;
+	/* if non-NULL, sync only these namespaces (LF-separated) */
+	const char *sync_ns_prefixes;
 	/* if non-NULL, sync only this mailbox name */
 	const char *sync_box;
 	/* if non-empty, sync only this mailbox GUID */

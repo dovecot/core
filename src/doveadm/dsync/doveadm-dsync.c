@@ -54,10 +54,11 @@ enum dsync_run_type {
 struct dsync_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 	enum dsync_brain_sync_type sync_type;
-	const char *mailbox, *namespace_prefix;
+	const char *mailbox;
 	guid_128_t mailbox_guid;
 	const char *state_input, *rawlog_path;
 	ARRAY_TYPE(const_string) exclude_mailboxes;
+	ARRAY_TYPE(const_string) namespace_prefixes;
 
 	const char *remote_name;
 	const char *local_location;
@@ -510,6 +511,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	struct dsync_ibc *ibc, *ibc2 = NULL;
 	struct dsync_brain *brain;
 	struct dsync_brain_settings set;
+	struct mail_namespace *ns;
+	const char *const *strp;
 	enum dsync_brain_flags brain_flags;
 	bool remote_errors_logged = FALSE;
 	bool changes_during_sync = FALSE;
@@ -526,9 +529,15 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	}
 	doveadm_user_init_dsync(user);
 
-	if (ctx->namespace_prefix != NULL) {
-		set.sync_ns = mail_namespace_find(user->namespaces,
-						  ctx->namespace_prefix);
+	t_array_init(&set.sync_namespaces, array_count(&ctx->namespace_prefixes));
+	array_foreach(&ctx->namespace_prefixes, strp) {
+		ns = mail_namespace_find(user->namespaces, *strp);
+		if (ns == NULL) {
+			i_error("Namespace not found: '%s'", *strp);
+			ctx->ctx.exit_code = EX_USAGE;
+			return -1;
+		}
+		array_append(&set.sync_namespaces, &ns, 1);
 	}
 
 	if (ctx->run_type == DSYNC_RUN_TYPE_LOCAL)
@@ -903,7 +912,8 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		array_append(&ctx->exclude_mailboxes, &str, 1);
 		break;
 	case 'n':
-		ctx->namespace_prefix = optarg;
+		str = optarg;
+		array_append(&ctx->namespace_prefixes, &str, 1);
 		break;
 	case 'N':
 		ctx->sync_visible_namespaces = TRUE;
@@ -948,6 +958,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 	doveadm_print_header("state", "state",
 			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 	p_array_init(&ctx->exclude_mailboxes, ctx->ctx.pool, 4);
+	p_array_init(&ctx->namespace_prefixes, ctx->ctx.pool, 4);
 	return &ctx->ctx;
 }
 
