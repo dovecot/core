@@ -286,6 +286,14 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 {
 	struct http_client_host *host = queue->host;
 
+	http_client_queue_debug(queue, "Failed to set up connection to %s%s: %s "
+		"(%u peers pending, %u requests pending)",
+		http_client_peer_addr2str(addr),
+		(addr->https_name == NULL ? "" :
+			t_strdup_printf(" (SSL=%s)", addr->https_name)), reason,
+		(array_is_created(&queue->pending_peers) ?
+		 	array_count(&queue->pending_peers): 0),
+		array_count(&queue->request_queue));
 	if (array_is_created(&queue->pending_peers) &&
 		array_count(&queue->pending_peers) > 0) {
 		struct http_client_peer *const *peer_idx;
@@ -301,8 +309,11 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 				break;
 			}
 		}
-		if (array_count(&queue->pending_peers) > 0)
+		if (array_count(&queue->pending_peers) > 0) {
+			http_client_queue_debug(queue,
+				"Waiting for remaining pending peers.");
 			return TRUE;
+		}
 	}
 
 	/* one of the connections failed. if we're not using soft timeouts,
@@ -312,6 +323,9 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		timeout_remove(&queue->to_connect);
 
 	if (http_client_queue_is_last_connect_ip(queue)) {
+		http_client_queue_debug(queue,
+			"Failed to set up any connection; failing all queued requests");
+
 		/* all IPs failed, but retry all of them again on the
 		   next request. */
 		queue->ips_connect_idx = queue->ips_connect_start_idx =
