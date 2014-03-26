@@ -228,11 +228,24 @@ void http_client_queue_connection_setup(struct http_client_queue *queue)
 
 	if (!http_client_peer_is_connected(peer)) {
 		unsigned int msecs;
+		bool new_peer = TRUE;
 
 		/* not already connected, wait for connections */
 		if (!array_is_created(&queue->pending_peers))
 			i_array_init(&queue->pending_peers, 8);
-		array_append(&queue->pending_peers, &peer, 1);			
+		else {
+			struct http_client_peer *const *peer_idx;
+
+			/* we may be waiting for this peer already */
+			array_foreach(&queue->pending_peers, peer_idx) {
+				if (http_client_peer_addr_cmp(&(*peer_idx)->addr, addr) == 0) {
+					new_peer = FALSE;
+					break;
+				}
+			}
+		}
+		if (new_peer)
+			array_append(&queue->pending_peers, &peer, 1);
 
 		/* start soft connect time-out (but only if we have another IP left) */
 		msecs = host->client->set.soft_connect_timeout_msecs;
