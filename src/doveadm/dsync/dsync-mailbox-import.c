@@ -616,7 +616,10 @@ static void newmail_link(struct dsync_mailbox_importer *importer,
 		}
 	}
 	/* 1) add the newmail to the end of the linked list
-	   2) find our link */
+	   2) find our link
+
+	   FIXME: this loop is slow if the same GUID has a ton of instances.
+	   Could it be improved in some way? */
 	last = &first_mail->next;
 	for (mail = first_mail; mail != NULL; mail = mail->next) {
 		if (mail->final_uid == newmail->final_uid)
@@ -1877,20 +1880,22 @@ dsync_mailbox_save_set_metadata(struct dsync_mailbox_importer *importer,
 static int
 dsync_msg_try_copy(struct dsync_mailbox_importer *importer,
 		   struct mail_save_context **save_ctx_p,
-		   struct importer_new_mail *all_newmails)
+		   struct importer_new_mail **all_newmails_forcopy)
 {
 	struct importer_new_mail *inst;
 
-	for (inst = all_newmails; inst != NULL; inst = inst->next) {
+	for (inst = *all_newmails_forcopy; inst != NULL; inst = inst->next) {
 		if (inst->uid_in_local && !inst->copy_failed &&
 		    mail_set_uid(importer->mail, inst->local_uid)) {
 			if (mailbox_copy(save_ctx_p, importer->mail) < 0) {
 				inst->copy_failed = TRUE;
 				return -1;
 			}
+			*all_newmails_forcopy = inst;
 			return 1;
 		}
 	}
+	*all_newmails_forcopy = NULL;
 	return 0;
 }
 
@@ -1914,10 +1919,11 @@ dsync_mailbox_save_init(struct dsync_mailbox_importer *importer,
 	return save_ctx;
 }
 
-static void dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
-				    const struct dsync_mail *mail,
-				    struct importer_new_mail *newmail,
-				    struct importer_new_mail *all_newmails)
+static void
+dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
+			const struct dsync_mail *mail,
+			struct importer_new_mail *newmail,
+			struct importer_new_mail **all_newmails_forcopy)
 {
 	struct mail_save_context *save_ctx;
 	ssize_t ret;
@@ -1925,7 +1931,7 @@ static void dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 
 	/* try to save the mail by copying an existing mail */
 	save_ctx = dsync_mailbox_save_init(importer, mail, newmail);
-	if ((ret = dsync_msg_try_copy(importer, &save_ctx, all_newmails)) < 0) {
+	if ((ret = dsync_msg_try_copy(importer, &save_ctx, all_newmails_forcopy)) < 0) {
 		if (save_ctx == NULL)
 			save_ctx = dsync_mailbox_save_init(importer, mail, newmail);
 	}
@@ -2000,13 +2006,17 @@ static void dsync_mailbox_save_newmails(struct dsync_mailbox_importer *importer,
 					const struct dsync_mail *mail,
 					struct importer_new_mail *all_newmails)
 {
-	struct importer_new_mail *newmail;
+	struct importer_new_mail *newmail, *all_newmails_forcopy;
+
+	/* if all_newmails list is large, avoid scanning through the
+	   uninteresting ones for each newmail */
+	all_newmails_forcopy = all_newmails;
 
 	/* save all instances of the message */
 	for (newmail = all_newmails; newmail != NULL; newmail = newmail->next) {
 		if (!newmail->skip) T_BEGIN {
 			dsync_mailbox_save_body(importer, mail, newmail,
-						all_newmails);
+						&all_newmails_forcopy);
 		} T_END;
 	}
 }
