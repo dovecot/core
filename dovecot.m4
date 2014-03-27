@@ -6,7 +6,7 @@
 # unlimited permission to copy and/or distribute it, with or without
 # modifications, as long as this notice is preserved.
 
-# serial 11
+# serial 12
 
 AC_DEFUN([DC_DOVECOT_MODULEDIR],[
 	AC_ARG_WITH(moduledir,
@@ -56,7 +56,7 @@ AC_DEFUN([DC_DOVECOT],[
 	fi,
 	use_install_dirs=yes)
 
-	AC_MSG_CHECKING([for dovecot-config in "$dovecotdir"])
+	AC_MSG_CHECKING([for "$dovecotdir/dovecot-config"])
 	if test -f "$dovecotdir/dovecot-config"; then
 		AC_MSG_RESULT([$dovecotdir/dovecot-config])
 	else
