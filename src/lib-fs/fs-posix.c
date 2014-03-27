@@ -183,12 +183,8 @@ static int fs_posix_create(struct posix_fs_file *file)
 
 	i_assert(file->temp_path == NULL);
 
-	if (file->open_mode == FS_OPEN_MODE_CREATE_UNIQUE_128) {
-		str_append(str, file->file.path);
-		str_append_c(str, '/');
-	} else if ((slash = strrchr(file->file.path, '/')) != NULL) {
+	if ((slash = strrchr(file->file.path, '/')) != NULL)
 		str_append_n(str, file->file.path, slash - file->file.path + 1);
-	}
 	str_append(str, fs->temp_file_prefix);
 
 	fd = safe_mkstemp_hostpid(str, fs->mode, (uid_t)-1, (gid_t)-1);
@@ -243,10 +239,17 @@ fs_posix_file_init(struct fs *_fs, const char *path,
 		   enum fs_open_mode mode, enum fs_open_flags flags)
 {
 	struct posix_fs_file *file;
+	guid_128_t guid;
 
 	file = i_new(struct posix_fs_file, 1);
 	file->file.fs = _fs;
-	file->file.path = i_strdup(path);
+	if (mode != FS_OPEN_MODE_CREATE_UNIQUE_128)
+		file->file.path = i_strdup(path);
+	else {
+		guid_128_generate(guid);
+		file->file.path = i_strdup_printf("%s/%s", path,
+						  guid_128_to_string(guid));
+	}
 	file->open_mode = mode;
 	file->open_flags = flags;
 	file->fd = -1;
@@ -377,17 +380,6 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 
 	switch (file->open_mode) {
 	case FS_OPEN_MODE_CREATE_UNIQUE_128:
-		T_BEGIN {
-			guid_128_t guid;
-			char *path;
-
-			guid_128_generate(guid);
-			path = i_strdup_printf("%s/%s", file->file.path,
-					       guid_128_to_string(guid));
-			i_free(file->file.path);
-			file->file.path = path;
-		} T_END;
-		/* fall through */
 	case FS_OPEN_MODE_CREATE:
 		if ((ret = link(file->temp_path, file->file.path)) < 0) {
 			fs_set_error(file->file.fs, "link(%s, %s) failed: %m",
