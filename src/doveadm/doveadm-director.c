@@ -9,6 +9,7 @@
 #include "write-full.h"
 #include "master-service.h"
 #include "auth-master.h"
+#include "mail-user-hash.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 
@@ -180,17 +181,6 @@ static void cmd_director_status(int argc, char *argv[])
 	director_disconnect(ctx);
 }
 
-static unsigned int director_username_hash(const char *username)
-{
-	unsigned char md5[MD5_RESULTLEN];
-	unsigned int i, hash = 0;
-
-	md5_get_digest(username, strlen(username), md5);
-	for (i = 0; i < sizeof(hash); i++)
-		hash = (hash << CHAR_BIT) | md5[i];
-	return hash;
-}
-
 static void
 user_list_add(const char *username, pool_t pool,
 	      HASH_TABLE_TYPE(user_list) users)
@@ -200,7 +190,7 @@ user_list_add(const char *username, pool_t pool,
 
 	user = p_new(pool, struct user_list, 1);
 	user->name = p_strdup(pool, username);
-	user_hash = director_username_hash(username);
+	user_hash = mail_user_hash(username, doveadm_settings->director_username_hash);
 
 	old_user = hash_table_lookup(users, POINTER_CAST(user_hash));
 	if (old_user != NULL)
@@ -440,7 +430,7 @@ static void cmd_director_move(int argc, char *argv[])
 	    argv[optind+2] != NULL)
 		director_cmd_help(cmd_director_move);
 
-	user_hash = director_username_hash(argv[optind++]);
+	user_hash = mail_user_hash(argv[optind++], doveadm_settings->director_username_hash);
 	host = argv[optind];
 
 	director_get_host(host, &ips, &ips_count);

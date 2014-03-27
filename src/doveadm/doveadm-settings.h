@@ -16,6 +16,7 @@ struct doveadm_settings {
 	const char *dsync_remote_cmd;
 	const char *ssl_client_ca_dir;
 	const char *ssl_client_ca_file;
+	const char *director_username_hash;
 
 	ARRAY(const char *) plugin_envs;
 };
