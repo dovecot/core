@@ -909,9 +909,6 @@ mdbox_map_find_existing_append(struct mdbox_map_append_context *ctx,
 	unsigned int i, count;
 	uoff_t append_offset;
 
-	if (mail_size >= map->set->mdbox_rotate_size)
-		return NULL;
-
 	/* first try to use files already used in this append */
 	file_appends = array_get(&ctx->file_appends, &count);
 	for (i = count; i > ctx->files_nonappendable_count; i--) {
