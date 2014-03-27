@@ -30,6 +30,8 @@ o_stream_metawrap_sendv(struct ostream_private *stream,
 	o_stream_metawrap_call_callback(mstream);
 	if ((ret = o_stream_sendv(stream->parent, iov, iov_count)) < 0)
 		o_stream_copy_error_from_parent(stream);
+	else
+		stream->ostream.offset += ret;
 	return ret;
 }
 
@@ -44,6 +46,8 @@ o_stream_metawrap_send_istream(struct ostream_private *_outstream,
 	o_stream_metawrap_call_callback(outstream);
 	if ((ret = o_stream_send_istream(_outstream->parent, instream)) < 0)
 		o_stream_copy_error_from_parent(_outstream);
+	else
+		_outstream->ostream.offset += ret;
 	return ret;
 }
 
