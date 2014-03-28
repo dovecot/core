@@ -17,6 +17,8 @@ static void o_stream_metawrap_call_callback(struct metawrap_ostream *mstream)
 	if (write_callback != NULL) {
 		mstream->write_callback = NULL;
 		write_callback(mstream->context);
+		/* metadata headers aren't counted as part of the offset */
+		mstream->ostream.ostream.offset = 0;
 	}
 }
 
