@@ -826,7 +826,7 @@ static void client_uidls_save(struct client *client)
 				      client->messages_count+1);
 	for (msgnum = 0; msgnum < client->messages_count; msgnum++) {
 		client->message_uidls[msgnum] =
-			seq_uidls[msgnum_to_seq(client, msgnum)];
+			seq_uidls[msgnum_to_seq(client, msgnum) - 1];
 	}
 	i_free(seq_uidls);
 }
