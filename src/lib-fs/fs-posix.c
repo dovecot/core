@@ -348,12 +348,11 @@ fs_posix_read_stream(struct fs_file *_file, size_t max_buffer_size)
 	struct posix_fs_file *file = (struct posix_fs_file *)_file;
 	struct istream *input;
 
-	if (file->fd == -1 && fs_posix_open(file) < 0) {
+	if (file->fd == -1 && fs_posix_open(file) < 0)
 		input = i_stream_create_error(errno);
-		i_stream_set_name(input, _file->path);
-	} else {
+	else
 		input = i_stream_create_fd(file->fd, max_buffer_size, FALSE);
-	}
+	i_stream_set_name(input, _file->path);
 	i_stream_add_destroy_callback(input, fs_posix_file_close, _file);
 	return input;
 }
