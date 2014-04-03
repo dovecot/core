@@ -317,6 +317,7 @@ static void *t_malloc_real(size_t size, bool permanent)
 	size_t alloc_size;
 #ifdef DEBUG
 	bool warn = FALSE;
+	int old_errno = errno;
 #endif
 
 	if (unlikely(size == 0 || size > SSIZE_T_MAX))
@@ -390,6 +391,9 @@ static void *t_malloc_real(size_t size, bool permanent)
 	   had used t_buffer_get(). */
 	memset(PTR_OFFSET(ret, size), CLEAR_CHR,
 	       MEM_ALIGN(size + SENTRY_COUNT) - size);
+
+	/* we rely on errno not changing. it shouldn't. */
+	i_assert(errno == old_errno);
 #endif
         return ret;
 }

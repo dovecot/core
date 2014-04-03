@@ -106,6 +106,9 @@ char *t_noalloc_strdup_vprintf(const char *format, va_list args,
 	char *tmp;
 	unsigned int init_size;
 	int ret;
+#ifdef DEBUG
+	int old_errno = errno;
+#endif
 
 	VA_COPY(args2, args);
 
@@ -127,6 +130,10 @@ char *t_noalloc_strdup_vprintf(const char *format, va_list args,
 		ret = vsnprintf(tmp, *size_r, format, args2);
 		i_assert((unsigned int)ret == *size_r-1);
 	}
+#ifdef DEBUG
+	/* we rely on errno not changing. it shouldn't. */
+	i_assert(errno == old_errno);
+#endif
 	return tmp;
 }
 
