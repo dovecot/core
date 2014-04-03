@@ -361,8 +361,8 @@ static int maildir_mailbox_open(struct mailbox *box)
 	}
 	root_dir = mailbox_list_get_root_forced(box->list,
 						MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (strcmp(box_path, root_dir) == 0) {
-		/* root directory. either INBOX or some other namespace root */
+	if (strcmp(box_path, root_dir) == 0 && !box->inbox_any) {
+		/* root directory for some namespace. */
 		errno = ENOENT;
 	} else if (stat(box_path, &st) == 0) {
 		/* yes, we'll need to create the missing dirs */
