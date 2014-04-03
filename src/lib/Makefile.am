@@ -70,6 +70,7 @@ liblib_la_SOURCES = \
 	istream-seekable.c \
 	istream-sized.c \
 	istream-tee.c \
+	istream-timeout.c \
 	ioloop.c \
 	ioloop-iolist.c \
 	ioloop-notify-none.c \
@@ -197,6 +198,7 @@ headers = \
 	istream-seekable.h \
 	istream-sized.h \
 	istream-tee.h \
+	istream-timeout.h \
 	ioloop.h \
 	ioloop-iolist.h \
 	ioloop-private.h \
