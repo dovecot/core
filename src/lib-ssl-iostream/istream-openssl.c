@@ -71,14 +71,16 @@ static ssize_t i_stream_ssl_read_real(struct istream_private *stream)
 		/* failed to read anything */
 		ret = openssl_iostream_handle_error(ssl_io, ret, "SSL_read");
 		if (ret <= 0) {
-			if (ret < 0) {
+			if (ret == 0)
+				return 0;
+			if (ssl_io->last_error != NULL) {
 				io_stream_set_error(&stream->iostream,
 						    "%s", ssl_io->last_error);
-				stream->istream.stream_errno = errno;
-				stream->istream.eof = TRUE;
-				sstream->seen_eof = TRUE;
 			}
-			return ret;
+			stream->istream.stream_errno = errno;
+			stream->istream.eof = TRUE;
+			sstream->seen_eof = TRUE;
+			return -1;
 		}
 		/* we did some BIO I/O, try reading again */
 	}
