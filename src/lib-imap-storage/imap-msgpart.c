@@ -371,6 +371,7 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 	i_stream_seek(input, 0);
 	result_r->input = input;
 	result_r->size = hdr_size_r->virtual_size;
+	result_r->size_field = 0;
 	return 0;
 }
 
@@ -558,14 +559,13 @@ imap_msgpart_open_normal(struct mail *mail, struct imap_msgpart *msgpart,
 	case FETCH_MIME_BODY:
 		i_unreached();
 	case FETCH_HEADER:
-	case FETCH_HEADER_FIELDS_NOT:
 		/* fetch the message's header */
 		if (mail_get_hdr_stream(mail, &hdr_size, &input) < 0)
 			return -1;
 		result_r->size_field = MAIL_FETCH_MESSAGE_PARTS;
 		break;
 	case FETCH_HEADER_FIELDS:
-		/* try to lookup the headers from cache */
+		/* return specific headers */
 		if (msgpart->header_ctx == NULL) {
 			msgpart->header_ctx =
 				mailbox_header_lookup_init(mail->box,
@@ -574,8 +574,14 @@ imap_msgpart_open_normal(struct mail *mail, struct imap_msgpart *msgpart,
 		if (mail_get_header_stream(mail, msgpart->header_ctx,
 					   &input) < 0)
 			return -1;
-		result_r->size_field = 0;
-		break;
+		return imap_msgpart_get_partial_header(mail, input, msgpart,
+						       part_size_r, result_r);
+	case FETCH_HEADER_FIELDS_NOT:
+		/* return specific headers */
+		if (mail_get_hdr_stream(mail, NULL, &input) < 0)
+			return -1;
+		return imap_msgpart_get_partial_header(mail, input, msgpart,
+						       part_size_r, result_r);
 	case FETCH_BODY:
 		/* fetch the message's body */
 		if (mail_get_stream(mail, &hdr_size, &body_size, &input) < 0)
@@ -583,12 +589,7 @@ imap_msgpart_open_normal(struct mail *mail, struct imap_msgpart *msgpart,
 		result_r->size_field = MAIL_FETCH_MESSAGE_PARTS;
 		break;
 	}
-
-	if (msgpart->headers != NULL) {
-		/* return specific headers */
-		return imap_msgpart_get_partial_header(mail, input, msgpart,
-						       part_size_r, result_r);
-	}
+	i_assert(msgpart->headers == NULL);
 
 	switch (msgpart->fetch_type) {
 	case FETCH_FULL:
