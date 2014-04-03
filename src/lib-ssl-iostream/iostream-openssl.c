@@ -261,6 +261,7 @@ openssl_iostream_create(struct ssl_iostream_context *ctx, const char *host,
 	if (ssl_io->plain_output->real_stream->error_handling_disabled)
 		o_stream_set_no_error_handling(*output, TRUE);
 
+	ssl_io->ssl_input = *input;
 	ssl_io->ssl_output = *output;
 	*iostream_r = ssl_io;
 	return 0;
@@ -427,6 +428,7 @@ static bool openssl_iostream_bio_input(struct ssl_iostream *ssl_io)
 			ssl_io->ostream_flush_waiting_input = FALSE;
 			o_stream_set_flush_pending(ssl_io->plain_output, TRUE);
 		}
+		i_stream_set_input_pending(ssl_io->ssl_input, TRUE);
 		ssl_io->want_read = FALSE;
 	}
 	return bytes_read;

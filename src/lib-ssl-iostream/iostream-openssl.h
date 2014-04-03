@@ -26,6 +26,7 @@ struct ssl_iostream {
 
 	struct istream *plain_input;
 	struct ostream *plain_output;
+	struct istream *ssl_input;
 	struct ostream *ssl_output;
 
 	char *host;
