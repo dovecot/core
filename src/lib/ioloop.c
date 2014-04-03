@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "time-util.h"
+#include "istream-private.h"
 #include "ioloop-private.h"
 
 #include <unistd.h>
@@ -28,10 +29,10 @@ static void io_loop_initialize_handler(struct ioloop *ioloop)
 	io_loop_handler_init(ioloop, initial_fd_count);
 }
 
-#undef io_add
-struct io *io_add(int fd, enum io_condition condition,
-		  unsigned int source_linenum,
-		  io_callback_t *callback, void *context)
+static struct io_file *
+io_add_file(int fd, enum io_condition condition,
+	    unsigned int source_linenum,
+	    io_callback_t *callback, void *context)
 {
 	struct io_file *io;
 
@@ -62,6 +63,31 @@ struct io *io_add(int fd, enum io_condition condition,
 		io->next = io->io.ioloop->io_files;
 	}
 	io->io.ioloop->io_files = io;
+	return io;
+}
+
+#undef io_add
+struct io *io_add(int fd, enum io_condition condition,
+		  unsigned int source_linenum,
+		  io_callback_t *callback, void *context)
+{
+	struct io_file *io;
+
+	io = io_add_file(fd, condition, source_linenum, callback, context);
+	return &io->io;
+}
+
+#undef io_add_istream
+struct io *io_add_istream(struct istream *input, unsigned int source_linenum,
+			  io_callback_t *callback, void *context)
+{
+	struct io_file *io;
+
+	io = io_add_file(i_stream_get_fd(input), IO_READ, source_linenum,
+			 callback, context);
+	io->istream = input;
+	i_stream_ref(io->istream);
+	i_stream_set_io(io->istream, &io->io);
 	return &io->io;
 }
 
@@ -105,6 +131,12 @@ static void io_remove_full(struct io **_io, bool closed)
 		io_loop_notify_remove(io);
 	else {
 		struct io_file *io_file = (struct io_file *)io;
+
+		if (io_file->istream != NULL) {
+			i_stream_unset_io(io_file->istream, io);
+			i_stream_unref(&io_file->istream);
+			io_file->istream = NULL;
+		}
 
 		io_file_unlink(io_file);
 		io_loop_handle_remove(io_file, closed);
@@ -714,8 +746,8 @@ struct ioloop_context *io_loop_get_current_context(struct ioloop *ioloop)
 
 struct io *io_loop_move_io(struct io **_io)
 {
-	struct io *new_io, *old_io = *_io;
-	struct io_file *old_io_file;
+	struct io *old_io = *_io;
+	struct io_file *old_io_file, *new_io_file;
 
 	i_assert((old_io->condition & IO_NOTIFY) == 0);
 
@@ -723,13 +755,22 @@ struct io *io_loop_move_io(struct io **_io)
 		return old_io;
 
 	old_io_file = (struct io_file *)old_io;
-	new_io = io_add(old_io_file->fd, old_io->condition,
-			old_io->source_linenum,
-			old_io->callback, old_io->context);
+	new_io_file = io_add_file(old_io_file->fd, old_io->condition,
+				  old_io->source_linenum,
+				  old_io->callback, old_io->context);
+	if (old_io_file->istream != NULL) {
+		/* reference before io_remove() */
+		new_io_file->istream = old_io_file->istream;
+		i_stream_ref(new_io_file->istream);
+	}
 	if (old_io->pending)
-		io_set_pending(new_io);
+		io_set_pending(&new_io_file->io);
 	io_remove(_io);
-	return new_io;
+	if (new_io_file->istream != NULL) {
+		/* update istream io after it was removed with io_remove() */
+		i_stream_set_io(new_io_file->istream, &new_io_file->io);
+	}
+	return &new_io_file->io;
 }
 
 struct timeout *io_loop_move_timeout(struct timeout **_timeout)

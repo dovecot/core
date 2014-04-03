@@ -6,6 +6,8 @@
 
 #define I_STREAM_MIN_SIZE IO_BLOCK_SIZE
 
+struct io;
+
 struct istream_private {
 /* inheritance: */
 	struct iostream_private iostream;
@@ -17,6 +19,7 @@ struct istream_private {
 	void (*sync)(struct istream_private *stream);
 	int (*stat)(struct istream_private *stream, bool exact);
 	int (*get_size)(struct istream_private *stream, bool exact, uoff_t *size_r);
+	void (*switch_ioloop)(struct istream_private *stream);
 
 /* data: */
 	struct istream istream;
@@ -24,6 +27,8 @@ struct istream_private {
 	int fd;
 	uoff_t abs_start_offset;
 	struct stat statbuf;
+	/* added by io_add_istream() -> i_stream_set_io() */
+	struct io *io;
 
 	const unsigned char *buffer;
 	unsigned char *w_buffer; /* may be NULL */
@@ -65,5 +70,8 @@ void *i_stream_alloc(struct istream_private *stream, size_t size);
 ssize_t i_stream_read_copy_from_parent(struct istream *istream);
 void i_stream_default_seek_nonseekable(struct istream_private *stream,
 				       uoff_t v_offset, bool mark);
+
+void i_stream_set_io(struct istream *stream, struct io *io);
+void i_stream_unset_io(struct istream *stream, struct io *io);
 
 #endif

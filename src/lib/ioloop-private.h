@@ -52,6 +52,9 @@ struct io_file {
 
 	int refcount;
 	int fd;
+
+	/* only for io_add_istream(), a bit kludgy to be here.. */
+	struct istream *istream;
 };
 
 struct timeout {

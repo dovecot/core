@@ -7,6 +7,7 @@
 struct io;
 struct timeout;
 struct ioloop;
+struct istream;
 
 enum io_condition {
 	IO_READ		= 0x01,
@@ -60,6 +61,12 @@ io_add_notify(const char *path, io_callback_t *callback,
 	io_add_notify(path + \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(io_callback_t *)callback, context, io_r)
+struct io *io_add_istream(struct istream *input, unsigned int source_linenum,
+			  io_callback_t *callback, void *context) ATTR_NULL(3);
+#define io_add_istream(input, callback, context) \
+	io_add_istream(input, __LINE__ + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+		(io_callback_t *)callback, context)
 
 /* Remove I/O handler, and set io pointer to NULL. */
 void io_remove(struct io **io);

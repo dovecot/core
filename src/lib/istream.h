@@ -157,4 +157,10 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data_r,
 bool i_stream_add_data(struct istream *stream, const unsigned char *data,
 		       size_t size);
 
+void i_stream_set_input_pending(struct istream *stream, bool pending);
+
+/* If there are any I/O loop items associated with the stream, move all of
+   them to current_ioloop. */
+void i_stream_switch_ioloop(struct istream *stream);
+
 #endif
