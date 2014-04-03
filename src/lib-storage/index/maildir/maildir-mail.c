@@ -695,12 +695,14 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 					enum mail_fetch_field field)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
+	struct mail_private *pmail = (struct mail_private *)mail;
 	enum maildir_uidlist_rec_flag flags;
 	const char *fname;
 	uoff_t size;
 	char wrong_key;
 
-	if (mbox->storage->set->maildir_broken_filename_sizes) {
+	if (mbox->storage->set->maildir_broken_filename_sizes ||
+	    pmail->v.istream_opened != NULL) {
 		/* never try to fix sizes in maildir filenames */
 		return;
 	}
