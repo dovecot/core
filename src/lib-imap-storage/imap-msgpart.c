@@ -336,11 +336,12 @@ enum mail_fetch_field imap_msgpart_get_fetch_data(struct imap_msgpart *msgpart)
 static int
 imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 				const struct imap_msgpart *msgpart,
-				struct message_size *hdr_size_r,
+				uoff_t *virtual_size_r, bool *have_crlfs_r,
 				struct imap_msgpart_open_result *result_r)
 {
 	const char *const *hdr_fields = msgpart->headers;
 	unsigned int hdr_count = str_array_length(hdr_fields);
+	struct message_size hdr_size;
 	struct istream *input;
 	bool has_nuls;
 
@@ -361,7 +362,7 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 						      (void *)NULL);
 	}
 
-	if (message_get_header_size(input, hdr_size_r, &has_nuls) < 0) {
+	if (message_get_header_size(input, &hdr_size, &has_nuls) < 0) {
 		errno = input->stream_errno;
 		mail_storage_set_critical(mail->box->storage,
 			"read(%s) failed: %m", i_stream_get_name(mail_input));
@@ -370,7 +371,10 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 	}
 	i_stream_seek(input, 0);
 	result_r->input = input;
-	result_r->size = hdr_size_r->virtual_size;
+	result_r->size = hdr_size.virtual_size;
+	result_r->size_field = 0;
+	*virtual_size_r = hdr_size.virtual_size;
+	*have_crlfs_r = hdr_size.physical_size == hdr_size.virtual_size;
 	return 0;
 }
 
@@ -426,7 +430,7 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 static void
 imap_msgpart_get_partial(struct mail *mail, const struct imap_msgpart *msgpart,
 			 bool convert_nuls, bool use_partial_cache,
-			 const struct message_size *part_size,
+			 uoff_t virtual_size, bool have_crlfs,
 			 struct imap_msgpart_open_result *result)
 {
 	struct istream *input2;
@@ -434,7 +438,7 @@ imap_msgpart_get_partial(struct mail *mail, const struct imap_msgpart *msgpart,
 
 	/* input is already seeked to the beginning of the wanted data */
 
-	if (msgpart->partial_offset >= part_size->virtual_size) {
+	if (msgpart->partial_offset >= virtual_size) {
 		/* can't seek past the MIME part */
 		i_stream_unref(&result->input);
 		result->input = i_stream_create_from_data("", 0);
@@ -442,7 +446,7 @@ imap_msgpart_get_partial(struct mail *mail, const struct imap_msgpart *msgpart,
 		return;
 	}
 
-	if (part_size->virtual_size == part_size->physical_size) {
+	if (have_crlfs) {
 		/* input has CRLF linefeeds, we can quickly seek to
 		   wanted position */
 		i_stream_skip(result->input, msgpart->partial_offset);
@@ -454,7 +458,7 @@ imap_msgpart_get_partial(struct mail *mail, const struct imap_msgpart *msgpart,
 						       msgpart);
 	}
 
-	bytes_left = part_size->virtual_size - msgpart->partial_offset;
+	bytes_left = virtual_size - msgpart->partial_offset;
 	if (msgpart->partial_size <= bytes_left) {
 		/* limit output to specified number of bytes */
 		result->size = msgpart->partial_size;
@@ -527,15 +531,16 @@ imap_msgpart_find_part(struct mail *mail, const struct imap_msgpart *msgpart,
 static int
 imap_msgpart_open_normal(struct mail *mail, struct imap_msgpart *msgpart,
 			 const struct message_part *part,
-			 struct message_size *part_size_r,
+			 uoff_t *virtual_size_r, bool *have_crlfs_r,
 			 struct imap_msgpart_open_result *result_r)
 {
-	struct message_size hdr_size, body_size;
+	struct message_size hdr_size, body_size, part_size;
 	struct istream *input = NULL;
+	bool unknown_crlfs = FALSE;
 
 	memset(&hdr_size, 0, sizeof(hdr_size));
 	memset(&body_size, 0, sizeof(body_size));
-	memset(part_size_r, 0, sizeof(*part_size_r));
+	memset(&part_size, 0, sizeof(part_size));
 
 	if (*msgpart->section_number != '\0') {
 		/* find the MIME part */
@@ -549,10 +554,15 @@ imap_msgpart_open_normal(struct mail *mail, struct imap_msgpart *msgpart,
 	case FETCH_FULL:
 		/* fetch the whole message */
 		if (mail_get_stream(mail, NULL, NULL, &input) < 0 ||
-		    mail_get_virtual_size(mail, &body_size.virtual_size) < 0 ||
-		    mail_get_physical_size(mail, &body_size.physical_size) < 0)
+		    mail_get_virtual_size(mail, &body_size.virtual_size) < 0)
 			return -1;
 		result_r->size_field = MAIL_FETCH_VIRTUAL_SIZE;
+
+		i_assert(mail->lookup_abort == MAIL_LOOKUP_ABORT_NEVER);
+		mail->lookup_abort = MAIL_LOOKUP_ABORT_READ_MAIL;
+		if (mail_get_physical_size(mail, &body_size.physical_size) < 0)
+			unknown_crlfs = TRUE;
+		mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
 		break;
 	case FETCH_MIME:
 	case FETCH_MIME_BODY:
@@ -587,18 +597,19 @@ imap_msgpart_open_normal(struct mail *mail, struct imap_msgpart *msgpart,
 	if (msgpart->headers != NULL) {
 		/* return specific headers */
 		return imap_msgpart_get_partial_header(mail, input, msgpart,
-						       part_size_r, result_r);
+						       virtual_size_r,
+						       have_crlfs_r, result_r);
 	}
 
 	switch (msgpart->fetch_type) {
 	case FETCH_FULL:
-		part_size_r->physical_size += body_size.physical_size;
-		part_size_r->virtual_size += body_size.virtual_size;
+		part_size.physical_size += body_size.physical_size;
+		part_size.virtual_size += body_size.virtual_size;
 		/* fall through */
 	case FETCH_MIME:
 	case FETCH_HEADER:
-		part_size_r->physical_size += hdr_size.physical_size;
-		part_size_r->virtual_size += hdr_size.virtual_size;
+		part_size.physical_size += hdr_size.physical_size;
+		part_size.virtual_size += hdr_size.virtual_size;
 		break;
 	case FETCH_HEADER_FIELDS:
 	case FETCH_HEADER_FIELDS_NOT:
@@ -606,13 +617,16 @@ imap_msgpart_open_normal(struct mail *mail, struct imap_msgpart *msgpart,
 	case FETCH_BODY:
 	case FETCH_MIME_BODY:
 		i_stream_skip(input, hdr_size.physical_size);
-		part_size_r->physical_size += body_size.physical_size;
-		part_size_r->virtual_size += body_size.virtual_size;
+		part_size.physical_size += body_size.physical_size;
+		part_size.virtual_size += body_size.virtual_size;
 		break;
 	}
 
 	result_r->input = input;
 	i_stream_ref(input);
+	*virtual_size_r = part_size.virtual_size;
+	*have_crlfs_r = !unknown_crlfs &&
+		part_size.virtual_size == part_size.physical_size;
 	return 0;
 }
 
@@ -620,9 +634,8 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 		      struct imap_msgpart_open_result *result_r)
 {
 	struct message_part *part;
-	struct message_size part_size;
-	uoff_t size;
-	bool include_hdr, binary, use_partial_cache;
+	uoff_t virtual_size;
+	bool include_hdr, binary, use_partial_cache, have_crlfs;
 	int ret;
 
 	memset(result_r, 0, sizeof(*result_r));
@@ -645,15 +658,15 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 			if (mail_get_parts(mail, &part) < 0)
 				return -1;
 		}
-		if (mail_get_binary_stream(mail, part, include_hdr, &size,
-					   &binary, &result_r->input) < 0)
+		if (mail_get_binary_stream(mail, part, include_hdr,
+					   &virtual_size, &binary,
+					   &result_r->input) < 0)
 			return -1;
-		part_size.virtual_size = size;
-		part_size.physical_size = size;
+		have_crlfs = TRUE;
 		use_partial_cache = FALSE;
 	} else {
-		if (imap_msgpart_open_normal(mail, msgpart, part, &part_size,
-					     result_r) < 0)
+		if (imap_msgpart_open_normal(mail, msgpart, part, &virtual_size,
+					     &have_crlfs, result_r) < 0)
 			return -1;
 		binary = FALSE;
 		use_partial_cache = TRUE;
@@ -663,7 +676,7 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 		result_r->binary_decoded_input_has_nuls = TRUE;
 
 	imap_msgpart_get_partial(mail, msgpart, !binary, use_partial_cache,
-				 &part_size, result_r);
+				 virtual_size, have_crlfs, result_r);
 	return 0;
 }
 
