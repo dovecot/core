@@ -548,7 +548,6 @@ int http_client_request_send_more(struct http_client_request *req,
 	struct http_client_connection *conn = req->conn;
 	struct ostream *output = req->payload_output;
 	off_t ret;
-	int fd;
 
 	i_assert(req->payload_input != NULL);
 	i_assert(req->payload_output != NULL);
@@ -608,11 +607,9 @@ int http_client_request_send_more(struct http_client_request *req,
 		http_client_request_debug(req, "Partially sent payload");
 	} else {
 		/* input is blocking */
-		fd = i_stream_get_fd(req->payload_input);
 		conn->output_locked = TRUE;	
-		i_assert(fd >= 0);
-		conn->io_req_payload = io_add
-			(fd, IO_READ, http_client_request_payload_input, req);
+		conn->io_req_payload = io_add_istream(req->payload_input,
+			http_client_request_payload_input, req);
 	}
 	return ret < 0 ? -1 : 0;
 }

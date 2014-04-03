@@ -914,8 +914,7 @@ bool cmd_append(struct client_command_context *cmd)
 	}
 
 	io_remove(&client->io);
-	client->io = io_add(i_stream_get_fd(client->input), IO_READ,
-			    client_input_append, cmd);
+	client->io = io_add_istream(client->input, client_input_append, cmd);
 	/* append is special because we're only waiting on client input, not
 	   client output, so disable the standard output handler until we're
 	   finished */

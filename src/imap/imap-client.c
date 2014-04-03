@@ -89,7 +89,7 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	o_stream_set_flush_callback(client->output, client_output, client);
 
 	p_array_init(&client->module_contexts, client->pool, 5);
-	client->io = io_add(fd_in, IO_READ, client_input, client);
+	client->io = io_add_istream(client->input, client_input, client);
         client->last_input = ioloop_time;
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
@@ -617,10 +617,8 @@ client_command_new(struct client *client)
 
 static void client_add_missing_io(struct client *client)
 {
-	if (client->io == NULL && !client->disconnected) {
-		client->io = io_add(client->fd_in,
-				    IO_READ, client_input, client);
-	}
+	if (client->io == NULL && !client->disconnected)
+		client->io = io_add_istream(client->input, client_input, client);
 }
 
 void client_command_free(struct client_command_context **_cmd)

@@ -284,8 +284,8 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 	}
 	if (client->io == NULL) {
 		/* input is pending */
-		client->io = io_add(i_stream_get_fd(client->input),
-				    IO_READ, idle_client_input, ctx);
+		client->io = io_add_istream(client->input,
+					    idle_client_input, ctx);
 		idle_client_input_more(ctx);
 	}
 	return FALSE;
@@ -306,8 +306,7 @@ bool cmd_idle(struct client_command_context *cmd)
 	client_send_line(client, "+ idling");
 
 	io_remove(&client->io);
-	client->io = io_add(i_stream_get_fd(client->input),
-			    IO_READ, idle_client_input, ctx);
+	client->io = io_add_istream(client->input, idle_client_input, ctx);
 
 	cmd->func = cmd_idle_continue;
 	cmd->context = ctx;

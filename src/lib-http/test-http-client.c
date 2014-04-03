@@ -63,8 +63,7 @@ got_request_response(const struct http_response *response,
 	i_info("DEBUG: REQUEST: Got payload");
 	i_stream_ref(response->payload);
 	req->payload = response->payload;
-	req->io = io_add(i_stream_get_fd(response->payload), IO_READ,
-			 payload_input, req);
+	req->io = io_add_istream(response->payload, payload_input, req);
 	payload_input(req);
 }
 

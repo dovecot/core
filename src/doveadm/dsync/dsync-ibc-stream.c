@@ -134,7 +134,6 @@ struct dsync_ibc_stream {
 	struct dsync_ibc ibc;
 
 	char *name, *temp_path_prefix;
-	int fd_in, fd_out;
 	struct istream *input;
 	struct ostream *output;
 	struct io *io;
@@ -292,7 +291,7 @@ static void dsync_ibc_stream_init(struct dsync_ibc_stream *ibc)
 {
 	unsigned int i;
 
-	ibc->io = io_add(ibc->fd_in, IO_READ, dsync_ibc_stream_input, ibc);
+	ibc->io = io_add_istream(ibc->input, dsync_ibc_stream_input, ibc);
 	o_stream_set_no_error_handling(ibc->output, TRUE);
 	o_stream_set_flush_callback(ibc->output, dsync_ibc_stream_output, ibc);
 	ibc->to = timeout_add(DSYNC_IBC_STREAM_TIMEOUT_MSECS,
@@ -1845,7 +1844,6 @@ dsync_ibc_init_stream(struct istream *input, struct ostream *output,
 	ibc->ibc.v = dsync_ibc_stream_vfuncs;
 	ibc->input = input;
 	ibc->output = output;
-	ibc->fd_in = i_stream_get_fd(input);
 	ibc->name = i_strdup(name);
 	ibc->temp_path_prefix = i_strdup(temp_path_prefix);
 	ibc->ret_pool = pool_alloconly_create("ibc stream data", 2048);

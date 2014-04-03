@@ -394,7 +394,7 @@ int client_create(int fd_in, int fd_out, const char *session_id,
 	o_stream_set_flush_callback(client->output, client_output, client);
 
 	p_array_init(&client->module_contexts, client->pool, 5);
-	client->io = io_add(fd_in, IO_READ, client_input, client);
+	client->io = io_add_istream(client->input, client_input, client);
         client->last_input = ioloop_time;
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
@@ -812,8 +812,8 @@ static int client_output(struct client *client)
 		if (o_stream_get_buffer_used_size(client->output) <
 		    POP3_OUTBUF_THROTTLE_SIZE/2 && client->io == NULL) {
 			/* enable input again */
-			client->io = io_add(i_stream_get_fd(client->input),
-					    IO_READ, client_input, client);
+			client->io = io_add_istream(client->input, client_input,
+						    client);
 		}
 		if (client->io != NULL && client->waiting_input) {
 			if (!client_handle_input(client)) {
