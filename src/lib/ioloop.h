@@ -67,6 +67,12 @@ void io_remove(struct io **io);
    With some backends this simply frees the memory. */
 void io_remove_closed(struct io **io);
 
+/* Make sure the I/O callback is called by io_loop_run() even if there isn't
+   any input actually pending currently as seen by the OS. This may be useful
+   if some of the input has already read into some internal buffer and the
+   caller wants to handle it the same way as if the fd itself had input. */
+void io_set_pending(struct io *io);
+
 /* Timeout handlers */
 struct timeout *
 timeout_add(unsigned int msecs, unsigned int source_linenum,

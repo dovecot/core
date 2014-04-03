@@ -161,7 +161,7 @@ void io_loop_handle_remove(struct io_file *io, bool closed)
 	i_free(io);
 }
 
-void io_loop_handler_run(struct ioloop *ioloop)
+void io_loop_handler_run_internal(struct ioloop *ioloop)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct epoll_event *events;

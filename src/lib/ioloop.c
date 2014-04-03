@@ -93,6 +93,11 @@ static void io_remove_full(struct io **_io, bool closed)
 	   kqueue code relies on this. */
 	io->callback = NULL;
 
+	if (io->pending) {
+		i_assert(io->ioloop->io_pending_count > 0);
+		io->ioloop->io_pending_count--;
+	}
+
 	if (io->ctx != NULL)
 		io_loop_context_unref(&io->ctx);
 
@@ -116,6 +121,16 @@ void io_remove_closed(struct io **io)
 	i_assert(((*io)->condition & IO_NOTIFY) == 0);
 
 	io_remove_full(io, TRUE);
+}
+
+void io_set_pending(struct io *io)
+{
+	i_assert((io->condition & IO_NOTIFY) == 0);
+
+	if (!io->pending) {
+		io->pending = TRUE;
+		io->ioloop->io_pending_count++;
+	}
 }
 
 static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
@@ -382,6 +397,12 @@ void io_loop_call_io(struct io *io)
 	struct ioloop *ioloop = io->ioloop;
 	unsigned int t_id;
 
+	if (io->pending) {
+		i_assert(ioloop->io_pending_count > 0);
+		ioloop->io_pending_count--;
+		io->pending = FALSE;
+	}
+
 	if (io->ctx != NULL)
 		io_loop_context_activate(io->ctx);
 	t_id = t_push();
@@ -411,6 +432,24 @@ void io_loop_run(struct ioloop *ioloop)
 	while (ioloop->running)
 		io_loop_handler_run(ioloop);
 	ioloop->iolooping = FALSE;
+}
+
+static void io_loop_call_pending(struct ioloop *ioloop)
+{
+	struct io_file *io;
+
+	for (io = ioloop->io_files; ioloop->io_pending_count > 0; ) {
+		ioloop->next_io_file = io->next;
+		if (io->io.pending)
+			io_loop_call_io(&io->io);
+		io = ioloop->next_io_file;
+	}
+}
+
+void io_loop_handler_run(struct ioloop *ioloop)
+{
+	io_loop_handler_run_internal(ioloop);
+	io_loop_call_pending(ioloop);
 }
 
 void io_loop_stop(struct ioloop *ioloop)
@@ -484,6 +523,7 @@ void io_loop_destroy(struct ioloop **_ioloop)
 			  io->io.source_linenum, io->fd);
 		io_remove(&_io);
 	}
+	i_assert(ioloop->io_pending_count == 0);
 
 	while ((item = priorityq_pop(ioloop->timeouts)) != NULL) {
 		struct timeout *to = (struct timeout *)item;
@@ -686,6 +726,8 @@ struct io *io_loop_move_io(struct io **_io)
 	new_io = io_add(old_io_file->fd, old_io->condition,
 			old_io->source_linenum,
 			old_io->callback, old_io->context);
+	if (old_io->pending)
+		io_set_pending(new_io);
 	io_remove(_io);
 	return new_io;
 }
