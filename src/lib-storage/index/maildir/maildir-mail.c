@@ -421,6 +421,8 @@ static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
+	struct message_size hdr_size, body_size;
+	struct istream *input;
 	const char *path;
 	int ret;
 
@@ -448,7 +450,14 @@ static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 		return 0;
 	}
 
-	if (!_mail->saving) {
+	if (mail->mail.v.istream_opened != NULL) {
+		/* we can't use stat(), because this may be a mail that some
+		   plugin has changed (e.g. zlib). need to do it the slow
+		   way. */
+		if (mail_get_stream(_mail, &hdr_size, &body_size, &input) < 0)
+			return -1;
+		st.st_size = hdr_size.physical_size + body_size.physical_size;
+	} else if (!_mail->saving) {
 		ret = maildir_file_do(mbox, _mail->uid, do_stat, &st);
 		if (ret <= 0) {
 			if (ret == 0)
