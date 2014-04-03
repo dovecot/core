@@ -8,6 +8,7 @@
 #include "array.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "istream-timeout.h"
 #include "ostream.h"
 #include "time-util.h"
 #include "iostream-rawlog.h"
@@ -433,7 +434,8 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		/* wrap the stream to capture the destroy event without destroying the
 		   actual payload stream. */
 		conn->incoming_payload = response->payload =
-			i_stream_create_limit(response->payload, (uoff_t)-1);
+			i_stream_create_timeout(response->payload,
+				conn->client->set.request_timeout_msecs);
 		i_stream_add_destroy_callback(response->payload,
 					      http_client_payload_destroyed,
 					      req);
@@ -1195,5 +1197,7 @@ void http_client_connection_switch_ioloop(struct http_client_connection *conn)
 		conn->to_idle = io_loop_move_timeout(&conn->to_idle);
 	if (conn->to_response != NULL)
 		conn->to_response = io_loop_move_timeout(&conn->to_response);
+	if (conn->incoming_payload != NULL)
+		i_stream_switch_ioloop(conn->incoming_payload);
 	connection_switch_ioloop(&conn->conn);
 }

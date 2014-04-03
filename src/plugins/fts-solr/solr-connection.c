@@ -391,8 +391,8 @@ solr_connection_select_response(const struct http_response *response,
 
 	i_stream_ref(response->payload);
 	conn->payload = response->payload;
-	conn->io = io_add(i_stream_get_fd(response->payload), IO_READ,
-			  solr_connection_payload_input, conn);
+	conn->io = io_add_istream(response->payload,
+				  solr_connection_payload_input, conn);
 	solr_connection_payload_input(conn);
 }
 
