@@ -435,10 +435,17 @@ static void index_mail_get_cached_body_size(struct index_mail *mail)
 		return;
 
 	if (!data->body_size_set) {
-		if (mail_get_physical_size(&mail->mail.mail, &tmp) < 0)
-			return;
-		/* we should have everything now. try again. */
-		(void)index_mail_get_cached_virtual_size(mail, &tmp);
+		enum mail_lookup_abort old_abort = mail->mail.mail.lookup_abort;
+
+		/* get the physical size, but not if it requires reading
+		   through the whole message */
+		if (mail->mail.mail.lookup_abort < MAIL_LOOKUP_ABORT_READ_MAIL)
+			mail->mail.mail.lookup_abort = MAIL_LOOKUP_ABORT_READ_MAIL;
+		if (mail_get_physical_size(&mail->mail.mail, &tmp) == 0) {
+			/* we should have everything now. try again. */
+			(void)index_mail_get_cached_virtual_size(mail, &tmp);
+		}
+		mail->mail.mail.lookup_abort = old_abort;
 	}
 }
 
