@@ -152,13 +152,12 @@ ssize_t i_stream_read(struct istream *stream)
 	size_t old_size;
 	ssize_t ret;
 
-	if (unlikely(stream->closed)) {
+	if (unlikely(stream->closed || stream->stream_errno != 0)) {
 		errno = stream->stream_errno;
 		return -1;
 	}
 
 	stream->eof = FALSE;
-	stream->stream_errno = 0;
 
 	if (_stream->parent != NULL)
 		i_stream_seek(_stream->parent, _stream->parent_expected_offset);
