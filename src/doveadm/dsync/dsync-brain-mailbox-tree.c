@@ -387,7 +387,14 @@ dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 		memcpy(other_node->mailbox_guid, node->mailbox_guid,
 		       sizeof(other_node->mailbox_guid));
 	}
-	i_assert(other_node->ns == NULL || other_node->ns == node->ns);
+	if (other_node->ns != node->ns && other_node->ns != NULL) {
+		/* namespace mismatch for this node. this shouldn't happen
+		   normally, but especially during some misconfigurations it's
+		   possible that one side has created mailboxes that conflict
+		   with another namespace's prefix. since we're here because
+		   one of the mailboxes was deleted, we'll just ignore this. */
+		return;
+	}
 	other_node->ns = node->ns;
 	if (other_del->type != DSYNC_MAILBOX_DELETE_TYPE_UNSUBSCRIBE)
 		other_node->existence = DSYNC_MAILBOX_NODE_DELETED;
