@@ -29,6 +29,23 @@ static void test_p_strarray_dup(void)
 	test_end();
 }
 
+static void test_t_strsplit(void)
+{
+	const char *const *args;
+
+	test_begin("t_strsplit");
+	/* empty string -> empty array. was this perhaps a mistake for the
+	   API to do this originally?.. can't really change now anyway. */
+	args = t_strsplit("", "\n");
+	test_assert(args[0] == NULL);
+	/* two empty strings */
+	args = t_strsplit("\n", "\n");
+	test_assert(args[0][0] == '\0');
+	test_assert(args[1][0] == '\0');
+	test_assert(args[2] == NULL);
+	test_end();
+}
+
 static void strsplit_verify(const char *str)
 {
 	T_BEGIN {
@@ -82,5 +99,6 @@ static void test_t_strsplit_tab(void)
 void test_strfuncs(void)
 {
 	test_p_strarray_dup();
+	test_t_strsplit();
 	test_t_strsplit_tab();
 }
