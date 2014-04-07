@@ -410,6 +410,12 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 	if (ibc_set->sync_ns_prefixes != NULL) {
 		p_array_init(&brain->sync_namespaces, brain->pool, 4);
 		prefixes = t_strsplit(ibc_set->sync_ns_prefixes, "\n");
+		if (prefixes[0] == NULL) {
+			/* ugly workaround for strsplit API: there was one
+			   prefix="" entry */
+			static const char *empty_prefix[] = { "", NULL };
+			prefixes = empty_prefix;
+		}
 		for (; *prefixes != NULL; prefixes++) {
 			ns = mail_namespace_find(brain->user->namespaces,
 						 *prefixes);
