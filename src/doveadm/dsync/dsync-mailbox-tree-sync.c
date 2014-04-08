@@ -1238,6 +1238,8 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 	case DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL:
 		del_sync_type = DEL_SYNC_TYPE_RESTORE;
 		break;
+	default:
+		i_unreached();
 	}
 	sync_tree_sort_and_delete_mailboxes(ctx, remote_tree, del_sync_type);
 	switch (sync_type) {
@@ -1250,6 +1252,8 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 	case DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL:
 		del_sync_type = DEL_SYNC_TYPE_IGNORE;
 		break;
+	default:
+		i_unreached();
 	}
 	sync_tree_sort_and_delete_mailboxes(ctx, local_tree, del_sync_type);
 
