@@ -104,6 +104,8 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 
 	*error_r = mailbox_get_last_error(box, &error);
 	if (error != MAIL_ERROR_NOTFOUND) {
+		*error_r = t_strdup_printf("Failed to open mailbox %s: %s",
+					   name, *error_r);
 		mailbox_free(&box);
 		return NULL;
 	}
@@ -111,7 +113,8 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 	/* try creating and re-opening it. */
 	if (mailbox_create(box, NULL, FALSE) < 0 ||
 	    mailbox_open(box) < 0) {
-		*error_r = mailbox_get_last_error(box, NULL);
+		*error_r = t_strdup_printf("Failed to create mailbox %s: %s", name,
+					   mailbox_get_last_error(box, NULL));
 		mailbox_free(&box);
 		return NULL;
 	}
