@@ -606,6 +606,9 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 		/* e.g. zlib plugin was used. the "physical size" must be in
 		   the maildir filename, since stat() will return wrong size */
 		ctx->file_last->preserve_filename = FALSE;
+		/* preserve the GUID if needed */
+		if (ctx->file_last->guid == NULL)
+			ctx->file_last->guid = ctx->file_last->dest_basename;
 		/* reset the base name as well, just in case there's a
 		   ,W=vsize */
 		ctx->file_last->dest_basename = ctx->file_last->tmp_name;
