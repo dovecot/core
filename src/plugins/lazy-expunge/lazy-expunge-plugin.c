@@ -442,7 +442,7 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 	const char *env;
 
 	env = mail_user_plugin_getenv(user, "lazy_expunge");
-	if (env != NULL) {
+	if (env != NULL && env[0] != '\0') {
 		luser = p_new(user->pool, struct lazy_expunge_mail_user, 1);
 		luser->module_ctx.super = *v;
 		user->vlast = &luser->module_ctx.super;
