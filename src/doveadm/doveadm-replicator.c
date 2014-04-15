@@ -177,6 +177,39 @@ static void cmd_replicator_status(int argc, char *argv[])
 	replicator_disconnect(ctx);
 }
 
+static void cmd_replicator_dsync_status(int argc, char *argv[])
+{
+	struct replicator_context *ctx;
+	const char *line;
+	unsigned int i;
+
+	ctx = cmd_replicator_init(argc, argv, "a:", cmd_replicator_dsync_status);
+
+	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
+	doveadm_print_header("username", "username",
+			     DOVEADM_PRINT_HEADER_FLAG_EXPAND);
+	doveadm_print_header_simple("type");
+	doveadm_print_header_simple("status");
+
+	replicator_send(ctx, "STATUS-DSYNC\n");
+	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
+		if (*line == '\0')
+			break;
+		T_BEGIN {
+			const char *const *args = t_strsplit_tab(line);
+
+			for (i = 0; i < 3; i++) {
+				if (args[i] == NULL)
+					break;
+				doveadm_print(args[i]);
+			}
+			for (; i < 3; i++)
+				doveadm_print("");
+		} T_END;
+	}
+	replicator_disconnect(ctx);
+}
+
 static void cmd_replicator_replicate(int argc, char *argv[])
 {
 	struct replicator_context *ctx;
@@ -247,6 +280,8 @@ static void cmd_replicator_remove(int argc, char *argv[])
 struct doveadm_cmd doveadm_cmd_replicator[] = {
 	{ cmd_replicator_status, "replicator status",
 	  "[-a <replicator socket path>] [<user mask>]" },
+	{ cmd_replicator_dsync_status, "replicator dsync-status",
+	  "[-a <replicator socket path>]" },
 	{ cmd_replicator_replicate, "replicator replicate",
 	  "[-a <replicator socket path>] [-p <priority>] <user mask>" },
 	{ cmd_replicator_remove, "replicator remove",

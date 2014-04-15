@@ -28,7 +28,7 @@ static void client_connected(struct master_service_connection *conn)
 {
 	master_service_client_connection_accept(conn);
 	if (strcmp(conn->name, "replicator-doveadm") == 0)
-		doveadm_connection_create(queue, conn->fd);
+		doveadm_connection_create(brain, conn->fd);
 	else
 		(void)notify_connection_create(conn->fd, queue);
 }

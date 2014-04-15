@@ -23,7 +23,9 @@ struct dsync_client {
 	struct timeout *to;
 
 	char *dsync_params;
+	char *username;
 	char *state;
+	enum dsync_type sync_type;
 	dsync_callback_t *callback;
 	void *context;
 
@@ -69,6 +71,7 @@ static void dsync_close(struct dsync_client *client)
 	client->cmd_sent = FALSE;
 	client->handshaked = FALSE;
 	i_free_and_null(client->state);
+	i_free_and_null(client->username);
 
 	if (client->fd == -1)
 		return;
@@ -195,9 +198,16 @@ void dsync_client_sync(struct dsync_client *client,
 	i_assert(callback != NULL);
 	i_assert(!dsync_client_is_busy(client));
 
+	client->username = i_strdup(username);
 	client->cmd_sent = TRUE;
 	client->callback = callback;
 	client->context = context;
+	if (full)
+		client->sync_type = DSYNC_TYPE_FULL;
+	else if (state != NULL && state[0] != '\0')
+		client->sync_type = DSYNC_TYPE_INCREMENTAL;
+	else
+		client->sync_type = DSYNC_TYPE_NORMAL;
 
 	if (dsync_connect(client) < 0) {
 		i_assert(client->to == NULL);
@@ -232,4 +242,32 @@ void dsync_client_sync(struct dsync_client *client,
 bool dsync_client_is_busy(struct dsync_client *client)
 {
 	return client->cmd_sent;
+}
+
+const char *dsync_client_get_username(struct dsync_client *conn)
+{
+	return conn->username;
+}
+
+enum dsync_type dsync_client_get_type(struct dsync_client *conn)
+{
+	return conn->sync_type;
+}
+
+const char *dsync_client_get_state(struct dsync_client *conn)
+{
+	if (conn->fd == -1) {
+		if (conn->last_connect_failure == 0)
+			return "Not connected";
+		return t_strdup_printf("Failed to connect to '%s' - last attempt %ld secs ago", conn->path,
+				       (long)(ioloop_time - conn->last_connect_failure));
+	}
+	if (!dsync_client_is_busy(conn))
+		return "Idle";
+	if (!conn->handshaked)
+		return "Waiting for handshake";
+	if (conn->state == NULL)
+		return "Waiting for dsync to finish";
+	else
+		return "Waiting for dsync to finish (second line)";
 }
