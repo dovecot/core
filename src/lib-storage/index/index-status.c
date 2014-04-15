@@ -33,6 +33,12 @@ int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status_r)
 {
+	if (items == 0) {
+		/* caller could have wanted only e.g. mailbox_status.have_*
+		   flags */
+		return 0;
+	}
+
 	if (!box->opened) {
 		if (mailbox_open(box) < 0)
 			return -1;
