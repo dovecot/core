@@ -200,13 +200,18 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 		LAZY_EXPUNGE_CONTEXT(_mail->transaction);
 	struct lazy_expunge_mailbox_list *llist;
 	struct mailbox *real_box;
+	struct mail *real_mail;
 	struct mail_save_context *save_ctx;
 	const char *error;
 	int ret;
 
 	/* don't copy the mail if we're expunging from lazy_expunge
 	   namespace (even if it's via a virtual mailbox) */
-	real_box = mail_get_real_mail(_mail)->box;
+	if (mail_get_backend_mail(_mail, &real_mail) < 0) {
+		lt->failed = TRUE;
+		return;
+	}
+	real_box = real_mail->box;
 	llist = LAZY_EXPUNGE_LIST_CONTEXT(real_box->list);
 	if (llist != NULL && llist->internal_namespace) {
 		mmail->super.expunge(_mail);

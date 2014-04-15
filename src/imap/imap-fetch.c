@@ -879,8 +879,11 @@ static bool fetch_x_mailbox_init(struct imap_fetch_init_context *ctx)
 static int fetch_x_real_uid(struct imap_fetch_context *ctx, struct mail *mail,
 			    void *context ATTR_UNUSED)
 {
-	str_printfa(ctx->state.cur_str, "X-REAL-UID %u ",
-		    mail_get_real_mail(mail)->uid);
+	struct mail *real_mail;
+
+	if (mail_get_backend_mail(mail, &real_mail) < 0)
+		return -1;
+	str_printfa(ctx->state.cur_str, "X-REAL-UID %u ", real_mail->uid);
 	return 1;
 }
 
