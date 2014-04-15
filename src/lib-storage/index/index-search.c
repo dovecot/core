@@ -640,6 +640,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 	const enum message_header_parser_flags hdr_parser_flags =
 		MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE;
 	struct index_mail *imail = (struct index_mail *)ctx->cur_mail;
+	struct mail *real_mail;
 	struct istream *input = NULL;
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct search_header_context hdr_ctx;
@@ -657,7 +658,9 @@ static int search_arg_match_text(struct mail_search_arg *args,
 	hdr_ctx.index_ctx = ctx;
 	/* hdr_ctx.imail is different from imail for mails in
 	   virtual mailboxes */
-	hdr_ctx.imail = (struct index_mail *)mail_get_real_mail(ctx->cur_mail);
+	if (mail_get_backend_mail(ctx->cur_mail, &real_mail) < 0)
+		return -1;
+	hdr_ctx.imail = (struct index_mail *)real_mail;
 	hdr_ctx.custom_header = TRUE;
 	hdr_ctx.args = args;
 

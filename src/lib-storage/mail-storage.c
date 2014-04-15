@@ -2116,7 +2116,7 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 	struct mailbox_transaction_context *t = ctx->transaction;
 	struct mail_keywords *keywords = ctx->data.keywords;
 	enum mail_flags pvt_flags = ctx->data.pvt_flags;
-	struct mail *real_mail;
+	struct mail *backend_mail;
 	int ret;
 
 	*_ctx = NULL;
@@ -2129,8 +2129,11 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 
 	/* bypass virtual storage, so hard linking can be used whenever
 	   possible */
-	real_mail = mail_get_real_mail(mail);
-	ret = t->box->v.copy(ctx, real_mail);
+	if (mail_get_backend_mail(mail, &backend_mail) < 0) {
+		mailbox_save_cancel(&ctx);
+		return -1;
+	}
+	ret = t->box->v.copy(ctx, backend_mail);
 	if (ret == 0) {
 		if (pvt_flags != 0)
 			mailbox_save_add_pvt_flags(t, pvt_flags);

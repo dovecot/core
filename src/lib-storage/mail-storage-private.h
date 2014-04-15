@@ -391,7 +391,7 @@ struct mail_vfuncs {
 
 	int (*get_special)(struct mail *mail, enum mail_fetch_field field,
 			   const char **value_r);
-	struct mail *(*get_real_mail)(struct mail *mail);
+	int (*get_real_mail)(struct mail *mail, struct mail **real_mail_r);
 
 	void (*update_flags)(struct mail *mail, enum modify_type modify_type,
 			     enum mail_flags flags);

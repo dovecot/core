@@ -387,11 +387,12 @@ virtual_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 	return 0;
 }
 
-static struct mail *virtual_mail_get_real_mail(struct mail *mail)
+static int
+virtual_mail_get_real_mail(struct mail *mail, struct mail **real_mail_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
-	return mail_get_real_mail(vmail->backend_mail);
+	return mail_get_backend_mail(vmail->backend_mail, real_mail_r);
 }
 
 static void virtual_mail_update_pop3_uidl(struct mail *mail, const char *uidl)

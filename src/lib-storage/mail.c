@@ -272,11 +272,22 @@ int mail_get_special(struct mail *mail, enum mail_fetch_field field,
 	return 0;
 }
 
-struct mail *mail_get_real_mail(struct mail *mail)
+int mail_get_backend_mail(struct mail *mail, struct mail **real_mail_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_real_mail(mail);
+	return p->v.get_real_mail(mail, real_mail_r);
+}
+
+struct mail *mail_get_real_mail(struct mail *mail)
+{
+	struct mail *backend_mail;
+
+	if (mail_get_backend_mail(mail, &backend_mail) < 0) {
+		i_panic("FIXME: Error occurred in mail_get_real_mail(), "
+			"switch to using mail_get_backend_mail() instead");
+	}
+	return backend_mail;
 }
 
 void mail_update_flags(struct mail *mail, enum modify_type modify_type,

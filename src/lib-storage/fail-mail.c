@@ -196,9 +196,10 @@ fail_mail_get_special(struct mail *mail ATTR_UNUSED,
 	return -1;
 }
 
-static struct mail *fail_mail_get_real_mail(struct mail *mail)
+static int fail_mail_get_real_mail(struct mail *mail, struct mail **real_mail_r)
 {
-	return mail;
+	*real_mail_r = mail;
+	return 0;
 }
 
 static void
