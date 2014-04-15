@@ -36,8 +36,6 @@ static const unsigned int primes[] = {
 	4294967291U /* previous from 2^32 */
 };
 
-static const unsigned int primes_count = N_ELEMENTS(primes);
-
 unsigned int primes_closest(unsigned int num)
 {
 	unsigned int i;
