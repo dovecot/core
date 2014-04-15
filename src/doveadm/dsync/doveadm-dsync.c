@@ -63,6 +63,7 @@ struct dsync_cmd_context {
 	const char *remote_name;
 	const char *local_location;
 	pid_t remote_pid;
+	const char *const *remote_cmd_args;
 
 	int fd_in, fd_out, fd_err;
 	struct io *io_err;
@@ -120,6 +121,8 @@ static void
 run_cmd(struct dsync_cmd_context *ctx, const char *const *args)
 {
 	int fd_in[2], fd_out[2], fd_err[2];
+
+	ctx->remote_cmd_args = p_strarray_dup(ctx->ctx.pool, args);
 
 	if (pipe(fd_in) < 0 || pipe(fd_out) < 0 || pipe(fd_err) < 0)
 		i_fatal("pipe() failed: %m");
@@ -409,19 +412,23 @@ static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx,
 	alarm(0);
 }
 
-static void cmd_dsync_log_remote_status(int status, bool remote_errors_logged)
+static void cmd_dsync_log_remote_status(int status, bool remote_errors_logged,
+					const char *const *remote_cmd_args)
 {
 	if (status == -1)
 		;
-	else if (WIFSIGNALED(status))
-		i_error("Remote command died with signal %d", WTERMSIG(status));
-	else if (!WIFEXITED(status))
-		i_error("Remote command failed with status %d", status);
-	else if (WEXITSTATUS(status) == EX_TEMPFAIL && remote_errors_logged) {
+	else if (WIFSIGNALED(status)) {
+		i_error("Remote command died with signal %d: %s", WTERMSIG(status),
+			t_strarray_join(remote_cmd_args, " "));
+	} else if (!WIFEXITED(status)) {
+		i_error("Remote command failed with status %d: %s", status,
+			t_strarray_join(remote_cmd_args, " "));
+	} else if (WEXITSTATUS(status) == EX_TEMPFAIL && remote_errors_logged) {
 		/* remote most likely already logged the error.
 		   don't bother logging another line about it */
 	} else if (WEXITSTATUS(status) != 0) {
-		i_error("Remote command returned error %d", WEXITSTATUS(status));
+		i_error("Remote command returned error %d: %s", WEXITSTATUS(status),
+			t_strarray_join(remote_cmd_args, " "));
 	}
 }
 
@@ -629,8 +636,10 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		remote_errors_logged = ctx->err_stream->v_offset > 0;
 		i_stream_destroy(&ctx->err_stream);
 	}
-	if (ctx->run_type == DSYNC_RUN_TYPE_CMD)
-		cmd_dsync_log_remote_status(status, remote_errors_logged);
+	if (ctx->run_type == DSYNC_RUN_TYPE_CMD) {
+		cmd_dsync_log_remote_status(status, remote_errors_logged,
+					    ctx->remote_cmd_args);
+	}
 	if (ctx->io_err != NULL)
 		io_remove(&ctx->io_err);
 	if (ctx->fd_err != -1)
