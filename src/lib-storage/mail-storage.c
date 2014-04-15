@@ -1239,18 +1239,25 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	box->creating = TRUE;
 	ret = box->v.create_box(box, update, directory);
 	box->creating = FALSE;
+	if (ret == 0)
+		box->list->guid_cache_invalidated = TRUE;
 	return ret;
 }
 
 int mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 {
+	int ret;
+
 	i_assert(update->min_next_uid == 0 ||
 		 update->min_first_recent_uid == 0 ||
 		 update->min_first_recent_uid <= update->min_next_uid);
 
 	if (mailbox_verify_existing_name(box) < 0)
 		return -1;
-	return box->v.update_box(box, update);
+	ret = box->v.update_box(box, update);
+	if (!guid_128_is_empty(update->mailbox_guid))
+		box->list->guid_cache_invalidated = TRUE;
+	return ret;
 }
 
 int mailbox_mark_index_deleted(struct mailbox *box, bool del)
@@ -1425,7 +1432,11 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 		return -1;
 	}
 
-	return src->v.rename_box(src, dest);
+	if (src->v.rename_box(src, dest) < 0)
+		return -1;
+	src->list->guid_cache_invalidated = TRUE;
+	dest->list->guid_cache_invalidated = TRUE;
+	return 0;
 }
 
 int mailbox_set_subscribed(struct mailbox *box, bool set)

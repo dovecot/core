@@ -1,6 +1,7 @@
 /* Copyright (c) 2005-2014 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "hash.h"
 #include "mail-storage.h"
 #include "mailbox-list-private.h"
@@ -10,6 +11,12 @@ struct mailbox_guid_cache_rec {
 	guid_128_t guid;
 	const char *vname;
 };
+
+static bool mailbox_guid_cache_want_refresh(struct mailbox_list *list)
+{
+	return list->guid_cache_invalidated ||
+		list->guid_cache_last_update < ioloop_time;
+}
 
 int mailbox_guid_cache_find(struct mailbox_list *list,
 			    const guid_128_t guid, const char **vname_r)
@@ -22,7 +29,7 @@ int mailbox_guid_cache_find(struct mailbox_list *list,
 		rec = hash_table_lookup(list->guid_cache, guid_p);
 	} else {
 		rec = hash_table_lookup(list->guid_cache, guid_p);
-		if (rec == NULL) {
+		if (rec == NULL && mailbox_guid_cache_want_refresh(list)) {
 			mailbox_guid_cache_refresh(list);
 			rec = hash_table_lookup(list->guid_cache, guid_p);
 		}
@@ -53,6 +60,8 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 		hash_table_clear(list->guid_cache, TRUE);
 		p_clear(list->guid_cache_pool);
 	}
+	list->guid_cache_last_update = ioloop_time;
+	list->guid_cache_invalidated = FALSE;
 	list->guid_cache_errors = FALSE;
 
 	ctx = mailbox_list_iter_init(list, "*",
