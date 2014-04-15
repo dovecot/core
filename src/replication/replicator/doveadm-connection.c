@@ -114,10 +114,13 @@ client_input_status_dsyncs(struct doveadm_connection *client)
 	string_t *str = t_str_new(256);
 	const ARRAY_TYPE(dsync_client) *clients;
 	struct dsync_client *const *clientp;
+	const char *username;
 
 	clients = replicator_brain_get_dsync_clients(client->brain);
 	array_foreach(clients, clientp) {
-		str_append_tabescaped(str, dsync_client_get_username(*clientp));
+		username = dsync_client_get_username(*clientp);
+		if (username != NULL)
+			str_append_tabescaped(str, username);
 		str_append_c(str, '\t');
 		switch (dsync_client_get_type(*clientp)) {
 		case DSYNC_TYPE_FULL:
