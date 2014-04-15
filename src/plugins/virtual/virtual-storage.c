@@ -129,29 +129,19 @@ static int virtual_backend_box_open_failed(struct virtual_mailbox *mbox,
 					   struct virtual_backend_box *bbox)
 {
 	enum mail_error error;
-	const char *str, *name;
+	const char *str;
 
-	str = mailbox_get_last_error(bbox->box, &error);
-	name = t_strdup(get_user_visible_mailbox_name(bbox->box));
+	str = t_strdup_printf(
+		"Virtual mailbox open failed because of mailbox %s: %s",
+		get_user_visible_mailbox_name(bbox->box),
+		mailbox_get_last_error(bbox->box, &error));
+	mail_storage_set_error(mbox->box.storage, error, str);
 	mailbox_free(&bbox->box);
-	if (error == MAIL_ERROR_NOTFOUND) {
-		/* ignore this. it could be intentional. */
-		if (mbox->storage->storage.user->mail_debug) {
-			i_debug("virtual mailbox %s: "
-				"Skipping non-existing mailbox %s",
-				mbox->box.vname, name);
-		}
-		return 0;
-	}
 
 	if (error == MAIL_ERROR_PERM && bbox->wildcard) {
 		/* this mailbox wasn't explicitly specified. just skip it. */
 		return 0;
 	}
-	str = t_strdup_printf(
-		"Virtual mailbox open failed because of mailbox %s: %s",
-		name, str);
-	mail_storage_set_error(mbox->box.storage, error, str);
 	return -1;
 }
 
@@ -161,8 +151,8 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 {
 	struct mail_user *user = mbox->storage->storage.user;
 	struct mail_namespace *ns;
-	struct mailbox_status status;
 	const char *mailbox;
+	enum mailbox_existence existence;
 
 	i_assert(bbox->box == NULL);
 
@@ -173,17 +163,22 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 	ns = mail_namespace_find(user->namespaces, mailbox);
 	bbox->box = mailbox_alloc(ns->list, mailbox, flags);
 
-	if (mailbox_open(bbox->box) < 0)
+	if (mailbox_exists(bbox->box, TRUE, &existence) < 0)
 		return virtual_backend_box_open_failed(mbox, bbox);
+	if (existence != MAILBOX_EXISTENCE_SELECT) {
+		/* ignore this. it could be intentional. */
+		if (mbox->storage->storage.user->mail_debug) {
+			i_debug("virtual mailbox %s: "
+				"Skipping non-existing mailbox %s",
+				mbox->box.vname, bbox->box->vname);
+		}
+		mailbox_free(&bbox->box);
+		return 0;
+	}
+
 	i_array_init(&bbox->uids, 64);
 	i_array_init(&bbox->sync_pending_removes, 64);
 	mail_search_args_init(bbox->search_args, bbox->box, FALSE, NULL);
-
-	mailbox_get_open_status(bbox->box, 0, &status);
-	if (!status.have_guids)
-		mbox->have_guids = FALSE;
-	if (!status.have_save_guids)
-		mbox->have_save_guids = FALSE;
 	return 1;
 }
 
@@ -193,9 +188,6 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 	struct virtual_backend_box *const *bboxes;
 	unsigned int i, count;
 	int ret;
-
-	mbox->have_guids = TRUE;
-	mbox->have_save_guids = TRUE;
 
 	bboxes = array_get(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; ) {
@@ -344,6 +336,29 @@ virtual_mailbox_update(struct mailbox *box,
 	return -1;
 }
 
+static int virtual_storage_set_have_guid_flags(struct virtual_mailbox *mbox)
+{
+	struct virtual_backend_box *const *bboxes;
+	unsigned int i, count;
+	struct mailbox_status status;
+
+	mbox->have_guids = TRUE;
+	mbox->have_save_guids = TRUE;
+
+	bboxes = array_get(&mbox->backend_boxes, &count);
+	for (i = 0; i < count; i++) {
+		if (mailbox_get_status(bboxes[i]->box, 0, &status) < 0) {
+			virtual_box_copy_error(&mbox->box, bboxes[i]->box);
+			return -1;
+		}
+		if (!status.have_guids)
+			mbox->have_guids = FALSE;
+		if (!status.have_save_guids)
+			mbox->have_save_guids = FALSE;
+	}
+	return 0;
+}
+
 static int
 virtual_storage_get_status(struct mailbox *box,
 			   enum mailbox_status_items items,
@@ -366,6 +381,12 @@ virtual_storage_get_status(struct mailbox *box,
 		   indexed. */
 		status_r->last_cached_seq = status_r->messages;
 	}
+	if (!mbox->have_guid_flags_set) {
+		if (virtual_storage_set_have_guid_flags(mbox) < 0)
+			return -1;
+		mbox->have_guid_flags_set = TRUE;
+	}
+
 	if (mbox->have_guids)
 		status_r->have_guids = TRUE;
 	if (mbox->have_save_guids)

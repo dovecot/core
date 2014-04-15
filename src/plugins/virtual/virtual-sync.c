@@ -713,7 +713,13 @@ static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
 	t_array_init(&removed_uids, 128);
 	t_array_init(&added_uids, 128);
 	mailbox_search_result_sync(result, &removed_uids, &added_uids);
-	virtual_sync_mailbox_box_remove(ctx, bbox, &removed_uids);
+	if (ctx->expunge_removed)
+		virtual_sync_mailbox_box_remove(ctx, bbox, &removed_uids);
+	else {
+		/* delayed remove */
+		seq_range_array_merge(&bbox->sync_pending_removes,
+				      &removed_uids);
+	}
 	virtual_sync_mailbox_box_add(ctx, bbox, &added_uids);
 
 	bbox->search_result = result;
@@ -1009,36 +1015,55 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 {
 	enum mailbox_sync_flags sync_flags;
 	struct mailbox_status status;
+	bool bbox_index_opened = bbox->box->opened;
 	int ret;
-
-	if (!bbox->box->opened) {
-		if (mailbox_open(bbox->box) < 0)
-			return -1;
-	}
 
 	/* if we already did some changes to index, commit them before
 	   syncing starts. */
 	virtual_backend_box_sync_mail_unset(bbox);
-	/* we use modseqs for speeding up initial search result build.
-	   make sure the backend has them enabled. */
-	mail_index_modseq_enable(bbox->box->index);
 
 	sync_flags = ctx->flags & (MAILBOX_SYNC_FLAG_FULL_READ |
 				   MAILBOX_SYNC_FLAG_FULL_WRITE |
 				   MAILBOX_SYNC_FLAG_FAST);
 
 	if (bbox->search_result == NULL) {
-		/* first sync in this process */
-		i_assert(ctx->expunge_removed);
+		/* first sync in this process. first try to quickly check
+		   if the mailbox has changed. if we can do that check from
+		   mailbox list index, we don't even need to open the
+		   mailbox. */
+		i_assert(array_count(&bbox->sync_pending_removes) == 0);
 
-		if (mailbox_sync(bbox->box, sync_flags) < 0)
+		if (bbox_index_opened) {
+			/* index already opened, refresh it */
+			if (mailbox_sync(bbox->box, sync_flags) < 0)
+				return -1;
+		}
+
+		if (mailbox_get_status(bbox->box, STATUS_UIDVALIDITY |
+				       STATUS_UIDNEXT | STATUS_HIGHESTMODSEQ,
+				       &status) < 0)
 			return -1;
+		if (status.uidvalidity == bbox->sync_uid_validity &&
+		    status.uidnext == bbox->sync_next_uid &&
+		    status.highest_modseq == bbox->sync_highest_modseq) {
+			/* mailbox hasn't changed since we last opened it,
+			   skip it for now. */
+			return 0;
+		}
+		if (!bbox_index_opened) {
+			/* first time we're opening the index */
+			if (mailbox_sync(bbox->box, sync_flags) < 0)
+				return -1;
+			/* we use modseqs for speeding up initial search result
+			   build. make sure the backend has them enabled. */
+			mail_index_modseq_enable(bbox->box->index);
+		}
 
-		mailbox_get_open_status(bbox->box, STATUS_UIDVALIDITY, &status);
 		virtual_backend_box_sync_mail_set(bbox);
 		if (status.uidvalidity != bbox->sync_uid_validity) {
 			/* UID validity changed since last sync (or this is
 			   the first sync), do a full search */
+			i_assert(ctx->expunge_removed);
 			ret = virtual_sync_backend_box_init(bbox);
 		} else {
 			/* build the initial search using the saved modseq. */
@@ -1112,6 +1137,10 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 			j = 0;
 			add_rec.rec.mailbox_id = bbox->mailbox_id;
 			bbox->sync_seen = TRUE;
+		}
+		if (bbox->search_result == NULL) {
+			/* mailbox is completely unchanged since last sync */
+			continue;
 		}
 		mail_index_lookup_uid(ctx->sync_view, vseq, &vuid);
 

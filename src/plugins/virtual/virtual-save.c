@@ -10,6 +10,8 @@ struct virtual_save_context {
 	struct mail_save_context *backend_save_ctx;
 	struct mailbox *backend_box;
 	struct mail_keywords *backend_keywords;
+	char *open_errstr;
+	enum mail_error open_error;
 };
 
 struct mail_save_context *
@@ -20,6 +22,7 @@ virtual_save_alloc(struct mailbox_transaction_context *_t)
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)_t->box;
 	struct mailbox_transaction_context *backend_trans;
 	struct virtual_save_context *ctx;
+	const char *errstr;
 
 	if (_t->save_ctx == NULL) {
 		ctx = i_new(struct virtual_save_context, 1);
@@ -31,9 +34,17 @@ virtual_save_alloc(struct mailbox_transaction_context *_t)
 
 	if (mbox->save_bbox != NULL) {
 		i_assert(ctx->backend_save_ctx == NULL);
-		backend_trans =
-			virtual_transaction_get(_t, mbox->save_bbox->box);
-		ctx->backend_save_ctx = mailbox_save_alloc(backend_trans);
+		i_assert(ctx->open_errstr == NULL);
+
+		if (mailbox_open(mbox->save_bbox->box) < 0) {
+			errstr = mailbox_get_last_error(mbox->save_bbox->box,
+							&ctx->open_error);
+			ctx->open_errstr = i_strdup(errstr);
+		} else {
+			backend_trans =
+				virtual_transaction_get(_t, mbox->save_bbox->box);
+			ctx->backend_save_ctx = mailbox_save_alloc(backend_trans);
+		}
 	}
 	return _t->save_ctx;
 }
@@ -72,9 +83,15 @@ int virtual_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	struct mail *mail;
 
 	if (ctx->backend_save_ctx == NULL) {
-		mail_storage_set_error(_ctx->transaction->box->storage,
-			MAIL_ERROR_NOTPOSSIBLE,
-			"Can't save messages to this virtual mailbox");
+		if (ctx->open_errstr != NULL) {
+			/* mailbox_open() failed */
+			mail_storage_set_error(_ctx->transaction->box->storage,
+				ctx->open_error, ctx->open_errstr);
+		} else {
+			mail_storage_set_error(_ctx->transaction->box->storage,
+				MAIL_ERROR_NOTPOSSIBLE,
+				"Can't save messages to this virtual mailbox");
+		}
 		return -1;
 	}
 
@@ -125,6 +142,7 @@ void virtual_save_cancel(struct mail_save_context *_ctx)
 
 	if (ctx->backend_save_ctx != NULL)
 		mailbox_save_cancel(&ctx->backend_save_ctx);
+	i_free_and_null(ctx->open_errstr);
 	_ctx->unfinished = FALSE;
 }
 
@@ -134,7 +152,6 @@ void virtual_save_free(struct mail_save_context *_ctx)
 
 	if (ctx->backend_keywords != NULL)
 		mailbox_keywords_unref(&ctx->backend_keywords);
-	if (ctx->backend_save_ctx != NULL)
-		mailbox_save_cancel(&ctx->backend_save_ctx);
+	virtual_save_cancel(_ctx);
 	i_free(ctx);
 }
