@@ -54,6 +54,7 @@ doveadm_mail_cmd_server_parse(const char *cmd_name,
 	if (doveadm_debug)
 		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
+	optind = 1;
 	getopt_args = t_strconcat("AS:u:", ctx->getopt_args, NULL);
 	while ((c = getopt(argc, argv, getopt_args)) > 0) {
 		switch (c) {
@@ -80,9 +81,7 @@ doveadm_mail_cmd_server_parse(const char *cmd_name,
 			}
 		}
 	}
-
 	argv += optind;
-	optind = 1;
 
 	if (argv[0] != NULL && cmd->usage_args == NULL) {
 		i_error("doveadm %s: Client sent unknown parameter: %s",
