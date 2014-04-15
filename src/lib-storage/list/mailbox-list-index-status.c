@@ -53,7 +53,10 @@ index_list_open_view(struct mailbox *box, struct mail_index_view **view_r,
 
 	if (ret != 0) {
 		/* error / mailbox has changed. we'll need to sync it. */
-		mailbox_list_index_refresh_later(box->list);
+		if (ret < 0)
+			mailbox_list_index_refresh_later(box->list);
+		else
+			ilist->index_last_check_changed = TRUE;
 		mail_index_view_close(&view);
 		return ret < 0 ? -1 : 0;
 	}
@@ -366,10 +369,14 @@ static int index_list_update_mailbox(struct mailbox *box)
 	list_view = mail_index_view_open(ilist->index);
 	if (!index_list_update_fill_changes(box, list_view, &changes))
 		ret = -1;
-	else if (!index_list_has_changed(box, list_view, &changes))
-		ret = 0;
-	else
+	else if (index_list_has_changed(box, list_view, &changes))
 		ret = 1;
+	else {
+		/* if backend state changed on the last check, update it here
+		   now. we probably don't need to bother checking again if the
+		   state had changed? */
+		ret = ilist->index_last_check_changed;
+	}
 	mail_index_view_close(&list_view);
 	if (ret <= 0) {
 		if (ret < 0)
@@ -394,9 +401,10 @@ static int index_list_update_mailbox(struct mailbox *box)
 
 	if (!index_list_update_fill_changes(box, list_view, &changes))
 		mailbox_list_index_refresh_later(box->list);
-	else if (index_list_has_changed(box, list_view, &changes)) {
+	else {
 		ilist->updating_status = TRUE;
-		index_list_update(box, list_view, list_trans, &changes);
+		if (index_list_has_changed(box, list_view, &changes))
+			index_list_update(box, list_view, list_trans, &changes);
 		if (box->v.list_index_update_sync != NULL) {
 			box->v.list_index_update_sync(box, list_trans,
 						      changes.seq);
@@ -408,6 +416,7 @@ static int index_list_update_mailbox(struct mailbox *box)
 		mailbox_set_index_error(box);
 		return -1;
 	}
+	ilist->index_last_check_changed = FALSE;
 	return 0;
 }
 

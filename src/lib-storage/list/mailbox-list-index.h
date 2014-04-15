@@ -107,6 +107,7 @@ struct mailbox_list_index {
 	unsigned int syncing:1;
 	unsigned int updating_status:1;
 	unsigned int has_backing_store:1;
+	unsigned int index_last_check_changed:1;
 };
 
 struct mailbox_list_index_iterate_context {
