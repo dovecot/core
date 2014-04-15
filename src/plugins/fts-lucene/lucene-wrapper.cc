@@ -535,7 +535,11 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 	}
 
 	datasize = uni_utf8_strlen_n(data, size) + 1;
-	wchar_t dest[datasize];
+	wchar_t *dest, *dest_free = NULL;
+	if (datasize < 4096)
+		dest = (wchar_t *)t_malloc(datasize);
+	else
+		dest = dest_free = (wchar_t *)i_malloc(datasize);
 	lucene_utf8_n_to_tchar(data, size, dest, datasize);
 	lucene_data_translate(index, dest, datasize);
 
@@ -556,6 +560,7 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 			index->cur_analyzer = guess_analyzer(index, data, size);
 		index->doc->add(*_CLNEW Field(_T("body"), dest, Field::STORE_NO | Field::INDEX_TOKENIZED));
 	}
+	i_free(dest_free);
 	return 0;
 }
 
