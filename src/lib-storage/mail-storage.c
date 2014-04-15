@@ -1240,7 +1240,7 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	ret = box->v.create_box(box, update, directory);
 	box->creating = FALSE;
 	if (ret == 0)
-		box->list->guid_cache_invalidated = TRUE;
+		box->list->guid_cache_updated = TRUE;
 	return ret;
 }
 

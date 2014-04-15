@@ -122,7 +122,6 @@ struct mailbox_list {
 	struct mailbox_log *changelog;
 	time_t changelog_timestamp;
 
-	time_t guid_cache_last_update;
 	pool_t guid_cache_pool;
 	HASH_TABLE(uint8_t *, struct mailbox_guid_cache_rec *) guid_cache;
 	bool guid_cache_errors;
@@ -134,6 +133,7 @@ struct mailbox_list {
 	ARRAY(union mailbox_list_module_context *) module_contexts;
 
 	unsigned int index_root_dir_created:1;
+	unsigned int guid_cache_updated:1;
 	unsigned int guid_cache_invalidated:1;
 };
 

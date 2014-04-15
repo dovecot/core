@@ -12,24 +12,19 @@ struct mailbox_guid_cache_rec {
 	const char *vname;
 };
 
-static bool mailbox_guid_cache_want_refresh(struct mailbox_list *list)
-{
-	return list->guid_cache_invalidated ||
-		list->guid_cache_last_update < ioloop_time;
-}
-
 int mailbox_guid_cache_find(struct mailbox_list *list,
 			    const guid_128_t guid, const char **vname_r)
 {
 	const struct mailbox_guid_cache_rec *rec;
 	const uint8_t *guid_p = guid;
 
-	if (!hash_table_is_created(list->guid_cache)) {
+	if (!hash_table_is_created(list->guid_cache) ||
+	    list->guid_cache_invalidated) {
 		mailbox_guid_cache_refresh(list);
 		rec = hash_table_lookup(list->guid_cache, guid_p);
 	} else {
 		rec = hash_table_lookup(list->guid_cache, guid_p);
-		if (rec == NULL && mailbox_guid_cache_want_refresh(list)) {
+		if (rec == NULL && list->guid_cache_updated) {
 			mailbox_guid_cache_refresh(list);
 			rec = hash_table_lookup(list->guid_cache, guid_p);
 		}
@@ -60,8 +55,8 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 		hash_table_clear(list->guid_cache, TRUE);
 		p_clear(list->guid_cache_pool);
 	}
-	list->guid_cache_last_update = ioloop_time;
 	list->guid_cache_invalidated = FALSE;
+	list->guid_cache_updated = FALSE;
 	list->guid_cache_errors = FALSE;
 
 	ctx = mailbox_list_iter_init(list, "*",
