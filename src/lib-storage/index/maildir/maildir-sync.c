@@ -469,9 +469,9 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 	src = t_str_new(1024);
 	dest = t_str_new(1024);
 
-	move_new = new_dir && !mailbox_is_readonly(&ctx->mbox->box) &&
-		(ctx->mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) != 0 &&
-		ctx->locked;
+	move_new = new_dir && ctx->locked &&
+		((ctx->mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) != 0 ||
+		 ctx->mbox->storage->set->maildir_empty_new);
 
 	errno = 0;
 	for (; (dp = readdir(dirp)) != NULL; errno = 0) {
