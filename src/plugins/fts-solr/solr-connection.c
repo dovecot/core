@@ -448,17 +448,9 @@ static void
 solr_connection_update_response(const struct http_response *response,
 				struct solr_connection *conn)
 {
-	if (response == NULL) {
-		/* request failed */
-		i_error("fts_solr: HTTP POST request failed");
-		conn->request_status = -1;
-		return;
-	}
-
 	if (response->status / 100 != 2) {
 		i_error("fts_solr: Indexing failed: %s", response->reason);
 		conn->request_status = -1;
-		return;
 	}
 }
 
