@@ -371,8 +371,10 @@ int replicator_queue_import(struct replicator_queue *queue, const char *path)
 			break;
 		}
 	}
-	if (input->stream_errno != 0)
+	if (input->stream_errno != 0) {
+		i_error("read(%s) failed: %s", path, i_stream_get_error(input));
 		ret = -1;
+	}
 	i_stream_destroy(&input);
 	return ret;
 }
@@ -417,7 +419,7 @@ int replicator_queue_export(struct replicator_queue *queue, const char *path)
 	}
 	replicator_queue_iter_deinit(&iter);
 	if (o_stream_nfinish(output) < 0) {
-		i_error("write(%s) failed: %m", path);
+		i_error("write(%s) failed: %s", path, o_stream_get_error(output));
 		ret = -1;
 	}
 	o_stream_destroy(&output);
