@@ -119,19 +119,22 @@ client_input_status_dsyncs(struct doveadm_connection *client)
 	clients = replicator_brain_get_dsync_clients(client->brain);
 	array_foreach(clients, clientp) {
 		username = dsync_client_get_username(*clientp);
-		if (username != NULL)
+		if (username != NULL) {
 			str_append_tabescaped(str, username);
-		str_append_c(str, '\t');
-		switch (dsync_client_get_type(*clientp)) {
-		case DSYNC_TYPE_FULL:
-			str_append(str, "full");
-			break;
-		case DSYNC_TYPE_NORMAL:
-			str_append(str, "normal");
-			break;
-		case DSYNC_TYPE_INCREMENTAL:
-			str_append(str, "incremental");
-			break;
+			str_append_c(str, '\t');
+			switch (dsync_client_get_type(*clientp)) {
+			case DSYNC_TYPE_FULL:
+				str_append(str, "full");
+				break;
+			case DSYNC_TYPE_NORMAL:
+				str_append(str, "normal");
+				break;
+			case DSYNC_TYPE_INCREMENTAL:
+				str_append(str, "incremental");
+				break;
+			}
+		} else {
+			str_append(str, "\t-");
 		}
 		str_append_c(str, '\t');
 		str_append_tabescaped(str, dsync_client_get_state(*clientp));
