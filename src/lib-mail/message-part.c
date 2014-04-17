@@ -32,7 +32,7 @@ message_sub_part_by_idx(struct message_part *parts,
 }
 
 struct message_part *
-message_part_by_idx(struct message_part *parts, unsigned int idx);
+message_part_by_idx(struct message_part *parts, unsigned int idx)
 {
 	i_assert(parts->parent == NULL);
 
