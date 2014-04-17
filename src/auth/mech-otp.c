@@ -25,14 +25,14 @@ otp_send_challenge(struct auth_request *auth_request,
 
 	if (otp_parse_dbentry(t_strndup(credentials, size),
 			      &request->state) != 0) {
-		auth_request_log_error(&request->auth_request, "otp",
+		auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
 				       "invalid OTP data in passdb");
 		auth_request_fail(auth_request);
 		return;
 	}
 
 	if (--request->state.seq < 1) {
-		auth_request_log_error(&request->auth_request, "otp",
+		auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
 				       "sequence number < 1");
 		auth_request_fail(auth_request);
 		return;
@@ -40,7 +40,7 @@ otp_send_challenge(struct auth_request *auth_request,
 
 	request->lock = otp_try_lock(auth_request);
 	if (!request->lock) {
-		auth_request_log_error(&request->auth_request, "otp",
+		auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
 				       "user is locked, race attack?");
 		auth_request_fail(auth_request);
 		return;
@@ -114,14 +114,14 @@ mech_otp_auth_phase1(struct auth_request *auth_request,
 	}
 
 	if ((count < 1) || (count > 2)) {
-		auth_request_log_error(&request->auth_request, "otp",
+		auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
                                        "invalid input");
 		auth_request_fail(auth_request);
 		return;
 	}
 
 	if (!auth_request_set_username(auth_request, authenid, &error)) {
-		auth_request_log_info(auth_request, "otp", "%s", error);
+		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH, "%s", error);
 		auth_request_fail(auth_request);
 		return;
 	}
@@ -141,7 +141,7 @@ static void mech_otp_verify(struct auth_request *auth_request,
 
 	ret = otp_parse_response(data, hash, hex);
 	if (ret < 0) {
-		auth_request_log_error(&request->auth_request, "otp",
+		auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
 				       "invalid response");
 		auth_request_fail(auth_request);
 		otp_unlock(auth_request);
@@ -176,7 +176,7 @@ static void mech_otp_verify_init(struct auth_request *auth_request,
 
 	ret = otp_parse_init_response(data, &new_state, cur_hash, hex, &error);
 	if (ret < 0) {
-		auth_request_log_error(&request->auth_request, "otp",
+		auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
                                        "invalid init response, %s", error);
 		auth_request_fail(auth_request);
 		otp_unlock(auth_request);
@@ -212,7 +212,7 @@ mech_otp_auth_phase2(struct auth_request *auth_request,
 	} else if (strncmp(str, "init-word:", 10) == 0) {
 		mech_otp_verify_init(auth_request, str + 10, FALSE);
 	} else {
-		auth_request_log_error(auth_request, "otp",
+		auth_request_log_error(auth_request, AUTH_SUBSYS_MECH,
 				       "unsupported response type");
 		auth_request_fail(auth_request);
 		otp_unlock(auth_request);

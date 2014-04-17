@@ -48,7 +48,7 @@ auth_checkpassword_callback(struct auth_request *request,
 			auth_request_set_field(request, "password",
 					       crypted_pass, scheme);
 		} else {
-			auth_request_log_error(request, "checkpassword",
+			auth_request_log_error(request, AUTH_SUBSYS_DB,
 				"password field returned without {scheme} prefix");
 		}
 	}

@@ -86,7 +86,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 	struct timeval start_tv;
 	int ret;
 
-	auth_request_log_debug(auth_request, "passwd", "lookup");
+	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB, "lookup");
 
 	if (gettimeofday(&start_tv, NULL) < 0)
 		start_tv.tv_sec = 0;
@@ -96,12 +96,12 @@ static void passwd_lookup(struct auth_request *auth_request,
 
 	switch (ret) {
 	case -1:
-		auth_request_log_error(auth_request, "passwd",
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
 				       "getpwnam() failed: %m");
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
 	case 0:
-		auth_request_log_unknown_user(auth_request, "passwd");
+		auth_request_log_unknown_user(auth_request, AUTH_SUBSYS_DB);
 		callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 		return;
 	}

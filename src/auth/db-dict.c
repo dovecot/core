@@ -408,15 +408,15 @@ static int db_dict_iter_lookup_key_values(struct db_dict_value_iter *iter)
 		ret = dict_lookup(iter->conn->dict, iter->pool,
 				  str_c(path), &key->value);
 		if (ret > 0) {
-			auth_request_log_debug(iter->auth_request, "dict",
+			auth_request_log_debug(iter->auth_request, AUTH_SUBSYS_DB,
 					       "Lookup: %s = %s", str_c(path),
 					       key->value);
 		} else if (ret < 0) {
-			auth_request_log_error(iter->auth_request, "dict",
+			auth_request_log_error(iter->auth_request, AUTH_SUBSYS_DB,
 				"Failed to lookup key %s", str_c(path));
 			return -1;
 		} else if (key->key->default_value != NULL) {
-			auth_request_log_debug(iter->auth_request, "dict",
+			auth_request_log_debug(iter->auth_request, AUTH_SUBSYS_DB,
 				"Lookup: %s not found, using default value %s",
 				str_c(path), key->key->default_value);
 			key->value = key->key->default_value;

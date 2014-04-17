@@ -42,7 +42,7 @@ dict_query_save_results(struct auth_request *auth_request,
 		}
 	}
 	if (db_dict_value_iter_deinit(&iter, &error) < 0) {
-		auth_request_log_error(auth_request, "dict", "%s", error);
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB, "%s", error);
 		return -1;
 	}
 	return 0;
@@ -62,7 +62,7 @@ passdb_dict_lookup_key(struct auth_request *auth_request,
 	if (ret < 0)
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	else if (ret == 0) {
-		auth_request_log_unknown_user(auth_request, "dict");
+		auth_request_log_unknown_user(auth_request, AUTH_SUBSYS_DB);
 		return PASSDB_RESULT_USER_UNKNOWN;
 	} else {
 		if (dict_query_save_results(auth_request, module->conn, iter) < 0)
@@ -70,7 +70,7 @@ passdb_dict_lookup_key(struct auth_request *auth_request,
 
 		if (auth_request->passdb_password == NULL &&
 		    !auth_fields_exists(auth_request->extra_fields, "nopassword")) {
-			auth_request_log_info(auth_request, "dict",
+			auth_request_log_info(auth_request, AUTH_SUBSYS_DB,
 				"No password returned (and no nopassword)");
 			return PASSDB_RESULT_PASSWORD_MISMATCH;
 		} else {
@@ -91,7 +91,7 @@ static void passdb_dict_lookup_pass(struct passdb_dict_request *dict_request)
 
 	if (array_count(&module->conn->set.passdb_fields) == 0 &&
 	    array_count(&module->conn->set.parsed_passdb_objects) == 0) {
-		auth_request_log_error(auth_request, "dict",
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
 			"No passdb_objects or passdb_fields specified");
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else {
@@ -115,7 +115,7 @@ static void passdb_dict_lookup_pass(struct passdb_dict_request *dict_request)
 		if (password != NULL) {
 			ret = auth_request_password_verify(auth_request,
 					auth_request->mech_password,
-					password, scheme, "dict");
+					password, scheme, AUTH_SUBSYS_DB);
 			passdb_result = ret > 0 ? PASSDB_RESULT_OK :
 				PASSDB_RESULT_PASSWORD_MISMATCH;
 		}

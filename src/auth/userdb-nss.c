@@ -38,28 +38,28 @@ userdb_nss_lookup(struct auth_request *auth_request,
 	enum userdb_result result = USERDB_RESULT_INTERNAL_FAILURE;
 	int err;
 
-	auth_request_log_debug(auth_request, "nss", "lookup");
+	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB, "lookup");
 
 	status = module->getpwnam_r(auth_request->user, &pw,
 				    module->buf, module->bufsize, &err);
 	switch (status) {
 	case NSS_STATUS_TRYAGAIN:
-		auth_request_log_error(auth_request, "nss",
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
 				       "returned tryagain (err=%d)", err);
 		break;
 	case NSS_STATUS_UNAVAIL:
-		auth_request_log_error(auth_request, "nss",
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
 				       "unavailable (err=%d)", err);
 		break;
 	case NSS_STATUS_NOTFOUND:
-		auth_request_log_unknown_user(auth_request, "nss");
+		auth_request_log_unknown_user(auth_request, AUTH_SUBSYS_DB);
 		result = USERDB_RESULT_USER_UNKNOWN;
 		break;
 	case NSS_STATUS_SUCCESS:
 		result = USERDB_RESULT_OK;
 		break;
 	default:
-		auth_request_log_info(auth_request, "nss",
+		auth_request_log_info(auth_request, AUTH_SUBSYS_DB,
 				      "returned %d (err=%d)", status, err);
 		break;
 	}

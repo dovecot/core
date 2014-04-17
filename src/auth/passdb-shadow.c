@@ -15,16 +15,16 @@
 static enum passdb_result
 shadow_lookup(struct auth_request *request, struct spwd **spw_r)
 {
-	auth_request_log_debug(request, "shadow", "lookup");
+	auth_request_log_debug(request, AUTH_SUBSYS_DB, "lookup");
 
 	*spw_r = getspnam(request->user);
 	if (*spw_r == NULL) {
-		auth_request_log_unknown_user(request, "shadow");
+		auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
 		return PASSDB_RESULT_USER_UNKNOWN;
 	}
 
 	if (!IS_VALID_PASSWD((*spw_r)->sp_pwdp)) {
-		auth_request_log_info(request, "shadow",
+		auth_request_log_info(request, AUTH_SUBSYS_DB,
 				      "invalid password field");
 		return PASSDB_RESULT_USER_DISABLED;
 	}
@@ -51,7 +51,7 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 
 	/* check if the password is valid */
 	ret = auth_request_password_verify(request, password, spw->sp_pwdp,
-					   SHADOW_PASS_SCHEME, "shadow");
+					   SHADOW_PASS_SCHEME, AUTH_SUBSYS_DB);
 
 	/* clear the passwords from memory */
 	safe_memset(spw->sp_pwdp, 0, strlen(spw->sp_pwdp));

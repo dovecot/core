@@ -391,7 +391,7 @@ static void auth_request_handler_auth_fail(struct auth_request_handler *handler,
 {
 	string_t *str = t_str_new(128);
 
-	auth_request_log_info(request, request->mech->mech_name, "%s", reason);
+	auth_request_log_info(request, AUTH_SUBSYS_MECH, "%s", reason);
 
 	str_printfa(str, "FAIL\t%u\treason=", request->id);
 	str_append_tabescaped(str, reason);
@@ -406,12 +406,12 @@ static void auth_request_timeout(struct auth_request *request)
 
 	if (request->state != AUTH_REQUEST_STATE_MECH_CONTINUE) {
 		/* client's fault */
-		auth_request_log_error(request, request->mech->mech_name,
+		auth_request_log_error(request, AUTH_SUBSYS_MECH,
 			"Request %u.%u timed out after %u secs, state=%d",
 			request->handler->client_pid, request->id,
 			secs, request->state);
 	} else if (request->set->verbose) {
-		auth_request_log_info(request, request->mech->mech_name,
+		auth_request_log_info(request, AUTH_SUBSYS_MECH,
 			"Request timed out waiting for client to continue authentication "
 			"(%u secs)", secs);
 	}

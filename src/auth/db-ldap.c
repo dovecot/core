@@ -307,7 +307,7 @@ static int db_ldap_request_bind(struct ldap_connection *conn,
 				   request->auth_request->mech_password,
 				   LDAP_AUTH_SIMPLE);
 	if (request->msgid == -1) {
-		auth_request_log_error(request->auth_request, "ldap",
+		auth_request_log_error(request->auth_request, AUTH_SUBSYS_DB,
 				       "ldap_bind(%s) failed: %s",
 				       brequest->dn, ldap_get_error(conn));
 		if (ldap_handle_error(conn) < 0) {
@@ -334,7 +334,7 @@ static int db_ldap_request_search(struct ldap_connection *conn,
 			    srequest->base, conn->set.ldap_scope,
 			    srequest->filter, srequest->attributes, 0);
 	if (request->msgid == -1) {
-		auth_request_log_error(request->auth_request, "ldap",
+		auth_request_log_error(request->auth_request, AUTH_SUBSYS_DB,
 				       "ldap_search(%s) parsing failed: %s",
 				       srequest->filter, ldap_get_error(conn));
 		if (ldap_handle_error(conn) < 0) {
@@ -434,7 +434,7 @@ db_ldap_check_limits(struct ldap_connection *conn, struct ldap_request *request)
 				   aqueue_idx(conn->request_queue, 0));
 	secs_diff = ioloop_time - (*first_requestp)->create_time;
 	if (secs_diff > DB_LDAP_REQUEST_LOST_TIMEOUT_SECS) {
-		auth_request_log_error(request->auth_request, "ldap",
+		auth_request_log_error(request->auth_request, AUTH_SUBSYS_DB,
 			"Connection appears to be hanging, reconnecting");
 		ldap_conn_reconnect(conn);
 		return TRUE;
@@ -522,10 +522,10 @@ static void db_ldap_abort_requests(struct ldap_connection *conn,
 			conn->pending_count--;
 		}
 		if (error) {
-			auth_request_log_error(request->auth_request, "ldap",
+			auth_request_log_error(request->auth_request, AUTH_SUBSYS_DB,
 					       "%s", reason);
 		} else {
-			auth_request_log_info(request->auth_request, "ldap",
+			auth_request_log_info(request->auth_request, AUTH_SUBSYS_DB,
 					      "%s", reason);
 		}
 		request->callback(conn, request, NULL);
@@ -570,7 +570,7 @@ static int db_ldap_fields_get_dn(struct ldap_connection *conn,
 						     TRUE, TRUE);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		if (values[1] != NULL) {
-			auth_request_log_warning(auth_request, "ldap",
+			auth_request_log_warning(auth_request, AUTH_SUBSYS_DB,
 				"Multiple values found for '%s', "
 				"using value '%s'", name, values[0]);
 		}
@@ -653,7 +653,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 		ldap_search(conn->ld, named_res->dn, LDAP_SCOPE_BASE,
 			    NULL, array_idx_modifiable(&ctx.attr_names, 0), 0);
 	if (request->request.msgid == -1) {
-		auth_request_log_error(request->request.auth_request, "ldap",
+		auth_request_log_error(request->request.auth_request, AUTH_SUBSYS_DB,
 				       "ldap_search(dn=%s) failed: %s",
 				       named_res->dn, ldap_get_error(conn));
 		return -1;
@@ -766,14 +766,14 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 			(struct ldap_request_search *)request;
 
 		if (!array_is_created(&srequest->named_results)) {
-			auth_request_log_error(request->auth_request, "ldap",
+			auth_request_log_error(request->auth_request, AUTH_SUBSYS_DB,
 				"ldap_search(base=%s filter=%s) failed: %s",
 				srequest->base, srequest->filter,
 				ldap_err2string(ret));
 		} else {
 			named_res = array_idx(&srequest->named_results,
 					      srequest->name_idx);
-			auth_request_log_error(request->auth_request, "ldap",
+			auth_request_log_error(request->auth_request, AUTH_SUBSYS_DB,
 				"ldap_search(base=%s) failed: %s",
 				named_res->dn, ldap_err2string(ret));
 		}
@@ -783,7 +783,7 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 		/* expand any @results */
 		if (!final_result) {
 			if (db_ldap_search_save_result(srequest, res) < 0) {
-				auth_request_log_error(request->auth_request, "ldap",
+				auth_request_log_error(request->auth_request, AUTH_SUBSYS_DB,
 					"LDAP search returned multiple entries");
 				res = NULL;
 			} else {
@@ -1569,7 +1569,7 @@ static const char *db_ldap_field_expand(const char *data, void *context)
 		return db_ldap_field_get_default(data);
 	}
 	if (ldap_value->values[1] != NULL) {
-		auth_request_log_warning(ctx->auth_request, "ldap",
+		auth_request_log_warning(ctx->auth_request, AUTH_SUBSYS_DB,
 			"Multiple values found for '%s', using value '%s'",
 			field_name, ldap_value->values[0]);
 	}
@@ -1620,7 +1620,7 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 			return values;
 		}
 		if (values[0] != NULL && values[1] != NULL) {
-			auth_request_log_warning(ctx->auth_request, "ldap",
+			auth_request_log_warning(ctx->auth_request, AUTH_SUBSYS_DB,
 				"Multiple values found for '%s', "
 				"using value '%s'",
 				field->name, values[0]);
@@ -1685,7 +1685,7 @@ db_ldap_result_finish_debug(struct db_ldap_result_iterate_context *ctx)
 
 	orig_len = str_len(ctx->debug);
 	if (orig_len == 0) {
-		auth_request_log_debug(ctx->auth_request, "ldap",
+		auth_request_log_debug(ctx->auth_request, AUTH_SUBSYS_DB,
 				       "no fields returned by the server");
 		return;
 	}
@@ -1707,7 +1707,7 @@ db_ldap_result_finish_debug(struct db_ldap_result_iterate_context *ctx)
 		str_truncate(ctx->debug, str_len(ctx->debug)-1);
 		str_append(ctx->debug, " unused");
 	}
-	auth_request_log_debug(ctx->auth_request, "ldap",
+	auth_request_log_debug(ctx->auth_request, AUTH_SUBSYS_DB,
 			       "result: %s", str_c(ctx->debug) + 1);
 }
 

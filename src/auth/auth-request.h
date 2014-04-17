@@ -153,6 +153,10 @@ extern unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 extern const struct var_expand_table
 auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1];
 
+extern const char auth_default_subsystems[2];
+#define AUTH_SUBSYS_DB &auth_default_subsystems[0]
+#define AUTH_SUBSYS_MECH &auth_default_subsystems[1]
+
 struct auth_request *
 auth_request_new(const struct mech_module *mech);
 struct auth_request *auth_request_new_dummy(void);

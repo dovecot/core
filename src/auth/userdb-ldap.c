@@ -69,9 +69,9 @@ userdb_ldap_lookup_finish(struct auth_request *auth_request,
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 	} else if (urequest->entries == 0) {
 		result = USERDB_RESULT_USER_UNKNOWN;
-		auth_request_log_unknown_user(auth_request, "ldap");
+		auth_request_log_unknown_user(auth_request, AUTH_SUBSYS_DB);
 	} else if (urequest->entries > 1) {
-		auth_request_log_error(auth_request, "ldap",
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
 			"user_filter matched multiple objects, aborting");
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 	} else {
@@ -132,7 +132,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	request->request.attr_map = &conn->user_attr_map;
 	request->request.attributes = conn->user_attr_names;
 
-	auth_request_log_debug(auth_request, "ldap", "user search: "
+	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB, "user search: "
 			       "base=%s scope=%s filter=%s fields=%s",
 			       request->request.base, conn->set.scope,
 			       request->request.filter,

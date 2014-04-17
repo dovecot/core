@@ -267,10 +267,10 @@ static int passwd_file_sync(struct auth_request *request,
 		/* with variables don't give hard errors, or errors about
 		   nonexistent files */
 		if (errno == EACCES) {
-			auth_request_log_error(request, "passwd-file",
+			auth_request_log_error(request, AUTH_SUBSYS_DB,
 				"%s", eacces_error_get("stat", pw->path));
 		} else {
-			auth_request_log_error(request, "passwd-file",
+			auth_request_log_error(request, AUTH_SUBSYS_DB,
 				"stat(%s) failed: %m", pw->path);
 		}
 
@@ -282,7 +282,7 @@ static int passwd_file_sync(struct auth_request *request,
 	if (st.st_mtime != pw->stamp || st.st_size != pw->size) {
 		passwd_file_close(pw);
 		if (passwd_file_open(pw, FALSE, &error) < 0) {
-			auth_request_log_error(request, "passwd-file",
+			auth_request_log_error(request, AUTH_SUBSYS_DB,
 				"%s", error);
 			return -1;
 		}
@@ -458,13 +458,13 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request,
 						  auth_request_str_escape);
 	var_expand(username, username_format, table);
 
-	auth_request_log_debug(request, "passwd-file",
+	auth_request_log_debug(request, AUTH_SUBSYS_DB,
 			       "lookup: user=%s file=%s",
 			       str_c(username), pw->path);
 
 	pu = hash_table_lookup(pw->users, str_c(username));
 	if (pu == NULL)
-                auth_request_log_unknown_user(request, "passwd-file");
+                auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
 	return pu;
 }
 

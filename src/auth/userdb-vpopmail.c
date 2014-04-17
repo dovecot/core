@@ -31,18 +31,18 @@ struct vqpasswd *vpopmail_lookup_vqp(struct auth_request *request,
 
 	if (parse_email(request->user, vpop_user, vpop_domain,
 			VPOPMAIL_LIMIT-1) < 0) {
-		auth_request_log_info(request, "vpopmail",
+		auth_request_log_info(request, AUTH_SUBSYS_DB,
 				      "parse_email() failed");
 		return NULL;
 	}
 
-	auth_request_log_debug(request, "vpopmail",
+	auth_request_log_debug(request, AUTH_SUBSYS_DB,
 			       "lookup user=%s domain=%s",
 			       vpop_user, vpop_domain);
 
 	vpw = vauth_getpw(vpop_user, vpop_domain);
 	if (vpw == NULL) {
-		auth_request_log_unknown_user(request, "vpopmail");
+		auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
 		return NULL;
 	}
 
@@ -88,7 +88,7 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 	/* we have to get uid/gid separately, because the gid field in
 	   struct vqpasswd isn't really gid at all but just some flags... */
 	if (vget_assign(vpop_domain, NULL, 0, &uid, &gid) == NULL) {
-		auth_request_log_info(auth_request, "vpopmail",
+		auth_request_log_info(auth_request, AUTH_SUBSYS_DB,
 				      "vget_assign(%s) failed", vpop_domain);
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
@@ -102,11 +102,11 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 
 	if (vpw->pw_dir == NULL || vpw->pw_dir[0] == '\0') {
 		/* user's homedir doesn't exist yet, create it */
-		auth_request_log_info(auth_request, "vpopmail",
+		auth_request_log_info(auth_request, AUTH_SUBSYS_DB,
 				      "pw_dir isn't set, creating");
 
 		if (make_user_dir(vpop_user, vpop_domain, uid, gid) == NULL) {
-			auth_request_log_error(auth_request, "vpopmail",
+			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
 					       "make_user_dir(%s, %s) failed",
 					       vpop_user, vpop_domain);
 			callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);

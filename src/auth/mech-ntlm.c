@@ -38,8 +38,8 @@ static bool lm_verify_credentials(struct ntlm_auth_request *request,
 	unsigned int response_length;
 
 	if (size != LM_HASH_SIZE) {
-                auth_request_log_error(&request->auth_request, "lm",
-				       "invalid credentials length");
+                auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
+				       "invalid LM credentials length");
 		return FALSE;
 	}
 
@@ -48,7 +48,7 @@ static bool lm_verify_credentials(struct ntlm_auth_request *request,
 	client_response = ntlmssp_buffer_data(request->response, lm_response);
 
 	if (response_length < LM_RESPONSE_SIZE) {
-                auth_request_log_error(&request->auth_request, "ntlm",
+                auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
 			"LM response length is too small");
 		return FALSE;
 	}
@@ -99,8 +99,8 @@ ntlm_verify_credentials(struct ntlm_auth_request *request,
 	}
 
 	if (size != NTLMSSP_HASH_SIZE) {
-                auth_request_log_error(&request->auth_request, "ntlm",
-				       "invalid credentials length");
+                auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
+				       "invalid NTLM credentials length");
 		return -1;
 	}
 
@@ -188,7 +188,7 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 		uint32_t flags;
 
 		if (!ntlmssp_check_request(ntlm_request, data_size, &error)) {
-			auth_request_log_info(auth_request, "ntlm",
+			auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
 				"invalid NTLM request: %s", error);
 			auth_request_fail(auth_request);
 			return;
@@ -209,7 +209,7 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 		const char *username;
 
 		if (!ntlmssp_check_response(response, data_size, &error)) {
-			auth_request_log_info(auth_request, "ntlm",
+			auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
 				"invalid NTLM response: %s", error);
 			auth_request_fail(auth_request);
 			return;
@@ -222,7 +222,7 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 					 request->unicode_negotiated);
 
 		if (!auth_request_set_username(auth_request, username, &error)) {
-			auth_request_log_info(auth_request, "ntlm",
+			auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
 					      "%s", error);
 			auth_request_fail(auth_request);
 			return;

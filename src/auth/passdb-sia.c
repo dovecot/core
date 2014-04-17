@@ -35,13 +35,13 @@ local_sia_verify_plain(struct auth_request *request, const char *password,
 {
 	char *argutility = "dovecot";
 
-	auth_request_log_debug(request, "sia", "lookup");
+	auth_request_log_debug(request, AUTH_SUBSYS_DB, "lookup");
 
 	/* check if the password is valid */
 	if (sia_validate_user(checkpw_collect, 1, &argutility, NULL,
 			      (char *)request->user, NULL, NULL, NULL,
 			      (char *)password) != SIASUCCESS) {
-		auth_request_log_password_mismatch(request, "sia");
+		auth_request_log_password_mismatch(request, AUTH_SUBSYS_DB);
                 callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 	} else {
 		callback(PASSDB_RESULT_OK, request);

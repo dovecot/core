@@ -264,7 +264,7 @@ static void credentials_callback(enum passdb_result result,
 		if (scram_sha1_scheme_parse(credentials, size, &iter_count,
 					    &salt, request->stored_key,
 					    request->server_key, &error) < 0) {
-			auth_request_log_info(auth_request, "scram-sha-1",
+			auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
 					      "%s", error);
 			auth_request_fail(auth_request);
 			break;
@@ -367,8 +367,7 @@ static void mech_scram_sha1_auth_continue(struct auth_request *auth_request,
 		if (parse_scram_client_final(request, data, data_size,
 					     &error)) {
 			if (!verify_credentials(request)) {
-				auth_request_log_info(auth_request,
-						      "scram-sha-1",
+				auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
 						      "password mismatch");
 			} else {
 				server_final_message =
@@ -382,7 +381,7 @@ static void mech_scram_sha1_auth_continue(struct auth_request *auth_request,
 	}
 
 	if (error != NULL)
-		auth_request_log_info(auth_request, "scram-sha-1", "%s", error);
+		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH, "%s", error);
 	auth_request_fail(auth_request);
 }
 

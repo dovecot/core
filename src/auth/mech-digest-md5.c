@@ -122,7 +122,7 @@ static bool verify_credentials(struct digest_auth_request *request,
 
 	/* get the MD5 password */
 	if (size != MD5_RESULTLEN) {
-                auth_request_log_error(&request->auth_request, "digest-md5",
+                auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
 				       "invalid credentials length");
 		return FALSE;
 	}
@@ -211,7 +211,7 @@ static bool verify_credentials(struct digest_auth_request *request,
 			/* verify response */
 			if (memcmp(response_hex, request->response, 32) != 0) {
 				auth_request_log_info(&request->auth_request,
-						      "digest-md5",
+						      AUTH_SUBSYS_MECH,
 						      "password mismatch");
 				return FALSE;
 			}
@@ -566,7 +566,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	}
 
 	if (error != NULL)
-                auth_request_log_info(auth_request, "digest-md5", "%s", error);
+                auth_request_log_info(auth_request, AUTH_SUBSYS_MECH, "%s", error);
 
 	auth_request_fail(auth_request);
 }

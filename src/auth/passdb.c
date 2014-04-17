@@ -78,11 +78,11 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 			      credentials_r, size_r, &error);
 	if (ret <= 0) {
 		if (ret < 0) {
-			auth_request_log_error(auth_request, "password",
+			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
 				"Password data is not valid for scheme %s: %s",
 				input_scheme, error);
 		} else {
-			auth_request_log_error(auth_request, "password",
+			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
 				"Unknown scheme %s", input_scheme);
 		}
 		return FALSE;
@@ -105,7 +105,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 				error = t_strdup_printf("%s (input: %s)",
 							error, input);
 			}
-			auth_request_log_info(auth_request, "password",
+			auth_request_log_info(auth_request, AUTH_SUBSYS_DB,
 					      "%s", error);
 			return FALSE;
 		}
@@ -120,13 +120,13 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 					       auth_request->realm, NULL);
 		}
 		if (auth_request->set->debug_passwords) {
-			auth_request_log_debug(auth_request, "password",
+			auth_request_log_debug(auth_request, AUTH_SUBSYS_DB,
 				"Generating %s from user '%s', password '%s'",
 				wanted_scheme, username, plaintext);
 		}
 		if (!password_generate(plaintext, username,
 				       wanted_scheme, credentials_r, size_r)) {
-			auth_request_log_error(auth_request, "password",
+			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
 				"Requested unknown scheme %s", wanted_scheme);
 			return FALSE;
 		}
@@ -156,7 +156,7 @@ void passdb_handle_credentials(enum passdb_result result,
 		/* We're doing a passdb lookup (not authenticating).
 		   Pass through a NULL password without an error. */
 	} else {
-		auth_request_log_info(auth_request, "password",
+		auth_request_log_info(auth_request, AUTH_SUBSYS_DB,
 			"Requested %s scheme, but we have a NULL password",
 			auth_request->credentials_scheme);
 		result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;

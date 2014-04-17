@@ -21,7 +21,7 @@ passdb_cache_log_hit(struct auth_request *request, const char *value)
 		p = strchr(value, '\t');
 		value = t_strconcat(PASSWORD_HIDDEN_STR, p, NULL);
 	}
-	auth_request_log_debug(request, "cache", "hit: %s", value);
+	auth_request_log_debug(request, AUTH_SUBSYS_DB, "cache hit: %s", value);
 }
 
 bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
@@ -40,15 +40,16 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 	value = auth_cache_lookup(passdb_cache, request, key, &node,
 				  &expired, &neg_expired);
 	if (value == NULL || (expired && !use_expired)) {
-		auth_request_log_debug(request, "cache",
-				       value == NULL ? "miss" : "expired");
+		auth_request_log_debug(request, AUTH_SUBSYS_DB,
+				       value == NULL ? "cache miss" :
+				       "cache expired");
 		return FALSE;
 	}
 	passdb_cache_log_hit(request, value);
 
 	if (*value == '\0') {
 		/* negative cache entry */
-		auth_request_log_unknown_user(request, "cache");
+		auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
 		*result_r = PASSDB_RESULT_USER_UNKNOWN;
 		return TRUE;
 	}
@@ -58,14 +59,15 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 	cached_pw = list[0];
 	if (*cached_pw == '\0') {
 		/* NULL password */
-		auth_request_log_info(request, "cache", "NULL password access");
+		auth_request_log_info(request, AUTH_SUBSYS_DB,
+				      "Cached NULL password access");
 		ret = 1;
 	} else {
 		scheme = password_get_scheme(&cached_pw);
 		i_assert(scheme != NULL);
 
 		ret = auth_request_password_verify(request, password, cached_pw,
-						   scheme, "cache");
+						   scheme, AUTH_SUBSYS_DB);
 
 		if (ret == 0 && (node->last_success || neg_expired)) {
 			/* a) the last authentication was successful. assume
@@ -103,8 +105,9 @@ bool passdb_cache_lookup_credentials(struct auth_request *request,
 	value = auth_cache_lookup(passdb_cache, request, key, &node,
 				  &expired, &neg_expired);
 	if (value == NULL || (expired && !use_expired)) {
-		auth_request_log_debug(request, "cache",
-				       value == NULL ? "miss" : "expired");
+		auth_request_log_debug(request, AUTH_SUBSYS_DB,
+				       value == NULL ? "cache miss" :
+				       "cache expired");
 		return FALSE;
 	}
 	passdb_cache_log_hit(request, value);

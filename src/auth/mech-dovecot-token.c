@@ -41,11 +41,11 @@ mech_dovecot_token_auth_continue(struct auth_request *request,
 
 	if (count != 4) {
 		/* invalid input */
-		auth_request_log_info(request, "dovecot-token", "invalid input");
+		auth_request_log_info(request, AUTH_SUBSYS_MECH, "invalid input");
 		auth_request_fail(request);
 	} else if (!auth_request_set_username(request, username, &error)) {
 		/* invalid username */
-		auth_request_log_info(request, "dovecot-token", "%s", error);
+		auth_request_log_info(request, AUTH_SUBSYS_MECH, "%s", error);
 		auth_request_fail(request);
 	} else {
 		const char *valid_token =

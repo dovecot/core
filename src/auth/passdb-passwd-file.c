@@ -78,7 +78,7 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 	passwd_file_save_results(request, pu, &crypted_pass, &scheme);
 
 	ret = auth_request_password_verify(request, password, crypted_pass,
-					   scheme, "passwd-file");
+					   scheme, AUTH_SUBSYS_DB);
 
 	callback(ret > 0 ? PASSDB_RESULT_OK : PASSDB_RESULT_PASSWORD_MISMATCH,
 		 request);
