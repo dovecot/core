@@ -352,8 +352,12 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 			body_added = TRUE;
 		}
 	}
-	if (ret == 0 && ctx.body_parser != NULL)
-		ret = fts_body_parser_finish(&ctx);
+	if (ctx.body_parser != NULL) {
+		if (ret == 0)
+			ret = fts_body_parser_finish(&ctx);
+		else
+			fts_parser_deinit(&ctx.body_parser);
+	}
 	if (ret == 0 && body_part && !skip_body && !body_added) {
 		/* make sure body is added even when it doesn't exist */
 		block.data = NULL; block.size = 0;
