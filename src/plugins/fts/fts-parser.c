@@ -17,6 +17,12 @@ bool fts_parser_init(struct mail_user *user,
 {
 	unsigned int i;
 
+	if (strcmp(content_type, "text/plain") == 0) {
+		/* we probably don't want/need to allow parsers to handle
+		   plaintext? */
+		return NULL;
+	}
+
 	for (i = 0; i < N_ELEMENTS(parsers); i++) {
 		*parser_r = parsers[i]->try_init(user, content_type,
 						 content_disposition);
