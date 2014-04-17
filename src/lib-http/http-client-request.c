@@ -485,7 +485,7 @@ http_client_request_continue_payload(struct http_client_request **_req,
 	client->ioloop = io_loop_create();
 	http_client_switch_ioloop(client);
 
-	while (req->state < HTTP_REQUEST_STATE_FINISHED) {
+	while (req->state < HTTP_REQUEST_STATE_PAYLOAD_IN) {
 		http_client_request_debug(req, "Waiting for request to finish");
 		
 		if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT)
@@ -505,10 +505,18 @@ http_client_request_continue_payload(struct http_client_request **_req,
 	io_loop_set_current(client->ioloop);
 	io_loop_destroy(&client->ioloop);
 
-	if (req->state == HTTP_REQUEST_STATE_FINISHED)
+	switch (req->state) {
+	case HTTP_REQUEST_STATE_PAYLOAD_IN:
+	case HTTP_REQUEST_STATE_FINISHED:
 		ret = 1;
-	else
-		ret = (req->state == HTTP_REQUEST_STATE_ABORTED ? -1 : 0);
+		break;
+	case HTTP_REQUEST_STATE_ABORTED:
+		ret = -1;
+		break;
+	default:
+		ret = 0;
+		break;
+	}
 
 	req->payload_wait = FALSE;
 	http_client_request_unref(_req);
