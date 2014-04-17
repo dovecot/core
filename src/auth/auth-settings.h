@@ -5,6 +5,7 @@ struct master_service;
 struct master_service_settings_output;
 
 struct auth_passdb_settings {
+	const char *name;
 	const char *driver;
 	const char *args;
 	const char *default_fields;
@@ -20,6 +21,7 @@ struct auth_passdb_settings {
 };
 
 struct auth_userdb_settings {
+	const char *name;
 	const char *driver;
 	const char *args;
 	const char *default_fields;

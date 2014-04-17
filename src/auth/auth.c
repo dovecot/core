@@ -10,6 +10,7 @@
 #include "auth.h"
 
 struct auth_userdb_settings userdb_dummy_set = {
+	.name = "",
 	.driver = "static",
 	.args = "",
 	.default_fields = "",
