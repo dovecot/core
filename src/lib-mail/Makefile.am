@@ -51,6 +51,7 @@ headers = \
 	message-header-parser.h \
 	message-id.h \
 	message-parser.h \
+	message-part.h \
 	message-part-serialize.h \
 	message-search.h \
 	message-size.h \
