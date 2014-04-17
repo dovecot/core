@@ -32,6 +32,8 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 			set->normalize = TRUE;
 		} else if (strcmp(*tmp, "no_snowball") == 0) {
 			set->no_snowball = TRUE;
+		} else if (strcmp(*tmp, "mime_parts") == 0) {
+			set->mime_parts = TRUE;
 		} else {
 			i_error("fts_lucene: Invalid setting: %s", *tmp);
 			return -1;
@@ -79,6 +81,8 @@ uint32_t fts_lucene_settings_checksum(const struct fts_lucene_settings *set)
 		crc = crc32_str_more(crc, "n");
 	if (set->no_snowball)
 		crc = crc32_str_more(crc, "s");
+	/* don't include mime_parts here, since changing it doesn't
+	   necessarily need the index to be rebuilt */
 	return crc;
 }
 

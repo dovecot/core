@@ -5,6 +5,7 @@
 #include "hash.h"
 #include "hex-binary.h"
 #include "strescape.h"
+#include "message-part.h"
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
 #include "fts-expunge-log.h"
@@ -41,7 +42,7 @@ struct lucene_fts_backend_update_context {
 	uint32_t last_indexed_uid;
 	char *first_box_vname;
 
-	uint32_t uid;
+	uint32_t uid, part_num;
 	char *hdr_name;
 
 	unsigned int added_msgs;
@@ -49,6 +50,7 @@ struct lucene_fts_backend_update_context {
 
 	bool lucene_opened;
 	bool last_indexed_uid_set;
+	bool mime_parts;
 };
 
 static int fts_backend_lucene_mkdir(struct lucene_fts_backend *backend)
@@ -203,11 +205,14 @@ fts_backend_lucene_update_init(struct fts_backend *_backend)
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
 	struct lucene_fts_backend_update_context *ctx;
+	struct fts_lucene_user *fuser =
+		FTS_LUCENE_USER_CONTEXT(_backend->ns->user);
 
 	i_assert(!backend->updating);
 
 	ctx = i_new(struct lucene_fts_backend_update_context, 1);
 	ctx->ctx.backend = _backend;
+	ctx->mime_parts = fuser->set.mime_parts;
 	backend->updating = TRUE;
 	return &ctx->ctx;
 }
@@ -375,6 +380,8 @@ fts_backend_lucene_update_set_build_key(struct fts_backend_update_context *_ctx,
 	}
 
 	ctx->uid = key->uid;
+	if (ctx->mime_parts)
+		ctx->part_num = message_part_to_idx(key->part);
 	return TRUE;
 }
 
@@ -385,6 +392,7 @@ fts_backend_lucene_update_unset_build_key(struct fts_backend_update_context *_ct
 		(struct lucene_fts_backend_update_context *)_ctx;
 
 	ctx->uid = 0;
+	ctx->part_num = 0;
 	i_free_and_null(ctx->hdr_name);
 }
 
@@ -405,7 +413,8 @@ fts_backend_lucene_update_build_more(struct fts_backend_update_context *_ctx,
 
 	T_BEGIN {
 		ret = lucene_index_build_more(backend->index, ctx->uid,
-					      data, size, ctx->hdr_name);
+					      ctx->part_num, data, size,
+					      ctx->hdr_name);
 	} T_END;
 	return ret;
 }

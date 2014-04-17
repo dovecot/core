@@ -34,7 +34,10 @@ static void cmd_dump_fts_lucene(int argc ATTR_UNUSED, char *argv[])
 			memcpy(prev_guid, rec->mailbox_guid, sizeof(prev_guid));
 			printf("%s: ", guid_128_to_string(prev_guid));
 		}
-		printf("%u,", rec->uid);
+		printf("%u", rec->uid);
+		if (rec->part_num != 0)
+			printf("[%u]", rec->part_num);
+		printf("\n");
 	}
 	printf("\n");
 	if (lucene_index_iter_deinit(&iter) < 0)

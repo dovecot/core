@@ -72,7 +72,7 @@ struct lucene_index {
 	ARRAY(struct lucene_analyzer) analyzers;
 
 	Document *doc;
-	uint32_t prev_uid;
+	uint32_t prev_uid, prev_part_idx;
 };
 
 struct rescan_context {
@@ -307,6 +307,22 @@ lucene_doc_get_uid(struct lucene_index *index, Document *doc, uint32_t *uid_r)
 	return 0;
 }
 
+static uint32_t
+lucene_doc_get_part(struct lucene_index *index, Document *doc)
+{
+	Field *field = doc->getField(_T("part"));
+	const TCHAR *part = field == NULL ? NULL : field->stringValue();
+	if (part == NULL)
+		return 0;
+
+	uint32_t num = 0;
+	while (*part != 0) {
+		num = num*10 + (*part - '0');
+		part++;
+	}
+	return num;
+}
+
 int lucene_index_get_last_uid(struct lucene_index *index, uint32_t *last_uid_r)
 {
 	int ret = 0;
@@ -510,20 +526,25 @@ static int lucene_index_build_flush(struct lucene_index *index)
 }
 
 int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
-			    const unsigned char *data, size_t size,
-			    const char *hdr_name)
+			    uint32_t part_idx, const unsigned char *data,
+			    size_t size, const char *hdr_name)
 {
 	wchar_t id[MAX_INT_STRLEN];
 	size_t namesize, datasize;
 
-	if (uid != index->prev_uid) {
+	if (uid != index->prev_uid || part_idx != index->prev_part_idx) {
 		if (lucene_index_build_flush(index) < 0)
 			return -1;
 		index->prev_uid = uid;
+		index->prev_part_idx = part_idx;
 
 		index->doc = _CLNEW Document();
 		swprintf(id, N_ELEMENTS(id), L"%u", uid);
 		index->doc->add(*_CLNEW Field(_T("uid"), id, Field::STORE_YES | Field::INDEX_UNTOKENIZED));
+		if (part_idx != 0) {
+			swprintf(id, N_ELEMENTS(id), L"%u", part_idx);
+			index->doc->add(*_CLNEW Field(_T("part"), id, Field::STORE_YES | Field::INDEX_UNTOKENIZED));
+		}
 		index->doc->add(*_CLNEW Field(_T("box"), index->mailbox_guid, Field::STORE_YES | Field::INDEX_UNTOKENIZED));
 	}
 
@@ -573,6 +594,7 @@ int lucene_index_build_deinit(struct lucene_index *index)
 		return 0;
 	}
 	index->prev_uid = 0;
+	index->prev_part_idx = 0;
 
 	if (index->writer == NULL) {
 		lucene_index_close(index);
@@ -1497,6 +1519,7 @@ lucene_index_iter_next(struct lucene_index_iter *iter)
 	(void)fts_lucene_get_mailbox_guid(iter->index, doc,
 					  iter->rec.mailbox_guid);
 	(void)lucene_doc_get_uid(iter->index, doc, &iter->rec.uid);
+	iter->rec.part_num = lucene_doc_get_part(iter->index, doc);
 	return &iter->rec;
 }
 

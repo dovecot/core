@@ -12,7 +12,7 @@ struct fts_lucene_settings;
 
 struct lucene_index_record {
 	guid_128_t mailbox_guid;
-	uint32_t uid;
+	uint32_t uid, part_num;
 };
 
 HASH_TABLE_DEFINE_TYPE(wguid_result, wchar_t *, struct fts_result *);
@@ -31,8 +31,8 @@ int lucene_index_get_doc_count(struct lucene_index *index, uint32_t *count_r);
 
 int lucene_index_build_init(struct lucene_index *index);
 int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
-			    const unsigned char *data, size_t size,
-			    const char *hdr_name);
+			    uint32_t part_num, const unsigned char *data,
+			    size_t size, const char *hdr_name);
 int lucene_index_build_deinit(struct lucene_index *index);
 
 void lucene_index_close(struct lucene_index *index);
