@@ -31,8 +31,19 @@ struct message_part {
 	struct message_size header_size;
 	struct message_size body_size;
 
+	/* total number of message_parts under children */
+	unsigned int children_count;
 	enum message_part_flags flags;
 	void *context;
 };
+
+/* Return index number for the message part. The indexes are in the same order
+   as they exist in the flat RFC822 message. The root part is 0, its first
+   child is 1 and so on. */
+unsigned int message_part_to_idx(const struct message_part *part);
+/* Find message part by its index number, or return NULL if the index
+   doesn't exist. */
+struct message_part *
+message_part_by_idx(struct message_part *parts, unsigned int idx);
 
 #endif

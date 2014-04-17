@@ -163,10 +163,12 @@ static int message_parser_read_more(struct message_parser_ctx *ctx,
 static struct message_part *
 message_part_append(pool_t pool, struct message_part *parent)
 {
-	struct message_part *part, **list;
+	struct message_part *p, *part, **list;
 
 	part = p_new(pool, struct message_part, 1);
 	part->parent = parent;
+	for (p = parent; p != NULL; p = p->parent)
+		p->children_count++;
 
 	/* set child position */
 	part->physical_pos =
