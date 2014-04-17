@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "mail-storage-hooks.h"
+#include "fts-parser.h"
 #include "fts-storage.h"
 #include "fts-plugin.h"
 
@@ -22,5 +23,6 @@ void fts_plugin_init(struct module *module)
 
 void fts_plugin_deinit(void)
 {
+	fts_parsers_unload();
 	mail_storage_hooks_remove(&fts_mail_storage_hooks);
 }

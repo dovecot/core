@@ -89,3 +89,13 @@ void fts_parser_deinit(struct fts_parser **_parser)
 	else
 		i_free(parser);
 }
+
+void fts_parsers_unload(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(parsers); i++) {
+		if (parsers[i]->unload != NULL)
+			parsers[i]->unload();
+	}
+}

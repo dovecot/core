@@ -262,5 +262,6 @@ static void fts_parser_html_deinit(struct fts_parser *_parser)
 struct fts_parser_vfuncs fts_parser_html = {
 	fts_parser_html_try_init,
 	fts_parser_html_more,
-	fts_parser_html_deinit
+	fts_parser_html_deinit,
+	NULL
 };
