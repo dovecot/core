@@ -8,7 +8,8 @@
 
 const struct fts_parser_vfuncs *parsers[] = {
 	&fts_parser_html,
-	&fts_parser_script
+	&fts_parser_script,
+	&fts_parser_tika
 };
 
 bool fts_parser_init(struct mail_user *user,

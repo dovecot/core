@@ -4,6 +4,7 @@ doveadm_moduledir = $(moduledir)/doveadm
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
@@ -25,6 +26,7 @@ lib20_fts_plugin_la_SOURCES = \
 	fts-parser.c \
 	fts-parser-html.c \
 	fts-parser-script.c \
+	fts-parser-tika.c \
 	fts-plugin.c \
 	fts-search.c \
 	fts-search-serialize.c \

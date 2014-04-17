@@ -20,6 +20,7 @@ struct fts_parser {
 
 extern struct fts_parser_vfuncs fts_parser_html;
 extern struct fts_parser_vfuncs fts_parser_script;
+extern struct fts_parser_vfuncs fts_parser_tika;
 
 bool fts_parser_init(struct mail_user *user,
 		     const char *content_type, const char *content_disposition,
