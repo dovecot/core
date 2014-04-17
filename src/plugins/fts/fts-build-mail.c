@@ -111,6 +111,7 @@ static void fts_build_mail_header(struct fts_mail_build_context *ctx,
 	key.uid = ctx->mail->uid;
 	key.type = block->part->physical_pos == 0 ?
 		FTS_BACKEND_BUILD_KEY_HDR : FTS_BACKEND_BUILD_KEY_MIME_HDR;
+	key.part = block->part;
 	key.hdr_name = hdr->name;
 
 	if (!fts_backend_update_set_build_key(ctx->update_ctx, &key))
@@ -139,7 +140,8 @@ static void fts_build_mail_header(struct fts_mail_build_context *ctx,
 }
 
 static bool
-fts_build_body_begin(struct fts_mail_build_context *ctx, bool *binary_body_r)
+fts_build_body_begin(struct fts_mail_build_context *ctx,
+		     struct message_part *part, bool *binary_body_r)
 {
 	struct mail_storage *storage;
 	const char *content_type;
@@ -150,6 +152,7 @@ fts_build_body_begin(struct fts_mail_build_context *ctx, bool *binary_body_r)
 	*binary_body_r = FALSE;
 	memset(&key, 0, sizeof(key));
 	key.uid = ctx->mail->uid;
+	key.part = part;
 
 	content_type = ctx->content_type != NULL ?
 		ctx->content_type : "text/plain";
@@ -323,7 +326,8 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 			/* always handle headers */
 		} else if (raw_block.size == 0) {
 			/* end of headers */
-			skip_body = !fts_build_body_begin(&ctx, &binary_body);
+			skip_body = !fts_build_body_begin(&ctx, raw_block.part,
+							  &binary_body);
 			if (binary_body)
 				message_decoder_set_return_binary(decoder, TRUE);
 			body_part = TRUE;

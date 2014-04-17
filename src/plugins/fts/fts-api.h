@@ -24,6 +24,7 @@ enum fts_backend_build_key_type {
 struct fts_backend_build_key {
 	uint32_t uid;
 	enum fts_backend_build_key_type type;
+	struct message_part *part;
 
 	/* for _KEY_HDR: */
 	const char *hdr_name;
