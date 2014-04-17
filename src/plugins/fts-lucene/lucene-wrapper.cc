@@ -119,7 +119,7 @@ struct lucene_index *lucene_index_init(const char *path,
 		index->set.default_language = "";
 	}
 #ifdef HAVE_LUCENE_STEMMER
-	if (!set->no_snowball) {
+	if (set == NULL || !set->no_snowball) {
 		index->default_analyzer =
 			_CLNEW snowball::SnowballAnalyzer(index->normalizer,
 							  index->set.default_language);
