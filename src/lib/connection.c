@@ -198,6 +198,42 @@ void connection_init_client_unix(struct connection_list *list,
 	list->connections_count++;
 }
 
+void connection_init_from_streams(struct connection_list *list,
+			    struct connection *conn, const char *name,
+			    struct istream *input, struct ostream *output)
+{
+	i_assert(name != NULL);
+
+	conn->list = list;
+	conn->name = i_strdup(name);
+	conn->fd_in = i_stream_get_fd(input);
+	conn->fd_out = o_stream_get_fd(output);
+
+	i_assert(conn->fd_in >= 0);
+	i_assert(conn->fd_out >= 0);
+	i_assert(conn->io == NULL);
+	i_assert(conn->input == NULL);
+	i_assert(conn->output == NULL);
+	i_assert(conn->to == NULL);
+
+	conn->input = input;
+	i_stream_ref(conn->input);
+	i_stream_set_name(conn->input, conn->name);
+
+	conn->output = output;
+	o_stream_ref(conn->output);
+	o_stream_set_no_error_handling(conn->output, TRUE);
+	o_stream_set_name(conn->output, conn->name);
+
+	conn->io = io_add(conn->fd_in, IO_READ, *list->v.input, conn);
+	
+	DLLIST_PREPEND(&list->connections, conn);
+	list->connections_count++;
+
+	if (list->v.client_connected != NULL)
+		list->v.client_connected(conn, TRUE);
+}
+
 static void connection_ip_connected(struct connection *conn)
 {
 	io_remove(&conn->io);

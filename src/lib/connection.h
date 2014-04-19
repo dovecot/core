@@ -100,6 +100,9 @@ void connection_init_client_ip(struct connection_list *list,
 			       const struct ip_addr *ip, unsigned int port);
 void connection_init_client_unix(struct connection_list *list,
 				 struct connection *conn, const char *path);
+void connection_init_from_streams(struct connection_list *list,
+			    struct connection *conn, const char *name,
+			    struct istream *input, struct ostream *output);
 
 int connection_client_connect(struct connection *conn);
 
