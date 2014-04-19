@@ -470,11 +470,16 @@ static void io_loop_call_pending(struct ioloop *ioloop)
 {
 	struct io_file *io;
 
-	for (io = ioloop->io_files; ioloop->io_pending_count > 0; ) {
-		ioloop->next_io_file = io->next;
-		if (io->io.pending)
-			io_loop_call_io(&io->io);
-		io = ioloop->next_io_file;
+	while (ioloop->io_pending_count > 0) {
+		io = ioloop->io_files;
+		do {
+			ioloop->next_io_file = io->next;
+			if (io->io.pending)
+				io_loop_call_io(&io->io);
+			if (ioloop->io_pending_count == 0)
+				break;
+			io = ioloop->next_io_file;
+		} while (io != NULL);
 	}
 }
 
