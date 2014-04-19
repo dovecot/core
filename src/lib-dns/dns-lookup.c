@@ -258,7 +258,8 @@ void dns_lookup_switch_ioloop(struct dns_lookup *lookup)
 {
 	if (lookup->to != NULL)
 		lookup->to = io_loop_move_timeout(&lookup->to);
-	lookup->client->io = io_loop_move_io(&lookup->client->io);
+	if (lookup->client->deinit_client_at_free)
+		lookup->client->io = io_loop_move_io(&lookup->client->io);
 }
 
 struct dns_client *dns_client_init(const struct dns_lookup_settings *set)
@@ -384,4 +385,16 @@ int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
 	const char *cmd = t_strconcat("NAME\t", net_ip2addr(ip), "\n", NULL);
 	return dns_client_lookup_common(client, cmd, TRUE,
 					callback, context, lookup_r);
+}
+
+void dns_client_switch_ioloop(struct dns_client *client)
+{
+	struct dns_lookup *lookup;
+	
+	if (client->io != NULL)
+		client->io = io_loop_move_io(&client->io);
+	if (client->to_idle != NULL)
+		client->to_idle = io_loop_move_timeout(&client->to_idle);
+	for (lookup = client->head; lookup != NULL; lookup = lookup->next)
+		dns_lookup_switch_ioloop(lookup);
 }

@@ -81,4 +81,6 @@ int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
 			const struct dns_lookup_result *, typeof(context))), \
 		(dns_lookup_callback_t *)callback, context, lookup_r)
 
+void dns_client_switch_ioloop(struct dns_client *client);
+
 #endif
