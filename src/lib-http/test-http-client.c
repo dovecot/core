@@ -6,6 +6,7 @@
 #include "write-full.h"
 #include "http-url.h"
 #include "http-client.h"
+#include "dns-lookup.h"
 
 struct http_test_request {
 	struct io *io;
@@ -322,12 +323,30 @@ static void run_http_post(struct http_client *http_client, const char *url_str,
 
 int main(int argc, char *argv[])
 {
+	struct dns_client *dns_client;
+	struct dns_lookup_settings dns_set;
 	struct http_client_settings http_set;
 	struct http_client *http_client;
+	const char *error;
 	struct ioloop *ioloop;
 
+	lib_init();
+
+	ioloop = io_loop_create();
+	io_loop_set_running(ioloop);
+
+
+	memset(&dns_set, 0, sizeof(dns_set));
+	dns_set.dns_client_socket_path = "/var/run/dovecot/dns-client";
+	dns_set.timeout_msecs = 30*1000;
+	dns_set.idle_timeout_msecs = UINT_MAX;
+	dns_client = dns_client_init(&dns_set);
+
+	if (dns_client_connect(dns_client, &error) < 0)
+		i_fatal("Couldn't initialize DNS client: %s", error);
+
 	memset(&http_set, 0, sizeof(http_set));
-	http_set.dns_client_socket_path = "/var/run/dovecot/dns-client";
+	http_set.dns_client = dns_client;
 	http_set.ssl_allow_invalid_cert = TRUE;
 	http_set.ssl_ca_dir = "/etc/ssl/certs"; /* debian */
 	http_set.ssl_ca_file = "/etc/pki/tls/cert.pem"; /* redhat */
@@ -338,11 +357,6 @@ int main(int argc, char *argv[])
 	http_set.max_attempts = 1;
 	http_set.debug = TRUE;
 	http_set.rawlog_dir = "/tmp/http-test";
-
-	lib_init();
-
-	ioloop = io_loop_create();
-	io_loop_set_running(ioloop);
 
 	http_client = http_client_init(&http_set);
 
@@ -362,6 +376,8 @@ int main(int argc, char *argv[])
 
 	http_client_wait(http_client);
 	http_client_deinit(&http_client);
+
+	dns_client_deinit(&dns_client);
 
 	io_loop_destroy(&ioloop);
 	lib_deinit();

@@ -284,7 +284,7 @@ void http_client_host_switch_ioloop(struct http_client_host *host)
 {
 	struct http_client_queue *const *queue_idx;
 
-	if (host->dns_lookup != NULL)
+	if (host->dns_lookup != NULL && host->client->set.dns_client == NULL)
 		dns_lookup_switch_ioloop(host->dns_lookup);
 	array_foreach(&host->queues, queue_idx)
 		http_client_queue_switch_ioloop(*queue_idx);

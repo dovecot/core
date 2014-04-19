@@ -204,6 +204,8 @@ void http_client_wait(struct http_client *client)
 
 	client->ioloop = io_loop_create();
 	http_client_switch_ioloop(client);
+	if (client->set.dns_client != NULL)
+		dns_client_switch_ioloop(client->set.dns_client);
 	/* either we're waiting for network I/O or we're getting out of a
 	   callback using timeout_add_short(0) */
 	i_assert(io_loop_have_ios(client->ioloop) ||
@@ -219,6 +221,8 @@ void http_client_wait(struct http_client *client)
 
 	io_loop_set_current(prev_ioloop);
 	http_client_switch_ioloop(client);
+	if (client->set.dns_client != NULL)
+		dns_client_switch_ioloop(client->set.dns_client);
 	io_loop_set_current(client->ioloop);
 	io_loop_destroy(&client->ioloop);
 }
