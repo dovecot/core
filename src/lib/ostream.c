@@ -112,6 +112,11 @@ void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size)
 	io_stream_set_max_buffer_size(&stream->real_stream->iostream, max_size);
 }
 
+size_t o_stream_get_max_buffer_size(struct ostream *stream)
+{
+	return stream->real_stream->max_buffer_size;
+}
+
 void o_stream_cork(struct ostream *stream)
 {
 	struct ostream_private *_stream = stream->real_stream;

@@ -77,6 +77,8 @@ void o_stream_set_flush_callback(struct ostream *stream,
 void o_stream_unset_flush_callback(struct ostream *stream);
 /* Change the maximum size for stream's output buffer to grow. */
 void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size);
+/* Returns the current max. buffer size. */
+size_t o_stream_get_max_buffer_size(struct ostream *stream);
 
 /* Delays sending as far as possible, writing only full buffers. Also sets
    TCP_CORK on if supported. */
