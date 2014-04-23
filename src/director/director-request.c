@@ -68,7 +68,7 @@ director_request_get_timeout_error(struct director_request *request,
 		str_printfa(str, ", user refreshed %u secs ago",
 			    (unsigned int)(ioloop_time - user->timestamp));
 	}
-	str_append_c(str, ')');
+	str_printfa(str, "hash=%u)", request->username_hash);
 	return str_c(str);
 }
 
