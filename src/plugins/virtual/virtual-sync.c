@@ -460,6 +460,10 @@ static int virtual_sync_backend_box_init(struct virtual_backend_box *bbox)
 
 	trans = mailbox_transaction_begin(bbox->box, 0);
 
+	if (!bbox->search_args_initialized) {
+		mail_search_args_init(bbox->search_args, bbox->box, FALSE, NULL);
+		bbox->search_args_initialized = TRUE;
+	}
 	search_ctx = mailbox_search_init(trans, bbox->search_args, NULL,
 					 0, NULL);
 
@@ -677,6 +681,10 @@ static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
 
 	/* initialize the search result from all the existing messages in
 	   virtual index. */
+	if (!bbox->search_args_initialized) {
+		mail_search_args_init(bbox->search_args, bbox->box, FALSE, NULL);
+		bbox->search_args_initialized = TRUE;
+	}
 	result = mailbox_search_result_alloc(bbox->box, bbox->search_args,
 					     result_flags);
 	mailbox_search_result_initial_done(result);

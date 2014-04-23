@@ -178,7 +178,6 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 
 	i_array_init(&bbox->uids, 64);
 	i_array_init(&bbox->sync_pending_removes, 64);
-	mail_search_args_init(bbox->search_args, bbox->box, FALSE, NULL);
 	return 1;
 }
 
@@ -195,7 +194,6 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 		if (ret <= 0) {
 			if (ret < 0)
 				break;
-			mail_search_args_unref(&bboxes[i]->search_args);
 			array_delete(&mbox->backend_boxes, i, 1);
 			bboxes = array_get(&mbox->backend_boxes, &count);
 		} else {
@@ -251,7 +249,8 @@ static void virtual_mailbox_close_internal(struct virtual_mailbox *mbox)
 		if (bboxes[i]->box == NULL)
 			continue;
 
-		mail_search_args_deinit(bboxes[i]->search_args);
+		if (bboxes[i]->search_args != NULL)
+			mail_search_args_deinit(bboxes[i]->search_args);
 		mailbox_free(&bboxes[i]->box);
 		if (array_is_created(&bboxes[i]->sync_outside_expunges))
 			array_free(&bboxes[i]->sync_outside_expunges);
