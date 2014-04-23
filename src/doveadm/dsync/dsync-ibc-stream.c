@@ -359,6 +359,7 @@ static int dsync_ibc_stream_next_line(struct dsync_ibc_stream *ibc,
 {
 	string_t *error;
 	const char *line;
+	ssize_t ret;
 
 	line = i_stream_next_line(ibc->input);
 	if (line != NULL) {
@@ -366,7 +367,7 @@ static int dsync_ibc_stream_next_line(struct dsync_ibc_stream *ibc,
 		return 1;
 	}
 	/* try reading some */
-	if (i_stream_read(ibc->input) == -1) {
+	if ((ret = i_stream_read(ibc->input)) == -1) {
 		if (ibc->stopped)
 			return -1;
 		error = t_str_new(128);
@@ -385,6 +386,7 @@ static int dsync_ibc_stream_next_line(struct dsync_ibc_stream *ibc,
 		dsync_ibc_stream_stop(ibc);
 		return -1;
 	}
+	i_assert(ret >= 0);
 	*line_r = i_stream_next_line(ibc->input);
 	if (*line_r == NULL) {
 		ibc->has_pending_data = FALSE;
