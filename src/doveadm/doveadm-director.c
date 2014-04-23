@@ -78,9 +78,11 @@ static void director_connect(struct director_context *ctx)
 
 static void director_disconnect(struct director_context *ctx)
 {
-	if (ctx->input->stream_errno != 0)
-		i_fatal("read(%s) failed: %m", ctx->socket_path);
-	i_stream_destroy(&ctx->input);
+	if (ctx->input != NULL) {
+		if (ctx->input->stream_errno != 0)
+			i_fatal("read(%s) failed: %m", ctx->socket_path);
+		i_stream_destroy(&ctx->input);
+	}
 }
 
 static struct director_context *
@@ -113,7 +115,8 @@ cmd_director_init(int argc, char *argv[], const char *getopt_args,
 			director_cmd_help(cmd);
 		}
 	}
-	director_connect(ctx);
+	if (!ctx->user_map)
+		director_connect(ctx);
 	return ctx;
 }
 
