@@ -69,6 +69,7 @@ struct dsync_cmd_context {
 	struct io *io_err;
 	struct istream *input, *err_stream;
 	struct ostream *output;
+	size_t input_orig_bufsize, output_orig_bufsize;
 
 	struct ssl_iostream_context *ssl_ctx;
 	struct ssl_iostream *ssl_iostream;
@@ -462,6 +463,11 @@ cmd_dsync_icb_stream_init(struct dsync_cmd_context *ctx,
 		fd_set_nonblock(ctx->fd_out, TRUE);
 		ctx->input = i_stream_create_fd(ctx->fd_in, (size_t)-1, FALSE);
 		ctx->output = o_stream_create_fd(ctx->fd_out, (size_t)-1, FALSE);
+	} else {
+		ctx->input_orig_bufsize = i_stream_get_max_buffer_size(ctx->input);
+		ctx->output_orig_bufsize = o_stream_get_max_buffer_size(ctx->output);
+		i_stream_set_max_buffer_size(ctx->input, (size_t)-1);
+		o_stream_set_max_buffer_size(ctx->output, (size_t)-1);
 	}
 	if (ctx->rawlog_path != NULL) {
 		iostream_rawlog_create_path(ctx->rawlog_path,
@@ -615,10 +621,14 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		ssl_iostream_destroy(&ctx->ssl_iostream);
 	if (ctx->ssl_ctx != NULL)
 		ssl_iostream_context_deinit(&ctx->ssl_ctx);
-	if (ctx->input != NULL)
+	if (ctx->input != NULL) {
+		i_stream_set_max_buffer_size(ctx->input, ctx->input_orig_bufsize);
 		i_stream_unref(&ctx->input);
-	if (ctx->output != NULL)
+	}
+	if (ctx->output != NULL) {
+		o_stream_set_max_buffer_size(ctx->output, ctx->output_orig_bufsize);
 		o_stream_unref(&ctx->output);
+	}
 	if (ctx->fd_in != -1) {
 		if (ctx->fd_out != ctx->fd_in)
 			i_close_fd(&ctx->fd_out);
