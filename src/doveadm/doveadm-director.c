@@ -23,6 +23,7 @@ struct director_context {
 	const char *users_path;
 	struct istream *input;
 	bool explicit_socket_path;
+	bool hash_map, user_map;
 };
 
 struct user_list {
@@ -101,6 +102,12 @@ cmd_director_init(int argc, char *argv[], const char *getopt_args,
 			break;
 		case 'f':
 			ctx->users_path = optarg;
+			break;
+		case 'h':
+			ctx->hash_map = TRUE;
+			break;
+		case 'u':
+			ctx->user_map = TRUE;
 			break;
 		default:
 			director_cmd_help(cmd);
@@ -280,13 +287,28 @@ static void cmd_director_map(int argc, char *argv[])
 	struct user_list *user;
 	unsigned int ips_count, user_hash, expires;
 
-	ctx = cmd_director_init(argc, argv, "a:f:", cmd_director_map);
-	if (argv[optind] == NULL)
-		ips_count = 0;
-	else if (argv[optind+1] != NULL)
+	ctx = cmd_director_init(argc, argv, "a:f:hu", cmd_director_map);
+	argc -= optind;
+	argv += optind;
+	if (argc > 1 ||
+	    (ctx->hash_map && ctx->user_map) ||
+	    ((ctx->hash_map || ctx->user_map) && argc == 0))
 		director_cmd_help(cmd_director_map);
+
+	if (ctx->user_map) {
+		/* user -> hash mapping */
+		user_hash = mail_user_hash(argv[0], doveadm_settings->director_username_hash);
+		doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
+		doveadm_print_header("hash", "hash", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+		doveadm_print(t_strdup_printf("%u", user_hash));
+		director_disconnect(ctx);
+		return;
+	}
+
+	if (argv[0] == NULL || ctx->hash_map)
+		ips_count = 0;
 	else
-		director_get_host(argv[optind], &ips, &ips_count);
+		director_get_host(argv[0], &ips, &ips_count);
 
 	pool = pool_alloconly_create("director map users", 1024*128);
 	hash_table_create_direct(&users, pool, 0);
@@ -294,6 +316,19 @@ static void cmd_director_map(int argc, char *argv[])
 		userdb_get_user_list(NULL, pool, users);
 	else
 		user_file_get_user_list(ctx->users_path, pool, users);
+
+	if (ctx->hash_map) {
+		/* hash -> usernames mapping */
+		if (str_to_uint(argv[0], &user_hash) < 0)
+			i_fatal("Invalid username hash: %s", argv[0]);
+
+		doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
+		doveadm_print_header("user", "user", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+		user = hash_table_lookup(users, POINTER_CAST(user_hash));
+		for (; user != NULL; user = user->next)
+			doveadm_print(user->name);
+		goto deinit;
+	}
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header("user", "user", DOVEADM_PRINT_HEADER_FLAG_EXPAND);
@@ -341,6 +376,7 @@ static void cmd_director_map(int argc, char *argv[])
 		i_error("Director disconnected unexpectedly");
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
+deinit:
 	director_disconnect(ctx);
 	hash_table_destroy(&users);
 	pool_unref(&pool);
@@ -683,7 +719,7 @@ struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_status, "director status",
 	  "[-a <director socket path>] [<user>]" },
 	{ cmd_director_map, "director map",
-	  "[-a <director socket path>] [-f <users file>] [<host>]" },
+	  "[-a <director socket path>] [-f <users file>] [-h | -u] [<host>]" },
 	{ cmd_director_add, "director add",
 	  "[-a <director socket path>] <host> [<vhost count>]" },
 	{ cmd_director_remove, "director remove",
