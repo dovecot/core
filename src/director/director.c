@@ -566,9 +566,12 @@ void director_update_user(struct director *dir, struct director_host *src,
 }
 
 void director_update_user_weak(struct director *dir, struct director_host *src,
+			       struct director_connection *src_conn,
 			       struct director_host *orig_src,
 			       struct user *user)
 {
+	const char *cmd;
+
 	i_assert(src != NULL);
 	i_assert(user->weak);
 
@@ -577,10 +580,27 @@ void director_update_user_weak(struct director *dir, struct director_host *src,
 		orig_src->last_seq++;
 	}
 
-	director_update_send(dir, src, t_strdup_printf(
-		"USER-WEAK\t%s\t%u\t%u\t%u\t%s\n",
+	cmd = t_strdup_printf("USER-WEAK\t%s\t%u\t%u\t%u\t%s\n",
 		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq,
-		user->username_hash, net_ip2addr(&user->host->ip)));
+		user->username_hash, net_ip2addr(&user->host->ip));
+
+	if (src != dir->self_host && dir->left != NULL && dir->right != NULL &&
+	    director_connection_get_host(dir->left) ==
+	    director_connection_get_host(dir->right)) {
+		/* only two directors in this ring and we're forwarding
+		   USER-WEAK from one director back to itself via another
+		   so it sees we've received it. we can't use
+		   director_update_send() for this, because it doesn't send
+		   data back to the source. */
+		if (dir->right == src_conn)
+			director_connection_send(dir->left, cmd);
+		else if (dir->left == src_conn)
+			director_connection_send(dir->right, cmd);
+		else
+			i_unreached();
+	} else {
+		director_update_send(dir, src, cmd);
+	}
 }
 
 struct director_user_kill_finish_ctx {

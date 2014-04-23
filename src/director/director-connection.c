@@ -799,7 +799,7 @@ director_cmd_user_weak(struct director_connection *conn,
 		if (!user->weak)
 			director_update_user(conn->dir, src_host, user);
 		else {
-			director_update_user_weak(conn->dir, src_host,
+			director_update_user_weak(conn->dir, src_host, conn,
 						  dir_host, user);
 		}
 	}

@@ -124,6 +124,7 @@ void director_flush_host(struct director *dir, struct director_host *src,
 void director_update_user(struct director *dir, struct director_host *src,
 			  struct user *user);
 void director_update_user_weak(struct director *dir, struct director_host *src,
+			       struct director_connection *src_conn,
 			       struct director_host *orig_src,
 			       struct user *user) ATTR_NULL(3);
 void director_move_user(struct director *dir, struct director_host *src,
