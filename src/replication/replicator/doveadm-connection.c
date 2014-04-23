@@ -156,9 +156,10 @@ client_input_replicate(struct doveadm_connection *client, const char *const *arg
 	const char *usermask;
 	enum replication_priority priority;
 	unsigned int match_count;
+	bool full;
 
-	/* <priority> <username>|<mask> */
-	if (str_array_length(args) != 2) {
+	/* <priority> <flags> <username>|<mask> */
+	if (str_array_length(args) != 3) {
 		i_error("%s: REPLICATE: Invalid parameters", client->conn.name);
 		return -1;
 	}
@@ -166,9 +167,12 @@ client_input_replicate(struct doveadm_connection *client, const char *const *arg
 		o_stream_send_str(client->conn.output, "-Invalid priority\n");
 		return 0;
 	}
-	usermask = args[1];
+	full = strchr(args[1], 'f') != NULL;
+	usermask = args[2];
 	if (strchr(usermask, '*') == NULL && strchr(usermask, '?') == NULL) {
-		replicator_queue_add(queue, usermask, priority);
+		user = replicator_queue_add(queue, usermask, priority);
+		if (full)
+			user->force_full_sync = TRUE;
 		o_stream_send_str(client->conn.output, "+1\n");
 		return 0;
 	}
@@ -178,7 +182,9 @@ client_input_replicate(struct doveadm_connection *client, const char *const *arg
 	while ((user = replicator_queue_iter_next(iter)) != NULL) {
 		if (!wildcard_match(user->username, usermask))
 			continue;
-		replicator_queue_add(queue, user->username, priority);
+		user = replicator_queue_add(queue, user->username, priority);
+		if (full)
+			user->force_full_sync = TRUE;
 		match_count++;
 	}
 	replicator_queue_iter_deinit(&iter);

@@ -19,6 +19,7 @@ struct replicator_context {
 	const char *socket_path;
 	const char *priority;
 	struct istream *input;
+	bool full_sync;
 };
 
 extern struct doveadm_cmd doveadm_cmd_replicator[];
@@ -84,6 +85,9 @@ cmd_replicator_init(int *argc, char **argv[], const char *getopt_args,
 		switch (c) {
 		case 'a':
 			ctx->socket_path = optarg;
+			break;
+		case 'f':
+			ctx->full_sync = TRUE;
 			break;
 		case 'p':
 			ctx->priority = optarg;
@@ -221,7 +225,7 @@ static void cmd_replicator_replicate(int argc, char *argv[])
 	if (argv[1] == NULL)
 		replicator_cmd_help(cmd_replicator_replicate);
 
-	ctx = cmd_replicator_init(&argc, &argv, "a:p:", cmd_replicator_replicate);
+	ctx = cmd_replicator_init(&argc, &argv, "a:fp:", cmd_replicator_replicate);
 
 	str = t_str_new(128);
 	str_append(str, "REPLICATE\t");
@@ -229,6 +233,9 @@ static void cmd_replicator_replicate(int argc, char *argv[])
 		str_append_tabescaped(str, "low");
 	else
 		str_append_tabescaped(str, ctx->priority);
+	str_append_c(str, '\t');
+	if (ctx->full_sync)
+		str_append_c(str, 'f');
 	str_append_c(str, '\t');
 	str_append_tabescaped(str, argv[1]);
 	str_append_c(str, '\n');
@@ -285,7 +292,7 @@ struct doveadm_cmd doveadm_cmd_replicator[] = {
 	{ cmd_replicator_dsync_status, "replicator dsync-status",
 	  "[-a <replicator socket path>]" },
 	{ cmd_replicator_replicate, "replicator replicate",
-	  "[-a <replicator socket path>] [-p <priority>] <user mask>" },
+	  "[-a <replicator socket path>] [-f] [-p <priority>] <user mask>" },
 	{ cmd_replicator_remove, "replicator remove",
 	  "[-a <replicator socket path>] <username>" },
 };

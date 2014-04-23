@@ -141,8 +141,10 @@ dsync_replicate(struct replicator_brain *brain, struct replicator_user *user)
 	/* update the sync times immediately. if the replication fails we still
 	   wouldn't want it to be retried immediately. */
 	user->last_fast_sync = ioloop_time;
-	if (full)
+	if (full || user->force_full_sync) {
 		user->last_full_sync = ioloop_time;
+		user->force_full_sync = FALSE;
+	}
 	/* reset priority also. if more updates arrive during replication
 	   we'll do another replication to make sure nothing gets lost */
 	user->priority = REPLICATION_PRIORITY_NONE;
