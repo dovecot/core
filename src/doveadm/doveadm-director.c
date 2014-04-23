@@ -297,6 +297,7 @@ static void cmd_director_map(int argc, char *argv[])
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header("user", "user", DOVEADM_PRINT_HEADER_FLAG_EXPAND);
+	doveadm_print_header_simple("hash");
 	doveadm_print_header_simple("mail server ip");
 	doveadm_print_header_simple("expire time");
 
@@ -323,11 +324,13 @@ static void cmd_director_map(int argc, char *argv[])
 							 POINTER_CAST(user_hash));
 				if (user == NULL) {
 					doveadm_print("<unknown>");
+					doveadm_print(args[0]);
 					doveadm_print(args[2]);
 					doveadm_print(unixdate2str(expires));
 				}
 				for (; user != NULL; user = user->next) {
 					doveadm_print(user->name);
+					doveadm_print(args[0]);
 					doveadm_print(args[2]);
 					doveadm_print(unixdate2str(expires));
 				}
