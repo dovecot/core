@@ -70,7 +70,7 @@ static void replicator_disconnect(struct replicator_context *ctx)
 }
 
 static struct replicator_context *
-cmd_replicator_init(int argc, char *argv[], const char *getopt_args,
+cmd_replicator_init(int *argc, char **argv[], const char *getopt_args,
 		    doveadm_command_t *cmd)
 {
 	struct replicator_context *ctx;
@@ -80,7 +80,7 @@ cmd_replicator_init(int argc, char *argv[], const char *getopt_args,
 	ctx->socket_path = t_strconcat(doveadm_settings->base_dir,
 				       "/replicator-doveadm", NULL);
 
-	while ((c = getopt(argc, argv, getopt_args)) > 0) {
+	while ((c = getopt(*argc, *argv, getopt_args)) > 0) {
 		switch (c) {
 		case 'a':
 			ctx->socket_path = optarg;
@@ -92,6 +92,8 @@ cmd_replicator_init(int argc, char *argv[], const char *getopt_args,
 			replicator_cmd_help(cmd);
 		}
 	}
+	*argc -= optind-1;
+	*argv += optind-1;
 	replicator_connect(ctx);
 	return ctx;
 }
@@ -137,7 +139,7 @@ static void cmd_replicator_status(int argc, char *argv[])
 	const char *line, *const *args;
 	time_t last_fast, last_full;
 
-	ctx = cmd_replicator_init(argc, argv, "a:", cmd_replicator_status);
+	ctx = cmd_replicator_init(&argc, &argv, "a:", cmd_replicator_status);
 
 	if (argv[1] == NULL) {
 		cmd_replicator_status_overview(ctx);
@@ -183,7 +185,7 @@ static void cmd_replicator_dsync_status(int argc, char *argv[])
 	const char *line;
 	unsigned int i;
 
-	ctx = cmd_replicator_init(argc, argv, "a:", cmd_replicator_dsync_status);
+	ctx = cmd_replicator_init(&argc, &argv, "a:", cmd_replicator_dsync_status);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header("username", "username",
@@ -219,7 +221,7 @@ static void cmd_replicator_replicate(int argc, char *argv[])
 	if (argv[1] == NULL)
 		replicator_cmd_help(cmd_replicator_replicate);
 
-	ctx = cmd_replicator_init(argc, argv, "a:p:", cmd_replicator_replicate);
+	ctx = cmd_replicator_init(&argc, &argv, "a:p:", cmd_replicator_replicate);
 
 	str = t_str_new(128);
 	str_append(str, "REPLICATE\t");
@@ -258,7 +260,7 @@ static void cmd_replicator_remove(int argc, char *argv[])
 	if (argv[1] == NULL)
 		replicator_cmd_help(cmd_replicator_remove);
 
-	ctx = cmd_replicator_init(argc, argv, "a:", cmd_replicator_remove);
+	ctx = cmd_replicator_init(&argc, &argv, "a:", cmd_replicator_remove);
 
 	str = t_str_new(128);
 	str_append(str, "REMOVE\t");
