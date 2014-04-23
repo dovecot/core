@@ -1041,10 +1041,13 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 		   mailbox. */
 		i_assert(array_count(&bbox->sync_pending_removes) == 0);
 
-		if (bbox_index_opened) {
-			/* index already opened, refresh it */
+		if (bbox_index_opened || bbox->open_failed) {
+			/* a) index already opened, refresh it
+			   b) delayed error handling for mailbox_open()
+			   that failed in virtual_notify_changes() */
 			if (mailbox_sync(bbox->box, sync_flags) < 0)
 				return -1;
+			bbox->open_failed = FALSE;
 		}
 
 		if (mailbox_get_status(bbox->box, STATUS_UIDVALIDITY |

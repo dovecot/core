@@ -417,17 +417,25 @@ virtual_notify_callback(struct mailbox *bbox ATTR_UNUSED, struct mailbox *box)
 static void virtual_notify_changes(struct mailbox *box)
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
-	struct virtual_backend_box *const *bboxes;
-	unsigned int i, count;
+	struct virtual_backend_box *const *bboxp;
 
-	bboxes = array_get(&mbox->backend_boxes, &count);
-	for (i = 0; i < count; i++) {
-		struct mailbox *bbox = bboxes[i]->box;
+	if (box->notify_callback == NULL) {
+		array_foreach(&mbox->backend_boxes, bboxp)
+			mailbox_notify_changes_stop((*bboxp)->box);
+		return;
+	}
 
-		if (box->notify_callback == NULL)
-			mailbox_notify_changes_stop(bbox);
-		else
-			mailbox_notify_changes(bbox, virtual_notify_callback, box);
+	/* FIXME: if mailbox_list_index=yes, use mailbox-list-notify.h API
+	   to wait for changes and avoid opening all mailboxes here. */
+
+	array_foreach(&mbox->backend_boxes, bboxp) {
+		if (mailbox_open((*bboxp)->box) < 0) {
+			/* we can't report error in here, so do it later */
+			(*bboxp)->open_failed = TRUE;
+			continue;
+		}
+		mailbox_notify_changes((*bboxp)->box,
+				       virtual_notify_callback, box);
 	}
 }
 
