@@ -426,7 +426,7 @@ char *i_stream_read_next_line(struct istream *stream)
 
 		switch (i_stream_read(stream)) {
 		case -2:
-			stream->stream_errno = ENOBUFS;
+			stream->stream_errno = errno = ENOBUFS;
 			stream->eof = TRUE;
 			return NULL;
 		case -1:
