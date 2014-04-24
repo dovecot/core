@@ -557,9 +557,14 @@ importer_next_mail(struct dsync_mailbox_importer *importer, uint32_t wanted_uid)
 {
 	int ret;
 
-	while ((ret = importer_try_next_mail(importer, wanted_uid)) == 0 &&
-	       !importer->failed)
+	for (;;) {
+		T_BEGIN {
+			ret = importer_try_next_mail(importer, wanted_uid);
+		} T_END;
+		if (ret != 0 || importer->failed)
+			break;
 		importer->next_local_seq = importer->cur_mail->seq + 1;
+	}
 	return ret > 0;
 }
 
