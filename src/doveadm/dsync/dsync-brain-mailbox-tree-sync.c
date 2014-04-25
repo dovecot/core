@@ -167,6 +167,15 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 		return ret;
 	case DSYNC_MAILBOX_TREE_SYNC_TYPE_CREATE_DIR:
 		ret = mailbox_create(box, NULL, TRUE);
+		if (ret < 0 &&
+		    mailbox_get_last_mail_error(box) == MAIL_ERROR_EXISTS) {
+			/* it doesn't matter if somebody else created this
+			   directory or we automatically did while creating its
+			   child mailbox. it's there now anyway and we don't
+			   gain anything by treating this failure any
+			   differently from success. */
+			ret = 0;
+		}
 		func_name = "mailbox_create";
 		break;
 	case DSYNC_MAILBOX_TREE_SYNC_TYPE_DELETE_BOX:
