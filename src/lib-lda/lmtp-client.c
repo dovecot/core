@@ -458,39 +458,54 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 					     client->input_multiline)) <= 0) {
 		if (ret == 0)
 			return 0;
-		lmtp_client_fail(client, line);
+		lmtp_client_fail(client, t_strdup_printf(
+			"451 4.5.0 Received invalid input: %s", line));
 		return -1;
 	}
 
 	switch (client->input_state) {
 	case LMTP_INPUT_STATE_GREET:
+		if (reply_code != 220) {
+			lmtp_client_fail(client, t_strdup_printf(
+				"451 4.5.0 Received invalid greeting: %s", line));
+			return -1;
+		}
+		lmtp_client_send_handshake(client);
+		client->input_state = LMTP_INPUT_STATE_LHLO;
+		break;
 	case LMTP_INPUT_STATE_XCLIENT:
 		if (reply_code != 220) {
-			lmtp_client_fail(client, line);
+			lmtp_client_fail(client, t_strdup_printf(
+				"451 4.5.0 XCLIENT failed: %s", line));
 			return -1;
 		}
 		lmtp_client_send_handshake(client);
 		client->input_state = LMTP_INPUT_STATE_LHLO;
 		break;
 	case LMTP_INPUT_STATE_LHLO:
-	case LMTP_INPUT_STATE_MAIL_FROM:
 		if (reply_code != 250) {
+			lmtp_client_fail(client, t_strdup_printf(
+				"451 4.5.0 LHLO failed: %s", line));
 			lmtp_client_fail(client, line);
 			return -1;
 		}
 		str_append(client->input_multiline, line);
 		lmtp_client_parse_capabilities(client,
 			str_c(client->input_multiline));
-		if (client->input_state == LMTP_INPUT_STATE_LHLO &&
-		    lmtp_client_send_xclient(client)) {
+		if (lmtp_client_send_xclient(client)) {
 			client->input_state = LMTP_INPUT_STATE_XCLIENT;
 			client->xclient_sent = TRUE;
 			break;
 		}
-		if (client->input_state == LMTP_INPUT_STATE_LHLO) {
-			o_stream_nsend_str(client->output,
-				t_strdup_printf("MAIL FROM:%s\r\n",
-						client->set.mail_from));
+		o_stream_nsend_str(client->output, t_strdup_printf(
+			"MAIL FROM:%s\r\n", client->set.mail_from));
+		client->input_state++;
+		break;
+	case LMTP_INPUT_STATE_MAIL_FROM:
+		if (reply_code != 250) {
+			lmtp_client_fail(client, t_strdup_printf(
+				"451 4.5.0 MAIL FROM failed: %s", line));
+			return -1;
 		}
 		client->input_state++;
 		lmtp_client_send_rcpts(client);
