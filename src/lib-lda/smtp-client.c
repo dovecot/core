@@ -34,6 +34,8 @@ struct smtp_client {
 	char *temp_path;
 	char *destination;
 	char *return_path;
+	char *error;
+	bool tempfail;
 };
 
 static struct smtp_client *smtp_client_devnull(struct ostream **output_r)
@@ -84,7 +86,7 @@ smtp_client_run_sendmail(const struct lda_settings *set,
 }
 
 static struct smtp_client *
-smtp_client_open_sendmail(const struct lda_settings *set,
+smtp_client_init_sendmail(const struct lda_settings *set,
 			  const char *destination, const char *return_path,
 			  struct ostream **output_r)
 {
@@ -147,7 +149,7 @@ static int create_temp_file(const char **path_r)
 }
 
 struct smtp_client *
-smtp_client_open(const struct lda_settings *set, const char *destination,
+smtp_client_init(const struct lda_settings *set, const char *destination,
 		 const char *return_path, struct ostream **output_r)
 {
 	struct smtp_client *client;
@@ -155,7 +157,7 @@ smtp_client_open(const struct lda_settings *set, const char *destination,
 	int fd;
 
 	if (*set->submission_host == '\0') {
-		return smtp_client_open_sendmail(set, destination,
+		return smtp_client_init_sendmail(set, destination,
 						 return_path, output_r);
 	}
 
@@ -176,14 +178,14 @@ smtp_client_open(const struct lda_settings *set, const char *destination,
 	return client;
 }
 
-static int smtp_client_close_sendmail(struct smtp_client *client)
+static int smtp_client_deinit_sendmail(struct smtp_client *client)
 {
 	int ret = EX_TEMPFAIL, status;
 
 	o_stream_destroy(&client->output);
 
 	if (client->pid == (pid_t)-1) {
-		/* smtp_client_open() failed already */
+		/* smtp_client_init() failed already */
 	} else if (waitpid(client->pid, &status, 0) < 0)
 		i_error("waitpid() failed: %m");
 	else if (WIFEXITED(status)) {
@@ -193,8 +195,8 @@ static int smtp_client_close_sendmail(struct smtp_client *client)
 				"exit status %d", ret);
 		}
 	} else if (WIFSIGNALED(status)) {
-		i_error("Sendmail process terminated abnormally, "
-				"signal %d", WTERMSIG(status));
+		i_error("Sendmail process terminated abnormally, signal %d",
+			WTERMSIG(status));
 	} else if (WIFSTOPPED(status)) {
 		i_error("Sendmail process stopped, signal %d",
 			WSTOPSIG(status));
@@ -217,13 +219,24 @@ static void smtp_client_send_finished(void *context)
 }
 
 static void
+smtp_client_error(struct smtp_client *smtp_client, const char *error)
+{
+	if (smtp_client->error == NULL) {
+		smtp_client->error = i_strdup_printf("smtp(%s): %s",
+			smtp_client->set->submission_host, error);
+	}
+}
+
+static void
 rcpt_to_callback(bool success, const char *reply, void *context)
 {
 	struct smtp_client *smtp_client = context;
 
 	if (!success) {
-		i_error("smtp(%s): RCPT TO failed: %s",
-			smtp_client->set->submission_host, reply);
+		if (reply[0] != '5')
+			smtp_client->tempfail = TRUE;
+		smtp_client_error(smtp_client, t_strdup_printf(
+			"RCPT TO failed: %s", reply));
 		smtp_client_send_finished(smtp_client);
 	}
 }
@@ -234,8 +247,10 @@ data_callback(bool success, const char *reply, void *context)
 	struct smtp_client *smtp_client = context;
 
 	if (!success) {
-		i_error("smtp(%s): DATA failed: %s",
-			smtp_client->set->submission_host, reply);
+		if (reply[0] != '5')
+			smtp_client->tempfail = TRUE;
+		smtp_client_error(smtp_client, t_strdup_printf(
+			"DATA failed: %s", reply));
 		smtp_client_send_finished(smtp_client);
 	} else {
 		smtp_client->success = TRUE;
@@ -298,15 +313,26 @@ static int smtp_client_send(struct smtp_client *smtp_client)
 	if (!smtp_client->finished)
 		io_loop_run(ioloop);
 	io_loop_destroy(&ioloop);
-	return smtp_client->success ? 0 : -1;
+
+	if (smtp_client->success)
+		return 1;
+	else if (smtp_client->tempfail)
+		return -1;
+	else
+		return 0;
 }
 
-int smtp_client_close(struct smtp_client *client)
+int smtp_client_deinit(struct smtp_client *client, const char **error_r)
 {
 	int ret;
 
-	if (!client->use_smtp)
-		return smtp_client_close_sendmail(client);
+	if (!client->use_smtp) {
+		if (smtp_client_deinit_sendmail(client) != 0) {
+			*error_r = "Failed to execute sendmail";
+			return -1;
+		}
+		return 1;
+	}
 
 	/* the mail has been written to a file. now actually send it. */
 	ret = smtp_client_send(client);
@@ -315,6 +341,36 @@ int smtp_client_close(struct smtp_client *client)
 	i_free(client->return_path);
 	i_free(client->destination);
 	i_free(client->temp_path);
+
+	*error_r = t_strdup(client->error);
+	i_free(client->error);
 	i_free(client);
-	return ret < 0 ? EX_TEMPFAIL : 0;
+	return ret;
+}
+
+struct smtp_client *
+smtp_client_open(const struct lda_settings *set, const char *destination,
+		 const char *return_path, struct ostream **output_r)
+{
+	return smtp_client_init(set, destination, return_path, output_r);
+}
+
+int smtp_client_close(struct smtp_client *client)
+{
+	const char *error;
+	int ret;
+
+	if (!client->use_smtp)
+		return smtp_client_deinit_sendmail(client);
+
+	ret = smtp_client_deinit(client, &error);
+	if (ret < 0) {
+		i_error("%s", error);
+		return EX_TEMPFAIL;
+	}
+	if (ret == 0) {
+		i_error("%s", error);
+		return EX_NOPERM;
+	}
+	return 0;
 }
