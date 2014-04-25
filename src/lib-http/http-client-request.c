@@ -596,8 +596,11 @@ int http_client_request_send_more(struct http_client_request *req,
 	if (ret < 0 || i_stream_is_eof(req->payload_input)) {
 		if (!req->payload_chunked &&
 			req->payload_input->v_offset - req->payload_offset != req->payload_size) {
-			*error_r = "stream input size changed [BUG]";
-			i_error("stream input size changed"); //FIXME
+			*error_r = t_strdup_printf("BUG: stream '%s' input size changed: "
+				"%"PRIuUOFF_T"-%"PRIuUOFF_T" != %"PRIuUOFF_T,
+				i_stream_get_name(req->payload_input),
+				req->payload_input->v_offset, req->payload_offset, req->payload_size);
+			i_error("%s", *error_r); //FIXME: remove?
 			return -1;
 		}
 
