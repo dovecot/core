@@ -25,6 +25,7 @@ struct temp_ostream {
 	buffer_t *buf;
 	int fd;
 	bool fd_tried;
+	uoff_t fd_size;
 };
 
 static void
@@ -65,6 +66,7 @@ static int o_stream_temp_move_to_fd(struct temp_ostream *tstream)
 		i_close_fd(&tstream->fd);
 		return -1;
 	}
+	tstream->fd_size = tstream->buf->used;
 	buffer_free(&tstream->buf);
 	return 0;
 }
@@ -84,6 +86,7 @@ o_stream_temp_fd_sendv(struct temp_ostream *tstream,
 		bytes += iov[i].iov_len;
 		tstream->ostream.ostream.offset += iov[i].iov_len;
 	}
+	tstream->fd_size += bytes;
 	return bytes;
 }
 
@@ -198,10 +201,14 @@ o_stream_temp_write_at(struct ostream_private *stream,
 		i_assert(stream->ostream.offset == tstream->buf->used);
 		buffer_write(tstream->buf, offset, data, size);
 		stream->ostream.offset = tstream->buf->used;
-	} else if (pwrite_full(tstream->fd, data, size, offset) < 0) {
-		stream->ostream.stream_errno = errno;
-		i_close_fd(&tstream->fd);
-		return -1;
+	} else {
+		if (pwrite_full(tstream->fd, data, size, offset) < 0) {
+			stream->ostream.stream_errno = errno;
+			i_close_fd(&tstream->fd);
+			return -1;
+		}
+		if (tstream->fd_size < offset + size)
+			tstream->fd_size = offset + size;
 	}
 	return 0;
 }
@@ -265,13 +272,15 @@ struct istream *iostream_temp_finish(struct ostream **output,
 	} else if (tstream->fd != -1) {
 		input = i_stream_create_fd(tstream->fd, max_buffer_size, TRUE);
 		i_stream_set_name(input, t_strdup_printf(
-			"(Temp file in %s)", tstream->temp_path_prefix));
+			"(Temp file fd %d in %s, %"PRIuUOFF_T" bytes)",
+			tstream->fd, tstream->temp_path_prefix, tstream->fd_size));
 		tstream->fd = -1;
 	} else {
 		input = i_stream_create_from_data(tstream->buf->data,
 						  tstream->buf->used);
 		i_stream_set_name(input, t_strdup_printf(
-			"(Temp file in %s)", tstream->temp_path_prefix));
+			"(Temp buffer in %s, %"PRIuSIZE_T" bytes)",
+			tstream->temp_path_prefix, tstream->buf->used));
 		i_stream_add_destroy_callback(input, iostream_temp_buf_destroyed,
 					      tstream->buf);
 		tstream->buf = NULL;
