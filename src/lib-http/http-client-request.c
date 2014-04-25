@@ -581,20 +581,19 @@ int http_client_request_send_more(struct http_client_request *req,
 		*error_r = t_strdup_printf("read(%s) failed: %s",
 					   i_stream_get_name(req->payload_input),
 					   i_stream_get_error(req->payload_input));
-		ret = -1;
+		return -1;
 	} else if (output->stream_errno != 0) {
 		/* failed to send request */
 		errno = output->stream_errno;
 		*error_r = t_strdup_printf("write(%s) failed: %s",
 					   o_stream_get_name(output),
 					   o_stream_get_error(output));
-		ret = -1;
-	} else {
-		i_assert(ret >= 0);
+		return -1;
 	}
+	i_assert(ret >= 0);
 
-	if (ret < 0 || i_stream_is_eof(req->payload_input)) {
-		if (ret >= 0 && !req->payload_chunked &&
+	if (i_stream_is_eof(req->payload_input)) {
+		if (!req->payload_chunked &&
 		    req->payload_input->v_offset - req->payload_offset != req->payload_size) {
 			*error_r = t_strdup_printf("BUG: stream '%s' input size changed: "
 				"%"PRIuUOFF_T"-%"PRIuUOFF_T" != %"PRIuUOFF_T,
@@ -622,7 +621,7 @@ int http_client_request_send_more(struct http_client_request *req,
 		conn->io_req_payload = io_add_istream(req->payload_input,
 			http_client_request_payload_input, req);
 	}
-	return ret < 0 ? -1 : 0;
+	return 0;
 }
 
 static int http_client_request_send_real(struct http_client_request *req,
