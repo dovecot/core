@@ -86,7 +86,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 		    str_sanitize(reason, 512));
     }
 
-    smtp_client = smtp_client_open(ctx->set, return_addr, NULL, &output);
+    smtp_client = smtp_client_init(ctx->set, return_addr, NULL, &output);
 
     msgid = mail_deliver_get_new_message_id(ctx);
     boundary = t_strdup_printf("%s/%s", my_pid, ctx->set->hostname);
