@@ -374,6 +374,16 @@ dsync_brain_try_next_mailbox(struct dsync_brain *brain, struct mailbox **box_r,
 		/* if mailbox's last_common_* state equals the current state,
 		   we can skip the mailbox */
 		if (!dsync_brain_has_mailbox_state_changed(brain, &dsync_box)) {
+			if (brain->debug) {
+				i_debug("brain %c: Skipping mailbox %s with unchanged state "
+					"uidvalidity=%u uidnext=%u highestmodseq=%llu highestpvtmodseq=%llu",
+					brain->master_brain ? 'M' : 'S',
+					guid_128_to_string(dsync_box.mailbox_guid),
+					dsync_box.uid_validity,
+					dsync_box.uid_next,
+					(unsigned long long)dsync_box.highest_modseq,
+					(unsigned long long)dsync_box.highest_pvt_modseq);
+			}
 			mailbox_free(&box);
 			return 0;
 		}
@@ -658,6 +668,11 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 			return TRUE;
 		}
 		/* another process just deleted this mailbox? */
+		if (brain->debug) {
+			i_debug("brain %c: Skipping lost mailbox %s",
+				brain->master_brain ? 'M' : 'S',
+				guid_128_to_string(dsync_box->mailbox_guid));
+		}
 		dsync_brain_slave_send_mailbox_lost(brain, dsync_box);
 		return TRUE;
 	}
@@ -670,6 +685,11 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 
 	if (!dsync_boxes_need_sync(brain, &local_dsync_box, dsync_box)) {
 		/* no fields appear to have changed, skip this mailbox */
+		if (brain->debug) {
+			i_debug("brain %c: Skipping unchanged mailbox %s",
+				brain->master_brain ? 'M' : 'S',
+				guid_128_to_string(dsync_box->mailbox_guid));
+		}
 		mailbox_free(&box);
 		return TRUE;
 	}

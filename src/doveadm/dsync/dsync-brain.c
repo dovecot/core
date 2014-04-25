@@ -33,6 +33,8 @@ static const char *dsync_state_names[] = {
 	"done"
 };
 
+static void dsync_brain_mailbox_states_dump(struct dsync_brain *brain);
+
 static const char *dsync_brain_get_proctitle(struct dsync_brain *brain)
 {
 	string_t *str = t_str_new(128);
@@ -174,13 +176,20 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	brain->master_brain = TRUE;
 	dsync_brain_set_flags(brain, flags);
 
-	if (sync_type == DSYNC_BRAIN_SYNC_TYPE_STATE &&
-	    dsync_mailbox_states_import(brain->mailbox_states,
-					brain->pool, set->state, &error) < 0) {
+	if (sync_type != DSYNC_BRAIN_SYNC_TYPE_STATE)
+		;
+	else if (dsync_mailbox_states_import(brain->mailbox_states, brain->pool,
+					     set->state, &error) < 0) {
 		hash_table_clear(brain->mailbox_states, FALSE);
 		i_error("Saved sync state is invalid, "
 			"falling back to full sync: %s", error);
 		brain->sync_type = sync_type = DSYNC_BRAIN_SYNC_TYPE_FULL;
+	} else {
+		if (brain->debug) {
+			i_debug("brain %c: Imported mailbox states:",
+				brain->master_brain ? 'M' : 'S');
+			dsync_brain_mailbox_states_dump(brain);
+		}
 	}
 	dsync_brain_mailbox_trees_init(brain);
 
@@ -597,6 +606,26 @@ bool dsync_brain_run(struct dsync_brain *brain, bool *changed_r)
 	return ret;
 }
 
+static void dsync_brain_mailbox_states_dump(struct dsync_brain *brain)
+{
+	struct hash_iterate_context *iter;
+	struct dsync_mailbox_state *state;
+	uint8_t *guid;
+
+	iter = hash_table_iterate_init(brain->mailbox_states);
+	while (hash_table_iterate(iter, brain->mailbox_states, &guid, &state)) {
+		i_debug("brain %c: Mailbox %s state: uidvalidity=%u uid=%u modseq=%llu pvt_modseq=%llu changes_during_sync=%d",
+			brain->master_brain ? 'M' : 'S',
+			guid_128_to_string(guid),
+			state->last_uidvalidity,
+			state->last_common_uid,
+			(unsigned long long)state->last_common_modseq,
+			(unsigned long long)state->last_common_pvt_modseq,
+			state->changes_during_sync);
+	}
+	hash_table_iterate_deinit(&iter);
+}
+
 void dsync_brain_get_state(struct dsync_brain *brain, string_t *output)
 {
 	struct hash_iterate_context *iter;
@@ -622,11 +651,22 @@ void dsync_brain_get_state(struct dsync_brain *brain, string_t *output)
 		node = dsync_mailbox_tree_lookup_guid(brain->local_mailbox_tree,
 						      guid);
 		if (node == NULL ||
-		    node->existence != DSYNC_MAILBOX_NODE_EXISTS)
+		    node->existence != DSYNC_MAILBOX_NODE_EXISTS) {
+			if (brain->debug) {
+				i_debug("brain %c: Removed state for deleted mailbox %s",
+					brain->master_brain ? 'M' : 'S',
+					guid_128_to_string(guid));
+			}
 			hash_table_remove(brain->mailbox_states, guid);
+		}
 	}
 	hash_table_iterate_deinit(&iter);
 
+	if (brain->debug) {
+		i_debug("brain %c: Exported mailbox states:",
+			brain->master_brain ? 'M' : 'S');
+		dsync_brain_mailbox_states_dump(brain);
+	}
 	dsync_mailbox_states_export(brain->mailbox_states, output);
 }
 
