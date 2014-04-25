@@ -58,7 +58,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
     struct smtp_client *smtp_client;
     struct ostream *output;
     const char *return_addr, *hdr;
-    const char *value, *msgid, *orig_msgid, *boundary;
+    const char *value, *msgid, *orig_msgid, *boundary, *error;
     string_t *str;
     int ret;
 
@@ -180,5 +180,14 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
     str_truncate(str, 0);
     str_printfa(str, "\r\n\r\n--%s--\r\n", boundary);
     o_stream_nsend(output, str_data(str), str_len(str));
-    return smtp_client_close(smtp_client);
+    if ((ret = smtp_client_deinit(smtp_client, &error)) < 0) {
+	    i_error("msgid=%s: Temporarily failed to send rejection: %s",
+		    orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
+		    str_sanitize(error, 512));
+    } else if (ret == 0) {
+	    i_info("msgid=%s: Permanently failed to send rejection: %s",
+		   orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
+		   str_sanitize(error, 512));
+    }
+    return ret < 0 ? -1 : 0;
 }
