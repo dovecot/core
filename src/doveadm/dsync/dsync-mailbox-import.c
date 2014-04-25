@@ -112,7 +112,7 @@ static void dsync_mailbox_save_newmails(struct dsync_mailbox_importer *importer,
 static int dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer,
 				       bool final);
 
-static void
+static void ATTR_FORMAT(2, 3)
 imp_debug(struct dsync_mailbox_importer *importer, const char *fmt, ...)
 {
 	va_list args;
@@ -2264,8 +2264,8 @@ static int dsync_mailbox_import_finish(struct dsync_mailbox_importer *importer,
 			  "min_first_recent_uid=%u min_highest_modseq=%llu "
 			  "min_highest_pvt_modseq=%llu",
 			  update.min_next_uid, update.min_first_recent_uid,
-			  update.min_highest_modseq,
-			  update.min_highest_pvt_modseq);
+			  (unsigned long long)update.min_highest_modseq,
+			  (unsigned long long)update.min_highest_pvt_modseq);
 
 		if (mailbox_update(importer->box, &update) < 0) {
 			i_error("Mailbox %s: Update failed: %s",
