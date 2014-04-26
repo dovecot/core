@@ -409,6 +409,10 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	http_client_request_finish(&req);
 	conn->pending_request = NULL;
 
+	/* room for new requests */
+	if (http_client_connection_is_ready(conn))
+		http_client_peer_trigger_request_handler(conn->peer);
+
 	/* input stream may have pending input. make sure input handler
 	   gets called (but don't do it directly, since we get get here
 	   somewhere from the API user's code, which we can't really know what
