@@ -7,6 +7,7 @@
 #include "array.h"
 #include "istream.h"
 #include "ostream.h"
+#include "dns-lookup.h"
 #include "http-url.h"
 #include "http-date.h"
 #include "http-response-parser.h"
@@ -484,6 +485,8 @@ http_client_request_continue_payload(struct http_client_request **_req,
 	i_assert(client->ioloop == NULL);
 	client->ioloop = io_loop_create();
 	http_client_switch_ioloop(client);
+	if (client->set.dns_client != NULL)
+		dns_client_switch_ioloop(client->set.dns_client);
 
 	while (req->state < HTTP_REQUEST_STATE_PAYLOAD_IN) {
 		http_client_request_debug(req, "Waiting for request to finish");
@@ -502,6 +505,8 @@ http_client_request_continue_payload(struct http_client_request **_req,
 
 	io_loop_set_current(prev_ioloop);
 	http_client_switch_ioloop(client);
+	if (client->set.dns_client != NULL)
+		dns_client_switch_ioloop(client->set.dns_client);
 	io_loop_set_current(client->ioloop);
 	io_loop_destroy(&client->ioloop);
 
