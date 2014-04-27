@@ -524,7 +524,13 @@ http_client_request_continue_payload(struct http_client_request **_req,
 	}
 
 	req->payload_wait = FALSE;
-	http_client_request_unref(_req);
+
+	/* callback may have messed with our pointer,
+	   so unref using local variable */	
+	http_client_request_unref(&req);
+	if (req == NULL)
+		*_req = NULL;
+
 	if (conn != NULL)
 		http_client_connection_unref(&conn);
 
