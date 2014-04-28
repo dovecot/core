@@ -21,8 +21,8 @@
 #define DEFAULT_SUBMISSION_PORT 25
 
 struct smtp_client {
+	pool_t pool;
 	struct ostream *output;
-	buffer_t *buf;
 	int temp_fd;
 	pid_t pid;
 
@@ -31,49 +31,33 @@ struct smtp_client {
 	bool finished;
 
 	const struct lda_settings *set;
-	char *temp_path;
-	char *destination;
-	char *return_path;
-	char *error;
+	const char *temp_path;
+	ARRAY_TYPE(const_string) destinations;
+	const char *return_path;
+	const char *error;
 	bool tempfail;
 };
 
-static struct smtp_client *smtp_client_devnull(struct ostream **output_r)
-{
-	struct smtp_client *client;
-	
-	client = i_new(struct smtp_client, 1);
-	client->buf = buffer_create_dynamic(default_pool, 1);
-	client->output = o_stream_create_buffer(client->buf);
-	o_stream_close(client->output);
-	client->pid = (pid_t)-1;
-
-	*output_r = client->output;
-	return client;
-}
-
 static void ATTR_NORETURN
-smtp_client_run_sendmail(const struct lda_settings *set,
-			 const char *destination,
-			 const char *return_path, int fd)
+smtp_client_run_sendmail(struct smtp_client *client, int fd)
 {
 	const char *const *sendmail_args, *const *argv, *str;
 	ARRAY_TYPE(const_string) args;
 	unsigned int i;
 
-	sendmail_args = t_strsplit(set->sendmail_path, " ");
+	sendmail_args = t_strsplit(client->set->sendmail_path, " ");
 	t_array_init(&args, 16);
 	for (i = 0; sendmail_args[i] != NULL; i++)
 		array_append(&args, &sendmail_args[i], 1);
 
 	str = "-i"; array_append(&args, &str, 1); /* ignore dots */
 	str = "-f"; array_append(&args, &str, 1);
-	str = return_path != NULL && *return_path != '\0' ?
-		return_path : "<>";
+	str = client->return_path != NULL && *client->return_path != '\0' ?
+		client->return_path : "<>";
 	array_append(&args, &str, 1);
 
 	str = "--"; array_append(&args, &str, 1);
-	array_append(&args, &destination, 1);
+	array_append_array(&args, &client->destinations);
 	array_append_zero(&args);
 	argv = array_idx(&args, 0);
 
@@ -83,41 +67,6 @@ smtp_client_run_sendmail(const struct lda_settings *set,
 	master_service_env_clean();
 
 	execv_const(argv[0], argv);
-}
-
-static struct smtp_client *
-smtp_client_init_sendmail(const struct lda_settings *set,
-			  const char *destination, const char *return_path,
-			  struct ostream **output_r)
-{
-	struct smtp_client *client;
-	int fd[2];
-	pid_t pid;
-
-	if (pipe(fd) < 0) {
-		i_error("pipe() failed: %m");
-		return smtp_client_devnull(output_r);
-	}
-
-	if ((pid = fork()) == (pid_t)-1) {
-		i_error("fork() failed: %m");
-		i_close_fd(&fd[0]); i_close_fd(&fd[1]);
-		return smtp_client_devnull(output_r);
-	}
-	if (pid == 0) {
-		/* child */
-		i_close_fd(&fd[1]);
-		smtp_client_run_sendmail(set, destination, return_path, fd[0]);
-	}
-	i_close_fd(&fd[0]);
-
-	client = i_new(struct smtp_client, 1);
-	client->output = o_stream_create_fd(fd[1], IO_BLOCK_SIZE, TRUE);
-	o_stream_set_no_error_handling(client->output, TRUE);
-	client->pid = pid;
-
-	*output_r = client->output;
-	return client;
 }
 
 static int create_temp_file(const char **path_r)
@@ -149,33 +98,75 @@ static int create_temp_file(const char **path_r)
 }
 
 struct smtp_client *
-smtp_client_init(const struct lda_settings *set, const char *destination,
-		 const char *return_path, struct ostream **output_r)
+smtp_client_init(const struct lda_settings *set, const char *return_path)
 {
 	struct smtp_client *client;
+	pool_t pool;
+
+	pool = pool_alloconly_create("smtp client", 256);
+	client = p_new(pool, struct smtp_client, 1);
+	client->pool = pool;
+	client->set = set;
+	client->return_path = p_strdup(pool, return_path);
+	client->use_smtp = *set->submission_host != '\0';
+	p_array_init(&client->destinations, pool, 2);
+	client->pid = (pid_t)-1;
+	return client;
+}
+
+void smtp_client_add_rcpt(struct smtp_client *client, const char *address)
+{
+	i_assert(client->output == NULL);
+
+	address = p_strdup(client->pool, address);
+	array_append(&client->destinations, &address, 1);
+}
+
+static struct ostream *smtp_client_send_sendmail(struct smtp_client *client)
+{
+	int fd[2];
+	pid_t pid;
+
+	if (pipe(fd) < 0) {
+		i_error("pipe() failed: %m");
+		return o_stream_create_error(errno);
+	}
+
+	if ((pid = fork()) == (pid_t)-1) {
+		i_error("fork() failed: %m");
+		i_close_fd(&fd[0]); i_close_fd(&fd[1]);
+		return o_stream_create_error(errno);
+	}
+	if (pid == 0) {
+		/* child */
+		i_close_fd(&fd[1]);
+		smtp_client_run_sendmail(client, fd[0]);
+	}
+	i_close_fd(&fd[0]);
+
+	client->output = o_stream_create_fd(fd[1], IO_BLOCK_SIZE, TRUE);
+	o_stream_set_no_error_handling(client->output, TRUE);
+	client->pid = pid;
+	return client->output;
+}
+
+struct ostream *smtp_client_send(struct smtp_client *client)
+{
 	const char *path;
 	int fd;
 
-	if (*set->submission_host == '\0') {
-		return smtp_client_init_sendmail(set, destination,
-						 return_path, output_r);
-	}
+	i_assert(array_count(&client->destinations) > 0);
+
+	if (!client->use_smtp)
+		return smtp_client_send_sendmail(client);
 
 	if ((fd = create_temp_file(&path)) == -1)
-		return smtp_client_devnull(output_r);
-
-	client = i_new(struct smtp_client, 1);
-	client->set = set;
+		return o_stream_create_error(errno);
 	client->temp_path = i_strdup(path);
-	client->destination = i_strdup(destination);
-	client->return_path = i_strdup(return_path);
 	client->temp_fd = fd;
 	client->output = o_stream_create_fd(fd, IO_BLOCK_SIZE, TRUE);
 	o_stream_set_no_error_handling(client->output, TRUE);
-	client->use_smtp = TRUE;
-
-	*output_r = client->output;
-	return client;
+	return client->output;
 }
 
 static int smtp_client_deinit_sendmail(struct smtp_client *client)
@@ -185,7 +176,7 @@ static int smtp_client_deinit_sendmail(struct smtp_client *client)
 	o_stream_destroy(&client->output);
 
 	if (client->pid == (pid_t)-1) {
-		/* smtp_client_init() failed already */
+		/* smtp_client_send() failed already */
 	} else if (waitpid(client->pid, &status, 0) < 0)
 		i_error("waitpid() failed: %m");
 	else if (WIFEXITED(status)) {
@@ -204,9 +195,7 @@ static int smtp_client_deinit_sendmail(struct smtp_client *client)
 		i_error("Sendmail process terminated abnormally, "
 			"return status %d", status);
 	}
-	if (client->buf != NULL)
-		buffer_free(&client->buf);
-	i_free(client);
+	pool_unref(&client->pool);
 	return ret;
 }
 
@@ -257,13 +246,13 @@ data_callback(bool success, const char *reply, void *context)
 	}
 }
 
-static int smtp_client_send(struct smtp_client *smtp_client)
+static int smtp_client_send_flush(struct smtp_client *smtp_client)
 {
 	struct lmtp_client_settings client_set;
 	struct lmtp_client *client;
 	struct ioloop *ioloop;
 	struct istream *input;
-	const char *host, *p;
+	const char *host, *p, *const *destp;
 	unsigned int port = DEFAULT_SUBMISSION_PORT;
 
 	host = smtp_client->set->submission_host;
@@ -303,8 +292,10 @@ static int smtp_client_send(struct smtp_client *smtp_client)
 		return -1;
 	}
 
-	lmtp_client_add_rcpt(client, smtp_client->destination,
-			     rcpt_to_callback, data_callback, smtp_client);
+	array_foreach(&smtp_client->destinations, destp) {
+		lmtp_client_add_rcpt(client, *destp, rcpt_to_callback,
+				     data_callback, smtp_client);
+	}
 
 	input = i_stream_create_fd(smtp_client->temp_fd, (size_t)-1, FALSE);
 	lmtp_client_send(client, input);
@@ -335,16 +326,12 @@ int smtp_client_deinit(struct smtp_client *client, const char **error_r)
 	}
 
 	/* the mail has been written to a file. now actually send it. */
-	ret = smtp_client_send(client);
+	ret = smtp_client_send_flush(client);
 
 	o_stream_destroy(&client->output);
-	i_free(client->return_path);
-	i_free(client->destination);
-	i_free(client->temp_path);
 
 	*error_r = t_strdup(client->error);
-	i_free(client->error);
-	i_free(client);
+	pool_unref(&client->pool);
 	return ret;
 }
 
@@ -352,7 +339,12 @@ struct smtp_client *
 smtp_client_open(const struct lda_settings *set, const char *destination,
 		 const char *return_path, struct ostream **output_r)
 {
-	return smtp_client_init(set, destination, return_path, output_r);
+	struct smtp_client *client;
+
+	client = smtp_client_init(set, return_path);
+	smtp_client_add_rcpt(client, destination);
+	*output_r = smtp_client_send(client);
+	return client;
 }
 
 int smtp_client_close(struct smtp_client *client)
