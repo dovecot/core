@@ -196,9 +196,11 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 				  const struct dsync_mailbox *remote_dsync_box)
 {
+	struct mailbox_status status;
 	enum dsync_mailbox_exporter_flags exporter_flags = 0;
 	uint32_t last_common_uid, highest_wanted_uid;
 	uint64_t last_common_modseq, last_common_pvt_modseq;
+	int ret;
 
 	i_assert(brain->log_scan == NULL);
 	i_assert(brain->box_exporter == NULL);
@@ -208,16 +210,31 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 	last_common_pvt_modseq = brain->mailbox_state.last_common_pvt_modseq;
 	highest_wanted_uid = last_common_uid == 0 ?
 		(uint32_t)-1 : last_common_uid;
-	if (dsync_transaction_log_scan_init(brain->box->view,
-					    brain->box->view_pvt,
-					    highest_wanted_uid,
-					    last_common_modseq,
-					    last_common_pvt_modseq,
-					    &brain->log_scan) < 0) {
+	ret = dsync_transaction_log_scan_init(brain->box->view,
+					      brain->box->view_pvt,
+					      highest_wanted_uid,
+					      last_common_modseq,
+					      last_common_pvt_modseq,
+					      &brain->log_scan);
+	if (ret < 0) {
 		i_error("Failed to read transaction log for mailbox %s",
 			mailbox_get_vname(brain->box));
 		brain->failed = TRUE;
 		return -1;
+	}
+
+	if (last_common_uid != 0) {
+		mailbox_get_open_status(brain->box, STATUS_UIDNEXT |
+					STATUS_HIGHESTMODSEQ |
+					STATUS_HIGHESTPVTMODSEQ, &status);
+		if (status.uidnext < last_common_uid ||
+		    status.highest_modseq < last_common_modseq ||
+		    status.highest_pvt_modseq < last_common_pvt_modseq) {
+			/* last_common_* is higher than our current ones.
+			   incremental sync state is stale, we need to do
+			   a full resync */
+			ret = 0;
+		}
 	}
 
 	if (!brain->mail_requests)
@@ -232,13 +249,25 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 					  last_common_uid,
 					  exporter_flags);
 	dsync_brain_sync_mailbox_init_remote(brain, remote_dsync_box);
-	return 0;
+	if (ret == 0) {
+		i_warning("Failed to do incremental sync for mailbox %s, "
+			  "retry with a full sync",
+			  mailbox_get_vname(brain->box));
+		brain->changes_during_sync = TRUE;
+		brain->require_full_resync = TRUE;
+		return 0;
+	}
+	return 1;
 }
 
 void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 {
 	i_assert(brain->box != NULL);
 
+	if (brain->require_full_resync) {
+		brain->mailbox_state.last_uidvalidity = 0;
+		brain->require_full_resync = FALSE;
+	}
 	array_append(&brain->remote_mailbox_states, &brain->mailbox_state, 1);
 	if (brain->box_exporter != NULL) {
 		const char *error;
@@ -544,13 +573,14 @@ dsync_cache_fields_update(const struct dsync_mailbox *local_box,
 	}
 }
 
-void dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
+bool dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 				    struct mailbox *box,
 				    const struct dsync_mailbox *local_box,
 				    const struct dsync_mailbox *remote_box)
 {
 	struct mailbox_update update;
 	const struct dsync_mailbox_state *state;
+	bool ret = TRUE;
 
 	memset(&update, 0, sizeof(update));
 
@@ -568,7 +598,7 @@ void dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 			   session, because the other side already started
 			   sending mailbox changes, but not for all mails. */
 			dsync_mailbox_state_remove(brain, local_box->mailbox_guid);
-			// FIXME: handle this properly
+			ret = FALSE;
 		}
 	}
 
@@ -577,7 +607,7 @@ void dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 	if (update.uid_validity == 0 &&
 	    update.cache_updates == NULL) {
 		/* no changes */
-		return;
+		return ret;
 	}
 
 	if (mailbox_update(box, &update) < 0) {
@@ -586,6 +616,7 @@ void dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 			mailbox_get_last_error(box, NULL));
 		brain->failed = TRUE;
 	}
+	return ret;
 }
 
 static void
@@ -614,6 +645,7 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	struct mailbox *box;
 	const char *error;
 	int ret;
+	bool resync;
 
 	i_assert(!brain->master_brain);
 	i_assert(brain->box == NULL);

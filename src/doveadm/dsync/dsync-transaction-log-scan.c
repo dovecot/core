@@ -399,7 +399,13 @@ dsync_log_set(struct dsync_transaction_log_scan *ctx,
 			view->index->filepath, log_seq, end_seq);
 		ret = -1;
 	}
-	return ret < 0 ? -1 : 0;
+	if (ret < 0)
+		return -1;
+	if (modseq != 0) {
+		/* we didn't see all the changes that we wanted to */
+		return 0;
+	}
+	return 1;
 }
 
 static int
@@ -412,9 +418,10 @@ dsync_log_scan(struct dsync_transaction_log_scan *ctx,
 	uint32_t file_seq, max_seq;
 	uoff_t file_offset, max_offset;
 	uint64_t cur_modseq;
+	int ret;
 
 	log_view = mail_transaction_log_view_open(view->index->log);
-	if (dsync_log_set(ctx, view, pvt_scan, log_view, modseq) < 0) {
+	if ((ret = dsync_log_set(ctx, view, pvt_scan, log_view, modseq)) < 0) {
 		mail_transaction_log_view_close(&log_view);
 		return -1;
 	}
@@ -475,7 +482,7 @@ dsync_log_scan(struct dsync_transaction_log_scan *ctx,
 		ctx->last_log_offset = file_offset;
 	}
 	mail_transaction_log_view_close(&log_view);
-	return 0;
+	return ret;
 }
 
 static int
@@ -503,6 +510,7 @@ int dsync_transaction_log_scan_init(struct mail_index_view *view,
 {
 	struct dsync_transaction_log_scan *ctx;
 	pool_t pool;
+	int ret, ret2;
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"dsync transaction log scan",
 				     10240);
@@ -515,15 +523,17 @@ int dsync_transaction_log_scan_init(struct mail_index_view *view,
 	ctx->view = view;
 	ctx->highest_wanted_uid = highest_wanted_uid;
 
-	if (dsync_log_scan(ctx, view, modseq, FALSE) < 0)
+	if ((ret = dsync_log_scan(ctx, view, modseq, FALSE)) < 0)
 		return -1;
 	if (pvt_view != NULL) {
-		if (dsync_log_scan(ctx, pvt_view, pvt_modseq, TRUE) < 0)
+		if ((ret2 = dsync_log_scan(ctx, pvt_view, pvt_modseq, TRUE)) < 0)
 			return -1;
+		if (ret2 == 0)
+			ret = 0;
 	}
 
 	*scan_r = ctx;
-	return 0;
+	return ret;
 }
 
 HASH_TABLE_TYPE(dsync_uid_mail_change)
