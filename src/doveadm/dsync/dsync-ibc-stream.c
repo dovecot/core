@@ -80,8 +80,8 @@ static const struct {
 	{ .name = "mailbox_state",
 	  .chr = 'S',
 	  .required_keys = "mailbox_guid last_uidvalidity last_common_uid "
-	  	"last_common_modseq last_common_pvt_modseq last_messages_count",
-	  .optional_keys = "changes_during_sync"
+	  	"last_common_modseq last_common_pvt_modseq",
+	  .optional_keys = "last_messages_count changes_during_sync"
 	},
 	{ .name = "mailbox_tree_node",
 	  .chr = 'N',
