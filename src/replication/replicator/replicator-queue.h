@@ -78,4 +78,8 @@ struct replicator_user *
 replicator_queue_iter_next(struct replicator_queue_iter *iter);
 void replicator_queue_iter_deinit(struct replicator_queue_iter **iter);
 
+void replicator_queue_add_auth_users(struct replicator_queue *queue,
+				     const char *auth_socket_path,
+				     const char *usermask, time_t last_update);
+
 #endif

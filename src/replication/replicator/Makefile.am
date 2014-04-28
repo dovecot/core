@@ -20,6 +20,7 @@ replicator_SOURCES = \
 	replicator.c \
 	replicator-brain.c \
 	replicator-queue.c \
+	replicator-queue-auth.c \
 	replicator-settings.c \
 	notify-connection.c
 

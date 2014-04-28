@@ -10,6 +10,7 @@
 #include "master-service.h"
 #include "replicator-brain.h"
 #include "replicator-queue.h"
+#include "replicator-settings.h"
 #include "dsync-client.h"
 #include "doveadm-connection.h"
 
@@ -194,6 +195,31 @@ client_input_replicate(struct doveadm_connection *client, const char *const *arg
 }
 
 static int
+client_input_add(struct doveadm_connection *client, const char *const *args)
+{
+	struct replicator_queue *queue =
+		replicator_brain_get_queue(client->brain);
+	const struct replicator_settings *set =
+		replicator_brain_get_settings(client->brain);
+
+	/* <usermask> */
+	if (str_array_length(args) != 1) {
+		i_error("%s: ADD: Invalid parameters", client->conn.name);
+		return -1;
+	}
+
+	if (strchr(args[0], '*') == NULL && strchr(args[0], '?') == NULL) {
+		(void)replicator_queue_add(queue, args[0],
+					   REPLICATION_PRIORITY_NONE);
+	} else {
+		replicator_queue_add_auth_users(queue, set->auth_socket_path,
+						args[0], ioloop_time);
+	}
+	o_stream_send_str(client->conn.output, "+\n");
+	return 0;
+}
+
+static int
 client_input_remove(struct doveadm_connection *client, const char *const *args)
 {
 	struct replicator_queue *queue =
@@ -259,6 +285,8 @@ static int client_input_args(struct connection *conn, const char *const *args)
 		return client_input_status_dsyncs(client);
 	else if (strcmp(cmd, "REPLICATE") == 0)
 		return client_input_replicate(client, args);
+	else if (strcmp(cmd, "ADD") == 0)
+		return client_input_add(client, args);
 	else if (strcmp(cmd, "REMOVE") == 0)
 		return client_input_remove(client, args);
 	else if (strcmp(cmd, "NOTIFY") == 0)
