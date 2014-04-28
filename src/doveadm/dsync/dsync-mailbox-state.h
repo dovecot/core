@@ -9,6 +9,7 @@ struct dsync_mailbox_state {
 	uint32_t last_common_uid;
 	uint64_t last_common_modseq;
 	uint64_t last_common_pvt_modseq;
+	uint32_t last_messages_count;
 	bool changes_during_sync;
 };
 ARRAY_DEFINE_TYPE(dsync_mailbox_state, struct dsync_mailbox_state);

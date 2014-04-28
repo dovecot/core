@@ -620,13 +620,14 @@ static void dsync_brain_mailbox_states_dump(struct dsync_brain *brain)
 
 	iter = hash_table_iterate_init(brain->mailbox_states);
 	while (hash_table_iterate(iter, brain->mailbox_states, &guid, &state)) {
-		i_debug("brain %c: Mailbox %s state: uidvalidity=%u uid=%u modseq=%llu pvt_modseq=%llu changes_during_sync=%d",
+		i_debug("brain %c: Mailbox %s state: uidvalidity=%u uid=%u modseq=%llu pvt_modseq=%llu messages=%u changes_during_sync=%d",
 			brain->master_brain ? 'M' : 'S',
 			guid_128_to_string(guid),
 			state->last_uidvalidity,
 			state->last_common_uid,
 			(unsigned long long)state->last_common_modseq,
 			(unsigned long long)state->last_common_pvt_modseq,
+			state->last_messages_count,
 			state->changes_during_sync);
 	}
 	hash_table_iterate_deinit(&iter);

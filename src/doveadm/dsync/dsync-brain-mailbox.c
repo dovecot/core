@@ -248,7 +248,7 @@ void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 		(void)dsync_mailbox_export_deinit(&brain->box_exporter, &error);
 	}
 	if (brain->box_importer != NULL) {
-		uint32_t last_common_uid;
+		uint32_t last_common_uid, last_messages_count;
 		uint64_t last_common_modseq, last_common_pvt_modseq;
 		bool changes_during_sync;
 
@@ -258,6 +258,7 @@ void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 						  &last_common_uid,
 						  &last_common_modseq,
 						  &last_common_pvt_modseq,
+						  &last_messages_count,
 						  &changes_during_sync);
 	}
 	if (brain->log_scan != NULL)
@@ -329,7 +330,8 @@ dsync_brain_has_mailbox_state_changed(struct dsync_brain *brain,
 		state->last_uidvalidity != dsync_box->uid_validity ||
 		state->last_common_uid+1 != dsync_box->uid_next ||
 		state->last_common_modseq != dsync_box->highest_modseq ||
-		state->last_common_pvt_modseq != dsync_box->highest_pvt_modseq;
+		state->last_common_pvt_modseq != dsync_box->highest_pvt_modseq ||
+		state->last_messages_count != dsync_box->messages_count;
 }
 
 static int
@@ -376,13 +378,14 @@ dsync_brain_try_next_mailbox(struct dsync_brain *brain, struct mailbox **box_r,
 		if (!dsync_brain_has_mailbox_state_changed(brain, &dsync_box)) {
 			if (brain->debug) {
 				i_debug("brain %c: Skipping mailbox %s with unchanged state "
-					"uidvalidity=%u uidnext=%u highestmodseq=%llu highestpvtmodseq=%llu",
+					"uidvalidity=%u uidnext=%u highestmodseq=%llu highestpvtmodseq=%llu messages=%u",
 					brain->master_brain ? 'M' : 'S',
 					guid_128_to_string(dsync_box.mailbox_guid),
 					dsync_box.uid_validity,
 					dsync_box.uid_next,
 					(unsigned long long)dsync_box.highest_modseq,
-					(unsigned long long)dsync_box.highest_pvt_modseq);
+					(unsigned long long)dsync_box.highest_pvt_modseq,
+					dsync_box.messages_count);
 			}
 			mailbox_free(&box);
 			return 0;
@@ -681,7 +684,8 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 			sizeof(dsync_box->mailbox_guid)) == 0);
 	dsync_ibc_send_mailbox(brain->ibc, &local_dsync_box);
 
-	dsync_brain_mailbox_update_pre(brain, box, &local_dsync_box, dsync_box);
+	resync = !dsync_brain_mailbox_update_pre(brain, box, &local_dsync_box,
+						 dsync_box);
 
 	if (!dsync_boxes_need_sync(brain, &local_dsync_box, dsync_box)) {
 		/* no fields appear to have changed, skip this mailbox */
@@ -696,8 +700,12 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 
 	/* start export/import */
 	dsync_brain_sync_mailbox_init(brain, box, &local_dsync_box, FALSE);
-	if (dsync_brain_sync_mailbox_open(brain, dsync_box) < 0)
+	if ((ret = dsync_brain_sync_mailbox_open(brain, dsync_box)) < 0)
 		return TRUE;
+	if (ret == 0 || resync) {
+		brain->changes_during_sync = TRUE;
+		brain->require_full_resync = TRUE;
+	}
 
 	brain->state = DSYNC_STATE_SYNC_MAILS;
 	return TRUE;

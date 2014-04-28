@@ -200,11 +200,14 @@ static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 			brain->local_dsync_box.highest_modseq;
 		state.last_common_pvt_modseq =
 			brain->local_dsync_box.highest_pvt_modseq;
+		state.last_messages_count =
+			brain->local_dsync_box.messages_count;
 	} else {
 		if (dsync_mailbox_import_deinit(&brain->box_importer, TRUE,
 						&state.last_common_uid,
 						&state.last_common_modseq,
 						&state.last_common_pvt_modseq,
+						&state.last_messages_count,
 						&state.changes_during_sync) < 0) {
 			brain->failed = TRUE;
 			return;

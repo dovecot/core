@@ -2340,9 +2340,11 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 				uint32_t *last_common_uid_r,
 				uint64_t *last_common_modseq_r,
 				uint64_t *last_common_pvt_modseq_r,
+				uint32_t *last_messages_count_r,
 				bool *changes_during_sync_r)
 {
 	struct dsync_mailbox_importer *importer = *_importer;
+	struct mailbox_status status;
 	int ret;
 
 	*_importer = NULL;
@@ -2392,6 +2394,8 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 		*last_common_modseq_r = importer->local_initial_highestmodseq;
 		*last_common_pvt_modseq_r = importer->local_initial_highestpvtmodseq;
 	}
+	mailbox_get_open_status(importer->box, STATUS_MESSAGES, &status);
+	*last_messages_count_r = status.messages;
 
 	ret = importer->failed ? -1 : 0;
 	pool_unref(&importer->pool);
