@@ -49,6 +49,7 @@ struct dsync_brain {
 	pool_t pool;
 	struct mail_user *user;
 	struct dsync_ibc *ibc;
+	const char *process_title_prefix;
 	ARRAY(struct mail_namespace *) sync_namespaces;
 	const char *sync_box;
 	guid_128_t sync_box_guid;
