@@ -41,6 +41,8 @@ static const char *dsync_brain_get_proctitle(struct dsync_brain *brain)
 	const char *import_title, *export_title;
 
 	str_append_c(str, '[');
+	if (brain->process_title_prefix != NULL)
+		str_append(str, brain->process_title_prefix);
 	str_append(str, brain->user->username);
 	if (brain->box == NULL) {
 		str_append_c(str, ' ');
@@ -155,6 +157,8 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	i_assert(N_ELEMENTS(dsync_state_names) == DSYNC_STATE_DONE+1);
 
 	brain = dsync_brain_common_init(user, ibc);
+	brain->process_title_prefix =
+		p_strdup(brain->pool, set->process_title_prefix);
 	brain->sync_type = sync_type;
 	if (array_count(&set->sync_namespaces) > 0) {
 		sync_ns_str = t_str_new(128);
@@ -219,12 +223,14 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 
 struct dsync_brain *
 dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc,
-		       bool local)
+		       bool local, const char *process_title_prefix)
 {
 	struct dsync_ibc_settings ibc_set;
 	struct dsync_brain *brain;
 
 	brain = dsync_brain_common_init(user, ibc);
+	brain->process_title_prefix =
+		p_strdup(brain->pool, process_title_prefix);
 	brain->state = DSYNC_STATE_SLAVE_RECV_HANDSHAKE;
 
 	if (local) {

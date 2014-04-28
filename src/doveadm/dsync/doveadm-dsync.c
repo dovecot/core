@@ -369,7 +369,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		return -1;
 	}
 
-	brain2 = dsync_brain_slave_init(user2, ibc2, TRUE);
+	brain2 = dsync_brain_slave_init(user2, ibc2, TRUE, "");
 	mail_user_unref(&user2);
 
 	brain1_running = brain2_running = TRUE;
@@ -532,6 +532,11 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	int status = 0, ret = 0;
 
 	memset(&set, 0, sizeof(set));
+	if (_ctx->cur_client_ip.family != 0) {
+		/* include the doveadm client's IP address in the ps output */
+		set.process_title_prefix = t_strdup_printf(
+			"%s ", net_ip2addr(&_ctx->cur_client_ip));
+	}
 	set.sync_box = ctx->mailbox;
 	memcpy(set.sync_box_guid, ctx->mailbox_guid, sizeof(set.sync_box_guid));
 	set.lock_timeout_secs = ctx->lock_timeout;
@@ -1002,7 +1007,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	struct dsync_brain *brain;
 	string_t *temp_prefix, *state_str = NULL;
 	enum dsync_brain_sync_type sync_type;
-	const char *name;
+	const char *name, *process_title_prefix = "";
 
 	if (_ctx->conn != NULL) {
 		/* doveadm-server connection. start with a success reply.
@@ -1013,6 +1018,12 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		o_stream_nsend(ctx->output, "\n+\n", 3);
 		i_set_failure_prefix("dsync-server(%s): ", user->username);
 		name = i_stream_get_name(ctx->input);
+
+		if (_ctx->cur_client_ip.family != 0) {
+			/* include the doveadm client's IP address in the ps output */
+			process_title_prefix = t_strdup_printf(
+				"%s ", net_ip2addr(&_ctx->cur_client_ip));
+		}
 	} else {
 		/* the log messages go via stderr to the remote dsync,
 		   so the names are reversed */
@@ -1026,7 +1037,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	mail_user_set_get_temp_prefix(temp_prefix, user->set);
 
 	ibc = cmd_dsync_icb_stream_init(ctx, name, str_c(temp_prefix));
-	brain = dsync_brain_slave_init(user, ibc, FALSE);
+	brain = dsync_brain_slave_init(user, ibc, FALSE, process_title_prefix);
 
 	io_loop_run(current_ioloop);
 
