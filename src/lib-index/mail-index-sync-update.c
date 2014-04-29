@@ -165,14 +165,11 @@ mail_index_sync_header_update_counts_all(struct mail_index_sync_map_ctx *ctx,
 static void
 mail_index_sync_header_update_counts(struct mail_index_sync_map_ctx *ctx,
 				     uint32_t uid, uint8_t old_flags,
-				     uint8_t new_flags, bool all)
+				     uint8_t new_flags)
 {
 	const char *error;
 
-	if (all) {
-		mail_index_sync_header_update_counts_all(ctx, uid, old_flags,
-							 new_flags);
-	} else if (uid >= ctx->view->map->hdr.next_uid) {
+	if (uid >= ctx->view->map->hdr.next_uid) {
 		mail_index_sync_set_corrupted(ctx, "uid %u >= next_uid %u",
 					      uid, ctx->view->map->hdr.next_uid);
 	} else {
@@ -250,8 +247,7 @@ sync_expunge(struct mail_index_sync_map_ctx *ctx, uint32_t uid1, uint32_t uid2)
 	map = mail_index_sync_get_atomic_map(ctx);
 	for (seq = seq1; seq <= seq2; seq++) {
 		rec = MAIL_INDEX_MAP_IDX(map, seq-1);
-		mail_index_sync_header_update_counts(ctx, rec->uid, rec->flags,
-						     0, FALSE);
+		mail_index_sync_header_update_counts(ctx, rec->uid, rec->flags, 0);
 	}
 
 	/* @UNSAFE */
@@ -393,8 +389,7 @@ static int sync_append(const struct mail_index_record *rec,
 		map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 
 	mail_index_header_update_lowwaters(ctx, rec->uid, new_flags);
-	mail_index_sync_header_update_counts(ctx, rec->uid,
-					     0, new_flags, FALSE);
+	mail_index_sync_header_update_counts(ctx, rec->uid, 0, new_flags);
 	return 1;
 }
 
@@ -436,9 +431,9 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 
 			mail_index_header_update_lowwaters(ctx, rec->uid,
 							   rec->flags);
-			mail_index_sync_header_update_counts(ctx, rec->uid,
-							     old_flags,
-							     rec->flags, TRUE);
+			mail_index_sync_header_update_counts_all(ctx, rec->uid,
+								 old_flags,
+								 rec->flags);
 		}
 	}
 	return 1;
