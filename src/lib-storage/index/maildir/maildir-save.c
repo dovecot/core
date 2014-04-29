@@ -851,10 +851,12 @@ maildir_filename_check_conflicts(struct maildir_save_context *ctx,
 					      mf->dest_basename) != NULL) {
 		/* file already exists. give it another name.
 		   but preserve the size/vsize in the filename if possible */
-		if (maildir_filename_get_size(mf->dest_basename,
+		if (mf->size == (uoff_t)-1 &&
+		    maildir_filename_get_size(mf->dest_basename,
 					      MAILDIR_EXTRA_FILE_SIZE, &size))
 			mf->size = size;
-		if (maildir_filename_get_size(mf->dest_basename,
+		if (mf->vsize == (uoff_t)-1 &&
+		    maildir_filename_get_size(mf->dest_basename,
 					      MAILDIR_EXTRA_VIRTUAL_SIZE,
 					      &size))
 			mf->vsize = size;
