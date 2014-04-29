@@ -59,6 +59,60 @@ static const char mail_output[] =
 "\r\n"
 "\r\n--bound--\r\n";
 
+static const char *mail_broken_input_body_prefix =
+"MIME-Version: 1.0\r\n"
+"Content-Type: multipart/alternative;\r\n boundary=\"bound\"\r\n"
+"\r\n"
+"--bound\r\n"
+"Content-Transfer-Encoding: base64\r\n"
+"Content-Type: text/plain\r\n"
+"\r\n";
+
+static const char *mail_broken_input_bodies[] = {
+	/* broken base64 input */
+	"Zm9vCg=\n",
+	"Zm9vCg\n",
+	"Zm9vC\n",
+	/* extra whitespace */
+	"Zm9v\n Zm9v\n",
+	"Zm9v \nZm9v\n",
+	/* mixed LF vs CRLFs */
+	"Zm9vYmFy\r\nZm9vYmFy\n",
+	"Zm9vYmFy\nZm9vYmFy\r\n",
+	/* line length increases */
+	"Zm9v\nZm9vYmFy\n",
+	"Zm9v\nZm9vCg==",
+	"Zm9v\nZm9vYgo="
+};
+
+static const char *mail_nonbroken_input_bodies[] = {
+	/* suffixes with explicit '=' end */
+	"Zm9vCg==",
+	"Zm9vCg==\n",
+	"Zm9vCg==\r\n",
+	"Zm9vCg==\nfoo\n",
+	"Zm9vCg==\r\nfoo\n",
+	"Zm9vCg==  \t\t\n\n",
+	/* suffixes with shorter line length */
+	"Zm9vYmFy\nZm9v\n",
+	"Zm9vYmFy\r\nZm9v\r\n",
+	"Zm9vYmFy\nZm9v\nfoo\n",
+	"Zm9vYmFy\r\nZm9v\r\nfoo\n",
+	"Zm9vYmFy\nZm9v\n  \t\t\n\n",
+	/* suffixes with empty line */
+	"Zm9v\n\n",
+	"Zm9v\r\n\r\n",
+	"Zm9v\n\nfoo\n"
+	"Zm9v\r\n\nfoo\n"
+	"Zm9v\r\n\r\nfoo\n"
+#if 0
+	/* the whitespace here could be handled as suffixes, but for now
+	   they're not: */
+	"Zm9v ",
+	"Zm9v \n"
+#endif
+};
+
 struct attachment {
 	size_t buffer_offset;
 	uoff_t start_offset;
@@ -262,6 +316,65 @@ static void test_istream_attachment(void)
 			   BINARY_TEXT_SHORT, strlen(BINARY_TEXT_SHORT)) == 0);
 	i_stream_unref(&input);
 	i_stream_unref(&datainput);
+
+	if (attachment_data != NULL)
+		buffer_free(&attachment_data);
+	if (array_is_created(&attachments))
+		array_free(&attachments);
+	test_end();
+}
+
+static bool test_istream_attachment_extractor_one(const char *body)
+{
+	const unsigned int prefix_len = strlen(mail_broken_input_body_prefix);
+	struct istream_attachment_settings set;
+	struct istream *datainput, *input;
+	char *mail_text;
+	const unsigned char *data;
+	size_t size;
+	int ret;
+	bool unchanged;
+
+	mail_text = i_strconcat(mail_broken_input_body_prefix, body, NULL);
+	datainput = test_istream_create_data(mail_text, strlen(mail_text));
+
+	get_istream_attachment_settings(&set);
+	input = i_stream_create_attachment_extractor(datainput, &set, NULL);
+
+	while ((ret = i_stream_read(input)) > 0) ;
+
+	data = i_stream_get_data(input, &size);
+	i_assert(size >= prefix_len &&
+		 memcmp(data, mail_broken_input_body_prefix, prefix_len) == 0);
+	data += prefix_len;
+	size -= prefix_len;
+
+	i_assert(attachment_data != NULL);
+	unchanged = attachment_data->used <= strlen(body) &&
+		memcmp(attachment_data->data, body, attachment_data->used) == 0 &&
+		strlen(body) - attachment_data->used == size &&
+		memcmp(data, body + attachment_data->used, size) == 0;
+
+	if (attachment_data != NULL)
+		buffer_free(&attachment_data);
+	if (array_is_created(&attachments))
+		array_free(&attachments);
+
+	i_stream_unref(&input);
+	i_stream_unref(&datainput);
+	i_free(mail_text);
+	return unchanged;
+}
+
+static void test_istream_attachment_extractor(void)
+{
+	unsigned int i;
+
+	test_begin("istream attachment extractor");
+	for (i = 0; i < N_ELEMENTS(mail_broken_input_bodies); i++)
+		test_assert(test_istream_attachment_extractor_one(mail_broken_input_bodies[i]));
+	for (i = 0; i < N_ELEMENTS(mail_nonbroken_input_bodies); i++)
+		test_assert(!test_istream_attachment_extractor_one(mail_nonbroken_input_bodies[i]));
 	test_end();
 }
 
@@ -288,6 +401,7 @@ int main(int argc, char *argv[])
 {
 	static void (*test_functions[])(void) = {
 		test_istream_attachment,
+		test_istream_attachment_extractor,
 		NULL
 	};
 	if (argc > 1)
