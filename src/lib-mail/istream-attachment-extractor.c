@@ -208,6 +208,12 @@ astream_try_base64_decode_char(struct attachment_istream_part *part,
 		} else if (chr == '=') {
 			part->base64_state = BASE64_STATE_EOM;
 			part->cur_base64_blocks++;
+
+			if (part->cur_base64_blocks > part->base64_line_blocks &&
+			    part->base64_line_blocks > 0) {
+				/* too many blocks */
+				return -1;
+			}
 			return 0;
 		} else {
 			return -1;
@@ -231,6 +237,12 @@ astream_try_base64_decode_char(struct attachment_istream_part *part,
 		part->base64_bytes = part->temp_output->offset + pos + 1;
 		part->base64_state = BASE64_STATE_EOM;
 		part->cur_base64_blocks++;
+
+		if (part->cur_base64_blocks > part->base64_line_blocks &&
+		    part->base64_line_blocks > 0) {
+			/* too many blocks */
+			return -1;
+		}
 		return 0;
 	case BASE64_STATE_EOM:
 		i_unreached();
