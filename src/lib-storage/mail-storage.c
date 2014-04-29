@@ -2081,7 +2081,10 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 	}
 	*_ctx = NULL;
 
+	ctx->finishing = TRUE;
 	ret = t->box->v.save_finish(ctx);
+	ctx->finishing = FALSE;
+
 	if (ret == 0 && !copying_via_save) {
 		if (pvt_flags != 0)
 			mailbox_save_add_pvt_flags(t, pvt_flags);
@@ -2102,7 +2105,7 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 
 	*_ctx = NULL;
 	ctx->transaction->box->v.save_cancel(ctx);
-	if (keywords != NULL)
+	if (keywords != NULL && !ctx->finishing)
 		mailbox_keywords_unref(&keywords);
 	if (ctx->dest_mail != NULL) {
 		/* the dest_mail is no longer valid. if we're still saving
@@ -2144,7 +2147,9 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 		mailbox_save_cancel(&ctx);
 		return -1;
 	}
+	ctx->finishing = TRUE;
 	ret = t->box->v.copy(ctx, backend_mail);
+	ctx->finishing = FALSE;
 	if (ret == 0) {
 		if (pvt_flags != 0)
 			mailbox_save_add_pvt_flags(t, pvt_flags);

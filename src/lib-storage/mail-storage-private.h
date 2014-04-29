@@ -559,6 +559,8 @@ struct mail_save_context {
 	/* mailbox_save_alloc() called, but finish/cancel not.
 	   the same context is usually returned by the backends for reuse. */
 	unsigned int unfinished:1;
+	/* mailbox_save_finish() or mailbox_copy() is being called. */
+	unsigned int finishing:1;
 	/* mail was copied using saving */
 	unsigned int copying_via_save:1;
 	/* mail is being saved, not copied */
