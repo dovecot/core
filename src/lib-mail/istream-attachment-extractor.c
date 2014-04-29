@@ -148,6 +148,10 @@ static bool astream_want_attachment(struct attachment_istream *astream,
 
 static int astream_base64_decode_lf(struct attachment_istream_part *part)
 {
+	if (part->base64_have_crlf && part->base64_state != BASE64_STATE_CR) {
+		/* mixed LF vs CRLFs */
+		return -1;
+	}
 	part->base64_state = BASE64_STATE_0;
 	if (part->cur_base64_blocks < part->base64_line_blocks) {
 		/* last line */
@@ -212,7 +216,13 @@ astream_try_base64_decode_char(struct attachment_istream_part *part,
 	case BASE64_STATE_CR:
 		if (chr != '\n')
 			return -1;
-		part->base64_have_crlf = TRUE;
+		if (!part->base64_have_crlf) {
+			if (part->base64_line_blocks != 0) {
+				/* mixed LF vs CRLFs */
+				return -1;
+			}
+			part->base64_have_crlf = TRUE;
+		}
 		return astream_base64_decode_lf(part);
 	case BASE64_STATE_EOB:
 		if (chr != '=')
