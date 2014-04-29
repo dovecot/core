@@ -114,10 +114,10 @@ static ssize_t i_stream_crlf_read_crlf(struct istream_private *stream)
 static ssize_t i_stream_crlf_read_lf(struct istream_private *stream)
 {
 	struct crlf_istream *cstream = (struct crlf_istream *)stream;
-	const unsigned char *data;
-	size_t i, dest, size;
+	const unsigned char *data, *p;
+	size_t i, dest, size, max;
 	ssize_t ret;
-	int diff;
+	bool pending_cr;
 
 	ret = i_stream_crlf_read_common(cstream);
 	if (ret <= 0)
@@ -126,40 +126,44 @@ static ssize_t i_stream_crlf_read_lf(struct istream_private *stream)
 	data = i_stream_get_data(stream->parent, &size);
 
 	/* @UNSAFE */
+	/* \r\n -> \n
+	   \r<anything> -> \r<anything>
+	   \r\r\n -> \r\n */
 	dest = stream->pos;
-	if (data[0] == '\n') {
-		stream->w_buffer[dest++] = '\n';
-		cstream->pending_cr = FALSE;
-	} else {
-		if (cstream->pending_cr) {
-			/* CR without LF */
-			stream->w_buffer[dest++] = '\r';
-			if (dest == stream->buffer_size) {
-				stream->pos++;
-				cstream->pending_cr = FALSE;
-				return 1;
-			}
-		}
-		if (data[0] != '\r')
-			stream->w_buffer[dest++] = data[0];
-	}
-
-	diff = 1;
-	for (i = 1; i < size && dest < stream->buffer_size; i++) {
+	pending_cr = cstream->pending_cr;
+	for (i = 0; i < size && dest < stream->buffer_size; ) {
 		if (data[i] == '\r') {
-			if (data[i-1] != '\r')
-				continue;
-		} else if (data[i-1] == '\r' && data[i] != '\n') {
-			stream->w_buffer[dest++] = '\r';
-			if (dest == stream->buffer_size) {
-				diff = 0;
-				break;
+			if (pending_cr) {
+				/* \r\r */
+				stream->w_buffer[dest++] = '\r';
+			} else {
+				pending_cr = TRUE;
 			}
+			i++;
+		} else if (data[i] == '\n') {
+			/* [\r]\n */
+			pending_cr = FALSE;
+			stream->w_buffer[dest++] = '\n';
+			i++;
+		} else if (pending_cr) {
+			/* \r<anything> */
+			pending_cr = FALSE;
+			stream->w_buffer[dest++] = '\r';
+		} else {
+			/* copy everything until the next \r */
+			max = I_MIN(size - i, stream->buffer_size - dest);
+			p = memchr(data + i, '\r', max);
+			if (p != NULL)
+				max = p - (data+i);
+			memcpy(stream->w_buffer + dest, data + i, max);
+			dest += max;
+			i += max;
 		}
-
-		stream->w_buffer[dest++] = data[i];
 	}
-	cstream->pending_cr = data[i-diff] == '\r';
+	i_assert(i <= size);
+	i_assert(dest <= stream->buffer_size);
+
+	cstream->pending_cr = pending_cr;
 	i_stream_skip(stream->parent, i);
 
 	ret = dest - stream->pos;
