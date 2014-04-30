@@ -276,7 +276,8 @@ int mail_get_backend_mail(struct mail *mail, struct mail **real_mail_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_real_mail(mail, real_mail_r);
+	*real_mail_r = p->v.get_real_mail(mail);
+	return *real_mail_r == NULL ? -1 : 0;
 }
 
 struct mail *mail_get_real_mail(struct mail *mail)

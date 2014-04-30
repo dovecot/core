@@ -1211,10 +1211,9 @@ int index_mail_get_special(struct mail *_mail,
 	}
 }
 
-int index_mail_get_real_mail(struct mail *mail, struct mail **real_mail_r)
+struct mail *index_mail_get_real_mail(struct mail *mail)
 {
-	*real_mail_r = mail;
-	return 0;
+	return mail;
 }
 
 struct mail *

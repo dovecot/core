@@ -391,7 +391,10 @@ struct mail_vfuncs {
 
 	int (*get_special)(struct mail *mail, enum mail_fetch_field field,
 			   const char **value_r);
-	int (*get_real_mail)(struct mail *mail, struct mail **real_mail_r);
+	/* FIXME: v2.3 API should change this to return -1 on failure.
+	   for now NULL means failure so we don't break backwards
+	   compatibility. */
+	struct mail *(*get_real_mail)(struct mail *mail);
 
 	void (*update_flags)(struct mail *mail, enum modify_type modify_type,
 			     enum mail_flags flags);
