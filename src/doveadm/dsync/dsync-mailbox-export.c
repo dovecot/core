@@ -270,24 +270,18 @@ search_add_save(struct dsync_mailbox_exporter *exporter, struct mail *mail)
 {
 	struct dsync_mail_change *change;
 	const char *guid, *hdr_hash;
-	time_t save_timestamp;
 	int ret;
 
 	/* update wanted fields in case we didn't already set them for the
 	   search */
-	mail_add_temp_wanted_fields(mail, MAIL_FETCH_GUID |
-				    MAIL_FETCH_SAVE_DATE,
+	mail_add_temp_wanted_fields(mail, MAIL_FETCH_GUID,
 				    exporter->wanted_headers);
 
 	/* If message is already expunged here, just skip it */
 	if ((ret = exporter_get_guids(exporter, mail, &guid, &hdr_hash)) <= 0)
 		return ret;
-	if (mail_get_save_date(mail, &save_timestamp) < 0)
-		return dsync_mail_error(exporter, mail, "save-date");
 
 	change = export_save_change_get(exporter, mail->uid);
-	change->save_timestamp = save_timestamp;
-
 	change->guid = *guid == '\0' ? "" :
 		p_strdup(exporter->pool, guid);
 	change->hdr_hash = p_strdup(exporter->pool, hdr_hash);
@@ -364,7 +358,7 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 	if (exporter->last_common_uid == 0) {
 		/* we're syncing all mails, so we can request the wanted
 		   fields for all the mails */
-		wanted_fields = MAIL_FETCH_GUID | MAIL_FETCH_SAVE_DATE;
+		wanted_fields = MAIL_FETCH_GUID;
 		wanted_headers = exporter->wanted_headers;
 	}
 
@@ -727,6 +721,7 @@ dsync_mailbox_export_body_search_init(struct dsync_mailbox_exporter *exporter)
 				    MAIL_FETCH_UIDL_BACKEND |
 				    MAIL_FETCH_POP3_ORDER |
 				    MAIL_FETCH_RECEIVED_DATE |
+				    MAIL_FETCH_SAVE_DATE |
 				    MAIL_FETCH_STREAM_HEADER |
 				    MAIL_FETCH_STREAM_BODY, NULL);
 	mail_search_args_unref(&search_args);

@@ -109,7 +109,7 @@ static const struct {
 	{ .name = "mail_change",
 	  .chr = 'C',
 	  .required_keys = "type uid",
-	  .optional_keys = "guid hdr_hash modseq pvt_modseq save_timestamp "
+	  .optional_keys = "guid hdr_hash modseq pvt_modseq "
 	  	"add_flags remove_flags final_flags "
 	  	"keywords_reset keyword_changes"
 	},
@@ -119,7 +119,7 @@ static const struct {
 	},
 	{ .name = "mail",
 	  .chr = 'M',
-	  .optional_keys = "guid uid pop3_uidl pop3_order received_date stream"
+	  .optional_keys = "guid uid pop3_uidl pop3_order received_date saved_date stream"
 	},
 	{ .name = "mailbox_cache_field",
 	  .chr = 'c',
@@ -1508,10 +1508,6 @@ dsync_ibc_stream_send_change(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "pvt_modseq",
 					    dec2str(change->pvt_modseq));
 	}
-	if (change->save_timestamp != 0) {
-		dsync_serializer_encode_add(encoder, "save_timestamp",
-					    dec2str(change->save_timestamp));
-	}
 	if (change->add_flags != 0) {
 		dsync_serializer_encode_add(encoder, "add_flags",
 			t_strdup_printf("%x", change->add_flags));
@@ -1599,11 +1595,6 @@ dsync_ibc_stream_recv_change(struct dsync_ibc *_ibc,
 	if (dsync_deserializer_decode_try(decoder, "pvt_modseq", &value) &&
 	    str_to_uint64(value, &change->pvt_modseq) < 0) {
 		dsync_ibc_input_error(ibc, decoder, "Invalid pvt_modseq");
-		return DSYNC_IBC_RECV_RET_TRYAGAIN;
-	}
-	if (dsync_deserializer_decode_try(decoder, "save_timestamp", &value) &&
-	    str_to_time(value, &change->save_timestamp) < 0) {
-		dsync_ibc_input_error(ibc, decoder, "Invalid save_timestamp");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
 
@@ -1709,6 +1700,10 @@ dsync_ibc_stream_send_mail(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "received_date",
 					    dec2str(mail->received_date));
 	}
+	if (mail->saved_date != 0) {
+		dsync_serializer_encode_add(encoder, "saved_date",
+					    dec2str(mail->saved_date));
+	}
 	if (mail->input != NULL)
 		dsync_serializer_encode_add(encoder, "stream", "");
 
@@ -1768,6 +1763,11 @@ dsync_ibc_stream_recv_mail(struct dsync_ibc *_ibc, struct dsync_mail **mail_r)
 	if (dsync_deserializer_decode_try(decoder, "received_date", &value) &&
 	    str_to_time(value, &mail->received_date) < 0) {
 		dsync_ibc_input_error(ibc, decoder, "Invalid received_date");
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
+	if (dsync_deserializer_decode_try(decoder, "saved_date", &value) &&
+	    str_to_time(value, &mail->saved_date) < 0) {
+		dsync_ibc_input_error(ibc, decoder, "Invalid saved_date");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
 	if (dsync_deserializer_decode_try(decoder, "stream", &value)) {

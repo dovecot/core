@@ -1872,7 +1872,6 @@ dsync_mailbox_save_set_metadata(struct dsync_mailbox_importer *importer,
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
 
-	mailbox_save_set_save_date(save_ctx, change->save_timestamp);
 	if (change->modseq > 1) {
 		(void)mailbox_enable(importer->box, MAILBOX_FEATURE_CONDSTORE);
 		mailbox_save_set_min_modseq(save_ctx, change->modseq);
@@ -1915,6 +1914,8 @@ dsync_mailbox_save_init(struct dsync_mailbox_importer *importer,
 	mailbox_save_set_uid(save_ctx, newmail->final_uid);
 	if (*mail->guid != '\0')
 		mailbox_save_set_guid(save_ctx, mail->guid);
+	if (mail->saved_date != 0)
+		mailbox_save_set_save_date(save_ctx, mail->saved_date);
 	dsync_mailbox_save_set_metadata(importer, save_ctx, newmail->change);
 	if (mail->pop3_uidl != NULL && *mail->pop3_uidl != '\0')
 		mailbox_save_set_pop3_uidl(save_ctx, mail->pop3_uidl);

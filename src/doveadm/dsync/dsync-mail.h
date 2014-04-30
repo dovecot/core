@@ -14,6 +14,7 @@ struct dsync_mail {
 	const char *pop3_uidl;
 	unsigned int pop3_order;
 	time_t received_date;
+	time_t saved_date;
 
 	/* Input stream containing the message text, or NULL if all instances
 	   of the message were already expunged from this mailbox. */
@@ -60,8 +61,6 @@ struct dsync_mail_change {
 	/* Message's current private modseq (for private flags in
 	   shared mailboxes, otherwise 0) */
 	uint64_t pvt_modseq;
-	/* Message's save timestamp (saves) */
-	time_t save_timestamp;
 
 	/* List of flag/keyword changes: (saves, flag changes) */
 
