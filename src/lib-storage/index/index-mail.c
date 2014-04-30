@@ -512,7 +512,8 @@ void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
 	}
 
 	if (!mail->data.no_caching &&
-	    mail->data.dont_cache_field_idx != field_idx) {
+	    mail->data.dont_cache_field_idx != field_idx &&
+	    !_mail->box->mail_cache_disabled) {
 		mail_cache_add(_mail->transaction->cache_trans, _mail->seq,
 			       field_idx, data, data_size);
 	}

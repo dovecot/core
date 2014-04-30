@@ -71,6 +71,13 @@ static void index_cache_register_defaults(struct mailbox *box)
 	       sizeof(global_cache_fields));
 	mail_cache_register_fields(cache, ibox->cache_fields,
 				   MAIL_INDEX_CACHE_FIELD_COUNT);
+
+	if (strcmp(set->mail_never_cache_fields, "*") == 0) {
+		/* all caching disabled for now */
+		box->mail_cache_disabled = TRUE;
+		return;
+	}
+
 	set_cache_decisions(cache, "mail_cache_fields",
 			    set->mail_cache_fields,
 			    MAIL_CACHE_DECISION_TEMP);

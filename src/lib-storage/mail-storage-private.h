@@ -343,6 +343,8 @@ struct mailbox {
 	unsigned int disallow_new_keywords:1;
 	/* Mailbox has been synced at least once */
 	unsigned int synced:1;
+	/* Updating cache file is disabled */
+	unsigned int mail_cache_disabled:1;
 };
 
 struct mail_vfuncs {
