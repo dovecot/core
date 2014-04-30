@@ -838,27 +838,33 @@ maildir_filename_check_conflicts(struct maildir_save_context *ctx,
 				 struct maildir_filename *mf,
 				 struct maildir_filename *prev_mf)
 {
-	uoff_t size;
+	uoff_t size, vsize;
 
 	if (!ctx->locked_uidlist_refresh && ctx->locked) {
 		(void)maildir_uidlist_refresh(ctx->mbox->uidlist);
 		ctx->locked_uidlist_refresh = TRUE;
 	}
 
-	if (!ctx->locked_uidlist_refresh ||
+	if (!maildir_filename_get_size(mf->dest_basename,
+				       MAILDIR_EXTRA_FILE_SIZE, &size))
+		size = (uoff_t)-1;
+	if (!maildir_filename_get_size(mf->dest_basename,
+				       MAILDIR_EXTRA_VIRTUAL_SIZE, &vsize))
+		vsize = (uoff_t)-1;
+
+	if (size != mf->size || vsize != mf->vsize ||
+	    !ctx->locked_uidlist_refresh ||
 	    (prev_mf != NULL && maildir_filename_has_conflict(mf, prev_mf)) ||
 	    maildir_uidlist_get_full_filename(ctx->mbox->uidlist,
 					      mf->dest_basename) != NULL) {
-		/* file already exists. give it another name.
+		/* a) dest_basename didn't contain the (correct) size/vsize.
+		   they're required for good performance.
+
+		   b) file already exists. give it another name.
 		   but preserve the size/vsize in the filename if possible */
-		if (mf->size == (uoff_t)-1 &&
-		    maildir_filename_get_size(mf->dest_basename,
-					      MAILDIR_EXTRA_FILE_SIZE, &size))
+		if (mf->size == (uoff_t)-1)
 			mf->size = size;
-		if (mf->vsize == (uoff_t)-1 &&
-		    maildir_filename_get_size(mf->dest_basename,
-					      MAILDIR_EXTRA_VIRTUAL_SIZE,
-					      &size))
+		if (mf->vsize == (uoff_t)-1)
 			mf->vsize = size;
 
 		mf->guid = mf->dest_basename;
