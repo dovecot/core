@@ -651,8 +651,14 @@ static void maildir_mail_remove_sizes_from_uidlist(struct mail *mail)
 	}
 }
 
+struct maildir_size_fix_ctx {
+	uoff_t physical_size;
+	bool wrong_key;
+};
+
 static int
-do_fix_size(struct maildir_mailbox *mbox, const char *path, char *wrong_key_p)
+do_fix_size(struct maildir_mailbox *mbox, const char *path,
+	    struct maildir_size_fix_ctx *ctx)
 {
 	const char *fname, *newpath, *extra, *info, *dir;
 	struct stat st;
@@ -666,23 +672,26 @@ do_fix_size(struct maildir_mailbox *mbox, const char *path, char *wrong_key_p)
 	info = strchr(fname, MAILDIR_INFO_SEP);
 	if (info == NULL) info = "";
 
-	if (stat(path, &st) < 0) {
-		if (errno == ENOENT)
-			return 0;
-		mail_storage_set_critical(&mbox->storage->storage,
-					  "stat(%s) failed: %m", path);
-		return -1;
+	if (ctx->physical_size == (uoff_t)-1) {
+		if (stat(path, &st) < 0) {
+			if (errno == ENOENT)
+				return 0;
+			mail_storage_set_critical(&mbox->storage->storage,
+						  "stat(%s) failed: %m", path);
+			return -1;
+		}
+		ctx->physical_size = st.st_size;
 	}
 
 	newpath = t_strdup_printf("%s/%s,S=%"PRIuUOFF_T"%s", dir,
 				  t_strdup_until(fname, extra),
-				  (uoff_t)st.st_size, info);
+				  ctx->physical_size, info);
 
 	if (rename(path, newpath) == 0) {
 		mail_storage_set_critical(mbox->box.storage,
 			"Maildir filename has wrong %c value, "
 			"renamed the file from %s to %s",
-			*wrong_key_p, path, newpath);
+			ctx->wrong_key, path, newpath);
 		return 1;
 	}
 	if (errno == ENOENT)
@@ -702,10 +711,9 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 	enum maildir_uidlist_rec_flag flags;
 	const char *fname;
 	uoff_t size;
-	char wrong_key;
+	struct maildir_size_fix_ctx ctx;
 
-	if (mbox->storage->set->maildir_broken_filename_sizes ||
-	    pmail->v.istream_opened != NULL) {
+	if (mbox->storage->set->maildir_broken_filename_sizes) {
 		/* never try to fix sizes in maildir filenames */
 		return;
 	}
@@ -715,20 +723,35 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 	if (strchr(fname, MAILDIR_EXTRA_SEP) == NULL)
 		return;
 
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.physical_size = (uoff_t)-1;
 	if (field == MAIL_FETCH_VIRTUAL_SIZE &&
 	    maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
 				      &size)) {
-		wrong_key = 'W';
+		ctx.wrong_key = 'W';
 	} else if (field == MAIL_FETCH_PHYSICAL_SIZE &&
 		   maildir_filename_get_size(fname, MAILDIR_EXTRA_FILE_SIZE,
 					     &size)) {
-		wrong_key = 'S';
+		ctx.wrong_key = 'S';
 	} else {
 		/* the broken size isn't in filename */
 		return;
 	}
 
-	(void)maildir_file_do(mbox, mail->uid, do_fix_size, &wrong_key);
+	if (pmail->v.istream_opened != NULL) {
+		/* the mail could be e.g. compressed. get the physical size
+		   the slow way by actually reading the mail. */
+		struct istream *input;
+		const struct stat *stp;
+
+		if (mail_get_stream(mail, NULL, NULL, &input) < 0)
+			return;
+		if (i_stream_stat(input, TRUE, &stp) < 0)
+			return;
+		ctx.physical_size = stp->st_size;
+	}
+
+	(void)maildir_file_do(mbox, mail->uid, do_fix_size, &ctx);
 }
 
 static void maildir_mail_set_cache_corrupted(struct mail *_mail,
