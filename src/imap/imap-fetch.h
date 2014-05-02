@@ -63,6 +63,7 @@ struct imap_fetch_state {
 	unsigned int fetching:1;
 	unsigned int seen_flags_changed:1;
 	unsigned int cur_first:1;
+	unsigned int cur_flushed:1;
 	unsigned int line_partial:1;
 	unsigned int line_finished:1;
 	unsigned int skipped_expunged_msgs:1;
