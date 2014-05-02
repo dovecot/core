@@ -625,21 +625,18 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			/* this passdb lookup succeeded, preserve its extra
 			   fields */
 			auth_fields_snapshot(request->extra_fields);
-			request->snapshot_has_userdb_reply =
-				request->userdb_reply != NULL;
+			request->snapshot_have_userdb_prefetch_set =
+				request->userdb_prefetch_set;
 			if (request->userdb_reply != NULL)
 				auth_fields_snapshot(request->userdb_reply);
 		} else {
 			/* this passdb lookup failed, remove any extra fields
 			   it set */
 			auth_fields_rollback(request->extra_fields);
-			if (request->userdb_reply == NULL)
-				;
-			else if (request->snapshot_has_userdb_reply)
+			if (request->userdb_reply != NULL) {
 				auth_fields_rollback(request->userdb_reply);
-			else {
-				request->userdb_reply = NULL;
-				request->userdb_prefetch_set = FALSE;
+				request->userdb_prefetch_set =
+					request->snapshot_have_userdb_prefetch_set;
 			}
 		}
 
