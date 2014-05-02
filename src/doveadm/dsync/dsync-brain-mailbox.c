@@ -236,6 +236,14 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 			ret = 0;
 		}
 	}
+	if (ret == 0) {
+		i_warning("Failed to do incremental sync for mailbox %s, "
+			  "retry with a full sync",
+			  mailbox_get_vname(brain->box));
+		brain->changes_during_sync = TRUE;
+		brain->require_full_resync = TRUE;
+		return 0;
+	}
 
 	if (!brain->mail_requests)
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_AUTO_EXPORT_MAILS;
@@ -249,14 +257,6 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 					  last_common_uid,
 					  exporter_flags);
 	dsync_brain_sync_mailbox_init_remote(brain, remote_dsync_box);
-	if (ret == 0) {
-		i_warning("Failed to do incremental sync for mailbox %s, "
-			  "retry with a full sync",
-			  mailbox_get_vname(brain->box));
-		brain->changes_during_sync = TRUE;
-		brain->require_full_resync = TRUE;
-		return 0;
-	}
 	return 1;
 }
 
@@ -714,7 +714,6 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	i_assert(local_dsync_box.uid_validity != 0);
 	i_assert(memcmp(dsync_box->mailbox_guid, local_dsync_box.mailbox_guid,
 			sizeof(dsync_box->mailbox_guid)) == 0);
-	dsync_ibc_send_mailbox(brain->ibc, &local_dsync_box);
 
 	resync = !dsync_brain_mailbox_update_pre(brain, box, &local_dsync_box,
 						 dsync_box);
@@ -726,6 +725,7 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 				brain->master_brain ? 'M' : 'S',
 				guid_128_to_string(dsync_box->mailbox_guid));
 		}
+		dsync_ibc_send_mailbox(brain->ibc, &local_dsync_box);
 		mailbox_free(&box);
 		return TRUE;
 	}
@@ -737,8 +737,12 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	if (ret == 0 || resync) {
 		brain->changes_during_sync = TRUE;
 		brain->require_full_resync = TRUE;
+		dsync_brain_sync_mailbox_deinit(brain);
+		dsync_brain_slave_send_mailbox_lost(brain, dsync_box);
+		return TRUE;
 	}
 
+	dsync_ibc_send_mailbox(brain->ibc, &local_dsync_box);
 	brain->state = DSYNC_STATE_SYNC_MAILS;
 	return TRUE;
 }

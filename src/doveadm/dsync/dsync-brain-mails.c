@@ -62,6 +62,9 @@ static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 	if (ret == 0 || resync) {
 		brain->changes_during_sync = TRUE;
 		brain->require_full_resync = TRUE;
+		brain->failed = TRUE;
+		dsync_brain_sync_mailbox_deinit(brain);
+		return TRUE;
 	}
 	dsync_brain_sync_init_box_states(brain);
 	return TRUE;
