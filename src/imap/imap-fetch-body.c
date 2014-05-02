@@ -163,16 +163,8 @@ static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 		return 1;
 	}
 
-	if (imap_msgpart_open(mail, body->msgpart, &result) < 0) {
-		if (!body->binary ||
-		    mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_INVALIDDATA)
-			return -1;
-		/* tried to do BINARY fetch for a MIME part with broken
-		   content */
-		str = get_prefix(&ctx->state, body, (uoff_t)-1, FALSE);
-		o_stream_nsend(ctx->client->output, str_data(str), str_len(str));
-		return 1;
-	}
+	if (imap_msgpart_open(mail, body->msgpart, &result) < 0)
+		return -1;
 	ctx->state.cur_input = result.input;
 	ctx->state.cur_size = result.size;
 	ctx->state.cur_size_field = result.size_field;
@@ -197,13 +189,8 @@ static int fetch_binary_size(struct imap_fetch_context *ctx, struct mail *mail,
 		return 1;
 	}
 
-	if (imap_msgpart_size(mail, body->msgpart, &size) < 0) {
-		if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_INVALIDDATA)
-			return -1;
-		/* tried to do BINARY.SIZE fetch for a MIME part with broken
-		   content */
-		size = 0;
-	}
+	if (imap_msgpart_size(mail, body->msgpart, &size) < 0)
+		return -1;
 
 	str = t_str_new(128);
 	if (ctx->state.cur_first)
