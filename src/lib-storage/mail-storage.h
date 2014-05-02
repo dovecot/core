@@ -540,7 +540,7 @@ const struct mail_storage_settings *
 mailbox_get_settings(struct mailbox *box) ATTR_PURE;
 /* Returns the mailbox's settings, or NULL if there are none. */
 const struct mailbox_settings *
-mailbox_settings_find(struct mail_user *user, const char *vname);
+mailbox_settings_find(struct mail_namespace *ns, const char *vname);
 
 /* Returns the (virtual) name of the given mailbox. */
 const char *mailbox_get_vname(const struct mailbox *box) ATTR_PURE;

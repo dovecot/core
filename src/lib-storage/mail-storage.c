@@ -620,12 +620,10 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 }
 
 const struct mailbox_settings *
-mailbox_settings_find(struct mail_user *user, const char *vname)
+mailbox_settings_find(struct mail_namespace *ns, const char *vname)
 {
 	struct mailbox_settings *const *box_set;
-	struct mail_namespace *ns;
 
-	ns = mail_namespace_find(user->namespaces, vname);
 	if (!array_is_created(&ns->set->mailboxes))
 		return NULL;
 
@@ -687,7 +685,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 		}
 
 		box = storage->v.mailbox_alloc(storage, new_list, vname, flags);
-		box->set = mailbox_settings_find(storage->user, vname);
+		box->set = mailbox_settings_find(new_list->ns, vname);
 		box->open_error = open_error;
 		if (open_error != 0)
 			mail_storage_set_error(storage, open_error, errstr);
