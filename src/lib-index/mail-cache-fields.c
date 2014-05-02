@@ -328,7 +328,8 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 
 	/* check the fixed size of the header. name[] has to be checked
 	   separately */
-	if (field_hdr->size < MAIL_CACHE_FIELD_NAMES(field_hdr->fields_count)) {
+	if (field_hdr->fields_count > INT_MAX / MAIL_CACHE_FIELD_NAMES(1) ||
+	    field_hdr->size < MAIL_CACHE_FIELD_NAMES(field_hdr->fields_count)) {
 		mail_cache_set_corrupted(cache, "invalid field header size");
 		return -1;
 	}
