@@ -64,12 +64,12 @@ void io_loop_handle_add(struct io_file *io)
 	if ((io->io.condition & (IO_READ | IO_ERROR)) != 0) {
 		MY_EV_SET(&ev, io->fd, EVFILT_READ, EV_ADD, 0, 0, io);
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
-			i_fatal("kevent(EV_ADD, READ, %d) failed: %m", io->fd);
+			i_panic("kevent(EV_ADD, READ, %d) failed: %m", io->fd);
 	}
 	if ((io->io.condition & IO_WRITE) != 0) {
 		MY_EV_SET(&ev, io->fd, EVFILT_WRITE, EV_ADD, 0, 0, io);
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
-			i_fatal("kevent(EV_ADD, WRITE, %d) failed: %m", io->fd);
+			i_panic("kevent(EV_ADD, WRITE, %d) failed: %m", io->fd);
 	}
 
 	/* allow kevent() to return the maximum number of events
@@ -128,7 +128,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	events = array_get_modifiable(&ctx->events, &events_count);
 	ret = kevent (ctx->kq, NULL, 0, events, events_count, &ts);
 	if (ret < 0 && errno != EINTR)
-		i_fatal("kevent(): %m");
+		i_panic("kevent(): %m");
 
 	/* reference all IOs */
 	for (i = 0; i < ret; i++) {
