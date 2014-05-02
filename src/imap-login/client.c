@@ -48,6 +48,27 @@ bool client_skip_line(struct imap_client *client)
 	return FALSE;
 }
 
+static bool client_handle_parser_error(struct imap_client *client,
+				       struct imap_parser *parser)
+{
+	const char *msg;
+	bool fatal;
+
+	msg = imap_parser_get_error(parser, &fatal);
+	if (fatal) {
+		client_send_reply(&client->common,
+				  IMAP_CMD_REPLY_BYE, msg);
+		client_destroy(&client->common,
+			       t_strconcat("Disconnected: ", msg, NULL));
+		return FALSE;
+	}
+
+	client_send_reply(&client->common, IMAP_CMD_REPLY_BAD, msg);
+	client->cmd_finished = TRUE;
+	client->skip_line = TRUE;
+	return TRUE;
+}
+
 static bool is_login_cmd_disabled(struct client *client)
 {
 	if (client->secured) {
@@ -121,46 +142,91 @@ imap_client_notify_starttls(struct client *client,
 }
 
 static void
-client_update_info(struct imap_client *client, const struct imap_arg *args)
+client_update_info(struct imap_client *client,
+		   const char *key, const char *value)
 {
-	const char *key, *value;
-
-	if (!imap_arg_get_list(args, &args))
-		return;
-
-	while (imap_arg_get_string(&args[0], &key) &&
-	       imap_arg_get_nstring(&args[1], &value)) {
-		if (strcasecmp(key, "x-originating-ip") == 0)
-			(void)net_addr2ip(value, &client->common.ip);
-		else if (strcasecmp(key, "x-originating-port") == 0)
-			client->common.remote_port = atoi(value);
-		else if (strcasecmp(key, "x-connected-ip") == 0)
-			(void)net_addr2ip(value, &client->common.local_ip);
-		else if (strcasecmp(key, "x-connected-port") == 0)
-			client->common.local_port = atoi(value);
-		else if (strcasecmp(key, "x-proxy-ttl") == 0)
-			client->common.proxy_ttl = atoi(value);
-		else if (strcasecmp(key, "x-session-id") == 0) {
-			client->common.session_id =
-				p_strdup(client->common.pool, value);
-		}
-		args += 2;
+	if (strcasecmp(key, "x-originating-ip") == 0)
+		(void)net_addr2ip(value, &client->common.ip);
+	else if (strcasecmp(key, "x-originating-port") == 0)
+		client->common.remote_port = atoi(value);
+	else if (strcasecmp(key, "x-connected-ip") == 0)
+		(void)net_addr2ip(value, &client->common.local_ip);
+	else if (strcasecmp(key, "x-connected-port") == 0)
+		client->common.local_port = atoi(value);
+	else if (strcasecmp(key, "x-proxy-ttl") == 0)
+		client->common.proxy_ttl = atoi(value);
+	else if (strcasecmp(key, "x-session-id") == 0) {
+		client->common.session_id =
+			p_strdup(client->common.pool, value);
 	}
 }
 
-static int cmd_id(struct imap_client *client, const struct imap_arg *args)
+static void cmd_id_handle_keyvalue(struct imap_client *client,
+				   const char *key, const char *value)
 {
-	const char *value;
+	if (client->common.trusted && !client->id_logged)
+		client_update_info(client, key, value);
 
+	if (client->cmd_id->log_reply != NULL &&
+	    (client->cmd_id->log_keys == NULL ||
+	     str_array_icase_find((void *)client->cmd_id->log_keys, key)))
+		imap_id_log_reply_append(client->cmd_id->log_reply, key, value);
+}
+
+static int cmd_id_handle_args(struct imap_client *client,
+			      const struct imap_arg *arg)
+{
+	struct imap_client_cmd_id *id = client->cmd_id;
+	const char *key, *value;
+
+	switch (id->state) {
+	case IMAP_CLIENT_ID_STATE_LIST:
+		if (arg->type == IMAP_ARG_NIL)
+			return 1;
+		if (arg->type != IMAP_ARG_LIST)
+			return -1;
+		if (client->set->imap_id_log[0] == '\0') {
+			/* no ID logging */
+		} else if (client->id_logged) {
+			/* already logged the ID reply */
+		} else {
+			id->log_reply = str_new(default_pool, 64);
+			if (strcmp(client->set->imap_id_log, "*") == 0) {
+				/* log all keys */
+			} else {
+				/* log only specified keys */
+				id->log_keys = p_strsplit_spaces(default_pool,
+					client->set->imap_id_log, " ");
+			}
+		}
+		id->state = IMAP_CLIENT_ID_STATE_KEY;
+		break;
+	case IMAP_CLIENT_ID_STATE_KEY:
+		if (!imap_arg_get_string(arg, &key))
+			return -1;
+		if (i_strocpy(id->key, key, sizeof(id->key)) < 0)
+			return -1;
+		id->state = IMAP_CLIENT_ID_STATE_VALUE;
+		break;
+	case IMAP_CLIENT_ID_STATE_VALUE:
+		if (!imap_arg_get_nstring(arg, &value))
+			return -1;
+		cmd_id_handle_keyvalue(client, id->key, value);
+		id->state = IMAP_CLIENT_ID_STATE_KEY;
+		break;
+	}
+	return 0;
+}
+
+static void cmd_id_finish(struct imap_client *client)
+{
+	/* finished handling the parameters */
 	if (!client->id_logged) {
 		client->id_logged = TRUE;
-		if (client->common.trusted)
-			client_update_info(client, args);
 
-		value = imap_id_args_get_log_reply(args, client->set->imap_id_log);
-		if (value != NULL) {
-			client_log(&client->common,
-				   t_strdup_printf("ID sent: %s", value));
+		if (client->cmd_id->log_reply != NULL) {
+			client_log(&client->common, t_strdup_printf(
+				"ID sent: %s", str_c(client->cmd_id->log_reply)));
 		}
 	}
 
@@ -168,7 +234,72 @@ static int cmd_id(struct imap_client *client, const struct imap_arg *args)
 		t_strdup_printf("* ID %s\r\n",
 			imap_id_reply_generate(client->set->imap_id_send)));
 	client_send_reply(&client->common, IMAP_CMD_REPLY_OK, "ID completed.");
-	return 1;
+}
+
+static void cmd_id_free(struct imap_client *client)
+{
+	struct imap_client_cmd_id *id = client->cmd_id;
+
+	if (id->log_reply != NULL)
+		str_free(&id->log_reply);
+	if (id->log_keys != NULL)
+		p_strsplit_free(default_pool, id->log_keys);
+	imap_parser_unref(&id->parser);
+
+	i_free_and_null(client->cmd_id);
+	client->skip_line = TRUE;
+}
+
+static int cmd_id(struct imap_client *client)
+{
+	struct imap_client_cmd_id *id;
+	enum imap_parser_flags parser_flags;
+	const struct imap_arg *args;
+	int ret;
+
+	if (client->cmd_id == NULL) {
+		client->cmd_id = id = i_new(struct imap_client_cmd_id, 1);
+		id->parser = imap_parser_create(client->common.input,
+						client->common.output,
+						MAX_IMAP_LINE);
+		parser_flags = IMAP_PARSE_FLAG_STOP_AT_LIST;
+	} else {
+		id = client->cmd_id;
+		parser_flags = IMAP_PARSE_FLAG_INSIDE_LIST;
+	}
+
+	while ((ret = imap_parser_read_args(id->parser, 1, parser_flags, &args)) > 0) {
+		i_assert(ret == 1);
+
+		if ((ret = cmd_id_handle_args(client, args)) < 0) {
+			client_send_reply(&client->common,
+					  IMAP_CMD_REPLY_BAD,
+					  "Invalid ID parameters");
+			cmd_id_free(client);
+			return -1;
+		}
+		if (ret > 0) {
+			/* NIL parameter */
+			ret = 0;
+			break;
+		}
+		imap_parser_reset(id->parser);
+		parser_flags = IMAP_PARSE_FLAG_INSIDE_LIST;
+	}
+	if (ret == 0) {
+		/* finished the line */
+		cmd_id_finish(client);
+		cmd_id_free(client);
+		return 1;
+	} else if (ret == -1) {
+		if (!client_handle_parser_error(client, id->parser))
+			return 0;
+		cmd_id_free(client);
+		return -1;
+	} else {
+		i_assert(ret == -2);
+		return 0;
+	}
 }
 
 static int cmd_noop(struct imap_client *client)
@@ -205,8 +336,6 @@ static int client_command_execute(struct imap_client *client, const char *cmd,
 		return cmd_capability(client);
 	if (strcmp(cmd, "STARTTLS") == 0)
 		return cmd_starttls(client);
-	if (strcmp(cmd, "ID") == 0)
-		return cmd_id(client, args);
 	if (strcmp(cmd, "NOOP") == 0)
 		return cmd_noop(client);
 	if (strcmp(cmd, "LOGOUT") == 0)
@@ -247,24 +376,13 @@ static bool imap_is_valid_tag(const char *tag)
 static int client_parse_command(struct imap_client *client,
 				const struct imap_arg **args_r)
 {
-	const char *msg;
-	bool fatal;
-
 	switch (imap_parser_read_args(client->parser, 0, 0, args_r)) {
 	case -1:
 		/* error */
-		msg = imap_parser_get_error(client->parser, &fatal);
-		if (fatal) {
-			client_send_reply(&client->common,
-					  IMAP_CMD_REPLY_BYE, msg);
-			client_destroy(&client->common,
-				t_strconcat("Disconnected: ", msg, NULL));
-			return FALSE;
+		if (!client_handle_parser_error(client, client->parser)) {
+			/* client destroyed */
+			return 0;
 		}
-
-		client_send_reply(&client->common, IMAP_CMD_REPLY_BAD, msg);
-		client->cmd_finished = TRUE;
-		client->skip_line = TRUE;
 		return -1;
 	case -2:
 		/* not enough data */
@@ -329,6 +447,15 @@ static bool client_handle_input(struct imap_client *client)
 		ret = cmd_authenticate(client, &parsed);
 		if (ret == 0 && !parsed)
 			return FALSE;
+	} else if (strcasecmp(client->cmd_name, "ID") == 0) {
+		/* ID extensions allows max. 30 parameters,
+		   each max. 1024 bytes long. that brings us over the input
+		   buffer's size, so handle the parameters one at a time */
+		ret = cmd_id(client);
+		if (ret == 0)
+			return FALSE;
+		if (ret < 0)
+			ret = 1; /* don't send the error reply again */
 	} else {
 		ret = client_parse_command(client, &args);
 		if (ret < 0)

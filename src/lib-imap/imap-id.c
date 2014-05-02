@@ -119,6 +119,16 @@ const char *imap_id_reply_generate(const char *settings)
 	return ret;
 }
 
+void imap_id_log_reply_append(string_t *reply, const char *key,
+			      const char *value)
+{
+	if (str_len(reply) > 0)
+		str_append(reply, ", ");
+	str_append(reply, str_sanitize(key, IMAP_ID_KEY_MAX_LEN));
+	str_append_c(reply, '=');
+	str_append(reply, value == NULL ? "NIL" : str_sanitize(value, 80));
+}
+
 const char *imap_id_args_get_log_reply(const struct imap_arg *args,
 				       const char *settings)
 {
@@ -152,13 +162,7 @@ const char *imap_id_args_get_log_reply(const struct imap_arg *args,
 		if (log_all || str_array_icase_find(keys, key)) {
 			if (!imap_arg_get_nstring(args, &value))
 				value = "";
-			else if (value == NULL)
-				value = "NIL";
-			if (str_len(reply) > 0)
-				str_append(reply, ", ");
-			str_append(reply, str_sanitize(key, 30));
-			str_append_c(reply, '=');
-			str_append(reply, str_sanitize(value, 80));
+			imap_id_log_reply_append(reply, key, value);
 		}
 		args++;
 	}

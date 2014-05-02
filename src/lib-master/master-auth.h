@@ -13,8 +13,12 @@ struct master_service;
 /* Authentication client process's cookie size */
 #define MASTER_AUTH_COOKIE_SIZE (128/8)
 
-/* LOGIN_MAX_INBUF_SIZE should be based on this.*/
-#define MASTER_AUTH_MAX_DATA_SIZE 1024
+/* LOGIN_MAX_INBUF_SIZE should be based on this. Keep this large enough so that
+   LOGIN_MAX_INBUF_SIZE will be 1024+2 bytes. This is because IMAP ID command's
+   values may be max. 1024 bytes plus 2 for "" quotes. (Although it could be
+   even double of that when value is full of \" quotes, but for now lets not
+   make it too easy to waste memory..) */
+#define MASTER_AUTH_MAX_DATA_SIZE (1024 + 128 + 33 + 2)
 
 #define MASTER_AUTH_ERRMSG_INTERNAL_FAILURE \
 	"Internal error occurred. Refer to server log for more information."

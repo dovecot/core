@@ -2,10 +2,27 @@
 #define CLIENT_H
 
 #include "net.h"
+#include "imap-id.h"
 #include "client-common.h"
 
 /* Master prefix is: <1|0><imap tag><NUL> */
 #define IMAP_TAG_MAX_LEN (LOGIN_MAX_MASTER_PREFIX_LEN-2)
+
+enum imap_client_id_state {
+	IMAP_CLIENT_ID_STATE_LIST = 0,
+	IMAP_CLIENT_ID_STATE_KEY,
+	IMAP_CLIENT_ID_STATE_VALUE
+};
+
+struct imap_client_cmd_id {
+	struct imap_parser *parser;
+
+	enum imap_client_id_state state;
+	char key[IMAP_ID_KEY_MAX_LEN+1];
+
+	char **log_keys;
+	string_t *log_reply;
+};
 
 struct imap_client {
 	struct client common;
@@ -15,6 +32,7 @@ struct imap_client {
 	char *proxy_backend_capability;
 
 	const char *cmd_tag, *cmd_name;
+	struct imap_client_cmd_id *cmd_id;
 
 	unsigned int cmd_finished:1;
 	unsigned int proxy_sasl_ir:1;
