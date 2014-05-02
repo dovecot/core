@@ -331,8 +331,8 @@ static void virtual_sync_ext_header_update(struct virtual_sync_context *ctx)
 		&ext_hdr.change_counter, sizeof(ext_hdr.change_counter));
 }
 
-static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
-				   const struct mail_index_sync_rec *sync_rec)
+static int virtual_sync_index_rec(struct virtual_sync_context *ctx,
+				  const struct mail_index_sync_rec *sync_rec)
 {
 	uint32_t virtual_ext_id = ctx->mbox->virtual_ext_id;
 	struct virtual_backend_box *bbox;
@@ -355,7 +355,7 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 					 sync_rec->uid1, sync_rec->uid2,
 					 &seq1, &seq2)) {
 		/* already expunged, nothing to do. */
-		return;
+		return 0;
 	}
 
 	for (vseq = seq1; vseq <= seq2; vseq++) {
@@ -366,6 +366,13 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 		bbox = virtual_backend_box_lookup(ctx->mbox, vrec->mailbox_id);
 		if (bbox == NULL)
 			continue;
+		if (!bbox->box->opened) {
+			if (mailbox_open(bbox->box) < 0) {
+				virtual_box_copy_error(&ctx->mbox->box,
+						       bbox->box);
+				return -1;
+			}
+		}
 
 		virtual_backend_box_sync_mail_set(bbox);
 		if (!mail_set_uid(bbox->sync_mail, vrec->real_uid)) {
@@ -405,9 +412,10 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 			break;
 		}
 	}
+	return 0;
 }
 
-static void virtual_sync_index_changes(struct virtual_sync_context *ctx)
+static int virtual_sync_index_changes(struct virtual_sync_context *ctx)
 {
 	const ARRAY_TYPE(keywords) *keywords;
 	struct mail_index_sync_rec sync_rec;
@@ -415,8 +423,11 @@ static void virtual_sync_index_changes(struct virtual_sync_context *ctx)
 	keywords = mail_index_get_keywords(ctx->index);
 	ctx->kw_all = array_count(keywords) == 0 ? NULL :
 		array_idx(keywords, 0);
-	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec))
-		virtual_sync_index_rec(ctx, &sync_rec);
+	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) {
+		if (virtual_sync_index_rec(ctx, &sync_rec) < 0)
+			return -1;
+	}
+	return 0;
 }
 
 static void virtual_sync_index_finish(struct virtual_sync_context *ctx)
@@ -1082,6 +1093,7 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 		}
 	} else {
 		/* sync using the existing search result */
+		i_assert(bbox_index_opened);
 		i_array_init(&ctx->sync_expunges, 32);
 		ret = virtual_sync_backend_box_sync(ctx, bbox, sync_flags);
 		if (ret == 0) T_BEGIN {
@@ -1511,7 +1523,8 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 	if (ret == 0)
 		ctx->ext_header_rewrite = TRUE;
 	/* apply changes from virtual index to backend mailboxes */
-	virtual_sync_index_changes(ctx);
+	if (virtual_sync_index_changes(ctx) < 0)
+		return virtual_sync_finish(ctx, FALSE);
 	/* update list of UIDs in backend mailboxes */
 	if (virtual_sync_backend_boxes(ctx) < 0)
 		return virtual_sync_finish(ctx, FALSE);
