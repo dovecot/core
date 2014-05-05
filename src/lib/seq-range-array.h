@@ -33,6 +33,9 @@ seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
 unsigned int ATTR_NOWARN_UNUSED_RESULT
 seq_range_array_remove_seq_range(ARRAY_TYPE(seq_range) *dest,
 				 const ARRAY_TYPE(seq_range) *src);
+/* Remove count number of sequences from the nth sequence (0 = first). */
+void seq_range_array_remove_nth(ARRAY_TYPE(seq_range) *array,
+				uint32_t n, uint32_t count);
 /* Remove sequences from dest that don't exist in src. */
 unsigned int ATTR_NOWARN_UNUSED_RESULT
 seq_range_array_intersect(ARRAY_TYPE(seq_range) *dest,

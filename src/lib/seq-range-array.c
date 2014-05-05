@@ -288,6 +288,28 @@ unsigned int seq_range_array_remove_seq_range(ARRAY_TYPE(seq_range) *dest,
 	return ret;
 }
 
+void seq_range_array_remove_nth(ARRAY_TYPE(seq_range) *array,
+				uint32_t n, uint32_t count)
+{
+	struct seq_range_iter iter;
+	uint32_t seq1, seq2;
+
+	if (count == 0)
+		return;
+
+	seq_range_array_iter_init(&iter, array);
+	if (!seq_range_array_iter_nth(&iter, n, &seq1)) {
+		/* n points beyond array */
+		return;
+	}
+	if (count-1 >= (uint32_t)-1 - n ||
+	    !seq_range_array_iter_nth(&iter, n + (count-1), &seq2)) {
+		/* count points beyond array */
+		seq2 = (uint32_t)-1;
+	}
+	seq_range_array_remove_range(array, seq1, seq2);
+}
+
 unsigned int seq_range_array_intersect(ARRAY_TYPE(seq_range) *dest,
 				       const ARRAY_TYPE(seq_range) *src)
 {

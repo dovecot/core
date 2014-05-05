@@ -54,6 +54,32 @@ static void test_seq_range_array_add_merge(void)
 	test_end();
 }
 
+static void test_seq_range_array_remove_nth(void)
+{
+	ARRAY_TYPE(seq_range) range;
+	const struct seq_range *r;
+
+	test_begin("seq_range_array_remove_nth()");
+	t_array_init(&range, 8);
+	seq_range_array_add_range(&range, 1, 5);
+	seq_range_array_add(&range, 7);
+	seq_range_array_add_range(&range, 10,20);
+	test_assert(array_count(&range) == 3);
+
+	seq_range_array_remove_nth(&range, 0, 2);
+	r = array_idx(&range, 0); test_assert(r->seq1 == 3 && r->seq2 == 5);
+
+	seq_range_array_remove_nth(&range, 1, 4);
+	r = array_idx(&range, 0); test_assert(r->seq1 == 3 && r->seq2 == 3);
+	r = array_idx(&range, 1); test_assert(r->seq1 == 11 && r->seq2 == 20);
+
+	seq_range_array_remove_nth(&range, 5, (uint32_t)-1);
+	r = array_idx(&range, 1); test_assert(r->seq1 == 11 && r->seq2 == 14);
+
+	test_assert(array_count(&range) == 2);
+	test_end();
+}
+
 static void test_seq_range_array_random(void)
 {
 #define SEQ_RANGE_TEST_BUFSIZE 20
@@ -206,6 +232,7 @@ void test_seq_range_array(void)
 {
 	test_seq_range_array_add_boundaries();
 	test_seq_range_array_add_merge();
+	test_seq_range_array_remove_nth();
 	test_seq_range_array_invert();
 	test_seq_range_array_have_common();
 	test_seq_range_array_random();
