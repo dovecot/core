@@ -140,15 +140,19 @@ static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 {
 	const char *const *value, *filter, *name = ctx->cur_field->name;
 	string_t *str = t_str_new(256);
-	unsigned int pos;
 	bool add_lf = FALSE;
 
 	filter = strchr(name, '.');
 	if (filter != NULL)
 		name = t_strdup_until(name, filter++);
 
-	if (mail_get_headers(ctx->mail, name, &value) < 0)
-		return -1;
+	if (filter != NULL && strcmp(filter, "utf8") == 0) {
+		if (mail_get_headers_utf8(ctx->mail, name, &value) < 0)
+			return -1;
+	} else {
+		if (mail_get_headers(ctx->mail, name, &value) < 0)
+			return -1;
+	}
 
 	for (; *value != NULL; value++) {
 		if (add_lf)
@@ -157,13 +161,8 @@ static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 		add_lf = TRUE;
 	}
 
-	if (filter == NULL) {
+	if (filter == NULL || strcmp(filter, "utf8") == 0) {
 		/* print the header as-is */
-	} else if (strcmp(filter, "utf8") == 0) {
-		pos = str_len(str);
-		message_header_decode_utf8(str_data(str), str_len(str),
-					   str, FALSE);
-		str_delete(str, 0, pos);
 	} else if (strcmp(filter, "address") == 0 ||
 		   strcmp(filter, "address_name") == 0 ||
 		   strcmp(filter, "address_name.utf8") == 0) {
