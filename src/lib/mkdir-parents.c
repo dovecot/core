@@ -112,7 +112,7 @@ mkdir_parents_chown_full(const char *path, mode_t mode, uid_t uid, gid_t gid,
 						       mode, uid,
 						       gid, gid_origin);
 		} T_END;
-		if (ret < 0)
+		if (ret < 0 && errno != EEXIST)
 			return -1;
 
 		/* should work now */
