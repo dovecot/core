@@ -707,6 +707,17 @@ static int unfold_header(pool_t pool, const char **_str)
 	return 0;
 }
 
+static void str_replace_nuls(string_t *str)
+{
+	char *data = str_c_modifiable(str);
+	unsigned int i, len = str_len(str);
+
+	for (i = 0; i < len; i++) {
+		if (data[i] == '\0')
+			data[i] = ' ';
+	}
+}
+
 static int
 index_mail_headers_decode(struct index_mail *mail, const char *const **_list,
 			  unsigned int max_count)
@@ -731,9 +742,14 @@ index_mail_headers_decode(struct index_mail *mail, const char *const **_list,
 
 		/* decode MIME encoded-words. decoding may also add new LFs. */
 		message_header_decode_utf8((const unsigned char *)input,
-					   strlen(input), str, FALSE);
-		if (strcmp(str_c(str), input) != 0)
+					   strlen(input), str, NULL);
+		if (strcmp(str_c(str), input) != 0) {
+			if (strlen(str_c(str)) != str_len(str)) {
+				/* replace NULs with spaces */
+				str_replace_nuls(str);
+			}
 			input = p_strdup(mail->mail.data_pool, str_c(str));
+		}
 		decoded_list[i] = input;
 	}
 	*_list = decoded_list;
