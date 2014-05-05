@@ -11,7 +11,8 @@
 #define IS_LWSP(c) \
 	((c) == ' ' || (c) == '\t' || (c) == '\n')
 
-static bool input_idx_need_encoding(const unsigned char *input, unsigned int i)
+static bool input_idx_need_encoding(const unsigned char *input,
+				    unsigned int i, unsigned int len)
 {
 	/* 8bit chars */
 	if ((input[i] & 0x80) != 0)
@@ -21,7 +22,7 @@ static bool input_idx_need_encoding(const unsigned char *input, unsigned int i)
 		return TRUE;
 
 	/* <LWSP>=? */
-	if (input[i] == '=' && input[i+1] == '?' &&
+	if (input[i] == '=' && i+1 < len && input[i+1] == '?' &&
 	    (i == 0 || IS_LWSP(input[i-1])))
 		return TRUE;
 	return FALSE;
@@ -130,21 +131,26 @@ void message_header_encode_b(const unsigned char *input, unsigned int len,
 	}
 }
 
-void message_header_encode(const char *_input, string_t *output)
+void message_header_encode(const char *input, string_t *output)
 {
-	const unsigned char *input = (const unsigned char *)_input;
+	message_header_encode_data((const void *)input, strlen(input), output);
+}
+
+void message_header_encode_data(const unsigned char *input, unsigned int len,
+				string_t *output)
+{
 	unsigned int i, first_idx, last_idx;
 	unsigned int enc_chars, enc_len, base64_len, q_len;
 	bool use_q;
 
 	/* find the first word that needs encoding */
-	for (i = 0; input[i] != '\0'; i++) {
-		if (input_idx_need_encoding(input, i))
+	for (i = 0; i < len; i++) {
+		if (input_idx_need_encoding(input, i, len))
 			break;
 	}
-	if (input[i] == '\0') {
+	if (i == len) {
 		/* no encoding necessary */
-		str_append(output, _input);
+		str_append_data(output, input, len);
 		return;
 	}
 	first_idx = i;
@@ -153,13 +159,13 @@ void message_header_encode(const char *_input, string_t *output)
 
 	/* find the last word that needs encoding */
 	last_idx = ++i; enc_chars = 1;
-	for (; input[i] != '\0'; i++) {
-		if (input_idx_need_encoding(input, i)) {
+	for (; i < len; i++) {
+		if (input_idx_need_encoding(input, i, len)) {
 			last_idx = i + 1;
 			enc_chars++;
 		}
 	}
-	while (input[last_idx] != '\0' && !IS_LWSP(input[last_idx]))
+	while (last_idx < len && !IS_LWSP(input[last_idx]))
 		last_idx++;
 
 	/* figure out if we should use Q or B encoding. Prefer Q if it's not
@@ -170,10 +176,10 @@ void message_header_encode(const char *_input, string_t *output)
 	use_q = q_len*2/3 <= base64_len;
 
 	/* and do it */
-	str_append_n(output, input, first_idx);
+	str_append_data(output, input, first_idx);
 	if (use_q)
 		message_header_encode_q(input + first_idx, enc_len, output);
 	else
 		message_header_encode_b(input + first_idx, enc_len, output);
-	str_append(output, _input + last_idx);
+	str_append_data(output, input + last_idx, len - last_idx);
 }

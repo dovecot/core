@@ -134,7 +134,7 @@ test_message_decoder_LDADD = message-decoder.lo rfc822-parser.lo rfc2231-parser.
 test_message_decoder_DEPENDENCIES = $(test_deps)
 
 test_message_header_decode_SOURCES = test-message-header-decode.c
-test_message_header_decode_LDADD = message-header-decode.lo quoted-printable.lo $(test_libs)
+test_message_header_decode_LDADD = message-header-decode.lo quoted-printable.lo message-header-encode.lo $(test_libs)
 test_message_header_decode_DEPENDENCIES = $(test_deps)
 
 test_message_header_encode_SOURCES = test-message-header-encode.c

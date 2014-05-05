@@ -4,8 +4,11 @@
 #include "buffer.h"
 #include "str.h"
 #include "charset-utf8.h"
+#include "message-header-encode.h"
 #include "message-header-decode.h"
 #include "test-common.h"
+
+#include <stdlib.h>
 
 bool charset_is_utf8(const char *charset ATTR_UNUSED) { return TRUE; }
 
@@ -25,6 +28,7 @@ charset_to_utf8(struct charset_translation *t ATTR_UNUSED,
 static void test_message_header_decode(void)
 {
 	static const char *data[] = {
+		" \t=?utf-8?q?=c3=a4?=  =?utf-8?q?=c3=a4?=  b  \t\r\n ", "ää  b  \t\r\n ",
 		"a =?utf-8?q?=c3=a4?= b", "a ä b",
 		"a =?utf-8?q?=c3=a4?= b", "a ä b",
 		"a =?utf-8?q?=c3=a4?=\t\t\r\n =?utf-8?q?=c3=a4?= b", "a ää b",
@@ -47,10 +51,40 @@ static void test_message_header_decode(void)
 	test_end();
 }
 
+static void test_message_header_decode_encode_random(void)
+{
+	string_t *encoded, *decoded;
+	unsigned char buf[1024];
+	unsigned int i, j, buflen;
+
+	test_begin("message header encode & decode randomly");
+
+	buf[0] = 'x';
+	encoded = t_str_new(256);
+	decoded = t_str_new(256);
+	for (i = 0; i < 1000; i++) {
+		/* fill only with 7bit data so we don't have to worry about
+		   the data being valid UTF-8 */
+		for (j = 1; j < sizeof(buf); j++)
+			buf[j] = rand() % 128;
+		buflen = rand() % sizeof(buf);
+
+		str_truncate(encoded, 0);
+		str_truncate(decoded, 0);
+		message_header_encode_data(buf, buflen, encoded);
+		message_header_decode_utf8(encoded->data, encoded->used,
+					   decoded, NULL);
+		test_assert(decoded->used == buflen &&
+			    memcmp(decoded->data, buf, buflen) == 0);
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_message_header_decode,
+		test_message_header_decode_encode_random,
 		NULL
 	};
 	return test_run(test_functions);
