@@ -107,6 +107,11 @@ void str_append_n(string_t *str, const void *cstr, size_t max_len)
 	buffer_append(str, cstr, len);
 }
 
+void str_append_data(string_t *str, const void *data, size_t len)
+{
+	buffer_append(str, data, len);
+}
+
 void str_append_c(string_t *str, unsigned char chr)
 {
 	buffer_append_c(str, chr);

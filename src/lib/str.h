@@ -20,6 +20,7 @@ bool str_equals(const string_t *str1, const string_t *str2) ATTR_PURE;
 /* Append string/character */
 void str_append(string_t *str, const char *cstr);
 void str_append_n(string_t *str, const void *cstr, size_t max_len);
+void str_append_data(string_t *str, const void *data, size_t len);
 void str_append_c(string_t *str, unsigned char chr);
 void str_append_str(string_t *dest, const string_t *src);
 
