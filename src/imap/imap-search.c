@@ -228,26 +228,10 @@ static void imap_search_send_result_standard(struct imap_search_context *ctx)
 static void
 imap_search_send_partial(struct imap_search_context *ctx, string_t *str)
 {
-	struct seq_range *range;
-	unsigned int i, count;
-
 	str_printfa(str, " PARTIAL (%u:%u ", ctx->partial1, ctx->partial2);
 
-	/* we need to be able to handle non-sorted seq ranges (for SORT
-	   replies), so do this ourself instead of using seq_range_array_*()
-	   functions. */
-	range = array_get_modifiable(&ctx->result, &count);
-	for (i = count; i > 0; ) {
-		i--;
-		if (range[i].seq1 < ctx->partial1)
-			range[i].seq1 = ctx->partial1;
-		if (range[i].seq2 > ctx->partial2)
-			range[i].seq2 = ctx->partial2;
-		if (range[i].seq1 > range[i].seq2) {
-			array_delete(&ctx->result, i, 1);
-			range = array_get_modifiable(&ctx->result, &count);
-		}
-	}
+	seq_range_array_remove_nth(&ctx->result, ctx->partial2, (uint32_t)-1);
+	seq_range_array_remove_nth(&ctx->result, 0, ctx->partial1-1);
 
 	if (array_count(&ctx->result) == 0) {
 		/* no results (in range) */
