@@ -2027,6 +2027,9 @@ auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1] = {
 	{ '\0', NULL, "domain_last" },
 	{ '\0', NULL, "master_user" },
 	{ '\0', NULL, "session_pid" },
+	{ '\0', NULL, "orig_user" },
+	{ '\0', NULL, "orig_username" },
+	{ '\0', NULL, "orig_domain" },
 	/* be sure to update AUTH_REQUEST_VAR_TAB_COUNT */
 	{ '\0', NULL, NULL }
 };
@@ -2039,6 +2042,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	const unsigned int auth_count =
 		N_ELEMENTS(auth_request_var_expand_static_tab);
 	struct var_expand_table *tab, *ret_tab;
+	const char *orig_user;
 
 	if (escape_func == NULL)
 		escape_func = escape_none;
@@ -2116,6 +2120,14 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		escape_func(auth_request->master_user, auth_request);
 	tab[26].value = auth_request->session_pid == (pid_t)-1 ? NULL :
 		dec2str(auth_request->session_pid);
+
+	orig_user = auth_request->original_username != NULL ?
+		auth_request->original_username : auth_request->user;
+	tab[27].value = escape_func(orig_user, auth_request);
+	tab[28].value = escape_func(t_strcut(orig_user, '@'), auth_request);
+	tab[29].value = strchr(orig_user, '@');
+	if (tab[29].value != NULL)
+		tab[29].value = escape_func(tab[29].value+1, auth_request);
 	return ret_tab;
 }
 
