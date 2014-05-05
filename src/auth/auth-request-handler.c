@@ -274,6 +274,8 @@ auth_request_handler_reply_failure_finish(struct auth_request *request)
 {
 	string_t *str = t_str_new(128);
 
+	auth_fields_remove(request->extra_fields, "nologin");
+
 	str_printfa(str, "FAIL\t%u", request->id);
 	if (request->user != NULL)
 		auth_str_add_keyvalue(str, "user", request->user);
