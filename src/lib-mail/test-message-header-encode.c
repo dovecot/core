@@ -168,6 +168,8 @@ static void test_message_header_encode(void)
 		"a ää ä b", "a =?utf-8?b?w6TDpCDDpA==?= b",
 		"ä a ä", "=?utf-8?q?=C3=A4_a_=C3=A4?=",
 		"ää a ä", "=?utf-8?b?w6TDpCBhIMOk?=",
+		"foo\001bar", "=?utf-8?q?foo=01bar?=",
+		"\x01\x02\x03\x04\x05\x06\x07\x08", "=?utf-8?b?AQIDBAUGBwg=?="
 	};                          
 	string_t *str = t_str_new(128);
 	unsigned int i;

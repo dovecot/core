@@ -13,9 +13,14 @@
 
 static bool input_idx_need_encoding(const unsigned char *input, unsigned int i)
 {
+	/* 8bit chars */
 	if ((input[i] & 0x80) != 0)
 		return TRUE;
+	/* control chars */
+	if (input[i] < 32)
+		return TRUE;
 
+	/* <LWSP>=? */
 	if (input[i] == '=' && input[i+1] == '?' &&
 	    (i == 0 || IS_LWSP(input[i-1])))
 		return TRUE;
@@ -65,12 +70,12 @@ void message_header_encode_q(const unsigned char *input, unsigned int len,
 		case '?':
 		case '_':
 			line_len_left -= 2;
-			str_printfa(output, "=%2X", input[i]);
+			str_printfa(output, "=%02X", input[i]);
 			break;
 		default:
 			if (input[i] < 32 || (input[i] & 0x80) != 0) {
 				line_len_left -= 2;
-				str_printfa(output, "=%2X", input[i]);
+				str_printfa(output, "=%02X", input[i]);
 			} else {
 				str_append_c(output, input[i]);
 			}
