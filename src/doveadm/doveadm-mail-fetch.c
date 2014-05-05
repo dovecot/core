@@ -189,7 +189,7 @@ static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 				else {
 					message_header_decode_utf8(
 						(const void *)addr->name,
-						strlen(addr->name), str, FALSE);
+						strlen(addr->name), str, NULL);
 				}
 			}
 			add_lf = TRUE;

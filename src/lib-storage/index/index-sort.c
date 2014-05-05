@@ -393,7 +393,7 @@ get_display_name(struct mail *mail, const char *header, const char **name_r)
 
 		str = t_str_new(len*2);
 		(void)message_header_decode_utf8(
-			(const unsigned char *)addr->name, len, str, FALSE);
+			(const unsigned char *)addr->name, len, str, NULL);
 		if (str_len(str) > 0) {
 			*name_r = str_c(str);
 			return 0;
