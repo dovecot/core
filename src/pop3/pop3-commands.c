@@ -838,7 +838,8 @@ cmd_uidl_init(struct client *client, uint32_t seq)
 	struct mail_search_args *search_args;
 	enum mail_fetch_field wanted_fields;
 
-	if (client->message_uidls_save && client->message_uidls == NULL)
+	if (client->message_uidls_save && client->message_uidls == NULL &&
+	    client->messages_count > 0)
 		client_uidls_save(client);
 
 	ctx = i_new(struct cmd_uidl_context, 1);
