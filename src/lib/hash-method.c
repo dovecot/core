@@ -47,7 +47,7 @@ static void hash_method_result_size(void *context, unsigned char *result_r)
 	result_r[7] = (*ctx & 0x00000000000000ffULL);
 }
 
-const struct hash_method hash_method_size = {
+static const struct hash_method hash_method_size = {
 	"size",
 	sizeof(uint64_t),
 	sizeof(uint64_t),

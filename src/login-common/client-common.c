@@ -25,7 +25,8 @@
 
 #include <stdlib.h>
 
-struct client *clients = NULL, *last_client = NULL;
+struct client *clients = NULL;
+static struct client *last_client = NULL;
 static unsigned int clients_count = 0;
 
 static void client_idle_disconnect_timeout(struct client *client)

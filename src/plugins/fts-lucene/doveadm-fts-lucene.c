@@ -53,7 +53,7 @@ static bool test_dump_fts_lucene(const char *path)
 	return stat(path, &st) == 0;
 }
 
-struct doveadm_cmd_dump doveadm_cmd_dump_fts_lucene = {
+static const struct doveadm_cmd_dump doveadm_cmd_dump_fts_lucene = {
 	"fts-lucene",
 	test_dump_fts_lucene,
 	cmd_dump_fts_lucene

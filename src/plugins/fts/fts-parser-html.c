@@ -36,7 +36,7 @@ struct html_fts_parser {
 	bool ignore_next_text;
 };
 
-struct {
+static struct {
 	const char *name;
 	unichar_t chr;
 } html_entities[] = {

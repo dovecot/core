@@ -6,7 +6,7 @@
 #include "message-parser.h"
 #include "fts-parser.h"
 
-const struct fts_parser_vfuncs *parsers[] = {
+static const struct fts_parser_vfuncs *parsers[] = {
 	&fts_parser_html,
 	&fts_parser_script,
 	&fts_parser_tika

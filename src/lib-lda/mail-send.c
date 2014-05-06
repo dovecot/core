@@ -21,8 +21,6 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 
-int global_outgoing_count = 0;
-
 static const struct var_expand_table *
 get_var_expand_table(struct mail *mail, const char *reason,
 		     const char *recipient)

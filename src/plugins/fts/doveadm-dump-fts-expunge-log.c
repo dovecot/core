@@ -97,7 +97,7 @@ static bool test_dump_fts_expunge_log(const char *path)
 	return strcmp(p, "dovecot-expunges.log") == 0;
 }
 
-struct doveadm_cmd_dump doveadm_cmd_dump_fts_expunge_log = {
+static const struct doveadm_cmd_dump doveadm_cmd_dump_fts_expunge_log = {
 	"fts-expunge-log",
 	test_dump_fts_expunge_log,
 	cmd_dump_fts_expunge_log

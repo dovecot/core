@@ -89,7 +89,7 @@ struct mail_index_strmap_hash_key {
 
 #define MAIL_INDEX_STRMAP_TIMEOUT_SECS 10
 
-const struct dotlock_settings default_dotlock_settings = {
+static const struct dotlock_settings default_dotlock_settings = {
 	.timeout = MAIL_INDEX_STRMAP_TIMEOUT_SECS,
 	.stale_timeout = 30
 };

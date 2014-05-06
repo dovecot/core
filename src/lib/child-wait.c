@@ -15,7 +15,7 @@ struct child_wait {
 };
 
 /* pid_t => wait */
-HASH_TABLE(void *, struct child_wait *) child_pids;
+static HASH_TABLE(void *, struct child_wait *) child_pids;
 
 #undef child_wait_new_with_pid
 struct child_wait *

@@ -501,7 +501,7 @@ imap_search_x_mailbox(struct mail_search_build_context *ctx)
 	return sarg;
 }
 
-const struct mail_search_register_arg imap_register_args[] = {
+static const struct mail_search_register_arg imap_register_args[] = {
 	/* argument set operations */
 	{ "NOT", imap_search_not },
 	{ "OR", imap_search_or },
