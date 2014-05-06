@@ -366,9 +366,9 @@ int bsearch_strcmp(const char *key, const char *const *member)
 	return strcmp(key, *member);
 }
 
-int i_strcmp_p(const char *const *s1, const char *const *s2)
+int i_strcmp_p(const char *const *p1, const char *const *p2)
 {
-	return strcmp(*s1, *s2);
+	return strcmp(*p1, *p2);
 }
 
 int bsearch_strcasecmp(const char *key, const char *const *member)
@@ -376,9 +376,9 @@ int bsearch_strcasecmp(const char *key, const char *const *member)
 	return strcasecmp(key, *member);
 }
 
-int i_strcasecmp_p(const char *const *s1, const char *const *s2)
+int i_strcasecmp_p(const char *const *p1, const char *const *p2)
 {
-	return strcasecmp(*s1, *s2);
+	return strcasecmp(*p1, *p2);
 }
 
 static char **
