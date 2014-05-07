@@ -43,8 +43,11 @@
  * doesn't work.
  */
 #if defined(__i386__) || defined(__x86_64__) || defined(__vax__)
-#define SET(n) \
-	(*(const uint_fast32_t *)&ptr[(n) * 4])
+/* uint_fast32_t might be 64 bit, and thus may read 4 more bytes
+ * beyond the end of the buffer. So only read precisely 32 bits
+ */
+#define SET(n)				\
+	(*(const uint32_t *)&ptr[(n) * 4])
 #define GET(n) \
 	SET(n)
 #else

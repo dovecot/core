@@ -48,7 +48,7 @@
  */
 #if defined(__i386__) || defined(__x86_64__) || defined(__vax__)
 #define SET(n) \
-	(*(const uint_fast32_t *)&ptr[(n) * 4])
+	(*(const uint32_t *)&ptr[(n) * 4])
 #define GET(n) \
 	SET(n)
 #else
