@@ -269,7 +269,6 @@ bool client_update_mails(struct client *client)
 	ctx = mailbox_search_init(client->trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
-	msgnum = 0;
 	while (mailbox_search_next(ctx, &mail)) {
 		if (seq_range_exists(&deleted_msgs, mail->seq))
 			client_expunge(client, mail);
