@@ -561,7 +561,7 @@ strmap_read_block_next(struct mail_index_strmap_read_context *ctx,
 			/* this block is done */
 			return 0;
 		}
-		if (mail_index_strmap_read_packed(ctx, &uid_diff) < 0)
+		if (mail_index_strmap_read_packed(ctx, &uid_diff) <= 0)
 			return -1;
 
 		ctx->rec.uid += uid_diff;
