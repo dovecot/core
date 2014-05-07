@@ -77,7 +77,7 @@ void i_stream_remove_destroy_callback(struct istream *stream,
 
 	dcs = array_get(&iostream->destroy_callbacks, &count);
 	for (i = 0; i < count; i++) {
-		if (dcs[i].callback == callback) {
+		if (dcs[i].callback == (istream_callback_t *)callback) {
 			array_delete(&iostream->destroy_callbacks, i, 1);
 			return;
 		}

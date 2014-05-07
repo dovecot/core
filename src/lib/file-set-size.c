@@ -14,7 +14,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#ifdef HAVE_LINUX_FALLOC_H
+#if defined(HAVE_LINUX_FALLOC_H) && !defined(FALLOC_FL_KEEP_SIZE)
+/* Legacy Linux does not have the FALLOC_FL_* flags under fcntl.h */
 #  include <linux/falloc.h>
 #endif
 
