@@ -148,7 +148,7 @@ static void doveadm_print_headers(void)
 	}
 	if (i == count)
 		return;
-	for (; i < count; i++) {
+	for (i = 0; i < count; i++) {
 		if (i > 0) fprintf(stderr, " ");
 
 		if ((headers[i].flags &
