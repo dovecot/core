@@ -141,12 +141,18 @@ o_stream_zlib_send_chunk(struct zlib_ostream *zstream,
 			}
 		}
 
-		switch (deflate(zs, flush)) {
+		ret = deflate(zs, flush);
+		switch (ret) {
 		case Z_OK:
 		case Z_BUF_ERROR:
 			break;
+		case Z_STREAM_ERROR:
+			i_assert(zstream->gz);
+			i_panic("zlib.write(%s) failed: Can't write more data to .gz after flushing",
+				o_stream_get_name(&zstream->ostream.ostream));
 		default:
-			i_unreached();
+			i_panic("zlib.write(%s) failed with unexpected code %d",
+				o_stream_get_name(&zstream->ostream.ostream), ret);
 		}
 	}
 	size -= zs->avail_in;
@@ -158,12 +164,13 @@ o_stream_zlib_send_chunk(struct zlib_ostream *zstream,
 	return size;
 }
 
-static int o_stream_zlib_send_flush(struct zlib_ostream *zstream)
+static int
+o_stream_zlib_send_flush(struct zlib_ostream *zstream, bool final)
 {
 	z_stream *zs = &zstream->zs;
 	unsigned int len;
 	bool done = FALSE;
-	int ret;
+	int ret, flush;
 
 	if (zs->avail_in != 0) {
 		i_assert(zstream->ostream.ostream.last_failed_errno != 0);
@@ -182,6 +189,9 @@ static int o_stream_zlib_send_flush(struct zlib_ostream *zstream)
 	if ((ret = o_stream_zlib_send_outbuf(zstream)) <= 0)
 		return ret;
 
+	flush = !zstream->gz ? Z_SYNC_FLUSH :
+		(final ? Z_FINISH : Z_NO_FLUSH);
+
 	i_assert(zstream->outbuf_used == 0);
 	do {
 		len = sizeof(zstream->outbuf) - zs->avail_out;
@@ -196,7 +206,7 @@ static int o_stream_zlib_send_flush(struct zlib_ostream *zstream)
 				break;
 		}
 
-		switch (deflate(zs, zstream->gz ? Z_FINISH : Z_SYNC_FLUSH)) {
+		switch (deflate(zs, flush)) {
 		case Z_OK:
 		case Z_BUF_ERROR:
 			break;
@@ -208,9 +218,12 @@ static int o_stream_zlib_send_flush(struct zlib_ostream *zstream)
 		}
 	} while (zs->avail_out != sizeof(zstream->outbuf));
 
-	if (o_stream_zlib_send_gz_trailer(zstream) < 0)
-		return -1;
-	zstream->flushed = TRUE;
+	if (final) {
+		if (o_stream_zlib_send_gz_trailer(zstream) < 0)
+			return -1;
+	}
+	if (final || flush != Z_NO_FLUSH)
+		zstream->flushed = TRUE;
 	return 0;
 }
 
@@ -219,7 +232,7 @@ static int o_stream_zlib_flush(struct ostream_private *stream)
 	struct zlib_ostream *zstream = (struct zlib_ostream *)stream;
 	int ret;
 
-	if (o_stream_zlib_send_flush(zstream) < 0)
+	if (o_stream_zlib_send_flush(zstream, TRUE) < 0)
 		return -1;
 
 	ret = o_stream_flush(stream->parent);
@@ -254,7 +267,7 @@ o_stream_zlib_sendv(struct ostream_private *stream,
 	stream->ostream.offset += bytes;
 
 	if (!zstream->ostream.corked && i == iov_count) {
-		if (o_stream_zlib_send_flush(zstream) < 0)
+		if (o_stream_zlib_send_flush(zstream, FALSE) < 0)
 			return -1;
 	}
 	/* avail_in!=0 check is used to detect errors. if it's non-zero here
