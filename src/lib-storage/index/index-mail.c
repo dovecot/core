@@ -153,6 +153,11 @@ static bool index_mail_get_pvt(struct mail *_mail)
 		/* no private view (set by view syncing) -> no private flags */
 		return FALSE;
 	}
+	if (_mail->saving) {
+		/* mail is still being saved, it has no private flags yet */
+		return FALSE;
+	}
+	i_assert(_mail->uid != 0);
 
 	index_transaction_init_pvt(_mail->transaction);
 	if (!mail_index_lookup_seq(_mail->transaction->view_pvt, _mail->uid,
