@@ -816,7 +816,7 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 		if (res != NULL && srequest != NULL && srequest->result != NULL)
 			request->callback(conn, request, srequest->result->msg);
 
-		request->callback(conn, request, res->msg);
+		request->callback(conn, request, res == NULL ? NULL : res->msg);
 	} T_END;
 
 	if (idx > 0) {
