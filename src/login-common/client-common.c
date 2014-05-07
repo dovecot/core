@@ -171,6 +171,8 @@ void client_destroy(struct client *client, const char *reason)
 		last_client = client->prev;
 	DLLIST_REMOVE(&clients, client);
 
+	if (!client->login_success && client->ssl_proxy != NULL)
+		ssl_proxy_destroy(client->ssl_proxy);
 	if (client->input != NULL)
 		i_stream_close(client->input);
 	if (client->output != NULL)

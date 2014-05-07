@@ -116,7 +116,6 @@ static void plain_read(struct ssl_proxy *proxy);
 static void ssl_read(struct ssl_proxy *proxy);
 static void ssl_write(struct ssl_proxy *proxy);
 static void ssl_step(struct ssl_proxy *proxy);
-static void ssl_proxy_destroy(struct ssl_proxy *proxy);
 static void ssl_proxy_unref(struct ssl_proxy *proxy);
 
 static struct ssl_server_context *
@@ -807,7 +806,7 @@ static void ssl_proxy_unref(struct ssl_proxy *proxy)
 	i_free(proxy);
 }
 
-static void ssl_proxy_destroy(struct ssl_proxy *proxy)
+void ssl_proxy_destroy(struct ssl_proxy *proxy)
 {
 	if (proxy->destroyed)
 		return;
