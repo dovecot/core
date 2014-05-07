@@ -594,6 +594,15 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 			parser->str_first_escape = -1;
 			break;
 		case '~':
+			/* This could be either literal8 or atom */
+			if (data_size == 1) {
+				/* wait for the next char */
+				return FALSE;
+			}
+			if (data[1] != '{') {
+				parser->cur_type = ARG_PARSE_ATOM;
+				break;
+			}
 			if ((parser->flags & IMAP_PARSE_FLAG_LITERAL8) == 0) {
 				parser->error = "literal8 not allowed here";
 				return FALSE;
