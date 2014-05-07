@@ -557,8 +557,7 @@ mech_rpa_auth_free(struct auth_request *auth_request)
 	struct rpa_auth_request *request =
 		(struct rpa_auth_request *)auth_request;
 
-	if (request->pwd_md5 != NULL)
-		safe_memset(request->pwd_md5, 0, sizeof(request->pwd_md5));
+	safe_memset(request->pwd_md5, 0, sizeof(request->pwd_md5));
 
 	pool_unref(&auth_request->pool);
 }
