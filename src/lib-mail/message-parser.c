@@ -165,6 +165,8 @@ message_part_append(pool_t pool, struct message_part *parent)
 {
 	struct message_part *p, *part, **list;
 
+	i_assert(parent != NULL);
+
 	part = p_new(pool, struct message_part, 1);
 	part->parent = parent;
 	for (p = parent; p != NULL; p = p->parent)
@@ -310,6 +312,7 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 		message_size_add(&part->parent->body_size, &part->body_size);
 		message_size_add(&part->parent->body_size, &part->header_size);
 	}
+	i_assert(part != NULL);
 	ctx->part = part;
 
 	if (boundary->epilogue_found) {
