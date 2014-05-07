@@ -327,6 +327,9 @@ dsync_attributes_cmp_values(const struct dsync_mailbox_attribute *attr1,
 	struct istream *input1, *input2;
 	int ret;
 
+	i_assert(attr1->value_stream != NULL || attr1->value != NULL);
+	i_assert(attr2->value_stream != NULL || attr2->value != NULL);
+
 	if (attr1->value != NULL && attr2->value != NULL) {
 		*cmp_r = strcmp(attr1->value, attr2->value);
 		return 0;
