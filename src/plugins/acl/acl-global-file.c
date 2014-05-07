@@ -155,20 +155,6 @@ int acl_global_file_refresh(struct acl_global_file *file)
 	return 0;
 }
 
-static struct acl_global_rights *
-acl_global_file_find_rights(struct acl_global_file *file, const char *vname)
-{
-	struct acl_global_rights *rights;
-
-	i_assert(file->last_refresh_time != 0);
-
-	array_foreach_modifiable(&file->rights, rights) {
-		if (wildcard_match(vname, rights->vpattern))
-			return rights;
-	}
-	return NULL;
-}
-
 void acl_global_file_get(struct acl_global_file *file, const char *vname,
 			 pool_t pool, ARRAY_TYPE(acl_rights) *rights_r)
 {
@@ -176,16 +162,25 @@ void acl_global_file_get(struct acl_global_file *file, const char *vname,
 	const struct acl_rights *rights;
 	struct acl_rights *new_rights;
 
-	global_rights = acl_global_file_find_rights(file, vname);
-	if (global_rights == NULL)
-		return;
-	array_foreach(&global_rights->rights, rights) {
-		new_rights = array_append_space(rights_r);
-		acl_rights_dup(rights, pool, new_rights);
+	array_foreach_modifiable(&file->rights, global_rights) {
+		if (!wildcard_match(vname, global_rights->vpattern))
+			continue;
+		array_foreach(&global_rights->rights, rights) {
+			new_rights = array_append_space(rights_r);
+			acl_rights_dup(rights, pool, new_rights);
+		}
 	}
 }
 
 bool acl_global_file_have_any(struct acl_global_file *file, const char *vname)
 {
-	return acl_global_file_find_rights(file, vname) != NULL;
+	struct acl_global_rights *rights;
+
+	i_assert(file->last_refresh_time != 0);
+
+	array_foreach_modifiable(&file->rights, rights) {
+		if (wildcard_match(vname, rights->vpattern))
+			return TRUE;
+	}
+	return FALSE;
 }
