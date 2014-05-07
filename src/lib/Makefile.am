@@ -275,6 +275,7 @@ test_lib_SOURCES = \
 	test-buffer.c \
 	test-crc32.c \
 	test-hash-format.c \
+	test-hash-method.c \
 	test-hex-binary.c \
 	test-iso8601-date.c \
 	test-istream-base64-decoder.c \

@@ -12,6 +12,7 @@ int main(void)
 		test_buffer,
 		test_crc32,
 		test_hash_format,
+		test_hash_method,
 		test_hex_binary,
 		test_iso8601_date,
 		test_istream_base64_decoder,
