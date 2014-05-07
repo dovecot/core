@@ -1344,6 +1344,13 @@ int lucene_index_lookup(struct lucene_index *index,
 			return -1;
 	}
 
+	if (have_definites) {
+		/* FIXME: mixing up definite + maybe queries is broken. if the
+		   definite query matched, it'll just assume that the maybe
+		   queries matched as well */
+		return 0;
+	}
+
 	ARRAY_TYPE(lucene_query) maybe_queries;
 	t_array_init(&maybe_queries, 16);
 	bool have_maybies = false;
