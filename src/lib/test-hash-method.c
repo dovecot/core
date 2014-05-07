@@ -4,6 +4,10 @@
 #include "mmap-util.h"
 #include "hash-method.h"
 
+#if !defined(MAP_ANONYMOUS) && defined(MAP_ANON)
+#  define MAP_ANONYMOUS MAP_ANON
+#endif
+
 static unsigned char *buf;
 static unsigned int buf_size;
 
@@ -33,9 +37,13 @@ void test_hash_method(void)
 	unsigned int i;
 
 	buf_size = mmap_get_page_size();
+#ifdef MAP_ANONYMOUS
 	buf = mmap(NULL, buf_size*2, PROT_READ | PROT_WRITE,
 		   MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	mprotect(buf + buf_size, buf_size, PROT_NONE);
+#else
+	buf = i_malloc(buf_size);
+#endif
 	memset(buf, 0, buf_size);
 
 	for (i = 0; hash_methods[i] != NULL; i++)
