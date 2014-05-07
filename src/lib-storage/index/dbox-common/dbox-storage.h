@@ -73,6 +73,8 @@ void dbox_notify_changes(struct mailbox *box);
 int dbox_mailbox_open(struct mailbox *box);
 int dbox_mailbox_create(struct mailbox *box,
 			const struct mailbox_update *update, bool directory);
+int dbox_mailbox_create_indexes(struct mailbox *box,
+				const struct mailbox_update *update);
 int dbox_verify_alt_storage(struct mailbox_list *list);
 bool dbox_header_have_flag(struct mailbox *box, uint32_t ext_id,
 			   unsigned int flags_offset, uint8_t flag);

@@ -255,9 +255,6 @@ int dbox_mailbox_create(struct mailbox *box,
 			const struct mailbox_update *update, bool directory)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)box->storage;
-	struct mail_index_sync_ctx *sync_ctx;
-	struct mail_index_view *view;
-	struct mail_index_transaction *trans;
 	const char *alt_path;
 	struct stat st;
 	int ret;
@@ -290,6 +287,17 @@ int dbox_mailbox_create(struct mailbox *box,
 		}
 		/* dir is empty, ignore it */
 	}
+	return dbox_mailbox_create_indexes(box, update);
+}
+
+int dbox_mailbox_create_indexes(struct mailbox *box,
+				const struct mailbox_update *update)
+{
+	struct dbox_storage *storage = (struct dbox_storage *)box->storage;
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	int ret;
 
 	/* use syncing as a lock */
 	ret = mail_index_sync_begin(box->index, &sync_ctx, &view, &trans, 0);

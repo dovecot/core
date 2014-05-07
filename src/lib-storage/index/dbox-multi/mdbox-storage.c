@@ -379,10 +379,15 @@ mdbox_mailbox_get_guid(struct mdbox_mailbox *mbox, guid_128_t guid_r)
 
 	/* there's a race condition between mkdir and getting the mailbox GUID.
 	   normally this is handled by mdbox syncing, but GUID can be looked up
-	   without syncing. when mbox->creating=TRUE, the errors are hidden
-	   and we'll simply finish the mailbox creation */
+	   without syncing. when we detect this situation we'll try to finish
+	   creating the indexes first, which usually means just waiting for
+	   the sync lock to get unlocked by the other process creating them. */
 	idx_hdr = mail_index_get_header(mbox->box.view);
-	mbox->creating = idx_hdr->uid_validity == 0 && idx_hdr->next_uid == 1;
+	if (idx_hdr->uid_validity == 0 && idx_hdr->next_uid == 1) {
+		if (dbox_mailbox_create_indexes(&mbox->box, NULL) < 0)
+			return -1;
+	}
+
 	if (mdbox_read_header(mbox, &hdr, &need_resize) < 0)
 		memset(&hdr, 0, sizeof(hdr));
 
@@ -394,7 +399,6 @@ mdbox_mailbox_get_guid(struct mdbox_mailbox *mbox, guid_128_t guid_r)
 	}
 	if (ret == 0)
 		memcpy(guid_r, hdr.mailbox_guid, GUID_128_SIZE);
-	mbox->creating = FALSE;
 	return ret;
 }
 
