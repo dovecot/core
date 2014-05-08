@@ -10,7 +10,6 @@
 #include "safe-mkstemp.h"
 #include "eacces-error.h"
 #include "ipwd.h"
-#include "mkdir-parents.h"
 #include "str.h"
 #include "str-sanitize.h"
 #include "strescape.h"

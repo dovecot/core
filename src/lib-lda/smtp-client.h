@@ -1,8 +1,6 @@
 #ifndef SMTP_CLIENT_H
 #define SMTP_CLIENT_H
 
-#include <stdio.h>
-
 struct smtp_client * ATTR_NULL(3)
 smtp_client_init(const struct lda_settings *set, const char *return_path);
 /* Add a new recipient */
