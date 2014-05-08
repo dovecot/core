@@ -33,6 +33,9 @@ struct binary_ctx {
 	struct mail *mail;
 	struct istream *input;
 	bool has_nuls, converted;
+	/* each block is its own input stream. basically each converted MIME
+	   body has its own block and the parts between the MIME bodies are
+	   unconverted blocks */
 	ARRAY(struct binary_block) blocks;
 
 	uoff_t copy_start_offset;
@@ -306,23 +309,27 @@ blocks_count_lines(struct binary_ctx *ctx, struct istream *full_input)
 {
 	struct binary_block *blocks, *cur_block;
 	unsigned int block_idx, block_count;
-	uoff_t cur_offset, cur_size;
+	uoff_t cur_block_offset, cur_block_size;
 	const unsigned char *data, *p;
 	size_t size, skip;
 	ssize_t ret;
 
 	blocks = array_get_modifiable(&ctx->blocks, &block_count);
 	cur_block = blocks;
-	cur_offset = 0;
+	cur_block_offset = 0;
 	block_idx = 0;
 
+	/* count the number of lines each block contains */
 	while ((ret = i_stream_read_data(full_input, &data, &size, 0)) > 0) {
-		i_assert(cur_offset <= cur_block->input->v_offset);
+		i_assert(cur_block_offset <= cur_block->input->v_offset);
 		if (cur_block->input->eof) {
-			cur_size = cur_block->input->v_offset +
+			/* this is the last input for this block. the input
+			   may also contain the next block's data, which we
+			   don't want to include in this block's line count. */
+			cur_block_size = cur_block->input->v_offset +
 				i_stream_get_data_size(cur_block->input);
-			i_assert(size >= cur_size - cur_offset);
-			size = cur_size - cur_offset;
+			i_assert(size >= cur_block_size - cur_block_offset);
+			size = cur_block_size - cur_block_offset;
 		}
 		skip = size;
 		while ((p = memchr(data, '\n', size)) != NULL) {
@@ -331,14 +338,16 @@ blocks_count_lines(struct binary_ctx *ctx, struct istream *full_input)
 			cur_block->body_lines_count++;
 		}
 		i_stream_skip(full_input, skip);
-		cur_offset += skip;
+		cur_block_offset += skip;
 
 		if (cur_block->input->eof) {
-			if (++block_idx == block_count)
-				cur_block = NULL;
-			else
-				cur_block++;
-			cur_offset = 0;
+			/* go to the next block */
+			if (++block_idx == block_count) {
+				i_assert(i_stream_is_eof(full_input));
+				break;
+			}
+			cur_block++;
+			cur_block_offset = 0;
 		}
 	}
 	i_assert(ret == -1);
