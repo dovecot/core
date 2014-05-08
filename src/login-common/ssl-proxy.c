@@ -86,6 +86,8 @@ const char *ssl_proxy_get_cert_error(struct ssl_proxy *proxy ATTR_UNUSED)
 	return "";
 }
 
+void ssl_proxy_destroy(struct ssl_proxy *proxy ATTR_UNUSED) {}
+
 void ssl_proxy_free(struct ssl_proxy **proxy ATTR_UNUSED) {}
 
 unsigned int ssl_proxy_get_count(void)
