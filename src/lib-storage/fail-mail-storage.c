@@ -5,8 +5,6 @@
 #include "mail-storage-private.h"
 #include "fail-mail-storage.h"
 
-extern struct mail_storage fail_storage;
-
 static struct mail_storage *fail_storage_alloc(void)
 {
 	struct mail_storage *storage;

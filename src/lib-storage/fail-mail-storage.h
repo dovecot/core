@@ -1,6 +1,10 @@
 #ifndef FAIL_MAIL_STORAGE_H
 #define FAIL_MAIL_STORAGE_H
 
+extern struct mail_storage fail_storage;
+extern struct mailbox fail_mailbox;
+extern struct mail_vfuncs fail_mail_vfuncs;
+
 struct mail_storage *fail_mail_storage_create(void);
 
 struct mailbox *

@@ -5,8 +5,6 @@
 #include "mail-storage-private.h"
 #include "fail-mail-storage.h"
 
-extern struct mail_vfuncs fail_mail_vfuncs;
-
 struct mail *
 fail_mailbox_mail_alloc(struct mailbox_transaction_context *t,
 			enum mail_fetch_field wanted_fields ATTR_UNUSED,
