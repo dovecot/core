@@ -41,7 +41,7 @@ pop3c_storage_create(struct mail_storage *_storage,
 		*error_r = "missing pop3c_host";
 		return -1;
 	}
-	if (storage->set->pop3c_password == '\0') {
+	if (storage->set->pop3c_password[0] == '\0') {
 		*error_r = "missing pop3c_password";
 		return -1;
 	}
