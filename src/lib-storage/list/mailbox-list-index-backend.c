@@ -85,14 +85,9 @@ static const char *
 index_get_guid_path(struct mailbox_list *_list, const char *root_dir,
 		    const guid_128_t mailbox_guid)
 {
-	if (_list->set.mailbox_dir_name == '\0') {
-		return t_strconcat(root_dir, "/",
-				   guid_128_to_string(mailbox_guid), NULL);
-	} else {
-		return t_strdup_printf("%s/%s%s", root_dir,
-				       _list->set.mailbox_dir_name,
-				       guid_128_to_string(mailbox_guid));
-	}
+	return t_strdup_printf("%s/%s%s", root_dir,
+			       _list->set.mailbox_dir_name,
+			       guid_128_to_string(mailbox_guid));
 }
 
 static int
