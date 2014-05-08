@@ -73,8 +73,9 @@ static void test_message_part_idx(void)
 		prev_part = part;
 		part = message_part_by_idx(parts, i);
 		test_assert(part != NULL);
-		test_assert(message_part_to_idx(part) == i);
-		test_assert(prev_part->physical_pos < part->physical_pos);
+		test_assert(part != NULL && message_part_to_idx(part) == i);
+		test_assert(part != NULL &&
+			    prev_part->physical_pos < part->physical_pos);
 	}
 	test_assert(message_part_by_idx(parts, i) == NULL);
 
