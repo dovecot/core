@@ -200,7 +200,7 @@ maildir_keywords_lookup(struct maildir_keywords *mk, const char *name,
 	void *value;
 
 	value = hash_table_lookup(mk->hash, name);
-	if (value == 0) {
+	if (value == NULL) {
 		if (mk->synced)
 			return 0;
 
@@ -209,7 +209,7 @@ maildir_keywords_lookup(struct maildir_keywords *mk, const char *name,
 		i_assert(mk->synced);
 
 		value = hash_table_lookup(mk->hash, name);
-		if (value == 0)
+		if (value == NULL)
 			return 0;
 	}
 

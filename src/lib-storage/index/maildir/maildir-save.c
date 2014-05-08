@@ -897,7 +897,8 @@ maildir_save_move_files_to_newcur(struct maildir_save_context *ctx)
 		array_append(&files, &mf, 1);
 	array_sort(&files, maildir_filename_dest_basename_cmp);
 
-	new_changed = cur_changed = FALSE; prev_mf = FALSE;
+	new_changed = cur_changed = FALSE;
+	prev_mf = NULL;
 	array_foreach(&files, mfp) {
 		mf = *mfp;
 		T_BEGIN {

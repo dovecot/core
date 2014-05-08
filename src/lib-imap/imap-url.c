@@ -503,7 +503,7 @@ imap_url_parse_path(struct imap_url_parser *url_parser,
 	segment = path;
 
 	/* Resolve relative URI path; determine what to copy from the base URI */
-	if (url != NULL && url_parser->base != 0 && relative > 0) {
+	if (url != NULL && url_parser->base != NULL && relative > 0) {
 		struct imap_url *base = url_parser->base;
 		int rel = relative;
 

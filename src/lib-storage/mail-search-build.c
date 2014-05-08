@@ -230,7 +230,7 @@ int mail_search_build_get_utf8(struct mail_search_build_context *ctx,
 		string_t *utf8 = t_str_new(128);
 		enum charset_result result;
 
-		if (charset_to_utf8_str(ctx->charset, 0,
+		if (charset_to_utf8_str(ctx->charset, NULL,
 					input, utf8, &result) < 0) {
 			/* unknown charset */
 			ctx->_error = "Unknown charset";

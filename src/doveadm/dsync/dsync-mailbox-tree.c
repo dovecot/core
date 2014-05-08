@@ -67,7 +67,7 @@ dsync_mailbox_tree_lookup(struct dsync_mailbox_tree *tree,
 		const char *const *path;
 
 		path = t_strsplit(full_name, tree->sep_str);
-		for (; *path != '\0' && node != NULL; path++)
+		for (; *path != NULL && node != NULL; path++)
 			node = dsync_mailbox_node_find(node->first_child, *path);
 	} T_END;
 	return node;
@@ -106,14 +106,14 @@ dsync_mailbox_tree_get(struct dsync_mailbox_tree *tree, const char *full_name)
 
 		/* find the existing part */
 		path = t_strsplit(full_name, tree->sep_str);
-		for (; *path != '\0'; path++) {
+		for (; *path != NULL; path++) {
 			parent = node;
 			node = dsync_mailbox_node_find(node->first_child, *path);
 			if (node == NULL)
 				break;
 		}
 		/* create the rest */
-		for (; *path != '\0'; path++) {
+		for (; *path != NULL; path++) {
 			node = p_new(tree->pool, struct dsync_mailbox_node, 1);
 			node->name = p_strdup(tree->pool, *path);
 			node->ns = parent->ns;

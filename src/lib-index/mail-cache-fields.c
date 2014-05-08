@@ -490,7 +490,7 @@ static int mail_cache_header_fields_update_locked(struct mail_cache *cache)
 	int ret = 0;
 
 	if (mail_cache_header_fields_read(cache) < 0 ||
-	    mail_cache_header_fields_get_offset(cache, &offset, FALSE) < 0)
+	    mail_cache_header_fields_get_offset(cache, &offset, NULL) < 0)
 		return -1;
 
 	buffer = buffer_create_dynamic(pool_datastack_create(), 256);
@@ -596,7 +596,7 @@ void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest)
 int mail_cache_header_fields_get_next_offset(struct mail_cache *cache,
 					     uint32_t *offset_r)
 {
-	if (mail_cache_header_fields_get_offset(cache, offset_r, FALSE) < 0)
+	if (mail_cache_header_fields_get_offset(cache, offset_r, NULL) < 0)
 		return -1;
 
 	if (*offset_r == 0) {
