@@ -653,7 +653,7 @@ static void maildir_mail_remove_sizes_from_uidlist(struct mail *mail)
 
 struct maildir_size_fix_ctx {
 	uoff_t physical_size;
-	bool wrong_key;
+	char wrong_key;
 };
 
 static int
