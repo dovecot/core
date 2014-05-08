@@ -25,12 +25,12 @@
 
 static int wildcard_match_int(const char *data, const char *mask, int icase)
 {
-  const char *ma = mask, *na = data, *lsm = 0, *lsn = 0;
+  const char *ma = mask, *na = data, *lsm = NULL, *lsn = NULL;
   int match = 1;
   int sofar = 0;
 
   /* null strings should never match */
-  if ((ma == 0) || (na == 0) || (!*ma) || (!*na))
+  if ((ma == NULL) || (na == NULL) || (!*ma) || (!*na))
     return NOMATCH;
   /* find the end of each string */
   while (*(++mask));
@@ -46,7 +46,7 @@ static int wildcard_match_int(const char *data, const char *mask, int icase)
         data = --lsn;
         mask = lsm;
         if (data < na)
-          lsm = 0;
+          lsm = NULL;
         sofar = 0;
       }
       else
@@ -81,7 +81,7 @@ static int wildcard_match_int(const char *data, const char *mask, int icase)
       data = --lsn;
       mask = lsm;
       if (data < na)
-        lsm = 0;                /* Rewind to saved pos */
+        lsm = NULL;                /* Rewind to saved pos */
       sofar = 0;
       continue;                 /* Next char, please */
     }
