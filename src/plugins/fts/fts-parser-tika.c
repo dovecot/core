@@ -27,7 +27,6 @@ struct tika_fts_parser {
 	struct io *io;
 	struct istream *payload;
 
-	bool http_req_finished;
 	bool failed;
 };
 
@@ -104,7 +103,7 @@ fts_tika_parser_response(const struct http_response *response,
 		parser->failed = TRUE;
 		break;
 	}
-	parser->http_req_finished = TRUE;
+	parser->http_req = NULL;
 	io_loop_stop(current_ioloop);
 }
 
@@ -205,7 +204,7 @@ static void fts_parser_tika_deinit(struct fts_parser *_parser)
 		i_stream_unref(&parser->payload);
 	/* FIXME: kludgy, http_req should be NULL here if we don't want to
 	   free it. requires lib-http changes. */
-	if (parser->http_req != NULL && !parser->http_req_finished)
+	if (parser->http_req != NULL)
 		http_client_request_abort(&parser->http_req);
 	i_free(parser);
 }
