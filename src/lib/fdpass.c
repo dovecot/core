@@ -143,7 +143,7 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 #ifdef __osf__
 #  define CHECK_MSG(msg) TRUE /* Tru64 */
 #else
-#  define CHECK_MSG(msg) (msg).msg_controllen >= CMSG_SPACE(sizeof(int))
+#  define CHECK_MSG(msg) ((msg).msg_controllen >= CMSG_SPACE(sizeof(int)))
 #endif
 
 #ifdef LINUX20
