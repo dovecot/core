@@ -76,9 +76,8 @@ install-exec-hook:
 uninstall-hook:
 	rm $(DESTDIR)$(pkglibdir)/dovecot-config
 
-CLEANFILES = $(datafiles)
 if HAVE_SYSTEMD
-CLEANFILES += $systedmsystemunit_DATA
+CLEANFILES = $systedmsystemunit_DATA
 endif
 
 DISTCLEANFILES = \

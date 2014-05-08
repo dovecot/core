@@ -1,3 +1,36 @@
+v2.2.13 2014-05-xx  Timo Sirainen <tss@iki.fi>
+
+	* Fixed a DoS attack against imap/pop3-login processes. If SSL/TLS
+	  handshake was started but wasn't finished, the login process
+	  attempted to eventually forcibly disconnect the client, but failed
+	  to do it correctly. This could have left the connections hanging
+	  arond for a long time. (Affected Dovecot v1.1+)
+
+	+ mdbox: Added mdbox_purge_preserve_alt setting to keep the file
+	  within alt storage during purge. (Should become enforced in v2.3.0?)
+	+ fts: Added support for parsing attachments via Apache Tika. Enable
+	  with: plugin { fts_tika = http://tikahost:9998/tika/ }
+	+ virtual plugin: Delay opening backend mailboxes until it's necessary.
+	  This requires mailbox_list_index=yes to work. (Currently IMAP IDLE
+	  command still causes all backend mailboxes to be opened.)
+	+ mail_never_cache_fields=* means now to disable all caching. This may
+	  be a useful optimization as doveadm/dsync parameter for some admin
+	  tasks which shouldn't really update the cache file.
+	+ IMAP: Return SPECIAL-USE flags always for LSUB command.
+	- pop3 server was still crashing in v2.2.12 with some settings
+	- maildir: Various fixes and improvements to handling compressed mails,
+	  especially when they have broken/missing S=sizes in filenames.
+	- fts-lucene, fts-solr: Fixed crash on search when the index contained
+	  duplicate entries.
+	- Many fixes and performance improvements to dsync and replication
+	- director was somewhat broken when there were exactly two directors
+	  in the ring. It caused errors about "weak users" getting stuck.
+	- mail_attachment_dir: Attachments with the last base64-encoded line
+	  longer than the rest wasn't handled correctly.
+	- IMAP: SEARCH/SORT PARTIAL was handled completely wrong in v2.2.11+
+	- acl: Global ACL file handling was broken when multiple entries
+	  matched the mailbox name. (Only the first entry was used.)
+
 v2.2.12 2014-02-14  Timo Sirainen <tss@iki.fi>
 
 	- pop3 server was crashing in v2.2.11
