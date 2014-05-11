@@ -59,19 +59,30 @@ static void test_message_header_decode_encode_random(void)
 
 	test_begin("message header encode & decode randomly");
 
-	buf[0] = 'x';
 	encoded = t_str_new(256);
 	decoded = t_str_new(256);
 	for (i = 0; i < 1000; i++) {
 		/* fill only with 7bit data so we don't have to worry about
 		   the data being valid UTF-8 */
-		for (j = 1; j < sizeof(buf); j++)
+		for (j = 0; j < sizeof(buf); j++)
 			buf[j] = rand() % 128;
 		buflen = rand() % sizeof(buf);
 
 		str_truncate(encoded, 0);
 		str_truncate(decoded, 0);
-		message_header_encode_data(buf, buflen, encoded);
+
+		/* test Q */
+		message_header_encode_q(buf, buflen, encoded, 0);
+		message_header_decode_utf8(encoded->data, encoded->used,
+					   decoded, NULL);
+		test_assert(decoded->used == buflen &&
+			    memcmp(decoded->data, buf, buflen) == 0);
+
+		/* test B */
+		str_truncate(encoded, 0);
+		str_truncate(decoded, 0);
+
+		message_header_encode_b(buf, buflen, encoded, 0);
 		message_header_decode_utf8(encoded->data, encoded->used,
 					   decoded, NULL);
 		test_assert(decoded->used == buflen &&
