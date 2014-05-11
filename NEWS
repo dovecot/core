@@ -1,4 +1,4 @@
-v2.2.13 2014-05-xx  Timo Sirainen <tss@iki.fi>
+v2.2.13 2014-05-11  Timo Sirainen <tss@iki.fi>
 
 	* Fixed a DoS attack against imap/pop3-login processes. If SSL/TLS
 	  handshake was started but wasn't finished, the login process
