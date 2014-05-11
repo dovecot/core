@@ -67,7 +67,8 @@ static void test_message_header_encode_q(void)
 				str_append_c(str, ' ');
 
 			message_header_encode_q(str_data(input) + skip,
-						str_len(input) - skip, str);
+						str_len(input) - skip, str,
+						i == 0 ? 0 : i+1);
 			test_assert(verify_q(str_c(str), i, !skip));
 		}
 	}
@@ -153,7 +154,8 @@ static void test_message_header_encode_b(void)
 				str_append_c(str, ' ');
 
 			message_header_encode_b(str_data(input) + skip,
-						str_len(input) - skip, str);
+						str_len(input) - skip, str,
+						i == 0 ? 0 : i+1);
 			test_assert(verify_b(str_c(str), i, !skip));
 		}
 	}

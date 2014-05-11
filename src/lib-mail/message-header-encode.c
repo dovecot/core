@@ -29,12 +29,20 @@ static bool input_idx_need_encoding(const unsigned char *input,
 }
 
 void message_header_encode_q(const unsigned char *input, unsigned int len,
-			     string_t *output)
+			     string_t *output, unsigned int first_line_len)
 {
 	unsigned int i, line_len_left;
 
-	str_append(output, "=?utf-8?q?");
 	line_len_left = MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN;
+
+	if (first_line_len >= MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN - 3) {
+		str_append(output, "\n\t");
+		line_len_left--;
+	} else {
+		line_len_left -= first_line_len;
+	}
+
+	str_append(output, "=?utf-8?q?");
 	for (i = 0; i < len; i++) {
 		if (line_len_left < 3) {
 			/* if we're not at the beginning of a character,
@@ -72,12 +80,18 @@ void message_header_encode_q(const unsigned char *input, unsigned int len,
 }
 
 void message_header_encode_b(const unsigned char *input, unsigned int len,
-			     string_t *output)
+			     string_t *output, unsigned int first_line_len)
 {
-	unsigned int line_len_left, max;
+	unsigned int line_len, line_len_left, max;
 
-	line_len_left = MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN;
+	line_len = first_line_len;
+	if (line_len >= MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN) {
+		str_append(output, "\n\t");
+		line_len = 1;
+	}
+
 	for (;;) {
+		line_len_left = MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN - line_len;
 		max = MAX_BASE64_DECODED_SIZE(line_len_left);
 		do {
 			max--;
@@ -105,7 +119,7 @@ void message_header_encode_b(const unsigned char *input, unsigned int len,
 			break;
 
 		str_append(output, "\n\t");
-		line_len_left = MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN - 1;
+		line_len = 1;
 	}
 }
 
@@ -155,9 +169,12 @@ void message_header_encode_data(const unsigned char *input, unsigned int len,
 
 	/* and do it */
 	str_append_data(output, input, first_idx);
-	if (use_q)
-		message_header_encode_q(input + first_idx, enc_len, output);
-	else
-		message_header_encode_b(input + first_idx, enc_len, output);
+	if (use_q) {
+		message_header_encode_q(input + first_idx, enc_len,
+					output, first_idx);
+	} else {
+		message_header_encode_b(input + first_idx, enc_len,
+					output, first_idx);
+	}
 	str_append_data(output, input + last_idx, len - last_idx);
 }
