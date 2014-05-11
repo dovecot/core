@@ -7,8 +7,7 @@ void message_header_encode_data(const unsigned char *input, unsigned int len,
 				string_t *output);
 
 /* Encode the whole UTF-8 input using "Q" or "B" encoding into output.
-   The output is split into multiple lines if necessary. The first line length
-   is looked up from the output string. */
+   The output is split into multiple lines if necessary (max 76 chars/line). */
 void message_header_encode_q(const unsigned char *input, unsigned int len,
 			     string_t *output);
 void message_header_encode_b(const unsigned char *input, unsigned int len,

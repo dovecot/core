@@ -28,29 +28,13 @@ static bool input_idx_need_encoding(const unsigned char *input,
 	return FALSE;
 }
 
-static unsigned int str_last_line_len(string_t *str)
-{
-	const unsigned char *data = str_data(str);
-	unsigned int i = str_len(str);
-
-	while (i > 0 && data[i-1] != '\n')
-		i--;
-	return str_len(str) - i;
-}
-
 void message_header_encode_q(const unsigned char *input, unsigned int len,
 			     string_t *output)
 {
-	unsigned int i, line_len, line_len_left;
-
-	line_len = str_last_line_len(output);
-	if (line_len >= MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN - 3) {
-		str_append(output, "\n\t");
-		line_len = 1;
-	}
+	unsigned int i, line_len_left;
 
 	str_append(output, "=?utf-8?q?");
-	line_len_left = MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN - line_len;
+	line_len_left = MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN;
 	for (i = 0; i < len; i++) {
 		if (line_len_left < 3) {
 			/* if we're not at the beginning of a character,
@@ -90,16 +74,10 @@ void message_header_encode_q(const unsigned char *input, unsigned int len,
 void message_header_encode_b(const unsigned char *input, unsigned int len,
 			     string_t *output)
 {
-	unsigned int line_len, line_len_left, max;
+	unsigned int line_len_left, max;
 
-	line_len = str_last_line_len(output);
-	if (line_len >= MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN) {
-		str_append(output, "\n\t");
-		line_len = 1;
-	}
-
+	line_len_left = MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN;
 	for (;;) {
-		line_len_left = MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN - line_len;
 		max = MAX_BASE64_DECODED_SIZE(line_len_left);
 		do {
 			max--;
@@ -127,7 +105,7 @@ void message_header_encode_b(const unsigned char *input, unsigned int len,
 			break;
 
 		str_append(output, "\n\t");
-		line_len = 1;
+		line_len_left = MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN - 1;
 	}
 }
 
