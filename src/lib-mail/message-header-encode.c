@@ -234,6 +234,8 @@ void message_header_encode_data(const unsigned char *input, unsigned int len,
 		if (next_line_input[0] == '\r') {
 			cr = TRUE;
 			i++;
+		} else {
+			cr = FALSE;
 		}
 		i_assert(next_line_input[i] == '\n');
 		if (++i == next_line_len)
