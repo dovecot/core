@@ -161,7 +161,7 @@ void message_header_encode_data(const unsigned char *input, unsigned int len,
 	unsigned int i, j, first_line_len, cur_line_len, last_idx;
 	unsigned int enc_chars, enc_len, base64_len, q_len;
 	const unsigned char *next_line_input;
-	unsigned int next_line_len;
+	unsigned int next_line_len = 0;
 	bool use_q, cr;
 
 	/* find the first word that needs encoding */
