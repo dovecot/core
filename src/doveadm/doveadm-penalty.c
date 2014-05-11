@@ -106,6 +106,7 @@ static void cmd_penalty(int argc, char *argv[])
 			help(&doveadm_cmd_penalty);
 		}
 	}
+	argv += optind-1;
 
 	if (argv[1] != NULL) {
 		if (net_parse_range(argv[1], &ctx.net_ip, &ctx.net_bits) == 0)
