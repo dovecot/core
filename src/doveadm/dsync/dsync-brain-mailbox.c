@@ -230,6 +230,8 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 	enum dsync_mailbox_exporter_flags exporter_flags = 0;
 	uint32_t last_common_uid, highest_wanted_uid;
 	uint64_t last_common_modseq, last_common_pvt_modseq;
+	const char *desync_reason = "";
+	bool pvt_too_old;
 	int ret;
 
 	i_assert(brain->log_scan == NULL);
@@ -245,31 +247,52 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 					      highest_wanted_uid,
 					      last_common_modseq,
 					      last_common_pvt_modseq,
-					      &brain->log_scan);
+					      &brain->log_scan, &pvt_too_old);
 	if (ret < 0) {
 		i_error("Failed to read transaction log for mailbox %s",
 			mailbox_get_vname(brain->box));
 		brain->failed = TRUE;
 		return -1;
 	}
+	if (ret == 0) {
+		if (pvt_too_old) {
+			desync_reason = t_strdup_printf(
+				"Private modseq %llu no longer in transaction log",
+				(unsigned long long)last_common_pvt_modseq);
+		} else {
+			desync_reason = t_strdup_printf(
+				"Modseq %llu no longer in transaction log",
+				(unsigned long long)last_common_modseq);
+		}
+	}
 
 	if (last_common_uid != 0) {
 		mailbox_get_open_status(brain->box, STATUS_UIDNEXT |
 					STATUS_HIGHESTMODSEQ |
 					STATUS_HIGHESTPVTMODSEQ, &status);
-		if (status.uidnext < last_common_uid ||
-		    status.highest_modseq < last_common_modseq ||
-		    status.highest_pvt_modseq < last_common_pvt_modseq) {
-			/* last_common_* is higher than our current ones.
-			   incremental sync state is stale, we need to do
-			   a full resync */
+		/* if last_common_* is higher than our current ones it means
+		   that the incremental sync state is stale and we need to do
+		   a full resync */
+		if (status.uidnext < last_common_uid) {
+			desync_reason = t_strdup_printf("uidnext %u < %u",
+				status.uidnext, last_common_uid);
+			ret = 0;
+		} else if (status.highest_modseq < last_common_modseq) {
+			desync_reason = t_strdup_printf("highest_modseq %llu < %llu",
+				(unsigned long long)status.highest_modseq,
+				(unsigned long long)last_common_modseq);
+			ret = 0;
+		} else if (status.highest_pvt_modseq < last_common_pvt_modseq) {
+			desync_reason = t_strdup_printf("highest_pvt_modseq %llu < %llu",
+				(unsigned long long)status.highest_pvt_modseq,
+				(unsigned long long)last_common_pvt_modseq);
 			ret = 0;
 		}
 	}
 	if (ret == 0) {
 		i_warning("Failed to do incremental sync for mailbox %s, "
-			  "retry with a full sync",
-			  mailbox_get_vname(brain->box));
+			  "retry with a full sync (%s)",
+			  mailbox_get_vname(brain->box), desync_reason);
 		brain->changes_during_sync = TRUE;
 		brain->require_full_resync = TRUE;
 		return 0;

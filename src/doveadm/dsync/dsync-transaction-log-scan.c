@@ -506,11 +506,14 @@ int dsync_transaction_log_scan_init(struct mail_index_view *view,
 				    struct mail_index_view *pvt_view,
 				    uint32_t highest_wanted_uid,
 				    uint64_t modseq, uint64_t pvt_modseq,
-				    struct dsync_transaction_log_scan **scan_r)
+				    struct dsync_transaction_log_scan **scan_r,
+				    bool *pvt_too_old_r)
 {
 	struct dsync_transaction_log_scan *ctx;
 	pool_t pool;
 	int ret, ret2;
+
+	*pvt_too_old_r = FALSE;
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"dsync transaction log scan",
 				     10240);
@@ -528,8 +531,10 @@ int dsync_transaction_log_scan_init(struct mail_index_view *view,
 	if (pvt_view != NULL) {
 		if ((ret2 = dsync_log_scan(ctx, pvt_view, pvt_modseq, TRUE)) < 0)
 			return -1;
-		if (ret2 == 0)
+		if (ret2 == 0) {
 			ret = 0;
+			*pvt_too_old_r = TRUE;
+		}
 	}
 
 	*scan_r = ctx;
