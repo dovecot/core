@@ -363,7 +363,7 @@ const char *acl_rights_export(const struct acl_rights *rights)
 
 	if (rights->rights != NULL)
 		str_append(str, t_strarray_join(rights->rights, " "));
-	if (rights->neg_rights != NULL) {
+	if (rights->neg_rights != NULL && rights->neg_rights[0] != NULL) {
 		if (str_len(str) > 0)
 			str_append_c(str, ' ');
 		str_append_c(str, '-');
