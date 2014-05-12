@@ -299,6 +299,9 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 		hash_table_iterate_deinit(&brain->mailbox_states_iter);
 	hash_table_destroy(&brain->mailbox_states);
 
+	if (brain->dsync_box_pool != NULL)
+		pool_unref(&brain->dsync_box_pool);
+
 	if (brain->lock_fd != -1) {
 		/* unlink the lock file before it gets unlocked */
 		if (unlink(brain->lock_path) < 0)

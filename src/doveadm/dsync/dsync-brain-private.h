@@ -77,6 +77,7 @@ struct dsync_brain {
 
 	struct mailbox *box;
 	struct dsync_mailbox local_dsync_box, remote_dsync_box;
+	pool_t dsync_box_pool;
 	/* list of mailbox states
 	   for master brain: given to brain at init and
 	   for slave brain: received from DSYNC_STATE_SLAVE_RECV_LAST_COMMON */
