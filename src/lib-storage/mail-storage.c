@@ -1930,6 +1930,9 @@ void mailbox_save_set_flags(struct mail_save_context *ctx,
 {
 	struct mailbox *box = ctx->transaction->box;
 
+	if (ctx->data.keywords != NULL)
+		mailbox_keywords_unref(&ctx->data.keywords);
+
 	ctx->data.flags = flags & ~mailbox_get_private_flags_mask(box);
 	ctx->data.pvt_flags = flags & mailbox_get_private_flags_mask(box);
 	ctx->data.keywords = keywords;
