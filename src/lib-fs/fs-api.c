@@ -143,7 +143,9 @@ void fs_deinit(struct fs **_fs)
 	}
 
 	i_free(fs->temp_path_prefix);
-	fs->v.deinit(fs);
+	T_BEGIN {
+		fs->v.deinit(fs);
+	} T_END;
 	str_free(&last_error);
 }
 
@@ -242,11 +244,16 @@ void fs_set_metadata(struct fs_file *file, const char *key, const char *value)
 int fs_get_metadata(struct fs_file *file,
 		    const ARRAY_TYPE(fs_metadata) **metadata_r)
 {
+	int ret;
+
 	if (file->fs->v.get_metadata == NULL) {
 		fs_set_error(file->fs, "Metadata not supported by backend");
 		return -1;
 	}
-	return file->fs->v.get_metadata(file, metadata_r);
+	T_BEGIN {
+		ret = file->fs->v.get_metadata(file, metadata_r);
+	} T_END;
+	return ret;
 }
 
 const char *fs_file_path(struct fs_file *file)
@@ -677,7 +684,12 @@ int fs_iter_deinit(struct fs_iter **_iter)
 
 const char *fs_iter_next(struct fs_iter *iter)
 {
-	return iter->fs->v.iter_next(iter);
+	const char *ret;
+
+	T_BEGIN {
+		ret = iter->fs->v.iter_next(iter);
+	} T_END;
+	return ret;
 }
 
 void fs_iter_set_async_callback(struct fs_iter *iter,
