@@ -664,8 +664,10 @@ virtual_sync_backend_handle_old_vmsgs(struct virtual_sync_context *ctx,
 			uidmap.virtual_uid = vuid;
 			array_append(&bbox->uids, &uidmap, 1);
 
-			if (mail_index_lookup_seq(bbox->box->view,
-						  vrec->real_uid, &seq)) {
+			if (result == NULL)
+				;
+			else if (mail_index_lookup_seq(bbox->box->view,
+						       vrec->real_uid, &seq)) {
 				seq_range_array_add(&result->uids, 
 						    vrec->real_uid);
 			} else {
@@ -1069,7 +1071,12 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 		    status.uidnext == bbox->sync_next_uid &&
 		    status.highest_modseq == bbox->sync_highest_modseq) {
 			/* mailbox hasn't changed since we last opened it,
-			   skip it for now. */
+			   skip it for now.
+
+			   we'll still need to create the bbox->uids mapping
+			   using the current index. */
+			if (array_count(&bbox->uids) == 0)
+				virtual_sync_backend_handle_old_vmsgs(ctx, bbox, NULL);
 			return 0;
 		}
 		if (!bbox_index_opened) {
@@ -1091,6 +1098,7 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 			/* build the initial search using the saved modseq. */
 			ret = virtual_sync_backend_box_continue(ctx, bbox);
 		}
+		i_assert(bbox->search_result != NULL || ret < 0);
 	} else {
 		/* sync using the existing search result */
 		i_assert(bbox_index_opened);
@@ -1144,6 +1152,8 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 
 		if (bbox == NULL || bbox->mailbox_id != vrec->mailbox_id) {
 			/* add the rest of the newly seen messages */
+			i_assert(j == uidmap_count ||
+				 bbox->search_result != NULL);
 			for (; j < uidmap_count; j++) {
 				add_rec.rec.real_uid = uidmap[j].real_uid;
 				array_append(&ctx->all_adds, &add_rec, 1);
@@ -1163,6 +1173,7 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 		}
 		if (bbox->search_result == NULL) {
 			/* mailbox is completely unchanged since last sync */
+			j = uidmap_count;
 			continue;
 		}
 		mail_index_lookup_uid(ctx->sync_view, vseq, &vuid);
@@ -1254,6 +1265,7 @@ static void virtual_sync_backend_sort_new(struct virtual_sync_context *ctx)
 		if (bbox == NULL || bbox->mailbox_id != vrec->mailbox_id) {
 			bbox = virtual_backend_box_lookup(ctx->mbox,
 							  vrec->mailbox_id);
+			i_assert(bbox->search_result != NULL);
 		}
 		if (!mail_set_uid(bbox->sync_mail, vrec->real_uid))
 			i_unreached();
@@ -1299,6 +1311,7 @@ static void virtual_sync_backend_add_new(struct virtual_sync_context *ctx)
 		if (bbox == NULL || bbox->mailbox_id != vrec->mailbox_id) {
 			bbox = virtual_backend_box_lookup(ctx->mbox,
 							  vrec->mailbox_id);
+			i_assert(bbox->search_result != NULL);
 		}
 
 		mail_index_append(ctx->trans, 0, &vseq);
