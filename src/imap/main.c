@@ -51,6 +51,7 @@ void imap_refresh_proctitle(void)
 	struct client *client;
 	struct client_command_context *cmd;
 	string_t *title = t_str_new(128);
+	bool wait_output;
 
 	if (!verbose_proctitle)
 		return;
@@ -67,14 +68,23 @@ void imap_refresh_proctitle(void)
 			str_append_c(title, ' ');
 			str_append(title, net_ip2addr(client->user->remote_ip));
 		}
+		wait_output = FALSE;
 		for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {
 			if (cmd->name == NULL)
 				continue;
 
-			if (str_len(title) > IMAP_PROCTITLE_PREFERRED_LEN)
-				break;
-			str_append_c(title, ' ');
-			str_append(title, cmd->name);
+			if (str_len(title) < IMAP_PROCTITLE_PREFERRED_LEN) {
+				str_append_c(title, ' ');
+				str_append(title, cmd->name);
+			}
+			if (cmd->state == CLIENT_COMMAND_STATE_WAIT_OUTPUT)
+				wait_output = TRUE;
+		}
+		if (wait_output) {
+			str_printfa(title, " - %"PRIuSIZE_T" bytes waiting",
+				    o_stream_get_buffer_used_size(client->output));
+			if (o_stream_is_corked(client->output))
+				str_append(title, " corked");
 		}
 		break;
 	default:

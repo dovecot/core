@@ -942,6 +942,7 @@ void client_input(struct client *client)
 	}
 	o_stream_uncork(output);
 	o_stream_unref(&output);
+	imap_refresh_proctitle();
 
 	if (client->disconnected)
 		client_destroy(client, NULL);
@@ -1017,6 +1018,7 @@ int client_output(struct client *client)
 	(void)cmd_sync_delayed(client);
 
 	o_stream_uncork(client->output);
+	imap_refresh_proctitle();
 	if (client->disconnected)
 		client_destroy(client, NULL);
 	else
