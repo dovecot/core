@@ -84,6 +84,7 @@ size_t o_stream_get_max_buffer_size(struct ostream *stream);
    TCP_CORK on if supported. */
 void o_stream_cork(struct ostream *stream);
 void o_stream_uncork(struct ostream *stream);
+bool o_stream_is_corked(struct ostream *stream);
 /* Try to flush the output stream. Returns 1 if all sent, 0 if not,
    -1 if error. */
 int o_stream_flush(struct ostream *stream);

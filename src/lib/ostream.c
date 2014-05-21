@@ -137,6 +137,13 @@ void o_stream_uncork(struct ostream *stream)
 	_stream->cork(_stream, FALSE);
 }
 
+bool o_stream_is_corked(struct ostream *stream)
+{
+	struct ostream_private *_stream = stream->real_stream;
+
+	return _stream->corked;
+}
+
 static void o_stream_clear_error(struct ostream *stream)
 {
 	stream->stream_errno = 0;
