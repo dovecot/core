@@ -517,6 +517,8 @@ int index_storage_list_index_has_changed(struct mailbox *box,
 		/* doesn't exist / not synced */
 		return 1;
 	}
+	if (box->storage->set->mailbox_list_index_very_dirty_syncs)
+		return 0;
 
 	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &dir);
 	if (ret < 0)

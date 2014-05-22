@@ -32,7 +32,7 @@ int mbox_list_index_has_changed(struct mailbox *box,
 	int ret;
 
 	ret = index_storage_list_index_has_changed(box, list_view, seq);
-	if (ret != 0)
+	if (ret != 0 || box->storage->set->mailbox_list_index_very_dirty_syncs)
 		return ret;
 
 	ext_id = mbox_list_get_ext_id(mbox, list_view);
