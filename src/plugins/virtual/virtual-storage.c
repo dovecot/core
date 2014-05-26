@@ -249,8 +249,11 @@ static void virtual_mailbox_close_internal(struct virtual_mailbox *mbox)
 		if (bboxes[i]->box == NULL)
 			continue;
 
-		if (bboxes[i]->search_args != NULL)
+		if (bboxes[i]->search_args != NULL &&
+		    bboxes[i]->search_args_initialized) {
 			mail_search_args_deinit(bboxes[i]->search_args);
+			bboxes[i]->search_args_initialized = FALSE;
+		}
 		mailbox_free(&bboxes[i]->box);
 		if (array_is_created(&bboxes[i]->sync_outside_expunges))
 			array_free(&bboxes[i]->sync_outside_expunges);
