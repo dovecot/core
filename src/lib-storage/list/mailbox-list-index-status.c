@@ -66,6 +66,36 @@ index_list_open_view(struct mailbox *box, struct mail_index_view **view_r,
 	return 1;
 }
 
+static int
+index_list_exists(struct mailbox *box, bool auto_boxes,
+		  enum mailbox_existence *existence_r)
+{
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
+	struct mail_index_view *view;
+	const struct mail_index_record *rec;
+	enum mailbox_list_index_flags flags;
+	uint32_t seq;
+	int ret;
+
+	if ((ret = index_list_open_view(box, &view, &seq)) <= 0) {
+		/* failure / not found. fallback to the real storage check
+		   just in case to see if the mailbox was just created. */
+		return ibox->module_ctx.super.
+			exists(box, auto_boxes, existence_r);
+	}
+	rec = mail_index_lookup(view, seq);
+	flags = rec->flags;
+	mail_index_view_close(&view);
+
+	if ((flags & MAILBOX_LIST_INDEX_FLAG_NONEXISTENT) != 0)
+		*existence_r = MAILBOX_EXISTENCE_NONE;
+	else if ((flags & MAILBOX_LIST_INDEX_FLAG_NOSELECT) != 0)
+		*existence_r = MAILBOX_EXISTENCE_NOSELECT;
+	else
+		*existence_r = MAILBOX_EXISTENCE_SELECT;
+	return 0;
+}
+
 bool mailbox_list_index_status(struct mailbox_list *list,
 			       struct mail_index_view *view,
 			       uint32_t seq, enum mailbox_status_items items,
@@ -532,6 +562,7 @@ void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 
 void mailbox_list_index_status_init_mailbox(struct mailbox *box)
 {
+	box->v.exists = index_list_exists;
 	box->v.get_status = index_list_get_status;
 	box->v.get_metadata = index_list_get_metadata;
 	box->v.sync_deinit = index_list_sync_deinit;
