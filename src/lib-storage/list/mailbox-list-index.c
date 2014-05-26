@@ -366,7 +366,16 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 
 	if (ilist->syncing)
 		return 0;
+	if (ilist->last_refresh_timeval.tv_usec == ioloop_timeval.tv_usec &&
+	    ilist->last_refresh_timeval.tv_sec == ioloop_timeval.tv_sec) {
+		/* we haven't been to ioloop since last refresh, skip checking
+		   it. when we're accessing many mailboxes at once (e.g.
+		   opening a virtual mailbox) we don't want to stat/read the
+		   index every single time. */
+		return 0;
+	}
 
+	ilist->last_refresh_timeval = ioloop_timeval;
 	if (mailbox_list_index_index_open(list) < 0)
 		return -1;
 	if (mail_index_refresh(ilist->index) < 0) {
@@ -400,6 +409,9 @@ void mailbox_list_index_refresh_later(struct mailbox_list *list)
 	struct mailbox_list_index_header new_hdr;
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
+
+	memset(&ilist->last_refresh_timeval, 0,
+	       sizeof(ilist->last_refresh_timeval));
 
 	if (!ilist->has_backing_store)
 		return;
