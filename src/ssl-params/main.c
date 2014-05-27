@@ -21,7 +21,7 @@ struct client {
 };
 
 static ARRAY(int) delayed_fds;
-struct ssl_params *param;
+static struct ssl_params *param;
 static buffer_t *ssl_params;
 static struct timeout *to_startup;
 

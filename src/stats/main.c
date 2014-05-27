@@ -14,7 +14,7 @@
 #include "mail-ip.h"
 #include "client.h"
 
-struct stats_settings set;
+static struct stats_settings set;
 static struct mail_server_connection *mail_server_conn = NULL;
 
 static void client_connected(struct master_service_connection *conn)

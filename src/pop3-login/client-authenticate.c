@@ -19,7 +19,7 @@
 
 #include <stdlib.h>
 
-const char *capability_string = POP3_CAPABILITY_REPLY;
+static const char *capability_string = POP3_CAPABILITY_REPLY;
 
 bool cmd_capa(struct pop3_client *client, const char *args ATTR_UNUSED)
 {

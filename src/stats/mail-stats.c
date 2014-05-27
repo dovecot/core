@@ -9,7 +9,7 @@ enum mail_stats_type {
 	TYPE_TIMEVAL
 };
 
-struct mail_stats_parse_map {
+static struct mail_stats_parse_map {
 	const char *name;
 	unsigned int offset;
 	unsigned int size;

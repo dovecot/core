@@ -32,7 +32,7 @@ struct anvil_connection {
 	unsigned int fifo:1;
 };
 
-struct anvil_connection *anvil_connections = NULL;
+static struct anvil_connection *anvil_connections = NULL;
 
 static const char *const *
 anvil_connection_next_line(struct anvil_connection *conn)

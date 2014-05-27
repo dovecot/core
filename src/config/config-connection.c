@@ -32,7 +32,7 @@ struct config_connection {
 	unsigned int handshaked:1;
 };
 
-struct config_connection *config_connections = NULL;
+static struct config_connection *config_connections = NULL;
 
 static const char *const *
 config_connection_next_line(struct config_connection *conn)
