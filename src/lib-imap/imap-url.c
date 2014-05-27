@@ -119,7 +119,7 @@ struct imap_url_parser {
 	enum imap_url_parse_flags flags;
 
 	struct imap_url *url;
-	struct imap_url *base;
+	const struct imap_url *base;
 
 	unsigned int relative:1;
 };
@@ -504,7 +504,7 @@ imap_url_parse_path(struct imap_url_parser *url_parser,
 
 	/* Resolve relative URI path; determine what to copy from the base URI */
 	if (url != NULL && url_parser->base != NULL && relative > 0) {
-		struct imap_url *base = url_parser->base;
+		const struct imap_url *base = url_parser->base;
 		int rel = relative;
 
 		/* /;PARTIAL= */
@@ -857,7 +857,7 @@ static bool imap_url_do_parse(struct imap_url_parser *url_parser)
 			return FALSE;
 		} else if (url_parser->url != NULL) {
 			struct imap_url *url = url_parser->url;
-			struct imap_url *base = url_parser->base;
+			const struct imap_url *base = url_parser->base;
 
 			url->host_name = p_strdup_empty(parser->pool, base->host_name); 
 			url->host_ip = base->host_ip;
@@ -914,7 +914,7 @@ static bool imap_url_do_parse(struct imap_url_parser *url_parser)
 
 /* Public API */
 
-int imap_url_parse(const char *url, struct imap_url *base,
+int imap_url_parse(const char *url, const struct imap_url *base,
 		   enum imap_url_parse_flags flags,
 		   struct imap_url **url_r, const char **error_r)
 {

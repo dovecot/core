@@ -56,7 +56,7 @@ enum imap_url_parse_flags {
 };
 
 /* Parses full IMAP URL. The returned URL is allocated from data stack. */
-int imap_url_parse(const char *url, struct imap_url *base,
+int imap_url_parse(const char *url, const struct imap_url *base,
 		   enum imap_url_parse_flags flags,
 		   struct imap_url **url_r, const char **error_r);
 
