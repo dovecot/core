@@ -411,7 +411,7 @@ mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
 	if (mbox->mbox_dotlocked)
 		return 1;
 
-        ctx->dotlock_last_stale = -1;
+        ctx->dotlock_last_stale = TRUE;
 
 	memset(&set, 0, sizeof(set));
 	set.use_excl_lock = mbox->storage->storage.set->dotlock_use_excl;
