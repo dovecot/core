@@ -813,8 +813,8 @@ static bool client_command_input(struct client_command_context *cmd)
 
 	client->input_skip_line = TRUE;
 
-	if (cmd->name == '\0') {
-		/* command not given - cmd_func is already NULL. */
+	if (cmd->name[0] == '\0') {
+		/* command not given - cmd->func is already NULL. */
 	} else if ((command = command_find(cmd->name)) != NULL) {
 		cmd->func = command->func;
 		cmd->cmd_flags = command->flags;
