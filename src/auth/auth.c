@@ -9,7 +9,7 @@
 #include "passdb.h"
 #include "auth.h"
 
-struct auth_userdb_settings userdb_dummy_set = {
+static const struct auth_userdb_settings userdb_dummy_set = {
 	.name = "",
 	.driver = "static",
 	.args = "",
@@ -110,9 +110,9 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 	auth_userdb->userdb = userdb_preinit(auth->pool, set);
 }
 
-static bool auth_passdb_list_have_verify_plain(struct auth *auth)
+static bool auth_passdb_list_have_verify_plain(const struct auth *auth)
 {
-	struct auth_passdb *passdb;
+	const struct auth_passdb *passdb;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next) {
 		if (passdb->passdb->iface.verify_plain != NULL)
@@ -125,9 +125,9 @@ static bool auth_passdb_list_have_verify_plain(struct auth *auth)
 	return FALSE;
 }
 
-static bool auth_passdb_list_have_lookup_credentials(struct auth *auth)
+static bool auth_passdb_list_have_lookup_credentials(const struct auth *auth)
 {
-	struct auth_passdb *passdb;
+	const struct auth_passdb *passdb;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next) {
 		if (passdb->passdb->iface.lookup_credentials != NULL)
@@ -140,9 +140,9 @@ static bool auth_passdb_list_have_lookup_credentials(struct auth *auth)
 	return FALSE;
 }
 
-static int auth_passdb_list_have_set_credentials(struct auth *auth)
+static int auth_passdb_list_have_set_credentials(const struct auth *auth)
 {
-	struct auth_passdb *passdb;
+	const struct auth_passdb *passdb;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next) {
 		if (passdb->passdb->iface.set_credentials != NULL)
@@ -156,7 +156,7 @@ static int auth_passdb_list_have_set_credentials(struct auth *auth)
 }
 
 static bool
-auth_mech_verify_passdb(struct auth *auth, struct mech_module_list *list)
+auth_mech_verify_passdb(const struct auth *auth, const struct mech_module_list *list)
 {
 	switch (list->module.passdb_need) {
 	case MECH_PASSDB_NEED_NOTHING:
@@ -180,9 +180,9 @@ auth_mech_verify_passdb(struct auth *auth, struct mech_module_list *list)
 	return TRUE;
 }
 
-static void auth_mech_list_verify_passdb(struct auth *auth)
+static void auth_mech_list_verify_passdb(const struct auth *auth)
 {
-	struct mech_module_list *list;
+	const struct mech_module_list *list;
 
 	for (list = auth->reg->modules; list != NULL; list = list->next) {
 		if (!auth_mech_verify_passdb(auth, list))
