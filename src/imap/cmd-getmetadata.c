@@ -226,7 +226,7 @@ cmd_getmetadata_stream_continue(struct imap_getmetadata_context *ctx)
 			i_stream_get_error(ctx->cur_stream));
 		client_disconnect(ctx->cmd->client,
 				  "Internal GETMETADATA failure");
-		return -1;
+		return TRUE;
 	}
 	if (!i_stream_have_bytes_left(ctx->cur_stream)) {
 		/* Input stream gave less data than expected */
@@ -234,7 +234,7 @@ cmd_getmetadata_stream_continue(struct imap_getmetadata_context *ctx)
 			i_stream_get_name(ctx->cur_stream));
 		client_disconnect(ctx->cmd->client,
 				  "Internal GETMETADATA failure");
-		return -1;
+		return TRUE;
 	}
 	o_stream_set_flush_pending(ctx->cmd->client->output, TRUE);
 	return FALSE;
