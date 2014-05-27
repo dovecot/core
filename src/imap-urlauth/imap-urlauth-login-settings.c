@@ -19,7 +19,7 @@ static struct file_listener_settings *imap_urlauth_login_unix_listeners[] = {
 };
 static buffer_t imap_urlauth_login_unix_listeners_buf = {
 	imap_urlauth_login_unix_listeners,
-		sizeof(imap_urlauth_login_unix_listeners), { 0, }
+		sizeof(imap_urlauth_login_unix_listeners), { NULL, }
 };
 /* </settings checks> */
 
