@@ -16,9 +16,8 @@ static void
 userdb_checkpassword_callback(struct auth_request *request,
 			      enum db_checkpassword_status status,
 			      const char *const *extra_fields,
-			      void (*request_callback)())
+			      userdb_callback_t *callback)
 {
-	userdb_callback_t *callback = request_callback;
 	unsigned int i;
 
 	switch (status) {
