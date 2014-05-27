@@ -86,7 +86,7 @@ valid_response_parse_tests[] = {
 	}
 };
 
-unsigned int valid_response_parse_test_count =
+static const unsigned int valid_response_parse_test_count =
 	N_ELEMENTS(valid_response_parse_tests);
 
 static void test_http_response_parse_valid(void)
@@ -178,7 +178,7 @@ static const char *invalid_response_parse_tests[] = {
 	"Cache-Control: private\n\r"
 };
 
-unsigned int invalid_response_parse_test_count =
+static const unsigned int invalid_response_parse_test_count =
 	N_ELEMENTS(invalid_response_parse_tests);
 
 static void test_http_response_parse_invalid(void)
@@ -212,7 +212,7 @@ static void test_http_response_parse_invalid(void)
  * Bad response tests
  */
 
-static unsigned char bad_response_with_nuls[] =
+static const unsigned char bad_response_with_nuls[] =
 	"HTTP/1.1 200 OK\r\n"
 	"Server: text\0server\r\n"
 	"\r\n";
@@ -230,7 +230,7 @@ static void test_http_response_parse_bad(void)
 	test_begin("http response with NULs");
 	input = i_stream_create_from_data(bad_response_with_nuls,
 					  sizeof(bad_response_with_nuls)-1);
-	parser = http_response_parser_init(input, 0);
+	parser = http_response_parser_init(input, NULL);
 	while ((ret=http_response_parse_next(parser, FALSE, &response, &error)) > 0);
 	test_out("parse success", ret == 0);
 	header = http_response_header_get(&response, "server");

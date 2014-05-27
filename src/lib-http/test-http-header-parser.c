@@ -22,7 +22,7 @@ struct http_header_parse_test {
 
 /* Valid header tests */
 
-static struct http_header_parse_result valid_header_parse_result1[] = {
+static const struct http_header_parse_result valid_header_parse_result1[] = {
 	{ "Date", "Sat, 06 Oct 2012 16:01:44 GMT" },
 	{ "Server", "Apache/2.2.16 (Debian)" },
 	{ "Last-Modified", "Mon, 30 Jul 2012 11:09:28 GMT" },
@@ -37,7 +37,7 @@ static struct http_header_parse_result valid_header_parse_result1[] = {
 	{ NULL, NULL }
 };
 
-static struct http_header_parse_result valid_header_parse_result2[] = {
+static const struct http_header_parse_result valid_header_parse_result2[] = {
 	{ "Host", "p5-lrqzb4yavu4l7nagydw-428649-i2-v6exp3-ds.metric.example.com" },
 	{ "User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0)" },
 	{ "Accept", "image/png,image/*;q=0.8,*/*;q=0.5" },
@@ -49,7 +49,7 @@ static struct http_header_parse_result valid_header_parse_result2[] = {
 	{ NULL, NULL }
 };
 
-static struct http_header_parse_result valid_header_parse_result3[] = {
+static const struct http_header_parse_result valid_header_parse_result3[] = {
 	{ "Date", "Sat, 06 Oct 2012 17:12:37 GMT" },
 	{ "Server", "Apache/2.2.16 (Debian) PHP/5.3.3-7+squeeze14 with"
 		" Suhosin-Patch proxy_html/3.0.1 mod_python/3.3.1 Python/2.6.6"
@@ -64,7 +64,7 @@ static struct http_header_parse_result valid_header_parse_result3[] = {
 	{ NULL, NULL }
 };
 
-static struct http_header_parse_result valid_header_parse_result4[] = {
+static const struct http_header_parse_result valid_header_parse_result4[] = {
 	{ "Age", "58" },
 	{ "Date", "Sun, 04 Aug 2013 09:33:09 GMT" },
 	{ "Expires", "Sun, 04 Aug 2013 09:34:08 GMT" },
@@ -80,16 +80,16 @@ static struct http_header_parse_result valid_header_parse_result4[] = {
 	{ NULL, NULL }
 };
 
-static struct http_header_parse_result valid_header_parse_result5[] = {
+static const struct http_header_parse_result valid_header_parse_result5[] = {
 	{ NULL, NULL }
 };
 
-static struct http_header_parse_result valid_header_parse_result6[] = {
+static const struct http_header_parse_result valid_header_parse_result6[] = {
 	{ "X-Frop", "This text\x80 contains obs-text\x81 characters" },
 	{ NULL, NULL }
 };
 
-static struct http_header_parse_result valid_header_parse_result7[] = {
+static const struct http_header_parse_result valid_header_parse_result7[] = {
 	{ "X-Frop", "This text contains invalid characters" },
 	{ NULL, NULL }
 };
@@ -174,7 +174,7 @@ static const struct http_header_parse_test valid_header_parse_tests[] = {
 	}
 };
 
-unsigned int valid_header_parse_test_count = N_ELEMENTS(valid_header_parse_tests);
+static const unsigned int valid_header_parse_test_count = N_ELEMENTS(valid_header_parse_tests);
 
 static void test_http_header_parse_valid(void)
 {
@@ -330,7 +330,7 @@ static const struct http_header_parse_test invalid_header_parse_tests[] = {
 	}
 };
 
-unsigned int invalid_header_parse_test_count = N_ELEMENTS(invalid_header_parse_tests);
+static const unsigned int invalid_header_parse_test_count = N_ELEMENTS(invalid_header_parse_tests);
 
 static void test_http_header_parse_invalid(void)
 {

@@ -14,7 +14,7 @@ struct http_date_test {
 };
 
 /* Valid date tests */
-struct http_date_test valid_date_tests[] = {
+static const struct http_date_test valid_date_tests[] = {
 	/* Preferred format: */
 	{ 
 		.date_in = "Sun, 11 Nov 2007 09:42:43 GMT",
@@ -105,7 +105,7 @@ struct http_date_test valid_date_tests[] = {
 	}
 };
 
-unsigned int valid_date_test_count = N_ELEMENTS(valid_date_tests);
+static const unsigned int valid_date_test_count = N_ELEMENTS(valid_date_tests);
 
 static void test_http_date_valid(void)
 {
@@ -113,7 +113,8 @@ static void test_http_date_valid(void)
 
 	for (i = 0; i < valid_date_test_count; i++) T_BEGIN {
 		const char *date_in, *date_out, *pdate_out;
-		struct tm *tm = &valid_date_tests[i].tm, ptm;
+		const struct tm *tm = &valid_date_tests[i].tm;
+		struct tm ptm;
 		bool result;
 
 		date_in = valid_date_tests[i].date_in;
@@ -142,7 +143,7 @@ static void test_http_date_valid(void)
 }
 
 /* Invalid date tests */
-const char *invalid_date_tests[] = {
+static const char *invalid_date_tests[] = {
 	"Mom, 09 Jul 2018 02:24:29 GMT",
 	"Mon; 09 Jul 2018 02:24:29 GMT",
 	"Mon,  09 Jul 2018 02:24:29 GMT",
@@ -188,7 +189,7 @@ const char *invalid_date_tests[] = {
 	"Sun Nov  6 08:49:37 0000",
 };
 
-unsigned int invalid_date_test_count = N_ELEMENTS(invalid_date_tests);
+static const unsigned int invalid_date_test_count = N_ELEMENTS(invalid_date_tests);
 
 static void test_http_date_invalid(void)
 {

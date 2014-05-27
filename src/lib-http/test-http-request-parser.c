@@ -138,7 +138,7 @@ valid_request_parse_tests[] = {
 	}
 };
 
-unsigned int valid_request_parse_test_count =
+static const unsigned int valid_request_parse_test_count =
 	N_ELEMENTS(valid_request_parse_tests);
 
 static const char *
@@ -185,7 +185,7 @@ static void test_http_request_parse_valid(void)
 		for (pos = 0; pos <= request_text_len && ret == 0; pos++) {
 			test_istream_set_size(input, pos);
 			ret = http_request_parse_next
-				(parser, FALSE, &request, &error_code, &error);
+				(parser, NULL, &request, &error_code, &error);
 		}
 		test_istream_set_size(input, request_text_len);
 		while (ret > 0) {
@@ -200,7 +200,7 @@ static void test_http_request_parse_valid(void)
 				payload = NULL;
 			}
 			ret = http_request_parse_next
-				(parser, FALSE, &request, &error_code, &error);
+				(parser, NULL, &request, &error_code, &error);
 		}
 
 		test_out_reason("parse success", ret == 0, error);
@@ -293,7 +293,7 @@ struct http_request_invalid_parse_test {
 	enum http_request_parse_error error_code;
 };
 
-static struct http_request_invalid_parse_test
+static const struct http_request_invalid_parse_test
 invalid_request_parse_tests[] = {
 	{ .request =
 			"GET: / HTTP/1.1\r\n"
@@ -351,13 +351,13 @@ invalid_request_parse_tests[] = {
 	// FIXME: test request limits
 };
 
-static unsigned char invalid_request_with_nuls[] =
+static const unsigned char invalid_request_with_nuls[] =
 	"GET / HTTP/1.1\r\n"
 	"Host: example.com\r\n"
 	"Null: text\0server\r\n"
 	"\r\n";
 
-unsigned int invalid_request_parse_test_count =
+static unsigned int invalid_request_parse_test_count =
 	N_ELEMENTS(invalid_request_parse_tests);
 
 static const char *
@@ -406,7 +406,7 @@ static void test_http_request_parse_invalid(void)
 		test_begin(t_strdup_printf("http request invalid [%d]", i));
 
 		while ((ret=http_request_parse_next
-			(parser, FALSE, &request, &error_code, &error)) > 0);
+			(parser, NULL, &request, &error_code, &error)) > 0);
 
 		test_out_reason("parse failure", ret < 0, error);
 		if (ret < 0) {
@@ -422,9 +422,9 @@ static void test_http_request_parse_invalid(void)
 	test_begin("http request with NULs");
 	input = i_stream_create_from_data(invalid_request_with_nuls,
 					  sizeof(invalid_request_with_nuls)-1);
-	parser = http_request_parser_init(input, 0);
+	parser = http_request_parser_init(input, NULL);
 	while ((ret=http_request_parse_next
-		(parser, FALSE, &request, &error_code, &error)) > 0);
+		(parser, NULL, &request, &error_code, &error)) > 0);
 	test_assert(ret < 0);
 	test_end();
 }

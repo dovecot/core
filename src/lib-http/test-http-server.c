@@ -10,7 +10,7 @@
 
 static struct connection_list *clients;
 static int fd_listen;
-struct io *io_listen;
+static struct io *io_listen;
 
 struct client {
 	struct connection conn;
