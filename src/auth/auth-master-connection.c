@@ -527,7 +527,7 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 	list = t_strsplit_tab(args);
 	if (list[0] == NULL || str_to_uint(list[0], &id) < 0) {
 		i_error("BUG: Master sent broken LIST");
-		return -1;
+		return FALSE;
 	}
 	list++;
 
