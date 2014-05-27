@@ -1004,6 +1004,13 @@ void http_client_request_retry(struct http_client_request *req,
 
 bool http_client_request_try_retry(struct http_client_request *req)
 {
+	/* don't ever retry if we're sending data in small blocks via
+	   http_client_request_send_payload() and we're not waiting for a
+	   100 continue (there's no way to rewind the payload for a retry)
+	 */
+	if (req->payload_wait &&
+		(!req->payload_sync || req->conn->payload_continue))
+		return FALSE;
 	/* limit the number of attempts for each request */
 	if (req->attempts+1 >= req->client->set.max_attempts)
 		return FALSE;
