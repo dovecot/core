@@ -5,6 +5,7 @@
 #include "istream-private.h"
 #include "istream-qp.h"
 
+static const 
 struct {
 	const char *input;
 	const char *output;
