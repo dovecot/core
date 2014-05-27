@@ -416,7 +416,7 @@ bool imap_fetch_binary_init(struct imap_fetch_init_context *ctx)
 	}
 	if (imap_msgpart_parse(body->section, &body->msgpart) < 0) {
 		ctx->error = "Invalid BINARY[..] section";
-		return -1;
+		return FALSE;
 	}
 	imap_msgpart_set_decode_to_binary(body->msgpart);
 	ctx->fetch_ctx->fetch_data |=
