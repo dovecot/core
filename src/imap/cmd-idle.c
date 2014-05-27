@@ -168,15 +168,17 @@ static bool remote_ip_is_usable(const struct ip_addr *ip)
 	if (ip->family == 0)
 		return FALSE;
 	if (ip->family == AF_INET) {
+#define IP4(a,b,c,d) ((unsigned)(a)<<24|(unsigned)(b)<<16|(unsigned)(c)<<8|(unsigned)(d))
 		addr = ip->u.ip4.s_addr;
-		if (addr >= 167772160 && addr <= 184549375)
+		if (addr >= IP4(10,0,0,0) && addr <= IP4(10,255,255,255))
 			return FALSE; /* 10/8 */
-		if (addr >= 3232235520 && addr <= 3232301055)
+		if (addr >= IP4(192,168,0,0) && addr <= IP4(192,168,255,255))
 			return FALSE; /* 192.168/16 */
-		if (addr >= 2886729728 && addr <= 2887778303)
+		if (addr >= IP4(172,16,0,0) && addr <= IP4(172,31,255,255))
 			return FALSE; /* 172.16/12 */
-		if (addr >= 2130706432 && addr <= 2147483647)
+		if (addr >= IP4(127,0,0,0) && addr <= IP4(127,255,255,255))
 			return FALSE; /* 127/8 */
+#undef IP4
 	}
 #ifdef HAVE_IPV6
 	else if (ip->family == AF_INET6) {
