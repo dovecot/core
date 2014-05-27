@@ -149,7 +149,7 @@ static int mbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	return 0;
 }
 
-static bool
+static int
 mbox_mail_get_md5_header(struct index_mail *mail, const char **value_r)
 {
 	struct mail *_mail = &mail->mail.mail;
@@ -237,7 +237,7 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	return index_mail_get_special(_mail, field, value_r);
 }
 
-static bool
+static int
 mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 {
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->mail.mail.box;
