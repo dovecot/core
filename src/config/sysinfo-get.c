@@ -36,11 +36,11 @@ static bool lsb_distro_get(const char *path, const char **name_r)
 	if (!readfile(path, &data))
 		return FALSE;
 
-	for (p = t_strsplit(data, "\n"); *p != '\0'; p++) {
+	for (p = t_strsplit(data, "\n"); *p != NULL; p++) {
 		if (strncmp(*p, "DISTRIB_DESCRIPTION=", 20) == 0)
 			break;
 	}
-	if (*p == '\0')
+	if (*p == NULL)
 		return FALSE;
 
 	str = t_strcut(*p + 20, '\n');

@@ -133,7 +133,7 @@ static void driver_sqlite_exec(struct sql_db *_db, const char *query)
 	if (driver_sqlite_connect(_db) < 0)
 		return;
 
-	db->rc = sqlite3_exec(db->sqlite, query, NULL, 0, NULL);
+	db->rc = sqlite3_exec(db->sqlite, query, NULL, NULL, NULL);
 	if (db->rc != SQLITE_OK) {
 		i_error("sqlite: exec(%s) failed: %s (%d)",
 			query, sqlite3_errmsg(db->sqlite), db->rc);

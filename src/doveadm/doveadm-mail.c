@@ -604,7 +604,7 @@ doveadm_mail_cmd_find_from_argv(const char *cmd_name, int *argc,
 		}
 	}
 
-	return FALSE;
+	return NULL;
 }
 
 bool doveadm_mail_try_run(const char *cmd_name, int argc, char *argv[])

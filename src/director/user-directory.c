@@ -328,7 +328,7 @@ struct user *user_directory_iter_next(struct user_directory_iter *iter)
 
 	user = iter->pos;
 	if (user == NULL)
-		return FALSE;
+		return NULL;
 
 	iter->pos = user->next;
 	return user;

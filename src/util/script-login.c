@@ -102,7 +102,7 @@ static void client_connected(struct master_service_connection *conn)
 	env_put(t_strconcat("IP=", net_ip2addr(&input.remote_ip), NULL));
 	env_put(t_strconcat("USER=", input.username, NULL));
 
-	for (; args[i] != '\0'; i++) {
+	for (; args[i] != NULL; i++) {
 		args[i] = str_tabunescape(t_strdup_noconst(args[i]));
 		value = strchr(args[i], '=');
 		if (value != NULL) {
