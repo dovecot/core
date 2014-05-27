@@ -211,7 +211,7 @@ void indexer_queue_cancel_all(struct indexer_queue *queue)
 
 	while ((request = indexer_queue_request_peek(queue)) != NULL) {
 		indexer_queue_request_remove(queue);
-		indexer_queue_request_finish(queue, &request, -1);
+		indexer_queue_request_finish(queue, &request, FALSE);
 	}
 }
 
