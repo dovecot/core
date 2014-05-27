@@ -931,7 +931,7 @@ void auth_request_set_credentials(struct auth_request *request,
 					      callback);
 	} else {
 		/* this passdb doesn't support credentials update */
-		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
+		callback(FALSE, request);
 	}
 }
 
