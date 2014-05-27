@@ -134,6 +134,7 @@ char *t_noalloc_strdup_vprintf(const char *format, va_list args,
 	/* we rely on errno not changing. it shouldn't. */
 	i_assert(errno == old_errno);
 #endif
+	va_end(args2);
 	return tmp;
 }
 

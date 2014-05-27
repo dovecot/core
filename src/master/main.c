@@ -156,6 +156,7 @@ master_fatal_callback(const struct failure_context *ctx,
 		if (fd != -1) {
 			VA_COPY(args2, args);
 			str = t_strdup_vprintf(format, args2);
+			va_end(args2);
 			(void)write_full(fd, str, strlen(str));
 			i_close_fd(&fd);
 		}
@@ -174,6 +175,7 @@ startup_fatal_handler(const struct failure_context *ctx,
 	VA_COPY(args2, args);
 	fprintf(stderr, "%s%s\n", failure_log_type_prefixes[ctx->type],
 		t_strdup_vprintf(fmt, args2));
+	va_end(args2);
 	orig_fatal_callback(ctx, fmt, args);
 	abort();
 }
@@ -187,6 +189,7 @@ startup_error_handler(const struct failure_context *ctx,
 	VA_COPY(args2, args);
 	fprintf(stderr, "%s%s\n", failure_log_type_prefixes[ctx->type],
 		t_strdup_vprintf(fmt, args2));
+	va_end(args2);
 	orig_error_callback(ctx, fmt, args);
 }
 

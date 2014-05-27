@@ -170,6 +170,7 @@ void str_vprintfa(string_t *str, const char *fmt, va_list args)
 		ret2 = vsnprintf(tmp, ret + 1, fmt, args2);
 		i_assert(ret2 == ret);
 	}
+	va_end(args2);
 
 	/* drop the unused data, including terminating NUL */
 	buffer_set_used_size(str, pos + ret);
