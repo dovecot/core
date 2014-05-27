@@ -60,7 +60,7 @@ fts_parser_html_try_init(struct mail_user *user ATTR_UNUSED,
 	return &parser->parser;
 }
 
-static bool
+static size_t
 parse_tag_name(struct html_fts_parser *parser,
 	       const unsigned char *data, size_t size)
 {
