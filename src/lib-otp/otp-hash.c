@@ -79,15 +79,21 @@ static void sha1_fold(struct sha1_ctxt *ctx, void *res)
 }
 
 
-#define F(name) ((void (*)()) (name))
+#define F_INIT(name) ((void (*)(void *)) (name))
+#define F_UPDATE(name) ((void (*)(void *, const void *, size_t)) (name))
+#define F_FINAL(name) ((void (*)(void *, void *)) (name))
+#define F_FOLD(name) ((void (*)(void *, void *)) (name))
 
 static const struct digest digests[] = {
-	{ "md4", F(md4_init), F(md4_update), F(md4_final), F(md4_fold) },
-	{ "md5", F(md5_init), F(md5_update), F(md5_final), F(md5_fold) },
-	{ "sha1", F(sha1_init), F(sha1_loop),  F(sha1_result), F(sha1_fold) },
+	{ "md4",  F_INIT(md4_init),  F_UPDATE(md4_update), F_FINAL(md4_final),   F_FOLD(md4_fold) },
+	{ "md5",  F_INIT(md5_init),  F_UPDATE(md5_update), F_FINAL(md5_final),   F_FOLD(md5_fold) },
+	{ "sha1", F_INIT(sha1_init), F_UPDATE(sha1_loop),  F_FINAL(sha1_result), F_FOLD(sha1_fold) },
 };
 
-#undef F
+#undef F_INIT
+#undef F_UPDATE
+#undef F_FINAL
+#undef F_FOLD
 
 const char *digest_name(unsigned int algo)
 {
