@@ -68,7 +68,7 @@ parse_tag_name(struct html_fts_parser *parser,
 
 	if (size >= 3 && memcmp(data, "!--", 3) == 0) {
 		parser->state = HTML_STATE_COMMENT;
-		return 3;
+		return 3 + 1;
 	}
 
 	if (size > 5 && i_memcasecmp(data, "style", 5) == 0) {
