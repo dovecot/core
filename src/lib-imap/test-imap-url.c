@@ -14,7 +14,7 @@ struct valid_imap_url_test {
 };
 
 /* Valid IMAP URL tests */
-struct valid_imap_url_test valid_url_tests[] = {
+static const struct valid_imap_url_test valid_url_tests[] = {
 	{
 		.url = "imap://localhost",
 		.url_parsed = {
@@ -547,7 +547,7 @@ struct valid_imap_url_test valid_url_tests[] = {
 	}
 };
 
-unsigned int valid_url_test_count = N_ELEMENTS(valid_url_tests);
+static const unsigned int valid_url_test_count = N_ELEMENTS(valid_url_tests);
 
 static void test_imap_url_valid(void)
 {
@@ -556,8 +556,8 @@ static void test_imap_url_valid(void)
 	for (i = 0; i < valid_url_test_count; i++) T_BEGIN {
 		const char *url = valid_url_tests[i].url;
 		enum imap_url_parse_flags flags = valid_url_tests[i].flags;
-		struct imap_url *urlt = &valid_url_tests[i].url_parsed;
-		struct imap_url *urlb = &valid_url_tests[i].url_base;
+		const struct imap_url *urlt = &valid_url_tests[i].url_parsed;
+		const struct imap_url *urlb = &valid_url_tests[i].url_base;
 		struct imap_url *urlp;
 		const char *error = NULL;
 
@@ -711,7 +711,7 @@ struct invalid_imap_url_test {
 	struct imap_url url_base;
 };
 
-struct invalid_imap_url_test invalid_url_tests[] = {
+static const struct invalid_imap_url_test invalid_url_tests[] = {
 	{
 		.url = "http://www.dovecot.org"
 	},{
@@ -872,7 +872,7 @@ struct invalid_imap_url_test invalid_url_tests[] = {
 	},
 };
 
-unsigned int invalid_url_test_count = N_ELEMENTS(invalid_url_tests);
+static const unsigned int invalid_url_test_count = N_ELEMENTS(invalid_url_tests);
 
 static void test_imap_url_invalid(void)
 {
@@ -881,7 +881,7 @@ static void test_imap_url_invalid(void)
 	for (i = 0; i < invalid_url_test_count; i++) T_BEGIN {
 		const char *url = invalid_url_tests[i].url;
 		enum imap_url_parse_flags flags = invalid_url_tests[i].flags;
-		struct imap_url *urlb = &invalid_url_tests[i].url_base;
+		const struct imap_url *urlb = &invalid_url_tests[i].url_base;
 		struct imap_url *urlp;
 		const char *error = NULL;
 
@@ -899,7 +899,7 @@ static void test_imap_url_invalid(void)
 
 }
 
-const char *parse_create_url_tests[] = {
+static const char *parse_create_url_tests[] = {
 	"imap://host.example.com/",
 	"imap://10.0.0.1/",
 #ifdef HAVE_IPV6
@@ -935,7 +935,7 @@ const char *parse_create_url_tests[] = {
 		"/;SECTION=TEXT/;PARTIAL=1.14;URLAUTH=user+user%3bname",
 };
 
-unsigned int parse_create_url_test_count = N_ELEMENTS(parse_create_url_tests);
+static const unsigned int parse_create_url_test_count = N_ELEMENTS(parse_create_url_tests);
 
 static void test_imap_url_parse_create(void)
 {
