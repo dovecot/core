@@ -43,7 +43,9 @@ enum mail_cache_record_flag {
 	/* Mail header or body is known to contain NUL characters. */
 	MAIL_CACHE_FLAG_HAS_NULS		= 0x0004,
 	/* Mail header or body is known to not contain NUL characters. */
-	MAIL_CACHE_FLAG_HAS_NO_NULS		= 0x0008,
+	MAIL_CACHE_FLAG_HAS_NO_NULS		= 0x0020,
+	/* obsolete _HAS_NO_NULS flag, which was being set incorrectly */
+	MAIL_CACHE_FLAG_HAS_NO_NULS_BROKEN	= 0x0008,
 
 	/* BODY is IMAP_BODY_PLAIN_7BIT_ASCII and rest of BODYSTRUCTURE
 	   fields are NIL */

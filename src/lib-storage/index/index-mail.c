@@ -95,6 +95,19 @@ static struct message_part *get_unserialized_parts(struct index_mail *mail)
 	return parts;
 }
 
+static bool message_parts_have_nuls(const struct message_part *part)
+{
+	for (; part != NULL; part = part->next) {
+		if ((part->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0)
+			return TRUE;
+		if (part->children != NULL) {
+			if (message_parts_have_nuls(part->children))
+				return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static bool get_cached_parts(struct index_mail *mail)
 {
 	struct message_part *part;
@@ -106,7 +119,7 @@ static bool get_cached_parts(struct index_mail *mail)
 		return FALSE;
 
 	/* we know the NULs now, update them */
-	if ((part->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0) {
+	if (message_parts_have_nuls(part)) {
 		mail->mail.mail.has_nuls = TRUE;
 		mail->mail.mail.has_no_nuls = FALSE;
 	} else {
@@ -580,7 +593,7 @@ static void index_mail_body_parsed_cache_flags(struct index_mail *mail)
 			 MAIL_CACHE_FLAG_BINARY_BODY |
 			 MAIL_CACHE_FLAG_HAS_NULS |
 			 MAIL_CACHE_FLAG_HAS_NO_NULS);
-	if ((data->parts->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0) {
+	if (message_parts_have_nuls(data->parts)) {
 		_mail->has_nuls = TRUE;
 		_mail->has_no_nuls = FALSE;
 		cache_flags |= MAIL_CACHE_FLAG_HAS_NULS;
