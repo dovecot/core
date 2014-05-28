@@ -231,16 +231,11 @@ sync_expunge_call_handlers(struct mail_index_sync_map_ctx *ctx,
 }
 
 static void
-sync_expunge(struct mail_index_sync_map_ctx *ctx, uint32_t uid1, uint32_t uid2)
+sync_expunge(struct mail_index_sync_map_ctx *ctx, uint32_t seq1, uint32_t seq2)
 {
 	struct mail_index_map *map;
 	struct mail_index_record *rec;
-	uint32_t seq_count, seq, seq1, seq2;
-
-	if (!mail_index_lookup_seq_range(ctx->view, uid1, uid2, &seq1, &seq2)) {
-		/* everything expunged already */
-		return;
-	}
+	uint32_t seq_count, seq;
 
 	sync_expunge_call_handlers(ctx, seq1, seq2);
 
@@ -259,6 +254,18 @@ sync_expunge(struct mail_index_sync_map_ctx *ctx, uint32_t uid1, uint32_t uid2)
 	map->rec_map->records_count -= seq_count;
 	map->hdr.messages_count -= seq_count;
 	mail_index_modseq_expunge(ctx->modseq_ctx, seq1, seq2);
+}
+
+static void
+sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_range) *seqs)
+{
+	const struct seq_range *range;
+	unsigned int i, count;
+
+	/* do this in reverse so the memmove()s are smaller */
+	range = array_get(seqs, &count);
+	for (i = count; i > 0; i--)
+		sync_expunge(ctx, range[i-1].seq1, range[i-1].seq2);
 }
 
 static void *sync_append_record(struct mail_index_map *map)
@@ -506,38 +513,43 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 	case MAIL_TRANSACTION_EXPUNGE:
 	case MAIL_TRANSACTION_EXPUNGE|MAIL_TRANSACTION_EXPUNGE_PROT: {
 		const struct mail_transaction_expunge *rec = data, *end;
+		ARRAY_TYPE(seq_range) seqs;
+		uint32_t seq1, seq2;
 
 		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
 			/* this is simply a request for expunge */
 			break;
 		}
+		t_array_init(&seqs, 64);
 		end = CONST_PTR_OFFSET(data, hdr->size);
-		for (; rec != end; rec++)
-			sync_expunge(ctx, rec->uid1, rec->uid2);
+		for (; rec != end; rec++) {
+			if (mail_index_lookup_seq_range(ctx->view,
+					rec->uid1, rec->uid2, &seq1, &seq2))
+				seq_range_array_add_range(&seqs, seq1, seq2);
+		}
+		sync_expunge_range(ctx, &seqs);
 		break;
 	}
 	case MAIL_TRANSACTION_EXPUNGE_GUID:
 	case MAIL_TRANSACTION_EXPUNGE_GUID|MAIL_TRANSACTION_EXPUNGE_PROT: {
 		const struct mail_transaction_expunge_guid *rec = data, *end;
-		ARRAY_TYPE(seq_range) uids;
-		const struct seq_range *range;
-		unsigned int i, count;
+		ARRAY_TYPE(seq_range) seqs;
+		uint32_t seq;
 
 		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
 			/* this is simply a request for expunge */
 			break;
 		}
-		t_array_init(&uids, 64);
+		t_array_init(&seqs, 64);
 		end = CONST_PTR_OFFSET(data, hdr->size);
 		for (; rec != end; rec++) {
 			i_assert(rec->uid != 0);
-			seq_range_array_add(&uids, rec->uid);
+
+			if (mail_index_lookup_seq(ctx->view, rec->uid, &seq))
+				seq_range_array_add(&seqs, seq);
 		}
 
-		/* do this in reverse so the memmove()s are smaller */
-		range = array_get(&uids, &count);
-		for (i = count; i > 0; i--)
-			sync_expunge(ctx, range[i-1].seq1, range[i-1].seq2);
+		sync_expunge_range(ctx, &seqs);
 		break;
 	}
 	case MAIL_TRANSACTION_FLAG_UPDATE: {
