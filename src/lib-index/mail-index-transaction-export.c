@@ -114,10 +114,10 @@ static void log_append_ext_intro(struct mail_index_export_context *ctx,
 		/* we're resizing the extension. use the resize struct. */
 		intro = &resizes[ext_id];
 
-		i_assert(intro->ext_id == idx || idx == (uint32_t)-1);
-		if (idx != (uint32_t)-1)
+		if (idx != (uint32_t)-1) {
+			intro->ext_id = idx;
 			intro->name_size = 0;
-		else {
+		} else {
 			intro->ext_id = (uint32_t)-1;
 			intro->name_size = strlen(rext->name);
 		}
