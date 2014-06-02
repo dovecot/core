@@ -228,16 +228,16 @@ keywords_update_records(struct mail_index_sync_map_ctx *ctx,
 
 	switch (type) {
 	case MODIFY_ADD:
-		for (seq1--; seq1 < seq2; seq1++) {
-			rec = MAIL_INDEX_MAP_IDX(view->map, seq1);
+		for (; seq1 <= seq2; seq1++) {
+			rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq1);
 			data = PTR_OFFSET(rec, data_offset);
 			*data |= data_mask;
 		}
 		break;
 	case MODIFY_REMOVE:
 		data_mask = ~data_mask;
-		for (seq1--; seq1 < seq2; seq1++) {
-			rec = MAIL_INDEX_MAP_IDX(view->map, seq1);
+		for (; seq1 <= seq2; seq1++) {
+			rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq1);
 			data = PTR_OFFSET(rec, data_offset);
 			*data &= data_mask;
 		}
@@ -337,8 +337,8 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 			continue;
 
 		mail_index_modseq_reset_keywords(ctx->modseq_ctx, seq1, seq2);
-		for (seq1--; seq1 < seq2; seq1++) {
-			rec = MAIL_INDEX_MAP_IDX(map, seq1);
+		for (; seq1 <= seq2; seq1++) {
+			rec = MAIL_INDEX_REC_AT_SEQ(map, seq1);
 			memset(PTR_OFFSET(rec, ext->record_offset),
 			       0, ext->record_size);
 		}

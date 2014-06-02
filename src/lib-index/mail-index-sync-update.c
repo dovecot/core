@@ -434,7 +434,7 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_record *rec;
 	uint8_t flag_mask, old_flags;
-	uint32_t idx, seq1, seq2;
+	uint32_t seq, seq1, seq2;
 
 	if (!mail_index_lookup_seq_range(view, u->uid1, u->uid2, &seq1, &seq2))
 		return 1;
@@ -453,13 +453,13 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	if (((u->add_flags | u->remove_flags) &
 	     (MAIL_SEEN | MAIL_DELETED)) == 0) {
 		/* we're not modifying any counted/lowwatered flags */
-		for (idx = seq1-1; idx < seq2; idx++) {
-			rec = MAIL_INDEX_MAP_IDX(view->map, idx);
+		for (seq = seq1; seq <= seq2; seq++) {
+			rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
 			rec->flags = (rec->flags & flag_mask) | u->add_flags;
 		}
 	} else {
-		for (idx = seq1-1; idx < seq2; idx++) {
-			rec = MAIL_INDEX_MAP_IDX(view->map, idx);
+		for (seq = seq1; seq <= seq2; seq++) {
+			rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
 
 			old_flags = rec->flags;
 			rec->flags = (rec->flags & flag_mask) | u->add_flags;
