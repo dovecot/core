@@ -241,7 +241,7 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 	struct mail_index_map *map;
 	const struct seq_range *range;
 	unsigned int i, count;
-	uint32_t prev_seq2;
+	uint32_t dest_seq1, prev_seq2, orig_rec_count;
 
 	map = mail_index_sync_get_atomic_map(ctx);
 
@@ -255,8 +255,9 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 		}
 	}
 
-	/* Preparatory HACK - do this in forward order so the memmove()s are pessimal! */
 	prev_seq2 = 0;
+	dest_seq1 = 1;
+	orig_rec_count = map->rec_map->records_count;
 	for (i = 0; i < count; i++) {
 		uint32_t seq1 = range[i].seq1;
 		uint32_t seq2 = range[i].seq2;
@@ -270,16 +271,28 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 			mail_index_sync_header_update_counts(ctx, rec->uid, rec->flags, 0);
 		}
 
-		/* @UNSAFE */
-		memmove(MAIL_INDEX_MAP_IDX(map, seq1-1),
-			MAIL_INDEX_MAP_IDX(map, seq2),
-			(map->rec_map->records_count - seq2) * map->hdr.record_size);
-
+		if (prev_seq2+1 <= seq1-1) {
+			/* @UNSAFE: move (prev_seq2+1) .. (seq1-1) to its
+			   final location in the map if necessary */
+			uint32_t move_count = (seq1-1) - (prev_seq2+1) + 1;
+			if (prev_seq2+1-1 != dest_seq1-1)
+				memmove(MAIL_INDEX_MAP_IDX(map, dest_seq1-1),
+					MAIL_INDEX_MAP_IDX(map, prev_seq2+1-1),
+					move_count * map->hdr.record_size);
+			dest_seq1 += move_count;
+		}
 		seq_count = seq2 - seq1 + 1;
 		map->rec_map->records_count -= seq_count;
 		map->hdr.messages_count -= seq_count;
 		mail_index_modseq_expunge(ctx->modseq_ctx, seq1, seq2);
 		prev_seq2 = seq2;
+	}
+	/* Final stragglers */
+	if (orig_rec_count > prev_seq2) {
+		uint32_t final_move_count = orig_rec_count - prev_seq2;
+		memmove(MAIL_INDEX_MAP_IDX(map, dest_seq1-1),
+			MAIL_INDEX_MAP_IDX(map, prev_seq2+1-1),
+			final_move_count * map->hdr.record_size);
 	}
 }
 
