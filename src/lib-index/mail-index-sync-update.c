@@ -241,6 +241,7 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 	struct mail_index_map *map;
 	const struct seq_range *range;
 	unsigned int i, count;
+	uint32_t prev_seq2;
 
 	map = mail_index_sync_get_atomic_map(ctx);
 
@@ -255,11 +256,14 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 	}
 
 	/* Preparatory HACK - do this in forward order so the memmove()s are pessimal! */
+	prev_seq2 = 0;
 	for (i = 0; i < count; i++) {
 		uint32_t seq1 = range[i].seq1;
 		uint32_t seq2 = range[i].seq2;
 		struct mail_index_record *rec;
 		uint32_t seq_count, seq;
+
+		i_assert(seq1 > prev_seq2);
 
 		for (seq = seq1; seq <= seq2; seq++) {
 			rec = MAIL_INDEX_MAP_IDX(map, seq-1);
@@ -275,6 +279,7 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 		map->rec_map->records_count -= seq_count;
 		map->hdr.messages_count -= seq_count;
 		mail_index_modseq_expunge(ctx->modseq_ctx, seq1, seq2);
+		prev_seq2 = seq2;
 	}
 }
 
