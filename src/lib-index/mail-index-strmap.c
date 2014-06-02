@@ -57,7 +57,7 @@ struct mail_index_strmap_read_context {
 	struct istream *input;
 	uoff_t end_offset;
 	uint32_t highest_str_idx;
-	uint32_t uid_lookup_idx;
+	uint32_t uid_lookup_seq;
 	uint32_t lost_expunged_uid;
 
 	const unsigned char *data, *end, *str_idx_base;
@@ -381,7 +381,7 @@ mail_index_strmap_uid_exists(struct mail_index_strmap_read_context *ctx,
 {
 	const struct mail_index_record *rec;
 
-	if (ctx->uid_lookup_idx >= ctx->view->view->map->hdr.messages_count) {
+	if (ctx->uid_lookup_seq > ctx->view->view->map->hdr.messages_count) {
 		if (uid >= ctx->view->view->map->hdr.next_uid) {
 			/* thread index has larger UIDs than what we've seen
 			   in our view. we'll have to read them again later
@@ -391,9 +391,9 @@ mail_index_strmap_uid_exists(struct mail_index_strmap_read_context *ctx,
 		return 0;
 	}
 
-	rec = MAIL_INDEX_MAP_IDX(ctx->view->view->map, ctx->uid_lookup_idx);
+	rec = MAIL_INDEX_REC_AT_SEQ(ctx->view->view->map, ctx->uid_lookup_seq);
 	if (rec->uid == uid) {
-		ctx->uid_lookup_idx++;
+		ctx->uid_lookup_seq++;
 		return 1;
 	} else if (rec->uid > uid) {
 		return 0;
@@ -404,7 +404,7 @@ mail_index_strmap_uid_exists(struct mail_index_strmap_read_context *ctx,
 		   been expunged. */
 		mail_index_refresh(ctx->view->view->index);
 		if (mail_index_is_expunged(ctx->view->view,
-					   ctx->uid_lookup_idx + 1))
+					   ctx->uid_lookup_seq))
 			ctx->lost_expunged_uid = rec->uid;
 		return -1;
 	}
@@ -541,7 +541,7 @@ strmap_read_block_init(struct mail_index_strmap_view *view,
 	if (!mail_index_lookup_seq_range(view->view, ctx->rec.uid, (uint32_t)-1,
 					 &seq1, &seq2))
 		seq1 = mail_index_view_get_messages_count(view->view) + 1;
-	ctx->uid_lookup_idx = seq1 - 1;
+	ctx->uid_lookup_seq = seq1;
 	return 1;
 }
 
