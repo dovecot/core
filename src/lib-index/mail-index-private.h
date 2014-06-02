@@ -37,6 +37,9 @@ struct mail_index_sync_map_ctx;
 #define MAIL_INDEX_MAP_IDX(map, idx) \
 	((struct mail_index_record *) \
 	 PTR_OFFSET((map)->rec_map->records, (idx) * (map)->hdr.record_size))
+#define MAIL_INDEX_REC_AT_SEQ(map, seq)					\
+	((struct mail_index_record *)					\
+	 PTR_OFFSET((map)->rec_map->records, ((seq)-1) * (map)->hdr.record_size))
 
 #define MAIL_TRANSACTION_FLAG_UPDATE_IS_INTERNAL(u) \
 	((((u)->add_flags | (u)->remove_flags) & MAIL_INDEX_FLAGS_MASK) == 0 && \
