@@ -236,30 +236,6 @@ sync_expunge_handlers_init(struct mail_index_sync_map_ctx *ctx)
 }
 
 static void
-sync_expunge(struct mail_index_sync_map_ctx *ctx, uint32_t seq1, uint32_t seq2)
-{
-	struct mail_index_map *map;
-	struct mail_index_record *rec;
-	uint32_t seq_count, seq;
-
-	map = mail_index_sync_get_atomic_map(ctx);
-	for (seq = seq1; seq <= seq2; seq++) {
-		rec = MAIL_INDEX_MAP_IDX(map, seq-1);
-		mail_index_sync_header_update_counts(ctx, rec->uid, rec->flags, 0);
-	}
-
-	/* @UNSAFE */
-	memmove(MAIL_INDEX_MAP_IDX(map, seq1-1),
-		MAIL_INDEX_MAP_IDX(map, seq2),
-		(map->rec_map->records_count - seq2) * map->hdr.record_size);
-
-	seq_count = seq2 - seq1 + 1;
-	map->rec_map->records_count -= seq_count;
-	map->hdr.messages_count -= seq_count;
-	mail_index_modseq_expunge(ctx->modseq_ctx, seq1, seq2);
-}
-
-static void
 sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_range) *seqs)
 {
 	const struct seq_range *range;
@@ -276,8 +252,29 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 	}
 
 	/* do this in reverse so the memmove()s are smaller */
-	for (i = count; i > 0; i--)
-		sync_expunge(ctx, range[i-1].seq1, range[i-1].seq2);
+	for (i = count; i > 0; i--) {
+		uint32_t seq1 = range[i-1].seq1;
+		uint32_t seq2 = range[i-1].seq2;
+		struct mail_index_map *map;
+		struct mail_index_record *rec;
+		uint32_t seq_count, seq;
+
+		map = mail_index_sync_get_atomic_map(ctx);
+		for (seq = seq1; seq <= seq2; seq++) {
+			rec = MAIL_INDEX_MAP_IDX(map, seq-1);
+			mail_index_sync_header_update_counts(ctx, rec->uid, rec->flags, 0);
+		}
+
+		/* @UNSAFE */
+		memmove(MAIL_INDEX_MAP_IDX(map, seq1-1),
+			MAIL_INDEX_MAP_IDX(map, seq2),
+			(map->rec_map->records_count - seq2) * map->hdr.record_size);
+
+		seq_count = seq2 - seq1 + 1;
+		map->rec_map->records_count -= seq_count;
+		map->hdr.messages_count -= seq_count;
+		mail_index_modseq_expunge(ctx->modseq_ctx, seq1, seq2);
+	}
 }
 
 static void *sync_append_record(struct mail_index_map *map)
