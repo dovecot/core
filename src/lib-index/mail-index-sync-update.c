@@ -208,7 +208,7 @@ sync_expunge_call_handlers(struct mail_index_sync_map_ctx *ctx,
 
 	array_foreach(&ctx->expunge_handlers, eh) {
 		for (seq = seq1; seq <= seq2; seq++) {
-			rec = MAIL_INDEX_MAP_IDX(ctx->view->map, seq-1);
+			rec = MAIL_INDEX_REC_AT_SEQ(ctx->view->map, seq);
 			/* FIXME: does expunge handler's return value matter?
 			   we probably shouldn't disallow expunges if the
 			   handler returns failure.. should it be just changed
@@ -267,7 +267,7 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 		i_assert(seq1 > prev_seq2);
 
 		for (seq = seq1; seq <= seq2; seq++) {
-			rec = MAIL_INDEX_MAP_IDX(map, seq-1);
+			rec = MAIL_INDEX_REC_AT_SEQ(map, seq);
 			mail_index_sync_header_update_counts(ctx, rec->uid, rec->flags, 0);
 		}
 
@@ -276,8 +276,8 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 			   final location in the map if necessary */
 			uint32_t move_count = (seq1-1) - (prev_seq2+1) + 1;
 			if (prev_seq2+1-1 != dest_seq1-1)
-				memmove(MAIL_INDEX_MAP_IDX(map, dest_seq1-1),
-					MAIL_INDEX_MAP_IDX(map, prev_seq2+1-1),
+				memmove(MAIL_INDEX_REC_AT_SEQ(map, dest_seq1),
+					MAIL_INDEX_REC_AT_SEQ(map, prev_seq2+1),
 					move_count * map->hdr.record_size);
 			dest_seq1 += move_count;
 		}
@@ -290,8 +290,8 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 	/* Final stragglers */
 	if (orig_rec_count > prev_seq2) {
 		uint32_t final_move_count = orig_rec_count - prev_seq2;
-		memmove(MAIL_INDEX_MAP_IDX(map, dest_seq1-1),
-			MAIL_INDEX_MAP_IDX(map, prev_seq2+1-1),
+		memmove(MAIL_INDEX_REC_AT_SEQ(map, dest_seq1),
+			MAIL_INDEX_REC_AT_SEQ(map, prev_seq2+1),
 			final_move_count * map->hdr.record_size);
 	}
 }

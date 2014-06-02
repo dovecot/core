@@ -328,8 +328,8 @@ static int view_sync_apply_lost_changes(struct mail_index_view_sync_ctx *ctx,
 	uint64_t new_modseq;
 	bool changed = FALSE;
 
-	old_rec = MAIL_INDEX_MAP_IDX(old_map, old_seq - 1);
-	new_rec = MAIL_INDEX_MAP_IDX(new_map, new_seq - 1);
+	old_rec = MAIL_INDEX_REC_AT_SEQ(old_map, old_seq);
+	new_rec = MAIL_INDEX_REC_AT_SEQ(new_map, new_seq);
 
 	memset(&thdr, 0, sizeof(thdr));
 	if (old_rec->flags != new_rec->flags) {

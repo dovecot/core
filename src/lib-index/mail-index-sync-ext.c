@@ -674,7 +674,7 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 	i_assert(ext->record_offset + ext->record_size <=
 		 view->map->hdr.record_size);
 
-	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
+	rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
 	old_data = PTR_OFFSET(rec, ext->record_offset);
 
 	rext = array_idx(&view->index->extensions, ext->index_idx);
@@ -723,7 +723,7 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 	i_assert(ext->record_offset + ext->record_size <=
 		 view->map->hdr.record_size);
 
-	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
+	rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
 	data = PTR_OFFSET(rec, ext->record_offset);
 
 	min_value = u->diff >= 0 ? 0 : (uint64_t)(-(int64_t)u->diff);

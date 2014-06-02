@@ -444,7 +444,7 @@ void mail_index_record_map_move_to_private(struct mail_index_map *map)
 		if (new_map->records_count == 0)
 			new_map->last_appended_uid = 0;
 		else {
-			rec = MAIL_INDEX_MAP_IDX(map, new_map->records_count-1);
+			rec = MAIL_INDEX_REC_AT_SEQ(map, new_map->records_count);
 			new_map->last_appended_uid = rec->uid;
 		}
 		buffer_set_used_size(new_map->buffer, new_map->records_count *
@@ -554,7 +554,7 @@ void mail_index_map_lookup_seq_range(struct mail_index_map *map,
 
 	*first_seq_r = mail_index_bsearch_uid(map, first_uid, 0, 1);
 	if (*first_seq_r == 0 ||
-	    MAIL_INDEX_MAP_IDX(map, *first_seq_r-1)->uid > last_uid) {
+	    MAIL_INDEX_REC_AT_SEQ(map, *first_seq_r)->uid > last_uid) {
 		*first_seq_r = *last_seq_r = 0;
 		return;
 	}

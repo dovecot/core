@@ -200,7 +200,7 @@ int mail_index_modseq_set(struct mail_index_view *view,
 	if (mmap == NULL)
 		return -1;
 
-	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
+	rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
 	if (!mail_index_map_get_ext_idx(view->map, view->index->modseq_ext_id,
 					&ext_map_idx))
 		return -1;
@@ -304,7 +304,7 @@ mail_index_modseq_update(struct mail_index_modseq_sync *ctx,
 
 	ext = array_idx(&ctx->view->map->extensions, ext_map_idx);
 	for (; seq1 <= seq2; seq1++) {
-		rec = MAIL_INDEX_MAP_IDX(ctx->view->map, seq1-1);
+		rec = MAIL_INDEX_REC_AT_SEQ(ctx->view->map, seq1);
 		modseqp = PTR_OFFSET(rec, ext->record_offset);
 		if (*modseqp == 0 || (nonzeros && *modseqp < modseq))
 			*modseqp = modseq;

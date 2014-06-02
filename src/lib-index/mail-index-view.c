@@ -170,7 +170,7 @@ view_lookup_full(struct mail_index_view *view, uint32_t seq,
 	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(view));
 
 	/* look up the record */
-	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
+	rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
 	if (unlikely(rec->uid == 0)) {
 		if (!view->inconsistent) {
 			mail_index_set_error(view->index,
@@ -243,7 +243,7 @@ static void view_lookup_uid(struct mail_index_view *view, uint32_t seq,
 {
 	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(view));
 
-	*uid_r = MAIL_INDEX_MAP_IDX(view->map, seq-1)->uid;
+	*uid_r = MAIL_INDEX_REC_AT_SEQ(view->map, seq)->uid;
 }
 
 static void view_lookup_seq_range(struct mail_index_view *view,
@@ -281,7 +281,7 @@ static void view_lookup_first(struct mail_index_view *view,
 
 	i_assert(hdr->messages_count <= view->map->rec_map->records_count);
 	for (; seq <= hdr->messages_count; seq++) {
-		rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
+		rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
 		if ((rec->flags & flags_mask) == (uint8_t)flags) {
 			*seq_r = seq;
 			break;
@@ -470,7 +470,7 @@ void mail_index_map_lookup_keywords(struct mail_index_map *map, uint32_t seq,
 	if (!mail_index_map_get_ext_idx(map, map->index->keywords_ext_id, &idx))
 		data = NULL;
 	else {
-		rec = MAIL_INDEX_MAP_IDX(map, seq-1);
+		rec = MAIL_INDEX_REC_AT_SEQ(map, seq);
 		ext = array_idx(&map->extensions, idx);
 		data = ext->record_offset == 0 ? NULL :
 			CONST_PTR_OFFSET(rec, ext->record_offset);
@@ -493,7 +493,7 @@ void mail_index_lookup_view_flags(struct mail_index_view *view, uint32_t seq,
 
 	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(view));
 
-	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
+	rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
 	*flags_r = rec->flags;
 
 	keyword_data = view_map_lookup_ext_full(view->map, rec,

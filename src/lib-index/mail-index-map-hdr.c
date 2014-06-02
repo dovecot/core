@@ -290,7 +290,7 @@ int mail_index_map_check_header(struct mail_index_map *map)
 		   also make sure it's not zero. */
 		const struct mail_index_record *rec;
 
-		rec = MAIL_INDEX_MAP_IDX(map, hdr->messages_count-1);
+		rec = MAIL_INDEX_REC_AT_SEQ(map, hdr->messages_count);
 		if (rec->uid == 0 || rec->uid >= hdr->next_uid)
 			return 0;
 	}

@@ -182,7 +182,7 @@ mail_index_transaction_get_uid(struct mail_index_transaction *t, uint32_t seq)
 		rec = mail_index_transaction_lookup(t, seq);
 	else {
 		i_assert(seq <= t->view->map->hdr.messages_count);
-		rec = MAIL_INDEX_MAP_IDX(t->view->map, seq - 1);
+		rec = MAIL_INDEX_REC_AT_SEQ(t->view->map, seq);
 	}
 	i_assert(rec->uid != 0);
 	return rec->uid;
