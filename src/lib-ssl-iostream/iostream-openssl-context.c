@@ -505,6 +505,9 @@ ssl_iostream_context_init_common(struct ssl_iostream_context *ctx,
 	   makes SSL more vulnerable against attacks */
 	SSL_CTX_set_options(ctx->ssl_ctx, SSL_OP_NO_SSLv2 |
 			    (SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS));
+#ifdef SSL_MODE_RELEASE_BUFFERS
+	SSL_CTX_set_mode(ctx->ssl_ctx, SSL_MODE_RELEASE_BUFFERS);
+#endif
 	if (ssl_proxy_ctx_set_crypto_params(ctx->ssl_ctx, set, error_r) < 0)
 		return -1;
 
