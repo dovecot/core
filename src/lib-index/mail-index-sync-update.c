@@ -254,10 +254,10 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 		}
 	}
 
-	/* do this in reverse so the memmove()s are smaller */
-	for (i = count; i > 0; i--) {
-		uint32_t seq1 = range[i-1].seq1;
-		uint32_t seq2 = range[i-1].seq2;
+	/* Preparatory HACK - do this in forward order so the memmove()s are pessimal! */
+	for (i = 0; i < count; i++) {
+		uint32_t seq1 = range[i].seq1;
+		uint32_t seq2 = range[i].seq2;
 		struct mail_index_record *rec;
 		uint32_t seq_count, seq;
 
