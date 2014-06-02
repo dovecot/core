@@ -854,14 +854,14 @@ void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx)
 static void mail_index_sync_update_hdr_dirty_flag(struct mail_index_map *map)
 {
 	const struct mail_index_record *rec;
-	unsigned int i;
+	uint32_t seq;
 
 	if ((map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0)
 		return;
 
 	/* do we have dirty flags anymore? */
-	for (i = 0; i < map->rec_map->records_count; i++) {
-		rec = MAIL_INDEX_MAP_IDX(map, i);
+	for (seq = 1; seq <= map->rec_map->records_count; seq++) {
+		rec = MAIL_INDEX_REC_AT_SEQ(map, seq);
 		if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
 			map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 			break;
@@ -873,14 +873,14 @@ static void mail_index_sync_update_hdr_dirty_flag(struct mail_index_map *map)
 void mail_index_map_check(struct mail_index_map *map)
 {
 	const struct mail_index_header *hdr = &map->hdr;
-	unsigned int i, del = 0, seen = 0;
-	uint32_t prev_uid = 0;
+	unsigned int del = 0, seen = 0;
+	uint32_t seq, prev_uid = 0;
 
 	i_assert(hdr->messages_count <= map->rec_map->records_count);
-	for (i = 0; i < hdr->messages_count; i++) {
+	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		const struct mail_index_record *rec;
 
-		rec = MAIL_INDEX_MAP_IDX(map, i);
+		rec = MAIL_INDEX_REC_AT_SEQ(map, seq);
 		i_assert(rec->uid > prev_uid);
 		prev_uid = rec->uid;
 

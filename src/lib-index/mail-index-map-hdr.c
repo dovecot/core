@@ -225,10 +225,10 @@ bool mail_index_check_header_compat(struct mail_index *index,
 static void mail_index_map_clear_recent_flags(struct mail_index_map *map)
 {
 	struct mail_index_record *rec;
-	unsigned int i;
+	uint32_t seq;
 
-	for (i = 0; i < map->hdr.messages_count; i++) {
-		rec = MAIL_INDEX_MAP_IDX(map, i);
+	for (seq = 1; seq <= map->hdr.messages_count; seq++) {
+		rec = MAIL_INDEX_REC_AT_SEQ(map, seq);
 		rec->flags &= ~MAIL_RECENT;
 	}
 }

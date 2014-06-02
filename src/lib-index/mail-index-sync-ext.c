@@ -565,14 +565,14 @@ static void mail_index_sync_ext_clear(struct mail_index_view *view,
 				      struct mail_index_ext *ext)
 {
 	struct mail_index_record *rec;
-	uint32_t i;
+	uint32_t seq;
 
 	memset(buffer_get_space_unsafe(map->hdr_copy_buf, ext->hdr_offset,
 				       ext->hdr_size), 0, ext->hdr_size);
 	map->hdr_base = map->hdr_copy_buf->data;
 
-	for (i = 0; i < view->map->rec_map->records_count; i++) {
-		rec = MAIL_INDEX_MAP_IDX(view->map, i);
+	for (seq = 1; seq <= view->map->rec_map->records_count; seq++) {
+		rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
 		memset(PTR_OFFSET(rec, ext->record_offset), 0,
 		       ext->record_size);
 	}
