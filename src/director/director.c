@@ -756,6 +756,32 @@ void director_move_user(struct director *dir, struct director_host *src,
 		user->username_hash, net_ip2addr(&user->host->ip)));
 }
 
+static void
+director_kick_user_callback(enum ipc_client_cmd_state state ATTR_UNUSED,
+			    const char *data ATTR_UNUSED,
+			    void *context ATTR_UNUSED)
+{
+}
+
+void director_kick_user(struct director *dir, struct director_host *src,
+			struct director_host *orig_src, const char *username)
+{
+	const char *cmd;
+
+	cmd = t_strdup_printf("proxy\t*\tKICK\t%s", username);
+	ipc_client_cmd(dir->ipc_proxy, cmd,
+		       director_kick_user_callback, (void *)NULL);
+
+	if (orig_src == NULL) {
+		orig_src = dir->self_host;
+		orig_src->last_seq++;
+	}
+	cmd = t_strdup_printf("USER-KICK\t%s\t%u\t%u\t%s\n",
+		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq,
+		username);
+	director_update_send_version(dir, src, DIRECTOR_VERSION_USER_KICK, cmd);
+}
+
 void director_user_killed(struct director *dir, unsigned int username_hash)
 {
 	struct user *user;

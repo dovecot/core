@@ -939,6 +939,25 @@ director_cmd_user_move(struct director_connection *conn,
 }
 
 static bool
+director_cmd_user_kick(struct director_connection *conn,
+		       const char *const *args)
+{
+	struct director_host *dir_host;
+	int ret;
+
+	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) != 0)
+		return ret > 0;
+
+	if (str_array_length(args) != 1) {
+		director_cmd_error(conn, "Invalid parameters");
+		return FALSE;
+	}
+
+	director_kick_user(conn->dir, conn->host, dir_host, args[0]);
+	return TRUE;
+}
+
+static bool
 director_cmd_user_killed(struct director_connection *conn,
 			 const char *const *args)
 {
@@ -1316,6 +1335,8 @@ director_connection_handle_cmd(struct director_connection *conn,
 		return director_cmd_host_flush(conn, args);
 	if (strcmp(cmd, "USER-MOVE") == 0)
 		return director_cmd_user_move(conn, args);
+	if (strcmp(cmd, "USER-KICK") == 0)
+		return director_cmd_user_kick(conn, args);
 	if (strcmp(cmd, "USER-KILLED") == 0)
 		return director_cmd_user_killed(conn, args);
 	if (strcmp(cmd, "USER-KILLED-EVERYWHERE") == 0)
