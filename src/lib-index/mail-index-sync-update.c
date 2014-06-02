@@ -206,16 +206,6 @@ sync_expunge_call_handlers(struct mail_index_sync_map_ctx *ctx,
 	struct mail_index_record *rec;
 	uint32_t seq;
 
-	/* call expunge handlers only when syncing index file */
-	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_FILE)
-		return;
-
-	if (!ctx->expunge_handlers_set)
-		mail_index_sync_init_expunge_handlers(ctx);
-
-	if (!array_is_created(&ctx->expunge_handlers))
-		return;
-
 	array_foreach(&ctx->expunge_handlers, eh) {
 		for (seq = seq1; seq <= seq2; seq++) {
 			rec = MAIL_INDEX_MAP_IDX(ctx->view->map, seq-1);
@@ -230,6 +220,21 @@ sync_expunge_call_handlers(struct mail_index_sync_map_ctx *ctx,
 	}
 }
 
+static bool
+sync_expunge_handlers_init(struct mail_index_sync_map_ctx *ctx)
+{
+	/* call expunge handlers only when syncing index file */
+	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_FILE)
+		return FALSE;
+
+	if (!ctx->expunge_handlers_set)
+		mail_index_sync_init_expunge_handlers(ctx);
+
+	if (!array_is_created(&ctx->expunge_handlers))
+		return FALSE;
+	return TRUE;
+}
+
 static void
 sync_expunge(struct mail_index_sync_map_ctx *ctx, uint32_t seq1, uint32_t seq2)
 {
@@ -237,7 +242,8 @@ sync_expunge(struct mail_index_sync_map_ctx *ctx, uint32_t seq1, uint32_t seq2)
 	struct mail_index_record *rec;
 	uint32_t seq_count, seq;
 
-	sync_expunge_call_handlers(ctx, seq1, seq2);
+	if (sync_expunge_handlers_init(ctx))
+		sync_expunge_call_handlers(ctx, seq1, seq2);
 
 	map = mail_index_sync_get_atomic_map(ctx);
 	for (seq = seq1; seq <= seq2; seq++) {
