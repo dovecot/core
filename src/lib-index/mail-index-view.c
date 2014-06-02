@@ -215,11 +215,10 @@ view_lookup_full(struct mail_index_view *view, uint32_t seq,
 
 	map = view->index->map;
 	do {
-		seq--;
-		head_rec = MAIL_INDEX_MAP_IDX(map, seq);
+		head_rec = MAIL_INDEX_REC_AT_SEQ(map, seq);
 		if (head_rec->uid <= rec->uid)
 			break;
-	} while (seq > 0);
+	} while (--seq > 0);
 
 	if (head_rec->uid == rec->uid) {
 		/* found it. use it. reference the index mapping so that the
