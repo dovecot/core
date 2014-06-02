@@ -650,17 +650,27 @@ static void
 login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 {
 	struct login_proxy *proxy, *next;
+	struct ip_addr except_ip;
 	unsigned int hash, count = 0;
 
 	if (args[0] == NULL || str_to_uint(args[0], &hash) < 0) {
 		ipc_cmd_fail(&cmd, "Invalid parameters");
 		return;
 	}
+	/* optional except_ip parameter specifies that we're not killing the
+	   connections that are proxying to the except_ip backend */
+	except_ip.family = 0;
+	if (args[1] != NULL && args[1][0] != '\0' &&
+	    net_addr2ip(args[1], &except_ip) < 0) {
+		ipc_cmd_fail(&cmd, "Invalid except_ip parameter");
+		return;
+	}
 
 	for (proxy = login_proxies; proxy != NULL; proxy = next) {
 		next = proxy->next;
 
-		if (director_username_hash(proxy->client) == hash) {
+		if (director_username_hash(proxy->client) == hash &&
+		    !net_ip_compare(&proxy->ip, &except_ip)) {
 			login_proxy_free_reason(&proxy, KILLED_BY_ADMIN_REASON);
 			count++;
 		}
@@ -668,7 +678,8 @@ login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 	for (proxy = login_proxies_pending; proxy != NULL; proxy = next) {
 		next = proxy->next;
 
-		if (director_username_hash(proxy->client) == hash) {
+		if (director_username_hash(proxy->client) == hash &&
+		    !net_ip_compare(&proxy->ip, &except_ip)) {
 			client_destroy(proxy->client, "Connection kicked");
 			count++;
 		}

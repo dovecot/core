@@ -136,6 +136,11 @@ void director_move_user(struct director *dir, struct director_host *src,
 void director_kick_user(struct director *dir, struct director_host *src,
 			struct director_host *orig_src, const char *username)
 	ATTR_NULL(3);
+void director_kick_user_hash(struct director *dir, struct director_host *src,
+			     struct director_host *orig_src,
+			     unsigned int username_hash,
+			     const struct ip_addr *except_ip)
+	ATTR_NULL(3);
 void director_user_killed(struct director *dir, unsigned int username_hash);
 void director_user_killed_everywhere(struct director *dir,
 				     struct director_host *src,

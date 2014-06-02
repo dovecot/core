@@ -531,6 +531,11 @@ director_user_refresh(struct director_connection *conn,
 			/* keep the host */
 			host = user->host;
 		}
+		/* especially IMAP connections can take a long time to die.
+		   make sure we kill off the connections in the wrong
+		   backends. */
+		director_kick_user_hash(dir, dir->self_host, NULL,
+					username_hash, &host->ip);
 		ret = TRUE;
 	}
 	if (user->host != host) {
@@ -958,6 +963,30 @@ director_cmd_user_kick(struct director_connection *conn,
 }
 
 static bool
+director_cmd_user_kick_hash(struct director_connection *conn,
+			    const char *const *args)
+{
+	struct director_host *dir_host;
+	unsigned int username_hash;
+	struct ip_addr except_ip;
+	int ret;
+
+	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) != 0)
+		return ret > 0;
+
+	if (str_array_length(args) != 2 ||
+	    str_to_uint(args[0], &username_hash) < 0 ||
+	    net_addr2ip(args[1], &except_ip) < 0) {
+		director_cmd_error(conn, "Invalid parameters");
+		return FALSE;
+	}
+
+	director_kick_user_hash(conn->dir, conn->host, dir_host,
+				username_hash, &except_ip);
+	return TRUE;
+}
+
+static bool
 director_cmd_user_killed(struct director_connection *conn,
 			 const char *const *args)
 {
@@ -1337,6 +1366,8 @@ director_connection_handle_cmd(struct director_connection *conn,
 		return director_cmd_user_move(conn, args);
 	if (strcmp(cmd, "USER-KICK") == 0)
 		return director_cmd_user_kick(conn, args);
+	if (strcmp(cmd, "USER-KICK-HASH") == 0)
+		return director_cmd_user_kick_hash(conn, args);
 	if (strcmp(cmd, "USER-KILLED") == 0)
 		return director_cmd_user_killed(conn, args);
 	if (strcmp(cmd, "USER-KILLED-EVERYWHERE") == 0)
