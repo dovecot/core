@@ -238,8 +238,11 @@ sync_expunge_handlers_init(struct mail_index_sync_map_ctx *ctx)
 static void
 sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_range) *seqs)
 {
+	struct mail_index_map *map;
 	const struct seq_range *range;
 	unsigned int i, count;
+
+	map = mail_index_sync_get_atomic_map(ctx);
 
 	/* call the expunge handlers first */
 	range = array_get(seqs, &count);
@@ -255,11 +258,9 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 	for (i = count; i > 0; i--) {
 		uint32_t seq1 = range[i-1].seq1;
 		uint32_t seq2 = range[i-1].seq2;
-		struct mail_index_map *map;
 		struct mail_index_record *rec;
 		uint32_t seq_count, seq;
 
-		map = mail_index_sync_get_atomic_map(ctx);
 		for (seq = seq1; seq <= seq2; seq++) {
 			rec = MAIL_INDEX_MAP_IDX(map, seq-1);
 			mail_index_sync_header_update_counts(ctx, rec->uid, rec->flags, 0);
