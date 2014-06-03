@@ -243,7 +243,11 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 
 	/* delete files. again because we're doing this asynchronously finish
 	   the iteration first. */
-	array_clear(&fnames);
+	if ((fs_get_properties(fs) & FS_PROPERTY_DIRECTORIES) != 0) {
+		/* we need to explicitly delete also the directories */
+	} else {
+		array_clear(&fnames);
+	}
 	iter = fs_iter_init(fs, path, 0);
 	while ((fname = fs_iter_next(iter)) != NULL) {
 		fname = t_strdup(fname);
