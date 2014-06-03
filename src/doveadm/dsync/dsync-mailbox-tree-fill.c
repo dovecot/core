@@ -231,6 +231,7 @@ dsync_mailbox_tree_fix_guid_duplicate(struct dsync_mailbox_tree *tree,
 	struct mailbox *box;
 	struct mailbox_update update;
 	struct dsync_mailbox_node *change_node;
+	const char *change_vname;
 	int ret = 0;
 
 	memset(&update, 0, sizeof(update));
@@ -244,19 +245,19 @@ dsync_mailbox_tree_fix_guid_duplicate(struct dsync_mailbox_tree *tree,
 	else
 		change_node = node2;
 
+	change_vname = dsync_mailbox_node_get_full_name(tree, change_node);
 	i_error("Duplicate mailbox GUID %s for mailboxes %s and %s - "
 		"giving a new GUID %s to %s",
 		guid_128_to_string(node1->mailbox_guid),
 		dsync_mailbox_node_get_full_name(tree, node1),
 		dsync_mailbox_node_get_full_name(tree, node2),
-		guid_128_to_string(update.mailbox_guid),
-		dsync_mailbox_node_get_full_name(tree, change_node));
+		guid_128_to_string(update.mailbox_guid), change_vname);
 
 	i_assert(node1->ns != NULL && node2->ns != NULL);
-	box = mailbox_alloc(change_node->ns->list, change_node->name, 0);
+	box = mailbox_alloc(change_node->ns->list, change_vname, 0);
 	if (mailbox_update(box, &update) < 0) {
 		i_error("Couldn't update mailbox %s GUID: %s",
-			change_node->name, mailbox_get_last_error(box, NULL));
+			change_vname, mailbox_get_last_error(box, NULL));
 		ret = -1;
 	} else {
 		memcpy(change_node->mailbox_guid, update.mailbox_guid,
