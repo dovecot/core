@@ -313,8 +313,7 @@ index_list_has_changed(struct mailbox *box, struct mail_index_view *list_view,
 	/* update highest-modseq only if they're ever been used */
 	if (old_status.highest_modseq == changes->status.highest_modseq) {
 		changes->hmodseq_changed = FALSE;
-	} else if ((box->enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0 ||
-		   old_status.highest_modseq != 0) {
+	} else if (mail_index_have_modseq_tracking(box->index)) {
 		changes->hmodseq_changed = TRUE;
 	} else {
 		const void *data;
