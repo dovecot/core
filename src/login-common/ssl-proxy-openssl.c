@@ -806,10 +806,19 @@ static void ssl_proxy_unref(struct ssl_proxy *proxy)
 	i_free(proxy);
 }
 
+static void ssl_proxy_flush(struct ssl_proxy *proxy)
+{
+	/* this is pretty kludgy. mainly this is just for flushing the final
+	   LOGOUT command output. */
+	plain_read(proxy);
+	ssl_step(proxy);
+}
+
 void ssl_proxy_destroy(struct ssl_proxy *proxy)
 {
 	if (proxy->destroyed)
 		return;
+	ssl_proxy_flush(proxy);
 	proxy->destroyed = TRUE;
 
 	ssl_proxy_count--;
