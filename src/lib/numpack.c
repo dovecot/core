@@ -21,7 +21,7 @@ int numpack_decode(const uint8_t **p, const uint8_t *end, uint64_t *num_r)
 	uint64_t value = 0;
 	unsigned int bits = 0;
 
-	for (;;) {
+	while (bits < 64) {
 		if (c == end)
 			return -1;
 
@@ -33,11 +33,9 @@ int numpack_decode(const uint8_t **p, const uint8_t *end, uint64_t *num_r)
 		c++;
 	}
 
-	if (bits >= 64) {
-		/* overflow */
-		*p = end;
+	bits += bits_required8(*c);
+	if (bits > 64) /* overflow */
 		return -1;
-	}
 
 	*p = c + 1;
 	*num_r = value;
