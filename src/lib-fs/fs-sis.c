@@ -395,7 +395,8 @@ static int fs_sis_write_stream_finish(struct fs_file *_file, bool success)
 			return 1;
 		}
 	}
-	o_stream_unref(&_file->output);
+	if (_file->output != NULL)
+		o_stream_unref(&_file->output);
 
 	if (fs_write_stream_finish(file->super, &file->fs_output) < 0) {
 		fs_sis_file_copy_error(file);
