@@ -273,6 +273,7 @@ test_lib_SOURCES = \
 	test-array.c \
 	test-aqueue.c \
 	test-base64.c \
+	test-bits.c \
 	test-bsearch-insert-pos.c \
 	test-buffer.c \
 	test-crc32.c \
