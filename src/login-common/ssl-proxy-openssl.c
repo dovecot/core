@@ -79,6 +79,7 @@ struct ssl_proxy {
 	unsigned int cert_received:1;
 	unsigned int cert_broken:1;
 	unsigned int client_proxy:1;
+	unsigned int flushing:1;
 };
 
 struct ssl_parameters {
@@ -816,8 +817,9 @@ static void ssl_proxy_flush(struct ssl_proxy *proxy)
 
 void ssl_proxy_destroy(struct ssl_proxy *proxy)
 {
-	if (proxy->destroyed)
+	if (proxy->destroyed || proxy->flushing)
 		return;
+	proxy->flushing = TRUE;
 	ssl_proxy_flush(proxy);
 	proxy->destroyed = TRUE;
 
