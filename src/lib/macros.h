@@ -19,7 +19,7 @@
 	(sizeof(arr) / sizeof((arr)[0]))
 
 #define MEM_ALIGN(size) \
-	(((size) + MEM_ALIGN_SIZE-1) & ~((unsigned int) MEM_ALIGN_SIZE-1))
+	(((size) + MEM_ALIGN_SIZE-1) & ~((size_t) MEM_ALIGN_SIZE-1))
 
 #define PTR_OFFSET(ptr, offset) \
 	((void *) (((unsigned char *) (ptr)) + (offset)))
