@@ -123,7 +123,7 @@ static void proxy_client_input(struct login_proxy *proxy)
 		login_proxy_free_errno(&proxy, errno, "client");
 		return;
 	}
-	o_stream_cork(proxy->client_output);
+	o_stream_cork(proxy->server_output);
 	ret2 = o_stream_send(proxy->server_output, buf, ret);
 	o_stream_uncork(proxy->server_output);
 	if (ret2 != ret) {
