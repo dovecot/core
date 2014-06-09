@@ -691,9 +691,24 @@ bool mail_index_modseq_get_next_log_offset(struct mail_index_view *view,
 					   uint64_t modseq, uint32_t *log_seq_r,
 					   uoff_t *log_offset_r)
 {
-	struct mail_transaction_log_file *file, *prev_file = NULL;
+	struct mail_transaction_log *log = view->index->log;
+	struct mail_transaction_log_file *file, *prev_file;
+	int ret;
 
-	for (file = view->index->log->files; file != NULL; file = file->next) {
+	if (log->files == NULL) {
+		/* we shouldn't normally get here */
+		return FALSE;
+	}
+	while (modseq < log->files->hdr.initial_modseq) {
+		/* try to find the previous log file if it still exists */
+		ret = mail_transaction_log_find_file(log,
+			log->files->hdr.file_seq - 1, FALSE, &file);
+		if (ret <= 0)
+			return FALSE;
+	}
+
+	prev_file = NULL;
+	for (file = log->files; file != NULL; file = file->next) {
 		if (modseq < file->hdr.initial_modseq)
 			break;
 		prev_file = file;
