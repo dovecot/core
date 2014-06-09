@@ -11,7 +11,14 @@ void test_begin(const char *name);
 #define test_assert(code) STMT_START { \
 	if (!(code)) test_assert_failed(#code, __FILE__, __LINE__); \
 	} STMT_END
+/* Additional parameter may be int or unsigned int, to indicate which of
+ * a barrage of tests have failed (such as in a loop).
+ */
+#define test_assert_idx(code, i) STMT_START { \
+		if (!(code)) test_assert_failed_idx(#code, __FILE__, __LINE__, i); \
+	} STMT_END
 void test_assert_failed(const char *code, const char *file, unsigned int line);
+void test_assert_failed_idx(const char *code, const char *file, unsigned int line, long long i);
 void test_end(void);
 
 void test_out(const char *name, bool success);

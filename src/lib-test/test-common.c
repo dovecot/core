@@ -136,6 +136,12 @@ void test_assert_failed(const char *code, const char *file, unsigned int line)
 	test_success = FALSE;
 }
 
+void test_assert_failed_idx(const char *code, const char *file, unsigned int line, long long i)
+{
+	printf("%s:%u: Assert(#%lld) failed: %s\n", file, line, i, code);
+	test_success = FALSE;
+}
+
 void test_end(void)
 {
 	i_assert(test_prefix != NULL);
