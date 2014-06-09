@@ -10,6 +10,7 @@ void test_base64(void);
 void test_bsearch_insert_pos(void);
 void test_buffer(void);
 void test_crc32(void);
+void test_hash(void);
 void test_hash_format(void);
 void test_hash_method(void);
 void test_hex_binary(void);
