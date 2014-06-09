@@ -17,6 +17,7 @@ liblib_la_SOURCES = \
 	askpass.c \
 	backtrace-string.c \
 	base64.c \
+	bits.c \
 	bsearch-insert-pos.c \
 	buffer.c \
 	child-wait.c \
@@ -146,6 +147,7 @@ headers = \
 	askpass.h \
 	backtrace-string.h \
 	base64.h \
+	bits.h \
 	bsearch-insert-pos.h \
 	buffer.h \
 	child-wait.h \
