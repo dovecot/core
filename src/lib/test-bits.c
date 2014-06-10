@@ -20,16 +20,22 @@
 static void test_nearest_power(void) 
 {
 	unsigned int b;
+	size_t num;
 	test_begin("nearest_power()");
 	test_assert(nearest_power(1)==1);
 	test_assert(nearest_power(2)==2);
-	for (b = 2; b < 63; ++b) {
-		/* b=2 tests 3,4,5; b=3 tests 7,8,9; ... */
-		uint64_t num = 1ULL << b;
+	for (b = 2; b < CHAR_BIT*sizeof(size_t) - 1; ++b) {
+		/* b=2 tests 3,4,5; b=3 tests 7,8,9; ... b=30 tests ~1G */
+		num = (size_t)1 << b;
 		test_assert_idx(nearest_power(num-1) == num,    b);
 		test_assert_idx(nearest_power(num  ) == num,    b);
 		test_assert_idx(nearest_power(num+1) == num<<1, b);
 	}
+	/* With 32-bit size_t, now: b=31 tests 2G-1, 2G, not 2G+1. */
+	num = (size_t)1 << b;
+	test_assert_idx(nearest_power(num-1) == num,    b);
+	test_assert_idx(nearest_power(num  ) == num,    b);
+	/* i_assert()s: test_assert_idx(nearest_power(num+1) == num<<1, b); */
 	test_end();
 }
 
