@@ -36,20 +36,28 @@ struct rawlog_proxy {
 	struct io *client_io, *server_io;
 	struct ostream *client_output, *server_output;
 
-	int fd_in, fd_out;
+	struct ostream *in_output, *out_output;
 	enum rawlog_flags flags;
 	bool prev_lf_in, prev_lf_out;
 };
 
 static void rawlog_proxy_destroy(struct rawlog_proxy *proxy)
 {
-	if (proxy->fd_in != -1) {
-		if (close(proxy->fd_in) < 0)
-			i_error("close(in) failed: %m");
+	if (proxy->in_output != NULL) {
+		o_stream_uncork(proxy->in_output);
+		if (o_stream_nfinish(proxy->in_output) < 0) {
+			i_error("write(in) failed: %s",
+				o_stream_get_error(proxy->in_output));
+		}
+		o_stream_destroy(&proxy->in_output);
 	}
-	if (proxy->fd_out != -1) {
-		if (close(proxy->fd_out) < 0)
-			i_error("close(out) failed: %m");
+	if (proxy->out_output != NULL) {
+		o_stream_uncork(proxy->out_output);
+		if (o_stream_nfinish(proxy->out_output) < 0) {
+			i_error("write(out) failed: %s",
+				o_stream_get_error(proxy->out_output));
+		}
+		o_stream_destroy(&proxy->out_output);
 	}
 	if (proxy->client_io != NULL)
 		io_remove(&proxy->client_io);
@@ -70,12 +78,10 @@ static void rawlog_proxy_destroy(struct rawlog_proxy *proxy)
 	io_loop_stop(ioloop);
 }
 
-static int
-write_with_timestamps(int fd, bool *prev_lf,
+static void
+write_with_timestamps(struct ostream *output, bool *prev_lf,
 		      const unsigned char *data, size_t size)
 {
-	int ret;
-
 	T_BEGIN {
 		const char *timestamp = t_strdup_printf("%ld.%06lu ",
 			(long)ioloop_timeval.tv_sec,
@@ -92,57 +98,40 @@ write_with_timestamps(int fd, bool *prev_lf,
 				str_append(str, timestamp);
 		}
 		*prev_lf = data[i-1] == '\n';
-		ret = write_full(fd, str_data(str), str_len(str));
+		o_stream_nsend(output, str_data(str), str_len(str));
 	} T_END;
-	return ret;
 }
 
-static int proxy_write_data(struct rawlog_proxy *proxy, int fd,
-			    bool *prev_lf, const void *data, size_t size)
+static void proxy_write_data(struct rawlog_proxy *proxy, struct ostream *output,
+			     bool *prev_lf, const void *data, size_t size)
 {
-	if (fd == -1 || size == 0)
-		return 0;
+	if (output == NULL || output->closed || size == 0)
+		return;
 
-	if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0) {
-		if (write_full(fd, "<<<\n", 4) < 0)
-			return -1;
-	}
+	if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0)
+		o_stream_nsend_str(output, "<<<\n");
 
-	if ((proxy->flags & RAWLOG_FLAG_LOG_TIMESTAMPS) != 0) {
-		if (write_with_timestamps(fd, prev_lf, data, size) < 0)
-			return -1;
-	} else {
-		if (write_full(fd, data, size) < 0)
-			return -1;
-	}
+	if ((proxy->flags & RAWLOG_FLAG_LOG_TIMESTAMPS) != 0)
+		write_with_timestamps(output, prev_lf, data, size);
+	else
+		o_stream_nsend(output, data, size);
 
-	if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0) {
-		if (write_full(fd, ">>>\n", 4) < 0)
-			return -1;
-	}
-	return 0;
+	if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0)
+		o_stream_nsend_str(output, ">>>\n");
 }
 
 static void proxy_write_in(struct rawlog_proxy *proxy,
 			   const void *data, size_t size)
 {
-	if (proxy_write_data(proxy, proxy->fd_in, &proxy->prev_lf_in,
-			     data, size) < 0) {
-		/* failed, disable logging */
-		i_error("write(in) failed: %m");
-		i_close_fd(&proxy->fd_in);
-	}
+	proxy_write_data(proxy, proxy->in_output, &proxy->prev_lf_in,
+			 data, size);
 }
 
 static void proxy_write_out(struct rawlog_proxy *proxy,
 			    const void *data, size_t size)
 {
-	if (proxy_write_data(proxy, proxy->fd_out, &proxy->prev_lf_out,
-			     data, size) < 0) {
-		/* failed, disable logging */
-		i_error("write(out) failed: %m");
-		i_close_fd(&proxy->fd_out);
-	}
+	proxy_write_data(proxy, proxy->out_output, &proxy->prev_lf_out,
+			 data, size);
 }
 
 static void server_input(struct rawlog_proxy *proxy)
@@ -226,28 +215,33 @@ static int client_output(struct rawlog_proxy *proxy)
 static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path)
 {
 	const char *fname, *timestamp;
+	int fd;
 
 	timestamp = t_strflocaltime("%Y%m%d-%H%M%S", time(NULL));
 
 	if ((proxy->flags & RAWLOG_FLAG_LOG_INPUT) != 0) {
 		fname = t_strdup_printf("%s/%s-%s.in", path, timestamp,
 					dec2str(getpid()));
-		proxy->fd_in = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
-		if (proxy->fd_in == -1) {
-			i_error("rawlog_open: open() failed for %s: %m", fname);
+		fd = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
+		if (fd == -1) {
+			i_error("rawlog_open: creat(%s): %m", fname);
 			return;
 		}
+		proxy->in_output = o_stream_create_fd_file(fd, 0, TRUE);
+		o_stream_cork(proxy->in_output);
 	}
 
 	if ((proxy->flags & RAWLOG_FLAG_LOG_OUTPUT) != 0) {
 		fname = t_strdup_printf("%s/%s-%s.out", path, timestamp,
 					dec2str(getpid()));
-		proxy->fd_out = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
-		if (proxy->fd_out == -1) {
-			i_error("rawlog_open: open() failed for %s: %m", fname);
-			i_close_fd(&proxy->fd_in);
+		fd = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
+		if (fd == -1) {
+			i_error("rawlog_open: creat(%s): %m", fname);
+			o_stream_destroy(&proxy->in_output);
 			return;
 		}
+		proxy->out_output = o_stream_create_fd_file(fd, 0, TRUE);
+		o_stream_cork(proxy->out_output);
 	}
 }
 
@@ -279,7 +273,6 @@ rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
 	proxy->flags = flags;
 
 	proxy->prev_lf_in = proxy->prev_lf_out = TRUE;
-	proxy->fd_in = proxy->fd_out = -1;
 	proxy_open_logs(proxy, path);
 	return proxy;
 }
