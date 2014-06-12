@@ -45,7 +45,7 @@ file_contents_equal(const char *path1, const char *path2, ino_t *path2_inode_r)
 		return -1;
 	}
 	fd2 = open(path2, O_RDONLY);
-	if (fd1 == -1) {
+	if (fd2 == -1) {
 		if (errno != ENOENT)
 			i_error("open(%s) failed: %m", path2);
 		i_close_fd(&fd1);
