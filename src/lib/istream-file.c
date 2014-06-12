@@ -229,6 +229,15 @@ struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
 	return i_stream_create_file_common(fd, NULL, max_buffer_size, autoclose_fd);
 }
 
+struct istream *i_stream_create_fd_autoclose(int *fd, size_t max_buffer_size)
+{
+	struct istream *input;
+
+	input = i_stream_create_fd(*fd, max_buffer_size, TRUE);
+	*fd = -1;
+	return input;
+}
+
 struct istream *i_stream_create_file(const char *path, size_t max_buffer_size)
 {
 	struct istream *input;

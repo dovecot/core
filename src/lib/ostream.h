@@ -30,10 +30,13 @@ typedef int stream_flush_callback_t(void *context);
    If max_buffer_size is 0, an "optimal" buffer size is used (max 128kB). */
 struct ostream *
 o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd);
+/* The fd is set to -1 immediately to avoid accidentally closing it twice. */
+struct ostream *o_stream_create_fd_autoclose(int *fd, size_t max_buffer_size);
 /* Create an output stream from a regular file which begins at given offset.
    If offset==(uoff_t)-1, the current offset isn't known. */
 struct ostream *
 o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd);
+struct ostream *o_stream_create_fd_file_autoclose(int *fd, uoff_t offset);
 /* Create an output stream to a buffer. */
 struct ostream *o_stream_create_buffer(buffer_t *buf);
 /* Create an output streams that always fails the writes. */

@@ -972,6 +972,16 @@ o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd)
 }
 
 struct ostream *
+o_stream_create_fd_autoclose(int *fd, size_t max_buffer_size)
+{
+	struct ostream *output;
+
+	output = o_stream_create_fd(*fd, max_buffer_size, TRUE);
+	*fd = -1;
+	return output;
+}
+
+struct ostream *
 o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd)
 {
 	struct file_ostream *fstream;
@@ -989,4 +999,13 @@ o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd)
 	ostream = o_stream_create(&fstream->ostream, NULL, fd);
 	ostream->offset = offset;
 	return ostream;
+}
+
+struct ostream *o_stream_create_fd_file_autoclose(int *fd, uoff_t offset)
+{
+	struct ostream *output;
+
+	output = o_stream_create_fd_file(*fd, offset, TRUE);
+	*fd = -1;
+	return output;
 }
