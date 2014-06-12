@@ -479,7 +479,7 @@ static void stats_top(const char *path, const char *sort_type)
 	hash_table_create(&ctx.sessions, default_pool, 0, str_hash, strcmp);
 	net_set_nonblock(ctx.fd, FALSE);
 
-	ctx.input = i_stream_create_fd(ctx.fd, (size_t)-1, TRUE);
+	ctx.input = i_stream_create_fd(ctx.fd, (size_t)-1, FALSE);
 
 	if (strstr(sort_type, "cpu") != NULL)
 		ctx.lines_sort = sort_cpu;
