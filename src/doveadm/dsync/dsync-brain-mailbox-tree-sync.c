@@ -146,7 +146,7 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 				i_debug("brain %c: Change during sync: "
 					"Mailbox %s mailbox_list_delete_dir conflict: %s",
 					brain->master_brain ? 'M' : 'S',
-					mailbox_get_vname(box), errstr);
+					change->full_name, errstr);
 			}
 			brain->changes_during_sync = TRUE;
 			return 0;
