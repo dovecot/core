@@ -206,10 +206,14 @@ static bool parse_section(const char *type, const char *name,
 		return FALSE;
 	}
 	if (strcmp(type, "key") == 0) {
-		if (name == NULL)
-			return "Key section is missing name";
-		if (strchr(name, '.') != NULL)
-			return "Key section names must not contain '.'";
+		if (name == NULL) {
+			*errormsg = "Key section is missing name";
+			return FALSE;
+		}
+		if (strchr(name, '.') != NULL) {
+			*errormsg = "Key section names must not contain '.'";
+			return FALSE;
+		}
 		ctx->section = DICT_SETTINGS_SECTION_KEY;
 		ctx->cur_key = array_append_space(&ctx->conn->set.keys);
 		*ctx->cur_key = default_key_settings;
