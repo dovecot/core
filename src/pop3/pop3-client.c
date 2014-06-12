@@ -584,8 +584,6 @@ static void client_default_destroy(struct client *client, const char *reason)
 		client->cmd(client);
 		i_assert(client->cmd == NULL);
 	}
-	pop3_client_count--;
-	DLLIST_REMOVE(&pop3_clients, client);
 
 	if (client->trans != NULL) {
 		/* client didn't QUIT, but we still want to save any changes
@@ -632,6 +630,9 @@ static void client_default_destroy(struct client *client, const char *reason)
 	if (client->fd_in != client->fd_out)
 		net_disconnect(client->fd_out);
 	mail_storage_service_user_free(&client->service_user);
+
+	pop3_client_count--;
+	DLLIST_REMOVE(&pop3_clients, client);
 	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);

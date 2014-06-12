@@ -246,9 +246,6 @@ static void client_default_destroy(struct client *client, const char *reason)
 		i_info("%s %s", reason, client_stats(client));
 	}
 
-	imap_client_count--;
-	DLLIST_REMOVE(&imap_clients, client);
-
 	i_stream_close(client->input);
 	o_stream_close(client->output);
 
@@ -305,6 +302,9 @@ static void client_default_destroy(struct client *client, const char *reason)
 		array_free(&client->search_updates);
 	pool_unref(&client->command_pool);
 	mail_storage_service_user_free(&client->service_user);
+
+	imap_client_count--;
+	DLLIST_REMOVE(&imap_clients, client);
 	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);
