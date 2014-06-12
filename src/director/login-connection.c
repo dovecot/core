@@ -147,16 +147,15 @@ static void auth_input_line(const char *line, void *context)
 				username = *args + 5;
 		}
 	}
+	if (!proxy || host || username == NULL) {
+		login_connection_send_line(conn, line);
+		return;
+	}
 	if (*conn->dir->set->master_user_separator != '\0') {
 		/* with master user logins we still want to use only the
 		   login username */
 		username = t_strcut(username,
 				    *conn->dir->set->master_user_separator);
-	}
-
-	if (!proxy || host || username == NULL) {
-		login_connection_send_line(conn, line);
-		return;
 	}
 
 	/* we need to add the host. the lookup might be asynchronous */
