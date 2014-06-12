@@ -88,7 +88,7 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 		return NULL;
 	}
 
-	input = i_stream_create_fd(ctx.fd, 0, TRUE);
+	input = i_stream_create_fd_autoclose(&ctx.fd, 0);
 	if (input->stream_errno == EISDIR) {
 		i_stream_destroy(&input);
 		if (maildir_lose_unexpected_dir(&mbox->storage->storage,

@@ -607,8 +607,8 @@ imap_urlauth_fetch_reply_set_literal_stream(struct imap_urlauth_connection *conn
 	uoff_t fd_size;
 
 	if (conn->literal_fd != -1) {
-		reply->input = i_stream_create_fd(conn->literal_fd,
-						  (size_t)-1, TRUE);
+		reply->input = i_stream_create_fd_autoclose(&conn->literal_fd,
+							    (size_t)-1);
 		if (i_stream_get_size(reply->input, TRUE, &fd_size) < 1 ||
 		    fd_size != conn->literal_size) {
 			i_stream_unref(&reply->input);

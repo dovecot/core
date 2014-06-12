@@ -197,7 +197,7 @@ static int dbox_file_open_fd(struct dbox_file *file, bool try_altpath)
 static int dbox_file_open_full(struct dbox_file *file, bool try_altpath,
 			       bool *notfound_r)
 {
-	int ret;
+	int ret, fd;
 
 	*notfound_r = FALSE;
 	if (file->input != NULL)
@@ -215,7 +215,10 @@ static int dbox_file_open_full(struct dbox_file *file, bool try_altpath,
 		}
 	}
 
-	file->input = i_stream_create_fd(file->fd, DBOX_READ_BLOCK_SIZE, TRUE);
+	/* we're manually checking at dbox_file_close() if we need to close the
+	   fd or not. */
+	fd = file->fd;
+	file->input = i_stream_create_fd_autoclose(&fd, DBOX_READ_BLOCK_SIZE);
 	i_stream_set_name(file->input, file->cur_path);
 	i_stream_set_init_buffer_size(file->input, DBOX_READ_BLOCK_SIZE);
 	return dbox_file_read_header(file);

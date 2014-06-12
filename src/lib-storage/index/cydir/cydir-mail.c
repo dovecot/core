@@ -115,7 +115,7 @@ cydir_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 			}
 			return -1;
 		}
-		input = i_stream_create_fd(fd, 0, TRUE);
+		input = i_stream_create_fd_autoclose(&fd, 0);
 		i_stream_set_name(input, path);
 		index_mail_set_read_buffer_size(_mail, input);
 		if (mail->mail.v.istream_opened != NULL) {

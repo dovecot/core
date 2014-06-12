@@ -138,7 +138,7 @@ static int mountpoint_list_load(struct mountpoint_list *list)
 	}
 	if (fstat(fd, &list->load_st) < 0)
 		i_error("fstat(%s) failed: %m", list->state_path);
-	input = i_stream_create_fd(fd, (size_t)-1, TRUE);
+	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		p = strchr(line, ' ');
 		if (p == NULL) {

@@ -83,10 +83,10 @@ static void stats_dump(const char *path, const char *cmd)
 
 	fd = doveadm_connect(path);
 	net_set_nonblock(fd, FALSE);
-
-	input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	if (write_full(fd, cmd, strlen(cmd)) < 0)
 		i_fatal("write(%s) failed: %m", path);
+
+	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
 
 	/* read header */
 	args = read_next_line(input);

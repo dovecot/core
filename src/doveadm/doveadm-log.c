@@ -153,7 +153,7 @@ static void cmd_log_find_syslog_file_messages(struct log_find_file *file)
 	if (fd == -1)
 		return;
 	
-	input = i_stream_create_fd(fd, 1024, TRUE);
+	input = i_stream_create_fd_autoclose(&fd, 1024);
 	i_stream_seek(input, file->size);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		p = strstr(line, TEST_LOG_MSG_PREFIX);
@@ -331,7 +331,7 @@ static void cmd_log_errors(int argc, char *argv[])
 		i_fatal("net_connect_unix(%s) failed: %m", path);
 	net_set_nonblock(fd, FALSE);
 
-	input = i_stream_create_fd(fd, (size_t)-1, TRUE);
+	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
 	while ((line = i_stream_read_next_line(input)) != NULL) T_BEGIN {
 		args = t_strsplit_tabescaped(line);
 		if (str_array_length(args) == 4)

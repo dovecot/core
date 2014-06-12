@@ -70,10 +70,10 @@ static void penalty_lookup(struct penalty_context *ctx)
 
 	fd = doveadm_connect(ctx->anvil_path);
 	net_set_nonblock(fd, FALSE);
-
-	input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	if (write(fd, ANVIL_CMD, strlen(ANVIL_CMD)) < 0)
 		i_fatal("write(%s) failed: %m", ctx->anvil_path);
+
+	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		if (*line == '\0')
 			break;

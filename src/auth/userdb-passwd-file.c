@@ -115,7 +115,7 @@ passwd_file_iterate_init(struct auth_request *auth_request,
 		i_error("open(%s) failed: %m", ctx->path);
 		ctx->ctx.failed = TRUE;
 	} else {
-		ctx->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
+		ctx->input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
 	}
 	return &ctx->ctx;
 }

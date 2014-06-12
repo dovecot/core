@@ -46,7 +46,7 @@ static void client_handle(int fd)
 {
 	struct ostream *output;
 
-	output = o_stream_create_fd(fd, (size_t)-1, TRUE);
+	output = o_stream_create_fd_autoclose(&fd, (size_t)-1);
 	if (o_stream_send(output, ssl_params->data, ssl_params->used) < 0 ||
 	    o_stream_get_buffer_used_size(output) == 0)
 		client_deinit(output);

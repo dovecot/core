@@ -314,7 +314,7 @@ static int zlib_mailbox_open_input(struct mailbox *box)
 			i_close_fd(&fd);
 			return 0;
 		}
-		input = i_stream_create_fd(fd, MAX_INBUF_SIZE, TRUE);
+		input = i_stream_create_fd_autoclose(&fd, MAX_INBUF_SIZE);
 		i_stream_set_name(input, box_path);
 		box->input = handler->create_istream(input, TRUE);
 		i_stream_unref(&input);

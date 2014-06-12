@@ -52,7 +52,7 @@ static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[])
 	fd = open(argv[1], O_RDONLY);
 	if (fd < 0)
 		i_fatal("open(%s) failed: %m", argv[1]);
-	input = i_stream_create_fd(fd, 1024*32, TRUE);
+	input = i_stream_create_fd_autoclose(&fd, 1024*32);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		/* skip tag */
 		printf("%s\r\n", line);

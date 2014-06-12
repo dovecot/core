@@ -999,7 +999,7 @@ int settings_parse_file(struct setting_parser_context *ctx,
 		return -1;
 	}
 
-	input = i_stream_create_fd(fd, max_line_length, TRUE);
+	input = i_stream_create_fd_autoclose(&fd, max_line_length);
 	i_stream_set_name(input, path);
 	ret = settings_parse_stream_read(ctx, input);
 	i_stream_unref(&input);
@@ -1089,7 +1089,7 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 	}
 	i_close_fd(&fd[1]);
 
-	input = i_stream_create_fd(fd[0], (size_t)-1, TRUE);
+	input = i_stream_create_fd_autoclose(&fd[0], (size_t)-1);
 	i_stream_set_name(input, bin_path);
 	ret = settings_parse_stream_read(ctx, input);
 	i_stream_destroy(&input);

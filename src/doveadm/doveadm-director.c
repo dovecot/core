@@ -53,7 +53,7 @@ static void director_connect(struct director_context *ctx)
 	fd = doveadm_connect(ctx->socket_path);
 	net_set_nonblock(fd, FALSE);
 
-	ctx->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
+	ctx->input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
 	director_send(ctx, DIRECTOR_HANDSHAKE);
 
 	alarm(5);
@@ -243,7 +243,7 @@ user_file_get_user_list(const char *path, pool_t pool,
 	fd = open(path, O_RDONLY);
 	if (fd == -1)
 		i_fatal("open(%s) failed: %m", path);
-	input = i_stream_create_fd(fd, (size_t)-1, TRUE);
+	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
 	while ((username = i_stream_read_next_line(input)) != NULL)
 		user_list_add(username, pool, users);
 	i_stream_unref(&input);

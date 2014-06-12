@@ -360,7 +360,7 @@ int replicator_queue_import(struct replicator_queue *queue, const char *path)
 		return -1;
 	}
 
-	input = i_stream_create_fd(fd, (size_t)-1, TRUE);
+	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		T_BEGIN {
 			ret = replicator_queue_import_line(queue, line);
@@ -406,7 +406,7 @@ int replicator_queue_export(struct replicator_queue *queue, const char *path)
 		i_error("creat(%s) failed: %m", path);
 		return -1;
 	}
-	output = o_stream_create_fd_file(fd, 0, TRUE);
+	output = o_stream_create_fd_file_autoclose(&fd, 0);
 	o_stream_cork(output);
 
 	str = t_str_new(128);

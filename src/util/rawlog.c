@@ -227,7 +227,7 @@ static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path)
 			i_error("rawlog_open: creat(%s): %m", fname);
 			return;
 		}
-		proxy->in_output = o_stream_create_fd_file(fd, 0, TRUE);
+		proxy->in_output = o_stream_create_fd_file_autoclose(&fd, 0);
 		o_stream_cork(proxy->in_output);
 	}
 
@@ -240,7 +240,7 @@ static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path)
 			o_stream_destroy(&proxy->in_output);
 			return;
 		}
-		proxy->out_output = o_stream_create_fd_file(fd, 0, TRUE);
+		proxy->out_output = o_stream_create_fd_file_autoclose(&fd, 0);
 		o_stream_cork(proxy->out_output);
 	}
 }

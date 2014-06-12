@@ -42,7 +42,7 @@ static void replicator_connect(struct replicator_context *ctx)
 	fd = doveadm_connect(ctx->socket_path);
 	net_set_nonblock(fd, FALSE);
 
-	ctx->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
+	ctx->input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
 	replicator_send(ctx, REPLICATOR_HANDSHAKE);
 
 	alarm(5);

@@ -476,7 +476,7 @@ static int settings_add_include(struct config_parser_context *ctx, const char *p
 	new_input = p_new(ctx->pool, struct input_stack, 1);
 	new_input->prev = ctx->cur_input;
 	new_input->path = p_strdup(ctx->pool, path);
-	new_input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
+	new_input->input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
 	i_stream_set_return_partial_line(new_input->input, TRUE);
 	ctx->cur_input = new_input;
 	return 0;
@@ -936,7 +936,7 @@ int config_parse_file(const char *path, bool expand_values,
 	ctx.str = str_new(ctx.pool, 256);
 	full_line = str_new(default_pool, 512);
 	ctx.cur_input->input = fd != -1 ?
-		i_stream_create_fd(fd, (size_t)-1, TRUE) :
+		i_stream_create_fd_autoclose(&fd, (size_t)-1) :
 		i_stream_create_from_data("", 0);
 	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
 	old_settings_init(&ctx);

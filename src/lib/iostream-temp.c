@@ -257,7 +257,7 @@ struct istream *iostream_temp_finish(struct ostream **output,
 		if (fd == -1)
 			input = i_stream_create_error(errno);
 		else {
-			input2 = i_stream_create_fd(fd, max_buffer_size, TRUE);
+			input2 = i_stream_create_fd_autoclose(&fd, max_buffer_size);
 			i_stream_seek(input2, abs_offset);
 			input = i_stream_create_limit(input2, size);
 			i_stream_unref(&input2);
@@ -270,11 +270,11 @@ struct istream *iostream_temp_finish(struct ostream **output,
 		/* return the original failed stream. */
 		input = tstream->dupstream;
 	} else if (tstream->fd != -1) {
-		input = i_stream_create_fd(tstream->fd, max_buffer_size, TRUE);
+		int fd = tstream->fd;
+		input = i_stream_create_fd_autoclose(&tstream->fd, max_buffer_size);
 		i_stream_set_name(input, t_strdup_printf(
 			"(Temp file fd %d in %s, %"PRIuUOFF_T" bytes)",
-			tstream->fd, tstream->temp_path_prefix, tstream->fd_size));
-		tstream->fd = -1;
+			fd, tstream->temp_path_prefix, tstream->fd_size));
 	} else {
 		input = i_stream_create_from_data(tstream->buf->data,
 						  tstream->buf->used);

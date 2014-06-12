@@ -82,7 +82,7 @@ static int script_contents_read(struct mail_user *user)
 		i_close_fd(&fd);
 		return -1;
 	}
-	input = i_stream_create_fd(fd, 1024, TRUE);
+	input = i_stream_create_fd_autoclose(&fd, 1024);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		/* <content-type> <extension> [<extension> ...] */
 		args = p_strsplit_spaces(user->pool, line, " ");

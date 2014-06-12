@@ -150,8 +150,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	output = o_stream_create_fd_file(fd_out, 0, FALSE);
 	o_stream_cork(output);
 	if (fd_in != -1) {
-		input = i_stream_create_fd(fd_in, list->mailbox_name_max_length+1,
-					   TRUE);
+		input = i_stream_create_fd_autoclose(&fd_in, list->mailbox_name_max_length+1);
 		while ((line = next_line(list, path, input,
 					 &failed, FALSE)) != NULL) {
 			if (strcmp(line, name) == 0) {
@@ -225,8 +224,8 @@ subsfile_list_init(struct mailbox_list *list, const char *path)
 			ctx->failed = TRUE;
 		}
 	} else {
-		ctx->input = i_stream_create_fd(fd,
-					list->mailbox_name_max_length+1, TRUE);
+		ctx->input = i_stream_create_fd_autoclose(&fd,
+					list->mailbox_name_max_length+1);
 		i_stream_set_return_partial_line(ctx->input, TRUE);
 	}
 	ctx->path = i_strdup(path);
@@ -297,9 +296,8 @@ const char *subsfile_list_next(struct subsfile_list_context *ctx)
                         return NULL;
                 }
 
-		ctx->input = i_stream_create_fd(fd,
-					ctx->list->mailbox_name_max_length+1,
-					TRUE);
+		ctx->input = i_stream_create_fd_autoclose(&fd,
+					ctx->list->mailbox_name_max_length+1);
 		i_stream_set_return_partial_line(ctx->input, TRUE);
         }
         return line;
