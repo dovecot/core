@@ -91,8 +91,9 @@ static bool test_dump_fts_expunge_log(const char *path)
 {
 	const char *p;
 
-	p = strrchr(path, '/');
-	if (p++ == NULL)
+	if ((p = strrchr(path, '/')) != NULL)
+		p++;
+	else
 		p = path;
 	return strcmp(p, "dovecot-expunges.log") == 0;
 }
