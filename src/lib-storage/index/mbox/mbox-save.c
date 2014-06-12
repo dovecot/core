@@ -768,6 +768,7 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	int ret = 0;
 
 	i_assert(ctx->finished);
+	i_assert(mbox->mbox_fd != -1);
 
 	if (fstat(mbox->mbox_fd, &st) < 0) {
 		mbox_set_syscall_error(mbox, "fstat()");

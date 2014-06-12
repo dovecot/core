@@ -2151,15 +2151,18 @@ static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 
 	if (subsystem == AUTH_SUBSYS_DB) {
 		if (!auth_request->userdb_lookup) {
+			i_assert(auth_request->passdb != NULL);
 			name = auth_request->passdb->set->name[0] != '\0' ?
 				auth_request->passdb->set->name :
 				auth_request->passdb->passdb->iface.name;
 		} else {
+			i_assert(auth_request->userdb != NULL);
 			name = auth_request->userdb->set->name[0] != '\0' ?
 				auth_request->userdb->set->name :
 				auth_request->userdb->userdb->iface->name;
 		}
 	} else if (subsystem == AUTH_SUBSYS_MECH) {
+		i_assert(auth_request->mech == NULL);
 		name = t_str_lcase(auth_request->mech->mech_name);
 	} else {
 		name = subsystem;

@@ -325,6 +325,7 @@ int connection_input_read(struct connection *conn)
 		case CONNECTION_BEHAVIOR_ALLOW:
 			return -2;
 		}
+		i_unreached();
 	case -1:
 		/* disconnected */
 		conn->disconnect_reason =

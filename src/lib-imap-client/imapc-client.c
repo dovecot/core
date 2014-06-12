@@ -411,6 +411,7 @@ imapc_client_get_capabilities(struct imapc_client *client)
 	}
 
 	/* fallback to whatever exists (there always exists one) */
+	i_assert(conn != NULL);
 	return imapc_connection_get_capabilities(conn);
 }
 

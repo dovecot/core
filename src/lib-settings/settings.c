@@ -356,6 +356,7 @@ prevfile:
 				if (skip > 0)
 					skip--;
 				else {
+					i_assert(sect_callback != NULL);
 					sect_callback(NULL, NULL, context,
 						      &errormsg);
 					if (root_section == sections &&

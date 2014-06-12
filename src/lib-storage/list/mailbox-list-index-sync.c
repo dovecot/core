@@ -175,6 +175,7 @@ mailbox_list_index_sync_names(struct mailbox_list_index_sync_context *ctx)
 			buffer_append(hdr_buf, id_p, sizeof(*id_p));
 			name = hash_table_lookup(ilist->mailbox_names,
 						 POINTER_CAST(*id_p));
+			i_assert(name != NULL);
 			buffer_append(hdr_buf, name, strlen(name) + 1);
 			prev_id = *id_p;
 		}
