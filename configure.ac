@@ -441,7 +441,7 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
 	       strtoull strtoll strtouq strtoq getmntinfo \
 	       setpriority quotactl getmntent kqueue kevent backtrace_symbols \
 	       walkcontext dirfd clearenv malloc_usable_size glob fallocate \
-	       posix_fadvise getpeereid getpeerucred)
+	       posix_fadvise getpeereid getpeerucred inotify_init)
 
 AC_CHECK_TYPES([struct sockpeercred],,,[
 #include <sys/types.h>
@@ -555,50 +555,14 @@ have_notify=none
 
 if test "$notify" = "" || test "$notify" = "inotify" ; then
   dnl * inotify?
-  AC_CACHE_CHECK([whether we can use inotify],i_cv_inotify_works,[
-    AC_TRY_RUN([
-      #define _GNU_SOURCE
-      #include <sys/ioctl.h>
-      #include <fcntl.h>
-      #include <sys/inotify.h>
-      #include <stdio.h>
-    
-      int main()
-      {
-	int wd, fd;
-	char * fn = "/tmp";
-      
-	fd = inotify_init ();
-	if (fd < 0)
-	  {
-	    perror ("inotify_init");
-	    return 1;
-	  }
-  
-	wd = inotify_add_watch (fd, fn, IN_ALL_EVENTS);
-  
-	if (wd < 0)
-	  {
-	    perror ("inotify_add_watch");
-	    return 2;
-	  }
-  
-	inotify_rm_watch (fd, wd);
-  
-	close (fd);
-	return 0;
-      }
-    ], [
-      i_cv_inotify_works=yes
-    ], [
-      i_cv_inotify_works=no
-    ])
-  ])
-  if test $i_cv_inotify_works = yes; then
+  AC_MSG_CHECKING([whether we can use inotify])
+  if test "$ac_cv_func_inotify_init" = yes; then
     have_notify=inotify
     notify=inotify
+    AC_MSG_RESULT("yes")
     AC_DEFINE(IOLOOP_NOTIFY_INOTIFY,, Use Linux inotify)
   else
+    AC_MSG_RESULT("no")
     if test "$notify" = "inotify"; then
       AC_MSG_ERROR([inotify requested but not available])
       notify=""
