@@ -106,7 +106,7 @@ int otp_read_words(const char *data, const char **endptr, unsigned char *hash)
 			}
 		} else {
 			if (i_isalpha(c)) {
-				if (len > OTP_MAX_WORD_LEN) {
+				if (++len > OTP_MAX_WORD_LEN) {
 					count = 0;
 					break;
 				}
