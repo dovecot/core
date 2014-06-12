@@ -961,8 +961,12 @@ int net_geterror(int fd)
 	int data;
 	socklen_t len = sizeof(data);
 
-	if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &data, &len) == -1)
-		return -1;
+	if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &data, &len) == -1) {
+		/* we're now really returning the getsockopt()'s error code
+		   instead of the socket's, but normally we should never get
+		   here anyway. */
+		return errno;
+	}
 
 	return data;
 }
