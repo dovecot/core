@@ -189,6 +189,7 @@ static int mailbox_list_index_parse_header(struct mailbox_list_index *ilist,
 			/* allow extra space in the end as long as last id=0 */
 			return id == 0 ? 0 : -1;
 		}
+		prev_id = id;
 
 		/* get name */
 		p = memchr(CONST_PTR_OFFSET(data, i), '\0', size-i);
