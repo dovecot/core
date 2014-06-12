@@ -203,8 +203,8 @@ static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
 	}
 
 	/* set socket options */
-	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-	setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
+	(void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+	(void)setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
 	if (!blocking)
 		net_set_nonblock(fd, TRUE);
 
@@ -418,8 +418,8 @@ int net_listen_full(const struct ip_addr *my_ip, unsigned int *port,
 	}
 
 	/* set socket options */
-	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-	setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
+	(void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+	(void)setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
 
 	if ((*flags & NET_LISTEN_FLAG_REUSEPORT) != 0) {
 #ifdef SO_REUSEPORT
@@ -434,7 +434,7 @@ int net_listen_full(const struct ip_addr *my_ip, unsigned int *port,
 #ifdef IPV6_V6ONLY
 	if (so.sin.sin_family == AF_INET6) {
 		opt = 1;
-		setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt));
+		(void)setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt));
 	}
 #endif
 	/* specify the address/port we want to listen in */
