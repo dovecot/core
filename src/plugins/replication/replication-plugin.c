@@ -147,7 +147,7 @@ static int replication_notify_sync(struct mail_user *user)
 		/* + | - */
 		ret = read(fd, buf, sizeof(buf));
 		if (ret < 0) {
-			if (ret != EINTR) {
+			if (errno != EINTR) {
 				i_error("read(%s) failed: %m",
 					ruser->socket_path);
 			} else {
