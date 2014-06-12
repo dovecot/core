@@ -53,7 +53,7 @@ unsigned int mbox_hide_headers_count = N_ELEMENTS(mbox_hide_headers);
 const char *mbox_save_drop_headers[] = {
 	"Content-Length",
 	"Status",
-	"X-Delivery-ID"
+	"X-Delivery-ID",
 	"X-IMAP",
 	"X-IMAPbase",
 	"X-Keywords",
