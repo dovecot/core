@@ -36,6 +36,11 @@ static int dump_record(int fd, buffer_t *buf)
 	if (ret != sizeof(rec))
 		i_fatal("rec read() %d != %d", (int)ret, (int)sizeof(rec));
 
+	if (rec.record_size < sizeof(rec) + sizeof(uint32_t) ||
+	    rec.record_size > INT_MAX) {
+		i_fatal("Invalid record_size=%u at offset %"PRIuUOFF_T,
+			rec.record_size, offset);
+	}
 	data_size = rec.record_size - sizeof(rec);
 	buffer_set_used_size(buf, 0);
 	data = buffer_append_space_unsafe(buf, data_size);
