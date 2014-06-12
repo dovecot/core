@@ -630,7 +630,7 @@ imapc_connection_handle_resp_text(struct imapc_connection *conn,
 		*value_r = value + 1;
 	} else {
 		*key_r = text;
-		*value_r = NULL;
+		*value_r = "";
 	}
 	return imapc_connection_handle_resp_text_code(conn, *key_r, *value_r);
 }

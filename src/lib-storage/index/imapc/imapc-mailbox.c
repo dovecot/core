@@ -413,7 +413,7 @@ imapc_resp_text_uidvalidity(const struct imapc_untagged_reply *reply,
 {
 	uint32_t uid_validity;
 
-	if (mbox == NULL || reply->resp_text_value == NULL ||
+	if (mbox == NULL ||
 	    str_to_uint32(reply->resp_text_value, &uid_validity) < 0)
 		return;
 
@@ -429,7 +429,7 @@ imapc_resp_text_uidnext(const struct imapc_untagged_reply *reply,
 {
 	uint32_t uid_next;
 
-	if (mbox == NULL || reply->resp_text_value == NULL ||
+	if (mbox == NULL ||
 	    str_to_uint32(reply->resp_text_value, &uid_next) < 0)
 		return;
 
