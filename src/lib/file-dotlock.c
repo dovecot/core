@@ -855,22 +855,25 @@ int file_dotlock_replace(struct dotlock **dotlock_p,
 {
 	struct dotlock *dotlock;
 	const char *lock_path;
+	bool is_locked;
 
 	dotlock = *dotlock_p;
 	*dotlock_p = NULL;
 
+	is_locked = (flags & DOTLOCK_REPLACE_FLAG_VERIFY_OWNER) == 0 ? TRUE :
+		file_dotlock_is_locked(dotlock);
+
 	if ((flags & DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) != 0)
 		dotlock->fd = -1;
 
-	lock_path = file_dotlock_get_lock_path(dotlock);
-	if ((flags & DOTLOCK_REPLACE_FLAG_VERIFY_OWNER) != 0 &&
-	    !file_dotlock_is_locked(dotlock)) {
+	if (!is_locked) {
 		dotlock_replaced_warning(dotlock, FALSE);
 		errno = EEXIST;
 		file_dotlock_free(&dotlock);
 		return 0;
 	}
 
+	lock_path = file_dotlock_get_lock_path(dotlock);
 	if (rename(lock_path, dotlock->path) < 0) {
 		i_error("rename(%s, %s) failed: %m", lock_path, dotlock->path);
 		if (errno == ENOENT)
