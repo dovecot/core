@@ -322,8 +322,7 @@ void director_sync_send(struct director *dir, struct director_host *host,
 	   if they are, we want to know it fast. */
 	if (dir->left != NULL)
 		director_connection_ping(dir->left);
-	if (dir->right != NULL)
-		director_connection_ping(dir->right);
+	director_connection_ping(dir->right);
 }
 
 bool director_resend_sync(struct director *dir)

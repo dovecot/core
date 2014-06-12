@@ -530,8 +530,7 @@ importer_try_next_mail(struct dsync_mailbox_importer *importer,
 		}
 		importer->cur_uid_has_change = FALSE;
 	}
-	importer->cur_uid_has_change = importer->cur_mail != NULL &&
-		importer->cur_mail->uid == wanted_uid;
+	importer->cur_uid_has_change = importer->cur_mail->uid == wanted_uid;
 	if (importer->mails_have_guids) {
 		if (mail_get_special(importer->cur_mail, MAIL_FETCH_GUID,
 				     &importer->cur_guid) < 0) {

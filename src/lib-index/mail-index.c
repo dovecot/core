@@ -541,8 +541,7 @@ mail_index_open_opened(struct mail_index *index,
 	if ((index->map->hdr.flags & MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0) {
 		/* index was marked corrupted. we'll probably need to
 		   recreate the files. */
-		if (index->map != NULL)
-			mail_index_unmap(&index->map);
+		mail_index_unmap(&index->map);
 		mail_index_close_file(index);
 		mail_transaction_log_close(index->log);
 		if ((ret = mail_index_open_files(index, flags)) <= 0)

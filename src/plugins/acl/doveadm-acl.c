@@ -426,7 +426,7 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 				     &rights) < 0)
 		i_fatal("Failed to get rights");
 
-	if (rights == NULL || rights[0] == NULL)
+	if (rights[0] == NULL)
 		i_info("User %s has no rights for mailbox", ns->user->username);
 	else {
 		i_info("User %s has rights: %s",
