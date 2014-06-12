@@ -18,7 +18,7 @@
 #undef hash_table_lookup_full
 #undef hash_table_insert
 #undef hash_table_update
-#undef hash_table_remove
+#undef hash_table_try_remove
 #undef hash_table_count
 #undef hash_table_iterate_init
 #undef hash_table_iterate
@@ -326,7 +326,7 @@ static void hash_table_compress_removed(struct hash_table *table)
         table->removed_count = 0;
 }
 
-void hash_table_remove(struct hash_table *table, const void *key)
+bool hash_table_try_remove(struct hash_table *table, const void *key)
 {
 	struct hash_node *node;
 	unsigned int hash;
@@ -335,7 +335,7 @@ void hash_table_remove(struct hash_table *table, const void *key)
 
 	node = hash_table_lookup_node(table, key, hash);
 	if (unlikely(node == NULL))
-		i_panic("key not found from hash");
+		return FALSE;
 
 	node->key = NULL;
 	table->nodes_count--;
@@ -344,6 +344,7 @@ void hash_table_remove(struct hash_table *table, const void *key)
 		table->removed_count++;
 	else if (!hash_table_resize(table, FALSE))
 		hash_table_compress(table, &table->nodes[hash % table->size]);
+	return TRUE;
 }
 
 unsigned int hash_table_count(const struct hash_table *table)

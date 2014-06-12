@@ -110,10 +110,15 @@ void hash_table_update(struct hash_table *table, void *key, void *value);
 		(void *)((char *)(key) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._key, key)), \
 		(void *)((char *)(value) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._value, value)))
 
-void hash_table_remove(struct hash_table *table, const void *key);
-#define hash_table_remove(table, key) \
-	hash_table_remove((table)._table, \
+bool hash_table_try_remove(struct hash_table *table, const void *key);
+#define hash_table_try_remove(table, key) \
+	hash_table_try_remove((table)._table, \
 		(const void *)((const char *)(key) + COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE((table)._const_key, (table)._key, key)))
+#define hash_table_remove(table, key) \
+	STMT_START { \
+		if (unlikely(!hash_table_try_remove(table, key))) \
+        		i_panic("key not found from hash"); \
+	} STMT_END
 unsigned int hash_table_count(const struct hash_table *table) ATTR_PURE;
 #define hash_table_count(table) \
 	hash_table_count((table)._table)
