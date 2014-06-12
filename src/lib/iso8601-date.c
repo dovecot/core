@@ -97,7 +97,7 @@ static int is08601_date_parse_time_offset(struct iso8601_date_parser *parser)
 	switch (parser->cur[0]) {
 	case '-':
 		tz_sign = -1;
-
+		/* fall through */
 	case '+':
 		parser->cur++;
 

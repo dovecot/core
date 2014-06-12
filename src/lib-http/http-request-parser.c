@@ -168,6 +168,7 @@ static int http_request_parse(struct http_request_parser *parser,
 			parser->state = HTTP_REQUEST_PARSE_STATE_SKIP_LINE;
 			if (_parser->cur == _parser->end)
 				return 0;
+			/* fall through */
 		case HTTP_REQUEST_PARSE_STATE_SKIP_LINE:
 			if (*_parser->cur == '\r' || *_parser->cur == '\n') {
 				if (parser->skipping_line) {

@@ -477,6 +477,7 @@ static void dump_cache(struct mail_cache_view *cache_view, unsigned int seq)
 				memcpy(&value, data, sizeof(value));
 				str_printfa(str, "%llu ", (unsigned long long)value);
 			}
+			/* fall through */
 		case MAIL_CACHE_FIELD_VARIABLE_SIZE:
 		case MAIL_CACHE_FIELD_BITMASK:
 			str_printfa(str, "(%s)", binary_to_hex(data, size));
