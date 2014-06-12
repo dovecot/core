@@ -1567,6 +1567,8 @@ void auth_request_set_userdb_field(struct auth_request *request,
 	uid_t uid;
 	gid_t gid;
 
+	i_assert(value != NULL);
+
 	if (strcmp(name, "uid") == 0) {
 		uid = userdb_parse_uid(request, value);
 		if (uid == (uid_t)-1) {

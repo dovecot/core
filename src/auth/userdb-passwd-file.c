@@ -76,6 +76,8 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 				str_truncate(str, 0);
 				var_expand(str, value + 1, table);
 				value = str_c(str);
+			} else {
+				value = "";
 			}
 			auth_request_set_userdb_field(auth_request, key, value);
 		}
