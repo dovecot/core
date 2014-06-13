@@ -167,7 +167,7 @@ setting_entry_detach(struct master_service_settings_cache *cache,
 
 	if (entry->local_name != NULL)
 		hash_table_remove(cache->local_name_hash, entry->local_name);
-	if (entry->local_ip.family != 0)
+	else if (entry->local_ip.family != 0)
 		hash_table_remove(cache->local_ip_hash, &entry->local_ip);
 	settings_parser_deinit(&entry->parser);
 }
@@ -239,14 +239,17 @@ cache_add(struct master_service_settings_cache *cache,
 			hash_table_create(&cache->local_name_hash,
 					  cache->pool, 0, str_hash, strcmp);
 		}
+		i_assert(hash_table_lookup(cache->local_name_hash,
+					   entry_local_name) == NULL);
 		hash_table_insert(cache->local_name_hash,
 				  entry_local_name, entry);
-	}
-	if (input->local_ip.family != 0) {
+	} else if (input->local_ip.family != 0) {
 		if (!hash_table_is_created(cache->local_ip_hash)) {
 			hash_table_create(&cache->local_ip_hash, cache->pool, 0,
 					  net_ip_hash, net_ip_cmp);
 		}
+		i_assert(hash_table_lookup(cache->local_ip_hash,
+					   &entry->local_ip) == NULL);
 		hash_table_insert(cache->local_ip_hash,
 				  &entry->local_ip, entry);
 	}
