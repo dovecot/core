@@ -1434,6 +1434,14 @@ void auth_request_set_field(struct auth_request *request,
 		request->userdb_prefetch_set = TRUE;
 		if (request->userdb_reply == NULL)
 			auth_request_init_userdb_reply(request);
+		if (strcmp(name, "userdb_userdb_import") == 0) {
+			/* we can't put the whole userdb_userdb_import
+			   value to extra_cache_fields or it doesn't work
+			   properly. so handle this explicitly. */
+			auth_request_passdb_import(request, value,
+						   "userdb_", default_scheme);
+			return;
+		}
 		auth_request_set_userdb_field(request, name + 7, value);
 	} else if (strcmp(name, "nopassword") == 0) {
 		/* NULL password - anything goes */
@@ -1454,14 +1462,6 @@ void auth_request_set_field(struct auth_request *request,
 	} else if (strcmp(name, "passdb_import") == 0) {
 		auth_request_passdb_import(request, value, "", default_scheme);
 		return;
-		if (strcmp(name, "userdb_userdb_import") == 0) {
-			/* we need can't put the whole userdb_userdb_import
-			   value to extra_cache_fields or it doesn't work
-			   properly. so handle this explicitly. */
-			auth_request_passdb_import(request, value,
-						   "userdb_", default_scheme);
-			return;
-		}
 	} else {
 		/* these fields are returned to client */
 		auth_fields_add(request->extra_fields, name, value, 0);
