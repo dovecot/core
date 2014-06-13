@@ -48,7 +48,7 @@ void hmac_md5_set_cram_context(struct hmac_context *_hmac_ctx,
 	(c)  = (*p++);           \
 	(c) += (*p++ << 8);      \
 	(c) += (*p++ << 16);     \
-	(c) += (*p++ << 24);     \
+	(c) += ((uint32_t)(*p++) << 24);     \
 } STMT_END
 	cdp = context_digest;
 	CDGET(cdp, ctxo->a);

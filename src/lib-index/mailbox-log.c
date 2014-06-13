@@ -154,7 +154,7 @@ void mailbox_log_record_set_timestamp(struct mailbox_log_record *rec,
 
 time_t mailbox_log_record_get_timestamp(const struct mailbox_log_record *rec)
 {
-	return ((time_t)rec->timestamp[0] << 24) |
+	return (time_t)(rec->timestamp[0] << 24) |
 		((time_t)rec->timestamp[1] << 16) |
 		((time_t)rec->timestamp[2] << 8) |
 		(time_t)rec->timestamp[3];
