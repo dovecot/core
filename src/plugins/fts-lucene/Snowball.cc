@@ -26,27 +26,32 @@ CL_NS_USE2(analysis,standard)
 CL_NS_DEF2(analysis,snowball)
 
   /** Builds the named analyzer with no stop words. */
-  SnowballAnalyzer::SnowballAnalyzer(normalizer_func_t *normalizer, const char* language) {
-    this->language = strdup(language);
-	this->normalizer = normalizer;
-	stopSet = NULL;
-    prevstream = NULL;
+  SnowballAnalyzer::SnowballAnalyzer(normalizer_func_t *_normalizer, const char* _language)
+      : language(i_strdup(_language)),
+	normalizer(_normalizer),
+	stopSet(NULL),
+	prevstream(NULL)
+  {
   }
 
-  SnowballAnalyzer::~SnowballAnalyzer(){
-	  if (prevstream) _CLDELETE(prevstream);
-	  _CLDELETE_CARRAY(language);
-	  if ( stopSet != NULL )
-		  _CLDELETE(stopSet);
+  SnowballAnalyzer::~SnowballAnalyzer()
+  {
+      if (prevstream)
+	  _CLDELETE(prevstream);
+      i_free(language);
+      if ( stopSet != NULL )
+	  _CLDELETE(stopSet);
   }
 
   /** Builds the named analyzer with the given stop words.
   */
-  SnowballAnalyzer::SnowballAnalyzer(const char* language, const TCHAR** stopWords) {
-    this->language = strdup(language);
-
-    stopSet = _CLNEW CLTCSetList(true);
-	StopFilter::fillStopTable(stopSet,stopWords);
+  SnowballAnalyzer::SnowballAnalyzer(const char* language, const TCHAR** stopWords)
+      : language(i_strdup(language)),
+	normalizer(NULL),
+	stopSet(_CLNEW CLTCSetList(true)),
+	prevstream(NULL)
+  {
+      StopFilter::fillStopTable(stopSet,stopWords);
   }
 
   TokenStream* SnowballAnalyzer::tokenStream(const TCHAR* fieldName, CL_NS(util)::Reader* reader) {
