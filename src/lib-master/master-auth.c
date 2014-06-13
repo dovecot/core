@@ -211,6 +211,7 @@ void master_auth_request(struct master_auth *auth, int fd,
 			       master_auth_connection_timeout, conn);
 	conn->io = io_add(conn->fd, IO_READ,
 			  master_auth_connection_input, conn);
+	i_assert(hash_table_lookup(auth->connections, POINTER_CAST(req.tag)) == NULL);
 	hash_table_insert(auth->connections, POINTER_CAST(req.tag), conn);
 	*tag_r = req.tag;
 }

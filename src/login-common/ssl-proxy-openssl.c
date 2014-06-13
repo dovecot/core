@@ -1318,6 +1318,7 @@ ssl_server_context_init(const struct login_settings *login_set,
 	if (ctx->verify_client_cert)
 		ssl_proxy_ctx_verify_client(ctx->ctx, xnames);
 
+	i_assert(hash_table_lookup(ssl_servers, ctx) == NULL);
 	hash_table_insert(ssl_servers, ctx, ctx);
 	return ctx;
 }

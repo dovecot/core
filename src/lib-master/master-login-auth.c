@@ -483,6 +483,7 @@ void master_login_auth_request(struct master_login_auth *auth,
 	memcpy(login_req->cookie, req->cookie, sizeof(login_req->cookie));
 	login_req->callback = callback;
 	login_req->context = context;
+	i_assert(hash_table_lookup(auth->requests, POINTER_CAST(id)) == NULL);
 	hash_table_insert(auth->requests, POINTER_CAST(id), login_req);
 	DLLIST2_APPEND(&auth->request_head, &auth->request_tail, login_req);
 
