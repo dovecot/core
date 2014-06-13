@@ -212,29 +212,25 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 				return 0;
 			/* fall through */
 		case HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_STRING:
-			for (;;) {
-				if (*tcstream->cur == '"') {
-					tcstream->cur++;
-					tcstream->state = HTTP_CHUNKED_PARSE_STATE_EXT;
-					if (tcstream->cur >= tcstream->end)
-						return 0;
-					break;
-				} else if ((ret=http_transfer_chunked_skip_qdtext(tcstream)) <= 0) {
-					if (ret < 0)
-						tcstream->error = "Invalid chunked extension value";
-					return ret;
-				} else if (*tcstream->cur == '\\') {
-					tcstream->cur++;
-					tcstream->state = HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_ESCAPE;
-					if (tcstream->cur >= tcstream->end)
-						return 0;
-					break;
-				} else {
-					tcstream->error = t_strdup_printf(
-						"Invalid character %s in chunked extension value string",
-						_chr_sanitize(*tcstream->cur));
-					return -1;
-				}
+			if (*tcstream->cur == '"') {
+				tcstream->cur++;
+				tcstream->state = HTTP_CHUNKED_PARSE_STATE_EXT;
+				if (tcstream->cur >= tcstream->end)
+					return 0;
+			} else if ((ret=http_transfer_chunked_skip_qdtext(tcstream)) <= 0) {
+				if (ret < 0)
+					tcstream->error = "Invalid chunked extension value";
+				return ret;
+			} else if (*tcstream->cur == '\\') {
+				tcstream->cur++;
+				tcstream->state = HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_ESCAPE;
+				if (tcstream->cur >= tcstream->end)
+					return 0;
+			} else {
+				tcstream->error = t_strdup_printf(
+					"Invalid character %s in chunked extension value string",
+					_chr_sanitize(*tcstream->cur));
+				return -1;
 			}
 			break;
 		case HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_ESCAPE:
