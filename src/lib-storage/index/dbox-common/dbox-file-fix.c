@@ -20,14 +20,16 @@ dbox_file_match_pre_magic(struct istream *input,
 	const unsigned char *data;
 	size_t size;
 	uoff_t offset = input->v_offset;
+	bool have_lf = FALSE;
 
 	data = i_stream_get_data(input, &size);
 	if (data[0] == '\n') {
 		data++; size--; offset++;
+		have_lf = TRUE;
 	}
 	i_assert(data[0] == DBOX_MAGIC_PRE[0]);
 	if (size < sizeof(*hdr)) {
-		*need_bytes = sizeof(*hdr);
+		*need_bytes = sizeof(*hdr) + (have_lf ? 1 : 0);
 		return -1;
 	}
 	hdr = (const void *)data;
