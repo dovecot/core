@@ -203,7 +203,6 @@ void mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 {
 	struct mailbox_list_iter_update_context update_ctx;
 	struct mailbox_tree_iterate_context *iter;
-	struct mailbox_node *node;
 	const char *name;
 
 	memset(&update_ctx, 0, sizeof(update_ctx));
@@ -219,7 +218,7 @@ void mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 
 	iter = mailbox_tree_iterate_init(ctx->list->subscriptions, NULL,
 					 MAILBOX_SUBSCRIBED);
-	while ((node = mailbox_tree_iterate_next(iter, &name)) != NULL)
+	while (mailbox_tree_iterate_next(iter, &name) != NULL)
 		mailbox_list_iter_update(&update_ctx, name);
 	mailbox_tree_iterate_deinit(&iter);
 }

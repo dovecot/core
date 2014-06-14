@@ -835,7 +835,8 @@ static int imap_urlauth_input_next(struct imap_urlauth_connection *conn)
 		if ((response = i_stream_next_line(conn->input)) == NULL)
 			return 0;
 
-		i_error("imap-urlauth: Received input while no requests were pending");
+		i_error("imap-urlauth: Received input while no requests were pending: %s",
+			str_sanitize(response, 80));
 		imap_urlauth_connection_abort(conn, NULL);
 		return -1;
 	case IMAP_URLAUTH_STATE_REQUEST_PENDING:
