@@ -2162,7 +2162,7 @@ static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 				auth_request->userdb->userdb->iface->name;
 		}
 	} else if (subsystem == AUTH_SUBSYS_MECH) {
-		i_assert(auth_request->mech == NULL);
+		i_assert(auth_request->mech != NULL);
 		name = t_str_lcase(auth_request->mech->mech_name);
 	} else {
 		name = subsystem;
