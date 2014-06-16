@@ -340,7 +340,7 @@ static void dsync_ibc_stream_deinit(struct dsync_ibc *_ibc)
 		   "read() failed: EOF" errors on failing dsyncs */
 		o_stream_nsend_str(ibc->output,
 			t_strdup_printf("%c\n", items[ITEM_DONE].chr));
-		o_stream_nfinish(ibc->output);
+		(void)o_stream_nfinish(ibc->output);
 	}
 
 	timeout_remove(&ibc->to);

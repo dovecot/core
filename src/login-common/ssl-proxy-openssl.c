@@ -333,7 +333,7 @@ static void plain_read(struct ssl_proxy *proxy)
 	}
 
 	if (corked)
-		net_set_cork(proxy->fd_ssl, FALSE);
+		(void)net_set_cork(proxy->fd_ssl, FALSE);
 
 	ssl_proxy_unref(proxy);
 }
@@ -553,9 +553,9 @@ static void ssl_step(struct ssl_proxy *proxy)
 		if (proxy->sslout_size == 0)
 			ssl_set_io(proxy, SSL_REMOVE_OUTPUT);
 		else {
-			net_set_cork(proxy->fd_ssl, TRUE);
+			(void)net_set_cork(proxy->fd_ssl, TRUE);
 			ssl_write(proxy);
-			net_set_cork(proxy->fd_ssl, FALSE);
+			(void)net_set_cork(proxy->fd_ssl, FALSE);
 		}
 	}
 
