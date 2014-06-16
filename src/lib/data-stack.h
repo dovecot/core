@@ -61,8 +61,8 @@ void t_pop_check(unsigned int *id) ATTR_HOT;
 
    t_malloc() calls never fail. If there's not enough memory left,
    i_panic() will be called. */
-void *t_malloc(size_t size) ATTR_MALLOC;
-void *t_malloc0(size_t size) ATTR_MALLOC;
+void *t_malloc(size_t size) ATTR_MALLOC ATTR_RETURNS_NONNULL;
+void *t_malloc0(size_t size) ATTR_MALLOC ATTR_RETURNS_NONNULL;
 
 /* Try growing allocated memory. Returns TRUE if successful. Works only
    for last allocated memory in current stack frame. */
@@ -84,12 +84,12 @@ size_t t_get_bytes_available(void) ATTR_PURE;
    new one (or do some other trickery). See t_buffer_reget(). */
 #define t_buffer_get_type(type, size) \
 	t_buffer_get(sizeof(type) * (size))
-void *t_buffer_get(size_t size);
+void *t_buffer_get(size_t size) ATTR_RETURNS_NONNULL;
 
 /* Grow the buffer, memcpy()ing the memory to new location if needed. */
 #define t_buffer_reget_type(buffer, type, size) \
 	t_buffer_reget(buffer, sizeof(type) * (size))
-void *t_buffer_reget(void *buffer, size_t size);
+void *t_buffer_reget(void *buffer, size_t size) ATTR_RETURNS_NONNULL;
 
 /* Make the last t_buffer_get()ed buffer permanent. Note that size MUST be
    less or equal than the size you gave with last t_buffer_get() or the

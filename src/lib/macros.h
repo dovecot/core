@@ -140,6 +140,12 @@
 #  define ATTR_HOT
 #  define ATTR_COLD
 #endif
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 9)
+/* GCC 4.9 and later */
+#  define ATTR_RETURNS_NONNULL __attribute__((returns_nonnull))
+#else
+#  define ATTR_RETURNS_NONNULL
+#endif
 
 /* Macros to provide type safety for callback functions' context parameters */
 #if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 3))

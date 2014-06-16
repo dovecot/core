@@ -22,13 +22,13 @@ struct pool_vfuncs {
 	void (*ref)(pool_t pool);
 	void (*unref)(pool_t *pool);
 
-	void *(*malloc)(pool_t pool, size_t size);
+	void *(*malloc)(pool_t pool, size_t size) ATTR_RETURNS_NONNULL;
 	void (*free)(pool_t pool, void *mem);
 
 	/* memory in old_size..new_size will be zeroed */
 	void *(*realloc)(pool_t pool, void *mem,
 			 size_t old_size, size_t new_size)
-		ATTR_WARN_UNUSED_RESULT;
+		ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL;
 
 	/* Frees all the memory in pool. NOTE: system_pool doesn't support
 	   this and crashes if it's used */
@@ -70,13 +70,13 @@ size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
 
 #define p_new(pool, type, count) \
 	((type *) p_malloc(pool, sizeof(type) * (count)))
-static inline void * ATTR_MALLOC
+static inline void * ATTR_MALLOC ATTR_RETURNS_NONNULL
 p_malloc(pool_t pool, size_t size)
 {
 	return pool->v->malloc(pool, size);
 }
 
-static inline void * ATTR_WARN_UNUSED_RESULT
+static inline void * ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL
 p_realloc(pool_t pool, void *mem, size_t old_size, size_t new_size)
 {
 	return pool->v->realloc(pool, mem, old_size, new_size);
