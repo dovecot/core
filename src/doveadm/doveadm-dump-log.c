@@ -214,11 +214,17 @@ static struct {
 	HDRF(day_stamp)
 };
 
-static void log_header_update(const struct mail_transaction_header_update *u)
+static void log_header_update(const struct mail_transaction_header_update *u,
+			      size_t data_size)
 {
 	const void *data = u + 1;
 	unsigned int offset = u->offset, size = u->size;
 	unsigned int i;
+
+	if (sizeof(*u) + size > data_size) {
+		printf(" - offset = %u, size = %u (too large)\n", offset, size);
+		return;
+	}
 
 	while (size > 0) {
 		/* don't bother trying to handle header updates that include
@@ -247,7 +253,8 @@ static void log_header_update(const struct mail_transaction_header_update *u)
 }
 
 static void log_record_print(const struct mail_transaction_header *hdr,
-			     const void *data, uint64_t *modseq)
+			     const void *data, size_t data_size,
+			     uint64_t *modseq)
 {
 	unsigned int size = hdr->size - sizeof(*hdr);
 
@@ -297,7 +304,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 	case MAIL_TRANSACTION_HEADER_UPDATE: {
 		const struct mail_transaction_header_update *u = data;
 
-		log_header_update(u);
+		log_header_update(u, data_size);
 		break;
 	}
 	case MAIL_TRANSACTION_EXT_INTRO: {
@@ -331,16 +338,26 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 	case MAIL_TRANSACTION_EXT_HDR_UPDATE: {
 		const struct mail_transaction_ext_hdr_update *u = data;
 
-		printf(" - offset = %u, size = %u: ", u->offset, u->size);
-		print_data(u + 1, u->size);
+		printf(" - offset = %u, size = %u", u->offset, u->size);
+		if (sizeof(*u) + u->size <= data_size) {
+			printf(": ");
+			print_data(u + 1, u->size);
+		} else {
+			printf(" (too large)");
+		}
 		printf("\n");
 		break;
 	}
 	case MAIL_TRANSACTION_EXT_HDR_UPDATE32: {
 		const struct mail_transaction_ext_hdr_update32 *u = data;
 
-		printf(" - offset = %u, size = %u: ", u->offset, u->size);
-		print_data(u + 1, u->size);
+		printf(" - offset = %u, size = %u", u->offset, u->size);
+		if (sizeof(*u) + u->size <= data_size) {
+			printf(": ");
+			print_data(u + 1, u->size);
+		} else {
+			printf(" (too large)");
+		}
 		printf("\n");
 		break;
 	}
@@ -352,7 +369,10 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		record_size = (sizeof(*rec) + prev_intro.record_size + 3) & ~3;
 		while (rec < end) {
 			printf(" - uid=%u: ", rec->uid);
-			print_data(rec + 1, prev_intro.record_size);
+			if (prev_intro.record_size <= (char*)end - (char *)(rec+1))
+				print_data(rec + 1, prev_intro.record_size);
+			else
+				printf("(record_size too large)");
 			printf("\n");
 			rec = CONST_PTR_OFFSET(rec, record_size);
 		}
@@ -507,7 +527,7 @@ static int dump_record(int fd, uint64_t *modseq)
 			i_fatal("rec data read() %"PRIuSIZE_T" != %"PRIuSIZE_T,
 				ret, hdr.size - sizeof(hdr));
 		}
-		log_record_print(&hdr, buf, modseq);
+		log_record_print(&hdr, buf, (size_t)ret, modseq);
 	} else {
 		if (lseek(fd, hdr.size - sizeof(hdr), SEEK_CUR) < 0)
 			i_fatal("lseek() failed: %m");
