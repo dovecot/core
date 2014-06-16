@@ -24,7 +24,8 @@ static void dump_hdr(int fd, uint64_t *modseq_r)
 		memset(PTR_OFFSET(&hdr, hdr.hdr_size), 0,
 		       sizeof(hdr) - hdr.hdr_size);
 	}
-	lseek(fd, hdr.hdr_size, SEEK_SET);
+	if (lseek(fd, hdr.hdr_size, SEEK_SET) < 0)
+		i_fatal("lseek() failed: %m");
 
 	printf("version = %u.%u\n", hdr.major_version, hdr.minor_version);
 	printf("hdr size = %u\n", hdr.hdr_size);
@@ -467,6 +468,8 @@ static int dump_record(int fd, uint64_t *modseq)
 	unsigned int orig_size;
 
 	offset = lseek(fd, 0, SEEK_CUR);
+	if (offset == -1)
+		i_fatal("lseek() failed: %m");
 
 	ret = read(fd, &hdr, sizeof(hdr));
 	if (ret == 0)
@@ -504,7 +507,8 @@ static int dump_record(int fd, uint64_t *modseq)
 		}
 		log_record_print(&hdr, buf, modseq);
 	} else {
-		lseek(fd, hdr.size - sizeof(hdr), SEEK_CUR);
+		if (lseek(fd, hdr.size - sizeof(hdr), SEEK_CUR) < 0)
+			i_fatal("lseek() failed: %m");
 	}
 	return 1;
 }

@@ -214,7 +214,7 @@ static void fatal_log_check(const struct master_settings *set)
 			"information): %s\n", buf);
 	}
 
-	close(fd);
+	i_close_fd(&fd);
 	if (unlink(path) < 0)
 		i_error("unlink(%s) failed: %m", path);
 }

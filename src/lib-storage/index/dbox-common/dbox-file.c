@@ -555,7 +555,10 @@ int dbox_file_append_flush(struct dbox_file_append_context *ctx)
 			dbox_file_set_syscall_error(ctx->file, "ftruncate()");
 			return -1;
 		}
-		o_stream_seek(ctx->output, ctx->last_checkpoint_offset);
+		if (o_stream_seek(ctx->output, ctx->last_checkpoint_offset) < 0) {
+			dbox_file_set_syscall_error(ctx->file, "lseek()");
+			return -1;
+		}
 	}
 
 	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
