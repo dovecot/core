@@ -61,6 +61,8 @@ static int who_parse_line(const char *line, struct who_line *line_r)
 	memset(line_r, 0, sizeof(*line_r));
 
 	p = strchr(ident, '/');
+	if (p == NULL)
+		return -1;
 	line_r->pid = strtoul(pid_str, NULL, 10);
 	line_r->service = t_strdup_until(ident, p++);
 	line_r->username = strchr(p, '/');
