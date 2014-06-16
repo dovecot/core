@@ -24,7 +24,7 @@ enum login_proxy_ssl_flags {
 
 struct login_proxy_settings {
 	const char *host;
-	struct ip_addr ip;
+	struct ip_addr ip, source_ip;
 	unsigned int port;
 	unsigned int connect_timeout_msecs;
 	/* send a notification about proxy connection to proxy-notify pipe

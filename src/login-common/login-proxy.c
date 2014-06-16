@@ -39,7 +39,7 @@ struct login_proxy {
 	struct timeout *to, *to_notify;
 	struct login_proxy_record *state_rec;
 
-	struct ip_addr ip;
+	struct ip_addr ip, source_ip;
 	char *host;
 	unsigned int port;
 	unsigned int connect_timeout_msecs;
@@ -229,6 +229,9 @@ proxy_log_connect_error(struct login_proxy *proxy)
 	    net_getsockname(proxy->server_fd, &local_ip, &local_port) == 0) {
 		str_printfa(str, ", local=%s:%u",
 			    net_ip2addr(&local_ip), local_port);
+	} else if (proxy->source_ip.family != 0) {
+		str_printfa(str, ", local=%s",
+			    net_ip2addr(&proxy->source_ip));
 	}
 
 	str_append_c(str, ')');
@@ -285,7 +288,9 @@ static int login_proxy_connect(struct login_proxy *proxy)
 		return -1;
 	}
 
-	proxy->server_fd = net_connect_ip(&proxy->ip, proxy->port, NULL);
+	proxy->server_fd = net_connect_ip(&proxy->ip, proxy->port,
+					  proxy->source_ip.family == 0 ? NULL :
+					  &proxy->source_ip);
 	if (proxy->server_fd == -1) {
 		proxy_log_connect_error(proxy);
 		login_proxy_free(&proxy);
@@ -328,6 +333,7 @@ int login_proxy_new(struct client *client,
 	proxy->server_fd = -1;
 	proxy->created = ioloop_timeval;
 	proxy->ip = set->ip;
+	proxy->source_ip = set->source_ip;
 	proxy->host = i_strdup(set->host);
 	proxy->port = set->port;
 	proxy->connect_timeout_msecs = set->connect_timeout_msecs;
