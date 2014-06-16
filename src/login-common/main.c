@@ -2,6 +2,7 @@
 
 #include "login-common.h"
 #include "ioloop.h"
+#include "array.h"
 #include "randgen.h"
 #include "process-title.h"
 #include "restrict-access.h"
@@ -43,6 +44,9 @@ unsigned int initial_service_count;
 const struct login_settings *global_login_settings;
 const struct master_service_ssl_settings *global_ssl_settings;
 void **global_other_settings;
+
+const struct ip_addr *login_source_ips;
+unsigned int login_source_ips_idx, login_source_ips_count;
 
 static struct timeout *auth_client_to;
 static bool shutting_down = FALSE;
@@ -277,6 +281,40 @@ static bool anvil_reconnect_callback(void)
 	return FALSE;
 }
 
+static const struct ip_addr *
+parse_login_source_ips(const char *ips_str, unsigned int *count_r)
+{
+	ARRAY(struct ip_addr) ips;
+	const char *const *tmp;
+	struct ip_addr *tmp_ips;
+	bool skip_nonworking = FALSE;
+	unsigned int i, tmp_ips_count;
+	int ret;
+
+	if (ips_str[0] == '?') {
+		/* try binding to the IP immediately. if it doesn't
+		   work, skip it. (this allows using the same config file for
+		   all the servers.) */
+		skip_nonworking = TRUE;
+		ips_str++;
+	}
+	t_array_init(&ips, 4);
+	for (tmp = t_strsplit_spaces(ips_str, ", "); *tmp != NULL; tmp++) {
+		ret = net_gethostbyname(*tmp, &tmp_ips, &tmp_ips_count);
+		if (ret != 0) {
+			i_error("login_source_ips: net_gethostbyname(%s) failed: %s",
+				*tmp, net_gethosterror(ret));
+			continue;
+		}
+		for (i = 0; i < tmp_ips_count; i++) {
+			if (skip_nonworking && net_try_bind(&tmp_ips[i]) < 0)
+				continue;
+			array_append(&ips, &tmp_ips[i], 1);
+		}
+	}
+	return array_get(&ips, count_r);
+}
+
 static void main_preinit(bool allow_core_dumps)
 {
 	unsigned int max_fds;
@@ -310,6 +348,17 @@ static void main_preinit(bool allow_core_dumps)
 		anvil = anvil_client_init("anvil", anvil_reconnect_callback, 0);
 		if (anvil_client_connect(anvil, TRUE) < 0)
 			i_fatal("Couldn't connect to anvil");
+	}
+
+	/* read the login_source_ips before chrooting so it can access
+	   /etc/hosts */
+	login_source_ips = parse_login_source_ips(global_login_settings->login_source_ips,
+						  &login_source_ips_count);
+	if (login_source_ips_count > 0) {
+		/* randomize the initial index in case service_count=1
+		   (although in that case it's unlikely this setting is
+		   even used..) */
+		login_source_ips_idx = rand() % login_source_ips_count;
 	}
 
 	restrict_access_by_env(NULL, TRUE);
