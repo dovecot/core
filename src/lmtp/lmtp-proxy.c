@@ -231,7 +231,7 @@ lmtp_proxy_conn_rcpt_to(bool success, const char *reply, void *context)
 }
 
 static void
-lmtp_proxy_conn_data(bool success ATTR_UNUSED, const char *reply, void *context)
+lmtp_proxy_conn_data(bool success, const char *reply, void *context)
 {
 	struct lmtp_proxy_recipient *rcpt = context;
 	struct lmtp_proxy_connection *conn = rcpt->conn;
@@ -245,6 +245,16 @@ lmtp_proxy_conn_data(bool success ATTR_UNUSED, const char *reply, void *context)
 
 	rcpt->reply = p_strdup(conn->proxy->pool, reply);
 	rcpt->data_reply_received = TRUE;
+
+	if (!success) {
+		i_error("%s: Failed to send message to <%s> at %s:%u: %s",
+			conn->proxy->set.session_id, rcpt->address,
+			conn->set.host, conn->set.port, reply);
+	} else {
+		i_info("%s: Sent message to <%s> at %s:%u: %s",
+		       conn->proxy->set.session_id, rcpt->address,
+		       conn->set.host, conn->set.port, reply);
+	}
 
 	lmtp_proxy_try_finish(conn->proxy);
 }
