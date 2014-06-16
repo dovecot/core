@@ -39,7 +39,6 @@ int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy, const char *address,
 			const struct lmtp_proxy_rcpt_settings *set);
 /* Start proxying */
 void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
-		      const char *header,
 		      lmtp_proxy_finish_callback_t *callback, void *context)
 	ATTR_NULL(3);
 

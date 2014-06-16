@@ -938,7 +938,7 @@ static bool client_input_data_write(struct client *client)
 	if (array_count(&client->state.rcpt_to) != 0)
 		client_input_data_write_local(client, input);
 	if (client->proxy != NULL) {
-		lmtp_proxy_start(client->proxy, input, NULL,
+		lmtp_proxy_start(client->proxy, input,
 				 client_proxy_finish, client);
 		ret = FALSE;
 	}
