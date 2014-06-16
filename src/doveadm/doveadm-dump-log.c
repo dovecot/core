@@ -497,7 +497,9 @@ static int dump_record(int fd, uint64_t *modseq)
 	}
 	printf("\n");
 
-	if (hdr.size < 1024*1024) {
+	if (hdr.size < sizeof(hdr)) {
+		i_fatal("Invalid header size %u", hdr.size);
+	} else if (hdr.size < 1024*1024) {
 		unsigned char *buf = t_malloc(hdr.size);
 
 		ret = read(fd, buf, hdr.size - sizeof(hdr));
