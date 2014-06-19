@@ -223,6 +223,7 @@ ssize_t i_stream_read_copy_from_parent(struct istream *istream)
 	stream->pos = pos;
 	i_assert(ret != -1 || stream->istream.eof ||
 		 stream->istream.stream_errno != 0);
+	i_stream_update(stream);
 	return ret;
 }
 
