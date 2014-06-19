@@ -296,12 +296,14 @@ void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 	struct lmtp_proxy_connection *const *conns;
 
 	i_assert(data_input->seekable);
+	i_assert(proxy->data_input == NULL);
 
 	proxy->finish_callback = callback;
 	proxy->finish_context = context;
 	proxy->data_input = data_input;
 	i_stream_ref(proxy->data_input);
 
+	/* create the data_input streams first */
 	array_foreach(&proxy->connections, conns) {
 		struct lmtp_proxy_connection *conn = *conns;
 
@@ -312,10 +314,18 @@ void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 
 		conn->to = timeout_add(proxy->max_timeout_msecs,
 				       lmtp_proxy_conn_timeout, conn);
-
 		conn->data_input = i_stream_create_limit(data_input, (uoff_t)-1);
-		lmtp_client_send(conn->client, conn->data_input);
-		lmtp_client_send_more(conn->client);
+	}
+	/* now that all the streams are created, start reading them
+	   (reading them earlier could have caused the data_input parent's
+	   offset to change) */
+	array_foreach(&proxy->connections, conns) {
+		struct lmtp_proxy_connection *conn = *conns;
+
+		if (conn->data_input != NULL) {
+			lmtp_client_send(conn->client, conn->data_input);
+			lmtp_client_send_more(conn->client);
+		}
 	}
 	/* finish if all of the connections have already failed */
 	lmtp_proxy_try_finish(proxy);
