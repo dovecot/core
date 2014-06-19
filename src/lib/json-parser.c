@@ -203,7 +203,9 @@ static int json_parse_string(struct json_parser *parser, bool allow_skip,
 		if (*parser->data != '\\')
 			str_append_c(parser->value, *parser->data);
 		else {
-			switch (*++parser->data) {
+			if (++parser->data == parser->end)
+				return 0;
+			switch (*parser->data) {
 			case '"':
 			case '\\':
 			case '/':
