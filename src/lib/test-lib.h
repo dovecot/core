@@ -16,6 +16,7 @@ void test_hash_format(void);
 void test_hash_method(void);
 void test_hex_binary(void);
 void test_iso8601_date(void);
+void test_istream(void);
 void test_istream_base64_decoder(void);
 void test_istream_base64_encoder(void);
 void test_istream_concat(void);

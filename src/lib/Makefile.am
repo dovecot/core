@@ -282,6 +282,7 @@ test_lib_SOURCES = \
 	test-hash-method.c \
 	test-hex-binary.c \
 	test-iso8601-date.c \
+	test-istream.c \
 	test-istream-base64-decoder.c \
 	test-istream-base64-encoder.c \
 	test-istream-concat.c \

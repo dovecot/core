@@ -443,12 +443,51 @@ bool i_stream_last_line_crlf(struct istream *stream)
 	return stream->real_stream->line_crlf;
 }
 
+static bool i_stream_is_buffer_invalid(const struct istream_private *stream)
+{
+	if (stream->parent == NULL) {
+		/* the buffer can't point to parent, because it doesn't exist */
+		return FALSE;
+	}
+	if (stream->w_buffer != NULL) {
+		/* we can pretty safely assume that the stream is using its
+		   own private buffer, so it can never become invalid. */
+		return FALSE;
+	}
+	if (stream->access_counter !=
+	    stream->parent->real_stream->access_counter) {
+		/* parent has been modified behind this stream, we can't trust
+		   that our buffer is valid */
+		return TRUE;
+	}
+	return i_stream_is_buffer_invalid(stream->parent->real_stream);
+}
+
 const unsigned char *
 i_stream_get_data(const struct istream *stream, size_t *size_r)
 {
 	const struct istream_private *_stream = stream->real_stream;
 
 	if (_stream->skip >= _stream->pos) {
+		*size_r = 0;
+		return NULL;
+	}
+
+	if (i_stream_is_buffer_invalid(_stream)) {
+		/* This stream may be using parent's buffer directly as
+		   _stream->buffer, but the parent stream has already been
+		   modified indirectly. This means that the buffer might no
+		   longer point to where we assume it points to. So we'll
+		   just return the stream as empty until it's read again.
+
+		   It's a bit ugly to suddenly drop data from the stream that
+		   was already read, but since this happens only with shared
+		   parent istreams the caller is hopefully aware enough that
+		   something like this might happen. The other solutions would
+		   be to a) try to automatically read the data back (but we
+		   can't handle errors..) or b) always copy data to stream's
+		   own buffer instead of pointing to parent's buffer (but this
+		   causes data copying that is nearly always unnecessary). */
 		*size_r = 0;
 		return NULL;
 	}
@@ -460,11 +499,10 @@ i_stream_get_data(const struct istream *stream, size_t *size_r)
 size_t i_stream_get_data_size(const struct istream *stream)
 {
 	const struct istream_private *_stream = stream->real_stream;
+	size_t size;
 
-	if (_stream->skip >= _stream->pos)
-		return 0;
-	else
-		return _stream->pos - _stream->skip;
+	(void)i_stream_get_data(stream, &size);
+	return size;
 }
 
 unsigned char *i_stream_get_modifiable_data(const struct istream *stream,
