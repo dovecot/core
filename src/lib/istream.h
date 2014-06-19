@@ -119,7 +119,7 @@ int i_stream_stat(struct istream *stream, bool exact, const struct stat **st_r);
    set, 0 if size is unknown, -1 if error. */
 int i_stream_get_size(struct istream *stream, bool exact, uoff_t *size_r);
 /* Returns TRUE if there are any bytes left to be read or in buffer. */
-bool i_stream_have_bytes_left(const struct istream *stream) ATTR_PURE;
+bool i_stream_have_bytes_left(struct istream *stream);
 /* Returns TRUE if there are no bytes buffered and read() returns EOF. */
 bool i_stream_is_eof(struct istream *stream);
 /* Returns the absolute offset of the stream. This is the stream's current
@@ -140,12 +140,11 @@ bool i_stream_last_line_crlf(struct istream *stream);
 
 /* Returns pointer to beginning of read data, or NULL if there's no data
    buffered. */
-const unsigned char *
-i_stream_get_data(const struct istream *stream, size_t *size_r);
-size_t i_stream_get_data_size(const struct istream *stream);
+const unsigned char *i_stream_get_data(struct istream *stream, size_t *size_r);
+size_t i_stream_get_data_size(struct istream *stream);
 /* Like i_stream_get_data(), but returns non-const data. This only works with
    buffered streams (currently only file), others return NULL. */
-unsigned char *i_stream_get_modifiable_data(const struct istream *stream,
+unsigned char *i_stream_get_modifiable_data(struct istream *stream,
 					    size_t *size_r);
 /* Like i_stream_get_data(), but read more when needed. Returns 1 if more
    than threshold bytes are available, 0 if as much or less, -1 if error or

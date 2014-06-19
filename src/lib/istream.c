@@ -329,18 +329,14 @@ int i_stream_get_size(struct istream *stream, bool exact, uoff_t *size_r)
 	return _stream->get_size(_stream, exact, size_r);
 }
 
-bool i_stream_have_bytes_left(const struct istream *stream)
+bool i_stream_have_bytes_left(struct istream *stream)
 {
-	const struct istream_private *_stream = stream->real_stream;
-
-	return !stream->eof || _stream->skip != _stream->pos;
+	return i_stream_get_data_size(stream) > 0 || !stream->eof;
 }
 
 bool i_stream_is_eof(struct istream *stream)
 {
-	const struct istream_private *_stream = stream->real_stream;
-
-	if (_stream->skip == _stream->pos)
+	if (i_stream_get_data_size(stream) == 0)
 		(void)i_stream_read(stream);
 	return !i_stream_have_bytes_left(stream);
 }
@@ -464,9 +460,9 @@ static bool i_stream_is_buffer_invalid(const struct istream_private *stream)
 }
 
 const unsigned char *
-i_stream_get_data(const struct istream *stream, size_t *size_r)
+i_stream_get_data(struct istream *stream, size_t *size_r)
 {
-	const struct istream_private *_stream = stream->real_stream;
+	struct istream_private *_stream = stream->real_stream;
 
 	if (_stream->skip >= _stream->pos) {
 		*size_r = 0;
@@ -489,6 +485,12 @@ i_stream_get_data(const struct istream *stream, size_t *size_r)
 		   own buffer instead of pointing to parent's buffer (but this
 		   causes data copying that is nearly always unnecessary). */
 		*size_r = 0;
+		/* if we had already read until EOF, mark the stream again as
+		   not being at the end of file. */
+		if (stream->stream_errno == 0) {
+			_stream->skip = _stream->pos = 0;
+			stream->eof = FALSE;
+		}
 		return NULL;
 	}
 
@@ -496,7 +498,7 @@ i_stream_get_data(const struct istream *stream, size_t *size_r)
         return _stream->buffer + _stream->skip;
 }
 
-size_t i_stream_get_data_size(const struct istream *stream)
+size_t i_stream_get_data_size(struct istream *stream)
 {
 	size_t size;
 
@@ -504,10 +506,10 @@ size_t i_stream_get_data_size(const struct istream *stream)
 	return size;
 }
 
-unsigned char *i_stream_get_modifiable_data(const struct istream *stream,
+unsigned char *i_stream_get_modifiable_data(struct istream *stream,
 					    size_t *size_r)
 {
-	const struct istream_private *_stream = stream->real_stream;
+	struct istream_private *_stream = stream->real_stream;
 
 	if (_stream->skip >= _stream->pos || _stream->w_buffer == NULL) {
 		*size_r = 0;
