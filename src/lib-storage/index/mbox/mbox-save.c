@@ -554,6 +554,8 @@ static int mbox_save_body(struct mbox_save_context *ctx)
 	ssize_t ret;
 
 	while ((ret = i_stream_read(ctx->input)) != -1) {
+		if (mbox_save_body_input(ctx) < 0)
+			return -1;
 		if (ctx->ctx.dest_mail != NULL) {
 			/* i_stream_read() may have returned 0 at EOF
 			   because of this parser */
@@ -561,9 +563,6 @@ static int mbox_save_body(struct mbox_save_context *ctx)
 		}
 		if (ret == 0)
 			return 0;
-
-		if (mbox_save_body_input(ctx) < 0)
-			return -1;
 	}
 
 	i_assert(ctx->last_char == '\n');
@@ -601,9 +600,6 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	}
 
 	while ((ret = i_stream_read(ctx->input)) > 0) {
-		if (ctx->ctx.dest_mail != NULL)
-			index_mail_cache_parse_continue(ctx->ctx.dest_mail);
-
 		data = i_stream_get_data(ctx->input, &size);
 		for (i = 0; i < size; i++) {
 			if (data[i] == '\n' &&
@@ -630,8 +626,11 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 			write_error(ctx);
 			return -1;
 		}
+		i_assert(size > 0);
 		ctx->last_char = data[size-1];
 		i_stream_skip(ctx->input, size);
+		if (ctx->ctx.dest_mail != NULL)
+			index_mail_cache_parse_continue(ctx->ctx.dest_mail);
 	}
 	if (ret == 0)
 		return 0;
