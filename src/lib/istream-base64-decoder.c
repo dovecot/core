@@ -61,7 +61,7 @@ i_stream_base64_try_decode_block(struct base64_decoder_istream *bstream)
 	if (base64_decode(data, size, &pos, &buf) < 0) {
 		io_stream_set_error(&stream->iostream,
 			"Invalid base64 data: 0x%s",
-			binary_to_hex(data+pos, I_MAX(size-pos, 8)));
+			binary_to_hex(data+pos, I_MIN(size-pos, 8)));
 		stream->istream.stream_errno = EINVAL;
 		return -1;
 	}
