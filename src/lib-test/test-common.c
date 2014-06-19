@@ -16,6 +16,7 @@ static unsigned int total_count;
 
 struct test_istream {
 	struct istream_private istream;
+	const void *orig_buffer;
 	unsigned int skip_diff;
 	size_t max_pos;
 	bool allow_eof;
@@ -25,6 +26,7 @@ static ssize_t test_read(struct istream_private *stream)
 {
 	struct test_istream *tstream = (struct test_istream *)stream;
 	unsigned int new_skip_diff;
+	size_t cur_max;
 	ssize_t ret;
 
 	i_assert(stream->skip <= stream->pos);
@@ -36,10 +38,9 @@ static ssize_t test_read(struct istream_private *stream)
 		/* we seeked past the end of file. */
 		ret = 0;
 	} else {
-		/* move around the buffer */
+		/* copy data to a buffer in somewhat random place. this could
+		   help catch bugs. */
 		new_skip_diff = rand() % 128;
-		stream->buffer = (stream->buffer + tstream->skip_diff) -
-			new_skip_diff;
 		stream->skip = (stream->skip - tstream->skip_diff) +
 			new_skip_diff;
 		stream->pos = (stream->pos - tstream->skip_diff) +
@@ -48,8 +49,24 @@ static ssize_t test_read(struct istream_private *stream)
 			new_skip_diff;
 		tstream->skip_diff = new_skip_diff;
 
-		ret = tstream->max_pos - stream->pos;
-		stream->pos = tstream->max_pos;
+		cur_max = tstream->max_pos;
+		if (stream->max_buffer_size < (size_t)-1 - stream->skip &&
+		    cur_max > stream->skip + stream->max_buffer_size)
+			cur_max = stream->skip + stream->max_buffer_size;
+
+		/* use exactly correct buffer size so valgrind can catch
+		   read overflows */
+		if (stream->buffer_size != cur_max) {
+			stream->w_buffer = i_realloc(stream->w_buffer, 0,
+						     cur_max);
+			stream->buffer = stream->w_buffer;
+			stream->buffer_size = cur_max;
+		}
+		memcpy(stream->w_buffer + new_skip_diff, tstream->orig_buffer,
+		       cur_max - new_skip_diff);
+
+		ret = cur_max - stream->pos;
+		stream->pos = cur_max;
 	}
 
 	if (ret > 0)
@@ -78,7 +95,7 @@ struct istream *test_istream_create_data(const void *data, size_t size)
 	struct test_istream *tstream;
 
 	tstream = i_new(struct test_istream, 1);
-	tstream->istream.buffer = data;
+	tstream->orig_buffer = data;
 
 	tstream->istream.read = test_read;
 	tstream->istream.seek = test_seek;
