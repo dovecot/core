@@ -498,7 +498,6 @@ i_stream_get_data(const struct istream *stream, size_t *size_r)
 
 size_t i_stream_get_data_size(const struct istream *stream)
 {
-	const struct istream_private *_stream = stream->real_stream;
 	size_t size;
 
 	(void)i_stream_get_data(stream, &size);
