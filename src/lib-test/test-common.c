@@ -56,7 +56,7 @@ static ssize_t test_read(struct istream_private *stream)
 
 		/* use exactly correct buffer size so valgrind can catch
 		   read overflows */
-		if (stream->buffer_size != cur_max) {
+		if (stream->buffer_size != cur_max && cur_max > 0) {
 			stream->w_buffer = i_realloc(stream->w_buffer, 0,
 						     cur_max);
 			stream->buffer = stream->w_buffer;
