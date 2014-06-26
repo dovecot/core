@@ -5,6 +5,7 @@
 #include "ioloop.h"
 #include "buffer.h"
 #include "str.h"
+#include "net.h"
 #include "write-full.h"
 #include "time-util.h"
 #include "istream.h"
@@ -151,11 +152,72 @@ void iostream_rawlog_close(struct rawlog_iostream *rstream)
 		buffer_free(&rstream->buffer);
 }
 
+static void
+iostream_rawlog_create_fd(int fd, const char *path, struct istream **input,
+			  struct ostream **output)
+{
+	struct istream *old_input;
+	struct ostream *old_output;
+
+	old_input = *input;
+	old_output = *output;
+	*input = i_stream_create_rawlog(old_input, path, fd,
+					IOSTREAM_RAWLOG_FLAG_BUFFERED |
+					IOSTREAM_RAWLOG_FLAG_TIMESTAMP);
+	*output = o_stream_create_rawlog(old_output, path, fd,
+					 IOSTREAM_RAWLOG_FLAG_AUTOCLOSE |
+					 IOSTREAM_RAWLOG_FLAG_BUFFERED |
+					 IOSTREAM_RAWLOG_FLAG_TIMESTAMP);
+	i_stream_unref(&old_input);
+	o_stream_unref(&old_output);
+}
+
+static int
+iostream_rawlog_try_create_tcp(const char *path,
+			       struct istream **input, struct ostream **output)
+{
+	const char *p, *host;
+	struct ip_addr *ips;
+	unsigned int port, ips_count;
+	int ret, fd;
+
+	/* tcp:host:port */
+	if (strncmp(path, "tcp:", 4) != 0)
+		return 0;
+	path += 4;
+
+	if (strchr(path, '/') != NULL)
+		return 0;
+	if ((p = strchr(path, ':')) == NULL)
+		return 0;
+	if (str_to_uint(p+1, &port) < 0 || port == 0 || port > 65535)
+		return 0;
+	host = t_strdup_until(path, p);
+
+	ret = net_gethostbyname(host, &ips, &ips_count);
+	if (ret != 0) {
+		i_error("net_gethostbyname(%s) failed: %s", host,
+			net_gethosterror(ret));
+		return -1;
+	}
+	fd = net_connect_ip_blocking(&ips[0], port, NULL);
+	if (fd == -1) {
+		i_error("connect(%s:%u) failed: %m", net_ip2addr(&ips[0]), port);
+		return -1;
+	}
+	iostream_rawlog_create_fd(fd, path, input, output);
+	return 1;
+}
+
 int iostream_rawlog_create(const char *dir, struct istream **input,
 			   struct ostream **output)
 {
 	static unsigned int counter = 0;
 	const char *timestamp, *prefix;
+	int ret;
+
+	if ((ret = iostream_rawlog_try_create_tcp(dir, input, output)) != 0)
+		return ret < 0 ? -1 : 0;
 
 	timestamp = t_strflocaltime("%Y%m%d-%H%M%S", ioloop_time);
 
@@ -205,26 +267,15 @@ int iostream_rawlog_create_prefix(const char *prefix, struct istream **input,
 int iostream_rawlog_create_path(const char *path, struct istream **input,
 				struct ostream **output)
 {
-	struct istream *old_input;
-	struct ostream *old_output;
-	int fd;
+	int ret, fd;
 
+	if ((ret = iostream_rawlog_try_create_tcp(path, input, output)) != 0)
+		return ret < 0 ? -1 : 0;
 	fd = open(path, O_CREAT | O_APPEND | O_WRONLY, 0600);
 	if (fd == -1) {
 		i_error("creat(%s) failed: %m", path);
 		return -1;
 	}
-
-	old_input = *input;
-	old_output = *output;
-	*input = i_stream_create_rawlog(old_input, path, fd,
-					IOSTREAM_RAWLOG_FLAG_BUFFERED |
-					IOSTREAM_RAWLOG_FLAG_TIMESTAMP);
-	*output = o_stream_create_rawlog(old_output, path, fd,
-					 IOSTREAM_RAWLOG_FLAG_AUTOCLOSE |
-					 IOSTREAM_RAWLOG_FLAG_BUFFERED |
-					 IOSTREAM_RAWLOG_FLAG_TIMESTAMP);
-	i_stream_unref(&old_input);
-	o_stream_unref(&old_output);
+	iostream_rawlog_create_fd(fd, path, input, output);
 	return 0;
 }
