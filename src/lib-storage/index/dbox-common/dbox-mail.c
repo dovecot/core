@@ -171,13 +171,13 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 	if (mail_cache_lookup_field(imail->mail.mail.transaction->cache_view,
 				    str, imail->mail.mail.seq,
 				    ibox->cache_fields[cache_field].idx) > 0) {
-		if (cache_field != MAIL_CACHE_POP3_ORDER)
-			*value_r = str_c(str);
-		else {
+		if (cache_field == MAIL_CACHE_POP3_ORDER) {
 			i_assert(str_len(str) == sizeof(order));
 			memcpy(&order, str_data(str), sizeof(order));
-			*value_r = order == 0 ? "" : dec2str(order);
+			str_truncate(str, 0);
+			str_printfa(str, "%u", order);
 		}
+		*value_r = str_c(str);
 		return 0;
 	}
 
