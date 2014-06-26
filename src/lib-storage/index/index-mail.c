@@ -684,6 +684,7 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 
 	if (!data->parsed_bodystructure)
 		return;
+	i_assert(data->parts != NULL);
 
 	/* If BODY is fetched first but BODYSTRUCTURE is also wanted, we don't
 	   normally want to first cache BODY and then BODYSTRUCTURE. So check
@@ -921,8 +922,6 @@ static int index_mail_parse_body(struct index_mail *mail,
 		message_parser_parse_body(data->parser_ctx,
 					  parse_bodystructure_part_header,
 					  mail->mail.data_pool);
-		data->save_bodystructure_body = FALSE;
-		data->parsed_bodystructure = TRUE;
 	} else {
 		message_parser_parse_body(data->parser_ctx,
 			*null_message_part_header_callback, (void *)NULL);
@@ -930,6 +929,11 @@ static int index_mail_parse_body(struct index_mail *mail,
 	ret = index_mail_stream_check_failure(mail);
 	if (index_mail_parse_body_finish(mail, field, TRUE) < 0)
 		ret = -1;
+	if (ret == 0 && data->save_bodystructure_body) {
+		data->save_bodystructure_body = FALSE;
+		data->parsed_bodystructure = TRUE;
+		i_assert(data->parts != NULL);
+	}
 
 	i_stream_seek(data->stream, old_offset);
 	return ret;
@@ -1726,9 +1730,11 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date,
 		mail->data.save_date = ioloop_time;
 	}
 
-	mail->data.save_bodystructure_body = FALSE;
-	mail->data.parsed_bodystructure = TRUE;
-	(void)index_mail_parse_body_finish(mail, 0, success);
+	if (index_mail_parse_body_finish(mail, 0, success) == 0) {
+		mail->data.save_bodystructure_body = FALSE;
+		mail->data.parsed_bodystructure = TRUE;
+		i_assert(mail->data.parts != NULL);
+	}
 }
 
 static void index_mail_drop_recent_flag(struct mail *mail)
