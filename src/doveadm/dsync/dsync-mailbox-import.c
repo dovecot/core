@@ -1799,7 +1799,7 @@ void dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer
 	/* skip common local mails */
 	(void)importer_next_mail(importer, importer->last_common_uid+1);
 	/* if there are any local mails left, add them to newmails list */
-	while (importer->cur_mail != NULL)
+	while (importer->cur_mail != NULL && !importer->failed)
 		(void)dsync_mailbox_try_save(importer, NULL);
 
 	if (importer->search_ctx != NULL) {
