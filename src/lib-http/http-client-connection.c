@@ -769,8 +769,6 @@ http_client_connection_start_tunnel(struct http_client_connection **_conn,
 static void 
 http_client_connection_ready(struct http_client_connection *conn)
 {
-	struct stat st;
-
 	/* connected */
 	conn->connected = TRUE;
 	if (conn->to_connect != NULL &&
@@ -783,8 +781,7 @@ http_client_connection_ready(struct http_client_connection *conn)
 	http_client_peer_connection_success(conn->peer);
 
 	/* start raw log */
-	if (conn->client->set.rawlog_dir != NULL &&
-		stat(conn->client->set.rawlog_dir, &st) == 0) {
+	if (conn->client->set.rawlog_dir != NULL) {
 		iostream_rawlog_create(conn->client->set.rawlog_dir,
 				       &conn->conn.input, &conn->conn.output);
 	}

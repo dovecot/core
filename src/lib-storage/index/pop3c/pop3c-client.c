@@ -441,7 +441,6 @@ static int pop3c_client_ssl_handshaked(const char **error_r, void *context)
 static int pop3c_client_ssl_init(struct pop3c_client *client)
 {
 	struct ssl_iostream_settings ssl_set;
-	struct stat st;
 	const char *error;
 
 	if (client->ssl_ctx == NULL) {
@@ -485,8 +484,7 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 		return -1;
 	}
 
-	if (*client->set.rawlog_dir != '\0' &&
-	    stat(client->set.rawlog_dir, &st) == 0) {
+	if (*client->set.rawlog_dir != '\0') {
 		iostream_rawlog_create(client->set.rawlog_dir,
 				       &client->input, &client->output);
 	}
@@ -517,8 +515,6 @@ static void pop3c_client_connected(struct pop3c_client *client)
 
 static void pop3c_client_connect_ip(struct pop3c_client *client)
 {
-	struct stat st;
-
 	client->fd = net_connect_ip(&client->ip, client->set.port, NULL);
 	if (client->fd == -1) {
 		pop3c_client_disconnect(client);
@@ -532,8 +528,7 @@ static void pop3c_client_connect_ip(struct pop3c_client *client)
 	o_stream_set_no_error_handling(client->output, TRUE);
 
 	if (*client->set.rawlog_dir != '\0' &&
-	    client->set.ssl_mode != POP3C_CLIENT_SSL_MODE_IMMEDIATE &&
-	    stat(client->set.rawlog_dir, &st) == 0) {
+	    client->set.ssl_mode != POP3C_CLIENT_SSL_MODE_IMMEDIATE) {
 		iostream_rawlog_create(client->set.rawlog_dir,
 				       &client->input, &client->output);
 	}

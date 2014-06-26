@@ -214,10 +214,16 @@ int iostream_rawlog_create(const char *dir, struct istream **input,
 {
 	static unsigned int counter = 0;
 	const char *timestamp, *prefix;
+	struct stat st;
 	int ret;
 
 	if ((ret = iostream_rawlog_try_create_tcp(dir, input, output)) != 0)
 		return ret < 0 ? -1 : 0;
+	if (stat(dir, &st) < 0) {
+		if (errno != ENOENT && errno != EACCES)
+			i_error("rawlog: stat(%s) failed: %m", dir);
+		return -1;
+	}
 
 	timestamp = t_strflocaltime("%Y%m%d-%H%M%S", ioloop_time);
 
