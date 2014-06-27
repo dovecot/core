@@ -1062,6 +1062,8 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 	i_assert(client->dot_input == NULL);
 	client->dot_input = i_stream_create_dot(client->input, TRUE);
 	client_send_line(client, "354 OK");
+	/* send the DATA reply immediately before we start handling any data */
+	o_stream_uncork(client->output);
 
 	io_remove(&client->io);
 	client_state_set(client, "DATA");

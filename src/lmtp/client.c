@@ -122,15 +122,15 @@ void client_input_handle(struct client *client)
 
 	output = client->output;
 	o_stream_ref(output);
-	o_stream_cork(output);
 	while ((line = i_stream_next_line(client->input)) != NULL) {
 		T_BEGIN {
+			o_stream_cork(output);
 			ret = client_input_line(client, line);
+			o_stream_uncork(output);
 		} T_END;
 		if (ret < 0)
 			break;
 	}
-	o_stream_uncork(output);
 	o_stream_unref(&output);
 }
 
