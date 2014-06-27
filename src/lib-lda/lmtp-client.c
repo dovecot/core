@@ -286,7 +286,7 @@ lmtp_client_data_next(struct lmtp_client *client, const char *line)
 	return -1;
 }
 
-static void lmtp_client_send_data(struct lmtp_client *client)
+static int lmtp_client_send_data(struct lmtp_client *client)
 {
 	const unsigned char *data;
 	unsigned char add;
@@ -295,7 +295,7 @@ static void lmtp_client_send_data(struct lmtp_client *client)
 	int ret;
 
 	if (client->output_finished)
-		return;
+		return 0;
 
 	while ((ret = i_stream_read_data(client->data_input,
 					 &data, &size, 0)) > 0) {
@@ -331,7 +331,7 @@ static void lmtp_client_send_data(struct lmtp_client *client)
 			if (ret == 0) {
 				/* continue later */
 				o_stream_set_flush_pending(client->output, TRUE);
-				return;
+				return 0;
 			}
 		}
 
@@ -342,12 +342,20 @@ static void lmtp_client_send_data(struct lmtp_client *client)
 			client->output_last = add;
 		}
 	}
+	if (client->data_input->stream_errno != 0) {
+		i_error("lmtp client: read(%s) failed: %s",
+			i_stream_get_name(client->data_input),
+			i_stream_get_error(client->data_input));
+		lmtp_client_fail(client,
+			"451 4.3.0 Internal failure while reading DATA input");
+		return -1;
+	}
 	if (sent_bytes && client->data_output_callback != NULL)
 		client->data_output_callback(client->data_output_context);
 
 	if (ret == 0 || ret == -2) {
 		/* -2 can happen with tee istreams */
-		return;
+		return 0;
 	}
 
 	if (client->output_last != '\n') {
@@ -356,6 +364,7 @@ static void lmtp_client_send_data(struct lmtp_client *client)
 	}
 	o_stream_nsend(client->output, ".\r\n", 3);
 	client->output_finished = TRUE;
+	return 0;
 }
 
 static void lmtp_client_send_handshake(struct lmtp_client *client)
@@ -526,7 +535,8 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 		client->input_state++;
 		if (client->data_header != NULL)
 			o_stream_nsend_str(client->output, client->data_header);
-		lmtp_client_send_data(client);
+		if (lmtp_client_send_data(client) < 0)
+			return -1;
 		break;
 	case LMTP_INPUT_STATE_DATA:
 		/* DATA replies */
@@ -600,7 +610,7 @@ static int lmtp_client_output(struct lmtp_client *client)
 		lmtp_client_fail(client, ERRSTR_TEMP_REMOTE_FAILURE
 				 " (disconnected in output)");
 	else if (client->input_state == LMTP_INPUT_STATE_DATA)
-		lmtp_client_send_data(client);
+		(void)lmtp_client_send_data(client);
 	o_stream_uncork(client->output);
 	lmtp_client_unref(&client);
 	return ret;
@@ -748,7 +758,7 @@ void lmtp_client_send_more(struct lmtp_client *client)
 {
 	if (client->input_state == LMTP_INPUT_STATE_DATA) {
 		o_stream_cork(client->output);
-		lmtp_client_send_data(client);
+		(void)lmtp_client_send_data(client);
 		o_stream_uncork(client->output);
 	}
 }
