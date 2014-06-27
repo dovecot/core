@@ -147,6 +147,11 @@ void test_begin(const char *name)
 	test_success = TRUE;
 }
 
+bool test_has_failed(void)
+{
+	return !test_success;
+}
+
 void test_assert_failed(const char *code, const char *file, unsigned int line)
 {
 	printf("%s:%u: Assert failed: %s\n", file, line, code);
