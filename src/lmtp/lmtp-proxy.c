@@ -4,6 +4,7 @@
 #include "array.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "istream-sized.h"
 #include "ostream.h"
 #include "lmtp-client.h"
 #include "lmtp-proxy.h"
@@ -294,6 +295,7 @@ void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 		      lmtp_proxy_finish_callback_t *callback, void *context)
 {
 	struct lmtp_proxy_connection *const *conns;
+	uoff_t size;
 
 	i_assert(data_input->seekable);
 	i_assert(proxy->data_input == NULL);
@@ -302,6 +304,11 @@ void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 	proxy->finish_context = context;
 	proxy->data_input = data_input;
 	i_stream_ref(proxy->data_input);
+	if (i_stream_get_size(proxy->data_input, TRUE, &size) < 0) {
+		i_error("i_stream_get_size(data_input) failed: %s",
+			i_stream_get_error(proxy->data_input));
+		size = (uoff_t)-1;
+	}
 
 	/* create the data_input streams first */
 	array_foreach(&proxy->connections, conns) {
@@ -314,7 +321,10 @@ void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 
 		conn->to = timeout_add(proxy->max_timeout_msecs,
 				       lmtp_proxy_conn_timeout, conn);
-		conn->data_input = i_stream_create_limit(data_input, (uoff_t)-1);
+		if (size == (uoff_t)-1)
+			conn->data_input = i_stream_create_limit(data_input, (uoff_t)-1);
+		else
+			conn->data_input = i_stream_create_sized(data_input, size);
 	}
 	/* now that all the streams are created, start reading them
 	   (reading them earlier could have caused the data_input parent's
