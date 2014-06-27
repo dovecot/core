@@ -164,11 +164,24 @@ void test_assert_failed_idx(const char *code, const char *file, unsigned int lin
 	test_success = FALSE;
 }
 
+static void
+test_dump_rand_state(void)
+{
+	if (rand_get_seed_count() > 0)
+		printf("test: random seed #%i was %u\n", 
+		       rand_get_seed_count(),
+		       rand_get_last_seed());
+	else
+		printf("test: random seed unknown\n");
+}
+
 void test_end(void)
 {
 	i_assert(test_prefix != NULL);
 
 	test_out("", test_success);
+	if (!test_success)
+		test_dump_rand_state();
 	i_free_and_null(test_prefix);
 	test_success = FALSE;
 }
@@ -217,6 +230,7 @@ static void ATTR_FORMAT(2, 0)
 test_error_handler(const struct failure_context *ctx,
 		   const char *format, va_list args)
 {
+	test_dump_rand_state();
 	default_error_handler(ctx, format, args);
 #ifdef DEBUG
 	if (ctx->type == LOG_TYPE_WARNING &&
