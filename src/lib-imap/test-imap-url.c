@@ -96,13 +96,12 @@ static const struct valid_imap_url_test valid_url_tests[] = {
 		.url_parsed = {
 			.host_name = "example.com",
 			.userid = "user",
-			.mailbox = "INBOX/" }
+			.mailbox = "INBOX" }
 	},{
 		.url = "imap://user@example.com//",
 		.url_parsed = {
 			.host_name = "example.com",
-			.userid = "user",
-			.mailbox = "/" }
+			.userid = "user"}
 	},{
 		.url = "imap://user@example.com/INBOX/Trash",
 		.url_parsed = {
@@ -114,13 +113,13 @@ static const struct valid_imap_url_test valid_url_tests[] = {
 		.url_parsed = {
 			.host_name = "example.com",
 			.userid = "user",
-			.mailbox = "INBOX/" }
+			.mailbox = "INBOX" }
 	},{
 		.url = "imap://user@example.com/INBOX/Trash/../",
 		.url_parsed = {
 			.host_name = "example.com",
 			.userid = "user",
-			.mailbox = "INBOX/" }
+			.mailbox = "INBOX" }
 	},{
 		.url = "imap://user@example.com/INBOX/Trash/../..",
 		.url_parsed = {
@@ -150,7 +149,7 @@ static const struct valid_imap_url_test valid_url_tests[] = {
 		.url_parsed = {
 			.host_name = "example.com",
 			.userid = "user",
-			.mailbox = "INBOX/", .uidvalidity = 23423 }
+			.mailbox = "INBOX", .uidvalidity = 23423 }
 	},{
 		.url = "imap://user@example.com/INBOX/Drafts;UIDVALIDITY=6567",
 		.url_parsed = {
@@ -176,7 +175,7 @@ static const struct valid_imap_url_test valid_url_tests[] = {
 		.url_parsed = {
 			.host_name = "example.com",
 			.userid = "user",
-			.mailbox = "INBOX/", .uidvalidity = 0,
+			.mailbox = "INBOX", .uidvalidity = 0,
 			.uid = 0 }
 	},{
 		.url = "imap://user@example.com/INBOX/Junk;UIDVALIDITY=27667/"
@@ -347,6 +346,66 @@ static const struct valid_imap_url_test valid_url_tests[] = {
 			.mailbox = "#news",
 			.uidvalidity = 546,
 			.uid = 456 }
+	},{
+		.url = "",
+		.url_base = {
+			.host_name = "example.com",
+			.userid = "user",
+			.mailbox = "INBOX/Trash",
+			.uidvalidity = 23452 },
+		.url_parsed = {
+			.host_name = "example.com",
+			.userid = "user",
+			.mailbox = "INBOX/Trash",
+			.uidvalidity = 23452 }
+	},{
+		.url = "",
+		.url_base = {
+			.host_name = "example.com",
+			.userid = "user",
+			.mailbox = "INBOX/Trash",
+			.uidvalidity = 23452,
+			.uid = 65 },
+		.url_parsed = {
+			.host_name = "example.com",
+			.userid = "user",
+			.mailbox = "INBOX/Trash",
+			.uidvalidity = 23452,
+			.uid = 65 }
+	},{
+		.url = "",
+		.url_base = {
+			.host_name = "example.com",
+			.userid = "user",
+			.mailbox = "INBOX/Trash",
+			.uidvalidity = 23452,
+			.uid = 65,
+			.section = "AA/BB",
+			.have_partial = TRUE, .partial_offset = 1024, .partial_size = 1024 },
+		.url_parsed = {
+			.host_name = "example.com",
+			.userid = "user",
+			.mailbox = "INBOX/Trash",
+			.uidvalidity = 23452,
+			.uid = 65,
+			.section = "AA/BB",
+			.have_partial = TRUE, .partial_offset = 1024, .partial_size = 1024 }
+	},{
+		.url = "",
+		.url_base = {
+			.host_name = "example.com",
+			.userid = "user",
+			.mailbox = "INBOX/Trash",
+			.uidvalidity = 23452,
+			.uid = 65,
+			.have_partial = TRUE, .partial_offset = 1024, .partial_size = 1024 },
+		.url_parsed = {
+			.host_name = "example.com",
+			.userid = "user",
+			.mailbox = "INBOX/Trash",
+			.uidvalidity = 23452,
+			.uid = 65,
+			.have_partial = TRUE, .partial_offset = 1024, .partial_size = 1024 }
 	},{
 		.url = ";UID=4767",
 		.url_base = {
@@ -922,7 +981,7 @@ static const char *parse_create_url_tests[] = {
 		"/;SECTION=TEXT/;PARTIAL=1.14;URLAUTH=anonymous",
 	"imap://user;AUTH=PLAIN@host.example.com/INBOX;UIDVALIDITY=15/;UID=5"
 		"/;SECTION=TEXT/;PARTIAL=1.14;URLAUTH=user+username",
-	"imap://user;AUTH=PLAIN@host.example.com/INBOX/?SUBJECT%20%22Frop?%22",
+	"imap://user;AUTH=PLAIN@host.example.com/INBOX?SUBJECT%20%22Frop?%22",
 	"imap://host.%23example.com/",
 	"imap://user%3ba@host.example.com/",
 	"imap://user%40example.com@host.example.com/",

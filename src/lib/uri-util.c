@@ -663,8 +663,11 @@ int uri_parse_path(struct uri_parser *parser,
 			return -1;
 	}
 
+	*path_r = NULL;
+	*relative_r = relative;
+
 	if (parser->cur == pbegin) {
-		/* path part of URI is missing */
+		/* path part of URI is empty */
 		return 0;
 	}
 
@@ -675,7 +678,6 @@ int uri_parse_path(struct uri_parser *parser,
 	}
 	array_append_zero(&segments);
 	*path_r = array_get(&segments, &count);
-	*relative_r = relative;
 	return 1;
 }
 
