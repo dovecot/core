@@ -28,6 +28,7 @@
 #include "data-stack.h"
 #include "mempool.h"
 #include "imem.h"
+#include "rand.h"
 
 typedef struct buffer buffer_t;
 typedef struct buffer string_t;

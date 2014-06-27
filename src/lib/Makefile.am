@@ -111,6 +111,7 @@ liblib_la_SOURCES = \
 	process-title.c \
 	priorityq.c \
 	randgen.c \
+	rand.c \
 	read-full.c \
 	restrict-access.c \
 	restrict-process-size.c \
@@ -229,6 +230,7 @@ headers = \
 	printf-format-fix.h \
 	process-title.h \
 	priorityq.h \
+	rand.h \
 	randgen.h \
 	read-full.h \
 	restrict-access.h \
