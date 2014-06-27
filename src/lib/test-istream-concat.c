@@ -49,7 +49,7 @@ static void test_istream_concat_one(unsigned int buffer_size)
 	i_stream_unref(&input);
 }
 
-static void test_istream_concat_random(void)
+static bool test_istream_concat_random(void)
 {
 	struct istream **streams, *input, *input1, *input2;
 	const unsigned char *data;
@@ -97,11 +97,14 @@ static void test_istream_concat_random(void)
 				}
 			}
 		}
+		if (test_has_failed())
+			break;
 	}
 	for (i = 0; i < stream_count; i++)
 		i_stream_unref(&streams[i]);
 	i_stream_unref(&input1);
 	i_stream_unref(&input2);
+	return !test_has_failed();
 }
 
 void test_istream_concat(void)
@@ -116,7 +119,8 @@ void test_istream_concat(void)
 
 	test_begin("istream concat random");
 	for (i = 0; i < 100; i++) T_BEGIN {
-		test_istream_concat_random();
+		if(!test_istream_concat_random())
+			i = 101; /* don't break a T_BEGIN */
 	} T_END;
 	test_end();
 }
