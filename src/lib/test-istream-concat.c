@@ -57,7 +57,6 @@ static bool test_istream_concat_random(void)
 	size_t size = 0;
 	unsigned int i, j, offset, stream_count, data_len;
 
-	srand(3);
 	stream_count = (rand() % TEST_MAX_ISTREAM_COUNT) + 2;
 	streams = t_new(struct istream *, stream_count + 1);
 	for (i = 0, offset = 0; i < stream_count; i++) {

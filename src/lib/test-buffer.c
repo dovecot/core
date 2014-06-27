@@ -21,7 +21,6 @@ void test_buffer(void)
 		testdata[i] = rand();
 	memset(shadowbuf, 0, sizeof(shadowbuf));
 
-	srand(1);
 	shadowbuf_size = 0;
 	for (i = 0; i < BUF_TEST_COUNT; i++) {
 		if (buf->used == BUF_TEST_SIZE) {
