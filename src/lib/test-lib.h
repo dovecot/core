@@ -30,6 +30,7 @@ void test_network(void);
 void test_numpack(void);
 void test_ostream_file(void);
 void test_primes(void);
+void test_printf_format_fix(void);
 void test_priorityq(void);
 void test_seq_range_array(void);
 void test_str(void);

@@ -31,6 +31,7 @@ int main(void)
 		test_numpack,
 		test_ostream_file,
 		test_primes,
+		test_printf_format_fix,
 		test_priorityq,
 		test_seq_range_array,
 		test_str,
