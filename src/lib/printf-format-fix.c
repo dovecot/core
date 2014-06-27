@@ -11,12 +11,13 @@ fix_format_real(const char *fmt, const char *p, unsigned int *len_r)
 	unsigned int len1, len2, len3;
 
 	i_assert((size_t)(p - fmt) < INT_MAX);
+	i_assert(p[0] == '%' && p[1] == 'm');
 
 	errstr = strerror(errno);
 
 	/* we'll assume that there's only one %m in the format string.
 	   this simplifies the code and there's really no good reason to have
-	   it multiple times. */
+	   it multiple times. Callers can trap this case themselves. */
 	len1 = p - fmt;
 	len2 = strlen(errstr);
 	len3 = strlen(p + 2);
@@ -35,6 +36,7 @@ static const char *
 printf_format_fix_noalloc(const char *format, unsigned int *len_r)
 {
 	const char *p;
+	const char *ret = format;
 
 	for (p = format; *p != '\0'; ) {
 		if (*p++ == '%') {
@@ -42,16 +44,20 @@ printf_format_fix_noalloc(const char *format, unsigned int *len_r)
 			case 'n':
 				i_panic("%%n modifier used");
 			case 'm':
-				return fix_format_real(format, p-1, len_r);
+				if (ret != format)
+					i_panic("%%m used twice");
+				ret = fix_format_real(format, p-1, len_r);
+				break;
 			case '\0':
-				i_panic("%% modifier missing");
+				i_panic("%% modifier missing in '%s'", format);
 			}
 			p++;
 		}
 	}
 
-	*len_r = p - format;
-	return format;
+	if (ret == format)
+		*len_r = p - format;
+	return ret;
 }
 
 const char *printf_format_fix_get_len(const char *format, unsigned int *len_r)
