@@ -18,7 +18,7 @@ void test_buffer(void)
 
 	buf = buffer_create_dynamic(default_pool, 1);
 	for (i = 0; i < BUF_TEST_SIZE; i++)
-		testdata[i] = random();
+		testdata[i] = rand();
 	memset(shadowbuf, 0, sizeof(shadowbuf));
 
 	srand(1);

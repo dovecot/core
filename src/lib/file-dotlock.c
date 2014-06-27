@@ -5,7 +5,6 @@
 #include "str.h"
 #include "hex-binary.h"
 #include "hostpid.h"
-#include "randgen.h"
 #include "eacces-error.h"
 #include "write-full.h"
 #include "safe-mkstemp.h"
