@@ -84,8 +84,12 @@ fts_tika_parser_response(const struct http_response *response,
 	switch (response->status) {
 	case 200:
 		/* read response */
-		i_stream_ref(response->payload);
-		parser->payload = response->payload;
+		if (response->payload == NULL)
+			parser->payload = i_stream_create_from_data("", 0);
+		else {
+			i_stream_ref(response->payload);
+			parser->payload = response->payload;
+		}
 		break;
 	case 204: /* empty response */
 	case 422: /* Unprocessable Entity */
