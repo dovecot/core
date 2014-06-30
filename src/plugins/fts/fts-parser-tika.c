@@ -92,18 +92,19 @@ fts_tika_parser_response(const struct http_response *response,
 		}
 		break;
 	case 204: /* empty response */
+	case 415: /* Unsupported Media Type */
 	case 422: /* Unprocessable Entity */
 		if (parser->user->mail_debug) {
-			i_debug("fts_tika: PUT %s failed: %s",
+			i_debug("fts_tika: PUT %s failed: %u %s",
 				mail_user_plugin_getenv(parser->user, "fts_tika"),
-				response->reason);
+				response->status, response->reason);
 		}
 		parser->payload = i_stream_create_from_data("", 0);
 		break;
 	default:
-		i_error("fts_tika: PUT %s failed: %s",
+		i_error("fts_tika: PUT %s failed: %u %s",
 			mail_user_plugin_getenv(parser->user, "fts_tika"),
-			response->reason);
+			response->status, response->reason);
 		parser->failed = TRUE;
 		break;
 	}
