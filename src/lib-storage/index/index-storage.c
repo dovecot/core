@@ -667,7 +667,10 @@ static int mailbox_expunge_all_data(struct mailbox *box)
 		mailbox_transaction_rollback(&t);
 		return -1;
 	}
-	return mailbox_transaction_commit(&t);
+	if (mailbox_transaction_commit(&t) < 0)
+		return -1;
+	/* sync to actually perform the expunges */
+	return mailbox_sync(box, 0);
 }
 
 int index_storage_mailbox_delete_pre(struct mailbox *box)
