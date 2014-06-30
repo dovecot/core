@@ -173,12 +173,6 @@ void client_send_list_error(struct client_command_context *cmd,
 void client_send_box_error(struct client_command_context *cmd,
 			   struct mailbox *box)
 {
-	if (mailbox_is_inconsistent(box)) {
-		/* we can't do forced CLOSE, so have to disconnect */
-		client_disconnect_with_error(cmd->client,
-			"IMAP session state is inconsistent, please relogin.");
-		return;
-	}
 	client_send_storage_error(cmd, mailbox_get_storage(box));
 }
 
