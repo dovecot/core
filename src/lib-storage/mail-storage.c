@@ -1311,7 +1311,8 @@ int mailbox_delete(struct mailbox *box)
 
 	box->deleting = TRUE;
 	if (mailbox_open(box) < 0) {
-		if (mailbox_get_last_mail_error(box) != MAIL_ERROR_NOTFOUND)
+		if (mailbox_get_last_mail_error(box) != MAIL_ERROR_NOTFOUND &&
+		    !box->mailbox_deleted)
 			return -1;
 		/* \noselect mailbox */
 	}
