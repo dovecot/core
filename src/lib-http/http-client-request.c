@@ -336,6 +336,11 @@ int http_client_request_delay_from_response(struct http_client_request *req,
 	return 1;    /* valid delay */
 }
 
+const char *http_client_request_get_target(struct http_client_request *req)
+{
+	return req->target;
+}
+
 enum http_request_state
 http_client_request_get_state(struct http_client_request *req)
 {
