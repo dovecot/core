@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-#define MAILBOX_DELETE_RETRY_SECS (60*5)
+#define MAILBOX_DELETE_RETRY_SECS 30
 
 extern struct mail_search_register *mail_search_register_imap;
 extern struct mail_search_register *mail_search_register_human;
