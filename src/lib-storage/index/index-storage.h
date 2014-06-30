@@ -74,6 +74,8 @@ int index_storage_mailbox_update(struct mailbox *box,
 int index_storage_mailbox_update_common(struct mailbox *box,
 					const struct mailbox_update *update);
 int index_storage_mailbox_create(struct mailbox *box, bool directory);
+int index_storage_mailbox_delete_pre(struct mailbox *box);
+int index_storage_mailbox_delete_post(struct mailbox *box);
 int index_storage_mailbox_delete(struct mailbox *box);
 int index_storage_mailbox_delete_dir(struct mailbox *box, bool mailbox_deleted);
 int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest);

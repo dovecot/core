@@ -670,11 +670,9 @@ static int mailbox_expunge_all_data(struct mailbox *box)
 	return mailbox_transaction_commit(&t);
 }
 
-int index_storage_mailbox_delete(struct mailbox *box)
+int index_storage_mailbox_delete_pre(struct mailbox *box)
 {
-	struct mailbox_metadata metadata;
 	struct mailbox_status status;
-	int ret_guid;
 
 	if (!box->opened) {
 		/* \noselect mailbox, try deleting only the directory */
@@ -714,6 +712,13 @@ int index_storage_mailbox_delete(struct mailbox *box)
 			return -1;
 		}
 	}
+	return 1;
+}
+
+int index_storage_mailbox_delete_post(struct mailbox *box)
+{
+	struct mailbox_metadata metadata;
+	int ret_guid;
 
 	ret_guid = mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata);
 
@@ -741,6 +746,19 @@ int index_storage_mailbox_delete(struct mailbox *box)
 		   because it has children. that's not an error. */
 	}
 	return 0;
+}
+
+int index_storage_mailbox_delete(struct mailbox *box)
+{
+	int ret;
+
+	if ((ret = index_storage_mailbox_delete_pre(box)) <= 0)
+		return ret;
+	/* mails have been now successfully deleted. some mailbox formats may
+	   at this point do some other deletion that is required for it.
+	   the _post() deletion will close the index and delete the
+	   directory. */
+	return index_storage_mailbox_delete_post(box);
 }
 
 int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest)
