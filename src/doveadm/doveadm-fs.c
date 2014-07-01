@@ -387,7 +387,7 @@ struct doveadm_cmd doveadm_cmd_fs[] = {
 	{ cmd_fs_copy, "fs copy", "<fs-driver> <fs-args> <source path> <dest path>" },
 	{ cmd_fs_stat, "fs stat", "<fs-driver> <fs-args> <path>" },
 	{ cmd_fs_metadata, "fs metadata", "<fs-driver> <fs-args> <path>" },
-	{ cmd_fs_delete, "fs delete", "[-R] <fs-driver> <fs-args> <path>" },
+	{ cmd_fs_delete, "fs delete", "[-R] [-n <count>] <fs-driver> <fs-args> <path>" },
 	{ cmd_fs_iter, "fs iter", "<fs-driver> <fs-args> <path>" },
 	{ cmd_fs_iter_dirs, "fs iter-dirs", "<fs-driver> <fs-args> <path>" },
 };
