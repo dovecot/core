@@ -10,6 +10,7 @@ struct master_service;
 struct master_service_settings {
 	const char *base_dir;
 	const char *state_dir;
+	const char *instance_name;
 	const char *log_path;
 	const char *info_log_path;
 	const char *debug_log_path;
