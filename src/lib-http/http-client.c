@@ -54,7 +54,7 @@
    http-client-connection:
 
    This is an actual connection to a server. Once a connection is ready to
-   handle requests, it claims a request from a host object. One connection can
+   handle requests, it claims a request from a queue object. One connection can
    service multiple hosts and one host can have multiple associated connections,
    possibly to different ips and ports.
 

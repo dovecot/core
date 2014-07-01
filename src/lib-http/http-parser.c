@@ -186,7 +186,8 @@ int http_parse_quoted_string(struct http_parser *parser, const char **str_r)
 	return 1;
 }
 
-int http_parse_word(struct http_parser *parser, const char **word_r)
+int http_parse_token_or_qstring(struct http_parser *parser,
+	const char **word_r)
 {
 	if (parser->cur >= parser->end)
 		return 0;

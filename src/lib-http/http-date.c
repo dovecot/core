@@ -7,75 +7,65 @@
 
 #include <ctype.h>
 
-/*
-	Official specification is still RFC261, Section 3.3, but we anticipate
-	HTTPbis and use the draft Part 2, Section 5.1 as reference for our
-	parser:
- 
-	http://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-20#section-5.1
+/* RFC 7231, Section 7.1.1.1: Date/Time Formats	
 
 	The defined syntax is as follows:
 
-	 HTTP-date    = rfc1123-date / obs-date
+   HTTP-date    = IMF-fixdate / obs-date
 
 	Preferred format:
 
-	 rfc1123-date = day-name "," SP date1 SP time-of-day SP GMT
-	                ; fixed length subset of the format defined in
-	                ; Section 5.2.14 of [RFC1123]
-	 day-name     = %x4D.6F.6E ; "Mon", case-sensitive
-	              / %x54.75.65 ; "Tue", case-sensitive
-	              / %x57.65.64 ; "Wed", case-sensitive
-	              / %x54.68.75 ; "Thu", case-sensitive
-	              / %x46.72.69 ; "Fri", case-sensitive
-	              / %x53.61.74 ; "Sat", case-sensitive
-	              / %x53.75.6E ; "Sun", case-sensitive
-	 date1        = day SP month SP year
-	                ; e.g., 02 Jun 1982
-	 day          = 2DIGIT
-	 month        = %x4A.61.6E ; "Jan", case-sensitive
+   IMF-fixdate  = day-name "," SP date1 SP time-of-day SP GMT
+                ; fixed length/zone/capitalization subset of the format
+                ; see Section 3.3 of [RFC5322]
+   day-name     = %x4D.6F.6E ; "Mon", case-sensitive
+                / %x54.75.65 ; "Tue", case-sensitive
+                / %x57.65.64 ; "Wed", case-sensitive
+                / %x54.68.75 ; "Thu", case-sensitive
+                / %x46.72.69 ; "Fri", case-sensitive
+                / %x53.61.74 ; "Sat", case-sensitive
+                / %x53.75.6E ; "Sun", case-sensitive
+   date1        = day SP month SP year
+                ; e.g., 02 Jun 1982
+   day          = 2DIGIT
+   month        = %x4A.61.6E ; "Jan", case-sensitive
                 / %x46.65.62 ; "Feb", case-sensitive
-	              / %x4D.61.72 ; "Mar", case-sensitive
-	              / %x41.70.72 ; "Apr", case-sensitive
-	              / %x4D.61.79 ; "May", case-sensitive
-	              / %x4A.75.6E ; "Jun", case-sensitive
-	              / %x4A.75.6C ; "Jul", case-sensitive
-	              / %x41.75.67 ; "Aug", case-sensitive
-	              / %x53.65.70 ; "Sep", case-sensitive
-	              / %x4F.63.74 ; "Oct", case-sensitive
-	              / %x4E.6F.76 ; "Nov", case-sensitive
-	              / %x44.65.63 ; "Dec", case-sensitive
-	 year         = 4DIGIT
-	 GMT          = %x47.4D.54 ; "GMT", case-sensitive
-	 time-of-day  = hour ":" minute ":" second
-	 	              ; 00:00:00 - 23:59:59
-	 hour         = 2DIGIT
-	 minute       = 2DIGIT
-	 second       = 2DIGIT
-
-  The semantics of day-name, day, month, year, and time-of-day are the
-  same as those defined for the RFC 5322 constructs with the
-  corresponding name ([RFC5322], Section 3.3).
+                / %x4D.61.72 ; "Mar", case-sensitive
+                / %x41.70.72 ; "Apr", case-sensitive
+                / %x4D.61.79 ; "May", case-sensitive
+                / %x4A.75.6E ; "Jun", case-sensitive
+                / %x4A.75.6C ; "Jul", case-sensitive
+                / %x41.75.67 ; "Aug", case-sensitive
+                / %x53.65.70 ; "Sep", case-sensitive
+                / %x4F.63.74 ; "Oct", case-sensitive
+                / %x4E.6F.76 ; "Nov", case-sensitive
+                / %x44.65.63 ; "Dec", case-sensitive
+   year         = 4DIGIT
+   GMT          = %x47.4D.54 ; "GMT", case-sensitive
+   time-of-day  = hour ":" minute ":" second
+                ; 00:00:00 - 23:59:60 (leap second)
+   hour         = 2DIGIT
+   minute       = 2DIGIT
+   second       = 2DIGIT
 
   Obsolete formats:
 
-	 obs-date     = rfc850-date / asctime-date
+   obs-date     = rfc850-date / asctime-date
 
-	 rfc850-date  = day-name-l "," SP date2 SP time-of-day SP GMT
-	 date2        = day "-" month "-" 2DIGIT
-		              ; day-month-year (e.g., 02-Jun-82)
-	 day-name-l   = %x4D.6F.6E.64.61.79 ; "Monday", case-sensitive
-	              / %x54.75.65.73.64.61.79 ; "Tuesday", case-sensitive
-	              / %x57.65.64.6E.65.73.64.61.79 ; "Wednesday", case-sensitive
-	              / %x54.68.75.72.73.64.61.79 ; "Thursday", case-sensitive
-	              / %x46.72.69.64.61.79 ; "Friday", case-sensitive
-	              / %x53.61.74.75.72.64.61.79 ; "Saturday", case-sensitive
-	              / %x53.75.6E.64.61.79 ; "Sunday", case-sensitive
+   rfc850-date  = day-name-l "," SP date2 SP time-of-day SP GMT
+   date2        = day "-" month "-" 2DIGIT
+                ; e.g., 02-Jun-82
+   day-name-l   = %x4D.6F.6E.64.61.79    ; "Monday", case-sensitive
+                / %x54.75.65.73.64.61.79       ; "Tuesday", case-sensitive
+                / %x57.65.64.6E.65.73.64.61.79 ; "Wednesday", case-sensitive
+                / %x54.68.75.72.73.64.61.79    ; "Thursday", case-sensitive
+                / %x46.72.69.64.61.79          ; "Friday", case-sensitive
+                / %x53.61.74.75.72.64.61.79    ; "Saturday", case-sensitive
+                / %x53.75.6E.64.61.79          ; "Sunday", case-sensitive
 
-	 asctime-date = day-name SP date3 SP time-of-day SP year
-	 date3        = month SP ( 2DIGIT / ( SP 1DIGIT ))
-		              ; month day (e.g., Jun  2)
-
+   asctime-date = day-name SP date3 SP time-of-day SP year
+   date3        = month SP ( 2DIGIT / ( SP 1DIGIT ))
+                  ; e.g., Jun  2
  */
 
 static const char *month_names[] = {
@@ -257,14 +247,14 @@ http_date_parse_time_gmt(struct http_date_parser *parser)
 }
 
 static int
-http_date_parse_format_rfc1123(struct http_date_parser *parser)
+http_date_parse_format_imf_fixdate(struct http_date_parser *parser)
 {
 	/*
-	 rfc1123-date = day-name "," SP date1 SP time-of-day SP GMT
-	                ; fixed length subset of the format defined in
-	                ; Section 5.2.14 of [RFC1123]
+	 IMF-fixdate  = day-name "," SP date1 SP time-of-day SP GMT
+		            ; fixed length/zone/capitalization subset of the format
+		            ; see Section 3.3 of [RFC5322]
 	 date1        = day SP month SP year
-	                ; e.g., 02 Jun 1982
+	              ; e.g., 02 Jun 1982
 	 
 	 Remaining: 	 {...} SP day SP month SP year SP time-of-day SP GMT
 
@@ -390,10 +380,10 @@ http_date_parse_format_any(struct http_date_parser *parser)
 	int i;
 
 	/*
-	 HTTP-date    = rfc1123-date / obs-date
-	 rfc1123-date = day-name "," SP date1 SP time-of-day SP GMT
-	                ; fixed length subset of the format defined in
-	                ; Section 5.2.14 of [RFC1123]
+	 HTTP-date    = IMF-fixdate / obs-date
+	 IMF-fixdate  = day-name "," SP date1 SP time-of-day SP GMT
+		            ; fixed length/zone/capitalization subset of the format
+		            ; see Section 3.3 of [RFC5322]
 	 obs-date     = rfc850-date / asctime-date
 	 rfc850-date  = day-name-l "," SP date2 SP time-of-day SP GMT
 	 asctime-date = day-name SP date3 SP time-of-day SP year
@@ -414,7 +404,7 @@ http_date_parse_format_any(struct http_date_parser *parser)
 		return http_date_parse_format_rfc850(parser);
 	}
 
-	/* rfc1123-date / asctime-date */
+	/* IMF-fixdate / asctime-date */
 	for (i = 0; i < 7; i++) {
 		if (strcmp(weekday_names[i], str_c(dayname)) == 0) {
 			break;
@@ -433,9 +423,9 @@ http_date_parse_format_any(struct http_date_parser *parser)
 	if (parser->cur[0] != ',')
 		return -1;
 
-	/* rfc1123-date */
+	/* IMF-fixdate */
 	parser->cur++;
-	return http_date_parse_format_rfc1123(parser);
+	return http_date_parse_format_imf_fixdate(parser);
 }
 
 bool http_date_parse(const unsigned char *data, size_t size,

@@ -158,9 +158,11 @@ static int http_request_parse(struct http_request_parser *parser,
 	struct http_message_parser *_parser = &parser->parser;
 	int ret;
 
-	/* request-line = method SP request-target SP HTTP-version CRLF
-	 */
+	/* RFC 7230, Section 3.1.1: Request Line
 
+	   request-line  = method SP request-target SP HTTP-version CRLF
+	   method        = token
+	 */
 	for (;;) {
 		switch (parser->state) {
 		case HTTP_REQUEST_PARSE_STATE_INIT:
@@ -345,13 +347,11 @@ http_request_parse_expect_header(struct http_request_parser *parser,
 	bool parse_error = FALSE;
 	unsigned int num_expectations = 0;
 
-	/* Expect       = 1#expectation
-	   expectation  = expect-name [ BWS "=" BWS expect-value ]
-	                    *( OWS ";" [ OWS expect-param ] )
-	   expect-param = expect-name [ BWS "=" BWS expect-value ]
-	   expect-name  = token
-	   expect-value = token / quoted-string
+	/* RFC 7231, Section 5.1.1:
+
+	   Expect  = "100-continue"
 	 */
+	// FIXME: simplify; RFC 7231 discarded Expect extension mechanism
 	http_parser_init(&hparser, (const unsigned char *)hdr->value, hdr->size);
 	while (!parse_error) {
 		const char *expect_name, *expect_value;
@@ -362,18 +362,6 @@ http_request_parse_expect_header(struct http_request_parser *parser,
 			if (strcasecmp(expect_name, "100-continue") == 0) {
 				request->expect_100_continue = TRUE;
 			} else {
-				/* http://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-23
-				     Section 5.1.1:
-
-				   If all received Expect header field(s) are syntactically valid but
-				   contain an expectation that the recipient does not understand or
-				   cannot comply with, the recipient MUST respond with a 417
-				   (Expectation Failed) status code.  A recipient of a syntactically
-				   invalid Expectation header field MUST respond with a 4xx status code
-				   other than 417.
-
-				   --> Must check rest of expect header syntax before returning error.
-				 */
 				if (parser->error_code == HTTP_REQUEST_PARSE_ERROR_NONE) {
 					parser->error_code = HTTP_REQUEST_PARSE_ERROR_EXPECTATION_FAILED;
 					_parser->error = t_strdup_printf
@@ -391,7 +379,7 @@ http_request_parse_expect_header(struct http_request_parser *parser,
 				http_parse_ows(&hparser);
 
 				/* value */
-				if (http_parse_word(&hparser, &expect_value) <= 0) {
+				if (http_parse_token_or_qstring(&hparser, &expect_value) <= 0) {
 					parse_error = TRUE;
 					break;
 				}
@@ -430,7 +418,7 @@ http_request_parse_expect_header(struct http_request_parser *parser,
 				http_parse_ows(&hparser);
 
 				/* value */
-				if (http_parse_word(&hparser, &value) <= 0) {
+				if (http_parse_token_or_qstring(&hparser, &value) <= 0) {
 					parse_error = TRUE;
 					break;
 				}
@@ -480,6 +468,7 @@ http_request_parse_headers(struct http_request_parser *parser,
 	array_foreach(hdrs, hdr) {
 		int ret = 0;
 
+		/* Expect: */
 		if (http_header_field_is(hdr, "Expect"))
 			ret = http_request_parse_expect_header(parser, request, hdr);
 
@@ -510,7 +499,9 @@ int http_request_parse_next(struct http_request_parser *parser,
 		return ret;
 	}
 
-	/* HTTP-message   = start-line
+	/* RFC 7230, Section 3:
+		
+	   HTTP-message   = start-line
 	                   *( header-field CRLF )
 	                    CRLF
 	                    [ message-body ]
@@ -548,8 +539,7 @@ int http_request_parse_next(struct http_request_parser *parser,
 	}
 	parser->state = HTTP_REQUEST_PARSE_STATE_INIT;
 
-	/* https://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-23
-	     Section 5.4:
+	/* RFC 7230, Section 5.4: Host
 
 	   A server MUST respond with a 400 (Bad Request) status code to any
 	   HTTP/1.1 request message that lacks a Host header field and to any

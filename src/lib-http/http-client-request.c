@@ -350,16 +350,18 @@ http_client_request_get_state(struct http_client_request *req)
 enum http_response_payload_type
 http_client_request_get_payload_type(struct http_client_request *req)
 {
-	/* https://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-23
-	     Section 3.3:
+	/* RFC 7230, Section 3.3:
 
-	   The presence of a message body in a response depends on both the
-	   request method to which it is responding and the response status code.
-	   Responses to the HEAD request method never include a message body
-	   because the associated response header fields, if present, indicate only
-	   what their values would have been if the request method had been GET
-	   2xx (Successful) responses to CONNECT switch to tunnel mode instead of
-	   having a message body (Section 4.3.6 of [Part2]).
+		 The presence of a message body in a response depends on both the
+		 request method to which it is responding and the response status code
+		 (Section 3.1.2 of [RFC7230]). Responses to the HEAD request method
+	   (Section 4.3.2 of [RFC7231]) never include a message body because the
+	   associated response header fields (e.g., Transfer-Encoding,
+	   Content-Length, etc.), if present, indicate only what their values
+	   would have been if the request method had been GET (Section 4.3.1 of
+	   [RFC7231]). 2xx (Successful) responses to a CONNECT request method
+	   (Section 4.3.6 of [RFC7231]) switch to tunnel mode instead of having a
+	   message body.
 	 */
 	if (strcmp(req->method, "HEAD") == 0)
 		return HTTP_RESPONSE_PAYLOAD_TYPE_NOT_PRESENT;
@@ -933,8 +935,7 @@ void http_client_request_redirect(struct http_client_request *req,
 	req->label = p_strdup_printf(req->pool, "[%s %s%s]",
 		req->method, origin_url, req->target);
 
-	/* https://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-21
-	      Section-7.4.4
+	/* RFC 7231, Section 6.4.4:
 	
 	   -> A 303 `See Other' redirect status response is handled a bit differently.
 	   Basically, the response content is located elsewhere, but the original

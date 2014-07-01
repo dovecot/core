@@ -308,16 +308,14 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 	if (req->connect_tunnel)
 		conn->tunneling = TRUE;
 
-	/* https://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-21;
-			Section 6.1.2.1:
+	/* RFC 7231, Section 5.1.1: Expect
 
-	   Because of the presence of older implementations, the protocol allows
-	   ambiguous situations in which a client might send "Expect: 100-continue"
-	   without receiving either a 417 (Expectation Failed) or a 100 (Continue)
-	   status code.  Therefore, when a client sends this header field to an
-	   origin server (possibly via a proxy) from which it has never seen a 100
-	   (Continue) status code, the client SHOULD NOT wait for an indefinite
-	   period before sending the payload body.
+		 o  A client that sends a 100-continue expectation is not required to
+		    wait for any specific length of time; such a client MAY proceed to
+		    send the message body even if it has not yet received a response.
+		    Furthermore, since 100 (Continue) responses cannot be sent through
+		    an HTTP/1.0 intermediary, such a client SHOULD NOT wait for an
+		    indefinite period before sending the message body.
 	 */
 	if (req->payload_sync && !conn->peer->seen_100_response) {
 		i_assert(req->payload_chunked || req->payload_size > 0);
@@ -551,13 +549,11 @@ static void http_client_connection_input(struct connection *_conn)
 		if (conn->to_response != NULL)
 			timeout_remove(&conn->to_response);
 
-		/* https://tools.ietf.org/html/draft-ietf-httpbis-p2-semantics-21
-		     Section 7.2:
+		/* RFC 7231, Section 6.2:
 
-		   A client MUST be prepared to accept one or more 1xx status responses
-		   prior to a regular response, even if the client does not expect a 100
-		   (Continue) status message.  Unexpected 1xx status responses MAY be
-		   ignored by a user agent.
+		   A client MUST be able to parse one or more 1xx responses received
+		   prior to a final response, even if the client does not expect one.  A
+		   user agent MAY ignore unexpected 1xx responses.
 		 */
 		if (req->payload_sync && response.status == 100) {
 			if (conn->payload_continue) {

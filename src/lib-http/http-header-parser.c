@@ -120,7 +120,8 @@ static int http_header_parse_content(struct http_header_parser *parser)
 {
 	const unsigned char *first;
 
-	/* field-content  = *( HTAB / SP / VCHAR / obs-text )
+	/* field-content  = field-vchar [ 1*( SP / HTAB ) field-vchar ]
+	   field-vchar    = VCHAR / obs-text
 	 */
 	do {
 		first = parser->cur;
@@ -156,14 +157,19 @@ static int http_header_parse(struct http_header_parser *parser)
 {
 	int ret;
 
-	/* 'header'       = *( header-field CRLF ) CRLF
+	/* RFC 7230, Section 3.2: Header Fields
+
+	   'header'       = *( header-field CRLF ) CRLF
+	                  ; Actually part of HTTP-message syntax
+
 	   header-field   = field-name ":" OWS field-value OWS
 	   field-name     = token
 	   field-value    = *( field-content / obs-fold )
-	   field-content  = *( HTAB / SP / VCHAR / obs-text )
-	   obs-fold       = CRLF ( SP / HTAB )
+	   field-content  = field-vchar [ 1*( SP / HTAB ) field-vchar ]
+	   field-vchar    = VCHAR / obs-text
+	   obs-fold       = CRLF 1*( SP / HTAB )
 	                  ; obsolete line folding
-	                  ; see Section 3.2.2
+	                  ; see Section 3.2.4
 	 */
 
 	for (;;) {
