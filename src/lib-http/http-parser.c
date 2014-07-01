@@ -175,6 +175,7 @@ int http_parse_quoted_string(struct http_parser *parser, const char **str_r)
 			if (parser->cur >= parser->end || !http_char_is_text(*parser->cur))
 				return -1;
 			str_append_c(str, *parser->cur);
+			parser->cur++;
 
 		/* ERROR */
 		} else {
