@@ -423,7 +423,8 @@ master_service_try_init_log(struct master_service *service,
 		if (!syslog_facility_find(service->set->syslog_facility,
 					  &facility))
 			facility = LOG_MAIL;
-		i_set_failure_syslog("dovecot", LOG_NDELAY, facility);
+		i_set_failure_syslog(service->set->instance_name, LOG_NDELAY,
+		                     facility);
 		i_set_failure_prefix("%s", prefix);
 
 		if (strcmp(service->set->log_path, "syslog") != 0) {
