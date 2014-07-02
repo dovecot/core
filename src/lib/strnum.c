@@ -112,6 +112,17 @@ int str_to_uintmax(const char *str, uintmax_t *num_r)
 	return ret;
 }
 
+#define STR_TO_U__TEMPLATE(name, type)				\
+int name(const char *str, type *num_r, const char **endp_r)	\
+{								\
+	uintmax_t l;						\
+	if (str_parse_uintmax(str, &l, endp_r) < 0 || l > (type)-1)\
+		return -1;					\
+	*num_r = l;						\
+	return 0;						\
+}
+STR_TO_U__TEMPLATE(str_parse_uoff, uoff_t)
+
 int str_to_int(const char *str, int *num_r)
 {
 	intmax_t l;
