@@ -258,7 +258,7 @@ static int
 uri_parse_dec_octet(struct uri_parser *parser, string_t *literal,
 		    uint8_t *octet_r)
 {
-	uint8_t octet = 0;
+	unsigned int octet = 0;
 	int count = 0;
 
 	/* RFC 3986:
@@ -271,10 +271,8 @@ uri_parse_dec_octet(struct uri_parser *parser, string_t *literal,
 	 */
 
 	while (parser->cur < parser->end && i_isdigit(*parser->cur)) {
-		uint8_t prev = octet;
-
 		octet = octet * 10 + (parser->cur[0] - '0');
-		if (octet < prev)
+		if (octet > 255)
 			return -1;
 
 		if (literal != NULL)
