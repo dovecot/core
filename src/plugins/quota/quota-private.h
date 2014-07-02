@@ -150,8 +150,9 @@ struct quota_transaction_context {
 	   after the first allocation is done, bytes_ceil is set to
 	   bytes_ceil2. */
 	uint64_t bytes_ceil, bytes_ceil2, count_ceil;
-	/* how many bytes/mails we are over quota (either *_ceil or *_over
-	   is always zero) */
+	/* How many bytes/mails we are over quota. Like *_ceil, these are set
+	   only once and not updated by bytes_used/count_used. (Either *_ceil
+	   or *_over is always zero.) */
 	uint64_t bytes_over, count_over;
 
 	struct mail *tmp_mail;
@@ -177,5 +178,12 @@ void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
 					   int64_t bytes_limit,
 					   int64_t count_limit);
 int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r);
+
+int quota_root_parse_grace(struct quota_root_settings *root_set,
+			   const char *value, const char **error_r);
+bool quota_warning_match(const struct quota_warning_rule *w,
+			 uint64_t bytes_before, uint64_t bytes_current,
+			 uint64_t count_before, uint64_t count_current);
+bool quota_transaction_is_over(struct quota_transaction_context *ctx, uoff_t size);
 
 #endif

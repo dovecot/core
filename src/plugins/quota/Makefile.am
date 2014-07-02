@@ -29,7 +29,8 @@ quota_dist_sources = \
 	quota-dirsize.c \
 	quota-maildir.c \
         quota-plugin.c \
-	quota-storage.c
+	quota-storage.c \
+	quota-util.c
 
 quota_common_objects = \
 	quota.lo \
@@ -40,6 +41,7 @@ quota_common_objects = \
 	quota-maildir.lo \
         quota-plugin.lo \
 	quota-storage.lo \
+	quota-util.lo \
 	$(RQUOTA_XDR_LO)
 
 lib10_quota_plugin_la_SOURCES = $(quota_dist_sources)
