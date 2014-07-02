@@ -208,19 +208,7 @@ static int fetch_binary_size(struct imap_fetch_context *ctx, struct mail *mail,
    becomes too big and wraps. */
 static int read_uoff_t(const char **p, uoff_t *value)
 {
-	uoff_t prev;
-
-	*value = 0;
-	while (**p >= '0' && **p <= '9') {
-		prev = *value;
-		*value = *value * 10 + (**p - '0');
-
-		if (*value < prev)
-			return -1;
-
-		(*p)++;
-	}
-	return 0;
+	return str_parse_uoff(*p, value, p);
 }
 
 static int
