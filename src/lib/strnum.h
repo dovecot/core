@@ -14,6 +14,7 @@ bool str_is_numeric(const char *str, char end_char) ATTR_PURE;
 */
 
 int str_to_uint(const char *str, unsigned int *num_r) ATTR_WARN_UNUSED_RESULT;
+int str_parse_uint(const char *str, unsigned int *num_r, const char **endp_r) ATTR_WARN_UNUSED_RESULT ATTR_NULL(3);
 int str_to_ulong(const char *str, unsigned long *num_r) ATTR_WARN_UNUSED_RESULT;
 int str_to_ullong(const char *str, unsigned long long *num_r) ATTR_WARN_UNUSED_RESULT;
 int str_to_uint32(const char *str, uint32_t *num_r) ATTR_WARN_UNUSED_RESULT;

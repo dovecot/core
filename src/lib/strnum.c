@@ -122,6 +122,7 @@ int name(const char *str, type *num_r, const char **endp_r)	\
 	return 0;						\
 }
 STR_TO_U__TEMPLATE(str_parse_uoff, uoff_t)
+STR_TO_U__TEMPLATE(str_parse_uint, unsigned int)
 
 int str_to_int(const char *str, int *num_r)
 {
