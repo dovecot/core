@@ -82,7 +82,7 @@ int str_to_uint64(const char *str, uint64_t *num_r)
 	return 0;
 }
 
-int str_to_uintmax(const char *str, uintmax_t *num_r)
+int str_parse_uintmax(const char *str, uintmax_t *num_r, const char **endp_r)
 {
 	uintmax_t n = 0;
 
@@ -98,10 +98,18 @@ int str_to_uintmax(const char *str, uintmax_t *num_r)
 		}
 		n = n * 10 + (*str - '0');
 	}
-	if (*str != '\0')
-		return -1;
+	if (endp_r != NULL)
+		*endp_r = str;
 	*num_r = n;
 	return 0;
+}
+int str_to_uintmax(const char *str, uintmax_t *num_r)
+{
+	const char *endp;
+	int ret = str_parse_uintmax(str, num_r, &endp);
+	if ((ret == 0) && (*endp != '\0'))
+		ret = -1;
+	return ret;
 }
 
 int str_to_int(const char *str, int *num_r)

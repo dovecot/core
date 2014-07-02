@@ -5,8 +5,13 @@
    Stop when `end_char' is found from string. */
 bool str_is_numeric(const char *str, char end_char) ATTR_PURE;
 
-/* str_to_*() functions return 0 if string is valid number in valid range.
-   Otherwise -1 is returned and num_r is left untouched */
+/* str_to_*() functions return 0 if string is nothing more than a valid number
+   in valid range. Otherwise -1 is returned and num_r is left untouched
+
+   str_parse_*() helpers do not require the number to be the entire string
+   and pass back the pointer just past a valid parsed integer in endp_r if
+   it is non-NULL. What is written to endp_r in error cases is undefined.
+*/
 
 int str_to_uint(const char *str, unsigned int *num_r) ATTR_WARN_UNUSED_RESULT;
 int str_to_ulong(const char *str, unsigned long *num_r) ATTR_WARN_UNUSED_RESULT;
@@ -14,6 +19,7 @@ int str_to_ullong(const char *str, unsigned long long *num_r) ATTR_WARN_UNUSED_R
 int str_to_uint32(const char *str, uint32_t *num_r) ATTR_WARN_UNUSED_RESULT;
 int str_to_uint64(const char *str, uint64_t *num_r) ATTR_WARN_UNUSED_RESULT;
 int str_to_uintmax(const char *str, uintmax_t *num_r) ATTR_WARN_UNUSED_RESULT;
+int str_parse_uintmax(const char *str, uintmax_t *num_r, const char **endp_r) ATTR_WARN_UNUSED_RESULT ATTR_NULL(3);
 
 int str_to_int(const char *str, int *num_r) ATTR_WARN_UNUSED_RESULT;
 int str_to_long(const char *str, long *num_r) ATTR_WARN_UNUSED_RESULT;
