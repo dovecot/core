@@ -19,7 +19,6 @@ static void test_str_to_u64(void)
 		INVALID(-1),
 		INVALID(foo),
 		VALID(0),
-		{ "0 ", -1, 0 }, /* invalid as doesn't end with a '\0' */
 		VALID(000000000000000000000000000000000000000000000000000000000000000),
 		{ "000000000000000000000000000000000000000000000000000001000000001", 0, 1000000001 },
 		{ "18446744073709551615", 0, 18446744073709551615ULL },
@@ -37,6 +36,19 @@ static void test_str_to_u64(void)
 			test_assert_idx(val == u64tests[i].val, i);
 		else
 			test_assert_idx(val == 0xBADBEEF15BADF00D, i);
+
+		/* This stanza totally assumes that uintmax_t == uint64_t */
+		if (ret == 0)
+			T_BEGIN {
+				const char *longer = t_strconcat(u64tests[i].input, "x", NULL);
+				const char *endp;
+				ret = str_to_uintmax(longer, &val);
+				test_assert_idx(ret < 0, i);
+				ret = str_parse_uintmax(longer, &val, &endp);
+				test_assert_idx(ret == 0, i);
+				test_assert_idx(val == u64tests[i].val, i);
+				test_assert_idx(*endp == 'x', i);
+			} T_END;
 	}
 	test_end();
 }
@@ -134,6 +146,10 @@ static void test_str_to_i32(void)
 
 void test_strnum(void)
 {
+	test_begin("test_strnum - size check");
+	test_assert(sizeof(uintmax_t) == sizeof(uint64_t));
+	test_end();
+	/* If the above isn't true, then we do expect some failures possibly */
 	test_str_to_u64();
 	test_str_to_u32();
 	test_str_to_llong();
