@@ -372,7 +372,9 @@ static struct invalid_http_url_test invalid_url_tests[] = {
 	},{
 		.url = "http://example%00.com/index.html"
 	},{
-		.url = "http://example.com:65539/index.html"
+		.url = "http://example.com:65536/index.html"
+	},{
+		.url = "http://example.com:72817/index.html"
 	},{
 		.url = "http://example.com/settings/%00/"
 	},{
