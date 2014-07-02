@@ -84,18 +84,19 @@ int str_to_uint64(const char *str, uint64_t *num_r)
 
 int str_to_uintmax(const char *str, uintmax_t *num_r)
 {
-	uintmax_t next, n = 0;
+	uintmax_t n = 0;
 
 	if (*str < '0' || *str > '9')
 		return -1;
 
 	for (; *str >= '0' && *str <= '9'; str++) {
-		next = n*10;
-		if (next < n) {
-			/* overflow */
-			return -1;
+		if (n >= ((uintmax_t)-1 / 10)) {
+			if (n > (uintmax_t)-1 / 10)
+				return -1;
+			if ((uintmax_t)(*str - '0') > ((uintmax_t)-1 % 10))
+				return -1;
 		}
-		n = next + (*str - '0');
+		n = n * 10 + (*str - '0');
 	}
 	if (*str != '\0')
 		return -1;
