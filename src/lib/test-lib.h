@@ -36,6 +36,7 @@ void test_seq_range_array(void);
 void test_str(void);
 void test_strescape(void);
 void test_strfuncs(void);
+void test_strnum(void);
 void test_str_find(void);
 void test_str_sanitize(void);
 void test_time_util(void);

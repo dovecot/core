@@ -304,6 +304,7 @@ test_lib_SOURCES = \
 	test-str.c \
 	test-strescape.c \
 	test-strfuncs.c \
+	test-strnum.c \
 	test-str-find.c \
 	test-str-sanitize.c \
 	test-time-util.c \

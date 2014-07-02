@@ -37,6 +37,7 @@ int main(void)
 		test_str,
 		test_strescape,
 		test_strfuncs,
+		test_strnum,
 		test_str_find,
 		test_str_sanitize,
 		test_time_util,
