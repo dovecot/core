@@ -479,7 +479,7 @@ static int uri_parse_host(struct uri_parser *parser, struct uri_authority *auth)
 
 static int uri_parse_port(struct uri_parser *parser, struct uri_authority *auth)
 {
-	in_port_t port = 0;
+	unsigned long port = 0;
 	int count = 0;
 
 	/* RFC 3986:
@@ -488,10 +488,8 @@ static int uri_parse_port(struct uri_parser *parser, struct uri_authority *auth)
 	 */
 
 	while (parser->cur < parser->end && i_isdigit(*parser->cur)) {
-		in_port_t prev = port;
-
-		port = port * 10 + (in_port_t)(parser->cur[0] - '0');
-		if (port < prev) {
+		port = port * 10 + (parser->cur[0] - '0');
+		if (port > (in_port_t)-1) {
 			parser->error = "Port number is too high";
 			return -1;
 		}
