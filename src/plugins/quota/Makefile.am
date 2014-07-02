@@ -117,8 +117,8 @@ test_libs = \
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 
 test_quota_util_SOURCES = test-quota-util.c
-test_quota_util_LDADD = quota-util.o $(test_libs)
-test_quota_util_DEPENDENCIES = quota-util.o $(test_deps)
+test_quota_util_LDADD = quota-util.lo $(test_libs)
+test_quota_util_DEPENDENCIES = quota-util.lo $(test_deps)
 
 check: check-am check-test
 check-test: all-am
