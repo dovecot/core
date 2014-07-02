@@ -128,9 +128,6 @@ static int
 imap_url_parse_number(struct uri_parser *parser, const char *data,
 		      uint32_t *number_r)
 {
-	uint32_t number = 0;
-	const char *p = data;
-
 	/* [IMAP4] RFC3501, Section 9
 	 *
 	 * number          = 1*DIGIT
@@ -138,23 +135,11 @@ imap_url_parse_number(struct uri_parser *parser, const char *data,
 	 *                   ; (0 <= n < 4,294,967,296)
 	 */
 
-	if (i_isdigit(*p)) {
-		do {
-			uint32_t prev = number;
-
-			number = number * 10 + (*p - '0');
-			if (number < prev) {
-				parser->error = "IMAP number is too high";
-				return -1;
-			}
-			p++;
-		} while (i_isdigit(*p));
-
-		if (*p == '\0') {
-			if (number_r != NULL)
-				*number_r = number;
+	if (i_isdigit(*data)) {
+		if (str_to_uint32(data, number_r) == 0)
 			return 1;
-		}
+		parser->error = "IMAP number is too high";
+		return -1;
 	}
 
 	parser->error = t_strdup_printf(
@@ -166,29 +151,14 @@ static int
 imap_url_parse_offset(struct uri_parser *parser, const char *data,
 		      uoff_t *number_r)
 {
-	uoff_t number = 0;
-	const char *p = data;
-
 	/* Syntax for big (uoff_t) numbers. Not strictly IMAP syntax, but this
 	   is handled similarly for Dovecot IMAP FETCH BODY partial <.>
 	   implementation. */
-	if (i_isdigit(*p)) {
-		do {
-			uoff_t prev = number;
-
-			number = number * 10 + (*p - '0');
-			if (number < prev) {
-				parser->error = "IMAP number is too high";
-				return -1;
-			}
-			p++;
-		} while (i_isdigit(*p));
-
-		if (*p == '\0') {
-			if (number_r != NULL)
-				*number_r = number;
+	if (i_isdigit(*data)) {
+		if (str_to_uoff(data, number_r) == 0)
 			return 1;
-		}
+		parser->error = "IMAP number is too high";
+		return -1;
 	}
 
 	parser->error = t_strdup_printf(
