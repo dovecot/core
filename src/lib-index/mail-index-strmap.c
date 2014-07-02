@@ -381,6 +381,8 @@ mail_index_strmap_uid_exists(struct mail_index_strmap_read_context *ctx,
 {
 	const struct mail_index_record *rec;
 
+	i_assert(ctx->uid_lookup_seq > 0);
+
 	if (ctx->uid_lookup_seq > ctx->view->view->map->hdr.messages_count) {
 		if (uid >= ctx->view->view->map->hdr.next_uid) {
 			/* thread index has larger UIDs than what we've seen
@@ -826,6 +828,7 @@ static void mail_index_strmap_view_renumber(struct mail_index_strmap_view *view)
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.view = view;
+	ctx.uid_lookup_seq = 1;
 
 	/* create a map of old -> new index and remove records of
 	   expunged messages */
