@@ -60,8 +60,32 @@ static void test_bits_requiredXX(void)
 	test_end();
 }
 
+static void test_sum_overflows(void)
+{
+#define MAX64 (uint64_t)-1
+	static const struct {
+		uint64_t a, b;
+		bool overflows;
+	} tests[] = {
+		{ MAX64-1, 1, FALSE },
+		{ MAX64, 1, TRUE },
+		{ MAX64-1, 1, FALSE },
+		{ MAX64-1, 2, TRUE },
+		{ MAX64-1, MAX64-1, TRUE },
+		{ MAX64-1, MAX64, TRUE },
+		{ MAX64, MAX64, TRUE }
+	};
+	unsigned int i;
+
+	test_begin("UINT64_SUM_OVERFLOWS");
+	for (i = 0; i < N_ELEMENTS(tests); i++)
+		test_assert(UINT64_SUM_OVERFLOWS(tests[i].a, tests[i].b) == tests[i].overflows);
+	test_end();
+}
+
 void test_bits()
 {
 	test_nearest_power();
 	test_bits_requiredXX();
+	test_sum_overflows();
 }
