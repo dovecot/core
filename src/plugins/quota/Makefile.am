@@ -5,6 +5,7 @@ pkglibexec_PROGRAMS = quota-status
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-index \
@@ -105,3 +106,22 @@ clean-generic:
 	  rm -f $(top_builddir)/src/plugins/quota/rquota.x; \
 	fi; \
 	rm -f rquota_xdr.c rquota.h
+
+test_programs = \
+	test-quota-util
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	../../lib-test/libtest.la \
+	../../lib/liblib.la
+test_deps = $(noinst_LTLIBRARIES) $(test_libs)
+
+test_quota_util_SOURCES = test-quota-util.c
+test_quota_util_LDADD = quota-util.o $(test_libs)
+test_quota_util_DEPENDENCIES = quota-util.o $(test_deps)
+
+check: check-am check-test
+check-test: all-am
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done

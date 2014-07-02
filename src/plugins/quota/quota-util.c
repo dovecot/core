@@ -391,11 +391,51 @@ bool quota_warning_match(const struct quota_warning_rule *w,
 bool quota_transaction_is_over(struct quota_transaction_context *ctx,
 			       uoff_t size)
 {
-	if ((ctx->count_used < 0 ||
-	     (uint64_t)ctx->count_used + 1 <= ctx->count_ceil) &&
-	    ((ctx->bytes_used < 0 && size <= ctx->bytes_ceil) ||
-	     (uint64_t)ctx->bytes_used + size <= ctx->bytes_ceil))
-		return FALSE;
-	else
-		return TRUE;
+	if (ctx->count_used < 0) {
+		/* we've deleted some messages. we should be ok, unless we
+		   were already over quota and still are after these
+		   deletions. */
+		if (ctx->count_over > 0) {
+			if (ctx->count_over > (uint64_t)-ctx->count_used + 1)
+				return TRUE;
+		} else {
+			return TRUE;
+		}
+	} else {
+		if (ctx->count_ceil < 1 ||
+		    ctx->count_ceil - 1 < (uint64_t)ctx->count_used) {
+			/* count limit reached */
+			return TRUE;
+		}
+	}
+
+	if (ctx->bytes_used < 0) {
+		const uint64_t bytes_deleted = (uint64_t)-ctx->bytes_used;
+
+		/* we've deleted some messages. same logic as above. */
+		if (ctx->bytes_over > 0) {
+			if (ctx->bytes_over > bytes_deleted) {
+				/* even after deletions we're over quota */
+				return TRUE;
+			}
+			if (size > bytes_deleted - ctx->bytes_over)
+				return TRUE;
+		} else {
+			if (size > bytes_deleted &&
+			    size - bytes_deleted < ctx->bytes_ceil)
+				return TRUE;
+		}
+	} else if (size == 0) {
+		/* we need to explicitly test this case, since the generic
+		   check would fail if user is already over quota */
+		if (ctx->bytes_over > 0)
+			return TRUE;
+	} else {
+		if (ctx->bytes_ceil < size ||
+		    ctx->bytes_ceil - size < (uint64_t)ctx->bytes_used) {
+			/* bytes limit reached */
+			return TRUE;
+		}
+	}
+	return FALSE;
 }
