@@ -25,6 +25,10 @@ static void test_quota_transaction_is_over(void)
 		{ MAXU64,   MAXU64,        0,   1, TRUE },
 		{ MAXU64, MAXU64-1,        0,   1, FALSE },
 		{ MAXU64, MAXU64-1,        1,   1, TRUE },
+		{ MAXU64-1, MAXU64-1,      0,   1, TRUE },
+		{ MAXU64-1, MAXU64-1,     -1,   1, FALSE },
+		{ MAXU64-2, MAXU64-1,     -1,   1, TRUE },
+		{ MAXU64-2, MAXU64-1,     -2,   1, FALSE },
 
 		/* these are for bytes tests: */
 

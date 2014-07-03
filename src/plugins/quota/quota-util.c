@@ -395,11 +395,11 @@ bool quota_transaction_is_over(struct quota_transaction_context *ctx,
 		/* we've deleted some messages. we should be ok, unless we
 		   were already over quota and still are after these
 		   deletions. */
+		const uint64_t count_deleted = (uint64_t)-ctx->count_used;
+
 		if (ctx->count_over > 0) {
-			if (ctx->count_over > (uint64_t)-ctx->count_used + 1)
+			if (count_deleted - 1 < ctx->count_over)
 				return TRUE;
-		} else {
-			return TRUE;
 		}
 	} else {
 		if (ctx->count_ceil < 1 ||
