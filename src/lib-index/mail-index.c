@@ -26,6 +26,8 @@
 
 struct mail_index_module_register mail_index_module_register = { 0 };
 
+static void mail_index_close_nonopened(struct mail_index *index);
+
 struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 {
 	struct mail_index *index;
@@ -559,8 +561,6 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 	if (index->open_count > 0) {
 		if ((ret = mail_index_open_opened(index, flags)) <= 0) {
 			/* doesn't exist and create flag not used */
-			index->open_count++;
-			mail_index_close(index);
 		}
 		return ret;
 	}
@@ -591,8 +591,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 	   of the index files */
 	if ((ret = mail_index_open_files(index, flags)) <= 0) {
 		/* doesn't exist and create flag not used */
-		index->open_count++;
-		mail_index_close(index);
+		mail_index_close_nonopened(index);
 		return ret;
 	}
 	index->open_count++;
@@ -628,14 +627,8 @@ void mail_index_close_file(struct mail_index *index)
 	index->lock_type = F_UNLCK;
 }
 
-void mail_index_close(struct mail_index *index)
+static void mail_index_close_nonopened(struct mail_index *index)
 {
-	i_assert(index->open_count > 0);
-
-	mail_index_alloc_cache_index_closing(index);
-	if (--index->open_count > 0)
-		return;
-
 	i_assert(!index->syncing);
 	i_assert(index->views == NULL);
 
@@ -650,6 +643,15 @@ void mail_index_close(struct mail_index *index)
 	i_free_and_null(index->filepath);
 
 	index->indexid = 0;
+}
+
+void mail_index_close(struct mail_index *index)
+{
+	i_assert(index->open_count > 0);
+
+	mail_index_alloc_cache_index_closing(index);
+	if (--index->open_count == 0)
+		mail_index_close_nonopened(index);
 }
 
 int mail_index_unlink(struct mail_index *index)
