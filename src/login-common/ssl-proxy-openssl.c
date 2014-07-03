@@ -1016,8 +1016,11 @@ ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct master_service_ssl_settings *s
 	/* enable all SSL workarounds, except empty fragments as it
 	   makes SSL more vulnerable against attacks */
 	long ssl_ops = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS;
+
+#ifdef SSL_OP_NO_COMPRESSION
 	if (!set->parsed_opts.compression)
 		ssl_ops |= SSL_OP_NO_COMPRESSION;
+#endif
 	SSL_CTX_set_options(ssl_ctx, ssl_ops);
 
 #ifdef SSL_MODE_RELEASE_BUFFERS

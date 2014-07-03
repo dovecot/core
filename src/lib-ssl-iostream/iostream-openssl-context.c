@@ -506,8 +506,10 @@ ssl_iostream_context_init_common(struct ssl_iostream_context *ctx,
 
 	/* enable all SSL workarounds, except empty fragments as it
 	   makes SSL more vulnerable against attacks */
+#ifdef SSL_OP_NO_COMPRESSION
 	if (!set->compression)
 		ssl_ops |= SSL_OP_NO_COMPRESSION;
+#endif
 	SSL_CTX_set_options(ctx->ssl_ctx, ssl_ops);
 #ifdef SSL_MODE_RELEASE_BUFFERS
 	SSL_CTX_set_mode(ctx->ssl_ctx, SSL_MODE_RELEASE_BUFFERS);
