@@ -29,9 +29,6 @@ struct client_state {
 
 	struct mail *raw_mail;
 
-	struct mail_user *dest_user;
-	struct mail *first_saved_mail;
-
 	unsigned int mail_body_7bit:1;
 	unsigned int mail_body_8bitmime:1;
 };
