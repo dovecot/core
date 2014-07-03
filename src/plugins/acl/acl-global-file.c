@@ -4,6 +4,7 @@
 #include "array.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "strescape.h"
 #include "wildcard-match.h"
 #include "acl-api-private.h"
 #include "acl-global-file.h"
@@ -62,20 +63,65 @@ static int acl_global_parse_rights_cmp(const struct acl_global_parse_rights *r1,
 	return strcmp(r1->vpattern, r2->vpattern);
 }
 
+struct acl_global_file_parse_ctx {
+	struct acl_global_file *file;
+	ARRAY(struct acl_global_parse_rights) parse_rights;
+};
+
+static int
+acl_global_file_parse_line(struct acl_global_file_parse_ctx *ctx,
+			   const char *line, const char **error_r)
+{
+	struct acl_global_parse_rights *pright;
+	const char *p, *vpattern;
+
+	if (*line == '"') {
+		line++;
+		if (str_unescape_next(&line, &vpattern) < 0) {
+			*error_r = "Missing '\"'";
+			return -1;
+		}
+		if (line[0] != ' ') {
+			*error_r = "Expecting space after '\"'";
+			return -1;
+		}
+		line++;
+	} else {
+		p = strchr(line, ' ');
+		if (p == NULL) {
+			*error_r = "Missing ACL rights";
+			return -1;
+		}
+		if (p == line) {
+			*error_r = "Empty ACL pattern";
+			return -1;
+		}
+		vpattern = t_strdup_until(line, p);
+		line = p + 1;
+	}
+
+	pright = array_append_space(&ctx->parse_rights);
+	pright->vpattern = p_strdup(ctx->file->rights_pool, vpattern);
+	return acl_rights_parse_line(line, ctx->file->rights_pool,
+				     &pright->rights, error_r);
+}
+
 static int acl_global_file_read(struct acl_global_file *file)
 {
-	ARRAY(struct acl_global_parse_rights) parse_rights;
+	struct acl_global_file_parse_ctx ctx;
 	struct acl_global_parse_rights *pright;
 	struct acl_global_rights *right;
 	struct istream *input;
-	const char *line, *p, *error, *prev_vpattern;
+	const char *line, *error, *prev_vpattern;
 	unsigned int linenum = 0;
 	int ret = 0;
 
 	array_clear(&file->rights);
 	p_clear(file->rights_pool);
 
-	i_array_init(&parse_rights, 32);
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.file = file;
+	i_array_init(&ctx.parse_rights, 32);
 
 	input = i_stream_create_file(file->path, (size_t)-1);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
@@ -83,20 +129,7 @@ static int acl_global_file_read(struct acl_global_file *file)
 		if (line[0] == '\0' || line[0] == '#')
 			continue;
 		T_BEGIN {
-			p = strchr(line, ' ');
-			if (p == NULL) {
-				error = "Missing ACL rights";
-				ret = -1;
-			} else if (p == line) {
-				error = "Empty ACL pattern";
-				ret = -1;
-			} else {
-				pright = array_append_space(&parse_rights);
-				pright->vpattern = p_strdup_until(file->rights_pool,
-								  line, p++);
-				ret = acl_rights_parse_line(p, file->rights_pool,
-							    &pright->rights, &error);
-			}
+			ret = acl_global_file_parse_line(&ctx, line, &error);
 			if (ret < 0) {
 				i_error("Global ACL file %s line %u: %s",
 					file->path, linenum, error);
@@ -113,10 +146,10 @@ static int acl_global_file_read(struct acl_global_file *file)
 	i_stream_destroy(&input);
 
 	/* sort all parsed rights */
-	array_sort(&parse_rights, acl_global_parse_rights_cmp);
+	array_sort(&ctx.parse_rights, acl_global_parse_rights_cmp);
 	/* combine identical patterns into same structs */
 	prev_vpattern = ""; right = NULL;
-	array_foreach_modifiable(&parse_rights, pright) {
+	array_foreach_modifiable(&ctx.parse_rights, pright) {
 		if (right == NULL ||
 		    strcmp(prev_vpattern, pright->vpattern) != 0) {
 			right = array_append_space(&file->rights);
@@ -126,7 +159,7 @@ static int acl_global_file_read(struct acl_global_file *file)
 		array_append(&right->rights, &pright->rights, 1);
 	}
 
-	array_free(&parse_rights);
+	array_free(&ctx.parse_rights);
 	return ret;
 }
 
