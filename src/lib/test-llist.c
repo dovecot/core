@@ -12,6 +12,7 @@ struct dllist {
 static void test_dllist(void)
 {
 	struct dllist *head = NULL, *l4, *l3, *l2, *l1;
+	struct dllist empty = { NULL, NULL };
 
 	l4 = t_new(struct dllist, 1);
 	l3 = t_new(struct dllist, 1);
@@ -48,6 +49,11 @@ static void test_dllist(void)
 	test_assert(head == l1);
 	test_assert(l1->prev == NULL && l1->next == l3);
 	test_assert(l3->prev == l1 && l3->next == NULL);
+	/* removal of an entry not in the list shouldn't cause the list to break */
+	DLLIST_REMOVE(&head, &empty);
+	test_assert(head == l1);
+	test_assert(l1->prev == NULL && l1->next == l3);
+	test_assert(l3->prev == l1 && l3->next == NULL);
 	/* remove last two */
 	DLLIST_REMOVE(&head, l1);
 	DLLIST_REMOVE(&head, l3);
@@ -59,6 +65,7 @@ static void test_dllist(void)
 static void test_dllist2(void)
 {
 	struct dllist *head = NULL, *tail = NULL, *l4, *l3, *l2, *l1;
+	struct dllist empty = { NULL, NULL };
 
 	l4 = t_new(struct dllist, 1);
 	l3 = t_new(struct dllist, 1);
@@ -108,6 +115,12 @@ static void test_dllist2(void)
 	DLLIST2_PREPEND(&head, &tail, l1);
 	DLLIST2_REMOVE(&head, &tail, l4);
 	test_assert(l4->prev == NULL && l4->next == NULL);
+	test_assert(head == l1 && tail == l3);
+	test_assert(l1->prev == NULL && l1->next == l3);
+	test_assert(l3->prev == l1 && l3->next == NULL);
+	/* removal of an entry not in the list shouldn't cause the list to break */
+	DLLIST2_REMOVE(&head, &tail, &empty);
+	test_assert(head == l1);
 	test_assert(head == l1 && tail == l3);
 	test_assert(l1->prev == NULL && l1->next == l3);
 	test_assert(l3->prev == l1 && l3->next == NULL);

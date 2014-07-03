@@ -13,10 +13,10 @@
 	DLLIST_PREPEND_FULL(list, item, prev, next)
 
 #define DLLIST_REMOVE_FULL(list, item, prev, next) STMT_START { \
-	if ((item)->prev == NULL) \
-		*(list) = (item)->next; \
-	else \
+	if ((item)->prev != NULL) \
 		(item)->prev->next = (item)->next; \
+	else if ((*list) == item) \
+		*(list) = (item)->next; \
 	if ((item)->next != NULL) { \
 		(item)->next->prev = (item)->prev; \
 		(item)->next = NULL; \
@@ -61,16 +61,15 @@
 	DLLIST2_INSERT_AFTER_FULL(head, tail, after, item, prev, next)
 
 #define DLLIST2_REMOVE_FULL(head, tail, item, prev, next) STMT_START { \
-	if ((item)->prev == NULL) \
-		*(head) = (item)->next; \
-	else \
+	if ((item)->prev != NULL) \
 		(item)->prev->next = (item)->next; \
-	if ((item)->next == NULL) \
-		*(tail) = (item)->prev; \
-	else { \
+	else if (*(head) == item) \
+		*(head) = (item)->next; \
+	if ((item)->next != NULL) { \
 		(item)->next->prev = (item)->prev; \
 		(item)->next = NULL; \
-	} \
+	} else if ((*tail) == item) \
+		*(tail) = (item)->prev; \
 	(item)->prev = NULL; \
 	} STMT_END
 
