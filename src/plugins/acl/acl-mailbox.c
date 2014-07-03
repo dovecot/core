@@ -561,6 +561,7 @@ void acl_mailbox_allocated(struct mailbox *box)
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
 	struct mailbox_vfuncs *v = box->vlast;
 	struct acl_mailbox *abox;
+	bool ignore_acls = (box->flags & MAILBOX_FLAG_IGNORE_ACLS) != 0;
 
 	if (alist == NULL) {
 		/* ACLs disabled */
@@ -570,7 +571,7 @@ void acl_mailbox_allocated(struct mailbox *box)
 	if (mail_namespace_is_shared_user_root(box->list->ns)) {
 		/* this is the root shared namespace, which itself doesn't
 		   have any existing mailboxes. */
-		return;
+		ignore_acls = TRUE;
 	}
 
 	abox = p_new(box->pool, struct acl_mailbox, 1);
@@ -582,7 +583,7 @@ void acl_mailbox_allocated(struct mailbox *box)
 						 mailbox_get_name(box));
 
 	v->free = acl_mailbox_free;
-	if ((box->flags & MAILBOX_FLAG_IGNORE_ACLS) == 0) {
+	if (ignore_acls) {
 		abox->acl_enabled = TRUE;
 		v->is_readonly = acl_is_readonly;
 		v->exists = acl_mailbox_exists;
