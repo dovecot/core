@@ -451,6 +451,23 @@ void o_stream_copy_error_from_parent(struct ostream_private *_stream)
 		o_stream_close(dest);
 }
 
+int o_stream_flush_parent_if_needed(struct ostream_private *_stream)
+{
+	if (o_stream_get_buffer_used_size(_stream->parent) >= IO_BLOCK_SIZE) {
+		/* we already have quite a lot of data in parent stream.
+		   unless we can flush it, don't add any more to it or we
+		   could keep wasting memory by just increasing the buffer
+		   size all the time. */
+		if (o_stream_flush(_stream->parent) < 0) {
+			o_stream_copy_error_from_parent(_stream);
+			return -1;
+		}
+		if (o_stream_get_buffer_used_size(_stream->parent) >= IO_BLOCK_SIZE)
+			return 0;
+	}
+	return 1;
+}
+
 static int o_stream_default_flush(struct ostream_private *_stream)
 {
 	int ret;
