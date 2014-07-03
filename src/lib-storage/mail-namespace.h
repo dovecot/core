@@ -150,4 +150,9 @@ mail_namespace_find_prefix_nosep(struct mail_namespace *namespaces,
 void mail_namespace_finish_list_init(struct mail_namespace *ns,
 				     struct mailbox_list *list);
 
+/* Returns TRUE if this is the root of a type=shared namespace that is actually
+   used for accessing shared users' mailboxes (as opposed to marking a
+   type=public namespace "wrong"). */
+bool mail_namespace_is_shared_user_root(struct mail_namespace *ns);
+
 #endif

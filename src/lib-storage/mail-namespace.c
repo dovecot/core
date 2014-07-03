@@ -662,8 +662,7 @@ mail_namespace_find(struct mail_namespace *namespaces, const char *mailbox)
 	ns = mail_namespace_find_mask(namespaces, mailbox, 0, 0);
 	i_assert(ns != NULL);
 
-	if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
-	    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
+	if (mail_namespace_is_shared_user_root(ns)) {
 		/* see if we need to autocreate a namespace for shared user */
 		if (strchr(mailbox, mail_namespace_get_sep(ns)) != NULL)
 			return mail_namespace_find_shared(ns, mailbox);
@@ -750,4 +749,22 @@ mail_namespace_find_prefix_nosep(struct mail_namespace *namespaces,
 			return ns;
 	}
 	return NULL;
+}
+
+bool mail_namespace_is_shared_user_root(struct mail_namespace *ns)
+{
+	struct mail_storage *const *storagep;
+
+	if (ns->type != MAIL_NAMESPACE_TYPE_SHARED)
+		return FALSE;
+	if ((ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0) {
+		/* child of the shared root */
+		return FALSE;
+	}
+	/* if we have driver=shared storage, we're a real shared root */
+	array_foreach(&ns->all_storages, storagep) {
+		if (strcmp((*storagep)->name, MAIL_SHARED_STORAGE_NAME) == 0)
+			return TRUE;
+	}
+	return FALSE;
 }

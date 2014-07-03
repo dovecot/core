@@ -567,8 +567,7 @@ void acl_mailbox_allocated(struct mailbox *box)
 		return;
 	}
 
-	if (box->list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
-	    (box->list->ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
+	if (mail_namespace_is_shared_user_root(box->list->ns)) {
 		/* this is the root shared namespace, which itself doesn't
 		   have any existing mailboxes. */
 		return;
