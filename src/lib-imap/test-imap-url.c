@@ -631,120 +631,120 @@ static void test_imap_url_valid(void)
 		if (urlp != NULL) {
 			if (urlp->host_name == NULL || urlt->host_name == NULL) {
 				test_out_quiet(t_strdup_printf("url->host_name = %s", urlp->host_name),
-					urlp->host_name == urlt->host_name);
+					       urlp->host_name == urlt->host_name);
 			} else {
 				test_out_quiet(t_strdup_printf("url->host_name = %s", urlp->host_name),
-					strcmp(urlp->host_name, urlt->host_name) == 0);
+					       strcmp(urlp->host_name, urlt->host_name) == 0);
 			}
 			if (urlp->userid == NULL || urlt->userid == NULL) {
 				test_out_quiet(t_strdup_printf("url->userid = %s", urlp->userid),
-					urlp->userid == urlt->userid);
+					       urlp->userid == urlt->userid);
 			} else {
 				test_out_quiet(t_strdup_printf("url->userid = %s", urlp->userid),
-					strcmp(urlp->userid, urlt->userid) == 0);
+					       strcmp(urlp->userid, urlt->userid) == 0);
 			}
 			if (urlp->auth_type == NULL || urlt->auth_type == NULL) {
 				test_out_quiet(t_strdup_printf("url->auth_type = %s", urlp->auth_type),
-					urlp->auth_type == urlt->auth_type);
+					       urlp->auth_type == urlt->auth_type);
 			} else {
 				test_out_quiet(t_strdup_printf("url->auth_type = %s", urlp->auth_type),
-					strcmp(urlp->auth_type, urlt->auth_type) == 0);
+					       strcmp(urlp->auth_type, urlt->auth_type) == 0);
 			}
 			if (!urlp->have_port) {
 				test_out_quiet("url->port = (unspecified)",
-					urlp->have_port == urlt->have_port);
+					       urlp->have_port == urlt->have_port);
 			} else {
 				test_out_quiet(t_strdup_printf("url->port = %u", urlp->port),
-					urlp->have_port == urlt->have_port && urlp->port == urlt->port);
+					       urlp->have_port == urlt->have_port && urlp->port == urlt->port);
 			}
 			if (!urlp->have_host_ip) {
 				test_out_quiet("url->host_ip = (unspecified)",
-					urlp->have_host_ip == urlt->have_host_ip);
+					       urlp->have_host_ip == urlt->have_host_ip);
 			} else {
 				test_out_quiet("url->host_ip = (valid)",
-					urlp->have_host_ip == urlt->have_host_ip);
+					       urlp->have_host_ip == urlt->have_host_ip);
 			}
 			if (urlp->mailbox == NULL || urlt->mailbox == NULL) {
 				test_out_quiet(t_strdup_printf("url->mailbox = %s", urlp->mailbox),
-					urlp->mailbox == urlt->mailbox);
+					       urlp->mailbox == urlt->mailbox);
 			} else {
 				test_out_quiet(t_strdup_printf("url->mailbox = %s", urlp->mailbox),
-					strcmp(urlp->mailbox, urlt->mailbox) == 0);
+					       strcmp(urlp->mailbox, urlt->mailbox) == 0);
 			}
 			test_out_quiet(t_strdup_printf("url->uidvalidity = %u", urlp->uidvalidity),
-				urlp->uidvalidity == urlt->uidvalidity);
+				       urlp->uidvalidity == urlt->uidvalidity);
 			test_out_quiet(t_strdup_printf("url->uid = %u", urlp->uid),
-				urlp->uid == urlt->uid);
+				       urlp->uid == urlt->uid);
 			if (urlp->section == NULL || urlt->section == NULL) {
 				test_out_quiet(t_strdup_printf("url->section = %s", urlp->section),
-					urlp->section == urlt->section);
+					       urlp->section == urlt->section);
 			} else {
 				test_out_quiet(t_strdup_printf("url->section = %s", urlp->section),
-					strcmp(urlp->section, urlt->section) == 0);
+					       strcmp(urlp->section, urlt->section) == 0);
 			}
 			test_out_quiet(t_strdup_printf("url->partial = %"PRIuUOFF_T".%"PRIuUOFF_T,
-					urlp->partial_offset, urlp->partial_size),
-				urlp->partial_offset == urlt->partial_offset &&
-					urlp->partial_size == urlt->partial_size);
+						       urlp->partial_offset, urlp->partial_size),
+				       urlp->partial_offset == urlt->partial_offset &&
+				       urlp->partial_size == urlt->partial_size);
 			if (urlp->search_program == NULL || urlt->search_program == NULL) {
 				test_out_quiet(t_strdup_printf(
-						"url->search_program = %s", urlp->search_program),
-					urlp->search_program == urlt->search_program);
+						       "url->search_program = %s", urlp->search_program),
+					       urlp->search_program == urlt->search_program);
 			} else {
 				test_out_quiet(t_strdup_printf(
-						"url->search_program = %s", urlp->search_program),
-					strcmp(urlp->search_program, urlt->search_program) == 0);
+						       "url->search_program = %s", urlp->search_program),
+					       strcmp(urlp->search_program, urlt->search_program) == 0);
 			}
 			if (urlt->uauth_rumpurl != NULL) {
 				if (urlp->uauth_rumpurl == NULL) {
 					test_out_quiet(t_strdup_printf(
-							"url->uauth_rumpurl = %s", urlp->uauth_rumpurl), FALSE);				
+							       "url->uauth_rumpurl = %s", urlp->uauth_rumpurl), FALSE);
 				} else {
 					test_out_quiet(t_strdup_printf(
-							"url->uauth_rumpurl = %s", urlp->uauth_rumpurl),
-						strcmp(urlp->uauth_rumpurl, urlt->uauth_rumpurl) == 0);				
+							       "url->uauth_rumpurl = %s", urlp->uauth_rumpurl),
+						       strcmp(urlp->uauth_rumpurl, urlt->uauth_rumpurl) == 0);
 				}
 				if (urlp->uauth_access_application == NULL ||
-					urlt->uauth_access_application == NULL) {
+				    urlt->uauth_access_application == NULL) {
 					test_out_quiet(t_strdup_printf("url->uauth_access_application = %s",
-							urlp->uauth_access_application),
-						urlp->uauth_access_application == urlt->uauth_access_application);				
+								       urlp->uauth_access_application),
+						       urlp->uauth_access_application == urlt->uauth_access_application);
 				} else {
 					test_out_quiet(t_strdup_printf("url->uauth_access_application = %s",
-							urlp->uauth_access_application),
-						strcmp(urlp->uauth_access_application,
-							urlt->uauth_access_application) == 0);				
+								       urlp->uauth_access_application),
+						       strcmp(urlp->uauth_access_application,
+							      urlt->uauth_access_application) == 0);
 				}
 				if (urlp->uauth_access_user == NULL ||
-					urlt->uauth_access_user == NULL) {
+				    urlt->uauth_access_user == NULL) {
 					test_out_quiet(t_strdup_printf("url->uauth_access_user = %s",
-							urlp->uauth_access_user),
-						urlp->uauth_access_user == urlt->uauth_access_user);				
+								       urlp->uauth_access_user),
+						       urlp->uauth_access_user == urlt->uauth_access_user);
 				} else {
 					test_out_quiet(t_strdup_printf("url->uauth_access_user = %s",
-							urlp->uauth_access_user),
-						strcmp(urlp->uauth_access_user,
-							urlt->uauth_access_user) == 0);				
+								       urlp->uauth_access_user),
+						       strcmp(urlp->uauth_access_user,
+							      urlt->uauth_access_user) == 0);
 				}
 				if (urlp->uauth_mechanism == NULL || urlt->uauth_mechanism == NULL) {
 					test_out_quiet(t_strdup_printf(
-							"url->uauth_mechanism = %s", urlp->uauth_mechanism),
-						urlp->uauth_mechanism == urlt->uauth_mechanism);				
+							       "url->uauth_mechanism = %s", urlp->uauth_mechanism),
+						       urlp->uauth_mechanism == urlt->uauth_mechanism);
 				} else {
 					test_out_quiet(t_strdup_printf(
 							"url->uauth_mechanism = %s", urlp->uauth_mechanism),
-						strcmp(urlp->uauth_mechanism, urlt->uauth_mechanism) == 0);				
+						       strcmp(urlp->uauth_mechanism, urlt->uauth_mechanism) == 0);
 				}
 				if (urlp->uauth_token == NULL || urlt->uauth_token == NULL) {
 					test_out_quiet(t_strdup_printf(
-							"url->uauth_token = %s", urlp->uauth_token),
-						urlp->uauth_token == urlt->uauth_token);				
+							       "url->uauth_token = %s", urlp->uauth_token),
+						       urlp->uauth_token == urlt->uauth_token);
 				} else {
 					bool equal = urlp->uauth_token_size == urlt->uauth_token_size;
 					size_t i;
 					test_out_quiet(t_strdup_printf(
-							"url->uauth_token_size = %"PRIuSIZE_T, urlp->uauth_token_size),
-						equal);
+							       "url->uauth_token_size = %"PRIuSIZE_T, urlp->uauth_token_size),
+						       equal);
 
 					if (equal) {
 						for (i = 0; i < urlp->uauth_token_size; i++) {
@@ -754,7 +754,7 @@ static void test_imap_url_valid(void)
 							}
 						}
 						test_out_quiet(t_strdup_printf("url->uauth_token [index=%d]", (int)i),
-							equal);
+							       equal);
 					}
 				}
 			}
@@ -1014,7 +1014,7 @@ static void test_imap_url_parse_create(void)
 		if (urlp != NULL) {
 			const char *urlnew = imap_url_create(urlp);
 			test_out(t_strdup_printf
-				("create %s", urlnew), strcmp(url, urlnew) == 0);
+				 ("create %s", urlnew), strcmp(url, urlnew) == 0);
 		}
 
 		test_end();
