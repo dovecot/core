@@ -94,12 +94,12 @@ namespace_add(struct mail_user *user,
 	ns = i_new(struct mail_namespace, 1);
 	ns->refcount = 1;
 	ns->user = user;
-	if (strncmp(ns_set->type, "private", 7) == 0) {
+	if (strcmp(ns_set->type, "private") == 0) {
 		ns->owner = user;
 		ns->type = MAIL_NAMESPACE_TYPE_PRIVATE;
-	} else if (strncmp(ns_set->type, "shared", 6) == 0)
+	} else if (strcmp(ns_set->type, "shared") == 0)
 		ns->type = MAIL_NAMESPACE_TYPE_SHARED;
-	else if (strncmp(ns_set->type, "public", 6) == 0)
+	else if (strcmp(ns_set->type, "public") == 0)
 		ns->type = MAIL_NAMESPACE_TYPE_PUBLIC;
 	else {
 		*error_r = t_strdup_printf("Unknown namespace type: %s",
