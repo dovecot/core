@@ -23,6 +23,7 @@ bool test_has_failed(void);
 void test_end(void);
 
 void test_out(const char *name, bool success);
+void test_out_quiet(const char *name, bool success); /* only prints failures */
 void test_out_reason(const char *name, bool success, const char *reason)
 	ATTR_NULL(3);
 

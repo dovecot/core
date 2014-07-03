@@ -191,6 +191,15 @@ void test_out(const char *name, bool success)
 	test_out_reason(name, success, NULL);
 }
 
+void test_out_quiet(const char *name, bool success)
+{
+	if (success) {
+		total_count++;
+		return;
+	}
+	test_out(name, success);
+}
+
 void test_out_reason(const char *name, bool success, const char *reason)
 {
 	int i = 0;
