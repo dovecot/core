@@ -33,6 +33,7 @@ struct mail_index_alloc_cache_list {
 static MODULE_CONTEXT_DEFINE_INIT(mail_index_alloc_cache_index_module,
 				  &mail_index_module_register);
 static struct mail_index_alloc_cache_list *indexes = NULL;
+static unsigned int indexes_cache_references_count = 0;
 static struct timeout *to_index = NULL;
 
 static struct mail_index_alloc_cache_list *
@@ -57,10 +58,23 @@ mail_index_alloc_cache_add(struct mail_index *index,
 }
 
 static void
+mail_index_alloc_cache_list_unref(struct mail_index_alloc_cache_list *list)
+{
+	i_assert(list->referenced);
+	i_assert(indexes_cache_references_count > 0);
+
+	indexes_cache_references_count--;
+	mail_index_close(list->index);
+	list->referenced = FALSE;
+}
+
+static void
 mail_index_alloc_cache_list_free(struct mail_index_alloc_cache_list *list)
 {
+	i_assert(list->refcount == 0);
+
 	if (list->referenced)
-		mail_index_close(list->index);
+		mail_index_alloc_cache_list_unref(list);
 	mail_index_free(&list->index);
 	i_free(list->mailbox_path);
 	i_free(list);
@@ -153,29 +167,34 @@ mail_index_alloc_cache_get(const char *mailbox_path,
 	return match->index;
 }
 
-static void destroy_unrefed(bool all)
+static bool destroy_unrefed(unsigned int min_destroy_count)
 {
 	struct mail_index_alloc_cache_list **list, *rec;
+	bool destroyed = FALSE;
 	bool seen_ref0 = FALSE;
 
 	for (list = &indexes; *list != NULL;) {
 		rec = *list;
 
 		if (rec->refcount == 0 &&
-		    (all || rec->destroy_time <= ioloop_time)) {
+		    (min_destroy_count > 0 || rec->destroy_time <= ioloop_time)) {
 			*list = rec->next;
+			destroyed = TRUE;
 			mail_index_alloc_cache_list_free(rec);
+			if (min_destroy_count > 0)
+				min_destroy_count--;
 		} else {
 			if (rec->refcount == 0)
 				seen_ref0 = TRUE;
-			if (all && rec->index->open_count == 1 &&
+			if (min_destroy_count > 0 &&
+			    rec->index->open_count == 1 &&
 			    rec->referenced) {
 				/* we're the only one keeping this index open.
 				   we might be here, because the caller is
 				   deleting this mailbox and wants its indexes
 				   to be closed. so close it. */
-				rec->referenced = FALSE;
-				mail_index_close(rec->index);
+				destroyed = TRUE;
+				mail_index_alloc_cache_list_unref(rec);
 			}
 			list = &(*list)->next;
 		}
@@ -183,12 +202,13 @@ static void destroy_unrefed(bool all)
 
 	if (!seen_ref0 && to_index != NULL)
 		timeout_remove(&to_index);
+	return destroyed;
 }
 
 static void ATTR_NULL(1)
 index_removal_timeout(void *context ATTR_UNUSED)
 {
-	destroy_unrefed(FALSE);
+	destroy_unrefed(0);
 }
 
 void mail_index_alloc_cache_unref(struct mail_index **_index)
@@ -223,7 +243,7 @@ void mail_index_alloc_cache_unref(struct mail_index **_index)
 
 void mail_index_alloc_cache_destroy_unrefed(void)
 {
-	destroy_unrefed(TRUE);
+	destroy_unrefed(UINT_MAX);
 }
 
 void mail_index_alloc_cache_index_opened(struct mail_index *index)
@@ -240,9 +260,29 @@ void mail_index_alloc_cache_index_opened(struct mail_index *index)
 			list->index_dir_dev = st.st_dev;
 		}
 	}
-	if (list != NULL && !list->referenced) {
-		/* keep it referenced for ourself */
-		list->referenced = TRUE;
-		index->open_count++;
+}
+
+void mail_index_alloc_cache_index_closing(struct mail_index *index)
+{
+	struct mail_index_alloc_cache_list *list =
+		MAIL_INDEX_ALLOC_CACHE_CONTEXT(index);
+
+	i_assert(index->open_count > 0);
+	if (index->open_count > 1 || list == NULL)
+		return;
+
+	if (list->referenced) {
+		/* we're closing our referenced index */
+		return;
 	}
+	while (indexes_cache_references_count > INDEX_CACHE_MAX) {
+		if (!destroy_unrefed(1)) {
+			/* our cache is full already, don't keep more */
+			return;
+		}
+	}
+	/* keep the index referenced for caching */
+	indexes_cache_references_count++;
+	list->referenced = TRUE;
+	index->open_count++;
 }

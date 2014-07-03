@@ -631,6 +631,8 @@ void mail_index_close_file(struct mail_index *index)
 void mail_index_close(struct mail_index *index)
 {
 	i_assert(index->open_count > 0);
+
+	mail_index_alloc_cache_index_closing(index);
 	if (--index->open_count > 0)
 		return;
 

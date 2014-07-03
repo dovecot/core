@@ -11,5 +11,6 @@ void mail_index_alloc_cache_destroy_unrefed(void);
 
 /* internal: */
 void mail_index_alloc_cache_index_opened(struct mail_index *index);
+void mail_index_alloc_cache_index_closing(struct mail_index *index);
 
 #endif
