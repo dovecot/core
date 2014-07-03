@@ -108,11 +108,13 @@ static int backend_mail_get(struct virtual_mail *vmail,
 	bbox = virtual_backend_box_lookup(mbox, vmail->cur_vrec.mailbox_id);
 	vmail->cur_backend_mail = backend_mail_find(vmail, bbox->box);
 	if (vmail->cur_backend_mail == NULL) {
-		if (mailbox_open(bbox->box) < 0) {
+		if (virtual_backend_box_open(mbox, bbox) < 0) {
 			virtual_box_copy_error(mail->box, bbox->box);
 			return -1;
 		}
 		(void)virtual_mail_set_backend_mail(mail, bbox);
+	} else {
+		virtual_backend_box_accessed(mbox, bbox);
 	}
 	vmail->cur_lost = !mail_set_uid(vmail->cur_backend_mail,
 					vmail->cur_vrec.real_uid);
