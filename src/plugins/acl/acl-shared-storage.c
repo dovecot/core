@@ -89,7 +89,7 @@ int acl_shared_namespaces_add(struct mail_namespace *ns)
 	const char *name;
 
 	i_assert(ns->type == MAIL_NAMESPACE_TYPE_SHARED);
-	i_assert(strcmp(storage->name, SHARED_STORAGE_NAME) == 0);
+	i_assert(strcmp(storage->name, MAIL_SHARED_STORAGE_NAME) == 0);
 
 	if (ioloop_time < alist->last_shared_add_check + SHARED_NS_RETRY_SECS) {
 		/* already added, don't bother rechecking */
