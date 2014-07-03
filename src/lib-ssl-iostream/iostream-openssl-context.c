@@ -499,12 +499,16 @@ ssl_iostream_context_init_common(struct ssl_iostream_context *ctx,
 				 const struct ssl_iostream_settings *set,
 				 const char **error_r)
 {
+	long ssl_ops = SSL_OP_NO_SSLv2 |
+		(SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
+
 	ctx->pool = pool_alloconly_create("ssl iostream context", 4096);
 
 	/* enable all SSL workarounds, except empty fragments as it
 	   makes SSL more vulnerable against attacks */
-	SSL_CTX_set_options(ctx->ssl_ctx, SSL_OP_NO_SSLv2 |
-			    (SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS));
+	if (!set->compression)
+		ssl_ops |= SSL_OP_NO_COMPRESSION;
+	SSL_CTX_set_options(ctx->ssl_ctx, ssl_ops);
 #ifdef SSL_MODE_RELEASE_BUFFERS
 	SSL_CTX_set_mode(ctx->ssl_ctx, SSL_MODE_RELEASE_BUFFERS);
 #endif

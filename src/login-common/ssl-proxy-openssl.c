@@ -101,6 +101,7 @@ struct ssl_server_context {
 	const char *protocols;
 	bool verify_client_cert;
 	bool prefer_server_ciphers;
+	bool compression;
 };
 
 static int extdata_index;
@@ -640,6 +641,7 @@ ssl_server_context_get(const struct login_settings *login_set,
 		login_set->auth_ssl_require_client_cert ||
 		login_set->auth_ssl_username_from_cert;
 	lookup_ctx.prefer_server_ciphers = set->ssl_prefer_server_ciphers;
+	lookup_ctx.compression = set->parsed_opts.compression;
 
 	ctx = hash_table_lookup(ssl_servers, &lookup_ctx);
 	if (ctx == NULL)
@@ -1011,11 +1013,12 @@ ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct master_service_ssl_settings *s
 {
 	X509_STORE *store;
 	STACK_OF(X509_NAME) *xnames = NULL;
-
 	/* enable all SSL workarounds, except empty fragments as it
 	   makes SSL more vulnerable against attacks */
-	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL &
-			    ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
+	long ssl_ops = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS;
+	if (!set->parsed_opts.compression)
+		ssl_ops |= SSL_OP_NO_COMPRESSION;
+	SSL_CTX_set_options(ssl_ctx, ssl_ops);
 
 #ifdef SSL_MODE_RELEASE_BUFFERS
 	SSL_CTX_set_mode(ssl_ctx, SSL_MODE_RELEASE_BUFFERS);
@@ -1286,6 +1289,7 @@ ssl_server_context_init(const struct login_settings *login_set,
 		login_set->auth_ssl_require_client_cert ||
 		login_set->auth_ssl_username_from_cert;
 	ctx->prefer_server_ciphers = ssl_set->ssl_prefer_server_ciphers;
+	ctx->compression = ssl_set->parsed_opts.compression;
 
 	ctx->ctx = ssl_ctx = SSL_CTX_new(SSLv23_server_method());
 	if (ssl_ctx == NULL)
