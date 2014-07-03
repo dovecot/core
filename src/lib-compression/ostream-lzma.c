@@ -119,6 +119,8 @@ static int o_stream_lzma_send_flush(struct lzma_ostream *zstream)
 	if (zstream->flushed)
 		return 0;
 
+	if ((ret = o_stream_flush_parent_if_needed(&zstream->ostream)) <= 0)
+		return ret;
 	if ((ret = o_stream_zlib_send_outbuf(zstream)) <= 0)
 		return ret;
 

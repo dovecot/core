@@ -181,6 +181,9 @@ o_stream_zlib_send_flush(struct zlib_ostream *zstream, bool final)
 
 	if (zstream->flushed)
 		return 0;
+
+	if ((ret = o_stream_flush_parent_if_needed(&zstream->ostream)) <= 0)
+		return ret;
 	if (!zstream->header_sent) {
 		if (o_stream_zlib_send_gz_header(zstream) < 0)
 			return -1;
