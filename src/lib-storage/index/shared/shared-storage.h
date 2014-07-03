@@ -1,8 +1,6 @@
 #ifndef SHARED_STORAGE_H
 #define SHARED_STORAGE_H
 
-#define SHARED_STORAGE_NAME "shared"
-
 struct shared_storage {
 	struct mail_storage storage;
 	union mailbox_list_module_context list_module_ctx;

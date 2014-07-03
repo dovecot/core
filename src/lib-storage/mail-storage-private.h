@@ -17,6 +17,8 @@
 /* Block size when read()ing message (header and) body. */
 #define MAIL_READ_FULL_BLOCK_SIZE IO_BLOCK_SIZE
 
+#define MAIL_SHARED_STORAGE_NAME "shared"
+
 struct mail_storage_module_register {
 	unsigned int id;
 };

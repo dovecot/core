@@ -162,7 +162,7 @@ namespace_add(struct mail_user *user,
 		   mixed %% usage, but still allows for specifying a shared
 		   namespace to an explicit location without any %% */
 		ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
-		driver = "shared";
+		driver = MAIL_SHARED_STORAGE_NAME;
 	} else {
 		driver = NULL;
 	}
