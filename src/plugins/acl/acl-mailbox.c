@@ -583,7 +583,7 @@ void acl_mailbox_allocated(struct mailbox *box)
 						 mailbox_get_name(box));
 
 	v->free = acl_mailbox_free;
-	if (ignore_acls) {
+	if (!ignore_acls) {
 		abox->acl_enabled = TRUE;
 		v->is_readonly = acl_is_readonly;
 		v->exists = acl_mailbox_exists;
