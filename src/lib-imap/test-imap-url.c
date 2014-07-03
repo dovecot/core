@@ -650,7 +650,7 @@ static void test_imap_url_valid(void)
 				test_out(t_strdup_printf("url->auth_type = %s", urlp->auth_type),
 					strcmp(urlp->auth_type, urlt->auth_type) == 0);
 			}
-			if (urlp->have_port) {
+			if (!urlp->have_port) {
 				test_out("url->port = (unspecified)",
 					urlp->have_port == urlt->have_port);
 			} else {
