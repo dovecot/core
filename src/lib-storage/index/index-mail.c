@@ -898,8 +898,10 @@ int index_mail_stream_check_failure(struct index_mail *mail)
 
 	errno = mail->data.stream->stream_errno;
 	mail_storage_set_critical(mail->mail.mail.box->storage,
-		"read(%s) failed: %m (uid=%u)",
-		i_stream_get_name(mail->data.stream), mail->mail.mail.uid);
+		"read(%s) failed: %s (uid=%u)",
+		i_stream_get_name(mail->data.stream),
+		i_stream_get_error(mail->data.stream),
+		mail->mail.mail.uid);
 	return -1;
 }
 
