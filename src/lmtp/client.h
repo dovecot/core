@@ -16,7 +16,6 @@ struct client_state {
 	const char *session_id;
 	const char *mail_from;
 	ARRAY(struct mail_recipient) rcpt_to;
-	unsigned int rcpt_idx;
 
 	unsigned int data_end_idx;
 

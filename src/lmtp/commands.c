@@ -715,25 +715,17 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	return ret;
 }
 
-static bool client_deliver_next(struct client *client,
-				struct mail_deliver_session *session)
+static void client_deliver_mails(struct client *client,
+				 struct mail_deliver_session *session)
 {
 	const struct mail_recipient *rcpts;
-	unsigned int count;
-	int ret;
+	unsigned int i, count;
 
 	rcpts = array_get(&client->state.rcpt_to, &count);
-	while (client->state.rcpt_idx < count) {
-		ret = client_deliver(client, &rcpts[client->state.rcpt_idx],
-				     session);
+	for (i = 0; i < count; i++) {
+		(void)client_deliver(client, &rcpts[i], session);
 		i_set_failure_prefix("lmtp(%s): ", my_pid);
-
-		client->state.rcpt_idx++;
-		if (ret == 0)
-			return TRUE;
-		/* failed. try the next one. */
 	}
-	return FALSE;
 }
 
 static void client_rcpt_fail_all(struct client *client)
@@ -815,8 +807,7 @@ client_input_data_write_local(struct client *client, struct istream *input)
 
 	session = mail_deliver_session_init();
 	old_uid = geteuid();
-	while (client_deliver_next(client, session))
-		;
+	client_deliver_mails(client, session);
 	mail_deliver_session_deinit(&session);
 
 	if (old_uid == 0) {
