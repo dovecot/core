@@ -84,8 +84,13 @@ i_stream_mail_read(struct istream_private *stream)
 			   doesn't have the body */
 			return -1;
 		}
-		if (stream->istream.stream_errno != 0)
+		if (stream->istream.stream_errno != 0) {
+			if (stream->istream.stream_errno == ENOENT) {
+				/* update mail's expunged-flag if needed */
+				index_mail_refresh_expunged(mstream->mail);
+			}
 			return -1;
+		}
 		if (i_stream_mail_try_get_cached_size(mstream) &&
 		    mstream->expected_size > stream->istream.v_offset + size) {
 			i_stream_mail_set_size_corrupted(mstream, size);

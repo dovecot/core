@@ -900,6 +900,13 @@ int index_mail_stream_check_failure(struct index_mail *mail)
 	return -1;
 }
 
+void index_mail_refresh_expunged(struct mail *mail)
+{
+	mail_index_refresh(mail->box->index);
+	if (mail_index_is_expunged(mail->transaction->view, mail->seq))
+		mail_set_expunged(mail);
+}
+
 void index_mail_stream_log_failure_for(struct index_mail *mail,
 				       struct istream *input)
 {
@@ -907,16 +914,13 @@ void index_mail_stream_log_failure_for(struct index_mail *mail,
 
 	i_assert(input->stream_errno != 0);
 
-	errno = input->stream_errno;
-	if (errno == ENOENT) {
+	if (input->stream_errno == ENOENT) {
 		/* was the mail just expunged? we could get here especially if
 		   external attachments are used and the attachment is deleted
 		   before we've opened the file. */
-		mail_index_refresh(_mail->box->index);
-		if (mail_index_is_expunged(_mail->transaction->view, _mail->seq)) {
-			mail_set_expunged(_mail);
+		index_mail_refresh_expunged(_mail);
+		if (_mail->expunged)
 			return;
-		}
 	}
 	mail_storage_set_critical(_mail->box->storage,
 		"read(%s) failed: %s (uid=%u, box=%s)",
