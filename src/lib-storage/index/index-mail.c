@@ -855,11 +855,7 @@ index_mail_parse_body_finish(struct index_mail *mail,
 				 (i_stream_read(parser_input) == -1 &&
 				  !i_stream_have_bytes_left(parser_input)));
 		} else {
-			errno = parser_input->stream_errno;
-			mail_storage_set_critical(mail->mail.mail.box->storage,
-				"mail parser: read(%s, box=%s) failed: %m",
-				i_stream_get_name(parser_input),
-				mail->mail.mail.box->vname);
+			index_mail_stream_log_failure_for(mail, parser_input);
 			ret = -1;
 		}
 		i_stream_unref(&parser_input);
@@ -891,18 +887,41 @@ index_mail_parse_body_finish(struct index_mail *mail,
 	return 0;
 }
 
+static void index_mail_stream_log_failure(struct index_mail *mail)
+{
+	index_mail_stream_log_failure_for(mail, mail->data.stream);
+}
+
 int index_mail_stream_check_failure(struct index_mail *mail)
 {
 	if (mail->data.stream->stream_errno == 0)
 		return 0;
-
-	errno = mail->data.stream->stream_errno;
-	mail_storage_set_critical(mail->mail.mail.box->storage,
-		"read(%s) failed: %s (uid=%u)",
-		i_stream_get_name(mail->data.stream),
-		i_stream_get_error(mail->data.stream),
-		mail->mail.mail.uid);
+	index_mail_stream_log_failure(mail);
 	return -1;
+}
+
+void index_mail_stream_log_failure_for(struct index_mail *mail,
+				       struct istream *input)
+{
+	struct mail *_mail = &mail->mail.mail;
+
+	i_assert(input->stream_errno != 0);
+
+	errno = input->stream_errno;
+	if (errno == ENOENT) {
+		/* was the mail just expunged? we could get here especially if
+		   external attachments are used and the attachment is deleted
+		   before we've opened the file. */
+		mail_index_refresh(_mail->box->index);
+		if (mail_index_is_expunged(_mail->transaction->view, _mail->seq)) {
+			mail_set_expunged(_mail);
+			return;
+		}
+	}
+	mail_storage_set_critical(_mail->box->storage,
+		"read(%s) failed: %s (uid=%u, box=%s)",
+		i_stream_get_name(input), i_stream_get_error(input),
+		_mail->uid, mailbox_get_vname(_mail->box));
 }
 
 static int index_mail_parse_body(struct index_mail *mail,
@@ -1001,9 +1020,7 @@ int index_mail_init_stream(struct index_mail *mail,
 				if (message_get_header_size(data->stream,
 							    &data->hdr_size,
 							    &has_nuls) < 0) {
-					mail_storage_set_critical(_mail->box->storage,
-						"read(%s) failed: %m",
-						i_stream_get_name(data->stream));
+					index_mail_stream_log_failure(mail);
 					return -1;
 				}
 				data->hdr_size_set = TRUE;
@@ -1027,9 +1044,7 @@ int index_mail_init_stream(struct index_mail *mail,
 				if (message_get_body_size(data->stream,
 							  &data->body_size,
 							  &has_nuls) < 0) {
-					mail_storage_set_critical(_mail->box->storage,
-						"read(%s) failed: %m",
-						i_stream_get_name(data->stream));
+					index_mail_stream_log_failure(mail);
 					return -1;
 				}
 				data->body_size_set = TRUE;

@@ -232,6 +232,8 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 				    enum mail_fetch_field field);
 int index_mail_opened(struct mail *mail, struct istream **stream);
 int index_mail_stream_check_failure(struct index_mail *mail);
+void index_mail_stream_log_failure_for(struct index_mail *mail,
+				       struct istream *input);
 struct index_mail *index_mail_get_index_mail(struct mail *mail);
 
 bool index_mail_get_cached_uoff_t(struct index_mail *mail,

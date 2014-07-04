@@ -116,7 +116,8 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 	if (ctx->input->stream_errno != 0) {
 		errno = ctx->input->stream_errno;
 		mail_storage_set_critical(ctx->mail->box->storage,
-			"read(%s) failed: %m", i_stream_get_name(ctx->input));
+			"read(%s) failed: %s", i_stream_get_name(ctx->input),
+			i_stream_get_error(ctx->input));
 		return -1;
 	}
 
@@ -407,8 +408,9 @@ index_mail_read_binary_to_cache(struct mail *_mail,
 					       "Invalid data in MIME part");
 		} else {
 			mail_storage_set_critical(_mail->box->storage,
-				"read(%s) failed: %m",
-				i_stream_get_name(cache->input));
+				"read(%s) failed: %s",
+				i_stream_get_name(cache->input),
+				i_stream_get_error(cache->input));
 		}
 		mail_storage_free_binary_cache(_mail->box->storage);
 		binary_streams_free(&ctx);
