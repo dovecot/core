@@ -457,7 +457,7 @@ static void open_log_file(int *fd, const char *path)
 
 	if (*fd != STDERR_FILENO) {
 		if (close(*fd) < 0) {
-			str = t_strdup_printf("close(%d) failed: %m", *fd);
+			str = t_strdup_printf("close(%d) failed: %m\n", *fd);
 			(void)write_full(STDERR_FILENO, str, strlen(str));
 		}
 	}
@@ -516,7 +516,7 @@ static void i_failure_send_option(const char *key, const char *value)
 
 	str = t_strdup_printf("\001%c%s %s=%s\n", LOG_TYPE_OPTION+1,
 			      my_pid, key, value);
-	(void)write_full(2, str, strlen(str));
+	(void)write_full(STDERR_FILENO, str, strlen(str));
 }
 
 void i_set_failure_prefix(const char *prefix_fmt, ...)
