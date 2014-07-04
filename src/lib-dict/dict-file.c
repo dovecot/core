@@ -111,7 +111,11 @@ static bool file_dict_need_refresh(struct file_dict *dict)
 	if (dict->fd == -1)
 		return TRUE;
 
-	nfs_flush_file_handle_cache(dict->path);
+	/* Disable NFS flushing for now since it can cause unnecessary
+	   problems and there's no easy way for us to know here if
+	   mail_nfs_storage=yes. In any case it's pretty much an unsupported
+	   setting nowadays. */
+	/*nfs_flush_file_handle_cache(dict->path);*/
 	if (nfs_safe_stat(dict->path, &st1) < 0) {
 		i_error("stat(%s) failed: %m", dict->path);
 		return FALSE;
