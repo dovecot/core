@@ -850,7 +850,10 @@ index_mail_parse_body_finish(struct index_mail *mail,
 		if (parser_input->stream_errno == 0 ||
 		    parser_input->stream_errno == EPIPE) {
 			/* EPIPE = input already closed. allow the caller to
-			   decide if that is an error or not. */
+			   decide if that is an error or not. (for example we
+			   could be coming here from IMAP APPEND when IMAP
+			   client has closed the connection too early. we
+			   don't want to log an error in that case.) */
 			i_assert(!success ||
 				 (i_stream_read(parser_input) == -1 &&
 				  !i_stream_have_bytes_left(parser_input)));
@@ -867,7 +870,15 @@ index_mail_parse_body_finish(struct index_mail *mail,
 		}
 		mail->data.parts = NULL;
 		mail->data.parsed_bodystructure = FALSE;
+		if (mail->data.save_bodystructure_body)
+			mail->data.save_bodystructure_header = TRUE;
 		return -1;
+	}
+	if (mail->data.save_bodystructure_body) {
+		mail->data.parsed_bodystructure = TRUE;
+		mail->data.save_bodystructure_header = FALSE;
+		mail->data.save_bodystructure_body = FALSE;
+		i_assert(mail->data.parts != NULL);
 	}
 
 	if (mail->data.no_caching) {
@@ -954,11 +965,6 @@ static int index_mail_parse_body(struct index_mail *mail,
 	ret = index_mail_stream_check_failure(mail);
 	if (index_mail_parse_body_finish(mail, field, TRUE) < 0)
 		ret = -1;
-	if (ret == 0 && data->save_bodystructure_body) {
-		data->save_bodystructure_body = FALSE;
-		data->parsed_bodystructure = TRUE;
-		i_assert(data->parts != NULL);
-	}
 
 	i_stream_seek(data->stream, old_offset);
 	return ret;
@@ -1090,8 +1096,11 @@ static int index_mail_parse_bodystructure(struct index_mail *mail,
 			data->save_bodystructure_header = TRUE;
 			data->save_bodystructure_body = TRUE;
 			(void)get_cached_parts(mail);
-			if (index_mail_parse_headers(mail, NULL) < 0)
+			if (index_mail_parse_headers(mail, NULL) < 0) {
+				data->save_bodystructure_header = TRUE;
 				return -1;
+			}
+			i_assert(data->parser_ctx != NULL);
 		}
 
 		if (index_mail_parse_body(mail, field) < 0)
@@ -1309,6 +1318,8 @@ static void index_mail_close_streams_full(struct index_mail *mail, bool closing)
 						 MAIL_FETCH_MESSAGE_PARTS);
 		}
 		mail->data.parser_input = NULL;
+		if (mail->data.save_bodystructure_body)
+			mail->data.save_bodystructure_header = TRUE;
 	}
 	if (data->filter_stream != NULL)
 		i_stream_unref(&data->filter_stream);
@@ -1751,11 +1762,7 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date,
 		mail->data.save_date = ioloop_time;
 	}
 
-	if (index_mail_parse_body_finish(mail, 0, success) == 0) {
-		mail->data.save_bodystructure_body = FALSE;
-		mail->data.parsed_bodystructure = TRUE;
-		i_assert(mail->data.parts != NULL);
-	}
+	(void)index_mail_parse_body_finish(mail, 0, success);
 }
 
 static void index_mail_drop_recent_flag(struct mail *mail)

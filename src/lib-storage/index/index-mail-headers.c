@@ -298,7 +298,11 @@ void index_mail_parse_header(struct message_part *part,
 		T_BEGIN {
 			index_mail_parse_header_finish(mail);
 		} T_END;
-                data->save_bodystructure_header = FALSE;
+		if (data->save_bodystructure_header) {
+			i_assert(!data->save_bodystructure_body ||
+				 data->parser_ctx != NULL);
+			data->save_bodystructure_header = FALSE;
+		}
 		return;
 	}
 
@@ -430,6 +434,8 @@ int index_mail_parse_headers(struct index_mail *mail,
 					    mail);
 	} else {
 		/* just read the header */
+		i_assert(!data->save_bodystructure_body ||
+			 data->parser_ctx != NULL);
 		message_parse_header(data->stream, &data->hdr_size,
 				     hdr_parser_flags,
 				     index_mail_parse_header_cb, mail);
