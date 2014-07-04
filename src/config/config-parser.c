@@ -669,7 +669,7 @@ config_parse_line(struct config_parser_context *ctx,
 			}
 		}
 		if (*line != '{') {
-			*value_r = "Expecting '='";
+			*value_r = "Expecting '{'";
 			return CONFIG_LINE_TYPE_ERROR;
 		}
 	}
