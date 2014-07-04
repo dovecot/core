@@ -35,6 +35,7 @@ static void tee_streams_update_buffer(struct tee_istream *tee)
 		old_used = tstream->istream.pos - tstream->istream.skip;
 
 		tstream->istream.buffer = data;
+		i_assert(tstream->istream.istream.v_offset >= tee->input->v_offset);
 		tstream->istream.skip = tstream->istream.istream.v_offset -
 			tee->input->v_offset;
 		i_assert(tstream->istream.skip + old_used <= size);
@@ -155,14 +156,17 @@ static ssize_t i_stream_tee_read(struct istream_private *stream)
 	} else {
 		/* there's still some data available from parent */
 		i_assert(last_high_offset < input->v_offset + size);
+		tee_streams_update_buffer(tstream->tee);
 		i_assert(stream->pos < size);
-		stream->buffer = data;
 	}
 
 	i_assert(stream->buffer == data);
 	ret = size - stream->pos;
 	i_assert(ret > 0);
 	stream->pos = size;
+
+	i_assert(stream->istream.v_offset + (stream->pos - stream->skip) ==
+		 input->v_offset + size);
 	return ret;
 }
 
