@@ -255,7 +255,7 @@ struct istream *iostream_temp_finish(struct ostream **output,
 			tstream->dupstream_start_offset;
 		fd = dup(i_stream_get_fd(tstream->dupstream));
 		if (fd == -1)
-			input = i_stream_create_error(errno);
+			input = i_stream_create_error_str(errno, "dup() failed: %m");
 		else {
 			input2 = i_stream_create_fd_autoclose(&fd, max_buffer_size);
 			i_stream_seek(input2, abs_offset);

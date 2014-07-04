@@ -400,7 +400,7 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 		virtual_skip -= cache->virtual_pos;
 	}
 	if (message_skip_virtual(input, virtual_skip, &cr_skipped) < 0) {
-		errinput = i_stream_create_error(errno);
+		errinput = i_stream_create_error_str(errno, "%s", i_stream_get_error(input));
 		i_stream_set_name(errinput, i_stream_get_name(input));
 		i_stream_unref(&input);
 		return errinput;

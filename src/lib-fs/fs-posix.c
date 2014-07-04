@@ -349,7 +349,7 @@ fs_posix_read_stream(struct fs_file *_file, size_t max_buffer_size)
 	struct istream *input;
 
 	if (file->fd == -1 && fs_posix_open(file) < 0)
-		input = i_stream_create_error(errno);
+		input = i_stream_create_error_str(errno, "%s", fs_last_error(_file->fs));
 	else
 		input = i_stream_create_fd(file->fd, max_buffer_size, FALSE);
 	i_stream_set_name(input, _file->path);
