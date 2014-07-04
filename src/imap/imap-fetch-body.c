@@ -27,17 +27,24 @@ struct imap_fetch_body_data {
 	unsigned int binary_size:1;
 };
 
-static void fetch_read_error(struct imap_fetch_context *ctx)
+static void fetch_read_error(struct imap_fetch_context *ctx,
+			     const char **disconnect_reason_r)
 {
 	struct imap_fetch_state *state = &ctx->state;
 
-	errno = state->cur_input->stream_errno;
+	if (state->cur_input->stream_errno == ENOENT) {
+		if (state->cur_mail->expunged) {
+			*disconnect_reason_r = "Mail expunged while it was being FETCHed";
+			return;
+		}
+	}
 	mail_storage_set_critical(state->cur_mail->box->storage,
 		"read(%s) failed: %s (FETCH %s for mailbox %s UID %u)",
 		i_stream_get_name(state->cur_input),
 		i_stream_get_error(state->cur_input),
 		state->cur_human_name,
 		mailbox_get_vname(state->cur_mail->box), state->cur_mail->uid);
+	*disconnect_reason_r = "FETCH read() failed";
 }
 
 static const char *get_body_name(const struct imap_fetch_body_data *body)
@@ -85,6 +92,7 @@ static string_t *get_prefix(struct imap_fetch_state *state,
 static int fetch_stream_continue(struct imap_fetch_context *ctx)
 {
 	struct imap_fetch_state *state = &ctx->state;
+	const char *disconnect_reason;
 	off_t ret;
 
 	o_stream_set_max_buffer_size(ctx->client->output, 0);
@@ -97,8 +105,8 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 	if (state->cur_offset != state->cur_size) {
 		/* unfinished */
 		if (state->cur_input->stream_errno != 0) {
-			fetch_read_error(ctx);
-			client_disconnect(ctx->client, "FETCH failed");
+			fetch_read_error(ctx, &disconnect_reason);
+			client_disconnect(ctx->client, disconnect_reason);
 			return -1;
 		}
 		if (!i_stream_have_bytes_left(state->cur_input)) {
