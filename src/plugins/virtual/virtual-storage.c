@@ -564,7 +564,8 @@ static void virtual_notify_changes(struct mailbox *box)
 	   to wait for changes and avoid opening all mailboxes here. */
 
 	array_foreach(&mbox->backend_boxes, bboxp) {
-		if (virtual_backend_box_open(mbox, *bboxp) < 0) {
+		if (!(*bboxp)->box->opened &&
+		    virtual_backend_box_open(mbox, *bboxp) < 0) {
 			/* we can't report error in here, so do it later */
 			(*bboxp)->open_failed = TRUE;
 			continue;
