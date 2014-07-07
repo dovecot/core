@@ -97,7 +97,7 @@ static void test_append_sync_offset(struct mail_transaction_log *log)
 
 	test_begin("transaction log append: append_sync_offset only");
 	test_assert(mail_transaction_log_append_begin(log->index, 0, &ctx) == 0);
-	ctx->append_sync_offset = TRUE;
+	ctx->index_sync_transaction = TRUE;
 	file->max_tail_offset = 123;
 	test_assert(mail_transaction_log_append_commit(&ctx) == 0);
 

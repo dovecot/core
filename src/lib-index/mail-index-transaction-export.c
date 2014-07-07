@@ -476,12 +476,8 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 						&null4, 4);
 	}
 
-	/* Update the tail offsets only when committing the sync transaction.
-	   Other transactions may not know the latest tail offset and might
-	   end up shrinking it. (Alternatively the shrinking tail offsets could
-	   just be ignored, which would probably work fine too.) */
-	append_ctx->append_sync_offset = t->sync_transaction;
-
+	append_ctx->index_sync_transaction = t->sync_transaction;
+	append_ctx->tail_offset_changed = t->tail_offset_changed;
 	append_ctx->want_fsync =
 		(t->view->index->fsync_mask & change_mask) != 0 ||
 		(t->flags & MAIL_INDEX_TRANSACTION_FLAG_FSYNC) != 0;

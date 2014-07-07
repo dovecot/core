@@ -751,9 +751,12 @@ mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 	mail_transaction_log_set_mailbox_sync_pos(ctx->index->log, seq, offset);
 
 	/* If tail offset has changed, make sure it gets written to
-	   transaction log. */
-	if (ctx->last_tail_offset != offset)
+	   transaction log. do this only if we're required to changes. */
+	if (ctx->last_tail_seq != seq ||
+	    ctx->last_tail_offset < offset) {
 		ctx->ext_trans->log_updates = TRUE;
+		ctx->ext_trans->tail_offset_changed = TRUE;
+	}
 }
 
 static bool mail_index_sync_want_index_write(struct mail_index *index)

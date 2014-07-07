@@ -176,7 +176,10 @@ struct mail_transaction_log_append_ctx {
 	uint64_t new_highest_modseq;
 	unsigned int transaction_count;
 
-	unsigned int append_sync_offset:1;
+	/* same as mail_index_transaction->sync_transaction */
+	unsigned int index_sync_transaction:1;
+	/* same as mail_index_transaction->tail_offset_changed */
+	unsigned int tail_offset_changed:1;
 	unsigned int sync_includes_this:1;
 	unsigned int want_fsync:1;
 };

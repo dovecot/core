@@ -122,9 +122,22 @@ log_append_sync_offset_if_needed(struct mail_transaction_log_append_ctx *ctx)
 	buffer_t buf;
 	unsigned char update_data[sizeof(*u) + sizeof(offset)];
 
-	if (file->max_tail_offset == file->sync_offset) {
-		if (ctx->output->used == 0 &&
-		    file->saved_tail_offset == file->max_tail_offset) {
+	if (!ctx->index_sync_transaction) {
+		/* this is a non-syncing transaction. update the tail offset
+		   only if we're already writing something else to transaction
+		   log anyway. */
+		i_assert(!ctx->tail_offset_changed);
+		/* FIXME: For now we never do this update, because it would
+		   cause errors about shrinking tail offsets with old Dovecot
+		   versions. This is anyway just an optimization, so it doesn't
+		   matter all that much if we don't do it here. Finish this
+		   in v2.3. */
+		/*if (ctx->output->used == 0)*/
+			return;
+	} else if (file->max_tail_offset == file->sync_offset) {
+		/* we're synced all the way to tail offset, so this sync
+		   transaction can also be included in the same tail offset. */
+		if (ctx->output->used == 0 && !ctx->tail_offset_changed) {
 			/* nothing to write here after all (e.g. all unchanged
 			   flag updates were dropped by export) */
 			return;
@@ -137,6 +150,10 @@ log_append_sync_offset_if_needed(struct mail_transaction_log_append_ctx *ctx)
 		file->max_tail_offset += ctx->output->used +
 			sizeof(*hdr) + sizeof(*u) + sizeof(offset);
 		ctx->sync_includes_this = TRUE;
+	} else {
+		/* This is a syncing transaction. Since we're finishing a sync,
+		   we may need to update the tail offset even if we don't have
+		   anything else to do. */
 	}
 	offset = file->max_tail_offset;
 
@@ -189,9 +206,7 @@ mail_transaction_log_append_locked(struct mail_transaction_log_append_ctx *ctx)
 		buffer_delete(ctx->output, 0, boundary_size);
 	}
 
-	if (ctx->append_sync_offset)
-		log_append_sync_offset_if_needed(ctx);
-
+	log_append_sync_offset_if_needed(ctx);
 	if (log_buffer_write(ctx) < 0)
 		return -1;
 	file->sync_highest_modseq = ctx->new_highest_modseq;

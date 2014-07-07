@@ -957,20 +957,8 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 		       sizeof(tail_offset));
 
 		if (tail_offset < file->saved_tail_offset) {
-			if (file->sync_offset < file->saved_tail_sync_offset) {
-				/* saved_tail_offset was already set in header,
-				   but we still had to resync the file to find
-				   modseqs. ignore this record. */
-				return 1;
-			}
-			mail_index_set_error(file->log->index,
-				"Transaction log file %s seq %u: "
-				"log_file_tail_offset update shrank it "
-				"(%u vs %"PRIuUOFF_T" "
-				"sync_offset=%"PRIuUOFF_T")",
-				file->filepath, file->hdr.file_seq,
-				tail_offset, file->saved_tail_offset,
-				file->sync_offset);
+			/* ignore shrinking tail offsets */
+			return 1;
 		} else {
 			file->saved_tail_offset = tail_offset;
 			if (tail_offset > file->max_tail_offset)
