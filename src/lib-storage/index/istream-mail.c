@@ -78,7 +78,7 @@ i_stream_mail_read(struct istream_private *stream)
 			i_stream_mail_set_size_corrupted(mstream, size);
 			return -1;
 		}
-	} else if (ret < 0 && stream->istream.eof) {
+	} else if (ret == -1 && stream->istream.eof) {
 		if (!mstream->input_has_body) {
 			/* trying to read past the header, but this stream
 			   doesn't have the body */
