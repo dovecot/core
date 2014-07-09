@@ -45,6 +45,8 @@ http_client_connection_debug(struct http_client_connection *conn,
  */
 
 static void http_client_connection_input(struct connection *_conn);
+static void
+http_client_connection_disconnect(struct http_client_connection *conn);
 
 unsigned int
 http_client_connection_count_pending(struct http_client_connection *conn)
@@ -89,11 +91,10 @@ http_client_connection_server_close(struct http_client_connection **_conn)
 	struct http_client_connection *conn = *_conn;
 	struct http_client_request **req;
 
-	conn->connected = FALSE;
-	conn->closing = TRUE;
-
 	http_client_connection_debug(conn,
 		"Server explicitly closed connection");
+
+	http_client_connection_disconnect(conn);
 
 	array_foreach_modifiable(&conn->request_wait_list, req) {
 		if ((*req)->state < HTTP_REQUEST_STATE_FINISHED)
@@ -117,9 +118,8 @@ http_client_connection_abort_error(struct http_client_connection **_conn,
 
 	http_client_connection_debug(conn, "Aborting connection: %s", error);
 
-	conn->connected = FALSE;
-	conn->closing = TRUE;
-	
+	http_client_connection_disconnect(conn);
+
 	array_foreach_modifiable(&conn->request_wait_list, req) {
 		i_assert((*req)->submitted);
 		http_client_request_error(*req, status, error);
@@ -156,8 +156,7 @@ http_client_connection_abort_temp_error(struct http_client_connection **_conn,
 	http_client_connection_debug(conn,
 		"Aborting connection with temporary error: %s", error);
 
-	conn->connected = FALSE;
-	conn->closing = TRUE;
+	http_client_connection_disconnect(conn);
 	
 	http_client_connection_retry_requests(conn, status, error);
 	http_client_connection_unref(_conn);
@@ -168,6 +167,10 @@ http_client_connection_idle_timeout(struct http_client_connection *conn)
 {
 	http_client_connection_debug(conn, "Idle connection timed out");
 
+	/* cannot get here unless connection was established at some point */
+	i_assert(conn->connect_succeeded);
+
+	http_client_connection_disconnect(conn);
 	http_client_connection_unref(&conn);
 }
 
@@ -175,7 +178,8 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 {
 	unsigned int timeout, count;
 
-	if (array_is_created(&conn->request_wait_list) &&
+	if (conn->connected &&
+		array_is_created(&conn->request_wait_list) &&
 		array_count(&conn->request_wait_list) == 0 &&
 		conn->incoming_payload == NULL &&
 		conn->client->set.max_idle_time_msecs > 0) {
@@ -1102,6 +1106,37 @@ void http_client_connection_ref(struct http_client_connection *conn)
 	conn->refcount++;
 }
 
+static void
+http_client_connection_disconnect(struct http_client_connection *conn)
+{
+	conn->closing = TRUE;
+	conn->connected = FALSE;
+
+	if (conn->connect_request != NULL)
+		http_client_request_abort(&conn->connect_request);
+
+	if (conn->incoming_payload != NULL) {
+		/* the stream is still accessed by lib-http caller. */
+		i_stream_remove_destroy_callback(conn->incoming_payload,
+						 http_client_payload_destroyed);
+	}
+
+	connection_disconnect(&conn->conn);
+
+	if (conn->io_req_payload != NULL)
+		io_remove(&conn->io_req_payload);
+	if (conn->to_requests != NULL)
+		timeout_remove(&conn->to_requests);
+	if (conn->to_connect != NULL)
+		timeout_remove(&conn->to_connect);
+	if (conn->to_input != NULL)
+		timeout_remove(&conn->to_input);
+	if (conn->to_idle != NULL)
+		timeout_remove(&conn->to_idle);
+	if (conn->to_response != NULL)
+		timeout_remove(&conn->to_response);
+}
+
 void http_client_connection_unref(struct http_client_connection **_conn)
 {
 	struct http_client_connection *conn = *_conn;
@@ -1117,19 +1152,7 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 
 	http_client_connection_debug(conn, "Connection destroy");
 
-	conn->closing = TRUE;
-	conn->connected = FALSE;
-
-	if (conn->connect_request != NULL)
-		http_client_request_abort(&conn->connect_request);
-
-	if (conn->incoming_payload != NULL) {
-		/* the stream is still accessed by lib-http caller. */
-		i_stream_remove_destroy_callback(conn->incoming_payload,
-						 http_client_payload_destroyed);
-	}
-
-	connection_disconnect(&conn->conn);
+	http_client_connection_disconnect(conn);
 
 	if (array_is_created(&conn->request_wait_list)) {
 		/* abort all pending requests */
@@ -1151,19 +1174,6 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
 	connection_deinit(&conn->conn);
-
-	if (conn->io_req_payload != NULL)
-		io_remove(&conn->io_req_payload);
-	if (conn->to_requests != NULL)
-		timeout_remove(&conn->to_requests);
-	if (conn->to_connect != NULL)
-		timeout_remove(&conn->to_connect);
-	if (conn->to_input != NULL)
-		timeout_remove(&conn->to_input);
-	if (conn->to_idle != NULL)
-		timeout_remove(&conn->to_idle);
-	if (conn->to_response != NULL)
-		timeout_remove(&conn->to_response);
 	
 	/* remove this connection from the list */
 	conn_arr = &conn->peer->conns;
