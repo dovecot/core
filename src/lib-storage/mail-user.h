@@ -23,6 +23,7 @@ struct mail_user {
 	uid_t uid;
 	gid_t gid;
 	const char *service;
+	const char *session_id;
 	struct ip_addr *local_ip, *remote_ip;
 	const char *auth_token, *auth_user;
 

@@ -681,6 +681,8 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 		mail_user_unref(&mail_user);
 		return -1;
 	}
+	mail_user->session_id =
+		p_strdup(mail_user->pool, user->input.session_id);
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES) == 0) {
 		if (mail_namespaces_init(mail_user, error_r) < 0) {
 			mail_user_unref(&mail_user);
@@ -1088,6 +1090,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	user->input = *input;
 	user->input.userdb_fields = NULL;
 	user->input.username = p_strdup(user_pool, username);
+	user->input.session_id = p_strdup(user_pool, input->session_id);
 	user->user_info = user_info;
 	user->flags = flags;
 
