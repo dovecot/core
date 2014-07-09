@@ -59,6 +59,8 @@ struct fs {
 	struct fs_vfuncs v;
 	char *temp_path_prefix;
 
+	char *username, *session_id;
+
 	struct fs_settings set;
 	string_t *last_error;
 

@@ -35,6 +35,8 @@ fs_alloc(const struct fs *fs_class, const char *args,
 		fs_deinit(&fs);
 		return -1;
 	}
+	fs->username = i_strdup(set->username);
+	fs->session_id = i_strdup(set->session_id);
 	*fs_r = fs;
 	return 0;
 }
@@ -142,6 +144,8 @@ void fs_deinit(struct fs **_fs)
 			fs->name, fs->files_open_count);
 	}
 
+	i_free(fs->username);
+	i_free(fs->session_id);
 	i_free(fs->temp_path_prefix);
 	T_BEGIN {
 		fs->v.deinit(fs);
