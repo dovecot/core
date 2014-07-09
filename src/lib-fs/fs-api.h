@@ -70,6 +70,12 @@ enum fs_iter_flags {
 };
 
 struct fs_settings {
+	/* Username and session ID are mainly used for debugging/logging,
+	   but may also be useful for other purposes if they exist (they
+	   may be NULL). */
+	const char *username;
+	const char *session_id;
+
 	/* Dovecot instance's base_dir */
 	const char *base_dir;
 	/* Directory where temporary files can be created at any time
