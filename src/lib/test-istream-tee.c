@@ -49,17 +49,20 @@ static void test_istream_tee_tailing(const char *str)
 
 	delta = 1;
 	while ((len += delta) <= TEST_STR_LEN) {
+		unsigned int lagger = rand() % CHILD_COUNT;
 		test_istream_set_size(test_input, len);
 		for (i = 0; i < CHILD_COUNT; i++) {
 			test_assert(i_stream_read(child_input[i]) == -2);
 			test_assert(!tee_i_stream_child_is_waiting(child_input[i]));
 		}
-		for (i = 0; i < CHILD_COUNT-1; i++) {
+		for (i = 0; i < CHILD_COUNT; i++) {
+			if (i == lagger)
+				continue;
 			i_stream_skip(child_input[i], delta);
 			test_assert(i_stream_read(child_input[i]) == 0);
 			test_assert(tee_i_stream_child_is_waiting(child_input[i]));
 		}
-		i_stream_skip(child_input[i], delta);
+		i_stream_skip(child_input[lagger], delta);
 		for (i = 0; i < CHILD_COUNT; i++) {
 			test_assert(i_stream_read(child_input[i]) == delta);
 			test_assert(i_stream_read(child_input[i]) == -2);
