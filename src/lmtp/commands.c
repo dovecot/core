@@ -856,7 +856,7 @@ static const char *client_get_added_headers(struct client *client)
 		str_printfa(str, "Return-Path: <%s>\r\n",
 			    client->state.mail_from);
 		if (rcpt_to != NULL)
-			str_printfa(str, "Delivered-To: <%s>\r\n", rcpt_to);
+			str_printfa(str, "Delivered-To: %s\r\n", rcpt_to);
 	}
 
 	str_printfa(str, "Received: from %s", client->lhlo);
