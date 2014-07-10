@@ -75,7 +75,6 @@ struct fs_file {
 
 	struct istream *seekable_input;
 	struct istream *pending_read_input;
-	bool write_pending;
 
 	const struct hash_method *write_digest_method;
 	void *write_digest;
@@ -86,6 +85,9 @@ struct fs_file {
 	struct fs_file *copy_src;
 	struct istream *copy_input;
 	struct ostream *copy_output;
+
+	unsigned int write_pending;
+	unsigned int metadata_changed:1;
 };
 
 struct fs_lock {

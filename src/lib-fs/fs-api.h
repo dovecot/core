@@ -22,7 +22,10 @@ enum fs_properties {
 	   when its children are deleted. */
 	FS_PROPERTY_DIRECTORIES	= 0x80,
 	FS_PROPERTY_WRITE_HASH_MD5	= 0x100,
-	FS_PROPERTY_WRITE_HASH_SHA256	= 0x200
+	FS_PROPERTY_WRITE_HASH_SHA256	= 0x200,
+	/* fs_copy() will copy the metadata if fs_set_metadata() hasn't
+	   been explicitly called. */
+	FS_PROPERTY_COPY_METADATA	= 0x400
 };
 
 enum fs_open_mode {
