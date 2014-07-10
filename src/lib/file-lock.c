@@ -127,6 +127,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		if (errno == EWOULDBLOCK || errno == EINTR) {
 			/* a) locked by another process,
 			   b) timeouted */
+			errno = EAGAIN;
 			return 0;
 		}
 		i_error("flock(%s) locking failed for file %s: %m",
