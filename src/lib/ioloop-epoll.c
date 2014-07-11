@@ -177,7 +177,7 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	msecs = io_loop_get_wait_time(ioloop, &tv);
 
 	events = array_get_modifiable(&ctx->events, &events_count);
-	if (events_count > 0) {
+	if (ioloop->io_files != NULL) {
 		ret = epoll_wait(ctx->epfd, events, events_count, msecs);
 		if (ret < 0 && errno != EINTR)
 			i_fatal("epoll_wait(): %m");
