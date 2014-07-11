@@ -23,6 +23,12 @@ struct index_list_changes {
 struct index_list_storage_module index_list_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 
+/* Never update the STATUS information for INBOX. INBOX is almost always opened
+   anyway, so this just causes extra writes. (Although this could be useful if
+   somebody has a lot of other users' shared INBOXes.) */
+#define MAILBOX_IS_NEVER_IN_INDEX(box) \
+	((box)->inbox_any)
+
 static int
 index_list_open_view(struct mailbox *box, struct mail_index_view **view_r,
 		     uint32_t *seq_r)
@@ -33,6 +39,8 @@ index_list_open_view(struct mailbox *box, struct mail_index_view **view_r,
 	uint32_t seq;
 	int ret;
 
+	if (MAILBOX_IS_NEVER_IN_INDEX(box))
+		return 0;
 	if (mailbox_list_index_refresh(box->list) < 0)
 		return -1;
 
@@ -388,6 +396,8 @@ static int index_list_update_mailbox(struct mailbox *box)
 	i_assert(box->opened);
 
 	if (ilist->syncing || ilist->updating_status)
+		return 0;
+	if (MAILBOX_IS_NEVER_IN_INDEX(box))
 		return 0;
 
 	/* refresh the mailbox list index once. we can't do this again after
