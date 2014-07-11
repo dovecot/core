@@ -71,6 +71,9 @@ struct http_client_request {
 	struct ostream *payload_output;
 
 	struct timeval release_time;
+	struct timeval submit_time;
+	struct timeval sent_time;
+	struct timeval response_time;
 
 	unsigned int attempts;
 	unsigned int redirects;

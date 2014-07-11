@@ -433,6 +433,7 @@ static void http_client_request_do_submit(struct http_client_request *req)
 void http_client_request_submit(struct http_client_request *req)
 {
 	req->client->pending_requests++;
+	req->submit_time = ioloop_timeval;
 
 	http_client_request_do_submit(req);
 	http_client_request_debug(req, "Submitted");
@@ -724,6 +725,7 @@ static int http_client_request_send_real(struct http_client_request *req,
 	iov[2].iov_len = 2;
 
 	req->state = HTTP_REQUEST_STATE_PAYLOAD_OUT;
+	req->sent_time = ioloop_timeval;
 	o_stream_cork(output);
 	if (o_stream_sendv(output, iov, N_ELEMENTS(iov)) < 0) {
 		*error_r = t_strdup_printf("write(%s) failed: %s",

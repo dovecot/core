@@ -400,7 +400,9 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	i_assert(conn->incoming_payload != NULL);
 	i_assert(conn->conn.io == NULL);
 
-	http_client_connection_debug(conn, "Response payload stream destroyed");
+	http_client_connection_debug(conn,
+		"Response payload stream destroyed (%u ms after initial response)",
+		timeval_diff_msecs(&ioloop_timeval, &req->response_time));
 
 	/* caller is allowed to change the socket fd to blocking while reading
 	   the payload. make sure here that it's switched back. */
@@ -548,6 +550,7 @@ static void http_client_connection_input(struct connection *_conn)
 			http_client_connection_unref(&conn);
 			return;
 		}
+		req->response_time = ioloop_timeval;
 
 		/* Got some response; cancel response timeout */
 		if (conn->to_response != NULL)
@@ -584,8 +587,10 @@ static void http_client_connection_input(struct connection *_conn)
 		} 
 
 		http_client_connection_debug(conn,
-			"Got %u response for request %s",
-			response.status, http_client_request_label(req));
+			"Got %u response for request %s (took %u ms + %u ms in queue)",
+			response.status, http_client_request_label(req),
+			timeval_diff_msecs(&req->response_time, &req->sent_time),
+			timeval_diff_msecs(&req->sent_time, &req->submit_time));
 
 		/* make sure connection output is unlocked if 100-continue failed */
 		if (req->payload_sync && !conn->payload_continue)
