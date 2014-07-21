@@ -1,0 +1,70 @@
+/* Copyright (c) 2013-2014 Dovecot authors, see the included COPYING file */
+
+#include "lib.h"
+#include "net.h"
+#include "str.h"
+#include "hash.h"
+#include "array.h"
+#include "ioloop.h"
+#include "istream.h"
+#include "ostream.h"
+#include "connection.h"
+#include "dns-lookup.h"
+#include "iostream-rawlog.h"
+#include "iostream-ssl.h"
+#include "http-url.h"
+
+#include "http-server-private.h"
+
+/*
+ * Server
+ */
+
+struct http_server *http_server_init(const struct http_server_settings *set)
+{
+	struct http_server *server;
+	pool_t pool;
+
+	pool = pool_alloconly_create("http server", 1024);
+	server = p_new(pool, struct http_server, 1);
+	server->pool = pool;
+	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
+		server->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
+	server->set.max_client_idle_time_msecs = set->max_client_idle_time_msecs;
+	server->set.max_pipelined_requests =
+		(set->max_pipelined_requests > 0 ? set->max_pipelined_requests : 1);
+	server->set.request_limits = set->request_limits;
+	server->set.debug = set->debug;
+
+	server->conn_list = http_server_connection_list_init();
+
+	return server;
+}
+
+void http_server_deinit(struct http_server **_server)
+{
+	struct http_server *server = *_server;
+
+	connection_list_deinit(&server->conn_list);
+
+	if (server->ssl_ctx != NULL)
+		ssl_iostream_context_deinit(&server->ssl_ctx);
+	pool_unref(&server->pool);
+	*_server = NULL;
+}
+
+void http_server_switch_ioloop(struct http_server *server)
+{
+	struct connection *_conn = server->conn_list->connections;
+
+	/* move connections */
+	/* FIXME: we wouldn't necessarily need to switch all of them
+	   immediately, only those that have requests now. but also connections
+	   that get new requests before ioloop is switched again.. */
+	for (; _conn != NULL; _conn = _conn->next) {
+		struct http_server_connection *conn =
+			(struct http_server_connection *)_conn;
+
+		http_server_connection_switch_ioloop(conn);
+	}
+}

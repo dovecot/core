@@ -319,3 +319,20 @@
 
  - general
     - things break if next_uid gets to 2^32
+
+ - lib-http:
+    - Client:
+        - Handle HTTP/1.0 servers properly:
+            -> Transfer-Encoding is not allowed
+        - Implement support for priority/deadline-based scheduling.
+          Much like: https://httpd.apache.org/docs/2.2/mod/mod_proxy_balancer.html
+        - Allow handling non-idempotent requests specially
+          (no automatic retry, block pipeline)
+        - Implement support for `Range:' requests.
+        - Implement optional round-robin request scheduling for when
+          host has multiple IPs.
+    - Server:
+        - Implement API structure for virtual hosts and resources. This way,
+          multiple services can coexist independently on the same HTTP server.
+        - Implement support for `Range:' requests.
+    - Review compliance with RFC 7230 and RFC 7231

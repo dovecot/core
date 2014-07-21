@@ -4,7 +4,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dns \
-	-I$(top_srcdir)/src/lib-ssl-iostream
+	-I$(top_srcdir)/src/lib-ssl-iostream \
+	-I$(top_srcdir)/src/lib-master
 
 libhttp_la_SOURCES = \
 	http-date.c \
@@ -23,7 +24,11 @@ libhttp_la_SOURCES = \
 	http-client-peer.c \
 	http-client-queue.c \
 	http-client-host.c \
-	http-client.c
+	http-client.c \
+	http-server-response.c \
+	http-server-request.c \
+	http-server-connection.c \
+	http-server.c
 
 headers = \
 	http-date.h \
@@ -38,7 +43,9 @@ headers = \
 	http-response.h \
 	http-response-parser.h \
 	http-client-private.h \
-	http-client.h
+	http-client.h \
+	http-server-private.h \
+	http-server.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
