@@ -28,7 +28,8 @@ enum rawlog_flags {
 	RAWLOG_FLAG_LOG_INPUT		= 0x01,
 	RAWLOG_FLAG_LOG_OUTPUT		= 0x02,
 	RAWLOG_FLAG_LOG_TIMESTAMPS	= 0x04,
-	RAWLOG_FLAG_LOG_BOUNDARIES	= 0X10
+	RAWLOG_FLAG_LOG_BOUNDARIES	= 0x10,
+	RAWLOG_FLAG_LOG_IP_IN_FILENAME	= 0x20
 };
 
 struct rawlog_proxy {
@@ -212,16 +213,23 @@ static int client_output(struct rawlog_proxy *proxy)
 	return 1;
 }
 
-static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path)
+static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path,
+			    const char *ip_addr)
 {
 	const char *fname, *timestamp;
+	string_t *path_prefix;
 	int fd;
 
 	timestamp = t_strflocaltime("%Y%m%d-%H%M%S", time(NULL));
+	path_prefix = t_str_new(128);
+	str_printfa(path_prefix, "%s/", path);
+	if (ip_addr != NULL &&
+	    (proxy->flags & RAWLOG_FLAG_LOG_IP_IN_FILENAME) != 0)
+		str_printfa(path_prefix, "%s-", ip_addr);
+	str_printfa(path_prefix, "%s-%s.", timestamp, dec2str(getpid()));
 
 	if ((proxy->flags & RAWLOG_FLAG_LOG_INPUT) != 0) {
-		fname = t_strdup_printf("%s/%s-%s.in", path, timestamp,
-					dec2str(getpid()));
+		fname = t_strdup_printf("%s.in", str_c(path_prefix));
 		fd = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
 		if (fd == -1) {
 			i_error("rawlog_open: creat(%s): %m", fname);
@@ -232,8 +240,7 @@ static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path)
 	}
 
 	if ((proxy->flags & RAWLOG_FLAG_LOG_OUTPUT) != 0) {
-		fname = t_strdup_printf("%s/%s-%s.out", path, timestamp,
-					dec2str(getpid()));
+		fname = t_strdup_printf("%s.out", str_c(path_prefix));
 		fd = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
 		if (fd == -1) {
 			i_error("rawlog_open: creat(%s): %m", fname);
@@ -247,7 +254,8 @@ static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path)
 
 static struct rawlog_proxy *
 rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
-		    const char *path, enum rawlog_flags flags)
+		    const char *path, const char *ip_addr,
+		    enum rawlog_flags flags)
 {
 	struct rawlog_proxy *proxy;
 
@@ -273,7 +281,7 @@ rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
 	proxy->flags = flags;
 
 	proxy->prev_lf_in = proxy->prev_lf_out = TRUE;
-	proxy_open_logs(proxy, path);
+	proxy_open_logs(proxy, path, ip_addr);
 	return proxy;
 }
 
@@ -338,7 +346,7 @@ static void rawlog_open(enum rawlog_flags flags)
 					  dec2str(getppid())));
 
 	ioloop = io_loop_create();
-	(void)rawlog_proxy_create(0, 1, sfd[0], path, flags);
+	(void)rawlog_proxy_create(0, 1, sfd[0], path, getenv("IP"), flags);
 	io_loop_run(ioloop);
 	io_loop_destroy(&ioloop);
 
@@ -354,7 +362,7 @@ int main(int argc, char *argv[])
 	int c;
 
 	master_service = master_service_init("rawlog", 0,
-					     &argc, &argv, "+f:obt");
+					     &argc, &argv, "+f:obit");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'f':
@@ -368,6 +376,9 @@ int main(int argc, char *argv[])
 		case 'b':
 			flags |= RAWLOG_FLAG_LOG_BOUNDARIES;
 			break;
+		case 'i':
+			flags |= RAWLOG_FLAG_LOG_IP_IN_FILENAME;
+			break;
 		case 't':
 			flags |= RAWLOG_FLAG_LOG_TIMESTAMPS;
 			break;
@@ -379,7 +390,7 @@ int main(int argc, char *argv[])
 	argv += optind;
 
 	if (argc < 1)
-		i_fatal("Usage: rawlog [-f in|out] [-b] [-t] <binary> <arguments>");
+		i_fatal("Usage: rawlog [-f in|out] [-i] [-b] [-t] <binary> <arguments>");
 
 	master_service_init_log(master_service, "rawlog: ");
 	master_service_init_finish(master_service);
