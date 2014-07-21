@@ -127,11 +127,15 @@ test_http_client_LDADD = \
 	libhttp.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
+	../lib-master/libmaster.la \
+	../lib-settings/libsettings.la \
 	$(test_libs)
 test_http_client_DEPENDENCIES = \
 	libhttp.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
+	../lib-master/libmaster.la \
+	../lib-settings/libsettings.la \
 	$(test_deps)
 
 test_http_server_SOURCES = test-http-server.c
@@ -140,11 +144,15 @@ test_http_server_LDADD = \
 	libhttp.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
+	../lib-master/libmaster.la \
+	../lib-settings/libsettings.la \
 	$(test_libs)
 test_http_server_DEPENDENCIES = \
 	libhttp.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
+	../lib-master/libmaster.la \
+	../lib-settings/libsettings.la \
 	$(test_deps)
 
 check: check-am check-test
