@@ -644,6 +644,8 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_user->admin = user->admin;
 	mail_user->auth_token = p_strdup(mail_user->pool, user->auth_token);
 	mail_user->auth_user = p_strdup(mail_user->pool, user->auth_user);
+	mail_user->session_id =
+		p_strdup(mail_user->pool, user->input.session_id);
 	
 	mail_set = mail_user_set_get_storage_set(mail_user);
 
@@ -681,8 +683,6 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 		mail_user_unref(&mail_user);
 		return -1;
 	}
-	mail_user->session_id =
-		p_strdup(mail_user->pool, user->input.session_id);
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES) == 0) {
 		if (mail_namespaces_init(mail_user, error_r) < 0) {
 			mail_user_unref(&mail_user);
