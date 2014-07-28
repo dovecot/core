@@ -1251,6 +1251,15 @@ bool mailbox_list_is_valid_name(struct mailbox_list *list,
 		return FALSE;
 	}
 
+	/* either the list backend uses '/' as the hierarchy separator or
+	   it doesn't use filesystem at all (PROP_NO_ROOT) */
+	if ((list->props & MAILBOX_LIST_PROP_NO_ROOT) == 0 &&
+	    mailbox_list_get_hierarchy_sep(list) != '/' &&
+	    strchr(name, '/') != NULL) {
+		*error_r = "Name must not have '/' characters";
+		return FALSE;
+	}
+
 	return mailbox_list_is_valid_fs_name(list, name, error_r);
 }
 
