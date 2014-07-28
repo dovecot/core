@@ -47,6 +47,7 @@ void doveadm_register_log_commands(void);
 void doveadm_register_instance_commands(void);
 void doveadm_register_mount_commands(void);
 void doveadm_register_replicator_commands(void);
+void doveadm_register_dict_commands(void);
 void doveadm_register_fs_commands(void);
 
 #endif

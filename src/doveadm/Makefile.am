@@ -84,6 +84,7 @@ doveadm_SOURCES = \
 	$(common) \
 	doveadm.c \
 	doveadm-auth.c \
+	doveadm-dict.c \
 	doveadm-director.c \
 	doveadm-dump.c \
 	doveadm-dump-dbox.c \
