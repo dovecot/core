@@ -34,17 +34,17 @@ static void test_imap_utf7(void)
 		if (tests[i].utf8 != NULL) {
 			str_truncate(dest, 0);
 			if (imap_utf8_to_utf7(tests[i].utf8, dest) < 0)
-				test_assert(tests[i].mutf7 == NULL);
+				test_assert_idx(tests[i].mutf7 == NULL, i);
 			else
-				test_assert(null_strcmp(tests[i].mutf7, str_c(dest)) == 0);
+				test_assert_idx(null_strcmp(tests[i].mutf7, str_c(dest)) == 0, i);
 		}
 		if (tests[i].mutf7 != NULL) {
 			str_truncate(dest, 0);
 			if (imap_utf7_to_utf8(tests[i].mutf7, dest) < 0)
-				test_assert(tests[i].utf8 == NULL);
+				test_assert_idx(tests[i].utf8 == NULL, i);
 			else
-				test_assert(null_strcmp(tests[i].utf8, str_c(dest)) == 0);
-			test_assert(imap_utf7_is_valid(tests[i].mutf7) != (tests[i].utf8 == NULL));
+				test_assert_idx(null_strcmp(tests[i].utf8, str_c(dest)) == 0, i);
+			test_assert_idx(imap_utf7_is_valid(tests[i].mutf7) != (tests[i].utf8 == NULL), i);
 		}
 	}
 
@@ -63,9 +63,9 @@ static void test_imap_utf7(void)
 			orig_src = t_strdup(str_c(src));
 			str_truncate(src, 0);
 
-			test_assert(imap_utf8_to_utf7(orig_src, dest) == 0);
-			test_assert(imap_utf7_to_utf8(str_c(dest), src) == 0);
-			test_assert(strcmp(str_c(src), orig_src) == 0);
+			test_assert_idx(imap_utf8_to_utf7(orig_src, dest) == 0, chr*100+i);
+			test_assert_idx(imap_utf7_to_utf8(str_c(dest), src) == 0, chr*100+i);
+			test_assert_idx(strcmp(str_c(src), orig_src) == 0, chr+100+i);
 		}
 	}
 	test_end();
