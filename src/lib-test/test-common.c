@@ -167,7 +167,12 @@ void test_assert_failed_idx(const char *code, const char *file, unsigned int lin
 static void
 test_dump_rand_state(void)
 {
-	if (rand_get_seed_count() > 0)
+	static int seen_count = -1;
+	int count = rand_get_seed_count();
+	if (count == seen_count)
+		return;
+	seen_count = count;
+	if (count > 0)
 		printf("test: random seed #%i was %u\n", 
 		       rand_get_seed_count(),
 		       rand_get_last_seed());
