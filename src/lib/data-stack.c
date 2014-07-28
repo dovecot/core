@@ -474,6 +474,15 @@ bool t_try_realloc(void *mem, size_t size)
 
 		new_alloc_size = ALLOC_SIZE(size);
 		alloc_growth = (new_alloc_size - last_alloc_size);
+#ifdef DEBUG
+		size_t old_raw_size; /* sorry, non-C99 users - add braces if you need them */
+		old_raw_size = *(size_t *)PTR_OFFSET(mem, -MEM_ALIGN(sizeof(size_t)));
+		i_assert(ALLOC_SIZE(old_raw_size) == last_alloc_size);
+		/* Only check one byte for over-run, that catches most
+		   offenders who are likely to use t_try_realloc() */
+		i_assert(((unsigned char*)mem)[old_raw_size] == CLEAR_CHR);
+#endif
+
 		if (current_block->left >= alloc_growth) {
 			/* just shrink the available size */
 			current_block->left -= alloc_growth;
@@ -481,6 +490,14 @@ bool t_try_realloc(void *mem, size_t size)
 				current_block->lowwater = current_block->left;
 			current_frame_block->last_alloc_size[frame_pos] =
 				new_alloc_size;
+#ifdef DEBUG
+			/* All reallocs are permanent by definition
+			   However, they don't count as a new allocation */
+			current_frame_block->alloc_bytes[frame_pos] += alloc_growth;
+			*(size_t *)PTR_OFFSET(mem, -MEM_ALIGN(sizeof(size_t))) = size;
+			memset(PTR_OFFSET(mem, size), CLEAR_CHR,
+			       new_alloc_size - size - MEM_ALIGN(sizeof(size_t)));
+#endif
 			return TRUE;
 		}
 	}
