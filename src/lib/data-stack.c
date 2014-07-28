@@ -474,6 +474,8 @@ bool t_try_realloc(void *mem, size_t size)
 		if (current_block->left >= alloc_growth) {
 			/* just shrink the available size */
 			current_block->left -= alloc_growth;
+			if (current_block->left < current_block->lowwater)
+				current_block->lowwater = current_block->left;
 			current_frame_block->last_alloc_size[frame_pos] =
 				new_alloc_size;
 			return TRUE;
