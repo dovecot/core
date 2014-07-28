@@ -93,12 +93,13 @@ static void data_stack_last_buffer_reset(bool preserve_data ATTR_UNUSED)
 {
 	if (last_buffer_block != NULL) {
 #ifdef DEBUG
-		unsigned char *p;
+		unsigned char *last_alloc_end, *p;
 		unsigned int i;
 
-		p = STACK_BLOCK_DATA(current_block) +
-			(current_block->size - current_block->left) +
-			MEM_ALIGN(sizeof(size_t)) + MEM_ALIGN(last_buffer_size);
+		last_alloc_end = STACK_BLOCK_DATA(current_block) +
+			(current_block->size - current_block->left);
+		p = last_alloc_end + MEM_ALIGN(sizeof(size_t)) + MEM_ALIGN(last_buffer_size);
+
 #endif
 		/* reset t_buffer_get() mark - not really needed but makes it
 		   easier to notice if t_malloc()/t_push()/t_pop() is called
@@ -114,8 +115,7 @@ static void data_stack_last_buffer_reset(bool preserve_data ATTR_UNUSED)
 		}
 
 		if (!preserve_data) {
-			p = STACK_BLOCK_DATA(current_block) +
-				(current_block->size - current_block->left);
+			p = last_alloc_end;
 			memset(p, CLEAR_CHR, SENTRY_COUNT);
 		}
 #endif
