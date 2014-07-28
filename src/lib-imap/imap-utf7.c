@@ -239,17 +239,15 @@ int imap_utf7_to_utf8(const char *src, string_t *dest)
 	const char *p;
 
 	for (p = src; *p != '\0'; p++) {
-		if (*p == '&' || (unsigned char)*p >= 0x80)
+		if (*p < 0x20 || *p >= 0x7f)
+			return -1;
+		if (*p == '&')
 			break;
 	}
 	if (*p == '\0') {
 		/* no IMAP-UTF-7 encoded characters */
 		str_append(dest, src);
 		return 0;
-	}
-	if ((unsigned char)*p >= 0x80) {
-		/* 8bit characters - the input is broken */
-		return -1;
 	}
 
 	/* at least one encoded character */
@@ -280,7 +278,9 @@ bool imap_utf7_is_valid(const char *src)
 	int ret;
 
 	for (p = src; *p != '\0'; p++) {
-		if (*p == '&' || (unsigned char)*p >= 0x80) {
+		if (*p < 0x20 || *p >= 0x7f)
+			return FALSE;
+		if (*p == '&') {
 			/* slow scan */
 			T_BEGIN {
 				string_t *tmp = t_str_new(128);
