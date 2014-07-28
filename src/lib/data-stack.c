@@ -223,14 +223,16 @@ static void t_pop_verify(void)
 		while (pos < used_size) {
 			alloc_size = *(size_t *)(p + pos);
 			if (used_size - pos < alloc_size)
-				i_panic("data stack: saved alloc size broken");
+				i_panic("data stack[%s]: saved alloc size broken",
+					current_frame_block->marker[frame_pos]);
 			pos += MEM_ALIGN(sizeof(alloc_size));
 			max_pos = pos + MEM_ALIGN(alloc_size + SENTRY_COUNT);
 			pos += alloc_size;
 
 			for (; pos < max_pos; pos++) {
 				if (p[pos] != CLEAR_CHR)
-					i_panic("data stack: buffer overflow");
+					i_panic("data stack[%s]: buffer overflow",
+						current_frame_block->marker[frame_pos]);
 			}
 		}
 
@@ -402,7 +404,8 @@ static void *t_malloc_real(size_t size, bool permanent)
 		if (warn && getenv("DEBUG_SILENT") == NULL) {
 			/* warn after allocation, so if i_warning() wants to
 			   allocate more memory we don't go to infinite loop */
-			i_warning("Growing data stack with: %"PRIuSIZE_T,
+			i_warning("Growing data stack[%s] with: %"PRIuSIZE_T,
+				  current_frame_block->marker[frame_pos],
 				  block->size);
 		}
 #endif
