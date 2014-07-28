@@ -406,7 +406,8 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 
 		if (timeout->ctx != NULL)
 			io_loop_context_activate(timeout->ctx);
-                t_id = t_push();
+		t_id = t_push_named("ioloop timeout handler %p",
+				    (void *)timeout->callback);
 		timeout->callback(timeout->context);
 		if (t_pop() != t_id) {
 			i_panic("Leaked a t_pop() call in timeout handler %p",
@@ -437,7 +438,8 @@ void io_loop_call_io(struct io *io)
 
 	if (io->ctx != NULL)
 		io_loop_context_activate(io->ctx);
-	t_id = t_push();
+	t_id = t_push_named("ioloop handler %p",
+			    (void *)io->callback);
 	io->callback(io->context);
 	if (t_pop() != t_id) {
 		i_panic("Leaked a t_pop() call in I/O handler %p",

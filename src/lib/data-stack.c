@@ -54,6 +54,9 @@ struct stack_frame_block {
 	struct stack_block *block[BLOCK_FRAME_COUNT];
         size_t block_space_used[BLOCK_FRAME_COUNT];
 	size_t last_alloc_size[BLOCK_FRAME_COUNT];
+#ifdef DEBUG
+	const char *marker[BLOCK_FRAME_COUNT];
+#endif
 };
 
 unsigned int data_stack_frame = 0;
@@ -112,7 +115,7 @@ static void data_stack_last_buffer_reset(bool preserve_data ATTR_UNUSED)
 	}
 }
 
-unsigned int t_push(void)
+unsigned int t_push(const char *marker)
 {
         struct stack_frame_block *frame_block;
 
@@ -123,7 +126,7 @@ unsigned int t_push(void)
 			/* kludgy, but allow this before initialization */
 			frame_pos = 0;
 			data_stack_init();
-			return t_push();
+			return t_push(marker);
 		}
 
 		frame_pos = 0;
@@ -153,8 +156,28 @@ unsigned int t_push(void)
 	current_frame_block->block[frame_pos] = current_block;
 	current_frame_block->block_space_used[frame_pos] = current_block->left;
         current_frame_block->last_alloc_size[frame_pos] = 0;
+#ifdef DEBUG
+	current_frame_block->marker[frame_pos] = marker;
+#else
+	(void)marker; /* only used for debugging */
+#endif
 
         return data_stack_frame++;
+}
+
+unsigned int t_push_named(const char *format, ...)
+{
+	unsigned int ret = t_push(NULL);
+#ifdef DEBUG
+	va_list args;
+	va_start(args, format);
+	current_frame_block->marker[frame_pos] = p_strdup_vprintf(unsafe_data_stack_pool, format, args);
+	va_end(args);
+#else
+	(void)format; /* unused in non-DEBUG builds */
+#endif
+
+	return ret;
 }
 
 static void free_blocks(struct stack_block *block)
@@ -523,7 +546,7 @@ void data_stack_init(void)
 	last_buffer_block = NULL;
 	last_buffer_size = 0;
 
-	(void)t_push();
+	(void)t_push("data_stack_init");
 }
 
 void data_stack_deinit(void)
