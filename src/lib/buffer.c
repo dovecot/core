@@ -93,6 +93,7 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 	i_assert(buf->used <= buf->alloc);
 }
 
+#undef buffer_create_from_data
 void buffer_create_from_data(buffer_t *buffer, void *data, size_t size)
 {
 	struct real_buffer *buf;
@@ -109,6 +110,7 @@ void buffer_create_from_data(buffer_t *buffer, void *data, size_t size)
 	memset(data, 0, size);
 }
 
+#undef buffer_create_from_const_data
 void buffer_create_from_const_data(buffer_t *buffer,
 				   const void *data, size_t size)
 {
