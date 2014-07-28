@@ -278,6 +278,7 @@ unsigned int t_pop(void)
 		pos = current_block->size -
 			current_frame_block->block_space_used[frame_pos];
 		used_size = current_block->size - current_block->lowwater;
+		i_assert(used_size >= pos);
 		memset(STACK_BLOCK_DATA(current_block) + pos, CLEAR_CHR,
 		       used_size - pos);
 	}
