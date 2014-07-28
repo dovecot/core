@@ -223,7 +223,7 @@ static void t_pop_verify(void)
 {
 	struct stack_block *block;
 	unsigned char *p;
-	size_t pos, max_pos, used_size, alloc_size;
+	size_t pos, max_pos, used_size;
 
 	block = current_frame_block->block[frame_pos];
 	pos = block->size - current_frame_block->block_space_used[frame_pos];
@@ -232,13 +232,13 @@ static void t_pop_verify(void)
 		used_size = block->size - block->left;
 		p = STACK_BLOCK_DATA(block);
 		while (pos < used_size) {
-			alloc_size = *(size_t *)(p + pos);
-			if (used_size - pos < alloc_size)
+			size_t requested_size = *(size_t *)(p + pos);
+			if (used_size - pos < requested_size)
 				i_panic("data stack[%s]: saved alloc size broken",
 					current_frame_block->marker[frame_pos]);
-			pos += MEM_ALIGN(sizeof(alloc_size));
-			max_pos = pos + MEM_ALIGN(alloc_size + SENTRY_COUNT);
-			pos += alloc_size;
+			pos += MEM_ALIGN(sizeof(size_t));
+			max_pos = pos + MEM_ALIGN(requested_size + SENTRY_COUNT);
+			pos += requested_size;
 
 			for (; pos < max_pos; pos++) {
 				if (p[pos] != CLEAR_CHR)
