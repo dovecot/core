@@ -621,7 +621,7 @@ void http_server_connection_send_responses(struct http_server_connection *conn)
 	http_server_connection_unref(&conn);
 
 	/* accept more requests if possible */
-	if (conn != NULL && conn->incoming_payload == NULL &&
+	if (conn != NULL && !conn->closed && conn->incoming_payload == NULL &&
 		conn->request_queue_count < conn->server->set.max_pipelined_requests) {
 		http_server_connection_input_resume(conn);
 	}
