@@ -454,7 +454,7 @@ void *t_malloc0(size_t size)
 
 bool t_try_realloc(void *mem, size_t size)
 {
-	size_t last_alloc_size;
+	size_t debug_adjust = 0, last_alloc_size;
 	unsigned char *after_last_alloc;
 
 	if (unlikely(size == 0 || size > SSIZE_T_MAX))
@@ -465,7 +465,10 @@ bool t_try_realloc(void *mem, size_t size)
 
 	/* see if we're trying to grow the memory we allocated last */
 	after_last_alloc = data_stack_after_last_alloc(current_block);
-	if (after_last_alloc - last_alloc_size == mem) {
+#ifdef DEBUG
+	debug_adjust = MEM_ALIGN(sizeof(size_t));
+#endif
+	if (after_last_alloc - last_alloc_size + debug_adjust == mem) {
 		/* yeah, see if we have space to grow */
 		size_t new_alloc_size, alloc_growth;
 
