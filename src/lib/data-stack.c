@@ -350,7 +350,6 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 
 static void *t_malloc_real(size_t size, bool permanent)
 {
-	struct stack_block *block;
 	void *ret;
 	size_t alloc_size;
 #ifdef DEBUG
@@ -386,14 +385,13 @@ static void *t_malloc_real(size_t size, bool permanent)
 		ret = STACK_BLOCK_DATA(current_block) +
 			(current_block->size - current_block->left);
 
-		if (current_block->left - alloc_size <
-		    current_block->lowwater) {
-			current_block->lowwater =
-				current_block->left - alloc_size;
-		}
+		if (current_block->left - alloc_size < current_block->lowwater)
+			current_block->lowwater = current_block->left - alloc_size;
 		if (permanent)
 			current_block->left -= alloc_size;
 	} else {
+		struct stack_block *block;
+
 		/* current block is full, see if we can use the unused_block */
 		if (unused_block != NULL && unused_block->size >= alloc_size) {
 			block = unused_block;
@@ -406,23 +404,24 @@ static void *t_malloc_real(size_t size, bool permanent)
 		}
 
 		block->left = block->size;
-		if (block->left - alloc_size < block->lowwater)
-			block->lowwater = block->left - alloc_size;
-		if (permanent)
-			block->left -= alloc_size;
 		block->next = NULL;
-
 		current_block->next = block;
 		current_block = block;
 
 		ret = STACK_BLOCK_DATA(current_block);
+
+		if (current_block->left - alloc_size < current_block->lowwater)
+			current_block->lowwater = current_block->left - alloc_size;
+		if (permanent)
+			current_block->left -= alloc_size;
+
 #ifdef DEBUG
 		if (warn && getenv("DEBUG_SILENT") == NULL) {
 			/* warn after allocation, so if i_warning() wants to
 			   allocate more memory we don't go to infinite loop */
 			i_warning("Growing data stack by %"PRIuSIZE_T" as "
 				  "'%s' reaches %llu bytes from %u allocations.",
-				  block->size,
+				  current_block->size,
 				  current_frame_block->marker[frame_pos],
 				  current_frame_block->alloc_bytes[frame_pos],
 				  current_frame_block->alloc_count[frame_pos]);
