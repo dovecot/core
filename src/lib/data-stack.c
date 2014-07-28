@@ -91,6 +91,12 @@ static union {
 	unsigned char data[512];
 } outofmem_area;
 
+static inline
+unsigned char *data_stack_after_last_alloc(struct stack_block *block)
+{
+	return STACK_BLOCK_DATA(block) + (block->size - block->left);
+}
+
 static void data_stack_last_buffer_reset(bool preserve_data ATTR_UNUSED)
 {
 	if (last_buffer_block != NULL) {
@@ -98,8 +104,7 @@ static void data_stack_last_buffer_reset(bool preserve_data ATTR_UNUSED)
 		unsigned char *last_alloc_end, *p;
 		unsigned int i;
 
-		last_alloc_end = STACK_BLOCK_DATA(current_block) +
-			(current_block->size - current_block->left);
+		last_alloc_end = data_stack_after_last_alloc(current_block);
 		p = last_alloc_end + MEM_ALIGN(sizeof(size_t)) + MEM_ALIGN(last_buffer_size);
 
 #endif
@@ -402,8 +407,7 @@ static void *t_malloc_real(size_t size, bool permanent)
 	}
 
 	/* enough space in current block, use it */
-	ret = STACK_BLOCK_DATA(current_block) +
-		(current_block->size - current_block->left);
+	ret = data_stack_after_last_alloc(current_block);
 
 	if (current_block->left - alloc_size < current_block->lowwater)
 		current_block->lowwater = current_block->left - alloc_size;
@@ -451,6 +455,7 @@ void *t_malloc0(size_t size)
 bool t_try_realloc(void *mem, size_t size)
 {
 	size_t last_alloc_size;
+	unsigned char *after_last_alloc;
 
 	if (unlikely(size == 0 || size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
@@ -459,9 +464,8 @@ bool t_try_realloc(void *mem, size_t size)
 	last_alloc_size = current_frame_block->last_alloc_size[frame_pos];
 
 	/* see if we're trying to grow the memory we allocated last */
-	if (STACK_BLOCK_DATA(current_block) +
-	    (current_block->size - current_block->left -
-	     last_alloc_size) == mem) {
+	after_last_alloc = data_stack_after_last_alloc(current_block);
+	if (after_last_alloc - last_alloc_size == mem) {
 		/* yeah, see if we have space to grow */
 		size = MEM_ALIGN(size);
 		if (current_block->left >= size - last_alloc_size) {
