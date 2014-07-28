@@ -148,7 +148,13 @@ static int utf16buf_to_utf8(string_t *dest, const unsigned char output[4],
 	if (high < UTF16_SURROGATE_HIGH_FIRST ||
 	    high > UTF16_SURROGATE_HIGH_MAX) {
 		/* single byte */
+		size_t oldlen = str_len(dest);
 		uni_ucs4_to_utf8_c(high, dest);
+		if (str_len(dest) - oldlen == 1) {
+			unsigned char last = str_data(dest)[oldlen];
+			if (last >= 0x20 && last < 0x7f)
+				return -1;
+		}
 		*_pos = (pos + 2) % 4;
 		return 0;
 	}
