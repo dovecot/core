@@ -257,7 +257,7 @@ test_error_handler(const struct failure_context *ctx,
 	test_success = FALSE;
 }
 
-void test_init(void)
+static void test_init(void)
 {
 	test_prefix = NULL;
 	failure_count = 0;
@@ -267,7 +267,7 @@ void test_init(void)
 	i_set_error_handler(test_error_handler);
 }
 
-int test_deinit(void)
+static int test_deinit(void)
 {
 	i_assert(test_prefix == NULL);
 	printf("%u / %u tests failed\n", failure_count, total_count);
@@ -275,7 +275,7 @@ int test_deinit(void)
 	return failure_count == 0 ? 0 : 1;
 }
 
-void test_run_funcs(void (*test_functions[])(void))
+static void test_run_funcs(void (*test_functions[])(void))
 {
 	unsigned int i;
 
