@@ -56,6 +56,9 @@ struct stack_frame_block {
 	size_t last_alloc_size[BLOCK_FRAME_COUNT];
 #ifdef DEBUG
 	const char *marker[BLOCK_FRAME_COUNT];
+	/* Fairly arbitrary profiling data */
+	unsigned long long alloc_bytes[BLOCK_FRAME_COUNT];
+	unsigned int alloc_count[BLOCK_FRAME_COUNT];
 #endif
 };
 
@@ -158,6 +161,8 @@ unsigned int t_push(const char *marker)
         current_frame_block->last_alloc_size[frame_pos] = 0;
 #ifdef DEBUG
 	current_frame_block->marker[frame_pos] = marker;
+	current_frame_block->alloc_bytes[frame_pos] = 0ULL;
+	current_frame_block->alloc_count[frame_pos] = 0;
 #else
 	(void)marker; /* only used for debugging */
 #endif
@@ -359,6 +364,10 @@ static void *t_malloc_real(size_t size, bool permanent)
 	alloc_size = MEM_ALIGN(size);
 #else
 	alloc_size = MEM_ALIGN(sizeof(size)) + MEM_ALIGN(size + SENTRY_COUNT);
+	if(permanent) {
+		current_frame_block->alloc_bytes[frame_pos] += alloc_size;
+		current_frame_block->alloc_count[frame_pos]++;
+	}
 #endif
 	data_stack_last_buffer_reset(TRUE);
 
@@ -404,9 +413,12 @@ static void *t_malloc_real(size_t size, bool permanent)
 		if (warn && getenv("DEBUG_SILENT") == NULL) {
 			/* warn after allocation, so if i_warning() wants to
 			   allocate more memory we don't go to infinite loop */
-			i_warning("Growing data stack[%s] with: %"PRIuSIZE_T,
+			i_warning("Growing data stack by %"PRIuSIZE_T" as "
+				  "'%s' reaches %llu bytes from %u allocations.",
+				  block->size,
 				  current_frame_block->marker[frame_pos],
-				  block->size);
+				  current_frame_block->alloc_bytes[frame_pos],
+				  current_frame_block->alloc_count[frame_pos]);
 		}
 #endif
 	}
