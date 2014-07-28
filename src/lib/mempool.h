@@ -88,8 +88,8 @@ p_realloc(pool_t pool, void *mem, size_t old_size, size_t new_size)
    in some "optimization".. */
 #define p_free(pool, mem) \
 	STMT_START { \
-          p_free_internal(pool, mem); \
-          (mem) = NULL; \
+		p_free_internal(pool, mem);	\
+		(mem) = NULL;			\
 	} STMT_END
 
 /* A macro that's guaranteed to set mem = NULL. */

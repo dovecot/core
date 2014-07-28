@@ -52,7 +52,7 @@ struct stack_frame_block {
 	struct stack_frame_block *prev;
 
 	struct stack_block *block[BLOCK_FRAME_COUNT];
-        size_t block_space_used[BLOCK_FRAME_COUNT];
+	size_t block_space_used[BLOCK_FRAME_COUNT];
 	size_t last_alloc_size[BLOCK_FRAME_COUNT];
 #ifdef DEBUG
 	const char *marker[BLOCK_FRAME_COUNT];
@@ -120,7 +120,7 @@ static void data_stack_last_buffer_reset(bool preserve_data ATTR_UNUSED)
 
 unsigned int t_push(const char *marker)
 {
-        struct stack_frame_block *frame_block;
+	struct stack_frame_block *frame_block;
 
 	frame_pos++;
 	if (frame_pos == BLOCK_FRAME_COUNT) {
@@ -158,7 +158,7 @@ unsigned int t_push(const char *marker)
 	/* mark our current position */
 	current_frame_block->block[frame_pos] = current_block;
 	current_frame_block->block_space_used[frame_pos] = current_block->left;
-        current_frame_block->last_alloc_size[frame_pos] = 0;
+	current_frame_block->last_alloc_size[frame_pos] = 0;
 #ifdef DEBUG
 	current_frame_block->marker[frame_pos] = marker;
 	current_frame_block->alloc_bytes[frame_pos] = 0ULL;
@@ -167,7 +167,7 @@ unsigned int t_push(const char *marker)
 	(void)marker; /* only used for debugging */
 #endif
 
-        return data_stack_frame++;
+	return data_stack_frame++;
 }
 
 unsigned int t_push_named(const char *format, ...)
@@ -295,7 +295,7 @@ unsigned int t_pop(void)
 		unused_frame_blocks = frame_block;
 	}
 
-        return --data_stack_frame;
+	return --data_stack_frame;
 }
 
 void t_pop_check(unsigned int *id)
@@ -384,7 +384,7 @@ static void *t_malloc_real(size_t size, bool permanent)
 			current_block->lowwater =
 				current_block->left - alloc_size;
 		}
-                if (permanent)
+		if (permanent)
 			current_block->left -= alloc_size;
 	} else {
 		/* current block is full, see if we can use the unused_block */
@@ -433,12 +433,12 @@ static void *t_malloc_real(size_t size, bool permanent)
 	/* we rely on errno not changing. it shouldn't. */
 	i_assert(errno == old_errno);
 #endif
-        return ret;
+	return ret;
 }
 
 void *t_malloc(size_t size)
 {
-        return t_malloc_real(size, TRUE);
+	return t_malloc_real(size, TRUE);
 }
 
 void *t_malloc0(size_t size)
@@ -447,7 +447,7 @@ void *t_malloc0(size_t size)
 
 	mem = t_malloc_real(size, TRUE);
 	memset(mem, 0, size);
-        return mem;
+	return mem;
 }
 
 bool t_try_realloc(void *mem, size_t size)
@@ -502,17 +502,17 @@ void *t_buffer_get(size_t size)
 void *t_buffer_reget(void *buffer, size_t size)
 {
 	size_t old_size;
-        void *new_buffer;
+	void *new_buffer;
 
 	old_size = last_buffer_size;
 	if (size <= old_size)
-                return buffer;
+		return buffer;
 
 	new_buffer = t_buffer_get(size);
 	if (new_buffer != buffer)
-                memcpy(new_buffer, buffer, old_size);
+		memcpy(new_buffer, buffer, old_size);
 
-        return new_buffer;
+	return new_buffer;
 }
 
 void t_buffer_alloc(size_t size)
@@ -573,7 +573,7 @@ void data_stack_deinit(void)
 
 #ifndef USE_GC
 	while (unused_frame_blocks != NULL) {
-                struct stack_frame_block *frame_block = unused_frame_blocks;
+		struct stack_frame_block *frame_block = unused_frame_blocks;
 		unused_frame_blocks = unused_frame_blocks->prev;
 
 		free(frame_block);

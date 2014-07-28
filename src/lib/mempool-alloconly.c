@@ -294,7 +294,7 @@ static void pool_alloconly_free(pool_t pool, void *mem)
 	     apool->block->last_alloc_size) == mem) {
 		memset(mem, 0, apool->block->last_alloc_size);
 		apool->block->left += apool->block->last_alloc_size;
-                apool->block->last_alloc_size = 0;
+		apool->block->last_alloc_size = 0;
 	}
 }
 
@@ -342,7 +342,7 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 		mem = new_mem;
 	}
 
-        return mem;
+	return mem;
 }
 
 static void pool_alloconly_clear(pool_t pool)

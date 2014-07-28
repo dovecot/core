@@ -109,7 +109,7 @@ void *t_buffer_reget(void *buffer, size_t size) ATTR_RETURNS_NONNULL;
    less or equal than the size you gave with last t_buffer_get() or the
    result will be undefined. */
 #define t_buffer_alloc_type(type, size) \
-        t_buffer_alloc(sizeof(type) * (size))
+	t_buffer_alloc(sizeof(type) * (size))
 void t_buffer_alloc(size_t size);
 /* Allocate the last t_buffer_get()ed data entirely. */
 void t_buffer_alloc_last_full(void);

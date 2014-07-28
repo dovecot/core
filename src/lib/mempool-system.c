@@ -136,11 +136,11 @@ static void *pool_system_realloc(pool_t pool ATTR_UNUSED, void *mem,
 	}
 
 	if (old_size < new_size) {
-                /* clear new data */
+		/* clear new data */
 		memset((char *) mem + old_size, 0, new_size - old_size);
 	}
 
-        return mem;
+	return mem;
 }
 
 static void ATTR_NORETURN
