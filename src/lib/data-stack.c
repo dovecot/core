@@ -380,16 +380,7 @@ static void *t_malloc_real(size_t size, bool permanent)
 	/* used for t_try_realloc() */
 	current_frame_block->last_alloc_size[frame_pos] = alloc_size;
 
-	if (current_block->left >= alloc_size) {
-		/* enough space in current block, use it */
-		ret = STACK_BLOCK_DATA(current_block) +
-			(current_block->size - current_block->left);
-
-		if (current_block->left - alloc_size < current_block->lowwater)
-			current_block->lowwater = current_block->left - alloc_size;
-		if (permanent)
-			current_block->left -= alloc_size;
-	} else {
+	if (current_block->left < alloc_size) {
 		struct stack_block *block;
 
 		/* current block is full, see if we can use the unused_block */
@@ -407,28 +398,28 @@ static void *t_malloc_real(size_t size, bool permanent)
 		block->next = NULL;
 		current_block->next = block;
 		current_block = block;
-
-		ret = STACK_BLOCK_DATA(current_block);
-
-		if (current_block->left - alloc_size < current_block->lowwater)
-			current_block->lowwater = current_block->left - alloc_size;
-		if (permanent)
-			current_block->left -= alloc_size;
-
-#ifdef DEBUG
-		if (warn && getenv("DEBUG_SILENT") == NULL) {
-			/* warn after allocation, so if i_warning() wants to
-			   allocate more memory we don't go to infinite loop */
-			i_warning("Growing data stack by %"PRIuSIZE_T" as "
-				  "'%s' reaches %llu bytes from %u allocations.",
-				  current_block->size,
-				  current_frame_block->marker[frame_pos],
-				  current_frame_block->alloc_bytes[frame_pos],
-				  current_frame_block->alloc_count[frame_pos]);
-		}
-#endif
 	}
+
+	/* enough space in current block, use it */
+	ret = STACK_BLOCK_DATA(current_block) +
+		(current_block->size - current_block->left);
+
+	if (current_block->left - alloc_size < current_block->lowwater)
+		current_block->lowwater = current_block->left - alloc_size;
+	if (permanent)
+		current_block->left -= alloc_size;
+
 #ifdef DEBUG
+	if (warn && getenv("DEBUG_SILENT") == NULL) {
+		/* warn after allocation, so if i_warning() wants to
+		   allocate more memory we don't go to infinite loop */
+		i_warning("Growing data stack by %"PRIuSIZE_T" as "
+			  "'%s' reaches %llu bytes from %u allocations.",
+			  current_block->size,
+			  current_frame_block->marker[frame_pos],
+			  current_frame_block->alloc_bytes[frame_pos],
+			  current_frame_block->alloc_count[frame_pos]);
+	}
 	memcpy(ret, &size, sizeof(size));
 	ret = PTR_OFFSET(ret, MEM_ALIGN(sizeof(size)));
 	/* make sure the sentry contains CLEAR_CHRs. it might not if we
