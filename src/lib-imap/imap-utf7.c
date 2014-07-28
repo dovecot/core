@@ -60,7 +60,7 @@ static const char *imap_utf8_first_encode_char(const char *str)
 	const char *p;
 
 	for (p = str; *p != '\0'; p++) {
-		if (*p == '&' || (unsigned char)*p >= 0x80)
+		if (*p == '&' || *p < 0x20 || *p >= 0x7f)
 			return p;
 	}
 	return NULL;
@@ -89,14 +89,14 @@ int imap_utf8_to_utf7(const char *src, string_t *dest)
 			p++;
 			continue;
 		}
-		if ((unsigned char)*p < 0x80) {
+		if (*p >= 0x20 && *p < 0x7f) {
 			str_append_c(dest, *p);
 			p++;
 			continue;
 		}
 
 		u = utf16;
-		while ((unsigned char)*p >= 0x80) {
+		while (*p != '\0' && (*p < 0x20 || *p >= 0x7f)) {
 			if (uni_utf8_get_char(p, &chr) <= 0)
 				return -1;
 			/* @UNSAFE */
