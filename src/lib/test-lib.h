@@ -11,6 +11,7 @@ void test_bits(void);
 void test_bsearch_insert_pos(void);
 void test_buffer(void);
 void test_crc32(void);
+void test_data_stack(void);
 void test_hash(void);
 void test_hash_format(void);
 void test_hash_method(void);

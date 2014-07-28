@@ -279,6 +279,7 @@ test_lib_SOURCES = \
 	test-bsearch-insert-pos.c \
 	test-buffer.c \
 	test-crc32.c \
+	test-data-stack.c \
 	test-hash.c \
 	test-hash-format.c \
 	test-hash-method.c \
