@@ -467,11 +467,15 @@ bool t_try_realloc(void *mem, size_t size)
 	after_last_alloc = data_stack_after_last_alloc(current_block);
 	if (after_last_alloc - last_alloc_size == mem) {
 		/* yeah, see if we have space to grow */
-		size = MEM_ALIGN(size);
-		if (current_block->left >= size - last_alloc_size) {
+		size_t new_alloc_size, alloc_growth;
+
+		new_alloc_size = ALLOC_SIZE(size);
+		alloc_growth = (new_alloc_size - last_alloc_size);
+		if (current_block->left >= alloc_growth) {
 			/* just shrink the available size */
-			current_block->left -= size - last_alloc_size;
-			current_frame_block->last_alloc_size[frame_pos] = size;
+			current_block->left -= alloc_growth;
+			current_frame_block->last_alloc_size[frame_pos] =
+				new_alloc_size;
 			return TRUE;
 		}
 	}
