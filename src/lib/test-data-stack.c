@@ -63,6 +63,31 @@ static void test_ds_buffers(void)
 	test_end();
 }
 
+static void test_ds_realloc()
+{
+	test_begin("data-stack realloc");
+	T_BEGIN {
+		size_t i;
+		unsigned char *p;
+		size_t left = t_get_bytes_available();
+		while (left < 10000) {
+			t_malloc(left); /* force a new block */
+			left = t_get_bytes_available();
+		}
+		left -= 64; /* make room for the sentry if DEBUG */
+		p = t_malloc(1);
+		p[0] = 1;
+		for (i = 2; i <= left; i++) {
+			/* grow it */
+			test_assert_idx(t_try_realloc(p, i), i);
+			p[i-1] = i;
+			test_assert_idx(p[i-2] == (unsigned char)(i-1), i);
+		}
+		test_assert(t_get_bytes_available() < 64 + MEM_ALIGN(1));
+	} T_END;
+	test_end();
+}
+
 static void test_ds_recurse(int depth, int number, size_t size)
 {
 	int i;
@@ -86,6 +111,8 @@ static void test_ds_recurse(int depth, int number, size_t size)
 		memset(ps[i], tag[0], size);
 		ps[i][size-2] = 0;
 	}
+	/* Do not expect a high failure rate from t_try_realloc */
+	test_assert_idx(try_fails <= number / 20, depth);
 
 	/* Now recurse... */
 	if(depth>0)
@@ -115,5 +142,6 @@ static void test_ds_recursive(int count, int depth)
 void test_data_stack(void)
 {
 	test_ds_buffers();
+	test_ds_realloc();
 	test_ds_recursive(20, 80);
 }
