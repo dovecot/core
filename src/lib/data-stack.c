@@ -26,10 +26,12 @@
 #  define SENTRY_COUNT (4*8)
 #  define BLOCK_CANARY ((void *)0xBADBADD5BADBADD5)      /* contains 'D5' */
 #  define BLOCK_CANARY_CHECK(block) i_assert((block)->canary == BLOCK_CANARY)
+#  define ALLOC_SIZE(size) (MEM_ALIGN(sizeof(size_t)) + MEM_ALIGN(size + SENTRY_COUNT))
 #else
 #  define CLEAR_CHR 0
 #  define BLOCK_CANARY NULL
 #  define BLOCK_CANARY_CHECK(block) do { ; } while(0)
+#  define ALLOC_SIZE(size) MEM_ALIGN(size)
 #endif
 
 struct stack_block {
@@ -236,9 +238,8 @@ static void t_pop_verify(void)
 			if (used_size - pos < requested_size)
 				i_panic("data stack[%s]: saved alloc size broken",
 					current_frame_block->marker[frame_pos]);
-			pos += MEM_ALIGN(sizeof(size_t));
-			max_pos = pos + MEM_ALIGN(requested_size + SENTRY_COUNT);
-			pos += requested_size;
+			max_pos = pos + ALLOC_SIZE(requested_size);
+			pos += MEM_ALIGN(sizeof(size_t)) + requested_size;
 
 			for (; pos < max_pos; pos++) {
 				if (p[pos] != CLEAR_CHR)
@@ -368,10 +369,8 @@ static void *t_malloc_real(size_t size, bool permanent)
 
 	/* allocate only aligned amount of memory so alignment comes
 	   always properly */
-#ifndef DEBUG
-	alloc_size = MEM_ALIGN(size);
-#else
-	alloc_size = MEM_ALIGN(sizeof(size)) + MEM_ALIGN(size + SENTRY_COUNT);
+	alloc_size = ALLOC_SIZE(size);
+#ifdef DEBUG
 	if(permanent) {
 		current_frame_block->alloc_bytes[frame_pos] += alloc_size;
 		current_frame_block->alloc_count[frame_pos]++;
