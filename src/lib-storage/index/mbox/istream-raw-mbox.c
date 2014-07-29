@@ -514,7 +514,7 @@ uoff_t istream_raw_mbox_get_header_offset(struct istream *stream)
 	i_assert(rstream->seeked);
 
 	if (rstream->hdr_offset == rstream->from_offset)
-		(void)i_stream_raw_mbox_read(&rstream->istream);
+		(void)i_stream_read(stream);
 
 	if (rstream->corrupted) {
 		i_error("Unexpectedly lost From-line from mbox file %s at "
@@ -542,7 +542,7 @@ uoff_t istream_raw_mbox_get_body_offset(struct istream *stream)
 	while (rstream->body_offset == (uoff_t)-1) {
 		i_stream_skip(stream, i_stream_get_data_size(stream));
 
-		if (i_stream_raw_mbox_read(&rstream->istream) < 0) {
+		if (i_stream_read(stream) < 0) {
 			if (rstream->corrupted) {
 				i_error("Unexpectedly lost From-line from mbox file "
 					"%s at %"PRIuUOFF_T,
@@ -625,7 +625,7 @@ time_t istream_raw_mbox_get_received_time(struct istream *stream)
 	i_assert(rstream->seeked);
 
 	if (rstream->received_time == (time_t)-1)
-		(void)i_stream_raw_mbox_read(&rstream->istream);
+		(void)i_stream_read(stream);
 	return rstream->received_time;
 }
 
@@ -637,7 +637,7 @@ const char *istream_raw_mbox_get_sender(struct istream *stream)
 	i_assert(rstream->seeked);
 
 	if (rstream->sender == NULL)
-		(void)i_stream_raw_mbox_read(&rstream->istream);
+		(void)i_stream_read(stream);
 	return rstream->sender == NULL ? "" : rstream->sender;
 }
 
@@ -726,7 +726,7 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 	i_stream_seek_mark(rstream->istream.parent, offset);
 
 	if (check)
-		(void)i_stream_raw_mbox_read(&rstream->istream);
+		(void)i_stream_read(stream);
 	return rstream->corrupted ? -1 : 0;
 }
 
