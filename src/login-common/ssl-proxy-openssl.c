@@ -772,7 +772,7 @@ const char *ssl_proxy_get_security_string(struct ssl_proxy *proxy)
 
 const char *ssl_proxy_get_compression(struct ssl_proxy *proxy ATTR_UNUSED)
 {
-#ifdef HAVE_SSL_COMPRESSION
+#if defined(HAVE_SSL_COMPRESSION) && !defined(OPENSSL_NO_COMP)
 	const COMP_METHOD *comp;
 
 	comp = SSL_get_current_compression(proxy->ssl);

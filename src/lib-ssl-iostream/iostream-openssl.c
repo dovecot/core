@@ -677,7 +677,7 @@ static const char *
 openssl_iostream_get_security_string(struct ssl_iostream *ssl_io)
 {
 	const SSL_CIPHER *cipher;
-#ifdef HAVE_SSL_COMPRESSION
+#if defined(HAVE_SSL_COMPRESSION) && !defined(OPENSSL_NO_COMP)
 	const COMP_METHOD *comp;
 #endif
 	const char *comp_str;
@@ -688,7 +688,7 @@ openssl_iostream_get_security_string(struct ssl_iostream *ssl_io)
 
 	cipher = SSL_get_current_cipher(ssl_io->ssl);
 	bits = SSL_CIPHER_get_bits(cipher, &alg_bits);
-#ifdef HAVE_SSL_COMPRESSION
+#if defined(HAVE_SSL_COMPRESSION) && !defined(OPENSSL_NO_COMP)
 	comp = SSL_get_current_compression(ssl_io->ssl);
 	comp_str = comp == NULL ? "" :
 		t_strconcat(" ", SSL_COMP_get_name(comp), NULL);
