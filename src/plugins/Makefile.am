@@ -17,6 +17,7 @@ SUBDIRS = \
 	expire \
 	fts \
 	fts-squat \
+	last-login \
 	lazy-expunge \
 	listescape \
 	notify \

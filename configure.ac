@@ -2905,6 +2905,7 @@ src/plugins/fts/Makefile
 src/plugins/fts-lucene/Makefile
 src/plugins/fts-solr/Makefile
 src/plugins/fts-squat/Makefile
+src/plugins/last-login/Makefile
 src/plugins/lazy-expunge/Makefile
 src/plugins/listescape/Makefile
 src/plugins/mail-filter/Makefile
