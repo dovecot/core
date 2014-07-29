@@ -634,6 +634,7 @@ static bool maildirquota_limits_init(struct maildir_quota_root *root)
 {
 	struct mailbox_list *list;
 	struct mail_storage *storage;
+	const char *control_dir;
 
 	if (root->limits_initialized)
 		return root->maildirsize_path != NULL;
@@ -643,7 +644,6 @@ static bool maildirquota_limits_init(struct maildir_quota_root *root)
 		i_assert(root->maildirsize_path == NULL);
 		return FALSE;
 	}
-	i_assert(root->maildirsize_path != NULL);
 
 	list = root->maildirsize_ns->list;
 	if (mailbox_list_get_storage(&list, "", &storage) == 0 &&
@@ -657,6 +657,14 @@ static bool maildirquota_limits_init(struct maildir_quota_root *root)
 		}
 		root->maildirsize_path = NULL;
 		return FALSE;
+	}
+	if (root->maildirsize_path == NULL) {
+		if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_CONTROL,
+						&control_dir))
+			i_unreached();
+		root->maildirsize_path =
+			p_strconcat(root->root.pool, control_dir,
+				    "/"MAILDIRSIZE_FILENAME, NULL);
 	}
 	return TRUE;
 }
@@ -817,18 +825,9 @@ maildir_quota_root_namespace_added(struct quota_root *_root,
 				   struct mail_namespace *ns)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
-	const char *control_dir;
 
-	if (root->maildirsize_path != NULL)
-		return;
-
-	if (!mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_CONTROL,
-					&control_dir))
-		i_unreached();
-	root->maildirsize_ns = ns;
-	root->maildirsize_path =
-		p_strconcat(_root->pool, control_dir,
-			    "/"MAILDIRSIZE_FILENAME, NULL);
+	if (root->maildirsize_ns == NULL)
+		root->maildirsize_ns = ns;
 }
 
 static void
