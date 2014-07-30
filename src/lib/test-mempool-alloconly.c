@@ -44,3 +44,35 @@ void test_mempool_alloconly(void)
 	}
 	test_out("mempool_alloconly", success);
 }
+
+enum fatal_test_state fatal_mempool(int stage)
+{
+	static pool_t pool;
+
+	switch(stage) {
+	case 0: /* forbidden size */
+		test_begin("fatal_mempool");
+		pool = pool_alloconly_create(MEMPOOL_GROWING"fatal", 1);
+		(void)p_malloc(pool, 0);
+		return FATAL_TEST_FAILURE;
+
+	case 1: /* logically impossible size */
+		(void)p_malloc(pool, SSIZE_T_MAX + 1ULL);
+		return FATAL_TEST_FAILURE;
+
+	case 2: /* physically impossible size */
+		(void)p_malloc(pool, SSIZE_T_MAX - (size_t)MEM_ALIGN(1));
+		return FATAL_TEST_FAILURE;
+
+	/* Continue with other tests as follows:
+	case 3:
+		something_fatal();
+		return FATAL_TEST_FAILURE;
+	*/
+	}
+
+	/* Either our tests have finished, or the test suite has got confused. */
+	pool_unref(&pool);
+	test_end();
+	return FATAL_TEST_FINISHED;
+}

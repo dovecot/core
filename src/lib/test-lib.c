@@ -47,5 +47,9 @@ int main(void)
 		test_var_expand,
 		NULL
 	};
-	return test_run(test_functions);
+	static enum fatal_test_state (*fatal_functions[])(int) = {
+		fatal_mempool,
+		NULL
+	};
+	return test_run_with_fatals(test_functions, fatal_functions);
 }
