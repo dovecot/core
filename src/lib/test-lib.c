@@ -49,6 +49,7 @@ int main(void)
 	};
 	static enum fatal_test_state (*fatal_functions[])(int) = {
 		fatal_mempool,
+		fatal_printf_format_fix,
 		NULL
 	};
 	return test_run_with_fatals(test_functions, fatal_functions);

@@ -33,6 +33,7 @@ void test_numpack(void);
 void test_ostream_file(void);
 void test_primes(void);
 void test_printf_format_fix(void);
+enum fatal_test_state fatal_printf_format_fix(int);
 void test_priorityq(void);
 void test_seq_range_array(void);
 void test_str(void);

@@ -92,5 +92,27 @@ void test_printf_format_fix()
 {
 	test_unchanged();
 	test_ok_changes();
-	/* want to test the panics too */
+}
+
+/* Want to test the panics too? go for it! */
+enum fatal_test_state fatal_printf_format_fix(int stage)
+{
+	static const char *fatals[] = {
+		"no no no %n's",
+		"%m allowed once, but not twice: %m",
+		"%m must not obscure a later %n",
+		"definitely can't have a tailing %",
+	};
+
+	if((unsigned int)stage >= N_ELEMENTS(fatals)) {
+		test_end();
+		return FATAL_TEST_FINISHED;
+	}
+
+	if(stage == 0)
+		test_begin("fatal_printf_format_fix");
+
+	/* let's crash! */
+	(void)printf_format_fix(fatals[stage]);
+	return FATAL_TEST_FAILURE;
 }
