@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <setjmp.h> /* for fatal tests */
+
 #define OUT_NAME_ALIGN 70
 
 static char *test_prefix;
@@ -257,6 +259,23 @@ test_error_handler(const struct failure_context *ctx,
 	test_success = FALSE;
 }
 
+/* To test the firing of i_assert, we need non-local jumps, i.e. setjmp */
+static volatile bool expecting_fatal = FALSE;
+static jmp_buf fatal_jmpbuf;
+
+static void ATTR_FORMAT(2, 0) ATTR_NORETURN
+test_fatal_handler(const struct failure_context *ctx,
+		   const char *format, va_list args)
+{
+	/* Prevent recursion, we can't handle our own errors */
+	i_set_fatal_handler(default_fatal_handler);
+	i_assert(expecting_fatal); /* if not at the right time, bail */
+	i_set_fatal_handler(test_fatal_handler);
+	longjmp(fatal_jmpbuf, 1);
+	/* we simply can't get here - will the compiler complain? */
+	default_fatal_handler(ctx, format, args);
+}
+
 static void test_init(void)
 {
 	test_prefix = NULL;
@@ -265,6 +284,7 @@ static void test_init(void)
 
 	lib_init();
 	i_set_error_handler(test_error_handler);
+	/* Don't set fatal handler until actually needed for fatal testing */
 }
 
 static int test_deinit(void)
@@ -286,9 +306,60 @@ static void test_run_funcs(void (*test_functions[])(void))
 	}
 }
 
+static void run_one_fatal(enum fatal_test_state (*fatal_function)(int))
+{
+	static int index = 0;
+	for (;;) {
+		volatile int jumped = setjmp(fatal_jmpbuf);
+		if (jumped == 0) {
+			/* normal flow */
+			expecting_fatal = TRUE;
+			enum fatal_test_state ret = fatal_function(index);
+			expecting_fatal = FALSE;
+			if (ret == FATAL_TEST_FINISHED) {
+				/* ran out of tests - good */
+				index = 0;
+				break;
+			} else if (ret == FATAL_TEST_FAILURE) {
+				/* failed to fire assert - bad, but can continue */
+				test_success = FALSE;
+				i_error("Desired assert failed to fire at step %i", index);
+				index++;
+			} else { /* FATAL_TEST_ABORT or other value */
+				test_success = FALSE;
+				test_end();
+				index = 0;
+				break;
+			}
+		} else {
+			/* assert fired, continue with next test */
+			index++;
+		}
+	}
+}
+static void test_run_fatals(enum fatal_test_state (*fatal_functions[])(int index))
+{
+	unsigned int i;
+
+	for (i = 0; fatal_functions[i] != NULL; i++) {
+		T_BEGIN {
+			run_one_fatal(fatal_functions[i]);
+		} T_END;
+	}
+}
+
 int test_run(void (*test_functions[])(void))
 {
 	test_init();
 	test_run_funcs(test_functions);
+	return test_deinit();
+}
+int test_run_with_fatals(void (*test_functions[])(void),
+			 enum fatal_test_state (*fatal_functions[])(int))
+{
+	test_init();
+	test_run_funcs(test_functions);
+	i_set_fatal_handler(test_fatal_handler);
+	test_run_fatals(fatal_functions);
 	return test_deinit();
 }

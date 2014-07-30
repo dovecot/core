@@ -29,4 +29,12 @@ void test_out_reason(const char *name, bool success, const char *reason)
 
 int test_run(void (*test_functions[])(void));
 
+enum fatal_test_state {
+	FATAL_TEST_FINISHED, /* no more test stages, don't call again */
+	FATAL_TEST_FAILURE,  /* single stage has failed, continue */
+	FATAL_TEST_ABORT,    /* something's gone horrifically wrong */
+};
+int test_run_with_fatals(void (*test_functions[])(void),
+			 enum fatal_test_state (*fatal_functions[])(int));
+
 #endif
