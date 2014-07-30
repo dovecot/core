@@ -145,3 +145,85 @@ void test_data_stack(void)
 	test_ds_realloc();
 	test_ds_recursive(20, 80);
 }
+
+enum fatal_test_state fatal_data_stack(int stage)
+{
+	/* If we abort, then we'll be left with a dangling t_push()
+	   keep a record of our temporary stack id, so we can clean up. */
+	static unsigned int t_id = 999999999;
+	static unsigned char *undo_ptr = NULL;
+	static unsigned char undo_data;
+	static bool things_are_messed_up = FALSE;
+	if (stage != 0) {
+		/* Presume that we need to clean up from the prior test:
+		   undo the evil write, then we will be able to t_pop cleanly,
+		   and finally we can end the test stanza. */
+		if (things_are_messed_up || undo_ptr == NULL || t_id == 999999999)
+			return FATAL_TEST_ABORT; /* abort, things are messed up with t_pop */
+		*undo_ptr = undo_data;
+		undo_ptr = NULL;
+		/* t_pop musn't abort, that would cause recursion */
+		things_are_messed_up = TRUE;
+		if (t_pop() != t_id)
+			return FATAL_TEST_ABORT; /* abort, things are messed up with us */
+		things_are_messed_up = FALSE;
+		t_id = 999999999;
+		test_end();
+	}
+
+	switch(stage) {
+#ifdef DEBUG
+	case 0: {
+		unsigned char *p;
+		test_begin("fatal data-stack underrun");
+		t_id = t_push_named("fatal_data_stack underrun");
+		size_t left = t_get_bytes_available();
+		p = t_malloc(left-80); /* will fit */
+		p = t_malloc(100); /* won't fit, will get new block */
+		int seek = 0;
+		/* Seek back for the canary, don't assume endianness */
+		while(seek > -60 &&
+		      ((p[seek+1] != 0xDB) ||
+		       ((p[seek]   != 0xBA || p[seek+2] != 0xAD) &&
+			(p[seek+2] != 0xBA || p[seek]   != 0xAD))))
+			seek--;
+		if (seek <= -60)
+			return FATAL_TEST_ABORT; /* abort, couldn't find header */
+		undo_ptr = p + seek;
+		undo_data = *undo_ptr;
+		*undo_ptr = '*';
+		/* t_malloc will panic block header corruption */
+		(void)t_malloc(10);
+		return FATAL_TEST_FAILURE;
+	}
+
+	case 1: case 2: {
+		test_begin(stage == 1 ? "fatal t_malloc overrun near" : "fatal t_malloc overrun far");
+		t_id = t_push_named(stage == 1 ? "fatal t_malloc overrun first" : "fatal t_malloc overrun far");
+		unsigned char *p = t_malloc(10);
+		undo_ptr = p + 10 + (stage == 1 ? 0 : 8*4-1); /* presumes sentry size */
+		undo_data = *undo_ptr;
+		*undo_ptr = '*';
+		/* t_pop will now fail */
+		(void)t_pop();
+		return FATAL_TEST_FAILURE;
+	}
+
+	case 3: case 4: {
+		test_begin(stage == 3 ? "fatal t_buffer_get overrun near" : "fatal t_buffer_get overrun far");
+		t_id = t_push_named(stage == 3 ? "fatal t_buffer overrun near" : "fatal t_buffer_get overrun far");
+		unsigned char *p = t_buffer_get(10);
+		undo_ptr = p + 10 + (stage == 3 ? 0 : 8*4-1);
+		undo_data = *undo_ptr;
+		*undo_ptr = '*';
+		/* t_pop will now fail */
+		(void)t_pop();
+		return FATAL_TEST_FAILURE;
+	}
+
+#endif
+	default:
+		things_are_messed_up = TRUE;
+		return FATAL_TEST_FINISHED;
+	}
+}

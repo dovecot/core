@@ -48,6 +48,7 @@ int main(void)
 		NULL
 	};
 	static enum fatal_test_state (*fatal_functions[])(int) = {
+		fatal_data_stack,
 		fatal_mempool,
 		fatal_printf_format_fix,
 		NULL
