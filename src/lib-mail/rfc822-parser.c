@@ -164,9 +164,11 @@ int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
 	if (ctx->data == ctx->end || !IS_ATEXT(*ctx->data))
 		return -1;
 
-	for (start = ctx->data++; ctx->data != ctx->end; ctx->data++) {
-		if (IS_ATEXT(*ctx->data))
+	for (start = ctx->data++; ctx->data != ctx->end; ) {
+		if (IS_ATEXT(*ctx->data)) {
+			ctx->data++;
 			continue;
+		}
 
 		str_append_n(str, start, ctx->data - start);
 
