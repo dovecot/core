@@ -478,7 +478,7 @@ static int client_fetch_url(struct client *client, const char *url,
 		}
 		if (client_run_url(client) < 0) {
 			client_abort(client,
-				"Session aborted: Fatal failure while transfering URL");
+				"Session aborted: Fatal failure while transferring URL");
 			return 0;
 		}		
 	}
