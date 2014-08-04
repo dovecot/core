@@ -325,34 +325,38 @@ static const char *const *expire_get_patterns(struct mail_user *user)
 static void expire_mail_namespaces_created(struct mail_namespace *ns)
 {
 	struct mail_user *user = ns->user;
+	struct mail_user_vfuncs *v = user->vlast;
 	struct expire_mail_user *euser;
+	struct dict *db;
 	const char *dict_uri, *error;
 
 	dict_uri = mail_user_plugin_getenv(user, "expire_dict");
 	if (mail_user_plugin_getenv(user, "expire") == NULL) {
 		if (user->mail_debug)
 			i_debug("expire: No expire setting - plugin disabled");
-	} else if (dict_uri == NULL) {
-		i_error("expire plugin: expire_dict setting missing");
-	} else {
-		struct mail_user_vfuncs *v = user->vlast;
-
-		euser = p_new(user->pool, struct expire_mail_user, 1);
-		euser->module_ctx.super = *v;
-		user->vlast = &euser->module_ctx.super;
-		v->deinit = expire_mail_user_deinit;
-
-		euser->set = expire_set_init(expire_get_patterns(user));
-		/* we're using only shared dictionary, the username
-		   doesn't matter. */
-		if (dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "",
-			      user->set->base_dir, &euser->db, &error) < 0) {
-			i_error("expire plugin: dict_init(%s) failed: %s",
-				dict_uri, error);
-		} else {
-			MODULE_CONTEXT_SET(user, expire_mail_user_module, euser);
-		}
+		return;
 	}
+	if (dict_uri == NULL) {
+		i_error("expire plugin: expire_dict setting missing");
+		return;
+	}
+
+	/* we're using only shared dictionary, the username doesn't matter. */
+	if (dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "",
+		      user->set->base_dir, &db, &error) < 0) {
+		i_error("expire plugin: dict_init(%s) failed: %s",
+			dict_uri, error);
+		return;
+	}
+
+	euser = p_new(user->pool, struct expire_mail_user, 1);
+	euser->module_ctx.super = *v;
+	user->vlast = &euser->module_ctx.super;
+	v->deinit = expire_mail_user_deinit;
+
+	euser->db = db;
+	euser->set = expire_set_init(expire_get_patterns(user));
+	MODULE_CONTEXT_SET(user, expire_mail_user_module, euser);
 }
 
 static struct mail_storage_hooks expire_mail_storage_hooks = {
