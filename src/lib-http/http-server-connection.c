@@ -367,6 +367,7 @@ static void http_server_connection_input(struct connection *_conn)
 	struct http_server_request *req, *pending_request;
 	enum http_request_parse_error error_code;
 	const char *error;
+	bool cont;
 	int ret;
 
 	i_assert(!conn->input_broken && conn->incoming_payload == NULL);
@@ -431,7 +432,10 @@ static void http_server_connection_input(struct connection *_conn)
 			/* handle request 
 			   req may be destroyed after this, so don't refer to it if ret > 0 */
 			http_server_request_ref(req);
-			if (!http_server_connection_handle_request(conn, req)) {
+			T_BEGIN {
+				cont = http_server_connection_handle_request(conn, req);
+			} T_END;
+			if (!cont) {
 				http_server_request_unref(&req);
 				return;
 			}
@@ -828,10 +832,10 @@ void http_server_connection_unref(struct http_server_connection **_conn)
 	connection_deinit(&conn->conn);
 
 	if (conn->callbacks != NULL &&
-		conn->callbacks->connection_destroy != NULL) {
+		conn->callbacks->connection_destroy != NULL) T_BEGIN {
 		conn->callbacks->connection_destroy
 			(conn->context, conn->disconnect_reason);
-	}
+	} T_END;
 
 	i_free(conn->disconnect_reason);
 	i_free(conn);
