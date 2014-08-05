@@ -82,6 +82,7 @@ struct http_server_request {
 
 	unsigned int payload_halted:1;
 	unsigned int sent_100_continue:1;
+	unsigned int failed:1;
 };
 
 struct http_server_connection {
@@ -175,7 +176,7 @@ http_server_request_is_new(struct http_server_request *req)
 static inline bool
 http_server_request_is_complete(struct http_server_request *req)
 {
-	return (req->conn->input_broken ||
+	return (req->failed || req->conn->input_broken ||
 		(req->next != NULL && !http_server_request_is_new(req->next)) ||
 		!http_server_connection_pending_payload(req->conn));
 }

@@ -187,6 +187,8 @@ http_server_request_fail_full(struct http_server_request *req,
 {
 	struct http_server_response *resp;
 
+	req->failed = TRUE;
+
 	resp = http_server_response_create(req, status, reason);
 	http_server_response_add_header
 		(resp, "Content-Type", "text/plain; charset=utf-8");
