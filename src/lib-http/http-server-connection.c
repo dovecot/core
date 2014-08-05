@@ -510,7 +510,6 @@ static void http_server_connection_input(struct connection *_conn)
 				conn->input_broken = TRUE;
 				http_server_request_fail_close(req, 413, "Payload Too Large");
 				break;
-			return;
 			default:
 				i_unreached();
 			}
