@@ -82,6 +82,12 @@ void http_server_request_set_destroy_callback(struct http_server_request *req,
 					      void (*callback)(void *),
 					      void *context);
 
+/* Reference a server request */
+void http_server_request_ref(struct http_server_request *req);
+/* Unreference a server request. Returns TRUE if there are still more
+   references, FALSE if not. */
+bool http_server_request_unref(struct http_server_request **_req);
+
 /* Start creating the response for the request. This function can be called
    only once for each request. */
 struct http_server_response *

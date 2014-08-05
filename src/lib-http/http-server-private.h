@@ -156,8 +156,6 @@ int http_server_response_send_more(struct http_server_response *resp,
 
 struct http_server_request *
 http_server_request_new(struct http_server_connection *conn);
-void http_server_request_ref(struct http_server_request *req);
-void http_server_request_unref(struct http_server_request **_req);
 void http_server_request_abort(struct http_server_request **_req);
 
 void http_server_request_halt_payload(struct http_server_request *req);

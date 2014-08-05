@@ -28,14 +28,14 @@ void http_server_request_ref(struct http_server_request *req)
 	req->refcount++;
 }
 
-void http_server_request_unref(struct http_server_request **_req)
+bool http_server_request_unref(struct http_server_request **_req)
 {
 	struct http_server_request *req = *_req;
 	struct http_server_connection *conn = req->conn;
 
 	i_assert(req->refcount > 0);
 	if (--req->refcount > 0)
-		return;
+		return TRUE;
 
 	if (req->state < 	HTTP_SERVER_REQUEST_STATE_FINISHED) {
 		req->state = HTTP_SERVER_REQUEST_STATE_ABORTED;
@@ -52,6 +52,7 @@ void http_server_request_unref(struct http_server_request **_req)
 		http_server_response_free(req->response);
 	pool_unref(&req->pool);
 	*_req = NULL;
+	return FALSE;
 }
 
 void http_server_request_set_destroy_callback(struct http_server_request *req,
