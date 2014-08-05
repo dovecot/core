@@ -259,7 +259,12 @@ static void http_server_connection_request_callback(
 			http_server_request_fail(req, 505, "Not Implemented");
 			return;
 		} else {
+			unsigned int old_refcount = req->refcount;
+
 			conn->callbacks->handle_request(conn->context, req);
+			i_assert((req->response != NULL &&
+				  req->response->submitted) ||
+				 req->refcount > old_refcount);
 		}
 	}
 }

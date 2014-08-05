@@ -38,6 +38,10 @@ struct http_server_tunnel {
 };
 
 struct http_server_callbacks {
+	/* Reference the server request. Before returning you must either send
+	   a response to the request or reference the request with
+	   http_server_request_ref() and unreference it later after sending
+	   the response. */
 	void (*handle_request)(void *context, struct http_server_request *req);
 	void (*handle_connect_request)(void *context,
 		struct http_server_request *req, struct http_url *target);
