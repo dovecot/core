@@ -65,8 +65,13 @@ http_server_connection_get_stats(struct http_server_connection *conn);
 const struct http_request *
 http_server_request_get(struct http_server_request *req);
 pool_t http_server_request_get_pool(struct http_server_request *req);
+/* Send a failure response to the request with given status/reason. */
 void http_server_request_fail(struct http_server_request *req,
-	unsigned int status, const char *reason, bool close);
+	unsigned int status, const char *reason);
+/* Send a failure response to the request with given status/reason
+   and close the connection. */
+void http_server_request_fail_close(struct http_server_request *req,
+	unsigned int status, const char *reason);
 
 /* Call the specified callback when HTTP request is destroyed. */
 void http_server_request_set_destroy_callback(struct http_server_request *req,
@@ -84,7 +89,9 @@ void http_server_response_set_payload(struct http_server_response *resp,
 				     struct istream *input);
 void http_server_response_set_payload_data(struct http_server_response *resp,
 				     const unsigned char *data, size_t size);
-void http_server_response_submit(struct http_server_response *resp, bool close);
+void http_server_response_submit(struct http_server_response *resp);
+/* Submit response and close the connection. */
+void http_server_response_submit_close(struct http_server_response *resp);
 void http_server_response_submit_tunnel(struct http_server_response *resp,
 	http_server_tunnel_callback_t callback, void *context);
 

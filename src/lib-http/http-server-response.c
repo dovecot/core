@@ -142,13 +142,20 @@ static void http_server_response_do_submit(struct http_server_response *resp,
 	http_server_request_submit_response(resp->request);	
 }
 
-void http_server_response_submit(struct http_server_response *resp,
-	bool close)
+void http_server_response_submit(struct http_server_response *resp)
 {
 	i_assert(!resp->submitted);
 	http_server_response_debug(resp, "Submitted");
 
-	http_server_response_do_submit(resp, close);
+	http_server_response_do_submit(resp, FALSE);
+}
+
+void http_server_response_submit_close(struct http_server_response *resp)
+{
+	i_assert(!resp->submitted);
+	http_server_response_debug(resp, "Submitted");
+
+	http_server_response_do_submit(resp, TRUE);
 }
 
 void http_server_response_submit_tunnel(struct http_server_response *resp,

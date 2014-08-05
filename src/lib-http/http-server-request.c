@@ -174,7 +174,8 @@ void http_server_request_finished(struct http_server_request *req)
 	http_server_connection_send_responses(conn);
 }
 
-void http_server_request_fail(struct http_server_request *req,
+static void
+http_server_request_fail_full(struct http_server_request *req,
 	unsigned int status, const char *reason, bool close)
 {
 	struct http_server_response *resp;
@@ -185,6 +186,21 @@ void http_server_request_fail(struct http_server_request *req,
 	reason = t_strconcat(reason, "\r\n", NULL);
 	http_server_response_set_payload_data
 		(resp, (const unsigned char *)reason, strlen(reason));
-	http_server_response_submit(resp, close);
+	if (close)
+		http_server_response_submit_close(resp);
+	else
+		http_server_response_submit(resp);
 }
 
+void http_server_request_fail(struct http_server_request *req,
+	unsigned int status, const char *reason)
+{
+	http_server_request_fail_full(req, status, reason,
+				      req->conn->input_broken);
+}
+
+void http_server_request_fail_close(struct http_server_request *req,
+	unsigned int status, const char *reason)
+{
+	http_server_request_fail_full(req, status, reason, TRUE);
+}

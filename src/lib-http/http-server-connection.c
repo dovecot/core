@@ -206,13 +206,13 @@ static void http_server_payload_destroyed(struct http_server_request *req)
 			conn->input_broken = TRUE;
 			http_server_connection_client_error(conn,
 				"Client sent excessively large request");
-			http_server_request_fail(req, 413, "Payload Too Large", TRUE);
+			http_server_request_fail_close(req, 413, "Payload Too Large");
 			return;
 		case EIO:
 			conn->input_broken = TRUE;
 			http_server_connection_client_error(conn,
 				"Client sent invalid request payload");
-			http_server_request_fail(req, 400, "Bad Request", conn->input_broken);
+			http_server_request_fail_close(req, 400, "Bad Request");
 			return;
 		default:
 			break;
@@ -243,11 +243,11 @@ static void http_server_connection_request_callback(
 	/* CONNECT method */
 	if (strcmp(req->req.method, "CONNECT") == 0) {
 		if (conn->callbacks->handle_connect_request == NULL) {
-			http_server_request_fail(req, 505, "Not Implemented", FALSE);
+			http_server_request_fail(req, 505, "Not Implemented");
 			return;
 		}
 		if (req->req.target.format != HTTP_REQUEST_TARGET_FORMAT_AUTHORITY) {
-			http_server_request_fail(req, 400, "Bad Request", FALSE);
+			http_server_request_fail(req, 400, "Bad Request");
 			return;
 		}
 		conn->callbacks->handle_connect_request
@@ -256,7 +256,7 @@ static void http_server_connection_request_callback(
 	/* other methods */
 	} else {
 		if (conn->callbacks->handle_request == NULL) {
-			http_server_request_fail(req, 505, "Not Implemented", FALSE);
+			http_server_request_fail(req, 505, "Not Implemented");
 			return;
 		} else {
 			conn->callbacks->handle_request(conn->context, req);
@@ -273,7 +273,7 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 	i_assert(conn->incoming_payload == NULL);
 
 	if (req->req.version_major != 1) {
-		http_server_request_fail(req, 505, "HTTP Version Not Supported", FALSE);
+		http_server_request_fail(req, 505, "HTTP Version Not Supported");
 		return TRUE;
 	}
 
@@ -492,24 +492,23 @@ static void http_server_connection_input(struct connection *_conn)
 			case HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST:
 				conn->input_broken = TRUE;
 			case HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST:
-				http_server_request_fail(req, 400, "Bad Request", conn->input_broken);
+				http_server_request_fail(req, 400, "Bad Request");
 				break;
-			case 	HTTP_REQUEST_PARSE_ERROR_METHOD_TOO_LONG:
+			case HTTP_REQUEST_PARSE_ERROR_METHOD_TOO_LONG:
 				conn->input_broken = TRUE;
 			case HTTP_REQUEST_PARSE_ERROR_NOT_IMPLEMENTED:
-				http_server_request_fail(req,
-					501, "Not Implemented", conn->input_broken);
+				http_server_request_fail(req, 501, "Not Implemented");
 				break;
 			case HTTP_REQUEST_PARSE_ERROR_TARGET_TOO_LONG:
-				http_server_request_fail(req, 414, "URI Too Long", TRUE);
 				conn->input_broken = TRUE;
+				http_server_request_fail_close(req, 414, "URI Too Long");
 				break;
 			case HTTP_REQUEST_PARSE_ERROR_EXPECTATION_FAILED:
-				http_server_request_fail(req, 417, "Expectation Failed", FALSE);
+				http_server_request_fail(req, 417, "Expectation Failed");
 				break;
 			case HTTP_REQUEST_PARSE_ERROR_PAYLOAD_TOO_LARGE:
-				http_server_request_fail(req, 413, "Payload Too Large", TRUE);
 				conn->input_broken = TRUE;
+				http_server_request_fail_close(req, 413, "Payload Too Large");
 				break;
 			return;
 			default:
