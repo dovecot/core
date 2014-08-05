@@ -41,6 +41,8 @@ http_server_response_create(struct http_server_request *req,
 {
 	struct http_server_response *resp;
 
+	i_assert(req->response == NULL);
+
 	resp = req->response = p_new(req->pool, struct http_server_response, 1);
 	resp->request = req;
 	resp->status = status;

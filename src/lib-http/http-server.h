@@ -65,6 +65,10 @@ http_server_connection_get_stats(struct http_server_connection *conn);
 const struct http_request *
 http_server_request_get(struct http_server_request *req);
 pool_t http_server_request_get_pool(struct http_server_request *req);
+/* Returns the response created for the request with
+   http_server_response_create(), or NULL if none. */
+struct http_server_response *
+http_server_request_get_response(struct http_server_request *req);
 /* Send a failure response to the request with given status/reason. */
 void http_server_request_fail(struct http_server_request *req,
 	unsigned int status, const char *reason);
@@ -78,6 +82,8 @@ void http_server_request_set_destroy_callback(struct http_server_request *req,
 					      void (*callback)(void *),
 					      void *context);
 
+/* Start creating the response for the request. This function can be called
+   only once for each request. */
 struct http_server_response *
 http_server_response_create(struct http_server_request *req,
 	unsigned int status, const char *reason);

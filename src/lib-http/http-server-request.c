@@ -93,6 +93,12 @@ http_server_request_get_pool(struct http_server_request *req)
 	return req->pool;
 }
 
+struct http_server_response *
+http_server_request_get_response(struct http_server_request *req)
+{
+	return req->response;
+}
+
 void http_server_request_halt_payload(struct http_server_request *req)
 {
 	i_assert(req->state <= HTTP_SERVER_REQUEST_STATE_QUEUED);
