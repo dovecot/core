@@ -26,6 +26,9 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 	box = doveadm_mail_iter_get_mailbox(iter);
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
+		i_error("Couldn't get mailbox '%s' GUID: %s",
+			mailbox_get_vname(box),
+			mailbox_get_last_error(box, NULL));
 		ret = -1;
 		doveadm_mail_failed_mailbox(ctx, box);
 	} else {
