@@ -171,6 +171,10 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 		bbox->name++;
 		ctx->mbox->save_bbox = bbox;
 	}
+	if (strcmp(bbox->name, ctx->mbox->box.vname) == 0) {
+		*error_r = "Virtual mailbox can't point to itself";
+		return -1;
+	}
 	ctx->have_mailbox_defines = TRUE;
 	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
 	return 0;
@@ -324,6 +328,10 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 		   directories) */
 		if ((info->flags & MAILBOX_NOSELECT) != 0)
 			continue;
+		if (strcmp(info->vname, ctx->mbox->box.vname) == 0) {
+			/* don't allow virtual folder to point to itself */
+			continue;
+		}
 
 		if (virtual_config_match(info, &wildcard_boxes, &i) &&
 		    !virtual_config_match(info, &neg_boxes, &j) &&
