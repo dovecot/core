@@ -1085,9 +1085,6 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 			}
 			if (mailbox_sync(bbox->box, sync_flags) < 0)
 				return -1;
-			/* we use modseqs for speeding up initial search result
-			   build. make sure the backend has them enabled. */
-			mail_index_modseq_enable(bbox->box->index);
 		}
 
 		virtual_backend_box_sync_mail_set(bbox);
