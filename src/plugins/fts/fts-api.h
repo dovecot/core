@@ -10,6 +10,14 @@ struct fts_backend;
 
 #include "seq-range-array.h"
 
+enum fts_lookup_flags {
+	/* Specifies if the args should be ANDed or ORed together. */
+	FTS_LOOKUP_FLAG_AND_ARGS	= 0x01,
+	/* Require exact matching for non-fuzzy search args by returning all
+	   such matches as maybe_uids instead of definite_uids */
+	FTS_LOOKUP_FLAG_NO_AUTO_FUZZY	= 0x02
+};
+
 enum fts_backend_build_key_type {
 	/* Header */
 	FTS_BACKEND_BUILD_KEY_HDR,
@@ -125,17 +133,17 @@ bool fts_backend_can_lookup(struct fts_backend *backend,
    that have subargs (SEARCH_OR, SEARCH_SUB), since they are looked up
    separately.
 
-   and_args specifies if the args should be ANDed or ORed together.
-
    The arrays in result must be initialized by caller. */
 int fts_backend_lookup(struct fts_backend *backend, struct mailbox *box,
-		       struct mail_search_arg *args, bool and_args,
+		       struct mail_search_arg *args,
+		       enum fts_lookup_flags flags,
 		       struct fts_result *result);
 
 /* Search from multiple mailboxes. result->pool must be initialized. */
 int fts_backend_lookup_multi(struct fts_backend *backend,
 			     struct mailbox *const boxes[],
-			     struct mail_search_arg *args, bool and_args,
+			     struct mail_search_arg *args,
+			     enum fts_lookup_flags flags,
 			     struct fts_multi_result *result);
 /* Called after the lookups are done. The next lookup will be preceded by a
    refresh. */

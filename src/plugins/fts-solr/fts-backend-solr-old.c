@@ -665,11 +665,13 @@ solr_add_definite_query_args(string_t *str, struct mail_search_arg *arg,
 
 static int
 fts_backend_solr_lookup(struct fts_backend *_backend, struct mailbox *box,
-			struct mail_search_arg *args, bool and_args,
+			struct mail_search_arg *args,
+			enum fts_lookup_flags flags,
 			struct fts_result *result)
 {
 	struct solr_fts_backend *backend =
 		(struct solr_fts_backend *)_backend;
+	bool and_args = (flags & FTS_LOOKUP_FLAG_AND_ARGS) != 0;
 	struct mail_namespace *ns;
 	struct mailbox_status status;
 	string_t *str;
@@ -704,7 +706,10 @@ fts_backend_solr_lookup(struct fts_backend *_backend, struct mailbox *box,
 	ret = solr_connection_select(backend->solr_conn, str_c(str),
 				     pool, &results);
 	if (ret == 0 && results[0] != NULL) {
-		array_append_array(&result->definite_uids, &results[0]->uids);
+		if ((flags & FTS_LOOKUP_FLAG_NO_AUTO_FUZZY) == 0)
+			array_append_array(&result->definite_uids, &results[0]->uids);
+		else
+			array_append_array(&result->maybe_uids, &results[0]->uids);
 		array_append_array(&result->scores, &results[0]->scores);
 	}
 	result->scores_sorted = TRUE;
@@ -728,6 +733,7 @@ mailbox_get_id(struct solr_fts_backend *backend, struct mail_namespace *ns,
 static int
 solr_search_multi(struct solr_fts_backend *backend, string_t *str,
 		  struct mailbox *const boxes[],
+		  enum fts_lookup_flags flags,
 		  struct fts_multi_result *result)
 {
 	struct solr_result **solr_results;
@@ -784,7 +790,10 @@ solr_search_multi(struct solr_fts_backend *backend, string_t *str,
 		}
 		fts_result = array_append_space(&fts_results);
 		fts_result->box = box;
-		fts_result->definite_uids = solr_results[i]->uids;
+		if ((flags & FTS_LOOKUP_FLAG_NO_AUTO_FUZZY) == 0)
+			fts_result->definite_uids = solr_results[i]->uids;
+		else
+			fts_result->maybe_uids = solr_results[i]->uids;
 		fts_result->scores = solr_results[i]->scores;
 		fts_result->scores_sorted = TRUE;
 	}
@@ -797,9 +806,11 @@ solr_search_multi(struct solr_fts_backend *backend, string_t *str,
 static int
 fts_backend_solr_lookup_multi(struct fts_backend *_backend,
 			      struct mailbox *const boxes[],
-			      struct mail_search_arg *args, bool and_args,
+			      struct mail_search_arg *args,
+			      enum fts_lookup_flags flags,
 			      struct fts_multi_result *result)
 {
+	bool and_args = (flags & FTS_LOOKUP_FLAG_AND_ARGS) != 0;
 	struct solr_fts_backend *backend =
 		(struct solr_fts_backend *)_backend;
 	string_t *str;
@@ -811,7 +822,7 @@ fts_backend_solr_lookup_multi(struct fts_backend *_backend,
 		    SOLR_MAX_MULTI_ROWS);
 
 	if (solr_add_definite_query_args(str, args, and_args)) {
-		if (solr_search_multi(backend, str, boxes, result) < 0)
+		if (solr_search_multi(backend, str, boxes, flags, result) < 0)
 			return -1;
 	}
 	/* FIXME: maybe_uids could be handled also with some more work.. */

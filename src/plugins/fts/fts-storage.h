@@ -22,6 +22,7 @@ struct fts_search_context {
 	struct mailbox *box;
 	struct mailbox_transaction_context *t;
 	struct mail_search_args *args;
+	enum fts_lookup_flags flags;
 
 	pool_t result_pool;
 	ARRAY(struct fts_search_level) levels;

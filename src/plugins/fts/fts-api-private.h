@@ -42,11 +42,12 @@ struct fts_backend_vfuncs {
 	bool (*can_lookup)(struct fts_backend *backend,
 			   const struct mail_search_arg *args);
 	int (*lookup)(struct fts_backend *backend, struct mailbox *box,
-		      struct mail_search_arg *args, bool and_args,
+		      struct mail_search_arg *args, enum fts_lookup_flags flags,
 		      struct fts_result *result);
 	int (*lookup_multi)(struct fts_backend *backend,
 			    struct mailbox *const boxes[],
-			    struct mail_search_arg *args, bool and_args,
+			    struct mail_search_arg *args,
+			    enum fts_lookup_flags flags,
 			    struct fts_multi_result *result);
 	void (*lookup_done)(struct fts_backend *backend);
 };

@@ -1127,8 +1127,10 @@ lucene_get_query(struct lucene_index *index,
 static bool
 lucene_add_definite_query(struct lucene_index *index,
 			  ARRAY_TYPE(lucene_query) &queries,
-			  struct mail_search_arg *arg, bool and_args)
+			  struct mail_search_arg *arg,
+			  enum fts_lookup_flags flags)
 {
+	bool and_args = (flags & FTS_LOOKUP_FLAG_AND_ARGS) != 0;
 	Query *q;
 
 	if (arg->match_not && !and_args) {
@@ -1191,8 +1193,10 @@ lucene_add_definite_query(struct lucene_index *index,
 static bool
 lucene_add_maybe_query(struct lucene_index *index,
 		       ARRAY_TYPE(lucene_query) &queries,
-		       struct mail_search_arg *arg, bool and_args)
+		       struct mail_search_arg *arg,
+		       enum fts_lookup_flags flags)
 {
+	bool and_args = (flags & FTS_LOOKUP_FLAG_AND_ARGS) != 0;
 	Query *q = NULL;
 
 	if (arg->match_not) {
@@ -1235,7 +1239,6 @@ lucene_add_maybe_query(struct lucene_index *index,
 		lq->occur = BooleanClause::MUST;
 	else
 		lq->occur = BooleanClause::MUST_NOT;
-	return true;
 	return true;
 }
 
@@ -1319,7 +1322,8 @@ lucene_index_search(struct lucene_index *index,
 }
 
 int lucene_index_lookup(struct lucene_index *index,
-			struct mail_search_arg *args, bool and_args,
+			struct mail_search_arg *args,
+			enum fts_lookup_flags flags,
 			struct fts_result *result)
 {
 	struct mail_search_arg *arg;
@@ -1332,15 +1336,18 @@ int lucene_index_lookup(struct lucene_index *index,
 	bool have_definites = false;
 
 	for (arg = args; arg != NULL; arg = arg->next) {
-		if (lucene_add_definite_query(index, def_queries, arg, and_args)) {
+		if (lucene_add_definite_query(index, def_queries, arg, flags)) {
 			arg->match_always = true;
 			have_definites = true;
 		}
 	}
 
 	if (have_definites) {
+		ARRAY_TYPE(seq_range) *uids_arr =
+			(flags & FTS_LOOKUP_FLAG_NO_AUTO_FUZZY) == 0 ?
+			&result->definite_uids : &result->maybe_uids;
 		if (lucene_index_search(index, def_queries, result,
-					&result->definite_uids) < 0)
+					uids_arr) < 0)
 			return -1;
 	}
 
@@ -1356,7 +1363,7 @@ int lucene_index_lookup(struct lucene_index *index,
 	bool have_maybies = false;
 
 	for (arg = args; arg != NULL; arg = arg->next) {
-		if (lucene_add_maybe_query(index, maybe_queries, arg, and_args)) {
+		if (lucene_add_maybe_query(index, maybe_queries, arg, flags)) {
 			arg->match_always = true;
 			have_maybies = true;
 		}
@@ -1374,6 +1381,7 @@ static int
 lucene_index_search_multi(struct lucene_index *index,
 			  HASH_TABLE_TYPE(wguid_result) guids,
 			  ARRAY_TYPE(lucene_query) &queries,
+			  enum fts_lookup_flags flags,
 			  struct fts_multi_result *result)
 {
 	struct fts_score_map *score;
@@ -1421,11 +1429,14 @@ lucene_index_search_multi(struct lucene_index *index,
 				break;
 			}
 
-			if (!array_is_created(&br->definite_uids)) {
-				p_array_init(&br->definite_uids, result->pool, 32);
+			ARRAY_TYPE(seq_range) *uids_arr =
+				(flags & FTS_LOOKUP_FLAG_NO_AUTO_FUZZY) == 0 ?
+				&br->maybe_uids : &br->definite_uids;
+			if (!array_is_created(uids_arr)) {
+				p_array_init(uids_arr, result->pool, 32);
 				p_array_init(&br->scores, result->pool, 32);
 			}
-			if (seq_range_array_add(&br->definite_uids, uid)) {
+			if (seq_range_array_add(uids_arr, uid)) {
 				/* duplicate result */
 			} else {
 				score = array_append_space(&br->scores);
@@ -1443,7 +1454,8 @@ lucene_index_search_multi(struct lucene_index *index,
 
 int lucene_index_lookup_multi(struct lucene_index *index,
 			      HASH_TABLE_TYPE(wguid_result) guids,
-			      struct mail_search_arg *args, bool and_args,
+			      struct mail_search_arg *args,
+			      enum fts_lookup_flags flags,
 			      struct fts_multi_result *result)
 {
 	struct mail_search_arg *arg;
@@ -1456,15 +1468,15 @@ int lucene_index_lookup_multi(struct lucene_index *index,
 	bool have_definites = false;
 
 	for (arg = args; arg != NULL; arg = arg->next) {
-		if (lucene_add_definite_query(index, def_queries, arg, and_args)) {
+		if (lucene_add_definite_query(index, def_queries, arg, flags)) {
 			arg->match_always = true;
 			have_definites = true;
 		}
 	}
 
 	if (have_definites) {
-		if (lucene_index_search_multi(index, guids,
-					      def_queries, result) < 0)
+		if (lucene_index_search_multi(index, guids, def_queries, flags,
+					      result) < 0)
 			return -1;
 	}
 	return 0;

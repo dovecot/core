@@ -194,6 +194,9 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	i_array_init(&fctx->scores->score_map, 64);
 	MODULE_CONTEXT_SET(ctx, fts_storage_module, fctx);
 
+	if (mail_user_plugin_getenv(t->box->storage->user,
+				    "fts_no_autofuzzy") != NULL)
+		fctx->flags |= FTS_LOOKUP_FLAG_NO_AUTO_FUZZY;
 	/* transaction contains the last search's scores. they can be
 	   queried later with mail_get_special() */
 	if (ft->scores != NULL)

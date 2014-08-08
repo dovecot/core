@@ -301,14 +301,15 @@ static int fts_score_map_sort(const struct fts_score_map *m1,
 }
 
 int fts_backend_lookup(struct fts_backend *backend, struct mailbox *box,
-		       struct mail_search_arg *args, bool and_args,
+		       struct mail_search_arg *args,
+		       enum fts_lookup_flags flags,
 		       struct fts_result *result)
 {
 	array_clear(&result->definite_uids);
 	array_clear(&result->maybe_uids);
 	array_clear(&result->scores);
 
-	if (backend->v.lookup(backend, box, args, and_args, result) < 0)
+	if (backend->v.lookup(backend, box, args, flags, result) < 0)
 		return -1;
 
 	if (!result->scores_sorted && array_is_created(&result->scores)) {
@@ -320,7 +321,8 @@ int fts_backend_lookup(struct fts_backend *backend, struct mailbox *box,
 
 int fts_backend_lookup_multi(struct fts_backend *backend,
 			     struct mailbox *const boxes[],
-			     struct mail_search_arg *args, bool and_args,
+			     struct mail_search_arg *args,
+			     enum fts_lookup_flags flags,
 			     struct fts_multi_result *result)
 {
 	unsigned int i;
@@ -329,7 +331,7 @@ int fts_backend_lookup_multi(struct fts_backend *backend,
 
 	if (backend->v.lookup_multi != NULL) {
 		if (backend->v.lookup_multi(backend, boxes, args,
-					    and_args, result) < 0)
+					    flags, result) < 0)
 			return -1;
 		if (result->box_results == NULL) {
 			result->box_results = p_new(result->pool,
@@ -348,7 +350,7 @@ int fts_backend_lookup_multi(struct fts_backend *backend,
 		p_array_init(&box_result->maybe_uids, result->pool, 32);
 		p_array_init(&box_result->scores, result->pool, 32);
 		if (backend->v.lookup(backend, boxes[i], args,
-				      and_args, box_result) < 0)
+				      flags, box_result) < 0)
 			return -1;
 	}
 	return 0;

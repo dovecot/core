@@ -36,6 +36,8 @@ static int fts_search_lookup_level_single(struct fts_search_context *fctx,
 					  struct mail_search_arg *args,
 					  bool and_args)
 {
+	enum fts_lookup_flags flags = fctx->flags |
+		(and_args ? FTS_LOOKUP_FLAG_AND_ARGS : 0);
 	struct fts_search_level *level;
 	struct fts_result result;
 
@@ -45,7 +47,7 @@ static int fts_search_lookup_level_single(struct fts_search_context *fctx,
 	p_array_init(&result.scores, fctx->result_pool, 32);
 
 	mail_search_args_reset(args, TRUE);
-	if (fts_backend_lookup(fctx->backend, fctx->box, args, and_args,
+	if (fts_backend_lookup(fctx->backend, fctx->box, args, flags,
 			       &result) < 0)
 		return -1;
 
@@ -152,6 +154,8 @@ static int fts_search_lookup_level_multi(struct fts_search_context *fctx,
 					 struct mail_search_arg *args,
 					 bool and_args)
 {
+	enum fts_lookup_flags flags = fctx->flags |
+		(and_args ? FTS_LOOKUP_FLAG_AND_ARGS : 0);
 	struct virtual_mailbox *vbox = (struct virtual_mailbox *)fctx->box;
 	ARRAY_TYPE(mailboxes) mailboxes_arr, tmp_mailboxes;
 	struct mailbox *const *mailboxes;
@@ -188,7 +192,7 @@ static int fts_search_lookup_level_multi(struct fts_search_context *fctx,
 		mail_search_args_reset(args, TRUE);
 		if (fts_backend_lookup_multi(backend,
 					     array_idx(&tmp_mailboxes, 0),
-					     args, and_args, &result) < 0)
+					     args, flags, &result) < 0)
 			return -1;
 
 		if (multi_add_lookup_result(fctx, level, args, &result) < 0)

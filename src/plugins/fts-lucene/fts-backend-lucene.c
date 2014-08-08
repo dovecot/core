@@ -481,7 +481,8 @@ static int fts_backend_lucene_optimize(struct fts_backend *_backend)
 
 static int
 fts_backend_lucene_lookup(struct fts_backend *_backend, struct mailbox *box,
-			  struct mail_search_arg *args, bool and_args,
+			  struct mail_search_arg *args,
+			  enum fts_lookup_flags flags,
 			  struct fts_result *result)
 {
 	struct lucene_fts_backend *backend =
@@ -493,8 +494,7 @@ fts_backend_lucene_lookup(struct fts_backend *_backend, struct mailbox *box,
 	if (fts_backend_select(backend, box) < 0)
 		return -1;
 	T_BEGIN {
-		ret = lucene_index_lookup(backend->index, args, and_args,
-					  result);
+		ret = lucene_index_lookup(backend->index, args, flags, result);
 	} T_END;
 	return ret;
 }
@@ -550,7 +550,8 @@ mailboxes_get_guids(struct mailbox *const boxes[],
 static int
 fts_backend_lucene_lookup_multi(struct fts_backend *_backend,
 				struct mailbox *const boxes[],
-				struct mail_search_arg *args, bool and_args,
+				struct mail_search_arg *args,
+				enum fts_lookup_flags flags,
 				struct fts_multi_result *result)
 {
 	struct lucene_fts_backend *backend =
@@ -566,7 +567,7 @@ fts_backend_lucene_lookup_multi(struct fts_backend *_backend,
 		ret = mailboxes_get_guids(boxes, guids, result);
 		if (ret == 0) {
 			ret = lucene_index_lookup_multi(backend->index,
-							guids, args, and_args,
+							guids, args, flags,
 							result);
 		}
 		hash_table_destroy(&guids);

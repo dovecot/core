@@ -42,12 +42,14 @@ int lucene_index_expunge_from_log(struct lucene_index *index,
 int lucene_index_optimize(struct lucene_index *index);
 
 int lucene_index_lookup(struct lucene_index *index, 
-			struct mail_search_arg *args, bool and_args,
+			struct mail_search_arg *args,
+			enum fts_lookup_flags flags,
 			struct fts_result *result);
 
 int lucene_index_lookup_multi(struct lucene_index *index,
 			      HASH_TABLE_TYPE(wguid_result) guids,
-			      struct mail_search_arg *args, bool and_args,
+			      struct mail_search_arg *args,
+			      enum fts_lookup_flags flags,
 			      struct fts_multi_result *result);
 
 struct lucene_index_iter *
