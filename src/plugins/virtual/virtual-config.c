@@ -263,6 +263,14 @@ static bool virtual_ns_match(struct mail_namespace *config_ns,
 	    (config_ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0 &&
 	    (iter_ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0)
 		return TRUE;
+	if ((iter_ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+	    (config_ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0 &&
+	    config_ns->prefix_len == 0) {
+		/* prefix="" namespace was autocreated, so e.g. "*" would match
+		   only that empty namespace. but we want "*" to also match
+		   the inbox=yes namespace, so check it here separately. */
+		return TRUE;
+	}
 	return FALSE;
 }
 
