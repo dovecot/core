@@ -2,6 +2,10 @@
 
 #include "lib.h"
 #include "array.h"
+#include "md5.h"
+#include "sha2.h"
+#include "hash-method.h"
+#include "hex-binary.h"
 #include "istream.h"
 #include "ostream.h"
 #include "iostream-ssl.h"
@@ -77,17 +81,48 @@ static void cmd_fs_get(int argc, char *argv[])
 static void cmd_fs_put(int argc, char *argv[])
 {
 	struct fs *fs;
+	enum fs_properties props;
 	const char *src_path, *dest_path;
 	struct fs_file *file;
 	struct istream *input;
 	struct ostream *output;
+	buffer_t *hash = NULL;
 	off_t ret;
+	int c;
+
+	while ((c = getopt(argc, argv, "h:")) > 0) {
+		switch (c) {
+		case 'h':
+			hash = buffer_create_dynamic(pool_datastack_create(), 32);
+			if (hex_to_binary(optarg, hash) < 0)
+				i_fatal("Invalid -h parameter: Hash not in hex");
+			break;
+		default:
+			fs_cmd_help(cmd_fs_put);
+		}
+	}
+	argc -= optind-1; argv += optind-1;
 
 	fs = cmd_fs_init(&argc, &argv, 2, cmd_fs_put);
 	src_path = argv[0];
 	dest_path = argv[1];
 
 	file = fs_file_init(fs, dest_path, FS_OPEN_MODE_REPLACE);
+	props = fs_get_properties(fs);
+	if (hash == NULL)
+		;
+	else if (hash->used == hash_method_md5.digest_size) {
+		if ((props & FS_PROPERTY_WRITE_HASH_MD5) == 0)
+			i_fatal("fs backend doesn't support MD5 hashes");
+		fs_write_set_hash(file,
+			hash_method_lookup(hash_method_md5.name), hash->data);
+	} else  if (hash->used == hash_method_sha256.digest_size) {
+		if ((props & FS_PROPERTY_WRITE_HASH_SHA256) == 0)
+			i_fatal("fs backend doesn't support SHA256 hashes");
+		fs_write_set_hash(file,
+			hash_method_lookup(hash_method_sha256.name), hash->data);
+	}
+
 	output = fs_write_stream(file);
 	input = i_stream_create_file(src_path, IO_BLOCK_SIZE);
 	if ((ret = o_stream_send_istream(output, input)) < 0) {
@@ -383,7 +418,7 @@ static void cmd_fs_iter_dirs(int argc, char *argv[])
 
 struct doveadm_cmd doveadm_cmd_fs[] = {
 	{ cmd_fs_get, "fs get", "<fs-driver> <fs-args> <path>" },
-	{ cmd_fs_put, "fs put", "<fs-driver> <fs-args> <input path> <path>" },
+	{ cmd_fs_put, "fs put", "[-h <hash>] <fs-driver> <fs-args> <input path> <path>" },
 	{ cmd_fs_copy, "fs copy", "<fs-driver> <fs-args> <source path> <dest path>" },
 	{ cmd_fs_stat, "fs stat", "<fs-driver> <fs-args> <path>" },
 	{ cmd_fs_metadata, "fs metadata", "<fs-driver> <fs-args> <path>" },
