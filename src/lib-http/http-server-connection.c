@@ -17,6 +17,10 @@
 
 #include "http-server-private.h"
 
+static void
+http_server_connection_disconnect(struct http_server_connection *conn,
+	const char *reason);
+
 /*
  * Logging
  */
@@ -163,7 +167,7 @@ static void http_server_connection_destroy(struct connection *_conn)
 	struct http_server_connection *conn =
 		(struct http_server_connection *)_conn;
 
-	conn->closed = TRUE;
+	http_server_connection_disconnect(conn, NULL);
 	http_server_connection_unref(&conn);
 }
 
