@@ -90,7 +90,7 @@ void http_server_request_abort(struct http_server_request **_req)
 	req->response = NULL;
 	req->conn = conn;
 
-	http_server_request_unref(_req);
+	http_server_request_destroy(_req);
 }
 
 const struct http_request *
