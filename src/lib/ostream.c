@@ -357,8 +357,7 @@ int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 	return ret;
 }
 
-off_t io_stream_copy(struct ostream *outstream, struct istream *instream,
-		     size_t block_size)
+off_t io_stream_copy(struct ostream *outstream, struct istream *instream)
 {
 	uoff_t start_offset;
 	struct const_iovec iov;
@@ -366,9 +365,8 @@ off_t io_stream_copy(struct ostream *outstream, struct istream *instream,
 	ssize_t ret;
 
 	start_offset = instream->v_offset;
-	for (;;) {
-		(void)i_stream_read_data(instream, &data, &iov.iov_len,
-					 block_size-1);
+	do {
+		(void)i_stream_read_data(instream, &data, &iov.iov_len, 0);
 		if (iov.iov_len == 0) {
 			/* all sent */
 			break;
@@ -382,10 +380,7 @@ off_t io_stream_copy(struct ostream *outstream, struct istream *instream,
 			return -1;
 		}
 		i_stream_skip(instream, ret);
-
-		if ((size_t)ret != iov.iov_len)
-			break;
-	}
+	} while ((size_t)ret == iov.iov_len);
 
 	return (off_t)(instream->v_offset - start_offset);
 }
@@ -528,7 +523,7 @@ o_stream_default_write_at(struct ostream_private *_stream,
 static off_t o_stream_default_send_istream(struct ostream_private *outstream,
 					   struct istream *instream)
 {
-	return io_stream_copy(&outstream->ostream, instream, IO_BLOCK_SIZE);
+	return io_stream_copy(&outstream->ostream, instream);
 }
 
 static void o_stream_default_switch_ioloop(struct ostream_private *_stream)

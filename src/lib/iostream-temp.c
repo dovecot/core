@@ -129,8 +129,7 @@ static int o_stream_temp_dup_cancel(struct temp_ostream *tstream)
 
 	input = i_stream_create_limit(tstream->dupstream, size);
 	do {
-		ret = io_stream_copy(&tstream->ostream.ostream,
-				     input, IO_BLOCK_SIZE);
+		ret = io_stream_copy(&tstream->ostream.ostream, input);
 	} while (input->v_offset < tstream->dupstream_offset && ret > 0);
 	if (ret < 0 && tstream->ostream.ostream.stream_errno == 0) {
 		i_assert(input->stream_errno != 0);
@@ -187,8 +186,7 @@ static off_t o_stream_temp_send_istream(struct ostream_private *_outstream,
 			return -1;
 		outstream->flags &= ~IOSTREAM_TEMP_FLAG_TRY_FD_DUP;
 	}
-	return io_stream_copy(&outstream->ostream.ostream,
-			      instream, IO_BLOCK_SIZE);
+	return io_stream_copy(&outstream->ostream.ostream, instream);
 }
 
 static int

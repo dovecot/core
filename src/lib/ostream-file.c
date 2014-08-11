@@ -857,8 +857,7 @@ static off_t io_stream_copy_stream(struct ostream_private *outstream,
 		}
 	}
 
-	return io_stream_copy(&outstream->ostream, instream,
-			      foutstream->optimal_block_size);
+	return io_stream_copy(&outstream->ostream, instream);
 }
 
 static off_t o_stream_file_send_istream(struct ostream_private *outstream,
