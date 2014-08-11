@@ -7,10 +7,14 @@
 struct buffer_ostream {
 	struct ostream_private ostream;
 	buffer_t *buf;
+	bool seeked;
 };
 
 static int o_stream_buffer_seek(struct ostream_private *stream, uoff_t offset)
 {
+	struct buffer_ostream *bstream = (struct buffer_ostream *)stream;
+
+	bstream->seeked = TRUE;
 	stream->ostream.offset = offset;
 	return 1;
 }
@@ -30,17 +34,18 @@ o_stream_buffer_sendv(struct ostream_private *stream,
 		      const struct const_iovec *iov, unsigned int iov_count)
 {
 	struct buffer_ostream *bstream = (struct buffer_ostream *)stream;
-	size_t left, n;
+	size_t left, n, offset;
 	ssize_t ret = 0;
 	unsigned int i;
+
+	offset = bstream->seeked ? stream->ostream.offset : bstream->buf->used;
 
 	for (i = 0; i < iov_count; i++) {
 		left = bstream->ostream.max_buffer_size -
 			stream->ostream.offset;
 		n = I_MIN(left, iov[i].iov_len);
-		buffer_write(bstream->buf, stream->ostream.offset,
-			     iov[i].iov_base, n);
-		stream->ostream.offset += n;
+		buffer_write(bstream->buf, offset, iov[i].iov_base, n);
+		stream->ostream.offset += n; offset += n;
 		ret += n;
 		if (n != iov[i].iov_len)
 			break;
