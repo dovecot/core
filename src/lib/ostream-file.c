@@ -821,7 +821,6 @@ static off_t io_stream_copy_backwards(struct ostream_private *outstream,
 static off_t io_stream_copy_stream(struct ostream_private *outstream,
 				   struct istream *instream, bool same_stream)
 {
-	struct file_ostream *foutstream = (struct file_ostream *)outstream;
 	uoff_t in_size;
 	off_t in_abs_offset, ret = 0;
 
