@@ -55,6 +55,17 @@ bool http_server_request_unref(struct http_server_request **_req)
 	return FALSE;
 }
 
+void http_server_request_destroy(struct http_server_request **_req)
+{
+	struct http_server_request *req = *_req;
+
+	if (req->destroy_callback != NULL) {
+		req->destroy_callback(req->destroy_context);
+		req->destroy_callback = NULL;
+	}
+	http_server_request_unref(_req);
+}
+
 void http_server_request_set_destroy_callback(struct http_server_request *req,
 					      void (*callback)(void *),
 					      void *context)
@@ -168,11 +179,11 @@ void http_server_request_finished(struct http_server_request *req)
 			http_server_connection_close(&conn,
 				"Client requested connection close");
 		}
-		http_server_request_unref(&req);
+		http_server_request_destroy(&req);
 		return;
 	}
 
-	http_server_request_unref(&req);
+	http_server_request_destroy(&req);
 	if (tunnel_callback != NULL) {
 		http_server_connection_tunnel(&conn, tunnel_callback, tunnel_context);
 		return;

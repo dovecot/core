@@ -81,7 +81,11 @@ void http_server_request_fail(struct http_server_request *req,
 void http_server_request_fail_close(struct http_server_request *req,
 	unsigned int status, const char *reason);
 
-/* Call the specified callback when HTTP request is destroyed. */
+/* Call the specified callback when HTTP request is destroyed. This always
+   happens only after the response and its payload is fully sent. (If request
+   headers aren't fully read, we never call the handle_request() callback.
+   The request body reading is the responsibility of the caller, which also
+   needs to handle its errors by sending a failure response.) */
 void http_server_request_set_destroy_callback(struct http_server_request *req,
 					      void (*callback)(void *),
 					      void *context);
