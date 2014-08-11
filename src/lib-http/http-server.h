@@ -38,10 +38,23 @@ struct http_server_tunnel {
 };
 
 struct http_server_callbacks {
-	/* Reference the server request. Before returning you must either send
-	   a response to the request or reference the request with
-	   http_server_request_ref() and unreference it later after sending
-	   the response. */
+	/* Handle the server request. All requests must be sent back a response.
+	   The response is sent either with http_server_request_fail*() or
+	   http_server_response_submit*(). For simple requests you can send the
+	   response back immediately. If you can't do that, you'll need to
+	   reference the request. Then the code flow usually goes like this:
+
+	   - http_server_request_set_destroy_callback(destroy_callback)
+	   - http_server_request_ref()
+	   - <do whatever is needed to handle the request>
+	   - http_server_response_create()
+	   - http_server_response_set_payload() can be used especially with
+	     istream-callback to create a large response without temp files.
+	   - http_server_response_submit() triggers the destroy_callback
+	     after it has finished sending the response and its payload.
+	   - In destroy_callback: http_server_request_unref() and any other
+	     necessary cleanup - the request handling is now fully finished.
+	*/
 	void (*handle_request)(void *context, struct http_server_request *req);
 	void (*handle_connect_request)(void *context,
 		struct http_server_request *req, struct http_url *target);
@@ -85,11 +98,16 @@ void http_server_request_fail(struct http_server_request *req,
 void http_server_request_fail_close(struct http_server_request *req,
 	unsigned int status, const char *reason);
 
-/* Call the specified callback when HTTP request is destroyed. This always
-   happens only after the response and its payload is fully sent. (If request
-   headers aren't fully read, we never call the handle_request() callback.
-   The request body reading is the responsibility of the caller, which also
-   needs to handle its errors by sending a failure response.) */
+/* Call the specified callback when HTTP request is destroyed. This happens
+   after one of the following:
+
+   a) Response and its payload is fully sent
+   b) Response was submitted, but it couldn't be sent due to disconnection.
+   c) http_server_deinit() was called and the request was aborted
+
+   Note client disconnection before response is submitted isn't visible to this.
+   The request payload reading is the responsibility of the caller, which also
+   must handle the read errors by submitting a failure response. */
 void http_server_request_set_destroy_callback(struct http_server_request *req,
 					      void (*callback)(void *),
 					      void *context);

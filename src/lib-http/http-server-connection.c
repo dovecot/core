@@ -341,6 +341,7 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 		return TRUE;
 	}
 
+	/* Request payload is still being uploaded by the client */
 	return FALSE;
 }
 
@@ -438,13 +439,13 @@ static void http_server_connection_input(struct connection *_conn)
 
 			conn->stats.request_count++;
 
-			/* handle request 
-			   req may be destroyed after this, so don't refer to it if ret > 0 */
 			http_server_request_ref(req);
 			T_BEGIN {
 				cont = http_server_connection_handle_request(conn, req);
 			} T_END;
 			if (!cont) {
+				/* connection closed or request body not read yet.
+				   the request may be destroyed now. */
 				http_server_request_unref(&req);
 				return;
 			}
