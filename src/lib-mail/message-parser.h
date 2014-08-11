@@ -26,7 +26,10 @@ struct message_block {
 	/* non-NULL if a header line was read */
 	struct message_header_line *hdr;
 
-	/* hdr = NULL, size = 0 block returned at the end of headers */
+	/* hdr = NULL, size = 0 block returned at the end of headers for the
+	   empty line between header and body (unless the header is truncated).
+	   Later on data and size>0 is returned for blocks of mail body that
+	   is read (see message_parser_flags for what is actually returned) */
 	const unsigned char *data;
 	size_t size;
 };
