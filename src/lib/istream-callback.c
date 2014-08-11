@@ -11,7 +11,7 @@ struct callback_istream {
 	void *context;
 
 	buffer_t *buf;
-	size_t pending_size;
+	size_t prev_pos;
 };
 
 static void i_stream_callback_destroy(struct iostream_private *stream)
@@ -35,13 +35,13 @@ static ssize_t i_stream_callback_read(struct istream_private *stream)
 	if (stream->skip > 0) {
 		buffer_delete(cstream->buf, 0, stream->skip);
 		stream->pos -= stream->skip;
+		cstream->prev_pos -= stream->skip;
 		stream->skip = 0;
 	}
-	pos = cstream->buf->used;
-	if (cstream->pending_size > 0) {
-		i_assert(pos >= cstream->pending_size);
-		pos -= cstream->pending_size;
-		cstream->pending_size = 0;
+	i_assert(cstream->buf->used >= cstream->prev_pos);
+	pos = cstream->prev_pos;
+	if (cstream->buf->used > pos) {
+		/* data was added outside the callback */
 	} else if (!cstream->callback(cstream->buf, cstream->context)) {
 		/* EOF / error */
 		stream->istream.eof = TRUE;
@@ -58,7 +58,7 @@ static ssize_t i_stream_callback_read(struct istream_private *stream)
 	}
 	i_assert(cstream->buf->used > pos);
 	stream->buffer = cstream->buf->data;
-	stream->pos = cstream->buf->used;
+	cstream->prev_pos = stream->pos = cstream->buf->used;
 	return cstream->buf->used - pos;
 }
 
@@ -91,12 +91,19 @@ void i_stream_callback_append(struct istream *input,
 		(struct callback_istream *)input->real_stream;
 
 	buffer_append(cstream->buf, data, size);
-	cstream->pending_size += size;
 }
 
 void i_stream_callback_append_str(struct istream *input, const char *str)
 {
 	i_stream_callback_append(input, str, strlen(str));
+}
+
+buffer_t *i_stream_callback_get_buffer(struct istream *input)
+{
+	struct callback_istream *cstream =
+		(struct callback_istream *)input->real_stream;
+
+	return cstream->buf;
 }
 
 void i_stream_callback_set_error(struct istream *input, int stream_errno,

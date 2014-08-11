@@ -29,6 +29,10 @@ void i_stream_callback_append(struct istream *input,
 			      const void *data, size_t size);
 void i_stream_callback_append_str(struct istream *input, const char *str);
 
+/* Returns the istream-callback's internal buffer. This buffer can be used to
+   append data to the stream. */
+buffer_t *i_stream_callback_get_buffer(struct istream *input);
+
 void i_stream_callback_set_error(struct istream *input, int stream_errno,
 				 const char *error);
 
