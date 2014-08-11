@@ -73,6 +73,10 @@ pool_t http_server_request_get_pool(struct http_server_request *req);
    http_server_response_create(), or NULL if none. */
 struct http_server_response *
 http_server_request_get_response(struct http_server_request *req);
+/* Returns TRUE if request is finished either because a response was sent
+   or because the request was aborted. */
+bool http_server_request_is_finished(struct http_server_request *req);
+
 /* Send a failure response to the request with given status/reason. */
 void http_server_request_fail(struct http_server_request *req,
 	unsigned int status, const char *reason);

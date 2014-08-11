@@ -111,6 +111,12 @@ http_server_request_get_response(struct http_server_request *req)
 	return req->response;
 }
 
+bool http_server_request_is_finished(struct http_server_request *req)
+{
+	return req->response != NULL ||
+		req->state == HTTP_SERVER_REQUEST_STATE_ABORTED;
+}
+
 void http_server_request_halt_payload(struct http_server_request *req)
 {
 	i_assert(req->state <= HTTP_SERVER_REQUEST_STATE_QUEUED);
