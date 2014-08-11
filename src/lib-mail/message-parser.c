@@ -1041,6 +1041,10 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 		}
 	}
 
+	if (block_r->size == 0) {
+		/* data isn't supposed to be read, so make sure it's NULL */
+		block_r->data = NULL;
+	}
 	return ret;
 }
 
