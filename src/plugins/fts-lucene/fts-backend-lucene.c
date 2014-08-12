@@ -272,8 +272,18 @@ fts_backend_lucene_update_deinit(struct fts_backend_update_context *_ctx)
 	}
 
 	if (ctx->expunge_ctx != NULL) {
-		if (fts_expunge_log_append_commit(&ctx->expunge_ctx) < 0)
+		if (fts_expunge_log_append_commit(&ctx->expunge_ctx) < 0) {
+			struct stat st;
+
+			if (stat(backend->dir_path, &st) < 0 && errno == ENOENT) {
+				/* lucene-indexes directory doesn't even exist,
+				   so dovecot.index's last_index_uid is wrong.
+				   rescan to update them. */
+				(void)lucene_index_rescan(backend->index);
+				ret = 0;
+			}
 			ret = -1;
+		}
 	}
 
 	if (fts_backend_lucene_need_optimize(ctx)) {
