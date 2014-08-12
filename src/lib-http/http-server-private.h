@@ -82,6 +82,8 @@ struct http_server_request {
 
 	unsigned int payload_halted:1;
 	unsigned int sent_100_continue:1;
+	unsigned int delay_destroy:1;
+	unsigned int destroy_pending:1;
 	unsigned int failed:1;
 };
 

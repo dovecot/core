@@ -59,7 +59,9 @@ void http_server_request_destroy(struct http_server_request **_req)
 {
 	struct http_server_request *req = *_req;
 
-	if (req->destroy_callback != NULL) {
+	if (req->delay_destroy) {
+		req->destroy_pending = TRUE;
+	} else if (req->destroy_callback != NULL) {
 		req->destroy_callback(req->destroy_context);
 		req->destroy_callback = NULL;
 	}

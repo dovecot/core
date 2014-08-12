@@ -440,18 +440,26 @@ static void http_server_connection_input(struct connection *_conn)
 			conn->stats.request_count++;
 
 			http_server_request_ref(req);
+			i_assert(!req->delay_destroy);
+			req->delay_destroy = TRUE;
 			T_BEGIN {
 				cont = http_server_connection_handle_request(conn, req);
 			} T_END;
 			if (!cont) {
 				/* connection closed or request body not read yet.
 				   the request may be destroyed now. */
-				http_server_request_unref(&req);
+				if (req->destroy_pending)
+					http_server_request_destroy(&req);
+				else
+					http_server_request_unref(&req);
 				return;
 			}
 			if (req->req.connection_close)
 				conn->close_indicated = TRUE;
-			http_server_request_unref(&req);
+			if (req->destroy_pending)
+				http_server_request_destroy(&req);
+			else
+				http_server_request_unref(&req);
 		
 			/* client indicated it will close after this request; stop trying
 			   to read more. */			   
