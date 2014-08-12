@@ -432,6 +432,10 @@ void mail_storage_unref(struct mail_storage **_storage)
 
 	storage->v.destroy(storage);
 	i_free(storage->error_string);
+	if (array_is_created(&storage->error_stack)) {
+		i_assert(array_count(&storage->error_stack) == 0);
+		array_free(&storage->error_stack);
+	}
 
 	*_storage = NULL;
 	pool_unref(&storage->pool);
@@ -593,6 +597,29 @@ enum mail_error mailbox_get_last_mail_error(struct mailbox *box)
 
 	mail_storage_get_last_error(box->storage, &error);
 	return error;
+}
+
+void mail_storage_last_error_push(struct mail_storage *storage)
+{
+	struct mail_storage_error *err;
+
+	if (!array_is_created(&storage->error_stack))
+		i_array_init(&storage->error_stack, 2);
+	err = array_append_space(&storage->error_stack);
+	err->error_string = i_strdup(storage->error_string);
+	err->error = storage->error;
+}
+
+void mail_storage_last_error_pop(struct mail_storage *storage)
+{
+	unsigned int count = array_count(&storage->error_stack);
+	struct mail_storage_error *err =
+		array_idx(&storage->error_stack, count-1);
+
+	i_free(storage->error_string);
+	storage->error_string = err->error_string;
+	storage->error = err->error;
+	array_delete(&storage->error_stack, count-1, 1);
 }
 
 bool mail_storage_is_mailbox_file(struct mail_storage *storage)

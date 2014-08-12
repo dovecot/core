@@ -91,6 +91,11 @@ struct mail_binary_cache {
 	uoff_t size;
 };
 
+struct mail_storage_error {
+	char *error_string;
+	enum mail_error error;
+};
+
 struct mail_storage {
 	const char *name;
 	enum mail_storage_class_flags class_flags;
@@ -112,6 +117,7 @@ struct mail_storage {
 
 	char *error_string;
 	enum mail_error error;
+	ARRAY(struct mail_storage_error) error_stack;
 
         const struct mail_storage *storage_class;
 	struct mail_user *user;
