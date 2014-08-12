@@ -613,7 +613,7 @@ void mail_storage_last_error_push(struct mail_storage *storage)
 void mail_storage_last_error_pop(struct mail_storage *storage)
 {
 	unsigned int count = array_count(&storage->error_stack);
-	struct mail_storage_error *err =
+	const struct mail_storage_error *err =
 		array_idx(&storage->error_stack, count-1);
 
 	i_free(storage->error_string);
