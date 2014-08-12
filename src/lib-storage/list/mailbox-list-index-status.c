@@ -515,7 +515,11 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 		return -1;
 	ctx = NULL;
 
+	/* it probably doesn't matter much here if we push/pop the error,
+	   but might as well do it. */
+	mail_storage_last_error_push(mailbox_get_storage(box));
 	(void)index_list_update_mailbox(box);
+	mail_storage_last_error_pop(mailbox_get_storage(box));
 	return 0;
 }
 
@@ -530,7 +534,12 @@ index_list_transaction_commit(struct mailbox_transaction_context *t,
 		return -1;
 	t = NULL;
 
+	/* this transaction commit may have been done in error handling path
+	   and the caller still wants to access the current error. make sure
+	   that whatever we do here won't change the error. */
+	mail_storage_last_error_push(mailbox_get_storage(box));
 	(void)index_list_update_mailbox(box);
+	mail_storage_last_error_pop(mailbox_get_storage(box));
 	return 0;
 }
 
