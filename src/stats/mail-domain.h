@@ -5,7 +5,9 @@ struct mail_stats;
 
 extern struct mail_domain *stable_mail_domains;
 
-struct mail_domain *mail_domain_login(const char *name);
+struct mail_domain *mail_domain_login_create(const char *name);
+void mail_domain_login(struct mail_domain *domain);
+void mail_domain_disconnected(struct mail_domain *domain);
 struct mail_domain *mail_domain_lookup(const char *name);
 void mail_domain_refresh(struct mail_domain *domain,
 			 const struct mail_stats *diff_stats) ATTR_NULL(2);

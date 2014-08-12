@@ -28,8 +28,8 @@ struct mail_user *mail_user_login(const char *username)
 	user = hash_table_lookup(mail_users_hash, username);
 	if (user != NULL) {
 		user->num_logins++;
-		user->domain->num_logins++;
 		mail_user_refresh(user, NULL);
+		mail_domain_login(user->domain);
 		return user;
 	}
 
@@ -42,7 +42,7 @@ struct mail_user *mail_user_login(const char *username)
 	user = i_new(struct mail_user, 1);
 	user->name = i_strdup(username);
 	user->reset_timestamp = ioloop_time;
-	user->domain = mail_domain_login(domain);
+	user->domain = mail_domain_login_create(domain);
 
 	hash_table_insert(mail_users_hash, user->name, user);
 	DLLIST_PREPEND_FULL(&stable_mail_users, user,
@@ -57,6 +57,11 @@ struct mail_user *mail_user_login(const char *username)
 	user->last_update = ioloop_timeval;
 	global_memory_alloc(mail_user_memsize(user));
 	return user;
+}
+
+void mail_user_disconnected(struct mail_user *user)
+{
+	mail_domain_disconnected(user->domain);
 }
 
 struct mail_user *mail_user_lookup(const char *username)

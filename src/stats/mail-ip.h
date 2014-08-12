@@ -4,6 +4,7 @@
 extern struct mail_ip *stable_mail_ips;
 
 struct mail_ip *mail_ip_login(const struct ip_addr *ip_addr);
+void mail_ip_disconnected(struct mail_ip *ip);
 struct mail_ip *mail_ip_lookup(const struct ip_addr *ip_addr);
 void mail_ip_refresh(struct mail_ip *ip, const struct mail_stats *diff_stats)
 	ATTR_NULL(2);

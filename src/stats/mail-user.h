@@ -6,6 +6,7 @@ struct mail_stats;
 extern struct mail_user *stable_mail_users;
 
 struct mail_user *mail_user_login(const char *username);
+void mail_user_disconnected(struct mail_user *user);
 struct mail_user *mail_user_lookup(const char *username);
 
 void mail_user_refresh(struct mail_user *user,

@@ -401,7 +401,7 @@ static int client_export_iter_domain(struct client *client)
 	if (!cmd->header_sent) {
 		o_stream_nsend_str(client->output,
 			"domain\treset_timestamp\tlast_update"
-			"\tnum_logins\tnum_cmds"MAIL_STATS_HEADER);
+			"\tnum_logins\tnum_cmds\tnum_connected_sessions"MAIL_STATS_HEADER);
 		cmd->header_sent = TRUE;
 	}
 
@@ -415,8 +415,9 @@ static int client_export_iter_domain(struct client *client)
 		str_append_tabescaped(cmd->str, domain->name);
 		str_printfa(cmd->str, "\t%ld", (long)domain->reset_timestamp);
 		client_export_timeval(cmd->str, &domain->last_update);
-		str_printfa(cmd->str, "\t%u\t%u",
-			    domain->num_logins, domain->num_cmds);
+		str_printfa(cmd->str, "\t%u\t%u\t%u",
+			    domain->num_logins, domain->num_cmds,
+			    domain->num_connected_sessions);
 		client_export_mail_stats(cmd->str, &domain->stats);
 		str_append_c(cmd->str, '\n');
 		o_stream_nsend(client->output, str_data(cmd->str),
@@ -442,7 +443,7 @@ static int client_export_iter_ip(struct client *client)
 	if (!cmd->header_sent) {
 		o_stream_nsend_str(client->output,
 			"ip\treset_timestamp\tlast_update"
-			"\tnum_logins\tnum_cmds"MAIL_STATS_HEADER);
+			"\tnum_logins\tnum_cmds\tnum_connected_sessions"MAIL_STATS_HEADER);
 		cmd->header_sent = TRUE;
 	}
 
@@ -458,7 +459,8 @@ static int client_export_iter_ip(struct client *client)
 		} T_END;
 		str_printfa(cmd->str, "\t%ld", (long)ip->reset_timestamp);
 		client_export_timeval(cmd->str, &ip->last_update);
-		str_printfa(cmd->str, "\t%u\t%u", ip->num_logins, ip->num_cmds);
+		str_printfa(cmd->str, "\t%u\t%u\t%u",
+			    ip->num_logins, ip->num_cmds, ip->num_connected_sessions);
 		client_export_mail_stats(cmd->str, &ip->stats);
 		str_append_c(cmd->str, '\n');
 		o_stream_nsend(client->output, str_data(cmd->str),

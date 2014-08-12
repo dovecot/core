@@ -19,14 +19,13 @@ static size_t mail_domain_memsize(const struct mail_domain *domain)
 	return sizeof(*domain) + strlen(domain->name) + 1;
 }
 
-struct mail_domain *mail_domain_login(const char *name)
+struct mail_domain *mail_domain_login_create(const char *name)
 {
 	struct mail_domain *domain;
 
 	domain = hash_table_lookup(mail_domains_hash, name);
 	if (domain != NULL) {
-		domain->num_logins++;
-		mail_domain_refresh(domain, NULL);
+		mail_domain_login(domain);
 		return domain;
 	}
 
@@ -37,12 +36,22 @@ struct mail_domain *mail_domain_login(const char *name)
 	hash_table_insert(mail_domains_hash, domain->name, domain);
 	DLLIST_PREPEND_FULL(&stable_mail_domains, domain,
 			    stable_prev, stable_next);
-	DLLIST2_APPEND_FULL(&mail_domains_head, &mail_domains_tail, domain,
-			    sorted_prev, sorted_next);
-	domain->num_logins++;
-	domain->last_update = ioloop_timeval;
+	mail_domain_login(domain);
 	global_memory_alloc(mail_domain_memsize(domain));
 	return domain;
+}
+
+void mail_domain_login(struct mail_domain *domain)
+{
+	domain->num_logins++;
+	domain->num_connected_sessions++;
+	mail_domain_refresh(domain, NULL);
+}
+
+void mail_domain_disconnected(struct mail_domain *domain)
+{
+	i_assert(domain->num_connected_sessions > 0);
+	domain->num_connected_sessions--;
 }
 
 struct mail_domain *mail_domain_lookup(const char *name)

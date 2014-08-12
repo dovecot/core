@@ -26,6 +26,7 @@ struct mail_ip *mail_ip_login(const struct ip_addr *ip_addr)
 	ip = hash_table_lookup(mail_ips_hash, ip_addr);
 	if (ip != NULL) {
 		ip->num_logins++;
+		ip->num_connected_sessions++;
 		mail_ip_refresh(ip, NULL);
 		return ip;
 	}
@@ -39,9 +40,16 @@ struct mail_ip *mail_ip_login(const struct ip_addr *ip_addr)
 	DLLIST2_APPEND_FULL(&mail_ips_head, &mail_ips_tail, ip,
 			    sorted_prev, sorted_next);
 	ip->num_logins++;
+	ip->num_connected_sessions++;
 	ip->last_update = ioloop_timeval;
 	global_memory_alloc(mail_ip_memsize(ip));
 	return ip;
+}
+
+void mail_ip_disconnected(struct mail_ip *ip)
+{
+	i_assert(ip->num_connected_sessions > 0);
+	ip->num_connected_sessions--;
 }
 
 struct mail_ip *mail_ip_lookup(const struct ip_addr *ip_addr)

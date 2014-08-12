@@ -40,6 +40,12 @@ static void mail_session_disconnect(struct mail_session *session)
 {
 	uint8_t *guid_p = session->guid;
 
+	i_assert(!session->disconnected);
+
+	mail_user_disconnected(session->user);
+	if (session->ip != NULL)
+		mail_ip_disconnected(session->ip);
+
 	hash_table_remove(mail_sessions_hash, guid_p);
 	session->disconnected = TRUE;
 	timeout_remove(&session->to_idle);
@@ -238,7 +244,8 @@ int mail_session_disconnect_parse(const char *const *args, const char **error_r)
 	if ((ret = mail_session_lookup(args[0], &session, error_r)) <= 0)
 		return ret;
 
-	mail_session_disconnect(session);
+	if (!session->disconnected)
+		mail_session_disconnect(session);
 	return 0;
 }
 

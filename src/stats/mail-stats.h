@@ -85,6 +85,7 @@ struct mail_domain {
 	struct mail_stats stats;
 	unsigned int num_logins;
 	unsigned int num_cmds;
+	unsigned int num_connected_sessions;
 
 	int refcount;
 	struct mail_user *users;
@@ -100,6 +101,7 @@ struct mail_ip {
 	struct mail_stats stats;
 	unsigned int num_logins;
 	unsigned int num_cmds;
+	unsigned int num_connected_sessions;
 
 	int refcount;
 	struct mail_session *sessions;
