@@ -1061,6 +1061,21 @@ static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
 	ctx->ext_header_changed = TRUE;
 }
 
+static void virtual_sync_backend_box_deleted(struct virtual_sync_context *ctx,
+					     struct virtual_backend_box *bbox)
+{
+	ARRAY_TYPE(seq_range) removed_uids;
+	const struct virtual_backend_uidmap *uidmap;
+
+	/* delay its full removal until the next time we open the virtual
+	   mailbox. for now just treat it as if it was empty. */
+
+	t_array_init(&removed_uids, 128);
+	array_foreach(&bbox->uids, uidmap)
+		seq_range_array_add(&removed_uids, uidmap->real_uid);
+	virtual_sync_mailbox_box_remove(ctx, bbox, &removed_uids);
+}
+
 static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 				    struct virtual_backend_box *bbox)
 {
@@ -1102,8 +1117,13 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 					 &status);
 		if (!bbox_index_opened && bbox->box->opened)
 			virtual_backend_box_opened(ctx->mbox, bbox);
-		if (ret < 0)
-			return -1;
+		if (ret < 0) {
+			if (mailbox_get_last_mail_error(bbox->box) != MAIL_ERROR_NOTFOUND)
+				return -1;
+			/* mailbox was deleted */
+			virtual_sync_backend_box_deleted(ctx, bbox);
+			return 0;
+		}
 		if (status.uidvalidity == bbox->sync_uid_validity &&
 		    status.uidnext == bbox->sync_next_uid &&
 		    status.highest_modseq == bbox->sync_highest_modseq) {
