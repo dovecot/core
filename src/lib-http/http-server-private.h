@@ -4,6 +4,7 @@
 #include "connection.h"
 
 #include "http-server.h"
+#include "llist.h"
 
 #define HTTP_SERVER_REQUEST_MAX_TARGET_LENGTH 4096
 
@@ -200,5 +201,18 @@ int http_server_connection_output(struct http_server_connection *conn);
 void http_server_connection_tunnel(struct http_server_connection **_conn,
 	http_server_tunnel_callback_t callback, void *context);
 bool http_server_connection_pending_payload(struct http_server_connection *conn);
+
+static inline void http_server_connection_add_request(struct http_server_connection *conn,
+						      struct http_server_request *sreq)
+{
+	DLLIST2_APPEND(&conn->request_queue_head, &conn->request_queue_tail, sreq);
+	conn->request_queue_count++;
+}
+static inline void http_server_connection_remove_request(struct http_server_connection *conn,
+							 struct http_server_request *sreq)
+{
+	DLLIST2_REMOVE(&conn->request_queue_head, &conn->request_queue_tail, sreq);
+	conn->request_queue_count--;
+}
 
 #endif

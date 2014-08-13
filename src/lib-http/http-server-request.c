@@ -1,7 +1,6 @@
 /* Copyright (c) 2013-2014 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "llist.h"
 
 #include "http-server-private.h"
 
@@ -18,8 +17,7 @@ http_server_request_new(struct http_server_connection *conn)
 	req->conn = conn;
 	req->server = conn->server;
 
-	DLLIST2_APPEND(&conn->request_queue_head, &conn->request_queue_tail, req);
-	conn->request_queue_count++;
+	http_server_connection_add_request(conn, req);
 	return req;
 }
 
@@ -37,10 +35,9 @@ bool http_server_request_unref(struct http_server_request **_req)
 	if (--req->refcount > 0)
 		return TRUE;
 
-	if (req->state < 	HTTP_SERVER_REQUEST_STATE_FINISHED) {
+	if (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED) {
 		req->state = HTTP_SERVER_REQUEST_STATE_ABORTED;
-		DLLIST2_REMOVE(&conn->request_queue_head, &conn->request_queue_tail, req);
-		conn->request_queue_count--;
+		http_server_connection_remove_request(conn, req);
 	}
 
 	if (req->destroy_callback != NULL) {
@@ -81,10 +78,9 @@ void http_server_request_abort(struct http_server_request **_req)
 	struct http_server_request *req = *_req;
 	struct http_server_connection *conn = req->conn;
 
-	if (req->state < 	HTTP_SERVER_REQUEST_STATE_FINISHED) {
+	if (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED) {
 		req->state = HTTP_SERVER_REQUEST_STATE_ABORTED;
-		DLLIST2_REMOVE(&conn->request_queue_head, &conn->request_queue_tail, req);
-		conn->request_queue_count--;
+		http_server_connection_remove_request(conn, req);
 	}
 	
 	if (req->response != NULL)
@@ -173,8 +169,7 @@ void http_server_request_finished(struct http_server_request *req)
 	i_assert(req->state < HTTP_SERVER_REQUEST_STATE_FINISHED);
 	req->state = HTTP_SERVER_REQUEST_STATE_FINISHED;
 
-	DLLIST2_REMOVE(&conn->request_queue_head, &conn->request_queue_tail, req);
-	conn->request_queue_count--;
+	http_server_connection_remove_request(conn, req);
 	conn->stats.response_count++;
 
 	if (tunnel_callback == NULL && (req->req.connection_close || resp->close)) {
