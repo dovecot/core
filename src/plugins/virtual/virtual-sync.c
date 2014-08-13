@@ -1519,6 +1519,7 @@ static void virtual_sync_bboxes_get_mails(struct virtual_sync_context *ctx)
 	const struct virtual_mail_index_record *vrec;
 
 	messages = mail_index_view_get_messages_count(ctx->sync_view);
+	i_array_init(&ctx->all_mails, messages);
 	for (vseq = 1; vseq <= messages; vseq++) {
 		mail_index_lookup_ext(ctx->sync_view, vseq,
 				      ctx->mbox->virtual_ext_id, &mail_data, NULL);
@@ -1542,10 +1543,8 @@ static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
 	
 	/* we have different optimizations depending on whether the virtual
 	   mailbox consists of multiple backend boxes or just one */
-	if (count > 1) {
-		i_array_init(&ctx->all_mails, 128);
+	if (count > 1)
 		virtual_sync_bboxes_get_mails(ctx);
-	}
 
 	for (i = 0; i < count; i++) {
 		if (virtual_sync_backend_box(ctx, bboxes[i]) < 0) {
