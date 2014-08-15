@@ -68,6 +68,9 @@ void http_server_response_add_header(struct http_server_response *resp,
 				    const char *key, const char *value)
 {
 	i_assert(!resp->submitted);
+	i_assert(strchr(key, '\r') == NULL && strchr(key, '\n') == NULL);
+	i_assert(strchr(value, '\r') == NULL && strchr(value, '\n') == NULL);
+
 	/* mark presence of special headers */
 	switch (key[0]) {
 	case 'c': case 'C':
