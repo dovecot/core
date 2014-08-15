@@ -36,7 +36,6 @@ io_add_file(int fd, enum io_condition condition,
 {
 	struct io_file *io;
 
-	i_assert(fd >= 0);
 	i_assert(callback != NULL);
 	i_assert((condition & IO_NOTIFY) == 0);
 
@@ -56,7 +55,12 @@ io_add_file(int fd, enum io_condition condition,
 
 	if (io->io.ioloop->handler_context == NULL)
 		io_loop_initialize_handler(io->io.ioloop);
-	io_loop_handle_add(io);
+	if (fd != -1)
+		io_loop_handle_add(io);
+	else {
+		/* we're adding an istream whose only way to get notified
+		   is to call i_stream_set_input_pending() */
+	}
 
 	if (io->io.ioloop->io_files != NULL) {
 		io->io.ioloop->io_files->prev = io;
@@ -73,6 +77,7 @@ struct io *io_add(int fd, enum io_condition condition,
 {
 	struct io_file *io;
 
+	i_assert(fd >= 0);
 	io = io_add_file(fd, condition, source_linenum, callback, context);
 	return &io->io;
 }
@@ -139,7 +144,8 @@ static void io_remove_full(struct io **_io, bool closed)
 		}
 
 		io_file_unlink(io_file);
-		io_loop_handle_remove(io_file, closed);
+		if (io_file->fd != -1)
+			io_loop_handle_remove(io_file, closed);
 	}
 }
 
