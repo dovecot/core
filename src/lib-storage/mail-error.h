@@ -48,7 +48,7 @@ enum mail_error {
 	MAIL_ERROR_CONVERSION,
 	/* Can't do the requested data conversion because the original data
 	   isn't valid. */
-	MAIL_ERROR_INVALIDDATA
+	MAIL_ERROR_INVALIDDATA,
 
 	/* FIXME: Obsolete - remove in v2.3 */
 	MAIL_ERROR_NOSPACE = MAIL_ERROR_NOQUOTA
