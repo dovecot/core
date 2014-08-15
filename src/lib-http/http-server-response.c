@@ -204,7 +204,6 @@ int http_server_response_send_more(struct http_server_response *resp,
 	struct http_server_connection *conn = resp->request->conn;
 	struct ostream *output = resp->payload_output;
 	off_t ret;
-	int fd;
 
 	*error_r = NULL;
 
@@ -251,11 +250,9 @@ int http_server_response_send_more(struct http_server_response *resp,
 		//http_server_response_debug(resp, "Partially sent payload");
 	} else {
 		/* input is blocking */
-		fd = i_stream_get_fd(resp->payload_input);
 		conn->output_locked = TRUE;	
-		i_assert(fd >= 0);
-		conn->io_resp_payload = io_add
-			(fd, IO_READ, http_server_response_payload_input, resp);
+		conn->io_resp_payload = io_add_istream(resp->payload_input,
+			http_server_response_payload_input, resp);
 	}
 	return ret < 0 ? -1 : 0;
 }
