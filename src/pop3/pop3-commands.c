@@ -26,7 +26,7 @@ static uint32_t msgnum_to_seq(struct client *client, uint32_t msgnum)
 }
 
 static const char *get_msgnum(struct client *client, const char *args,
-			      unsigned int *msgnum)
+			      unsigned int *msgnum, bool thenspace)
 {
 	unsigned int num;
 
@@ -38,6 +38,11 @@ static const char *get_msgnum(struct client *client, const char *args,
 	if (str_parse_uint(args, &num, &args) < 0) {
 		client_send_line(client,
 				 "-ERR Message number too large: %s", args);
+		return NULL;
+	}
+	if (*args != (thenspace ? ' ' : '\0')) {
+		client_send_line(client,
+				 "-ERR Noise after message number: %s", args);
 		return NULL;
 	}
 	if (num == 0 || num > client->messages_count) {
@@ -62,7 +67,7 @@ static const char *get_msgnum(struct client *client, const char *args,
 }
 
 static const char *get_size(struct client *client, const char *args,
-			    uoff_t *size)
+			    uoff_t *size, bool thenspace)
 {
 	uoff_t num;
 
@@ -74,6 +79,10 @@ static const char *get_size(struct client *client, const char *args,
 	if (str_parse_uoff(args, &num, &args) < 0) {
 		client_send_line(client, "-ERR Size too large: %s",
 				 args);
+		return NULL;
+	}
+	if (*args != (thenspace ? ' ' : '\0')) {
+		client_send_line(client, "-ERR Noise after size: %s", args);
 		return NULL;
 	}
 
@@ -93,7 +102,7 @@ static int cmd_dele(struct client *client, const char *args)
 {
 	unsigned int msgnum;
 
-	if (get_msgnum(client, args, &msgnum) == NULL)
+	if (get_msgnum(client, args, &msgnum, FALSE) == NULL)
 		return -1;
 
 	if (!client->deleted) {
@@ -155,7 +164,7 @@ static int cmd_list(struct client *client, const char *args)
 	} else {
 		unsigned int msgnum;
 
-		if (get_msgnum(client, args, &msgnum) == NULL)
+		if (get_msgnum(client, args, &msgnum, FALSE) == NULL)
 			return -1;
 
 		client_send_line(client, "+OK %u %"PRIuUOFF_T, msgnum+1,
@@ -470,7 +479,7 @@ static int cmd_retr(struct client *client, const char *args)
 {
 	unsigned int msgnum;
 
-	if (get_msgnum(client, args, &msgnum) == NULL)
+	if (get_msgnum(client, args, &msgnum, FALSE) == NULL)
 		return -1;
 
 	if (client->lowest_retr_pop3_msn > msgnum+1 ||
@@ -534,10 +543,10 @@ static int cmd_top(struct client *client, const char *args)
 	unsigned int msgnum;
 	uoff_t max_lines;
 
-	args = get_msgnum(client, args, &msgnum);
+	args = get_msgnum(client, args, &msgnum, TRUE);
 	if (args == NULL)
 		return -1;
-	if (get_size(client, args, &max_lines) == NULL)
+	if (get_size(client, args, &max_lines, FALSE) == NULL)
 		return -1;
 
 	client->top_count++;
@@ -860,7 +869,7 @@ static int cmd_uidl(struct client *client, const char *args)
 	} else {
 		unsigned int msgnum;
 
-		if (get_msgnum(client, args, &msgnum) == NULL)
+		if (get_msgnum(client, args, &msgnum, FALSE) == NULL)
 			return -1;
 
 		seq = msgnum_to_seq(client, msgnum);
