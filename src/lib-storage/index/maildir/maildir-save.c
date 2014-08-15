@@ -102,9 +102,9 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 	if (rename(tmp_path, new_path) == 0) {
 		mf->flags |= MAILDIR_FILENAME_FLAG_MOVED;
 		return 0;
-	} else if (ENOSPACE(errno)) {
-		mail_storage_set_error(storage, MAIL_ERROR_NOSPACE,
-				       MAIL_ERRSTR_NO_SPACE);
+	} else if (ENOQUOTA(errno)) {
+		mail_storage_set_error(storage, MAIL_ERROR_NOQUOTA,
+				       MAIL_ERRSTR_NO_QUOTA);
 		return -1;
 	} else {
 		mail_storage_set_critical(storage, "rename(%s, %s) failed: %m",
@@ -376,9 +376,9 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 
 	*fname_r = tmp_fname;
 	if (fd == -1) {
-		if (ENOSPACE(errno)) {
+		if (ENOQUOTA(errno)) {
 			mail_storage_set_error(box->storage,
-				MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
+				MAIL_ERROR_NOQUOTA, MAIL_ERRSTR_NO_QUOTA);
 		} else {
 			mail_storage_set_critical(box->storage,
 				"open(%s) failed: %m", str_c(path));
@@ -630,9 +630,9 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 		}
 
 		errno = output_errno;
-		if (ENOSPACE(errno)) {
+		if (ENOQUOTA(errno)) {
 			mail_storage_set_error(storage,
-				MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
+				MAIL_ERROR_NOQUOTA, MAIL_ERRSTR_NO_QUOTA);
 		} else if (errno != 0) {
 			mail_storage_set_critical(storage,
 				"write(%s) failed: %m", path);

@@ -488,7 +488,7 @@ lmtp_rcpt_to_is_over_quota(struct client *client,
 	ret = mailbox_get_status(box, STATUS_CHECK_OVER_QUOTA, &status);
 	if (ret < 0) {
 		errstr = mailbox_get_last_error(box, &error);
-		if (error == MAIL_ERROR_NOSPACE) {
+		if (error == MAIL_ERROR_NOQUOTA) {
 			client_send_line(client, "552 5.2.2 <%s> %s",
 					 rcpt->address, errstr);
 			ret = 1;
@@ -690,7 +690,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 		ret = 0;
 	} else if (storage != NULL) {
 		error = mail_storage_get_last_error(storage, &mail_error);
-		if (mail_error == MAIL_ERROR_NOSPACE) {
+		if (mail_error == MAIL_ERROR_NOQUOTA) {
 			client_send_line(client, "%s <%s> %s",
 					 dctx.set->quota_full_tempfail ?
 					 "452 4.2.2" : "552 5.2.2",

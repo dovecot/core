@@ -72,9 +72,9 @@ void mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 {
 	i_assert(function != NULL);
 
-	if (ENOSPACE(errno)) {
+	if (ENOQUOTA(errno)) {
 		mail_storage_set_error(&mbox->storage->storage,
-			MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
+			MAIL_ERROR_NOQUOTA, MAIL_ERRSTR_NO_QUOTA);
 	} else {
 		const char *toobig_error = errno != EFBIG ? "" :
 			" (process was started with ulimit -f limit)";

@@ -34,9 +34,9 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 		if (errno == ENOENT)
 			return 0;
 
-		if (ENOSPACE(errno)) {
+		if (ENOQUOTA(errno)) {
 			mail_storage_set_error(&mbox->storage->storage,
-				MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
+				MAIL_ERROR_NOQUOTA, MAIL_ERRSTR_NO_QUOTA);
 			return -1;
 		}
 

@@ -57,7 +57,7 @@ void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
 	case MAIL_ERROR_PERM:
 		exit_code = EX_NOPERM;
 		break;
-	case MAIL_ERROR_NOSPACE:
+	case MAIL_ERROR_NOQUOTA:
 		exit_code = EX_CANTCREAT;
 		break;
 	case MAIL_ERROR_NOTFOUND:

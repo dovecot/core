@@ -10,9 +10,9 @@ bool mail_error_from_errno(enum mail_error *error_r,
 	if (ENOACCESS(errno)) {
 		*error_r = MAIL_ERROR_PERM;
 		*error_string_r = MAIL_ERRSTR_NO_PERMISSION;
-	} else if (ENOSPACE(errno)) {
-		*error_r = MAIL_ERROR_NOSPACE;
-		*error_string_r = MAIL_ERRSTR_NO_SPACE;
+	} else if (ENOQUOTA(errno)) {
+		*error_r = MAIL_ERROR_NOQUOTA;
+		*error_string_r = MAIL_ERRSTR_NO_QUOTA;
 	} else if (ENOTFOUND(errno)) {
 		*error_r = MAIL_ERROR_NOTFOUND;
 		*error_string_r = errno != ELOOP ? "Not found" :

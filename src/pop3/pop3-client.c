@@ -714,7 +714,7 @@ void client_send_storage_error(struct client *client)
 	errstr = mailbox_get_last_error(client->mailbox, &error);
 	switch (error) {
 	case MAIL_ERROR_TEMP:
-	case MAIL_ERROR_NOSPACE:
+	case MAIL_ERROR_NOQUOTA:
 	case MAIL_ERROR_INUSE:
 		client_send_line(client, "-ERR [SYS/TEMP] %s", errstr);
 		break;

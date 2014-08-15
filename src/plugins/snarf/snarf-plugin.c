@@ -67,7 +67,7 @@ static int snarf(struct mailbox *srcbox, struct mailbox *destbox)
 			error = mailbox_get_last_mail_error(destbox);
 			/* if we failed because of out of disk space, just
 			   move those messages we managed to move so far. */
-			if (error != MAIL_ERROR_NOSPACE)
+			if (error != MAIL_ERROR_NOQUOTA)
 				ret = -1;
 			break;
 		}

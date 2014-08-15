@@ -133,7 +133,7 @@ imap_get_error_string(struct client_command_context *cmd,
 	case MAIL_ERROR_PERM:
 		resp_code = IMAP_RESP_CODE_NOPERM;
 		break;
-	case MAIL_ERROR_NOSPACE:
+	case MAIL_ERROR_NOQUOTA:
 		resp_code = IMAP_RESP_CODE_OVERQUOTA;
 		break;
 	case MAIL_ERROR_NOTFOUND:

@@ -452,7 +452,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "%s\n", errstr);
 		}
 
-		if (error != MAIL_ERROR_NOSPACE ||
+		if (error != MAIL_ERROR_NOQUOTA ||
 		    ctx.set->quota_full_tempfail) {
 			/* Saving to INBOX should always work unless
 			   we're over quota. If it didn't, it's probably a
