@@ -760,7 +760,9 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 		final_result = TRUE;
 		ret = ldap_result2error(conn->ld, res->msg, 0);
 	}
-	if (ret != LDAP_SUCCESS && request->type == LDAP_REQUEST_TYPE_SEARCH) {
+	/* LDAP_NO_SUCH_OBJECT is returned for nonexistent base */
+	if (ret != LDAP_SUCCESS && ret != LDAP_NO_SUCH_OBJECT &&
+	    request->type == LDAP_REQUEST_TYPE_SEARCH) {
 		/* handle search failures here */
 		struct ldap_request_search *srequest =
 			(struct ldap_request_search *)request;
