@@ -30,20 +30,16 @@ static const char *get_msgnum(struct client *client, const char *args,
 {
 	unsigned int num;
 
-	if (*args != '\0' && *args != ' ') {
-		if (*args < '0' || *args > '9') {
-			client_send_line(client,
-				"-ERR Invalid message number: %s", args);
-			return NULL;
-		}
-
-		if (str_parse_uint(args, &num, &args) < 0) {
-			client_send_line(client,
-				"-ERR Message number too large: %s", args);
-			return NULL;
-		}
+	if (*args < '0' || *args > '9') {
+		client_send_line(client,
+				 "-ERR Invalid message number: %s", args);
+		return NULL;
 	}
-
+	if (str_parse_uint(args, &num, &args) < 0) {
+		client_send_line(client,
+				 "-ERR Message number too large: %s", args);
+		return NULL;
+	}
 	if (num == 0 || num > client->messages_count) {
 		client_send_line(client,
 				 "-ERR There's no message %u.", num);
@@ -70,18 +66,15 @@ static const char *get_size(struct client *client, const char *args,
 {
 	uoff_t num;
 
-	if (*args != '\0' && *args != ' ') {
-		if (*args < '0' || *args > '9') {
-			client_send_line(client, "-ERR Invalid size: %s",
-					 args);
-			return NULL;
-		}
-
-		if (str_parse_uoff(args, &num, &args) < 0) {
-			client_send_line(client, "-ERR Size too large: %s",
-					 args);
-			return NULL;
-		}
+	if (*args < '0' || *args > '9') {
+		client_send_line(client, "-ERR Invalid size: %s",
+				 args);
+		return NULL;
+	}
+	if (str_parse_uoff(args, &num, &args) < 0) {
+		client_send_line(client, "-ERR Size too large: %s",
+				 args);
+		return NULL;
 	}
 
 	while (*args == ' ') args++;
