@@ -56,7 +56,8 @@ i_stream_chain_append_internal(struct istream_chain *chain,
 	DLLIST2_APPEND(&chain->head, &chain->tail, link);
 	/* if io_add_istream() has been added to this chain stream, notify
 	   the callback that we have more data available. */
-	i_stream_set_input_pending(stream, TRUE);
+	if (stream != NULL)
+		i_stream_set_input_pending(stream, TRUE);
 }
 
 void i_stream_chain_append(struct istream_chain *chain, struct istream *stream)
