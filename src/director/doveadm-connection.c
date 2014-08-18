@@ -238,11 +238,16 @@ static void
 doveadm_cmd_host_flush_all(struct doveadm_connection *conn)
 {
 	struct mail_host *const *hostp;
+	unsigned int total_user_count = 0;
 
 	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
+		total_user_count += (*hostp)->user_count;
 		director_flush_host(conn->dir, conn->dir->self_host,
 				    NULL, *hostp);
 	}
+	i_warning("Flushed all backend hosts with %u users. This is an unsafe "
+		  "operation and may cause the same users to end up in multiple backends.",
+		  total_user_count);
 	o_stream_nsend(conn->output, "OK\n", 3);
 }
 
