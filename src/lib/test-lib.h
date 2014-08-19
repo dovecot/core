@@ -47,5 +47,6 @@ void test_time_util(void);
 void test_unichar(void);
 void test_utc_mktime(void);
 void test_var_expand(void);
+void test_wildcard_match(void);
 
 #endif

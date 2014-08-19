@@ -45,6 +45,7 @@ int main(void)
 		test_unichar,
 		test_utc_mktime,
 		test_var_expand,
+		test_wildcard_match,
 		NULL
 	};
 	static enum fatal_test_state (*fatal_functions[])(int) = {
