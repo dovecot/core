@@ -29,9 +29,11 @@ static int wildcard_match_int(const char *data, const char *mask, int icase)
   int match = 1;
   int sofar = 0;
 
-  /* null strings should never match */
-  if ((ma == NULL) || (na == NULL) || (!*ma) || (!*na))
-    return NOMATCH;
+  if (na[0] == '\0') {
+	  /* empty string can match only "*" wildcard(s) */
+	  while (ma[0] == '*') ma++;
+	  return ma[0] == '\0' ? MATCH : NOMATCH;
+  }
   /* find the end of each string */
   while (*(++mask));
   mask--;
