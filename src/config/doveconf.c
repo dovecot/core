@@ -340,7 +340,7 @@ config_dump_filter_begin(string_t *str,
 	unsigned int indent = 0;
 
 	if (filter->local_bits > 0) {
-		str_printfa(str, "local %s", filter->local_host);
+		str_printfa(str, "local %s", net_ip2addr(&filter->local_net));
 
 		if (IPADDR_IS_V4(&filter->local_net)) {
 			if (filter->local_bits != 32)
@@ -361,7 +361,7 @@ config_dump_filter_begin(string_t *str,
 
 	if (filter->remote_bits > 0) {
 		str_append_n(str, indent_str, indent*2);
-		str_printfa(str, "remote %s", filter->remote_host);
+		str_printfa(str, "remote %s", net_ip2addr(&filter->remote_net));
 
 		if (IPADDR_IS_V4(&filter->remote_net)) {
 			if (filter->remote_bits != 32)
