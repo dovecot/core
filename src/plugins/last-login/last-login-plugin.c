@@ -20,6 +20,8 @@ struct last_login_user {
 	struct timeout *to;
 };
 
+const char *last_login_plugin_version = DOVECOT_ABI_VERSION;
+
 static MODULE_CONTEXT_DEFINE_INIT(last_login_user_module,
 				  &mail_user_module_register);
 
