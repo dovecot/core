@@ -51,13 +51,13 @@ postfix_input_auth_request(struct auth_postfix_connection *conn,
 	auth_request->context = conn;
 	auth_postfix_connection_ref(conn);
 
+	(void)auth_request_import_info(auth_request, "service", "postfix");
+	auth_request_init(auth_request);
+
 	if (!auth_request_set_username(auth_request, username, error_r)) {
 		*request_r = auth_request;
 		return FALSE;
 	}
-	(void)auth_request_import_info(auth_request, "service", "postfix");
-
-	auth_request_init(auth_request);
 	*request_r = auth_request;
 	return TRUE;
 }

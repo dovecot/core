@@ -167,7 +167,7 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 			  const char **error_r)
 {
 	struct auth_request *auth_request;
-	const char *const *list, *name, *arg;
+	const char *const *list, *name, *arg, *username;
 	unsigned int id;
 
 	/* <id> <userid> [<parameters>] */
@@ -182,11 +182,7 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 	auth_request->id = id;
 	auth_request->master = conn;
 	auth_master_connection_ref(conn);
-
-	if (!auth_request_set_username(auth_request, list[1], error_r)) {
-		*request_r = auth_request;
-		return 0;
-	}
+	username = list[1];
 
 	for (list += 2; *list != NULL; list++) {
 		arg = strchr(*list, '=');
@@ -209,6 +205,11 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 	}
 
 	auth_request_init(auth_request);
+
+	if (!auth_request_set_username(auth_request, username, error_r)) {
+		*request_r = auth_request;
+		return 0;
+	}
 	*request_r = auth_request;
 	return 1;
 }
