@@ -56,7 +56,7 @@ struct memcached_ascii_dict {
 	unsigned int port;
 	unsigned int timeout_msecs;
 
-	struct ioloop *ioloop;
+	struct ioloop *ioloop, *prev_ioloop;
 	struct timeout *to;
 	struct memcached_ascii_connection conn;
 
@@ -65,6 +65,23 @@ struct memcached_ascii_dict {
 };
 
 static struct connection_list *memcached_ascii_connections;
+
+static void
+memcached_ascii_callback(struct memcached_ascii_dict *dict,
+			 const struct memcached_ascii_dict_reply *reply, int ret)
+{
+	if (reply->callback != NULL) {
+		if (dict->prev_ioloop != NULL) {
+			/* Don't let callback see that we've created our
+			   internal ioloop in case it wants to add some ios
+			   or timeouts. */
+			current_ioloop = dict->prev_ioloop;
+		}
+		reply->callback(ret, reply->context);
+		if (dict->prev_ioloop != NULL)
+			current_ioloop = dict->ioloop;
+	}
+}
 
 static void memcached_ascii_conn_destroy(struct connection *_conn)
 {
@@ -76,10 +93,8 @@ static void memcached_ascii_conn_destroy(struct connection *_conn)
 	if (conn->dict->ioloop != NULL)
 		io_loop_stop(conn->dict->ioloop);
 
-	array_foreach(&conn->dict->replies, reply) {
-		if (reply->callback != NULL)
-			reply->callback(-1, reply->context);
-	}
+	array_foreach(&conn->dict->replies, reply)
+		memcached_ascii_callback(conn->dict, reply, -1);
 	array_clear(&conn->dict->replies);
 	array_clear(&conn->dict->input_states);
 	conn->reply_bytes_left = 0;
@@ -186,8 +201,7 @@ static int memcached_ascii_input_reply(struct memcached_ascii_dict *dict)
 	i_assert(count > 0);
 	i_assert(replies[0].reply_count > 0);
 	if (--replies[0].reply_count == 0) {
-		if (replies[0].callback != NULL)
-			replies[0].callback(1, replies[0].context);
+		memcached_ascii_callback(dict, &replies[0], 1);
 		array_delete(&dict->replies, 0, 1);
 	}
 	return 1;
@@ -217,15 +231,16 @@ static void memcached_ascii_conn_input(struct connection *_conn)
 
 static int memcached_ascii_input_wait(struct memcached_ascii_dict *dict)
 {
-	struct ioloop *old_ioloop = current_ioloop;
-
+	dict->prev_ioloop = current_ioloop;
 	io_loop_set_current(dict->ioloop);
 	if (dict->to != NULL)
 		dict->to = io_loop_move_timeout(&dict->to);
 	connection_switch_ioloop(&dict->conn.conn);
 	io_loop_run(dict->ioloop);
 
-	io_loop_set_current(old_ioloop);
+	io_loop_set_current(dict->prev_ioloop);
+	dict->prev_ioloop = NULL;
+
 	if (dict->to != NULL)
 		dict->to = io_loop_move_timeout(&dict->to);
 	connection_switch_ioloop(&dict->conn.conn);
