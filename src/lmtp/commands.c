@@ -614,7 +614,7 @@ int cmd_noop(struct client *client, const char *args ATTR_UNUSED)
 
 static int
 client_deliver(struct client *client, const struct mail_recipient *rcpt,
-	       struct mail_deliver_session *session)
+	       struct mail *src_mail, struct mail_deliver_session *session)
 {
 	struct mail_deliver_context dctx;
 	struct mail_storage *storage;
@@ -622,7 +622,6 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	const struct mail_storage_settings *mail_set;
 	struct lda_settings *lda_set;
 	struct mail_namespace *ns;
-	struct mail_user *dest_user;
 	struct setting_parser_context *set_parser;
 	void **sets;
 	const char *line, *error, *username;
@@ -650,7 +649,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 
 	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
 	if (mail_storage_service_next(storage_service, rcpt->service_user,
-				      &dest_user) < 0) {
+				      &client->state.dest_user) < 0) {
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 				 rcpt->address);
 		return -1;
@@ -658,18 +657,18 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	sets = mail_storage_service_user_get_set(rcpt->service_user);
 	lda_set = sets[1];
 	settings_var_expand(&lda_setting_parser_info, lda_set, client->pool,
-		mail_user_var_expand_table(dest_user));
+		mail_user_var_expand_table(client->state.dest_user));
 
 	memset(&dctx, 0, sizeof(dctx));
 	dctx.session = session;
 	dctx.pool = session->pool;
 	dctx.set = lda_set;
 	dctx.session_id = client->state.session_id;
-	dctx.src_mail = client->state.raw_mail;
+	dctx.src_mail = src_mail;
 	dctx.src_envelope_sender = client->state.mail_from;
-	dctx.dest_user = dest_user;
+	dctx.dest_user = client->state.dest_user;
 	if (*dctx.set->lda_original_recipient_header != '\0') {
-		dctx.dest_addr = mail_deliver_get_address(dctx.src_mail,
+		dctx.dest_addr = mail_deliver_get_address(src_mail,
 				dctx.set->lda_original_recipient_header);
 	}
 	if (dctx.dest_addr == NULL)
@@ -679,12 +678,19 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
 		dctx.dest_mailbox_name = "INBOX";
 	else {
-		ns = mail_namespace_find_inbox(dest_user->namespaces);
+		ns = mail_namespace_find_inbox(dctx.dest_user->namespaces);
 		dctx.dest_mailbox_name =
 			t_strconcat(ns->prefix, rcpt->detail, NULL);
 	}
 
+	dctx.save_dest_mail = array_count(&client->state.rcpt_to) > 1 &&
+		client->state.first_saved_mail == NULL;
+
 	if (mail_deliver(&dctx, &storage) == 0) {
+		if (dctx.dest_mail != NULL) {
+			i_assert(client->state.first_saved_mail == NULL);
+			client->state.first_saved_mail = dctx.dest_mail;
+		}
 		client_send_line(client, "250 2.0.0 <%s> %s Saved",
 				 rcpt->address, client->state.session_id);
 		ret = 0;
@@ -711,21 +717,30 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 				 rcpt->address);
 		ret = -1;
 	}
-	mail_user_unref(&dest_user);
 	return ret;
 }
 
-static void client_deliver_mails(struct client *client,
-				 struct mail_deliver_session *session)
+static bool client_deliver_next(struct client *client, struct mail *src_mail,
+				struct mail_deliver_session *session)
 {
 	const struct mail_recipient *rcpts;
-	unsigned int i, count;
+	unsigned int count;
+	int ret;
 
 	rcpts = array_get(&client->state.rcpt_to, &count);
-	for (i = 0; i < count; i++) {
-		(void)client_deliver(client, &rcpts[i], session);
+	while (client->state.rcpt_idx < count) {
+		ret = client_deliver(client, &rcpts[client->state.rcpt_idx],
+				     src_mail, session);
 		i_set_failure_prefix("lmtp(%s): ", my_pid);
+
+		client->state.rcpt_idx++;
+		if (ret == 0)
+			return TRUE;
+		/* failed. try the next one. */
+		if (client->state.dest_user != NULL)
+			mail_user_unref(&client->state.dest_user);
 	}
+	return FALSE;
 }
 
 static void client_rcpt_fail_all(struct client *client)
@@ -800,15 +815,50 @@ static void
 client_input_data_write_local(struct client *client, struct istream *input)
 {
 	struct mail_deliver_session *session;
-	uid_t old_uid;
+	struct mail *src_mail;
+	uid_t old_uid, first_uid = (uid_t)-1;
 
 	if (client_open_raw_mail(client, input) < 0)
 		return;
 
 	session = mail_deliver_session_init();
 	old_uid = geteuid();
-	client_deliver_mails(client, session);
+	src_mail = client->state.raw_mail;
+	while (client_deliver_next(client, src_mail, session)) {
+		if (client->state.first_saved_mail == NULL ||
+		    client->state.first_saved_mail == src_mail)
+			mail_user_unref(&client->state.dest_user);
+		else {
+			/* use the first saved message to save it elsewhere too.
+			   this might allow hard linking the files. */
+			client->state.dest_user = NULL;
+			src_mail = client->state.first_saved_mail;
+			first_uid = geteuid();
+			i_assert(first_uid != 0);
+		}
+	}
 	mail_deliver_session_deinit(&session);
+
+	if (client->state.first_saved_mail != NULL) {
+		struct mail *mail = client->state.first_saved_mail;
+		struct mailbox_transaction_context *trans = mail->transaction;
+		struct mailbox *box = trans->box;
+		struct mail_user *user = box->storage->user;
+
+		/* just in case these functions are going to write anything,
+		   change uid back to user's own one */
+		if (first_uid != old_uid) {
+			if (seteuid(0) < 0)
+				i_fatal("seteuid(0) failed: %m");
+			if (seteuid(first_uid) < 0)
+				i_fatal("seteuid() failed: %m");
+		}
+
+		mail_free(&mail);
+		mailbox_transaction_rollback(&trans);
+		mailbox_free(&box);
+		mail_user_unref(&user);
+	}
 
 	if (old_uid == 0) {
 		/* switch back to running as root, since that's what we're

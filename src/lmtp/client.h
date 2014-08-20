@@ -16,6 +16,7 @@ struct client_state {
 	const char *session_id;
 	const char *mail_from;
 	ARRAY(struct mail_recipient) rcpt_to;
+	unsigned int rcpt_idx;
 
 	unsigned int data_end_idx;
 
@@ -27,6 +28,9 @@ struct client_state {
 	const char *added_headers;
 
 	struct mail *raw_mail;
+
+	struct mail_user *dest_user;
+	struct mail *first_saved_mail;
 
 	unsigned int mail_body_7bit:1;
 	unsigned int mail_body_8bitmime:1;
