@@ -811,7 +811,8 @@ static int client_output(struct client *client)
 
 	if (client->cmd == NULL) {
 		if (o_stream_get_buffer_used_size(client->output) <
-		    POP3_OUTBUF_THROTTLE_SIZE/2 && client->io == NULL) {
+		    POP3_OUTBUF_THROTTLE_SIZE/2 && client->io == NULL &&
+		    !client->input->closed) {
 			/* enable input again */
 			client->io = io_add_istream(client->input, client_input,
 						    client);
