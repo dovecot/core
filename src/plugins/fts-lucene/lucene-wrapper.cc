@@ -562,7 +562,7 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 	else
 		dest = dest_free = i_new(wchar_t, datasize);
 	lucene_utf8_n_to_tchar(data, size, dest, datasize);
-	lucene_data_translate(index, dest, datasize);
+	lucene_data_translate(index, dest, datasize-1);
 
 	if (hdr_name != NULL) {
 		/* hdr_name should be ASCII, but don't break in case it isn't */
