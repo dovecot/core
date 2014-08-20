@@ -347,7 +347,9 @@ void mail_precache(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	p->v.precache(mail);
+	T_BEGIN {
+		p->v.precache(mail);
+	} T_END;
 }
 
 void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field)
