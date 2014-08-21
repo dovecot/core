@@ -6,6 +6,7 @@ extern "C" {
 #include "unichar.h"
 #include "hash.h"
 #include "hex-binary.h"
+#include "ioloop.h"
 #include "unlink-directory.h"
 #include "mail-index.h"
 #include "mail-search.h"
@@ -35,6 +36,7 @@ extern "C" {
 #define FTS_LUCENE_MAX_SEARCH_TERMS 1000
 
 #define LUCENE_LOCK_OVERRIDE_SECS 60
+#define LUCENE_INDEX_CLOSE_TIMEOUT_MSECS (120*1000)
 
 using namespace lucene::document;
 using namespace lucene::index;
@@ -66,6 +68,7 @@ struct lucene_index {
 	IndexReader *reader;
 	IndexWriter *writer;
 	IndexSearcher *searcher;
+	struct timeout *to_close;
 
 	buffer_t *normalizer_buf;
 	Analyzer *default_analyzer, *cur_analyzer;
@@ -97,8 +100,6 @@ static void *textcat = NULL;
 static bool textcat_broken = FALSE;
 static int textcat_refcount = 0;
 
-static void lucene_handle_error(struct lucene_index *index, CLuceneError &err,
-				const char *msg);
 static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 					  struct rescan_context *rescan_ctx);
 
@@ -143,6 +144,9 @@ struct lucene_index *lucene_index_init(const char *path,
 
 void lucene_index_close(struct lucene_index *index)
 {
+	if (index->to_close != NULL)
+		timeout_remove(&index->to_close);
+
 	_CLDELETE(index->searcher);
 	if (index->writer != NULL) {
 		try {
@@ -274,8 +278,11 @@ static void lucene_handle_error(struct lucene_index *index, CLuceneError &err,
 
 static int lucene_index_open(struct lucene_index *index)
 {
-	if (index->reader != NULL)
+	if (index->reader != NULL) {
+		i_assert(index->to_close != NULL);
+		timeout_reset(index->to_close);
 		return 1;
+	}
 
 	if (!IndexReader::indexExists(index->path))
 		return 0;
@@ -286,6 +293,9 @@ static int lucene_index_open(struct lucene_index *index)
 		lucene_handle_error(index, err, "IndexReader::open()");
 		return -1;
 	}
+	i_assert(index->to_close == NULL);
+	index->to_close = timeout_add(LUCENE_INDEX_CLOSE_TIMEOUT_MSECS,
+				      lucene_index_close, index);
 	return 1;
 }
 
