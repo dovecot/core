@@ -711,7 +711,7 @@ static void cmd_director_ring_status(int argc, char *argv[])
 	const char *line, *const *args;
 	unsigned long l;
 
-	ctx = cmd_director_init(argc, argv, "a:", cmd_director_status);
+	ctx = cmd_director_init(argc, argv, "a:", cmd_director_ring_status);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header_simple("director ip");
