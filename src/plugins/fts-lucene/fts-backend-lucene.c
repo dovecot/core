@@ -289,7 +289,7 @@ fts_backend_lucene_update_deinit(struct fts_backend_update_context *_ctx)
 	if (fts_backend_lucene_need_optimize(ctx)) {
 		if (ctx->lucene_opened)
 			(void)fts_backend_optimize(_ctx->backend);
-		else {
+		else if (ctx->first_box_vname != NULL) {
 			struct mail_user *user = backend->backend.ns->user;
 			const char *cmd, *path;
 			int fd;
