@@ -43,9 +43,7 @@ struct redis_dict_reply {
 
 struct redis_dict {
 	struct dict dict;
-	struct ip_addr ip;
 	char *username, *key_prefix;
-	unsigned int port;
 	unsigned int timeout_msecs;
 
 	struct ioloop *ioloop, *prev_ioloop;
@@ -271,8 +269,7 @@ static void redis_conn_connected(struct connection *_conn, bool success)
 	struct redis_connection *conn = (struct redis_connection *)_conn;
 
 	if (!success) {
-		i_error("redis: connect(%s, %u) failed: %m",
-			net_ip2addr(&conn->dict->ip), conn->dict->port);
+		i_error("redis: connect(%s) failed: %m", _conn->name);
 	} else {
 		conn->dict->connected = TRUE;
 	}
@@ -320,7 +317,9 @@ redis_dict_init(struct dict *driver, const char *uri,
 		const char **error_r)
 {
 	struct redis_dict *dict;
-	const char *const *args;
+	struct ip_addr ip;
+	unsigned int port = REDIS_DEFAULT_PORT;
+	const char *const *args, *unix_path = NULL;
 	int ret = 0;
 
 	if (redis_connections == NULL) {
@@ -330,22 +329,23 @@ redis_dict_init(struct dict *driver, const char *uri,
 	}
 
 	dict = i_new(struct redis_dict, 1);
-	if (net_addr2ip("127.0.0.1", &dict->ip) < 0)
+	if (net_addr2ip("127.0.0.1", &ip) < 0)
 		i_unreached();
-	dict->port = REDIS_DEFAULT_PORT;
 	dict->timeout_msecs = REDIS_DEFAULT_LOOKUP_TIMEOUT_MSECS;
 	dict->key_prefix = i_strdup("");
 
 	args = t_strsplit(uri, ":");
 	for (; *args != NULL; args++) {
-		if (strncmp(*args, "host=", 5) == 0) {
-			if (net_addr2ip(*args+5, &dict->ip) < 0) {
+		if (strncmp(*args, "path=", 5) == 0) {
+			unix_path = *args + 5;
+		} else if (strncmp(*args, "host=", 5) == 0) {
+			if (net_addr2ip(*args+5, &ip) < 0) {
 				*error_r = t_strdup_printf("Invalid IP: %s",
 							   *args+5);
 				ret = -1;
 			}
 		} else if (strncmp(*args, "port=", 5) == 0) {
-			if (str_to_uint(*args+5, &dict->port) < 0) {
+			if (str_to_uint(*args+5, &port) < 0) {
 				*error_r = t_strdup_printf("Invalid port: %s",
 							   *args+5);
 				ret = -1;
@@ -370,8 +370,13 @@ redis_dict_init(struct dict *driver, const char *uri,
 		i_free(dict);
 		return -1;
 	}
-	connection_init_client_ip(redis_connections, &dict->conn.conn,
-				  &dict->ip, dict->port);
+	if (unix_path != NULL) {
+		connection_init_client_unix(redis_connections, &dict->conn.conn,
+					    unix_path);
+	} else {
+		connection_init_client_ip(redis_connections, &dict->conn.conn,
+					  &ip, port);
+	}
 	dict->dict = *driver;
 	dict->conn.last_reply = str_new(default_pool, 256);
 	dict->conn.dict = dict;
@@ -453,8 +458,7 @@ redis_dict_lookup_real(struct redis_dict *dict, pool_t pool,
 
 	if (dict->conn.conn.fd_in == -1 &&
 	    connection_client_connect(&dict->conn.conn) < 0) {
-		i_error("redis: Couldn't connect to %s:%u",
-			net_ip2addr(&dict->ip), dict->port);
+		i_error("redis: Couldn't connect to %s", dict->conn.conn.name);
 	} else {
 		to = timeout_add(dict->timeout_msecs,
 				 redis_dict_lookup_timeout, dict);
@@ -526,8 +530,8 @@ redis_transaction_init(struct dict *_dict)
 
 	if (dict->conn.conn.fd_in == -1 &&
 	    connection_client_connect(&dict->conn.conn) < 0) {
-		i_error("redis: Couldn't connect to %s:%u",
-			net_ip2addr(&dict->ip), dict->port);
+		i_error("redis: Couldn't connect to %s",
+			dict->conn.conn.name);
 	} else if (!dict->connected) {
 		/* wait for connection */
 		redis_wait(dict);
