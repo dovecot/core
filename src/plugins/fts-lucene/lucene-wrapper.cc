@@ -97,6 +97,8 @@ static void *textcat = NULL;
 static bool textcat_broken = FALSE;
 static int textcat_refcount = 0;
 
+static void lucene_handle_error(struct lucene_index *index, CLuceneError &err,
+				const char *msg);
 static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 					  struct rescan_context *rescan_ctx);
 
@@ -141,9 +143,23 @@ struct lucene_index *lucene_index_init(const char *path,
 
 void lucene_index_close(struct lucene_index *index)
 {
-	_CLDELETE(index->reader);
-	_CLDELETE(index->writer);
 	_CLDELETE(index->searcher);
+	if (index->writer != NULL) {
+		try {
+			index->writer->close();
+		} catch (CLuceneError &err) {
+			lucene_handle_error(index, err, "IndexWriter::close");
+		}
+		_CLDELETE(index->writer);
+	}
+	if (index->reader != NULL) {
+		try {
+			index->reader->close();
+		} catch (CLuceneError &err) {
+			lucene_handle_error(index, err, "IndexReader::close");
+		}
+		_CLDELETE(index->reader);
+	}
 }
 
 void lucene_index_deinit(struct lucene_index *index)
@@ -852,12 +868,11 @@ int lucene_index_rescan(struct lucene_index *index)
 				index->reader->deleteDocument(hits->id(i));
 		}
 		_CLDELETE(hits);
-		index->reader->close();
-		lucene_index_close(index);
 	} catch (CLuceneError &err) {
 		lucene_handle_error(index, err, "rescan search");
 		failed = true;
 	}
+	lucene_index_close(index);
 	if (ctx.box != NULL)
 		rescan_finish(&ctx);
 	array_free(&ctx.uids);
@@ -965,14 +980,7 @@ int lucene_index_expunge_from_log(struct lucene_index *index,
 		}
 	}
 
-	try {
-		if (index->reader != NULL)
-			index->reader->close();
-		lucene_index_close(index);
-	} catch (CLuceneError &err) {
-		lucene_handle_error(index, err, "expunge delete");
-		ret = -1;
-	}
+	lucene_index_close(index);
 
 	ret2 = fts_expunge_log_read_end(&ctx);
 	if (ret < 0 || ret2 < 0)
@@ -995,6 +1003,12 @@ int lucene_index_optimize(struct lucene_index *index)
 		writer->optimize();
 	} catch (CLuceneError &err) {
 		lucene_handle_error(index, err, "IndexWriter::optimize()");
+		ret = -1;
+	}
+	try {
+		writer->close();
+	} catch (CLuceneError &err) {
+		lucene_handle_error(index, err, "IndexWriter::close()");
 		ret = -1;
 	}
 	if (writer != NULL)
