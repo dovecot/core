@@ -8,6 +8,7 @@ extern "C" {
 #include "hex-binary.h"
 #include "ioloop.h"
 #include "unlink-directory.h"
+#include "ioloop.h"
 #include "mail-index.h"
 #include "mail-search.h"
 #include "mail-namespace.h"
@@ -100,6 +101,8 @@ static void *textcat = NULL;
 static bool textcat_broken = FALSE;
 static int textcat_refcount = 0;
 
+static void lucene_handle_error(struct lucene_index *index, CLuceneError &err,
+				const char *msg);
 static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 					  struct rescan_context *rescan_ctx);
 
@@ -268,7 +271,7 @@ static void lucene_handle_error(struct lucene_index *index, CLuceneError &err,
 	     err.number() == CL_ERR_IO)) {
 		/* delete corrupted index. most IO errors are also about
 		   missing files and other such corruption.. */
-		if (unlink_directory(index->path, 0) < 0 &&
+		if (unlink_directory(index->path, (enum unlink_directory_flags)0) < 0 &&
 		    errno != ENOENT)
 			i_error("unlink_directory(%s) failed: %m", index->path);
 		rescan_clear_unseen_mailboxes(index, NULL);
@@ -414,7 +417,7 @@ static int lucene_settings_check(struct lucene_index *index)
 		return ret;
 
 	/* settings changed, rebuild index */
-	if (unlink_directory(index->path, 0) < 0) {
+	if (unlink_directory(index->path, (enum unlink_directory_flags)0) < 0) {
 		i_error("unlink_directory(%s) failed: %m", index->path);
 		ret = -1;
 	} else {
