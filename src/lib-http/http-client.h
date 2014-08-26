@@ -185,6 +185,7 @@ void http_client_request_delay_until(struct http_client_request *req,
 void http_client_request_delay(struct http_client_request *req,
 	time_t seconds);
 
+const char *http_client_request_get_method(struct http_client_request *req);
 const char *http_client_request_get_target(struct http_client_request *req);
 enum http_request_state
 http_client_request_get_state(struct http_client_request *req);
