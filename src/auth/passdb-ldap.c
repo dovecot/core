@@ -287,7 +287,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 	const char **attr_names = (const char **)conn->pass_attr_names;
 	string_t *str;
 
-	srequest->require_password = require_password;
+	request->require_password = require_password;
 	srequest->request.type = LDAP_REQUEST_TYPE_SEARCH;
 	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
 
@@ -404,6 +404,9 @@ ldap_verify_plain(struct auth_request *request,
 static void ldap_lookup_credentials(struct auth_request *request,
 				    lookup_credentials_callback_t *callback)
 {
+	struct passdb_module *_module = request->passdb->passdb;
+	struct ldap_passdb_module *module =
+		(struct ldap_passdb_module *)_module;
 	struct passdb_ldap_request *ldap_request;
 	bool require_password;
 
@@ -416,7 +419,7 @@ static void ldap_lookup_credentials(struct auth_request *request,
 	/* with auth_bind=yes we don't necessarily have a password.
 	   this will fail actual password credentials lookups, but it's fine
 	   for passdb lookups done by lmtp/doveadm */
-	require_password = !conn->set.auth_bind;
+	require_password = !module->conn->set.auth_bind;
         ldap_lookup_pass(request, ldap_request, require_password);
 }
 
