@@ -311,10 +311,8 @@ static const char *redis_escape_username(const char *username)
 
 static int
 redis_dict_init(struct dict *driver, const char *uri,
-		enum dict_data_type value_type ATTR_UNUSED,
-		const char *username,
-		const char *base_dir ATTR_UNUSED, struct dict **dict_r,
-		const char **error_r)
+		const struct dict_settings *set,
+		struct dict **dict_r, const char **error_r)
 {
 	struct redis_dict *dict;
 	struct ip_addr ip;
@@ -383,11 +381,11 @@ redis_dict_init(struct dict *driver, const char *uri,
 
 	i_array_init(&dict->input_states, 4);
 	i_array_init(&dict->replies, 4);
-	if (strchr(username, DICT_USERNAME_SEPARATOR) == NULL)
-		dict->username = i_strdup(username);
+	if (strchr(set->username, DICT_USERNAME_SEPARATOR) == NULL)
+		dict->username = i_strdup(set->username);
 	else {
 		/* escape the username */
-		dict->username = i_strdup(redis_escape_username(username));
+		dict->username = i_strdup(redis_escape_username(set->username));
 	}
 
 	*dict_r = &dict->dict;

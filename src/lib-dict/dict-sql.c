@@ -73,8 +73,7 @@ static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx);
 
 static int
 sql_dict_init(struct dict *driver, const char *uri,
-	      enum dict_data_type value_type ATTR_UNUSED,
-	      const char *username, const char *base_dir ATTR_UNUSED,
+	      const struct dict_settings *set,
 	      struct dict **dict_r, const char **error_r)
 {
 	struct sql_dict *dict;
@@ -84,7 +83,7 @@ sql_dict_init(struct dict *driver, const char *uri,
 	dict = p_new(pool, struct sql_dict, 1);
 	dict->pool = pool;
 	dict->dict = *driver;
-	dict->username = p_strdup(pool, username);
+	dict->username = p_strdup(pool, set->username);
 	dict->set = dict_sql_settings_read(pool, uri, error_r);
 	if (dict->set == NULL) {
 		pool_unref(&pool);

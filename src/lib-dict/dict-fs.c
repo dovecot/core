@@ -16,10 +16,8 @@ struct fs_dict {
 
 static int
 fs_dict_init(struct dict *driver, const char *uri,
-	     enum dict_data_type value_type ATTR_UNUSED,
-	     const char *username,
-	     const char *base_dir, struct dict **dict_r,
-	     const char **error_r)
+	     const struct dict_settings *set,
+	     struct dict **dict_r, const char **error_r)
 {
 	struct fs_settings fs_set;
 	struct fs *fs;
@@ -36,14 +34,15 @@ fs_dict_init(struct dict *driver, const char *uri,
 	}
 
 	memset(&fs_set, 0, sizeof(fs_set));
-	fs_set.base_dir = base_dir;
+	fs_set.username = set->username;
+	fs_set.base_dir = set->base_dir;
 	if (fs_init(fs_driver, fs_args, &fs_set, &fs, error_r) < 0)
 		return -1;
 
 	dict = i_new(struct fs_dict, 1);
 	dict->dict = *driver;
 	dict->fs = fs;
-	dict->username = i_strdup(username);
+	dict->username = i_strdup(set->username);
 
 	*dict_r = &dict->dict;
 	return 0;

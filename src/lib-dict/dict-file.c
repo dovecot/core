@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "hash.h"
+#include "home-expand.h"
 #include "mkdir-parents.h"
 #include "file-lock.h"
 #include "file-dotlock.h"
@@ -54,10 +55,8 @@ static struct dotlock_settings file_dict_dotlock_settings = {
 
 static int
 file_dict_init(struct dict *driver, const char *uri,
-	       enum dict_data_type value_type ATTR_UNUSED,
-	       const char *username ATTR_UNUSED,
-	       const char *base_dir ATTR_UNUSED, struct dict **dict_r,
-	       const char **error_r)
+	       const struct dict_settings *set ATTR_UNUSED,
+	       struct dict **dict_r, const char **error_r)
 {
 	struct file_dict *dict;
 	const char *p;
@@ -77,7 +76,6 @@ file_dict_init(struct dict *driver, const char *uri,
 			dict->lock_method = FILE_LOCK_METHOD_FLOCK;
 		else {
 			*error_r = t_strdup_printf("Invalid parameter: %s", p+1);
-			i_free(dict->path);
 			i_free(dict);
 			return -1;
 		}

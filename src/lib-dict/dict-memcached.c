@@ -169,10 +169,8 @@ static const struct connection_vfuncs memcached_conn_vfuncs = {
 
 static int
 memcached_dict_init(struct dict *driver, const char *uri,
-		    enum dict_data_type value_type ATTR_UNUSED,
-		    const char *username ATTR_UNUSED,
-		    const char *base_dir ATTR_UNUSED, struct dict **dict_r,
-		    const char **error_r)
+		    const struct dict_settings *set ATTR_UNUSED,
+		    struct dict **dict_r, const char **error_r)
 {
 	struct memcached_dict *dict;
 	const char *const *args;

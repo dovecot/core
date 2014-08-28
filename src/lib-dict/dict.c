@@ -56,10 +56,22 @@ int dict_init(const char *uri, enum dict_data_type value_type,
 	      const char *username, const char *base_dir, struct dict **dict_r,
 	      const char **error_r)
 {
+	struct dict_settings set;
+
+	memset(&set, 0, sizeof(set));
+	set.value_type = value_type;
+	set.username = username;
+	set.base_dir = base_dir;
+	return dict_init_full(uri, &set, dict_r, error_r);
+}
+
+int dict_init_full(const char *uri, const struct dict_settings *set,
+		   struct dict **dict_r, const char **error_r)
+{
 	struct dict *dict;
 	const char *p, *name, *error;
 
-	i_assert(username != NULL);
+	i_assert(set->username != NULL);
 
 	p = strchr(uri, ':');
 	if (p == NULL) {
@@ -74,8 +86,7 @@ int dict_init(const char *uri, enum dict_data_type value_type,
 		*error_r = t_strdup_printf("Unknown dict module: %s", name);
 		return -1;
 	}
-	if (dict->v.init(dict, p+1, value_type, username, base_dir,
-			 dict_r, &error) < 0) {
+	if (dict->v.init(dict, p+1, set, dict_r, &error) < 0) {
 		*error_r = t_strdup_printf("dict %s: %s", name, error);
 		return -1;
 	}

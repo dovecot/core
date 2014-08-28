@@ -347,9 +347,7 @@ static const char *memcached_ascii_escape_username(const char *username)
 
 static int
 memcached_ascii_dict_init(struct dict *driver, const char *uri,
-			  enum dict_data_type value_type ATTR_UNUSED,
-			  const char *username,
-			  const char *base_dir ATTR_UNUSED,
+			  const struct dict_settings *set,
 			  struct dict **dict_r, const char **error_r)
 {
 	struct memcached_ascii_dict *dict;
@@ -411,11 +409,11 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 	dict->conn.reply_str = str_new(default_pool, 256);
 	dict->conn.dict = dict;
 
-	if (strchr(username, DICT_USERNAME_SEPARATOR) == NULL)
-		dict->username = i_strdup(username);
+	if (strchr(set->username, DICT_USERNAME_SEPARATOR) == NULL)
+		dict->username = i_strdup(set->username);
 	else {
 		/* escape the username */
-		dict->username = i_strdup(memcached_ascii_escape_username(username));
+		dict->username = i_strdup(memcached_ascii_escape_username(set->username));
 	}
 	i_array_init(&dict->input_states, 4);
 	i_array_init(&dict->replies, 4);

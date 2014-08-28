@@ -14,8 +14,14 @@ enum dict_iterate_flags {
 };
 
 enum dict_data_type {
-	DICT_DATA_TYPE_STRING,
+	DICT_DATA_TYPE_STRING = 0,
 	DICT_DATA_TYPE_UINT32
+};
+
+struct dict_settings {
+	enum dict_data_type value_type;
+	const char *username;
+	const char *base_dir;
 };
 
 typedef void dict_transaction_commit_callback_t(int ret, void *context);
@@ -34,6 +40,8 @@ void dict_drivers_unregister_all(void);
 int dict_init(const char *uri, enum dict_data_type value_type,
 	      const char *username, const char *base_dir, struct dict **dict_r,
 	      const char **error_r);
+int dict_init_full(const char *uri, const struct dict_settings *set,
+		   struct dict **dict_r, const char **error_r);
 /* Close dictionary. */
 void dict_deinit(struct dict **dict);
 /* Wait for all pending asynchronous transaction commits to finish.

@@ -5,8 +5,7 @@
 
 struct dict_vfuncs {
 	int (*init)(struct dict *dict_driver, const char *uri,
-		    enum dict_data_type value_type,
-		    const char *username, const char *base_dir,
+		    const struct dict_settings *set,
 		    struct dict **dict_r, const char **error_r);
 	void (*deinit)(struct dict *dict);
 	int (*wait)(struct dict *dict);

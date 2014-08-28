@@ -477,9 +477,8 @@ static void client_dict_disconnect(struct client_dict *dict)
 
 static int
 client_dict_init(struct dict *driver, const char *uri,
-		 enum dict_data_type value_type, const char *username,
-		 const char *base_dir, struct dict **dict_r,
-		 const char **error_r)
+		 const struct dict_settings *set,
+		 struct dict **dict_r, const char **error_r)
 {
 	struct client_dict *dict;
 	const char *dest_uri;
@@ -496,8 +495,8 @@ client_dict_init(struct dict *driver, const char *uri,
 	dict = p_new(pool, struct client_dict, 1);
 	dict->pool = pool;
 	dict->dict = *driver;
-	dict->value_type = value_type;
-	dict->username = p_strdup(pool, username);
+	dict->value_type = set->value_type;
+	dict->username = p_strdup(pool, set->username);
 
 	dict->fd = -1;
 
@@ -505,7 +504,7 @@ client_dict_init(struct dict *driver, const char *uri,
 		/* path given */
 		dict->path = p_strdup_until(pool, uri, dest_uri);
 	} else {
-		dict->path = p_strconcat(pool, base_dir,
+		dict->path = p_strconcat(pool, set->base_dir,
 				"/"DEFAULT_DICT_SERVER_SOCKET_FNAME, NULL);
 	}
 	dict->uri = p_strdup(pool, dest_uri + 1);
