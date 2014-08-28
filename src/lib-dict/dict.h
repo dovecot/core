@@ -22,6 +22,8 @@ struct dict_settings {
 	enum dict_data_type value_type;
 	const char *username;
 	const char *base_dir;
+	/* home directory for the user, if known */
+	const char *home_dir;
 };
 
 typedef void dict_transaction_commit_callback_t(int ret, void *context);

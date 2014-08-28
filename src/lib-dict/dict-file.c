@@ -55,11 +55,11 @@ static struct dotlock_settings file_dict_dotlock_settings = {
 
 static int
 file_dict_init(struct dict *driver, const char *uri,
-	       const struct dict_settings *set ATTR_UNUSED,
+	       const struct dict_settings *set,
 	       struct dict **dict_r, const char **error_r)
 {
 	struct file_dict *dict;
-	const char *p;
+	const char *p, *path;
 
 	dict = i_new(struct file_dict, 1);
 	dict->lock_method = FILE_LOCK_METHOD_DOTLOCK;
@@ -67,9 +67,9 @@ file_dict_init(struct dict *driver, const char *uri,
 	p = strchr(uri, ':');
 	if (p == NULL) {
 		/* no parameters */
-		dict->path = i_strdup(uri);
+		path = uri;
 	} else {
-		dict->path = i_strdup_until(uri, p++);
+		path = t_strdup_until(uri, p++);
 		if (strcmp(p, "lock=fcntl") == 0)
 			dict->lock_method = FILE_LOCK_METHOD_FCNTL;
 		else if (strcmp(p, "lock=flock") == 0)
@@ -80,6 +80,8 @@ file_dict_init(struct dict *driver, const char *uri,
 			return -1;
 		}
 	}
+	dict->path = set->home_dir == NULL ? i_strdup(path) :
+		i_strdup(home_expand_tilde(path, set->home_dir));
 	dict->dict = *driver;
 	dict->hash_pool = pool_alloconly_create("file dict", 1024);
 	hash_table_create(&dict->hash, dict->hash_pool, 0, str_hash, strcmp);
