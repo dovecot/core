@@ -159,7 +159,11 @@ enum mail_index_sync_flags {
 	MAIL_INDEX_SYNC_FLAG_FSYNC		= 0x10,
 	/* If we see "delete index" request transaction, finish it.
 	   This flag also allows committing more changes to a deleted index. */
-	MAIL_INDEX_SYNC_FLAG_DELETING_INDEX	= 0x20
+	MAIL_INDEX_SYNC_FLAG_DELETING_INDEX	= 0x20,
+	/* Same as MAIL_INDEX_SYNC_FLAG_DELETING_INDEX, but finish index
+	   deletion only once and fail the rest (= avoid race conditions when
+	   multiple processes try to mark the index deleted) */
+	MAIL_INDEX_SYNC_FLAG_TRY_DELETING_INDEX	= 0x40
 };
 
 enum mail_index_view_sync_flags {

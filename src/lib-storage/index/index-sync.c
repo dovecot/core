@@ -17,8 +17,11 @@ enum mail_index_sync_flags index_storage_get_sync_flags(struct mailbox *box)
 
 	if ((box->flags & MAILBOX_FLAG_DROP_RECENT) != 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
-	if (box->deleting)
-		sync_flags |= MAIL_INDEX_SYNC_FLAG_DELETING_INDEX;
+	if (box->deleting) {
+		sync_flags |= box->delete_sync_check ?
+			MAIL_INDEX_SYNC_FLAG_TRY_DELETING_INDEX :
+			MAIL_INDEX_SYNC_FLAG_DELETING_INDEX;
+	}
 	return sync_flags;
 }
 

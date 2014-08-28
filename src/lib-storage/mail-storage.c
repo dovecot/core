@@ -1319,7 +1319,10 @@ int mailbox_mark_index_deleted(struct mailbox *box, bool del)
 	/* sync the mailbox. this finishes the index deletion and it can
 	   succeed only for a single session. we do it here, so the rest of
 	   the deletion code doesn't have to worry about race conditions. */
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
+	box->delete_sync_check = TRUE;
+	ret = mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ);
+	box->delete_sync_check = FALSE;
+	if (ret < 0)
 		return -1;
 
 	box->marked_deleted = del;

@@ -360,19 +360,11 @@ mail_index_sync_begin_init(struct mail_index *index,
 		}
 	}
 
-	if (!mail_index_need_sync(index, flags,
-				  log_file_seq, log_file_offset)) {
+	if (!mail_index_need_sync(index, flags, log_file_seq, log_file_offset) &&
+	    !index->index_deleted) {
 		if (locked)
 			mail_transaction_log_sync_unlock(index->log);
 		return 0;
-	}
-
-	if (index->index_deleted &&
-	    (flags & MAIL_INDEX_SYNC_FLAG_DELETING_INDEX) == 0) {
-		/* index is already deleted. we can't sync. */
-		if (locked)
-			mail_transaction_log_sync_unlock(index->log);
-		return -1;
 	}
 
 	if (!locked) {
@@ -381,6 +373,14 @@ mail_index_sync_begin_init(struct mail_index *index,
 		flags &= ~MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 		return mail_index_sync_begin_init(index, flags, log_file_seq,
 						  log_file_offset);
+	}
+
+	if (index->index_deleted &&
+	    (flags & MAIL_INDEX_SYNC_FLAG_DELETING_INDEX) == 0) {
+		/* index is already deleted. we can't sync. */
+		if (locked)
+			mail_transaction_log_sync_unlock(index->log);
+		return -1;
 	}
 
 	hdr = &index->map->hdr;
@@ -482,7 +482,8 @@ mail_index_sync_begin_to2(struct mail_index *index,
 	ctx->ext_trans = mail_index_transaction_begin(ctx->view, trans_flags);
 	ctx->ext_trans->sync_transaction = TRUE;
 	ctx->ext_trans->commit_deleted_index =
-		(flags & MAIL_INDEX_SYNC_FLAG_DELETING_INDEX) != 0;
+		(flags & (MAIL_INDEX_SYNC_FLAG_DELETING_INDEX |
+			  MAIL_INDEX_SYNC_FLAG_TRY_DELETING_INDEX)) != 0;
 
 	*ctx_r = ctx;
 	*view_r = ctx->view;
@@ -789,10 +790,16 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 
 	index_undeleted = ctx->ext_trans->index_undeleted;
 	delete_index = index->index_delete_requested && !index_undeleted &&
-		(ctx->flags & MAIL_INDEX_SYNC_FLAG_DELETING_INDEX) != 0;
+		(ctx->flags & (MAIL_INDEX_SYNC_FLAG_DELETING_INDEX |
+			       MAIL_INDEX_SYNC_FLAG_TRY_DELETING_INDEX)) != 0;
 	if (delete_index) {
 		/* finish this sync by marking the index deleted */
 		mail_index_set_deleted(ctx->ext_trans);
+	} else if (index->index_deleted && !index_undeleted &&
+		   (ctx->flags & MAIL_INDEX_SYNC_FLAG_TRY_DELETING_INDEX) == 0) {
+		/* another process just marked the index deleted.
+		   finish the sync, but return error. */
+		ret = -1;
 	}
 
 	mail_index_sync_update_mailbox_offset(ctx);

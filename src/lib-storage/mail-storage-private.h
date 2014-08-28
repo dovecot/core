@@ -332,6 +332,8 @@ struct mailbox {
 	unsigned int creating:1;
 	/* Mailbox is being deleted */
 	unsigned int deleting:1;
+	/* Don't use MAIL_INDEX_SYNC_FLAG_DELETING_INDEX for sync flag */
+	unsigned int delete_sync_check:1;
 	/* Delete mailbox only if it's empty */
 	unsigned int deleting_must_be_empty:1;
 	/* The backend wants to skip checking if there are 0 messages before

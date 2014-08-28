@@ -1284,6 +1284,7 @@ log_file_track_sync(struct mail_transaction_log_file *file,
 		if (file->sync_offset < file->index_undeleted_offset)
 			break;
 		file->log->index->index_deleted = TRUE;
+		file->log->index->index_delete_requested = FALSE;
 		file->index_deleted_offset = file->sync_offset + trans_size;
 		break;
 	case MAIL_TRANSACTION_INDEX_UNDELETED:
