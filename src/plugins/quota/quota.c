@@ -664,10 +664,15 @@ int quota_set_resource(struct quota_root *root, const char *name,
 	}
 
 	if (root->limit_set_dict == NULL) {
-		if (dict_init(root->set->limit_set, DICT_DATA_TYPE_STRING,
-			      root->quota->user->username,
-			      root->quota->user->set->base_dir,
-			      &root->limit_set_dict, error_r) < 0)
+		struct dict_settings set;
+
+		memset(&set, 0, sizeof(set));
+		set.username = root->quota->user->username;
+		set.base_dir = root->quota->user->set->base_dir;
+		if (mail_user_get_home(root->quota->user, &set.home_dir) <= 0)
+			set.home_dir = NULL;
+		if (dict_init_full(root->set->limit_set, &set,
+				   &root->limit_set_dict, error_r) < 0)
 			return -1;
 	}
 

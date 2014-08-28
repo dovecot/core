@@ -82,6 +82,7 @@ index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type,
 	struct mail_storage *storage = box->storage;
 	struct mail_namespace *ns;
 	struct mailbox_metadata metadata;
+	struct dict_settings set;
 	const char *error;
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0)
@@ -118,11 +119,13 @@ index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type,
 		return -1;
 	}
 
-	if (dict_init(storage->set->mail_attribute_dict,
-		      DICT_DATA_TYPE_STRING,
-		      storage->user->username,
-		      storage->user->set->base_dir,
-		      &storage->_shared_attr_dict, &error) < 0) {
+	memset(&set, 0, sizeof(set));
+	set.username = storage->user->username;
+	set.base_dir = storage->user->set->base_dir;
+	if (mail_user_get_home(storage->user, &set.home_dir) <= 0)
+		set.home_dir = NULL;
+	if (dict_init_full(storage->set->mail_attribute_dict, &set,
+			   &storage->_shared_attr_dict, &error) < 0) {
 		mail_storage_set_critical(storage,
 			"mail_attribute_dict: dict_init(%s) failed: %s",
 			storage->set->mail_attribute_dict, error);

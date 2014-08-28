@@ -61,6 +61,7 @@ static void last_login_mail_user_created(struct mail_user *user)
 	struct mail_user_vfuncs *v = user->vlast;
 	struct last_login_user *luser;
 	struct dict *dict;
+	struct dict_settings set;
 	struct dict_transaction_context *trans;
 	const char *dict_value, *key_name, *error;
 
@@ -74,8 +75,12 @@ static void last_login_mail_user_created(struct mail_user *user)
 	if (dict_value == NULL)
 		return;
 
-	if (dict_init(dict_value, DICT_DATA_TYPE_STRING, user->username,
-		      user->set->base_dir, &dict, &error) < 0) {
+	memset(&set, 0, sizeof(set));
+	set.username = user->username;
+	set.base_dir = user->set->base_dir;
+	if (mail_user_get_home(user, &set.home_dir) <= 0)
+		set.home_dir = NULL;
+	if (dict_init_full(dict_value, &set, &dict, &error) < 0) {
 		i_error("last_login_dict: dict_init(%s) failed: %s",
 			dict_value, error);
 		return;
