@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "module-dir.h"
+#include "llist.h"
 #include "str.h"
 #include "hash-method.h"
 #include "istream.h"
@@ -140,9 +141,10 @@ void fs_deinit(struct fs **_fs)
 	*_fs = NULL;
 
 	if (fs->files_open_count > 0) {
-		i_panic("fs-%s: %u files still open",
-			fs->name, fs->files_open_count);
+		i_panic("fs-%s: %u files still open (first = %s)",
+			fs->name, fs->files_open_count, fs_file_path(fs->files));
 	}
+	i_assert(fs->files == NULL);
 
 	i_free(fs->username);
 	i_free(fs->session_id);
@@ -174,6 +176,7 @@ struct fs_file *fs_file_init(struct fs *fs, const char *path, int mode_flags)
 	} T_END;
 	file->flags = mode_flags & ~FS_OPEN_MODE_MASK;
 	fs->files_open_count++;
+	DLLIST_PREPEND(&fs->files, file);
 	return file;
 }
 
@@ -188,6 +191,7 @@ void fs_file_deinit(struct fs_file **_file)
 
 	fs_file_close(file);
 
+	DLLIST_REMOVE(&file->fs->files, file);
 	file->fs->files_open_count--;
 	T_BEGIN {
 		file->fs->v.file_deinit(file);

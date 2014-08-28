@@ -65,9 +65,13 @@ struct fs {
 	string_t *last_error;
 
 	unsigned int files_open_count;
+	struct fs_file *files;
 };
 
 struct fs_file {
+	/* linked list of all files (mainly for debugging leaks) */
+	struct fs_file *prev, *next;
+
 	struct fs *fs;
 	struct ostream *output;
 	char *path;
