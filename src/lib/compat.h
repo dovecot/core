@@ -254,6 +254,11 @@ int i_my_clock_gettime(int clk_id, struct timespec *tp);
 #define ECANTLINK(errno) \
 	((errno) == EXDEV || (errno) == EMLINK || (errno) == EPERM)
 
+/* Returns TRUE if unlink() failed because it attempted to delete a directory */
+#define UNLINK_EISDIR(errno) \
+	((errno) == EPERM || /* POSIX */ \
+	 (errno) == EISDIR) /* Linux */
+
 /* EBUSY is given by some NFS implementations */
 #define EDESTDIREXISTS(errno) \
 	((errno) == EEXIST || (errno) == ENOTEMPTY || (errno) == EBUSY)

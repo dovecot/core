@@ -95,7 +95,7 @@ static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 	}
 	if (errno == ENOENT)
 		return 0;
-	if (errno == EISDIR || errno == EPERM)
+	if (UNLINK_EISDIR(errno))
 		return maildir_lose_unexpected_dir(box->storage, path);
 
 	mail_storage_set_critical(&mbox->storage->storage,

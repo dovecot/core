@@ -200,7 +200,7 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 		   so don't bother stat()ing the file first */
 		if (unlink(str_c(full_path)) == 0)
 			unlinked_something = TRUE;
-		else if (errno != ENOENT && errno != EISDIR && errno != EPERM) {
+		else if (errno != ENOENT && !UNLINK_EISDIR(errno)) {
 			mailbox_list_set_critical(list,
 				"unlink_directory(%s) failed: %m",
 				str_c(full_path));
@@ -343,8 +343,7 @@ int mailbox_list_delete_symlink_default(struct mailbox_list *list,
 	if (errno == ENOENT) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			T_MAILBOX_LIST_ERR_NOT_FOUND(list, name));
-	} else if (errno == EISDIR ||
-		   errno == EPERM) { /* Solaris */
+	} else if (UNLINK_EISDIR(errno)) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
 				       "Mailbox isn't a symlink");
 	} else {
