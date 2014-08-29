@@ -75,6 +75,9 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 	i_assert(mailbox_list_is_valid_name(_list, name, &error));
 
 	if (mailbox_list_try_get_absolute_path(_list, &name)) {
+		if (type == MAILBOX_LIST_PATH_TYPE_INDEX &&
+		    *set->index_dir == '\0')
+			return 0;
 		*path_r = name;
 		return 1;
 	}
