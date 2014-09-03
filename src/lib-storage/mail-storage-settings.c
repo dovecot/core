@@ -334,7 +334,7 @@ mail_storage_get_dynamic_parsers(pool_t pool)
 		parsers[j].info = storages[i]->v.get_setting_parser_info();
 		j++;
 	}
-	parsers[j] = NULL;
+	parsers[j].name = NULL;
 	return parsers;
 }
 
