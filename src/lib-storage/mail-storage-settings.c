@@ -322,7 +322,7 @@ mail_storage_get_dynamic_parsers(pool_t pool)
 	unsigned int i, j, count;
 
 	storages = array_get(&mail_storage_classes, &count);
-	parsers = p_new(pool, struct dynamic_settings_parser, count + 1);
+	parsers = p_new(pool, struct dynamic_settings_parser, 1 + count + 1);
 	parsers[0].name = MAIL_STORAGE_SET_DRIVER_NAME;
 	parsers[0].info = &mail_storage_setting_parser_info;
 
@@ -334,6 +334,7 @@ mail_storage_get_dynamic_parsers(pool_t pool)
 		parsers[j].info = storages[i]->v.get_setting_parser_info();
 		j++;
 	}
+	parsers[j] = NULL;
 	return parsers;
 }
 
