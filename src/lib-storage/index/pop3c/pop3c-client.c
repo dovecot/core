@@ -27,6 +27,7 @@ enum pop3c_client_state {
 	POP3C_CLIENT_STATE_DISCONNECTED = 0,
 	/* Trying to connect */
 	POP3C_CLIENT_STATE_CONNECTING,
+	POP3C_CLIENT_STATE_STARTTLS,
 	/* Connected, trying to authenticate */
 	POP3C_CLIENT_STATE_USER,
 	POP3C_CLIENT_STATE_AUTH,
@@ -68,6 +69,7 @@ static void
 pop3c_dns_callback(const struct dns_lookup_result *result,
 		   struct pop3c_client *client);
 static void pop3c_client_connect_ip(struct pop3c_client *client);
+static int pop3c_client_ssl_init(struct pop3c_client *client);
 
 struct pop3c_client *
 pop3c_client_init(const struct pop3c_client_settings *set)
@@ -267,6 +269,12 @@ void pop3c_client_run(struct pop3c_client *client)
 	io_loop_destroy(&ioloop);
 }
 
+static void pop3c_client_starttls(struct pop3c_client *client)
+{
+	o_stream_nsend_str(client->output, "STLS\r\n");
+	client->state = POP3C_CLIENT_STATE_STARTTLS;
+}
+
 static void pop3c_client_authenticate1(struct pop3c_client *client)
 {
 	const struct pop3c_client_settings *set = &client->set;
@@ -339,7 +347,19 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 				client->set.host, line);
 			return -1;
 		}
-		pop3c_client_authenticate1(client);
+		if (client->set.ssl_mode == POP3C_CLIENT_SSL_MODE_STARTTLS)
+			pop3c_client_starttls(client);
+		else
+			pop3c_client_authenticate1(client);
+		break;
+	case POP3C_CLIENT_STATE_STARTTLS:
+		if (!success) {
+			i_error("pop3c(%s): STLS failed: %s",
+				client->set.host, line);
+			return -1;
+		}
+		if (pop3c_client_ssl_init(client) < 0)
+			pop3c_client_disconnect(client);
 		break;
 	case POP3C_CLIENT_STATE_USER:
 		if (!success) {
