@@ -63,6 +63,7 @@ pop3c_client_create_from_set(struct mail_storage *storage,
 	client_set.master_user = set->pop3c_master_user;
 	client_set.password = set->pop3c_password;
 	client_set.dns_client_socket_path =
+		storage->user->set->base_dir[0] == '\0' ? "" :
 		t_strconcat(storage->user->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);
 	str = t_str_new(128);

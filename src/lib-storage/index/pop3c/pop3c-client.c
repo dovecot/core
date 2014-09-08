@@ -67,6 +67,7 @@ struct pop3c_client {
 static void
 pop3c_dns_callback(const struct dns_lookup_result *result,
 		   struct pop3c_client *client);
+static void pop3c_client_connect_ip(struct pop3c_client *client);
 
 struct pop3c_client *
 pop3c_client_init(const struct pop3c_client_settings *set)
@@ -196,6 +197,39 @@ static void pop3c_client_timeout(struct pop3c_client *client)
 	pop3c_client_disconnect(client);
 }
 
+static int pop3c_client_dns_lookup(struct pop3c_client *client)
+{
+	struct dns_lookup_settings dns_set;
+
+	i_assert(client->state == POP3C_CLIENT_STATE_CONNECTING);
+
+	if (client->set.dns_client_socket_path[0] == '\0') {
+		struct ip_addr *ips;
+		unsigned int ips_count;
+		int ret;
+
+		ret = net_gethostbyname(client->set.host, &ips, &ips_count);
+		if (ret != 0) {
+			i_error("pop3c(%s): net_gethostbyname() failed: %s",
+				client->set.host, net_gethosterror(ret));
+			return -1;
+		}
+		i_assert(ips_count > 0);
+		client->ip = ips[0];
+		pop3c_client_connect_ip(client);
+	} else {
+		memset(&dns_set, 0, sizeof(dns_set));
+		dns_set.dns_client_socket_path =
+			client->set.dns_client_socket_path;
+		dns_set.timeout_msecs = POP3C_DNS_LOOKUP_TIMEOUT_MSECS;
+		if (dns_lookup(client->set.host, &dns_set,
+			       pop3c_dns_callback, client,
+			       &client->dns_lookup) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 void pop3c_client_run(struct pop3c_client *client)
 {
 	struct ioloop *ioloop, *prev_ioloop = current_ioloop;
@@ -210,16 +244,7 @@ void pop3c_client_run(struct pop3c_client *client)
 	if (client->ip.family == 0) {
 		/* we're connecting, start DNS lookup after our ioloop
 		   is created */
-		struct dns_lookup_settings dns_set;
-
-		i_assert(client->state == POP3C_CLIENT_STATE_CONNECTING);
-		memset(&dns_set, 0, sizeof(dns_set));
-		dns_set.dns_client_socket_path =
-			client->set.dns_client_socket_path;
-		dns_set.timeout_msecs = POP3C_DNS_LOOKUP_TIMEOUT_MSECS;
-		if (dns_lookup(client->set.host, &dns_set,
-			       pop3c_dns_callback, client,
-			       &client->dns_lookup) < 0)
+		if (pop3c_client_dns_lookup(client) < 0)
 			failed = TRUE;
 	} else if (client->to == NULL) {
 		client->to = timeout_add(POP3C_COMMAND_TIMEOUT_MSECS,
