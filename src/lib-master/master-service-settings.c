@@ -177,7 +177,8 @@ master_service_open_config(struct master_service *service,
 	*path_r = path = input->config_path != NULL ? input->config_path :
 		master_service_get_config_path(service);
 
-	if (service->config_fd != -1 && input->config_path == NULL) {
+	if (service->config_fd != -1 && input->config_path == NULL &&
+	    service->config_path_is_default) {
 		/* use the already opened config socket */
 		fd = service->config_fd;
 		service->config_fd = -1;
@@ -344,6 +345,12 @@ void master_service_config_socket_try_open(struct master_service *service)
 	const char *path, *error;
 	int fd;
 
+	/* we'll get here before command line parameters have been parsed,
+	   so -O, -c and -i parameters haven't been handled yet at this point.
+	   this means we could end up opening config socket connection
+	   unnecessarily, but this isn't a problem. we'll just have to
+	   ignore it later on. (unfortunately there isn't a master_service_*()
+	   call where this function would be better called.) */
 	if (getenv("DOVECONF_ENV") != NULL ||
 	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) != 0)
 		return;
