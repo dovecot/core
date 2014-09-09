@@ -784,7 +784,9 @@ static void client_uidls_save(struct client *client)
 
 	uidl_duplicates_rename =
 		strcmp(client->set->pop3_uidl_duplicates, "rename") == 0;
-	hash_table_create(&prev_uidls, default_pool, 0, str_hash, strcmp);
+	if (uidl_duplicates_rename)
+		hash_table_create(&prev_uidls, default_pool, 0, str_hash,
+				  strcmp);
 	client->uidl_pool = pool_alloconly_create("message uidls", 1024);
 
 	/* first read all the UIDLs into a temporary [seq] array */
@@ -804,10 +806,12 @@ static void client_uidls_save(struct client *client)
 			mail_update_pop3_uidl(mail, uidl);
 
 		seq_uidls[mail->seq-1] = uidl;
-		hash_table_insert(prev_uidls, uidl, POINTER_CAST(1));
+		if (uidl_duplicates_rename)
+			hash_table_insert(prev_uidls, uidl, POINTER_CAST(1));
 	}
 	(void)mailbox_search_deinit(&search_ctx);
-	hash_table_destroy(&prev_uidls);
+	if (uidl_duplicates_rename)
+		hash_table_destroy(&prev_uidls);
 
 	if (failed) {
 		pool_unref(&client->uidl_pool);
