@@ -307,7 +307,8 @@ static void replication_user_created(struct mail_user *user)
 	struct replication_user *ruser;
 	const char *value;
 
-	if (mail_user_plugin_getenv(user, "replication_disabled") != NULL)
+	value = mail_user_plugin_getenv(user, "mail_replica");
+	if (value == NULL || value[0] == '\0')
 		return;
 
 	ruser = p_new(user->pool, struct replication_user, 1);
