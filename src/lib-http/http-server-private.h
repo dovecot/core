@@ -47,6 +47,7 @@ struct http_server_response {
 
 	string_t *headers;
 	time_t date;
+	ARRAY_TYPE(http_auth_challenge) auth_challenges;
 
 	struct istream *payload_input;
 	uoff_t payload_size, payload_offset;

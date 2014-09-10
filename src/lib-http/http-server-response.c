@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "array.h"
 #include "istream.h"
 #include "ostream.h"
 #include "http-date.h"
@@ -135,6 +136,29 @@ void http_server_response_set_payload_data(struct http_server_response *resp,
 
 	http_server_response_set_payload(resp, input);
 	i_stream_unref(&input);
+}
+
+void http_server_response_add_auth(
+	struct http_server_response *resp,
+	const struct http_auth_challenge *chlng)
+{
+	struct http_auth_challenge *new;
+	pool_t pool = resp->request->pool;
+
+	if (!array_is_created(&resp->auth_challenges))
+		p_array_init(&resp->auth_challenges, pool, 4);
+
+	new = array_append_space(&resp->auth_challenges);
+	http_auth_challenge_copy(pool, new, chlng);
+}
+
+void http_server_response_add_auth_basic(
+	struct http_server_response *resp, const char *realm)
+{
+	struct http_auth_challenge chlng;
+
+	http_auth_basic_challenge_init(&chlng, realm);
+	http_server_response_add_auth(resp, &chlng);
 }
 
 static void http_server_response_do_submit(struct http_server_response *resp,
@@ -284,6 +308,11 @@ static int http_server_response_send_real(struct http_server_response *resp,
 		str_append(rtext, http_date_create(resp->date));
 		str_append(rtext, "\r\n");
 	}
+	if (array_is_created(&resp->auth_challenges)) {
+		str_append(rtext, "WWW-Authenticate: ");
+		http_auth_create_challenges(rtext, &resp->auth_challenges);
+		str_append(rtext, "\r\n");
+	}
 	if (resp->payload_chunked) {
 		if (http_server_request_version_equals(req, 1, 0)) {
 			/* cannot use Transfer-Encoding */
@@ -382,4 +411,3 @@ int http_server_response_send(struct http_server_response *resp,
 	} T_END;
 	return ret;
 }
-

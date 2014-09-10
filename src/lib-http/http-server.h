@@ -1,6 +1,7 @@
 #ifndef HTTP_SERVER_H
 #define HTTP_SERVER_H
 
+#include "http-auth.h"
 #include "http-request.h"
 
 struct istream;
@@ -90,6 +91,12 @@ http_server_request_get_response(struct http_server_request *req);
    or because the request was aborted. */
 bool http_server_request_is_finished(struct http_server_request *req);
 
+/* Get the authentication credentials provided in this request. Returns 0 if
+   the Authorization header is absent, returns -1 when that header cannot be
+   parsed, and returns 1 otherwise */
+int http_server_request_get_auth(struct http_server_request *req,
+	struct http_auth_credentials *credentials);
+
 /* Send a failure response to the request with given status/reason. */
 void http_server_request_fail(struct http_server_request *req,
 	unsigned int status, const char *reason);
@@ -97,6 +104,18 @@ void http_server_request_fail(struct http_server_request *req,
    and close the connection. */
 void http_server_request_fail_close(struct http_server_request *req,
 	unsigned int status, const char *reason);
+/* Send an authentication failure response to the request with given reason.
+   The provided challenge is set in the WWW-Authenticate header of the
+   response. */
+void http_server_request_fail_auth(struct http_server_request *req,
+	const char *reason, const struct http_auth_challenge *chlng)
+	ATTR_NULL(2);
+/* Send a authentication failure response to the request with given reason.
+   The provided realm is used to construct an Basic challenge in the
+   WWW-Authenticate header of the response. */
+void http_server_request_fail_auth_basic(struct http_server_request *req,
+	const char *reason, const char *realm)
+	ATTR_NULL(2);
 
 /* Call the specified callback when HTTP request is destroyed. This happens
    after one of the following:
@@ -131,6 +150,13 @@ void http_server_response_set_payload(struct http_server_response *resp,
 				     struct istream *input);
 void http_server_response_set_payload_data(struct http_server_response *resp,
 				     const unsigned char *data, size_t size);
+
+void http_server_response_add_auth(
+	struct http_server_response *resp,
+	const struct http_auth_challenge *chlng);
+void http_server_response_add_auth_basic(
+	struct http_server_response *resp, const char *realm);
+
 void http_server_response_submit(struct http_server_response *resp);
 /* Submit response and close the connection. */
 void http_server_response_submit_close(struct http_server_response *resp);

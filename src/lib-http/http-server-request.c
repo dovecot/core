@@ -111,6 +111,22 @@ http_server_request_get_response(struct http_server_request *req)
 	return req->response;
 }
 
+int http_server_request_get_auth(struct http_server_request *req,
+	struct http_auth_credentials *credentials)
+{
+	const char *auth;
+
+	auth = http_request_header_get(&req->req, "Authorization");
+	if (auth == NULL)
+		return 0;
+
+	if (http_auth_parse_credentials
+		((const unsigned char *)auth, strlen(auth), credentials) < 0)
+		return -1;
+	
+	return 1;
+}
+
 bool http_server_request_is_finished(struct http_server_request *req)
 {
 	return req->response != NULL ||
@@ -197,9 +213,9 @@ void http_server_request_finished(struct http_server_request *req)
 	http_server_connection_send_responses(conn);
 }
 
-static void
-http_server_request_fail_full(struct http_server_request *req,
-	unsigned int status, const char *reason, bool close)
+static 	struct http_server_response *
+http_server_request_create_fail_response(struct http_server_request *req,
+	unsigned int status, const char *reason)
 {
 	struct http_server_response *resp;
 
@@ -211,6 +227,18 @@ http_server_request_fail_full(struct http_server_request *req,
 	reason = t_strconcat(reason, "\r\n", NULL);
 	http_server_response_set_payload_data
 		(resp, (const unsigned char *)reason, strlen(reason));
+
+	return resp;
+}
+
+static void
+http_server_request_fail_full(struct http_server_request *req,
+	unsigned int status, const char *reason, bool close)
+{
+	struct http_server_response *resp;
+
+	req->failed = TRUE;
+	resp = http_server_request_create_fail_response(req, status, reason);
 	if (close)
 		http_server_response_submit_close(resp);
 	else
@@ -229,3 +257,28 @@ void http_server_request_fail_close(struct http_server_request *req,
 {
 	http_server_request_fail_full(req, status, reason, TRUE);
 }
+
+void http_server_request_fail_auth(struct http_server_request *req,
+	const char *reason, const struct http_auth_challenge *chlng)
+{
+	struct http_server_response *resp;
+
+	req->failed = TRUE;
+
+	if (reason == NULL)
+		reason = "Unauthenticated";
+
+	resp = http_server_request_create_fail_response(req, 401, reason);
+	http_server_response_add_auth(resp, chlng);
+	http_server_response_submit(resp);
+}
+
+void http_server_request_fail_auth_basic(struct http_server_request *req,
+	const char *reason, const char *realm)
+{
+	struct http_auth_challenge chlng;
+
+	http_auth_basic_challenge_init(&chlng, realm);
+	http_server_request_fail_auth(req, reason, &chlng);
+}
+
