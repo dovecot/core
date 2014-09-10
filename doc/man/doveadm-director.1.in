@@ -141,11 +141,11 @@ to the LDAP or SQL server is slow.
 .\"-----------------
 .TP
 .B \-h
-XXX Output all usernames, which match the given hash.
+Output all usernames, which match the given hash.
 .\"-----------------
 .TP
 .B \-u
-XXX Output hash for the given username.
+Output hash for the given username.
 .\"-----------------
 .TP
 .I host
