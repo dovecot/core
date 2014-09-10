@@ -307,6 +307,9 @@ static void replication_user_created(struct mail_user *user)
 	struct replication_user *ruser;
 	const char *value;
 
+	if (mail_user_plugin_getenv(user, "replication_disabled") != NULL)
+		return;
+
 	ruser = p_new(user->pool, struct replication_user, 1);
 	ruser->module_ctx.super = *v;
 	user->vlast = &ruser->module_ctx.super;
