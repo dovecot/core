@@ -190,6 +190,7 @@ static int dsync_ibc_stream_read_mail_stream(struct dsync_ibc_stream *ibc)
 
 static void dsync_ibc_stream_input(struct dsync_ibc_stream *ibc)
 {
+	timeout_reset(ibc->to);
 	if (ibc->value_input != NULL) {
 		if (dsync_ibc_stream_read_mail_stream(ibc) == 0)
 			return;
