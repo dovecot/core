@@ -11,8 +11,9 @@
 
 #define HTTP_CLIENT_DNS_LOOKUP_TIMEOUT_MSECS (1000*30)
 #define HTTP_CLIENT_CONNECT_TIMEOUT_MSECS (1000*30)
-#define HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS (1000*60*5)
 #define HTTP_CLIENT_CONTINUE_TIMEOUT_MSECS (1000*2)
+#define HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS (1000*60*5)
+#define HTTP_CLIENT_DEFAULT_BACKOFF_TIME_MSECS (100)
 
 enum http_response_payload_type;
 
@@ -159,10 +160,14 @@ struct http_client_peer {
 	/* zero time-out for consolidating request handling */
 	struct timeout *to_req_handling;
 
+	/* connection retry */
+	struct timeval last_failure;
+	struct timeout *to_backoff;
+	unsigned int backoff_time_msecs;
+
 	unsigned int destroyed:1;        /* peer is being destroyed */
 	unsigned int no_payload_sync:1;  /* expect: 100-continue failed before */
 	unsigned int seen_100_response:1;/* expect: 100-continue succeeded before */
-	unsigned int last_connect_failed:1;
 	unsigned int allows_pipelining:1;/* peer is known to allow persistent
 	                                     connections */
 };
