@@ -244,6 +244,8 @@ static void http_server_payload_destroyed(struct http_server_request *req)
 static void http_server_connection_request_callback(
 	struct http_server_connection *conn, struct http_server_request *req)
 {
+	unsigned int old_refcount = req->refcount;
+
 	/* CONNECT method */
 	if (strcmp(req->req.method, "CONNECT") == 0) {
 		if (conn->callbacks->handle_connect_request == NULL) {
@@ -262,15 +264,13 @@ static void http_server_connection_request_callback(
 		if (conn->callbacks->handle_request == NULL) {
 			http_server_request_fail(req, 505, "Not Implemented");
 			return;
-		} else {
-			unsigned int old_refcount = req->refcount;
-
-			conn->callbacks->handle_request(conn->context, req);
-			i_assert((req->response != NULL &&
-				  req->response->submitted) ||
-				 req->refcount > old_refcount);
 		}
+		conn->callbacks->handle_request(conn->context, req);
 	}
+
+	i_assert((req->response != NULL &&
+		  req->response->submitted) ||
+		 req->refcount > old_refcount);
 }
 
 static bool
