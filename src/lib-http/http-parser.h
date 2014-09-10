@@ -10,6 +10,7 @@ extern const unsigned char _http_value_char_mask;
 extern const unsigned char _http_text_char_mask;
 extern const unsigned char _http_qdtext_char_mask;
 extern const unsigned char _http_ctext_char_mask;
+extern const unsigned char _http_token68_char_mask;
 
 extern const unsigned char _http_char_lookup[256];
 
@@ -33,6 +34,10 @@ static inline bool http_char_is_ctext(unsigned char ch) {
 	return (_http_char_lookup[ch] & _http_ctext_char_mask) != 0;
 }
 
+static inline bool http_char_is_token68(unsigned char ch) {
+	return (_http_char_lookup[ch] & _http_token68_char_mask) != 0;
+}
+
 /*
  * HTTP value parsing
  */
@@ -46,6 +51,7 @@ void http_parser_init(struct http_parser *parser,
 
 void http_parse_ows(struct http_parser *parser);
 
+int http_parser_skip_token(struct http_parser *parser);
 int http_parse_token(struct http_parser *parser, const char **token_r);
 int http_parse_token_list_next(struct http_parser *parser,
 	const char **token_r);

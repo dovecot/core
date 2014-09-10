@@ -24,43 +24,47 @@
  obs-text       = %x80-FF
  OWS            = *( SP / HTAB )
  VCHAR          =  %x21-7E
+ 't68char'      = ALPHA / DIGIT / "-" / "." / "_" / "~" / "+" / "/"
 
  'text'         = ( HTAB / SP / VCHAR / obs-text )
  
  Character bit mappings:
 
- (1<<0) => tchar
- (1<<1) => special
- (1<<2) => %x21 / %x2A-5B / %x5D-7E
- (1<<3) => %x23-29
- (1<<4) => %x22-27
- (1<<5) => HTAB / SP / obs-text
+ (1<<0) => ALPHA / DIGIT / "-" / "." / "_" / "~" / "+"
+ (1<<1) => "!" / "#" / "$" / "%" / "&" / "'" / "*" / "^" / "`" / "|"
+ (1<<2) => special
+ (1<<3) => %x21 / %x2A-5B / %x5D-7E
+ (1<<4) => %x23-29
+ (1<<5) => %x22-27
+ (1<<6) => HTAB / SP / obs-text
+ (1<<7) => "/"
  */
 
-const unsigned char _http_token_char_mask  = (1<<0);
-const unsigned char _http_value_char_mask  = (1<<0)|(1<<1);
-const unsigned char _http_text_char_mask   = (1<<0)|(1<<1)|(1<<5);
-const unsigned char _http_qdtext_char_mask = (1<<2)|(1<<3)|(1<<5);
-const unsigned char _http_ctext_char_mask  = (1<<2)|(1<<4)|(1<<5);
+const unsigned char _http_token_char_mask   = (1<<0)|(1<<1);
+const unsigned char _http_value_char_mask   = (1<<0)|(1<<1)|(1<<2);
+const unsigned char _http_text_char_mask    = (1<<0)|(1<<1)|(1<<2)|(1<<6);
+const unsigned char _http_qdtext_char_mask  = (1<<3)|(1<<4)|(1<<6);
+const unsigned char _http_ctext_char_mask   = (1<<3)|(1<<5)|(1<<6);
+const unsigned char _http_token68_char_mask = (1<<0)|(1<<7);
 
 const unsigned char _http_char_lookup[256] = {
-	 0,  0,  0,  0,  0,  0,  0,  0,  0, 32,  0,  0,  0,  0,  0,  0, // 00
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, // 10
-	32, 21, 18, 25, 25, 25, 25, 25, 10, 10,  5,  5,  6,  5,  5,  6, // 20
-	 5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  6,  6,  6,  6,  6,  6, // 30
-	 6,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5, // 40
-	 5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  6,  2,  6,  5,  5, // 50
-	 5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5, // 60
-	 5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  6,  5,  6,  5,  0, // 70
+	 0,  0,  0,  0,  0,  0,  0,  0,  0, 64,  0,  0,  0,  0,  0,   0, // 00
+	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   0, // 10
+	64, 10, 36, 50, 50, 50, 50, 50, 20, 20, 10,  9, 12,  9,  9, 140, // 20
+	 9,  9,  9,  9,  9,  9,  9,  9,  9,  9, 12, 12, 12, 12, 12,  12, // 30
+	12,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,   9, // 40
+	 9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9, 12,  4, 12, 10,   9, // 50
+	10,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,   9, // 60
+	 9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9, 12, 10, 12,  9,   0, // 70
 
-	32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, // 80
-	32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, // 90
-	32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, // A0
-	32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, // B0
-	32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, // C0
-	32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, // D0
-	32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, // E0
-	32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, // F0
+	64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,  64, // 80
+	64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,  64, // 90
+	64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,  64, // A0
+	64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,  64, // B0
+	64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,  64, // C0
+	64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,  64, // D0
+	64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,  64, // E0
+	64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,  64, // F0
 };
 
 /*
@@ -87,19 +91,26 @@ void http_parse_ows(struct http_parser *parser)
 	}
 }
 
-int http_parse_token(struct http_parser *parser, const char **token_r)
+int http_parser_skip_token(struct http_parser *parser)
 {
-	const unsigned char *first;
-
 	/* token          = 1*tchar */
 
 	if (parser->cur >= parser->end || !http_char_is_token(*parser->cur))
 		return 0;
+	parser->cur++;
 
-	first = parser->cur++;
 	while (parser->cur < parser->end && http_char_is_token(*parser->cur))
 		parser->cur++;
+	return 1;
+}
 
+int http_parse_token(struct http_parser *parser, const char **token_r)
+{
+	const unsigned char *first = parser->cur;
+	int ret;
+
+	if ((ret=http_parser_skip_token(parser)) <= 0)
+		return ret;
 	*token_r = t_strndup(first, parser->cur - first);
 	return 1;
 }

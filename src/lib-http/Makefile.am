@@ -14,6 +14,7 @@ libhttp_la_SOURCES = \
 	http-header.c \
 	http-header-parser.c \
 	http-transfer-chunked.c \
+	http-auth.c \
 	http-message-parser.c \
 	http-request.c \
 	http-request-parser.c \
@@ -37,6 +38,7 @@ headers = \
 	http-header.h \
 	http-header-parser.h \
 	http-transfer.h \
+	http-auth.h \
 	http-message-parser.h \
 	http-request.h \
 	http-request-parser.h \
@@ -55,6 +57,7 @@ test_programs = \
 	test-http-url \
 	test-http-header-parser \
 	test-http-transfer \
+	test-http-auth \
 	test-http-response-parser \
 	test-http-request-parser
 
@@ -94,6 +97,13 @@ test_http_transfer_LDADD = \
 	http-header.lo \
 	$(test_libs)
 test_http_transfer_DEPENDENCIES = $(test_deps)
+
+test_http_auth_SOURCES = test-http-auth.c
+test_http_auth_LDADD = \
+	http-auth.lo \
+	http-parser.lo \
+	$(test_libs)
+test_http_auth_DEPENDENCIES = $(test_deps)
 
 test_http_response_parser_SOURCES = test-http-response-parser.c
 test_http_response_parser_LDADD = \
