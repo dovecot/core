@@ -77,6 +77,9 @@ http_client_connection_retry_requests(struct http_client_connection *conn,
 {
 	struct http_client_request **req;
 
+	if (!array_is_created(&conn->request_wait_list))
+		return;
+
 	array_foreach_modifiable(&conn->request_wait_list, req) {
 		if ((*req)->state < HTTP_REQUEST_STATE_FINISHED)
 			http_client_request_retry(*req, status, error);
