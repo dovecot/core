@@ -1,44 +1,20 @@
-.\" Copyright (c) 2013 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-DIRECTOR 1 "2013-07-12" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2013-2014 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-DIRECTOR 1 "2014-08-30" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-director \- Manage Dovecot directors
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
-.BR doveadm " [" \-Dv "] " "director add"
-[\fB\-a\fP \fIdirector_socket_path\fP]
-.IR host " [" vhost_count ]
-.\"-------------------------------------
-.br
-.BR doveadm " [" \-Dv "] " "director flush"
-[\fB\-a\fP \fIdirector_socket_path\fP]
-\fIhost\fP|\fBall\fP
-.\"-------------------------------------
-.br
-.BR doveadm " [" \-Dv "] " "director map"
-[\fB\-a\fP \fIdirector_socket_path\fP]
-[\fB\-f\fP \fIusers_file\fP]
-.RI [ host ]
-.\"-------------------------------------
-.br
-.BR doveadm " [" \-Dv "] " "director remove"
-[\fB\-a\fP \fIdirector_socket_path\fP]
-.I host
-.\"-------------------------------------
-.br
-.BR doveadm " [" \-Dv "] " "director dump"
-[\fB\-a\fP \fIdirector_socket_path\fP]
-.\"-------------------------------------
-.br
-.BR doveadm " [" \-Dv "] " "director status"
-[\fB\-a\fP \fIdirector_socket_path\fP]
-.RI [ user ]
+.BR doveadm " [" \-Dv ]
+[\fB\-f\fP \fIformatter\fP]
+.BI director \ command
+.RI [ OPTIONS ]\ [ ARGUMENTS ]
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 .B doveadm director
 can be used to manage and query the status of the list of backend mail
 servers where Dovecot proxy can redirect connections to.
 .\"------------------------------------------------------------------------
-@INCLUDE:global-options@
+@INCLUDE:global-options-formatter@
 .\" --- command specific options --- "/.
 .PP
 Command specific
@@ -65,6 +41,15 @@ setting was overridden in
 .TP
 .I host
 A mail server\(aqs hostname or IP address.
+.\"-------------------------------------
+.TP
+.I ip
+A director\(aqs IP address.
+.\"-------------------------------------
+.TP
+.I port
+The TCP port, on which the director server is listening for connections.
+The default port is the same as what the local director is listening in.
 .\"-------------------------------------
 .TP
 .I user
@@ -98,6 +83,14 @@ increase/decrease the
 of an already assigned server.
 .PP
 .\"-------------------------------------
+.SS director dump
+.B doveadm director dump
+[\fB\-a\fP \fIdirector_socket_path\fP]
+.PP
+Dump the current host configuration as doveadm commands. These commands can
+be easily run after a full director cluster restart to get back to the
+dumped state.
+.\"-------------------------------------
 .SS director flush
 .B doveadm director flush
 [\fB\-a\fP \fIdirector_socket_path\fP]
@@ -111,10 +104,22 @@ or
 hosts.
 This command is intended mainly for testing purposes.
 .\"-------------------------------------
+.SS director kick
+.B doveadm director kick
+[\fB\-a\fP \fIdirector_socket_path\fP]
+.I user
+.PP
+Kick the specified
+.I user
+from the entire Dovecot cluster.
+This is similar to doveadm proxy kick, but this command needs to be run
+only once instead of in each director server.
+.\"-------------------------------------
 .SS director map
 .B doveadm director map
 [\fB\-a\fP \fIdirector_socket_path\fP]
 [\fB\-f\fP \fIusers_file\fP]
+[\fB\-h\fP|\fB\-u\fP]
 .RI [ host ]
 .PP
 The command
@@ -133,11 +138,33 @@ When given no
 lookup will be performed.
 This may be a helpful alternative when for example the network connection
 to the LDAP or SQL server is slow.
+.\"-----------------
+.TP
+.B \-h
+XXX Output all usernames, which match the given hash.
+.\"-----------------
+.TP
+.B \-u
+XXX Output hash for the given username.
+.\"-----------------
 .TP
 .I host
 Specify a server\(aqs IP address or hostname, to list only mappings of the
 given
 .IR host .
+.\"-------------------------------------
+.SS director move
+.B doveadm director move
+[\fB\-a\fP \fIdirector_socket_path\fP]
+.I user host
+.PP
+Move the
+.I user
+to the specified backend
+.IR host .
+If the
+.I user
+has any existing connections they will be killed.
 .\"-------------------------------------
 .SS director remove
 .B doveadm director remove
@@ -148,13 +175,25 @@ Use this command in order to remove the given
 .I host
 from the director.
 .\"-------------------------------------
-.SS director dump
-.B doveadm director dump
+.SS director ring add
+.B doveadm director ring add
+[\fB\-a\fP \fIdirector_socket_path\fP]
+.IR ip \ [ port ]
+.PP
+Add a new director to the ring.
+.\"-------------------------------------
+.SS director ring remove
+.B doveadm director ring remove
+[\fB\-a\fP \fIdirector_socket_path\fP]
+.IR ip \ [ port ]
+.PP
+Remove a director from the ring.
+.\"-------------------------------------
+.SS director ring status
+.B doveadm director ring status
 [\fB\-a\fP \fIdirector_socket_path\fP]
 .PP
-Dump the current host configuration as doveadm commands. These commands can
-be easily run after a full director cluster restart to get back to the
-dumped state.
+Show the status of all the directors currently in the ring.
 .\"-------------------------------------
 .SS director status
 .B doveadm director status
