@@ -25,10 +25,11 @@ static const char *test_aqueue2(unsigned int initial_size)
 {
 	ARRAY(unsigned int) aqueue_array;
 	unsigned int i, j, k;
-	struct aqueue *aqueue;
 
 	for (i = 0; i < N_ELEMENTS(aqueue_input); i++) {
 		for (k = 0; k < N_ELEMENTS(aqueue_input); k++) {
+			struct aqueue *aqueue;
+
 			t_array_init(&aqueue_array, initial_size);
 			aqueue = aqueue_init(&aqueue_array.arr);
 			aqueue->head = aqueue->tail = initial_size - 1;
@@ -49,11 +50,12 @@ static const char *test_aqueue2(unsigned int initial_size)
 				if (!aqueue_is_ok(aqueue, i))
 					return "Invalid data after delete";
 			}
+			aqueue_clear(aqueue);
+			if (aqueue_count(aqueue) != 0)
+				return "aqueue_clear() broken";
+			aqueue_deinit(&aqueue);
 		}
 	}
-	aqueue_clear(aqueue);
-	if (aqueue_count(aqueue) != 0)
-		return "aqueue_clear() broken";
 	return NULL;
 }
 
