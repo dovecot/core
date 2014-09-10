@@ -448,6 +448,7 @@ static void http_server_connection_input(struct connection *_conn)
 			T_BEGIN {
 				cont = http_server_connection_handle_request(conn, req);
 			} T_END;
+			req->delay_destroy = FALSE;
 			if (!cont) {
 				/* connection closed or request body not read yet.
 				   the request may be destroyed now. */
