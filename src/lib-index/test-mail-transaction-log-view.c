@@ -71,8 +71,10 @@ test_transaction_log_file_add(uint32_t file_seq)
 
 	/* files must be sorted by file_seq */
 	for (p = &log->files; *p != NULL; p = &(*p)->next) {
-		if ((*p)->hdr.file_seq > file->hdr.file_seq)
+		if ((*p)->hdr.file_seq > file->hdr.file_seq) {
+			file->next = *p;
 			break;
+		}
 	}
 	*p = file;
 	log->head = file;
@@ -119,6 +121,7 @@ static void test_mail_transaction_log_view(void)
 	const struct mail_index_record *rec;
 	struct mail_index_record append_rec;
 	const void *data;
+	void *oldfile;
 	uint32_t seq;
 	uoff_t offset, last_log_size;
 	bool reset;
@@ -186,7 +189,10 @@ static void test_mail_transaction_log_view(void)
 	mail_transaction_log_view_clear(view, 2);
 	test_assert(!view_is_file_refed(1) && view_is_file_refed(2) &&
 		    view_is_file_refed(3));
+	oldfile = log->files;
+	buffer_free(&log->files->buffer);
 	log->files = log->files->next;
+	i_free(oldfile);
 	test_assert(log->files->hdr.file_seq == 2);
 	test_end();
 
@@ -205,6 +211,16 @@ static void test_mail_transaction_log_view(void)
 	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, (uoff_t)-1, &reset) == -1);
 	view->log = log;
 	test_end();
+
+	mail_transaction_log_view_close(&view);
+	i_free(log->index);
+	while (log->files != NULL) {
+		oldfile = log->files;
+		buffer_free(&log->files->buffer);
+		log->files = log->files->next;
+		i_free(oldfile);
+	}
+	i_free(log);
 }
 
 int main(void)

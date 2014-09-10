@@ -70,6 +70,17 @@ mail_index_transaction_new(void)
 	t->first_new_seq = hdr.messages_count + 1;
 	return t;
 }
+static void mail_index_transaction_cleanup(struct mail_index_transaction *t)
+{
+	if (array_is_created(&t->appends))
+		array_free(&t->appends);
+	if (array_is_created(&t->updates))
+		array_free(&t->updates);
+	if (array_is_created(&t->modseq_updates))
+		array_free(&t->modseq_updates);
+	if (array_is_created(&t->expunges))
+		array_free(&t->expunges);
+}
 
 static void test_mail_index_append(void)
 {
@@ -103,6 +114,7 @@ static void test_mail_index_append(void)
 	test_assert(appends[1].uid == 124);
 	test_assert(appends[1].flags == 0);
 	test_end();
+	mail_index_transaction_cleanup(t);
 
 	/* test with some uids */
 	t = mail_index_transaction_new();
@@ -138,6 +150,8 @@ static void test_mail_index_append(void)
 	test_assert(appends[3].uid == 131);
 	test_assert(appends[4].uid == 128);
 	test_end();
+
+	mail_index_transaction_cleanup(t);
 }
 
 static void test_mail_index_flag_update_fastpath(void)
@@ -178,6 +192,8 @@ static void test_mail_index_flag_update_fastpath(void)
 	test_assert(updates[1].remove_flags == 0);
 	test_assert(!t->log_updates);
 	test_end();
+
+	mail_index_transaction_cleanup(t);
 }
 
 static void test_mail_index_flag_update_simple_merges(void)
@@ -221,6 +237,8 @@ static void test_mail_index_flag_update_simple_merges(void)
 	test_assert(updates[0].uid1 == 4);
 	test_assert(updates[0].uid2 == 12);
 	test_end();
+
+	mail_index_transaction_cleanup(t);
 }
 
 static void test_mail_index_flag_update_complex_merges(void)
@@ -279,6 +297,8 @@ static void test_mail_index_flag_update_complex_merges(void)
 	test_assert(updates[6].remove_flags == 0);
 
 	test_end();
+
+	mail_index_transaction_cleanup(t);
 }
 
 static void
@@ -353,6 +373,8 @@ static void test_mail_index_flag_update_random(void)
 		flags_array_check(t, flags, hdr.messages_count);
 	}
 	test_end();
+
+	mail_index_transaction_cleanup(t);
 }
 
 static void test_mail_index_cancel_flag_updates(void)
@@ -385,6 +407,8 @@ static void test_mail_index_cancel_flag_updates(void)
 	test_assert(updates[1].uid1 == 7 && updates[1].uid2 == 7);
 
 	test_end();
+
+	mail_index_transaction_cleanup(t);
 }
 
 static void test_mail_index_flag_update_appends(void)
@@ -430,6 +454,8 @@ static void test_mail_index_flag_update_appends(void)
 	test_assert(updates[0].uid2 == 4);
 	test_assert(updates[0].add_flags == MAIL_ANSWERED);
 	test_end();
+
+	mail_index_transaction_cleanup(t);
 }
 
 static bool test_flag_update_pos(struct mail_index_transaction *t,
@@ -475,6 +501,8 @@ static void test_mail_index_transaction_get_flag_update_pos(void)
 	test_assert(test_flag_update_pos(t, 11, 4));
 	test_assert(test_flag_update_pos(t, 12, 4));
 	test_end();
+
+	mail_index_transaction_cleanup(t);
 }
 
 static void test_mail_index_modseq_update(void)
@@ -511,6 +539,8 @@ static void test_mail_index_modseq_update(void)
 		    ups[3].modseq_high32 == 0 &&
 		    ups[3].modseq_low32 == 2);
 	test_end();
+
+	mail_index_transaction_cleanup(t);
 }
 
 static void test_mail_index_expunge(void)
@@ -553,6 +583,8 @@ static void test_mail_index_expunge(void)
 	test_assert(memcmp(expunges[4].guid_128, empty_guid, sizeof(empty_guid)) == 0);
 
 	test_end();
+
+	mail_index_transaction_cleanup(t);
 }
 
 int main(void)

@@ -157,6 +157,10 @@ static void test_mail_transaction_log_append(void)
 	file->fd = -1;
 	test_end();
 
+	buffer_free(&log->head->buffer);
+	i_free(log->head);
+	i_free(log->index);
+	i_free(log);
 	unlink(tmp_path);
 }
 
