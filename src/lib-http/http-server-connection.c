@@ -303,8 +303,8 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 	http_server_connection_ref(conn);
 	http_server_connection_request_callback(conn, req);
 	http_server_connection_unref(&conn);
-	if (conn == NULL) {
-		/* the callback managed to get this connection destroyed */
+	if (conn == NULL || conn->closed) {
+		/* the callback managed to get this connection destroyed/closed */
 		return FALSE;
 	}
 
