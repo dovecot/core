@@ -182,6 +182,8 @@ struct http_client_queue {
 	   connected IP */
 	unsigned int ips_connect_start_idx;
 
+	unsigned int connect_attempts;
+
 	/* peers we are trying to connect to;
 	   this can be more than one when soft connect timeouts are enabled */
 	ARRAY_TYPE(http_client_peer) pending_peers;

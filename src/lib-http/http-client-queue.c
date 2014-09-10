@@ -158,13 +158,20 @@ http_client_queue_drop_request(struct http_client_queue *queue,
 static bool
 http_client_queue_is_last_connect_ip(struct http_client_queue *queue)
 {
+	const struct http_client_settings *set =
+		&queue->client->set;
 	struct http_client_host *host = queue->host;
 
 	i_assert(queue->ips_connect_idx < host->ips_count);
 	i_assert(queue->ips_connect_start_idx < host->ips_count);
 
-	/* we'll always go through all the IPs. we don't necessarily start
-	   connecting from the first IP, so we'll need to treat the IPs as
+	/* if a maximum connect attempts > 1 is set, enforce it directly */
+	if (set->max_connect_attempts > 1) {
+		return queue->connect_attempts >= set->max_connect_attempts;
+	}
+		
+	/* otherwise, we'll always go through all the IPs. we don't necessarily
+	   start connecting from the first IP, so we'll need to treat the IPs as
 	   a ring buffer where we automatically wrap back to the first IP
 	   when necessary. */
 	return (queue->ips_connect_idx + 1) % host->ips_count ==
@@ -244,8 +251,14 @@ void http_client_queue_connection_setup(struct http_client_queue *queue)
 				}
 			}
 		}
-		if (new_peer)
+		if (new_peer) {
+			http_client_queue_debug(queue, "Started new connection to %s%s",
+				http_client_peer_addr2str(addr), (addr->https_name == NULL ? "" :
+			t_strdup_printf(" (SSL=%s)", addr->https_name)));
+
 			array_append(&queue->pending_peers, &peer, 1);
+			queue->connect_attempts++;
+		}
 
 		/* start soft connect time-out (but only if we have another IP left) */
 		msecs = host->client->set.soft_connect_timeout_msecs;
@@ -264,6 +277,9 @@ http_client_queue_connection_success(struct http_client_queue *queue,
 	/* we achieved at least one connection the the addr->ip */
 	queue->ips_connect_start_idx =
 		http_client_host_get_ip_idx(queue->host, &addr->ip);
+
+	/* reset attempt counter */
+	queue->connect_attempts = 0;
 
 	/* stop soft connect time-out */
 	if (queue->to_connect != NULL)
@@ -343,6 +359,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		   next request. */
 		queue->ips_connect_idx = queue->ips_connect_start_idx =
 			(queue->ips_connect_idx + 1) % host->ips_count;
+		queue->connect_attempts = 0;
 		http_client_queue_fail(queue,
 			HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, reason);
 		return FALSE;

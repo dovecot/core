@@ -120,6 +120,7 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	client->set.max_pipelined_requests =
 		(set->max_pipelined_requests > 0 ? set->max_pipelined_requests : 1);
 	client->set.max_attempts = set->max_attempts;
+	client->set.max_connect_attempts = set->max_connect_attempts;
 	client->set.no_auto_redirect = set->no_auto_redirect;
 	client->set.no_ssl_tunnel = set->no_ssl_tunnel;
 	client->set.max_redirects = set->max_redirects;
