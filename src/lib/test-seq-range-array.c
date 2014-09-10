@@ -151,6 +151,7 @@ fail:
 		test_out_reason("seq_range_array random", FALSE,
 			t_strdup_printf("round %u test %d failed", i, test));
 	}
+	array_free(&range);
 }
 
 static void test_seq_range_array_invert(void)
