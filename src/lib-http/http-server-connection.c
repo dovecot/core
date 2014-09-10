@@ -426,12 +426,15 @@ static void http_server_connection_input(struct connection *_conn)
 	/* parse requests */
 	ret = 1;
 	while (!conn->close_indicated && ret != 0) {
+		http_server_connection_ref(conn);
 		while ((ret = http_request_parse_next	(conn->http_parser,
 			req->pool, &req->req, &error_code, &error)) > 0) {
 
 			if (pending_request != NULL) {
 				/* previous request is now fully read and ready to respond */
 				http_server_request_ready_to_respond(pending_request);
+				if (conn->closed)
+					break;
 			}
 
 			http_server_connection_debug(conn,
@@ -452,6 +455,7 @@ static void http_server_connection_input(struct connection *_conn)
 					http_server_request_destroy(&req);
 				else
 					http_server_request_unref(&req);
+				http_server_connection_unref(&conn);
 				return;
 			}
 			if (req->req.connection_close)
@@ -460,21 +464,26 @@ static void http_server_connection_input(struct connection *_conn)
 				http_server_request_destroy(&req);
 			else
 				http_server_request_unref(&req);
-		
+
 			/* client indicated it will close after this request; stop trying
-			   to read more. */			   
-			if (conn->close_indicated)	
+			   to read more. */
+			if (conn->close_indicated)
 				break;
 
 			if (conn->request_queue_count >=
 				conn->server->set.max_pipelined_requests) {
 				http_server_connection_input_halt(conn);
+				http_server_connection_unref(&conn);
 				return;
 			}
 
 			/* start new request */
 			req = http_server_request_new(conn);
 		}
+
+		http_server_connection_unref(&conn);
+		if (conn == NULL || conn->closed)
+			return;
 
 		if (ret <= 0 &&
 	    (conn->conn.input->eof || conn->conn.input->stream_errno != 0)) {
@@ -545,7 +554,11 @@ static void http_server_connection_input(struct connection *_conn)
 		if (ret == 0 && pending_request != NULL &&
 			!http_request_parser_pending_payload(conn->http_parser)) {
 			/* previous request is now fully read and ready to respond */
+			http_server_connection_ref(conn);
 			http_server_request_ready_to_respond(pending_request);
+			http_server_connection_unref(&conn);
+			if (conn == NULL || conn->closed)
+				return;
 		}
 	}
 }
