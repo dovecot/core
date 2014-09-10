@@ -47,6 +47,9 @@ static void test_istream_concat_one(unsigned int buffer_size)
 		}
 	}
 	i_stream_unref(&input);
+
+	for (i = 0; i < STREAM_COUNT; i++)
+		i_stream_unref(&streams[i]);
 }
 
 static bool test_istream_concat_random(void)
