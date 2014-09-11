@@ -197,6 +197,7 @@ fts_backend_lucene_get_last_uid(struct fts_backend *_backend,
 		if (!fts_index_have_compatible_settings(_backend->ns->list,
 							set_checksum)) {
 			/* need to rebuild the index */
+			i_warning("fts-lucene: Settings have changed, rebuilding index");
 			*last_uid_r = 0;
 		} else {
 			*last_uid_r = hdr.last_indexed_uid;
