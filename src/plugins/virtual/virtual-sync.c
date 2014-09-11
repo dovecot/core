@@ -37,8 +37,9 @@ struct virtual_sync_context {
 
 	ARRAY(struct virtual_add_record) all_adds;
 
-	/* all messages in this sync */
-	ARRAY(const struct virtual_mail_index_record) all_mails;
+	/* all messages in this sync, sorted by mailbox_id
+	   (but unsorted inside it for now, since it doesn't matter) */
+	ARRAY(struct virtual_sync_mail) all_mails;
 	uint32_t all_mails_idx, all_mails_prev_mailbox_id;
 
 	enum mailbox_sync_flags flags;
@@ -85,7 +86,7 @@ static void virtual_sync_external_flags(struct virtual_sync_context *ctx,
 	mail_index_keywords_unref(&keywords);
 }
 
-static int virtual_sync_mail_cmp(const void *p1, const void *p2)
+static int virtual_sync_mail_uid_cmp(const void *p1, const void *p2)
 {
 	const struct virtual_sync_mail *m1 = p1, *m2 = p2;
 
@@ -664,9 +665,10 @@ virtual_sync_backend_handle_old_vmsgs(struct virtual_sync_context *ctx,
 				      struct virtual_backend_box *bbox,
 				      struct mail_search_result *result)
 {
-	const struct virtual_mail_index_record *vrec, *vrecs;
+	const struct virtual_mail_index_record *vrec;
+	const struct virtual_sync_mail *sync_mail, *sync_mails;
 	const void *data;
-	uint32_t vseq, messages;
+	uint32_t i, vseq, messages;
 
 	/* find the messages that currently exist in virtual index and add them
 	   to the backend mailbox's list of uids. */
@@ -674,11 +676,11 @@ virtual_sync_backend_handle_old_vmsgs(struct virtual_sync_context *ctx,
 
 	if (array_is_created(&ctx->all_mails)) {
 		i_assert(ctx->all_mails_prev_mailbox_id < bbox->mailbox_id);
-		vrecs = array_get(&ctx->all_mails, &messages);
-		for (vseq = ctx->all_mails_idx + 1; vseq <= messages; vseq++) {
-			vrec = &vrecs[vseq - 1];
-			if (vrec->mailbox_id != bbox->mailbox_id) {
-				if (vrec->mailbox_id < bbox->mailbox_id) {
+		sync_mails = array_get(&ctx->all_mails, &messages);
+		for (i = ctx->all_mails_idx; i < messages; i++) {
+			sync_mail = &sync_mails[i];
+			if (sync_mail->vrec.mailbox_id != bbox->mailbox_id) {
+				if (sync_mail->vrec.mailbox_id < bbox->mailbox_id) {
 					/* stale mailbox_id, ignore */
 					continue;
 				}
@@ -687,10 +689,10 @@ virtual_sync_backend_handle_old_vmsgs(struct virtual_sync_context *ctx,
 				break;
 			}
 
-			virtual_sync_backend_add_vmsgs_results(ctx,
-				bbox, vrec->real_uid, result, vseq);
+			virtual_sync_backend_add_vmsgs_results(ctx, bbox,
+				sync_mail->vrec.real_uid, result, sync_mail->vseq);
 		}
-		ctx->all_mails_idx = vseq - 1;
+		ctx->all_mails_idx = i;
 		ctx->all_mails_prev_mailbox_id = bbox->mailbox_id;
 	} else {
 		/* there should be only a single backend mailbox, but in the
@@ -1198,7 +1200,7 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 		vmails[vseq-1].vseq = vseq;
 		vmails[vseq-1].vrec = *vrec;
 	}
-	qsort(vmails, messages, sizeof(*vmails), virtual_sync_mail_cmp);
+	qsort(vmails, messages, sizeof(*vmails), virtual_sync_mail_uid_cmp);
 
 	/* create real mailbox uid -> virtual uid mapping and expunge
 	   messages no longer matching the search rule */
@@ -1501,13 +1503,12 @@ virtual_sync_apply_existing_expunges(struct virtual_mailbox *mbox,
 	}
 }
 
-static int
-virtual_sync_mails_mailbox_cmp(const struct virtual_mail_index_record *v1,
-			       const struct virtual_mail_index_record *v2)
+static int virtual_sync_mail_mailbox_cmp(const struct virtual_sync_mail *m1,
+					 const struct virtual_sync_mail *m2)
 {
-	if (v1->mailbox_id < v2->mailbox_id)
+	if (m1->vrec.mailbox_id < m2->vrec.mailbox_id)
 		return -1;
-	if (v1->mailbox_id > v2->mailbox_id)
+	if (m1->vrec.mailbox_id > m2->vrec.mailbox_id)
 		return 1;
 	return 0;
 }
@@ -1517,6 +1518,7 @@ static void virtual_sync_bboxes_get_mails(struct virtual_sync_context *ctx)
 	uint32_t messages, vseq;
 	const void *mail_data;
 	const struct virtual_mail_index_record *vrec;
+	struct virtual_sync_mail *sync_mail;
 
 	messages = mail_index_view_get_messages_count(ctx->sync_view);
 	i_array_init(&ctx->all_mails, messages);
@@ -1524,9 +1526,11 @@ static void virtual_sync_bboxes_get_mails(struct virtual_sync_context *ctx)
 		mail_index_lookup_ext(ctx->sync_view, vseq,
 				      ctx->mbox->virtual_ext_id, &mail_data, NULL);
 		vrec = mail_data;
-		array_append(&ctx->all_mails, vrec, 1);
+		sync_mail = array_append_space(&ctx->all_mails);
+		sync_mail->vseq = vseq;
+		sync_mail->vrec = *vrec;
 	}
-	array_sort(&ctx->all_mails, virtual_sync_mails_mailbox_cmp);
+	array_sort(&ctx->all_mails, virtual_sync_mail_mailbox_cmp);
 }
 
 static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
