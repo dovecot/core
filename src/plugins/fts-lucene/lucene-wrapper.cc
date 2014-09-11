@@ -416,6 +416,8 @@ static int lucene_settings_check(struct lucene_index *index)
 	if (ret != 0)
 		return ret;
 
+	i_warning("fts-lucene: Settings have changed, rebuilding index for mailbox");
+
 	/* settings changed, rebuild index */
 	if (unlink_directory(index->path, (enum unlink_directory_flags)0) < 0) {
 		i_error("unlink_directory(%s) failed: %m", index->path);
