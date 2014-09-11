@@ -334,23 +334,15 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 	if (ctx->binary_input) {
 		output->data = data;
 		output->size = size;
-	} else if (ctx->charset_utf8) {
+	} else if (ctx->charset_utf8 || ctx->charset_trans == NULL) {
+		/* handle unknown charsets the same as UTF-8. it might find
+		   usable ASCII text. */
 		buffer_set_used_size(ctx->buf2, 0);
 		if (ctx->normalizer != NULL) {
 			(void)ctx->normalizer(data, size, ctx->buf2);
 			output->data = ctx->buf2->data;
 			output->size = ctx->buf2->used;
 		} else if (uni_utf8_get_valid_data(data, size, ctx->buf2)) {
-			output->data = data;
-			output->size = size;
-		} else {
-			output->data = ctx->buf2->data;
-			output->size = ctx->buf2->used;
-		}
-	} else if (ctx->charset_trans == NULL) {
-		/* unknown charset */
-		buffer_set_used_size(ctx->buf2, 0);
-		if (uni_utf8_get_valid_data(data, size, ctx->buf2)) {
 			output->data = data;
 			output->size = size;
 		} else {
