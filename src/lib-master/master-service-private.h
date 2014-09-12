@@ -70,9 +70,10 @@ struct master_service {
 	unsigned int initial_status_sent:1;
 	unsigned int die_with_master:1;
 	unsigned int call_avail_overflow:1;
-	unsigned int config_path_is_default:1;
+	unsigned int config_path_changed_with_param:1;
 	unsigned int want_ssl_settings:1;
 	unsigned int ssl_ctx_initialized:1;
+	unsigned int config_path_from_master:1;
 };
 
 void master_service_io_listeners_add(struct master_service *service);

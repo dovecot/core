@@ -178,14 +178,16 @@ master_service_open_config(struct master_service *service,
 		master_service_get_config_path(service);
 
 	if (service->config_fd != -1 && input->config_path == NULL &&
-	    service->config_path_is_default) {
+	    !service->config_path_changed_with_param) {
 		/* use the already opened config socket */
 		fd = service->config_fd;
 		service->config_fd = -1;
 		return fd;
 	}
 
-	if (service->config_path_is_default && input->config_path == NULL) {
+	if (!service->config_path_from_master &&
+	    !service->config_path_changed_with_param &&
+	    input->config_path == NULL) {
 		/* first try to connect to the default config socket.
 		   configuration may contain secrets, so in default config
 		   this fails because the socket is 0600. it's useful for
