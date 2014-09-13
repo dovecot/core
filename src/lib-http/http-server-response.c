@@ -379,6 +379,7 @@ static int http_server_response_send_real(struct http_server_response *resp,
 	iov[2].iov_len = 2;
 
 	req->state = HTTP_SERVER_REQUEST_STATE_PAYLOAD_OUT;
+	o_stream_ref(output);
 	o_stream_cork(output);
 	if (o_stream_sendv(output, iov, N_ELEMENTS(iov)) < 0) {
 		if (errno != EPIPE && errno != ECONNRESET) {
@@ -398,6 +399,7 @@ static int http_server_response_send_real(struct http_server_response *resp,
 		http_server_request_finished(resp->request);
 	}
 	o_stream_uncork(output);
+	o_stream_unref(&output);
 	return ret;
 }
 
