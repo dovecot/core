@@ -734,6 +734,10 @@ static int fs_posix_iter_deinit(struct fs_iter *_iter)
 	struct posix_fs_iter *iter = (struct posix_fs_iter *)_iter;
 	int ret = 0;
 
+	if (closedir(iter->dir) < 0 && iter->err == 0) {
+		iter->err = errno;
+		fs_set_error(_iter->fs, "closedir(%s) failed: %m", iter->path);
+	}
 	if (iter->err != 0) {
 		errno = iter->err;
 		ret = -1;
