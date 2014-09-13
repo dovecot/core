@@ -85,6 +85,8 @@ static enum fs_properties fs_metawrap_get_properties(struct fs *_fs)
 		/* we don't have a quick stat() to see the file's size,
 		   because of the metadata header */
 		props &= ~FS_PROPERTY_STAT;
+		/* Copying can copy the whole metadata. */
+		props |= FS_PROPERTY_COPY_METADATA;
 	}
 	return props;
 }
