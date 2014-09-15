@@ -85,6 +85,14 @@ struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user);
    for user's namespaces. */
 void mail_namespaces_deinit(struct mail_namespace **namespaces);
 
+/* Manually initialize namespaces one by one. */
+int mail_namespaces_init_add(struct mail_user *user,
+			     struct mail_namespace_settings *ns_set,
+			     struct mail_namespace_settings *unexpanded_ns_set,
+			     struct mail_namespace **ns_p, const char **error_r);
+int mail_namespaces_init_finish(struct mail_namespace *namespaces,
+				const char **error_r);
+
 void mail_namespace_ref(struct mail_namespace *ns);
 void mail_namespace_unref(struct mail_namespace **ns);
 

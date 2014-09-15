@@ -81,13 +81,13 @@ namespace_has_special_use_mailboxes(struct mail_namespace_settings *ns_set)
 	return FALSE;
 }
 
-static int
-namespace_add(struct mail_user *user,
-	      struct mail_namespace_settings *ns_set,
-	      struct mail_namespace_settings *unexpanded_ns_set,
-	      const struct mail_storage_settings *mail_set,
-	      struct mail_namespace **ns_p, const char **error_r)
+int mail_namespaces_init_add(struct mail_user *user,
+			     struct mail_namespace_settings *ns_set,
+			     struct mail_namespace_settings *unexpanded_ns_set,
+			     struct mail_namespace **ns_p, const char **error_r)
 {
+	const struct mail_storage_settings *mail_set =
+		mail_user_set_get_storage_set(user);
         struct mail_namespace *ns;
 	const char *driver, *error;
 
@@ -314,6 +314,48 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 	return TRUE;
 }
 
+int mail_namespaces_init_finish(struct mail_namespace *namespaces,
+				const char **error_r)
+{
+	struct mail_namespace *ns;
+	bool prefixless_found = FALSE;
+
+	for (ns = namespaces; ns != NULL; ns = ns->next) {
+		if (ns->prefix_len == 0)
+			prefixless_found = TRUE;
+	}
+	if (!prefixless_found) {
+		prefixless_ns_set = prefixless_ns_unexpanded_set;
+		/* a pretty evil way to expand the values */
+		prefixless_ns_set.prefix++;
+		prefixless_ns_set.location++;
+
+		if (mail_namespaces_init_add(namespaces->user,
+					     &prefixless_ns_set,
+					     &prefixless_ns_unexpanded_set,
+					     &ns, error_r) < 0)
+			i_unreached();
+		ns->next = namespaces;
+		namespaces = ns;
+	}
+	if (!namespaces_check(namespaces, error_r)) {
+		*error_r = t_strconcat("namespace configuration error: ",
+				       *error_r, NULL);
+		while (namespaces != NULL) {
+			ns = namespaces;
+			namespaces = ns->next;
+			mail_namespace_free(ns);
+		}
+		return -1;
+	}
+	mail_user_add_namespace(namespaces->user, &namespaces);
+
+	T_BEGIN {
+		hook_mail_namespaces_created(namespaces);
+	} T_END;
+	return 0;
+}
+
 int mail_namespaces_init(struct mail_user *user, const char **error_r)
 {
 	const struct mail_storage_settings *mail_set;
@@ -321,7 +363,6 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 	struct mail_namespace_settings *const *unexpanded_ns_set;
 	struct mail_namespace *namespaces, *ns, **ns_p;
 	unsigned int i, count, count2;
-	bool prefixless_found = FALSE;
 
 	i_assert(user->initialized);
 
@@ -341,8 +382,9 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 		if (ns_set[i]->disabled)
 			continue;
 
-		if (namespace_add(user, ns_set[i], unexpanded_ns_set[i],
-				  mail_set, ns_p, error_r) < 0) {
+		if (mail_namespaces_init_add(user, ns_set[i],
+					     unexpanded_ns_set[i],
+					     ns_p, error_r) < 0) {
 			if (!ns_set[i]->ignore_on_failure)
 				return -1;
 			if (mail_set->mail_debug) {
@@ -350,42 +392,12 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 					ns_set[i]->prefix, *error_r);
 			}
 		} else {
-			if ((*ns_p)->prefix_len == 0)
-				prefixless_found = TRUE;
 			ns_p = &(*ns_p)->next;
 		}
 	}
 
-	if (namespaces != NULL) {
-		if (!prefixless_found) {
-			prefixless_ns_set = prefixless_ns_unexpanded_set;
-			/* a pretty evil way to expand the values */
-			prefixless_ns_set.prefix++;
-			prefixless_ns_set.location++;
-
-			if (namespace_add(user, &prefixless_ns_set,
-					  &prefixless_ns_unexpanded_set,
-					  mail_set, ns_p,
-					  error_r) < 0)
-				i_unreached();
-		}
-		if (!namespaces_check(namespaces, error_r)) {
-			*error_r = t_strconcat("namespace configuration error: ",
-					       *error_r, NULL);
-			while (namespaces != NULL) {
-				ns = namespaces;
-				namespaces = ns->next;
-				mail_namespace_free(ns);
-			}
-			return -1;
-		}
-		mail_user_add_namespace(user, &namespaces);
-
-		T_BEGIN {
-			hook_mail_namespaces_created(namespaces);
-		} T_END;
-		return 0;
-	}
+	if (namespaces != NULL)
+		return mail_namespaces_init_finish(namespaces, error_r);
 
 	/* no namespaces defined, create a default one */
 	return mail_namespaces_init_location(user, NULL, error_r);
