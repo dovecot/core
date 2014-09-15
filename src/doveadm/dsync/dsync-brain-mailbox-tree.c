@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "str.h"
 #include "mail-namespace.h"
-#include "doveadm-settings.h"
 #include "dsync-ibc.h"
 #include "dsync-mailbox-tree.h"
 #include "dsync-brain-private.h"
@@ -47,12 +46,10 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 	dsync_brain_check_namespaces(brain);
 
 	brain->local_mailbox_tree =
-		dsync_mailbox_tree_init(brain->hierarchy_sep,
-					doveadm_settings->dsync_alt_char[0]);
+		dsync_mailbox_tree_init(brain->hierarchy_sep, brain->alt_char);
 	/* we'll convert remote mailbox names to use our own separator */
 	brain->remote_mailbox_tree =
-		dsync_mailbox_tree_init(brain->hierarchy_sep,
-					doveadm_settings->dsync_alt_char[0]);
+		dsync_mailbox_tree_init(brain->hierarchy_sep, brain->alt_char);
 
 	/* fill the local mailbox tree */
 	for (ns = brain->user->namespaces; ns != NULL; ns = ns->next) {
@@ -238,7 +235,7 @@ dsync_get_mailbox_name(struct dsync_brain *brain, const char *const *name_parts,
 	struct mail_namespace *ns;
 	const char *p;
 	string_t *vname;
-	char ns_sep, alt_char = doveadm_settings->dsync_alt_char[0];
+	char ns_sep;
 
 	i_assert(*name_parts != NULL);
 
@@ -254,13 +251,13 @@ dsync_get_mailbox_name(struct dsync_brain *brain, const char *const *name_parts,
 			if (*p != ns_sep)
 				str_append_c(vname, *p);
 			else
-				str_append_c(vname, alt_char);
+				str_append_c(vname, brain->alt_char);
 		}
 		str_append_c(vname, ns_sep);
 	}
 	str_truncate(vname, str_len(vname)-1);
 
-	dsync_fix_mailbox_name(ns, vname, alt_char);
+	dsync_fix_mailbox_name(ns, vname, brain->alt_char);
 	*name_r = str_c(vname);
 	*ns_r = ns;
 	return 0;

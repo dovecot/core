@@ -171,6 +171,8 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 		}
 		str_delete(sync_ns_str, str_len(sync_ns_str)-1, 1);
 	}
+	brain->alt_char = set->mailbox_alt_char == '\0' ? '_' :
+		set->mailbox_alt_char;
 	brain->sync_box = p_strdup(brain->pool, set->sync_box);
 	brain->exclude_mailboxes = set->exclude_mailboxes == NULL ? NULL :
 		p_strarray_dup(brain->pool, set->exclude_mailboxes);

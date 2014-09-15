@@ -4,7 +4,6 @@
 #include "array.h"
 #include "hash.h"
 #include "str.h"
-#include "doveadm-settings.h"
 #include "mailbox-list-private.h"
 #include "dsync-mailbox-tree-private.h"
 

@@ -48,6 +48,9 @@ struct dsync_brain_settings {
 	/* Exclude these mailboxes from the sync. They can contain '*'
 	   wildcards and be \special-use flags. */
 	const char *const *exclude_mailboxes;
+	/* Alternative character to use in mailbox names where the original
+	   character cannot be used. */
+	char mailbox_alt_char;
 
 	/* If non-zero, use dsync lock file for this user */
 	unsigned int lock_timeout_secs;

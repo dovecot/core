@@ -55,6 +55,7 @@ struct dsync_brain {
 	guid_128_t sync_box_guid;
 	const char *const *exclude_mailboxes;
 	enum dsync_brain_sync_type sync_type;
+	char alt_char;
 
 	unsigned int lock_timeout;
 	int lock_fd;
