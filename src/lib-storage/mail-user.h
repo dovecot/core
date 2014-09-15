@@ -95,6 +95,10 @@ int mail_user_init(struct mail_user *user, const char **error_r);
 void mail_user_ref(struct mail_user *user);
 void mail_user_unref(struct mail_user **user);
 
+/* Duplicate a mail_user. mail_user_init() and mail_namespaces_init() need to
+   be called before the user is usable. */
+struct mail_user *mail_user_dup(struct mail_user *user);
+
 /* Find another user from the given user's namespaces. */
 struct mail_user *mail_user_find(struct mail_user *user, const char *name);
 

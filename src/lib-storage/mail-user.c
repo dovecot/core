@@ -514,3 +514,23 @@ mail_user_get_storage_class(struct mail_user *user, const char *name)
 	}
 	return storage;
 }
+
+struct mail_user *mail_user_dup(struct mail_user *user)
+{
+	struct mail_user *user2;
+
+	user2 = mail_user_alloc(user->username, user->set_info,
+				user->unexpanded_set);
+	if (user->_home != NULL)
+		mail_user_set_home(user2, user->_home);
+	mail_user_set_vars(user2, user->service,
+			   user->local_ip, user->remote_ip);
+	user2->uid = user->uid;
+	user2->gid = user->gid;
+	user2->anonymous = user->anonymous;
+	user2->admin = user->admin;
+	user2->auth_token = p_strdup(user2->pool, user->auth_token);
+	user2->auth_user = p_strdup(user2->pool, user->auth_user);
+	user2->session_id = p_strdup(user2->pool, user->session_id);
+	return user2;
+}

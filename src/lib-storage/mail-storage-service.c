@@ -633,6 +633,8 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	const char *home = priv->home;
 	struct mail_user *mail_user;
 
+	/* NOTE: if more user initialization is added, add it also to
+	   mail_user_dup() */
 	mail_user = mail_user_alloc(user->input.username, user->user_info,
 				    user->user_set);
 	mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
