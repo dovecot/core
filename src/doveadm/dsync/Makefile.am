@@ -1,4 +1,5 @@
-noinst_LTLIBRARIES = libdsync.la
+pkglib_LTLIBRARIES = libdovecot-dsync.la
+noinst_LTLIBRARIES = libdsync.la libdoveadm_dsync.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -13,7 +14,6 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/doveadm
 
 libdsync_la_SOURCES = \
-	doveadm-dsync.c \
 	dsync-brain.c \
 	dsync-brain-mailbox.c \
 	dsync-brain-mailbox-tree.c \
@@ -34,9 +34,22 @@ libdsync_la_SOURCES = \
 	dsync-ibc-pipe.c \
 	dsync-transaction-log-scan.c
 
+libdoveadm_dsync_la_SOURCES = doveadm-dsync.c
+libdoveadm_dsync_la_LIBADD = libdsync.la
+libdoveadm_dsync_la_DEPENDENCIES = libdsync.la
+
+libdovecot_dsync_la_SOURCES =
+libdovecot_dsync_la_LIBADD = libdsync.la
+libdovecot_dsync_la_DEPENDENCIES = libdsync.la
+libdovecot_dsync_la_LDFLAGS = -export-dynamic
+
+pkginc_libdir = $(pkgincludedir)
+pkginc_lib_HEADERS = \
+	dsync-brain.h \
+	dsync-ibc.h
+
 noinst_HEADERS = \
 	doveadm-dsync.h \
-	dsync-brain.h \
 	dsync-brain-private.h \
 	dsync-mail.h \
 	dsync-mailbox.h \
@@ -47,7 +60,6 @@ noinst_HEADERS = \
 	dsync-mailbox-tree-private.h \
 	dsync-serializer.h \
 	dsync-deserializer.h \
-	dsync-ibc.h \
 	dsync-ibc-private.h \
 	dsync-transaction-log-scan.h
 
@@ -62,7 +74,7 @@ test_libs = \
 
 test_dsync_mailbox_tree_sync_SOURCES = test-dsync-mailbox-tree-sync.c
 test_dsync_mailbox_tree_sync_LDADD = dsync-mailbox-tree-sync.lo dsync-mailbox-tree.lo $(test_libs)
-test_dsync_mailbox_tree_sync_DEPENDENCIES = $(noinst_LTLIBRARIES) $(test_libs)
+test_dsync_mailbox_tree_sync_DEPENDENCIES = $(pkglib_LTLIBRARIES) $(test_libs)
 
 check: check-am check-test
 check-test: all-am

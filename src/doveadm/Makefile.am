@@ -34,7 +34,7 @@ cmd_pw_libs = \
 	../lib-otp/libotp.a
 
 libs = \
-	dsync/libdsync.la \
+	dsync/libdoveadm_dsync.la \
 	../lib-compression/libcompression.la
 
 doveadm_LDADD = \
