@@ -529,13 +529,21 @@ int fs_wait_async(struct fs *fs)
 {
 	int ret;
 
+	/* recursion not allowed */
+	i_assert(fs->prev_ioloop == NULL);
+
 	if (fs->v.wait_async == NULL)
 		ret = 0;
 	else T_BEGIN {
+		fs->prev_ioloop = current_ioloop;
 		ret = fs->v.wait_async(fs);
+		i_assert(current_ioloop == fs->prev_ioloop);
+		fs->prev_ioloop = NULL;
 	} T_END;
 	return ret;
 }
+
+
 
 int fs_lock(struct fs_file *file, unsigned int secs, struct fs_lock **lock_r)
 {

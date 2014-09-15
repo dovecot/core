@@ -64,6 +64,9 @@ struct fs {
 	struct fs_settings set;
 	string_t *last_error;
 
+	/* may be used by fs_wait_async() to do the waiting */
+	struct ioloop *wait_ioloop, *prev_ioloop;
+
 	unsigned int files_open_count;
 	struct fs_file *files;
 };
