@@ -361,7 +361,7 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 	const struct mail_storage_settings *mail_set;
 	struct mail_namespace_settings *const *ns_set;
 	struct mail_namespace_settings *const *unexpanded_ns_set;
-	struct mail_namespace *namespaces, *ns, **ns_p;
+	struct mail_namespace *namespaces, **ns_p;
 	unsigned int i, count, count2;
 
 	i_assert(user->initialized);
