@@ -69,10 +69,11 @@ struct fs {
 
 	unsigned int files_open_count;
 	struct fs_file *files;
+	struct fs_iter *iters;
 };
 
 struct fs_file {
-	/* linked list of all files (mainly for debugging leaks) */
+	/* linked list of all files */
 	struct fs_file *prev, *next;
 
 	struct fs *fs;
@@ -102,6 +103,9 @@ struct fs_lock {
 };
 
 struct fs_iter {
+	/* linked list of all iters */
+	struct fs_iter *prev, *next;
+
 	struct fs *fs;
 	enum fs_iter_flags flags;
 

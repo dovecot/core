@@ -693,6 +693,7 @@ fs_iter_init(struct fs *fs, const char *path, enum fs_iter_flags flags)
 	T_BEGIN {
 		iter = fs->v.iter_init(fs, path, flags);
 	} T_END;
+	DLLIST_PREPEND(&fs->iters, iter);
 	return iter;
 }
 
@@ -702,6 +703,7 @@ int fs_iter_deinit(struct fs_iter **_iter)
 	int ret;
 
 	*_iter = NULL;
+	DLLIST_REMOVE(&iter->fs->iters, iter);
 	T_BEGIN {
 		ret = iter->fs->v.iter_deinit(iter);
 	} T_END;
