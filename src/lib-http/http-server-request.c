@@ -144,13 +144,13 @@ void http_server_request_continue_payload(struct http_server_request *req)
 	i_assert(req->state <= HTTP_SERVER_REQUEST_STATE_QUEUED);
 	req->payload_halted = FALSE;
 	if (req->req.expect_100_continue && !req->sent_100_continue)
-		http_server_connection_send_responses(req->conn);
+		http_server_connection_trigger_responses(req->conn);
 }
 
 void http_server_request_ready_to_respond(struct http_server_request *req)
 {
 	req->state = HTTP_SERVER_REQUEST_STATE_READY_TO_RESPOND;
-	http_server_connection_send_responses(req->conn);
+	http_server_connection_trigger_responses(req->conn);
 }
 
 void http_server_request_submit_response(struct http_server_request *req)
@@ -210,7 +210,7 @@ void http_server_request_finished(struct http_server_request *req)
 		return;
 	}
 	
-	http_server_connection_send_responses(conn);
+	http_server_connection_trigger_responses(conn);
 }
 
 static 	struct http_server_response *

@@ -118,7 +118,6 @@ struct http_server_connection {
 	unsigned int close_indicated:1;
 	unsigned int input_broken:1;
 	unsigned int output_locked:1;
-	unsigned int sending_responses:1;
 };
 
 struct http_server {
@@ -197,7 +196,8 @@ http_server_request_version_equals(struct http_server_request *req,
 struct connection_list *http_server_connection_list_init(void);
 
 void http_server_connection_switch_ioloop(struct http_server_connection *conn);
-void http_server_connection_send_responses(struct http_server_connection *conn);
+void http_server_connection_trigger_responses(
+	struct http_server_connection *conn);
 int http_server_connection_output(struct http_server_connection *conn);
 void http_server_connection_tunnel(struct http_server_connection **_conn,
 	http_server_tunnel_callback_t callback, void *context);
