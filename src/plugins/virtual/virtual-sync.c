@@ -720,7 +720,8 @@ static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
 		MAILBOX_SEARCH_RESULT_FLAG_QUEUE_SYNC;
 	struct mail_index_view *view = bbox->box->view;
 	struct mail_search_result *result;
-	ARRAY_TYPE(seq_range) removed_uids, added_uids, flag_update_uids;
+	ARRAY_TYPE(seq_range) expunged_uids = ARRAY_INIT, removed_uids;
+	ARRAY_TYPE(seq_range) added_uids, flag_update_uids;
 	uint64_t modseq, old_highest_modseq;
 	uint32_t seq, uid, old_msg_count;
 
@@ -733,7 +734,15 @@ static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
 	result = mailbox_search_result_alloc(bbox->box, bbox->search_args,
 					     result_flags);
 	mailbox_search_result_initial_done(result);
+	i_assert(array_count(&result->removed_uids) == 0);
 	virtual_sync_backend_handle_old_vmsgs(ctx, bbox, result);
+	if (array_count(&result->removed_uids) > 0) {
+		/* these are all expunged messages. treat them separately from
+		   "no longer matching messages" (=removed_uids) */
+		t_array_init(&expunged_uids, array_count(&result->removed_uids));
+		array_append_array(&expunged_uids, &result->removed_uids);
+		array_clear(&result->removed_uids);
+	}
 
 	/* get list of changed old messages (messages already once seen by
 	   virtual index), based on modseq changes. (we'll assume all modseq
@@ -766,6 +775,10 @@ static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
 	t_array_init(&removed_uids, 128);
 	t_array_init(&added_uids, 128);
 	mailbox_search_result_sync(result, &removed_uids, &added_uids);
+	if (array_is_created(&expunged_uids)) {
+		seq_range_array_remove_seq_range(&removed_uids, &expunged_uids);
+		virtual_sync_mailbox_box_remove(ctx, bbox, &expunged_uids);
+	}
 	if (ctx->expunge_removed)
 		virtual_sync_mailbox_box_remove(ctx, bbox, &removed_uids);
 	else {
