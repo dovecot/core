@@ -34,7 +34,7 @@ static void test_var_expand_ranges(void)
 	string_t *str = t_str_new(128);
 	unsigned int i;
 
-	test_begin("var_expand");
+	test_begin("var_expand - ranges");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
 		var_expand(str, tests[i].in, table);
@@ -66,7 +66,7 @@ static void test_var_expand_builtin(void)
 	tests[1].out = my_pid;
 	env_put("FOO=baR");
 
-	test_begin("var_expand");
+	test_begin("var_expand - builtin");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
 		var_expand(str, tests[i].in, table);
