@@ -1,5 +1,5 @@
 pkglib_LTLIBRARIES = libdovecot-dsync.la
-noinst_LTLIBRARIES = libdsync.la libdoveadm_dsync.la
+noinst_LTLIBRARIES = libdsync.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -10,8 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
-	-I$(top_srcdir)/src/lib-storage \
-	-I$(top_srcdir)/src/doveadm
+	-I$(top_srcdir)/src/lib-storage
 
 libdsync_la_SOURCES = \
 	dsync-brain.c \
@@ -34,10 +33,6 @@ libdsync_la_SOURCES = \
 	dsync-ibc-pipe.c \
 	dsync-transaction-log-scan.c
 
-libdoveadm_dsync_la_SOURCES = doveadm-dsync.c
-libdoveadm_dsync_la_LIBADD = libdsync.la
-libdoveadm_dsync_la_DEPENDENCIES = libdsync.la
-
 libdovecot_dsync_la_SOURCES =
 libdovecot_dsync_la_LIBADD = libdsync.la ../../lib-storage/libdovecot-storage.la
 libdovecot_dsync_la_DEPENDENCIES = libdsync.la
@@ -49,7 +44,6 @@ pkginc_lib_HEADERS = \
 	dsync-ibc.h
 
 noinst_HEADERS = \
-	doveadm-dsync.h \
 	dsync-brain-private.h \
 	dsync-mail.h \
 	dsync-mailbox.h \

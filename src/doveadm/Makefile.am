@@ -34,7 +34,7 @@ cmd_pw_libs = \
 	../lib-otp/libotp.a
 
 libs = \
-	dsync/libdoveadm_dsync.la \
+	dsync/libdsync.la \
 	../lib-compression/libcompression.la
 
 doveadm_LDADD = \
@@ -59,6 +59,7 @@ doveadm_server_DEPENDENCIES = \
 	$(LIBDOVECOT_DEPS)
 
 common = \
+	doveadm-dsync.c \
 	doveadm-mail.c \
 	doveadm-mail-altmove.c \
 	doveadm-mail-batch.c \
@@ -121,6 +122,7 @@ doveadm_server_SOURCES = \
 pkginc_libdir = $(pkgincludedir)
 pkginc_lib_HEADERS = \
 	doveadm.h \
+	doveadm-dsync.h \
 	doveadm-dump.h \
 	doveadm-mail.h \
 	doveadm-mail-iter.h \

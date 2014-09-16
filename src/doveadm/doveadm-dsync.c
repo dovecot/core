@@ -26,8 +26,8 @@
 #include "doveadm-server.h"
 #include "client-connection.h"
 #include "server-connection.h"
-#include "dsync-brain.h"
-#include "dsync-ibc.h"
+#include "dsync/dsync-brain.h"
+#include "dsync/dsync-ibc.h"
 #include "doveadm-dsync.h"
 
 #include <stdio.h>

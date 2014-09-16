@@ -20,7 +20,7 @@
 #include "doveadm.h"
 #include "doveadm-settings.h"
 #include "doveadm-print.h"
-#include "dsync/doveadm-dsync.h"
+#include "doveadm-dsync.h"
 #include "doveadm-mail.h"
 
 #include <stdio.h>
