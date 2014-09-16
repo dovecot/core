@@ -134,6 +134,7 @@ int hash_format_init(const char *format_string, struct hash_format **format_r,
 	} T_END;
 	if (ret < 0) {
 		*error_r = t_strdup(*error_r);
+		pool_unref(&pool);
 		return -1;
 	}
 	*format_r = format;
