@@ -78,6 +78,8 @@ void fts_expunge_log_deinit(struct fts_expunge_log **_log)
 	struct fts_expunge_log *log = *_log;
 
 	*_log = NULL;
+	if (log->fd != -1)
+		i_close_fd(&log->fd);
 	i_free(log->path);
 	i_free(log);
 }
