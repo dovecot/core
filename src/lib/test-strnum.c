@@ -7,6 +7,78 @@
 #define INVALID(n) { #n, -1, 0 }
 #define VALID(n) { #n, 0, n }
 
+/* always pads with leading zeros to a size of 9 digits */
+static int crappy_uintmax_to_str(char *into, uintmax_t val)
+{
+#define BIGBASE 1000000000u
+#define STRINGIFY(s) #s
+#define STRINGIFY2(s) STRINGIFY(s)
+	int len = 0;
+	if(val >= BIGBASE) {
+		len = crappy_uintmax_to_str(into, val/BIGBASE);
+	}
+	i_snprintf(into + len, 10, "%09lu", val % BIGBASE);
+	return len + strlen(STRINGIFY2(BIGBASE))-2;
+#undef STRINGIFY2
+#undef STRINGIFY
+#undef BIGBASE
+}
+
+static void test_str_to_uintmax(void)
+{
+	unsigned int i=0;
+	int randrange = rand()%15+1; /* when 1, will max out on 1s */
+	uintmax_t value = 0;
+	int len, ret;
+	char buff[50]; /* totally assumes < 159 bits */
+
+	test_begin("str_to_uintmax in range");
+	while (i < sizeof(uintmax_t)*CHAR_BIT) {
+		uintmax_t value_back;
+		const char *endp;
+
+		value = (value << 1) + 1;
+		if (value >= 64)
+			value -= rand()%randrange; /* don't always test the same numbers */
+		len = crappy_uintmax_to_str(buff, value);
+		ret = str_to_uintmax(buff, &value_back);
+		test_assert_idx(ret == 0, i);
+		test_assert_idx(value == value_back, i);
+
+		/* test with trailing noise */
+		buff[len] = 'x'; /* don't even null-terminate, let's be evil */
+		value_back = 0x1234567890123456;
+		ret = str_to_uintmax(buff, &value_back);
+		test_assert_idx(ret < 0, i);
+		test_assert_idx(value_back == 0x1234567890123456, i);
+		ret = str_parse_uintmax(buff, &value_back, &endp);
+		test_assert_idx(ret == 0, i);
+		test_assert_idx(value_back == value, i);
+		test_assert_idx(endp == &buff[len], i);
+		i++;
+	}
+	test_end();
+
+	/* not knowing exactly how large a uintmax_t is, we have to construct
+	   the troublesome near-10/9*MAX strings manually by appending digits
+	   to a MAX/9 string which we can easily create. Do a wider range
+	   of 30 rather than the obvious 10, just in case - all are too large.*/
+	test_begin("str_to_uintmax overflow corner case");
+	value = UINTMAX_MAX/9-1;
+	len = crappy_uintmax_to_str(buff, value);
+	buff[len] = '0';
+	buff[len+1] = '\0';
+	for(i = 0; i <= 30; ++i) {
+		int j = len + 1;
+		while (buff[--j] == '9')
+			buff[j] = '0';
+		buff[j]++;
+		ret = str_to_uintmax(buff, &value);
+		test_assert_idx(ret < 0 && value == UINTMAX_MAX/9-1, i);
+	}
+	test_end();
+}
+
 static void test_str_to_u64(void)
 {
 	unsigned int i;
@@ -140,6 +212,7 @@ static void test_str_to_i32(void)
 void test_strnum(void)
 {
 	/* If the above isn't true, then we do expect some failures possibly */
+	test_str_to_uintmax();
 	test_str_to_u64();
 	test_str_to_u32();
 	test_str_to_llong();
