@@ -15,6 +15,7 @@ struct quota {
 
 	ARRAY(struct quota_root *) roots;
 	ARRAY(struct mail_namespace *) namespaces;
+	struct mail_namespace *unwanted_ns;
 };
 
 struct quota_settings {

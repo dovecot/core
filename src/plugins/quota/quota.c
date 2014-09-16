@@ -418,28 +418,55 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 	return enabled ? 1 : 0;
 }
 
+static bool
+quota_is_duplicate_namespace(struct quota *quota, struct mail_namespace *ns)
+{
+	struct mail_namespace *const *namespaces;
+	unsigned int i, count;
+	const char *path, *path2;
+
+	if (!mailbox_list_get_root_path(ns->list,
+					MAILBOX_LIST_PATH_TYPE_MAILBOX, &path))
+		return TRUE;
+
+	namespaces = array_get(&quota->namespaces, &count);
+	for (i = 0; i < count; i++) {
+		if (mailbox_list_get_root_path(namespaces[i]->list,
+				MAILBOX_LIST_PATH_TYPE_MAILBOX, &path2) &&
+		    strcmp(path, path2) == 0) {
+			/* duplicate path */
+			if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) == 0)
+				return TRUE;
+
+			/* this is inbox=yes namespace, but the earlier one
+			   that had the same location was inbox=no. we need to
+			   include the INBOX also in quota calculations, so we
+			   can't just ignore this namespace. but since we've
+			   already called backend's namespace_added(), we can't
+			   just remove it either. so just mark the old one as
+			   unwanted namespace.
+
+			   an alternative would be to do a bit larger change so
+			   namespaces wouldn't be added until
+			   mail_namespaces_created() hook is called */
+			i_assert(quota->unwanted_ns == NULL);
+			quota->unwanted_ns = namespaces[i];
+			return FALSE;
+		}
+	}
+	return FALSE;
+}
+
 void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns)
 {
 	struct quota_root *const *roots;
-	struct mail_namespace *const *namespaces;
 	struct quota_backend **backends;
-	const char *path, *path2;
 	unsigned int i, j, count;
 
 	/* first check if there already exists a namespace with the exact same
 	   path. we don't want to count them twice. */
-	if (mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
-				       &path)) {
-		namespaces = array_get(&quota->namespaces, &count);
-		for (i = 0; i < count; i++) {
-			if (mailbox_list_get_root_path(namespaces[i]->list,
-				MAILBOX_LIST_PATH_TYPE_MAILBOX, &path2) &&
-			    strcmp(path, path2) == 0) {
-				/* duplicate */
-				return;
-			}
-		}
-	}
+	if (quota_is_duplicate_namespace(quota, ns))
+		return;
 
 	array_append(&quota->namespaces, &ns, 1);
 
@@ -506,6 +533,8 @@ bool quota_root_is_namespace_visible(struct quota_root *root,
 	/* this check works as long as there is only one storage per list */
 	if (mailbox_list_get_storage(&list, "", &storage) == 0 &&
 	    (storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0)
+		return FALSE;
+	if (root->quota->unwanted_ns == ns)
 		return FALSE;
 
 	if (root->ns_prefix != NULL) {
