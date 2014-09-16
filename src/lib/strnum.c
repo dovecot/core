@@ -106,10 +106,12 @@ int str_parse_uintmax(const char *str, uintmax_t *num_r, const char **endp_r)
 int str_to_uintmax(const char *str, uintmax_t *num_r)
 {
 	const char *endp;
-	int ret = str_parse_uintmax(str, num_r, &endp);
-	if ((ret == 0) && (*endp != '\0'))
-		ret = -1;
-	return ret;
+	uintmax_t n;
+	int ret = str_parse_uintmax(str, &n, &endp);
+	if ((ret != 0) || (*endp != '\0'))
+		return -1;
+	*num_r = n;
+	return 0;
 }
 
 #define STR_TO_U__TEMPLATE(name, type)				\
