@@ -425,8 +425,14 @@ fs_metawrap_iter_init(struct fs *_fs, const char *path,
 static const char *fs_metawrap_iter_next(struct fs_iter *_iter)
 {
 	struct metawrap_fs_iter *iter = (struct metawrap_fs_iter *)_iter;
+	const char *fname;
 
-	return fs_iter_next(iter->super);
+	iter->super->async_callback = _iter->async_callback;
+	iter->super->async_context = _iter->async_context;
+
+	fname = fs_iter_next(iter->super);
+	_iter->async_have_more = iter->super->async_have_more;
+	return fname;
 }
 
 static int fs_metawrap_iter_deinit(struct fs_iter *_iter)
