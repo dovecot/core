@@ -7,14 +7,13 @@
 #define INVALID(n) { #n, -1, 0 }
 #define VALID(n) { #n, 0, n }
 
-/* Assumes uintmax_t is 64 bit */
 static void test_str_to_u64(void)
 {
 	unsigned int i;
 	const struct {
 		const char *input;
 		int ret;
-		uintmax_t val;
+		uint64_t val;
 	} u64tests[] = {
 		INVALID(-1),
 		INVALID(foo),
@@ -29,7 +28,7 @@ static void test_str_to_u64(void)
 	};
 	test_begin("str_to_uint64");
 	for (i = 0; i < N_ELEMENTS(u64tests); ++i) {
-		uintmax_t val = 0xBADBEEF15BADF00D;
+		uint64_t val = 0xBADBEEF15BADF00D;
 		int ret = str_to_uint64(u64tests[i].input, &val);
 		test_assert_idx(ret == u64tests[i].ret, i);
 		if (ret == 0)
@@ -37,17 +36,11 @@ static void test_str_to_u64(void)
 		else
 			test_assert_idx(val == 0xBADBEEF15BADF00D, i);
 
-		/* This stanza totally assumes that uintmax_t == uint64_t */
 		if (ret == 0)
 			T_BEGIN {
 				const char *longer = t_strconcat(u64tests[i].input, "x", NULL);
-				const char *endp;
-				ret = str_to_uintmax(longer, &val);
+				ret = str_to_uint64(longer, &val);
 				test_assert_idx(ret < 0, i);
-				ret = str_parse_uintmax(longer, &val, &endp);
-				test_assert_idx(ret == 0, i);
-				test_assert_idx(val == u64tests[i].val, i);
-				test_assert_idx(*endp == 'x', i);
 			} T_END;
 	}
 	test_end();
@@ -146,9 +139,6 @@ static void test_str_to_i32(void)
 
 void test_strnum(void)
 {
-	test_begin("test_strnum - size check");
-	test_assert(sizeof(uintmax_t) == sizeof(uint64_t));
-	test_end();
 	/* If the above isn't true, then we do expect some failures possibly */
 	test_str_to_u64();
 	test_str_to_u32();
