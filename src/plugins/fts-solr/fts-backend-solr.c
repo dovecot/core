@@ -581,31 +581,9 @@ static int fts_backend_solr_refresh(struct fts_backend *backend ATTR_UNUSED)
 
 static int fts_backend_solr_rescan(struct fts_backend *backend)
 {
-	struct mailbox_list_iterate_context *iter;
-	const struct mailbox_info *info;
-	struct mailbox *box;
-	int ret = 0;
-
 	/* FIXME: proper rescan needed. for now we'll just reset the
 	   last-uids */
-	iter = mailbox_list_iter_init(backend->ns->list, "*",
-				      MAILBOX_LIST_ITER_SKIP_ALIASES |
-				      MAILBOX_LIST_ITER_NO_AUTO_BOXES);
-	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		if ((info->flags &
-		     (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) != 0)
-			continue;
-
-		box = mailbox_alloc(info->ns->list, info->vname, 0);
-		if (mailbox_open(box) == 0) {
-			if (fts_index_set_last_uid(box, 0) < 0)
-				ret = -1;
-		}
-		mailbox_free(&box);
-	}
-	if (mailbox_list_iter_deinit(&iter) < 0)
-		ret = -1;
-	return ret;
+	return fts_backend_reset_last_uids(backend);
 }
 
 static int fts_backend_solr_optimize(struct fts_backend *backend ATTR_UNUSED)

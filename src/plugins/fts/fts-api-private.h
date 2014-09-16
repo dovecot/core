@@ -110,6 +110,7 @@ int fts_index_set_header(struct mailbox *box,
 			 const struct fts_index_header *hdr);
 int ATTR_NOWARN_UNUSED_RESULT
 fts_index_set_last_uid(struct mailbox *box, uint32_t last_uid);
+int fts_backend_reset_last_uids(struct fts_backend *backend);
 int fts_index_have_compatible_settings(struct mailbox_list *list,
 				       uint32_t checksum);
 
