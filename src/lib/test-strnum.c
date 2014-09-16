@@ -17,7 +17,7 @@ static int crappy_uintmax_to_str(char *into, uintmax_t val)
 	if(val >= BIGBASE) {
 		len = crappy_uintmax_to_str(into, val/BIGBASE);
 	}
-	i_snprintf(into + len, 10, "%09lu", val % BIGBASE);
+	i_snprintf(into + len, 10, "%09lu", (unsigned long)(val % BIGBASE));
 	return len + strlen(STRINGIFY2(BIGBASE))-2;
 #undef STRINGIFY2
 #undef STRINGIFY
