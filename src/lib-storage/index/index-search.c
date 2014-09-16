@@ -239,10 +239,19 @@ static void search_index_arg(struct mail_search_arg *arg,
 static int search_arg_match_mailbox(struct index_search_context *ctx,
 				    struct mail_search_arg *arg)
 {
+	struct mailbox *box = ctx->cur_mail->box;
 	const char *str;
 
 	switch (arg->type) {
 	case SEARCH_MAILBOX:
+		/* first try to match the mailbox name itself. this is
+		   important when using "mailbox virtual/foo" parameter foin
+		   doveadm's search query, otherwise we can never fetch
+		   anything with doveadm from virtual mailboxes because the
+		   mailbox parameter is compared to the mail's backend
+		   mailbox. */
+		if (strcmp(box->vname, arg->value.str) == 0)
+			return 1;
 		if (mail_get_special(ctx->cur_mail, MAIL_FETCH_MAILBOX_NAME,
 				     &str) < 0)
 			return -1;
@@ -251,6 +260,8 @@ static int search_arg_match_mailbox(struct index_search_context *ctx,
 			return strcasecmp(arg->value.str, "INBOX") == 0;
 		return strcmp(str, arg->value.str) == 0;
 	case SEARCH_MAILBOX_GLOB:
+		if (imap_match(arg->value.mailbox_glob, box->vname) == IMAP_MATCH_YES)
+			return 1;
 		if (mail_get_special(ctx->cur_mail, MAIL_FETCH_MAILBOX_NAME,
 				     &str) < 0)
 			return -1;
