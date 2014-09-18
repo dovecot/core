@@ -11,15 +11,22 @@
 static void dict_cmd_help(doveadm_command_t *cmd);
 
 static struct dict *
-cmd_dict_init(int *argc, char **argv[], int own_arg_count, int key_arg_idx,
-	      doveadm_command_t *cmd)
+cmd_dict_init_full(int *argc, char **argv[], int own_arg_count, int key_arg_idx,
+		   doveadm_command_t *cmd, bool *recurse)
 {
+	const char *getopt_args = recurse == NULL ? "u:" : "Ru:";
 	struct dict *dict;
 	const char *error, *username = "";
 	int c;
 
-	while ((c = getopt(*argc, *argv, "u:")) > 0) {
+	if (recurse != NULL)
+		*recurse = FALSE;
+
+	while ((c = getopt(*argc, *argv, getopt_args)) > 0) {
 		switch (c) {
+		case 'R':
+			*recurse = TRUE;
+			break;
 		case 'u':
 			username = optarg;
 			break;
@@ -54,6 +61,15 @@ cmd_dict_init(int *argc, char **argv[], int own_arg_count, int key_arg_idx,
 			i_fatal("-u must be specified for "DICT_PATH_PRIVATE" keys");
 	}
 	return dict;
+}
+
+static struct dict *
+cmd_dict_init(int *argc, char **argv[],
+	      int own_arg_count, int key_arg_idx,
+	      doveadm_command_t *cmd)
+{
+	return cmd_dict_init_full(argc, argv, own_arg_count,
+				  key_arg_idx, cmd, NULL);
 }
 
 static void cmd_dict_get(int argc, char *argv[])
@@ -139,14 +155,16 @@ static void cmd_dict_iter(int argc, char *argv[])
 	struct dict *dict;
 	struct dict_iterate_context *iter;
 	const char *key, *value;
+	bool recurse;
 
-	dict = cmd_dict_init(&argc, &argv, 1, 0, cmd_dict_iter);
+	dict = cmd_dict_init_full(&argc, &argv, 1, 0, cmd_dict_iter, &recurse);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
 	doveadm_print_header_simple("key");
 	doveadm_print_header_simple("value");
 
-	iter = dict_iterate_init(dict, argv[0], DICT_ITERATE_FLAG_RECURSE);
+	iter = dict_iterate_init(dict, argv[0],
+				 recurse ? DICT_ITERATE_FLAG_RECURSE : 0);
 	while (dict_iterate(iter, &key, &value)) {
 		doveadm_print(key);
 		doveadm_print(value);
@@ -163,7 +181,7 @@ struct doveadm_cmd doveadm_cmd_dict[] = {
 	{ cmd_dict_set, "dict set", "[-u <user>] <dict uri> <key> <value>" },
 	{ cmd_dict_unset, "dict unset", "[-u <user>] <dict uri> <key>" },
 	{ cmd_dict_inc, "dict inc", "[-u <user>] <dict uri> <key> <diff>" },
-	{ cmd_dict_iter, "dict iter", "[-u <user>] <dict uri> <prefix>" }
+	{ cmd_dict_iter, "dict iter", "[-u <user>] [-R] <dict uri> <prefix>" }
 };
 
 static void dict_cmd_help(doveadm_command_t *cmd)
