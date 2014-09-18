@@ -644,8 +644,16 @@ static int fs_posix_delete(struct fs_file *_file)
 	struct posix_fs *fs = (struct posix_fs *)_file->fs;
 
 	if (unlink(_file->path) < 0) {
-		fs_set_error(_file->fs, "unlink(%s) failed: %m", _file->path);
-		return -1;
+		if (!UNLINK_EISDIR(errno)) {
+			fs_set_error(_file->fs, "unlink(%s) failed: %m", _file->path);
+			return -1;
+		}
+		/* attempting to delete a directory. convert it to rmdir()
+		   automatically. */
+		if (rmdir(_file->path) < 0) {
+			fs_set_error(_file->fs, "rmdir(%s) failed: %m", _file->path);
+			return -1;
+		}
 	}
 	(void)fs_posix_rmdir_parents(fs, _file->path);
 	return 0;
