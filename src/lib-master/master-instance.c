@@ -29,7 +29,7 @@ struct master_instance_list_iter {
 };
 
 static const struct dotlock_settings dotlock_set = {
-	.timeout = 1,
+	.timeout = 2,
 	.stale_timeout = 60
 };
 
