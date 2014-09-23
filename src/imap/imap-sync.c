@@ -415,8 +415,7 @@ static int imap_sync_send_flags(struct imap_sync_context *ctx, string_t *str)
 	str_printfa(str, "* %u FETCH (", ctx->seq);
 	if (ctx->imap_flags & IMAP_SYNC_FLAG_SEND_UID)
 		str_printfa(str, "UID %u ", ctx->mail->uid);
-	if ((mailbox_get_enabled_features(ctx->box) &
-	     MAILBOX_FEATURE_CONDSTORE) != 0 &&
+	if ((ctx->client->enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0 &&
 	    !ctx->client->nonpermanent_modseqs) {
 		imap_sync_add_modseq(ctx, str);
 		str_append_c(str, ' ');
