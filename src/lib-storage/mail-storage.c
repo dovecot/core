@@ -2245,6 +2245,14 @@ int mailbox_get_path_to(struct mailbox *box, enum mailbox_list_path_type type,
 		*path_r = box->_path;
 		return 1;
 	}
+	if (type == MAILBOX_LIST_PATH_TYPE_INDEX && box->_index_path != NULL) {
+		if (box->_index_path[0] == '\0') {
+			*path_r = NULL;
+			return 0;
+		}
+		*path_r = box->_index_path;
+		return 1;
+	}
 	ret = mailbox_list_get_path(box->list, box->name, type, path_r);
 	if (ret < 0) {
 		mail_storage_copy_list_error(box->storage, box->list);
@@ -2252,6 +2260,8 @@ int mailbox_get_path_to(struct mailbox *box, enum mailbox_list_path_type type,
 	}
 	if (type == MAILBOX_LIST_PATH_TYPE_MAILBOX && box->_path == NULL)
 		box->_path = ret == 0 ? "" : p_strdup(box->pool, *path_r);
+	if (type == MAILBOX_LIST_PATH_TYPE_INDEX && box->_index_path == NULL)
+		box->_index_path = ret == 0 ? "" : p_strdup(box->pool, *path_r);
 	return ret;
 }
 
@@ -2260,6 +2270,13 @@ const char *mailbox_get_path(struct mailbox *box)
 	i_assert(box->_path != NULL);
 	i_assert(box->_path[0] != '\0');
 	return box->_path;
+}
+
+const char *mailbox_get_index_path(struct mailbox *box)
+{
+	i_assert(box->_index_path != NULL);
+	i_assert(box->_index_path[0] != '\0');
+	return box->_index_path;
 }
 
 static void mailbox_get_permissions_if_not_set(struct mailbox *box)

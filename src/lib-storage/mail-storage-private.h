@@ -291,6 +291,9 @@ struct mailbox {
 	/* Filled lazily when mailbox is opened, use mailbox_get_path()
 	   to access it */
 	const char *_path;
+	/* Filled lazily when mailbox is opened, use mailbox_get_index_path()
+	   to access it */
+	const char *_index_path;
 
 	/* default vfuncs for new struct mails. */
 	const struct mail_vfuncs *mail_vfuncs;
@@ -646,6 +649,8 @@ int mailbox_mark_index_deleted(struct mailbox *box, bool del);
    The mailbox must already be opened and the caller must know that the
    storage has mailbox files (i.e. NULL/empty path is never returned). */
 const char *mailbox_get_path(struct mailbox *box) ATTR_PURE;
+/* Similar to mailbox_get_path() but for MAILBOX_LIST_PATH_TYPE_INDEX. */
+const char *mailbox_get_index_path(struct mailbox *box) ATTR_PURE;
 /* Wrapper to mailbox_list_get_path() */
 int mailbox_get_path_to(struct mailbox *box, enum mailbox_list_path_type type,
 			const char **path_r);
