@@ -150,6 +150,11 @@ void imapc_mailbox_noop(struct imapc_mailbox *mbox)
 	struct imapc_command *cmd;
 	struct imapc_simple_context sctx;
 
+	if (mbox->client_box == NULL) {
+		/* mailbox opening hasn't finished yet */
+		return;
+	}
+
 	imapc_simple_context_init(&sctx, mbox->storage->client);
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
 				       imapc_simple_callback, &sctx);
