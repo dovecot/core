@@ -130,6 +130,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 	}
 
 	mail->data.dont_cache_field_idx = UINT_MAX;
+	mail->data.header_parser_initialized = FALSE;
 }
 
 static unsigned int
@@ -247,6 +248,9 @@ void index_mail_parse_header_init(struct index_mail *mail,
 		array_idx_set(&mail->header_match, field_idx,
 			      &mail->header_match_value);
 	}
+	mail->data.header_parser_initialized = TRUE;
+	mail->data.parse_line_num = 0;
+	memset(&mail->data.parse_line, 0, sizeof(mail->data.parse_line));
 }
 
 static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
@@ -275,6 +279,8 @@ void index_mail_parse_header(struct message_part *part,
 	struct index_mail_data *data = &mail->data;
 	unsigned int field_idx, count;
 	uint8_t *match;
+
+	i_assert(data->header_parser_initialized);
 
         data->parse_line_num++;
 

@@ -126,6 +126,7 @@ struct index_mail_data {
 	unsigned int initialized_wrapper_stream:1;
 	unsigned int destroy_callback_set:1;
 	unsigned int prefetch_sent:1;
+	unsigned int header_parser_initialized:1;
 };
 
 struct index_mail {
