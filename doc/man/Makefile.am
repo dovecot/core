@@ -14,6 +14,7 @@ dist_man7_MANS = \
 
 nodist_man1_MANS = \
 	doveadm.1 \
+	doveadm-acl.1 \
 	doveadm-altmove.1 \
 	doveadm-auth.1 \
 	doveadm-batch.1 \
@@ -56,6 +57,7 @@ man_includefiles = \
 
 EXTRA_DIST = \
 	doveadm.1.in \
+	doveadm-acl.1.in \
 	doveadm-altmove.1.in \
 	doveadm-auth.1.in \
 	doveadm-batch.1.in \
