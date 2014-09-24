@@ -1481,6 +1481,14 @@ static void imapc_command_free(struct imapc_command *cmd)
 	pool_unref(&cmd->pool);
 }
 
+void imapc_command_abort(struct imapc_command **_cmd)
+{
+	struct imapc_command *cmd = *_cmd;
+
+	*_cmd = NULL;
+	imapc_command_free(cmd);
+}
+
 static void imapc_command_timeout(struct imapc_connection *conn)
 {
 	struct imapc_command *const *cmds;
@@ -1778,6 +1786,12 @@ void imapc_command_set_mailbox(struct imapc_command *cmd,
 {
 	cmd->box = box;
 	box->pending_box_command_count++;
+}
+
+bool imapc_command_connection_is_selected(struct imapc_command *cmd)
+{
+	return cmd->conn->selected_box != NULL ||
+		cmd->conn->selecting_box != NULL;
 }
 
 void imapc_command_send(struct imapc_command *cmd, const char *cmd_str)

@@ -146,11 +146,13 @@ imapc_client_cmd(struct imapc_client *client,
 		 imapc_command_callback_t *callback, void *context);
 void imapc_command_set_flags(struct imapc_command *cmd,
 			     enum imapc_command_flags flags);
+bool imapc_command_connection_is_selected(struct imapc_command *cmd);
 void imapc_command_send(struct imapc_command *cmd, const char *cmd_str);
 void imapc_command_sendf(struct imapc_command *cmd, const char *cmd_fmt, ...)
 	ATTR_FORMAT(2, 3);
 void imapc_command_sendvf(struct imapc_command *cmd,
 			  const char *cmd_fmt, va_list args) ATTR_FORMAT(2, 0);
+void imapc_command_abort(struct imapc_command **cmd);
 
 void imapc_client_register_untagged(struct imapc_client *client,
 				    imapc_untagged_callback_t *callback,

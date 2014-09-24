@@ -800,12 +800,16 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	capa = imapc_client_get_capabilities(list->client->client);
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
-	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
-	if ((capa & IMAPC_CAPABILITY_UNSELECT) != 0)
-		imapc_command_sendf(cmd, "UNSELECT");
-	else
-		imapc_command_sendf(cmd, "SELECT \"~~~\"");
-	imapc_simple_run(&ctx);
+	if (!imapc_command_connection_is_selected(cmd))
+		imapc_command_abort(&cmd);
+	else {
+		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
+		if ((capa & IMAPC_CAPABILITY_UNSELECT) != 0)
+			imapc_command_sendf(cmd, "UNSELECT");
+		else
+			imapc_command_sendf(cmd, "SELECT \"~~~\"");
+		imapc_simple_run(&ctx);
+	}
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_sendf(cmd, "DELETE %s", name);
