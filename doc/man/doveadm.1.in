@@ -142,6 +142,11 @@ Fetch messages matching given search query.
 Add, remove or replace messages\(aq flags.
 .\"-------------------------------------
 .TP
+.B doveadm fts
+.BR doveadm\-fts (1),
+Manipulate the Full Text Search (FTS) index.
+.\"-------------------------------------
+.TP
 .B doveadm force\-resync
 .BR doveadm\-force\-resync (1),
 Repair broken mailboxes, in case Dovecot doesn\(aqt automatically do that.

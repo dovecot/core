@@ -25,6 +25,7 @@ nodist_man1_MANS = \
 	doveadm-expunge.1 \
 	doveadm-fetch.1 \
 	doveadm-flags.1 \
+	doveadm-fts.1 \
 	doveadm-import.1 \
 	doveadm-instance.1 \
 	doveadm-index.1 \
@@ -68,6 +69,7 @@ EXTRA_DIST = \
 	doveadm-expunge.1.in \
 	doveadm-fetch.1.in \
 	doveadm-flags.1.in \
+	doveadm-fts.1.in \
 	doveadm-import.1.in \
 	doveadm-instance.1.in \
 	doveadm-index.1.in \
