@@ -674,6 +674,7 @@ void io_loop_context_unref(struct ioloop_context **_ctx)
 	i_free(ctx);
 }
 
+#undef io_loop_context_add_callbacks
 void io_loop_context_add_callbacks(struct ioloop_context *ctx,
 				   io_callback_t *activate,
 				   io_callback_t *deactivate, void *context)
@@ -688,6 +689,7 @@ void io_loop_context_add_callbacks(struct ioloop_context *ctx,
 	array_append(&ctx->callbacks, &cb, 1);
 }
 
+#undef io_loop_context_remove_callbacks
 void io_loop_context_remove_callbacks(struct ioloop_context *ctx,
 				      io_callback_t *activate,
 				      io_callback_t *deactivate, void *context)

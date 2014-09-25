@@ -201,9 +201,8 @@ void mail_stats_get(struct stats_user *suser, struct mail_stats *stats_r)
 	user_trans_stats_get(suser, &stats_r->trans_stats);
 }
 
-static void stats_io_activate(void *context)
+static void stats_io_activate(struct mail_user *user)
 {
-	struct mail_user *user = context;
 	struct stats_user *suser = STATS_USER_CONTEXT(user);
 
 	if (stats_user_count == 1) {
@@ -519,9 +518,8 @@ static void session_stats_refresh_timeout(struct mail_user *user)
 	session_stats_refresh(user);
 }
 
-static void stats_io_deactivate(void *context)
+static void stats_io_deactivate(struct mail_user *user)
 {
-	struct mail_user *user = context;
 	struct stats_user *suser = STATS_USER_CONTEXT(user);
 	unsigned int last_update_secs;
 

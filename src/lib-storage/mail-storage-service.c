@@ -695,17 +695,13 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	return 0;
 }
 
-static void mail_storage_service_io_activate(void *context)
+static void mail_storage_service_io_activate(struct mail_storage_service_user *user)
 {
-	struct mail_storage_service_user *user = context;
-
 	i_set_failure_prefix("%s", user->log_prefix);
 }
 
-static void mail_storage_service_io_deactivate(void *context)
+static void mail_storage_service_io_deactivate(struct mail_storage_service_user *user)
 {
-	struct mail_storage_service_user *user = context;
-
 	i_set_failure_prefix("%s", user->service_ctx->default_log_prefix);
 }
 

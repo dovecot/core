@@ -142,10 +142,20 @@ void io_loop_context_unref(struct ioloop_context **ctx);
 void io_loop_context_add_callbacks(struct ioloop_context *ctx,
 				   io_callback_t *activate,
 				   io_callback_t *deactivate, void *context);
+#define io_loop_context_add_callbacks(ctx, activate, deactivate, context) \
+	io_loop_context_add_callbacks(ctx, 1 ? (io_callback_t *)activate : \
+		CALLBACK_TYPECHECK(activate, void (*)(typeof(context))) + \
+		CALLBACK_TYPECHECK(deactivate, void (*)(typeof(context))), \
+		(io_callback_t *)deactivate, context)
 /* Remove callbacks with the given callbacks and context. */
 void io_loop_context_remove_callbacks(struct ioloop_context *ctx,
 				      io_callback_t *activate,
 				      io_callback_t *deactivate, void *context);
+#define io_loop_context_remove_callbacks(ctx, activate, deactivate, context) \
+	io_loop_context_remove_callbacks(ctx, 1 ? (io_callback_t *)activate : \
+		CALLBACK_TYPECHECK(activate, void (*)(typeof(context))) + \
+		CALLBACK_TYPECHECK(deactivate, void (*)(typeof(context))), \
+		(io_callback_t *)deactivate, context)
 /* Returns the current context set to ioloop. */
 struct ioloop_context *io_loop_get_current_context(struct ioloop *ioloop);
 
