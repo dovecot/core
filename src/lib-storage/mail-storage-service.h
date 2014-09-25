@@ -109,6 +109,15 @@ int mail_storage_service_all_next(struct mail_storage_service_ctx *ctx,
 				  const char **username_r);
 void mail_storage_service_deinit(struct mail_storage_service_ctx **ctx);
 
+/* Activate user context. Normally this is called automatically by the ioloop,
+   but e.g. during loops at deinit where all users are being destroyed, it's
+   useful to call this to set the correct user-specific log prefix. */
+void mail_storage_service_io_activate_user(struct mail_storage_service_user *user);
+/* Deactivate user context. This only switches back to non-user-specific
+   log prefix. */
+void mail_storage_service_io_deactivate_user(struct mail_storage_service_user *user);
+void mail_storage_service_io_deactivate(struct mail_storage_service_ctx *ctx);
+
 /* Return the settings pointed to by set_root parameter in _init().
    The settings contain all the changes done by userdb lookups. */
 void **mail_storage_service_user_get_set(struct mail_storage_service_user *user);

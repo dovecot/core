@@ -695,14 +695,19 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	return 0;
 }
 
-static void mail_storage_service_io_activate(struct mail_storage_service_user *user)
+void mail_storage_service_io_activate_user(struct mail_storage_service_user *user)
 {
 	i_set_failure_prefix("%s", user->log_prefix);
 }
 
-static void mail_storage_service_io_deactivate(struct mail_storage_service_user *user)
+void mail_storage_service_io_deactivate_user(struct mail_storage_service_user *user)
 {
 	i_set_failure_prefix("%s", user->service_ctx->default_log_prefix);
+}
+
+void mail_storage_service_io_deactivate(struct mail_storage_service_ctx *ctx)
+{
+	i_set_failure_prefix("%s", ctx->default_log_prefix);
 }
 
 static void
@@ -726,8 +731,8 @@ mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 		i_set_failure_send_prefix(user->log_prefix);
 	user->ioloop_ctx = io_loop_context_new(current_ioloop);
 	io_loop_context_add_callbacks(user->ioloop_ctx,
-				      mail_storage_service_io_activate,
-				      mail_storage_service_io_deactivate,
+				      mail_storage_service_io_activate_user,
+				      mail_storage_service_io_deactivate_user,
 				      user);
 }
 
@@ -1275,8 +1280,8 @@ void mail_storage_service_user_free(struct mail_storage_service_user **_user)
 
 	if (user->ioloop_ctx != NULL) {
 		io_loop_context_remove_callbacks(user->ioloop_ctx,
-			mail_storage_service_io_activate,
-			mail_storage_service_io_deactivate, user);
+			mail_storage_service_io_activate_user,
+			mail_storage_service_io_deactivate_user, user);
 		io_loop_context_unref(&user->ioloop_ctx);
 	}
 	settings_parser_deinit(&user->set_parser);
