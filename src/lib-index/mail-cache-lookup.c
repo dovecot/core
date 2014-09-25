@@ -542,7 +542,7 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 	/* lookup the fields */
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.view = view;
-	ctx.pool = *pool_r = pool_alloconly_create("mail cache headers", 1024);
+	ctx.pool = *pool_r = pool_alloconly_create(MEMPOOL_GROWING"mail cache headers", 1024);
 	t_array_init(&ctx.lines, 32);
 
 	mail_cache_lookup_iter_init(view, seq, &iter);

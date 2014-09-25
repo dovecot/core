@@ -10,7 +10,7 @@ http_server_request_new(struct http_server_connection *conn)
 	pool_t pool;
 	struct http_server_request *req;
 
-	pool = pool_alloconly_create("http_message", 4096);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"http_server_request", 4096);
 	req = p_new(pool, struct http_server_request, 1);
 	req->pool = pool;
 	req->refcount = 1;
