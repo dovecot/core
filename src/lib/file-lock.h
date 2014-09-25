@@ -25,12 +25,23 @@ const char *file_lock_method_to_str(enum file_lock_method method);
 int file_try_lock(int fd, const char *path, int lock_type,
 		  enum file_lock_method lock_method,
 		  struct file_lock **lock_r);
+/* Like file_try_lock(), but return the error message as a string instead
+   of logging it. Also when returning 0 an error message is returned. */
+int file_try_lock_error(int fd, const char *path, int lock_type,
+			enum file_lock_method lock_method,
+			struct file_lock **lock_r, const char **error_r);
 /* Like lock_try_lock(), but return 0 only after having tried to lock for
    timeout_secs. */
 int file_wait_lock(int fd, const char *path, int lock_type,
 		   enum file_lock_method lock_method,
 		   unsigned int timeout_secs,
 		   struct file_lock **lock_r);
+/* Like file_wait_lock(), but return the error message as a string instead
+   of logging it. Also when returning 0 an error message is returned. */
+int file_wait_lock_error(int fd, const char *path, int lock_type,
+			 enum file_lock_method lock_method,
+			 unsigned int timeout_secs,
+			 struct file_lock **lock_r, const char **error_r);
 /* Change the lock type. */
 int file_lock_try_update(struct file_lock *lock, int lock_type);
 
