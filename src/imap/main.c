@@ -101,7 +101,9 @@ static void client_kill_idle(struct client *client)
 		return;
 
 	client_send_line(client, "* BYE Server shutting down.");
+	mail_storage_service_io_activate_user(client->service_user);
 	client_destroy(client, "Server shutting down.");
+	mail_storage_service_io_deactivate(storage_service);
 }
 
 static void imap_die(void)
@@ -114,7 +116,6 @@ static void imap_die(void)
 	for (client = imap_clients; client != NULL; client = next) {
 		next = client->next;
 
-		mail_storage_service_io_activate_user(client->service_user);
 		last_io = I_MAX(client->last_input, client->last_output);
 		if (last_io <= stop_timestamp)
 			client_kill_idle(client);
@@ -125,7 +126,6 @@ static void imap_die(void)
 						      client_kill_idle, client);
 		}
 	}
-	mail_storage_service_io_deactivate(storage_service);
 }
 
 struct client_input {
