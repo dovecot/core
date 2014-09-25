@@ -1538,21 +1538,6 @@ static void index_mail_update_access_parts(struct index_mail *mail)
 				(void)mail_get_hdr_stream(_mail, NULL, &input);
 		}
 	}
-
-	if ((data->wanted_fields & MAIL_FETCH_VIRTUAL_SIZE) != 0 &&
-	    data->virtual_size == (uoff_t)-1 &&
-	    _mail->lookup_abort == MAIL_LOOKUP_ABORT_NEVER &&
-	    ((data->access_part & (READ_HDR | PARSE_HDR)) == 0 ||
-	      (data->access_part & (READ_BODY | PARSE_BODY)) == 0)) {
-		/* we want virtual size, and we'd prefer not to read the entire
-		   message for it. see if it's possible. */
-		uoff_t vsize;
-
-		_mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
-		if (mail_get_virtual_size(_mail, &vsize) < 0)
-			mail->data.access_part |= READ_HDR | READ_BODY;
-		_mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
-	}
 }
 
 void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
