@@ -118,7 +118,7 @@ copy_unique_defaults(struct setting_parser_context *ctx,
 	memset(&info, 0, sizeof(info));
 	info = *def->list_info;
 
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < count; i++) T_BEGIN {
 		new_set = p_malloc(ctx->set_pool, info.struct_size);
 		array_append(arr, &new_set, 1);
 
@@ -148,7 +148,7 @@ copy_unique_defaults(struct setting_parser_context *ctx,
 
 		info.defaults = children[i];
 		setting_parser_copy_defaults(ctx, &info, new_link);
-	}
+	} T_END;
 }
 
 static void

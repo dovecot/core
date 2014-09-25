@@ -144,7 +144,7 @@ dsync_brain_sync_mailbox_init(struct dsync_brain *brain,
 		p_clear(brain->dsync_box_pool);
 	else {
 		brain->dsync_box_pool =
-			pool_alloconly_create("dsync brain box pool", 1024);
+			pool_alloconly_create(MEMPOOL_GROWING"dsync brain box pool", 2048);
 	}
 	dsync_mailbox_cache_field_dup(&brain->local_dsync_box.cache_fields,
 				      &local_dsync_box->cache_fields,

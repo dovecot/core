@@ -1022,7 +1022,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	pool_t user_pool, temp_pool;
 	int ret = 1;
 
-	user_pool = pool_alloconly_create("mail storage service user", 1024*6);
+	user_pool = pool_alloconly_create(MEMPOOL_GROWING"mail storage service user", 1024*6);
 	flags = mail_storage_service_input_get_flags(ctx, input);
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0 &&

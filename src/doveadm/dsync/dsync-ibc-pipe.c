@@ -62,7 +62,7 @@ static pool_t dsync_ibc_pipe_get_pool(struct dsync_ibc_pipe *pipe)
 
 	pools = array_get_modifiable(&pipe->pools, &count);
 	if (count == 0)
-		return pool_alloconly_create("pipe item pool", 1024);
+		return pool_alloconly_create(MEMPOOL_GROWING"pipe item pool", 1024);
 
 	ret = pools[count-1];
 	array_delete(&pipe->pools, count-1, 1);

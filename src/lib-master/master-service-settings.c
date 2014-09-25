@@ -413,7 +413,7 @@ int master_service_settings_read(struct master_service *service,
 		p_clear(service->set_pool);
 	} else {
 		service->set_pool =
-			pool_alloconly_create("master service settings", 8192);
+			pool_alloconly_create("master service settings", 16384);
 	}
 
 	p_array_init(&all_roots, service->set_pool, 8);

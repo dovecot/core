@@ -38,7 +38,7 @@ struct master_instance_list *master_instance_list_init(const char *path)
 	struct master_instance_list *list;
 	pool_t pool;
 
-	pool = pool_alloconly_create("master instances", 256);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"master instances", 256);
 	list = p_new(pool, struct master_instance_list, 1);
 	list->pool = pool;
 	list->path = p_strdup(pool, path);

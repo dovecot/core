@@ -185,7 +185,7 @@ static bool have_changed_settings(const struct config_filter_parser *parser,
 }
 
 static struct config_filter_parser *const *
-config_filter_find_all(struct config_filter_context *ctx,
+config_filter_find_all(struct config_filter_context *ctx, pool_t pool,
 		       const char *const *modules,
 		       const struct config_filter *filter,
 		       struct master_service_settings_output *output_r)
@@ -196,8 +196,8 @@ config_filter_find_all(struct config_filter_context *ctx,
 
 	memset(output_r, 0, sizeof(*output_r));
 
-	t_array_init(&matches, 8);
-	t_array_init(&service_names, 8);
+	p_array_init(&matches, pool, 8);
+	p_array_init(&service_names, pool, 8);
 	for (i = 0; ctx->parsers[i] != NULL; i++) {
 		const struct config_filter *mask = &ctx->parsers[i]->filter;
 
@@ -322,7 +322,7 @@ int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 	   with an error. Merging SET_STRLIST types requires
 	   settings_parser_apply_changes() to work a bit unintuitively by
 	   letting the destination settings override the source settings. */
-	src = config_filter_find_all(ctx, modules, filter, output_r);
+	src = config_filter_find_all(ctx, pool, modules, filter, output_r);
 
 	/* all of them should have the same number of parsers.
 	   duplicate our initial parsers from the first match */

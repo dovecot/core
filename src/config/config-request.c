@@ -357,8 +357,8 @@ config_export_init(const char *const *modules, enum config_dump_scope scope,
 	ctx->callback = callback;
 	ctx->context = context;
 	ctx->scope = scope;
-	ctx->value = t_str_new(256);
-	ctx->prefix = t_str_new(64);
+	ctx->value = str_new(pool, 256);
+	ctx->prefix = str_new(pool, 64);
 	hash_table_create(&ctx->keys, ctx->pool, 0, str_hash, strcmp);
 	return ctx;
 }
@@ -419,9 +419,11 @@ int config_export_finish(struct config_export_context **_ctx)
 					       ctx->modules, parser->root))
 			continue;
 
-		settings_export(ctx, parser->root, FALSE,
-				settings_parser_get(parser->parser),
-				settings_parser_get_changes(parser->parser));
+		T_BEGIN {
+			settings_export(ctx, parser->root, FALSE,
+					settings_parser_get(parser->parser),
+					settings_parser_get_changes(parser->parser));
+		} T_END;
 
 		if ((ctx->flags & CONFIG_DUMP_FLAG_CHECK_SETTINGS) != 0) {
 			settings_parse_var_skip(parser->parser);

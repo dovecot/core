@@ -336,6 +336,10 @@ config_filter_parser_check(struct config_parser_context *ctx,
 			   const struct config_module_parser *p,
 			   const char **error_r)
 {
+	const char *error;
+	char *error_dup = NULL;
+	bool ok;
+
 	for (; p->root != NULL; p++) {
 		/* skip checking settings we don't care about */
 		if (!config_module_want_parser(ctx->root_parsers,
@@ -343,8 +347,17 @@ config_filter_parser_check(struct config_parser_context *ctx,
 			continue;
 
 		settings_parse_var_skip(p->parser);
-		if (!settings_parser_check(p->parser, ctx->pool, error_r))
+		T_BEGIN {
+			ok = settings_parser_check(p->parser, ctx->pool, &error);
+			if (!ok)
+				error_dup = i_strdup(error);
+		} T_END;
+		if (!ok) {
+			i_assert(error_dup != NULL);
+			*error_r = t_strdup(error_dup);
+			i_free(error_dup);
 			return -1;
+		}
 	}
 	return 0;
 }
@@ -392,7 +405,7 @@ config_all_parsers_check(struct config_parser_context *ctx,
 		return -1;
 	}
 
-	tmp_pool = pool_alloconly_create("config parsers check", 1024*64);
+	tmp_pool = pool_alloconly_create(MEMPOOL_GROWING"config parsers check", 1024*64);
 	parsers = array_get(&ctx->all_parsers, &count);
 	i_assert(count > 0 && parsers[count-1] == NULL);
 	count--;
@@ -909,7 +922,7 @@ int config_parse_file(const char *path, bool expand_values,
 	}
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.pool = pool_alloconly_create("config file parser", 1024*256);
+	ctx.pool = pool_alloconly_create(MEMPOOL_GROWING"config file parser", 1024*256);
 	ctx.path = path;
 	ctx.hide_errors = fd == -1;
 
@@ -940,8 +953,9 @@ int config_parse_file(const char *path, bool expand_values,
 		i_stream_create_from_data("", 0);
 	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
 	old_settings_init(&ctx);
-	if (hook_config_parser_begin != NULL)
+	if (hook_config_parser_begin != NULL) T_BEGIN {
 		hook_config_parser_begin(&ctx);
+	} T_END;
 
 prevfile:
 	while ((line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
