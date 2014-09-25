@@ -5,6 +5,7 @@
 
 struct client;
 struct mail_storage;
+struct mail_storage_service_ctx;
 
 typedef void command_func_t(struct client *client);
 
@@ -133,6 +134,6 @@ void client_send_storage_error(struct client *client);
 bool client_handle_input(struct client *client);
 bool client_update_mails(struct client *client);
 
-void clients_destroy_all(void);
+void clients_destroy_all(struct mail_storage_service_ctx *storage_service);
 
 #endif

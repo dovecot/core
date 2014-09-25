@@ -1111,12 +1111,14 @@ void client_search_updates_free(struct client *client)
 	array_clear(&client->search_updates);
 }
 
-void clients_destroy_all(void)
+void clients_destroy_all(struct mail_storage_service_ctx *storage_service)
 {
 	while (imap_clients != NULL) {
 		client_send_line(imap_clients, "* BYE Server shutting down.");
+		mail_storage_service_io_activate_user(imap_clients->service_user);
 		client_destroy(imap_clients, "Server shutting down.");
 	}
+	mail_storage_service_io_deactivate(storage_service);
 }
 
 struct imap_client_vfuncs imap_client_vfuncs = {

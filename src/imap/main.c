@@ -114,6 +114,7 @@ static void imap_die(void)
 	for (client = imap_clients; client != NULL; client = next) {
 		next = client->next;
 
+		mail_storage_service_io_activate_user(client->service_user);
 		last_io = I_MAX(client->last_input, client->last_output);
 		if (last_io <= stop_timestamp)
 			client_kill_idle(client);
@@ -124,6 +125,7 @@ static void imap_die(void)
 						      client_kill_idle, client);
 		}
 	}
+	mail_storage_service_io_deactivate(storage_service);
 }
 
 struct client_input {
@@ -408,7 +410,7 @@ int main(int argc, char *argv[])
 
 	if (io_loop_is_running(current_ioloop))
 		master_service_run(master_service, client_connected);
-	clients_destroy_all();
+	clients_destroy_all(storage_service);
 
 	if (master_login != NULL)
 		master_login_deinit(&master_login);

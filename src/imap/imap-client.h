@@ -12,6 +12,7 @@
 
 struct client;
 struct mail_storage;
+struct mail_storage_service_ctx;
 struct imap_parser;
 struct imap_arg;
 struct imap_urlauth_context;
@@ -244,6 +245,6 @@ void client_input(struct client *client);
 bool client_handle_input(struct client *client);
 int client_output(struct client *client);
 
-void clients_destroy_all(void);
+void clients_destroy_all(struct mail_storage_service_ctx *storage_service);
 
 #endif
