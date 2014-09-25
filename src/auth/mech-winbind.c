@@ -313,7 +313,7 @@ static struct auth_request *do_auth_new(struct winbind_helper *winbind)
 	struct winbind_auth_request *request;
 	pool_t pool;
 
-	pool = pool_alloconly_create("winbind_auth_request", 1024);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"winbind_auth_request", 2048);
 	request = p_new(pool, struct winbind_auth_request, 1);
 	request->auth_request.pool = pool;
 

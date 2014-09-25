@@ -145,7 +145,7 @@ static struct auth_request *mech_apop_auth_new(void)
 	struct apop_auth_request *request;
 	pool_t pool;
 
-	pool = pool_alloconly_create("apop_auth_request", 1024);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"apop_auth_request", 2048);
 	request = p_new(pool, struct apop_auth_request, 1);
 	request->pool = pool;
 

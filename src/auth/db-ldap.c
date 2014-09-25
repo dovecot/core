@@ -1505,7 +1505,7 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 	const char *suffix;
 	pool_t pool;
 
-	pool = pool_alloconly_create("ldap result iter", 1024);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"ldap result iter", 1024);
 	ctx = p_new(pool, struct db_ldap_result_iterate_context, 1);
 	ctx->pool = pool;
 	ctx->auth_request = ldap_request->request.auth_request;

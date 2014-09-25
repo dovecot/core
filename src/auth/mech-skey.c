@@ -176,7 +176,7 @@ static struct auth_request *mech_skey_auth_new(void)
 
 	otp_lock_init();
 
-	pool = pool_alloconly_create("skey_auth_request", 256);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"skey_auth_request", 2048);
 	request = p_new(pool, struct otp_auth_request, 1);
 	request->pool = pool;
 	request->lock = FALSE;

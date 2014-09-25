@@ -73,7 +73,7 @@ struct auth_request *auth_request_new_dummy(void)
 	struct auth_request *request;
 	pool_t pool;
 
-	pool = pool_alloconly_create("auth_request", 1024);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"auth_request", 1024);
 	request = p_new(pool, struct auth_request, 1);
 	request->pool = pool;
 

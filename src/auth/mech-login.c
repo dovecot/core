@@ -57,7 +57,7 @@ static struct auth_request *mech_login_auth_new(void)
 	struct auth_request *request;
 	pool_t pool;
 
-	pool = pool_alloconly_create("login_auth_request", 1024);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"login_auth_request", 2048);
 	request = p_new(pool, struct auth_request, 1);
 	request->pool = pool;
 	return request;

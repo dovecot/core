@@ -122,7 +122,7 @@ static struct auth_request *mech_gssapi_auth_new(void)
 	struct gssapi_auth_request *request;
 	pool_t pool;
 
-	pool = pool_alloconly_create("gssapi_auth_request", 1024);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"gssapi_auth_request", 2048);
 	request = p_new(pool, struct gssapi_auth_request, 1);
 	request->pool = pool;
 

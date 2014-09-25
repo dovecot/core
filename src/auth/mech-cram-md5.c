@@ -173,7 +173,7 @@ static struct auth_request *mech_cram_md5_auth_new(void)
 	struct cram_auth_request *request;
 	pool_t pool;
 
-	pool = pool_alloconly_create("cram_md5_auth_request", 2048);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"cram_md5_auth_request", 2048);
 	request = p_new(pool, struct cram_auth_request, 1);
 	request->pool = pool;
 

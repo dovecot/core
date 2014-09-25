@@ -390,7 +390,7 @@ static struct auth_request *mech_scram_sha1_auth_new(void)
 	struct scram_auth_request *request;
 	pool_t pool;
 
-	pool = pool_alloconly_create("scram_sha1_auth_request", 2048);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"scram_sha1_auth_request", 2048);
 	request = p_new(pool, struct scram_auth_request, 1);
 	request->pool = pool;
 

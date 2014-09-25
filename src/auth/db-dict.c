@@ -443,7 +443,7 @@ int db_dict_value_iter_init(struct dict_connection *conn,
 	pool_t pool;
 	int ret;
 
-	pool = pool_alloconly_create("auth dict lookup", 1024);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"auth dict lookup", 1024);
 	iter = p_new(pool, struct db_dict_value_iter, 1);
 	iter->pool = pool;
 	iter->conn = conn;

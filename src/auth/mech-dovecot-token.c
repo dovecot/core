@@ -69,7 +69,7 @@ static struct auth_request *mech_dovecot_token_auth_new(void)
 	struct auth_request *request;
 	pool_t pool;
 
-	pool = pool_alloconly_create("dovecot_token_auth_request", 512);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"dovecot_token_auth_request", 512);
 	request = p_new(pool, struct auth_request, 1);
 	request->pool = pool;
 	return request;
