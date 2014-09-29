@@ -1127,6 +1127,7 @@ http_client_connection_disconnect(struct http_client_connection *conn)
 		/* the stream is still accessed by lib-http caller. */
 		i_stream_remove_destroy_callback(conn->incoming_payload,
 						 http_client_payload_destroyed);
+		conn->incoming_payload = NULL;
 	}
 
 	connection_disconnect(&conn->conn);
