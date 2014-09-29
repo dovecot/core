@@ -246,7 +246,8 @@ data_callback(bool success, const char *reply, void *context)
 	}
 }
 
-static int smtp_client_send_flush(struct smtp_client *smtp_client)
+static int
+smtp_client_send_flush(struct smtp_client *smtp_client, const char **error_r)
 {
 	struct lmtp_client_settings client_set;
 	struct lmtp_client *client;
@@ -261,18 +262,21 @@ static int smtp_client_send_flush(struct smtp_client *smtp_client)
 		host = t_strdup_until(host, p);
 		if (str_to_uint(p + 1, &port) < 0 ||
 		    port == 0 || port > 65535) {
-			i_error("Invalid port in submission_host: %s", p+1);
+			*error_r = t_strdup_printf(
+				"Invalid port in submission_host: %s", p+1);
 			return -1;
 		}
 	}
 
 	if (o_stream_nfinish(smtp_client->output) < 0) {
-		i_error("write(%s) failed: %m", smtp_client->temp_path);
+		*error_r = t_strdup_printf("write(%s) failed: %m",
+					   smtp_client->temp_path);
 		return -1;
 	}
 
 	if (o_stream_seek(smtp_client->output, 0) < 0) {
-		i_error("lseek(%s) failed: %m", smtp_client->temp_path);
+		*error_r = t_strdup_printf("lseek(%s) failed: %m",
+					   smtp_client->temp_path);
 		return -1;
 	}
 
@@ -289,6 +293,8 @@ static int smtp_client_send_flush(struct smtp_client *smtp_client)
 				    host, port) < 0) {
 		lmtp_client_deinit(&client);
 		io_loop_destroy(&ioloop);
+		*error_r = t_strdup_printf("Couldn't connect to %s:%u",
+					   host, port);
 		return -1;
 	}
 
@@ -307,9 +313,11 @@ static int smtp_client_send_flush(struct smtp_client *smtp_client)
 
 	if (smtp_client->success)
 		return 1;
-	else if (smtp_client->tempfail)
+	else if (smtp_client->tempfail) {
+		i_assert(smtp_client->error != NULL);
+		*error_r = t_strdup(smtp_client->error);
 		return -1;
-	else
+	} else
 		return 0;
 }
 
@@ -326,11 +334,9 @@ int smtp_client_deinit(struct smtp_client *client, const char **error_r)
 	}
 
 	/* the mail has been written to a file. now actually send it. */
-	ret = smtp_client_send_flush(client);
+	ret = smtp_client_send_flush(client, error_r);
 
 	o_stream_destroy(&client->output);
-
-	*error_r = t_strdup(client->error);
 	pool_unref(&client->pool);
 	return ret;
 }
