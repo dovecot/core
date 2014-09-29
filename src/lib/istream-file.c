@@ -54,6 +54,7 @@ static int i_stream_file_open(struct istream_private *stream)
 static ssize_t i_stream_file_read(struct istream_private *stream)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
+	uoff_t offset;
 	size_t size;
 	ssize_t ret;
 
@@ -65,11 +66,11 @@ static ssize_t i_stream_file_read(struct istream_private *stream)
 			return -1;
 	}
 
+	offset = stream->istream.v_offset + (stream->pos - stream->skip);
 	do {
 		if (fstream->file) {
 			ret = pread(stream->fd, stream->w_buffer + stream->pos,
-				    size, stream->istream.v_offset +
-				    (stream->pos - stream->skip));
+				    size, offset);
 		} else if (fstream->seen_eof) {
 			/* don't try to read() again. EOF from keyboard (^D)
 			   requires this to work right. */
@@ -97,6 +98,16 @@ static ssize_t i_stream_file_read(struct istream_private *stream)
 			/* if we get EBADF for a valid fd, it means something's
 			   really wrong and we'd better just crash. */
 			i_assert(errno != EBADF);
+			if (fstream->file) {
+				io_stream_set_error(&stream->iostream,
+					"pread(size=%"PRIuSIZE_T
+					" offset=%"PRIuUOFF_T") failed: %m",
+					size, offset);
+			} else {
+				io_stream_set_error(&stream->iostream,
+					"read(size=%"PRIuSIZE_T") failed: %m",
+					size);
+			}
 			stream->istream.stream_errno = errno;
 			return -1;
 		}
