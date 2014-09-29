@@ -1681,6 +1681,7 @@ dsync_ibc_stream_send_mail(struct dsync_ibc *_ibc,
 	struct dsync_serializer_encoder *encoder;
 	string_t *str = t_str_new(128);
 
+	i_assert(!mail->minimal_fields);
 	i_assert(ibc->value_output == NULL);
 
 	str_append_c(str, items[ITEM_MAIL].chr);

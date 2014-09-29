@@ -304,6 +304,8 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 	    (brain->local_dsync_box.have_save_guids ||
 	     (brain->backup_send && brain->local_dsync_box.have_guids)))
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_MAILS_HAVE_GUIDS;
+	if (brain->no_mail_prefetch)
+		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_MINIMAL_DMAIL_FILL;
 
 	brain->box_exporter = brain->backup_recv ? NULL :
 		dsync_mailbox_export_init(brain->box, brain->log_scan,

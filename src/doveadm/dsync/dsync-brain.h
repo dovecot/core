@@ -22,7 +22,11 @@ enum dsync_brain_flags {
 	DSYNC_BRAIN_FLAG_NO_BACKUP_OVERWRITE	= 0x40,
 	/* Run storage purge on the remote after syncing.
 	   Useful with e.g. a nightly doveadm backup. */
-	DSYNC_BRAIN_FLAG_PURGE_REMOTE		= 0x80
+	DSYNC_BRAIN_FLAG_PURGE_REMOTE		= 0x80,
+	/* Don't prefetch mail bodies until they're actually needed. This works
+	   only with pipe ibc. It's useful if most of the mails can be copied
+	   directly within filesystem without having to read them. */
+	DSYNC_BRAIN_FLAG_NO_MAIL_PREFETCH	= 0x100
 };
 
 enum dsync_brain_sync_type {

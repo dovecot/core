@@ -137,6 +137,8 @@ dsync_brain_set_flags(struct dsync_brain *brain, enum dsync_brain_flags flags)
 	brain->no_mail_sync = (flags & DSYNC_BRAIN_FLAG_NO_MAIL_SYNC) != 0;
 	brain->no_backup_overwrite =
 		(flags & DSYNC_BRAIN_FLAG_NO_BACKUP_OVERWRITE) != 0;
+	brain->no_mail_prefetch =
+		(flags & DSYNC_BRAIN_FLAG_NO_MAIL_PREFETCH) != 0;
 }
 
 struct dsync_brain *

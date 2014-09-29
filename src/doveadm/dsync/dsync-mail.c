@@ -60,10 +60,10 @@ int dsync_mail_get_hdr_hash(struct mail *mail, const char **hdr_hash_r)
 	return ret;
 }
 
-int dsync_mail_fill(struct mail *mail, struct dsync_mail *dmail_r,
-		    const char **error_field_r)
+int dsync_mail_fill(struct mail *mail, bool minimal_fill,
+		    struct dsync_mail *dmail_r, const char **error_field_r)
 {
-	const char *guid, *str;
+	const char *guid;
 
 	memset(dmail_r, 0, sizeof(*dmail_r));
 
@@ -76,6 +76,22 @@ int dsync_mail_fill(struct mail *mail, struct dsync_mail *dmail_r,
 
 	dmail_r->input_mail = mail;
 	dmail_r->input_mail_uid = mail->uid;
+
+	if (mail_get_save_date(mail, &dmail_r->saved_date) < 0) {
+		*error_field_r = "saved-date";
+		return -1;
+	}
+	if (!minimal_fill)
+		return dsync_mail_fill_nonminimal(mail, dmail_r, error_field_r);
+	dmail_r->minimal_fields = TRUE;
+	return 0;
+}
+
+int dsync_mail_fill_nonminimal(struct mail *mail, struct dsync_mail *dmail_r,
+			       const char **error_field_r)
+{
+	const char *str;
+
 	if (mail_get_stream(mail, NULL, NULL, &dmail_r->input) < 0) {
 		*error_field_r = "body";
 		return -1;
@@ -95,10 +111,6 @@ int dsync_mail_fill(struct mail *mail, struct dsync_mail *dmail_r,
 	}
 	if (mail_get_received_date(mail, &dmail_r->received_date) < 0) {
 		*error_field_r = "received-date";
-		return -1;
-	}
-	if (mail_get_save_date(mail, &dmail_r->saved_date) < 0) {
-		*error_field_r = "saved-date";
 		return -1;
 	}
 	return 0;

@@ -10,21 +10,24 @@ struct dsync_mail {
 	/* either GUID="" or uid=0 */
 	const char *guid;
 	uint32_t uid;
-
-	const char *pop3_uidl;
-	unsigned int pop3_order;
-	time_t received_date;
 	time_t saved_date;
-
-	/* Input stream containing the message text, or NULL if all instances
-	   of the message were already expunged from this mailbox. */
-	struct istream *input;
 
 	/* If non-NULL, we're syncing within the dsync process using ibc-pipe.
 	   This mail can be used to mailbox_copy() the mail. */
 	struct mail *input_mail;
 	/* Verify that this equals to input_mail->uid */
 	uint32_t input_mail_uid;
+
+	/* TRUE if the following fields aren't set, because minimal_fill=TRUE
+	   parameter was used. */
+	bool minimal_fields;
+
+	const char *pop3_uidl;
+	unsigned int pop3_order;
+	time_t received_date;
+	/* Input stream containing the message text, or NULL if all instances
+	   of the message were already expunged from this mailbox. */
+	struct istream *input;
 };
 
 struct dsync_mail_request {
@@ -80,8 +83,10 @@ struct mailbox_header_lookup_ctx *
 dsync_mail_get_hash_headers(struct mailbox *box);
 
 int dsync_mail_get_hdr_hash(struct mail *mail, const char **hdr_hash_r);
-int dsync_mail_fill(struct mail *mail, struct dsync_mail *dmail_r,
-		    const char **error_field_r);
+int dsync_mail_fill(struct mail *mail, bool minimal_fill,
+		    struct dsync_mail *dmail_r, const char **error_field_r);
+int dsync_mail_fill_nonminimal(struct mail *mail, struct dsync_mail *dmail_r,
+			       const char **error_field_r);
 
 void dsync_mail_change_dup(pool_t pool, const struct dsync_mail_change *src,
 			   struct dsync_mail_change *dest_r);

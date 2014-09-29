@@ -1544,7 +1544,7 @@ dsync_mailbox_import_local_uid(struct dsync_mailbox_importer *importer,
 	if (!mail_set_uid(importer->mail, uid))
 		return 0;
 
-	if (dsync_mail_fill(importer->mail, dmail_r, &error_field) < 0) {
+	if (dsync_mail_fill(importer->mail, TRUE, dmail_r, &error_field) < 0) {
 		errstr = mailbox_get_last_error(importer->mail->box, &error);
 		if (error == MAIL_ERROR_EXPUNGED)
 			return 0;
@@ -1905,6 +1905,17 @@ dsync_msg_try_copy(struct dsync_mailbox_importer *importer,
 	return 0;
 }
 
+static void
+dsync_mailbox_save_set_nonminimal(struct mail_save_context *save_ctx,
+				  const struct dsync_mail *mail)
+{
+	if (mail->pop3_uidl != NULL && *mail->pop3_uidl != '\0')
+		mailbox_save_set_pop3_uidl(save_ctx, mail->pop3_uidl);
+	if (mail->pop3_order > 0)
+		mailbox_save_set_pop3_order(save_ctx, mail->pop3_order);
+	mailbox_save_set_received_date(save_ctx, mail->received_date, 0);
+}
+
 static struct mail_save_context *
 dsync_mailbox_save_init(struct dsync_mailbox_importer *importer,
 			const struct dsync_mail *mail,
@@ -1919,11 +1930,9 @@ dsync_mailbox_save_init(struct dsync_mailbox_importer *importer,
 	if (mail->saved_date != 0)
 		mailbox_save_set_save_date(save_ctx, mail->saved_date);
 	dsync_mailbox_save_set_metadata(importer, save_ctx, newmail->change);
-	if (mail->pop3_uidl != NULL && *mail->pop3_uidl != '\0')
-		mailbox_save_set_pop3_uidl(save_ctx, mail->pop3_uidl);
-	if (mail->pop3_order > 0)
-		mailbox_save_set_pop3_order(save_ctx, mail->pop3_order);
-	mailbox_save_set_received_date(save_ctx, mail->received_date, 0);
+
+	if (!mail->minimal_fields)
+		dsync_mailbox_save_set_nonminimal(save_ctx, mail);
 	return save_ctx;
 }
 
@@ -1934,6 +1943,7 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 			struct importer_new_mail **all_newmails_forcopy)
 {
 	struct mail_save_context *save_ctx;
+	struct istream *input;
 	ssize_t ret;
 	bool save_failed = FALSE;
 
@@ -1960,22 +1970,42 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 		return;
 	}
 	/* fallback to saving from remote stream */
+	if (mail->minimal_fields) {
+		struct dsync_mail mail2;
+		const char *error_field;
 
-	if (mail->input == NULL) {
+		i_assert(mail->input_mail != NULL);
+
+		if (dsync_mail_fill_nonminimal(mail->input_mail, &mail2,
+					       &error_field) < 0) {
+			i_error("Mailbox %s: Failed to read mail %s uid=%u: %s",
+				mailbox_get_vname(importer->box),
+				error_field, mail->uid,
+				mailbox_get_last_error(importer->box, NULL));
+			importer->failed = TRUE;
+			return;
+		}
+		dsync_mailbox_save_set_nonminimal(save_ctx, &mail2);
+		input = mail2.input;
+	} else {
+		input = mail->input;
+	}
+
+	if (input == NULL) {
 		/* it was just expunged in remote, skip it */
 		mailbox_save_cancel(&save_ctx);
 		return;
 	}
 
-	i_stream_seek(mail->input, 0);
-	if (mailbox_save_begin(&save_ctx, mail->input) < 0) {
+	i_stream_seek(input, 0);
+	if (mailbox_save_begin(&save_ctx, input) < 0) {
 		i_error("Mailbox %s: Saving failed: %s",
 			mailbox_get_vname(importer->box),
 			mailbox_get_last_error(importer->box, NULL));
 		importer->failed = TRUE;
 		return;
 	}
-	while ((ret = i_stream_read(mail->input)) > 0 || ret == -2) {
+	while ((ret = i_stream_read(input)) > 0 || ret == -2) {
 		if (mailbox_save_continue(save_ctx) < 0) {
 			save_failed = TRUE;
 			ret = -1;
@@ -1984,10 +2014,10 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 	}
 	i_assert(ret == -1);
 
-	if (mail->input->stream_errno != 0) {
+	if (input->stream_errno != 0) {
 		i_error("Mailbox %s: read(msg input) failed: %s",
 			mailbox_get_vname(importer->box),
-			i_stream_get_error(mail->input));
+			i_stream_get_error(input));
 		mailbox_save_cancel(&save_ctx);
 		importer->failed = TRUE;
 	} else if (save_failed) {
@@ -1997,7 +2027,7 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 		mailbox_save_cancel(&save_ctx);
 		importer->failed = TRUE;
 	} else {
-		i_assert(mail->input->eof);
+		i_assert(input->eof);
 		if (mailbox_save_finish(&save_ctx) < 0) {
 			i_error("Mailbox %s: Saving failed: %s",
 				mailbox_get_vname(importer->box),
