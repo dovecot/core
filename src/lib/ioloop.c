@@ -194,15 +194,14 @@ static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 	}
 }
 
-#undef timeout_add
-struct timeout *timeout_add(unsigned int msecs, unsigned int source_linenum,
+static struct timeout *
+timeout_add_common(unsigned int source_linenum,
 			    timeout_callback_t *callback, void *context)
 {
 	struct timeout *timeout;
 
 	timeout = i_new(struct timeout, 1);
         timeout->source_linenum = source_linenum;
-        timeout->msecs = msecs;
 	timeout->ioloop = current_ioloop;
 
 	timeout->callback = callback;
@@ -212,6 +211,18 @@ struct timeout *timeout_add(unsigned int msecs, unsigned int source_linenum,
 		timeout->ctx = timeout->ioloop->cur_ctx;
 		io_loop_context_ref(timeout->ctx);
 	}
+
+	return timeout;
+}
+
+#undef timeout_add
+struct timeout *timeout_add(unsigned int msecs, unsigned int source_linenum,
+			    timeout_callback_t *callback, void *context)
+{
+	struct timeout *timeout;
+
+	timeout = timeout_add_common(source_linenum, callback, context);
+	timeout->msecs = msecs;
 
 	timeout_update_next(timeout, timeout->ioloop->running ?
 			    NULL : &ioloop_timeval);
@@ -225,6 +236,20 @@ timeout_add_short(unsigned int msecs, unsigned int source_linenum,
 		  timeout_callback_t *callback, void *context)
 {
 	return timeout_add(msecs, source_linenum, callback, context);
+}
+
+#undef timeout_add_absolute
+struct timeout *timeout_add_absolute(const struct timeval *time,
+			    unsigned int source_linenum,
+			    timeout_callback_t *callback, void *context)
+{
+	struct timeout *timeout;
+
+	timeout = timeout_add_common(source_linenum, callback, context);
+	timeout->one_shot = TRUE;
+
+	priorityq_add(timeout->ioloop->timeouts, &timeout->item);
+	return timeout;
 }
 
 static void timeout_free(struct timeout *timeout)
@@ -407,8 +432,10 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 		if (timeout_get_wait_time(timeout, &tv, &tv_call) > 0)
 			break;
 
-		/* update timeout's next_run and reposition it in the queue */
-		timeout_reset_timeval(timeout, &tv_call);
+		if (!timeout->one_shot) {
+			/* update timeout's next_run and reposition it in the queue */
+			timeout_reset_timeval(timeout, &tv_call);
+		}
 
 		if (timeout->ctx != NULL)
 			io_loop_context_activate(timeout->ctx);

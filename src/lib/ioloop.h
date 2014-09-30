@@ -97,6 +97,13 @@ timeout_add_short(unsigned int msecs, unsigned int source_linenum,
 	timeout_add_short(msecs, __LINE__ + \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(io_callback_t *)callback, context)
+struct timeout *timeout_add_absolute(const struct timeval *time,
+			    unsigned int source_linenum,
+			    timeout_callback_t *callback, void *context) ATTR_NULL(4);
+#define timeout_add_absolute(time, callback, context) \
+	timeout_add_absolute(time, __LINE__ + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+		(io_callback_t *)callback, context)
 /* Remove timeout handler, and set timeout pointer to NULL. */
 void timeout_remove(struct timeout **timeout);
 /* Reset timeout so it's next run after now+msecs. */
