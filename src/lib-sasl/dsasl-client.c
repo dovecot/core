@@ -5,6 +5,7 @@
 #include "safe-memset.h"
 #include "dsasl-client-private.h"
 
+static int init_refcount = 0;
 static ARRAY(const struct dsasl_client_mech *) dsasl_mechanisms = ARRAY_INIT;
 
 static const struct dsasl_client_mech *
@@ -93,6 +94,9 @@ int dsasl_client_output(struct dsasl_client *client,
 
 void dsasl_clients_init(void)
 {
+	if (init_refcount++ > 0)
+		return;
+
 	i_array_init(&dsasl_mechanisms, 8);
 	dsasl_client_mech_register(&dsasl_client_mech_plain);
 	dsasl_client_mech_register(&dsasl_client_mech_login);
@@ -100,5 +104,7 @@ void dsasl_clients_init(void)
 
 void dsasl_clients_deinit(void)
 {
+	if (--init_refcount > 0)
+		return;
 	array_free(&dsasl_mechanisms);
 }
