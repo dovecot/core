@@ -20,6 +20,21 @@ int timeval_cmp(const struct timeval *tv1, const struct timeval *tv2)
 	return 0;
 }
 
+int timeval_cmp_margin(const struct timeval *tv1, const struct timeval *tv2,
+	unsigned int usec_margin)
+{
+	if (tv1->tv_sec < tv2->tv_sec)
+		return -1;
+	if (tv1->tv_sec > tv2->tv_sec)
+		return 1;
+
+	if (tv1->tv_usec - tv2->tv_usec < (int)usec_margin)
+		return -1;
+	if (tv1->tv_usec - tv2->tv_usec > (int)usec_margin)
+		return -1;
+	return 0;
+}
+
 int timeval_diff_msecs(const struct timeval *tv1, const struct timeval *tv2)
 {
 	return timeval_diff_usecs(tv1, tv2) / 1000;

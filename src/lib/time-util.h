@@ -5,6 +5,9 @@
 
 /* Returns -1 if tv1<tv2, 1 if tv1>tv2, 0 if they're equal. */
 int timeval_cmp(const struct timeval *tv1, const struct timeval *tv2);
+/* Same as timeval_cmp, but tv->usecs must differ by at least usec_margin */
+int timeval_cmp_margin(const struct timeval *tv1, const struct timeval *tv2,
+		       unsigned int usec_margin);
 /* Returns tv1-tv2 in milliseconds. */
 int timeval_diff_msecs(const struct timeval *tv1, const struct timeval *tv2);
 /* Returns tv1-tv2 in microseconds. */
