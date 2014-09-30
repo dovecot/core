@@ -125,19 +125,26 @@ void http_client_queue_free(struct http_client_queue *queue)
 void http_client_queue_fail(struct http_client_queue *queue,
 	unsigned int status, const char *error)
 {
-	struct http_client_request **req;
+	ARRAY_TYPE(http_client_request) *req_arr, treqs;
+	struct http_client_request **req_idx;
 
 	/* abort all pending requests */
-	array_foreach_modifiable(&queue->request_queue, req) {
-		http_client_request_error(*req, status, error);
+	req_arr = &queue->request_queue;
+	t_array_init(&treqs, array_count(req_arr));
+	array_copy(&treqs.arr, 0, &req_arr->arr, 0, array_count(req_arr));
+	array_foreach_modifiable(&treqs, req_idx) {
+		http_client_request_error(*req_idx, status, error);
 	}
-	array_clear(&queue->request_queue);
+	array_clear(req_arr);
 
 	/* abort all delayed requests */
-	array_foreach_modifiable(&queue->delayed_request_queue, req) {
-		http_client_request_error(*req, status, error);
+	req_arr = &queue->delayed_request_queue;
+	array_clear(&treqs);
+	array_copy(&treqs.arr, 0, &req_arr->arr, 0, array_count(req_arr));
+	array_foreach_modifiable(&treqs, req_idx) {
+		http_client_request_error(*req_idx, status, error);
 	}
-	array_clear(&queue->delayed_request_queue);
+	array_clear(req_arr);
 }
 
 void
