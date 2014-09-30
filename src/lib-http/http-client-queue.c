@@ -144,13 +144,26 @@ void
 http_client_queue_drop_request(struct http_client_queue *queue,
 	struct http_client_request *req)
 {
-	ARRAY_TYPE(http_client_request) *req_arr = &queue->request_queue;
+	ARRAY_TYPE(http_client_request) *req_arr;
 	struct http_client_request **req_idx;
 
+	/* remove from main queue */
+	req_arr = &queue->request_queue;
 	array_foreach_modifiable(req_arr, req_idx) {
 		if (*req_idx == req) {
 			array_delete(req_arr, array_foreach_idx(req_arr, req_idx), 1);
 			break;
+		}
+	}
+
+	/* remove from delay queue */
+	if (req->release_time.tv_sec > 0) {
+		req_arr = &queue->delayed_request_queue;
+		array_foreach_modifiable(req_arr, req_idx) {
+			if (*req_idx == req) {
+				array_delete(req_arr, array_foreach_idx(req_arr, req_idx), 1);
+				break;
+			}
 		}
 	}
 }

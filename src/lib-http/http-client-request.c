@@ -163,6 +163,9 @@ void http_client_request_unref(struct http_client_request **_req)
 	http_client_request_debug(req, "Destroy (requests left=%d)",
 		client->pending_requests);
 
+	if (req->queue != NULL)
+		http_client_queue_drop_request(req->queue, req);
+
 	if (client->pending_requests == 0 && client->ioloop != NULL)
 		io_loop_stop(client->ioloop);
 
