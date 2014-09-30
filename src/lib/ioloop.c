@@ -239,14 +239,16 @@ timeout_add_short(unsigned int msecs, unsigned int source_linenum,
 }
 
 #undef timeout_add_absolute
-struct timeout *timeout_add_absolute(const struct timeval *time,
-			    unsigned int source_linenum,
-			    timeout_callback_t *callback, void *context)
+struct timeout *
+timeout_add_absolute(const struct timeval *time,
+		     unsigned int source_linenum,
+		     timeout_callback_t *callback, void *context)
 {
 	struct timeout *timeout;
 
 	timeout = timeout_add_common(source_linenum, callback, context);
 	timeout->one_shot = TRUE;
+	timeout->next_run = *time;
 
 	priorityq_add(timeout->ioloop->timeouts, &timeout->item);
 	return timeout;
