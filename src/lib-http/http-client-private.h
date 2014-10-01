@@ -308,7 +308,10 @@ void http_client_peer_connection_failure(struct http_client_peer *peer,
 					 const char *reason);
 void http_client_peer_connection_lost(struct http_client_peer *peer);
 bool http_client_peer_is_connected(struct http_client_peer *peer);
-unsigned int http_client_peer_idle_connections(struct http_client_peer *peer);
+unsigned int
+http_client_peer_idle_connections(struct http_client_peer *peer);
+unsigned int
+http_client_peer_pending_connections(struct http_client_peer *peer);
 void http_client_peer_switch_ioloop(struct http_client_peer *peer);
 
 struct http_client_queue *

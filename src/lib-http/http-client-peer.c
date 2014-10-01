@@ -529,22 +529,28 @@ void http_client_peer_connection_failure(struct http_client_peer *peer,
 {
 	const struct http_client_settings *set = &peer->client->set;
 	struct http_client_queue *const *queue;
-	unsigned int num_urgent;
-
-	i_assert(array_count(&peer->conns) > 0);
-
-	http_client_peer_debug(peer, "Failed to make connection");
+	unsigned int pending;
 
 	peer->last_failure = ioloop_timeval;
 
-	if (array_count(&peer->conns) == 1) {
+	/* count number of pending connections */
+	pending = http_client_peer_pending_connections(peer);
+	i_assert(pending > 0);
+
+	http_client_peer_debug(peer,
+		"Failed to make connection "
+		"(connections=%u, connecting=%u)",
+		array_count(&peer->conns), pending);
+
+	/* manage backoff timer only when this was the only attempt */
+	if (pending == 1) {
 		if (peer->backoff_time_msecs == 0)
 			peer->backoff_time_msecs = set->connect_backoff_time_msecs;
 		else
 			peer->backoff_time_msecs *= 2;
 	}
 
-	if (array_count(&peer->conns) > 1) {
+	if (pending > 1) {
 		/* if there are other connections attempting to connect, wait
 		   for them before failing the requests. remember that we had
 		   trouble with connecting so in future we don't try to create
@@ -558,9 +564,6 @@ void http_client_peer_connection_failure(struct http_client_peer *peer,
 			http_client_queue_connection_failure(*queue, &peer->addr, reason);
 		}
 	}
-	if (array_count(&peer->conns) == 0 &&
-	    http_client_peer_requests_pending(peer, &num_urgent) == 0)
-		http_client_peer_free(&peer);
 }
 
 void http_client_peer_connection_lost(struct http_client_peer *peer)
@@ -586,7 +589,8 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 		http_client_peer_free(&peer);
 }
 
-unsigned int http_client_peer_idle_connections(struct http_client_peer *peer)
+unsigned int
+http_client_peer_idle_connections(struct http_client_peer *peer)
 {
 	struct http_client_connection *const *conn_idx;
 	unsigned int idle = 0;
@@ -598,6 +602,21 @@ unsigned int http_client_peer_idle_connections(struct http_client_peer *peer)
 	}
 
 	return idle;
+}
+
+unsigned int
+http_client_peer_pending_connections(struct http_client_peer *peer)
+{
+	struct http_client_connection *const *conn_idx;
+	unsigned int pending = 0;
+
+	/* find idle connections */
+	array_foreach(&peer->conns, conn_idx) {
+		if (!(*conn_idx)->closing && !(*conn_idx)->connected)
+			pending++;
+	}
+
+	return pending;
 }
 
 void http_client_peer_switch_ioloop(struct http_client_peer *peer)
