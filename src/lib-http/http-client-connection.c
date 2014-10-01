@@ -299,6 +299,7 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 	if (conn->peer->no_payload_sync)
 		req->payload_sync = FALSE;
 
+	i_assert(req->state == HTTP_REQUEST_STATE_QUEUED);
 	array_append(&conn->request_wait_list, &req, 1);
 	http_client_request_ref(req);
 

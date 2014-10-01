@@ -453,14 +453,23 @@ http_client_request_finish_payload_out(struct http_client_request *req)
 {
 	i_assert(req->conn != NULL);
 
+	/* drop payload output stream */
 	if (req->payload_output != NULL) {
 		o_stream_unref(&req->payload_output);
 		req->payload_output = NULL;
 	}
-	req->state = HTTP_REQUEST_STATE_WAITING;
+
+	/* advance state only when request didn't get aborted in the mean time */
+	if (req->state != HTTP_REQUEST_STATE_ABORTED) {
+		i_assert(req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT);
+		req->state = HTTP_REQUEST_STATE_WAITING;
+	}
+
+	/* release connection */
 	req->conn->output_locked = FALSE;
 
-	http_client_request_debug(req, "Finished sending payload");
+	http_client_request_debug(req, "Finished sending%s payload",
+		(req->state == HTTP_REQUEST_STATE_ABORTED ? " aborted" : ""));
 }
 
 static int
