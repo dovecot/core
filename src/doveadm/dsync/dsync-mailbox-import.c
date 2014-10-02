@@ -104,6 +104,7 @@ struct dsync_mailbox_importer {
 	unsigned int revert_local_changes:1;
 	unsigned int mails_have_guids:1;
 	unsigned int mails_use_guid128:1;
+	unsigned int delete_mailbox:1;
 };
 
 static void dsync_mailbox_save_newmails(struct dsync_mailbox_importer *importer,
@@ -1376,6 +1377,22 @@ dsync_mailbox_find_common_expunged_uid(struct dsync_mailbox_importer *importer,
 }
 
 static void
+dsync_mailbox_revert_missing(struct dsync_mailbox_importer *importer,
+			     const struct dsync_mail_change *change)
+{
+	i_assert(importer->revert_local_changes);
+
+	/* mail exists on remote, but not locally. we'll need to
+	   insert this mail back, which means deleting the whole
+	   mailbox and resyncing. */
+	imp_debug(importer, "Deleting mailbox '%s': UID=%u GUID=%s is missing locally",
+		  mailbox_get_vname(importer->box),
+		  change->uid, change->guid);
+	importer->delete_mailbox = TRUE;
+	importer->failed = TRUE;
+}
+
+static void
 dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 			      const struct dsync_mail_change *change)
 {
@@ -1390,8 +1407,10 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 			   looking it up locally. */
 			return;
 		}
-		if (change->guid == NULL ||
-		    !dsync_mailbox_find_common_expunged_uid(importer, change)) {
+		if (importer->revert_local_changes)
+			dsync_mailbox_revert_missing(importer, change);
+		else if (change->guid == NULL ||
+			 !dsync_mailbox_find_common_expunged_uid(importer, change)) {
 			/* couldn't match it for an expunged mail. use the last
 			   message with a matching GUID as the last common
 			   UID. */
@@ -1419,7 +1438,10 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 		}
 		return;
 	}
-	dsync_mailbox_find_common_expunged_uid(importer, change);
+	if (importer->revert_local_changes)
+		dsync_mailbox_revert_missing(importer, change);
+	else
+		dsync_mailbox_find_common_expunged_uid(importer, change);
 }
 
 int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
@@ -2427,8 +2449,18 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 		*last_common_modseq_r = importer->local_initial_highestmodseq;
 		*last_common_pvt_modseq_r = importer->local_initial_highestpvtmodseq;
 	}
-	mailbox_get_open_status(importer->box, STATUS_MESSAGES, &status);
-	*last_messages_count_r = status.messages;
+	if (importer->delete_mailbox) {
+		if (mailbox_delete(importer->box) < 0) {
+			i_error("Couldn't delete mailbox %s: %s",
+				mailbox_get_vname(importer->box),
+				mailbox_get_last_error(importer->box, NULL));
+			importer->failed = TRUE;
+		}
+		*last_messages_count_r = 0;
+	} else {
+		mailbox_get_open_status(importer->box, STATUS_MESSAGES, &status);
+		*last_messages_count_r = status.messages;
+	}
 
 	ret = importer->failed ? -1 : 0;
 	pool_unref(&importer->pool);
