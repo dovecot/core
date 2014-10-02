@@ -1331,7 +1331,7 @@ dsync_mailbox_import_match_msg(struct dsync_mailbox_importer *importer,
 			return 1;
 		} else {
 			*result_r = t_strdup_printf("GUIDs don't match (%s vs %s)",
-						    change->guid, cmp_guid);
+						    importer->cur_guid, cmp_guid);
 			return 0;
 		}
 	}
