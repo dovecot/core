@@ -1318,17 +1318,22 @@ dsync_mailbox_common_uid_found(struct dsync_mailbox_importer *importer)
 
 static int
 dsync_mailbox_import_match_msg(struct dsync_mailbox_importer *importer,
-			       const struct dsync_mail_change *change)
+			       const struct dsync_mail_change *change,
+			       const char **result_r)
 {
-	const char *hdr_hash;
+	const char *hdr_hash, *cmp_guid;
 
 	if (*change->guid != '\0' && *importer->cur_guid != '\0') {
 		/* we have GUIDs, verify them */
 		if (dsync_mail_change_guid_equals(importer, change,
-						  importer->cur_guid, NULL))
+						  importer->cur_guid, &cmp_guid)) {
+			*result_r = "GUIDs match";
 			return 1;
-		else
+		} else {
+			*result_r = t_strdup_printf("GUIDs don't match (%s vs %s)",
+						    change->guid, cmp_guid);
 			return 0;
+		}
 	}
 
 	/* verify hdr_hash if it exists */
@@ -1337,20 +1342,30 @@ dsync_mailbox_import_match_msg(struct dsync_mailbox_importer *importer,
 		if (change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE) {
 			/* the message was already expunged, so we don't know
 			   its header. return "unknown". */
+			*result_r = "Unknown match for expunge";
 			return -1;
 		}
 		i_error("Mailbox %s: GUIDs not supported, "
 			"sync with header hashes instead",
 			mailbox_get_vname(importer->box));
 		importer->failed = TRUE;
+		*result_r = "Error, invalid parameters";
 		return -1;
 	}
 
 	if (dsync_mail_get_hdr_hash(importer->cur_mail, &hdr_hash) < 0) {
 		dsync_mail_error(importer, importer->cur_mail, "hdr-stream");
+		*result_r = "Error fetching header stream";
 		return -1;
 	}
-	return strcmp(change->hdr_hash, hdr_hash) == 0 ? 1 : 0;
+	if (strcmp(change->hdr_hash, hdr_hash) == 0) {
+		*result_r = "Headers hashes match";
+		return 1;
+	} else {
+		*result_r = t_strdup_printf("Headers hashes don't match (%s vs %s)",
+					    change->hdr_hash, hdr_hash);
+		return 0;
+	}
 }
 
 static bool
@@ -1447,18 +1462,15 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 	if (importer->cur_mail->uid == change->uid) {
 		/* we have a matching local UID. check GUID to see if it's
 		   really the same mail or not */
-		if ((ret = dsync_mailbox_import_match_msg(importer, change)) < 0) {
+		if ((ret = dsync_mailbox_import_match_msg(importer, change, result_r)) < 0) {
 			/* unknown */
-			*result_r = "Error while verifying mail GUID";
 			return;
 		}
 		if (ret == 0) {
 			/* mismatch - found the first non-common UID */
 			dsync_mailbox_common_uid_found(importer);
-			*result_r = "Mail GUID mismatch";
 		} else {
 			importer->last_common_uid = change->uid;
-			*result_r = "Mail exists locally";
 		}
 		return;
 	}
