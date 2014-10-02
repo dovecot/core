@@ -1278,7 +1278,13 @@ dsync_mailbox_common_uid_found(struct dsync_mailbox_importer *importer)
 	unsigned int n, i, count;
 	uint32_t uid;
 
-	imp_debug(importer, "Last common UID=%u", importer->last_common_uid);
+	if (importer->debug) T_BEGIN {
+		string_t *expunges = t_str_new(64);
+
+		imap_write_seq_range(expunges, &importer->maybe_expunge_uids);
+		imp_debug(importer, "Last common UID=%u. Delayed expunges=%s",
+			  importer->last_common_uid, str_c(expunges));
+	} T_END;
 
 	importer->last_common_uid_found = TRUE;
 	dsync_mailbox_rewind_search(importer);
@@ -1299,8 +1305,14 @@ dsync_mailbox_common_uid_found(struct dsync_mailbox_importer *importer)
 	/* handle pending saves */
 	saves = array_get(&importer->maybe_saves, &count);
 	for (i = 0; i < count; i++) {
-		if (saves[i]->uid > importer->last_common_uid)
+		if (saves[i]->uid > importer->last_common_uid) {
+			imp_debug(importer, "Delayed save UID=%u: Save",
+				  saves[i]->uid);
 			dsync_mailbox_save(importer, saves[i]);
+		} else {
+			imp_debug(importer, "Delayed save UID=%u: Ignore",
+				  saves[i]->uid);
+		}
 	}
 }
 
@@ -1394,7 +1406,8 @@ dsync_mailbox_revert_missing(struct dsync_mailbox_importer *importer,
 
 static void
 dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
-			      const struct dsync_mail_change *change)
+			      const struct dsync_mail_change *change,
+			      const char **result_r)
 {
 	int ret;
 
@@ -1405,23 +1418,30 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 		if (change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE) {
 			/* mail doesn't exist remotely either, don't bother
 			   looking it up locally. */
+			*result_r = "Expunged mail not found locally";
 			return;
 		}
 		if (importer->revert_local_changes &&
-		    importer->local_uid_next > 1)
+		    importer->local_uid_next > 1) {
 			dsync_mailbox_revert_missing(importer, change);
-		else if (change->guid == NULL ||
+			*result_r = "Reverting local change by deleting mailbox";
+		} else if (change->guid == NULL ||
 			 !dsync_mailbox_find_common_expunged_uid(importer, change)) {
 			/* couldn't match it for an expunged mail. use the last
 			   message with a matching GUID as the last common
 			   UID. */
 			dsync_mailbox_common_uid_found(importer);
+			*result_r = "No more local mails found";
+		} else {
+			*result_r = "Mail expunged locally";
 		}
 		return;
 	}
 
 	if (change->guid == NULL) {
 		/* we can't know if this UID matches */
+		i_assert(change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE);
+		*result_r = "Expunged mail has no GUID, can't verify it";
 		return;
 	}
 	if (importer->cur_mail->uid == change->uid) {
@@ -1429,25 +1449,36 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 		   really the same mail or not */
 		if ((ret = dsync_mailbox_import_match_msg(importer, change)) < 0) {
 			/* unknown */
+			*result_r = "Error while verifying mail GUID";
 			return;
 		}
 		if (ret == 0) {
 			/* mismatch - found the first non-common UID */
 			dsync_mailbox_common_uid_found(importer);
+			*result_r = "Mail GUID mismatch";
 		} else {
 			importer->last_common_uid = change->uid;
+			*result_r = "Mail exists locally";
 		}
 		return;
 	}
-	if (importer->revert_local_changes)
+	if (importer->revert_local_changes) {
 		dsync_mailbox_revert_missing(importer, change);
-	else
-		dsync_mailbox_find_common_expunged_uid(importer, change);
+		*result_r = "Reverting local change by deleting mailbox";
+	} else if (dsync_mailbox_find_common_expunged_uid(importer, change)) {
+		*result_r = "Mail expunged locally";
+	} else {
+		*result_r = "Mail not found locally";
+	}
+	*result_r = t_strdup_printf("%s (next local mail UID=%u)",
+				    *result_r, importer->cur_mail->uid);
 }
 
 int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 				const struct dsync_mail_change *change)
 {
+	const char *result;
+
 	i_assert(!importer->new_uids_assigned);
 	i_assert(importer->prev_uid < change->uid);
 
@@ -1456,15 +1487,20 @@ int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 	if (importer->failed)
 		return -1;
 
-	imp_debug(importer, "Import change GUID=%s UID=%u hdr_hash=%s",
-		  change->guid != NULL ? change->guid : "<unknown>", change->uid,
-		  change->hdr_hash != NULL ? change->hdr_hash : "");
-
 	if (!importer->last_common_uid_found) {
-		dsync_mailbox_find_common_uid(importer, change);
-		if (importer->failed)
-			return -1;
+		result = NULL;
+		dsync_mailbox_find_common_uid(importer, change, &result);
+		i_assert(result != NULL);
+	} else {
+		result = "New mail";
 	}
+
+	imp_debug(importer, "Import change GUID=%s UID=%u hdr_hash=%s result=%s",
+		  change->guid != NULL ? change->guid : "<unknown>", change->uid,
+		  change->hdr_hash != NULL ? change->hdr_hash : "", result);
+
+	if (importer->failed)
+		return -1;
 
 	if (importer->last_common_uid_found) {
 		/* a) uid <= last_common_uid for flag changes and expunges.
