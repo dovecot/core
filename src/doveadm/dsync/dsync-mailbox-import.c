@@ -1407,7 +1407,8 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 			   looking it up locally. */
 			return;
 		}
-		if (importer->revert_local_changes)
+		if (importer->revert_local_changes &&
+		    importer->local_uid_next > 1)
 			dsync_mailbox_revert_missing(importer, change);
 		else if (change->guid == NULL ||
 			 !dsync_mailbox_find_common_expunged_uid(importer, change)) {
