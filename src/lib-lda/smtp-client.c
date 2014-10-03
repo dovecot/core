@@ -317,8 +317,11 @@ smtp_client_send_flush(struct smtp_client *smtp_client, const char **error_r)
 		i_assert(smtp_client->error != NULL);
 		*error_r = t_strdup(smtp_client->error);
 		return -1;
-	} else
+	} else {
+		i_assert(smtp_client->error != NULL);
+		*error_r = t_strdup(smtp_client->error);
 		return 0;
+	}
 }
 
 int smtp_client_deinit(struct smtp_client *client, const char **error_r)
