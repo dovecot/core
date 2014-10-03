@@ -77,6 +77,8 @@ virtual_config_add_rule(struct virtual_parse_context *ctx, const char **error_r)
 	struct mail_search_args *search_args;
 	unsigned int i, count;
 
+	*error_r = NULL;
+
 	if (ctx->rule_idx == array_count(&ctx->mbox->backend_boxes)) {
 		i_assert(str_len(ctx->rule) == 0);
 		return 0;
@@ -87,6 +89,7 @@ virtual_config_add_rule(struct virtual_parse_context *ctx, const char **error_r)
 	search_args = virtual_search_args_parse(ctx->rule, error_r);
 	str_truncate(ctx->rule, 0);
 	if (search_args == NULL) {
+		i_assert(*error_r != NULL);
 		*error_r = t_strconcat("Previous search rule is invalid: ",
 				       *error_r, NULL);
 		return -1;

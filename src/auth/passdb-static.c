@@ -33,6 +33,7 @@ static_save_fields(struct auth_request *request, const char **password_r)
 	} else {
 		auth_request_log_info(request, AUTH_SUBSYS_DB,
 			"No password returned (and no nopassword)");
+		*password_r = NULL;
 		return PASSDB_RESULT_PASSWORD_MISMATCH;
 	}
 	return PASSDB_RESULT_OK;

@@ -25,6 +25,7 @@ cmd_dict_init_full(int *argc, char **argv[], int own_arg_count, int key_arg_idx,
 	while ((c = getopt(*argc, *argv, getopt_args)) > 0) {
 		switch (c) {
 		case 'R':
+			i_assert(recurse != NULL);
 			*recurse = TRUE;
 			break;
 		case 'u':
