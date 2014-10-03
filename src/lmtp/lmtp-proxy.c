@@ -220,7 +220,8 @@ static void lmtp_conn_finish(void *context)
 }
 
 static void
-lmtp_proxy_conn_rcpt_to(bool success, const char *reply, void *context)
+lmtp_proxy_conn_rcpt_to(enum lmtp_client_result result,
+			const char *reply, void *context)
 {
 	struct lmtp_proxy_recipient *rcpt = context;
 	struct lmtp_proxy_connection *conn = rcpt->conn;
@@ -228,11 +229,12 @@ lmtp_proxy_conn_rcpt_to(bool success, const char *reply, void *context)
 	i_assert(rcpt->reply == NULL);
 
 	rcpt->reply = p_strdup(conn->proxy->pool, reply);
-	rcpt->rcpt_to_failed = !success;
+	rcpt->rcpt_to_failed = result != LMTP_CLIENT_RESULT_OK;
 }
 
 static void
-lmtp_proxy_conn_data(bool success, const char *reply, void *context)
+lmtp_proxy_conn_data(enum lmtp_client_result result,
+		     const char *reply, void *context)
 {
 	struct lmtp_proxy_recipient *rcpt = context;
 	struct lmtp_proxy_connection *conn = rcpt->conn;
@@ -247,14 +249,25 @@ lmtp_proxy_conn_data(bool success, const char *reply, void *context)
 	rcpt->reply = p_strdup(conn->proxy->pool, reply);
 	rcpt->data_reply_received = TRUE;
 
-	if (!success) {
-		i_error("%s: Failed to send message to <%s> at %s:%u: %s",
-			conn->proxy->set.session_id, rcpt->address,
-			conn->set.host, conn->set.port, reply);
-	} else {
+	switch (result) {
+	case LMTP_CLIENT_RESULT_OK:
 		i_info("%s: Sent message to <%s> at %s:%u: %s",
 		       conn->proxy->set.session_id, rcpt->address,
 		       conn->set.host, conn->set.port, reply);
+		break;
+	case LMTP_CLIENT_RESULT_REMOTE_ERROR:
+		/* the problem isn't with the proxy, it's with the remote side.
+		   so the remote side will log an error, while for us this is
+		   just an info event */
+		i_info("%s: Failed to send message to <%s> at %s:%u: %s",
+		       conn->proxy->set.session_id, rcpt->address,
+		       conn->set.host, conn->set.port, reply);
+		break;
+	case LMTP_CLIENT_RESULT_INTERNAL_ERROR:
+		i_error("%s: Failed to send message to <%s> at %s:%u: %s",
+			conn->proxy->set.session_id, rcpt->address,
+			conn->set.host, conn->set.port, reply);
+		break;
 	}
 
 	lmtp_proxy_try_finish(conn->proxy);

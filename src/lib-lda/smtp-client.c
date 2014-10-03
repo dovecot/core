@@ -217,11 +217,11 @@ smtp_client_error(struct smtp_client *smtp_client, const char *error)
 }
 
 static void
-rcpt_to_callback(bool success, const char *reply, void *context)
+rcpt_to_callback(enum lmtp_client_result result, const char *reply, void *context)
 {
 	struct smtp_client *smtp_client = context;
 
-	if (!success) {
+	if (result != LMTP_CLIENT_RESULT_OK) {
 		if (reply[0] != '5')
 			smtp_client->tempfail = TRUE;
 		smtp_client_error(smtp_client, t_strdup_printf(
@@ -231,11 +231,11 @@ rcpt_to_callback(bool success, const char *reply, void *context)
 }
 
 static void
-data_callback(bool success, const char *reply, void *context)
+data_callback(enum lmtp_client_result result, const char *reply, void *context)
 {
 	struct smtp_client *smtp_client = context;
 
-	if (!success) {
+	if (result != LMTP_CLIENT_RESULT_OK) {
 		if (reply[0] != '5')
 			smtp_client->tempfail = TRUE;
 		smtp_client_error(smtp_client, t_strdup_printf(

@@ -74,6 +74,7 @@ struct lmtp_client {
 	unsigned int rcpt_to_successes:1;
 	unsigned int output_finished:1;
 	unsigned int finish_called:1;
+	unsigned int global_remote_failure:1;
 };
 
 static void lmtp_client_send_rcpts(struct lmtp_client *client);
@@ -198,17 +199,22 @@ const char *lmtp_client_state_to_string(struct lmtp_client *client)
 	return "??";
 }
 
-void lmtp_client_fail(struct lmtp_client *client, const char *line)
+static void
+lmtp_client_fail_full(struct lmtp_client *client, const char *line, bool remote)
 {
+	enum lmtp_client_result result;
 	struct lmtp_rcpt *recipients;
 	unsigned int i, count;
 
 	client->global_fail_string = p_strdup(client->pool, line);
+	client->global_remote_failure = remote;
+	result = remote ? LMTP_CLIENT_RESULT_REMOTE_ERROR :
+		LMTP_CLIENT_RESULT_INTERNAL_ERROR;
 
 	lmtp_client_ref(client);
 	recipients = array_get_modifiable(&client->recipients, &count);
 	for (i = client->rcpt_next_receive_idx; i < count; i++) {
-		recipients[i].rcpt_to_callback(FALSE, line,
+		recipients[i].rcpt_to_callback(result, line,
 					       recipients[i].context);
 		recipients[i].failed = TRUE;
 	}
@@ -216,7 +222,7 @@ void lmtp_client_fail(struct lmtp_client *client, const char *line)
 
 	for (i = client->rcpt_next_data_idx; i < count; i++) {
 		if (!recipients[i].failed) {
-			recipients[i].data_callback(FALSE, line,
+			recipients[i].data_callback(result, line,
 						    recipients[i].context);
 		}
 	}
@@ -227,21 +233,33 @@ void lmtp_client_fail(struct lmtp_client *client, const char *line)
 }
 
 static void
+lmtp_client_fail_remote(struct lmtp_client *client, const char *line)
+{
+	lmtp_client_fail_full(client, line, TRUE);
+}
+
+void lmtp_client_fail(struct lmtp_client *client, const char *line)
+{
+	lmtp_client_fail_full(client, line, FALSE);
+}
+
+static void
 lmtp_client_rcpt_next(struct lmtp_client *client, const char *line)
 {
 	struct lmtp_rcpt *rcpt;
-	bool success;
+	enum lmtp_client_result result;
 
-	success = line[0] == '2';
-	if (success)
+	result = line[0] == '2' ? LMTP_CLIENT_RESULT_OK :
+		LMTP_CLIENT_RESULT_REMOTE_ERROR;
+	if (result == LMTP_CLIENT_RESULT_OK)
 		client->rcpt_to_successes = TRUE;
 
 	rcpt = array_idx_modifiable(&client->recipients,
 				    client->rcpt_next_receive_idx);
 	client->rcpt_next_receive_idx++;
 
-	rcpt->failed = !success;
-	rcpt->rcpt_to_callback(success, line, rcpt->context);
+	rcpt->failed = result != LMTP_CLIENT_RESULT_OK;
+	rcpt->rcpt_to_callback(result, line, rcpt->context);
 }
 
 static int lmtp_client_send_data_cmd(struct lmtp_client *client)
@@ -250,7 +268,8 @@ static int lmtp_client_send_data_cmd(struct lmtp_client *client)
 		return 0;
 
 	if (client->global_fail_string != NULL || !client->rcpt_to_successes) {
-		lmtp_client_fail(client, client->global_fail_string);
+		lmtp_client_fail_full(client, client->global_fail_string,
+				      client->global_remote_failure);
 		return -1;
 	} else {
 		client->input_state++;
@@ -264,6 +283,7 @@ lmtp_client_data_next(struct lmtp_client *client, const char *line)
 {
 	struct lmtp_rcpt *rcpt;
 	unsigned int i, count;
+	enum lmtp_client_result result;
 
 	rcpt = array_get_modifiable(&client->recipients, &count);
 	for (i = client->rcpt_next_data_idx; i < count; i++) {
@@ -274,7 +294,9 @@ lmtp_client_data_next(struct lmtp_client *client, const char *line)
 
 		client->rcpt_next_data_idx = i + 1;
 		rcpt[i].failed = line[0] != '2';
-		rcpt[i].data_callback(!rcpt[i].failed, line, rcpt[i].context);
+		result = rcpt[i].failed ? LMTP_CLIENT_RESULT_REMOTE_ERROR :
+			LMTP_CLIENT_RESULT_OK;
+		rcpt[i].data_callback(result, line, rcpt[i].context);
 		if (client->protocol == LMTP_CLIENT_PROTOCOL_LMTP)
 			break;
 	}
@@ -529,7 +551,7 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 	case LMTP_INPUT_STATE_DATA_CONTINUE:
 		/* Start sending DATA */
 		if (strncmp(line, "354", 3) != 0) {
-			lmtp_client_fail(client, line);
+			lmtp_client_fail_remote(client, line);
 			return -1;
 		}
 		client->input_state++;
@@ -728,6 +750,7 @@ void lmtp_client_add_rcpt(struct lmtp_client *client, const char *address,
 			  lmtp_callback_t *data_callback, void *context)
 {
 	struct lmtp_rcpt *rcpt;
+	enum lmtp_client_result result;
 
 	rcpt = array_append_space(&client->recipients);
 	rcpt->address = p_strdup(client->pool, address);
@@ -736,12 +759,16 @@ void lmtp_client_add_rcpt(struct lmtp_client *client, const char *address,
 	rcpt->context = context;
 
 	if (client->global_fail_string != NULL) {
+		/* we've already failed */
 		client->rcpt_next_receive_idx++;
 		i_assert(client->rcpt_next_receive_idx ==
 			 array_count(&client->recipients));
 
+		result = client->global_remote_failure ?
+			LMTP_CLIENT_RESULT_REMOTE_ERROR :
+			LMTP_CLIENT_RESULT_INTERNAL_ERROR;
 		rcpt->failed = TRUE;
-		rcpt_to_callback(FALSE, client->global_fail_string, context);
+		rcpt_to_callback(result, client->global_fail_string, context);
 	} else if (client->input_state == LMTP_INPUT_STATE_RCPT_TO)
 		lmtp_client_send_rcpts(client);
 }

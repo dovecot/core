@@ -12,6 +12,16 @@ enum lmtp_client_protocol {
 	LMTP_CLIENT_PROTOCOL_SMTP
 };
 
+enum lmtp_client_result {
+	/* Command succeeded */
+	LMTP_CLIENT_RESULT_OK = 1,
+	/* Command failed because remote server returned an error */
+	LMTP_CLIENT_RESULT_REMOTE_ERROR = 0,
+	/* Command failed because of an internal error (e.g. couldn't connect
+	   to remote) */
+	LMTP_CLIENT_RESULT_INTERNAL_ERROR = -1
+};
+
 struct lmtp_client_settings {
 	const char *my_hostname;
 	const char *mail_from;
@@ -31,7 +41,8 @@ struct lmtp_client_settings {
 
 /* reply contains the reply coming from remote server, or NULL
    if it's a connection error. */
-typedef void lmtp_callback_t(bool success, const char *reply, void *context);
+typedef void lmtp_callback_t(enum lmtp_client_result result,
+			     const char *reply, void *context);
 /* called when session is finished, either because all RCPT TOs failed or
    because all DATA replies have been received. */
 typedef void lmtp_finish_callback_t(void *context);
@@ -61,7 +72,7 @@ void lmtp_client_send(struct lmtp_client *client, struct istream *data_input);
    This is useful with non-blocking istreams and tee-istreams. */
 void lmtp_client_send_more(struct lmtp_client *client);
 /* Fail the connection with line as the reply to unfinished RCPT TO/DATA
-   replies. */
+   replies. This will be treated as an internal failure. */
 void lmtp_client_fail(struct lmtp_client *client, const char *line);
 /* Return the state (command reply) the client is currently waiting for. */
 const char *lmtp_client_state_to_string(struct lmtp_client *client);
