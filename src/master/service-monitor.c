@@ -656,8 +656,16 @@ void services_monitor_reap_children(void)
 			service_monitor_start_extra_avail(service);
 			/* if there are no longer listening processes,
 			   start listening for more */
-			if (service->to_throttle == NULL)
+			if (service->to_throttle != NULL) {
+				/* throttling */
+			} else if (service == service->list->log &&
+				   service->process_count == 0) {
+				/* log service must always be running */
+				if (service_process_create(service) == NULL)
+					service_monitor_throttle(service);
+			} else {
 				service_monitor_listen_start(service);
+			}
 		}
 		service_list_unref(service->list);
 	}
