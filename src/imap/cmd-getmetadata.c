@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "mailbox-list-iter.h"
+#include "imap-utf7.h"
 #include "imap-quote.h"
 #include "imap-metadata.h"
 
@@ -105,9 +106,13 @@ metadata_add_entry(struct imap_getmetadata_context *ctx, const char *entry)
 
 	str = t_str_new(64);
 	if (!ctx->first_entry_sent) {
+		string_t *mailbox_mutf7 = t_str_new(64);
+
 		ctx->first_entry_sent = TRUE;
 		str_append(str, "* METADATA ");
-		imap_append_astring(str, mailbox_get_vname(ctx->box));
+		if (imap_utf8_to_utf7(mailbox_get_vname(ctx->box), mailbox_mutf7) < 0)
+			i_unreached();
+		imap_append_astring(str, str_c(mailbox_mutf7));
 		str_append(str, " (");
 
 		/* nothing can be sent until untagged METADATA is finished */
