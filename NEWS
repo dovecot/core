@@ -1,3 +1,46 @@
+v2.2.14 2014-10-xx  Timo Sirainen <tss@iki.fi>
+
+	* lmtp: Delivered-To: header no longer contains <> around the email
+	  address. Other MDAs don't have it either.
+	* "Out of disk space" errors are now treated as temporary errors
+	  (not the same as "Out of disk quota").
+	* replication plugin: Use replication only for users who have a
+	  non-empty mail_replica setting.
+
+	+ lmtp proxy: Log a line about each mail delivery.
+	+ Added login_source_ips setting. This can be used to set the source IP
+	  address round-robin from a pool of IPs (in case you run out of TCP
+	  ports).
+	+ Rawlog settings can use tcp:<host>:<port> as the path.
+	+ virtual plugin: Don't keep more than virtual_max_open_mailboxes
+	  (default 64) number of backend mailboxes open.
+	+ SSL/TLS compression can be disabled with ssl_options=no_compression
+	+ acl: Global ACL file now supports "quotes" around patterns.
+	+ Added last-login plugin to set user's last-login timestamp on login.
+	+ LDAP auth: Allow passdb credentials lookup also with auth_bind=yes	
+	- IMAP: MODSEQ was sent in FETCH reply even if CONDSTORE/QRESYNC wasn't
+	  enabled. This broke at least old Outlooks.
+	- passdb static treated missing password field the same as an empty
+	  password field.
+	- mdbox: Fixed potential infinite looping when scanning a broken
+	  mdbox file.
+	- imap-login, pop3-login: Fixed potential crashes when client
+	  disconnected unexpectedly.
+	- imap proxy: The connection was hanging in some usage patterns. This
+	  mainly affected older Outlooks.
+	- lmtp proxy: The proxy sometimes delivered empty mails in error
+	  situations or potentially delivered truncated mails.
+	- fts-lucene: If whitespace_chars was set, we may have ended up
+	  indexing some garbage words, growing the index size unnecessarily.
+	- -c and -i parameters for dovecot/doveadm commands were ignored if
+	  the config socket was readable.
+	- quota: Quota recalculation didn't include INBOX in some setups.
+	- Mail headers were sometimes added to dovecot.index.cache in wrong
+	  order. The main problem this caused was with dsync+imapc incremental
+	  syncing when the second sync thought the local mailbox had changed.
+	- doveadm backup didn't notice if emails were missing from the middle
+	  of the destination mailbox. Now it deletes and resyncs the mailbox.
+
 v2.2.13 2014-05-11  Timo Sirainen <tss@iki.fi>
 
 	* Fixed a DoS attack against imap/pop3-login processes. If SSL/TLS
