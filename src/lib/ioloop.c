@@ -266,7 +266,8 @@ void timeout_remove(struct timeout **_timeout)
 	struct timeout *timeout = *_timeout;
 
 	*_timeout = NULL;
-	priorityq_remove(timeout->ioloop->timeouts, &timeout->item);
+	if (timeout->item.idx != UINT_MAX)
+		priorityq_remove(timeout->ioloop->timeouts, &timeout->item);
 	timeout_free(timeout);
 }
 
@@ -295,6 +296,7 @@ timeout_reset_timeval(struct timeout *timeout, struct timeval *tv_now)
 
 void timeout_reset(struct timeout *timeout)
 {
+	i_assert(!timeout->one_shot);
 	timeout_reset_timeval(timeout, NULL);
 }
 
@@ -434,7 +436,10 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 		if (timeout_get_wait_time(timeout, &tv, &tv_call) > 0)
 			break;
 
-		if (!timeout->one_shot) {
+		if (timeout->one_shot) {
+			/* remove timeout from queue */
+			priorityq_remove(timeout->ioloop->timeouts, &timeout->item);
+		} else {
 			/* update timeout's next_run and reposition it in the queue */
 			timeout_reset_timeval(timeout, &tv_call);
 		}
