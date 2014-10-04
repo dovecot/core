@@ -198,6 +198,8 @@ void http_client_request_delay_until(struct http_client_request *req,
 	time_t time);
 void http_client_request_delay(struct http_client_request *req,
 	time_t seconds);
+void http_client_request_delay_msecs(struct http_client_request *req,
+	unsigned int msecs);
 
 const char *http_client_request_get_method(struct http_client_request *req);
 const char *http_client_request_get_target(struct http_client_request *req);

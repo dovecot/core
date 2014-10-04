@@ -5,6 +5,7 @@
 #include "str.h"
 #include "hash.h"
 #include "array.h"
+#include "time-util.h"
 #include "istream.h"
 #include "ostream.h"
 #include "dns-lookup.h"
@@ -317,6 +318,13 @@ void http_client_request_delay(struct http_client_request *req,
 {
 	req->release_time = ioloop_timeval;
 	req->release_time.tv_sec += seconds;
+}
+
+void http_client_request_delay_msecs(struct http_client_request *req,
+	unsigned int msecs)
+{
+	req->release_time = ioloop_timeval;
+	timeval_add_msecs(&req->release_time, msecs);
 }
 
 int http_client_request_delay_from_response(struct http_client_request *req,
