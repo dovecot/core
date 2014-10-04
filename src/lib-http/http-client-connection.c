@@ -58,23 +58,6 @@ http_client_connection_count_pending(struct http_client_connection *conn)
 	return pending_count;
 }
 
-bool http_client_connection_is_ready(struct http_client_connection *conn)
-{
-	if (conn->in_req_callback) {
-		/* this can happen when a nested ioloop is created inside request
-		   callback. we currently don't reuse connections that are occupied
-		   this way, but theoretically we could, although that would add
-		   quite a bit of complexity.
-		 */
-		return FALSE;
-	}
-
-	return (conn->connected && !conn->output_locked &&
-		!conn->close_indicated && !conn->tunneling &&
-		http_client_connection_count_pending(conn) <
-			conn->client->set.max_pipelined_requests);
-}
-
 bool http_client_connection_is_idle(struct http_client_connection *conn)
 {
 	return (conn->to_idle != NULL);
@@ -172,6 +155,48 @@ http_client_connection_abort_temp_error(struct http_client_connection **_conn,
 	
 	http_client_connection_retry_requests(conn, status, error);
 	http_client_connection_unref(_conn);
+}
+
+bool http_client_connection_is_ready(struct http_client_connection *conn)
+{
+	int ret;
+
+	if (conn->in_req_callback) {
+		/* this can happen when a nested ioloop is created inside request
+		   callback. we currently don't reuse connections that are occupied
+		   this way, but theoretically we could, although that would add
+		   quite a bit of complexity.
+		 */
+		return FALSE;
+	}
+
+	if (!conn->connected || conn->output_locked ||
+		conn->close_indicated || conn->tunneling ||
+		http_client_connection_count_pending(conn) >=
+			conn->client->set.max_pipelined_requests)
+		return FALSE;
+
+	if (conn->last_ioloop != NULL && conn->last_ioloop != current_ioloop) {
+		conn->last_ioloop = current_ioloop;
+		/* Active ioloop is different from what we saw earlier;
+		   we may have missed a disconnection event on this connection.
+		   Verify status by reading from connection. */
+		if ((ret=i_stream_read(conn->conn.input)) < 0) {
+			int stream_errno = conn->conn.input->stream_errno;
+
+			i_assert(ret != -2);
+			i_assert(conn->conn.input->stream_errno != 0 || conn->conn.input->eof);
+			http_client_connection_abort_temp_error(&conn,
+				HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
+				t_strdup_printf("Connection lost: read(%s) failed: %s",
+						i_stream_get_name(conn->conn.input),
+						stream_errno != 0 ?
+						i_stream_get_error(conn->conn.input) :
+						"EOF"));
+			return FALSE;
+		}
+	}
+	return TRUE;
 }
 
 static void
@@ -802,6 +827,7 @@ http_client_connection_ready(struct http_client_connection *conn)
 {
 	/* connected */
 	conn->connected = TRUE;
+	conn->last_ioloop = current_ioloop;
 	if (conn->to_connect != NULL &&
 	    (conn->ssl_iostream == NULL ||
 	     ssl_iostream_is_handshaked(conn->ssl_iostream)))

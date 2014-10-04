@@ -131,6 +131,7 @@ struct http_client_connection {
 	struct http_client_request *pending_request;
 	struct istream *incoming_payload;
 	struct io *io_req_payload;
+	struct ioloop *last_ioloop;
 
 	/* requests that have been sent, waiting for response */
 	ARRAY_TYPE(http_client_request) request_wait_list;

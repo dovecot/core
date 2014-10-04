@@ -792,21 +792,27 @@ static int http_client_request_send_real(struct http_client_request *req,
 					   o_stream_get_name(output),
 					   o_stream_get_error(output));
 		ret = -1;
-	}
-
-	http_client_request_debug(req, "Sent header");
-
-	if (ret >= 0 && req->payload_output != NULL) {
-		if (!req->payload_sync) {
-			if (http_client_request_send_more(req, error_r) < 0)
-				ret = -1;
-		} else {
-			http_client_request_debug(req, "Waiting for 100-continue");
-			conn->output_locked = TRUE;
-		}
 	} else {
-		req->state = HTTP_REQUEST_STATE_WAITING;
-		conn->output_locked = FALSE;
+		http_client_request_debug(req, "Sent header");
+
+		if (req->payload_output != NULL) {
+			if (!req->payload_sync) {
+				if (http_client_request_send_more(req, error_r) < 0)
+					ret = -1;
+			} else {
+				http_client_request_debug(req, "Waiting for 100-continue");
+				conn->output_locked = TRUE;
+			}
+		} else {
+			req->state = HTTP_REQUEST_STATE_WAITING;
+			conn->output_locked = FALSE;
+		}
+		if (ret >= 0 && o_stream_flush(output) < 0) {
+			*error_r = t_strdup_printf("flush(%s) failed: %s",
+   	                   o_stream_get_name(output),
+           	           o_stream_get_error(output));
+			ret = -1;
+		}
 	}
 	o_stream_uncork(output);
 	return ret;
