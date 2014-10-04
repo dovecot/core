@@ -98,6 +98,12 @@ struct http_client_settings {
 	/* response header limits */
 	struct http_header_limits response_hdr_limits;
 
+	/* max total time to wait for HTTP request to finish
+	   this can be overridden/reset for individual requests using
+	   http_client_request_set_timeout() and friends.
+	   (default is no timeout)
+	 */
+	unsigned int request_absolute_timeout_msecs;
 	/* max time to wait for HTTP request to finish before retrying
 	   (default = unlimited) */
 	unsigned int request_timeout_msecs;
@@ -193,6 +199,11 @@ void http_client_request_set_date(struct http_client_request *req,
 
 void http_client_request_set_payload(struct http_client_request *req,
 				     struct istream *input, bool sync);
+
+void http_client_request_set_timeout_msecs(struct http_client_request *req,
+	unsigned int msecs);
+void http_client_request_set_timeout(struct http_client_request *req,
+	const struct timeval *time);
 
 void http_client_request_delay_until(struct http_client_request *req,
 	time_t time);

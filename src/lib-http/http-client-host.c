@@ -82,11 +82,12 @@ http_client_host_dns_callback(const struct dns_lookup_result *result,
 	/* make connections to requested ports */
 	array_foreach_modifiable(&host->queues, queue_idx) {
 		struct http_client_queue *queue = *queue_idx;
-		unsigned int count = array_count(&queue->request_queue);
+		unsigned int reqs_pending = 
+			http_client_queue_requests_pending(queue, NULL);
 		queue->ips_connect_idx = queue->ips_connect_start_idx = 0;
-		if (count > 0)
+		if (reqs_pending > 0)
 			http_client_queue_connection_setup(queue);
-		requests += count;
+		requests += reqs_pending;
 	}
 
 	if (requests == 0 && host->client->ioloop != NULL)

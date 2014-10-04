@@ -75,6 +75,8 @@ struct http_client_request {
 	struct timeval submit_time;
 	struct timeval sent_time;
 	struct timeval response_time;
+	struct timeval timeout_time;
+	unsigned int timeout_msecs;
 
 	unsigned int attempts;
 	unsigned int redirects;
@@ -194,10 +196,17 @@ struct http_client_queue {
 	   this can be more than one when soft connect timeouts are enabled */
 	ARRAY_TYPE(http_client_peer) pending_peers;
 
-	/* requests pending in queue to be picked up by connections */
-	ARRAY_TYPE(http_client_request) request_queue, delayed_request_queue;
+	/* all requests associated to this queue
+	   (ordered by earliest timeout first) */
+	ARRAY_TYPE(http_client_request) requests; 
 
-	struct timeout *to_connect, *to_delayed;
+	/* delayed requests waiting to be released after delay */
+	ARRAY_TYPE(http_client_request) delayed_requests;
+
+	/* requests pending in queue to be picked up by connections */
+	ARRAY_TYPE(http_client_request) queued_requests, queued_urgent_requests;
+
+	struct timeout *to_connect, *to_request, *to_delayed;
 };
 
 struct http_client_host {
@@ -332,7 +341,7 @@ http_client_queue_claim_request(struct http_client_queue *queue,
 	const struct http_client_peer_addr *addr, bool no_urgent);
 unsigned int
 http_client_queue_requests_pending(struct http_client_queue *queue,
-	unsigned int *num_urgent_r);
+	unsigned int *num_urgent_r) ATTR_NULL(2);
 void
 http_client_queue_connection_success(struct http_client_queue *queue,
 					 const struct http_client_peer_addr *addr);

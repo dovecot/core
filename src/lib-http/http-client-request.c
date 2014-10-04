@@ -152,6 +152,12 @@ void http_client_request_unref(struct http_client_request **_req)
 	if (--req->refcount > 0)
 		return;
 
+	/* cannot be destroyed while it is still pending */
+	i_assert(req->conn == NULL || req->conn->pending_request == NULL);
+
+	if (req->queue != NULL)
+		http_client_queue_drop_request(req->queue, req);
+
 	if (req->destroy_callback != NULL) {
 		req->destroy_callback(req->destroy_context);
 		req->destroy_callback = NULL;
@@ -306,6 +312,25 @@ void http_client_request_set_payload(struct http_client_request *req,
 		req->payload_sync = TRUE;
 }
 
+void http_client_request_set_timeout_msecs(struct http_client_request *req,
+	unsigned int msecs)
+{
+	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
+		req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
+
+	req->timeout_msecs = msecs;
+}
+
+void http_client_request_set_timeout(struct http_client_request *req,
+	const struct timeval *time)
+{
+	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
+		req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
+
+	req->timeout_time = *time;
+	req->timeout_msecs = 0;
+}
+
 void http_client_request_delay_until(struct http_client_request *req,
 	time_t time)
 {
@@ -438,6 +463,16 @@ static void http_client_request_do_submit(struct http_client_request *req)
 		req->connect_direct = req->connect_tunnel;
 		if (req->connect_direct)
 			req->urgent = TRUE;
+	}
+
+	if (req->timeout_time.tv_sec == 0) {
+		if (req->timeout_msecs > 0) {
+			req->timeout_time = ioloop_timeval;
+			timeval_add_msecs(&req->timeout_time, req->timeout_msecs);
+		} else if (	client->set.request_absolute_timeout_msecs > 0) {
+			req->timeout_time = ioloop_timeval;
+			timeval_add_msecs(&req->timeout_time, client->set.request_absolute_timeout_msecs);
+		}
 	}
 
 	host = http_client_host_get(req->client, req->host_url);
@@ -818,6 +853,7 @@ http_client_request_send_error(struct http_client_request *req,
 			       unsigned int status, const char *error)
 {
 	http_client_request_callback_t *callback;
+	bool sending = (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT);
 
 	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
 		return;
@@ -831,8 +867,8 @@ http_client_request_send_error(struct http_client_request *req,
 		http_response_init(&response, status, error);
 		(void)callback(&response, req->context);
 
-		/* release payload early (prevents server/client in proxy) */
-		if (req->payload_input != NULL)
+		/* release payload early (prevents server/client deadlock in proxy) */
+		if (!sending && req->payload_input != NULL)
 			i_stream_unref(&req->payload_input);
 	}
 }
@@ -841,16 +877,24 @@ void http_client_request_error_delayed(struct http_client_request **_req)
 {
 	struct http_client_request *req = *_req;
 
+	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
+		return;
+
 	i_assert(req->delayed_error != NULL && req->delayed_error_status != 0);
 	http_client_request_send_error(req, req->delayed_error_status,
 				       req->delayed_error);
+	if (req->queue != NULL)
+		http_client_queue_drop_request(req->queue, req);
 	http_client_request_unref(_req);
 }
 
 void http_client_request_error(struct http_client_request *req,
 	unsigned int status, const char *error)
 {
-	if (!req->submitted && req->state < HTTP_REQUEST_STATE_FINISHED) {
+	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
+		return;
+
+	if (!req->submitted) {
 		/* we're still in http_client_request_submit(). delay
 		   reporting the error, so the caller doesn't have to handle
 		   immediate callbacks. */
@@ -860,6 +904,8 @@ void http_client_request_error(struct http_client_request *req,
 		http_client_host_delay_request_error(req->host, req);
 	} else {
 		http_client_request_send_error(req, status, error);
+		if (req->queue != NULL)
+			http_client_queue_drop_request(req->queue, req);
 		http_client_request_unref(&req);
 	}
 }
@@ -867,11 +913,18 @@ void http_client_request_error(struct http_client_request *req,
 void http_client_request_abort(struct http_client_request **_req)
 {
 	struct http_client_request *req = *_req;
+	bool sending = (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT);
 
 	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
 		return;
+
 	req->callback = NULL;
 	req->state = HTTP_REQUEST_STATE_ABORTED;
+
+	/* release payload early (prevents server/client deadlock in proxy) */
+	if (!sending && req->payload_input != NULL)
+		i_stream_unref(&req->payload_input);
+
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
 	http_client_request_unref(_req);
@@ -889,6 +942,8 @@ void http_client_request_finish(struct http_client_request **_req)
 	req->callback = NULL;
 	req->state = HTTP_REQUEST_STATE_FINISHED;
 
+	if (req->queue != NULL)
+		http_client_queue_drop_request(req->queue, req);
 	if (req->payload_wait && req->client->ioloop != NULL)
 		io_loop_stop(req->client->ioloop);
 	http_client_request_unref(_req);
@@ -951,7 +1006,6 @@ void http_client_request_redirect(struct http_client_request *req,
 	}
 	
 	req->host = NULL;
-	req->queue = NULL;
 	req->conn = NULL;
 
 	origin_url = http_url_create(&req->origin_url);

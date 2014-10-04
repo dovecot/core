@@ -423,9 +423,8 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	net_set_nonblock(conn->conn.fd_in, TRUE);
 
 	conn->incoming_payload = NULL;
-
-	http_client_request_finish(&req);
 	conn->pending_request = NULL;
+	http_client_request_finish(&req);
 
 	/* room for new requests */
 	if (http_client_connection_is_ready(conn))
@@ -438,6 +437,9 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	   necessary. */
 	conn->to_input =
 		timeout_add_short(0, http_client_payload_destroyed_timeout, conn);
+
+	i_assert(req != NULL);
+	http_client_request_unref(&req);
 }
 
 static bool
@@ -451,6 +453,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 	i_assert(conn->incoming_payload == NULL);
 	i_assert(conn->pending_request == NULL);
 
+	http_client_request_ref(req);
 	req->state = HTTP_REQUEST_STATE_GOT_RESPONSE;
 
 	if (response->payload != NULL) {
@@ -480,6 +483,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		/* the callback managed to get this connection destroyed */
 		if (!retrying)
 			http_client_request_finish(&req);
+		http_client_request_unref(&req);
 		return FALSE;
 	}
 
@@ -493,6 +497,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 					       http_client_connection_input,
 					       &conn->conn);
 		}
+		http_client_request_unref(&req);
 		return TRUE;
 	}
 
@@ -501,13 +506,17 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		payload = response->payload;
 		response->payload = NULL;
 		conn->pending_request = req;
+
+		/* request is dereferenced in payload destroy callback */
 		i_stream_unref(&payload);
+
 		if (conn->to_input != NULL) {
 			/* already finished reading the payload */
 			http_client_payload_finished(conn);
 		}
 	} else {
 		http_client_request_finish(&req);
+		http_client_request_unref(&req);
 	}
 
 	if (conn->incoming_payload == NULL) {
