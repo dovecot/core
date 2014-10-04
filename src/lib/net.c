@@ -182,7 +182,7 @@ static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
 #endif
 
 static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
-			       const struct ip_addr *my_ip, bool blocking)
+			       const struct ip_addr *my_ip, int sock_type, bool blocking)
 {
 	union sockaddr_union so;
 	int fd, ret, opt = 1;
@@ -195,7 +195,7 @@ static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
 	/* create the socket */
 	memset(&so, 0, sizeof(so));
         so.sin.sin_family = ip->family;
-	fd = socket(ip->family, SOCK_STREAM, 0);
+	fd = socket(ip->family, sock_type, 0);
 
 	if (fd == -1) {
 		i_error("socket() failed: %m");
@@ -204,7 +204,8 @@ static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
 
 	/* set socket options */
 	(void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-	(void)setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
+	if (sock_type == SOCK_STREAM)
+		(void)setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
 	if (!blocking)
 		net_set_nonblock(fd, TRUE);
 
@@ -242,13 +243,19 @@ static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
 int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 		   const struct ip_addr *my_ip)
 {
-	return net_connect_ip_full(ip, port, my_ip, FALSE);
+	return net_connect_ip_full(ip, port, my_ip, SOCK_STREAM, FALSE);
 }
 
 int net_connect_ip_blocking(const struct ip_addr *ip, unsigned int port,
 			    const struct ip_addr *my_ip)
 {
-	return net_connect_ip_full(ip, port, my_ip, TRUE);
+	return net_connect_ip_full(ip, port, my_ip, SOCK_STREAM, TRUE);
+}
+
+int net_connect_udp(const struct ip_addr *ip, unsigned int port,
+			       const struct ip_addr *my_ip)
+{
+	return net_connect_ip_full(ip, port, my_ip, SOCK_DGRAM, FALSE);
 }
 
 int net_try_bind(const struct ip_addr *ip)
