@@ -16,6 +16,8 @@
 
 #include "http-client-private.h"
 
+#define TIMEOUT_CMP_MARGIN_USECS 2000
+
 /*
  * Logging
  */
@@ -412,7 +414,8 @@ http_client_queue_delay_timeout(struct http_client_queue *queue)
 	finished = 0;
 	reqs = array_get(&queue->delayed_request_queue, &count);
 	for (i = 0; i < count; i++) {
-		if (timeval_cmp(&reqs[i]->release_time, &ioloop_timeval) > 0) {
+		if (timeval_cmp_margin(&reqs[i]->release_time,
+			&ioloop_timeval, TIMEOUT_CMP_MARGIN_USECS) > 0) {
 			break;
 		}
 
@@ -465,7 +468,8 @@ void http_client_queue_submit_request(struct http_client_queue *queue,
 	if (req->release_time.tv_sec > 0) {
 		io_loop_time_refresh();
 
-		if (timeval_cmp(&req->release_time, &ioloop_timeval) > 0) {
+		if (timeval_cmp_margin(&req->release_time,
+			&ioloop_timeval, TIMEOUT_CMP_MARGIN_USECS) > 0) {
 			(void)array_bsearch_insert_pos(&queue->delayed_request_queue,
 					&req, http_client_queue_delayed_cmp, &insert_idx);
 			array_insert(&queue->delayed_request_queue, insert_idx, &req, 1);
