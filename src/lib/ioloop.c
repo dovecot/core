@@ -254,6 +254,21 @@ timeout_add_absolute(const struct timeval *time,
 	return timeout;
 }
 
+static struct timeout *
+timeout_copy(const struct timeout *old_to)
+{
+	struct timeout *new_to;
+
+	new_to = timeout_add_common
+		(old_to->source_linenum, old_to->callback, old_to->context);
+	new_to->one_shot = old_to->one_shot;
+	new_to->msecs = old_to->msecs;
+	new_to->next_run = old_to->next_run;
+	priorityq_add(new_to->ioloop->timeouts, &new_to->item);
+
+	return new_to;
+}
+
 static void timeout_free(struct timeout *timeout)
 {
 	if (timeout->ctx != NULL)
@@ -829,8 +844,7 @@ struct timeout *io_loop_move_timeout(struct timeout **_timeout)
 	if (old_to->ioloop == current_ioloop)
 		return old_to;
 
-	new_to = timeout_add(old_to->msecs, old_to->source_linenum,
-			     old_to->callback, old_to->context);
+	new_to = timeout_copy(old_to);
 	timeout_remove(_timeout);
 	return new_to;
 }
