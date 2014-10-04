@@ -53,13 +53,22 @@ http_client_connection_count_pending(struct http_client_connection *conn)
 {
 	unsigned int pending_count = array_count(&conn->request_wait_list);
 
-	if (conn->pending_request != NULL)
+	if (conn->in_req_callback || conn->pending_request != NULL)
 		pending_count++;
 	return pending_count;
 }
 
 bool http_client_connection_is_ready(struct http_client_connection *conn)
 {
+	if (conn->in_req_callback) {
+		/* this can happen when a nested ioloop is created inside request
+		   callback. we currently don't reuse connections that are occupied
+		   this way, but theoretically we could, although that would add
+		   quite a bit of complexity.
+		 */
+		return FALSE;
+	}
+
 	return (conn->connected && !conn->output_locked &&
 		!conn->close_indicated && !conn->tunneling &&
 		http_client_connection_count_pending(conn) <
@@ -184,6 +193,7 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 	if (conn->connected &&
 		array_is_created(&conn->request_wait_list) &&
 		array_count(&conn->request_wait_list) == 0 &&
+		!conn->in_req_callback &&
 		conn->incoming_payload == NULL &&
 		conn->client->set.max_idle_time_msecs > 0) {
 
@@ -437,6 +447,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 	struct istream *payload;
 	bool retrying;
 
+	i_assert(!conn->in_req_callback);
 	i_assert(conn->incoming_payload == NULL);
 	i_assert(conn->pending_request == NULL);
 
@@ -459,10 +470,12 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		if (conn->to_requests != NULL)
 			timeout_remove(&conn->to_requests);
 	}
-
+	
+	conn->in_req_callback = TRUE;
 	http_client_connection_ref(conn);
 	retrying = !http_client_request_callback(req, response);
 	http_client_connection_unref(&conn);
+	conn->in_req_callback = FALSE;
 	if (conn == NULL) {
 		/* the callback managed to get this connection destroyed */
 		if (!retrying)
