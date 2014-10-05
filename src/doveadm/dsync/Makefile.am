@@ -34,7 +34,7 @@ libdsync_la_SOURCES = \
 	dsync-transaction-log-scan.c
 
 libdovecot_dsync_la_SOURCES =
-libdovecot_dsync_la_LIBADD = libdsync.la ../../lib-storage/libdovecot-storage.la
+libdovecot_dsync_la_LIBADD = libdsync.la ../../lib-storage/libdovecot-storage.la ../../lib-dovecot/libdovecot.la
 libdovecot_dsync_la_DEPENDENCIES = libdsync.la
 libdovecot_dsync_la_LDFLAGS = -export-dynamic
 
