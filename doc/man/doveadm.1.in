@@ -107,6 +107,11 @@ Manage Access Control List (ACL).
 Move matching mails to the alternative storage.
 .\"-------------------------------------
 .TP
+.B doveadm backup
+.BR doveadm\-backup (1),
+Dovecot\(aqs one\-way mailbox synchronization utility.
+.\"-------------------------------------
+.TP
 .B doveadm batch
 .BR doveadm\-batch (1),
 Execute multiple commands for multiple users.
@@ -182,6 +187,11 @@ Remove messages with refcount=0 from mdbox files.
 Initialize/recalculate or show current quota usage.
 .\"-------------------------------------
 .TP
+.B doveadm sync
+.BR doveadm\-sync (1),
+Dovecot\(aqs two\-way mailbox synchronization utility.
+.\"-------------------------------------
+.TP
 .B doveadm search
 .BR doveadm\-search (1),
 Show a list of mailbox GUIDs and message UIDs matching given search query.
@@ -222,5 +232,4 @@ Plugin specific settings.
 .BR doveadm\-help (1),
 .BR doveconf (1),
 .BR dovecot (1),
-.BR dsync (1),
 .BR doveadm\-search\-query (7)
