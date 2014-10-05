@@ -4,10 +4,12 @@ SUFFIXES = .1.in .1
 
 dist_man1_MANS = \
 	deliver.1 \
+	doveadm-backup.1 \
 	doveadm-config.1 \
 	doveadm-copy.1 \
 	doveadm-reload.1 \
-	doveadm-stop.1
+	doveadm-stop.1 \
+	dsync.1
 
 dist_man7_MANS = \
 	doveadm-search-query.7
@@ -41,12 +43,12 @@ nodist_man1_MANS = \
 	doveadm-pw.1 \
 	doveadm-quota.1 \
 	doveadm-search.1 \
+	doveadm-sync.1 \
 	doveadm-user.1 \
 	doveadm-who.1 \
 	doveconf.1 \
 	dovecot.1 \
-	dovecot-lda.1 \
-	dsync.1
+	dovecot-lda.1
 
 man_includefiles = \
 	$(srcdir)/global-options-formatter.inc \
@@ -85,12 +87,12 @@ EXTRA_DIST = \
 	doveadm-pw.1.in \
 	doveadm-quota.1.in \
 	doveadm-search.1.in \
+	doveadm-sync.1.in \
 	doveadm-user.1.in \
 	doveadm-who.1.in \
 	doveconf.1.in \
 	dovecot.1.in \
 	dovecot-lda.1.in \
-	dsync.1.in \
 	sed.sh \
 	$(man_includefiles)
 
