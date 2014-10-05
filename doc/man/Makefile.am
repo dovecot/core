@@ -42,6 +42,7 @@ nodist_man1_MANS = \
 	doveadm-purge.1 \
 	doveadm-pw.1 \
 	doveadm-quota.1 \
+	doveadm-replicator.1 \
 	doveadm-search.1 \
 	doveadm-sync.1 \
 	doveadm-user.1 \
@@ -86,6 +87,7 @@ EXTRA_DIST = \
 	doveadm-purge.1.in \
 	doveadm-pw.1.in \
 	doveadm-quota.1.in \
+	doveadm-replicator.1.in \
 	doveadm-search.1.in \
 	doveadm-sync.1.in \
 	doveadm-user.1.in \
