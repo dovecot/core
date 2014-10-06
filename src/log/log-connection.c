@@ -81,7 +81,8 @@ static void log_parse_option(struct log_connection *log,
 
 static void
 client_log_ctx(struct log_connection *log,
-	       const struct failure_context *ctx, time_t log_time,
+	       const struct failure_context *ctx,
+	       const struct timeval *log_time,
 	       const char *prefix, const char *text)
 {
 	struct log_error err;
@@ -98,7 +99,7 @@ client_log_ctx(struct log_connection *log,
 	case LOG_TYPE_PANIC:
 		memset(&err, 0, sizeof(err));
 		err.type = ctx->type;
-		err.timestamp = log_time;
+		err.timestamp = log_time->tv_sec;
 		err.prefix = prefix;
 		err.text = text;
 		log_error_buffer_add(log->errorbuf, &err);
@@ -111,7 +112,8 @@ client_log_ctx(struct log_connection *log,
 
 static void
 client_log_fatal(struct log_connection *log, struct log_client *client,
-		 const char *line, time_t log_time, const struct tm *tm)
+		 const char *line, const struct timeval *log_time,
+		 const struct tm *tm)
 {
 	struct failure_context failure_ctx;
 	const char *prefix = log->default_prefix;
@@ -119,6 +121,7 @@ client_log_fatal(struct log_connection *log, struct log_client *client,
 	memset(&failure_ctx, 0, sizeof(failure_ctx));
 	failure_ctx.type = LOG_TYPE_FATAL;
 	failure_ctx.timestamp = tm;
+	failure_ctx.timestamp_usecs = log_time->tv_usec;
 
 	if (client != NULL) {
 		if (client->prefix != NULL)
@@ -133,7 +136,8 @@ client_log_fatal(struct log_connection *log, struct log_client *client,
 }
 
 static void
-log_parse_master_line(const char *line, time_t log_time, const struct tm *tm)
+log_parse_master_line(const char *line, const struct timeval *log_time,
+		      const struct tm *tm)
 {
 	struct log_connection *const *logs, *log;
 	struct log_client *client;
@@ -186,7 +190,7 @@ log_parse_master_line(const char *line, time_t log_time, const struct tm *tm)
 
 static void
 log_it(struct log_connection *log, const char *line,
-       time_t log_time, const struct tm *tm)
+       const struct timeval *log_time, const struct tm *tm)
 {
 	struct failure_line failure;
 	struct failure_context failure_ctx;
@@ -223,6 +227,7 @@ log_it(struct log_connection *log, const char *line,
 	memset(&failure_ctx, 0, sizeof(failure_ctx));
 	failure_ctx.type = failure.log_type;
 	failure_ctx.timestamp = tm;
+	failure_ctx.timestamp_usecs = log_time->tv_usec;
 
 	prefix = client != NULL && client->prefix != NULL ?
 		client->prefix : log->default_prefix;
@@ -279,7 +284,7 @@ static void log_connection_input(struct log_connection *log)
 {
 	const char *line;
 	ssize_t ret;
-	time_t now;
+	struct timeval now;
 	struct tm tm;
 
 	if (!log->handshaked) {
@@ -291,11 +296,12 @@ static void log_connection_input(struct log_connection *log)
 
 	while ((ret = i_stream_read(log->input)) > 0 || ret == -2) {
 		/* get new timestamps for every read() */
-		now = time(NULL);
-		tm = *localtime(&now);
+		if (gettimeofday(&now, NULL) < 0)
+			i_panic("gettimeofday() failed: %m");
+		tm = *localtime(&now.tv_sec);
 
 		while ((line = i_stream_next_line(log->input)) != NULL)
-			log_it(log, line, now, &tm);
+			log_it(log, line, &now, &tm);
 	}
 
 	if (log->input->eof)

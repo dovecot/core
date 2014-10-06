@@ -36,6 +36,7 @@ struct failure_context {
 	enum log_type type;
 	int exit_status; /* for LOG_TYPE_FATAL */
 	const struct tm *timestamp; /* NULL = use time() + localtime() */
+	unsigned int timestamp_usecs;
 };
 
 #define DEFAULT_FAILURE_STAMP_FORMAT "%b %d %H:%M:%S "
