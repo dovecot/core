@@ -1370,12 +1370,14 @@ dsync_mailbox_import_match_msg(struct dsync_mailbox_importer *importer,
 
 static bool
 dsync_mailbox_find_common_expunged_uid(struct dsync_mailbox_importer *importer,
-				       const struct dsync_mail_change *change)
+				       const struct dsync_mail_change *change,
+				       const char **result_r)
 {
 	const struct dsync_mail_change *local_change;
 
 	if (*change->guid == '\0') {
 		/* remote doesn't support GUIDs, can't verify expunge */
+		*result_r = "GUIDs not supported, can't verify expunge";
 		return FALSE;
 	}
 
@@ -1385,20 +1387,27 @@ dsync_mailbox_find_common_expunged_uid(struct dsync_mailbox_importer *importer,
 	   GUID string to 128bit GUID first. */
 	local_change = hash_table_lookup(importer->local_changes,
 					 POINTER_CAST(change->uid));
-	if (local_change == NULL || local_change->guid == NULL)
+	if (local_change == NULL || local_change->guid == NULL) {
+		*result_r = "Expunged local mail's GUID not found";
 		return FALSE;
+	}
 
 	i_assert(local_change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE);
 	if (dsync_mail_change_guid_equals(importer, local_change,
-					  change->guid, NULL))
+					  change->guid, NULL)) {
 		importer->last_common_uid = change->uid;
-	else if (change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE)
+		*result_r = "Expunged local mail's GUID matches remote";
+	} else if (change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE) {
 		dsync_mailbox_common_uid_found(importer);
-	else {
+		*result_r = "Expunged local mail's GUID doesn't match remote GUID";
+	} else {
 		/* GUID mismatch for two expunged mails. dsync can't update
 		   GUIDs for already expunged messages, so we can't immediately
 		   determine that the rest of the messages are a mismatch. so
 		   for now we'll just skip over this pair. */
+		*result_r = "Expunged mails' GUIDs don't match - delaying decision";
+		/* NOTE: the return value here doesn't matter, because the only
+		   caller that checks for it never reaches this code path */
 	}
 	return TRUE;
 }
@@ -1436,20 +1445,22 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 			*result_r = "Expunged mail not found locally";
 			return;
 		}
-		if (importer->revert_local_changes &&
-		    importer->local_uid_next > change->uid) {
+		i_assert(change->guid != NULL);
+		if (importer->local_uid_next <= change->uid) {
+			dsync_mailbox_common_uid_found(importer);
+			*result_r = "Mail's UID is above local UIDNEXT";
+		} else if (importer->revert_local_changes) {
 			dsync_mailbox_revert_missing(importer, change);
 			*result_r = "Reverting local change by deleting mailbox";
-		} else if (change->guid == NULL ||
-			 !dsync_mailbox_find_common_expunged_uid(importer, change)) {
-			/* couldn't match it for an expunged mail. use the last
-			   message with a matching GUID as the last common
+		} else if (!dsync_mailbox_find_common_expunged_uid(importer, change, result_r)) {
+			/* it's unknown if this mail existed locally and was
+			   expunged. since we don't want to lose any mails,
+			   assume that we need to preserve the mail. use the
+			   last message with a matching GUID as the last common
 			   UID. */
 			dsync_mailbox_common_uid_found(importer);
-			*result_r = "No more local mails found";
-		} else {
-			*result_r = "Mail expunged locally";
 		}
+		*result_r = t_strdup_printf("%s - No more local mails found", *result_r);
 		return;
 	}
 
@@ -1478,10 +1489,8 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 	    change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE) {
 		dsync_mailbox_revert_missing(importer, change);
 		*result_r = "Reverting local change by deleting mailbox";
-	} else if (dsync_mailbox_find_common_expunged_uid(importer, change)) {
-		*result_r = "Mail expunged locally";
 	} else {
-		*result_r = "Mail not found locally";
+		(void)dsync_mailbox_find_common_expunged_uid(importer, change, result_r);
 	}
 	*result_r = t_strdup_printf("%s (next local mail UID=%u)",
 				    *result_r, importer->cur_mail->uid);
