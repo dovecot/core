@@ -1437,7 +1437,7 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 			return;
 		}
 		if (importer->revert_local_changes &&
-		    importer->local_uid_next > 1) {
+		    importer->local_uid_next > change->uid) {
 			dsync_mailbox_revert_missing(importer, change);
 			*result_r = "Reverting local change by deleting mailbox";
 		} else if (change->guid == NULL ||
