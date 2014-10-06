@@ -474,7 +474,6 @@ static int mail_index_open_files(struct mail_index *index,
 				 enum mail_index_open_flags flags)
 {
 	int ret;
-	bool created = FALSE;
 
 	ret = mail_transaction_log_open(index->log);
 	if (ret == 0) {
@@ -501,7 +500,6 @@ static int mail_index_open_files(struct mail_index *index,
 			index->map->hdr.indexid = index->indexid;
 		}
 		index->initial_create = FALSE;
-		created = TRUE;
 	}
 	if (ret >= 0) {
 		ret = index->map != NULL ? 1 : mail_index_try_open(index);
@@ -525,10 +523,8 @@ static int mail_index_open_files(struct mail_index *index,
 			return -1;
 	}
 
-	if (index->cache == NULL) {
-		index->cache = created ? mail_cache_create(index) :
-			mail_cache_open_or_create(index);
-	}
+	if (index->cache == NULL)
+		index->cache = mail_cache_open_or_create(index);
 	return 1;
 }
 
