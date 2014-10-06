@@ -1412,7 +1412,7 @@ dsync_mailbox_revert_missing(struct dsync_mailbox_importer *importer,
 	/* mail exists on remote, but not locally. we'll need to
 	   insert this mail back, which means deleting the whole
 	   mailbox and resyncing. */
-	imp_debug(importer, "Deleting mailbox '%s': UID=%u GUID=%s is missing locally",
+	i_warning("Deleting mailbox '%s': UID=%u GUID=%s is missing locally",
 		  mailbox_get_vname(importer->box),
 		  change->uid, change->guid);
 	importer->delete_mailbox = TRUE;
