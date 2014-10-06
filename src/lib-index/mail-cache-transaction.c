@@ -800,18 +800,3 @@ bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
 
 	return mail_cache_field_exists(ctx->view, seq, field_idx) == 0;
 }
-
-void mail_cache_delete(struct mail_cache *cache)
-{
-	i_assert(cache->locked);
-
-	/* we'll only update the deleted record count in the header. we can't
-	   really do any actual deleting as other processes might still be
-	   using the data. also it's actually useful as old index views are
-	   still able to ask cached data for messages that have already been
-	   expunged. */
-	cache->hdr_copy.deleted_record_count++;
-	if (cache->hdr_copy.record_count > 0)
-		cache->hdr_copy.record_count--;
-	cache->hdr_modified = TRUE;
-}

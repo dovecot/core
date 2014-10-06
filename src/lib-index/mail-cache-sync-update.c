@@ -5,20 +5,8 @@
 #include "mail-index-sync-private.h"
 
 struct mail_cache_sync_context {
-	unsigned int locked:1;
-	unsigned int lock_failed:1;
+	unsigned expunge_count;
 };
-
-static void mail_cache_handler_deinit(struct mail_index_sync_map_ctx *sync_ctx,
-				      struct mail_cache_sync_context *ctx)
-{
-	if (ctx == NULL)
-		return;
-
-	if (ctx->locked)
-		(void)mail_cache_unlock(sync_ctx->view->index->cache);
-	i_free(ctx);
-}
 
 static struct mail_cache_sync_context *mail_cache_handler_init(void **context)
 {
@@ -33,48 +21,35 @@ static struct mail_cache_sync_context *mail_cache_handler_init(void **context)
 	return ctx;
 }
 
-static int mail_cache_handler_lock(struct mail_cache_sync_context *ctx,
-				   struct mail_cache *cache)
+static void mail_cache_handler_deinit(struct mail_index_sync_map_ctx *sync_ctx,
+				      struct mail_cache_sync_context *ctx)
 {
-	int ret;
+	struct mail_cache *cache = sync_ctx->view->index->cache;
 
-	if (ctx->locked)
-		return MAIL_CACHE_IS_UNUSABLE(cache) ? 0 : 1;
-	if (ctx->lock_failed)
-		return 0;
+	if (ctx == NULL)
+		return;
 
-	if (!ctx->locked) {
-		if ((ret = mail_cache_lock(cache, TRUE)) <= 0) {
-                        ctx->lock_failed = TRUE;
-			return ret;
-		}
-		ctx->locked = TRUE;
+	if (mail_cache_lock(cache, TRUE) > 0) {
+		/* update the record counts in the cache file's header. these
+		   are used to figure out when a cache file should be
+		   recreated and the old data dropped. */
+		cache->hdr_copy.deleted_record_count += ctx->expunge_count;
+		if (cache->hdr_copy.record_count >= ctx->expunge_count)
+			cache->hdr_copy.record_count -= ctx->expunge_count;
+		else
+			cache->hdr_copy.record_count = 0;
+		cache->hdr_modified = TRUE;
+		(void)mail_cache_unlock(cache);
 	}
-	return 1;
-}
-
-static bool get_cache_file_seq(struct mail_index_view *view,
-			      uint32_t *cache_file_seq_r)
-{
-	const struct mail_index_ext *ext;
-
-	ext = mail_index_view_get_ext(view, view->index->cache->ext_id);
-	if (ext == NULL)
-		return FALSE;
-
-	*cache_file_seq_r = ext->reset_id;
-	return TRUE;
+	i_free(ctx);
 }
 
 int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			       uint32_t seq ATTR_UNUSED, const void *data,
-			       void **sync_context, void *context)
+			       void **sync_context, void *context ATTR_UNUSED)
 {
-	struct mail_cache *cache = context;
 	struct mail_cache_sync_context *ctx = *sync_context;
 	const uint32_t *cache_offset = data;
-	uint32_t cache_file_seq;
-	int ret;
 
 	if (data == NULL) {
 		mail_cache_handler_deinit(sync_ctx, ctx);
@@ -86,15 +61,6 @@ int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 		return 0;
 
 	ctx = mail_cache_handler_init(sync_context);
-	ret = mail_cache_handler_lock(ctx, cache);
-	if (ret <= 0)
-		return ret;
-
-	if (!get_cache_file_seq(sync_ctx->view, &cache_file_seq))
-		return 0;
-
-	if (!MAIL_CACHE_IS_UNUSABLE(cache) &&
-	    cache_file_seq == cache->hdr->file_seq)
-		mail_cache_delete(cache);
+	ctx->expunge_count++;
 	return 0;
 }
