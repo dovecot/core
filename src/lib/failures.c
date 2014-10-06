@@ -719,10 +719,10 @@ void i_set_failure_timestamp_format(const char *fmt)
 	p = strstr(fmt, "%{usecs}");
 	if (p == NULL)
 		log_stamp_format = i_strdup(fmt);
-	else T_BEGIN {
+	else {
 		log_stamp_format = i_strdup_until(fmt, p);
 		log_stamp_format_suffix = i_strdup(p + 8);
-	} T_END;
+	}
 }
 
 void i_set_failure_send_ip(const struct ip_addr *ip)
