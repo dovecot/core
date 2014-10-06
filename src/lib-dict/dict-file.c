@@ -445,7 +445,7 @@ static int file_dict_mkdir(struct file_dict *dict)
 		mode = st.st_mode;
 	}
 
-	if (mkdir_parents(path, mode) < 0) {
+	if (mkdir_parents(path, mode) < 0 && errno != EEXIST) {
 		i_error("mkdir_parents(%s) failed: %m", path);
 		return -1;
 	}
