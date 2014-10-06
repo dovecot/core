@@ -46,7 +46,7 @@ Remote mailboxes can be accessed also via IMAP protocol, which allows using
 dsync for mailbox migration purposes.
 .PP
 You can run dsync in one of three modes:
-.RS \(bu 4
+.RS
 .\"-------------------------------------
 .IP \(bu
 .B doveadm backup
@@ -76,7 +76,7 @@ once more to transfer any last new mails from the old mailbox.
 .RE
 .PP
 There are also three different synchronization algorithms:
-.RS \(bu 4
+.RS
 .\"-------------------------------------
 .IP \(bu
 Full synchronization (\-f parameter) scans through all the messages in all
