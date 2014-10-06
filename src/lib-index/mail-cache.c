@@ -95,6 +95,34 @@ static void mail_cache_init_file_cache(struct mail_cache *cache)
 	cache->st_dev = st.st_dev;
 }
 
+static int mail_cache_try_open(struct mail_cache *cache)
+{
+	const void *data;
+
+	cache->opened = TRUE;
+
+	if (MAIL_INDEX_IS_IN_MEMORY(cache->index))
+		return 0;
+
+	cache->fd = nfs_safe_open(cache->filepath,
+				  cache->index->readonly ? O_RDONLY : O_RDWR);
+	if (cache->fd == -1) {
+		if (errno == ENOENT) {
+			cache->need_compress_file_seq = 0;
+			return 0;
+		}
+
+		mail_cache_set_syscall_error(cache, "open()");
+		return -1;
+	}
+
+	mail_cache_init_file_cache(cache);
+
+	if (mail_cache_map(cache, 0, 0, &data) < 0)
+		return -1;
+	return 1;
+}
+
 static bool mail_cache_need_reopen(struct mail_cache *cache)
 {
 	struct stat st;
@@ -143,34 +171,14 @@ static bool mail_cache_need_reopen(struct mail_cache *cache)
 	return FALSE;
 }
 
-int mail_cache_reopen(struct mail_cache *cache)
+static int mail_cache_reopen_now(struct mail_cache *cache)
 {
 	struct mail_index_view *view;
 	const struct mail_index_ext *ext;
-	const void *data;
-
-	i_assert(!cache->locked);
-
-	if (!mail_cache_need_reopen(cache)) {
-		/* reopening does no good */
-		return 0;
-	}
 
 	mail_cache_file_close(cache);
 
-	cache->fd = nfs_safe_open(cache->filepath,
-				  cache->index->readonly ? O_RDONLY : O_RDWR);
-	if (cache->fd == -1) {
-		if (errno == ENOENT)
-			cache->need_compress_file_seq = 0;
-		else
-			mail_cache_set_syscall_error(cache, "open()");
-		return -1;
-	}
-
-	mail_cache_init_file_cache(cache);
-
-	if (mail_cache_map(cache, 0, 0, &data) < 0)
+	if (mail_cache_try_open(cache) <= 0)
 		return -1;
 
 	if (mail_cache_header_fields_read(cache) < 0)
@@ -191,6 +199,17 @@ int mail_cache_reopen(struct mail_cache *cache)
 	mail_index_view_close(&view);
 	i_assert(!MAIL_CACHE_IS_UNUSABLE(cache));
 	return 1;
+}
+
+int mail_cache_reopen(struct mail_cache *cache)
+{
+	i_assert(!cache->locked);
+
+	if (!mail_cache_need_reopen(cache)) {
+		/* reopening does no good */
+		return 0;
+	}
+	return mail_cache_reopen_now(cache);
 }
 
 static void mail_cache_update_need_compress(struct mail_cache *cache)
@@ -458,34 +477,6 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 		CONST_PTR_OFFSET(cache->mmap_base, offset);
 	return mail_cache_map_finish(cache, offset, size,
 				     cache->mmap_base, FALSE);
-}
-
-static int mail_cache_try_open(struct mail_cache *cache)
-{
-	const void *data;
-
-	cache->opened = TRUE;
-
-	if (MAIL_INDEX_IS_IN_MEMORY(cache->index))
-		return 0;
-
-	cache->fd = nfs_safe_open(cache->filepath,
-				  cache->index->readonly ? O_RDONLY : O_RDWR);
-	if (cache->fd == -1) {
-		if (errno == ENOENT) {
-			cache->need_compress_file_seq = 0;
-			return 0;
-		}
-
-		mail_cache_set_syscall_error(cache, "open()");
-		return -1;
-	}
-
-	mail_cache_init_file_cache(cache);
-
-	if (mail_cache_map(cache, 0, 0, &data) < 0)
-		return -1;
-	return 1;
 }
 
 int mail_cache_open_and_verify(struct mail_cache *cache)
