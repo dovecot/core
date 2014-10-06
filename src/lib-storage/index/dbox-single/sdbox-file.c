@@ -255,7 +255,8 @@ int sdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 		dir = t_strdup_until(path, p);
 		if (mkdir_parents_chgrp(dir, perm->dir_create_mode,
 					perm->file_create_gid,
-					perm->file_create_gid_origin) < 0) {
+					perm->file_create_gid_origin) < 0 &&
+		   errno != EEXIST) {
 			mail_storage_set_critical(box->storage,
 				"mkdir_parents(%s) failed: %m", dir);
 			return -1;
