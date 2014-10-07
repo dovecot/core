@@ -362,8 +362,6 @@ bool mailbox_list_index_need_refresh(struct mailbox_list_index *ilist,
 int mailbox_list_index_refresh(struct mailbox_list *list)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
-	struct mail_index_view *view;
-	int ret;
 
 	if (ilist->syncing)
 		return 0;
@@ -375,6 +373,17 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 		   index every single time. */
 		return 0;
 	}
+
+	return mailbox_list_index_refresh_force(list);
+}
+
+int mailbox_list_index_refresh_force(struct mailbox_list *list)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mail_index_view *view;
+	int ret;
+
+	i_assert(!ilist->syncing);
 
 	ilist->last_refresh_timeval = ioloop_timeval;
 	if (mailbox_list_index_index_open(list) < 0)

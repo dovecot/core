@@ -66,8 +66,8 @@ static char index_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
 }
 
 static int
-index_list_get_node(struct index_mailbox_list *list, const char *name,
-		    struct mailbox_list_index_node **node_r)
+index_list_get_refreshed_node(struct index_mailbox_list *list, const char *name,
+			      struct mailbox_list_index_node **node_r)
 {
 	struct mailbox_list_index_node *node;
 
@@ -79,6 +79,33 @@ index_list_get_node(struct index_mailbox_list *list, const char *name,
 		return 0;
 	*node_r = node;
 	return 1;
+}
+
+static int
+index_list_get_refreshed_node_seq(struct index_mailbox_list *list,
+				  struct mail_index_view *view,
+				  const char *name,
+				  struct mailbox_list_index_node **node_r,
+				  uint32_t *seq_r)
+{
+	unsigned int i;
+	int ret;
+
+	*node_r = NULL;
+	*seq_r = 0;
+
+	for (i = 0; i < 2; i++) {
+		if ((ret = index_list_get_refreshed_node(list, name, node_r)) <= 0)
+			return ret;
+		if (mail_index_lookup_seq(view, (*node_r)->uid, seq_r))
+			return 1;
+		/* mailbox was just expunged. refreshing should notice it. */
+		if (mailbox_list_index_refresh_force(&list->list) < 0)
+			return -1;
+	}
+	i_panic("mailbox list index: refreshing doesn't lose expunged uid=%u",
+		(*node_r)->uid);
+	return -1;
 }
 
 static const char *
@@ -124,22 +151,35 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 	if (!mailbox_list_set_get_root_path(&_list->set, type, &root_dir))
 		return 0;
 
-	if ((ret = index_list_get_node(list, name, &node)) <= 0) {
-		if (ret == 0) {
-			mailbox_list_set_error(_list, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+	if (ilist->sync_ctx != NULL) {
+		/* we could get here during sync from
+		   index_list_mailbox_create_selectable() */
+		view = ilist->sync_ctx->view;
+		node = mailbox_list_index_lookup(&list->list, name);
+		if (node == NULL) {
+			seq = 0;
+			ret = 0;
+		} else if (mail_index_lookup_seq(view, node->uid, &seq)) {
+			ret = 1;
+		} else {
+			i_panic("mailbox list index: lost uid=%u", node->uid);
 		}
-		return -1;
+	} else {
+		view = mail_index_view_open(ilist->index);
+		ret = index_list_get_refreshed_node_seq(list, view, name, &node, &seq);
+		if (ret < 0) {
+			mail_index_view_close(&view);
+			return -1;
+		}
 	}
-	/* we could get here during sync from
-	   index_list_mailbox_create_selectable() */
-	view = ilist->sync_ctx == NULL ? mail_index_view_open(ilist->index) :
-		ilist->sync_ctx->view;
-	if (!mail_index_lookup_seq(view, node->uid, &seq))
-		i_panic("mailbox list index: lost uid=%u", node->uid);
-	if (!mailbox_list_index_status(_list, view, seq, 0,
-				       &status, mailbox_guid) ||
-	    guid_128_is_empty(mailbox_guid)) {
+	i_assert(ret == 0 || seq != 0);
+	if (ret == 0) {
+		mailbox_list_set_error(_list, MAIL_ERROR_NOTFOUND,
+				       T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+		ret = -1;
+	} else if (!mailbox_list_index_status(_list, view, seq, 0,
+					      &status, mailbox_guid) ||
+		   guid_128_is_empty(mailbox_guid)) {
 		mailbox_list_set_error(_list, MAIL_ERROR_NOTFOUND,
 				       T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		ret = -1;
@@ -188,7 +228,7 @@ index_list_node_exists(struct index_mailbox_list *list, const char *name,
 
 	*existence_r = MAILBOX_EXISTENCE_NONE;
 
-	if ((ret = index_list_get_node(list, name, &node)) < 0)
+	if ((ret = index_list_get_refreshed_node(list, name, &node)) < 0)
 		return -1;
 	if (ret == 0)
 		return 0;
@@ -435,16 +475,12 @@ index_list_delete_entry(struct index_mailbox_list *list, const char *name,
 	const void *data;
 	bool expunged;
 	uint32_t seq;
-	int ret;
 
 	if (mailbox_list_index_sync_begin(&list->list, &sync_ctx) < 0)
 		return -1;
 
-	if ((ret = index_list_get_node(list, name, &node)) < 0) {
-		(void)mailbox_list_index_sync_end(&sync_ctx, FALSE);
-		return -1;
-	}
-	if (ret == 0) {
+	node = mailbox_list_index_lookup(&list->list, name);
+	if (node == NULL) {
 		(void)mailbox_list_index_sync_end(&sync_ctx, FALSE);
 		mailbox_list_set_error(&list->list, MAIL_ERROR_NOTFOUND,
 				       T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
@@ -552,7 +588,6 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 	const void *data;
 	bool created, expunged;
 	uint32_t oldseq, newseq;
-	int ret;
 
 	if (_oldlist != _newlist) {
 		mailbox_list_set_error(_oldlist, MAIL_ERROR_NOTPOSSIBLE,
@@ -563,11 +598,8 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 	if (mailbox_list_index_sync_begin(&list->list, &sync_ctx) < 0)
 		return -1;
 
-	if ((ret = index_list_get_node(list, oldname, &oldnode)) < 0) {
-		(void)mailbox_list_index_sync_end(&sync_ctx, FALSE);
-		return -1;
-	}
-	if (ret == 0) {
+	oldnode = mailbox_list_index_lookup(&list->list, oldname);
+	if (oldnode == NULL) {
 		(void)mailbox_list_index_sync_end(&sync_ctx, FALSE);
 		mailbox_list_set_error(&list->list, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(oldname));

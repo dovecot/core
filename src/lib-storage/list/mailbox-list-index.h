@@ -142,7 +142,11 @@ void mailbox_list_index_node_unlink(struct mailbox_list_index *ilist,
 int mailbox_list_index_index_open(struct mailbox_list *list);
 bool mailbox_list_index_need_refresh(struct mailbox_list_index *ilist,
 				     struct mail_index_view *view);
+/* Refresh the index, but only if it hasn't been refreshed "recently"
+   (= within this same ioloop run) */
 int mailbox_list_index_refresh(struct mailbox_list *list);
+/* Refresh the index regardless of when the last refresh was done. */
+int mailbox_list_index_refresh_force(struct mailbox_list *list);
 void mailbox_list_index_refresh_later(struct mailbox_list *list);
 
 struct mailbox_list_index_node *
