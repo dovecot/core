@@ -251,7 +251,7 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 
 	mail_cache_transaction_open_if_needed(ctx);
 
-	if ((ret = mail_cache_lock(cache, FALSE)) <= 0) {
+	if ((ret = mail_cache_lock(cache)) <= 0) {
 		if (ret < 0)
 			return -1;
 

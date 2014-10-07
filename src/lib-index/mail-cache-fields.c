@@ -531,7 +531,7 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 		return ret;
 	}
 
-	if (mail_cache_lock(cache, FALSE) <= 0)
+	if (mail_cache_lock(cache) <= 0)
 		return -1;
 
 	T_BEGIN {

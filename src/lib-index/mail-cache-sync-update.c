@@ -29,7 +29,7 @@ static void mail_cache_handler_deinit(struct mail_index_sync_map_ctx *sync_ctx,
 	if (ctx == NULL)
 		return;
 
-	if (mail_cache_lock(cache, TRUE) > 0) {
+	if (mail_cache_lock(cache) > 0) {
 		/* update the record counts in the cache file's header. these
 		   are used to figure out when a cache file should be
 		   recreated and the old data dropped. */
