@@ -659,7 +659,7 @@ mail_cache_lock_full(struct mail_cache *cache, bool nonblock)
 			break;
 		/* mismatch. try refreshing index once. if that doesn't help,
 		   we can't use the cache. */
-		if (i > 0) {
+		if (i > 0 || cache->index->mapping) {
 			mail_cache_unlock_file(cache);
 			return 0;
 		}
