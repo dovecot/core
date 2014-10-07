@@ -39,6 +39,7 @@ nodist_man1_MANS = \
 	doveadm-mount.1 \
 	doveadm-move.1 \
 	doveadm-penalty.1 \
+	doveadm-proxy.1 \
 	doveadm-purge.1 \
 	doveadm-pw.1 \
 	doveadm-quota.1 \
@@ -84,6 +85,7 @@ EXTRA_DIST = \
 	doveadm-mount.1.in \
 	doveadm-move.1.in \
 	doveadm-penalty.1.in \
+	doveadm-proxy.1.in \
 	doveadm-purge.1.in \
 	doveadm-pw.1.in \
 	doveadm-quota.1.in \

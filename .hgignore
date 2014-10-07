@@ -105,5 +105,5 @@ src/plugins/quota/quota-status
 
 syntax: regexp
 src/.*/test-[^\.]*$
-doc/man/doveadm-(acl|altmove|auth|batch|deduplicate|director|dump|exec|expunge|fetch|flags|fts|import|instance|index|force-resync|help|kick|log|mailbox|mount|move|penalty|purge|pw|quota|replicator|search|sync|user|who)\.1$
+doc/man/doveadm-(acl|altmove|auth|batch|deduplicate|director|dump|exec|expunge|fetch|flags|fts|import|instance|index|force-resync|help|kick|log|mailbox|mount|move|penalty|proxy|purge|pw|quota|replicator|search|sync|user|who)\.1$
 doc/man/(doveadm|doveconf|dovecot-lda|dovecot)\.1$

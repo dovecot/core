@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2014 Dovecot authors, see the included COPYING file
-.TH DOVEADM 1 "2014-09-24" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM 1 "2014-10-07" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm \- Dovecot\(aqs administration utility
 .\"------------------------------------------------------------------------
@@ -72,6 +72,11 @@ Manage the list of mountpoints where mails are stored.
 .B doveadm penalty
 .BR doveadm\-penalty (1),
 Show current penalties.
+.\"-------------------------------------
+.TP
+.B doveadm proxy
+.BR doveadm\-proxy (1),
+Handle Dovecot proxy connections.
 .\"-------------------------------------
 .TP
 .B doveadm who
