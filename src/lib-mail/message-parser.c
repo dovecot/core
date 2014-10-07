@@ -984,6 +984,8 @@ message_parser_init_from_parts(struct message_part *parts,
 {
 	struct message_parser_ctx *ctx;
 
+	i_assert(parts != NULL);
+
 	ctx = message_parser_init_int(input, hdr_flags, flags);
 	ctx->parts = ctx->part = parts;
 	ctx->parse_next_block = preparsed_parse_next_header_init;
@@ -1003,6 +1005,7 @@ int message_parser_deinit(struct message_parser_ctx **_ctx,
 		message_parse_header_deinit(&ctx->hdr_parser_ctx);
 	i_stream_unref(&ctx->input);
 	pool_unref(&ctx->parser_pool);
+	i_assert(ret < 0 || *parts_r != NULL);
 	return ret;
 }
 
