@@ -93,17 +93,23 @@ mail_cache_compress_field(struct mail_cache_copy_context *ctx,
 		buffer_append_zero(ctx->buffer, 4 - (field->size & 3));
 }
 
-static uint32_t
-get_next_file_seq(struct mail_cache *cache, struct mail_index_view *view)
+static uint32_t get_next_file_seq(struct mail_cache *cache)
 {
 	const struct mail_index_ext *ext;
+	struct mail_index_view *view;
 	uint32_t file_seq;
 
+	/* make sure we look up the latest reset_id */
+	if (mail_index_refresh(cache->index) < 0)
+		return -1;
+
+	view = mail_index_view_open(cache->index);
 	ext = mail_index_view_get_ext(view, cache->ext_id);
 	file_seq = ext != NULL ? ext->reset_id + 1 : (uint32_t)ioloop_time;
 
 	if (cache->hdr != NULL && file_seq <= cache->hdr->file_seq)
 		file_seq = cache->hdr->file_seq + 1;
+	mail_index_view_close(&view);
 
 	return file_seq != 0 ? file_seq : 1;
 }
@@ -166,6 +172,10 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	unsigned int i, used_fields_count, orig_fields_count, record_count;
 	time_t max_drop_time;
 
+	/* get the latest info on fields */
+	if (mail_cache_header_fields_read(cache) < 0)
+		return -1;
+
 	view = mail_index_transaction_get_view(trans);
 	cache_view = mail_cache_view_open(cache, view);
 	output = o_stream_create_fd_file(fd, 0, FALSE);
@@ -175,7 +185,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	hdr.minor_version = MAIL_CACHE_MINOR_VERSION;
 	hdr.compat_sizeof_uoff_t = sizeof(uoff_t);
 	hdr.indexid = cache->index->indexid;
-	hdr.file_seq = get_next_file_seq(cache, view);
+	hdr.file_seq = get_next_file_seq(cache);
 	o_stream_nsend(output, &hdr, sizeof(hdr));
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -352,10 +362,6 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	const void *data;
 	unsigned int i, count;
 	int fd, ret;
-
-	/* get the latest info on fields */
-	if (mail_cache_header_fields_read(cache) < 0)
-		return -1;
 
 	old_mask = umask(cache->index->mode ^ 0666);
 	fd = file_dotlock_open(&cache->dotlock_settings, cache->filepath,
