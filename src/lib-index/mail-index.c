@@ -438,7 +438,8 @@ mail_index_try_open(struct mail_index *index)
 	return ret;
 }
 
-int mail_index_create_tmp_file(struct mail_index *index, const char **path_r)
+int mail_index_create_tmp_file(struct mail_index *index,
+			       const char *path_prefix, const char **path_r)
 {
         mode_t old_mask;
 	const char *path;
@@ -446,7 +447,7 @@ int mail_index_create_tmp_file(struct mail_index *index, const char **path_r)
 
 	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
 
-	path = *path_r = t_strconcat(index->filepath, ".tmp", NULL);
+	path = *path_r = t_strconcat(path_prefix, ".tmp", NULL);
 	old_mask = umask(0);
 	fd = open(path, O_RDWR|O_CREAT|O_EXCL, index->mode);
 	umask(old_mask);
