@@ -94,7 +94,7 @@ struct fs_file {
 	struct istream *copy_input;
 	struct ostream *copy_output;
 
-	unsigned int write_pending;
+	unsigned int write_pending:1;
 	unsigned int metadata_changed:1;
 };
 
