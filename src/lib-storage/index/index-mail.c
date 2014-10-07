@@ -847,17 +847,21 @@ index_mail_parse_body_finish(struct index_mail *mail,
 		i_stream_ref(parser_input);
 		ret = message_parser_deinit(&mail->data.parser_ctx,
 					    &mail->data.parts) < 0 ? 0 : 1;
-		if (parser_input->stream_errno == 0 ||
-		    parser_input->stream_errno == EPIPE) {
-			/* EPIPE = input already closed. allow the caller to
-			   decide if that is an error or not. (for example we
-			   could be coming here from IMAP APPEND when IMAP
-			   client has closed the connection too early. we
-			   don't want to log an error in that case.) */
-			i_assert(!success ||
-				 (i_stream_read(parser_input) == -1 &&
-				  !i_stream_have_bytes_left(parser_input)));
-		} else {
+		if (success && (parser_input->stream_errno == 0 ||
+				parser_input->stream_errno == EPIPE)) {
+			/* do one final read, which verifies that the message
+			   size is correct. */
+			if (i_stream_read(parser_input) != -1 ||
+			    i_stream_have_bytes_left(parser_input))
+				i_unreached();
+		}
+		/* EPIPE = input already closed. allow the caller to
+		   decide if that is an error or not. (for example we
+		   could be coming here from IMAP APPEND when IMAP
+		   client has closed the connection too early. we
+		   don't want to log an error in that case.) */
+		if (parser_input->stream_errno != 0 &&
+		    parser_input->stream_errno != EPIPE) {
 			index_mail_stream_log_failure_for(mail, parser_input);
 			ret = -1;
 		}
