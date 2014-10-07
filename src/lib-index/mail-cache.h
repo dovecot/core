@@ -8,6 +8,7 @@
 struct mail_cache;
 struct mail_cache_view;
 struct mail_cache_transaction_ctx;
+struct mail_cache_compress_lock;
 
 enum mail_cache_decision_type {
 	/* Not needed currently */
@@ -64,9 +65,15 @@ mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 
 /* Returns TRUE if cache should be compressed. */
 bool mail_cache_need_compress(struct mail_cache *cache);
-/* Compress cache file. Offsets are updated to given transaction. */
+/* Compress cache file. Offsets are updated to given transaction. The cache
+   compression lock should be kept until the transaction is committed.
+   mail_cache_compress_unlock() needs to be called afterwards. The lock doesn't
+   prevent updates to the cache while it's held, it only prevents another cache
+   compression. */
 int mail_cache_compress(struct mail_cache *cache,
-			struct mail_index_transaction *trans);
+			struct mail_index_transaction *trans,
+			struct mail_cache_compress_lock **lock_r);
+void mail_cache_compress_unlock(struct mail_cache_compress_lock **lock);
 /* Returns TRUE if there is at least something in the cache. */
 bool mail_cache_exists(struct mail_cache *cache);
 /* Open and read cache header. Returns 0 if ok, -1 if error/corrupted. */

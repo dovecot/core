@@ -6,7 +6,7 @@
 #include "mail-index-sync-private.h"
 #include "mail-index-transaction-private.h"
 #include "mail-transaction-log-private.h"
-#include "mail-cache.h"
+#include "mail-cache-private.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -784,9 +784,10 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 {
         struct mail_index_sync_ctx *ctx = *_ctx;
 	struct mail_index *index = ctx->index;
+	struct mail_cache_compress_lock *cache_lock = NULL;
 	uint32_t next_uid;
 	bool want_rotate, index_undeleted, delete_index;
-	int ret = 0;
+	int ret = 0, ret2;
 
 	index_undeleted = ctx->ext_trans->index_undeleted;
 	delete_index = index->index_delete_requested && !index_undeleted &&
@@ -807,7 +808,8 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		/* if cache compression fails, we don't really care.
 		   the cache offsets are updated only if the compression was
 		   successful. */
-		(void)mail_cache_compress(index->cache, ctx->ext_trans);
+		(void)mail_cache_compress(index->cache, ctx->ext_trans,
+					  &cache_lock);
 	}
 
 	if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_DROP_RECENT) != 0) {
@@ -820,7 +822,10 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		}
 	}
 
-	if (mail_index_transaction_commit(&ctx->ext_trans) < 0) {
+	ret2 = mail_index_transaction_commit(&ctx->ext_trans);
+	if (cache_lock != NULL)
+		mail_cache_compress_unlock(&cache_lock);
+	if (ret2 < 0) {
 		mail_index_sync_end(&ctx);
 		return -1;
 	}
