@@ -694,6 +694,10 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 		client_send_line(client, "250 2.0.0 <%s> %s Saved",
 				 rcpt->address, client->state.session_id);
 		ret = 0;
+	} else if (dctx.tempfail_error != NULL) {
+		client_send_line(client, "451 4.2.0 <%s> %s",
+				 rcpt->address, dctx.tempfail_error);
+		ret = -1;
 	} else if (storage != NULL) {
 		error = mail_storage_get_last_error(storage, &mail_error);
 		if (mail_error == MAIL_ERROR_NOQUOTA) {
@@ -705,10 +709,6 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 			client_send_line(client, "451 4.2.0 <%s> %s",
 					 rcpt->address, error);
 		}
-		ret = -1;
-	} else if (dctx.tempfail_error != NULL) {
-		client_send_line(client, "451 4.2.0 <%s> %s",
-				 rcpt->address, dctx.tempfail_error);
 		ret = -1;
 	} else {
 		/* This shouldn't happen */
