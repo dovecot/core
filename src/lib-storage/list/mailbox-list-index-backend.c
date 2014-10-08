@@ -165,6 +165,8 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 			i_panic("mailbox list index: lost uid=%u", node->uid);
 		}
 	} else {
+		if (mailbox_list_index_refresh(&list->list) < 0)
+			return -1;
 		view = mail_index_view_open(ilist->index);
 		ret = index_list_get_refreshed_node_seq(list, view, name, &node, &seq);
 		if (ret < 0) {
