@@ -66,22 +66,6 @@ static char index_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
 }
 
 static int
-index_list_get_refreshed_node(struct index_mailbox_list *list, const char *name,
-			      struct mailbox_list_index_node **node_r)
-{
-	struct mailbox_list_index_node *node;
-
-	if (mailbox_list_index_refresh(&list->list) < 0)
-		return -1;
-
-	node = mailbox_list_index_lookup(&list->list, name);
-	if (node == NULL)
-		return 0;
-	*node_r = node;
-	return 1;
-}
-
-static int
 index_list_get_refreshed_node_seq(struct index_mailbox_list *list,
 				  struct mail_index_view *view,
 				  const char *name,
@@ -89,14 +73,14 @@ index_list_get_refreshed_node_seq(struct index_mailbox_list *list,
 				  uint32_t *seq_r)
 {
 	unsigned int i;
-	int ret;
 
 	*node_r = NULL;
 	*seq_r = 0;
 
 	for (i = 0; i < 2; i++) {
-		if ((ret = index_list_get_refreshed_node(list, name, node_r)) <= 0)
-			return ret;
+		*node_r = mailbox_list_index_lookup(&list->list, name);
+		if (*node_r == NULL)
+			return 0;
 		if (mail_index_lookup_seq(view, (*node_r)->uid, seq_r))
 			return 1;
 		/* mailbox was just expunged. refreshing should notice it. */
@@ -226,13 +210,14 @@ index_list_node_exists(struct index_mailbox_list *list, const char *name,
 		       enum mailbox_existence *existence_r)
 {
 	struct mailbox_list_index_node *node;
-	int ret;
 
 	*existence_r = MAILBOX_EXISTENCE_NONE;
 
-	if ((ret = index_list_get_refreshed_node(list, name, &node)) < 0)
+	if (mailbox_list_index_refresh(&list->list) < 0)
 		return -1;
-	if (ret == 0)
+
+	node = mailbox_list_index_lookup(&list->list, name);
+	if (node == NULL)
 		return 0;
 
 	if ((node->flags & (MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
