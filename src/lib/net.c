@@ -155,15 +155,17 @@ static inline unsigned int sin_get_port(union sockaddr_union *so)
 #ifdef __FreeBSD__
 static int
 net_connect_ip_full_freebsd(const struct ip_addr *ip, unsigned int port,
-			    const struct ip_addr *my_ip, bool blocking);
+			    const struct ip_addr *my_ip, int sock_type,
+			    bool blocking);
 
 static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
-			       const struct ip_addr *my_ip, bool blocking)
+			       const struct ip_addr *my_ip, int sock_type,
+			       bool blocking)
 {
 	int fd, try;
 
 	for (try = 0;;) {
-		fd = net_connect_ip_full_freebsd(ip, port, my_ip, blocking);
+		fd = net_connect_ip_full_freebsd(ip, port, my_ip, sock_type, blocking);
 		if (fd != -1 || ++try == 5 ||
 		    (errno != EADDRINUSE && errno != EACCES))
 			break;
