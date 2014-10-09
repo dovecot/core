@@ -131,8 +131,8 @@ file_lock_find_proc_locks(int lock_fd ATTR_UNUSED)
 #endif
 }
 
-static const char *
-file_lock_find(int lock_fd, enum file_lock_method lock_method, int lock_type)
+const char *file_lock_find(int lock_fd, enum file_lock_method lock_method,
+			   int lock_type)
 {
 	const char *ret;
 
