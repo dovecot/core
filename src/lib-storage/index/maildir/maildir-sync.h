@@ -12,7 +12,7 @@
    to see if we need to touch the uidlist lock. */
 #define MAILDIR_SLOW_CHECK_COUNT 10000
 /* If syncing takes longer than this, log a warning. */
-#define MAILDIR_SYNC_TIME_WARN_SECS 60
+#define MAILDIR_SYNC_TIME_WARN_SECS MAIL_TRANSACTION_LOG_LOCK_WARN_SECS
 
 struct maildir_mailbox;
 struct maildir_sync_context;
