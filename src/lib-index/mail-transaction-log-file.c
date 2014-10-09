@@ -387,8 +387,9 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 
 	mail_index_set_error(file->log->index,
 		"Timeout (%us) while waiting for lock for "
-		"transaction log file %s",
-		lock_timeout_secs, file->filepath);
+		"transaction log file %s%s",
+		lock_timeout_secs, file->filepath,
+		file_lock_find(file->fd, file->log->index->lock_method, F_WRLCK));
 	file->log->index->index_lock_timeout = TRUE;
 	return -1;
 }
