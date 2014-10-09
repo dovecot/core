@@ -324,6 +324,23 @@ smtp_client_send_flush(struct smtp_client *smtp_client, const char **error_r)
 	}
 }
 
+void smtp_client_abort(struct smtp_client **_client)
+{
+	struct smtp_client *client = *_client;
+
+	*_client = NULL;
+
+	o_stream_ignore_last_errors(client->output);
+	if (!client->use_smtp) {
+		if (client->pid != (pid_t)-1)
+			(void)kill(client->pid, SIGTERM);
+		(void)smtp_client_deinit_sendmail(client);
+	} else {
+		o_stream_destroy(&client->output);
+		pool_unref(&client->pool);
+	}
+}
+
 int smtp_client_deinit(struct smtp_client *client, const char **error_r)
 {
 	int ret;
@@ -339,8 +356,7 @@ int smtp_client_deinit(struct smtp_client *client, const char **error_r)
 	/* the mail has been written to a file. now actually send it. */
 	ret = smtp_client_send_flush(client, error_r);
 
-	o_stream_destroy(&client->output);
-	pool_unref(&client->pool);
+	smtp_client_abort(&client);
 	return ret;
 }
 
