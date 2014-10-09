@@ -900,6 +900,9 @@ void http_client_request_error(struct http_client_request *req,
 	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
 		return;
 
+	if (req->queue != NULL)
+		http_client_queue_drop_request(req->queue, req);
+
 	if (!req->submitted) {
 		/* we're still in http_client_request_submit(). delay
 		   reporting the error, so the caller doesn't have to handle
@@ -910,8 +913,6 @@ void http_client_request_error(struct http_client_request *req,
 		http_client_host_delay_request_error(req->host, req);
 	} else {
 		http_client_request_send_error(req, status, error);
-		if (req->queue != NULL)
-			http_client_queue_drop_request(req->queue, req);
 		http_client_request_unref(&req);
 	}
 }
