@@ -329,9 +329,12 @@ off_t o_stream_send_istream(struct ostream *outstream,
 	o_stream_clear_error(outstream);
 	ret = _outstream->send_istream(_outstream, instream);
 	if (unlikely(ret < 0)) {
-		i_assert(outstream->stream_errno != 0);
-		outstream->last_failed_errno = outstream->stream_errno;
-		errno = outstream->stream_errno;
+		if (outstream->stream_errno != 0) {
+			outstream->last_failed_errno = outstream->stream_errno;
+			errno = outstream->stream_errno;
+		} else {
+			i_assert(instream->stream_errno != 0);
+		}
 	}
 	return ret;
 }
