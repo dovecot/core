@@ -127,9 +127,9 @@ void o_stream_ignore_last_errors(struct ostream *stream);
    When creating wrapper streams, they copy this behavior from the parent
    stream. */
 void o_stream_set_no_error_handling(struct ostream *stream, bool set);
-/* Send data from input stream. Returns number of bytes sent, or -1 if error.
-   Note that this function may block if either instream or outstream is
-   blocking.
+/* Send data from input stream. Returns number of bytes sent, or -1 if error
+   in either outstream or instream. Note that this function may block if either
+   instream or outstream is blocking.
 
    Also note that this function may not add anything to the output buffer, so
    if you want the flush callback to be called when more data can be written,
