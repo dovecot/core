@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sysexits.h>
+#include <signal.h>
 
 #define DEFAULT_SUBMISSION_PORT 25
 
