@@ -369,6 +369,8 @@ off_t io_stream_copy(struct ostream *outstream, struct istream *instream)
 		(void)i_stream_read_data(instream, &data, &iov.iov_len, 0);
 		if (iov.iov_len == 0) {
 			/* all sent */
+			if (instream->stream_errno != 0)
+				return -1;
 			break;
 		}
 
