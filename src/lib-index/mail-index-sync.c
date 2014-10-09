@@ -24,6 +24,8 @@ struct mail_index_sync_ctx {
 	ARRAY(struct mail_index_sync_list) sync_list;
 	uint32_t next_uid;
 	uint32_t last_tail_seq, last_tail_offset;
+
+	unsigned int no_warning:1;
 };
 
 static void mail_index_sync_add_expunge(struct mail_index_sync_ctx *ctx)
@@ -716,6 +718,11 @@ void mail_index_sync_reset(struct mail_index_sync_ctx *ctx)
 		sync_list->idx = 0;
 }
 
+void mail_index_sync_no_warning(struct mail_index_sync_ctx *ctx)
+{
+	ctx->no_warning = TRUE;
+}
+
 static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 {
         struct mail_index_sync_ctx *ctx = *_ctx;
@@ -726,7 +733,7 @@ static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 
 	ctx->index->syncing = FALSE;
 	mail_transaction_log_sync_unlock(ctx->index->log,
-		"Mailbox was synchronized");
+		ctx->no_warning ? NULL : "Mailbox was synchronized");
 
 	mail_index_view_close(&ctx->view);
 	mail_index_transaction_rollback(&ctx->sync_trans);

@@ -316,6 +316,7 @@ static int maildir_sync_index_finish(struct maildir_index_sync_context *ctx,
 			  mailbox_get_path(&ctx->mbox->box), time_diff,
 			  ctx->new_msgs_count, ctx->flag_change_count,
 			  ctx->expunge_count);
+		mail_index_sync_no_warning(ctx->sync_ctx);
 	}
 
 	if (ret < 0)

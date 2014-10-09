@@ -377,6 +377,10 @@ void mail_index_sync_reset(struct mail_index_sync_ctx *ctx);
 /* Update result when refreshing index at the end of sync. */
 void mail_index_sync_set_commit_result(struct mail_index_sync_ctx *ctx,
 				       struct mail_index_transaction_commit_result *result);
+/* Don't log a warning even if syncing took over
+   MAIL_TRANSACTION_LOG_LOCK_WARN_SECS seconds. Usually this is called because
+   the caller itself already logged a warning about it. */
+void mail_index_sync_no_warning(struct mail_index_sync_ctx *ctx);
 /* Commit synchronization by writing all changes to mail index file. */
 int mail_index_sync_commit(struct mail_index_sync_ctx **ctx);
 /* Rollback synchronization - none of the changes listed by sync_next() are
