@@ -725,8 +725,9 @@ void mailbox_search_result_sync(struct mail_search_result *result,
 				ARRAY_TYPE(seq_range) *removed_uids,
 				ARRAY_TYPE(seq_range) *added_uids);
 
-/* Build mail_keywords from NULL-terminated keywords list.
-   Returns 0 if successful, -1 if there are invalid keywords (error is set). */
+/* Build mail_keywords from NULL-terminated keywords list. Any duplicate
+   keywords are removed. Returns 0 if successful, -1 if there are invalid
+   keywords (error is set). */
 int mailbox_keywords_create(struct mailbox *box, const char *const keywords[],
 			    struct mail_keywords **keywords_r);
 /* Like mailbox_keywords_create(), except ignore invalid keywords. */
