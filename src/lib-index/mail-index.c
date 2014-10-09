@@ -566,9 +566,6 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 		i_strdup("(in-memory index)") :
 		i_strconcat(index->dir, "/", index->prefix, NULL);
 
-	index->lock_type = F_UNLCK;
-	index->lock_id_counter = 2;
-
 	index->readonly = FALSE;
 	index->nodiskspace = FALSE;
 	index->index_lock_timeout = FALSE;
@@ -611,17 +608,11 @@ int mail_index_open_or_create(struct mail_index *index,
 
 void mail_index_close_file(struct mail_index *index)
 {
-	if (index->file_lock != NULL)
-		file_lock_free(&index->file_lock);
-
 	if (index->fd != -1) {
 		if (close(index->fd) < 0)
 			mail_index_set_syscall_error(index, "close()");
 		index->fd = -1;
 	}
-
-	index->lock_id_counter += 2;
-	index->lock_type = F_UNLCK;
 }
 
 static void mail_index_close_nonopened(struct mail_index *index)
@@ -793,9 +784,6 @@ int mail_index_move_to_memory(struct mail_index *index)
 		/* move transaction log to memory */
 		mail_transaction_log_move_to_memory(index->log);
 	}
-
-	if (index->file_lock != NULL)
-		file_lock_free(&index->file_lock);
 
 	if (index->fd != -1) {
 		if (close(index->fd) < 0)

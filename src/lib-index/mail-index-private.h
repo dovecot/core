@@ -202,13 +202,8 @@ struct mail_index {
 	/* syncing will update this if non-NULL */
 	struct mail_index_transaction_commit_result *sync_commit_result;
 
-	int lock_type;
-	unsigned int lock_id_counter;
 	enum file_lock_method lock_method;
 	unsigned int max_lock_timeout_secs;
-
-	struct file_lock *file_lock;
-	struct dotlock *dotlock;
 
 	pool_t keywords_pool;
 	ARRAY_TYPE(keywords) keywords;
