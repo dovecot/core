@@ -71,6 +71,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 
 		if (match_idx < match_count) {
 			/* save index to first header line */
+			i_assert(match_idx == lines[i].field_idx);
 			j = i + 1;
 			array_idx_set(&mail->header_match_lines, match_idx, &j);
 			match_idx++;
@@ -78,8 +79,12 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 
 		if (!mail_cache_field_can_add(_mail->transaction->cache_trans,
 					      _mail->seq, lines[i].field_idx)) {
-			/* header is already cached */
-			j = i + 1;
+			/* header is already cached. skip over all the
+			   header lines. */
+			for (j = i+1; j < count; j++) {
+				if (lines[j].field_idx != lines[i].field_idx)
+					break;
+			}
 			continue;
 		}
 
