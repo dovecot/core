@@ -12,6 +12,10 @@
 
 #define MAIL_INDEX_HEADER_MIN_SIZE 120
 
+/* Log a warning when transaction log has been locked for this many seconds.
+   This lock is held also between mail_index_sync_begin()..commit(). */
+#define MAIL_TRANSACTION_LOG_LOCK_WARN_SECS 30
+
 enum mail_index_open_flags {
 	/* Create index if it doesn't exist */
 	MAIL_INDEX_OPEN_FLAG_CREATE		= 0x01,
