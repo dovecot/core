@@ -1,5 +1,5 @@
 .\" Copyright (c) 2014 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-ACL 1 "2014-09-24" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-ACL 1 "2014-10-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-acl \- Manage Access Control List (ACL)
 .\"------------------------------------------------------------------------
@@ -19,10 +19,7 @@ can be used to execute various Access Control List related actions.
 .\" --- command specific options --- "/.
 .PP
 This command uses by default the output formatter
-.B flow
-(without the
-.IR key =
-prefix).
+.BR table .
 .PP
 Command specific
 .IR options :
