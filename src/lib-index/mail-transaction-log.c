@@ -210,10 +210,9 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log)
 
 		mail_transaction_log_file_free(&file);
 	}
-	/* if we still have locked files with refcount=0, unlock them */
+	/* sanity check: we shouldn't have locked refcount=0 files */
 	for (; file != NULL; file = file->next) {
-		if (file->locked && file->refcount == 0)
-			mail_transaction_log_file_unlock(file);
+		i_assert(!file->locked || file->refcount > 0);
 	}
 	i_assert(log->head == NULL || log->files != NULL);
 }
@@ -267,8 +266,11 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)
 
 	if (--log->head->refcount == 0)
 		mail_transaction_logs_clean(log);
-	else
+	else {
+		/* the newly created log file is already locked */
+		i_assert(file->locked);
 		mail_transaction_log_file_unlock(log->head);
+	}
 	mail_transaction_log_set_head(log, file);
 	return 0;
 }
