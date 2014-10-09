@@ -173,9 +173,12 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 			       const struct const_iovec *iov, int iov_size)
 {
 	ssize_t ret, ret2;
-	size_t size, sent;
+	size_t size, sent, total_size;
 	bool partial;
 	int i;
+
+	for (i = 0, total_size = 0; i < iov_size; i++)
+		total_size += iov[i].iov_len;
 
 	o_stream_socket_cork(fstream);
 	if (iov_size == 1) {
@@ -234,8 +237,15 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 	}
 
 	if (ret < 0) {
-		if (errno == EAGAIN || errno == EINTR)
+		if (fstream->file) {
+			if (errno == EINTR) {
+				/* automatically retry */
+				return o_stream_writev(fstream, iov, iov_size);
+			}
+		} else if (errno == EAGAIN || errno == EINTR) {
+			/* try again later */
 			return 0;
+		}
 		fstream->ostream.ostream.stream_errno = errno;
 		stream_closed(fstream);
 		return -1;
@@ -278,10 +288,14 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 				}
 			}
 		}
-		if (ret2 <= 0)
-			return ret2;
-		ret += ret2;
+		i_assert(ret2 != 0);
+		if (ret2 < 0)
+			ret = ret2;
+		else
+			ret += ret2;
 	}
+	i_assert(ret < 0 || !fstream->file ||
+		 (size_t)ret == total_size);
 	return ret;
 }
 
@@ -713,9 +727,18 @@ static off_t io_stream_sendfile(struct ostream_private *outstream,
 		ret = safe_sendfile(foutstream->fd, in_fd, &offset,
 				    MAX_SSIZE_T(send_size));
 		if (ret <= 0) {
-			if (ret == 0 || errno == EINTR || errno == EAGAIN) {
-				ret = 0;
+			if (ret == 0)
 				break;
+			if (foutstream->file) {
+				if (errno == EINTR) {
+					/* automatically retry */
+					continue;
+				}
+			} else {
+				if (errno == EINTR || errno == EAGAIN) {
+					ret = 0;
+					break;
+				}
 			}
 
 			outstream->ostream.stream_errno = errno;
@@ -735,8 +758,13 @@ static off_t io_stream_sendfile(struct ostream_private *outstream,
 
 	i_stream_seek(instream, v_offset);
 	if (ret == 0) {
-		/* we should be at EOF, verify it by reading instream */
-		(void)i_stream_read(instream);
+		/* we should be at EOF. if not, write more. */
+		i_assert(!foutstream->file ||
+			 instream->v_offset - start_offset == in_size);
+		if (i_stream_read(instream) > 0) {
+			if (io_stream_sendfile(outstream, instream, in_fd) < 0)
+				return -1;
+		}
 	}
 	return ret < 0 ? -1 : (off_t)(instream->v_offset - start_offset);
 }
