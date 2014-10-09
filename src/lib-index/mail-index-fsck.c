@@ -457,7 +457,7 @@ int mail_index_fsck(struct mail_index *index)
 	mail_index_write(index, FALSE);
 
 	if (!orig_locked)
-		mail_transaction_log_sync_unlock(index->log);
+		mail_transaction_log_sync_unlock(index->log, "fsck");
 	return 0;
 }
 

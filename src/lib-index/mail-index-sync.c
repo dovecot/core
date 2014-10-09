@@ -348,14 +348,14 @@ mail_index_sync_begin_init(struct mail_index *index,
 	if ((ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD)) <= 0) {
 		if (ret == 0) {
 			if (locked)
-				mail_transaction_log_sync_unlock(index->log);
+				mail_transaction_log_sync_unlock(index->log, "sync init failure");
 			return -1;
 		}
 
 		/* let's try again */
 		if (mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD) <= 0) {
 			if (locked)
-				mail_transaction_log_sync_unlock(index->log);
+				mail_transaction_log_sync_unlock(index->log, "sync init failure");
 			return -1;
 		}
 	}
@@ -363,7 +363,7 @@ mail_index_sync_begin_init(struct mail_index *index,
 	if (!mail_index_need_sync(index, flags, log_file_seq, log_file_offset) &&
 	    !index->index_deleted) {
 		if (locked)
-			mail_transaction_log_sync_unlock(index->log);
+			mail_transaction_log_sync_unlock(index->log, "syncing determined unnecessary");
 		return 0;
 	}
 
@@ -379,7 +379,7 @@ mail_index_sync_begin_init(struct mail_index *index,
 	    (flags & MAIL_INDEX_SYNC_FLAG_DELETING_INDEX) == 0) {
 		/* index is already deleted. we can't sync. */
 		if (locked)
-			mail_transaction_log_sync_unlock(index->log);
+			mail_transaction_log_sync_unlock(index->log, "syncing detected deleted index");
 		return -1;
 	}
 
@@ -725,7 +725,8 @@ static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 	*_ctx = NULL;
 
 	ctx->index->syncing = FALSE;
-	mail_transaction_log_sync_unlock(ctx->index->log);
+	mail_transaction_log_sync_unlock(ctx->index->log,
+		"Mailbox was synchronized");
 
 	mail_index_view_close(&ctx->view);
 	mail_index_transaction_rollback(&ctx->sync_trans);

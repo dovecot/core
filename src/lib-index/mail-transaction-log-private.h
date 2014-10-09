@@ -137,7 +137,8 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log);
 bool mail_transaction_log_want_rotate(struct mail_transaction_log *log);
 int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset);
 int mail_transaction_log_lock_head(struct mail_transaction_log *log);
-void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file);
+void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file,
+				      const char *lock_reason);
 
 void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 				    const void *data, uint64_t *cur_modseq);

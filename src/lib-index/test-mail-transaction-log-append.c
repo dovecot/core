@@ -22,7 +22,8 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log ATTR_UNUSED)
 	return log_lock_failure ? -1 : 0;
 }
 
-void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file ATTR_UNUSED) {}
+void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file ATTR_UNUSED,
+				      const char *lock_reason ATTR_UNUSED) {}
 
 void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 				    const void *data ATTR_UNUSED,

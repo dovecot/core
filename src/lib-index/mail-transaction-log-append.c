@@ -247,7 +247,7 @@ int mail_transaction_log_append_commit(struct mail_transaction_log_append_ctx **
 
 	ret = mail_transaction_log_append_locked(ctx);
 	if (!index->log_sync_locked)
-		mail_transaction_log_file_unlock(index->log->head);
+		mail_transaction_log_file_unlock(index->log->head, "appending");
 
 	buffer_free(&ctx->output);
 	i_free(ctx);

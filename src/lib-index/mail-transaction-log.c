@@ -269,7 +269,9 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)
 	else {
 		/* the newly created log file is already locked */
 		i_assert(file->locked);
-		mail_transaction_log_file_unlock(log->head);
+		mail_transaction_log_file_unlock(log->head,
+			!log->index->log_sync_locked ? "rotating" :
+			"rotating while syncing");
 	}
 	mail_transaction_log_set_head(log, file);
 	return 0;
@@ -448,6 +450,7 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 		file->refcount++;
 		ret = mail_transaction_log_refresh(log, TRUE);
 		if (--file->refcount == 0) {
+			mail_transaction_log_file_unlock(file, "trying to lock head");
 			mail_transaction_logs_clean(log);
 			file = NULL;
 		}
@@ -460,7 +463,7 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 		}
 
 		if (file != NULL)
-			mail_transaction_log_file_unlock(file);
+			mail_transaction_log_file_unlock(file, "trying to lock head");
 
 		if (ret < 0)
 			break;
@@ -487,7 +490,7 @@ int mail_transaction_log_sync_lock(struct mail_transaction_log *log,
 	/* update sync_offset */
 	if (mail_transaction_log_file_map(log->head, log->head->sync_offset,
 					  (uoff_t)-1) <= 0) {
-		mail_transaction_log_file_unlock(log->head);
+		mail_transaction_log_file_unlock(log->head, "trying to lock syncing");
 		return -1;
 	}
 
@@ -497,12 +500,13 @@ int mail_transaction_log_sync_lock(struct mail_transaction_log *log,
 	return 0;
 }
 
-void mail_transaction_log_sync_unlock(struct mail_transaction_log *log)
+void mail_transaction_log_sync_unlock(struct mail_transaction_log *log,
+				      const char *log_reason)
 {
 	i_assert(log->index->log_sync_locked);
 
 	log->index->log_sync_locked = FALSE;
-	mail_transaction_log_file_unlock(log->head);
+	mail_transaction_log_file_unlock(log->head, log_reason);
 }
 
 void mail_transaction_log_get_head(struct mail_transaction_log *log,

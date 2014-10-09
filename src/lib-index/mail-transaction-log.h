@@ -279,7 +279,8 @@ int mail_transaction_log_append_commit(struct mail_transaction_log_append_ctx **
    written to while it's locked. Returns end offset. */
 int mail_transaction_log_sync_lock(struct mail_transaction_log *log,
 				   uint32_t *file_seq_r, uoff_t *file_offset_r);
-void mail_transaction_log_sync_unlock(struct mail_transaction_log *log);
+void mail_transaction_log_sync_unlock(struct mail_transaction_log *log,
+				      const char *lock_reason);
 /* Returns the current head. Works only when log is locked. */
 void mail_transaction_log_get_head(struct mail_transaction_log *log,
 				   uint32_t *file_seq_r, uoff_t *file_offset_r);
