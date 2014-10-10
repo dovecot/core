@@ -66,9 +66,11 @@ static bool iter_callback(const char *reply, void *context)
 	struct blocking_userdb_iterate_context *ctx = context;
 
 	if (strncmp(reply, "*\t", 2) == 0) {
+		if (ctx->destroyed)
+			return TRUE;
 		ctx->next = FALSE;
 		ctx->ctx.callback(reply + 2, ctx->ctx.context);
-		return ctx->next;
+		return ctx->next || ctx->destroyed;
 	}
 
 	if (strcmp(reply, "OK") != 0)
@@ -120,5 +122,7 @@ int userdb_blocking_iter_deinit(struct userdb_iterate_context **_ctx)
 
 	/* iter_callback() may still be called */
 	ctx->destroyed = TRUE;
+
+	auth_worker_server_resume_input(ctx->conn);
 	return ret;
 }
