@@ -56,18 +56,9 @@ static void dns_lookup_free(struct dns_lookup **_lookup);
 
 static void dns_client_disconnect(struct dns_client *client, const char *error)
 {
-	struct dns_lookup *lookup;
+	struct dns_lookup *lookup, *next;
 	struct dns_lookup_result result;
 
-	memset(&result, 0, sizeof(result));
-	result.ret = EAI_FAIL;
-	result.error = error;
-
-	while (client->head != NULL) {
-		lookup = client->head;
-		lookup->callback(&result, lookup->context);
-		dns_lookup_free(&lookup);
-	}
 	if (client->to_idle != NULL)
 		timeout_remove(&client->to_idle);
 	if (client->io != NULL)
@@ -78,6 +69,19 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 		if (close(client->fd) < 0)
 			i_error("close(%s) failed: %m", client->path);
 		client->fd = -1;
+	}
+
+	memset(&result, 0, sizeof(result));
+	result.ret = EAI_FAIL;
+	result.error = error;
+
+	lookup = client->head;
+	client->head = NULL;
+	while (lookup != NULL) {
+		next = lookup->next;
+		lookup->callback(&result, lookup->context);
+		dns_lookup_free(&lookup);
+		lookup = next;
 	}
 }
 
@@ -242,7 +246,7 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 	i_free(lookup->ips);
 	if (client->deinit_client_at_free)
 		dns_client_deinit(&client);
-	else if (client->head == NULL) {
+	else if (client->head == NULL && client->fd != -1) {
 		client->to_idle = timeout_add(client->idle_timeout_msecs,
 					      dns_client_idle_timeout, client);
 	}
