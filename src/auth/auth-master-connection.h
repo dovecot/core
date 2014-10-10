@@ -15,7 +15,7 @@ struct auth_master_connection {
 	struct ostream *output;
 	struct io *io;
 
-	struct auth_request_list *requests;
+	struct master_list_iter_ctx *iter_ctx;
 	/* If non-zero, allow only USER lookups whose returned uid matches
 	   this uid. Don't allow LIST/PASS lookups. */
 	uid_t userdb_restricted_uid;

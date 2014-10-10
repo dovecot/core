@@ -435,6 +435,9 @@ master_input_pass(struct auth_master_connection *conn, const char *args)
 
 static void master_input_list_finish(struct master_list_iter_ctx *ctx)
 {
+	i_assert(ctx->conn->iter_ctx == ctx);
+
+	ctx->conn->iter_ctx = NULL;
 	ctx->conn->io = io_add(ctx->conn->fd, IO_READ, master_input, ctx->conn);
 
 	if (ctx->iter != NULL)
@@ -532,6 +535,13 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 	}
 	list++;
 
+	if (conn->iter_ctx != NULL) {
+		i_error("Auth client is already iterating users");
+		str = t_strdup_printf("DONE\t%u\tfail\n", id);
+		o_stream_nsend_str(conn->output, str);
+		return TRUE;
+	}
+
 	if (conn->userdb_restricted_uid != 0) {
 		i_error("Auth client doesn't have permissions to list users: %s",
 			auth_restricted_reason(conn));
@@ -587,6 +597,7 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 	o_stream_set_flush_callback(conn->output, master_output_list, ctx);
 	ctx->iter = userdb_blocking_iter_init(auth_request,
 					      master_input_list_callback, ctx);
+	conn->iter_ctx = ctx;
 	return TRUE;
 }
 
@@ -766,6 +777,8 @@ void auth_master_connection_destroy(struct auth_master_connection **_conn)
 
 	DLLIST_REMOVE(&auth_master_connections, conn);
 
+	if (conn->iter_ctx != NULL)
+		master_input_list_finish(conn->iter_ctx);
 	if (conn->input != NULL)
 		i_stream_close(conn->input);
 	if (conn->output != NULL)
