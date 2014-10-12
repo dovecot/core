@@ -172,9 +172,9 @@ http_client_queue_is_last_connect_ip(struct http_client_queue *queue)
 	i_assert(queue->ips_connect_start_idx < host->ips_count);
 
 	/* if a maximum connect attempts > 1 is set, enforce it directly */
-	if (set->max_connect_attempts > 1) {
-		return queue->connect_attempts >= set->max_connect_attempts;
-	}
+	if (set->max_connect_attempts > 1 &&
+		queue->connect_attempts >= set->max_connect_attempts)
+		return TRUE;
 		
 	/* otherwise, we'll always go through all the IPs. we don't necessarily
 	   start connecting from the first IP, so we'll need to treat the IPs as
