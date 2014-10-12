@@ -503,7 +503,6 @@ http_client_connection_return_response(struct http_client_connection *conn,
 	http_client_connection_ref(conn);
 	retrying = !http_client_request_callback(req, response);
 	http_client_connection_unref(&conn);
-	conn->in_req_callback = FALSE;
 	if (conn == NULL) {
 		/* the callback managed to get this connection destroyed */
 		if (!retrying)
@@ -511,6 +510,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		http_client_request_unref(&req);
 		return FALSE;
 	}
+	conn->in_req_callback = FALSE;
 
 	if (retrying) {
 		/* retrying, don't destroy the request */
