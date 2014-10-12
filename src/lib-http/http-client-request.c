@@ -177,7 +177,7 @@ void http_client_request_unref(struct http_client_request **_req)
 		io_loop_stop(client->ioloop);
 
 	if (req->delayed_error != NULL)
-		http_client_host_remove_request_error(req->host, req);
+		http_client_remove_request_error(req->client, req);
 	if (req->payload_input != NULL)
 		i_stream_unref(&req->payload_input);
 	if (req->payload_output != NULL)
@@ -910,7 +910,7 @@ void http_client_request_error(struct http_client_request *req,
 		i_assert(req->delayed_error == NULL);
 		req->delayed_error = p_strdup(req->pool, error);
 		req->delayed_error_status = status;
-		http_client_host_delay_request_error(req->host, req);
+		http_client_delay_request_error(req->client, req);
 	} else {
 		http_client_request_send_error(req, status, error);
 		http_client_request_unref(&req);

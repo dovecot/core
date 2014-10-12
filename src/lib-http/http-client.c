@@ -137,6 +137,8 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	client->set.max_auto_retry_delay = set->max_auto_retry_delay;
 	client->set.debug = set->debug;
 
+	i_array_init(&client->delayed_failing_requests, 1);
+
 	client->conn_list = http_client_connection_list_init();
 
 	hash_table_create(&client->hosts, default_pool, 0, str_hash, strcmp);
@@ -149,8 +151,22 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 void http_client_deinit(struct http_client **_client)
 {
 	struct http_client *client = *_client;
+	struct http_client_request *req, *const *req_idx;
 	struct http_client_host *host;
 	struct http_client_peer *peer;
+
+	/* drop delayed failing requests */
+	while (array_count(&client->delayed_failing_requests) > 0) {
+		req_idx = array_idx(&client->delayed_failing_requests, 0);
+		req = *req_idx;
+
+		i_assert(req->refcount == 1);
+		http_client_request_error_delayed(&req);
+	}
+	array_free(&client->delayed_failing_requests);
+
+	if (client->to_failing_requests != NULL)
+		timeout_remove(&client->to_failing_requests);
 
 	/* free peers */
 	while (client->peers_list != NULL) {
@@ -198,6 +214,12 @@ void http_client_switch_ioloop(struct http_client *client)
 	/* move dns lookups and delayed requests */
 	for (host = client->hosts_list; host != NULL; host = host->next)
 		http_client_host_switch_ioloop(host);
+
+	/* move timeouts */
+	if (client->to_failing_requests != NULL) {
+		client->to_failing_requests =
+			io_loop_move_timeout(&client->to_failing_requests);
+	}
 }
 
 void http_client_wait(struct http_client *client)
@@ -265,4 +287,49 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 		return -1;
 	}
 	return 0;
+}
+
+/*
+ * Delayed request errors
+ */
+
+static void
+http_client_handle_request_errors(struct http_client *client)
+{		
+	timeout_remove(&client->to_failing_requests);
+
+	while (array_count(&client->delayed_failing_requests) > 0) {
+		struct http_client_request *const *req_idx =
+			array_idx(&client->delayed_failing_requests, 0);
+		struct http_client_request *req = *req_idx;
+
+		i_assert(req->refcount == 1);
+		http_client_request_error_delayed(&req);
+	}
+	array_clear(&client->delayed_failing_requests);
+}
+
+void http_client_delay_request_error(struct http_client *client,
+	struct http_client_request *req)
+{
+	if (client->to_failing_requests == NULL) {
+		client->to_failing_requests = timeout_add_short(0,
+			http_client_handle_request_errors, client);
+	}
+	array_append(&client->delayed_failing_requests, &req, 1);
+}
+
+void http_client_remove_request_error(struct http_client *client,
+	struct http_client_request *req)
+{
+	struct http_client_request *const *reqs;
+	unsigned int i, count;
+
+	reqs = array_get(&client->delayed_failing_requests, &count);
+	for (i = 0; i < count; i++) {
+		if (reqs[i] == req) {
+			array_delete(&client->delayed_failing_requests, i, 1);
+			return;
+		}
+	}
 }

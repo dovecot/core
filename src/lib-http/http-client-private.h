@@ -220,10 +220,6 @@ struct http_client_host {
 	unsigned int ips_count;
 	struct ip_addr *ips;
 
-	/* list of requests in this host that are waiting for ioloop */
-	ARRAY(struct http_client_request *) delayed_failing_requests;
-	struct timeout *to_failing_requests;
-
 	/* requests are managed on a per-port basis */
 	ARRAY_TYPE(http_client_queue) queues;
 
@@ -238,6 +234,10 @@ struct http_client {
 
 	struct ioloop *ioloop;
 	struct ssl_iostream_context *ssl_ctx;
+
+	/* list of failed requests that are waiting for ioloop */
+	ARRAY(struct http_client_request *) delayed_failing_requests;
+	struct timeout *to_failing_requests;
 
 	struct connection_list *conn_list;
 
@@ -357,11 +357,13 @@ http_client_host_get(struct http_client *client,
 void http_client_host_free(struct http_client_host **_host);
 void http_client_host_submit_request(struct http_client_host *host,
 	struct http_client_request *req);
-void http_client_host_delay_request_error(struct http_client_host *host,
-	struct http_client_request *req);
-void http_client_host_remove_request_error(struct http_client_host *host,
-	struct http_client_request *req);
 void http_client_host_switch_ioloop(struct http_client_host *host);
+
+void http_client_delay_request_error(struct http_client *client,
+	struct http_client_request *req);
+void http_client_remove_request_error(struct http_client *client,
+	struct http_client_request *req);
+
 
 static inline const char *
 http_client_peer_addr2str(const struct http_client_peer_addr *addr)
