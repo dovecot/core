@@ -458,6 +458,11 @@ auth_worker_call(pool_t pool, const char *username, const char *data,
 
 void auth_worker_server_resume_input(struct auth_worker_connection *conn)
 {
+	if (conn->request == NULL) {
+		/* request was just finished, don't try to resume it */
+		return;
+	}
+
 	if (conn->io == NULL)
 		conn->io = io_add(conn->fd, IO_READ, worker_input, conn);
 	if (!conn->timeout_pending_resume) {
