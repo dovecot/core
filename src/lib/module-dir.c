@@ -580,6 +580,12 @@ void module_dir_unload(struct module **modules ATTR_UNUSED)
 {
 }
 
+struct module *module_dir_find(struct module *modules ATTR_UNUSED,
+			       const char *name ATTR_UNUSED)
+{
+	return NULL;
+}
+
 void *module_get_symbol(struct module *module ATTR_UNUSED,
 			const char *symbol ATTR_UNUSED)
 {
