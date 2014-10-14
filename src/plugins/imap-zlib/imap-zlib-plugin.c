@@ -87,11 +87,6 @@ static bool cmd_compress(struct client_command_context *cmd)
 			t_str_ucase(zclient->handler->name)));
 		return TRUE;
 	}
-	if (client->tls_compression) {
-		client_send_tagline(cmd,
-			"NO [COMPRESSIONACTIVE] TLS compression already enabled.");
-		return TRUE;
-	}
 
 	handler = compression_lookup_handler(t_str_lcase(mechanism));
 	if (handler == NULL || handler->create_istream == NULL) {
