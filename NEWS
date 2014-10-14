@@ -1,4 +1,4 @@
-v2.2.14 2014-10-xx  Timo Sirainen <tss@iki.fi>
+v2.2.14 2014-10-14  Timo Sirainen <tss@iki.fi>
 
 	* lmtp: Delivered-To: header no longer contains <> around the email
 	  address. Other MDAs don't have it either.
@@ -38,8 +38,13 @@ v2.2.14 2014-10-xx  Timo Sirainen <tss@iki.fi>
 	- Mail headers were sometimes added to dovecot.index.cache in wrong
 	  order. The main problem this caused was with dsync+imapc incremental
 	  syncing when the second sync thought the local mailbox had changed.
+	- Fixed several race conditions with dovecot.index.cache handling that
+	  may have caused unnecessary "cache is corrupted" errors.
 	- doveadm backup didn't notice if emails were missing from the middle
 	  of the destination mailbox. Now it deletes and resyncs the mailbox.
+	- auth: If auth client listed userdb and disconnected before finishing,
+	  the auth worker process got stuck (and eventually all workers could
+	  get used up and requests would start failing).
 
 v2.2.13 2014-05-11  Timo Sirainen <tss@iki.fi>
 
