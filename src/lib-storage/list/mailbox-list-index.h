@@ -27,6 +27,8 @@
 #include "mail-storage.h"
 #include "mailbox-list-private.h"
 
+#include <sys/time.h>
+
 #define MAILBOX_LIST_INDEX_HIERARHCY_SEP '~'
 #define MAILBOX_LIST_INDEX_PREFIX "dovecot.list.index"
 
