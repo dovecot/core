@@ -1190,6 +1190,11 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		request->user = old_username;
 	}
 
+	if (user[0] == '\0') {
+		/* Some PAM plugins go nuts with empty usernames */
+		*error_r = "Empty username";
+		return FALSE;
+	}
         return user;
 }
 
@@ -1206,11 +1211,6 @@ bool auth_request_set_username(struct auth_request *request,
 			/* it does, set it. */
 			login_username = t_strdup_until(username, p);
 
-			if (*login_username == '\0') {
-				*error_r = "Empty login username";
-				return FALSE;
-			}
-
 			/* username is the master user */
 			username = p + 1;
 		}
@@ -1226,12 +1226,6 @@ bool auth_request_set_username(struct auth_request *request,
 		   authentication mechanism. but still do checks and
 		   translations to it. */
 		username = request->user;
-	}
-
-	if (*username == '\0') {
-		/* Some PAM plugins go nuts with empty usernames */
-		*error_r = "Empty username";
-		return FALSE;
 	}
 
         request->user = auth_request_fix_username(request, username, error_r);
