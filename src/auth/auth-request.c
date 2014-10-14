@@ -1193,7 +1193,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 	if (user[0] == '\0') {
 		/* Some PAM plugins go nuts with empty usernames */
 		*error_r = "Empty username";
-		return FALSE;
+		return NULL;
 	}
         return user;
 }
