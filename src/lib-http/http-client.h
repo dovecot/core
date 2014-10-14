@@ -5,6 +5,7 @@
 
 #include "http-response.h"
 
+struct timeval;
 struct http_response;
 
 struct http_client;
