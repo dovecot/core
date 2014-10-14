@@ -20,7 +20,7 @@ int openssl_get_protocol_options(const char *protocols)
 	int proto, op = 0, include = 0, exclude = 0;
 	bool neg;
 
-	tmp = t_strsplit_spaces(protocols, " ");
+	tmp = t_strsplit_spaces(protocols, ", ");
 	for (; *tmp != NULL; tmp++) {
 		const char *name = *tmp;
 
