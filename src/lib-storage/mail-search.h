@@ -42,7 +42,8 @@ enum mail_search_arg_type {
 	SEARCH_GUID,
 	SEARCH_MAILBOX,
 	SEARCH_MAILBOX_GUID,
-	SEARCH_MAILBOX_GLOB
+	SEARCH_MAILBOX_GLOB,
+	SEARCH_REAL_UID
 };
 
 enum mail_search_date_type {

@@ -501,6 +501,25 @@ imap_search_x_mailbox(struct mail_search_build_context *ctx)
 	return sarg;
 }
 
+static struct mail_search_arg *
+imap_search_x_real_uid(struct mail_search_build_context *ctx)
+{
+	struct mail_search_arg *sarg;
+
+	/* <message set> */
+	sarg = mail_search_build_str(ctx, SEARCH_REAL_UID);
+	if (sarg == NULL)
+		return NULL;
+
+	p_array_init(&sarg->value.seqset, ctx->pool, 16);
+	if (imap_seq_set_parse(sarg->value.str,
+			       &sarg->value.seqset) < 0) {
+		ctx->_error = "Invalid X-REAL-UID messageset";
+		return NULL;
+	}
+	return sarg;
+}
+
 static const struct mail_search_register_arg imap_register_args[] = {
 	/* argument set operations */
 	{ "NOT", imap_search_not },
@@ -572,7 +591,8 @@ static const struct mail_search_register_arg imap_register_args[] = {
 	/* Other Dovecot extensions: */
 	{ "INTHREAD", imap_search_inthread },
 	{ "X-GUID", imap_search_x_guid },
-	{ "X-MAILBOX", imap_search_x_mailbox }
+	{ "X-MAILBOX", imap_search_x_mailbox },
+	{ "X-REAL-UID", imap_search_x_real_uid }
 };
 
 static struct mail_search_register *mail_search_register_init_imap(void)

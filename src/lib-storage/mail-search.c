@@ -283,6 +283,7 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 		break;
 	case SEARCH_SEQSET:
 	case SEARCH_UIDSET:
+	case SEARCH_REAL_UID:
 		p_array_init(&new_arg->value.seqset, pool,
 			     array_count(&arg->value.seqset));
 		array_append_array(&new_arg->value.seqset, &arg->value.seqset);
@@ -758,6 +759,8 @@ static bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 		   never assume they match */
 		return FALSE;
 	case SEARCH_UIDSET:
+		return array_cmp(&arg1->value.seqset, &arg2->value.seqset);
+	case SEARCH_REAL_UID:
 		return array_cmp(&arg1->value.seqset, &arg2->value.seqset);
 
 	case SEARCH_FLAGS:

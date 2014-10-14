@@ -357,6 +357,13 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		if (mail_get_special(ctx->cur_mail, MAIL_FETCH_GUID, &str) < 0)
 			return -1;
 		return strcmp(str, arg->value.str) == 0;
+	case SEARCH_REAL_UID: {
+		struct mail *real_mail;
+
+		if (mail_get_backend_mail(ctx->cur_mail, &real_mail) < 0)
+			return -1;
+		return seq_range_exists(&arg->value.seqset, real_mail->uid);
+	}
 	default:
 		return -1;
 	}
@@ -1347,6 +1354,7 @@ static bool search_arg_is_static(struct mail_search_arg *arg)
 	case SEARCH_MAILBOX:
 	case SEARCH_MAILBOX_GUID:
 	case SEARCH_MAILBOX_GLOB:
+	case SEARCH_REAL_UID:
 		return TRUE;
 	}
 	return FALSE;
