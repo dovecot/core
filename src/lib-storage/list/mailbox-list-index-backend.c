@@ -60,9 +60,10 @@ static void index_list_deinit(struct mailbox_list *_list)
 	pool_unref(&list->list.pool);
 }
 
-static char index_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
+static char index_list_get_hierarchy_sep(struct mailbox_list *list)
 {
-	return MAILBOX_LIST_INDEX_HIERARHCY_SEP;
+	return *list->ns->set->separator != '\0' ? *list->ns->set->separator :
+		MAILBOX_LIST_INDEX_HIERARHCY_SEP;
 }
 
 static int
