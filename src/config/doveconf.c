@@ -707,7 +707,7 @@ int main(int argc, char *argv[])
 	bool config_path_specified, expand_vars = FALSE, hide_key = FALSE;
 	bool parse_full_config = FALSE, simple_output = FALSE;
 	bool dump_defaults = FALSE, host_verify = FALSE;
-	bool print_plugin_comment = FALSE;
+	bool print_plugin_banner = FALSE;
 
 	if (getenv("USE_SYSEXITS") != NULL) {
 		/* we're coming from (e.g.) LDA */
@@ -788,18 +788,18 @@ int main(int argc, char *argv[])
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
 		printf("# "DOVECOT_VERSION_FULL": %s\n", config_path);
-		print_plugin_comment = TRUE;
+		print_plugin_banner = TRUE;
 		fflush(stdout);
 	}
 	master_service_init_finish(master_service);
 	config_parse_load_modules();
 
-	if (print_plugin_comment) {
+	if (print_plugin_banner) {
 		struct module *m;
 
 		for (m = modules; m != NULL; m = m->next) {
 			const char **str = module_get_symbol_quiet(m,
-				t_strdup_printf("%s_doveconf_comment", m->name));
+				t_strdup_printf("%s_doveconf_banner", m->name));
 			if (str != NULL)
 				printf("# %s\n", *str);
 		}
