@@ -31,11 +31,36 @@ static bool i_stream_mail_try_get_cached_size(struct mail_istream *mstream)
 	return mstream->expected_size != (uoff_t)-1;
 }
 
+static const char *
+i_stream_mail_get_cached_mail_id(struct mail_istream *mstream)
+{
+	static const char *headers[] = {
+		"Message-Id",
+		"Date",
+		"Subject"
+	};
+	struct mail *mail = mstream->mail;
+	enum mail_lookup_abort orig_lookup_abort;
+	const char *value, *ret = "";
+	unsigned int i;
+
+	orig_lookup_abort = mail->lookup_abort;
+	mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
+	for (i = 0; i < N_ELEMENTS(headers); i++) {
+		if (mail_get_first_header(mail, headers[i], &value) > 0) {
+			ret = t_strdup_printf("%s=%s", headers[i], value);
+			break;
+		}
+	}
+	mail->lookup_abort = orig_lookup_abort;
+	return ret;
+}
+
 static void
 i_stream_mail_set_size_corrupted(struct mail_istream *mstream, size_t size)
 {
 	uoff_t cur_size = mstream->istream.istream.v_offset + size;
-	const char *str;
+	const char *str, *mail_id;
 	char chr;
 
 	if (mstream->expected_size < cur_size) {
@@ -46,10 +71,15 @@ i_stream_mail_set_size_corrupted(struct mail_istream *mstream, size_t size)
 		chr = '>';
 	}
 
+	mail_id = i_stream_mail_get_cached_mail_id(mstream);
+	if (mail_id[0] != '\0')
+		mail_id = t_strconcat(", cached ", mail_id, NULL);
 	io_stream_set_error(&mstream->istream.iostream,
 		"Cached message size %s than expected "
-		"(%"PRIuUOFF_T" %c %"PRIuUOFF_T")", str,
-		mstream->expected_size, chr, cur_size);
+		"(%"PRIuUOFF_T" %c %"PRIuUOFF_T", box=%s, UID=%u%s)", str,
+		mstream->expected_size, chr, cur_size,
+		mailbox_get_vname(mstream->mail->box),
+		mstream->mail->uid, mail_id);
 	mail_storage_set_critical(mstream->mail->box->storage, "%s",
 				  mstream->istream.iostream.error);
 	mail_set_cache_corrupted(mstream->mail, MAIL_FETCH_PHYSICAL_SIZE);
