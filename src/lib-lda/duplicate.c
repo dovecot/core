@@ -323,16 +323,14 @@ void duplicate_flush(struct duplicate_context *ctx)
 	if (o_stream_nfinish(output) < 0) {
 		i_error("write(%s) failed: %m", file->path);
 		o_stream_unref(&output);
-		file_dotlock_delete(&file->dotlock);
-		file->new_fd = -1;
+		duplicate_file_free(&ctx->file);
 		return;
 	}
 	o_stream_unref(&output);
 
-	file->changed = FALSE;
 	if (file_dotlock_replace(&file->dotlock, 0) < 0)
 		i_error("file_dotlock_replace(%s) failed: %m", file->path);
-	file->new_fd = -1;
+	duplicate_file_free(&ctx->file);
 }
 
 struct duplicate_context *duplicate_init(struct mail_user *user)
