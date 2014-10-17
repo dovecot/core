@@ -128,7 +128,8 @@ static int fetch_hdr(struct fetch_cmd_context *ctx)
 		i_stream_skip(input, size);
 	}
 	if (input->stream_errno != 0) {
-		i_error("read() failed: %m");
+		i_error("read(%s) failed: %s", i_stream_get_name(input),
+			i_stream_get_error(input));
 		ret = -1;
 	}
 	i_stream_unref(&input);
@@ -222,7 +223,8 @@ static int fetch_body(struct fetch_cmd_context *ctx)
 		i_stream_skip(input, size);
 	}
 	if (input->stream_errno != 0) {
-		i_error("read() failed: %m");
+		i_error("read(%s) failed: %s", i_stream_get_name(input),
+			i_stream_get_error(input));
 		ret = -1;
 	}
 	doveadm_print_stream("", 0);
@@ -248,7 +250,8 @@ static int fetch_text(struct fetch_cmd_context *ctx)
 		i_stream_skip(input, size);
 	}
 	if (input->stream_errno != 0) {
-		i_error("read() failed: %m");
+		i_error("read(%s) failed: %s", i_stream_get_name(input),
+			i_stream_get_error(input));
 		ret = -1;
 	}
 	doveadm_print_stream("", 0);
@@ -300,7 +303,8 @@ static int fetch_text_utf8(struct fetch_cmd_context *ctx)
 
 	doveadm_print_stream("", 0);
 	if (input->stream_errno != 0) {
-		i_error("read() failed: %m");
+		i_error("read(%s) failed: %s", i_stream_get_name(input),
+			i_stream_get_error(input));
 		return -1;
 	}
 	return 0;
