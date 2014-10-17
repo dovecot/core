@@ -292,8 +292,13 @@ void duplicate_flush(struct duplicate_context *ctx)
         struct hash_iterate_context *iter;
 	struct duplicate *d;
 
-	if (file == NULL || !file->changed || file->new_fd == -1)
+	if (file == NULL)
 		return;
+	if (!file->changed || file->new_fd == -1) {
+		/* unlock the duplicate database */
+		duplicate_file_free(&ctx->file);
+		return;
+	}
 
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.version = DUPLICATE_VERSION;
@@ -358,7 +363,7 @@ void duplicate_deinit(struct duplicate_context **_ctx)
 	*_ctx = NULL;
 	if (ctx->file != NULL) {
 		duplicate_flush(ctx);
-		duplicate_file_free(&ctx->file);
+		i_assert(ctx->file == NULL);
 	}
 	i_free(ctx->path);
 	i_free(ctx);
