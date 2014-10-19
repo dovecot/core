@@ -557,10 +557,13 @@ static const char *client_get_disconnect_reason(struct client *client)
 	errno = client->input->stream_errno != 0 ?
 		client->input->stream_errno :
 		client->output->stream_errno;
-	return errno == 0 || errno == EPIPE ? "Connection closed" :
-		t_strdup_printf("Connection closed: %m");
+	if (errno == 0 || errno == EPIPE)
+		return "Connection closed";
+	return t_strdup_printf("Connection closed: %s",
+			       client->input->stream_errno != 0 ?
+			       i_stream_get_error(client->input) :
+			       o_stream_get_error(client->output));
 }
-
 void client_destroy(struct client *client, const char *reason)
 {
 	client->v.destroy(client, reason);
