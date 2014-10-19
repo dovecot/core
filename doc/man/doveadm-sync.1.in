@@ -1,5 +1,5 @@
 .\" Copyright (c) 2014 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-SYNC 1 "2014-10-05" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-SYNC 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-sync \- Dovecot\(aqs two\-way mailbox synchronization utility
 .br
@@ -269,7 +269,9 @@ Any errors are written to stderr.
 .PP
 .RS
 .nf
-.B doveadm sync \-u username@example.com remote:server\-replica.example.com
+.ft B
+doveadm sync \-u username@example.com remote:server\-replica.example.com
+.ft P
 .fi
 .RE
 .PP
@@ -277,8 +279,10 @@ If you need more complex parameters to ssh, you can use e.g.:
 .PP
 .RS
 .nf
-.B doveadm sync \-u username@example.com ssh \-i id_dsa.dovecot \(rs
-.B mailuser@example.com doveadm dsync\-server \-u username@example.com
+.ft B
+doveadm sync \-u username@example.com ssh \-i id_dsa.dovecot \(rs
+mailuser@example.com doveadm dsync\-server \-u username@example.com
+.ft P
 .fi
 .RE
 .\"------------------------------------------------------------------------
@@ -295,7 +299,9 @@ The user has to execute the command:
 .PP
 .RS
 .nf
-.B doveadm sync maildir:\(ti/Maildir
+.ft B
+doveadm sync maildir:\(ti/Maildir
+.ft P
 .fi
 .RE
 .PP

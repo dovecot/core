@@ -1,5 +1,5 @@
-.\" Copyright (c) 2013 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-DEDUPLICATE 1 "2013-08-03" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2013-2014 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-DEDUPLICATE 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-deduplicate \- expunge duplicate messages
 .\"------------------------------------------------------------------------
@@ -59,15 +59,19 @@ This example shows how to list and expunge duplicate messages from a
 mailbox.
 .sp
 .nf
-.B doveadm \-f table fetch \-u jane \(aqguid uid\(aq mailbox a_Box | sort
+.ft B
+doveadm \-f table fetch \-u jane \(aqguid uid\(aq mailbox a_Box | sort
+.ft P
 guid                             uid
 8aad0f0a30169f4bea620000ca356bad 18751
 8aad0f0a30169f4bea620000ca356bad 18756
 923e301ab9219b4b4f440000ca356bad 18748
 923e301ab9219b4b4f440000ca356bad 18753
 \&...
-.B doveadm deduplicate \-u jane mailbox a_Box
-.B doveadm \-f table fetch \-u jane \(aqguid uid\(aq mailbox a_Box | sort
+.ft B
+doveadm deduplicate \-u jane mailbox a_Box
+doveadm \-f table fetch \-u jane \(aqguid uid\(aq mailbox a_Box | sort
+.ft P
 guid                             uid
 8aad0f0a30169f4bea620000ca356bad 18751
 923e301ab9219b4b4f440000ca356bad 18748

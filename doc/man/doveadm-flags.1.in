@@ -1,5 +1,5 @@
-.\" Copyright (c) 2013 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-FLAGS 1 "2013-08-02" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2013-2014 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-FLAGS 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-flags \- add, remove or replace messages\(aq flags
 .\"------------------------------------------------------------------------
@@ -86,13 +86,17 @@ This command is used to replace ALL current flags with the given
 List and manipulate the message flags of the message with uid 81563
 .sp
 .nf
-.B doveadm fetch \-u bob \(aquid flags\(aq mailbox dovecot uid 81563
+.ft B
+doveadm fetch \-u bob \(aquid flags\(aq mailbox dovecot uid 81563
+.ft P
 uid: 81563
 flags: \(rsAnswered \(rsSeen NonJunk
 
-.B doveadm flags \-u bob remove NonJunk mailbox dovecot uid 81563
-.B doveadm flags \-u bob add \(aq\(rsFlagged \(DoForwarded\(aq \
+.ft B
+doveadm flags \-u bob remove NonJunk mailbox dovecot uid 81563
+doveadm flags \-u bob add \(aq\(rsFlagged \(DoForwarded\(aq \
 mailbox dovecot uid 81563
+.ft P
 .fi
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@

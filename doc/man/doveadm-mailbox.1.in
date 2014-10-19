@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010-2013 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-MAILBOX 1 "2013-11-24" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2014 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-MAILBOX 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-mailbox \- Commands related to handling mailboxes
 .\"------------------------------------------------------------------------
@@ -260,7 +260,9 @@ This command is used to unsubscribe one or more mailboxes.
 List subscribed mailboxes, beginning with \(aqdovecot\(aq, of user bob.
 .sp
 .nf
-.B doveadm mailbox list \-s \-u bob dovecot*
+.ft B
+doveadm mailbox list \-s \-u bob dovecot*
+.ft P
 dovecot
 dovecot/pigeonhole
 dovecot/pigeonhole/2.0
@@ -270,7 +272,9 @@ dovecot/pigeonhole/2.0
 Now have a look at the status of user bob\(aqs dovecot mailboxes.
 .sp
 .nf
-.B doveadm \-f table mailbox status \-u bob \(dqmessages vsize\(dq dovecot*
+.ft B
+doveadm \-f table mailbox status \-u bob \(dqmessages vsize\(dq dovecot*
+.ft P
 mailbox                                    messages vsize
 dovecot                                    20501    93968492
 dovecot/pigeonhole                         0        0
@@ -282,9 +286,13 @@ Converting an internationalized mailbox name from mUTF\-7 to UTF\-8 and
 vice versa.
 .sp
 .nf
-.B doveadm mailbox mutf7 \-7 \(dq~peter/mail/&U,BTFw\-/&ZeVnLIqe\-\(dq
+.ft B
+doveadm mailbox mutf7 \-7 \(dq~peter/mail/&U,BTFw\-/&ZeVnLIqe\-\(dq
+.ft P
 ~peter/mail/台北/日本語
-.B doveadm mailbox mutf7 ~peter/mail/台北/日本語
+.ft B
+doveadm mailbox mutf7 ~peter/mail/台北/日本語
+.ft P
 ~peter/mail/&U,BTFw\-/&ZeVnLIqe\-
 .fi
 .\"------------------------------------------------------------------------

@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010-2012 Dovecot authors, see the included COPYING file
-.TH DOVECONF 1 "2012-01-29" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2014 Dovecot authors, see the included COPYING file
+.TH DOVECONF 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveconf \- Dovecot\(aqs configuration dumping utility
 .\"------------------------------------------------------------------------
@@ -146,15 +146,19 @@ networks/subnets it is possible to show which settings will be applied
 for a specific connection.
 .sp
 .nf
-.B doveconf \-f local=10.0.0.110 \-f remote=10.11.1.2 \-f service=pop3 \-n
+.ft B
+doveconf \-f local=10.0.0.110 \-f remote=10.11.1.2 \-f service=pop3 \-n
+.ft P
 .fi
 .PP
 .B doveconf
 can be also used to convert v1.x configuration files into v2.x format.
 .sp
 .nf
-.B doveconf \-n \-c /oldpath/dovecot.conf > \
+.ft B
+doveconf \-n \-c /oldpath/dovecot.conf > \
 @pkgsysconfdir@/dovecot.conf.new
+.ft P
 .fi
 .\"-------------------------------------
 .PP
@@ -166,9 +170,13 @@ The second command uses also the
 option, in order to hide the setting\(aqs name.
 .sp
 .nf
-.B doveconf mail_plugins
+.ft B
+doveconf mail_plugins
+.ft P
 mail_plugins = quota
-.B doveconf  \-h \-f protocol=imap mail_plugins
+.ft B
+doveconf  \-h \-f protocol=imap mail_plugins
+.ft P
 quota imap_quota
 .fi
 .\"-------------------------------------
@@ -176,7 +184,9 @@ quota imap_quota
 This example demonstrates how to dump a whole configuration section.
 .sp
 .nf
-.B doveconf dict
+.ft B
+doveconf dict
+.ft P
 dict {
   quota = pgsql:@pkgsysconfdir@/dovecot\-dict\-sql.conf.ext
 }
@@ -185,7 +195,9 @@ dict {
 Or how to dump only the quota dict:
 .sp
 .nf
-.B doveconf dict/quota
+.ft B
+doveconf dict/quota
+.ft P
 dict/quota = pgsql:@pkgsysconfdir@/dovecot\-dict\-sql.conf.ext
 .fi
 .\"------------------------------------------------------------------------

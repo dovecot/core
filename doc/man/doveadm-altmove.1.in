@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010-2011 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-ALTMOVE 1 "2011-09-15" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2014 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-ALTMOVE 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-altmove \- Move matching mails to the alternative storage (dbox\-only)
 .\"------------------------------------------------------------------------
@@ -81,7 +81,9 @@ mail_location = mdbox:~/mdbox:ALT=/nfsmount/%h/mdbox
 .fi
 .PP
 .nf
-.B doveadm altmove \-u johnd@example.com seen savedbefore 1w
+.ft B
+doveadm altmove \-u johnd@example.com seen savedbefore 1w
+.ft P
 .fi
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@

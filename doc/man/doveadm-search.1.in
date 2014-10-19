@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-SEARCH 1 "2010-11-25" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2014 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-SEARCH 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-search \- Show a list of mailbox GUIDs and message UIDs matching \
 given search query.
@@ -86,7 +86,9 @@ This example demonstrates how to search in user bob\(aqs dovecot mailboxes
 all messages, which contains the word \(dqtodo\(dq in the Subject: header.
 .PP
 .nf
-.B doveadm search \-u bob mailbox dovecot\(rs* subject todo
+.ft B
+doveadm search \-u bob mailbox dovecot\(rs* subject todo
+.ft P
 3a94c928d66ebe4bda04000015811c6a	8
 3a94c928d66ebe4bda04000015811c6a	25
 3a94c928d66ebe4bda04000015811c6a	45
@@ -98,10 +100,12 @@ command. For example to save message bodies of all messages from INBOX
 that have "todo" in subject, use:
 .PP
 .nf
-.B doveadm search \-u bob mailbox INBOX subject todo |
-.B while read guid uid; do
-.B \ \ doveadm fetch \-u bob body mailbox\-guid $guid uid $uid > msg.$uid
-.B done
+.ft B
+doveadm search \-u bob mailbox INBOX subject todo |
+while read guid uid; do
+\ \ doveadm fetch \-u bob body mailbox\-guid $guid uid $uid > msg.$uid
+done
+.ft P
 .fi
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@

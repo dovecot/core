@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010-2013 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-EXPUNGE 1 "2013-11-24" "Dovecot v2.2" "Dovecot"
+.\" Copyright (c) 2010-2014 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-EXPUNGE 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-expunge \- Expunge messages matching given search query
 .\"------------------------------------------------------------------------
@@ -72,7 +72,9 @@ This example expunges messages from Spam mailbox that were saved/copied
 there more than two weeks ago:
 .PP
 .nf
-.B doveadm expunge \-u jane.doe@example.org mailbox Spam savedbefore 2w
+.ft B
+doveadm expunge \-u jane.doe@example.org mailbox Spam savedbefore 2w
+.ft P
 .fi
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@

@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2014 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-AUTH 1 "2014-08-30" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-AUTH 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-auth \- Flush/lookup/test authentication data
 .\"------------------------------------------------------------------------
@@ -173,7 +173,9 @@ assuming the user is connected from the host with the IP address
 192.0.2.143.
 .PP
 .nf
-.B doveadm auth test \-x service=imap \-x rip=192.0.2.143 john
+.ft B
+doveadm auth test \-x service=imap \-x rip=192.0.2.143 john
+.ft P
 Password:
 passdb: john auth succeeded
 extra fields:
