@@ -44,6 +44,7 @@ http_client_connection_debug(struct http_client_connection *conn,
  * Connection
  */
 
+static void http_client_connection_ready(struct http_client_connection *conn);
 static void http_client_connection_input(struct connection *_conn);
 static void
 http_client_connection_disconnect(struct http_client_connection *conn);
@@ -382,7 +383,7 @@ static void http_client_connection_destroy(struct connection *_conn)
 			msecs = timeval_diff_msecs(&ioloop_timeval,
 						   &conn->connected_timestamp);
 			error = t_strdup_printf(
-				"SSL handshaking to %s failed: Connection timed out in %u.%03u secs",
+				"SSL handshaking with %s failed: Connection timed out in %u.%03u secs",
 				_conn->name, msecs/1000, msecs%1000);
 		}
 		http_client_connection_debug(conn, "%s", error);
@@ -555,6 +556,41 @@ static void http_client_connection_input(struct connection *_conn)
 	enum http_response_payload_type payload_type;
 
 	i_assert(conn->incoming_payload == NULL);
+
+	if (conn->ssl_iostream != NULL &&
+		!ssl_iostream_is_handshaked(conn->ssl_iostream)) {
+		/* finish SSL negotiation by reading from input stream */
+		while ((ret=i_stream_read(conn->conn.input)) > 0) {
+			if (ssl_iostream_is_handshaked(conn->ssl_iostream))
+				break;
+		}
+		if (ret < 0) {
+			int stream_errno = conn->conn.input->stream_errno;
+
+			/* failed somehow */
+			i_assert(ret != -2);
+			error = t_strdup_printf(
+				"SSL handshaking with %s failed: "
+				"read(%s) failed: %s",
+				_conn->name,
+				i_stream_get_name(conn->conn.input),
+				stream_errno != 0 ?
+					i_stream_get_error(conn->conn.input) : "EOF");
+			http_client_peer_connection_failure(conn->peer, error);
+			http_client_connection_debug(conn, "%s", error);
+			http_client_connection_close(&conn);
+			return;
+		}
+
+		if (!ssl_iostream_is_handshaked(conn->ssl_iostream)) {
+			/* not finished */
+			i_assert(ret == 0);
+			return;
+		}
+
+		/* ready for first request */
+		http_client_connection_ready(conn);
+	}
 
 	if (conn->to_input != NULL) {
 		/* We came here from a timeout added by
@@ -763,6 +799,10 @@ int http_client_connection_output(struct http_client_connection *conn)
 		return ret;
 	}
 
+	if (conn->ssl_iostream != NULL &&
+		!ssl_iostream_is_handshaked(conn->ssl_iostream))
+		return 1;
+
 	if (array_count(&conn->request_wait_list) > 0 && conn->output_locked) {
 		req_idx = array_idx(&conn->request_wait_list,
 			array_count(&conn->request_wait_list)-1);
@@ -815,12 +855,12 @@ http_client_connection_start_tunnel(struct http_client_connection **_conn,
 static void 
 http_client_connection_ready(struct http_client_connection *conn)
 {
+	http_client_connection_debug(conn, "Ready for requests");
+
 	/* connected */
 	conn->connected = TRUE;
 	conn->last_ioloop = current_ioloop;
-	if (conn->to_connect != NULL &&
-	    (conn->ssl_iostream == NULL ||
-	     ssl_iostream_is_handshaked(conn->ssl_iostream)))
+	if (conn->to_connect != NULL)
 		timeout_remove(&conn->to_connect);
 
 	/* indicate connection success */
@@ -883,8 +923,6 @@ http_client_connection_ssl_handshaked(const char **error_r, void *context)
 		*error_r = error;
 		return -1;
 	}
-	if (conn->to_connect != NULL)
-		timeout_remove(&conn->to_connect);
 	return 0;
 }
 
@@ -924,7 +962,14 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 		return -1;
 	}
 
-	http_client_connection_ready(conn);
+	if (ssl_iostream_is_handshaked(conn->ssl_iostream)) {
+		http_client_connection_ready(conn);
+	} else {
+		/* wait for handshake to complete; connection input handler does the rest
+		   by reading from the input stream */
+		o_stream_set_flush_callback(conn->conn.output,
+			http_client_connection_output, conn);
+	}
 	return 0;
 }
 
