@@ -97,7 +97,7 @@ void test_buffer(void)
 			}
 			break;
 		case 4:
-			if (shadowbuf_size == 0)
+			if (shadowbuf_size <= 1)
 				break;
 			pos = rand() % (shadowbuf_size-1); /* dest */
 			pos2 = rand() % (shadowbuf_size-1); /* source */
