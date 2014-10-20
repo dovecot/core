@@ -91,7 +91,6 @@ http_client_peer_do_connect(struct http_client_peer *peer,
 	}
 }
 
-
 static void
 http_client_peer_connect_backoff(struct http_client_peer *peer)
 {
@@ -101,18 +100,25 @@ http_client_peer_connect_backoff(struct http_client_peer *peer)
 		"Backoff timer expired");
 
 	timeout_remove(&peer->to_backoff);
+
+	if (array_count(&peer->queues) == 0) {
+		http_client_peer_free(&peer);
+		return;
+	}
+
 	http_client_peer_do_connect(peer, 1);
 }
 
-static void
-http_client_peer_connect(struct http_client_peer *peer, unsigned int count)
+static bool
+http_client_peer_start_backoff_timer(struct http_client_peer *peer)
 {
 	if (peer->to_backoff != NULL)
-		return;
+		return TRUE;
 
 	if (peer->last_failure.tv_sec > 0) {
 		int backoff_time_spent =
 			timeval_diff_msecs(&ioloop_timeval, &peer->last_failure);
+
 		if (backoff_time_spent < (int)peer->backoff_time_msecs) {
 			http_client_peer_debug(peer,
 				"Starting backoff timer for %d msecs",
@@ -120,9 +126,21 @@ http_client_peer_connect(struct http_client_peer *peer, unsigned int count)
 			peer->to_backoff = timeout_add
 				((unsigned int)(peer->backoff_time_msecs - backoff_time_spent),
 					http_client_peer_connect_backoff, peer);
-			return;
+			return TRUE;
 		}
+
+		http_client_peer_debug(peer,
+			"Backoff time already exceeded by %d msecs",
+			backoff_time_spent - peer->backoff_time_msecs);
 	}
+	return FALSE;
+}
+
+static void
+http_client_peer_connect(struct http_client_peer *peer, unsigned int count)
+{
+	if (http_client_peer_start_backoff_timer(peer))
+		return;
 
 	http_client_peer_do_connect(peer, count);
 }
@@ -483,8 +501,10 @@ void http_client_peer_unlink_queue(struct http_client_peer *peer,
 		if (*queue_idx == queue) {
 			array_delete(&peer->queues,
 				array_foreach_idx(&peer->queues, queue_idx), 1);
-			if (array_count(&peer->queues) == 0)
-				http_client_peer_free(&peer);
+			if (array_count(&peer->queues) == 0) {
+				if (!http_client_peer_start_backoff_timer(peer))
+					http_client_peer_free(&peer);
+			}
 			return;
 		}
 	}
@@ -510,6 +530,10 @@ http_client_peer_claim_request(struct http_client_peer *peer, bool no_urgent)
 void http_client_peer_connection_success(struct http_client_peer *peer)
 {
 	struct http_client_queue *const *queue;
+
+	http_client_peer_debug(peer,
+		"Successfully connected (connections=%u)",
+		array_count(&peer->conns));
 
 	peer->last_failure.tv_sec = peer->last_failure.tv_usec = 0;
 	peer->backoff_time_msecs = 0;
