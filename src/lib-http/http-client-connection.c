@@ -89,8 +89,6 @@ http_client_connection_server_close(struct http_client_connection **_conn)
 	http_client_connection_debug(conn,
 		"Server explicitly closed connection");
 
-	http_client_connection_disconnect(conn);
-
 	array_foreach_modifiable(&conn->request_wait_list, req) {
 		if ((*req)->state < HTTP_REQUEST_STATE_FINISHED)
 			http_client_request_resubmit(*req);
@@ -101,7 +99,7 @@ http_client_connection_server_close(struct http_client_connection **_conn)
 	if (conn->client->ioloop != NULL)
 		io_loop_stop(conn->client->ioloop);
 
-	http_client_connection_unref(_conn);
+	http_client_connection_close(_conn);
 }
 
 static void
@@ -113,15 +111,13 @@ http_client_connection_abort_error(struct http_client_connection **_conn,
 
 	http_client_connection_debug(conn, "Aborting connection: %s", error);
 
-	http_client_connection_disconnect(conn);
-
 	array_foreach_modifiable(&conn->request_wait_list, req) {
 		i_assert((*req)->submitted);
 		http_client_request_error(*req, status, error);
 		http_client_request_unref(req);
 	}
 	array_clear(&conn->request_wait_list);
-	http_client_connection_unref(_conn);
+	http_client_connection_close(_conn);
 }
 
 static void
@@ -151,10 +147,8 @@ http_client_connection_abort_temp_error(struct http_client_connection **_conn,
 	http_client_connection_debug(conn,
 		"Aborting connection with temporary error: %s", error);
 
-	http_client_connection_disconnect(conn);
-	
 	http_client_connection_retry_requests(conn, status, error);
-	http_client_connection_unref(_conn);
+	http_client_connection_close(_conn);
 }
 
 bool http_client_connection_is_ready(struct http_client_connection *conn)
@@ -207,8 +201,7 @@ http_client_connection_idle_timeout(struct http_client_connection *conn)
 	/* cannot get here unless connection was established at some point */
 	i_assert(conn->connect_succeeded);
 
-	http_client_connection_disconnect(conn);
-	http_client_connection_unref(&conn);
+	http_client_connection_close(&conn);
 }
 
 void http_client_connection_check_idle(struct http_client_connection *conn)
@@ -377,9 +370,6 @@ static void http_client_connection_destroy(struct connection *_conn)
 	const char *error;
 	unsigned int msecs;
 
-	conn->closing = TRUE;
-	conn->connected = FALSE;
-
 	switch (_conn->disconnect_reason) {
 	case CONNECTION_DISCONNECT_CONNECT_TIMEOUT:
 		if (conn->connected_timestamp.tv_sec == 0) {
@@ -410,7 +400,7 @@ static void http_client_connection_destroy(struct connection *_conn)
 		break;
 	}
 
-	http_client_connection_unref(&conn);
+	http_client_connection_close(&conn);
 }
 
 static void http_client_payload_finished(struct http_client_connection *conn)
@@ -598,7 +588,7 @@ static void http_client_connection_input(struct connection *_conn)
 		if (req == NULL) {
 			/* server sent response without any requests in the wait list */
 			http_client_connection_debug(conn, "Got unexpected input from server");
-			http_client_connection_unref(&conn);
+			http_client_connection_close(&conn);
 			return;
 		}
 		req->response_time = ioloop_timeval;
@@ -867,7 +857,7 @@ http_client_connection_ready(struct http_client_connection *conn)
 		
 		http_client_connection_debug(conn,
 			"No raw connect requests pending; closing useless connection");
-		http_client_connection_unref(&conn);
+		http_client_connection_close(&conn);
 		return;
 	}
 
@@ -955,7 +945,7 @@ http_client_connection_connected(struct connection *_conn, bool success)
 			if (http_client_connection_ssl_init(conn, &error) < 0) {
 				http_client_peer_connection_failure(conn->peer, error);
 				http_client_connection_debug(conn, "%s", error);
-				http_client_connection_unref(&conn);
+				http_client_connection_close(&conn);
 			}
 			return;
 		}
@@ -988,7 +978,7 @@ http_client_connection_delayed_connect_error(struct http_client_connection *conn
 	timeout_remove(&conn->to_input);
 	errno = conn->connect_errno;
 	http_client_connection_connected(&conn->conn, FALSE);
-	http_client_connection_unref(&conn);
+	http_client_connection_close(&conn);
 }
 
 static void http_client_connect_timeout(struct http_client_connection *conn)
@@ -1025,7 +1015,7 @@ http_client_connection_connect(struct http_client_connection *conn)
 static void
 http_client_connect_tunnel_timeout(struct http_client_connection *conn)
 {
-	http_client_connection_unref(&conn);
+	http_client_connection_close(&conn);
 }
 
 // FIXME: put something like this in lib/connection.c
@@ -1246,6 +1236,17 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 		http_client_peer_connection_lost(peer);
 	i_free(conn);
 	*_conn = NULL;
+}
+
+void http_client_connection_close(struct http_client_connection **_conn)
+{
+	struct http_client_connection *conn = *_conn;
+
+	http_client_connection_debug(conn, "Connection close");
+
+	http_client_connection_disconnect(conn);
+
+	http_client_connection_unref(_conn);
 }
 
 void http_client_connection_switch_ioloop(struct http_client_connection *conn)

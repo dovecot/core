@@ -283,6 +283,7 @@ struct http_client_connection *
 	http_client_connection_create(struct http_client_peer *peer);
 void http_client_connection_ref(struct http_client_connection *conn);
 void http_client_connection_unref(struct http_client_connection **_conn);
+void http_client_connection_close(struct http_client_connection **_conn);
 int http_client_connection_output(struct http_client_connection *conn);
 unsigned int
 http_client_connection_count_pending(struct http_client_connection *conn);
