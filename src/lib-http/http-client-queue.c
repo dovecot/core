@@ -318,10 +318,12 @@ http_client_queue_connection_success(struct http_client_queue *queue,
 	}
 }
 
-bool
+void
 http_client_queue_connection_failure(struct http_client_queue *queue,
 	const struct http_client_peer_addr *addr, const char *reason)
 {
+	const struct http_client_settings *set =
+		&queue->client->set;
 	struct http_client_host *host = queue->host;
 
 	http_client_queue_debug(queue, "Failed to set up connection to %s%s: %s "
@@ -332,6 +334,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		(array_is_created(&queue->pending_peers) ?
 		 	array_count(&queue->pending_peers): 0),
 		array_count(&queue->requests));
+
 	if (array_is_created(&queue->pending_peers) &&
 		array_count(&queue->pending_peers) > 0) {
 		struct http_client_peer *const *peer_idx;
@@ -350,7 +353,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		if (array_count(&queue->pending_peers) > 0) {
 			http_client_queue_debug(queue,
 				"Waiting for remaining pending peers.");
-			return TRUE;
+			return;
 		}
 	}
 
@@ -361,21 +364,26 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		timeout_remove(&queue->to_connect);
 
 	if (http_client_queue_is_last_connect_ip(queue)) {
-		http_client_queue_debug(queue,
-			"Failed to set up any connection; failing all queued requests");
-
-		/* all IPs failed, but retry all of them again on the
-		   next request. */
+		/* all IPs failed, but retry all of them again if we have more
+		   connect attempts left or on the next request. */
 		queue->ips_connect_idx = queue->ips_connect_start_idx =
 			(queue->ips_connect_idx + 1) % host->ips_count;
-		queue->connect_attempts = 0;
-		http_client_queue_fail(queue,
-			HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, reason);
-		return FALSE;
+
+		if (set->max_connect_attempts == 0 ||
+			queue->connect_attempts >= set->max_connect_attempts) {
+			http_client_queue_debug(queue,
+				"Failed to set up any connection; failing all queued requests");
+			queue->connect_attempts = 0;
+			http_client_queue_fail(queue,
+				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, reason);
+			return;
+		}
+	} else {
+		queue->ips_connect_idx = (queue->ips_connect_idx + 1) % host->ips_count;
 	}
-	queue->ips_connect_idx = (queue->ips_connect_idx + 1) % host->ips_count;
+	
 	http_client_queue_connection_setup(queue);
-	return TRUE;
+	return;
 }
 
 /*
