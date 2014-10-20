@@ -228,7 +228,7 @@ void http_client_wait(struct http_client *client)
 
 	i_assert(client->ioloop == NULL);
 
-	if (client->pending_requests == 0)
+	if (client->requests_count == 0)
 		return;
 
 	client->ioloop = io_loop_create();
@@ -242,9 +242,9 @@ void http_client_wait(struct http_client *client)
 
 	do {
 		http_client_debug(client,
-			"Waiting for %d requests to finish", client->pending_requests);
+			"Waiting for %d requests to finish", client->requests_count);
 		io_loop_run(client->ioloop);
-	} while (client->pending_requests > 0);
+	} while (client->requests_count > 0);
 
 	http_client_debug(client, "All requests finished");
 
@@ -258,7 +258,7 @@ void http_client_wait(struct http_client *client)
 
 unsigned int http_client_get_pending_request_count(struct http_client *client)
 {
-	return client->pending_requests;
+	return client->requests_count;
 }
 
 int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)

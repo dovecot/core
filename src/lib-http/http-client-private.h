@@ -52,6 +52,8 @@ struct http_client_request {
 	unsigned int refcount;
 	const char *label;
 
+	struct http_client_request *prev, *next;
+
 	const char *method, *target;
 	struct http_url origin_url;
 
@@ -245,7 +247,8 @@ struct http_client {
 	struct http_client_host *hosts_list;
 	HASH_TABLE_TYPE(http_client_peer) peers;
 	struct http_client_peer *peers_list;
-	unsigned int pending_requests;
+	struct http_client_request *requests_list;
+	unsigned int requests_count;
 };
 
 int http_client_init_ssl_ctx(struct http_client *client, const char **error_r);

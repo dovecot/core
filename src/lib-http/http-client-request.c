@@ -5,6 +5,7 @@
 #include "str.h"
 #include "hash.h"
 #include "array.h"
+#include "llist.h"
 #include "time-util.h"
 #include "istream.h"
 #include "ostream.h"
@@ -164,16 +165,18 @@ void http_client_request_unref(struct http_client_request **_req)
 	}
 
 	/* only decrease pending request counter if this request was submitted */
-	if (req->state > HTTP_REQUEST_STATE_NEW)
-		req->client->pending_requests--;
+	if (req->submitted) {
+		DLLIST_REMOVE(&client->requests_list, req);
+		client->requests_count--;
+	}
 
 	http_client_request_debug(req, "Destroy (requests left=%d)",
-		client->pending_requests);
+		client->requests_count);
 
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
 
-	if (client->pending_requests == 0 && client->ioloop != NULL)
+	if (client->requests_count == 0 && client->ioloop != NULL)
 		io_loop_stop(client->ioloop);
 
 	if (req->delayed_error != NULL)
@@ -483,12 +486,16 @@ static void http_client_request_do_submit(struct http_client_request *req)
 
 void http_client_request_submit(struct http_client_request *req)
 {
-	req->client->pending_requests++;
+	struct http_client *client = req->client;
+
 	req->submit_time = ioloop_timeval;
 
 	http_client_request_do_submit(req);
 	http_client_request_debug(req, "Submitted");
+
 	req->submitted = TRUE;
+	DLLIST_PREPEND(&client->requests_list, req);
+	client->requests_count++;
 }
 
 static void
