@@ -394,3 +394,58 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 		ret = mailbox_list_index_sync_list(sync_ctx);
 	return mailbox_list_index_sync_end(&sync_ctx, ret == 0);
 }
+
+int mailbox_list_index_delete_entry(struct mailbox_list *list, const char *name,
+				    bool delete_selectable)
+{
+	struct mailbox_list_index_sync_context *sync_ctx;
+	struct mailbox_list_index_record rec;
+	struct mailbox_list_index_node *node;
+	const void *data;
+	bool expunged;
+	uint32_t seq;
+
+	if (mailbox_list_index_sync_begin(list, &sync_ctx) < 0)
+		return -1;
+
+	node = mailbox_list_index_lookup(list, name);
+	if (node == NULL) {
+		(void)mailbox_list_index_sync_end(&sync_ctx, FALSE);
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				       T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+		return -1;
+	}
+	if (!mail_index_lookup_seq(sync_ctx->view, node->uid, &seq))
+		i_panic("mailbox list index: lost uid=%u", node->uid);
+	if (delete_selectable) {
+		/* make it at least non-selectable */
+		node->flags = MAILBOX_LIST_INDEX_FLAG_NOSELECT;
+		mail_index_update_flags(sync_ctx->trans, seq, MODIFY_REPLACE,
+					(enum mail_flags)node->flags);
+
+		mail_index_lookup_ext(sync_ctx->view, seq,
+				      sync_ctx->ilist->ext_id,
+				      &data, &expunged);
+		i_assert(data != NULL && !expunged);
+		memcpy(&rec, data, sizeof(rec));
+		rec.uid_validity = 0;
+		memset(&rec.guid, 0, sizeof(rec.guid));
+		mail_index_update_ext(sync_ctx->trans, seq,
+				      sync_ctx->ilist->ext_id, &rec, NULL);
+	}
+	if (node->children != NULL) {
+		/* can't delete this directory before its children,
+		   but we may have made it non-selectable already */
+		if (mailbox_list_index_sync_end(&sync_ctx, TRUE) < 0)
+			return -1;
+		return 0;
+	}
+
+	/* we can remove the entire node */
+	mail_index_expunge(sync_ctx->trans, seq);
+	mailbox_list_index_node_unlink(sync_ctx->ilist, node);
+
+	if (mailbox_list_index_sync_end(&sync_ctx, TRUE) < 0)
+		return -1;
+	return 1;
+}
