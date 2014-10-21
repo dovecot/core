@@ -14,6 +14,11 @@ void guid_128_generate(guid_128_t guid_r);
 bool guid_128_is_empty(const guid_128_t guid);
 /* Returns TRUE if two GUIDs are equal. */
 bool guid_128_equals(const guid_128_t guid1, const guid_128_t guid2);
+/* Copy GUID */
+static inline void guid_128_copy(guid_128_t dest, const guid_128_t src)
+{
+	memcpy(dest, src, GUID_128_SIZE);
+}
 
 /* Returns GUID as a hex string. */
 const char *guid_128_to_string(const guid_128_t guid);
