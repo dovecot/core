@@ -453,6 +453,21 @@ index_list_delete_finish(struct mailbox_list *list, const char *name)
 }
 
 static int
+index_list_delete_entry(struct mailbox_list *list, const char *name,
+			bool delete_selectable)
+{
+	struct mailbox_list_index_sync_context *sync_ctx;
+	int ret;
+
+	if (mailbox_list_index_sync_begin(list, &sync_ctx) < 0)
+		return -1;
+	ret = mailbox_list_index_sync_delete(sync_ctx, name, delete_selectable);
+	if (mailbox_list_index_sync_end(&sync_ctx, TRUE) < 0)
+		return -1;
+	return ret;
+}
+
+static int
 index_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 {
 	const char *path;
@@ -476,7 +491,7 @@ index_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	if (ret == 0 || (_list->props & MAILBOX_LIST_PROP_AUTOCREATE_DIRS) != 0)
 		index_list_delete_finish(_list, name);
 	if (ret == 0) {
-		if (mailbox_list_index_delete_entry(_list, name, TRUE) < 0)
+		if (index_list_delete_entry(_list, name, TRUE) < 0)
 			return -1;
 	}
 	return ret;
@@ -487,7 +502,7 @@ index_list_delete_dir(struct mailbox_list *_list, const char *name)
 {
 	int ret;
 
-	if ((ret = mailbox_list_index_delete_entry(_list, name, FALSE)) < 0)
+	if ((ret = index_list_delete_entry(_list, name, FALSE)) < 0)
 		return -1;
 	if (ret == 0) {
 		mailbox_list_set_error(_list, MAIL_ERROR_EXISTS,

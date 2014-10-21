@@ -29,7 +29,7 @@ uint32_t mailbox_list_index_sync_name(struct mailbox_list_index_sync_context *ct
 				      struct mailbox_list_index_node **node_r,
 				      bool *created_r);
 
-int mailbox_list_index_delete_entry(struct mailbox_list *list, const char *name,
-				    bool delete_selectable);
+int mailbox_list_index_sync_delete(struct mailbox_list_index_sync_context *sync_ctx,
+				   const char *name, bool delete_selectable);
 
 #endif

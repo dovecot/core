@@ -395,23 +395,18 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 	return mailbox_list_index_sync_end(&sync_ctx, ret == 0);
 }
 
-int mailbox_list_index_delete_entry(struct mailbox_list *list, const char *name,
-				    bool delete_selectable)
+int mailbox_list_index_sync_delete(struct mailbox_list_index_sync_context *sync_ctx,
+				   const char *name, bool delete_selectable)
 {
-	struct mailbox_list_index_sync_context *sync_ctx;
 	struct mailbox_list_index_record rec;
 	struct mailbox_list_index_node *node;
 	const void *data;
 	bool expunged;
 	uint32_t seq;
 
-	if (mailbox_list_index_sync_begin(list, &sync_ctx) < 0)
-		return -1;
-
-	node = mailbox_list_index_lookup(list, name);
+	node = mailbox_list_index_lookup(sync_ctx->list, name);
 	if (node == NULL) {
-		(void)mailbox_list_index_sync_end(&sync_ctx, FALSE);
-		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+		mailbox_list_set_error(sync_ctx->list, MAIL_ERROR_NOTFOUND,
 				       T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		return -1;
 	}
@@ -436,16 +431,11 @@ int mailbox_list_index_delete_entry(struct mailbox_list *list, const char *name,
 	if (node->children != NULL) {
 		/* can't delete this directory before its children,
 		   but we may have made it non-selectable already */
-		if (mailbox_list_index_sync_end(&sync_ctx, TRUE) < 0)
-			return -1;
 		return 0;
 	}
 
 	/* we can remove the entire node */
 	mail_index_expunge(sync_ctx->trans, seq);
 	mailbox_list_index_node_unlink(sync_ctx->ilist, node);
-
-	if (mailbox_list_index_sync_end(&sync_ctx, TRUE) < 0)
-		return -1;
 	return 1;
 }
