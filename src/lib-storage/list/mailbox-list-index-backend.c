@@ -262,9 +262,8 @@ index_list_mailbox_create_dir(struct index_mailbox_list *list, const char *name)
 
 static int
 index_list_mailbox_create_selectable(struct mailbox *box,
-				     const struct mailbox_update *update)
+				     const guid_128_t mailbox_guid)
 {
-	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 	struct index_mailbox_list *list =
 		(struct index_mailbox_list *)box->list;
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
@@ -272,7 +271,7 @@ index_list_mailbox_create_selectable(struct mailbox *box,
 	struct mailbox_list_index_record rec;
 	struct mailbox_list_index_node *node;
 	const void *data;
-	bool expunged, created, success;
+	bool expunged, created;
 	uint32_t seq;
 
 	if (mailbox_list_index_sync_begin(&list->list, &sync_ctx) < 0)
@@ -297,11 +296,10 @@ index_list_mailbox_create_selectable(struct mailbox *box,
 	node->flags = 0;
 	mail_index_update_flags(sync_ctx->trans, seq, MODIFY_REPLACE, 0);
 
-	memcpy(rec.guid, update->mailbox_guid, sizeof(rec.guid));
+	memcpy(rec.guid, mailbox_guid, sizeof(rec.guid));
 	mail_index_update_ext(sync_ctx->trans, seq, ilist->ext_id, &rec, NULL);
 
-	success = ibox->module_ctx.super.create_box(box, update, FALSE) == 0;
-	if (mailbox_list_index_sync_end(&sync_ctx, success) < 0) {
+	if (mailbox_list_index_sync_end(&sync_ctx, TRUE) < 0) {
 		/* make sure we forget any changes done internally */
 		mailbox_list_index_reset(ilist);
 		return -1;
@@ -313,6 +311,7 @@ static int
 index_list_mailbox_create(struct mailbox *box,
 			  const struct mailbox_update *update, bool directory)
 {
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 	struct index_mailbox_list *list =
 		(struct index_mailbox_list *)box->list;
 	struct mailbox_update new_update;
@@ -339,10 +338,18 @@ index_list_mailbox_create(struct mailbox *box,
 			new_update = *update;
 		if (guid_128_is_empty(new_update.mailbox_guid))
 			guid_128_generate(new_update.mailbox_guid);
-		ret = index_list_mailbox_create_selectable(box, &new_update);
+		ret = index_list_mailbox_create_selectable(box, new_update.mailbox_guid);
 		if (ret < 0) {
 			mail_storage_copy_list_error(box->storage, box->list);
 			return -1;
+		}
+		if (ret > 0) {
+			/* mailbox entry was created. create the mailbox
+			   itself now after the mailbox list index is already
+			   unlocked (to avoid deadlocks in case the create_box()
+			   goes back to updating mailbox list index). */
+			if (ibox->module_ctx.super.create_box(box, update, FALSE) < 0)
+				return -1;
 		}
 	} else {
 		ret = 0;
