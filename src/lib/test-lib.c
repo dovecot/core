@@ -13,6 +13,7 @@ int main(void)
 		test_buffer,
 		test_crc32,
 		test_data_stack,
+		test_guid,
 		test_hash,
 		test_hash_format,
 		test_hash_method,

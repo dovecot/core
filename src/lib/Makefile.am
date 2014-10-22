@@ -282,6 +282,7 @@ test_lib_SOURCES = \
 	test-buffer.c \
 	test-crc32.c \
 	test-data-stack.c \
+	test-guid.c \
 	test-hash.c \
 	test-hash-format.c \
 	test-hash-method.c \
