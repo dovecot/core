@@ -228,13 +228,20 @@ static void replication_mail_save(void *txn, struct mail *mail ATTR_UNUSED)
 	ctx->new_messages = TRUE;
 }
 
-static void replication_mail_copy(void *txn, struct mail *src ATTR_UNUSED,
-				  struct mail *dst ATTR_UNUSED)
+static void replication_mail_copy(void *txn, struct mail *src,
+				  struct mail *dst)
 {
 	struct replication_mail_txn_context *ctx =
 		(struct replication_mail_txn_context *)txn;
 
-	ctx->new_messages = TRUE;
+	if (src->box->storage != dst->box->storage) {
+		/* copy between storages, e.g. new mail delivery */
+		ctx->new_messages = TRUE;
+	} else {
+		/* copy within storage, which isn't as high priority since the
+		   mail already exists. and especially copies to Trash or to
+		   lazy-expunge namespace is pretty low priority. */
+	}
 }
 
 static void
