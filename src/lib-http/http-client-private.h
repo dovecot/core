@@ -142,6 +142,7 @@ struct http_client_connection {
 	unsigned int connected:1;           /* connection is connected */
 	unsigned int tunneling:1;          /* last sent request turns this
 	                                      connection into tunnel */
+	unsigned int connect_initialized:1; /* connection was initialized */
 	unsigned int connect_succeeded:1;
 	unsigned int closing:1;
 	unsigned int close_indicated:1;

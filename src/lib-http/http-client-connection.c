@@ -1063,6 +1063,18 @@ http_client_connection_connect(struct http_client_connection *conn)
 static void
 http_client_connect_tunnel_timeout(struct http_client_connection *conn)
 {
+	const char *error, *name = http_client_peer_addr2str(&conn->peer->addr);
+	unsigned int msecs;
+
+	msecs = timeval_diff_msecs(&ioloop_timeval,
+				   &conn->connect_start_timestamp);
+	error = t_strdup_printf(
+		"Tunnel connect(%s) failed: "
+		"Connection timed out in %u.%03u secs",
+		name, msecs/1000, msecs%1000);
+
+	http_client_connection_debug(conn, "%s", error);
+	http_client_peer_connection_failure(conn->peer, error);
 	http_client_connection_close(&conn);
 }
 
@@ -1111,7 +1123,7 @@ http_client_connection_tunnel_response(const struct http_response *response,
 
 	if (response->status != 200) {
 		http_client_peer_connection_failure(conn->peer, t_strdup_printf(
-			"tunnel connect(%s) failed: %d %s", name,
+			"Tunnel connect(%s) failed: %d %s", name,
 				response->status, response->reason));
 		conn->connect_request = NULL;
 		return;
@@ -1122,6 +1134,7 @@ http_client_connection_tunnel_response(const struct http_response *response,
 
 	_connection_init_from_streams
 		(conn->client->conn_list, &conn->conn, name, tunnel.input, tunnel.output);
+	conn->connect_initialized = TRUE;
 }
 
 static void
@@ -1184,6 +1197,7 @@ http_client_connection_create(struct http_client_peer *peer)
 	} else {
 		connection_init_client_ip
 			(peer->client->conn_list, &conn->conn, &addr->ip, addr->port);
+		conn->connect_initialized = TRUE;
 		http_client_connection_connect(conn);
 	}
 
@@ -1217,7 +1231,8 @@ http_client_connection_disconnect(struct http_client_connection *conn)
 		conn->incoming_payload = NULL;
 	}
 
-	connection_disconnect(&conn->conn);
+	if (conn->connect_initialized)
+		connection_disconnect(&conn->conn);
 
 	if (conn->io_req_payload != NULL)
 		io_remove(&conn->io_req_payload);
@@ -1269,7 +1284,8 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
-	connection_deinit(&conn->conn);
+	if (conn->connect_initialized)
+		connection_deinit(&conn->conn);
 	
 	/* remove this connection from the list */
 	conn_arr = &conn->peer->conns;
