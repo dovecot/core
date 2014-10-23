@@ -2064,6 +2064,7 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 				error_field, mail->uid,
 				mailbox_get_last_error(importer->box, NULL));
 			importer->failed = TRUE;
+			mailbox_save_cancel(&save_ctx);
 			return;
 		}
 		dsync_mailbox_save_set_nonminimal(save_ctx, &mail2);
