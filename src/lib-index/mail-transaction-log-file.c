@@ -935,10 +935,11 @@ int mail_transaction_log_file_open(struct mail_transaction_log_file *file)
 
 static int
 log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
-				       const void *data, unsigned int size)
+				       const void *data, unsigned int trans_size)
 {
 	const struct mail_transaction_header_update *u = data;
 	const struct mail_index_header *ihdr;
+	const unsigned int size = trans_size - sizeof(struct mail_transaction_header);
 	const unsigned int offset_pos =
 		offsetof(struct mail_index_header, log_file_tail_offset);
 	const unsigned int offset_size = sizeof(ihdr->log_file_tail_offset);
@@ -961,6 +962,10 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 		if (tail_offset < file->saved_tail_offset) {
 			/* ignore shrinking tail offsets */
 			return 1;
+		} else if (tail_offset > file->sync_offset + trans_size) {
+			mail_transaction_log_file_set_corrupted(file,
+				"log_file_tail_offset %u goes past sync offset %"PRIuUOFF_T,
+				tail_offset, file->sync_offset + trans_size);
 		} else {
 			file->saved_tail_offset = tail_offset;
 			if (tail_offset > file->max_tail_offset)
@@ -1277,8 +1282,7 @@ log_file_track_sync(struct mail_transaction_log_file *file,
 	case MAIL_TRANSACTION_HEADER_UPDATE:
 		/* see if this updates mailbox_sync_offset */
 		ret = log_file_track_mailbox_sync_offset_hdr(file, data,
-							     trans_size -
-							     sizeof(*hdr));
+							     trans_size);
 		if (ret != 0)
 			return ret < 0 ? -1 : 1;
 		break;
