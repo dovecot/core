@@ -111,29 +111,14 @@ static int fetch_hdr(struct fetch_cmd_context *ctx)
 {
 	struct istream *input;
 	struct message_size hdr_size;
-	const unsigned char *data;
-	size_t size;
-	int ret = 0;
+	int ret;
 
 	if (mail_get_hdr_stream(ctx->mail, &hdr_size, &input) < 0)
 		return -1;
 
 	input = i_stream_create_limit(input, hdr_size.physical_size);
-	while (!i_stream_is_eof(input)) {
-		if (i_stream_read_data(input, &data, &size, 0) == -1)
-			break;
-		if (size == 0)
-			break;
-		doveadm_print_stream(data, size);
-		i_stream_skip(input, size);
-	}
-	if (input->stream_errno != 0) {
-		i_error("read(%s) failed: %s", i_stream_get_name(input),
-			i_stream_get_error(input));
-		ret = -1;
-	}
+	ret = doveadm_print_istream(input);
 	i_stream_unref(&input);
-	doveadm_print_stream("", 0);
 	return ret;
 }
 
@@ -206,56 +191,21 @@ static int fetch_body(struct fetch_cmd_context *ctx)
 {
 	struct istream *input;
 	struct message_size hdr_size;
-	const unsigned char *data;
-	size_t size;
-	int ret = 0;
 
 	if (mail_get_stream(ctx->mail, &hdr_size, NULL, &input) < 0)
 		return -1;
 
 	i_stream_skip(input, hdr_size.physical_size);
-	while (!i_stream_is_eof(input)) {
-		if (i_stream_read_data(input, &data, &size, 0) == -1)
-			break;
-		if (size == 0)
-			break;
-		doveadm_print_stream(data, size);
-		i_stream_skip(input, size);
-	}
-	if (input->stream_errno != 0) {
-		i_error("read(%s) failed: %s", i_stream_get_name(input),
-			i_stream_get_error(input));
-		ret = -1;
-	}
-	doveadm_print_stream("", 0);
-	return ret;
+	return doveadm_print_istream(input);
 }
 
 static int fetch_text(struct fetch_cmd_context *ctx)
 {
 	struct istream *input;
-	const unsigned char *data;
-	size_t size;
-	int ret = 0;
 
 	if (mail_get_stream(ctx->mail, NULL, NULL, &input) < 0)
 		return -1;
-
-	while (!i_stream_is_eof(input)) {
-		if (i_stream_read_data(input, &data, &size, 0) == -1)
-			break;
-		if (size == 0)
-			break;
-		doveadm_print_stream(data, size);
-		i_stream_skip(input, size);
-	}
-	if (input->stream_errno != 0) {
-		i_error("read(%s) failed: %s", i_stream_get_name(input),
-			i_stream_get_error(input));
-		ret = -1;
-	}
-	doveadm_print_stream("", 0);
-	return ret;
+	return doveadm_print_istream(input);
 }
 
 static int fetch_text_utf8(struct fetch_cmd_context *ctx)
