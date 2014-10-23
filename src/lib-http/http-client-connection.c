@@ -438,6 +438,7 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	   the payload. make sure here that it's switched back. */
 	net_set_nonblock(conn->conn.fd_in, TRUE);
 
+	req->conn = NULL;
 	conn->incoming_payload = NULL;
 	conn->pending_request = NULL;
 	http_client_request_finish(&req);
@@ -495,6 +496,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 	retrying = !http_client_request_callback(req, response);
 	http_client_connection_unref(&conn);
 	if (conn == NULL) {
+		req->conn = NULL;
 		/* the callback managed to get this connection destroyed */
 		if (!retrying)
 			http_client_request_finish(&req);
@@ -531,6 +533,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 			http_client_payload_finished(conn);
 		}
 	} else {
+		req->conn = NULL;
 		http_client_request_finish(&req);
 		http_client_request_unref(&req);
 	}
