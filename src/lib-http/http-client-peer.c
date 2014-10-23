@@ -592,6 +592,8 @@ void http_client_peer_connection_failure(struct http_client_peer *peer,
 			peer->backoff_time_msecs = set->connect_backoff_time_msecs;
 		else
 			peer->backoff_time_msecs *= 2;
+		if (peer->backoff_time_msecs > set->connect_backoff_max_time_msecs)
+			peer->backoff_time_msecs = set->connect_backoff_max_time_msecs;
 	}
 
 	if (pending > 1) {

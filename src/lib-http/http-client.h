@@ -95,6 +95,8 @@ struct http_client_settings {
 
 	/* Initial backoff time; doubled at each connection failure */
 	unsigned int connect_backoff_time_msecs;
+	/* Maximum backoff time */
+	unsigned int connect_backoff_max_time_msecs;
 
 	/* response header limits */
 	struct http_header_limits response_hdr_limits;

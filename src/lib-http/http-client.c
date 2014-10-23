@@ -125,6 +125,10 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 		set->connect_backoff_time_msecs == 0 ?
 			HTTP_CLIENT_DEFAULT_BACKOFF_TIME_MSECS :
 			set->connect_backoff_time_msecs;
+	client->set.connect_backoff_max_time_msecs =
+		set->connect_backoff_max_time_msecs == 0 ?
+			HTTP_CLIENT_DEFAULT_BACKOFF_MAX_TIME_MSECS :
+			set->connect_backoff_max_time_msecs;
 	client->set.no_auto_redirect = set->no_auto_redirect;
 	client->set.no_ssl_tunnel = set->no_ssl_tunnel;
 	client->set.max_redirects = set->max_redirects;
