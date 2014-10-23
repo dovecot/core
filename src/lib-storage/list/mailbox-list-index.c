@@ -169,15 +169,18 @@ void mailbox_list_index_node_unlink(struct mailbox_list_index *ilist,
 static int mailbox_list_index_parse_header(struct mailbox_list_index *ilist,
 					   struct mail_index_view *view)
 {
-	const void *data, *p;
+	const void *data, *name_start, *p;
 	size_t i, len, size;
 	uint32_t id, prev_id = 0;
+	string_t *str;
 	char *name;
+	int ret = 0;
 
 	mail_index_map_get_header_ext(view, view->map, ilist->ext_id, &data, &size);
 	if (size == 0)
 		return 0;
 
+	str = t_str_new(128);
 	for (i = sizeof(struct mailbox_list_index_header); i < size; ) {
 		/* get id */
 		if (i + sizeof(id) > size)
@@ -195,11 +198,18 @@ static int mailbox_list_index_parse_header(struct mailbox_list_index *ilist,
 		p = memchr(CONST_PTR_OFFSET(data, i), '\0', size-i);
 		if (p == NULL)
 			return -1;
-		len = (const char *)p -
-			(const char *)(CONST_PTR_OFFSET(data, i));
+		name_start = CONST_PTR_OFFSET(data, i);
+		len = (const char *)p - (const char *)name_start;
 
-		name = p_strndup(ilist->mailbox_pool,
-				 CONST_PTR_OFFSET(data, i), len);
+		if (uni_utf8_get_valid_data(name_start, len, str)) {
+			name = p_strndup(ilist->mailbox_pool, name_start, len);
+		} else {
+			/* corrupted index. fix the name. */
+			name = p_strdup(ilist->mailbox_pool, str_c(str));
+			str_truncate(str, 0);
+			ret = -1;
+		}
+
 		i += len + 1;
 
 		/* add id => name to hash table */
@@ -207,7 +217,7 @@ static int mailbox_list_index_parse_header(struct mailbox_list_index *ilist,
 		ilist->highest_name_id = id;
 	}
 	i_assert(i == size);
-	return 0;
+	return ret;
 }
 
 static void
