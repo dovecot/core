@@ -151,10 +151,12 @@ void http_client_queue_fail(struct http_client_queue *queue,
 	}
 	array_clear(req_arr);
 
-	/* all queues must be empty now */
-	i_assert(array_count(&queue->delayed_requests) == 0);
-	i_assert(array_count(&queue->queued_requests) == 0);
-	i_assert(array_count(&queue->queued_urgent_requests) == 0);
+	/* all queues should be empty now... unless new requests were submitted
+	   from the callback. this invariant captures it all: */
+	i_assert((array_count(&queue->delayed_requests) +
+		array_count(&queue->queued_requests) +
+		array_count(&queue->queued_urgent_requests)) ==
+		array_count(&queue->requests));
 }
 
 /*
