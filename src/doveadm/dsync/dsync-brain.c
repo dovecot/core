@@ -539,10 +539,6 @@ static bool dsync_brain_run_real(struct dsync_brain *brain, bool *changed_r)
 	if (brain->failed)
 		return FALSE;
 
-	if (brain->debug) {
-		i_debug("brain %c: in state=%s", brain->master_brain ? 'M' : 'S',
-			dsync_state_names[brain->state]);
-	}
 	switch (brain->state) {
 	case DSYNC_STATE_MASTER_RECV_HANDSHAKE:
 		changed = dsync_brain_master_recv_handshake(brain);
@@ -585,11 +581,6 @@ static bool dsync_brain_run_real(struct dsync_brain *brain, bool *changed_r)
 		changed = TRUE;
 		ret = FALSE;
 		break;
-	}
-	if (brain->debug) {
-		i_debug("brain %c: out state=%s changed=%d",
-			brain->master_brain ? 'M' : 'S',
-			dsync_state_names[brain->state], changed);
 	}
 	if (brain->verbose_proctitle) {
 		if (orig_state != brain->state ||

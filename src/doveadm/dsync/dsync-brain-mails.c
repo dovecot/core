@@ -315,13 +315,6 @@ bool dsync_brain_sync_mails(struct dsync_brain *brain)
 
 	i_assert(brain->box != NULL);
 
-	if (brain->debug) {
-		i_debug("brain %c: in box '%s' recv_state=%s send_state=%s",
-			brain->master_brain ? 'M' : 'S',
-			mailbox_get_vname(brain->box),
-			dsync_box_state_names[brain->box_recv_state],
-			dsync_box_state_names[brain->box_send_state]);
-	}
 	switch (brain->box_recv_state) {
 	case DSYNC_BOX_STATE_MAILBOX:
 		changed = dsync_brain_master_sync_recv_mailbox(brain);
@@ -371,13 +364,6 @@ bool dsync_brain_sync_mails(struct dsync_brain *brain)
 		case DSYNC_BOX_STATE_DONE:
 			break;
 		}
-	}
-	if (brain->debug) {
-		i_debug("brain %c: out box '%s' recv_state=%s send_state=%s changed=%d",
-			brain->master_brain ? 'M' : 'S',
-			brain->box == NULL ? "" : mailbox_get_vname(brain->box),
-			dsync_box_state_names[brain->box_recv_state],
-			dsync_box_state_names[brain->box_send_state], changed);
 	}
 	return changed;
 }
