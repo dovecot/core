@@ -95,7 +95,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 	/* copy our currently read buffer to it */
 	if (write_full(fd, sstream->membuf->data, sstream->membuf->used) < 0) {
 		if (!ENOSPACE(errno))
-			i_error("write_full(%s) failed: %m", path);
+			i_error("istream-seekable: write_full(%s) failed: %m", path);
 		i_close_fd(&fd);
 		return -1;
 	}
@@ -217,7 +217,7 @@ static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
 	data = buffer_append_space_unsafe(sstream->membuf, sstream->write_peak);
 
 	if (pread_full(sstream->fd, data, sstream->write_peak, 0) < 0) {
-		i_error("read(%s) failed: %m", sstream->temp_path);
+		i_error("istream-seekable: read(%s) failed: %m", sstream->temp_path);
 		buffer_free(&sstream->membuf);
 		return -1;
 	}
@@ -266,7 +266,7 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 		ret = write(sstream->fd, data, size);
 		if (ret <= 0) {
 			if (ret < 0 && !ENOSPACE(errno)) {
-				i_error("write_full(%s) failed: %m",
+				i_error("istream-seekable: write_full(%s) failed: %m",
 					sstream->temp_path);
 			}
 			if (i_stream_seekable_write_failed(sstream) < 0)
@@ -448,14 +448,14 @@ static int seekable_fd_callback(const char **path_r, void *context)
 	str_append(path, temp_path_prefix);
 	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
 	if (fd == -1) {
-		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
+		i_error("istream-seekable: safe_mkstemp(%s) failed: %m", str_c(path));
 		return -1;
 	}
 
 	/* we just want the fd, unlink it */
 	if (unlink(str_c(path)) < 0) {
 		/* shouldn't happen.. */
-		i_error("unlink(%s) failed: %m", str_c(path));
+		i_error("istream-seekable: unlink(%s) failed: %m", str_c(path));
 		i_close_fd(&fd);
 		return -1;
 	}
