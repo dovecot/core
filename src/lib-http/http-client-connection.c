@@ -725,9 +725,9 @@ static void http_client_connection_input(struct connection *_conn)
 				if (!http_client_connection_return_response(conn, req, &response))
 					return;
 			}
-
-			finished++;
 		}
+
+		finished++;
 
 		/* server closing connection? */
 		if (conn->close_indicated) {
