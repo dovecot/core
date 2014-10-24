@@ -1279,30 +1279,33 @@ static void auth_request_validate_networks(struct auth_request *request,
 	unsigned int bits;
 	bool found = FALSE;
 
-	if (request->remote_ip.family == 0) {
-		/* IP not known */
-		auth_request_log_info(request, AUTH_SUBSYS_DB,
-			"allow_nets check failed: Remote IP not known");
-		request->failed = TRUE;
-		return;
-	}
-
 	for (net = t_strsplit_spaces(networks, ", "); *net != NULL; net++) {
 		auth_request_log_debug(request, AUTH_SUBSYS_DB,
 			"allow_nets: Matching for network %s", *net);
+
+		if (strcmp(*net, "local") == 0 && request->remote_ip.family == 0) {
+			found = TRUE;
+			break;
+		}
 
 		if (net_parse_range(*net, &net_ip, &bits) < 0) {
 			auth_request_log_info(request, AUTH_SUBSYS_DB,
 				"allow_nets: Invalid network '%s'", *net);
 		}
 
-		if (net_is_in_network(&request->remote_ip, &net_ip, bits)) {
+		if (request->remote_ip.family != 0 &&
+		    net_is_in_network(&request->remote_ip, &net_ip, bits)) {
 			found = TRUE;
 			break;
 		}
 	}
 
-	if (!found) {
+	if (found)
+		;
+	else if (request->remote_ip.family == 0) {
+		auth_request_log_info(request, AUTH_SUBSYS_DB,
+			"allow_nets check failed: Remote IP not known and 'local' missing");
+	} else if (!found) {
 		auth_request_log_info(request, AUTH_SUBSYS_DB,
 			"allow_nets check failed: IP not in allowed networks");
 	}
