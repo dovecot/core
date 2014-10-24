@@ -243,11 +243,14 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 	unsigned int i, count;
 	uint32_t dest_seq1, prev_seq2, orig_rec_count;
 
+	range = array_get(seqs, &count);
+	if (count == 0)
+		return;
+	i_assert(count > 0);
+
 	map = mail_index_sync_get_atomic_map(ctx);
 
 	/* call the expunge handlers first */
-	range = array_get(seqs, &count);
-	i_assert(count > 0);
 	if (sync_expunge_handlers_init(ctx)) {
 		for (i = 0; i < count; i++) {
 			sync_expunge_call_handlers(ctx,
