@@ -7,7 +7,8 @@
 #endif
 
 #ifdef HAVE_QUOTA_OPEN
-#  include <quota.h> /* NetBSD with libquota */
+/* absolute path to avoid confusion with ./quota.h */
+#  include "/usr/include/quota.h" /* NetBSD with libquota */
 #endif
 
 #ifdef HAVE_SYS_QUOTA_H
