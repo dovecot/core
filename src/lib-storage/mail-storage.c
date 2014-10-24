@@ -1952,7 +1952,9 @@ mailbox_save_alloc(struct mailbox_transaction_context *t)
 {
 	struct mail_save_context *ctx;
 
-	ctx = t->box->v.save_alloc(t);
+	T_BEGIN {
+		ctx = t->box->v.save_alloc(t);
+	} T_END;
 	i_assert(!ctx->unfinished);
 	ctx->unfinished = TRUE;
 	ctx->data.received_date = (time_t)-1;
@@ -2069,9 +2071,9 @@ int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Saving messages not supported");
 		ret = -1;
-	} else {
+	} else T_BEGIN {
 		ret = box->v.save_begin(*ctx, input);
-	}
+	} T_END;
 
 	if (ret < 0) {
 		mailbox_save_cancel(ctx);
@@ -2082,7 +2084,12 @@ int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
 
 int mailbox_save_continue(struct mail_save_context *ctx)
 {
-	return ctx->transaction->box->v.save_continue(ctx);
+	int ret;
+
+	T_BEGIN {
+		ret = ctx->transaction->box->v.save_continue(ctx);
+	} T_END;
+	return ret;
 }
 
 static void
@@ -2119,7 +2126,9 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 	*_ctx = NULL;
 
 	ctx->finishing = TRUE;
-	ret = t->box->v.save_finish(ctx);
+	T_BEGIN {
+		ret = t->box->v.save_finish(ctx);
+	} T_END;
 	ctx->finishing = FALSE;
 
 	if (ret == 0 && !copying_via_save) {
@@ -2141,7 +2150,9 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 	struct mail_private *mail;
 
 	*_ctx = NULL;
-	ctx->transaction->box->v.save_cancel(ctx);
+	T_BEGIN {
+		ctx->transaction->box->v.save_cancel(ctx);
+	} T_END;
 	if (keywords != NULL && !ctx->finishing)
 		mailbox_keywords_unref(&keywords);
 	if (ctx->dest_mail != NULL) {
@@ -2185,7 +2196,9 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 		return -1;
 	}
 	ctx->finishing = TRUE;
-	ret = t->box->v.copy(ctx, backend_mail);
+	T_BEGIN {
+		ret = t->box->v.copy(ctx, backend_mail);
+	} T_END;
 	ctx->finishing = FALSE;
 	if (ret == 0) {
 		if (pvt_flags != 0)

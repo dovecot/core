@@ -59,8 +59,12 @@ bool mail_set_uid(struct mail *mail, uint32_t uid)
 bool mail_prefetch(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	bool ret;
 
-	return p->v.prefetch(mail);
+	T_BEGIN {
+		ret = p->v.prefetch(mail);
+	} T_END;
+	return ret;
 }
 
 void mail_add_temp_wanted_fields(struct mail *mail,
@@ -110,75 +114,115 @@ const ARRAY_TYPE(keyword_indexes) *mail_get_keyword_indexes(struct mail *mail)
 int mail_get_parts(struct mail *mail, struct message_part **parts_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
-	return p->v.get_parts(mail, parts_r);
+	T_BEGIN {
+		ret = p->v.get_parts(mail, parts_r);
+	} T_END;
+	return ret;
 }
 
 int mail_get_date(struct mail *mail, time_t *date_r, int *timezone_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
-	return p->v.get_date(mail, date_r, timezone_r);
+	T_BEGIN {
+		ret = p->v.get_date(mail, date_r, timezone_r);
+	} T_END;
+	return ret;
 }
 
 int mail_get_received_date(struct mail *mail, time_t *date_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
-	return p->v.get_received_date(mail, date_r);
+	T_BEGIN {
+		ret = p->v.get_received_date(mail, date_r);
+	} T_END;
+	return ret;
 }
 
 int mail_get_save_date(struct mail *mail, time_t *date_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
-	return p->v.get_save_date(mail, date_r);
+	T_BEGIN {
+		ret = p->v.get_save_date(mail, date_r);
+	} T_END;
+	return ret;
 }
 
 int mail_get_virtual_size(struct mail *mail, uoff_t *size_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
-	return p->v.get_virtual_size(mail, size_r);
+	T_BEGIN {
+		ret = p->v.get_virtual_size(mail, size_r);
+	} T_END;
+	return ret;
 }
 
 int mail_get_physical_size(struct mail *mail, uoff_t *size_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
-	return p->v.get_physical_size(mail, size_r);
+	T_BEGIN {
+		ret = p->v.get_physical_size(mail, size_r);
+	} T_END;
+	return ret;
 }
 
 int mail_get_first_header(struct mail *mail, const char *field,
 			  const char **value_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
-	return p->v.get_first_header(mail, field, FALSE, value_r);
+	T_BEGIN {
+		ret = p->v.get_first_header(mail, field, FALSE, value_r);
+	} T_END;
+	return ret;
 }
 
 int mail_get_first_header_utf8(struct mail *mail, const char *field,
 			       const char **value_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
-	return p->v.get_first_header(mail, field, TRUE, value_r);
+	T_BEGIN {
+		ret = p->v.get_first_header(mail, field, TRUE, value_r);
+	} T_END;
+	return ret;
 }
 
 int mail_get_headers(struct mail *mail, const char *field,
 		     const char *const **value_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
-	return p->v.get_headers(mail, field, FALSE, value_r);
+	T_BEGIN {
+		ret = p->v.get_headers(mail, field, FALSE, value_r);
+	} T_END;
+	return ret;
 }
 
 int mail_get_headers_utf8(struct mail *mail, const char *field,
 			  const char *const **value_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
-	return p->v.get_headers(mail, field, TRUE, value_r);
+	T_BEGIN {
+		ret = p->v.get_headers(mail, field, TRUE, value_r);
+	} T_END;
+	return ret;
 }
 
 int mail_get_header_stream(struct mail *mail,
@@ -186,8 +230,12 @@ int mail_get_header_stream(struct mail *mail,
 			   struct istream **stream_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
-	return p->v.get_header_stream(mail, headers, stream_r);
+	T_BEGIN {
+		ret = p->v.get_header_stream(mail, headers, stream_r);
+	} T_END;
+	return ret;
 }
 
 void mail_set_aborted(struct mail *mail)
@@ -333,7 +381,9 @@ void mail_expunge(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	p->v.expunge(mail);
+	T_BEGIN {
+		p->v.expunge(mail);
+	} T_END;
 }
 
 void mail_set_expunged(struct mail *mail)
