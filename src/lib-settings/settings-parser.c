@@ -962,7 +962,8 @@ int settings_parse_stream_read(struct setting_parser_context *ctx,
 			break;
 		if (input->stream_errno != 0) {
 			ctx->error = p_strdup_printf(ctx->parser_pool,
-						     "read() failed: %m");
+				"read(%s) failed: %s", i_stream_get_name(input),
+				i_stream_get_error(input));
 		} else if (input->v_offset == 0) {
 			ctx->error = p_strdup_printf(ctx->parser_pool,
 				"read(%s) disconnected before receiving any data",

@@ -100,7 +100,8 @@ static int script_contents_read(struct mail_user *user)
 		content->extensions = (const void *)(args+1);
 	}
 	if (input->stream_errno != 0) {
-		i_error("parser script read() failed: %m");
+		i_error("parser script read(%s) failed: %s", path,
+			i_stream_get_error(input));
 		ret = -1;
 	} else if (!eof_seen) {
 		if (input->v_offset == 0)

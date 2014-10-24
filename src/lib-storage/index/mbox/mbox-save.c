@@ -635,7 +635,8 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	if (ret == 0)
 		return 0;
 	if (ctx->input->stream_errno != 0) {
-		i_error("read(%s) failed: %m", i_stream_get_name(ctx->input));
+		i_error("read(%s) failed: %s", i_stream_get_name(ctx->input),
+			i_stream_get_error(ctx->input));
 		ctx->failed = TRUE;
 		return -1;
 	}

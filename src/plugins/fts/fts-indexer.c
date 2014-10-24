@@ -192,7 +192,9 @@ static int fts_indexer_input(struct fts_indexer_context *ctx)
 		}
 	}
 	if (ctx->input->stream_errno != 0) {
-		i_error("indexer read() failed: %m");
+		i_error("indexer read(%s) failed: %s",
+			i_stream_get_name(ctx->input),
+			i_stream_get_error(ctx->input));
 		return -1;
 	}
 	if (ctx->input->eof) {

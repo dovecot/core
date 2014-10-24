@@ -1644,8 +1644,9 @@ int mailbox_attribute_value_to_string(struct mail_storage *storage,
 		i_stream_skip(value->value_stream, size);
 	}
 	if (value->value_stream->stream_errno != 0) {
-		mail_storage_set_critical(storage, "read(%s) failed: %m",
-			i_stream_get_name(value->value_stream));
+		mail_storage_set_critical(storage, "read(%s) failed: %s",
+			i_stream_get_name(value->value_stream),
+			i_stream_get_error(value->value_stream));
 		return -1;
 	}
 	i_assert(value->value_stream->eof);
