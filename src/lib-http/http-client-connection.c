@@ -1265,18 +1265,24 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 
 	http_client_connection_disconnect(conn);
 
+	/* abort all pending requests (not supposed to happen here) */
 	if (array_is_created(&conn->request_wait_list)) {
-		/* abort all pending requests */
 		array_foreach_modifiable(&conn->request_wait_list, req) {
 			i_assert((*req)->submitted);
-			http_client_request_error(*req, HTTP_CLIENT_REQUEST_ERROR_ABORTED,
+			http_client_request_error(*req,
+				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
 				"Aborting");
+			http_client_request_unref(req);
 		}
 		array_free(&conn->request_wait_list);
 	}
 	if (conn->pending_request != NULL) {
-		http_client_request_error(conn->pending_request,
-			HTTP_CLIENT_REQUEST_ERROR_ABORTED, "Aborting");
+		struct http_client_request *pending_req = conn->pending_request;
+		conn->pending_request = NULL;
+		http_client_request_error(pending_req,
+ 			HTTP_CLIENT_REQUEST_ERROR_ABORTED,
+			"Aborting");
+		http_client_request_unref(&pending_req);
 	}
 
 	if (conn->http_parser != NULL)
