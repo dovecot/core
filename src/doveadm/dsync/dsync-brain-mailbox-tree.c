@@ -66,6 +66,7 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 		dsync_mailbox_tree_iter_init(brain->local_mailbox_tree);
 }
 
+
 void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 {
 	struct dsync_mailbox_node *node;
@@ -78,6 +79,12 @@ void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 					    &full_name, &node)) {
 		T_BEGIN {
 			const char *const *parts;
+
+			if (brain->debug) {
+				i_debug("brain %c: Local mailbox tree: %s %s",
+					brain->master_brain ? 'M' : 'S', full_name,
+					dsync_mailbox_node_to_string(node));
+			}
 
 			parts = t_strsplit(full_name, sep);
 			ret = dsync_ibc_send_mailbox_tree_node(brain->ibc,
@@ -301,14 +308,20 @@ bool dsync_brain_recv_mailbox_tree(struct dsync_brain *brain)
 	char sep[2];
 	bool changed = FALSE;
 
+	sep[0] = brain->hierarchy_sep; sep[1] = '\0';
 	while ((ret = dsync_ibc_recv_mailbox_tree_node(brain->ibc, &parts,
 						       &remote_node)) > 0) {
 		if (dsync_get_mailbox_name(brain, parts, &name, &ns) < 0) {
-			sep[0] = brain->hierarchy_sep; sep[1] = '\0';
 			i_error("Couldn't find namespace for mailbox %s",
 				t_strarray_join(parts, sep));
 			brain->failed = TRUE;
 			return TRUE;
+		}
+		if (brain->debug) {
+			i_debug("brain %c: Remote mailbox tree: %s %s",
+				brain->master_brain ? 'M' : 'S',
+				t_strarray_join(parts, sep),
+				dsync_mailbox_node_to_string(remote_node));
 		}
 		node = dsync_mailbox_tree_get(brain->remote_mailbox_tree, name);
 		node->ns = ns;
@@ -335,7 +348,9 @@ bool dsync_brain_recv_mailbox_tree(struct dsync_brain *brain)
 static void
 dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 				    struct dsync_mailbox_tree *other_tree,
-				    const struct dsync_mailbox_delete *other_del)
+				    const struct dsync_mailbox_delete *other_del,
+				    const struct dsync_mailbox_node **node_r,
+				    const char **status_r)
 {
 	const struct dsync_mailbox_node *node;
 	struct dsync_mailbox_node *other_node, *old_node;
@@ -343,9 +358,11 @@ dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 
 	/* see if we can find the deletion based on mailbox tree that should
 	   still have the mailbox */
-	node = dsync_mailbox_tree_find_delete(tree, other_del);
-	if (node == NULL)
+	node = *node_r = dsync_mailbox_tree_find_delete(tree, other_del);
+	if (node == NULL) {
+		*status_r = "not found";
 		return;
+	}
 
 	switch (other_del->type) {
 	case DSYNC_MAILBOX_DELETE_TYPE_MAILBOX:
@@ -355,6 +372,7 @@ dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 		if (other_del->timestamp <= node->last_renamed_or_created) {
 			/* we don't want to delete this directory, we already
 			   have a newer timestamp for it */
+			*status_r = "keep directory, we have a newer timestamp";
 			return;
 		}
 		break;
@@ -362,6 +380,7 @@ dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 		if (other_del->timestamp <= node->last_subscription_change) {
 			/* we don't want to unsubscribe, since we already have
 			   a newer subscription timestamp */
+			*status_r = "keep subscription, we have a newer timestamp";
 			return;
 		}
 		break;
@@ -376,6 +395,7 @@ dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 	     other_del->type != DSYNC_MAILBOX_DELETE_TYPE_MAILBOX)) {
 		/* other side has already created a new mailbox or
 		   directory with this name, we can't delete it */
+		*status_r = "name has already been recreated";
 		return;
 	}
 
@@ -390,14 +410,17 @@ dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 		   possible that one side has created mailboxes that conflict
 		   with another namespace's prefix. since we're here because
 		   one of the mailboxes was deleted, we'll just ignore this. */
+		*status_r = "namespace mismatch";
 		return;
 	}
 	other_node->ns = node->ns;
-	if (other_del->type != DSYNC_MAILBOX_DELETE_TYPE_UNSUBSCRIBE)
+	if (other_del->type != DSYNC_MAILBOX_DELETE_TYPE_UNSUBSCRIBE) {
 		other_node->existence = DSYNC_MAILBOX_NODE_DELETED;
-	else {
+		*status_r = "marked as deleted";
+	} else {
 		other_node->last_subscription_change = other_del->timestamp;
 		other_node->subscribed = FALSE;
+		*status_r = "marked as unsubscribed";
 	}
 
 	if (dsync_mailbox_tree_guid_hash_add(other_tree, other_node,
@@ -407,6 +430,8 @@ dsync_brain_mailbox_tree_add_delete(struct dsync_mailbox_tree *tree,
 
 bool dsync_brain_recv_mailbox_tree_deletes(struct dsync_brain *brain)
 {
+	const struct dsync_mailbox_node *node;
+	const char *status;
 	const struct dsync_mailbox_delete *deletes;
 	unsigned int i, count;
 	char sep;
@@ -420,7 +445,16 @@ bool dsync_brain_recv_mailbox_tree_deletes(struct dsync_brain *brain)
 	for (i = 0; i < count; i++) {
 		dsync_brain_mailbox_tree_add_delete(brain->local_mailbox_tree,
 						    brain->remote_mailbox_tree,
-						    &deletes[i]);
+						    &deletes[i], &node, &status);
+		if (brain->debug) {
+			const char *node_name = node == NULL ? "" :
+				dsync_mailbox_node_get_full_name(brain->local_mailbox_tree, node);
+			i_debug("brain %c: Remote mailbox tree deletion: guid=%s type=%s timestamp=%ld name=%s local update=%s",
+				brain->master_brain ? 'M' : 'S',
+				guid_128_to_string(deletes[i].guid),
+				dsync_mailbox_delete_type_to_string(deletes[i].type),
+				deletes[i].timestamp, node_name, status);
+		}
 	}
 
 	/* apply local mailbox deletions based on remote tree */
@@ -431,7 +465,7 @@ bool dsync_brain_recv_mailbox_tree_deletes(struct dsync_brain *brain)
 	for (i = 0; i < count; i++) {
 		dsync_brain_mailbox_tree_add_delete(brain->remote_mailbox_tree,
 						    brain->local_mailbox_tree,
-						    &deletes[i]);
+						    &deletes[i], &node, &status);
 	}
 
 	dsync_brain_mailbox_trees_sync(brain);

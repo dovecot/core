@@ -188,4 +188,8 @@ const struct dsync_mailbox_tree_sync_change *
 dsync_mailbox_trees_sync_next(struct dsync_mailbox_tree_sync_ctx *ctx);
 void dsync_mailbox_trees_sync_deinit(struct dsync_mailbox_tree_sync_ctx **ctx);
 
+const char *dsync_mailbox_node_to_string(const struct dsync_mailbox_node *node);
+const char *
+dsync_mailbox_delete_type_to_string(enum dsync_mailbox_delete_type type);
+
 #endif
