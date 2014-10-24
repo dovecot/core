@@ -23,6 +23,7 @@
 #define LOGIN_PROXY_IPC_NAME "proxy"
 #define KILLED_BY_ADMIN_REASON "Killed by admin"
 #define PROXY_IMMEDIATE_FAILURE_SECS 30
+#define PROXY_CONNECT_RETRY_MSECS 1000
 
 struct login_proxy {
 	struct login_proxy *prev, *next;
@@ -44,6 +45,7 @@ struct login_proxy {
 	unsigned int port;
 	unsigned int connect_timeout_msecs;
 	unsigned int notify_refresh_secs;
+	unsigned int reconnect_count;
 	enum login_proxy_ssl_flags ssl_flags;
 
 	proxy_callback_t *callback;
@@ -58,6 +60,8 @@ static struct login_proxy *login_proxies = NULL;
 static struct login_proxy *login_proxies_pending = NULL;
 static struct ipc_server *login_proxy_ipc_server;
 
+static int login_proxy_connect(struct login_proxy *proxy);
+static void login_proxy_disconnect(struct login_proxy *proxy);
 static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line);
 
 static void
@@ -224,6 +228,8 @@ proxy_log_connect_error(struct login_proxy *proxy)
 	}
 	str_printfa(str, " (after %u secs",
 		    (unsigned int)(ioloop_time - proxy->created.tv_sec));
+	if (proxy->reconnect_count > 0)
+		str_printfa(str, ", %u reconnects", proxy->reconnect_count);
 
 	if (proxy->server_fd != -1 &&
 	    net_getsockname(proxy->server_fd, &local_ip, &local_port) == 0) {
@@ -238,13 +244,40 @@ proxy_log_connect_error(struct login_proxy *proxy)
 	i_error("%s", str_c(str));
 }
 
+static void proxy_reconnect_timeout(struct login_proxy *proxy)
+{
+	timeout_remove(&proxy->to);
+	(void)login_proxy_connect(proxy);
+}
+
+static bool proxy_try_reconnect(struct login_proxy *proxy)
+{
+	int since_started_msecs, left_msecs;
+
+	since_started_msecs =
+		timeval_diff_msecs(&ioloop_timeval, &proxy->created);
+	if (since_started_msecs < 0)
+		return FALSE; /* time moved backwards */
+	left_msecs = proxy->connect_timeout_msecs - since_started_msecs;
+	if (left_msecs <= 0)
+		return FALSE;
+
+	login_proxy_disconnect(proxy);
+	proxy->to = timeout_add(I_MIN(PROXY_CONNECT_RETRY_MSECS, left_msecs),
+				proxy_reconnect_timeout, proxy);
+	proxy->reconnect_count++;
+	return TRUE;
+}
+
 static void proxy_wait_connect(struct login_proxy *proxy)
 {
 	errno = net_geterror(proxy->server_fd);
 	if (errno != 0) {
-		proxy_log_connect_error(proxy);
 		proxy_fail_connect(proxy);
-                login_proxy_free(&proxy);
+		if (!proxy_try_reconnect(proxy)) {
+			proxy_log_connect_error(proxy);
+			login_proxy_free(&proxy);
+		}
 		return;
 	}
 	proxy->connected = TRUE;
@@ -278,6 +311,11 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	struct login_proxy_record *rec;
 
 	rec = login_proxy_state_get(proxy_state, &proxy->ip, proxy->port);
+	if (rec->last_success.tv_sec == 0) {
+		/* first connect to this IP. don't start immediately failing
+		   the check below. */
+		rec->last_success.tv_sec = ioloop_timeval.tv_sec - 1;
+	}
 	if (timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
 	    rec->last_failure.tv_sec - rec->last_success.tv_sec > PROXY_IMMEDIATE_FAILURE_SECS &&
 	    rec->num_waiting_connections != 0) {
@@ -358,6 +396,26 @@ int login_proxy_new(struct client *client,
 	return 0;
 }
 
+static void login_proxy_disconnect(struct login_proxy *proxy)
+{
+	if (proxy->to != NULL)
+		timeout_remove(&proxy->to);
+	if (proxy->to_notify != NULL)
+		timeout_remove(&proxy->to_notify);
+
+	if (proxy->state_rec != NULL)
+		proxy->state_rec->num_waiting_connections--;
+
+	if (proxy->server_io != NULL)
+		io_remove(&proxy->server_io);
+	if (proxy->server_input != NULL)
+		i_stream_destroy(&proxy->server_input);
+	if (proxy->server_output != NULL)
+		o_stream_destroy(&proxy->server_output);
+	if (proxy->server_fd != -1)
+		net_disconnect(proxy->server_fd);
+}
+
 static void ATTR_NULL(2)
 login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
 {
@@ -371,22 +429,7 @@ login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
 		return;
 	proxy->destroying = TRUE;
 
-	if (proxy->to != NULL)
-		timeout_remove(&proxy->to);
-	if (proxy->to_notify != NULL)
-		timeout_remove(&proxy->to_notify);
-
-	if (proxy->state_rec != NULL)
-		proxy->state_rec->num_waiting_connections--;
-	if (proxy->to != NULL)
-		timeout_remove(&proxy->to);
-
-	if (proxy->server_io != NULL)
-		io_remove(&proxy->server_io);
-	if (proxy->server_input != NULL)
-		i_stream_destroy(&proxy->server_input);
-	if (proxy->server_output != NULL)
-		o_stream_destroy(&proxy->server_output);
+	login_proxy_disconnect(proxy);
 
 	if (proxy->client_fd != -1) {
 		/* detached proxy */
@@ -413,9 +456,6 @@ login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
 		if (proxy->callback != NULL)
 			proxy->callback(proxy->client);
 	}
-
-	if (proxy->server_fd != -1)
-		net_disconnect(proxy->server_fd);
 
 	if (proxy->ssl_server_proxy != NULL)
 		ssl_proxy_free(&proxy->ssl_server_proxy);
