@@ -54,6 +54,10 @@ http_client_request_debug(struct http_client_request *req,
  * Request
  */
 
+static void
+http_client_request_send_error(struct http_client_request *req,
+			       unsigned int status, const char *error);
+
 static struct http_client_request *
 http_client_request_new(struct http_client *client, const char *method, 
 		    http_client_request_callback_t *callback, void *context)
@@ -861,15 +865,13 @@ bool http_client_request_callback(struct http_client_request *req,
 	return TRUE;
 }
 
-void
+static void
 http_client_request_send_error(struct http_client_request *req,
 			       unsigned int status, const char *error)
 {
 	http_client_request_callback_t *callback;
 	bool sending = (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT);
 
-	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
-		return;
 	req->state = HTTP_REQUEST_STATE_ABORTED;
 
 	callback = req->callback;
@@ -890,8 +892,7 @@ void http_client_request_error_delayed(struct http_client_request **_req)
 {
 	struct http_client_request *req = *_req;
 
-	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
-		return;
+	i_assert(req->state == HTTP_REQUEST_STATE_ABORTED);
 
 	i_assert(req->delayed_error != NULL && req->delayed_error_status != 0);
 	http_client_request_send_error(req, req->delayed_error_status,
@@ -906,6 +907,7 @@ void http_client_request_error(struct http_client_request *req,
 {
 	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
 		return;
+	req->state = HTTP_REQUEST_STATE_ABORTED;
 
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
