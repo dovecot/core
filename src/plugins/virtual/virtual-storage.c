@@ -271,6 +271,21 @@ void virtual_backend_box_sync_mail_unset(struct virtual_backend_box *bbox)
 	}
 }
 
+static bool virtual_backend_box_can_close(struct virtual_backend_box *bbox)
+{
+	if (bbox->box->notify_callback != NULL) {
+		/* FIXME: IMAP IDLE running - we should support closing this
+		   also if mailbox_list_index=yes */
+		return FALSE;
+	}
+	if (array_count(&bbox->sync_pending_removes) > 0) {
+		/* FIXME: we could probably close this by making
+		   syncing support it? */
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static bool
 virtual_backend_box_close_any_except(struct virtual_mailbox *mbox,
 				     struct virtual_backend_box *except_bbox)
@@ -285,7 +300,7 @@ virtual_backend_box_close_any_except(struct virtual_mailbox *mbox,
 
 		if (bbox != except_bbox &&
 		    bbox->box->transaction_count == 0 &&
-		    bbox->box->notify_callback == NULL) {
+		    virtual_backend_box_can_close(bbox)) {
 			i_assert(bbox->sync_mail == NULL);
 			virtual_backend_box_close(mbox, bbox);
 			return TRUE;
@@ -298,7 +313,7 @@ virtual_backend_box_close_any_except(struct virtual_mailbox *mbox,
 		if (bbox != except_bbox &&
 		    bbox->sync_mail != NULL &&
 		    bbox->box->transaction_count == 1 &&
-		    bbox->box->notify_callback == NULL) {
+		    virtual_backend_box_can_close(bbox)) {
 			virtual_backend_box_sync_mail_unset(bbox);
 			i_assert(bbox->box->transaction_count == 0);
 			virtual_backend_box_close(mbox, bbox);

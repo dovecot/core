@@ -1108,12 +1108,13 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 				   MAILBOX_SYNC_FLAG_FAST);
 
 	if (bbox->search_result == NULL) {
-		/* first sync in this process. first try to quickly check
-		   if the mailbox has changed. if we can do that check from
-		   mailbox list index, we don't even need to open the
-		   mailbox. */
-		i_assert(array_count(&bbox->sync_pending_removes) == 0);
+		/* a) first sync in this process.
+		   b) we had auto-closed this backend mailbox.
 
+		   first try to quickly check if the mailbox has changed.
+		   if we can do that check from mailbox list index, we don't
+		   even need to open the mailbox. */
+		i_assert(array_count(&bbox->sync_pending_removes) == 0);
 		if (bbox_index_opened || bbox->open_failed) {
 			/* a) index already opened, refresh it
 			   b) delayed error handling for mailbox_open()
