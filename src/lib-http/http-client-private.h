@@ -147,6 +147,7 @@ struct http_client_connection {
 	unsigned int closing:1;
 	unsigned int close_indicated:1;
 	unsigned int output_locked:1;       /* output is locked; no pipelining */
+	unsigned int output_broken:1;       /* output is broken; no more requests */
 	unsigned int payload_continue:1;    /* received 100-continue for current
 	                                        request */
 	unsigned int in_req_callback:1;  /* performin request callback (busy) */

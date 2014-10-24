@@ -165,7 +165,7 @@ bool http_client_connection_is_ready(struct http_client_connection *conn)
 		return FALSE;
 	}
 
-	if (!conn->connected || conn->output_locked ||
+	if (!conn->connected || conn->output_locked || conn->output_broken ||
 		conn->close_indicated || conn->tunneling ||
 		http_client_connection_count_pending(conn) >=
 			conn->client->set.max_pipelined_requests)
@@ -208,6 +208,9 @@ http_client_connection_idle_timeout(struct http_client_connection *conn)
 void http_client_connection_check_idle(struct http_client_connection *conn)
 {
 	unsigned int timeout, count;
+
+	i_assert(!conn->close_indicated);
+	i_assert(!conn->output_broken);
 
 	if (conn->connected &&
 		array_is_created(&conn->request_wait_list) &&
@@ -312,6 +315,8 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 	if (req == NULL)
 		return 0;	
 
+	i_assert(req->state == HTTP_REQUEST_STATE_QUEUED);
+
 	if (conn->to_idle != NULL)
 		timeout_remove(&conn->to_idle);
 
@@ -328,7 +333,6 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 	if (conn->peer->no_payload_sync)
 		req->payload_sync = FALSE;
 
-	i_assert(req->state == HTTP_REQUEST_STATE_QUEUED);
 	array_append(&conn->request_wait_list, &req, 1);
 	http_client_request_ref(req);
 
@@ -552,11 +556,12 @@ static void http_client_connection_input(struct connection *_conn)
 	struct http_client_connection *conn =
 		(struct http_client_connection *)_conn;
 	struct http_response response;
-	struct http_client_request *const *req_idx;
+	struct http_client_request *const *reqs;
 	struct http_client_request *req = NULL;
+	enum http_response_payload_type payload_type;
+	unsigned int count;
 	int finished = 0, ret;
 	const char *error;
-	enum http_response_payload_type payload_type;
 
 	i_assert(conn->incoming_payload == NULL);
 
@@ -608,15 +613,23 @@ static void http_client_connection_input(struct connection *_conn)
 		timeout_reset(conn->to_requests);
 
 	/* get first waiting request */
-	if (array_count(&conn->request_wait_list) > 0) {
-		req_idx = array_idx(&conn->request_wait_list, 0);
-		req = req_idx[0];
+	reqs = array_get(&conn->request_wait_list, &count);
+	if (count > 0) {
+		req = reqs[0];
 
 		/* determine whether to expect a response payload */
 		payload_type = http_client_request_get_payload_type(req);
 	} else {
 		req = NULL;
 		payload_type = HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED;
+	}
+
+	/* drop connection with broken output if last possible input was
+	   received */
+	if (conn->output_broken && (count == 0 ||
+		(count == 1 && req->state == HTTP_REQUEST_STATE_ABORTED))) {
+		http_client_connection_server_close(&conn);
+		return;
 	}
 
 	// FIXME: handle somehow if server replies before request->input is at EOF
@@ -648,11 +661,21 @@ static void http_client_connection_input(struct connection *_conn)
 					"Got 100-continue response after timeout");
 				continue;
 			}
+
 			conn->peer->no_payload_sync = FALSE;
 			conn->peer->seen_100_response = TRUE;
 			conn->payload_continue = TRUE;
+
 			http_client_connection_debug(conn,
 				"Got expected 100-continue response");
+
+			if (req->state == HTTP_REQUEST_STATE_ABORTED) {
+				http_client_connection_debug(conn,
+					"Request aborted before sending payload was complete.");
+				http_client_connection_close(&conn);
+				return;
+			}
+
 			if (http_client_request_send_more(req, &error) < 0) {
 				http_client_connection_abort_temp_error(&conn,
 					HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
@@ -660,11 +683,11 @@ static void http_client_connection_input(struct connection *_conn)
 			}
 			return;
 		} else if (response.status / 100 == 1) {
-			/* ignore them for now */
+			/* ignore other 1xx for now */
 			http_client_connection_debug(conn,
 				"Got unexpected %u response; ignoring", response.status);
 			continue;
-		} 
+		}
 
 		http_client_connection_debug(conn,
 			"Got %u response for request %s (took %u ms + %u ms in queue)",
@@ -736,9 +759,9 @@ static void http_client_connection_input(struct connection *_conn)
 		}
 
 		/* get next waiting request */
-		if (array_count(&conn->request_wait_list) > 0) {
-			req_idx = array_idx(&conn->request_wait_list, 0);
-			req = req_idx[0];
+		reqs = array_get(&conn->request_wait_list, &count);
+		if (count > 0) {
+			req = reqs[0];
 
 			/* determine whether to expect a response payload */
 			payload_type = http_client_request_get_payload_type(req);
@@ -748,6 +771,14 @@ static void http_client_connection_input(struct connection *_conn)
 				timeout_remove(&conn->to_requests);
 			req = NULL;
 			payload_type = HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED;
+		}
+
+		/* drop connection with broken output if last possible input was
+		   received */
+		if (conn->output_broken && (count == 0 ||
+			(count == 1 && req->state == HTTP_REQUEST_STATE_ABORTED))) {
+			http_client_connection_server_close(&conn);
+			return;
 		}
 	}
 
@@ -783,8 +814,9 @@ static void http_client_connection_input(struct connection *_conn)
 
 int http_client_connection_output(struct http_client_connection *conn)
 {
-	struct http_client_request *const *req_idx, *req;
+	struct http_client_request *const *reqs;
 	struct ostream *output = conn->conn.output;
+	unsigned int count;
 	const char *error;
 	int ret;
 
@@ -802,14 +834,27 @@ int http_client_connection_output(struct http_client_connection *conn)
 		return ret;
 	}
 
+	i_assert(!conn->output_broken);
+
 	if (conn->ssl_iostream != NULL &&
 		!ssl_iostream_is_handshaked(conn->ssl_iostream))
 		return 1;
 
-	if (array_count(&conn->request_wait_list) > 0 && conn->output_locked) {
-		req_idx = array_idx(&conn->request_wait_list,
-			array_count(&conn->request_wait_list)-1);
-		req = req_idx[0];
+	reqs = array_get(&conn->request_wait_list, &count);
+	if (count > 0 && conn->output_locked) {
+		struct http_client_request *req = reqs[count-1];
+
+		if (req->state == HTTP_REQUEST_STATE_ABORTED) {
+			http_client_connection_debug(conn,
+				"Request aborted before sending payload was complete.");
+			if (count == 1) {
+				http_client_connection_close(&conn);
+			} else {
+				o_stream_unset_flush_callback(output);
+				conn->output_broken = TRUE;
+			}
+			return 1;
+		}
 
 		if (!req->payload_sync || conn->payload_continue) {
 			if (http_client_request_send_more(req, &error) < 0) {
