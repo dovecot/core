@@ -632,10 +632,9 @@ static void http_client_connection_input(struct connection *_conn)
 		return;
 	}
 
-	// FIXME: handle somehow if server replies before request->input is at EOF
 	while ((ret=http_response_parse_next
 		(conn->http_parser, payload_type, &response, &error)) > 0) {
-		bool aborted;
+		bool aborted, early = FALSE;
 
 		if (req == NULL) {
 			/* server sent response without any requests in the wait list */
@@ -687,6 +686,16 @@ static void http_client_connection_input(struct connection *_conn)
 			http_client_connection_debug(conn,
 				"Got unexpected %u response; ignoring", response.status);
 			continue;
+		} else 	if (!req->payload_sync &&
+			req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT) {
+			/* got early response from server while we're still sending request
+			   payload. we cannot recover from this reliably, so we stop sending
+			   payload and close the connection once the response is processed */
+			http_client_connection_debug(conn,
+				"Got early input from server; "
+				"request payload not completely sent (will close connection)");
+			o_stream_unset_flush_callback(conn->conn.output);
+			conn->output_broken = early = TRUE;
 		}
 
 		http_client_connection_debug(conn,
@@ -709,6 +718,18 @@ static void http_client_connection_input(struct connection *_conn)
 
 		if (!aborted) {
 			bool handled = FALSE;
+
+			/* response cannot be 2xx if request payload was not completely sent
+			 */
+			if (early && response.status / 100 == 2) {
+				http_client_request_error(req,
+					HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE,
+					"Server responded with success response "
+					"before all payload was sent");
+				http_client_request_unref(&req);
+				http_client_connection_close(&conn);
+				return;
+			} 
 
 			/* don't redirect/retry if we're sending data in small
 			   blocks via http_client_request_send_payload()
