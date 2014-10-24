@@ -326,6 +326,10 @@ static void pass_callback_finish(struct auth_request *auth_request,
 	str = t_str_new(128);
 	switch (result) {
 	case PASSDB_RESULT_OK:
+		if (auth_request->failed || !auth_request->passdb_success) {
+			str_printfa(str, "FAIL\t%u", auth_request->id);
+			break;
+		}
 		str_printfa(str, "PASS\t%u\tuser=", auth_request->id);
 		str_append_tabescaped(str, auth_request->user);
 		if (!auth_fields_is_empty(auth_request->extra_fields)) {
