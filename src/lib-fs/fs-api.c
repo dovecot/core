@@ -331,8 +331,9 @@ ssize_t fs_read_via_stream(struct fs_file *file, void *buf, size_t size)
 		return -1;
 	}
 	if (ret < 0 && file->pending_read_input->stream_errno != 0) {
-		fs_set_error(file->fs, "read(%s) failed: %m",
-			     i_stream_get_name(file->pending_read_input));
+		fs_set_error(file->fs, "read(%s) failed: %s",
+			     i_stream_get_name(file->pending_read_input),
+			     i_stream_get_error(file->pending_read_input));
 	} else {
 		ret = I_MIN(size, data_size);
 		memcpy(buf, data, ret);
@@ -422,8 +423,9 @@ int fs_write_via_stream(struct fs_file *file, const void *data, size_t size)
 		output = fs_write_stream(file);
 		if ((ret = o_stream_send(output, data, size)) < 0) {
 			err = errno;
-			fs_set_error(file->fs, "fs_write(%s) failed: %m",
-				     o_stream_get_name(output));
+			fs_set_error(file->fs, "fs_write(%s) failed: %s",
+				     o_stream_get_name(output),
+				     o_stream_get_error(output));
 			fs_write_stream_abort(file, &output);
 			errno = err;
 			return -1;
@@ -612,16 +614,18 @@ int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 	while (o_stream_send_istream(dest->copy_output, dest->copy_input) > 0) ;
 	if (dest->copy_input->stream_errno != 0) {
 		errno = dest->copy_input->stream_errno;
-		fs_set_error(dest->fs, "read(%s) failed: %m",
-			     i_stream_get_name(dest->copy_input));
+		fs_set_error(dest->fs, "read(%s) failed: %s",
+			     i_stream_get_name(dest->copy_input),
+			     i_stream_get_error(dest->copy_input));
 		i_stream_unref(&dest->copy_input);
 		fs_write_stream_abort(dest, &dest->copy_output);
 		return -1;
 	}
 	if (dest->copy_output->stream_errno != 0) {
 		errno = dest->copy_output->stream_errno;
-		fs_set_error(dest->fs, "write(%s) failed: %m",
-			     o_stream_get_name(dest->copy_output));
+		fs_set_error(dest->fs, "write(%s) failed: %s",
+			     o_stream_get_name(dest->copy_output),
+			     o_stream_get_error(dest->copy_output));
 		i_stream_unref(&dest->copy_input);
 		fs_write_stream_abort(dest, &dest->copy_output);
 		return -1;
