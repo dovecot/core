@@ -377,12 +377,17 @@ void index_storage_mailbox_close(struct mailbox *box)
 	ibox->sync_last_check = 0;
 }
 
-void index_storage_mailbox_free(struct mailbox *box)
+static void index_storage_mailbox_unref_indexes(struct mailbox *box)
 {
 	if (box->index_pvt != NULL)
 		mail_index_alloc_cache_unref(&box->index_pvt);
 	if (box->index != NULL)
 		mail_index_alloc_cache_unref(&box->index);
+}
+
+void index_storage_mailbox_free(struct mailbox *box)
+{
+	index_storage_mailbox_unref_indexes(box);
 }
 
 static void
@@ -730,6 +735,7 @@ int index_storage_mailbox_delete_post(struct mailbox *box)
 	   implementations if indexes are opened by another session, but
 	   that can't really be helped. */
 	mailbox_close(box);
+	index_storage_mailbox_unref_indexes(box);
 	mail_index_alloc_cache_destroy_unrefed();
 
 	if (box->list->v.delete_mailbox(box->list, box->name) < 0) {
