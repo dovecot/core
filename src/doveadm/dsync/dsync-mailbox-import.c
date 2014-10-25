@@ -370,8 +370,10 @@ dsync_attributes_cmp(const struct dsync_mailbox_attribute *attr,
 	return dsync_attributes_cmp_values(attr, local_attr, cmp_r);
 }
 
-int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
-				   const struct dsync_mailbox_attribute *attr)
+static int
+dsync_mailbox_import_attribute_real(struct dsync_mailbox_importer *importer,
+				    const struct dsync_mailbox_attribute *attr,
+				    const char **result_r)
 {
 	struct dsync_mailbox_attribute *local_attr;
 	struct mail_attribute_value value;
@@ -386,25 +388,31 @@ int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 	if (attr->deleted &&
 	    (local_attr == NULL || !DSYNC_ATTR_HAS_VALUE(local_attr))) {
 		/* attribute doesn't exist on either side -> ignore */
+		*result_r = "Nonexistent in both sides";
 		return 0;
 	}
 	if (local_attr == NULL) {
 		/* we haven't seen this locally -> use whatever remote has */
+		*result_r = "Nonexistent locally";
 	} else if (local_attr->modseq <= importer->last_common_modseq &&
 		   attr->modseq > importer->last_common_modseq &&
 		   importer->last_common_modseq > 0) {
 		/* we're doing incremental syncing, and we can see that the
 		   attribute was changed remotely, but not locally -> use it */
+		*result_r = "Changed remotely";
 	} else if (local_attr->modseq > importer->last_common_modseq &&
 		   attr->modseq <= importer->last_common_modseq &&
 		   importer->last_common_modseq > 0) {
 		/* we're doing incremental syncing, and we can see that the
 		   attribute was changed locally, but not remotely -> ignore */
+		*result_r = "Changed locally";
 		ignore = TRUE;
 	} else if (attr->last_change > local_attr->last_change) {
 		/* remote has a newer timestamp -> use it */
+		*result_r = "Remote has newer timestamp";
 	} else if (attr->last_change < local_attr->last_change) {
 		/* remote has an older timestamp -> ignore */
+		*result_r = "Local has newer timestamp";
 		ignore = TRUE;
 	} else {
 		/* the timestamps are the same. now we're down to guessing
@@ -418,17 +426,22 @@ int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 		}
 		if (cmp == 0) {
 			/* identical scripts */
+			*result_r = "Unchanged value";
 			return 0;
 		}
 
 		if (attr->modseq > local_attr->modseq) {
 			/* remote has a higher modseq -> use it */
+			*result_r = "Remote has newer modseq";
 		} else if (attr->modseq < local_attr->modseq) {
 			/* remote has an older modseq -> ignore */
+			*result_r = "Local has newer modseq";
 			ignore = TRUE;
+		} else if (cmp < 0) {
+			ignore = TRUE;
+			*result_r = "Value changed, but unknown which is newer - picking local";
 		} else {
-			if (cmp < 0)
-				ignore = TRUE;
+			*result_r = "Value changed, but unknown which is newer - picking remote";
 		}
 	}
 	if (ignore) {
@@ -452,6 +465,18 @@ int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 	if (local_attr != NULL && local_attr->value_stream != NULL)
 		i_stream_unref(&local_attr->value_stream);
 	return 0;
+}
+
+int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
+				   const struct dsync_mailbox_attribute *attr)
+{
+	const char *result;
+	int ret;
+
+	ret = dsync_mailbox_import_attribute_real(importer, attr, &result);
+	imp_debug(importer, "Import attribute %s: %s", attr->key,
+		  ret < 0 ? "failed" : result);
+	return ret;
 }
 
 static void dsync_mail_error(struct dsync_mailbox_importer *importer,
