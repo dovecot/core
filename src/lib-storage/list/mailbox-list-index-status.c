@@ -397,6 +397,12 @@ static int index_list_update_mailbox(struct mailbox *box)
 
 	if (ilist->syncing || ilist->updating_status)
 		return 0;
+	if (box->deleting) {
+		/* don't update status info while mailbox is being deleted.
+		   especially not a good idea if we're rollbacking a created
+		   mailbox that somebody else had just created */
+		return 0;
+	}
 	if (MAILBOX_IS_NEVER_IN_INDEX(box))
 		return 0;
 
