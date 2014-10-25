@@ -16,6 +16,9 @@
 struct index_mailbox_list {
 	struct mailbox_list list;
 	const char *temp_prefix;
+
+	const char *create_mailbox_name;
+	guid_128_t create_mailbox_guid;
 };
 
 extern struct mailbox_list index_mailbox_list;
@@ -135,6 +138,13 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 	}
 	if (!mailbox_list_set_get_root_path(&_list->set, type, &root_dir))
 		return 0;
+
+	if (list->create_mailbox_name != NULL &&
+	    strcmp(list->create_mailbox_name, name) == 0) {
+		*path_r = index_get_guid_path(_list, root_dir,
+					      list->create_mailbox_guid);
+		return 1;
+	}
 
 	if (ilist->sync_ctx != NULL) {
 		/* we could get here during sync from
@@ -338,19 +348,39 @@ index_list_mailbox_create(struct mailbox *box,
 			new_update = *update;
 		if (guid_128_is_empty(new_update.mailbox_guid))
 			guid_128_generate(new_update.mailbox_guid);
-		ret = index_list_mailbox_create_selectable(box, new_update.mailbox_guid);
-		if (ret < 0) {
-			mail_storage_copy_list_error(box->storage, box->list);
-			return -1;
+
+		/* create the backend mailbox first before it exists in the
+		   list. the mailbox creation wants to use get_path() though,
+		   so use a bit kludgy create_mailbox_* variables during the
+		   creation to return the path. we'll also support recursively
+		   creating more mailboxes in here. */
+		const char *old_name;
+		guid_128_t old_guid;
+
+		old_name = list->create_mailbox_name;
+		guid_128_copy(old_guid, list->create_mailbox_guid);
+
+		list->create_mailbox_name = box->name;
+		guid_128_copy(list->create_mailbox_guid, new_update.mailbox_guid);
+
+		ret = ibox->module_ctx.super.create_box(box, &new_update, FALSE);
+
+		if (ret == 0) {
+			/* backend mailbox was successfully created. now add it
+			   to the list. */
+			ret = index_list_mailbox_create_selectable(box, new_update.mailbox_guid);
+			if (ret < 0)
+				mail_storage_copy_list_error(box->storage, box->list);
+			if (ret <= 0) {
+				/* failed to add to list. rollback the backend
+				   mailbox creation */
+				(void)mailbox_delete(box);
+			}
 		}
-		if (ret > 0) {
-			/* mailbox entry was created. create the mailbox
-			   itself now after the mailbox list index is already
-			   unlocked (to avoid deadlocks in case the create_box()
-			   goes back to updating mailbox list index). */
-			if (ibox->module_ctx.super.create_box(box, update, FALSE) < 0)
-				return -1;
-		}
+		list->create_mailbox_name = old_name;
+		guid_128_copy(list->create_mailbox_guid, old_guid);
+		if (ret < 0)
+			return ret;
 	} else {
 		ret = 0;
 	}
@@ -460,13 +490,20 @@ index_list_delete_finish(struct mailbox_list *list, const char *name)
 }
 
 static int
-index_list_delete_entry(struct mailbox_list *list, const char *name,
+index_list_delete_entry(struct index_mailbox_list *list, const char *name,
 			bool delete_selectable)
 {
 	struct mailbox_list_index_sync_context *sync_ctx;
 	int ret;
 
-	if (mailbox_list_index_sync_begin(list, &sync_ctx) < 0)
+	if (strcmp(name, list->create_mailbox_name) == 0) {
+		/* we're rollbacking a failed create. if the name exists in the
+		   list, it was done by somebody else so we don't want to
+		   remove it. */
+		return 0;
+	}
+
+	if (mailbox_list_index_sync_begin(&list->list, &sync_ctx) < 0)
 		return -1;
 	ret = mailbox_list_index_sync_delete(sync_ctx, name, delete_selectable);
 	if (mailbox_list_index_sync_end(&sync_ctx, TRUE) < 0)
@@ -477,6 +514,7 @@ index_list_delete_entry(struct mailbox_list *list, const char *name,
 static int
 index_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 {
+	struct index_mailbox_list *list = (struct index_mailbox_list *)_list;
 	const char *path;
 	int ret;
 
@@ -498,7 +536,7 @@ index_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	if (ret == 0 || (_list->props & MAILBOX_LIST_PROP_AUTOCREATE_DIRS) != 0)
 		index_list_delete_finish(_list, name);
 	if (ret == 0) {
-		if (index_list_delete_entry(_list, name, TRUE) < 0)
+		if (index_list_delete_entry(list, name, TRUE) < 0)
 			return -1;
 	}
 	return ret;
@@ -507,9 +545,10 @@ index_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 static int
 index_list_delete_dir(struct mailbox_list *_list, const char *name)
 {
+	struct index_mailbox_list *list = (struct index_mailbox_list *)_list;
 	int ret;
 
-	if ((ret = index_list_delete_entry(_list, name, FALSE)) < 0)
+	if ((ret = index_list_delete_entry(list, name, FALSE)) < 0)
 		return -1;
 	if (ret == 0) {
 		mailbox_list_set_error(_list, MAIL_ERROR_EXISTS,
