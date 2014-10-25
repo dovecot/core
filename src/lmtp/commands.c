@@ -11,6 +11,7 @@
 #include "ostream.h"
 #include "istream-dot.h"
 #include "safe-mkstemp.h"
+#include "var-expand.h"
 #include "restrict-access.h"
 #include "settings-parser.h"
 #include "master-service.h"
@@ -626,6 +627,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	struct setting_parser_context *set_parser;
 	void **sets;
 	const char *line, *error, *username;
+	string_t *str;
 	enum mail_error mail_error;
 	int ret;
 
@@ -655,6 +657,11 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 				 rcpt->address);
 		return -1;
 	}
+	str = t_str_new(256);
+	var_expand(str, client->state.dest_user->set->mail_log_prefix,
+		   mail_user_var_expand_table(client->state.dest_user));
+	i_set_failure_prefix("%s", str_c(str));
+
 	sets = mail_storage_service_user_get_set(rcpt->service_user);
 	lda_set = sets[1];
 	settings_var_expand(&lda_setting_parser_info, lda_set, client->pool,
