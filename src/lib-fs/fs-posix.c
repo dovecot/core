@@ -610,11 +610,18 @@ static int fs_posix_stat(struct fs_file *_file, struct stat *st_r)
 
 static int fs_posix_copy(struct fs_file *_src, struct fs_file *_dest)
 {
+	struct posix_fs_file *dest = (struct posix_fs_file *)_dest;
 	struct posix_fs *fs = (struct posix_fs *)_src->fs;
 	unsigned int try_count = 0;
 	int ret;
 
 	ret = link(_src->path, _dest->path);
+	if (errno == EEXIST && dest->open_mode == FS_OPEN_MODE_REPLACE) {
+		/* destination file already exists - replace it */
+		if (unlink(_dest->path) < 0 && errno != ENOENT)
+			i_error("unlink(%s) failed: %m", _dest->path);
+		ret = link(_src->path, _dest->path);
+	}
 	while (ret < 0 && errno == ENOENT &&
 	       try_count <= MAX_MKDIR_RETRY_COUNT) {
 		if (fs_posix_mkdir_parents(fs, _dest->path) < 0)
