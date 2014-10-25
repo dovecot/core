@@ -1,3 +1,26 @@
+v2.2.15 2014-10-24  Timo Sirainen <tss@iki.fi>
+
+	* Plugins can now print a banner comment in doveconf output
+	  (typically the plugin version)
+	* Replication plugin now triggers low (instead of high) priority for
+	  mail copying operations.
+	* IMAP/POP3/ManageSieve proxy: If destination server can't be
+	  connected to, retry connecting once per second up to the value of
+	  proxy_timeout. This allows quick restarts/upgrades on the backend
+	  server without returning login failures.
+	* Internal passdb lookups (e.g. done by lmtp/doveadm proxy) wasn't
+	  returning failure in some situations where it should have (e.g.
+	  allow_nets mismatch)
+	* LMTP uses mail_log_prefix now for logging mail deliveries instead of
+	  a hardcoded prefix. The non-delivery log prefix is still hardcoded
+	  though.
+
+	+ passdb allow_nets=local matches lookups that don't contain an IP
+	  address (internally done by Dovecot services)
+	+ Various debug logging and error logging improvements
+	- Various race condition fixes to LAYOUT=index
+	- v2.2.14 virtual plugin crashed in some situations
+
 v2.2.14 2014-10-14  Timo Sirainen <tss@iki.fi>
 
 	* lmtp: Delivered-To: header no longer contains <> around the email
