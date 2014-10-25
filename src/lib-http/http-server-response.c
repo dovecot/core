@@ -259,10 +259,12 @@ int http_server_response_send_more(struct http_server_response *resp,
 	}
 
 	if (ret < 0 || i_stream_is_eof(resp->payload_input)) {
-		if (!resp->payload_chunked &&
-			resp->payload_input->v_offset - resp->payload_offset != resp->payload_size) {
-			i_error("stream input size changed"); //FIXME
-			return -1;
+		if (ret >= 0 && !resp->payload_chunked &&
+		    resp->payload_input->v_offset - resp->payload_offset != resp->payload_size) {
+			*error_r = t_strdup_printf(
+				"Input stream %s size changed unexpectedly",
+				i_stream_get_name(resp->payload_input));
+			ret = -1;
 		}
 
 		http_server_response_finish_payload_out(resp);
