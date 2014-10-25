@@ -1329,6 +1329,13 @@ int mailbox_mark_index_deleted(struct mailbox *box, bool del)
 	return 0;
 }
 
+static void mailbox_close_reset_path(struct mailbox *box)
+{
+	memset(&box->_perm, 0, sizeof(box->_perm));
+	box->_path = NULL;
+	box->_index_path = NULL;
+}
+
 int mailbox_delete(struct mailbox *box)
 {
 	int ret;
@@ -1357,6 +1364,10 @@ int mailbox_delete(struct mailbox *box)
 
 	box->deleting = FALSE;
 	mailbox_close(box);
+
+	/* if mailbox is reopened, its path may be different with
+	   LAYOUT=index */
+	mailbox_close_reset_path(box);
 	return ret;
 }
 
