@@ -541,6 +541,7 @@ int cmd_rcpt(struct client *client, const char *args)
 	input.remote_ip = client->remote_ip;
 	input.local_port = client->local_port;
 	input.remote_port = client->remote_port;
+	input.session_id = client->state.session_id;
 
 	ret = mail_storage_service_lookup(storage_service, &input,
 					  &rcpt.service_user, &error);
