@@ -749,6 +749,10 @@ void i_stream_default_seek_nonseekable(struct istream_private *stream,
 
 		available = stream->pos - stream->skip;
 		if (available == 0) {
+			if (stream->istream.stream_errno != 0) {
+				/* read failed */
+				return;
+			}
 			io_stream_set_error(&stream->iostream,
 				"Can't seek to offset %"PRIuUOFF_T
 				", because we have data only up to offset %"
