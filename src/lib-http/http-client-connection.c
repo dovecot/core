@@ -176,10 +176,9 @@ bool http_client_connection_is_ready(struct http_client_connection *conn)
 		/* Active ioloop is different from what we saw earlier;
 		   we may have missed a disconnection event on this connection.
 		   Verify status by reading from connection. */
-		if ((ret=i_stream_read(conn->conn.input)) < 0) {
+		if ((ret=i_stream_read(conn->conn.input)) == -1) {
 			int stream_errno = conn->conn.input->stream_errno;
 
-			i_assert(ret != -2);
 			i_assert(conn->conn.input->stream_errno != 0 || conn->conn.input->eof);
 			http_client_connection_abort_temp_error(&conn,
 				HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
