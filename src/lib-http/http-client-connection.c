@@ -209,9 +209,6 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 {
 	unsigned int timeout, count;
 
-	i_assert(!conn->close_indicated);
-	i_assert(!conn->output_broken);
-
 	if (conn->connected &&
 		array_is_created(&conn->request_wait_list) &&
 		array_count(&conn->request_wait_list) == 0 &&
