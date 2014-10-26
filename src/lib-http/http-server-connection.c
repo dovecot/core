@@ -229,6 +229,8 @@ static void http_server_payload_destroyed(struct http_server_request *req)
 		req->state = HTTP_SERVER_REQUEST_STATE_PROCESSING;
 		if (req->response != NULL && req->response->submitted)
 			http_server_request_submit_response(req);
+	} else if (req->state == HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE) {
+		http_server_request_ready_to_respond(req);
 	}
 
 	/* input stream may have pending input. make sure input handler
@@ -749,7 +751,7 @@ void http_server_connection_trigger_responses(
 bool
 http_server_connection_pending_payload(struct http_server_connection *conn)
 {
-	return http_request_parser_pending_payload(conn->http_parser);
+	return conn->incoming_payload != NULL;
 }
 
 static struct connection_settings http_server_connection_set = {
