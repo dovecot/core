@@ -143,26 +143,26 @@ log_parse_master_line(const char *line, const struct timeval *log_time,
 	struct log_client *client;
 	const char *p, *p2, *cmd;
 	unsigned int count;
-	int service_fd;
+	unsigned int service_fd;
 	pid_t pid;
 
 	p = strchr(line, ' ');
-	if (p == NULL || (p2 = strchr(++p, ' ')) == NULL) {
+	if (p == NULL || (p2 = strchr(++p, ' ')) == NULL ||
+	    str_to_uint(t_strcut(line, ' '), &service_fd) < 0) {
 		i_error("Received invalid input from master: %s", line);
 		return;
 	}
-	service_fd = atoi(t_strcut(line, ' '));
 	pid = strtol(t_strcut(p, ' '), NULL, 10);
 	cmd = p2 + 1;
 
 	logs = array_get(&logs_by_fd, &count);
-	if (service_fd >= (int)count || logs[service_fd] == NULL) {
-		if (strcmp(cmd, "BYE") == 0 && service_fd < (int)count) {
+	if (service_fd >= count || logs[service_fd] == NULL) {
+		if (strcmp(cmd, "BYE") == 0 && service_fd < count) {
 			/* master is probably shutting down and we already
 			   noticed the log fd closing */
 			return;
 		}
-		i_error("Received master input for invalid service_fd %d: %s",
+		i_error("Received master input for invalid service_fd %u: %s",
 			service_fd, line);
 		return;
 	}
