@@ -334,6 +334,7 @@ struct service_process *service_process_create(struct service *service)
 		drop_privileges(service);
 		process_exec(service->executable, NULL);
 	}
+	i_assert(hash_table_lookup(service_pids, POINTER_CAST(pid)) == NULL);
 
 	process = i_new(struct service_process, 1);
 	process->service = service;
