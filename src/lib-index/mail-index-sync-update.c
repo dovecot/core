@@ -246,7 +246,6 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 	range = array_get(seqs, &count);
 	if (count == 0)
 		return;
-	i_assert(count > 0);
 
 	map = mail_index_sync_get_atomic_map(ctx);
 
