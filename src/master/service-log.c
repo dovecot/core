@@ -55,6 +55,11 @@ service_process_write_log_bye(int fd, struct service_process *process)
 {
 	const char *data;
 
+	if (process->service->log_process_internal_fd == -1) {
+		/* another log process was just destroyed */
+		return 0;
+	}
+
 	data = t_strdup_printf("%d %s BYE\n",
 			       process->service->log_process_internal_fd,
 			       dec2str(process->pid));
