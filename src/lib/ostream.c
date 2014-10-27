@@ -134,7 +134,10 @@ void o_stream_uncork(struct ostream *stream)
 	if (unlikely(stream->closed))
 		return;
 
+	stream->stream_errno = 0;
 	_stream->cork(_stream, FALSE);
+	if (stream->stream_errno != 0)
+		errno = stream->last_failed_errno = stream->stream_errno;
 }
 
 bool o_stream_is_corked(struct ostream *stream)
