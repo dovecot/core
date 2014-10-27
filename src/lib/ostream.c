@@ -55,8 +55,12 @@ static void o_stream_close_full(struct ostream *stream, bool close_parents)
 		stream->closed = TRUE;
 	}
 
-	if (stream->stream_errno == 0)
+	if (stream->stream_errno != 0)
+		i_assert(stream->last_failed_errno != 0);
+	else {
 		stream->stream_errno = EPIPE;
+		stream->last_failed_errno = EPIPE;
+	}
 }
 
 void o_stream_destroy(struct ostream **stream)
@@ -516,6 +520,7 @@ o_stream_default_seek(struct ostream_private *_stream,
 		      uoff_t offset ATTR_UNUSED)
 {
 	_stream->ostream.stream_errno = ESPIPE;
+	_stream->ostream.last_failed_errno = ESPIPE;
 	return -1;
 }
 
@@ -525,6 +530,7 @@ o_stream_default_write_at(struct ostream_private *_stream,
 			  size_t size ATTR_UNUSED, uoff_t offset ATTR_UNUSED)
 {
 	_stream->ostream.stream_errno = ESPIPE;
+	_stream->ostream.last_failed_errno = ESPIPE;
 	return -1;
 }
 
