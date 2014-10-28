@@ -11,6 +11,7 @@ struct timeout_istream {
 
 	struct timeout *to;
 	struct timeval last_read_timestamp;
+	time_t created;
 
 	unsigned int timeout_msecs;
 	bool update_timestamp;
@@ -75,6 +76,13 @@ i_stream_timeout_read(struct istream_private *stream)
 	ret = i_stream_read_copy_from_parent(&stream->istream);
 	if (ret < 0) {
 		/* failed */
+		if (errno == ECONNRESET || errno == EPIPE) {
+			int diff = ioloop_time - tstream->created;
+
+			io_stream_set_error(&tstream->istream.iostream,
+				"%s (opened %d secs ago)",
+				i_stream_get_error(stream->parent), diff);
+		}
 	} else if (tstream->to == NULL) {
 		/* first read. add the timeout here instead of in init
 		   in case the stream is created long before it's actually
@@ -111,6 +119,7 @@ i_stream_create_timeout(struct istream *input, unsigned int timeout_msecs)
 	tstream->timeout_msecs = timeout_msecs;
 	tstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	tstream->istream.stream_size_passthrough = TRUE;
+	tstream->created = ioloop_time;
 
 	tstream->istream.read = i_stream_timeout_read;
 	tstream->istream.switch_ioloop = i_stream_timeout_switch_ioloop;
