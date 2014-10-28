@@ -149,7 +149,6 @@ void http_client_queue_fail(struct http_client_queue *queue,
 	array_foreach_modifiable(&treqs, req_idx) {
 		http_client_request_error(*req_idx, status, error);
 	}
-	array_clear(req_arr);
 
 	/* all queues should be empty now... unless new requests were submitted
 	   from the callback. this invariant captures it all: */
