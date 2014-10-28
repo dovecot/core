@@ -500,6 +500,8 @@ dsync_replicator_notify(struct dsync_cmd_context *ctx,
 		i_error("net_connect_unix(%s) failed: %m", path);
 		return;
 	}
+	fd_set_nonblock(fd, FALSE);
+
 	str = t_str_new(128);
 	str_append(str, REPLICATOR_HANDSHAKE"NOTIFY\t");
 	str_append_tabescaped(str, ctx->ctx.cur_mail_user->username);
