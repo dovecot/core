@@ -44,7 +44,6 @@ struct http_transfer_chunked_istream {
 
 	uoff_t chunk_size, chunk_v_offset, chunk_pos;
 	uoff_t size, max_size;
-	const char *error;
 
 	struct http_header_parser *header_parser;
 
@@ -78,7 +77,7 @@ static int http_transfer_chunked_parse_size
 			size = *tcstream->cur-'a' + 10;
 		else {
 			if (tcstream->parsed_chars == 0) {
-				tcstream->error = t_strdup_printf(
+				io_stream_set_error(&tcstream->istream.iostream,
 					"Expected chunk size digit, but found %s",
 					_chr_sanitize(*tcstream->cur));
 				return -1;
@@ -89,7 +88,8 @@ static int http_transfer_chunked_parse_size
 		tcstream->chunk_size <<= 4;
 		tcstream->chunk_size += size;
 		if (tcstream->chunk_size < prev) {
-			tcstream->error = "Chunk size exceeds integer limit";
+			io_stream_set_error(&tcstream->istream.iostream,
+					    "Chunk size exceeds integer limit");
 			return -1;
 		}
 		tcstream->parsed_chars++;
@@ -178,8 +178,10 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 		case HTTP_CHUNKED_PARSE_STATE_EXT_NAME:
 			/* chunk-ext-name = token */
 			if ((ret=http_transfer_chunked_skip_token(tcstream)) <= 0) {
-				if (ret < 0)
-					tcstream->error = "Invalid chunked extension name";
+				if (ret < 0) {
+					io_stream_set_error(&tcstream->istream.iostream,
+						"Invalid chunked extension name");
+				}
 				return ret;
 			}
 			tcstream->state = HTTP_CHUNKED_PARSE_STATE_EXT_EQ;
@@ -212,8 +214,10 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 				if (tcstream->cur >= tcstream->end)
 					return 0;
 			} else if ((ret=http_transfer_chunked_skip_qdtext(tcstream)) <= 0) {
-				if (ret < 0)
-					tcstream->error = "Invalid chunked extension value";
+				if (ret < 0) {
+					io_stream_set_error(&tcstream->istream.iostream,
+						"Invalid chunked extension value");
+				}
 				return ret;
 			} else if (*tcstream->cur == '\\') {
 				tcstream->cur++;
@@ -221,7 +225,7 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 				if (tcstream->cur >= tcstream->end)
 					return 0;
 			} else {
-				tcstream->error = t_strdup_printf(
+				io_stream_set_error(&tcstream->istream.iostream,
 					"Invalid character %s in chunked extension value string",
 					_chr_sanitize(*tcstream->cur));
 				return -1;
@@ -230,7 +234,7 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 		case HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_ESCAPE:
 			/* ( HTAB / SP / VCHAR / obs-text ) */
 			if (!http_char_is_text(*tcstream->cur)) {
-				tcstream->error = t_strdup_printf(
+				io_stream_set_error(&tcstream->istream.iostream,
 					"Escaped invalid character %s in chunked extension value string",
 					_chr_sanitize(*tcstream->cur));
 				return -1;
@@ -241,8 +245,10 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 			break;
 		case HTTP_CHUNKED_PARSE_STATE_EXT_VALUE_TOKEN:
 			if ((ret=http_transfer_chunked_skip_token(tcstream)) <= 0) {
-				if (ret < 0)
-					tcstream->error = "Invalid chunked extension value";
+				if (ret < 0) {
+					io_stream_set_error(&tcstream->istream.iostream,
+						"Invalid chunked extension value");
+				}
 				return ret;
 			}
 			tcstream->state = HTTP_CHUNKED_PARSE_STATE_EXT;
@@ -257,7 +263,7 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 			/* fall through */
 		case HTTP_CHUNKED_PARSE_STATE_LF:
 			if (*tcstream->cur != '\n') {
-				tcstream->error = t_strdup_printf(
+				io_stream_set_error(&tcstream->istream.iostream,
 					"Expected new line after chunk size, but found %s",
 					_chr_sanitize(*tcstream->cur));
 				return -1;
@@ -280,7 +286,7 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 			/* fall through */
 		case HTTP_CHUNKED_PARSE_STATE_DATA_LF:
 			if (*tcstream->cur != '\n') {
-				tcstream->error = t_strdup_printf(
+				io_stream_set_error(&tcstream->istream.iostream,
 					"Expected new line after chunk data, but found %s",
 					_chr_sanitize(*tcstream->cur));
 				return -1;
@@ -323,7 +329,8 @@ static int http_transfer_chunked_parse_next(
 
 				tcstream->size += tcstream->chunk_size;
 				if (tcstream->max_size > 0 && tcstream->size > tcstream->max_size) {
-					tcstream->error = "Total chunked payload size exceeds maximum";
+					io_stream_set_error(&tcstream->istream.iostream,
+						"Total chunked payload size exceeds maximum");
 					stream->istream.stream_errno = EMSGSIZE;
 					return -1;
 				}
@@ -337,11 +344,11 @@ static int http_transfer_chunked_parse_next(
 	if (ret < 0) {
 		if ( stream->parent->eof && stream->parent->stream_errno == 0 ) {
 			/* unexpected EOF */
-			tcstream->error = "Unexpected end of payload";
+			io_stream_set_error(&tcstream->istream.iostream,
+					    "Unexpected end of payload");
 			stream->istream.stream_errno = EIO;
 		} else {
 			/* parent stream error */
-			tcstream->error = "Stream error";
 			stream->istream.stream_errno = stream->parent->stream_errno;
 		}
 	}
@@ -374,11 +381,11 @@ http_transfer_chunked_istream_read_data(
 		if (ret <= 0 && (ret != -2 || stream->skip == 0)) {
 			if ( stream->parent->eof && stream->parent->stream_errno == 0 ) {
 				/* unexpected EOF */
-				tcstream->error = "Unexpected end of payload";
+				io_stream_set_error(&tcstream->istream.iostream,
+						    "Unexpected end of payload");
 				stream->istream.stream_errno = EIO;
 			} else {
 				/* parent stream error */
-				tcstream->error = "Stream error";
 				stream->istream.stream_errno = stream->parent->stream_errno;
 			}
 			return ret;
@@ -437,8 +444,8 @@ static int http_transfer_chunked_parse_trailer(
 
 	if (ret <= 0) {
 		if (ret < 0) {
-			tcstream->error = t_strdup_printf
-				("Failed to parse chunked trailer: %s", error);
+			io_stream_set_error(&stream->iostream,
+				"Failed to parse chunked trailer: %s", error);
 			stream->istream.stream_errno = EIO;
 		}
 		return ret;
