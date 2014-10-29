@@ -360,6 +360,8 @@ void connection_switch_ioloop(struct connection *conn)
 		conn->io = io_loop_move_io(&conn->io);
 	if (conn->to != NULL)
 		conn->to = io_loop_move_timeout(&conn->to);
+	if (conn->input != NULL)
+		i_stream_switch_ioloop(conn->input);
 	if (conn->output != NULL)
 		o_stream_switch_ioloop(conn->output);
 }
