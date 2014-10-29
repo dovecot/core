@@ -441,6 +441,7 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	req->conn = NULL;
 	conn->incoming_payload = NULL;
 	conn->pending_request = NULL;
+	http_client_connection_ref(conn);
 	http_client_request_finish(&req);
 
 	/* room for new requests */
@@ -457,6 +458,7 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 
 	i_assert(req != NULL);
 	http_client_request_unref(&req);
+	http_client_connection_unref(&conn);
 }
 
 static bool
