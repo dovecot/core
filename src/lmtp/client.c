@@ -12,7 +12,9 @@
 #include "var-expand.h"
 #include "settings-parser.h"
 #include "master-service.h"
+#include "master-service-ssl.h"
 #include "master-service-settings.h"
+#include "iostream-ssl.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
@@ -69,6 +71,9 @@ static int client_input_line(struct client *client, const char *line)
 
 	if (strcmp(cmd, "LHLO") == 0)
 		return cmd_lhlo(client, args);
+	if (strcmp(cmd, "STARTTLS") == 0 &&
+	    master_service_ssl_is_enabled(master_service))
+		return cmd_starttls(client);
 	if (strcmp(cmd, "MAIL") == 0)
 		return cmd_mail(client, args);
 	if (strcmp(cmd, "RCPT") == 0)
@@ -274,6 +279,8 @@ void client_destroy(struct client *client, const char *prefix,
 		io_remove(&client->io);
 	if (client->to_idle != NULL)
 		timeout_remove(&client->to_idle);
+	if (client->ssl_iostream != NULL)
+		ssl_iostream_destroy(&client->ssl_iostream);
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
 
@@ -290,6 +297,16 @@ void client_destroy(struct client *client, const char *prefix,
 
 static const char *client_get_disconnect_reason(struct client *client)
 {
+	const char *err;
+
+	if (client->ssl_iostream != NULL &&
+	    !ssl_iostream_is_handshaked(client->ssl_iostream)) {
+		err = ssl_iostream_get_last_error(client->ssl_iostream);
+		if (err != NULL) {
+			return t_strdup_printf("TLS handshaking failed: %s",
+					       err);
+		}
+	}
 	errno = client->input->stream_errno != 0 ?
 		client->input->stream_errno :
 		client->output->stream_errno;

@@ -11,6 +11,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-lda \
+	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index \
 	-I$(top_srcdir)/src/lib-storage/index/raw

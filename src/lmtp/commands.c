@@ -15,6 +15,8 @@
 #include "restrict-access.h"
 #include "settings-parser.h"
 #include "master-service.h"
+#include "master-service-ssl.h"
+#include "iostream-ssl.h"
 #include "rfc822-parser.h"
 #include "message-date.h"
 #include "auth-master.h"
@@ -70,6 +72,9 @@ int cmd_lhlo(struct client *client, const char *args)
 
 	client_state_reset(client);
 	client_send_line(client, "250-%s", client->my_domain);
+	if (master_service_ssl_is_enabled(master_service) &&
+	    client->ssl_iostream == NULL)
+		client_send_line(client, "250-STARTTLS");
 	if (client_is_trusted(client))
 		client_send_line(client, "250-XCLIENT ADDR PORT TTL TIMEOUT");
 	client_send_line(client, "250-8BITMIME");
@@ -79,6 +84,34 @@ int cmd_lhlo(struct client *client, const char *args)
 	i_free(client->lhlo);
 	client->lhlo = i_strdup(str_c(domain));
 	client_state_set(client, "LHLO");
+	return 0;
+}
+
+int cmd_starttls(struct client *client)
+{
+	struct ostream *plain_output = client->output;
+	const char *error;
+
+	if (client->ssl_iostream != NULL) {
+		o_stream_nsend_str(client->output,
+				   "443 5.5.1 TLS is already active.\r\n");
+		return 0;
+	}
+
+	if (master_service_ssl_init(master_service,
+				    &client->input, &client->output,
+				    &client->ssl_iostream, &error) < 0) {
+		i_error("TLS initialization failed: %s", error);
+		o_stream_nsend_str(client->output,
+			"454 4.7.0 Internal error, TLS not available.\r\n");
+		return 0;
+	}
+	o_stream_nsend_str(plain_output,
+			   "220 2.0.0 Begin TLS negotiation now.\r\n");
+	if (ssl_iostream_handshake(client->ssl_iostream) < 0) {
+		client_destroy(client, NULL, NULL);
+		return -1;
+	}
 	return 0;
 }
 

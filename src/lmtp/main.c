@@ -78,7 +78,8 @@ int main(int argc, char *argv[])
 		&lmtp_setting_parser_info,
 		NULL
 	};
-	enum master_service_flags service_flags = 0;
+	enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS;
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
@@ -91,7 +92,7 @@ int main(int argc, char *argv[])
 		service_flags |= MASTER_SERVICE_FLAG_STANDALONE |
 			MASTER_SERVICE_FLAG_STD_CLIENT;
 	} else {
-		service_flags |= MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
+		service_flags |= MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN  ;
 	}
 
 	master_service = master_service_init("lmtp", service_flags,

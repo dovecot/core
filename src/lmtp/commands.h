@@ -4,6 +4,7 @@
 struct client;
 
 int cmd_lhlo(struct client *client, const char *args);
+int cmd_starttls(struct client *client);
 int cmd_mail(struct client *client, const char *args);
 int cmd_rcpt(struct client *client, const char *args);
 int cmd_quit(struct client *client, const char *args);

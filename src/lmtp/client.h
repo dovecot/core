@@ -48,6 +48,7 @@ struct client {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+	struct ssl_iostream *ssl_iostream;
 
 	struct timeout *to_idle;
 	time_t last_input;
