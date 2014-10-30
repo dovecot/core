@@ -192,6 +192,7 @@ static void master_login_client_free(struct master_login_client **_client)
 		client->conn->refcount--;
 	}
 	master_login_conn_unref(&client->conn);
+	i_free(client->session_id);
 	i_free(client);
 }
 
@@ -419,10 +420,6 @@ static void master_login_conn_input(struct master_login_connection *conn)
 			break;
 		}
 	}
-	if (session_len >= sizeof(client->session_id)) {
-		i_error("login client: Session ID too long");
-		session_len = 0;
-	}
 
 	/* @UNSAFE: we have a request. do userdb lookup for it. */
 	req.data_size -= i;
@@ -430,7 +427,7 @@ static void master_login_conn_input(struct master_login_connection *conn)
 	client->conn = conn;
 	client->fd = client_fd;
 	client->auth_req = req;
-	memcpy(client->session_id, data, session_len);
+	client->session_id = i_strndup(data, session_len);
 	memcpy(client->data, data+i, req.data_size);
 	conn->refcount++;
 
