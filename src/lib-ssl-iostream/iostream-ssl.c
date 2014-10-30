@@ -40,7 +40,10 @@ static int ssl_module_load(const char **error_r)
 		return -1;
 	}
 
-	lib_atexit(ssl_module_unload);
+	/* Destroy SSL module after (most of) the others. Especially lib-fs
+	   backends may still want to access SSL module in their own
+	   atexit-callbacks. */
+	lib_atexit_priority(ssl_module_unload, LIB_ATEXIT_PRIORITY_LOW);
 	ssl_module_loaded = TRUE;
 	return 0;
 #else
