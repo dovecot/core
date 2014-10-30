@@ -44,6 +44,10 @@ typedef void lib_atexit_callback_t(void);
 #include "strfuncs.h"
 #include "strnum.h"
 
+#define LIB_ATEXIT_PRIORITY_HIGH -10
+#define LIB_ATEXIT_PRIORITY_DEFAULT 0
+#define LIB_ATEXIT_PRIORITY_LOW 10
+
 int close_keep_errno(int *fd);
 
 /* Call the given callback at the beginning of lib_deinit(). The main
@@ -51,6 +55,9 @@ int close_keep_errno(int *fd);
    functions are still available. Also if lib_atexit() is called multiple times
    to the same callback, it's added only once. */
 void lib_atexit(lib_atexit_callback_t *callback);
+/* Specify the order in which the callback is called. Lowest numbered
+   priorities are called first. lib_atexit() is called with priority=0. */
+void lib_atexit_priority(lib_atexit_callback_t *callback, int priority);
 /* Manually run the atexit callbacks. lib_deinit() also does this if not
    explicitly called. */
 void lib_atexit_run(void);

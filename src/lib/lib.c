@@ -11,7 +11,12 @@
 #include <unistd.h>
 #include <sys/time.h>
 
-static ARRAY(lib_atexit_callback_t *) atexit_callbacks = ARRAY_INIT;
+struct atexit_callback {
+	int priority;
+	lib_atexit_callback_t *callback;
+};
+
+static ARRAY(struct atexit_callback) atexit_callbacks = ARRAY_INIT;
 
 int close_keep_errno(int *fd)
 {
@@ -27,7 +32,13 @@ int close_keep_errno(int *fd)
 
 void lib_atexit(lib_atexit_callback_t *callback)
 {
-	lib_atexit_callback_t *const *callbacks;
+	lib_atexit_priority(callback, 0);
+}
+
+void lib_atexit_priority(lib_atexit_callback_t *callback, int priority)
+{
+	struct atexit_callback *cb;
+	const struct atexit_callback *callbacks;
 	unsigned int i, count;
 
 	if (!array_is_created(&atexit_callbacks))
@@ -36,20 +47,31 @@ void lib_atexit(lib_atexit_callback_t *callback)
 		/* skip if it's already added */
 		callbacks = array_get(&atexit_callbacks, &count);
 		for (i = count; i > 0; i--) {
-			if (callbacks[i-1] == callback)
+			if (callbacks[i-1].callback == callback) {
+				i_assert(callbacks[i-1].priority == priority);
 				return;
+			}
 		}
 	}
-	array_append(&atexit_callbacks, &callback, 1);
+	cb = array_append_space(&atexit_callbacks);
+	cb->priority = priority;
+	cb->callback = callback;
+}
+
+static int atexit_callback_priority_cmp(const struct atexit_callback *cb1,
+					const struct atexit_callback *cb2)
+{
+	return cb1->priority - cb2->priority;
 }
 
 void lib_atexit_run(void)
 {
-	lib_atexit_callback_t *const *cbp;
+	const struct atexit_callback *cb;
 
 	if (array_is_created(&atexit_callbacks)) {
-		array_foreach(&atexit_callbacks, cbp)
-			(**cbp)();
+		array_sort(&atexit_callbacks, atexit_callback_priority_cmp);
+		array_foreach(&atexit_callbacks, cb)
+			(*cb->callback)();
 		array_free(&atexit_callbacks);
 	}
 }
