@@ -155,12 +155,12 @@ client_update_info(struct imap_client *client,
 		client->common.local_port = atoi(value);
 	else if (strcasecmp(key, "x-proxy-ttl") == 0)
 		client->common.proxy_ttl = atoi(value);
-	else if (strcasecmp(key, "x-session-id") == 0) {
-		client->common.session_id =
-			p_strdup(client->common.pool, value);
-	} else if (strcasecmp(key, "x-session-ext-id") == 0) {
-		client->common.session_id =
-			p_strdup(client->common.pool, value);
+	else if (strcasecmp(key, "x-session-id") == 0 ||
+		 strcasecmp(key, "x-session-ext-id") == 0) {
+		if (strlen(value) <= LOGIN_MAX_SESSION_ID_LEN) {
+			client->common.session_id =
+				p_strdup(client->common.pool, value);
+		}
 	}
 }
 
