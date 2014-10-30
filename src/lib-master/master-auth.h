@@ -18,7 +18,7 @@ struct master_service;
    values may be max. 1024 bytes plus 2 for "" quotes. (Although it could be
    even double of that when value is full of \" quotes, but for now lets not
    make it too easy to waste memory..) */
-#define MASTER_AUTH_MAX_DATA_SIZE (1024 + 128 + 33 + 2)
+#define MASTER_AUTH_MAX_DATA_SIZE (1024 + 128 + 64 + 2)
 
 #define MASTER_AUTH_ERRMSG_INTERNAL_FAILURE \
 	"Internal error occurred. Refer to server log for more information."
