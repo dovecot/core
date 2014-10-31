@@ -11,7 +11,7 @@ struct ssl_iostream_context {
 	pool_t pool;
 	const struct ssl_iostream_settings *set;
 
-	DH *dh_512, *dh_1024;
+	DH *dh_512, *dh_default;
 	int username_nid;
 
 	unsigned int client_ctx:1;

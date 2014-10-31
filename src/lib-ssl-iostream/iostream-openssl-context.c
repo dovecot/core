@@ -77,7 +77,7 @@ static DH *ssl_tmp_dh_callback(SSL *ssl ATTR_UNUSED,
 	if (is_export && keylength == 512 && ssl_io->ctx->dh_512 != NULL)
 		return ssl_io->ctx->dh_512;
 	else
-		return ssl_io->ctx->dh_1024;
+		return ssl_io->ctx->dh_default;
 }
 
 static int

@@ -93,13 +93,14 @@ read_dh_parameters_next(struct ssl_iostream_context *ctx,
 
 	switch (bits) {
 	case 512:
+		if (ctx->dh_512 != NULL)
+			return -1;
 		ctx->dh_512 = dh;
 		break;
-	case 1024:
-		ctx->dh_1024 = dh;
-		break;
 	default:
-		ret = -1;
+		if (ctx->dh_default != NULL)
+			return -1;
+		ctx->dh_default = dh;
 		break;
 	}
 	return ret;
@@ -126,8 +127,8 @@ void openssl_iostream_context_free_params(struct ssl_iostream_context *ctx)
 		DH_free(ctx->dh_512);
                 ctx->dh_512 = NULL;
 	}
-	if (ctx->dh_1024 != NULL) {
-		DH_free(ctx->dh_1024);
-                ctx->dh_1024 = NULL;
+	if (ctx->dh_default != NULL) {
+		DH_free(ctx->dh_default);
+                ctx->dh_default = NULL;
 	}
 }
