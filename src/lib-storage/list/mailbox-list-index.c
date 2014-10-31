@@ -238,11 +238,27 @@ mailbox_list_index_generate_name(struct mailbox_list_index *ilist,
 		ilist->highest_name_id = node->name_id;
 }
 
+static int mailbox_list_index_node_cmp(const struct mailbox_list_index_node *n1,
+				       const struct mailbox_list_index_node *n2)
+{
+	return  n1->parent == n2->parent &&
+		strcmp(n1->name, n2->name) == 0 ? 0 : -1;
+}
+
+static unsigned int
+mailbox_list_index_node_hash(const struct mailbox_list_index_node *node)
+{
+	return str_hash(node->name) ^
+		POINTER_CAST_TO(node->parent, unsigned int);
+}
+
 static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 					    struct mail_index_view *view,
 					    const char **error_r)
 {
 	struct mailbox_list_index_node *node;
+	HASH_TABLE(struct mailbox_list_index_node *,
+		   struct mailbox_list_index_node *) duplicate_hash;
 	const struct mail_index_record *rec;
 	const struct mailbox_list_index_record *irec;
 	const void *data;
@@ -251,6 +267,9 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 
 	*error_r = NULL;
 
+	hash_table_create(&duplicate_hash, default_pool, 0,
+			  mailbox_list_index_node_hash,
+			  mailbox_list_index_node_cmp);
 	count = mail_index_view_get_messages_count(view);
 	for (seq = 1; seq <= count; seq++) {
 		node = p_new(ilist->mailbox_pool,
@@ -263,7 +282,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 				      &data, &expunged);
 		if (data == NULL) {
 			*error_r = "Missing list extension data";
-			return -1;
+			break;
 		}
 		irec = data;
 
@@ -273,7 +292,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 		if (node->name == NULL) {
 			*error_r = "name_id not in index header";
 			if (ilist->has_backing_store)
-				return -1;
+				break;
 			/* generate a new name and use it */
 			mailbox_list_index_generate_name(ilist, node);
 		}
@@ -284,6 +303,8 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 	/* do a second scan to create the actual mailbox tree hierarchy.
 	   this is needed because the parent_uid may be smaller or higher than
 	   the current node's uid */
+	if (*error_r != NULL)
+		count = 0;
 	for (seq = 1; seq <= count; seq++) {
 		mail_index_lookup_uid(view, seq, &uid);
 		mail_index_lookup_ext(view, seq, ilist->ext_id,
@@ -304,12 +325,33 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			}
 			*error_r = "parent_uid points to nonexistent record";
 			if (ilist->has_backing_store)
-				return -1;
+				break;
 			/* just place it under the root */
+		}
+		if (hash_table_lookup(duplicate_hash, node) == NULL)
+			hash_table_insert(duplicate_hash, node, node);
+		else {
+			guid_128_t guid;
+
+			if (ilist->has_backing_store) {
+				*error_r = "Duplicate mailbox in index";
+				break;
+			}
+
+			/* we have only the mailbox list index and this node
+			   may have a different GUID, so rename it. */
+			guid_128_generate(guid);
+			node->name = p_strdup_printf(ilist->mailbox_pool,
+						     "%s-duplicate-%s", node->name,
+						     guid_128_to_string(guid));
+			*error_r = t_strdup_printf(
+				"Duplicate mailbox in index, renaming to %s",
+				node->name);
 		}
 		node->next = ilist->mailbox_tree;
 		ilist->mailbox_tree = node;
 	}
+	hash_table_destroy(&duplicate_hash);
 	return *error_r == NULL ? 0 : -1;
 }
 
