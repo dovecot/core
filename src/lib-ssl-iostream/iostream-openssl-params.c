@@ -8,8 +8,6 @@
    default.. */
 #define DH_GENERATOR 2
 
-static int dh_param_bitsizes[] = { 512, 1024 };
-
 static int
 generate_dh_parameters(int bitsize, buffer_t *output, const char **error_r)
 {
@@ -43,13 +41,13 @@ generate_dh_parameters(int bitsize, buffer_t *output, const char **error_r)
 	return 0;
 }
 
-int openssl_iostream_generate_params(buffer_t *output, const char **error_r)
+int openssl_iostream_generate_params(buffer_t *output, unsigned int dh_length,
+				     const char **error_r)
 {
-	unsigned int i;
-
-	for (i = 0; i < N_ELEMENTS(dh_param_bitsizes); i++) {
-		if (generate_dh_parameters(dh_param_bitsizes[i],
-					   output, error_r) < 0)
+	if (generate_dh_parameters(512, output, error_r) < 0)
+		return -1;
+	if (dh_length != 512) {
+		if (generate_dh_parameters(dh_length, output, error_r) < 0)
 			return -1;
 	}
 	buffer_append_zero(output, sizeof(int));

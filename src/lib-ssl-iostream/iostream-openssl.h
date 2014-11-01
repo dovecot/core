@@ -93,7 +93,8 @@ int openssl_iostream_handle_write_error(struct ssl_iostream *ssl_io, int ret,
 const char *openssl_iostream_error(void);
 const char *openssl_iostream_key_load_error(void);
 
-int openssl_iostream_generate_params(buffer_t *output, const char **error_r);
+int openssl_iostream_generate_params(buffer_t *output, unsigned int dh_length,
+				     const char **error_r);
 int openssl_iostream_context_import_params(struct ssl_iostream_context *ctx,
 					   const buffer_t *input);
 void openssl_iostream_context_free_params(struct ssl_iostream_context *ctx);

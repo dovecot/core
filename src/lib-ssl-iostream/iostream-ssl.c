@@ -82,13 +82,14 @@ void ssl_iostream_context_deinit(struct ssl_iostream_context **_ctx)
 	ssl_vfuncs->context_deinit(ctx);
 }
 
-int ssl_iostream_generate_params(buffer_t *output, const char **error_r)
+int ssl_iostream_generate_params(buffer_t *output, unsigned int dh_length,
+				 const char **error_r)
 {
 	if (!ssl_module_loaded) {
 		if (ssl_module_load(error_r) < 0)
 			return -1;
 	}
-	return ssl_vfuncs->generate_params(output, error_r);
+	return ssl_vfuncs->generate_params(output, dh_length, error_r);
 }
 
 int ssl_iostream_context_import_params(struct ssl_iostream_context *ctx,
