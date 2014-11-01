@@ -5,9 +5,11 @@
 #include "buffer.h"
 #include "file-lock.h"
 #include "read-full.h"
+#include "write-full.h"
 #include "master-interface.h"
 #include "master-service.h"
 #include "master-service-settings.h"
+#include "iostream-ssl.h"
 #include "ssl-params-settings.h"
 #include "ssl-params.h"
 
@@ -38,11 +40,12 @@ static void
 ssl_params_if_unchanged(const char *path, time_t mtime,
 			unsigned int ssl_dh_parameters_length ATTR_UNUSED)
 {
-	const char *temp_path;
+	const char *temp_path, *error;
 	struct file_lock *lock;
 	struct stat st, st2;
 	mode_t old_mask;
 	int fd, ret;
+	buffer_t *buf;
 
 #ifdef HAVE_SETPRIORITY
 	if (setpriority(PRIO_PROCESS, 0, SSL_PARAMS_PRIORITY) < 0)
@@ -99,9 +102,15 @@ ssl_params_if_unchanged(const char *path, time_t mtime,
 		i_fatal("ftruncate(%s) failed: %m", temp_path);
 
 	i_info("Generating SSL parameters");
-#ifdef HAVE_SSL
-	ssl_generate_parameters(fd, ssl_dh_parameters_length, temp_path);
-#endif
+
+	buf = buffer_create_dynamic(pool_datastack_create(), 1024);
+	if (ssl_iostream_generate_params(buf, ssl_dh_parameters_length,
+					 &error) < 0) {
+		i_fatal("ssl_iostream_generate_params(%u) failed: %s",
+			ssl_dh_parameters_length, error);
+	}
+	if (write_full(fd, buf->data, buf->used) < 0)
+		i_fatal("write(%s) failed: %m", temp_path);
 
 	if (rename(temp_path, path) < 0)
 		i_fatal("rename(%s, %s) failed: %m", temp_path, path);

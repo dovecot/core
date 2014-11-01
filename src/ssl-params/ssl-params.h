@@ -12,6 +12,4 @@ void ssl_params_deinit(struct ssl_params **param);
 
 void ssl_params_refresh(struct ssl_params *param);
 
-void ssl_generate_parameters(int fd, unsigned int dh_length, const char *fname);
-
 #endif
