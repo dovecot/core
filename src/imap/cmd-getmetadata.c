@@ -373,18 +373,15 @@ static bool cmd_getmetadata_continue(struct client_command_context *cmd)
 	return TRUE;
 }
 
-static bool
-cmd_getmetadata_mailbox(struct imap_getmetadata_context *ctx,
-			struct mail_namespace *ns, const char *mailbox)
+static int
+cmd_getmetadata_try_mailbox(struct imap_getmetadata_context *ctx,
+			    struct mail_namespace *ns, const char *mailbox)
 {
 	struct client_command_context *cmd = ctx->cmd;
 
 	ctx->box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_READONLY);
-	if (mailbox_open(ctx->box) < 0) {
-		client_send_box_error(cmd, ctx->box);
-		mailbox_free(&ctx->box);
-		return TRUE;
-	}
+	if (mailbox_open(ctx->box) < 0)
+		return -1;
 	ctx->trans = mailbox_transaction_begin(ctx->box, 0);
 
 	if (ctx->depth > 0)
@@ -393,20 +390,49 @@ cmd_getmetadata_mailbox(struct imap_getmetadata_context *ctx,
 	if (!cmd_getmetadata_continue(cmd)) {
 		cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;
 		cmd->func = cmd_getmetadata_continue;
-		return FALSE;
+		return 0;
 	}
-	return TRUE;
+	return 1;
+}
+
+static bool
+cmd_getmetadata_mailbox(struct imap_getmetadata_context *ctx,
+			struct mail_namespace *ns, const char *mailbox)
+{
+	int ret;
+
+	ret = cmd_getmetadata_try_mailbox(ctx, ns, mailbox);
+	if (ret < 0) {
+		client_send_box_error(ctx->cmd, ctx->box);
+		mailbox_free(&ctx->box);
+	}
+	return ret != 0;
 }
 
 static bool cmd_getmetadata_iter_next(struct imap_getmetadata_context *ctx)
 {
 	const struct mailbox_info *info;
+	int ret;
 
 	while ((info = mailbox_list_iter_next(ctx->list_iter)) != NULL) {
 		if ((info->flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0)
 			continue;
-		/* we'll get back here recursively */
-		return cmd_getmetadata_mailbox(ctx, info->ns, info->vname);
+		ret = cmd_getmetadata_try_mailbox(ctx, info->ns, info->vname);
+		if (ret > 0) {
+			/* we'll already recursively went through
+			   all the mailboxes (FIXME: ugly and potentially
+			   stack consuming) */
+			return TRUE;
+		} else if (ret == 0) {
+			/* need to send more data later */
+			return FALSE;
+		}
+		T_BEGIN {
+			client_send_line(ctx->cmd->client, t_strdup_printf(
+				"* NO Failed to open mailbox %s: %s",
+				info->vname, mailbox_get_last_error(ctx->box, NULL)));
+		} T_END;
+		mailbox_free(&ctx->box);
 	}
 	cmd_getmetadata_deinit(ctx);
 	return TRUE;
