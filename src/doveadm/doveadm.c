@@ -54,7 +54,8 @@ void doveadm_register_cmd(const struct doveadm_cmd *cmd)
 static void
 doveadm_usage_compress_lines(FILE *out, const char *str, const char *prefix)
 {
-	const char *cmd, *args, *p, *short_name, *prev_name = "";
+	const char *cmd, *args, *p, *short_name, *sub_name;
+	const char *prev_name = "", *prev_sub_name = "";
 	const char **lines;
 	unsigned int i, count, prefix_len = strlen(prefix);
 
@@ -97,8 +98,13 @@ doveadm_usage_compress_lines(FILE *out, const char *str, const char *prefix)
 				fprintf(out, USAGE_CMDNAME_FMT" %s",
 					short_name, t_strcut(p + 1, ' '));
 				prev_name = short_name;
+				prev_sub_name = "";
 			} else {
-				fprintf(out, "|%s", t_strcut(p + 1, ' '));
+				sub_name = t_strcut(p + 1, ' ');
+				if (strcmp(prev_sub_name, sub_name) != 0) {
+					fprintf(out, "|%s", sub_name);
+					prev_sub_name = sub_name;
+				}
 			}
 		}
 	}
