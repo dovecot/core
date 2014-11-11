@@ -4,6 +4,7 @@
 #include "istream.h"
 #include "file-lock.h"
 
+#include <time.h>
 #include <sys/stat.h>
 #ifdef HAVE_FLOCK
 #  include <sys/file.h>
@@ -144,11 +145,21 @@ const char *file_lock_find(int lock_fd, enum file_lock_method lock_method,
 	return file_lock_find_proc_locks(lock_fd);
 }
 
+static bool err_is_lock_timeout(time_t started, unsigned int timeout_secs)
+{
+	/* if EINTR took at least timeout_secs-1 number of seconds,
+	   assume it was the alarm. otherwise log EINTR failure.
+	   (We most likely don't want to retry EINTR since a signal
+	   means somebody wants us to stop blocking). */
+	return errno == EINTR && time(NULL) - started + 1 >= timeout_secs;
+}
+
 static int file_lock_do(int fd, const char *path, int lock_type,
 			enum file_lock_method lock_method,
 			unsigned int timeout_secs, const char **error_r)
 {
 	const char *lock_type_str;
+	time_t started = time(NULL);
 	int ret;
 
 	i_assert(fd != -1);
@@ -188,10 +199,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 			return 0;
 		}
 
-		if (errno == EINTR) {
-			/* most likely alarm hit, meaning we timeouted.
-			   even if not, we probably want to be killed
-			   so stop blocking. */
+		if (err_is_lock_timeout(started, timeout_secs)) {
 			errno = EAGAIN;
 			*error_r = t_strdup_printf(
 				"fcntl(%s, %s, F_SETLKW) locking failed: "
@@ -238,7 +246,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 				"(File is already locked)", path, lock_type_str);
 			return 0;
 		}
-		if (errno == EINTR) {
+		if (err_is_lock_timeout(started, timeout_secs)) {
 			errno = EAGAIN;
 			*error_r = t_strdup_printf("flock(%s, %s) failed: "
 				"Timed out after %u seconds%s",
