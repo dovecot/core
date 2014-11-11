@@ -36,6 +36,12 @@ static void client_connected(struct master_service_connection *conn)
 						  conn->ssl);
 }
 
+void help(const struct doveadm_cmd *cmd)
+{
+	i_fatal("Client sent invalid command. Usage: %s %s",
+		cmd->name, cmd->short_usage);
+}
+
 static void main_preinit(void)
 {
 	restrict_access_by_env(NULL, FALSE);
@@ -50,6 +56,7 @@ static void main_init(void)
 					doveadm_settings,
 					pool_datastack_create());
 
+	doveadm_cmds_init();
 	doveadm_mail_init();
 	doveadm_load_modules();
 	doveadm_print_init(DOVEADM_PRINT_TYPE_SERVER);
@@ -62,6 +69,7 @@ static void main_deinit(void)
 	doveadm_mail_deinit();
 	doveadm_unload_modules();
 	doveadm_print_deinit();
+	doveadm_cmds_deinit();
 }
 
 int main(int argc, char *argv[])
