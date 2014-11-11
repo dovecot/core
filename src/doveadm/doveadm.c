@@ -28,8 +28,6 @@ const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 
 int doveadm_exit_code = 0;
 
-static ARRAY(struct doveadm_cmd) doveadm_cmds;
-
 static void failure_exit_callback(int *status)
 {
 	enum fatal_exit_status fatal_status = *status;
@@ -44,11 +42,6 @@ static void failure_exit_callback(int *status)
 		*status = EX_TEMPFAIL;
 		break;
 	}
-}
-
-void doveadm_register_cmd(const struct doveadm_cmd *cmd)
-{
-	array_append(&doveadm_cmds, cmd, 1);
 }
 
 static void
@@ -199,66 +192,6 @@ static void cmd_exec(int argc ATTR_UNUSED, char *argv[])
 	i_fatal("execv(%s) failed: %m", argv[0]);
 }
 
-static const struct doveadm_cmd *
-doveadm_cmd_find_multi_word(const struct doveadm_cmd *cmd,
-			    const char *cmdname, int *_argc, char **_argv[])
-{
-	int argc = *_argc;
-	char **argv = *_argv;
-	const struct doveadm_cmd *subcmd;
-	unsigned int len;
-
-	if (argc < 2)
-		return NULL;
-
-	len = strlen(argv[1]);
-	if (strncmp(cmdname, argv[1], len) != 0)
-		return NULL;
-
-	argc--; argv++;
-	if (cmdname[len] == ' ') {
-		/* more args */
-		subcmd = doveadm_cmd_find_multi_word(cmd, cmdname + len + 1,
-						     &argc, &argv);
-		if (subcmd == NULL)
-			return NULL;
-	} else {
-		if (cmdname[len] != '\0')
-			return NULL;
-	}
-
-	*_argc = argc;
-	*_argv = argv;
-	return cmd;
-}
-
-static const struct doveadm_cmd *
-doveadm_cmd_find(const char *cmd_name, int *argc, char **argv[])
-{
-	const struct doveadm_cmd *cmd, *subcmd;
-	unsigned int cmd_name_len;
-
-	i_assert(*argc > 0);
-
-	cmd_name_len = strlen(cmd_name);
-	array_foreach(&doveadm_cmds, cmd) {
-		if (strcmp(cmd->name, cmd_name) == 0)
-			return cmd;
-
-		/* see if it matches a multi-word command */
-		if (strncmp(cmd->name, cmd_name, cmd_name_len) == 0 &&
-		    cmd->name[cmd_name_len] == ' ') {
-			const char *subcmd_name = cmd->name + cmd_name_len + 1;
-
-			subcmd = doveadm_cmd_find_multi_word(cmd, subcmd_name,
-							     argc, argv);
-			if (subcmd != NULL)
-				return subcmd;
-		}
-	}
-	return NULL;
-}
-
 static bool doveadm_try_run(const char *cmd_name, int argc, char *argv[])
 {
 	const struct doveadm_cmd *cmd;
@@ -312,21 +245,12 @@ static void doveadm_read_settings(void)
 					pool_datastack_create());
 }
 
-static struct doveadm_cmd *doveadm_commands[] = {
+static struct doveadm_cmd *doveadm_cmdline_commands[] = {
 	&doveadm_cmd_help,
 	&doveadm_cmd_config,
 	&doveadm_cmd_exec,
-	&doveadm_cmd_stop,
-	&doveadm_cmd_reload,
 	&doveadm_cmd_dump,
 	&doveadm_cmd_pw,
-	&doveadm_cmd_who,
-	&doveadm_cmd_penalty,
-	&doveadm_cmd_kick,
-	&doveadm_cmd_mailbox_mutf7,
-	&doveadm_cmd_sis_deduplicate,
-	&doveadm_cmd_sis_find,
-	&doveadm_cmd_stats_dump,
 	&doveadm_cmd_stats_top,
 	&doveadm_cmd_zlibconnect
 };
@@ -374,10 +298,9 @@ int main(int argc, char *argv[])
 		doveadm_read_settings();
 	}
 
-	i_array_init(&doveadm_cmds, 32);
-	for (i = 0; i < N_ELEMENTS(doveadm_commands); i++)
-		doveadm_register_cmd(doveadm_commands[i]);
-
+	doveadm_cmds_init();
+	for (i = 0; i < N_ELEMENTS(doveadm_cmdline_commands); i++)
+		doveadm_register_cmd(doveadm_cmdline_commands[i]);
 	if (cmd_name != NULL && (quick_init ||
 				 strcmp(cmd_name, "config") == 0 ||
 				 strcmp(cmd_name, "stop") == 0 ||
@@ -388,15 +311,6 @@ int main(int argc, char *argv[])
 		quick_init = TRUE;
 	} else {
 		quick_init = FALSE;
-		doveadm_register_auth_commands();
-		doveadm_register_director_commands();
-		doveadm_register_instance_commands();
-		doveadm_register_mount_commands();
-		doveadm_register_proxy_commands();
-		doveadm_register_log_commands();
-		doveadm_register_replicator_commands();
-		doveadm_register_dict_commands();
-		doveadm_register_fs_commands();
 		doveadm_dump_init();
 		doveadm_mail_init();
 		doveadm_load_modules();
@@ -440,7 +354,7 @@ int main(int argc, char *argv[])
 		doveadm_unload_modules();
 		doveadm_print_deinit();
 	}
-	array_free(&doveadm_cmds);
+	doveadm_cmds_deinit();
 	master_service_deinit(&master_service);
 	return doveadm_exit_code;
 }

@@ -86,6 +86,7 @@ doveadm_SOURCES = \
 	$(common) \
 	doveadm.c \
 	doveadm-auth.c \
+	doveadm-cmd.c \
 	doveadm-dict.c \
 	doveadm-director.c \
 	doveadm-dump.c \
@@ -123,6 +124,7 @@ doveadm_server_SOURCES = \
 pkginc_libdir = $(pkgincludedir)
 pkginc_lib_HEADERS = \
 	doveadm.h \
+	doveadm-cmd.h \
 	doveadm-dsync.h \
 	doveadm-dump.h \
 	doveadm-mail.h \
