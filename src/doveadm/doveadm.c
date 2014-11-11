@@ -199,58 +199,75 @@ static void cmd_exec(int argc ATTR_UNUSED, char *argv[])
 	i_fatal("execv(%s) failed: %m", argv[0]);
 }
 
-static bool
-doveadm_try_run_multi_word(const struct doveadm_cmd *cmd,
-			   const char *cmdname, int argc, char *argv[])
+static const struct doveadm_cmd *
+doveadm_cmd_find_multi_word(const struct doveadm_cmd *cmd,
+			    const char *cmdname, int *_argc, char **_argv[])
 {
+	int argc = *_argc;
+	char **argv = *_argv;
+	const struct doveadm_cmd *subcmd;
 	unsigned int len;
 
 	if (argc < 2)
-		return FALSE;
+		return NULL;
 
 	len = strlen(argv[1]);
 	if (strncmp(cmdname, argv[1], len) != 0)
-		return FALSE;
+		return NULL;
 
+	argc--; argv++;
 	if (cmdname[len] == ' ') {
 		/* more args */
-		return doveadm_try_run_multi_word(cmd, cmdname + len + 1,
-						  argc - 1, argv + 1);
+		subcmd = doveadm_cmd_find_multi_word(cmd, cmdname + len + 1,
+						     &argc, &argv);
+		if (subcmd == NULL)
+			return NULL;
+	} else {
+		if (cmdname[len] != '\0')
+			return NULL;
 	}
-	if (cmdname[len] != '\0')
-		return FALSE;
 
-	/* match */
-	cmd->cmd(argc - 1, argv + 1);
-	return TRUE;
+	*_argc = argc;
+	*_argv = argv;
+	return cmd;
+}
+
+static const struct doveadm_cmd *
+doveadm_cmd_find(const char *cmd_name, int *argc, char **argv[])
+{
+	const struct doveadm_cmd *cmd, *subcmd;
+	unsigned int cmd_name_len;
+
+	i_assert(*argc > 0);
+
+	cmd_name_len = strlen(cmd_name);
+	array_foreach(&doveadm_cmds, cmd) {
+		if (strcmp(cmd->name, cmd_name) == 0)
+			return cmd;
+
+		/* see if it matches a multi-word command */
+		if (strncmp(cmd->name, cmd_name, cmd_name_len) == 0 &&
+		    cmd->name[cmd_name_len] == ' ') {
+			const char *subcmd_name = cmd->name + cmd_name_len + 1;
+
+			subcmd = doveadm_cmd_find_multi_word(cmd, subcmd_name,
+							     argc, argv);
+			if (subcmd != NULL)
+				return subcmd;
+		}
+	}
+	return NULL;
 }
 
 static bool doveadm_try_run(const char *cmd_name, int argc, char *argv[])
 {
 	const struct doveadm_cmd *cmd;
-	unsigned int cmd_name_len;
 
-	i_assert(argc > 0);
-
-	cmd_name_len = strlen(cmd_name);
-	array_foreach(&doveadm_cmds, cmd) {
-		if (strcmp(cmd->name, cmd_name) == 0) {
-			cmd->cmd(argc, argv);
-			return TRUE;
-		}
-
-		/* see if it matches a multi-word command */
-		if (strncmp(cmd->name, cmd_name, cmd_name_len) == 0 &&
-		    cmd->name[cmd_name_len] == ' ') {
-			const char *subcmd = cmd->name + cmd_name_len + 1;
-
-			if (doveadm_try_run_multi_word(cmd, subcmd,
-						       argc, argv))
-				return TRUE;
-		}
-	}
-
-	return FALSE;
+	cmd = doveadm_cmd_find(cmd_name, &argc, &argv);
+	if (cmd == NULL)
+		return FALSE;
+	cmd->cmd(argc, argv);
+	return TRUE;
 }
 
 static bool doveadm_has_subcommands(const char *cmd_name)

@@ -26,23 +26,17 @@
 
 static void client_connection_input(struct client_connection *conn);
 
-static struct doveadm_mail_cmd_context *
-doveadm_mail_cmd_server_parse(const char *cmd_name,
+static int
+doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 			      const struct doveadm_settings *set,
 			      const struct mail_storage_service_input *input,
-			      int argc, char *argv[])
+			      int argc, char *argv[],
+			      struct doveadm_mail_cmd_context **ctx_r)
 {
 	struct doveadm_mail_cmd_context *ctx;
-	const struct doveadm_mail_cmd *cmd;
 	const char *getopt_args;
 	bool add_username_header = FALSE;
 	int c;
-
-	cmd = doveadm_mail_cmd_find(cmd_name);
-	if (cmd == NULL) {
-		i_error("doveadm: Client sent unknown command: %s", cmd_name);
-		return NULL;
-	}
 
 	ctx = doveadm_mail_cmd_init(cmd, set);
 	ctx->full_args = (const void *)(argv + 1);
@@ -77,7 +71,7 @@ doveadm_mail_cmd_server_parse(const char *cmd_name,
 					cmd->name, c);
 				ctx->v.deinit(ctx);
 				pool_unref(&ctx->pool);
-				return NULL;
+				return -1;
 			}
 		}
 	}
@@ -88,7 +82,7 @@ doveadm_mail_cmd_server_parse(const char *cmd_name,
 			cmd->name, argv[0]);
 		ctx->v.deinit(ctx);
 		pool_unref(&ctx->pool);
-		return NULL;
+		return -1;
 	}
 	ctx->args = (const void *)argv;
 
@@ -98,7 +92,8 @@ doveadm_mail_cmd_server_parse(const char *cmd_name,
 				     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 		doveadm_print_sticky("username", input->username);
 	}
-	return ctx;
+	*ctx_r = ctx;
+	return 0;
 }
 
 static void
@@ -172,10 +167,30 @@ static bool client_is_allowed_command(const struct doveadm_settings *set,
 	return ret;
 }
 
+static int doveadm_cmd_handle(struct client_connection *conn,
+			      const char *cmd_name,
+			      const struct mail_storage_service_input *input,
+			      int argc, char *argv[])
+{
+	const struct doveadm_mail_cmd *cmd;
+	struct doveadm_mail_cmd_context *ctx;
+
+	cmd = doveadm_mail_cmd_find(cmd_name);
+	if (cmd == NULL) {
+		i_error("doveadm: Client sent unknown command: %s", cmd_name);
+		return -1;
+	}
+
+	if (doveadm_mail_cmd_server_parse(cmd, conn->set, input,
+					  argc, argv, &ctx) < 0)
+		return -1;
+	doveadm_mail_cmd_server_run(conn, ctx, input);
+	return 0;
+}
+
 static bool client_handle_command(struct client_connection *conn, char **args)
 {
 	struct mail_storage_service_input input;
-	struct doveadm_mail_cmd_context *ctx;
 	const char *flags, *cmd_name;
 	unsigned int argc;
 
@@ -225,11 +240,8 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 	}
 
 	o_stream_cork(conn->output);
-	ctx = doveadm_mail_cmd_server_parse(cmd_name, conn->set, &input, argc, args);
-	if (ctx == NULL)
+	if (doveadm_cmd_handle(conn, cmd_name, &input, argc, args) < 0)
 		o_stream_nsend(conn->output, "\n-\n", 3);
-	else
-		doveadm_mail_cmd_server_run(conn, ctx, &input);
 	o_stream_uncork(conn->output);
 
 	/* flush the output and disconnect */
