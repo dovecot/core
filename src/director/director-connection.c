@@ -1036,17 +1036,15 @@ static bool director_handshake_cmd_done(struct director_connection *conn)
 		user_directory_sort(conn->dir->users);
 	}
 
-	if (handshake_secs >= DIRECTOR_HANDSHAKE_WARN_SECS || director_debug) {
-		str = t_str_new(128);
-		str_printfa(str, "director(%s): Handshake took %u secs, "
-			    "bytes in=%"PRIuUOFF_T" out=%"PRIuUOFF_T,
-			    conn->name, handshake_secs, conn->input->v_offset,
-			    conn->output->offset);
-		if (handshake_secs >= DIRECTOR_HANDSHAKE_WARN_SECS)
-			i_warning("%s", str_c(str));
-		else
-			i_debug("%s", str_c(str));
-	}
+	str = t_str_new(128);
+	str_printfa(str, "director(%s): Handshake finished in %u secs "
+		    "(bytes in=%"PRIuUOFF_T" out=%"PRIuUOFF_T")",
+		    conn->name, handshake_secs, conn->input->v_offset,
+		    conn->output->offset);
+	if (handshake_secs >= DIRECTOR_HANDSHAKE_WARN_SECS)
+		i_warning("%s", str_c(str));
+	else
+		i_info("%s", str_c(str));
 
 	/* the host is up now, make sure we can connect to it immediately
 	   if needed */
