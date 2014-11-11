@@ -1841,6 +1841,11 @@ bool director_connection_is_handshaked(struct director_connection *conn)
 	return conn->handshake_received;
 }
 
+bool director_connection_is_synced(struct director_connection *conn)
+{
+	return conn->synced;
+}
+
 bool director_connection_is_incoming(struct director_connection *conn)
 {
 	return conn->in;

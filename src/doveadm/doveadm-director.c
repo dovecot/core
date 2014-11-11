@@ -718,6 +718,7 @@ static void cmd_director_ring_status(int argc, char *argv[])
 	doveadm_print_header_simple("port");
 	doveadm_print_header_simple("type");
 	doveadm_print_header_simple("last failed");
+	doveadm_print_header_simple("status");
 
 	director_send(ctx, "DIRECTOR-LIST\n");
 	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
@@ -725,7 +726,7 @@ static void cmd_director_ring_status(int argc, char *argv[])
 			break;
 		T_BEGIN {
 			args = t_strsplit_tab(line);
-			if (str_array_length(args) >= 4 &&
+			if (str_array_length(args) >= 5 &&
 			    str_to_ulong(args[3], &l) == 0) {
 				doveadm_print(args[0]);
 				doveadm_print(args[1]);
@@ -734,6 +735,7 @@ static void cmd_director_ring_status(int argc, char *argv[])
 					doveadm_print("never");
 				else
 					doveadm_print(unixdate2str(l));
+				doveadm_print(args[4]);
 			}
 		} T_END;
 	}

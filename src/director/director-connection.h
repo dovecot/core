@@ -23,6 +23,7 @@ const char *director_connection_get_name(struct director_connection *conn);
 struct director_host *
 director_connection_get_host(struct director_connection *conn);
 bool director_connection_is_handshaked(struct director_connection *conn);
+bool director_connection_is_synced(struct director_connection *conn);
 bool director_connection_is_incoming(struct director_connection *conn);
 unsigned int
 director_connection_get_minor_version(struct director_connection *conn);

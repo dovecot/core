@@ -92,6 +92,59 @@ static void doveadm_cmd_host_list_removed(struct doveadm_connection *conn)
 	mail_hosts_deinit(&orig_hosts_list);
 }
 
+static void doveadm_director_append_status(struct director *dir, string_t *str)
+{
+	if (!dir->ring_handshaked)
+		str_append(str, "handshaking");
+	else if (dir->ring_synced)
+		str_append(str, "synced");
+	else {
+		str_printfa(str, "syncing - last sync %d secs ago",
+			    (int)(ioloop_time - dir->ring_last_sync_time));
+	}
+}
+
+static void
+doveadm_director_connection_append_status(struct director_connection *conn,
+					  string_t *str)
+{
+	if (!director_connection_is_handshaked(conn))
+		str_append(str, "handshaking");
+	else if (director_connection_is_synced(conn))
+		str_append(str, "synced");
+	else
+		str_append(str, "syncing");
+}
+
+static void
+doveadm_director_host_append_status(struct director *dir,
+				    const struct director_host *host,
+				    string_t *str)
+{
+	struct director_connection *conn = NULL;
+
+	if (dir->left != NULL &&
+	    director_connection_get_host(dir->left) == host)
+		conn = dir->left;
+	else if (dir->right != NULL &&
+		 director_connection_get_host(dir->right) == host)
+		conn = dir->right;
+	else {
+		/* we might have a connection that is being connected */
+		struct director_connection *const *connp;
+
+		array_foreach(&dir->connections, connp) {
+			if (director_connection_get_host(*connp) == host) {
+				conn = *connp;
+				break;
+			}
+		}
+	}
+
+	if (conn != NULL)
+		doveadm_director_connection_append_status(conn, str);
+}
+
 static void doveadm_cmd_director_list(struct doveadm_connection *conn)
 {
 	struct director *dir = conn->dir;
@@ -122,9 +175,14 @@ static void doveadm_cmd_director_list(struct doveadm_connection *conn)
 
 		last_failed = I_MAX(host->last_network_failure,
 				    host->last_protocol_failure);
-		str_printfa(str, "%s\t%u\t%s\t%lu\n",
+		str_printfa(str, "%s\t%u\t%s\t%lu\t",
 			    net_ip2addr(&host->ip), host->port, type,
 			    (unsigned long)last_failed);
+		if (dir->self_host == host)
+			doveadm_director_append_status(dir, str);
+		else
+			doveadm_director_host_append_status(dir, host, str);
+		str_append_c(str, '\n');
 	}
 	str_append_c(str, '\n');
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
