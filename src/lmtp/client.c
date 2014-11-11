@@ -34,18 +34,32 @@
 static struct client *clients = NULL;
 unsigned int clients_count = 0;
 
-void client_state_set(struct client *client, const char *name)
+void client_state_set(struct client *client, const char *name, const char *args)
 {
+	string_t *str;
+
 	client->state.name = name;
 
 	if (!client->service_set->verbose_proctitle)
 		return;
-	if (clients_count == 0)
+
+	if (clients_count == 0) {
 		process_title_set("[idling]");
-	else if (clients_count > 1)
+		return;
+	}
+	if (clients_count > 1) {
 		process_title_set(t_strdup_printf("[%u clients]", clients_count));
-	else
-		process_title_set(t_strdup_printf("[%s]", client->state.name));
+		return;
+	}
+
+	str = t_str_new(128);
+	str_printfa(str, "[%s", client->state.name);
+	if (client->remote_ip.family != 0)
+		str_printfa(str, " %s", net_ip2addr(&client->remote_ip));
+	if (args[0] != '\0')
+		str_printfa(str, " %s", args);
+	str_append_c(str, ']');
+	process_title_set(str_c(str));
 }
 
 static void client_idle_timeout(struct client *client)
@@ -253,7 +267,7 @@ struct client *client_create(int fd_in, int fd_out,
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 
-	client_state_set(client, "banner");
+	client_state_set(client, "banner", "");
 	client_send_line(client, "220 %s %s", client->my_domain,
 			 client->lmtp_set->login_greeting);
 	i_info("Connect from %s", client_remote_id(client));
@@ -269,7 +283,7 @@ void client_destroy(struct client *client, const char *prefix,
 	clients_count--;
 	DLLIST_REMOVE(&clients, client);
 
-	client_state_set(client, "destroyed");
+	client_state_set(client, "destroyed", "");
 
 	if (client->raw_mail_user != NULL)
 		mail_user_unref(&client->raw_mail_user);
@@ -287,7 +301,7 @@ void client_destroy(struct client *client, const char *prefix,
 	net_disconnect(client->fd_in);
 	if (client->fd_in != client->fd_out)
 		net_disconnect(client->fd_out);
-	client_state_reset(client);
+	client_state_reset(client, "destroyed");
 	i_free(client->lhlo);
 	pool_unref(&client->state_pool);
 	pool_unref(&client->pool);
@@ -333,7 +347,7 @@ void client_disconnect(struct client *client, const char *prefix,
 	client->disconnected = TRUE;
 }
 
-void client_state_reset(struct client *client)
+void client_state_reset(struct client *client, const char *state_name)
 {
 	struct mail_recipient *rcpt;
 
@@ -369,7 +383,7 @@ void client_state_reset(struct client *client)
 	client->state.mail_data_fd = -1;
 
 	client_generate_session_id(client);
-	client_state_set(client, "reset");
+	client_state_set(client, state_name, "");
 }
 
 void client_send_line(struct client *client, const char *fmt, ...)

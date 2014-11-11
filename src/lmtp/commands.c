@@ -70,7 +70,7 @@ int cmd_lhlo(struct client *client, const char *args)
 		str_append(domain, "invalid");
 	}
 
-	client_state_reset(client);
+	client_state_reset(client, "LHLO");
 	client_send_line(client, "250-%s", client->my_domain);
 	if (master_service_ssl_is_enabled(master_service) &&
 	    client->ssl_iostream == NULL)
@@ -83,7 +83,7 @@ int cmd_lhlo(struct client *client, const char *args)
 
 	i_free(client->lhlo);
 	client->lhlo = i_strdup(str_c(domain));
-	client_state_set(client, "LHLO");
+	client_state_set(client, "LHLO", "");
 	return 0;
 }
 
@@ -180,7 +180,7 @@ int cmd_mail(struct client *client, const char *args)
 	client->state.mail_from = p_strdup(client->state_pool, addr);
 	p_array_init(&client->state.rcpt_to, client->state_pool, 64);
 	client_send_line(client, "250 2.1.0 OK");
-	client_state_set(client, "MAIL FROM");
+	client_state_set(client, "MAIL FROM", client->state.mail_from);
 	return 0;
 }
 
@@ -541,8 +541,6 @@ int cmd_rcpt(struct client *client, const char *args)
 	const char *error = NULL;
 	int ret = 0;
 
-	client_state_set(client, "RCPT TO");
-
 	if (client->state.mail_from == NULL) {
 		client_send_line(client, "503 5.5.1 MAIL needed first");
 		return 0;
@@ -562,6 +560,8 @@ int cmd_rcpt(struct client *client, const char *args)
 		return 0;
 	}
 	rcpt_address_parse(client, address, &username, &detail);
+
+	client_state_set(client, "RCPT TO", address);
 
 	if (client->lmtp_set->lmtp_proxy) {
 		if (client_proxy_rcpt(client, address, username, detail))
@@ -636,7 +636,7 @@ int cmd_vrfy(struct client *client, const char *args ATTR_UNUSED)
 
 int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 {
-	client_state_reset(client);
+	client_state_reset(client, "RSET");
 	client_send_line(client, "250 2.0.0 OK");
 	return 0;
 }
@@ -683,6 +683,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 			i_unreached();
 	}
 
+	client_state_set(client, "DATA", username);
 	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
 	if (mail_storage_service_next(storage_service, rcpt->service_user,
 				      &client->state.dest_user) < 0) {
@@ -772,6 +773,7 @@ static bool client_deliver_next(struct client *client, struct mail *src_mail,
 	while (client->state.rcpt_idx < count) {
 		ret = client_deliver(client, &rcpts[client->state.rcpt_idx],
 				     src_mail, session);
+		client_state_set(client, "DATA", "");
 		i_set_failure_prefix("lmtp(%s): ", my_pid);
 
 		client->state.rcpt_idx++;
@@ -917,7 +919,7 @@ client_input_data_write_local(struct client *client, struct istream *input)
 static void client_input_data_finish(struct client *client)
 {
 	client_io_reset(client);
-	client_state_reset(client);
+	client_state_reset(client, "DATA finished");
 	if (i_stream_have_bytes_left(client->input))
 		client_input_handle(client);
 }
@@ -979,6 +981,7 @@ static bool client_input_data_write(struct client *client)
 	if (array_count(&client->state.rcpt_to) != 0)
 		client_input_data_write_local(client, input);
 	if (client->proxy != NULL) {
+		client_state_set(client, "DATA", "proxying");
 		lmtp_proxy_start(client->proxy, input,
 				 client_proxy_finish, client);
 		ret = FALSE;
@@ -1107,7 +1110,7 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 	o_stream_uncork(client->output);
 
 	io_remove(&client->io);
-	client_state_set(client, "DATA");
+	client_state_set(client, "DATA", "");
 	client->io = io_add(client->fd_in, IO_READ, client_input_data, client);
 	client_input_data_handle(client);
 	return -1;
@@ -1147,7 +1150,7 @@ int cmd_xclient(struct client *client, const char *args)
 	}
 
 	/* args ok, set them and reset the state */
-	client_state_reset(client);
+	client_state_reset(client, "XCLIENT");
 	if (remote_ip.family != 0)
 		client->remote_ip = remote_ip;
 	if (remote_port != 0)
