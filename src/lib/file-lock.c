@@ -151,7 +151,8 @@ static bool err_is_lock_timeout(time_t started, unsigned int timeout_secs)
 	   assume it was the alarm. otherwise log EINTR failure.
 	   (We most likely don't want to retry EINTR since a signal
 	   means somebody wants us to stop blocking). */
-	return errno == EINTR && time(NULL) - started + 1 >= timeout_secs;
+	return errno == EINTR &&
+		(unsigned long)(time(NULL) - started + 1) >= timeout_secs;
 }
 
 static int file_lock_do(int fd, const char *path, int lock_type,
