@@ -274,7 +274,9 @@ void director_set_ring_synced(struct director *dir)
 	if (dir->to_handshake_warning != NULL)
 		timeout_remove(&dir->to_handshake_warning);
 	if (dir->ring_handshake_warning_sent) {
-		i_warning("Ring is synced, continuing delayed requests");
+		i_warning("Ring is synced, continuing delayed requests "
+			  "(syncing took %d secs)",
+			  (int)(ioloop_time - dir->ring_last_sync_time));
 		dir->ring_handshake_warning_sent = FALSE;
 	}
 
