@@ -136,7 +136,7 @@ static void director_state_changed(struct director *dir)
 	array_clear(&dir->pending_requests);
 	array_append_array(&dir->pending_requests, &new_requests);
 
-	if (dir->to_request != NULL)
+	if (dir->to_request != NULL && array_count(&new_requests) == 0)
 		timeout_remove(&dir->to_request);
 }
 
