@@ -20,10 +20,11 @@ enum mail_export_level {
 	MAIL_EXPORT_LEVEL_SESSION,
 	MAIL_EXPORT_LEVEL_USER,
 	MAIL_EXPORT_LEVEL_DOMAIN,
-	MAIL_EXPORT_LEVEL_IP
+	MAIL_EXPORT_LEVEL_IP,
+	MAIL_EXPORT_LEVEL_GLOBAL
 };
 static const char *mail_export_level_names[] = {
-	"command", "session", "user", "domain", "ip"
+	"command", "session", "user", "domain", "ip", "global"
 };
 
 struct mail_export_filter {
@@ -475,6 +476,32 @@ static int client_export_iter_ip(struct client *client)
 	return 1;
 }
 
+static int client_export_iter_global(struct client *client)
+{
+	struct client_export_cmd *cmd = client->cmd_export;
+	struct mail_global *g = &mail_global_stats;
+
+	i_assert(cmd->level == MAIL_EXPORT_LEVEL_GLOBAL);
+
+	if (!cmd->header_sent) {
+		o_stream_nsend_str(client->output,
+			"reset_timestamp\tlast_update"
+			"\tnum_logins\tnum_cmds\tnum_connected_sessions"MAIL_STATS_HEADER);
+		cmd->header_sent = TRUE;
+	}
+
+	str_truncate(cmd->str, 0);
+	str_printfa(cmd->str, "\t%ld", (long)g->reset_timestamp);
+	client_export_timeval(cmd->str, &g->last_update);
+	str_printfa(cmd->str, "\t%u\t%u\t%u",
+		    g->num_logins, g->num_cmds, g->num_connected_sessions);
+	client_export_mail_stats(cmd->str, &g->stats);
+	str_append_c(cmd->str, '\n');
+	o_stream_nsend(client->output, str_data(cmd->str),
+		       str_len(cmd->str));
+	return 1;
+}
+
 static int client_export_more(struct client *client)
 {
 	if (client->cmd_export->export_iter(client) == 0)
@@ -583,6 +610,9 @@ static bool client_export_iter_init(struct client *client)
 			return FALSE;
 		mail_ip_ref(client->mail_ip_iter);
 		cmd->export_iter = client_export_iter_ip;
+		break;
+	case MAIL_EXPORT_LEVEL_GLOBAL:
+		cmd->export_iter = client_export_iter_global;
 		break;
 	}
 	i_assert(cmd->export_iter != NULL);

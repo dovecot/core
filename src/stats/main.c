@@ -12,6 +12,7 @@
 #include "mail-user.h"
 #include "mail-domain.h"
 #include "mail-ip.h"
+#include "mail-stats.h"
 #include "client.h"
 
 static struct mail_server_connection *mail_server_conn = NULL;
@@ -62,6 +63,7 @@ int main(int argc, char *argv[])
 	mail_users_init();
 	mail_domains_init();
 	mail_ips_init();
+	mail_global_init();
 
 	master_service_init_finish(master_service);
 	master_service_run(master_service, client_connected);

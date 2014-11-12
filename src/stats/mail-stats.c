@@ -1,6 +1,7 @@
 /* Copyright (c) 2011-2014 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "time-util.h"
 #include "mail-stats.h"
 
@@ -38,6 +39,8 @@ static struct mail_stats_parse_map {
 	EN("mrbytes", mail_read_bytes),
 	EN("mcache", mail_cache_hits)
 };
+
+struct mail_global mail_global_stats;
 
 static int mail_stats_parse_timeval(const char *value, struct timeval *tv)
 {
@@ -269,4 +272,28 @@ void mail_stats_add(struct mail_stats *dest, const struct mail_stats *src)
 			break;
 		}
 	}
+}
+
+void mail_global_init(void)
+{
+	mail_global_stats.reset_timestamp = ioloop_time;
+}
+
+void mail_global_login(void)
+{
+	mail_global_stats.num_logins++;
+	mail_global_stats.num_connected_sessions++;
+}
+
+void mail_global_disconnected(void)
+{
+	i_assert(mail_global_stats.num_connected_sessions > 0);
+	mail_global_stats.num_connected_sessions--;
+}
+
+void mail_global_refresh(const struct mail_stats *diff_stats)
+{
+	if (diff_stats != NULL)
+		mail_stats_add(&mail_global_stats.stats, diff_stats);
+	mail_global_stats.last_update = ioloop_timeval;
 }

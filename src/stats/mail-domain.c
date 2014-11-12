@@ -45,6 +45,7 @@ void mail_domain_login(struct mail_domain *domain)
 {
 	domain->num_logins++;
 	domain->num_connected_sessions++;
+	mail_global_login();
 	mail_domain_refresh(domain, NULL);
 }
 
@@ -52,6 +53,7 @@ void mail_domain_disconnected(struct mail_domain *domain)
 {
 	i_assert(domain->num_connected_sessions > 0);
 	domain->num_connected_sessions--;
+	mail_global_disconnected();
 }
 
 struct mail_domain *mail_domain_lookup(const char *name)
@@ -100,6 +102,7 @@ void mail_domain_refresh(struct mail_domain *domain,
 			    sorted_prev, sorted_next);
 	DLLIST2_APPEND_FULL(&mail_domains_head, &mail_domains_tail, domain,
 			    sorted_prev, sorted_next);
+	mail_global_refresh(diff_stats);
 }
 
 void mail_domains_free_memory(void)

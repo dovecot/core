@@ -107,6 +107,18 @@ struct mail_ip {
 	struct mail_session *sessions;
 };
 
+struct mail_global {
+	time_t reset_timestamp;
+
+	struct timeval last_update;
+	struct mail_stats stats;
+	unsigned int num_logins;
+	unsigned int num_cmds;
+	unsigned int num_connected_sessions;
+};
+
+extern struct mail_global mail_global_stats;
+
 int mail_stats_parse(const char *const *args, struct mail_stats *stats_r,
 		     const char **error_r);
 /* diff1 is supposed to have smaller values than diff2. Returns TRUE if this
@@ -115,5 +127,10 @@ bool mail_stats_diff(const struct mail_stats *stats1,
 		     const struct mail_stats *stats2,
 		     struct mail_stats *diff_stats_r, const char **error_r);
 void mail_stats_add(struct mail_stats *dest, const struct mail_stats *src);
+
+void mail_global_init(void);
+void mail_global_login(void);
+void mail_global_disconnected(void);
+void mail_global_refresh(const struct mail_stats *diff_stats);
 
 #endif
