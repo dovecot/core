@@ -119,8 +119,7 @@ static void director_state_changed(struct director *dir)
 	ARRAY(struct director_request *) new_requests;
 	bool ret;
 
-	if (!dir->ring_synced ||
-	    mail_host_get_by_hash(dir->mail_hosts, 0) == NULL)
+	if (!dir->ring_synced || !mail_hosts_have_usable(dir->mail_hosts))
 		return;
 
 	/* if there are any pending client requests, finish them now */

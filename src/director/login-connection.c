@@ -109,7 +109,7 @@ static void auth_input_line(const char *line, void *context)
 {
 	struct login_connection *conn = context;
 	struct login_host_request *request;
-	const char *const *args, *line_params, *username = NULL;
+	const char *const *args, *line_params, *username = NULL, *tag = "";
 	bool proxy = FALSE, host = FALSE;
 
 	if (line == NULL) {
@@ -142,6 +142,8 @@ static void auth_input_line(const char *line, void *context)
 			host = TRUE;
 		else if (strncmp(*args, "destuser=", 9) == 0)
 			username = *args + 9;
+		else if (strncmp(*args, "director_tag=", 13) == 0)
+			tag = *args + 13;
 		else if (strncmp(*args, "user=", 5) == 0) {
 			if (username == NULL)
 				username = *args + 5;
@@ -165,7 +167,7 @@ static void auth_input_line(const char *line, void *context)
 	request->username = i_strdup(username);
 
 	conn->refcount++;
-	director_request(conn->dir, username, login_host_callback, request);
+	director_request(conn->dir, username, tag, login_host_callback, request);
 }
 
 struct login_connection *

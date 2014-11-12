@@ -18,6 +18,8 @@
 #define DIRECTOR_VERSION_USER_KICK 4
 /* options supported in handshake */
 #define DIRECTOR_VERSION_OPTIONS 5
+/* user tags supported */
+#define DIRECTOR_VERSION_TAGS 5
 
 /* Minimum time between even attempting to communicate with a director that
    failed due to a protocol error. */

@@ -35,6 +35,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "strescape.h"
 #include "master-service.h"
 #include "mail-host.h"
 #include "director.h"
@@ -821,15 +822,18 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 {
 	struct mail_host *host;
 	struct ip_addr ip;
+	const char *tag = "";
 	unsigned int vhost_count;
 	bool update;
 
-	if (str_array_length(args) != 2 ||
+	if (str_array_length(args) < 2 ||
 	    net_addr2ip(args[0], &ip) < 0 ||
 	    str_to_uint(args[1], &vhost_count) < 0) {
 		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
+	if (args[2] != NULL)
+		tag = args[2];
 	if (conn->ignore_host_events) {
 		/* remote is sending hosts in a handshake, but it doesn't have
 		   a completed ring and we do. */
@@ -839,10 +843,17 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL) {
-		host = mail_host_add_ip(conn->dir->mail_hosts, &ip);
+		host = mail_host_add_ip(conn->dir->mail_hosts, &ip, tag);
 		update = TRUE;
 	} else {
 		update = host->vhost_count != vhost_count;
+		if (strcmp(tag, host->tag) != 0) {
+			i_error("director(%s): Host %s changed tag from '%s' to '%s'",
+				conn->name, net_ip2addr(&host->ip),
+				host->tag, tag);
+			mail_host_set_tag(host, tag);
+			update = TRUE;
+		}
 	}
 
 	if (update) {
@@ -1541,8 +1552,13 @@ director_connection_send_hosts(struct director_connection *conn, string_t *str)
 
 	str_printfa(str, "HOST-HAND-START\t%u\n", conn->dir->ring_handshaked);
 	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
-		str_printfa(str, "HOST\t%s\t%u\n",
+		str_printfa(str, "HOST\t%s\t%u",
 			    net_ip2addr(&(*hostp)->ip), (*hostp)->vhost_count);
+		if ((*hostp)->tag[0] != '\0') {
+			str_append_c(str, '\t');
+			str_append_tabescaped(str, (*hostp)->tag);
+		}
+		str_append_c(str, '\n');
 	}
 	str_printfa(str, "HOST-HAND-END\t%u\n", conn->dir->ring_handshaked);
 }

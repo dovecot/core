@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "strescape.h"
 #include "ipc-client.h"
 #include "user-directory.h"
 #include "mail-host.h"
@@ -503,6 +504,8 @@ void director_update_host(struct director *dir, struct director_host *src,
 			  struct director_host *orig_src,
 			  struct mail_host *host)
 {
+	string_t *str;
+
 	/* update state in case this is the first mail host being added */
 	director_set_state_changed(dir);
 
@@ -511,10 +514,25 @@ void director_update_host(struct director *dir, struct director_host *src,
 		orig_src->last_seq++;
 	}
 
-	director_update_send(dir, src, t_strdup_printf(
-		"HOST\t%s\t%u\t%u\t%s\t%u\n",
-		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq,
-		net_ip2addr(&host->ip), host->vhost_count));
+	str = t_str_new(128);
+	str_printfa(str, "HOST\t%s\t%u\t%u\t%s\t%u",
+		    net_ip2addr(&orig_src->ip), orig_src->port,
+		    orig_src->last_seq,
+		    net_ip2addr(&host->ip), host->vhost_count);
+	if (host->tag[0] == '\0')
+		;
+	else if (dir->ring_handshaked &&
+		 dir->ring_min_version < DIRECTOR_VERSION_TAGS) {
+		i_error("Ring has directors that don't support tags - removing host %s with tag '%s'",
+			net_ip2addr(&host->ip), host->tag);
+		director_remove_host(dir, NULL, NULL, host);
+		return;
+	} else {
+		str_append_c(str, '\t');
+		str_append_tabescaped(str, host->tag);
+	}
+	str_append_c(str, '\n');
+	director_update_send(dir, src, str_c(str));
 	director_sync(dir);
 }
 

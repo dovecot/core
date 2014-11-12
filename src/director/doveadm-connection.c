@@ -7,6 +7,7 @@
 #include "ostream.h"
 #include "array.h"
 #include "str.h"
+#include "strescape.h"
 #include "llist.h"
 #include "master-service.h"
 #include "user-directory.h"
@@ -46,9 +47,11 @@ static void doveadm_cmd_host_list(struct doveadm_connection *conn)
 	string_t *str = t_str_new(1024);
 
 	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
-		str_printfa(str, "%s\t%u\t%u\n",
+		str_printfa(str, "%s\t%u\t%u\t",
 			    net_ip2addr(&(*hostp)->ip), (*hostp)->vhost_count,
 			    (*hostp)->user_count);
+		str_append_tabescaped(str, (*hostp)->tag);
+		str_append_c(str, '\n');
 	}
 	str_append_c(str, '\n');
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
@@ -244,14 +247,21 @@ static bool
 doveadm_cmd_host_set(struct doveadm_connection *conn, const char *line)
 {
 	struct director *dir = conn->dir;
-	const char *const *args;
+	const char *const *args, *ip_str, *tag = "";
 	struct mail_host *host;
 	struct ip_addr ip;
 	unsigned int vhost_count = UINT_MAX;
 
 	args = t_strsplit_tab(line);
-	if (args[0] == NULL ||
-	    net_addr2ip(args[0], &ip) < 0 ||
+	ip_str = args[0];
+	if (ip_str != NULL) {
+		tag = strchr(ip_str, '@');
+		if (tag == NULL)
+			tag = "";
+		else
+			ip_str = t_strdup_until(ip_str, tag++);
+	}
+	if (ip_str == NULL || net_addr2ip(ip_str, &ip) < 0 ||
 	    (args[1] != NULL && str_to_uint(args[1], &vhost_count) < 0)) {
 		i_error("doveadm sent invalid HOST-SET parameters: %s", line);
 		return FALSE;
@@ -262,9 +272,12 @@ doveadm_cmd_host_set(struct doveadm_connection *conn, const char *line)
 	}
 	host = mail_host_lookup(dir->mail_hosts, &ip);
 	if (host == NULL)
-		host = mail_host_add_ip(dir->mail_hosts, &ip);
+		host = mail_host_add_ip(dir->mail_hosts, &ip, tag);
 	if (vhost_count != UINT_MAX)
 		mail_host_set_vhost_count(dir->mail_hosts, host, vhost_count);
+	/* NOTE: we don't supporting changing a tag for an existing host.
+	   it needs to be removed first. otherwise it would be a bit ugly to
+	   handle. */
 	director_update_host(dir, dir->self_host, NULL, host);
 
 	o_stream_nsend(conn->output, "OK\n", 3);
@@ -340,10 +353,19 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 {
 	struct user *user;
 	struct mail_host *host;
+	const char *username, *tag, *const *args;
 	unsigned int username_hash;
 	string_t *str = t_str_new(256);
 
-	if (str_to_uint(line, &username_hash) < 0)
+	args = t_strsplit_tab(line);
+	if (args[0] == NULL) {
+		username = "";
+		tag = "";
+	} else {
+		username = args[0];
+		tag = args[1] != NULL ? args[1] : "";
+	}
+	if (str_to_uint(username, &username_hash) < 0)
 		username_hash = user_directory_get_username_hash(conn->dir->users, line);
 
 	/* get user's current host */
@@ -357,7 +379,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 	}
 
 	/* get host if it wasn't in user directory */
-	host = mail_host_get_by_hash(conn->dir->mail_hosts, username_hash);
+	host = mail_host_get_by_hash(conn->dir->mail_hosts, username_hash, tag);
 	if (host == NULL)
 		str_append(str, "\t");
 	else
@@ -365,7 +387,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 
 	/* get host with default configuration */
 	host = mail_host_get_by_hash(conn->dir->orig_config_hosts,
-				     username_hash);
+				     username_hash, tag);
 	if (host == NULL)
 		str_append(str, "\t");
 	else
