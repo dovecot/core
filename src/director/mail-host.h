@@ -29,7 +29,7 @@ void mail_host_remove(struct mail_host_list *list, struct mail_host *host);
 
 const ARRAY_TYPE(mail_host) *mail_hosts_get(struct mail_host_list *list);
 
-struct mail_host_list *mail_hosts_init(void);
+struct mail_host_list *mail_hosts_init(bool consistent_hashing);
 void mail_hosts_deinit(struct mail_host_list **list);
 
 struct mail_host_list *mail_hosts_dup(const struct mail_host_list *src);

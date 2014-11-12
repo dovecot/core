@@ -73,6 +73,7 @@ static const struct setting_define director_setting_defines[] = {
 	DEF(SET_STR, director_username_hash),
 	DEF(SET_TIME, director_user_expire),
 	DEF(SET_UINT, director_doveadm_port),
+	DEF(SET_BOOL, director_consistent_hashing),
 
 	SETTING_DEFINE_LIST_END
 };

@@ -62,7 +62,7 @@ static void doveadm_cmd_host_list_removed(struct doveadm_connection *conn)
 	string_t *str = t_str_new(1024);
 	int ret;
 
-	orig_hosts_list = mail_hosts_init();
+	orig_hosts_list = mail_hosts_init(conn->dir->set->director_consistent_hashing);
 	(void)mail_hosts_parse_and_add(orig_hosts_list,
 				       conn->dir->set->director_mail_servers);
 

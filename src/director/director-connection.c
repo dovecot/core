@@ -90,6 +90,8 @@
 #define CMD_IS_USER_HANDHAKE(args) \
 	(str_array_length(args) > 2)
 
+#define DIRECTOR_OPT_CONSISTENT_HASHING "consistent-hashing"
+
 struct director_connection {
 	struct director *dir;
 	char *name;
@@ -125,6 +127,7 @@ struct director_connection {
 	unsigned int wrong_host:1;
 	unsigned int verifying_left:1;
 	unsigned int users_unsorted:1;
+	unsigned int done_pending:1;
 };
 
 static void director_connection_disconnected(struct director_connection **conn);
@@ -132,6 +135,7 @@ static void director_connection_reconnect(struct director_connection **conn,
 					  const char *reason);
 static void
 director_connection_log_disconnect(struct director_connection *conn, int err);
+static int director_connection_send_done(struct director_connection *conn);
 
 static void ATTR_FORMAT(2, 3)
 director_cmd_error(struct director_connection *conn, const char *fmt, ...)
@@ -1070,6 +1074,25 @@ static bool director_handshake_cmd_done(struct director_connection *conn)
 }
 
 static int
+director_handshake_cmd_options(struct director_connection *conn,
+			       const char *const *args)
+{
+	bool consistent_hashing = FALSE;
+	unsigned int i;
+
+	for (i = 0; args[i] != NULL; i++) {
+		if (strcmp(args[i], DIRECTOR_OPT_CONSISTENT_HASHING) == 0)
+			consistent_hashing = TRUE;
+	}
+	if (consistent_hashing != conn->dir->set->director_consistent_hashing) {
+		i_error("director(%s): director_consistent_hashing settings differ between directors",
+			conn->name);
+		return -1;
+	}
+	return 1;
+}
+
+static int
 director_connection_handle_handshake(struct director_connection *conn,
 				     const char *cmd, const char *const *args)
 {
@@ -1088,6 +1111,10 @@ director_connection_handle_handshake(struct director_connection *conn,
 		}
 		conn->minor_version = atoi(args[2]);
 		conn->version_received = TRUE;
+		if (conn->done_pending) {
+			if (director_connection_send_done(conn) < 0)
+				return -1;
+		}
 		return 1;
 	}
 	if (!conn->version_received) {
@@ -1114,6 +1141,8 @@ director_connection_handle_handshake(struct director_connection *conn,
 		director_cmd_error(conn, "Unexpected command during host list");
 		return -1;
 	}
+	if (strcmp(cmd, "OPTIONS") == 0)
+		return director_handshake_cmd_options(conn, args);
 	if (strcmp(cmd, "HOST-HAND-START") == 0) {
 		if (!conn->in) {
 			director_cmd_error(conn,
@@ -1518,6 +1547,25 @@ director_connection_send_hosts(struct director_connection *conn, string_t *str)
 	str_printfa(str, "HOST-HAND-END\t%u\n", conn->dir->ring_handshaked);
 }
 
+static int director_connection_send_done(struct director_connection *conn)
+{
+	i_assert(conn->version_received);
+
+	if (!conn->dir->set->director_consistent_hashing)
+		;
+	else if (conn->minor_version >= DIRECTOR_VERSION_OPTIONS) {
+		director_connection_send(conn,
+			"OPTIONS\t"DIRECTOR_OPT_CONSISTENT_HASHING"\n");
+	} else {
+		i_error("director(%s): Director version is too old for supporting director_consistent_hashing=yes",
+			conn->name);
+		return -1;
+	}
+	director_connection_send(conn, "DONE\n");
+	conn->done_pending = FALSE;
+	return 0;
+}
+
 static int director_connection_send_users(struct director_connection *conn)
 {
 	struct user *user;
@@ -1546,7 +1594,12 @@ static int director_connection_send_users(struct director_connection *conn)
 		}
 	}
 	user_directory_iter_deinit(&conn->user_iter);
-	director_connection_send(conn, "DONE\n");
+	if (!conn->version_received)
+		conn->done_pending = TRUE;
+	else {
+		if (director_connection_send_done(conn) < 0)
+			return -1;
+	}
 
 	if (conn->users_unsorted && conn->handshake_received) {
 		/* we received remote's list of users before sending ours */

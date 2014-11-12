@@ -909,7 +909,7 @@ director_init(const struct director_settings *set,
 	i_array_init(&dir->connections, 8);
 	dir->users = user_directory_init(set->director_user_expire,
 					 set->director_username_hash);
-	dir->mail_hosts = mail_hosts_init();
+	dir->mail_hosts = mail_hosts_init(set->director_consistent_hashing);
 
 	dir->ipc_proxy = ipc_client_init(DIRECTOR_IPC_PROXY_PATH);
 	dir->ring_min_version = DIRECTOR_VERSION_MINOR;

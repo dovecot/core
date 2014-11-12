@@ -9,6 +9,7 @@ struct director_settings {
 	const char *director_username_hash;
 	unsigned int director_user_expire;
 	unsigned int director_doveadm_port;
+	bool director_consistent_hashing;
 };
 
 extern const struct setting_parser_info director_setting_parser_info;

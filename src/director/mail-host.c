@@ -2,14 +2,22 @@
 
 #include "lib.h"
 #include "array.h"
+#include "bsearch-insert-pos.h"
+#include "md5.h"
 #include "mail-host.h"
 
 #define VHOST_MULTIPLIER 100
 
+struct mail_vhost {
+	unsigned int hash;
+	struct mail_host *host;
+};
+
 struct mail_host_list {
 	ARRAY_TYPE(mail_host) hosts;
-	ARRAY(struct mail_host *) vhosts;
+	ARRAY(struct mail_vhost) vhosts;
 	bool hosts_unsorted;
+	bool consistent_hashing;
 };
 
 static int
@@ -18,8 +26,71 @@ mail_host_cmp(struct mail_host *const *h1, struct mail_host *const *h2)
 	return net_ip_cmp(&(*h1)->ip, &(*h2)->ip);
 }
 
-static void mail_hosts_sort(struct mail_host_list *list)
+static int
+mail_vhost_cmp(const struct mail_vhost *h1, const struct mail_vhost *h2)
 {
+	if (h1->hash < h2->hash)
+		return -1;
+	else if (h1->hash > h2->hash)
+		return 1;
+	/* hash collision. not ideal, but we'll need to keep the order
+	   consistent across directors so compare the IPs next. */
+	return net_ip_cmp(&h1->host->ip, &h2->host->ip);
+}
+
+static int
+mail_vhost_hash_cmp(const unsigned int *hash, const struct mail_vhost *vhost)
+{
+	if (vhost->hash < *hash)
+		return 1;
+	else if (vhost->hash > *hash)
+		return -1;
+	else
+		return 0;
+}
+
+static void mail_vhost_add(struct mail_host_list *list, struct mail_host *host)
+{
+	struct mail_vhost *vhost;
+	struct md5_context md5_ctx, md5_ctx2;
+	unsigned char md5[MD5_RESULTLEN];
+	const char *ip_str;
+	char num_str[MAX_INT_STRLEN];
+	unsigned int i, j;
+
+	ip_str = net_ip2addr(&host->ip);
+
+	md5_init(&md5_ctx);
+	md5_update(&md5_ctx, ip_str, strlen(ip_str));
+
+	for (i = 0; i < host->vhost_count; i++) {
+		md5_ctx2 = md5_ctx;
+		i_snprintf(num_str, sizeof(num_str), "-%u", i);
+		md5_update(&md5_ctx2, num_str, strlen(num_str));
+		md5_final(&md5_ctx2, md5);
+
+		vhost = array_append_space(&list->vhosts);
+		vhost->host = host;
+		for (j = 0; j < sizeof(vhost->hash); j++)
+			vhost->hash = (vhost->hash << CHAR_BIT) | md5[j];
+	}
+}
+
+static void mail_hosts_sort_ring(struct mail_host_list *list)
+{
+	struct mail_host *const *hostp;
+
+	/* rebuild vhosts */
+	array_clear(&list->vhosts);
+	array_foreach(&list->hosts, hostp)
+		mail_vhost_add(list, *hostp);
+	array_sort(&list->vhosts, mail_vhost_cmp);
+	list->hosts_unsorted = FALSE;
+}
+
+static void mail_hosts_sort_direct(struct mail_host_list *list)
+{
+	struct mail_vhost *vhost;
 	struct mail_host *const *hostp;
 	unsigned int i;
 
@@ -28,10 +99,20 @@ static void mail_hosts_sort(struct mail_host_list *list)
 	/* rebuild vhosts */
 	array_clear(&list->vhosts);
 	array_foreach(&list->hosts, hostp) {
-		for (i = 0; i < (*hostp)->vhost_count; i++)
-			array_append(&list->vhosts, hostp, 1);
+		for (i = 0; i < (*hostp)->vhost_count; i++) {
+			vhost = array_append_space(&list->vhosts);
+			vhost->host = *hostp;
+		}
 	}
 	list->hosts_unsorted = FALSE;
+}
+
+static void mail_hosts_sort(struct mail_host_list *list)
+{
+	if (list->consistent_hashing)
+		mail_hosts_sort_ring(list);
+	else
+		mail_hosts_sort_direct(list);
 }
 
 struct mail_host *
@@ -205,20 +286,47 @@ mail_host_lookup(struct mail_host_list *list, const struct ip_addr *ip)
 	return NULL;
 }
 
-struct mail_host *
-mail_host_get_by_hash(struct mail_host_list *list, unsigned int hash)
+static struct mail_host *
+mail_host_get_by_hash_ring(struct mail_host_list *list, unsigned int hash)
 {
-	struct mail_host *const *vhosts;
-	unsigned int count;
+	const struct mail_vhost *vhosts;
+	unsigned int count, idx;
 
-	if (list->hosts_unsorted)
-		mail_hosts_sort(list);
+	vhosts = array_get(&list->vhosts, &count);
+	array_bsearch_insert_pos(&list->vhosts, &hash,
+				 mail_vhost_hash_cmp, &idx);
+	if (idx == count) {
+		if (count == 0)
+			return NULL;
+		idx = 0;
+	}
+
+	return vhosts[idx].host;
+}
+
+static struct mail_host *
+mail_host_get_by_hash_direct(struct mail_host_list *list, unsigned int hash)
+{
+	const struct mail_vhost *vhosts;
+	unsigned int count;
 
 	vhosts = array_get(&list->vhosts, &count);
 	if (count == 0)
 		return NULL;
 
-	return vhosts[hash % count];
+	return vhosts[hash % count].host;
+}
+
+struct mail_host *
+mail_host_get_by_hash(struct mail_host_list *list, unsigned int hash)
+{
+	if (list->hosts_unsorted)
+		mail_hosts_sort(list);
+
+	if (list->consistent_hashing)
+		return mail_host_get_by_hash_ring(list, hash);
+	else
+		return mail_host_get_by_hash_direct(list, hash);
 }
 
 const ARRAY_TYPE(mail_host) *mail_hosts_get(struct mail_host_list *list)
@@ -228,11 +336,12 @@ const ARRAY_TYPE(mail_host) *mail_hosts_get(struct mail_host_list *list)
 	return &list->hosts;
 }
 
-struct mail_host_list *mail_hosts_init(void)
+struct mail_host_list *mail_hosts_init(bool consistent_hashing)
 {
 	struct mail_host_list *list;
 
 	list = i_new(struct mail_host_list, 1);
+	list->consistent_hashing = consistent_hashing;
 	i_array_init(&list->hosts, 16);
 	i_array_init(&list->vhosts, 16*VHOST_MULTIPLIER);
 	return list;
@@ -266,7 +375,7 @@ struct mail_host_list *mail_hosts_dup(const struct mail_host_list *src)
 	struct mail_host_list *dest;
 	struct mail_host *const *hostp, *dest_host;
 
-	dest = mail_hosts_init();
+	dest = mail_hosts_init(src->consistent_hashing);
 	array_foreach(&src->hosts, hostp) {
 		dest_host = mail_host_dup(*hostp);
 		array_append(&dest->hosts, &dest_host, 1);
