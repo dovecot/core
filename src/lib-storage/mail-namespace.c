@@ -54,9 +54,11 @@ static void mail_namespace_free(struct mail_namespace *ns)
 {
 	struct mail_storage **storagep;
 
-	array_foreach_modifiable(&ns->all_storages, storagep)
-		mail_storage_unref(storagep);
-	array_free(&ns->all_storages);
+	if (array_is_created(&ns->all_storages)) {
+		array_foreach_modifiable(&ns->all_storages, storagep)
+			mail_storage_unref(storagep);
+		array_free(&ns->all_storages);
+	}
 	if (ns->list != NULL)
 		mailbox_list_destroy(&ns->list);
 
