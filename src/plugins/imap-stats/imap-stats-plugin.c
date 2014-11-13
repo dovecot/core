@@ -54,7 +54,7 @@ static void stats_command_post(struct client_command_context *cmd)
 	struct stats_user *suser = STATS_USER_CONTEXT(cmd->client->user);
 	struct stats_client_command *scmd = IMAP_STATS_IMAP_CONTEXT(cmd);
 	struct mail_stats stats, pre_trans_stats, trans_stats;
-	unsigned int args_pos = 0;
+	unsigned int args_pos = 0, args_len = 0;
 	string_t *str;
 
 	if (scmd == NULL)
@@ -87,6 +87,7 @@ static void stats_command_post(struct client_command_context *cmd)
 		args_pos = str_len(str);
 		if (cmd->args != NULL)
 			str_append(str, cmd->args);
+		args_len = str_len(str) - args_pos;
 		scmd->continued = TRUE;
 	}
 
@@ -95,9 +96,13 @@ static void stats_command_post(struct client_command_context *cmd)
 
 	if (str_len(str) > PIPE_BUF) {
 		/* truncate the args so it fits */
+		unsigned int delete_count = str_len(str) - PIPE_BUF;
+
 		i_assert(args_pos != 0);
-		str_delete(str, args_pos, str_len(str) - PIPE_BUF);
-		i_assert(str_len(str) == PIPE_BUF);
+		if (delete_count > args_len)
+			delete_count = args_len;
+		str_delete(str, args_pos + args_len - delete_count,
+			   delete_count);
 	}
 
 	stats_connection_send(suser->stats_conn, str);
