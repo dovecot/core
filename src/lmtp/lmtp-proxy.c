@@ -288,8 +288,9 @@ int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy, const char *address,
 	rcpt->address = p_strdup(proxy->pool, address);
 	array_append(&proxy->rcpt_to, &rcpt, 1);
 
-	lmtp_client_add_rcpt(conn->client, address, lmtp_proxy_conn_rcpt_to,
-			     lmtp_proxy_conn_data, rcpt);
+	lmtp_client_add_rcpt_params(conn->client, address, &set->params,
+				    lmtp_proxy_conn_rcpt_to,
+				    lmtp_proxy_conn_data, rcpt);
 	return 0;
 }
 

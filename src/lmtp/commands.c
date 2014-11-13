@@ -11,6 +11,7 @@
 #include "ostream.h"
 #include "istream-dot.h"
 #include "safe-mkstemp.h"
+#include "hex-dec.h"
 #include "var-expand.h"
 #include "restrict-access.h"
 #include "settings-parser.h"
@@ -149,6 +150,33 @@ static int parse_address(const char *str, const char **address_r,
 	return 0;
 }
 
+static const char *
+parse_xtext(struct client *client, const char *value)
+{
+	const char *p;
+	string_t *str;
+	unsigned int i;
+
+	p = strchr(value, '+');
+	if (p == NULL)
+		return p_strdup(client->state_pool, value);
+
+	/*
+	   hexchar = ASCII "+" immediately followed by two upper case
+		     hexadecimal digits
+	*/
+	str = t_str_new(128);
+	for (i = 0; value[i] != '\0'; i++) {
+		if (value[i] == '+' && value[i+1] != '\0' && value[i+2] != '\0') {
+			str_append_c(str, hex2dec((const void *)(value+i+1), 2));
+			i += 2;
+		} else {
+			str_append_c(str, value[i]);
+		}
+	}
+	return p_strdup(client->state_pool, str_c(str));
+}
+
 int cmd_mail(struct client *client, const char *args)
 {
 	const char *addr, *const *argv;
@@ -269,7 +297,8 @@ address_add_detail(struct client *client, const char *username,
 }
 
 static bool client_proxy_rcpt(struct client *client, const char *address,
-			      const char *username, const char *detail)
+			      const char *username, const char *detail,
+			      const struct lmtp_recipient_params *params)
 {
 	struct auth_master_connection *auth_conn;
 	struct lmtp_proxy_rcpt_settings set;
@@ -311,6 +340,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 	set.port = client->local_port;
 	set.protocol = LMTP_CLIENT_PROTOCOL_LMTP;
 	set.timeout_msecs = LMTP_PROXY_DEFAULT_TIMEOUT_MSECS;
+	set.params = *params;
 
 	if (!client_proxy_rcpt_parse_fields(&set, fields, &username)) {
 		/* not proxying this user */
@@ -537,7 +567,8 @@ int cmd_rcpt(struct client *client, const char *args)
 {
 	struct mail_recipient rcpt;
 	struct mail_storage_service_input input;
-	const char *address, *username, *detail, *prefix;
+	const char *params, *address, *username, *detail, *prefix;
+	const char *const *argv;
 	const char *error = NULL;
 	int ret = 0;
 
@@ -547,7 +578,7 @@ int cmd_rcpt(struct client *client, const char *args)
 	}
 
 	if (strncasecmp(args, "TO:", 3) != 0 ||
-	    parse_address(args + 3, &address, &args) < 0) {
+	    parse_address(args + 3, &address, &params) < 0) {
 		client_send_line(client, "501 5.5.4 Invalid parameters");
 		return 0;
 	}
@@ -555,16 +586,22 @@ int cmd_rcpt(struct client *client, const char *args)
 	memset(&rcpt, 0, sizeof(rcpt));
 	address = lmtp_unescape_address(address);
 
-	if (*args != '\0') {
-		client_send_line(client, "501 5.5.4 Unsupported options");
-		return 0;
+	argv = t_strsplit(params, " ");
+	for (; *argv != NULL; argv++) {
+		if (strncasecmp(*argv, "ORCPT=", 6) == 0) {
+			rcpt.params.dsn_orcpt = parse_xtext(client, *argv + 6);
+		} else {
+			client_send_line(client, "501 5.5.4 Unsupported options");
+			return 0;
+		}
 	}
 	rcpt_address_parse(client, address, &username, &detail);
 
 	client_state_set(client, "RCPT TO", address);
 
 	if (client->lmtp_set->lmtp_proxy) {
-		if (client_proxy_rcpt(client, address, username, detail))
+		if (client_proxy_rcpt(client, address, username, detail,
+				      &rcpt.params))
 			return 0;
 	}
 
@@ -647,6 +684,15 @@ int cmd_noop(struct client *client, const char *args ATTR_UNUSED)
 	return 0;
 }
 
+static bool orcpt_get_valid_rfc822(const char *orcpt, const char **addr_r)
+{
+	if (orcpt == NULL || strncasecmp(orcpt, "rfc822;", 7) != 0)
+		return FALSE;
+	/* FIXME: we should verify the address further */
+	*addr_r = orcpt + 7;
+	return TRUE;
+}
+
 static int
 client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	       struct mail *src_mail, struct mail_deliver_session *session)
@@ -709,7 +755,9 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	dctx.src_mail = src_mail;
 	dctx.src_envelope_sender = client->state.mail_from;
 	dctx.dest_user = client->state.dest_user;
-	if (*dctx.set->lda_original_recipient_header != '\0') {
+	if (orcpt_get_valid_rfc822(rcpt->params.dsn_orcpt, &dctx.dest_addr)) {
+		/* used ORCPT */
+	} else if (*dctx.set->lda_original_recipient_header != '\0') {
 		dctx.dest_addr = mail_deliver_get_address(src_mail,
 				dctx.set->lda_original_recipient_header);
 	}

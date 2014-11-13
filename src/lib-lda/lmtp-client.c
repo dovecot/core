@@ -31,6 +31,8 @@ struct lmtp_rcpt {
 	lmtp_callback_t *data_callback;
 	void *context;
 
+	struct lmtp_recipient_params params;
+
 	unsigned int data_called:1;
 	unsigned int failed:1;
 };
@@ -732,15 +734,35 @@ void lmtp_client_set_data_header(struct lmtp_client *client, const char *str)
 	client->data_header = p_strdup(client->pool, str);
 }
 
+static void lmtp_append_xtext(string_t *dest, const char *str)
+{
+	unsigned int i;
+
+	for (i = 0; str[i] != '\0'; i++) {
+		if (str[i] >= 33 && str[i] <= 126 &&
+		    str[i] != '+' && str[i] != '=')
+			str_append_c(dest, str[i]);
+		else
+			str_printfa(dest, "+%02X", str[i]);
+	}
+}
+
 static void lmtp_client_send_rcpts(struct lmtp_client *client)
 {
 	const struct lmtp_rcpt *rcpt;
 	unsigned int i, count;
+	string_t *str = t_str_new(128);
 
 	rcpt = array_get(&client->recipients, &count);
 	for (i = client->rcpt_next_send_idx; i < count; i++) {
-		o_stream_nsend_str(client->output,
-			t_strdup_printf("RCPT TO:<%s>\r\n", rcpt[i].address));
+		str_truncate(str, 0);
+		str_printfa(str, "RCPT TO:<%s>", rcpt[i].address);
+		if (rcpt->params.dsn_orcpt != NULL) {
+			str_append(str, " ORCPT=");
+			lmtp_append_xtext(str, rcpt->params.dsn_orcpt);
+		}
+		str_append(str, "\r\n");
+		o_stream_nsend(client->output, str_data(str), str_len(str));
 	}
 	client->rcpt_next_send_idx = i;
 }
@@ -749,11 +771,24 @@ void lmtp_client_add_rcpt(struct lmtp_client *client, const char *address,
 			  lmtp_callback_t *rcpt_to_callback,
 			  lmtp_callback_t *data_callback, void *context)
 {
+	struct lmtp_recipient_params params;
+
+	memset(&params, 0, sizeof(params));
+	lmtp_client_add_rcpt_params(client, address, &params, rcpt_to_callback,
+				    data_callback, context);
+}
+
+void lmtp_client_add_rcpt_params(struct lmtp_client *client, const char *address,
+				 const struct lmtp_recipient_params *params,
+				 lmtp_callback_t *rcpt_to_callback,
+				 lmtp_callback_t *data_callback, void *context)
+{
 	struct lmtp_rcpt *rcpt;
 	enum lmtp_client_result result;
 
 	rcpt = array_append_space(&client->recipients);
 	rcpt->address = p_strdup(client->pool, address);
+	rcpt->params.dsn_orcpt = p_strdup(client->pool, params->dsn_orcpt);
 	rcpt->rcpt_to_callback = rcpt_to_callback;
 	rcpt->data_callback = data_callback;
 	rcpt->context = context;

@@ -22,6 +22,7 @@ struct lmtp_proxy_rcpt_settings {
 	unsigned int port;
 	unsigned int timeout_msecs;
 	enum lmtp_client_protocol protocol;
+	struct lmtp_recipient_params params;
 };
 
 typedef void lmtp_proxy_finish_callback_t(void *context);

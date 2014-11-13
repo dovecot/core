@@ -22,8 +22,13 @@ enum lmtp_client_result {
 	LMTP_CLIENT_RESULT_INTERNAL_ERROR = -1
 };
 
+struct lmtp_recipient_params {
+	const char *dsn_orcpt;
+};
+
 struct lmtp_client_settings {
 	const char *my_hostname;
+	/* The whole MAIL FROM line, including parameters */
 	const char *mail_from;
 	const char *dns_client_socket_path;
 
@@ -66,6 +71,10 @@ void lmtp_client_set_data_header(struct lmtp_client *client, const char *str);
 void lmtp_client_add_rcpt(struct lmtp_client *client, const char *address,
 			  lmtp_callback_t *rcpt_to_callback,
 			  lmtp_callback_t *data_callback, void *context);
+void lmtp_client_add_rcpt_params(struct lmtp_client *client, const char *address,
+				 const struct lmtp_recipient_params *params,
+				 lmtp_callback_t *rcpt_to_callback,
+				 lmtp_callback_t *data_callback, void *context);
 /* Start sending input stream as DATA. */
 void lmtp_client_send(struct lmtp_client *client, struct istream *data_input);
 /* Call this function whenever input stream can potentially be read forward.
