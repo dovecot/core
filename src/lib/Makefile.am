@@ -126,6 +126,7 @@ liblib_la_SOURCES = \
 	str.c \
 	str-find.c \
 	str-sanitize.c \
+	str-table.c \
 	strescape.c \
 	strfuncs.c \
 	strnum.c \
@@ -247,6 +248,7 @@ headers = \
 	str.h \
 	str-find.h \
 	str-sanitize.h \
+	str-table.h \
 	strescape.h \
 	strfuncs.h \
 	strnum.h \
@@ -311,6 +313,7 @@ test_lib_SOURCES = \
 	test-strnum.c \
 	test-str-find.c \
 	test-str-sanitize.c \
+	test-str-table.c \
 	test-time-util.c \
 	test-unichar.c \
 	test-utc-mktime.c \

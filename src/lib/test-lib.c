@@ -42,6 +42,7 @@ int main(void)
 		test_strnum,
 		test_str_find,
 		test_str_sanitize,
+		test_str_table,
 		test_time_util,
 		test_unichar,
 		test_utc_mktime,
