@@ -697,12 +697,15 @@ o_stream_file_write_at(struct ostream_private *stream,
 }
 
 static off_t io_stream_sendfile(struct ostream_private *outstream,
-				struct istream *instream, int in_fd)
+				struct istream *instream, int in_fd,
+				bool *sendfile_not_supported_r)
 {
 	struct file_ostream *foutstream = (struct file_ostream *)outstream;
 	uoff_t start_offset;
 	uoff_t in_size, offset, send_size, v_offset;
 	ssize_t ret;
+
+	*sendfile_not_supported_r = FALSE;
 
 	if ((ret = i_stream_get_size(instream, TRUE, &in_size)) <= 0) {
 		outstream->ostream.stream_errno = ret == 0 ? ESPIPE :
@@ -740,9 +743,10 @@ static off_t io_stream_sendfile(struct ostream_private *outstream,
 					break;
 				}
 			}
-
-			outstream->ostream.stream_errno = errno;
-			if (errno != EINVAL) {
+			if (errno == EINVAL)
+				*sendfile_not_supported_r = TRUE;
+			else {
+				outstream->ostream.stream_errno = errno;
 				/* close only if error wasn't because
 				   sendfile() isn't supported */
 				stream_closed(foutstream);
@@ -762,7 +766,8 @@ static off_t io_stream_sendfile(struct ostream_private *outstream,
 		i_assert(!foutstream->file ||
 			 instream->v_offset - start_offset == in_size);
 		if (i_stream_read(instream) > 0) {
-			if (io_stream_sendfile(outstream, instream, in_fd) < 0)
+			if (io_stream_sendfile(outstream, instream, in_fd,
+					       sendfile_not_supported_r) < 0)
 				return -1;
 		}
 	}
@@ -894,17 +899,18 @@ static off_t o_stream_file_send_istream(struct ostream_private *outstream,
 	bool same_stream;
 	int in_fd;
 	off_t ret;
+	bool sendfile_not_supported;
 
 	in_fd = !instream->readable_fd ? -1 : i_stream_get_fd(instream);
 	if (!foutstream->no_sendfile && in_fd != -1 &&
 	    in_fd != foutstream->fd && instream->seekable) {
-		ret = io_stream_sendfile(outstream, instream, in_fd);
-		if (ret >= 0 || outstream->ostream.stream_errno != EINVAL)
+		ret = io_stream_sendfile(outstream, instream, in_fd,
+					 &sendfile_not_supported);
+		if (ret >= 0 || !sendfile_not_supported)
 			return ret;
 
 		/* sendfile() not supported (with this fd), fallback to
 		   regular sending. */
-		outstream->ostream.stream_errno = 0;
 		foutstream->no_sendfile = TRUE;
 	}
 
