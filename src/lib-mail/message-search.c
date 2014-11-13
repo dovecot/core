@@ -212,7 +212,6 @@ message_search_msg_real(struct message_search_context *ctx,
 	}
 	if (message_parser_deinit(&parser_ctx, &new_parts) < 0) {
 		/* broken parts */
-		input->stream_errno = 0;
 		ret = -1;
 	}
 	return ret;
