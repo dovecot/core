@@ -387,8 +387,10 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 		if (mail_namespaces_init_add(user, ns_set[i],
 					     unexpanded_ns_set[i],
 					     ns_p, error_r) < 0) {
-			if (!ns_set[i]->ignore_on_failure)
+			if (!ns_set[i]->ignore_on_failure) {
+				mail_namespaces_deinit(&namespaces);
 				return -1;
+			}
 			if (mail_set->mail_debug) {
 				i_debug("Skipping namespace %s: %s",
 					ns_set[i]->prefix, *error_r);
