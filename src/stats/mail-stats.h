@@ -42,7 +42,7 @@ struct mail_session {
 	/* if guid is empty, the session no longer exists */
 	guid_128_t guid;
 	struct mail_user *user;
-	char *service;
+	const char *service;
 	pid_t pid;
 	/* ip address may be NULL if there's none */
 	struct mail_ip *ip;

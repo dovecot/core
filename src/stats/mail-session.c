@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "hash.h"
 #include "llist.h"
+#include "str-table.h"
 #include "global-memory.h"
 #include "stats-settings.h"
 #include "mail-stats.h"
@@ -28,12 +29,13 @@ static HASH_TABLE(uint8_t *, struct mail_session *) mail_sessions_hash;
 static struct mail_session *mail_sessions_head, *mail_sessions_tail;
 static time_t session_guid_warn_hide_until;
 static bool session_guid_hide_warned = FALSE;
+static struct str_table *services;
 
 struct mail_session *stable_mail_sessions;
 
 static size_t mail_session_memsize(const struct mail_session *session)
 {
-	return sizeof(*session) + strlen(session->service) + 1;
+	return sizeof(*session) + 1;
 }
 
 static void mail_session_disconnect(struct mail_session *session)
@@ -99,7 +101,7 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 	}
 	session = i_new(struct mail_session, 1);
 	session->refcount = 1; /* unrefed at disconnect */
-	session->service = i_strdup(args[2]);
+	session->service = str_table_ref(services, args[2]);
 	memcpy(session->guid, session_guid, sizeof(session->guid));
 	session->pid = pid;
 	session->last_update = ioloop_timeval;
@@ -171,7 +173,7 @@ static void mail_session_free(struct mail_session *session)
 		mail_ip_unref(&session->ip);
 	}
 
-	i_free(session->service);
+	str_table_unref(services, &session->service);
 	i_free(session);
 }
 
@@ -319,6 +321,7 @@ void mail_sessions_init(void)
 		ioloop_time + SESSION_GUID_WARN_HIDE_SECS;
 	hash_table_create(&mail_sessions_hash, default_pool, 0,
 			  guid_128_hash, guid_128_cmp);
+	services = str_table_init();
 }
 
 void mail_sessions_deinit(void)
@@ -331,4 +334,5 @@ void mail_sessions_deinit(void)
 		mail_session_free(mail_sessions_head);
 	}
 	hash_table_destroy(&mail_sessions_hash);
+	str_table_deinit(&services);
 }
