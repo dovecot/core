@@ -250,7 +250,6 @@ void i_stream_skip(struct istream *stream, uoff_t count)
 	if (unlikely(stream->closed))
 		return;
 
-	stream->stream_errno = 0;
 	_stream->seek(_stream, stream->v_offset + count, FALSE);
 }
 
@@ -398,11 +397,8 @@ char *i_stream_next_line(struct istream *stream)
 	struct istream_private *_stream = stream->real_stream;
 	const unsigned char *pos;
 
-	if (_stream->skip >= _stream->pos) {
-		if (!unlikely(stream->closed))
-			stream->stream_errno = 0;
+	if (_stream->skip >= _stream->pos)
 		return NULL;
-	}
 
 	pos = memchr(_stream->buffer + _stream->skip, '\n',
 		     _stream->pos - _stream->skip);
