@@ -73,7 +73,7 @@ static void stats_command_post(struct client_command_context *cmd)
 
 	str = t_str_new(128);
 	str_append(str, "UPDATE-CMD\t");
-	str_append(str, guid_128_to_string(suser->session_guid));
+	str_append(str, suser->stats_session_id);
 
 	str_printfa(str, "\t%u\t", scmd->id);
 	if (cmd->state == CLIENT_COMMAND_STATE_DONE)

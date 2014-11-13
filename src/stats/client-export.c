@@ -276,8 +276,7 @@ static int client_export_iter_command(struct client *client)
 		str_append_tabescaped(cmd->str, command->args);
 		str_append_c(cmd->str, '\t');
 		T_BEGIN {
-			str_append(cmd->str,
-				   guid_128_to_string(command->session->guid));
+			str_append(cmd->str, command->session->id);
 			str_append_c(cmd->str, '\t');
 			str_append_tabescaped(cmd->str,
 					      command->session->user->name);
@@ -321,7 +320,7 @@ static int client_export_iter_session(struct client *client)
 
 		str_truncate(cmd->str, 0);
 		T_BEGIN {
-			str_append(cmd->str, guid_128_to_string(session->guid));
+			str_append(cmd->str, session->id);
 			str_append_c(cmd->str, '\t');
 			str_append_tabescaped(cmd->str, session->user->name);
 			str_append_c(cmd->str, '\t');

@@ -39,8 +39,8 @@ struct mail_session {
 	struct mail_session *user_prev, *user_next;
 	struct mail_session *ip_prev, *ip_next;
 
-	/* if guid is empty, the session no longer exists */
-	guid_128_t guid;
+	/* if id="", the session no longer exists */
+	char *id;
 	struct mail_user *user;
 	const char *service;
 	pid_t pid;

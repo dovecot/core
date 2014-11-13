@@ -113,7 +113,7 @@ void stats_connection_connect(struct stats_connection *conn,
 
 	str_append(str, "CONNECT\t");
 	/* required fields */
-	str_append(str, guid_128_to_string(suser->session_guid));
+	str_append(str, suser->stats_session_id);
 	str_append_c(str, '\t');
 	str_append_tabescaped(str, user->username);
 	str_append_c(str, '\t');
@@ -140,7 +140,7 @@ void stats_connection_disconnect(struct stats_connection *conn,
 	string_t *str = t_str_new(128);
 
 	str_append(str, "DISCONNECT\t");
-	str_append(str, guid_128_to_string(suser->session_guid));
+	str_append(str, suser->stats_session_id);
 	str_append_c(str, '\n');
 	stats_connection_send(conn, str);
 }
@@ -153,7 +153,7 @@ void stats_connection_send_session(struct stats_connection *conn,
 	string_t *str = t_str_new(128);
 
 	str_append(str, "UPDATE-SESSION\t");
-	str_append(str, guid_128_to_string(suser->session_guid));
+	str_append(str, suser->stats_session_id);
 
 	mail_stats_export(str, stats);
 

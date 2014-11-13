@@ -631,7 +631,15 @@ static void stats_user_created(struct mail_user *user)
 		suser->track_commands = TRUE;
 
 	suser->stats_conn = global_stats_conn;
-	guid_128_generate(suser->session_guid);
+	if (user->session_id != NULL && user->session_id[0] != '\0')
+		suser->stats_session_id = user->session_id;
+	else {
+		guid_128_t guid;
+
+		guid_128_generate(guid);
+		suser->stats_session_id =
+			p_strdup(user->pool, guid_128_to_string(guid));
+	}
 	suser->last_session_update = time(NULL);
 
 	suser->ioloop_ctx = ioloop_ctx;

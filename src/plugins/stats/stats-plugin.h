@@ -2,7 +2,6 @@
 #define STATS_PLUGIN_H
 
 #include "module-context.h"
-#include "guid.h"
 #include "mail-user.h"
 #include "mail-storage-private.h"
 
@@ -33,7 +32,7 @@ struct stats_user {
 
 	struct ioloop_context *ioloop_ctx;
 	struct stats_connection *stats_conn;
-	guid_128_t session_guid;
+	const char *stats_session_id;
 
 	unsigned int refresh_secs;
 	bool track_commands;
