@@ -9,8 +9,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-DPKG_STATEDIR=\""$(statedir)"\"
 
-ssl_params_LDADD = $(LIBDOVECOT) ../lib-ssl-iostream/libssl_iostream.la
-ssl_params_DEPENDENCIES = $(LIBDOVECOT_DEPS) ../lib-ssl-iostream/libssl_iostream.la
+ssl_params_LDADD = $(LIBDOVECOT)
+ssl_params_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 ssl_params_SOURCES = \
 	main.c \
 	ssl-params.c \
