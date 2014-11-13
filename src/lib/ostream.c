@@ -125,7 +125,7 @@ void o_stream_cork(struct ostream *stream)
 {
 	struct ostream_private *_stream = stream->real_stream;
 
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed || stream->stream_errno != 0))
 		return;
 
 	_stream->cork(_stream, TRUE);
@@ -135,10 +135,9 @@ void o_stream_uncork(struct ostream *stream)
 {
 	struct ostream_private *_stream = stream->real_stream;
 
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed || stream->stream_errno != 0))
 		return;
 
-	stream->stream_errno = 0;
 	_stream->cork(_stream, FALSE);
 	if (stream->stream_errno != 0)
 		errno = stream->last_failed_errno = stream->stream_errno;
@@ -151,23 +150,16 @@ bool o_stream_is_corked(struct ostream *stream)
 	return _stream->corked;
 }
 
-static void o_stream_clear_error(struct ostream *stream)
-{
-	stream->stream_errno = 0;
-	i_free_and_null(stream->real_stream->iostream.error);
-}
-
 int o_stream_flush(struct ostream *stream)
 {
 	struct ostream_private *_stream = stream->real_stream;
 	int ret = 1;
 
-	if (unlikely(stream->closed)) {
+	if (unlikely(stream->closed || stream->stream_errno != 0)) {
 		errno = stream->stream_errno;
 		return -1;
 	}
 
-	o_stream_clear_error(stream);
 	if (unlikely((ret = _stream->flush(_stream)) < 0)) {
 		i_assert(stream->stream_errno != 0);
 		stream->last_failed_errno = stream->stream_errno;
@@ -180,7 +172,7 @@ void o_stream_set_flush_pending(struct ostream *stream, bool set)
 {
 	struct ostream_private *_stream = stream->real_stream;
 
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed || stream->stream_errno != 0))
 		return;
 
 	_stream->flush_pending(_stream, set);
@@ -205,12 +197,11 @@ int o_stream_seek(struct ostream *stream, uoff_t offset)
 {
 	struct ostream_private *_stream = stream->real_stream;
 
-	if (unlikely(stream->closed)) {
+	if (unlikely(stream->closed || stream->stream_errno != 0)) {
 		errno = stream->stream_errno;
 		return -1;
 	}
 
-	o_stream_clear_error(stream);
 	if (unlikely(_stream->seek(_stream, offset) < 0)) {
 		i_assert(stream->stream_errno != 0);
 		stream->last_failed_errno = stream->stream_errno;
@@ -239,12 +230,11 @@ ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 	size_t total_size;
 	ssize_t ret;
 
-	if (unlikely(stream->closed)) {
+	if (unlikely(stream->closed || stream->stream_errno != 0)) {
 		errno = stream->stream_errno;
 		return -1;
 	}
 
-	o_stream_clear_error(stream);
 	for (i = 0, total_size = 0; i < iov_count; i++)
 		total_size += iov[i].iov_len;
 	if (total_size == 0)
@@ -282,7 +272,7 @@ void o_stream_nsend(struct ostream *stream, const void *data, size_t size)
 void o_stream_nsendv(struct ostream *stream, const struct const_iovec *iov,
 		     unsigned int iov_count)
 {
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed || stream->stream_errno != 0))
 		return;
 	(void)o_stream_sendv(stream, iov, iov_count);
 	stream->real_stream->last_errors_not_checked = TRUE;
@@ -295,7 +285,7 @@ void o_stream_nsend_str(struct ostream *stream, const char *str)
 
 void o_stream_nflush(struct ostream *stream)
 {
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed || stream->stream_errno != 0))
 		return;
 	(void)o_stream_flush(stream);
 	stream->real_stream->last_errors_not_checked = TRUE;
@@ -328,12 +318,12 @@ off_t o_stream_send_istream(struct ostream *outstream,
 	struct ostream_private *_outstream = outstream->real_stream;
 	off_t ret;
 
-	if (unlikely(outstream->closed || instream->closed)) {
+	if (unlikely(outstream->closed || instream->closed ||
+		     outstream->stream_errno != 0)) {
 		errno = outstream->stream_errno;
 		return -1;
 	}
 
-	o_stream_clear_error(outstream);
 	ret = _outstream->send_istream(_outstream, instream);
 	if (unlikely(ret < 0)) {
 		if (outstream->stream_errno != 0) {
@@ -351,12 +341,11 @@ int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 {
 	int ret;
 
-	if (unlikely(stream->closed)) {
+	if (unlikely(stream->closed || stream->stream_errno != 0)) {
 		errno = stream->stream_errno;
 		return -1;
 	}
 
-	o_stream_clear_error(stream);
 	ret = stream->real_stream->write_at(stream->real_stream,
 					    data, size, offset);
 	if (unlikely(ret < 0)) {
