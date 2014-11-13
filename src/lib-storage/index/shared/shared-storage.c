@@ -255,6 +255,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 
 	owner = mail_user_alloc(userdomain, user->set_info,
 				user->unexpanded_set);
+	owner->creator = user;
 	owner->autocreated = TRUE;
 	owner->session_id = p_strdup(owner->pool, user->session_id);
 	if (mail_user_init(owner, &error) < 0) {

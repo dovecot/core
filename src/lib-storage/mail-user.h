@@ -16,6 +16,10 @@ struct mail_user {
 	struct mail_user_vfuncs v, *vlast;
 	int refcount;
 
+	/* User's creator if such exists. For example for autocreated shared
+	   mailbox users their creator is the logged in user. */
+	struct mail_user *creator;
+
 	const char *username;
 	/* don't access the home directly. It may be set lazily. */
 	const char *_home;
