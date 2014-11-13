@@ -363,7 +363,8 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 		wanted_headers = exporter->wanted_headers;
 	}
 
-	exporter->trans = mailbox_transaction_begin(exporter->box, 0);
+	exporter->trans = mailbox_transaction_begin(exporter->box,
+						MAILBOX_TRANSACTION_FLAG_SYNC);
 	search_ctx = mailbox_search_init(exporter->trans, search_args, NULL,
 					 wanted_fields, wanted_headers);
 	mail_search_args_unref(&search_args);
