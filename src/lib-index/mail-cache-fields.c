@@ -234,6 +234,15 @@ mail_cache_header_fields_get_offset(struct mail_cache *cache,
 				"next_offset in field header loops");
 			return -1;
 		}
+		/* In Dovecot v2.2+ we don't try to use any holes,
+		   so next_offset must always be larger than current offset.
+		   also makes it easier to guarantee there aren't any loops
+		   (which we don't bother doing for old files) */
+		if (next_offset < offset && cache->hdr->minor_version != 0) {
+			mail_cache_set_corrupted(cache,
+				"next_offset in field header decreases");
+			return -1;
+		}
 		offset = next_offset;
 
 		if (cache->mmap_base != NULL || cache->map_with_read) {
