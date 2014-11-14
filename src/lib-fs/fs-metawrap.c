@@ -6,9 +6,11 @@
 #include "strescape.h"
 #include "istream.h"
 #include "istream-private.h"
+#include "istream-concat.h"
 #include "istream-metawrap.h"
 #include "ostream.h"
 #include "ostream-metawrap.h"
+#include "iostream-temp.h"
 #include "fs-api-private.h"
 
 #define MAX_METADATA_LINE_LEN 8192
@@ -24,8 +26,13 @@ struct metawrap_fs_file {
 	struct fs_file *super, *super_read;
 	enum fs_open_mode open_mode;
 	struct istream *input;
-	struct ostream *super_output;
 	bool metadata_read;
+
+	struct ostream *super_output;
+	struct ostream *temp_output;
+	string_t *metadata_header;
+	uoff_t metadata_write_size;
+	bool metadata_changed_since_write;
 };
 
 struct metawrap_fs_iter {
@@ -132,6 +139,8 @@ static void fs_metawrap_file_deinit(struct fs_file *_file)
 
 	if (file->super_read != file->super && file->super_read != NULL)
 		fs_file_deinit(&file->super_read);
+	if (file->metadata_header != NULL)
+		str_free(&file->metadata_header);
 	fs_file_deinit(&file->super);
 	i_free(file->file.path);
 	i_free(file);
@@ -179,8 +188,10 @@ fs_metawrap_set_metadata(struct fs_file *_file, const char *key,
 
 	if (!file->fs->wrap_metadata)
 		fs_set_metadata(file->super, key, value);
-	else
+	else {
 		fs_default_set_metadata(_file, key, value);
+		file->metadata_changed_since_write = TRUE;
+	}
 }
 
 static int
@@ -269,15 +280,11 @@ static int fs_metawrap_write(struct fs_file *_file, const void *data, size_t siz
 	return fs_write_via_stream(_file, data, size);
 }
 
-static void fs_metawrap_write_metadata(void *context)
+static void
+fs_metawrap_append_metadata(struct metawrap_fs_file *file, string_t *str)
 {
-	struct metawrap_fs_file *file = context;
 	const struct fs_metadata *metadata;
-	string_t *str = t_str_new(256);
-	ssize_t ret;
 
-	/* FIXME: if fs_set_metadata() is called later the changes are
-	   ignored. we'd need to write via temporary file then. */
 	array_foreach(&file->file.metadata, metadata) {
 		str_append_tabescaped(str, metadata->key);
 		str_append_c(str, ':');
@@ -285,11 +292,23 @@ static void fs_metawrap_write_metadata(void *context)
 		str_append_c(str, '\n');
 	}
 	str_append_c(str, '\n');
+}
+
+static void fs_metawrap_write_metadata(void *context)
+{
+	struct metawrap_fs_file *file = context;
+	string_t *str = t_str_new(256);
+	ssize_t ret;
+
+	fs_metawrap_append_metadata(file, str);
+	file->metadata_write_size = str_len(str);
+
 	ret = o_stream_send(file->file.output, str_data(str), str_len(str));
 	if (ret < 0)
 		o_stream_close(file->file.output);
 	else
 		i_assert((size_t)ret == str_len(str));
+	file->metadata_changed_since_write = FALSE;
 }
 
 static void fs_metawrap_write_stream(struct fs_file *_file)
@@ -298,18 +317,46 @@ static void fs_metawrap_write_stream(struct fs_file *_file)
 
 	i_assert(_file->output == NULL);
 
-	file->super_output = fs_write_stream(file->super);
-	if (!file->fs->wrap_metadata)
+	if (!file->fs->wrap_metadata) {
+		file->super_output = fs_write_stream(file->super);
 		_file->output = file->super_output;
-	else {
-		_file->output = o_stream_create_metawrap(file->super_output,
+	} else {
+		file->temp_output =
+			iostream_temp_create_named(_file->fs->temp_path_prefix,
+						   IOSTREAM_TEMP_FLAG_TRY_FD_DUP,
+						   fs_file_path(_file));
+		_file->output = o_stream_create_metawrap(file->temp_output,
 			fs_metawrap_write_metadata, file);
 	}
+}
+
+static struct istream *
+fs_metawrap_create_updated_istream(struct metawrap_fs_file *file,
+				   struct istream *input)
+{
+	struct istream *input2, *inputs[3];
+
+	if (file->metadata_header != NULL)
+		str_truncate(file->metadata_header, 0);
+	else
+		file->metadata_header = str_new(default_pool, 1024);
+	fs_metawrap_append_metadata(file, file->metadata_header);
+	inputs[0] = i_stream_create_from_data(str_data(file->metadata_header),
+					       str_len(file->metadata_header));
+
+	i_stream_seek(input, file->metadata_write_size);
+	inputs[1] = i_stream_create_limit(input, (uoff_t)-1);
+	inputs[2] = NULL;
+	input2 = i_stream_create_concat(inputs);
+	i_stream_unref(&inputs[0]);
+	i_stream_unref(&inputs[1]);
+	return input2;
 }
 
 static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
+	struct istream *input;
 	int ret;
 
 	if (_file->output != NULL) {
@@ -320,13 +367,53 @@ static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 		else
 			o_stream_unref(&_file->output);
 	}
-
 	if (!success) {
+		if (file->temp_output != NULL)
+			o_stream_destroy(&file->temp_output);
+		if (file->super_output != NULL)
+			fs_write_stream_abort(file->super, &file->super_output);
+		return -1;
+	}
+
+	if (file->super_output != NULL) {
+		/* no metawrap */
+		i_assert(file->temp_output == NULL);
+		return fs_write_stream_finish(file->super, &file->super_output);
+	}
+	if (file->temp_output == NULL) {
+		/* finishing up */
+		i_assert(file->super_output == NULL);
+		return fs_write_stream_finish(file->super, &file->super_output);
+	}
+	/* finish writing the temporary file */
+	input = iostream_temp_finish(&file->temp_output, IO_BLOCK_SIZE);
+	if (file->metadata_changed_since_write) {
+		/* we'll need to recreate the metadata. do this by creating a
+		   new istream combining the new metadata header and the
+		   old body. */
+		struct istream *input2 = input;
+
+		input = fs_metawrap_create_updated_istream(file, input);
+		i_stream_unref(&input2);
+	}
+	file->super_output = fs_write_stream(file->super);
+	if (o_stream_send_istream(file->super_output, input) >= 0)
+		ret = fs_write_stream_finish(file->super, &file->super_output);
+	else if (input->stream_errno != 0) {
+		fs_set_error(_file->fs, "read(%s) failed: %s",
+			     i_stream_get_name(input),
+			     i_stream_get_error(input));
 		fs_write_stream_abort(file->super, &file->super_output);
 		ret = -1;
 	} else {
-		ret = fs_write_stream_finish(file->super, &file->super_output);
+		i_assert(file->super_output->stream_errno != 0);
+		fs_set_error(_file->fs, "write(%s) failed: %s",
+			     o_stream_get_name(file->super_output),
+			     o_stream_get_error(file->super_output));
+		fs_write_stream_abort(file->super, &file->super_output);
+		ret = -1;
 	}
+	i_stream_unref(&input);
 	return ret;
 }
 
