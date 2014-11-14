@@ -179,7 +179,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	struct auth_user_info info;
 	pool_t pool;
 	const char *auth_socket_path, *proxy_host, *const *fields;
-	unsigned int i;
+	unsigned int i, proxy_port;
 	bool proxying;
 	int ret;
 
@@ -214,12 +214,17 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 		   so just continue with the default host */
 	} else {
 		proxy_host = NULL; proxying = FALSE;
+		proxy_port = ctx->set->doveadm_port;
 		for (i = 0; fields[i] != NULL; i++) {
 			if (strncmp(fields[i], "proxy", 5) == 0 &&
 			    (fields[i][5] == '\0' || fields[i][5] == '='))
 				proxying = TRUE;
 			else if (strncmp(fields[i], "host=", 5) == 0)
 				proxy_host = fields[i]+5;
+			else if (strncmp(fields[i], "port=", 5) == 0) {
+				if (str_to_uint(fields[i]+5, &proxy_port) < 0)
+					proxy_port = 0;
+			}
 		}
 		if (!proxying)
 			ret = 0;
@@ -233,8 +238,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 			}
 			ret = -1;
 		} else {
-			*host_r = t_strdup_printf("%s:%u", proxy_host,
-						  ctx->set->doveadm_port);
+			*host_r = t_strdup_printf("%s:%u", proxy_host, proxy_port);
 		}
 	}
 	pool_unref(&pool);
