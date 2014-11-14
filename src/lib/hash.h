@@ -85,11 +85,14 @@ bool hash_table_lookup_full(const struct hash_table *table,
 #ifndef __cplusplus
 #  define hash_table_lookup_full(table, lookup_key, orig_key_r, value_r) \
 	hash_table_lookup_full((table)._table, \
-		(void *)((const char *)(lookup_key) + COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE((table)._const_key, (table)._key, lookup_key)), \
-		(void *)((orig_key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, orig_key_r) + \
-			COMPILE_ERROR_IF_TRUE(sizeof(*orig_key_r) != sizeof(void *))), \
-		(void *)((value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r) + \
-			COMPILE_ERROR_IF_TRUE(sizeof(*value_r) != sizeof(void *))))
+		(void *)((const char *)(lookup_key) + \
+			 COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE((table)._const_key, (table)._key, lookup_key)), \
+		(void *)((orig_key_r) + \
+			 COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, orig_key_r) + \
+			 COMPILE_ERROR_IF_TRUE(sizeof(*(orig_key_r)) != sizeof(void *))), \
+		(void *)((value_r) + \
+			 COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r) + \
+			 COMPILE_ERROR_IF_TRUE(sizeof(*(value_r)) != sizeof(void *))))
 #else
 /* C++ requires (void **) casting, but that's not possible with strict
    aliasing, so .. we'll just disable the type checks */
@@ -134,9 +137,10 @@ bool hash_table_iterate(struct hash_iterate_context *ctx,
 #ifndef __cplusplus
 #  define hash_table_iterate(ctx, table, key_r, value_r) \
 	hash_table_iterate(ctx, \
-		(void *)((key_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, key_r) + \
-			COMPILE_ERROR_IF_TRUE(sizeof(*key_r) != sizeof(void *)) + \
-			COMPILE_ERROR_IF_TRUE(sizeof(*value_r) != sizeof(void *))), \
+		(void *)((key_r) + \
+			 COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, key_r) + \
+			 COMPILE_ERROR_IF_TRUE(sizeof(*(key_r)) != sizeof(void *)) + \
+			 COMPILE_ERROR_IF_TRUE(sizeof(*(value_r)) != sizeof(void *))), \
 		(void *)((value_r) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r)))
 #else
 /* C++ requires (void **) casting, but that's not possible with strict

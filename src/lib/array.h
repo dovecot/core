@@ -46,7 +46,7 @@
 	(typeof(*(array)->v_modifiable))
 #  define ARRAY_TYPE_CHECK(array, data) \
 	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
-		**(array)->v_modifiable, *data)
+		**(array)->v_modifiable, *(data))
 #else
 #  define ARRAY_TYPE_CAST_CONST(array)
 #  define ARRAY_TYPE_CAST_MODIFIABLE(array)
@@ -64,7 +64,7 @@
 		(const char *)(elem = ARRAY_TYPE_CAST_MODIFIABLE(array) \
 			buffer_get_modifiable_data((array)->arr.buffer, NULL)) + \
 			(array)->arr.buffer->used; \
-	 elem != elem ## _end; elem++)
+	     elem != elem ## _end; (elem)++)
 #else
 #  define array_foreach(array, elem) \
 	for (elem = *(array)->v; \
