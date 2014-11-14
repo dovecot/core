@@ -3,7 +3,7 @@
 
 struct hash_table;
 
-#ifdef __GNUC__
+#ifdef HAVE_TYPEOF
 #  define HASH_VALUE_CAST(table) (typeof((table)._value))
 #else
 #  define HASH_VALUE_CAST(table)

@@ -2,7 +2,7 @@
 #define ARRAY_H
 
 /* Array is a buffer accessible using fixed size elements. As long as the
-   compiler provides typeof() function, the array provides type safety. If
+   compiler provides a typeof() operator, the array provides type safety. If
    a wrong type is tried to be added to the array, or if the array's contents
    are tried to be used using a wrong type, the compiler will give a warning.
 
@@ -39,7 +39,7 @@
 #define t_array_init(array, init_count) \
 	p_array_init(array, pool_datastack_create(), init_count)
 
-#ifdef __GNUC__
+#ifdef HAVE_TYPEOF
 #  define ARRAY_TYPE_CAST_CONST(array) \
 	(typeof(*(array)->v))
 #  define ARRAY_TYPE_CAST_MODIFIABLE(array) \
