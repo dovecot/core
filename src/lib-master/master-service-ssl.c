@@ -106,6 +106,10 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	i_assert(service->listeners != NULL || service->socket_count == 0);
 
 	set = master_service_ssl_settings_get(service);
+	if (strcmp(set->ssl, "no") == 0) {
+		/* SSL disabled, don't use it */
+		return;
+	}
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
 	ssl_set.protocols = set->ssl_protocols;
