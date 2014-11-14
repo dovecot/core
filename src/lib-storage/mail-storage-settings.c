@@ -171,6 +171,7 @@ static const struct setting_define mail_namespace_setting_defines[] = {
 	DEF(SET_BOOL, subscriptions),
 	DEF(SET_BOOL, ignore_on_failure),
 	DEF(SET_BOOL, disabled),
+	DEF(SET_UINT, order),
 
 	DEFLIST_UNIQUE(mailboxes, "mailbox", &mailbox_setting_parser_info),
 
@@ -191,6 +192,7 @@ const struct mail_namespace_settings mail_namespace_default_settings = {
 	.subscriptions = TRUE,
 	.ignore_on_failure = FALSE,
 	.disabled = FALSE,
+	.order = 0,
 
 	.mailboxes = ARRAY_INIT
 };

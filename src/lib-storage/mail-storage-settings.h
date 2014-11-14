@@ -62,6 +62,7 @@ struct mail_namespace_settings {
 	bool subscriptions;
 	bool ignore_on_failure;
 	bool disabled;
+	unsigned int order;
 
 	ARRAY(struct mailbox_settings *) mailboxes;
 	struct mail_user_settings *user_set;
