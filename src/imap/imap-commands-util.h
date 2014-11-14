@@ -29,6 +29,8 @@ const char *
 imap_get_error_string(struct client_command_context *cmd,
 		      const char *error_string, enum mail_error error);
 
+void client_disconnect_if_inconsistent(struct client *client);
+
 /* Send last mailbox list error message to client. */
 void client_send_list_error(struct client_command_context *cmd,
 			    struct mailbox_list *list);
