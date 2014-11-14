@@ -294,6 +294,10 @@ static void openssl_iostream_destroy(struct ssl_iostream *ssl_io)
 	(void)SSL_shutdown(ssl_io->ssl);
 	(void)openssl_iostream_more(ssl_io);
 	(void)o_stream_flush(ssl_io->plain_output);
+	/* close the plain i/o streams, because their fd may be closed soon,
+	   but we may still keep this ssl-iostream referenced until later. */
+	i_stream_close(ssl_io->plain_input);
+	o_stream_close(ssl_io->plain_output);
 
 	ssl_iostream_unref(&ssl_io);
 }
