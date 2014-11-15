@@ -265,6 +265,24 @@ int fs_get_metadata(struct fs_file *file,
 	return ret;
 }
 
+int fs_lookup_metadata(struct fs_file *file, const char *key,
+		       const char **value_r)
+{
+	const ARRAY_TYPE(fs_metadata) *metadata;
+	const struct fs_metadata *md;
+
+	if (fs_get_metadata(file, &metadata) < 0)
+		return -1;
+	array_foreach(metadata, md) {
+		if (strcmp(md->key, key) == 0) {
+			*value_r = md->value;
+			return 1;
+		}
+	}
+	*value_r = NULL;
+	return 0;
+}
+
 const char *fs_file_path(struct fs_file *file)
 {
 	return file->fs->v.get_path == NULL ? file->path :

@@ -132,6 +132,10 @@ void fs_set_metadata(struct fs_file *file, const char *key, const char *value);
 /* Return file's all metadata. */
 int fs_get_metadata(struct fs_file *file,
 		    const ARRAY_TYPE(fs_metadata) **metadata_r);
+/* Wrapper to fs_get_metadata() to lookup a specific key. Returns 1 if value_r
+   is set, 0 if key wasn't found, -1 if error. */
+int fs_lookup_metadata(struct fs_file *file, const char *key,
+		       const char **value_r);
 
 /* Returns the path given to fs_open(). If file was opened with
    FS_OPEN_MODE_CREATE_UNIQUE_128 and the write has already finished,
