@@ -6,6 +6,7 @@
 
 void test_aqueue(void);
 void test_array(void);
+void test_base32(void);
 void test_base64(void);
 void test_bits(void);
 void test_bsearch_insert_pos(void);

@@ -7,6 +7,7 @@ int main(void)
 	static void (*test_functions[])(void) = {
 		test_aqueue,
 		test_array,
+		test_base32,
 		test_base64,
 		test_bits,
 		test_bsearch_insert_pos,

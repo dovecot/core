@@ -16,6 +16,7 @@ liblib_la_SOURCES = \
 	aqueue.c \
 	askpass.c \
 	backtrace-string.c \
+	base32.c \
 	base64.c \
 	bits.c \
 	bsearch-insert-pos.c \
@@ -149,6 +150,7 @@ headers = \
 	array-decl.h \
 	askpass.h \
 	backtrace-string.h \
+	base32.h \
 	base64.h \
 	bits.h \
 	bsearch-insert-pos.h \
@@ -278,6 +280,7 @@ test_lib_SOURCES = \
 	test-lib.c \
 	test-array.c \
 	test-aqueue.c \
+	test-base32.c \
 	test-base64.c \
 	test-bits.c \
 	test-bsearch-insert-pos.c \
