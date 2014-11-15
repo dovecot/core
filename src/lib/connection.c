@@ -124,7 +124,7 @@ static void connection_init_streams(struct connection *conn)
 		o_stream_set_no_error_handling(conn->output, TRUE);
 		o_stream_set_name(conn->output, conn->name);
 	}
-	conn->io = io_add(conn->fd_in, IO_READ, *conn->list->v.input, conn);
+	conn->io = io_add_istream(conn->input, *conn->list->v.input, conn);
 	if (set->input_idle_timeout_secs != 0) {
 		conn->to = timeout_add(set->input_idle_timeout_secs*1000,
 				       connection_idle_timeout, conn);
@@ -225,7 +225,7 @@ void connection_init_from_streams(struct connection_list *list,
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	o_stream_set_name(conn->output, conn->name);
 
-	conn->io = io_add(conn->fd_in, IO_READ, *list->v.input, conn);
+	conn->io = io_add_istream(conn->input, *list->v.input, conn);
 	
 	DLLIST_PREPEND(&list->connections, conn);
 	list->connections_count++;
