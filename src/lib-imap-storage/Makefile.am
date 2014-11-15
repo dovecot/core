@@ -11,11 +11,13 @@ AM_CPPFLAGS = \
 
 libimap_storage_la_SOURCES = \
 	imap-msgpart.c \
-	imap-msgpart-url.c
+	imap-msgpart-url.c \
+	imap-metadata.c
 
 headers = \
 	imap-msgpart.h \
-	imap-msgpart-url.h
+	imap-msgpart-url.h \
+	imap-metadata.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)

@@ -14,10 +14,8 @@ struct imap_setmetadata_context {
 	struct client_command_context *cmd;
 	struct imap_parser *parser;
 
-	const char *key_prefix;
-
 	struct mailbox *box;
-	struct mailbox_transaction_context *trans;
+	struct imap_metadata_transaction *trans;
 
 	char *entry_name;
 	uoff_t entry_value_len;
@@ -32,8 +30,8 @@ static void cmd_setmetadata_deinit(struct imap_setmetadata_context *ctx)
 	ctx->cmd->client->input_lock = NULL;
 	imap_parser_unref(&ctx->parser);
 	if (ctx->trans != NULL)
-		mailbox_transaction_rollback(&ctx->trans);
-	if (ctx->box != ctx->cmd->client->mailbox)
+		imap_metadata_transaction_rollback(&ctx->trans);
+	if (ctx->box != NULL && ctx->box != ctx->cmd->client->mailbox)
 		mailbox_free(&ctx->box);
 	i_free(ctx->entry_name);
 }
@@ -84,12 +82,15 @@ cmd_setmetadata_parse_entryvalue(struct imap_setmetadata_context *ctx,
 		client_send_command_error(ctx->cmd, "Entry value can't be a list");
 		return -1;
 	}
-	if (ctx->cmd_error_sent ||
-	    !imap_metadata_verify_entry_name(ctx->cmd, name)) {
+	if (!ctx->cmd_error_sent &&
+	    !imap_metadata_verify_entry_name(name, &error)) {
+		client_send_command_error(ctx->cmd, error);
+		ctx->cmd_error_sent = TRUE;
+	}
+	if (ctx->cmd_error_sent) {
 		ctx->cmd->param_error = FALSE;
 		ctx->cmd->state = CLIENT_COMMAND_STATE_WAIT_INPUT;
 
-		ctx->cmd_error_sent = TRUE;
 		ctx->failed = TRUE;
 		if (args[1].type == IMAP_ARG_LITERAL_SIZE) {
 			/* client won't see "+ OK", so we can abort
@@ -111,8 +112,6 @@ cmd_setmetadata_entry_read_stream(struct imap_setmetadata_context *ctx)
 {
 	const unsigned char *data;
 	size_t size;
-	enum mail_attribute_type type;
-	const char *key;
 	struct mail_attribute_value value;
 	int ret;
 
@@ -127,11 +126,9 @@ cmd_setmetadata_entry_read_stream(struct imap_setmetadata_context *ctx)
 			return 1;
 		}
 
-		imap_metadata_entry2key(ctx->entry_name, ctx->key_prefix,
-					&type, &key);
 		memset(&value, 0, sizeof(value));
 		value.value_stream = ctx->input;
-		if (mailbox_attribute_set(ctx->trans, type, key, &value) < 0) {
+		if (imap_metadata_set(ctx->trans, ctx->entry_name, &value) < 0) {
 			/* delay reporting the failure so we'll finish
 			   reading the command input */
 			ctx->storage_failure = TRUE;
@@ -153,8 +150,6 @@ cmd_setmetadata_entry(struct imap_setmetadata_context *ctx,
 		      const struct imap_arg *entry_value)
 {
 	struct istream *inputs[2];
-	enum mail_attribute_type type;
-	const char *key;
 	struct mail_attribute_value value;
 	string_t *path;
 	int ret;
@@ -164,15 +159,11 @@ cmd_setmetadata_entry(struct imap_setmetadata_context *ctx,
 	case IMAP_ARG_ATOM:
 	case IMAP_ARG_STRING:
 		/* we have the value already */
-		imap_metadata_entry2key(entry_name, ctx->key_prefix,
-					&type, &key);
 		if (ctx->failed)
 			return 1;
 		memset(&value, 0, sizeof(value));
 		value.value = imap_arg_as_nstring(entry_value);
-		ret = value.value == NULL ?
-			mailbox_attribute_unset(ctx->trans, type, key) :
-			mailbox_attribute_set(ctx->trans, type, key, &value);
+		ret = imap_metadata_set(ctx->trans, entry_name, &value);
 		if (ret < 0) {
 			/* delay reporting the failure so we'll finish
 			   reading the command input */
@@ -213,7 +204,8 @@ cmd_setmetadata_entry(struct imap_setmetadata_context *ctx,
 static bool cmd_setmetadata_continue(struct client_command_context *cmd)
 {
 	struct imap_setmetadata_context *ctx = cmd->context;
-	const char *entry;
+	const char *entry, *error_string;
+	enum mail_error error;
 	const struct imap_arg *value;
 	int ret;
 
@@ -242,16 +234,78 @@ static bool cmd_setmetadata_continue(struct client_command_context *cmd)
 	if (ret == 0)
 		return 0;
 
-	if (ret < 0 || ctx->cmd_error_sent)
+	if (ret < 0 || ctx->cmd_error_sent) {
 		/* already sent the error to client */ ;
-	else if (ctx->storage_failure)
-		client_send_box_error(cmd, ctx->box);
-	else if (mailbox_transaction_commit(&ctx->trans) < 0)
-		client_send_box_error(cmd, ctx->box);
-	else
+	} else if (ctx->storage_failure) {
+		if (ctx->box == NULL)
+			client_disconnect_if_inconsistent(cmd->client);
+		error_string = imap_metadata_transaction_get_last_error
+			(ctx->trans, &error);
+		client_send_tagline(cmd,
+			imap_get_error_string(cmd, error_string, error));
+	} else if (imap_metadata_transaction_commit(&ctx->trans, 
+						&error, &error_string) < 0) {
+		if (ctx->box == NULL)
+			client_disconnect_if_inconsistent(cmd->client);
+		client_send_tagline(cmd,
+			imap_get_error_string(cmd, error_string, error));
+	} else {
 		client_send_tagline(cmd, "OK Setmetadata completed.");
+	}
 	cmd_setmetadata_deinit(ctx);
 	return TRUE;
+}
+
+static bool
+cmd_setmetadata_start(struct imap_setmetadata_context *ctx)
+{
+	struct client_command_context *cmd = ctx->cmd;
+	struct client *client = cmd->client;
+
+	/* we support large literals, so read the values from client
+	   asynchronously the same way as APPEND does. */
+	client->input_lock = cmd;
+	ctx->parser = imap_parser_create(client->input, client->output,
+					 client->set->imap_max_line_length);
+	o_stream_unset_flush_callback(client->output);
+
+	cmd->func = cmd_setmetadata_continue;
+	cmd->context = ctx;
+	return cmd_setmetadata_continue(cmd);
+}
+
+static bool
+cmd_setmetadata_server(struct imap_setmetadata_context *ctx)
+{
+	ctx->trans = imap_metadata_transaction_begin_server(ctx->cmd->client->user);
+	return cmd_setmetadata_start(ctx);
+}
+
+static bool
+cmd_setmetadata_mailbox(struct imap_setmetadata_context *ctx,
+	const char *mailbox)
+{
+	struct client_command_context *cmd = ctx->cmd;
+	struct client *client = cmd->client;
+	struct mail_namespace *ns;
+
+	ns = client_find_namespace(cmd, &mailbox);
+	if (ns == NULL)
+		return TRUE;
+
+	if (client->mailbox != NULL && !client->mailbox_examined &&
+	    mailbox_equals(client->mailbox, ns, mailbox))
+		ctx->box = client->mailbox;
+	else {
+		ctx->box = mailbox_alloc(ns->list, mailbox, 0);
+		if (mailbox_open(ctx->box) < 0) {
+			client_send_box_error(cmd, ctx->box);
+			mailbox_free(&ctx->box);
+			return TRUE;
+		}
+	}
+	ctx->trans = imap_metadata_transaction_begin(ctx->box);
+	return cmd_setmetadata_start(ctx);
 }
 
 bool cmd_setmetadata(struct client_command_context *cmd)
@@ -259,7 +313,6 @@ bool cmd_setmetadata(struct client_command_context *cmd)
 	struct imap_setmetadata_context *ctx;
 	const struct imap_arg *args;
 	const char *mailbox;
-	struct mail_namespace *ns;
 	int ret;
 
 	ret = imap_parser_read_args(cmd->parser, 2,
@@ -287,35 +340,8 @@ bool cmd_setmetadata(struct client_command_context *cmd)
 
 	if (mailbox[0] == '\0') {
 		/* server attribute */
-		ctx->key_prefix = MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER;
-		ns = mail_namespace_find_inbox(cmd->client->user->namespaces);
-		mailbox = "INBOX";
-	} else {
-		ns = client_find_namespace(cmd, &mailbox);
-		if (ns == NULL)
-			return TRUE;
+		return cmd_setmetadata_server(ctx);
 	}
 
-	if (cmd->client->mailbox != NULL && !cmd->client->mailbox_examined &&
-	    mailbox_equals(cmd->client->mailbox, ns, mailbox))
-		ctx->box = cmd->client->mailbox;
-	else {
-		ctx->box = mailbox_alloc(ns->list, mailbox, 0);
-		if (mailbox_open(ctx->box) < 0) {
-			client_send_box_error(cmd, ctx->box);
-			mailbox_free(&ctx->box);
-			return TRUE;
-		}
-	}
-	ctx->trans = mailbox_transaction_begin(ctx->box, 0);
-	/* we support large literals, so read the values from client
-	   asynchronously the same way as APPEND does. */
-	cmd->client->input_lock = cmd;
-	ctx->parser = imap_parser_create(cmd->client->input, cmd->client->output,
-					 cmd->client->set->imap_max_line_length);
-	o_stream_unset_flush_callback(cmd->client->output);
-
-	cmd->func = cmd_setmetadata_continue;
-	cmd->context = ctx;
-	return cmd_setmetadata_continue(cmd);
+	return cmd_setmetadata_mailbox(ctx, mailbox);
 }
