@@ -25,7 +25,9 @@ enum fs_properties {
 	FS_PROPERTY_WRITE_HASH_SHA256	= 0x200,
 	/* fs_copy() will copy the metadata if fs_set_metadata() hasn't
 	   been explicitly called. */
-	FS_PROPERTY_COPY_METADATA	= 0x400
+	FS_PROPERTY_COPY_METADATA	= 0x400,
+	/* Backend support asynchronous file operations. */
+	FS_PROPERTY_ASYNC		= 0x800,
 };
 
 enum fs_open_mode {
