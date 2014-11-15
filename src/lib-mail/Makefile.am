@@ -28,6 +28,7 @@ libmail_la_SOURCES = \
 	message-part-serialize.c \
 	message-search.c \
 	message-size.c \
+	ostream-dot.c \
 	quoted-printable.c \
 	rfc2231-parser.c \
 	rfc822-parser.c
@@ -56,6 +57,7 @@ headers = \
 	message-part-serialize.h \
 	message-search.h \
 	message-size.h \
+	ostream-dot.h \
 	quoted-printable.h \
 	rfc2231-parser.h \
 	rfc822-parser.h
@@ -79,6 +81,7 @@ test_programs = \
 	test-message-id \
 	test-message-parser \
 	test-message-part \
+	test-ostream-dot \
 	test-quoted-printable \
 	test-rfc2231-parser
 
@@ -156,6 +159,10 @@ test_message_parser_DEPENDENCIES = $(test_deps)
 test_message_part_SOURCES = test-message-part.c
 test_message_part_LDADD = message-part.lo message-parser.lo message-header-parser.lo message-size.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
 test_message_part_DEPENDENCIES = $(test_deps)
+
+test_ostream_dot_SOURCES = test-ostream-dot.c
+test_ostream_dot_LDADD = ostream-dot.lo $(test_libs)
+test_ostream_dot_DEPENDENCIES = $(test_deps)
 
 test_quoted_printable_SOURCES = test-quoted-printable.c
 test_quoted_printable_LDADD = quoted-printable.lo $(test_libs)
