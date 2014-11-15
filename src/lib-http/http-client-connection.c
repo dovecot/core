@@ -1142,42 +1142,6 @@ http_client_connect_tunnel_timeout(struct http_client_connection *conn)
 	http_client_connection_close(&conn);
 }
 
-// FIXME: put something like this in lib/connection.c
-static void
-_connection_init_from_streams(struct connection_list *list,
-			    struct connection *conn, const char *name,
-			    struct istream *input, struct ostream *output)
-{
-	i_assert(name != NULL);
-
-	conn->list = list;
-	conn->name = i_strdup(name);
-	conn->fd_in = i_stream_get_fd(input);
-	conn->fd_out = o_stream_get_fd(output);
-
-	i_assert(conn->fd_in >= 0);
-	i_assert(conn->fd_out >= 0);
-	i_assert(conn->io == NULL);
-	i_assert(conn->input == NULL);
-	i_assert(conn->output == NULL);
-	i_assert(conn->to == NULL);
-
-	conn->input = input;
-	i_stream_set_name(conn->input, conn->name);
-
-	conn->output = output;
-	o_stream_set_no_error_handling(conn->output, TRUE);
-	o_stream_set_name(conn->output, conn->name);
-
-	conn->io = io_add_istream(conn->input, *list->v.input, conn);
-	
-	DLLIST_PREPEND(&list->connections, conn);
-	list->connections_count++;
-
-	if (list->v.client_connected != NULL)
-		list->v.client_connected(conn, TRUE);
-}
-
 static void
 http_client_connection_tunnel_response(const struct http_response *response,
 			       struct http_client_connection *conn)
@@ -1196,7 +1160,7 @@ http_client_connection_tunnel_response(const struct http_response *response,
 	http_client_request_start_tunnel(conn->connect_request, &tunnel);
 	conn->connect_request = NULL;
 
-	_connection_init_from_streams
+	connection_init_from_streams
 		(conn->client->conn_list, &conn->conn, name, tunnel.input, tunnel.output);
 	conn->connect_initialized = TRUE;
 }
