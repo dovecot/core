@@ -688,6 +688,9 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 
 	i_assert(rstream->locked);
 
+	/* reset any (corruption) errors */
+	stream->stream_errno = 0;
+	i_free_and_null(stream->real_stream->iostream.error);
 	rstream->corrupted = FALSE;
 	rstream->eof = FALSE;
 	rstream->istream.istream.eof = FALSE;
