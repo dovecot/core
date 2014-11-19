@@ -17,7 +17,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+/* Initial lookup timeout */
 #define AUTH_WORKER_LOOKUP_TIMEOUT_SECS 60
+/* Timeout for multi-line replies, e.g. listing users. This should be a much
+   higher value, because e.g. doveadm could be doing some long-running commands
+   for the users. And because of buffering this timeout is for handling
+   multiple users, not just one. */
+#define AUTH_WORKER_RESUME_TIMEOUT_SECS (30*60)
 #define AUTH_WORKER_MAX_IDLE_SECS (60*5)
 #define AUTH_WORKER_ABORT_SECS 60
 #define AUTH_WORKER_DELAY_WARN_SECS 3
@@ -47,6 +53,7 @@ struct auth_worker_connection {
 	unsigned int restart:1;
 	unsigned int shutdown:1;
 	unsigned int timeout_pending_resume:1;
+	unsigned int resuming:1;
 };
 
 static ARRAY(struct auth_worker_connection *) connections = ARRAY_INIT;
@@ -276,8 +283,16 @@ static bool auth_worker_request_handle(struct auth_worker_connection *conn,
 {
 	if (strncmp(line, "*\t", 2) == 0) {
 		/* multi-line reply, not finished yet */
-		timeout_reset(conn->to);
+		if (conn->resuming)
+			timeout_reset(conn->to);
+		else {
+			conn->resuming = TRUE;
+			timeout_remove(&conn->to);
+			conn->to = timeout_add(AUTH_WORKER_RESUME_TIMEOUT_SECS * 1000,
+					       auth_worker_call_timeout, conn);
+		}
 	} else {
+		conn->resuming = FALSE;
 		conn->request = NULL;
 		conn->timeout_pending_resume = FALSE;
 		timeout_remove(&conn->to);
@@ -416,7 +431,7 @@ static void worker_input_resume(struct auth_worker_connection *conn)
 {
 	conn->timeout_pending_resume = FALSE;
 	timeout_remove(&conn->to);
-	conn->to = timeout_add(AUTH_WORKER_LOOKUP_TIMEOUT_SECS * 1000,
+	conn->to = timeout_add(AUTH_WORKER_RESUME_TIMEOUT_SECS * 1000,
 			       auth_worker_call_timeout, conn);
 	worker_input(conn);
 }
