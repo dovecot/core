@@ -304,10 +304,10 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 		return -1;
 
 	/* our header size varies, so don't do any caching */
-	body_offset = istream_raw_mbox_get_body_offset(mbox->mbox_stream);
-	if (body_offset == (uoff_t)-1) {
+	if (istream_raw_mbox_get_body_offset(mbox->mbox_stream, &body_offset) < 0) {
 		mail_storage_set_critical(_mail->box->storage,
-					  "Couldn't get mbox size");
+			"mbox %s: Couldn't get body offset for uid=%u",
+			mailbox_get_path(&mbox->box), mail->mail.mail.uid);
 		return -1;
 	}
 
@@ -319,8 +319,13 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 		body_size = (uoff_t)-1;
 
 	/* verify that the calculated body size is correct */
-	body_size = istream_raw_mbox_get_body_size(mbox->mbox_stream,
-						   body_size);
+	if (istream_raw_mbox_get_body_size(mbox->mbox_stream,
+					   body_size, &body_size) < 0) {
+		mail_storage_set_critical(_mail->box->storage,
+			"mbox %s: Couldn't get body size for uid=%u",
+			mailbox_get_path(&mbox->box), mail->mail.mail.uid);
+		return -1;
+	}
 
 	data->physical_size = hdr_size.physical_size + body_size;
 	*size_r = data->physical_size;
@@ -352,7 +357,12 @@ static int mbox_mail_init_stream(struct index_mail *mail)
 	}
 
 	raw_stream = mbox->mbox_stream;
-	hdr_offset = istream_raw_mbox_get_header_offset(raw_stream);
+	if (istream_raw_mbox_get_header_offset(raw_stream, &hdr_offset) < 0) {
+		mail_storage_set_critical(mbox->box.storage,
+			"mbox %s: Couldn't get header offset for uid=%u",
+			mailbox_get_path(&mbox->box), mail->mail.mail.uid);
+		return -1;
+	}
 	i_stream_seek(raw_stream, hdr_offset);
 
 	if (next_offset != (uoff_t)-1)

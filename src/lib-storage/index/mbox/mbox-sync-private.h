@@ -158,8 +158,8 @@ int mbox_sync_has_changed_full(struct mbox_mailbox *mbox, bool leave_dirty,
 void mbox_sync_set_critical(struct mbox_sync_context *sync_ctx,
 			    const char *fmt, ...) ATTR_FORMAT(2, 3);
 
-void mbox_sync_parse_next_mail(struct istream *input,
-			       struct mbox_sync_mail_context *ctx);
+int mbox_sync_parse_next_mail(struct istream *input,
+			      struct mbox_sync_mail_context *ctx);
 bool mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 				struct mail_index_view *view, uint32_t seq);
 

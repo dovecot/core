@@ -131,8 +131,10 @@ static int
 mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 			 struct mbox_sync_mail_context *mail_ctx)
 {
+	uoff_t offset;
+
 	/* get EOF */
-	(void)istream_raw_mbox_get_header_offset(sync_ctx->input);
+	(void)istream_raw_mbox_get_header_offset(sync_ctx->input, &offset);
 	if (istream_raw_mbox_is_eof(sync_ctx->input))
 		return 0;
 
@@ -144,19 +146,27 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 
 	mail_ctx->mail.from_offset =
 		istream_raw_mbox_get_start_offset(sync_ctx->input);
-	mail_ctx->mail.offset =
-		istream_raw_mbox_get_header_offset(sync_ctx->input);
+	if (istream_raw_mbox_get_header_offset(sync_ctx->input, &mail_ctx->mail.offset) < 0) {
+		mbox_sync_set_critical(sync_ctx,
+			"Couldn't get header offset for seq=%u", mail_ctx->seq);
+		return -1;
+	}
 
-	mbox_sync_parse_next_mail(sync_ctx->input, mail_ctx);
-	i_assert(sync_ctx->input->v_offset != mail_ctx->mail.from_offset ||
-		 sync_ctx->input->eof);
-
+	if (mbox_sync_parse_next_mail(sync_ctx->input, mail_ctx) < 0)
+		return -1;
 	if (istream_raw_mbox_is_corrupted(sync_ctx->input))
 		return -1;
 
-	mail_ctx->mail.body_size =
-		istream_raw_mbox_get_body_size(sync_ctx->input,
-					       mail_ctx->content_length);
+	i_assert(sync_ctx->input->v_offset != mail_ctx->mail.from_offset ||
+		 sync_ctx->input->eof);
+
+	if (istream_raw_mbox_get_body_size(sync_ctx->input,
+					   mail_ctx->content_length,
+					   &mail_ctx->mail.body_size) < 0) {
+		mbox_sync_set_critical(sync_ctx,
+			"Couldn't get body size for seq=%u", mail_ctx->seq);
+		return -1;
+	}
 	i_assert(mail_ctx->mail.body_size < OFF_T_MAX);
 
 	if ((mail_ctx->mail.flags & MAIL_RECENT) != 0 &&
@@ -810,7 +820,7 @@ static int
 mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
 {
 	struct mbox_mailbox *mbox = sync_ctx->mbox;
-	uoff_t old_offset;
+	uoff_t old_offset, offset;
 	uint32_t uid;
 	int ret;
         bool deleted;
@@ -864,7 +874,11 @@ mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
 
         sync_ctx->idx_seq = seq;
 	sync_ctx->dest_first_mail = sync_ctx->seq == 0;
-        (void)istream_raw_mbox_get_body_offset(sync_ctx->input);
+	if (istream_raw_mbox_get_body_offset(sync_ctx->input, &offset) < 0) {
+		mbox_sync_set_critical(sync_ctx,
+			"Message body offset lookup failed");
+		return -1;
+	}
 	return 1;
 }
 
@@ -1149,8 +1163,9 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			sync_ctx->idx_seq++;
 		}
 
-		istream_raw_mbox_next(sync_ctx->input,
-				      mail_ctx->mail.body_size);
+		if (istream_raw_mbox_next(sync_ctx->input,
+					  mail_ctx->mail.body_size) < 0)
+			return -1;
 		offset = istream_raw_mbox_get_start_offset(sync_ctx->input);
 
 		if (sync_ctx->need_space_seq != 0) {

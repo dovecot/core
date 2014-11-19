@@ -453,8 +453,8 @@ static int mbox_sync_bsearch_header_func_cmp(const void *p1, const void *p2)
 	return strcasecmp(key, func->header);
 }
 
-void mbox_sync_parse_next_mail(struct istream *input,
-			       struct mbox_sync_mail_context *ctx)
+int mbox_sync_parse_next_mail(struct istream *input,
+			      struct mbox_sync_mail_context *ctx)
 {
 	struct mbox_sync_context *sync_ctx = ctx->sync_ctx;
 	struct message_header_parser_ctx *hdr_ctx;
@@ -545,6 +545,12 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	}
 
 	ctx->body_offset = input->v_offset;
+	if (input->stream_errno != 0) {
+		mbox_sync_set_critical(ctx->sync_ctx, "read(%s) failed: %s",
+			i_stream_get_name(input), i_stream_get_error(input));
+		return -1;
+	}
+	return 0;
 }
 
 bool mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,

@@ -9,15 +9,18 @@ struct istream *i_stream_create_raw_mbox(struct istream *input);
 /* Return offset to beginning of the "\nFrom"-line. */
 uoff_t istream_raw_mbox_get_start_offset(struct istream *stream);
 /* Return offset to beginning of the headers. */
-uoff_t istream_raw_mbox_get_header_offset(struct istream *stream);
+int istream_raw_mbox_get_header_offset(struct istream *stream,
+				       uoff_t *hdr_offset_r);
 /* Return offset to beginning of the body. */
-uoff_t istream_raw_mbox_get_body_offset(struct istream *stream);
+int istream_raw_mbox_get_body_offset(struct istream *stream,
+				     uoff_t *body_offset_r);
 
 /* Return the number of bytes in the body of this message. If
    expected_body_size isn't (uoff_t)-1, we'll use it as potentially valid body
    size to avoid actually reading through the whole message. */
-uoff_t istream_raw_mbox_get_body_size(struct istream *stream,
-				      uoff_t expected_body_size);
+int istream_raw_mbox_get_body_size(struct istream *stream,
+				   uoff_t expected_body_size,
+				   uoff_t *body_size_r);
 
 /* Return received time of current message, or (time_t)-1 if the timestamp is
    broken. */
@@ -30,7 +33,7 @@ bool istream_raw_mbox_has_crlf_ending(struct istream *stream);
 
 /* Jump to next message. If expected_body_size isn't (uoff_t)-1, we'll use it
    as potentially valid body size. */
-void istream_raw_mbox_next(struct istream *stream, uoff_t expected_body_size);
+int istream_raw_mbox_next(struct istream *stream, uoff_t expected_body_size);
 
 /* Seek to message at given offset. offset must point to beginning of
    "\nFrom ", or 0 for beginning of file. Returns -1 if it offset doesn't

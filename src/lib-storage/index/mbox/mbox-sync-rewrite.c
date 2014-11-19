@@ -318,11 +318,11 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 	return 1;
 }
 
-static void mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
-				struct mbox_sync_mail_context *mail_ctx,
-				struct mbox_sync_mail *mails,
-				uint32_t seq, uint32_t idx,
-				uoff_t expunged_space)
+static int mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
+			       struct mbox_sync_mail_context *mail_ctx,
+			       struct mbox_sync_mail *mails,
+			       uint32_t seq, uint32_t idx,
+			       uoff_t expunged_space)
 {
 	unsigned int first_mail_expunge_extra;
 	uint32_t orig_next_uid;
@@ -332,8 +332,12 @@ static void mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 	mail_ctx->seq = seq;
 	mail_ctx->header = sync_ctx->header;
 
-	mail_ctx->mail.offset =
-		istream_raw_mbox_get_header_offset(sync_ctx->input);
+	if (istream_raw_mbox_get_header_offset(sync_ctx->input,
+					       &mail_ctx->mail.offset) < 0) {
+		mbox_sync_set_critical(sync_ctx,
+			"Couldn't get header offset for seq=%u", seq);
+		return -1;
+	}
 	mail_ctx->mail.body_size = mails[idx].body_size;
 
 	orig_next_uid = sync_ctx->next_uid;
@@ -361,7 +365,8 @@ static void mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 		mails[idx].from_offset += first_mail_expunge_extra;
 	}
 
-	mbox_sync_parse_next_mail(sync_ctx->input, mail_ctx);
+	if (mbox_sync_parse_next_mail(sync_ctx->input, mail_ctx) < 0)
+		return -1;
 	i_assert(mail_ctx->mail.pseudo == mails[idx].pseudo);
 
 	/* set next_uid back before updating the headers. this is important
@@ -381,6 +386,7 @@ static void mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 		if (mail_ctx->have_eoh)
 			str_append_c(mail_ctx->header, '\n');
 	}
+	return 0;
 }
 
 static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
@@ -398,8 +404,9 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 		if (mbox_sync_seek(sync_ctx, mails[idx].from_offset) < 0)
 			return -1;
 
-		mbox_sync_read_next(sync_ctx, &new_mail_ctx, mails, seq, idx,
-				    expunged_space);
+		if (mbox_sync_read_next(sync_ctx, &new_mail_ctx, mails, seq, idx,
+					expunged_space) < 0)
+			return -1;
 		mail_ctx = &new_mail_ctx;
 	} else {
 		i_assert(seq == mail_ctx->seq);
