@@ -490,7 +490,7 @@ static int client_export_iter_global(struct client *client)
 	}
 
 	str_truncate(cmd->str, 0);
-	str_printfa(cmd->str, "\t%ld", (long)g->reset_timestamp);
+	str_printfa(cmd->str, "%ld", (long)g->reset_timestamp);
 	client_export_timeval(cmd->str, &g->last_update);
 	str_printfa(cmd->str, "\t%u\t%u\t%u",
 		    g->num_logins, g->num_cmds, g->num_connected_sessions);
