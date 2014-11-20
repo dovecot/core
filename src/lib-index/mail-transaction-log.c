@@ -233,6 +233,7 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)
 	struct mail_transaction_log_file *file;
 	const char *path = log->head->filepath;
 	struct stat st;
+	int ret;
 
 	i_assert(log->head->locked);
 
@@ -258,17 +259,25 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)
 		file->last_mtime = st.st_mtime;
 		file->last_size = st.st_size;
 
-		if (mail_transaction_log_file_create(file, reset) < 0) {
+		if ((ret = mail_transaction_log_file_create(file, reset)) < 0) {
 			mail_transaction_log_file_free(&file);
 			return -1;
 		}
+		if (ret == 0) {
+			mail_index_set_error(log->index,
+				"Transaction log %s was recreated while we had it locked - "
+				"locking is broken (lock_method=%s)", path,
+				file_lock_method_to_str(log->index->lock_method));
+			mail_transaction_log_file_free(&file);
+			return -1;
+		}
+		i_assert(file->locked);
 	}
 
 	if (--log->head->refcount == 0)
 		mail_transaction_logs_clean(log);
 	else {
 		/* the newly created log file is already locked */
-		i_assert(file->locked);
 		mail_transaction_log_file_unlock(log->head,
 			!log->index->log_sync_locked ? "rotating" :
 			"rotating while syncing");

@@ -817,7 +817,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	/* success */
 	file->fd = new_fd;
         mail_transaction_log_file_add_to_list(file);
-	return 0;
+	return 1;
 }
 
 int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
@@ -827,7 +827,7 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 	struct dotlock_settings new_dotlock_set;
 	struct dotlock *dotlock;
 	mode_t old_mask;
-	int fd;
+	int fd, ret;
 
 	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
 
@@ -855,12 +855,13 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 
         /* either fd gets used or the dotlock gets deleted and returned fd
            is for the existing file */
-        if (mail_transaction_log_file_create2(file, fd, reset, &dotlock) < 0) {
+	ret = mail_transaction_log_file_create2(file, fd, reset, &dotlock);
+	if (ret < 0) {
 		if (dotlock != NULL)
 			file_dotlock_delete(&dotlock);
 		return -1;
 	}
-	return 0;
+	return ret;
 }
 
 int mail_transaction_log_file_open(struct mail_transaction_log_file *file)
