@@ -1004,7 +1004,12 @@ static const char *client_get_added_headers(struct client *client)
 	host = net_ip2addr(&client->remote_ip);
 	if (host[0] != '\0')
 		str_printfa(str, " ([%s])", host);
-	str_printfa(str, "\r\n\tby %s ("PACKAGE_NAME") with LMTP id %s",
+	str_append(str, "\r\n");
+	if (client->ssl_iostream != NULL) {
+		str_printfa(str, "\t(using %s)\r\n",
+			    ssl_iostream_get_security_string(client->ssl_iostream));
+	}
+	str_printfa(str, "\tby %s ("PACKAGE_NAME") with LMTP id %s",
 		    client->my_domain, client->state.session_id);
 
 	str_append(str, "\r\n\t");
