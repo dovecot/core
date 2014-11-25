@@ -41,7 +41,7 @@ static void test_array_reverse(void)
 
 	test_begin("array reverse");
 	t_array_init(&intarr, 5);
-	for (i = 0; i < N_ELEMENTS(input); i++) {
+	for (i = 0; i <= N_ELEMENTS(input); i++) {
 		array_clear(&intarr);
 		array_append(&intarr, input, i);
 		array_reverse(&intarr);
