@@ -176,3 +176,28 @@ void test_array(void)
 	test_array_cmp();
 	test_array_cmp_str();
 }
+
+enum fatal_test_state fatal_array(int stage)
+{
+	switch(stage) {
+	case 0: {
+		ARRAY(double) ad;
+		test_begin("fatal_array");
+		t_array_init(&ad, 3);
+		(void)array_idx(&ad, 3);
+		return FATAL_TEST_FAILURE;
+	} break;
+
+	case 1: {
+		ARRAY(double) ad;
+		ARRAY(short) as;
+		t_array_init(&ad, 2);
+		t_array_init(&as, 8);
+		array_copy(&ad.arr, 1, &as.arr, 0, 4);
+		return FATAL_TEST_FAILURE;
+	} break;
+
+	}
+	test_end();
+	return FATAL_TEST_FINISHED;
+}

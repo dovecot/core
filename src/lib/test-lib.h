@@ -6,6 +6,7 @@
 
 void test_aqueue(void);
 void test_array(void);
+enum fatal_test_state fatal_array(int);
 void test_base32(void);
 void test_base64(void);
 void test_bits(void);
