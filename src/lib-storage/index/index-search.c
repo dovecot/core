@@ -1550,6 +1550,13 @@ static int search_more_with_mail(struct index_search_context *ctx,
 		mail_search_args_reset(_ctx->args->args, FALSE);
 
 		if (match != 0) {
+			/* either matched or result is still unknown.
+			   anyway we're far enough now that we probably want
+			   to update the access_parts. the only problem here is
+			   if searching would want fewer access_parts than the
+			   fetching part, but that's probably not a big problem
+			   usually. */
+			index_mail_update_access_parts(mail);
 			ret = 1;
 			break;
 		}
@@ -1730,6 +1737,7 @@ bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 
 	mailp = array_idx(&ctx->mails, 0);
 	mail_set_seq(*mailp, seq);
+	index_mail_update_access_parts(*mailp);
 	*mail_r = *mailp;
 	return TRUE;
 }

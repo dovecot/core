@@ -171,6 +171,7 @@ bool index_mail_prefetch(struct mail *mail);
 void index_mail_add_temp_wanted_fields(struct mail *mail,
 				       enum mail_fetch_field fields,
 				       struct mailbox_header_lookup_ctx *headers);
+void index_mail_update_access_parts(struct mail *mail);
 void index_mail_close(struct mail *mail);
 void index_mail_close_streams(struct index_mail *mail);
 void index_mail_free(struct mail *mail);

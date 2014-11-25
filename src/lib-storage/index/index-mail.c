@@ -1435,9 +1435,9 @@ static void check_envelope(struct index_mail *mail)
 	mail->data.save_envelope = TRUE;
 }
 
-static void index_mail_update_access_parts(struct index_mail *mail)
+void index_mail_update_access_parts(struct mail *_mail)
 {
-	struct mail *_mail = &mail->mail.mail;
+	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	const struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
 	struct mail_cache_view *cache_view = _mail->transaction->cache_view;
@@ -1569,7 +1569,12 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 		return;
 	}
 
-	index_mail_update_access_parts(mail);
+	if (!mail->search_mail)
+		index_mail_update_access_parts(_mail);
+	else {
+		/* searching code will call the index_mail_update_access_parts()
+		   after we know the mail is actually wanted to be fetched. */
+	}
 	mail->data.initialized = TRUE;
 }
 
@@ -1660,7 +1665,7 @@ void index_mail_add_temp_wanted_fields(struct mail *_mail,
 			mailbox_header_lookup_init(_mail->box,
 						   array_idx(&names, 0));
 	}
-	index_mail_update_access_parts(mail);
+	index_mail_update_access_parts(_mail);
 }
 
 void index_mail_set_uid_cache_updates(struct mail *_mail, bool set)
