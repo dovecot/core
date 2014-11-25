@@ -352,13 +352,15 @@ redis_dict_init(struct dict *driver, const char *uri,
 			i_free(dict->key_prefix);
 			dict->key_prefix = i_strdup(*args + 7);
 		} else if (strncmp(*args, "expire_secs=", 12) == 0) {
-			if (str_to_uint(*args + 12, &secs) < 0 || secs == 0) {
+			const char *value = *args + 12;
+
+			if (str_to_uint(value, &secs) < 0 || secs == 0) {
 				*error_r = t_strdup_printf(
-					"Invalid expire_secs: %s", *args+14);
+					"Invalid expire_secs: %s", value);
 				ret = -1;
 			}
 			i_free(dict->expire_value);
-			dict->expire_value = i_strdup(*args + 12);
+			dict->expire_value = i_strdup(value);
 		} else if (strncmp(*args, "timeout_msecs=", 14) == 0) {
 			if (str_to_uint(*args+14, &dict->timeout_msecs) < 0) {
 				*error_r = t_strdup_printf(
