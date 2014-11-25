@@ -164,7 +164,8 @@ array_append_array_i(struct array *dest_array, const struct array *src_array)
 	buffer_append_buf(dest_array->buffer, src_array->buffer, 0, (size_t)-1);
 }
 #define array_append_array(dest_array, src_array) \
-	array_append_array_i(&(dest_array)->arr, &(src_array)->arr)
+	array_append_array_i(&(dest_array)->arr + ARRAY_TYPES_CHECK(dest_array, src_array), \
+			     &(src_array)->arr)
 
 static inline void
 array_insert_i(struct array *array, unsigned int idx,
