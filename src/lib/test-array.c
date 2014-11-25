@@ -3,6 +3,8 @@
 #include "test-lib.h"
 #include "array.h"
 
+#include <stdlib.h> /* rand() */
+
 struct foo {
 	unsigned int a, b, c;
 };
@@ -51,8 +53,43 @@ static void test_array_reverse(void)
 	test_end();
 }
 
+static void test_array_cmp(void)
+{
+	static const unsigned short deltas[] = {
+		-32768, -16384, -512, -256, -128, -64, -2, -1,
+		0, 1, 2, 64, 128, 256, 512, 16384, 32768
+	};
+
+#define NELEMS 5u
+	ARRAY(unsigned short) arr1, arr2;
+	unsigned short elems[NELEMS];
+	unsigned int i;
+
+	test_begin("array compare (ushort)");
+	t_array_init(&arr1, NELEMS);
+	t_array_init(&arr2, NELEMS);
+	for (i = 0; i < NELEMS; i++) {
+		elems[i] = rand();
+		array_append(&arr2, &elems[i], 1);
+	}
+	array_append(&arr1, elems, NELEMS);
+	test_assert(array_cmp(&arr1, &arr2) == 1);
+	for (i = 0; i < 256; i++) {
+		unsigned int j = rand() % NELEMS;
+		unsigned short tmp = *array_idx(&arr2, j);
+		unsigned short repl = tmp + deltas[rand() % N_ELEMENTS(deltas)];
+
+		array_idx_set(&arr2, j, &repl);
+		test_assert_idx(array_cmp(&arr1, &arr2) == (tmp == repl), i);
+		array_idx_set(&arr2, j, &tmp);
+		test_assert_idx(array_cmp(&arr1, &arr2) == TRUE, i);
+	}
+	test_end();
+}
+
 void test_array(void)
 {
 	test_array_foreach();
 	test_array_reverse();
+	test_array_cmp();
 }
