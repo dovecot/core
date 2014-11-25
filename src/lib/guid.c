@@ -114,12 +114,12 @@ const char *guid_128_to_string(const guid_128_t guid)
 	return binary_to_hex(guid, GUID_128_SIZE);
 }
 
-unsigned int guid_128_hash(const uint8_t *guid)
+unsigned int guid_128_hash(const guid_128_t guid)
 {
 	return mem_hash(guid, GUID_128_SIZE);
 }
 
-int guid_128_cmp(const uint8_t *guid1, const uint8_t *guid2)
+int guid_128_cmp(const guid_128_t guid1, const guid_128_t guid2)
 {
 	return memcmp(guid1, guid2, GUID_128_SIZE);
 }
