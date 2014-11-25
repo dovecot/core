@@ -43,7 +43,7 @@ struct redis_dict_reply {
 
 struct redis_dict {
 	struct dict dict;
-	char *username, *key_prefix;
+	char *username, *key_prefix, *expire_value;
 	unsigned int timeout_msecs;
 
 	struct ioloop *ioloop, *prev_ioloop;
@@ -316,7 +316,7 @@ redis_dict_init(struct dict *driver, const char *uri,
 {
 	struct redis_dict *dict;
 	struct ip_addr ip;
-	unsigned int port = REDIS_DEFAULT_PORT;
+	unsigned int secs, port = REDIS_DEFAULT_PORT;
 	const char *const *args, *unix_path = NULL;
 	int ret = 0;
 
@@ -351,6 +351,14 @@ redis_dict_init(struct dict *driver, const char *uri,
 		} else if (strncmp(*args, "prefix=", 7) == 0) {
 			i_free(dict->key_prefix);
 			dict->key_prefix = i_strdup(*args + 7);
+		} else if (strncmp(*args, "expire_secs=", 12) == 0) {
+			if (str_to_uint(*args + 12, &secs) < 0 || secs == 0) {
+				*error_r = t_strdup_printf(
+					"Invalid expire_secs: %s", *args+14);
+				ret = -1;
+			}
+			i_free(dict->expire_value);
+			dict->expire_value = i_strdup(*args + 12);
 		} else if (strncmp(*args, "timeout_msecs=", 14) == 0) {
 			if (str_to_uint(*args+14, &dict->timeout_msecs) < 0) {
 				*error_r = t_strdup_printf(
@@ -404,6 +412,7 @@ static void redis_dict_deinit(struct dict *_dict)
 	str_free(&dict->conn.last_reply);
 	array_free(&dict->replies);
 	array_free(&dict->input_states);
+	i_free(dict->expire_value);
 	i_free(dict->key_prefix);
 	i_free(dict->username);
 	i_free(dict);
@@ -630,19 +639,28 @@ static void redis_set(struct dict_transaction_context *_ctx,
 	struct redis_dict_transaction_context *ctx =
 		(struct redis_dict_transaction_context *)_ctx;
 	struct redis_dict *dict = (struct redis_dict *)_ctx->dict;
-	const char *cmd;
+	string_t *cmd;
 
 	if (redis_check_transaction(ctx) < 0)
 		return;
 
 	key = redis_dict_get_full_key(dict, key);
-	cmd = t_strdup_printf("*3\r\n$3\r\nSET\r\n$%u\r\n%s\r\n$%u\r\n%s\r\n",
-			      (unsigned int)strlen(key), key,
-			      (unsigned int)strlen(value), value);
-	if (o_stream_send_str(dict->conn.conn.output, cmd) < 0)
-		ctx->failed = TRUE;
+	cmd = t_str_new(128);
+	str_printfa(cmd, "*3\r\n$3\r\nSET\r\n$%u\r\n%s\r\n$%u\r\n%s\r\n",
+		    (unsigned int)strlen(key), key,
+		    (unsigned int)strlen(value), value);
 	redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
 	ctx->cmd_count++;
+	if (dict->expire_value != NULL) {
+		str_printfa(cmd, "*3\r\n$6\r\nEXPIRE\r\n$%u\r\n%s\r\n$%u\r\n%s\r\n",
+			    (unsigned int)strlen(key), key,
+			    (unsigned int)strlen(dict->expire_value),
+			    dict->expire_value);
+		redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
+		ctx->cmd_count++;
+	}
+	if (o_stream_send(dict->conn.conn.output, str_data(cmd), str_len(cmd)) < 0)
+		ctx->failed = TRUE;
 }
 
 static void redis_unset(struct dict_transaction_context *_ctx,
