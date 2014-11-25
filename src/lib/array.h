@@ -47,10 +47,15 @@
 #  define ARRAY_TYPE_CHECK(array, data) \
 	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
 		**(array)->v_modifiable, *(data))
+#  define ARRAY_TYPES_CHECK(array1, array2) \
+	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
+		**(array1)->v_modifiable, **(array2)->v_modifiable)
+
 #else
 #  define ARRAY_TYPE_CAST_CONST(array)
 #  define ARRAY_TYPE_CAST_MODIFIABLE(array)
 #  define ARRAY_TYPE_CHECK(array, data) 0
+#  define ARRAY_TYPES_CHECK(array1, array2) 0
 #endif
 
 /* usage: struct foo *foo; array_foreach(foo_arr, foo) { .. } */
@@ -258,6 +263,35 @@ bool array_cmp_i(const struct array *array1,
 		 const struct array *array2) ATTR_PURE;
 #define array_cmp(array1, array2) \
 	array_cmp_i(&(array1)->arr, &(array2)->arr)
+
+/* Test equality via a comparator */
+bool array_equal_fn_i(const struct array *array1,
+		      const struct array *array2,
+		      int (*cmp)(const void*, const void *)) ATTR_PURE;
+#define array_equal_fn(array1, array2, cmp)				\
+	array_equal_fn_i(&(array1)->arr +					\
+		       ARRAY_TYPES_CHECK(array1, array2),		\
+		       &(array2)->arr +					\
+		       CALLBACK_TYPECHECK(cmp, int (*)(typeof(*(array1)->v), \
+						       typeof(*(array2)->v))), \
+		       (int (*)(const void *, const void *))cmp)
+bool array_equal_fn_ctx_i(const struct array *array1,
+			  const struct array *array2,
+			  int (*cmp)(const void*, const void *, const void *),
+			  const void *context) ATTR_PURE;
+/* Same, but with a context pointer.
+   context can't be void* as ``const typeof(context)'' won't compile,
+   so ``const typeof(*context)*'' is required instead, and that requires a
+   complete type. */
+#define array_equal_fn_ctx(array1, array2, cmp, ctx)			\
+	array_equal_fn_ctx_i(&(array1)->arr +				\
+			     ARRAY_TYPES_CHECK(array1, array2),		\
+			     &(array2)->arr +				\
+			     CALLBACK_TYPECHECK(cmp, int (*)(typeof(*(array1)->v), \
+							     typeof(*(array2)->v), \
+							     const typeof(*ctx)*)), \
+			     (int (*)(const void *, const void *, const void *))cmp, \
+			     ctx)
 
 void array_reverse_i(struct array *array);
 #define array_reverse(array) \

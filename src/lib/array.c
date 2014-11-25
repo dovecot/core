@@ -69,6 +69,59 @@ bool array_cmp_i(const struct array *array1, const struct array *array2)
 	return buffer_cmp(array1->buffer, array2->buffer);
 }
 
+bool array_equal_fn_i(const struct array *array1, const struct array *array2,
+		      int (*cmp)(const void *, const void*))
+{
+	unsigned int count1, count2, i, size;
+
+	if (!array_is_created_i(array1) || array1->buffer->used == 0)
+		return !array_is_created_i(array2) || array2->buffer->used == 0;
+
+	if (!array_is_created_i(array2))
+		return FALSE;
+
+	count1 = array_count_i(array1); count2 = array_count_i(array2);
+	if (count1 != count2)
+		return FALSE;
+
+	size = array1->element_size;
+	i_assert(size == array2->element_size);
+
+	for (i = 0; i < count1; i++) {
+		if (cmp(CONST_PTR_OFFSET(array1->buffer->data, i * size),
+			CONST_PTR_OFFSET(array2->buffer->data, i * size)) != 0)
+			return FALSE;
+	}
+	return TRUE;
+}
+
+bool array_equal_fn_ctx_i(const struct array *array1, const struct array *array2,
+			  int (*cmp)(const void *, const void *, const void *),
+			  const void *context)
+{
+	unsigned int count1, count2, i, size;
+
+	if (!array_is_created_i(array1) || array1->buffer->used == 0)
+		return !array_is_created_i(array2) || array2->buffer->used == 0;
+
+	if (!array_is_created_i(array2))
+		return FALSE;
+
+	count1 = array_count_i(array1); count2 = array_count_i(array2);
+	if (count1 != count2)
+		return FALSE;
+
+	size = array1->element_size;
+	i_assert(size == array2->element_size);
+
+	for (i = 0; i < count1; i++) {
+		if (cmp(CONST_PTR_OFFSET(array1->buffer->data, i * size),
+			CONST_PTR_OFFSET(array2->buffer->data, i * size), context) != 0)
+			return FALSE;
+	}
+	return TRUE;
+}
+
 void array_reverse_i(struct array *array)
 {
 	const size_t element_size = array->element_size;
