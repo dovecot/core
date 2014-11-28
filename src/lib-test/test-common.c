@@ -9,6 +9,10 @@
 
 #include <setjmp.h> /* for fatal tests */
 
+/* To test the firing of i_assert, we need non-local jumps, i.e. setjmp */
+static volatile bool expecting_fatal = FALSE;
+static jmp_buf fatal_jmpbuf;
+
 #define OUT_NAME_ALIGN 70
 
 static char *test_prefix;
@@ -145,9 +149,12 @@ void test_istream_set_size(struct istream *input, uoff_t size)
 
 void test_begin(const char *name)
 {
-	i_assert(test_prefix == NULL);
-	test_prefix = i_strdup(name);
 	test_success = TRUE;
+	if (!expecting_fatal)
+		i_assert(test_prefix == NULL);
+	else
+		test_assert((test_success = (test_prefix == NULL)));
+	test_prefix = i_strdup(name);
 }
 
 bool test_has_failed(void)
@@ -185,7 +192,10 @@ test_dump_rand_state(void)
 
 void test_end(void)
 {
-	i_assert(test_prefix != NULL);
+	if (!expecting_fatal)
+		i_assert(test_prefix != NULL);
+	else
+		test_assert(test_prefix != NULL);
 
 	test_out("", test_success);
 	if (!test_success)
@@ -259,10 +269,6 @@ test_error_handler(const struct failure_context *ctx,
 #endif
 	test_success = FALSE;
 }
-
-/* To test the firing of i_assert, we need non-local jumps, i.e. setjmp */
-static volatile bool expecting_fatal = FALSE;
-static jmp_buf fatal_jmpbuf;
 
 static void ATTR_FORMAT(2, 0) ATTR_NORETURN
 test_fatal_handler(const struct failure_context *ctx,
