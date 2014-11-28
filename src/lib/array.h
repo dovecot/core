@@ -197,6 +197,7 @@ array_get_i(const struct array *array, unsigned int *count_r)
 #define array_get(array, count) \
 	ARRAY_TYPE_CAST_CONST(array)array_get_i(&(array)->arr, count)
 
+/* Re: i_assert() vs. pure: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=51971#c1 */
 static inline const void * ATTR_PURE
 array_idx_i(const struct array *array, unsigned int idx)
 {

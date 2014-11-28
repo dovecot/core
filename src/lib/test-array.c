@@ -179,20 +179,36 @@ void test_array(void)
 
 enum fatal_test_state fatal_array(int stage)
 {
+	double tmpd[2] = { 42., -42. };
+	short tmps[8] = {1,2,3,4,5,6,7,8};
+
 	switch(stage) {
 	case 0: {
 		ARRAY(double) ad;
 		test_begin("fatal_array");
 		t_array_init(&ad, 3);
-		(void)array_idx(&ad, 3);
+		/* allocation big enough, but memory not initialised */
+		if (array_idx(&ad, 0) == NULL)
+			return FATAL_TEST_FAILURE;
 		return FATAL_TEST_FAILURE;
 	} break;
 
 	case 1: {
 		ARRAY(double) ad;
+		t_array_init(&ad, 2);
+		array_append(&ad, tmpd, 2);
+		/* actual out of range address requested */
+		if (array_idx(&ad, 2) == NULL)
+			return FATAL_TEST_FAILURE;
+		return FATAL_TEST_FAILURE;
+	} break;
+
+	case 2: {
+		ARRAY(double) ad;
 		ARRAY(short) as;
 		t_array_init(&ad, 2);
 		t_array_init(&as, 8);
+		array_append(&as, tmps, 2);
 		array_copy(&ad.arr, 1, &as.arr, 0, 4);
 		return FATAL_TEST_FAILURE;
 	} break;
