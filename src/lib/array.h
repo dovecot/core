@@ -82,8 +82,10 @@
 	     (elem)++)
 #endif
 
-#define array_foreach_idx(array, elem) \
+#define array_ptr_to_idx(array, elem) \
 	((elem) - (array)->v[0])
+#define array_foreach_idx(array, elem) \
+	array_ptr_to_idx(array, elem)
 
 static inline void
 array_create_from_buffer_i(struct array *array, buffer_t *buffer,
