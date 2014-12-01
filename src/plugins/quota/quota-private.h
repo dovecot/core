@@ -134,6 +134,8 @@ struct quota_root {
 	unsigned int disable_unlimited_tracking:1;
 	/* Set while quota is being recalculated to avoid recursion. */
 	unsigned int recounting:1;
+	/* Quota root is hidden (to e.g. IMAP GETQUOTAROOT) */
+	unsigned int hidden:1;
 };
 
 struct quota_transaction_context {

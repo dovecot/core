@@ -49,6 +49,9 @@ struct quota_root *quota_root_lookup(struct mail_user *user, const char *name);
 const char *quota_root_get_name(struct quota_root *root);
 /* Return a list of all resources set for the quota root. */
 const char *const *quota_root_get_resources(struct quota_root *root);
+/* Returns TRUE if quota root is marked as hidden (so it shouldn't be visible
+   to users via IMAP GETQUOTAROOT command). */
+bool quota_root_is_hidden(struct quota_root *root);
 
 /* Returns 1 if quota value was found, 0 if not, -1 if error. */
 int quota_get_resource(struct quota_root *root, const char *mailbox_name,

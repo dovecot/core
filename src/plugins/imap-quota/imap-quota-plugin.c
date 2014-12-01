@@ -105,6 +105,8 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 
 	iter = quota_root_iter_init(box);
 	while ((root = quota_root_iter_next(iter)) != NULL) {
+		if (quota_root_is_hidden(root))
+			continue;
 		str_append_c(quotaroot_reply, ' ');
 		name = imap_quota_root_get_name(client->user, ns->owner, root);
 		imap_append_astring(quotaroot_reply, name);

@@ -52,6 +52,11 @@ static int dict_quota_init(struct quota_root *_root, const char *args,
 			args += 12;
 			continue;
 		}
+		if (strncmp(args, "hidden:", 7) == 0) {
+			_root->hidden = TRUE;
+			args += 7;
+			continue;
+		}
 		if (strncmp(args, "ignoreunlimited:", 16) == 0) {
 			_root->disable_unlimited_tracking = TRUE;
 			args += 16;

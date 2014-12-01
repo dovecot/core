@@ -305,6 +305,8 @@ quota_root_init(struct quota_root_settings *root_set, struct quota *quota,
 		for (; *tmp != NULL; tmp++) {
 			if (strcmp(*tmp, "noenforcing") == 0)
 				root->no_enforcing = TRUE;
+			else if (strcmp(*tmp, "hidden") == 0)
+				root->hidden = TRUE;
 			else if (strcmp(*tmp, "ignoreunlimited") == 0)
 				root->disable_unlimited_tracking = TRUE;
 			else
@@ -633,6 +635,11 @@ const char *quota_root_get_name(struct quota_root *root)
 const char *const *quota_root_get_resources(struct quota_root *root)
 {
 	return root->backend.v.get_resources(root);
+}
+
+bool quota_root_is_hidden(struct quota_root *root)
+{
+	return root->hidden;
 }
 
 int quota_get_resource(struct quota_root *root, const char *mailbox_name,
