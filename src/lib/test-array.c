@@ -181,6 +181,7 @@ enum fatal_test_state fatal_array(int stage)
 {
 	double tmpd[2] = { 42., -42. };
 	short tmps[8] = {1,2,3,4,5,6,7,8};
+	static const void *useless_ptr; /* persuade gcc to not optimise the tests */
 
 	switch(stage) {
 	case 0: {
@@ -188,8 +189,7 @@ enum fatal_test_state fatal_array(int stage)
 		test_begin("fatal_array");
 		t_array_init(&ad, 3);
 		/* allocation big enough, but memory not initialised */
-		if (array_idx(&ad, 0) == NULL)
-			return FATAL_TEST_FAILURE;
+		useless_ptr = array_idx(&ad, 0);
 		return FATAL_TEST_FAILURE;
 	} break;
 
@@ -198,8 +198,7 @@ enum fatal_test_state fatal_array(int stage)
 		t_array_init(&ad, 2);
 		array_append(&ad, tmpd, 2);
 		/* actual out of range address requested */
-		if (array_idx(&ad, 2) == NULL)
-			return FATAL_TEST_FAILURE;
+		useless_ptr = array_idx(&ad, 2);
 		return FATAL_TEST_FAILURE;
 	} break;
 
@@ -212,8 +211,11 @@ enum fatal_test_state fatal_array(int stage)
 		array_copy(&ad.arr, 1, &as.arr, 0, 4);
 		return FATAL_TEST_FAILURE;
 	} break;
-
 	}
 	test_end();
-	return FATAL_TEST_FINISHED;
+	/* Forces the compiler to check the value of useless_ptr, so that it
+	   must call array_idx (which is marked as pure, and gcc was desperate
+	   to optimise out. Of course, gcc is unaware stage is never -1.*/
+	return (useless_ptr != NULL && stage == -1)
+		? FATAL_TEST_FAILURE : FATAL_TEST_FINISHED;
 }
