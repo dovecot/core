@@ -635,6 +635,23 @@ static int redis_check_transaction(struct redis_dict_transaction_context *ctx)
 	return 0;
 }
 
+static void
+redis_append_expire(struct redis_dict_transaction_context *ctx,
+		    string_t *cmd, const char *key)
+{
+	struct redis_dict *dict = (struct redis_dict *)ctx->ctx.dict;
+
+	if (dict->expire_value == NULL)
+		return;
+
+	str_printfa(cmd, "*3\r\n$6\r\nEXPIRE\r\n$%u\r\n%s\r\n$%u\r\n%s\r\n",
+		    (unsigned int)strlen(key), key,
+		    (unsigned int)strlen(dict->expire_value),
+		    dict->expire_value);
+	redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
+	ctx->cmd_count++;
+}
+
 static void redis_set(struct dict_transaction_context *_ctx,
 		      const char *key, const char *value)
 {
@@ -653,14 +670,7 @@ static void redis_set(struct dict_transaction_context *_ctx,
 		    (unsigned int)strlen(value), value);
 	redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
 	ctx->cmd_count++;
-	if (dict->expire_value != NULL) {
-		str_printfa(cmd, "*3\r\n$6\r\nEXPIRE\r\n$%u\r\n%s\r\n$%u\r\n%s\r\n",
-			    (unsigned int)strlen(key), key,
-			    (unsigned int)strlen(dict->expire_value),
-			    dict->expire_value);
-		redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
-		ctx->cmd_count++;
-	}
+	redis_append_expire(ctx, cmd, key);
 	if (o_stream_send(dict->conn.conn.output, str_data(cmd), str_len(cmd)) < 0)
 		ctx->failed = TRUE;
 }
@@ -712,20 +722,23 @@ static void redis_atomic_inc(struct dict_transaction_context *_ctx,
 	struct redis_dict_transaction_context *ctx =
 		(struct redis_dict_transaction_context *)_ctx;
 	struct redis_dict *dict = (struct redis_dict *)_ctx->dict;
-	const char *cmd, *diffstr;
+	const char *diffstr;
+	string_t *cmd;
 
 	if (redis_check_transaction(ctx) < 0)
 		return;
 
 	key = redis_dict_get_full_key(dict, key);
 	diffstr = t_strdup_printf("%lld", diff);
-	cmd = t_strdup_printf("*3\r\n$6\r\nINCRBY\r\n$%u\r\n%s\r\n$%u\r\n%s\r\n",
-			      (unsigned int)strlen(key), key,
-			      (unsigned int)strlen(diffstr), diffstr);
-	if (o_stream_send_str(dict->conn.conn.output, cmd) < 0)
-		ctx->failed = TRUE;
+	cmd = t_str_new(128);
+	str_printfa(cmd, "*3\r\n$6\r\nINCRBY\r\n$%u\r\n%s\r\n$%u\r\n%s\r\n",
+		    (unsigned int)strlen(key), key,
+		    (unsigned int)strlen(diffstr), diffstr);
 	redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
 	ctx->cmd_count++;
+	redis_append_expire(ctx, cmd, key);
+	if (o_stream_send(dict->conn.conn.output, str_data(cmd), str_len(cmd)) < 0)
+		ctx->failed = TRUE;
 }
 
 struct dict dict_driver_redis = {
