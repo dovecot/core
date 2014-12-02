@@ -108,18 +108,29 @@ static void redis_conn_destroy(struct connection *_conn)
 		io_loop_stop(conn->dict->ioloop);
 }
 
+static void redis_dict_wait_timeout(struct redis_dict *dict)
+{
+	i_error("redis: Commit timed out in %u.%03u secs",
+		dict->timeout_msecs/1000, dict->timeout_msecs%1000);
+	io_loop_stop(dict->ioloop);
+}
+
 static void redis_wait(struct redis_dict *dict)
 {
+	struct timeout *to;
+
 	i_assert(dict->ioloop == NULL);
 
 	dict->prev_ioloop = current_ioloop;
 	dict->ioloop = io_loop_create();
+	to = timeout_add(dict->timeout_msecs, redis_dict_wait_timeout, dict);
 	connection_switch_ioloop(&dict->conn.conn);
 
 	do {
 		io_loop_run(dict->ioloop);
 	} while (array_count(&dict->input_states) > 0);
 
+	timeout_remove(&to);
 	io_loop_set_current(dict->prev_ioloop);
 	connection_switch_ioloop(&dict->conn.conn);
 	io_loop_set_current(dict->ioloop);
