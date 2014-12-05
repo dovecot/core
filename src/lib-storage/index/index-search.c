@@ -1556,7 +1556,7 @@ static int search_more_with_mail(struct index_search_context *ctx,
 			   if searching would want fewer access_parts than the
 			   fetching part, but that's probably not a big problem
 			   usually. */
-			index_mail_update_access_parts(mail);
+			index_mail_update_access_parts_pre(mail);
 			ret = 1;
 			break;
 		}
@@ -1651,6 +1651,7 @@ static int search_more_with_prefetching(struct index_search_context *ctx,
 		array_delete(&ctx->mails, 0, 1);
 		array_append(&ctx->mails, mail_r, 1);
 	}
+	index_mail_update_access_parts_post(*mail_r);
 	return 1;
 }
 
@@ -1731,13 +1732,14 @@ bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	}
 
 	/* everything searched at this point already. just returning
-	   matches from sort list */
+	   matches from sort list. FIXME: we could do prefetching here also. */
 	if (!index_sort_list_next(_ctx->sort_program, &seq))
 		return FALSE;
 
 	mailp = array_idx(&ctx->mails, 0);
 	mail_set_seq(*mailp, seq);
-	index_mail_update_access_parts(*mailp);
+	index_mail_update_access_parts_pre(*mailp);
+	index_mail_update_access_parts_post(*mailp);
 	*mail_r = *mailp;
 	return TRUE;
 }

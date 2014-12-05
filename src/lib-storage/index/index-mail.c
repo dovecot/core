@@ -1435,14 +1435,12 @@ static void check_envelope(struct index_mail *mail)
 	mail->data.save_envelope = TRUE;
 }
 
-void index_mail_update_access_parts(struct mail *_mail)
+void index_mail_update_access_parts_pre(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	const struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
 	struct mail_cache_view *cache_view = _mail->transaction->cache_view;
-	const struct mail_index_header *hdr;
-	struct istream *input;
 
 	if ((data->wanted_fields & (MAIL_FETCH_NUL_STATE |
 				    MAIL_FETCH_IMAP_BODY |
@@ -1522,21 +1520,35 @@ void index_mail_update_access_parts(struct mail *_mail)
 			data->save_sent_date = TRUE;
 		}
 	}
-
 	if ((data->wanted_fields & (MAIL_FETCH_STREAM_HEADER |
 				    MAIL_FETCH_STREAM_BODY)) != 0) {
-		/* open stream immediately to set expunged flag if
-		   it's already lost */
 		if ((data->wanted_fields & MAIL_FETCH_STREAM_HEADER) != 0)
 			data->access_part |= READ_HDR;
 		if ((data->wanted_fields & MAIL_FETCH_STREAM_BODY) != 0)
 			data->access_part |= READ_BODY;
+	}
+}
+
+void index_mail_update_access_parts_post(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail_data *data = &mail->data;
+	const struct mail_index_header *hdr;
+	struct istream *input;
+
+	/* when mail_prefetch_count>1, at this point we've started the
+	   prefetching to all the mails and we're now starting to access the
+	   first mail. */
+
+	if (data->access_part != 0) {
+		/* open stream immediately to set expunged flag if
+		   it's already lost */
 
 		/* open the stream only if we didn't get here from
 		   mailbox_save_init() */
 		hdr = mail_index_get_header(_mail->transaction->view);
 		if (!_mail->saving && _mail->uid < hdr->next_uid) {
-			if ((data->access_part & READ_BODY) != 0)
+			if ((data->access_part & (READ_BODY | PARSE_BODY)) != 0)
 				(void)mail_get_stream(_mail, NULL, NULL, &input);
 			else
 				(void)mail_get_hdr_stream(_mail, NULL, &input);
@@ -1569,11 +1581,13 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 		return;
 	}
 
-	if (!mail->search_mail)
-		index_mail_update_access_parts(_mail);
-	else {
-		/* searching code will call the index_mail_update_access_parts()
-		   after we know the mail is actually wanted to be fetched. */
+	if (!mail->search_mail) {
+		index_mail_update_access_parts_pre(_mail);
+		index_mail_update_access_parts_post(_mail);
+	} else {
+		/* searching code will call the
+		   index_mail_update_access_parts_*() after we know the mail is
+		   actually wanted to be fetched. */
 	}
 	mail->data.initialized = TRUE;
 }
@@ -1665,7 +1679,8 @@ void index_mail_add_temp_wanted_fields(struct mail *_mail,
 			mailbox_header_lookup_init(_mail->box,
 						   array_idx(&names, 0));
 	}
-	index_mail_update_access_parts(_mail);
+	index_mail_update_access_parts_pre(_mail);
+	index_mail_update_access_parts_post(_mail);
 }
 
 void index_mail_set_uid_cache_updates(struct mail *_mail, bool set)
