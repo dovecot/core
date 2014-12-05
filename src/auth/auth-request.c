@@ -1378,6 +1378,12 @@ auth_request_try_update_username(struct auth_request *request,
 	new_value = get_updated_username(request->user, name, value);
 	if (new_value == NULL)
 		return FALSE;
+	if (new_value[0] == '\0') {
+		auth_request_log_error(request, AUTH_SUBSYS_DB,
+			"username attempted to be changed to empty");
+		request->failed = TRUE;
+		return TRUE;
+	}
 
 	if (strcmp(request->user, new_value) != 0) {
 		auth_request_log_debug(request, AUTH_SUBSYS_DB,
