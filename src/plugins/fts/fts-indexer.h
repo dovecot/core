@@ -1,6 +1,7 @@
 #ifndef FTS_BUILD_H
 #define FTS_BUILD_H
 
+struct fts_backend;
 struct fts_indexer_context;
 
 /* Initialize indexing the given mailbox via indexer service. Returns 1 if
