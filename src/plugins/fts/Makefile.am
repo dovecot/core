@@ -32,15 +32,18 @@ lib20_fts_plugin_la_SOURCES = \
 	fts-search-serialize.c \
 	fts-storage.c
 
+pkginc_libdir=$(pkgincludedir)
+pkginc_lib_HEADERS = \
+	fts-api.h \
+	fts-api-private.h \
+	fts-expunge-log.h \
+	fts-indexer.h \
+	fts-parser.h
+
 noinst_HEADERS = \
 	doveadm-fts.h \
 	html-entities.h \
-	fts-api.h \
-	fts-api-private.h \
 	fts-build-mail.h \
-	fts-expunge-log.h \
-	fts-indexer.h \
-	fts-parser.h \
 	fts-plugin.h \
 	fts-search-serialize.h \
 	fts-storage.h
