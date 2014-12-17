@@ -7,41 +7,20 @@
 
 void *array_idx_modifiable_i(struct array *array, unsigned int idx)
 {
-	size_t pos;
-
-	pos = idx * array->element_size;
-	if (pos >= array->buffer->used) {
-		/* index doesn't exist yet, initialize with zero */
-		buffer_append_zero(array->buffer, pos + array->element_size -
-				   array->buffer->used);
-	}
-	return buffer_get_space_unsafe(array->buffer, pos, array->element_size);
+	return buffer_get_space_unsafe(array->buffer, idx * array->element_size,
+				       array->element_size);
 }
 
 void array_idx_set_i(struct array *array, unsigned int idx, const void *data)
 {
-	size_t pos;
-
-	pos = idx * array->element_size;
-	if (pos > array->buffer->used) {
-		/* index doesn't exist yet, initialize with zero */
-		buffer_append_zero(array->buffer, pos - array->buffer->used);
-	}
-	buffer_write(array->buffer, pos, data, array->element_size);
+	buffer_write(array->buffer, idx * array->element_size,
+		     data, array->element_size);
 }
 
 void array_idx_clear_i(struct array *array, unsigned int idx)
 {
-	size_t pos;
-
-	pos = idx * array->element_size;
-	if (pos > array->buffer->used) {
-		/* index doesn't exist yet, initialize with zero */
-		buffer_append_zero(array->buffer, pos - array->buffer->used +
-				   array->element_size);
-	} else {
-		buffer_write_zero(array->buffer, pos, array->element_size);
-	}
+	buffer_write_zero(array->buffer, idx * array->element_size,
+			  array->element_size);
 }
 
 void *array_insert_space_i(struct array *array, unsigned int idx)
