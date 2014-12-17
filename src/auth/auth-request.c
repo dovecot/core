@@ -1249,6 +1249,8 @@ bool auth_request_set_login_username(struct auth_request *request,
                                      const char *username,
                                      const char **error_r)
 {
+	struct auth_passdb *master_passdb;
+
         i_assert(*username != '\0');
 
 	if (strcmp(username, request->user) == 0) {
@@ -1258,7 +1260,12 @@ bool auth_request_set_login_username(struct auth_request *request,
 	}
 
         /* lookup request->user from masterdb first */
-        request->passdb = auth_request_get_auth(request)->masterdbs;
+	master_passdb = auth_request_get_auth(request)->masterdbs;
+	if (master_passdb == NULL) {
+		*error_r = "Master user login attempted without master passdbs";
+		return FALSE;
+	}
+	request->passdb = master_passdb;
 
         request->requested_login_user =
                 auth_request_fix_username(request, username, error_r);
