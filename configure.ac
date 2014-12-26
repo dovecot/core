@@ -2805,7 +2805,7 @@ if test "$with_gnu_ld" = yes -a "$want_shared_libs" = "no"; then
   # libtool can't handle using whole-archive flags, so we need to do this
   # with a CC wrapper.. shouldn't be much of a problem, since most people
   # are building with shared libs.
-  sed "s/@CC@/$CC/" < $srcdir/cc-wrapper.sh.in > cc-wrapper.sh
+  sed "s:@CC@:$CC:" < $srcdir/cc-wrapper.sh.in > cc-wrapper.sh
   chmod +x cc-wrapper.sh
   CC=`pwd`/cc-wrapper.sh
 fi
