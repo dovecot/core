@@ -10,12 +10,10 @@ void test_guid(void)
 	  0xab, 0xcd, 0xef,
 	  0xAB, 0xCD, 0xEF,
 	  0x00, 0x00, 0x00, 0x00, 0x00 };
-	guid_128_t guid1, guid2, guid3, empty_guid;
+	guid_128_t guid1, guid2, guid3;
 	const char *str;
 	char guidbuf[GUID_128_SIZE*2 + 2];
 	unsigned int i;
-
-	memset(empty_guid, 0, sizeof(empty_guid));
 
 	test_begin("guid_128_generate()");
 	guid_128_generate(guid1);
@@ -27,7 +25,9 @@ void test_guid(void)
 	test_begin("guid_128_is_empty()");
 	test_assert(!guid_128_is_empty(guid1));
 	test_assert(!guid_128_is_empty(guid2));
-	test_assert(guid_128_is_empty(empty_guid));
+	guid_128_generate(guid3);
+	guid_128_empty(guid3);
+	test_assert(guid_128_is_empty(guid3));
 	test_end();
 
 	test_begin("guid_128_copy()");

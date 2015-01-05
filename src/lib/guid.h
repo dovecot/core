@@ -12,6 +12,10 @@ const char *guid_generate(void);
 void guid_128_generate(guid_128_t guid_r);
 /* Returns TRUE if GUID is empty (not set / unknown). */
 bool guid_128_is_empty(const guid_128_t guid) ATTR_PURE;
+static inline void guid_128_empty(guid_128_t guid)
+{
+	memset(guid, 0, GUID_128_SIZE);
+}
 /* Returns TRUE if two GUIDs are equal. */
 bool guid_128_equals(const guid_128_t guid1, const guid_128_t guid2) ATTR_PURE;
 /* Copy GUID */
