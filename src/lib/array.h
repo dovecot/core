@@ -316,4 +316,24 @@ void *array_bsearch_i(struct array *array, const void *key,
 						typeof(*(array)->v))), \
 		(const void *)key, (int (*)(const void *, const void *))cmp)
 
+/* Returns pointer to first element for which cmp(key,elem)==0, or NULL */
+const void *array_lsearch_i(const struct array *array, const void *key,
+			    int (*cmp)(const void *, const void *));
+static inline void *array_lsearch_modifiable_i(struct array *array, const void *key,
+					       int (*cmp)(const void *, const void *))
+{
+	return (void *)array_lsearch_i(array, key, cmp);
+}
+#define ARRAY_LSEARCH_CALL(modifiable, array, key, cmp)			\
+	array_lsearch##modifiable##i(					\
+		&(array)->arr +						\
+		CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
+						typeof(*(array)->v))),	\
+		(const void *)key,					\
+		(int (*)(const void *, const void *))cmp)
+#define array_lsearch(array, key, cmp)					\
+	ARRAY_TYPE_CAST_CONST(array)ARRAY_LSEARCH_CALL(_, array, key, cmp)
+#define array_lsearch_modifiable(array, key, cmp)			\
+	ARRAY_TYPE_CAST_MODIFIABLE(array)ARRAY_LSEARCH_CALL(_modifiable_, array, key, cmp)
+
 #endif

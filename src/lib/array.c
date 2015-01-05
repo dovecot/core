@@ -138,3 +138,19 @@ void *array_bsearch_i(struct array *array, const void *key,
 	return bsearch(key, array->buffer->data,
 		       count, array->element_size, cmp);
 }
+
+const void *array_lsearch_i(const struct array *array, const void *key,
+			    int (*cmp)(const void *, const void *))
+{
+	const void * const data = buffer_get_data(array->buffer, NULL);
+	const unsigned int s = array->element_size;
+	unsigned int idx;
+
+	for (idx = 0; idx < array_count_i(array); idx++) {
+		if (cmp(key, CONST_PTR_OFFSET(data, idx * s)) == 0) {
+			return PTR_OFFSET(data, idx * s);
+		}
+	}
+
+	return NULL;
+}
