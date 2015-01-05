@@ -20,14 +20,22 @@
 
    If you want to pass an array as a parameter to a function, you'll need to
    create a type for the array using ARRAY_DEFINE_TYPE() and use the type in
-   the parameter using ARRAY_TYPE().
+   the parameter using ARRAY_TYPE(). Any arrays that you want to be passing
+   around, such as structure members as in the above example, must also be
+   defined using ARRAY_TYPE() too, rather than ARRAY().
 
    Example:
 
    ARRAY_DEFINE_TYPE(foo, struct foo);
-   void do_foo(ARRAY_TYPE(foo) *bars) {
-	struct foo *foo = array_idx(bars, 0);
+   void do_foo(ARRAY_TYPE(foo) *foos) {
+	struct foo *foo = array_idx(foos, 0);
    }
+   struct foo_manager {
+        ARRAY_TYPE(foo) foos; // pedantically, ARRAY(struct foo) is a different type
+   };
+   // ...
+        do_foo(&my_foo_manager->foos); // No compiler warning about mismatched types
+
 */
 #include "array-decl.h"
 #include "buffer.h"
