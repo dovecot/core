@@ -2,7 +2,7 @@
  * HMAC (RFC-2104) implementation.
  *
  * Copyright (c) 2004 Andrey Panin <pazke@donpac.ru>
- * Copyright (c) 2011-2012 Florian Zeitz <florob@babelmonkeys.de>
+ * Copyright (c) 2011-2015 Florian Zeitz <florob@babelmonkeys.de>
  *
  * This software is released under the MIT license.
  */
