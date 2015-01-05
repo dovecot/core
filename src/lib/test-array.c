@@ -32,11 +32,17 @@ static void test_array_foreach(void)
 	test_end();
 }
 
+static int test_int_compare(const int *key, const int *elem)
+{
+	return (*key < *elem) ? -1 :
+		(*key > *elem) ? 1 :
+		0;
+}
 static void test_array_reverse(void)
 {
 	ARRAY(int) intarr;
 	int input[] = { -1234567890, -272585721, 272485922, 824725652 };
-	const int *output;
+	const int tmpi = 999, *output;
 	unsigned int i, j;
 
 	test_begin("array reverse");
@@ -50,6 +56,17 @@ static void test_array_reverse(void)
 		for (j = 0; j < i; j++)
 			test_assert(input[i-j-1] == output[j]);
 	}
+	test_end();
+
+	test_begin("array_lsearch");
+	for (i = 0; i < N_ELEMENTS(input); i++) {
+		output = array_lsearch(&intarr, &input[i], test_int_compare);
+		test_assert(output != NULL);
+		j = array_ptr_to_idx(&intarr, output);
+		test_assert_idx(j == N_ELEMENTS(input) - 1 - i, i);
+	}
+	output = array_lsearch(&intarr, &tmpi, test_int_compare);
+	test_assert(output == NULL);
 	test_end();
 }
 static int test_compare_ushort(const unsigned short *c1, const unsigned short *c2)
