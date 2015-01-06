@@ -6,6 +6,8 @@ typedef uint8_t guid_128_t[GUID_128_SIZE];
 
 #define GUID_128_HOST_HASH_SIZE 4
 
+ARRAY_DEFINE_TYPE(guid_128_t, guid_128_t);
+
 /* Generate a GUID (contains host name) */
 const char *guid_generate(void);
 /* Generate 128 bit GUID */
