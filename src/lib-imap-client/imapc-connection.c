@@ -21,7 +21,7 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#define IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE INT_MAX
+#define IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE 10000
 #define IMAPC_MAX_INLINE_LITERAL_SIZE (1024*32)
 
 enum imapc_input_state {
@@ -729,7 +729,7 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 	buffer_t *buf;
 	const char *error;
 
-	if (reply->state != IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE) {
+	if ((int)reply->state != IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE) {
 		dsasl_client_free(&conn->sasl_client);
 		imapc_connection_auth_finish(conn, reply);
 		return;
@@ -1084,7 +1084,7 @@ static int imapc_connection_input_plus(struct imapc_connection *conn)
 			struct imapc_command_reply reply;
 
 			memset(&reply, 0, sizeof(reply));
-			reply.state = IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE;
+			reply.state = (enum imapc_command_state)IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE;
 			reply.text_full = line;
 			cmds[0]->callback(&reply, cmds[0]->context);
 		} else {
