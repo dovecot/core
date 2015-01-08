@@ -9,6 +9,7 @@
 #include "write-full.h"
 #include "str.h"
 #include "dns-lookup.h"
+#include "dsasl-client.h"
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
 #include "imap-quote.h"
@@ -20,6 +21,7 @@
 #include <unistd.h>
 #include <ctype.h>
 
+#define IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE INT_MAX
 #define IMAPC_MAX_INLINE_LITERAL_SIZE (1024*32)
 
 enum imapc_input_state {
@@ -53,6 +55,8 @@ struct imapc_command {
 	imapc_command_callback_t *callback;
 	void *context;
 
+	/* This is the AUTHENTICATE command */
+	unsigned int authenticate:1;
 	/* This is the IDLE command */
 	unsigned int idle:1;
 	/* Waiting for '+' literal reply before we can continue */
@@ -82,6 +86,7 @@ struct imapc_connection {
 	struct timeout *to;
 	struct timeout *to_output;
 	struct dns_lookup *dns_lookup;
+	struct dsasl_client *sasl_client;
 
 	struct ssl_iostream *ssl_iostream;
 
@@ -680,11 +685,10 @@ static void imapc_connection_input_reset(struct imapc_connection *conn)
 	imapc_connection_lfiles_free(conn);
 }
 
-static void imapc_connection_login_cb(const struct imapc_command_reply *reply,
-				      void *context)
+static void
+imapc_connection_auth_finish(struct imapc_connection *conn,
+			     const struct imapc_command_reply *reply)
 {
-	struct imapc_connection *conn = context;
-
 	if (reply->state != IMAPC_COMMAND_STATE_OK) {
 		if (conn->login_callback != NULL)
 			imapc_login_callback(conn, reply);
@@ -706,33 +710,62 @@ static void imapc_connection_login_cb(const struct imapc_command_reply *reply,
 	imapc_command_send_more(conn);
 }
 
-static const char *
-imapc_connection_get_sasl_plain_request(struct imapc_connection *conn)
+static void imapc_connection_login_cb(const struct imapc_command_reply *reply,
+				      void *context)
 {
-	const struct imapc_client_settings *set = &conn->client->set;
-	string_t *in, *out;
+	struct imapc_connection *conn = context;
 
-	in = t_str_new(128);
-	if (set->master_user != NULL) {
-		str_append(in, set->username);
-		str_append_c(in, '\0');
-		str_append(in, set->master_user);
-	} else {
-		str_append_c(in, '\0');
-		str_append(in, set->username);
+	imapc_connection_auth_finish(conn, reply);
+}
+
+static void
+imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
+				 void *context)
+{
+	struct imapc_connection *conn = context;
+	const unsigned char *sasl_output;
+	unsigned int sasl_output_len;
+	unsigned int input_len;
+	buffer_t *buf;
+	const char *error;
+
+	if (reply->state != IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE) {
+		dsasl_client_free(&conn->sasl_client);
+		imapc_connection_auth_finish(conn, reply);
+		return;
 	}
-	str_append_c(in, '\0');
-	str_append(in, set->password);
 
-	out = t_str_new(128);
-	base64_encode(in->data, in->used, out);
-	return str_c(out);
+	input_len = strlen(reply->text_full);
+	buf = buffer_create_dynamic(pool_datastack_create(),
+				    MAX_BASE64_DECODED_SIZE(input_len));
+	if (base64_decode(reply->text_full, input_len, NULL, buf) < 0) {
+		i_error("imapc(%s): Authentication failed: Server sent non-base64 input for AUTHENTICATE: %s",
+			conn->name, reply->text_full);
+	} else if (dsasl_client_input(conn->sasl_client, buf->data, buf->used, &error) < 0) {
+		i_error("imapc(%s): Authentication failed: %s",
+			conn->name, error);
+	} else if (dsasl_client_output(conn->sasl_client, &sasl_output,
+				       &sasl_output_len, &error) < 0) {
+		i_error("imapc(%s): Authentication failed: %s",
+			conn->name, error);
+	} else {
+		string_t *imap_output =
+			t_str_new(MAX_BASE64_ENCODED_SIZE(sasl_output_len)+2);
+		base64_encode(sasl_output, sasl_output_len, imap_output);
+		str_append(imap_output, "\r\n");
+		o_stream_nsend(conn->output, str_data(imap_output),
+			       str_len(imap_output));
+		return;
+	}
+	imapc_connection_disconnect(conn);
 }
 
 static void imapc_connection_authenticate(struct imapc_connection *conn)
 {
 	const struct imapc_client_settings *set = &conn->client->set;
 	struct imapc_command *cmd;
+	struct dsasl_client_settings sasl_set;
+	const struct dsasl_client_mech *sasl_mech;
 
 	if (conn->client->set.debug) {
 		if (set->master_user == NULL) {
@@ -744,22 +777,56 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		}
 	}
 
-	cmd = imapc_connection_cmd(conn, imapc_connection_login_cb,
-				   conn);
-	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
-
 	if ((set->master_user == NULL &&
 	     !need_literal(set->username) && !need_literal(set->password)) ||
 	    (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0) {
 		/* We can use LOGIN command */
+		cmd = imapc_connection_cmd(conn, imapc_connection_login_cb,
+					   conn);
+		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
 		imapc_command_sendf(cmd, "LOGIN %s %s",
 				    set->username, set->password);
-	} else if ((conn->capabilities & IMAPC_CAPABILITY_SASL_IR) != 0) {
-		imapc_command_sendf(cmd, "AUTHENTICATE PLAIN %1s",
-			imapc_connection_get_sasl_plain_request(conn));
+		return;
+	}
+
+	memset(&sasl_set, 0, sizeof(sasl_set));
+	if (set->master_user == NULL)
+		sasl_set.authid = set->username;
+	else {
+		sasl_set.authid = set->master_user;
+		sasl_set.authzid = set->username;
+	}
+	sasl_set.password = set->password;
+
+	sasl_mech = &dsasl_client_mech_plain;
+	conn->sasl_client = dsasl_client_new(sasl_mech, &sasl_set);
+
+	cmd = imapc_connection_cmd(conn, imapc_connection_authenticate_cb, conn);
+	cmd->authenticate = TRUE;
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
+
+	if ((conn->capabilities & IMAPC_CAPABILITY_SASL_IR) != 0) {
+		const unsigned char *sasl_output;
+		unsigned int sasl_output_len;
+		string_t *sasl_output_base64;
+		const char *error;
+
+		if (dsasl_client_output(conn->sasl_client, &sasl_output,
+					&sasl_output_len, &error) < 0) {
+			i_error("imapc(%s): Failed to create initial SASL reply: %s",
+				conn->name, error);
+			imapc_connection_disconnect(conn);
+			return;
+		}
+		sasl_output_base64 = t_str_new(MAX_BASE64_ENCODED_SIZE(sasl_output_len));
+		base64_encode(sasl_output, sasl_output_len, sasl_output_base64);
+
+		imapc_command_sendf(cmd, "AUTHENTICATE %1s %1s",
+				    dsasl_client_mech_get_name(sasl_mech),
+				    str_c(sasl_output_base64));
 	} else {
-		imapc_command_sendf(cmd, "AUTHENTICATE PLAIN\r\n%1s",
-			imapc_connection_get_sasl_plain_request(conn));
+		imapc_command_sendf(cmd, "AUTHENTICATE %1s",
+				    dsasl_client_mech_get_name(sasl_mech));
 	}
 }
 
@@ -960,8 +1027,19 @@ static int imapc_connection_input_plus(struct imapc_connection *conn)
 		cmds[0]->wait_for_literal = FALSE;
 		imapc_command_send_more(conn);
 	} else {
-		imapc_connection_input_error(conn, "Unexpected '+': %s", line);
-		return -1;
+		cmds = array_get(&conn->cmd_wait_list, &cmds_count);
+		if (cmds_count > 0 && cmds[0]->authenticate) {
+			/* continue AUTHENTICATE */
+			struct imapc_command_reply reply;
+
+			memset(&reply, 0, sizeof(reply));
+			reply.state = IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE;
+			reply.text_full = line;
+			cmds[0]->callback(&reply, cmds[0]->context);
+		} else {
+			imapc_connection_input_error(conn, "Unexpected '+': %s", line);
+			return -1;
+		}
 	}
 
 	imapc_connection_input_reset(conn);
