@@ -760,12 +760,52 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 	imapc_connection_disconnect(conn);
 }
 
+static bool imapc_connection_have_auth(struct imapc_connection *conn,
+				       const char *mech_name)
+{
+	char *const *capa;
+
+	for (capa = conn->capabilities_list; *capa != NULL; capa++) {
+		if (strncasecmp(*capa, "AUTH=", 5) == 0 &&
+		    strcasecmp((*capa)+5, mech_name) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static int
+imapc_connection_get_sasl_mech(struct imapc_connection *conn,
+			       const struct dsasl_client_mech **mech_r,
+			       const char **error_r)
+{
+	const struct imapc_client_settings *set = &conn->client->set;
+	const char *const *mechanisms =
+		t_strsplit_spaces(set->sasl_mechanisms, ", ");
+
+	/* find one of the specified SASL mechanisms */
+	for (; *mechanisms != NULL; mechanisms++) {
+		if (imapc_connection_have_auth(conn, *mechanisms)) {
+			*mech_r = dsasl_client_mech_find(*mechanisms);
+			if (*mech_r != NULL)
+				return 0;
+
+			*error_r = t_strdup_printf(
+				"Support for SASL method '%s' is missing", *mechanisms);
+			return -1;
+		}
+	}
+	*error_r = t_strdup_printf("IMAP server doesn't support any of the requested SASL mechanisms: %s",
+				   set->sasl_mechanisms);
+	return -1;
+}
+
 static void imapc_connection_authenticate(struct imapc_connection *conn)
 {
 	const struct imapc_client_settings *set = &conn->client->set;
 	struct imapc_command *cmd;
 	struct dsasl_client_settings sasl_set;
-	const struct dsasl_client_mech *sasl_mech;
+	const struct dsasl_client_mech *sasl_mech = NULL;
+	const char *error;
 
 	if (conn->client->set.debug) {
 		if (set->master_user == NULL) {
@@ -777,9 +817,19 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		}
 	}
 
-	if ((set->master_user == NULL &&
-	     !need_literal(set->username) && !need_literal(set->password)) ||
-	    (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0) {
+	if (set->sasl_mechanisms != NULL && set->sasl_mechanisms[0] != '\0') {
+		if (imapc_connection_get_sasl_mech(conn, &sasl_mech, &error) < 0) {
+			i_error("imapc(%s): Authentication failed: %s",
+				conn->name, error);
+			imapc_connection_disconnect(conn);
+			return;
+		}
+	}
+
+	if (sasl_mech == NULL &&
+	    ((set->master_user == NULL &&
+	      !need_literal(set->username) && !need_literal(set->password)) ||
+	     (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0)) {
 		/* We can use LOGIN command */
 		cmd = imapc_connection_cmd(conn, imapc_connection_login_cb,
 					   conn);
@@ -798,7 +848,8 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	}
 	sasl_set.password = set->password;
 
-	sasl_mech = &dsasl_client_mech_plain;
+	if (sasl_mech == NULL)
+		sasl_mech = &dsasl_client_mech_plain;
 	conn->sasl_client = dsasl_client_new(sasl_mech, &sasl_set);
 
 	cmd = imapc_connection_cmd(conn, imapc_connection_authenticate_cb, conn);

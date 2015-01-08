@@ -54,6 +54,7 @@ imapc_client_init(const struct imapc_client_settings *set)
 	client->set.master_user = p_strdup_empty(pool, set->master_user);
 	client->set.username = p_strdup(pool, set->username);
 	client->set.password = p_strdup(pool, set->password);
+	client->set.sasl_mechanisms = p_strdup(pool, set->sasl_mechanisms);
 	client->set.dns_client_socket_path =
 		p_strdup(pool, set->dns_client_socket_path);
 	client->set.temp_path_prefix =

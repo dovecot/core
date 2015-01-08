@@ -60,6 +60,9 @@ struct imapc_client_settings {
 	const char *master_user;
 	const char *username;
 	const char *password;
+	/* Space-separated list of SASL mechanisms to try (in the specified
+	   order). The default is to use only LOGIN command or SASL PLAIN. */
+	const char *sasl_mechanisms;
 	unsigned int max_idle_time;
 
 	const char *dns_client_socket_path;

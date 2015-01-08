@@ -11,6 +11,7 @@
 #include "mkdir-parents.h"
 #include "time-util.h"
 #include "var-expand.h"
+#include "dsasl-client.h"
 #include "mail-index-private.h"
 #include "mail-index-alloc-cache.h"
 #include "mailbox-tree.h"
@@ -40,6 +41,7 @@ ARRAY_TYPE(mail_storage) mail_storage_classes;
 
 void mail_storage_init(void)
 {
+	dsasl_clients_init();
 	mailbox_lists_init();
 	mail_storage_hooks_init();
 	i_array_init(&mail_storage_classes, 8);
@@ -55,6 +57,7 @@ void mail_storage_deinit(void)
 		array_free(&mail_storage_classes);
 	mail_storage_hooks_deinit();
 	mailbox_lists_deinit();
+	dsasl_clients_deinit();
 }
 
 void mail_storage_class_register(struct mail_storage *storage_class)

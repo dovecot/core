@@ -20,6 +20,7 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(SET_STR_VARS, imapc_user),
 	DEF(SET_STR_VARS, imapc_master_user),
 	DEF(SET_STR, imapc_password),
+	DEF(SET_STR, imapc_sasl_mechanisms),
 
 	DEF(SET_ENUM, imapc_ssl),
 	DEF(SET_BOOL, imapc_ssl_verify),
@@ -39,6 +40,7 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_user = "",
 	.imapc_master_user = "",
 	.imapc_password = "",
+	.imapc_sasl_mechanisms = "",
 
 	.imapc_ssl = "no:imaps:starttls",
 	.imapc_ssl_verify = TRUE,
