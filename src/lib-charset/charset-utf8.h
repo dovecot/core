@@ -32,4 +32,9 @@ int charset_to_utf8_str(const char *charset, normalizer_func_t *normalizer,
 			const char *input, string_t *output,
 			enum charset_result *result_r) ATTR_NULL(2);
 
+/* INTERNAL: */
+enum charset_result
+charset_utf8_to_utf8(normalizer_func_t *normalizer,
+		     const unsigned char *src, size_t *src_size, buffer_t *dest);
+
 #endif

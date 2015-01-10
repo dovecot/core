@@ -53,20 +53,6 @@ void charset_to_utf8_reset(struct charset_translation *t)
 		(void)iconv(t->cd, NULL, NULL, NULL, NULL);
 }
 
-static int
-charset_append_utf8(struct charset_translation *t,
-		    const void *src, size_t src_size, buffer_t *dest)
-{
-	if (t->normalizer != NULL)
-		return t->normalizer(src, src_size, dest);
-	else if (!uni_utf8_get_valid_data(src, src_size, dest))
-		return -1;
-	else {
-		buffer_append(dest, src, src_size);
-		return 0;
-	}
-}
-
 static bool
 charset_to_utf8_try(struct charset_translation *t,
 		    const unsigned char *src, size_t *src_size, buffer_t *dest,
@@ -74,15 +60,12 @@ charset_to_utf8_try(struct charset_translation *t,
 {
 	ICONV_CONST char *ic_srcbuf;
 	char tmpbuf[8192], *ic_destbuf;
-	size_t srcleft, destleft;
+	size_t srcleft, destleft, tmpbuf_used;
 	bool ret = TRUE;
 
 	if (t->cd == (iconv_t)-1) {
 		/* input is already supposed to be UTF-8 */
-		if (charset_append_utf8(t, src, *src_size, dest) < 0)
-			*result = CHARSET_RET_INVALID_INPUT;
-		else
-			*result = CHARSET_RET_OK;
+		*result = charset_utf8_to_utf8(t->normalizer, src, src_size, dest);
 		return TRUE;
 	}
 	destleft = sizeof(tmpbuf);
@@ -109,8 +92,9 @@ charset_to_utf8_try(struct charset_translation *t,
 	/* we just converted data to UTF-8. it shouldn't be invalid, but
 	   Solaris iconv appears to pass invalid data through sometimes
 	   (e.g. 8 bit characters with UTF-7) */
-	if (charset_append_utf8(t, tmpbuf, sizeof(tmpbuf) - destleft,
-				dest) < 0)
+	tmpbuf_used = sizeof(tmpbuf) - destleft;
+	if (charset_utf8_to_utf8(t->normalizer, (void *)tmpbuf,
+				 &tmpbuf_used, dest) != CHARSET_RET_OK)
 		*result = CHARSET_RET_INVALID_INPUT;
 	return ret;
 }
