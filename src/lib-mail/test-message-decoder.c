@@ -16,34 +16,6 @@ void message_header_decode_utf8(const unsigned char *data, size_t size,
 	buffer_append(dest, data, size);
 }
 
-int quoted_printable_decode(const unsigned char *src, size_t src_size,
-			    size_t *src_pos_r, buffer_t *dest)
-{
-	while (src_size > 0 && src[src_size-1] == ' ')
-		src_size--;
-	buffer_append(dest, src, src_size);
-	*src_pos_r = src_size;
-	return 0;
-}
-
-int charset_to_utf8_begin(const char *charset ATTR_UNUSED,
-			  normalizer_func_t *normalizer ATTR_UNUSED,
-			  struct charset_translation **t_r)
-{
-	*t_r = NULL;
-	return 0;
-}
-void charset_to_utf8_end(struct charset_translation **t ATTR_UNUSED) { }
-bool charset_is_utf8(const char *charset ATTR_UNUSED) { return TRUE; }
-
-enum charset_result
-charset_to_utf8(struct charset_translation *t ATTR_UNUSED,
-		const unsigned char *src, size_t *src_size, buffer_t *dest)
-{
-	buffer_append(dest, src, *src_size);
-	return CHARSET_RET_OK;
-}
-
 static void test_message_decoder(void)
 {
 	struct message_decoder_context *ctx;
@@ -85,6 +57,25 @@ static void test_message_decoder(void)
 	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
 	test_assert(output.size == 14);
 	test_assert(memcmp(output.data, "           bar", 14) == 0);
+
+	/* partial text - \xC3\xA4 in quoted-printable. we should get a single
+	   UTF-8 letter as result */
+	input.data = (const void *)"="; input.size = 1;
+	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+	test_assert(output.size == 0);
+	input.data = (const void *)"C"; input.size = 1;
+	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+	test_assert(output.size == 0);
+	input.data = (const void *)"3"; input.size = 1;
+	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+	test_assert(output.size == 0);
+	input.data = (const void *)"=A"; input.size = 2;
+	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+	test_assert(output.size == 0);
+	input.data = (const void *)"4"; input.size = 1;
+	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+	test_assert(output.size == 2);
+	test_assert(memcmp(output.data, "\xC3\xA4", 2) == 0);
 
 	message_decoder_deinit(&ctx);
 

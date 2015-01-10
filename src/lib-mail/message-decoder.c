@@ -38,7 +38,6 @@ struct message_decoder_context {
 	char *content_charset;
 	enum message_cte message_cte;
 
-	unsigned int charset_utf8:1;
 	unsigned int binary_input:1;
 };
 
@@ -142,7 +141,6 @@ parse_content_type(struct message_decoder_context *ctx,
 	for (; *results != NULL; results += 2) {
 		if (strcasecmp(results[0], "charset") == 0) {
 			ctx->content_charset = i_strdup(results[1]);
-			ctx->charset_utf8 = charset_is_utf8(results[1]);
 			break;
 		}
 	}
@@ -243,7 +241,7 @@ message_decode_body_init_charset(struct message_decoder_context *ctx,
 		(part->flags & (MESSAGE_PART_FLAG_TEXT |
 				MESSAGE_PART_FLAG_MESSAGE_RFC822)) == 0;
 
-	if (ctx->charset_utf8 || ctx->binary_input)
+	if (ctx->binary_input)
 		return;
 
 	if (ctx->charset_trans != NULL && ctx->content_charset != NULL &&
@@ -334,21 +332,6 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 	if (ctx->binary_input) {
 		output->data = data;
 		output->size = size;
-	} else if (ctx->charset_utf8 || ctx->charset_trans == NULL) {
-		/* handle unknown charsets the same as UTF-8. it might find
-		   usable ASCII text. */
-		buffer_set_used_size(ctx->buf2, 0);
-		if (ctx->normalizer != NULL) {
-			(void)ctx->normalizer(data, size, ctx->buf2);
-			output->data = ctx->buf2->data;
-			output->size = ctx->buf2->used;
-		} else if (uni_utf8_get_valid_data(data, size, ctx->buf2)) {
-			output->data = data;
-			output->size = size;
-		} else {
-			output->data = ctx->buf2->data;
-			output->size = ctx->buf2->used;
-		}
 	} else {
 		buffer_set_used_size(ctx->buf2, 0);
 		if (ctx->translation_size != 0)
@@ -400,6 +383,5 @@ void message_decoder_decode_reset(struct message_decoder_context *ctx)
 {
 	i_free_and_null(ctx->content_charset);
 	ctx->message_cte = MESSAGE_CTE_78BIT;
-	ctx->charset_utf8 = TRUE;
 	buffer_set_used_size(ctx->encoding_buf, 0);
 }

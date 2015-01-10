@@ -133,8 +133,8 @@ test_message_date_LDADD = message-date.lo rfc822-parser.lo $(test_libs)
 test_message_date_DEPENDENCIES = $(test_deps)
 
 test_message_decoder_SOURCES = test-message-decoder.c
-test_message_decoder_LDADD = message-decoder.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
-test_message_decoder_DEPENDENCIES = $(test_deps)
+test_message_decoder_LDADD = message-decoder.lo quoted-printable.lo rfc822-parser.lo rfc2231-parser.lo ../lib-charset/libcharset.la $(test_libs)
+test_message_decoder_DEPENDENCIES = ../lib-charset/libcharset.la $(test_deps)
 
 test_message_header_decode_SOURCES = test-message-header-decode.c
 test_message_header_decode_LDADD = message-header-decode.lo quoted-printable.lo message-header-encode.lo $(test_libs)
