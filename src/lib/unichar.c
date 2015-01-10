@@ -192,18 +192,28 @@ unsigned int uni_utf8_strlen(const char *input)
 	return uni_utf8_strlen_n(input, (size_t)-1);
 }
 
-unsigned int uni_utf8_strlen_n(const void *_input, size_t size)
+unsigned int uni_utf8_strlen_n(const void *input, size_t size)
+{
+	size_t partial_pos;
+
+	return uni_utf8_partial_strlen_n(input, size, &partial_pos);
+}
+
+unsigned int uni_utf8_partial_strlen_n(const void *_input, size_t size,
+				       size_t *partial_pos_r)
 {
 	const unsigned char *input = _input;
-	unsigned int len = 0;
+	unsigned int count, len = 0;
 	size_t i;
 
 	for (i = 0; i < size && input[i] != '\0'; ) {
-		i += uni_utf8_char_bytes(input[i]);
-		if (i > size)
+		count = uni_utf8_char_bytes(input[i]);
+		if (i + count > size)
 			break;
+		i += count;
 		len++;
 	}
+	*partial_pos_r = i;
 	return len;
 }
 

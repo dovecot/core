@@ -5,6 +5,20 @@
 #include "buffer.h"
 #include "unichar.h"
 
+static void test_unichar_uni_utf8_partial_strlen_n(void)
+{
+	static const char input[] = "\xC3\xA4\xC3\xA4";
+	size_t pos;
+
+	test_begin("uni_utf8_partial_strlen_n()");
+	test_assert(uni_utf8_partial_strlen_n(input, 1, &pos) == 0 && pos == 0);
+	test_assert(uni_utf8_partial_strlen_n(input, 2, &pos) == 1 && pos == 2);
+	test_assert(uni_utf8_partial_strlen_n(input, 3, &pos) == 1 && pos == 2);
+	test_assert(uni_utf8_partial_strlen_n(input, 4, &pos) == 2 && pos == 4);
+	test_assert(uni_utf8_partial_strlen_n(input, (size_t)-1, &pos) == 2 && pos == 4);
+	test_end();
+}
+
 void test_unichar(void)
 {
 	static const char overlong_utf8[] = "\xf8\x80\x95\x81\xa1";
@@ -32,4 +46,6 @@ void test_unichar(void)
 	test_assert(!uni_utf8_str_is_valid(overlong_utf8));
 	test_assert(uni_utf8_get_char(overlong_utf8, &chr2) < 0);
 	test_end();
+
+	test_unichar_uni_utf8_partial_strlen_n();
 }
