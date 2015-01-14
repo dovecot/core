@@ -40,6 +40,11 @@ bool message_decoder_decode_next_block(struct message_decoder_context *ctx,
 				       struct message_block *input,
 				       struct message_block *output);
 
+/* Returns the parsed Content-Type of the current MIME part. If there is no
+   explicit Content-Type, returns NULL. */
+const char *
+message_decoder_current_content_type(struct message_decoder_context *ctx);
+
 /* Call whenever message changes */
 void message_decoder_decode_reset(struct message_decoder_context *ctx);
 
