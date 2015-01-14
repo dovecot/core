@@ -363,9 +363,10 @@ bool message_decoder_decode_next_block(struct message_decoder_context *ctx,
 	output->part = input->part;
 	ctx->prev_part = input->part;
 
-	if (input->hdr != NULL)
+	if (input->hdr != NULL) {
+		output->size = 0;
 		return message_decode_header(ctx, input->hdr, output);
-	else if (input->size != 0)
+	} else if (input->size != 0)
 		return message_decode_body(ctx, input, output);
 	else {
 		output->hdr = NULL;

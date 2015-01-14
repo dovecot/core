@@ -27,7 +27,7 @@ static void test_message_decoder(void)
 
 	memset(&part, 0, sizeof(part));
 	memset(&input, 0, sizeof(input));
-	memset(&output, 0, sizeof(output));
+	memset(&output, 0xff, sizeof(output));
 	input.part = &part;
 
 	ctx = message_decoder_init(NULL, 0);
@@ -39,6 +39,7 @@ static void test_message_decoder(void)
 	hdr.full_value_len = strlen((const char *)hdr.full_value);
 	input.hdr = &hdr;
 	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
+	test_assert(output.size == 0);
 
 	input.hdr = NULL;
 	test_assert(message_decoder_decode_next_block(ctx, &input, &output));
