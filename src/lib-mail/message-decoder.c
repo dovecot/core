@@ -31,7 +31,7 @@ struct message_decoder_context {
 
 	buffer_t *encoding_buf;
 
-	char *content_charset;
+	char *content_type, *content_charset;
 	enum message_cte message_cte;
 
 	unsigned int binary_input:1;
@@ -69,6 +69,7 @@ void message_decoder_deinit(struct message_decoder_context **_ctx)
 	buffer_free(&ctx->buf);
 	buffer_free(&ctx->buf2);
 	i_free(ctx->charset_trans_charset);
+	i_free(ctx->content_type);
 	i_free(ctx->content_charset);
 	i_free(ctx);
 }
@@ -124,14 +125,15 @@ parse_content_type(struct message_decoder_context *ctx,
 	const char *const *results;
 	string_t *str;
 
-	if (ctx->content_charset != NULL)
+	if (ctx->content_type != NULL)
 		return;
 
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
 	rfc822_skip_lwsp(&parser);
 	str = t_str_new(64);
-	if (rfc822_parse_content_type(&parser, str) <= 0)
+	if (rfc822_parse_content_type(&parser, str) < 0)
 		return;
+	ctx->content_type = i_strdup(str_c(str));
 
 	rfc2231_parse(&parser, &results);
 	for (; *results != NULL; results += 2) {
@@ -376,8 +378,15 @@ bool message_decoder_decode_next_block(struct message_decoder_context *ctx,
 	}
 }
 
+const char *
+message_decoder_current_content_type(struct message_decoder_context *ctx)
+{
+	return ctx->content_type;
+}
+
 void message_decoder_decode_reset(struct message_decoder_context *ctx)
 {
+	i_free_and_null(ctx->content_type);
 	i_free_and_null(ctx->content_charset);
 	ctx->message_cte = MESSAGE_CTE_78BIT;
 	buffer_set_used_size(ctx->encoding_buf, 0);
