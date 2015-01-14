@@ -189,7 +189,7 @@ void uni_ucs4_to_utf8_c(unichar_t chr, buffer_t *output)
 
 unsigned int uni_utf8_strlen(const char *input)
 {
-	return uni_utf8_strlen_n(input, (size_t)-1);
+	return uni_utf8_strlen_n(input, strlen(input));
 }
 
 unsigned int uni_utf8_strlen_n(const void *input, size_t size)
@@ -206,7 +206,7 @@ unsigned int uni_utf8_partial_strlen_n(const void *_input, size_t size,
 	unsigned int count, len = 0;
 	size_t i;
 
-	for (i = 0; i < size && input[i] != '\0'; ) {
+	for (i = 0; i < size; ) {
 		count = uni_utf8_char_bytes(input[i]);
 		if (i + count > size)
 			break;
