@@ -129,6 +129,7 @@ charset_to_utf8(struct charset_translation *t,
 	if (prev_invalid_pos != (size_t)-1)
 		result = CHARSET_RET_INVALID_INPUT;
 
+	i_assert(*src_size - pos <= CHARSET_MAX_PENDING_BUF_SIZE);
 	*src_size = pos;
 	return result;
 }

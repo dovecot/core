@@ -94,6 +94,7 @@ charset_utf8_to_utf8(normalizer_func_t *normalizer,
 
 	uni_utf8_partial_strlen_n(src, *src_size, &pos);
 	if (pos < *src_size) {
+		i_assert(*src_size - pos <= CHARSET_MAX_PENDING_BUF_SIZE);
 		*src_size = pos;
 		res = CHARSET_RET_INCOMPLETE_INPUT;
 	}
