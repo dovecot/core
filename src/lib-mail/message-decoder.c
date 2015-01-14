@@ -16,10 +16,6 @@
 /* base64 takes max 4 bytes per character, q-p takes max 3. */
 #define MAX_ENCODING_BUF_SIZE 3
 
-/* UTF-8 takes max 5 bytes per character. Not sure about others, but I'd think
-   10 is more than enough for everyone.. */
-#define MAX_TRANSLATION_BUF_SIZE 10
-
 struct message_decoder_context {
 	enum message_decoder_flags flags;
 	normalizer_func_t *normalizer;
@@ -30,7 +26,7 @@ struct message_decoder_context {
 
 	char *charset_trans_charset;
 	struct charset_translation *charset_trans;
-	char translation_buf[MAX_TRANSLATION_BUF_SIZE];
+	char translation_buf[CHARSET_MAX_PENDING_BUF_SIZE];
 	unsigned int translation_size;
 
 	buffer_t *encoding_buf;
@@ -197,7 +193,7 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 static void translation_buf_decode(struct message_decoder_context *ctx,
 				   const unsigned char **data, size_t *size)
 {
-	unsigned char trans_buf[MAX_TRANSLATION_BUF_SIZE+1];
+	unsigned char trans_buf[CHARSET_MAX_PENDING_BUF_SIZE+1];
 	unsigned int data_wanted, skip;
 	size_t trans_size, orig_size;
 
@@ -216,7 +212,7 @@ static void translation_buf_decode(struct message_decoder_context *ctx,
 
 	if (trans_size <= ctx->translation_size) {
 		/* need more data to finish the translation. */
-		i_assert(orig_size < MAX_TRANSLATION_BUF_SIZE);
+		i_assert(orig_size < CHARSET_MAX_PENDING_BUF_SIZE);
 		memcpy(ctx->translation_buf, trans_buf, orig_size);
 		ctx->translation_size = orig_size;
 		*data += *size;
