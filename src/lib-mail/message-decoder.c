@@ -254,7 +254,7 @@ message_decode_body_init_charset(struct message_decoder_context *ctx,
 					      ctx->content_charset : "UTF-8");
 	if (charset_to_utf8_begin(ctx->charset_trans_charset, ctx->normalizer,
 				  &ctx->charset_trans) < 0)
-		ctx->charset_trans = NULL;
+		ctx->charset_trans = charset_utf8_to_utf8_begin(ctx->normalizer);
 }
 
 static bool message_decode_body(struct message_decoder_context *ctx,
