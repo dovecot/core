@@ -32,6 +32,16 @@ int charset_to_utf8_str(const char *charset, normalizer_func_t *normalizer,
 	return 0;
 }
 
+struct charset_translation *
+charset_utf8_to_utf8_begin(normalizer_func_t *normalizer)
+{
+	struct charset_translation *trans;
+
+	if (charset_to_utf8_begin("UTF-8", normalizer, &trans) < 0)
+		i_unreached();
+	return trans;
+}
+
 #ifndef HAVE_ICONV
 
 struct charset_translation {

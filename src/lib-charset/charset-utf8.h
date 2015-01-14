@@ -15,6 +15,9 @@ enum charset_result {
 int charset_to_utf8_begin(const char *charset, normalizer_func_t *normalizer,
 			  struct charset_translation **t_r)
 	ATTR_NULL(2);
+/* Translate UTF-8 to UTF-8 while validating the input. */
+struct charset_translation *
+charset_utf8_to_utf8_begin(normalizer_func_t *normalizer);
 void charset_to_utf8_end(struct charset_translation **t);
 void charset_to_utf8_reset(struct charset_translation *t);
 
