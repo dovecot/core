@@ -159,6 +159,13 @@ human_search_mailbox_guid(struct mail_search_build_context *ctx)
 	return mail_search_build_str(ctx, SEARCH_MAILBOX_GUID);
 }
 
+static struct mail_search_arg *
+human_search_oldestonly(struct mail_search_build_context *ctx)
+{
+	ctx->args->stop_on_nonmatch = TRUE;
+	return mail_search_build_new(ctx, SEARCH_ALL);
+}
+
 static const struct mail_search_register_arg human_register_args[] = {
 	{ "OR", human_search_or },
 
@@ -183,7 +190,8 @@ static const struct mail_search_register_arg human_register_args[] = {
 	/* Other Dovecot extensions: */
 	{ "GUID", human_search_guid },
 	{ "MAILBOX", human_search_mailbox },
-	{ "MAILBOX-GUID", human_search_mailbox_guid }
+	{ "MAILBOX-GUID", human_search_mailbox_guid },
+	{ "OLDESTONLY", human_search_oldestonly }
 };
 
 static struct mail_search_register *

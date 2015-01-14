@@ -8,6 +8,7 @@ struct mailbox;
 
 struct mail_search_build_context {
 	pool_t pool;
+	struct mail_search_args *args;
 	struct mail_search_register *reg;
 	struct mail_search_parser *parser;
 	const char *charset;

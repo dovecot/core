@@ -1561,6 +1561,12 @@ static int search_more_with_mail(struct index_search_context *ctx,
 			break;
 		}
 
+		/* non-match */
+		if (_ctx->args->stop_on_nonmatch) {
+			ret = -1;
+			break;
+		}
+
 		cost2 = search_get_cost(mail->transaction);
 		ctx->cost += cost2 - cost1;
 		cost1 = cost2;
@@ -1685,10 +1691,14 @@ static int search_more(struct index_search_context *ctx,
 		if (imail->data.search_results == NULL)
 			break;
 
-		/* searching wasn't finished yet */
+		/* prefetch running - searching wasn't finished yet */
 		if (search_finish_prefetch(ctx, imail))
 			break;
 		/* search finished as non-match */
+		if (ctx->mail_ctx.args->stop_on_nonmatch) {
+			ret = -1;
+			break;
+		}
 	}
 	return ret;
 }

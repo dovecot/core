@@ -109,6 +109,9 @@ struct mail_search_args {
 
 	unsigned int simplified:1;
 	unsigned int have_inthreads:1;
+	/* Stop mail_search_next() when finding a non-matching mail.
+	   (Could be useful when wanting to find only the oldest mails.) */
+	unsigned int stop_on_nonmatch:1;
 };
 
 #define ARG_SET_RESULT(arg, res) \
