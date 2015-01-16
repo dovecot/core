@@ -13,6 +13,7 @@ libmail_la_SOURCES = \
 	istream-header-filter.c \
 	istream-nonuls.c \
 	istream-qp-decoder.c \
+	mail-html2text.c \
 	mail-user-hash.c \
 	mbox-from.c \
 	message-address.c \
@@ -33,6 +34,9 @@ libmail_la_SOURCES = \
 	rfc2231-parser.c \
 	rfc822-parser.c
 
+noinst_HEADERS = \
+	html-entities.h
+
 headers = \
 	istream-attachment-connector.h \
 	istream-attachment-extractor.h \
@@ -43,6 +47,7 @@ headers = \
 	istream-qp.h \
 	mail-user-hash.h \
 	mbox-from.h \
+	mail-html2text.h \
 	mail-types.h \
 	message-address.h \
 	message-binary-part.h \
@@ -71,6 +76,7 @@ test_programs = \
 	test-istream-binary-converter \
 	test-istream-header-filter \
 	test-istream-qp-decoder \
+	test-mail-html2text \
 	test-mbox-from \
 	test-message-address \
 	test-message-date \
@@ -159,6 +165,10 @@ test_message_parser_DEPENDENCIES = $(test_deps)
 test_message_part_SOURCES = test-message-part.c
 test_message_part_LDADD = message-part.lo message-parser.lo message-header-parser.lo message-size.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
 test_message_part_DEPENDENCIES = $(test_deps)
+
+test_mail_html2text_SOURCES = test-mail-html2text.c
+test_mail_html2text_LDADD = mail-html2text.lo $(test_libs)
+test_mail_html2text_DEPENDENCIES = $(test_deps)
 
 test_ostream_dot_SOURCES = test-ostream-dot.c
 test_ostream_dot_LDADD = ostream-dot.lo $(test_libs)
