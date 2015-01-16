@@ -29,6 +29,7 @@ libmail_la_SOURCES = \
 	message-part-serialize.c \
 	message-search.c \
 	message-size.c \
+	message-snippet.c \
 	ostream-dot.c \
 	quoted-printable.c \
 	rfc2231-parser.c \
@@ -62,6 +63,7 @@ headers = \
 	message-part-serialize.h \
 	message-search.h \
 	message-size.h \
+	message-snippet.h \
 	ostream-dot.h \
 	quoted-printable.h \
 	rfc2231-parser.h \
@@ -87,6 +89,7 @@ test_programs = \
 	test-message-id \
 	test-message-parser \
 	test-message-part \
+	test-message-snippet \
 	test-ostream-dot \
 	test-quoted-printable \
 	test-rfc2231-parser
@@ -165,6 +168,10 @@ test_message_parser_DEPENDENCIES = $(test_deps)
 test_message_part_SOURCES = test-message-part.c
 test_message_part_LDADD = message-part.lo message-parser.lo message-header-parser.lo message-size.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
 test_message_part_DEPENDENCIES = $(test_deps)
+
+test_message_snippet_SOURCES = test-message-snippet.c
+test_message_snippet_LDADD = message-snippet.lo mail-html2text.lo $(test_message_decoder_LDADD) message-parser.lo message-header-parser.lo message-header-decode.lo message-size.lo
+test_message_snippet_DEPENDENCIES = $(test_deps)
 
 test_mail_html2text_SOURCES = test-mail-html2text.c
 test_mail_html2text_LDADD = mail-html2text.lo $(test_libs)
