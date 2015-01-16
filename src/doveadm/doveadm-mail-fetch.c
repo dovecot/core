@@ -199,6 +199,18 @@ static int fetch_body(struct fetch_cmd_context *ctx)
 	return doveadm_print_istream(input);
 }
 
+static int fetch_body_snippet(struct fetch_cmd_context *ctx)
+{
+	const char *value;
+
+	if (mail_get_special(ctx->mail, MAIL_FETCH_BODY_SNIPPET, &value) < 0)
+		return -1;
+	/* [0] contains the snippet algorithm, skip over it */
+	i_assert(value[0] != '\0');
+	doveadm_print(value + 1);
+	return 0;
+}
+
 static int fetch_text(struct fetch_cmd_context *ctx)
 {
 	struct istream *input;
@@ -376,6 +388,7 @@ static const struct fetch_field fetch_fields[] = {
 	{ "modseq",        0,                        fetch_modseq },
 	{ "hdr",           MAIL_FETCH_STREAM_HEADER, fetch_hdr },
 	{ "body",          MAIL_FETCH_STREAM_BODY,   fetch_body },
+	{ "body.snippet",  MAIL_FETCH_BODY_SNIPPET,  fetch_body_snippet },
 	{ "text",          MAIL_FETCH_STREAM_HEADER |
 	                   MAIL_FETCH_STREAM_BODY,   fetch_text },
 	{ "text.utf8",     MAIL_FETCH_STREAM_HEADER |
