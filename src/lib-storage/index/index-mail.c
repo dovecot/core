@@ -9,6 +9,7 @@
 #include "message-date.h"
 #include "message-part-serialize.h"
 #include "message-parser.h"
+#include "message-snippet.h"
 #include "imap-bodystructure.h"
 #include "imap-envelope.h"
 #include "mail-cache.h"
@@ -18,6 +19,9 @@
 #include "index-mail.h"
 
 #include <fcntl.h>
+
+#define BODY_SNIPPET_ALGO_V1 "1"
+#define BODY_SNIPPET_MAX_CHARS 100
 
 struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 	{ .name = "flags",
@@ -54,6 +58,8 @@ struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 	{ .name = "mime.parts",
 	  .type = MAIL_CACHE_FIELD_VARIABLE_SIZE },
 	{ .name = "binary.parts",
+	  .type = MAIL_CACHE_FIELD_VARIABLE_SIZE },
+	{ .name = "body.snippet",
 	  .type = MAIL_CACHE_FIELD_VARIABLE_SIZE }
 };
 
@@ -766,6 +772,9 @@ index_mail_want_cache(struct index_mail *mail, enum index_cache_field field)
 	case MAIL_CACHE_PHYSICAL_FULL_SIZE:
 		fetch_field = MAIL_FETCH_PHYSICAL_SIZE;
 		break;
+	case MAIL_CACHE_BODY_SNIPPET:
+		fetch_field = MAIL_FETCH_BODY_SNIPPET;
+		break;
 	default:
 		i_unreached();
 	}
@@ -780,6 +789,16 @@ index_mail_want_cache(struct index_mail *mail, enum index_cache_field field)
 	} else {
 		return mail_cache_field_want_add(_mail->transaction->cache_trans,
 						 _mail->seq, cache_field);
+	}
+}
+
+static void index_mail_body_parsed_cache_body_snippet(struct index_mail *mail)
+{
+	if (mail->data.body_snippet != NULL &&
+	    index_mail_want_cache(mail, MAIL_CACHE_BODY_SNIPPET)) {
+		index_mail_cache_add(mail, MAIL_CACHE_BODY_SNIPPET,
+				     mail->data.body_snippet,
+				     strlen(mail->data.body_snippet)+1);
 	}
 }
 
@@ -830,6 +849,86 @@ static void index_mail_cache_dates(struct index_mail *mail)
 	if (mail->data.sent_date_parsed &&
 	    index_mail_want_cache(mail, MAIL_CACHE_SENT_DATE))
 		(void)index_mail_cache_sent_date(mail);
+}
+
+static struct message_part *
+index_mail_find_first_text_mime_part(struct message_part *parts)
+{
+	struct message_part_body_data *body_data = parts->context;
+	struct message_part *part;
+
+	i_assert(body_data != NULL);
+
+	if (body_data->content_type == NULL ||
+	    strcasecmp(body_data->content_type, "\"text\"") == 0) {
+		/* use any text/ part, even if we don't know what exactly
+		   it is. */
+		return parts;
+	}
+	if (strcasecmp(body_data->content_type, "\"multipart\"") != 0) {
+		/* for now we support only text Content-Types */
+		return NULL;
+	}
+
+	if (strcasecmp(body_data->content_subtype, "\"alternative\"") == 0) {
+		/* text/plain > text/html > text/ */
+		struct message_part *html_part = NULL, *text_part = NULL;
+
+		for (part = parts->children; part != NULL; part = part->next) {
+			struct message_part_body_data *sub_body_data =
+				part->context;
+
+			i_assert(sub_body_data != NULL);
+
+			if (strcasecmp(sub_body_data->content_type, "\"text\"") == 0) {
+				if (strcasecmp(sub_body_data->content_subtype, "\"plain\"") == 0)
+					return part;
+				if (strcasecmp(sub_body_data->content_subtype, "\"html\"") == 0)
+					html_part = part;
+				else
+					text_part = part;
+			}
+		}
+		return html_part != NULL ? html_part : text_part;
+	}
+	/* find the first usable MIME part */
+	for (part = parts->children; part != NULL; part = part->next) {
+		struct message_part *subpart =
+			index_mail_find_first_text_mime_part(part);
+		if (subpart != NULL)
+			return subpart;
+	}
+	return NULL;
+}
+
+static int index_mail_write_body_snippet(struct index_mail *mail)
+{
+	struct message_part *part;
+	struct istream *input;
+	string_t *str;
+	int ret;
+
+	i_assert(mail->data.parsed_bodystructure);
+
+	part = index_mail_find_first_text_mime_part(mail->data.parts);
+	if (part == NULL) {
+		mail->data.body_snippet = BODY_SNIPPET_ALGO_V1;
+		return 0;
+	}
+
+	if (mail_get_stream(&mail->mail.mail, NULL, NULL, &input) < 0)
+		return -1;
+	i_stream_seek(input, part->physical_pos);
+	input = i_stream_create_limit(input, part->header_size.physical_size +
+				      part->body_size.physical_size);
+
+	str = str_new(mail->mail.data_pool, 128);
+	str_append(str, BODY_SNIPPET_ALGO_V1);
+	ret = message_snippet_generate(input, BODY_SNIPPET_MAX_CHARS, str);
+	if (ret == 0)
+		mail->data.body_snippet = str_c(str);
+	i_stream_destroy(&input);
+	return ret;
 }
 
 static int
@@ -884,6 +983,11 @@ index_mail_parse_body_finish(struct index_mail *mail,
 		mail->data.save_bodystructure_body = FALSE;
 		i_assert(mail->data.parts != NULL);
 	}
+	if (mail->data.save_body_snippet) {
+		if (index_mail_write_body_snippet(mail) < 0)
+			return -1;
+		mail->data.save_body_snippet = FALSE;
+	}
 
 	if (mail->data.no_caching) {
 		/* if we're here because we aborted parsing, don't get any
@@ -897,6 +1001,7 @@ index_mail_parse_body_finish(struct index_mail *mail,
 	index_mail_body_parsed_cache_flags(mail);
 	index_mail_body_parsed_cache_message_parts(mail);
 	index_mail_body_parsed_cache_bodystructure(mail, field);
+	index_mail_body_parsed_cache_body_snippet(mail);
 	index_mail_cache_sizes(mail);
 	index_mail_cache_dates(mail);
 	return 0;
@@ -1089,13 +1194,14 @@ static int index_mail_parse_bodystructure(struct index_mail *mail,
 	struct index_mail_data *data = &mail->data;
 	string_t *str;
 
-	if (data->parsed_bodystructure) {
+	if (data->parsed_bodystructure && field != MAIL_CACHE_BODY_SNIPPET) {
 		/* we have everything parsed already, but just not written to
 		   a string */
 		index_mail_body_parsed_cache_bodystructure(mail, field);
 	} else {
 		if (data->save_bodystructure_header ||
-		    !data->save_bodystructure_body) {
+		    !data->save_bodystructure_body ||
+		    field == MAIL_CACHE_BODY_SNIPPET) {
 			/* we haven't parsed the header yet */
 			data->save_bodystructure_header = TRUE;
 			data->save_bodystructure_body = TRUE;
@@ -1129,6 +1235,10 @@ static int index_mail_parse_bodystructure(struct index_mail *mail,
 			data->bodystructure = str_c(str);
 		}
 		break;
+	case MAIL_CACHE_BODY_SNIPPET:
+		i_assert(data->body_snippet != NULL &&
+			 data->body_snippet[0] != '\0');
+		break;
 	default:
 		i_unreached();
 	}
@@ -1144,6 +1254,35 @@ index_mail_get_plain_bodystructure(struct index_mail *mail, string_t *str,
 		    mail->data.parts->body_size.lines);
 	if (extended)
 		str_append(str, " NIL NIL NIL NIL");
+}
+
+static int
+index_mail_fetch_body_snippet(struct index_mail *mail, const char **value_r)
+{
+	const struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
+	const unsigned int cache_field =
+		cache_fields[MAIL_CACHE_BODY_SNIPPET].idx;
+	string_t *str;
+
+	if (mail->data.body_snippet == NULL) {
+		str = str_new(mail->mail.data_pool, 128);
+		if (index_mail_cache_lookup_field(mail, str, cache_field) > 0 &&
+		    str_len(str) > 0)
+			mail->data.body_snippet = str_c(str);
+	}
+	if (mail->data.body_snippet != NULL) {
+		*value_r = mail->data.body_snippet;
+		return 0;
+	}
+
+	/* reuse the IMAP bodystructure parsing code to get all the useful
+	   headers that we need. */
+	mail->data.save_body_snippet = TRUE;
+	if (index_mail_parse_bodystructure(mail, MAIL_CACHE_BODY_SNIPPET) < 0)
+		return -1;
+	i_assert(mail->data.body_snippet != NULL);
+	*value_r = mail->data.body_snippet;
+	return 0;
 }
 
 int index_mail_get_special(struct mail *_mail,
@@ -1250,6 +1389,8 @@ int index_mail_get_special(struct mail *_mail,
 		*value_r = data->from_envelope != NULL ?
 			data->from_envelope : "";
 		return 0;
+	case MAIL_FETCH_BODY_SNIPPET:
+		return index_mail_fetch_body_snippet(mail, value_r);
 	case MAIL_FETCH_UIDL_FILE_NAME:
 	case MAIL_FETCH_UIDL_BACKEND:
 	case MAIL_FETCH_SEARCH_RELEVANCY:
@@ -1518,6 +1659,16 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 					    cache_field) <= 0) {
 			data->access_part |= PARSE_HDR;
 			data->save_sent_date = TRUE;
+		}
+	}
+	if ((data->wanted_fields & MAIL_FETCH_BODY_SNIPPET) != 0) {
+		const unsigned int cache_field =
+			cache_fields[MAIL_CACHE_BODY_SNIPPET].idx;
+
+		if (mail_cache_field_exists(cache_view, _mail->seq,
+					    cache_field) <= 0) {
+			data->access_part |= PARSE_HDR | PARSE_BODY;
+			data->save_body_snippet = TRUE;
 		}
 	}
 	if ((data->wanted_fields & (MAIL_FETCH_STREAM_HEADER |
