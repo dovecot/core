@@ -42,7 +42,6 @@ pkginc_lib_HEADERS = \
 
 noinst_HEADERS = \
 	doveadm-fts.h \
-	html-entities.h \
 	fts-build-mail.h \
 	fts-plugin.h \
 	fts-search-serialize.h \
