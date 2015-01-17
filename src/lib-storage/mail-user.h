@@ -6,6 +6,8 @@
 
 struct module;
 struct mail_user;
+struct fs_settings;
+struct ssl_iostream_settings;
 
 struct mail_user_vfuncs {
 	void (*deinit)(struct mail_user *user);
@@ -158,5 +160,10 @@ bool mail_user_is_path_mounted(struct mail_user *user, const char *path,
    storage plugins when needed. */
 struct mail_storage *
 mail_user_get_storage_class(struct mail_user *user, const char *name);
+
+/* Initialize fs_settings from mail_user settings. */
+void mail_user_init_fs_settings(struct mail_user *user,
+				struct fs_settings *fs_set,
+				struct ssl_iostream_settings *ssl_set);
 
 #endif

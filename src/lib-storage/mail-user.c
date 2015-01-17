@@ -11,6 +11,8 @@
 #include "strescape.h"
 #include "var-expand.h"
 #include "settings-parser.h"
+#include "iostream-ssl.h"
+#include "fs-api.h"
 #include "auth-master.h"
 #include "master-service.h"
 #include "mountpoint-list.h"
@@ -535,4 +537,22 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 	user2->auth_user = p_strdup(user2->pool, user->auth_user);
 	user2->session_id = p_strdup(user2->pool, user->session_id);
 	return user2;
+}
+
+void mail_user_init_fs_settings(struct mail_user *user,
+				struct fs_settings *fs_set,
+				struct ssl_iostream_settings *ssl_set)
+{
+	const struct mail_storage_settings *mail_set =
+		mail_user_set_get_storage_set(user);
+
+	fs_set->username = user->username;
+	fs_set->session_id = user->session_id;
+	fs_set->base_dir = user->set->base_dir;
+	fs_set->temp_dir = user->set->mail_temp_dir;
+	fs_set->debug = user->mail_debug;
+
+	fs_set->ssl_client_set = ssl_set;
+	ssl_set->ca_dir = mail_set->ssl_client_ca_dir;
+	ssl_set->ca_file = mail_set->ssl_client_ca_file;
 }
