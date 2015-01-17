@@ -58,31 +58,15 @@ void i_stream_unref(struct istream **stream)
 void i_stream_add_destroy_callback(struct istream *stream,
 				   istream_callback_t *callback, void *context)
 {
-	struct iostream_private *iostream = &stream->real_stream->iostream;
-	struct iostream_destroy_callback *dc;
-
-	if (!array_is_created(&iostream->destroy_callbacks))
-		i_array_init(&iostream->destroy_callbacks, 2);
-	dc = array_append_space(&iostream->destroy_callbacks);
-	dc->callback = callback;
-	dc->context = context;
+	io_stream_add_destroy_callback(&stream->real_stream->iostream,
+				       callback, context);
 }
 
 void i_stream_remove_destroy_callback(struct istream *stream,
 				      void (*callback)())
 {
-	struct iostream_private *iostream = &stream->real_stream->iostream;
-	const struct iostream_destroy_callback *dcs;
-	unsigned int i, count;
-
-	dcs = array_get(&iostream->destroy_callbacks, &count);
-	for (i = 0; i < count; i++) {
-		if (dcs[i].callback == (istream_callback_t *)callback) {
-			array_delete(&iostream->destroy_callbacks, i, 1);
-			return;
-		}
-	}
-	i_unreached();
+	io_stream_remove_destroy_callback(&stream->real_stream->iostream,
+					  callback);
 }
 
 int i_stream_get_fd(struct istream *stream)

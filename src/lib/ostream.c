@@ -89,6 +89,21 @@ void o_stream_unref(struct ostream **_stream)
 	*_stream = NULL;
 }
 
+#undef o_stream_add_destroy_callback
+void o_stream_add_destroy_callback(struct ostream *stream,
+				   ostream_callback_t *callback, void *context)
+{
+	io_stream_add_destroy_callback(&stream->real_stream->iostream,
+				       callback, context);
+}
+
+void o_stream_remove_destroy_callback(struct ostream *stream,
+				      void (*callback)())
+{
+	io_stream_remove_destroy_callback(&stream->real_stream->iostream,
+					  callback);
+}
+
 void o_stream_close(struct ostream *stream)
 {
 	o_stream_close_full(stream, TRUE);

@@ -25,6 +25,7 @@ struct ostream {
    Pretty much the only real reason to return 0 is if you wish to send more
    data to client which isn't buffered, eg. o_stream_send_istream(). */
 typedef int stream_flush_callback_t(void *context);
+typedef void ostream_callback_t(void *context);
 
 /* Create new output stream from given file descriptor.
    If max_buffer_size is 0, an "optimal" buffer size is used (max 128kB). */
@@ -63,6 +64,17 @@ void o_stream_destroy(struct ostream **stream);
 void o_stream_ref(struct ostream *stream);
 /* Unreferences the stream and sets stream pointer to NULL. */
 void o_stream_unref(struct ostream **stream);
+/* Call the given callback function when stream is destroyed. */
+void o_stream_add_destroy_callback(struct ostream *stream,
+				   ostream_callback_t *callback, void *context)
+	ATTR_NULL(3);
+#define o_stream_add_destroy_callback(stream, callback, context) \
+	o_stream_add_destroy_callback(stream + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+		(ostream_callback_t *)callback, context)
+/* Remove the destroy callback. */
+void o_stream_remove_destroy_callback(struct ostream *stream,
+				      void (*callback)());
 
 /* Mark the stream and all of its parent streams closed. Nothing will be
    sent after this call. */
