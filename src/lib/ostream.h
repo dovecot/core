@@ -45,6 +45,9 @@ struct ostream *o_stream_create_error(int stream_errno);
 struct ostream *
 o_stream_create_error_str(int stream_errno, const char *fmt, ...)
 	ATTR_FORMAT(2, 3);
+/* Create an output stream that simply passes through data. This is mainly
+   useful as a wrapper when combined with destroy callbacks. */
+struct ostream *o_stream_create_passthrough(struct ostream *output);
 
 /* Set name (e.g. path) for output stream. */
 void o_stream_set_name(struct ostream *stream, const char *name);

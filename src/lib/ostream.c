@@ -528,6 +528,20 @@ o_stream_default_seek(struct ostream_private *_stream,
 	return -1;
 }
 
+static ssize_t
+o_stream_default_sendv(struct ostream_private *stream,
+		       const struct const_iovec *iov, unsigned int iov_count)
+{
+	ssize_t ret;
+
+	if ((ret = o_stream_sendv(stream->parent, iov, iov_count)) < 0) {
+		o_stream_copy_error_from_parent(stream);
+		return -1;
+	}
+	stream->ostream.offset += ret;
+	return ret;
+}
+
 static int
 o_stream_default_write_at(struct ostream_private *_stream,
 			  const void *data ATTR_UNUSED,
@@ -589,6 +603,8 @@ o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 		_stream->get_used_size = o_stream_default_get_used_size;
 	if (_stream->seek == NULL)
 		_stream->seek = o_stream_default_seek;
+	if (_stream->sendv == NULL)
+		_stream->sendv = o_stream_default_sendv;
 	if (_stream->write_at == NULL)
 		_stream->write_at = o_stream_default_write_at;
 	if (_stream->send_istream == NULL)
@@ -627,4 +643,12 @@ o_stream_create_error_str(int stream_errno, const char *fmt, ...)
 	io_stream_set_verror(&output->real_stream->iostream, fmt, args);
 	va_end(args);
 	return output;
+}
+
+struct ostream *o_stream_create_passthrough(struct ostream *output)
+{
+	struct ostream_private *stream;
+
+	stream = i_new(struct ostream_private, 1);
+	return o_stream_create(stream, output, o_stream_get_fd(output));
 }
