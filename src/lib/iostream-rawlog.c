@@ -21,29 +21,14 @@
 
 #define RAWLOG_MAX_LINE_LEN 8192
 
-static int
-rawlog_write(struct rawlog_iostream *rstream, const void *data, size_t size)
-{
-	if (rstream->rawlog_fd == -1)
-		return -1;
-
-	if (write_full(rstream->rawlog_fd, data, size) < 0) {
-		i_error("rawlog_istream.write(%s) failed: %m",
-			rstream->rawlog_path);
-		iostream_rawlog_close(rstream);
-		return -1;
-	}
-	return 0;
-}
-
-static int
+static void
 rawlog_write_timestamp(struct rawlog_iostream *rstream, bool line_ends)
 {
 	unsigned char data[MAX_INT_STRLEN + 6 + 1 + 3];
 	buffer_t buf;
 
 	if ((rstream->flags & IOSTREAM_RAWLOG_FLAG_TIMESTAMP) == 0)
-		return 0;
+		return;
 
 	buffer_create_from_data(&buf, data, sizeof(data));
 	str_printfa(&buf, "%lu.%06u ",
@@ -54,7 +39,7 @@ rawlog_write_timestamp(struct rawlog_iostream *rstream, bool line_ends)
 		str_append_c(&buf, line_ends ? ':' : '>');
 		str_append_c(&buf, ' ');
 	}
-	return rawlog_write(rstream, buf.data, buf.used);
+	o_stream_nsend(rstream->rawlog_output, buf.data, buf.used);
 }
 
 void iostream_rawlog_init(struct rawlog_iostream *rstream,
@@ -67,27 +52,60 @@ void iostream_rawlog_init(struct rawlog_iostream *rstream,
 }
 
 static void
+iostream_rawlog_write_buffered(struct rawlog_iostream *rstream,
+			       const unsigned char *data, size_t size)
+{
+	const unsigned char *p;
+	size_t pos;
+	bool line_ends;
+
+	while (size > 0) {
+		p = memchr(data, '\n', size);
+		if (p != NULL) {
+			line_ends = TRUE;
+			pos = p-data + 1;
+		} else if (rstream->buffer->used + size < RAWLOG_MAX_LINE_LEN) {
+			buffer_append(rstream->buffer, data, size);
+			break;
+		} else {
+			line_ends = FALSE;
+			pos = size;
+		}
+
+		rawlog_write_timestamp(rstream, line_ends);
+		if (rstream->buffer->used > 0) {
+			o_stream_nsend(rstream->rawlog_output,
+				       rstream->buffer->data,
+				       rstream->buffer->used);
+			buffer_set_used_size(rstream->buffer, 0);
+		}
+		o_stream_nsend(rstream->rawlog_output, data, pos);
+
+		data += pos;
+		size -= pos;
+	}
+}
+
+static void
 iostream_rawlog_write_unbuffered(struct rawlog_iostream *rstream,
 				 const unsigned char *data, size_t size)
 {
 	size_t i, start;
 
-	if (!rstream->line_continued) {
-		if (rawlog_write_timestamp(rstream, TRUE) < 0)
-			return;
-	}
+	if (!rstream->line_continued)
+		rawlog_write_timestamp(rstream, TRUE);
 
 	for (start = 0, i = 1; i < size; i++) {
 		if (data[i-1] == '\n') {
-			if (rawlog_write(rstream, data + start, i - start) < 0 ||
-			    rawlog_write_timestamp(rstream, TRUE) < 0)
-				return;
+			o_stream_nsend(rstream->rawlog_output,
+				       data + start, i - start);
+			rawlog_write_timestamp(rstream, TRUE);
 			start = i;
 		}
 	}
 	if (start != size) {
-		if (rawlog_write(rstream, data + start, size - start) < 0)
-			return;
+		o_stream_nsend(rstream->rawlog_output,
+			       data + start, size - start);
 	}
 	rstream->line_continued = data[size-1] != '\n';
 }
@@ -95,59 +113,30 @@ iostream_rawlog_write_unbuffered(struct rawlog_iostream *rstream,
 void iostream_rawlog_write(struct rawlog_iostream *rstream,
 			   const unsigned char *data, size_t size)
 {
-	const unsigned char *p;
-	size_t pos;
-	bool line_ends;
-
-	if (size == 0)
+	if (size == 0 || rstream->rawlog_output == NULL)
 		return;
 
 	io_loop_time_refresh();
-	if ((rstream->flags & IOSTREAM_RAWLOG_FLAG_BUFFERED) == 0) {
+
+	o_stream_cork(rstream->rawlog_output);
+	if ((rstream->flags & IOSTREAM_RAWLOG_FLAG_BUFFERED) != 0)
+		iostream_rawlog_write_buffered(rstream, data, size);
+	else
 		iostream_rawlog_write_unbuffered(rstream, data, size);
-		return;
-	}
+	o_stream_uncork(rstream->rawlog_output);
 
-	while (rstream->rawlog_fd != -1 && size > 0) {
-		p = memchr(data, '\n', size);
-		if (p != NULL) {
-			line_ends = TRUE;
-			pos = p-data + 1;
-		} else if (rstream->buffer->used + size < RAWLOG_MAX_LINE_LEN) {
-			buffer_append(rstream->buffer, data, size);
-			return;
-		} else {
-			line_ends = FALSE;
-			pos = size;
-		}
-
-		if (rawlog_write_timestamp(rstream, line_ends) < 0)
-			break;
-		if (rstream->buffer->used > 0) {
-			if (rawlog_write(rstream, rstream->buffer->data,
-					 rstream->buffer->used) < 0)
-				break;
-			buffer_set_used_size(rstream->buffer, 0);
-		}
-		if (rawlog_write(rstream, data, pos) < 0)
-			break;
-
-		data += pos;
-		size -= pos;
+	if (o_stream_nfinish(rstream->rawlog_output) < 0) {
+		i_error("write(%s) failed: %s",
+			o_stream_get_name(rstream->rawlog_output),
+			o_stream_get_error(rstream->rawlog_output));
+		iostream_rawlog_close(rstream);
 	}
 }
 
 void iostream_rawlog_close(struct rawlog_iostream *rstream)
 {
-	if ((rstream->flags & IOSTREAM_RAWLOG_FLAG_AUTOCLOSE) != 0 &&
-	    rstream->rawlog_fd != -1) {
-		if (close(rstream->rawlog_fd) < 0) {
-			i_error("rawlog_istream.close(%s) failed: %m",
-				rstream->rawlog_path);
-		}
-	}
-	rstream->rawlog_fd = -1;
-	i_free_and_null(rstream->rawlog_path);
+	if (rstream->rawlog_output != NULL)
+		o_stream_unref(&rstream->rawlog_output);
 	if (rstream->buffer != NULL)
 		buffer_free(&rstream->buffer);
 }
@@ -284,4 +273,25 @@ int iostream_rawlog_create_path(const char *path, struct istream **input,
 	}
 	iostream_rawlog_create_fd(fd, path, input, output);
 	return 0;
+}
+
+void iostream_rawlog_create_from_stream(struct ostream *rawlog_output,
+					struct istream **input,
+					struct ostream **output)
+{
+	const enum iostream_rawlog_flags rawlog_flags =
+		IOSTREAM_RAWLOG_FLAG_BUFFERED |
+		IOSTREAM_RAWLOG_FLAG_TIMESTAMP;
+	struct istream *old_input;
+	struct ostream *old_output;
+
+	old_input = *input;
+	old_output = *output;
+	o_stream_ref(rawlog_output);
+	*input = i_stream_create_rawlog_from_stream(old_input, rawlog_output,
+						    rawlog_flags);
+	*output = o_stream_create_rawlog_from_stream(old_output, rawlog_output,
+						     rawlog_flags);
+	i_stream_unref(&old_input);
+	o_stream_unref(&old_output);
 }

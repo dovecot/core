@@ -1,6 +1,7 @@
 /* Copyright (c) 2011-2015 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ostream.h"
 #include "iostream-rawlog-private.h"
 #include "istream-private.h"
 #include "istream-rawlog.h"
@@ -76,17 +77,30 @@ struct istream *
 i_stream_create_rawlog(struct istream *input, const char *rawlog_path,
 		       int rawlog_fd, enum iostream_rawlog_flags flags)
 {
-	struct rawlog_istream *rstream;
+	struct ostream *rawlog_output;
+	bool autoclose_fd = (flags & IOSTREAM_RAWLOG_FLAG_AUTOCLOSE) != 0;
 
 	i_assert(rawlog_path != NULL);
 	i_assert(rawlog_fd != -1);
+
+	rawlog_output = o_stream_create_fd(rawlog_fd, 0, autoclose_fd);
+	o_stream_set_name(rawlog_output,
+			  t_strdup_printf("rawlog(%s)", rawlog_path));
+	return i_stream_create_rawlog_from_stream(input, rawlog_output, flags);
+}
+
+struct istream *
+i_stream_create_rawlog_from_stream(struct istream *input,
+				   struct ostream *rawlog_output,
+				   enum iostream_rawlog_flags flags)
+{
+	struct rawlog_istream *rstream;
 
 	rstream = i_new(struct rawlog_istream, 1);
 	rstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	rstream->istream.stream_size_passthrough = TRUE;
 
-	rstream->riostream.rawlog_path = i_strdup(rawlog_path);
-	rstream->riostream.rawlog_fd = rawlog_fd;
+	rstream->riostream.rawlog_output = rawlog_output;
 	iostream_rawlog_init(&rstream->riostream, flags, TRUE);
 
 	rstream->istream.read = i_stream_rawlog_read;

@@ -55,18 +55,30 @@ struct ostream *
 o_stream_create_rawlog(struct ostream *output, const char *rawlog_path,
 		       int rawlog_fd, enum iostream_rawlog_flags flags)
 {
-	struct rawlog_ostream *rstream;
+	struct ostream *rawlog_output;
+	bool autoclose_fd = (flags & IOSTREAM_RAWLOG_FLAG_AUTOCLOSE) != 0;
 
 	i_assert(rawlog_path != NULL);
 	i_assert(rawlog_fd != -1);
+
+	rawlog_output = o_stream_create_fd(rawlog_fd, 0, autoclose_fd);
+	o_stream_set_name(rawlog_output,
+			  t_strdup_printf("rawlog(%s)", rawlog_path));
+	return o_stream_create_rawlog_from_stream(output, rawlog_output, flags);
+}
+
+struct ostream *
+o_stream_create_rawlog_from_stream(struct ostream *output,
+				   struct ostream *rawlog_output,
+				   enum iostream_rawlog_flags flags)
+{
+	struct rawlog_ostream *rstream;
 
 	rstream = i_new(struct rawlog_ostream, 1);
 	rstream->ostream.sendv = o_stream_rawlog_sendv;
 	rstream->ostream.iostream.close = o_stream_rawlog_close;
 
-	rstream->riostream.rawlog_path = i_strdup(rawlog_path);
-	rstream->riostream.rawlog_fd = rawlog_fd;
+	rstream->riostream.rawlog_output = rawlog_output;
 	iostream_rawlog_init(&rstream->riostream, flags, FALSE);
-
 	return o_stream_create(&rstream->ostream, output, -1);
 }

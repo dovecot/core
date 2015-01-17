@@ -13,8 +13,7 @@ struct rawlog_iostream {
 	struct iostream_private *iostream;
 	enum iostream_rawlog_flags flags;
 
-	char *rawlog_path;
-	int rawlog_fd;
+	struct ostream *rawlog_output;
 	buffer_t *buffer;
 
 	bool input;

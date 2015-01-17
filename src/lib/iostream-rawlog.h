@@ -13,5 +13,10 @@ iostream_rawlog_create_prefix(const char *prefix, struct istream **input,
 int ATTR_NOWARN_UNUSED_RESULT
 iostream_rawlog_create_path(const char *path, struct istream **input,
 			    struct ostream **output);
+/* Create rawlog that appends to the given rawlog_output.
+   Both input and output are written to the same stream. */
+void iostream_rawlog_create_from_stream(struct ostream *rawlog_output,
+					struct istream **input,
+					struct ostream **output);
 
 #endif
