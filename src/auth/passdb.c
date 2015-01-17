@@ -155,6 +155,10 @@ void passdb_handle_credentials(enum passdb_result result,
 	} else if (*auth_request->credentials_scheme == '\0') {
 		/* We're doing a passdb lookup (not authenticating).
 		   Pass through a NULL password without an error. */
+	} else if (auth_request->delayed_credentials != NULL) {
+		/* We already have valid credentials from an earlier
+		   passdb lookup. auth_request_lookup_credentials_finish()
+		   will use them. */
 	} else {
 		auth_request_log_info(auth_request, AUTH_SUBSYS_DB,
 			"Requested %s scheme, but we have a NULL password",

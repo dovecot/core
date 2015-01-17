@@ -89,7 +89,9 @@ struct auth_request {
 		set_credentials_callback_t *set_credentials;
                 userdb_callback_t *userdb;
 	} private_callback;
-        const char *credentials_scheme;
+	const char *credentials_scheme;
+	const unsigned char *delayed_credentials;
+	size_t delayed_credentials_size;
 
 	void *context;
 

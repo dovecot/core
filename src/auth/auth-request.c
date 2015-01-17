@@ -800,10 +800,29 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 {
 	if (!auth_request_handle_passdb_callback(&result, request)) {
 		/* try next passdb */
+		if (request->skip_password_check &&
+		    request->delayed_credentials == NULL) {
+			/* passdb continue* rule after a successful lookup.
+			   remember these credentials and use them later on. */
+			unsigned char *dup;
+
+			dup = p_malloc(request->pool, size);
+			memcpy(dup, credentials, size);
+			request->delayed_credentials = dup;
+			request->delayed_credentials_size = size;
+		}
 		auth_request_lookup_credentials(request,
 			request->credentials_scheme,
                 	request->private_callback.lookup_credentials);
 	} else {
+		if (request->delayed_credentials != NULL && size == 0) {
+			/* we did multiple passdb lookups, but the last one
+			   didn't provide any credentials (e.g. just wanted to
+			   add some extra fields). so use the first passdb's
+			   credentials instead. */
+			credentials = request->delayed_credentials;
+			size = request->delayed_credentials_size;
+		}
 		if (request->set->debug_passwords &&
 		    result == PASSDB_RESULT_OK) {
 			auth_request_log_debug(request, AUTH_SUBSYS_DB,
