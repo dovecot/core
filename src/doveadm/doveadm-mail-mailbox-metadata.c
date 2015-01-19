@@ -32,6 +32,7 @@ cmd_mailbox_metadata_set_run(struct doveadm_mail_cmd_context *_ctx,
 	if (mailbox_open(box) < 0) {
 		i_error("Failed to open mailbox: %s",
 			mailbox_get_last_error(box, NULL));
+		doveadm_mail_failed_mailbox(_ctx, box);
 		mailbox_free(&box);
 		return -1;
 	}
@@ -43,10 +44,12 @@ cmd_mailbox_metadata_set_run(struct doveadm_mail_cmd_context *_ctx,
 	if (ret < 0) {
 		i_error("Failed to set attribute: %s",
 			mailbox_get_last_error(box, NULL));
+		doveadm_mail_failed_mailbox(_ctx, box);
 		mailbox_transaction_rollback(&trans);
 	} else if (mailbox_transaction_commit(&trans) < 0) {
 		i_error("Failed to commit transaction: %s",
 			mailbox_get_last_error(box, NULL));
+		doveadm_mail_failed_mailbox(_ctx, box);
 		ret = -1;
 	}
 
@@ -145,6 +148,7 @@ cmd_mailbox_metadata_get_run(struct doveadm_mail_cmd_context *_ctx,
 	if (mailbox_open(box) < 0) {
 		i_error("Failed to open mailbox: %s",
 			mailbox_get_last_error(box, NULL));
+		doveadm_mail_failed_mailbox(_ctx, box);
 		mailbox_free(&box);
 		return -1;
 	}
@@ -154,6 +158,7 @@ cmd_mailbox_metadata_get_run(struct doveadm_mail_cmd_context *_ctx,
 	if (ret < 0) {
 		i_error("Failed to get attribute: %s",
 			mailbox_get_last_error(box, NULL));
+		doveadm_mail_failed_mailbox(_ctx, box);
 	} else if (ret == 0) {
 		/* not found, print as empty */
 		doveadm_print("");
@@ -225,17 +230,22 @@ cmd_mailbox_metadata_list_run(struct doveadm_mail_cmd_context *_ctx,
 	if (mailbox_open(box) < 0) {
 		i_error("Failed to open mailbox: %s",
 			mailbox_get_last_error(box, NULL));
+		doveadm_mail_failed_mailbox(_ctx, box);
 		mailbox_free(&box);
 		return -1;
 	}
 
 	if (ctx->key == NULL || ctx->key_type == MAIL_ATTRIBUTE_TYPE_PRIVATE) {
-		if (cmd_mailbox_metadata_list_run_iter(ctx, box, MAIL_ATTRIBUTE_TYPE_PRIVATE) < 0)
+		if (cmd_mailbox_metadata_list_run_iter(ctx, box, MAIL_ATTRIBUTE_TYPE_PRIVATE) < 0) {
+			doveadm_mail_failed_mailbox(_ctx, box);
 			ret = -1;
+		}
 	}
 	if (ctx->key == NULL || ctx->key_type == MAIL_ATTRIBUTE_TYPE_SHARED) {
-		if (cmd_mailbox_metadata_list_run_iter(ctx, box, MAIL_ATTRIBUTE_TYPE_SHARED) < 0)
+		if (cmd_mailbox_metadata_list_run_iter(ctx, box, MAIL_ATTRIBUTE_TYPE_SHARED) < 0) {
+			doveadm_mail_failed_mailbox(_ctx, box);
 			ret = -1;
+		}
 	}
 	mailbox_free(&box);
 	return ret;

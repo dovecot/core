@@ -9,6 +9,7 @@
 #include "mail-storage-service.h"
 
 struct mailbox;
+struct mailbox_list;
 struct mail_storage;
 struct mail_user;
 struct doveadm_mail_cmd_context;
@@ -135,6 +136,8 @@ void doveadm_mail_failed_storage(struct doveadm_mail_cmd_context *ctx,
 				 struct mail_storage *storage);
 void doveadm_mail_failed_mailbox(struct doveadm_mail_cmd_context *ctx,
 				 struct mailbox *box);
+void doveadm_mail_failed_list(struct doveadm_mail_cmd_context *ctx,
+			      struct mailbox_list *list);
 
 extern struct doveadm_mail_cmd cmd_expunge;
 extern struct doveadm_mail_cmd cmd_search;

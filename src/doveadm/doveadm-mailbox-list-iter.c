@@ -143,6 +143,7 @@ doveadm_mailbox_list_iter_full_init(struct doveadm_mail_cmd_context *ctx,
 int doveadm_mailbox_list_iter_deinit(struct doveadm_mailbox_list_iter **_iter)
 {
 	struct doveadm_mailbox_list_iter *iter = *_iter;
+	enum mail_error error;
 	int ret;
 
 	*_iter = NULL;
@@ -151,8 +152,8 @@ int doveadm_mailbox_list_iter_deinit(struct doveadm_mailbox_list_iter **_iter)
 		ret = 0;
 	else if ((ret = mailbox_list_iter_deinit(&iter->iter)) < 0) {
 		i_error("Listing mailboxes failed: %s",
-			mailbox_list_get_last_error(iter->user->namespaces->list, NULL));
-		doveadm_mail_failed_error(iter->ctx, MAIL_ERROR_TEMP);
+			mailbox_list_get_last_error(iter->user->namespaces->list, &error));
+		doveadm_mail_failed_error(iter->ctx, error);
 	}
 	array_free(&iter->patterns);
 	i_free(iter);

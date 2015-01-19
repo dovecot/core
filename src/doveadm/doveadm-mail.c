@@ -89,6 +89,15 @@ void doveadm_mail_failed_mailbox(struct doveadm_mail_cmd_context *ctx,
 	doveadm_mail_failed_storage(ctx, mailbox_get_storage(box));
 }
 
+void doveadm_mail_failed_list(struct doveadm_mail_cmd_context *ctx,
+			      struct mailbox_list *list)
+{
+	enum mail_error error;
+
+	mailbox_list_get_last_error(list, &error);
+	doveadm_mail_failed_error(ctx, error);
+}
+
 struct doveadm_mail_cmd_context *
 doveadm_mail_cmd_alloc_size(size_t size)
 {
@@ -243,6 +252,7 @@ static int cmd_force_resync_run(struct doveadm_mail_cmd_context *ctx,
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		i_error("Listing mailboxes failed: %s",
 			mailbox_list_get_last_error(user->namespaces->list, NULL));
+		doveadm_mail_failed_list(ctx, user->namespaces->list);
 		ret = -1;
 	}
 	return ret;
