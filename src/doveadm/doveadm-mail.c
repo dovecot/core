@@ -241,7 +241,8 @@ static int cmd_force_resync_run(struct doveadm_mail_cmd_context *ctx,
 		} T_END;
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
-		i_error("Listing mailboxes failed");
+		i_error("Listing mailboxes failed: %s",
+			mailbox_list_get_last_error(user->namespaces->list, NULL));
 		ret = -1;
 	}
 	return ret;
