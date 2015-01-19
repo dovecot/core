@@ -12,6 +12,8 @@
 #include "time-util.h"
 #include "var-expand.h"
 #include "dsasl-client.h"
+#include "imap-date.h"
+#include "settings-parser.h"
 #include "mail-index-private.h"
 #include "mail-index-alloc-cache.h"
 #include "mailbox-tree.h"
@@ -2479,4 +2481,36 @@ mail_storage_settings_to_index_flags(const struct mail_storage_settings *set)
 	if (set->mail_nfs_index)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_NFS_FLUSH;
 	return index_flags;
+}
+
+int mail_parse_human_timestamp(const char *str, time_t *timestamp_r)
+{
+	struct tm tm;
+	unsigned int secs;
+	const char *error;
+
+	if (i_isdigit(str[0]) && i_isdigit(str[1]) &&
+	    i_isdigit(str[2]) && i_isdigit(str[3]) && str[4] == '-' &&
+	    i_isdigit(str[5]) && i_isdigit(str[6]) && str[7] == '-' &&
+	    i_isdigit(str[8]) && i_isdigit(str[9]) && str[10] == '\0') {
+		/* yyyy-mm-dd */
+		memset(&tm, 0, sizeof(tm));
+		tm.tm_year = (str[0]-'0') * 1000 + (str[1]-'0') * 100 +
+			(str[2]-'0') * 10 + (str[3]-'0') - 1900;
+		tm.tm_mon = (str[5]-'0') * 10 + (str[6]-'0') - 1;
+		tm.tm_mday = (str[8]-'0') * 10 + (str[9]-'0');
+		*timestamp_r = mktime(&tm);
+		return 0;
+	} else if (imap_parse_date(str, timestamp_r)) {
+		/* imap date */
+		return 0;
+	} else if (str_to_time(str, timestamp_r) == 0) {
+		/* unix timestamp */
+		return 0;
+	} else if (settings_get_time(str, &secs, &error) == 0) {
+		*timestamp_r = ioloop_time - secs;
+		return 0;
+	} else {
+		return -1;
+	}
 }

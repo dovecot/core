@@ -948,4 +948,9 @@ void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field);
    128 bits are returned. */
 void mail_generate_guid_128_hash(const char *guid, guid_128_t guid_128_r);
 
+/* Parse a human-writable string into a timestamp. Returns 0 and timestamp on
+   success, -1 if the string couldn't be parsed. Currently supported string
+   formats: yyyy-mm-dd, imap date, unix timestamp, interval (e.g. n days). */
+int mail_parse_human_timestamp(const char *str, time_t *timestamp_r);
+
 #endif

@@ -6,7 +6,7 @@
 #include "str.h"
 #include "unichar.h"
 #include "settings-parser.h"
-#include "imap-date.h"
+#include "mail-storage.h"
 #include "mail-search-register.h"
 #include "mail-search-parser.h"
 #include "mail-search-build.h"
@@ -34,38 +34,15 @@ arg_new_human_date(struct mail_search_build_context *ctx,
 		   enum mail_search_date_type date_type)
 {
 	struct mail_search_arg *sarg;
-	const char *value, *error;
-	struct tm tm;
-	unsigned int secs;
-	unsigned long unixtime;
+	const char *value;
 
 	sarg = mail_search_build_new(ctx, type);
 	if (mail_search_parse_string(ctx->parser, &value) < 0)
 		return NULL;
 
-	/* a) yyyy-mm-dd
-	   b) imap date
-	   c) unix timestamp
-	   d) interval (e.g. n days) */
-	if (i_isdigit(value[0]) && i_isdigit(value[1]) &&
-	    i_isdigit(value[2]) && i_isdigit(value[3]) && value[4] == '-' &&
-	    i_isdigit(value[5]) && i_isdigit(value[6]) && value[7] == '-' &&
-	    i_isdigit(value[8]) && i_isdigit(value[9]) && value[10] == '\0') {
-		memset(&tm, 0, sizeof(tm));
-		tm.tm_year = (value[0]-'0') * 1000 + (value[1]-'0') * 100 +
-			(value[2]-'0') * 10 + (value[3]-'0') - 1900;
-		tm.tm_mon = (value[5]-'0') * 10 + (value[6]-'0') - 1;
-		tm.tm_mday = (value[8]-'0') * 10 + (value[9]-'0');
-		sarg->value.time = mktime(&tm);
-	} else if (imap_parse_date(value, &sarg->value.time)) {
-		/* imap date */
-	} else if (str_to_ulong(value, &unixtime) == 0) {
-		sarg->value.time = unixtime;
-	} else if (settings_get_time(value, &secs, &error) == 0) {
-		sarg->value.time = ioloop_time - secs;
-	} else {
+	if (mail_parse_human_timestamp(value, &sarg->value.time) < 0)
 		sarg->value.time = (time_t)-1;
-	}
+
 	sarg->value.search_flags = MAIL_SEARCH_ARG_FLAG_USE_TZ;
 
 	if (sarg->value.time == (time_t)-1) {
