@@ -1650,6 +1650,8 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 			new_uid = newmail->link->final_uid;
 		} else {
 			new_uid = common_uid_next++;
+			imp_debug(importer, "UID %u isn't usable, assigning new UID %u",
+				  newmail->final_uid, new_uid);
 		}
 
 		newmail->final_uid = new_uid;
