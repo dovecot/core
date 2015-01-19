@@ -905,6 +905,7 @@ static int index_mail_write_body_snippet(struct index_mail *mail)
 {
 	struct message_part *part;
 	struct istream *input;
+	uoff_t old_offset;
 	string_t *str;
 	int ret;
 
@@ -916,6 +917,7 @@ static int index_mail_write_body_snippet(struct index_mail *mail)
 		return 0;
 	}
 
+	old_offset = mail->data.stream == NULL ? 0 : mail->data.stream->v_offset;
 	if (mail_get_stream(&mail->mail.mail, NULL, NULL, &input) < 0)
 		return -1;
 	i_stream_seek(input, part->physical_pos);
@@ -928,6 +930,8 @@ static int index_mail_write_body_snippet(struct index_mail *mail)
 	if (ret == 0)
 		mail->data.body_snippet = str_c(str);
 	i_stream_destroy(&input);
+
+	i_stream_seek(mail->data.stream, old_offset);
 	return ret;
 }
 
