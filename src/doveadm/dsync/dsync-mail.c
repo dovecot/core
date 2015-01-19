@@ -156,4 +156,5 @@ void dsync_mail_change_dup(pool_t pool, const struct dsync_mail_change *src,
 	dest_r->keywords_reset = src->keywords_reset;
 	const_string_array_dup(pool, &src->keyword_changes,
 			       &dest_r->keyword_changes);
+	dest_r->received_timestamp = src->received_timestamp;
 }

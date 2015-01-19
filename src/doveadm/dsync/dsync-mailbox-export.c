@@ -59,6 +59,7 @@ struct dsync_mailbox_exporter {
 	unsigned int mails_have_guids:1;
 	unsigned int minimal_dmail_fill:1;
 	unsigned int return_all_mails:1;
+	unsigned int export_received_timestamps:1;
 };
 
 static int dsync_mail_error(struct dsync_mailbox_exporter *exporter,
@@ -271,21 +272,36 @@ search_add_save(struct dsync_mailbox_exporter *exporter, struct mail *mail)
 {
 	struct dsync_mail_change *change;
 	const char *guid, *hdr_hash;
+	enum mail_fetch_field wanted_fields = MAIL_FETCH_GUID;
+	time_t received_timestamp = 0;
 	int ret;
 
 	/* update wanted fields in case we didn't already set them for the
 	   search */
-	mail_add_temp_wanted_fields(mail, MAIL_FETCH_GUID,
+	if (exporter->export_received_timestamps)
+		wanted_fields |= MAIL_FETCH_RECEIVED_DATE;
+	mail_add_temp_wanted_fields(mail, wanted_fields,
 				    exporter->wanted_headers);
 
 	/* If message is already expunged here, just skip it */
 	if ((ret = exporter_get_guids(exporter, mail, &guid, &hdr_hash)) <= 0)
 		return ret;
 
+	if (exporter->export_received_timestamps) {
+		if (mail_get_received_date(mail, &received_timestamp) < 0)
+			return dsync_mail_error(exporter, mail, "received-time");
+		if (received_timestamp == 0) {
+			/* don't allow timestamps to be zero. we want to have
+			   asserts verify that the timestamp is set properly. */
+			received_timestamp = 1;
+		}
+	}
+
 	change = export_save_change_get(exporter, mail->uid);
 	change->guid = *guid == '\0' ? "" :
 		p_strdup(exporter->pool, guid);
 	change->hdr_hash = p_strdup(exporter->pool, hdr_hash);
+	change->received_timestamp = received_timestamp;
 	search_update_flag_changes(exporter, mail, change);
 
 	export_add_mail_instance(exporter, change, mail->seq);
@@ -478,6 +494,8 @@ dsync_mailbox_export_init(struct mailbox *box,
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_MAILS_HAVE_GUIDS) != 0;
 	exporter->minimal_dmail_fill =
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_MINIMAL_DMAIL_FILL) != 0;
+	exporter->export_received_timestamps =
+		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS) != 0;
 	p_array_init(&exporter->requested_uids, pool, 16);
 	p_array_init(&exporter->search_uids, pool, 16);
 	hash_table_create(&exporter->export_guids, pool, 0, str_hash, strcmp);

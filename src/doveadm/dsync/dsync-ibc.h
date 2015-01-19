@@ -52,6 +52,8 @@ struct dsync_ibc_settings {
 	/* Exclude these mailboxes from the sync. They can contain '*'
 	   wildcards and be \special-use flags. */
 	const char *const *exclude_mailboxes;
+	/* Sync only mails with received timestamp at least this high. */
+	time_t sync_since_timestamp;
 
 	enum dsync_brain_sync_type sync_type;
 	enum dsync_brain_flags brain_flags;

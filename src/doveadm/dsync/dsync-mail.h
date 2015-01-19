@@ -77,6 +77,9 @@ struct dsync_mail_change {
 	bool keywords_reset;
 	/* +add, -remove, =final, &add_and_final. */
 	ARRAY_TYPE(const_string) keyword_changes;
+
+	/* Received timestamp for saves, if brain.sync_since_timestamp is set */
+	time_t received_timestamp;
 };
 
 struct mailbox_header_lookup_ctx *

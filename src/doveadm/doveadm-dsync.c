@@ -16,6 +16,7 @@
 #include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-ssl-settings.h"
+#include "mail-storage.h"
 #include "mail-storage-service.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
@@ -36,7 +37,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+1dEfg:l:m:n:NPr:Rs:Ux:"
+#define DSYNC_COMMON_GETOPT_ARGS "+1dEfg:l:m:n:NPr:Rs:t:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 /* The broken_char is mainly set to get a proper error message when trying to
    convert a mailbox with a name that can't be used properly translated between
@@ -59,6 +60,7 @@ struct dsync_cmd_context {
 	const char *state_input, *rawlog_path;
 	ARRAY_TYPE(const_string) exclude_mailboxes;
 	ARRAY_TYPE(const_string) namespace_prefixes;
+	time_t sync_since_timestamp;
 
 	const char *remote_name;
 	const char *local_location;
@@ -539,6 +541,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		set.process_title_prefix = t_strdup_printf(
 			"%s ", net_ip2addr(&_ctx->cur_client_ip));
 	}
+	set.sync_since_timestamp = ctx->sync_since_timestamp;
 	set.sync_box = ctx->mailbox;
 	memcpy(set.sync_box_guid, ctx->mailbox_guid, sizeof(set.sync_box_guid));
 	set.lock_timeout_secs = ctx->lock_timeout;
@@ -959,6 +962,10 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		    *optarg != '\0')
 			ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_STATE;
 		ctx->state_input = optarg;
+		break;
+	case 't':
+		if (mail_parse_human_timestamp(optarg, &ctx->sync_since_timestamp) < 0)
+			i_fatal("Invalid -t parameter: %s", optarg);
 		break;
 	case 'U':
 		ctx->replicator_notify = TRUE;

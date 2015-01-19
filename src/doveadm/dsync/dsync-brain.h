@@ -55,6 +55,8 @@ struct dsync_brain_settings {
 	/* Alternative character to use in mailbox names where the original
 	   character cannot be used. */
 	char mailbox_alt_char;
+	/* Sync only mails with received timestamp at least this high. */
+	time_t sync_since_timestamp;
 
 	/* If non-zero, use dsync lock file for this user */
 	unsigned int lock_timeout_secs;

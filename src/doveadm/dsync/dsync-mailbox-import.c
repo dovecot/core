@@ -58,6 +58,7 @@ struct dsync_mailbox_importer {
 	uint32_t remote_uid_next;
 	uint32_t remote_first_recent_uid;
 	uint64_t remote_highest_modseq, remote_highest_pvt_modseq;
+	time_t sync_since_timestamp;
 
 	struct mailbox_transaction_context *trans, *ext_trans;
 	struct mail_search_context *search_ctx;
@@ -177,6 +178,7 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  uint32_t remote_first_recent_uid,
 			  uint64_t remote_highest_modseq,
 			  uint64_t remote_highest_pvt_modseq,
+			  time_t sync_since_timestamp,
 			  enum dsync_mailbox_import_flags flags)
 {
 	struct dsync_mailbox_importer *importer;
@@ -197,6 +199,7 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer->remote_first_recent_uid = remote_first_recent_uid;
 	importer->remote_highest_modseq = remote_highest_modseq;
 	importer->remote_highest_pvt_modseq = remote_highest_pvt_modseq;
+	importer->sync_since_timestamp = sync_since_timestamp;
 	importer->stateful_import = importer->last_common_uid_found;
 
 	hash_table_create(&importer->import_guids, pool, 0, str_hash, strcmp);
@@ -1228,6 +1231,13 @@ dsync_mailbox_import_save(struct dsync_mailbox_importer *importer,
 		dsync_mailbox_import_flag_change(importer, change);
 		return;
 	}
+	if (importer->sync_since_timestamp > 0) {
+		i_assert(change->received_timestamp > 0);
+		if (change->received_timestamp < importer->sync_since_timestamp) {
+			/* mail has too old timestamp - skip it */
+			return;
+		}
+	}
 
 	save = p_new(importer->pool, struct dsync_mail_change, 1);
 	dsync_mail_change_dup(importer->pool, change, save);
@@ -1460,6 +1470,10 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 {
 	int ret;
 
+	i_assert(importer->sync_since_timestamp == 0 ||
+		 change->received_timestamp > 0 ||
+		 change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE);
+
 	/* try to find the matching local mail */
 	if (!importer_next_mail(importer, change->uid)) {
 		/* no more local mails. we can still try to match
@@ -1471,7 +1485,10 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 			return;
 		}
 		i_assert(change->guid != NULL);
-		if (importer->local_uid_next <= change->uid) {
+		if (importer->sync_since_timestamp > 0 &&
+		    change->received_timestamp < importer->sync_since_timestamp) {
+			*result_r = "Ignoring missing local mail with too old timestamp";
+		} else if (importer->local_uid_next <= change->uid) {
 			dsync_mailbox_common_uid_found(importer);
 			*result_r = "Mail's UID is above local UIDNEXT";
 		} else if (importer->revert_local_changes) {
@@ -1508,6 +1525,12 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 		} else {
 			importer->last_common_uid = change->uid;
 		}
+		return;
+	}
+	/* mail exists remotely, but doesn't exist locally. */
+	if (importer->sync_since_timestamp > 0 &&
+	    change->received_timestamp < importer->sync_since_timestamp) {
+		*result_r = "Ignoring missing local mail with too old timestamp";
 		return;
 	}
 	if (importer->revert_local_changes &&
