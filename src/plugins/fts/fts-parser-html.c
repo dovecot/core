@@ -34,6 +34,11 @@ static void fts_parser_html_more(struct fts_parser *_parser,
 {
 	struct html_fts_parser *parser = (struct html_fts_parser *)_parser;
 
+	if (block->size == 0) {
+		/* finished */
+		return;
+	}
+
 	buffer_set_used_size(parser->output, 0);
 	mail_html2text_more(parser->html2text, block->data, block->size,
 			    parser->output);
