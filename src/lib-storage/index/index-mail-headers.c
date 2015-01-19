@@ -383,7 +383,6 @@ index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
 	mail->data.save_sent_date = TRUE;
 	mail->data.save_bodystructure_header = TRUE;
 	mail->data.save_bodystructure_body = TRUE;
-	mail->data.save_body_snippet = TRUE;
 
 	mail->data.tee_stream = tee_i_stream_create(input);
 	input = tee_i_stream_create_child(mail->data.tee_stream);
