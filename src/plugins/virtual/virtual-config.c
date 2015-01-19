@@ -304,7 +304,8 @@ static bool virtual_config_match(const struct mailbox_info *info,
 	return FALSE;
 }
 
-static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
+static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx,
+					   const char **error_r)
 {
 	const enum mail_namespace_type iter_ns_types =
 		MAIL_NAMESPACE_TYPE_MASK_ALL;
@@ -354,7 +355,11 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 	}
 	for (i = 0; i < count; i++)
 		mail_search_args_unref(&wboxes[i]->search_args);
-	return mailbox_list_iter_deinit(&iter);
+	if (mailbox_list_iter_deinit(&iter) < 0) {
+		*error_r = mailbox_list_get_last_error(user->namespaces->list, NULL);
+		return -1;
+	}
+	return 0;
 }
 
 static void virtual_config_search_args_dup(struct virtual_mailbox *mbox)
@@ -434,8 +439,11 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	}
 
 	virtual_mailbox_get_list_patterns(&ctx);
-	if (ret == 0 && ctx.have_wildcards)
-		ret = virtual_config_expand_wildcards(&ctx);
+	if (ret == 0 && ctx.have_wildcards) {
+		ret = virtual_config_expand_wildcards(&ctx, &error);
+		if (ret < 0)
+			mail_storage_set_critical(storage, "%s: %s", path, error);
+	}
 
 	if (ret == 0 && !ctx.have_mailbox_defines) {
 		mail_storage_set_critical(storage,
