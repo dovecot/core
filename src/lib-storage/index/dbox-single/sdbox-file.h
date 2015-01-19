@@ -13,6 +13,7 @@ struct sdbox_file {
 	/* list of attachment paths while saving/copying message */
 	pool_t attachment_pool;
 	ARRAY_TYPE(const_string) attachment_paths;
+	bool written_to_disk;
 };
 
 struct dbox_file *sdbox_file_init(struct sdbox_mailbox *mbox, uint32_t uid);

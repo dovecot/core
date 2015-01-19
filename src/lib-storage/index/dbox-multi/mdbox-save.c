@@ -24,6 +24,7 @@ struct dbox_save_mail {
 	struct dbox_file_append_context *file_append;
 	uint32_t seq;
 	uint32_t append_offset;
+	bool written_to_disk;
 };
 
 struct mdbox_save_context {
@@ -85,6 +86,7 @@ mdbox_save_file_get_file(struct mailbox_transaction_context *t,
 	}
 
 	/* saved mail */
+	i_assert(mail->written_to_disk);
 	if (dbox_file_append_flush(mail->file_append) < 0)
 		ctx->ctx.failed = TRUE;
 
@@ -183,6 +185,7 @@ static int mdbox_save_mail_write_metadata(struct mdbox_save_context *ctx,
 		dbox_file_set_syscall_error(file, "pwrite()");
 		return -1;
 	}
+	mail->written_to_disk = TRUE;
 	return 0;
 }
 
