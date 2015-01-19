@@ -65,7 +65,8 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 				const char *const *patterns,
 				enum mailbox_list_iter_flags flags);
 /* List mailbox_list_iter_init_multiple(), but list mailboxes from all the
-   specified namespaces. */
+   specified namespaces. If it fails, the error message is set to the first
+   namespaces->list. */
 struct mailbox_list_iterate_context *
 mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 				  const char *const *patterns,
@@ -75,7 +76,8 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 const struct mailbox_info *
 mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx);
 /* Deinitialize mailbox list request. Returns -1 if some error
-   occurred while listing. */
+   occurred while listing. The error string can be looked up with
+   mailbox_list_get_last_error(). */
 int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **ctx);
 /* List one mailbox. Returns 1 if info returned, 0 if mailbox doesn't exist,
    -1 if error. */
