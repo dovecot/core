@@ -41,4 +41,7 @@ int fts_expunge_log_read_end(struct fts_expunge_log_read_ctx **ctx);
    The struct it returns cannot be written, as it has no backing store */
 int fts_expunge_log_flatten(const char *path,
 			    struct fts_expunge_log_append_ctx **flattened_r);
+bool fts_expunge_log_contains(const struct fts_expunge_log_append_ctx *ctx,
+			      const guid_128_t mailbox_guid, uint32_t uid);
+
 #endif

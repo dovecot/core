@@ -532,3 +532,14 @@ int fts_expunge_log_flatten(const char *path,
 
 	return ret;
 }
+bool fts_expunge_log_contains(const struct fts_expunge_log_append_ctx *ctx,
+			      const guid_128_t mailbox_guid, uint32_t uid)
+{
+	const struct fts_expunge_log_mailbox *mailbox;
+	const uint8_t *guid_p = mailbox_guid;
+
+	mailbox = hash_table_lookup(ctx->mailboxes, guid_p);
+	if (mailbox == NULL)
+		return FALSE;
+	return seq_range_exists(&mailbox->uids, uid);	
+}
