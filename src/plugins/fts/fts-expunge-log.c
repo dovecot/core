@@ -203,9 +203,9 @@ fts_expunge_log_mailbox_alloc(struct fts_expunge_log_append_ctx *ctx,
 	return mailbox;
 }
 
-void fts_expunge_log_append_next(struct fts_expunge_log_append_ctx *ctx,
-				 const guid_128_t mailbox_guid,
-				 uint32_t uid)
+static struct fts_expunge_log_mailbox *
+fts_expunge_log_append_mailbox(struct fts_expunge_log_append_ctx *ctx,
+			       const guid_128_t mailbox_guid)
 {
 	const uint8_t *guid_p = mailbox_guid;
 	struct fts_expunge_log_mailbox *mailbox;
@@ -219,6 +219,15 @@ void fts_expunge_log_append_next(struct fts_expunge_log_append_ctx *ctx,
 			mailbox = fts_expunge_log_mailbox_alloc(ctx, mailbox_guid);
 		ctx->prev_mailbox = mailbox;
 	}
+	return mailbox;
+}
+void fts_expunge_log_append_next(struct fts_expunge_log_append_ctx *ctx,
+				 const guid_128_t mailbox_guid,
+				 uint32_t uid)
+{
+	struct fts_expunge_log_mailbox *mailbox;
+
+	mailbox = fts_expunge_log_append_mailbox(ctx, mailbox_guid);
 	if (!seq_range_array_add(&mailbox->uids, uid))
 		mailbox->uids_count++;
 }
