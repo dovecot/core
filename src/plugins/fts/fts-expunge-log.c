@@ -61,6 +61,7 @@ struct fts_expunge_log_read_ctx {
 
 	bool failed;
 	bool corrupted;
+	bool unlink;
 };
 
 struct fts_expunge_log *fts_expunge_log_init(const char *path)
@@ -348,6 +349,7 @@ fts_expunge_log_read_begin(struct fts_expunge_log *log)
 		ctx->failed = TRUE;
 	else if (log->fd != -1)
 		ctx->input = i_stream_create_fd(log->fd, (size_t)-1, FALSE);
+	ctx->unlink = TRUE;
 	return ctx;
 }
 
@@ -395,7 +397,8 @@ fts_expunge_log_read_next(struct fts_expunge_log_read_ctx *ctx)
 	(void)i_stream_read_data(ctx->input, &data, &size, IO_BLOCK_SIZE);
 	if (size == 0 && ctx->input->stream_errno == 0) {
 		/* expected EOF - mark the file as read by unlinking it */
-		if (unlink(ctx->log->path) < 0 && errno != ENOENT)
+		if (ctx->unlink &&
+		    unlink(ctx->log->path) < 0 && errno != ENOENT)
 			i_error("unlink(%s) failed: %m", ctx->log->path);
 
 		/* try reading again, in case something new was written */
@@ -462,7 +465,8 @@ int fts_expunge_log_read_end(struct fts_expunge_log_read_ctx **_ctx)
 	*_ctx = NULL;
 
 	if (ctx->corrupted) {
-		if (unlink(ctx->log->path) < 0 && errno != ENOENT)
+		if (ctx->unlink &&
+		    unlink(ctx->log->path) < 0 && errno != ENOENT)
 			i_error("unlink(%s) failed: %m", ctx->log->path);
 	}
 
