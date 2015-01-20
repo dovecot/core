@@ -81,6 +81,7 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "guid-forced", IMAPC_FEATURE_GUID_FORCED },
 	{ "fetch-headers", IMAPC_FEATURE_FETCH_HEADERS },
 	{ "gmail-labels-keyword", IMAPC_FEATURE_GMAIL_LABELS_KEYWORD },
+	{ "gmail-pop3-uidl", IMAPC_FEATURE_GMAIL_POP3_UIDL },
 	{ NULL, 0 }
 };
 

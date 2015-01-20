@@ -463,6 +463,8 @@ imapc_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		       const char **value_r)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	struct index_mail *imail = (struct index_mail *)_mail;
+	uint64_t num;
 
 	switch (field) {
 	case MAIL_FETCH_GUID:
@@ -473,6 +475,20 @@ imapc_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		}
 		*value_r = "";
 		return imapc_mail_get_guid(_mail, value_r);
+	case MAIL_FETCH_UIDL_BACKEND:
+		if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_POP3_UIDL))
+			break;
+		if (imapc_mail_get_guid(_mail, value_r) < 0)
+			return -1;
+		if (str_to_uint64(*value_r, &num) < 0) {
+			mail_storage_set_critical(_mail->box->storage,
+				"X-GM-MSGID not 64bit integer as expected for POP3 UIDL generation: %s", *value_r);
+			return -1;
+		}
+
+		*value_r = p_strdup_printf(imail->mail.data_pool, "GmailId%llx",
+					   (unsigned long long)num);
+		return 0;
 	default:
 		break;
 	}
