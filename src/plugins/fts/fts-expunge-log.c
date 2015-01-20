@@ -231,6 +231,28 @@ void fts_expunge_log_append_next(struct fts_expunge_log_append_ctx *ctx,
 	if (!seq_range_array_add(&mailbox->uids, uid))
 		mailbox->uids_count++;
 }
+void fts_expunge_log_append_range(struct fts_expunge_log_append_ctx *ctx,
+				  const guid_128_t mailbox_guid,
+				  const struct seq_range *uids)
+{
+	struct fts_expunge_log_mailbox *mailbox;
+
+	mailbox = fts_expunge_log_append_mailbox(ctx, mailbox_guid);
+	mailbox->uids_count += seq_range_array_add_range_count(&mailbox->uids,
+							       uids->seq1, uids->seq2);
+	/* To be honest, an unbacked log doesn't need to maintain the uids_count,
+	   but we don't know here if we're supporting an unbacked log or not, so we
+	   have to maintain the value, just in case.
+	   At the moment, the only caller of this function is for unbacked logs. */
+}
+void fts_expunge_log_append_record(struct fts_expunge_log_append_ctx *ctx,
+				   const struct fts_expunge_log_read_record *record)
+{
+	const struct seq_range *range;
+	/* FIXME: Optimise with a merge */
+	array_foreach(&record->uids, range)
+		fts_expunge_log_append_range(ctx, record->mailbox_guid, range);
+}
 
 static void
 fts_expunge_log_export(struct fts_expunge_log_append_ctx *ctx,
@@ -481,5 +503,32 @@ int fts_expunge_log_read_end(struct fts_expunge_log_read_ctx **_ctx)
 	if (ctx->input != NULL)
 		i_stream_unref(&ctx->input);
 	i_free(ctx);
+	return ret;
+}
+
+int fts_expunge_log_flatten(const char *path,
+			    struct fts_expunge_log_append_ctx **flattened_r)
+{
+	struct fts_expunge_log *read;
+	struct fts_expunge_log_read_ctx *read_ctx;
+	const struct fts_expunge_log_read_record *record;
+	struct fts_expunge_log_append_ctx *append;
+	int ret;
+
+	i_assert(path != NULL && flattened_r != NULL);
+	read = fts_expunge_log_init(path);
+
+	read_ctx = fts_expunge_log_read_begin(read);
+	read_ctx->unlink = FALSE;
+
+	append = fts_expunge_log_append_begin(NULL);
+	while((record = fts_expunge_log_read_next(read_ctx)) != NULL) {
+		fts_expunge_log_append_record(append, record);
+	}
+
+	if ((ret = fts_expunge_log_read_end(&read_ctx)) > 0)
+		*flattened_r = append;
+	fts_expunge_log_deinit(&read);
+
 	return ret;
 }
