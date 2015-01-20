@@ -1246,6 +1246,9 @@ dsync_mail_change_have_keyword(const struct dsync_mail_change *change,
 {
 	const char *const *strp;
 
+	if (!array_is_created(&change->keyword_changes))
+		return FALSE;
+
 	array_foreach(&change->keyword_changes, strp) {
 		switch ((*strp)[0]) {
 		case KEYWORD_CHANGE_FINAL:
