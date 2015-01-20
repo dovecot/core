@@ -167,6 +167,7 @@ dsync_ibc_pipe_send_handshake(struct dsync_ibc *ibc,
 	item->u.set.sync_ns_prefixes =
 		p_strdup(item->pool, set->sync_ns_prefixes);
 	item->u.set.sync_box = p_strdup(item->pool, set->sync_box);
+	item->u.set.virtual_all_box = p_strdup(item->pool, set->virtual_all_box);
 	item->u.set.exclude_mailboxes = set->exclude_mailboxes == NULL ? NULL :
 		p_strarray_dup(item->pool, set->exclude_mailboxes);
 	memcpy(item->u.set.sync_box_guid, set->sync_box_guid,

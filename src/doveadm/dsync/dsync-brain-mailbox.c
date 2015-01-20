@@ -213,7 +213,8 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_MAILS_USE_GUID128;
 
 	brain->box_importer = brain->backup_send ? NULL :
-		dsync_mailbox_import_init(brain->box, brain->log_scan,
+		dsync_mailbox_import_init(brain->box, brain->virtual_all_box,
+					  brain->log_scan,
 					  last_common_uid, last_common_modseq,
 					  last_common_pvt_modseq,
 					  remote_dsync_box->uid_next,

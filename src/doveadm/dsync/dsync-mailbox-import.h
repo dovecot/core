@@ -18,6 +18,7 @@ struct dsync_transaction_log_scan;
 
 struct dsync_mailbox_importer *
 dsync_mailbox_import_init(struct mailbox *box,
+			  struct mailbox *virtual_all_box,
 			  struct dsync_transaction_log_scan *log_scan,
 			  uint32_t last_common_uid,
 			  uint64_t last_common_modseq,

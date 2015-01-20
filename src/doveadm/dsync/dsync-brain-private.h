@@ -52,6 +52,7 @@ struct dsync_brain {
 	const char *process_title_prefix;
 	ARRAY(struct mail_namespace *) sync_namespaces;
 	const char *sync_box;
+	struct mailbox *virtual_all_box;
 	guid_128_t sync_box_guid;
 	const char *const *exclude_mailboxes;
 	enum dsync_brain_sync_type sync_type;

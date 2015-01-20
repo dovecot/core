@@ -141,6 +141,16 @@ dsync_brain_set_flags(struct dsync_brain *brain, enum dsync_brain_flags flags)
 		(flags & DSYNC_BRAIN_FLAG_NO_MAIL_PREFETCH) != 0;
 }
 
+static void
+dsync_brain_open_virtual_all_box(struct dsync_brain *brain,
+				 const char *vname)
+{
+	struct mail_namespace *ns;
+
+	ns = mail_namespace_find(brain->user->namespaces, vname);
+	brain->virtual_all_box = mailbox_alloc(ns->list, vname, 0);
+}
+
 struct dsync_brain *
 dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 			enum dsync_brain_sync_type sync_type,
@@ -185,6 +195,9 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	brain->master_brain = TRUE;
 	dsync_brain_set_flags(brain, flags);
 
+	if (set->virtual_all_box != NULL)
+		dsync_brain_open_virtual_all_box(brain, set->virtual_all_box);
+
 	if (sync_type != DSYNC_BRAIN_SYNC_TYPE_STATE)
 		;
 	else if (dsync_mailbox_states_import(brain->mailbox_states, brain->pool,
@@ -207,6 +220,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	ibc_set.sync_ns_prefixes = sync_ns_str == NULL ?
 		NULL : str_c(sync_ns_str);
 	ibc_set.sync_box = set->sync_box;
+	ibc_set.virtual_all_box = set->virtual_all_box;
 	ibc_set.exclude_mailboxes = set->exclude_mailboxes;
 	ibc_set.sync_since_timestamp = set->sync_since_timestamp;
 	memcpy(ibc_set.sync_box_guid, set->sync_box_guid,
@@ -295,6 +309,8 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 
 	if (brain->box != NULL)
 		dsync_brain_sync_mailbox_deinit(brain);
+	if (brain->virtual_all_box != NULL)
+		mailbox_free(&brain->virtual_all_box);
 	if (brain->local_tree_iter != NULL)
 		dsync_mailbox_tree_iter_deinit(&brain->local_tree_iter);
 	if (brain->local_mailbox_tree != NULL)
@@ -465,6 +481,8 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 	brain->purge = (ibc_set->brain_flags &
 			DSYNC_BRAIN_FLAG_PURGE_REMOTE) != 0;
 
+	if (ibc_set->virtual_all_box != NULL)
+		dsync_brain_open_virtual_all_box(brain, ibc_set->virtual_all_box);
 	dsync_brain_mailbox_trees_init(brain);
 
 	if (brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_STATE)

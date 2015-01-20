@@ -47,6 +47,9 @@ struct dsync_ibc_settings {
 	const char *sync_ns_prefixes;
 	/* if non-NULL, sync only this mailbox name */
 	const char *sync_box;
+	/* if non-NULL, use this mailbox for finding messages with GUIDs and
+	   copying them instead of saving them again. */
+	const char *virtual_all_box;
 	/* if non-empty, sync only this mailbox GUID */
 	guid_128_t sync_box_guid;
 	/* Exclude these mailboxes from the sync. They can contain '*'

@@ -47,6 +47,10 @@ struct dsync_brain_settings {
 	ARRAY(struct mail_namespace *) sync_namespaces;
 	/* Sync only this mailbox name */
 	const char *sync_box;
+	/* Use this virtual \All mailbox to be able to copy mails with the same
+	   GUID instead of saving them twice. With most storages this results
+	   in less disk space usage. */
+	const char *virtual_all_box;
 	/* Sync only this mailbox GUID */
 	guid_128_t sync_box_guid;
 	/* Exclude these mailboxes from the sync. They can contain '*'

@@ -37,7 +37,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+1dEfg:l:m:n:NPr:Rs:t:Ux:"
+#define DSYNC_COMMON_GETOPT_ARGS "+1a:dEfg:l:m:n:NPr:Rs:t:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 /* The broken_char is mainly set to get a proper error message when trying to
    convert a mailbox with a name that can't be used properly translated between
@@ -56,6 +56,7 @@ struct dsync_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 	enum dsync_brain_sync_type sync_type;
 	const char *mailbox;
+	const char *virtual_all_box;
 	guid_128_t mailbox_guid;
 	const char *state_input, *rawlog_path;
 	ARRAY_TYPE(const_string) exclude_mailboxes;
@@ -543,6 +544,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	}
 	set.sync_since_timestamp = ctx->sync_since_timestamp;
 	set.sync_box = ctx->mailbox;
+	set.virtual_all_box = ctx->virtual_all_box;
 	memcpy(set.sync_box_guid, ctx->mailbox_guid, sizeof(set.sync_box_guid));
 	set.lock_timeout_secs = ctx->lock_timeout;
 	set.state = ctx->state_input;
@@ -908,6 +910,9 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case '1':
 		ctx->oneway = TRUE;
 		ctx->backup = TRUE;
+		break;
+	case 'a':
+		ctx->virtual_all_box = optarg;
 		break;
 	case 'd':
 		ctx->default_replica_location = TRUE;
