@@ -7,7 +7,7 @@ enum imapc_features {
 	IMAPC_FEATURE_GUID_FORCED		= 0x02,
 	IMAPC_FEATURE_FETCH_HEADERS		= 0x04,
 	IMAPC_FEATURE_GMAIL_LABELS_KEYWORD	= 0x08,
-	IMAPC_FEATURE_GMAIL_POP3_UIDL		= 0x10
+	IMAPC_FEATURE_GMAIL_POP3		= 0x10
 };
 /* </settings checks> */
 
@@ -27,6 +27,8 @@ struct imapc_settings {
 	const char *imapc_rawlog_dir;
 	const char *imapc_list_prefix;
 	unsigned int imapc_max_idle_time;
+
+	const char *pop3_deleted_flag;
 
 	enum imapc_features parsed_features;
 };

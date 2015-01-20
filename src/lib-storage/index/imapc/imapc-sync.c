@@ -38,7 +38,8 @@ static void imapc_sync_callback(const struct imapc_command_reply *reply,
 		imapc_client_stop(ctx->mbox->storage->client->client);
 }
 
-static void imapc_sync_cmd(struct imapc_sync_context *ctx, const char *cmd_str)
+static struct imapc_command *
+imapc_sync_cmd(struct imapc_sync_context *ctx, const char *cmd_str)
 {
 	struct imapc_command *cmd;
 
@@ -47,6 +48,7 @@ static void imapc_sync_cmd(struct imapc_sync_context *ctx, const char *cmd_str)
 				       imapc_sync_callback, ctx);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_send(cmd, cmd_str);
+	return cmd;
 }
 
 static void
@@ -273,6 +275,28 @@ imapc_initial_sync_check(struct imapc_sync_context *ctx, bool nooped)
 	}
 }
 
+static void
+imapc_sync_send_commands(struct imapc_sync_context *ctx, uint32_t first_uid)
+{
+	string_t *cmd = t_str_new(64);
+
+	str_printfa(cmd, "UID FETCH %u:* (FLAGS", first_uid);
+	if (IMAPC_BOX_HAS_FEATURE(ctx->mbox, IMAPC_FEATURE_GMAIL_LABELS_KEYWORD))
+		str_append(cmd, " X-GM-LABELS");
+	str_append_c(cmd, ')');
+	imapc_sync_cmd(ctx, str_c(cmd));
+
+	if (IMAPC_BOX_HAS_FEATURE(ctx->mbox, IMAPC_FEATURE_GMAIL_POP3) &&
+	    ctx->mbox->storage->set->pop3_deleted_flag[0] != '\0') {
+		struct imapc_command *cmd;
+
+		cmd = imapc_sync_cmd(ctx, "SEARCH RETURN (ALL) X-GM-RAW \"in:^pop\"");
+		i_free(ctx->mbox->sync_gmail_pop3_search_tag);
+		ctx->mbox->sync_gmail_pop3_search_tag =
+			i_strdup(imapc_command_get_tag(cmd));
+	}
+}
+
 static void imapc_sync_index(struct imapc_sync_context *ctx)
 {
 	struct imapc_mailbox *mbox = ctx->mbox;
@@ -316,13 +340,7 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 		/* we'll resync existing messages' flags and add new messages.
 		   adding new messages requires sync locking to avoid
 		   duplicates. */
-		string_t *cmd = t_str_new(64);
-
-		str_printfa(cmd, "UID FETCH %u:* (FLAGS", mbox->sync_fetch_first_uid);
-		if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_LABELS_KEYWORD))
-			str_append(cmd, " X-GM-LABELS");
-		str_append_c(cmd, ')');
-		imapc_sync_cmd(ctx, str_c(cmd));
+		imapc_sync_send_commands(ctx, mbox->sync_fetch_first_uid);
 		mbox->sync_fetch_first_uid = 0;
 	}
 
@@ -357,10 +375,7 @@ void imapc_sync_mailbox_reopened(struct imapc_mailbox *mbox)
 	mbox->sync_next_lseq = 1;
 	mbox->sync_next_rseq = 1;
 
-	if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_LABELS_KEYWORD))
-		imapc_sync_cmd(ctx, "UID FETCH 1:* FLAGS");
-	else
-		imapc_sync_cmd(ctx, "UID FETCH 1:* (FLAGS X-GM-LABELS)");
+	imapc_sync_send_commands(ctx, 1);
 }
 
 static int
@@ -426,6 +441,12 @@ static int imapc_sync_finish(struct imapc_sync_context **_ctx)
 		}
 	} else {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
+	}
+	if (ctx->mbox->sync_gmail_pop3_search_tag != NULL) {
+		mail_storage_set_critical(&ctx->mbox->storage->storage,
+			"gmail-pop3 search not successful");
+		i_free_and_null(ctx->mbox->sync_gmail_pop3_search_tag);
+		ret = -1;
 	}
 	ctx->mbox->syncing = FALSE;
 	ctx->mbox->sync_ctx = NULL;

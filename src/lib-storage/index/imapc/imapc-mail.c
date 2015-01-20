@@ -476,7 +476,7 @@ imapc_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		*value_r = "";
 		return imapc_mail_get_guid(_mail, value_r);
 	case MAIL_FETCH_UIDL_BACKEND:
-		if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_POP3_UIDL))
+		if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_POP3))
 			break;
 		if (imapc_mail_get_guid(_mail, value_r) < 0)
 			return -1;

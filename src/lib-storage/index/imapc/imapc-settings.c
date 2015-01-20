@@ -30,6 +30,8 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(SET_STR, imapc_list_prefix),
 	DEF(SET_TIME, imapc_max_idle_time),
 
+	DEF(SET_STR, pop3_deleted_flag),
+
 	SETTING_DEFINE_LIST_END
 };
 
@@ -48,7 +50,9 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_features = "",
 	.imapc_rawlog_dir = "",
 	.imapc_list_prefix = "",
-	.imapc_max_idle_time = 60*29
+	.imapc_max_idle_time = 60*29,
+
+	.pop3_deleted_flag = ""
 };
 
 static const struct setting_parser_info imapc_setting_parser_info = {
@@ -81,7 +85,7 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "guid-forced", IMAPC_FEATURE_GUID_FORCED },
 	{ "fetch-headers", IMAPC_FEATURE_FETCH_HEADERS },
 	{ "gmail-labels-keyword", IMAPC_FEATURE_GMAIL_LABELS_KEYWORD },
-	{ "gmail-pop3-uidl", IMAPC_FEATURE_GMAIL_POP3_UIDL },
+	{ "gmail-pop3", IMAPC_FEATURE_GMAIL_POP3 },
 	{ NULL, 0 }
 };
 

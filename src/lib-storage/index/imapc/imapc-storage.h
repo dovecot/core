@@ -110,6 +110,7 @@ struct imapc_mailbox {
 	uint32_t sync_next_rseq;
 	uint32_t exists_count;
 	uint32_t min_append_uid;
+	char *sync_gmail_pop3_search_tag;
 
 	/* keep the previous fetched message body cached,
 	   mainly for partial IMAP fetches */

@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "imap-arg.h"
+#include "imap-seqset.h"
 #include "imap-util.h"
 #include "imapc-client.h"
 #include "imapc-mail.h"
@@ -422,6 +423,79 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 }
 
 static void
+imapc_untagged_esearch_gmail_pop3(const struct imap_arg *args,
+				  struct imapc_mailbox *mbox)
+{
+	struct imapc_msgmap *msgmap;
+	const char *atom;
+	struct seq_range_iter iter;
+	ARRAY_TYPE(seq_range) rseqs;
+	unsigned int n;
+	uint32_t rseq, lseq, uid;
+	ARRAY_TYPE(keyword_indexes) keywords;
+	struct mail_keywords *kw;
+	unsigned int pop3_deleted_kw_idx;
+
+	i_free_and_null(mbox->sync_gmail_pop3_search_tag);
+
+	/* It should contain ALL <seqset>  */
+	t_array_init(&rseqs, 64);
+	if (!imap_arg_atom_equals(&args[0], "ALL") ||
+	    !imap_arg_get_atom(&args[1], &atom) ||
+	    imap_seq_set_parse(atom, &rseqs) < 0) {
+		i_error("Invalid gmail-pop3 ESEARCH reply");
+		return;
+	}
+
+	mail_index_keyword_lookup_or_create(mbox->box.index,
+		mbox->storage->set->pop3_deleted_flag, &pop3_deleted_kw_idx);
+
+	t_array_init(&keywords, 1);
+	array_append(&keywords, &pop3_deleted_kw_idx, 1);
+	kw = mail_index_keywords_create_from_indexes(mbox->box.index, &keywords);
+
+	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
+	seq_range_array_iter_init(&iter, &rseqs); n = 0;
+	while (seq_range_array_iter_nth(&iter, n++, &rseq)) {
+		if (rseq > imapc_msgmap_count(msgmap)) {
+			/* we haven't even seen this message yet */
+			break;
+		}
+		uid = imapc_msgmap_rseq_to_uid(msgmap, rseq);
+		if (!mail_index_lookup_seq(mbox->delayed_sync_view,
+					   uid, &lseq))
+			continue;
+
+		/* add the pop3_deleted_flag */
+		mail_index_update_keywords(mbox->delayed_sync_trans,
+					   lseq, MODIFY_ADD, kw);
+	}
+	mail_index_keywords_unref(&kw);
+}
+
+static void imapc_untagged_esearch(const struct imapc_untagged_reply *reply,
+				   struct imapc_mailbox *mbox)
+{
+	const struct imap_arg *tag_list;
+	const char *str;
+
+	if (mbox == NULL || !imap_arg_get_list(reply->args, &tag_list))
+		return;
+
+	/* ESEARCH begins with (TAG <tag>) */
+	if (!imap_arg_atom_equals(&tag_list[0], "TAG") ||
+	    !imap_arg_get_string(&tag_list[1], &str) ||
+	    tag_list[2].type != IMAP_ARG_EOL)
+		return;
+
+	/* for now the only ESEARCH reply that we have is for getting GMail's
+	   list of hidden POP3 messages. */
+	if (mbox->sync_gmail_pop3_search_tag != NULL &&
+	    strcmp(mbox->sync_gmail_pop3_search_tag, str) == 0)
+		imapc_untagged_esearch_gmail_pop3(reply->args+1, mbox);
+}
+
+static void
 imapc_resp_text_uidvalidity(const struct imapc_untagged_reply *reply,
 			    struct imapc_mailbox *mbox)
 {
@@ -512,6 +586,8 @@ void imapc_mailbox_register_callbacks(struct imapc_mailbox *mbox)
 					imapc_untagged_fetch);
 	imapc_mailbox_register_untagged(mbox, "EXPUNGE",
 					imapc_untagged_expunge);
+	imapc_mailbox_register_untagged(mbox, "ESEARCH",
+					imapc_untagged_esearch);
 	imapc_mailbox_register_resp_text(mbox, "UIDVALIDITY",
 					 imapc_resp_text_uidvalidity);
 	imapc_mailbox_register_resp_text(mbox, "UIDNEXT",
