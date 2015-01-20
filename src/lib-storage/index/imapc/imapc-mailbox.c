@@ -263,7 +263,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	uint32_t fetch_uid, uid;
 	unsigned int i, j;
 	ARRAY_TYPE(const_string) keywords = ARRAY_INIT;
-	bool seen_flags = FALSE;
+	bool seen_flags = FALSE, have_labels = FALSE;
 
 	if (mbox == NULL || rseq == 0 || !imap_arg_get_list(reply->args, &list))
 		return;
@@ -293,6 +293,12 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 					array_append(&keywords, &atom, 1);
 				}
 			}
+		} else if (strcasecmp(atom, "X-GM-LABELS") == 0 &&
+			   IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_LABELS_KEYWORD)) {
+			if (!imap_arg_get_list(&list[i+1], &flags_list))
+				return;
+			if (flags_list[0].type != IMAP_ARG_EOL)
+				have_labels = TRUE;
 		}
 	}
 	/* FIXME: need to do something about recent flags */
@@ -350,6 +356,14 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		t_array_init(&old_kws, 8);
 		mail_index_lookup_keywords(mbox->delayed_sync_view, lseq,
 					   &old_kws);
+
+		if (have_labels) {
+			/* add keyword for mails that have GMail labels.
+			   this can be used for "All Mail" mailbox migrations
+			   with dsync */
+			atom = "$GMailHaveLabels";
+			array_append(&keywords, &atom, 1);
+		}
 
 		array_append_zero(&keywords);
 		kw = mail_index_keywords_create(mbox->box.index,

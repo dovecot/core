@@ -316,8 +316,13 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 		/* we'll resync existing messages' flags and add new messages.
 		   adding new messages requires sync locking to avoid
 		   duplicates. */
-		imapc_sync_cmd(ctx, t_strdup_printf(
-			"UID FETCH %u:* FLAGS", mbox->sync_fetch_first_uid));
+		string_t *cmd = t_str_new(64);
+
+		str_printfa(cmd, "UID FETCH %u:* (FLAGS", mbox->sync_fetch_first_uid);
+		if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_LABELS_KEYWORD))
+			str_append(cmd, " X-GM-LABELS");
+		str_append_c(cmd, ')');
+		imapc_sync_cmd(ctx, str_c(cmd));
 		mbox->sync_fetch_first_uid = 0;
 	}
 
@@ -352,7 +357,10 @@ void imapc_sync_mailbox_reopened(struct imapc_mailbox *mbox)
 	mbox->sync_next_lseq = 1;
 	mbox->sync_next_rseq = 1;
 
-	imapc_sync_cmd(ctx, "UID FETCH 1:* FLAGS");
+	if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_LABELS_KEYWORD))
+		imapc_sync_cmd(ctx, "UID FETCH 1:* FLAGS");
+	else
+		imapc_sync_cmd(ctx, "UID FETCH 1:* (FLAGS X-GM-LABELS)");
 }
 
 static int
