@@ -186,6 +186,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	brain->alt_char = set->mailbox_alt_char == '\0' ? '_' :
 		set->mailbox_alt_char;
 	brain->sync_since_timestamp = set->sync_since_timestamp;
+	brain->sync_flag = p_strdup(brain->pool, set->sync_flag);
 	brain->sync_box = p_strdup(brain->pool, set->sync_box);
 	brain->exclude_mailboxes = set->exclude_mailboxes == NULL ? NULL :
 		p_strarray_dup(brain->pool, set->exclude_mailboxes);
@@ -223,6 +224,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	ibc_set.virtual_all_box = set->virtual_all_box;
 	ibc_set.exclude_mailboxes = set->exclude_mailboxes;
 	ibc_set.sync_since_timestamp = set->sync_since_timestamp;
+	ibc_set.sync_flags = set->sync_flag;
 	memcpy(ibc_set.sync_box_guid, set->sync_box_guid,
 	       sizeof(ibc_set.sync_box_guid));
 	ibc_set.sync_type = sync_type;
@@ -471,6 +473,7 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 	brain->exclude_mailboxes = ibc_set->exclude_mailboxes == NULL ? NULL :
 		p_strarray_dup(brain->pool, ibc_set->exclude_mailboxes);
 	brain->sync_since_timestamp = ibc_set->sync_since_timestamp;
+	brain->sync_flag = p_strdup(brain->pool, ibc_set->sync_flags);
 	memcpy(brain->sync_box_guid, ibc_set->sync_box_guid,
 	       sizeof(brain->sync_box_guid));
 	i_assert(brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_UNKNOWN);

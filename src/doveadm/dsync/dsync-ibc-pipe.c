@@ -172,6 +172,8 @@ dsync_ibc_pipe_send_handshake(struct dsync_ibc *ibc,
 		p_strarray_dup(item->pool, set->exclude_mailboxes);
 	memcpy(item->u.set.sync_box_guid, set->sync_box_guid,
 	       sizeof(item->u.set.sync_box_guid));
+	item->u.set.sync_since_timestamp = set->sync_since_timestamp;
+	item->u.set.sync_flags = p_strdup(item->pool, set->sync_flags);
 }
 
 static enum dsync_ibc_recv_ret

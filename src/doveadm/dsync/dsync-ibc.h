@@ -57,6 +57,8 @@ struct dsync_ibc_settings {
 	const char *const *exclude_mailboxes;
 	/* Sync only mails with received timestamp at least this high. */
 	time_t sync_since_timestamp;
+	/* Sync only mails with specified flags. */
+	const char *sync_flags;
 
 	enum dsync_brain_sync_type sync_type;
 	enum dsync_brain_flags brain_flags;

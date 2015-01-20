@@ -14,6 +14,7 @@
 #include "strescape.h"
 #include "var-expand.h"
 #include "settings-parser.h"
+#include "imap-util.h"
 #include "master-service.h"
 #include "master-service-ssl-settings.h"
 #include "mail-storage.h"
@@ -37,7 +38,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+1a:dEfg:l:m:n:NPr:Rs:t:Ux:"
+#define DSYNC_COMMON_GETOPT_ARGS "+1a:dEfF:g:l:m:n:NPr:Rs:t:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 /* The broken_char is mainly set to get a proper error message when trying to
    convert a mailbox with a name that can't be used properly translated between
@@ -56,6 +57,7 @@ struct dsync_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 	enum dsync_brain_sync_type sync_type;
 	const char *mailbox;
+	const char *sync_flags;
 	const char *virtual_all_box;
 	guid_128_t mailbox_guid;
 	const char *state_input, *rawlog_path;
@@ -544,6 +546,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	}
 	set.sync_since_timestamp = ctx->sync_since_timestamp;
 	set.sync_box = ctx->mailbox;
+	set.sync_flag = ctx->sync_flags;
 	set.virtual_all_box = ctx->virtual_all_box;
 	memcpy(set.sync_box_guid, ctx->mailbox_guid, sizeof(set.sync_box_guid));
 	set.lock_timeout_secs = ctx->lock_timeout;
@@ -924,6 +927,18 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 'f':
 		ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_FULL;
 		break;
+	case 'F': {
+		const char *str = optarg;
+
+		if (strchr(str, ' ') != NULL)
+			i_fatal("-F parameter doesn't support multiple flags currently");
+		if (str[0] == '-')
+			str++;
+		if (str[0] == '\\' && imap_parse_system_flag(str) == 0)
+			i_fatal("Invalid system flag given for -F parameter: '%s'", str);
+		ctx->sync_flags = optarg;
+		break;
+	}
 	case 'g':
 		if (optarg[0] == '\0')
 			ctx->no_mail_sync = TRUE;

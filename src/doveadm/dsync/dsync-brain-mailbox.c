@@ -222,6 +222,7 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 					  remote_dsync_box->highest_modseq,
 					  remote_dsync_box->highest_pvt_modseq,
 					  brain->sync_since_timestamp,
+					  brain->sync_flag,
 					  import_flags);
 }
 

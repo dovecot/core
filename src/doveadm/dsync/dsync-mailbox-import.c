@@ -63,6 +63,10 @@ struct dsync_mailbox_importer {
 	uint64_t remote_highest_modseq, remote_highest_pvt_modseq;
 	time_t sync_since_timestamp;
 
+	enum mail_flags sync_flag;
+	const char *sync_keyword;
+	bool sync_flag_dontwant;
+
 	struct mailbox_transaction_context *trans, *ext_trans;
 	struct mail_search_context *search_ctx;
 	struct mail *mail, *ext_mail;
@@ -187,7 +191,7 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  uint32_t remote_first_recent_uid,
 			  uint64_t remote_highest_modseq,
 			  uint64_t remote_highest_pvt_modseq,
-			  time_t sync_since_timestamp,
+			  time_t sync_since_timestamp, const char *sync_flag,
 			  enum dsync_mailbox_import_flags flags)
 {
 	struct dsync_mailbox_importer *importer;
@@ -211,6 +215,16 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer->remote_highest_pvt_modseq = remote_highest_pvt_modseq;
 	importer->sync_since_timestamp = sync_since_timestamp;
 	importer->stateful_import = importer->last_common_uid_found;
+	if (sync_flag != NULL) {
+		if (sync_flag[0] == '-') {
+			importer->sync_flag_dontwant = TRUE;
+			sync_flag++;
+		}
+		if (sync_flag[0] == '\\')
+			importer->sync_flag = imap_parse_system_flag(sync_flag);
+		else
+			importer->sync_keyword = p_strdup(pool, sync_flag);
+	}
 
 	hash_table_create(&importer->import_guids, pool, 0, str_hash, strcmp);
 	hash_table_create_direct(&importer->import_uids, pool, 0);
@@ -1226,11 +1240,72 @@ dsync_mailbox_import_flag_change(struct dsync_mailbox_importer *importer,
 		mail_update_pvt_modseq(mail, new_modseq);
 }
 
+static bool
+dsync_mail_change_have_keyword(const struct dsync_mail_change *change,
+			       const char *keyword)
+{
+	const char *const *strp;
+
+	array_foreach(&change->keyword_changes, strp) {
+		switch ((*strp)[0]) {
+		case KEYWORD_CHANGE_FINAL:
+		case KEYWORD_CHANGE_ADD_AND_FINAL:
+			if (strcasecmp((*strp)+1, keyword) == 0)
+				return TRUE;
+			break;
+		default:
+			break;
+		}
+	}
+	return FALSE;
+}
+
+static bool
+dsync_mailbox_import_want_change(struct dsync_mailbox_importer *importer,
+				 const struct dsync_mail_change *change,
+				 const char **result_r)
+{
+	if (importer->sync_since_timestamp > 0) {
+		i_assert(change->received_timestamp > 0);
+		if (change->received_timestamp < importer->sync_since_timestamp) {
+			/* mail has too old timestamp - skip it */
+			*result_r = "Ignoring missing local mail with too old timestamp";
+			return FALSE;
+		}
+	}
+	if (importer->sync_flag != 0) {
+		bool have_flag = (change->final_flags & importer->sync_flag) != 0;
+
+		if (have_flag && importer->sync_flag_dontwant) {
+			*result_r = "Ignoring missing local mail that doesn't have wanted flags";
+			return FALSE;
+		}
+		if (!have_flag && !importer->sync_flag_dontwant) {
+			*result_r = "Ignoring missing local mail that has unwanted flags";
+			return FALSE;
+		}
+	}
+	if (importer->sync_keyword != NULL) {
+		bool have_kw = dsync_mail_change_have_keyword(change, importer->sync_keyword);
+
+		if (have_kw && importer->sync_flag_dontwant) {
+			*result_r = "Ignoring missing local mail that doesn't have wanted keywords";
+			return FALSE;
+		}
+		if (!have_kw && !importer->sync_flag_dontwant) {
+			*result_r = "Ignoring missing local mail that has unwanted keywords";
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
 static void
 dsync_mailbox_import_save(struct dsync_mailbox_importer *importer,
 			  const struct dsync_mail_change *change)
 {
 	struct dsync_mail_change *save;
+	const char *result;
 
 	i_assert(change->guid != NULL);
 
@@ -1241,13 +1316,8 @@ dsync_mailbox_import_save(struct dsync_mailbox_importer *importer,
 		dsync_mailbox_import_flag_change(importer, change);
 		return;
 	}
-	if (importer->sync_since_timestamp > 0) {
-		i_assert(change->received_timestamp > 0);
-		if (change->received_timestamp < importer->sync_since_timestamp) {
-			/* mail has too old timestamp - skip it */
-			return;
-		}
-	}
+	if (!dsync_mailbox_import_want_change(importer, change, &result))
+		return;
 
 	save = p_new(importer->pool, struct dsync_mail_change, 1);
 	dsync_mail_change_dup(importer->pool, change, save);
@@ -1495,10 +1565,9 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 			return;
 		}
 		i_assert(change->guid != NULL);
-		if (importer->sync_since_timestamp > 0 &&
-		    change->received_timestamp < importer->sync_since_timestamp) {
-			*result_r = "Ignoring missing local mail with too old timestamp";
-		} else if (importer->local_uid_next <= change->uid) {
+		if (!dsync_mailbox_import_want_change(importer, change, result_r))
+			;
+		else if (importer->local_uid_next <= change->uid) {
 			dsync_mailbox_common_uid_found(importer);
 			*result_r = "Mail's UID is above local UIDNEXT";
 		} else if (importer->revert_local_changes) {
@@ -1538,11 +1607,8 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 		return;
 	}
 	/* mail exists remotely, but doesn't exist locally. */
-	if (importer->sync_since_timestamp > 0 &&
-	    change->received_timestamp < importer->sync_since_timestamp) {
-		*result_r = "Ignoring missing local mail with too old timestamp";
+	if (!dsync_mailbox_import_want_change(importer, change, result_r))
 		return;
-	}
 	if (importer->revert_local_changes &&
 	    change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE) {
 		dsync_mailbox_revert_missing(importer, change);
