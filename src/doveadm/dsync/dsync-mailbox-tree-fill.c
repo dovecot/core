@@ -268,17 +268,28 @@ dsync_mailbox_tree_fix_guid_duplicate(struct dsync_mailbox_tree *tree,
 }
 
 static bool
-dsync_mailbox_info_is_excluded(const struct mailbox_info *info,
-			       const char *const *exclude_mailboxes)
+dsync_mailbox_info_is_wanted(const struct mailbox_info *info,
+			     const char *box_name,
+			     const char *const *exclude_mailboxes)
 {
 	const char *const *info_specialuses;
 	unsigned int i;
 
-	if (exclude_mailboxes == NULL)
-		return FALSE;
+	if (exclude_mailboxes == NULL &&
+	    (box_name == NULL || box_name[0] != '\\'))
+		return TRUE;
 
 	info_specialuses = info->special_use == NULL ? NULL :
 		t_strsplit(info->special_use, " ");
+	/* include */
+	if (box_name != NULL && box_name[0] == '\\') {
+		if (info_specialuses == NULL ||
+		    !str_array_icase_find(info_specialuses, box_name))
+			return FALSE;
+	}
+	/* exclude */
+	if (exclude_mailboxes == NULL)
+		return TRUE;
 	for (i = 0; exclude_mailboxes[i] != NULL; i++) {
 		const char *exclude = exclude_mailboxes[i];
 
@@ -286,14 +297,14 @@ dsync_mailbox_info_is_excluded(const struct mailbox_info *info,
 			/* special-use */
 			if (info_specialuses != NULL &&
 			    str_array_icase_find(info_specialuses, exclude))
-				return TRUE;
+				return FALSE;
 		} else {
 			/* mailbox with wildcards */
 			if (wildcard_match(info->vname, exclude))
-				return TRUE;
+				return FALSE;
 		}
 	}
-	return FALSE;
+	return TRUE;
 }
 
 int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
@@ -314,7 +325,8 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 	struct mailbox_list_iterate_context *iter;
 	struct dsync_mailbox_node *node, *dup_node1, *dup_node2;
 	const struct mailbox_info *info;
-	const char *list_pattern = box_name != NULL ? box_name : "*";
+	const char *list_pattern =
+		box_name != NULL && box_name[0] != '\\' ? box_name : "*";
 	int ret = 0;
 
 	i_assert(mail_namespace_get_sep(ns) == tree->sep);
@@ -331,7 +343,8 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 	/* first add all of the existing mailboxes */
 	iter = mailbox_list_iter_init(ns->list, list_pattern, list_flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
-		if (!dsync_mailbox_info_is_excluded(info, exclude_mailboxes)) {
+		if (dsync_mailbox_info_is_wanted(info, box_name,
+						 exclude_mailboxes)) {
 			if (dsync_mailbox_tree_add(tree, info, box_guid) < 0)
 				ret = -1;
 		}
