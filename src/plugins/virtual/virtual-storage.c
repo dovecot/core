@@ -420,6 +420,7 @@ virtual_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
 static int virtual_mailbox_open(struct mailbox *box)
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	bool broken;
 	int ret = 0;
 
 	if (virtual_mailbox_is_in_open_stack(mbox->storage, box->name)) {
@@ -447,6 +448,12 @@ static int virtual_mailbox_open(struct mailbox *box)
 		mail_index_ext_register(mbox->box.index, "virtual", 0,
 			sizeof(struct virtual_mail_index_record),
 			sizeof(uint32_t));
+
+	if (virtual_mailbox_ext_header_read(mbox, box->view, &broken) < 0) {
+		virtual_mailbox_close_internal(mbox);
+		index_storage_mailbox_close(box);
+		return -1;
+	}
 	return 0;
 }
 

@@ -172,6 +172,10 @@ extern struct mail_vfuncs virtual_mail_vfuncs;
 int virtual_config_read(struct virtual_mailbox *mbox);
 void virtual_config_free(struct virtual_mailbox *mbox);
 
+int virtual_mailbox_ext_header_read(struct virtual_mailbox *mbox,
+				    struct mail_index_view *view,
+				    bool *broken_r);
+
 struct virtual_backend_box *
 virtual_backend_box_lookup_name(struct virtual_mailbox *mbox, const char *name);
 struct virtual_backend_box *

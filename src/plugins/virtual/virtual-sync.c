@@ -125,25 +125,27 @@ static int bbox_mailbox_id_cmp(struct virtual_backend_box *const *b1,
 }
 
 static int
-virtual_sync_get_backend_box(struct virtual_sync_context *ctx, const char *name,
+virtual_sync_get_backend_box(struct virtual_mailbox *mbox, const char *name,
 			     struct virtual_backend_box **bbox_r)
 {
-	*bbox_r = virtual_backend_box_lookup_name(ctx->mbox, name);
-	if (*bbox_r != NULL || !ctx->mbox->sync_initialized)
+	*bbox_r = virtual_backend_box_lookup_name(mbox, name);
+	if (*bbox_r != NULL || !mbox->sync_initialized)
 		return 0;
 
 	/* another process just added a new mailbox.
 	   we can't handle this currently. */
-	ctx->mbox->inconsistent = TRUE;
-	mail_storage_set_error(ctx->mbox->box.storage, MAIL_ERROR_TEMP,
+	mbox->inconsistent = TRUE;
+	mail_storage_set_error(mbox->box.storage, MAIL_ERROR_TEMP,
 		"Backend mailbox added by another session. "
 		"Reopen the virtual mailbox.");
 	return -1;
 }
 
-static int virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
+int virtual_mailbox_ext_header_read(struct virtual_mailbox *mbox,
+				    struct mail_index_view *view,
+				    bool *broken_r)
 {
-	const char *box_path = mailbox_get_path(&ctx->mbox->box);
+	const char *box_path = mailbox_get_path(&mbox->box);
 	const struct virtual_mail_index_header *ext_hdr;
 	const struct mail_index_header *hdr;
 	const struct virtual_mail_index_mailbox_record *mailboxes;
@@ -154,26 +156,26 @@ static int virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 	uint32_t prev_mailbox_id;
 	int ret = 1;
 
-	hdr = mail_index_get_header(ctx->sync_view);
-	mail_index_get_header_ext(ctx->sync_view, ctx->mbox->virtual_ext_id,
+	hdr = mail_index_get_header(view);
+	mail_index_get_header_ext(view, mbox->virtual_ext_id,
 				  &ext_data, &ext_size);
 	ext_hdr = ext_data;
-	if (ctx->mbox->sync_initialized &&
-	    ctx->mbox->prev_uid_validity == hdr->uid_validity &&
+	if (mbox->sync_initialized &&
+	    mbox->prev_uid_validity == hdr->uid_validity &&
 	    ext_size >= sizeof(*ext_hdr) &&
-	    ctx->mbox->prev_change_counter == ext_hdr->change_counter) {
+	    mbox->prev_change_counter == ext_hdr->change_counter) {
 		/* fully refreshed */
 		return 1;
 	}
 
-	ctx->mbox->prev_uid_validity = hdr->uid_validity;
+	mbox->prev_uid_validity = hdr->uid_validity;
 	if (ext_hdr == NULL ||
-	    ctx->mbox->search_args_crc32 != ext_hdr->search_args_crc32) {
+	    mbox->search_args_crc32 != ext_hdr->search_args_crc32) {
 		mailboxes = NULL;
 		ext_name_offset = 0;
 		ext_mailbox_count = 0;
 	} else {
-		ctx->mbox->prev_change_counter = ext_hdr->change_counter;
+		mbox->prev_change_counter = ext_hdr->change_counter;
 		mailboxes = (const void *)(ext_hdr + 1);
 		ext_name_offset = sizeof(*ext_hdr) +
 			ext_hdr->mailbox_count * sizeof(*mailboxes);
@@ -181,7 +183,7 @@ static int virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 		    ext_hdr->mailbox_count > INT_MAX/sizeof(*mailboxes)) {
 			i_error("virtual index %s: Broken mailbox_count header",
 				box_path);
-			ctx->index_broken = TRUE;
+			*broken_r = TRUE;
 			ext_mailbox_count = 0;
 			ret = 0;
 		} else {
@@ -215,7 +217,7 @@ static int virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 
 			nameptr = CONST_PTR_OFFSET(ext_data, ext_name_offset);
 			name = t_strndup(nameptr, mailboxes[i].name_len);
-			if (virtual_sync_get_backend_box(ctx, name, &bbox) < 0)
+			if (virtual_sync_get_backend_box(mbox, name, &bbox) < 0)
 				ret = -1;
 		} T_END;
 
@@ -237,23 +239,23 @@ static int virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 		prev_mailbox_id = mailboxes[i].id;
 	}
 	if (i < ext_mailbox_count) {
-		ctx->index_broken = TRUE;
+		*broken_r = TRUE;
 		ret = 0;
 	}
-	ctx->mbox->highest_mailbox_id = ext_hdr == NULL ? 0 :
+	mbox->highest_mailbox_id = ext_hdr == NULL ? 0 :
 		ext_hdr->highest_mailbox_id;
-	ctx->mbox->sync_initialized = TRUE;
+	mbox->sync_initialized = TRUE;
 
 	/* assign new mailbox IDs if any are missing */
-	bboxes = array_get_modifiable(&ctx->mbox->backend_boxes, &count);
+	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; i++) {
 		if (bboxes[i]->mailbox_id == 0) {
-			bboxes[i]->mailbox_id = ++ctx->mbox->highest_mailbox_id;
+			bboxes[i]->mailbox_id = ++mbox->highest_mailbox_id;
 			ret = 0;
 		}
 	}
 	/* sort the backend mailboxes by mailbox_id. */
-	array_sort(&ctx->mbox->backend_boxes, bbox_mailbox_id_cmp);
+	array_sort(&mbox->backend_boxes, bbox_mailbox_id_cmp);
 	return ret;
 }
 
@@ -1628,6 +1630,7 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 {
 	struct virtual_sync_context *ctx;
 	enum mail_index_sync_flags index_sync_flags;
+	bool broken;
 	int ret;
 
 	ctx = i_new(struct virtual_sync_context, 1);
@@ -1656,11 +1659,13 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 		return ret;
 	}
 
-	ret = virtual_sync_ext_header_read(ctx);
+	ret = virtual_mailbox_ext_header_read(mbox, ctx->sync_view, &broken);
 	if (ret < 0)
 		return virtual_sync_finish(ctx, FALSE);
 	if (ret == 0)
 		ctx->ext_header_rewrite = TRUE;
+	if (broken)
+		ctx->index_broken = TRUE;
 	/* apply changes from virtual index to backend mailboxes */
 	if (virtual_sync_index_changes(ctx) < 0)
 		return virtual_sync_finish(ctx, FALSE);
