@@ -18,6 +18,8 @@ void fts_expunge_log_append_next(struct fts_expunge_log_append_ctx *ctx,
 				 const guid_128_t mailbox_guid,
 				 uint32_t uid);
 int fts_expunge_log_append_commit(struct fts_expunge_log_append_ctx **ctx);
+/* Do not commit non-backed structures, abort them after use. */
+int fts_expunge_log_append_abort(struct fts_expunge_log_append_ctx **ctx);
 
 int fts_expunge_log_uid_count(struct fts_expunge_log *log,
 			      unsigned int *expunges_r);

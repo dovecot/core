@@ -182,7 +182,7 @@ fts_expunge_log_append_begin(struct fts_expunge_log *log)
 	ctx->pool = pool;
 	hash_table_create(&ctx->mailboxes, pool, 0, guid_128_hash, guid_128_cmp);
 
-	if (fts_expunge_log_reopen_if_needed(log, TRUE) < 0)
+	if (log != NULL && fts_expunge_log_reopen_if_needed(log, TRUE) < 0)
 		ctx->failed = TRUE;
 	return ctx;
 }
@@ -266,6 +266,9 @@ fts_expunge_log_write(struct fts_expunge_log_append_ctx *ctx)
 	uint32_t expunge_count, *e;
 	int ret;
 
+	/* Unbacked expunge logs cannot be written, by definition */
+	i_assert(log != NULL);
+
 	/* try to append to the latest file */
 	if (fts_expunge_log_reopen_if_needed(log, TRUE) < 0)
 		return -1;
@@ -311,31 +314,27 @@ fts_expunge_log_write(struct fts_expunge_log_append_ctx *ctx)
 	return ret;
 }
 
-int fts_expunge_log_append_commit(struct fts_expunge_log_append_ctx **_ctx)
+static int fts_expunge_log_append_finalise(struct fts_expunge_log_append_ctx **_ctx,
+					   bool commit)
 {
 	struct fts_expunge_log_append_ctx *ctx = *_ctx;
 	int ret = ctx->failed ? -1 : 0;
 
 	*_ctx = NULL;
-	if (ret == 0)
+	if (commit && ret == 0)
 		ret = fts_expunge_log_write(ctx);
 
 	hash_table_destroy(&ctx->mailboxes);
 	pool_unref(&ctx->pool);
 	return ret;
 }
-
-int fts_expunge_log_uid_count(struct fts_expunge_log *log,
-			      unsigned int *expunges_r)
+int fts_expunge_log_append_commit(struct fts_expunge_log_append_ctx **_ctx)
 {
-	int ret;
-
-	if ((ret = fts_expunge_log_reopen_if_needed(log, FALSE)) <= 0) {
-		*expunges_r = 0;
-		return ret;
-	}
-
-	return fts_expunge_log_read_expunge_count(log, expunges_r);
+	return fts_expunge_log_append_finalise(_ctx, TRUE);
+}
+int fts_expunge_log_append_abort(struct fts_expunge_log_append_ctx **_ctx)
+{
+	return fts_expunge_log_append_finalise(_ctx, FALSE);
 }
 
 struct fts_expunge_log_read_ctx *
