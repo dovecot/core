@@ -155,6 +155,7 @@ void imapc_command_sendf(struct imapc_command *cmd, const char *cmd_fmt, ...)
 	ATTR_FORMAT(2, 3);
 void imapc_command_sendvf(struct imapc_command *cmd,
 			  const char *cmd_fmt, va_list args) ATTR_FORMAT(2, 0);
+const char *imapc_command_get_tag(struct imapc_command *cmd);
 void imapc_command_abort(struct imapc_command **cmd);
 
 void imapc_client_register_untagged(struct imapc_client *client,

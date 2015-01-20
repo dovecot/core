@@ -1610,6 +1610,11 @@ static void imapc_command_free(struct imapc_command *cmd)
 	pool_unref(&cmd->pool);
 }
 
+const char *imapc_command_get_tag(struct imapc_command *cmd)
+{
+	return t_strdup_printf("%u", cmd->tag);
+}
+
 void imapc_command_abort(struct imapc_command **_cmd)
 {
 	struct imapc_command *cmd = *_cmd;
