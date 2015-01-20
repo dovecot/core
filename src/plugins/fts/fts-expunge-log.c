@@ -195,7 +195,7 @@ fts_expunge_log_mailbox_alloc(struct fts_expunge_log_append_ctx *ctx,
 	struct fts_expunge_log_mailbox *mailbox;
 
 	mailbox = p_new(ctx->pool, struct fts_expunge_log_mailbox, 1);
-	memcpy(mailbox->guid, mailbox_guid, sizeof(mailbox->guid));
+	guid_128_copy(mailbox->guid, mailbox_guid);
 	p_array_init(&mailbox->uids, ctx->pool, 16);
 
 	guid_p = mailbox->guid;
@@ -211,7 +211,7 @@ fts_expunge_log_append_mailbox(struct fts_expunge_log_append_ctx *ctx,
 	struct fts_expunge_log_mailbox *mailbox;
 
 	if (ctx->prev_mailbox != NULL &&
-	    memcmp(mailbox_guid, ctx->prev_mailbox->guid, GUID_128_SIZE) == 0)
+	    guid_128_equals(mailbox_guid, ctx->prev_mailbox->guid))
 		mailbox = ctx->prev_mailbox;
 	else {
 		mailbox = hash_table_lookup(ctx->mailboxes, guid_p);
