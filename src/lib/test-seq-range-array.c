@@ -82,8 +82,8 @@ static void test_seq_range_array_remove_nth(void)
 
 static void test_seq_range_array_random(void)
 {
-#define SEQ_RANGE_TEST_BUFSIZE 20
-#define SEQ_RANGE_TEST_COUNT 10000
+#define SEQ_RANGE_TEST_BUFSIZE 100
+#define SEQ_RANGE_TEST_COUNT 20000
 	unsigned char shadowbuf[SEQ_RANGE_TEST_BUFSIZE];
 	ARRAY_TYPE(seq_range) range;
 	const struct seq_range *seqs;
@@ -100,12 +100,18 @@ static void test_seq_range_array_random(void)
 		test = rand() % 4;
 		switch (test) {
 		case 0:
-			seq_range_array_add(&range, seq1);
+			ret = seq_range_array_add(&range, seq1) ? 0 : 1; /* FALSE == added */
+			ret2 = shadowbuf[seq1] == 0 ? 1 : 0;
 			shadowbuf[seq1] = 1;
 			break;
 		case 1:
-			seq_range_array_add_range(&range, seq1, seq2);
-			memset(shadowbuf + seq1, 1, seq2 - seq1 + 1);
+			ret = seq_range_array_add_range_count(&range, seq1, seq2);
+			for (ret2 = 0; seq1 <= seq2; seq1++) {
+				if (shadowbuf[seq1] == 0) {
+					ret2++;
+					shadowbuf[seq1] = 1;
+				}
+			}
 			break;
 		case 2:
 			ret = seq_range_array_remove(&range, seq1) ? 1 : 0;

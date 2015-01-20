@@ -11,7 +11,13 @@ struct seq_range_iter {
 	unsigned int prev_n, prev_idx;
 };
 
-/* Add sequrence to range. If the array isn't created yet, create it with
+static inline uint32_t ATTR_PURE seq_range_length(struct seq_range *range)
+{
+	i_assert(range->seq2 >= range->seq1);
+	return range->seq2 - range->seq1 + 1;
+}
+
+/* Add sequence to range. If the array isn't created yet, create it with
    initial size of init_count. */
 bool ATTR_NOWARN_UNUSED_RESULT
 seq_range_array_add(ARRAY_TYPE(seq_range) *array, uint32_t seq);
@@ -21,6 +27,8 @@ void seq_range_array_add_with_init(ARRAY_TYPE(seq_range) *array,
 				   unsigned int init_count, uint32_t seq);
 void seq_range_array_add_range(ARRAY_TYPE(seq_range) *array,
 			       uint32_t seq1, uint32_t seq2);
+unsigned int seq_range_array_add_range_count(ARRAY_TYPE(seq_range) *array,
+					     uint32_t seq1, uint32_t seq2);
 void seq_range_array_merge(ARRAY_TYPE(seq_range) *dest,
 			   const ARRAY_TYPE(seq_range) *src);
 /* Remove the given sequrence from range. Returns TRUE if it was found. */
