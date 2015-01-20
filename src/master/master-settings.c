@@ -644,6 +644,7 @@ settings_have_auth_unix_listeners_in(const struct master_settings *set,
 {
 	struct service_settings *const *services;
 	struct file_listener_settings *const *uls;
+	unsigned int dir_len = strlen(dir);
 
 	array_foreach(&set->services, services) {
 		struct service_settings *service = *services;
@@ -652,7 +653,8 @@ settings_have_auth_unix_listeners_in(const struct master_settings *set,
 			array_foreach(&service->unix_listeners, uls) {
 				struct file_listener_settings *u = *uls;
 
-				if (strncmp(u->path, dir, strlen(dir)) == 0)
+				if (strncmp(u->path, dir, dir_len) == 0 &&
+				    u->path[dir_len] == '/')
 					return TRUE;
 			}
 		}
