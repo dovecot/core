@@ -135,6 +135,7 @@ sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 		dbox_file_unref(&dest_file);
 		return ret;
 	}
+	((struct sdbox_file *)dest_file)->written_to_disk = TRUE;
 
 	dbox_save_add_to_index(ctx);
 	index_copy_cache_fields(_ctx, mail, ctx->seq);
