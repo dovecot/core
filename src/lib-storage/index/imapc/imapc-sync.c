@@ -281,7 +281,7 @@ imapc_sync_send_commands(struct imapc_sync_context *ctx, uint32_t first_uid)
 	string_t *cmd = t_str_new(64);
 
 	str_printfa(cmd, "UID FETCH %u:* (FLAGS", first_uid);
-	if (IMAPC_BOX_HAS_FEATURE(ctx->mbox, IMAPC_FEATURE_GMAIL_LABELS_KEYWORD)) {
+	if (IMAPC_BOX_HAS_FEATURE(ctx->mbox, IMAPC_FEATURE_GMAIL_MIGRATION)) {
 		/* do this only for the \All mailbox */
 		enum mailbox_info_flags flags;
 
@@ -293,7 +293,7 @@ imapc_sync_send_commands(struct imapc_sync_context *ctx, uint32_t first_uid)
 	str_append_c(cmd, ')');
 	imapc_sync_cmd(ctx, str_c(cmd));
 
-	if (IMAPC_BOX_HAS_FEATURE(ctx->mbox, IMAPC_FEATURE_GMAIL_POP3) &&
+	if (IMAPC_BOX_HAS_FEATURE(ctx->mbox, IMAPC_FEATURE_GMAIL_MIGRATION) &&
 	    ctx->mbox->storage->set->pop3_deleted_flag[0] != '\0') {
 		struct imapc_command *cmd;
 

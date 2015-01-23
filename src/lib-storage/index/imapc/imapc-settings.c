@@ -84,8 +84,7 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "rfc822.size", IMAPC_FEATURE_RFC822_SIZE },
 	{ "guid-forced", IMAPC_FEATURE_GUID_FORCED },
 	{ "fetch-headers", IMAPC_FEATURE_FETCH_HEADERS },
-	{ "gmail-labels-keyword", IMAPC_FEATURE_GMAIL_LABELS_KEYWORD },
-	{ "gmail-pop3", IMAPC_FEATURE_GMAIL_POP3 },
+	{ "gmail-migration", IMAPC_FEATURE_GMAIL_MIGRATION },
 	{ NULL, 0 }
 };
 

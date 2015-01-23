@@ -295,7 +295,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 				}
 			}
 		} else if (strcasecmp(atom, "X-GM-LABELS") == 0 &&
-			   IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_LABELS_KEYWORD)) {
+			   IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_MIGRATION)) {
 			if (!imap_arg_get_list(&list[i+1], &flags_list))
 				return;
 			if (flags_list[0].type != IMAP_ARG_EOL)
