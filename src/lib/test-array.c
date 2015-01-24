@@ -32,6 +32,28 @@ static void test_array_foreach(void)
 	test_end();
 }
 
+static void test_array_swap(void)
+{
+	ARRAY(struct foo) foos[3];
+	struct foo nfoo;
+	int i, j;
+
+	test_begin("array swap");
+	for (i = 1; i <= 3; i++) {
+		t_array_init(&foos[i-1], i);
+		for (j = 1; j <= 2*i+1; j++) {
+			nfoo.a = nfoo.b = nfoo.c = j;
+			array_append(&foos[i-1], &nfoo, 1);
+		}
+	}
+	for (i = 0; i < 1000; i++)
+		array_swap(&foos[rand()%3], &foos[rand()%3]);
+	/* Just want size 3, 5, and 7 in any order */
+	test_assert(array_count(&foos[0]) * array_count(&foos[1]) * array_count(&foos[2]) == 3*5*7);
+	test_assert(array_count(&foos[0]) + array_count(&foos[1]) + array_count(&foos[2]) == 3+5+7);
+	test_end();
+}
+
 static int test_int_compare(const int *key, const int *elem)
 {
 	return (*key < *elem) ? -1 :
@@ -192,6 +214,7 @@ void test_array(void)
 	test_array_reverse();
 	test_array_cmp();
 	test_array_cmp_str();
+	test_array_swap();
 }
 
 enum fatal_test_state fatal_array(int stage)

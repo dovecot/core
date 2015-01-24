@@ -271,6 +271,22 @@ array_copy(struct array *dest, unsigned int dest_idx,
 		    count * dest->element_size);
 }
 
+/* Exchange ownership of two arrays, which should have been allocated
+   from the same pool/context. Useful for updating an array with a
+   replacement. */
+static inline void
+array_swap_i(struct array *array1, struct array *array2)
+{
+	buffer_t *buffer = array1->buffer;
+
+	i_assert(array1->element_size == array2->element_size);
+	array1->buffer = array2->buffer;
+	array2->buffer = buffer;
+}
+#define array_swap(array1, array2)					\
+	array_swap_i(&(array1)->arr + ARRAY_TYPES_CHECK(array1, array2), \
+		     &(array2)->arr)
+
 bool array_cmp_i(const struct array *array1,
 		 const struct array *array2) ATTR_PURE;
 #define array_cmp(array1, array2) \
