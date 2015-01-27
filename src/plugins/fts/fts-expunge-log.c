@@ -359,10 +359,25 @@ static int fts_expunge_log_append_finalise(struct fts_expunge_log_append_ctx **_
 	pool_unref(&ctx->pool);
 	return ret;
 }
+
+int fts_expunge_log_uid_count(struct fts_expunge_log *log,
+			      unsigned int *expunges_r)
+{
+	int ret;
+
+	if ((ret = fts_expunge_log_reopen_if_needed(log, FALSE)) <= 0) {
+		*expunges_r = 0;
+		return ret;
+	}
+
+	return fts_expunge_log_read_expunge_count(log, expunges_r);
+}
+
 int fts_expunge_log_append_commit(struct fts_expunge_log_append_ctx **_ctx)
 {
 	return fts_expunge_log_append_finalise(_ctx, TRUE);
 }
+
 int fts_expunge_log_append_abort(struct fts_expunge_log_append_ctx **_ctx)
 {
 	return fts_expunge_log_append_finalise(_ctx, FALSE);
