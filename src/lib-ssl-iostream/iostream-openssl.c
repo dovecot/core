@@ -387,11 +387,13 @@ static bool openssl_iostream_bio_input(struct ssl_iostream *ssl_io)
 		ret = openssl_iostream_read_more(ssl_io, &data, &size);
 		ssl_io->plain_input->real_stream->try_alloc_limit = 0;
 		if (ret == -1 && size == 0 && !bytes_read) {
-			i_free(ssl_io->plain_stream_errstr);
-			ssl_io->plain_stream_errstr =
-				i_strdup(i_stream_get_error(ssl_io->plain_input));
-			ssl_io->plain_stream_errno =
-				ssl_io->plain_input->stream_errno;
+			if (ssl_io->plain_input->stream_errno != 0) {
+				i_free(ssl_io->plain_stream_errstr);
+				ssl_io->plain_stream_errstr =
+					i_strdup(i_stream_get_error(ssl_io->plain_input));
+				ssl_io->plain_stream_errno =
+					ssl_io->plain_input->stream_errno;
+			}
 			ssl_io->closed = TRUE;
 			return FALSE;
 		}
@@ -504,7 +506,7 @@ openssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
 			errstr = strerror(errno);
 		} else {
 			/* EOF. */
-			errno = ECONNRESET;
+			errno = EPIPE;
 			errstr = "Disconnected";
 			break;
 		}
@@ -513,7 +515,7 @@ openssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
 		break;
 	case SSL_ERROR_ZERO_RETURN:
 		/* clean connection closing */
-		errno = ECONNRESET;
+		errno = EPIPE;
 		i_free_and_null(ssl_io->last_error);
 		return -1;
 	case SSL_ERROR_SSL:

@@ -78,7 +78,8 @@ static ssize_t i_stream_ssl_read_real(struct istream_private *stream)
 				io_stream_set_error(&stream->iostream,
 						    "%s", ssl_io->last_error);
 			}
-			stream->istream.stream_errno = errno;
+			if (errno != EPIPE)
+				stream->istream.stream_errno = errno;
 			stream->istream.eof = TRUE;
 			sstream->seen_eof = TRUE;
 			return -1;
