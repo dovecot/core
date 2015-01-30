@@ -27,6 +27,8 @@ struct imap_getmetadata_context {
 	struct imap_metadata_iter *iter;
 	string_t *iter_entry_prefix;
 
+	string_t *delayed_errors;
+
 	unsigned int entry_idx;
 	bool first_entry_sent;
 	bool failed;
@@ -158,8 +160,10 @@ static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 		error_string = imap_metadata_transaction_get_last_error(
 			ctx->trans, &error);
 		if (error != MAIL_ERROR_NOTFOUND && error != MAIL_ERROR_PERM) {
-			client_send_line(client, t_strconcat("* NO ", error_string, NULL));
+			str_printfa(ctx->delayed_errors, "* NO %s\r\n",
+				    error_string);
 			ctx->failed = TRUE;
+			return;
 		}
 	}
 
@@ -265,9 +269,9 @@ cmd_getmetadata_send_entry_tree(struct imap_getmetadata_context *ctx,
 				/* iteration finished, get to the next entry */
 				if (imap_metadata_iter_deinit(&ctx->iter) < 0) {
 					enum mail_error error;
-					client_send_line(client, t_strconcat("* NO ",
-						imap_metadata_transaction_get_last_error(ctx->trans, &error),
-						NULL));
+
+					str_printfa(ctx->delayed_errors, "* NO %s\r\n",
+						imap_metadata_transaction_get_last_error(ctx->trans, &error));
 					ctx->failed = TRUE;
 				}
 				return -1;
@@ -363,6 +367,13 @@ static bool cmd_getmetadata_continue(struct client_command_context *cmd)
 	}
 	if (ctx->first_entry_sent)
 		o_stream_nsend_str(cmd->client->output, ")\r\n");
+
+	if (str_len(ctx->delayed_errors) > 0) {
+		o_stream_nsend(cmd->client->output,
+			       str_data(ctx->delayed_errors),
+			       str_len(ctx->delayed_errors));
+		str_truncate(ctx->delayed_errors, 0);
+	}
 
 	cmd_getmetadata_iter_deinit(ctx);
 	if (ctx->list_iter != NULL)
@@ -469,6 +480,7 @@ bool cmd_getmetadata(struct client_command_context *cmd)
 	ctx->cmd = cmd;
 	ctx->maxsize = (uint32_t)-1;
 	ctx->cmd->context = ctx;
+	ctx->delayed_errors = str_new(cmd->pool, 128);
 
 	if (imap_arg_get_list(&args[0], &options)) {
 		if (!cmd_getmetadata_parse_options(ctx, options))
