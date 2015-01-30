@@ -392,15 +392,14 @@ static void
 replicator_queue_export_user(struct replicator_user *user, string_t *str)
 {
 	str_append_tabescaped(str, user->username);
-	str_printfa(str, "\t%d\t%lld\t%lld\t%lld\t%d\t%lld\t", (int)user->priority,
+	str_printfa(str, "\t%d\t%lld\t%lld\t%lld\t%d\t", (int)user->priority,
 		    (long long)user->last_update,
 		    (long long)user->last_fast_sync,
 		    (long long)user->last_full_sync,
-		    user->last_sync_failed,
-		    (long long)user->last_successful_sync);
+		    user->last_sync_failed);
 	if (user->state != NULL)
 		str_append_tabescaped(str, user->state);
-	str_append_c(str, '\n');
+	str_printfa(str, "\t%lld\n", (long long)user->last_successful_sync);
 }
 
 int replicator_queue_export(struct replicator_queue *queue, const char *path)
