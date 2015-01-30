@@ -108,10 +108,10 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 
 	if (*set->imap_capability == '\0')
 		str_append(client->capability_string, CAPABILITY_STRING);
-	else if (*set->imap_capability != '+')
-		str_append(client->capability_string, set->imap_capability);
-	else {
+	else if (*set->imap_capability != '+') {
 		explicit_capability = TRUE;
+		str_append(client->capability_string, set->imap_capability);
+	} else {
 		str_append(client->capability_string, CAPABILITY_STRING);
 		str_append_c(client->capability_string, ' ');
 		str_append(client->capability_string, set->imap_capability + 1);
