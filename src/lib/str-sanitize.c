@@ -5,7 +5,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 
-static size_t str_sanitize_skip_start(const char *src, size_t max_len)
+static size_t str_sanitize_skip_start(const char *src, size_t max_bytes)
 {
 	unsigned int len;
 	unichar_t chr;
@@ -13,13 +13,13 @@ static size_t str_sanitize_skip_start(const char *src, size_t max_len)
 
 	for (i = 0; src[i] != '\0'; ) {
 		len = uni_utf8_char_bytes(src[i]);
-		if (i + len > max_len || uni_utf8_get_char(src+i, &chr) <= 0)
+		if (i + len > max_bytes || uni_utf8_get_char(src+i, &chr) <= 0)
 			break;
 		if ((unsigned char)src[i] < 32)
 			break;
 		i += len;
 	}
-	i_assert(i <= max_len);
+	i_assert(i <= max_bytes);
 	return i;
 }
 
@@ -43,7 +43,7 @@ static void str_sanitize_truncate_char(string_t *dest, unsigned int initial_pos)
 		str_truncate(dest, len);
 }
 
-void str_sanitize_append(string_t *dest, const char *src, size_t max_len)
+void str_sanitize_append(string_t *dest, const char *src, size_t max_bytes)
 {
 	unsigned int len, initial_pos = str_len(dest);
 	unichar_t chr;
@@ -52,7 +52,7 @@ void str_sanitize_append(string_t *dest, const char *src, size_t max_len)
 
 	for (i = 0; src[i] != '\0'; ) {
 		len = uni_utf8_char_bytes(src[i]);
-		if (i + len > max_len)
+		if (i + len > max_bytes)
 			break;
 		ret = uni_utf8_get_char(src+i, &chr);
 		if (ret <= 0) {
@@ -73,17 +73,17 @@ void str_sanitize_append(string_t *dest, const char *src, size_t max_len)
 	}
 
 	if (src[i] != '\0') {
-		if (max_len < 3)
+		if (max_bytes < 3)
 			str_truncate(dest, initial_pos);
 		else {
-			while (str_len(dest) - initial_pos > max_len-3)
+			while (str_len(dest) - initial_pos > max_bytes-3)
 				str_sanitize_truncate_char(dest, initial_pos);
 		}
 		str_append(dest, "...");
 	}
 }
 
-const char *str_sanitize(const char *src, size_t max_len)
+const char *str_sanitize(const char *src, size_t max_bytes)
 {
 	string_t *str;
 	size_t i;
@@ -91,11 +91,11 @@ const char *str_sanitize(const char *src, size_t max_len)
 	if (src == NULL)
 		return NULL;
 
-	i = str_sanitize_skip_start(src, max_len);
+	i = str_sanitize_skip_start(src, max_bytes);
 	if (src[i] == '\0')
 		return src;
 
-	str = t_str_new(I_MIN(max_len, 256));
-	str_sanitize_append(str, src, max_len);
+	str = t_str_new(I_MIN(max_bytes, 256));
+	str_sanitize_append(str, src, max_bytes);
 	return str_c(str);
 }
