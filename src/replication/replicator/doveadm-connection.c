@@ -98,10 +98,11 @@ client_input_status(struct doveadm_connection *client, const char *const *args)
 		str_append_tabescaped(str, user->username);
 		str_append_c(str, '\t');
 		str_append(str, replicator_priority_to_str(user->priority));
-		str_printfa(str, "\t%lld\t%lld\t%d\n",
+		str_printfa(str, "\t%lld\t%lld\t%d\t%lld\n",
 			    (long long)user->last_fast_sync,
 			    (long long)user->last_full_sync,
-			    user->last_sync_failed);
+			    user->last_sync_failed,
+			    (long long)user->last_successful_sync);
 		o_stream_send(client->conn.output, str_data(str), str_len(str));
 	}
 	replicator_queue_iter_deinit(&iter);

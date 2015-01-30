@@ -13,7 +13,7 @@ struct replicator_user {
 	/* last time this user's state was updated */
 	time_t last_update;
 	/* last_fast_sync is always >= last_full_sync. */
-	time_t last_fast_sync, last_full_sync;
+	time_t last_fast_sync, last_full_sync, last_successful_sync;
 
 	enum replication_priority priority;
 	/* User isn't currently in replication queue */

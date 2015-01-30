@@ -116,6 +116,8 @@ static void dsync_callback(enum dsync_reply reply, const char *state,
 		i_free(ctx->user->state);
 		ctx->user->state = i_strdup_empty(state);
 		ctx->user->last_sync_failed = reply != DSYNC_REPLY_OK;
+		if (reply == DSYNC_REPLY_OK)
+			ctx->user->last_successful_sync = ioloop_time;
 		replicator_queue_push(ctx->brain->queue, ctx->user);
 	}
 	if (!ctx->brain->deinitializing)

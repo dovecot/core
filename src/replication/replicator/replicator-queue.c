@@ -305,7 +305,7 @@ replicator_queue_import_line(struct replicator_queue *queue, const char *line)
 	struct replicator_user *user, tmp_user;
 
 	/* <user> <priority> <last update> <last fast sync> <last full sync>
-	   <last failed> <state> */
+	   <last failed> <state> <last successful sync>*/
 	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) < 7)
 		return -1;
@@ -321,6 +321,14 @@ replicator_queue_import_line(struct replicator_queue *queue, const char *line)
 		return -1;
 	tmp_user.priority = priority;
 	tmp_user.last_sync_failed = args[5][0] != '0';
+
+	if (str_array_length(args) >= 8) { 
+		if (str_to_time(args[7], &tmp_user.last_successful_sync) < 0)
+			return -1;
+	} else {
+		tmp_user.last_successful_sync = 0;
+                /* On-disk format didn't have this yet */
+	}
 
 	user = hash_table_lookup(queue->user_hash, username);
 	if (user != NULL) {
@@ -340,6 +348,7 @@ replicator_queue_import_line(struct replicator_queue *queue, const char *line)
 	user->last_update = tmp_user.last_update;
 	user->last_fast_sync = tmp_user.last_fast_sync;
 	user->last_full_sync = tmp_user.last_full_sync;
+	user->last_successful_sync = tmp_user.last_successful_sync;
 	user->last_sync_failed = tmp_user.last_sync_failed;
 	i_free(user->state);
 	user->state = i_strdup(state);
@@ -383,11 +392,12 @@ static void
 replicator_queue_export_user(struct replicator_user *user, string_t *str)
 {
 	str_append_tabescaped(str, user->username);
-	str_printfa(str, "\t%d\t%lld\t%lld\t%lld\t%d\t", (int)user->priority,
+	str_printfa(str, "\t%d\t%lld\t%lld\t%lld\t%d\t%lld\t", (int)user->priority,
 		    (long long)user->last_update,
 		    (long long)user->last_fast_sync,
 		    (long long)user->last_full_sync,
-		    user->last_sync_failed);
+		    user->last_sync_failed,
+		    (long long)user->last_successful_sync);
 	if (user->state != NULL)
 		str_append_tabescaped(str, user->state);
 	str_append_c(str, '\n');
