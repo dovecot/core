@@ -912,10 +912,11 @@ void http_client_request_error(struct http_client_request *req,
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
 
-	if (!req->submitted) {
-		/* we're still in http_client_request_submit(). delay
-		   reporting the error, so the caller doesn't have to handle
-		   immediate callbacks. */
+	if (!req->submitted ||
+		req->state == HTTP_REQUEST_STATE_GOT_RESPONSE) {
+		/* we're still in http_client_request_submit() or in the callback
+		   during a retry attempt. delay reporting the error, so the caller
+		   doesn't have to handle immediate or nested callbacks. */
 		i_assert(req->delayed_error == NULL);
 		req->delayed_error = p_strdup(req->pool, error);
 		req->delayed_error_status = status;
