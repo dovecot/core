@@ -9,6 +9,25 @@ struct foo {
 	unsigned int a, b, c;
 };
 
+static void test_array_count(void)
+{
+	ARRAY(struct foo) foos;
+	struct foo nfoo;
+
+	test_begin("array count/empty");
+	t_array_init(&foos, 32);
+
+	test_assert(array_count(&foos) == 0);
+	test_assert(array_is_empty(&foos));
+	test_assert(!array_not_empty(&foos));
+	nfoo.a = nfoo.b = nfoo.c = 9;
+	array_append(&foos, &nfoo, 1);
+	test_assert(array_count(&foos) == 1);
+	test_assert(!array_is_empty(&foos));
+	test_assert(array_not_empty(&foos));
+
+	test_end();
+}
 static void test_array_foreach(void)
 {
 	ARRAY(struct foo) foos;
@@ -210,6 +229,7 @@ static void test_array_cmp_str(void)
 
 void test_array(void)
 {
+	test_array_count();
 	test_array_foreach();
 	test_array_reverse();
 	test_array_cmp();
