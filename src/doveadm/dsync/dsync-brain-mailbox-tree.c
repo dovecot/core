@@ -180,59 +180,67 @@ dsync_is_valid_name(struct mail_namespace *ns, const char *vname)
 }
 
 static void
-dsync_fix_mailbox_name(struct mail_namespace *ns, string_t *vname,
+dsync_fix_mailbox_name(struct mail_namespace *ns, string_t *vname_str,
 		       char alt_char)
 {
 	const char *old_vname;
-	char *p, list_sep = mailbox_list_get_hierarchy_sep(ns->list);
+	char *vname, list_sep = mailbox_list_get_hierarchy_sep(ns->list);
 	guid_128_t guid;
+	unsigned int i, start_pos;
+
+	vname = str_c_modifiable(vname_str);
+	if (strncmp(vname, ns->prefix, ns->prefix_len) == 0)
+		start_pos = ns->prefix_len;
+	else
+		start_pos = 0;
 
 	/* replace control chars */
-	for (p = str_c_modifiable(vname); *p != '\0'; p++) {
-		if ((unsigned char)*p < ' ')
-			*p = alt_char;
+	for (i = start_pos; vname[i] != '\0'; i++) {
+		if ((unsigned char)vname[i] < ' ')
+			vname[i] = alt_char;
 	}
 	/* make it valid UTF8 */
-	if (!uni_utf8_str_is_valid(str_c(vname))) {
-		old_vname = t_strdup(str_c(vname));
-		str_truncate(vname, 0);
+	if (!uni_utf8_str_is_valid(vname)) {
+		old_vname = t_strdup(vname + start_pos);
+		str_truncate(vname_str, start_pos);
 		if (uni_utf8_get_valid_data((const void *)old_vname,
-					    strlen(old_vname), vname))
+					    strlen(old_vname), vname_str))
 			i_unreached();
+		vname = str_c_modifiable(vname_str);
 	}
-	if (dsync_is_valid_name(ns, str_c(vname)))
+	if (dsync_is_valid_name(ns, vname))
 		return;
 
 	/* 1) change any real separators to alt separators (this wouldn't
 	   be necessary with listescape, but don't bother detecting it) */
 	if (list_sep != mail_namespace_get_sep(ns)) {
-		for (p = str_c_modifiable(vname); *p != '\0'; p++) {
-			if (*p == list_sep)
-				*p = alt_char;
+		for (i = start_pos; vname[i] != '\0'; i++) {
+			if (vname[i] == list_sep)
+				vname[i] = alt_char;
 		}
-		if (dsync_is_valid_name(ns, str_c(vname)))
+		if (dsync_is_valid_name(ns, vname))
 			return;
 	}
 	/* 2) '/' characters aren't valid without listescape */
 	if (mail_namespace_get_sep(ns) != '/' && list_sep != '/') {
-		for (p = str_c_modifiable(vname); *p != '\0'; p++) {
-			if (*p == '/')
-				*p = alt_char;
+		for (i = start_pos; vname[i] != '\0'; i++) {
+			if (vname[i] == '/')
+				vname[i] = alt_char;
 		}
-		if (dsync_is_valid_name(ns, str_c(vname)))
+		if (dsync_is_valid_name(ns, vname))
 			return;
 	}
 	/* 3) probably some reserved name (e.g. dbox-Mails) */
-	str_insert(vname, ns->prefix_len, "_");
-	if (dsync_is_valid_name(ns, str_c(vname)))
+	str_insert(vname_str, ns->prefix_len, "_");
+	if (dsync_is_valid_name(ns, str_c(vname_str)))
 		return;
 
 	/* 4) name is too long? just give up and generate a unique name */
 	guid_128_generate(guid);
-	str_truncate(vname, 0);
-	str_append(vname, ns->prefix);
-	str_append(vname, guid_128_to_string(guid));
-	i_assert(dsync_is_valid_name(ns, str_c(vname)));
+	str_truncate(vname_str, 0);
+	str_append(vname_str, ns->prefix);
+	str_append(vname_str, guid_128_to_string(guid));
+	i_assert(dsync_is_valid_name(ns, str_c(vname_str)));
 }
 
 static int
