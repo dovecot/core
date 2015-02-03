@@ -185,7 +185,7 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 	case SEARCH_MODSEQ:
 		if ((capa & IMAPC_CAPABILITY_CONDSTORE) == 0)
 			return FALSE;
-		str_printfa(str, "MODSEQ %llu", (unsigned long long)arg->value.modseq);
+		str_printfa(str, "MODSEQ %llu", (unsigned long long)arg->value.modseq->modseq);
 		break;
 	case SEARCH_INTHREAD:
 	case SEARCH_GUID:
