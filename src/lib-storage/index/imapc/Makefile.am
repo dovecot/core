@@ -18,6 +18,7 @@ libstorage_imapc_la_SOURCES = \
 	imapc-mail-fetch.c \
 	imapc-mailbox.c \
 	imapc-save.c \
+	imapc-search.c \
 	imapc-settings.c \
 	imapc-sync.c \
 	imapc-storage.c
@@ -25,6 +26,7 @@ libstorage_imapc_la_SOURCES = \
 headers = \
 	imapc-list.h \
 	imapc-mail.h \
+	imapc-search.h \
 	imapc-settings.h \
 	imapc-storage.h \
 	imapc-sync.h

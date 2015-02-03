@@ -8,6 +8,7 @@
 #include "imapc-client.h"
 #include "imapc-mail.h"
 #include "imapc-msgmap.h"
+#include "imapc-search.h"
 #include "imapc-sync.h"
 #include "imapc-storage.h"
 
@@ -438,7 +439,9 @@ imapc_untagged_esearch_gmail_pop3(const struct imap_arg *args,
 
 	i_free_and_null(mbox->sync_gmail_pop3_search_tag);
 
-	/* It should contain ALL <seqset>  */
+	/* It should contain ALL <seqset> or nonexistent if nothing matched */
+	if (args[0].type == IMAP_ARG_EOL)
+		return;
 	t_array_init(&rseqs, 64);
 	if (!imap_arg_atom_equals(&args[0], "ALL") ||
 	    !imap_arg_get_atom(&args[1], &atom) ||
@@ -493,6 +496,8 @@ static void imapc_untagged_esearch(const struct imapc_untagged_reply *reply,
 	if (mbox->sync_gmail_pop3_search_tag != NULL &&
 	    strcmp(mbox->sync_gmail_pop3_search_tag, str) == 0)
 		imapc_untagged_esearch_gmail_pop3(reply->args+1, mbox);
+	else
+		imapc_search_reply(reply->args+1, mbox);
 }
 
 static void

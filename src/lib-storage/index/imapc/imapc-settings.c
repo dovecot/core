@@ -85,6 +85,7 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "guid-forced", IMAPC_FEATURE_GUID_FORCED },
 	{ "fetch-headers", IMAPC_FEATURE_FETCH_HEADERS },
 	{ "gmail-migration", IMAPC_FEATURE_GMAIL_MIGRATION },
+	{ "search", IMAPC_FEATURE_SEARCH },
 	{ NULL, 0 }
 };
 

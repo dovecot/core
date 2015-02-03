@@ -11,6 +11,7 @@
 #include "imapc-msgmap.h"
 #include "imapc-mail.h"
 #include "imapc-list.h"
+#include "imapc-search.h"
 #include "imapc-sync.h"
 #include "imapc-settings.h"
 #include "imapc-storage.h"
@@ -958,10 +959,10 @@ struct mailbox imapc_mailbox = {
 		index_transaction_rollback,
 		NULL,
 		imapc_mail_alloc,
-		index_storage_search_init,
-		index_storage_search_deinit,
+		imapc_search_init,
+		imapc_search_deinit,
 		index_storage_search_next_nonblock,
-		index_storage_search_next_update_seq,
+		imapc_search_next_update_seq,
 		imapc_save_alloc,
 		imapc_save_begin,
 		imapc_save_continue,

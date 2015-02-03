@@ -120,6 +120,7 @@ struct imapc_mailbox {
 	struct imapc_sync_context *sync_ctx;
 
 	const char *guid_fetch_field_name;
+	struct imapc_search_context *search_ctx;
 
 	unsigned int selecting:1;
 	unsigned int syncing:1;
