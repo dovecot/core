@@ -5,6 +5,7 @@
 #include "array.h"
 #include "llist.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "unichar.h"
 #include "istream.h"
 #include "eacces-error.h"
@@ -871,7 +872,19 @@ static int mailbox_verify_name(struct mailbox *box)
 
 	if (ns->prefix_len > 0) {
 		/* vname is either "namespace/box" or "namespace" */
-		i_assert(strncmp(vname, ns->prefix, ns->prefix_len-1) == 0);
+		if (strncmp(vname, ns->prefix, ns->prefix_len-1) != 0 ||
+		    (vname[ns->prefix_len-1] != '\0' &&
+		     vname[ns->prefix_len-1] != ns->prefix[ns->prefix_len-1])) {
+			/* User input shouldn't normally be able to get us in
+			   here. The main reason this isn't an assert is to
+			   allow any input at all to mailbox_verify_*_name()
+			   without crashing. */
+			mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+				t_strdup_printf("Invalid mailbox name '%s': "
+					"Missing namespace prefix '%s'",
+					str_sanitize(vname, 80), ns->prefix));
+			return -1;
+		}
 		vname += ns->prefix_len - 1;
 		if (vname[0] != '\0') {
 			i_assert(vname[0] == ns->prefix[ns->prefix_len-1]);
