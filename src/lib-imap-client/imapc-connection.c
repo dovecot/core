@@ -8,6 +8,7 @@
 #include "base64.h"
 #include "write-full.h"
 #include "str.h"
+#include "time-util.h"
 #include "dns-lookup.h"
 #include "dsasl-client.h"
 #include "iostream-rawlog.h"
@@ -23,6 +24,10 @@
 
 #define IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE 10000
 #define IMAPC_MAX_INLINE_LITERAL_SIZE (1024*32)
+
+/* max seconds to wait after receiving [THROTTLED] as
+   2^IMAPC_THROTTLE_COUNTER_MAX_EXP */
+#define IMAPC_THROTTLE_COUNTER_MAX_EXP 4
 
 enum imapc_input_state {
 	IMAPC_INPUT_STATE_NONE = 0,
@@ -116,6 +121,11 @@ struct imapc_connection {
 	struct imapc_connection_literal literal;
 	ARRAY(struct imapc_arg_file) literal_files;
 
+	unsigned int throttle_counter;
+	bool throttle_pending;
+	struct timeval throttle_end_timeval;
+	struct timeout *to_throttle;
+
 	unsigned int idling:1;
 	unsigned int idle_stopping:1;
 	unsigned int idle_plus_waiting:1;
@@ -190,6 +200,8 @@ void imapc_connection_ioloop_changed(struct imapc_connection *conn)
 		conn->io = io_loop_move_io(&conn->io);
 	if (conn->to != NULL)
 		conn->to = io_loop_move_timeout(&conn->to);
+	if (conn->to_throttle != NULL)
+		conn->to_throttle = io_loop_move_timeout(&conn->to_throttle);
 	if (conn->output != NULL)
 		o_stream_switch_ioloop(conn->output);
 	if (conn->dns_lookup != NULL)
@@ -373,6 +385,8 @@ void imapc_connection_disconnect(struct imapc_connection *conn)
 		timeout_remove(&conn->to);
 	if (conn->to_output != NULL)
 		timeout_remove(&conn->to_output);
+	if (conn->to_throttle != NULL)
+		timeout_remove(&conn->to_throttle);
 	if (conn->parser != NULL)
 		imap_parser_unref(&conn->parser);
 	if (conn->io != NULL)
@@ -610,6 +624,15 @@ imapc_connection_handle_resp_text_code(struct imapc_connection *conn,
 			conn->selected_box = conn->selecting_box;
 			conn->selecting_box = NULL;
 		}
+	}
+	if (strcasecmp(key, "THROTTLED") == 0 && !conn->throttle_pending) {
+		/* GMail throttling - start slowing down commands. */
+		conn->throttle_end_timeval = ioloop_timeval;
+		timeval_add_msecs(&conn->throttle_end_timeval,
+				  (1U << conn->throttle_counter) * 1000);
+		conn->throttle_pending = TRUE;
+		if (conn->throttle_counter < IMAPC_THROTTLE_COUNTER_MAX_EXP)
+			conn->throttle_counter++;
 	}
 	return 0;
 }
@@ -1156,6 +1179,13 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 			reply.text_without_resp++;
 	} else {
 		reply.text_without_resp = reply.text_full;
+	}
+	if (!conn->throttle_pending &&
+	    timeval_cmp(&ioloop_timeval, &conn->throttle_end_timeval) >= 0) {
+		/* tagged reply without [THROTTLED] and it was received after
+		   the throttling ended. we can completely reset the throttling
+		   state now */
+		conn->throttle_counter = 0;
 	}
 
 	/* find the command. it's either the first command in send queue
@@ -1740,6 +1770,32 @@ static void imapc_connection_set_selecting(struct imapc_client_mailbox *box)
 	}
 }
 
+static bool imapc_connection_is_throttled(struct imapc_connection *conn)
+{
+	if (conn->to_throttle != NULL)
+		timeout_remove(&conn->to_throttle);
+
+	if (conn->throttle_counter == 0) {
+		/* we haven't received [THROTTLED] recently */
+		return FALSE;
+	}
+	if (array_count(&conn->cmd_wait_list) > 0) {
+		/* wait until we have received the existing commands' tagged
+		   replies to see if we're still throttled */
+		return TRUE;
+	}
+	if (timeval_cmp(&ioloop_timeval, &conn->throttle_end_timeval) > 0) {
+		/* we reached the throttle timeout - send the next command */
+		conn->throttle_pending = FALSE;
+		return FALSE;
+	}
+
+	/* we're still being throttled - wait for it to end */
+	conn->to_throttle = timeout_add_absolute(&conn->throttle_end_timeval,
+						 imapc_command_send_more, conn);
+	return TRUE;
+}
+
 static void imapc_command_send_more(struct imapc_connection *conn)
 {
 	struct imapc_command *const *cmds, *cmd;
@@ -1747,6 +1803,9 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 	const unsigned char *p, *data;
 	unsigned int count, seek_pos, start_pos, end_pos, size;
 	int ret;
+
+	if (imapc_connection_is_throttled(conn))
+		return;
 
 	cmds = array_get(&conn->cmd_send_queue, &count);
 	if (count == 0)
