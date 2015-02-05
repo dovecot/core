@@ -12,6 +12,11 @@
 
 #define MAX_DEPTH 4
 
+char mail_namespace_get_sep(struct mail_namespace *ns ATTR_UNUSED)
+{
+	return '/';
+}
+
 void mailbox_name_get_sha128(const char *name, guid_128_t guid_128_r)
 {
 	unsigned char sha[SHA1_RESULTLEN];

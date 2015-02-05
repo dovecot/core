@@ -357,6 +357,22 @@ static bool node_is_existent(struct dsync_mailbox_node *node)
 	return node_has_existent_children(node, TRUE);
 }
 
+static bool sync_node_is_namespace_prefix(struct dsync_mailbox_tree *tree,
+					  struct dsync_mailbox_node *node)
+{
+	const char *full_name;
+	unsigned int prefix_len = node->ns->prefix_len;
+
+	if (prefix_len == 0)
+		return FALSE;
+
+	full_name = dsync_mailbox_node_get_full_name(tree, node);
+	if (node->ns->prefix[prefix_len-1] == mail_namespace_get_sep(node->ns))
+		prefix_len--;
+	return strncmp(full_name, node->ns->prefix, prefix_len) == 0 &&
+		full_name[prefix_len] == '\0';
+}
+
 static void
 sync_rename_node_to_temp(struct dsync_mailbox_tree_sync_ctx *ctx,
 			 struct dsync_mailbox_tree *tree,
@@ -368,6 +384,8 @@ sync_rename_node_to_temp(struct dsync_mailbox_tree_sync_ctx *ctx,
 	char name[TEMP_MAX_NAME_LEN+1];
 	buffer_t buf;
 	unsigned int prefix_len, max_prefix_len, counter = 1;
+
+	i_assert(!sync_node_is_namespace_prefix(tree, node));
 
 	buffer_create_from_data(&buf, name, sizeof(name));
 	max_prefix_len = TEMP_MAX_NAME_LEN - TEMP_SUFFIX_MAX_LEN - 1;
