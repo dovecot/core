@@ -361,7 +361,7 @@ static bool sync_node_is_namespace_prefix(struct dsync_mailbox_tree *tree,
 					  struct dsync_mailbox_node *node)
 {
 	const char *full_name;
-	unsigned int prefix_len = node->ns->prefix_len;
+	unsigned int prefix_len = node->ns == NULL ? 0 : node->ns->prefix_len;
 
 	if (prefix_len == 0)
 		return FALSE;
