@@ -20,9 +20,12 @@ dsync_mailbox_tree_add_node(struct dsync_mailbox_tree *tree,
 	struct dsync_mailbox_node *node;
 
 	node = dsync_mailbox_tree_get(tree, info->vname);
-	if (node->ns != info->ns) {
-		i_assert(node->ns != NULL);
-
+	if (node->ns == info->ns)
+		;
+	else if (node->ns == NULL) {
+		i_assert(tree->root.ns == NULL);
+		node->ns = info->ns;
+	} else {
 		i_error("Mailbox '%s' exists in two namespaces: '%s' and '%s'",
 			info->vname, node->ns->prefix, info->ns->prefix);
 		return -1;
