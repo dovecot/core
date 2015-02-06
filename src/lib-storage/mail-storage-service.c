@@ -968,17 +968,18 @@ mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 		auth_master_init(user_set->auth_socket_path, flags));
 }
 
-static void
+static int
 mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 				  const struct setting_parser_info *user_info,
-				  const struct mail_user_settings *user_set)
+				  const struct mail_user_settings *user_set,
+				  const char **error_r)
 {
 	struct module_dir_load_settings mod_set;
 
 	if (*user_set->mail_plugins == '\0')
-		return;
+		return 0;
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS) != 0)
-		return;
+		return 0;
 
 	memset(&mod_set, 0, sizeof(mod_set));
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
@@ -987,10 +988,10 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = mail_user_set_get_mail_debug(user_info, user_set);
 
-	mail_storage_service_modules =
-		module_dir_load_missing(mail_storage_service_modules,
-					user_set->mail_plugin_dir,
-					user_set->mail_plugins, &mod_set);
+	return module_dir_try_load_missing(&mail_storage_service_modules,
+					   user_set->mail_plugin_dir,
+					   user_set->mail_plugins,
+					   &mod_set, error_r);
 }
 
 static int extra_field_key_cmp_p(const char *const *s1, const char *const *s2)
@@ -1086,7 +1087,12 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	if (ctx->conn == NULL)
 		mail_storage_service_first_init(ctx, user_info, user_set);
 	/* load global plugins */
-	mail_storage_service_load_modules(ctx, user_info, user_set);
+	if (mail_storage_service_load_modules(ctx, user_info, user_set, &error) < 0) {
+		i_error("%s", error);
+		pool_unref(&user_pool);
+		*error_r = MAIL_ERRSTR_CRITICAL_MSG;
+		return -1;
+	}
 
 	if (ctx->userdb_next_pool == NULL)
 		temp_pool = pool_alloconly_create("userdb lookup", 2048);
@@ -1152,8 +1158,13 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 
 	/* load per-user plugins */
 	if (ret > 0) {
-		mail_storage_service_load_modules(ctx, user_info,
-						  user->user_set);
+		if (mail_storage_service_load_modules(ctx, user_info,
+						      user->user_set,
+						      &error) < 0) {
+			i_error("%s", error);
+			*error_r = MAIL_ERRSTR_CRITICAL_MSG;
+			ret = -2;
+		}
 	}
 
 	*user_r = user;
