@@ -547,6 +547,11 @@ void i_unset_failure_prefix(void)
 	log_prefix_sent = FALSE;
 }
 
+const char *i_get_failure_prefix(void)
+{
+	return log_prefix != NULL ? log_prefix : "";
+}
+
 static int internal_send_split(string_t *full_str, unsigned int prefix_len)
 {
 	string_t *str;
