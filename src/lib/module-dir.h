@@ -50,6 +50,12 @@ module_dir_load_missing(struct module *old_modules,
 			const char *dir, const char *module_names,
 			const struct module_dir_load_settings *set)
 	ATTR_NULL(1, 3);
+/* Load modules that aren't already loaded. */
+int module_dir_try_load_missing(struct module **modules,
+				const char *dir, const char *module_names,
+				const struct module_dir_load_settings *set,
+				const char **error_r)
+	ATTR_NULL(1, 3);
 /* Call init() in all modules */
 void module_dir_init(struct module *modules);
 /* Call deinit() in all modules and mark them NULL so module_dir_unload()

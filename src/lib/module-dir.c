@@ -74,7 +74,7 @@ static void module_free(struct module *module)
 
 static bool
 module_check_wrong_binary_dependency(const struct module_dir_load_settings *set,
-				     struct module *module)
+				     struct module *module, const char **error_r)
 {
 	const char *symbol_name, *binary_dep, *const *names;
 	string_t *errstr;
@@ -99,14 +99,15 @@ module_check_wrong_binary_dependency(const struct module_dir_load_settings *set,
 	else
 		str_printfa(errstr, "binaries: %s", binary_dep);
 	str_printfa(errstr, " (we're %s)", set->binary_name);
-	i_error("%s", str_c(errstr));
+	*error_r = str_c(errstr);
 	return FALSE;
 }
 
 static bool
 module_check_missing_plugin_dependencies(const struct module_dir_load_settings *set,
 					 struct module *module,
-					 struct module *all_modules)
+					 struct module *all_modules,
+					 const char **error_r)
 {
 	const char **deps;
 	struct module *m;
@@ -137,7 +138,7 @@ module_check_missing_plugin_dependencies(const struct module_dir_load_settings *
 					    set->setting_name,
 					    set->setting_name, *deps);
 			}
-			i_error("%s", str_c(errmsg));
+			*error_r = str_c(errmsg);
 			return FALSE;
 		}
 	}
@@ -184,15 +185,18 @@ static bool versions_equal(const char *str1, const char *str2)
 	return FALSE;
 }
 
-static struct module *
+static int
 module_load(const char *path, const char *name,
 	    const struct module_dir_load_settings *set,
-	    struct module *all_modules)
+	    struct module *all_modules,
+	    struct module **module_r, const char **error_r)
 {
 	void *handle;
 	struct module *module;
 	const char *const *module_version;
-	bool failed = FALSE;
+
+	*module_r = NULL;
+	*error_r = NULL;
 
 	if (set->ignore_dlopen_errors) {
 		handle = quiet_dlopen(path, RTLD_GLOBAL | RTLD_NOW);
@@ -204,21 +208,21 @@ module_load(const char *path, const char *name,
 					"so just ignore this message)",
 					name, dlerror());
 			}
-			return NULL;
+			return 0;
 		}
 	} else {
 		handle = dlopen(path, RTLD_GLOBAL | RTLD_NOW);
 		if (handle == NULL) {
-			i_error("dlopen(%s) failed: %s", path, dlerror());
+			*error_r = t_strdup_printf("dlopen(%s) failed: %s",
+						   path, dlerror());
 #ifdef RTLD_LAZY
-			failed = TRUE;
 			/* try to give a better error message by lazily loading
 			   the plugin and checking its dependencies */
 			handle = dlopen(path, RTLD_LAZY);
 			if (handle == NULL)
-				return NULL;
+				return -1;
 #else
-			return NULL;
+			return -1;
 #endif
 		}
 	}
@@ -232,10 +236,11 @@ module_load(const char *path, const char *name,
 		get_symbol(module, t_strconcat(name, "_version", NULL), TRUE);
 	if (module_version != NULL &&
 	    !versions_equal(*module_version, set->abi_version)) {
-		i_error("Module is for different ABI version %s (we have %s): %s",
+		*error_r = t_strdup_printf(
+			"Module is for different ABI version %s (we have %s): %s",
 			*module_version, set->abi_version, path);
 		module_free(module);
-		return NULL;
+		return -1;
 	}
 
 	/* get our init func */
@@ -248,23 +253,26 @@ module_load(const char *path, const char *name,
 
 	if ((module->init == NULL || module->deinit == NULL) &&
 	    set->require_init_funcs) {
-		i_error("Module doesn't have %s function: %s",
+		*error_r = t_strdup_printf(
+			"Module doesn't have %s function: %s",
 			module->init == NULL ? "init" : "deinit", path);
-		failed = TRUE;
-	} else if (!module_check_wrong_binary_dependency(set, module) ||
-		   !module_check_missing_plugin_dependencies(set, module,
-							     all_modules))
-		failed = TRUE;
+	} else if (!module_check_wrong_binary_dependency(set, module, error_r)) {
+		/* failed */
+	} else if (!module_check_missing_plugin_dependencies(set, module,
+							     all_modules, error_r)) {
+		/* failed */
+	}
 
-	if (failed) {
+	if (*error_r != NULL) {
 		module->deinit = NULL;
 		module_free(module);
-		return NULL;
+		return -1;
 	}
 
 	if (set->debug)
 		i_debug("Module loaded: %s", path);
-	return module;
+	*module_r = module;
+	return 1;
 }
 
 static int module_name_cmp(const char *const *n1, const char *const *n2)
@@ -368,22 +376,26 @@ module_dir_is_all_loaded(struct module *old_modules, const char **module_names)
 	return TRUE;
 }
 
-static struct module *
-module_dir_load_real(struct module *old_modules,
+static int
+module_dir_load_real(struct module **_modules,
 		     const char *dir, const char **module_names,
-		     const struct module_dir_load_settings *set)
+		     const struct module_dir_load_settings *set,
+		     char **error_r)
 {
 	DIR *dirp;
 	struct dirent *d;
-	const char *name, *p, *const *names_p;
-	struct module *modules, *module, **module_pos;
+	const char *name, *p, *error, *const *names_p;
+	struct module *modules, *module, **module_pos, *old_modules = *_modules;
 	unsigned int i, count;
 	ARRAY_TYPE(const_string) names;
 	pool_t pool;
+	int ret;
+
+	*error_r = NULL;
 
 	if (module_names != NULL) {
 		if (module_dir_is_all_loaded(old_modules, module_names))
-			return old_modules;
+			return 0;
 	}
 
 	if (set->debug)
@@ -391,21 +403,20 @@ module_dir_load_real(struct module *old_modules,
 
 	dirp = opendir(dir);
 	if (dirp == NULL) {
+		*error_r = i_strdup_printf("opendir(%s) failed: %m", dir);
 		if (module_names != NULL) {
 			/* we were given a list of modules to load.
 			   we can't fail. */
-			i_fatal("opendir(%s) failed: %m", dir);
+			return -1;
 		}
-		if (errno != ENOENT)
-			i_error("opendir(%s) failed: %m", dir);
-		return NULL;
+		return errno == ENOENT ? 0 : -1;
 	}
 
 	pool = pool_alloconly_create("module loader", 4096);
 	p_array_init(&names, pool, 32);
 
 	modules = NULL;
-	while ((d = readdir(dirp)) != NULL) {
+	for (errno = 0; (d = readdir(dirp)) != NULL; errno = 0) {
 		name = d->d_name;
 
 		if (name[0] == '.')
@@ -422,8 +433,14 @@ module_dir_load_real(struct module *old_modules,
 		name = p_strdup(pool, d->d_name);
 		array_append(&names, &name, 1);
 	}
-	if (closedir(dirp) < 0)
-		i_error("closedir(%s) failed: %m", dir);
+	if (errno != 0)
+		*error_r = i_strdup_printf("readdir(%s) failed: %m", dir);
+	if (closedir(dirp) < 0 && *error_r == NULL)
+		*error_r = i_strdup_printf("closedir(%s) failed: %m", dir);
+	if (*error_r != NULL) {
+		pool_unref(&pool);
+		return -1;
+	}
 
 	array_sort(&names, module_name_cmp);
 	names_p = array_get(&names, &count);
@@ -443,9 +460,12 @@ module_dir_load_real(struct module *old_modules,
 			module = NULL;
 		else {
 			path = t_strconcat(dir, "/", name, NULL);
-			module = module_load(path, stripped_name, set, modules);
-			if (module == NULL && module_names != NULL)
-				i_fatal("Couldn't load required plugins");
+			ret = module_load(path, stripped_name, set, modules, &module, &error);
+			if (ret < 0 && module_names != NULL) {
+				*error_r = i_strdup_printf("Couldn't load required plugins: %s", error);
+				t_move_to_parent_frame();
+				i = count;
+			}
 		}
 
 		if (module != NULL) {
@@ -453,26 +473,29 @@ module_dir_load_real(struct module *old_modules,
 			module_pos = &module->next;
 		}
 	} T_END;
+	pool_unref(&pool);
 
-	if (module_names != NULL && !set->ignore_missing) {
+	if (module_names != NULL && *error_r == NULL && !set->ignore_missing) {
 		/* make sure all modules were found */
 		for (; *module_names != NULL; module_names++) {
 			if (**module_names != '\0') {
-				i_fatal("Plugin '%s' not found from directory %s",
+				*error_r = i_strdup_printf("Plugin '%s' not found from directory %s",
 					*module_names, dir);
+				break;
 			}
 		}
 	}
-	pool_unref(&pool);
-	return modules;
+	*_modules = modules;
+	return *error_r != NULL ? -1 : 0;
 }
 
-struct module *
-module_dir_load_missing(struct module *old_modules,
-			const char *dir, const char *module_names,
-			const struct module_dir_load_settings *set)
+int module_dir_try_load_missing(struct module **modules,
+				const char *dir, const char *module_names,
+				const struct module_dir_load_settings *set,
+				const char **error_r)
 {
-	struct module *modules;
+	char *error = NULL;
+	int ret;
 
 	T_BEGIN {
 		const char **arr = NULL;
@@ -482,9 +505,29 @@ module_dir_load_missing(struct module *old_modules,
 			module_names_fix(arr);
 		}
 
-		modules = module_dir_load_real(old_modules, dir, arr, set);
+		ret = module_dir_load_real(modules, dir, arr, set, &error);
 	} T_END;
-	return modules;
+	*error_r = t_strdup(error);
+	i_free(error);
+	return ret;
+}
+
+struct module *
+module_dir_load_missing(struct module *old_modules,
+			const char *dir, const char *module_names,
+			const struct module_dir_load_settings *set)
+{
+	struct module *new_modules = old_modules;
+	const char *error;
+
+	if (module_dir_try_load_missing(&new_modules, dir, module_names,
+					set, &error) < 0) {
+		if (module_names != NULL)
+			i_fatal("%s", error);
+		else
+			i_error("%s", error);
+	}
+	return new_modules;
 }
 
 void module_dir_init(struct module *modules)
