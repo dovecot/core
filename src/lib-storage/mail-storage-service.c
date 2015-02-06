@@ -1165,7 +1165,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 				struct mail_storage_service_user **user_r,
 				const char **error_r)
 {
-	const char *old_log_prefix = i_get_failure_prefix();
+	char *old_log_prefix = i_strdup(i_get_failure_prefix());
 	bool update_log_prefix;
 	int ret;
 
@@ -1192,6 +1192,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	ret = mail_storage_service_lookup_real(ctx, input, update_log_prefix,
 					       user_r, error_r);
 	i_set_failure_prefix("%s", old_log_prefix);
+	i_free(old_log_prefix);
 	return ret;
 }
 
@@ -1294,7 +1295,7 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 			      struct mail_storage_service_user *user,
 			      struct mail_user **mail_user_r)
 {
-	const char *old_log_prefix = i_get_failure_prefix();
+	char *old_log_prefix = i_strdup(i_get_failure_prefix());
 	int ret;
 
 	mail_storage_service_set_log_prefix(ctx, user->user_set, user,
@@ -1303,6 +1304,7 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 	ret = mail_storage_service_next_real(ctx, user, mail_user_r);
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) != 0)
 		i_set_failure_prefix("%s", old_log_prefix);
+	i_free(old_log_prefix);
 	return ret;
 }
 
