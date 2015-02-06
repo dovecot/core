@@ -463,7 +463,6 @@ module_dir_load_real(struct module **_modules,
 			ret = module_load(path, stripped_name, set, modules, &module, &error);
 			if (ret < 0 && module_names != NULL) {
 				*error_r = i_strdup_printf("Couldn't load required plugins: %s", error);
-				t_move_to_parent_frame();
 				i = count;
 			}
 		}
