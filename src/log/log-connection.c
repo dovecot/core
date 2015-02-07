@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "llist.h"
 #include "hash.h"
+#include "time-util.h"
 #include "master-interface.h"
 #include "master-service.h"
 #include "log-error-buffer.h"
@@ -16,6 +17,7 @@
 #include <unistd.h>
 
 #define FATAL_QUEUE_TIMEOUT_MSECS 500
+#define MAX_MSECS_PER_CONNECTION 100
 
 struct log_client {
 	struct ip_addr ip;
@@ -285,7 +287,7 @@ static void log_connection_input(struct log_connection *log)
 {
 	const char *line;
 	ssize_t ret;
-	struct timeval now;
+	struct timeval now, start_timeval;
 	struct tm tm;
 
 	if (!log->handshaked) {
@@ -295,14 +297,18 @@ static void log_connection_input(struct log_connection *log)
 		}
 	}
 
+	io_loop_time_refresh();
+	start_timeval = ioloop_timeval;
 	while ((ret = i_stream_read(log->input)) > 0 || ret == -2) {
 		/* get new timestamps for every read() */
-		io_loop_time_refresh();
 		now = ioloop_timeval;
 		tm = *localtime(&now.tv_sec);
 
 		while ((line = i_stream_next_line(log->input)) != NULL)
 			log_it(log, line, &now, &tm);
+		io_loop_time_refresh();
+		if (timeval_diff_msecs(&ioloop_timeval, &start_timeval) > MAX_MSECS_PER_CONNECTION)
+			break;
 	}
 
 	if (log->input->eof)
