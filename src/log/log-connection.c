@@ -243,7 +243,7 @@ static int log_connection_handshake(struct log_connection *log)
 
 	ret = i_stream_read(log->input);
 	if (ret < 0) {
-		i_error("read(log pipe) failed: %m");
+		i_error("read(log %s) failed: %m", log->default_prefix);
 		return -1;
 	}
 	if ((size_t)ret < sizeof(handshake)) {
@@ -264,6 +264,7 @@ static int log_connection_handshake(struct log_connection *log)
 		i_error("Missing prefix data in handshake");
 		return -1;
 	}
+	i_free(log->default_prefix);
 	log->default_prefix = i_strndup(data + sizeof(handshake),
 					handshake.prefix_len);
 	i_stream_skip(log->input, sizeof(handshake) + handshake.prefix_len);
@@ -307,7 +308,7 @@ static void log_connection_input(struct log_connection *log)
 	if (log->input->eof)
 		log_connection_destroy(log);
 	else if (log->input->stream_errno != 0) {
-		i_error("read(log pipe) failed: %m");
+		i_error("read(log %s) failed: %m", log->default_prefix);
 		log_connection_destroy(log);
 	} else {
 		i_assert(!log->input->closed);
@@ -325,6 +326,7 @@ void log_connection_create(struct log_error_buffer *errorbuf,
 	log->listen_fd = listen_fd;
 	log->io = io_add(fd, IO_READ, log_connection_input, log);
 	log->input = i_stream_create_fd(fd, PIPE_BUF, FALSE);
+	log->default_prefix = i_strdup_printf("listen_fd %d", listen_fd);
 	hash_table_create_direct(&log->clients, default_pool, 0);
 	array_idx_set(&logs_by_fd, listen_fd, &log);
 
