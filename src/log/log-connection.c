@@ -19,6 +19,12 @@
 #define FATAL_QUEUE_TIMEOUT_MSECS 500
 #define MAX_MSECS_PER_CONNECTION 100
 
+/* Log a warning after 1 secs when we've been all the time busy writing the
+   log connection. */
+#define LOG_WARN_PENDING_COUNT (1000 / MAX_MSECS_PER_CONNECTION)
+/* If we keep beeing busy, log a warning every 60 seconds. */
+#define LOG_WARN_PENDING_INTERVAL (60 * LOG_WARN_PENDING_COUNT)
+
 struct log_client {
 	struct ip_addr ip;
 	char *prefix;
@@ -36,6 +42,8 @@ struct log_connection {
 
 	char *default_prefix;
 	HASH_TABLE(void *, struct log_client *) clients;
+
+	unsigned int pending_count;
 
 	unsigned int master:1;
 	unsigned int handshaked:1;
@@ -318,6 +326,15 @@ static void log_connection_input(struct log_connection *log)
 		log_connection_destroy(log);
 	} else {
 		i_assert(!log->input->closed);
+		if (ret == 0)
+			log->pending_count = 0;
+		else if (++log->pending_count >= LOG_WARN_PENDING_COUNT) {
+			if (log->pending_count == LOG_WARN_PENDING_COUNT ||
+			    (log->pending_count % LOG_WARN_PENDING_INTERVAL) == 0) {
+				i_warning("Log connection fd %d listen_fd %d prefix '%s' is sending input faster than we can write",
+					  log->fd, log->listen_fd, log->default_prefix);
+			}
+		}
 	}
 }
 
