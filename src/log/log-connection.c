@@ -296,8 +296,8 @@ static void log_connection_input(struct log_connection *log)
 
 	while ((ret = i_stream_read(log->input)) > 0 || ret == -2) {
 		/* get new timestamps for every read() */
-		if (gettimeofday(&now, NULL) < 0)
-			i_panic("gettimeofday() failed: %m");
+		io_loop_time_refresh();
+		now = ioloop_timeval;
 		tm = *localtime(&now.tv_sec);
 
 		while ((line = i_stream_next_line(log->input)) != NULL)
