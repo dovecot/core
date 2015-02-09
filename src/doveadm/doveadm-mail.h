@@ -15,17 +15,37 @@ struct mail_user;
 struct doveadm_mail_cmd_context;
 
 struct doveadm_mail_cmd_vfuncs {
-	bool (*parse_arg)(struct doveadm_mail_cmd_context *ctx,int c);
+	/* Parse one getopt() parameter. This is called for each parameter. */
+	bool (*parse_arg)(struct doveadm_mail_cmd_context *ctx, int c);
+	/* Usually not needed. The preinit() is called just after parsing all
+	   parameters, but before any userdb lookups are done. This allows the
+	   preinit() to alter the userdb lookup behavior (especially
+	   service_flags). */
 	void (*preinit)(struct doveadm_mail_cmd_context *ctx);
+	/* Initialize the command. Most importantly if the function prints
+	   anything, this should initialize the headers. It shouldn't however
+	   do any actual work. The init() is called also when doveadm is
+	   performing the work via doveadm-server, which could be running
+	   remotely with completely different Dovecot configuration. */
 	void (*init)(struct doveadm_mail_cmd_context *ctx,
 		     const char *const args[]);
+	/* Usually not needed. When iterating through multiple users, use this
+	   function to get the next username. Overriding this is usually done
+	   only when there's a known username filter, such as the expire
+	   plugin. */
 	int (*get_next_user)(struct doveadm_mail_cmd_context *ctx,
 			     const char **username_r);
+	/* Usually not needed. This is called between
+	   mail_storage_service_lookup() and mail_storage_service_next() for
+	   each user. */
 	int (*prerun)(struct doveadm_mail_cmd_context *ctx,
 		      struct mail_storage_service_user *service_user,
 		      const char **error_r);
+	/* This is the main function which performs all the work for the
+	   command. This is called once per each user. */
 	int (*run)(struct doveadm_mail_cmd_context *ctx,
 		   struct mail_user *mail_user);
+	/* Deinitialize the command. Called once at the end. */
 	void (*deinit)(struct doveadm_mail_cmd_context *ctx);
 };
 
