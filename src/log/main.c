@@ -12,6 +12,7 @@
 
 #include <unistd.h>
 
+bool verbose_proctitle;
 static struct log_error_buffer *errorbuf;
 
 static void
@@ -70,6 +71,8 @@ int main(int argc, char *argv[])
 						NULL, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 	master_service_init_log(master_service, "log: ");
+
+	verbose_proctitle = master_service_settings_get(master_service)->verbose_proctitle;
 
 	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);

@@ -7,6 +7,7 @@
 #include "llist.h"
 #include "hash.h"
 #include "time-util.h"
+#include "process-title.h"
 #include "master-interface.h"
 #include "master-service.h"
 #include "log-error-buffer.h"
@@ -51,8 +52,36 @@ struct log_connection {
 
 static struct log_connection *log_connections = NULL;
 static ARRAY(struct log_connection *) logs_by_fd;
+static unsigned int global_pending_count;
+static struct log_connection *last_pending_log;
 
 static void log_connection_destroy(struct log_connection *log);
+
+static void log_refresh_proctitle(void)
+{
+	if (!verbose_proctitle)
+		return;
+
+	if (global_pending_count == 0)
+		process_title_set("");
+	else if (last_pending_log == NULL) {
+		process_title_set(t_strdup_printf(
+			"[%u services too fast]", global_pending_count));
+	} else if (global_pending_count > 1) {
+		process_title_set(t_strdup_printf(
+			"[%u services too fast, last: %d/%d/%s]",
+			global_pending_count,
+			last_pending_log->fd,
+			last_pending_log->listen_fd,
+			last_pending_log->default_prefix));
+	} else {
+		process_title_set(t_strdup_printf(
+			"[service too fast: %d/%d/%s]",
+			last_pending_log->fd,
+			last_pending_log->listen_fd,
+			last_pending_log->default_prefix));
+	}
+}
 
 static struct log_client *log_client_get(struct log_connection *log, pid_t pid)
 {
@@ -326,14 +355,26 @@ static void log_connection_input(struct log_connection *log)
 		log_connection_destroy(log);
 	} else {
 		i_assert(!log->input->closed);
-		if (ret == 0)
-			log->pending_count = 0;
-		else if (++log->pending_count >= LOG_WARN_PENDING_COUNT) {
-			if (log->pending_count == LOG_WARN_PENDING_COUNT ||
-			    (log->pending_count % LOG_WARN_PENDING_INTERVAL) == 0) {
-				i_warning("Log connection fd %d listen_fd %d prefix '%s' is sending input faster than we can write",
-					  log->fd, log->listen_fd, log->default_prefix);
+		if (ret == 0) {
+			if (log->pending_count > 0) {
+				log->pending_count = 0;
+				i_assert(global_pending_count > 0);
+				global_pending_count--;
+				if (log == last_pending_log)
+					last_pending_log = NULL;
+				log_refresh_proctitle();
 			}
+			return;
+		}
+		last_pending_log = log;
+		if (log->pending_count++ == 0) {
+			global_pending_count++;
+			log_refresh_proctitle();
+		}
+		if (log->pending_count == LOG_WARN_PENDING_COUNT ||
+		    (log->pending_count % LOG_WARN_PENDING_INTERVAL) == 0) {
+			i_warning("Log connection fd %d listen_fd %d prefix '%s' is sending input faster than we can write",
+				  log->fd, log->listen_fd, log->default_prefix);
 		}
 	}
 }

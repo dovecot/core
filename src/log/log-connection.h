@@ -3,6 +3,8 @@
 
 struct log_connection;
 
+extern bool verbose_proctitle;
+
 void log_connection_create(struct log_error_buffer *errorbuf,
 			   int fd, int listen_fd);
 
