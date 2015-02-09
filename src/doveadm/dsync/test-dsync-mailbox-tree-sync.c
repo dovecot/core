@@ -11,6 +11,12 @@
 #include <stdlib.h>
 
 #define MAX_DEPTH 4
+#define TEST_NAMESPACE_NAME "INBOX"
+
+static struct mail_namespace inbox_namespace = {
+	.prefix = TEST_NAMESPACE_NAME"/",
+	.prefix_len = sizeof(TEST_NAMESPACE_NAME)-1 + 1
+};
 
 char mail_namespace_get_sep(struct mail_namespace *ns ATTR_UNUSED)
 {
@@ -212,11 +218,51 @@ static void test_trees_nofree(struct dsync_mailbox_tree *tree1,
 	dsync_mailbox_tree_deinit(&orig_tree2);
 }
 
+static void
+test_tree_nodes_add_namespace(struct dsync_mailbox_node *node,
+			      struct mail_namespace *ns)
+{
+	for (; node != NULL; node = node->next) {
+		node->ns = ns;
+		test_tree_nodes_add_namespace(node->first_child, ns);
+	}
+}
+
+static void
+test_tree_add_namespace(struct dsync_mailbox_tree *tree,
+			struct mail_namespace *ns)
+{
+	struct dsync_mailbox_node *node, *n;
+
+	node = dsync_mailbox_tree_get(tree, TEST_NAMESPACE_NAME);
+	node->existence = DSYNC_MAILBOX_NODE_EXISTS;
+	i_assert(tree->root.first_child == node);
+	i_assert(node->first_child == NULL);
+	node->first_child = node->next;
+	for (n = node->first_child; n != NULL; n = n->next)
+		n->parent = node;
+	node->next = NULL;
+
+	test_tree_nodes_add_namespace(&tree->root, ns);
+}
+
 static void test_trees(struct dsync_mailbox_tree *tree1,
 		       struct dsync_mailbox_tree *tree2)
 {
+	struct dsync_mailbox_tree *tree1_dup, *tree2_dup;
+
+	tree1_dup = dsync_mailbox_tree_dup(tree1);
+	tree2_dup = dsync_mailbox_tree_dup(tree2);
+
+	/* test without namespace prefix */
 	test_trees_nofree(tree1, &tree2);
 	dsync_mailbox_tree_deinit(&tree1);
+
+	/* test with namespace prefix */
+	test_tree_add_namespace(tree1_dup, &inbox_namespace);
+	test_tree_add_namespace(tree2_dup, &inbox_namespace);
+	test_trees_nofree(tree1_dup, &tree2_dup);
+	dsync_mailbox_tree_deinit(&tree1_dup);
 }
 
 static void test_dsync_mailbox_tree_sync_creates(void)

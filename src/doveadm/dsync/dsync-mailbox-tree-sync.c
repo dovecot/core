@@ -759,6 +759,14 @@ sync_find_branch(struct dsync_mailbox_tree *tree,
 	return NULL;
 }
 
+static bool sync_node_is_namespace_root(struct dsync_mailbox_tree *tree,
+					struct dsync_mailbox_node *node)
+{
+	if (node == &tree->root)
+		return TRUE;
+	return sync_node_is_namespace_prefix(tree, node);
+}
+
 static bool sync_rename_directory(struct dsync_mailbox_tree_sync_ctx *ctx,
 				  struct dsync_mailbox_node *local_node1,
 				  struct dsync_mailbox_node *remote_node2)
@@ -766,15 +774,18 @@ static bool sync_rename_directory(struct dsync_mailbox_tree_sync_ctx *ctx,
 	struct dsync_mailbox_node *remote_node1, *local_node2;
 
 	/* see if we can find matching mailbox branches based on the nodes'
-	   child mailboxes (with GUIDs). */
+	   child mailboxes (with GUIDs). we can then rename the entire branch.
+	   don't try to do this for namespace prefixes though. */
 	remote_node1 = sync_find_branch(ctx->local_tree,
 					ctx->remote_tree, local_node1);
 	local_node2 = sync_find_branch(ctx->remote_tree, ctx->local_tree,
 				       remote_node2);
 	if (remote_node1 == NULL || local_node2 == NULL ||
-	    remote_node1 == &ctx->remote_tree->root ||
-	    local_node2 == &ctx->local_tree->root ||
-	    node_names_equal(remote_node1, local_node2))
+	    node_names_equal(remote_node1, local_node2) ||
+	    sync_node_is_namespace_root(ctx->remote_tree, remote_node1) ||
+	    sync_node_is_namespace_root(ctx->remote_tree, remote_node2) ||
+	    sync_node_is_namespace_root(ctx->local_tree, local_node1) ||
+	    sync_node_is_namespace_root(ctx->local_tree, local_node2))
 		return FALSE;
 
 	return sync_rename_lower_ts(ctx, local_node1, remote_node1,
