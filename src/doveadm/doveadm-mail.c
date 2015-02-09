@@ -277,7 +277,7 @@ static struct doveadm_mail_cmd_context *cmd_force_resync_alloc(void)
 }
 
 static int
-doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx, bool init_user,
+doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		       const struct mail_storage_service_input *input,
 		       const char **error_r)
 {
@@ -295,14 +295,6 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx, bool init_user,
 	ret = doveadm_mail_server_user(ctx, input, error_r);
 	if (ret != 0)
 		return ret;
-
-	if (init_user) {
-		/* call init() after we've checked whether we want to do this
-		   via doveadm-server or not */
-		ctx->v.init(ctx, ctx->args);
-		if (hook_doveadm_mail_init != NULL)
-			hook_doveadm_mail_init(ctx);
-	}
 
 	ret = mail_storage_service_lookup(ctx->storage_service, input,
 					  &ctx->cur_service_user, &error);
@@ -349,7 +341,11 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	ctx->storage_service_input = *input;
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 ctx->service_flags);
-	return doveadm_mail_next_user(ctx, TRUE, input, error_r);
+	ctx->v.init(ctx, ctx->args);
+	if (hook_doveadm_mail_init != NULL)
+		hook_doveadm_mail_init(ctx);
+
+	return doveadm_mail_next_user(ctx, input, error_r);
 }
 
 static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
@@ -394,7 +390,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 		ctx->cur_username = user;
 		doveadm_print_sticky("username", user);
 		T_BEGIN {
-			ret = doveadm_mail_next_user(ctx, FALSE, &input, &error);
+			ret = doveadm_mail_next_user(ctx, &input, &error);
 			if (ret < 0)
 				i_error("%s", error);
 			else if (ret == 0)
