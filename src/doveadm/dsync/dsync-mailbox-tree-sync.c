@@ -498,8 +498,8 @@ sync_rename_node(struct dsync_mailbox_tree_sync_ctx *ctx,
 	}
 }
 
-static int node_mailbox_guids_cmp2(struct dsync_mailbox_node *node1,
-				   struct dsync_mailbox_node *node2)
+static int node_mailbox_guids_cmp(struct dsync_mailbox_node *node1,
+				  struct dsync_mailbox_node *node2)
 {
 	int ret;
 
@@ -516,8 +516,8 @@ static int node_mailbox_guids_cmp2(struct dsync_mailbox_node *node1,
 		if (ret != 0)
 			return ret;
 
-		ret = node_mailbox_guids_cmp2(node1->first_child,
-					      node2->first_child);
+		ret = node_mailbox_guids_cmp(node1->first_child,
+					     node2->first_child);
 		if (ret != 0)
 			return ret;
 		node1 = node1->next;
@@ -528,12 +528,39 @@ static int node_mailbox_guids_cmp2(struct dsync_mailbox_node *node1,
 	return node1 != NULL ? -1 : 1;
 }
 
-static int node_mailbox_guids_cmp(struct dsync_mailbox_node *node1,
+static int node_mailbox_names_cmp(struct dsync_mailbox_node *node1,
 				  struct dsync_mailbox_node *node2)
 {
 	int ret;
 
-	ret = node_mailbox_guids_cmp2(node1, node2);
+	while (node1 != NULL && node2 != NULL) {
+		ret = strcmp(node1->name, node2->name);
+		if (ret != 0)
+			return ret;
+
+		ret = node_mailbox_names_cmp(node1->first_child,
+					     node2->first_child);
+		if (ret != 0)
+			return ret;
+		node1 = node1->next;
+		node2 = node2->next;
+	}
+	if (node1 == NULL && node2 == NULL)
+		return 0;
+	return node1 != NULL ? -1 : 1;
+}
+
+static int node_mailbox_trees_cmp(struct dsync_mailbox_node *node1,
+				  struct dsync_mailbox_node *node2)
+{
+	int ret;
+
+	ret = node_mailbox_guids_cmp(node1, node2);
+	if (ret == 0) {
+		/* only a directory name changed and all the timestamps
+		   are equal. just pick the alphabetically smaller. */
+		ret = node_mailbox_names_cmp(node1, node2);
+	}
 	i_assert(ret != 0);
 	return ret;
 }
@@ -585,7 +612,7 @@ sync_rename_lower_ts(struct dsync_mailbox_tree_sync_ctx *ctx,
 	   children. */
 	if (local_ts > remote_ts ||
 	    (local_ts == remote_ts &&
-	     node_mailbox_guids_cmp(local_node1, remote_node2) < 0)) {
+	     node_mailbox_trees_cmp(local_node1, remote_node2) < 0)) {
 		/* local nodes have a higher timestamp. we only want to do
 		   renames where the destination parent is the current node's
 		   (local_node1/remote_node2) parent. */
