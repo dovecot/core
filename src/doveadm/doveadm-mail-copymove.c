@@ -13,6 +13,7 @@
 struct copy_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 
+	const char *source_username;
 	struct mail_storage_service_user *source_service_user;
 	struct mail_user *source_user;
 
@@ -71,13 +72,13 @@ cmd_copy_box(struct copy_cmd_context *ctx, struct mailbox *destbox,
 }
 
 static void
-cmd_copy_alloc_source_user(struct copy_cmd_context *ctx, const char *username)
+cmd_copy_alloc_source_user(struct copy_cmd_context *ctx)
 {
 	struct mail_storage_service_input input;
 	const char *error;
 
 	input = ctx->ctx.storage_service_input;
-	input.username = username;
+	input.username = ctx->source_username;
 
 	if (mail_storage_service_lookup_next(ctx->ctx.storage_service, &input,
 					     &ctx->source_service_user,
@@ -99,6 +100,9 @@ cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	struct mailbox *destbox;
 	const struct mailbox_info *info;
 	int ret = 0;
+
+	if (ctx->source_username != NULL && ctx->source_user == NULL)
+		cmd_copy_alloc_source_user(ctx);
 
 	ns = mail_namespace_find(user->namespaces, ctx->destname);
 	destbox = mailbox_alloc(ns->list, ctx->destname, MAILBOX_FLAG_SAVEONLY);
@@ -146,7 +150,7 @@ static void cmd_copy_init(struct doveadm_mail_cmd_context *_ctx,
 		     MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0)
 			i_fatal("Use -u parameter to specify destination user");
 
-		cmd_copy_alloc_source_user(ctx, args[1]);
+		ctx->source_username = p_strdup(_ctx->pool, args[1]);
 		args += 2;
 	}
 
