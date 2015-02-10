@@ -36,6 +36,7 @@ dovecot-config.in
 ChangeLog
 Makefile
 Makefile.in
+run-test.sh
 
 *.o
 *.lo

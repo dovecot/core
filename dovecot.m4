@@ -31,6 +31,35 @@ AC_DEFUN([DC_PLUGIN_DEPS],[
 	unset _plugin_deps
 ])
 
+AC_DEFUN([DC_DOVECOT_TEST_WRAPPER],[
+  AC_CHECK_PROG(VALGRIND, valgrind, yes, no)
+  if test $VALGRIND = yes; then
+    cat > run-test.sh <<EOF
+#!/bin/sh
+top_srcdir=\$[1]
+shift
+
+trap "rm -f test.out.\$\$" 0 1 2 3 15
+supp_path="\$top_srcdir/run-test-valgrind.supp"
+if test -r "\$supp_path"; then
+  valgrind -q --suppressions="\$supp_path" --log-file=test.out.\$\$ \$[*]
+else
+  valgrind -q --log-file=test.out.\$\$ \$[*]
+fi
+ret=\$?
+if test -s test.out.\$\$; then
+  cat test.out.\$\$
+  exit 1
+fi
+exit \$ret
+EOF
+    RUN_TEST='$(SHELL) $(top_builddir)/run-test.sh $(top_srcdir)'
+  else
+    RUN_TEST=''
+  fi
+  AC_SUBST(RUN_TEST)
+])
+
 # Substitute every var in the given comma seperated list
 AC_DEFUN([AX_SUBST_L],[
 	m4_foreach([__var__], [$@], [AC_SUBST(__var__)])
@@ -92,4 +121,5 @@ AC_DEFUN([DC_DOVECOT],[
 	AX_SUBST_L([LIBDOVECOT_INCLUDE], [LIBDOVECOT_LDA_INCLUDE], [LIBDOVECOT_DOVEADM_INCLUDE], [LIBDOVECOT_SERVICE_INCLUDE], [LIBDOVECOT_STORAGE_INCLUDE], [LIBDOVECOT_LOGIN_INCLUDE], [LIBDOVECOT_CONFIG_INCLUDE], [LIBDOVECOT_IMAP_INCLUDE], [LIBDOVECOT_DSYNC_INCLUDE])
 
 	DC_PLUGIN_DEPS
+	DC_DOVECOT_TEST_WRAPPER
 ])

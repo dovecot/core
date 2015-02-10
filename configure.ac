@@ -2816,13 +2816,7 @@ if test "$docdir" = ""; then
 fi
 AC_SUBST(docdir)
 
-AC_CHECK_PROG(VALGRIND, valgrind, yes, no)
-if test $VALGRIND = yes; then
-  RUN_TEST='$(SHELL) $(top_srcdir)/run-test.sh'
-else
-  RUN_TEST=''
-fi
-AC_SUBST(RUN_TEST)
+DC_DOVECOT_TEST_WRAPPER
 AC_SUBST(abs_top_builddir)
 
 AC_CONFIG_HEADERS([config.h])
