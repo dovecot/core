@@ -25,7 +25,8 @@ fts_namespace_find(struct mail_user *user, const char *ns_prefix,
 	}
 
 	if (fts_list_backend(ns->list) == NULL) {
-		i_error("fts not enabled for user's namespace %s", ns_prefix);
+		i_error("fts not enabled for user's namespace %s",
+			ns_prefix != NULL ? ns_prefix : "INBOX");
 		return -1;
 	}
 	*ns_r = ns;
