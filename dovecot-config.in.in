@@ -30,6 +30,7 @@ LIBDOVECOT_IMAP_INCLUDE="-I$(incdir)/src/imap"
 LIBDOVECOT_CONFIG_INCLUDE="-I$(incdir)/src/config"
 LIBDOVECOT_IMAPC_INCLUDE="-I$(incdir)/src/lib-imap-client -I$(incdir)/src/lib-storage/index/imapc"
 LIBDOVECOT_FTS_INCLUDE="-I$(incdir)/src/plugins/fts"
+LIBDOVECOT_NOTIFY_INCLUDE="-I$(incdir)/src/plugins/notify"
 
 dovecot_pkgincludedir=
 dovecot_pkglibdir=
