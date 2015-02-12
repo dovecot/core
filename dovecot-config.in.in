@@ -28,6 +28,8 @@ LIBDOVECOT_DSYNC_INCLUDE="-I$(incdir)/src/doveadm/dsync"
 LIBDOVECOT_LOGIN_INCLUDE="-I$(incdir)/src/login-common"
 LIBDOVECOT_IMAP_INCLUDE="-I$(incdir)/src/imap"
 LIBDOVECOT_CONFIG_INCLUDE="-I$(incdir)/src/config"
+LIBDOVECOT_IMAPC_INCLUDE="-I$(incdir)/src/lib-imap-client"
+LIBDOVECOT_FTS_INCLUDE="-I$(incdir)/src/plugins/fts"
 
 dovecot_pkgincludedir=
 dovecot_pkglibdir=
