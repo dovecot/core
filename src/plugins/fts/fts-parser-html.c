@@ -51,6 +51,7 @@ static void fts_parser_html_deinit(struct fts_parser *_parser)
 {
 	struct html_fts_parser *parser = (struct html_fts_parser *)_parser;
 
+	mail_html2text_deinit(&parser->html2text);
 	buffer_free(&parser->output);
 	i_free(parser);
 }
