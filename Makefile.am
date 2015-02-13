@@ -37,7 +37,7 @@ noop:
 dovecot-config: dovecot-config.in Makefile
 	old=`pwd` && cd $(top_builddir) && abs_builddir=`pwd` && cd $$old && \
 	cd $(top_srcdir) && abs_srcdir=`pwd` && cd $$old && \
-	cat dovecot-config.in | sed \
+	(echo "DOVECOT_INSTALLED=no"; cat dovecot-config.in | sed \
 	-e "s|\$$(top_builddir)|$$abs_builddir|g" \
 	-e "s|\$$(incdir)|$$abs_srcdir|g" \
 	-e "s|\$$(LIBICONV)|$(LIBICONV)|g" \
@@ -47,7 +47,7 @@ dovecot-config: dovecot-config.in Makefile
 	-e "s|^\(dovecot_pkglibexecdir\)=|\1=$(libexecdir)/dovecot|" \
 	-e "s|^\(dovecot_docdir\)=|\1=$(docdir)|" \
 	-e "s|^\(dovecot_moduledir\)=|\1=$(moduledir)|" \
-	> dovecot-config
+	) > dovecot-config
 
 if HAVE_SYSTEMD
 %.service: %.service.in
@@ -64,6 +64,7 @@ install-exec-hook:
 	$(mkdir_p) $(DESTDIR)$(pkglibdir); \
 	grep -v '^LIBDOVECOT_.*_INCLUDE' dovecot-config | \
 	grep -v '^LIBDOVECOT.*_DEPS' | sed \
+	-e "s|^\(DOVECOT_INSTALLED\)=.*$$|\1=yes|" \
 	-e "s|^\(LIBDOVECOT\)=.*$$|\1='-L$(pkglibdir) -ldovecot'|" \
 	-e "s|^\(LIBDOVECOT_LOGIN\)=.*$$|\1='-ldovecot-login $(SSL_LIBS)'|" \
 	-e "s|^\(LIBDOVECOT_SQL\)=.*$$|\1=-ldovecot-sql|" \
