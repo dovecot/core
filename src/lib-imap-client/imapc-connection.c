@@ -1300,15 +1300,17 @@ static void imapc_connection_input(struct imapc_connection *conn)
 			i_error("imapc(%s): Server disconnected with message: %s",
 				conn->name, conn->disconnect_reason);
 		} else if (conn->ssl_iostream == NULL) {
-			i_error("imapc(%s): Server disconnected unexpectedly",
-				conn->name);
+			errstr = conn->input->stream_errno == 0 ? "EOF" :
+				i_stream_get_error(conn->input);
+			i_error("imapc(%s): Server disconnected unexpectedly: %s",
+				conn->name, errstr);
 		} else {
 			errstr = ssl_iostream_get_last_error(conn->ssl_iostream);
 			if (errstr == NULL) {
 				errstr = conn->input->stream_errno == 0 ? "EOF" :
-					strerror(conn->input->stream_errno);
+					i_stream_get_error(conn->input);
 			}
-			i_error("imapc(%s): Server disconnected: %s",
+			i_error("imapc(%s): Server disconnected unexpectedly: %s",
 				conn->name, errstr);
 		}
 		imapc_connection_reconnect(conn);
