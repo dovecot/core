@@ -137,6 +137,7 @@ ssize_t i_stream_read(struct istream *stream)
 	ssize_t ret;
 
 	if (unlikely(stream->closed || stream->stream_errno != 0)) {
+		stream->eof = TRUE;
 		errno = stream->stream_errno;
 		return -1;
 	}
@@ -172,6 +173,14 @@ ssize_t i_stream_read(struct istream *stream)
 		i_assert(_stream->skip < _stream->pos);
 		i_assert((size_t)ret+old_size == _stream->pos - _stream->skip);
 		break;
+	}
+
+	if (stream->stream_errno != 0) {
+		/* error handling should be easier if we now just
+		   assume the stream is now at EOF. Note that we could get here
+		   even if read() didn't return -1, although that's a little
+		   bit sloppy istream implementation. */
+		stream->eof = TRUE;
 	}
 
 	i_stream_update(_stream);
