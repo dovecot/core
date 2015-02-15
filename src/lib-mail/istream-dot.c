@@ -131,6 +131,8 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 	/* we have to update stream->pos before reading more data */
 	ret1 = i_stream_dot_return(stream, dest, 0);
 	if ((ret = i_stream_dot_read_some(dstream)) <= 0) {
+		if (stream->istream.stream_errno != 0)
+			return -1;
 		if (ret1 != 0)
 			return ret1;
 		dest = stream->pos;
