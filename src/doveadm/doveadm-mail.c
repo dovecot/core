@@ -4,6 +4,9 @@
 #include "array.h"
 #include "lib-signals.h"
 #include "ioloop.h"
+#include "istream.h"
+#include "istream-dot.h"
+#include "istream-seekable.h"
 #include "str.h"
 #include "unichar.h"
 #include "module-dir.h"
@@ -17,6 +20,7 @@
 #include "mail-search-build.h"
 #include "mail-search-parser.h"
 #include "mailbox-list-iter.h"
+#include "client-connection.h"
 #include "doveadm.h"
 #include "doveadm-settings.h"
 #include "doveadm-print.h"
@@ -25,6 +29,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#define DOVEADM_MAIL_CMD_INPUT_TIMEOUT_MSECS (5*60*1000)
 
 ARRAY_TYPE(doveadm_mail_cmd) doveadm_mail_cmds;
 void (*hook_doveadm_mail_init)(struct doveadm_mail_cmd_context *ctx);
@@ -142,6 +148,76 @@ static struct doveadm_mail_cmd_context *cmd_purge_alloc(void)
 	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
 	ctx->v.run = cmd_purge_run;
 	return ctx;
+}
+
+static void doveadm_mail_cmd_input_input(struct doveadm_mail_cmd_context *ctx)
+{
+	while (i_stream_read(ctx->cmd_input) > 0)
+		i_stream_skip(ctx->cmd_input, i_stream_get_data_size(ctx->cmd_input));
+	if (!ctx->cmd_input->eof)
+		return;
+
+	if (ctx->cmd_input->stream_errno != 0) {
+		i_error("read(%s) failed: %s",
+			i_stream_get_name(ctx->cmd_input),
+			i_stream_get_error(ctx->cmd_input));
+	}
+	io_loop_stop(current_ioloop);
+}
+
+static void doveadm_mail_cmd_input_timeout(struct doveadm_mail_cmd_context *ctx)
+{
+	struct istream *input;
+
+	input = i_stream_create_error_str(ETIMEDOUT, "Timed out in %u secs",
+			DOVEADM_MAIL_CMD_INPUT_TIMEOUT_MSECS/1000);
+	i_stream_set_name(input, i_stream_get_name(ctx->cmd_input));
+	i_stream_destroy(&ctx->cmd_input);
+	ctx->cmd_input = input;
+	io_loop_stop(current_ioloop);
+}
+
+static void doveadm_mail_cmd_input_read(struct doveadm_mail_cmd_context *ctx)
+{
+	struct ioloop *ioloop;
+	struct io *io;
+	struct timeout *to;
+
+	ioloop = io_loop_create();
+	io = io_add(ctx->cmd_input_fd, IO_READ,
+		    doveadm_mail_cmd_input_input, ctx);
+	to = timeout_add(DOVEADM_MAIL_CMD_INPUT_TIMEOUT_MSECS,
+			 doveadm_mail_cmd_input_timeout, ctx);
+	io_loop_run(ioloop);
+	io_remove(&io);
+	timeout_remove(&to);
+	io_loop_destroy(&ioloop);
+
+	i_assert(ctx->cmd_input->eof);
+	i_stream_seek(ctx->cmd_input, 0);
+}
+
+void doveadm_mail_get_input(struct doveadm_mail_cmd_context *ctx)
+{
+	struct istream *inputs[2];
+
+	if (ctx->cmd_input != NULL)
+		return;
+
+	if (ctx->conn != NULL)
+		inputs[0] = i_stream_create_dot(ctx->conn->input, FALSE);
+	else {
+		inputs[0] = i_stream_create_fd(STDIN_FILENO, 1024*1024, FALSE);
+		i_stream_set_name(inputs[0], "stdin");
+	}
+	inputs[1] = NULL;
+	ctx->cmd_input_fd = i_stream_get_fd(inputs[0]);
+	ctx->cmd_input = i_stream_create_seekable_path(inputs, 1024*256,
+						       "/tmp/doveadm.");
+	i_stream_set_name(ctx->cmd_input, i_stream_get_name(inputs[0]));
+	i_stream_unref(&inputs[0]);
+
+	doveadm_mail_cmd_input_read(ctx);
 }
 
 struct mailbox *
@@ -322,6 +398,8 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		return ret;
 	}
 
+	if (ctx->cmd_input != NULL)
+		i_stream_seek(ctx->cmd_input, 0);
 	if (ctx->v.run(ctx, ctx->cur_mail_user) < 0) {
 		i_assert(ctx->exit_code != 0);
 	}
@@ -551,6 +629,8 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	/* service deinit unloads mail plugins, so do it late */
 	mail_storage_service_deinit(&ctx->storage_service);
 
+	if (ctx->cmd_input != NULL)
+		i_stream_unref(&ctx->cmd_input);
 	if (ctx->exit_code != 0)
 		doveadm_exit_code = ctx->exit_code;
 	pool_unref(&ctx->pool);

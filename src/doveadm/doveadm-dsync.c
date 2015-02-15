@@ -762,7 +762,7 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	str_append_c(cmd, '\n');
 
 	ctx->tcp_conn = conn;
-	server_connection_cmd(conn, str_c(cmd),
+	server_connection_cmd(conn, str_c(cmd), NULL,
 			      dsync_connected_callback, ctx);
 	io_loop_run(ioloop);
 	ctx->tcp_conn = NULL;

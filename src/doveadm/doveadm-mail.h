@@ -81,6 +81,9 @@ struct doveadm_mail_cmd_context {
 	struct mail_user *cur_mail_user;
 	struct doveadm_mail_cmd_vfuncs v;
 
+	struct istream *cmd_input;
+	int cmd_input_fd;
+
 	ARRAY(union doveadm_mail_cmd_module_context *) module_contexts;
 
 	/* if non-zero, exit with this code */
@@ -132,6 +135,10 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 			     const struct mail_storage_service_input *input,
 			     const char **error_r);
 void doveadm_mail_server_flush(void);
+
+/* Request input stream to be read (from stdin). This must be called from
+   the command's init() function. */
+void doveadm_mail_get_input(struct doveadm_mail_cmd_context *ctx);
 
 struct mailbox *
 doveadm_mailbox_find(struct mail_user *user, const char *mailbox);

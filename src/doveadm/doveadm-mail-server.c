@@ -155,7 +155,7 @@ static void doveadm_mail_server_handle(struct server_connection *conn,
 	servercmd = i_new(struct doveadm_mail_server_cmd, 1);
 	servercmd->conn = conn;
 	servercmd->username = i_strdup(username);
-	server_connection_cmd(conn, str_c(cmd),
+	server_connection_cmd(conn, str_c(cmd), cmd_ctx->cmd_input,
 			      doveadm_cmd_callback, servercmd);
 }
 

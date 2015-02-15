@@ -7,6 +7,7 @@
 #include "net.h"
 #include "istream.h"
 #include "ostream.h"
+#include "ostream-dot.h"
 #include "str.h"
 #include "strescape.h"
 #include "iostream-ssl.h"
@@ -42,6 +43,8 @@ struct server_connection {
 	struct ostream *output;
 	struct ssl_iostream *ssl_iostream;
 
+	struct istream *cmd_input;
+	struct ostream *cmd_output;
 	const char *delayed_cmd;
 	server_cmd_callback_t *callback;
 	void *context;
@@ -76,6 +79,58 @@ static void print_connection_released(void)
 		if (printing_conn != NULL)
 			break;
 	}
+}
+
+static int server_connection_send_cmd_input_more(struct server_connection *conn)
+{
+	off_t ret;
+
+	/* ostream-dot writes only up to max buffer size, so keep it non-zero */
+	o_stream_set_max_buffer_size(conn->cmd_output, IO_BLOCK_SIZE);
+	ret = o_stream_send_istream(conn->cmd_output, conn->cmd_input);
+	o_stream_set_max_buffer_size(conn->cmd_output, (size_t)-1);
+
+	if (ret >= 0 && i_stream_have_bytes_left(conn->cmd_input)) {
+		o_stream_set_flush_pending(conn->cmd_output, TRUE);
+		return 0;
+	}
+	if (conn->cmd_input->stream_errno != 0) {
+		i_error("read(%s) failed: %s",
+			i_stream_get_name(conn->cmd_input),
+			i_stream_get_error(conn->cmd_input));
+	} else if (conn->cmd_output->stream_errno != 0 ||
+		   o_stream_flush(conn->cmd_output) < 0) {
+		i_error("write(%s) failed: %s",
+			o_stream_get_name(conn->cmd_output),
+			o_stream_get_error(conn->cmd_output));
+	}
+
+	i_stream_destroy(&conn->cmd_input);
+	o_stream_destroy(&conn->cmd_output);
+	return ret < 0 ? -1 : 1;
+}
+
+static void server_connection_send_cmd_input(struct server_connection *conn)
+{
+	if (conn->cmd_input == NULL)
+		return;
+
+	conn->cmd_output = o_stream_create_dot(conn->output, TRUE);
+	(void)server_connection_send_cmd_input_more(conn);
+}
+
+static int server_connection_output(struct server_connection *conn)
+{
+	int ret;
+
+	o_stream_cork(conn->output);
+	ret = o_stream_flush(conn->output);
+	if (ret > 0 && conn->cmd_input != NULL && conn->delayed_cmd == NULL)
+		ret = server_connection_send_cmd_input_more(conn);
+	if (ret < 0)
+		server_connection_destroy(&conn);
+	o_stream_uncork(conn->output);
+	return ret;
 }
 
 static void
@@ -171,6 +226,7 @@ static void server_connection_authenticated(struct server_connection *conn)
 	if (conn->delayed_cmd != NULL) {
 		o_stream_nsend_str(conn->output, conn->delayed_cmd);
 		conn->delayed_cmd = NULL;
+		server_connection_send_cmd_input(conn);
 	}
 }
 
@@ -401,6 +457,10 @@ int server_connection_create(struct doveadm_server *server,
 	conn->io = io_add(conn->fd, IO_READ, server_connection_input, conn);
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
+	o_stream_set_flush_callback(conn->output, server_connection_output, conn);
+
+	i_stream_set_name(conn->input, server->name);
+	o_stream_set_name(conn->output, server->name);
 
 	array_append(&conn->server->connections, &conn, 1);
 
@@ -452,6 +512,11 @@ void server_connection_destroy(struct server_connection **_conn)
 		i_stream_destroy(&conn->input);
 	if (conn->output != NULL)
 		o_stream_destroy(&conn->output);
+	if (conn->cmd_input != NULL)
+		i_stream_destroy(&conn->cmd_input);
+	/* close cmd_output after its parent, so the "." isn't sent */
+	if (conn->cmd_output != NULL)
+		o_stream_destroy(&conn->cmd_output);
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
 	if (conn->io != NULL)
@@ -470,15 +535,23 @@ server_connection_get_server(struct server_connection *conn)
 }
 
 void server_connection_cmd(struct server_connection *conn, const char *line,
+			   struct istream *cmd_input,
 			   server_cmd_callback_t *callback, void *context)
 {
 	i_assert(conn->delayed_cmd == NULL);
 
 	conn->state = SERVER_REPLY_STATE_PRINT;
-	if (conn->authenticated)
-		o_stream_nsend_str(conn->output, line);
-	else
+	if (cmd_input != NULL) {
+		i_assert(conn->cmd_input == NULL);
+		i_stream_ref(cmd_input);
+		conn->cmd_input = cmd_input;
+	}
+	if (!conn->authenticated)
 		conn->delayed_cmd = p_strdup(conn->pool, line);
+	else {
+		o_stream_nsend_str(conn->output, line);
+		server_connection_send_cmd_input(conn);
+	}
 	conn->callback = callback;
 	conn->context = context;
 }
