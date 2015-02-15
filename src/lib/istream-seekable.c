@@ -143,6 +143,7 @@ static ssize_t read_more(struct seekable_istream *sstream)
 				"read(%s) failed: %s",
 				i_stream_get_name(sstream->cur_input),
 				i_stream_get_error(sstream->cur_input));
+			sstream->istream.istream.eof = TRUE;
 			sstream->istream.istream.stream_errno =
 				sstream->cur_input->stream_errno;
 			return -1;
