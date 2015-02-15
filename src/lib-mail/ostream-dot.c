@@ -10,25 +10,52 @@ enum dot_ostream_state {
 	STREAM_STATE_NONE,
 	STREAM_STATE_CR,
 	STREAM_STATE_CRLF,
+	STREAM_STATE_DONE
 };
 
 struct dot_ostream {
 	struct ostream_private ostream;
 
 	enum dot_ostream_state state;
+	bool force_extra_crlf;
 };
 
-static void
-o_stream_dot_close(struct iostream_private *stream,
-				    bool close_parent)
+static int
+o_stream_dot_flush(struct ostream_private *stream)
 {
 	struct dot_ostream *dstream = (struct dot_ostream *)stream;
+	int ret;
 
-	if (dstream->state == STREAM_STATE_CRLF)
-		(void)o_stream_send(dstream->ostream.parent, ".\r\n", 3);
-	else
-		(void)o_stream_send(dstream->ostream.parent, "\r\n.\r\n", 5);
-	(void)o_stream_flush(&dstream->ostream.ostream);
+	if (o_stream_get_buffer_avail_size(stream->parent) < 5) {
+		/* make space for the dot line */
+		if ((ret = o_stream_flush(stream->parent)) <= 0) {
+			if (ret < 0)
+				o_stream_copy_error_from_parent(stream);
+			return ret;
+		}
+	}
+
+	if (dstream->state == STREAM_STATE_DONE)
+		;
+	else if (dstream->state == STREAM_STATE_CRLF &&
+		 !dstream->force_extra_crlf) {
+		ret = o_stream_send(stream->parent, ".\r\n", 3);
+		i_assert(ret == 3);
+	} else {
+		ret = o_stream_send(stream->parent, "\r\n.\r\n", 5);
+		i_assert(ret == 5);
+	}
+	dstream->state = STREAM_STATE_DONE;
+
+	if ((ret = o_stream_flush(stream->parent)) < 0)
+		o_stream_copy_error_from_parent(stream);
+	return ret;
+}
+
+static void
+o_stream_dot_close(struct iostream_private *stream, bool close_parent)
+{
+	struct dot_ostream *dstream = (struct dot_ostream *)stream;
 
 	if (close_parent)
 		o_stream_close(dstream->ostream.parent);
@@ -45,6 +72,8 @@ o_stream_dot_sendv(struct ostream_private *stream,
 	unsigned int count, i;
 	ssize_t ret;
 
+	i_assert(dstream->state != STREAM_STATE_DONE);
+
 	if ((ret=o_stream_flush(stream->parent)) <= 0) {
 		/* error / we still couldn't flush existing data to
 		   parent stream. */
@@ -54,7 +83,9 @@ o_stream_dot_sendv(struct ostream_private *stream,
 
 	/* check for dots */
 	t_array_init(&iov_arr, iov_count + 32);
-	max_bytes = o_stream_get_buffer_avail_size(stream->parent); // FIXME: what if max_buffer_size is 0?
+	max_bytes = o_stream_get_buffer_avail_size(stream->parent);
+	i_assert(max_bytes > 0); /* FIXME: not supported currently */
+
 	sent = added = 0;
 	for (i = 0; i < iov_count && max_bytes > 0; i++) {
 		size_t size = iov[i].iov_len, chunk;
@@ -113,6 +144,8 @@ o_stream_dot_sendv(struct ostream_private *stream,
 					break;
 				}
 				break;
+			case STREAM_STATE_DONE:
+				i_unreached();
 			}
 
 			if (add != 0) {
@@ -168,13 +201,15 @@ o_stream_dot_sendv(struct ostream_private *stream,
 }
 
 struct ostream *
-o_stream_create_dot(struct ostream *output)
+o_stream_create_dot(struct ostream *output, bool force_extra_crlf)
 {
 	struct dot_ostream *dstream;
 
 	dstream = i_new(struct dot_ostream, 1);
 	dstream->ostream.sendv = o_stream_dot_sendv;
 	dstream->ostream.iostream.close = o_stream_dot_close;
+	dstream->ostream.flush = o_stream_dot_flush;
 	dstream->ostream.max_buffer_size = output->real_stream->max_buffer_size;
+	dstream->force_extra_crlf = force_extra_crlf;
 	return o_stream_create(&dstream->ostream, output, o_stream_get_fd(output));
 }

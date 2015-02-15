@@ -26,7 +26,7 @@ static void test_ostream_dot_one(const struct dot_test *test)
 	output_data = buffer_create_dynamic(pool_datastack_create(), 1024);
 	test_output = o_stream_create_buffer(output_data);
 
-	output = o_stream_create_dot(test_output);
+	output = o_stream_create_dot(test_output, FALSE);
 
 	while ((ret = i_stream_read(test_input)) > 0 || ret == -2) {
 		data = i_stream_get_data(test_input, &size);
@@ -39,6 +39,7 @@ static void test_ostream_dot_one(const struct dot_test *test)
 
 	test_assert(test_input->eof);
 
+	test_assert(o_stream_flush(output) > 0);
 	o_stream_unref(&output);
 	o_stream_unref(&test_output);
 
