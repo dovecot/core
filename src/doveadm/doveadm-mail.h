@@ -167,6 +167,7 @@ void doveadm_mail_failed_list(struct doveadm_mail_cmd_context *ctx,
 			      struct mailbox_list *list);
 
 extern struct doveadm_mail_cmd cmd_expunge;
+extern struct doveadm_mail_cmd cmd_save;
 extern struct doveadm_mail_cmd cmd_search;
 extern struct doveadm_mail_cmd cmd_fetch;
 extern struct doveadm_mail_cmd cmd_flags_add;

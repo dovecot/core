@@ -787,6 +787,7 @@ static struct doveadm_mail_cmd *mail_commands[] = {
 	&cmd_force_resync,
 	&cmd_purge,
 	&cmd_expunge,
+	&cmd_save,
 	&cmd_search,
 	&cmd_fetch,
 	&cmd_flags_add,

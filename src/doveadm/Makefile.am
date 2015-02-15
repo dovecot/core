@@ -93,6 +93,7 @@ doveadm_common_mail_cmds = \
 	doveadm-mail-mailbox-status.c \
 	doveadm-mail-copymove.c \
 	doveadm-mailbox-list-iter.c \
+	doveadm-mail-save.c \
 	doveadm-mail-search.c \
 	doveadm-mail-server.c
 
