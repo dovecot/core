@@ -335,9 +335,23 @@ static void
 cmd_fs_delete_recursive(int argc, char *argv[], unsigned int async_count)
 {
 	struct fs *fs;
+	struct fs_file *file;
+	const char *path;
 
 	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_delete);
-	cmd_fs_delete_dir_recursive(fs, async_count, argv[0]);
+	path = argv[0];
+
+	cmd_fs_delete_dir_recursive(fs, async_count, path);
+	if ((fs_get_properties(fs) & FS_PROPERTY_DIRECTORIES) != 0) {
+		/* delete the root itself */
+		file = fs_file_init(fs, path, FS_OPEN_MODE_READONLY);
+		if (fs_delete(file) < 0) {
+			i_error("fs_delete(%s) failed: %s",
+				fs_file_path(file), fs_file_last_error(file));
+			doveadm_exit_code = EX_TEMPFAIL;
+		}
+		fs_file_deinit(&file);
+	}
 	fs_deinit(&fs);
 }
 
