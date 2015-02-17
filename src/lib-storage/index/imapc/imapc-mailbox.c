@@ -303,13 +303,19 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 				have_labels = TRUE;
 		}
 	}
-	/* FIXME: need to do something about recent flags */
-	flags &= ~MAIL_RECENT;
 
 	imapc_mailbox_init_delayed_trans(mbox);
 	if (imapc_mailbox_msgmap_update(mbox, rseq, fetch_uid,
 					&lseq, &uid) < 0 || uid == 0)
 		return;
+
+	if ((flags & MAIL_RECENT) == 0 && mbox->highest_nonrecent_uid < uid) {
+		/* remember for STATUS_FIRST_RECENT_UID */
+		mbox->highest_nonrecent_uid = uid;
+	}
+	/* FIXME: we should ideally also pass these through so they show up
+	   to clients. */
+	flags &= ~MAIL_RECENT;
 
 	/* if this is a reply to some FETCH request, update the mail's fields */
 	array_foreach(&mbox->fetch_requests, fetch_requestp) {

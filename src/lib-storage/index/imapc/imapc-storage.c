@@ -676,6 +676,8 @@ static void imapc_mailbox_get_selected_status(struct imapc_mailbox *mbox,
 	index_storage_get_open_status(&mbox->box, items, status_r);
 	if ((items & STATUS_PERMANENT_FLAGS) != 0)
 		status_r->permanent_flags = mbox->permanent_flags;
+	if ((items & STATUS_FIRST_RECENT_UID) != 0)
+		status_r->first_recent_uid = mbox->highest_nonrecent_uid + 1;
 }
 
 static int imapc_mailbox_delete(struct mailbox *box)
@@ -735,7 +737,8 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 	if (box->opened) {
 		imapc_mailbox_get_selected_status(mbox, items, status_r);
 	} else if ((items & (STATUS_FIRST_UNSEEN_SEQ | STATUS_KEYWORDS |
-			     STATUS_PERMANENT_FLAGS)) != 0) {
+			     STATUS_PERMANENT_FLAGS |
+			     STATUS_FIRST_RECENT_UID)) != 0) {
 		/* getting these requires opening the mailbox */
 		if (mailbox_open(box) < 0)
 			return -1;

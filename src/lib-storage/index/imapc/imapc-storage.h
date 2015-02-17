@@ -101,6 +101,7 @@ struct imapc_mailbox {
 	ARRAY(struct imapc_mailbox_event_callback) resp_text_callbacks;
 
 	enum mail_flags permanent_flags;
+	uint32_t highest_nonrecent_uid;
 
 	ARRAY_TYPE(uint32_t) delayed_expunged_uids;
 	uint32_t sync_uid_validity;
