@@ -28,6 +28,8 @@ enum fs_properties {
 	FS_PROPERTY_COPY_METADATA	= 0x400,
 	/* Backend support asynchronous file operations. */
 	FS_PROPERTY_ASYNC		= 0x800,
+	/* Backend supports FS_ITER_FLAG_OBJECTIDS. */
+	FS_PROPERTY_OBJECTIDS		= 0x1000
 };
 
 enum fs_open_mode {
@@ -71,7 +73,12 @@ enum fs_iter_flags {
 	/* Iterate only directories, not files */
 	FS_ITER_FLAG_DIRS	= 0x01,
 	/* Request asynchronous iteration. */
-	FS_ITER_FLAG_ASYNC	= 0x02
+	FS_ITER_FLAG_ASYNC	= 0x02,
+	/* Instead of returning object names, return <objectid>/<object name>.
+	   If this isn't supported, the <objectid> is returned empty. The
+	   object IDs are always hex-encoded data. This flag can be used only
+	   if FS_PROPERTY_OBJECTIDS is enabled. */
+	FS_ITER_FLAG_OBJECTIDS	= 0x04
 };
 
 struct fs_settings {

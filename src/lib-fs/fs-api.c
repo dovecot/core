@@ -712,6 +712,9 @@ fs_iter_init(struct fs *fs, const char *path, enum fs_iter_flags flags)
 {
 	struct fs_iter *iter;
 
+	i_assert((flags & FS_ITER_FLAG_OBJECTIDS) == 0 ||
+		 (fs_get_properties(fs) & FS_PROPERTY_OBJECTIDS) != 0);
+
 	T_BEGIN {
 		iter = fs->v.iter_init(fs, path, flags);
 	} T_END;
