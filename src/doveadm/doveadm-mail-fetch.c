@@ -25,7 +25,6 @@
 struct fetch_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 
-	struct ostream *output;
 	struct mail *mail;
 
 	ARRAY(struct fetch_field) fields;
@@ -525,13 +524,6 @@ cmd_fetch_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	return ret;
 }
 
-static void cmd_fetch_deinit(struct doveadm_mail_cmd_context *_ctx)
-{
-	struct fetch_cmd_context *ctx = (struct fetch_cmd_context *)_ctx;
-
-	o_stream_unref(&ctx->output);
-}
-
 static void cmd_fetch_init(struct doveadm_mail_cmd_context *_ctx,
 			   const char *const args[])
 {
@@ -543,9 +535,6 @@ static void cmd_fetch_init(struct doveadm_mail_cmd_context *_ctx,
 
 	parse_fetch_fields(ctx, fetch_fields);
 	_ctx->search_args = doveadm_mail_build_search_args(args + 1);
-
-	ctx->output = o_stream_create_fd(STDOUT_FILENO, 0, FALSE);
-	o_stream_set_no_error_handling(ctx->output, TRUE);
 }
 
 static struct doveadm_mail_cmd_context *cmd_fetch_alloc(void)
@@ -555,7 +544,6 @@ static struct doveadm_mail_cmd_context *cmd_fetch_alloc(void)
 	ctx = doveadm_mail_cmd_alloc(struct fetch_cmd_context);
 	ctx->ctx.v.init = cmd_fetch_init;
 	ctx->ctx.v.run = cmd_fetch_run;
-	ctx->ctx.v.deinit = cmd_fetch_deinit;
 	doveadm_print_init("pager");
 	return &ctx->ctx;
 }
