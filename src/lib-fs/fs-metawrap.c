@@ -286,6 +286,10 @@ fs_metawrap_append_metadata(struct metawrap_fs_file *file, string_t *str)
 	const struct fs_metadata *metadata;
 
 	array_foreach(&file->file.metadata, metadata) {
+		if (strncmp(metadata->key, FS_METADATA_INTERNAL_PREFIX,
+			    strlen(FS_METADATA_INTERNAL_PREFIX)) == 0)
+			continue;
+
 		str_append_tabescaped(str, metadata->key);
 		str_append_c(str, ':');
 		str_append_tabescaped(str, metadata->value);

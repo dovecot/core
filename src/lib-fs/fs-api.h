@@ -7,6 +7,13 @@ struct fs_file;
 struct fs_lock;
 struct hash_method;
 
+/* Metadata with this prefix shouldn't actually be sent to storage. */
+#define FS_METADATA_INTERNAL_PREFIX ":/X-Dovecot-fs-api-"
+/* fs_write*() may return a hex-encoded object ID after write is finished.
+   This can be later on used to optimize reads by setting it before reading
+   the file. */
+#define FS_METADATA_OBJECTID FS_METADATA_INTERNAL_PREFIX"ObjectID"
+
 enum fs_properties {
 	FS_PROPERTY_METADATA	= 0x01,
 	FS_PROPERTY_LOCKS	= 0x02,
