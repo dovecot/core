@@ -32,8 +32,7 @@ static void test_istream_children(void)
 	test_assert(size == 3 && memcmp(data, "123", 3) == 0);
 	/* child1 check middle again.. the parent has been modified,
 	   so it can't return the original data (without some code changes). */
-	data = i_stream_get_data(child1, &size);
-	test_assert(size == 0);
+	test_assert(i_stream_get_data_size(child1) == 0);
 	i_stream_skip(child1, 3);
 	/* child1 read end */
 	test_assert(i_stream_read(child1) == 3);
@@ -42,8 +41,7 @@ static void test_istream_children(void)
 	i_stream_skip(child1, 3);
 	test_assert(i_stream_read(child1) == -1);
 	/* child2 check beginning again.. */
-	data = i_stream_get_data(child2, &size);
-	test_assert(size == 0);
+	test_assert(i_stream_get_data_size(child1) == 0);
 	i_stream_skip(child2, 3);
 	/* child2 read middle */
 	test_assert(i_stream_read(child2) == 3);
