@@ -132,9 +132,11 @@ static void fs_posix_deinit(struct fs *_fs)
 
 static enum fs_properties fs_posix_get_properties(struct fs *fs ATTR_UNUSED)
 {
+	/* FS_PROPERTY_DIRECTORIES not returned because fs_delete()
+	   automatically rmdir()s parents. This could be changed later though,
+	   but SIS code at least would need to be changed to support it. */
 	return FS_PROPERTY_LOCKS | FS_PROPERTY_FASTCOPY | FS_PROPERTY_RENAME |
-		FS_PROPERTY_STAT | FS_PROPERTY_ITER | FS_PROPERTY_RELIABLEITER |
-		FS_PROPERTY_DIRECTORIES;
+		FS_PROPERTY_STAT | FS_PROPERTY_ITER | FS_PROPERTY_RELIABLEITER;
 }
 
 static int fs_posix_mkdir_parents(struct posix_fs *fs, const char *path)
