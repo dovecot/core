@@ -160,11 +160,8 @@ index_index_rebuild_init(struct mailbox *box, struct mail_index_view *view,
 	index_mailbox_reset_uidvalidity(box);
 	(void)mail_index_ext_lookup(box->index, "cache", &ctx->cache_ext_id);
 
-	/* open cache and read the caching decisions. we'll reset the cache in
-	   case it contains any invalid data, but we want to preserve the
-	   decisions. */
+	/* open cache and read the caching decisions. */
 	(void)mail_cache_open_and_verify(ctx->box->cache);
-	mail_cache_reset(box->cache);
 
 	/* if backup index file exists, try to use it */
 	index_dir = mailbox_get_index_path(box);
