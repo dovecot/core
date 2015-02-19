@@ -13,7 +13,6 @@ EXTRA_DIST = \
 	COPYING.MIT \
 	ChangeLog \
 	is-tagged.py \
-	run-test.sh \
 	cc-wrapper.sh.in \
 	update-version.sh \
 	$(conf_DATA)
