@@ -83,7 +83,8 @@ endif
 
 DISTCLEANFILES = \
 	$(top_builddir)/dovecot-version.h \
-	$(top_builddir)/dovecot-config
+	$(top_builddir)/dovecot-config \
+	$(top_builddir)/run-test.sh
 
 distcheck-hook:
 	if which scan-build > /dev/null; then \
