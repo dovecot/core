@@ -96,7 +96,7 @@ static void test_ds_recurse(int depth, int number, size_t size)
 	int try_fails = 0;
 	unsigned int t_id = t_push_named("test_ds_recurse[%i]", depth);
 	ps = t_buffer_get_type(char *, number);
-	test_assert_idx(ps != NULL, depth);
+	i_assert(ps != NULL);
 	t_buffer_alloc_type(char *, number);
 
 	for (i = 0; i < number; i++) {
