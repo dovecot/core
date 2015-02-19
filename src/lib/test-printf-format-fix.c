@@ -52,7 +52,7 @@ static void test_ok_changes()
 
 	errno = EINVAL;
 	needle = strerror(errno);
-	test_assert(needle != NULL);
+	i_assert(needle != NULL);
 	needlen = strlen(needle);
 
 	for (i = 0; i < N_ELEMENTS(tests); ++i) {

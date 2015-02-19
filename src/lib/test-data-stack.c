@@ -102,7 +102,7 @@ static void test_ds_recurse(int depth, int number, size_t size)
 	for (i = 0; i < number; i++) {
 		ps[i] = t_malloc(size/2);
 		bool re = t_try_realloc(ps[i], size);
-		test_assert_idx(ps[i] != NULL, i);
+		i_assert(ps[i] != NULL);
 		if (!re) {
 			try_fails++;
 			ps[i] = t_malloc(size);
