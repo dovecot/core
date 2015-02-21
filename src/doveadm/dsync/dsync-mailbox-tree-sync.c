@@ -887,10 +887,8 @@ static bool sync_rename_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 			changed = FALSE;
 		} else {
 			/* mailbox naming conflict */
-			T_BEGIN {
-				changed = sync_rename_conflict(ctx, local_node,
-							       remote_node, &reason);
-			} T_END;
+			changed = sync_rename_conflict(ctx, local_node,
+						       remote_node, &reason);
 		}
 		/* handle children, if there are any */
 		if (debug != NULL) {
