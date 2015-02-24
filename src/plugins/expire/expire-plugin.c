@@ -1,5 +1,10 @@
 /* Copyright (c) 2006-2015 Dovecot authors, see the included COPYING file */
 
+/* There are several race conditions in this plugin, but they should be
+   happening pretty rarely and usually it's not a big problem if the results
+   are temporarily wrong. Fixing the races would likely be a lot of work,
+   so it's not really worth it. */
+
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
@@ -21,15 +26,21 @@
 #define EXPIRE_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, expire_mail_user_module)
 
+struct expire_mail_index_header {
+	uint32_t timestamp;
+};
+
 struct expire_mail_user {
 	union mail_user_module_context module_ctx;
 
 	struct dict *db;
 	struct expire_set *set;
+	bool expire_cache;
 };
 
 struct expire_mailbox {
 	union mailbox_module_context module_ctx;
+	uint32_t expire_ext_id;
 };
 
 struct expire_transaction_context {
@@ -62,6 +73,108 @@ expire_mailbox_transaction_begin(struct mailbox *box,
 	return t;
 }
 
+static void first_save_timestamp(struct mailbox *box, time_t *stamp_r)
+{
+	struct mailbox_transaction_context *t;
+	const struct mail_index_header *hdr;
+	struct mail *mail;
+
+	*stamp_r = ioloop_time;
+
+	t = mailbox_transaction_begin(box, 0);
+	mail = mail_alloc(t, 0, NULL);
+
+	/* find the first non-expunged mail. we're here because the first
+	   mail was expunged, so don't bother checking it. */
+	hdr = mail_index_get_header(box->view);
+	if (hdr->messages_count > 0) {
+		mail_set_seq(mail, 1);
+		(void)mail_get_save_date(mail, stamp_r);
+	}
+	mail_free(&mail);
+	(void)mailbox_transaction_commit(&t);
+}
+
+static uint32_t expire_get_ext_id(struct mailbox *box)
+{
+	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(box);
+
+	if (xpr_box->expire_ext_id != (uint32_t)-1)
+		return xpr_box->expire_ext_id;
+
+	xpr_box->expire_ext_id =
+		mail_index_ext_register(box->index, "expire",
+			sizeof(struct expire_mail_index_header), 0, 0);
+	return xpr_box->expire_ext_id;
+}
+
+static int expire_lookup(struct mailbox *box, const char *key,
+			 time_t *new_stamp_r)
+{
+	struct expire_mail_user *euser =
+		EXPIRE_USER_CONTEXT(box->storage->user);
+	const struct expire_mail_index_header *hdr;
+	const void *data;
+	size_t data_size;
+	const char *value;
+	int ret;
+
+	/* default to ioloop_time for newly saved mails. it may not be exactly
+	   the first message's save time, but a few seconds difference doesn't
+	   matter */
+	*new_stamp_r = ioloop_time;
+
+	if (euser->expire_cache) {
+		mail_index_get_header_ext(box->view, expire_get_ext_id(box),
+					  &data, &data_size);
+		if (data_size == sizeof(*hdr)) {
+			hdr = data;
+			if (hdr->timestamp == 0)
+				return 0;
+			/* preserve the original timestamp */
+			*new_stamp_r = hdr->timestamp;
+			return 1;
+		}
+		/* cache doesn't exist yet */
+	}
+
+	ret = dict_lookup(euser->db, pool_datastack_create(),
+			  key, &value);
+	if (ret <= 0) {
+		if (ret < 0)
+			return -1;
+		first_save_timestamp(box, new_stamp_r);
+		return 0;
+	}
+	return strcmp(value, "0") != 0 ? 1 : 0;
+}
+
+static void
+expire_update(struct mailbox *box, const char *key, time_t timestamp)
+{
+	struct expire_mail_user *euser =
+		EXPIRE_USER_CONTEXT(box->storage->user);
+	struct dict_transaction_context *dctx;
+	struct mail_index_transaction *trans;
+	struct expire_mail_index_header hdr;
+
+	dctx = dict_transaction_begin(euser->db);
+	dict_set(dctx, key, dec2str(timestamp));
+	if (dict_transaction_commit(&dctx) < 0)
+		i_error("expire: dict commit failed");
+	else if (euser->expire_cache) {
+		memset(&hdr, 0, sizeof(hdr));
+		hdr.timestamp = timestamp;
+
+		trans = mail_index_transaction_begin(box->view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+		mail_index_update_header_ext(trans, expire_get_ext_id(box),
+					     0, &hdr, sizeof(hdr));
+		if (mail_index_transaction_commit(&trans) < 0)
+			i_error("expire: index transaction commit failed");
+	}
+}
+
 static void first_nonexpunged_timestamp(struct mailbox_transaction_context *t,
 					time_t *stamp_r)
 {
@@ -90,34 +203,11 @@ static void first_nonexpunged_timestamp(struct mailbox_transaction_context *t,
 	}
 }
 
-static void first_save_timestamp(struct mailbox *box, time_t *stamp_r)
-{
-	struct mailbox_transaction_context *t;
-	const struct mail_index_header *hdr;
-	struct mail *mail;
-
-	*stamp_r = ioloop_time;
-
-	t = mailbox_transaction_begin(box, 0);
-	mail = mail_alloc(t, 0, NULL);
-
-	/* find the first non-expunged mail. we're here because the first
-	   mail was expunged, so don't bother checking it. */
-	hdr = mail_index_get_header(box->view);
-	if (hdr->messages_count > 0) {
-		mail_set_seq(mail, 1);
-		(void)mail_get_save_date(mail, stamp_r);
-	}
-	mail_free(&mail);
-	(void)mailbox_transaction_commit(&t);
-}
-
 static int
 expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 				  struct mail_transaction_commit_changes *changes_r)
 {
 	struct mail_user *user = t->box->storage->user;
-	struct expire_mail_user *euser = EXPIRE_USER_CONTEXT(user);
 	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(t->box);
 	struct expire_transaction_context *xt = EXPIRE_CONTEXT(t);
 	struct mailbox *box = t->box;
@@ -149,7 +239,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 	t = NULL;
 
 	if (xt->first_expunged || xt->saves) T_BEGIN {
-		const char *key, *value;
+		const char *key;
 
 		key = t_strconcat(DICT_EXPIRE_PREFIX,
 				  box->storage->user->username, "/",
@@ -160,8 +250,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 			i_assert(xt->saves);
 			/* saved new mails. dict needs to be updated only if
 			   this is the first mail in the database */
-			ret = dict_lookup(euser->db, pool_datastack_create(),
-					  key, &value);
+			ret = expire_lookup(box, key, &new_stamp);
 			if (ret <= 0) {
 				/* first time saving here with expire enabled.
 				   also handle lookup errors by just assuming
@@ -170,14 +259,6 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 					i_warning("expire: dict lookup failed, "
 						  "assuming update is needed");
 				}
-				first_save_timestamp(box, &new_stamp);
-				update_dict = TRUE;
-			} else if (strcmp(value, "0") == 0) {
-				/* we're saving the first mail to this mailbox.
-				   ioloop_time may not be exactly the first
-				   message's save time, but a few seconds
-				   difference doesn't matter */
-				new_stamp = ioloop_time;
 				update_dict = TRUE;
 			} else {
 				/* already exists */
@@ -189,14 +270,8 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 			}
 		}
 
-		if (update_dict) {
-			struct dict_transaction_context *dctx;
-
-			dctx = dict_transaction_begin(euser->db);
-			dict_set(dctx, key, dec2str(new_stamp));
-			if (dict_transaction_commit(&dctx) < 0)
-				i_error("expire: dict commit failed");
-		}
+		if (update_dict)
+			expire_update(box, key, new_stamp);
 	} T_END;
 	i_free(xt);
 	return 0;
@@ -273,6 +348,7 @@ static void expire_mailbox_allocate_init(struct mailbox *box)
 	xpr_box = p_new(box->pool, struct expire_mailbox, 1);
 	xpr_box->module_ctx.super = *v;
 	box->vlast = &xpr_box->module_ctx.super;
+	xpr_box->expire_ext_id = (uint32_t)-1;
 
 	v->transaction_begin = expire_mailbox_transaction_begin;
 	v->transaction_commit = expire_mailbox_transaction_commit;
@@ -356,6 +432,7 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 
 	euser->db = db;
 	euser->set = expire_set_init(expire_get_patterns(user));
+	euser->expire_cache = mail_user_plugin_getenv(user, "expire_cache") != NULL;
 	MODULE_CONTEXT_SET(user, expire_mail_user_module, euser);
 }
 
