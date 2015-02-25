@@ -155,7 +155,7 @@ static int parse_reply(const char *cmd, const char *const *args,
 			i_debug("user %s: Auth %s lookup returned temporary failure: %s",
 				user, expected_reply, *args);
 		}
-		return -1;
+		return -2;
 	}
 	i_error("Unknown reply: %s", cmd);
 	return -1;
@@ -511,7 +511,7 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 			p_new(pool, const char *, 1);
 		if (ctx.return_value > 0) {
 			i_error("Userdb lookup didn't return username");
-			ctx.return_value = -1;
+			ctx.return_value = -2;
 		}
 	} else {
 		*username_r = ctx.fields[0];

@@ -67,6 +67,7 @@ cmd_user_input(struct auth_master_connection *conn,
 			i_error("%s failed for %s: %s", lookup_name,
 				input->username, fields[0]);
 		}
+		ret = -1;
 	} else if (ret == 0) {
 		fprintf(show_field == NULL ? stdout : stderr,
 			"%s: user %s doesn't exist\n", lookup_name,
