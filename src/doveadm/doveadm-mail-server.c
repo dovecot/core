@@ -266,7 +266,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 
 	ret = doveadm_mail_server_user_get_host(ctx, input, &user, &host, error_r);
 	if (ret < 0)
-		return -1;
+		return ret;
 	if (ret == 0 &&
 	    (ctx->set->doveadm_worker_count == 0 || doveadm_server)) {
 		/* run it ourself */
