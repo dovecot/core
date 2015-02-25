@@ -674,7 +674,9 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	const char *path2;
 	buffer_t *writebuf;
 	int fd, ret;
-	bool rename_existing;
+	bool rename_existing, need_lock;
+
+	need_lock = file->log->head != NULL && file->log->head->locked;
 
 	if (fcntl(new_fd, F_SETFL, O_APPEND) < 0) {
 		log_file_set_syscall_error(file, "fcntl(O_APPEND)");
@@ -774,7 +776,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	file->fd = new_fd;
 	ret = mail_transaction_log_file_stat(file, FALSE);
 
-	if (file->log->head != NULL && file->log->head->locked) {
+	if (need_lock) {
 		/* we'll need to preserve the lock */
 		if (mail_transaction_log_file_lock(file) < 0)
 			ret = -1;
@@ -816,7 +818,9 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 
 	/* success */
 	file->fd = new_fd;
-        mail_transaction_log_file_add_to_list(file);
+	mail_transaction_log_file_add_to_list(file);
+
+	i_assert(!need_lock || file->locked);
 	return 1;
 }
 
