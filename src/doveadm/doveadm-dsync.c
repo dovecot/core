@@ -686,6 +686,7 @@ static void dsync_connected_callback(int exit_code, const char *error,
 					  &ctx->output, &ctx->ssl_iostream);
 		break;
 	case SERVER_EXIT_CODE_DISCONNECTED:
+		ctx->ctx.exit_code = EX_TEMPFAIL;
 		ctx->error = p_strdup_printf(ctx->ctx.pool,
 			"Disconnected from remote: %s", error);
 		break;
