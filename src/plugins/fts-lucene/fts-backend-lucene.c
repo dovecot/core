@@ -538,6 +538,12 @@ mailboxes_get_guids(struct mailbox *const boxes[],
 	unsigned int i, j;
 
 	p_array_init(&box_results, result->pool, 32);
+	/* first create the box_results - we'll be using pointers to them
+	   later on and appending to the array changes the pointers */
+	for (i = 0; boxes[i] != NULL; i++) {
+		box_result = array_append_space(&box_results);
+		box_result->box = boxes[i];
+	}
 	for (i = 0; boxes[i] != NULL; i++) {
 		if (fts_mailbox_get_guid(boxes[i], &guid) < 0)
 			return -1;
@@ -547,8 +553,7 @@ mailboxes_get_guids(struct mailbox *const boxes[],
 		for (j = 0; j < MAILBOX_GUID_HEX_LENGTH; j++)
 			guid_dup[j] = guid[j];
 
-		box_result = array_append_space(&box_results);
-		box_result->box = boxes[i];
+		box_result = array_idx_modifiable(&box_results, i);
 		hash_table_insert(guids, guid_dup, box_result);
 	}
 
