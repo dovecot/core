@@ -27,13 +27,14 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-/* 20 * (200+1) < 4096 which is the standard PATH_MAX. Having these settings
+/* 16 * (255+1) = 4096 which is the standard PATH_MAX. Having these settings
    prevents malicious user from creating eg. "a/a/a/.../a" mailbox name and
    then start renaming them to larger names from end to beginning, which
    eventually would start causing the failures when trying to use too
-   long mailbox names. */
-#define MAILBOX_MAX_HIERARCHY_LEVELS 20
-#define MAILBOX_MAX_HIERARCHY_NAME_LENGTH 200
+   long mailbox names. 255 is the standard single directory name length, so
+   allow up to that high. */
+#define MAILBOX_MAX_HIERARCHY_LEVELS 16
+#define MAILBOX_MAX_HIERARCHY_NAME_LENGTH 255
 
 struct mailbox_list_module_register mailbox_list_module_register = { 0 };
 
