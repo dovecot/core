@@ -85,7 +85,12 @@ enum fs_iter_flags {
 	   If this isn't supported, the <objectid> is returned empty. The
 	   object IDs are always hex-encoded data. This flag can be used only
 	   if FS_PROPERTY_OBJECTIDS is enabled. */
-	FS_ITER_FLAG_OBJECTIDS	= 0x04
+	FS_ITER_FLAG_OBJECTIDS	= 0x04,
+	/* Explicitly disable all caching for this iteration (if anything
+	   happens to be enabled). This should be used only in situations where
+	   the iteration is used to fix something that is broken, e.g. doveadm
+	   force-resync. */
+	FS_ITER_FLAG_NOCACHE	= 0x08
 };
 
 struct fs_settings {
