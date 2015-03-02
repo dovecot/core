@@ -226,7 +226,7 @@ static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path,
 	if (ip_addr != NULL &&
 	    (proxy->flags & RAWLOG_FLAG_LOG_IP_IN_FILENAME) != 0)
 		str_printfa(path_prefix, "%s-", ip_addr);
-	str_printfa(path_prefix, "%s-%s.", timestamp, dec2str(getpid()));
+	str_printfa(path_prefix, "%s-%s", timestamp, dec2str(getpid()));
 
 	if ((proxy->flags & RAWLOG_FLAG_LOG_INPUT) != 0) {
 		fname = t_strdup_printf("%s.in", str_c(path_prefix));
