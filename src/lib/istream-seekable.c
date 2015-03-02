@@ -377,6 +377,8 @@ i_streams_merge(struct istream *input[], size_t max_buffer_size,
 	size_t size;
 	bool blocking = TRUE;
 
+	i_assert(max_buffer_size > 0);
+
 	/* if any of the streams isn't blocking, set ourself also nonblocking */
 	for (count = 0; input[count] != NULL; count++) {
 		if (!input[count]->blocking)
@@ -434,6 +436,8 @@ i_stream_create_seekable(struct istream *input[],
 			 int (*fd_callback)(const char **path_r, void *context),
 			 void *context)
 {
+	i_assert(max_buffer_size > 0);
+
 	/* If all input streams are seekable, use concat istream instead */
 	if (inputs_are_seekable(input))
 		return i_stream_create_concat(input);
@@ -474,6 +478,8 @@ i_stream_create_seekable_path(struct istream *input[],
 {
 	struct seekable_istream *sstream;
 	struct istream *stream;
+
+	i_assert(max_buffer_size > 0);
 
 	if (inputs_are_seekable(input))
 		return i_stream_create_concat(input);
