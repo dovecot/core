@@ -105,6 +105,8 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 	sstream->fd = fd;
 	sstream->fd_input =
 		i_stream_create_fd_autoclose(&fd, sstream->istream.max_buffer_size);
+	i_stream_set_name(sstream->fd_input, t_strdup_printf(
+		"(seekable temp-istream for: %s)", i_stream_get_name(&stream->istream)));
 
 	/* read back the data we just had in our buffer */
 	i_stream_seek(sstream->fd_input, stream->istream.v_offset);
