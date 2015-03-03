@@ -14,15 +14,22 @@
 #include "dsync-brain-private.h"
 
 static int
-ns_mailbox_try_alloc(struct mail_namespace *ns, const guid_128_t guid,
-		     struct mailbox **box_r, const char **error_r)
+ns_mailbox_try_alloc(struct dsync_brain *brain, struct mail_namespace *ns,
+		     const guid_128_t guid, struct mailbox **box_r,
+		     const char **error_r)
 {
+	enum mailbox_flags flags = 0;
 	struct mailbox *box;
 	enum mailbox_existence existence;
 	enum mail_error err;
 	int ret;
 
-	box = mailbox_alloc_guid(ns->list, guid, 0);
+	if (brain->backup_send) {
+		/* make sure mailbox isn't modified */
+		flags |= MAILBOX_FLAG_READONLY;
+	}
+
+	box = mailbox_alloc_guid(ns->list, guid, flags);
 	ret = mailbox_exists(box, FALSE, &existence);
 	if (ret < 0) {
 		*error_r = mailbox_get_last_error(box, &err);
@@ -51,7 +58,7 @@ int dsync_brain_mailbox_alloc(struct dsync_brain *brain, const guid_128_t guid,
 	for (ns = brain->user->namespaces; ns != NULL; ns = ns->next) {
 		if (!dsync_brain_want_namespace(brain, ns))
 			continue;
-		if ((ret = ns_mailbox_try_alloc(ns, guid, box_r, error_r)) != 0) {
+		if ((ret = ns_mailbox_try_alloc(brain, ns, guid, box_r, error_r)) != 0) {
 			if (ret < 0)
 				brain->failed = TRUE;
 			return ret;
