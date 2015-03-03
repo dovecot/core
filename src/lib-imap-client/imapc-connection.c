@@ -400,6 +400,15 @@ void imapc_connection_disconnect(struct imapc_connection *conn)
 		conn->fd = -1;
 	}
 
+	/* get capabilities again after reconnection. this is especially
+	   important because post-login capabilities often do not contain AUTH=
+	   capabilities. */
+	conn->capabilities = 0;
+	if (conn->capabilities_list != NULL) {
+		p_strsplit_free(default_pool, conn->capabilities_list);
+		conn->capabilities_list = NULL;
+	}
+
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DISCONNECTED);
 	imapc_connection_abort_commands(conn, NULL, reconnecting);
 }
