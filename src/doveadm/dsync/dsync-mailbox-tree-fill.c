@@ -89,7 +89,7 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 	}
 
 	/* get GUID and UIDVALIDITY for selectable mailbox */
-	box = mailbox_alloc(info->ns->list, info->vname, 0);
+	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_READONLY);
 	if (dsync_mailbox_tree_get_selectable(box, &metadata, &status) < 0) {
 		errstr = mailbox_get_last_error(box, &error);
 		switch (error) {

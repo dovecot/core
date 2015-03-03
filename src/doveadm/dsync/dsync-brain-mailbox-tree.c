@@ -173,7 +173,7 @@ dsync_is_valid_name(struct mail_namespace *ns, const char *vname)
 	struct mailbox *box;
 	bool ret;
 
-	box = mailbox_alloc(ns->list, vname, 0);
+	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
 	ret = mailbox_verify_create_name(box) == 0;
 	mailbox_free(&box);
 	return ret;

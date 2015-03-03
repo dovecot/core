@@ -148,7 +148,8 @@ dsync_brain_open_virtual_all_box(struct dsync_brain *brain,
 	struct mail_namespace *ns;
 
 	ns = mail_namespace_find(brain->user->namespaces, vname);
-	brain->virtual_all_box = mailbox_alloc(ns->list, vname, 0);
+	brain->virtual_all_box =
+		mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
 }
 
 struct dsync_brain *
