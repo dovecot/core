@@ -663,14 +663,16 @@ sync_rename_lower_ts(struct dsync_mailbox_tree_sync_ctx *ctx,
 					 remote_node1, local_node1, reason_r);
 			*reason_r = t_strconcat(*reason_r, "(local: remote_node1=NULL)", NULL);
 			return TRUE;
-		} else if (node_has_parent(local_node1, local_node2)) {
+		} else if (node_has_parent(local_node1, local_node2) &&
+			   ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL) {
 			/* node2 is a parent of node1, but it should be
 			   vice versa */
 			sync_rename_node_to_temp(ctx, ctx->local_tree,
 				local_node1, local_node2->parent, reason_r);
 			*reason_r = t_strconcat(*reason_r, "(local: node2 parent of node1)", NULL);
 			return TRUE;
-		} else if (node_has_parent(local_node2, local_node1)) {
+		} else if (node_has_parent(local_node2, local_node1) &&
+			   ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL) {
 			/* node1 is a parent of node2, but it should be
 			   vice versa */
 			sync_rename_node_to_temp(ctx, ctx->local_tree,
@@ -702,12 +704,14 @@ sync_rename_lower_ts(struct dsync_mailbox_tree_sync_ctx *ctx,
 					 local_node2, remote_node2, reason_r);
 			*reason_r = t_strconcat(*reason_r, "(remote: local_node2=NULL)", NULL);
 			return TRUE;
-		} else if (node_has_parent(remote_node1, remote_node2)) {
+		} else if (node_has_parent(remote_node1, remote_node2) &&
+			   ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE) {
 			sync_rename_node_to_temp(ctx, ctx->remote_tree,
 				remote_node1, remote_node2->parent, reason_r);
 			*reason_r = t_strconcat(*reason_r, "(remote: node2 parent of node1)", NULL);
 			return TRUE;
-		} else if (node_has_parent(remote_node2, remote_node1)) {
+		} else if (node_has_parent(remote_node2, remote_node1) &&
+			   ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE) {
 			sync_rename_node_to_temp(ctx, ctx->remote_tree,
 				remote_node2, remote_node1->parent, reason_r);
 			*reason_r = t_strconcat(*reason_r, "(remote: node1 parent of node2)", NULL);
