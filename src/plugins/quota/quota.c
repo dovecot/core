@@ -7,6 +7,7 @@
 #include "net.h"
 #include "write-full.h"
 #include "eacces-error.h"
+#include "wildcard-match.h"
 #include "dict.h"
 #include "mailbox-list-private.h"
 #include "quota-private.h"
@@ -191,6 +192,7 @@ quota_root_add(struct quota_settings *quota_set, struct mail_user *user,
 
 	if (quota_root_settings_init(quota_set, env, &root_set, error_r) < 0)
 		return -1;
+	root_set->set_name = p_strdup(quota_set->pool, root_name);
 	if (quota_root_add_rules(user, root_name, root_set, error_r) < 0)
 		return -1;
 	if (quota_root_add_warning_rules(user, root_name, root_set, error_r) < 0)
@@ -823,7 +825,8 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 	return 0;
 }
 
-static void quota_warning_execute(struct quota_root *root, const char *cmd)
+static void quota_warning_execute(struct quota_root *root, const char *cmd,
+				  const char *last_arg)
 {
 	const char *socket_path, *const *args;
 	string_t *str;
@@ -833,6 +836,14 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd)
 		i_debug("quota: Executing warning: %s", cmd);
 
 	args = t_strsplit_spaces(cmd, " ");
+	if (last_arg != NULL) {
+		unsigned int count = str_array_length(args);
+		const char **new_args = t_new(const char *, count + 2);
+
+		memcpy(new_args, args, sizeof(const char *) * count);
+		new_args[count] = last_arg;
+		args = new_args;
+	}
 	socket_path = args[0];
 	args++;
 
@@ -892,7 +903,7 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 		if (quota_warning_match(&warnings[i],
 					bytes_before, bytes_current,
 					count_before, count_current)) {
-			quota_warning_execute(root, warnings[i].command);
+			quota_warning_execute(root, warnings[i].command, NULL);
 			break;
 		}
 	}
@@ -949,6 +960,59 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 
 	i_free(ctx);
 	return ret;
+}
+
+static void
+quota_over_flag_check_root(struct mail_user *user, struct quota_root *root)
+{
+	const char *name, *flag_mask, *overquota_value, *overquota_script;
+	const char *const *resources;
+	unsigned int i;
+	uint64_t value, limit;
+	bool overquota_flag, cur_overquota = FALSE;
+	int ret;
+
+	name = t_strconcat(root->set->set_name, "_over_script", NULL);
+	overquota_script = mail_user_plugin_getenv(user, name);
+	if (overquota_script == NULL)
+		return;
+
+	/* e.g.: quota_over_flag_value=TRUE or quota_over_flag_value=*  */
+	name = t_strconcat(root->set->set_name, "_over_flag_value", NULL);
+	flag_mask = mail_user_plugin_getenv(user, name);
+	if (flag_mask == NULL)
+		return;
+
+	/* compare quota_over_flag's value to quota_over_flag_value and
+	   save the result. */
+	name = t_strconcat(root->set->set_name, "_over_flag", NULL);
+	overquota_value = mail_user_plugin_getenv(user, name);
+	overquota_flag = overquota_value != NULL &&
+		overquota_value[0] != '\0' &&
+		wildcard_match_icase(overquota_value, flag_mask);
+
+	resources = quota_root_get_resources(root);
+	for (i = 0; resources[i] != NULL; i++) {
+		ret = quota_get_resource(root, "", resources[i], &value, &limit);
+		if (ret < 0) {
+			/* can't reliably verify this */
+			return;
+		}
+		if (ret > 0 && value > limit)
+			cur_overquota = TRUE;
+	}
+	if (cur_overquota != overquota_flag)
+		quota_warning_execute(root, overquota_script, overquota_value);
+}
+
+void quota_over_flag_check(struct mail_user *user, struct quota *quota)
+{
+	struct quota_root *const *roots;
+	unsigned int i, count;
+
+	roots = array_get(&quota->roots, &count);
+	for (i = 0; i < count; i++)
+		quota_over_flag_check_root(user, roots[i]);
 }
 
 void quota_transaction_rollback(struct quota_transaction_context **_ctx)

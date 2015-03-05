@@ -81,6 +81,8 @@ struct quota_backend {
 struct quota_root_settings {
 	/* Unique quota root name. */
 	const char *name;
+	/* Name in settings, e.g. "quota", "quota2", .. */
+	const char *set_name;
 
 	struct quota_settings *set;
 	const char *args;
