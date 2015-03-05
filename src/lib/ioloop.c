@@ -781,25 +781,35 @@ io_loop_context_remove_deleted_callbacks(struct ioloop_context *ctx)
 
 void io_loop_context_activate(struct ioloop_context *ctx)
 {
-	const struct ioloop_context_callback *cb;
+	struct ioloop_context_callback *cb;
 
 	i_assert(ctx->ioloop->cur_ctx == NULL);
 
 	ctx->ioloop->cur_ctx = ctx;
 	io_loop_context_ref(ctx);
-	array_foreach(&ctx->callbacks, cb) {
+	array_foreach_modifiable(&ctx->callbacks, cb) {
+		i_assert(!cb->activated);
 		if (cb->activate != NULL)
 			cb->activate(cb->context);
+		cb->activated = TRUE;
 	}
 }
 
 void io_loop_context_deactivate(struct ioloop_context *ctx)
 {
-	const struct ioloop_context_callback *cb;
+	struct ioloop_context_callback *cb;
 
-	array_foreach(&ctx->callbacks, cb) {
-		if (cb->deactivate != NULL)
-			cb->deactivate(cb->context);
+	i_assert(ctx->ioloop->cur_ctx != NULL);
+
+	array_foreach_modifiable(&ctx->callbacks, cb) {
+		if (!cb->activated) {
+			/* we just added this callback. don't deactivate it
+			   before it gets first activated. */
+		} else {
+			if (cb->deactivate != NULL)
+				cb->deactivate(cb->context);
+			cb->activated = FALSE;
+		}
 	}
 	ctx->ioloop->cur_ctx = NULL;
 	io_loop_context_remove_deleted_callbacks(ctx);

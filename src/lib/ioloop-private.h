@@ -77,6 +77,7 @@ struct ioloop_context_callback {
 	io_callback_t *activate;
 	io_callback_t *deactivate;
 	void *context;
+	bool activated;
 };
 
 struct ioloop_context {
