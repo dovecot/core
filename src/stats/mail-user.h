@@ -1,7 +1,7 @@
 #ifndef MAIL_USER_H
 #define MAIL_USER_H
 
-struct mail_stats;
+struct stats;
 
 extern struct mail_user *stable_mail_users;
 
@@ -10,7 +10,7 @@ void mail_user_disconnected(struct mail_user *user);
 struct mail_user *mail_user_lookup(const char *username);
 
 void mail_user_refresh(struct mail_user *user,
-		       const struct mail_stats *diff_stats) ATTR_NULL(2);
+		       const struct stats *diff_stats) ATTR_NULL(2);
 
 void mail_user_ref(struct mail_user *user);
 void mail_user_unref(struct mail_user **user);

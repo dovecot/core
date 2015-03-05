@@ -9,6 +9,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-dict \
 	lib-sasl \
 	lib-ssl-iostream \
+	lib-stats \
 	lib-http \
 	lib-fs \
 	lib-mail \

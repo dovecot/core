@@ -15,7 +15,7 @@ void stats_connection_disconnect(struct stats_connection *conn,
 
 void stats_connection_send_session(struct stats_connection *conn,
 				   struct mail_user *user,
-				   const struct mail_stats *stats);
+				   const struct stats *stats);
 void stats_connection_send(struct stats_connection *conn, const string_t *str);
 
 #endif

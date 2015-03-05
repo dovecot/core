@@ -3,6 +3,7 @@ libs = \
 	../lib-master/libmaster.la \
 	../lib-fs/libfs.la \
 	../lib-settings/libsettings.la \
+	../lib-stats/libstats.la \
 	../lib-http/libhttp.la \
 	../lib-dict/libdict.la \
 	../lib-imap/libimap.la \

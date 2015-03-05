@@ -1,11 +1,14 @@
+stats_moduledir = $(moduledir)/stats
 pkglibexecdir = $(libexecdir)/dovecot
 
 pkglibexec_PROGRAMS = stats
 
 AM_CPPFLAGS = \
+	-DSTATS_MODULE_DIR=\""$(stats_moduledir)"\" \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
-	-I$(top_srcdir)/src/lib-master
+	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-stats
 
 stats_LDADD = $(LIBDOVECOT) 
 stats_DEPENDENCIES = $(LIBDOVECOT_DEPS)

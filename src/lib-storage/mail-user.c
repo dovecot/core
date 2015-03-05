@@ -40,6 +40,11 @@ static void mail_user_deinit_base(struct mail_user *user)
 		mountpoint_list_deinit(&user->mountpoints);
 }
 
+static void mail_user_stats_fill_base(struct mail_user *user ATTR_UNUSED,
+				      struct stats *stats ATTR_UNUSED)
+{
+}
+
 struct mail_user *mail_user_alloc(const char *username,
 				  const struct setting_parser_info *set_info,
 				  const struct mail_user_settings *set)
@@ -68,6 +73,7 @@ struct mail_user *mail_user_alloc(const char *username,
 		i_panic("Settings check unexpectedly failed: %s", error);
 
 	user->v.deinit = mail_user_deinit_base;
+	user->v.stats_fill = mail_user_stats_fill_base;
 	p_array_init(&user->module_contexts, user->pool, 5);
 	return user;
 }
@@ -555,4 +561,9 @@ void mail_user_init_fs_settings(struct mail_user *user,
 	fs_set->ssl_client_set = ssl_set;
 	ssl_set->ca_dir = mail_set->ssl_client_ca_dir;
 	ssl_set->ca_file = mail_set->ssl_client_ca_file;
+}
+
+void mail_user_stats_fill(struct mail_user *user, struct stats *stats)
+{
+	user->v.stats_fill(user, stats);
 }

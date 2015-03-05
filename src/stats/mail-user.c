@@ -39,7 +39,8 @@ struct mail_user *mail_user_login(const char *username)
 	else
 		domain = "";
 
-	user = i_new(struct mail_user, 1);
+	user = i_malloc(sizeof(struct mail_user) + stats_alloc_size());
+	user->stats = (void *)(user + 1);
 	user->name = i_strdup(username);
 	user->reset_timestamp = ioloop_time;
 	user->domain = mail_domain_login_create(domain);
@@ -104,10 +105,10 @@ static void mail_user_free(struct mail_user *user)
 }
 
 void mail_user_refresh(struct mail_user *user,
-		       const struct mail_stats *diff_stats)
+		       const struct stats *diff_stats)
 {
 	if (diff_stats != NULL)
-		mail_stats_add(&user->stats, diff_stats);
+		stats_add(user->stats, diff_stats);
 	user->last_update = ioloop_timeval;
 	DLLIST2_REMOVE_FULL(&mail_users_head, &mail_users_tail, user,
 			    sorted_prev, sorted_next);

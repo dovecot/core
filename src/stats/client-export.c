@@ -96,34 +96,34 @@ mail_export_parse_filter(const char *const *args, pool_t pool,
 }
 
 static void
-client_export_mail_stats(string_t *str, const struct mail_stats *stats)
+client_export_stats_headers(struct client *client)
 {
-#define MAIL_STATS_HEADER "\tuser_cpu\tsys_cpu\tclock_time" \
-	"\tmin_faults\tmaj_faults\tvol_cs\tinvol_cs" \
-	"\tdisk_input\tdisk_output" \
-	"\tread_count\tread_bytes\twrite_count\twrite_bytes" \
-	"\tmail_lookup_path\tmail_lookup_attr" \
-	"\tmail_read_count\tmail_read_bytes\tmail_cache_hits\n"
+	unsigned int i, count = stats_field_count();
+	string_t *str = t_str_new(128);
 
-	str_printfa(str, "\t%ld.%06u", (long)stats->user_cpu.tv_sec,
-		    (unsigned int)stats->user_cpu.tv_usec);
-	str_printfa(str, "\t%ld.%06u", (long)stats->sys_cpu.tv_sec,
-		    (unsigned int)stats->sys_cpu.tv_usec);
-	str_printfa(str, "\t%ld.%06u", (long)stats->clock_time.tv_sec,
-		    (unsigned int)stats->clock_time.tv_usec);
-	str_printfa(str, "\t%u\t%u", stats->min_faults, stats->maj_faults);
-	str_printfa(str, "\t%u\t%u", stats->vol_cs, stats->invol_cs);
-	str_printfa(str, "\t%llu\t%llu",
-		    (unsigned long long)stats->disk_input,
-		    (unsigned long long)stats->disk_output);
-	str_printfa(str, "\t%u\t%llu\t%u\t%llu",
-		    stats->read_count, (unsigned long long)stats->read_bytes,
-		    stats->write_count, (unsigned long long)stats->write_bytes);
-	str_printfa(str, "\t%u\t%u\t%u\t%llu\t%u",
-		    stats->mail_lookup_path, stats->mail_lookup_attr,
-		    stats->mail_read_count,
-		    (unsigned long long)stats->mail_read_bytes,
-		    stats->mail_cache_hits);
+	i_assert(count > 0);
+
+	str_append(str, stats_field_name(0));
+	for (i = 1; i < count; i++) {
+		str_append_c(str, '\t');
+		str_append(str, stats_field_name(i));
+	}
+	str_append_c(str, '\n');
+	o_stream_send(client->output, str_data(str), str_len(str));
+}
+
+static void
+client_export_stats(string_t *str, const struct stats *stats)
+{
+	unsigned int i, count = stats_field_count();
+
+	i_assert(count > 0);
+
+	stats_field_value(str, stats, 0);
+	for (i = 1; i < count; i++) {
+		str_append_c(str, '\t');
+		stats_field_value(str, stats, i);
+	}
 }
 
 static bool
@@ -259,7 +259,8 @@ static int client_export_iter_command(struct client *client)
 
 	if (!cmd->header_sent) {
 		o_stream_nsend_str(client->output,
-			"cmd\targs\tsession\tuser\tlast_update"MAIL_STATS_HEADER);
+			"cmd\targs\tsession\tuser\tlast_update\t");
+		client_export_stats_headers(client);
 		cmd->header_sent = TRUE;
 	}
 
@@ -275,14 +276,13 @@ static int client_export_iter_command(struct client *client)
 		str_append_c(cmd->str, '\t');
 		str_append_tabescaped(cmd->str, command->args);
 		str_append_c(cmd->str, '\t');
-		T_BEGIN {
-			str_append(cmd->str, command->session->id);
-			str_append_c(cmd->str, '\t');
-			str_append_tabescaped(cmd->str,
-					      command->session->user->name);
-		} T_END;
+		str_append(cmd->str, command->session->id);
+		str_append_c(cmd->str, '\t');
+		str_append_tabescaped(cmd->str,
+				      command->session->user->name);
 		client_export_timeval(cmd->str, &command->last_update);
-		client_export_mail_stats(cmd->str, &command->stats);
+		str_append_c(cmd->str, '\t');
+		client_export_stats(cmd->str, command->stats);
 		str_append_c(cmd->str, '\n');
 		o_stream_nsend(client->output, str_data(cmd->str),
 			       str_len(cmd->str));
@@ -307,8 +307,8 @@ static int client_export_iter_session(struct client *client)
 	if (!cmd->header_sent) {
 		o_stream_nsend_str(client->output,
 			"session\tuser\tip\tservice\tpid\tconnected"
-			"\tlast_update\tnum_cmds"
-			MAIL_STATS_HEADER);
+			"\tlast_update\tnum_cmds\t");
+		client_export_stats_headers(client);
 		cmd->header_sent = TRUE;
 	}
 
@@ -319,23 +319,20 @@ static int client_export_iter_session(struct client *client)
 			continue;
 
 		str_truncate(cmd->str, 0);
-		T_BEGIN {
-			str_append(cmd->str, session->id);
-			str_append_c(cmd->str, '\t');
-			str_append_tabescaped(cmd->str, session->user->name);
-			str_append_c(cmd->str, '\t');
-			if (session->ip != NULL) {
-				str_append(cmd->str,
-					   net_ip2addr(&session->ip->ip));
-			}
-			str_append_c(cmd->str, '\t');
-			str_append_tabescaped(cmd->str, session->service);
+		str_append(cmd->str, session->id);
+		str_append_c(cmd->str, '\t');
+		str_append_tabescaped(cmd->str, session->user->name);
+		str_append_c(cmd->str, '\t');
+		if (session->ip != NULL) T_BEGIN {
+			str_append(cmd->str, net_ip2addr(&session->ip->ip));
 		} T_END;
+		str_append_c(cmd->str, '\t');
+		str_append_tabescaped(cmd->str, session->service);
 		str_printfa(cmd->str, "\t%ld", (long)session->pid);
 		str_printfa(cmd->str, "\t%d", !session->disconnected);
 		client_export_timeval(cmd->str, &session->last_update);
-		str_printfa(cmd->str, "\t%u", session->num_cmds);
-		client_export_mail_stats(cmd->str, &session->stats);
+		str_printfa(cmd->str, "\t%u\t", session->num_cmds);
+		client_export_stats(cmd->str, session->stats);
 		str_append_c(cmd->str, '\n');
 		o_stream_nsend(client->output, str_data(cmd->str),
 			       str_len(cmd->str));
@@ -360,7 +357,8 @@ static int client_export_iter_user(struct client *client)
 	if (!cmd->header_sent) {
 		o_stream_nsend_str(client->output,
 			"user\treset_timestamp\tlast_update"
-			"\tnum_logins\tnum_cmds"MAIL_STATS_HEADER);
+			"\tnum_logins\tnum_cmds\t");
+		client_export_stats_headers(client);
 		cmd->header_sent = TRUE;
 	}
 
@@ -374,9 +372,9 @@ static int client_export_iter_user(struct client *client)
 		str_append_tabescaped(cmd->str, user->name);
 		str_printfa(cmd->str, "\t%ld", (long)user->reset_timestamp);
 		client_export_timeval(cmd->str, &user->last_update);
-		str_printfa(cmd->str, "\t%u\t%u",
+		str_printfa(cmd->str, "\t%u\t%u\t",
 			    user->num_logins, user->num_cmds);
-		client_export_mail_stats(cmd->str, &user->stats);
+		client_export_stats(cmd->str, user->stats);
 		str_append_c(cmd->str, '\n');
 		o_stream_nsend(client->output, str_data(cmd->str),
 			       str_len(cmd->str));
@@ -401,7 +399,8 @@ static int client_export_iter_domain(struct client *client)
 	if (!cmd->header_sent) {
 		o_stream_nsend_str(client->output,
 			"domain\treset_timestamp\tlast_update"
-			"\tnum_logins\tnum_cmds\tnum_connected_sessions"MAIL_STATS_HEADER);
+			"\tnum_logins\tnum_cmds\tnum_connected_sessions\t");
+		client_export_stats_headers(client);
 		cmd->header_sent = TRUE;
 	}
 
@@ -415,10 +414,10 @@ static int client_export_iter_domain(struct client *client)
 		str_append_tabescaped(cmd->str, domain->name);
 		str_printfa(cmd->str, "\t%ld", (long)domain->reset_timestamp);
 		client_export_timeval(cmd->str, &domain->last_update);
-		str_printfa(cmd->str, "\t%u\t%u\t%u",
+		str_printfa(cmd->str, "\t%u\t%u\t%u\t",
 			    domain->num_logins, domain->num_cmds,
 			    domain->num_connected_sessions);
-		client_export_mail_stats(cmd->str, &domain->stats);
+		client_export_stats(cmd->str, domain->stats);
 		str_append_c(cmd->str, '\n');
 		o_stream_nsend(client->output, str_data(cmd->str),
 			       str_len(cmd->str));
@@ -443,7 +442,8 @@ static int client_export_iter_ip(struct client *client)
 	if (!cmd->header_sent) {
 		o_stream_nsend_str(client->output,
 			"ip\treset_timestamp\tlast_update"
-			"\tnum_logins\tnum_cmds\tnum_connected_sessions"MAIL_STATS_HEADER);
+			"\tnum_logins\tnum_cmds\tnum_connected_sessions\t");
+		client_export_stats_headers(client);
 		cmd->header_sent = TRUE;
 	}
 
@@ -459,9 +459,9 @@ static int client_export_iter_ip(struct client *client)
 		} T_END;
 		str_printfa(cmd->str, "\t%ld", (long)ip->reset_timestamp);
 		client_export_timeval(cmd->str, &ip->last_update);
-		str_printfa(cmd->str, "\t%u\t%u\t%u",
+		str_printfa(cmd->str, "\t%u\t%u\t%u\t",
 			    ip->num_logins, ip->num_cmds, ip->num_connected_sessions);
-		client_export_mail_stats(cmd->str, &ip->stats);
+		client_export_stats(cmd->str, ip->stats);
 		str_append_c(cmd->str, '\n');
 		o_stream_nsend(client->output, str_data(cmd->str),
 			       str_len(cmd->str));
@@ -485,16 +485,17 @@ static int client_export_iter_global(struct client *client)
 	if (!cmd->header_sent) {
 		o_stream_nsend_str(client->output,
 			"reset_timestamp\tlast_update"
-			"\tnum_logins\tnum_cmds\tnum_connected_sessions"MAIL_STATS_HEADER);
+			"\tnum_logins\tnum_cmds\tnum_connected_sessions\t");
+		client_export_stats_headers(client);
 		cmd->header_sent = TRUE;
 	}
 
 	str_truncate(cmd->str, 0);
 	str_printfa(cmd->str, "%ld", (long)g->reset_timestamp);
 	client_export_timeval(cmd->str, &g->last_update);
-	str_printfa(cmd->str, "\t%u\t%u\t%u",
+	str_printfa(cmd->str, "\t%u\t%u\t%u\t",
 		    g->num_logins, g->num_cmds, g->num_connected_sessions);
-	client_export_mail_stats(cmd->str, &g->stats);
+	client_export_stats(cmd->str, g->stats);
 	str_append_c(cmd->str, '\n');
 	o_stream_nsend(client->output, str_data(cmd->str),
 		       str_len(cmd->str));

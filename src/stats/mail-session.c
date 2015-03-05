@@ -1,6 +1,8 @@
 /* Copyright (c) 2011-2015 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
+#include "base64.h"
 #include "ioloop.h"
 #include "hash.h"
 #include "llist.h"
@@ -91,7 +93,8 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 		*error_r = "CONNECT: Duplicate session ID";
 		return -1;
 	}
-	session = i_new(struct mail_session, 1);
+	session = i_malloc(sizeof(struct mail_session) + stats_alloc_size());
+	session->stats = (void *)(session + 1);
 	session->refcount = 1; /* unrefed at disconnect */
 	session->id = i_strdup(session_id);
 	session->service = str_table_ref(services, args[2]);
@@ -233,12 +236,12 @@ int mail_session_disconnect_parse(const char *const *args, const char **error_r)
 }
 
 void mail_session_refresh(struct mail_session *session,
-			  const struct mail_stats *diff_stats)
+			  const struct stats *diff_stats)
 {
 	timeout_reset(session->to_idle);
 
 	if (diff_stats != NULL)
-		mail_stats_add(&session->stats, diff_stats);
+		stats_add(session->stats, diff_stats);
 	session->last_update = ioloop_timeval;
 	DLLIST2_REMOVE_FULL(&mail_sessions_head, &mail_sessions_tail, session,
 			    sorted_prev, sorted_next);
@@ -253,27 +256,40 @@ void mail_session_refresh(struct mail_session *session,
 int mail_session_update_parse(const char *const *args, const char **error_r)
 {
 	struct mail_session *session;
-	struct mail_stats stats, diff_stats;
+	struct stats *new_stats, *diff_stats;
+	buffer_t *buf;
 	const char *error;
 
-	/* <session id> [key=value ..] */
+	/* <session id> <stats> */
 	if (mail_session_get(args[0], &session, error_r) < 0)
 		return -1;
 
-	if (mail_stats_parse(args+1, &stats, error_r) < 0) {
-		*error_r = t_strdup_printf("UPDATE-SESSION %s %s: %s",
+	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	if (args[1] == NULL ||
+	    base64_decode(args[1], strlen(args[1]), NULL, buf) < 0) {
+		*error_r = t_strdup_printf("UPDATE-SESSION %s %s: Invalid base64 input",
 					   session->user->name,
-					   session->service, *error_r);
+					   session->service);
 		return -1;
 	}
 
-	if (!mail_stats_diff(&session->stats, &stats, &diff_stats, &error)) {
+	new_stats = stats_alloc(pool_datastack_create());
+	diff_stats = stats_alloc(pool_datastack_create());
+
+	if (!stats_import(buf->data, buf->used, session->stats, new_stats, &error)) {
+		*error_r = t_strdup_printf("UPDATE-SESSION %s %s: %s",
+					   session->user->name,
+					   session->service, error);
+		return -1;
+	}
+
+	if (!stats_diff(session->stats, new_stats, diff_stats, &error)) {
 		*error_r = t_strdup_printf("UPDATE-SESSION %s %s: stats shrank: %s",
 					   session->user->name,
 					   session->service, error);
 		return -1;
 	}
-	mail_session_refresh(session, &diff_stats);
+	mail_session_refresh(session, diff_stats);
 	return 0;
 }
 

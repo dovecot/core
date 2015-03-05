@@ -6,11 +6,10 @@
 #include "str.h"
 #include "time-util.h"
 #include "settings-parser.h"
+#include "mail-stats.h"
+#include "stats.h"
 #include "stats-connection.h"
 #include "stats-plugin.h"
-
-#include <sys/time.h>
-#include <sys/resource.h>
 
 #define STATS_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, stats_storage_module)
@@ -20,18 +19,6 @@
 #define SESSION_STATS_FORCE_REFRESH_SECS (5*60)
 #define REFRESH_CHECK_INTERVAL 100
 #define MAIL_STATS_SOCKET_NAME "stats-mail"
-#define PROC_IO_PATH "/proc/self/io"
-
-#define USECS_PER_SEC 1000000
-
-struct stats_transaction_context {
-	union mailbox_transaction_module_context module_ctx;
-
-	struct stats_transaction_context *prev, *next;
-	struct mailbox_transaction_context *trans;
-
-	struct mailbox_transaction_stats prev_stats;
-};
 
 struct stats_storage {
 	union mail_storage_module_context module_ctx;
@@ -48,162 +35,20 @@ const char *stats_plugin_version = DOVECOT_ABI_VERSION;
 
 struct stats_user_module stats_user_module =
 	MODULE_CONTEXT_INIT(&mail_user_module_register);
-static MODULE_CONTEXT_DEFINE_INIT(stats_storage_module,
-				  &mail_storage_module_register);
+struct stats_storage_module stats_storage_module =
+	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 
-static bool proc_io_disabled = FALSE;
-static int proc_io_fd = -1;
-
+static struct stats_item *mail_stats_item;
 static struct stats_connection *global_stats_conn = NULL;
 static struct mail_user *stats_global_user = NULL;
 static unsigned int stats_user_count = 0;
 
 static void session_stats_refresh_timeout(struct mail_user *user);
 
-static void trans_stats_dec(struct mailbox_transaction_stats *dest,
-			    const struct mailbox_transaction_stats *src)
-{
-	dest->open_lookup_count -= src->open_lookup_count;
-	dest->stat_lookup_count -= src->stat_lookup_count;
-	dest->fstat_lookup_count -= src->fstat_lookup_count;
-	dest->files_read_count -= src->files_read_count;
-	dest->files_read_bytes -= src->files_read_bytes;
-	dest->cache_hit_count -= src->cache_hit_count;
-}
-
-static void trans_stats_add(struct mailbox_transaction_stats *dest,
-			    const struct mailbox_transaction_stats *src)
-{
-	dest->open_lookup_count += src->open_lookup_count;
-	dest->stat_lookup_count += src->stat_lookup_count;
-	dest->fstat_lookup_count += src->fstat_lookup_count;
-	dest->files_read_count += src->files_read_count;
-	dest->files_read_bytes += src->files_read_bytes;
-	dest->cache_hit_count += src->cache_hit_count;
-}
-
-static void user_trans_stats_get(struct stats_user *suser,
-				 struct mailbox_transaction_stats *dest_r)
-{
-	struct stats_transaction_context *strans;
-
-	memset(dest_r, 0, sizeof(*dest_r));
-	strans = suser->transactions;
-	for (; strans != NULL; strans = strans->next)
-		trans_stats_add(dest_r, &strans->trans->stats);
-}
-
-static int
-process_io_buffer_parse(const char *buf, struct mail_stats *stats)
-{
-	const char *const *tmp;
-
-	tmp = t_strsplit(buf, "\n");
-	for (; *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "rchar: ", 7) == 0) {
-			if (str_to_uint64(*tmp + 7, &stats->read_bytes) < 0)
-				return -1;
-		} else if (strncmp(*tmp, "wchar: ", 7) == 0) {
-			if (str_to_uint64(*tmp + 7, &stats->write_bytes) < 0)
-				return -1;
-		} else if (strncmp(*tmp, "syscr: ", 7) == 0) {
-			if (str_to_uint32(*tmp + 7, &stats->read_count) < 0)
-				return -1;
-		} else if (strncmp(*tmp, "syscw: ", 7) == 0) {
-			if (str_to_uint32(*tmp + 7, &stats->write_count) < 0)
-				return -1;
-		}
-	}
-	return 0;
-}
-
-static int process_io_open(void)
-{
-	uid_t uid;
-
-	if (proc_io_fd != -1)
-		return proc_io_fd;
-
-	if (proc_io_disabled)
-		return -1;
-	proc_io_fd = open(PROC_IO_PATH, O_RDONLY);
-	if (proc_io_fd == -1 && errno == EACCES) {
-		/* kludge: if we're running with permissions temporarily
-		   dropped, get them temporarily back so we can open
-		   /proc/self/io. */
-		uid = geteuid();
-		if (seteuid(0) == 0) {
-			proc_io_fd = open(PROC_IO_PATH, O_RDONLY);
-			if (seteuid(uid) < 0) {
-				/* oops, this is bad */
-				i_fatal("stats: seteuid(%s) failed", dec2str(uid));
-			}
-		}
-		errno = EACCES;
-	}
-	if (proc_io_fd == -1) {
-		if (errno != ENOENT)
-			i_error("open(%s) failed: %m", PROC_IO_PATH);
-		proc_io_disabled = TRUE;
-		return -1;
-	}
-	return proc_io_fd;
-}
-
-static void process_read_io_stats(struct mail_stats *stats)
-{
-	char buf[1024];
-	int fd, ret;
-
-	if ((fd = process_io_open()) == -1)
-		return;
-
-	ret = pread(fd, buf, sizeof(buf), 0);
-	if (ret <= 0) {
-		if (ret == -1)
-			i_error("read(%s) failed: %m", PROC_IO_PATH);
-		else
-			i_error("read(%s) returned EOF", PROC_IO_PATH);
-	} else if (ret == sizeof(buf)) {
-		/* just shouldn't happen.. */
-		i_error("%s is larger than expected", PROC_IO_PATH);
-		proc_io_disabled = TRUE;
-	} else {
-		buf[ret] = '\0';
-		T_BEGIN {
-			if (process_io_buffer_parse(buf, stats) < 0) {
-				i_error("Invalid input in file %s",
-					PROC_IO_PATH);
-				proc_io_disabled = TRUE;
-			}
-		} T_END;
-	}
-}
-
-void mail_stats_get(struct stats_user *suser, struct mail_stats *stats_r)
-{
-	struct rusage usage;
-
-	memset(stats_r, 0, sizeof(*stats_r));
-	/* cputime */
-	if (getrusage(RUSAGE_SELF, &usage) < 0)
-		memset(&usage, 0, sizeof(usage));
-	stats_r->user_cpu = usage.ru_utime;
-	stats_r->sys_cpu = usage.ru_stime;
-	stats_r->min_faults = usage.ru_minflt;
-	stats_r->maj_faults = usage.ru_majflt;
-	stats_r->vol_cs = usage.ru_nvcsw;
-	stats_r->invol_cs = usage.ru_nivcsw;
-	stats_r->disk_input = (unsigned long long)usage.ru_inblock * 512ULL;
-	stats_r->disk_output = (unsigned long long)usage.ru_oublock * 512ULL;
-	(void)gettimeofday(&stats_r->clock_time, NULL);
-	process_read_io_stats(stats_r);
-	user_trans_stats_get(suser, &stats_r->trans_stats);
-}
-
 static void stats_io_activate(struct mail_user *user)
 {
 	struct stats_user *suser = STATS_USER_CONTEXT(user);
+	struct mail_stats *mail_stats;
 
 	if (stats_user_count == 1) {
 		/* the first user sets the global user. the second user sets
@@ -211,121 +56,35 @@ static void stats_io_activate(struct mail_user *user)
 		   the global user again somewhere. do it here. */
 		stats_global_user = user;
 		/* skip time spent waiting in ioloop */
-		suser->pre_io_stats.clock_time = ioloop_timeval;
+		mail_stats = stats_fill_ptr(suser->pre_io_stats, mail_stats_item);
+		mail_stats->clock_time = ioloop_timeval;
 	} else {
 		i_assert(stats_global_user == NULL);
 
-		mail_stats_get(suser, &suser->pre_io_stats);
+		mail_user_stats_fill(user, suser->pre_io_stats);
 	}
-}
-
-static void timeval_add_diff(struct timeval *dest,
-			     const struct timeval *newsrc,
-			     const struct timeval *oldsrc)
-{
-	long long usecs;
-
-	usecs = timeval_diff_usecs(newsrc, oldsrc);
-	dest->tv_sec += usecs / USECS_PER_SEC;
-	dest->tv_usec += usecs % USECS_PER_SEC;
-	if (dest->tv_usec > USECS_PER_SEC) {
-		dest->tv_usec -= USECS_PER_SEC;
-		dest->tv_sec++;
-	}
-}
-
-void mail_stats_add_diff(struct mail_stats *dest,
-			 const struct mail_stats *old_stats,
-			 const struct mail_stats *new_stats)
-{
-	dest->disk_input += new_stats->disk_input - old_stats->disk_input;
-	dest->disk_output += new_stats->disk_output - old_stats->disk_output;
-	dest->min_faults += new_stats->min_faults - old_stats->min_faults;
-	dest->maj_faults += new_stats->maj_faults - old_stats->maj_faults;
-	dest->vol_cs += new_stats->vol_cs - old_stats->vol_cs;
-	dest->invol_cs += new_stats->invol_cs - old_stats->invol_cs;
-	dest->read_count += new_stats->read_count - old_stats->read_count;
-	dest->write_count += new_stats->write_count - old_stats->write_count;
-	dest->read_bytes += new_stats->read_bytes - old_stats->read_bytes;
-	dest->write_bytes += new_stats->write_bytes - old_stats->write_bytes;
-
-	timeval_add_diff(&dest->user_cpu, &new_stats->user_cpu,
-			 &old_stats->user_cpu);
-	timeval_add_diff(&dest->sys_cpu, &new_stats->sys_cpu,
-			 &old_stats->sys_cpu);
-	timeval_add_diff(&dest->clock_time, &new_stats->clock_time,
-			 &old_stats->clock_time);
-	trans_stats_dec(&dest->trans_stats, &old_stats->trans_stats);
-	trans_stats_add(&dest->trans_stats, &new_stats->trans_stats);
-}
-
-void mail_stats_export(string_t *str, const struct mail_stats *stats)
-{
-	const struct mailbox_transaction_stats *tstats = &stats->trans_stats;
-
-	str_printfa(str, "\tucpu=%ld.%ld", (long)stats->user_cpu.tv_sec,
-		    (long)stats->user_cpu.tv_usec);
-	str_printfa(str, "\tscpu=%ld.%ld", (long)stats->sys_cpu.tv_sec,
-		    (long)stats->sys_cpu.tv_usec);
-	str_printfa(str, "\ttime=%ld.%ld", (long)stats->clock_time.tv_sec,
-		    (long)stats->clock_time.tv_usec);
-	str_printfa(str, "\tminflt=%u", stats->min_faults);
-	str_printfa(str, "\tmajflt=%u", stats->maj_faults);
-	str_printfa(str, "\tvolcs=%u", stats->vol_cs);
-	str_printfa(str, "\tinvolcs=%u", stats->invol_cs);
-	str_printfa(str, "\tdiskin=%llu",
-		    (unsigned long long)stats->disk_input);
-	str_printfa(str, "\tdiskout=%llu",
-		    (unsigned long long)stats->disk_output);
-	str_printfa(str, "\trchar=%llu",
-		    (unsigned long long)stats->read_bytes);
-	str_printfa(str, "\twchar=%llu",
-		    (unsigned long long)stats->write_bytes);
-	str_printfa(str, "\tsyscr=%u", stats->read_count);
-	str_printfa(str, "\tsyscw=%u", stats->write_count);
-	str_printfa(str, "\tmlpath=%lu",
-		    tstats->open_lookup_count + tstats->stat_lookup_count);
-	str_printfa(str, "\tmlattr=%lu",
-		    tstats->fstat_lookup_count + tstats->stat_lookup_count);
-	str_printfa(str, "\tmrcount=%lu", tstats->files_read_count);
-	str_printfa(str, "\tmrbytes=%llu", tstats->files_read_bytes);
-	str_printfa(str, "\tmcache=%lu", tstats->cache_hit_count);
 }
 
 static void stats_add_session(struct mail_user *user)
 {
 	struct stats_user *suser = STATS_USER_CONTEXT(user);
-	struct mail_stats new_stats;
+	struct stats *new_stats, *diff_stats;
+	const char *error;
 
-	mail_stats_get(suser, &new_stats);
-	mail_stats_add_diff(&suser->session_stats, &suser->pre_io_stats,
-			    &new_stats);
-	suser->pre_io_stats = new_stats;
-}
+	new_stats = stats_alloc(pool_datastack_create());
+	diff_stats = stats_alloc(pool_datastack_create());
 
-static bool session_has_changed(const struct mail_stats *prev,
-				const struct mail_stats *cur)
-{
-	if (cur->disk_input != prev->disk_input ||
-	    cur->disk_output != prev->disk_output ||
-	    memcmp(&cur->trans_stats, &prev->trans_stats,
-		   sizeof(cur->trans_stats)) != 0)
-		return TRUE;
-
-	/* allow a tiny bit of changes that are caused by this
-	   timeout handling */
-	if (timeval_diff_msecs(&cur->user_cpu, &prev->user_cpu) != 0)
-		return TRUE;
-	if (timeval_diff_msecs(&cur->sys_cpu, &prev->sys_cpu) != 0)
-		return TRUE;
-
-	if (cur->maj_faults > prev->maj_faults+10)
-		return TRUE;
-	if (cur->invol_cs > prev->invol_cs+10)
-		return TRUE;
-	/* don't check for read/write count/bytes changes, since they get
-	   changed by stats checking itself */
-	return FALSE;
+	mail_user_stats_fill(user, new_stats);
+	/* we'll count new_stats-pre_io_stats and add the changes to
+	   session_stats. the new_stats can't be directly copied to
+	   session_stats because there are some fields that don't start from
+	   zero, like clock_time. (actually with stats_global_user code we're
+	   requiring that clock_time is the only such field..) */
+	if (!stats_diff(suser->pre_io_stats, new_stats, diff_stats, &error))
+		i_error("stats: session stats shrank: %s", error);
+	stats_add(suser->session_stats, diff_stats);
+	/* copying is only needed if stats_global_user=NULL */
+	stats_copy(suser->pre_io_stats, new_stats);
 }
 
 static bool
@@ -336,8 +95,8 @@ session_stats_need_send(struct stats_user *suser, time_t now,
 
 	*to_next_secs_r = SESSION_STATS_FORCE_REFRESH_SECS;
 
-	if (session_has_changed(&suser->last_sent_session_stats,
-				&suser->session_stats)) {
+	if (stats_have_changed(suser->last_sent_session_stats,
+			       suser->session_stats)) {
 		*to_next_secs_r = suser->refresh_secs;
 		*changed_r = TRUE;
 		return TRUE;
@@ -372,9 +131,9 @@ static void session_stats_refresh(struct mail_user *user)
 	if (session_stats_need_send(suser, now, &changed, &to_next_secs)) {
 		suser->session_sent_duplicate = !changed;
 		suser->last_session_update = now;
-		suser->last_sent_session_stats = suser->session_stats;
+		stats_copy(suser->last_sent_session_stats, suser->session_stats);
 		stats_connection_send_session(suser->stats_conn, user,
-					      &suser->session_stats);
+					      suser->session_stats);
 	}
 
 	if (suser->to_stats_timeout != NULL)
@@ -407,10 +166,18 @@ stats_transaction_begin(struct mailbox *box,
 static void stats_transaction_free(struct stats_user *suser,
 				   struct stats_transaction_context *strans)
 {
+	const struct mailbox_transaction_stats *src = &strans->trans->stats;
+	struct mailbox_transaction_stats *dest =
+		&suser->finished_transaction_stats;
+
 	DLLIST_REMOVE(&suser->transactions, strans);
 
-	trans_stats_add(&suser->session_stats.trans_stats,
-			&strans->trans->stats);
+	dest->open_lookup_count += src->open_lookup_count;
+	dest->stat_lookup_count += src->stat_lookup_count;
+	dest->fstat_lookup_count += src->fstat_lookup_count;
+	dest->files_read_count += src->files_read_count;
+	dest->files_read_bytes += src->files_read_bytes;
+	dest->cache_hit_count += src->cache_hit_count;
 	i_free(strans);
 }
 
@@ -538,6 +305,17 @@ static void stats_io_deactivate(struct mail_user *user)
 	}
 }
 
+static void stats_user_stats_fill(struct mail_user *user, struct stats *stats)
+{
+	struct stats_user *suser = STATS_USER_CONTEXT(user);
+	struct mail_stats *mail_stats;
+
+	mail_stats = stats_fill_ptr(stats, mail_stats_item);
+	mail_stats_fill(suser, mail_stats);
+
+	suser->module_ctx.super.stats_fill(user, stats);
+}
+
 static void stats_user_deinit(struct mail_user *user)
 {
 	struct stats_user *suser = STATS_USER_CONTEXT(user);
@@ -624,6 +402,7 @@ static void stats_user_created(struct mail_user *user)
 	suser->module_ctx.super = *v;
 	user->vlast = &suser->module_ctx.super;
 	v->deinit = stats_user_deinit;
+	v->stats_fill = stats_user_stats_fill;
 
 	suser->refresh_secs = refresh_secs;
 	str = mail_user_plugin_getenv(user, "stats_track_cmds");
@@ -647,6 +426,10 @@ static void stats_user_created(struct mail_user *user)
 				      stats_io_activate,
 				      stats_io_deactivate, user);
 
+	suser->pre_io_stats = stats_alloc(user->pool);
+	suser->session_stats = stats_alloc(user->pool);
+	suser->last_sent_session_stats = stats_alloc(user->pool);
+
 	MODULE_CONTEXT_SET(user, stats_user_module, suser);
 	stats_connection_connect(suser->stats_conn, user);
 }
@@ -658,6 +441,7 @@ static struct mail_storage_hooks stats_mail_storage_hooks = {
 
 void stats_plugin_init(struct module *module)
 {
+	mail_stats_item = stats_register(&mail_stats_vfuncs);
 	mail_storage_hooks_add(module, &stats_mail_storage_hooks);
 }
 
@@ -666,4 +450,5 @@ void stats_plugin_deinit(void)
 	if (global_stats_conn != NULL)
 		stats_connection_unref(&global_stats_conn);
 	mail_storage_hooks_remove(&stats_mail_storage_hooks);
+	stats_unregister(&mail_stats_item);
 }

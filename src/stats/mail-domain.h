@@ -1,7 +1,7 @@
 #ifndef MAIL_DOMAIN_H
 #define MAIL_DOMAIN_H
 
-struct mail_stats;
+struct stats;
 
 extern struct mail_domain *stable_mail_domains;
 
@@ -10,7 +10,7 @@ void mail_domain_login(struct mail_domain *domain);
 void mail_domain_disconnected(struct mail_domain *domain);
 struct mail_domain *mail_domain_lookup(const char *name);
 void mail_domain_refresh(struct mail_domain *domain,
-			 const struct mail_stats *diff_stats) ATTR_NULL(2);
+			 const struct stats *diff_stats) ATTR_NULL(2);
 
 void mail_domain_ref(struct mail_domain *domain);
 void mail_domain_unref(struct mail_domain **domain);

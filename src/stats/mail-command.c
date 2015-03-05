@@ -1,6 +1,8 @@
 /* Copyright (c) 2011-2015 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
+#include "base64.h"
 #include "ioloop.h"
 #include "llist.h"
 #include "global-memory.h"
@@ -45,7 +47,8 @@ mail_command_add(struct mail_session *session, const char *name,
 {
 	struct mail_command *cmd;
 
-	cmd = i_new(struct mail_command, 1);
+	cmd = i_malloc(sizeof(struct mail_command) + stats_alloc_size());
+	cmd->stats = (void *)(cmd + 1);
 	cmd->refcount = 1; /* unrefed at "done" */
 	cmd->session = session;
 	cmd->name = i_strdup(name);
@@ -98,13 +101,14 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 {
 	struct mail_session *session;
 	struct mail_command *cmd;
-	struct mail_stats stats, diff_stats;
+	struct stats *new_stats, *diff_stats;
+	buffer_t *buf;
 	const char *error;
 	unsigned int i, cmd_id;
 	bool done = FALSE, continued = FALSE;
 
-	/* <session guid> <cmd id> [d] <name> <args> [key=value ..]
-	   <session guid> <cmd id> c[d] [key=value ..] */
+	/* <session guid> <cmd id> [d] <name> <args> <stats>
+	   <session guid> <cmd id> c[d] <stats> */
 	if (str_array_length(args) < 3) {
 		*error_r = "UPDATE-CMD: Too few parameters";
 		return -1;
@@ -161,16 +165,26 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 		args += 3;
 		cmd->last_update = ioloop_timeval;
 	}
-	if (mail_stats_parse(args, &stats, error_r) < 0) {
-		*error_r = t_strconcat("UPDATE-CMD: ", *error_r, NULL);
+	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	if (args[0] == NULL ||
+	    base64_decode(args[0], strlen(args[0]), NULL, buf) < 0) {
+		*error_r = t_strdup_printf("UPDATE-CMD: Invalid base64 input");
 		return -1;
 	}
-	if (!mail_stats_diff(&cmd->stats, &stats, &diff_stats, &error)) {
-		*error_r = t_strconcat("UPDATE-CMD: stats shrank: ",
-				       error, NULL);
+
+	new_stats = stats_alloc(pool_datastack_create());
+	diff_stats = stats_alloc(pool_datastack_create());
+
+	if (!stats_import(buf->data, buf->used, cmd->stats, new_stats, &error)) {
+		*error_r = t_strdup_printf("UPDATE-CMD: %s", error);
 		return -1;
 	}
-	mail_stats_add(&cmd->stats, &diff_stats);
+
+	if (!stats_diff(cmd->stats, new_stats, diff_stats, &error)) {
+		*error_r = t_strdup_printf("UPDATE-CMD: stats shrank: %s", error);
+		return -1;
+	}
+	stats_add(cmd->stats, diff_stats);
 
 	if (done) {
 		cmd->id = 0;

@@ -5,12 +5,14 @@
 #include "mail-storage-settings.h"
 
 struct module;
-struct mail_user;
+struct stats;
 struct fs_settings;
 struct ssl_iostream_settings;
+struct mail_user;
 
 struct mail_user_vfuncs {
 	void (*deinit)(struct mail_user *user);
+	void (*stats_fill)(struct mail_user *user, struct stats *stats);
 };
 
 struct mail_user {
@@ -165,5 +167,9 @@ mail_user_get_storage_class(struct mail_user *user, const char *name);
 void mail_user_init_fs_settings(struct mail_user *user,
 				struct fs_settings *fs_set,
 				struct ssl_iostream_settings *ssl_set);
+
+/* Fill statistics for user. By default there are no statistics, so stats
+   plugin must be loaded to have anything filled. */
+void mail_user_stats_fill(struct mail_user *user, struct stats *stats);
 
 #endif

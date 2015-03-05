@@ -19,23 +19,6 @@ struct mail_server_connection {
 	struct io *io;
 };
 
-static const char *const*
-mail_server_connection_next_line(struct mail_server_connection *conn)
-{
-	const char *line;
-	char **args;
-	unsigned int i;
-
-	line = i_stream_next_line(conn->input);
-	if (line == NULL)
-		return NULL;
-
-	args = p_strsplit(pool_datastack_create(), line, "\t");
-	for (i = 0; args[i] != NULL; i++)
-		args[i] = str_tabunescape(args[i]);
-	return (void *)args;
-}
-
 static int
 mail_server_connection_request(const char *const *args, const char **error_r)
 {
@@ -62,7 +45,7 @@ mail_server_connection_request(const char *const *args, const char **error_r)
 
 static void mail_server_connection_input(struct mail_server_connection *conn)
 {
-	const char *const *args, *error;
+	const char *line, *const *args, *error;
 
 	switch (i_stream_read(conn->input)) {
 	case -2:
@@ -74,10 +57,11 @@ static void mail_server_connection_input(struct mail_server_connection *conn)
 		return;
 	}
 
-	while ((args = mail_server_connection_next_line(conn)) != NULL) {
+	while ((line = i_stream_next_line(conn->input)) != NULL) T_BEGIN {
+		args = t_strsplit_tabescaped(line);
 		if (mail_server_connection_request(args, &error) < 0)
 			i_error("Mail server input error: %s", error);
-	}
+	} T_END;
 }
 
 struct mail_server_connection *mail_server_connection_create(int fd)
