@@ -70,6 +70,8 @@ struct fs {
 	unsigned int files_open_count;
 	struct fs_file *files;
 	struct fs_iter *iters;
+
+	struct fs_stats stats;
 };
 
 struct fs_file {
@@ -96,6 +98,11 @@ struct fs_file {
 
 	unsigned int write_pending:1;
 	unsigned int metadata_changed:1;
+
+	unsigned int read_counted:1;
+	unsigned int prefetch_counted:1;
+	unsigned int lookup_metadata_counted:1;
+	unsigned int stat_counted:1;
 };
 
 struct fs_lock {

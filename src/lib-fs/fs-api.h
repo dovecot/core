@@ -122,6 +122,27 @@ struct fs_settings {
 	bool debug;
 };
 
+struct fs_stats {
+	/* Number of fs_prefetch() calls. */
+	unsigned int prefetch_count;
+	/* Number of fs_read*() calls. Counted only if fs_prefetch() hasn't
+	   been called for the file. */
+	unsigned int read_count;
+	/* Number of fs_lookup_metadata() calls. Counted only if neither
+	   fs_read*() nor fs_prefetch() has been called for the file. */
+	unsigned int lookup_metadata_count;
+	/* Number of fs_stat() calls. Counted only if none of the above
+	   has been called (because the stat result should be cached). */
+	unsigned int stat_count;
+
+	unsigned int write_count;
+	unsigned int exists_count;
+	unsigned int delete_count;
+	unsigned int copy_count;
+	unsigned int rename_count;
+	unsigned int iter_count;
+};
+
 struct fs_metadata {
 	const char *key;
 	const char *value;
@@ -263,5 +284,10 @@ void fs_iter_set_async_callback(struct fs_iter *iter,
 /* For asynchronous iterations: If fs_iter_next() returns NULL, use this
    function to determine if you should wait for more data or finish up. */
 bool fs_iter_have_more(struct fs_iter *iter);
+
+/* Return the filesystem's fs_stats. Note that each wrapper filesystem keeps
+   track of its own fs_stats calls. You can use fs_get_parent() to get to the
+   filesystem whose stats you want to see. */
+const struct fs_stats *fs_get_stats(struct fs *fs);
 
 #endif
