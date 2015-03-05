@@ -27,6 +27,10 @@ static struct {
 	{ "foo", "f*o*o*o", FALSE },
 	{ "foo", "f???*", FALSE },
 
+	{ "*foo", "foo", FALSE },
+	{ "foo*", "foo", FALSE },
+	{ "*foo*", "foo", FALSE },
+
 	{ "", "*", TRUE },
 	{ "", "", TRUE },
 	{ "", "?", FALSE }
