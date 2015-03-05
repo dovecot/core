@@ -155,6 +155,16 @@ void fs_deinit(struct fs **_fs)
 	str_free(&last_error);
 }
 
+struct fs *fs_get_parent(struct fs *fs)
+{
+	return fs->parent;
+}
+
+const char *fs_get_driver(struct fs *fs)
+{
+	return fs->name;
+}
+
 const char *fs_get_root_driver(struct fs *fs)
 {
 	while (fs->parent != NULL)
