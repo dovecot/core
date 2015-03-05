@@ -20,7 +20,7 @@
 #include "pop3-login-settings.h"
 
 /* Disconnect client when it sends too many bad commands */
-#define CLIENT_MAX_BAD_COMMANDS 10
+#define CLIENT_MAX_BAD_COMMANDS 3
 
 static bool cmd_stls(struct pop3_client *client)
 {
@@ -130,7 +130,7 @@ static void pop3_client_input(struct client *client)
 		if (client_command_execute(pop3_client, line,
 					   args != NULL ? args : ""))
 			client->bad_counter = 0;
-		else if (++client->bad_counter > CLIENT_MAX_BAD_COMMANDS) {
+		else if (++client->bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
 			client_send_reply(client, POP3_CMD_REPLY_ERROR,
 				"Too many invalid bad commands.");
 			client_destroy(client,
