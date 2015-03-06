@@ -248,7 +248,8 @@ data_callback(enum lmtp_client_result result, const char *reply, void *context)
 }
 
 static int
-smtp_client_send_flush(struct smtp_client *smtp_client, const char **error_r)
+smtp_client_send_flush(struct smtp_client *smtp_client,
+		       unsigned int timeout_secs, const char **error_r)
 {
 	struct lmtp_client_settings client_set;
 	struct lmtp_client *client;
@@ -285,6 +286,7 @@ smtp_client_send_flush(struct smtp_client *smtp_client, const char **error_r)
 	client_set.mail_from = smtp_client->return_path == NULL ? "<>" :
 		t_strconcat("<", smtp_client->return_path, ">", NULL);
 	client_set.my_hostname = smtp_client->set->hostname;
+	client_set.timeout_secs = timeout_secs;
 
 	ioloop = io_loop_create();
 	client = lmtp_client_init(&client_set, smtp_client_send_finished,
@@ -344,6 +346,12 @@ void smtp_client_abort(struct smtp_client **_client)
 
 int smtp_client_deinit(struct smtp_client *client, const char **error_r)
 {
+	return smtp_client_deinit_timeout(client, 0, error_r);
+}
+
+int smtp_client_deinit_timeout(struct smtp_client *client,
+			       unsigned int timeout_secs, const char **error_r)
+{
 	int ret;
 
 	if (!client->use_smtp) {
@@ -355,7 +363,7 @@ int smtp_client_deinit(struct smtp_client *client, const char **error_r)
 	}
 
 	/* the mail has been written to a file. now actually send it. */
-	ret = smtp_client_send_flush(client, error_r);
+	ret = smtp_client_send_flush(client, timeout_secs, error_r);
 
 	smtp_client_abort(&client);
 	return ret;
