@@ -123,10 +123,12 @@ struct fs_settings {
 };
 
 struct fs_stats {
-	/* Number of fs_prefetch() calls. */
+	/* Number of fs_prefetch() calls. Counted only if fs_read*() hasn't
+	   already been called for the file (which would be pretty pointless
+	   to do). */
 	unsigned int prefetch_count;
 	/* Number of fs_read*() calls. Counted only if fs_prefetch() hasn't
-	   been called for the file. */
+	   already been called for the file. */
 	unsigned int read_count;
 	/* Number of fs_lookup_metadata() calls. Counted only if neither
 	   fs_read*() nor fs_prefetch() has been called for the file. */
@@ -135,11 +137,21 @@ struct fs_stats {
 	   has been called (because the stat result should be cached). */
 	unsigned int stat_count;
 
+	/* Number of fs_write*() calls. */
 	unsigned int write_count;
+	/* Number of fs_exists() calls, which actually went to the backend
+	   instead of being handled by fs_stat() call due to fs_exists() not
+	   being implemented. */
 	unsigned int exists_count;
+	/* Number of fs_delete() calls. */
 	unsigned int delete_count;
+	/* Number of fs_copy() calls. If backend doesn't implement copying
+	   operation but falls back to regular read+write instead, this count
+	   isn't increased but the read+write counters are. */
 	unsigned int copy_count;
+	/* Number of fs_rename() calls. */
 	unsigned int rename_count;
+	/* Number of fs_iter_init() calls. */
 	unsigned int iter_count;
 };
 
