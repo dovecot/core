@@ -55,6 +55,7 @@ struct lmtp_client {
 	struct istream *input;
 	struct ostream *output;
 	struct io *io;
+	struct timeout *to;
 	int fd;
 
 	void (*data_output_callback)(void *);
@@ -103,6 +104,7 @@ lmtp_client_init(const struct lmtp_client_settings *set,
 	client->set.source_port = set->source_port;
 	client->set.proxy_ttl = set->proxy_ttl;
 	client->set.proxy_timeout_secs = set->proxy_timeout_secs;
+	client->set.timeout_secs = set->timeout_secs;
 	client->finish_callback = finish_callback;
 	client->finish_context = context;
 	client->fd = -1;
@@ -115,6 +117,8 @@ void lmtp_client_close(struct lmtp_client *client)
 {
 	if (client->dns_lookup != NULL)
 		dns_lookup_abort(&client->dns_lookup);
+	if (client->to != NULL)
+		timeout_remove(&client->to);
 	if (client->io != NULL)
 		io_remove(&client->io);
 	if (client->input != NULL)
@@ -604,6 +608,8 @@ static void lmtp_client_input(struct lmtp_client *client)
 				 " (disconnected in input)");
 	}
 	o_stream_uncork(client->output);
+	if (client->to != NULL)
+		timeout_reset(client->to);
 	lmtp_client_unref(&client);
 }
 
@@ -619,9 +625,19 @@ static void lmtp_client_wait_connect(struct lmtp_client *client)
 				 " (connect)");
 		return;
 	}
+	if (client->to != NULL)
+		timeout_remove(&client->to);
 	io_remove(&client->io);
 	client->io = io_add(client->fd, IO_READ, lmtp_client_input, client);
 	lmtp_client_input(client);
+}
+
+static void lmtp_client_connect_timeout(struct lmtp_client *client)
+{
+	i_error("lmtp client: connect(%s, %u) failed: Timed out in %u secs",
+		client->host, client->port, client->set.timeout_secs);
+	lmtp_client_fail(client, ERRSTR_TEMP_REMOTE_FAILURE
+			 " (connect timeout)");
 }
 
 static int lmtp_client_output(struct lmtp_client *client)
@@ -636,12 +652,16 @@ static int lmtp_client_output(struct lmtp_client *client)
 	else if (client->input_state == LMTP_INPUT_STATE_DATA)
 		(void)lmtp_client_send_data(client);
 	o_stream_uncork(client->output);
+	if (client->to != NULL)
+		timeout_reset(client->to);
 	lmtp_client_unref(&client);
 	return ret;
 }
 
 static int lmtp_client_connect(struct lmtp_client *client)
 {
+	i_assert(client->fd == -1);
+
 	client->fd = net_connect_ip(&client->ip, client->port, NULL);
 	if (client->fd == -1) {
 		i_error("lmtp client: connect(%s, %u) failed: %m",
@@ -656,6 +676,10 @@ static int lmtp_client_connect(struct lmtp_client *client)
 	/* we're already sending data in ostream, so can't use IO_WRITE here */
 	client->io = io_add(client->fd, IO_READ,
 			    lmtp_client_wait_connect, client);
+	if (client->set.timeout_secs > 0) {
+		client->to = timeout_add(client->set.timeout_secs*1000,
+					 lmtp_client_connect_timeout, client);
+	}
 	return 0;
 }
 
@@ -808,10 +832,33 @@ void lmtp_client_add_rcpt_params(struct lmtp_client *client, const char *address
 		lmtp_client_send_rcpts(client);
 }
 
+static void lmtp_client_timeout(struct lmtp_client *client)
+{
+	const char *line;
+
+	line = t_strdup_printf(ERRSTR_TEMP_REMOTE_FAILURE
+		" (Timed out after %u secs while waiting for reply to %s)",
+		client->set.timeout_secs, lmtp_client_state_to_string(client));
+	lmtp_client_fail(client, line);
+}
+
 void lmtp_client_send(struct lmtp_client *client, struct istream *data_input)
 {
+	i_assert(client->data_input == NULL);
+
 	i_stream_ref(data_input);
 	client->data_input = data_input;
+
+	/* now we actually want to start doing I/O. start the timeout
+	   handling. */
+	if (client->set.timeout_secs > 0) {
+		if (client->to != NULL) {
+			/* still waiting for connect to finish */
+			timeout_remove(&client->to);
+		}
+		client->to = timeout_add(client->set.timeout_secs*1000,
+					 lmtp_client_timeout, client);
+	}
 
 	(void)lmtp_client_send_data_cmd(client);
 }

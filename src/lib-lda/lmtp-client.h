@@ -42,6 +42,9 @@ struct lmtp_client_settings {
 	   this many seconds, so it should try to keep lock waits and such
 	   lower than this. */
 	unsigned int proxy_timeout_secs;
+	/* Don't wait an answer from destination server longer than this many
+	   seconds (0 = unlimited) */
+	unsigned int timeout_secs;
 };
 
 /* reply contains the reply coming from remote server, or NULL
