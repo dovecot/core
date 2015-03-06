@@ -758,7 +758,8 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	input = mail_storage_service_user_get_input(rcpt->service_user);
 	username = t_strdup(input->username);
 
-	if (rcpt->parallel_count >= client->lmtp_set->lmtp_user_concurrency_limit) {
+	if (client->lmtp_set->lmtp_user_concurrency_limit > 0 &&
+	    rcpt->parallel_count >= client->lmtp_set->lmtp_user_concurrency_limit) {
 		client_send_line(client, ERRSTR_TEMP_USERDB_FAIL_PREFIX
 				 "Too many concurrent deliveries for user",
 				 rcpt->address);
