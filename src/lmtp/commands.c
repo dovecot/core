@@ -565,7 +565,7 @@ lmtp_rcpt_to_is_over_quota(struct client *client,
 
 int cmd_rcpt(struct client *client, const char *args)
 {
-	struct mail_recipient rcpt;
+	struct mail_recipient *rcpt;
 	struct mail_storage_service_input input;
 	const char *params, *address, *username, *detail, *prefix;
 	const char *const *argv;
@@ -583,13 +583,13 @@ int cmd_rcpt(struct client *client, const char *args)
 		return 0;
 	}
 
-	memset(&rcpt, 0, sizeof(rcpt));
+	rcpt = p_new(client->state_pool, struct mail_recipient, 1);
 	address = lmtp_unescape_address(address);
 
 	argv = t_strsplit(params, " ");
 	for (; *argv != NULL; argv++) {
 		if (strncasecmp(*argv, "ORCPT=", 6) == 0) {
-			rcpt.params.dsn_orcpt = parse_xtext(client, *argv + 6);
+			rcpt->params.dsn_orcpt = parse_xtext(client, *argv + 6);
 		} else {
 			client_send_line(client, "501 5.5.4 Unsupported options");
 			return 0;
@@ -601,7 +601,7 @@ int cmd_rcpt(struct client *client, const char *args)
 
 	if (client->lmtp_set->lmtp_proxy) {
 		if (client_proxy_rcpt(client, address, username, detail,
-				      &rcpt.params))
+				      &rcpt->params))
 			return 0;
 	}
 
@@ -615,7 +615,7 @@ int cmd_rcpt(struct client *client, const char *args)
 	input.session_id = client->state.session_id;
 
 	ret = mail_storage_service_lookup(storage_service, &input,
-					  &rcpt.service_user, &error);
+					  &rcpt->service_user, &error);
 
 	if (ret < 0) {
 		prefix = t_strdup_printf(ERRSTR_TEMP_USERDB_FAIL_PREFIX,
@@ -641,11 +641,11 @@ int cmd_rcpt(struct client *client, const char *args)
 
 	lmtp_address_translate(client, &address);
 
-	rcpt.address = p_strdup(client->state_pool, address);
-	rcpt.detail = p_strdup(client->state_pool, detail);
-	if ((ret = lmtp_rcpt_to_is_over_quota(client, &rcpt)) < 0) {
+	rcpt->address = p_strdup(client->state_pool, address);
+	rcpt->detail = p_strdup(client->state_pool, detail);
+	if ((ret = lmtp_rcpt_to_is_over_quota(client, rcpt)) < 0) {
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 rcpt.address);
+				 rcpt->address);
 		return 0;
 	}
 	if (ret == 0) {
@@ -813,13 +813,13 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 static bool client_deliver_next(struct client *client, struct mail *src_mail,
 				struct mail_deliver_session *session)
 {
-	const struct mail_recipient *rcpts;
+	struct mail_recipient *const *rcpts;
 	unsigned int count;
 	int ret;
 
 	rcpts = array_get(&client->state.rcpt_to, &count);
 	while (client->state.rcpt_idx < count) {
-		ret = client_deliver(client, &rcpts[client->state.rcpt_idx],
+		ret = client_deliver(client, rcpts[client->state.rcpt_idx],
 				     src_mail, session);
 		client_state_set(client, "DATA", "");
 		i_set_failure_prefix("lmtp(%s): ", my_pid);
@@ -836,11 +836,11 @@ static bool client_deliver_next(struct client *client, struct mail *src_mail,
 
 static void client_rcpt_fail_all(struct client *client)
 {
-	const struct mail_recipient *rcpt;
+	struct mail_recipient *const *rcptp;
 
-	array_foreach(&client->state.rcpt_to, rcpt) {
+	array_foreach(&client->state.rcpt_to, rcptp) {
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 rcpt->address);
+				 (*rcptp)->address);
 	}
 }
 
@@ -986,10 +986,10 @@ static const char *client_get_added_headers(struct client *client)
 	const char *host, *rcpt_to = NULL;
 
 	if (array_count(&client->state.rcpt_to) == 1) {
-		const struct mail_recipient *rcpt =
+		struct mail_recipient *const *rcptp =
 			array_idx(&client->state.rcpt_to, 0);
 
-		rcpt_to = rcpt->address;
+		rcpt_to = (*rcptp)->address;
 	}
 
 	/* don't set Return-Path when proxying so it won't get added twice */

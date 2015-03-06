@@ -349,14 +349,14 @@ void client_disconnect(struct client *client, const char *prefix,
 
 void client_state_reset(struct client *client, const char *state_name)
 {
-	struct mail_recipient *rcpt;
+	struct mail_recipient *const *rcptp;
 
 	if (client->proxy != NULL)
 		lmtp_proxy_deinit(&client->proxy);
 
 	if (array_is_created(&client->state.rcpt_to)) {
-		array_foreach_modifiable(&client->state.rcpt_to, rcpt)
-			mail_storage_service_user_free(&rcpt->service_user);
+		array_foreach_modifiable(&client->state.rcpt_to, rcptp)
+			mail_storage_service_user_free(&(*rcptp)->service_user);
 	}
 
 	if (client->state.raw_mail != NULL) {
