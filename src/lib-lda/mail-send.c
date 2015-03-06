@@ -180,7 +180,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
     str_truncate(str, 0);
     str_printfa(str, "\r\n\r\n--%s--\r\n", boundary);
     o_stream_nsend(output, str_data(str), str_len(str));
-    if ((ret = smtp_client_deinit(smtp_client, &error)) < 0) {
+    if ((ret = smtp_client_deinit_timeout(smtp_client, ctx->timeout_secs, &error)) < 0) {
 	    i_error("msgid=%s: Temporarily failed to send rejection: %s",
 		    orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
 		    str_sanitize(error, 512));

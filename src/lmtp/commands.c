@@ -803,6 +803,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	dctx.session = session;
 	dctx.pool = session->pool;
 	dctx.set = lda_set;
+	dctx.timeout_secs = LDA_SUBMISSION_TIMEOUT_SECS;
 	dctx.session_id = client->state.session_id;
 	dctx.src_mail = src_mail;
 	dctx.src_envelope_sender = client->state.mail_from;
