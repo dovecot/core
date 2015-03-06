@@ -24,7 +24,7 @@ struct anvil_client {
 	struct timeout *to_reconnect;
 	time_t last_reconnect;
 
-	ARRAY(struct anvil_query) queries_arr;
+	ARRAY(struct anvil_query *) queries_arr;
 	struct aqueue *queries;
 
 	bool (*reconnect_callback)(void);
@@ -91,7 +91,8 @@ static void anvil_reconnect(struct anvil_client *client)
 
 static void anvil_input(struct anvil_client *client)
 {
-	const struct anvil_query *queries, *query;
+	struct anvil_query *const *queries;
+	struct anvil_query *query;
 	const char *line;
 	unsigned int count;
 
@@ -102,10 +103,11 @@ static void anvil_input(struct anvil_client *client)
 			continue;
 		}
 
-		query = &queries[aqueue_idx(client->queries, 0)];
-		T_BEGIN {
+		query = queries[aqueue_idx(client->queries, 0)];
+		if (query->callback != NULL) T_BEGIN {
 			query->callback(line, query->context);
 		} T_END;
+		i_free(query);
 		aqueue_delete_tail(client->queries);
 	}
 	if (client->input->stream_errno != 0) {
@@ -148,13 +150,15 @@ int anvil_client_connect(struct anvil_client *client, bool retry)
 
 static void anvil_client_cancel_queries(struct anvil_client *client)
 {
-	const struct anvil_query *queries, *query;
+	struct anvil_query *const *queries, *query;
 	unsigned int count;
 
 	queries = array_get(&client->queries_arr, &count);
 	while (aqueue_count(client->queries) > 0) {
-		query = &queries[aqueue_idx(client->queries, 0)];
-		query->callback(NULL, query->context);
+		query = queries[aqueue_idx(client->queries, 0)];
+		if (query->callback != NULL)
+			query->callback(NULL, query->context);
+		i_free(query);
 		aqueue_delete_tail(client->queries);
 	}
 }
@@ -190,19 +194,42 @@ static int anvil_client_send(struct anvil_client *client, const char *cmd)
 	return 0;
 }
 
-void anvil_client_query(struct anvil_client *client, const char *query,
-			anvil_callback_t *callback, void *context)
+struct anvil_query *
+anvil_client_query(struct anvil_client *client, const char *query,
+		   anvil_callback_t *callback, void *context)
 {
-	struct anvil_query anvil_query;
+	struct anvil_query *anvil_query;
 
 	if (anvil_client_send(client, query) < 0) {
 		callback(NULL, context);
-		return;
+		return NULL;
 	}
 
-	anvil_query.callback = callback;
-	anvil_query.context = context;
+	anvil_query = i_new(struct anvil_query, 1);
+	anvil_query->callback = callback;
+	anvil_query->context = context;
 	aqueue_append(client->queries, &anvil_query);
+	return anvil_query;
+}
+
+void anvil_client_query_abort(struct anvil_client *client,
+			      struct anvil_query **_query)
+{
+	struct anvil_query *query = *_query;
+	struct anvil_query *const *queries;
+	unsigned int i, count;
+
+	*_query = NULL;
+
+	count = aqueue_count(client->queries);
+	queries = array_idx(&client->queries_arr, 0);
+	for (i = 0; i < count; i++) {
+		if (queries[aqueue_idx(client->queries, i)] == query) {
+			query->callback = NULL;
+			return;
+		}
+	}
+	i_panic("anvil query to be aborted doesn't exist");
 }
 
 void anvil_client_cmd(struct anvil_client *client, const char *cmd)
