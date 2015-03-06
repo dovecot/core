@@ -15,6 +15,7 @@
 #include "var-expand.h"
 #include "restrict-access.h"
 #include "settings-parser.h"
+#include "anvil-client.h"
 #include "master-service.h"
 #include "master-service-ssl.h"
 #include "iostream-ssl.h"
@@ -40,6 +41,8 @@
 	ERRSTR_TEMP_USERDB_FAIL_PREFIX "Temporary user lookup failure"
 
 #define LMTP_PROXY_DEFAULT_TIMEOUT_MSECS (1000*30)
+
+static void client_input_data_write(struct client *client);
 
 int cmd_lhlo(struct client *client, const char *args)
 {
@@ -563,6 +566,34 @@ lmtp_rcpt_to_is_over_quota(struct client *client,
 	return ret;
 }
 
+static void rcpt_anvil_lookup_callback(const char *reply, void *context)
+{
+	struct mail_recipient *rcpt = context;
+
+	i_assert(rcpt->client->state.anvil_queries > 0);
+
+	rcpt->anvil_query = NULL;
+	if (reply == NULL) {
+		/* lookup failed */
+	} else if (str_to_uint(reply, &rcpt->parallel_count) < 0) {
+		i_error("Invalid reply from anvil: %s", reply);
+	}
+	if (--rcpt->client->state.anvil_queries == 0 &&
+	    rcpt->client->state.anvil_pending_data_write) {
+		/* DATA command was finished, but we were still waiting on
+		   anvil before handling any users */
+		client_input_data_write(rcpt->client);
+	}
+}
+
+static void lmtp_anvil_init(void)
+{
+	if (anvil == NULL) {
+		const char *path = t_strdup_printf("%s/anvil", base_dir);
+		anvil = anvil_client_init(path, NULL, 0);
+	}
+}
+
 int cmd_rcpt(struct client *client, const char *args)
 {
 	struct mail_recipient *rcpt;
@@ -584,6 +615,7 @@ int cmd_rcpt(struct client *client, const char *args)
 	}
 
 	rcpt = p_new(client->state_pool, struct mail_recipient, 1);
+	rcpt->client = client;
 	address = lmtp_unescape_address(address);
 
 	argv = t_strsplit(params, " ");
@@ -652,6 +684,17 @@ int cmd_rcpt(struct client *client, const char *args)
 		array_append(&client->state.rcpt_to, &rcpt, 1);
 		client_send_line(client, "250 2.1.5 OK");
 	}
+
+	if (client->lmtp_set->lmtp_user_concurrency_limit > 0) {
+		const char *query = t_strconcat("LOOKUP\t",
+			master_service_get_name(master_service),
+			"/", str_tabescape(username), NULL);
+		lmtp_anvil_init();
+		rcpt->anvil_query = anvil_client_query(anvil, query,
+					rcpt_anvil_lookup_callback, rcpt);
+		if (rcpt->anvil_query != NULL)
+			client->state.anvil_queries++;
+	}
 	return 0;
 }
 
@@ -710,8 +753,17 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	enum mail_error mail_error;
 	int ret;
 
+	i_assert(client->state.anvil_queries == 0);
+
 	input = mail_storage_service_user_get_input(rcpt->service_user);
 	username = t_strdup(input->username);
+
+	if (rcpt->parallel_count >= client->lmtp_set->lmtp_user_concurrency_limit) {
+		client_send_line(client, ERRSTR_TEMP_USERDB_FAIL_PREFIX
+				 "Too many concurrent deliveries for user",
+				 rcpt->address);
+		return -1;
+	}
 
 	mail_set = mail_storage_service_user_get_mail_set(rcpt->service_user);
 	set_parser = mail_storage_service_user_get_settings_parser(rcpt->service_user);
@@ -776,6 +828,11 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	dctx.save_dest_mail = array_count(&client->state.rcpt_to) > 1 &&
 		client->state.first_saved_mail == NULL;
 
+	if (client->lmtp_set->lmtp_user_concurrency_limit > 0) {
+		master_service_anvil_send(master_service, t_strconcat(
+			"CONNECT\t", my_pid, "\t", master_service_get_name(master_service),
+			"/", username, "\n", NULL));
+	}
 	if (mail_deliver(&dctx, &storage) == 0) {
 		if (dctx.dest_mail != NULL) {
 			i_assert(client->state.first_saved_mail == NULL);
@@ -806,6 +863,11 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 				 rcpt->address);
 		ret = -1;
+	}
+	if (client->lmtp_set->lmtp_user_concurrency_limit > 0) {
+		master_service_anvil_send(master_service, t_strconcat(
+			"DISCONNECT\t", my_pid, "\t", master_service_get_name(master_service),
+			"/", username, "\n", NULL));
 	}
 	return ret;
 }
@@ -1019,10 +1081,9 @@ static const char *client_get_added_headers(struct client *client)
 	return str_c(str);
 }
 
-static bool client_input_data_write(struct client *client)
+static void client_input_data_write(struct client *client)
 {
 	struct istream *input;
-	bool ret = TRUE;
 
 	/* stop handling client input until saving/proxying is finished */
 	if (client->to_idle != NULL)
@@ -1037,10 +1098,10 @@ static bool client_input_data_write(struct client *client)
 		client_state_set(client, "DATA", "proxying");
 		lmtp_proxy_start(client->proxy, input,
 				 client_proxy_finish, client);
-		ret = FALSE;
+	} else {
+		client_input_data_finish(client);
 	}
 	i_stream_unref(&input);
-	return ret;
 }
 
 static int client_input_add_file(struct client *client,
@@ -1127,8 +1188,10 @@ static void client_input_data_handle(struct client *client)
 		return;
 	}
 
-	if (client_input_data_write(client))
-		client_input_data_finish(client);
+	if (client->state.anvil_queries == 0)
+		client_input_data_write(client);
+	else
+		client->state.anvil_pending_data_write = TRUE;
 }
 
 static void client_input_data(struct client *client)

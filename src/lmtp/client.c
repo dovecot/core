@@ -11,6 +11,7 @@
 #include "process-title.h"
 #include "var-expand.h"
 #include "settings-parser.h"
+#include "anvil-client.h"
 #include "master-service.h"
 #include "master-service-ssl.h"
 #include "master-service-settings.h"
@@ -355,8 +356,11 @@ void client_state_reset(struct client *client, const char *state_name)
 		lmtp_proxy_deinit(&client->proxy);
 
 	if (array_is_created(&client->state.rcpt_to)) {
-		array_foreach_modifiable(&client->state.rcpt_to, rcptp)
+		array_foreach_modifiable(&client->state.rcpt_to, rcptp) {
+			if ((*rcptp)->anvil_query != NULL)
+				anvil_client_query_abort(anvil, &(*rcptp)->anvil_query);
 			mail_storage_service_user_free(&(*rcptp)->service_user);
+		}
 	}
 
 	if (client->state.raw_mail != NULL) {

@@ -7,6 +7,7 @@
 #include "abspath.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
+#include "anvil-client.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "master-interface.h"
@@ -27,6 +28,7 @@
 
 const char *dns_client_socket_path, *base_dir;
 struct mail_storage_service_ctx *storage_service;
+struct anvil_client *anvil;
 
 static void client_connected(struct master_service_connection *conn)
 {
@@ -69,6 +71,8 @@ static void main_init(void)
 static void main_deinit(void)
 {
 	clients_destroy();
+	if (anvil != NULL)
+		anvil_client_deinit(&anvil);
 }
 
 int main(int argc, char *argv[])

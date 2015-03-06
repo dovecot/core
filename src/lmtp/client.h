@@ -7,11 +7,15 @@
 #define CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE (1024*128)
 
 struct mail_recipient {
+	struct client *client;
+
 	const char *address;
 	const char *detail; /* +detail part is also in address */
 	struct lmtp_recipient_params params;
 
+	struct anvil_query *anvil_query;
 	struct mail_storage_service_user *service_user;
+	unsigned int parallel_count;
 };
 
 struct client_state {
@@ -20,6 +24,9 @@ struct client_state {
 	const char *mail_from;
 	ARRAY(struct mail_recipient *) rcpt_to;
 	unsigned int rcpt_idx;
+
+	unsigned int anvil_queries;
+	bool anvil_pending_data_write;
 
 	unsigned int data_end_idx;
 
