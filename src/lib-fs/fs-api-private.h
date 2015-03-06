@@ -99,8 +99,7 @@ struct fs_file {
 	unsigned int write_pending:1;
 	unsigned int metadata_changed:1;
 
-	unsigned int read_counted:1;
-	unsigned int prefetch_counted:1;
+	unsigned int read_or_prefetch_counted:1;
 	unsigned int lookup_metadata_counted:1;
 	unsigned int stat_counted:1;
 };

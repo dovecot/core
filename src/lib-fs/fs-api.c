@@ -269,7 +269,7 @@ int fs_get_metadata(struct fs_file *file,
 		fs_set_error(file->fs, "Metadata not supported by backend");
 		return -1;
 	}
-	if (!file->read_counted && !file->prefetch_counted &&
+	if (!file->read_or_prefetch_counted &&
 	    !file->lookup_metadata_counted) {
 		file->lookup_metadata_counted = TRUE;
 		file->fs->stats.lookup_metadata_count++;
@@ -341,8 +341,8 @@ bool fs_prefetch(struct fs_file *file, uoff_t length)
 {
 	bool ret;
 
-	if (!file->read_counted && !file->prefetch_counted) {
-		file->prefetch_counted = TRUE;
+	if (!file->read_or_prefetch_counted) {
+		file->read_or_prefetch_counted = TRUE;
 		file->fs->stats.prefetch_count++;
 	}
 	T_BEGIN {
@@ -383,8 +383,8 @@ ssize_t fs_read(struct fs_file *file, void *buf, size_t size)
 {
 	int ret;
 
-	if (!file->read_counted && !file->prefetch_counted) {
-		file->read_counted = TRUE;
+	if (!file->read_or_prefetch_counted) {
+		file->read_or_prefetch_counted = TRUE;
 		file->fs->stats.read_count++;
 	}
 
@@ -408,8 +408,8 @@ struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 	ssize_t ret;
 	bool want_seekable = FALSE;
 
-	if (!file->read_counted && !file->prefetch_counted) {
-		file->read_counted = TRUE;
+	if (!file->read_or_prefetch_counted) {
+		file->read_or_prefetch_counted = TRUE;
 		file->fs->stats.read_count++;
 	}
 
@@ -639,7 +639,7 @@ int fs_stat(struct fs_file *file, struct stat *st_r)
 {
 	int ret;
 
-	if (!file->read_counted && !file->prefetch_counted &&
+	if (!file->read_or_prefetch_counted &&
 	    !file->lookup_metadata_counted && !file->stat_counted) {
 		file->stat_counted = TRUE;
 		file->fs->stats.stat_count++;
