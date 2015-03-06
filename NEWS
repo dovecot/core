@@ -1,3 +1,75 @@
+v2.2.16 2015-03-xx  Timo Sirainen <tss@iki.fi>
+
+	* dbox: Resyncing (e.g. doveadm force-resync) no longer deletes
+	  dovecot.index.cache file. The cache file was rarely the problem
+	  so this just caused unnecessary slowness.
+	* Mailbox name limits changed during mailbox creation: Each part of
+	  a hierarchical name (e.g. "x" or "y" in "x/y") can now be up to 255
+	  chars long (instead of 200). This also reduces the max number of
+	  hierarchical levels to 16 (instead of 20) to keep the maximum name
+	  length 4096 (a common PATH_MAX limit). The 255 char limit is
+	  hopefully large enough for migrations from all existing systems.
+	  It's also the limit on many filesystems.
+
+	+ director: Added director_consistent_hashing setting to enable
+	  consistent hashing (instead of the mostly-random MD5 hashing).
+	  This causes fewer user moves between backends when backend counts
+	  are changed, which may improve performance (mainly due to caching).
+	+ director: Added support for "tags", which allows one director ring
+	  to serve multiple backend clusters with different sets of users.
+	+ LMTP server: Added lmtp_user_concurrency_limit setting to limit how
+	  many LMTP deliveries can be done concurrently for a single user.
+	+ LMTP server: Added support for STARTTLS command.
+	+ If logging data is generated faster than it can be written, log a
+	  warning about it and show information about it in log process's
+	  process title in ps output. Also don't allow a single service to
+	  flood too long at the cost of delaying other services' logging.
+	+ stats: Added support for getting global statistics.
+	+ stats: Use the same session IDs as the rest of Dovecot.
+	+ stats: Plugins can now create their own statistics fields
+	+ doveadm server: Non-mail related commands can now also be used
+	  via doveadm server (TCP socket).
+	+ doveadm proxying: passdb lookup can now override doveadm_port and
+	  change the username.
+	+ doveadm: Search query supports now "oldestonly" parameter to stop
+	  immediately on the first non-match. This can be used to optimize:
+	  doveadm expunge mailbox Trash savedbefore 30d oldestonly
+	+ doveadm: Added "save" command to directly save mails to specified
+	  mailbox (bypassing Sieve).
+	+ doveadm fetch: Added body.snippet field, which returns the first
+	  100 chars of a message without whitespace or HTML tags. The result
+	  is stored into dovecot.index.cache, so it can be fetched efficiently.
+	+ dsync: Added -t <timestamp> parameter to sync only mails newer than
+	  the given received-timestamp.
+	+ dsync: Added -F [-]<flag> parameter to sync only mails with[out] the
+	  given flag/keyword.
+	+ dsync: Added -a <mailbox> parameter to specify the virtual mailbox
+	  containing user's all mails. If this mailbox is already found to
+	  contain the wanted mail (by its GUID), the message is copied from
+	  there instead of being re-saved. (This isn't efficient enough yet
+	  for incremental replication.)
+	+ dsync: -m parameter can now specify \Special-use names for mailboxes.
+	+ imapc: Added imapc_features=gmail-migration to help migrations from
+	  GMail. See http://wiki2.dovecot.org/Migration/Gmail
+	+ imapc: Added imapc_features=search to support IMAP SEARCH command.
+	  (Currently requires ESEARCH support from remote server.)
+	+ expire plugin: Added expire_cache=yes setting to cache most of the
+	  database lookups in dovecot index files.
+	+ quota: If overquota-flag in userdb doesn't match the current quota
+	  usage, execute a configured script.
+	+ redis dict: Added support for expiring keys (:expire_secs=n) and
+	  specifying the database number (:db=n)
+	- auth: Don't crash if master user login is attempted without
+	  any configured master=yes passdbs
+	- Parsing UTF-8 text for mails could have caused broken results
+	  sometimes if buffering was split in the middle of a UTF-8 character.
+	  This affected at least searching messages.
+	- String sanitization for some logged output wasn't done properly:
+	  UTF-8 text could have been truncated wrongly or the truncation may
+	  not have happened at all.
+	- fts-lucene: Lookups from virtual mailbox consisting of over 32
+	  physical mailboxes could have caused crashes.
+
 v2.2.15 2014-10-24  Timo Sirainen <tss@iki.fi>
 
 	* Plugins can now print a banner comment in doveconf output
