@@ -606,9 +606,17 @@ static int fs_posix_exists(struct fs_file *_file)
 static int fs_posix_stat(struct fs_file *_file, struct stat *st_r)
 {
 	struct posix_fs_file *file = (struct posix_fs_file *)_file;
-	if (stat(file->full_path, st_r) < 0) {
-		fs_set_error(_file->fs, "stat(%s) failed: %m", file->full_path);
-		return -1;
+
+	if (file->fd != -1) {
+		if (fstat(file->fd, st_r) < 0) {
+			fs_set_error(_file->fs, "fstat(%s) failed: %m", file->full_path);
+			return -1;
+		}
+	} else {
+		if (stat(file->full_path, st_r) < 0) {
+			fs_set_error(_file->fs, "stat(%s) failed: %m", file->full_path);
+			return -1;
+		}
 	}
 	return 0;
 }
