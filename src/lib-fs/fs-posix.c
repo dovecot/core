@@ -404,10 +404,11 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 			fs_set_error(file->file.fs, "unlink(%s) failed: %m",
 				     file->temp_path);
 		}
-		fs_posix_file_close(&file->file);
-		i_free_and_null(file->temp_path);
-		if (ret < 0)
+		if (ret < 0) {
+			fs_posix_file_close(&file->file);
+			i_free_and_null(file->temp_path);
 			return -1;
+		}
 		break;
 	case FS_OPEN_MODE_REPLACE:
 		if (rename(file->temp_path, file->full_path) < 0) {
