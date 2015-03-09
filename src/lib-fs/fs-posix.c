@@ -393,14 +393,6 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 		}
 	}
 
-	if (close(file->fd) < 0) {
-		file->fd = -1;
-		fs_set_error(file->file.fs, "close(%s) failed: %m",
-			     file->full_path);
-		return -1;
-	}
-	file->fd = -1;
-
 	switch (file->open_mode) {
 	case FS_OPEN_MODE_CREATE_UNIQUE_128:
 	case FS_OPEN_MODE_CREATE:
