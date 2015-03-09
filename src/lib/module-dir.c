@@ -129,9 +129,8 @@ module_check_missing_plugin_dependencies(const struct module_dir_load_settings *
 		}
 		if (m == NULL) {
 			errmsg = t_str_new(128);
-			str_printfa(errmsg, "Can't load plugin %s: "
-				    "Plugin %s must be loaded also",
-				    module->name, *deps);
+			str_printfa(errmsg, "Plugin %s must be loaded also",
+				    *deps);
 			if (set->setting_name != NULL) {
 				str_printfa(errmsg,
 					    " (you must set: %s=$%s %s)",
@@ -213,8 +212,8 @@ module_load(const char *path, const char *name,
 	} else {
 		handle = dlopen(path, RTLD_GLOBAL | RTLD_NOW);
 		if (handle == NULL) {
-			*error_r = t_strdup_printf("dlopen(%s) failed: %s",
-						   path, dlerror());
+			*error_r = t_strdup_printf("dlopen() failed: %s",
+						   dlerror());
 #ifdef RTLD_LAZY
 			/* try to give a better error message by lazily loading
 			   the plugin and checking its dependencies */
@@ -237,8 +236,8 @@ module_load(const char *path, const char *name,
 	if (module_version != NULL &&
 	    !versions_equal(*module_version, set->abi_version)) {
 		*error_r = t_strdup_printf(
-			"Module is for different ABI version %s (we have %s): %s",
-			*module_version, set->abi_version, path);
+			"Module is for different ABI version %s (we have %s)",
+			*module_version, set->abi_version);
 		module_free(module);
 		return -1;
 	}
@@ -254,8 +253,8 @@ module_load(const char *path, const char *name,
 	if ((module->init == NULL || module->deinit == NULL) &&
 	    set->require_init_funcs) {
 		*error_r = t_strdup_printf(
-			"Module doesn't have %s function: %s",
-			module->init == NULL ? "init" : "deinit", path);
+			"Module doesn't have %s function",
+			module->init == NULL ? "init" : "deinit");
 	} else if (!module_check_wrong_binary_dependency(set, module, error_r)) {
 		/* failed */
 	} else if (!module_check_missing_plugin_dependencies(set, module,
