@@ -312,14 +312,24 @@ static void fs_posix_file_deinit(struct fs_file *_file)
 	i_free(file);
 }
 
+static int fs_posix_open_for_read(struct posix_fs_file *file)
+{
+	i_assert(file->file.output == NULL);
+	i_assert(file->temp_path == NULL);
+
+	if (file->fd == -1) {
+		if (fs_posix_open(file) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 static bool fs_posix_prefetch(struct fs_file *_file, uoff_t length ATTR_UNUSED)
 {
 	struct posix_fs_file *file = (struct posix_fs_file *)_file;
 
-	if (file->fd == -1) {
-		if (fs_posix_open(file) < 0)
-			return TRUE;
-	}
+	if (fs_posix_open_for_read(file) < 0)
+		return TRUE;
 
 /* HAVE_POSIX_FADVISE alone isn't enough for CentOS 4.9 */
 #if defined(HAVE_POSIX_FADVISE) && defined(POSIX_FADV_WILLNEED)
@@ -336,10 +346,8 @@ static ssize_t fs_posix_read(struct fs_file *_file, void *buf, size_t size)
 	struct posix_fs_file *file = (struct posix_fs_file *)_file;
 	ssize_t ret;
 
-	if (file->fd == -1) {
-		if (fs_posix_open(file) < 0)
-			return -1;
-	}
+	if (fs_posix_open_for_read(file) < 0)
+		return -1;
 
 	if (file->seek_to_beginning) {
 		file->seek_to_beginning = FALSE;
@@ -363,7 +371,7 @@ fs_posix_read_stream(struct fs_file *_file, size_t max_buffer_size)
 	struct posix_fs_file *file = (struct posix_fs_file *)_file;
 	struct istream *input;
 
-	if (file->fd == -1 && fs_posix_open(file) < 0)
+	if (fs_posix_open_for_read(file) < 0)
 		input = i_stream_create_error_str(errno, "%s", fs_last_error(_file->fs));
 	else {
 		/* the stream could live even after the fs_file */
