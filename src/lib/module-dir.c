@@ -460,7 +460,7 @@ module_dir_load_real(struct module **_modules,
 		else {
 			path = t_strconcat(dir, "/", name, NULL);
 			ret = module_load(path, stripped_name, set, modules, &module, &error);
-			if (ret == 0)
+			if (ret >= 0)
 				;
 			else if (module_names != NULL) {
 				*error_r = i_strdup_printf("Couldn't load required plugin %s: %s",
