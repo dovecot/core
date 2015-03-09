@@ -634,15 +634,6 @@ imapc_connection_handle_resp_text_code(struct imapc_connection *conn,
 			conn->selecting_box = NULL;
 		}
 	}
-	if (strcasecmp(key, "THROTTLED") == 0 && !conn->throttle_pending) {
-		/* GMail throttling - start slowing down commands. */
-		conn->throttle_end_timeval = ioloop_timeval;
-		timeval_add_msecs(&conn->throttle_end_timeval,
-				  (1U << conn->throttle_counter) * 1000);
-		conn->throttle_pending = TRUE;
-		if (conn->throttle_counter < IMAPC_THROTTLE_COUNTER_MAX_EXP)
-			conn->throttle_counter++;
-	}
 	return 0;
 }
 
@@ -1188,6 +1179,19 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 			reply.text_without_resp++;
 	} else {
 		reply.text_without_resp = reply.text_full;
+	}
+	if (!conn->throttle_pending &&
+	    strstr(reply.text_full, "[THROTTLED]") != NULL) {
+		/* GMail throttling - start slowing down commands.
+		   unfortunately this isn't a nice resp-text-code, but just
+		   appended at the end of the line (although we kind of support
+		   it as resp-text-code also in here if it's uppercased). */
+		conn->throttle_end_timeval = ioloop_timeval;
+		timeval_add_msecs(&conn->throttle_end_timeval,
+				  (1U << conn->throttle_counter) * 1000);
+		conn->throttle_pending = TRUE;
+		if (conn->throttle_counter < IMAPC_THROTTLE_COUNTER_MAX_EXP)
+			conn->throttle_counter++;
 	}
 	if (!conn->throttle_pending &&
 	    timeval_cmp(&ioloop_timeval, &conn->throttle_end_timeval) >= 0) {
