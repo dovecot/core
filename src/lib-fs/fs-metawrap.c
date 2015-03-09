@@ -354,6 +354,8 @@ fs_metawrap_create_updated_istream(struct metawrap_fs_file *file,
 	input2 = i_stream_create_concat(inputs);
 	i_stream_unref(&inputs[0]);
 	i_stream_unref(&inputs[1]);
+
+	file->metadata_write_size = str_len(file->metadata_header);
 	return input2;
 }
 
@@ -450,6 +452,16 @@ static int fs_metawrap_stat(struct fs_file *_file, struct stat *st_r)
 
 	if (!file->fs->wrap_metadata)
 		return fs_stat(file->super, st_r);
+
+	if (file->metadata_write_size != 0) {
+		/* fs_stat() after a write. we can do this quickly. */
+		if (fs_stat(file->super, st_r) < 0)
+			return -1;
+		i_assert((uoff_t)st_r->st_size > file->metadata_write_size);
+		st_r->st_size -= file->metadata_write_size;
+		return 0;
+	}
+
 	input = fs_read_stream(_file, IO_BLOCK_SIZE);
 	if ((ret = i_stream_get_size(input, TRUE, &input_size)) < 0) {
 		fs_set_error(_file->fs, "i_stream_get_size(%s) failed: %m",
