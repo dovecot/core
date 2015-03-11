@@ -146,7 +146,19 @@ imapc_mail_delayed_send_or_merge(struct imapc_mail *mail, string_t *str)
 	}
 	array_append(&mbox->pending_fetch_request->mails, &mail, 1);
 
-	if (mbox->to_pending_fetch_send == NULL) {
+	if (mbox->to_pending_fetch_send == NULL &&
+	    array_count(&mbox->pending_fetch_request->mails) >
+	    			mbox->box.storage->set->mail_prefetch_count) {
+		/* we're now prefetching the maximum number of mails. this
+		   most likely means that we need to flush out the command now
+		   before sending anything else. delay it a little bit though
+		   in case the sending code doesn't actually use
+		   mail_prefetch_count and wants to fetch more.
+
+		   note that we don't want to add this timeout too early,
+		   because we want to optimize the maximum number of messages
+		   placed into a single FETCH. even without timeout the command
+		   gets flushed by imapc_mail_fetch() call. */
 		mbox->to_pending_fetch_send =
 			timeout_add_short(0, imapc_mail_fetch_flush, mbox);
 	}
@@ -397,7 +409,8 @@ void imapc_mail_fetch_flush(struct imapc_mailbox *mbox)
 	imapc_command_send(cmd, str_c(mbox->pending_fetch_cmd));
 
 	mbox->pending_fetch_request = NULL;
-	timeout_remove(&mbox->to_pending_fetch_send);
+	if (mbox->to_pending_fetch_send != NULL)
+		timeout_remove(&mbox->to_pending_fetch_send);
 	str_truncate(mbox->pending_fetch_cmd, 0);
 }
 
