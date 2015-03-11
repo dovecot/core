@@ -25,9 +25,10 @@
 #define IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE 10000
 #define IMAPC_MAX_INLINE_LITERAL_SIZE (1024*32)
 
-/* max seconds to wait after receiving [THROTTLED] as
-   2^IMAPC_THROTTLE_COUNTER_MAX_EXP */
-#define IMAPC_THROTTLE_COUNTER_MAX_EXP 4
+/* [THROTTLED] handling behavior */
+#define IMAPC_THROTTLE_INIT_MSECS 50
+#define IMAPC_THROTTLE_MAX_MSECS (16*1000)
+#define IMAPC_THROTTLE_SHRINK_MIN_MSECS 500
 
 enum imapc_input_state {
 	IMAPC_INPUT_STATE_NONE = 0,
@@ -121,10 +122,12 @@ struct imapc_connection {
 	struct imapc_connection_literal literal;
 	ARRAY(struct imapc_arg_file) literal_files;
 
-	unsigned int throttle_counter;
+	unsigned int throttle_msecs;
+	unsigned int throttle_shrink_msecs;
+	unsigned int last_successful_throttle_msecs;
 	bool throttle_pending;
 	struct timeval throttle_end_timeval;
-	struct timeout *to_throttle;
+	struct timeout *to_throttle, *to_throttle_shrink;
 
 	unsigned int idling:1;
 	unsigned int idle_stopping:1;
@@ -202,6 +205,8 @@ void imapc_connection_ioloop_changed(struct imapc_connection *conn)
 		conn->to = io_loop_move_timeout(&conn->to);
 	if (conn->to_throttle != NULL)
 		conn->to_throttle = io_loop_move_timeout(&conn->to_throttle);
+	if (conn->to_throttle_shrink != NULL)
+		conn->to_throttle_shrink = io_loop_move_timeout(&conn->to_throttle_shrink);
 	if (conn->output != NULL)
 		o_stream_switch_ioloop(conn->output);
 	if (conn->dns_lookup != NULL)
@@ -387,6 +392,8 @@ void imapc_connection_disconnect(struct imapc_connection *conn)
 		timeout_remove(&conn->to_output);
 	if (conn->to_throttle != NULL)
 		timeout_remove(&conn->to_throttle);
+	if (conn->to_throttle_shrink != NULL)
+		timeout_remove(&conn->to_throttle_shrink);
 	if (conn->parser != NULL)
 		imap_parser_unref(&conn->parser);
 	if (conn->io != NULL)
@@ -1121,6 +1128,72 @@ static int imapc_connection_input_plus(struct imapc_connection *conn)
 }
 
 static void
+imapc_connection_throttle_shrink_timeout(struct imapc_connection *conn)
+{
+	if (conn->throttle_msecs <= 1)
+		conn->throttle_msecs = 0;
+	else
+		conn->throttle_msecs = conn->throttle_msecs*3 / 4;
+
+	if (conn->throttle_shrink_msecs <= IMAPC_THROTTLE_SHRINK_MIN_MSECS)
+		conn->throttle_shrink_msecs = 0;
+	else
+		conn->throttle_shrink_msecs = conn->throttle_shrink_msecs*3 / 4;
+
+	timeout_remove(&conn->to_throttle_shrink);
+	if (conn->throttle_shrink_msecs > 0) {
+		conn->to_throttle_shrink =
+			timeout_add(conn->throttle_shrink_msecs,
+				    imapc_connection_throttle_shrink_timeout, conn);
+	}
+}
+
+static void
+imapc_connection_throttle(struct imapc_connection *conn,
+			  const struct imapc_command_reply *reply)
+{
+	if (conn->to_throttle != NULL)
+		timeout_remove(&conn->to_throttle);
+
+	/* If GMail returns [THROTTLED], start slowing down commands.
+	   Unfortunately this isn't a nice resp-text-code, but just
+	   appended at the end of the line (although we kind of support
+	   it as resp-text-code also in here if it's uppercased). */
+	if (strstr(reply->text_full, "[THROTTLED]") != NULL) {
+		if (conn->throttle_msecs == 0)
+			conn->throttle_msecs = IMAPC_THROTTLE_INIT_MSECS;
+		else if (conn->throttle_msecs < conn->last_successful_throttle_msecs)
+			conn->throttle_msecs = conn->last_successful_throttle_msecs;
+		else {
+			conn->throttle_msecs *= 2;
+			if (conn->throttle_msecs > IMAPC_THROTTLE_MAX_MSECS)
+				conn->throttle_msecs = IMAPC_THROTTLE_MAX_MSECS;
+		}
+		if (conn->throttle_shrink_msecs == 0)
+			conn->throttle_shrink_msecs = IMAPC_THROTTLE_SHRINK_MIN_MSECS;
+		else
+			conn->throttle_shrink_msecs *= 2;
+		if (conn->to_throttle_shrink != NULL)
+			timeout_reset(conn->to_throttle_shrink);
+	} else {
+		if (conn->throttle_shrink_msecs > 0 &&
+		    conn->to_throttle_shrink == NULL) {
+			conn->to_throttle_shrink =
+				timeout_add(conn->throttle_shrink_msecs,
+					    imapc_connection_throttle_shrink_timeout, conn);
+		}
+		conn->last_successful_throttle_msecs = conn->throttle_msecs;
+	}
+
+	if (conn->throttle_msecs > 0) {
+		conn->throttle_end_timeval = ioloop_timeval;
+		timeval_add_msecs(&conn->throttle_end_timeval,
+				  conn->throttle_msecs);
+		conn->throttle_pending = TRUE;
+	}
+}
+
+static void
 imapc_command_reply_free(struct imapc_command *cmd,
 			 const struct imapc_command_reply *reply)
 {
@@ -1180,26 +1253,10 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 	} else {
 		reply.text_without_resp = reply.text_full;
 	}
-	if (!conn->throttle_pending &&
-	    strstr(reply.text_full, "[THROTTLED]") != NULL) {
-		/* GMail throttling - start slowing down commands.
-		   unfortunately this isn't a nice resp-text-code, but just
-		   appended at the end of the line (although we kind of support
-		   it as resp-text-code also in here if it's uppercased). */
-		conn->throttle_end_timeval = ioloop_timeval;
-		timeval_add_msecs(&conn->throttle_end_timeval,
-				  (1U << conn->throttle_counter) * 1000);
-		conn->throttle_pending = TRUE;
-		if (conn->throttle_counter < IMAPC_THROTTLE_COUNTER_MAX_EXP)
-			conn->throttle_counter++;
-	}
-	if (!conn->throttle_pending &&
-	    timeval_cmp(&ioloop_timeval, &conn->throttle_end_timeval) >= 0) {
-		/* tagged reply without [THROTTLED] and it was received after
-		   the throttling ended. we can completely reset the throttling
-		   state now */
-		conn->throttle_counter = 0;
-	}
+	/* if we've pipelined multiple commands, handle [THROTTLED] reply
+	   from only one of them */
+	if (!conn->throttle_pending)
+		imapc_connection_throttle(conn, &reply);
 
 	/* find the command. it's either the first command in send queue
 	   (literal failed) or somewhere in wait list. */
@@ -1790,7 +1847,7 @@ static bool imapc_connection_is_throttled(struct imapc_connection *conn)
 	if (conn->to_throttle != NULL)
 		timeout_remove(&conn->to_throttle);
 
-	if (conn->throttle_counter == 0) {
+	if (conn->throttle_msecs == 0) {
 		/* we haven't received [THROTTLED] recently */
 		return FALSE;
 	}
@@ -1799,7 +1856,7 @@ static bool imapc_connection_is_throttled(struct imapc_connection *conn)
 		   replies to see if we're still throttled */
 		return TRUE;
 	}
-	if (timeval_cmp(&ioloop_timeval, &conn->throttle_end_timeval) > 0) {
+	if (timeval_cmp(&ioloop_timeval, &conn->throttle_end_timeval) >= 0) {
 		/* we reached the throttle timeout - send the next command */
 		conn->throttle_pending = FALSE;
 		return FALSE;
