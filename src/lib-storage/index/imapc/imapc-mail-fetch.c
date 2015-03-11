@@ -315,7 +315,7 @@ bool imapc_mail_prefetch(struct mail *_mail)
 	imapc_mail_update_access_parts(&mail->imail);
 
 	fields = imapc_mail_get_wanted_fetch_fields(mail);
-	if (fields != 0) T_BEGIN {
+	if (fields != 0 || data->wanted_headers != NULL) T_BEGIN {
 		if (imapc_mail_send_fetch(_mail, fields,
 					  data->wanted_headers == NULL ? NULL :
 					  data->wanted_headers->name) > 0)
