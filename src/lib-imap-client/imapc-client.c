@@ -67,6 +67,14 @@ imapc_client_init(const struct imapc_client_settings *set)
 		IMAPC_DEFAULT_CONNECT_TIMEOUT_MSECS;
 	client->set.cmd_timeout_msecs = set->cmd_timeout_msecs != 0 ?
 		set->cmd_timeout_msecs : IMAPC_DEFAULT_COMMAND_TIMEOUT_MSECS;
+	client->set.throttle_set = set->throttle_set;
+
+	if (client->set.throttle_set.init_msecs == 0)
+		client->set.throttle_set.init_msecs = IMAPC_THROTTLE_DEFAULT_INIT_MSECS;
+	if (client->set.throttle_set.max_msecs == 0)
+		client->set.throttle_set.max_msecs = IMAPC_THROTTLE_DEFAULT_MAX_MSECS;
+	if (client->set.throttle_set.shrink_min_msecs == 0)
+		client->set.throttle_set.shrink_min_msecs = IMAPC_THROTTLE_DEFAULT_SHRINK_MIN_MSECS;
 
 	if (set->ssl_mode != IMAPC_CLIENT_SSL_MODE_NONE) {
 		client->set.ssl_mode = set->ssl_mode;

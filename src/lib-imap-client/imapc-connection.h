@@ -3,6 +3,11 @@
 
 #include "imapc-client.h"
 
+/* [THROTTLED] handling behavior */
+#define IMAPC_THROTTLE_DEFAULT_INIT_MSECS 50
+#define IMAPC_THROTTLE_DEFAULT_MAX_MSECS (16*1000)
+#define IMAPC_THROTTLE_DEFAULT_SHRINK_MIN_MSECS 500
+
 struct imapc_client;
 struct imapc_connection;
 

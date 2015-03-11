@@ -246,6 +246,10 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
 	set.ssl_crypto_device = mail_set->ssl_crypto_device;
 
+	set.throttle_set.init_msecs = imapc_set->throttle_init_msecs;
+	set.throttle_set.max_msecs = imapc_set->throttle_max_msecs;
+	set.throttle_set.shrink_min_msecs = imapc_set->throttle_shrink_min_msecs;
+
 	client = i_new(struct imapc_storage_client, 1);
 	client->refcount = 1;
 	i_array_init(&client->untagged_callbacks, 16);

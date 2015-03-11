@@ -31,6 +31,9 @@ struct imapc_settings {
 	const char *pop3_deleted_flag;
 
 	enum imapc_features parsed_features;
+	unsigned int throttle_init_msecs;
+	unsigned int throttle_max_msecs;
+	unsigned int throttle_shrink_min_msecs;
 };
 
 const struct setting_parser_info *imapc_get_setting_parser_info(void);

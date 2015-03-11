@@ -90,6 +90,23 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 };
 
 static int
+imapc_settings_parse_throttle(struct imapc_settings *set,
+			      const char *throttle_str, const char **error_r)
+{
+	const char *const *tmp;
+
+	tmp = t_strsplit(throttle_str, ":");
+	if (str_array_length(tmp) != 3 ||
+	    str_to_uint(tmp[0], &set->throttle_init_msecs) < 0 ||
+	    str_to_uint(tmp[1], &set->throttle_max_msecs) < 0 ||
+	    str_to_uint(tmp[2], &set->throttle_shrink_min_msecs) < 0) {
+		*error_r = "imapc_features: Invalid throttle settings";
+		return -1;
+	}
+	return 0;
+}
+
+static int
 imapc_settings_parse_features(struct imapc_settings *set,
 			      const char **error_r)
 {
@@ -105,6 +122,11 @@ imapc_settings_parse_features(struct imapc_settings *set,
 				features |= list->num;
 				break;
 			}
+		}
+		if (strncasecmp(*str, "throttle:", 9) == 0) {
+			if (imapc_settings_parse_throttle(set, *str + 9, error_r) < 0)
+				return -1;
+			continue;
 		}
 		if (list->name == NULL) {
 			*error_r = t_strdup_printf("imapc_features: "

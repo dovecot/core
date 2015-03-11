@@ -25,11 +25,6 @@
 #define IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE 10000
 #define IMAPC_MAX_INLINE_LITERAL_SIZE (1024*32)
 
-/* [THROTTLED] handling behavior */
-#define IMAPC_THROTTLE_INIT_MSECS 50
-#define IMAPC_THROTTLE_MAX_MSECS (16*1000)
-#define IMAPC_THROTTLE_SHRINK_MIN_MSECS 500
-
 enum imapc_input_state {
 	IMAPC_INPUT_STATE_NONE = 0,
 	IMAPC_INPUT_STATE_PLUS,
@@ -1135,7 +1130,7 @@ imapc_connection_throttle_shrink_timeout(struct imapc_connection *conn)
 	else
 		conn->throttle_msecs = conn->throttle_msecs*3 / 4;
 
-	if (conn->throttle_shrink_msecs <= IMAPC_THROTTLE_SHRINK_MIN_MSECS)
+	if (conn->throttle_shrink_msecs <= conn->client->set.throttle_set.shrink_min_msecs)
 		conn->throttle_shrink_msecs = 0;
 	else
 		conn->throttle_shrink_msecs = conn->throttle_shrink_msecs*3 / 4;
@@ -1161,16 +1156,16 @@ imapc_connection_throttle(struct imapc_connection *conn,
 	   it as resp-text-code also in here if it's uppercased). */
 	if (strstr(reply->text_full, "[THROTTLED]") != NULL) {
 		if (conn->throttle_msecs == 0)
-			conn->throttle_msecs = IMAPC_THROTTLE_INIT_MSECS;
+			conn->throttle_msecs = conn->client->set.throttle_set.init_msecs;
 		else if (conn->throttle_msecs < conn->last_successful_throttle_msecs)
 			conn->throttle_msecs = conn->last_successful_throttle_msecs;
 		else {
 			conn->throttle_msecs *= 2;
-			if (conn->throttle_msecs > IMAPC_THROTTLE_MAX_MSECS)
-				conn->throttle_msecs = IMAPC_THROTTLE_MAX_MSECS;
+			if (conn->throttle_msecs > conn->client->set.throttle_set.max_msecs)
+				conn->throttle_msecs = conn->client->set.throttle_set.max_msecs;
 		}
 		if (conn->throttle_shrink_msecs == 0)
-			conn->throttle_shrink_msecs = IMAPC_THROTTLE_SHRINK_MIN_MSECS;
+			conn->throttle_shrink_msecs = conn->client->set.throttle_set.shrink_min_msecs;
 		else
 			conn->throttle_shrink_msecs *= 2;
 		if (conn->to_throttle_shrink != NULL)
