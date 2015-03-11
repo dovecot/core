@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "str.h"
 #include "imap-util.h"
+#include "mail-cache.h"
 #include "index-sync-private.h"
 #include "imapc-client.h"
 #include "imapc-msgmap.h"
@@ -282,13 +283,20 @@ imapc_sync_send_commands(struct imapc_sync_context *ctx, uint32_t first_uid)
 
 	str_printfa(cmd, "UID FETCH %u:* (FLAGS", first_uid);
 	if (IMAPC_BOX_HAS_FEATURE(ctx->mbox, IMAPC_FEATURE_GMAIL_MIGRATION)) {
-		/* do this only for the \All mailbox */
 		enum mailbox_info_flags flags;
 
+		if (first_uid == 1 &&
+		    !mail_index_is_in_memory(ctx->mbox->box.index)) {
+			/* these can be efficiently fetched among flags and
+			   stored into cache */
+			str_append(cmd, " X-GM-MSGID");
+		}
+		/* do this only for the \All mailbox */
 		if (imapc_list_get_mailbox_flags(ctx->mbox->box.list,
 						 ctx->mbox->box.name, &flags) == 0 &&
 		    (flags & MAILBOX_SPECIALUSE_ALL) != 0)
 			str_append(cmd, " X-GM-LABELS");
+
 	}
 	str_append_c(cmd, ')');
 	imapc_sync_cmd(ctx, str_c(cmd));
@@ -419,6 +427,11 @@ imapc_sync_begin(struct imapc_mailbox *mbox,
 	mbox->delayed_sync_view =
 		mail_index_transaction_open_updated_view(ctx->trans);
 	mbox->delayed_sync_trans = ctx->trans;
+	mbox->delayed_sync_cache_view =
+		mail_cache_view_open(mbox->box.cache, mbox->delayed_sync_view);
+	mbox->delayed_sync_cache_trans =
+		mail_cache_get_transaction(mbox->delayed_sync_cache_view,
+					   mbox->delayed_sync_trans);
 	mbox->min_append_uid = mail_index_get_header(ctx->sync_view)->next_uid;
 
 	mbox->syncing = TRUE;
@@ -455,6 +468,9 @@ static int imapc_sync_finish(struct imapc_sync_context **_ctx)
 		i_free_and_null(ctx->mbox->sync_gmail_pop3_search_tag);
 		ret = -1;
 	}
+	mail_cache_view_close(&ctx->mbox->delayed_sync_cache_view);
+	ctx->mbox->delayed_sync_cache_trans = NULL;
+
 	ctx->mbox->syncing = FALSE;
 	ctx->mbox->sync_ctx = NULL;
 

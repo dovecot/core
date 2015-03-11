@@ -48,11 +48,20 @@ static void imapc_mailbox_init_delayed_trans(struct imapc_mailbox *mbox)
 	if (mbox->delayed_sync_trans != NULL)
 		return;
 
+	i_assert(mbox->delayed_sync_cache_view == NULL);
+	i_assert(mbox->delayed_sync_cache_trans == NULL);
+
 	mbox->delayed_sync_trans =
 		mail_index_transaction_begin(imapc_mailbox_get_sync_view(mbox),
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	mbox->delayed_sync_view =
 		mail_index_transaction_open_updated_view(mbox->delayed_sync_trans);
+
+	mbox->delayed_sync_cache_view =
+		mail_cache_view_open(mbox->box.cache, mbox->delayed_sync_view);
+	mbox->delayed_sync_cache_trans =
+		mail_cache_get_transaction(mbox->delayed_sync_cache_view,
+					   mbox->delayed_sync_trans);
 }
 
 static int imapc_mailbox_commit_delayed_expunges(struct imapc_mailbox *mbox)
@@ -92,6 +101,9 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 		}
 		*changes_r = TRUE;
 	}
+	mbox->delayed_sync_cache_trans = NULL;
+	if (mbox->delayed_sync_cache_view != NULL)
+		mail_cache_view_close(&mbox->delayed_sync_cache_view);
 	if (mbox->sync_view != NULL)
 		mail_index_view_close(&mbox->sync_view);
 
@@ -259,7 +271,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	struct imapc_fetch_request *const *fetch_requestp;
 	struct imapc_mail *const *mailp;
 	const struct imap_arg *list, *flags_list;
-	const char *atom;
+	const char *atom, *guid = NULL;
 	const struct mail_index_record *rec = NULL;
 	enum mail_flags flags;
 	uint32_t fetch_uid, uid;
@@ -295,6 +307,10 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 					array_append(&keywords, &atom, 1);
 				}
 			}
+		} else if (strcasecmp(atom, "X-GM-MSGID") == 0 &&
+			   !mbox->initial_sync_done) {
+			if (imap_arg_get_atom(&list[i+1], &atom))
+				guid = atom;
 		} else if (strcasecmp(atom, "X-GM-LABELS") == 0 &&
 			   IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_MIGRATION)) {
 			if (!imap_arg_get_list(&list[i+1], &flags_list))
@@ -381,6 +397,17 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 						   lseq, MODIFY_REPLACE, kw);
 		}
 		mail_index_keywords_unref(&kw);
+	}
+	if (guid != NULL) {
+		struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
+		const enum index_cache_field guid_cache_idx =
+			ibox->cache_fields[MAIL_CACHE_GUID].idx;
+
+		if (mail_cache_field_can_add(mbox->delayed_sync_cache_trans,
+					     lseq, guid_cache_idx)) {
+			mail_cache_add(mbox->delayed_sync_cache_trans, lseq,
+				       guid_cache_idx, guid, strlen(guid)+1);
+		}
 	}
 	imapc_mailbox_idle_notify(mbox);
 }

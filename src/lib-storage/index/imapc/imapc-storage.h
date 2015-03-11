@@ -87,6 +87,8 @@ struct imapc_mailbox {
 
 	struct mail_index_transaction *delayed_sync_trans;
 	struct mail_index_view *sync_view, *delayed_sync_view;
+	struct mail_cache_view *delayed_sync_cache_view;
+	struct mail_cache_transaction_ctx *delayed_sync_cache_trans;
 	struct timeout *to_idle_check, *to_idle_delay;
 
 	ARRAY(struct imapc_fetch_request *) fetch_requests;
