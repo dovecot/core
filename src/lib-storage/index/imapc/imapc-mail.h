@@ -13,6 +13,7 @@ struct imapc_mail {
 	enum mail_fetch_field fetching_fields;
 	const char *const *fetching_headers;
 	unsigned int fetch_count;
+	bool fetch_sent;
 
 	int fd;
 	buffer_t *body;

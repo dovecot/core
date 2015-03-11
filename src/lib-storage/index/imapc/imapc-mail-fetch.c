@@ -171,7 +171,7 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	if (headers_have_subset(mail->fetching_headers, headers))
 		headers = NULL;
 	if (fields == 0 && headers == NULL)
-		return 0;
+		return mail->fetch_sent ? 0 : 1;
 
 	if (!_mail->saving) {
 		/* if we already know that the mail is expunged,
@@ -229,6 +229,7 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	pool_ref(mail->imail.mail.pool);
 	mail->fetching_fields |= fields;
 	mail->fetch_count++;
+	mail->fetch_sent = FALSE;
 
 	imapc_mail_delayed_send_or_merge(mail, str);
 	return 1;
@@ -365,7 +366,8 @@ int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	/* we'll continue waiting until we've got all the fields we wanted,
 	   or until all FETCH replies have been received (i.e. some FETCHes
 	   failed) */
-	imapc_mail_fetch_flush(mbox);
+	if (ret > 0)
+		imapc_mail_fetch_flush(mbox);
 	while (imail->fetch_count > 0 &&
 	       (!imapc_mail_have_fields(imail, fields) ||
 		!imail->header_list_fetched))
@@ -376,11 +378,15 @@ int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields,
 void imapc_mail_fetch_flush(struct imapc_mailbox *mbox)
 {
 	struct imapc_command *cmd;
+	struct imapc_mail *const *mailp;
 
 	if (mbox->pending_fetch_request == NULL) {
 		i_assert(mbox->to_pending_fetch_send == NULL);
 		return;
 	}
+
+	array_foreach(&mbox->pending_fetch_request->mails, mailp)
+		(*mailp)->fetch_sent = TRUE;
 
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
 				       imapc_mail_fetch_callback,
