@@ -20,6 +20,7 @@ struct anvil_client {
 	struct istream *input;
 	struct ostream *output;
 	struct io *io;
+	struct timeout *to_query;
 
 	struct timeout *to_reconnect;
 	time_t last_reconnect;
@@ -34,6 +35,7 @@ struct anvil_client {
 #define ANVIL_HANDSHAKE "VERSION\tanvil\t1\t0\n"
 #define ANVIL_INBUF_SIZE 1024
 #define ANVIL_RECONNECT_MIN_SECS 5
+#define ANVIL_QUERY_TIMEOUT_MSECS (1000*5)
 
 static void anvil_client_disconnect(struct anvil_client *client);
 
@@ -116,6 +118,11 @@ static void anvil_input(struct anvil_client *client)
 	} else if (client->input->eof) {
 		i_error("read(%s) failed: EOF", client->path);
 		anvil_reconnect(client);
+	} else if (client->to_query != NULL) {
+		if (aqueue_count(client->queries) == 0)
+			timeout_remove(&client->to_query);
+		else
+			timeout_reset(client->to_query);
 	}
 }
 
@@ -165,12 +172,14 @@ static void anvil_client_cancel_queries(struct anvil_client *client)
 		i_free(query);
 		aqueue_delete_tail(client->queries);
 	}
+	if (client->to_query != NULL)
+		timeout_remove(&client->to_query);
 }
 
 static void anvil_client_disconnect(struct anvil_client *client)
 {
+	anvil_client_cancel_queries(client);
 	if (client->fd != -1) {
-		anvil_client_cancel_queries(client);
 		io_remove(&client->io);
 		i_stream_destroy(&client->input);
 		o_stream_destroy(&client->output);
@@ -179,6 +188,16 @@ static void anvil_client_disconnect(struct anvil_client *client)
 	}
 	if (client->to_reconnect != NULL)
 		timeout_remove(&client->to_reconnect);
+}
+
+static void anvil_client_timeout(struct anvil_client *client)
+{
+	i_assert(aqueue_count(client->queries) > 0);
+
+	i_error("%s: Anvil queries timed out after %u secs - aborting queries",
+		client->path, ANVIL_QUERY_TIMEOUT_MSECS/1000);
+	/* perhaps reconnect helps */
+	anvil_reconnect(client);
 }
 
 static int anvil_client_send(struct anvil_client *client, const char *cmd)
@@ -190,6 +209,10 @@ static int anvil_client_send(struct anvil_client *client, const char *cmd)
 			return -1;
 	}
 
+	if (client->to_query == NULL) {
+		client->to_query = timeout_add(ANVIL_QUERY_TIMEOUT_MSECS,
+					       anvil_client_timeout, client);
+	}
 	iov[0].iov_base = cmd;
 	iov[0].iov_len = strlen(cmd);
 	iov[1].iov_base = "\n";
