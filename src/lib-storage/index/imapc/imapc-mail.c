@@ -52,22 +52,27 @@ static bool imapc_mail_is_expunged(struct mail *_mail)
 	return !imapc_msgmap_uid_to_rseq(msgmap, _mail->uid, &rseq);
 }
 
-static int imapc_mail_failed(struct mail *mail, const char *field)
+static void imapc_mail_failed(struct mail *mail, const char *field)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)mail->box;
 
 	if (mail->expunged || imapc_mail_is_expunged(mail)) {
 		mail_set_expunged(mail);
-		return -1;
 	} else if (!imapc_client_mailbox_is_opened(mbox->client_box)) {
 		/* we've already logged a disconnection error */
 		mail_storage_set_internal_error(mail->box->storage);
-		return -1;
 	} else {
+		/* NOTE: earlier we didn't treat this as a failure, because
+		   old Exchange versions fail to return any data for messages
+		   in Calendars mailbox. But it's a bad idea to always assume
+		   that a missing field is intentional, because there's
+		   potential for data loss. Ideally we could detect whether
+		   this is an Exchange issue or not, but I don't have access
+		   to such an old Exchange anymore. So at least for now until
+		   someone complains, the Exchange workaround is disabled. */
 		mail_storage_set_critical(mail->box->storage,
 			"imapc: Remote server didn't send %s for UID %u in %s",
 			field, mail->uid, mail->box->vname);
-		return 0;
 	}
 }
 
@@ -83,11 +88,8 @@ static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 		if (imapc_mail_fetch(_mail, MAIL_FETCH_RECEIVED_DATE, NULL) < 0)
 			return -1;
 		if (data->received_date == (time_t)-1) {
-			if (imapc_mail_failed(_mail, "INTERNALDATE") < 0)
-				return -1;
-			/* assume that the server never returns INTERNALDATE
-			   for this mail (see BODY[] failure handling) */
-			data->received_date = 0;
+			imapc_mail_failed(_mail, "INTERNALDATE");
+			return -1;
 		}
 	}
 	*date_r = data->received_date;
@@ -130,11 +132,8 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 		if (imapc_mail_fetch(_mail, MAIL_FETCH_PHYSICAL_SIZE, NULL) < 0)
 			return -1;
 		if (data->physical_size == (uoff_t)-1) {
-			if (imapc_mail_failed(_mail, "RFC822.SIZE") < 0)
-				return -1;
-			/* assume that the server never returns RFC822.SIZE
-			   for this mail (see BODY[] failure handling) */
-			data->physical_size = 0;
+			imapc_mail_failed(_mail, "RFC822.SIZE");
+			return -1;
 		}
 		*size_r = data->physical_size;
 		return 0;
@@ -255,19 +254,8 @@ imapc_mail_get_stream(struct mail *_mail, bool get_body,
 			return -1;
 
 		if (data->stream == NULL) {
-			if (imapc_mail_failed(_mail, "BODY[]") < 0)
-				return -1;
-			i_assert(data->stream == NULL);
-
-			/* this could be either a temporary server bug, or the
-			   server may permanently just not return anything for
-			   this mail. the latter happens at least with Exchange
-			   when trying to fetch calendar "mails", so we'll just
-			   return them as empty mails instead of disconnecting
-			   the client. */
-			mail->body_fetched = TRUE;
-			data->stream = i_stream_create_from_data(&uchar_nul, 0);
-			imapc_mail_init_stream(mail, TRUE);
+			imapc_mail_failed(_mail, "BODY[]");
+			return -1;
 		}
 	}
 
@@ -443,7 +431,7 @@ static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
 		if (imapc_mail_fetch(_mail, MAIL_FETCH_GUID, NULL) < 0)
 			return -1;
 		if (imail->data.guid == NULL) {
-			(void)imapc_mail_failed(_mail, mbox->guid_fetch_field_name);
+			imapc_mail_failed(_mail, mbox->guid_fetch_field_name);
 			return -1;
 		}
 	} else {
