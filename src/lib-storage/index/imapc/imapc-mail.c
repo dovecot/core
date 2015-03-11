@@ -11,6 +11,8 @@
 #include "imapc-client.h"
 #include "imapc-storage.h"
 
+static bool imapc_mail_get_cached_guid(struct mail *_mail);
+
 struct mail *
 imapc_mail_alloc(struct mailbox_transaction_context *t,
 		 enum mail_fetch_field wanted_fields,
@@ -300,6 +302,8 @@ void imapc_mail_update_access_parts(struct index_mail *mail)
 		    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE))
 			data->access_part |= READ_HDR | READ_BODY;
 	}
+	if ((data->wanted_fields & MAIL_FETCH_GUID) != 0)
+		(void)imapc_mail_get_cached_guid(_mail);
 
 	if (data->access_part == 0 && data->wanted_headers != NULL &&
 	    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_HEADERS)) {
