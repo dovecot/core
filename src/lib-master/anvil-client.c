@@ -209,10 +209,6 @@ static int anvil_client_send(struct anvil_client *client, const char *cmd)
 			return -1;
 	}
 
-	if (client->to_query == NULL) {
-		client->to_query = timeout_add(ANVIL_QUERY_TIMEOUT_MSECS,
-					       anvil_client_timeout, client);
-	}
 	iov[0].iov_base = cmd;
 	iov[0].iov_len = strlen(cmd);
 	iov[1].iov_base = "\n";
@@ -241,6 +237,10 @@ anvil_client_query(struct anvil_client *client, const char *query,
 	anvil_query->callback = callback;
 	anvil_query->context = context;
 	aqueue_append(client->queries, &anvil_query);
+	if (client->to_query == NULL) {
+		client->to_query = timeout_add(ANVIL_QUERY_TIMEOUT_MSECS,
+					       anvil_client_timeout, client);
+	}
 	return anvil_query;
 }
 
