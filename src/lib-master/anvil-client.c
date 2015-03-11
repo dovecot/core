@@ -142,9 +142,13 @@ int anvil_client_connect(struct anvil_client *client, bool retry)
 	client->fd = fd;
 	client->input = i_stream_create_fd(fd, ANVIL_INBUF_SIZE, FALSE);
 	client->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
-	o_stream_set_no_error_handling(client->output, TRUE);
 	client->io = io_add(fd, IO_READ, anvil_input, client);
-	o_stream_nsend_str(client->output, ANVIL_HANDSHAKE);
+	if (o_stream_send_str(client->output, ANVIL_HANDSHAKE) < 0) {
+		i_error("write(%s) failed: %s", client->path,
+			o_stream_get_error(client->output));
+		anvil_reconnect(client);
+		return -1;
+	}
 	return 0;
 }
 
@@ -190,7 +194,12 @@ static int anvil_client_send(struct anvil_client *client, const char *cmd)
 	iov[0].iov_len = strlen(cmd);
 	iov[1].iov_base = "\n";
 	iov[1].iov_len = 1;
-	o_stream_nsendv(client->output, iov, 2);
+	if (o_stream_sendv(client->output, iov, 2) < 0) {
+		i_error("write(%s) failed: %s", client->path,
+			o_stream_get_error(client->output));
+		anvil_reconnect(client);
+		return -1;
+	}
 	return 0;
 }
 
