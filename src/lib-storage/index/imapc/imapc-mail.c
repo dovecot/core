@@ -406,23 +406,41 @@ static int imapc_mail_get_hdr_hash(struct index_mail *imail)
 	return 0;
 }
 
+static bool imapc_mail_get_cached_guid(struct mail *_mail)
+{
+	struct index_mail *imail = (struct index_mail *)_mail;
+	const enum index_cache_field cache_idx =
+		imail->ibox->cache_fields[MAIL_CACHE_GUID].idx;
+	string_t *str;
+
+	if (imail->data.guid != NULL) {
+		if (mail_cache_field_can_add(_mail->transaction->cache_trans,
+					     _mail->seq, cache_idx)) {
+			/* GUID was prefetched - add to cache */
+			index_mail_cache_add_idx(imail, cache_idx,
+				imail->data.guid, strlen(imail->data.guid)+1);
+		}
+		return TRUE;
+	}
+
+	str = str_new(imail->mail.data_pool, 64);
+	if (mail_cache_lookup_field(_mail->transaction->cache_view,
+				    str, imail->mail.mail.seq, cache_idx) > 0) {
+		imail->data.guid = str_c(str);
+		return TRUE;
+	}
+	return FALSE;
+}
+
 static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
 {
 	struct index_mail *imail = (struct index_mail *)_mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
 	const enum index_cache_field cache_idx =
 		imail->ibox->cache_fields[MAIL_CACHE_GUID].idx;
-	string_t *str;
 
-	if (imail->data.guid != NULL) {
+	if (imapc_mail_get_cached_guid(_mail)) {
 		*value_r = imail->data.guid;
-		return 0;
-	}
-
-	str = str_new(imail->mail.data_pool, 64);
-	if (mail_cache_lookup_field(_mail->transaction->cache_view,
-				    str, imail->mail.mail.seq, cache_idx) > 0) {
-		*value_r = str_c(str);
 		return 0;
 	}
 
