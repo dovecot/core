@@ -390,7 +390,7 @@ int main(int argc, char *argv[])
 	argv += optind;
 
 	if (argc < 1)
-		i_fatal("Usage: rawlog [-f in|out] [-i] [-b] [-t] <binary> <arguments>");
+		i_fatal("Usage: rawlog [-f in|out] [-I] [-b] [-t] <binary> <arguments>");
 
 	master_service_init_log(master_service, "rawlog: ");
 	master_service_init_finish(master_service);
