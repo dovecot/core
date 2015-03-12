@@ -598,13 +598,17 @@ fts_transaction_commit(struct mailbox_transaction_context *t,
 	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
 	struct mailbox *box = t->box;
 	bool autoindex;
-	int ret;
+	int ret = 0;
 
 	autoindex = ft->mails_saved &&
 		mail_user_plugin_getenv(box->storage->user,
 					"fts_autoindex") != NULL;
 
-	ret = fts_transaction_end(t);
+	if (fts_transaction_end(t) < 0) {
+		mail_storage_set_error(t->box->storage, MAIL_ERROR_TEMP,
+				       "FTS transaction commit failed");
+		ret = -1;
+	}
 	if (fbox->module_ctx.super.transaction_commit(t, changes_r) < 0)
 		ret = -1;
 	if (ret < 0)

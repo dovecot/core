@@ -278,8 +278,14 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	bool binary_body;
 	int ret;
 
-	if (mail_get_stream(mail, NULL, NULL, &input) < 0)
-		return mail->expunged ? 0 : -1;
+	if (mail_get_stream(mail, NULL, NULL, &input) < 0) {
+		if (mail->expunged)
+			return 0;
+		i_error("Failed to read mailbox %s mail UID=%u stream: %s",
+			mailbox_get_vname(mail->box), mail->uid,
+			mailbox_get_last_error(mail->box, NULL));
+		return -1;
+	}
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.update_ctx = update_ctx;
