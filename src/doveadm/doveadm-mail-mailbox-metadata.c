@@ -212,7 +212,13 @@ cmd_mailbox_metadata_list_run_iter(struct metadata_cmd_context *ctx,
 	iter = mailbox_attribute_iter_init(box, type, ctx->key);
 	while ((key = mailbox_attribute_iter_next(iter)) != NULL)
 		doveadm_print(key);
-	return mailbox_attribute_iter_deinit(&iter);
+	if (mailbox_attribute_iter_deinit(&iter) < 0) {
+		i_error("Mailbox %s: Failed to iterate mailbox attributes: %s",
+			mailbox_get_vname(box),
+			mailbox_get_last_error(box, NULL));
+		return -1;
+	}
+	return 0;
 }
 
 static int

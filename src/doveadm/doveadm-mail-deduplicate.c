@@ -49,10 +49,16 @@ static int cmd_deduplicate_uidlist(struct doveadm_mail_cmd_context *_ctx,
 	while (mailbox_search_next(search_ctx, &mail))
 		mail_expunge(mail);
 	if (mailbox_search_deinit(&search_ctx) < 0) {
+		i_error("Searching mailbox '%s' failed: %s",
+			mailbox_get_vname(box),
+			mailbox_get_last_error(box, NULL));
 		doveadm_mail_failed_mailbox(_ctx, box);
 		ret = -1;
 	}
 	if (mailbox_transaction_commit(&trans) < 0) {
+		i_error("Committing mailbox '%s' transaction failed: %s",
+			mailbox_get_vname(box),
+			mailbox_get_last_error(box, NULL));
 		doveadm_mail_failed_mailbox(_ctx, box);
 		ret = -1;
 	}
@@ -140,6 +146,9 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 	pool_unref(&pool);
 
 	if (mailbox_sync(box, 0) < 0) {
+		i_error("Syncing mailbox '%s' failed: %s",
+			mailbox_get_vname(box),
+			mailbox_get_last_error(box, NULL));
 		doveadm_mail_failed_mailbox(_ctx, box);
 		ret = -1;
 	}

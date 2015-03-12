@@ -39,10 +39,16 @@ static int cmd_index_box_precache(struct mailbox *box)
 	int ret = 0;
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_PRECACHE_FIELDS,
-				 &metadata) < 0 ||
-	    mailbox_get_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
-			       &status) < 0)
+				 &metadata) < 0) {
+		i_error("Mailbox %s: Precache-fields lookup failed: %s",
+			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
+	}
+	if (mailbox_get_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
+			       &status) < 0) {
+		i_error("Mailbox %s: Status lookup failed: %s",
+			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
 		return -1;
+	}
 
 	seq = status.last_cached_seq + 1;
 	if (seq > status.messages) {
@@ -74,10 +80,16 @@ static int cmd_index_box_precache(struct mailbox *box)
 	}
 	if (doveadm_verbose)
 		printf("\r%u/%u\n", counter, max);
-	if (mailbox_search_deinit(&ctx) < 0)
+	if (mailbox_search_deinit(&ctx) < 0) {
+		i_error("Mailbox %s: Mail search failed: %s",
+			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
 		ret = -1;
-	if (mailbox_transaction_commit(&trans) < 0)
+	}
+	if (mailbox_transaction_commit(&trans) < 0) {
+		i_error("Mailbox %s: Transaction commit failed: %s",
+			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
 		ret = -1;
+	}
 	return ret;
 }
 
