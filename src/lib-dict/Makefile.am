@@ -15,7 +15,6 @@ base_sources = \
 	dict.c \
 	dict-client.c \
 	dict-file.c \
-	dict-cdb.c \
 	dict-fs.c \
 	dict-memcached.c \
 	dict-memcached-ascii.c \
@@ -28,6 +27,7 @@ libdict_la_SOURCES = \
 
 libdict_backend_a_SOURCES = \
 	dict-db.c \
+	dict-cdb.c \
 	dict-sql.c \
 	dict-sql-settings.c
 
