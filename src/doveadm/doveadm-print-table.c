@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "unichar.h"
 #include "doveadm-print-private.h"
 
 #include <stdio.h>
@@ -64,7 +65,7 @@ static void doveadm_calc_header_length(void)
 	for (line = 0; line < line_count; line++) {
 		for (i = 0; i < hdr_count; i++) {
 			value = values[line*hdr_count + i];
-			len = value == NULL ? 0 : strlen(value);
+			len = value == NULL ? 0 : uni_utf8_strlen(value);
 			if (headers[i].min_length > len)
 				headers[i].min_length = len;
 			if (headers[i].max_length < len) {
@@ -116,16 +117,29 @@ static void doveadm_calc_header_length(void)
 	}
 }
 
+static size_t utf8_correction(const char *str)
+{
+	size_t i, len = 0;
+
+	for (i = 0; str[i] != '\0'; i++) {
+		if ((str[i] & 0xc0) == 0x80)
+			len++;
+	}
+	return len;
+}
+
 static void doveadm_print_next(const char *value)
 {
 	const struct doveadm_print_table_header *hdr;
+	int value_padded_len;
 
 	hdr = array_idx(&ctx->headers, ctx->hdr_idx);
 
+	value_padded_len = hdr->length + utf8_correction(value);
 	if ((hdr->flags & DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY) == 0)
-		printf("%-*s", (int)hdr->length, value);
+		printf("%-*s", value_padded_len, value);
 	else
-		printf("%*s", (int)hdr->length, value);
+		printf("%*s", value_padded_len, value);
 
 	if (++ctx->hdr_idx == array_count(&ctx->headers)) {
 		ctx->hdr_idx = 0;
