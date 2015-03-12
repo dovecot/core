@@ -1,4 +1,4 @@
-v2.2.16 2015-03-xx  Timo Sirainen <tss@iki.fi>
+v2.2.16 2015-03-12  Timo Sirainen <tss@iki.fi>
 
 	* dbox: Resyncing (e.g. doveadm force-resync) no longer deletes
 	  dovecot.index.cache file. The cache file was rarely the problem
