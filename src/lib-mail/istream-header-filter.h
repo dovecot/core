@@ -16,7 +16,9 @@ enum header_filter_flags {
 	/* If the empty "end of headers" line doesn't exist, add it. */
 	HEADER_FILTER_ADD_MISSING_EOH	= 0x10,
 	/* If body doesn't end with [CR]LF, add it/them. */
-	HEADER_FILTER_END_BODY_WITH_LF	= 0x20
+	HEADER_FILTER_END_BODY_WITH_LF	= 0x20,
+	/* Preserve the original LF or CRLF. */
+	HEADER_FILTER_CRLF_PRESERVE	= 0x40
 };
 
 struct message_header_line;

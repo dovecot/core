@@ -33,6 +33,7 @@ struct header_filter_istream {
 	unsigned int header_parsed:1;
 	unsigned int exclude:1;
 	unsigned int crlf:1;
+	unsigned int crlf_preserve:1;
 	unsigned int hide_body:1;
 	unsigned int add_missing_eoh:1;
 	unsigned int end_body_with_lf:1;
@@ -125,9 +126,9 @@ static bool match_line_changed(struct header_filter_istream *mstream)
 			     cmp_uint) != NULL;
 }
 
-static void add_eol(struct header_filter_istream *mstream)
+static void add_eol(struct header_filter_istream *mstream, bool orig_crlf)
 {
-	if (mstream->crlf)
+	if (mstream->crlf || (orig_crlf && mstream->crlf_preserve))
 		buffer_append(mstream->hdr_buf, "\r\n", 2);
 	else
 		buffer_append_c(mstream->hdr_buf, '\n');
@@ -197,7 +198,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 				continue;
 			}
 
-			add_eol(mstream);
+			add_eol(mstream, hdr->crlf_newline);
 			continue;
 		}
 
@@ -239,7 +240,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			buffer_append(mstream->hdr_buf,
 				      hdr->value, hdr->value_len);
 			if (!hdr->no_newline)
-				add_eol(mstream);
+				add_eol(mstream, hdr->crlf_newline);
 
 			if (mstream->skip_count >= mstream->hdr_buf->used) {
 				/* we need more */
@@ -266,7 +267,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		}
 		if (!mstream->seen_eoh && mstream->add_missing_eoh) {
 			mstream->seen_eoh = TRUE;
-			add_eol(mstream);
+			add_eol(mstream, FALSE);
 		}
 	}
 
@@ -554,7 +555,12 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->callback = callback;
 	mstream->context = context;
 	mstream->exclude = (flags & HEADER_FILTER_EXCLUDE) != 0;
-	mstream->crlf = (flags & HEADER_FILTER_NO_CR) == 0;
+	if ((flags & HEADER_FILTER_CRLF_PRESERVE) != 0)
+		mstream->crlf_preserve = TRUE;
+	else if ((flags & HEADER_FILTER_NO_CR) != 0)
+		mstream->crlf = FALSE;
+	else
+		mstream->crlf = TRUE;
 	mstream->hide_body = (flags & HEADER_FILTER_HIDE_BODY) != 0;
 	mstream->add_missing_eoh = (flags & HEADER_FILTER_ADD_MISSING_EOH) != 0;
 	mstream->end_body_with_lf =
