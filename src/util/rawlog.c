@@ -362,7 +362,7 @@ int main(int argc, char *argv[])
 	int c;
 
 	master_service = master_service_init("rawlog", 0,
-					     &argc, &argv, "+f:obit");
+					     &argc, &argv, "+f:obIt");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'f':
@@ -376,7 +376,7 @@ int main(int argc, char *argv[])
 		case 'b':
 			flags |= RAWLOG_FLAG_LOG_BOUNDARIES;
 			break;
-		case 'i':
+		case 'I':
 			flags |= RAWLOG_FLAG_LOG_IP_IN_FILENAME;
 			break;
 		case 't':
