@@ -36,6 +36,11 @@ static bool imapc_mail_is_expunged(struct mail *_mail)
 	struct imapc_msgmap *msgmap;
 	uint32_t lseq, rseq;
 
+	if (!mbox->initial_sync_done) {
+		/* unknown at this point */
+		return FALSE;
+	}
+
 	if (mbox->sync_view != NULL) {
 		/* check if another session has already expunged it */
 		if (!mail_index_lookup_seq(mbox->sync_view, _mail->uid, &lseq))
