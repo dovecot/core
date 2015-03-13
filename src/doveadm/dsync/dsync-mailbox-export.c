@@ -353,7 +353,7 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 	struct mail *mail;
 	enum mail_fetch_field wanted_fields = 0;
 	struct mailbox_header_lookup_ctx *wanted_headers = NULL;
-	int ret;
+	int ret = 0;
 
 	search_args = mail_search_build_init();
 	sarg = mail_search_build_add(search_args, SEARCH_UIDSET);
@@ -395,6 +395,7 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 		if (ret < 0)
 			break;
 	}
+	i_assert(ret >= 0 || exporter->error != NULL);
 
 	dsync_mailbox_export_drop_expunged_flag_changes(exporter);
 
