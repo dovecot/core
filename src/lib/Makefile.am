@@ -8,7 +8,7 @@ UnicodeData.txt:
 	test -f UnicodeData.txt || wget http://www.unicode.org/Public/UNIDATA/UnicodeData.txt
 
 $(srcdir)/unicodemap.c: unicodemap.pl UnicodeData.txt
-	perl $(srcdir)/unicodemap.pl < UnicodeData.txt > $@
+	perl $(srcdir)/unicodemap.pl < UnicodeData.txt > $@.tmp && mv $@.tmp $@
 
 liblib_la_SOURCES = \
 	abspath.c \
