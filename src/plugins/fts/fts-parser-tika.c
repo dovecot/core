@@ -68,6 +68,8 @@ tika_get_http_client_url(struct mail_user *user, struct http_url **http_url_r)
 		http_set.max_pipelined_requests = 1;
 		http_set.max_redirects = 1;
 		http_set.max_attempts = 3;
+		http_set.connect_timeout_msecs = 5*1000;
+		http_set.request_timeout_msecs = 60*1000;
 		http_set.debug = user->mail_debug;
 		tika_http_client = http_client_init(&http_set);
 	}

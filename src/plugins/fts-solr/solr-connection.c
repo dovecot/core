@@ -128,6 +128,8 @@ int solr_connection_init(const char *url, bool debug,
 		http_set.max_redirects = 1;
 		http_set.max_attempts = 3;
 		http_set.debug = debug;
+		http_set.connect_timeout_msecs = 5*1000;
+		http_set.request_timeout_msecs = 60*1000;
 		solr_http_client = http_client_init(&http_set);
 	}
 
