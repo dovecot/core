@@ -303,9 +303,14 @@ imapc_client_reconnect_cb(const struct imapc_command_reply *reply,
 	}
 }
 
+bool imapc_client_mailbox_can_reconnect(struct imapc_client_mailbox *box)
+{
+	return box->reopen_callback != NULL && box->reconnect_ok;
+}
+
 void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box)
 {
-	bool reconnect = box->reopen_callback != NULL && box->reconnect_ok;
+	bool reconnect = imapc_client_mailbox_can_reconnect(box);
 
 	if (reconnect) {
 		i_assert(!box->reconnecting);

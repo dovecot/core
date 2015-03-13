@@ -421,6 +421,14 @@ static void imapc_connection_set_disconnected(struct imapc_connection *conn)
 	imapc_connection_abort_commands(conn, NULL, FALSE);
 }
 
+static bool imapc_connection_can_reconnect(struct imapc_connection *conn)
+{
+	if (conn->selected_box != NULL)
+		return imapc_client_mailbox_can_reconnect(conn->selected_box);
+	else
+		return FALSE;
+}
+
 static void imapc_connection_reconnect(struct imapc_connection *conn)
 {
 	if (conn->selected_box != NULL)
@@ -1351,6 +1359,7 @@ static int imapc_connection_input_one(struct imapc_connection *conn)
 static void imapc_connection_input(struct imapc_connection *conn)
 {
 	const char *errstr;
+	string_t *str;
 	ssize_t ret = 0;
 
 	/* we need to read as much as we can with SSL streams to avoid
@@ -1361,23 +1370,28 @@ static void imapc_connection_input(struct imapc_connection *conn)
 
 	if (ret < 0) {
 		/* disconnected */
+		str = t_str_new(128);
 		if (conn->disconnect_reason != NULL) {
-			i_error("imapc(%s): Server disconnected with message: %s",
-				conn->name, conn->disconnect_reason);
+			str_printfa(str, "Server disconnected with message: %s",
+				    conn->disconnect_reason);
 		} else if (conn->ssl_iostream == NULL) {
 			errstr = conn->input->stream_errno == 0 ? "EOF" :
 				i_stream_get_error(conn->input);
-			i_error("imapc(%s): Server disconnected unexpectedly: %s",
-				conn->name, errstr);
+			str_printfa(str, "Server disconnected unexpectedly: %s",
+				    errstr);
 		} else {
 			errstr = ssl_iostream_get_last_error(conn->ssl_iostream);
 			if (errstr == NULL) {
 				errstr = conn->input->stream_errno == 0 ? "EOF" :
 					i_stream_get_error(conn->input);
 			}
-			i_error("imapc(%s): Server disconnected unexpectedly: %s",
-				conn->name, errstr);
+			str_printfa(str, "Server disconnected unexpectedly: %s",
+				    errstr);
 		}
+		if (!imapc_connection_can_reconnect(conn))
+			i_error("imapc(%s): %s", conn->name, str_c(str));
+		else
+			i_warning("imapc(%s): %s - reconnecting", conn->name, str_c(str));
 		imapc_connection_reconnect(conn);
 	}
 	imapc_connection_unref(&conn);

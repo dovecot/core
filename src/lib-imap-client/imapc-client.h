@@ -182,6 +182,7 @@ void imapc_client_mailbox_set_reopen_cb(struct imapc_client_mailbox *box,
 					void (*callback)(void *context),
 					void *context);
 void imapc_client_mailbox_close(struct imapc_client_mailbox **box);
+bool imapc_client_mailbox_can_reconnect(struct imapc_client_mailbox *box);
 void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box);
 struct imapc_command *
 imapc_client_mailbox_cmd(struct imapc_client_mailbox *box,
