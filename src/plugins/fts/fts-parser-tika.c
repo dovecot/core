@@ -194,12 +194,19 @@ static void fts_parser_tika_more(struct fts_parser *_parser,
 	} else {
 		/* finished */
 		i_assert(ret == -1);
+		if (parser->payload->stream_errno != 0) {
+			i_error("read(%s) failed: %s",
+				i_stream_get_name(parser->payload),
+				i_stream_get_error(parser->payload));
+			parser->failed = TRUE;
+		}
 	}
 }
 
-static void fts_parser_tika_deinit(struct fts_parser *_parser)
+static int fts_parser_tika_deinit(struct fts_parser *_parser)
 {
 	struct tika_fts_parser *parser = (struct tika_fts_parser *)_parser;
+	int ret = parser->failed ? -1 : 0;
 
 	if (parser->ioloop != NULL) {
 		io_remove(&parser->io);
@@ -212,6 +219,7 @@ static void fts_parser_tika_deinit(struct fts_parser *_parser)
 	if (parser->http_req != NULL)
 		http_client_request_abort(&parser->http_req);
 	i_free(parser);
+	return ret;
 }
 
 static void fts_parser_tika_unload(void)

@@ -260,7 +260,8 @@ static int fts_body_parser_finish(struct fts_mail_build_context *ctx)
 		}
 	} while (block.size > 0);
 
-	fts_parser_deinit(&ctx->body_parser);
+	if (fts_parser_deinit(&ctx->body_parser) < 0)
+		ret = -1;
 	return ret;
 }
 
@@ -366,7 +367,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		if (ret == 0)
 			ret = fts_body_parser_finish(&ctx);
 		else
-			fts_parser_deinit(&ctx.body_parser);
+			(void)fts_parser_deinit(&ctx.body_parser);
 	}
 	if (ret == 0 && body_part && !skip_body && !body_added) {
 		/* make sure body is added even when it doesn't exist */

@@ -83,18 +83,20 @@ void fts_parser_more(struct fts_parser *parser, struct message_block *block)
 	}
 }
 
-void fts_parser_deinit(struct fts_parser **_parser)
+int fts_parser_deinit(struct fts_parser **_parser)
 {
 	struct fts_parser *parser = *_parser;
+	int ret = 0;
 
 	*_parser = NULL;
 
 	if (parser->utf8_output != NULL)
 		buffer_free(&parser->utf8_output);
 	if (parser->v.deinit != NULL)
-		parser->v.deinit(parser);
+		ret = parser->v.deinit(parser);
 	else
 		i_free(parser);
+	return ret;
 }
 
 void fts_parsers_unload(void)
