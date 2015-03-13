@@ -12,13 +12,20 @@ static const struct fts_parser_vfuncs *parsers[] = {
 	&fts_parser_tika
 };
 
+static const char *plaintext_content_types[] = {
+	"text/plain",
+	"message/delivery-status",
+	"message/disposition-notification",
+	"application/pgp-signature"
+};
+
 bool fts_parser_init(struct mail_user *user,
 		     const char *content_type, const char *content_disposition,
 		     struct fts_parser **parser_r)
 {
 	unsigned int i;
 
-	if (strcmp(content_type, "text/plain") == 0) {
+	if (str_array_find(plaintext_content_types, content_type)) {
 		/* we probably don't want/need to allow parsers to handle
 		   plaintext? */
 		return FALSE;
