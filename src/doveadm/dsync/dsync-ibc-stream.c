@@ -28,11 +28,12 @@
 #define DSYNC_IBC_STREAM_OUTBUF_THROTTLE_SIZE (1024*128)
 
 #define DSYNC_PROTOCOL_VERSION_MAJOR 3
-#define DSYNC_PROTOCOL_VERSION_MINOR 2
-#define DSYNC_HANDSHAKE_VERSION "VERSION\tdsync\t3\t2\n"
+#define DSYNC_PROTOCOL_VERSION_MINOR 3
+#define DSYNC_HANDSHAKE_VERSION "VERSION\tdsync\t3\t3\n"
 
 #define DSYNC_PROTOCOL_MINOR_HAVE_ATTRIBUTES 1
 #define DSYNC_PROTOCOL_MINOR_HAVE_SAVE_GUID 2
+#define DSYNC_PROTOCOL_MINOR_HAVE_FINISH 3
 
 enum item_type {
 	ITEM_NONE,
@@ -48,6 +49,7 @@ enum item_type {
 	ITEM_MAIL_CHANGE,
 	ITEM_MAIL_REQUEST,
 	ITEM_MAIL,
+	ITEM_FINISH,
 
 	ITEM_MAILBOX_CACHE_FIELD,
 
@@ -121,6 +123,10 @@ static const struct {
 	{ .name = "mail",
 	  .chr = 'M',
 	  .optional_keys = "guid uid pop3_uidl pop3_order received_date saved_date stream"
+	},
+	{ .name = "finish",
+	  .chr = 'F',
+	  .optional_keys = "error"
 	},
 	{ .name = "mailbox_cache_field",
 	  .chr = 'c',
@@ -1820,6 +1826,44 @@ dsync_ibc_stream_recv_mail(struct dsync_ibc *_ibc, struct dsync_mail **mail_r)
 	return DSYNC_IBC_RECV_RET_OK;
 }
 
+static void
+dsync_ibc_stream_send_finish(struct dsync_ibc *_ibc, const char *error)
+{
+	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
+	struct dsync_serializer_encoder *encoder;
+	string_t *str = t_str_new(128);
+
+	str_append_c(str, items[ITEM_FINISH].chr);
+	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_FINISH]);
+	if (error != NULL)
+		dsync_serializer_encode_add(encoder, "error", error);
+	dsync_serializer_encode_finish(&encoder, str);
+	dsync_ibc_stream_send_string(ibc, str);
+}
+
+static enum dsync_ibc_recv_ret
+dsync_ibc_stream_recv_finish(struct dsync_ibc *_ibc, const char **error_r)
+{
+	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
+	struct dsync_deserializer_decoder *decoder;
+	const char *value;
+	enum dsync_ibc_recv_ret ret;
+
+	*error_r = NULL;
+	p_clear(ibc->ret_pool);
+
+	if (ibc->minor_version < DSYNC_PROTOCOL_MINOR_HAVE_FINISH)
+		return DSYNC_IBC_RECV_RET_OK;
+
+	ret = dsync_ibc_stream_input_next(ibc, ITEM_FINISH, &decoder);
+	if (ret != DSYNC_IBC_RECV_RET_OK)
+		return ret;
+
+	if (dsync_deserializer_decode_try(decoder, "error", &value))
+		*error_r = p_strdup(ibc->ret_pool, value);
+	return DSYNC_IBC_RECV_RET_OK;
+}
+
 static void dsync_ibc_stream_close_mail_streams(struct dsync_ibc *_ibc)
 {
 	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
@@ -1874,6 +1918,8 @@ static const struct dsync_ibc_vfuncs dsync_ibc_stream_vfuncs = {
 	dsync_ibc_stream_recv_mail_request,
 	dsync_ibc_stream_send_mail,
 	dsync_ibc_stream_recv_mail,
+	dsync_ibc_stream_send_finish,
+	dsync_ibc_stream_recv_finish,
 	dsync_ibc_stream_close_mail_streams,
 	dsync_ibc_stream_is_send_queue_full,
 	dsync_ibc_stream_has_pending_data

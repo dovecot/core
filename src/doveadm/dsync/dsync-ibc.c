@@ -195,6 +195,17 @@ dsync_ibc_recv_mail(struct dsync_ibc *ibc, struct dsync_mail **mail_r)
 	return ibc->v.recv_mail(ibc, mail_r);
 }
 
+void dsync_ibc_send_finish(struct dsync_ibc *ibc, const char *error)
+{
+	ibc->v.send_finish(ibc, error);
+}
+
+enum dsync_ibc_recv_ret
+dsync_ibc_recv_finish(struct dsync_ibc *ibc, const char **error_r)
+{
+	return ibc->v.recv_finish(ibc, error_r);
+}
+
 void dsync_ibc_close_mail_streams(struct dsync_ibc *ibc)
 {
 	ibc->v.close_mail_streams(ibc);

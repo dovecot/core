@@ -68,6 +68,10 @@ struct dsync_ibc_vfuncs {
 		(*recv_mail)(struct dsync_ibc *ibc,
 			     struct dsync_mail **mail_r);
 
+	void (*send_finish)(struct dsync_ibc *ibc, const char *error);
+	enum dsync_ibc_recv_ret
+		(*recv_finish)(struct dsync_ibc *ibc, const char **error_r);
+
 	void (*close_mail_streams)(struct dsync_ibc *ibc);
 	bool (*is_send_queue_full)(struct dsync_ibc *ibc);
 	bool (*has_pending_data)(struct dsync_ibc *ibc);

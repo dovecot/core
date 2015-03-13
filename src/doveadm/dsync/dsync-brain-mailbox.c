@@ -534,7 +534,7 @@ void dsync_brain_master_send_mailbox(struct dsync_brain *brain)
 	i_assert(brain->box == NULL);
 
 	if (!dsync_brain_next_mailbox(brain, &box, &dsync_box)) {
-		brain->state = DSYNC_STATE_DONE;
+		brain->state = DSYNC_STATE_FINISH;
 		dsync_ibc_send_end_of_list(brain->ibc, DSYNC_IBC_EOL_MAILBOX);
 		return;
 	}
@@ -722,7 +722,7 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	if ((ret = dsync_ibc_recv_mailbox(brain->ibc, &dsync_box)) == 0)
 		return FALSE;
 	if (ret < 0) {
-		brain->state = DSYNC_STATE_DONE;
+		brain->state = DSYNC_STATE_FINISH;
 		return TRUE;
 	}
 

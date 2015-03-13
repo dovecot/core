@@ -32,6 +32,7 @@ enum dsync_state {
 	   after the mails are synced, another mailbox is synced. */
 	DSYNC_STATE_SYNC_MAILS,
 
+	DSYNC_STATE_FINISH,
 	DSYNC_STATE_DONE
 };
 
