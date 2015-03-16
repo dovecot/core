@@ -375,6 +375,11 @@ static void stats_user_created(struct mail_user *user)
 	}
 	if (refresh_secs == 0)
 		return;
+	if (refresh_secs > SESSION_STATS_FORCE_REFRESH_SECS) {
+		i_warning("stats: stats_refresh too large, changing to %u",
+			  SESSION_STATS_FORCE_REFRESH_SECS);
+		refresh_secs = SESSION_STATS_FORCE_REFRESH_SECS;
+	}
 
 	if (global_stats_conn == NULL) {
 		path = t_strconcat(user->set->base_dir,
