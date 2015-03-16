@@ -1106,13 +1106,6 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 	}
 #endif
 
-	if (conn->set.ldap_version < 3) {
-		if (conn->set.sasl_bind)
-			i_fatal("LDAP: sasl_bind=yes requires ldap_version=3");
-		if (conn->set.tls)
-			i_fatal("LDAP: tls=yes requires ldap_version=3");
-	}
-
 	ldap_version = conn->set.ldap_version;
 	db_ldap_set_opt(conn, LDAP_OPT_PROTOCOL_VERSION, &ldap_version,
 			"protocol_version", dec2str(ldap_version));
@@ -1797,6 +1790,12 @@ struct ldap_connection *db_ldap_init(const char *config_path, bool userdb)
 	if (conn->set.sasl_bind)
 		i_fatal("LDAP: sasl_bind=yes but no SASL support compiled in");
 #endif
+	if (conn->set.ldap_version < 3) {
+		if (conn->set.sasl_bind)
+			i_fatal("LDAP %s: sasl_bind=yes requires ldap_version=3", config_path);
+		if (conn->set.tls)
+			i_fatal("LDAP %s: tls=yes requires ldap_version=3", config_path);
+	}
 
 	if (*conn->set.ldaprc_path != '\0') {
 		str = getenv("LDAPRC");
