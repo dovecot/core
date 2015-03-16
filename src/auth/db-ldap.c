@@ -1114,6 +1114,30 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 	db_ldap_set_tls_options(conn);
 }
 
+static void db_ldap_init_ld(struct ldap_connection *conn)
+{
+	int ret;
+
+	if (conn->set.uris != NULL) {
+#ifdef LDAP_HAVE_INITIALIZE
+		ret = ldap_initialize(&conn->ld, conn->set.uris);
+		if (ret != LDAP_SUCCESS) {
+			i_fatal("LDAP: ldap_initialize() failed with uris %s: %s",
+				conn->set.uris, ldap_err2string(ret));
+		}
+#else
+		i_unreached(); /* already checked at init */
+#endif
+	} else {
+		conn->ld = ldap_init(conn->set.hosts, LDAP_PORT);
+		if (conn->ld == NULL) {
+			i_fatal("LDAP: ldap_init() failed with hosts: %s",
+				conn->set.hosts);
+		}
+	}
+	db_ldap_set_options(conn);
+}
+
 int db_ldap_connect(struct ldap_connection *conn)
 {
 	bool debug = atoi(conn->set.debug_level) > 0;
@@ -1128,27 +1152,8 @@ int db_ldap_connect(struct ldap_connection *conn)
 			memset(&start, 0, sizeof(start));
 	}
 	i_assert(conn->pending_count == 0);
-	if (conn->ld == NULL) {
-		if (conn->set.uris != NULL) {
-#ifdef LDAP_HAVE_INITIALIZE
-			ret = ldap_initialize(&conn->ld, conn->set.uris);
-			if (ret != LDAP_SUCCESS) {
-				i_fatal("LDAP: ldap_initialize() failed with uris %s: %s",
-					conn->set.uris, ldap_err2string(ret));
-				conn->ld = NULL;
-			}
-#else
-			i_unreached(); /* already checked at init */
-#endif
-		} else {
-			conn->ld = ldap_init(conn->set.hosts, LDAP_PORT);
-			if (conn->ld == NULL) {
-				i_fatal("LDAP: ldap_init() failed with hosts: %s",
-					conn->set.hosts);
-			}
-		}
-		db_ldap_set_options(conn);
-	}
+	if (conn->ld == NULL)
+		db_ldap_init_ld(conn);
 
 	if (conn->set.tls) {
 #ifdef LDAP_HAVE_START_TLS_S
@@ -1827,6 +1832,8 @@ struct ldap_connection *db_ldap_init(const char *config_path, bool userdb)
 
 	conn->next = ldap_connections;
         ldap_connections = conn;
+
+	db_ldap_init_ld(conn);
 	return conn;
 }
 
