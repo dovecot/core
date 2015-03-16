@@ -1087,9 +1087,10 @@ static void db_ldap_set_tls_options(struct ldap_connection *conn)
 	    conn->set.tls_ca_cert_dir != NULL ||
 	    conn->set.tls_cert_file != NULL ||
 	    conn->set.tls_key_file != NULL ||
-	    conn->set.tls_cipher_suite != NULL)
-		i_warning("LDAP: tls_* settings ignored, "
-			  "your LDAP library doesn't seem to support them");
+	    conn->set.tls_cipher_suite != NULL) {
+		i_fatal("LDAP %s: tls_* settings aren't supported by your LDAP library - they must not be set",
+			conn->config_path);
+	}
 #endif
 }
 
