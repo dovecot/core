@@ -1136,18 +1136,22 @@ int db_ldap_connect(struct ldap_connection *conn)
 	if (conn->ld == NULL) {
 		if (conn->set.uris != NULL) {
 #ifdef LDAP_HAVE_INITIALIZE
-			if (ldap_initialize(&conn->ld, conn->set.uris) != LDAP_SUCCESS)
+			ret = ldap_initialize(&conn->ld, conn->set.uris);
+			if (ret != LDAP_SUCCESS) {
+				i_fatal("LDAP: ldap_initialize() failed with uris %s: %s",
+					conn->set.uris, ldap_err2string(ret));
 				conn->ld = NULL;
+			}
 #else
 			i_unreached(); /* already checked at init */
 #endif
-		} else
+		} else {
 			conn->ld = ldap_init(conn->set.hosts, LDAP_PORT);
-
-		if (conn->ld == NULL)
-			i_fatal("LDAP: ldap_init() failed with hosts: %s",
-				conn->set.hosts);
-
+			if (conn->ld == NULL) {
+				i_fatal("LDAP: ldap_init() failed with hosts: %s",
+					conn->set.hosts);
+			}
+		}
 		db_ldap_set_options(conn);
 	}
 
