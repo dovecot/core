@@ -989,7 +989,8 @@ static void ldap_connection_timeout(struct ldap_connection *conn)
 {
 	i_assert(conn->conn_state == LDAP_CONN_STATE_BINDING);
 
-	i_error("LDAP: Initial binding to LDAP server timed out");
+	i_error("LDAP %s: Initial binding to LDAP server timed out",
+		conn->config_path);
 	db_ldap_conn_close(conn);
 }
 
@@ -1029,13 +1030,13 @@ static void db_ldap_get_fd(struct ldap_connection *conn)
 	/* get the connection's fd */
 	ret = ldap_get_option(conn->ld, LDAP_OPT_DESC, (void *)&conn->fd);
 	if (ret != LDAP_SUCCESS) {
-		i_fatal("LDAP: Can't get connection fd: %s",
-			ldap_err2string(ret));
+		i_fatal("LDAP %s: Can't get connection fd: %s",
+			conn->config_path, ldap_err2string(ret));
 	}
 	if (conn->fd <= STDERR_FILENO) {
 		/* Solaris LDAP library seems to be broken */
-		i_fatal("LDAP: Buggy LDAP library returned wrong fd: %d",
-			conn->fd);
+		i_fatal("LDAP %s: Buggy LDAP library returned wrong fd: %d",
+			conn->config_path, conn->fd);
 	}
 	i_assert(conn->fd != -1);
 	net_set_nonblock(conn->fd, TRUE);
@@ -1049,8 +1050,8 @@ db_ldap_set_opt(struct ldap_connection *conn, int opt, const void *value,
 
 	ret = ldap_set_option(conn == NULL ? NULL : conn->ld, opt, value);
 	if (ret != LDAP_SUCCESS) {
-		i_fatal("LDAP: Can't set option %s to %s: %s",
-			optname, value_str, ldap_err2string(ret));
+		i_fatal("LDAP %s: Can't set option %s to %s: %s",
+			conn->config_path, optname, value_str, ldap_err2string(ret));
 	}
 }
 
@@ -1123,8 +1124,9 @@ static void db_ldap_init_ld(struct ldap_connection *conn)
 #ifdef LDAP_HAVE_INITIALIZE
 		ret = ldap_initialize(&conn->ld, conn->set.uris);
 		if (ret != LDAP_SUCCESS) {
-			i_fatal("LDAP: ldap_initialize() failed with uris %s: %s",
-				conn->set.uris, ldap_err2string(ret));
+			i_fatal("LDAP %s: ldap_initialize() failed with uris %s: %s",
+				conn->config_path, conn->set.uris,
+				ldap_err2string(ret));
 		}
 #else
 		i_unreached(); /* already checked at init */
@@ -1132,8 +1134,8 @@ static void db_ldap_init_ld(struct ldap_connection *conn)
 	} else {
 		conn->ld = ldap_init(conn->set.hosts, LDAP_PORT);
 		if (conn->ld == NULL) {
-			i_fatal("LDAP: ldap_init() failed with hosts: %s",
-				conn->set.hosts);
+			i_fatal("LDAP %s: ldap_init() failed with hosts: %s",
+				conn->config_path, conn->set.hosts);
 		}
 	}
 	db_ldap_set_options(conn);
@@ -1163,11 +1165,11 @@ int db_ldap_connect(struct ldap_connection *conn)
 			if (ret == LDAP_OPERATIONS_ERROR &&
 			    conn->set.uris != NULL &&
 			    strncmp(conn->set.uris, "ldaps:", 6) == 0) {
-				i_fatal("LDAP: Don't use both tls=yes "
-					"and ldaps URI");
+				i_fatal("LDAP %s: Don't use both tls=yes "
+					"and ldaps URI", conn->config_path);
 			}
-			i_error("LDAP: ldap_start_tls_s() failed: %s",
-				ldap_err2string(ret));
+			i_error("LDAP %s: ldap_start_tls_s() failed: %s",
+				conn->config_path, ldap_err2string(ret));
 			return -1;
 		}
 #else
@@ -1358,7 +1360,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		}
 
 		if (*name == '\0')
-			i_error("ldap: Invalid attrs entry: %s", attr_data);
+			i_error("LDAP %s: Invalid attrs entry: %s", conn->config_path, attr_data);
 		else if (skip_attr == NULL || strcmp(skip_attr, name) != 0) {
 			field = array_append_space(attr_map);
 			if (name[0] == '@') {
@@ -1796,7 +1798,7 @@ struct ldap_connection *db_ldap_init(const char *config_path, bool userdb)
 #endif
 #ifndef HAVE_LDAP_SASL
 	if (conn->set.sasl_bind)
-		i_fatal("LDAP: sasl_bind=yes but no SASL support compiled in");
+		i_fatal("LDAP %s: sasl_bind=yes but no SASL support compiled in", conn->config_path);
 #endif
 	if (conn->set.ldap_version < 3) {
 		if (conn->set.sasl_bind)
