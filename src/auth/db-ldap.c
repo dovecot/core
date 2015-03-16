@@ -1155,6 +1155,8 @@ int db_ldap_connect(struct ldap_connection *conn)
 			memset(&start, 0, sizeof(start));
 	}
 	i_assert(conn->pending_count == 0);
+	if (conn->to != NULL)
+		timeout_remove(&conn->to);
 	if (conn->ld == NULL)
 		db_ldap_init_ld(conn);
 
@@ -1213,6 +1215,19 @@ int db_ldap_connect(struct ldap_connection *conn)
 	db_ldap_get_fd(conn);
 	conn->io = io_add(conn->fd, IO_READ, ldap_input, conn);
 	return 0;
+}
+
+static void db_ldap_connect_callback(struct ldap_connection *conn)
+{
+	timeout_remove(&conn->to);
+	(void)db_ldap_connect(conn);
+}
+
+void db_ldap_connect_delayed(struct ldap_connection *conn)
+{
+	i_assert(conn->to == NULL);
+
+	conn->to = timeout_add_short(0, db_ldap_connect_callback, conn);
 }
 
 void db_ldap_enable_input(struct ldap_connection *conn, bool enable)
