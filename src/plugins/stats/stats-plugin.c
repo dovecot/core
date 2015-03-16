@@ -432,6 +432,9 @@ static void stats_user_created(struct mail_user *user)
 
 	MODULE_CONTEXT_SET(user, stats_user_module, suser);
 	stats_connection_connect(suser->stats_conn, user);
+	suser->to_stats_timeout =
+		timeout_add(suser->refresh_secs*1000,
+			    session_stats_refresh_timeout, user);
 }
 
 static struct mail_storage_hooks stats_mail_storage_hooks = {
