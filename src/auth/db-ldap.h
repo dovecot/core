@@ -67,7 +67,7 @@ struct ldap_settings {
 	bool blocking;
 
 	/* ... */
-	int ldap_deref, ldap_scope;
+	int ldap_deref, ldap_scope, ldap_tls_require_cert_parsed;
 	uid_t uid;
 	gid_t gid;
 };

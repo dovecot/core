@@ -170,47 +170,50 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 				 LDAPMessage *res, bool skip_null_values,
 				 bool iter_dn_values);
 
-static int deref2str(const char *str)
+static int deref2str(const char *str, int *ref_r)
 {
 	if (strcasecmp(str, "never") == 0)
-		return LDAP_DEREF_NEVER;
-	if (strcasecmp(str, "searching") == 0)
-		return LDAP_DEREF_SEARCHING;
-	if (strcasecmp(str, "finding") == 0)
-		return LDAP_DEREF_FINDING;
-	if (strcasecmp(str, "always") == 0)
-		return LDAP_DEREF_ALWAYS;
-
-	i_fatal("LDAP: Unknown deref option '%s'", str);
+		*ref_r = LDAP_DEREF_NEVER;
+	else if (strcasecmp(str, "searching") == 0)
+		*ref_r = LDAP_DEREF_SEARCHING;
+	else if (strcasecmp(str, "finding") == 0)
+		*ref_r = LDAP_DEREF_FINDING;
+	else if (strcasecmp(str, "always") == 0)
+		*ref_r = LDAP_DEREF_ALWAYS;
+	else
+		return -1;
+	return 0;
 }
 
-static int scope2str(const char *str)
+static int scope2str(const char *str, int *scope_r)
 {
 	if (strcasecmp(str, "base") == 0)
-		return LDAP_SCOPE_BASE;
-	if (strcasecmp(str, "onelevel") == 0)
-		return LDAP_SCOPE_ONELEVEL;
-	if (strcasecmp(str, "subtree") == 0)
-		return LDAP_SCOPE_SUBTREE;
-
-	i_fatal("LDAP: Unknown scope option '%s'", str);
+		*scope_r = LDAP_SCOPE_BASE;
+	else if (strcasecmp(str, "onelevel") == 0)
+		*scope_r = LDAP_SCOPE_ONELEVEL;
+	else if (strcasecmp(str, "subtree") == 0)
+		*scope_r = LDAP_SCOPE_SUBTREE;
+	else
+		return -1;
+	return 0;
 }
 
 #ifdef OPENLDAP_TLS_OPTIONS
-static int tls_require_cert2str(const char *str)
+static int tls_require_cert2str(const char *str, int *value_r)
 {
 	if (strcasecmp(str, "never") == 0)
-		return LDAP_OPT_X_TLS_NEVER;
-	if (strcasecmp(str, "hard") == 0)
-		return LDAP_OPT_X_TLS_HARD;
-	if (strcasecmp(str, "demand") == 0)
-		return LDAP_OPT_X_TLS_DEMAND;
-	if (strcasecmp(str, "allow") == 0)
-		return LDAP_OPT_X_TLS_ALLOW;
-	if (strcasecmp(str, "try") == 0)
-		return LDAP_OPT_X_TLS_TRY;
-
-	i_fatal("LDAP: Unknown tls_require_cert value '%s'", str);
+		*value_r = LDAP_OPT_X_TLS_NEVER;
+	else if (strcasecmp(str, "hard") == 0)
+		*value_r = LDAP_OPT_X_TLS_HARD;
+	else if (strcasecmp(str, "demand") == 0)
+		*value_r = LDAP_OPT_X_TLS_DEMAND;
+	else if (strcasecmp(str, "allow") == 0)
+		*value_r = LDAP_OPT_X_TLS_ALLOW;
+	else if (strcasecmp(str, "try") == 0)
+		*value_r = LDAP_OPT_X_TLS_TRY;
+	else
+		return -1;
+	return 0;
 }
 #endif
 
@@ -1076,8 +1079,7 @@ static void db_ldap_set_tls_options(struct ldap_connection *conn)
 	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_CIPHER_SUITE,
 			    conn->set.tls_cipher_suite, "tls_cipher_suite");
 	if (conn->set.tls_require_cert != NULL) {
-		int value = tls_require_cert2str(conn->set.tls_require_cert);
-		db_ldap_set_opt(NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &value,
+		db_ldap_set_opt(NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &conn->set.ldap_tls_require_cert_parsed,
 				"tls_require_cert", conn->set.tls_require_cert);
 	}
 #else
@@ -1796,6 +1798,14 @@ struct ldap_connection *db_ldap_init(const char *config_path, bool userdb)
 		if (conn->set.tls)
 			i_fatal("LDAP %s: tls=yes requires ldap_version=3", config_path);
 	}
+#ifdef OPENLDAP_TLS_OPTIONS
+	if (conn->set.tls_require_cert != NULL) {
+		if (tls_require_cert2str(conn->set.tls_require_cert,
+					 &conn->set.ldap_tls_require_cert_parsed) < 0)
+			i_fatal("LDAP %s: Unknown tls_require_cert value '%s'",
+				config_path, conn->set.tls_require_cert);
+	}
+#endif
 
 	if (*conn->set.ldaprc_path != '\0') {
 		str = getenv("LDAPRC");
@@ -1807,8 +1817,10 @@ struct ldap_connection *db_ldap_init(const char *config_path, bool userdb)
 		env_put(t_strconcat("LDAPRC=", conn->set.ldaprc_path, NULL));
 	}
 
-        conn->set.ldap_deref = deref2str(conn->set.deref);
-	conn->set.ldap_scope = scope2str(conn->set.scope);
+        if (deref2str(conn->set.deref, &conn->set.ldap_deref) < 0)
+		i_fatal("LDAP %s: Unknown deref option '%s'", config_path, conn->set.deref);
+	if (scope2str(conn->set.scope, &conn->set.ldap_scope) < 0)
+		i_fatal("LDAP %s: Unknown scope option '%s'", config_path, conn->set.scope);
 
 	i_array_init(&conn->request_array, 512);
 	conn->request_queue = aqueue_init(&conn->request_array.arr);
