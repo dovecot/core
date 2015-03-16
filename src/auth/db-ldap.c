@@ -1139,8 +1139,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 			if (ldap_initialize(&conn->ld, conn->set.uris) != LDAP_SUCCESS)
 				conn->ld = NULL;
 #else
-			i_fatal("LDAP: Your LDAP library doesn't support "
-				"'uris' setting, use 'hosts' instead.");
+			i_unreached(); /* already checked at init */
 #endif
 		} else
 			conn->ld = ldap_init(conn->set.hosts, LDAP_PORT);
@@ -1167,8 +1166,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 			return -1;
 		}
 #else
-		i_error("LDAP: Your LDAP library doesn't support TLS");
-		return -1;
+		i_unreached(); /* already checked at init */
 #endif
 	}
 
@@ -1191,7 +1189,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 		if (db_ldap_connect_finish(conn, ret) < 0)
 			return -1;
 #else
-		i_fatal("LDAP: sasl_bind=yes but no SASL support compiled in");
+		i_unreached(); /* already checked at init */
 #endif
 		conn->conn_state = LDAP_CONN_STATE_BOUND_DEFAULT;
 	} else {
@@ -1777,23 +1775,31 @@ struct ldap_connection *db_ldap_init(const char *config_path, bool userdb)
 		i_fatal("ldap %s: %s", config_path, error);
 
 	if (conn->set.base == NULL)
-		i_fatal("LDAP: No base given");
+		i_fatal("LDAP %s: No base given", config_path);
 
 	if (conn->set.uris == NULL && conn->set.hosts == NULL)
-		i_fatal("LDAP: No uris or hosts set");
+		i_fatal("LDAP %s: No uris or hosts set", config_path);
 #ifndef LDAP_HAVE_INITIALIZE
 	if (conn->set.uris != NULL) {
-		i_fatal("LDAP: Dovecot compiled without support for LDAP uris "
-			"(ldap_initialize not found)");
+		i_fatal("LDAP %s: uris set, but Dovecot compiled without support for LDAP uris "
+			"(ldap_initialize() not supported by LDAP library)", config_path);
 	}
+#endif
+#ifndef LDAP_HAVE_START_TLS_S
+	if (conn->set.tls)
+		i_fatal("LDAP %s: tls=yes, but your LDAP library doesn't support TLS", config_path);
+#endif
+#ifndef HAVE_LDAP_SASL
+	if (conn->set.sasl_bind)
+		i_fatal("LDAP: sasl_bind=yes but no SASL support compiled in");
 #endif
 
 	if (*conn->set.ldaprc_path != '\0') {
 		str = getenv("LDAPRC");
 		if (str != NULL && strcmp(str, conn->set.ldaprc_path) != 0) {
-			i_fatal("LDAP: Multiple different ldaprc_path "
+			i_fatal("LDAP %s: Multiple different ldaprc_path "
 				"settings not allowed (%s and %s)",
-				str, conn->set.ldaprc_path);
+				config_path, str, conn->set.ldaprc_path);
 		}
 		env_put(t_strconcat("LDAPRC=", conn->set.ldaprc_path, NULL));
 	}
