@@ -176,6 +176,7 @@ struct ldap_connection {
 	char **pass_attr_names, **user_attr_names, **iterate_attr_names;
 	ARRAY_TYPE(ldap_field) pass_attr_map, user_attr_map, iterate_attr_map;
 	bool userdb_used;
+	bool delayed_connect;
 };
 
 /* Send/queue request */
