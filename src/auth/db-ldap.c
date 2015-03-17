@@ -1222,7 +1222,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 
 static void db_ldap_connect_callback(struct ldap_connection *conn)
 {
-	timeout_remove(&conn->to);
+	i_assert(conn->conn_state == LDAP_CONN_STATE_DISCONNECTED);
 	(void)db_ldap_connect(conn);
 }
 
@@ -1267,6 +1267,7 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 	unsigned int i;
 
 	conn->conn_state = LDAP_CONN_STATE_DISCONNECTED;
+	conn->delayed_connect = FALSE;
 	conn->default_bind_msgid = -1;
 
 	if (conn->to != NULL)
