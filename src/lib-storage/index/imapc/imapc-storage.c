@@ -110,6 +110,10 @@ void imapc_simple_context_init(struct imapc_simple_context *sctx,
 
 void imapc_simple_run(struct imapc_simple_context *sctx)
 {
+	if (sctx->client->auth_failed) {
+		imapc_client_disconnect(sctx->client->client);
+		sctx->ret = -1;
+	}
 	while (sctx->ret == -2)
 		imapc_client_run(sctx->client->client);
 }
@@ -137,6 +141,8 @@ void imapc_simple_callback(const struct imapc_command_reply *reply,
 	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
 		imapc_copy_error_from_reply(ctx->client->_storage,
 					    MAIL_ERROR_PARAMS, reply);
+		ctx->ret = -1;
+	} else if (ctx->client->auth_failed) {
 		ctx->ret = -1;
 	} else {
 		mail_storage_set_critical(&ctx->client->_storage->storage,
@@ -190,6 +196,28 @@ imapc_storage_client_untagged_cb(const struct imapc_untagged_reply *reply,
 			if (strcasecmp(reply->resp_text_key, mcb->name) == 0)
 				mcb->callback(reply, mbox);
 		}
+	}
+}
+
+static void
+imapc_storage_client_login(const struct imapc_command_reply *reply,
+			   void *context)
+{
+	struct imapc_storage_client *client = context;
+
+	if (reply->state == IMAPC_COMMAND_STATE_OK)
+		return;
+
+	i_error("imapc: Authentication failed: %s", reply->text_full);
+	client->auth_failed = TRUE;
+
+	if (client->_storage != NULL) {
+		mail_storage_set_error(&client->_storage->storage,
+				       MAIL_ERROR_PERM, reply->text_full);
+	}
+	if (client->_list != NULL) {
+		mailbox_list_set_error(&client->_list->list,
+				       MAIL_ERROR_PERM, reply->text_full);
 	}
 }
 
@@ -257,7 +285,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	imapc_client_register_untagged(client->client,
 				       imapc_storage_client_untagged_cb, client);
 	/* start logging in immediately */
-	imapc_client_login(client->client, NULL, NULL);
+	imapc_client_login(client->client, imapc_storage_client_login, client);
 
 	*client_r = client;
 	return 0;
@@ -448,6 +476,8 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
 		imapc_copy_error_from_reply(ctx->mbox->storage,
 					    MAIL_ERROR_NOTFOUND, reply);
+		ctx->ret = -1;
+	} else if (ctx->mbox->storage->client->auth_failed) {
 		ctx->ret = -1;
 	} else {
 		mail_storage_set_critical(ctx->mbox->box.storage,

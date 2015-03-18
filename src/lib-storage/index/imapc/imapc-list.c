@@ -140,6 +140,8 @@ static void imapc_list_simple_callback(const struct imapc_command_reply *reply,
 		imapc_list_copy_error_from_reply(ctx->client->_list,
 						 MAIL_ERROR_PARAMS, reply);
 		ctx->ret = -1;
+	} else if (ctx->client->auth_failed) {
+		ctx->ret = -1;
 	} else {
 		mailbox_list_set_critical(&ctx->client->_list->list,
 			"imapc: Command failed: %s", reply->text_full);
@@ -270,6 +272,8 @@ static void imapc_storage_sep_callback(const struct imapc_command_reply *reply,
 		imapc_list_sep_verify(list);
 	else if (reply->state == IMAPC_COMMAND_STATE_NO)
 		imapc_list_copy_error_from_reply(list, MAIL_ERROR_PARAMS, reply);
+	else if (list->client->auth_failed)
+		;
 	else if (!list->list.ns->user->deinitializing) {
 		mailbox_list_set_critical(&list->list,
 			"imapc: Command failed: %s", reply->text_full);
@@ -293,6 +297,8 @@ static void imapc_list_send_hierarcy_sep_lookup(struct imapc_mailbox_list *list)
 int imapc_list_try_get_root_sep(struct imapc_mailbox_list *list, char *sep_r)
 {
 	if (list->root_sep == '\0') {
+		if (list->client->auth_failed)
+			return -1;
 		imapc_list_send_hierarcy_sep_lookup(list);
 		while (list->root_sep_pending)
 			imapc_client_run(list->client->client);
