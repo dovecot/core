@@ -66,7 +66,6 @@ static struct mailbox_list *imapc_list_alloc(void)
 static int imapc_list_init(struct mailbox_list *_list, const char **error_r)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
-	char sep;
 
 	list->set = mail_user_set_get_driver_settings(_list->ns->user->set_info,
 						      _list->ns->user->set,
@@ -81,17 +80,6 @@ static int imapc_list_init(struct mailbox_list *_list, const char **error_r)
 	imapc_storage_client_register_untagged(list->client, "LSUB",
 					       imapc_untagged_lsub);
 	imapc_list_send_hierarcy_sep_lookup(list);
-	if ((_list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
-		/* we're using imapc for the INBOX namespace. wait and make
-		   sure we can successfully access the IMAP server (so if the
-		   username is invalid we don't just keep failing every
-		   command). */
-		if (imapc_list_try_get_root_sep(list, &sep) < 0) {
-			imapc_storage_client_unref(&list->client);
-			*error_r = "Failed to access imapc backend";
-			return -1;
-		}
-	}
 	return 0;
 }
 
