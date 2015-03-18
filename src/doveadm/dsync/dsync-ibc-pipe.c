@@ -42,7 +42,10 @@ struct item {
 			unsigned int count;
 			char hierarchy_sep;
 		} mailbox_delete;
-		const char *finish_error;
+		struct {
+			const char *error;
+			enum mail_error mail_error;
+		} finish;
 	} u;
 };
 
@@ -487,17 +490,20 @@ dsync_ibc_pipe_recv_mail(struct dsync_ibc *ibc, struct dsync_mail **mail_r)
 }
 
 static void
-dsync_ibc_pipe_send_finish(struct dsync_ibc *ibc, const char *error)
+dsync_ibc_pipe_send_finish(struct dsync_ibc *ibc, const char *error,
+			   enum mail_error mail_error)
 {
 	struct dsync_ibc_pipe *pipe = (struct dsync_ibc_pipe *)ibc;
 	struct item *item;
 
 	item = dsync_ibc_pipe_push_item(pipe->remote, ITEM_FINISH);
-	item->u.finish_error = p_strdup(item->pool, error);
+	item->u.finish.error = p_strdup(item->pool, error);
+	item->u.finish.mail_error = mail_error;
 }
 
 static enum dsync_ibc_recv_ret
-dsync_ibc_pipe_recv_finish(struct dsync_ibc *ibc, const char **error_r)
+dsync_ibc_pipe_recv_finish(struct dsync_ibc *ibc, const char **error_r,
+			   enum mail_error *mail_error_r)
 {
 	struct dsync_ibc_pipe *pipe = (struct dsync_ibc_pipe *)ibc;
 	struct item *item;
@@ -506,7 +512,8 @@ dsync_ibc_pipe_recv_finish(struct dsync_ibc *ibc, const char **error_r)
 	if (item == NULL)
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 
-	*error_r = item->u.finish_error;
+	*error_r = item->u.finish.error;
+	*mail_error_r = item->u.finish.mail_error;
 	return DSYNC_IBC_RECV_RET_OK;
 }
 

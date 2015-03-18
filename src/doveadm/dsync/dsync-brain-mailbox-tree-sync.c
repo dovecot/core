@@ -8,7 +8,8 @@
 
 static int
 sync_create_box(struct dsync_brain *brain, struct mailbox *box,
-		const guid_128_t mailbox_guid, uint32_t uid_validity)
+		const guid_128_t mailbox_guid, uint32_t uid_validity,
+		enum mail_error *error_r)
 {
 	struct mailbox_metadata metadata;
 	struct mailbox_update update;
@@ -25,6 +26,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 		if (error != MAIL_ERROR_EXISTS) {
 			i_error("Can't create mailbox %s: %s",
 				mailbox_get_vname(box), errstr);
+			*error_r = error;
 			return -1;
 		}
 	}
@@ -37,7 +39,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		i_error("Can't sync mailbox %s: %s",
 			mailbox_get_vname(box),
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_error(box, error_r));
 		return -1;
 	}
 
@@ -50,7 +52,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
 		i_error("Can't get mailbox GUID %s: %s",
 			mailbox_get_vname(box),
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_error(box, error_r));
 		return -1;
 	}
 
@@ -69,7 +71,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 		if (mailbox_update(box, &update) < 0) {
 			i_error("Can't update mailbox GUID %s: %s",
 				mailbox_get_vname(box),
-				mailbox_get_last_error(box, NULL));
+				mailbox_get_last_error(box, error_r));
 			return -1;
 		}
 		/* verify that the update worked */
@@ -77,13 +79,14 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 					 &metadata) < 0) {
 			i_error("Can't get mailbox GUID %s: %s",
 				mailbox_get_vname(box),
-				mailbox_get_last_error(box, NULL));
+				mailbox_get_last_error(box, error_r));
 			return -1;
 		}
 		if (memcmp(mailbox_guid, metadata.guid,
 			   sizeof(metadata.guid)) != 0) {
 			i_error("Backend didn't update mailbox %s GUID",
 				mailbox_get_vname(box));
+			*error_r = MAIL_ERROR_TEMP;
 			return -1;
 		}
 	} else if (ret < 0) {
@@ -100,7 +103,8 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 }
 
 int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
-			const struct dsync_mailbox_tree_sync_change *change)
+			const struct dsync_mailbox_tree_sync_change *change,
+			enum mail_error *error_r)
 {
 	struct mailbox *box = NULL, *destbox;
 	const char *errstr, *func_name = NULL, *storage_name;
@@ -116,7 +120,7 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 	case DSYNC_MAILBOX_TREE_SYNC_TYPE_DELETE_BOX:
 		/* make sure we're deleting the correct mailbox */
 		ret = dsync_brain_mailbox_alloc(brain, change->mailbox_guid,
-						&box, &errstr);
+						&box, &errstr, error_r);
 		if (ret < 0) {
 			i_error("Mailbox sync: Couldn't allocate mailbox GUID %s: %s",
 				guid_128_to_string(change->mailbox_guid), errstr);
@@ -130,7 +134,7 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 					guid_128_to_string(change->mailbox_guid), errstr);
 			}
 			brain->changes_during_sync = TRUE;
-			return ret;
+			return 0;
 		}
 		break;
 	case DSYNC_MAILBOX_TREE_SYNC_TYPE_DELETE_DIR:
@@ -153,6 +157,7 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 		} else {
 			i_error("Mailbox sync: mailbox_list_delete_dir failed: %s",
 				errstr);
+			*error_r = error;
 			return -1;
 		}
 	default:
@@ -162,7 +167,7 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 	switch (change->type) {
 	case DSYNC_MAILBOX_TREE_SYNC_TYPE_CREATE_BOX:
 		ret = sync_create_box(brain, box, change->mailbox_guid,
-				      change->uid_validity);
+				      change->uid_validity, error_r);
 		mailbox_free(&box);
 		return ret;
 	case DSYNC_MAILBOX_TREE_SYNC_TYPE_CREATE_DIR:
@@ -218,6 +223,7 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 		} else {
 			i_error("Mailbox %s sync: %s failed: %s",
 				mailbox_get_vname(box), func_name, errstr);
+			*error_r = error;
 		}
 	}
 	mailbox_free(&box);

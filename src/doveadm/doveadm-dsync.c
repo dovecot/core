@@ -322,7 +322,7 @@ static bool paths_are_equal(struct mail_user *user1, struct mail_user *user2,
 static int
 cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		    struct dsync_brain *brain, struct dsync_ibc *ibc2,
-		    bool *changes_during_sync_r)
+		    bool *changes_during_sync_r, enum mail_error *mail_error_r)
 {
 	struct dsync_brain *brain2;
 	struct mail_user *user2;
@@ -330,6 +330,8 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	const char *set_line, *location;
 	bool brain1_running, brain2_running, changed1, changed2;
 	int ret;
+
+	*mail_error_r = 0;
 
 	if (ctx->local_location_from_arg)
 		location = ctx->ctx.args[0];
@@ -389,11 +391,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		brain2_running = dsync_brain_run(brain2, &changed2);
 	}
 	*changes_during_sync_r = dsync_brain_has_unexpected_changes(brain2);
-	if (dsync_brain_deinit(&brain2) < 0) {
-		ctx->ctx.exit_code = EX_TEMPFAIL;
-		return -1;
-	}
-	return 0;
+	return dsync_brain_deinit(&brain2, mail_error_r);
 }
 
 static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx,
@@ -534,6 +532,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	struct mail_namespace *ns;
 	const char *const *strp;
 	enum dsync_brain_flags brain_flags;
+	enum mail_error mail_error = 0, mail_error2;
 	bool remote_errors_logged = FALSE;
 	bool changes_during_sync = FALSE;
 	int status = 0, ret = 0;
@@ -605,7 +604,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	if (ctx->run_type == DSYNC_RUN_TYPE_LOCAL) {
 		if (cmd_dsync_run_local(ctx, user, brain, ibc2,
-					&changes_during_sync) < 0)
+					&changes_during_sync, &mail_error) < 0)
 			ret = -1;
 	} else {
 		cmd_dsync_run_remote(user);
@@ -626,9 +625,15 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		}
 		ctx->ctx.exit_code = 2;
 	}
-	if (dsync_brain_deinit(&brain) < 0) {
-		ctx->ctx.exit_code = EX_TEMPFAIL;
+	if (dsync_brain_deinit(&brain, &mail_error2) < 0)
 		ret = -1;
+	if (ret < 0) {
+		/* tempfail is the default error. prefer to use a non-tempfail
+		   if that exists. */
+		if (mail_error2 != 0 &&
+		    (mail_error == 0 || mail_error == MAIL_ERROR_TEMP))
+			mail_error = mail_error2;
+		doveadm_mail_failed_error(&ctx->ctx, mail_error);
 	}
 	dsync_ibc_deinit(&ibc);
 	if (ibc2 != NULL)
@@ -1039,6 +1044,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	string_t *temp_prefix, *state_str = NULL;
 	enum dsync_brain_sync_type sync_type;
 	const char *name, *process_title_prefix = "";
+	enum mail_error mail_error;
 
 	if (_ctx->conn != NULL) {
 		/* doveadm-server connection. start with a success reply.
@@ -1078,8 +1084,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	}
 	sync_type = dsync_brain_get_sync_type(brain);
 
-	if (dsync_brain_deinit(&brain) < 0)
-		_ctx->exit_code = EX_TEMPFAIL;
+	if (dsync_brain_deinit(&brain, &mail_error) < 0)
+		doveadm_mail_failed_error(_ctx, mail_error);
 	dsync_ibc_deinit(&ibc);
 
 	if (_ctx->conn != NULL) {

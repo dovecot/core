@@ -58,8 +58,11 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 		if (dsync_mailbox_tree_fill(brain->local_mailbox_tree, ns,
 					    brain->sync_box,
 					    brain->sync_box_guid,
-					    brain->exclude_mailboxes) < 0)
+					    brain->exclude_mailboxes,
+					    &brain->mail_error) < 0) {
 			brain->failed = TRUE;
+			break;
+		}
 	}
 
 	brain->local_tree_iter =
@@ -300,8 +303,11 @@ static void dsync_brain_mailbox_trees_sync(struct dsync_brain *brain)
 					    brain->remote_mailbox_tree,
 					    sync_type, sync_flags);
 	while ((change = dsync_mailbox_trees_sync_next(ctx)) != NULL) {
-		if (dsync_brain_mailbox_tree_sync_change(brain, change) < 0)
+		if (dsync_brain_mailbox_tree_sync_change(brain, change,
+							 &brain->mail_error) < 0) {
 			brain->failed = TRUE;
+			break;
+		}
 	}
 	dsync_mailbox_trees_sync_deinit(&ctx);
 }

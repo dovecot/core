@@ -126,7 +126,7 @@ static const struct {
 	},
 	{ .name = "finish",
 	  .chr = 'F',
-	  .optional_keys = "error"
+	  .optional_keys = "error mail_error"
 	},
 	{ .name = "mailbox_cache_field",
 	  .chr = 'c',
@@ -1827,7 +1827,8 @@ dsync_ibc_stream_recv_mail(struct dsync_ibc *_ibc, struct dsync_mail **mail_r)
 }
 
 static void
-dsync_ibc_stream_send_finish(struct dsync_ibc *_ibc, const char *error)
+dsync_ibc_stream_send_finish(struct dsync_ibc *_ibc, const char *error,
+			     enum mail_error mail_error)
 {
 	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
 	struct dsync_serializer_encoder *encoder;
@@ -1837,19 +1838,27 @@ dsync_ibc_stream_send_finish(struct dsync_ibc *_ibc, const char *error)
 	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_FINISH]);
 	if (error != NULL)
 		dsync_serializer_encode_add(encoder, "error", error);
+	if (mail_error != 0) {
+		dsync_serializer_encode_add(encoder, "mail_error",
+					    dec2str(mail_error));
+	}
 	dsync_serializer_encode_finish(&encoder, str);
 	dsync_ibc_stream_send_string(ibc, str);
 }
 
 static enum dsync_ibc_recv_ret
-dsync_ibc_stream_recv_finish(struct dsync_ibc *_ibc, const char **error_r)
+dsync_ibc_stream_recv_finish(struct dsync_ibc *_ibc, const char **error_r,
+			     enum mail_error *mail_error_r)
 {
 	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
 	struct dsync_deserializer_decoder *decoder;
 	const char *value;
 	enum dsync_ibc_recv_ret ret;
+	int i;
 
 	*error_r = NULL;
+	*mail_error_r = 0;
+
 	p_clear(ibc->ret_pool);
 
 	if (ibc->minor_version < DSYNC_PROTOCOL_MINOR_HAVE_FINISH)
@@ -1861,6 +1870,12 @@ dsync_ibc_stream_recv_finish(struct dsync_ibc *_ibc, const char **error_r)
 
 	if (dsync_deserializer_decode_try(decoder, "error", &value))
 		*error_r = p_strdup(ibc->ret_pool, value);
+	if (dsync_deserializer_decode_try(decoder, "mail_error", &value) &&
+	    str_to_int(value, &i) < 0) {
+		dsync_ibc_input_error(ibc, decoder, "Invalid mail_error");
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
+	*mail_error_r = i;
 	return DSYNC_IBC_RECV_RET_OK;
 }
 

@@ -1,6 +1,8 @@
 #ifndef DSYNC_MAILBOX_IMPORT_H
 #define DSYNC_MAILBOX_IMPORT_H
 
+#include "mail-error.h"
+
 enum dsync_mailbox_import_flags {
 	DSYNC_MAILBOX_IMPORT_FLAG_MASTER_BRAIN		= 0x01,
 	DSYNC_MAILBOX_IMPORT_FLAG_WANT_MAIL_REQUESTS	= 0x02,
@@ -44,7 +46,8 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **importer,
 				uint64_t *last_common_modseq_r,
 				uint64_t *last_common_pvt_modseq_r,
 				uint32_t *last_messages_count_r,
-				bool *changes_during_sync_r);
+				bool *changes_during_sync_r,
+				enum mail_error *error_r);
 
 const char *dsync_mailbox_import_get_proctitle(struct dsync_mailbox_importer *importer);
 

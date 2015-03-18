@@ -23,7 +23,7 @@ void dsync_mailbox_export_want_mail(struct dsync_mailbox_exporter *exporter,
 const struct dsync_mail *
 dsync_mailbox_export_next_mail(struct dsync_mailbox_exporter *exporter);
 int dsync_mailbox_export_deinit(struct dsync_mailbox_exporter **exporter,
-				const char **error_r);
+				const char **errstr_r, enum mail_error *error_r);
 
 const char *dsync_mailbox_export_get_proctitle(struct dsync_mailbox_exporter *exporter);
 

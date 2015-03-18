@@ -5,6 +5,7 @@
 
 #include "ioloop.h"
 #include "guid.h"
+#include "mail-error.h"
 #include "dsync-brain.h"
 
 struct dsync_mailbox;
@@ -144,9 +145,11 @@ dsync_ibc_send_mail(struct dsync_ibc *ibc, const struct dsync_mail *mail);
 enum dsync_ibc_recv_ret
 dsync_ibc_recv_mail(struct dsync_ibc *ibc, struct dsync_mail **mail_r);
 
-void dsync_ibc_send_finish(struct dsync_ibc *ibc, const char *error);
+void dsync_ibc_send_finish(struct dsync_ibc *ibc, const char *error,
+			   enum mail_error mail_error);
 enum dsync_ibc_recv_ret
-dsync_ibc_recv_finish(struct dsync_ibc *ibc, const char **error_r);
+dsync_ibc_recv_finish(struct dsync_ibc *ibc, const char **error_r,
+		      enum mail_error *mail_error_r);
 
 /* Close any mail input streams that are kept open. This needs to be called
    before the mail is attempted to be freed (usually on error conditions). */

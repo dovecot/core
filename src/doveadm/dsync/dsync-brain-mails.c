@@ -183,7 +183,8 @@ static bool dsync_brain_send_mail_request(struct dsync_brain *brain)
 static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 {
 	struct dsync_mailbox_state state;
-	const char *error;
+	const char *errstr;
+	enum mail_error error;
 
 	if (brain->box_recv_state < DSYNC_BOX_STATE_RECV_LAST_COMMON ||
 	    brain->box_send_state < DSYNC_BOX_STATE_RECV_LAST_COMMON)
@@ -192,9 +193,10 @@ static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 	/* finished with this mailbox */
 	if (brain->box_exporter != NULL) {
 		if (dsync_mailbox_export_deinit(&brain->box_exporter,
-						&error) < 0) {
+						&errstr, &error) < 0) {
 			i_error("Exporting mailbox %s failed: %s",
-				mailbox_get_vname(brain->box), error);
+				mailbox_get_vname(brain->box), errstr);
+			brain->mail_error = error;
 			brain->failed = TRUE;
 			return;
 		}
@@ -219,7 +221,8 @@ static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 						&state.last_common_modseq,
 						&state.last_common_pvt_modseq,
 						&state.last_messages_count,
-						&state.changes_during_sync) < 0) {
+						&state.changes_during_sync,
+						&brain->mail_error) < 0) {
 			brain->failed = TRUE;
 			return;
 		}

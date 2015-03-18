@@ -54,6 +54,8 @@ struct dsync_mailbox_exporter {
 	struct dsync_mail dsync_mail;
 
 	const char *error;
+	enum mail_error mail_error;
+
 	unsigned int body_search_initialized:1;
 	unsigned int auto_export_mails:1;
 	unsigned int mails_have_guids:1;
@@ -72,6 +74,7 @@ static int dsync_mail_error(struct dsync_mailbox_exporter *exporter,
 	if (error == MAIL_ERROR_EXPUNGED)
 		return 0;
 
+	exporter->mail_error = error;
 	exporter->error = p_strdup_printf(exporter->pool,
 		"Can't lookup %s for UID=%u: %s",
 		field, mail->uid, errstr);
@@ -163,6 +166,7 @@ exporter_get_guids(struct dsync_mailbox_exporter *exporter,
 			return dsync_mail_error(exporter, mail, "hdr-stream");
 		return 1;
 	} else if (**guid_r == '\0') {
+		exporter->mail_error = MAIL_ERROR_TEMP;
 		exporter->error = "Backend doesn't support GUIDs, "
 			"sync with header hashes instead";
 		return -1;
@@ -403,7 +407,8 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 	    exporter->error == NULL) {
 		exporter->error = p_strdup_printf(exporter->pool,
 			"Mail search failed: %s",
-			mailbox_get_last_error(exporter->box, NULL));
+			mailbox_get_last_error(exporter->box,
+					       &exporter->mail_error));
 	}
 }
 
@@ -534,7 +539,8 @@ dsync_mailbox_export_iter_next_nonexistent_attr(struct dsync_mailbox_exporter *e
 						 attr->key, &value) < 0) {
 			exporter->error = p_strdup_printf(exporter->pool,
 				"Mailbox attribute %s lookup failed: %s", attr->key,
-				mailbox_get_last_error(exporter->box, NULL));
+				mailbox_get_last_error(exporter->box,
+						       &exporter->mail_error));
 			break;
 		}
 		if ((value.flags & MAIL_ATTRIBUTE_VALUE_FLAG_READONLY) != 0) {
@@ -586,7 +592,8 @@ dsync_mailbox_export_iter_next_attr(struct dsync_mailbox_exporter *exporter)
 						 &value) < 0) {
 			exporter->error = p_strdup_printf(exporter->pool,
 				"Mailbox attribute %s lookup failed: %s", key,
-				mailbox_get_last_error(exporter->box, NULL));
+				mailbox_get_last_error(exporter->box,
+						       &exporter->mail_error));
 			return -1;
 		}
 		if ((value.flags & MAIL_ATTRIBUTE_VALUE_FLAG_READONLY) != 0) {
@@ -624,7 +631,8 @@ dsync_mailbox_export_iter_next_attr(struct dsync_mailbox_exporter *exporter)
 	if (mailbox_attribute_iter_deinit(&exporter->attr_iter) < 0) {
 		exporter->error = p_strdup_printf(exporter->pool,
 			"Mailbox attribute iteration failed: %s",
-			mailbox_get_last_error(exporter->box, NULL));
+			mailbox_get_last_error(exporter->box,
+					       &exporter->mail_error));
 		return -1;
 	}
 	if (exporter->attr_type == MAIL_ATTRIBUTE_TYPE_PRIVATE) {
@@ -762,7 +770,8 @@ dsync_mailbox_export_body_search_deinit(struct dsync_mailbox_exporter *exporter)
 	    exporter->error == NULL) {
 		exporter->error = p_strdup_printf(exporter->pool,
 			"Mail search failed: %s",
-			mailbox_get_last_error(exporter->box, NULL));
+			mailbox_get_last_error(exporter->box,
+					       &exporter->mail_error));
 	}
 }
 
@@ -784,6 +793,7 @@ static int dsync_mailbox_export_mail(struct dsync_mailbox_exporter *exporter,
 	} else if (exporter->dsync_mail.uid != 0) {
 		/* mail requested by UID */
 	} else {
+		exporter->mail_error = MAIL_ERROR_TEMP;
 		exporter->error = p_strdup_printf(exporter->pool,
 			"GUID unexpectedly changed for UID=%u GUID=%s",
 			mail->uid, exporter->dsync_mail.guid);
@@ -816,6 +826,7 @@ void dsync_mailbox_export_want_mail(struct dsync_mailbox_exporter *exporter,
 
 	instances = hash_table_lookup(exporter->export_guids, request->guid);
 	if (instances == NULL) {
+		exporter->mail_error = MAIL_ERROR_TEMP;
 		exporter->error = p_strdup_printf(exporter->pool,
 			"Remote requested unexpected GUID %s", request->guid);
 		return;
@@ -878,7 +889,7 @@ dsync_mailbox_export_next_mail(struct dsync_mailbox_exporter *exporter)
 }
 
 int dsync_mailbox_export_deinit(struct dsync_mailbox_exporter **_exporter,
-				const char **error_r)
+				const char **errstr_r, enum mail_error *error_r)
 {
 	struct dsync_mailbox_exporter *exporter = *_exporter;
 
@@ -894,9 +905,12 @@ int dsync_mailbox_export_deinit(struct dsync_mailbox_exporter **_exporter,
 	hash_table_destroy(&exporter->export_guids);
 	hash_table_destroy(&exporter->changes);
 
-	*error_r = t_strdup(exporter->error);
+	i_assert((exporter->error != NULL) == (exporter->mail_error != 0));
+
+	*error_r = exporter->mail_error;
+	*errstr_r = t_strdup(exporter->error);
 	pool_unref(&exporter->pool);
-	return *error_r != NULL ? -1 : 0;
+	return *errstr_r != NULL ? -1 : 0;
 }
 
 const char *dsync_mailbox_export_get_proctitle(struct dsync_mailbox_exporter *exporter)

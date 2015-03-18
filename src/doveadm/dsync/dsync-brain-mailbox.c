@@ -16,12 +16,11 @@
 static int
 ns_mailbox_try_alloc(struct dsync_brain *brain, struct mail_namespace *ns,
 		     const guid_128_t guid, struct mailbox **box_r,
-		     const char **error_r)
+		     const char **errstr_r, enum mail_error *error_r)
 {
 	enum mailbox_flags flags = 0;
 	struct mailbox *box;
 	enum mailbox_existence existence;
-	enum mail_error err;
 	int ret;
 
 	if (brain->backup_send) {
@@ -32,13 +31,13 @@ ns_mailbox_try_alloc(struct dsync_brain *brain, struct mail_namespace *ns,
 	box = mailbox_alloc_guid(ns->list, guid, flags);
 	ret = mailbox_exists(box, FALSE, &existence);
 	if (ret < 0) {
-		*error_r = mailbox_get_last_error(box, &err);
+		*errstr_r = mailbox_get_last_error(box, error_r);
 		mailbox_free(&box);
 		return -1;
 	}
 	if (existence != MAILBOX_EXISTENCE_SELECT) {
 		mailbox_free(&box);
-		*error_r = existence == MAILBOX_EXISTENCE_NONE ?
+		*errstr_r = existence == MAILBOX_EXISTENCE_NONE ?
 			"Mailbox was already deleted" :
 			"Mailbox is no longer selectable";
 		return 0;
@@ -48,7 +47,8 @@ ns_mailbox_try_alloc(struct dsync_brain *brain, struct mail_namespace *ns,
 }
 
 int dsync_brain_mailbox_alloc(struct dsync_brain *brain, const guid_128_t guid,
-			      struct mailbox **box_r, const char **error_r)
+			      struct mailbox **box_r, const char **errstr_r,
+			      enum mail_error *error_r)
 {
 	struct mail_namespace *ns;
 	int ret;
@@ -58,11 +58,9 @@ int dsync_brain_mailbox_alloc(struct dsync_brain *brain, const guid_128_t guid,
 	for (ns = brain->user->namespaces; ns != NULL; ns = ns->next) {
 		if (!dsync_brain_want_namespace(brain, ns))
 			continue;
-		if ((ret = ns_mailbox_try_alloc(brain, ns, guid, box_r, error_r)) != 0) {
-			if (ret < 0)
-				brain->failed = TRUE;
+		if ((ret = ns_mailbox_try_alloc(brain, ns, guid, box_r,
+						errstr_r, error_r)) != 0)
 			return ret;
-		}
 	}
 	return 0;
 }
@@ -329,6 +327,8 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 
 void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 {
+	enum mail_error error;
+
 	i_assert(brain->box != NULL);
 
 	if (brain->require_full_resync) {
@@ -337,11 +337,13 @@ void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 	}
 	array_append(&brain->remote_mailbox_states, &brain->mailbox_state, 1);
 	if (brain->box_exporter != NULL) {
-		const char *error;
+		const char *errstr;
 
 		i_assert(brain->failed ||
 			 brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_CHANGED);
-		(void)dsync_mailbox_export_deinit(&brain->box_exporter, &error);
+		if (dsync_mailbox_export_deinit(&brain->box_exporter,
+						&errstr, &error) < 0)
+			i_error("Mailbox export failed: %s", errstr);
 	}
 	if (brain->box_importer != NULL) {
 		uint32_t last_common_uid, last_messages_count;
@@ -355,7 +357,8 @@ void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 						  &last_common_modseq,
 						  &last_common_pvt_modseq,
 						  &last_messages_count,
-						  &changes_during_sync);
+						  &changes_during_sync,
+						  &brain->mail_error);
 	}
 	if (brain->log_scan != NULL)
 		dsync_transaction_log_scan_deinit(&brain->log_scan);
@@ -364,7 +367,8 @@ void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 	brain->state = brain->pre_box_state;
 }
 
-static int dsync_box_get(struct mailbox *box, struct dsync_mailbox *dsync_box_r)
+static int dsync_box_get(struct mailbox *box, struct dsync_mailbox *dsync_box_r,
+			 enum mail_error *error_r)
 {
 	const enum mailbox_status_items status_items =
 		STATUS_UIDVALIDITY | STATUS_UIDNEXT | STATUS_MESSAGES |
@@ -391,6 +395,7 @@ static int dsync_box_get(struct mailbox *box, struct dsync_mailbox *dsync_box_r)
 		}
 		i_error("Failed to access mailbox %s: %s",
 			mailbox_get_vname(box), errstr);
+		*error_r = error;
 		return -1;
 	}
 
@@ -441,6 +446,7 @@ dsync_brain_try_next_mailbox(struct dsync_brain *brain, struct mailbox **box_r,
 	struct mailbox *box;
 	struct dsync_mailbox_node *node;
 	const char *vname = NULL;
+	enum mail_error error;
 	bool synced = FALSE;
 	int ret;
 
@@ -464,9 +470,11 @@ dsync_brain_try_next_mailbox(struct dsync_brain *brain, struct mailbox **box_r,
 	}
 	box = mailbox_alloc(node->ns->list, vname, flags);
 	for (;;) {
-		if ((ret = dsync_box_get(box, &dsync_box)) <= 0) {
-			if (ret < 0)
+		if ((ret = dsync_box_get(box, &dsync_box, &error)) <= 0) {
+			if (ret < 0) {
+				brain->mail_error = error;
 				brain->failed = TRUE;
+			}
 			mailbox_free(&box);
 			return ret;
 		}
@@ -498,7 +506,7 @@ dsync_brain_try_next_mailbox(struct dsync_brain *brain, struct mailbox **box_r,
 		if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 			i_error("Can't sync mailbox %s: %s",
 				mailbox_get_vname(box),
-				mailbox_get_last_error(box, NULL));
+				mailbox_get_last_error(box, &brain->mail_error));
 			brain->failed = TRUE;
 			mailbox_free(&box);
 			return -1;
@@ -682,7 +690,7 @@ bool dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 	if (mailbox_update(box, &update) < 0) {
 		i_error("Couldn't update mailbox %s metadata: %s",
 			mailbox_get_vname(box),
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_error(box, &brain->mail_error));
 		brain->failed = TRUE;
 	}
 	return ret;
@@ -712,7 +720,8 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	const struct dsync_mailbox *dsync_box;
 	struct dsync_mailbox local_dsync_box;
 	struct mailbox *box;
-	const char *error;
+	const char *errstr;
+	enum mail_error error;
 	int ret;
 	bool resync;
 
@@ -727,10 +736,11 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	}
 
 	if (dsync_brain_mailbox_alloc(brain, dsync_box->mailbox_guid,
-				      &box, &error) < 0) {
+				      &box, &errstr, &error) < 0) {
 		i_error("Couldn't allocate mailbox GUID %s: %s",
-			guid_128_to_string(dsync_box->mailbox_guid), error);
-		i_assert(brain->failed);
+			guid_128_to_string(dsync_box->mailbox_guid), errstr);
+		brain->mail_error = error;
+		brain->failed = TRUE;
 		return TRUE;
 	}
 	if (box == NULL) {
@@ -759,15 +769,16 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		i_error("Can't sync mailbox %s: %s",
 			mailbox_get_vname(box),
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_error(box, &brain->mail_error));
 		mailbox_free(&box);
 		brain->failed = TRUE;
 		return TRUE;
 	}
 
-	if ((ret = dsync_box_get(box, &local_dsync_box)) <= 0) {
+	if ((ret = dsync_box_get(box, &local_dsync_box, &error)) <= 0) {
 		mailbox_free(&box);
 		if (ret < 0) {
+			brain->mail_error = error;
 			brain->failed = TRUE;
 			return TRUE;
 		}

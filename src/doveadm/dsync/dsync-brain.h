@@ -2,6 +2,7 @@
 #define DSYNC_BRAIN_H
 
 #include "guid.h"
+#include "mail-error.h"
 
 struct mail_namespace;
 struct mail_user;
@@ -80,7 +81,7 @@ struct dsync_brain *
 dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc,
 		       bool local, const char *process_title_prefix);
 /* Returns 0 if everything was successful, -1 if syncing failed in some way */
-int dsync_brain_deinit(struct dsync_brain **brain);
+int dsync_brain_deinit(struct dsync_brain **brain, enum mail_error *error_r);
 
 /* Returns TRUE if brain needs to run more, FALSE if it's finished.
    changed_r is TRUE if anything happened during this run. */

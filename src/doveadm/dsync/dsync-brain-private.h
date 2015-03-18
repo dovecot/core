@@ -95,6 +95,8 @@ struct dsync_brain {
 	/* new states for synced mailboxes */
 	ARRAY_TYPE(dsync_mailbox_state) remote_mailbox_states;
 
+	enum mail_error mail_error;
+
 	unsigned int master_brain:1;
 	unsigned int mail_requests:1;
 	unsigned int backup_send:1;
@@ -119,11 +121,13 @@ void dsync_brain_send_mailbox_tree_deletes(struct dsync_brain *brain);
 bool dsync_brain_recv_mailbox_tree(struct dsync_brain *brain);
 bool dsync_brain_recv_mailbox_tree_deletes(struct dsync_brain *brain);
 int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
-			const struct dsync_mailbox_tree_sync_change *change);
+			const struct dsync_mailbox_tree_sync_change *change,
+			enum mail_error *error_r);
 
 void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain);
 int dsync_brain_mailbox_alloc(struct dsync_brain *brain, const guid_128_t guid,
-			      struct mailbox **box_r, const char **error_r);
+			      struct mailbox **box_r, const char **errstr_r,
+			      enum mail_error *error_r);
 bool dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 				    struct mailbox *box,
 				    const struct dsync_mailbox *local_box,
