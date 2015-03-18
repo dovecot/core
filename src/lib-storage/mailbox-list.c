@@ -1417,12 +1417,18 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 		   list=Maildir++ (for indexes), but list->ns->list=imapc */
 		box = mailbox_alloc(list->ns->list, "INBOX", 0);
 		ret = mailbox_exists(box, FALSE, &existence);
-		mailbox_free(&box);
 		if (ret < 0) {
-			/* this can only be an internal error */
-			mailbox_list_set_internal_error(list);
-			return -1;
+			const char *errstr;
+			enum mail_error error;
+
+			/* internal error or with imapc we can get here with
+			   login failures */
+			errstr = mailbox_get_last_error(box, &error);
+			mailbox_list_set_error(list, error, errstr);
 		}
+		mailbox_free(&box);
+		if (ret < 0)
+			return -1;
 		switch (existence) {
 		case MAILBOX_EXISTENCE_NONE:
 		case MAILBOX_EXISTENCE_NOSELECT:
