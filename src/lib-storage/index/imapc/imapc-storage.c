@@ -941,10 +941,12 @@ static bool imapc_is_inconsistent(struct mailbox *box)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
 
-	if (mail_index_view_is_inconsistent(box->view))
+	if (box->view != NULL &&
+	    mail_index_view_is_inconsistent(box->view))
 		return TRUE;
 
-	return !imapc_client_mailbox_is_opened(mbox->client_box);
+	return mbox->client_box == NULL ? FALSE :
+		!imapc_client_mailbox_is_opened(mbox->client_box);
 }
 
 struct mail_storage imapc_storage = {
