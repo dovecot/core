@@ -184,7 +184,12 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	}
 	key.body_content_type = content_type;
 	key.body_content_disposition = ctx->content_disposition;
-	return fts_backend_update_set_build_key(ctx->update_ctx, &key);
+	if (!fts_backend_update_set_build_key(ctx->update_ctx, &key)) {
+		if (ctx->body_parser != NULL)
+			(void)fts_parser_deinit(&ctx->body_parser);
+		return FALSE;
+	}
+	return TRUE;
 }
 
 static int fts_build_body_block(struct fts_mail_build_context *ctx,
