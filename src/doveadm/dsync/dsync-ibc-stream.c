@@ -1854,7 +1854,7 @@ dsync_ibc_stream_recv_finish(struct dsync_ibc *_ibc, const char **error_r,
 	struct dsync_deserializer_decoder *decoder;
 	const char *value;
 	enum dsync_ibc_recv_ret ret;
-	int i;
+	int i = 0;
 
 	*error_r = NULL;
 	*mail_error_r = 0;
