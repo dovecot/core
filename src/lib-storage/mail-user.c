@@ -15,7 +15,6 @@
 #include "fs-api.h"
 #include "auth-master.h"
 #include "master-service.h"
-#include "mountpoint-list.h"
 #include "dict.h"
 #include "mail-storage-settings.h"
 #include "mail-storage-private.h"
@@ -36,8 +35,6 @@ static void mail_user_deinit_base(struct mail_user *user)
 		dict_deinit(&user->_attr_dict);
 	}
 	mail_namespaces_deinit(&user->namespaces);
-	if (user->mountpoints != NULL)
-		mountpoint_list_deinit(&user->mountpoints);
 }
 
 static void mail_user_stats_fill_base(struct mail_user *user ATTR_UNUSED,
@@ -438,38 +435,6 @@ const char *mail_user_get_anvil_userip_ident(struct mail_user *user)
 		return NULL;
 	return t_strconcat(net_ip2addr(user->remote_ip), "/",
 			   str_tabescape(user->username), NULL);
-}
-
-bool mail_user_is_path_mounted(struct mail_user *user, const char *path,
-			       const char **error_r)
-{
-	struct mountpoint_list_rec *rec;
-	const char *mounts_path;
-
-	*error_r = NULL;
-
-	if (user->mountpoints == NULL) {
-		mounts_path = t_strdup_printf("%s/"MOUNTPOINT_LIST_FNAME,
-					      user->set->base_dir);
-		user->mountpoints = mountpoint_list_init_readonly(mounts_path);
-	} else {
-		(void)mountpoint_list_refresh(user->mountpoints);
-	}
-	rec = mountpoint_list_find(user->mountpoints, path);
-	if (rec == NULL || strcmp(rec->state, MOUNTPOINT_STATE_IGNORE) == 0) {
-		/* we don't have any knowledge of this path's mountpoint.
-		   assume it's fine. */
-		return TRUE;
-	}
-	/* record exists for this mountpoint. see if it's mounted */
-	if (mountpoint_list_update_mounted(user->mountpoints) == 0 &&
-	    !rec->mounted) {
-		*error_r = t_strdup_printf("Mountpoint %s isn't mounted. "
-			"Mount it or remove it with doveadm mount remove",
-			rec->mount_path);
-		return FALSE;
-	}
-	return TRUE;
 }
 
 static void

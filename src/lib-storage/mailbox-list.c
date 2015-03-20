@@ -1109,7 +1109,7 @@ int mailbox_list_try_mkdir_root(struct mailbox_list *list, const char *path,
 				enum mailbox_list_path_type type,
 				const char **error_r)
 {
-	const char *root_dir, *error;
+	const char *root_dir;
 	struct stat st;
 	struct mailbox_permissions perm;
 
@@ -1127,14 +1127,10 @@ int mailbox_list_try_mkdir_root(struct mailbox_list *list, const char *path,
 	if (strcmp(root_dir, path) != 0 && stat(root_dir, &st) == 0) {
 		/* creating a subdirectory under an already existing root dir.
 		   use the root's permissions */
-	} else if (mail_user_is_path_mounted(list->ns->user, path, &error)) {
+	} else {
 		if (mailbox_list_try_mkdir_root_parent(list, type,
 						       &perm, error_r) < 0)
 			return -1;
-	} else {
-		*error_r = t_strdup_printf(
-			"Can't create mailbox root dir %s: %s", path, error);
-		return -1;
 	}
 
 	/* the rest of the directories exist only for one user. create them
