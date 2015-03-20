@@ -598,6 +598,10 @@ void module_dir_unload(struct module **modules)
 
 #else
 
+#ifndef MODULE_SUFFIX
+#  define MODULE_SUFFIX ".so" /* just to avoid build failure */
+#endif
+
 struct module *
 module_dir_load_missing(struct module *old_modules ATTR_UNUSED,
 			const char *dir ATTR_UNUSED,
