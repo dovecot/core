@@ -270,8 +270,10 @@ client_dict_finish_transaction(struct client_dict *dict,
 	/* the callback may call the dict code again, so remove this
 	   transaction before calling it */
 	i_assert(dict->async_commits > 0);
-	if (--dict->async_commits == 0)
-		io_remove(&dict->io);
+	if (--dict->async_commits == 0) {
+		if (dict->io != NULL)
+			io_remove(&dict->io);
+	}
 	DLLIST_REMOVE(&dict->transactions, ctx);
 
 	if (ctx->callback != NULL)
