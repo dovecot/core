@@ -13,6 +13,7 @@ enum doveadm_print_header_flags {
 };
 
 extern const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[];
+extern bool doveadm_print_hide_titles;
 
 bool doveadm_print_is_initialized(void);
 

@@ -271,7 +271,7 @@ int main(int argc, char *argv[])
 	/* "+" is GNU extension to stop at the first non-option.
 	   others just accept -+ option. */
 	master_service = master_service_init("doveadm", service_flags,
-					     &argc, &argv, "+Df:v");
+					     &argc, &argv, "+Df:hv");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'D':
@@ -280,6 +280,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'f':
 			doveadm_print_init(optarg);
+			break;
+		case 'h':
+			doveadm_print_hide_titles = TRUE;
 			break;
 		case 'v':
 			doveadm_verbose = TRUE;

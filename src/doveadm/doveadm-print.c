@@ -22,6 +22,8 @@ struct doveadm_print_context {
 	bool print_stream_open;
 };
 
+bool doveadm_print_hide_titles = FALSE;
+
 static struct doveadm_print_context *ctx;
 
 bool doveadm_print_is_initialized(void)

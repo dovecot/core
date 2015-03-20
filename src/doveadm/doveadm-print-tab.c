@@ -14,20 +14,27 @@ struct doveadm_print_tab_context {
 
 static struct doveadm_print_tab_context ctx;
 
+static void doveadm_print_tab_flush_header(void)
+{
+	if (!ctx.header_written) {
+		if (!doveadm_print_hide_titles)
+			printf("\n");
+		ctx.header_written = TRUE;
+	}
+}
+
 static void
 doveadm_print_tab_header(const struct doveadm_print_header *hdr)
 {
 	if (ctx.header_count++ > 0)
 		printf("\t");
-	printf("%s", hdr->title);
+	if (!doveadm_print_hide_titles)
+		printf("%s", hdr->title);
 }
 
 static void doveadm_print_tab_print(const char *value)
 {
-	if (!ctx.header_written) {
-		printf("\n");
-		ctx.header_written = TRUE;
-	}
+	doveadm_print_tab_flush_header();
 	if (ctx.header_idx > 0)
 		printf("\t");
 	printf("%s", value);
@@ -45,10 +52,7 @@ doveadm_print_tab_print_stream(const unsigned char *value, size_t size)
 		doveadm_print_tab_print("");
 		return;
 	}
-	if (!ctx.header_written) {
-		printf("\n");
-		ctx.header_written = TRUE;
-	}
+	doveadm_print_tab_flush_header();
 	if (ctx.header_idx > 0)
 		printf("\t");
 	fwrite(value, 1, size, stdout);
@@ -56,10 +60,7 @@ doveadm_print_tab_print_stream(const unsigned char *value, size_t size)
 
 static void doveadm_print_tab_flush(void)
 {
-	if (!ctx.header_written) {
-		printf("\n");
-		ctx.header_written = TRUE;
-	}
+	doveadm_print_tab_flush_header();
 }
 
 struct doveadm_print_vfuncs doveadm_print_tab_vfuncs = {

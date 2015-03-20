@@ -154,6 +154,9 @@ static void doveadm_print_headers(void)
 	const struct doveadm_print_table_header *headers;
 	unsigned int i, count;
 
+	if (doveadm_print_hide_titles)
+		return;
+
 	headers = array_get(&ctx->headers, &count);
 	/* if all headers are hidden, don't print any of them */
 	for (i = 0; i < count; i++) {
