@@ -80,5 +80,6 @@ o_stream_create_rawlog_from_stream(struct ostream *output,
 
 	rstream->riostream.rawlog_output = rawlog_output;
 	iostream_rawlog_init(&rstream->riostream, flags, FALSE);
-	return o_stream_create(&rstream->ostream, output, -1);
+	return o_stream_create(&rstream->ostream, output,
+			       o_stream_get_fd(output));
 }
