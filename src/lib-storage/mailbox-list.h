@@ -9,6 +9,7 @@
 #  define MAILBOX_LIST_NAME_MAX_LENGTH 4096
 #endif
 
+struct fs;
 struct mail_namespace;
 struct mail_storage;
 struct mailbox_list;
@@ -256,5 +257,13 @@ int mailbox_list_delete_symlink(struct mailbox_list *list, const char *name);
 const char * ATTR_NOWARN_UNUSED_RESULT
 mailbox_list_get_last_error(struct mailbox_list *list,
 			    enum mail_error *error_r);
+
+/* Create a fs based on the settings in the given mailbox_list. */
+int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
+			 const char *args, const char *root_dir,
+			 struct fs **fs_r, const char **error_r);
+/* Return mailbox_list that was used to create the fs via
+   mailbox_list_init_fs(). */
+struct mailbox_list *mailbox_list_fs_get_list(struct fs *fs);
 
 #endif

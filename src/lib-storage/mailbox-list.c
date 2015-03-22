@@ -13,7 +13,7 @@
 #include "unichar.h"
 #include "settings-parser.h"
 #include "iostream-ssl.h"
-#include "fs-api.h"
+#include "fs-api-private.h"
 #include "imap-utf7.h"
 #include "mailbox-log.h"
 #include "mailbox-tree.h"
@@ -36,9 +36,19 @@
 #define MAILBOX_MAX_HIERARCHY_LEVELS 16
 #define MAILBOX_MAX_HIERARCHY_NAME_LENGTH 255
 
+#define MAILBOX_LIST_FS_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, mailbox_list_fs_module)
+
+struct mailbox_list_fs_context {
+	union fs_api_module_context module_ctx;
+	struct mailbox_list *list;
+};
+
 struct mailbox_list_module_register mailbox_list_module_register = { 0 };
 
 static ARRAY(const struct mailbox_list *) mailbox_list_drivers;
+static MODULE_CONTEXT_DEFINE_INIT(mailbox_list_fs_module,
+				  &fs_api_module_register);
 
 void mailbox_lists_init(void)
 {
@@ -1831,6 +1841,8 @@ int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
 {
 	struct fs_settings fs_set;
 	struct ssl_iostream_settings ssl_set;
+	struct mailbox_list_fs_context *ctx;
+	struct fs *parent_fs;
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
 	memset(&fs_set, 0, sizeof(fs_set));
@@ -1838,5 +1850,27 @@ int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
 	fs_set.root_path = root_dir;
 	fs_set.temp_file_prefix = mailbox_list_get_global_temp_prefix(list);
 
-	return fs_init(driver, args, &fs_set, fs_r, error_r);
+	if (fs_init(driver, args, &fs_set, fs_r, error_r) < 0)
+		return -1;
+
+	/* add mailbox_list context to the parent fs, which allows
+	   mailbox_list_fs_get_list() to work */
+	for (parent_fs = *fs_r; parent_fs->parent != NULL;
+	     parent_fs = parent_fs->parent) ;
+
+	ctx = p_new(list->pool, struct mailbox_list_fs_context, 1);
+	ctx->list = list;
+	MODULE_CONTEXT_SET(parent_fs, mailbox_list_fs_module, ctx);
+	return 0;
+}
+
+struct mailbox_list *mailbox_list_fs_get_list(struct fs *fs)
+{
+	struct mailbox_list_fs_context *ctx;
+
+	while (fs->parent != NULL)
+		fs = fs->parent;
+
+	ctx = MAILBOX_LIST_FS_CONTEXT(fs);
+	return ctx->list;
 }
