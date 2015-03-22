@@ -22,8 +22,7 @@ libdovecot_la_SOURCES =
 
 libdovecot_la_LIBADD = \
 	$(libs) \
-	$(MODULE_LIBS) \
-	$(LTLIBICONV)
+	$(MODULE_LIBS)
 
 libdovecot_la_DEPENDENCIES = $(libs)
 libdovecot_la_LDFLAGS = -export-dynamic

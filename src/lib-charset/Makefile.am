@@ -3,6 +3,7 @@ noinst_LTLIBRARIES = libcharset.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib
 
+libcharset_la_LIBADD = $(LTLIBICONV)
 libcharset_la_SOURCES = \
 	charset-iconv.c \
 	charset-utf8.c
