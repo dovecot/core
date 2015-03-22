@@ -81,9 +81,28 @@ static void fs_class_deinit_modules(void)
 	module_dir_unload(&fs_modules);
 }
 
+static const char *fs_driver_module_name(const char *driver)
+{
+	string_t *str;
+	unsigned int i;
+
+	if (strchr(driver, '-') == NULL)
+		return driver;
+
+	str = t_str_new(32);
+	for (i = 0; driver[i] != '\0'; i++) {
+		if (driver[i] == '-')
+			str_append_c(str, '_');
+		else
+			str_append_c(str, driver[i]);
+	}
+	return str_c(str);
+}
+
 static void fs_class_try_load_plugin(const char *driver)
 {
-	const char *module_name = t_strdup_printf("fs_%s", driver);
+	const char *module_name =
+		t_strdup_printf("fs_%s", fs_driver_module_name(driver));
 	struct module *module;
 	struct module_dir_load_settings mod_set;
 	const struct fs *fs_class;
@@ -98,7 +117,8 @@ static void fs_class_try_load_plugin(const char *driver)
 
 	module = module_dir_find(fs_modules, module_name);
 	fs_class = module == NULL ? NULL :
-		module_get_symbol(module, t_strdup_printf("fs_class_%s", driver));
+		module_get_symbol(module, t_strdup_printf(
+			"fs_class_%s", fs_driver_module_name(driver)));
 	if (fs_class != NULL)
 		fs_class_register(fs_class);
 
