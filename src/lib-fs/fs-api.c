@@ -11,6 +11,8 @@
 #include "ostream.h"
 #include "fs-api-private.h"
 
+struct fs_api_module_register fs_api_module_register = { 0 };
+
 static struct module *fs_modules = NULL;
 static ARRAY(const struct fs *) fs_classes;
 
@@ -23,6 +25,7 @@ fs_alloc(const struct fs *fs_class, const char *args,
 
 	fs = fs_class->v.alloc();
 	fs->last_error = str_new(default_pool, 64);
+	i_array_init(&fs->module_contexts, 5);
 
 	T_BEGIN {
 		ret = fs_class->v.init(fs, args, set);
@@ -157,6 +160,7 @@ void fs_deinit(struct fs **_fs)
 {
 	struct fs *fs = *_fs;
 	string_t *last_error = fs->last_error;
+	struct array module_contexts_arr = fs->module_contexts.arr;
 
 	*_fs = NULL;
 
@@ -172,6 +176,7 @@ void fs_deinit(struct fs **_fs)
 	T_BEGIN {
 		fs->v.deinit(fs);
 	} T_END;
+	array_free_i(&module_contexts_arr);
 	str_free(&last_error);
 }
 

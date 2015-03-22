@@ -2,6 +2,17 @@
 #define FS_API_PRIVATE_H
 
 #include "fs-api.h"
+#include "module-context.h"
+
+struct fs_api_module_register {
+	unsigned int id;
+};
+
+union fs_api_module_context {
+	struct fs_api_module_register *reg;
+};
+
+extern struct fs_api_module_register fs_api_module_register;
 
 struct fs_vfuncs {
 	struct fs *(*alloc)(void);
@@ -72,6 +83,8 @@ struct fs {
 	struct fs_iter *iters;
 
 	struct fs_stats stats;
+
+	ARRAY(union fs_api_module_context *) module_contexts;
 };
 
 struct fs_file {
