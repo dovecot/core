@@ -315,8 +315,12 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 			   IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_MIGRATION)) {
 			if (!imap_arg_get_list(&list[i+1], &flags_list))
 				return;
-			if (flags_list[0].type != IMAP_ARG_EOL)
-				have_labels = TRUE;
+			for (j = 0; flags_list[j].type != IMAP_ARG_EOL; j++) {
+				if (!imap_arg_get_atom(&flags_list[j], &atom))
+					return;
+				if (strcasecmp(atom, "\\Muted") != 0)
+					have_labels = TRUE;
+			}
 		}
 	}
 
