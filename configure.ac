@@ -160,7 +160,7 @@ AS_HELP_STRING([--with-lucene], [Build with CLucene full text search support]),
 AM_CONDITIONAL(BUILD_LUCENE, test "$want_lucene" = "yes")
 
 AC_ARG_WITH(stemmer,
-AS_HELP_STRING([--with-stemmer], [Build with libstemmer support (for CLucene)]),
+AS_HELP_STRING([--with-stemmer], [Build with libstemmer support (for CLucene) (auto)]),
   TEST_WITH(stemmer, $withval),
   want_stemmer=auto)
 
@@ -170,27 +170,27 @@ AS_HELP_STRING([--with-solr], [Build with Solr full text search support]),
   want_solr=no)
 
 AC_ARG_WITH(zlib,
-AS_HELP_STRING([--with-zlib], [Build with zlib compression support]),
+AS_HELP_STRING([--with-zlib], [Build with zlib compression support (auto)]),
   TEST_WITH(zlib, $withval),
   want_zlib=auto)
 
 AC_ARG_WITH(bzlib,
-AS_HELP_STRING([--with-bzlib], [Build with bzlib compression support]),
+AS_HELP_STRING([--with-bzlib], [Build with bzlib compression support (auto)]),
   TEST_WITH(bzlib, $withval),
   want_bzlib=auto)
 
 AC_ARG_WITH(lzma,
-AS_HELP_STRING([--with-lzma], [Build with LZMA compression support]),
+AS_HELP_STRING([--with-lzma], [Build with LZMA compression support (auto)]),
   TEST_WITH(lzma, $withval),
   want_lzma=auto)
 
 AC_ARG_WITH(lz4,
-AS_HELP_STRING([--with-lz4], [Build with LZ4 compression support]),
+AS_HELP_STRING([--with-lz4], [Build with LZ4 compression support (auto)]),
   TEST_WITH(lz4, $withval),
   want_lz4=auto)
 
 AC_ARG_WITH(libcap,
-AS_HELP_STRING([--with-libcap], [Build with libcap support (Dropping capabilities).]),
+AS_HELP_STRING([--with-libcap], [Build with libcap support (Dropping capabilities) (auto)]),
   TEST_WITH(libcap, $withval),
   want_libcap=auto)
 
