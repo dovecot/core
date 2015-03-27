@@ -488,6 +488,11 @@ static int imapc_sync(struct imapc_mailbox *mbox)
 	struct imapc_sync_context *sync_ctx;
 	bool force = mbox->sync_fetch_first_uid != 0;
 
+	if ((mbox->box.flags & MAILBOX_FLAG_SAVEONLY) != 0) {
+		/* we're only saving mails here - no syncing actually wanted */
+		return 0;
+	}
+
 	if (imapc_sync_begin(mbox, &sync_ctx, force) < 0)
 		return -1;
 	if (sync_ctx == NULL)
