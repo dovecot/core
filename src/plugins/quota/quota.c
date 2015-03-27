@@ -674,8 +674,8 @@ int quota_get_resource(struct quota_root *root, const char *mailbox_name,
 		*limit_r = 0;
 
 	if (kilobytes) {
-		*value_r /= 1024;
-		*limit_r /= 1024;
+		*value_r = (*value_r + 1023) / 1024;
+		*limit_r = (*limit_r + 1023) / 1024;
 	}
 	return *limit_r == 0 ? 0 : 1;
 }
