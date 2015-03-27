@@ -996,10 +996,25 @@ quota_over_flag_check_root(struct mail_user *user, struct quota_root *root)
 		ret = quota_get_resource(root, "", resources[i], &value, &limit);
 		if (ret < 0) {
 			/* can't reliably verify this */
+			if (root->quota->set->debug) {
+				i_debug("quota: Quota %s lookup failed - can't verify quota_over_flag",
+					resources[i]);
+			}
 			return;
+		}
+		if (root->quota->set->debug) {
+			i_debug("quota: quota_over_flag check: %s ret=%d value=%llu limit=%llu",
+				resources[i], ret,
+				(unsigned long long)value,
+				(unsigned long long)limit);
 		}
 		if (ret > 0 && value > limit)
 			cur_overquota = TRUE;
+	}
+	if (root->quota->set->debug) {
+		i_debug("quota: quota_over_flag=%d(%s) vs currently overquota=%d",
+			overquota_flag, overquota_value != NULL ? "(null)" : overquota_value,
+			cur_overquota);
 	}
 	if (cur_overquota != overquota_flag)
 		quota_warning_execute(root, overquota_script, overquota_value);
