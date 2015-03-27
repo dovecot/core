@@ -173,11 +173,13 @@ auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 	}
 
 	if (request->original_username != NULL &&
-	    null_strcmp(request->original_username, request->user) != 0) {
+	    null_strcmp(request->original_username, request->user) != 0 &&
+	    !auth_fields_exists(request->extra_fields, "original_user")) {
 		auth_str_add_keyvalue(dest, "original_user",
 				      request->original_username);
 	}
-	if (request->master_user != NULL)
+	if (request->master_user != NULL &&
+	    !auth_fields_exists(request->extra_fields, "auth_user"))
 		auth_str_add_keyvalue(dest, "auth_user", request->master_user);
 
 	if (!request->auth_only &&
