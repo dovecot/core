@@ -126,7 +126,8 @@ static const struct {
 	},
 	{ .name = "finish",
 	  .chr = 'F',
-	  .optional_keys = "error mail_error"
+	  .optional_keys = "error mail_error",
+	  .min_minor_version = DSYNC_PROTOCOL_MINOR_HAVE_FINISH
 	},
 	{ .name = "mailbox_cache_field",
 	  .chr = 'c',
