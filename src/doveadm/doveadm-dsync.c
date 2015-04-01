@@ -700,7 +700,9 @@ static void dsync_connected_callback(int exit_code, const char *error,
 		break;
 	default:
 		ctx->error = p_strdup_printf(ctx->ctx.pool,
-			"Failed to start dsync-server command: %u", exit_code);
+			"Failed to start remote dsync-server command: "
+			"Remote exit_code=%u %s",
+			exit_code, error == NULL ? "" : error);
 		break;
 	}
 	io_loop_stop(current_ioloop);
