@@ -164,6 +164,11 @@ AS_HELP_STRING([--with-stemmer], [Build with libstemmer support (for CLucene) (a
   TEST_WITH(stemmer, $withval),
   want_stemmer=auto)
 
+AC_ARG_WITH(textcat,
+AS_HELP_STRING([--with-textcat], [Build with libtextcat support (for CLucene) (auto)]),
+  TEST_WITH(textcat, $withval),
+  want_textcat=auto)
+
 AC_ARG_WITH(solr,
 AS_HELP_STRING([--with-solr], [Build with Solr full text search support]),
   TEST_WITH(solr, $withval),
@@ -2742,15 +2747,20 @@ if test "$want_lucene" = "yes"; then
     AC_CHECK_LIB(stemmer, sb_stemmer_new, [
       have_lucene_stemmer=yes
       AC_DEFINE(HAVE_LUCENE_STEMMER,, Define if you want stemming support for CLucene)
-      AC_CHECK_LIB(textcat, special_textcat_Init, [
-	have_lucene_textcat=yes
-	AC_DEFINE(HAVE_LUCENE_TEXTCAT,, Define if you want textcat support for CLucene)
-      ], [
-        AC_CHECK_LIB(exttextcat, special_textcat_Init, [
-          have_lucene_exttextcat=yes
-          AC_DEFINE(HAVE_LUCENE_EXTTEXTCAT,, Define if you want textcat (Debian version) support for CLucene)
-        ])
-      ])
+      if test $want_textcat != no; then
+	AC_CHECK_LIB(textcat, special_textcat_Init, [
+	  have_lucene_textcat=yes
+	  AC_DEFINE(HAVE_LUCENE_TEXTCAT,, Define if you want textcat support for CLucene)
+	], [
+	  AC_CHECK_LIB(exttextcat, special_textcat_Init, [
+	    have_lucene_exttextcat=yes
+	    AC_DEFINE(HAVE_LUCENE_EXTTEXTCAT,, Define if you want textcat (Debian version) support for CLucene)
+	  ])
+	])
+        if test $want_textcat = yes && test "$have_lucene_exttextcat" != yes && test "$have_lucene_textcat" != yes; then
+	  AC_ERROR([Can't build with textcat support: libtextcat or libexttextcat not found])
+	fi
+      fi
     ], [
       if test $want_stemmer = yes; then
 	AC_ERROR([Can't build with stemmer support: libstemmer not found])
