@@ -48,6 +48,7 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 	const struct mail_index_header *hdr = &view->index->map->hdr;
 	uint32_t start_seq, end_seq;
 	uoff_t start_offset, end_offset;
+	const char *reason;
 	int ret;
 
 	start_seq = view->log_file_expunge_seq;
@@ -71,7 +72,7 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 		ret = mail_transaction_log_view_set(view->log_view,
 						    start_seq, start_offset,
 						    end_seq, end_offset,
-						    reset_r);
+						    reset_r, &reason);
 		if (ret <= 0)
 			return ret;
 
@@ -489,7 +490,9 @@ static int mail_index_view_sync_init_fix(struct mail_index_view_sync_ctx *ctx)
 	struct mail_index_view *view = ctx->view;
 	uint32_t seq;
 	uoff_t offset;
+	const char *reason;
 	bool reset;
+	int ret;
 
 	/* replace the view's map */
 	view->index->map->refcount++;
@@ -501,9 +504,15 @@ static int mail_index_view_sync_init_fix(struct mail_index_view_sync_ctx *ctx)
 	view->log_file_head_offset = offset =
 		view->map->hdr.log_file_head_offset;
 
-	if (mail_transaction_log_view_set(view->log_view, seq, offset,
-					  seq, offset, &reset) <= 0)
+	ret = mail_transaction_log_view_set(view->log_view, seq, offset,
+					    seq, offset, &reset, &reason);
+	if (ret < 0)
 		return -1;
+	if (ret == 0) {
+		mail_index_set_error(view->index, "Failed to fix view for %s: %s",
+				     view->index->filepath, reason);
+		return 0;
+	}
 	view->inconsistent = FALSE;
 	return 0;
 }

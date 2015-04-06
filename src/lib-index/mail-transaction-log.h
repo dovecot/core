@@ -227,7 +227,7 @@ void mail_transaction_log_view_close(struct mail_transaction_log_view **view);
 int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 				  uint32_t min_file_seq, uoff_t min_file_offset,
 				  uint32_t max_file_seq, uoff_t max_file_offset,
-				  bool *reset_r);
+				  bool *reset_r, const char **reason_r);
 /* Scan through all of the log files that we can find.
    Returns -1 if error, 0 if ok. */
 int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view);

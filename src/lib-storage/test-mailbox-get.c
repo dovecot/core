@@ -40,7 +40,7 @@ mail_transaction_log_view_open(struct mail_transaction_log *log ATTR_UNUSED) { r
 int mail_transaction_log_view_set(struct mail_transaction_log_view *view ATTR_UNUSED,
 				  uint32_t min_file_seq ATTR_UNUSED, uoff_t min_file_offset ATTR_UNUSED,
 				  uint32_t max_file_seq ATTR_UNUSED, uoff_t max_file_offset ATTR_UNUSED,
-				  bool *reset_r ATTR_UNUSED) {
+				  bool *reset_r ATTR_UNUSED, const char **reason_r ATTR_UNUSED) {
 	if (min_file_seq < 99)
 		return 0;
 	return 1;

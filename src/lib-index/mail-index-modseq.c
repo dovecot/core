@@ -403,6 +403,7 @@ static void mail_index_modseq_sync_init(struct mail_index_modseq_sync *ctx)
 	const struct mail_index_modseq_header *hdr;
 	const struct mail_transaction_header *thdr;
 	const void *tdata;
+	const char *reason;
 	uint32_t ext_map_idx;
 	uint32_t end_seq;
 	uoff_t end_offset;
@@ -437,12 +438,12 @@ static void mail_index_modseq_sync_init(struct mail_index_modseq_sync *ctx)
 	ret = mail_transaction_log_view_set(ctx->log_view,
 					    I_MAX(1, hdr->log_seq),
 					    hdr->log_offset,
-					    end_seq, end_offset, &reset);
+					    end_seq, end_offset, &reset, &reason);
 	if (ret <= 0) {
 		/* missing files / error - try with only the last file */
 		ret = mail_transaction_log_view_set(ctx->log_view, end_seq, 0,
 						    end_seq, end_offset,
-						    &reset);
+						    &reset, &reason);
 		/* since we don't know if we skipped some changes, set all
 		   modseqs to beginning of the latest file. */
 		cur_modseq = mail_transaction_log_view_get_prev_modseq(

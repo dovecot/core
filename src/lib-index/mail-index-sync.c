@@ -284,6 +284,7 @@ mail_index_sync_set_log_view(struct mail_index_view *view,
 {
 	uint32_t log_seq;
 	uoff_t log_offset;
+	const char *reason;
 	bool reset;
 	int ret;
 
@@ -291,15 +292,15 @@ mail_index_sync_set_log_view(struct mail_index_view *view,
 
 	ret = mail_transaction_log_view_set(view->log_view,
                                             start_file_seq, start_file_offset,
-					    log_seq, log_offset, &reset);
+					    log_seq, log_offset, &reset, &reason);
 	if (ret < 0)
 		return -1;
 	if (ret == 0) {
 		/* either corrupted or the file was deleted for
 		   some reason. either way, we can't go forward */
 		mail_index_set_error(view->index,
-			"Unexpected transaction log desync with index %s",
-			view->index->filepath);
+			"Unexpected transaction log desync with index %s: %s",
+			view->index->filepath, reason);
 		return 0;
 	}
 	return 1;
@@ -529,6 +530,7 @@ static bool mail_index_sync_view_have_any(struct mail_index_view *view,
 	const void *data;
 	uint32_t log_seq;
 	uoff_t log_offset;
+	const char *reason;
 	bool reset;
 	int ret;
 
@@ -544,7 +546,8 @@ static bool mail_index_sync_view_have_any(struct mail_index_view *view,
 	if (mail_transaction_log_view_set(view->log_view,
 					  view->map->hdr.log_file_seq,
 					  view->map->hdr.log_file_tail_offset,
-					  log_seq, log_offset, &reset) <= 0) {
+					  log_seq, log_offset,
+					  &reset, &reason) <= 0) {
 		/* let the actual syncing handle the error */
 		return TRUE;
 	}
