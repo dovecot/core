@@ -21,6 +21,7 @@
 #include <sys/socket.h>
 
 #define OUTBUF_THRESHOLD IO_BLOCK_SIZE
+#define RAWLOG_TIMEOUT_FLUSH_MSECS 1000
 
 static struct ioloop *ioloop;
 
@@ -36,6 +37,7 @@ struct rawlog_proxy {
 	int client_in_fd, client_out_fd, server_fd;
 	struct io *client_io, *server_io;
 	struct ostream *client_output, *server_output;
+	struct timeout *to_flush;
 
 	struct ostream *in_output, *out_output;
 	enum rawlog_flags flags;
@@ -64,6 +66,8 @@ static void rawlog_proxy_destroy(struct rawlog_proxy *proxy)
 		io_remove(&proxy->client_io);
 	if (proxy->server_io != NULL)
 		io_remove(&proxy->server_io);
+	if (proxy->to_flush != NULL)
+		timeout_remove(&proxy->to_flush);
 
 	o_stream_destroy(&proxy->client_output);
 	o_stream_destroy(&proxy->server_output);
@@ -103,6 +107,18 @@ write_with_timestamps(struct ostream *output, bool *prev_lf,
 	} T_END;
 }
 
+static void proxy_flush_timeout(struct rawlog_proxy *proxy)
+{
+	bool flushed = TRUE;
+
+	if (o_stream_flush(proxy->in_output) == 0)
+		flushed = FALSE;
+	if (o_stream_flush(proxy->out_output) == 0)
+		flushed = FALSE;
+	if (flushed)
+		timeout_remove(&proxy->to_flush);
+}
+
 static void proxy_write_data(struct rawlog_proxy *proxy, struct ostream *output,
 			     bool *prev_lf, const void *data, size_t size)
 {
@@ -119,6 +135,11 @@ static void proxy_write_data(struct rawlog_proxy *proxy, struct ostream *output,
 
 	if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0)
 		o_stream_nsend_str(output, ">>>\n");
+
+	if (proxy->to_flush == NULL) {
+		proxy->to_flush = timeout_add(RAWLOG_TIMEOUT_FLUSH_MSECS,
+					      proxy_flush_timeout, proxy);
+	}
 }
 
 static void proxy_write_in(struct rawlog_proxy *proxy,
