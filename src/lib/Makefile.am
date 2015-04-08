@@ -86,6 +86,7 @@ liblib_la_SOURCES = \
 	ioloop-epoll.c \
 	ioloop-kqueue.c \
 	json-parser.c \
+	json-tree.c \
 	lib.c \
 	lib-signals.c \
 	md4.c \
@@ -212,6 +213,7 @@ headers = \
 	ioloop-private.h \
 	ioloop-notify-fd.h \
 	json-parser.h \
+	json-tree.h \
 	lib.h \
 	lib-signals.h \
 	llist.h \
@@ -301,6 +303,7 @@ test_lib_SOURCES = \
 	test-istream-seekable.c \
 	test-istream-tee.c \
 	test-json-parser.c \
+	test-json-tree.c \
 	test-llist.c \
 	test-mempool-alloconly.c \
 	test-network.c \

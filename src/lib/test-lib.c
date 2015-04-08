@@ -28,6 +28,7 @@ int main(void)
 		test_istream_seekable,
 		test_istream_tee,
 		test_json_parser,
+		test_json_tree,
 		test_llist,
 		test_mempool_alloconly,
 		test_network,
