@@ -46,6 +46,8 @@ unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 
 static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 			   const char *subsystem);
+static void
+auth_request_userdb_import(struct auth_request *request, const char *args);
 
 struct auth_request *
 auth_request_new(const struct mech_module *mech)
@@ -985,7 +987,6 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 
 static bool auth_request_lookup_user_cache(struct auth_request *request,
 					   const char *key,
-					   struct auth_fields **reply_r,
 					   enum userdb_result *result_r,
 					   bool use_expired)
 {
@@ -1007,13 +1008,13 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 	if (*value == '\0') {
 		/* negative cache entry */
 		*result_r = USERDB_RESULT_USER_UNKNOWN;
-		*reply_r = auth_fields_init(request->pool);
+		request->userdb_reply = auth_fields_init(request->pool);
 		return TRUE;
 	}
 
+	request->userdb_reply = auth_fields_init(request->pool);
+	auth_request_userdb_import(request, value);
 	*result_r = USERDB_RESULT_OK;
-	*reply_r = auth_fields_init(request->pool);
-	auth_fields_import(*reply_r, value, 0);
 	return TRUE;
 }
 
@@ -1114,11 +1115,9 @@ void auth_request_userdb_callback(enum userdb_result result,
 		   request was expired in cache, fallback to using cached
 		   expired record. */
 		const char *cache_key = userdb->cache_key;
-		struct auth_fields *reply;
 
-		if (auth_request_lookup_user_cache(request, cache_key, &reply,
+		if (auth_request_lookup_user_cache(request, cache_key,
 						   &result, TRUE)) {
-			request->userdb_reply = reply;
 			auth_request_log_info(request, AUTH_SUBSYS_DB,
 				"Falling back to expired data from cache");
 		}
@@ -1141,12 +1140,10 @@ void auth_request_lookup_user(struct auth_request *request,
 	/* (for now) auth_cache is shared between passdb and userdb */
 	cache_key = passdb_cache == NULL ? NULL : userdb->cache_key;
 	if (cache_key != NULL) {
-		struct auth_fields *reply;
 		enum userdb_result result;
 
-		if (auth_request_lookup_user_cache(request, cache_key, &reply,
+		if (auth_request_lookup_user_cache(request, cache_key,
 						   &result, FALSE)) {
-			request->userdb_reply = reply;
 			request->private_callback.userdb(result, request);
 			return;
 		}
