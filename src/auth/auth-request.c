@@ -973,6 +973,13 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 		auth_fields_append(request->userdb_reply, str,
 				   AUTH_FIELD_FLAG_CHANGED,
 				   AUTH_FIELD_FLAG_CHANGED);
+		if (strcmp(request->user, request->translated_username) != 0) {
+			/* username was changed by passdb or userdb */
+			if (str_len(str) > 0)
+				str_append_c(str, '\t');
+			str_append(str, "user=");
+			str_append_tabescaped(str, request->user);
+		}
 		if (str_len(str) == 0) {
 			/* no userdb fields. but we can't save an empty string,
 			   since that means "user unknown". */
