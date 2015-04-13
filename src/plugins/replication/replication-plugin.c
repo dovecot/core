@@ -191,6 +191,8 @@ static void replication_notify(struct mail_namespace *ns,
 	}
 
 	ruser = REPLICATION_USER_CONTEXT(ns->user);
+	if (ruser == NULL)
+		return;
 
 	if (priority == REPLICATION_PRIORITY_SYNC) {
 		if (replication_notify_sync(ns->user) == 0) {
@@ -254,7 +256,7 @@ replication_mail_transaction_commit(void *txn,
 		REPLICATION_USER_CONTEXT(ctx->ns->user);
 	enum replication_priority priority;
 
-	if (ctx->new_messages || changes->changed) {
+	if (ruser != NULL && (ctx->new_messages || changes->changed)) {
 		priority = !ctx->new_messages ? REPLICATION_PRIORITY_LOW :
 			ruser->sync_secs == 0 ? REPLICATION_PRIORITY_HIGH :
 			REPLICATION_PRIORITY_SYNC;
