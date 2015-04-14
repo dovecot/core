@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "array.h"
 #include "hash.h"
+#include "str.h"
+#include "strescape.h"
 #include "home-expand.h"
 #include "mkdir-parents.h"
 #include "file-lock.h"
@@ -177,12 +179,12 @@ static int file_dict_refresh(struct file_dict *dict)
 
 		while ((key = i_stream_read_next_line(input)) != NULL) {
 			/* strdup() before the second read */
-			key = p_strdup(dict->hash_pool, key);
+			key = str_tabunescape(p_strdup(dict->hash_pool, key));
 
 			if ((value = i_stream_read_next_line(input)) == NULL)
 				break;
 
-			value = p_strdup(dict->hash_pool, value);
+			value = str_tabunescape(p_strdup(dict->hash_pool, value));
 			hash_table_insert(dict->hash, key, value);
 		}
 		i_stream_destroy(&input);
@@ -501,6 +503,7 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	struct hash_iterate_context *iter;
 	struct ostream *output;
 	char *key, *value;
+	string_t *str;
 	int fd = -1;
 
 	*atomic_inc_not_found_r = FALSE;
@@ -558,11 +561,14 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	output = o_stream_create_fd(fd, 0, FALSE);
 	o_stream_cork(output);
 	iter = hash_table_iterate_init(dict->hash);
+	str = t_str_new(256);
 	while (hash_table_iterate(iter, dict->hash, &key, &value)) {
-		o_stream_nsend_str(output, key);
-		o_stream_nsend(output, "\n", 1);
-		o_stream_nsend_str(output, value);
-		o_stream_nsend(output, "\n", 1);
+		str_truncate(str, 0);
+		str_append_tabescaped(str, key);
+		str_append_c(str, '\n');
+		str_append_tabescaped(str, value);
+		str_append_c(str, '\n');
+		o_stream_nsend(output, str_data(str), str_len(str));
 	}
 	hash_table_iterate_deinit(&iter);
 
