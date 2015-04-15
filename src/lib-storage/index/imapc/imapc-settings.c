@@ -86,6 +86,7 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "fetch-headers", IMAPC_FEATURE_FETCH_HEADERS },
 	{ "gmail-migration", IMAPC_FEATURE_GMAIL_MIGRATION },
 	{ "search", IMAPC_FEATURE_SEARCH },
+	{ "zimbra-workarounds", IMAPC_FEATURE_ZIMBRA_WORKAROUNDS },
 	{ NULL, 0 }
 };
 

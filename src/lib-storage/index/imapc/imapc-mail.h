@@ -17,6 +17,7 @@ struct imapc_mail {
 
 	int fd;
 	buffer_t *body;
+	bool header_fetched;
 	bool body_fetched;
 	bool header_list_fetched;
 };
@@ -31,7 +32,7 @@ int imapc_mail_fetch(struct mail *mail, enum mail_fetch_field fields,
 		     const char *const *headers);
 bool imapc_mail_prefetch(struct mail *mail);
 void imapc_mail_fetch_flush(struct imapc_mailbox *mbox);
-void imapc_mail_init_stream(struct imapc_mail *mail, bool have_body);
+void imapc_mail_init_stream(struct imapc_mail *mail);
 
 void imapc_mail_fetch_update(struct imapc_mail *mail,
 			     const struct imapc_untagged_reply *reply,
