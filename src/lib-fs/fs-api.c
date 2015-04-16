@@ -16,6 +16,8 @@ struct fs_api_module_register fs_api_module_register = { 0 };
 static struct module *fs_modules = NULL;
 static ARRAY(const struct fs *) fs_classes;
 
+static void fs_classes_init(void);
+
 static int
 fs_alloc(const struct fs *fs_class, const char *args,
 	 const struct fs_settings *set, struct fs **fs_r, const char **error_r)
@@ -45,8 +47,10 @@ fs_alloc(const struct fs *fs_class, const char *args,
 	return 0;
 }
 
-static void fs_class_register(const struct fs *fs_class)
+void fs_class_register(const struct fs *fs_class)
 {
+	if (!array_is_created(&fs_classes))
+		fs_classes_init();
 	array_append(&fs_classes, &fs_class, 1);
 }
 

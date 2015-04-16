@@ -138,6 +138,8 @@ extern const struct fs fs_class_metawrap;
 extern const struct fs fs_class_sis;
 extern const struct fs fs_class_sis_queue;
 
+void fs_class_register(const struct fs *fs_class);
+
 void fs_set_error(struct fs *fs, const char *fmt, ...) ATTR_FORMAT(2, 3);
 void fs_set_critical(struct fs *fs, const char *fmt, ...) ATTR_FORMAT(2, 3);
 
