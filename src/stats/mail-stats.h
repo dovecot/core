@@ -1,6 +1,8 @@
 #ifndef MAIL_STATS_H
 #define MAIL_STATS_H
 
+#include <sys/time.h>
+
 #include "net.h"
 #include "guid.h"
 #include "stats.h"
