@@ -126,7 +126,7 @@ static int test_compare_ushort_fuzz(const unsigned short *c1, const unsigned sho
 static void test_array_cmp(void)
 {
 	static const unsigned short deltas[] = {
-		-32768, -16384, -512, -256, -128, -64, -2, -1,
+		0x8000, 0xc000, 0xfe00, 0xff00, 0xff80, 0xffc0, 0xfffe, 0xffff,
 		0, 1, 2, 64, 128, 256, 512, 16384, 32768
 	};
 
@@ -151,7 +151,8 @@ static void test_array_cmp(void)
 
 	for (i = 0; i < 256; i++) {
 		unsigned int j = rand() % NELEMS;
-		unsigned short tmp = *array_idx(&arr2, j);
+		const unsigned short *ptmp = array_idx(&arr2, j);
+		unsigned short tmp = *ptmp;
 		unsigned short repl = tmp + deltas[rand() % N_ELEMENTS(deltas)];
 
 		array_idx_set(&arr2, j, &repl);
@@ -203,7 +204,8 @@ static void test_array_cmp_str(void)
 	test_assert(array_equal_fn(&arr1, &arr2, test_compare_string) == 1); /* therefore value same */
 	for (i = 0; i < 2560; i++) {
 		unsigned int j = rand() % NELEMS;
-		const char *ostr = *array_idx(&arr2, j);
+		const char *const *ostr_p = array_idx(&arr2, j);
+		const char *ostr = *ostr_p;
 		unsigned int olen = strlen(ostr);
 		unsigned int rc = rand() % (olen + 1);
 		char ochar = ostr[rc];
