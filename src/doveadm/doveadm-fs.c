@@ -263,7 +263,7 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 	t_array_init(&fnames, 8);
 	iter = fs_iter_init(fs, path, FS_ITER_FLAG_DIRS);
 	while ((fname = fs_iter_next(iter)) != NULL) {
-		fname = t_strconcat(fname, "/", NULL);
+		fname = t_strdup(fname);
 		array_append(&fnames, &fname, 1);
 	}
 	if (fs_iter_deinit(&iter) < 0) {
