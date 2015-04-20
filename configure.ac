@@ -2767,7 +2767,7 @@ AM_CONDITIONAL(BUILD_FTS_STEMMER, test "$have_fts_stemmer" = "yes")
 if test $want_textcat != no; then
   if test "$PKG_CONFIG" != "" && $PKG_CONFIG --exists libexttextcat 2>/dev/null; then
     PKG_CHECK_MODULES(LIBEXTTEXTCAT, libexttextcat)
-    have_exttextcat=yes
+    have_fts_exttextcat=yes
   else
     AC_CHECK_LIB(exttextcat, special_textcat_Init, [
       have_fts_exttextcat=yes
