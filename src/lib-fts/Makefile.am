@@ -10,7 +10,10 @@ AM_CPPFLAGS = \
 	-DTEST_STOPWORDS_DIR=\""$(top_srcdir)/src/lib-fts"\"
 
 stopwordsdir = $(datadir)/${PACKAGE_TARNAME}/stopwords
-dist_stopwords_DATA = stopwords_en.txt stopwords_fr.txt
+dist_stopwords_DATA = \
+	stopwords_en.txt \
+	stopwords_fi.txt \
+	stopwords_fr.txt
 
 BUILT_SOURCES = word-boundary-data.c word-break-data.c
 
