@@ -7,8 +7,8 @@
    As such, they are not really unit test to be coupled with the build. */
 
 const char *const settings[] =
-	{"fts_language_config", TEST_TEXTCAT_DIR"/fpdb.conf",
-	 "fts_language_data", TEST_TEXTCAT_DIR"/LM/", NULL};
+	{"fts_language_config", TEXTCAT_DATADIR"/fpdb.conf",
+	 "fts_language_data", TEXTCAT_DATADIR"/", NULL};
 
 /* Detect Finnish. fi--utf8 */
 static void test_fts_language_detect_finnish(void)

@@ -7,7 +7,6 @@ AM_CPPFLAGS = \
 	$(LIBFTS_NORMALIZER_CFLAGS) \
 	-DUDHRDIR=\""$(top_srcdir)/src/lib-fts"\" \
 	-DDATADIR=\"$(pkgdatadir)\" \
-	-DTEST_TEXTCAT_DIR=\""$(top_srcdir)/ext/libexttextcat/langclass"\" \
 	-DTEST_STOPWORDS_DIR=\""$(top_srcdir)/src/lib-fts"\"
 
 stopwordsdir = $(datadir)/${PACKAGE_TARNAME}/stopwords
