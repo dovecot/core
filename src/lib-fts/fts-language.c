@@ -8,13 +8,8 @@
 
 #ifdef HAVE_LIBEXTTEXTCAT_TEXTCAT_H
 #  include <libexttextcat/textcat.h>
-#  define HAVE_TEXTCAT
-#elif defined (HAVE_LIBTEXTCAT_TEXTCAT_H)
-#  include <libtextcat/textcat.h>
-#  define HAVE_TEXTCAT
-#elif defined (HAVE_FTS_TEXTCAT)
+#elif defined (HAVE_FTS_EXTTEXTCAT)
 #  include <textcat.h>
-#  define HAVE_TEXTCAT
 #endif
 
 #ifndef TEXTCAT_RESULT_UNKNOWN /* old textcat.h has typos */
@@ -99,7 +94,7 @@ void fts_language_list_deinit(struct fts_language_list **list)
 	struct fts_language_list *lp = *list;
 
 	*list = NULL;
-#ifdef HAVE_TEXTCAT
+#ifdef HAVE_FTS_EXTTEXTCAT
 	if (lp->textcat_handle != NULL)
 		textcat_Done(lp->textcat_handle);
 #endif
@@ -160,7 +155,7 @@ fts_language_list_get_first(struct fts_language_list *list)
 	return *langp;
 }
 
-#ifdef HAVE_TEXTCAT
+#ifdef HAVE_FTS_EXTTEXTCAT
 static bool fts_language_match_lists(struct fts_language_list *list,
                                      candidate_t *candp, int candp_len,
                                      const struct fts_language **lang_r)
@@ -178,7 +173,7 @@ static bool fts_language_match_lists(struct fts_language_list *list,
 }
 #endif
 
-#ifdef HAVE_TEXTCAT
+#ifdef HAVE_FTS_EXTTEXTCAT
 static int fts_language_textcat_init(struct fts_language_list *list)
 {
 	const char *config_path;
@@ -213,7 +208,7 @@ fts_language_detect_textcat(struct fts_language_list *list ATTR_UNUSED,
 			    size_t size ATTR_UNUSED,
 			    const struct fts_language **lang_r ATTR_UNUSED)
 {
-#ifdef HAVE_TEXTCAT
+#ifdef HAVE_FTS_EXTTEXTCAT
 	candidate_t *candp; /* textcat candidate result array pointer */
 	int cnt;
 	bool match = FALSE;
