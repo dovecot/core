@@ -49,7 +49,7 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 	}
 	if (set->whitespace_chars == NULL)
 		set->whitespace_chars = "";
-#ifndef HAVE_LUCENE_STEMMER
+#ifndef HAVE_FTS_STEMMER
 	if (set->default_language != NULL) {
 		i_error("fts_lucene: default_language set, "
 			"but Dovecot built without stemmer support");
@@ -59,7 +59,7 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 	if (set->default_language == NULL)
 		set->default_language = "english";
 #endif
-#ifndef HAVE_LUCENE_TEXTCAT
+#ifndef HAVE_FTS_TEXTCAT
 	if (set->textcat_conf != NULL) {
 		i_error("fts_lucene: textcat_dir set, "
 			"but Dovecot built without textcat support");

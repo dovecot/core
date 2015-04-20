@@ -19,10 +19,10 @@ extern "C" {
 #include "lucene-wrapper.h"
 
 #include <sys/stat.h>
-#ifdef HAVE_LUCENE_TEXTCAT
+#ifdef HAVE_FTS_TEXTCAT
 #  include <libtextcat/textcat.h>
 #else
-#ifdef HAVE_LUCENE_EXTTEXTCAT
+#ifdef HAVE_FTS_EXTTEXTCAT
 #  include <libexttextcat/textcat.h>
 #endif
 #endif
@@ -124,7 +124,7 @@ struct lucene_index *lucene_index_init(const char *path,
 		/* this is valid only for doveadm dump, so it doesn't matter */
 		index->set.default_language = "";
 	}
-#ifdef HAVE_LUCENE_STEMMER
+#ifdef HAVE_FTS_STEMMER
 	if (set == NULL || !set->no_snowball) {
 		index->default_analyzer =
 			_CLNEW snowball::SnowballAnalyzer(index->normalizer,
@@ -180,7 +180,7 @@ void lucene_index_deinit(struct lucene_index *index)
 	}
 	array_free(&index->analyzers);
 	if (--textcat_refcount == 0 && textcat != NULL) {
-#ifdef HAVE_LUCENE_TEXTCAT
+#ifdef HAVE_FTS_TEXTCAT
 		textcat_Done(textcat);
 #endif
 		textcat = NULL;
@@ -458,7 +458,7 @@ int lucene_index_build_init(struct lucene_index *index)
 	return 0;
 }
 
-#ifdef HAVE_LUCENE_TEXTCAT
+#ifdef HAVE_FTS_TEXTCAT
 static Analyzer *get_analyzer(struct lucene_index *index, const char *lang)
 {
 	normalizer_func_t *normalizer = index->normalizer;

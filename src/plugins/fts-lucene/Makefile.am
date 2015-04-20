@@ -18,14 +18,14 @@ lib20_doveadm_fts_lucene_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib21_fts_lucene_plugin.la
 
-if BUILD_LUCENE_STEMMER
+if BUILD_FTS_STEMMER
 STEMMER_LIBS = -lstemmer
 SHOWBALL_SOURCES = Snowball.cc
 endif
-if BUILD_LUCENE_TEXTCAT
+if BUILD_FTS_TEXTCAT
 TEXTCAT_LIBS = -ltextcat
 else
-if BUILD_LUCENE_EXTTEXTCAT
+if BUILD_FTS_EXTTEXTCAT
 TEXTCAT_LIBS = -lexttextcat
 endif
 endif
@@ -45,7 +45,7 @@ noinst_HEADERS = \
 	SnowballAnalyzer.h \
 	SnowballFilter.h
 
-if BUILD_LUCENE_TEXTCAT
+if BUILD_FTS_TEXTCAT
 exampledir = $(docdir)/example-config
 example_DATA = \
 	textcat.conf

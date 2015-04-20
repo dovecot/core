@@ -160,12 +160,12 @@ AS_HELP_STRING([--with-lucene], [Build with CLucene full text search support]),
 AM_CONDITIONAL(BUILD_LUCENE, test "$want_lucene" = "yes")
 
 AC_ARG_WITH(stemmer,
-AS_HELP_STRING([--with-stemmer], [Build with libstemmer support (for CLucene) (auto)]),
+AS_HELP_STRING([--with-stemmer], [Build with libstemmer support (for FTS) (auto)]),
   TEST_WITH(stemmer, $withval),
   want_stemmer=auto)
 
 AC_ARG_WITH(textcat,
-AS_HELP_STRING([--with-textcat], [Build with libtextcat support (for CLucene) (auto)]),
+AS_HELP_STRING([--with-textcat], [Build with libtextcat support (for FTS) (auto)]),
   TEST_WITH(textcat, $withval),
   want_textcat=auto)
 
@@ -2743,36 +2743,38 @@ if test "$want_lucene" = "yes"; then
     # FIXME: we should verify here that this actually works..
     CLUCENE_LIBS="-lclucene-shared -lclucene-core"
   ])
-  if test $want_stemmer != no; then
-    AC_CHECK_LIB(stemmer, sb_stemmer_new, [
-      have_lucene_stemmer=yes
-      AC_DEFINE(HAVE_LUCENE_STEMMER,, Define if you want stemming support for CLucene)
-      if test $want_textcat != no; then
-	AC_CHECK_LIB(textcat, special_textcat_Init, [
-	  have_lucene_textcat=yes
-	  AC_DEFINE(HAVE_LUCENE_TEXTCAT,, Define if you want textcat support for CLucene)
-	], [
-	  AC_CHECK_LIB(exttextcat, special_textcat_Init, [
-	    have_lucene_exttextcat=yes
-	    AC_DEFINE(HAVE_LUCENE_EXTTEXTCAT,, Define if you want textcat (Debian version) support for CLucene)
-	  ])
-	])
-        if test $want_textcat = yes && test "$have_lucene_exttextcat" != yes && test "$have_lucene_textcat" != yes; then
-	  AC_ERROR([Can't build with textcat support: libtextcat or libexttextcat not found])
-	fi
-      fi
-    ], [
-      if test $want_stemmer = yes; then
-	AC_ERROR([Can't build with stemmer support: libstemmer not found])
-      fi
-    ])
-  fi
   have_lucene=yes
   fts="$fts lucene"
 fi
-AM_CONDITIONAL(BUILD_LUCENE_STEMMER, test "$have_lucene_stemmer" = "yes")
-AM_CONDITIONAL(BUILD_LUCENE_TEXTCAT, test "$have_lucene_textcat" = "yes")
-AM_CONDITIONAL(BUILD_LUCENE_EXTTEXTCAT, test "$have_lucene_exttextcat" = "yes")
+
+if test $want_stemmer != no; then
+  AC_CHECK_LIB(stemmer, sb_stemmer_new, [
+    have_fts_stemmer=yes
+    AC_DEFINE(HAVE_FTS_STEMMER,, Define if you want stemming support for FTS)
+  ], [
+    if test $want_stemmer = yes; then
+      AC_ERROR([Can't build with stemmer support: libstemmer not found])
+    fi
+  ])
+fi
+AM_CONDITIONAL(BUILD_FTS_STEMMER, test "$have_fts_stemmer" = "yes")
+
+if test $want_textcat != no; then
+  AC_CHECK_LIB(textcat, special_textcat_Init, [
+    have_fts_textcat=yes
+    AC_DEFINE(HAVE_FTS_TEXTCAT,, Define if you want textcat support for FTS)
+  ], [
+    AC_CHECK_LIB(exttextcat, special_textcat_Init, [
+      have_fts_exttextcat=yes
+      AC_DEFINE(HAVE_FTS_EXTTEXTCAT,, Define if you want libexttextcat support for FTS)
+    ])
+  ])
+  if test $want_textcat = yes && test "$have_fts_exttextcat" != yes && test "$have_fts_textcat" != yes; then
+    AC_ERROR([Can't build with textcat support: libtextcat or libexttextcat not found])
+  fi
+fi
+AM_CONDITIONAL(BUILD_FTS_TEXTCAT, test "$have_fts_textcat" = "yes")
+AM_CONDITIONAL(BUILD_FTS_EXTTEXTCAT, test "$have_fts_exttextcat" = "yes")
 
 if test $have_lucene = no; then
   not_fts="$not_fts lucene"
