@@ -30,6 +30,9 @@ struct fts_mail_build_context {
 	buffer_t *word_buf;
 };
 
+static int fts_build_data(struct fts_mail_build_context *ctx,
+			  const unsigned char *data, size_t size, bool last);
+
 static void fts_build_parse_content_type(struct fts_mail_build_context *ctx,
 					 const struct message_header_line *hdr)
 {
@@ -91,8 +94,7 @@ fts_build_unstructured_header(struct fts_mail_build_context *ctx,
 			buf[i] = data[i];
 		}
 	}
-	(void)fts_backend_update_build_more(ctx->update_ctx,
-					    data, hdr->full_value_len);
+	(void)fts_build_data(ctx, data, hdr->full_value_len, TRUE);
 	i_free(buf);
 }
 
@@ -133,9 +135,7 @@ static void fts_build_mail_header(struct fts_mail_build_context *ctx,
 		str = t_str_new(hdr->full_value_len);
 		message_address_write(str, addr);
 
-		(void)fts_backend_update_build_more(ctx->update_ctx,
-						    str_data(str),
-						    str_len(str));
+		(void)fts_build_data(ctx, str_data(str), str_len(str), TRUE);
 	} T_END;
 }
 
@@ -192,31 +192,24 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	return TRUE;
 }
 
-static int fts_build_body_block(struct fts_mail_build_context *ctx,
-				struct message_block *block, bool last)
+static int
+fts_build_body_block_full_words(struct fts_mail_build_context *ctx,
+				const unsigned char *data, size_t size, bool last)
 {
-	unsigned int i;
+	size_t i;
 
-	i_assert(block->hdr == NULL);
-
-	if ((ctx->update_ctx->backend->flags &
-	     FTS_BACKEND_FLAG_BUILD_FULL_WORDS) == 0) {
-		return fts_backend_update_build_more(ctx->update_ctx,
-						     block->data, block->size);
-	}
 	/* we'll need to send only full words to the backend */
 
 	if (ctx->word_buf != NULL && ctx->word_buf->used > 0) {
 		/* continuing previous word */
-		for (i = 0; i < block->size; i++) {
-			if (IS_WORD_WHITESPACE(block->data[i]))
+		for (i = 0; i < size; i++) {
+			if (IS_WORD_WHITESPACE(data[i]))
 				break;
 		}
-		buffer_append(ctx->word_buf, block->data, i);
-		block->data += i;
-		block->size -= i;
-		if (block->size == 0 && ctx->word_buf->used < MAX_WORD_SIZE &&
-		    !last) {
+		buffer_append(ctx->word_buf, data, i);
+		data += i;
+		size -= i;
+		if (size == 0 && ctx->word_buf->used < MAX_WORD_SIZE && !last) {
 			/* word is still not finished */
 			return 0;
 		}
@@ -230,25 +223,44 @@ static int fts_build_body_block(struct fts_mail_build_context *ctx,
 
 	/* find the boundary for last word */
 	if (last)
-		i = block->size;
+		i = size;
 	else {
-		for (i = block->size; i > 0; i--) {
-			if (IS_WORD_WHITESPACE(block->data[i-1]))
+		for (i = size; i > 0; i--) {
+			if (IS_WORD_WHITESPACE(data[i-1]))
 				break;
 		}
 	}
 
-	if (fts_backend_update_build_more(ctx->update_ctx, block->data, i) < 0)
+	if (fts_backend_update_build_more(ctx->update_ctx, data, i) < 0)
 		return -1;
 
-	if (i < block->size) {
+	if (i < size) {
 		if (ctx->word_buf == NULL) {
 			ctx->word_buf =
 				buffer_create_dynamic(default_pool, 128);
 		}
-		buffer_append(ctx->word_buf, block->data + i, block->size - i);
+		buffer_append(ctx->word_buf, data + i, size - i);
 	}
 	return 0;
+}
+
+static int fts_build_data(struct fts_mail_build_context *ctx,
+			  const unsigned char *data, size_t size, bool last)
+{
+	if ((ctx->update_ctx->backend->flags &
+	     FTS_BACKEND_FLAG_BUILD_FULL_WORDS) != 0) {
+		return fts_build_body_block_full_words(ctx, data, size, last);
+	} else {
+		return fts_backend_update_build_more(ctx->update_ctx, data, size);
+	}
+}
+
+static int fts_build_body_block(struct fts_mail_build_context *ctx,
+				const struct message_block *block, bool last)
+{
+	i_assert(block->hdr == NULL);
+
+	return fts_build_data(ctx, block->data, block->size, last);
 }
 
 static int fts_body_parser_finish(struct fts_mail_build_context *ctx)
