@@ -1,3 +1,9 @@
+ | From svn.tartarus.org/snowball/trunk/website/algorithms/french/stop.txt
+ | This file is distributed under the BSD License.
+ | See http://snowball.tartarus.org/license.php
+ | Also see http://www.opensource.org/licenses/bsd-license.html
+ |  - Encoding was converted to UTF-8.
+ |  - This notice was added.
 
  | A French stop word list. Comments begin with vertical bar. Each stop
  | word is at the start of a line.
@@ -161,8 +167,8 @@ eussent
 
                | Later additions (from Jean-Christophe Deschamps)
 ceci           |  this
-cela           |  that (added 11 Apr 2012. Omission reported by Adrien Grand)
-celà           |  that (incorrect, though common)
+cela           |  that
+celà           |  that
 cet            |  this
 cette          |  this
 ici            |  here
