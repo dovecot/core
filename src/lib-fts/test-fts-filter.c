@@ -169,6 +169,7 @@ static void test_fts_filter_stopwords_fail_create(void)
 
 }
 
+#ifdef HAVE_FTS_STEMMER
 static void test_fts_filter_stemmer_snowball_stem_english(void)
 {
 	int ret;
@@ -293,6 +294,7 @@ static void test_fts_filter_stopwords_stemmer_eng(void)
 	test_assert(filter == NULL);
 	test_end();
 }
+#endif
 
 #ifdef HAVE_FTS_NORMALIZER
 static void test_fts_filter_normalizer_swedish_short(void)
@@ -530,9 +532,11 @@ int main(void)
 		test_fts_filter_stopwords_fin,
 		test_fts_filter_stopwords_fra,
 		test_fts_filter_stopwords_fail_create,
+#ifdef HAVE_FTS_STEMMER
 		test_fts_filter_stemmer_snowball_stem_english,
 		test_fts_filter_stemmer_snowball_stem_french,
 		test_fts_filter_stopwords_stemmer_eng,
+#endif
 #ifdef HAVE_FTS_NORMALIZER
 		test_fts_filter_normalizer_swedish_short,
 		test_fts_filter_normalizer_swedish_short_default_id,
