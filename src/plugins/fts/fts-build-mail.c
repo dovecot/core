@@ -10,6 +10,10 @@
 #include "message-decoder.h"
 #include "mail-storage.h"
 #include "fts-parser.h"
+#include "fts-user.h"
+#include "fts-language.h"
+#include "fts-tokenizer.h"
+#include "fts-filter.h"
 #include "fts-api-private.h"
 #include "fts-build-mail.h"
 
@@ -27,7 +31,13 @@ struct fts_mail_build_context {
 	char *content_type, *content_disposition;
 	struct fts_parser *body_parser;
 
-	buffer_t *word_buf;
+	buffer_t *word_buf, *pending_input;
+	struct fts_user_language *cur_user_lang;
+};
+
+static struct fts_user_language fts_user_language_data = {
+	.lang = &fts_language_data,
+	.filter = NULL
 };
 
 static int fts_build_data(struct fts_mail_build_context *ctx,
@@ -60,6 +70,25 @@ fts_build_parse_content_disposition(struct fts_mail_build_context *ctx,
 	i_free(ctx->content_disposition);
 	ctx->content_disposition =
 		i_strndup(hdr->full_value, hdr->full_value_len);
+}
+
+static bool header_has_language(const char *name)
+{
+	/* FIXME: should email address headers be detected as different
+	   languages? That mainly contains people's names.. */
+	/*if (message_header_is_address(name))
+		return TRUE;*/
+
+	/* Subject definitely contains language-specific data that can be
+	   detected. Comment and Keywords headers also could contain, although
+	   just about nobody uses those headers.
+
+	   For now we assume that other headers contain non-language specific
+	   data that we don't want to filter in special ways. For example
+	   it is good to be able to search for Message-IDs. */
+	return strcasecmp(name, "Subject") == 0 ||
+		strcasecmp(name, "Comments") == 0 ||
+		strcasecmp(name, "Keywords") == 0;
 }
 
 static void fts_parse_mail_header(struct fts_mail_build_context *ctx,
@@ -115,6 +144,11 @@ static void fts_build_mail_header(struct fts_mail_build_context *ctx,
 		FTS_BACKEND_BUILD_KEY_HDR : FTS_BACKEND_BUILD_KEY_MIME_HDR;
 	key.part = block->part;
 	key.hdr_name = hdr->name;
+
+	if (!header_has_language(key.hdr_name))
+		ctx->cur_user_lang = &fts_user_language_data;
+	else
+		ctx->cur_user_lang = NULL;
 
 	if (!fts_backend_update_set_build_key(ctx->update_ctx, &key))
 		return;
@@ -184,6 +218,7 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	}
 	key.body_content_type = content_type;
 	key.body_content_disposition = ctx->content_disposition;
+	ctx->cur_user_lang = NULL;
 	if (!fts_backend_update_set_build_key(ctx->update_ctx, &key)) {
 		if (ctx->body_parser != NULL)
 			(void)fts_parser_deinit(&ctx->body_parser);
@@ -193,8 +228,104 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 }
 
 static int
-fts_build_body_block_full_words(struct fts_mail_build_context *ctx,
-				const unsigned char *data, size_t size, bool last)
+fts_build_add_tokens_with_filter(struct fts_mail_build_context *ctx,
+				 const unsigned char *data, size_t size)
+{
+	struct fts_tokenizer *tokenizer = ctx->update_ctx->backend->tokenizer;
+	struct fts_filter *filter = ctx->cur_user_lang->filter;
+	const char *token;
+	while ((token = fts_tokenizer_next(tokenizer, data, size)) != NULL) {
+		if (filter != NULL) {
+			token = fts_filter_filter(filter, token);
+			if (token == NULL)
+				continue;
+		}
+		if (fts_backend_update_build_more(ctx->update_ctx,
+						  (const void *)token,
+						  strlen(token)) < 0)
+			return -1;
+	}
+	return 0;
+}
+
+static int
+fts_detect_language(struct fts_mail_build_context *ctx,
+		    const unsigned char *data, size_t size, bool last,
+		    const struct fts_language **lang_r)
+{
+	struct mail_user *user = ctx->update_ctx->backend->ns->user;
+	struct fts_language_list *lang_list = fts_user_get_language_list(user);
+	const struct fts_language *lang;
+
+	switch (fts_language_detect(lang_list, data, size, &lang)) {
+	case FTS_LANGUAGE_RESULT_SHORT:
+		/* save the input so far and try again later */
+		buffer_append(ctx->pending_input, data, size);
+		if (last) {
+			/* we've run out of data. use the default language. */
+			*lang_r = fts_language_list_get_first(lang_list);
+			return 1;
+		}
+		return 0;
+	case FTS_LANGUAGE_RESULT_UNKNOWN:
+		/* use the default language */
+		*lang_r = fts_language_list_get_first(lang_list);
+		return 1;
+	case FTS_LANGUAGE_RESULT_OK:
+		*lang_r = lang;
+		return 1;
+	case FTS_LANGUAGE_RESULT_ERROR:
+		/* internal language detection library failure
+		   (e.g. invalid config). don't index anything. */
+		return -1;
+	default:
+		i_unreached();
+	}
+}
+
+static int
+fts_build_tokenized(struct fts_mail_build_context *ctx,
+		    const unsigned char *data, size_t size, bool last)
+{
+	struct mail_user *user = ctx->update_ctx->backend->ns->user;
+	const struct fts_language *lang;
+	const char *error;
+	int ret;
+
+	if (ctx->cur_user_lang != NULL) {
+		/* we already have a language */
+	} else if ((ret = fts_detect_language(ctx, data, size, last, &lang)) < 0) {
+		return -1;
+	} else if (ret == 0) {
+		/* wait for more data */
+		return 0;
+	} else {
+		if (fts_user_language_get(user, lang, &ctx->cur_user_lang,
+					  &error) < 0) {
+			i_error("fts-dovecot: Can't index input because of invalid language '%s' config: %s",
+				lang->name, error);
+			return -1;
+		}
+		if (ctx->pending_input->used > 0) {
+			if (fts_build_add_tokens_with_filter(ctx,
+					ctx->pending_input->data,
+					ctx->pending_input->used) < 0)
+				return -1;
+			buffer_set_used_size(ctx->pending_input, 0);
+		}
+	}
+	if (fts_build_add_tokens_with_filter(ctx, data, size) < 0)
+		return -1;
+	if (last) {
+		if (fts_build_add_tokens_with_filter(ctx, NULL, 0) < 0)
+			return -1;
+	}
+	return 0;
+}
+
+static int
+fts_build_full_words(struct fts_mail_build_context *ctx,
+		     const unsigned char *data, size_t size, bool last)
 {
 	size_t i;
 
@@ -248,8 +379,11 @@ static int fts_build_data(struct fts_mail_build_context *ctx,
 			  const unsigned char *data, size_t size, bool last)
 {
 	if ((ctx->update_ctx->backend->flags &
-	     FTS_BACKEND_FLAG_BUILD_FULL_WORDS) != 0) {
-		return fts_build_body_block_full_words(ctx, data, size, last);
+	     FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0) {
+		return fts_build_tokenized(ctx, data, size, last);
+	} else if ((ctx->update_ctx->backend->flags &
+		    FTS_BACKEND_FLAG_BUILD_FULL_WORDS) != 0) {
+		return fts_build_full_words(ctx, data, size, last);
 	} else {
 		return fts_backend_update_build_more(ctx->update_ctx, data, size);
 	}
@@ -308,6 +442,8 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.update_ctx = update_ctx;
 	ctx.mail = mail;
+	if ((update_ctx->backend->flags & FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0)
+		ctx.pending_input = buffer_create_dynamic(default_pool, 128);
 
 	prev_part = NULL;
 	parser = message_parser_init(pool_datastack_create(), input,
@@ -398,6 +534,8 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	i_free(ctx.content_disposition);
 	if (ctx.word_buf != NULL)
 		buffer_free(&ctx.word_buf);
+	if (ctx.pending_input != NULL)
+		buffer_free(&ctx.pending_input);
 	return ret < 0 ? -1 : 1;
 }
 

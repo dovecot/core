@@ -61,7 +61,12 @@ enum fts_backend_flags {
 	/* Send only fully indexable words rather than randomly sized blocks */
 	FTS_BACKEND_FLAG_BUILD_FULL_WORDS	= 0x04,
 	/* Fuzzy search works */
-	FTS_BACKEND_FLAG_FUZZY_SEARCH		= 0x08
+	FTS_BACKEND_FLAG_FUZZY_SEARCH		= 0x08,
+	/* Tokenize all the input. update_build_more() will be called a single
+	   directly indexable token at a time. Searching will modify the search
+	   args so that lookup() sees only tokens that can be directly
+	   searched. */
+	FTS_BACKEND_FLAG_TOKENIZED_INPUT	= 0x10
 };
 
 struct fts_backend {
@@ -70,6 +75,8 @@ struct fts_backend {
 
 	struct fts_backend_vfuncs v;
 	struct mail_namespace *ns;
+
+	struct fts_tokenizer *tokenizer;
 
 	unsigned int updating:1;
 };

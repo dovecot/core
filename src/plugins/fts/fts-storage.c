@@ -11,8 +11,10 @@
 #include "mailbox-list-private.h"
 #include "../virtual/virtual-storage.h"
 #include "fts-api-private.h"
+#include "fts-tokenizer.h"
 #include "fts-indexer.h"
 #include "fts-build-mail.h"
+#include "fts-search-args.h"
 #include "fts-search-serialize.h"
 #include "fts-plugin.h"
 #include "fts-storage.h"
@@ -120,20 +122,26 @@ static void fts_scores_unref(struct fts_scores **_scores)
 static void fts_try_build_init(struct mail_search_context *ctx,
 			       struct fts_search_context *fctx)
 {
+	int ret;
+
 	i_assert(!fts_backend_is_updating(fctx->backend));
 
-	switch (fts_indexer_init(fctx->backend, ctx->transaction->box,
-				 &fctx->indexer_ctx)) {
-	case -1:
-		break;
-	case 0:
+	ret = fts_indexer_init(fctx->backend, ctx->transaction->box,
+			       &fctx->indexer_ctx);
+	if (ret < 0)
+		return;
+
+	if ((fctx->backend->flags & FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0) {
+		if (fts_search_args_expand(fctx->backend, fctx->args) < 0)
+			return;
+	}
+
+	if (ret == 0) {
 		/* the index was up to date */
 		fts_search_lookup(fctx);
-		break;
-	case 1:
+	} else {
 		/* hide "searching" notifications while building index */
 		ctx->progress_hidden = TRUE;
-		break;
 	}
 }
 
@@ -730,8 +738,22 @@ static void fts_mailbox_list_deinit(struct mailbox_list *list)
 {
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(list);
 
+	if (flist->backend->tokenizer != NULL)
+		fts_tokenizer_unref(&flist->backend->tokenizer);
 	fts_backend_deinit(&flist->backend);
 	flist->module_ctx.super.deinit(list);
+}
+
+static int fts_backend_init_libfts(struct fts_backend *backend)
+{
+	const char *error;
+
+	if (fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL,
+				 &backend->tokenizer, &error) < 0) {
+		i_error("Failed to initialize fts tokenizer: %s", error);
+		return -1;
+	}
+	return 0;
 }
 
 void fts_mailbox_list_created(struct mailbox_list *list)
@@ -757,6 +779,8 @@ void fts_mailbox_list_created(struct mailbox_list *list)
 	if (fts_backend_init(name, list->ns, &error, &backend) < 0) {
 		i_error("fts: Failed to initialize backend '%s': %s",
 			name, error);
+	} else if (fts_backend_init_libfts(backend) < 0) {
+		fts_backend_deinit(&backend);
 	} else {
 		struct fts_mailbox_list *flist;
 		struct mailbox_list_vfuncs *v = list->vlast;
