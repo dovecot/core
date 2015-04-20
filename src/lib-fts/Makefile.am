@@ -4,7 +4,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	$(LIBEXTTEXTCAT_CFLAGS) \
-	$(LIBFTS_NORMALIZER_CFLAGS) \
+	$(FTS_NORMALIZER_CFLAGS) \
 	-DUDHRDIR=\""$(top_srcdir)/src/lib-fts"\" \
 	-DDATADIR=\"$(pkgdatadir)\" \
 	-DTEST_STOPWORDS_DIR=\""$(top_srcdir)/src/lib-fts"\"
@@ -48,7 +48,7 @@ endif
 endif
 
 if BUILD_FTS_NORMALIZER
-NORMALIZER_LIBS = $(LIBFTS_NORMALIZER_LIBS)
+NORMALIZER_LIBS = $(FTS_NORMALIZER_LIBS)
 endif
 
 libfts_la_LIBADD = \
