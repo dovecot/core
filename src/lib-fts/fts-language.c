@@ -191,9 +191,9 @@ static int fts_language_textcat_init(struct fts_language_list *list)
 		return -1;
 	    
 	config_path = list->textcat_config != NULL ? list->textcat_config :
-		DATADIR"/libexttextcat/fpdb.conf";
+		TEXTCAT_DATADIR"/fpdb.conf";
 	data_dir = list->textcat_datadir != NULL ? list->textcat_datadir :
-		DATADIR"/libexttextcat/";
+		TEXTCAT_DATADIR"/";
 	list->textcat_handle = special_textcat_Init(config_path, data_dir);
 	if (list->textcat_handle == NULL) {
 		i_error("special_textcat_Init(%s, %s) failed",
