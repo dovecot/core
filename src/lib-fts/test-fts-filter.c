@@ -294,7 +294,7 @@ static void test_fts_filter_stopwords_stemmer_eng(void)
 	test_end();
 }
 
-#ifdef HAVE_LIBFTS_NORMALIZER
+#ifdef HAVE_FTS_NORMALIZER
 static void test_fts_filter_normalizer_swedish_short(void)
 {
 	const struct fts_filter *filter_class;
@@ -533,7 +533,7 @@ int main(void)
 		test_fts_filter_stemmer_snowball_stem_english,
 		test_fts_filter_stemmer_snowball_stem_french,
 		test_fts_filter_stopwords_stemmer_eng,
-#ifdef HAVE_LIBFTS_NORMALIZER
+#ifdef HAVE_FTS_NORMALIZER
 		test_fts_filter_normalizer_swedish_short,
 		test_fts_filter_normalizer_swedish_short_default_id,
 		test_fts_filter_normalizer_french,

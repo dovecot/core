@@ -5,7 +5,7 @@
 #include "fts-filter.h"
 #include "fts-filter-private.h"
 
-#ifdef HAVE_LIBFTS_STEMMER
+#ifdef HAVE_FTS_STEMMER
 
 #include <libstemmer.h>
 

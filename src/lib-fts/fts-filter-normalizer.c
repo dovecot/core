@@ -6,7 +6,7 @@
 #include "fts-filter-private.h"
 #include "fts-language.h"
 
-#ifdef HAVE_LIBFTS_NORMALIZER
+#ifdef HAVE_FTS_NORMALIZER
 
 #include <unicode/utrans.h>
 #include <unicode/uenum.h>
