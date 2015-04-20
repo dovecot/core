@@ -2789,7 +2789,7 @@ if test $want_textcat != no; then
       AC_ERROR([Can't build with textcat support: libtextcat or libexttextcat not found])
     fi
   fi
-  if test "$have_fts_exttextcat" != yes || test "$have_fts_textcat" != yes; then
+  if test "$have_fts_exttextcat" = yes || test "$have_fts_textcat" = yes; then
     AC_DEFINE(HAVE_FTS_TEXTCAT,, Define if you want textcat support for FTS)
     AC_DEFINE_UNQUOTED(TEXTCAT_DATADIR, "$TEXTCAT_DATADIR", Points to textcat pkgdatadir containing the language files)
   fi
