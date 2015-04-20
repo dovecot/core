@@ -169,6 +169,11 @@ AS_HELP_STRING([--with-textcat], [Build with libtextcat support (for FTS) (auto)
   TEST_WITH(textcat, $withval),
   want_textcat=auto)
 
+AC_ARG_WITH(normalizer,
+AS_HELP_STRING([--with-normalizer], [Build lib-fts with ICU normalization support (auto)]),
+  want_fts_normalizer=$withval,
+  want_fts_normalizer=auto)
+
 AC_ARG_WITH(solr,
 AS_HELP_STRING([--with-solr], [Build with Solr full text search support]),
   TEST_WITH(solr, $withval),
@@ -2786,6 +2791,17 @@ fi
 AM_CONDITIONAL(BUILD_FTS_TEXTCAT, test "$have_fts_textcat" = "yes")
 AM_CONDITIONAL(BUILD_FTS_EXTTEXTCAT, test "$have_fts_exttextcat" = "yes")
 
+if test "$want_fts_normalizer" != "no"; then
+  if test "$PKG_CONFIG" != "" && $PKG_CONFIG --exists icu-i18n 2>/dev/null; then
+    PKG_CHECK_MODULES(FTS_NORMALIZER, icu-i18n)
+    have_fts_normalizer=yes
+    AC_DEFINE(HAVE_FTS_NORMALIZER,, Define if you want ICU normalization support for FTS)
+  elif test "$want_fts_normalizer" = "yes"; then
+    AC_ERROR([Can't build with normalizer support: libicu-i18n not found])
+  fi
+fi
+AM_CONDITIONAL(BUILD_FTS_NORMALIZER, test "$have_fts_normalizer" = "yes")
+
 if test $have_lucene = no; then
   not_fts="$not_fts lucene"
 fi
@@ -2857,6 +2873,7 @@ src/lib-compression/Makefile
 src/lib-dict/Makefile
 src/lib-dns/Makefile
 src/lib-fs/Makefile
+src/lib-fts/Makefile
 src/lib-http/Makefile
 src/lib-imap/Makefile
 src/lib-imap-storage/Makefile
