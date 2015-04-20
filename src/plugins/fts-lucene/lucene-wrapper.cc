@@ -19,12 +19,12 @@ extern "C" {
 #include "lucene-wrapper.h"
 
 #include <sys/stat.h>
-#ifdef HAVE_FTS_TEXTCAT
-#  include <libtextcat/textcat.h>
-#else
-#ifdef HAVE_FTS_EXTTEXTCAT
+#ifdef HAVE_LIBEXTTEXTCAT_TEXTCAT_H
 #  include <libexttextcat/textcat.h>
-#endif
+#elif defined (HAVE_LIBTEXTCAT_TEXTCAT_H)
+#  include <libtextcat/textcat.h>
+#elif defined (HAVE_FTS_TEXTCAT)
+#  include <textcat.h>
 #endif
 };
 #include <CLucene.h>

@@ -9,7 +9,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/doveadm
 
 AM_CXXFLAGS = \
-	$(CLUCENE_CFLAGS)
+	$(CLUCENE_CFLAGS) \
+	$(LIBEXTTEXTCAT_CFLAGS)
 
 NOPLUGIN_LDFLAGS =
 lib21_fts_lucene_plugin_la_LDFLAGS = -module -avoid-version
@@ -22,11 +23,12 @@ if BUILD_FTS_STEMMER
 STEMMER_LIBS = -lstemmer
 SHOWBALL_SOURCES = Snowball.cc
 endif
+
+if BUILD_FTS_EXTTEXTCAT
+TEXTCAT_LIBS = $(LIBEXTTEXTCAT_LIBS)
+else
 if BUILD_FTS_TEXTCAT
 TEXTCAT_LIBS = -ltextcat
-else
-if BUILD_FTS_EXTTEXTCAT
-TEXTCAT_LIBS = -lexttextcat
 endif
 endif
 
