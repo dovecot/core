@@ -2769,6 +2769,8 @@ if test $want_textcat != no; then
     PKG_CHECK_MODULES(LIBEXTTEXTCAT, libexttextcat)
     TEXTCAT_DATADIR=`$PKG_CONFIG --variable=pkgdatadir libexttextcat`
     have_fts_exttextcat=yes
+    # Debian Wheezy workaround - LIBEXTTEXTCAT_CFLAGS include path is wrong:
+    AC_CHECK_HEADERS(libexttextcat/textcat.h)
   else
     AC_CHECK_LIB(exttextcat, special_textcat_Init, [
       have_fts_exttextcat=yes
