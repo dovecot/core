@@ -6,6 +6,8 @@
 #include "istream.h"
 #include "istream-sized.h"
 #include "ostream.h"
+#include "str.h"
+#include "time-util.h"
 #include "lmtp-client.h"
 #include "lmtp-proxy.h"
 
@@ -15,6 +17,7 @@ struct lmtp_proxy_recipient {
 	struct lmtp_proxy_connection *conn;
 	const char *address;
 	const char *reply;
+	unsigned int idx;
 
 	unsigned int rcpt_to_failed:1;
 	unsigned int data_reply_received:1;
@@ -238,6 +241,9 @@ lmtp_proxy_conn_data(enum lmtp_client_result result,
 {
 	struct lmtp_proxy_recipient *rcpt = context;
 	struct lmtp_proxy_connection *conn = rcpt->conn;
+	const struct lmtp_client_times *times =
+		lmtp_client_get_times(conn->client);
+	string_t *msg;
 
 	i_assert(!rcpt->rcpt_to_failed);
 	i_assert(rcpt->reply != NULL);
@@ -249,27 +255,33 @@ lmtp_proxy_conn_data(enum lmtp_client_result result,
 	rcpt->reply = p_strdup(conn->proxy->pool, reply);
 	rcpt->data_reply_received = TRUE;
 
+	msg = t_str_new(128);
+	str_printfa(msg, "%s: ", conn->proxy->set.session_id);
 	switch (result) {
 	case LMTP_CLIENT_RESULT_OK:
-		i_info("%s: Sent message to <%s> at %s:%u: %s",
-		       conn->proxy->set.session_id, rcpt->address,
-		       conn->set.host, conn->set.port, reply);
+		str_append(msg, "Sent message to");
 		break;
+	case LMTP_CLIENT_RESULT_REMOTE_ERROR:
+	case LMTP_CLIENT_RESULT_INTERNAL_ERROR:
+		str_append(msg, "Failed to send message to");
+		break;
+	}
+	str_printfa(msg, " <%s> at %s:%u: %s (%u/%u at %u ms)",
+		    rcpt->address, conn->set.host, conn->set.port, reply,
+		    rcpt->idx + 1, array_count(&conn->proxy->rcpt_to),
+		    timeval_diff_msecs(&ioloop_timeval, &times->connect_started));
+	switch (result) {
+	case LMTP_CLIENT_RESULT_OK:
 	case LMTP_CLIENT_RESULT_REMOTE_ERROR:
 		/* the problem isn't with the proxy, it's with the remote side.
 		   so the remote side will log an error, while for us this is
 		   just an info event */
-		i_info("%s: Failed to send message to <%s> at %s:%u: %s",
-		       conn->proxy->set.session_id, rcpt->address,
-		       conn->set.host, conn->set.port, reply);
+		i_info("%s", str_c(msg));
 		break;
 	case LMTP_CLIENT_RESULT_INTERNAL_ERROR:
-		i_error("%s: Failed to send message to <%s> at %s:%u: %s",
-			conn->proxy->set.session_id, rcpt->address,
-			conn->set.host, conn->set.port, reply);
+		i_error("%s", str_c(msg));
 		break;
 	}
-
 	lmtp_proxy_try_finish(conn->proxy);
 }
 
@@ -284,6 +296,7 @@ int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy, const char *address,
 		return -1;
 
 	rcpt = p_new(proxy->pool, struct lmtp_proxy_recipient, 1);
+	rcpt->idx = array_count(&proxy->rcpt_to);
 	rcpt->conn = conn;
 	rcpt->address = p_strdup(proxy->pool, address);
 	array_append(&proxy->rcpt_to, &rcpt, 1);
