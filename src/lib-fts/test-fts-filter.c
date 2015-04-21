@@ -296,7 +296,7 @@ static void test_fts_filter_stopwords_stemmer_eng(void)
 }
 #endif
 
-#ifdef HAVE_FTS_NORMALIZER
+#ifdef HAVE_LIBICU
 static void test_fts_filter_normalizer_swedish_short(void)
 {
 	const struct fts_filter *filter_class;
@@ -328,7 +328,7 @@ static void test_fts_filter_normalizer_swedish_short(void)
 	test_begin("fts filter normalizer Swedish short text");
 
 	T_BEGIN {
-		filter_class = fts_filter_find(NORMALIZER_FILTER_NAME);
+		filter_class = fts_filter_find(ICU_NORMALIZER_FILTER_NAME);
 		ret = fts_filter_create(filter_class, NULL, NULL, settings, &norm, &error);
 		test_assert(ret == 0);
 		for (i = 0; i < N_ELEMENTS(input); i++) {
@@ -372,7 +372,7 @@ static void test_fts_filter_normalizer_swedish_short_default_id(void)
 	test_begin("fts filter normalizer Swedish short text using default ID");
 
 	T_BEGIN {
-		filter_class = fts_filter_find(NORMALIZER_FILTER_NAME);
+		filter_class = fts_filter_find(ICU_NORMALIZER_FILTER_NAME);
 		ret = fts_filter_create(filter_class, NULL, NULL, NULL, &norm, &error);
 		test_assert(ret == 0);
 		for (i = 0; i < N_ELEMENTS(input); i++) {
@@ -417,7 +417,7 @@ static void test_fts_filter_normalizer_french(void)
 
 	T_BEGIN {
 		udhr_path = t_strconcat(UDHRDIR, UDHR_FRA_NAME, NULL);
-		filter_class = fts_filter_find(NORMALIZER_FILTER_NAME);
+		filter_class = fts_filter_find(ICU_NORMALIZER_FILTER_NAME);
 		ret = fts_filter_create(filter_class, NULL, NULL, settings, &norm, &error);
 		test_assert(ret == 0);
 		input = fopen(udhr_path, "r");
@@ -451,7 +451,7 @@ static void test_fts_filter_normalizer_invalid_id(void)
 	int ret;
 
 	test_begin("fts filter normalizer invalid id");
-	filter_class = fts_filter_find(NORMALIZER_FILTER_NAME);
+	filter_class = fts_filter_find(ICU_NORMALIZER_FILTER_NAME);
 	ret = fts_filter_create(filter_class, NULL, NULL, settings, &norm, &error);
 	test_assert(ret < 0 && error != NULL);
 	test_assert(norm == NULL);
@@ -489,7 +489,7 @@ static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 
 	test_begin("fts filters normalizer, stopwords and stemming chained, English");
 
-	filter_class = fts_filter_find(NORMALIZER_FILTER_NAME);
+	filter_class = fts_filter_find(ICU_NORMALIZER_FILTER_NAME);
 	ret = fts_filter_create(filter_class, NULL, NULL, id_settings, &normalizer, &error);
 	test_assert(ret == 0);
 
@@ -537,7 +537,7 @@ int main(void)
 		test_fts_filter_stemmer_snowball_stem_french,
 		test_fts_filter_stopwords_stemmer_eng,
 #endif
-#ifdef HAVE_FTS_NORMALIZER
+#ifdef HAVE_LIBICU
 		test_fts_filter_normalizer_swedish_short,
 		test_fts_filter_normalizer_swedish_short_default_id,
 		test_fts_filter_normalizer_french,
