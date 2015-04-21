@@ -18,6 +18,7 @@ dist_stopwords_DATA = \
 BUILT_SOURCES = word-boundary-data.c word-break-data.c
 
 EXTRA_DIST = \
+	udhr_fra.txt \
 	PropList.txt \
 	WordBreakProperty.txt \
 	word-boundary-data.sh \
