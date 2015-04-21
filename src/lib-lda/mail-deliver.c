@@ -39,6 +39,19 @@ const char *mail_deliver_get_address(struct mail *mail, const char *header)
 		NULL : t_strconcat(addr->mailbox, "@", addr->domain, NULL);
 }
 
+static void
+mail_deliver_log_var_expand_table_update_times(struct mail_deliver_context *ctx,
+					       struct var_expand_table *tab)
+{
+#define VAR_EXPAND_SESSION_TIME_IDX 7
+	int delivery_time_msecs;
+
+	io_loop_time_refresh();
+	delivery_time_msecs = timeval_diff_msecs(&ioloop_timeval,
+						 &ctx->delivery_time_started);
+	tab[VAR_EXPAND_SESSION_TIME_IDX].value = dec2str(delivery_time_msecs);
+}
+
 static const struct var_expand_table *
 mail_deliver_get_log_var_expand_table_full(struct mail_deliver_context *ctx,
 					   struct mail *mail,
@@ -81,13 +94,7 @@ mail_deliver_get_log_var_expand_table_full(struct mail_deliver_context *ctx,
 	if (mail_get_virtual_size(mail, &size) == 0)
 		tab[6].value = dec2str(size);
 	if (ctx != NULL) {
-		int delivery_time_msecs;
-
-		io_loop_time_refresh();
-		delivery_time_msecs =
-			timeval_diff_msecs(&ioloop_timeval,
-					   &ctx->delivery_time_started);
-		tab[7].value = dec2str(delivery_time_msecs);
+		mail_deliver_log_var_expand_table_update_times(ctx, tab);
 		tab[8].value = dec2str(ctx->session_time_msecs);
 	}
 	return tab;
@@ -147,8 +154,10 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 		mail_deliver_log_cache_var_expand_table(ctx);
 	/* update %$ */
 	ctx->var_expand_table[0].value = msg;
+	mail_deliver_log_var_expand_table_update_times(ctx, ctx->var_expand_table);
 	var_expand(str, ctx->set->deliver_log_format, ctx->var_expand_table);
 	ctx->var_expand_table[0].value = "";
+	ctx->var_expand_table[VAR_EXPAND_SESSION_TIME_IDX].value = "";
 
 	i_info("%s", str_c(str));
 	va_end(args);
