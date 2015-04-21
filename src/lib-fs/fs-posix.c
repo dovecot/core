@@ -707,6 +707,10 @@ fs_posix_iter_init(struct fs *_fs, const char *path, enum fs_iter_flags flags)
 	iter->iter.flags = flags;
 	iter->path = fs->path_prefix == NULL ? i_strdup(path) :
 		i_strconcat(fs->path_prefix, path, NULL);
+	if (iter->path[0] == '\0') {
+		i_free(iter->path);
+		iter->path = i_strdup(".");
+	}
 	iter->dir = opendir(iter->path);
 	if (iter->dir == NULL && errno != ENOENT) {
 		iter->err = errno;
