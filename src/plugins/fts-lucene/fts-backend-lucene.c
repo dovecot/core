@@ -161,8 +161,13 @@ fts_backend_lucene_init(struct fts_backend *_backend, const char **error_r)
 		*error_r = "Invalid fts_lucene settings";
 		return -1;
 	}
-
 	/* fts already checked that index exists */
+
+	if (fuser->set.use_libfts) {
+		/* change our flags so we get proper input */
+		_backend->flags &= ~FTS_BACKEND_FLAG_FUZZY_SEARCH;
+		_backend->flags |= FTS_BACKEND_FLAG_TOKENIZED_INPUT;
+	}
 	return 0;
 }
 

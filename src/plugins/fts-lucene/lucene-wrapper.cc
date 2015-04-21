@@ -77,6 +77,7 @@ struct lucene_index {
 
 	Document *doc;
 	uint32_t prev_uid, prev_part_idx;
+	bool no_analyzer;
 };
 
 struct rescan_context {
@@ -124,6 +125,9 @@ struct lucene_index *lucene_index_init(const char *path,
 		/* this is valid only for doveadm dump, so it doesn't matter */
 		index->set.default_language = "";
 	}
+	if (index->set.use_libfts) {
+		index->default_analyzer = _CLNEW KeywordAnalyzer();
+	} else
 #ifdef HAVE_FTS_STEMMER
 	if (set == NULL || !set->no_snowball) {
 		index->default_analyzer =
@@ -198,7 +202,7 @@ static void lucene_data_translate(struct lucene_index *index,
 	const char *whitespace_chars = index->set.whitespace_chars;
 	unsigned int i;
 
-	if (*whitespace_chars == '\0')
+	if (*whitespace_chars == '\0' || index->set.use_libfts)
 		return;
 
 	for (i = 0; i < len; i++) {
@@ -224,8 +228,7 @@ void lucene_utf8_n_to_tchar(const unsigned char *src, size_t srcsize,
 }
 
 static const wchar_t *
-t_lucene_utf8_to_tchar(struct lucene_index *index,
-		       const char *str, bool translate)
+t_lucene_utf8_to_tchar(struct lucene_index *index, const char *str)
 {
 	ARRAY_TYPE(unichars) dest_arr;
 	const unichar_t *chars;
@@ -540,10 +543,13 @@ static int lucene_index_build_flush(struct lucene_index *index)
 		return 0;
 
 	try {
-		index->writer->addDocument(index->doc,
-					   index->cur_analyzer != NULL ?
-					   index->cur_analyzer :
-					   index->default_analyzer);
+		CL_NS(analysis)::Analyzer *analyzer = NULL;
+
+		if (!index->set.use_libfts) {
+			analyzer = index->cur_analyzer != NULL ?
+				index->cur_analyzer : index->default_analyzer;
+		}
+		index->writer->addDocument(index->doc, analyzer);
 	} catch (CLuceneError &err) {
 		lucene_handle_error(index, err, "IndexWriter::addDocument()");
 		ret = -1;
@@ -578,7 +584,7 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 		index->doc->add(*_CLNEW Field(_T("box"), index->mailbox_guid, Field::STORE_YES | Field::INDEX_UNTOKENIZED));
 	}
 
-	if (index->normalizer_buf != NULL) {
+	if (index->normalizer_buf != NULL && !index->set.use_libfts) {
 		buffer_set_used_size(index->normalizer_buf, 0);
 		index->normalizer(data, size, index->normalizer_buf);
 		data = (const unsigned char *)index->normalizer_buf->data;
@@ -594,6 +600,8 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 	lucene_utf8_n_to_tchar(data, size, dest, datasize);
 	lucene_data_translate(index, dest, datasize-1);
 
+	int token_flag = index->set.use_libfts ?
+		Field::INDEX_UNTOKENIZED : Field::INDEX_TOKENIZED;
 	if (hdr_name != NULL) {
 		/* hdr_name should be ASCII, but don't break in case it isn't */
 		hdr_name = t_str_lcase(hdr_name);
@@ -601,15 +609,16 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 		wchar_t wname[namesize];
 		lucene_utf8_n_to_tchar((const unsigned char *)hdr_name,
 				       strlen(hdr_name), wname, namesize);
-		index->doc->add(*_CLNEW Field(_T("hdr"), wname, Field::STORE_NO | Field::INDEX_TOKENIZED));
-		index->doc->add(*_CLNEW Field(_T("hdr"), dest, Field::STORE_NO | Field::INDEX_TOKENIZED));
+		if (index->set.use_libfts)
+			index->doc->add(*_CLNEW Field(_T("hdr"), wname, Field::STORE_NO | token_flag));
+		index->doc->add(*_CLNEW Field(_T("hdr"), dest, Field::STORE_NO | token_flag));
 
 		if (fts_header_want_indexed(hdr_name))
-			index->doc->add(*_CLNEW Field(wname, dest, Field::STORE_NO | Field::INDEX_TOKENIZED));
+			index->doc->add(*_CLNEW Field(wname, dest, Field::STORE_NO | token_flag));
 	} else if (size > 0) {
-		if (index->cur_analyzer == NULL)
+		if (index->cur_analyzer == NULL && !index->set.use_libfts)
 			index->cur_analyzer = guess_analyzer(index, data, size);
-		index->doc->add(*_CLNEW Field(_T("body"), dest, Field::STORE_NO | Field::INDEX_TOKENIZED));
+		index->doc->add(*_CLNEW Field(_T("body"), dest, Field::STORE_NO | token_flag));
 	}
 	i_free(dest_free);
 	return 0;
@@ -1130,6 +1139,18 @@ lucene_get_query_str(struct lucene_index *index,
 	const TCHAR *wvalue;
 	Analyzer *analyzer;
 
+	if (index->set.use_libfts) {
+		const wchar_t *wstr = t_lucene_utf8_to_tchar(index, str);
+		Term* tm = _CLNEW Term(key, wstr);
+		Query* ret;
+		if (fuzzy)
+			ret = _CLNEW FuzzyQuery( tm );
+		else
+			ret = _CLNEW TermQuery( tm );
+		_CLDECDELETE(tm);
+		return ret;
+	}
+
 	if (index->normalizer_buf != NULL) {
 		buffer_set_used_size(index->normalizer_buf, 0);
 		index->normalizer(str, strlen(str), index->normalizer_buf);
@@ -1137,7 +1158,7 @@ lucene_get_query_str(struct lucene_index *index,
 		str = (const char *)index->normalizer_buf->data;
 	}
 
-	wvalue = t_lucene_utf8_to_tchar(index, str, TRUE);
+	wvalue = t_lucene_utf8_to_tchar(index, str);
 	analyzer = guess_analyzer(index, str, strlen(str));
 	if (analyzer == NULL)
 		analyzer = index->default_analyzer;
@@ -1194,7 +1215,7 @@ lucene_add_definite_query(struct lucene_index *index,
 			return false;
 
 		q = lucene_get_query(index,
-				     t_lucene_utf8_to_tchar(index, t_str_lcase(arg->hdr_field_name), FALSE),
+				     t_lucene_utf8_to_tchar(index, t_str_lcase(arg->hdr_field_name)),
 				     arg);
 		break;
 	default:
@@ -1236,7 +1257,7 @@ lucene_add_maybe_query(struct lucene_index *index,
 	case SEARCH_HEADER:
 	case SEARCH_HEADER_ADDRESS:
 	case SEARCH_HEADER_COMPRESS_LWSP:
-		if (*arg->value.str == '\0') {
+		if (*arg->value.str == '\0' && !index->set.use_libfts) {
 			/* checking potential existence of the header name */
 			q = lucene_get_query_str(index, _T("hdr"),
 				t_str_lcase(arg->hdr_field_name), FALSE);

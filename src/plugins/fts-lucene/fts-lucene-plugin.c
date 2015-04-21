@@ -34,6 +34,8 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 			set->no_snowball = TRUE;
 		} else if (strcmp(*tmp, "mime_parts") == 0) {
 			set->mime_parts = TRUE;
+		} else if (strcmp(*tmp, "use_libfts") == 0) {
+			set->use_libfts = TRUE;
 		} else {
 			i_error("fts_lucene: Invalid setting: %s", *tmp);
 			return -1;
@@ -72,6 +74,9 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 uint32_t fts_lucene_settings_checksum(const struct fts_lucene_settings *set)
 {
 	uint32_t crc;
+
+	if (set->use_libfts)
+		return crc32_str("l");
 
 	/* checksum is always different when compiling with/without stemmer */
 	crc = set->default_language == NULL ? 0 :
