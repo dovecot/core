@@ -5,6 +5,7 @@
 #include "array.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "time-util.h"
 #include "unichar.h"
 #include "var-expand.h"
 #include "message-address.h"
@@ -38,8 +39,10 @@ const char *mail_deliver_get_address(struct mail *mail, const char *header)
 		NULL : t_strconcat(addr->mailbox, "@", addr->domain, NULL);
 }
 
-const struct var_expand_table *
-mail_deliver_get_log_var_expand_table(struct mail *mail, const char *message)
+static const struct var_expand_table *
+mail_deliver_get_log_var_expand_table_full(struct mail_deliver_context *ctx,
+					   struct mail *mail,
+					   const char *message)
 {
 	static struct var_expand_table static_tab[] = {
 		{ '$', NULL, NULL },
@@ -49,6 +52,8 @@ mail_deliver_get_log_var_expand_table(struct mail *mail, const char *message)
 		{ 'e', NULL, "from_envelope" },
 		{ 'p', NULL, "size" },
 		{ 'w', NULL, "vsize" },
+		{ '\0', NULL, "delivery_time" },
+		{ '\0', NULL, "session_time" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -75,7 +80,33 @@ mail_deliver_get_log_var_expand_table(struct mail *mail, const char *message)
 		tab[5].value = dec2str(size);
 	if (mail_get_virtual_size(mail, &size) == 0)
 		tab[6].value = dec2str(size);
+	if (ctx != NULL) {
+		int delivery_time_msecs;
+
+		io_loop_time_refresh();
+		delivery_time_msecs =
+			timeval_diff_msecs(&ioloop_timeval,
+					   &ctx->delivery_time_started);
+		tab[7].value = dec2str(delivery_time_msecs);
+		tab[8].value = dec2str(ctx->session_time_msecs);
+	}
 	return tab;
+}
+
+const struct var_expand_table *
+mail_deliver_get_log_var_expand_table(struct mail *mail, const char *message)
+{
+	return mail_deliver_get_log_var_expand_table_full(NULL, mail, message);
+}
+
+const struct var_expand_table *
+mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
+					  const char *message)
+{
+	struct mail *mail;
+
+	mail = ctx->dest_mail != NULL ? ctx->dest_mail : ctx->src_mail;
+	return mail_deliver_get_log_var_expand_table_full(ctx, mail, message);
 }
 
 static void
@@ -83,12 +114,10 @@ mail_deliver_log_cache_var_expand_table(struct mail_deliver_context *ctx)
 {
 	const struct var_expand_table *src;
 	struct var_expand_table *dest;
-	struct mail *mail;
 	unsigned int i, len;
 
-	mail = ctx->dest_mail != NULL ? ctx->dest_mail : ctx->src_mail;
-	src = mail_deliver_get_log_var_expand_table(mail, "");
-	for (len = 0; src[len].key != '\0'; len++) ;
+	src = mail_deliver_ctx_get_log_var_expand_table(ctx, "");
+	for (len = 0; src[len].key != '\0' || src[len].long_key != NULL; len++) ;
 
 	dest = p_new(ctx->pool, struct var_expand_table, len + 1);
 	for (i = 0; i < len; i++) {
@@ -391,6 +420,9 @@ int mail_deliver(struct mail_deliver_context *ctx,
 		 struct mail_storage **storage_r)
 {
 	int ret;
+
+	io_loop_time_refresh();
+	ctx->delivery_time_started = ioloop_timeval;
 
 	*storage_r = NULL;
 	if (deliver_mail == NULL)

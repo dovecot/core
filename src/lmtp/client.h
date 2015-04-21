@@ -37,6 +37,8 @@ struct client_state {
 	struct ostream *mail_data_output;
 	const char *added_headers;
 
+	struct timeval mail_from_timeval, data_end_timeval;
+
 	struct mail *raw_mail;
 
 	struct mail_user *dest_user;

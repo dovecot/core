@@ -26,6 +26,9 @@ struct mail_deliver_context {
 	struct mail_deliver_session *session;
 	unsigned int timeout_secs;
 
+	unsigned int session_time_msecs;
+	struct timeval delivery_time_started;
+
 	struct duplicate_context *dup_ctx;
 
 	/* Session ID, used as log line prefix if non-NULL. */
@@ -77,6 +80,9 @@ typedef int deliver_mail_func_t(struct mail_deliver_context *ctx,
 
 extern deliver_mail_func_t *deliver_mail;
 
+const struct var_expand_table *
+mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
+					  const char *message);
 const struct var_expand_table *
 mail_deliver_get_log_var_expand_table(struct mail *mail, const char *message);
 void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)

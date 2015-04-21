@@ -12,6 +12,7 @@
 #include "istream-dot.h"
 #include "safe-mkstemp.h"
 #include "hex-dec.h"
+#include "time-util.h"
 #include "var-expand.h"
 #include "restrict-access.h"
 #include "settings-parser.h"
@@ -212,6 +213,8 @@ int cmd_mail(struct client *client, const char *args)
 	p_array_init(&client->state.rcpt_to, client->state_pool, 64);
 	client_send_line(client, "250 2.1.0 OK");
 	client_state_set(client, "MAIL FROM", client->state.mail_from);
+
+	client->state.mail_from_timeval = ioloop_timeval;
 	return 0;
 }
 
@@ -809,6 +812,10 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	dctx.src_mail = src_mail;
 	dctx.src_envelope_sender = client->state.mail_from;
 	dctx.dest_user = client->state.dest_user;
+	dctx.session_time_msecs =
+		timeval_diff_msecs(&client->state.data_end_timeval,
+				   &client->state.mail_from_timeval);
+
 	if (orcpt_get_valid_rfc822(rcpt->params.dsn_orcpt, &dctx.dest_addr)) {
 		/* used ORCPT */
 	} else if (*dctx.set->lda_original_recipient_header != '\0') {
@@ -1092,6 +1099,8 @@ static void client_input_data_write(struct client *client)
 		timeout_remove(&client->to_idle);
 	io_remove(&client->io);
 	i_stream_destroy(&client->dot_input);
+
+	client->state.data_end_timeval = ioloop_timeval;
 
 	input = client_get_input(client);
 	if (array_count(&client->state.rcpt_to) != 0)
