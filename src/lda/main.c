@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "lib-signals.h"
+#include "ioloop.h"
 #include "env-util.h"
 #include "fd-set-nonblock.h"
 #include "istream.h"
@@ -409,6 +410,9 @@ int main(int argc, char *argv[])
 		MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS;
 	storage_service = mail_storage_service_init(master_service, set_roots,
 						    service_flags);
+	/* set before looking up the user (or ideally we'd do this between
+	   _lookup() and _next(), but don't bother) */
+	ctx.delivery_time_started = ioloop_timeval;
 	ret = mail_storage_service_lookup_next(storage_service, &service_input,
 					       &service_user, &ctx.dest_user,
 					       &errstr);

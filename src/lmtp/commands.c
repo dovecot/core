@@ -750,6 +750,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	struct lda_settings *lda_set;
 	struct mail_namespace *ns;
 	struct setting_parser_context *set_parser;
+	struct timeval delivery_time_started;
 	void **sets;
 	const char *line, *error, *username;
 	string_t *str;
@@ -785,6 +786,10 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 			i_unreached();
 	}
 
+	/* get the timestamp before user is created, since it starts the I/O */
+	io_loop_time_refresh();
+	delivery_time_started = ioloop_timeval;
+
 	client_state_set(client, "DATA", username);
 	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
 	if (mail_storage_service_next(storage_service, rcpt->service_user,
@@ -815,6 +820,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	dctx.session_time_msecs =
 		timeval_diff_msecs(&client->state.data_end_timeval,
 				   &client->state.mail_from_timeval);
+	dctx.delivery_time_started = delivery_time_started;
 
 	if (orcpt_get_valid_rfc822(rcpt->params.dsn_orcpt, &dctx.dest_addr)) {
 		/* used ORCPT */

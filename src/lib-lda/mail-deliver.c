@@ -430,9 +430,6 @@ int mail_deliver(struct mail_deliver_context *ctx,
 {
 	int ret;
 
-	io_loop_time_refresh();
-	ctx->delivery_time_started = ioloop_timeval;
-
 	*storage_r = NULL;
 	if (deliver_mail == NULL)
 		ret = -1;
