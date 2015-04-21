@@ -33,6 +33,10 @@ extern const struct fts_filter *fts_filter_stemmer_snowball;
 extern const struct fts_filter *fts_filter_normalizer_icu;
 #define ICU_NORMALIZER_FILTER_NAME "normalizer-icu"
 
+/* Normalization using i;unicode-casemap (RFC 5051) */
+extern const struct fts_filter *fts_filter_normalizer_simple;
+#define SIMPLE_NORMALIZER_FILTER_NAME "normalizer-simple"
+
 /* Register all built-in filters. */
 void fts_filters_init(void);
 void fts_filters_deinit(void);
