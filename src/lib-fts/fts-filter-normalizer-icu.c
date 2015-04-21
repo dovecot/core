@@ -35,7 +35,7 @@ icu_error(const char **error_r, const UErrorCode err, const char *func)
 
 /* Thin wrapper for vprintf */
 static void ATTR_FORMAT(2, 3)
-fts_filter_normalizer_error(const char **error_r, const char *format, ...)
+fts_filter_normalizer_icu_error(const char **error_r, const char *format, ...)
 {
 	va_list args;
 
@@ -133,7 +133,7 @@ static int make_utf8(const UChar *src, char **dst, const char **error_r)
 		        dsize_actual, dsize);
 	}
 	if (0 != sub_num) {
-		fts_filter_normalizer_error(error_r, "UTF8 string not well formed."
+		fts_filter_normalizer_icu_error(error_r, "UTF8 string not well formed."
 		                    " Substitutions (%d) were made.", sub_num);
 		return -1;
 	}
@@ -142,14 +142,14 @@ static int make_utf8(const UChar *src, char **dst, const char **error_r)
 	return 0;
 }
 
-static bool fts_filter_normalizer_supports(const struct fts_language *lang)
+static bool fts_filter_normalizer_icu_supports(const struct fts_language *lang)
 {
 	if (lang == NULL || lang->name == NULL)
 		return FALSE;
 	return TRUE;
 }
 
-static void fts_filter_normalizer_destroy(struct fts_filter *filter)
+static void fts_filter_normalizer_icu_destroy(struct fts_filter *filter)
 {
 	struct fts_filter_normalizer *np =
 		(struct fts_filter_normalizer *)filter;
@@ -161,10 +161,10 @@ static void fts_filter_normalizer_destroy(struct fts_filter *filter)
 }
 
 static int
-fts_filter_normalizer_create(const struct fts_language *lang ATTR_UNUSED,
-                             const char *const *settings,
-                             struct fts_filter **filter_r,
-                             const char **error_r)
+fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
+				 const char *const *settings,
+				 struct fts_filter **filter_r,
+				 const char **error_r)
 {
 	struct fts_filter_normalizer *np;
 	pool_t pp;
@@ -192,7 +192,7 @@ fts_filter_normalizer_create(const struct fts_language *lang ATTR_UNUSED,
 	                           sizeof(struct fts_filter_normalizer));
 	np = p_new(pp, struct fts_filter_normalizer, 1);
 	np->pool = pp;
-	np->filter =  *fts_filter_normalizer;
+	np->filter =  *fts_filter_normalizer_icu;
 	if (make_uchar(id, &id_uchar, &id_len_uchar) < 0) {
 
 	}
@@ -200,12 +200,12 @@ fts_filter_normalizer_create(const struct fts_language *lang ATTR_UNUSED,
 	                                  NULL, 0, &perr, &err);
 	if (U_FAILURE(err)) {
 		if (perr.line >= 1) {
-			fts_filter_normalizer_error(error_r, "Failed to open transliterator for id: %s. Lib ICU error: %s. Parse error on line %u offset %u.", id, u_errorName(err), perr.line, perr.offset);
+			fts_filter_normalizer_icu_error(error_r, "Failed to open transliterator for id: %s. Lib ICU error: %s. Parse error on line %u offset %u.", id, u_errorName(err), perr.line, perr.offset);
 		}
 		else {
-			fts_filter_normalizer_error(error_r, "Failed to open transliterator for id: %s. Lib ICU error: %s.", id, u_errorName(err));
+			fts_filter_normalizer_icu_error(error_r, "Failed to open transliterator for id: %s. Lib ICU error: %s.", id, u_errorName(err));
 		}
-		fts_filter_normalizer_destroy(&np->filter);
+		fts_filter_normalizer_icu_destroy(&np->filter);
 		return -1;
 	}
 	*filter_r = &np->filter;
@@ -215,7 +215,7 @@ fts_filter_normalizer_create(const struct fts_language *lang ATTR_UNUSED,
 /* Returns 0 on success and -1 on error. */
 /* TODO: delay errors until _deinit() and return some other values? */
 static const char *
-fts_filter_normalizer_filter(struct fts_filter *filter, const char *token)
+fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char *token)
 {
 	UErrorCode err = U_ZERO_ERROR;
 	UChar *utext = NULL;
@@ -231,7 +231,7 @@ fts_filter_normalizer_filter(struct fts_filter *filter, const char *token)
 		return NULL;
 
 	if (make_uchar(token, &utext, &utext_cap) < 0) {
-		fts_filter_normalizer_error(&np->error, "Conversion to UChar failed");
+		fts_filter_normalizer_icu_error(&np->error, "Conversion to UChar failed");
 		return NULL;
 	}
 	/*
@@ -274,45 +274,45 @@ fts_filter_normalizer_filter(struct fts_filter *filter, const char *token)
 #else
 
 static bool
-fts_filter_normalizer_supports(const struct fts_language *lang ATTR_UNUSED)
+fts_filter_normalizer_icu_supports(const struct fts_language *lang ATTR_UNUSED)
 {
 	return FALSE;
 }
 
 static int
-fts_filter_normalizer_create(const struct fts_language *lang ATTR_UNUSED,
-                             const char *const *settings ATTR_UNUSED,
-                             struct fts_filter **filter_r ATTR_UNUSED,
-                             const char **error_r)
+fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
+				 const char *const *settings ATTR_UNUSED,
+				 struct fts_filter **filter_r ATTR_UNUSED,
+				 const char **error_r)
 {
-	*error_r = "Normalizer support not built in";
+	*error_r = "libicu support not built in - can't use "ICU_NORMALIZER_FILTER_NAME;
 	return -1;
 }
 
 static const char *
-fts_filter_normalizer_filter(struct fts_filter *filter ATTR_UNUSED,
-			     const char *token ATTR_UNUSED)
+fts_filter_normalizer_icu_filter(struct fts_filter *filter ATTR_UNUSED,
+				 const char *token ATTR_UNUSED)
 {
 	return NULL;
 }
 
 static void
-fts_filter_normalizer_destroy(struct fts_filter *normalizer ATTR_UNUSED)
+fts_filter_normalizer_icu_destroy(struct fts_filter *normalizer ATTR_UNUSED)
 {
 }
 
 #endif
 
 static const struct fts_filter_vfuncs normalizer_filter_vfuncs = {
-	fts_filter_normalizer_supports,
-	fts_filter_normalizer_create,
-	fts_filter_normalizer_filter,
-	fts_filter_normalizer_destroy
+	fts_filter_normalizer_icu_supports,
+	fts_filter_normalizer_icu_create,
+	fts_filter_normalizer_icu_filter,
+	fts_filter_normalizer_icu_destroy
 };
 
-static const struct fts_filter fts_filter_normalizer_real = {
-	.class_name = NORMALIZER_FILTER_NAME,
+static const struct fts_filter fts_filter_normalizer_icu_real = {
+	.class_name = ICU_NORMALIZER_FILTER_NAME,
 	.v = &normalizer_filter_vfuncs
 };
 
-const struct fts_filter *fts_filter_normalizer = &fts_filter_normalizer_real;
+const struct fts_filter *fts_filter_normalizer_icu = &fts_filter_normalizer_icu_real;

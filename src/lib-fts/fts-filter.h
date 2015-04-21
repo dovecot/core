@@ -30,8 +30,8 @@ extern const struct fts_filter *fts_filter_stemmer_snowball;
  for syntax.  Defaults to "Any-Lower; NFKD; [: Nonspacing Mark :]
  Remove; NFC"
  */
-extern const struct fts_filter *fts_filter_normalizer;
-#define NORMALIZER_FILTER_NAME "normalizer"
+extern const struct fts_filter *fts_filter_normalizer_icu;
+#define ICU_NORMALIZER_FILTER_NAME "normalizer-icu"
 
 /* Register all built-in filters. */
 void fts_filters_init(void);

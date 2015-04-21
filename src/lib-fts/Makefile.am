@@ -60,7 +60,7 @@ libfts_la_LIBADD = \
 
 libfts_la_SOURCES = \
 	fts-filter.c \
-	fts-filter-normalizer.c \
+	fts-filter-normalizer-icu.c \
 	fts-filter-stopwords.c \
 	fts-filter-stemmer-snowball.c \
 	fts-language.c \
@@ -90,7 +90,7 @@ test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 
 filter_deps = \
 	fts-filter.lo fts-filter-stopwords.lo \
-	fts-filter-stemmer-snowball.lo fts-filter-normalizer.lo
+	fts-filter-stemmer-snowball.lo fts-filter-normalizer-icu.lo
 
 test_fts_filter_SOURCES = test-fts-filter.c
 test_fts_filter_LDADD = $(filter_deps) $(test_libs) $(STEMMER_LIBS) $(TEXTCAT_LIBS) $(NORMALIZER_LIBS)
