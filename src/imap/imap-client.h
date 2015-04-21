@@ -74,6 +74,14 @@ struct client_command_context {
 
 	struct imap_parser *parser;
 	enum client_command_state state;
+	/* time when command handling was started - typically this is after
+	   reading all the parameters. */
+	struct timeval start_time;
+	/* time when an unfinished command handling entered back to ioloop.
+	   used for calculating usecs_in_ioloop */
+	struct timeval last_ioloop_time;
+	/* how much time was spent waiting for the client in ioloop */
+	uint64_t usecs_in_ioloop;
 
 	struct client_sync_context *sync;
 

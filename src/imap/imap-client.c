@@ -379,6 +379,7 @@ void client_send_tagline(struct client_command_context *cmd, const char *data)
 {
 	struct client *client = cmd->client;
 	const char *tag = cmd->tag;
+	int time_msecs;
 
 	if (client->output->closed || cmd->cancel)
 		return;
@@ -389,10 +390,24 @@ void client_send_tagline(struct client_command_context *cmd, const char *data)
 	if (tag == NULL || *tag == '\0')
 		tag = "*";
 
-	o_stream_nsend_str(client->output, tag);
-	o_stream_nsend(client->output, " ", 1);
-	o_stream_nsend_str(client->output, data);
-	o_stream_nsend(client->output, "\r\n", 2);
+	T_BEGIN {
+		string_t *str = t_str_new(256);
+		str_printfa(str, "%s %s", tag, data);
+		if (cmd->start_time.tv_sec != 0) {
+			if (str_data(str)[str_len(str)-1] == '.')
+				str_truncate(str, str_len(str)-1);
+			io_loop_time_refresh();
+			time_msecs = timeval_diff_msecs(&ioloop_timeval,
+							&cmd->start_time);
+			time_msecs -= cmd->usecs_in_ioloop/1000;
+			if (time_msecs >= 0) {
+				str_printfa(str, " (%d.%03d secs).",
+					    time_msecs/1000, time_msecs%1000);
+			}
+		}
+		str_append(str, "\r\n");
+		o_stream_nsend(client->output, str_data(str), str_len(str));
+	} T_END;
 
 	client->last_output = ioloop_time;
 }
@@ -459,6 +474,7 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
 		str = t_str_new(256);
 		imap_write_args(str, *args_r);
 		cmd->args = p_strdup(cmd->pool, str_c(str));
+		cmd->start_time = ioloop_timeval;
 
 		cmd->client->input_lock = NULL;
 		return TRUE;
