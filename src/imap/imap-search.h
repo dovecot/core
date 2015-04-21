@@ -41,7 +41,6 @@ struct imap_search_context {
 	float min_relevancy, max_relevancy;
 
 	uint64_t highest_seen_modseq;
-	struct timeval start_time;
 
 	unsigned int have_seqsets:1;
 	unsigned int have_modseqs:1;

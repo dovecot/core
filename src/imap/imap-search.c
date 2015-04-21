@@ -415,12 +415,10 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	enum search_return_options opts = ctx->return_options;
 	struct mail *mail;
 	enum mailbox_sync_flags sync_flags;
-	struct timeval end_time;
 	const struct seq_range *range;
 	unsigned int count;
 	uint32_t id, id_min, id_max;
 	const char *ok_reply;
-	int time_msecs;
 	bool tryagain, minmax, lost_data;
 
 	if (cmd->cancel) {
@@ -503,18 +501,12 @@ static bool cmd_search_more(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	if (gettimeofday(&end_time, NULL) < 0)
-		memset(&end_time, 0, sizeof(end_time));
-
-	time_msecs = timeval_diff_msecs(&end_time, &ctx->start_time);
-
 	sync_flags = MAILBOX_SYNC_FLAG_FAST;
 	if (!cmd->uid || ctx->have_seqsets)
 		sync_flags |= MAILBOX_SYNC_FLAG_NO_EXPUNGES;
-	ok_reply = t_strdup_printf("OK %s%s completed (%d.%03d secs).",
+	ok_reply = t_strdup_printf("OK %s%s completed",
 		lost_data ? "["IMAP_RESP_CODE_EXPUNGEISSUED"] " : "",
-		!ctx->sorting ? "Search"  : "Sort",
-		time_msecs/1000, time_msecs%1000);
+		!ctx->sorting ? "Search"  : "Sort");
 	return cmd_sync(cmd, sync_flags, 0, ok_reply);
 }
 
@@ -594,7 +586,6 @@ bool imap_search_start(struct imap_search_context *ctx,
 	ctx->search_ctx =
 		mailbox_search_init(ctx->trans, sargs, sort_program, 0, NULL);
 	ctx->sorting = sort_program != NULL;
-	(void)gettimeofday(&ctx->start_time, NULL);
 	i_array_init(&ctx->result, 128);
 	if ((ctx->return_options & SEARCH_RETURN_UPDATE) != 0)
 		imap_search_result_save(ctx);

@@ -201,8 +201,6 @@ static void select_context_free(struct imap_select_context *ctx)
 static void cmd_select_finish(struct imap_select_context *ctx, int ret)
 {
 	const char *resp_code;
-	struct timeval end_time;
-	int time_msecs;
 
 	if (ret < 0) {
 		if (ctx->box != NULL)
@@ -211,13 +209,9 @@ static void cmd_select_finish(struct imap_select_context *ctx, int ret)
 	} else {
 		resp_code = mailbox_is_readonly(ctx->box) ?
 			"READ-ONLY" : "READ-WRITE";
-		if (gettimeofday(&end_time, NULL) < 0)
-			memset(&end_time, 0, sizeof(end_time));
-		time_msecs = timeval_diff_msecs(&end_time, &ctx->start_time);
 		client_send_tagline(ctx->cmd, t_strdup_printf(
-			"OK [%s] %s completed (%d.%03d secs).", resp_code,
-			ctx->cmd->client->mailbox_examined ? "Examine" : "Select",
-			time_msecs/1000, time_msecs%1000));
+			"OK [%s] %s completed", resp_code,
+			ctx->cmd->client->mailbox_examined ? "Examine" : "Select"));
 	}
 	select_context_free(ctx);
 }
