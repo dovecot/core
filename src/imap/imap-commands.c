@@ -151,14 +151,16 @@ void command_hook_unregister(command_hook_callback_t *pre,
 bool command_exec(struct client_command_context *cmd)
 {
 	const struct command_hook *hook;
-	bool ret;
+	bool finished;
 
 	array_foreach(&command_hooks, hook)
 		hook->pre(cmd);
-	ret = cmd->func(cmd);
+	finished = cmd->func(cmd);
 	array_foreach(&command_hooks, hook)
 		hook->post(cmd);
-	return ret;
+	if (cmd->state == CLIENT_COMMAND_STATE_DONE)
+		finished = TRUE;
+	return finished;
 }
 
 static int command_cmp(const struct command *c1, const struct command *c2)
