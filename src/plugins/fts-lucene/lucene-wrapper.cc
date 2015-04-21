@@ -609,7 +609,7 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 		wchar_t wname[namesize];
 		lucene_utf8_n_to_tchar((const unsigned char *)hdr_name,
 				       strlen(hdr_name), wname, namesize);
-		if (index->set.use_libfts)
+		if (!index->set.use_libfts)
 			index->doc->add(*_CLNEW Field(_T("hdr"), wname, Field::STORE_NO | token_flag));
 		index->doc->add(*_CLNEW Field(_T("hdr"), dest, Field::STORE_NO | token_flag));
 
