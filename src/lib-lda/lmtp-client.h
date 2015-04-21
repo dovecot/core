@@ -26,6 +26,13 @@ struct lmtp_recipient_params {
 	const char *dsn_orcpt;
 };
 
+struct lmtp_client_times {
+	struct timeval connect_started;
+	struct timeval banner_received;
+	struct timeval data_started;
+	struct timeval data_sent;
+};
+
 struct lmtp_client_settings {
 	const char *my_hostname;
 	/* The whole MAIL FROM line, including parameters */
@@ -93,5 +100,8 @@ const char *lmtp_client_state_to_string(struct lmtp_client *client);
 void lmtp_client_set_data_output_callback(struct lmtp_client *client,
 					  void (*callback)(void *),
 					  void *context);
+/* Return LMTP client statistics. */
+const struct lmtp_client_times *
+lmtp_client_get_times(struct lmtp_client *client);
 
 #endif

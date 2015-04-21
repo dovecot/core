@@ -71,6 +71,7 @@ struct lmtp_client {
 	unsigned int rcpt_next_send_idx;
 	struct istream *data_input;
 	unsigned char output_last;
+	struct lmtp_client_times times;
 
 	unsigned int running:1;
 	unsigned int xclient_sent:1;
@@ -392,6 +393,8 @@ static int lmtp_client_send_data(struct lmtp_client *client)
 	}
 	o_stream_nsend(client->output, ".\r\n", 3);
 	client->output_finished = TRUE;
+	io_loop_time_refresh();
+	client->times.data_sent = ioloop_timeval;
 	return 0;
 }
 
@@ -507,6 +510,7 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 				"451 4.5.0 Received invalid greeting: %s", line));
 			return -1;
 		}
+		client->times.banner_received = ioloop_timeval;
 		lmtp_client_send_handshake(client);
 		client->input_state = LMTP_INPUT_STATE_LHLO;
 		break;
@@ -561,6 +565,7 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 			return -1;
 		}
 		client->input_state++;
+		client->times.data_started = ioloop_timeval;
 		if (client->data_header != NULL)
 			o_stream_nsend_str(client->output, client->data_header);
 		if (lmtp_client_send_data(client) < 0)
@@ -661,6 +666,8 @@ static int lmtp_client_output(struct lmtp_client *client)
 static int lmtp_client_connect(struct lmtp_client *client)
 {
 	i_assert(client->fd == -1);
+
+	client->times.connect_started = ioloop_timeval;
 
 	client->fd = net_connect_ip(&client->ip, client->port, NULL);
 	if (client->fd == -1) {
@@ -878,4 +885,10 @@ void lmtp_client_set_data_output_callback(struct lmtp_client *client,
 {
 	client->data_output_callback = callback;
 	client->data_output_context = context;
+}
+
+const struct lmtp_client_times *
+lmtp_client_get_times(struct lmtp_client *client)
+{
+	return &client->times;
 }
