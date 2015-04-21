@@ -17,7 +17,6 @@ struct imap_select_context {
 	struct mail_namespace *ns;
 	struct mailbox *box;
 
-	struct timeval start_time;
 	struct imap_fetch_context *fetch_ctx;
 
 	uint32_t qresync_uid_validity;
@@ -405,7 +404,6 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 		client_send_tagline(cmd, error);
 		return TRUE;
 	}
-	(void)gettimeofday(&ctx->start_time, NULL);
 
 	if (imap_arg_get_list(&args[1], &list_args)) {
 		if (!select_parse_options(ctx, list_args)) {
