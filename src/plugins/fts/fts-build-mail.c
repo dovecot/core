@@ -171,6 +171,16 @@ static void fts_build_mail_header(struct fts_mail_build_context *ctx,
 
 		(void)fts_build_data(ctx, str_data(str), str_len(str), TRUE);
 	} T_END;
+
+	if ((ctx->update_ctx->backend->flags &
+	     FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0) {
+		/* index the header name itself */
+		key.hdr_name = "";
+		if (fts_backend_update_set_build_key(ctx->update_ctx, &key)) {
+			(void)fts_build_data(ctx, (const void *)hdr->name,
+					     strlen(hdr->name), TRUE);
+		}
+	}
 }
 
 static bool
