@@ -155,6 +155,7 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 		session->user->domain->num_cmds++;
 		if (session->ip != NULL)
 			session->ip->num_cmds++;
+		mail_global_stats.num_cmds++;
 		args += 5;
 	} else {
 		if (cmd == NULL) {
