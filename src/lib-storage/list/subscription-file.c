@@ -1,6 +1,8 @@
 /* Copyright (c) 2002-2015 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
+#include "strescape.h"
 #include "istream.h"
 #include "ostream.h"
 #include "nfs-workarounds.h"
@@ -20,9 +22,13 @@ struct subsfile_list_context {
 	struct mailbox_list *list;
 	struct istream *input;
 	char *path;
+	string_t *name;
 
+	unsigned int version;
 	bool failed;
 };
+
+static const char version2_header[] = "V\t2\n\n";
 
 static void subsread_set_syscall_error(struct mailbox_list *list,
 				       const char *function, const char *path)
@@ -47,6 +53,29 @@ static void subswrite_set_syscall_error(struct mailbox_list *list,
 		mailbox_list_set_critical(list,
 			"%s failed with subscription file %s: %m",
 			function, path);
+	}
+}
+
+static void
+subsfile_list_read_header(struct mailbox_list *list, struct istream *input,
+			  unsigned int *version_r)
+{
+	const unsigned char version2_header_len = strlen(version2_header);
+	const unsigned char *data;
+	size_t size;
+	int ret;
+
+	*version_r = 0;
+
+	ret = i_stream_read_data(input, &data, &size, version2_header_len-1);
+	if (ret < 0) {
+		i_assert(ret == -1);
+		subswrite_set_syscall_error(list, "read()", i_stream_get_name(input));
+		return;
+	}
+	if (memcmp(data, version2_header, version2_header_len) == 0) {
+		*version_r = 2;
+		i_stream_skip(input, version2_header_len);
 	}
 }
 
@@ -83,18 +112,20 @@ static const char *next_line(struct mailbox_list *list, const char *path,
 }
 
 int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
-			    const char *temp_prefix, const char *name, bool set)
+			    const char *temp_prefix, const char *name,
+			    bool set)
 {
 	const struct mail_storage_settings *mail_set = list->mail_set;
 	struct dotlock_settings dotlock_set;
 	struct dotlock *dotlock;
 	struct mailbox_permissions perm;
-	const char *line, *dir, *fname;
-	struct istream *input;
+	const char *line, *dir, *fname, *escaped_name;
+	struct istream *input = NULL;
 	struct ostream *output;
 	int fd_in, fd_out;
 	enum mailbox_list_path_type type;
 	bool found, changed = FALSE, failed = FALSE;
+	unsigned int version = 0;
 
 	if (strcasecmp(name, "INBOX") == 0)
 		name = "INBOX";
@@ -145,15 +176,38 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 		file_dotlock_delete(&dotlock);
 		return -1;
 	}
+	if (fd_in != -1) {
+		input = i_stream_create_fd_autoclose(&fd_in, list->mailbox_name_max_length+1);
+		i_stream_set_return_partial_line(input, TRUE);
+		subsfile_list_read_header(list, input, &version);
+	}
 
 	found = FALSE;
 	output = o_stream_create_fd_file(fd_out, 0, FALSE);
 	o_stream_cork(output);
-	if (fd_in != -1) {
-		input = i_stream_create_fd_autoclose(&fd_in, list->mailbox_name_max_length+1);
+	if (version >= 2)
+		o_stream_send_str(output, version2_header);
+	if (version < 2 || name[0] == '\0')
+		escaped_name = name;
+	else {
+		const char *const *tmp;
+		char separators[2];
+		string_t *str = t_str_new(64);
+
+		separators[0] = mailbox_list_get_hierarchy_sep(list);
+		separators[1] = '\0';
+		tmp = t_strsplit(name, separators);
+		str_append_tabescaped(str, *tmp);
+		for (tmp++; *tmp != NULL; tmp++) {
+			str_append_c(str, '\t');
+			str_append_tabescaped(str, *tmp);
+		}
+		escaped_name = str_c(str);
+	}
+	if (input != NULL) {
 		while ((line = next_line(list, path, input,
 					 &failed, FALSE)) != NULL) {
-			if (strcmp(line, name) == 0) {
+			if (strcmp(line, escaped_name) == 0) {
 				found = TRUE;
 				if (!set) {
 					changed = TRUE;
@@ -169,7 +223,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 
 	if (!failed && set && !found) {
 		/* append subscription */
-		line = t_strconcat(name, "\n", NULL);
+		line = t_strconcat(escaped_name, "\n", NULL);
 		o_stream_nsend_str(output, line);
 		changed = TRUE;
 	}
@@ -227,8 +281,10 @@ subsfile_list_init(struct mailbox_list *list, const char *path)
 		ctx->input = i_stream_create_fd_autoclose(&fd,
 					list->mailbox_name_max_length+1);
 		i_stream_set_return_partial_line(ctx->input, TRUE);
+		subsfile_list_read_header(ctx->list, ctx->input, &ctx->version);
 	}
 	ctx->path = i_strdup(path);
+	ctx->name = str_new(default_pool, 128);
 	return ctx;
 }
 
@@ -241,6 +297,7 @@ int subsfile_list_deinit(struct subsfile_list_context **_ctx)
 
 	if (ctx->input != NULL)
 		i_stream_destroy(&ctx->input);
+	str_free(&ctx->name);
 	i_free(ctx->path);
 	i_free(ctx);
 	return ret;
@@ -259,6 +316,21 @@ int subsfile_list_fstat(struct subsfile_list_context *ctx, struct stat *st_r)
 	}
 	*st_r = *st;
 	return 0;
+}
+
+static const char *
+subsfile_list_unescaped(struct subsfile_list_context *ctx, const char *line)
+{
+	const char *p;
+
+	str_truncate(ctx->name, 0);
+	while ((p = strchr(line, '\t')) != NULL) {
+		str_append_tabunescaped(ctx->name, line, p-line);
+		str_append_c(ctx->name, mailbox_list_get_hierarchy_sep(ctx->list));
+		line = p+1;
+	}
+	str_append_tabunescaped(ctx->name, line, strlen(line));
+	return str_c(ctx->name);
 }
 
 const char *subsfile_list_next(struct subsfile_list_context *ctx)
@@ -299,6 +371,9 @@ const char *subsfile_list_next(struct subsfile_list_context *ctx)
 		ctx->input = i_stream_create_fd_autoclose(&fd,
 					ctx->list->mailbox_name_max_length+1);
 		i_stream_set_return_partial_line(ctx->input, TRUE);
-        }
+	}
+
+	if (ctx->version > 1 && line != NULL)
+		line = subsfile_list_unescaped(ctx, line);
         return line;
 }
