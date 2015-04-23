@@ -297,5 +297,6 @@ void iostream_rawlog_create_from_stream(struct ostream *rawlog_output,
 				rawlog_output, rawlog_flags);
 		o_stream_unref(&old_output);
 	}
-	o_stream_ref(rawlog_output);
+	if (input != NULL && output != NULL)
+		o_stream_ref(rawlog_output);
 }
