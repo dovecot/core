@@ -571,23 +571,20 @@ int index_mail_get_binary_stream(struct mail *_mail,
 	}
 	*size_r = cache->size;
 	*binary_r = binary;
-	if (stream_r != NULL) {
-		i_stream_ref(cache->input);
-		*stream_r = cache->input;
-	}
 	if (!converted) {
 		/* don't keep this cached. it's exactly the same as
 		   the original stream */
+		i_assert(mail->data.stream != NULL);
+		i_stream_seek(mail->data.stream, part->physical_pos +
+			      (include_hdr ? 0 :
+			       part->header_size.physical_size));
+		input = i_stream_create_crlf(mail->data.stream);
+		*stream_r = i_stream_create_limit(input, *size_r);
+		i_stream_unref(&input);
 		mail_storage_free_binary_cache(_mail->box->storage);
-		if (stream_r != NULL) {
-			i_stream_unref(stream_r);
-			i_stream_seek(mail->data.stream, part->physical_pos +
-				      (include_hdr ? 0 :
-				       part->header_size.physical_size));
-			input = i_stream_create_crlf(mail->data.stream);
-			*stream_r = i_stream_create_limit(input, *size_r);
-			i_stream_unref(&input);
-		}
+	} else {
+		*stream_r = cache->input;
+		i_stream_ref(cache->input);
 	}
 	return 0;
 }
