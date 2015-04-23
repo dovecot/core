@@ -70,10 +70,12 @@ subsfile_list_read_header(struct mailbox_list *list, struct istream *input,
 	ret = i_stream_read_data(input, &data, &size, version2_header_len-1);
 	if (ret < 0) {
 		i_assert(ret == -1);
-		subswrite_set_syscall_error(list, "read()", i_stream_get_name(input));
+		if (input->stream_errno != 0)
+			subswrite_set_syscall_error(list, "read()", i_stream_get_name(input));
 		return;
 	}
-	if (memcmp(data, version2_header, version2_header_len) == 0) {
+	if (ret > 0 &&
+	    memcmp(data, version2_header, version2_header_len) == 0) {
 		*version_r = 2;
 		i_stream_skip(input, version2_header_len);
 	}
