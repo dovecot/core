@@ -98,13 +98,24 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 			imap_write_seq_range(str, &uids);
 		} T_END;
 		return TRUE;
+	case SEARCH_BEFORE:
+	case SEARCH_SINCE:
+		if ((capa & IMAPC_CAPABILITY_WITHIN) == 0) {
+			/* a bit kludgy way to check this.. */
+			unsigned int pos = str_len(str);
+			if (!mail_search_arg_to_imap(str, arg, &error))
+				return FALSE;
+			if (strncasecmp(str_c(str) + pos, "OLDER", 5) == 0 ||
+			    strncasecmp(str_c(str) + pos, "YOUNGER", 7) == 0)
+				return FALSE;
+			return TRUE;
+		}
+		/* fall thrugh */
 	case SEARCH_ALL:
 	case SEARCH_UIDSET:
 	case SEARCH_FLAGS:
 	case SEARCH_KEYWORDS:
-	case SEARCH_BEFORE:
 	case SEARCH_ON:
-	case SEARCH_SINCE:
 	case SEARCH_SMALLER:
 	case SEARCH_LARGER:
 	case SEARCH_HEADER:
