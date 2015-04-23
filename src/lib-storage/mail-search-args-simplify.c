@@ -3,15 +3,58 @@
 #include "lib.h"
 #include "mail-search.h"
 
+struct mail_search_simplify_ctx {
+	struct mail_search_arg *prev_flags, *prev_not_flags;
+	struct mail_search_arg *prev_seqset, *prev_not_seqset;
+	struct mail_search_arg *prev_uidset, *prev_not_uidset;
+	bool removals;
+};
+
+static bool mail_search_args_merge_flags(struct mail_search_simplify_ctx *ctx,
+					 struct mail_search_arg *args)
+{
+	struct mail_search_arg **prev_argp;
+
+	prev_argp = !args->match_not ? &ctx->prev_flags : &ctx->prev_not_flags;
+	if (*prev_argp == NULL) {
+		*prev_argp = args;
+		return FALSE;
+	} else {
+		(*prev_argp)->value.flags |= args->value.flags;
+		return TRUE;
+	}
+}
+
+static bool mail_search_args_merge_set(struct mail_search_simplify_ctx *ctx,
+				       struct mail_search_arg *args)
+{
+	struct mail_search_arg **prev_argp;
+
+	if (args->type == SEARCH_SEQSET) {
+		prev_argp = !args->match_not ? &ctx->prev_seqset :
+			&ctx->prev_not_seqset;
+	} else {
+		prev_argp = !args->match_not ? &ctx->prev_uidset :
+			&ctx->prev_not_uidset;
+	}
+	if (*prev_argp == NULL) {
+		*prev_argp = args;
+		return FALSE;
+	} else {
+		seq_range_array_merge(&(*prev_argp)->value.seqset,
+				      &args->value.seqset);
+		return TRUE;
+	}
+}
+
 static bool
 mail_search_args_simplify_sub(struct mailbox *box,
 			      struct mail_search_arg *args, bool parent_and)
 {
-	struct mail_search_arg *sub, *prev = NULL;
-	struct mail_search_arg *prev_flags_arg, *prev_not_flags_arg;
-	bool removals;
+	struct mail_search_simplify_ctx ctx;
+	struct mail_search_arg *sub, *prev_arg = NULL;
 
-	prev_flags_arg = prev_not_flags_arg = NULL;
+	memset(&ctx, 0, sizeof(ctx));
 	while (args != NULL) {
 		if (args->match_not && (args->type == SEARCH_SUB ||
 					args->type == SEARCH_OR)) {
@@ -46,40 +89,39 @@ mail_search_args_simplify_sub(struct mailbox *box,
 		    args->type == SEARCH_INTHREAD) {
 			if (mail_search_args_simplify_sub(box, args->value.subargs,
 							  args->type != SEARCH_OR))
-				removals = TRUE;
+				ctx.removals = TRUE;
 		}
 
-		/* merge all flags arguments */
-		if (args->type == SEARCH_FLAGS &&
-		    !args->match_not && parent_and) {
-			if (prev_flags_arg == NULL)
-				prev_flags_arg = args;
-			else {
-				prev_flags_arg->value.flags |=
-					args->value.flags;
-				prev->next = args->next;
-				args = args->next;
-				removals = TRUE;
-				continue;
+		if ((!args->match_not && parent_and) ||
+		    (args->match_not && !parent_and)) {
+			/* try to merge arguments */
+			bool merged;
+
+			switch (args->type) {
+			case SEARCH_FLAGS:
+				merged = mail_search_args_merge_flags(&ctx, args);
+				break;
+			case SEARCH_SEQSET:
+			case SEARCH_UIDSET:
+				merged = mail_search_args_merge_set(&ctx, args);
+				break;
+			case SEARCH_BEFORE:
+			default:
+				merged = FALSE;
+				break;
 			}
-		} else if (args->type == SEARCH_FLAGS && args->match_not &&
-			   !parent_and) {
-			if (prev_not_flags_arg == NULL)
-				prev_not_flags_arg = args;
-			else {
-				prev_not_flags_arg->value.flags |=
-					args->value.flags;
-				prev->next = args->next;
+			if (merged) {
+				prev_arg->next = args->next;
 				args = args->next;
-				removals = TRUE;
+				ctx.removals = TRUE;
 				continue;
 			}
 		}
 
-		prev = args;
+		prev_arg = args;
 		args = args->next;
 	}
-	return removals;
+	return ctx.removals;
 }
 
 static bool
