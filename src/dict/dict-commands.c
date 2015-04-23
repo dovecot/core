@@ -4,6 +4,7 @@
 #include "array.h"
 #include "ostream.h"
 #include "str.h"
+#include "strescape.h"
 #include "dict-client.h"
 #include "dict-settings.h"
 #include "dict-connection.h"
@@ -33,7 +34,7 @@ static int cmd_lookup(struct dict_connection *conn, const char *line)
 	ret = dict_lookup(conn->dict, pool_datastack_create(), line, &value);
 	if (ret > 0) {
 		reply = t_strdup_printf("%c%s\n",
-					DICT_PROTOCOL_REPLY_OK, value);
+			DICT_PROTOCOL_REPLY_OK, str_tabescape(value));
 		o_stream_nsend_str(conn->output, reply);
 	} else {
 		reply = t_strdup_printf("%c\n", ret == 0 ?
@@ -53,9 +54,11 @@ static int cmd_iterate_flush(struct dict_connection *conn)
 	o_stream_cork(conn->output);
 	while (dict_iterate(conn->iter_ctx, &key, &value)) {
 		str_truncate(str, 0);
-		str_printfa(str, "%c%s\t", DICT_PROTOCOL_REPLY_OK, key);
+		str_append_c(str, DICT_PROTOCOL_REPLY_OK);
+		str_append_tabescaped(str, key);
+		str_append_c(str, '\t');
 		if ((conn->iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
-			str_append(str, value);
+			str_append_tabescaped(str, value);
 		str_append_c(str, '\n');
 		o_stream_nsend(conn->output, str_data(str), str_len(str));
 
@@ -92,7 +95,7 @@ static int cmd_iterate(struct dict_connection *conn, const char *line)
 		return -1;
 	}
 
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) < 2 ||
 	    str_to_uint(args[0], &flags) < 0) {
 		i_error("dict client: ITERATE: broken input");
@@ -275,7 +278,7 @@ static int cmd_set(struct dict_connection *conn, const char *line)
 	const char *const *args;
 
 	/* <id> <key> <value> */
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) != 3) {
 		i_error("dict client: SET: broken input");
 		return -1;
@@ -294,7 +297,7 @@ static int cmd_unset(struct dict_connection *conn, const char *line)
 	const char *const *args;
 
 	/* <id> <key> */
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) != 2) {
 		i_error("dict client: UNSET: broken input");
 		return -1;
@@ -313,7 +316,7 @@ static int cmd_append(struct dict_connection *conn, const char *line)
 	const char *const *args;
 
 	/* <id> <key> <value> */
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) != 3) {
 		i_error("dict client: APPEND: broken input");
 		return -1;
@@ -333,7 +336,7 @@ static int cmd_atomic_inc(struct dict_connection *conn, const char *line)
 	long long diff;
 
 	/* <id> <key> <diff> */
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) != 3 ||
 	    str_to_llong(args[2], &diff) < 0) {
 		i_error("dict client: ATOMIC_INC: broken input");
