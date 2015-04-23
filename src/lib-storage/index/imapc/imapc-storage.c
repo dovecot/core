@@ -509,6 +509,12 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 
 	i_assert(mbox->client_box == NULL);
 
+	/* If authentication failed, don't check again. */
+	if (mbox->storage->client->auth_failed) {
+		mail_storage_set_internal_error(&mbox->storage->storage);
+		return -1;
+	}
+
 	mbox->client_box =
 		imapc_client_mailbox_open(mbox->storage->client->client, mbox);
 	imapc_client_mailbox_set_reopen_cb(mbox->client_box,
