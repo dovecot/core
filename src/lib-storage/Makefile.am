@@ -109,20 +109,12 @@ test_libs = \
 	$(top_builddir)/src/lib/liblib.la
 
 test_mail_search_args_imap_SOURCES = test-mail-search-args-imap.c
-test_mail_search_args_imap_LDADD = \
-	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
-test_mail_search_args_imap_DEPENDENCIES = \
-	libstorage.la \
-	$(LIBDOVECOT_DEPS)
+test_mail_search_args_imap_LDADD = libstorage.la $(LIBDOVECOT)
+test_mail_search_args_imap_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
 
 test_mail_search_args_simplify_SOURCES = test-mail-search-args-simplify.c
-test_mail_search_args_simplify_LDADD = \
-	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
-test_mail_search_args_simplify_DEPENDENCIES = \
-	libstorage.la \
-	$(LIBDOVECOT_DEPS)
+test_mail_search_args_simplify_LDADD = libstorage.la $(LIBDOVECOT)
+test_mail_search_args_simplify_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
 
 test_mailbox_get_SOURCES = test-mailbox-get.c
 test_mailbox_get_LDADD = mailbox-get.lo $(test_libs)
