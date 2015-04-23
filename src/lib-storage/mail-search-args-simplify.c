@@ -3,12 +3,13 @@
 #include "lib.h"
 #include "mail-search.h"
 
-static void
+static bool
 mail_search_args_simplify_sub(struct mailbox *box,
 			      struct mail_search_arg *args, bool parent_and)
 {
 	struct mail_search_arg *sub, *prev = NULL;
 	struct mail_search_arg *prev_flags_arg, *prev_not_flags_arg;
+	bool removals;
 
 	prev_flags_arg = prev_not_flags_arg = NULL;
 	while (args != NULL) {
@@ -43,8 +44,9 @@ mail_search_args_simplify_sub(struct mailbox *box,
 		if (args->type == SEARCH_SUB ||
 		    args->type == SEARCH_OR ||
 		    args->type == SEARCH_INTHREAD) {
-			mail_search_args_simplify_sub(box, args->value.subargs,
-						      args->type != SEARCH_OR);
+			if (mail_search_args_simplify_sub(box, args->value.subargs,
+							  args->type != SEARCH_OR))
+				removals = TRUE;
 		}
 
 		/* merge all flags arguments */
@@ -57,6 +59,7 @@ mail_search_args_simplify_sub(struct mailbox *box,
 					args->value.flags;
 				prev->next = args->next;
 				args = args->next;
+				removals = TRUE;
 				continue;
 			}
 		} else if (args->type == SEARCH_FLAGS && args->match_not &&
@@ -68,6 +71,7 @@ mail_search_args_simplify_sub(struct mailbox *box,
 					args->value.flags;
 				prev->next = args->next;
 				args = args->next;
+				removals = TRUE;
 				continue;
 			}
 		}
@@ -75,6 +79,7 @@ mail_search_args_simplify_sub(struct mailbox *box,
 		prev = args;
 		args = args->next;
 	}
+	return removals;
 }
 
 static bool
@@ -145,12 +150,16 @@ mail_search_args_unnest_inthreads(struct mail_search_args *args,
 
 void mail_search_args_simplify(struct mail_search_args *args)
 {
+	bool removals;
+
 	args->simplified = TRUE;
 
-	mail_search_args_simplify_sub(args->box, args->args, TRUE);
+	removals = mail_search_args_simplify_sub(args->box, args->args, TRUE);
 	if (mail_search_args_unnest_inthreads(args, &args->args,
 					      FALSE, TRUE)) {
 		/* we may have added some extra SUBs that could be dropped */
 		mail_search_args_simplify_sub(args->box, args->args, TRUE);
 	}
+	if (removals)
+		mail_search_args_simplify_sub(args->box, args->args, TRUE);
 }
