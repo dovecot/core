@@ -17,4 +17,9 @@ const char *imap_to_datetime(time_t timestamp);
 /* Returns given UTC timestamp as IMAP date-time string in given timezone. */
 const char *imap_to_datetime_tz(time_t timestamp, int timezone_offset);
 
+/* Returns TRUE if timestamp was successfully converted to a date,
+   FALSE if time would have been required as well (but the string is still
+   returned). */
+bool imap_to_date(time_t timestamp, const char **str_r);
+
 #endif
