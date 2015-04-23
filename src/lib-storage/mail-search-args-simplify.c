@@ -159,12 +159,69 @@ static bool mail_search_args_merge_time(struct mail_search_simplify_ctx *ctx,
 	return FALSE;
 }
 
+static bool mail_search_args_merge_size(struct mail_search_simplify_ctx *ctx,
+					struct mail_search_arg *args)
+{
+	struct mail_search_arg mask;
+	struct mail_search_arg **prev_argp, *prev_arg;
+
+	mail_search_arg_get_base_mask(args, &mask);
+	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, &mask);
+
+	if (*prev_argp == NULL) {
+		*prev_argp = args;
+		return FALSE;
+	}
+
+	prev_arg = *prev_argp;
+	switch (args->type) {
+	case SEARCH_SMALLER:
+		if (ctx->parent_and) {
+			if (prev_arg->value.size < args->value.size) {
+				/* prev_arg < 5 AND arg < 10 */
+			} else {
+				/* prev_arg < 10 AND arg < 5 */
+				prev_arg->value.size = args->value.size;
+			}
+		} else {
+			if (prev_arg->value.size < args->value.size) {
+				/* prev_arg < 5 OR arg < 10 */
+				prev_arg->value.size = args->value.size;
+			} else {
+				/* prev_arg < 10 OR arg < 5 */
+			}
+		}
+		return TRUE;
+	case SEARCH_LARGER:
+		if (ctx->parent_and) {
+			if (prev_arg->value.size < args->value.size) {
+				/* prev_arg >= 5 AND arg >= 10 */
+				prev_arg->value.size = args->value.size;
+			} else {
+				/* prev_arg >= 10 AND arg >= 5 */
+			}
+		} else {
+			if (prev_arg->value.size < args->value.size) {
+				/* prev_arg >= 5 OR arg >= 10 */
+			} else {
+				/* prev_arg >= 10 OR arg >= 5 */
+				prev_arg->value.size = args->value.size;
+			}
+		}
+		return TRUE;
+	default:
+		break;
+	}
+	return FALSE;
+}
+
 static bool
 mail_search_args_simplify_sub(struct mailbox *box,
 			      struct mail_search_arg *args, bool parent_and)
 {
 	struct mail_search_simplify_ctx ctx;
 	struct mail_search_arg *sub, *prev_arg = NULL;
+	bool merged;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.parent_and = parent_and;
@@ -210,8 +267,6 @@ mail_search_args_simplify_sub(struct mailbox *box,
 		}
 
 		/* try to merge arguments */
-		bool merged;
-
 		switch (args->type) {
 		case SEARCH_FLAGS:
 			merged = mail_search_args_merge_flags(&ctx, args);
@@ -224,6 +279,10 @@ mail_search_args_simplify_sub(struct mailbox *box,
 		case SEARCH_ON:
 		case SEARCH_SINCE:
 			merged = mail_search_args_merge_time(&ctx, args);
+			break;
+		case SEARCH_SMALLER:
+		case SEARCH_LARGER:
+			merged = mail_search_args_merge_size(&ctx, args);
 			break;
 		default:
 			merged = FALSE;
