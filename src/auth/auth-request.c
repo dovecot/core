@@ -1274,7 +1274,10 @@ bool auth_request_set_login_username(struct auth_request *request,
 {
 	struct auth_passdb *master_passdb;
 
-        i_assert(*username != '\0');
+	if (username[0] == '\0') {
+		*error_r = "Master user login attempted to use empty login username";
+		return FALSE;
+	}
 
 	if (strcmp(username, request->user) == 0) {
 		/* The usernames are the same, we don't really wish to log
