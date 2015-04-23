@@ -1,21 +1,71 @@
 /* Copyright (c) 2002-2015 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "hash.h"
 #include "mail-search.h"
 
+struct mail_search_simplify_prev_arg {
+	struct mail_search_arg mask;
+	struct mail_search_arg *prev_arg;
+};
+
 struct mail_search_simplify_ctx {
-	struct mail_search_arg *prev_flags, *prev_not_flags;
-	struct mail_search_arg *prev_seqset, *prev_not_seqset;
-	struct mail_search_arg *prev_uidset, *prev_not_uidset;
+	pool_t pool;
+	/* arg mask => prev_arg */
+	HASH_TABLE(struct mail_search_arg *,
+		   struct mail_search_simplify_prev_arg *) prev_args;
+	bool parent_and;
 	bool removals;
 };
+
+static int mail_search_arg_cmp(const struct mail_search_arg *arg1,
+			       const struct mail_search_arg *arg2)
+{
+	return memcmp(arg1, arg2, sizeof(*arg1));
+}
+
+static unsigned int mail_search_arg_hash(const struct mail_search_arg *arg)
+{
+	return mem_hash(arg, sizeof(*arg));
+}
+
+static void mail_search_arg_get_base_mask(const struct mail_search_arg *arg,
+					  struct mail_search_arg *mask_r)
+{
+	memset(mask_r, 0, sizeof(*mask_r));
+	mask_r->type = arg->type;
+	mask_r->match_not = arg->match_not;
+	mask_r->value.search_flags = arg->value.search_flags;
+}
+
+static struct mail_search_arg **
+mail_search_args_simplify_get_prev_argp(struct mail_search_simplify_ctx *ctx,
+					const struct mail_search_arg *mask)
+{
+	struct mail_search_simplify_prev_arg *prev_arg;
+
+	prev_arg = hash_table_lookup(ctx->prev_args, mask);
+	if (prev_arg == NULL) {
+		prev_arg = p_new(ctx->pool, struct mail_search_simplify_prev_arg, 1);
+		prev_arg->mask = *mask;
+		hash_table_insert(ctx->prev_args, &prev_arg->mask, prev_arg);
+	}
+	return &prev_arg->prev_arg;
+}
 
 static bool mail_search_args_merge_flags(struct mail_search_simplify_ctx *ctx,
 					 struct mail_search_arg *args)
 {
+	struct mail_search_arg mask;
 	struct mail_search_arg **prev_argp;
 
-	prev_argp = !args->match_not ? &ctx->prev_flags : &ctx->prev_not_flags;
+	if (!((!args->match_not && ctx->parent_and) ||
+	      (args->match_not && !ctx->parent_and)))
+		return FALSE;
+
+	mail_search_arg_get_base_mask(args, &mask);
+	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, &mask);
+
 	if (*prev_argp == NULL) {
 		*prev_argp = args;
 		return FALSE;
@@ -28,15 +78,16 @@ static bool mail_search_args_merge_flags(struct mail_search_simplify_ctx *ctx,
 static bool mail_search_args_merge_set(struct mail_search_simplify_ctx *ctx,
 				       struct mail_search_arg *args)
 {
+	struct mail_search_arg mask;
 	struct mail_search_arg **prev_argp;
 
-	if (args->type == SEARCH_SEQSET) {
-		prev_argp = !args->match_not ? &ctx->prev_seqset :
-			&ctx->prev_not_seqset;
-	} else {
-		prev_argp = !args->match_not ? &ctx->prev_uidset :
-			&ctx->prev_not_uidset;
-	}
+	if (!((!args->match_not && ctx->parent_and) ||
+	      (args->match_not && !ctx->parent_and)))
+		return FALSE;
+
+	mail_search_arg_get_base_mask(args, &mask);
+	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, &mask);
+
 	if (*prev_argp == NULL) {
 		*prev_argp = args;
 		return FALSE;
@@ -47,6 +98,67 @@ static bool mail_search_args_merge_set(struct mail_search_simplify_ctx *ctx,
 	}
 }
 
+static bool mail_search_args_merge_time(struct mail_search_simplify_ctx *ctx,
+					struct mail_search_arg *args)
+{
+	struct mail_search_arg mask;
+	struct mail_search_arg **prev_argp, *prev_arg;
+
+	mail_search_arg_get_base_mask(args, &mask);
+	mask.value.date_type = args->value.date_type;
+	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, &mask);
+
+	if (*prev_argp == NULL) {
+		*prev_argp = args;
+		return FALSE;
+	}
+
+	prev_arg = *prev_argp;
+	switch (args->type) {
+	case SEARCH_BEFORE:
+		if (ctx->parent_and) {
+			if (prev_arg->value.time < args->value.time) {
+				/* prev_arg < 5 AND arg < 10 */
+			} else {
+				/* prev_arg < 10 AND arg < 5 */
+				prev_arg->value.time = args->value.time;
+			}
+		} else {
+			if (prev_arg->value.time < args->value.time) {
+				/* prev_arg < 5 OR arg < 10 */
+				prev_arg->value.time = args->value.time;
+			} else {
+				/* prev_arg < 10 OR arg < 5 */
+			}
+		}
+		return TRUE;
+	case SEARCH_ON:
+		if (prev_arg->value.time == args->value.time)
+			return TRUE;
+		return FALSE;
+	case SEARCH_SINCE:
+		if (ctx->parent_and) {
+			if (prev_arg->value.time < args->value.time) {
+				/* prev_arg >= 5 AND arg >= 10 */
+				prev_arg->value.time = args->value.time;
+			} else {
+				/* prev_arg >= 10 AND arg >= 5 */
+			}
+		} else {
+			if (prev_arg->value.time < args->value.time) {
+				/* prev_arg >= 5 OR arg >= 10 */
+			} else {
+				/* prev_arg >= 10 OR arg >= 5 */
+				prev_arg->value.time = args->value.time;
+			}
+		}
+		return TRUE;
+	default:
+		break;
+	}
+	return FALSE;
+}
+
 static bool
 mail_search_args_simplify_sub(struct mailbox *box,
 			      struct mail_search_arg *args, bool parent_and)
@@ -55,6 +167,11 @@ mail_search_args_simplify_sub(struct mailbox *box,
 	struct mail_search_arg *sub, *prev_arg = NULL;
 
 	memset(&ctx, 0, sizeof(ctx));
+	ctx.parent_and = parent_and;
+	ctx.pool = pool_alloconly_create("mail search args simplify", 1024);
+	hash_table_create(&ctx.prev_args, ctx.pool, 0, mail_search_arg_hash,
+			  mail_search_arg_cmp);
+
 	while (args != NULL) {
 		if (args->match_not && (args->type == SEARCH_SUB ||
 					args->type == SEARCH_OR)) {
@@ -92,35 +209,38 @@ mail_search_args_simplify_sub(struct mailbox *box,
 				ctx.removals = TRUE;
 		}
 
-		if ((!args->match_not && parent_and) ||
-		    (args->match_not && !parent_and)) {
-			/* try to merge arguments */
-			bool merged;
+		/* try to merge arguments */
+		bool merged;
 
-			switch (args->type) {
-			case SEARCH_FLAGS:
-				merged = mail_search_args_merge_flags(&ctx, args);
-				break;
-			case SEARCH_SEQSET:
-			case SEARCH_UIDSET:
-				merged = mail_search_args_merge_set(&ctx, args);
-				break;
-			case SEARCH_BEFORE:
-			default:
-				merged = FALSE;
-				break;
-			}
-			if (merged) {
-				prev_arg->next = args->next;
-				args = args->next;
-				ctx.removals = TRUE;
-				continue;
-			}
+		switch (args->type) {
+		case SEARCH_FLAGS:
+			merged = mail_search_args_merge_flags(&ctx, args);
+			break;
+		case SEARCH_SEQSET:
+		case SEARCH_UIDSET:
+			merged = mail_search_args_merge_set(&ctx, args);
+			break;
+		case SEARCH_BEFORE:
+		case SEARCH_ON:
+		case SEARCH_SINCE:
+			merged = mail_search_args_merge_time(&ctx, args);
+			break;
+		default:
+			merged = FALSE;
+			break;
+		}
+		if (merged) {
+			prev_arg->next = args->next;
+			args = args->next;
+			ctx.removals = TRUE;
+			continue;
 		}
 
 		prev_arg = args;
 		args = args->next;
 	}
+	hash_table_destroy(&ctx.prev_args);
+	pool_unref(&ctx.pool);
 	return ctx.removals;
 }
 
