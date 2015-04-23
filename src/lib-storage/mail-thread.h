@@ -25,6 +25,8 @@ ARRAY_DEFINE_TYPE(mail_thread_child_node, struct mail_thread_child_node);
 /* Convert thread type string to enum. Returns TRUE if ok, FALSE if type is
    unknown. */
 bool mail_thread_type_parse(const char *str, enum mail_thread_type *type_r);
+/* Return thread type as string. */
+const char *mail_thread_type_to_str(enum mail_thread_type type);
 
 /* Build thread from given search arguments. args=NULL searches everything. */
 int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
