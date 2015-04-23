@@ -3,8 +3,6 @@
 #include "lib.h"
 #include "str.h"
 #include "imap-arg.h"
-#include "imap-date.h"
-#include "imap-quote.h"
 #include "imap-seqset.h"
 #include "imap-util.h"
 #include "mail-search.h"
@@ -69,24 +67,25 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 {
 	enum imapc_capability capa =
 		imapc_client_get_capabilities(mbox->storage->client->client);
+	struct mail_search_arg arg2 = *arg;
+	const char *error;
 
 	if (arg->match_not)
 		str_append(str, "NOT ");
+	arg2.match_not = FALSE;
+	arg = &arg2;
+
 	switch (arg->type) {
 	case SEARCH_OR:
 		str_append_c(str, '(');
 		imapc_build_search_query_args(mbox, arg->value.subargs, TRUE, str);
 		str_append_c(str, ')');
-		break;
+		return TRUE;
 	case SEARCH_SUB:
 		str_append_c(str, '(');
 		imapc_build_search_query_args(mbox, arg->value.subargs, FALSE, str);
 		str_append_c(str, ')');
-		break;
-
-	case SEARCH_ALL:
-		str_append(str, "ALL");
-		break;
+		return TRUE;
 	case SEARCH_SEQSET:
 		/* translate to UIDs */
 		T_BEGIN {
@@ -98,106 +97,37 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 			str_append(str, "UID ");
 			imap_write_seq_range(str, &uids);
 		} T_END;
-		break;
+		return TRUE;
+	case SEARCH_ALL:
 	case SEARCH_UIDSET:
-		str_append(str, "UID ");
-		imap_write_seq_range(str, &arg->value.seqset);
-		break;
 	case SEARCH_FLAGS:
-		i_assert((arg->value.flags & MAIL_FLAGS_MASK) != 0);
-		str_append_c(str, '(');
-		if ((arg->value.flags & MAIL_ANSWERED) != 0)
-			str_append(str, "ANSWERED ");
-		if ((arg->value.flags & MAIL_FLAGGED) != 0)
-			str_append(str, "FLAGGED ");
-		if ((arg->value.flags & MAIL_DELETED) != 0)
-			str_append(str, "DELETED ");
-		if ((arg->value.flags & MAIL_SEEN) != 0)
-			str_append(str, "SEEN ");
-		if ((arg->value.flags & MAIL_DRAFT) != 0)
-			str_append(str, "DRAFT ");
-		if ((arg->value.flags & MAIL_RECENT) != 0)
-			str_append(str, "RECENT ");
-		str_truncate(str, str_len(str)-1);
-		str_append_c(str, ')');
-		break;
-	case SEARCH_KEYWORDS: {
-		const struct mail_keywords *kw = arg->value.keywords;
-		const ARRAY_TYPE(keywords) *names_arr;
-		const char *const *namep;
-		unsigned int i;
-
-		names_arr = mail_index_get_keywords(kw->index);
-
-		str_append_c(str, '(');
-		for (i = 0; i < kw->count; i++) {
-			namep = array_idx(names_arr, kw->idx[i]);
-			if (i > 0)
-				str_append_c(str, ' ');
-			str_printfa(str, "KEYWORD %s", *namep);
-		}
-		str_append_c(str, ')');
-		break;
-	}
-
+	case SEARCH_KEYWORDS:
 	case SEARCH_BEFORE:
-		str_printfa(str, "BEFORE \"%s\"", imap_to_datetime(arg->value.time));
-		break;
 	case SEARCH_ON:
-		str_printfa(str, "ON \"%s\"", imap_to_datetime(arg->value.time));
-		break;
 	case SEARCH_SINCE:
-		str_printfa(str, "SINCE \"%s\"", imap_to_datetime(arg->value.time));
-		break;
 	case SEARCH_SMALLER:
-		str_printfa(str, "SMALLER %llu", (unsigned long long)arg->value.size);
-		break;
 	case SEARCH_LARGER:
-		str_printfa(str, "LARGER %llu", (unsigned long long)arg->value.size);
-		break;
 	case SEARCH_HEADER:
 	case SEARCH_HEADER_ADDRESS:
 	case SEARCH_HEADER_COMPRESS_LWSP:
-		if (strcasecmp(arg->hdr_field_name, "From") == 0 ||
-		    strcasecmp(arg->hdr_field_name, "To") == 0 ||
-		    strcasecmp(arg->hdr_field_name, "Cc") == 0 ||
-		    strcasecmp(arg->hdr_field_name, "Bcc") == 0 ||
-		    strcasecmp(arg->hdr_field_name, "Subject") == 0)
-			str_append(str, arg->hdr_field_name);
-		else {
-			str_append(str, "HEADER ");
-			imap_append_astring(str, arg->hdr_field_name);
-		}
-		str_append_c(str, ' ');
-		imap_append_astring(str, arg->value.str);
-		break;
-
 	case SEARCH_BODY:
-		str_append(str, "BODY ");
-		imap_append_astring(str, arg->value.str);
-		break;
 	case SEARCH_TEXT:
-		str_append(str, "TEXT ");
-		imap_append_astring(str, arg->value.str);
-		break;
-
+		return mail_search_arg_to_imap(str, arg, &error);
 	/* extensions */
 	case SEARCH_MODSEQ:
 		if ((capa & IMAPC_CAPABILITY_CONDSTORE) == 0)
 			return FALSE;
-		str_printfa(str, "MODSEQ %llu", (unsigned long long)arg->value.modseq->modseq);
-		break;
+		return mail_search_arg_to_imap(str, arg, &error);
 	case SEARCH_INTHREAD:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:
 	case SEARCH_MAILBOX_GUID:
 	case SEARCH_MAILBOX_GLOB:
 	case SEARCH_REAL_UID:
-		return FALSE;
-	default:
-		return FALSE;
+		/* not supported for now */
+		break;
 	}
-	return TRUE;
+	return FALSE;
 }
 
 static bool
