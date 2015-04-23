@@ -79,7 +79,23 @@ struct {
 	{ "LARGER 3 LARGER 1 LARGER 2", "LARGER 3" },
 	{ "OR LARGER 1 LARGER 2", "LARGER 1" },
 	{ "OR LARGER 1 OR LARGER 3 LARGER 2", "LARGER 1" },
-	{ "LARGER 3 NOT LARGER 1 LARGER 2", "LARGER 3 NOT LARGER 1" }
+	{ "LARGER 3 NOT LARGER 1 LARGER 2", "LARGER 3 NOT LARGER 1" },
+
+	{ "SUBJECT foo SUBJECT foo", "SUBJECT foo" },
+	{ "SUBJECT foo SUBJECT foob", "SUBJECT foo SUBJECT foob" },
+	{ "OR SUBJECT foo SUBJECT foo", "SUBJECT foo" },
+	{ "FROM foo FROM foo", "FROM foo" },
+	{ "FROM foo FROM bar", "FROM foo FROM bar" },
+	{ "FROM foo TO foo", "FROM foo TO foo" },
+
+	{ "TEXT foo TEXT foo", "TEXT foo" },
+	{ "TEXT foo TEXT foob", "TEXT foo TEXT foob" },
+	{ "OR TEXT foo TEXT foo", "TEXT foo" },
+	{ "TEXT foo NOT TEXT foo TEXT foo NOT TEXT foo", "TEXT foo NOT TEXT foo" },
+	{ "BODY foo BODY foo", "BODY foo" },
+	{ "OR BODY foo BODY foo", "BODY foo" },
+	{ "TEXT foo BODY foo", "TEXT foo BODY foo" },
+	{ "OR ( TEXT foo OR TEXT foo TEXT foo ) ( TEXT foo ( TEXT foo ) )", "TEXT foo" },
 };
 
 static struct mail_search_args *
