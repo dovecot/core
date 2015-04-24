@@ -1060,13 +1060,29 @@ static void client_proxy_finish(void *context)
 static const char *client_get_added_headers(struct client *client)
 {
 	string_t *str = t_str_new(200);
+	void **sets;
+	const struct lmtp_settings *lmtp_set;
 	const char *host, *rcpt_to = NULL;
 
 	if (array_count(&client->state.rcpt_to) == 1) {
 		struct mail_recipient *const *rcptp =
 			array_idx(&client->state.rcpt_to, 0);
 
-		rcpt_to = (*rcptp)->address;
+		sets = mail_storage_service_user_get_set((*rcptp)->service_user);
+		lmtp_set = sets[2];
+
+		switch (lmtp_set->parsed_lmtp_hdr_delivery_address) {
+		case LMTP_HDR_DELIVERY_ADDRESS_NONE:
+			break;
+		case LMTP_HDR_DELIVERY_ADDRESS_FINAL:
+			rcpt_to = (*rcptp)->address;
+			break;
+		case LMTP_HDR_DELIVERY_ADDRESS_ORIGINAL:
+			if (!orcpt_get_valid_rfc822((*rcptp)->params.dsn_orcpt,
+						    &rcpt_to))
+				rcpt_to = (*rcptp)->address;
+			break;
+		}
 	}
 
 	/* don't set Return-Path when proxying so it won't get added twice */

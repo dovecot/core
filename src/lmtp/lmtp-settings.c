@@ -14,6 +14,8 @@
 #include <stddef.h>
 #include <unistd.h>
 
+static bool lmtp_settings_check(void *_set, pool_t pool, const char **error_r);
+
 /* <settings checks> */
 static struct file_listener_settings lmtp_unix_listeners_array[] = {
 	{ "lmtp", 0666, "", "" }
@@ -62,6 +64,7 @@ static const struct setting_define lmtp_setting_defines[] = {
 	DEF(SET_BOOL, lmtp_rcpt_check_quota),
 	DEF(SET_UINT, lmtp_user_concurrency_limit),
 	DEF(SET_STR, lmtp_address_translate),
+	DEF(SET_ENUM, lmtp_hdr_delivery_address),
 	DEF(SET_STR_VARS, login_greeting),
 	DEF(SET_STR, login_trusted_networks),
 
@@ -74,6 +77,7 @@ static const struct lmtp_settings lmtp_default_settings = {
 	.lmtp_rcpt_check_quota = FALSE,
 	.lmtp_user_concurrency_limit = 0,
 	.lmtp_address_translate = "",
+	.lmtp_hdr_delivery_address = "final:none:original",
 	.login_greeting = PACKAGE_NAME" ready.",
 	.login_trusted_networks = ""
 };
@@ -93,8 +97,33 @@ const struct setting_parser_info lmtp_setting_parser_info = {
 
 	.parent_offset = (size_t)-1,
 
+	.check_func = lmtp_settings_check,
 	.dependencies = lmtp_setting_dependencies
 };
+
+/* <settings checks> */
+static bool lmtp_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				const char **error_r)
+{
+	struct lmtp_settings *set = _set;
+
+	if (strcmp(set->lmtp_hdr_delivery_address, "none") == 0) {
+		set->parsed_lmtp_hdr_delivery_address =
+			LMTP_HDR_DELIVERY_ADDRESS_NONE;
+	} else if (strcmp(set->lmtp_hdr_delivery_address, "final") == 0) {
+		set->parsed_lmtp_hdr_delivery_address =
+			LMTP_HDR_DELIVERY_ADDRESS_FINAL;
+	} else if (strcmp(set->lmtp_hdr_delivery_address, "original") == 0) {
+		set->parsed_lmtp_hdr_delivery_address =
+			LMTP_HDR_DELIVERY_ADDRESS_ORIGINAL;
+	} else {
+		*error_r = t_strdup_printf("Unknown lmtp_hdr_delivery_address: %s",
+					   set->lmtp_hdr_delivery_address);
+		return FALSE;
+	}
+	return TRUE;
+}
+/* </settings checks> */
 
 void lmtp_settings_dup(const struct setting_parser_context *set_parser,
 		       pool_t pool,

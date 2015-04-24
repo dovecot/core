@@ -4,14 +4,25 @@
 struct lda_settings;
 struct lmtp_settings;
 
+/* <settings checks> */
+enum lmtp_hdr_delivery_address {
+	LMTP_HDR_DELIVERY_ADDRESS_NONE,
+	LMTP_HDR_DELIVERY_ADDRESS_FINAL,
+	LMTP_HDR_DELIVERY_ADDRESS_ORIGINAL
+};
+/* </settings checks> */
+
 struct lmtp_settings {
 	bool lmtp_proxy;
 	bool lmtp_save_to_detail_mailbox;
 	bool lmtp_rcpt_check_quota;
 	unsigned int lmtp_user_concurrency_limit;
 	const char *lmtp_address_translate;
+	const char *lmtp_hdr_delivery_address;
 	const char *login_greeting;
 	const char *login_trusted_networks;
+
+	enum lmtp_hdr_delivery_address parsed_lmtp_hdr_delivery_address;
 };
 
 extern const struct setting_parser_info lmtp_setting_parser_info;
