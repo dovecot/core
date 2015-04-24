@@ -217,9 +217,14 @@ static void cmd_fs_metadata(int argc, char *argv[])
 	fs_deinit(&fs);
 }
 
+struct fs_delete_file {
+	struct fs_file *file;
+	bool finished;
+};
+
 struct fs_delete_ctx {
 	unsigned int files_count;
-	struct fs_file **files;
+	struct fs_delete_file **files;
 };
 
 static bool cmd_fs_delete_ctx_run(struct fs_delete_ctx *ctx)
@@ -228,17 +233,20 @@ static bool cmd_fs_delete_ctx_run(struct fs_delete_ctx *ctx)
 	bool ret = FALSE;
 
 	for (i = 0; i < ctx->files_count; i++) {
-		if (ctx->files[i] == NULL)
+		if (ctx->files[i]->file == NULL || ctx->files[i]->finished)
 			;
-		else if (fs_delete(ctx->files[i]) == 0)
-			fs_file_deinit(&ctx->files[i]);
-		else if (errno == EAGAIN)
+		else if (fs_delete(ctx->files[i]->file) == 0) {
+			fs_file_deinit(&ctx->files[i]->file);
+			ctx->files[i]->finished = TRUE;
+		} else if (errno == EAGAIN)
 			ret = TRUE;
 		else {
 			i_error("fs_delete(%s) failed: %s",
-				fs_file_path(ctx->files[i]),
-				fs_file_last_error(ctx->files[i]));
+				fs_file_path(ctx->files[i]->file),
+				fs_file_last_error(ctx->files[i]->file));
 			doveadm_exit_code = EX_TEMPFAIL;
+			fs_file_deinit(&ctx->files[i]->file);
+			ctx->files[i]->finished = TRUE;
 		}
 	}
 	return ret;
@@ -256,7 +264,7 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.files_count = I_MAX(async_count, 1);
-	ctx.files = t_new(struct fs_file *, ctx.files_count);
+	ctx.files = t_new(struct fs_delete_file *, ctx.files_count);
 
 	/* delete subdirs first. all fs backends can't handle recursive
 	   lookups, so save the list first. */
@@ -301,10 +309,11 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 		fname = *fnamep;
 	retry:
 		for (i = 0; i < ctx.files_count; i++) {
-			if (ctx.files[i] != NULL)
+			if (ctx.files[i]->file != NULL ||
+			    ctx.files[i]->finished)
 				continue;
 
-			ctx.files[i] = fs_file_init(fs,
+			ctx.files[i]->file = fs_file_init(fs,
 				t_strdup_printf("%s%s", path_prefix, fname),
 				FS_OPEN_MODE_READONLY | FS_OPEN_FLAG_ASYNC |
 				FS_OPEN_FLAG_ASYNC_NOQUEUE);
@@ -329,8 +338,8 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 		}
 	}
 	for (i = 0; i < ctx.files_count; i++) {
-		if (ctx.files[i] != NULL)
-			fs_file_deinit(&ctx.files[i]);
+		if (ctx.files[i]->file != NULL)
+			fs_file_deinit(&ctx.files[i]->file);
 	}
 }
 
