@@ -21,14 +21,15 @@ static MODULE_CONTEXT_DEFINE_INIT(fts_user_module,
 				  &mail_user_module_register);
 
 static int
-fts_user_init_languages(struct mail_user *user, struct fts_user *fuser)
+fts_user_init_languages(struct mail_user *user, struct fts_user *fuser,
+			const char **error_r)
 {
 	const char *languages, *unknown;
 	const char *lang_config[3] = {NULL, NULL, NULL};
 
 	languages = mail_user_plugin_getenv(user, "fts_languages");
 	if (languages == NULL) {
-		i_error("fts-dovecot: fts_languages setting is missing - disabling");
+		*error_r = "fts_languages setting is missing";
 		return -1;
 	}
 
@@ -38,11 +39,12 @@ fts_user_init_languages(struct mail_user *user, struct fts_user *fuser)
 		lang_config[0] = "fts_language_config";
 
 	if (!fts_language_list_add_names(fuser->lang_list, languages, &unknown)) {
-		i_error("fts_languages: Unknown language '%s'", unknown);
+		*error_r = t_strdup_printf(
+			"fts_languages: Unknown language '%s'", unknown);
 		return -1;
 	}
 	if (array_count(fts_language_list_get_all(fuser->lang_list)) == 0) {
-		i_error("fts-dovecot: fts_languages setting is empty - disabling");
+		*error_r = "fts_languages setting is empty";
 		return -1;
 	}
 	return 0;
@@ -199,7 +201,7 @@ static void fts_mail_user_deinit(struct mail_user *user)
 	fuser->module_ctx.super.deinit(user);
 }
 
-void fts_mail_user_created(struct mail_user *user)
+int fts_mail_user_create(struct mail_user *user, const char **error_r)
 {
 	struct mail_user_vfuncs *v = user->vlast;
 	struct fts_user *fuser;
@@ -207,13 +209,14 @@ void fts_mail_user_created(struct mail_user *user)
 	fuser = p_new(user->pool, struct fts_user, 1);
 	p_array_init(&fuser->languages, user->pool, 4);
 
-	if (fts_user_init_languages(user, fuser) < 0) {
+	if (fts_user_init_languages(user, fuser, error_r) < 0) {
 		fts_user_free(fuser);
-		return;
+		return -1;
 	}
 
 	fuser->module_ctx.super = *v;
 	user->vlast = &fuser->module_ctx.super;
 	v->deinit = fts_mail_user_deinit;
 	MODULE_CONTEXT_SET(user, fts_user_module, fuser);
+	return 0;
 }

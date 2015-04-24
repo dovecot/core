@@ -13,7 +13,6 @@
 const char *fts_plugin_version = DOVECOT_ABI_VERSION;
 
 static struct mail_storage_hooks fts_mail_storage_hooks = {
-	.mail_user_created = fts_mail_user_created,
 	.mailbox_list_created = fts_mailbox_list_created,
 	.mailbox_allocated = fts_mailbox_allocated,
 	.mail_allocated = fts_mail_allocated

@@ -4,6 +4,7 @@
 #include "crc32.h"
 #include "mail-storage-hooks.h"
 #include "lucene-wrapper.h"
+#include "fts-user.h"
 #include "fts-lucene-plugin.h"
 
 const char *fts_lucene_plugin_version = DOVECOT_ABI_VERSION;
@@ -94,7 +95,7 @@ uint32_t fts_lucene_settings_checksum(const struct fts_lucene_settings *set)
 static void fts_lucene_mail_user_created(struct mail_user *user)
 {
 	struct fts_lucene_user *fuser;
-	const char *env;
+	const char *env, *error;
 
 	fuser = p_new(user->pool, struct fts_lucene_user, 1);
 	env = mail_user_plugin_getenv(user, "fts_lucene");
@@ -104,6 +105,12 @@ static void fts_lucene_mail_user_created(struct mail_user *user)
 	if (fts_lucene_plugin_init_settings(user, &fuser->set, env) < 0) {
 		/* invalid settings, disabling */
 		return;
+	}
+	if (fuser->set.use_libfts) {
+		if (fts_mail_user_create(user, &error) < 0) {
+			i_error("fts_lucene: %s", error);
+			return;
+		}
 	}
 	MODULE_CONTEXT_SET(user, fts_lucene_user_module, fuser);
 }
