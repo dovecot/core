@@ -54,7 +54,7 @@ fts_user_create_filters(struct mail_user *user, const struct fts_language *lang,
 {
 	const struct fts_filter *filter_class;
 	struct fts_filter *filter = NULL, *parent = NULL;
-	const char *filters_key, *const *filters;
+	const char *filters_key, *const *filters, *filter_set_name;
 	const char *str, *error, *set_key, *const *settings;
 	unsigned int i;
 	int ret = 0;
@@ -81,11 +81,12 @@ fts_user_create_filters(struct mail_user *user, const struct fts_language *lang,
 		}
 
 		/* try the language-specific setting first */
+		filter_set_name = t_str_replace(filters[i], '-', '_');
 		set_key = t_strdup_printf("fts_filters_%s_%s",
-					  lang->name, filters[i]);
+					  lang->name, filter_set_name);
 		str = mail_user_plugin_getenv(user, set_key);
 		if (str == NULL) {
-			set_key = t_strdup_printf("fts_filters_%s", filters[i]);
+			set_key = t_strdup_printf("fts_filters_%s", filter_set_name);
 			str = mail_user_plugin_getenv(user, set_key);
 		}
 		settings = str == NULL ? NULL : t_strsplit_spaces(str, " ");
