@@ -289,6 +289,26 @@ const char *t_strcut(const char *str, char cutchar)
         return str;
 }
 
+const char *t_str_replace(const char *str, char from, char to)
+{
+	char *out;
+	unsigned int i, len;
+
+	if (strchr(str, from) == NULL)
+		return str;
+
+	len = strlen(str);
+	out = t_malloc(len + 1);
+	for (i = 0; i < len; i++) {
+		if (str[i] == from)
+			out[i] = to;
+		else
+			out[i] = str[i];
+	}
+	out[i] = '\0';
+	return out;
+}
+
 int i_strocpy(char *dest, const char *src, size_t dstsize)
 {
 	if (dstsize == 0)

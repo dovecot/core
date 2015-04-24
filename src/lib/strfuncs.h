@@ -41,6 +41,8 @@ const char *t_strconcat(const char *str1, ...)
 
 /* Like t_strdup(), but stop at cutchar. */
 const char *t_strcut(const char *str, char cutchar);
+/* Replace all from->to chars in the string. */
+const char *t_str_replace(const char *str, char from, char to);
 
 /* Like strlcpy(), but return -1 if buffer was overflown, 0 if not. */
 int i_strocpy(char *dest, const char *src, size_t dstsize);

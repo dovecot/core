@@ -96,9 +96,24 @@ static void test_t_strsplit_tab(void)
 	test_end();
 }
 
+static void test_t_str_replace(void)
+{
+	test_begin("t_str_replace");
+	test_assert(strcmp(t_str_replace("foo", 'a', 'b'), "foo") == 0);
+	test_assert(strcmp(t_str_replace("fooa", 'a', 'b'), "foob") == 0);
+	test_assert(strcmp(t_str_replace("afooa", 'a', 'b'), "bfoob") == 0);
+	test_assert(strcmp(t_str_replace("", 'a', 'b'), "") == 0);
+	test_assert(strcmp(t_str_replace("a", 'a', 'b'), "b") == 0);
+	test_assert(strcmp(t_str_replace("aaa", 'a', 'b'), "bbb") == 0);
+	test_assert(strcmp(t_str_replace("bbb", 'a', 'b'), "bbb") == 0);
+	test_assert(strcmp(t_str_replace("aba", 'a', 'b'), "bbb") == 0);
+	test_end();
+}
+
 void test_strfuncs(void)
 {
 	test_p_strarray_dup();
 	test_t_strsplit();
 	test_t_strsplit_tab();
+	test_t_str_replace();
 }
