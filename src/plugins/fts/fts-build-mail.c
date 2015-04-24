@@ -312,7 +312,7 @@ fts_build_tokenized(struct fts_mail_build_context *ctx,
 	} else {
 		if (fts_user_language_get(user, lang, &ctx->cur_user_lang,
 					  &error) < 0) {
-			i_error("fts-dovecot: Can't index input because of invalid language '%s' config: %s",
+			i_error("fts: Can't index input because of invalid language '%s' config: %s",
 				lang->name, error);
 			return -1;
 		}
