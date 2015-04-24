@@ -10,6 +10,7 @@
 
 struct fts_solr_settings {
 	const char *url, *default_ns_prefix;
+	bool use_libfts;
 	bool debug;
 };
 
