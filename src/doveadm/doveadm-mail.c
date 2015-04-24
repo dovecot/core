@@ -188,7 +188,11 @@ static void doveadm_mail_cmd_input_read(struct doveadm_mail_cmd_context *ctx)
 		    doveadm_mail_cmd_input_input, ctx);
 	to = timeout_add(DOVEADM_MAIL_CMD_INPUT_TIMEOUT_MSECS,
 			 doveadm_mail_cmd_input_timeout, ctx);
-	io_loop_run(ioloop);
+	/* read the pending input from stream. */
+	io_loop_set_running(ioloop);
+	doveadm_mail_cmd_input_input(ctx);
+	if (io_loop_is_running(ioloop))
+		io_loop_run(ioloop);
 	io_remove(&io);
 	timeout_remove(&to);
 	io_loop_destroy(&ioloop);
