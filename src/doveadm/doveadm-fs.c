@@ -246,7 +246,7 @@ static bool cmd_fs_delete_ctx_run(struct fs_delete_ctx *ctx)
 
 static void
 cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
-			    const char *path)
+			    const char *path_prefix)
 {
 	struct fs_iter *iter;
 	ARRAY_TYPE(const_string) fnames;
@@ -261,19 +261,22 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 	/* delete subdirs first. all fs backends can't handle recursive
 	   lookups, so save the list first. */
 	t_array_init(&fnames, 8);
-	iter = fs_iter_init(fs, path, FS_ITER_FLAG_DIRS);
+	iter = fs_iter_init(fs, path_prefix, FS_ITER_FLAG_DIRS);
 	while ((fname = fs_iter_next(iter)) != NULL) {
-		fname = t_strdup(fname);
+		/* append "/" so that if FS_PROPERTY_DIRECTORIES is set,
+		   we'll include the "/" suffix in the filename when deleting
+		   it. */
+		fname = t_strconcat(fname, "/", NULL);
 		array_append(&fnames, &fname, 1);
 	}
 	if (fs_iter_deinit(&iter) < 0) {
 		i_error("fs_iter_deinit(%s) failed: %s",
-			path, fs_last_error(fs));
+			path_prefix, fs_last_error(fs));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	array_foreach(&fnames, fnamep) T_BEGIN {
 		cmd_fs_delete_dir_recursive(fs, async_count,
-			t_strdup_printf("%s/%s", path, *fnamep));
+			t_strdup_printf("%s%s", path_prefix, *fnamep));
 	} T_END;
 
 	/* delete files. again because we're doing this asynchronously finish
@@ -283,14 +286,14 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 	} else {
 		array_clear(&fnames);
 	}
-	iter = fs_iter_init(fs, path, 0);
+	iter = fs_iter_init(fs, path_prefix, 0);
 	while ((fname = fs_iter_next(iter)) != NULL) {
 		fname = t_strdup(fname);
 		array_append(&fnames, &fname, 1);
 	}
 	if (fs_iter_deinit(&iter) < 0) {
 		i_error("fs_iter_deinit(%s) failed: %s",
-			path, fs_last_error(fs));
+			path_prefix, fs_last_error(fs));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 
@@ -302,7 +305,7 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 				continue;
 
 			ctx.files[i] = fs_file_init(fs,
-				t_strdup_printf("%s/%s", path, fname),
+				t_strdup_printf("%s%s", path_prefix, fname),
 				FS_OPEN_MODE_READONLY | FS_OPEN_FLAG_ASYNC |
 				FS_OPEN_FLAG_ASYNC_NOQUEUE);
 			fname = NULL;
@@ -337,9 +340,13 @@ cmd_fs_delete_recursive(int argc, char *argv[], unsigned int async_count)
 	struct fs *fs;
 	struct fs_file *file;
 	const char *path;
+	unsigned int path_len;
 
 	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_delete);
 	path = argv[0];
+	path_len = strlen(path);
+	if (path_len > 0 && path[path_len-1] != '/')
+		path = t_strconcat(path, "/", NULL);
 
 	cmd_fs_delete_dir_recursive(fs, async_count, path);
 	if ((fs_get_properties(fs) & FS_PROPERTY_DIRECTORIES) != 0) {
