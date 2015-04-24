@@ -193,17 +193,8 @@ static void fts_user_free(struct fts_user *fuser)
 	}
 }
 
-static void fts_mail_user_deinit(struct mail_user *user)
+int fts_mail_user_init(struct mail_user *user, const char **error_r)
 {
-	struct fts_user *fuser = FTS_USER_CONTEXT(user);
-
-	fts_user_free(fuser);
-	fuser->module_ctx.super.deinit(user);
-}
-
-int fts_mail_user_create(struct mail_user *user, const char **error_r)
-{
-	struct mail_user_vfuncs *v = user->vlast;
 	struct fts_user *fuser;
 
 	fuser = p_new(user->pool, struct fts_user, 1);
@@ -213,10 +204,13 @@ int fts_mail_user_create(struct mail_user *user, const char **error_r)
 		fts_user_free(fuser);
 		return -1;
 	}
-
-	fuser->module_ctx.super = *v;
-	user->vlast = &fuser->module_ctx.super;
-	v->deinit = fts_mail_user_deinit;
 	MODULE_CONTEXT_SET(user, fts_user_module, fuser);
 	return 0;
+}
+
+void fts_mail_user_deinit(struct mail_user *user)
+{
+	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+
+	fts_user_free(fuser);
 }

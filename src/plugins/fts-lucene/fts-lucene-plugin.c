@@ -92,8 +92,17 @@ uint32_t fts_lucene_settings_checksum(const struct fts_lucene_settings *set)
 	return crc;
 }
 
+static void fts_lucene_mail_user_deinit(struct mail_user *user)
+{
+	struct fts_lucene_user *fuser = FTS_LUCENE_USER_CONTEXT(user);
+
+	fts_mail_user_deinit(user);
+	fuser->module_ctx.super.deinit(user);
+}
+
 static void fts_lucene_mail_user_created(struct mail_user *user)
 {
+	struct mail_user_vfuncs *v = user->vlast;
 	struct fts_lucene_user *fuser;
 	const char *env, *error;
 
@@ -107,11 +116,15 @@ static void fts_lucene_mail_user_created(struct mail_user *user)
 		return;
 	}
 	if (fuser->set.use_libfts) {
-		if (fts_mail_user_create(user, &error) < 0) {
+		if (fts_mail_user_init(user, &error) < 0) {
 			i_error("fts_lucene: %s", error);
 			return;
 		}
 	}
+
+	fuser->module_ctx.super = *v;
+	user->vlast = &fuser->module_ctx.super;
+	v->deinit = fts_lucene_mail_user_deinit;
 	MODULE_CONTEXT_SET(user, fts_lucene_user_module, fuser);
 }
 

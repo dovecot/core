@@ -50,8 +50,17 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 	return 0;
 }
 
+static void fts_solr_mail_user_deinit(struct mail_user *user)
+{
+	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(user);
+
+	fts_mail_user_deinit(user);
+	fuser->module_ctx.super.deinit(user);
+}
+
 static void fts_solr_mail_user_create(struct mail_user *user, const char *env)
 {
+	struct mail_user_vfuncs *v = user->vlast;
 	struct fts_solr_user *fuser;
 	const char *error;
 
@@ -61,12 +70,15 @@ static void fts_solr_mail_user_create(struct mail_user *user, const char *env)
 		return;
 	}
 	if (fuser->set.use_libfts) {
-		if (fts_mail_user_create(user, &error) < 0) {
+		if (fts_mail_user_init(user, &error) < 0) {
 			i_error("fts-solr: %s", error);
 			return;
 		}
 	}
 
+	fuser->module_ctx.super = *v;
+	user->vlast = &fuser->module_ctx.super;
+	v->deinit = fts_solr_mail_user_deinit;
 	MODULE_CONTEXT_SET(user, fts_solr_user_module, fuser);
 }
 
