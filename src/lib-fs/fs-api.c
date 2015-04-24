@@ -90,20 +90,7 @@ static void fs_class_deinit_modules(void)
 
 static const char *fs_driver_module_name(const char *driver)
 {
-	string_t *str;
-	unsigned int i;
-
-	if (strchr(driver, '-') == NULL)
-		return driver;
-
-	str = t_str_new(32);
-	for (i = 0; driver[i] != '\0'; i++) {
-		if (driver[i] == '-')
-			str_append_c(str, '_');
-		else
-			str_append_c(str, driver[i]);
-	}
-	return str_c(str);
+	return t_str_replace(driver, '-', '_');
 }
 
 static void fs_class_try_load_plugin(const char *driver)
