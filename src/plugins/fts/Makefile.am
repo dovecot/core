@@ -43,7 +43,8 @@ pkginc_lib_HEADERS = \
 	fts-api-private.h \
 	fts-expunge-log.h \
 	fts-indexer.h \
-	fts-parser.h
+	fts-parser.h \
+	fts-user.h
 
 noinst_HEADERS = \
 	doveadm-fts.h \
@@ -51,8 +52,7 @@ noinst_HEADERS = \
 	fts-plugin.h \
 	fts-search-args.h \
 	fts-search-serialize.h \
-	fts-storage.h \
-	fts-user.h
+	fts-storage.h
 
 pkglibexec_PROGRAMS = xml2text
 
