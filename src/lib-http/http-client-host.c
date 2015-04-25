@@ -137,31 +137,55 @@ static void http_client_host_lookup
 	}
 }
 
+static struct http_client_host *http_client_host_create
+(struct http_client *client)
+{
+	struct http_client_host *host;
+
+	// FIXME: limit the maximum number of inactive cached hosts
+	host = i_new(struct http_client_host, 1);
+	host->client = client;
+	i_array_init(&host->queues, 4);
+	DLLIST_PREPEND(&client->hosts_list, host);
+
+	return host;
+}
+
 struct http_client_host *http_client_host_get
 (struct http_client *client, const struct http_url *host_url)
 {
 	struct http_client_host *host;
-	const char *hostname = host_url->host_name;
 
-	host = hash_table_lookup(client->hosts, hostname);
-	if (host == NULL) {
-		// FIXME: limit the maximum number of inactive cached hosts
-		host = i_new(struct http_client_host, 1);
-		host->client = client;
-		host->name = i_strdup(hostname);
-		i_array_init(&host->queues, 4);
+	if (host_url == NULL) {
+		host = client->unix_host;
+		if (host == NULL) {
+			host = http_client_host_create(client);
+			host->name = i_strdup("[unix]");
+			host->unix_local = TRUE;
 
-		hostname = host->name;
-		hash_table_insert(client->hosts, hostname, host);
-		DLLIST_PREPEND(&client->hosts_list, host);
+			client->unix_host = host;
 
-		if (host_url->have_host_ip) {
-			host->ips_count = 1;
-			host->ips = i_new(struct ip_addr, host->ips_count);
-			host->ips[0] = host_url->host_ip;
+			http_client_host_debug(host, "Unix host created");
 		}
 
-		http_client_host_debug(host, "Host created");
+	} else {
+		const char *hostname = host_url->host_name;
+
+		host = hash_table_lookup(client->hosts, hostname);
+		if (host == NULL) {
+			host = http_client_host_create(client);
+			host->name = i_strdup(hostname);
+			hostname = host->name;
+			hash_table_insert(client->hosts, hostname, host);
+
+			if (host_url->have_host_ip) {
+				host->ips_count = 1;
+				host->ips = i_new(struct ip_addr, host->ips_count);
+				host->ips[0] = host_url->host_ip;
+			}
+
+			http_client_host_debug(host, "Host created");
+		}
 	}
 	return host;
 }
@@ -170,13 +194,14 @@ void http_client_host_submit_request(struct http_client_host *host,
 	struct http_client_request *req)
 {
 	struct http_client_queue *queue;
-	const struct http_url *host_url = req->host_url;
 	struct http_client_peer_addr addr;
 	const char *error;
 
 	req->host = host;
 
-	if (host_url->have_ssl && host->client->ssl_ctx == NULL) {
+	http_client_request_get_peer_addr(req, &addr);
+	if (http_client_peer_addr_is_https(&addr) &&
+		host->client->ssl_ctx == NULL) {
 		if (http_client_init_ssl_ctx(host->client, &error) < 0) {
 			http_client_request_error(req,
 				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, error);
@@ -184,11 +209,14 @@ void http_client_host_submit_request(struct http_client_host *host,
 		}
 	}
 
-	http_client_request_get_peer_addr(req, &addr);
-
 	/* add request to queue (grouped by tcp port) */
 	queue = http_client_queue_create(host, &addr);
 	http_client_queue_submit_request(queue, req);
+
+	if (host->unix_local) {
+		http_client_queue_connection_setup(queue);
+		return;
+	}
 
 	/* start DNS lookup if necessary */
 	if (host->ips_count == 0 && host->dns_lookup == NULL)	
@@ -210,7 +238,8 @@ void http_client_host_free(struct http_client_host **_host)
 	http_client_host_debug(host, "Host destroy");
 
 	DLLIST_REMOVE(&host->client->hosts_list, host);
-	hash_table_remove(host->client->hosts, hostname);
+	if (host != host->client->unix_host)
+		hash_table_remove(host->client->hosts, hostname);
 
 	if (host->dns_lookup != NULL)
 		dns_lookup_abort(&host->dns_lookup);

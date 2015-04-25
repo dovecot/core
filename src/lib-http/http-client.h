@@ -51,9 +51,11 @@ struct http_client_settings {
 	/* User-Agent: header (default: none) */
 	const char *user_agent;
 
-	/* configuration for using a proxy */
-	const char *proxy_socket_path; /* FIXME: implement */
+	/* proxy on unix socket */
+	const char *proxy_socket_path;
+	/* URL for normal proxy (ignored if proxy_socket_path is set) */   
 	const struct http_url *proxy_url;
+	/* credentials for proxy */
 	const char *proxy_username;
 	const char *proxy_password;
 

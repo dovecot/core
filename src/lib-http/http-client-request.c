@@ -442,7 +442,9 @@ static void http_client_request_do_submit(struct http_client_request *req)
 {
 	struct http_client *client = req->client;
 	struct http_client_host *host;
+	const char *proxy_socket_path = client->set.proxy_socket_path;
 	const struct http_url *proxy_url = client->set.proxy_url;
+	bool have_proxy = (proxy_socket_path != NULL) || (proxy_url != NULL);
 	const char *authority, *target;
 
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
@@ -458,16 +460,20 @@ static void http_client_request_do_submit(struct http_client_request *req)
 	}
 
 	/* determine what host to contact to submit this request */
-	if (proxy_url != NULL) {
+	if (have_proxy) {
 		if (req->origin_url.have_ssl && !client->set.no_ssl_tunnel &&
 			!req->connect_tunnel) {
-			req->host_url = &req->origin_url;  /* tunnel to origin server */
+			req->host_url = &req->origin_url;           /* tunnel to origin server */
 			req->ssl_tunnel = TRUE;
+		} else if (proxy_socket_path != NULL) {
+			req->host_socket = proxy_socket_path;       /* proxy on unix socket */
+			req->host_url = NULL;
 		} else {
-			req->host_url = proxy_url;         /* proxy server */
+			req->host_url = proxy_url;                  /* normal proxy server */
+			req->host_socket = NULL;
 		}
 	} else {
-		req->host_url = &req->origin_url;    /* origin server */
+		req->host_url = &req->origin_url;             /* origin server */
 	}
 
 	/* use submission date if no date is set explicitly */
@@ -481,10 +487,10 @@ static void http_client_request_do_submit(struct http_client_request *req)
 	req->label = p_strdup_printf(req->pool, "[%s %s]", req->method, target);
 
 	/* update request target */
-	if (req->connect_tunnel || proxy_url != NULL)
+	if (req->connect_tunnel || have_proxy)
 		req->target = p_strdup(req->pool, target);
 
-	if (proxy_url == NULL) {
+	if (!have_proxy) {
 		/* if we don't have a proxy, CONNECT requests are handled by creating
 		   the requested connection directly */
 		req->connect_direct = req->connect_tunnel;
@@ -520,6 +526,36 @@ void http_client_request_submit(struct http_client_request *req)
 	req->submitted = TRUE;
 	DLLIST_PREPEND(&client->requests_list, req);
 	client->requests_count++;
+}
+
+void
+http_client_request_get_peer_addr(const struct http_client_request *req,
+	struct http_client_peer_addr *addr)
+{
+	const char *host_socket = req->host_socket;
+	const struct http_url *host_url = req->host_url;
+	
+	memset(addr, 0, sizeof(*addr));
+	if (host_socket != NULL) {
+		addr->type = HTTP_CLIENT_PEER_ADDR_UNIX;
+		addr->a.un.path = host_socket;		
+	} else if (req->connect_direct) {
+		addr->type = HTTP_CLIENT_PEER_ADDR_RAW;
+		addr->a.tcp.port =
+			(host_url->have_port ? host_url->port : HTTPS_DEFAULT_PORT);
+	} else if (host_url->have_ssl) {
+		if (req->ssl_tunnel)
+			addr->type = HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL;
+		else
+			addr->type = HTTP_CLIENT_PEER_ADDR_HTTPS;
+		addr->a.tcp.https_name = host_url->host_name;
+ 		addr->a.tcp.port =
+			(host_url->have_port ? host_url->port : HTTPS_DEFAULT_PORT);
+	} else {
+		addr->type = HTTP_CLIENT_PEER_ADDR_HTTP;
+		addr->a.tcp.port =
+			(host_url->have_port ? host_url->port : HTTP_DEFAULT_PORT);
+	}
 }
 
 static void

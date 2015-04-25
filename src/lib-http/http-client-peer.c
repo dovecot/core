@@ -45,13 +45,16 @@ unsigned int http_client_peer_addr_hash
 {
 	switch (peer->type) {
 	case HTTP_CLIENT_PEER_ADDR_RAW:
-		return net_ip_hash(&peer->ip) + peer->port + 1;
+		return net_ip_hash(&peer->a.tcp.ip) + peer->a.tcp.port + 1;
 	case HTTP_CLIENT_PEER_ADDR_HTTP:
-		return net_ip_hash(&peer->ip) + peer->port;
+		return net_ip_hash(&peer->a.tcp.ip) + peer->a.tcp.port;
 	case HTTP_CLIENT_PEER_ADDR_HTTPS:
 	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
-		return net_ip_hash(&peer->ip) + peer->port +
-			(peer->https_name == NULL ? 0 : str_hash(peer->https_name));
+		return net_ip_hash(&peer->a.tcp.ip) + peer->a.tcp.port +
+			(peer->a.tcp.https_name == NULL ?
+				0 : str_hash(peer->a.tcp.https_name));
+	case HTTP_CLIENT_PEER_ADDR_UNIX:
+		return str_hash(peer->a.un.path);
 	}
 	i_unreached();
 	return 0;
@@ -65,13 +68,24 @@ int http_client_peer_addr_cmp
 
 	if (peer1->type != peer2->type)
 		return (peer1->type > peer2->type ? 1 : -1);
-	if ((ret=net_ip_cmp(&peer1->ip, &peer2->ip)) != 0)
-		return ret;
-	if (peer1->port != peer2->port)
-		return (peer1->port > peer2->port ? 1 : -1);
-	if (peer1->type != HTTP_CLIENT_PEER_ADDR_HTTPS)
-		return 0;
-	return null_strcmp(peer1->https_name, peer2->https_name);
+	switch (peer1->type) {
+	case HTTP_CLIENT_PEER_ADDR_RAW:
+	case HTTP_CLIENT_PEER_ADDR_HTTP:
+	case HTTP_CLIENT_PEER_ADDR_HTTPS:
+	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
+		if ((ret=net_ip_cmp(&peer1->a.tcp.ip, &peer2->a.tcp.ip)) != 0)
+			return ret;
+		if (peer1->a.tcp.port != peer2->a.tcp.port)
+			return (peer1->a.tcp.port > peer2->a.tcp.port ? 1 : -1);
+		if (peer1->type != HTTP_CLIENT_PEER_ADDR_HTTPS)
+			return 0;
+		return null_strcmp
+			(peer1->a.tcp.https_name, peer2->a.tcp.https_name);
+	case HTTP_CLIENT_PEER_ADDR_UNIX:
+		return null_strcmp(peer1->a.un.path, peer2->a.un.path);
+	}
+	i_unreached();
+	return 0;
 }
 
 /*
@@ -438,13 +452,25 @@ http_client_peer_create(struct http_client *client,
 {
 	struct http_client_peer *peer;
 
-	i_assert(addr->https_name == NULL || client->ssl_ctx != NULL);
-
 	peer = i_new(struct http_client_peer, 1);
 	peer->client = client;
 	peer->addr = *addr;
-	peer->https_name = i_strdup(addr->https_name);
-	peer->addr.https_name = peer->https_name;
+
+	switch (addr->type) {
+	case HTTP_CLIENT_PEER_ADDR_HTTPS:
+	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
+		i_assert(client->ssl_ctx != NULL);
+		peer->addr_name = i_strdup(addr->a.tcp.https_name);
+		peer->addr.a.tcp.https_name = peer->addr_name;
+		break;
+	case HTTP_CLIENT_PEER_ADDR_UNIX:
+		peer->addr_name = i_strdup(addr->a.un.path);
+		peer->addr.a.un.path = peer->addr_name;
+		break;
+	default:
+		break;
+	}
+
 	i_array_init(&peer->queues, 16);
 	i_array_init(&peer->conns, 16);
 
@@ -479,7 +505,7 @@ void http_client_peer_free(struct http_client_peer **_peer)
 		(peer->client->peers, (const struct http_client_peer_addr *)&peer->addr);
 	DLLIST_REMOVE(&peer->client->peers_list, peer);
 
-	i_free(peer->https_name);
+	i_free(peer->addr_name);
 	i_free(peer);
 	*_peer = NULL;
 }

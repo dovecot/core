@@ -1015,7 +1015,7 @@ static int
 http_client_connection_ssl_handshaked(const char **error_r, void *context)
 {
 	struct http_client_connection *conn = context;
-	const char *error, *host = conn->peer->addr.https_name;
+	const char *error, *host = conn->peer->addr.a.tcp.https_name;
 
 	if (ssl_iostream_check_cert_validity(conn->ssl_iostream, host, &error) == 0)
 		http_client_connection_debug(conn, "SSL handshake successful");
@@ -1049,7 +1049,7 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 		http_client_connection_debug(conn, "Starting SSL handshake");
 
 	if (io_stream_create_ssl_client(conn->client->ssl_ctx,
-					conn->peer->addr.https_name, &ssl_set,
+					conn->peer->addr.a.tcp.https_name, &ssl_set,
 					&conn->conn.input, &conn->conn.output,
 					&conn->ssl_iostream, &error) < 0) {
 		*error_r = t_strdup_printf(
@@ -1089,7 +1089,7 @@ http_client_connection_connected(struct connection *_conn, bool success)
 	} else {
 		conn->connected_timestamp = ioloop_timeval;
 		http_client_connection_debug(conn, "Connected");
-		if (conn->peer->addr.https_name != NULL) {
+		if (http_client_peer_addr_is_https(&conn->peer->addr)) {
 			if (http_client_connection_ssl_init(conn, &error) < 0) {
 				http_client_peer_connection_failure(conn->peer, error);
 				http_client_connection_debug(conn, "%s", error);
@@ -1104,7 +1104,8 @@ http_client_connection_connected(struct connection *_conn, bool success)
 static const struct connection_settings http_client_connection_set = {
 	.input_max_size = (size_t)-1,
 	.output_max_size = (size_t)-1,
-	.client = TRUE
+	.client = TRUE,
+	.delayed_unix_client_connected_callback = TRUE
 };
 
 static const struct connection_vfuncs http_client_connection_vfuncs = {
@@ -1248,6 +1249,9 @@ http_client_connection_create(struct http_client_peer *peer)
 	case HTTP_CLIENT_PEER_ADDR_RAW:
 		conn_type = "Raw";
 		break;
+	case HTTP_CLIENT_PEER_ADDR_UNIX:
+		conn_type = "Unix";
+		break;
 	}
 
 	conn = i_new(struct http_client_connection, 1);
@@ -1258,11 +1262,20 @@ http_client_connection_create(struct http_client_peer *peer)
 	if (peer->addr.type != HTTP_CLIENT_PEER_ADDR_RAW)
 		i_array_init(&conn->request_wait_list, 16);
 
-	if (peer->addr.type == HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL) {
-		http_client_connection_connect_tunnel(conn, &addr->ip, addr->port);
-	} else {
-		connection_init_client_ip
-			(peer->client->conn_list, &conn->conn, &addr->ip, addr->port);
+	switch (peer->addr.type) {
+	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
+		http_client_connection_connect_tunnel
+			(conn, &addr->a.tcp.ip, addr->a.tcp.port);
+		break;
+	case HTTP_CLIENT_PEER_ADDR_UNIX:
+		connection_init_client_unix(peer->client->conn_list, &conn->conn,
+			addr->a.un.path);
+		conn->connect_initialized = TRUE;
+		http_client_connection_connect(conn);
+		break;
+	default:
+		connection_init_client_ip(peer->client->conn_list, &conn->conn,
+			&addr->a.tcp.ip, addr->a.tcp.port);
 		conn->connect_initialized = TRUE;
 		http_client_connection_connect(conn);
 	}
