@@ -236,7 +236,7 @@ void connection_init_from_streams(struct connection_list *list,
 		list->v.client_connected(conn, TRUE);
 }
 
-static void connection_ip_connected(struct connection *conn)
+static void connection_socket_connected(struct connection *conn)
 {
 	io_remove(&conn->io);
 	if (conn->to != NULL)
@@ -262,9 +262,9 @@ int connection_client_connect(struct connection *conn)
 		return -1;
 	conn->fd_in = conn->fd_out = fd;
 
-	if (conn->port != 0) {
+	if (conn->port != 0 || conn->list->v.client_connected != NULL) {
 		conn->io = io_add(conn->fd_out, IO_WRITE,
-				  connection_ip_connected, conn);
+				  connection_socket_connected, conn);
 		if (set->client_connect_timeout_msecs != 0) {
 			conn->to = timeout_add(set->client_connect_timeout_msecs,
 					       connection_connect_timeout, conn);
