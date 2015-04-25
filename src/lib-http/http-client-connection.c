@@ -1162,6 +1162,8 @@ http_client_connection_tunnel_response(const struct http_response *response,
 
 	connection_init_from_streams
 		(conn->client->conn_list, &conn->conn, name, tunnel.input, tunnel.output);
+	i_stream_unref(&tunnel.input);
+	o_stream_unref(&tunnel.output);
 	conn->connect_initialized = TRUE;
 }
 
