@@ -35,6 +35,8 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_STR, mail_cache_fields),
 	DEF(SET_STR, mail_always_cache_fields),
 	DEF(SET_STR, mail_never_cache_fields),
+	DEF(SET_STR, mail_server_comment),
+	DEF(SET_STR, mail_server_admin),
 	DEF(SET_UINT, mail_cache_min_mail_count),
 	DEF(SET_TIME, mailbox_idle_check_interval),
 	DEF(SET_UINT, mail_max_keyword_length),
@@ -73,6 +75,8 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mail_cache_fields = "flags",
 	.mail_always_cache_fields = "",
 	.mail_never_cache_fields = "imap.envelope",
+	.mail_server_comment = "",
+	.mail_server_admin = "",
 	.mail_cache_min_mail_count = 0,
 	.mailbox_idle_check_interval = 30,
 	.mail_max_keyword_length = 50,
@@ -121,6 +125,7 @@ static const struct setting_define mailbox_setting_defines[] = {
 	{ SET_ENUM, "auto", offsetof(struct mailbox_settings, autocreate), NULL } ,
 	DEF(SET_STR, special_use),
 	DEF(SET_STR, driver),
+	DEF(SET_STR, comment),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -131,7 +136,8 @@ const struct mailbox_settings mailbox_default_settings = {
 		MAILBOX_SET_AUTO_CREATE":"
 		MAILBOX_SET_AUTO_SUBSCRIBE,
 	.special_use = "",
-	.driver = ""
+	.driver = "",
+	.comment = ""
 };
 
 const struct setting_parser_info mailbox_setting_parser_info = {
@@ -444,6 +450,9 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 #endif
+
+	// FIXME: check set->mail_server_admin syntax (RFC 5464, Section 6.2.2)
+
 	return TRUE;
 }
 

@@ -20,6 +20,8 @@ struct mail_storage_settings {
 	const char *mail_cache_fields;
 	const char *mail_always_cache_fields;
 	const char *mail_never_cache_fields;
+	const char *mail_server_comment;
+	const char *mail_server_admin;
 	unsigned int mail_cache_min_mail_count;
 	unsigned int mailbox_idle_check_interval;
 	unsigned int mail_max_keyword_length;
@@ -78,6 +80,7 @@ struct mailbox_settings {
 	const char *autocreate;
 	const char *special_use;
 	const char *driver;
+	const char *comment;
 };
 
 struct mail_user_settings {
