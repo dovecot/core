@@ -37,6 +37,16 @@ static bool http_url_parse_authority(struct http_url_parser *url_parser)
 
 	if ((ret = uri_parse_authority(parser, &auth)) < 0)
 		return FALSE;
+	if (auth.host_literal == NULL || *auth.host_literal == '\0') {
+		/* RFC 7230, Section 2.7.1: http URI Scheme
+
+		   A sender MUST NOT generate an "http" URI with an empty host
+		   identifier.  A recipient that processes such a URI reference MUST
+		   reject it as invalid.
+		 */
+		parser->error = "HTTP URL does not allow empty host identifier";
+		return FALSE;
+	}
 	if (ret > 0) {
 		if (auth.enc_userinfo != NULL) {
 			const char *p;

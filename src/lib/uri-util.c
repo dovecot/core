@@ -327,8 +327,6 @@ uri_parse_ipv4address(struct uri_parser *parser, string_t *literal,
 
 static int uri_parse_reg_name(struct uri_parser *parser, string_t *reg_name)
 {
-	int len = 0;
-
 	/* RFC 3986:
 	 *
 	 * reg-name      = *( unreserved / pct-encoded / sub-delims )
@@ -345,7 +343,6 @@ static int uri_parse_reg_name(struct uri_parser *parser, string_t *reg_name)
 		if (ret > 0) {
 			if (reg_name != NULL)
 				str_append_c(reg_name, c);
-			len++;
 			continue;
 		}
 
@@ -355,12 +352,11 @@ static int uri_parse_reg_name(struct uri_parser *parser, string_t *reg_name)
 			if (reg_name != NULL)
 				str_append_c(reg_name, *parser->cur);
 			parser->cur++;
-			len++;
 			continue;
 		}
 		break;
 	}
-	return len > 0 ? 1 : 0;
+	return 0;
 }
 
 #ifdef HAVE_IPV6
@@ -465,12 +461,11 @@ static int uri_parse_host(struct uri_parser *parser, struct uri_authority *auth)
 	str_truncate(literal, 0);
 
 	/* reg-name */
-	if ((ret = uri_parse_reg_name(parser, literal)) != 0) {
-		if (ret > 0 && auth != NULL) {
-			auth->host_literal = t_strdup(str_c(literal));
-			auth->have_host_ip = FALSE;
-		}
-		return ret;
+	if (uri_parse_reg_name(parser, literal) < 0)
+		return -1;
+	if (auth != NULL) {
+		auth->host_literal = t_strdup(str_c(literal));
+		auth->have_host_ip = FALSE;
 	}
 	return 0;
 }
@@ -537,16 +532,8 @@ int uri_parse_authority(struct uri_parser *parser,
 	}
 
 	/* host */
-	if ((ret = uri_parse_host(parser, auth)) <= 0) {
-		if (ret == 0) {
-			if (p == parser->end || *p == ':' || *p == '/')
-				parser->error = "Missing 'host' component";
-			else
-				parser->error = "Invalid 'host' component";
-			return -1;
-		}
-		return ret;
-	}
+	if (uri_parse_host(parser, auth) < 0)
+		return -1;
 
 	/* [":" ... */
 	if (parser->cur >= parser->end || *parser->cur != ':')
