@@ -8,6 +8,7 @@
 #include "crc32.h"
 #include "mail-storage-settings.h"
 #include "imap-commands.h"
+#include "imap-keepalive.h"
 #include "imap-sync.h"
 
 #include <stdlib.h>
@@ -161,69 +162,20 @@ static void idle_callback(struct mailbox *box, struct cmd_idle_context *ctx)
 	}
 }
 
-static bool remote_ip_is_usable(const struct ip_addr *ip)
-{
-	unsigned int addr;
-
-	if (ip->family == 0)
-		return FALSE;
-	if (ip->family == AF_INET) {
-#define IP4(a,b,c,d) ((unsigned)(a)<<24|(unsigned)(b)<<16|(unsigned)(c)<<8|(unsigned)(d))
-		addr = ip->u.ip4.s_addr;
-		if (addr >= IP4(10,0,0,0) && addr <= IP4(10,255,255,255))
-			return FALSE; /* 10/8 */
-		if (addr >= IP4(192,168,0,0) && addr <= IP4(192,168,255,255))
-			return FALSE; /* 192.168/16 */
-		if (addr >= IP4(172,16,0,0) && addr <= IP4(172,31,255,255))
-			return FALSE; /* 172.16/12 */
-		if (addr >= IP4(127,0,0,0) && addr <= IP4(127,255,255,255))
-			return FALSE; /* 127/8 */
-#undef IP4
-	}
-#ifdef HAVE_IPV6
-	else if (ip->family == AF_INET6) {
-		addr = ip->u.ip6.s6_addr[0];
-		if (addr == 0xfc || addr == 0xfd)
-			return FALSE; /* fc00::/7 */
-	}
-#endif
-	return TRUE;
-}
-
 static void idle_add_keepalive_timeout(struct cmd_idle_context *ctx)
 {
 	unsigned int interval = ctx->client->set->imap_idle_notify_interval;
-	unsigned int client_hash;
 
 	if (interval == 0)
 		return;
 
-	/* set the interval so that the client gets the keepalive notifications
-	   at exactly the same time for all the connections. this helps to
-	   reduce battery usage in mobile devices. but we don't really want to
-	   send this notification for everyone at the same time, because it
-	   would cause huge peaks of activity.
-
-	   basing the notifications on the username works well for one account,
-	   but basing it on the IP address allows the client to get all of the
-	   notifications at the same time for multiple accounts as well (of
-	   course assuming Dovecot is running on all the servers :)
-
-	   one potential downside to using IP is that if a proxy hides the
-	   client's IP address notifications are sent to everyone at the same
-	   time, but this can be avoided by using a properly configured Dovecot
-	   proxy. we'll also try to avoid this by not doing it for the commonly
-	   used intranet IP ranges. */
-	client_hash = ctx->client->user->remote_ip != NULL &&
-		remote_ip_is_usable(ctx->client->user->remote_ip) ?
-		net_ip_hash(ctx->client->user->remote_ip) :
-		crc32_str(ctx->client->user->username);
-	interval -= (time(NULL) + client_hash) % interval;
+	interval = imap_keepalive_interval_msecs(ctx->client->user->username,
+						 ctx->client->user->remote_ip,
+						 interval);
 
 	if (ctx->keepalive_to != NULL)
 		timeout_remove(&ctx->keepalive_to);
-	ctx->keepalive_to = timeout_add(interval * 1000,
-					keepalive_timeout, ctx);
+	ctx->keepalive_to = timeout_add(interval, keepalive_timeout, ctx);
 }
 
 static bool cmd_idle_continue(struct client_command_context *cmd)
