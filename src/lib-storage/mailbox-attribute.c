@@ -1,19 +1,168 @@
 /* Copyright (c) 2003-2015 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "str.h"
 #include "istream.h"
 #include "mail-storage-private.h"
+#include "bsearch-insert-pos.h"
+
+static ARRAY(struct mailbox_attribute_internal) mailbox_internal_attributes;
+static pool_t mailbox_attribute_pool;
+
+void mailbox_attributes_init(void)
+{
+	mailbox_attribute_pool =
+		pool_alloconly_create("mailbox attributes", 2048);
+	i_array_init(&mailbox_internal_attributes, 32);
+}
+
+void mailbox_attributes_deinit(void)
+{
+	pool_unref(&mailbox_attribute_pool);
+	array_free(&mailbox_internal_attributes);
+}
+
+/*
+ * Internal attributes
+ */
+
+static int
+mailbox_attribute_internal_cmp(
+	const struct mailbox_attribute_internal *reg1,
+	const struct mailbox_attribute_internal *reg2)
+{
+	if (reg1->type != reg2->type)
+		return (int)reg1->type - (int)reg2->type;
+	return strcmp(reg1->key, reg2->key);
+}
+
+void mailbox_attribute_register_internal(
+	const struct mailbox_attribute_internal *iattr)
+{
+	struct mailbox_attribute_internal ireg;
+	unsigned int insert_idx;
+
+	(void)array_bsearch_insert_pos(&mailbox_internal_attributes,
+		iattr, mailbox_attribute_internal_cmp, &insert_idx);
+
+	ireg = *iattr;
+	ireg.key = p_strdup(mailbox_attribute_pool, iattr->key);
+	array_insert(&mailbox_internal_attributes, insert_idx, &ireg, 1);
+}
+
+static const struct mailbox_attribute_internal *
+mailbox_internal_attribute_get(enum mail_attribute_type type,
+			       const char *key)
+{
+	struct mailbox_attribute_internal dreg;
+	unsigned int insert_idx;
+
+	memset(&dreg, 0, sizeof(dreg));
+	dreg.type = type;	
+	dreg.key = key;
+
+	if (!array_bsearch_insert_pos(&mailbox_internal_attributes,
+				      &dreg, mailbox_attribute_internal_cmp,
+				      &insert_idx))
+		return NULL;
+
+	return array_idx(&mailbox_internal_attributes, insert_idx);
+}
+
+static void
+mailbox_internal_attributes_get(enum mail_attribute_type type,
+	const char *prefix, ARRAY_TYPE(const_string) *attrs)
+{
+	const struct mailbox_attribute_internal *regs;
+	struct mailbox_attribute_internal dreg;
+	char *bare_prefix;
+	size_t plen;
+	unsigned int count, i;
+
+	bare_prefix = t_strdup_noconst(prefix);
+	plen = strlen(bare_prefix);
+	if (plen > 0 && bare_prefix[plen-1] == '/') {
+		bare_prefix[plen-1] = '\0';
+		plen--;
+	}
+
+	memset(&dreg, 0, sizeof(dreg));
+	dreg.type = type;	
+	dreg.key = bare_prefix;
+
+	(void)array_bsearch_insert_pos(&mailbox_internal_attributes,
+		&dreg, mailbox_attribute_internal_cmp, &i);
+
+	regs = array_get(&mailbox_internal_attributes, &count);
+	for (; i < count; i++) {
+		const char *key = regs[i].key;
+
+		if (regs[i].type != type)
+			return;
+		if (plen > 0) {
+			if (strncmp(key, bare_prefix, plen) != 0)
+				return;
+			if (key[plen] != '/' && strlen(key) != plen)
+				return;
+			/* remove prefix */
+			key += plen + 1;
+		}
+
+		array_append(attrs, &key, 1);
+	}
+}
 
 /*
  * Attribute API
  */
 
+static int
+mailbox_attribute_set_common(struct mailbox_transaction_context *t,
+			     enum mail_attribute_type type, const char *key,
+			     const struct mail_attribute_value *value)
+{
+	const struct mailbox_attribute_internal *iattr;
+	
+	iattr = mailbox_internal_attribute_get(type, key);
+
+	/* allow internal server attribute only for inbox */
+	if (iattr != NULL && !t->box->inbox_any &&
+	    strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
+	    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER)) == 0)
+		iattr = NULL;
+
+	/* handle internal attribute */
+	if (iattr != NULL) {
+		switch (iattr->rank) {
+		case MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT:
+		case MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE:
+			/* notify about assignment */
+			if (iattr->set != NULL && iattr->set(t, value) < 0)
+				return -1;
+			break;
+		case MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY:
+			if (iattr->set == NULL) {
+				mail_storage_set_error(t->box->storage, MAIL_ERROR_PARAMS, t_strdup_printf(
+					"The /%s/%s attribute cannot be changed",
+					(type == MAIL_ATTRIBUTE_TYPE_SHARED ? "shared" : "private"), key));
+				return -1;
+			}
+			/* assign internal attribute */
+			return iattr->set(t, value);
+		default:
+			i_unreached();
+		}
+	}
+	
+	return t->box->v.attribute_set(t, type, key, value);
+}
+
 int mailbox_attribute_set(struct mailbox_transaction_context *t,
 			  enum mail_attribute_type type, const char *key,
 			  const struct mail_attribute_value *value)
 {
-	return t->box->v.attribute_set(t, type, key, value);
+	return mailbox_attribute_set_common(t, type, key, value);
 }
 
 int mailbox_attribute_unset(struct mailbox_transaction_context *t,
@@ -22,7 +171,7 @@ int mailbox_attribute_unset(struct mailbox_transaction_context *t,
 	struct mail_attribute_value value;
 
 	memset(&value, 0, sizeof(value));
-	return t->box->v.attribute_set(t, type, key, &value);
+	return mailbox_attribute_set_common(t, type, key, &value);
 }
 
 int mailbox_attribute_value_to_string(struct mail_storage *storage,
@@ -59,14 +208,74 @@ int mailbox_attribute_value_to_string(struct mail_storage *storage,
 	return 0;
 }
 
+static int
+mailbox_attribute_get_common(struct mailbox_transaction_context *t,
+			     enum mail_attribute_type type, const char *key,
+			     struct mail_attribute_value *value_r)
+{
+	const struct mailbox_attribute_internal *iattr;
+	int ret;
+
+	iattr = mailbox_internal_attribute_get(type, key);
+
+	/* allow internal server attributes only for the inbox */
+	if (iattr != NULL && !t->box->inbox_user &&
+	    strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
+	    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER)) == 0)
+		iattr = NULL;
+
+	/* internal attribute */
+	if (iattr != NULL) {
+		switch (iattr->rank) {
+		case MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE:
+			if ((ret = iattr->get(t, value_r)) != 0) {
+				if (ret < 0)
+					return -1;
+				value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_READONLY;
+				return 1;
+			}
+		case MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT:
+			break;
+		case MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY:
+			if ((ret = iattr->get(t, value_r)) <= 0)
+				return ret;
+			value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_READONLY;
+			return 1;
+		default:
+			i_unreached();
+		}
+	}
+
+	/* user entries */
+	if ((ret = t->box->v.attribute_get(t, type, key, value_r)) != 0)
+		return ret;
+
+	/* default entries */
+	if (iattr != NULL) {
+		switch (iattr->rank) {
+		case MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT:		
+			if ((ret = iattr->get(t, value_r)) < 0)
+				return ret;
+			if (ret > 0) {
+				value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_READONLY;
+				return 1;
+			}
+		case MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE:
+			break;
+		default:
+			i_unreached();
+		}
+	}
+	return 0;
+}
+
 int mailbox_attribute_get(struct mailbox_transaction_context *t,
 			  enum mail_attribute_type type, const char *key,
 			  struct mail_attribute_value *value_r)
 {
 	int ret;
-
 	memset(value_r, 0, sizeof(*value_r));
-	if ((ret = t->box->v.attribute_get(t, type, key, value_r)) <= 0)
+	if ((ret = mailbox_attribute_get_common(t, type, key, value_r)) <= 0)
 		return ret;
 	i_assert(value_r->value != NULL);
 	return 1;
@@ -80,29 +289,110 @@ int mailbox_attribute_get_stream(struct mailbox_transaction_context *t,
 
 	memset(value_r, 0, sizeof(*value_r));
 	value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_INT_STREAMS;
-	if ((ret = t->box->v.attribute_get(t, type, key, value_r)) <= 0)
+	if ((ret = mailbox_attribute_get_common(t, type, key, value_r)) <= 0)
 		return ret;
 	i_assert(value_r->value != NULL || value_r->value_stream != NULL);
 	return 1;
 }
 
+struct mailbox_attribute_internal_iter { 
+	struct mailbox_attribute_iter iter;
+
+	ARRAY_TYPE(const_string) extra_attrs;
+	unsigned int extra_attr_idx;
+
+	struct mailbox_attribute_iter *real_iter;
+};
+
 struct mailbox_attribute_iter *
-mailbox_attribute_iter_init(struct mailbox *box, enum mail_attribute_type type,
-			    const char *prefix)
+mailbox_attribute_iter_init(struct mailbox *box,
+			    enum mail_attribute_type type, const char *prefix)
 {
-	return box->v.attribute_iter_init(box, type, prefix);
+	struct mailbox_attribute_internal_iter *intiter;
+	struct mailbox_attribute_iter *iter;
+	ARRAY_TYPE(const_string) extra_attrs;
+	const char *const *attr;
+	
+	iter = box->v.attribute_iter_init(box, type, prefix);
+	i_assert(iter->box != NULL);
+
+	/* check which internal attributes may apply */
+	t_array_init(&extra_attrs, 4);
+	mailbox_internal_attributes_get(type, prefix, &extra_attrs);
+
+	/* any extra internal attributes to add? */
+	if (array_count(&extra_attrs) == 0) {
+		/* no */
+		return iter;
+	}
+
+	/* yes */
+	intiter = i_new(struct mailbox_attribute_internal_iter, 1);
+	intiter->real_iter = iter;
+	i_array_init(&intiter->extra_attrs, 4);
+
+	/* copy relevant attributes */
+	array_foreach(&extra_attrs, attr) {
+		/* skip internal server attributes unless we're interating inbox */
+		if (!box->inbox_any &&
+		    strncmp(*attr, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
+			    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER)) == 0)
+			continue;
+		array_append(&intiter->extra_attrs, attr, 1);
+	}
+	return &intiter->iter;
 }
 
 const char *mailbox_attribute_iter_next(struct mailbox_attribute_iter *iter)
 {
-	return iter->box->v.attribute_iter_next(iter);
+	struct mailbox_attribute_internal_iter *intiter;
+	const char *const *attrs;
+	unsigned int count, i;
+	const char *result;
+
+	if (iter->box != NULL) {
+		/* no internal attributes to add */
+		return iter->box->v.attribute_iter_next(iter);
+	}
+
+	/* filter out duplicate results */
+	intiter = (struct mailbox_attribute_internal_iter *)iter;
+	attrs = array_get(&intiter->extra_attrs, &count);
+	while ((result = intiter->real_iter->box->
+			v.attribute_iter_next(intiter->real_iter)) != NULL) {
+		for (i = 0; i < count; i++) {
+			if (strcasecmp(attrs[i], result) == 0)
+				break;
+		}
+		if (i == count) {
+			/* return normally */
+			return result;
+		}
+		/* this attribute name is also to be returned as extra;
+		   skip now */
+	}
+
+	/* return extra attributes at the end */
+	if (intiter->extra_attr_idx < count)
+		return attrs[intiter->extra_attr_idx++];
+	return NULL;
 }
 
 int mailbox_attribute_iter_deinit(struct mailbox_attribute_iter **_iter)
 {
 	struct mailbox_attribute_iter *iter = *_iter;
+	struct mailbox_attribute_internal_iter *intiter;
+	int ret;
 
 	*_iter = NULL;
-	return iter->box->v.attribute_iter_deinit(iter);
-}
+	if (iter->box != NULL) {
+		/* not wrapped */
+		return iter->box->v.attribute_iter_deinit(iter);
+	}
 
+	/* wrapped */
+	intiter = (struct mailbox_attribute_internal_iter *)iter;
+	ret = intiter->real_iter->box->v.attribute_iter_deinit(intiter->real_iter);
+	i_free(intiter);
+	return ret;
+}

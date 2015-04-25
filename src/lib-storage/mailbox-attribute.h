@@ -55,6 +55,50 @@ struct mail_attribute_value {
 };
 
 /*
+ * Internal attribute
+ */
+
+enum mail_attribute_internal_rank {
+	/* The internal attribute serves only as a source for a default value
+	   when the normal mailbox attribute storage has no entry for this
+	   attribute. Otherwise it is ignored. The `set' function is called
+	   only as a notification, not with the intention to store the value.
+	   The value is always assigned to the normal mailbox attribute storage. 
+	 */
+	MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT = 0,
+	/* The internal attribute serves as the main source of the attribute
+	   value. If the `get' function returns 0, the normal mailbox attribute
+	   storage is attempted to obtain the value. The `set' function is
+	   called only as a notification, not with the intention to store the
+	   value. The value is assigned to the normal mailbox attribute storage.
+	 */
+	MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE,
+	/* The value for the internal attribute is never read from the normal
+	   mailbox attribute storage. If the `set' function is NULL, the
+	   attribute is read-only. If it is not NULL it is used to assign the
+	   attribute value; it is not assigned to the normal mailbox attribute
+	   storage.
+	 */
+	MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY
+};
+
+struct mailbox_attribute_internal {
+	enum mail_attribute_type type;
+	const char *key;
+	enum mail_attribute_internal_rank rank;
+
+	/* Get the value of this internal attribute */
+	int (*get)(struct mailbox_transaction_context *t,
+		   struct mail_attribute_value *value_r);
+	/* Set the value of this internal attribute */ 
+	int (*set)(struct mailbox_transaction_context *t,
+		   const struct mail_attribute_value *value);
+};
+
+void mailbox_attribute_register_internal(
+	const struct mailbox_attribute_internal *iattr);
+
+/*
  * Attribute API
  */
 
