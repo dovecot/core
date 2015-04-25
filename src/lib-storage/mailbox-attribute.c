@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "mail-storage-private.h"
 #include "bsearch-insert-pos.h"
+#include "mailbox-attribute-internal.h"
 
 static ARRAY(struct mailbox_attribute_internal) mailbox_internal_attributes;
 static pool_t mailbox_attribute_pool;
@@ -15,6 +16,9 @@ void mailbox_attributes_init(void)
 	mailbox_attribute_pool =
 		pool_alloconly_create("mailbox attributes", 2048);
 	i_array_init(&mailbox_internal_attributes, 32);
+
+	/* internal mailbox attributes */
+	mailbox_attributes_internal_init();
 }
 
 void mailbox_attributes_deinit(void)
