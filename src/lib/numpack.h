@@ -6,5 +6,6 @@
 
 void numpack_encode(buffer_t *buf, uint64_t num);
 int numpack_decode(const uint8_t **p, const uint8_t *end, uint64_t *num_r);
+int numpack_decode32(const uint8_t **p, const uint8_t *end, uint32_t *num_r);
 
 #endif
