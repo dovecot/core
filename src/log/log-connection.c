@@ -326,6 +326,7 @@ static void log_connection_input(struct log_connection *log)
 	ssize_t ret;
 	struct timeval now, start_timeval;
 	struct tm tm;
+	bool too_much = FALSE;
 
 	if (!log->handshaked) {
 		if (log_connection_handshake(log) < 0) {
@@ -344,8 +345,10 @@ static void log_connection_input(struct log_connection *log)
 		while ((line = i_stream_next_line(log->input)) != NULL)
 			log_it(log, line, &now, &tm);
 		io_loop_time_refresh();
-		if (timeval_diff_msecs(&ioloop_timeval, &start_timeval) > MAX_MSECS_PER_CONNECTION)
+		if (timeval_diff_msecs(&ioloop_timeval, &start_timeval) > MAX_MSECS_PER_CONNECTION) {
+			too_much = TRUE;
 			break;
+		}
 	}
 
 	if (log->input->eof)
@@ -355,7 +358,7 @@ static void log_connection_input(struct log_connection *log)
 		log_connection_destroy(log);
 	} else {
 		i_assert(!log->input->closed);
-		if (ret == 0) {
+		if (!too_much) {
 			if (log->pending_count > 0) {
 				log->pending_count = 0;
 				i_assert(global_pending_count > 0);
