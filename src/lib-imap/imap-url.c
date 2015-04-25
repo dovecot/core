@@ -879,15 +879,16 @@ static bool imap_url_do_parse(struct imap_url_parser *url_parser)
 		}
 	}
 
+	/* IMAP URL has no fragment */
 	if ((ret = uri_parse_fragment(parser, &query)) != 0) {
 		if (ret == 1)
 			parser->error = "Fragment component not allowed in IMAP URL";
 		return FALSE;
 	}
-	if (parser->cur != parser->end) {
-		parser->error = "IMAP URL contains invalid character.";
-		return FALSE;
-	}
+
+	/* must be at end of URL now */
+	i_assert(parser->cur == parser->end);
+
 	return TRUE;
 }
 

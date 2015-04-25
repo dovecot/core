@@ -325,10 +325,8 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 		url->enc_fragment = p_strdup(parser->pool, base->enc_fragment);
 	}
 
-	if (parser->cur != parser->end) {
-		parser->error = "HTTP URL contains invalid character";
-		return FALSE;
-	}
+	/* must be at end of URL now */
+	i_assert(parser->cur == parser->end);
 
 	if (have_scheme)
 		url_parser->req_format = HTTP_REQUEST_TARGET_FORMAT_ABSOLUTE;

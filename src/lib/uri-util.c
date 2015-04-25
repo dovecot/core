@@ -534,15 +534,33 @@ int uri_parse_authority(struct uri_parser *parser,
 	/* host */
 	if (uri_parse_host(parser, auth) < 0)
 		return -1;
-
-	/* [":" ... */
-	if (parser->cur >= parser->end || *parser->cur != ':')
+	if (parser->cur == parser->end)
 		return 1;
-	parser->cur++;
+	switch (*parser->cur) {
+	case ':': case '/': case '?': case '#':
+		break;
+	default:
+		parser->error = "Invalid host identifier";
+		return -1;
+	}
+
+	/* [":" port] */
+	if (*parser->cur == ':') {
+		parser->cur++;
 	
-	/* ... port] */
-	if ((ret = uri_parse_port(parser, auth)) < 0)
-		return ret;
+		if ((ret = uri_parse_port(parser, auth)) < 0)
+			return ret;
+		if (parser->cur == parser->end)
+			return 1;
+		switch (*parser->cur) {
+		case '/': case '?': case '#':
+			break;
+		default:
+			parser->error = "Invalid host port";
+			return -1;
+		}
+	}
+
 	return 1;
 }
 
@@ -661,6 +679,12 @@ int uri_parse_path(struct uri_parser *parser,
 	}
 	array_append_zero(&segments);
 	*path_r = array_get(&segments, &count);
+
+	if (parser->cur < parser->end &&
+		*parser->cur != '?' && *parser->cur != '#') {
+		parser->error = "Path component contains invalid character";
+		return -1;
+	}
 	return 1;
 }
 
@@ -687,6 +711,11 @@ int uri_parse_query(struct uri_parser *parser, const char **query_r)
 		if ((*p & 0x80) != 0 || (_uri_char_lookup[*p] & CHAR_MASK_QCHAR) == 0)
 			break;
 		p++;
+	}
+
+	if (p < parser->end && *p != '#') {
+		parser->error = "Query component contains invalid character";
+		return -1;
 	}
 
 	if (query_r != NULL)
@@ -719,6 +748,11 @@ int uri_parse_fragment(struct uri_parser *parser, const char **fragment_r)
 		if ((*p & 0x80) != 0 || (_uri_char_lookup[*p] & CHAR_MASK_QCHAR) == 0)
 			break;
 		p++;
+	}
+
+	if (p < parser->end) {
+		parser->error = "Fragment component contains invalid character";
+		return -1;
 	}
 
 	if (fragment_r != NULL)
