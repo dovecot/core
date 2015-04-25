@@ -33,22 +33,30 @@ int uri_parse_unreserved(struct uri_parser *parser, string_t *part);
 bool uri_data_decode(struct uri_parser *parser, const char *data,
 		     const char *until, const char **decoded_r) ATTR_NULL(3);
 
-int uri_cut_scheme(const char **uri_p, const char **scheme_r);
-int uri_parse_scheme(struct uri_parser *parser, const char **scheme_r);
+int uri_cut_scheme(const char **uri_p, const char **scheme_r)
+	ATTR_NULL(2);
+int uri_parse_scheme(struct uri_parser *parser, const char **scheme_r)
+	ATTR_NULL(2);
 int uri_parse_authority(struct uri_parser *parser,
-	struct uri_authority *auth);
+	struct uri_authority *auth)	 ATTR_NULL(2);
 int uri_parse_slashslash_authority(struct uri_parser *parser,
-	struct uri_authority *auth);
+	struct uri_authority *auth) ATTR_NULL(2);
 
-int uri_parse_path_segment(struct uri_parser *parser, const char **segment_r);
+int uri_parse_path_segment(struct uri_parser *parser,
+	const char **segment_r) ATTR_NULL(2);
 int uri_parse_path(struct uri_parser *parser, int *relative_r,
-		   const char *const **path_r);
+		   const char *const **path_r) ATTR_NULL(2,3);
 
-int uri_parse_query(struct uri_parser *parser, const char **query_r);
-int uri_parse_fragment(struct uri_parser *parser, const char **fragment_r);
+int uri_parse_query(struct uri_parser *parser,
+	const char **query_r) ATTR_NULL(2);
+int uri_parse_fragment(struct uri_parser *parser,
+	const char **fragment_r) ATTR_NULL(2);
 
-void uri_parser_init(struct uri_parser *parser, pool_t pool, const char *data);
-string_t *uri_parser_get_tmpbuf(struct uri_parser *parser, size_t size);
+void uri_parser_init(struct uri_parser *parser, pool_t pool,
+	const char *data);
+string_t *uri_parser_get_tmpbuf(struct uri_parser *parser,
+	size_t size);
+
 
 /*
  * Generic URI construction
