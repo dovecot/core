@@ -115,14 +115,12 @@ static void test_istream_unix_server(int fd)
 
 static void test_istream_unix_client(int fd)
 {
-	char buf;
-
 	/* 1) */
 	write_one(fd);
 	read_one(fd);
 
 	/* 2) */
-	if (fd_send(fd, send_fd, &buf, 1) < 0)
+	if (fd_send(fd, send_fd, "1", 1) < 0)
 		i_fatal("fd_send() failed: %m");
 	read_one(fd);
 
@@ -131,7 +129,7 @@ static void test_istream_unix_client(int fd)
 	read_one(fd);
 
 	/* 4) */
-	if (fd_send(fd, send_fd2, &buf, 1) < 0)
+	if (fd_send(fd, send_fd2, "1", 1) < 0)
 		i_fatal("fd_send() failed: %m");
 	read_one(fd);
 
@@ -140,21 +138,21 @@ static void test_istream_unix_client(int fd)
 	read_one(fd);
 
 	/* 6) */
-	if (fd_send(fd, send_fd, &buf, 1) < 0)
+	if (fd_send(fd, send_fd, "1", 1) < 0)
 		i_fatal("fd_send() failed: %m");
 	read_one(fd);
 
 	/* 7-8) */
-	if (fd_send(fd, send_fd, &buf, 1) < 0)
+	if (fd_send(fd, send_fd, "1", 1) < 0)
 		i_fatal("fd_send() failed: %m");
-	if (fd_send(fd, send_fd2, &buf, 1) < 0)
+	if (fd_send(fd, send_fd2, "1", 1) < 0)
 		i_fatal("fd_send() failed: %m");
 	read_one(fd);
 
 	/* 9-10) */
-	if (fd_send(fd, send_fd, &buf, 1) < 0)
+	if (fd_send(fd, send_fd, "1", 1) < 0)
 		i_fatal("fd_send() failed: %m");
-	if (fd_send(fd, send_fd2, &buf, 1) < 0)
+	if (fd_send(fd, send_fd2, "1", 1) < 0)
 		i_fatal("fd_send() failed: %m");
 	read_one(fd);
 
