@@ -74,6 +74,7 @@ liblib_la_SOURCES = \
 	istream-sized.c \
 	istream-tee.c \
 	istream-timeout.c \
+	istream-unix.c \
 	ioloop.c \
 	ioloop-iolist.c \
 	ioloop-notify-none.c \
@@ -200,6 +201,7 @@ headers = \
 	istream-chain.h \
 	istream-concat.h \
 	istream-crlf.h \
+	istream-file-private.h \
 	istream-hash.h \
 	istream-jsonstr.h \
 	istream-private.h \
@@ -208,6 +210,7 @@ headers = \
 	istream-sized.h \
 	istream-tee.h \
 	istream-timeout.h \
+	istream-unix.h \
 	ioloop.h \
 	ioloop-iolist.h \
 	ioloop-private.h \
@@ -302,6 +305,7 @@ test_lib_SOURCES = \
 	test-istream-crlf.c \
 	test-istream-seekable.c \
 	test-istream-tee.c \
+	test-istream-unix.c \
 	test-json-parser.c \
 	test-json-tree.c \
 	test-llist.c \

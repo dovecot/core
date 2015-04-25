@@ -4,7 +4,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "istream-private.h"
+#include "istream-file-private.h"
 #include "net.h"
 
 #include <time.h>
@@ -12,18 +12,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-struct file_istream {
-	struct istream_private istream;
-
-	uoff_t skip_left;
-
-	unsigned int file:1;
-	unsigned int autoclose_fd:1;
-	unsigned int seen_eof:1;
-};
-
-static void i_stream_file_close(struct iostream_private *stream,
-				bool close_parent ATTR_UNUSED)
+void i_stream_file_close(struct iostream_private *stream,
+			 bool close_parent ATTR_UNUSED)
 {
 	struct file_istream *fstream = (struct file_istream *)stream;
 	struct istream_private *_stream = (struct istream_private *)stream;
@@ -51,7 +41,7 @@ static int i_stream_file_open(struct istream_private *stream)
 	return 0;
 }
 
-static ssize_t i_stream_file_read(struct istream_private *stream)
+ssize_t i_stream_file_read(struct istream_private *stream)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 	uoff_t offset;
@@ -183,16 +173,15 @@ i_stream_file_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 	return 0;
 }
 
-static struct istream *
-i_stream_create_file_common(int fd, const char *path,
+struct istream *
+i_stream_create_file_common(struct file_istream *fstream,
+			    int fd, const char *path,
 			    size_t max_buffer_size, bool autoclose_fd)
 {
-	struct file_istream *fstream;
 	struct istream *input;
 	struct stat st;
 	bool is_file;
 
-	fstream = i_new(struct file_istream, 1);
 	fstream->autoclose_fd = autoclose_fd;
 
 	fstream->istream.iostream.close = i_stream_file_close;
@@ -235,9 +224,13 @@ i_stream_create_file_common(int fd, const char *path,
 struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
 				   bool autoclose_fd)
 {
+	struct file_istream *fstream;
+
 	i_assert(fd != -1);
 
-	return i_stream_create_file_common(fd, NULL, max_buffer_size, autoclose_fd);
+	fstream = i_new(struct file_istream, 1);
+	return i_stream_create_file_common(fstream, fd, NULL,
+					   max_buffer_size, autoclose_fd);
 }
 
 struct istream *i_stream_create_fd_autoclose(int *fd, size_t max_buffer_size)
@@ -251,9 +244,12 @@ struct istream *i_stream_create_fd_autoclose(int *fd, size_t max_buffer_size)
 
 struct istream *i_stream_create_file(const char *path, size_t max_buffer_size)
 {
+	struct file_istream *fstream;
 	struct istream *input;
 
-	input = i_stream_create_file_common(-1, path, max_buffer_size, TRUE);
+	fstream = i_new(struct file_istream, 1);
+	input = i_stream_create_file_common(fstream, -1, path,
+					    max_buffer_size, TRUE);
 	i_stream_set_name(input, path);
 	return input;
 }

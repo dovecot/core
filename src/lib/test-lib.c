@@ -27,6 +27,7 @@ int main(void)
 		test_istream_crlf,
 		test_istream_seekable,
 		test_istream_tee,
+		test_istream_unix,
 		test_json_parser,
 		test_json_tree,
 		test_llist,

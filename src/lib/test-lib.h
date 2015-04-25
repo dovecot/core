@@ -28,6 +28,7 @@ void test_istream_concat(void);
 void test_istream_crlf(void);
 void test_istream_seekable(void);
 void test_istream_tee(void);
+void test_istream_unix(void);
 void test_json_parser(void);
 void test_json_tree(void);
 void test_llist(void);
