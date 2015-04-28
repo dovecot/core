@@ -68,6 +68,59 @@ static void test_istream_filter(void)
 	test_end();
 }
 
+static void ATTR_NULL(3)
+edit_callback(struct header_filter_istream *input,
+	      struct message_header_line *hdr,
+	      bool *matched, void *context ATTR_UNUSED)
+{
+	if (hdr != NULL && strcasecmp(hdr->name, "To") == 0) {
+		/* modify To header */
+		const char *new_to = "To: 123\n";
+		*matched = TRUE;
+		i_stream_header_filter_add(input, new_to, strlen(new_to));
+	}
+}
+
+static void test_istream_edit(void)
+{
+	const char *input = "From: foo\nTo: bar\n\nhello world\n";
+	const char *output = "From: foo\nTo: 123\n\nhello world\n";
+	struct istream *istream, *filter;
+	unsigned int i, input_len = strlen(input);
+	unsigned int output_len = strlen(output);
+	const unsigned char *data;
+	size_t size;
+
+	test_begin("i_stream_create_header_filter(edit)");
+	istream = test_istream_create(input);
+	filter = i_stream_create_header_filter(istream,
+					       HEADER_FILTER_EXCLUDE |
+					       HEADER_FILTER_NO_CR,
+					       NULL, 0,
+					       edit_callback, (void *)NULL);
+	for (i = 1; i < input_len; i++) {
+		test_istream_set_size(istream, i);
+		test_assert(i_stream_read(filter) >= 0);
+	}
+	test_istream_set_size(istream, input_len);
+	test_assert(i_stream_read(filter) > 0);
+	test_assert(i_stream_read(filter) == -1);
+
+	data = i_stream_get_data(filter, &size);
+	test_assert(size == output_len && memcmp(data, output, size) == 0);
+
+	i_stream_skip(filter, size);
+	i_stream_seek(filter, 0);
+	while (i_stream_read(filter) > 0) ;
+	data = i_stream_get_data(filter, &size);
+	test_assert(size == output_len && memcmp(data, output, size) == 0);
+
+	i_stream_unref(&filter);
+	i_stream_unref(&istream);
+
+	test_end();
+}
+
 static void test_istream_end_body_with_lf(void)
 {
 	static const char *empty_strarray[] = { NULL };
@@ -131,6 +184,7 @@ int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_istream_filter,
+		test_istream_edit,
 		test_istream_end_body_with_lf,
 		NULL
 	};

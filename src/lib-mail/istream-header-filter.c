@@ -31,6 +31,7 @@ struct header_filter_istream {
 	unsigned int header_read:1;
 	unsigned int seen_eoh:1;
 	unsigned int header_parsed:1;
+	unsigned int headers_edited:1;
 	unsigned int exclude:1;
 	unsigned int crlf:1;
 	unsigned int crlf_preserve:1;
@@ -209,14 +210,17 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 				  bsearch_strcasecmp) != NULL;
 		if (mstream->callback == NULL) {
 			/* nothing gets excluded */
-		} else if (mstream->cur_line > mstream->parsed_lines) {
-			/* first time in this line */
+		} else if (mstream->cur_line > mstream->parsed_lines ||
+			   mstream->headers_edited) {
+			/* first time in this line or we have actually modified
+			   the header so we always want to call the callbacks */
 			bool orig_matched = matched;
 
 			mstream->parsed_lines = mstream->cur_line;
 			mstream->callback(mstream, hdr, &matched,
 					  mstream->context);
-			if (matched != orig_matched) {
+			if (matched != orig_matched &&
+			    !mstream->headers_edited) {
 				i_array_init(&mstream->match_change_lines, 8);
 				array_append(&mstream->match_change_lines,
 					     &mstream->cur_line, 1);
@@ -583,4 +587,5 @@ void i_stream_header_filter_add(struct header_filter_istream *input,
 				const void *data, size_t size)
 {
 	buffer_append(input->hdr_buf, data, size);
+	input->headers_edited = TRUE;
 }
