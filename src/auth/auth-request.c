@@ -1839,8 +1839,17 @@ int auth_request_proxy_finish(struct auth_request *request,
 
 	host = auth_fields_find(request->extra_fields, "host");
 	if (host == NULL) {
-		/* director can set the host */
+		/* director can set the host. give it access to lip and lport
+		   so it can also perform proxy_maybe internally */
 		proxy_host_is_self = FALSE;
+		if (request->local_ip.family != 0) {
+			auth_fields_add(request->extra_fields, "lip",
+					net_ip2addr(&request->local_ip), 0);
+		}
+		if (request->local_port != 0) {
+			auth_fields_add(request->extra_fields, "lport",
+					dec2str(request->local_port), 0);
+		}
 	} else if (net_addr2ip(host, &ip) == 0) {
 		proxy_host_is_self =
 			auth_request_proxy_ip_is_self(request, &ip);

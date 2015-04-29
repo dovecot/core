@@ -31,6 +31,11 @@ struct login_connection {
 struct login_host_request {
 	struct login_connection *conn;
 	char *line, *username;
+
+	struct ip_addr local_ip;
+	unsigned int local_port;
+	unsigned int dest_port;
+	bool director_proxy_maybe;
 };
 
 static struct login_connection *login_connections;
@@ -71,6 +76,17 @@ login_connection_send_line(struct login_connection *conn, const char *line)
 	o_stream_nsendv(conn->output, iov, N_ELEMENTS(iov));
 }
 
+static bool login_host_request_is_self(struct login_host_request *request,
+				       const struct ip_addr *dest_ip)
+{
+	if (!net_ip_compare(dest_ip, &request->local_ip))
+		return FALSE;
+	if (request->dest_port != 0 && request->local_port != 0 &&
+	    request->dest_port != request->local_port)
+		return FALSE;
+	return TRUE;
+}
+
 static void
 login_host_callback(const struct ip_addr *ip, const char *errormsg,
 		    void *context)
@@ -80,11 +96,7 @@ login_host_callback(const struct ip_addr *ip, const char *errormsg,
 	const char *line, *line_params;
 	unsigned int secs;
 
-	if (ip != NULL) {
-		secs = dir->set->director_user_expire / 2;
-		line = t_strdup_printf("%s\thost=%s\tproxy_refresh=%u",
-				       request->line, net_ip2addr(ip), secs);
-	} else {
+	if (ip == NULL) {
 		if (strncmp(request->line, "OK\t", 3) == 0)
 			line_params = request->line + 3;
 		else if (strncmp(request->line, "PASS\t", 5) == 0)
@@ -96,6 +108,13 @@ login_host_callback(const struct ip_addr *ip, const char *errormsg,
 			request->username, errormsg);
 		line = t_strconcat("FAIL\t", t_strcut(line_params, '\t'),
 				   "\ttemp", NULL);
+	} else if (request->director_proxy_maybe &&
+		   login_host_request_is_self(request, ip)) {
+		line = request->line;
+	} else {
+		secs = dir->set->director_user_expire / 2;
+		line = t_strdup_printf("%s\thost=%s\tproxy_refresh=%u",
+				       request->line, net_ip2addr(ip), secs);
 	}
 	login_connection_send_line(request->conn, line);
 
@@ -108,7 +127,7 @@ login_host_callback(const struct ip_addr *ip, const char *errormsg,
 static void auth_input_line(const char *line, void *context)
 {
 	struct login_connection *conn = context;
-	struct login_host_request *request;
+	struct login_host_request *request, temp_request;
 	const char *const *args, *line_params, *username = NULL, *tag = "";
 	bool proxy = FALSE, host = FALSE;
 
@@ -134,22 +153,36 @@ static void auth_input_line(const char *line, void *context)
 		args++;
 	}
 
+	memset(&temp_request, 0, sizeof(temp_request));
 	for (; *args != NULL; args++) {
 		if (strncmp(*args, "proxy", 5) == 0 &&
 		    ((*args)[5] == '=' || (*args)[5] == '\0'))
 			proxy = TRUE;
 		else if (strncmp(*args, "host=", 5) == 0)
 			host = TRUE;
-		else if (strncmp(*args, "destuser=", 9) == 0)
+		else if (strncmp(*args, "lip=", 4) == 0) {
+			if (net_addr2ip((*args) + 4, &temp_request.local_ip) < 0)
+				;
+		} else if (strncmp(*args, "lport=", 6) == 0) {
+			if (str_to_uint((*args) + 6, &temp_request.local_port) < 0)
+				;
+		} else if (strncmp(*args, "port=", 5) == 0) {
+			if (str_to_uint((*args) + 5, &temp_request.dest_port) < 0)
+				;
+		} else if (strncmp(*args, "destuser=", 9) == 0)
 			username = *args + 9;
 		else if (strncmp(*args, "director_tag=", 13) == 0)
 			tag = *args + 13;
+		else if (strncmp(*args, "director_proxy_maybe", 20) == 0 &&
+			 ((*args)[20] == '=' || (*args)[20] == '\0'))
+			temp_request.director_proxy_maybe = TRUE;
 		else if (strncmp(*args, "user=", 5) == 0) {
 			if (username == NULL)
 				username = *args + 5;
 		}
 	}
-	if (!proxy || host || username == NULL) {
+	if ((!proxy && !temp_request.director_proxy_maybe) ||
+	    host || username == NULL) {
 		login_connection_send_line(conn, line);
 		return;
 	}
@@ -162,6 +195,7 @@ static void auth_input_line(const char *line, void *context)
 
 	/* we need to add the host. the lookup might be asynchronous */
 	request = i_new(struct login_host_request, 1);
+	*request = temp_request;
 	request->conn = conn;
 	request->line = i_strdup(line);
 	request->username = i_strdup(username);
