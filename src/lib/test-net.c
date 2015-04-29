@@ -47,7 +47,7 @@ static void test_net_is_in_network(void)
 	}
 }
 
-void test_network(void)
+void test_net(void)
 {
 	test_net_is_in_network();
 }

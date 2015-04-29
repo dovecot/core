@@ -310,7 +310,7 @@ test_lib_SOURCES = \
 	test-json-tree.c \
 	test-llist.c \
 	test-mempool-alloconly.c \
-	test-network.c \
+	test-net.c \
 	test-numpack.c \
 	test-ostream-file.c \
 	test-primes.c \

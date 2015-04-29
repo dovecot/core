@@ -32,7 +32,7 @@ int main(void)
 		test_json_tree,
 		test_llist,
 		test_mempool_alloconly,
-		test_network,
+		test_net,
 		test_numpack,
 		test_ostream_file,
 		test_primes,
