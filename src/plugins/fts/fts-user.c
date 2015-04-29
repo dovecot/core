@@ -212,5 +212,6 @@ void fts_mail_user_deinit(struct mail_user *user)
 {
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 
-	fts_user_free(fuser);
+	if (fuser != NULL)
+		fts_user_free(fuser);
 }
