@@ -204,8 +204,16 @@ err:
 		ctx->count_over = 0;
 	}
 
-	ctx->bytes_ceil += size_expunged;
-	ctx->count_ceil += expunged_count;
+	if (ctx->bytes_ceil > ((uint64_t)-1 - size_expunged)) {
+		ctx->bytes_ceil = (uint64_t)-1;
+	} else {
+		ctx->bytes_ceil += size_expunged;
+	}
+	if (ctx->count_ceil < ((uint64_t)-1 - expunged_count)) {
+		ctx->count_ceil = (uint64_t)-1;
+	} else {
+		ctx->count_ceil += expunged_count;
+	}
 	return 1;
 }
 
