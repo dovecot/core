@@ -38,6 +38,7 @@ static void test_net_is_in_network(void)
 	unsigned int i;
 	bool success;
 
+	test_begin("net_is_in_network()");
 	for (i = 0; i < N_ELEMENTS(input); i++) {
 		test_assert(net_addr2ip(input[i].ip, &ip) == 0);
 		test_assert(net_addr2ip(input[i].net, &net_ip) == 0);
@@ -45,9 +46,33 @@ static void test_net_is_in_network(void)
 			input[i].ret;
 		test_out(t_strdup_printf("net_is_in_network(%u)", i), success);
 	}
+	test_end();
+}
+
+static void test_net_ip2addr(void)
+{
+	struct ip_addr ip;
+
+	test_begin("net_ip2addr()");
+	test_assert(net_addr2ip("127.0.0.1", &ip) == 0 &&
+		    ip.family == AF_INET &&
+		    ip.u.ip4.s_addr == (127 | (1 << 24)));
+#ifdef HAVE_IPV6
+	test_assert(net_addr2ip("::5", &ip) == 0 &&
+		    ip.family == AF_INET6 &&
+		    ip.u.ip6.s6_addr[15] == 5);
+	test_assert(net_addr2ip("[::5]", &ip) == 0 &&
+		    ip.family == AF_INET6 &&
+		    ip.u.ip6.s6_addr[15] == 5);
+	ip.family = 123;
+	test_assert(net_addr2ip("abc", &ip) < 0 &&
+		    ip.family == 123);
+#endif
+	test_end();
 }
 
 void test_net(void)
 {
 	test_net_is_in_network();
+	test_net_ip2addr();
 }
