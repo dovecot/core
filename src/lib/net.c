@@ -919,7 +919,6 @@ int net_addr2ip(const char *addr, struct ip_addr *ip)
 
 	if (strchr(addr, ':') != NULL) {
 		/* IPv6 */
-		ip->family = AF_INET6;
 #ifdef HAVE_IPV6
 		T_BEGIN {
 			if (addr[0] == '[') {
@@ -935,13 +934,13 @@ int net_addr2ip(const char *addr, struct ip_addr *ip)
 #else
 		ip->u.ip4.s_addr = 0;
 #endif
+		ip->family = AF_INET6;
  	} else {
 		/* IPv4 */
-		ip->family = AF_INET;
 		if (inet_aton(addr, &ip->u.ip4) == 0)
 			return -1;
+		ip->family = AF_INET;
 	}
-
 	return 0;
 }
 
