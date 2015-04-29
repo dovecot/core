@@ -149,6 +149,14 @@ static int utf16buf_to_utf8(string_t *dest, const unsigned char output[4],
 	    high > UTF16_SURROGATE_HIGH_MAX) {
 		/* single byte */
 		size_t oldlen = str_len(dest);
+
+		if (high == 0) {
+			/* Encoded NUL isn't going to work in Dovecot code,
+			   even though it's technically valid. Return failure
+			   so the callers don't even get a chance to handle the
+			   NUL in the string inconsistently. */
+			return -1;
+		}
 		uni_ucs4_to_utf8_c(high, dest);
 		if (str_len(dest) - oldlen == 1) {
 			unsigned char last = str_data(dest)[oldlen];
