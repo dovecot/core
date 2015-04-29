@@ -1093,14 +1093,12 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 		ret = quota_root_get_rule_limits(roots[i],
 						 mailbox_get_vname(ctx->box),
 						 &bytes_limit, &count_limit);
-		if (ret == 0)
-			continue;
 		if (ret < 0)
 			return -1;
 
 		/* if size is bigger than any limit, then
 		   it is bigger than the lowest limit */
-		if (size > bytes_limit) {
+		if (bytes_limit > 0 && size > bytes_limit) {
 			*too_large_r = TRUE;
 			break;
 		}
