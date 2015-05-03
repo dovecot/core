@@ -4,7 +4,8 @@
 #include "acl-api.h"
 
 struct acl_global_file *
-acl_global_file_init(const char *path, unsigned int refresh_interval_secs);
+acl_global_file_init(const char *path, unsigned int refresh_interval_secs,
+		     bool debug);
 void acl_global_file_deinit(struct acl_global_file **file);
 
 /* Read the global ACLs into memory. */

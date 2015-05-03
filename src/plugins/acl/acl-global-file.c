@@ -30,16 +30,19 @@ struct acl_global_file {
 	ARRAY(struct acl_global_rights) rights;
 
 	unsigned int refresh_interval_secs;
+	bool debug;
 };
 
 struct acl_global_file *
-acl_global_file_init(const char *path, unsigned int refresh_interval_secs)
+acl_global_file_init(const char *path, unsigned int refresh_interval_secs,
+		     bool debug)
 {
 	struct acl_global_file *file;
 
 	file = i_new(struct acl_global_file, 1);
 	file->path = i_strdup(path);
 	file->refresh_interval_secs = refresh_interval_secs;
+	file->debug = debug;
 	i_array_init(&file->rights, 32);
 	file->rights_pool = pool_alloconly_create("acl global file rights", 1024);
 	return file;
@@ -198,6 +201,10 @@ void acl_global_file_get(struct acl_global_file *file, const char *vname,
 	array_foreach_modifiable(&file->rights, global_rights) {
 		if (!wildcard_match(vname, global_rights->vpattern))
 			continue;
+		if (file->debug) {
+			i_debug("Mailbox '%s' matches global ACL pattern '%s'",
+				vname, global_rights->vpattern);
+		}
 		array_foreach(&global_rights->rights, rights) {
 			new_rights = array_append_space(rights_r);
 			acl_rights_dup(rights, pool, new_rights);
