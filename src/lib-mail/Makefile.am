@@ -110,7 +110,7 @@ test_istream_dot_LDADD = istream-dot.lo $(test_libs)
 test_istream_dot_DEPENDENCIES = $(test_deps)
 
 test_istream_qp_decoder_SOURCES = test-istream-qp-decoder.c
-test_istream_qp_decoder_LDADD = istream-qp-decoder.lo quoted-printable.lo $(test_libs)
+test_istream_qp_decoder_LDADD = istream-qp-decoder.lo qp-decoder.lo $(test_libs)
 test_istream_qp_decoder_DEPENDENCIES = $(test_deps)
 
 message_parser_objects = \
