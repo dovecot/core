@@ -31,6 +31,7 @@ libmail_la_SOURCES = \
 	message-size.c \
 	message-snippet.c \
 	ostream-dot.c \
+	qp-decoder.c \
 	quoted-printable.c \
 	rfc2231-parser.c \
 	rfc822-parser.c
@@ -65,6 +66,7 @@ headers = \
 	message-size.h \
 	message-snippet.h \
 	ostream-dot.h \
+	qp-decoder.h \
 	quoted-printable.h \
 	rfc2231-parser.h \
 	rfc822-parser.h
@@ -91,6 +93,7 @@ test_programs = \
 	test-message-part \
 	test-message-snippet \
 	test-ostream-dot \
+	test-qp-decoder \
 	test-quoted-printable \
 	test-rfc2231-parser
 
@@ -180,6 +183,10 @@ test_mail_html2text_DEPENDENCIES = $(test_deps)
 test_ostream_dot_SOURCES = test-ostream-dot.c
 test_ostream_dot_LDADD = ostream-dot.lo $(test_libs)
 test_ostream_dot_DEPENDENCIES = $(test_deps)
+
+test_qp_decoder_SOURCES = test-qp-decoder.c
+test_qp_decoder_LDADD = qp-decoder.lo $(test_libs)
+test_qp_decoder_DEPENDENCIES = $(test_deps)
 
 test_quoted_printable_SOURCES = test-quoted-printable.c
 test_quoted_printable_LDADD = quoted-printable.lo $(test_libs)
