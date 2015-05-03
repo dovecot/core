@@ -6,7 +6,7 @@
 #include "str.h"
 #include "unichar.h"
 #include "charset-utf8.h"
-#include "quoted-printable.h"
+#include "qp-decoder.h"
 #include "rfc822-parser.h"
 #include "rfc2231-parser.h"
 #include "message-parser.h"
@@ -29,6 +29,7 @@ struct message_decoder_context {
 	char translation_buf[CHARSET_MAX_PENDING_BUF_SIZE];
 	unsigned int translation_size;
 
+	struct qp_decoder *qp;
 	buffer_t *encoding_buf;
 
 	char *content_type, *content_charset;
@@ -64,6 +65,8 @@ void message_decoder_deinit(struct message_decoder_context **_ctx)
 
 	if (ctx->charset_trans != NULL)
 		charset_to_utf8_end(&ctx->charset_trans);
+	if (ctx->qp != NULL)
+		qp_decoder_deinit(&ctx->qp);
 
 	buffer_free(&ctx->encoding_buf);
 	buffer_free(&ctx->buf);
@@ -265,12 +268,11 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 {
 	const unsigned char *data = NULL;
 	size_t pos = 0, size = 0;
+	const char *error;
 	int ret;
 
-	if (ctx->encoding_buf->used != 0) {
-		/* @UNSAFE */
+	if (ctx->encoding_buf->used != 0)
 		buffer_append(ctx->encoding_buf, input->data, input->size);
-	}
 
 	switch (ctx->message_cte) {
 	case MESSAGE_CTE_UNKNOWN:
@@ -279,22 +281,23 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 
 	case MESSAGE_CTE_78BIT:
 	case MESSAGE_CTE_BINARY:
+		i_assert(ctx->encoding_buf->used == 0);
 		data = input->data;
 		size = pos = input->size;
 		break;
-	case MESSAGE_CTE_QP:
+	case MESSAGE_CTE_QP: {
+		i_assert(ctx->encoding_buf->used == 0);
 		buffer_set_used_size(ctx->buf, 0);
-		if (ctx->encoding_buf->used != 0) {
-			(void)quoted_printable_decode(ctx->encoding_buf->data,
-						      ctx->encoding_buf->used,
-						      &pos, ctx->buf);
-		} else {
-			(void)quoted_printable_decode(input->data, input->size,
-						      &pos, ctx->buf);
-		}
+		if (ctx->qp == NULL)
+			ctx->qp = qp_decoder_init(ctx->buf);
+		(void)qp_decoder_more(ctx->qp, input->data, input->size,
+				      &pos, &error);
 		data = ctx->buf->data;
 		size = ctx->buf->used;
+		/* eat away all input. qp-decoder buffers it internally. */
+		pos = input->size;
 		break;
+	}
 	case MESSAGE_CTE_BASE64:
 		buffer_set_used_size(ctx->buf, 0);
 		if (ctx->encoding_buf->used != 0) {
@@ -386,6 +389,10 @@ message_decoder_current_content_type(struct message_decoder_context *ctx)
 
 void message_decoder_decode_reset(struct message_decoder_context *ctx)
 {
+	const char *error;
+
+	if (ctx->qp != NULL)
+		(void)qp_decoder_finish(ctx->qp, &error);
 	i_free_and_null(ctx->content_type);
 	i_free_and_null(ctx->content_charset);
 	ctx->message_cte = MESSAGE_CTE_78BIT;

@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "buffer.h"
 #include "charset-utf8.h"
-#include "quoted-printable.h"
 #include "message-parser.h"
 #include "message-header-decode.h"
 #include "message-decoder.h"
