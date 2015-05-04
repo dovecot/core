@@ -26,6 +26,7 @@ fs_alloc(const struct fs *fs_class, const char *args,
 	int ret;
 
 	fs = fs_class->v.alloc();
+	fs->refcount = 1;
 	fs->last_error = str_new(default_pool, 64);
 	i_array_init(&fs->module_contexts, 5);
 
