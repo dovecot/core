@@ -532,7 +532,7 @@ struct mail_vfuncs imapc_mail_vfuncs = {
 	index_mail_get_date,
 	imapc_mail_get_received_date,
 	imapc_mail_get_save_date,
-	index_mail_get_virtual_size,
+	imapc_mail_get_physical_size,
 	imapc_mail_get_physical_size,
 	imapc_mail_get_first_header,
 	imapc_mail_get_headers,
