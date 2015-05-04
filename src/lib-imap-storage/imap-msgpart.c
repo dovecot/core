@@ -333,6 +333,18 @@ enum mail_fetch_field imap_msgpart_get_fetch_data(struct imap_msgpart *msgpart)
 	return msgpart->wanted_fields;
 }
 
+void imap_msgpart_get_wanted_headers(struct imap_msgpart *msgpart,
+				     ARRAY_TYPE(const_string) *headers)
+{
+	unsigned int i;
+
+	if (msgpart->fetch_type != FETCH_HEADER_FIELDS)
+		return;
+
+	for (i = 0; msgpart->headers[i] != NULL; i++)
+		array_append(headers, &msgpart->headers[i], 1);
+}
+
 static int
 imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 				const struct imap_msgpart *msgpart,

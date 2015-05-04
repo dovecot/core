@@ -36,6 +36,10 @@ uoff_t imap_msgpart_get_partial_offset(struct imap_msgpart *msgpart);
 uoff_t imap_msgpart_get_partial_size(struct imap_msgpart *msgpart);
 /* Return wanted_fields mask. */
 enum mail_fetch_field imap_msgpart_get_fetch_data(struct imap_msgpart *msgpart);
+/* Append all the specifically requested headers to the headers array
+   (no deduplication is done) */
+void imap_msgpart_get_wanted_headers(struct imap_msgpart *msgpart,
+				     ARRAY_TYPE(const_string) *headers);
 
 /* Open message part refenced by IMAP section as istream. Returns 0 if
    successful, -1 if storage error. Returned istream is initially referenced,
