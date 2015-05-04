@@ -212,7 +212,7 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	str_printfa(str, "UID FETCH %u (", _mail->uid);
 	if ((fields & MAIL_FETCH_RECEIVED_DATE) != 0)
 		str_append(str, "INTERNALDATE ");
-	if ((fields & MAIL_FETCH_PHYSICAL_SIZE) != 0)
+	if ((fields & (MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE)) != 0)
 		str_append(str, "RFC822.SIZE ");
 	if ((fields & MAIL_FETCH_GUID) != 0) {
 		str_append(str, mbox->guid_fetch_field_name);
@@ -296,10 +296,11 @@ imapc_mail_get_wanted_fetch_fields(struct imapc_mail *mail)
 	if ((data->wanted_fields & MAIL_FETCH_SAVE_DATE) != 0 &&
 	    data->save_date == (time_t)-1 && data->received_date == (time_t)-1)
 		fields |= MAIL_FETCH_RECEIVED_DATE;
-	if ((data->wanted_fields & MAIL_FETCH_PHYSICAL_SIZE) != 0 &&
+	if ((data->wanted_fields & (MAIL_FETCH_PHYSICAL_SIZE |
+				    MAIL_FETCH_VIRTUAL_SIZE)) != 0 &&
 	    data->physical_size == (uoff_t)-1 &&
 	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE))
-		fields |= MAIL_FETCH_PHYSICAL_SIZE;
+		fields |= MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE;
 	if ((data->wanted_fields & MAIL_FETCH_GUID) != 0 &&
 	    data->guid == NULL && mbox->guid_fetch_field_name != NULL)
 		fields |= MAIL_FETCH_GUID;
@@ -343,10 +344,10 @@ imapc_mail_have_fields(struct imapc_mail *imail, enum mail_fetch_field fields)
 			return FALSE;
 		fields &= ~MAIL_FETCH_RECEIVED_DATE;
 	}
-	if ((fields & MAIL_FETCH_PHYSICAL_SIZE) != 0) {
+	if ((fields & (MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE)) != 0) {
 		if (imail->imail.data.physical_size == (uoff_t)-1)
 			return FALSE;
-		fields &= ~MAIL_FETCH_PHYSICAL_SIZE;
+		fields &= ~(MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE);
 	}
 	if ((fields & MAIL_FETCH_GUID) != 0) {
 		if (imail->imail.data.guid == NULL)

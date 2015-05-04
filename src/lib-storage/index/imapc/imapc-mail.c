@@ -125,12 +125,11 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	uoff_t old_offset;
 	int ret;
 
-	if (data->physical_size == (uoff_t)-1) {
+	if (data->physical_size == (uoff_t)-1)
 		(void)index_mail_get_physical_size(_mail, size_r);
-		if (data->physical_size != (uoff_t)-1) {
-			*size_r = data->physical_size;
-			return 0;
-		}
+	if (data->physical_size != (uoff_t)-1) {
+		*size_r = data->physical_size;
+		return 0;
 	}
 
 	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE) &&
@@ -161,6 +160,17 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 		return -1;
 	}
 	*size_r = data->physical_size;
+	return 0;
+}
+
+static int imapc_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail_data *data = &mail->data;
+
+	if (imapc_mail_get_physical_size(_mail, size_r) < 0)
+		return -1;
+	data->virtual_size = data->physical_size;
 	return 0;
 }
 
@@ -302,7 +312,8 @@ void imapc_mail_update_access_parts(struct index_mail *mail)
 			data->save_date = data->received_date;
 		}
 	}
-	if ((data->wanted_fields & MAIL_FETCH_PHYSICAL_SIZE) != 0) {
+	if ((data->wanted_fields & (MAIL_FETCH_PHYSICAL_SIZE |
+				    MAIL_FETCH_VIRTUAL_SIZE)) != 0) {
 		if (index_mail_get_physical_size(_mail, &size) < 0 &&
 		    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE))
 			data->access_part |= READ_HDR | READ_BODY;
@@ -532,7 +543,7 @@ struct mail_vfuncs imapc_mail_vfuncs = {
 	index_mail_get_date,
 	imapc_mail_get_received_date,
 	imapc_mail_get_save_date,
-	imapc_mail_get_physical_size,
+	imapc_mail_get_virtual_size,
 	imapc_mail_get_physical_size,
 	imapc_mail_get_first_header,
 	imapc_mail_get_headers,
