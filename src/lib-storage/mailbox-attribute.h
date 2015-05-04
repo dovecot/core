@@ -11,10 +11,21 @@ struct mailbox_transaction_context;
    users cannot access these in any way. */
 #define MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT \
 	MAILBOX_ATTRIBUTE_PREFIX_DOVECOT"pvt/"
-/* Prefix used for server attributes in INBOX. INBOX deletion won't delete
-   any attributes under this prefix. */
+/* Server attributes are currently stored in INBOX under this private prefix.
+   They're under the pvt/ prefix so they won't be listed as regular INBOX
+   attributes, but unlike other pvt/ attributes it's actually possible to
+   access these attributes as regular users.
+
+   If INBOX is deleted, attributes under this prefix are preserved. */
 #define MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER \
 	MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT"server/"
+
+/* User can get/set all non-pvt/ attributes and also pvt/server/ attributes. */
+#define MAILBOX_ATTRIBUTE_KEY_IS_USER_ACCESSIBLE(key) \
+	(strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT, \
+		 strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT)) != 0 || \
+	 strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER, \
+		 strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER)) == 0)
 
 enum mail_attribute_type {
 	MAIL_ATTRIBUTE_TYPE_PRIVATE,
