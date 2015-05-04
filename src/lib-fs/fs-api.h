@@ -166,7 +166,11 @@ typedef void fs_file_async_callback_t(void *context);
 int fs_init(const char *driver, const char *args,
 	    const struct fs_settings *set,
 	    struct fs **fs_r, const char **error_r);
+/* same as fs_unref() */
 void fs_deinit(struct fs **fs);
+
+void fs_ref(struct fs *fs);
+void fs_unref(struct fs **fs);
 
 /* Returns the parent filesystem (if this is a wrapper fs) or NULL if
    there's no parent. */

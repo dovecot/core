@@ -69,6 +69,7 @@ struct fs {
 	const char *name;
 	struct fs_vfuncs v;
 	char *temp_path_prefix;
+	int refcount;
 
 	char *username, *session_id;
 

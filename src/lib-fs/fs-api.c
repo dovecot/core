@@ -38,7 +38,7 @@ fs_alloc(const struct fs *fs_class, const char *args,
 		   data stack. */
 		*error_r = t_strdup_printf("%s: %s", fs_class->name,
 					   fs_last_error(fs));
-		fs_deinit(&fs);
+		fs_unref(&fs);
 		return -1;
 	}
 	fs->username = i_strdup(set->username);
@@ -147,13 +147,30 @@ int fs_init(const char *driver, const char *args,
 	return 0;
 }
 
-void fs_deinit(struct fs **_fs)
+void fs_deinit(struct fs **fs)
+{
+	fs_unref(fs);
+}
+
+void fs_ref(struct fs *fs)
+{
+	i_assert(fs->refcount > 0);
+
+	fs->refcount++;
+}
+
+void fs_unref(struct fs **_fs)
 {
 	struct fs *fs = *_fs;
 	string_t *last_error = fs->last_error;
 	struct array module_contexts_arr = fs->module_contexts.arr;
 
+	i_assert(fs->refcount > 0);
+
 	*_fs = NULL;
+
+	if (--fs->refcount > 0)
+		return;
 
 	if (fs->files_open_count > 0) {
 		i_panic("fs-%s: %u files still open (first = %s)",
