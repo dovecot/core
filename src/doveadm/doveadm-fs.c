@@ -222,7 +222,7 @@ struct fs_delete_ctx {
 	struct fs_file **files;
 };
 
-static bool cmd_fs_delete_ctx_run(struct fs_delete_ctx *ctx)
+static int cmd_fs_delete_ctx_run(struct fs_delete_ctx *ctx)
 {
 	unsigned int i;
 	int ret = 0;
