@@ -552,6 +552,15 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		}
 		return TRUE;
 	}
+	if (request->failed) {
+		/* The passdb didn't fail, but something inside it failed
+		   (e.g. allow_nets mismatch). Make sure we'll fail this
+		   lookup, but reset the failure so the next passdb can
+		   succeed. */
+		if (*result == PASSDB_RESULT_OK)
+			*result = PASSDB_RESULT_USER_UNKNOWN;
+		request->failed = FALSE;
+	}
 
 	/* users that exist but can't log in are special. we don't try to match
 	   any of the success/failure rules to them. they'll always fail. */
@@ -618,29 +627,27 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 	       auth_request_want_skip_passdb(request, next_passdb))
 		next_passdb = next_passdb->next;
 
+	if (*result == PASSDB_RESULT_OK) {
+		/* this passdb lookup succeeded, preserve its extra fields */
+		auth_fields_snapshot(request->extra_fields);
+		request->snapshot_have_userdb_prefetch_set =
+			request->userdb_prefetch_set;
+		if (request->userdb_reply != NULL)
+			auth_fields_snapshot(request->userdb_reply);
+	} else {
+		/* this passdb lookup failed, remove any extra fields it set */
+		auth_fields_rollback(request->extra_fields);
+		if (request->userdb_reply != NULL) {
+			auth_fields_rollback(request->userdb_reply);
+			request->userdb_prefetch_set =
+				request->snapshot_have_userdb_prefetch_set;
+		}
+	}
+
 	if (passdb_continue && next_passdb != NULL) {
 		/* try next passdb. */
                 request->passdb = next_passdb;
 		request->passdb_password = NULL;
-
-		if (*result == PASSDB_RESULT_OK) {
-			/* this passdb lookup succeeded, preserve its extra
-			   fields */
-			auth_fields_snapshot(request->extra_fields);
-			request->snapshot_have_userdb_prefetch_set =
-				request->userdb_prefetch_set;
-			if (request->userdb_reply != NULL)
-				auth_fields_snapshot(request->userdb_reply);
-		} else {
-			/* this passdb lookup failed, remove any extra fields
-			   it set */
-			auth_fields_rollback(request->extra_fields);
-			if (request->userdb_reply != NULL) {
-				auth_fields_rollback(request->userdb_reply);
-				request->userdb_prefetch_set =
-					request->snapshot_have_userdb_prefetch_set;
-			}
-		}
 
 		if (*result == PASSDB_RESULT_USER_UNKNOWN) {
 			/* remember that we did at least one successful
