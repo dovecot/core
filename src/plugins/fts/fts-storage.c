@@ -756,17 +756,11 @@ static int fts_backend_init_libfts(struct fts_backend *backend)
 	return 0;
 }
 
-void fts_mailbox_list_created(struct mailbox_list *list)
+static void
+fts_mailbox_list_init(struct mailbox_list *list, const char *name)
 {
 	struct fts_backend *backend;
-	const char *name, *path, *error;
-
-	name = mail_user_plugin_getenv(list->ns->user, "fts");
-	if (name == NULL) {
-		if (list->mail_set->mail_debug)
-			i_debug("fts: No fts setting - plugin disabled");
-		return;
-	}
+	const char *path, *error;
 
 	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX, &path)) {
 		if (list->mail_set->mail_debug) {
@@ -795,6 +789,22 @@ void fts_mailbox_list_created(struct mailbox_list *list)
 		v->deinit = fts_mailbox_list_deinit;
 		MODULE_CONTEXT_SET(list, fts_mailbox_list_module, flist);
 	}
+}
+
+void fts_mail_namespaces_added(struct mail_namespace *namespaces)
+{
+	struct mail_namespace *ns;
+	const char *name;
+
+	name = mail_user_plugin_getenv(namespaces->user, "fts");
+	if (name == NULL) {
+		if (namespaces->user->mail_debug)
+			i_debug("fts: No fts setting - plugin disabled");
+		return;
+	}
+
+	for (ns = namespaces; ns != NULL; ns = ns->next)
+		fts_mailbox_list_init(ns->list, name);
 }
 
 struct fts_backend *fts_mailbox_backend(struct mailbox *box)
