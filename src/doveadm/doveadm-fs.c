@@ -225,20 +225,22 @@ struct fs_delete_ctx {
 static bool cmd_fs_delete_ctx_run(struct fs_delete_ctx *ctx)
 {
 	unsigned int i;
-	bool ret = FALSE;
+	int ret = 0;
 
 	for (i = 0; i < ctx->files_count; i++) {
 		if (ctx->files[i] == NULL)
 			;
 		else if (fs_delete(ctx->files[i]) == 0)
 			fs_file_deinit(&ctx->files[i]);
-		else if (errno == EAGAIN)
-			ret = TRUE;
-		else {
+		else if (errno == EAGAIN) {
+			if (ret == 0)
+				ret = 1;
+		} else {
 			i_error("fs_delete(%s) failed: %s",
 				fs_file_path(ctx->files[i]),
 				fs_file_last_error(ctx->files[i]));
 			doveadm_exit_code = EX_TEMPFAIL;
+			ret = -1;
 		}
 	}
 	return ret;
@@ -253,6 +255,7 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 	struct fs_delete_ctx ctx;
 	const char *fname, *const *fnamep;
 	unsigned int i;
+	int ret;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.files_count = I_MAX(async_count, 1);
@@ -311,9 +314,10 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 			fname = NULL;
 			break;
 		}
-		cmd_fs_delete_ctx_run(&ctx);
+		if ((ret = cmd_fs_delete_ctx_run(&ctx)) < 0)
+			break;
 		if (fname != NULL) {
-			if (fs_wait_async(fs) < 0) {
+			if (ret > 0 && fs_wait_async(fs) < 0) {
 				i_error("fs_wait_async() failed: %s", fs_last_error(fs));
 				doveadm_exit_code = EX_TEMPFAIL;
 				break;
@@ -321,7 +325,7 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 			goto retry;
 		}
 	} T_END;
-	while (doveadm_exit_code == 0 && cmd_fs_delete_ctx_run(&ctx)) {
+	while (doveadm_exit_code == 0 && cmd_fs_delete_ctx_run(&ctx) != 0) {
 		if (fs_wait_async(fs) < 0) {
 			i_error("fs_wait_async() failed: %s", fs_last_error(fs));
 			doveadm_exit_code = EX_TEMPFAIL;
