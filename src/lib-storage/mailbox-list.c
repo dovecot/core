@@ -1861,6 +1861,10 @@ int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
 	ctx = p_new(list->pool, struct mailbox_list_fs_context, 1);
 	ctx->list = list;
 	MODULE_CONTEXT_SET(parent_fs, mailbox_list_fs_module, ctx);
+
+	/* a bit kludgy notification to the fs that we're now finished setting
+	   up the module context. */
+	(void)fs_get_properties(*fs_r);
 	return 0;
 }
 
