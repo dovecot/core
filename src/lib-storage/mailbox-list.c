@@ -1872,5 +1872,5 @@ struct mailbox_list *mailbox_list_fs_get_list(struct fs *fs)
 		fs = fs->parent;
 
 	ctx = MAILBOX_LIST_FS_CONTEXT(fs);
-	return ctx->list;
+	return ctx == NULL ? NULL : ctx->list;
 }
