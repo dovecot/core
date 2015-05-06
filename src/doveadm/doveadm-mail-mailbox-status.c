@@ -214,7 +214,8 @@ static void cmd_mailbox_status_deinit(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct status_cmd_context *ctx = (struct status_cmd_context *)_ctx;
 
-	mail_search_args_unref(&ctx->search_args);
+	if (ctx->search_args != NULL)
+		mail_search_args_unref(&ctx->search_args);
 }
 
 static bool

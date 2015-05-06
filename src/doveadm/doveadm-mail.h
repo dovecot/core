@@ -45,7 +45,8 @@ struct doveadm_mail_cmd_vfuncs {
 	   command. This is called once per each user. */
 	int (*run)(struct doveadm_mail_cmd_context *ctx,
 		   struct mail_user *mail_user);
-	/* Deinitialize the command. Called once at the end. */
+	/* Deinitialize the command. Called once at the end - even if
+	   preinit() or init() was never called. */
 	void (*deinit)(struct doveadm_mail_cmd_context *ctx);
 };
 

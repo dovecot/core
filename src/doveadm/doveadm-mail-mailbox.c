@@ -182,7 +182,8 @@ static void cmd_mailbox_list_deinit(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct list_cmd_context *ctx = (struct list_cmd_context *)_ctx;
 
-	mail_search_args_unref(&ctx->search_args);
+	if (ctx->search_args != NULL)
+		mail_search_args_unref(&ctx->search_args);
 }
 
 static struct doveadm_mail_cmd_context *cmd_mailbox_list_alloc(void)
