@@ -515,7 +515,17 @@ static int
 doveadm_mail_cmd_get_next_user(struct doveadm_mail_cmd_context *ctx,
 			       const char **username_r)
 {
-	return mail_storage_service_all_next(ctx->storage_service, username_r);
+	if (ctx->users_list_input == NULL)
+		return mail_storage_service_all_next(ctx->storage_service, username_r);
+
+	*username_r = i_stream_read_next_line(ctx->users_list_input);
+	if (ctx->users_list_input->stream_errno != 0) {
+		i_error("read(%s) failed: %s",
+			i_stream_get_name(ctx->users_list_input),
+			i_stream_get_error(ctx->users_list_input));
+		return -1;
+	}
+	return *username_r != NULL ? 1 : 0;
 }
 
 static void
@@ -557,7 +567,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	if (doveadm_debug)
 		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
-	getopt_args = "AS:u:";
+	getopt_args = "AS:u:U:";
 	/* keep context's getopt_args first in case it contains '+' */
 	if (ctx->getopt_args != NULL)
 		getopt_args = t_strconcat(ctx->getopt_args, getopt_args, NULL);
@@ -582,6 +592,13 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 				wildcard_user = ctx->cur_username;
 				ctx->cur_username = NULL;
 			}
+			break;
+		case 'U':
+			ctx->service_flags |=
+				MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+			wildcard_user = "*";
+			ctx->users_list_input =
+				i_stream_create_file(optarg, 1024);
 			break;
 		default:
 			if (ctx->v.parse_arg == NULL ||
@@ -633,6 +650,8 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	/* service deinit unloads mail plugins, so do it late */
 	mail_storage_service_deinit(&ctx->storage_service);
 
+	if (ctx->users_list_input != NULL)
+		i_stream_unref(&ctx->users_list_input);
 	if (ctx->cmd_input != NULL)
 		i_stream_unref(&ctx->cmd_input);
 	if (ctx->exit_code != 0)

@@ -93,10 +93,11 @@ doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
 	optind = 1;
-	getopt_args = t_strconcat("AS:u:", ctx->getopt_args, NULL);
+	getopt_args = t_strconcat("AS:u:U:", ctx->getopt_args, NULL);
 	while ((c = getopt(argc, argv, getopt_args)) > 0) {
 		switch (c) {
 		case 'A':
+		case 'U':
 			add_username_header = TRUE;
 			break;
 		case 'S':
