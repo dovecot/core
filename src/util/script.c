@@ -79,7 +79,7 @@ static bool client_exec_script(struct master_service_connection *conn)
 
 	   VERSION .. <lf>
 	   [alarm=<secs> <lf>]
-	   [noreply <lf>]
+	   "noreply" | "-" (or anything really) <lf>
 
 	   arg 1 <lf>
 	   arg 2 <lf>
@@ -87,8 +87,9 @@ static bool client_exec_script(struct master_service_connection *conn)
 	   <lf>
 	   DATA
 
-	   It could be thought of either as a feature or a bug that alarm and
-	   noreply settings are mixed together with regular args..
+	   This is quite a horrible protocol. If alarm is specified, it MUST be
+	   before "noreply". If "noreply" isn't given, something other string
+	   (typically "-") must be given which is eaten away.
 	*/		
 	alarm(SCRIPT_READ_TIMEOUT_SECS);
 	scanpos = 1;
