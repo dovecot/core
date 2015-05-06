@@ -435,6 +435,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	if (first_nonexpunged && expunged_space > 0) {
 		/* move From-line (after parsing headers so we don't
 		   overwrite them) */
+		i_assert(mails[idx].from_offset >= expunged_space);
 		if (mbox_move(sync_ctx, mails[idx].from_offset - expunged_space,
 			      mails[idx].from_offset,
 			      mails[idx].offset - mails[idx].from_offset) < 0)
