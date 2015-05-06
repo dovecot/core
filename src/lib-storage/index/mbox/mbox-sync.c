@@ -640,7 +640,7 @@ static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 {
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
-	uoff_t orig_from_offset;
+	uoff_t orig_from_offset, postlf_from_offset = (uoff_t)-1;
 	off_t move_diff;
 	int ret;
 
@@ -657,6 +657,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			if (sync_ctx->first_mail_crlf_expunged)
 				mail_ctx->mail.from_offset++;
 		}
+		postlf_from_offset = mail_ctx->mail.from_offset;
 
 		/* read the From-line before rewriting overwrites it */
 		if (mbox_read_from_line(mail_ctx) < 0)
@@ -710,10 +711,16 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			/* create dummy message to describe the expunged data */
 			struct mbox_sync_mail mail;
 
+			/* if this is going to be the first mail, increase the
+			   from_offset to point to the beginning of the
+			   From-line, because the previous [CR]LF is already
+			   covered by expunged_space. */
+			i_assert(postlf_from_offset != (uoff_t)-1);
+			mail_ctx->mail.from_offset = postlf_from_offset;
+
 			memset(&mail, 0, sizeof(mail));
 			mail.expunged = TRUE;
 			mail.offset = mail.from_offset =
-				(sync_ctx->dest_first_mail ? 1 : 0) +
 				mail_ctx->mail.from_offset -
 				sync_ctx->expunged_space;
 			mail.space = sync_ctx->expunged_space;
