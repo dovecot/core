@@ -78,14 +78,17 @@ static bool client_exec_script(struct master_service_connection *conn)
 	/* Input contains:
 
 	   VERSION .. <lf>
-	   [timeout=<timeout>]
-	   <noreply> | "-" <lf>
+	   [alarm=<secs> <lf>]
+	   [noreply <lf>]
 
 	   arg 1 <lf>
 	   arg 2 <lf>
 	   ...
 	   <lf>
 	   DATA
+
+	   It could be thought of either as a feature or a bug that alarm and
+	   noreply settings are mixed together with regular args..
 	*/		
 	alarm(SCRIPT_READ_TIMEOUT_SECS);
 	scanpos = 1;
