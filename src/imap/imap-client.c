@@ -55,6 +55,17 @@ static void client_init_urlauth(struct client *client)
 	client->urlauth_ctx = imap_urlauth_init(client->user, &config);
 }
 
+static bool user_has_special_use_mailboxes(struct mail_user *user)
+{
+	struct mail_namespace *ns;
+
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		if (ns->special_use_mailboxes)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 struct client *client_create(int fd_in, int fd_out, const char *session_id,
 			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
@@ -142,6 +153,11 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 		client->imap_metadata_enabled = TRUE;
 		if (!explicit_capability)
 			str_append(client->capability_string, " METADATA");
+	}
+	if (!explicit_capability && user_has_special_use_mailboxes(user)) {
+		/* Advertise SPECIAL-USE only if there are actually some
+		   SPECIAL-USE flags in mailbox configuration. */
+		str_append(client->capability_string, " SPECIAL-USE");
 	}
 
 	ident = mail_user_get_anvil_userip_ident(client->user);
