@@ -181,7 +181,8 @@ static void test_trees_nofree(struct dsync_mailbox_tree *tree1,
 	dsync_mailbox_tree_build_guid_hash(tree1, &dup_node1, &dup_node2);
 	dsync_mailbox_tree_build_guid_hash(tree2, &dup_node1, &dup_node2);
 	ctx = dsync_mailbox_trees_sync_init(tree1, tree2,
-					    DSYNC_MAILBOX_TREES_SYNC_TYPE_TWOWAY, 0);
+					    DSYNC_MAILBOX_TREES_SYNC_TYPE_TWOWAY,
+					    DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG);
 	while ((change = dsync_mailbox_trees_sync_next(ctx)) != NULL) {
 	}
 	dsync_mailbox_trees_sync_deinit(&ctx);
@@ -681,6 +682,28 @@ static void test_dsync_mailbox_tree_sync_renames20(void)
 	test_end();
 }
 
+static void test_dsync_mailbox_tree_sync_renames21(void)
+{
+#if 0
+	/* FIXME: we can't currently test this without crashing */
+	struct dsync_mailbox_tree *tree1, *tree2;
+
+	test_begin("dsync mailbox tree sync renames 21");
+	tree1 = dsync_mailbox_tree_init('/', '_');
+	tree2 = dsync_mailbox_tree_init('/', '_');
+
+	node_create(tree1, 1, "INBOX", 0);
+	node_create(tree1, 2, "foo", 0);
+	/* swap INBOX and foo - the INBOX name is important since it's
+	   treated specially */
+	node_create(tree2, 1, "foo", 0);
+	node_create(tree2, 2, "INBOX", 1);
+
+	test_trees(tree1, tree2);
+	test_end();
+#endif
+}
+
 static void test_dsync_mailbox_tree_sync_random(void)
 {
 	struct dsync_mailbox_tree *tree1, *tree2;
@@ -717,6 +740,7 @@ int main(void)
 		test_dsync_mailbox_tree_sync_renames18,
 		test_dsync_mailbox_tree_sync_renames19,
 		test_dsync_mailbox_tree_sync_renames20,
+		test_dsync_mailbox_tree_sync_renames21,
 		test_dsync_mailbox_tree_sync_random,
 		NULL
 	};

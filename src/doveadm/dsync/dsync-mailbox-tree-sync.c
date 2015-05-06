@@ -363,6 +363,9 @@ static bool sync_node_is_namespace_prefix(struct dsync_mailbox_tree *tree,
 	const char *full_name;
 	unsigned int prefix_len = node->ns == NULL ? 0 : node->ns->prefix_len;
 
+	if (strcmp(node->name, "INBOX") == 0 && node->parent == &tree->root)
+		return TRUE;
+
 	if (prefix_len == 0)
 		return FALSE;
 
@@ -585,6 +588,16 @@ static time_t nodes_get_timestamp(struct dsync_mailbox_node *node1,
 	return ts;
 }
 
+static bool sync_node_is_namespace_root(struct dsync_mailbox_tree *tree,
+					struct dsync_mailbox_node *node)
+{
+	if (node == NULL)
+		return FALSE;
+	if (node == &tree->root)
+		return TRUE;
+	return sync_node_is_namespace_prefix(tree, node);
+}
+
 static bool ATTR_NULL(3, 4)
 sync_rename_lower_ts(struct dsync_mailbox_tree_sync_ctx *ctx,
 		     struct dsync_mailbox_node *local_node1,
@@ -603,6 +616,16 @@ sync_rename_lower_ts(struct dsync_mailbox_tree_sync_ctx *ctx,
 	   remote_node1 are located in the mailbox tree, or if they exist
 	   at all. Note that node1 and node2 may be the same node pointers. */
 	i_assert(strcmp(local_node1->name, remote_node2->name) == 0);
+
+	if (sync_node_is_namespace_root(ctx->remote_tree, remote_node1) ||
+	    sync_node_is_namespace_root(ctx->remote_tree, remote_node2) ||
+	    sync_node_is_namespace_root(ctx->local_tree, local_node1) ||
+	    sync_node_is_namespace_root(ctx->local_tree, local_node2)) {
+		local_node1->sync_delayed_guid_change = TRUE;
+		remote_node2->sync_delayed_guid_change = TRUE;
+		*reason_r = "Can't rename namespace prefixes - will be merged later";
+		return FALSE;
+	}
 
 	local_ts = nodes_get_timestamp(local_node1, local_node2);
 	remote_ts = nodes_get_timestamp(remote_node1, remote_node2);
@@ -791,14 +814,6 @@ sync_find_branch(struct dsync_mailbox_tree *tree,
 	return NULL;
 }
 
-static bool sync_node_is_namespace_root(struct dsync_mailbox_tree *tree,
-					struct dsync_mailbox_node *node)
-{
-	if (node == &tree->root)
-		return TRUE;
-	return sync_node_is_namespace_prefix(tree, node);
-}
-
 static bool sync_rename_directory(struct dsync_mailbox_tree_sync_ctx *ctx,
 				  struct dsync_mailbox_node *local_node1,
 				  struct dsync_mailbox_node *remote_node2,
@@ -819,13 +834,6 @@ static bool sync_rename_directory(struct dsync_mailbox_tree_sync_ctx *ctx,
 	}
 	if (node_names_equal(remote_node1, local_node2)) {
 		*reason_r = "Directory name paths are equal";
-		return FALSE;
-	}
-	if (sync_node_is_namespace_root(ctx->remote_tree, remote_node1) ||
-	    sync_node_is_namespace_root(ctx->remote_tree, remote_node2) ||
-	    sync_node_is_namespace_root(ctx->local_tree, local_node1) ||
-	    sync_node_is_namespace_root(ctx->local_tree, local_node2)) {
-		*reason_r = "Directory is part of namespace prefix";
 		return FALSE;
 	}
 
