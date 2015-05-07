@@ -241,7 +241,9 @@ lookup_credentials_callback(enum passdb_result result,
 	else {
 		str_append(str, "OK\t");
 		str_append_tabescaped(str, request->user);
-		str_printfa(str, "\t{%s.b64}", request->credentials_scheme);
+		str_append_c(str, '\t');
+		if (request->credentials_scheme[0] != '\0')
+			str_printfa(str, "{%s.b64}", request->credentials_scheme);
 		base64_encode(credentials, size, str);
 		reply_append_extra_fields(str, request);
 	}
