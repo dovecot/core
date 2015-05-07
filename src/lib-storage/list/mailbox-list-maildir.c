@@ -46,6 +46,7 @@ static struct mailbox_list *imapdir_list_alloc(void)
 	list = p_new(pool, struct maildir_mailbox_list, 1);
 	list->list = imapdir_mailbox_list;
 	list->list.pool = pool;
+	list->sep = '.';
 
 	list->global_temp_prefix = IMAPDIR_GLOBAL_TEMP_PREFIX;
 	list->temp_prefix = p_strconcat(pool, list->global_temp_prefix,
