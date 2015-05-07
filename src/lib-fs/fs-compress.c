@@ -30,6 +30,8 @@ struct compress_fs_iter {
 	struct fs_iter *super;
 };
 
+extern const struct fs fs_class_compress;
+
 static struct fs *fs_compress_alloc(void)
 {
 	struct compress_fs *fs;

@@ -134,7 +134,6 @@ struct fs_iter {
 	void *async_context;
 };
 
-extern const struct fs fs_class_compress;
 extern const struct fs fs_class_posix;
 extern const struct fs fs_class_metawrap;
 extern const struct fs fs_class_sis;
