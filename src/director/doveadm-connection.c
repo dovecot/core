@@ -366,7 +366,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 		tag = args[1] != NULL ? args[1] : "";
 	}
 	if (str_to_uint(username, &username_hash) < 0)
-		username_hash = user_directory_get_username_hash(conn->dir->users, line);
+		username_hash = user_directory_get_username_hash(conn->dir->users, username);
 
 	/* get user's current host */
 	user = user_directory_lookup(conn->dir->users, username_hash);
