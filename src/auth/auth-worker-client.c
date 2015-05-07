@@ -242,9 +242,12 @@ lookup_credentials_callback(enum passdb_result result,
 		str_append(str, "OK\t");
 		str_append_tabescaped(str, request->user);
 		str_append_c(str, '\t');
-		if (request->credentials_scheme[0] != '\0')
+		if (request->credentials_scheme[0] != '\0') {
 			str_printfa(str, "{%s.b64}", request->credentials_scheme);
-		base64_encode(credentials, size, str);
+			base64_encode(credentials, size, str);
+		} else {
+			i_assert(size == 0);
+		}
 		reply_append_extra_fields(str, request);
 	}
 	str_append_c(str, '\n');
