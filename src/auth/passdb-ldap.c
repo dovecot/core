@@ -260,6 +260,12 @@ static void ldap_bind_lookup_dn_callback(struct ldap_connection *conn,
 	} else if (res == NULL || passdb_ldap_request->entries != 1) {
 		/* failure */
 		ldap_bind_lookup_dn_fail(auth_request, passdb_ldap_request, res);
+	} else if (auth_request->skip_password_check) {
+		/* we've already verified that the password matched -
+		   we just wanted to get any extra fields */
+		passdb_ldap_request->callback.
+			verify_plain(PASSDB_RESULT_OK, auth_request);
+		auth_request_unref(&auth_request);
 	} else {
 		/* create a new bind request */
 		brequest = p_new(auth_request->pool,
