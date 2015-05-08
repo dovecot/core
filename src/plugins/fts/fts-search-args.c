@@ -43,6 +43,7 @@ fts_search_arg_create_or(const struct mail_search_arg *orig_arg, pool_t pool,
 	array_foreach(tokens, tokenp) {
 		arg = p_new(pool, struct mail_search_arg, 1);
 		*arg = *orig_arg;
+		arg->match_not = FALSE; /* we copied this to the parent SUB */
 		arg->next = NULL;
 		arg->value.str = p_strdup(pool, *tokenp);
 
