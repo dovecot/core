@@ -1,7 +1,12 @@
 noinst_LTLIBRARIES = libcompression.la
 
+fs_moduledir = $(moduledir)
+fs_module_LTLIBRARIES = \
+	libfs_compress.la
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-fs \
 	-I$(top_srcdir)/src/lib-test
 
 libcompression_la_SOURCES = \
@@ -29,6 +34,11 @@ libdovecot_compression_la_SOURCES =
 libdovecot_compression_la_LIBADD = libcompression.la ../lib-dovecot/libdovecot.la $(COMPRESS_LIBS)
 libdovecot_compression_la_DEPENDENCIES = libcompression.la ../lib-dovecot/libdovecot.la
 libdovecot_compression_la_LDFLAGS = -export-dynamic
+
+libfs_compress_la_SOURCES = fs-compress.c
+libfs_compress_la_LIBADD = libdovecot-compression.la
+libfs_compress_la_DEPS = libdovecot-compression.la
+libfs_compress_la_LDFLAGS = -module -avoid-version
 
 test_programs = \
 	test-compression
