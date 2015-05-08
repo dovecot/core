@@ -383,7 +383,8 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	changed1 = changed2 = TRUE;
 	while (brain1_running || brain2_running) {
 		if (dsync_brain_has_failed(brain) ||
-		    dsync_brain_has_failed(brain2))
+		    dsync_brain_has_failed(brain2) ||
+		    doveadm_is_killed())
 			break;
 
 		i_assert(changed1 || changed2);
@@ -391,7 +392,9 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		brain2_running = dsync_brain_run(brain2, &changed2);
 	}
 	*changes_during_sync_r = dsync_brain_has_unexpected_changes(brain2);
-	return dsync_brain_deinit(&brain2, mail_error_r);
+	if (dsync_brain_deinit(&brain2, mail_error_r) < 0)
+		return -1;
+	return doveadm_is_killed() ? -1 : 0;
 }
 
 static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx,

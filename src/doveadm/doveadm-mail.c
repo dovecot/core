@@ -40,6 +40,11 @@ char doveadm_mail_cmd_hide = '\0';
 
 static int killed_signo = 0;
 
+bool doveadm_is_killed(void)
+{
+	return killed_signo != 0;
+}
+
 void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
 			       enum mail_error error)
 {
