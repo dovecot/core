@@ -459,14 +459,15 @@ static void test_fts_filter_normalizer_invalid_id(void)
 	const char *settings[] =
 		{"id", "Any-One-Out-There; DKFN; [: Nonspacing Mark :] Remove",
 		 NULL};
-	const char *error = NULL;
+	const char *error = NULL, *token = "foo";
 	int ret;
 
 	test_begin("fts filter normalizer invalid id");
 	filter_class = fts_filter_find(ICU_NORMALIZER_FILTER_NAME);
 	ret = fts_filter_create(filter_class, NULL, NULL, settings, &norm, &error);
-	test_assert(ret < 0 && error != NULL);
-	test_assert(norm == NULL);
+	test_assert(ret ==  0 && error == NULL);
+	ret = fts_filter_filter(norm, &token);
+	test_assert(ret <  0);
 	test_end();
 }
 

@@ -18,6 +18,7 @@ struct fts_filter_normalizer {
 	struct fts_filter filter;
 	const char *error;
 	pool_t pool;
+	const char *transliterator_id;
 	UTransliterator *transliterator;
 };
 
@@ -170,14 +171,8 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 {
 	struct fts_filter_normalizer *np;
 	pool_t pp;
-	UErrorCode err = U_ZERO_ERROR;
-	UParseError perr;
-	UChar *id_uchar = NULL;
-	int32_t id_len_uchar = 0;
 	unsigned int i;
 	const char *id = "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC";
-
-	memset(&perr, 0, sizeof(perr));
 
 	for (i = 0; settings[i] != NULL; i += 2) {
 		const char *key = settings[i], *value = settings[i+1];
@@ -195,22 +190,36 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 	np = p_new(pp, struct fts_filter_normalizer, 1);
 	np->pool = pp;
 	np->filter =  *fts_filter_normalizer_icu;
-	if (make_uchar(id, &id_uchar, &id_len_uchar) < 0) {
+	np->transliterator_id = p_strdup(pp, id);
+	*filter_r = &np->filter;
+	return 0;
+}
 
+static int fts_filter_normalizer_icu_create_trans(struct fts_filter_normalizer *np)
+{
+	UErrorCode err = U_ZERO_ERROR;
+	UParseError perr;
+	UChar *id_uchar = NULL;
+	int32_t id_len_uchar = 0;
+
+	memset(&perr, 0, sizeof(perr));
+
+	if (make_uchar(np->transliterator_id, &id_uchar, &id_len_uchar) < 0) {
+		return -1;
 	}
 	np->transliterator = utrans_openU(id_uchar, u_strlen(id_uchar), UTRANS_FORWARD,
 	                                  NULL, 0, &perr, &err);
 	if (U_FAILURE(err)) {
 		if (perr.line >= 1) {
-			fts_filter_normalizer_icu_error(error_r, "Failed to open transliterator for id: %s. Lib ICU error: %s. Parse error on line %u offset %u.", id, u_errorName(err), perr.line, perr.offset);
+			fts_filter_normalizer_icu_error(&np->error, "Failed to open transliterator for id: %s. Lib ICU error: %s. Parse error on line %u offset %u.",
+			                                np->transliterator_id, u_errorName(err), perr.line, perr.offset);
 		}
 		else {
-			fts_filter_normalizer_icu_error(error_r, "Failed to open transliterator for id: %s. Lib ICU error: %s.", id, u_errorName(err));
+			fts_filter_normalizer_icu_error(&np->error, "Failed to open transliterator for id: %s. Lib ICU error: %s.",
+			                                np->transliterator_id, u_errorName(err));
 		}
-		fts_filter_normalizer_icu_destroy(&np->filter);
 		return -1;
 	}
-	*filter_r = &np->filter;
 	return 0;
 }
 
@@ -229,14 +238,15 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token)
 	if (np->error != NULL)
 		goto err_exit;
 
+	if (np->transliterator == NULL)
+		if (fts_filter_normalizer_icu_create_trans(np) < 0)
+			goto err_exit;
+
 	if (make_uchar(*token, &utext, &utext_cap) < 0) {
 		fts_filter_normalizer_icu_error(&np->error, "Conversion to UChar failed");
 		goto err_exit;
 	}
-	/*
-	   TODO: Some problems here.  How much longer can the result
-	   be, than the source? Can it be calculated?  Preflighted?
-	*/
+
 	utext_limit = u_strlen(utext);
 	utrans_transUChars(np->transliterator, utext, &utext_len,
 	                   utext_cap, 0, &utext_limit, &err);
