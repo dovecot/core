@@ -392,13 +392,14 @@ static int astream_decode_base64(struct attachment_istream *astream)
 	if (ret != -1) {
 		i_assert(failed);
 	} else if (base64_input->stream_errno != 0) {
-		i_error("istream-attachment: read(%s) failed: %m",
-			i_stream_get_name(base64_input));
+		i_error("istream-attachment: read(%s) failed: %s",
+			i_stream_get_name(base64_input),
+			i_stream_get_error(base64_input));
 		failed = TRUE;
 	}
 	if (o_stream_nfinish(output) < 0) {
-		i_error("istream-attachment: write(%s) failed: %m",
-			o_stream_get_name(output));
+		i_error("istream-attachment: write(%s) failed: %s",
+			o_stream_get_name(output), o_stream_get_error(output));
 		failed = TRUE;
 	}
 
@@ -415,8 +416,9 @@ static int astream_decode_base64(struct attachment_istream *astream)
 		}
 		i_assert(ret == -1);
 		if (input->stream_errno != 0) {
-			i_error("istream-attachment: read(%s) failed: %m",
-				i_stream_get_name(input));
+			i_error("istream-attachment: read(%s) failed: %s",
+				i_stream_get_name(input),
+				i_stream_get_error(input));
 			failed = TRUE;
 		}
 	}
