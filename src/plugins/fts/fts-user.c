@@ -123,7 +123,7 @@ fts_user_create_tokenizer(struct mail_user *user,
 {
 	const struct fts_tokenizer *tokenizer_class;
 	struct fts_tokenizer *tokenizer = NULL, *parent = NULL;
-	const char *tokenizers_key, *const *tokenizers;
+	const char *tokenizers_key, *const *tokenizers, *tokenizer_set_name;
 	const char *str, *error, *set_key, *const *settings;
 	unsigned int i;
 	int ret = 0;
@@ -144,7 +144,8 @@ fts_user_create_tokenizer(struct mail_user *user,
 			break;
 		}
 
-		set_key = t_strdup_printf("fts_tokenizers_%s", tokenizers[i]);
+		tokenizer_set_name = t_str_replace(tokenizers[i], '-', '_');
+		set_key = t_strdup_printf("fts_tokenizers_%s", tokenizer_set_name);
 		str = mail_user_plugin_getenv(user, set_key);
 
 		/* If the email-address tokenizer is included in the search
