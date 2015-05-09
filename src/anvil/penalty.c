@@ -105,8 +105,8 @@ penalty_bump_checksum(struct penalty_rec *rec, unsigned int checksum)
 	for (i = 0; i < count; i++) {
 		if (checksums[i] == checksum) {
 			if (i > 0) {
-				memcpy(checksums + 1, checksums,
-				       sizeof(checksums[0]) * i);
+				memmove(checksums + 1, checksums,
+					sizeof(checksums[0]) * i);
 				checksums[0] = checksum;
 			}
 			return TRUE;
