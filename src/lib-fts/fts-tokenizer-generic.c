@@ -85,11 +85,20 @@ fts_tokenizer_generic_destroy(struct fts_tokenizer *_tok)
 	i_free(tok);
 }
 
+static const char *fts_uni_strndup(const unsigned char *data, size_t size)
+{
+	size_t pos;
+
+	/* if input is truncated with a partial UTF-8 character, drop it */
+	(void)uni_utf8_partial_strlen_n(data, size, &pos);
+	return t_strndup(data, pos);
+}
+
 static int
 fts_tokenizer_generic_simple_current_token(struct generic_fts_tokenizer *tok,
                                            const char **token_r)
 {
-	*token_r = t_strndup(tok->token->data, I_MIN(tok->token->used, tok->max_length));
+	*token_r = fts_uni_strndup(tok->token->data, tok->token->used);
 	buffer_set_used_size(tok->token, 0);
 	return 1;
 }
@@ -148,6 +157,15 @@ static void fts_tokenizer_generic_reset(struct fts_tokenizer *_tok)
 	buffer_set_used_size(tok->token, 0);
 }
 
+static void tok_append_truncated(struct generic_fts_tokenizer *tok,
+				 const unsigned char *data, size_t size)
+{
+	i_assert(tok->max_length >= tok->token->used);
+
+	buffer_append(tok->token, data,
+		      I_MIN(size, tok->max_length - tok->token->used));
+}
+
 static int
 fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
                                   const unsigned char *data, size_t size,
@@ -161,7 +179,7 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 		char_start_i = i;
 		if (data_is_word_boundary(data, size, &i)) {
 			len = char_start_i - start;
-			buffer_append(tok->token, data + start, len);
+			tok_append_truncated(tok, data + start, len);
 			if (tok->token->used == 0) {
 				/* no text read yet */
 				start = i + 1;
@@ -174,15 +192,11 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 	}
 	/* word boundary not found yet */
 	len = i - start;
-	buffer_append(tok->token, data + start, len);
+	tok_append_truncated(tok, data + start, len);
 	*skip_r = i;
 
 	/* return the last token */
 	if (size == 0 && tok->token->used > 0)
-		return fts_tokenizer_generic_simple_current_token(tok, token_r);
-
-	/* token too long */
-	if (tok->token->used > tok->max_length)
 		return fts_tokenizer_generic_simple_current_token(tok, token_r);
 	return 0;
 }
@@ -488,9 +502,9 @@ fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
 	if (is_one_past_end(tok))
 		end_skip = tok->last_size;
 
-	len = I_MIN(tok->token->used, tok->max_length) - end_skip;
+	len = tok->token->used - end_skip;
 	i_assert(len > 0);
-	*token_r = t_strndup(tok->token->data, len);
+	*token_r = fts_uni_strndup(tok->token->data, len);
 	buffer_set_used_size(tok->token, 0);
 	tok->prev_prev_letter = LETTER_TYPE_NONE;
 	tok->prev_letter = LETTER_TYPE_NONE;
@@ -575,14 +589,14 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 		}
 		if (uni_found_word_boundary(tok, lt)) {
 			i_assert(char_start_i >= start_skip && size >= start_skip);
-			buffer_append(tok->token, data + start_skip,
-			              char_start_i - start_skip);
+			tok_append_truncated(tok, data + start_skip,
+					     char_start_i - start_skip);
 			*skip_r = i + 1;
 			return fts_tokenizer_generic_tr29_current_token(tok, token_r);
 		}
 	}
 	i_assert(i >= start_skip && size >= start_skip);
-	buffer_append(tok->token, data + start_skip, i - start_skip);
+	tok_append_truncated(tok, data + start_skip, i - start_skip);
 	*skip_r = i;
 
 	if (size == 0 && tok->token->used > 0) {
