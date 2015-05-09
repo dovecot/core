@@ -118,11 +118,11 @@ fts_user_create_filters(struct mail_user *user, const struct fts_language *lang,
 
 		/* try the language-specific setting first */
 		filter_set_name = t_str_replace(filters[i], '-', '_');
-		set_key = t_strdup_printf("fts_filters_%s_%s",
+		set_key = t_strdup_printf("fts_filter_%s_%s",
 					  lang->name, filter_set_name);
 		str = mail_user_plugin_getenv(user, set_key);
 		if (str == NULL) {
-			set_key = t_strdup_printf("fts_filters_%s", filter_set_name);
+			set_key = t_strdup_printf("fts_filter_%s", filter_set_name);
 			str = mail_user_plugin_getenv(user, set_key);
 		}
 
@@ -175,7 +175,7 @@ fts_user_create_tokenizer(struct mail_user *user,
 		}
 
 		tokenizer_set_name = t_str_replace(tokenizers[i], '-', '_');
-		set_key = t_strdup_printf("fts_tokenizers_%s", tokenizer_set_name);
+		set_key = t_strdup_printf("fts_tokenizer_%s", tokenizer_set_name);
 		str = mail_user_plugin_getenv(user, set_key);
 
 		/* tell the tokenizers that we're tokenizing a search string
