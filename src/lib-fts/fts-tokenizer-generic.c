@@ -469,11 +469,14 @@ fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
                                          const char **token_r)
 {
 	size_t end_skip = 0;
+	ssize_t len;
 
 	if (is_one_past_end(tok))
 		end_skip = tok->last_size;
 
-	*token_r = t_strndup(tok->token->data, tok->token->used - end_skip);
+	len = I_MIN(tok->token->used, tok->max_length) - end_skip;
+	i_assert(len > 0);
+	*token_r = t_strndup(tok->token->data, len);
 	buffer_set_used_size(tok->token, 0);
 	tok->prev_prev_letter = LETTER_TYPE_NONE;
 	tok->prev_letter = LETTER_TYPE_NONE;
@@ -525,7 +528,7 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 		(struct generic_fts_tokenizer *)_tok;
 
 	unichar_t c;
-	size_t i, char_start_i, start_skip = 0, len;
+	size_t i, char_start_i, start_skip = 0;
 	enum letter_type lt;
 
 	/* TODO: Process 8bit chars separately, to speed things up. */
@@ -542,17 +545,15 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 			continue;
 		}
 		if (uni_found_word_boundary(tok, lt)) {
-			len =  I_MIN(char_start_i, tok->max_length);
-			i_assert(len >= start_skip && size >= start_skip);
+			i_assert(char_start_i >= start_skip && size >= start_skip);
 			buffer_append(tok->token, data + start_skip,
-			              len - start_skip);
+			              char_start_i - start_skip);
 			*skip_r = i + 1;
 			return fts_tokenizer_generic_tr29_current_token(tok, token_r);
 		}
 	}
-	len =  I_MIN(i, tok->max_length);
-	i_assert(len >= start_skip && size >= start_skip);
-	buffer_append(tok->token, data + start_skip, len - start_skip);
+	i_assert(i >= start_skip && size >= start_skip);
+	buffer_append(tok->token, data + start_skip, i - start_skip);
 	*skip_r = i;
 
 	if (size == 0 && tok->token->used > 0) {

@@ -126,12 +126,13 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 {
 	static const unsigned char input[] =
 		"hello world\r\n\nAnd there\twas: text "
-		"galore, and more.\n\n (\"Hello world\")3.14 3,14 last 1.";
+		"galore, and more.\n\n (\"Hello world\")3.14 3,14 last"
+		" longlonglongabcdefghijklmnopqrstuvwxyz 1.";
 	static const char *const expected_output[] = {
 		"hello", "world", "And",
 		"there", "was", "text", "galore",
 		"and", "more", "Hello", "world", "3.14",
-		"3,14", "last", "1", NULL
+		"3,14", "last", "longlonglongabcdefghijklmnopqr", "1", NULL
 	};
 	const struct fts_tokenizer *tok_class;
 	struct fts_tokenizer *tok;
