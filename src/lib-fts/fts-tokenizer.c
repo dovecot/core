@@ -8,7 +8,7 @@
 #include "fts-tokenizer.h"
 #include "fts-tokenizer-private.h"
 
-ARRAY(struct fts_tokenizer) fts_tokenizer_classes;
+static ARRAY(const struct fts_tokenizer *) fts_tokenizer_classes;
 
 void fts_tokenizers_init(void)
 {
@@ -29,17 +29,17 @@ void fts_tokenizer_register(const struct fts_tokenizer *tok_class)
 {
 	if (!array_is_created(&fts_tokenizer_classes))
 		i_array_init(&fts_tokenizer_classes, FTS_TOKENIZER_CLASSES_NR);
-	array_append(&fts_tokenizer_classes, tok_class, 1);
+	array_append(&fts_tokenizer_classes, &tok_class, 1);
 }
 
 /* private */
 void fts_tokenizer_unregister(const struct fts_tokenizer *tok_class)
 {
-	const struct fts_tokenizer *tp;
+	const struct fts_tokenizer *const *tp;
 	unsigned int idx;
 
 	array_foreach(&fts_tokenizer_classes, tp) {
-		if (strcmp(tp->name, tok_class->name) == 0) {
+		if (strcmp((*tp)->name, tok_class->name) == 0) {
 			idx = array_foreach_idx(&fts_tokenizer_classes, tp);
 			array_delete(&fts_tokenizer_classes, idx, 1);
 			if (array_count(&fts_tokenizer_classes) == 0)
@@ -52,11 +52,11 @@ void fts_tokenizer_unregister(const struct fts_tokenizer *tok_class)
 
 const struct fts_tokenizer *fts_tokenizer_find(const char *name)
 {
-	const struct fts_tokenizer *tp;
+	const struct fts_tokenizer *const *tp;
 
 	array_foreach(&fts_tokenizer_classes, tp) {
-		if (strcmp(tp->name, name) == 0)
-			return tp;
+		if (strcmp((*tp)->name, name) == 0)
+			return *tp;
 	}
 	return NULL;
 }
