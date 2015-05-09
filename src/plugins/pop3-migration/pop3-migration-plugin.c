@@ -286,8 +286,11 @@ static int pop3_map_read(struct mail_storage *storage, struct mailbox *pop3_box)
 		map->size = size;
 	}
 
-	if (mailbox_search_deinit(&ctx) < 0)
+	if (mailbox_search_deinit(&ctx) < 0) {
+		i_error("pop3_migration: Failed to search all POP3 mails: %s",
+			mailbox_get_last_error(pop3_box, NULL));
 		ret = -1;
+	}
 	(void)mailbox_transaction_commit(&t);
 	return ret;
 }
@@ -331,8 +334,11 @@ pop3_map_read_hdr_hashes(struct mail_storage *storage, struct mailbox *pop3_box,
 			map->hdr_sha1_set = TRUE;
 	}
 
-	if (mailbox_search_deinit(&ctx) < 0)
+	if (mailbox_search_deinit(&ctx) < 0) {
+		i_error("pop3_migration: Failed to search all POP3 mail hashes: %s",
+			mailbox_get_last_error(pop3_box, NULL));
 		ret = -1;
+	}
 	(void)mailbox_transaction_commit(&t);
 	if (ret == 0 && first_seq == 1)
 		mstorage->pop3_all_hdr_sha1_set = TRUE;
@@ -377,8 +383,11 @@ static int imap_map_read(struct mailbox *box)
 		map->psize = psize;
 	}
 
-	if (mailbox_search_deinit(&ctx) < 0)
+	if (mailbox_search_deinit(&ctx) < 0) {
+		i_error("pop3_migration: Failed to search all IMAP mails: %s",
+			mailbox_get_last_error(box, NULL));
 		ret = -1;
+	}
 	(void)mailbox_transaction_commit(&t);
 	return ret;
 }
@@ -410,8 +419,11 @@ static int imap_map_read_hdr_hashes(struct mailbox *box)
 			map->hdr_sha1_set = TRUE;
 	}
 
-	if (mailbox_search_deinit(&ctx) < 0)
+	if (mailbox_search_deinit(&ctx) < 0) {
+		i_error("pop3_migration: Failed to search all IMAP mail hashes: %s",
+			mailbox_get_last_error(box, NULL));
 		ret = -1;
+	}
 	(void)mailbox_transaction_commit(&t);
 	return ret;
 }
@@ -443,6 +455,8 @@ static bool pop3_uidl_assign_by_size(struct mailbox *box)
 		imap_map[i].pop3_seq = pop3_map[i].pop3_seq;
 	}
 	mbox->first_unfound_idx = i;
+	if (box->storage->user->mail_debug)
+		i_debug("pop3_migration: %u/%u mails matched by size", i, count);
 	return i == count;
 }
 
@@ -511,6 +525,8 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 		}
 		i_warning("pop3_migration: %u POP3 messages have no "
 			  "matching IMAP messages", missing_uids_count);
+	} else if (box->storage->user->mail_debug) {
+		i_debug("pop3_migration: %u mails matched by headers", pop3_count);
 	}
 	array_sort(&mstorage->pop3_uidl_map, pop3_uidl_map_pop3_seq_cmp);
 	array_sort(&mbox->imap_msg_map, imap_msg_map_uid_cmp);
@@ -666,8 +682,11 @@ static void pop3_migration_mail_storage_created(struct mail_storage *storage)
 
 	pop3_box_vname = mail_user_plugin_getenv(storage->user,
 						 "pop3_migration_mailbox");
-	if (pop3_box_vname == NULL)
+	if (pop3_box_vname == NULL) {
+		if (storage->user->mail_debug)
+			i_debug("pop3_migration: No pop3_migration_mailbox setting - disabled");
 		return;
+	}
 
 	mstorage = p_new(storage->pool, struct pop3_migration_mail_storage, 1);
 	mstorage->module_ctx.super = *v;
