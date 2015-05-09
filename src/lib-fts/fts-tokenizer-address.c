@@ -76,17 +76,30 @@ fts_tokenizer_address_current_token(struct email_address_fts_tokenizer *tok,
 	return 1;
 }
 
-static int
+static bool
 fts_tokenizer_address_parent_data(struct email_address_fts_tokenizer *tok,
                                   const char **token_r)
 {
-	/* TODO: search option removes address from data here. */
-	if (tok->search && tok->state >= EMAIL_ADDRESS_PARSER_STATE_DOMAIN)
-		i_debug("Would remove current token");
+	if (tok->tokenizer.parent == NULL || str_len(tok->parent_data) == 0)
+		return FALSE;
+
+	if (tok->search && tok->state >= EMAIL_ADDRESS_PARSER_STATE_DOMAIN) {
+		/* we're searching and we want to find only the full
+		   user@domain (not "user" and "domain"). we'll do this by
+		   not feeding the last user@domain to parent tokenizer. */
+		unsigned int parent_prefix_len =
+			str_len(tok->parent_data) - str_len(tok->last_word);
+		i_assert(str_len(tok->parent_data) >= str_len(tok->last_word) &&
+			 strcmp(str_c(tok->parent_data) + parent_prefix_len,
+				str_c(tok->last_word)) == 0);
+		str_truncate(tok->parent_data, parent_prefix_len);
+		if (str_len(tok->parent_data) == 0)
+			return FALSE;
+	}
 
 	*token_r = t_strdup(str_c(tok->parent_data));
 	str_truncate(tok->parent_data, 0);
-	return 1;
+	return TRUE;
 }
 
 /* Used to rewind past characters that can not be the start of a new localpart.
@@ -204,8 +217,8 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 	/* end of data, output lingering tokens. first the parents data, then
 	   possibly our token, if complete enough */
 	if (size == 0) {
-		if (tok->tokenizer.parent != NULL && str_len(tok->parent_data) > 0)
-			return fts_tokenizer_address_parent_data(tok, token_r);
+		if (fts_tokenizer_address_parent_data(tok, token_r))
+			return 1;
 
 		if (tok->state == EMAIL_ADDRESS_PARSER_STATE_DOMAIN &&
 		    !domain_is_empty(tok))
@@ -254,16 +267,10 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 
 			break;
 		case EMAIL_ADDRESS_PARSER_STATE_COMPLETE:
-			/* skip tailing non-atext */
-			local_skip = skip_nonlocal_part(data+pos, size - pos);
-			*skip_r = pos + local_skip;
-			fts_tokenizer_address_update_parent(tok, data+pos,
-			                                    local_skip);
-			if (tok->tokenizer.parent != NULL)
-				return fts_tokenizer_address_parent_data(tok, token_r);
-			else {
-				return fts_tokenizer_address_current_token(tok, token_r);
-			}
+			*skip_r = pos;
+			if (fts_tokenizer_address_parent_data(tok, token_r))
+				return 1;
+			return fts_tokenizer_address_current_token(tok, token_r);
 		default:
 			i_unreached();
 		}

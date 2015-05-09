@@ -518,6 +518,48 @@ static void test_fts_tokenizer_address_rand(void)
 	test_end();
 }
 
+static void test_fts_tokenizer_address_search(void)
+{
+	static const unsigned char input[] =
+		"@invalid invalid@ abc@example.com, "
+		"Bar Baz <bar@example.org>, "
+		"foo@domain";
+	static const char *const expected_output[] = {
+		"invalid", "invalid", "abc@example.com", "Bar", "Baz",
+		"bar@example.org", "foo@domain", NULL
+	};
+	static const char *const settings[] = { "search", "" };
+	struct fts_tokenizer *tok, *gen_tok;
+	const char * const *eopp = expected_output;
+	const char *token, *error;
+	unsigned int i;
+	int ret;
+
+	test_begin("fts tokenizer search email address + parent, input one character at a time");
+	fts_tokenizers_init();
+
+	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &gen_tok, &error) == 0);
+	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, gen_tok, settings, &tok, &error) == 0);
+
+	for (i = 0; i <= sizeof(input)-1; ) {
+		ret = i < sizeof(input)-1 ?
+			fts_tokenizer_next(tok, &input[i], 1, &token) :
+			fts_tokenizer_next(tok, NULL, 0, &token);
+		if (ret == 0) {
+			i++;
+			continue;
+		}
+		test_assert(*eopp != NULL);
+		test_assert(null_strcmp(token, *eopp) == 0);
+		eopp++;
+	}
+	test_assert(*eopp == NULL);
+	fts_tokenizer_unref(&tok);
+	fts_tokenizer_unref(&gen_tok);
+	fts_tokenizers_deinit();
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
@@ -534,6 +576,7 @@ int main(void)
 		test_fts_tokenizer_address_char,
 		test_fts_tokenizer_address_line,
 		test_fts_tokenizer_address_rand,
+		test_fts_tokenizer_address_search,
 		NULL
 	};
 
