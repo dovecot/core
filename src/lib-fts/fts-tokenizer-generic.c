@@ -496,6 +496,21 @@ fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
 	tok->prev_letter = LETTER_TYPE_NONE;
 	return 1;
 }
+
+struct letter_fn {
+	bool (*fn)(struct generic_fts_tokenizer *tok);
+};
+static struct letter_fn letter_fns[] = {
+	{letter_panic}, {letter_cr_lf_newline}, {letter_cr_lf_newline},
+	{letter_cr_lf_newline}, {letter_extend_format},
+	{letter_regional_indicator}, {letter_extend_format},
+	{letter_katakana}, {letter_hebrew}, {letter_aletter},
+	{letter_single_quote}, {letter_double_quote},
+	{letter_midnumlet}, {letter_midletter}, {letter_midnum},
+	{letter_numeric}, {letter_extendnumlet}, {letter_panic},
+	{letter_panic}, {letter_other}
+};
+
 /*
   Find word boundaries in input text. Based on Unicode standard annex
   #29, but tailored for FTS purposes.

@@ -48,33 +48,4 @@ struct generic_fts_tokenizer {
 	buffer_t *token;
 };
 
-static bool letter_panic(struct generic_fts_tokenizer *tok);
-static bool letter_cr_lf_newline(struct generic_fts_tokenizer *tok);
-static bool letter_extend_format(struct generic_fts_tokenizer *tok);
-static bool letter_regional_indicator(struct generic_fts_tokenizer *tok);
-static bool letter_katakana(struct generic_fts_tokenizer *tok);
-static bool letter_hebrew(struct generic_fts_tokenizer *tok);
-static bool letter_aletter(struct generic_fts_tokenizer *tok);
-static bool letter_single_quote(struct generic_fts_tokenizer *tok);
-static bool letter_double_quote(struct generic_fts_tokenizer *tok);
-static bool letter_midnumlet(struct generic_fts_tokenizer *tok);
-static bool letter_midletter(struct generic_fts_tokenizer *tok);
-static bool letter_midnum(struct generic_fts_tokenizer *tok);
-static bool letter_numeric(struct generic_fts_tokenizer *tok);
-static bool letter_extendnumlet(struct generic_fts_tokenizer *tok);
-static bool letter_other(struct generic_fts_tokenizer *tok);
-
-struct letter_fn {
-	bool (*fn)(struct generic_fts_tokenizer *tok);
-};
-struct letter_fn letter_fns[] = {
-	{letter_panic}, {letter_cr_lf_newline}, {letter_cr_lf_newline},
-	{letter_cr_lf_newline}, {letter_extend_format},
-	{letter_regional_indicator}, {letter_extend_format},
-	{letter_katakana}, {letter_hebrew}, {letter_aletter},
-	{letter_single_quote}, {letter_double_quote},
-	{letter_midnumlet}, {letter_midletter}, {letter_midnum},
-	{letter_numeric}, {letter_extendnumlet}, {letter_panic},
-	{letter_panic}, {letter_other}
-};
 #endif
