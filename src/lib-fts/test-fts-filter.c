@@ -35,7 +35,7 @@ static void test_fts_filter_stopwords_eng(void)
 	op = output;
 	while (*ip != NULL) {
 		token = *ip;
-		ret = fts_filter_filter(filter, &token);
+		ret = fts_filter_filter(filter, &token, &error);
 		test_assert(ret >= 0);
 		if (ret == 0)
 			test_assert(*op == NULL);
@@ -79,7 +79,7 @@ static void test_fts_filter_stopwords_fin(void)
 	op = output;
 	while (*ip != NULL) {
 		token = *ip;
-		ret = fts_filter_filter(filter, &token);
+		ret = fts_filter_filter(filter, &token, &error);
 		test_assert(ret >= 0);
 		if (ret == 0)
 			test_assert(*op == NULL);
@@ -100,7 +100,7 @@ static void test_fts_filter_stopwords_fin(void)
 	op = output2;
 	while (*ip != NULL) {
 		token = *ip;
-		ret = fts_filter_filter(filter, &token);
+		ret = fts_filter_filter(filter, &token, &error);
 		if (ret == 0)
 			test_assert(*op == NULL);
 		else {
@@ -143,7 +143,7 @@ static void test_fts_filter_stopwords_fra(void)
 	op = output;
 	while (*ip != NULL) {
 		token = *ip;
-		ret = fts_filter_filter(filter, &token);
+		ret = fts_filter_filter(filter, &token, &error);
 		test_assert(ret >= 0);
 		if (ret == 0)
 			test_assert(*op == NULL);
@@ -207,7 +207,7 @@ static void test_fts_filter_stemmer_snowball_stem_english(void)
 	bpp = bases;
 	for (tpp=tokens; *tpp != NULL; tpp++) {
 		token = *tpp;
-		ret = fts_filter_filter(stemmer, &token);
+		ret = fts_filter_filter(stemmer, &token, &error);
 		test_assert(token != NULL);
 		test_assert(null_strcmp(token, *bpp) == 0);
 		bpp++;
@@ -242,7 +242,7 @@ static void test_fts_filter_stemmer_snowball_stem_french(void)
 	bpp = bases;
 	for (tpp=tokens; *tpp != NULL; tpp++) {
 		token = *tpp;
-		ret = fts_filter_filter(stemmer, &token);
+		ret = fts_filter_filter(stemmer, &token, &error);
 		test_assert(token != NULL);
 		test_assert(null_strcmp(token, *bpp) == 0);
 		bpp++;
@@ -289,7 +289,7 @@ static void test_fts_filter_stopwords_stemmer_eng(void)
 	bpp = bases;
 	for (tpp=tokens; *tpp != NULL; tpp++) {
 		token = *tpp;
-		ret = fts_filter_filter(stemmer, &token);
+		ret = fts_filter_filter(stemmer, &token, &error);
 		if (ret == 0)
 			test_assert(*bpp == NULL);
 		else {
@@ -344,7 +344,7 @@ static void test_fts_filter_normalizer_swedish_short(void)
 		for (i = 0; i < N_ELEMENTS(input); i++) {
 			if (input[i] != NULL) {
 				token = input[i];
-				test_assert_idx(fts_filter_filter(norm, &token) == 1, i);
+				test_assert_idx(fts_filter_filter(norm, &token, &error) == 1, i);
 				test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
 			}
 		}
@@ -389,7 +389,7 @@ static void test_fts_filter_normalizer_swedish_short_default_id(void)
 		for (i = 0; i < N_ELEMENTS(input); i++) {
 			if (input[i] != NULL) {
 				token = input[i];
-				test_assert_idx(fts_filter_filter(norm, &token) == 1, i);
+				test_assert_idx(fts_filter_filter(norm, &token, &error) == 1, i);
 				test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
 			}
 		}
@@ -437,7 +437,7 @@ static void test_fts_filter_normalizer_french(void)
 		sha512_init(&ctx);
 		while (NULL != fgets(buf, sizeof(buf), input)) {
 			tokens = buf;
-			if (fts_filter_filter(norm, &tokens) != 1){
+			if (fts_filter_filter(norm, &tokens, &error) != 1){
 				break;
 			}
 			sha512_loop(&ctx, tokens, strlen(tokens));
@@ -466,8 +466,8 @@ static void test_fts_filter_normalizer_invalid_id(void)
 	filter_class = fts_filter_find(ICU_NORMALIZER_FILTER_NAME);
 	ret = fts_filter_create(filter_class, NULL, NULL, settings, &norm, &error);
 	test_assert(ret ==  0 && error == NULL);
-	ret = fts_filter_filter(norm, &token);
-	test_assert(ret <  0);
+	ret = fts_filter_filter(norm, &token, &error);
+	test_assert(ret < 0 && error != NULL);
 	test_end();
 }
 
@@ -517,7 +517,7 @@ static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 	bpp = bases;
 	for (tpp = tokens; *tpp != NULL; tpp++) {
 		token = *tpp;
-		ret = fts_filter_filter(stemmer, &token);
+		ret = fts_filter_filter(stemmer, &token, &error);
 		if (ret == 0)
 			test_assert(*bpp == NULL);
 		else {

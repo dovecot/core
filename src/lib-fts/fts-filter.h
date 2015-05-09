@@ -63,6 +63,7 @@ void fts_filter_unref(struct fts_filter **filter);
    Input is also given via *token.
 */
 int
-fts_filter_filter(struct fts_filter *filter, const char **token);
+fts_filter_filter(struct fts_filter *filter, const char **token,
+                  const char **error_r);
 
 #endif

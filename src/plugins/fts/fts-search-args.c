@@ -63,7 +63,7 @@ fts_backend_dovecot_expand_lang_tokens(const ARRAY_TYPE(fts_user_language) *lang
 	struct mail_search_arg *arg;
 	struct fts_user_language *const *langp;
 	ARRAY_TYPE(const_string) tokens;
-	const char *token2;
+	const char *token2, *error;
 	int ret;
 
 	t_array_init(&tokens, 4);
@@ -76,11 +76,13 @@ fts_backend_dovecot_expand_lang_tokens(const ARRAY_TYPE(fts_user_language) *lang
 	array_foreach(languages, langp) {
 		token2 = t_strdup(token);
 		if ((*langp)->filter != NULL)
-			ret = fts_filter_filter((*langp)->filter, &token2);
+			ret = fts_filter_filter((*langp)->filter, &token2, &error);
 		if (ret > 0) {
 			token2 = t_strdup(token2);
 			array_append(&tokens, &token2, 1);
 		}
+		else if (ret < 0)
+			i_error("fts: Couldn't create search tokens: %s", error);
 	}
 	array_sort(&tokens, i_strcmp_p);
 	strings_deduplicate(&tokens);

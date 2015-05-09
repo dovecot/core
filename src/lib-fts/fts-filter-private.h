@@ -18,12 +18,14 @@ struct fts_filter_vfuncs {
 	              struct fts_filter **filter_r,
 	              const char **error_r);
 	int (*filter)(struct fts_filter *filter, const char **token);
+
 	void (*destroy)(struct fts_filter *filter);
 };
 
 struct fts_filter {
 	const char *class_name; /* name of the class this is based on */
 	const struct fts_filter_vfuncs *v;
+	const char *error;
 	int refcount;
 	struct fts_filter *parent;
 };

@@ -93,18 +93,27 @@ void fts_filter_unref(struct fts_filter **_fpp)
 /* TODO: Avoid multiple allocations by using a buffer in v->filter?
  Do this non-recursively? */
 int
-fts_filter_filter(struct fts_filter *filter, const char **token)
+fts_filter_filter(struct fts_filter *filter, const char **token,
+                  const char **error_r)
 
 {
-	int ret;
+	int ret = 0;
 
-	if (filter->parent == NULL)
-		return filter->v->filter(filter, token);
+	if (filter->error != NULL) {
+		*error_r = filter->error;
+		return -1;
+	}
 
-	ret = fts_filter_filter(filter->parent, token);
+	/* Recurse to parent. */
+	if (filter->parent != NULL)
+		ret = fts_filter_filter(filter->parent, token, error_r);
 
-	if(ret > 0)
-		return filter->v->filter(filter, token);
+	/* Parent returned token or no parent. */
+	if(ret > 0 || filter->parent == NULL)
+		ret = filter->v->filter(filter, token);
+
+	if (filter->error != NULL)
+		*error_r = filter->error;
 
 	return ret;
 }

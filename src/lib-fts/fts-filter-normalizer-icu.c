@@ -16,7 +16,6 @@
 
 struct fts_filter_normalizer {
 	struct fts_filter filter;
-	const char *error;
 	pool_t pool;
 	const char *transliterator_id;
 	UTransliterator *transliterator;
@@ -97,7 +96,7 @@ static void make_uchar(const char *src, UChar **dst, int32_t *dst_uchars_r)
 	i_assert(ustr_len == ustr_len_actual);
 }
 
-static int make_utf8(const UChar *src, const char **_dst, const char **error_r)
+static void make_utf8(const UChar *src, const char **_dst)
 {
 	char *dst;
 	char *retp = NULL;
@@ -133,14 +132,11 @@ static int make_utf8(const UChar *src, const char **_dst, const char **error_r)
 		        dsize_actual, dsize);
 	}
 	if (0 != sub_num) {
-		fts_filter_normalizer_icu_error(error_r, "UTF8 string not well formed."
-		                    " Substitutions (%d) were made.", sub_num);
-		return -1;
+		i_panic("UTF8 string not well formed. "
+		        "Substitutions (%d) were made.", sub_num);
 	}
 	i_assert(retp == dst);
-
 	*_dst = dst;
-	return 0;
 }
 
 static bool fts_filter_normalizer_icu_supports(const struct fts_language *lang)
@@ -208,11 +204,11 @@ static int fts_filter_normalizer_icu_create_trans(struct fts_filter_normalizer *
 	                                  NULL, 0, &perr, &err);
 	if (U_FAILURE(err)) {
 		if (perr.line >= 1) {
-			fts_filter_normalizer_icu_error(&np->error, "Failed to open transliterator for id: %s. Lib ICU error: %s. Parse error on line %u offset %u.",
+			fts_filter_normalizer_icu_error(&np->filter.error, "Failed to open transliterator for id: %s. Lib ICU error: %s. Parse error on line %u offset %u.",
 			                                np->transliterator_id, u_errorName(err), perr.line, perr.offset);
 		}
 		else {
-			fts_filter_normalizer_icu_error(&np->error, "Failed to open transliterator for id: %s. Lib ICU error: %s.",
+			fts_filter_normalizer_icu_error(&np->filter.error, "Failed to open transliterator for id: %s. Lib ICU error: %s.",
 			                                np->transliterator_id, u_errorName(err));
 		}
 		return -1;
@@ -230,10 +226,6 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token)
 	int32_t utext_limit;
 	struct fts_filter_normalizer *np =
 		(struct fts_filter_normalizer *)filter;
-
-	/* TODO: fix error handling */
-	if (np->error != NULL)
-		goto err_exit;
 
 	if (np->transliterator == NULL)
 		if (fts_filter_normalizer_icu_create_trans(np) < 0)
@@ -262,15 +254,13 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token)
 	}
 
 	if (U_FAILURE(err)) {
-		icu_error(&np->error, err, "utrans_transUChars()");
+		icu_error(&np->filter.error, err, "utrans_transUChars()");
 		goto err_exit;
 	}
 
-	if (make_utf8(utext, token, &np->error) < 0) {
-		goto err_exit;
-	}
-
+	make_utf8(utext, token);
 	return 1;
+
  err_exit:
 	*token = NULL;
 	return -1;
