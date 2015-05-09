@@ -26,6 +26,32 @@ struct fts_user {
 static MODULE_CONTEXT_DEFINE_INIT(fts_user_module,
 				  &mail_user_module_register);
 
+static const char *const *str_keyvalues_to_array(const char *str)
+{
+	const char *key, *value, *const *keyvalues;
+	ARRAY_TYPE(const_string) arr;
+	unsigned int i;
+
+	if (str == NULL)
+		return NULL;
+
+	t_array_init(&arr, 8);
+	keyvalues = t_strsplit_spaces(str, " ");
+	for (i = 0; keyvalues[i] != NULL; i++) {
+		value = strchr(keyvalues[i], '=');
+		if (value != NULL)
+			key = t_strdup_until(keyvalues[i], value++);
+		else {
+			key = keyvalues[i];
+			value = "";
+		}
+		array_append(&arr, &key, 1);
+		array_append(&arr, &value, 1);
+	}
+	array_append_zero(&arr);
+	return array_idx(&arr, 0);
+}
+
 static int
 fts_user_init_languages(struct mail_user *user, struct fts_user *fuser,
 			const char **error_r)
@@ -63,7 +89,7 @@ fts_user_create_filters(struct mail_user *user, const struct fts_language *lang,
 	const struct fts_filter *filter_class;
 	struct fts_filter *filter = NULL, *parent = NULL;
 	const char *filters_key, *const *filters, *filter_set_name;
-	const char *str, *error, *set_key, *const *settings;
+	const char *str, *error, *set_key;
 	unsigned int i;
 	int ret = 0;
 
@@ -99,9 +125,9 @@ fts_user_create_filters(struct mail_user *user, const struct fts_language *lang,
 			set_key = t_strdup_printf("fts_filters_%s", filter_set_name);
 			str = mail_user_plugin_getenv(user, set_key);
 		}
-		settings = str == NULL ? NULL : t_strsplit_spaces(str, " ");
 
-		if (fts_filter_create(filter_class, parent, lang, settings,
+		if (fts_filter_create(filter_class, parent, lang,
+				      str_keyvalues_to_array(str),
 				      &filter, &error) < 0) {
 			*error_r = t_strdup_printf(
 				"Filter '%s' init via settings '%s' failed: %s",
@@ -130,7 +156,7 @@ fts_user_create_tokenizer(struct mail_user *user,
 	const struct fts_tokenizer *tokenizer_class;
 	struct fts_tokenizer *tokenizer = NULL, *parent = NULL;
 	const char *tokenizers_key, *const *tokenizers, *tokenizer_set_name;
-	const char *str, *error, *set_key, *const *settings;
+	const char *str, *error, *set_key;
 	unsigned int i;
 	int ret = 0;
 
@@ -156,17 +182,12 @@ fts_user_create_tokenizer(struct mail_user *user,
 
 		/* tell the tokenizers that we're tokenizing a search string
 		   (instead of tokenizing indexed data) */
-		if (search) {
-			if (str == NULL)
-				str = "search yes";
-			else
-				str = t_strconcat(str, " search yes", NULL);
-		}
+		if (search)
+			str = t_strconcat("search=yes ", str, NULL);
 
-		settings = str == NULL ? NULL : t_strsplit_spaces(str, " ");
-
-		if (fts_tokenizer_create(tokenizer_class, parent, settings,
-				      &tokenizer, &error) < 0) {
+		if (fts_tokenizer_create(tokenizer_class, parent,
+					 str_keyvalues_to_array(str),
+					 &tokenizer, &error) < 0) {
 			*error_r = t_strdup_printf(
 				"Tokenizer '%s' init via settings '%s' failed: %s",
 				tokenizers[i], set_key, error);
