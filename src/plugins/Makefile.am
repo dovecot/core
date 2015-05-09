@@ -35,4 +35,5 @@ SUBDIRS = \
 	virtual \
 	$(ZLIB) \
 	$(FTS_LUCENE) \
-	$(FTS_SOLR)
+	$(FTS_SOLR) \
+	fs-compress

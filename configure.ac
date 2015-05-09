@@ -2944,6 +2944,7 @@ src/plugins/acl/Makefile
 src/plugins/imap-acl/Makefile
 src/plugins/autocreate/Makefile
 src/plugins/expire/Makefile
+src/plugins/fs-compress/Makefile
 src/plugins/fts/Makefile
 src/plugins/fts-lucene/Makefile
 src/plugins/fts-solr/Makefile
