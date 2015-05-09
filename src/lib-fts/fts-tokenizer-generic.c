@@ -43,10 +43,10 @@ fts_tokenizer_generic_create(const char *const *settings,
 					"Invalid maxlen setting: %s", value);
 				return -1;
 			}
-		} else if (strcasecmp(key, "algorithm") == 0) {
-			if (strcasecmp(value, ALGORITHM_TR29_NAME) == 0)
+		} else if (strcmp(key, "algorithm") == 0) {
+			if (strcmp(value, ALGORITHM_TR29_NAME) == 0)
 				algo = BOUNDARY_ALGORITHM_TR29;
-			else if (strcasecmp(value, ALGORITHM_SIMPLE_NAME) == 0)
+			else if (strcmp(value, ALGORITHM_SIMPLE_NAME) == 0)
 				;
 			else {
 				*error_r = t_strdup_printf(
