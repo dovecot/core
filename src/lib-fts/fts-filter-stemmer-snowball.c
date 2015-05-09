@@ -81,20 +81,25 @@ static int
 fts_filter_stemmer_snowball_filter(struct fts_filter *filter,
                                    const char **token)
 {
-	const sb_symbol *base;
-	int len;
 	struct fts_filter_stemmer_snowball *sp =
 		(struct fts_filter_stemmer_snowball *) filter;
+	const sb_symbol *base;
 
-	if (sp->stemmer == NULL)
+	if (sp->stemmer == NULL) {
 		if (fts_filter_stemmer_snowball_create_stemmer(sp) < 0)
 			return -1;
+	}
 
 	base = sb_stemmer_stem(sp->stemmer, (const unsigned char *)*token, strlen(*token));
-	len = sb_stemmer_length(sp->stemmer);
-	*token = t_strdup_until(base, base + len);
-
-	return *token != NULL? 1: -1;
+	if (base == NULL) {
+		/* the only reason why this could fail is because of
+		   out of memory. */
+		i_fatal_status(FATAL_OUTOFMEM,
+			       "sb_stemmer_stem(len=%"PRIuSIZE_T") failed: "
+			       "Out of memory", strlen(*token));
+	}
+	*token = t_strndup(base, sb_stemmer_length(sp->stemmer));
+	return 1;
 }
 
 #else
