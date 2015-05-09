@@ -23,8 +23,7 @@ struct email_address_fts_tokenizer {
 	struct fts_tokenizer tokenizer;
 	enum email_address_parser_state state;
 	string_t *last_word;
-	string_t *parent_data; /* Copy of input data between tokens.
-	                          TODO: could be buffer_t maybe */
+	string_t *parent_data; /* Copy of input data between tokens. */
 	bool search;
 };
 
@@ -94,34 +93,27 @@ fts_tokenizer_address_parent_data(struct email_address_fts_tokenizer *tok,
  Returns size that can be skipped. */
 static size_t skip_nonlocal_part(const unsigned char *data, size_t size)
 {
-	const unsigned char *p = data;
 	size_t skip = 0;
 
 	/* Yes, a dot can start an address. De facto before de jure. */
-	while ( skip < size && (!IS_ATEXT(*p) && *p != '.')) {
+	while (skip < size && (!IS_ATEXT(data[skip]) && data[skip] != '.'))
 		skip++;
-		p++;
-	}
 	return skip;
 }
 
-/* TODO: 
-   - DONT dereference *p past size!
-*/
 static enum email_address_parser_state
 fts_tokenizer_email_address_parse_local(struct email_address_fts_tokenizer *tok,
                                         const unsigned char *data, size_t size,
                                         size_t *skip_r)
 {
 	size_t pos = 0;
-	const unsigned char *p = data;
 	bool at = FALSE;
 
-	while (pos < size && (IS_ATEXT(*p) || (*p == '@' || *p == '.'))) {
-		if (*p == '@')
+	while (pos < size && (IS_ATEXT(data[pos]) ||
+			      data[pos] == '@' || data[pos] == '.')) {
+		if (data[pos] == '@')
 			at = TRUE;
 		pos++;
-		p++;
 		if (at)
 			break;
 	}
@@ -133,13 +125,13 @@ fts_tokenizer_email_address_parse_local(struct email_address_fts_tokenizer *tok,
 	}
 
 	/* localpart, @ not included yet */
-	if (pos > 0 && (IS_ATEXT(*(p-1)) || *(p-1) == '.')) {
+	if (pos > 0 && (IS_ATEXT(data[pos-1]) || data[pos-1] == '.')) {
 		str_append_n(tok->last_word, data, pos);
 		*skip_r = pos;
 		return  EMAIL_ADDRESS_PARSER_STATE_LOCALPART;
 	}
 	/* not a localpart. skip past rest of no-good chars. */
-	pos += skip_nonlocal_part(p, size - pos);
+	pos += skip_nonlocal_part(data+pos, size - pos);
 	*skip_r = pos;
 	return EMAIL_ADDRESS_PARSER_STATE_NONE;
 }
@@ -153,11 +145,6 @@ static bool domain_is_empty(struct email_address_fts_tokenizer *tok)
 	return p[1] == '\0';
 }
 
-/* TODO:
- - allow address literals
- - reject "@..."
- - reject "@.host.tld"
-*/
 static enum email_address_parser_state
 fts_tokenizer_email_address_parse_domain(struct email_address_fts_tokenizer *tok,
                                          const unsigned char *data, size_t size,
@@ -196,6 +183,7 @@ fts_tokenizer_address_update_parent(struct email_address_fts_tokenizer *tok,
 	if (tok->tokenizer.parent != NULL)
 		str_append_n(tok->parent_data, data, size);
 }
+
 static int
 fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
                                  const unsigned char *data, size_t size,
