@@ -527,7 +527,7 @@ static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 			test_assert(*bpp == NULL);
 		} else {
 			test_assert(*bpp != NULL);
-			test_assert(strcasecmp(*bpp, token)  == 0);
+			test_assert(strcmp(*bpp, token)  == 0);
 		}
 		bpp++;
 	}
