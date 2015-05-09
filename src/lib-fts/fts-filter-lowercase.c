@@ -6,12 +6,6 @@
 #include "fts-filter-private.h"
 #include "fts-language.h"
 
-static bool
-fts_filter_lowercase_supports(const struct fts_language *lang ATTR_UNUSED)
-{
-	return TRUE;
-}
-
 static void
 fts_filter_lowercase_destroy(struct fts_filter *filter)
 {
@@ -47,7 +41,6 @@ fts_filter_lowercase_filter(struct fts_filter *_filter ATTR_UNUSED,
 }
 
 static const struct fts_filter_vfuncs normalizer_filter_vfuncs = {
-	fts_filter_lowercase_supports,
 	fts_filter_lowercase_create,
 	fts_filter_lowercase_filter,
 	fts_filter_lowercase_destroy

@@ -114,13 +114,6 @@ static void make_utf8(const UChar *src, const char **_dst)
 	*_dst = dst;
 }
 
-static bool fts_filter_normalizer_icu_supports(const struct fts_language *lang)
-{
-	if (lang == NULL || lang->name == NULL)
-		return FALSE;
-	return TRUE;
-}
-
 static void fts_filter_normalizer_icu_destroy(struct fts_filter *filter)
 {
 	struct fts_filter_normalizer *np =
@@ -242,19 +235,13 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token,
 
 #else
 
-static bool
-fts_filter_normalizer_icu_supports(const struct fts_language *lang ATTR_UNUSED)
-{
-	return FALSE;
-}
-
 static int
 fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 				 const char *const *settings ATTR_UNUSED,
 				 struct fts_filter **filter_r ATTR_UNUSED,
 				 const char **error_r)
 {
-	*error_r = "libicu support not built in - can't use "ICU_NORMALIZER_FILTER_NAME;
+	*error_r = "libicu support not built in - can't use "ICU_NORMALIZER_FILTER_NAME;
 	return -1;
 }
 
@@ -274,7 +261,6 @@ fts_filter_normalizer_icu_destroy(struct fts_filter *normalizer ATTR_UNUSED)
 #endif
 
 static const struct fts_filter_vfuncs normalizer_filter_vfuncs = {
-	fts_filter_normalizer_icu_supports,
 	fts_filter_normalizer_icu_create,
 	fts_filter_normalizer_icu_filter,
 	fts_filter_normalizer_icu_destroy

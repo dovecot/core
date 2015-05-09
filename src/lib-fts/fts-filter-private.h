@@ -12,7 +12,6 @@
 
 */
 struct fts_filter_vfuncs {
-	bool (*supports)(const struct fts_language *lang);
 	int (*create)(const struct fts_language *lang,
 	              const char *const *settings,
 	              struct fts_filter **filter_r,

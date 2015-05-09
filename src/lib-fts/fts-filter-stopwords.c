@@ -23,15 +23,6 @@ struct fts_filter_stopwords {
 	const char *stopwords_dir;
 };
 
-/* TODO: Write this function or remove it from api. */
-static bool fts_filter_stopwords_supports(const struct fts_language *lang)
-{
-	/* TODO: former NULL check is for unit test _fail_create() */
-	if (lang == NULL || lang->name == NULL)
-		return FALSE;
-	return TRUE;
-}
-
 static int fts_filter_stopwords_read_list(struct fts_filter_stopwords *filter,
 					  const char **error_r)
 {
@@ -124,7 +115,6 @@ fts_filter_stopwords_filter(struct fts_filter *filter, const char **token,
 }
 
 const struct fts_filter_vfuncs stopwords_filter_vfuncs = {
-	fts_filter_stopwords_supports,
 	fts_filter_stopwords_create,
 	fts_filter_stopwords_filter,
 	fts_filter_stopwords_destroy

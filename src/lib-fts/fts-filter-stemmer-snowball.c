@@ -16,17 +16,6 @@ struct fts_filter_stemmer_snowball {
 	struct sb_stemmer *stemmer;
 };
 
-static bool
-fts_filter_stemmer_snowball_supports(const struct fts_language *lang)
-{
-	struct sb_stemmer *stemmer = sb_stemmer_new(lang->name, NULL);
-	if (stemmer != NULL) {
-		sb_stemmer_delete(stemmer);
-		return TRUE;
-	}
-	return FALSE;
-}
-
 static void fts_filter_stemmer_snowball_destroy(struct fts_filter *filter)
 {
 	struct fts_filter_stemmer_snowball *sp =
@@ -105,11 +94,6 @@ fts_filter_stemmer_snowball_filter(struct fts_filter *filter,
 
 #else
 
-static bool
-fts_filter_stemmer_snowball_supports(const struct fts_language *lang ATTR_UNUSED)
-{
-	return FALSE;
-}
 static int
 fts_filter_stemmer_snowball_create(const struct fts_language *lang ATTR_UNUSED,
                                    const char *const *settings ATTR_UNUSED,
@@ -134,7 +118,6 @@ fts_filter_stemmer_snowball_filter(struct fts_filter *filter ATTR_UNUSED,
 
 #endif
 static const struct fts_filter_vfuncs snowball_stemmer_filter_vfuncs = {
-	fts_filter_stemmer_snowball_supports,
 	fts_filter_stemmer_snowball_create,
 	fts_filter_stemmer_snowball_filter,
 	fts_filter_stemmer_snowball_destroy
