@@ -244,9 +244,10 @@ fts_build_add_tokens_with_filter(struct fts_mail_build_context *ctx,
 	struct fts_tokenizer *tokenizer;
 	struct fts_filter *filter = ctx->cur_user_lang->filter;
 	const char *token;
+	int ret;
 
 	tokenizer = fts_user_get_index_tokenizer(ctx->update_ctx->backend->ns->user);
-	while ((token = fts_tokenizer_next(tokenizer, data, size)) != NULL) {
+	while ((ret = fts_tokenizer_next(tokenizer, data, size, &token)) > 0) {
 		if (filter != NULL) {
 			token = fts_filter_filter(filter, token);
 			if (token == NULL)
@@ -257,7 +258,7 @@ fts_build_add_tokens_with_filter(struct fts_mail_build_context *ctx,
 						  strlen(token)) < 0)
 			return -1;
 	}
-	return 0;
+	return ret;
 }
 
 static int

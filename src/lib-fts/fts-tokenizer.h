@@ -63,16 +63,23 @@ int fts_tokenizer_create(const struct fts_tokenizer *tok_class,
 void fts_tokenizer_ref(struct fts_tokenizer *tok);
 void fts_tokenizer_unref(struct fts_tokenizer **tok);
 
-/* Returns the next token, or NULL if more data is needed for the next token.
-   This function should be called with the same data+size until it returns
-   NULL. When the input is finished, this function should be still be called
-   with size=0 to flush out the final token(s).
+/*
+   Returns 1 if token was returned, 0 if input was non-blocking and
+   more data is needed, -1 if EOF/error.
+
+   Returns the next token into *token_r, or NULL if more data is
+   needed for the next token.
+
+   This function should be called with the same data+size until it
+   returns 0. When the input is finished, this function should be
+   still be called with size=0 to flush out the final token(s).
 
    data must contain only valid complete UTF-8 sequences, but otherwise it
    may be broken into however small pieces. */
-const char *
+
+int
 fts_tokenizer_next(struct fts_tokenizer *tok,
-		   const unsigned char *data, size_t size);
+                   const unsigned char *data, size_t size, const char **token_r);
 
 const char *fts_tokenizer_name(const struct fts_tokenizer *tok);
 #endif

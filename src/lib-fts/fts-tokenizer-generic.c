@@ -82,14 +82,13 @@ fts_tokenizer_generic_destroy(struct fts_tokenizer *_tok)
 	i_free(tok);
 }
 
-static const char *
-fts_tokenizer_generic_simple_current_token(struct generic_fts_tokenizer *tok)
+static int
+fts_tokenizer_generic_simple_current_token(struct generic_fts_tokenizer *tok,
+                                           const char **token_r)
 {
-	const char *ret;
-
-	ret = t_strndup(tok->token->data, tok->token->used);
+	*token_r = t_strndup(tok->token->data, tok->token->used);
 	buffer_set_used_size(tok->token, 0);
-	return ret;
+	return 1;
 }
 
 /* TODO: This is duplicated from unichar.c */
@@ -135,10 +134,10 @@ data_is_word_boundary(const unsigned char *data, size_t size, size_t *i)
 	return is_word_break(c);
 }
 
-static const char *
+static int
 fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
-			   const unsigned char *data, size_t size,
-			   size_t *skip_r)
+                                  const unsigned char *data, size_t size,
+                                  size_t *skip_r, const char **token_r)
 {
 	struct generic_fts_tokenizer *tok =
 		(struct generic_fts_tokenizer *)_tok;
@@ -157,7 +156,7 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 			}
 			/* word boundary found - return a new token */
 			*skip_r = i + 1;
-			return fts_tokenizer_generic_simple_current_token(tok);
+			return fts_tokenizer_generic_simple_current_token(tok, token_r);
 		}
 	}
 	/* word boundary not found yet */
@@ -168,9 +167,9 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 
 	if (size == 0 && tok->token->used > 0) {
 		/* return the last token */
-		return fts_tokenizer_generic_simple_current_token(tok);
+		return fts_tokenizer_generic_simple_current_token(tok, token_r);
 	}
-	return NULL;
+	return 0;
 }
 
 /* TODO: Arrange array searches roughly in order of likelyhood of a match.
@@ -464,20 +463,20 @@ static bool is_one_past_end(struct generic_fts_tokenizer *tok)
 
 	return FALSE;
 }
-static const char *
-fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok)
+static int
+fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
+                                         const char **token_r)
 {
-	const char *ret;
 	size_t end_skip = 0;
 
 	if (is_one_past_end(tok))
 		end_skip = tok->last_size;
 
-	ret = t_strndup(tok->token->data, tok->token->used - end_skip);
+	*token_r = t_strndup(tok->token->data, tok->token->used - end_skip);
 	buffer_set_used_size(tok->token, 0);
 	tok->prev_prev_letter = LETTER_TYPE_NONE;
 	tok->prev_letter = LETTER_TYPE_NONE;
-	return ret;
+	return 1;
 }
 /*
   Find word boundaries in input text. Based on Unicode standard annex
@@ -516,10 +515,10 @@ uni_found_word_boundary(struct generic_fts_tokenizer *tok, enum letter_type lt)
 	return FALSE;
 }
 
-static const char *
+static int
 fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 			   const unsigned char *data, size_t size,
-			   size_t *skip_r)
+                                size_t *skip_r, const char **token_r)
 {
 	struct generic_fts_tokenizer *tok =
 		(struct generic_fts_tokenizer *)_tok;
@@ -547,7 +546,7 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 			buffer_append(tok->token, data + start_skip,
 			              len - start_skip);
 			*skip_r = i + 1;
-			return fts_tokenizer_generic_tr29_current_token(tok);
+			return fts_tokenizer_generic_tr29_current_token(tok, token_r);
 		}
 	}
 	len =  I_MIN(i, tok->max_length);
@@ -558,16 +557,17 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 	if (size == 0 && tok->token->used > 0) {
 		/* return the last token */
 		*skip_r = 0;
-		return fts_tokenizer_generic_tr29_current_token(tok);
+		return fts_tokenizer_generic_tr29_current_token(tok, token_r);
 	}
-	return NULL;
+	return 0;
 }
 
-static const char *
+static int
 fts_tokenizer_generic_next(struct fts_tokenizer *_tok ATTR_UNUSED,
 			   const unsigned char *data ATTR_UNUSED,
                            size_t size ATTR_UNUSED,
-			   size_t *skip_r ATTR_UNUSED)
+                           size_t *skip_r ATTR_UNUSED,
+                           const char **token_r ATTR_UNUSED)
 {
 	i_unreached();
 }

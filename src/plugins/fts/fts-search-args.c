@@ -109,17 +109,17 @@ static void fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 	and_arg->next = orig_arg->next;
 	*argp = and_arg;
 
-	while ((token = fts_tokenizer_next(tokenizer,
-					   (const void *)orig_token,
-					   orig_token_len)) != NULL) {
+	while (fts_tokenizer_next(tokenizer,
+	                          (const void *)orig_token,
+	                          orig_token_len, &token) > 0) {
 		fts_backend_dovecot_expand_lang_tokens(languages, pool, and_arg,
 						       orig_arg, orig_token,
 						       token);
 	}
-	while ((token = fts_tokenizer_next(tokenizer, NULL, 0)) != NULL) {
+	while (fts_tokenizer_next(tokenizer, NULL, 0, &token) > 0) {
 		fts_backend_dovecot_expand_lang_tokens(languages, pool, and_arg,
-						       orig_arg, orig_token,
-						       token);
+		                                       orig_arg, orig_token,
+		                                       token);
 	}
 }
 

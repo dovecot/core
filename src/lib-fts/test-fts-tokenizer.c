@@ -28,11 +28,11 @@ static void test_fts_tokenizer_generic_only(void)
 	fts_tokenizers_init();
 	tok_class = fts_tokenizer_find(FTS_TOKENIZER_GENERIC_NAME);
 	test_assert(fts_tokenizer_create(tok_class, NULL, NULL, &tok, &error) == 0);
-	while ((token = fts_tokenizer_next(tok, input, sizeof(input)-1)) != NULL) {
+	while (fts_tokenizer_next(tok, input, sizeof(input)-1, &token) > 0) {
 		test_assert(strcmp(token, *eopp) == 0);
 		eopp++;
 	}
-	while ((token = fts_tokenizer_next(tok, NULL, 0)) != NULL) {
+	while (fts_tokenizer_next(tok, NULL, 0, &token) > 0) {
 		test_assert(strcmp(token, *eopp) == 0);
 		eopp++;
 	}
@@ -63,11 +63,11 @@ static void test_fts_tokenizer_generic_unicode_whitespace(void)
 	fts_tokenizer_register(fts_tokenizer_generic);
 	tok_class = fts_tokenizer_find(FTS_TOKENIZER_GENERIC_NAME);
 	test_assert(fts_tokenizer_create(tok_class, NULL, NULL, &tok, &error) == 0);
-	while ((token = fts_tokenizer_next(tok, input, sizeof(input)-1)) != NULL) {
+	while (fts_tokenizer_next(tok, input, sizeof(input)-1, &token) > 0) {
 		test_assert(strcmp(token, *eopp) == 0);
 		eopp++;
 	}
-	while ((token = fts_tokenizer_next(tok, NULL, 0)) != NULL) {
+	while (fts_tokenizer_next(tok, NULL, 0, &token) > 0) {
 		test_assert(strcmp(token, *eopp) == 0);
 		eopp++;
 	}
@@ -91,6 +91,7 @@ static void test_fts_tokenizer_char_generic_only(void)
 	const char * const *eopp = expected_output;
 	const char *token, *error;
 	unsigned int i;
+	int ret;
 
 	test_begin("fts tokenizer generic simple input one character at a time");
 	fts_tokenizer_register(fts_tokenizer_generic);
@@ -98,10 +99,10 @@ static void test_fts_tokenizer_char_generic_only(void)
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &tok, &error) == 0);
 
 	for (i = 0; i <= sizeof(input)-1; ) {
-		token = i < sizeof(input)-1 ?
-			fts_tokenizer_next(tok, &input[i], 1) :
-			fts_tokenizer_next(tok, NULL, 0);
-		if (token == NULL) {
+		ret = i < sizeof(input)-1 ?
+			fts_tokenizer_next(tok, &input[i], 1, &token) :
+			fts_tokenizer_next(tok, NULL, 0, &token);
+		if (ret == 0) {
 			i++;
 			continue;
 		}
@@ -136,11 +137,11 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 	fts_tokenizer_register(fts_tokenizer_generic);
 	tok_class = fts_tokenizer_find(FTS_TOKENIZER_GENERIC_NAME);
 	test_assert(fts_tokenizer_create(tok_class, NULL, tr29_settings, &tok, &error) == 0);
-	while ((token = fts_tokenizer_next(tok, input, sizeof(input)-1)) != NULL) {
+	while (fts_tokenizer_next(tok, input, sizeof(input)-1, &token) > 0) {
 		test_assert(strcmp(token, *eopp) == 0);
 		eopp++;
 	}
-	while ((token = fts_tokenizer_next(tok, NULL, 0)) != NULL) {
+	while (fts_tokenizer_next(tok, NULL, 0, &token) > 0) {
 		test_assert(strcmp(token, *eopp) == 0);
 		eopp++;
 	}
@@ -173,11 +174,11 @@ static void test_fts_tokenizer_generic_tr29_unicode_whitespace(void)
 	fts_tokenizer_register(fts_tokenizer_generic);
 	tok_class = fts_tokenizer_find(FTS_TOKENIZER_GENERIC_NAME);
 	test_assert(fts_tokenizer_create(tok_class, NULL, tr29_settings, &tok, &error) == 0);
-	while ((token = fts_tokenizer_next(tok, input, sizeof(input)-1)) != NULL) {
+	while (fts_tokenizer_next(tok, input, sizeof(input)-1, &token) > 0) {
 		test_assert(strcmp(token, *eopp) == 0);
 		eopp++;
 	}
-	while ((token = fts_tokenizer_next(tok, NULL, 0)) != NULL) {
+	while (fts_tokenizer_next(tok, NULL, 0, &token) > 0) {
 		test_assert(strcmp(token, *eopp) == 0);
 		eopp++;
 	}
@@ -204,11 +205,11 @@ static void test_fts_tokenizer_generic_tr29_midnumlet_end(void)
 	fts_tokenizer_register(fts_tokenizer_generic);
 	tok_class = fts_tokenizer_find(FTS_TOKENIZER_GENERIC_NAME);
 	test_assert(fts_tokenizer_create(tok_class, NULL, tr29_settings, &tok, &error) == 0);
-	while ((token = fts_tokenizer_next(tok, input, sizeof(input)-1)) != NULL) {
+	while (fts_tokenizer_next(tok, input, sizeof(input)-1, &token) > 0) {
 		test_assert(null_strcmp(token, *eopp) == 0);
 		eopp++;
 	}
-	while ((token = fts_tokenizer_next(tok, NULL, 0)) != NULL) {
+	while (fts_tokenizer_next(tok, NULL, 0, &token) > 0) {
 		test_assert(null_strcmp(token, *eopp) == 0);
 		eopp++;
 	}
@@ -232,6 +233,7 @@ static void test_fts_tokenizer_char_generic_tr29_only(void)
 	const char * const *eopp = expected_output;
 	const char *token, *error;
 	unsigned int i;
+	int ret;
 
 	test_begin("fts tokenizer generic TR29 input one character at a time");
 	fts_tokenizer_register(fts_tokenizer_generic);
@@ -239,10 +241,10 @@ static void test_fts_tokenizer_char_generic_tr29_only(void)
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
 
 	for (i = 0; i <= sizeof(input)-1; ) {
-		token = i < sizeof(input)-1 ?
-			fts_tokenizer_next(tok, &input[i], 1) :
-			fts_tokenizer_next(tok, NULL, 0);
-		if (token == NULL) {
+		ret = i < sizeof(input)-1 ?
+			fts_tokenizer_next(tok, &input[i], 1, &token) :
+			fts_tokenizer_next(tok, NULL, 0, &token);
+		if (ret == 0) {
 			i++;
 			continue;
 		}
@@ -272,6 +274,7 @@ static void test_fts_tokenizer_line_address_only(void)
 	const char * const *eopp = expected_output;
 	const char *token, *error;
 	unsigned int i;
+	int ret;
 
 	test_begin("fts tokenizer email address only, input one line at a time");
 	fts_tokenizer_register(fts_tokenizer_email_address);
@@ -279,10 +282,11 @@ static void test_fts_tokenizer_line_address_only(void)
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, NULL, settings, &tok, &error) == 0);
 
 	for (i = 0; i <= N_ELEMENTS(input);) {
-		token = i < N_ELEMENTS(input) ?
-			fts_tokenizer_next(tok, (unsigned char *)input[i], strlen(input[i])) :
-			fts_tokenizer_next(tok, NULL, 0);
-		if (token == NULL) {
+		ret = i < N_ELEMENTS(input) ?
+			fts_tokenizer_next(tok, (unsigned char *)input[i],
+			                   strlen(input[i]), &token) :
+			fts_tokenizer_next(tok, NULL, 0, &token);
+		if (ret == 0) {
 			i++;
 			continue;
 		}
@@ -310,16 +314,17 @@ static void test_fts_tokenizer_char_address_only(void)
 	const char * const *eopp = expected_output;
 	const char *token, *error;
 	unsigned int i;
+	int ret;
 
 	test_begin("fts tokenizer email address only, input one character at a time");
 	fts_tokenizer_register(fts_tokenizer_email_address);
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, NULL, settings, &tok, &error) == 0);
 
 	for (i = 0; i <= sizeof(input)-1; ) {
-		token = i < sizeof(input)-1 ?
-			fts_tokenizer_next(tok, &input[i], 1) :
-			fts_tokenizer_next(tok, NULL, 0);
-		if (token == NULL) {
+		ret = i < sizeof(input)-1 ?
+			fts_tokenizer_next(tok, &input[i], 1, &token) :
+			fts_tokenizer_next(tok, NULL, 0, &token);
+		if (ret == 0) {
 			i++;
 			continue;
 		}
@@ -348,6 +353,7 @@ static void test_fts_tokenizer_rand_address_only(void)
 	const char *token, *error;
 	const char *const settings[] = {"no_parent", "abc", NULL};
 	unsigned int i, step, step_max = 10;
+	int ret;
 
 	test_begin("fts tokenizer email address, input random length");
 	fts_tokenizer_register(fts_tokenizer_email_address);
@@ -355,10 +361,10 @@ static void test_fts_tokenizer_rand_address_only(void)
 	                                 settings, &tok, &error) == 0);
 	step = rand() % step_max + 1;
 	for (i = 0; i <= sizeof(input)-1; ) {
-		token = i < sizeof(input)-1 ?
-			fts_tokenizer_next(tok, &input[i], step) :
-			fts_tokenizer_next(tok, NULL, 0);
-		if (token == NULL) {
+		ret = i < sizeof(input)-1 ?
+			fts_tokenizer_next(tok, &input[i], step, &token) :
+			fts_tokenizer_next(tok, NULL, 0, &token);
+		if (ret == 0) {
 			i += step;
 			step = rand() % step_max + 1;
 			step = I_MIN(step, sizeof(input) - i);
@@ -388,6 +394,7 @@ static void test_fts_tokenizer_address_char(void)
 	const char * const *eopp = expected_output;
 	const char *token, *error;
 	unsigned int i;
+	int ret;
 
 	test_begin("fts tokenizer email address + parent, input one character at a time");
 	fts_tokenizers_init();
@@ -396,10 +403,10 @@ static void test_fts_tokenizer_address_char(void)
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, gen_tok, NULL, &tok, &error) == 0);
 
 	for (i = 0; i <= sizeof(input)-1; ) {
-		token = i < sizeof(input)-1 ?
-			fts_tokenizer_next(tok, &input[i], 1) :
-			fts_tokenizer_next(tok, NULL, 0);
-		if (token == NULL) {
+		ret = i < sizeof(input)-1 ?
+			fts_tokenizer_next(tok, &input[i], 1, &token) :
+			fts_tokenizer_next(tok, NULL, 0, &token);
+		if (ret == 0) {
 			i++;
 			continue;
 		}
@@ -433,6 +440,7 @@ static void test_fts_tokenizer_address_line(void)
 	const char * const *eopp = expected_output;
 	const char *token, *error;
 	unsigned int i;
+	int ret;
 
 	test_begin("fts tokenizer email address + parent, input one line at a time");
 	fts_tokenizers_init();
@@ -441,10 +449,11 @@ static void test_fts_tokenizer_address_line(void)
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, gen_tok, NULL, &tok, &error) == 0);
 
 	for (i = 0; i <= N_ELEMENTS(input);) {
-		token = i < N_ELEMENTS(input) ?
-			fts_tokenizer_next(tok, (unsigned char *)input[i], strlen(input[i])) :
-			fts_tokenizer_next(tok, NULL, 0);
-		if (token == NULL) {
+		ret = i < N_ELEMENTS(input) ?
+			fts_tokenizer_next(tok, (unsigned char *)input[i],
+			                   strlen(input[i]), &token) :
+			fts_tokenizer_next(tok, NULL, 0, &token);
+		if (ret == 0) {
 			i++;
 			continue;
 		}
@@ -474,6 +483,7 @@ static void test_fts_tokenizer_address_rand(void)
 	const char * const *eopp = expected_output;
 	const char *token, *error;
 	unsigned int i, step, step_max = 10;
+	int ret;
 
 	test_begin("fts tokenizer email address + parent, input random length");
 	fts_tokenizer_register(fts_tokenizer_generic);
@@ -485,10 +495,10 @@ static void test_fts_tokenizer_address_rand(void)
 	//srand(1424142100); /* had a bug */
 	step = rand() % step_max + 1;
 	for (i = 0; i <= sizeof(input)-1; ) {
-		token = i < sizeof(input)-1 ?
-			fts_tokenizer_next(tok, &input[i], step) :
-			fts_tokenizer_next(tok, NULL, 0);
-		if (token == NULL) {
+		ret = i < sizeof(input)-1 ?
+		      fts_tokenizer_next(tok, &input[i], step, &token) :
+		      fts_tokenizer_next(tok, NULL, 0, &token);
+		if (ret == 0) {
 			i += step;
 			step = rand() % step_max + 1;
 			step = I_MIN(step, sizeof(input) - i);

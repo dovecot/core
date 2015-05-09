@@ -120,11 +120,12 @@ void fts_tokenizer_unref(struct fts_tokenizer **_tok)
 	tok->v->destroy(tok);
 }
 
-static const char *
+static int
 fts_tokenizer_next_self(struct fts_tokenizer *tok,
-			const unsigned char *data, size_t size)
+                        const unsigned char *data, size_t size,
+                        const char **token_r)
 {
-	const char *token;
+	int ret = 0;
 	size_t skip = 0;
 
 	i_assert(tok->prev_reply_finished ||
@@ -132,60 +133,60 @@ fts_tokenizer_next_self(struct fts_tokenizer *tok,
 
 	if (tok->prev_reply_finished) {
 		/* whole new data */
-		token = tok->v->next(tok, data, size, &skip);
+		ret = tok->v->next(tok, data, size, &skip, token_r);
 	} else {
 		/* continuing previous data */
 		i_assert(tok->prev_skip <= size);
-		token = tok->v->next(tok, data + tok->prev_skip,
-				     size - tok->prev_skip, &skip);
+		ret = tok->v->next(tok, data + tok->prev_skip,
+		                   size - tok->prev_skip, &skip, token_r);
 	}
 
-	if (token != NULL) {
+	if (ret > 0) {
 		i_assert(skip <= size - tok->prev_skip);
 		tok->prev_data = data;
 		tok->prev_size = size;
 		tok->prev_skip = tok->prev_skip + skip;
 		tok->prev_reply_finished = FALSE;
-	} else {
+	} else if (ret == 0) {
 		/* we need a new data block */
 		tok->prev_data = NULL;
 		tok->prev_size = 0;
 		tok->prev_skip = 0;
 		tok->prev_reply_finished = TRUE;
 	}
-	return token;
+	return ret;
 }
 
-const char *
+int
 fts_tokenizer_next(struct fts_tokenizer *tok,
-		   const unsigned char *data, size_t size)
+                   const unsigned char *data, size_t size, const char **token_r)
 {
-	const char *token;
+	int ret;
 
 	switch (tok->parent_state) {
 	case FTS_TOKENIZER_PARENT_STATE_ADD_DATA:
-		token = fts_tokenizer_next_self(tok, data, size);
-		if (token == NULL || tok->parent == NULL || tok->skip_parents)
-			return token;
+		ret = fts_tokenizer_next_self(tok, data, size, token_r);
+		if (ret <= 0 || tok->parent == NULL || tok->skip_parents)
+			return ret;
 		buffer_set_used_size(tok->parent_input, 0);
-		buffer_append(tok->parent_input, token, strlen(token));
+		buffer_append(tok->parent_input, *token_r, strlen(*token_r));
 		tok->parent_state++;
 		/* fall through */
 	case FTS_TOKENIZER_PARENT_STATE_NEXT_OUTPUT:
-		token = fts_tokenizer_next(tok->parent, tok->parent_input->data,
-					   tok->parent_input->used);
-		if (token != NULL)
-			return token;
+		ret = fts_tokenizer_next(tok->parent, tok->parent_input->data,
+		                         tok->parent_input->used, token_r);
+		if (ret != 0)
+			return ret;
 		tok->parent_state++;
 		/* fall through */
 	case FTS_TOKENIZER_PARENT_STATE_FINALIZE:
-		token = fts_tokenizer_next(tok->parent, NULL, 0);
-		if (token != NULL)
-			return token;
+		ret = fts_tokenizer_next(tok->parent, NULL, 0, token_r);
+		if (ret != 0)
+			return ret;
 		/* we're finished sending this token to parent tokenizer.
 		   see if our own tokenizer has more tokens available */
 		tok->parent_state = FTS_TOKENIZER_PARENT_STATE_ADD_DATA;
-		return fts_tokenizer_next(tok, data, size);
+		return fts_tokenizer_next(tok, data, size, token_r);
 	default:
 		i_unreached();
 	}
