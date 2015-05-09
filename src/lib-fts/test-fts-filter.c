@@ -160,18 +160,20 @@ static void test_fts_filter_stopwords_fra(void)
 	test_end();
 }
 
-static void test_fts_filter_stopwords_fail_create(void)
+static void test_fts_filter_stopwords_fail_lazy_init(void)
 {
 	const struct fts_filter *filter_class;
 	const struct fts_language unknown = { .name = "bebobidoop" };
 	struct fts_filter *filter = NULL;
-	const char *error;
+	const char *error = NULL, *token = "foobar";
 	int ret;
 
-	test_begin("fts filter stopwords, fail create()");
+	test_begin("fts filter stopwords, fail filter() (lazy init)");
 	filter_class = fts_filter_find(STOPWORDS_FILTER_NAME);
 	ret = fts_filter_create(filter_class, NULL, &unknown, stopword_settings, &filter, &error);
-	test_assert(ret == -1 && filter == NULL && error != NULL);
+	test_assert(ret == 0 && filter != NULL && error == NULL);
+	ret = fts_filter_filter(filter, &token, &error);
+	test_assert(ret == -1 && error != NULL);
 	test_end();
 
 }
@@ -545,7 +547,7 @@ int main(void)
 		test_fts_filter_stopwords_eng,
 		test_fts_filter_stopwords_fin,
 		test_fts_filter_stopwords_fra,
-		test_fts_filter_stopwords_fail_create,
+		test_fts_filter_stopwords_fail_lazy_init,
 #ifdef HAVE_FTS_STEMMER
 		test_fts_filter_stemmer_snowball_stem_english,
 		test_fts_filter_stemmer_snowball_stem_french,

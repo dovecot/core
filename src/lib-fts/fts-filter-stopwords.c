@@ -74,7 +74,8 @@ static int fts_filter_stopwords_read_list(struct fts_filter_stopwords *filter)
 static void fts_filter_stopwords_destroy(struct fts_filter *filter)
 {
 	struct fts_filter_stopwords *sp = (struct fts_filter_stopwords *)filter;
-	hash_table_destroy(&sp->stopwords);
+	if (hash_table_is_created(sp->stopwords))
+		hash_table_destroy(&sp->stopwords);
 	pool_unref(&sp->pool);
 	return;
 }
@@ -87,7 +88,6 @@ fts_filter_stopwords_create(const struct fts_language *lang,
 {
 	struct fts_filter_stopwords *sp;
 	pool_t pp;
-	int ret;
 	const char *dir = NULL;
 	unsigned int i;
 
@@ -101,7 +101,6 @@ fts_filter_stopwords_create(const struct fts_language *lang,
 			return -1;
 		}
 	}
-
 	pp = pool_alloconly_create(MEMPOOL_GROWING"fts_filter_stopwords",
 	                           sizeof(struct fts_filter));
 	sp = p_new(pp, struct fts_filter_stopwords, 1);
@@ -109,19 +108,24 @@ fts_filter_stopwords_create(const struct fts_language *lang,
 	sp->pool = pp;
 	sp->lang = p_malloc(sp->pool, sizeof(struct fts_language));
 	sp->lang->name = str_lcase(p_strdup(sp->pool, lang->name));
-	hash_table_create(&sp->stopwords, sp->pool, 0, str_hash, strcmp);
 	if (dir != NULL)
 		sp->stopwords_dir = p_strdup(pp, dir);
 	else
 		sp->stopwords_dir = DATADIR"/stopwords";
 	*filter_r = &sp->filter;
+	return 0;
+}
+
+static int
+fts_filter_stopwords_create_stopwords(struct fts_filter_stopwords *sp)
+{
+	int ret;
+
+	hash_table_create(&sp->stopwords, sp->pool, 0, str_hash, strcmp);
 	ret = fts_filter_stopwords_read_list(sp);
-	if (ret < 0) {
-		*error_r = t_strdup_printf(
-		        "Failed to read stopword list %s", sp->stopwords_dir);
-		fts_filter_stopwords_destroy(*filter_r);
-		*filter_r = NULL;
-	}
+	if (ret < 0)
+		sp->filter.error = t_strdup_printf("Failed to read stopword list %s",
+		                                   sp->stopwords_dir);
 	return ret;
 }
 
@@ -132,6 +136,9 @@ fts_filter_stopwords_filter(struct fts_filter *filter, const char **token)
 	struct fts_filter_stopwords *sp =
 		(struct fts_filter_stopwords *) filter;
 
+	if (!hash_table_is_created(sp->stopwords))
+		if (fts_filter_stopwords_create_stopwords(sp) < 0)
+			return -1;
 	stopword = hash_table_lookup(sp->stopwords, *token);
 	if (stopword != NULL) {
 		*token = NULL;
