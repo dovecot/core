@@ -94,13 +94,12 @@ static const char *fts_uni_strndup(const unsigned char *data, size_t size)
 	return t_strndup(data, pos);
 }
 
-static int
+static void
 fts_tokenizer_generic_simple_current_token(struct generic_fts_tokenizer *tok,
                                            const char **token_r)
 {
 	*token_r = fts_uni_strndup(tok->token->data, tok->token->used);
 	buffer_set_used_size(tok->token, 0);
-	return 1;
 }
 
 /* TODO: This is duplicated from unichar.c */
@@ -187,7 +186,8 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 			}
 			/* word boundary found - return a new token */
 			*skip_r = i + 1;
-			return fts_tokenizer_generic_simple_current_token(tok, token_r);
+			fts_tokenizer_generic_simple_current_token(tok, token_r);
+			return 1;
 		}
 	}
 	/* word boundary not found yet */
@@ -196,8 +196,10 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 	*skip_r = i;
 
 	/* return the last token */
-	if (size == 0 && tok->token->used > 0)
-		return fts_tokenizer_generic_simple_current_token(tok, token_r);
+	if (size == 0 && tok->token->used > 0) {
+		fts_tokenizer_generic_simple_current_token(tok, token_r);
+		return 1;
+	}
 	return 0;
 }
 
@@ -492,7 +494,7 @@ static bool is_one_past_end(struct generic_fts_tokenizer *tok)
 
 	return FALSE;
 }
-static int
+static void
 fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
                                          const char **token_r)
 {
@@ -508,7 +510,6 @@ fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
 	buffer_set_used_size(tok->token, 0);
 	tok->prev_prev_letter = LETTER_TYPE_NONE;
 	tok->prev_letter = LETTER_TYPE_NONE;
-	return 1;
 }
 
 struct letter_fn {
@@ -569,7 +570,6 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 {
 	struct generic_fts_tokenizer *tok =
 		(struct generic_fts_tokenizer *)_tok;
-
 	unichar_t c;
 	size_t i, char_start_i, start_skip = 0;
 	enum letter_type lt;
@@ -592,7 +592,8 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 			tok_append_truncated(tok, data + start_skip,
 					     char_start_i - start_skip);
 			*skip_r = i + 1;
-			return fts_tokenizer_generic_tr29_current_token(tok, token_r);
+			fts_tokenizer_generic_tr29_current_token(tok, token_r);
+			return 1;
 		}
 	}
 	i_assert(i >= start_skip && size >= start_skip);
@@ -602,7 +603,8 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 	if (size == 0 && tok->token->used > 0) {
 		/* return the last token */
 		*skip_r = 0;
-		return fts_tokenizer_generic_tr29_current_token(tok, token_r);
+		fts_tokenizer_generic_tr29_current_token(tok, token_r);
+		return 1;
 	}
 	return 0;
 }
