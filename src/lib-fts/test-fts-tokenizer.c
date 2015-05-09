@@ -308,7 +308,7 @@ static void test_fts_tokenizer_line_address_only(void)
 static void test_fts_tokenizer_char_address_only(void)
 {
 	static const unsigned char input[] =
-		"abc@example.com, "
+		"@invalid  abc@example.com, "
 		"Bar Baz <bar@example.org>, "
 		"foo@domain";
 	static const char *const expected_output[] = {
@@ -346,7 +346,7 @@ static void test_fts_tokenizer_char_address_only(void)
 static void test_fts_tokenizer_rand_address_only(void)
 {
 	static const unsigned char input[] =
-		"Abc Dfg <abc.dfg@example.com>, "
+		"@invalid  Abc Dfg <abc.dfg@example.com>, "
 		"Foo Bar (comment)foo.bar@host.example.org foo ";
 
 	static const char *const expected_output[] = {
@@ -388,11 +388,11 @@ static void test_fts_tokenizer_rand_address_only(void)
 static void test_fts_tokenizer_address_char(void)
 {
 	static const unsigned char input[] =
-		"abc@example.com, "
+		"@invalid  abc@example.com, "
 		"Bar Baz <bar@example.org>, "
 		"foo@domain";
 	static const char *const expected_output[] = {
-		"abc", "example", "com", "abc@example.com", "Bar", "Baz",
+		"invalid", "abc", "example", "com", "abc@example.com", "Bar", "Baz",
 		"bar", "example", "org", "bar@example.org",
 		"foo", "domain", "foo@domain", NULL
 	};
@@ -430,13 +430,13 @@ static void test_fts_tokenizer_address_char(void)
 static void test_fts_tokenizer_address_line(void)
 {
 	static const char *const input[] = {
-		"abc@example.com, ",
+		"@invalid  abc@example.com, ",
 		"Bar Baz <bar@example.org>, ",
 		"foo@domain, ",
 		"foo@domain Bar Baz <bar@example.org>, "
 	};
 	static const char *const expected_output[] = {
-		"abc", "example", "com", "abc@example.com", "Bar", "Baz",
+		"invalid", "abc", "example", "com", "abc@example.com", "Bar", "Baz",
 		"bar", "example", "org", "bar@example.org",
 		"foo", "domain", "foo@domain",
 		"foo", "domain", "foo@domain", "Bar", "Baz",
@@ -477,11 +477,11 @@ static void test_fts_tokenizer_address_line(void)
 static void test_fts_tokenizer_address_rand(void)
 {
 	static const unsigned char input[] =
-		"abc@example.com, "
+		"@invalid  abc@example.com, "
 		"Bar Baz <bar@example.org>, "
 		"foo@domain";
 	static const char *const expected_output[] = {
-		"abc", "example", "com", "abc@example.com", "Bar", "Baz",
+		"invalid", "abc", "example", "com", "abc@example.com", "Bar", "Baz",
 		"bar", "example", "org", "bar@example.org",
 		"foo", "domain", "foo@domain", NULL
 	};
