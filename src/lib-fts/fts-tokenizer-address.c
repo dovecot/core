@@ -199,6 +199,15 @@ fts_tokenizer_email_address_parse_local(struct email_address_fts_tokenizer *tok,
 	return EMAIL_ADDRESS_PARSER_STATE_NONE;
 }
 
+static bool domain_is_empty(struct email_address_fts_tokenizer *tok)
+{
+	const char *p, *str = str_c(tok->last_word);
+
+	if ((p = strchr(str, '@')) == NULL)
+		return TRUE;
+	return p[1] == '\0';
+}
+
 /* TODO:
  - allow address literals
  - reject "@..."
@@ -218,7 +227,7 @@ fts_tokenizer_email_address_parse_domain(struct email_address_fts_tokenizer *tok
 	}
 	 /* A complete domain name */
 	if ((pos > 1 && pos < size) || /* non-atext after atext in this data*/
-	    pos < size) { /* non-atext after previous atext */
+	    (pos < size && !domain_is_empty(tok))) { /* non-atext after previous atext */
 		str_append_n(tok->last_word, data, pos);
 		*skip_r = pos;
 		return EMAIL_ADDRESS_PARSER_STATE_COMPLETE;
@@ -265,7 +274,8 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 		if (!tok->no_parent && str_len(tok->parent_data) > 0)
 			return fts_tokenizer_address_parent_data(tok, token_r);
 
-		if (tok->state == EMAIL_ADDRESS_PARSER_STATE_DOMAIN)
+		if (tok->state == EMAIL_ADDRESS_PARSER_STATE_DOMAIN &&
+		    !domain_is_empty(tok))
 			return fts_tokenizer_address_current_token(tok, token_r);
 	}
 
