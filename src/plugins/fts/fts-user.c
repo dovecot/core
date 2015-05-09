@@ -16,6 +16,7 @@ struct fts_user {
 
 	struct fts_language_list *lang_list;
 	struct fts_tokenizer *index_tokenizer, *search_tokenizer;
+	struct fts_user_language *data_lang;
 	ARRAY_TYPE(fts_user_language) languages;
 };
 
@@ -269,6 +270,26 @@ fts_user_get_all_languages(struct mail_user *user)
 	return &fuser->languages;
 }
 
+struct fts_user_language *fts_user_get_data_lang(struct mail_user *user)
+{
+	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+	struct fts_user_language *lang;
+	const char *error;
+
+	if (fuser->data_lang != NULL)
+		return fuser->data_lang;
+
+	lang = p_new(user->pool, struct fts_user_language, 1);
+	lang->lang = &fts_language_data;
+
+	if (fts_filter_create(fts_filter_lowercase, NULL, lang->lang, NULL,
+			      &lang->filter, &error) < 0)
+		i_unreached();
+	i_assert(lang->filter != NULL);
+	fuser->data_lang = lang;
+	return fuser->data_lang;
+}
+
 static void fts_user_free(struct fts_user *fuser)
 {
 	struct fts_user_language *const *user_langp;
@@ -280,6 +301,8 @@ static void fts_user_free(struct fts_user *fuser)
 		if ((*user_langp)->filter != NULL)
 			fts_filter_unref(&(*user_langp)->filter);
 	}
+	if (fuser->data_lang != NULL && fuser->data_lang->filter != NULL)
+		fts_filter_unref(&fuser->data_lang->filter);
 
 	if (fuser->index_tokenizer != NULL)
 		fts_tokenizer_unref(&fuser->index_tokenizer);

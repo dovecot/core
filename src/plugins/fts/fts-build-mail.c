@@ -35,11 +35,6 @@ struct fts_mail_build_context {
 	struct fts_user_language *cur_user_lang;
 };
 
-static struct fts_user_language fts_user_language_data = {
-	.lang = &fts_language_data,
-	.filter = NULL
-};
-
 static int fts_build_data(struct fts_mail_build_context *ctx,
 			  const unsigned char *data, size_t size, bool last);
 
@@ -127,6 +122,17 @@ fts_build_unstructured_header(struct fts_mail_build_context *ctx,
 	i_free(buf);
 }
 
+static bool data_has_8bit(const unsigned char *data, size_t size)
+{
+	size_t i;
+
+	for (i = 0; i < size; i++) {
+		if ((data[i] & 0x80) != 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static void fts_build_mail_header(struct fts_mail_build_context *ctx,
 				  const struct message_block *block)
 {
@@ -145,10 +151,17 @@ static void fts_build_mail_header(struct fts_mail_build_context *ctx,
 	key.part = block->part;
 	key.hdr_name = hdr->name;
 
-	if (!header_has_language(key.hdr_name))
-		ctx->cur_user_lang = &fts_user_language_data;
-	else
+	/* Headers that don't contain any human language will only be
+	   translated to lowercase - no stemming or other filtering. There's
+	   unfortunately no pefect way of detecting which headers contain
+	   human languages, so we have a list of some hardcoded header names
+	   and we'll also assume that if there's any 8bit content it's a human
+	   language. */
+	if (header_has_language(key.hdr_name) ||
+	    data_has_8bit(hdr->full_value, hdr->full_value_len))
 		ctx->cur_user_lang = NULL;
+	else
+		ctx->cur_user_lang = fts_user_get_data_lang(ctx->update_ctx->backend->ns->user);
 
 	if (!fts_backend_update_set_build_key(ctx->update_ctx, &key))
 		return;
