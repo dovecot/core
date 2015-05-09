@@ -196,3 +196,8 @@ int fts_tokenizer_next(struct fts_tokenizer *tok,
 		i_unreached();
 	}
 }
+
+int fts_tokenizer_final(struct fts_tokenizer *tok, const char **token_r)
+{
+	return fts_tokenizer_next(tok, NULL, 0, token_r);
+}

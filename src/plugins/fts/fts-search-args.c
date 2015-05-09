@@ -125,7 +125,7 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 							   token) < 0)
 			return -1;
 	}
-	while (fts_tokenizer_next(tokenizer, NULL, 0, &token) > 0) {
+	while (fts_tokenizer_final(tokenizer, &token) > 0) {
 		if (fts_backend_dovecot_expand_lang_tokens(languages, pool, and_arg,
 							   orig_arg, orig_token,
 							   token) < 0)
