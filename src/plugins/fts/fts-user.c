@@ -5,6 +5,7 @@
 #include "mail-user.h"
 #include "fts-language.h"
 #include "fts-filter.h"
+#include "fts-tokenizer.h"
 #include "fts-user.h"
 
 #define FTS_USER_CONTEXT(obj) \
@@ -14,6 +15,7 @@ struct fts_user {
 	union mail_user_module_context module_ctx;
 
 	struct fts_language_list *lang_list;
+	struct fts_tokenizer *index_tokenizer, *search_tokenizer;
 	ARRAY_TYPE(fts_user_language) languages;
 };
 
@@ -114,6 +116,85 @@ fts_user_create_filters(struct mail_user *user, const struct fts_language *lang,
 	return 0;
 }
 
+static int
+fts_user_create_tokenizer(struct mail_user *user,
+			  struct fts_tokenizer **tokenizer_r, bool search,
+			  const char **error_r)
+{
+	const struct fts_tokenizer *tokenizer_class;
+	struct fts_tokenizer *tokenizer = NULL, *parent = NULL;
+	const char *tokenizers_key, *const *tokenizers;
+	const char *str, *error, *set_key, *const *settings;
+	unsigned int i;
+	int ret = 0;
+
+	tokenizers_key = "fts_tokenizers";
+	str = mail_user_plugin_getenv(user, tokenizers_key);
+	if (str == NULL)
+		str = "generic email-address"; /* default tokenizers */
+
+	tokenizers = t_strsplit_spaces(str, " ");
+
+	for (i = 0; tokenizers[i] != NULL; i++) {
+		tokenizer_class = fts_tokenizer_find(tokenizers[i]);
+		if (tokenizer_class == NULL) {
+			*error_r = t_strdup_printf("%s: Unknown tokenizer '%s'",
+						   tokenizers_key, tokenizers[i]);
+			ret = -1;
+			break;
+		}
+
+		set_key = t_strdup_printf("fts_tokenizers_%s", tokenizers[i]);
+		str = mail_user_plugin_getenv(user, set_key);
+
+		/* If the email-address tokenizer is included in the search
+		   tokenizer, add a setting. */
+		if (search && strcmp(fts_tokenizer_name(tokenizer_class),
+		                     FTS_TOKENIZER_EMAIL_ADDRESS_NAME) == 0) {
+			if (str == NULL)
+				str = "search yes";
+			else
+				str = t_strconcat(str, " search yes", NULL);
+		}
+
+		settings = str == NULL ? NULL : t_strsplit_spaces(str, " ");
+
+		if (fts_tokenizer_create(tokenizer_class, parent, settings,
+				      &tokenizer, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"Tokenizer '%s' init via settings '%s' failed: %s",
+				tokenizers[i], set_key, error);
+			ret = -1;
+			break;
+		}
+		if (parent != NULL)
+			fts_tokenizer_unref(&parent);
+		parent = tokenizer;
+	}
+	if (ret < 0) {
+		if (parent != NULL)
+			fts_tokenizer_unref(&parent);
+		return -1;
+	}
+	*tokenizer_r = tokenizer;
+	return 0;
+}
+
+static int fts_user_init_tokenizers(struct mail_user *user,
+				    struct fts_user *fuser,
+				    const char **error_r)
+{
+	if (fts_user_create_tokenizer(user, &fuser->index_tokenizer, FALSE,
+	                              error_r) < 0)
+		return -1;
+
+	if (fts_user_create_tokenizer(user, &fuser->search_tokenizer, TRUE,
+	                              error_r) < 0)
+		return -1;
+
+	return 0;
+}
+
 struct fts_user_language *
 fts_user_language_find(struct mail_user *user,
 		       const struct fts_language *lang)
@@ -126,6 +207,20 @@ fts_user_language_find(struct mail_user *user,
 			return *user_langp;
 	}
 	return NULL;
+}
+
+struct fts_tokenizer *fts_user_get_index_tokenizer(struct mail_user *user)
+{
+	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+
+	return fuser->index_tokenizer;
+}
+
+struct fts_tokenizer *fts_user_get_search_tokenizer(struct mail_user *user)
+{
+	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+
+	return fuser->search_tokenizer;
 }
 
 static int fts_user_language_create(struct mail_user *user,
@@ -185,12 +280,16 @@ static void fts_user_free(struct fts_user *fuser)
 		if ((*user_langp)->filter != NULL)
 			fts_filter_unref(&(*user_langp)->filter);
 	}
+
+	if (fuser->index_tokenizer != NULL)
+		fts_tokenizer_unref(&fuser->index_tokenizer);
+	if (fuser->search_tokenizer != NULL)
+		fts_tokenizer_unref(&fuser->search_tokenizer);
 }
 
 int fts_mail_user_init(struct mail_user *user, const char **error_r)
 {
 	struct fts_user *fuser;
-	const char *error;
 
 	fuser = p_new(user->pool, struct fts_user, 1);
 	p_array_init(&fuser->languages, user->pool, 4);
@@ -199,11 +298,12 @@ int fts_mail_user_init(struct mail_user *user, const char **error_r)
 		fts_user_free(fuser);
 		return -1;
 	}
-	if (fts_user_languages_fill_all(user, fuser, &error) < 0) {
-		i_error("fts_dovecot: Failed to initialize languages: %s", error);
+	if (fts_user_languages_fill_all(user, fuser, error_r) < 0 ||
+	    fts_user_init_tokenizers(user, fuser, error_r) < 0) {
 		fts_user_free(fuser);
 		return -1;
 	}
+
 	MODULE_CONTEXT_SET(user, fts_user_module, fuser);
 	return 0;
 }

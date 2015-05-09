@@ -10,6 +10,20 @@
 
 ARRAY(struct fts_tokenizer) fts_tokenizer_classes;
 
+void fts_tokenizers_init(void)
+{
+	if (!array_is_created(&fts_tokenizer_classes)) {
+		fts_tokenizer_register(fts_tokenizer_generic);
+		fts_tokenizer_register(fts_tokenizer_email_address);
+	}
+}
+
+void fts_tokenizers_deinit(void)
+{
+	if (array_is_created(&fts_tokenizer_classes))
+		array_free(&fts_tokenizer_classes);
+}
+
 /* private */
 void fts_tokenizer_register(const struct fts_tokenizer *tok_class)
 {
@@ -45,6 +59,11 @@ const struct fts_tokenizer *fts_tokenizer_find(const char *name)
 			return tp;
 	}
 	return NULL;
+}
+
+const char *fts_tokenizer_name(const struct fts_tokenizer *tok)
+{
+	return tok->name;
 }
 
 int fts_tokenizer_create(const struct fts_tokenizer *tok_class,

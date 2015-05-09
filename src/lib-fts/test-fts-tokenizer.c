@@ -25,7 +25,7 @@ static void test_fts_tokenizer_generic_only(void)
 	const char *token, *error;
 
 	test_begin("fts tokenizer generic simple");
-	fts_tokenizer_register(fts_tokenizer_generic);
+	fts_tokenizers_init();
 	tok_class = fts_tokenizer_find(FTS_TOKENIZER_GENERIC_NAME);
 	test_assert(fts_tokenizer_create(tok_class, NULL, NULL, &tok, &error) == 0);
 	while ((token = fts_tokenizer_next(tok, input, sizeof(input)-1)) != NULL) {
@@ -38,7 +38,7 @@ static void test_fts_tokenizer_generic_only(void)
 	}
 	test_assert(*eopp == NULL);
 	fts_tokenizer_unref(&tok);
-	fts_tokenizer_unregister(fts_tokenizer_generic);
+	fts_tokenizers_deinit();
 	test_end();
 }
 
@@ -267,7 +267,7 @@ static void test_fts_tokenizer_line_address_only(void)
 		"abc@example.com", "bar@example.org",
 		"foo@domain", "foo@domain", "bar@example.org", NULL
 	};
-	const char *const settings[] = {"have_parent", "0", NULL};
+	const char *const settings[] = {"no_parent", "foo", NULL};
 	struct fts_tokenizer *tok;
 	const char * const *eopp = expected_output;
 	const char *token, *error;
@@ -305,7 +305,7 @@ static void test_fts_tokenizer_char_address_only(void)
 		"abc@example.com", "bar@example.org",
 		"foo@domain", NULL
 	};
-	const char *const settings[] = {"have_parent", "0", NULL};
+	const char *const settings[] = {"no_parent", "0", NULL};
 	struct fts_tokenizer *tok;
 	const char * const *eopp = expected_output;
 	const char *token, *error;
@@ -346,7 +346,7 @@ static void test_fts_tokenizer_rand_address_only(void)
 	struct fts_tokenizer *tok;
 	const char * const *eopp = expected_output;
 	const char *token, *error;
-	const char *const settings[] = {"have_parent", "0", NULL};
+	const char *const settings[] = {"no_parent", "abc", NULL};
 	unsigned int i, step, step_max = 10;
 
 	test_begin("fts tokenizer email address, input random length");
@@ -390,8 +390,7 @@ static void test_fts_tokenizer_address_char(void)
 	unsigned int i;
 
 	test_begin("fts tokenizer email address + parent, input one character at a time");
-	fts_tokenizer_register(fts_tokenizer_generic);
-	fts_tokenizer_register(fts_tokenizer_email_address);
+	fts_tokenizers_init();
 
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &gen_tok, &error) == 0);
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, gen_tok, NULL, &tok, &error) == 0);
@@ -411,8 +410,7 @@ static void test_fts_tokenizer_address_char(void)
 	test_assert(*eopp == NULL);
 	fts_tokenizer_unref(&tok);
 	fts_tokenizer_unref(&gen_tok);
-	fts_tokenizer_unregister(fts_tokenizer_generic);
-	fts_tokenizer_unregister(fts_tokenizer_email_address);
+	fts_tokenizers_deinit();
 	test_end();
 }
 
@@ -437,8 +435,7 @@ static void test_fts_tokenizer_address_line(void)
 	unsigned int i;
 
 	test_begin("fts tokenizer email address + parent, input one line at a time");
-	fts_tokenizer_register(fts_tokenizer_generic);
-	fts_tokenizer_register(fts_tokenizer_email_address);
+	fts_tokenizers_init();
 
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &gen_tok, &error) == 0);
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, gen_tok, NULL, &tok, &error) == 0);
@@ -457,8 +454,7 @@ static void test_fts_tokenizer_address_line(void)
 	test_assert(*eopp == NULL);
 	fts_tokenizer_unref(&tok);
 	fts_tokenizer_unref(&gen_tok);
-	fts_tokenizer_unregister(fts_tokenizer_generic);
-	fts_tokenizer_unregister(fts_tokenizer_email_address);
+	fts_tokenizers_deinit();
 	test_end();
 
 }

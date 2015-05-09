@@ -738,23 +738,11 @@ static void fts_mailbox_list_deinit(struct mailbox_list *list)
 {
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(list);
 
-	if (flist->backend->tokenizer != NULL)
-		fts_tokenizer_unref(&flist->backend->tokenizer);
 	fts_backend_deinit(&flist->backend);
 	flist->module_ctx.super.deinit(list);
 }
 
-static int fts_backend_init_libfts(struct fts_backend *backend)
-{
-	const char *error;
 
-	if (fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL,
-				 &backend->tokenizer, &error) < 0) {
-		i_error("Failed to initialize fts tokenizer: %s", error);
-		return -1;
-	}
-	return 0;
-}
 
 static void
 fts_mailbox_list_init(struct mailbox_list *list, const char *name)
@@ -773,8 +761,6 @@ fts_mailbox_list_init(struct mailbox_list *list, const char *name)
 	if (fts_backend_init(name, list->ns, &error, &backend) < 0) {
 		i_error("fts: Failed to initialize backend '%s': %s",
 			name, error);
-	} else if (fts_backend_init_libfts(backend) < 0) {
-		fts_backend_deinit(&backend);
 	} else {
 		struct fts_mailbox_list *flist;
 		struct mailbox_list_vfuncs *v = list->vlast;

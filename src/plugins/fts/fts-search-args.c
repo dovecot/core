@@ -95,8 +95,10 @@ static void fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 	struct mail_search_arg *and_arg, *orig_arg = *argp;
 	const char *token, *orig_token = orig_arg->value.str;
 	unsigned int orig_token_len = strlen(orig_token);
+	struct fts_tokenizer *tokenizer;
 
 	languages = fts_user_get_all_languages(backend->ns->user);
+	tokenizer = fts_user_get_search_tokenizer(backend->ns->user);
 
 	/* we want all the tokens found from the string to be found, so create
 	   a parent AND and place all the filtered token alternatives under
@@ -107,14 +109,14 @@ static void fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 	and_arg->next = orig_arg->next;
 	*argp = and_arg;
 
-	while ((token = fts_tokenizer_next(backend->tokenizer,
+	while ((token = fts_tokenizer_next(tokenizer,
 					   (const void *)orig_token,
 					   orig_token_len)) != NULL) {
 		fts_backend_dovecot_expand_lang_tokens(languages, pool, and_arg,
 						       orig_arg, orig_token,
 						       token);
 	}
-	while ((token = fts_tokenizer_next(backend->tokenizer, NULL, 0)) != NULL) {
+	while ((token = fts_tokenizer_next(tokenizer, NULL, 0)) != NULL) {
 		fts_backend_dovecot_expand_lang_tokens(languages, pool, and_arg,
 						       orig_arg, orig_token,
 						       token);
@@ -151,7 +153,6 @@ fts_search_args_expand_tree(struct fts_backend *backend, pool_t pool,
 int fts_search_args_expand(struct fts_backend *backend,
 			   struct mail_search_args *args)
 {
-
 	fts_search_args_expand_tree(backend, args->pool, &args->args);
 
 	/* we'll need to re-simplify the args if we changed anything */

@@ -5,8 +5,8 @@
 #include "buffer.h"
 #include "fts-tokenizer-private.h"
 
-/* Return not only our tokens, but also data for parent to process.*/
-#define FTS_DEFAULT_HAVE_PARENT 1
+#define FTS_DEFAULT_NO_PARENT FALSE
+#define FTS_DEFAULT_SEARCH FALSE
 
 enum email_address_parser_state {
 	EMAIL_ADDRESS_PARSER_STATE_NONE = 0,
@@ -21,8 +21,8 @@ struct email_address_fts_tokenizer {
 	string_t *last_word;
 	string_t *parent_data; /* Copy of input data between tokens.
 	                          TODO: could be buffer_t maybe */
-	unsigned int have_parent; /* Setting for stand-alone usage.
-	                             Might be superfluous. */
+	bool no_parent;
+	bool search;
 };
 
 /*
@@ -85,18 +85,17 @@ fts_tokenizer_email_address_create(const char *const *settings,
 				   const char **error_r)
 {
 	struct email_address_fts_tokenizer *tok;
-	unsigned int have_parent = FTS_DEFAULT_HAVE_PARENT;
+	bool no_parent = FTS_DEFAULT_NO_PARENT;
+	bool search = FTS_DEFAULT_SEARCH;
 	unsigned int i;
 
 	for (i = 0; settings[i] != NULL; i += 2) {
-		const char *key = settings[i], *value = settings[i+1];
+		const char *key = settings[i];
 
-		if (strcmp(key, "have_parent") == 0) {
-			if (str_to_uint(value, &have_parent) < 0 ) {
-				*error_r = t_strdup_printf(
-					"Invalid parent setting: %s", value);
-				return -1;
-			}
+		if (strcmp(key, "no_parent") == 0) {
+			no_parent = TRUE;
+		}else if (strcmp(key, "search") == 0) {
+			search = TRUE;
 		} else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
@@ -107,7 +106,8 @@ fts_tokenizer_email_address_create(const char *const *settings,
 	tok->tokenizer = *fts_tokenizer_email_address;
 	tok->last_word = str_new(default_pool, 128);
 	tok->parent_data = str_new(default_pool, 128);
-	tok->have_parent = have_parent;
+	tok->no_parent = no_parent;
+	tok->search = search;
 	*tokenizer_r = &tok->tokenizer;
 	return 0;
 }
@@ -134,6 +134,9 @@ static const char *
 fts_tokenizer_address_parent_data(struct email_address_fts_tokenizer *tok)
 {
 	const char *ret;
+	/* TODO: search option removes address from data here. */
+	if (tok->search && tok->state >= EMAIL_ADDRESS_PARSER_STATE_DOMAIN)
+		i_debug("Would remove current token");
 
 	ret = t_strdup(str_c(tok->parent_data));
 	str_truncate(tok->parent_data, 0);
@@ -250,7 +253,7 @@ static void
 fts_tokenizer_address_update_parent(struct email_address_fts_tokenizer *tok,
                                     const unsigned char *data, size_t size)
 {
-	if (tok->have_parent > 0)
+	if (!tok->no_parent)
 		str_append_n(tok->parent_data, data, size);
 }
 static const char *
@@ -273,7 +276,7 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 	/* end of data, output lingering tokens. first the parents data, then
 	   possibly our token, if complete enough */
 	if (size == 0) {
-		if (tok->have_parent > 0 && str_len(tok->parent_data) > 0)
+		if (!tok->no_parent && str_len(tok->parent_data) > 0)
 		    return fts_tokenizer_address_parent_data(tok);
 
 		if (tok->state == EMAIL_ADDRESS_PARSER_STATE_DOMAIN
@@ -328,7 +331,7 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 			*skip_r = pos + local_skip;
 			fts_tokenizer_address_update_parent(tok, data+pos,
 			                                    local_skip);
-			if (tok->have_parent > 0)
+			if (!tok->no_parent)
 				return fts_tokenizer_address_parent_data(tok);
 			else {
 				return fts_tokenizer_address_current_token(tok);

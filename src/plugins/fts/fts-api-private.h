@@ -76,8 +76,6 @@ struct fts_backend {
 	struct fts_backend_vfuncs v;
 	struct mail_namespace *ns;
 
-	struct fts_tokenizer *tokenizer;
-
 	unsigned int updating:1;
 };
 

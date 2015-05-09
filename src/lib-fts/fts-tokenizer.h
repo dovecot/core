@@ -3,7 +3,9 @@
 
 /*
  Settings are given in the form of a const char * const *settings =
- {"key, "value", "key2", "value2", NULL} array of string pairs.
+ {"key, "value", "key2", "value2", NULL} array of string pairs. Some
+ keys, like "no_parent" and "search" are a sort of boolean and the
+ value does not matter, just mentioning the key enables the functionality.
  The array has to be NULL terminated.
 */
 /* Email address header tokenizer that returns "user@domain.org" input as
@@ -13,15 +15,21 @@
    allows doing an explicit "user@domain" search, which returns only mails
    matching that exact address (instead of e.g. a mail with both user@domain2
    and user2@domain words). */
-/* Settings: "have_parent", Return not only our tokens, but also data
-   for parent to process. Defaults to 1. Should normally not need to
-   be changed. */
+/* Settings:
+   "no_parent", Return only our tokens, no data for parent to process.
+   Defaults to disabled. Should normally not be needed.
+
+   "search" Remove addresses from parent data stream, so they are not processed
+   further. Defaults to disabled. Enable by defining the keyword (and any
+   value). */
 extern const struct fts_tokenizer *fts_tokenizer_email_address;
 #define FTS_TOKENIZER_EMAIL_ADDRESS_NAME "email-address"
 
 /* Generic email content tokenizer. Cuts text into tokens. */
-/* Settings: "maxlen" Maximum length of token, before an arbitary cut
-   off is made. Defaults to FTS_DEFAULT_TOKEN_MAX_LENGTH.
+/* Settings: 
+   "maxlen" Maximum length of token, before an arbitary cut off is made.
+   Defaults to FTS_DEFAULT_TOKEN_MAX_LENGTH.
+
    "algorithm", accepted values are "simple" or "tr29". Defines the
    method for looking for word boundaries. Simple is faster and will
    work for many texts, especially those using latin alphabets, but
@@ -35,9 +43,18 @@ extern const struct fts_tokenizer *fts_tokenizer_email_address;
 extern const struct fts_tokenizer *fts_tokenizer_generic;
 #define FTS_TOKENIZER_GENERIC_NAME "generic"
 
+/*
+ Tokenizing workflow, find --> create --> filter --> destroy.
+ Do init before first use and deinit after all done.
+ */
+
+/* Register all built-in tokenizers. */
+void fts_tokenizers_init(void);
+void fts_tokenizers_deinit(void);
+
 const struct fts_tokenizer *fts_tokenizer_find(const char *name);
 
-/* Create a new tokenizer. The settings is an array of key,value pairs. */
+/* Create a new tokenizer. The settings are described above. */
 int fts_tokenizer_create(const struct fts_tokenizer *tok_class,
 			 struct fts_tokenizer *parent,
 			 const char *const *settings,
@@ -57,4 +74,5 @@ const char *
 fts_tokenizer_next(struct fts_tokenizer *tok,
 		   const unsigned char *data, size_t size);
 
+const char *fts_tokenizer_name(const struct fts_tokenizer *tok);
 #endif
