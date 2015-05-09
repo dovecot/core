@@ -416,7 +416,7 @@ static int astream_decode_base64(struct attachment_istream *astream)
 		i_assert(ret == -1);
 		if (input->stream_errno != 0) {
 			i_error("istream-attachment: read(%s) failed: %m",
-				i_stream_get_name(base64_input));
+				i_stream_get_name(input));
 			failed = TRUE;
 		}
 	}
