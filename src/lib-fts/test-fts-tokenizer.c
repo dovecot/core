@@ -6,6 +6,8 @@
 #include "test-common.h"
 #include "fts-tokenizer.h"
 #include "fts-tokenizer-private.h"
+/* TODO: fix including and linking of this. */
+/* #include "fts-tokenizer-generic-private.h" */
 
 #include <stdlib.h>
 
@@ -13,11 +15,12 @@ static void test_fts_tokenizer_generic_only(void)
 {
 	static const unsigned char input[] =
 		"hello world\r\nAnd there\twas: text "
-		"galore, and more.\n\n (\"Hello world\")last ";
+		"galore, and longlonglongabcdefghijklmnopqrstuvwxyz more.\n\n (\"Hello world\")last ";
 	static const char *const expected_output[] = {
 		"hello", "world", "And",
 		"there", "was", "text", "galore",
-		"and", "more", "Hello", "world", "last", NULL
+		"and", "longlonglongabcdefghijklmnopqr",
+		"more", "Hello", "world", "last", NULL
 	};
 	const struct fts_tokenizer *tok_class;
 	struct fts_tokenizer *tok;
@@ -28,6 +31,8 @@ static void test_fts_tokenizer_generic_only(void)
 	fts_tokenizers_init();
 	tok_class = fts_tokenizer_find(FTS_TOKENIZER_GENERIC_NAME);
 	test_assert(fts_tokenizer_create(tok_class, NULL, NULL, &tok, &error) == 0);
+/*TODO: Uncomment when fts-tokenizer-generic-private.h inclusion is fixed */
+/*test_assert(((struct generic_fts_tokenizer *) tok)->algorithm ==  BOUNDARY_ALGORITHM_SIMPLE);*/
 	while (fts_tokenizer_next(tok, input, sizeof(input)-1, &token) > 0) {
 		test_assert(strcmp(token, *eopp) == 0);
 		eopp++;
