@@ -596,7 +596,7 @@ static const struct fts_tokenizer_vfuncs generic_tokenizer_vfuncs = {
 };
 
 static const struct fts_tokenizer fts_tokenizer_generic_real = {
-	.name = FTS_TOKENIZER_GENERIC_NAME,
+	.name = "generic",
 	.v = &generic_tokenizer_vfuncs
 };
 const struct fts_tokenizer *fts_tokenizer_generic = &fts_tokenizer_generic_real;

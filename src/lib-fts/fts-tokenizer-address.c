@@ -305,7 +305,7 @@ static const struct fts_tokenizer_vfuncs email_address_tokenizer_vfuncs = {
 };
 
 static const struct fts_tokenizer fts_tokenizer_email_address_real = {
-	.name = FTS_TOKENIZER_EMAIL_ADDRESS_NAME,
+	.name = "email-address",
 	.v = &email_address_tokenizer_vfuncs
 };
 const struct fts_tokenizer *fts_tokenizer_email_address =

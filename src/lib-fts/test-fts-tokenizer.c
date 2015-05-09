@@ -11,6 +11,14 @@
 
 #include <stdlib.h>
 
+static void test_fts_tokenizer_find(void)
+{
+	test_begin("fts tokenizer find");
+	test_assert(fts_tokenizer_find("email-address") == fts_tokenizer_email_address);
+	test_assert(fts_tokenizer_find("generic") == fts_tokenizer_generic);
+	test_end();
+}
+
 static void test_fts_tokenizer_generic_only(void)
 {
 	static const unsigned char input[] =
@@ -22,14 +30,12 @@ static void test_fts_tokenizer_generic_only(void)
 		"and", "longlonglongabcdefghijklmnopqr",
 		"more", "Hello", "world", "last", NULL
 	};
-	const struct fts_tokenizer *tok_class;
 	struct fts_tokenizer *tok;
 	const char * const *eopp = expected_output;
 	const char *token, *error;
 
 	test_begin("fts tokenizer generic simple");
-	tok_class = fts_tokenizer_find(FTS_TOKENIZER_GENERIC_NAME);
-	test_assert(fts_tokenizer_create(tok_class, NULL, NULL, &tok, &error) == 0);
+	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &tok, &error) == 0);
 /*TODO: Uncomment when fts-tokenizer-generic-private.h inclusion is fixed */
 /*test_assert(((struct generic_fts_tokenizer *) tok)->algorithm ==  BOUNDARY_ALGORITHM_SIMPLE);*/
 	while (fts_tokenizer_next(tok, input, sizeof(input)-1, &token) > 0) {
@@ -57,15 +63,13 @@ static void test_fts_tokenizer_generic_unicode_whitespace(void)
 		"there", "was", "text", "galore",
 		"and", "more", NULL
 	};
-	const struct fts_tokenizer *tok_class;
 	struct fts_tokenizer *tok;
 	const char * const *eopp = expected_output;
 	const char *token, *error;
 
 	test_begin("fts tokenizer generic simple with Unicode whitespace");
 	fts_tokenizer_register(fts_tokenizer_generic);
-	tok_class = fts_tokenizer_find(FTS_TOKENIZER_GENERIC_NAME);
-	test_assert(fts_tokenizer_create(tok_class, NULL, NULL, &tok, &error) == 0);
+	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &tok, &error) == 0);
 	while (fts_tokenizer_next(tok, input, sizeof(input)-1, &token) > 0) {
 		test_assert(strcmp(token, *eopp) == 0);
 		eopp++;
@@ -132,15 +136,13 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 		"and", "more", "Hello", "world", "3.14",
 		"3,14", "last", "longlonglongabcdefghijklmnopqr", "1", NULL
 	};
-	const struct fts_tokenizer *tok_class;
 	struct fts_tokenizer *tok;
 	const char * const *eopp = expected_output;
 	const char *token, *error;
 
 	test_begin("fts tokenizer generic TR29");
 	fts_tokenizer_register(fts_tokenizer_generic);
-	tok_class = fts_tokenizer_find(FTS_TOKENIZER_GENERIC_NAME);
-	test_assert(fts_tokenizer_create(tok_class, NULL, tr29_settings, &tok, &error) == 0);
+	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
 	while (fts_tokenizer_next(tok, input, sizeof(input)-1, &token) > 0) {
 		test_assert(strcmp(token, *eopp) == 0);
 		eopp++;
@@ -169,15 +171,13 @@ static void test_fts_tokenizer_generic_tr29_unicode_whitespace(void)
 		"there", "was", "text", "galore",
 		"and", "more", NULL
 	};
-	const struct fts_tokenizer *tok_class;
 	struct fts_tokenizer *tok;
 	const char * const *eopp = expected_output;
 	const char *token, *error;
 
 	test_begin("fts tokenizer generic TR29 with Unicode whitespace");
 	fts_tokenizer_register(fts_tokenizer_generic);
-	tok_class = fts_tokenizer_find(FTS_TOKENIZER_GENERIC_NAME);
-	test_assert(fts_tokenizer_create(tok_class, NULL, tr29_settings, &tok, &error) == 0);
+	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
 	while (fts_tokenizer_next(tok, input, sizeof(input)-1, &token) > 0) {
 		test_assert(strcmp(token, *eopp) == 0);
 		eopp++;
@@ -200,15 +200,13 @@ static void test_fts_tokenizer_generic_tr29_midnumlet_end(void)
 	static const char *const expected_output[] = {
 		"hello", "world", NULL
 	};
-	const struct fts_tokenizer *tok_class;
 	struct fts_tokenizer *tok;
 	const char * const *eopp = expected_output;
 	const char *token, *error;
 
 	test_begin("fts tokenizer generic TR29 with MinNumLet U+FF0E at end");
 	fts_tokenizer_register(fts_tokenizer_generic);
-	tok_class = fts_tokenizer_find(FTS_TOKENIZER_GENERIC_NAME);
-	test_assert(fts_tokenizer_create(tok_class, NULL, tr29_settings, &tok, &error) == 0);
+	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
 	while (fts_tokenizer_next(tok, input, sizeof(input)-1, &token) > 0) {
 		test_assert(null_strcmp(token, *eopp) == 0);
 		eopp++;
@@ -581,6 +579,7 @@ static void test_fts_tokenizer_address_search(void)
 int main(void)
 {
 	static void (*test_functions[])(void) = {
+		test_fts_tokenizer_find,
 		test_fts_tokenizer_generic_only,
 		test_fts_tokenizer_generic_unicode_whitespace,
 		test_fts_tokenizer_char_generic_only,

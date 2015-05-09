@@ -23,7 +23,6 @@
    further. Defaults to disabled. Enable by defining the keyword (and any
    value). */
 extern const struct fts_tokenizer *fts_tokenizer_email_address;
-#define FTS_TOKENIZER_EMAIL_ADDRESS_NAME "email-address"
 
 /* Generic email content tokenizer. Cuts text into tokens. */
 /* Settings: 
@@ -41,7 +40,6 @@ extern const struct fts_tokenizer *fts_tokenizer_email_address;
    differ in some details, e.g. simple will cut "a.b" and tr29 will
    not. The default is "simple" */
 extern const struct fts_tokenizer *fts_tokenizer_generic;
-#define FTS_TOKENIZER_GENERIC_NAME "generic"
 
 /*
  Tokenizing workflow, find --> create --> filter --> destroy.
