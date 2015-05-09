@@ -11,6 +11,8 @@
 
 struct fts_filter_stemmer_snowball {
 	struct fts_filter filter;
+	pool_t pool;
+	struct fts_language *lang;
 	struct sb_stemmer *stemmer;
 };
 
@@ -33,7 +35,7 @@ static void fts_filter_stemmer_snowball_destroy(struct fts_filter *filter)
 
 	if (sp->stemmer != NULL)
 		sb_stemmer_delete(sp->stemmer);
-	i_free(sp);
+	pool_unref(&sp->pool);
 }
 
 static int
@@ -43,6 +45,7 @@ fts_filter_stemmer_snowball_create(const struct fts_language *lang,
                                    const char **error_r)
 {
 	struct fts_filter_stemmer_snowball *sp;
+	pool_t pp;
 
 	*filter_r = NULL;
 
@@ -50,19 +53,27 @@ fts_filter_stemmer_snowball_create(const struct fts_language *lang,
 		*error_r = t_strdup_printf("Unknown setting: %s", settings[0]);
 		return -1;
 	}
-
-	sp = i_new(struct fts_filter_stemmer_snowball, 1);
+	pp = pool_alloconly_create(MEMPOOL_GROWING"fts_filter_stemmer_snowball",
+	                           sizeof(struct fts_filter));
+	sp = p_new(pp, struct fts_filter_stemmer_snowball, 1);
+	sp->pool = pp;
 	sp->filter = *fts_filter_stemmer_snowball;
-	sp->stemmer = sb_stemmer_new(t_str_lcase(lang->name), NULL);
+	sp->lang = p_malloc(sp->pool, sizeof(struct fts_language));
+	sp->lang->name = str_lcase(p_strdup(sp->pool, lang->name));
+	*filter_r = &sp->filter;
+	return 0;
+}
+
+static int
+fts_filter_stemmer_snowball_create_stemmer(struct fts_filter_stemmer_snowball *sp)
+{
+	sp->stemmer = sb_stemmer_new(sp->lang->name, NULL);
 	if (sp->stemmer == NULL) {
-		if (error_r != NULL) {
-			*error_r = t_strdup_printf("Creating a Snowball stemmer failed." \
-			                    " lang: %s", lang->name);
-		}
+		sp->filter.error = t_strdup_printf("Creating a Snowball stemmer failed." \
+		                                   " lang: %s", sp->lang->name);
 		fts_filter_stemmer_snowball_destroy(&sp->filter);
 		return -1;
 	}
-	*filter_r = &sp->filter;
 	return 0;
 }
 
@@ -74,6 +85,10 @@ fts_filter_stemmer_snowball_filter(struct fts_filter *filter,
 	int len;
 	struct fts_filter_stemmer_snowball *sp =
 		(struct fts_filter_stemmer_snowball *) filter;
+
+	if (sp->stemmer == NULL)
+		if (fts_filter_stemmer_snowball_create_stemmer(sp) < 0)
+			return -1;
 
 	base = sb_stemmer_stem(sp->stemmer, (const unsigned char *)*token, strlen(*token));
 	len = sb_stemmer_length(sp->stemmer);
