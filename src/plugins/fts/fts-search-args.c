@@ -53,7 +53,7 @@ fts_search_arg_create_or(const struct mail_search_arg *orig_arg, pool_t pool,
 	return or_arg;
 }
 
-static void
+static int
 fts_backend_dovecot_expand_lang_tokens(const ARRAY_TYPE(fts_user_language) *languages,
 				       pool_t pool,
 				       struct mail_search_arg *parent_arg,
@@ -75,14 +75,15 @@ fts_backend_dovecot_expand_lang_tokens(const ARRAY_TYPE(fts_user_language) *lang
 	/* add the word filtered */
 	array_foreach(languages, langp) {
 		token2 = t_strdup(token);
-		if ((*langp)->filter != NULL)
-			ret = fts_filter_filter((*langp)->filter, &token2, &error);
+		ret = (*langp)->filter == NULL ? 1 :
+			fts_filter_filter((*langp)->filter, &token2, &error);
 		if (ret > 0) {
 			token2 = t_strdup(token2);
 			array_append(&tokens, &token2, 1);
-		}
-		else if (ret < 0)
+		} else if (ret < 0) {
 			i_error("fts: Couldn't create search tokens: %s", error);
+			return -1;
+		}
 	}
 	array_sort(&tokens, i_strcmp_p);
 	strings_deduplicate(&tokens);
@@ -90,10 +91,11 @@ fts_backend_dovecot_expand_lang_tokens(const ARRAY_TYPE(fts_user_language) *lang
 	arg = fts_search_arg_create_or(orig_arg, pool, &tokens);
 	arg->next = parent_arg->value.subargs;
 	parent_arg->value.subargs = arg;
+	return 0;
 }
 
-static void fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
-				  struct mail_search_arg **argp)
+static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
+				 struct mail_search_arg **argp)
 {
 	const ARRAY_TYPE(fts_user_language) *languages;
 	struct mail_search_arg *and_arg, *orig_arg = *argp;
@@ -111,33 +113,39 @@ static void fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 	and_arg->type = SEARCH_SUB;
 	and_arg->match_not = orig_arg->match_not;
 	and_arg->next = orig_arg->next;
-	*argp = and_arg;
 
 	while (fts_tokenizer_next(tokenizer,
 	                          (const void *)orig_token,
 	                          orig_token_len, &token) > 0) {
-		fts_backend_dovecot_expand_lang_tokens(languages, pool, and_arg,
-						       orig_arg, orig_token,
-						       token);
+		if (fts_backend_dovecot_expand_lang_tokens(languages, pool, and_arg,
+							   orig_arg, orig_token,
+							   token) < 0)
+			return -1;
 	}
 	while (fts_tokenizer_next(tokenizer, NULL, 0, &token) > 0) {
-		fts_backend_dovecot_expand_lang_tokens(languages, pool, and_arg,
-		                                       orig_arg, orig_token,
-		                                       token);
+		if (fts_backend_dovecot_expand_lang_tokens(languages, pool, and_arg,
+							   orig_arg, orig_token,
+							   token) < 0)
+			return -1;
 	}
+	*argp = and_arg;
+	return 0;
 }
 
-static void
+static int
 fts_search_args_expand_tree(struct fts_backend *backend, pool_t pool,
 			    struct mail_search_arg **argp)
 {
+	int ret;
+
 	for (; *argp != NULL; argp = &(*argp)->next) {
 		switch ((*argp)->type) {
 		case SEARCH_OR:
 		case SEARCH_SUB:
 		case SEARCH_INTHREAD:
-			fts_search_args_expand_tree(backend, pool,
-						    &(*argp)->value.subargs);
+			if (fts_search_args_expand_tree(backend, pool,
+							&(*argp)->value.subargs) < 0)
+				return -1;
 			break;
 		case SEARCH_HEADER:
 		case SEARCH_HEADER_ADDRESS:
@@ -145,22 +153,32 @@ fts_search_args_expand_tree(struct fts_backend *backend, pool_t pool,
 		case SEARCH_BODY:
 		case SEARCH_TEXT:
 			T_BEGIN {
-				fts_search_arg_expand(backend, pool, argp);
+				ret = fts_search_arg_expand(backend, pool, argp);
 			} T_END;
+			if (ret < 0)
+				return -1;
 			break;
 		default:
 			break;
 		}
 	}
+	return 0;
 }
 
 int fts_search_args_expand(struct fts_backend *backend,
 			   struct mail_search_args *args)
 {
-	fts_search_args_expand_tree(backend, args->pool, &args->args);
+	struct mail_search_arg *args_dup;
+
+	/* duplicate the args, so if expansion fails we haven't changed
+	   anything */
+	args_dup = mail_search_arg_dup(args->pool, args->args);
+	if (fts_search_args_expand_tree(backend, args->pool, &args_dup) < 0)
+		return -1;
 
 	/* we'll need to re-simplify the args if we changed anything */
 	args->simplified = FALSE;
+	args->args = args_dup;
 	mail_search_args_simplify(args);
 	return 0;
 }
