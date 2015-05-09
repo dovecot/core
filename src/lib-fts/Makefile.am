@@ -62,7 +62,6 @@ libfts_la_LIBADD = \
 libfts_la_SOURCES = \
 	fts-filter.c \
 	fts-filter-normalizer-icu.c \
-	fts-filter-normalizer-simple.c \
 	fts-filter-stopwords.c \
 	fts-filter-stemmer-snowball.c \
 	fts-language.c \

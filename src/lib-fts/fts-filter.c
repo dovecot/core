@@ -15,7 +15,6 @@ void fts_filters_init(void)
 	fts_filter_register(fts_filter_stopwords);
 	fts_filter_register(fts_filter_stemmer_snowball);
 	fts_filter_register(fts_filter_normalizer_icu);
-	fts_filter_register(fts_filter_normalizer_simple);
 }
 
 void fts_filters_deinit(void)
