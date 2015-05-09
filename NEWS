@@ -1,3 +1,50 @@
+v2.2.17 2015-05-xx  Timo Sirainen <tss@iki.fi>
+
+	* Dovecot no longer checks or warns if a mountpoint is removed. This
+	  was causing more trouble than it was worth. Make sure that all the
+	  mountpoints that Dovecot accesses aren't writable by mail processes
+	  when they're unmounted.
+	* dict server wasn't properly escaping/unescaping data. Fixing this
+	  broke backwards compatibility with data that contains line feeds.
+	  This hopefully affects only very few installations. If you're using
+	  dict to save multiline data (Sieve scripts to SQL), you may be
+	  affected.
+	* imap: SPECIAL-USE capability is no longer advertised if there are
+	  no special_use flags specified for any mailboxes.
+
+	+ lmtp: Added lmtp_hdr_delivery_address setting to specify whether
+	  to include email address in Delivered-To: and Received: headers.
+	+ Added initial version of full text search library, which includes
+	  language-specific text normalization and filtering. This is still
+	  in development, but it's already possible to use for testing with
+	  fts-lucene and fts-solr.
+	+ lda, lmtp: deliver_log_format can now include %{delivery_time},
+	  which expands to how many milliseconds it took to deliver the mail.
+	  With LMTP %{session_time} also expands to how many milliseconds the
+	  LMTP session took, not including the delivery time.
+	+ lmtp proxy: Mail delivery logging includes timing information.
+	+ imap: Most IMAP commands now include in the tagged reply how many
+	  milliseconds it took to run the command (not counting the time spent
+	  on waiting for the IMAP client to read/write data).
+	+ director: Implemented director_proxy_maybe passdb extra field to
+	  be able to run director and backend in the same Dovecot instance.
+	  (LMTP doesn't support mixed proxy/non-proxy destinations currently.)
+	+ doveadm: Added -F <file> parameter to read a list of users from the
+	  given file and run the command for all the users. This is similar to
+	  -A parameter reading the list of users from userdb lookup.
+	- auth: If auth_master_user_separator was set, auth process could be
+	  crashed by trying to log in with empty master username.
+	- imap-login, pop3-login: Fixed crash on handshake failures with new
+	  OpenSSL versions (v1.0.2) when SSLv3 was disabled.
+	- auth: If one passdb fails allow_nets check, it shouldn't have failed
+	  all the other passdb checks later on.
+	- imap: Server METADATA couldn't be accessed
+	- imapc: Fixed \Muted label handling in gmail-migration.
+	- imapc: Various bugfixes and improvements.
+	- Trash plugin fixes by Alexei Gradinari
+	- mbox: Fixed crash/corruption in some situations when the first mail
+	  was expunged.
+
 v2.2.16 2015-03-12  Timo Sirainen <tss@iki.fi>
 
 	* dbox: Resyncing (e.g. doveadm force-resync) no longer deletes
