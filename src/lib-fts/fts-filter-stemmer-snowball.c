@@ -19,8 +19,7 @@ struct fts_filter_stemmer_snowball {
 static bool
 fts_filter_stemmer_snowball_supports(const struct fts_language *lang)
 {
-	struct sb_stemmer  *stemmer = sb_stemmer_new(t_str_lcase(lang->name),
-	                                             NULL);
+	struct sb_stemmer *stemmer = sb_stemmer_new(lang->name, NULL);
 	if (stemmer != NULL) {
 		sb_stemmer_delete(stemmer);
 		return TRUE;
@@ -59,7 +58,7 @@ fts_filter_stemmer_snowball_create(const struct fts_language *lang,
 	sp->pool = pp;
 	sp->filter = *fts_filter_stemmer_snowball;
 	sp->lang = p_malloc(sp->pool, sizeof(struct fts_language));
-	sp->lang->name = str_lcase(p_strdup(sp->pool, lang->name));
+	sp->lang->name = p_strdup(sp->pool, lang->name);
 	*filter_r = &sp->filter;
 	return 0;
 }

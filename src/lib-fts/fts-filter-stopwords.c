@@ -107,7 +107,7 @@ fts_filter_stopwords_create(const struct fts_language *lang,
 	sp->filter = *fts_filter_stopwords;
 	sp->pool = pp;
 	sp->lang = p_malloc(sp->pool, sizeof(struct fts_language));
-	sp->lang->name = str_lcase(p_strdup(sp->pool, lang->name));
+	sp->lang->name = p_strdup(sp->pool, lang->name);
 	if (dir != NULL)
 		sp->stopwords_dir = p_strdup(pp, dir);
 	else

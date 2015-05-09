@@ -13,6 +13,7 @@ enum fts_language_result {
 };
 
 struct fts_language {
+	/* Two-letter language name lowercased, e.g. "en" */
 	const char *name;
 };
 ARRAY_DEFINE_TYPE(fts_language, const struct fts_language *);

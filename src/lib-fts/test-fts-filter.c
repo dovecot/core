@@ -186,7 +186,7 @@ static void test_fts_filter_stemmer_snowball_stem_english(void)
 	const struct fts_filter *filter_class;
 	struct fts_filter *stemmer;
 	const char *error;
-	struct fts_language language = { .name = "EN" };
+	struct fts_language language = { .name = "en" };
 	const char *token = NULL;
 	const char * const tokens[] = {
 		"dries" ,"friendlies", "All", "human", "beings", "are",
@@ -226,7 +226,7 @@ static void test_fts_filter_stemmer_snowball_stem_french(void)
 	const struct fts_filter *filter_class;
 	struct fts_filter *stemmer;
 	const char *error;
-	struct fts_language language = { .name = "fRench" };
+	struct fts_language language = { .name = "fr" };
 	const char *token = NULL;
 	const char * const tokens[] = {
 		"Tous", "les", "\xC3\xAAtres", "humains", "naissent",
@@ -262,7 +262,7 @@ static void test_fts_filter_stopwords_stemmer_eng(void)
 	struct fts_filter *stemmer;
 	struct fts_filter *filter;
 	const char *error;
-	struct fts_language language = { .name = "eN" };
+	struct fts_language language = { .name = "en" };
 	const char *token = NULL;
 	const char * const tokens[] = {
 		"dries" ,"friendlies", "All", "human", "beings", "are",
@@ -486,7 +486,7 @@ static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 	const char * const id_settings[] =
 		//{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC", NULL};
 		{"id", "Lower", NULL};
-	struct fts_language language = { .name = "En" };
+	struct fts_language language = { .name = "en" };
 	const char *token = NULL;
 	const char * const tokens[] = {
 		"dries" ,"friendlies", "All", "human", "beings", "are",
