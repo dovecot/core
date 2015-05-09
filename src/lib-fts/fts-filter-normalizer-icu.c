@@ -98,8 +98,9 @@ static int make_uchar(const char *src, UChar **dst, int32_t *dst_uchars_r)
 	return 0;
 }
 
-static int make_utf8(const UChar *src, char **dst, const char **error_r)
+static int make_utf8(const UChar *src, const char **_dst, const char **error_r)
 {
+	char *dst;
 	char *retp = NULL;
 	int32_t dsize = 0;
 	int32_t dsize_actual = 0;
@@ -120,9 +121,9 @@ static int make_utf8(const UChar *src, char **dst, const char **error_r)
 	i_assert(NULL == retp);
 
 	dsize++; /* room for '\0' byte */
-	*dst = t_malloc(dsize);
+	dst = t_malloc(dsize);
 	err = U_ZERO_ERROR;
-	retp = u_strToUTF8WithSub(*dst, dsize, &dsize_actual, src, usrc_len,
+	retp = u_strToUTF8WithSub(dst, dsize, &dsize_actual, src, usrc_len,
 	                         UNICODE_REPLACEMENT_CHAR, &sub_num, &err);
 	if (U_FAILURE(err))
 		i_panic("Lib ICU u_strToUTF8WithSub() failed: %s",
@@ -137,8 +138,9 @@ static int make_utf8(const UChar *src, char **dst, const char **error_r)
 		                    " Substitutions (%d) were made.", sub_num);
 		return -1;
 	}
-	i_assert(retp == *dst);
+	i_assert(retp == dst);
 
+	*_dst = dst;
 	return 0;
 }
 
@@ -212,27 +214,24 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 	return 0;
 }
 
-/* Returns 0 on success and -1 on error. */
-/* TODO: delay errors until _deinit() and return some other values? */
-static const char *
-fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char *token)
+static int
+fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token)
 {
 	UErrorCode err = U_ZERO_ERROR;
 	UChar *utext = NULL;
 	int32_t utext_cap = 0;
 	int32_t utext_len = -1;
 	int32_t utext_limit;
-	char *normalized = NULL;
 	struct fts_filter_normalizer *np =
 		(struct fts_filter_normalizer *)filter;
 
 	/* TODO: fix error handling */
 	if (np->error != NULL)
-		return NULL;
+		goto err_exit;
 
-	if (make_uchar(token, &utext, &utext_cap) < 0) {
+	if (make_uchar(*token, &utext, &utext_cap) < 0) {
 		fts_filter_normalizer_icu_error(&np->error, "Conversion to UChar failed");
-		return NULL;
+		goto err_exit;
 	}
 	/*
 	   TODO: Some problems here.  How much longer can the result
@@ -249,8 +248,9 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char *token)
 		   size utrans_transUChars indicated */
 		utext_len++; /* room for '\0' bytes(2) */
 		utext_cap = utext_len;
-		if (make_uchar(token, &utext, &utext_cap) < 0)
-			return NULL;
+		if (make_uchar(*token, &utext, &utext_cap) < 0) {
+			goto err_exit;
+		}
 		i_assert(utext_cap ==  utext_len);
 		utext_limit = u_strlen(utext);
 		utext_len = -1;
@@ -262,13 +262,17 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char *token)
 
 	if (U_FAILURE(err)) {
 		icu_error(&np->error, err, "utrans_transUChars()");
-		return NULL;
+		goto err_exit;
 	}
 
-	if (make_utf8(utext, &normalized, &np->error) < 0)
-		return NULL;
+	if (make_utf8(utext, token, &np->error) < 0) {
+		goto err_exit;
+	}
 
-	return normalized;
+	return 1;
+ err_exit:
+	*token = NULL;
+	return -1;
 }
 
 #else
@@ -289,7 +293,7 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 	return -1;
 }
 
-static const char *
+static int
 fts_filter_normalizer_icu_filter(struct fts_filter *filter ATTR_UNUSED,
 				 const char *token ATTR_UNUSED)
 {

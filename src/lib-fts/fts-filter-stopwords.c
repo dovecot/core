@@ -125,18 +125,20 @@ fts_filter_stopwords_create(const struct fts_language *lang,
 	return ret;
 }
 
-static const char *
-fts_filter_stopwords_filter(struct fts_filter *filter, const char *token)
+static int
+fts_filter_stopwords_filter(struct fts_filter *filter, const char **token)
 {
 	const char *stopword;
 	struct fts_filter_stopwords *sp =
 		(struct fts_filter_stopwords *) filter;
 
-	stopword = hash_table_lookup(sp->stopwords, token);
-	if (stopword != NULL)
-		return NULL;
+	stopword = hash_table_lookup(sp->stopwords, *token);
+	if (stopword != NULL) {
+		*token = NULL;
+		return 0;
+	}
 	else
-		return token;
+		return 1;
 }
 
 const struct fts_filter_vfuncs stopwords_filter_vfuncs = {

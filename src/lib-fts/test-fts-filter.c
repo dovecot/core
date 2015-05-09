@@ -24,7 +24,7 @@ static void test_fts_filter_stopwords_eng(void)
 	                       "drive", NULL, NULL, NULL, "reason",
 	                       NULL, NULL, NULL,  "sing"};
 	const char **ip, **op;
-	const char *filtered;
+	const char *token;
 
 	test_begin("fts filter stopwords, English");
 	filter_class = fts_filter_find(STOPWORDS_FILTER_NAME);
@@ -34,12 +34,14 @@ static void test_fts_filter_stopwords_eng(void)
 	ip = input;
 	op = output;
 	while (*ip != NULL) {
-		filtered = fts_filter_filter(filter, *ip);
-		if (filtered == NULL)
+		token = *ip;
+		ret = fts_filter_filter(filter, &token);
+		test_assert(ret >= 0);
+		if (ret == 0)
 			test_assert(*op == NULL);
 		else {
 			test_assert(*op != NULL);
-			test_assert(strcmp(*ip, filtered)  == 0);
+			test_assert(strcmp(*ip, token)  == 0);
 		}
 		op++;
 		ip++;
@@ -66,7 +68,7 @@ static void test_fts_filter_stopwords_fin(void)
 		{"kuka", "kenet", "keneen", "testi", "eiv\xC3\xA4t", NULL};
 	const char *output2[] = {NULL, NULL, NULL, "testi", NULL};
 	const char **ip, **op;
-	const char *filtered;
+	const char *token;
 
 	test_begin("fts filter stopwords, Finnish");
 	filter_class = fts_filter_find(STOPWORDS_FILTER_NAME);
@@ -76,12 +78,14 @@ static void test_fts_filter_stopwords_fin(void)
 	ip = input;
 	op = output;
 	while (*ip != NULL) {
-		filtered = fts_filter_filter(filter, *ip);
-		if (filtered == NULL)
+		token = *ip;
+		ret = fts_filter_filter(filter, &token);
+		test_assert(ret >= 0);
+		if (ret == 0)
 			test_assert(*op == NULL);
 		else {
 			test_assert(*op != NULL);
-			test_assert(strcmp(*ip, filtered)  == 0);
+			test_assert(strcmp(*ip, token)  == 0);
 		}
 		op++;
 		ip++;
@@ -95,12 +99,13 @@ static void test_fts_filter_stopwords_fin(void)
 	ip = input2;
 	op = output2;
 	while (*ip != NULL) {
-		filtered = fts_filter_filter(filter, *ip);
-		if (filtered == NULL)
+		token = *ip;
+		ret = fts_filter_filter(filter, &token);
+		if (ret == 0)
 			test_assert(*op == NULL);
 		else {
 			test_assert(*op != NULL);
-			test_assert(strcmp(*ip, filtered)  == 0);
+			test_assert(strcmp(*ip, token)  == 0);
 		}
 		op++;
 		ip++;
@@ -127,7 +132,7 @@ static void test_fts_filter_stopwords_fra(void)
 	                        "quelconque", NULL, 
 	                        "l\xE2\x80\x99""av\xC3\xA8nement",};
 	const char **ip, **op;
-	const char *filtered;
+	const char *token;
 
 	test_begin("fts filter stopwords, French");
 	filter_class = fts_filter_find(STOPWORDS_FILTER_NAME);
@@ -137,12 +142,14 @@ static void test_fts_filter_stopwords_fra(void)
 	ip = input;
 	op = output;
 	while (*ip != NULL) {
-		filtered = fts_filter_filter(filter, *ip);
-		if (filtered == NULL)
+		token = *ip;
+		ret = fts_filter_filter(filter, &token);
+		test_assert(ret >= 0);
+		if (ret == 0)
 			test_assert(*op == NULL);
 		else {
 			test_assert(*op != NULL);
-			test_assert(strcmp(*ip, filtered)  == 0);
+			test_assert(strcmp(*ip, token)  == 0);
 		}
 		op++;
 		ip++;
@@ -177,7 +184,7 @@ static void test_fts_filter_stemmer_snowball_stem_english(void)
 	struct fts_filter *stemmer;
 	const char *error;
 	struct fts_language language = { .name = "EN" };
-	const char *base = NULL;
+	const char *token = NULL;
 	const char * const tokens[] = {
 		"dries" ,"friendlies", "All", "human", "beings", "are",
 		 "born", "free", "and", "equal", "in", "dignity", "and",
@@ -199,9 +206,10 @@ static void test_fts_filter_stemmer_snowball_stem_english(void)
 	test_assert(ret == 0);
 	bpp = bases;
 	for (tpp=tokens; *tpp != NULL; tpp++) {
-		base = fts_filter_filter(stemmer, *tpp);
-		test_assert(base != NULL);
-		test_assert(null_strcmp(base, *bpp) == 0);
+		token = *tpp;
+		ret = fts_filter_filter(stemmer, &token);
+		test_assert(token != NULL);
+		test_assert(null_strcmp(token, *bpp) == 0);
 		bpp++;
 	}
 	fts_filter_unref(&stemmer);
@@ -216,7 +224,7 @@ static void test_fts_filter_stemmer_snowball_stem_french(void)
 	struct fts_filter *stemmer;
 	const char *error;
 	struct fts_language language = { .name = "fRench" };
-	const char *base = NULL;
+	const char *token = NULL;
 	const char * const tokens[] = {
 		"Tous", "les", "\xC3\xAAtres", "humains", "naissent",
 		"libres", "et",	"\xC3\xA9gaux", "en", "dignit\xC3\xA9",
@@ -233,9 +241,10 @@ static void test_fts_filter_stemmer_snowball_stem_french(void)
 	test_assert(ret == 0);
 	bpp = bases;
 	for (tpp=tokens; *tpp != NULL; tpp++) {
-		base = fts_filter_filter(stemmer, *tpp);
-		test_assert(base != NULL);
-		test_assert(null_strcmp(base, *bpp) == 0);
+		token = *tpp;
+		ret = fts_filter_filter(stemmer, &token);
+		test_assert(token != NULL);
+		test_assert(null_strcmp(token, *bpp) == 0);
 		bpp++;
 	}
 	fts_filter_unref(&stemmer);
@@ -251,7 +260,7 @@ static void test_fts_filter_stopwords_stemmer_eng(void)
 	struct fts_filter *filter;
 	const char *error;
 	struct fts_language language = { .name = "eN" };
-	const char *base = NULL;
+	const char *token = NULL;
 	const char * const tokens[] = {
 		"dries" ,"friendlies", "All", "human", "beings", "are",
 		 "born", "free", "and", "equal", "in", "dignity", "and",
@@ -279,12 +288,13 @@ static void test_fts_filter_stopwords_stemmer_eng(void)
 
 	bpp = bases;
 	for (tpp=tokens; *tpp != NULL; tpp++) {
-		base = fts_filter_filter(stemmer, *tpp);
-		if (base == NULL)
+		token = *tpp;
+		ret = fts_filter_filter(stemmer, &token);
+		if (ret == 0)
 			test_assert(*bpp == NULL);
 		else {
 			test_assert(*bpp != NULL);
-			test_assert(null_strcmp(*bpp, base)  == 0);
+			test_assert(null_strcmp(*bpp, token)  == 0);
 		}
 		bpp++;
 	}
@@ -322,7 +332,7 @@ static void test_fts_filter_normalizer_swedish_short(void)
 	const char * const settings[] =
 		{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC", NULL};
 	const char *error = NULL;
-	const char *normalized = NULL;
+	const char *token = NULL;
 	unsigned int i;
 
 	test_begin("fts filter normalizer Swedish short text");
@@ -333,8 +343,9 @@ static void test_fts_filter_normalizer_swedish_short(void)
 		test_assert(ret == 0);
 		for (i = 0; i < N_ELEMENTS(input); i++) {
 			if (input[i] != NULL) {
-				test_assert_idx((normalized = fts_filter_filter(norm, input[i])) != NULL, i);
-				test_assert_idx(null_strcmp(normalized, expected_output[i]) == 0, i);
+				token = input[i];
+				test_assert_idx(fts_filter_filter(norm, &token) == 1, i);
+				test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
 			}
 		}
 		fts_filter_unref(&norm);
@@ -366,7 +377,7 @@ static void test_fts_filter_normalizer_swedish_short_default_id(void)
 		"vem kan segla forutan vind?\naaooaa"
 	};
 	const char *error = NULL;
-	const char *normalized = NULL;
+	const char *token = NULL;
 	unsigned int i;
 
 	test_begin("fts filter normalizer Swedish short text using default ID");
@@ -377,8 +388,9 @@ static void test_fts_filter_normalizer_swedish_short_default_id(void)
 		test_assert(ret == 0);
 		for (i = 0; i < N_ELEMENTS(input); i++) {
 			if (input[i] != NULL) {
-				test_assert_idx((normalized = fts_filter_filter(norm, input[i])) != NULL, i);
-				test_assert_idx(null_strcmp(normalized, expected_output[i]) == 0, i);
+				token = input[i];
+				test_assert_idx(fts_filter_filter(norm, &token) == 1, i);
+				test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
 			}
 		}
 		fts_filter_unref(&norm);
@@ -398,7 +410,7 @@ static void test_fts_filter_normalizer_french(void)
 		{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove", NULL};
 	char buf[4096] = {0};
 	const char *error = NULL;
-	const char *normalized = NULL;
+	const char *tokens;
 	int ret;
 	unsigned char sha512_digest[SHA512_RESULTLEN];
 	struct sha512_ctx ctx;
@@ -424,11 +436,11 @@ static void test_fts_filter_normalizer_french(void)
 		test_assert(input != NULL);
 		sha512_init(&ctx);
 		while (NULL != fgets(buf, sizeof(buf), input)) {
-
-			if ((normalized = fts_filter_filter(norm, buf)) == NULL){
+			tokens = buf;
+			if (fts_filter_filter(norm, &tokens) != 1){
 				break;
 			}
-			sha512_loop(&ctx, normalized, strlen(normalized));
+			sha512_loop(&ctx, tokens, strlen(tokens));
 		}
 		fclose(input);
 		sha512_result(&ctx, sha512_digest);
@@ -470,7 +482,7 @@ static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 		//{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC", NULL};
 		{"id", "Lower", NULL};
 	struct fts_language language = { .name = "En" };
-	const char *base = NULL;
+	const char *token = NULL;
 	const char * const tokens[] = {
 		"dries" ,"friendlies", "All", "human", "beings", "are",
 		"born", "free", "and", "equal", "in", "dignity", "and",
@@ -503,12 +515,13 @@ static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 
 	bpp = bases;
 	for (tpp = tokens; *tpp != NULL; tpp++) {
-		base = fts_filter_filter(stemmer, *tpp);
-		if (base == NULL)
+		token = *tpp;
+		ret = fts_filter_filter(stemmer, &token);
+		if (ret == 0)
 			test_assert(*bpp == NULL);
 		else {
 			test_assert(*bpp != NULL);
-			test_assert(strcasecmp(*bpp, base)  == 0);
+			test_assert(strcasecmp(*bpp, token)  == 0);
 		}
 		bpp++;
 	}

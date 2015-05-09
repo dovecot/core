@@ -249,9 +249,11 @@ fts_build_add_tokens_with_filter(struct fts_mail_build_context *ctx,
 	tokenizer = fts_user_get_index_tokenizer(ctx->update_ctx->backend->ns->user);
 	while ((ret = fts_tokenizer_next(tokenizer, data, size, &token)) > 0) {
 		if (filter != NULL) {
-			token = fts_filter_filter(filter, token);
-			if (token == NULL)
+			ret = fts_filter_filter(filter, &token);
+			if (ret == 0)
 				continue;
+			if (ret < 0)
+				break;
 		}
 		if (fts_backend_update_build_more(ctx->update_ctx,
 						  (const void *)token,

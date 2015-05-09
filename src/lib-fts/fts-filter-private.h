@@ -17,7 +17,7 @@ struct fts_filter_vfuncs {
 	              const char *const *settings,
 	              struct fts_filter **filter_r,
 	              const char **error_r);
-	const char * (*filter)(struct fts_filter *filter, const char *token);
+	int (*filter)(struct fts_filter *filter, const char **token);
 	void (*destroy)(struct fts_filter *filter);
 };
 

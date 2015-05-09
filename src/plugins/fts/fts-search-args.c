@@ -64,6 +64,7 @@ fts_backend_dovecot_expand_lang_tokens(const ARRAY_TYPE(fts_user_language) *lang
 	struct fts_user_language *const *langp;
 	ARRAY_TYPE(const_string) tokens;
 	const char *token2;
+	int ret;
 
 	t_array_init(&tokens, 4);
 	/* first add the word exactly as it without any tokenization */
@@ -73,9 +74,10 @@ fts_backend_dovecot_expand_lang_tokens(const ARRAY_TYPE(fts_user_language) *lang
 
 	/* add the word filtered */
 	array_foreach(languages, langp) {
-		token2 = (*langp)->filter == NULL ? token :
-			fts_filter_filter((*langp)->filter, token);
-		if (token2 != NULL) {
+		token2 = t_strdup(token);
+		if ((*langp)->filter != NULL)
+			ret = fts_filter_filter((*langp)->filter, &token2);
+		if (ret > 0) {
 			token2 = t_strdup(token2);
 			array_append(&tokens, &token2, 1);
 		}

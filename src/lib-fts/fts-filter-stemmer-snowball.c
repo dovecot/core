@@ -66,18 +66,20 @@ fts_filter_stemmer_snowball_create(const struct fts_language *lang,
 	return 0;
 }
 
-static const char *
+static int
 fts_filter_stemmer_snowball_filter(struct fts_filter *filter,
-                                   const char *token)
+                                   const char **token)
 {
 	const sb_symbol *base;
 	int len;
 	struct fts_filter_stemmer_snowball *sp =
 		(struct fts_filter_stemmer_snowball *) filter;
 
-	base = sb_stemmer_stem(sp->stemmer, (const unsigned char *)token, strlen(token));
+	base = sb_stemmer_stem(sp->stemmer, (const unsigned char *)*token, strlen(*token));
 	len = sb_stemmer_length(sp->stemmer);
-	return t_strdup_until(base, base + len);
+	*token = t_strdup_until(base, base + len);
+
+	return *token != NULL? 1: -1;
 }
 
 #else
@@ -101,11 +103,11 @@ fts_filter_stemmer_snowball_destroy(struct fts_filter *stemmer ATTR_UNUSED)
 {
 }
 
-static const char *
+static int
 fts_filter_stemmer_snowball_filter(struct fts_filter *filter ATTR_UNUSED,
-                                   const char *token ATTR_UNUSED)
+                                   const char **token ATTR_UNUSED)
 {
-	return NULL;
+	return -1;
 }
 
 #endif

@@ -48,18 +48,21 @@ fts_filter_normalizer_simple_create(const struct fts_language *lang ATTR_UNUSED,
 	return 0;
 }
 
-static const char *
+static int
 fts_filter_normalizer_simple_filter(struct fts_filter *_filter,
-				    const char *token)
+				    const char **token)
 {
 	struct fts_filter_normalizer_simple *filter =
 		(struct fts_filter_normalizer_simple *)_filter;
 
 	str_truncate(filter->str, 0);
-	if (uni_utf8_to_decomposed_titlecase(token, strlen(token),
-					     filter->str) < 0)
-		return NULL;
-	return str_c(filter->str);
+	if (uni_utf8_to_decomposed_titlecase(*token, strlen(*token),
+	                                     filter->str) < 0) {
+		*token = NULL;
+		return -1;
+	}
+	*token = str_c(filter->str);
+	return 1;
 }
 
 static const struct fts_filter_vfuncs normalizer_filter_vfuncs = {
