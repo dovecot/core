@@ -11,9 +11,9 @@
 #include "fts-filter-private.h"
 
 #define STOPWORDS_FILE_FORMAT "%s/stopwords_%s.txt"
-/* TODO: Configure special characters */
-static const char stopwords_eol_comment = '|';
-static const char stopwords_comment = '#';
+
+#define STOPWORDS_COMMENT_CHAR1 '|'
+#define STOPWORDS_COMMENT_CHAR2 '#'
 
 struct fts_filter_stopwords {
 	struct fts_filter filter;
@@ -32,41 +32,33 @@ static bool fts_filter_stopwords_supports(const struct fts_language *lang)
 	return TRUE;
 }
 
-static int fts_filter_stopwords_read_list(struct fts_filter_stopwords *filter)
+static int fts_filter_stopwords_read_list(struct fts_filter_stopwords *filter,
+					  const char **error_r)
 {
 	struct istream *input;
-	const char *line;
-	const char **words;
-	const char *list_path = NULL;
+	const char *line, **words, *path;
 	int ret = 0;
 
-	list_path = t_strdup_printf(STOPWORDS_FILE_FORMAT,
-	                            filter->stopwords_dir, filter->lang->name);
+	path = t_strdup_printf(STOPWORDS_FILE_FORMAT,
+			       filter->stopwords_dir, filter->lang->name);
 
-	input = i_stream_create_file(list_path, IO_BLOCK_SIZE);
-	while ((line =  i_stream_read_next_line(input)) != NULL) {
+	input = i_stream_create_file(path, IO_BLOCK_SIZE);
+	while ((line = i_stream_read_next_line(input)) != NULL) T_BEGIN {
+		line = t_strcut(line, STOPWORDS_COMMENT_CHAR1);
+		line = t_strcut(line, STOPWORDS_COMMENT_CHAR2);
 
-		if (uni_utf8_strlen(line) < 1)
-			continue;
-		if (strchr(line, stopwords_comment) != NULL)
-			continue; /* TODO: support eol hashed comments */
-		if (strchr(line, stopwords_eol_comment)!= NULL) {
-			line = t_strcut(line, stopwords_eol_comment);
-			if (line == NULL || strcmp(line, "") == 0)
-			    continue;
-		}
 		words = t_strsplit_spaces(line, " \t");
-		while (*words != NULL) {
-			hash_table_insert(filter->stopwords, *words, *words);
-			words++;
+		for (; *words != NULL; words++) {
+			const char *word = p_strdup(filter->pool, *words);
+			hash_table_insert(filter->stopwords, word, word);
 		}
-	}
-	/*
-	   TODO: How to detect non-existing file?
-	   TODO: istream error handling and reporting (i_error()?).
-	 */
-	if (input->stream_errno != 0)
+	} T_END;
+
+	if (input->stream_errno != 0) {
+		*error_r = t_strdup_printf("Failed to read stopword list %s: %s",
+					   path, i_stream_get_error(input));
 		ret = -1;
+	}
 	i_stream_destroy(&input);
 	return ret;
 }
@@ -74,10 +66,10 @@ static int fts_filter_stopwords_read_list(struct fts_filter_stopwords *filter)
 static void fts_filter_stopwords_destroy(struct fts_filter *filter)
 {
 	struct fts_filter_stopwords *sp = (struct fts_filter_stopwords *)filter;
+
 	if (hash_table_is_created(sp->stopwords))
 		hash_table_destroy(&sp->stopwords);
 	pool_unref(&sp->pool);
-	return;
 }
 
 static int
@@ -117,38 +109,18 @@ fts_filter_stopwords_create(const struct fts_language *lang,
 }
 
 static int
-fts_filter_stopwords_create_stopwords(struct fts_filter_stopwords *sp,
-				      const char **error_r)
-{
-	int ret;
-
-	hash_table_create(&sp->stopwords, sp->pool, 0, str_hash, strcmp);
-	ret = fts_filter_stopwords_read_list(sp);
-	if (ret < 0) {
-		*error_r = t_strdup_printf("Failed to read stopword list %s",
-					   sp->stopwords_dir);
-	}
-	return ret;
-}
-
-static int
 fts_filter_stopwords_filter(struct fts_filter *filter, const char **token,
 			    const char **error_r)
 {
-	const char *stopword;
 	struct fts_filter_stopwords *sp =
 		(struct fts_filter_stopwords *) filter;
 
-	if (!hash_table_is_created(sp->stopwords))
-		if (fts_filter_stopwords_create_stopwords(sp, error_r) < 0)
+	if (!hash_table_is_created(sp->stopwords)) {
+		hash_table_create(&sp->stopwords, sp->pool, 0, str_hash, strcmp);
+		if (fts_filter_stopwords_read_list(sp, error_r) < 0)
 			return -1;
-	stopword = hash_table_lookup(sp->stopwords, *token);
-	if (stopword != NULL) {
-		*token = NULL;
-		return 0;
 	}
-	else
-		return 1;
+	return hash_table_lookup(sp->stopwords, *token) == NULL ? 1 : 0;
 }
 
 const struct fts_filter_vfuncs stopwords_filter_vfuncs = {
