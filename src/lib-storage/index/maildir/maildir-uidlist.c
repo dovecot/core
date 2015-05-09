@@ -1976,6 +1976,7 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 	array_free(&uidlist->records);
 	uidlist->records = ctx->records;
 	ctx->records.arr.buffer = NULL;
+	i_assert(array_is_created(&uidlist->records));
 
 	hash_table_destroy(&uidlist->files);
 	uidlist->files = ctx->files;

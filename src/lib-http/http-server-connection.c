@@ -541,11 +541,13 @@ static void http_server_connection_input(struct connection *_conn)
 			switch (error_code) {
 			case HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST:
 				conn->input_broken = TRUE;
+				/* fall through */
 			case HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST:
 				http_server_request_fail(req, 400, "Bad Request");
 				break;
 			case HTTP_REQUEST_PARSE_ERROR_METHOD_TOO_LONG:
 				conn->input_broken = TRUE;
+				/* fall through */
 			case HTTP_REQUEST_PARSE_ERROR_NOT_IMPLEMENTED:
 				http_server_request_fail(req, 501, "Not Implemented");
 				break;

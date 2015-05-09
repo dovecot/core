@@ -920,6 +920,8 @@ static int index_mail_write_body_snippet(struct index_mail *mail)
 	old_offset = mail->data.stream == NULL ? 0 : mail->data.stream->v_offset;
 	if (mail_get_stream(&mail->mail.mail, NULL, NULL, &input) < 0)
 		return -1;
+	i_assert(mail->data.stream != NULL);
+
 	i_stream_seek(input, part->physical_pos);
 	input = i_stream_create_limit(input, part->header_size.physical_size +
 				      part->body_size.physical_size);

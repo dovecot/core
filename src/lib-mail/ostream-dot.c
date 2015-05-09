@@ -139,6 +139,7 @@ o_stream_dot_sendv(struct ostream_private *stream,
 				case '.':
 					/* add dot */
 					add = '.';
+					/* fall through */
 				default:
 					dstream->state = STREAM_STATE_NONE;
 					break;

@@ -1620,6 +1620,7 @@ mail_transaction_log_file_munmap(struct mail_transaction_log_file *file)
 	if (file->mmap_base == NULL)
 		return;
 
+	i_assert(file->buffer != NULL);
 	if (munmap(file->mmap_base, file->mmap_size) < 0)
 		log_file_set_syscall_error(file, "munmap()");
 	file->mmap_base = NULL;
