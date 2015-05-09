@@ -9,8 +9,6 @@
 #include "mail-search-build.h"
 #include "mail-search.h"
 
-static struct mail_search_arg *
-mail_search_arg_dup(pool_t pool, const struct mail_search_arg *arg);
 static bool mail_search_arg_equals(const struct mail_search_arg *arg1,
 				   const struct mail_search_arg *arg2);
 
@@ -324,7 +322,7 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 	return new_arg;
 }
 
-static struct mail_search_arg *
+struct mail_search_arg *
 mail_search_arg_dup(pool_t pool, const struct mail_search_arg *arg)
 {
 	struct mail_search_arg *new_arg = NULL, **dest = &new_arg;

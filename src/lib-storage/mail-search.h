@@ -145,6 +145,8 @@ void mail_search_args_unref(struct mail_search_args **args);
 
 struct mail_search_args *
 mail_search_args_dup(const struct mail_search_args *args);
+struct mail_search_arg *
+mail_search_arg_dup(pool_t pool, const struct mail_search_arg *arg);
 
 /* Reset the results in search arguments. match_always is reset only if
    full_reset is TRUE. */
