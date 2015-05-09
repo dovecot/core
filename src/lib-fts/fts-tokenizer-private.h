@@ -10,6 +10,7 @@ struct fts_tokenizer_vfuncs {
 		      struct fts_tokenizer **tokenizer_r, const char **error_r);
 	void (*destroy)(struct fts_tokenizer *tok);
 
+	void (*reset)(struct fts_tokenizer *tok);
 	int (*next)(struct fts_tokenizer *tok, const unsigned char *data,
 	            size_t size, size_t *skip_r, const char **token_r);
 };

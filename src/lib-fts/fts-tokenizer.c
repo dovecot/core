@@ -157,6 +157,11 @@ fts_tokenizer_next_self(struct fts_tokenizer *tok,
 	return ret;
 }
 
+void fts_tokenizer_reset(struct fts_tokenizer *tok)
+{
+	tok->v->reset(tok);
+}
+
 int
 fts_tokenizer_next(struct fts_tokenizer *tok,
                    const unsigned char *data, size_t size, const char **token_r)

@@ -555,17 +555,30 @@ static void test_fts_tokenizer_address_search(void)
 	}
 	test_assert(*eopp == NULL);
 
+	/* make sure state is forgotten at EOF */
 	test_assert(fts_tokenizer_next(tok, (const void *)"foo", 3, &token) == 0);
-	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) > 0);
+	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) > 0 &&
+		    strcmp(token, "foo") == 0);
 	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) == 0);
 
 	test_assert(fts_tokenizer_next(tok, (const void *)"bar@baz", 7, &token) == 0);
-	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) > 0);
+	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) > 0 &&
+		    strcmp(token, "bar@baz") == 0);
 	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) == 0);
 
 	test_assert(fts_tokenizer_next(tok, (const void *)"foo@", 4, &token) == 0);
-	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) > 0);
+	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) > 0 &&
+		    strcmp(token, "foo") == 0);
 	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) == 0);
+
+	/* test reset explicitly */
+	test_assert(fts_tokenizer_next(tok, (const void *)"a", 1, &token) == 0);
+	fts_tokenizer_reset(tok);
+	test_assert(fts_tokenizer_next(tok, (const void *)"b@c", 3, &token) == 0);
+	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) > 0 &&
+		    strcmp(token, "b@c") == 0);
+	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) == 0);
+
 
 	fts_tokenizer_unref(&tok);
 	fts_tokenizer_unref(&gen_tok);

@@ -63,6 +63,9 @@ int fts_tokenizer_create(const struct fts_tokenizer *tok_class,
 void fts_tokenizer_ref(struct fts_tokenizer *tok);
 void fts_tokenizer_unref(struct fts_tokenizer **tok);
 
+/* Reset FTS tokenizer state */
+void fts_tokenizer_reset(struct fts_tokenizer *tok);
+
 /*
    Returns 1 if token was returned, 0 if input was non-blocking and
    more data is needed, -1 if EOF/error.
@@ -82,4 +85,5 @@ fts_tokenizer_next(struct fts_tokenizer *tok,
                    const unsigned char *data, size_t size, const char **token_r);
 
 const char *fts_tokenizer_name(const struct fts_tokenizer *tok);
+
 #endif

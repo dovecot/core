@@ -137,6 +137,17 @@ data_is_word_boundary(const unsigned char *data, size_t size, size_t *i)
 	return is_word_break(c);
 }
 
+static void fts_tokenizer_generic_reset(struct fts_tokenizer *_tok)
+{
+	struct generic_fts_tokenizer *tok =
+		(struct generic_fts_tokenizer *)_tok;
+
+	tok->prev_letter = LETTER_TYPE_NONE;
+	tok->prev_prev_letter = LETTER_TYPE_NONE;
+	tok->last_size = 0;
+	buffer_set_used_size(tok->token, 0);
+}
+
 static int
 fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
                                   const unsigned char *data, size_t size,
@@ -580,6 +591,7 @@ fts_tokenizer_generic_next(struct fts_tokenizer *_tok ATTR_UNUSED,
 static const struct fts_tokenizer_vfuncs generic_tokenizer_vfuncs = {
 	fts_tokenizer_generic_create,
 	fts_tokenizer_generic_destroy,
+	fts_tokenizer_generic_reset,
 	fts_tokenizer_generic_next
 };
 
@@ -592,10 +604,12 @@ const struct fts_tokenizer *fts_tokenizer_generic = &fts_tokenizer_generic_real;
 const struct fts_tokenizer_vfuncs generic_tokenizer_vfuncs_simple = {
 	fts_tokenizer_generic_create,
 	fts_tokenizer_generic_destroy,
+	fts_tokenizer_generic_reset,
 	fts_tokenizer_generic_next_simple
 };
 const struct fts_tokenizer_vfuncs generic_tokenizer_vfuncs_tr29 = {
 	fts_tokenizer_generic_create,
 	fts_tokenizer_generic_destroy,
+	fts_tokenizer_generic_reset,
 	fts_tokenizer_generic_next_tr29
 };

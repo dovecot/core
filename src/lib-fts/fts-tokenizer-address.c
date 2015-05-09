@@ -197,6 +197,16 @@ fts_tokenizer_address_update_parent(struct email_address_fts_tokenizer *tok,
 		str_append_n(tok->parent_data, data, size);
 }
 
+static void fts_tokenizer_email_address_reset(struct fts_tokenizer *_tok)
+{
+	struct email_address_fts_tokenizer *tok =
+		(struct email_address_fts_tokenizer *)_tok;
+
+	tok->state = EMAIL_ADDRESS_PARSER_STATE_NONE;
+	str_truncate(tok->last_word, 0);
+	str_truncate(tok->parent_data, 0);
+}
+
 static int
 fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
                                  const unsigned char *data, size_t size,
@@ -290,6 +300,7 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 static const struct fts_tokenizer_vfuncs email_address_tokenizer_vfuncs = {
 	fts_tokenizer_email_address_create,
 	fts_tokenizer_email_address_destroy,
+	fts_tokenizer_email_address_reset,
 	fts_tokenizer_email_address_next
 };
 
