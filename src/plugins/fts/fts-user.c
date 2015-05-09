@@ -64,10 +64,12 @@ fts_user_create_filters(struct mail_user *user, const struct fts_language *lang,
 	unsigned int i;
 	int ret = 0;
 
-	filters_key = "fts_filters";
+	/* try to get the language-specific filters first */
+	filters_key = t_strconcat("fts_filters_", lang->name, NULL);
 	str = mail_user_plugin_getenv(user, filters_key);
 	if (str == NULL) {
-		filters_key = t_strconcat("fts_filters_", lang->name, NULL);
+		/* fallback to global filters */
+		filters_key = "fts_filters";
 		str = mail_user_plugin_getenv(user, filters_key);
 		if (str == NULL) {
 			*filter_r = NULL;
