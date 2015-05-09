@@ -37,7 +37,7 @@ libdovecot_compression_la_LDFLAGS = -export-dynamic
 
 libfs_compress_la_SOURCES = fs-compress.c
 libfs_compress_la_LIBADD = libdovecot-compression.la
-libfs_compress_la_DEPS = libdovecot-compression.la
+libfs_compress_la_DEPENDENCIES = libdovecot-compression.la
 libfs_compress_la_LDFLAGS = -module -avoid-version
 
 test_programs = \
