@@ -117,27 +117,30 @@ fts_filter_stopwords_create(const struct fts_language *lang,
 }
 
 static int
-fts_filter_stopwords_create_stopwords(struct fts_filter_stopwords *sp)
+fts_filter_stopwords_create_stopwords(struct fts_filter_stopwords *sp,
+				      const char **error_r)
 {
 	int ret;
 
 	hash_table_create(&sp->stopwords, sp->pool, 0, str_hash, strcmp);
 	ret = fts_filter_stopwords_read_list(sp);
-	if (ret < 0)
-		sp->filter.error = t_strdup_printf("Failed to read stopword list %s",
-		                                   sp->stopwords_dir);
+	if (ret < 0) {
+		*error_r = t_strdup_printf("Failed to read stopword list %s",
+					   sp->stopwords_dir);
+	}
 	return ret;
 }
 
 static int
-fts_filter_stopwords_filter(struct fts_filter *filter, const char **token)
+fts_filter_stopwords_filter(struct fts_filter *filter, const char **token,
+			    const char **error_r)
 {
 	const char *stopword;
 	struct fts_filter_stopwords *sp =
 		(struct fts_filter_stopwords *) filter;
 
 	if (!hash_table_is_created(sp->stopwords))
-		if (fts_filter_stopwords_create_stopwords(sp) < 0)
+		if (fts_filter_stopwords_create_stopwords(sp, error_r) < 0)
 			return -1;
 	stopword = hash_table_lookup(sp->stopwords, *token);
 	if (stopword != NULL) {

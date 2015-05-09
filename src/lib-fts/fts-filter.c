@@ -99,21 +99,15 @@ fts_filter_filter(struct fts_filter *filter, const char **token,
 {
 	int ret = 0;
 
-	if (filter->error != NULL) {
-		*error_r = filter->error;
-		return -1;
-	}
-
 	/* Recurse to parent. */
 	if (filter->parent != NULL)
 		ret = fts_filter_filter(filter->parent, token, error_r);
 
 	/* Parent returned token or no parent. */
-	if(ret > 0 || filter->parent == NULL)
-		ret = filter->v->filter(filter, token);
+	if (ret > 0 || filter->parent == NULL)
+		ret = filter->v->filter(filter, token, error_r);
 
-	if (filter->error != NULL)
-		*error_r = filter->error;
-
+	if (ret <= 0)
+		*token = NULL;
 	return ret;
 }

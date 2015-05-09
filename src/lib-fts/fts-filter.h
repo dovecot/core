@@ -59,7 +59,7 @@ void fts_filter_ref(struct fts_filter *filter);
 void fts_filter_unref(struct fts_filter **filter);
 
 /* Returns 1 if token is returned in *token, 0 if token was filtered
-   out and -1 on error.
+   out (*token is also set to NULL) and -1 on error.
    Input is also given via *token.
 */
 int

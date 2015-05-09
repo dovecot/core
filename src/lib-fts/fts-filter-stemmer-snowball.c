@@ -65,12 +65,14 @@ fts_filter_stemmer_snowball_create(const struct fts_language *lang,
 }
 
 static int
-fts_filter_stemmer_snowball_create_stemmer(struct fts_filter_stemmer_snowball *sp)
+fts_filter_stemmer_snowball_create_stemmer(struct fts_filter_stemmer_snowball *sp,
+					   const char **error_r)
 {
 	sp->stemmer = sb_stemmer_new(sp->lang->name, NULL);
 	if (sp->stemmer == NULL) {
-		sp->filter.error = t_strdup_printf("Creating a Snowball stemmer failed." \
-		                                   " lang: %s", sp->lang->name);
+		*error_r = t_strdup_printf(
+			"Creating a Snowball stemmer for language '%s' failed.",
+			sp->lang->name);
 		fts_filter_stemmer_snowball_destroy(&sp->filter);
 		return -1;
 	}
@@ -79,14 +81,14 @@ fts_filter_stemmer_snowball_create_stemmer(struct fts_filter_stemmer_snowball *s
 
 static int
 fts_filter_stemmer_snowball_filter(struct fts_filter *filter,
-                                   const char **token)
+                                   const char **token, const char **error_r)
 {
 	struct fts_filter_stemmer_snowball *sp =
 		(struct fts_filter_stemmer_snowball *) filter;
 	const sb_symbol *base;
 
 	if (sp->stemmer == NULL) {
-		if (fts_filter_stemmer_snowball_create_stemmer(sp) < 0)
+		if (fts_filter_stemmer_snowball_create_stemmer(sp, error_r) < 0)
 			return -1;
 	}
 
@@ -125,7 +127,8 @@ fts_filter_stemmer_snowball_destroy(struct fts_filter *stemmer ATTR_UNUSED)
 
 static int
 fts_filter_stemmer_snowball_filter(struct fts_filter *filter ATTR_UNUSED,
-                                   const char **token ATTR_UNUSED)
+				   const char **token ATTR_UNUSED,
+				   const char **error_r ATTR_UNUSED)
 {
 	return -1;
 }

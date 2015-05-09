@@ -17,7 +17,8 @@ struct fts_filter_vfuncs {
 	              const char *const *settings,
 	              struct fts_filter **filter_r,
 	              const char **error_r);
-	int (*filter)(struct fts_filter *filter, const char **token);
+	int (*filter)(struct fts_filter *filter, const char **token,
+		      const char **error_r);
 
 	void (*destroy)(struct fts_filter *filter);
 };
@@ -25,7 +26,6 @@ struct fts_filter_vfuncs {
 struct fts_filter {
 	const char *class_name; /* name of the class this is based on */
 	const struct fts_filter_vfuncs *v;
-	const char *error;
 	int refcount;
 	struct fts_filter *parent;
 };

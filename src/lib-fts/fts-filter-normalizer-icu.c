@@ -1,6 +1,7 @@
 /* Copyright (c) 2014-2015 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "unichar.h" /* unicode replacement char */
 #include "fts-filter.h"
 #include "fts-filter-private.h"
@@ -20,32 +21,6 @@ struct fts_filter_normalizer {
 	const char *transliterator_id;
 	UTransliterator *transliterator;
 };
-
-static void
-icu_error(const char **error_r, const UErrorCode err, const char *func)
-{
-	if (error_r == NULL)
-		return;
-
-	if (U_FAILURE(err)) {
-		*error_r = t_strdup_printf("Lib ICU function %s failed: %s\n",
-		                            func, u_errorName(err));
-	}
-}
-
-/* Thin wrapper for vprintf */
-static void ATTR_FORMAT(2, 3)
-fts_filter_normalizer_icu_error(const char **error_r, const char *format, ...)
-{
-	va_list args;
-
-	if (error_r == NULL)
-		return;
-
-	va_start(args, format);
-	*error_r = t_strdup_vprintf(format, args);
-	va_end(args);
-}
 
 /* Helper to create UTF16, which libicu wants as input.
 
@@ -154,7 +129,6 @@ static void fts_filter_normalizer_icu_destroy(struct fts_filter *filter)
 	if (np->transliterator != NULL)
 		utrans_close(np->transliterator);
 	pool_unref(&np->pool);
-	return;
 }
 
 static int
@@ -183,13 +157,14 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 	                           sizeof(struct fts_filter_normalizer));
 	np = p_new(pp, struct fts_filter_normalizer, 1);
 	np->pool = pp;
-	np->filter =  *fts_filter_normalizer_icu;
+	np->filter = *fts_filter_normalizer_icu;
 	np->transliterator_id = p_strdup(pp, id);
 	*filter_r = &np->filter;
 	return 0;
 }
 
-static int fts_filter_normalizer_icu_create_trans(struct fts_filter_normalizer *np)
+static int fts_filter_normalizer_icu_create_trans(struct fts_filter_normalizer *np,
+						  const char **error_r)
 {
 	UErrorCode err = U_ZERO_ERROR;
 	UParseError perr;
@@ -203,33 +178,36 @@ static int fts_filter_normalizer_icu_create_trans(struct fts_filter_normalizer *
 	np->transliterator = utrans_openU(id_uchar, u_strlen(id_uchar), UTRANS_FORWARD,
 	                                  NULL, 0, &perr, &err);
 	if (U_FAILURE(err)) {
+		string_t *str = t_str_new(128);
+
+		str_printfa(str, "Failed to open transliterator for id '%s': %s",
+			    np->transliterator_id, u_errorName(err));
 		if (perr.line >= 1) {
-			fts_filter_normalizer_icu_error(&np->filter.error, "Failed to open transliterator for id: %s. Lib ICU error: %s. Parse error on line %u offset %u.",
-			                                np->transliterator_id, u_errorName(err), perr.line, perr.offset);
+			/* we have only one line in our ID */
+			str_printfa(str, " (parse error on offset %u)", perr.offset);
 		}
-		else {
-			fts_filter_normalizer_icu_error(&np->filter.error, "Failed to open transliterator for id: %s. Lib ICU error: %s.",
-			                                np->transliterator_id, u_errorName(err));
-		}
+		*error_r = str_c(str);
 		return -1;
 	}
 	return 0;
 }
 
 static int
-fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token)
+fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token,
+				 const char **error_r)
 {
+	struct fts_filter_normalizer *np =
+		(struct fts_filter_normalizer *)filter;
 	UErrorCode err = U_ZERO_ERROR;
 	UChar *utext = NULL;
 	int32_t utext_cap = 0;
 	int32_t utext_len = -1;
 	int32_t utext_limit;
-	struct fts_filter_normalizer *np =
-		(struct fts_filter_normalizer *)filter;
 
-	if (np->transliterator == NULL)
-		if (fts_filter_normalizer_icu_create_trans(np) < 0)
-			goto err_exit;
+	if (np->transliterator == NULL) {
+		if (fts_filter_normalizer_icu_create_trans(np, error_r) < 0)
+			return -1;
+	}
 
 	make_uchar(*token, &utext, &utext_cap);
 	utext_limit = u_strlen(utext);
@@ -238,7 +216,6 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token)
 
 	/* Data did not fit into utext. */
 	if (utext_len > utext_cap || err == U_BUFFER_OVERFLOW_ERROR) {
-
 		/* This is a crude retry fix... Make a new utext of the
 		   size utrans_transUChars indicated */
 		utext_len++; /* room for '\0' bytes(2) */
@@ -254,16 +231,13 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token)
 	}
 
 	if (U_FAILURE(err)) {
-		icu_error(&np->filter.error, err, "utrans_transUChars()");
-		goto err_exit;
+		*error_r = t_strdup_printf("utrans_transUChars() failed: %s\n",
+		                            u_errorName(err));
+		return -1;
 	}
 
 	make_utf8(utext, token);
 	return 1;
-
- err_exit:
-	*token = NULL;
-	return -1;
 }
 
 #else
@@ -286,7 +260,8 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 
 static int
 fts_filter_normalizer_icu_filter(struct fts_filter *filter ATTR_UNUSED,
-				 const char *token ATTR_UNUSED)
+				 const char **token ATTR_UNUSED,
+				 const char **error_r ATTR_UNUSED)
 {
 	return NULL;
 }

@@ -50,17 +50,16 @@ fts_filter_normalizer_simple_create(const struct fts_language *lang ATTR_UNUSED,
 
 static int
 fts_filter_normalizer_simple_filter(struct fts_filter *_filter,
-				    const char **token)
+				    const char **token,
+				    const char **error_r ATTR_UNUSED)
 {
 	struct fts_filter_normalizer_simple *filter =
 		(struct fts_filter_normalizer_simple *)_filter;
 
 	str_truncate(filter->str, 0);
 	if (uni_utf8_to_decomposed_titlecase(*token, strlen(*token),
-	                                     filter->str) < 0) {
-		*token = NULL;
-		return -1;
-	}
+					     filter->str) < 0)
+		i_panic("fts-normalizer-simple: Token is not valid UTF-8: %s", *token);
 	*token = str_c(filter->str);
 	return 1;
 }
