@@ -30,7 +30,7 @@ fts_tokenizer_generic_create(const char *const *settings,
 {
 	struct generic_fts_tokenizer *tok;
 	unsigned int max_length = FTS_DEFAULT_TOKEN_MAX_LENGTH;
-	enum boundary_algorithm algo = BOUNDARY_ALGORITHM_NONE;
+	enum boundary_algorithm algo = BOUNDARY_ALGORITHM_SIMPLE;
 	unsigned int i;
 
 	for (i = 0; settings[i] != NULL; i += 2) {
@@ -44,10 +44,10 @@ fts_tokenizer_generic_create(const char *const *settings,
 				return -1;
 			}
 		} else if (strcasecmp(key, "algorithm") == 0) {
-			if (strcasecmp(value, ALGORITHM_SIMPLE_NAME) == 0)
-				algo = BOUNDARY_ALGORITHM_SIMPLE;
-			else if (strcasecmp(value, ALGORITHM_TR29_NAME) == 0)
+			if (strcasecmp(value, ALGORITHM_TR29_NAME) == 0)
 				algo = BOUNDARY_ALGORITHM_TR29;
+			else if (strcasecmp(value, ALGORITHM_SIMPLE_NAME) == 0)
+				;
 			else {
 				*error_r = t_strdup_printf(
 				        "Invalid algorithm: %s", value);
