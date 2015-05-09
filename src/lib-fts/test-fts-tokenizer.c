@@ -28,7 +28,6 @@ static void test_fts_tokenizer_generic_only(void)
 	const char *token, *error;
 
 	test_begin("fts tokenizer generic simple");
-	fts_tokenizers_init();
 	tok_class = fts_tokenizer_find(FTS_TOKENIZER_GENERIC_NAME);
 	test_assert(fts_tokenizer_create(tok_class, NULL, NULL, &tok, &error) == 0);
 /*TODO: Uncomment when fts-tokenizer-generic-private.h inclusion is fixed */
@@ -43,7 +42,6 @@ static void test_fts_tokenizer_generic_only(void)
 	}
 	test_assert(*eopp == NULL);
 	fts_tokenizer_unref(&tok);
-	fts_tokenizers_deinit();
 	test_end();
 }
 
@@ -400,7 +398,6 @@ static void test_fts_tokenizer_address_char(void)
 	int ret;
 
 	test_begin("fts tokenizer email address + parent, input one character at a time");
-	fts_tokenizers_init();
 
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &gen_tok, &error) == 0);
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, gen_tok, NULL, &tok, &error) == 0);
@@ -420,7 +417,6 @@ static void test_fts_tokenizer_address_char(void)
 	test_assert(*eopp == NULL);
 	fts_tokenizer_unref(&tok);
 	fts_tokenizer_unref(&gen_tok);
-	fts_tokenizers_deinit();
 	test_end();
 }
 
@@ -446,7 +442,6 @@ static void test_fts_tokenizer_address_line(void)
 	int ret;
 
 	test_begin("fts tokenizer email address + parent, input one line at a time");
-	fts_tokenizers_init();
 
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &gen_tok, &error) == 0);
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, gen_tok, NULL, &tok, &error) == 0);
@@ -466,7 +461,6 @@ static void test_fts_tokenizer_address_line(void)
 	test_assert(*eopp == NULL);
 	fts_tokenizer_unref(&tok);
 	fts_tokenizer_unref(&gen_tok);
-	fts_tokenizers_deinit();
 	test_end();
 
 }
@@ -536,7 +530,6 @@ static void test_fts_tokenizer_address_search(void)
 	int ret;
 
 	test_begin("fts tokenizer search email address + parent, input one character at a time");
-	fts_tokenizers_init();
 
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &gen_tok, &error) == 0);
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, gen_tok, settings, &tok, &error) == 0);
@@ -582,7 +575,6 @@ static void test_fts_tokenizer_address_search(void)
 
 	fts_tokenizer_unref(&tok);
 	fts_tokenizer_unref(&gen_tok);
-	fts_tokenizers_deinit();
 	test_end();
 }
 
@@ -605,6 +597,10 @@ int main(void)
 		test_fts_tokenizer_address_search,
 		NULL
 	};
+	int ret;
 
-	return test_run(test_functions);
+	fts_tokenizers_init();
+	ret = test_run(test_functions);
+	fts_tokenizers_deinit();
+	return ret;
 }
