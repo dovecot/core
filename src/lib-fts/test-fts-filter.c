@@ -11,6 +11,35 @@
 static const char *const stopword_settings[] = {"stopwords_dir", TEST_STOPWORDS_DIR, NULL};
 static struct fts_language english_language = { .name = "en" };
 
+static void test_fts_filter_lowercase(void)
+{
+	struct {
+		const char *input;
+		const char *output;
+	} tests[] = {
+		{ "foo", "foo" },
+		{ "FOO", "foo" },
+		{ "fOo", "foo" }
+	};
+	const struct fts_filter *filter_class;
+	struct fts_filter *filter;
+	const char *error;
+	const char *token;
+	unsigned int i;
+
+	test_begin("fts filter lowercase");
+	filter_class = fts_filter_find(LOWERCASE_FILTER_NAME);
+	test_assert(fts_filter_create(filter_class, NULL, &english_language, NULL, &filter, &error) == 0);
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		token = tests[i].input;
+		test_assert_idx(fts_filter_filter(filter, &token, &error) > 0 &&
+				strcmp(token, tests[i].output) == 0, 0);
+	}
+	fts_filter_unref(&filter);
+	test_end();
+}
+
 static void test_fts_filter_stopwords_eng(void)
 {
 	const struct fts_filter *filter_class;
@@ -521,6 +550,7 @@ static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 int main(void)
 {
 	static void (*test_functions[])(void) = {
+		test_fts_filter_lowercase,
 		test_fts_filter_stopwords_eng,
 		test_fts_filter_stopwords_fin,
 		test_fts_filter_stopwords_fra,

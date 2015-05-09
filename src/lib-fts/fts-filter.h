@@ -33,6 +33,10 @@ extern const struct fts_filter *fts_filter_stemmer_snowball;
 extern const struct fts_filter *fts_filter_normalizer_icu;
 #define ICU_NORMALIZER_FILTER_NAME "normalizer-icu"
 
+/* Lowecases the input. Currently only ASCII data is lowercased. */
+extern const struct fts_filter *fts_filter_lowercase;
+#define LOWERCASE_FILTER_NAME "lowercase"
+
 /* Register all built-in filters. */
 void fts_filters_init(void);
 void fts_filters_deinit(void);
