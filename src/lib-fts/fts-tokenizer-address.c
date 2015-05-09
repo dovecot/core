@@ -25,7 +25,6 @@ struct email_address_fts_tokenizer {
 	string_t *last_word;
 	string_t *parent_data; /* Copy of input data between tokens.
 	                          TODO: could be buffer_t maybe */
-	bool no_parent;
 	bool search;
 };
 
@@ -35,16 +34,13 @@ fts_tokenizer_email_address_create(const char *const *settings,
 				   const char **error_r)
 {
 	struct email_address_fts_tokenizer *tok;
-	bool no_parent = FTS_DEFAULT_NO_PARENT;
 	bool search = FTS_DEFAULT_SEARCH;
 	unsigned int i;
 
 	for (i = 0; settings[i] != NULL; i += 2) {
 		const char *key = settings[i];
 
-		if (strcmp(key, "no_parent") == 0) {
-			no_parent = TRUE;
-		}else if (strcmp(key, "search") == 0) {
+		if (strcmp(key, "search") == 0) {
 			search = TRUE;
 		} else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
@@ -56,7 +52,6 @@ fts_tokenizer_email_address_create(const char *const *settings,
 	tok->tokenizer = *fts_tokenizer_email_address;
 	tok->last_word = str_new(default_pool, 128);
 	tok->parent_data = str_new(default_pool, 128);
-	tok->no_parent = no_parent;
 	tok->search = search;
 	*tokenizer_r = &tok->tokenizer;
 	return 0;
@@ -198,7 +193,7 @@ static void
 fts_tokenizer_address_update_parent(struct email_address_fts_tokenizer *tok,
                                     const unsigned char *data, size_t size)
 {
-	if (!tok->no_parent)
+	if (tok->tokenizer.parent != NULL)
 		str_append_n(tok->parent_data, data, size);
 }
 static int
@@ -221,7 +216,7 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 	/* end of data, output lingering tokens. first the parents data, then
 	   possibly our token, if complete enough */
 	if (size == 0) {
-		if (!tok->no_parent && str_len(tok->parent_data) > 0)
+		if (tok->tokenizer.parent != NULL && str_len(tok->parent_data) > 0)
 			return fts_tokenizer_address_parent_data(tok, token_r);
 
 		if (tok->state == EMAIL_ADDRESS_PARSER_STATE_DOMAIN &&
@@ -276,7 +271,7 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 			*skip_r = pos + local_skip;
 			fts_tokenizer_address_update_parent(tok, data+pos,
 			                                    local_skip);
-			if (!tok->no_parent)
+			if (tok->tokenizer.parent != NULL)
 				return fts_tokenizer_address_parent_data(tok, token_r);
 			else {
 				return fts_tokenizer_address_current_token(tok, token_r);

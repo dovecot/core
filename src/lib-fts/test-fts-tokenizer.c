@@ -275,7 +275,6 @@ static void test_fts_tokenizer_line_address_only(void)
 		"abc@example.com", "bar@example.org",
 		"foo@domain", "foo@domain", "bar@example.org", NULL
 	};
-	const char *const settings[] = {"no_parent", "foo", NULL};
 	struct fts_tokenizer *tok;
 	const char * const *eopp = expected_output;
 	const char *token, *error;
@@ -285,7 +284,7 @@ static void test_fts_tokenizer_line_address_only(void)
 	test_begin("fts tokenizer email address only, input one line at a time");
 	fts_tokenizer_register(fts_tokenizer_email_address);
 
-	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, NULL, settings, &tok, &error) == 0);
+	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, NULL, NULL, &tok, &error) == 0);
 
 	for (i = 0; i <= N_ELEMENTS(input);) {
 		ret = i < N_ELEMENTS(input) ?
@@ -315,7 +314,6 @@ static void test_fts_tokenizer_char_address_only(void)
 		"abc@example.com", "bar@example.org",
 		"foo@domain", NULL
 	};
-	const char *const settings[] = {"no_parent", "0", NULL};
 	struct fts_tokenizer *tok;
 	const char * const *eopp = expected_output;
 	const char *token, *error;
@@ -324,7 +322,7 @@ static void test_fts_tokenizer_char_address_only(void)
 
 	test_begin("fts tokenizer email address only, input one character at a time");
 	fts_tokenizer_register(fts_tokenizer_email_address);
-	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, NULL, settings, &tok, &error) == 0);
+	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, NULL, NULL, &tok, &error) == 0);
 
 	for (i = 0; i <= sizeof(input)-1; ) {
 		ret = i < sizeof(input)-1 ?
@@ -357,14 +355,13 @@ static void test_fts_tokenizer_rand_address_only(void)
 	struct fts_tokenizer *tok;
 	const char * const *eopp = expected_output;
 	const char *token, *error;
-	const char *const settings[] = {"no_parent", "abc", NULL};
 	unsigned int i, step, step_max = 10;
 	int ret;
 
 	test_begin("fts tokenizer email address, input random length");
 	fts_tokenizer_register(fts_tokenizer_email_address);
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, NULL,
-	                                 settings, &tok, &error) == 0);
+	                                 NULL, &tok, &error) == 0);
 	step = rand() % step_max + 1;
 	for (i = 0; i <= sizeof(input)-1; ) {
 		ret = i < sizeof(input)-1 ?
