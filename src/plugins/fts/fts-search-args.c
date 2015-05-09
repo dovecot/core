@@ -128,6 +128,12 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 							   token) < 0)
 			return -1;
 	}
+
+	if (and_arg->value.subargs == NULL) {
+		/* we couldn't parse any tokens from the input */
+		and_arg->type = SEARCH_ALL;
+		and_arg->match_not = !and_arg->match_not;
+	}
 	*argp = and_arg;
 	return 0;
 }
