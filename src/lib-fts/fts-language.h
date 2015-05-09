@@ -1,6 +1,8 @@
 #ifndef FTS_LANGUAGE_H
 #define FTS_LANGUAGE_H
 
+struct fts_language_list;
+
 enum fts_language_result {
 	/* Provided sample is too short. */
 	FTS_LANGUAGE_RESULT_SHORT,
@@ -26,7 +28,9 @@ extern const struct fts_language fts_language_data;
    supported languages. */
 const struct fts_language *fts_language_find(const char *name);
 
-struct fts_language_list *fts_language_list_init(const char *const *settings);
+int fts_language_list_init(const char *const *settings,
+			   struct fts_language_list **list_r,
+			   const char **error_r);
 void fts_language_list_deinit(struct fts_language_list **list);
 
 /* Add a language to the list of wanted languages. */

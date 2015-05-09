@@ -66,9 +66,10 @@ fts_user_init_languages(struct mail_user *user, struct fts_user *fuser,
 	}
 
 	lang_config[1] = mail_user_plugin_getenv(user, "fts_language_config");
-	fuser->lang_list = fts_language_list_init(lang_config);
 	if (lang_config[1] != NULL)
 		lang_config[0] = "fts_language_config";
+	if (fts_language_list_init(lang_config, &fuser->lang_list, error_r) < 0)
+		return -1;
 
 	if (!fts_language_list_add_names(fuser->lang_list, languages, &unknown)) {
 		*error_r = t_strdup_printf(

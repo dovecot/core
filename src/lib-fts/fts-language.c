@@ -51,26 +51,25 @@ const struct fts_language *fts_language_find(const char *name)
 	return NULL;
 }
 
-struct fts_language_list *
-fts_language_list_init(const char *const *settings)
+int fts_language_list_init(const char *const *settings,
+			   struct fts_language_list **list_r,
+			   const char **error_r)
 {
 	struct fts_language_list *lp;
 	pool_t pool;
 	unsigned int i;
-	const char *conf = NULL;
-	const char *data = NULL;
+	const char *conf = NULL, *data = NULL;
 
 	for (i = 0; settings[i] != NULL; i += 2) {
 		const char *key = settings[i], *value = settings[i+1];
 
-		if (strcmp(key, "fts_language_config") == 0) {
+		if (strcmp(key, "fts_language_config") == 0)
 			conf = value;
-		}
-		else if (strcmp(key, "fts_language_data") == 0) {
+		else if (strcmp(key, "fts_language_data") == 0)
 			data = value;
-		} else {
-			i_debug("Unknown setting: %s", key);
-			return NULL;
+		else {
+			*error_r = t_strdup_printf("Unknown setting: %s", key);
+			return -1;
 		}
 	}
 
@@ -86,7 +85,8 @@ fts_language_list_init(const char *const *settings)
 	else
 		lp->textcat_datadir = NULL;
 	p_array_init(&lp->languages, pool, 32);
-	return lp;
+	*list_r = lp;
+	return 0;
 }
 
 void fts_language_list_deinit(struct fts_language_list **list)

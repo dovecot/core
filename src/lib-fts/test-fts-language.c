@@ -24,10 +24,9 @@ static void test_fts_language_detect_finnish(void)
 		"vastaan. Kahdeksan maata pid\xC3\xA4ttyi "\
 		"\xC3\xA4\xC3\xA4nest\xC3\xA4m\xC3\xA4st\xC3\xA4.";
 	const char names[] = "de, fi, en";
-	const char *unknown;
+	const char *unknown, *error;
 	test_begin("fts language detect Finnish");
-	lp = fts_language_list_init(settings);
-	test_assert(lp != NULL);
+	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(fts_language_detect(lp, finnish, sizeof(finnish)-1, &lang_r)
 	            == FTS_LANGUAGE_RESULT_OK);
@@ -52,10 +51,9 @@ static void test_fts_language_detect_english(void)
 		"of the common people, ";
 
 	const char names[] = "fi, de, fr, en";
-	const char *unknown;
+	const char *unknown, *error;
 	test_begin("fts language detect English");
-	lp = fts_language_list_init(settings);
-	test_assert(lp != NULL);
+	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(fts_language_detect(lp, english, sizeof(english)-1, &lang_r)
 	            == FTS_LANGUAGE_RESULT_OK);
@@ -88,10 +86,9 @@ static void test_fts_language_detect_french(void)
 
 
 	const char names[] = "de, fi, fr, en";
-	const char *unknown;
+	const char *unknown, *error;
 	test_begin("fts language detect French");
-	lp = fts_language_list_init(settings);
-	test_assert(lp != NULL);
+	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(fts_language_detect(lp, french, sizeof(french)-1, &lang_r)
 	            == FTS_LANGUAGE_RESULT_OK);
@@ -126,10 +123,9 @@ static void test_fts_language_detect_german(void)
 
 
 	const char names[] = "fi, de, fr, en";
-	const char *unknown;
+	const char *unknown, *error;
 	test_begin("fts language detect German");
-	lp = fts_language_list_init(settings);
-	test_assert(lp != NULL);
+	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(fts_language_detect(lp, german, sizeof(german)-1, &lang_r)
 	            == FTS_LANGUAGE_RESULT_OK);
@@ -152,10 +148,9 @@ static void test_fts_language_detect_finnish_as_english(void)
 		"vastaan. Kahdeksan maata pid\xC3\xA4ttyi "\
 		"\xC3\xA4\xC3\xA4nest\xC3\xA4m\xC3\xA4st\xC3\xA4.";
 	const char names[] = "en";
-	const char *unknown;
+	const char *unknown, *error;
 	test_begin("fts language detect Finnish as English");
-	lp = fts_language_list_init(settings);
-	test_assert(lp != NULL);
+	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(fts_language_detect(lp, finnish, sizeof(finnish)-1, &lang_r)
 	            == FTS_LANGUAGE_RESULT_OK);
@@ -180,10 +175,9 @@ static void test_fts_language_detect_na(void)
 		"of the common people, ";
 
 	const char names[] = "fi, de, fr";
-	const char *unknown;
+	const char *unknown, *error;
 	test_begin("fts language detect not available");
-	lp = fts_language_list_init(settings);
-	test_assert(lp != NULL);
+	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(fts_language_detect(lp, english, sizeof(english)-1, &lang_r)
 	            == FTS_LANGUAGE_RESULT_UNKNOWN);
@@ -201,10 +195,9 @@ static void test_fts_language_detect_unknown(void)
 		"SeH'eghtaHghach'a'na'chajmo'.";
 
 	const char names[] = "fi, de, fr";
-	const char *unknown;
+	const char *unknown, *error;
 	test_begin("fts language detect unknown");
-	lp = fts_language_list_init(settings);
-	test_assert(lp != NULL);
+	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(fts_language_detect(lp, klingon, sizeof(klingon), &lang_r)
 	            == FTS_LANGUAGE_RESULT_UNKNOWN);
