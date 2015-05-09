@@ -109,5 +109,7 @@ fts_filter_filter(struct fts_filter *filter, const char **token,
 
 	if (ret <= 0)
 		*token = NULL;
+	else
+		i_assert(*token != NULL);
 	return ret;
 }

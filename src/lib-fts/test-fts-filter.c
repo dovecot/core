@@ -36,10 +36,10 @@ static void test_fts_filter_stopwords_eng(void)
 	while (*ip != NULL) {
 		token = *ip;
 		ret = fts_filter_filter(filter, &token, &error);
-		test_assert(ret >= 0);
-		if (ret == 0)
+		if (ret <= 0) {
+			test_assert(ret == 0);
 			test_assert(*op == NULL);
-		else {
+		} else {
 			test_assert(*op != NULL);
 			test_assert(strcmp(*ip, token)  == 0);
 		}
@@ -80,10 +80,10 @@ static void test_fts_filter_stopwords_fin(void)
 	while (*ip != NULL) {
 		token = *ip;
 		ret = fts_filter_filter(filter, &token, &error);
-		test_assert(ret >= 0);
-		if (ret == 0)
+		if (ret <= 0) {
+			test_assert(ret == 0);
 			test_assert(*op == NULL);
-		else {
+		} else {
 			test_assert(*op != NULL);
 			test_assert(strcmp(*ip, token)  == 0);
 		}
@@ -101,9 +101,10 @@ static void test_fts_filter_stopwords_fin(void)
 	while (*ip != NULL) {
 		token = *ip;
 		ret = fts_filter_filter(filter, &token, &error);
-		if (ret == 0)
+		if (ret <= 0) {
+			test_assert(ret == 0);
 			test_assert(*op == NULL);
-		else {
+		} else {
 			test_assert(*op != NULL);
 			test_assert(strcmp(*ip, token)  == 0);
 		}
@@ -144,10 +145,10 @@ static void test_fts_filter_stopwords_fra(void)
 	while (*ip != NULL) {
 		token = *ip;
 		ret = fts_filter_filter(filter, &token, &error);
-		test_assert(ret >= 0);
-		if (ret == 0)
+		if (ret <= 0) {
+			test_assert(ret == 0);
 			test_assert(*op == NULL);
-		else {
+		} else {
 			test_assert(*op != NULL);
 			test_assert(strcmp(*ip, token)  == 0);
 		}
@@ -292,6 +293,7 @@ static void test_fts_filter_stopwords_stemmer_eng(void)
 	for (tpp=tokens; *tpp != NULL; tpp++) {
 		token = *tpp;
 		ret = fts_filter_filter(stemmer, &token, &error);
+		test_assert(ret >= 0);
 		if (ret == 0)
 			test_assert(*bpp == NULL);
 		else {
@@ -520,9 +522,10 @@ static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 	for (tpp = tokens; *tpp != NULL; tpp++) {
 		token = *tpp;
 		ret = fts_filter_filter(stemmer, &token, &error);
-		if (ret == 0)
+		if (ret <= 0) {
+			test_assert(ret == 0);
 			test_assert(*bpp == NULL);
-		else {
+		} else {
 			test_assert(*bpp != NULL);
 			test_assert(strcasecmp(*bpp, token)  == 0);
 		}
