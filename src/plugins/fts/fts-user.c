@@ -148,10 +148,9 @@ fts_user_create_tokenizer(struct mail_user *user,
 		set_key = t_strdup_printf("fts_tokenizers_%s", tokenizer_set_name);
 		str = mail_user_plugin_getenv(user, set_key);
 
-		/* If the email-address tokenizer is included in the search
-		   tokenizer, add a setting. */
-		if (search && strcmp(fts_tokenizer_name(tokenizer_class),
-		                     FTS_TOKENIZER_EMAIL_ADDRESS_NAME) == 0) {
+		/* tell the tokenizers that we're tokenizing a search string
+		   (instead of tokenizing indexed data) */
+		if (search) {
 			if (str == NULL)
 				str = "search yes";
 			else

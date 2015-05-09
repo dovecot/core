@@ -53,6 +53,9 @@ fts_tokenizer_generic_create(const char *const *settings,
 				        "Invalid algorithm: %s", value);
 				return -1;
 			}
+		} else if (strcmp(key, "search") == 0) {
+			/* tokenizing a search string -
+			   makes no difference to us */
 		} else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
