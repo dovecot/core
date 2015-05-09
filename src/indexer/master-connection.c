@@ -139,14 +139,15 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 	ns = mail_namespace_find(user->namespaces, mailbox);
 	box = mailbox_alloc(ns->list, mailbox, 0);
 	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &path);
-	if (ret <= 0) {
+	if (ret < 0) {
+		i_error("Getting path to mailbox %s failed: %s",
+			mailbox, mailbox_get_last_error(box, NULL));
 		mailbox_free(&box);
-		if (ret < 0) {
-			i_error("Getting path to mailbox %s failed: %s",
-				mailbox, mailbox_get_last_error(box, NULL));
-			return -1;
-		}
+		return -1;
+	}
+	if (ret == 0) {
 		i_info("Indexes disabled for mailbox %s, skipping", mailbox);
+		mailbox_free(&box);
 		return 0;
 	}
 	ret = 0;
