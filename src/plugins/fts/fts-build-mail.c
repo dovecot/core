@@ -299,7 +299,6 @@ fts_build_tokenized(struct fts_mail_build_context *ctx,
 {
 	struct mail_user *user = ctx->update_ctx->backend->ns->user;
 	const struct fts_language *lang;
-	const char *error;
 	int ret;
 
 	if (ctx->cur_user_lang != NULL) {
@@ -310,12 +309,9 @@ fts_build_tokenized(struct fts_mail_build_context *ctx,
 		/* wait for more data */
 		return 0;
 	} else {
-		if (fts_user_language_get(user, lang, &ctx->cur_user_lang,
-					  &error) < 0) {
-			i_error("fts: Can't index input because of invalid language '%s' config: %s",
-				lang->name, error);
-			return -1;
-		}
+		ctx->cur_user_lang = fts_user_language_find(user, lang);
+		i_assert(ctx->cur_user_lang != NULL);
+		
 		if (ctx->pending_input->used > 0) {
 			if (fts_build_add_tokens_with_filter(ctx,
 					ctx->pending_input->data,

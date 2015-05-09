@@ -114,12 +114,13 @@ fts_user_create_filters(struct mail_user *user, const struct fts_language *lang,
 	return 0;
 }
 
-static struct fts_user_language *
-fts_user_language_find(struct fts_user *fuser,
+struct fts_user_language *
+fts_user_language_find(struct mail_user *user,
 		       const struct fts_language *lang)
 {
 	struct fts_user_language *const *user_langp;
-
+	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+		
 	array_foreach(&fuser->languages, user_langp) {
 		if (strcmp((*user_langp)->lang->name, lang->name) == 0)
 			return *user_langp;
@@ -127,19 +128,13 @@ fts_user_language_find(struct fts_user *fuser,
 	return NULL;
 }
 
-int fts_user_language_get(struct mail_user *user,
-			  const struct fts_language *lang,
-			  struct fts_user_language **user_lang_r,
-			  const char **error_r)
+static int fts_user_language_create(struct mail_user *user,
+                                    struct fts_user *fuser,
+				    const struct fts_language *lang,
+				    const char **error_r)
 {
-	struct fts_user *fuser = FTS_USER_CONTEXT(user);
-	struct fts_user_language *user_lang;
 	struct fts_filter *filter;
-
-	*user_lang_r = fts_user_language_find(fuser, lang);
-	if (*user_lang_r != NULL)
-		return 0;
-
+	struct fts_user_language *user_lang;
 	if (fts_user_create_filters(user, lang, &filter, error_r) < 0)
 		return -1;
 
@@ -148,18 +143,17 @@ int fts_user_language_get(struct mail_user *user,
 	user_lang->filter = filter;
 	array_append(&fuser->languages, &user_lang, 1);
 
-	*user_lang_r = user_lang;
 	return 0;
 }
 
-int fts_user_languages_fill_all(struct mail_user *user, const char **error_r)
+static int fts_user_languages_fill_all(struct mail_user *user,
+                                       struct fts_user *fuser,
+                                       const char **error_r)
 {
-	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 	const struct fts_language *const *langp;
-	struct fts_user_language *user_lang;
 
 	array_foreach(fts_language_list_get_all(fuser->lang_list), langp) {
-		if (fts_user_language_get(user, *langp, &user_lang, error_r) < 0)
+		if (fts_user_language_create(user, fuser, *langp, error_r) < 0)
 			return -1;
 	}
 	return 0;
@@ -196,11 +190,17 @@ static void fts_user_free(struct fts_user *fuser)
 int fts_mail_user_init(struct mail_user *user, const char **error_r)
 {
 	struct fts_user *fuser;
+	const char *error;
 
 	fuser = p_new(user->pool, struct fts_user, 1);
 	p_array_init(&fuser->languages, user->pool, 4);
 
 	if (fts_user_init_languages(user, fuser, error_r) < 0) {
+		fts_user_free(fuser);
+		return -1;
+	}
+	if (fts_user_languages_fill_all(user, fuser, &error) < 0) {
+		i_error("fts_dovecot: Failed to initialize languages: %s", error);
 		fts_user_free(fuser);
 		return -1;
 	}

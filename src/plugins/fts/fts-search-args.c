@@ -151,15 +151,7 @@ fts_search_args_expand_tree(struct fts_backend *backend, pool_t pool,
 int fts_search_args_expand(struct fts_backend *backend,
 			   struct mail_search_args *args)
 {
-	const char *error;
 
-	/* we need to know all the possible languages for building the
-	   search query. each search word queried by passing it through each
-	   language's filters. */
-	if (fts_user_languages_fill_all(backend->ns->user, &error) < 0) {
-		i_error("fts_dovecot: Failed to initialize languages: %s", error);
-		return -1;
-	}
 	fts_search_args_expand_tree(backend, args->pool, &args->args);
 
 	/* we'll need to re-simplify the args if we changed anything */
