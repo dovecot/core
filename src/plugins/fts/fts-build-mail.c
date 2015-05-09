@@ -456,8 +456,16 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.update_ctx = update_ctx;
 	ctx.mail = mail;
-	if ((update_ctx->backend->flags & FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0)
+	if ((update_ctx->backend->flags & FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0) {
 		ctx.pending_input = buffer_create_dynamic(default_pool, 128);
+		/* reset tokenizer between mails - just to be sure no state
+		   leaks between mails (especially if previous indexing had
+		   failed) */
+		struct fts_tokenizer *tokenizer;
+
+		tokenizer = fts_user_get_index_tokenizer(update_ctx->backend->ns->user);
+		fts_tokenizer_reset(tokenizer);
+	}
 
 	prev_part = NULL;
 	parser = message_parser_init(pool_datastack_create(), input,

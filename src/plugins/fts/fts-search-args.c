@@ -114,6 +114,9 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 	and_arg->match_not = orig_arg->match_not;
 	and_arg->next = orig_arg->next;
 
+	/* reset tokenizer between search args in case there's any state left
+	   from some previous failure */
+	fts_tokenizer_reset(tokenizer);
 	while (fts_tokenizer_next(tokenizer,
 	                          (const void *)orig_token,
 	                          orig_token_len, &token) > 0) {
