@@ -78,9 +78,9 @@ void fts_tokenizer_reset(struct fts_tokenizer *tok);
    data must contain only valid complete UTF-8 sequences, but otherwise it
    may be broken into however small pieces. */
 
-int
-fts_tokenizer_next(struct fts_tokenizer *tok,
-                   const unsigned char *data, size_t size, const char **token_r);
+int fts_tokenizer_next(struct fts_tokenizer *tok,
+		       const unsigned char *data, size_t size,
+		       const char **token_r);
 
 const char *fts_tokenizer_name(const struct fts_tokenizer *tok);
 

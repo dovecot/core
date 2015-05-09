@@ -31,8 +31,7 @@ enum letter_type {
 enum boundary_algorithm {
 	BOUNDARY_ALGORITHM_NONE = 0,
 	BOUNDARY_ALGORITHM_SIMPLE,
-#define ALGORITHM_SIMPLE_NAME "simple" /* TODO: could be public in
-                                          fts-tokenizer.h */
+#define ALGORITHM_SIMPLE_NAME "simple"
 	BOUNDARY_ALGORITHM_TR29
 #define ALGORITHM_TR29_NAME "tr29"
 };

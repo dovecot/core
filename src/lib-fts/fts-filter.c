@@ -90,12 +90,8 @@ void fts_filter_unref(struct fts_filter **_fpp)
 	fp->v->destroy(fp);
 }
 
-/* TODO: Avoid multiple allocations by using a buffer in v->filter?
- Do this non-recursively? */
-int
-fts_filter_filter(struct fts_filter *filter, const char **token,
-                  const char **error_r)
-
+int fts_filter_filter(struct fts_filter *filter, const char **token,
+		      const char **error_r)
 {
 	int ret = 0;
 

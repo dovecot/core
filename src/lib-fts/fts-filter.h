@@ -58,8 +58,7 @@ void fts_filter_unref(struct fts_filter **filter);
    out (*token is also set to NULL) and -1 on error.
    Input is also given via *token.
 */
-int
-fts_filter_filter(struct fts_filter *filter, const char **token,
-                  const char **error_r);
+int fts_filter_filter(struct fts_filter *filter, const char **token,
+		      const char **error_r);
 
 #endif

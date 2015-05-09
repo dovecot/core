@@ -9,9 +9,6 @@
 #define IS_DTEXT(c) \
 	(rfc822_atext_chars[(int)(unsigned char)(c)] == 2)
 
-#define FTS_DEFAULT_NO_PARENT FALSE
-#define FTS_DEFAULT_SEARCH FALSE
-
 enum email_address_parser_state {
 	EMAIL_ADDRESS_PARSER_STATE_NONE = 0,
 	EMAIL_ADDRESS_PARSER_STATE_LOCALPART,
@@ -33,7 +30,7 @@ fts_tokenizer_email_address_create(const char *const *settings,
 				   const char **error_r)
 {
 	struct email_address_fts_tokenizer *tok;
-	bool search = FTS_DEFAULT_SEARCH;
+	bool search = FALSE;
 	unsigned int i;
 
 	for (i = 0; settings[i] != NULL; i += 2) {
@@ -120,18 +117,18 @@ fts_tokenizer_email_address_parse_local(struct email_address_fts_tokenizer *tok,
                                         size_t *skip_r)
 {
 	size_t pos = 0;
-	bool at = FALSE;
+	bool seen_at = FALSE;
 
 	while (pos < size && (IS_ATEXT(data[pos]) ||
 			      data[pos] == '@' || data[pos] == '.')) {
 		if (data[pos] == '@')
-			at = TRUE;
+			seen_at = TRUE;
 		pos++;
-		if (at)
+		if (seen_at)
 			break;
 	}
 	 /* localpart and @ */
-	if (at && (pos > 1 || str_len(tok->last_word) > 0)) {
+	if (seen_at && (pos > 1 || str_len(tok->last_word) > 0)) {
 		str_append_n(tok->last_word, data, pos);
 		*skip_r = pos;
 		return EMAIL_ADDRESS_PARSER_STATE_DOMAIN;
@@ -164,12 +161,9 @@ fts_tokenizer_email_address_parse_domain(struct email_address_fts_tokenizer *tok
                                          size_t *skip_r)
 {
 	size_t pos = 0;
-	const unsigned char *p = data;
 
-	while (pos < size && (IS_DTEXT(*p) || *p == '.')) {
+	while (pos < size && (IS_DTEXT(data[pos]) || data[pos] == '.'))
 		pos++;
-		p++;
-	}
 	 /* A complete domain name */
 	if ((pos > 1 && pos < size) || /* non-atext after atext in this data*/
 	    (pos < size && !domain_is_empty(tok))) { /* non-atext after previous atext */
@@ -183,7 +177,7 @@ fts_tokenizer_email_address_parse_domain(struct email_address_fts_tokenizer *tok
 		return EMAIL_ADDRESS_PARSER_STATE_DOMAIN;
 	}
 	/* not a domain. skip past no-good chars. */
-	pos += skip_nonlocal_part(p, size - pos);
+	pos += skip_nonlocal_part(data + pos, size - pos);
 	*skip_r = pos;
 	return EMAIL_ADDRESS_PARSER_STATE_NONE;
 }
