@@ -48,8 +48,7 @@ fts_filter_normalizer_icu_error(const char **error_r, const char *format, ...)
 	va_end(args);
 }
 
-/* Helper to create UTF16, which libicu wants as input. Returns -1 on
- error, 0 on success.
+/* Helper to create UTF16, which libicu wants as input.
 
  On input,  if *dst_uchars_r  > 0,  it indicates  the number  of UChar
  sized  units that  should be  allocated  for the  text. However,  the
@@ -59,7 +58,7 @@ fts_filter_normalizer_icu_error(const char **error_r, const char *format, ...)
  On return *dst_uchars_r will contain the number of UChar sized units
  allocated for the dst. NOT the number of bytes nor the length of the
  text. */
-static int make_uchar(const char *src, UChar **dst, int32_t *dst_uchars_r)
+static void make_uchar(const char *src, UChar **dst, int32_t *dst_uchars_r)
 {
 	UErrorCode err = U_ZERO_ERROR;
 	int32_t len = strlen(src);
@@ -96,7 +95,6 @@ static int make_uchar(const char *src, UChar **dst, int32_t *dst_uchars_r)
 		i_panic("Lib ICU u_strFromUTF8 failed: %s", u_errorName(err));
 	i_assert(retp == *dst);
 	i_assert(ustr_len == ustr_len_actual);
-	return 0;
 }
 
 static int make_utf8(const UChar *src, const char **_dst, const char **error_r)
@@ -204,9 +202,8 @@ static int fts_filter_normalizer_icu_create_trans(struct fts_filter_normalizer *
 
 	memset(&perr, 0, sizeof(perr));
 
-	if (make_uchar(np->transliterator_id, &id_uchar, &id_len_uchar) < 0) {
-		return -1;
-	}
+	make_uchar(np->transliterator_id, &id_uchar, &id_len_uchar);
+
 	np->transliterator = utrans_openU(id_uchar, u_strlen(id_uchar), UTRANS_FORWARD,
 	                                  NULL, 0, &perr, &err);
 	if (U_FAILURE(err)) {
@@ -242,11 +239,7 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token)
 		if (fts_filter_normalizer_icu_create_trans(np) < 0)
 			goto err_exit;
 
-	if (make_uchar(*token, &utext, &utext_cap) < 0) {
-		fts_filter_normalizer_icu_error(&np->error, "Conversion to UChar failed");
-		goto err_exit;
-	}
-
+	make_uchar(*token, &utext, &utext_cap);
 	utext_limit = u_strlen(utext);
 	utrans_transUChars(np->transliterator, utext, &utext_len,
 	                   utext_cap, 0, &utext_limit, &err);
@@ -258,9 +251,7 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token)
 		   size utrans_transUChars indicated */
 		utext_len++; /* room for '\0' bytes(2) */
 		utext_cap = utext_len;
-		if (make_uchar(*token, &utext, &utext_cap) < 0) {
-			goto err_exit;
-		}
+		make_uchar(*token, &utext, &utext_cap);
 		i_assert(utext_cap ==  utext_len);
 		utext_limit = u_strlen(utext);
 		utext_len = -1;
