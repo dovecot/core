@@ -493,22 +493,23 @@ cmd_append_handle_args(struct client_command_context *cmd,
 	valid = FALSE;
 	*nonsync_r = FALSE;
 	ctx->catenate = FALSE;
-	if (imap_arg_atom_equals(args, "CATENATE")) {
-		args++;
-		if (imap_arg_get_list(args, &cat_list)) {
-			valid = TRUE;
-			ctx->catenate = TRUE;
-		}
+	if (imap_arg_get_literal_size(args, &ctx->literal_size)) {
+		*nonsync_r = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
+		ctx->binary_input = args->literal8;
+		valid = TRUE;
+	} else if (!imap_arg_atom_equals(args, "CATENATE")) {
+		/* invalid */
+	} else if (!imap_arg_get_list(++args, &cat_list)) {
+		/* invalid */
+	} else {
+		valid = TRUE;
+		ctx->catenate = TRUE;
 		/* We'll do BINARY conversion only if the CATENATE's first
 		   part is a literal8. If it doesn't and a literal8 is seen
 		   later we'll abort the append with UNKNOWN-CTE. */
 		ctx->binary_input = imap_arg_atom_equals(&cat_list[0], "TEXT") &&
 			cat_list[1].literal8;
 
-	} else if (imap_arg_get_literal_size(args, &ctx->literal_size)) {
-		*nonsync_r = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
-		ctx->binary_input = args->literal8;
-		valid = TRUE;
 	}
 	if (!IMAP_ARG_IS_EOL(&args[1]))
 		valid = FALSE;
