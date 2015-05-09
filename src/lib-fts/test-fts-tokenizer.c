@@ -38,16 +38,16 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 			   const char *const *expected_output)
 {
 	const unsigned char *input = (const unsigned char *)_input;
-	const char *token;
+	const char *token, *error;
 	unsigned int i, max, outi, char_len, input_len = strlen(_input);
 
 	/* test all input at once */
 	outi = 0;
-	while (fts_tokenizer_next(tok, input, input_len, &token) > 0) {
+	while (fts_tokenizer_next(tok, input, input_len, &token, &error) > 0) {
 		test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
 		outi++;
 	}
-	while (fts_tokenizer_next(tok, NULL, 0, &token) > 0) {
+	while (fts_tokenizer_next(tok, NULL, 0, &token, &error) > 0) {
 		test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
 		outi++;
 	}
@@ -56,12 +56,12 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 	/* test input one byte at a time */
 	for (i = outi = 0; i < input_len; i += char_len) {
 		char_len = uni_utf8_char_bytes(input[i]);
-		while (fts_tokenizer_next(tok, input+i, char_len, &token) > 0) {
+		while (fts_tokenizer_next(tok, input+i, char_len, &token, &error) > 0) {
 			test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
 			outi++;
 		}
 	}
-	while (fts_tokenizer_final(tok, &token) > 0) {
+	while (fts_tokenizer_final(tok, &token, &error) > 0) {
 		test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
 		outi++;
 	}
@@ -72,12 +72,12 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 		max = rand() % (input_len - i) + 1;
 		for (char_len = 0; char_len < max; )
 			char_len += uni_utf8_char_bytes(input[i+char_len]);
-		while (fts_tokenizer_next(tok, input+i, char_len, &token) > 0) {
+		while (fts_tokenizer_next(tok, input+i, char_len, &token, &error) > 0) {
 			test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
 			outi++;
 		}
 	}
-	while (fts_tokenizer_final(tok, &token) > 0) {
+	while (fts_tokenizer_final(tok, &token, &error) > 0) {
 		test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
 		outi++;
 	}
@@ -257,28 +257,28 @@ static void test_fts_tokenizer_address_search(void)
 	test_tokenizer_inputoutput(tok, input, expected_output);
 
 	/* make sure state is forgotten at EOF */
-	test_assert(fts_tokenizer_next(tok, (const void *)"foo", 3, &token) == 0);
-	test_assert(fts_tokenizer_final(tok, &token) > 0 &&
+	test_assert(fts_tokenizer_next(tok, (const void *)"foo", 3, &token, &error) == 0);
+	test_assert(fts_tokenizer_final(tok, &token, &error) > 0 &&
 		    strcmp(token, "foo") == 0);
-	test_assert(fts_tokenizer_final(tok, &token) == 0);
+	test_assert(fts_tokenizer_final(tok, &token, &error) == 0);
 
-	test_assert(fts_tokenizer_next(tok, (const void *)"bar@baz", 7, &token) == 0);
-	test_assert(fts_tokenizer_final(tok, &token) > 0 &&
+	test_assert(fts_tokenizer_next(tok, (const void *)"bar@baz", 7, &token, &error) == 0);
+	test_assert(fts_tokenizer_final(tok, &token, &error) > 0 &&
 		    strcmp(token, "bar@baz") == 0);
-	test_assert(fts_tokenizer_final(tok, &token) == 0);
+	test_assert(fts_tokenizer_final(tok, &token, &error) == 0);
 
-	test_assert(fts_tokenizer_next(tok, (const void *)"foo@", 4, &token) == 0);
-	test_assert(fts_tokenizer_final(tok, &token) > 0 &&
+	test_assert(fts_tokenizer_next(tok, (const void *)"foo@", 4, &token, &error) == 0);
+	test_assert(fts_tokenizer_final(tok, &token, &error) > 0 &&
 		    strcmp(token, "foo") == 0);
-	test_assert(fts_tokenizer_final(tok, &token) == 0);
+	test_assert(fts_tokenizer_final(tok, &token, &error) == 0);
 
 	/* test reset explicitly */
-	test_assert(fts_tokenizer_next(tok, (const void *)"a", 1, &token) == 0);
+	test_assert(fts_tokenizer_next(tok, (const void *)"a", 1, &token, &error) == 0);
 	fts_tokenizer_reset(tok);
-	test_assert(fts_tokenizer_next(tok, (const void *)"b@c", 3, &token) == 0);
-	test_assert(fts_tokenizer_final(tok, &token) > 0 &&
+	test_assert(fts_tokenizer_next(tok, (const void *)"b@c", 3, &token, &error) == 0);
+	test_assert(fts_tokenizer_final(tok, &token, &error) > 0 &&
 		    strcmp(token, "b@c") == 0);
-	test_assert(fts_tokenizer_final(tok, &token) == 0);
+	test_assert(fts_tokenizer_final(tok, &token, &error) == 0);
 
 	fts_tokenizer_unref(&tok);
 	fts_tokenizer_unref(&gen_tok);

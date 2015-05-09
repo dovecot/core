@@ -203,7 +203,8 @@ static void fts_tokenizer_email_address_reset(struct fts_tokenizer *_tok)
 static int
 fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
                                  const unsigned char *data, size_t size,
-                                 size_t *skip_r, const char **token_r)
+				 size_t *skip_r, const char **token_r,
+				 const char **error_r ATTR_UNUSED)
 {
 	struct email_address_fts_tokenizer *tok =
 		(struct email_address_fts_tokenizer *)_tok;

@@ -12,7 +12,8 @@ struct fts_tokenizer_vfuncs {
 
 	void (*reset)(struct fts_tokenizer *tok);
 	int (*next)(struct fts_tokenizer *tok, const unsigned char *data,
-	            size_t size, size_t *skip_r, const char **token_r);
+		    size_t size, size_t *skip_r, const char **token_r,
+		    const char **error_r);
 };
 
 enum fts_tokenizer_parent_state {

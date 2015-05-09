@@ -81,7 +81,7 @@ fts_backend_dovecot_expand_lang_tokens(const ARRAY_TYPE(fts_user_language) *lang
 			token2 = t_strdup(token2);
 			array_append(&tokens, &token2, 1);
 		} else if (ret < 0) {
-			i_error("fts: Couldn't create search tokens: %s", error);
+			i_error("fts: Couldn't filter search tokens: %s", error);
 			return -1;
 		}
 	}
@@ -99,9 +99,10 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 {
 	const ARRAY_TYPE(fts_user_language) *languages;
 	struct mail_search_arg *and_arg, *orig_arg = *argp;
-	const char *token, *orig_token = orig_arg->value.str;
+	const char *error, *token, *orig_token = orig_arg->value.str;
 	unsigned int orig_token_len = strlen(orig_token);
 	struct fts_tokenizer *tokenizer;
+	int ret;
 
 	languages = fts_user_get_all_languages(backend->ns->user);
 	tokenizer = fts_user_get_search_tokenizer(backend->ns->user);
@@ -117,19 +118,24 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 	/* reset tokenizer between search args in case there's any state left
 	   from some previous failure */
 	fts_tokenizer_reset(tokenizer);
-	while (fts_tokenizer_next(tokenizer,
-	                          (const void *)orig_token,
-	                          orig_token_len, &token) > 0) {
+	while ((ret = fts_tokenizer_next(tokenizer,
+					 (const void *)orig_token,
+					 orig_token_len, &token, &error)) > 0) {
 		if (fts_backend_dovecot_expand_lang_tokens(languages, pool, and_arg,
 							   orig_arg, orig_token,
 							   token) < 0)
 			return -1;
 	}
-	while (fts_tokenizer_final(tokenizer, &token) > 0) {
+	while (ret >= 0 &&
+	       (ret = fts_tokenizer_final(tokenizer, &token, &error)) > 0) {
 		if (fts_backend_dovecot_expand_lang_tokens(languages, pool, and_arg,
 							   orig_arg, orig_token,
 							   token) < 0)
 			return -1;
+	}
+	if (ret < 0) {
+		i_error("fts: Couldn't tokenize search args: %s", error);
+		return -1;
 	}
 
 	if (and_arg->value.subargs == NULL) {

@@ -77,9 +77,10 @@ void fts_tokenizer_reset(struct fts_tokenizer *tok);
 
 int fts_tokenizer_next(struct fts_tokenizer *tok,
 		       const unsigned char *data, size_t size,
-		       const char **token_r);
+		       const char **token_r, const char **error_r);
 /* Returns same as fts_tokenizer_next(). */
-int fts_tokenizer_final(struct fts_tokenizer *tok, const char **token_r);
+int fts_tokenizer_final(struct fts_tokenizer *tok, const char **token_r,
+			const char **error_r);
 
 const char *fts_tokenizer_name(const struct fts_tokenizer *tok);
 
