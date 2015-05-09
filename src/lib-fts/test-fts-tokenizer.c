@@ -554,6 +554,19 @@ static void test_fts_tokenizer_address_search(void)
 		eopp++;
 	}
 	test_assert(*eopp == NULL);
+
+	test_assert(fts_tokenizer_next(tok, (const void *)"foo", 3, &token) == 0);
+	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) > 0);
+	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) == 0);
+
+	test_assert(fts_tokenizer_next(tok, (const void *)"bar@baz", 7, &token) == 0);
+	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) > 0);
+	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) == 0);
+
+	test_assert(fts_tokenizer_next(tok, (const void *)"foo@", 4, &token) == 0);
+	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) > 0);
+	test_assert(fts_tokenizer_next(tok, NULL, 0, &token) == 0);
+
 	fts_tokenizer_unref(&tok);
 	fts_tokenizer_unref(&gen_tok);
 	fts_tokenizers_deinit();

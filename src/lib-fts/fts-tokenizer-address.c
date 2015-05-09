@@ -217,12 +217,19 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 	/* end of data, output lingering tokens. first the parents data, then
 	   possibly our token, if complete enough */
 	if (size == 0) {
+		if (tok->state == EMAIL_ADDRESS_PARSER_STATE_DOMAIN &&
+		    domain_is_empty(tok)) {
+			/* user@ without domain - reset state */
+			str_truncate(tok->last_word, 0);
+			tok->state = EMAIL_ADDRESS_PARSER_STATE_NONE;
+		}
+
 		if (fts_tokenizer_address_parent_data(tok, token_r))
 			return 1;
 
-		if (tok->state == EMAIL_ADDRESS_PARSER_STATE_DOMAIN &&
-		    !domain_is_empty(tok))
+		if (tok->state == EMAIL_ADDRESS_PARSER_STATE_DOMAIN)
 			return fts_tokenizer_address_current_token(tok, token_r);
+		tok->state = EMAIL_ADDRESS_PARSER_STATE_NONE;
 	}
 
 	/* 1) regular input data OR
