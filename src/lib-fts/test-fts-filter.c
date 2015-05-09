@@ -8,12 +8,12 @@
 
 #include <stdio.h>
 
-const char *const stopword_settings[] = {"stopwords_dir", TEST_STOPWORDS_DIR, NULL};
+static const char *const stopword_settings[] = {"stopwords_dir", TEST_STOPWORDS_DIR, NULL};
+static struct fts_language english_language = { .name = "en" };
 
 static void test_fts_filter_stopwords_eng(void)
 {
 	const struct fts_filter *filter_class;
-	const struct fts_language english = { .name = "en" };
 	struct fts_filter *filter;
 	const char *error;
 	int ret;
@@ -28,8 +28,7 @@ static void test_fts_filter_stopwords_eng(void)
 
 	test_begin("fts filter stopwords, English");
 	filter_class = fts_filter_find(STOPWORDS_FILTER_NAME);
-	ret = fts_filter_create(filter_class, NULL, &english, stopword_settings, &filter, &error);
-	test_assert(ret == 0);
+	test_assert(fts_filter_create(filter_class, NULL, &english_language, stopword_settings, &filter, &error) == 0);
 
 	ip = input;
 	op = output;
@@ -72,8 +71,7 @@ static void test_fts_filter_stopwords_fin(void)
 
 	test_begin("fts filter stopwords, Finnish");
 	filter_class = fts_filter_find(STOPWORDS_FILTER_NAME);
-	ret = fts_filter_create(filter_class, NULL, &finnish, stopword_settings, &filter, &error);
-	test_assert(ret == 0);
+	test_assert(fts_filter_create(filter_class, NULL, &finnish, stopword_settings, &filter, &error) == 0);
 
 	ip = input;
 	op = output;
@@ -94,8 +92,7 @@ static void test_fts_filter_stopwords_fin(void)
 	fts_filter_unref(&filter);
 	test_assert(filter == NULL);
 
-	ret = fts_filter_create(filter_class, NULL, &finnish, stopword_settings, &filter, &error);
-	test_assert(ret == 0);
+	test_assert(fts_filter_create(filter_class, NULL, &finnish, stopword_settings, &filter, &error) == 0);
 	ip = input2;
 	op = output2;
 	while (*ip != NULL) {
@@ -137,8 +134,7 @@ static void test_fts_filter_stopwords_fra(void)
 
 	test_begin("fts filter stopwords, French");
 	filter_class = fts_filter_find(STOPWORDS_FILTER_NAME);
-	ret = fts_filter_create(filter_class, NULL, &french, stopword_settings, &filter, &error);
-	test_assert(ret == 0);
+	test_assert(fts_filter_create(filter_class, NULL, &french, stopword_settings, &filter, &error) == 0);
 
 	ip = input;
 	op = output;
@@ -167,14 +163,12 @@ static void test_fts_filter_stopwords_fail_lazy_init(void)
 	const struct fts_language unknown = { .name = "bebobidoop" };
 	struct fts_filter *filter = NULL;
 	const char *error = NULL, *token = "foobar";
-	int ret;
 
 	test_begin("fts filter stopwords, fail filter() (lazy init)");
 	filter_class = fts_filter_find(STOPWORDS_FILTER_NAME);
-	ret = fts_filter_create(filter_class, NULL, &unknown, stopword_settings, &filter, &error);
-	test_assert(ret == 0 && filter != NULL && error == NULL);
-	ret = fts_filter_filter(filter, &token, &error);
-	test_assert(ret == -1 && error != NULL);
+	test_assert(fts_filter_create(filter_class, NULL, &unknown, stopword_settings, &filter, &error) == 0);
+	test_assert(filter != NULL && error == NULL);
+	test_assert(fts_filter_filter(filter, &token, &error) < 0 && error != NULL);
 	test_end();
 
 }
@@ -182,11 +176,9 @@ static void test_fts_filter_stopwords_fail_lazy_init(void)
 #ifdef HAVE_FTS_STEMMER
 static void test_fts_filter_stemmer_snowball_stem_english(void)
 {
-	int ret;
 	const struct fts_filter *filter_class;
 	struct fts_filter *stemmer;
 	const char *error;
-	struct fts_language language = { .name = "en" };
 	const char *token = NULL;
 	const char * const tokens[] = {
 		"dries" ,"friendlies", "All", "human", "beings", "are",
@@ -205,12 +197,11 @@ static void test_fts_filter_stemmer_snowball_stem_english(void)
 
 	test_begin("fts filter stem English");
 	filter_class = fts_filter_find(SNOWBALL_STEMMER_FILTER_NAME);
-	ret = fts_filter_create(filter_class, NULL, &language, NULL, &stemmer, &error);
-	test_assert(ret == 0);
+	test_assert(fts_filter_create(filter_class, NULL, &english_language, NULL, &stemmer, &error) == 0);
 	bpp = bases;
 	for (tpp=tokens; *tpp != NULL; tpp++) {
 		token = *tpp;
-		ret = fts_filter_filter(stemmer, &token, &error);
+		test_assert(fts_filter_filter(stemmer, &token, &error) > 0);
 		test_assert(token != NULL);
 		test_assert(null_strcmp(token, *bpp) == 0);
 		bpp++;
@@ -222,7 +213,6 @@ static void test_fts_filter_stemmer_snowball_stem_english(void)
 
 static void test_fts_filter_stemmer_snowball_stem_french(void)
 {
-	int ret;
 	const struct fts_filter *filter_class;
 	struct fts_filter *stemmer;
 	const char *error;
@@ -240,12 +230,11 @@ static void test_fts_filter_stemmer_snowball_stem_french(void)
 
 	test_begin("fts filter stem French");
 	filter_class = fts_filter_find(SNOWBALL_STEMMER_FILTER_NAME);
-	ret = fts_filter_create(filter_class, NULL, &language, NULL, &stemmer, &error);
-	test_assert(ret == 0);
+	test_assert(fts_filter_create(filter_class, NULL, &language, NULL, &stemmer, &error) == 0);
 	bpp = bases;
 	for (tpp=tokens; *tpp != NULL; tpp++) {
 		token = *tpp;
-		ret = fts_filter_filter(stemmer, &token, &error);
+		test_assert(fts_filter_filter(stemmer, &token, &error) > 0);
 		test_assert(token != NULL);
 		test_assert(null_strcmp(token, *bpp) == 0);
 		bpp++;
@@ -262,7 +251,6 @@ static void test_fts_filter_stopwords_stemmer_eng(void)
 	struct fts_filter *stemmer;
 	struct fts_filter *filter;
 	const char *error;
-	struct fts_language language = { .name = "en" };
 	const char *token = NULL;
 	const char * const tokens[] = {
 		"dries" ,"friendlies", "All", "human", "beings", "are",
@@ -282,12 +270,10 @@ static void test_fts_filter_stopwords_stemmer_eng(void)
 	test_begin("fts filters stopwords and stemming chained, English");
 
 	filter_class = fts_filter_find(STOPWORDS_FILTER_NAME);
-	ret = fts_filter_create(filter_class, NULL, &language, stopword_settings, &filter, &error);
-	test_assert(ret == 0);
+	test_assert(fts_filter_create(filter_class, NULL, &english_language, stopword_settings, &filter, &error) == 0);
 
 	filter_class = fts_filter_find(SNOWBALL_STEMMER_FILTER_NAME);
-	ret = fts_filter_create(filter_class, filter, &language, NULL, &stemmer, &error);
-	test_assert(ret == 0);
+	test_assert(fts_filter_create(filter_class, filter, &english_language, NULL, &stemmer, &error) == 0);
 
 	bpp = bases;
 	for (tpp=tokens; *tpp != NULL; tpp++) {
@@ -315,7 +301,6 @@ static void test_fts_filter_normalizer_swedish_short(void)
 {
 	const struct fts_filter *filter_class;
 	struct fts_filter *norm = NULL;
-	int ret;
 	const char *input[] = {
 		NULL,
 		"",
@@ -343,8 +328,7 @@ static void test_fts_filter_normalizer_swedish_short(void)
 
 	T_BEGIN {
 		filter_class = fts_filter_find(ICU_NORMALIZER_FILTER_NAME);
-		ret = fts_filter_create(filter_class, NULL, NULL, settings, &norm, &error);
-		test_assert(ret == 0);
+		test_assert(fts_filter_create(filter_class, NULL, NULL, settings, &norm, &error) == 0);
 		for (i = 0; i < N_ELEMENTS(input); i++) {
 			if (input[i] != NULL) {
 				token = input[i];
@@ -362,7 +346,6 @@ static void test_fts_filter_normalizer_swedish_short_default_id(void)
 {
 	const struct fts_filter *filter_class;
 	struct fts_filter *norm = NULL;
-	int ret;
 	const char *input[] = {
 		NULL,
 		"",
@@ -388,8 +371,7 @@ static void test_fts_filter_normalizer_swedish_short_default_id(void)
 
 	T_BEGIN {
 		filter_class = fts_filter_find(ICU_NORMALIZER_FILTER_NAME);
-		ret = fts_filter_create(filter_class, NULL, NULL, NULL, &norm, &error);
-		test_assert(ret == 0);
+		test_assert(fts_filter_create(filter_class, NULL, NULL, NULL, &norm, &error) == 0);
 		for (i = 0; i < N_ELEMENTS(input); i++) {
 			if (input[i] != NULL) {
 				token = input[i];
@@ -415,7 +397,6 @@ static void test_fts_filter_normalizer_french(void)
 	char buf[4096] = {0};
 	const char *error = NULL;
 	const char *tokens;
-	int ret;
 	unsigned char sha512_digest[SHA512_RESULTLEN];
 	struct sha512_ctx ctx;
 	const unsigned char correct_digest[] = {
@@ -434,8 +415,7 @@ static void test_fts_filter_normalizer_french(void)
 	T_BEGIN {
 		udhr_path = t_strconcat(UDHRDIR, UDHR_FRA_NAME, NULL);
 		filter_class = fts_filter_find(ICU_NORMALIZER_FILTER_NAME);
-		ret = fts_filter_create(filter_class, NULL, NULL, settings, &norm, &error);
-		test_assert(ret == 0);
+		test_assert(fts_filter_create(filter_class, NULL, NULL, settings, &norm, &error) == 0);
 		input = fopen(udhr_path, "r");
 		test_assert(input != NULL);
 		sha512_init(&ctx);
@@ -464,14 +444,12 @@ static void test_fts_filter_normalizer_invalid_id(void)
 		{"id", "Any-One-Out-There; DKFN; [: Nonspacing Mark :] Remove",
 		 NULL};
 	const char *error = NULL, *token = "foo";
-	int ret;
 
 	test_begin("fts filter normalizer invalid id");
 	filter_class = fts_filter_find(ICU_NORMALIZER_FILTER_NAME);
-	ret = fts_filter_create(filter_class, NULL, NULL, settings, &norm, &error);
-	test_assert(ret ==  0 && error == NULL);
-	ret = fts_filter_filter(norm, &token, &error);
-	test_assert(ret < 0 && error != NULL);
+	test_assert(fts_filter_create(filter_class, NULL, NULL, settings, &norm, &error) == 0);
+	test_assert(error == NULL);
+	test_assert(fts_filter_filter(norm, &token, &error) < 0 && error != NULL);
 	test_end();
 }
 
@@ -486,7 +464,6 @@ static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 	const char * const id_settings[] =
 		//{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC", NULL};
 		{"id", "Lower", NULL};
-	struct fts_language language = { .name = "en" };
 	const char *token = NULL;
 	const char * const tokens[] = {
 		"dries" ,"friendlies", "All", "human", "beings", "are",
@@ -507,16 +484,13 @@ static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 	test_begin("fts filters normalizer, stopwords and stemming chained, English");
 
 	filter_class = fts_filter_find(ICU_NORMALIZER_FILTER_NAME);
-	ret = fts_filter_create(filter_class, NULL, NULL, id_settings, &normalizer, &error);
-	test_assert(ret == 0);
+	test_assert(fts_filter_create(filter_class, NULL, NULL, id_settings, &normalizer, &error) == 0);
 
 	filter_class = fts_filter_find(STOPWORDS_FILTER_NAME);
-	ret = fts_filter_create(filter_class, normalizer, &language, stopword_settings, &filter, &error);
-	test_assert(ret == 0);
+	test_assert(fts_filter_create(filter_class, normalizer, &english_language, stopword_settings, &filter, &error) == 0);
 
 	filter_class = fts_filter_find(SNOWBALL_STEMMER_FILTER_NAME);
-	ret = fts_filter_create(filter_class, filter, &language, NULL, &stemmer, &error);
-	test_assert(ret == 0);
+	test_assert(fts_filter_create(filter_class, filter, &english_language, NULL, &stemmer, &error) == 0);
 
 	bpp = bases;
 	for (tpp = tokens; *tpp != NULL; tpp++) {
