@@ -1,5 +1,5 @@
 .\" Copyright (c) 2014-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-FTS 1 "2014-09-24" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-FTS 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-fts \- Manipulate the Full Text Search (FTS) index
 .\"------------------------------------------------------------------------
@@ -30,6 +30,8 @@ Command specific
 .\"-------------------------------------
 @INCLUDE:option-A@
 .\"-------------------------------------
+@INCLUDE:option-F-file@
+.\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------
 @INCLUDE:option-u-user@
@@ -43,7 +45,7 @@ When no namespace was given, the user\(aqs private namespace will be used.
 .SH COMMANDS
 .SS fts optimize
 .B doveadm fts optimize
-[\fB\-u\fP \fIuser\fP|\fB\-A\fP]
+[\fB\-u\fP \fIuser\fP|\fB\-A\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .RI [ namespace ]
 .PP
@@ -53,7 +55,7 @@ enforces it to happen.
 .\"-------------------------------------
 .SS fts rescan
 .B doveadm fts rescan
-[\fB\-u\fP \fIuser\fP|\fB\-A\fP]
+[\fB\-u\fP \fIuser\fP|\fB\-A\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .RI [ namespace ]
 .PP

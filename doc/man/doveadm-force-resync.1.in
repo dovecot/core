@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-FORCE\-RESYNC 1 "2010-11-25" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-FORCE\-RESYNC 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-force\-resync \- Repair broken mailboxes
 .\"------------------------------------------------------------------------
@@ -11,6 +11,11 @@ doveadm\-force\-resync \- Repair broken mailboxes
 .BR doveadm " [" \-Dv "] " force\-resync " [" \-S
 .IR socket_path "] "
 .BI \-A \ mailbox
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " force\-resync " [" \-S
+.IR socket_path "] "
+.BI "\-F" " file mailbox"
 .\"-------------------------------------
 .br
 .BR doveadm " [" \-Dv "] " force\-resync " [" \-S
@@ -34,6 +39,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
 .\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------

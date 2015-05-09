@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-EXPUNGE 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-EXPUNGE 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-expunge \- Expunge messages matching given search query
 .\"------------------------------------------------------------------------
@@ -14,6 +14,12 @@ doveadm\-expunge \- Expunge messages matching given search query
 .IR socket_path ]
 .RB [ \-d ]
 .BI \-A " search_query"
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " expunge " [" \-S
+.IR socket_path ]
+.RB [ \-d ]
+.BI \-F " file search_query"
 .br
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] " expunge " [" \-S
@@ -39,7 +45,13 @@ action with the environment of the logged in system user.
 .PP
 In the second form, the command will be performed for all users.
 .PP
-In the third form, only matching mails of the given
+In the third form,
+.BR doveadm (1)
+will expunge messages of the users listed
+in the given
+.IR file .
+.PP
+In the fourth form, only matching mails of the given
 .IR user (s)
 will be expunged.
 .\"------------------------------------------------------------------------
@@ -50,6 +62,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
 .\"-------------------------------------
 .TP
 .B \-d

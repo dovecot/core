@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-FETCH 1 "2012-02-13" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-FETCH 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-fetch \- Fetch partial/full messages or message information
 .\"------------------------------------------------------------------------
@@ -15,6 +15,13 @@ doveadm\-fetch \- Fetch partial/full messages or message information
 .BR fetch " [" \-S
 .IR socket_path "]"
 .BI \-A " fields search_query"
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.BR fetch " [" \-S
+.IR socket_path "]"
+.BI \-F " file fields search_query"
 .br
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] [" \-f
@@ -42,6 +49,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
 .\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------

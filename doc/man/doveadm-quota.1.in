@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-QUOTA 1 "2011-02-17" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-QUOTA 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-quota \- Initialize/recalculate or show current quota usage
 .\"------------------------------------------------------------------------
@@ -21,6 +21,13 @@ doveadm\-quota \- Initialize/recalculate or show current quota usage
 .IR formatter ]
 .BR quota " [" \-S
 .IR socket_path "]"
+.IB command\  \-F \ file
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.BR quota " [" \-S
+.IR socket_path "]"
 .IB  command\  \-u \ user
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
@@ -35,6 +42,11 @@ In the second form, the
 will be performed for all users.
 .PP
 In the third form, the
+.I command
+will be performed for all users listed in the given
+.IR file .
+.PP
+In the fourth form, the
 .I command
 will affect only the matching
 .IR user (s).
@@ -57,6 +69,8 @@ Command specific
 .\"-------------------------------------
 @INCLUDE:option-A@
 .\"-------------------------------------
+@INCLUDE:option-F-file@
+.\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------
 @INCLUDE:option-u-user@
@@ -66,7 +80,7 @@ Command specific
 .BR doveadm " [" \-f
 .IR formatter ]
 .B quota get
-[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
 .PP
 The
 .B quota get
@@ -78,7 +92,7 @@ This command uses by default the output formatter
 .\"-------------------------------------
 .SS quota recalc
 .B doveadm quota recalc
-[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
 .PP
 The
 .B quota recalc

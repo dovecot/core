@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-INDEX 1 "2013-11-23" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-INDEX 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-index \- Index mailboxes
 .\"------------------------------------------------------------------------
@@ -13,6 +13,13 @@ doveadm\-index \- Index mailboxes
 .BR doveadm " [" \-Dv "] " index " [" \-S
 .IR socket_path "] "
 .B \-A
+.RB [ \-q "] [" \-n
+.IR max_recent "] " mailbox
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " index " [" \-S
+.IR socket_path "] "
+.BI \-F " file"
 .RB [ \-q "] [" \-n
 .IR max_recent "] " mailbox
 .\"-------------------------------------
@@ -51,6 +58,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
 .\"-------------------------------------
 .TP
 .BI \-n \ max_recent

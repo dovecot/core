@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-ALTMOVE 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-ALTMOVE 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-altmove \- Move matching mails to the alternative storage (dbox\-only)
 .\"------------------------------------------------------------------------
@@ -11,6 +11,11 @@ doveadm\-altmove \- Move matching mails to the alternative storage (dbox\-only)
 .BR doveadm " [" \-Dv "] " altmove " [" \-r "] ["\-S
 .IR socket_path "] "
 .BI \-A " search_query"
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " altmove " [" \-r "] ["\-S
+.IR socket_path "] "
+.BI \-F " file search_query"
 .br
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] " altmove " [" \-r "] ["\-S
@@ -30,7 +35,11 @@ action with the environment of the logged in system user.
 .PP
 In the second form, the command will be performed for all users.
 .PP
-In the third form, only matching mails of the given
+In the third form, the command will be performed for all users listed in
+the given
+.IR file .
+.PP
+In the fourth form, only matching mails of the given
 .IR user (s)
 will be moved to the alternative storage.
 .\"------------------------------------------------------------------------
@@ -41,6 +50,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
 .\"-------------------------------------
 .TP
 .B \-r

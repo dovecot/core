@@ -1,5 +1,5 @@
 .\" Copyright (c) 2011-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-MOVE 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-MOVE 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-move \- Move messages matching the given search query into another
 mailbox
@@ -23,6 +23,13 @@ mailbox
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] " move " [" \-S
 .IR socket_path "] "
+.BI \-F " file destination"
+.RB [ user
+.IR source_user "] " search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " move " [" \-S
+.IR socket_path "] "
 .BI \-u " user destination
 .RB [ user
 .IR source_user "] " search_query
@@ -37,6 +44,13 @@ mailbox
 .BR doveadm " [" \-Dv "] " copy " [" \-S
 .IR socket_path "] "
 .BI \-A " destination
+.RB [ user
+.IR source_user "] " search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " copy " [" \-S
+.IR socket_path "] "
+.BI \-F " file destination"
 .RB [ user
 .IR source_user "] " search_query
 .br
@@ -76,7 +90,16 @@ and move or copy each user\(aqs messages, matching the given
 into the user\(aqs
 .IR destination " mailbox."
 .PP
-In the third form, matching mails will be moved or copied only for given
+In the third form,
+.BR doveadm (1)
+will iterate over all users, found in the given
+.IR file ,
+and move or copy each user\(aqs messages, matching the given
+.IR search_query ,
+into the user\(aqs
+.IR destination \ mailbox.
+.PP
+In the fourth form, matching mails will be moved or copied only for given
 .IR user (s).
 .\"------------------------------------------------------------------------
 @INCLUDE:global-options@
@@ -86,6 +109,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
 .\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------

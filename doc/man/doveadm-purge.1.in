@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-PURGE 1 "2010-11-25" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-PURGE 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-purge \- Remove messages with refcount=0 from mdbox files
 .\"------------------------------------------------------------------------
@@ -11,6 +11,11 @@ doveadm\-purge \- Remove messages with refcount=0 from mdbox files
 .BR doveadm " [" \-Dv "] " purge " [" \-S
 .IR socket_path ]
 .B \-A
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " purge " [" \-S
+.IR socket_path ]
+.BI \-F\  file
 .\"-------------------------------------
 .br
 .BR doveadm " [" \-Dv "] " purge " [" \-S
@@ -32,7 +37,11 @@ will perform the
 .B purge
 action for the currently logged in user.
 .PP
-In the second form, the command will be executed for all users
+In the second form, the command will be executed for all users.
+.PP
+In the third form, the command will be executed for all users listed in
+the given
+.IR file .
 .PP
 In the last form, only messages of the given
 .IR user (s)
@@ -45,6 +54,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
 .\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------

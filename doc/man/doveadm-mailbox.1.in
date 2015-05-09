@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-MAILBOX 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-MAILBOX 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-mailbox \- Commands related to handling mailboxes
 .\"------------------------------------------------------------------------
@@ -18,6 +18,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
 .\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------
@@ -39,7 +41,7 @@ configuration. The mailbox names may also require a namespace prefix.
 .SH COMMANDS
 .SS mailbox create
 .B doveadm mailbox create
-[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .RB [ \-g
 .IR guid ]
@@ -64,7 +66,7 @@ subscriptions.
 .\"------------------------------------------------------------------------
 .SS mailbox delete
 .B doveadm mailbox delete
-[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .RB [ \-s ]
 .IR mailbox\  ...
@@ -79,7 +81,7 @@ option is present, the deleted mailboxes will be also unsubscribed.
 .SS mailbox list
 .B doveadm mailbox list
 .RB [ \-7 | \-8 ]
-[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .RB [ \-s ]
 [\fImailbox\fP ...]
@@ -134,7 +136,7 @@ One or more mailbox names that should be converted.
 .\"------------------------------------------------------------------------
 .SS mailbox rename
 .B doveadm mailbox rename
-[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .RB [ \-s ]
 .I old_name
@@ -160,7 +162,7 @@ will be subscribed.
 .BR doveadm " [" \-f
 .IR formatter ]
 .B mailbox status
-[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP] [\fB\-t\fP]
 .IR "fields mailbox\ " ...
 .PP
@@ -242,7 +244,7 @@ virtual size, computed with CRLF line terminators.
 .\"------------------------------------------------------------------------
 .SS mailbox subscribe
 .B doveadm mailbox subscribe
-[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .IR mailbox\  ...
 .PP
@@ -250,7 +252,7 @@ This command is used to subscribe one or more mailboxes.
 .\"------------------------------------------------------------------------
 .SS mailbox unsubscribe
 .B doveadm mailbox unsubscribe
-[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .IR mailbox\  ...
 .PP

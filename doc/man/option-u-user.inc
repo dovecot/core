@@ -12,7 +12,9 @@ wildcards (e.g. \-u *@example.org).
 .br
 When neither the
 .B \-A
-option nor
+option, nor the
+.BI \-F\  file
+option, nor the
 .BI \-u\  user
 was specified, the
 .I command

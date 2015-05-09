@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-IMPORT 1 "2013-11-24" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-IMPORT 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-import \- Import messages matching given search query
 .\"------------------------------------------------------------------------
@@ -14,6 +14,12 @@ doveadm\-import \- Import messages matching given search query
 .IR socket_path ]
 .RB [ \-s ]
 .BI \-A " source_location dest_parent search_query"
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " import " [" \-S
+.IR socket_path ]
+.RB [ \-s ]
+.BI \-F " file source_location dest_parent search_query"
 .br
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] " import " [" \-S
@@ -41,7 +47,11 @@ action with the environment of the logged in system user.
 .PP
 In the second form, the mails will be imported for all users.
 .PP
-In the third form, the mails will be imported only for given
+In the third form, the mails will be imported for all users listed in the
+given
+.IR file .
+.PP
+In the fourth form, the mails will be imported only for given
 .IR user (s).
 .\"------------------------------------------------------------------------
 @INCLUDE:global-options@
@@ -51,6 +61,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
 .\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------

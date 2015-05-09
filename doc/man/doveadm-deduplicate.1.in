@@ -1,12 +1,14 @@
 .\" Copyright (c) 2013-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-DEDUPLICATE 1 "2014-10-19" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-DEDUPLICATE 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-deduplicate \- expunge duplicate messages
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
 .BR doveadm " [" \-Dv "] " deduplicate " [" \-u
 .IR user |\c
-.BR \-A "] [" \-S
+.BR \-A |\c
+.BI \-F " file" \c
+.RB "] [" \-S
 .IR socket_path "] ["\c
 .BR \-m ]
 .I search_query
@@ -30,6 +32,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
 .\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------

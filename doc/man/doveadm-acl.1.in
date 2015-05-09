@@ -1,5 +1,5 @@
 .\" Copyright (c) 2014-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-ACL 1 "2014-10-09" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-ACL 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-acl \- Manage Access Control List (ACL)
 .\"------------------------------------------------------------------------
@@ -25,6 +25,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
 .\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------
@@ -80,7 +82,7 @@ group\-override=tempdisabled
 .fi
 .PP
 Now if timo is a member of the tempdisabled group, he has no access to the
-mailbox. 
+mailbox.
 This wouldn\(aqt be possible with a normal group identifier, because the
 .B user=timo
 would override it.
@@ -171,7 +173,7 @@ Administration rights to the
 .SH COMMANDS
 .SS acl add
 .B doveadm acl add
-[\fB\-u\fP \fIuser\fP|\fB\-A\fP]
+[\fB\-u\fP \fIuser\fP|\fB\-A\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .I mailbox id right
 .RI [ right " ...]"
@@ -184,7 +186,7 @@ already exists, the existing rights are preserved.
 .\"-------------------------------------
 .SS acl debug
 .B doveadm acl debug
-[\fB\-u\fP \fIuser\fP|\fB\-A\fP]
+[\fB\-u\fP \fIuser\fP|\fB\-A\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .I mailbox
 .PP
@@ -194,7 +196,7 @@ It will list exactly what the problem is.
 .\"-------------------------------------
 .SS acl delete
 .B doveadm acl delete
-[\fB\-u\fP \fIuser\fP|\fB\-A\fP]
+[\fB\-u\fP \fIuser\fP|\fB\-A\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .I mailbox id
 .PP
@@ -203,7 +205,7 @@ Remove the whole ACL entry for the
 .\"-------------------------------------
 .SS acl get
 .B doveadm acl get
-[\fB\-u\fP \fIuser\fP|\fB\-A\fP]
+[\fB\-u\fP \fIuser\fP|\fB\-A\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .RB [ \-m ]
 .I mailbox
@@ -213,7 +215,7 @@ Show all the ACLs for the
 .\"-------------------------------------
 .SS acl recalc
 .B doveadm acl recalc
-[\fB\-u\fP \fIuser\fP|\fB\-A\fP]
+[\fB\-u\fP \fIuser\fP|\fB\-A\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .PP
 Make sure the
@@ -223,7 +225,7 @@ shared mailboxes exist correctly in the
 .\"-------------------------------------
 .SS acl remove
 .B doveadm acl remove
-[\fB\-u\fP \fIuser\fP|\fB\-A\fP]
+[\fB\-u\fP \fIuser\fP|\fB\-A\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .I mailbox id right
 .RI [ right " ...]"
@@ -234,7 +236,7 @@ If all rights are removed, the entry still exists without any rights.
 .\"-------------------------------------
 .SS acl rights
 .B doveadm acl rights
-[\fB\-u\fP \fIuser\fP|\fB\-A\fP]
+[\fB\-u\fP \fIuser\fP|\fB\-A\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .I mailbox
 .PP
@@ -245,7 +247,7 @@ current ACL rights for the
 .\"-------------------------------------
 .SS acl set
 .B doveadm acl set
-[\fB\-u\fP \fIuser\fP|\fB\-A\fP]
+[\fB\-u\fP \fIuser\fP|\fB\-A\fP|\fB\-F\fP \fIfile\fP]
 [\fB\-S\fP \fIsocket_path\fP]
 .I mailbox id right
 .RI [ right " ...]"
