@@ -3,7 +3,11 @@
 #include "lib.h"
 #include "str.h"
 #include "buffer.h"
+#include "rfc822-parser.h"
 #include "fts-tokenizer-private.h"
+
+#define IS_DTEXT(c) \
+	(rfc822_atext_chars[(int)(unsigned char)(c)] == 2)
 
 #define FTS_DEFAULT_NO_PARENT FALSE
 #define FTS_DEFAULT_SEARCH FALSE
@@ -24,60 +28,6 @@ struct email_address_fts_tokenizer {
 	bool no_parent;
 	bool search;
 };
-
-/*
-   Extracted from core rfc822-parser.c
-
-   atext        =       ALPHA / DIGIT / ; Any character except controls,
-                        "!" / "#" /     ;  SP, and specials.
-                        "$" / "%" /     ;  Used for atoms
-                        "&" / "'" /
-                        "*" / "+" /
-                        "-" / "/" /
-                        "=" / "?" /
-                        "^" / "_" /
-                        "`" / "{" /
-                        "|" / "}" /
-                        "~"
-
-  MIME:
-
-  token := 1*<any (US-ASCII) CHAR except SPACE, CTLs,
-              or tspecials>
-  tspecials :=  "(" / ")" / "<" / ">" / "@" /
-                "," / ";" / ":" / "\" / <">
-                "/" / "[" / "]" / "?" / "="
-
-  So token is same as dot-atom, except stops also at '/', '?' and '='.
-*/
-
-/* atext chars are marked with 1, alpha and digits with 2,
-   atext-but-mime-tspecials with 4 */
-unsigned char rfc822_atext_chars[256] = {
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 0-15 */
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 16-31 */
-	0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 4, /* 32-47 */
-	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 4, /* 48-63 */
-	0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, /* 64-79 */
-	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 1, 1, /* 80-95 */
-	1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, /* 96-111 */
-	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 0, /* 112-127 */
-
-	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
-};
-
-#define IS_ATEXT(c) \
-	(rfc822_atext_chars[(int)(unsigned char)(c)] != 0)
-#define IS_DTEXT(c) \
-	(rfc822_atext_chars[(int)(unsigned char)(c)] == 2)
-
 
 static int
 fts_tokenizer_email_address_create(const char *const *settings,

@@ -3,6 +3,7 @@ noinst_LTLIBRARIES = libfts.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-mail \
 	$(LIBEXTTEXTCAT_CFLAGS) \
 	$(LIBICU_CFLAGS) \
 	-DUDHRDIR=\""$(top_srcdir)/src/lib-fts"\" \
@@ -101,8 +102,8 @@ test_fts_language_DEPENDENCIES = $(test_deps)
 endif
 
 test_fts_tokenizer_SOURCES = test-fts-tokenizer.c
-test_fts_tokenizer_LDADD = fts-tokenizer.lo fts-tokenizer-generic.lo fts-tokenizer-address.lo $(test_libs)
-test_fts_tokenizer_DEPENDENCIES = $(test_deps)
+test_fts_tokenizer_LDADD = fts-tokenizer.lo fts-tokenizer-generic.lo fts-tokenizer-address.lo ../lib-mail/libmail.la $(test_libs)
+test_fts_tokenizer_DEPENDENCIES = ../lib-mail/libmail.la $(test_deps)
 
 check: check-am check-test
 check-test: all-am
