@@ -146,8 +146,6 @@ void doveadm_mail_get_input(struct doveadm_mail_cmd_context *ctx);
 
 struct mailbox *
 doveadm_mailbox_find(struct mail_user *user, const char *mailbox);
-int doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox,
-				  struct mailbox **box_r);
 struct mail_search_args *
 doveadm_mail_build_search_args(const char *const args[]);
 void doveadm_mailbox_args_check(const char *const args[]);

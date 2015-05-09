@@ -243,38 +243,6 @@ doveadm_mailbox_find(struct mail_user *user, const char *mailbox)
 	return mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_IGNORE_ACLS);
 }
 
-static int
-doveadm_mailbox_find_and_open(struct mail_user *user, const char *mailbox,
-			      struct mailbox **box_r)
-{
-	struct mailbox *box;
-
-	box = doveadm_mailbox_find(user, mailbox);
-	if (mailbox_open(box) < 0) {
-		i_error("Opening mailbox %s failed: %s", mailbox,
-			mailbox_get_last_error(box, NULL));
-		mailbox_free(&box);
-		return -1;
-	}
-	*box_r = box;
-	return 0;
-}
-
-int doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox,
-				  struct mailbox **box_r)
-{
-	if (doveadm_mailbox_find_and_open(user, mailbox, box_r) < 0)
-		return -1;
-	if (mailbox_sync(*box_r, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		i_error("Syncing mailbox %s failed: %s", mailbox,
-			mailbox_get_last_error(*box_r, NULL));
-		mailbox_free(box_r);
-		mailbox_free(box_r);
-		return -1;
-	}
-	return 0;
-}
-
 struct mail_search_args *
 doveadm_mail_build_search_args(const char *const args[])
 {
