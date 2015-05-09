@@ -262,10 +262,10 @@ void hook_mail_user_created(struct mail_user *user)
 	ctx = hook_build_init((void *)&user->v, sizeof(user->v));
 	user->vlast = &user->v;
 	array_foreach(&user->hooks, hooks) {
-		if ((*hooks)->mail_user_created != NULL) {
+		if ((*hooks)->mail_user_created != NULL) T_BEGIN {
 			(*hooks)->mail_user_created(user);
 			hook_build_update(ctx, user->vlast);
-		}
+		} T_END;
 	}
 	pool_unref(&ctx->pool);
 }
@@ -275,8 +275,9 @@ void hook_mail_namespace_storage_added(struct mail_namespace *ns)
 	const struct mail_storage_hooks *const *hooks;
 
 	array_foreach(&ns->user->hooks, hooks) {
-		if ((*hooks)->mail_namespace_storage_added != NULL)
+		if ((*hooks)->mail_namespace_storage_added != NULL) T_BEGIN {
 			(*hooks)->mail_namespace_storage_added(ns);
+		} T_END;
 	}
 }
 
@@ -285,8 +286,9 @@ void hook_mail_namespaces_created(struct mail_namespace *namespaces)
 	const struct mail_storage_hooks *const *hooks;
 
 	array_foreach(&namespaces->user->hooks, hooks) {
-		if ((*hooks)->mail_namespaces_created != NULL)
+		if ((*hooks)->mail_namespaces_created != NULL) T_BEGIN {
 			(*hooks)->mail_namespaces_created(namespaces);
+		} T_END;
 	}
 }
 
@@ -295,8 +297,9 @@ void hook_mail_namespaces_added(struct mail_namespace *namespaces)
 	const struct mail_storage_hooks *const *hooks;
 
 	array_foreach(&namespaces->user->hooks, hooks) {
-		if ((*hooks)->mail_namespaces_added != NULL)
+		if ((*hooks)->mail_namespaces_added != NULL) T_BEGIN {
 			(*hooks)->mail_namespaces_added(namespaces);
+		} T_END;
 	}
 }
 
@@ -308,10 +311,10 @@ void hook_mail_storage_created(struct mail_storage *storage)
 	ctx = hook_build_init((void *)&storage->v, sizeof(storage->v));
 	storage->vlast = &storage->v;
 	array_foreach(&storage->user->hooks, hooks) {
-		if ((*hooks)->mail_storage_created != NULL) {
+		if ((*hooks)->mail_storage_created != NULL) T_BEGIN {
 			(*hooks)->mail_storage_created(storage);
 			hook_build_update(ctx, storage->vlast);
-		}
+		} T_END;
 	}
 	pool_unref(&ctx->pool);
 }
@@ -324,10 +327,10 @@ void hook_mailbox_list_created(struct mailbox_list *list)
 	ctx = hook_build_init((void *)&list->v, sizeof(list->v));
 	list->vlast = &list->v;
 	array_foreach(&list->ns->user->hooks, hooks) {
-		if ((*hooks)->mailbox_list_created != NULL) {
+		if ((*hooks)->mailbox_list_created != NULL) T_BEGIN {
 			(*hooks)->mailbox_list_created(list);
 			hook_build_update(ctx, list->vlast);
-		}
+		} T_END;
 	}
 	pool_unref(&ctx->pool);
 }
@@ -340,10 +343,10 @@ void hook_mailbox_allocated(struct mailbox *box)
 	ctx = hook_build_init((void *)&box->v, sizeof(box->v));
 	box->vlast = &box->v;
 	array_foreach(&box->storage->user->hooks, hooks) {
-		if ((*hooks)->mailbox_allocated != NULL) {
+		if ((*hooks)->mailbox_allocated != NULL) T_BEGIN {
 			(*hooks)->mailbox_allocated(box);
 			hook_build_update(ctx, box->vlast);
-		}
+		} T_END;
 	}
 	pool_unref(&ctx->pool);
 }
@@ -353,8 +356,9 @@ void hook_mailbox_opened(struct mailbox *box)
 	const struct mail_storage_hooks *const *hooks;
 
 	array_foreach(&box->storage->user->hooks, hooks) {
-		if ((*hooks)->mailbox_opened != NULL)
+		if ((*hooks)->mailbox_opened != NULL) T_BEGIN {
 			(*hooks)->mailbox_opened(box);
+		} T_END;
 	}
 }
 
@@ -367,10 +371,10 @@ void hook_mail_allocated(struct mail *mail)
 	ctx = hook_build_init((void *)&pmail->v, sizeof(pmail->v));
 	pmail->vlast = &pmail->v;
 	array_foreach(&mail->box->storage->user->hooks, hooks) {
-		if ((*hooks)->mail_allocated != NULL) {
+		if ((*hooks)->mail_allocated != NULL) T_BEGIN {
 			(*hooks)->mail_allocated(mail);
 			hook_build_update(ctx, pmail->vlast);
-		}
+		} T_END;
 	}
 	pool_unref(&ctx->pool);
 }
