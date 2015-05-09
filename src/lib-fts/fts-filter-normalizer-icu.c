@@ -241,7 +241,7 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 				 struct fts_filter **filter_r ATTR_UNUSED,
 				 const char **error_r)
 {
-	*error_r = "libicu support not built in - can't use "ICU_NORMALIZER_FILTER_NAME;
+	*error_r = "libicu support not built in";
 	return -1;
 }
 
