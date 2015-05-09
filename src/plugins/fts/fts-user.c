@@ -129,9 +129,7 @@ fts_user_create_filters(struct mail_user *user, const struct fts_language *lang,
 		if (fts_filter_create(filter_class, parent, lang,
 				      str_keyvalues_to_array(str),
 				      &filter, &error) < 0) {
-			*error_r = t_strdup_printf(
-				"Filter '%s' init via settings '%s' failed: %s",
-				filters[i], set_key, error);
+			*error_r = t_strdup_printf("%s: %s", set_key, error);
 			ret = -1;
 			break;
 		}
@@ -188,9 +186,7 @@ fts_user_create_tokenizer(struct mail_user *user,
 		if (fts_tokenizer_create(tokenizer_class, parent,
 					 str_keyvalues_to_array(str),
 					 &tokenizer, &error) < 0) {
-			*error_r = t_strdup_printf(
-				"Tokenizer '%s' init via settings '%s' failed: %s",
-				tokenizers[i], set_key, error);
+			*error_r = t_strdup_printf("%s: %s", set_key, error);
 			ret = -1;
 			break;
 		}
