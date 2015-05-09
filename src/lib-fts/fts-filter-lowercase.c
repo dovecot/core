@@ -54,7 +54,7 @@ static const struct fts_filter_vfuncs normalizer_filter_vfuncs = {
 };
 
 static const struct fts_filter fts_filter_lowercase_real = {
-	.class_name = LOWERCASE_FILTER_NAME,
+	.class_name = "lowercase",
 	.v = &normalizer_filter_vfuncs
 };
 

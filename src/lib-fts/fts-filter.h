@@ -15,13 +15,11 @@ struct fts_filter;
 
  */
 extern const struct fts_filter *fts_filter_stopwords;
-#define STOPWORDS_FILTER_NAME "stopwords"
 
 /*
  Settings: "lang", language of the stemmed language.
  */
 extern const struct fts_filter *fts_filter_stemmer_snowball;
-#define SNOWBALL_STEMMER_FILTER_NAME "snowball"
 
 /*
  Settings: "id", description of the normalizing/translitterating rules
@@ -31,11 +29,9 @@ extern const struct fts_filter *fts_filter_stemmer_snowball;
  Remove; NFC"
  */
 extern const struct fts_filter *fts_filter_normalizer_icu;
-#define ICU_NORMALIZER_FILTER_NAME "normalizer-icu"
 
 /* Lowecases the input. Currently only ASCII data is lowercased. */
 extern const struct fts_filter *fts_filter_lowercase;
-#define LOWERCASE_FILTER_NAME "lowercase"
 
 /* Register all built-in filters. */
 void fts_filters_init(void);

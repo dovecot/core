@@ -281,7 +281,7 @@ static const struct fts_filter_vfuncs normalizer_filter_vfuncs = {
 };
 
 static const struct fts_filter fts_filter_normalizer_icu_real = {
-	.class_name = ICU_NORMALIZER_FILTER_NAME,
+	.class_name = "normalizer-icu",
 	.v = &normalizer_filter_vfuncs
 };
 

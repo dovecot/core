@@ -141,7 +141,7 @@ static const struct fts_filter_vfuncs snowball_stemmer_filter_vfuncs = {
 };
 
 static const struct fts_filter fts_filter_stemmer_snowball_real = {
-	.class_name = SNOWBALL_STEMMER_FILTER_NAME,
+	.class_name = "snowball",
 	.v = &snowball_stemmer_filter_vfuncs
 };
 

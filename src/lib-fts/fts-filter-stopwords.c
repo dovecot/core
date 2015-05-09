@@ -131,7 +131,7 @@ const struct fts_filter_vfuncs stopwords_filter_vfuncs = {
 };
 
 const struct fts_filter fts_filter_stopwords_real = {
-	.class_name = STOPWORDS_FILTER_NAME,
+	.class_name = "stopwords",
 	.v = &stopwords_filter_vfuncs
 };
 const struct fts_filter *fts_filter_stopwords = &fts_filter_stopwords_real;
