@@ -263,7 +263,7 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter ATTR_UNUSED,
 				 const char **token ATTR_UNUSED,
 				 const char **error_r ATTR_UNUSED)
 {
-	return NULL;
+	return -1;
 }
 
 static void
