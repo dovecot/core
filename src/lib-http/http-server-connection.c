@@ -296,12 +296,15 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 		   actual payload stream. */
 		conn->incoming_payload = req->req.payload =
 			i_stream_create_limit(req->req.payload, (uoff_t)-1);
-		i_stream_add_destroy_callback(req->req.payload,
-					      http_server_payload_destroyed, req);
-		/* the callback may add its own I/O, so we need to remove
-		   our one before calling it */
-		http_server_connection_input_halt(conn);
+	} else {
+		conn->incoming_payload = req->req.payload =
+			i_stream_create_from_data("", 0);
 	}
+	i_stream_add_destroy_callback(req->req.payload,
+				      http_server_payload_destroyed, req);
+	/* the callback may add its own I/O, so we need to remove
+	   our one before calling it */
+	http_server_connection_input_halt(conn);
 
 	http_server_connection_request_callback(conn, req);
 	if (conn->closed) {
