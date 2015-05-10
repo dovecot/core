@@ -911,7 +911,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 	const void *tdata;
 	uint32_t prev_seq;
 	uoff_t start_offset, prev_offset;
-	const char *reason;
+	const char *reason, *error;
 	int ret;
 	bool had_dirty, reset;
 
@@ -1075,10 +1075,10 @@ int mail_index_sync_map(struct mail_index_map **_map,
 
 	i_assert(index->map == map || type == MAIL_INDEX_SYNC_HANDLER_VIEW);
 
-	if (mail_index_map_check_header(map) <= 0) {
+	if (mail_index_map_check_header(map, &error) <= 0) {
 		mail_index_set_error(index,
-			"Synchronization corrupted index header: %s",
-			index->filepath);
+			"Synchronization corrupted index header %s: %s",
+			index->filepath, error);
 		(void)mail_index_fsck(index);
 		map = index->map;
 	} else if (sync_map_ctx.errors) {

@@ -31,6 +31,7 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 	struct mail_index *index = map->index;
 	struct mail_index_record_map *rec_map = map->rec_map;
 	const struct mail_index_header *hdr;
+	const char *error;
 
 	i_assert(rec_map->mmap_base == NULL);
 
@@ -66,9 +67,11 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 		return 0;
 	}
 
-	if (!mail_index_check_header_compat(index, hdr, rec_map->mmap_size)) {
+	if (!mail_index_check_header_compat(index, hdr, rec_map->mmap_size, &error)) {
 		/* Can't use this file */
-		return 0;
+		mail_index_set_error(index, "Corrupted index file %s: %s",
+				     index->filepath, error);
+		return -1;
 	}
 
 	rec_map->mmap_used_size = hdr->header_size +
@@ -126,6 +129,7 @@ mail_index_try_read_map(struct mail_index_map *map,
 	struct mail_index *index = map->index;
 	const struct mail_index_header *hdr;
 	unsigned char read_buf[IO_BLOCK_SIZE];
+	const char *error;
 	const void *buf;
 	void *data = NULL;
 	ssize_t ret;
@@ -146,9 +150,11 @@ mail_index_try_read_map(struct mail_index_map *map,
 
 	if (ret >= 0 && pos >= MAIL_INDEX_HEADER_MIN_SIZE &&
 	    (ret > 0 || pos >= hdr->base_header_size)) {
-		if (!mail_index_check_header_compat(index, hdr, file_size)) {
+		if (!mail_index_check_header_compat(index, hdr, file_size, &error)) {
 			/* Can't use this file */
-			return 0;
+			mail_index_set_error(index, "Corrupted index file %s: %s",
+					     index->filepath, error);
+			return -1;
 		}
 
 		initial_buf_pos = pos;
@@ -295,6 +301,7 @@ static int mail_index_map_latest_file(struct mail_index *index)
 	struct stat st;
 	uoff_t file_size;
 	bool use_mmap, unusable = FALSE;
+	const char *error;
 	int ret, try;
 
 	ret = mail_index_reopen_if_changed(index);
@@ -339,7 +346,12 @@ static int mail_index_map_latest_file(struct mail_index *index)
 
 	for (try = 0; ret > 0; try++) {
 		/* make sure the header is ok before using this mapping */
-		ret = mail_index_map_check_header(new_map);
+		ret = mail_index_map_check_header(new_map, &error);
+		if (ret < 0) {
+			mail_index_set_error(index,
+				"Corrupted index file %s: %s",
+				index->filepath, error);
+		}
 		if (ret > 0) T_BEGIN {
 			if (mail_index_map_parse_extensions(new_map) < 0)
 				ret = 0;

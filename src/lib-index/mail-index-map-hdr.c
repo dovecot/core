@@ -167,7 +167,7 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 
 bool mail_index_check_header_compat(struct mail_index *index,
 				    const struct mail_index_header *hdr,
-				    uoff_t file_size)
+				    uoff_t file_size, const char **error_r)
 {
         enum mail_index_header_compat_flags compat_flags = 0;
 
@@ -176,35 +176,34 @@ bool mail_index_check_header_compat(struct mail_index *index,
 #endif
 
 	if (hdr->major_version != MAIL_INDEX_MAJOR_VERSION) {
-		/* major version change - handle silently(?) */
+		/* major version change */
+		*error_r = t_strdup_printf("Major version changed (%u != %u)",
+			hdr->major_version, MAIL_INDEX_MAJOR_VERSION);
 		return FALSE;
 	}
 	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0) {
 		/* we've already complained about it */
+		*error_r = "Header's corrupted flag is set";
 		return FALSE;
 	}
 
 	if (hdr->compat_flags != compat_flags) {
 		/* architecture change */
-		mail_index_set_error(index, "Rebuilding index file %s: "
-				     "CPU architecture changed",
-				     index->filepath);
+		*error_r = "CPU architecture changed";
 		return FALSE;
 	}
 
 	if (hdr->base_header_size < MAIL_INDEX_HEADER_MIN_SIZE ||
 	    hdr->header_size < hdr->base_header_size) {
-		mail_index_set_error(index, "Corrupted index file %s: "
-				     "Corrupted header sizes (base %u, full %u)",
-				     index->filepath, hdr->base_header_size,
-				     hdr->header_size);
+		*error_r = t_strdup_printf(
+			"Corrupted header sizes (base %u, full %u)",
+			hdr->base_header_size, hdr->header_size);
 		return FALSE;
 	}
 	if (hdr->header_size > file_size) {
-		mail_index_set_error(index, "Corrupted index file %s: "
-				     "Corrupted header size (%u > %"PRIuUOFF_T")",
-				     index->filepath, hdr->header_size,
-				     file_size);
+		*error_r = t_strdup_printf(
+			"Header size is larger than file (%u > %"PRIuUOFF_T")",
+			hdr->header_size, file_size);
 		return FALSE;
 	}
 
@@ -218,7 +217,6 @@ bool mail_index_check_header_compat(struct mail_index *index,
 		index->indexid = hdr->indexid;
 		mail_transaction_log_indexid_changed(index->log);
 	}
-
 	return TRUE;
 }
 
@@ -233,33 +231,51 @@ static void mail_index_map_clear_recent_flags(struct mail_index_map *map)
 	}
 }
 
-int mail_index_map_check_header(struct mail_index_map *map)
+int mail_index_map_check_header(struct mail_index_map *map,
+				const char **error_r)
 {
 	struct mail_index *index = map->index;
 	const struct mail_index_header *hdr = &map->hdr;
 
-	if (!mail_index_check_header_compat(index, hdr, (uoff_t)-1))
+	if (!mail_index_check_header_compat(index, hdr, (uoff_t)-1, error_r))
 		return -1;
 
 	/* following some extra checks that only take a bit of CPU */
 	if (hdr->record_size < sizeof(struct mail_index_record)) {
-		mail_index_set_error(index, "Corrupted index file %s: "
-				     "record_size too small: %u < %"PRIuSIZE_T,
-				     index->filepath, hdr->record_size,
-				     sizeof(struct mail_index_record));
+		*error_r = t_strdup_printf(
+			"record_size too small (%u < %"PRIuSIZE_T")",
+			hdr->record_size, sizeof(struct mail_index_record));
 		return -1;
 	}
 
-	if (hdr->uid_validity == 0 && hdr->next_uid != 1)
+	if (hdr->uid_validity == 0 && hdr->next_uid != 1) {
+		*error_r = t_strdup_printf(
+			"uidvalidity=0, but next_uid=%u", hdr->next_uid);
 		return 0;
-	if (hdr->next_uid == 0)
+	}
+	if (hdr->next_uid == 0) {
+		*error_r = "next_uid=0";
 		return 0;
-	if (hdr->messages_count > map->rec_map->records_count)
+	}
+	if (hdr->messages_count > map->rec_map->records_count) {
+		*error_r = t_strdup_printf(
+			"messages_count is higher in header than record map (%u > %u)",
+			hdr->messages_count, map->rec_map->records_count);
 		return 0;
+	}
 
-	if (hdr->seen_messages_count > hdr->messages_count ||
-	    hdr->deleted_messages_count > hdr->messages_count)
+	if (hdr->seen_messages_count > hdr->messages_count) {
+		*error_r = t_strdup_printf(
+			"seen_messages_count %u > messages_count %u",
+			hdr->seen_messages_count, hdr->messages_count);
 		return 0;
+	}
+	if (hdr->deleted_messages_count > hdr->messages_count) {
+		*error_r = t_strdup_printf(
+			"deleted_messages_count %u > messages_count %u",
+			hdr->deleted_messages_count, hdr->messages_count);
+		return 0;
+	}
 	switch (hdr->minor_version) {
 	case 0:
 		/* upgrade silently from v1.0 */
@@ -279,11 +295,28 @@ int mail_index_map_check_header(struct mail_index_map *map)
 		map->hdr.unused_old_sync_size = 0;
 		map->hdr.unused_old_sync_stamp = 0;
 	}
-	if (hdr->first_recent_uid == 0 ||
-	    hdr->first_recent_uid > hdr->next_uid ||
-	    hdr->first_unseen_uid_lowwater > hdr->next_uid ||
-	    hdr->first_deleted_uid_lowwater > hdr->next_uid)
+	if (hdr->first_recent_uid == 0) {
+		*error_r = "first_recent_uid=0";
 		return 0;
+	}
+	if (hdr->first_recent_uid > hdr->next_uid) {
+		*error_r = t_strdup_printf(
+			"first_recent_uid %u > next_uid %u",
+			hdr->first_recent_uid, hdr->next_uid);
+		return 0;
+	}
+	if (hdr->first_unseen_uid_lowwater > hdr->next_uid) {
+		*error_r = t_strdup_printf(
+			"first_unseen_uid_lowwater %u > next_uid %u",
+			hdr->first_unseen_uid_lowwater, hdr->next_uid);
+		return 0;
+	}
+	if (hdr->first_deleted_uid_lowwater > hdr->next_uid) {
+		*error_r = t_strdup_printf(
+			"first_deleted_uid_lowwater %u > next_uid %u",
+			hdr->first_deleted_uid_lowwater, hdr->next_uid);
+		return 0;
+	}
 
 	if (hdr->messages_count > 0) {
 		/* last message's UID must be smaller than next_uid.
@@ -291,9 +324,16 @@ int mail_index_map_check_header(struct mail_index_map *map)
 		const struct mail_index_record *rec;
 
 		rec = MAIL_INDEX_REC_AT_SEQ(map, hdr->messages_count);
-		if (rec->uid == 0 || rec->uid >= hdr->next_uid)
+		if (rec->uid == 0) {
+			*error_r = "last message has uid=0";
+			return -1;
+		}
+		if (rec->uid >= hdr->next_uid) {
+			*error_r = t_strdup_printf(
+				"last message uid %u >= next_uid %u",
+				rec->uid, hdr->next_uid);
 			return 0;
+		}
 	}
-
 	return 1;
 }
