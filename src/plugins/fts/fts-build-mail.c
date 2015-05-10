@@ -133,6 +133,23 @@ static bool data_has_8bit(const unsigned char *data, size_t size)
 	return FALSE;
 }
 
+static void
+fts_build_tokenized_hdr_update_lang(struct fts_mail_build_context *ctx,
+				    const struct message_header_line *hdr)
+{
+	/* Headers that don't contain any human language will only be
+	   translated to lowercase - no stemming or other filtering. There's
+	   unfortunately no pefect way of detecting which headers contain
+	   human languages, so we have a list of some hardcoded header names
+	   and we'll also assume that if there's any 8bit content it's a human
+	   language. */
+	if (header_has_language(hdr->name) ||
+	    data_has_8bit(hdr->full_value, hdr->full_value_len))
+		ctx->cur_user_lang = NULL;
+	else
+		ctx->cur_user_lang = fts_user_get_data_lang(ctx->update_ctx->backend->ns->user);
+}
+
 static void fts_build_mail_header(struct fts_mail_build_context *ctx,
 				  const struct message_block *block)
 {
@@ -151,17 +168,9 @@ static void fts_build_mail_header(struct fts_mail_build_context *ctx,
 	key.part = block->part;
 	key.hdr_name = hdr->name;
 
-	/* Headers that don't contain any human language will only be
-	   translated to lowercase - no stemming or other filtering. There's
-	   unfortunately no pefect way of detecting which headers contain
-	   human languages, so we have a list of some hardcoded header names
-	   and we'll also assume that if there's any 8bit content it's a human
-	   language. */
-	if (header_has_language(key.hdr_name) ||
-	    data_has_8bit(hdr->full_value, hdr->full_value_len))
-		ctx->cur_user_lang = NULL;
-	else
-		ctx->cur_user_lang = fts_user_get_data_lang(ctx->update_ctx->backend->ns->user);
+	if ((ctx->update_ctx->backend->flags &
+	     FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0)
+		fts_build_tokenized_hdr_update_lang(ctx, hdr);
 
 	if (!fts_backend_update_set_build_key(ctx->update_ctx, &key))
 		return;
