@@ -22,20 +22,20 @@ EXTRA_DIST = \
 	udhr_fra.txt \
 	PropList.txt \
 	WordBreakProperty.txt \
-	word-boundary-data.sh \
+	word-boundary-data.awk \
 	word-boundary-data.c \
-	word-break-data.sh \
+	word-break-data.awk \
 	word-break-data.c
 
 WordBreakProperty.txt:
 	test -f WordBreakProperty.txt || wget http://www.unicode.org/Public/UNIDATA/auxiliary/WordBreakProperty.txt
-$(srcdir)/word-boundary-data.c: word-boundary-data.sh WordBreakProperty.txt
-	$(srcdir)/word-boundary-data.sh < WordBreakProperty.txt > $@
+$(srcdir)/word-boundary-data.c: word-boundary-data.awk WordBreakProperty.txt
+	$(AWK) -f $(srcdir)/word-boundary-data.awk < WordBreakProperty.txt > $@
 
 PropList.txt:
 	test -f PropList.txt || wget http://www.unicode.org/Public/UNIDATA/PropList.txt
-$(srcdir)/word-break-data.c: word-break-data.sh PropList.txt
-	$(srcdir)/word-break-data.sh < PropList.txt > $@
+$(srcdir)/word-break-data.c: word-break-data.awk PropList.txt
+	$(AWK) -f $(srcdir)/word-break-data.awk < PropList.txt > $@
 
 
 if BUILD_FTS_STEMMER
