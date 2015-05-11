@@ -322,8 +322,6 @@ static void test_fts_filter_normalizer_swedish_short(void)
 {
 	struct fts_filter *norm = NULL;
 	const char *input[] = {
-		NULL,
-		"",
 		"Vem",
 		"Å",
 		"ÅÄÖ",
@@ -331,8 +329,6 @@ static void test_fts_filter_normalizer_swedish_short(void)
 		"\xC3\x85\xC3\x84\xC3\x96\xC3\xB6\xC3\xA4\xC3\xA5"
 	};
 	const char *expected_output[] = {
-		NULL,
-		"",
 		"vem",
 		"a",
 		"aao",
@@ -349,11 +345,9 @@ static void test_fts_filter_normalizer_swedish_short(void)
 	T_BEGIN {
 		test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
 		for (i = 0; i < N_ELEMENTS(input); i++) {
-			if (input[i] != NULL) {
-				token = input[i];
-				test_assert_idx(fts_filter_filter(norm, &token, &error) == 1, i);
-				test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
-			}
+			token = input[i];
+			test_assert_idx(fts_filter_filter(norm, &token, &error) == 1, i);
+			test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
 		}
 		fts_filter_unref(&norm);
 	} T_END;
@@ -365,8 +359,6 @@ static void test_fts_filter_normalizer_swedish_short_default_id(void)
 {
 	struct fts_filter *norm = NULL;
 	const char *input[] = {
-		NULL,
-		"",
 		"Vem",
 		"Å",
 		"ÅÄÖ",
@@ -374,8 +366,6 @@ static void test_fts_filter_normalizer_swedish_short_default_id(void)
 		"\xC3\x85\xC3\x84\xC3\x96\xC3\xB6\xC3\xA4\xC3\xA5"
 	};
 	const char *expected_output[] = {
-		NULL,
-		"",
 		"vem",
 		"a",
 		"aao",
@@ -390,11 +380,9 @@ static void test_fts_filter_normalizer_swedish_short_default_id(void)
 	T_BEGIN {
 		test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL, NULL, &norm, &error) == 0);
 		for (i = 0; i < N_ELEMENTS(input); i++) {
-			if (input[i] != NULL) {
-				token = input[i];
-				test_assert_idx(fts_filter_filter(norm, &token, &error) == 1, i);
-				test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
-			}
+			token = input[i];
+			test_assert_idx(fts_filter_filter(norm, &token, &error) == 1, i);
+			test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
 		}
 		fts_filter_unref(&norm);
 	} T_END;
@@ -448,6 +436,30 @@ static void test_fts_filter_normalizer_french(void)
 		fts_filter_unref(&norm);
 	} T_END;
 	test_assert(norm == NULL);
+	test_end();
+}
+
+static void test_fts_filter_normalizer_empty(void)
+{
+	/* test just a couple of these */
+	static const char *empty_tokens[] = {
+		"\xCC\x80", /* U+0300 */
+		"\xF3\xA0\x87\xAF", /* U+E01EF */
+		"\xCC\x80\xF3\xA0\x87\xAF" /* U+0300 U+E01EF */
+	};
+	const char * const settings[] =
+		{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove", NULL};
+	struct fts_filter *norm;
+	const char *error;
+	unsigned int i;
+
+	test_begin("fts filter normalizer empty tokens");
+	test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
+	for (i = 0; i < N_ELEMENTS(empty_tokens); i++) {
+		const char *token = empty_tokens[i];
+		test_assert_idx(fts_filter_filter(norm, &token, &error) == 0, i);
+	}
+	fts_filter_unref(&norm);
 	test_end();
 }
 
@@ -543,6 +555,7 @@ int main(void)
 		test_fts_filter_normalizer_swedish_short,
 		test_fts_filter_normalizer_swedish_short_default_id,
 		test_fts_filter_normalizer_french,
+		test_fts_filter_normalizer_empty,
 		test_fts_filter_normalizer_invalid_id,
 		test_fts_filter_normalizer_stopwords_stemmer_eng,
 #endif
