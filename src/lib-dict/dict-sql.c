@@ -447,8 +447,11 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 	}
 
 	while ((ret = sql_result_next_row(ctx->result)) == 0) {
-		/* see if there are more results in the next map */
-		if (!sql_dict_iterate_next_query(ctx))
+		/* see if there are more results in the next map.
+		   don't do it if we're looking for an exact match, since we
+		   already should have handled it. */
+		if ((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0 ||
+		    !sql_dict_iterate_next_query(ctx))
 			return FALSE;
 	}
 	if (ret < 0) {
