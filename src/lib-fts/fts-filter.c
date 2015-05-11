@@ -95,6 +95,8 @@ int fts_filter_filter(struct fts_filter *filter, const char **token,
 {
 	int ret = 0;
 
+	i_assert((*token)[0] != '\0');
+
 	/* Recurse to parent. */
 	if (filter->parent != NULL)
 		ret = fts_filter_filter(filter->parent, token, error_r);
