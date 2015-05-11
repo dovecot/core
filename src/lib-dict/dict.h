@@ -7,10 +7,18 @@
 struct dict;
 
 enum dict_iterate_flags {
+	/* Recurse to all the sub-hierarchies (e.g. iterating "foo/" will
+	   return "foo/a", but should it return "foo/a/b"?) */
 	DICT_ITERATE_FLAG_RECURSE             = 0x01,
+	/* Sort returned results by key */
 	DICT_ITERATE_FLAG_SORT_BY_KEY         = 0x02,
+	/* Sort returned results by value */
 	DICT_ITERATE_FLAG_SORT_BY_VALUE       = 0x04,
-	DICT_ITERATE_FLAG_NO_VALUE            = 0x08
+	/* Don't return values, only keys */
+	DICT_ITERATE_FLAG_NO_VALUE            = 0x08,
+	/* Don't recurse at all. This is basically the same as dict_lookup(),
+	   but it'll return all the rows instead of only the first one. */
+	DICT_ITERATE_FLAG_EXACT_KEY           = 0x10
 };
 
 enum dict_data_type {

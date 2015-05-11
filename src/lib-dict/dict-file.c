@@ -261,9 +261,15 @@ static bool file_dict_iterate(struct dict_iterate_context *_ctx,
 		if (path == NULL)
 			continue;
 
-		if ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 &&
-		    strchr(key + path->len, '/') != NULL)
-			continue;
+		if ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0) {
+			/* match everything */
+		} else if ((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0) {
+			if (key[path->len] != '\0')
+				continue;
+		} else {
+			if (strchr(key + path->len, '/') != NULL)
+				continue;
+		}
 
 		*key_r = key;
 		*value_r = value;

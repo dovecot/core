@@ -377,8 +377,12 @@ static bool sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 
 		str_printfa(query, " FROM %s", map->table);
 
-		recurse_type = (ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 ?
-			SQL_DICT_RECURSE_ONE : SQL_DICT_RECURSE_FULL;
+		if ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0)
+			recurse_type = SQL_DICT_RECURSE_FULL;
+		else if ((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0)
+			recurse_type = SQL_DICT_RECURSE_NONE;
+		else
+			recurse_type = SQL_DICT_RECURSE_ONE;
 		sql_dict_where_build(dict, map, &values,
 				     ctx->paths[ctx->path_idx][0],
 				     recurse_type, query);
