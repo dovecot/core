@@ -27,6 +27,8 @@ static const char *test_inputs[] = {
 	"and longlonglongabcdefghijklmnopqrstuvwxyz more.\n\n "
 	"(\"Hello world\")3.14 3,14 last",
 
+	"1.",
+
 	/* whitespace: with Unicode(utf8) U+FF01(ef bc 81)(U+2000(e2 80 80) and
 	   U+205A(e2 81 9a) and U+205F(e2 81 9f) */
 	"hello\xEF\xBC\x81world\r\nAnd\xE2\x80\x80there\twas: text "
@@ -126,6 +128,8 @@ static void test_fts_tokenizer_generic_only(void)
 		"and", "longlonglongabcdefghijklmnopqr",
 		"more", "Hello", "world", "3", "14", "3", "14", "last", NULL,
 
+		"1", NULL,
+
 		"hello", "world", "And",
 		"there", "was", "text", "galore",
 		"and", "more", NULL,
@@ -162,6 +166,8 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 		"123456789012345678901234567890",
 		"and", "longlonglongabcdefghijklmnopqr",
 		"more", "Hello", "world", "3.14", "3,14", "last", NULL,
+
+		"1", NULL,
 
 		"hello", "world", "And",
 		"there", "was", "text", "galore",
