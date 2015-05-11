@@ -99,7 +99,9 @@ struct rescan_context {
 };
 
 static void *textcat = NULL;
+#ifdef HAVE_FTS_TEXTCAT
 static bool textcat_broken = FALSE;
+#endif
 static int textcat_refcount = 0;
 
 static void lucene_handle_error(struct lucene_index *index, CLuceneError &err,
@@ -112,7 +114,6 @@ struct lucene_index *lucene_index_init(const char *path,
 				       const struct fts_lucene_settings *set)
 {
 	struct lucene_index *index;
-	unsigned int len;
 
 	index = i_new(struct lucene_index, 1);
 	index->path = i_strdup(path);
@@ -410,7 +411,6 @@ int lucene_index_get_doc_count(struct lucene_index *index, uint32_t *count_r)
 
 static int lucene_settings_check(struct lucene_index *index)
 {
-	struct fts_index_header hdr;
 	uint32_t set_checksum;
 	int ret = 0;
 
@@ -858,7 +858,6 @@ int lucene_index_rescan(struct lucene_index *index)
 {
 	static const TCHAR *sort_fields[] = { _T("box"), _T("uid"), NULL };
 	struct rescan_context ctx;
-	guid_128_t guid;
 	bool failed = false;
 	int ret;
 
