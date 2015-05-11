@@ -9,21 +9,33 @@
 
 #include <stdlib.h>
 
-#define TEST_INPUT_TEXT \
-	"hello world\r\n\nAnd there\twas: text galore, " \
-	"abc@example.com, " \
-	"Bar Baz <bar@example.org>, " \
-	"foo@domain " \
-	"1234567890123456789012345678ä," \
-	"12345678901234567890123456789ä," \
-	"123456789012345678901234567890ä," \
-	"and longlonglongabcdefghijklmnopqrstuvwxyz more.\n\n " \
-	"(\"Hello world\")3.14 3,14 last"
 #define TEST_INPUT_ADDRESS \
 	"@invalid invalid@ Abc Dfg <abc.dfg@example.com>, " \
 	"Bar Baz <bar@example.org>" \
 	"Foo Bar (comment)foo.bar@host.example.org " \
 	"foo, foo@domain"
+
+static const char *test_inputs[] = {
+	/* generic things and word truncation: */
+	"hello world\r\n\nAnd there\twas: text galore, "
+	"abc@example.com, "
+	"Bar Baz <bar@example.org>, "
+	"foo@domain "
+	"1234567890123456789012345678ä,"
+	"12345678901234567890123456789ä,"
+	"123456789012345678901234567890ä,"
+	"and longlonglongabcdefghijklmnopqrstuvwxyz more.\n\n "
+	"(\"Hello world\")3.14 3,14 last",
+
+	/* whitespace: with Unicode(utf8) U+FF01(ef bc 81)(U+2000(e2 80 80) and
+	   U+205A(e2 81 9a) and U+205F(e2 81 9f) */
+	"hello\xEF\xBC\x81world\r\nAnd\xE2\x80\x80there\twas: text "
+	"galore\xE2\x81\x9F""and\xE2\x81\x9Amore.\n\n",
+
+	/* TR29 MinNumLet U+FF0E at end: u+FF0E is EF BC 8E  */
+	"hello world\xEF\xBC\x8E"
+
+};
 
 static void test_fts_tokenizer_find(void)
 {
@@ -33,16 +45,17 @@ static void test_fts_tokenizer_find(void)
 	test_end();
 }
 
-static void
+static unsigned int
 test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
-			   const char *const *expected_output)
+			   const char *const *expected_output,
+			   unsigned int first_outi)
 {
 	const unsigned char *input = (const unsigned char *)_input;
 	const char *token, *error;
-	unsigned int i, max, outi, char_len, input_len = strlen(_input);
+	unsigned int i, outi, max, char_len, input_len = strlen(_input);
 
 	/* test all input at once */
-	outi = 0;
+	outi = first_outi;
 	while (fts_tokenizer_next(tok, input, input_len, &token, &error) > 0) {
 		test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
 		outi++;
@@ -51,10 +64,11 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 		test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
 		outi++;
 	}
-	test_assert(expected_output[outi] == NULL);
+	test_assert_idx(expected_output[outi] == NULL, outi);
 
 	/* test input one byte at a time */
-	for (i = outi = 0; i < input_len; i += char_len) {
+	outi = first_outi;
+	for (i = 0; i < input_len; i += char_len) {
 		char_len = uni_utf8_char_bytes(input[i]);
 		while (fts_tokenizer_next(tok, input+i, char_len, &token, &error) > 0) {
 			test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
@@ -65,10 +79,11 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 		test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
 		outi++;
 	}
-	test_assert(expected_output[outi] == NULL);
+	test_assert_idx(expected_output[outi] == NULL, outi);
 
 	/* test input in random chunks */
-	for (i = outi = 0; i < input_len; i += char_len) {
+	outi = first_outi;
+	for (i = 0; i < input_len; i += char_len) {
 		max = rand() % (input_len - i) + 1;
 		for (char_len = 0; char_len < max; )
 			char_len += uni_utf8_char_bytes(input[i+char_len]);
@@ -81,12 +96,25 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 		test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
 		outi++;
 	}
-	test_assert(expected_output[outi] == NULL);
+	test_assert_idx(expected_output[outi] == NULL, outi);
+	return outi+1;
+}
+
+static void
+test_tokenizer_inputs(struct fts_tokenizer *tok,
+		      const char *const *expected_output)
+{
+	unsigned int i, outi = 0;
+
+	for (i = 0; i < N_ELEMENTS(test_inputs); i++) {
+		outi = test_tokenizer_inputoutput(tok, test_inputs[i],
+						  expected_output, outi);
+	}
+	test_assert_idx(expected_output[outi] == NULL, outi);
 }
 
 static void test_fts_tokenizer_generic_only(void)
 {
-	static const char input[] = TEST_INPUT_TEXT;
 	static const char *const expected_output[] = {
 		"hello", "world", "And",
 		"there", "was", "text", "galore",
@@ -96,7 +124,15 @@ static void test_fts_tokenizer_generic_only(void)
 		"12345678901234567890123456789",
 		"123456789012345678901234567890",
 		"and", "longlonglongabcdefghijklmnopqr",
-		"more", "Hello", "world", "3", "14", "3", "14", "last", NULL
+		"more", "Hello", "world", "3", "14", "3", "14", "last", NULL,
+
+		"hello", "world", "And",
+		"there", "was", "text", "galore",
+		"and", "more", NULL,
+
+		"hello", "world", NULL,
+
+		NULL
 	};
 	struct fts_tokenizer *tok;
 	const char *error;
@@ -105,38 +141,17 @@ static void test_fts_tokenizer_generic_only(void)
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &tok, &error) == 0);
 	test_assert(((struct generic_fts_tokenizer *) tok)->algorithm == BOUNDARY_ALGORITHM_SIMPLE);
 
-	test_tokenizer_inputoutput(tok, input, expected_output);
-	fts_tokenizer_unref(&tok);
-	test_end();
-}
-
-static void test_fts_tokenizer_generic_unicode_whitespace(void)
-{
-	/* with Unicode(utf8) U+FF01(ef bc 81)(U+2000(e2 80 80) and
-	   U+205A(e2 81 9a) and U+205F(e2 81 9f )*/
-	static const char input[] =
-		"hello\xEF\xBC\x81world\r\nAnd\xE2\x80\x80there\twas: text "
-		"galore\xE2\x81\x9F""and\xE2\x81\x9Amore.\n\n";
-	static const char *const expected_output[] = {
-		"hello", "world", "And",
-		"there", "was", "text", "galore",
-		"and", "more", NULL
-	};
-	struct fts_tokenizer *tok;
-	const char *error;
-
-	test_begin("fts tokenizer generic simple with Unicode whitespace");
-	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &tok, &error) == 0);
-	test_tokenizer_inputoutput(tok, input, expected_output);
+	test_tokenizer_inputs(tok, expected_output);
 	fts_tokenizer_unref(&tok);
 	test_end();
 }
 
 const char *const tr29_settings[] = {"algorithm", "tr29", NULL};
 
+/* TODO: U+206F is in "Format" and therefore currently not word break.
+   This definitely needs to be remapped. */
 static void test_fts_tokenizer_generic_tr29_only(void)
 {
-	static const char input[] = TEST_INPUT_TEXT;
 	static const char *const expected_output[] = {
 		"hello", "world", "And",
 		"there", "was", "text", "galore",
@@ -146,56 +161,22 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 		"12345678901234567890123456789",
 		"123456789012345678901234567890",
 		"and", "longlonglongabcdefghijklmnopqr",
-		"more", "Hello", "world", "3.14", "3,14", "last", NULL
+		"more", "Hello", "world", "3.14", "3,14", "last", NULL,
+
+		"hello", "world", "And",
+		"there", "was", "text", "galore",
+		"and", "more", NULL,
+
+		"hello", "world", NULL,
+
+		NULL
 	};
 	struct fts_tokenizer *tok;
 	const char *error;
 
 	test_begin("fts tokenizer generic TR29");
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
-	test_tokenizer_inputoutput(tok, input, expected_output);
-	fts_tokenizer_unref(&tok);
-	test_end();
-}
-
-/* TODO: U+206F is in "Format" and therefore currently not word break.
-   This definitely needs to be remapped. */
-static void test_fts_tokenizer_generic_tr29_unicode_whitespace(void)
-{
-	/* with Unicode(utf8) U+2000(e2 80 80) and U+205A(e2 81 9a) and U+205F(e2
-	   81 9f)*/
-	static const char input[] =
-		"hello world\r\nAnd\xE2\x80\x80there\twas: text "
-		"galore\xE2\x81\x9F""and\xE2\x81\x9Amore.\n\n";
-	static const char *const expected_output[] = {
-		"hello", "world", "And",
-		"there", "was", "text", "galore",
-		"and", "more", NULL
-	};
-	struct fts_tokenizer *tok;
-	const char *error;
-
-	test_begin("fts tokenizer generic TR29 with Unicode whitespace");
-	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
-	test_tokenizer_inputoutput(tok, input, expected_output);
-	fts_tokenizer_unref(&tok);
-	test_end();
-}
-
-static void test_fts_tokenizer_generic_tr29_midnumlet_end(void)
-{
-	/* u+FF0E is EF BC 8E  */
-	static const char input[] =
-		"hello world\xEF\xBC\x8E";
-	static const char *const expected_output[] = {
-		"hello", "world", NULL
-	};
-	struct fts_tokenizer *tok;
-	const char *error;
-
-	test_begin("fts tokenizer generic TR29 with MinNumLet U+FF0E at end");
-	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
-	test_tokenizer_inputoutput(tok, input, expected_output);
+	test_tokenizer_inputs(tok, expected_output);
 	fts_tokenizer_unref(&tok);
 	test_end();
 }
@@ -212,7 +193,7 @@ static void test_fts_tokenizer_address_only(void)
 
 	test_begin("fts tokenizer email address only");
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, NULL, NULL, &tok, &error) == 0);
-	test_tokenizer_inputoutput(tok, input, expected_output);
+	test_tokenizer_inputoutput(tok, input, expected_output, 0);
 	fts_tokenizer_unref(&tok);
 	test_end();
 }
@@ -232,7 +213,7 @@ static void test_fts_tokenizer_address_parent(void)
 	test_begin("fts tokenizer email address + parent");
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &gen_tok, &error) == 0);
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, gen_tok, NULL, &tok, &error) == 0);
-	test_tokenizer_inputoutput(tok, input, expected_output);
+	test_tokenizer_inputoutput(tok, input, expected_output, 0);
 	fts_tokenizer_unref(&tok);
 	fts_tokenizer_unref(&gen_tok);
 	test_end();
@@ -254,7 +235,7 @@ static void test_fts_tokenizer_address_search(void)
 	test_begin("fts tokenizer search email address + parent");
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &gen_tok, &error) == 0);
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, gen_tok, settings, &tok, &error) == 0);
-	test_tokenizer_inputoutput(tok, input, expected_output);
+	test_tokenizer_inputoutput(tok, input, expected_output, 0);
 
 	/* make sure state is forgotten at EOF */
 	test_assert(fts_tokenizer_next(tok, (const void *)"foo", 3, &token, &error) == 0);
@@ -290,10 +271,7 @@ int main(void)
 	static void (*test_functions[])(void) = {
 		test_fts_tokenizer_find,
 		test_fts_tokenizer_generic_only,
-		test_fts_tokenizer_generic_unicode_whitespace,
 		test_fts_tokenizer_generic_tr29_only,
-		test_fts_tokenizer_generic_tr29_unicode_whitespace,
-		test_fts_tokenizer_generic_tr29_midnumlet_end,
 		test_fts_tokenizer_address_only,
 		test_fts_tokenizer_address_parent,
 		test_fts_tokenizer_address_search,
