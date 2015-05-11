@@ -91,6 +91,7 @@ static const char *fts_uni_strndup(const unsigned char *data, size_t size)
 
 	/* if input is truncated with a partial UTF-8 character, drop it */
 	(void)uni_utf8_partial_strlen_n(data, size, &pos);
+	i_assert(pos > 0);
 	return t_strndup(data, pos);
 }
 
@@ -495,7 +496,7 @@ static bool is_one_past_end(struct generic_fts_tokenizer *tok)
 
 	return FALSE;
 }
-static void
+static bool
 fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
                                          const char **token_r)
 {
@@ -505,12 +506,13 @@ fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
 	if (is_one_past_end(tok))
 		end_skip = tok->last_size;
 
-	len = tok->token->used - end_skip;
-	i_assert(len > 0);
-	*token_r = fts_uni_strndup(tok->token->data, len);
-	buffer_set_used_size(tok->token, 0);
 	tok->prev_prev_letter = LETTER_TYPE_NONE;
 	tok->prev_letter = LETTER_TYPE_NONE;
+
+	len = tok->token->used - end_skip;
+	*token_r = len == 0 ? "" : fts_uni_strndup(tok->token->data, len);
+	buffer_set_used_size(tok->token, 0);
+	return len > 0;
 }
 
 struct letter_fn {
@@ -594,8 +596,8 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 			tok_append_truncated(tok, data + start_skip,
 					     char_start_i - start_skip);
 			*skip_r = i + 1;
-			fts_tokenizer_generic_tr29_current_token(tok, token_r);
-			return 1;
+			if (fts_tokenizer_generic_tr29_current_token(tok, token_r))
+				return 1;
 		}
 	}
 	i_assert(i >= start_skip && size >= start_skip);
@@ -605,8 +607,8 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 	if (size == 0 && tok->token->used > 0) {
 		/* return the last token */
 		*skip_r = 0;
-		fts_tokenizer_generic_tr29_current_token(tok, token_r);
-		return 1;
+		if (fts_tokenizer_generic_tr29_current_token(tok, token_r))
+			return 1;
 	}
 	return 0;
 }
