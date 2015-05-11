@@ -1039,7 +1039,6 @@ client_input_data_write_local(struct client *client, struct istream *input)
 		restrict_access_allow_coredumps(TRUE);
 		if (chdir(base_dir) < 0)
 			i_error("chdir(%s) failed: %m", base_dir);
-		}
 	}
 }
 
