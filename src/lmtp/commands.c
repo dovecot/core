@@ -1037,7 +1037,9 @@ client_input_data_write_local(struct client *client, struct istream *input)
 		/* enable core dumping again. we need to chdir also to
 		   root-owned directory to get core dumps. */
 		restrict_access_allow_coredumps(TRUE);
-		(void)chdir(base_dir);
+		if (chdir(base_dir) < 0)
+			i_error("chdir(%s) failed: %m", base_dir);
+		}
 	}
 }
 
