@@ -229,6 +229,9 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token,
 		return -1;
 	}
 
+	if (utext_len == 0)
+		return 0;
+
 	make_utf8(utext, token);
 	return 1;
 }
