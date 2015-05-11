@@ -173,7 +173,7 @@ int fts_tokenizer_next(struct fts_tokenizer *tok,
 	case FTS_TOKENIZER_PARENT_STATE_ADD_DATA:
 		ret = fts_tokenizer_next_self(tok, data, size, token_r, error_r);
 		if (ret <= 0 || tok->parent == NULL || tok->skip_parents)
-			return ret;
+			break;
 		buffer_set_used_size(tok->parent_input, 0);
 		buffer_append(tok->parent_input, *token_r, strlen(*token_r));
 		tok->parent_state++;
@@ -182,13 +182,13 @@ int fts_tokenizer_next(struct fts_tokenizer *tok,
 		ret = fts_tokenizer_next(tok->parent, tok->parent_input->data,
 		                         tok->parent_input->used, token_r, error_r);
 		if (ret != 0)
-			return ret;
+			break;
 		tok->parent_state++;
 		/* fall through */
 	case FTS_TOKENIZER_PARENT_STATE_FINALIZE:
 		ret = fts_tokenizer_next(tok->parent, NULL, 0, token_r, error_r);
 		if (ret != 0)
-			return ret;
+			break;
 		/* we're finished sending this token to parent tokenizer.
 		   see if our own tokenizer has more tokens available */
 		tok->parent_state = FTS_TOKENIZER_PARENT_STATE_ADD_DATA;
@@ -196,6 +196,9 @@ int fts_tokenizer_next(struct fts_tokenizer *tok,
 	default:
 		i_unreached();
 	}
+	/* we must not be returning empty tokens */
+	i_assert(ret <= 0 || (*token_r)[0] != '\0');
+	return ret;
 }
 
 int fts_tokenizer_final(struct fts_tokenizer *tok, const char **token_r,
