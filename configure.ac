@@ -153,6 +153,11 @@ AS_HELP_STRING([--with-sqlite], [Build with SQLite3 driver support]),
   TEST_WITH(sqlite, $withval),
   want_sqlite=no)
 
+AC_ARG_WITH(cassandra,
+AS_HELP_STRING([--with-cassandra], [Build with Cassandra driver support]),
+  TEST_WITH(cassandra, $withval),
+  want_cassandra=no)
+
 AC_ARG_WITH(lucene,
 AS_HELP_STRING([--with-lucene], [Build with CLucene full text search support]),
   TEST_WITH(lucene, $withval),
@@ -2319,14 +2324,32 @@ if test $want_sqlite != no; then
 	  fi
 	])
 fi
+
+if test $want_cassandra != no; then
+	AC_CHECK_LIB(cassandra, cass_session_new, [
+		AC_CHECK_HEADER(cassandra.h, [
+			CASSANDRA_LIBS="$CASSANDRA_LIBS -lcassandra"
+
+			AC_DEFINE(HAVE_CASSANDRA,, Build with Cassandra support)
+			found_sql_drivers="$found_sql_drivers cassandra"
+		], [
+		  if test $want_cassandra = yes; then
+		    AC_ERROR([Can't build with Cassandra support: cassandra.h not found])
+		  fi
+		])
+	], [
+	  if test $want_cassandra = yes; then
+	    AC_ERROR([Can't build with Cassandra support: libcassandra not found])
+	  fi
+	])
+fi
 	
-SQL_CFLAGS="$MYSQL_CFLAGS $PGSQL_CFLAGS $SQLITE_CFLAGS"
+SQL_CFLAGS="$MYSQL_CFLAGS $PGSQL_CFLAGS $SQLITE_CFLAGS $CASSANDRA_CFLAGS"
 if test "$want_sql" != "plugin"; then
-	SQL_LIBS="$MYSQL_LIBS $PGSQL_LIBS $SQLITE_LIBS"
+	SQL_LIBS="$MYSQL_LIBS $PGSQL_LIBS $SQLITE_LIBS $CASSANDRA_LIBS"
 else
 	AC_DEFINE(SQL_DRIVER_PLUGINS,, Build SQL drivers as plugins)
 fi
-
 sql_drivers=
 not_sql_drivers=
 
@@ -2444,6 +2467,8 @@ AC_SUBST(PGSQL_CFLAGS)
 AC_SUBST(PGSQL_LIBS)
 AC_SUBST(SQLITE_CFLAGS)
 AC_SUBST(SQLITE_LIBS)
+AC_SUBST(CASSANDRA_CFLAGS)
+AC_SUBST(CASSANDRA_LIBS)
 
 AC_SUBST(DICT_LIBS)
 AC_SUBST(CDB_LIBS)
@@ -2587,6 +2612,7 @@ dnl **
 build_pgsql=no
 build_mysql=no
 build_sqlite=no
+build_cassandra=no
 for driver in $sql_drivers; do
   if test "$driver" = "pgsql"; then
     AC_DEFINE(BUILD_PGSQL,, Built-in PostgreSQL support)
@@ -2597,6 +2623,9 @@ for driver in $sql_drivers; do
   elif test "$driver" = "sqlite"; then
     AC_DEFINE(BUILD_SQLITE,, Built-in SQLite support)
     build_sqlite=yes
+  elif test "$driver" = "cassandra"; then
+    AC_DEFINE(BUILD_CASSANDRA,, Built-in Cassandra support)
+    build_cassandra=yes
   fi
 done
 if test $build_pgsql = no; then
@@ -2608,11 +2637,15 @@ fi
 if test $build_sqlite = no; then
   not_sql_drivers="$not_sql_drivers sqlite"
 fi
+if test $build_cassandra = no; then
+  not_sql_drivers="$not_sql_drivers cassandra"
+fi
 
 AC_SUBST(sql_drivers)
 AM_CONDITIONAL(BUILD_PGSQL, test "$build_pgsql" = "yes")
 AM_CONDITIONAL(BUILD_MYSQL, test "$build_mysql" = "yes")
 AM_CONDITIONAL(BUILD_SQLITE, test "$build_sqlite" = "yes")
+AM_CONDITIONAL(BUILD_CASSANDRA, test "$build_cassandra" = "yes")
 AM_CONDITIONAL(SQL_PLUGINS, test "$want_sql" = "plugin")
 
 dnl **
