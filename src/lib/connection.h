@@ -27,8 +27,9 @@ enum connection_disconnect_reason {
 
 struct connection_vfuncs {
 	void (*destroy)(struct connection *conn);
-	/* For UNIX socket clients this gets called immediately with
-	   success=TRUE, for IP connections it gets called later:
+	/* For UNIX socket clients this gets called immediately (unless
+	   delayed_unix_client_connected_callback=TRUE) with success=TRUE,
+	   for IP connections it gets called later:
 
 	   If connect() fails, sets success=FALSE and errno. Streams aren't
 	   initialized in that situation either. destroy() is called after
@@ -57,6 +58,11 @@ struct connection_settings {
 
 	bool client;
 	bool dont_send_version;
+	/* Don't call client_connected() immediately on
+	   connection_client_connect() with UNIX sockets. This is mainly
+	   to make the functionality identical with inet sockets, which may
+	   simplify the calling code. */
+	bool delayed_unix_client_connected_callback;
 };
 
 struct connection {
