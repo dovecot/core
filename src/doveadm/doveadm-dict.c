@@ -12,21 +12,20 @@ static void dict_cmd_help(doveadm_command_t *cmd);
 
 static struct dict *
 cmd_dict_init_full(int *argc, char **argv[], int own_arg_count, int key_arg_idx,
-		   doveadm_command_t *cmd, bool *recurse)
+		   doveadm_command_t *cmd, enum dict_iterate_flags *iter_flags)
 {
-	const char *getopt_args = recurse == NULL ? "u:" : "Ru:";
+	const char *getopt_args = iter_flags == NULL ? "u:" : "1Ru:";
 	struct dict *dict;
 	const char *error, *username = "";
 	int c;
 
-	if (recurse != NULL)
-		*recurse = FALSE;
-
 	while ((c = getopt(*argc, *argv, getopt_args)) > 0) {
 		switch (c) {
+		case '1':
+			*iter_flags |= DICT_ITERATE_FLAG_EXACT_KEY;
+			break;
 		case 'R':
-			i_assert(recurse != NULL);
-			*recurse = TRUE;
+			*iter_flags |= DICT_ITERATE_FLAG_RECURSE;
 			break;
 		case 'u':
 			username = optarg;
@@ -155,17 +154,16 @@ static void cmd_dict_iter(int argc, char *argv[])
 {
 	struct dict *dict;
 	struct dict_iterate_context *iter;
+	enum dict_iterate_flags iter_flags = 0;
 	const char *key, *value;
-	bool recurse;
 
-	dict = cmd_dict_init_full(&argc, &argv, 1, 0, cmd_dict_iter, &recurse);
+	dict = cmd_dict_init_full(&argc, &argv, 1, 0, cmd_dict_iter, &iter_flags);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
 	doveadm_print_header_simple("key");
 	doveadm_print_header_simple("value");
 
-	iter = dict_iterate_init(dict, argv[0],
-				 recurse ? DICT_ITERATE_FLAG_RECURSE : 0);
+	iter = dict_iterate_init(dict, argv[0], iter_flags);
 	while (dict_iterate(iter, &key, &value)) {
 		doveadm_print(key);
 		doveadm_print(value);
