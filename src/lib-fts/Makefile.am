@@ -21,21 +21,20 @@ BUILT_SOURCES = word-boundary-data.c word-break-data.c
 EXTRA_DIST = \
 	udhr_fra.txt \
 	PropList.txt \
+	word-properties.pl \
 	WordBreakProperty.txt \
-	word-boundary-data.sh \
 	word-boundary-data.c \
-	word-break-data.sh \
 	word-break-data.c
 
 WordBreakProperty.txt:
 	test -f WordBreakProperty.txt || wget http://www.unicode.org/Public/UNIDATA/auxiliary/WordBreakProperty.txt
-$(srcdir)/word-boundary-data.c: word-boundary-data.sh WordBreakProperty.txt
-	bash $(srcdir)/word-boundary-data.sh < WordBreakProperty.txt > $@.tmp && mv $@.tmp $@
+$(srcdir)/word-boundary-data.c: word-properties.pl PropList.txt
+	perl word-properties.pl boundaries WordBreakProperty.txt > $@.tmp && mv $@.tmp $@
 
 PropList.txt:
 	test -f PropList.txt || wget http://www.unicode.org/Public/UNIDATA/PropList.txt
-$(srcdir)/word-break-data.c: word-break-data.sh PropList.txt
-	bash $(srcdir)/word-break-data.sh < PropList.txt > $@.tmp && mv $@.tmp $@
+$(srcdir)/word-break-data.c: word-properties.pl PropList.txt
+	perl word-properties.pl breaks PropList.txt > $@.tmp && mv $@.tmp $@
 
 
 if BUILD_FTS_STEMMER
