@@ -262,7 +262,7 @@ int connection_client_connect(struct connection *conn)
 		return -1;
 	conn->fd_in = conn->fd_out = fd;
 
-	if (conn->port != 0 || conn->list->v.client_connected != NULL) {
+	if (conn->port != 0) {
 		conn->io = io_add(conn->fd_out, IO_WRITE,
 				  connection_socket_connected, conn);
 		if (set->client_connect_timeout_msecs != 0) {
