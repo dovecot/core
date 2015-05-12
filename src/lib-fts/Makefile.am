@@ -30,12 +30,12 @@ EXTRA_DIST = \
 WordBreakProperty.txt:
 	test -f WordBreakProperty.txt || wget http://www.unicode.org/Public/UNIDATA/auxiliary/WordBreakProperty.txt
 $(srcdir)/word-boundary-data.c: word-boundary-data.sh WordBreakProperty.txt
-	$(srcdir)/word-boundary-data.sh < WordBreakProperty.txt > $@.tmp && mv $@.tmp $@
+	bash $(srcdir)/word-boundary-data.sh < WordBreakProperty.txt > $@.tmp && mv $@.tmp $@
 
 PropList.txt:
 	test -f PropList.txt || wget http://www.unicode.org/Public/UNIDATA/PropList.txt
 $(srcdir)/word-break-data.c: word-break-data.sh PropList.txt
-	$(srcdir)/word-break-data.sh < PropList.txt > $@.tmp && mv $@.tmp $@
+	bash $(srcdir)/word-break-data.sh < PropList.txt > $@.tmp && mv $@.tmp $@
 
 
 if BUILD_FTS_STEMMER
