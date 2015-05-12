@@ -70,7 +70,8 @@ static void cmd_fs_get(int argc, char *argv[])
 		i_error("%s doesn't exist", fs_file_path(file));
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	} else if (input->stream_errno != 0) {
-		i_error("read(%s) failed: %m", fs_file_path(file));
+		i_error("read(%s) failed: %s", fs_file_path(file),
+			fs_file_last_error(file));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	i_stream_unref(&input);
@@ -126,10 +127,13 @@ static void cmd_fs_put(int argc, char *argv[])
 	output = fs_write_stream(file);
 	input = i_stream_create_file(src_path, IO_BLOCK_SIZE);
 	if ((ret = o_stream_send_istream(output, input)) < 0) {
-		if (output->stream_errno != 0)
-			i_error("write(%s) failed: %m", dest_path);
-		else
-			i_error("read(%s) failed: %m", src_path);
+		if (output->stream_errno != 0) {
+			i_error("write(%s) failed: %s", dest_path,
+				o_stream_get_error(output));
+		} else {
+			i_error("read(%s) failed: %s", src_path,
+				i_stream_get_error(input));
+		}
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	i_stream_destroy(&input);
