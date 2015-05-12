@@ -22,9 +22,11 @@ cmd_dict_init_full(int *argc, char **argv[], int own_arg_count, int key_arg_idx,
 	while ((c = getopt(*argc, *argv, getopt_args)) > 0) {
 		switch (c) {
 		case '1':
+			i_assert(iter_flags != NULL);
 			*iter_flags |= DICT_ITERATE_FLAG_EXACT_KEY;
 			break;
 		case 'R':
+			i_assert(iter_flags != NULL);
 			*iter_flags |= DICT_ITERATE_FLAG_RECURSE;
 			break;
 		case 'u':
