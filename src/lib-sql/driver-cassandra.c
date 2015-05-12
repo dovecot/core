@@ -530,9 +530,11 @@ static void driver_cassandra_sync_deinit(struct cassandra_db *db)
 {
 	if (db->orig_ioloop == NULL)
 		return;
-	io_loop_set_current(db->orig_ioloop);
-	db->io_pipe = io_loop_move_io(&db->io_pipe);
-	io_loop_set_current(db->ioloop);
+	if (db->io_pipe != NULL) {
+		io_loop_set_current(db->orig_ioloop);
+		db->io_pipe = io_loop_move_io(&db->io_pipe);
+		io_loop_set_current(db->ioloop);
+	}
 	io_loop_destroy(&db->ioloop);
 }
 
