@@ -44,6 +44,8 @@ struct cassandra_db {
 	struct sql_result *sync_result;
 
 	char *error;
+
+	unsigned int set_consistency:1;
 };
 
 struct cassandra_result {
@@ -322,6 +324,7 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 		} else if (strcmp(key, "consistency") == 0) {
 			if (consistency_parse(value, &db->consistency) < 0)
 				i_fatal("cassandra: Unknown consistency: %s", value);
+			db->set_consistency = TRUE;
 		} else {
 			i_fatal("cassandra: Unknown connect string: %s", key);
 		}
@@ -468,7 +471,8 @@ static void do_query(struct cassandra_result *result, const char *query)
 	result->query = i_strdup(query);
 	result->row_pool = pool_alloconly_create("cassandra result", 512);
 	result->statement = cass_statement_new(query, 0);
-	cass_statement_set_consistency(result->statement, db->consistency);
+	if (db->set_consistency)
+		cass_statement_set_consistency(result->statement, db->consistency);
 	future = cass_session_execute(db->session, result->statement);
 	driver_cassandra_set_callback(future, db, query_callback, result);
 }
