@@ -110,7 +110,7 @@ static void sql_dict_deinit(struct dict *_dict)
 static bool
 dict_sql_map_match(const struct dict_sql_map *map, const char *path,
 		   ARRAY_TYPE(const_string) *values, unsigned int *pat_len_r,
-		   unsigned int *path_len_r, bool partial_ok)
+		   unsigned int *path_len_r, bool partial_ok, bool recurse)
 {
 	const char *path_start = path;
 	const char *pat, *field, *p;
@@ -174,8 +174,14 @@ dict_sql_map_match(const struct dict_sql_map *map, const char *path,
 	else if (!partial_ok)
 		return FALSE;
 	else {
-		/* partial matches must end with '/' */
-		return pat == map->pattern || pat[-1] == '/';
+		/* partial matches must end with '/'. */
+		if (pat != map->pattern && pat[-1] != '/')
+			return FALSE;
+		/* if we're not recursing, there should be only one $variable
+		   left. */
+		if (recurse)
+			return TRUE;
+		return pat[0] == '$' && strchr(pat, '/') == NULL;
 	}
 }
 
@@ -192,7 +198,7 @@ sql_dict_find_map(struct sql_dict *dict, const char *path,
 		/* start matching from the previously successful match */
 		idx = (dict->prev_map_match_idx + i) % count;
 		if (dict_sql_map_match(&maps[idx], path, values,
-				       &len, &len, FALSE)) {
+				       &len, &len, FALSE, FALSE)) {
 			dict->prev_map_match_idx = idx;
 			return &maps[idx];
 		}
@@ -314,13 +320,14 @@ sql_dict_iterate_find_next_map(struct sql_dict_iterate_context *ctx,
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
 	const struct dict_sql_map *maps;
 	unsigned int i, count, pat_len, path_len;
+	bool recurse = (ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0;
 
 	t_array_init(values, dict->set->max_field_count);
 	maps = array_get(&dict->set->maps, &count);
 	for (i = ctx->next_map_idx; i < count; i++) {
 		if (dict_sql_map_match(&maps[i], ctx->paths[ctx->path_idx],
-				       values, &pat_len, &path_len, TRUE) &&
-		    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0 ||
+				       values, &pat_len, &path_len, TRUE, recurse) &&
+		    (recurse ||
 		     array_count(values)+1 >= array_count(&maps[i].sql_fields))) {
 			ctx->key_prefix_len = path_len;
 			ctx->pattern_prefix_len = pat_len;
