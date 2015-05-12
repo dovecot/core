@@ -5,6 +5,7 @@
 #include "str.h"
 #include "env-util.h"
 #include "execv-const.h"
+#include "dict.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
 #include "settings-parser.h"
@@ -317,6 +318,7 @@ int main(int argc, char *argv[])
 		quick_init = FALSE;
 		doveadm_dump_init();
 		doveadm_mail_init();
+		dict_drivers_register_builtin();
 		doveadm_load_modules();
 
 		if (cmd_name == NULL) {
@@ -356,6 +358,7 @@ int main(int argc, char *argv[])
 		doveadm_mail_deinit();
 		doveadm_dump_deinit();
 		doveadm_unload_modules();
+		dict_drivers_unregister_builtin();
 		doveadm_print_deinit();
 	}
 	doveadm_cmds_deinit();
