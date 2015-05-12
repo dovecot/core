@@ -15,7 +15,7 @@
 #include <unicode/ucnv.h>
 #include <stdlib.h>
 
-struct fts_filter_normalizer {
+struct fts_filter_normalizer_icu {
 	struct fts_filter filter;
 	pool_t pool;
 	const char *transliterator_id;
@@ -116,8 +116,8 @@ static void make_utf8(const UChar *src, const char **_dst)
 
 static void fts_filter_normalizer_icu_destroy(struct fts_filter *filter)
 {
-	struct fts_filter_normalizer *np =
-		(struct fts_filter_normalizer *)filter;
+	struct fts_filter_normalizer_icu *np =
+		(struct fts_filter_normalizer_icu *)filter;
 
 	if (np->transliterator != NULL)
 		utrans_close(np->transliterator);
@@ -130,7 +130,7 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 				 struct fts_filter **filter_r,
 				 const char **error_r)
 {
-	struct fts_filter_normalizer *np;
+	struct fts_filter_normalizer_icu *np;
 	pool_t pp;
 	unsigned int i;
 	const char *id = "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC";
@@ -146,9 +146,9 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 		}
 	}
 
-	pp = pool_alloconly_create(MEMPOOL_GROWING"fts_filter_normalizer",
-	                           sizeof(struct fts_filter_normalizer));
-	np = p_new(pp, struct fts_filter_normalizer, 1);
+	pp = pool_alloconly_create(MEMPOOL_GROWING"fts_filter_normalizer_icu",
+	                           sizeof(struct fts_filter_normalizer_icu));
+	np = p_new(pp, struct fts_filter_normalizer_icu, 1);
 	np->pool = pp;
 	np->filter = *fts_filter_normalizer_icu;
 	np->transliterator_id = p_strdup(pp, id);
@@ -156,8 +156,9 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 	return 0;
 }
 
-static int fts_filter_normalizer_icu_create_trans(struct fts_filter_normalizer *np,
-						  const char **error_r)
+static int
+fts_filter_normalizer_icu_create_trans(struct fts_filter_normalizer_icu *np,
+				       const char **error_r)
 {
 	UErrorCode err = U_ZERO_ERROR;
 	UParseError perr;
@@ -168,8 +169,8 @@ static int fts_filter_normalizer_icu_create_trans(struct fts_filter_normalizer *
 
 	make_uchar(np->transliterator_id, &id_uchar, &id_len_uchar);
 
-	np->transliterator = utrans_openU(id_uchar, u_strlen(id_uchar), UTRANS_FORWARD,
-	                                  NULL, 0, &perr, &err);
+	np->transliterator = utrans_openU(id_uchar, u_strlen(id_uchar),
+					  UTRANS_FORWARD, NULL, 0, &perr, &err);
 	if (U_FAILURE(err)) {
 		string_t *str = t_str_new(128);
 
@@ -177,7 +178,8 @@ static int fts_filter_normalizer_icu_create_trans(struct fts_filter_normalizer *
 			    np->transliterator_id, u_errorName(err));
 		if (perr.line >= 1) {
 			/* we have only one line in our ID */
-			str_printfa(str, " (parse error on offset %u)", perr.offset);
+			str_printfa(str, " (parse error on offset %u)",
+				    perr.offset);
 		}
 		*error_r = str_c(str);
 		return -1;
@@ -189,8 +191,8 @@ static int
 fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token,
 				 const char **error_r)
 {
-	struct fts_filter_normalizer *np =
-		(struct fts_filter_normalizer *)filter;
+	struct fts_filter_normalizer_icu *np =
+		(struct fts_filter_normalizer_icu *)filter;
 	UErrorCode err = U_ZERO_ERROR;
 	UChar *utext = NULL;
 	int32_t utext_cap = 0;
@@ -274,4 +276,5 @@ static const struct fts_filter fts_filter_normalizer_icu_real = {
 	.v = &normalizer_filter_vfuncs
 };
 
-const struct fts_filter *fts_filter_normalizer_icu = &fts_filter_normalizer_icu_real;
+const struct fts_filter *fts_filter_normalizer_icu =
+	&fts_filter_normalizer_icu_real;
