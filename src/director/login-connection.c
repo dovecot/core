@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "net.h"
+#include "istream.h"
 #include "ostream.h"
 #include "llist.h"
 #include "master-service.h"
@@ -13,19 +14,24 @@
 
 #include <unistd.h>
 
+#define AUTHREPLY_PROTOCOL_MAJOR_VERSION 1
+#define AUTHREPLY_PROTOCOL_MINOR_VERSION 0
+
 struct login_connection {
 	struct login_connection *prev, *next;
 
 	int refcount;
+	enum login_connection_type type;
 
 	int fd;
 	struct io *io;
+	struct istream *input;
 	struct ostream *output;
 	struct auth_connection *auth;
 	struct director *dir;
 
+	unsigned int handshaked:1;
 	unsigned int destroyed:1;
-	unsigned int userdb:1;
 };
 
 struct login_host_request {
@@ -40,6 +46,7 @@ struct login_host_request {
 
 static struct login_connection *login_connections;
 
+static void auth_input_line(const char *line, void *context);
 static void login_connection_unref(struct login_connection **_conn);
 
 static void login_connection_input(struct login_connection *conn)
@@ -61,6 +68,33 @@ static void login_connection_input(struct login_connection *conn)
 	}
 	output = auth_connection_get_output(conn->auth);
 	o_stream_nsend(output, buf, ret);
+}
+
+static void login_connection_authreply_input(struct login_connection *conn)
+{
+	const char *line;
+
+	while ((line = i_stream_read_next_line(conn->input)) != NULL) T_BEGIN {
+		if (!conn->handshaked) {
+			if (!version_string_verify(line, "director-authreply-client",
+						   AUTHREPLY_PROTOCOL_MAJOR_VERSION)) {
+				i_error("authreply client sent invalid handshake: %s", line);
+				login_connection_deinit(&conn);
+				return;
+			}
+			conn->handshaked = TRUE;
+		} else {
+			auth_input_line(line, conn);
+		}
+	} T_END;
+	if (conn->input->eof) {
+		if (conn->input->stream_errno != 0 &&
+		    conn->input->stream_errno != ECONNRESET) {
+			i_error("read(authreply connection) failed: %s",
+				i_stream_get_error(conn->input));
+		}
+		login_connection_deinit(&conn);
+	}
 }
 
 static void
@@ -138,9 +172,11 @@ static void auth_input_line(const char *line, void *context)
 		login_connection_deinit(&conn);
 		return;
 	}
-	if (!conn->userdb && strncmp(line, "OK\t", 3) == 0)
+	if (conn->type != LOGIN_CONNECTION_TYPE_USERDB &&
+	    strncmp(line, "OK\t", 3) == 0)
 		line_params = line + 3;
-	else if (conn->userdb && strncmp(line, "PASS\t", 5) == 0)
+	else if (conn->type == LOGIN_CONNECTION_TYPE_USERDB &&
+		 strncmp(line, "PASS\t", 5) == 0)
 		line_params = line + 5;
 	else {
 		login_connection_send_line(conn, line);
@@ -208,21 +244,35 @@ static void auth_input_line(const char *line, void *context)
 
 struct login_connection *
 login_connection_init(struct director *dir, int fd,
-		      struct auth_connection *auth, bool userdb)
+		      struct auth_connection *auth,
+		      enum login_connection_type type)
 {
 	struct login_connection *conn;
 
 	conn = i_new(struct login_connection, 1);
 	conn->refcount = 1;
 	conn->fd = fd;
-	conn->auth = auth;
 	conn->dir = dir;
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
 	o_stream_set_no_error_handling(conn->output, TRUE);
-	conn->io = io_add(conn->fd, IO_READ, login_connection_input, conn);
-	conn->userdb = userdb;
+	if (type != LOGIN_CONNECTION_TYPE_AUTHREPLY) {
+		i_assert(auth != NULL);
+		conn->auth = auth;
+		conn->io = io_add(conn->fd, IO_READ,
+				  login_connection_input, conn);
+		auth_connection_set_callback(conn->auth, auth_input_line, conn);
+	} else {
+		i_assert(auth == NULL);
+		conn->input = i_stream_create_fd(conn->fd, IO_BLOCK_SIZE, FALSE);
+		conn->io = io_add(conn->fd, IO_READ,
+				  login_connection_authreply_input, conn);
+		o_stream_nsend_str(conn->output, t_strdup_printf(
+			"VERSION\tdirector-authreply-server\t%d\t%d\n",
+			AUTHREPLY_PROTOCOL_MAJOR_VERSION,
+			AUTHREPLY_PROTOCOL_MINOR_VERSION));
+	}
+	conn->type = type;
 
-	auth_connection_set_callback(conn->auth, auth_input_line, conn);
 	DLLIST_PREPEND(&login_connections, conn);
 	return conn;
 }
@@ -239,12 +289,15 @@ void login_connection_deinit(struct login_connection **_conn)
 
 	DLLIST_REMOVE(&login_connections, conn);
 	io_remove(&conn->io);
+	if (conn->input != NULL)
+		i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(login connection) failed: %m");
 	conn->fd = -1;
 
-	auth_connection_deinit(&conn->auth);
+	if (conn->auth != NULL)
+		auth_connection_deinit(&conn->auth);
 	login_connection_unref(&conn);
 
 	master_service_client_connection_destroyed(master_service);

@@ -30,6 +30,7 @@ enum director_socket_type {
 	DIRECTOR_SOCKET_TYPE_UNKNOWN = 0,
 	DIRECTOR_SOCKET_TYPE_AUTH,
 	DIRECTOR_SOCKET_TYPE_USERDB,
+	DIRECTOR_SOCKET_TYPE_AUTHREPLY,
 	DIRECTOR_SOCKET_TYPE_RING,
 	DIRECTOR_SOCKET_TYPE_DOVEADM
 };
@@ -81,6 +82,8 @@ director_socket_type_get_from_name(const char *path)
 		return DIRECTOR_SOCKET_TYPE_AUTH;
 	else if (strcmp(suffix, "userdb") == 0)
 		return DIRECTOR_SOCKET_TYPE_USERDB;
+	else if (strcmp(suffix, "authreply") == 0)
+		return DIRECTOR_SOCKET_TYPE_AUTHREPLY;
 	else if (strcmp(suffix, "ring") == 0)
 		return DIRECTOR_SOCKET_TYPE_RING;
 	else if (strcmp(suffix, "admin") == 0 ||
@@ -188,7 +191,14 @@ static void client_connected(struct master_service_connection *conn)
 			break;
 		}
 		master_service_client_connection_accept(conn);
-		(void)login_connection_init(director, conn->fd, auth, userdb);
+		(void)login_connection_init(director, conn->fd, auth,
+			userdb ? LOGIN_CONNECTION_TYPE_USERDB :
+			LOGIN_CONNECTION_TYPE_AUTH);
+		break;
+	case DIRECTOR_SOCKET_TYPE_AUTHREPLY:
+		master_service_client_connection_accept(conn);
+		(void)login_connection_init(director, conn->fd, NULL,
+			LOGIN_CONNECTION_TYPE_AUTHREPLY);
 		break;
 	case DIRECTOR_SOCKET_TYPE_RING:
 		if (director_client_connected(conn->fd, &conn->remote_ip) == 0)
