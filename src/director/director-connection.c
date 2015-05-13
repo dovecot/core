@@ -670,8 +670,18 @@ static bool director_cmd_director(struct director_connection *conn,
 	   itself. some hosts may see this twice, but that's the only way to
 	   guarantee that it gets seen by everyone. reseting the host multiple
 	   times may cause us to handle its commands multiple times, but the
-	   commands can handle that. */
-	director_notify_ring_added(host, director_connection_get_host(conn));
+	   commands can handle that. however, we need to also handle a
+	   situation where the added director never comes back - we don't want
+	   to send the director information in a loop forever. */
+	if (conn->dir->right != NULL &&
+	    director_host_cmp_to_self(host, conn->dir->right->host,
+				      conn->dir->self_host) > 0) {
+		dir_debug("Received DIRECTOR update for a host where we should be connected to. "
+			  "Not forwarding it since it's probably crashed.");
+	} else {
+		director_notify_ring_added(host,
+			director_connection_get_host(conn));
+	}
 	return TRUE;
 }
 
