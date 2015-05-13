@@ -28,7 +28,7 @@ EXTRA_DIST = \
 
 WordBreakProperty.txt:
 	test -f WordBreakProperty.txt || wget http://www.unicode.org/Public/UNIDATA/auxiliary/WordBreakProperty.txt
-$(srcdir)/word-boundary-data.c: word-properties.pl PropList.txt
+$(srcdir)/word-boundary-data.c: word-properties.pl WordBreakProperty.txt
 	perl word-properties.pl boundaries WordBreakProperty.txt > $@.tmp && mv $@.tmp $@
 
 PropList.txt:
