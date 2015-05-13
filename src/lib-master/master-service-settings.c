@@ -119,8 +119,10 @@ master_service_exec_config(struct master_service *service,
 	argv_max_count = 11 + (service->argc + 1) + 1;
 	conf_argv = t_new(const char *, argv_max_count);
 	conf_argv[i++] = DOVECOT_CONFIG_BIN_PATH;
-	conf_argv[i++] = "-f";
-	conf_argv[i++] = t_strconcat("service=", service->name, NULL);
+	if (input->service != NULL) {
+		conf_argv[i++] = "-f";
+		conf_argv[i++] = t_strconcat("service=", input->service, NULL);
+	}
 	conf_argv[i++] = "-c";
 	conf_argv[i++] = service->config_path;
 	if (input->module != NULL) {
