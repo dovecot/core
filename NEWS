@@ -1,4 +1,4 @@
-v2.2.17 2015-05-xx  Timo Sirainen <tss@iki.fi>
+v2.2.17 2015-05-13  Timo Sirainen <tss@iki.fi>
 
 	* Dovecot no longer checks or warns if a mountpoint is removed. This
 	  was causing more trouble than it was worth. Make sure that all the
@@ -45,8 +45,7 @@ v2.2.17 2015-05-xx  Timo Sirainen <tss@iki.fi>
 	- imapc: Fixed \Muted label handling in gmail-migration.
 	- imapc: Various bugfixes and improvements.
 	- Trash plugin fixes by Alexei Gradinari
-	- mbox: Fixed crash/corruption in some situations when the first mail
-	  was expunged.
+	- mbox: Fixed crash/corruption in some situations
 
 v2.2.16 2015-03-12  Timo Sirainen <tss@iki.fi>
 
