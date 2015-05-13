@@ -15,7 +15,7 @@ struct solr_result {
 
 int solr_connection_init(const char *url, bool debug,
 			 struct solr_connection **conn_r, const char **error_r);
-void solr_connection_deinit(struct solr_connection *conn);
+void solr_connection_deinit(struct solr_connection **conn);
 
 int solr_connection_select(struct solr_connection *conn, const char *query,
 			   pool_t pool, struct solr_result ***box_results_r);

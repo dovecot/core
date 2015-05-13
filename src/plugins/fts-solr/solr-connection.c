@@ -142,8 +142,11 @@ int solr_connection_init(const char *url, bool debug,
 	return 0;
 }
 
-void solr_connection_deinit(struct solr_connection *conn)
+void solr_connection_deinit(struct solr_connection **_conn)
 {
+	struct solr_connection *conn = *_conn;
+
+	*_conn = NULL;
 	XML_ParserFree(conn->xml_parser);
 	i_free(conn->http_host);
 	i_free(conn->http_base_url);

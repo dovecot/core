@@ -179,6 +179,7 @@ static void fts_backend_solr_deinit(struct fts_backend *_backend)
 {
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 
+	solr_connection_deinit(&backend->solr_conn);
 	i_free(backend);
 }
 
