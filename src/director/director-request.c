@@ -128,6 +128,8 @@ void director_request(struct director *dir, const char *username,
 	unsigned int username_hash =
 		user_directory_get_username_hash(dir->users, username);
 
+	dir->num_requests++;
+
 	request = i_new(struct director_request, 1);
 	request->dir = dir;
 	request->create_time = ioloop_time;

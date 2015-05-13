@@ -91,6 +91,11 @@ static void user_directory_drop_expired(struct user_directory *dir)
 		user_free(dir, dir->head);
 }
 
+unsigned int user_directory_count(struct user_directory *dir)
+{
+	return hash_table_count(dir->hash);
+}
+
 struct user *user_directory_lookup(struct user_directory *dir,
 				   unsigned int username_hash)
 {

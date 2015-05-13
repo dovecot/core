@@ -79,6 +79,9 @@ struct director {
 
 	time_t ring_first_alone;
 
+	uint64_t num_requests;
+	uint64_t ring_traffic_input, ring_traffic_output;
+
 	/* director ring handshaking is complete.
 	   director can start serving clients. */
 	unsigned int ring_handshaked:1;

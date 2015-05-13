@@ -51,6 +51,8 @@ struct user_directory *
 user_directory_init(unsigned int timeout_secs, const char *username_hash_fmt);
 void user_directory_deinit(struct user_directory **dir);
 
+/* Returns the number of users currently in directory. */
+unsigned int user_directory_count(struct user_directory *dir);
 /* Look up username from directory. Returns NULL if not found. */
 struct user *user_directory_lookup(struct user_directory *dir,
 				   unsigned int username_hash);

@@ -3,7 +3,9 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "str.h"
 #include "restrict-access.h"
+#include "process-title.h"
 #include "master-interface.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -11,6 +13,7 @@
 #include "doveadm-connection.h"
 #include "login-connection.h"
 #include "notify-connection.h"
+#include "user-directory.h"
 #include "director.h"
 #include "director-host.h"
 #include "director-connection.h"
@@ -25,6 +28,28 @@
 
 static struct director *director;
 static struct notify_connection *notify_conn;
+static struct timeout *to_proctitle_refresh;
+
+static void director_refresh_proctitle_timeout(void *context ATTR_UNUSED)
+{
+	static uint64_t prev_requests = 0, prev_input = 0, prev_output;
+	string_t *str;
+
+	str = t_str_new(64);
+	str_printfa(str, "[%u users", user_directory_count(director->users));
+	str_printfa(str, ", %lu req/s",
+		    (unsigned long)(director->num_requests - prev_requests));
+	str_printfa(str, ", %llu+%llu kB/s",
+		    (unsigned long long)(director->ring_traffic_input - prev_input)/1024,
+		    (unsigned long long)(director->ring_traffic_output - prev_output)/1024);
+	str_append_c(str, ']');
+
+	prev_requests = director->num_requests;
+	prev_input = director->ring_traffic_input;
+	prev_output = director->ring_traffic_output;
+
+	process_title_set(str_c(str));
+}
 
 static int director_client_connected(int fd, const struct ip_addr *ip)
 {
@@ -145,6 +170,11 @@ static void main_preinit(void)
 	struct ip_addr listen_ip;
 	unsigned int listen_port;
 
+	if (master_service_settings_get(master_service)->verbose_proctitle) {
+		to_proctitle_refresh =
+			timeout_add(1000, director_refresh_proctitle_timeout,
+				    (void *)NULL);
+	}
 	set = master_service_settings_get_others(master_service)[0];
 
 	listen_port = find_inet_listener_port(&listen_ip, set);
@@ -168,6 +198,8 @@ static void main_preinit(void)
 
 static void main_deinit(void)
 {
+	if (to_proctitle_refresh != NULL)
+		timeout_remove(&to_proctitle_refresh);
 	if (notify_conn != NULL)
 		notify_connection_deinit(&notify_conn);
 	director_deinit(&director);
@@ -183,8 +215,7 @@ int main(int argc, char *argv[])
 		NULL
 	};
 	const enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_NO_IDLE_DIE |
-		MASTER_SERVICE_FLAG_UPDATE_PROCTITLE;
+		MASTER_SERVICE_FLAG_NO_IDLE_DIE;
 	unsigned int test_port = 0;
 	const char *error;
 	bool debug = FALSE;

@@ -1496,6 +1496,7 @@ static void director_connection_input(struct director_connection *conn)
 {
 	struct director *dir = conn->dir;
 	char *line;
+	uoff_t prev_offset;
 	bool ret;
 
 	switch (i_stream_read(conn->input)) {
@@ -1524,7 +1525,11 @@ static void director_connection_input(struct director_connection *conn)
 	}
 
 	director_sync_freeze(dir);
+	prev_offset = conn->input->v_offset;
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
+		dir->ring_traffic_input += conn->input->v_offset - prev_offset;
+		prev_offset = conn->input->v_offset;
+
 		T_BEGIN {
 			ret = director_connection_handle_line(conn, line);
 		} T_END;
@@ -1872,6 +1877,8 @@ void director_connection_send(struct director_connection *conn,
 				"disconnecting", conn->name);
 		}
 		o_stream_close(conn->output);
+	} else {
+		conn->dir->ring_traffic_output += len;
 	}
 }
 
