@@ -3,10 +3,8 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "net.h"
-#include "istream.h"
 #include "ostream.h"
 #include "llist.h"
-#include "str.h"
 #include "master-service.h"
 #include "director.h"
 #include "director-request.h"
@@ -22,14 +20,12 @@ struct login_connection {
 
 	int fd;
 	struct io *io;
-	struct istream *input;
 	struct ostream *output;
 	struct auth_connection *auth;
 	struct director *dir;
 
 	unsigned int destroyed:1;
 	unsigned int userdb:1;
-	unsigned int input_newline:1;
 };
 
 struct login_host_request {
@@ -44,66 +40,25 @@ struct login_host_request {
 
 static struct login_connection *login_connections;
 
-static void auth_input_line(const char *line, void *context);
 static void login_connection_unref(struct login_connection **_conn);
-
-static void
-login_connection_director_lookup(struct login_connection *conn,
-				 const unsigned char *data, size_t size)
-{
-	T_BEGIN {
-		string_t *line = t_str_new(128);
-		str_append(line, "OK\t");
-		str_append_n(line, data, size);
-		auth_input_line(str_c(line), conn);
-	} T_END;
-}
 
 static void login_connection_input(struct login_connection *conn)
 {
-	const unsigned char *data, *p;
-	size_t size;
-	struct ostream *auth_output;
+	unsigned char buf[4096];
+	ssize_t ret;
 
-	auth_output = auth_connection_send(conn->auth);
-	switch (i_stream_read(conn->input)) {
-	case -2:
-		data = i_stream_get_data(conn->input, &size);
-		o_stream_nsend(auth_output, data, size);
-		i_stream_skip(conn->input, size);
-		conn->input_newline = FALSE;
-		return;
-	case -1:
-		if (conn->input->stream_errno != 0 &&
-		    conn->input->stream_errno != ECONNRESET) {
-			i_error("read(login connection) failed: %s",
-				i_stream_get_error(conn->input));
+	ret = read(conn->fd, buf, sizeof(buf));
+	if (ret <= 0) {
+		if (ret < 0) {
+			if (errno == EAGAIN)
+				return;
+			if (errno != ECONNRESET)
+				i_error("read(login connection) failed: %m");
 		}
 		login_connection_deinit(&conn);
 		return;
-	case 0:
-		return;
-	default:
-		break;
 	}
-
-	o_stream_cork(auth_output);
-	data = i_stream_get_data(conn->input, &size);
-	while ((p = memchr(data, '\n', size)) != NULL) {
-		size_t linelen = p-data;
-
-		if (!conn->input_newline || linelen <= 16 ||
-		    memcmp(data, "DIRECTOR-LOOKUP\t", 16) != 0) {
-			/* forward data to auth process */
-			o_stream_nsend(auth_output, data, linelen+1);
-			conn->input_newline = TRUE;
-		} else {
-			login_connection_director_lookup(conn, data+16, linelen-16);
-		}
-		i_stream_skip(conn->input, linelen+1);
-		data = i_stream_get_data(conn->input, &size);
-	}
-	o_stream_uncork(auth_output);
+	auth_connection_send(conn->auth, buf, ret);
 }
 
 static void
@@ -260,12 +215,10 @@ login_connection_init(struct director *dir, int fd,
 	conn->fd = fd;
 	conn->auth = auth;
 	conn->dir = dir;
-	conn->input = i_stream_create_fd(conn->fd, IO_BLOCK_SIZE, FALSE);
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(conn->fd, IO_READ, login_connection_input, conn);
 	conn->userdb = userdb;
-	conn->input_newline = TRUE;
 
 	auth_connection_set_callback(conn->auth, auth_input_line, conn);
 	DLLIST_PREPEND(&login_connections, conn);
@@ -284,7 +237,6 @@ void login_connection_deinit(struct login_connection **_conn)
 
 	DLLIST_REMOVE(&login_connections, conn);
 	io_remove(&conn->io);
-	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(login connection) failed: %m");
