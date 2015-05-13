@@ -689,8 +689,10 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 		}
 	} else if (mail_ctx->need_rewrite) {
 		mbox_sync_update_header(mail_ctx);
-		if (sync_ctx->delay_writes) {
-			/* mark it dirty and do it later */
+		if (sync_ctx->delay_writes && sync_ctx->need_space_seq == 0) {
+			/* mark it dirty and do it later. we can't do this
+			   if we're in the middle of rewriting acquiring more
+			   space. */
 			mail_ctx->dirty = TRUE;
 			return 0;
 		}
