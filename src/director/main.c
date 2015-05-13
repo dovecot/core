@@ -130,7 +130,6 @@ static void listener_sockets_init(const struct director_settings *set,
 		}
 		if (type == DIRECTOR_SOCKET_TYPE_RING && *listen_port_r == 0 &&
 		    net_getsockname(listen_fd, &ip, &port) == 0 && port > 0) {
-			i_warning("listen port = %d", port);
 			*listen_ip_r = ip;
 			*listen_port_r = port;
 		}
