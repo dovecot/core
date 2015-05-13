@@ -541,6 +541,18 @@ unsigned int master_service_get_socket_count(struct master_service *service)
 	return service->socket_count;
 }
 
+const char *master_service_get_socket_name(struct master_service *service,
+					   int listen_fd)
+{
+	unsigned int i;
+
+	i_assert(listen_fd >= MASTER_LISTEN_FD_FIRST);
+
+	i = listen_fd - MASTER_LISTEN_FD_FIRST;
+	return i < service->listener_names_count ?
+		service->listener_names[i] : "";
+}
+
 void master_service_set_avail_overflow_callback(struct master_service *service,
 						void (*callback)(void))
 {
