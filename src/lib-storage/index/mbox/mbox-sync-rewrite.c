@@ -429,6 +429,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 				" bytes, now needs %"PRIuSIZE_T" bytes",
 				seq, mails[idx].uid, mails[idx].uid_broken,
 				(uoff_t)-mails[idx].space, need_space);
+			return -1;
 		}
 	}
 
@@ -595,8 +596,10 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 		mails[idx].from_offset += move_diff;
 	}
 
-	i_assert(mails[idx].from_offset == start_offset);
-	i_assert(move_diff + (off_t)expunged_space >= 0);
+	if (ret == 0) {
+		i_assert(mails[idx].from_offset == start_offset);
+		i_assert(move_diff + (off_t)expunged_space >= 0);
+	}
 
 	mbox_sync_file_updated(sync_ctx, FALSE);
 	sync_ctx->prev_msg_uid = orig_prev_msg_uid;
