@@ -44,6 +44,7 @@ static void login_connection_unref(struct login_connection **_conn);
 
 static void login_connection_input(struct login_connection *conn)
 {
+	struct ostream *output;
 	unsigned char buf[4096];
 	ssize_t ret;
 
@@ -58,7 +59,8 @@ static void login_connection_input(struct login_connection *conn)
 		login_connection_deinit(&conn);
 		return;
 	}
-	auth_connection_send(conn->auth, buf, ret);
+	output = auth_connection_get_output(conn->auth);
+	o_stream_nsend(output, buf, ret);
 }
 
 static void

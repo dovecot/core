@@ -13,9 +13,8 @@ void auth_connection_set_callback(struct auth_connection *conn,
 
 /* Start connecting. Returns 0 if ok, -1 if connect failed. */
 int auth_connection_connect(struct auth_connection *conn);
-/* Send data to auth connection. */
-void auth_connection_send(struct auth_connection *conn,
-			  const void *data, size_t size);
+/* Get auth connection's output stream. */
+struct ostream *auth_connection_get_output(struct auth_connection *conn);
 
 void auth_connections_deinit(void);
 

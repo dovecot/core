@@ -121,12 +121,10 @@ static void auth_connection_disconnected(struct auth_connection **_conn)
 	conn->callback(NULL, conn->context);
 }
 
-void auth_connection_send(struct auth_connection *conn,
-			  const void *data, size_t size)
+struct ostream *auth_connection_get_output(struct auth_connection *conn)
 {
-	i_assert(conn->fd != -1);
-
-	o_stream_nsend(conn->output, data, size);
+	i_assert(conn->output != NULL);
+	return conn->output;
 }
 
 void auth_connections_deinit(void)
