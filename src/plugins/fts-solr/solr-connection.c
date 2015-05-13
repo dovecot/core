@@ -497,17 +497,21 @@ void solr_connection_post_more(struct solr_connection_post *post,
 	if (post->failed)
 		return;
 
-	if (http_client_request_send_payload(&post->http_req, data, size) != 0 &&
-	    conn->request_status < 0)
+	if (conn->request_status == 0)
+		(void)http_client_request_send_payload(&post->http_req, data, size);
+	if (conn->request_status < 0)
 		post->failed = TRUE;
 }
 
-int solr_connection_post_end(struct solr_connection_post *post)
+int solr_connection_post_end(struct solr_connection_post **_post)
 {
+	struct solr_connection_post *post = *_post;
 	struct solr_connection *conn = post->conn;
 	int ret = post->failed ? -1 : 0;
 
 	i_assert(conn->posting);
+
+	*_post = NULL;
 
 	if (!post->failed) {
 		if (http_client_request_finish_payload(&post->http_req) <= 0 ||

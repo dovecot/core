@@ -339,7 +339,7 @@ fts_backed_solr_build_commit(struct solr_fts_backend_update_context *ctx)
 
 	solr_connection_post_more(ctx->post, str_data(ctx->cmd),
 				  str_len(ctx->cmd));
-	return solr_connection_post_end(ctx->post);
+	return solr_connection_post_end(&ctx->post);
 }
 
 static void
