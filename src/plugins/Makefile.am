@@ -25,6 +25,7 @@ SUBDIRS = \
 	mail-log \
 	mailbox-alias \
 	quota \
+	quota-clone \
 	imap-quota \
 	pop3-migration \
 	replication \

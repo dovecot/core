@@ -2991,6 +2991,7 @@ src/plugins/mailbox-alias/Makefile
 src/plugins/notify/Makefile
 src/plugins/pop3-migration/Makefile
 src/plugins/quota/Makefile
+src/plugins/quota-clone/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/replication/Makefile
 src/plugins/snarf/Makefile
