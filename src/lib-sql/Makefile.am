@@ -19,7 +19,7 @@ SQLITE_LIB = libdriver_sqlite.la
 SQL_DRIVER_PLUGINS += sqlite
 endif
 if BUILD_CASSANDRA
-SQLITE_LIB = libdriver_cassandra.la
+CASSANDRA_LIB = libdriver_cassandra.la
 SQL_DRIVER_PLUGINS += cassandra
 endif
 
