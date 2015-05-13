@@ -131,11 +131,13 @@ struct director_connection {
 	unsigned int done_pending:1;
 };
 
-static void director_connection_disconnected(struct director_connection **conn);
+static void director_connection_disconnected(struct director_connection **conn,
+					     const char *reason);
 static void director_connection_reconnect(struct director_connection **conn,
 					  const char *reason);
 static void
-director_connection_log_disconnect(struct director_connection *conn, int err);
+director_connection_log_disconnect(struct director_connection *conn, int err,
+				   const char *errstr);
 static int director_connection_send_done(struct director_connection *conn);
 
 static void ATTR_FORMAT(2, 3)
@@ -169,7 +171,7 @@ director_connection_init_timeout(struct director_connection *conn)
 		i_error("director(%s): Handshaking DONE timed out (%u secs)",
 			conn->name, secs);
 	}
-	director_connection_disconnected(&conn);
+	director_connection_disconnected(&conn, "Handshake timeout");
 }
 
 static void
@@ -187,7 +189,7 @@ director_connection_set_ping_timeout(struct director_connection *conn)
 
 static void director_connection_wait_timeout(struct director_connection *conn)
 {
-	director_connection_log_disconnect(conn, ETIMEDOUT);
+	director_connection_log_disconnect(conn, ETIMEDOUT, "");
 	director_connection_deinit(&conn,
 		"Timeout waiting for disconnect after CONNECT");
 }
@@ -1453,7 +1455,8 @@ director_connection_handle_line(struct director_connection *conn,
 }
 
 static void
-director_connection_log_disconnect(struct director_connection *conn, int err)
+director_connection_log_disconnect(struct director_connection *conn, int err,
+				   const char *errstr)
 {
 	unsigned int secs = ioloop_time - conn->created;
 	string_t *str = t_str_new(128);
@@ -1471,7 +1474,10 @@ director_connection_log_disconnect(struct director_connection *conn, int err)
 	str_append(str, "Connection closed");
 	if (err != 0 && err != EPIPE) {
 		errno = err;
-		str_printfa(str, ": %m");
+		if (errstr[0] == '\0')
+			str_printfa(str, ": %m");
+		else
+			str_printfa(str, ": %s", errstr);
 	}
 
 	str_printfa(str, " (connected %u secs, "
@@ -1496,8 +1502,9 @@ static void director_connection_input(struct director_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
-		director_connection_log_disconnect(conn, conn->input->stream_errno);
-		director_connection_disconnected(&conn);
+		director_connection_log_disconnect(conn, conn->input->stream_errno,
+						   i_stream_get_error(conn->input));
+		director_connection_disconnected(&conn, i_stream_get_error(conn->input));
 		return;
 	case -2:
 		/* buffer full */
@@ -1637,10 +1644,12 @@ static int director_connection_output(struct director_connection *conn)
 		o_stream_cork(conn->output);
 		ret = director_connection_send_users(conn);
 		o_stream_uncork(conn->output);
-		if (ret < 0)
-			director_connection_disconnected(&conn);
-		else
+		if (ret < 0) {
+			director_connection_disconnected(&conn,
+				o_stream_get_error(conn->output));
+		} else {
 			o_stream_set_flush_pending(conn->output, TRUE);
+		}
 		return ret;
 	}
 	return o_stream_flush(conn->output);
@@ -1698,7 +1707,7 @@ static void director_connection_connected(struct director_connection *conn)
 	if ((err = net_geterror(conn->fd)) != 0) {
 		i_error("director(%s): connect() failed: %s", conn->name,
 			strerror(err));
-		director_connection_disconnected(&conn);
+		director_connection_disconnected(&conn, strerror(err));
 		return;
 	}
 	conn->connected = TRUE;
@@ -1810,7 +1819,8 @@ void director_connection_deinit(struct director_connection **_conn,
 	}
 }
 
-void director_connection_disconnected(struct director_connection **_conn)
+void director_connection_disconnected(struct director_connection **_conn,
+				      const char *reason)
 {
 	struct director_connection *conn = *_conn;
 	struct director *dir = conn->dir;
@@ -1822,7 +1832,7 @@ void director_connection_disconnected(struct director_connection **_conn)
 		conn->host->last_network_failure = ioloop_time;
 	}
 
-	director_connection_deinit(_conn, "");
+	director_connection_deinit(_conn, reason);
 	if (dir->right == NULL)
 		director_connect(dir);
 }
@@ -1868,14 +1878,14 @@ static void
 director_connection_ping_idle_timeout(struct director_connection *conn)
 {
 	i_error("director(%s): Ping timed out, disconnecting", conn->name);
-	director_connection_disconnected(&conn);
+	director_connection_disconnected(&conn, "Ping timeout");
 }
 
 static void director_connection_pong_timeout(struct director_connection *conn)
 {
 	i_error("director(%s): PONG reply not received although other "
 		"input keeps coming, disconnecting", conn->name);
-	director_connection_disconnected(&conn);
+	director_connection_disconnected(&conn, "Pong timeout");
 }
 
 void director_connection_ping(struct director_connection *conn)
