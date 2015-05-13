@@ -109,8 +109,22 @@ int director_connect_host(struct director *dir, struct director_host *host)
 	if (director_has_outgoing_connection(dir, host))
 		return 0;
 
-	dir_debug("Connecting to %s:%u",
-		  net_ip2addr(&host->ip), host->port);
+	if (director_debug) {
+		string_t *str = t_str_new(128);
+
+		str_printfa(str, "Connecting to %s:%u (as %s",
+			    net_ip2addr(&host->ip), host->port,
+			    net_ip2addr(&dir->self_ip));
+		if (host->last_network_failure > 0) {
+			str_printfa(str, ", last network failure %ds ago",
+				    (int)(ioloop_time - host->last_network_failure));
+		}
+		if (host->last_protocol_failure > 0) {
+			str_printfa(str, ", last protocol failure %ds ago",
+				    (int)(ioloop_time - host->last_protocol_failure));
+		}
+		dir_debug("%s", str_c(str));
+	}
 	port = dir->test_port != 0 ? dir->test_port : host->port;
 	fd = net_connect_ip(&host->ip, port, &dir->self_ip);
 	if (fd == -1) {
