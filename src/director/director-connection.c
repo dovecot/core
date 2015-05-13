@@ -150,7 +150,8 @@ director_cmd_error(struct director_connection *conn, const char *fmt, ...)
 		conn->cur_cmd, t_strdup_vprintf(fmt, args), conn->cur_line);
 	va_end(args);
 
-	conn->host->last_protocol_failure = ioloop_time;
+	if (conn->host != NULL)
+		conn->host->last_protocol_failure = ioloop_time;
 }
 
 static void
