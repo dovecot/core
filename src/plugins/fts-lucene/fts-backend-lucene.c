@@ -96,24 +96,19 @@ fts_backend_select(struct lucene_fts_backend *backend, struct mailbox *box)
 	    backend->selected_box_generation == box->generation_sequence)
 		return 0;
 
-	if (box != NULL) {
-		if (fts_lucene_get_mailbox_guid(box, guid) < 0)
-			return -1;
-		buffer_create_from_data(&buf, guid_hex, MAILBOX_GUID_HEX_LENGTH);
-		binary_to_hex_append(&buf, guid, GUID_128_SIZE);
-		for (i = 0; i < N_ELEMENTS(wguid_hex); i++)
-			wguid_hex[i] = guid_hex[i];
+	if (fts_lucene_get_mailbox_guid(box, guid) < 0)
+		return -1;
+	buffer_create_from_data(&buf, guid_hex, MAILBOX_GUID_HEX_LENGTH);
+	binary_to_hex_append(&buf, guid, GUID_128_SIZE);
+	for (i = 0; i < N_ELEMENTS(wguid_hex); i++)
+		wguid_hex[i] = guid_hex[i];
 
-		lucene_index_select_mailbox(backend->index, wguid_hex);
-	} else {
-		lucene_index_unselect_mailbox(backend->index);
-		memset(&guid, 0, sizeof(guid));
-	}
+	lucene_index_select_mailbox(backend->index, wguid_hex);
+
 	backend->selected_box = box;
 	memcpy(backend->selected_box_guid, guid,
 	       sizeof(backend->selected_box_guid));
-	backend->selected_box_generation =
-		box == NULL ? 0 : box->generation_sequence;
+	backend->selected_box_generation = box->generation_sequence;
 	return 0;
 }
 
