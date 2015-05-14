@@ -166,8 +166,8 @@ void test_istream_unix(void)
 	test_begin("istream unix");
 	if ((send_fd = open("/dev/null", O_RDONLY)) == -1)
 		i_fatal("open(/dev/null) failed: %m");
-	if ((send_fd2 = open("/dev/stderr", O_WRONLY)) == -1)
-		i_fatal("open(/dev/stderr) failed: %m");
+	if ((send_fd2 = open("/dev/zero", O_RDONLY)) == -1)
+		i_fatal("open(/dev/zero) failed: %m");
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0)
 		i_fatal("socketpair() failed: %m");
 	switch (fork()) {
