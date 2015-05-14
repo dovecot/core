@@ -5,6 +5,8 @@
 #include "mail-types.h"
 #include "mail-error.h"
 
+#include <sys/time.h>
+
 /* How many seconds to wait for replies from SMTP before failing. Used for
    sending rejects, forward, etc. */
 #define LDA_SUBMISSION_TIMEOUT_SECS 30
