@@ -99,7 +99,8 @@ listener_get_socket_type_fallback(const struct director_settings *set,
 {
 	unsigned int local_port;
 
-	if (net_getsockname(listen_fd, NULL, &local_port) == 0) {
+	if (net_getsockname(listen_fd, NULL, &local_port) == 0 &&
+	    local_port != 0) {
 		/* TCP/IP connection */
 		if (local_port == set->director_doveadm_port)
 			return DIRECTOR_SOCKET_TYPE_DOVEADM;
