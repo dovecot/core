@@ -478,6 +478,7 @@ static void test_fts_filter_normalizer_invalid_id(void)
 	test_end();
 }
 
+#ifdef HAVE_FTS_STEMMER
 static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 {
 	int ret;
@@ -533,6 +534,7 @@ static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 	test_end();
 }
 #endif
+#endif
 
 /* TODO: Functions to test 1. ref-unref pairs 2. multiple registers +
   an unregister + find */
@@ -557,7 +559,9 @@ int main(void)
 		test_fts_filter_normalizer_french,
 		test_fts_filter_normalizer_empty,
 		test_fts_filter_normalizer_invalid_id,
+#ifdef HAVE_FTS_STEMMER
 		test_fts_filter_normalizer_stopwords_stemmer_eng,
+#endif
 #endif
 		NULL
 	};
