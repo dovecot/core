@@ -26,6 +26,7 @@ struct pgsql_db {
 	struct sql_result *sync_result;
 
 	char *error;
+	const char *connect_state;
 
 	unsigned int fatal_error:1;
 };
@@ -148,16 +149,18 @@ static void connect_callback(struct pgsql_db *db)
 
 	switch (ret) {
 	case PGRES_POLLING_READING:
+		db->connect_state = "wait for input";
 		io_dir = IO_READ;
 		break;
 	case PGRES_POLLING_WRITING:
+		db->connect_state = "wait for output";
 		io_dir = IO_WRITE;
 		break;
 	case PGRES_POLLING_OK:
 		break;
 	case PGRES_POLLING_FAILED:
-		i_error("%s: Connect failed to database %s: %s",
-			pgsql_prefix(db), PQdb(db->pg), last_error(db));
+		i_error("%s: Connect failed to database %s: %s (state: %s)",
+			pgsql_prefix(db), PQdb(db->pg), last_error(db), db->connect_state);
 		driver_pgsql_close(db);
 		return;
 	}
@@ -168,6 +171,7 @@ static void connect_callback(struct pgsql_db *db)
 	}
 
 	if (io_dir == 0) {
+		db->connect_state = "connected";
 		if (db->to_connect != NULL)
 			timeout_remove(&db->to_connect);
 		driver_pgsql_set_state(db, SQL_DB_STATE_IDLE);
@@ -183,8 +187,8 @@ static void driver_pgsql_connect_timeout(struct pgsql_db *db)
 {
 	unsigned int secs = ioloop_time - db->api.last_connect_try;
 
-	i_error("%s: Connect failed: Timeout after %u seconds",
-		pgsql_prefix(db), secs);
+	i_error("%s: Connect failed: Timeout after %u seconds (state: %s)",
+		pgsql_prefix(db), secs, db->connect_state);
 	driver_pgsql_close(db);
 }
 
@@ -213,6 +217,7 @@ static int driver_pgsql_connect(struct sql_db *_db)
 	i_assert(db->to_connect == NULL);
 	db->to_connect = timeout_add(SQL_CONNECT_TIMEOUT_SECS * 1000,
 				     driver_pgsql_connect_timeout, db);
+	db->connect_state = "connecting";
 	db->io = io_add(PQsocket(db->pg), IO_WRITE, connect_callback, db);
 	db->io_dir = IO_WRITE;
 	driver_pgsql_set_state(db, SQL_DB_STATE_CONNECTING);
