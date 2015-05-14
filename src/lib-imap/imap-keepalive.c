@@ -42,7 +42,7 @@ imap_keepalive_interval_msecs(const char *username, const struct ip_addr *ip,
 {
 	unsigned int client_hash;
 
-	client_hash = imap_remote_ip_is_usable(ip) ?
+	client_hash = ip != NULL && imap_remote_ip_is_usable(ip) ?
 		net_ip_hash(ip) : crc32_str(username);
 	interval_secs -= (time(NULL) + client_hash) % interval_secs;
 	return interval_secs * 1000;
