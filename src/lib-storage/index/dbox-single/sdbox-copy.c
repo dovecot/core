@@ -89,7 +89,7 @@ sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 		(struct sdbox_mailbox *)_ctx->transaction->box;
 	struct sdbox_mailbox *src_mbox;
 	struct dbox_file *src_file, *dest_file;
-	const char *src_path;
+	const char *src_path, *dest_path;
 	int ret;
 
 	if (strcmp(mail->box->storage->name, SDBOX_STORAGE_NAME) == 0)
@@ -102,11 +102,18 @@ sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 	src_file = sdbox_file_init(src_mbox, mail->uid);
 	dest_file = sdbox_file_init(dest_mbox, 0);
 
+	ctx->ctx.data.flags &= ~DBOX_INDEX_FLAG_ALT;
+
 	src_path = src_file->primary_path;
-	ret = nfs_safe_link(src_path, dest_file->cur_path, FALSE);
+	dest_path = dest_file->primary_path;
+	ret = nfs_safe_link(src_path, dest_path, FALSE);
 	if (ret < 0 && errno == ENOENT && src_file->alt_path != NULL) {
 		src_path = src_file->alt_path;
-		ret = nfs_safe_link(src_path, dest_file->cur_path, FALSE);
+		if (dest_file->alt_path != NULL) {
+			dest_path = dest_file->cur_path = dest_file->alt_path;
+			ctx->ctx.data.flags |= DBOX_INDEX_FLAG_ALT;
+		}
+		ret = nfs_safe_link(src_path, dest_path, FALSE);
 	}
 	if (ret < 0) {
 		if (ECANTLINK(errno))
@@ -119,8 +126,7 @@ sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 		} else {
 			mail_storage_set_critical(
 				_ctx->transaction->box->storage,
-				"link(%s, %s) failed: %m",
-				src_path, dest_file->cur_path);
+				"link(%s, %s) failed: %m", src_path, dest_path);
 		}
 		dbox_file_unref(&src_file);
 		dbox_file_unref(&dest_file);

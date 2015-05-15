@@ -44,10 +44,7 @@ struct dbox_file *sdbox_file_init(struct sdbox_mailbox *mbox, uint32_t uid)
 			sdbox_file_init_paths(file, fname);
 			file->uid = uid;
 		} else {
-			file->file.primary_path =
-				i_strdup_printf("%s/%s",
-						mailbox_get_path(&mbox->box),
-						dbox_generate_tmp_filename());
+			sdbox_file_init_paths(file, dbox_generate_tmp_filename());
 		}
 	} T_END;
 	dbox_file_init(&file->file);
@@ -151,16 +148,19 @@ static int sdbox_file_rename_attachments(struct sdbox_file *file)
 
 int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid)
 {
-	const char *old_path, *new_fname, *new_path;
+	const char *p, *old_path, *dir, *new_fname, *new_path;
 	struct stat st;
 
 	i_assert(file->uid == 0);
 	i_assert(uid != 0);
 
 	old_path = file->file.cur_path;
+	p = strrchr(old_path, '/');
+	i_assert(p != NULL);
+	dir = t_strdup_until(old_path, p);
+
 	new_fname = t_strdup_printf(SDBOX_MAIL_FILE_FORMAT, uid);
-	new_path = t_strdup_printf("%s/%s", mailbox_get_path(&file->mbox->box),
-				   new_fname);
+	new_path = t_strdup_printf("%s/%s", dir, new_fname);
 
 	if (stat(new_path, &st) == 0) {
 		mail_storage_set_critical(&file->file.storage->storage,
