@@ -24,6 +24,11 @@ struct imap_msgpart *imap_msgpart_body(void);
 int imap_msgpart_parse(const char *section, struct imap_msgpart **msgpart_r);
 void imap_msgpart_free(struct imap_msgpart **msgpart);
 
+/* Returns TRUE if the msgpart might return at least part of the message body.
+   Or alternatively: If FALSE is returned, the msgpart will never return
+   anything except (part of) the message header. MIME headers are counted
+   as part of the message body. */
+bool imap_msgpart_contains_body(const struct imap_msgpart *msgpart);
 /* Decode MIME parts with Content-Transfer-Encoding: base64/quoted-printable
    to binary data (IMAP BINARY extension). If something can't be decoded, fails
    with storage error set to MAIL_ERROR_CONVERSION. */

@@ -306,6 +306,22 @@ void imap_msgpart_free(struct imap_msgpart **_msgpart)
 	pool_unref(&msgpart->pool);
 }
 
+bool imap_msgpart_contains_body(const struct imap_msgpart *msgpart)
+{
+	switch (msgpart->fetch_type) {
+	case FETCH_HEADER:
+	case FETCH_HEADER_FIELDS:
+	case FETCH_HEADER_FIELDS_NOT:
+		return FALSE;
+	case FETCH_FULL:
+	case FETCH_MIME:
+	case FETCH_MIME_BODY:
+	case FETCH_BODY:
+		break;
+	}
+	return TRUE;
+}
+
 void imap_msgpart_set_decode_to_binary(struct imap_msgpart *msgpart)
 {
 	msgpart->decode_cte_to_binary = TRUE;
