@@ -180,13 +180,19 @@ static int replication_notify_sync(struct mail_user *user)
 }
 
 static void replication_notify(struct mail_namespace *ns,
-			       enum replication_priority priority)
+			       enum replication_priority priority,
+			       const char *event)
 {
 	struct replication_user *ruser;
 
 	ruser = REPLICATION_USER_CONTEXT(ns->user);
 	if (ruser == NULL)
 		return;
+
+	if (ns->user->mail_debug) {
+		i_debug("replication: Replication requested by '%s', priority=%d",
+			event, priority);
+	}
 
 	if (priority == REPLICATION_PRIORITY_SYNC) {
 		if (replication_notify_sync(ns->user) == 0) {
@@ -254,7 +260,7 @@ replication_mail_transaction_commit(void *txn,
 		priority = !ctx->new_messages ? REPLICATION_PRIORITY_LOW :
 			ruser->sync_secs == 0 ? REPLICATION_PRIORITY_HIGH :
 			REPLICATION_PRIORITY_SYNC;
-		replication_notify(ctx->ns, priority);
+		replication_notify(ctx->ns, priority, "transction commit");
 	}
 	i_free(ctx);
 }
@@ -262,7 +268,7 @@ replication_mail_transaction_commit(void *txn,
 static void replication_mailbox_create(struct mailbox *box)
 {
 	replication_notify(mailbox_get_namespace(box),
-			   REPLICATION_PRIORITY_LOW);
+			   REPLICATION_PRIORITY_LOW, "mailbox create");
 }
 
 static void
@@ -270,7 +276,7 @@ replication_mailbox_delete_commit(void *txn ATTR_UNUSED,
 				  struct mailbox *box)
 {
 	replication_notify(mailbox_get_namespace(box),
-			   REPLICATION_PRIORITY_LOW);
+			   REPLICATION_PRIORITY_LOW, "mailbox delete");
 }
 
 static void
@@ -278,14 +284,14 @@ replication_mailbox_rename(struct mailbox *src ATTR_UNUSED,
 			   struct mailbox *dest)
 {
 	replication_notify(mailbox_get_namespace(dest),
-			   REPLICATION_PRIORITY_LOW);
+			   REPLICATION_PRIORITY_LOW, "mailbox rename");
 }
 
 static void replication_mailbox_set_subscribed(struct mailbox *box,
 					       bool subscribed ATTR_UNUSED)
 {
 	replication_notify(mailbox_get_namespace(box),
-			   REPLICATION_PRIORITY_LOW);
+			   REPLICATION_PRIORITY_LOW, "mailbox subscribe");
 }
 
 static void replication_user_deinit(struct mail_user *user)
@@ -311,12 +317,17 @@ static void replication_user_created(struct mail_user *user)
 	const char *value;
 
 	value = mail_user_plugin_getenv(user, "mail_replica");
-	if (value == NULL || value[0] == '\0')
+	if (value == NULL || value[0] == '\0') {
+		if (user->mail_debug)
+			i_debug("replication: No mail_replica setting - replication disabled");
 		return;
+	}
 
 	if (user->dsyncing) {
 		/* we're running dsync, which means that the remote is telling
 		   us about a change. don't trigger a replication back to it */
+		if (user->mail_debug)
+			i_debug("replication: We're running dsync - replication disabled");
 		return;
 	}
 
