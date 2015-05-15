@@ -74,8 +74,9 @@ static void ipc_client_input(struct ipc_client *client)
 		ipc_client_disconnect(client);
 		return;
 	}
-	while ((line = i_stream_next_line(client->input)) != NULL)
+	while ((line = i_stream_next_line(client->input)) != NULL) T_BEGIN {
 		ipc_client_input_line(client, line);
+	} T_END;
 }
 
 static int ipc_client_connect(struct ipc_client *client)
