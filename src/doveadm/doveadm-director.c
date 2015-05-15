@@ -24,7 +24,7 @@ struct director_context {
 	const char *tag;
 	struct istream *input;
 	bool explicit_socket_path;
-	bool hash_map, user_map;
+	bool hash_map, user_map, force_flush;
 };
 
 struct user_list {
@@ -105,6 +105,9 @@ cmd_director_init(int argc, char *argv[], const char *getopt_args,
 			break;
 		case 'f':
 			ctx->users_path = optarg;
+			break;
+		case 'F':
+			ctx->force_flush = TRUE;
 			break;
 		case 'h':
 			ctx->hash_map = TRUE;
@@ -549,7 +552,8 @@ static void cmd_director_flush_all(struct director_context *ctx)
 {
 	const char *line;
 
-	director_send(ctx, "HOST-FLUSH\n");
+	director_send(ctx, ctx->force_flush ?
+		      "HOST-FLUSH\n" : "HOST-RESET-USERS\n");
 
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL) {
@@ -572,7 +576,7 @@ static void cmd_director_flush(int argc, char *argv[])
 	const char *host, *line;
 	int ret;
 
-	ctx = cmd_director_init(argc, argv, "a:", cmd_director_flush);
+	ctx = cmd_director_init(argc, argv, "a:F", cmd_director_flush);
 	host = argv[optind++];
 	if (host == NULL || argv[optind] != NULL)
 		director_cmd_help(cmd_director_flush);
@@ -593,8 +597,9 @@ static void cmd_director_flush(int argc, char *argv[])
 	}
 
 	for (i = 0; i < ips_count; i++) {
-		director_send(ctx,
-			t_strdup_printf("HOST-FLUSH\t%s\n", net_ip2addr(&ip)));
+		director_send(ctx, t_strdup_printf("%s\t%s\n",
+			ctx->force_flush ? "HOST-FLUSH" : "HOST-RESET-USERS",
+			net_ip2addr(&ip)));
 	}
 	for (i = 0; i < ips_count; i++) {
 		line = i_stream_read_next_line(ctx->input);
@@ -779,7 +784,7 @@ struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_kick, "director kick",
 	  "[-a <director socket path>] <user>" },
 	{ cmd_director_flush, "director flush",
-	  "[-a <director socket path>] <host>|all" },
+	  "[-a <director socket path>] [-f] <host>|all" },
 	{ cmd_director_dump, "director dump",
 	  "[-a <director socket path>]" },
 	{ cmd_director_ring_add, "director ring add",
