@@ -184,12 +184,6 @@ static void replication_notify(struct mail_namespace *ns,
 {
 	struct replication_user *ruser;
 
-	if (ns->user->dsyncing) {
-		/* we're running dsync, which means that the remote is telling
-		   us about a change. don't trigger a replication back to it */
-		return;
-	}
-
 	ruser = REPLICATION_USER_CONTEXT(ns->user);
 	if (ruser == NULL)
 		return;
@@ -319,6 +313,12 @@ static void replication_user_created(struct mail_user *user)
 	value = mail_user_plugin_getenv(user, "mail_replica");
 	if (value == NULL || value[0] == '\0')
 		return;
+
+	if (user->dsyncing) {
+		/* we're running dsync, which means that the remote is telling
+		   us about a change. don't trigger a replication back to it */
+		return;
+	}
 
 	ruser = p_new(user->pool, struct replication_user, 1);
 	ruser->module_ctx.super = *v;
