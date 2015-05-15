@@ -136,6 +136,10 @@ struct client {
 	uint64_t sync_last_full_modseq;
 	uint64_t highest_fetch_modseq;
 
+	/* For imap_logout_format statistics: */
+	unsigned int fetch_hdr_count, fetch_body_count;
+	uint64_t fetch_hdr_bytes, fetch_body_bytes;
+
 	/* SEARCHRES extension: Last saved SEARCH result */
 	ARRAY_TYPE(seq_range) search_saved_uidset;
 	/* SEARCH=CONTEXT extension: Searches that get updated */

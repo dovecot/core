@@ -59,6 +59,7 @@ struct imap_fetch_state {
 	struct istream *cur_input;
 	bool skip_cr;
 	int (*cont_handler)(struct imap_fetch_context *ctx);
+	uint64_t *cur_stats_sizep;
 
 	unsigned int fetching:1;
 	unsigned int seen_flags_changed:1;

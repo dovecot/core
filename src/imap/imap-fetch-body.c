@@ -99,8 +99,11 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 	ret = o_stream_send_istream(ctx->client->output, state->cur_input);
 	o_stream_set_max_buffer_size(ctx->client->output, (size_t)-1);
 
-	if (ret > 0)
+	if (ret > 0) {
 		state->cur_offset += ret;
+		if (ctx->state.cur_stats_sizep != NULL)
+			*ctx->state.cur_stats_sizep += ret;
+	}
 
 	if (state->cur_offset != state->cur_size) {
 		/* unfinished */
@@ -160,6 +163,18 @@ get_body_human_name(pool_t pool, struct imap_fetch_body_data *body)
 	return p_strdup(pool, str_c(str));
 }
 
+static void fetch_state_update_stats(struct imap_fetch_context *ctx,
+				     const struct imap_msgpart *msgpart)
+{
+	if (!imap_msgpart_contains_body(msgpart)) {
+		ctx->client->fetch_hdr_count++;
+		ctx->state.cur_stats_sizep = &ctx->client->fetch_hdr_bytes;
+	} else {
+		ctx->client->fetch_body_count++;
+		ctx->state.cur_stats_sizep = &ctx->client->fetch_body_bytes;
+	}
+}
+
 static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 			      struct imap_fetch_body_data *body)
 {
@@ -178,6 +193,7 @@ static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 	ctx->state.cur_size_field = result.size_field;
 	ctx->state.cur_human_name = get_body_human_name(ctx->ctx_pool, body);
 
+	fetch_state_update_stats(ctx, body->msgpart);
 	str = get_prefix(&ctx->state, body, ctx->state.cur_size,
 			 result.binary_decoded_input_has_nuls);
 	o_stream_nsend(ctx->client->output, str_data(str), str_len(str));
@@ -487,6 +503,7 @@ fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 		str++; ctx->state.cur_first = FALSE;
 	}
 	o_stream_nsend_str(ctx->client->output, str);
+	fetch_state_update_stats(ctx, msgpart);
 
 	ctx->state.cur_human_name = "RFC822";
 	return ctx->state.cont_handler(ctx);
@@ -509,6 +526,7 @@ fetch_rfc822_header(struct imap_fetch_context *ctx,
 		str++; ctx->state.cur_first = FALSE;
 	}
 	o_stream_nsend_str(ctx->client->output, str);
+	fetch_state_update_stats(ctx, msgpart);
 
 	ctx->state.cur_human_name = "RFC822.HEADER";
 	return ctx->state.cont_handler(ctx);
@@ -531,6 +549,7 @@ fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 		str++; ctx->state.cur_first = FALSE;
 	}
 	o_stream_nsend_str(ctx->client->output, str);
+	fetch_state_update_stats(ctx, msgpart);
 
 	ctx->state.cur_human_name = "RFC822.TEXT";
 	return ctx->state.cont_handler(ctx);

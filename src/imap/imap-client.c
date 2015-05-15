@@ -217,6 +217,10 @@ static const char *client_stats(struct client *client)
 		{ 'i', NULL, "input" },
 		{ 'o', NULL, "output" },
 		{ '\0', NULL, "session" },
+		{ '\0', NULL, "fetch_hdr_count" },
+		{ '\0', NULL, "fetch_hdr_bytes" },
+		{ '\0', NULL, "fetch_body_count" },
+		{ '\0', NULL, "fetch_body_bytes" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -228,6 +232,10 @@ static const char *client_stats(struct client *client)
 	tab[0].value = dec2str(i_stream_get_absolute_offset(client->input));
 	tab[1].value = dec2str(client->output->offset);
 	tab[2].value = client->session_id;
+	tab[3].value = dec2str(client->fetch_hdr_count);
+	tab[4].value = dec2str(client->fetch_hdr_bytes);
+	tab[5].value = dec2str(client->fetch_body_count);
+	tab[6].value = dec2str(client->fetch_body_bytes);
 
 	str = t_str_new(128);
 	var_expand(str, client->set->imap_logout_format, tab);
