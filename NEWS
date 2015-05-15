@@ -1,3 +1,10 @@
+v2.2.18 2015-05-15  Timo Sirainen <tss@iki.fi>
+
+	- director: Login UNIX sockets were normally detected as doveadm or
+	  director ring sockets, causing it to break in existing installations.
+	- sdbox: When copying a mail in alt storage, place the destination to
+	  alt storage as well.
+
 v2.2.17 2015-05-13  Timo Sirainen <tss@iki.fi>
 
 	* Dovecot no longer checks or warns if a mountpoint is removed. This
