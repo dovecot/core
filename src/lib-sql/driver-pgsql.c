@@ -245,8 +245,10 @@ static void driver_pgsql_disconnect(struct sql_db *_db)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_db;
 
-	if (db->cur_result != NULL && db->cur_result->to != NULL)
-                result_finish(db->cur_result);
+	if (db->cur_result != NULL && db->cur_result->to != NULL) {
+		driver_pgsql_stop_io(db);
+		result_finish(db->cur_result);
+	}
 
 	_db->no_reconnect = TRUE;
 	driver_pgsql_close(db);
@@ -276,11 +278,7 @@ static void driver_pgsql_deinit_v(struct sql_db *_db)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_db;
 
-	if (db->cur_result != NULL && db->cur_result->to != NULL)
-                result_finish(db->cur_result);
-
-	_db->no_reconnect = TRUE;
-        driver_pgsql_close(db);
+	driver_pgsql_disconnect(_db);
 	i_free(db->host);
 	i_free(db->error);
 	i_free(db->connect_string);
