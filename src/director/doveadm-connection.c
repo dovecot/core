@@ -348,6 +348,68 @@ doveadm_cmd_host_flush(struct doveadm_connection *conn, const char *line)
 	return TRUE;
 }
 
+static void
+director_host_reset_users(struct director *dir, struct director_host *src,
+			  struct mail_host *host)
+{
+	struct user_directory_iter *iter;
+	struct user *user;
+	struct mail_host *new_host;
+
+	if (dir->right != NULL)
+		director_connection_cork(dir->right);
+
+	iter = user_directory_iter_init(dir->users);
+	while ((user = user_directory_iter_next(iter)) != NULL) {
+		if (user->host != host)
+			continue;
+		new_host = mail_host_get_by_hash(dir->mail_hosts,
+						 user->username_hash, host->tag);
+		if (new_host != host) T_BEGIN {
+			director_move_user(dir, src, NULL,
+					   user->username_hash, new_host);
+		} T_END;
+	}
+	user_directory_iter_deinit(&iter);
+	if (dir->right != NULL)
+		director_connection_uncork(dir->right);
+}
+
+static void
+doveadm_cmd_host_reset_users_all(struct doveadm_connection *conn)
+{
+	struct mail_host *const *hostp;
+
+	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp)
+		director_host_reset_users(conn->dir, conn->dir->self_host, *hostp);
+	o_stream_nsend(conn->output, "OK\n", 3);
+}
+
+static bool
+doveadm_cmd_host_reset_users(struct doveadm_connection *conn, const char *line)
+{
+	struct mail_host *host;
+	struct ip_addr ip;
+
+	if (line[0] == '\0') {
+		doveadm_cmd_host_reset_users_all(conn);
+		return TRUE;
+	}
+
+	if (net_addr2ip(line, &ip) < 0) {
+		i_error("doveadm sent invalid HOST-RESET-USERS parameters");
+		return FALSE;
+	}
+	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
+	if (host == NULL)
+		o_stream_nsend_str(conn->output, "NOTFOUND\n");
+	else {
+		director_host_reset_users(conn->dir, conn->dir->self_host, host);
+		o_stream_nsend(conn->output, "OK\n", 3);
+	}
+	return TRUE;
+}
+
 static bool
 doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 {
@@ -529,6 +591,8 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 			ret = doveadm_cmd_host_remove(conn, args);
 		else if (strcmp(cmd, "HOST-FLUSH") == 0)
 			ret = doveadm_cmd_host_flush(conn, args);
+		else if (strcmp(cmd, "HOST-RESET-USERS") == 0)
+			ret = doveadm_cmd_host_reset_users(conn, args);
 		else if (strcmp(cmd, "USER-LOOKUP") == 0)
 			ret = doveadm_cmd_user_lookup(conn, args);
 		else if (strcmp(cmd, "USER-LIST") == 0)
