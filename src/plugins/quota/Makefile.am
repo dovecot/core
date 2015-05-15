@@ -73,7 +73,7 @@ RQUOTA_XDR = rquota_xdr.c
 RQUOTA_XDR_LO = rquota_xdr.lo
 #RQUOTA_X = /usr/include/rpcsvc/rquota.x
 RQUOTA_X = $(srcdir)/rquota.x
-rquota_xdr.c: Makefile $(RQUOTA_X)
+rquota_xdr.c: Makefile rquota.h
 	if [ "$(top_srcdir)" != "$(top_builddir)" ]; then \
 	  cp $(RQUOTA_X) $(top_builddir)/src/plugins/quota/; \
 	fi; \
