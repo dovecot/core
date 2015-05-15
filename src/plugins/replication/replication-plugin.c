@@ -80,16 +80,16 @@ replication_fifo_notify(struct mail_user *user,
 	}
 	str_append_c(str, '\n');
 	ret = write(fifo_fd, str_data(str), str_len(str));
-	if (ret == 0) {
-		/* busy, try again later */
-		return 0;
-	}
+	i_assert(ret != 0);
 	if (ret != (ssize_t)str_len(str)) {
 		if (ret > 0)
 			i_error("write(%s) wrote partial data", fifo_path);
-		else if (errno != EPIPE)
+		else if (errno == EAGAIN) {
+			/* busy, try again later */
+			return 0;
+		} else if (errno != EPIPE) {
 			i_error("write(%s) failed: %m", fifo_path);
-		else {
+		} else {
 			/* server was probably restarted, don't bother logging
 			   this. */
 		}
