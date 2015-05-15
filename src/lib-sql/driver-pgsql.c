@@ -3,11 +3,14 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
+#include "time-util.h"
 #include "sql-api-private.h"
 
 #ifdef BUILD_PGSQL
 #include <stdlib.h>
 #include <libpq-fe.h>
+
+#define PGSQL_DNS_WARN_MSECS 500
 
 struct pgsql_db {
 	struct sql_db api;
@@ -195,8 +198,13 @@ static void driver_pgsql_connect_timeout(struct pgsql_db *db)
 static int driver_pgsql_connect(struct sql_db *_db)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_db;
+	struct timeval tv_start;
+	int msecs;
 
 	i_assert(db->api.state == SQL_DB_STATE_DISCONNECTED);
+
+	io_loop_time_refresh();
+	tv_start = ioloop_timeval;
 
 	db->pg = PQconnectStart(db->connect_string);
 	if (db->pg == NULL) {
@@ -209,6 +217,15 @@ static int driver_pgsql_connect(struct sql_db *_db)
 			pgsql_prefix(db), PQdb(db->pg), last_error(db));
 		driver_pgsql_close(db);
 		return -1;
+	}
+	/* PQconnectStart() blocks on host name resolving. Log a warning if
+	   it takes too long. Also don't include time spent on that in the
+	   connect timeout (by refreshing ioloop time). */
+	io_loop_time_refresh();
+	msecs = timeval_diff_msecs(&ioloop_timeval, &tv_start);
+	if (msecs > PGSQL_DNS_WARN_MSECS) {
+		i_warning("%s: DNS lookup took %d.%03d s",
+			  pgsql_prefix(db), msecs/1000, msecs % 1000);
 	}
 
 	/* nonblocking connecting begins. */
