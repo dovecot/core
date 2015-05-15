@@ -83,11 +83,10 @@ rquota_xdr.c: Makefile rquota.h
 	  sed -e 's/IXDR_PUT/(void)IXDR_PUT/g' \
 	    -e 's,/usr/include/rpcsvc/rquota.h,rquota.h,' \
 	    -e 's/int32_t \*buf/int32_t *buf ATTR_UNUSED/' \
-	    -e 's/^static char rcsid.*//' ) > rquota_xdr.c.tmp; \
-	mv rquota_xdr.c.tmp rquota_xdr.c
+	    -e 's/^static char rcsid.*//' ) > rquota_xdr.c
 
 rquota.h: Makefile $(RQUOTA_X)
-	$(RPCGEN) -h $(RQUOTA_X) > rquota.h.tmp && mv rquota.h.tmp rquota.h
+	$(RPCGEN) -h $(RQUOTA_X) > rquota.h
 
 quota-fs.lo: rquota.h
 
