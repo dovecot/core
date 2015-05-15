@@ -506,6 +506,15 @@ director_user_refresh(struct director_connection *conn,
 			  "replacing host %s with %s", username_hash,
 			  net_ip2addr(&user->host->ip), net_ip2addr(&host->ip));
 		ret = TRUE;
+	} else if (user->kill_state != USER_KILL_STATE_NONE &&
+		   user->kill_state < USER_KILL_STATE_DELAY) {
+		/* user is still being moved - ignore conflicting host updates
+		   from other directors who don't yet know about the move. */
+		dir_debug("user refresh: %u is being moved, "
+			  "preserve its host %s instead of replacing with %s",
+			  username_hash, net_ip2addr(&user->host->ip),
+			  net_ip2addr(&host->ip));
+		host = user->host;
 	} else {
 		/* non-weak user received a non-weak update with
 		   conflicting host. this shouldn't happen. */
