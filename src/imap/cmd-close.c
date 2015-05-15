@@ -19,7 +19,7 @@ bool cmd_close(struct client_command_context *cmd)
 	client->mailbox = NULL;
 
 	storage = mailbox_get_storage(mailbox);
-	if (imap_expunge(mailbox, NULL) < 0) {
+	if (imap_expunge(mailbox, NULL, &client->expunged_count) < 0) {
 		errstr = mailbox_get_last_error(mailbox, &error);
 		if (error != MAIL_ERROR_PERM)
 			client_send_untagged_storage_error(client, storage);

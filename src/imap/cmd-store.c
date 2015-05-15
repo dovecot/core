@@ -136,6 +136,8 @@ bool cmd_store(struct client_command_context *cmd)
 	const char *set, *reply, *tagged_reply;
 	string_t *str;
 	int ret;
+	bool update_deletes;
+	unsigned int deleted_count;
 
 	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
@@ -188,6 +190,9 @@ bool cmd_store(struct client_command_context *cmd)
 						   &modified_set);
 	}
 
+	update_deletes = (ctx.flags & MAIL_DELETED) != 0 &&
+		ctx.modify_type != MODIFY_REMOVE;
+	deleted_count = 0;
 	while (mailbox_search_next(search_ctx, &mail)) {
 		if (ctx.max_modseq < (uint64_t)-1) {
 			/* check early so there's less work for transaction
@@ -196,6 +201,10 @@ bool cmd_store(struct client_command_context *cmd)
 				seq_range_array_add(&modified_set, mail->seq);
 				continue;
 			}
+		}
+		if (update_deletes) {
+			if ((mail_get_flags(mail) & MAIL_DELETED) == 0)
+				deleted_count++;
 		}
 		if (ctx.modify_type == MODIFY_REPLACE || ctx.flags != 0)
 			mail_update_flags(mail, ctx.modify_type, ctx.flags);
@@ -218,6 +227,7 @@ bool cmd_store(struct client_command_context *cmd)
 		client_send_box_error(cmd, client->mailbox);
 		return TRUE;
 	}
+	client->deleted_count += deleted_count;
 
 	if (array_count(&modified_set) == 0)
 		tagged_reply = "OK Store completed.";

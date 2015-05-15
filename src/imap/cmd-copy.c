@@ -86,6 +86,19 @@ static int fetch_and_copy(struct client *client, bool move,
 	return ret;
 }
 
+static void copy_update_trashed(struct client *client, struct mailbox *box,
+				unsigned int count)
+{
+	const struct mailbox_settings *set;
+
+	set = mailbox_settings_find(mailbox_get_namespace(box),
+				    mailbox_get_vname(box));
+	if (set != NULL && set->special_use[0] != '\0' &&
+	    str_array_icase_find(t_strsplit_spaces(set->special_use, " "),
+				 "\\Trash"))
+		client->trashed_count += count;
+}
+
 static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 {
 	struct client *client = cmd->client;
@@ -147,6 +160,7 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 		pool_unref(&changes.pool);
 	} else if (move) {
 		i_assert(copy_count == seq_range_count(&changes.saved_uids));
+		copy_update_trashed(client, destbox, copy_count);
 
 		str_printfa(msg, "* OK [COPYUID %u %s ",
 			    changes.uid_validity, src_uidset);
@@ -159,6 +173,7 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 		pool_unref(&changes.pool);
 	} else {
 		i_assert(copy_count == seq_range_count(&changes.saved_uids));
+		copy_update_trashed(client, destbox, copy_count);
 
 		str_printfa(msg, "OK [COPYUID %u %s ", changes.uid_validity,
 			    src_uidset);

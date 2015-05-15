@@ -221,6 +221,9 @@ static const char *client_stats(struct client *client)
 		{ '\0', NULL, "fetch_hdr_bytes" },
 		{ '\0', NULL, "fetch_body_count" },
 		{ '\0', NULL, "fetch_body_bytes" },
+		{ '\0', NULL, "deleted" },
+		{ '\0', NULL, "expunged" },
+		{ '\0', NULL, "trashed" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -236,6 +239,9 @@ static const char *client_stats(struct client *client)
 	tab[4].value = dec2str(client->fetch_hdr_bytes);
 	tab[5].value = dec2str(client->fetch_body_count);
 	tab[6].value = dec2str(client->fetch_body_bytes);
+	tab[7].value = dec2str(client->deleted_count);
+	tab[8].value = dec2str(client->expunged_count);
+	tab[9].value = dec2str(client->trashed_count);
 
 	str = t_str_new(128);
 	var_expand(str, client->set->imap_logout_format, tab);
