@@ -2,6 +2,8 @@
 
 #include "lib.h"
 #include "sha2.h"
+#include "str.h"
+#include "unichar.h"
 #include "test-common.h"
 #include "fts-language.h"
 #include "fts-filter.h"
@@ -463,6 +465,37 @@ static void test_fts_filter_normalizer_empty(void)
 	test_end();
 }
 
+static void test_fts_filter_normalizer_baddata(void)
+{
+	const char * const settings[] =
+		{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove", NULL};
+	struct fts_filter *norm;
+	const char *token, *error;
+	string_t *str;
+	unsigned int i;
+
+	test_begin("fts filter normalizer bad data");
+
+	test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
+	str = t_str_new(128);
+	for (i = 1; i < 0x1ffff; i++) {
+		str_truncate(str, 0);
+		uni_ucs4_to_utf8_c(i, str);
+		token = str_c(str);
+		T_BEGIN {
+			test_assert_idx(fts_filter_filter(norm, &token, &error) >= 0, i);
+		} T_END;
+	}
+
+	str_truncate(str, 0);
+	uni_ucs4_to_utf8_c(0x7fffffff, str);
+	token = str_c(str);
+	test_assert(fts_filter_filter(norm, &token, &error) >= 0);
+
+	fts_filter_unref(&norm);
+	test_end();
+}
+
 static void test_fts_filter_normalizer_invalid_id(void)
 {
 	struct fts_filter *norm = NULL;
@@ -558,6 +591,7 @@ int main(void)
 		test_fts_filter_normalizer_swedish_short_default_id,
 		test_fts_filter_normalizer_french,
 		test_fts_filter_normalizer_empty,
+		test_fts_filter_normalizer_baddata,
 		test_fts_filter_normalizer_invalid_id,
 #ifdef HAVE_FTS_STEMMER
 		test_fts_filter_normalizer_stopwords_stemmer_eng,

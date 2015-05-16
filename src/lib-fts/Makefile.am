@@ -50,7 +50,9 @@ endif
 endif
 
 if BUILD_LIBICU
+ICU_SOURCES = fts-icu.c
 NORMALIZER_LIBS = $(LIBICU_LIBS)
+ICU_TESTS = test-fts-icu
 endif
 
 libfts_la_LIBADD = \
@@ -67,19 +69,22 @@ libfts_la_SOURCES = \
 	fts-language.c \
 	fts-tokenizer.c \
 	fts-tokenizer-address.c \
-	fts-tokenizer-generic.c
+	fts-tokenizer-generic.c \
+	$(ICU_SOURCES)
 
 noinst_HEADERS = \
 	fts-filter.h \
 	fts-filter-private.h \
+	fts-icu.h \
 	fts-language.h \
 	fts-tokenizer.h \
 	fts-tokenizer-private.h \
 	fts-tokenizer-generic-private.h
 
 test_programs = \
-	test-fts-filter \
+	$(ICU_TESTS) \
 	$(TEST_FTS_LANGUAGE) \
+	test-fts-filter \
 	test-fts-tokenizer
 
 noinst_PROGRAMS = $(test_programs)
@@ -88,6 +93,10 @@ test_libs = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
+
+test_fts_icu_SOURCES = test-fts-icu.c
+test_fts_icu_LDADD = fts-icu.lo $(LIBICU_LIBS) $(test_libs)
+test_fts_icu_DEPENDENCIES = fts-icu.lo $(test_deps)
 
 test_fts_filter_SOURCES = test-fts-filter.c
 test_fts_filter_LDADD = libfts.la $(test_libs)

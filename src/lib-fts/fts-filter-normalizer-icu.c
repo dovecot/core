@@ -8,111 +8,19 @@
 #include "fts-language.h"
 
 #ifdef HAVE_LIBICU
-
-#include <unicode/utrans.h>
-#include <unicode/uenum.h>
-#include <unicode/ustring.h>
-#include <unicode/ucnv.h>
-#include <stdlib.h>
+#include "fts-icu.h"
 
 struct fts_filter_normalizer_icu {
 	struct fts_filter filter;
 	pool_t pool;
 	const char *transliterator_id;
+	const UChar *transliterator_id_utf16;
+	unsigned int transliterator_id_utf16_len;
+
 	UTransliterator *transliterator;
+	buffer_t *utf16_token, *trans_token;
+	string_t *utf8_token;
 };
-
-/* Helper to create UTF16, which libicu wants as input.
-
- On input,  if *dst_uchars_r  > 0,  it indicates  the number  of UChar
- sized  units that  should be  allocated  for the  text. However,  the
- function will not  use the number, if  the text will not  fit in that
- amount.
-
- On return *dst_uchars_r will contain the number of UChar sized units
- allocated for the dst. NOT the number of bytes nor the length of the
- text. */
-static void make_uchar(const char *src, UChar **dst, int32_t *dst_uchars_r)
-{
-	UErrorCode err = U_ZERO_ERROR;
-	int32_t len = strlen(src);
-	int32_t ustr_len = 0;
-	int32_t ustr_len_actual = 0;
-	UChar *retp = NULL;
-	int32_t alloc_uchars = 0;
-
-	i_assert(dst_uchars_r != NULL);
-
-	/* Check length required for encoded dst. */
-	retp = u_strFromUTF8(NULL, 0, &ustr_len, src, len, &err);
-
-	/* When preflighting a successful call returns a buffer overflow
-	   error. */
-	if (U_BUFFER_OVERFLOW_ERROR != err && U_FAILURE(err)) {
-		i_panic("Failed to estimate allocation size with lib ICU"
-		        " u_strFromUTF8(): %s",u_errorName(err));
-	}
-	i_assert(NULL == retp);
-
-	err = U_ZERO_ERROR;
-	if (*dst_uchars_r > 0 && *dst_uchars_r > ustr_len)
-		alloc_uchars =  *dst_uchars_r;
-	else
-		alloc_uchars = ustr_len;
-	alloc_uchars++; /* room for null bytes(2) */
-	*dst = t_malloc(alloc_uchars * sizeof(UChar));
-	*dst_uchars_r = alloc_uchars;
-	retp = u_strFromUTF8(*dst, alloc_uchars, &ustr_len_actual,
-	                     src, len, &err);
-
-	if (U_FAILURE(err))
-		i_panic("Lib ICU u_strFromUTF8 failed: %s", u_errorName(err));
-	i_assert(retp == *dst);
-	i_assert(ustr_len == ustr_len_actual);
-}
-
-static void make_utf8(const UChar *src, const char **_dst)
-{
-	char *dst;
-	char *retp = NULL;
-	int32_t dsize = 0;
-	int32_t dsize_actual = 0;
-	int32_t sub_num = 0;
-	UErrorCode err = U_ZERO_ERROR;
-	int32_t usrc_len = u_strlen(src); /* libicu selects different codepaths
-	                                     depending if srclen -1 or not */
-
-	retp = u_strToUTF8WithSub(NULL, 0, &dsize, src, usrc_len,
-	                          UNICODE_REPLACEMENT_CHAR, &sub_num, &err);
-
-	/* Preflighting can cause buffer overflow to be reported */
-	if (U_BUFFER_OVERFLOW_ERROR != err && U_FAILURE(err)) {
-		i_panic("Failed to estimate allocation size with lib ICU"
-		        " u_strToUTF8(): %s",u_errorName(err));
-	}
-	i_assert(0 == sub_num);
-	i_assert(NULL == retp);
-
-	dsize++; /* room for '\0' byte */
-	dst = t_malloc(dsize);
-	err = U_ZERO_ERROR;
-	retp = u_strToUTF8WithSub(dst, dsize, &dsize_actual, src, usrc_len,
-	                         UNICODE_REPLACEMENT_CHAR, &sub_num, &err);
-	if (U_FAILURE(err))
-		i_panic("Lib ICU u_strToUTF8WithSub() failed: %s",
-		        u_errorName(err));
-	if (dsize_actual >= dsize) {
-		i_panic("Produced UTF8 string length (%d) does not fit in "
-		        "preflighted(%d). Buffer overflow?",
-		        dsize_actual, dsize);
-	}
-	if (0 != sub_num) {
-		i_panic("UTF8 string not well formed. "
-		        "Substitutions (%d) were made.", sub_num);
-	}
-	i_assert(retp == dst);
-	*_dst = dst;
-}
 
 static void fts_filter_normalizer_icu_destroy(struct fts_filter *filter)
 {
@@ -152,6 +60,13 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 	np->pool = pp;
 	np->filter = *fts_filter_normalizer_icu;
 	np->transliterator_id = p_strdup(pp, id);
+	np->utf16_token = buffer_create_dynamic(pp, 128);
+	np->trans_token = buffer_create_dynamic(pp, 128);
+	np->utf8_token = buffer_create_dynamic(pp, 128);
+	fts_icu_utf8_to_utf16(np->utf16_token, id);
+	np->transliterator_id_utf16 =
+		p_memdup(pp, np->utf16_token->data, np->utf16_token->used);
+	np->transliterator_id_utf16_len = np->utf16_token->used / sizeof(UChar);
 	*filter_r = &np->filter;
 	return 0;
 }
@@ -162,14 +77,11 @@ fts_filter_normalizer_icu_create_trans(struct fts_filter_normalizer_icu *np,
 {
 	UErrorCode err = U_ZERO_ERROR;
 	UParseError perr;
-	UChar *id_uchar = NULL;
-	int32_t id_len_uchar = 0;
 
 	memset(&perr, 0, sizeof(perr));
 
-	make_uchar(np->transliterator_id, &id_uchar, &id_len_uchar);
-
-	np->transliterator = utrans_openU(id_uchar, u_strlen(id_uchar),
+	np->transliterator = utrans_openU(np->transliterator_id_utf16,
+					  np->transliterator_id_utf16_len,
 					  UTRANS_FORWARD, NULL, 0, &perr, &err);
 	if (U_FAILURE(err)) {
 		string_t *str = t_str_new(128);
@@ -193,48 +105,27 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token,
 {
 	struct fts_filter_normalizer_icu *np =
 		(struct fts_filter_normalizer_icu *)filter;
-	UErrorCode err = U_ZERO_ERROR;
-	UChar *utext = NULL;
-	int32_t utext_cap = 0;
-	int32_t utext_len = -1;
-	int32_t utext_limit;
 
 	if (np->transliterator == NULL) {
 		if (fts_filter_normalizer_icu_create_trans(np, error_r) < 0)
 			return -1;
 	}
 
-	make_uchar(*token, &utext, &utext_cap);
-	utext_limit = u_strlen(utext);
-	utrans_transUChars(np->transliterator, utext, &utext_len,
-	                   utext_cap, 0, &utext_limit, &err);
-
-	/* Data did not fit into utext. */
-	if (utext_len > utext_cap || err == U_BUFFER_OVERFLOW_ERROR) {
-		/* This is a crude retry fix... Make a new utext of the
-		   size utrans_transUChars indicated */
-		utext_len++; /* room for '\0' bytes(2) */
-		utext_cap = utext_len;
-		make_uchar(*token, &utext, &utext_cap);
-		i_assert(utext_cap ==  utext_len);
-		utext_limit = u_strlen(utext);
-		utext_len = -1;
-		err = U_ZERO_ERROR;
-		utrans_transUChars(np->transliterator, utext,
-		                   &utext_len, utext_cap, 0,
-		                   &utext_limit, &err);
-	}
-
-	if (U_FAILURE(err)) {
-		*error_r = t_strdup_printf("utrans_transUChars() failed: %s\n",
-		                            u_errorName(err));
+	fts_icu_utf8_to_utf16(np->utf16_token, *token);
+	buffer_append_zero(np->utf16_token, 2);
+	buffer_set_used_size(np->utf16_token, np->utf16_token->used-2);
+	buffer_set_used_size(np->trans_token, 0);
+	if (fts_icu_translate(np->trans_token, np->utf16_token->data,
+			      np->utf16_token->used / sizeof(UChar),
+			      np->transliterator, error_r) < 0)
 		return -1;
-	}
 
-	if (utext_len == 0)
+	if (np->trans_token->used == 0)
 		return 0;
 
-	make_utf8(utext, token);
+	fts_icu_utf16_to_utf8(np->utf8_token, np->trans_token->data,
+			      np->trans_token->used / sizeof(UChar));
+	*token = str_c(np->utf8_token);
 	return 1;
 }
 
