@@ -265,24 +265,21 @@ fts_build_add_tokens_with_filter(struct fts_mail_build_context *ctx,
 {
 	struct fts_tokenizer *tokenizer;
 	struct fts_filter *filter = ctx->cur_user_lang->filter;
-	const char *token;
-	const char *error;
-	int ret;
+	const char *token, *error;
+	int ret = 1, ret2;
 
 	tokenizer = fts_user_get_index_tokenizer(ctx->update_ctx->backend->ns->user);
-	while ((ret = fts_tokenizer_next(tokenizer, data, size, &token, &error)) > 0) {
-		if (filter != NULL) {
-			ret = fts_filter_filter(filter, &token, &error);
-			if (ret == 0)
-				continue;
-			if (ret < 0)
-				break;
+	while (ret > 0) T_BEGIN {
+		ret = ret2 = fts_tokenizer_next(tokenizer, data, size, &token, &error);
+		if (ret2 > 0 && filter != NULL)
+			ret2 = fts_filter_filter(filter, &token, &error);
+		if (ret2 > 0) {
+			if (fts_backend_update_build_more(ctx->update_ctx,
+							  (const void *)token,
+							  strlen(token)) < 0)
+				ret = -1;
 		}
-		if (fts_backend_update_build_more(ctx->update_ctx,
-						  (const void *)token,
-						  strlen(token)) < 0)
-			return -1;
-	}
+	} T_END;
 	if (ret < 0)
 		i_error("fts: Couldn't create indexable tokens: %s", error);
 	return ret;
