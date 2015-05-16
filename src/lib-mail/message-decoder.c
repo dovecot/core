@@ -248,6 +248,7 @@ message_decode_body_init_charset(struct message_decoder_context *ctx,
 	if (ctx->charset_trans != NULL && ctx->content_charset != NULL &&
 	    strcasecmp(ctx->content_charset, ctx->charset_trans_charset) == 0) {
 		/* already have the correct translation selected */
+		charset_to_utf8_reset(ctx->charset_trans);
 		return;
 	}
 
