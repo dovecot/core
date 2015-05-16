@@ -494,6 +494,7 @@ fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 	const char *str;
 
 	msgpart = imap_msgpart_full();
+	fetch_state_update_stats(ctx, msgpart);
 	if (fetch_and_free_msgpart(ctx, mail, &msgpart) < 0)
 		return -1;
 
@@ -503,7 +504,6 @@ fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 		str++; ctx->state.cur_first = FALSE;
 	}
 	o_stream_nsend_str(ctx->client->output, str);
-	fetch_state_update_stats(ctx, msgpart);
 
 	ctx->state.cur_human_name = "RFC822";
 	return ctx->state.cont_handler(ctx);
@@ -517,6 +517,7 @@ fetch_rfc822_header(struct imap_fetch_context *ctx,
 	const char *str;
 
 	msgpart = imap_msgpart_header();
+	fetch_state_update_stats(ctx, msgpart);
 	if (fetch_and_free_msgpart(ctx, mail, &msgpart) < 0)
 		return -1;
 
@@ -526,7 +527,6 @@ fetch_rfc822_header(struct imap_fetch_context *ctx,
 		str++; ctx->state.cur_first = FALSE;
 	}
 	o_stream_nsend_str(ctx->client->output, str);
-	fetch_state_update_stats(ctx, msgpart);
 
 	ctx->state.cur_human_name = "RFC822.HEADER";
 	return ctx->state.cont_handler(ctx);
@@ -540,6 +540,7 @@ fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 	const char *str;
 
 	msgpart = imap_msgpart_body();
+	fetch_state_update_stats(ctx, msgpart);
 	if (fetch_and_free_msgpart(ctx, mail, &msgpart) < 0)
 		return -1;
 
@@ -549,7 +550,6 @@ fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 		str++; ctx->state.cur_first = FALSE;
 	}
 	o_stream_nsend_str(ctx->client->output, str);
-	fetch_state_update_stats(ctx, msgpart);
 
 	ctx->state.cur_human_name = "RFC822.TEXT";
 	return ctx->state.cont_handler(ctx);
