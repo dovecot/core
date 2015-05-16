@@ -91,6 +91,10 @@ void buffer_set_used_size(buffer_t *buf, size_t used_size);
 
 /* Returns the current buffer size. */
 size_t buffer_get_size(const buffer_t *buf) ATTR_PURE;
+/* Returns how many bytes we can write to buffer without increasing its size.
+   With dynamic buffers this is buffer_get_size()-1, because the extra 1 byte
+   is reserved for str_c()'s NUL. */
+size_t buffer_get_writable_size(const buffer_t *buf) ATTR_PURE;
 
 /* Returns TRUE if buffer contents are identical. */
 bool buffer_cmp(const buffer_t *buf1, const buffer_t *buf2);

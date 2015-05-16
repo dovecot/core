@@ -322,6 +322,20 @@ size_t buffer_get_size(const buffer_t *_buf)
 	return buf->alloc;
 }
 
+size_t buffer_get_writable_size(const buffer_t *_buf)
+{
+	const struct real_buffer *buf = (const struct real_buffer *)_buf;
+
+	if (!buf->dynamic || buf->alloc == 0)
+		return buf->alloc;
+
+	/* we reserve +1 for str_c() NUL in buffer_check_limits(), so don't
+	   include that in our return value. otherwise the caller might
+	   increase the buffer's alloc size unnecessarily when it just wants
+	   to access the entire buffer. */
+	return buf->alloc-1;
+}
+
 bool buffer_cmp(const buffer_t *buf1, const buffer_t *buf2)
 {
 	if (buf1->used != buf2->used)
