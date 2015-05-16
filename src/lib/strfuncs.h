@@ -10,6 +10,7 @@ int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 	ATTR_FORMAT(3, 4);
 
 char *p_strdup(pool_t pool, const char *str) ATTR_MALLOC;
+void *p_memdup(pool_t pool, const void *data, size_t size) ATTR_MALLOC;
 /* return NULL if str = "" */
 char *p_strdup_empty(pool_t pool, const char *str) ATTR_MALLOC;
 /* *end isn't included */

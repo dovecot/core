@@ -44,6 +44,15 @@ char *p_strdup(pool_t pool, const char *str)
 	return mem;
 }
 
+void *p_memdup(pool_t pool, const void *data, size_t size)
+{
+	void *mem;
+
+	mem = p_malloc(pool, size);
+	memcpy(mem, data, size);
+	return mem;
+}
+
 char *p_strdup_empty(pool_t pool, const char *str)
 {
 	if (str == NULL || *str == '\0')
