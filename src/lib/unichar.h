@@ -3,6 +3,7 @@
 
 /* Character used to replace invalid input. */
 #define UNICODE_REPLACEMENT_CHAR 0xfffd
+#define UNICODE_REPLACEMENT_CHAR_UTF8 "\xEF\xBF\xBD"
 
 /* Characters >= base require surrogates */
 #define UTF16_SURROGATE_BASE 0x10000
