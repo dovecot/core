@@ -118,8 +118,7 @@ charset_to_utf8(struct charset_translation *t,
 
 		if (result == CHARSET_RET_INVALID_INPUT) {
 			if (prev_invalid_pos != dest->used) {
-				uni_ucs4_to_utf8_c(UNICODE_REPLACEMENT_CHAR,
-						   dest);
+				str_append(dest, UNICODE_REPLACEMENT_CHAR_UTF8);
 				prev_invalid_pos = dest->used;
 			}
 			pos++;
