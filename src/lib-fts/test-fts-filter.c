@@ -200,6 +200,7 @@ static void test_fts_filter_stopwords_fail_lazy_init(void)
 	test_assert(fts_filter_create(fts_filter_stopwords, NULL, &unknown, stopword_settings, &filter, &error) == 0);
 	test_assert(filter != NULL && error == NULL);
 	test_assert(fts_filter_filter(filter, &token, &error) < 0 && error != NULL);
+	fts_filter_unref(&filter);
 	test_end();
 
 }
@@ -508,6 +509,7 @@ static void test_fts_filter_normalizer_invalid_id(void)
 	test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
 	test_assert(error == NULL);
 	test_assert(fts_filter_filter(norm, &token, &error) < 0 && error != NULL);
+	fts_filter_unref(&norm);
 	test_end();
 }
 
