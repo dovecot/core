@@ -22,8 +22,8 @@ static void test_charset_utf8_common(const char *input_charset)
 		const char *output;
 		enum charset_result result;
 	} tests[] = {
-		{ "pä�", "pä", CHARSET_RET_INCOMPLETE_INPUT },
-		{ "pä�a", "pä"UNICODE_REPLACEMENT_CHAR_UTF8"a", CHARSET_RET_INVALID_INPUT }
+		{ "p\xC3\xA4\xC3", "p\xC3\xA4", CHARSET_RET_INCOMPLETE_INPUT },
+		{ "p\xC3\xA4\xC3""a", "p\xC3\xA4"UNICODE_REPLACEMENT_CHAR_UTF8"a", CHARSET_RET_INVALID_INPUT }
 	};
 	string_t *str = t_str_new(128);
 	enum charset_result result;
