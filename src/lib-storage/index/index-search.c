@@ -127,7 +127,7 @@ static int search_arg_match_keywords(struct index_search_context *ctx,
 				     struct mail_search_arg *arg)
 {
 	ARRAY_TYPE(keyword_indexes) keyword_indexes_arr;
-	const struct mail_keywords *search_kws = arg->value.keywords;
+	const struct mail_keywords *search_kws = arg->initialized.keywords;
 	const unsigned int *keyword_indexes;
 	unsigned int i, j, count;
 
@@ -202,9 +202,9 @@ static int search_arg_match_index(struct index_search_context *ctx,
 		if (arg->value.flags != 0) {
 			modseq = mail_index_modseq_lookup_flags(ctx->view,
 					arg->value.flags, ctx->mail_ctx.seq);
-		} else if (arg->value.keywords != NULL) {
+		} else if (arg->initialized.keywords != NULL) {
 			modseq = mail_index_modseq_lookup_keywords(ctx->view,
-					arg->value.keywords, ctx->mail_ctx.seq);
+					arg->initialized.keywords, ctx->mail_ctx.seq);
 		} else {
 			modseq = mail_index_modseq_lookup(ctx->view,
 						ctx->mail_ctx.seq);
@@ -260,12 +260,12 @@ static int search_arg_match_mailbox(struct index_search_context *ctx,
 			return strcasecmp(arg->value.str, "INBOX") == 0;
 		return strcmp(str, arg->value.str) == 0;
 	case SEARCH_MAILBOX_GLOB:
-		if (imap_match(arg->value.mailbox_glob, box->vname) == IMAP_MATCH_YES)
+		if (imap_match(arg->initialized.mailbox_glob, box->vname) == IMAP_MATCH_YES)
 			return 1;
 		if (mail_get_special(ctx->cur_mail, MAIL_FETCH_MAILBOX_NAME,
 				     &str) < 0)
 			return -1;
-		return imap_match(arg->value.mailbox_glob, str) == IMAP_MATCH_YES;
+		return imap_match(arg->initialized.mailbox_glob, str) == IMAP_MATCH_YES;
 	default:
 		return -1;
 	}
@@ -1073,11 +1073,11 @@ static int search_build_inthread_result(struct index_search_context *ctx,
 	int ret = 0;
 
 	/* mail_search_args_init() must have been called by now */
-	i_assert(arg->value.search_args != NULL);
+	i_assert(arg->initialized.search_args != NULL);
 
 	p_array_init(&arg->value.seqset, ctx->mail_ctx.args->pool, 64);
 	if (mailbox_search_result_build(ctx->mail_ctx.transaction,
-					arg->value.search_args,
+					arg->initialized.search_args,
 					MAILBOX_SEARCH_RESULT_FLAG_UPDATE |
 					MAILBOX_SEARCH_RESULT_FLAG_QUEUE_SYNC,
 					&arg->value.search_result) < 0)

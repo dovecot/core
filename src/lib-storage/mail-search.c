@@ -85,8 +85,8 @@ mail_search_args_init_sub(struct mail_search_args *args,
 			keywords[0] = arg->value.str;
 			keywords[1] = NULL;
 
-			i_assert(arg->value.keywords == NULL);
-			arg->value.keywords =
+			i_assert(arg->initialized.keywords == NULL);
+			arg->initialized.keywords =
 				mailbox_keywords_create_valid(args->box,
 							      keywords);
 			break;
@@ -95,15 +95,15 @@ mail_search_args_init_sub(struct mail_search_args *args,
 			struct mail_namespace *ns =
 				mailbox_get_namespace(args->box);
 
-			arg->value.mailbox_glob =
+			arg->initialized.mailbox_glob =
 				imap_match_init(default_pool, arg->value.str,
 						TRUE, mail_namespace_get_sep(ns));
 			break;
 		}
 		case SEARCH_INTHREAD:
-			thread_args = arg->value.search_args;
+			thread_args = arg->initialized.search_args;
 			if (thread_args == NULL) {
-				arg->value.search_args = thread_args =
+				arg->initialized.search_args = thread_args =
 					p_new(args->pool,
 					      struct mail_search_args, 1);
 				thread_args->pool = args->pool;
@@ -153,25 +153,25 @@ static void mail_search_args_deinit_sub(struct mail_search_args *args,
 		switch (arg->type) {
 		case SEARCH_MODSEQ:
 		case SEARCH_KEYWORDS:
-			if (arg->value.keywords == NULL)
+			if (arg->initialized.keywords == NULL)
 				break;
-			mailbox_keywords_unref(&arg->value.keywords);
+			mailbox_keywords_unref(&arg->initialized.keywords);
 			break;
 		case SEARCH_MAILBOX_GLOB:
-			if (arg->value.mailbox_glob == NULL)
+			if (arg->initialized.mailbox_glob == NULL)
 				break;
 
-			imap_match_deinit(&arg->value.mailbox_glob);
+			imap_match_deinit(&arg->initialized.mailbox_glob);
 			break;
 		case SEARCH_INTHREAD:
-			i_assert(arg->value.search_args->refcount > 0);
+			i_assert(arg->initialized.search_args->refcount > 0);
 			if (args->refcount == 0 &&
 			    arg->value.search_result != NULL) {
 				mailbox_search_result_free(
 					&arg->value.search_result);
 			}
-			arg->value.search_args->refcount--;
-			arg->value.search_args->box = NULL;
+			arg->initialized.search_args->refcount--;
+			arg->initialized.search_args->box = NULL;
 			/* fall through */
 		case SEARCH_SUB:
 		case SEARCH_OR:
@@ -650,8 +650,8 @@ static bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 			m1->type == m2->type;
 	}
 	case SEARCH_INTHREAD:
-		return mail_search_args_equal(arg1->value.search_args,
-					      arg2->value.search_args);
+		return mail_search_args_equal(arg1->initialized.search_args,
+					      arg2->initialized.search_args);
 	}
 	i_unreached();
 	return FALSE;

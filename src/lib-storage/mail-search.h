@@ -83,12 +83,15 @@ struct mail_search_arg {
 		enum mail_search_arg_flag search_flags;
 		enum mail_search_date_type date_type;
 		enum mail_thread_type thread_type;
-		struct mail_keywords *keywords;
 		struct mail_search_modseq *modseq;
-		struct mail_search_args *search_args;
 		struct mail_search_result *search_result;
-		struct imap_match_glob *mailbox_glob;
 	} value;
+	/* set by mail_search_args_init(): */
+	struct {
+		struct mail_search_args *search_args;
+		struct mail_keywords *keywords;
+		struct imap_match_glob *mailbox_glob;
+	} initialized;
 
         void *context;
 	const char *hdr_field_name; /* for SEARCH_HEADER* */
