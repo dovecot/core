@@ -108,6 +108,7 @@ static void test_fts_icu_translate(void)
 					      translit, &error) == 0);
 		test_assert(dest->used == i * sizeof(UChar));
 	}
+	utrans_close(translit);
 	test_end();
 }
 
@@ -134,6 +135,7 @@ static void test_fts_icu_translate_resize(void)
 					      translit, &error) == 0);
 	}
 
+	utrans_close(translit);
 	test_end();
 }
 
