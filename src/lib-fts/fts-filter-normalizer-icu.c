@@ -10,6 +10,8 @@
 #ifdef HAVE_LIBICU
 #include "fts-icu.h"
 
+#include <unicode/uclean.h>
+
 struct fts_filter_normalizer_icu {
 	struct fts_filter filter;
 	pool_t pool;
@@ -21,6 +23,8 @@ struct fts_filter_normalizer_icu {
 	buffer_t *utf16_token, *trans_token;
 	string_t *utf8_token;
 };
+
+static bool icu_exit_callback_set = FALSE;
 
 static void fts_filter_normalizer_icu_destroy(struct fts_filter *filter)
 {
@@ -52,6 +56,11 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
 		}
+	}
+
+	if (!icu_exit_callback_set) {
+		icu_exit_callback_set = TRUE;
+		lib_atexit(u_cleanup);
 	}
 
 	pp = pool_alloconly_create(MEMPOOL_GROWING"fts_filter_normalizer_icu",

@@ -7,6 +7,8 @@
 #include "test-common.h"
 #include "fts-icu.h"
 
+#include <unicode/uclean.h>
+
 static void test_fts_icu_utf8_to_utf16_ascii_resize(void)
 {
 	buffer_t *dest = buffer_create_dynamic(pool_datastack_create(), 5);
@@ -150,5 +152,7 @@ int main(void)
 		test_fts_icu_translate_resize,
 		NULL
 	};
-	return test_run(test_functions);
+	int ret = test_run(test_functions);
+	u_cleanup();
+	return ret;
 }
