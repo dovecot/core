@@ -183,11 +183,12 @@ fts_search_args_expand_tree(struct fts_backend *backend, pool_t pool,
 int fts_search_args_expand(struct fts_backend *backend,
 			   struct mail_search_args *args)
 {
-	struct mail_search_arg *args_dup;
+	struct mail_search_arg *args_dup, *orig_args = args->args;
 
 	/* duplicate the args, so if expansion fails we haven't changed
 	   anything */
 	args_dup = mail_search_arg_dup(args->pool, args->args);
+
 	if (fts_search_args_expand_tree(backend, args->pool, &args_dup) < 0)
 		return -1;
 
@@ -195,5 +196,10 @@ int fts_search_args_expand(struct fts_backend *backend,
 	args->simplified = FALSE;
 	args->args = args_dup;
 	mail_search_args_simplify(args);
+
+	/* duplicated args aren't initialized */
+	i_assert(args->init_refcount > 0);
+	mail_search_arg_init(args, args_dup, FALSE, NULL);
+	mail_search_arg_deinit(orig_args);
 	return 0;
 }
