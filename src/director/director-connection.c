@@ -846,7 +846,8 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 	struct ip_addr ip;
 	const char *tag = "";
 	unsigned int vhost_count;
-	bool update;
+	bool update, down = FALSE;
+	time_t last_updown_change = 0;
 
 	if (str_array_length(args) < 2 ||
 	    net_addr2ip(args[0], &ip) < 0 ||
@@ -854,8 +855,17 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
-	if (args[2] != NULL)
+	if (args[2] != NULL) {
 		tag = args[2];
+		if (args[3] != NULL) {
+			if ((args[3][0] != 'D' && args[3][0] != 'U') ||
+			    str_to_time(args[3]+1, &last_updown_change) < 0) {
+				director_cmd_error(conn, "Invalid updown parameters");
+				return FALSE;
+			}
+			down = args[3][0] == 'D';
+		}
+	}
 	if (conn->ignore_host_events) {
 		/* remote is sending hosts in a handshake, but it doesn't have
 		   a completed ring and we do. */
@@ -868,7 +878,10 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 		host = mail_host_add_ip(conn->dir->mail_hosts, &ip, tag);
 		update = TRUE;
 	} else {
-		update = host->vhost_count != vhost_count;
+		update = host->vhost_count != vhost_count ||
+			host->down != down ||
+			host->last_updown_change != last_updown_change;
+;
 		if (strcmp(tag, host->tag) != 0) {
 			i_error("director(%s): Host %s changed tag from '%s' to '%s'",
 				conn->name, net_ip2addr(&host->ip),
@@ -879,6 +892,8 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 	}
 
 	if (update) {
+		mail_host_set_down(conn->dir->mail_hosts, host,
+				   down, last_updown_change);
 		mail_host_set_vhost_count(conn->dir->mail_hosts,
 					  host, vhost_count);
 		director_update_host(conn->dir, conn->host, dir_host, host);
@@ -1581,14 +1596,23 @@ static void
 director_connection_send_hosts(struct director_connection *conn, string_t *str)
 {
 	struct mail_host *const *hostp;
+	bool send_updowns;
+
+	send_updowns = conn->minor_version >= DIRECTOR_VERSION_UPDOWN;
 
 	str_printfa(str, "HOST-HAND-START\t%u\n", conn->dir->ring_handshaked);
 	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
+		struct mail_host *host = *hostp;
+
 		str_printfa(str, "HOST\t%s\t%u",
-			    net_ip2addr(&(*hostp)->ip), (*hostp)->vhost_count);
-		if ((*hostp)->tag[0] != '\0') {
+			    net_ip2addr(&host->ip), host->vhost_count);
+		if (host->tag[0] != '\0' || send_updowns) {
 			str_append_c(str, '\t');
-			str_append_tabescaped(str, (*hostp)->tag);
+			str_append_tabescaped(str, host->tag);
+		}
+		if (send_updowns) {
+			str_printfa(str, "\t%c%ld", host->down ? 'D' : 'U',
+				    (long)host->last_updown_change);
 		}
 		str_append_c(str, '\n');
 	}

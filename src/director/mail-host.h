@@ -8,6 +8,10 @@ struct mail_host_list;
 struct mail_host {
 	unsigned int user_count;
 	unsigned int vhost_count;
+	/* server up/down. down=TRUE has effectively the same result as if
+	   vhost_count=0. */
+	bool down;
+	time_t last_updown_change;
 
 	struct ip_addr ip;
 	char *tag;
@@ -26,6 +30,8 @@ mail_host_get_by_hash(struct mail_host_list *list, unsigned int hash,
 int mail_hosts_parse_and_add(struct mail_host_list *list,
 			     const char *hosts_string);
 void mail_host_set_tag(struct mail_host *host, const char *tag);
+void mail_host_set_down(struct mail_host_list *list,
+			struct mail_host *host, bool down, time_t timestamp);
 void mail_host_set_vhost_count(struct mail_host_list *list,
 			       struct mail_host *host,
 			       unsigned int vhost_count);

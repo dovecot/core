@@ -6,7 +6,7 @@
 
 #define DIRECTOR_VERSION_NAME "director"
 #define DIRECTOR_VERSION_MAJOR 1
-#define DIRECTOR_VERSION_MINOR 5
+#define DIRECTOR_VERSION_MINOR 6
 
 /* weak users supported in protocol */
 #define DIRECTOR_VERSION_WEAK_USERS 1
@@ -20,6 +20,8 @@
 #define DIRECTOR_VERSION_OPTIONS 5
 /* user tags supported */
 #define DIRECTOR_VERSION_TAGS 5
+/* up/down state is tracked */
+#define DIRECTOR_VERSION_UPDOWN 6
 
 /* Minimum time between even attempting to communicate with a director that
    failed due to a protocol error. */

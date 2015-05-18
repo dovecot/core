@@ -533,17 +533,19 @@ void director_update_host(struct director *dir, struct director_host *src,
 		    net_ip2addr(&orig_src->ip), orig_src->port,
 		    orig_src->last_seq,
 		    net_ip2addr(&host->ip), host->vhost_count);
-	if (host->tag[0] == '\0')
-		;
-	else if (dir->ring_handshaked &&
-		 dir->ring_min_version < DIRECTOR_VERSION_TAGS) {
+	if (dir->ring_min_version >= DIRECTOR_VERSION_TAGS) {
+		str_append_c(str, '\t');
+		str_append_tabescaped(str, host->tag);
+	} else if (host->tag[0] != '\0' &&
+		   dir->ring_min_version < DIRECTOR_VERSION_TAGS) {
 		i_error("Ring has directors that don't support tags - removing host %s with tag '%s'",
 			net_ip2addr(&host->ip), host->tag);
 		director_remove_host(dir, NULL, NULL, host);
 		return;
-	} else {
-		str_append_c(str, '\t');
-		str_append_tabescaped(str, host->tag);
+	}
+	if (dir->ring_min_version >= DIRECTOR_VERSION_UPDOWN) {
+		str_printfa(str, "\t%c%ld", host->down ? 'D' : 'U',
+			    (long)host->last_updown_change);
 	}
 	str_append_c(str, '\n');
 	director_update_send(dir, src, str_c(str));

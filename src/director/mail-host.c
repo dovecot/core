@@ -58,6 +58,9 @@ static void mail_vhost_add(struct mail_host_list *list, struct mail_host *host)
 	char num_str[MAX_INT_STRLEN];
 	unsigned int i, j;
 
+	if (host->down)
+		return;
+
 	ip_str = net_ip2addr(&host->ip);
 
 	md5_init(&md5_ctx);
@@ -99,6 +102,8 @@ static void mail_hosts_sort_direct(struct mail_host_list *list)
 	/* rebuild vhosts */
 	array_clear(&list->vhosts);
 	array_foreach(&list->hosts, hostp) {
+		if ((*hostp)->down)
+			continue;
 		for (i = 0; i < (*hostp)->vhost_count; i++) {
 			vhost = array_append_space(&list->vhosts);
 			vhost->host = *hostp;
@@ -267,6 +272,16 @@ void mail_host_set_tag(struct mail_host *host, const char *tag)
 
 	i_free(host->tag);
 	host->tag = i_strdup(tag);
+}
+
+void mail_host_set_down(struct mail_host_list *list,
+			struct mail_host *host, bool down, time_t timestamp)
+{
+	if (host->down != down) {
+		host->down = down;
+		host->last_updown_change = timestamp;
+		list->hosts_unsorted = TRUE;
+	}
 }
 
 void mail_host_set_vhost_count(struct mail_host_list *list,

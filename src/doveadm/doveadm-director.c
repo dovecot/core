@@ -176,21 +176,32 @@ static void cmd_director_status(int argc, char *argv[])
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header_simple("mail server ip");
 	doveadm_print_header_simple("tag");
-	doveadm_print_header("vhosts", "vhosts",
-			     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY);
-	doveadm_print_header("users", "users",
-			     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY);
+	doveadm_print_header_simple("vhosts");
+	doveadm_print_header_simple("state");
+	doveadm_print_header("state-changed", "state changed", 0);
+	doveadm_print_header_simple("users");
 
 	director_send(ctx, "HOST-LIST\n");
 	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
 		if (*line == '\0')
 			break;
 		T_BEGIN {
+			unsigned int arg_count;
+			time_t ts;
+
 			args = t_strsplit_tab(line);
-			if (str_array_length(args) >= 4) {
-				doveadm_print(args[0]);
+			arg_count = str_array_length(args);
+			if (arg_count >= 6) {
+				/* ip vhosts users tag updown updown-ts */
+				doveadm_print(args[0]); 
 				doveadm_print(args[3]);
 				doveadm_print(args[1]);
+				doveadm_print(args[4][0] == 'D' ? "down" : "up");
+				if (str_to_time(args[5], &ts) < 0 ||
+				    ts <= 0)
+					doveadm_print("-");
+				else
+					doveadm_print(unixdate2str(ts));
 				doveadm_print(args[2]);
 			}
 		} T_END;
@@ -447,22 +458,24 @@ static void cmd_director_add(int argc, char *argv[])
 	director_disconnect(ctx);
 }
 
-static void cmd_director_remove(int argc, char *argv[])
+static void
+cmd_director_ipcmd(const char *cmd_name, doveadm_command_t *cmd,
+		   const char *success_result, int argc, char *argv[])
 {
 	struct director_context *ctx;
 	struct ip_addr *ips;
 	unsigned int i, ips_count;
 	const char *host, *line;
 
-	ctx = cmd_director_init(argc, argv, "a:", cmd_director_remove);
+	ctx = cmd_director_init(argc, argv, "a:", cmd);
 	host = argv[optind++];
 	if (host == NULL || argv[optind] != NULL)
-		director_cmd_help(cmd_director_remove);
+		director_cmd_help(cmd);
 
 	director_get_host(host, &ips, &ips_count);
 	for (i = 0; i < ips_count; i++) {
 		director_send(ctx, t_strdup_printf(
-			"HOST-REMOVE\t%s\n", net_ip2addr(&ips[i])));
+			"%s\t%s\n", cmd_name, net_ip2addr(&ips[i])));
 	}
 	for (i = 0; i < ips_count; i++) {
 		line = i_stream_read_next_line(ctx->input);
@@ -476,10 +489,28 @@ static void cmd_director_remove(int argc, char *argv[])
 				line == NULL ? "failed" : line);
 			doveadm_exit_code = EX_TEMPFAIL;
 		} else if (doveadm_verbose) {
-			printf("%s: removed\n", net_ip2addr(&ips[i]));
+			printf("%s: %s\n", net_ip2addr(&ips[i]), success_result);
 		}
 	}
 	director_disconnect(ctx);
+}
+
+static void cmd_director_remove(int argc, char *argv[])
+{
+	cmd_director_ipcmd("HOST-REMOVE", cmd_director_remove,
+			   "removed", argc, argv);
+}
+
+static void cmd_director_up(int argc, char *argv[])
+{
+	cmd_director_ipcmd("HOST-UP", cmd_director_up,
+			   "up", argc, argv);
+}
+
+static void cmd_director_down(int argc, char *argv[])
+{
+	cmd_director_ipcmd("HOST-DOWN", cmd_director_down,
+			   "down", argc, argv);
 }
 
 static void cmd_director_move(int argc, char *argv[])
@@ -777,6 +808,10 @@ struct doveadm_cmd doveadm_cmd_director[] = {
 	  "[-a <director socket path>] [-f <users file>] [-h | -u] [<host>]" },
 	{ cmd_director_add, "director add",
 	  "[-a <director socket path>] [-t <tag>] <host> [<vhost count>]" },
+	{ cmd_director_up, "director up",
+	  "[-a <director socket path>] <host>" },
+	{ cmd_director_down, "director down",
+	  "[-a <director socket path>] <host>" },
 	{ cmd_director_remove, "director remove",
 	  "[-a <director socket path>] <host>" },
 	{ cmd_director_move, "director move",
