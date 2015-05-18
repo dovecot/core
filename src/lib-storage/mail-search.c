@@ -60,8 +60,7 @@ mailbox_uidset_change(struct mail_search_arg *arg, struct mailbox *box,
 	}
 }
 
-static void
-mail_search_args_init_sub(struct mail_search_args *args,
+void mail_search_arg_init(struct mail_search_args *args,
 			  struct mail_search_arg *arg,
 			  bool change_uidsets,
 			  const ARRAY_TYPE(seq_range) *search_saved_uidset)
@@ -118,9 +117,9 @@ mail_search_args_init_sub(struct mail_search_args *args,
 			/* fall through */
 		case SEARCH_SUB:
 		case SEARCH_OR:
-			mail_search_args_init_sub(args, arg->value.subargs,
-						  change_uidsets,
-						  search_saved_uidset);
+			mail_search_arg_init(args, arg->value.subargs,
+					     change_uidsets,
+					     search_saved_uidset);
 			break;
 		default:
 			break;
@@ -142,12 +141,11 @@ void mail_search_args_init(struct mail_search_args *args,
 	args->box = box;
 	if (!args->simplified)
 		mail_search_args_simplify(args);
-	mail_search_args_init_sub(args, args->args, change_uidsets,
-				  search_saved_uidset);
+	mail_search_arg_init(args, args->args, change_uidsets,
+			     search_saved_uidset);
 }
 
-static void mail_search_args_deinit_sub(struct mail_search_args *args,
-					struct mail_search_arg *arg)
+void mail_search_arg_deinit(struct mail_search_arg *arg)
 {
 	for (; arg != NULL; arg = arg->next) {
 		switch (arg->type) {
@@ -165,8 +163,7 @@ static void mail_search_args_deinit_sub(struct mail_search_args *args,
 			break;
 		case SEARCH_INTHREAD:
 			i_assert(arg->initialized.search_args->refcount > 0);
-			if (args->refcount == 0 &&
-			    arg->value.search_result != NULL) {
+			if (arg->value.search_result != NULL) {
 				mailbox_search_result_free(
 					&arg->value.search_result);
 			}
@@ -175,7 +172,7 @@ static void mail_search_args_deinit_sub(struct mail_search_args *args,
 			/* fall through */
 		case SEARCH_SUB:
 		case SEARCH_OR:
-			mail_search_args_deinit_sub(args, arg->value.subargs);
+			mail_search_arg_deinit(arg->value.subargs);
 			break;
 		default:
 			break;
@@ -188,7 +185,7 @@ void mail_search_args_deinit(struct mail_search_args *args)
 	if (--args->init_refcount > 0)
 		return;
 
-	mail_search_args_deinit_sub(args, args->args);
+	mail_search_arg_deinit(args->args);
 	args->box = NULL;
 }
 

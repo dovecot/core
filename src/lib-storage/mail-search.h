@@ -132,9 +132,18 @@ void mail_search_args_init(struct mail_search_args *args,
 			   struct mailbox *box, bool change_uidsets,
 			   const ARRAY_TYPE(seq_range) *search_saved_uidset)
 	ATTR_NULL(4);
-/* Free keywords. The args can initialized afterwards again if needed.
-   The args can be reused for other queries after calling this. */
+/* Initialize arg and its children. args is used for getting mailbox and
+   pool. */
+void mail_search_arg_init(struct mail_search_args *args,
+			  struct mail_search_arg *arg,
+			  bool change_uidsets,
+			  const ARRAY_TYPE(seq_range) *search_saved_uidset);
+/* Free memory allocated by mail_search_args_init(). The args can initialized
+   afterwards again if needed. The args can be reused for other queries after
+   calling this. */
 void mail_search_args_deinit(struct mail_search_args *args);
+/* Free arg and its children. */
+void mail_search_arg_deinit(struct mail_search_arg *arg);
 /* Convert sequence sets in args to UIDs. */
 void mail_search_args_seq2uid(struct mail_search_args *args);
 /* Returns TRUE if the two search arguments are fully compatible.
