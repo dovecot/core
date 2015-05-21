@@ -27,6 +27,7 @@ void connection_input_default(struct connection *conn)
 {
 	const char *line;
 	struct istream *input;
+	struct ostream *output;
 	int ret = 0;
 
 	switch (connection_input_read(conn)) {
@@ -40,13 +41,22 @@ void connection_input_default(struct connection *conn)
 	}
 
 	input = conn->input;
+	output = conn->output;
 	i_stream_ref(input);
+	if (output != NULL) {
+		o_stream_ref(output);
+		o_stream_cork(output);
+	}
 	while (!input->closed && (line = i_stream_next_line(input)) != NULL) {
 		T_BEGIN {
 			ret = conn->list->v.input_line(conn, line);
 		} T_END;
 		if (ret <= 0)
 			break;
+	}
+	if (output != NULL) {
+		o_stream_uncork(output);
+		o_stream_unref(&output);
 	}
 	if (ret < 0 && !input->closed) {
 		conn->disconnect_reason = CONNECTION_DISCONNECT_DEINIT;
