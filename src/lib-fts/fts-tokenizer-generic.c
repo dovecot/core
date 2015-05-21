@@ -464,8 +464,8 @@ static bool is_nonword(enum letter_type lt)
 
 	if (lt == LETTER_TYPE_REGIONAL_INDICATOR || lt == LETTER_TYPE_KATAKANA ||
 	    lt == LETTER_TYPE_HEBREW_LETTER || lt == LETTER_TYPE_ALETTER ||
-	    lt == LETTER_TYPE_SINGLE_QUOTE || lt == LETTER_TYPE_NUMERIC)
-		return FALSE; /* TODO: Include LETTER_TYPE_DOUBLE_QUOTE? */
+	    lt == LETTER_TYPE_NUMERIC)
+		return FALSE;
 
 	return TRUE;
 }
@@ -535,8 +535,9 @@ static struct letter_fn letter_fns[] = {
   http://www.unicode.org/reports/tr29/
 
   Adaptions: No word boundary at Start-Of-Text or End-of-Text (Wb1 and
-  WB2). Break just once, not before and after.  Other things also, not
-  really pure tr29. Meant to assist in finding individual words.
+  WB2). Break just once, not before and after.  Other things also
+  (e.g. is_nonword(), not really pure tr29. Meant to assist in finding
+  individual words.
 
   TODO: If this letter_fns based approach is too kludgy, do a FSM with function
   pointers and transition tables.
