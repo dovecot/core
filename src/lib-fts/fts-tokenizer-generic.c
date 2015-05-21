@@ -11,7 +11,12 @@
 
 #define FTS_DEFAULT_TOKEN_MAX_LENGTH 30
 
-static unsigned char fts_ascii_word_boundaries[128] = {
+#define IS_NONASCII_APOSTROPHE(c) \
+	((c) == 0x2019 || (c) == 0xFF07)
+#define IS_APOSTROPHE(c) \
+	((c) == 0x0027 || IS_NONASCII_APOSTROPHE(c))
+
+static unsigned char fts_ascii_word_breaks[128] = {
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 0-15 */
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 16-31 */
 
@@ -95,33 +100,59 @@ static const char *fts_uni_strndup(const unsigned char *data, size_t size)
 	return t_strndup(data, pos);
 }
 
-static void
+static bool
 fts_tokenizer_generic_simple_current_token(struct generic_fts_tokenizer *tok,
                                            const char **token_r)
 {
-	*token_r = fts_uni_strndup(tok->token->data, tok->token->used);
+	const unsigned char *data;
+	size_t start = 0, len;
+
+	/* clean trailing and starting apostrophes. they were all made
+	   into U+0027 earlier. */
+	data = tok->token->data;
+	len = tok->token->used;
+	while (len > 0 && data[len - 1] == '\'')
+		len--;
+	while (start < len && data[start] == '\'')
+		start++;
+
+	*token_r = len - start == 0 ? "" :
+		fts_uni_strndup(CONST_PTR_OFFSET(tok->token->data, start),
+				len - start);
 	buffer_set_used_size(tok->token, 0);
+	return (*token_r)[0] != '\0';
 }
 
-/* TODO: This is duplicated from unichar.c */
 static bool uint32_find(const uint32_t *data, unsigned int count,
 			uint32_t value, unsigned int *idx_r)
 {
 	BINARY_NUMBER_SEARCH(data, count, value, idx_r);
 }
 
-static bool is_word_break(unichar_t c)
+static bool fts_ascii_word_break(unsigned char c)
+{
+	if (c < 0x80)
+		return fts_ascii_word_breaks[c] != 0;
+	return FALSE;
+}
+
+static bool fts_uni_word_break(unichar_t c)
 {
 	unsigned int idx;
+
+	/* Override some apostrophes, which get special treatment. */
+	if (IS_APOSTROPHE(c))
+		return FALSE;
 
 	/* Unicode General Punctuation, including deprecated characters. */
 	if (c >= 0x2000 && c <= 0x206f)
 		return TRUE;
-
 	/* From word-break-data.c, which is generated from PropList.txt. */
 	if (uint32_find(White_Space, N_ELEMENTS(White_Space), c, &idx))
 		return TRUE;
 	if (uint32_find(Dash, N_ELEMENTS(Dash), c, &idx))
+		return TRUE;
+	if (uint32_find(Quotation_Mark, N_ELEMENTS(Quotation_Mark), c, &idx))
 		return TRUE;
 	if (uint32_find(Terminal_Punctuation, N_ELEMENTS(Terminal_Punctuation), c, &idx))
 		return TRUE;
@@ -133,17 +164,17 @@ static bool is_word_break(unichar_t c)
 }
 
 static bool
-data_is_word_boundary(const unsigned char *data, size_t size, size_t *i)
+fts_apostrophe_word_break(struct generic_fts_tokenizer *tok, unichar_t c)
 {
-	unichar_t c;
-
-	if (data[*i] < 0x80)
-		return fts_ascii_word_boundaries[data[*i]] != 0;
-	/* unicode punctuation? */
-	if (uni_utf8_get_char_n(data + *i, size - *i, &c) <= 0)
-		i_unreached();
-	*i += uni_utf8_char_bytes(data[*i]) - 1;
-	return is_word_break(c);
+	if (IS_APOSTROPHE(c)) {
+		if (tok->prev_letter == LETTER_TYPE_SINGLE_QUOTE)
+			return TRUE;
+		else
+			tok->prev_letter = LETTER_TYPE_SINGLE_QUOTE;
+	} else {
+		tok->prev_letter = LETTER_TYPE_NONE;
+	}
+	return FALSE;
 }
 
 static void fts_tokenizer_generic_reset(struct fts_tokenizer *_tok)
@@ -160,10 +191,26 @@ static void fts_tokenizer_generic_reset(struct fts_tokenizer *_tok)
 static void tok_append_truncated(struct generic_fts_tokenizer *tok,
 				 const unsigned char *data, size_t size)
 {
-	i_assert(tok->max_length >= tok->token->used);
+	size_t append_len, pos = 0, appended = 0;
+	unichar_t c;
 
-	buffer_append(tok->token, data,
-		      I_MIN(size, tok->max_length - tok->token->used));
+	i_assert(tok->max_length >= tok->token->used);
+	append_len = I_MIN(size, tok->max_length - tok->token->used);
+
+	/* Append only one kind of apostrophes. Simplifies things when returning
+	   token. */
+	while (pos < append_len) {
+		if (uni_utf8_get_char_n(data + pos, size - pos, &c) <= 0)
+			i_unreached();
+		if (IS_NONASCII_APOSTROPHE(c)) {
+			buffer_append(tok->token, data, pos);
+			buffer_append_c(tok->token, '\'');
+			appended = pos + 1;
+		}
+		pos += uni_utf8_char_bytes(data[pos]);
+	}
+	if (appended < append_len)
+		buffer_append(tok->token, data + appended, append_len - appended);
 }
 
 static int
@@ -175,21 +222,27 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 	struct generic_fts_tokenizer *tok =
 		(struct generic_fts_tokenizer *)_tok;
 	size_t i, char_start_i, len, start = 0;
+	unsigned int char_size;
+	unichar_t c;
 
-	for (i = 0; i < size; i++) {
+	for (i = 0; i < size; i += char_size) {
 		char_start_i = i;
-		if (data_is_word_boundary(data, size, &i)) {
+		if (uni_utf8_get_char_n(data + i, size - i, &c) <= 0)
+			i_unreached();
+		char_size = uni_utf8_char_bytes(data[i]);
+		if (fts_ascii_word_break(data[i]) || fts_uni_word_break(c) ||
+		    fts_apostrophe_word_break(tok, c)) {
 			len = char_start_i - start;
 			tok_append_truncated(tok, data + start, len);
 			if (tok->token->used == 0) {
-				/* no text read yet */
-				start = i + 1;
+				start = i + char_size;
 				continue;
 			}
-			/* word boundary found - return a new token */
-			*skip_r = i + 1;
-			fts_tokenizer_generic_simple_current_token(tok, token_r);
-			return 1;
+
+			if (fts_tokenizer_generic_simple_current_token(tok, token_r)) {
+				*skip_r = i + char_size;
+				return 1;
+			}
 		}
 	}
 	/* word boundary not found yet */
@@ -199,9 +252,10 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 
 	/* return the last token */
 	if (size == 0 && tok->token->used > 0) {
-		fts_tokenizer_generic_simple_current_token(tok, token_r);
-		return 1;
+		if (fts_tokenizer_generic_simple_current_token(tok, token_r))
+			return 1;
 	}
+
 	return 0;
 }
 

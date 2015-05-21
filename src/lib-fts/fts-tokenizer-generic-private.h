@@ -40,8 +40,7 @@ struct generic_fts_tokenizer {
 	struct fts_tokenizer tokenizer;
 	unsigned int max_length;
 	enum boundary_algorithm algorithm;
-	enum letter_type prev_letter; /* These two are basically the
-	                                     state of the parsing. */
+	enum letter_type prev_letter;
 	enum letter_type prev_prev_letter;
 	size_t last_size; /* Bytes in latest utf8 character. */
 	buffer_t *token;

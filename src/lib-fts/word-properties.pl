@@ -8,7 +8,7 @@ if ($which eq 'boundaries') {
     @categories = qw(CR LF Newline Extend Regional_Indicator Format Katakana Hebrew_Letter ALetter
 		    Single_Quote Double_Quote MidNumLet MidLetter MidNum Numeric ExtendNumLet);
 } elsif ($which eq 'breaks') {
-    @categories = qw(White_Space Dash Terminal_Punctuation STerm Pattern_White_Space);
+    @categories = qw(White_Space Dash Quotation_Mark Terminal_Punctuation STerm Pattern_White_Space);
 } else {
     die "specify 'boundaries' or 'breaks'";
 }

@@ -29,6 +29,8 @@ static const char *test_inputs[] = {
 
 	"1.",
 
+	"'quoted text' 'word' 'hlo words' you're bad'''word '''pre post'''",
+
 	/* whitespace: with Unicode(utf8) U+FF01(ef bc 81)(U+2000(e2 80 80) and
 	   U+205A(e2 81 9a) and U+205F(e2 81 9f) */
 	"hello\xEF\xBC\x81world\r\nAnd\xE2\x80\x80there\twas: text "
@@ -99,6 +101,7 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 		outi++;
 	}
 	test_assert_idx(expected_output[outi] == NULL, outi);
+
 	return outi+1;
 }
 
@@ -129,6 +132,9 @@ static void test_fts_tokenizer_generic_only(void)
 		"more", "Hello", "world", "3", "14", "3", "14", "last", NULL,
 
 		"1", NULL,
+
+		"quoted", "text", "word", "hlo", "words", "you're", "bad",
+		"word", "pre", "post", NULL,
 
 		"hello", "world", "And",
 		"there", "was", "text", "galore",
@@ -168,6 +174,9 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 		"more", "Hello", "world", "3.14", "3,14", "last", NULL,
 
 		"1", NULL,
+
+		"quoted", "text", "word", "hlo", "words", "you're", "bad",
+		"word", "pre", "post", NULL,
 
 		"hello", "world", "And",
 		"there", "was", "text", "galore",
