@@ -234,15 +234,12 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 		    fts_apostrophe_word_break(tok, c)) {
 			len = char_start_i - start;
 			tok_append_truncated(tok, data + start, len);
-			if (tok->token->used == 0) {
-				start = i + char_size;
-				continue;
-			}
-
-			if (fts_tokenizer_generic_simple_current_token(tok, token_r)) {
+			if (tok->token->used > 0 &&
+			    fts_tokenizer_generic_simple_current_token(tok, token_r)) {
 				*skip_r = i + char_size;
 				return 1;
 			}
+			start = i + char_size;
 		}
 	}
 	/* word boundary not found yet */

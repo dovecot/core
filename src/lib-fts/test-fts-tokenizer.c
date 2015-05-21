@@ -29,7 +29,7 @@ static const char *test_inputs[] = {
 
 	"1.",
 
-	"'quoted text' 'word' 'hlo words' you're bad'''word '''pre post'''",
+	"' ' '' ''' 'quoted text' 'word' 'hlo words' you're bad'''word '''pre post'''",
 
 	/* whitespace: with Unicode(utf8) U+FF01(ef bc 81)(U+2000(e2 80 80) and
 	   U+205A(e2 81 9a) and U+205F(e2 81 9f) */
