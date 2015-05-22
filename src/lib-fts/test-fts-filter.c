@@ -372,7 +372,7 @@ static void test_fts_filter_normalizer_swedish_short_default_id(void)
 		"vem",
 		"a",
 		"aao",
-		"vem kan segla forutan vind?\naaooaa"
+		"vemkanseglaforutanvind?\naaooaa"
 	};
 	const char *error = NULL;
 	const char *token = NULL;
@@ -446,12 +446,13 @@ static void test_fts_filter_normalizer_empty(void)
 {
 	/* test just a couple of these */
 	static const char *empty_tokens[] = {
+		"\xC2\xAF", /* U+00AF */
 		"\xCC\x80", /* U+0300 */
 		"\xF3\xA0\x87\xAF", /* U+E01EF */
 		"\xCC\x80\xF3\xA0\x87\xAF" /* U+0300 U+E01EF */
 	};
 	const char * const settings[] =
-		{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove", NULL};
+		{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; [\\x20] Remove", NULL};
 	struct fts_filter *norm;
 	const char *error;
 	unsigned int i;

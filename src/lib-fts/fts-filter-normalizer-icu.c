@@ -41,7 +41,7 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 	struct fts_filter_normalizer_icu *np;
 	pool_t pp;
 	unsigned int i;
-	const char *id = "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC";
+	const char *id = "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC; [\\x20] Remove";
 
 	for (i = 0; settings[i] != NULL; i += 2) {
 		const char *key = settings[i], *value = settings[i+1];
