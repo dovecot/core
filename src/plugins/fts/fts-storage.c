@@ -280,11 +280,7 @@ fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
 
-	if (fctx == NULL) {
-		/* no fts */
-	} else if (!fctx->fts_lookup_success && fctx->enforced) {
-		return FALSE;
-	} else if (fctx->indexer_ctx != NULL) {
+	if (fctx != NULL && fctx->indexer_ctx != NULL) {
 		/* this command is still building the indexes */
 		if (!fts_mailbox_build_continue(ctx)) {
 			*tryagain_r = TRUE;
@@ -295,6 +291,8 @@ fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 			return FALSE;
 		}
 	}
+	if (fctx != NULL && !fctx->fts_lookup_success && fctx->enforced)
+		return FALSE;
 
 	return fbox->module_ctx.super.
 		search_next_nonblock(ctx, mail_r, tryagain_r);
