@@ -164,6 +164,7 @@ static void log_append_ext_intro(struct mail_index_export_context *ctx,
 				intro->hdr_size = hdr_update_size;
 		}
 	}
+	i_assert(intro->record_size != 0 || intro->hdr_size != 0);
 	if (reset_id != 0) {
 		/* we're going to reset this extension in this transaction */
 		intro->reset_id = reset_id;

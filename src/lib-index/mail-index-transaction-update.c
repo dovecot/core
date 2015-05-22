@@ -979,6 +979,7 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 		rext = array_idx(&index->extensions, ext_id);
 		record_size = rext->record_size;
 	}
+	i_assert(record_size > 0);
 
 	if (!array_is_created(&t->ext_rec_updates))
 		i_array_init(&t->ext_rec_updates, ext_id + 2);
