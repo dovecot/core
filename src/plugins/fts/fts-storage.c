@@ -215,6 +215,9 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	fctx->orig_matches = buffer_create_dynamic(default_pool, 64);
 	fctx->virtual_mailbox =
 		strcmp(t->box->storage->name, VIRTUAL_STORAGE_NAME) == 0;
+	fctx->enforced =
+		mail_user_plugin_getenv(t->box->storage->user,
+					"fts_enforced") != NULL;
 	i_array_init(&fctx->levels, 8);
 	fctx->scores = i_new(struct fts_scores, 1);
 	fctx->scores->refcount = 1;
@@ -234,7 +237,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	ft->scores = fctx->scores;
 	ft->scores->refcount++;
 
-	if (fts_want_build_args(args->args))
+	if (fctx->enforced || fts_want_build_args(args->args))
 		fts_try_build_init(ctx, fctx);
 	else
 		fts_search_lookup(fctx);
@@ -277,7 +280,11 @@ fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
 
-	if (fctx != NULL && fctx->indexer_ctx != NULL) {
+	if (fctx == NULL) {
+		/* no fts */
+	} else if (!fctx->fts_lookup_success && fctx->enforced) {
+		return FALSE;
+	} else if (fctx->indexer_ctx != NULL) {
 		/* this command is still building the indexes */
 		if (!fts_mailbox_build_continue(ctx)) {
 			*tryagain_r = TRUE;
@@ -362,6 +369,12 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 		}
 		if (fctx->indexing_timed_out)
 			ret = -1;
+		if (!fctx->fts_lookup_success && fctx->enforced) {
+			/* FTS lookup failed and we didn't want to fallback to
+			   opening all the mails and searching manually */
+			mail_storage_set_internal_error(ctx->transaction->box->storage);
+			ret = -1;
+		}
 
 		buffer_free(&fctx->orig_matches);
 		array_free(&fctx->levels);
