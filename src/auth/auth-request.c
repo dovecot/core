@@ -457,11 +457,7 @@ static void auth_request_save_cache(struct auth_request *request,
 			str_append(str, passdb->default_pass_scheme);
 			str_append_c(str, '}');
 		}
-		if (strchr(request->passdb_password, '\t') != NULL)
-			i_panic("%s: Password contains TAB", request->user);
-		if (strchr(request->passdb_password, '\n') != NULL)
-			i_panic("%s: Password contains LF", request->user);
-		str_append(str, request->passdb_password);
+		str_append_tabescaped(str, request->passdb_password);
 	}
 
 	if (!auth_fields_is_empty(request->extra_fields)) {
