@@ -72,6 +72,8 @@ try_create_new(const char *path, const struct file_create_settings *set,
 						   str_c(temp_path), path);
 		}
 	} else {
+		if (unlink(str_c(temp_path)) < 0)
+			i_error("unlink(%s) failed: %m", str_c(temp_path));
 		*fd_r = fd;
 		return 1;
 	}
