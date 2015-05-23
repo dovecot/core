@@ -35,6 +35,7 @@ liblib_la_SOURCES = \
 	fdatasync-path.c \
 	fdpass.c \
 	file-cache.c \
+	file-create-locked.c \
 	file-copy.c \
 	file-dotlock.c \
 	file-lock.c \
@@ -171,6 +172,7 @@ headers = \
 	fdatasync-path.h \
 	fdpass.h \
 	file-cache.h \
+	file-create-locked.h \
 	file-copy.h \
 	file-dotlock.h \
 	file-lock.h \
