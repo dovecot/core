@@ -18,6 +18,7 @@ try_lock_existing(int fd, const char *path,
 		  struct file_lock **lock_r, const char **error_r)
 {
 	struct stat st1, st2;
+	int ret;
 
 	if (fstat(fd, &st1) < 0) {
 		*error_r = t_strdup_printf("fstat(%s) failed: %m", path);
@@ -27,14 +28,19 @@ try_lock_existing(int fd, const char *path,
 				 set->lock_timeout_secs, lock_r, error_r) <= 0)
 		return -1;
 	if (stat(path, &st2) == 0) {
-		return st1.st_ino == st2.st_ino &&
+		ret = st1.st_ino == st2.st_ino &&
 			CMP_DEV_T(st1.st_dev, st2.st_dev) ? 1 : 0;
 	} else if (errno == ENOENT) {
-		return 0;
+		ret = 0;
 	} else {
 		*error_r = t_strdup_printf("stat(%s) failed: %m", path);
-		return -1;
+		ret = -1;
 	}
+	if (ret <= 0) {
+		/* the fd is closed next - no need to unlock */
+		file_lock_free(lock_r);
+	}
+	return ret;
 }
 
 static int
@@ -96,15 +102,14 @@ int file_create_locked(const char *path, const struct file_create_settings *set,
 		fd = open(path, O_RDWR);
 		if (fd != -1) {
 			ret = try_lock_existing(fd, path, set, lock_r, error_r);
-			if (ret < 0) {
-				i_close_fd(&fd);
-				return -1;
-			}
 			if (ret > 0) {
 				/* successfully locked an existing file */
 				*created_r = FALSE;
 				return fd;
 			}
+			i_close_fd(&fd);
+			if (ret < 0)
+				return -1;
 		} else if (errno != ENOENT) {
 			*error_r = t_strdup_printf("open(%s) failed: %m", path);
 			return -1;
