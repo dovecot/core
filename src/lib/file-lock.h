@@ -42,7 +42,8 @@ int file_wait_lock_error(int fd, const char *path, int lock_type,
 			 enum file_lock_method lock_method,
 			 unsigned int timeout_secs,
 			 struct file_lock **lock_r, const char **error_r);
-/* Change the lock type. */
+/* Change the lock type. WARNING: This isn't an atomic operation!
+   The result is the same as file_unlock() + file_try_lock(). */
 int file_lock_try_update(struct file_lock *lock, int lock_type);
 
 /* Unlock and free the lock. */
