@@ -429,6 +429,9 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 	inbox_set = p_new(user->pool, struct mail_namespace_settings, 1);
 	*inbox_set = mail_namespace_default_settings;
 	inbox_set->inbox = TRUE;
+	/* enums must be changed */
+	inbox_set->type = "private";
+	inbox_set->list = "yes";
 
 	unexpanded_inbox_set = p_new(user->pool, struct mail_namespace_settings, 1);
 	*unexpanded_inbox_set = *inbox_set;
