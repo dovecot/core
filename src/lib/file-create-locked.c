@@ -24,7 +24,7 @@ try_lock_existing(int fd, const char *path,
 		*error_r = t_strdup_printf("fstat(%s) failed: %m", path);
 		return -1;
 	}
-	if (file_wait_lock_error(fd, path, F_WRLCK, FILE_LOCK_METHOD_FCNTL,
+	if (file_wait_lock_error(fd, path, F_WRLCK, set->lock_method,
 				 set->lock_timeout_secs, lock_r, error_r) <= 0)
 		return -1;
 	if (stat(path, &st2) == 0) {
@@ -63,8 +63,7 @@ try_create_new(const char *path, const struct file_create_settings *set,
 		return -1;
 	}
 	if (file_try_lock_error(fd, str_c(temp_path), F_WRLCK,
-				FILE_LOCK_METHOD_FCNTL,
-				lock_r, error_r) <= 0) {
+				set->lock_method, lock_r, error_r) <= 0) {
 	} else if (link(str_c(temp_path), path) < 0) {
 		if (errno == EEXIST) {
 			/* just created by somebody else */

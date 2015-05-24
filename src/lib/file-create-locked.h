@@ -1,12 +1,13 @@
 #ifndef FILE_CREATE_LOCKED_H
 #define FILE_CREATE_LOCKED_H
 
-struct file_lock;
+#include "file-lock.h"
 
 struct file_create_settings {
 	/* 0 = try locking without waiting */
 	unsigned int lock_timeout_secs;
 
+	enum file_lock_method lock_method;
 	/* 0 = 0600 */
 	int mode;
 	/* 0 = default */
