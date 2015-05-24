@@ -483,7 +483,7 @@ static void cmd_user(int argc, char *argv[])
 			MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
 			MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS |
 			MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES |
-			MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP);
+			MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS);
 		mail_storage_service_set_auth_conn(storage_service, conn);
 		conn = NULL;
 		if (show_field == NULL) {
