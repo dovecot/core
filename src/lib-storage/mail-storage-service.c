@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "base64.h"
 #include "hostpid.h"
 #include "module-dir.h"
 #include "restrict-access.h"
@@ -1024,6 +1025,20 @@ mail_storage_service_set_log_prefix(struct mail_storage_service_ctx *ctx,
 	i_set_failure_prefix("%s", str_c(str));
 }
 
+static const char *mail_storage_service_generate_session_id(pool_t pool)
+{
+	guid_128_t guid;
+	string_t *str = str_new(pool, MAX_BASE64_ENCODED_SIZE(sizeof(guid)));
+
+	guid_128_generate(guid);
+	base64_encode(guid, sizeof(guid), str);
+	/* remove the trailing "==" */
+	i_assert(str_data(str)[str_len(str)-2] == '=');
+	str_truncate(str, str_len(str)-2);
+	return str_c(str);
+
+}
+
 static int
 mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 				 const struct mail_storage_service_input *input,
@@ -1123,6 +1138,10 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	user->input.userdb_fields = NULL;
 	user->input.username = p_strdup(user_pool, username);
 	user->input.session_id = p_strdup(user_pool, input->session_id);
+	if (user->input.session_id == NULL) {
+		user->input.session_id =
+			mail_storage_service_generate_session_id(user_pool);
+	}
 	user->user_info = user_info;
 	user->flags = flags;
 
