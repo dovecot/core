@@ -11,10 +11,10 @@
 #
 # In the `Service' section you may also specify various other setting.
 # If you have trouble with `Too many open files' you may set:
-#LimitCORE=8192
+#LimitNOFILE=8192
 #
 # If you want to allow the Dovecot services to produce core dumps, use:
-#LimitCORE='infinity'
+#LimitCORE=infinity
 
 [Unit]
 Description=Dovecot IMAP/POP3 email server
