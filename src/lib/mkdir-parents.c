@@ -7,6 +7,7 @@
 #include "ipwd.h"
 
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 
 static int ATTR_NULL(5)
@@ -15,11 +16,24 @@ mkdir_chown_full(const char *path, mode_t mode, uid_t uid,
 {
 	string_t *str;
 	mode_t old_mask;
-	int ret, orig_errno;
+	unsigned int i;
+	int ret, fd = -1, orig_errno;
 
-	old_mask = umask(0);
-	ret = mkdir(path, mode);
-	umask(old_mask);
+	for (i = 0;; i++) {
+		old_mask = umask(0);
+		ret = mkdir(path, mode);
+		umask(old_mask);
+		if (ret < 0)
+			break;
+		fd = open(path, O_RDONLY);
+		if (fd != -1)
+			break;
+		if (errno != ENOENT || i == 3) {
+			i_error("open(%s) failed: %m", path);
+			return -1;
+		}
+		/* it was just rmdir()ed by someone else? retry */
+	}
 
 	if (ret < 0) {
 		if (errno == EISDIR || errno == ENOSYS) {
@@ -29,22 +43,24 @@ mkdir_chown_full(const char *path, mode_t mode, uid_t uid,
 			   ENOSYS check is for NFS mount points. */
 			errno = EEXIST;
 		}
+		i_assert(fd == -1);
 		return -1;
 	}
-	if (chown(path, uid, gid) < 0) {
+	if (fchown(fd, uid, gid) < 0) {
+		i_close_fd(&fd);
 		orig_errno = errno;
-		if (rmdir(path) < 0)
+		if (rmdir(path) < 0 && errno != ENOENT)
 			i_error("rmdir(%s) failed: %m", path);
 		errno = orig_errno;
 
 		if (errno == EPERM && uid == (uid_t)-1) {
-			i_error("%s", eperm_error_get_chgrp("chown", path, gid,
+			i_error("%s", eperm_error_get_chgrp("fchown", path, gid,
 							    gid_origin));
 			return -1;
 		}
 
 		str = t_str_new(256);
-		str_printfa(str, "chown(%s, %ld", path,
+		str_printfa(str, "fchown(%s, %ld", path,
 			    uid == (uid_t)-1 ? -1L : (long)uid);
 		if (uid != (uid_t)-1) {
 			struct passwd pw;
@@ -68,15 +84,17 @@ mkdir_chown_full(const char *path, mode_t mode, uid_t uid,
 	if (gid != (gid_t)-1 && (mode & S_ISGID) == 0) {
 		/* make sure the directory doesn't have setgid bit enabled
 		   (in case its parent had) */
-		if (chmod(path, mode) < 0) {
+		if (fchmod(fd, mode) < 0) {
 			orig_errno = errno;
-			if (rmdir(path) < 0)
+			if (rmdir(path) < 0 && errno != ENOENT)
 				i_error("rmdir(%s) failed: %m", path);
 			errno = orig_errno;
-			i_error("chmod(%s) failed: %m", path);
+			i_error("fchmod(%s) failed: %m", path);
+			i_close_fd(&fd);
 			return -1;
 		}
 	}
+	i_close_fd(&fd);
 	return 0;
 }
 
