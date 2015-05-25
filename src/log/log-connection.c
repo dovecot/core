@@ -351,10 +351,9 @@ static void log_connection_input(struct log_connection *log)
 		}
 	}
 
-	if (log->input->eof)
-		log_connection_destroy(log);
-	else if (log->input->stream_errno != 0) {
-		i_error("read(log %s) failed: %m", log->default_prefix);
+	if (log->input->eof) {
+		if (log->input->stream_errno != 0)
+			i_error("read(log %s) failed: %m", log->default_prefix);
 		log_connection_destroy(log);
 	} else {
 		i_assert(!log->input->closed);
