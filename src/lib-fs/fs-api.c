@@ -587,6 +587,8 @@ void fs_write_stream_abort(struct fs_file *file, struct ostream **output)
 	i_assert(*output == file->output);
 
 	*output = NULL;
+	if (file->output != NULL)
+		o_stream_ignore_last_errors(file->output);
 	T_BEGIN {
 		(void)file->fs->v.write_stream_finish(file, FALSE);
 	} T_END;
