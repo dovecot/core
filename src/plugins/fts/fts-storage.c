@@ -281,6 +281,13 @@ fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
+	struct fts_transaction_context *ft = FTS_CONTEXT(ctx->transaction);
+
+	if (fctx == NULL && ft->failed) {
+		/* precaching already failed - stop now instead of potentially
+		   going through the same failure for all the mails */
+		return FALSE;
+	}
 
 	if (fctx != NULL && fctx->indexer_ctx != NULL) {
 		/* this command is still building the indexes */
@@ -381,6 +388,9 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 		pool_unref(&fctx->result_pool);
 		fts_scores_unref(&fctx->scores);
 		i_free(fctx);
+	} else {
+		if (ft->failed)
+			ret = -1;
 	}
 	if (fbox->module_ctx.super.search_deinit(ctx) < 0)
 		ret = -1;
