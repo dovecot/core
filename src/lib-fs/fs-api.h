@@ -231,15 +231,19 @@ struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size);
 int fs_write(struct fs_file *file, const void *data, size_t size);
 
 /* Write to file via output stream. The stream will be destroyed by
-   fs_write_stream_finish/abort. */
+   fs_write_stream_finish/abort. The returned ostream is already corked and
+   it doesn't need to be uncorked. */
 struct ostream *fs_write_stream(struct fs_file *file);
-/* Finish writing via stream. The file will be created/replaced/appended only
+/* Finish writing via stream, calling also o_stream_nfinish() on the stream and
+   handling any pending errors. The file will be created/replaced/appended only
    after this call, same as with fs_write(). Anything written to the stream
    won't be visible earlier. Returns 1 if ok, 0 if async write isn't finished
    yet (retry calling fs_write_stream_finish_async()), -1 if error */
 int fs_write_stream_finish(struct fs_file *file, struct ostream **output);
 int fs_write_stream_finish_async(struct fs_file *file);
-/* Abort writing via stream. Anything written to the stream is discarded. */
+/* Abort writing via stream. Anything written to the stream is discarded.
+   o_stream_ignore_last_errors() is called on the output stream so the caller
+   doesn't need to do it. */
 void fs_write_stream_abort(struct fs_file *file, struct ostream **output);
 
 /* Set a hash to the following write. The storage can then verify that the
