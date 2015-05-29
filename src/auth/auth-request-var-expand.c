@@ -83,7 +83,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[2].value = strchr(auth_request->user, '@');
 	if (tab[2].value != NULL)
 		tab[2].value = escape_func(tab[2].value+1, auth_request);
-	tab[3].value = auth_request->service;
+	tab[3].value = escape_func(auth_request->service, auth_request);
 	/* tab[4] = we have no home dir */
 	if (auth_request->local_ip.family != 0)
 		tab[5].value = net_ip2addr(&auth_request->local_ip);
@@ -102,7 +102,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 			dec2str(auth_request->passdb->passdb->id);
 	}
 	tab[10].value = auth_request->mech_name == NULL ? "" :
-		auth_request->mech_name;
+		escape_func(auth_request->mech_name, auth_request);
 	tab[11].value = auth_request->secured ? "secured" : "";
 	tab[12].value = dec2str(auth_request->local_port);
 	tab[13].value = dec2str(auth_request->remote_port);
