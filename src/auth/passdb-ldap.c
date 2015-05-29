@@ -8,7 +8,6 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
-#include "var-expand.h"
 #include "password-scheme.h"
 #include "auth-cache.h"
 #include "db-ldap.h"
@@ -289,20 +288,19 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 		(struct ldap_passdb_module *)_module;
 	struct ldap_connection *conn = module->conn;
 	struct ldap_request_search *srequest = &request->request.search;
-	const struct var_expand_table *vars;
 	const char **attr_names = (const char **)conn->pass_attr_names;
 	string_t *str;
 
 	request->require_password = require_password;
 	srequest->request.type = LDAP_REQUEST_TYPE_SEARCH;
-	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
 
 	str = t_str_new(512);
-	var_expand(str, conn->set.base, vars);
+	auth_request_var_expand(str, conn->set.base, auth_request, ldap_escape);
 	srequest->base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
-	var_expand(str, conn->set.pass_filter, vars);
+	auth_request_var_expand(str, conn->set.pass_filter,
+				auth_request, ldap_escape);
 	srequest->filter = p_strdup(auth_request->pool, str_c(str));
 	srequest->attr_map = &conn->pass_attr_map;
 	srequest->attributes = conn->pass_attr_names;
@@ -325,18 +323,17 @@ static void ldap_bind_lookup_dn(struct auth_request *auth_request,
 		(struct ldap_passdb_module *)_module;
 	struct ldap_connection *conn = module->conn;
 	struct ldap_request_search *srequest = &request->request.search;
-	const struct var_expand_table *vars;
 	string_t *str;
 
 	srequest->request.type = LDAP_REQUEST_TYPE_SEARCH;
-	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
 
 	str = t_str_new(512);
-	var_expand(str, conn->set.base, vars);
+	auth_request_var_expand(str, conn->set.base, auth_request, ldap_escape);
 	srequest->base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
-	var_expand(str, conn->set.pass_filter, vars);
+	auth_request_var_expand(str, conn->set.pass_filter,
+				auth_request, ldap_escape);
 	srequest->filter = p_strdup(auth_request->pool, str_c(str));
 
 	/* we don't need the attributes to perform authentication, but they
@@ -362,14 +359,12 @@ ldap_verify_plain_auth_bind_userdn(struct auth_request *auth_request,
 		(struct ldap_passdb_module *)_module;
 	struct ldap_connection *conn = module->conn;
 	struct ldap_request_bind *brequest = &request->request.bind;
-        const struct var_expand_table *vars;
 	string_t *dn;
 
 	brequest->request.type = LDAP_REQUEST_TYPE_BIND;
 
-	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
 	dn = t_str_new(512);
-	var_expand(dn, conn->set.auth_bind_userdn, vars);
+	auth_request_var_expand(dn, conn->set.auth_bind_userdn, auth_request, ldap_escape);
 
 	brequest->dn = p_strdup(auth_request->pool, str_c(dn));
         ldap_auth_bind(conn, brequest);

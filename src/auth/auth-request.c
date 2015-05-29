@@ -1201,7 +1201,6 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		/* username format given, put it through variable expansion.
 		   we'll have to temporarily replace request->user to get
 		   %u to be the wanted username */
-		const struct var_expand_table *table;
 		char *old_username;
 		string_t *dest;
 
@@ -1209,8 +1208,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		request->user = user;
 
 		dest = t_str_new(256);
-		table = auth_request_get_var_expand_table(request, NULL);
-		var_expand(dest, set->username_format, table);
+		auth_request_var_expand(dest, set->username_format, request, NULL);
 		user = p_strdup(request->pool, str_c(dest));
 
 		request->user = old_username;
@@ -1569,8 +1567,7 @@ static void auth_request_set_uidgid_file(struct auth_request *request,
 	struct stat st;
 
 	path = t_str_new(256);
-	var_expand(path, path_template,
-		   auth_request_get_var_expand_table(request, NULL));
+	auth_request_var_expand(path, path_template, request, NULL);
 	if (stat(str_c(path), &st) < 0) {
 		auth_request_log_error(request, AUTH_SUBSYS_DB,
 				       "stat(%s) failed: %m", str_c(path));

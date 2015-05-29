@@ -1,8 +1,14 @@
 /* Copyright (c) 2002-2015 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
+#include "str.h"
 #include "strescape.h"
 #include "auth-request.h"
+
+struct auth_request_var_expand_ctx {
+	struct auth_request *auth_request;
+	auth_request_escape_func_t *escape_func;
+};
 
 const struct var_expand_table
 auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1] = {
@@ -159,4 +165,81 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 
 	return auth_request_get_var_expand_table_full(auth_request, escape_func,
 						      &count);
+}
+
+static const char *field_get_default(const char *data)
+{
+	const char *p;
+
+	p = strchr(data, ':');
+	if (p == NULL)
+		return "";
+	else {
+		/* default value given */
+		return p+1;
+	}
+}
+
+static const char *
+auth_request_var_expand_func_passdb(const char *data, void *context)
+{
+	struct auth_request_var_expand_ctx *ctx = context;
+	const char *field_name = t_strcut(data, ':');
+	const char *value;
+
+	value = auth_fields_find(ctx->auth_request->extra_fields, field_name);
+	return ctx->escape_func(value != NULL ? value : field_get_default(data),
+				ctx->auth_request);
+}
+
+static const char *
+auth_request_var_expand_func_userdb(const char *data, void *context)
+{
+	struct auth_request_var_expand_ctx *ctx = context;
+	const char *field_name = t_strcut(data, ':');
+	const char *value;
+
+	value = ctx->auth_request->userdb_reply == NULL ? NULL :
+		auth_fields_find(ctx->auth_request->userdb_reply, field_name);
+	return ctx->escape_func(value != NULL ? value : field_get_default(data),
+				ctx->auth_request);
+}
+
+const struct var_expand_func_table auth_request_var_funcs_table[] = {
+	{ "passdb", auth_request_var_expand_func_passdb },
+	{ "userdb", auth_request_var_expand_func_userdb },
+	{ NULL, NULL }
+};
+
+void auth_request_var_expand(string_t *dest, const char *str,
+			     struct auth_request *auth_request,
+			     auth_request_escape_func_t *escape_func)
+{
+	auth_request_var_expand_with_table(dest, str, auth_request,
+		auth_request_get_var_expand_table(auth_request, escape_func),
+		escape_func);
+}
+
+void auth_request_var_expand_with_table(string_t *dest, const char *str,
+					struct auth_request *auth_request,
+					const struct var_expand_table *table,
+					auth_request_escape_func_t *escape_func)
+{
+	struct auth_request_var_expand_ctx ctx;
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.auth_request = auth_request;
+	ctx.escape_func = escape_func;
+	var_expand_with_funcs(dest, str, table,
+			      auth_request_var_funcs_table, &ctx);
+}
+
+const char *
+t_auth_request_var_expand(const char *str,
+			  struct auth_request *auth_request,
+			  auth_request_escape_func_t *escape_func)
+{
+	string_t *dest = t_str_new(128);
+	auth_request_var_expand(dest, str, auth_request, escape_func);
+	return str_c(dest);
 }

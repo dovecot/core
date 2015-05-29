@@ -211,7 +211,7 @@ test_auth_cache_LDADD = auth-cache.o $(test_libs)
 test_auth_cache_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 test_auth_request_var_expand_SOURCES = test-auth-request-var-expand.c
-test_auth_request_var_expand_LDADD = auth-request-var-expand.o $(test_libs)
+test_auth_request_var_expand_LDADD = auth-request-var-expand.o auth-fields.o $(test_libs)
 test_auth_request_var_expand_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 test_db_dict_SOURCES = test-db-dict.c

@@ -187,6 +187,43 @@ static void test_auth_request_var_expand_usernames(void)
 	test_end();
 }
 
+static void test_auth_request_var_expand_funcs(void)
+{
+	pool_t pool;
+	const char *value;
+
+	test_begin("auth request var expand funcs");
+
+	pool = pool_alloconly_create("test var expand funcs", 1024);
+	test_request.extra_fields = auth_fields_init(pool);
+	test_request.userdb_reply = auth_fields_init(pool);
+
+	auth_fields_add(test_request.extra_fields, "pkey1", "-pval1", 0);
+	auth_fields_add(test_request.extra_fields, "pkey2", "", 0);
+
+	auth_fields_add(test_request.userdb_reply, "ukey1", "-uval1", 0);
+	auth_fields_add(test_request.userdb_reply, "ukey2", "", 0);
+
+	value = t_auth_request_var_expand(
+			"%{passdb:pkey1}\n%{passdb:pkey1:default1}\n"
+			"%{passdb:pkey2}\n%{passdb:pkey2:default2}\n"
+			"%{passdb:pkey3}\n%{passdb:pkey3:default3}\n"
+			"%{passdb:ukey1}\n%{passdb:ukey1:default4}\n",
+			&test_request, test_escape);
+	test_assert(strcmp(value, "+pval1\n+pval1\n\n\n\ndefault3\n\ndefault4\n") == 0);
+
+	value = t_auth_request_var_expand(
+			"%{userdb:ukey1}\n%{userdb:ukey1:default1}\n"
+			"%{userdb:ukey2}\n%{userdb:ukey2:default2}\n"
+			"%{userdb:ukey3}\n%{userdb:ukey3:default3}\n"
+			"%{userdb:pkey1}\n%{userdb:pkey1:default4}\n",
+			&test_request, test_escape);
+	test_assert(strcmp(value, "+uval1\n+uval1\n\n\n\ndefault3\n\ndefault4\n") == 0);
+
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
@@ -194,6 +231,7 @@ int main(void)
 		test_auth_request_var_expand_flags,
 		test_auth_request_var_expand_long,
 		test_auth_request_var_expand_usernames,
+		test_auth_request_var_expand_funcs,
 		NULL
 	};
 	test_request = default_test_request;

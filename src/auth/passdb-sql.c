@@ -5,9 +5,6 @@
 
 #ifdef PASSDB_SQL
 
-#include "str.h"
-#include "strescape.h"
-#include "var-expand.h"
 #include "safe-memset.h"
 #include "password-scheme.h"
 #include "auth-cache.h"
@@ -158,18 +155,17 @@ static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 	struct passdb_module *_module =
 		sql_request->auth_request->passdb->passdb;
 	struct sql_passdb_module *module = (struct sql_passdb_module *)_module;
-	string_t *query;
+	const char *query;
 
-	query = t_str_new(512);
-	var_expand(query, module->conn->set.password_query,
-		   auth_request_get_var_expand_table(sql_request->auth_request,
-						     passdb_sql_escape));
+	query = t_auth_request_var_expand(module->conn->set.password_query,
+					  sql_request->auth_request,
+					  passdb_sql_escape);
 
 	auth_request_log_debug(sql_request->auth_request, AUTH_SUBSYS_DB,
-			       "query: %s", str_c(query));
+			       "query: %s", query);
 
 	auth_request_ref(sql_request->auth_request);
-	sql_query(module->conn->db, str_c(query),
+	sql_query(module->conn->db, query,
 		  sql_query_callback, sql_request);
 }
 
@@ -232,21 +228,19 @@ static int sql_set_credentials(struct auth_request *request,
 		(struct sql_passdb_module *) request->passdb->passdb;
 	struct sql_transaction_context *transaction;
 	struct passdb_sql_request *sql_request;
-	string_t *query;
+	const char *query;
 
 	request->mech_password = p_strdup(request->pool, new_credentials);
 
-	query = t_str_new(512);
-	var_expand(query, module->conn->set.update_query, 
-		   auth_request_get_var_expand_table(request,
-						     passdb_sql_escape));
+	query = t_auth_request_var_expand(module->conn->set.update_query,
+					  request, passdb_sql_escape);
 
 	sql_request = i_new(struct passdb_sql_request, 1);
 	sql_request->auth_request = request;
 	sql_request->callback.set_credentials = callback;
 
 	transaction = sql_transaction_begin(module->conn->db);
-	sql_update(transaction, str_c(query));
+	sql_update(transaction, query);
 	sql_transaction_commit(&transaction,
 			       sql_set_credentials_callback, sql_request);
 	return 0;

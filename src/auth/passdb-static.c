@@ -1,9 +1,6 @@
 /* Copyright (c) 2010-2015 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
-#include "array.h"
-#include "str.h"
-#include "var-expand.h"
 #include "passdb.h"
 #include "passdb-template.h"
 
@@ -18,16 +15,13 @@ static_save_fields(struct auth_request *request, const char **password_r)
 {
 	struct static_passdb_module *module =
 		(struct static_passdb_module *)request->passdb->passdb;
-        const struct var_expand_table *table;
-	string_t *str = t_str_new(128);
 
 	auth_request_log_debug(request, AUTH_SUBSYS_DB, "lookup");
 	passdb_template_export(module->tmpl, request);
 
 	if (module->static_password_tmpl != NULL) {
-		table = auth_request_get_var_expand_table(request, NULL);
-		var_expand(str, module->static_password_tmpl, table);
-		*password_r = str_c(str);
+		*password_r = t_auth_request_var_expand(
+			module->static_password_tmpl, request, NULL);
 	} else if (auth_fields_exists(request->extra_fields, "nopassword")) {
 		*password_r = "";
 	} else {

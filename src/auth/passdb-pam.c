@@ -14,7 +14,6 @@
 
 #include "lib-signals.h"
 #include "str.h"
-#include "var-expand.h"
 #include "net.h"
 #include "safe-memset.h"
 #include "auth-cache.h"
@@ -314,7 +313,6 @@ pam_verify_plain(struct auth_request *request, const char *password,
         struct passdb_module *_module = request->passdb->passdb;
         struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
 	enum passdb_result result;
-	string_t *expanded_service;
 	const char *service;
 
 	if (module->requests_left > 0) {
@@ -322,10 +320,7 @@ pam_verify_plain(struct auth_request *request, const char *password,
 			worker_restart_request = TRUE;
 	}
 
-	expanded_service = t_str_new(64);
-	var_expand(expanded_service, module->service_name,
-		   auth_request_get_var_expand_table(request, NULL));
-	service = str_c(expanded_service);
+	service = t_auth_request_var_expand(module->service_name, request, NULL);
 
 	auth_request_log_debug(request, AUTH_SUBSYS_DB,
 			       "lookup service=%s", service);

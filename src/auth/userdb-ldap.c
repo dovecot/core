@@ -8,7 +8,6 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
-#include "var-expand.h"
 #include "auth-cache.h"
 #include "db-ldap.h"
 
@@ -110,7 +109,6 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	struct ldap_userdb_module *module =
 		(struct ldap_userdb_module *)_module;
 	struct ldap_connection *conn = module->conn;
-        const struct var_expand_table *vars;
 	const char **attr_names = (const char **)conn->user_attr_names;
 	struct userdb_ldap_request *request;
 	string_t *str;
@@ -119,14 +117,12 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	request = p_new(auth_request->pool, struct userdb_ldap_request, 1);
 	request->userdb_callback = callback;
 
-	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
-
 	str = t_str_new(512);
-	var_expand(str, conn->set.base, vars);
+	auth_request_var_expand(str, conn->set.base, auth_request, ldap_escape);
 	request->request.base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
-	var_expand(str, conn->set.user_filter, vars);
+	auth_request_var_expand(str, conn->set.user_filter, auth_request, ldap_escape);
 	request->request.filter = p_strdup(auth_request->pool, str_c(str));
 
 	request->request.attr_map = &conn->user_attr_map;
@@ -195,7 +191,6 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	struct ldap_connection *conn = module->conn;
 	struct ldap_userdb_iterate_context *ctx;
 	struct userdb_iter_ldap_request *request;
-        const struct var_expand_table *vars;
 	const char **attr_names = (const char **)conn->iterate_attr_names;
 	string_t *str;
 
@@ -210,14 +205,13 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	auth_request_ref(auth_request);
 	request->request.request.auth_request = auth_request;
 
-	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
-
 	str = t_str_new(512);
-	var_expand(str, conn->set.base, vars);
+	auth_request_var_expand(str, conn->set.base, auth_request, ldap_escape);
 	request->request.base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
-	var_expand(str, conn->set.iterate_filter, vars);
+	auth_request_var_expand(str, conn->set.iterate_filter,
+				auth_request, ldap_escape);
 	request->request.filter = p_strdup(auth_request->pool, str_c(str));
 	request->request.attr_map = &conn->iterate_attr_map;
 	request->request.attributes = conn->iterate_attr_names;

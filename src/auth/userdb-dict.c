@@ -6,7 +6,6 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
-#include "var-expand.h"
 #include "auth-cache.h"
 #include "db-dict.h"
 
@@ -89,7 +88,6 @@ userdb_dict_iterate_init(struct auth_request *auth_request,
 	struct dict_userdb_module *module =
 		(struct dict_userdb_module *)_module;
 	struct dict_userdb_iterate_context *ctx;
-        const struct var_expand_table *vars;
 	string_t *path;
 
 	ctx = i_new(struct dict_userdb_iterate_context, 1);
@@ -109,8 +107,8 @@ userdb_dict_iterate_init(struct auth_request *auth_request,
 
 	path = t_str_new(128);
 	str_append(path, DICT_PATH_SHARED);
-	vars = auth_request_get_var_expand_table(auth_request, NULL);
-	var_expand(path, module->conn->set.iterate_prefix, vars);
+	auth_request_var_expand(path, module->conn->set.iterate_prefix,
+				auth_request, NULL);
 	ctx->key_prefix = p_strdup(auth_request->pool, str_c(path));
 	ctx->key_prefix_len = strlen(ctx->key_prefix);
 
