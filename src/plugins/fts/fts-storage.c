@@ -74,8 +74,10 @@ static int fts_mailbox_get_last_cached_seq(struct mailbox *box, uint32_t *seq_r)
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(box->list);
 	uint32_t seq1, seq2, last_uid;
 
-	if (fts_backend_get_last_uid(flist->backend, box, &last_uid) < 0)
+	if (fts_backend_get_last_uid(flist->backend, box, &last_uid) < 0) {
+		mail_storage_set_internal_error(box->storage);
 		return -1;
+	}
 
 	if (last_uid == 0)
 		*seq_r = 0;
