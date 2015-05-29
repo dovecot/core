@@ -70,6 +70,7 @@ auth_SOURCES = \
 	auth-penalty.c \
 	auth-request.c \
 	auth-request-handler.c \
+	auth-request-var-expand.c \
 	auth-settings.c \
 	auth-fields.c \
 	auth-token.c \
@@ -138,6 +139,7 @@ headers = \
 	auth-penalty.h \
 	auth-request.h \
 	auth-request-handler.h \
+	auth-request-var-expand.h \
 	auth-settings.h \
 	auth-fields.h \
 	auth-token.h \

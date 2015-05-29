@@ -6,6 +6,7 @@
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
+#include "auth-request-var-expand.h"
 
 #define AUTH_REQUEST_USER_KEY_IGNORE " "
 
@@ -20,10 +21,6 @@ enum auth_request_state {
 
 	AUTH_REQUEST_STATE_MAX
 };
-
-typedef const char *
-auth_request_escape_func_t(const char *string,
-			   const struct auth_request *auth_request);
 
 struct auth_request {
 	int refcount;
@@ -148,12 +145,6 @@ struct auth_request {
 typedef void auth_request_proxy_cb_t(bool success, struct auth_request *);
 
 extern unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
-#define AUTH_REQUEST_VAR_TAB_USER_IDX 0
-#define AUTH_REQUEST_VAR_TAB_USERNAME_IDX 1
-#define AUTH_REQUEST_VAR_TAB_DOMAIN_IDX 2
-#define AUTH_REQUEST_VAR_TAB_COUNT 30
-extern const struct var_expand_table
-auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1];
 
 extern const char auth_default_subsystems[2];
 #define AUTH_SUBSYS_DB &auth_default_subsystems[0]
@@ -233,17 +224,6 @@ int auth_request_password_verify(struct auth_request *request,
 				 const char *plain_password,
 				 const char *crypted_password,
 				 const char *scheme, const char *subsystem);
-
-const struct var_expand_table *
-auth_request_get_var_expand_table(const struct auth_request *auth_request,
-				  auth_request_escape_func_t *escape_func)
-	ATTR_NULL(2);
-struct var_expand_table *
-auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
-				       auth_request_escape_func_t *escape_func,
-				       unsigned int *count) ATTR_NULL(2);
-const char *auth_request_str_escape(const char *string,
-				    const struct auth_request *request);
 
 void auth_request_log_debug(struct auth_request *auth_request,
 			    const char *subsystem,
