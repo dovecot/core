@@ -549,6 +549,7 @@ struct ostream *fs_write_stream(struct fs_file *file)
 		file->fs->v.write_stream(file);
 	} T_END;
 	i_assert(file->output != NULL);
+	o_stream_cork(file->output);
 	return file->output;
 }
 
@@ -559,6 +560,8 @@ int fs_write_stream_finish(struct fs_file *file, struct ostream **output)
 	i_assert(*output == file->output || *output == NULL);
 
 	*output = NULL;
+	if (file->output != NULL)
+		o_stream_uncork(file->output);
 	T_BEGIN {
 		ret = file->fs->v.write_stream_finish(file, TRUE);
 	} T_END;
