@@ -6,7 +6,7 @@
 # unlimited permission to copy and/or distribute it, with or without
 # modifications, as long as this notice is preserved.
 
-# serial 15
+# serial 16
 
 AC_DEFUN([DC_DOVECOT_MODULEDIR],[
 	AC_ARG_WITH(moduledir,
@@ -40,20 +40,24 @@ top_srcdir=\$[1]
 shift
 
 if test "\$NOVALGRIND" != ""; then
-  exec \$[*]
-fi
-
-trap "rm -f test.out.\$\$" 0 1 2 3 15
-supp_path="\$top_srcdir/run-test-valgrind.supp"
-if test -r "\$supp_path"; then
-  valgrind -q --suppressions="\$supp_path" --log-file=test.out.\$\$ \$[*]
+  \$[*]
+  ret=\$?
 else
-  valgrind -q --log-file=test.out.\$\$ \$[*]
+  trap "rm -f test.out.\$\$" 0 1 2 3 15
+  supp_path="\$top_srcdir/run-test-valgrind.supp"
+  if test -r "\$supp_path"; then
+    valgrind -q --suppressions="\$supp_path" --log-file=test.out.\$\$ \$[*]
+  else
+    valgrind -q --log-file=test.out.\$\$ \$[*]
+  fi
+  ret=\$?
+  if test -s test.out.\$\$; then
+    cat test.out.\$\$
+    ret=1
+  fi
 fi
-ret=\$?
-if test -s test.out.\$\$; then
-  cat test.out.\$\$
-  exit 1
+if test \$ret != 0; then
+  echo "Failed to run: \$[*]" >&2
 fi
 exit \$ret
 EOF
