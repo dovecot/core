@@ -6,7 +6,7 @@
 # unlimited permission to copy and/or distribute it, with or without
 # modifications, as long as this notice is preserved.
 
-# serial 14
+# serial 15
 
 AC_DEFUN([DC_DOVECOT_MODULEDIR],[
 	AC_ARG_WITH(moduledir,
@@ -38,6 +38,10 @@ AC_DEFUN([DC_DOVECOT_TEST_WRAPPER],[
 #!/bin/sh
 top_srcdir=\$[1]
 shift
+
+if test "\$NOVALGRIND" != ""; then
+  exec \$[*]
+fi
 
 trap "rm -f test.out.\$\$" 0 1 2 3 15
 supp_path="\$top_srcdir/run-test-valgrind.supp"
