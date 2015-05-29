@@ -30,6 +30,7 @@ struct cassandra_db {
 
 	char *hosts, *keyspace;
 	CassConsistency consistency;
+	CassLogLevel log_level;
 
 	CassCluster *cluster;
 	CassSession *session;
@@ -102,6 +103,18 @@ static struct {
 	{ CASS_CONSISTENCY_LOCAL_ONE, "local-one" }
 };
 
+static struct {
+	CassLogLevel log_level;
+	const char *name;
+} cass_log_level_names[] = {
+	{ CASS_LOG_CRITICAL, "critical" },
+	{ CASS_LOG_ERROR, "error" },
+	{ CASS_LOG_WARN, "warn" },
+	{ CASS_LOG_INFO, "info" },
+	{ CASS_LOG_DEBUG, "debug" },
+	{ CASS_LOG_TRACE, "trace" }
+};
+
 static void result_finish(struct cassandra_result *result);
 
 static int consistency_parse(const char *str, CassConsistency *consistency_r)
@@ -111,6 +124,19 @@ static int consistency_parse(const char *str, CassConsistency *consistency_r)
 	for (i = 0; i < N_ELEMENTS(cass_consistency_names); i++) {
 		if (strcmp(cass_consistency_names[i].name, str) == 0) {
 			*consistency_r = cass_consistency_names[i].consistency;
+			return 0;
+		}
+	}
+	return -1;
+}
+
+static int log_level_parse(const char *str, CassLogLevel *log_level_r)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(cass_log_level_names); i++) {
+		if (strcmp(cass_log_level_names[i].name, str) == 0) {
+			*log_level_r = cass_log_level_names[i].log_level;
 			return 0;
 		}
 	}
@@ -304,6 +330,8 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 	const char *const *args, *key, *value;
 	string_t *hosts = t_str_new(64);
 
+	db->log_level = CASS_LOG_WARN;
+
 	args = t_strsplit_spaces(connect_string, " ");
 	for (; *args != NULL; args++) {
 		value = strchr(*args, '=');
@@ -325,6 +353,9 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 			if (consistency_parse(value, &db->consistency) < 0)
 				i_fatal("cassandra: Unknown consistency: %s", value);
 			db->set_consistency = TRUE;
+		} else if (strcmp(key, "log_level") == 0) {
+			if (log_level_parse(value, &db->log_level) < 0)
+				i_fatal("cassandra: Unknown log_level: %s", value);
 		} else {
 			i_fatal("cassandra: Unknown connect string: %s", key);
 		}
@@ -348,6 +379,7 @@ static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 	T_BEGIN {
 		driver_cassandra_parse_connect_string(db, connect_string);
 	} T_END;
+	cass_log_set_level(db->log_level);
 
 	db->cluster = cass_cluster_new();
 	cass_cluster_set_connect_timeout(db->cluster, SQL_CONNECT_TIMEOUT_SECS * 1000);
