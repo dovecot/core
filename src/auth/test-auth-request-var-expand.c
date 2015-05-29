@@ -1,0 +1,201 @@
+/* Copyright (c) 2015 Dovecot authors, see the included COPYING file */
+
+#include "lib.h"
+#include "str.h"
+#include "auth.h"
+#include "passdb.h"
+#include "userdb.h"
+#include "auth-request.h"
+#include "test-common.h"
+
+static struct passdb_module test_passdb = {
+	.id = 40
+};
+static struct userdb_module test_userdb = {
+	.id = 41
+};
+
+static struct auth_passdb test_auth_passdb = {
+	.passdb = &test_passdb
+};
+static struct auth_userdb test_auth_userdb = {
+	.userdb = &test_userdb
+};
+
+static const struct auth_request default_test_request = {
+	.user = "-user@+domain1@+domain2",
+	.service = "-service",
+
+	.local_ip = { .family = AF_INET, .u.ip4.s_addr = 123456789 },
+	.remote_ip = { .family = AF_INET, .u.ip4.s_addr = 1234567890 },
+	.client_pid = 54321,
+	.mech_password = "-password",
+	.mech_name = "-mech",
+	.secured = TRUE,
+	.local_port = 21,
+	.remote_port = 210,
+	.valid_client_cert = TRUE,
+
+	.requested_login_user = "-loginuser@+logindomain1@+logindomain2",
+	.session_id = "-session",
+	.real_local_ip = { .family = AF_INET, .u.ip4.s_addr = 223456788 },
+	.real_remote_ip = { .family = AF_INET, .u.ip4.s_addr = 223456789 },
+	.real_local_port = 200,
+	.real_remote_port = 201,
+	.master_user = "-masteruser@-masterdomain1@-masterdomain2",
+	.session_pid = 5000,
+	.original_username = "-origuser@-origdomain1@-origdomain2",
+
+	.passdb = &test_auth_passdb,
+	.userdb = &test_auth_userdb
+};
+
+static struct auth_request test_request;
+static struct auth_request empty_test_request = { .user = "" };
+
+static const char *
+test_escape(const char *string, const struct auth_request *request)
+{
+	char *dest;
+	unsigned int i;
+
+	test_assert(request == &test_request);
+
+	dest = t_strdup_noconst(string);
+	for (i = 0; dest[i] != '\0'; i++) {
+		if (dest[i] == '-')
+			dest[i] = '+';
+	}
+	return dest;
+}
+
+static bool test_empty_request(string_t *str, const char *input)
+{
+	str_truncate(str, 0);
+	var_expand(str, input,
+		   auth_request_get_var_expand_table(&empty_test_request, NULL));
+	return strspn(str_c(str), "\n0") == str_len(str);
+}
+
+static void test_auth_request_var_expand_shortlong(void)
+{
+	static const char *test_input_short =
+		"%u\n%n\n%d\n%s\n%h\n%l\n%r\n%p\n%w\n%m\n%c\n%a\n%b\n%k\n";
+	static const char *test_input_long =
+		"%{user}\n%{username}\n%{domain}\n%{service}\n%{home}\n"
+		"%{lip}\n%{rip}\n%{pid}\n%{password}\n%{mech}\n%{secured}\n"
+		"%{lport}\n%{rport}\n%{cert}\n";
+	static const char *test_output =
+		/* %{home} is intentionally always expanding to empty */
+		"+user@+domain1@+domain2\n+user\n+domain1@+domain2\n+service\n\n"
+		"21.205.91.7\n210.2.150.73\n54321\n+password\n+mech\nsecured\n"
+		"21\n210\nvalid\n";
+	string_t *str = t_str_new(256);
+
+	test_begin("auth request var expand short and long");
+
+	var_expand(str, test_input_short,
+		   auth_request_get_var_expand_table(&test_request, test_escape));
+	test_assert(strcmp(str_c(str), test_output) == 0);
+
+	str_truncate(str, 0);
+	var_expand(str, test_input_long,
+		   auth_request_get_var_expand_table(&test_request, test_escape));
+	test_assert(strcmp(str_c(str), test_output) == 0);
+
+	/* test with empty input that it won't crash */
+	test_assert(test_empty_request(str, test_input_short));
+	test_assert(test_empty_request(str, test_input_long));
+
+	test_end();
+}
+
+static void test_auth_request_var_expand_flags(void)
+{
+	static const char *test_input = "%!\n%{secured}\n%{cert}\n";
+	string_t *str = t_str_new(10);
+
+	test_begin("auth request var expand flags");
+
+	test_request.userdb_lookup = FALSE;
+	test_request.secured = FALSE;
+	test_request.valid_client_cert = FALSE;
+	var_expand(str, test_input,
+		   auth_request_get_var_expand_table(&test_request, test_escape));
+	test_assert(strcmp(str_c(str), "40\n\n\n") == 0);
+
+	test_request.userdb_lookup = TRUE;
+	test_request.secured = TRUE;
+	test_request.valid_client_cert = TRUE;
+
+	str_truncate(str, 0);
+	var_expand(str, test_input,
+		   auth_request_get_var_expand_table(&test_request, test_escape));
+	test_assert(strcmp(str_c(str), "41\nsecured\nvalid\n") == 0);
+
+	test_assert(test_empty_request(str, test_input));
+	test_end();
+}
+
+static void test_auth_request_var_expand_long(void)
+{
+	static const char *test_input =
+		"%{login_user}\n%{login_username}\n%{login_domain}\n%{session}\n"
+		"%{real_lip}\n%{real_rip}\n%{real_lport}\n%{real_rport}\n"
+		"%{master_user}\n%{session_pid}\n"
+		"%{orig_user}\n%{orig_username}\n%{orig_domain}\n";
+	static const char *test_output =
+		"+loginuser@+logindomain1@+logindomain2\n+loginuser\n+logindomain1@+logindomain2\n+session\n"
+		"20.174.81.13\n21.174.81.13\n200\n201\n"
+		"+masteruser@+masterdomain1@+masterdomain2\n5000\n"
+		"+origuser@+origdomain1@+origdomain2\n+origuser\n+origdomain1@+origdomain2\n";
+	string_t *str = t_str_new(256);
+
+	test_begin("auth request var expand long-only");
+
+	var_expand(str, test_input,
+		   auth_request_get_var_expand_table(&test_request, test_escape));
+	test_assert(strcmp(str_c(str), test_output) == 0);
+
+	test_assert(test_empty_request(str, test_input));
+	test_end();
+}
+
+static void test_auth_request_var_expand_usernames(void)
+{
+	static const struct {
+		const char *username, *output;
+	} tests[] = {
+		{ "-foo", "+foo\n\n\n\n+foo" },
+		{ "-foo@-domain", "+foo\n+domain\n+domain\n+domain\n+foo@+domain" },
+		{ "-foo@-domain1@-domain2", "+foo\n+domain1@+domain2\n+domain1\n+domain2\n+foo@+domain1@+domain2" }
+	};
+	static const char *test_input =
+		"%{username}\n%{domain}\n%{domain_first}\n%{domain_last}\n%{user}";
+	string_t *str = t_str_new(64);
+	unsigned int i;
+
+	test_begin("auth request var expand usernames");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		test_request.user = t_strdup_noconst(tests[i].username);
+		str_truncate(str, 0);
+		var_expand(str, test_input,
+			   auth_request_get_var_expand_table(&test_request, test_escape));
+		test_assert_idx(strcmp(str_c(str), tests[i].output) == 0, i);
+	}
+	test_request.user = default_test_request.user;
+	test_end();
+}
+
+int main(void)
+{
+	static void (*test_functions[])(void) = {
+		test_auth_request_var_expand_shortlong,
+		test_auth_request_var_expand_flags,
+		test_auth_request_var_expand_long,
+		test_auth_request_var_expand_usernames,
+		NULL
+	};
+	test_request = default_test_request;
+	return test_run(test_functions);
+}

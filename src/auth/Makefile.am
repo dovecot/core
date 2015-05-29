@@ -197,6 +197,7 @@ checkpassword_reply_sources = \
 
 test_programs = \
 	test-auth-cache \
+	test-auth-request-var-expand \
 	test-db-dict
 
 noinst_PROGRAMS = $(test_programs)
@@ -208,6 +209,10 @@ test_libs = \
 test_auth_cache_SOURCES = test-auth-cache.c
 test_auth_cache_LDADD = auth-cache.o $(test_libs)
 test_auth_cache_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+
+test_auth_request_var_expand_SOURCES = test-auth-request-var-expand.c
+test_auth_request_var_expand_LDADD = auth-request-var-expand.o $(test_libs)
+test_auth_request_var_expand_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 test_db_dict_SOURCES = test-db-dict.c
 test_db_dict_LDADD = db-dict-cache-key.o $(test_libs)
