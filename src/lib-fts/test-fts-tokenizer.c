@@ -165,13 +165,13 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 	static const char *const expected_output[] = {
 		"hello", "world", "And",
 		"there", "was", "text", "galore",
-		"abc", "example.com", "Bar", "Baz",
-		"bar", "example.org", "foo", "domain",
+		"abc", "example", "com", "Bar", "Baz",
+		"bar", "example", "org", "foo", "domain",
 		"1234567890123456789012345678ä",
 		"12345678901234567890123456789",
 		"123456789012345678901234567890",
 		"and", "longlonglongabcdefghijklmnopqr",
-		"more", "Hello", "world", "3.14", "3,14", "last", NULL,
+		"more", "Hello", "world", "3", "14", "3,14", "last", NULL,
 
 		"1", NULL,
 
@@ -213,7 +213,7 @@ static void test_fts_tokenizer_address_only(void)
 	test_end();
 }
 
-static void test_fts_tokenizer_address_parent(void)
+static void test_fts_tokenizer_address_parent(const char *name, const char * const *settings)
 {
 	static const char input[] = TEST_INPUT_ADDRESS;
 	static const char *const expected_output[] = {
@@ -225,13 +225,24 @@ static void test_fts_tokenizer_address_parent(void)
 	struct fts_tokenizer *tok, *gen_tok;
 	const char *error;
 
-	test_begin("fts tokenizer email address + parent");
-	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, NULL, &gen_tok, &error) == 0);
+	test_begin(t_strdup_printf("fts tokenizer email address + parent %s", name));
+	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, settings, &gen_tok, &error) == 0);
 	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, gen_tok, NULL, &tok, &error) == 0);
 	test_tokenizer_inputoutput(tok, input, expected_output, 0);
 	fts_tokenizer_unref(&tok);
 	fts_tokenizer_unref(&gen_tok);
 	test_end();
+}
+
+const char *const simple_settings[] = {"algorithm", "simple", NULL};
+static void test_fts_tokenizer_address_parent_simple(void)
+{
+	test_fts_tokenizer_address_parent("simple", simple_settings);
+}
+
+static void test_fts_tokenizer_address_parent_tr29(void)
+{
+	test_fts_tokenizer_address_parent("tr29", tr29_settings);
 }
 
 static void test_fts_tokenizer_address_search(void)
@@ -288,7 +299,8 @@ int main(void)
 		test_fts_tokenizer_generic_only,
 		test_fts_tokenizer_generic_tr29_only,
 		test_fts_tokenizer_address_only,
-		test_fts_tokenizer_address_parent,
+		test_fts_tokenizer_address_parent_simple,
+		test_fts_tokenizer_address_parent_tr29,
 		test_fts_tokenizer_address_search,
 		NULL
 	};
