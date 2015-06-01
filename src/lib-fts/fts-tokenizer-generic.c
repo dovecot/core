@@ -220,19 +220,17 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 {
 	struct generic_fts_tokenizer *tok =
 		(struct generic_fts_tokenizer *)_tok;
-	size_t i, char_start_i, len, start = 0;
+	size_t i, start = 0;
 	unsigned int char_size;
 	unichar_t c;
 
 	for (i = 0; i < size; i += char_size) {
-		char_start_i = i;
 		if (uni_utf8_get_char_n(data + i, size - i, &c) <= 0)
 			i_unreached();
 		char_size = uni_utf8_char_bytes(data[i]);
 		if (fts_ascii_word_break(data[i]) || fts_uni_word_break(c) ||
 		    fts_apostrophe_word_break(tok, c)) {
-			len = char_start_i - start;
-			tok_append_truncated(tok, data + start, len);
+			tok_append_truncated(tok, data + start, i - start);
 			if (tok->token->used > 0 &&
 			    fts_tokenizer_generic_simple_current_token(tok, token_r)) {
 				*skip_r = i + char_size;
@@ -242,8 +240,7 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 		}
 	}
 	/* word boundary not found yet */
-	len = i - start;
-	tok_append_truncated(tok, data + start, len);
+	tok_append_truncated(tok, data + start, i - start);
 	*skip_r = i;
 
 	/* return the last token */
