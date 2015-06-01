@@ -547,7 +547,7 @@ static bool is_one_past_end(struct generic_fts_tokenizer *tok)
 
 	return FALSE;
 }
-static bool
+static void
 fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
                                          const char **token_r)
 {
@@ -561,13 +561,16 @@ fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
 		i_assert(len > 0);
 		len--;
 	}
+	/* we're skipping all non-text at the beginning of the word,
+	   so by this point we must have something here - even if we just
+	   deleted the last character */
+	i_assert(len > 0);
 
 	tok->prev_prev_letter = LETTER_TYPE_NONE;
 	tok->prev_letter = LETTER_TYPE_NONE;
 
-	*token_r = len == 0 ? "" : fts_uni_strndup(data, len);
+	*token_r = fts_uni_strndup(data, len);
 	buffer_set_used_size(tok->token, 0);
-	return len > 0;
 }
 
 struct letter_fn {
@@ -644,8 +647,8 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 			tok_append_truncated(tok, data + start_skip,
 					     char_start_i - start_skip);
 			*skip_r = i + 1;
-			if (fts_tokenizer_generic_tr29_current_token(tok, token_r))
-				return 1;
+			fts_tokenizer_generic_tr29_current_token(tok, token_r);
+			return 1;
 		}
 	}
 	i_assert(i >= start_skip && size >= start_skip);
@@ -655,8 +658,8 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 	if (size == 0 && tok->token->used > 0) {
 		/* return the last token */
 		*skip_r = 0;
-		if (fts_tokenizer_generic_tr29_current_token(tok, token_r))
-			return 1;
+		fts_tokenizer_generic_tr29_current_token(tok, token_r);
+		return 1;
 	}
 	return 0;
 }
