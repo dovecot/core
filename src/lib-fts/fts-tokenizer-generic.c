@@ -631,22 +631,22 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 	enum letter_type lt;
 
 	/* TODO: Process 8bit chars separately, to speed things up. */
-	for (i = 0; i < size; i++) {
+	for (i = 0; i < size; ) {
 		char_start_i = i;
 		if (uni_utf8_get_char_n(data + i, size - i, &c) <= 0)
 			i_unreached();
-		i += uni_utf8_char_bytes(data[i]) - 1; /* Utf8 bytes > 1, for() handles the 1 byte increment. */
+		i += uni_utf8_char_bytes(data[i]);
 		lt = letter_type(c);
 		if (tok->prev_letter == LETTER_TYPE_NONE && is_nonword(lt)) {
 			/* TODO: test that start_skip works with multibyte utf8 chars */
-			start_skip = i + 1; /* Skip non-token chars at start of data */
+			start_skip = i; /* Skip non-token chars at start of data */
 			continue;
 		}
 		if (uni_found_word_boundary(tok, lt)) {
 			i_assert(char_start_i >= start_skip && size >= start_skip);
 			tok_append_truncated(tok, data + start_skip,
 					     char_start_i - start_skip);
-			*skip_r = i + 1;
+			*skip_r = i;
 			fts_tokenizer_generic_tr29_current_token(tok, token_r);
 			return 1;
 		}
