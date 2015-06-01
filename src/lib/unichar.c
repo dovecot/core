@@ -109,11 +109,12 @@ int uni_utf8_to_ucs4(const char *input, ARRAY_TYPE(unichars) *output)
 	unichar_t chr;
 
 	while (*input != '\0') {
-		if (uni_utf8_get_char(input, &chr) <= 0) {
+		int len = uni_utf8_get_char(input, &chr);
+		if (len <= 0) {
 			/* invalid input */
 			return -1;
 		}
-                input += uni_utf8_char_bytes(*input);
+                input += len;
 
 		array_append(output, &chr, 1);
 	}
@@ -124,15 +125,11 @@ int uni_utf8_to_ucs4_n(const unsigned char *input, size_t size,
 		       ARRAY_TYPE(unichars) *output)
 {
 	unichar_t chr;
-	unsigned int len;
 
 	while (size > 0) {
-		if (uni_utf8_get_char_n(input, size, &chr) <= 0) {
-			/* invalid input */
-			return -1;
-		}
-		len = uni_utf8_char_bytes(*input);
-		i_assert(len <= size);
+		int len = uni_utf8_get_char_n(input, size, &chr);
+		if (len <= 0)
+			return -1; /* invalid input */
 		input += len; size -= len;
 
 		array_append(output, &chr, 1);
@@ -329,19 +326,18 @@ int uni_utf8_to_decomposed_titlecase(const void *_input, size_t size,
 				     buffer_t *output)
 {
 	const unsigned char *input = _input;
-	unsigned int bytes;
 	unichar_t chr;
 	int ret = 0;
 
 	while (size > 0) {
-		if (uni_utf8_get_char_n(input, size, &chr) <= 0) {
+		int bytes = uni_utf8_get_char_n(input, size, &chr);
+		if (bytes <= 0) {
 			/* invalid input. try the next byte. */
 			ret = -1;
 			input++; size--;
 			output_add_replacement_char(output);
 			continue;
 		}
-		bytes = uni_utf8_char_bytes(*input);
 		input += bytes;
 		size -= bytes;
 
@@ -359,10 +355,8 @@ static inline unsigned int
 is_valid_utf8_seq(const unsigned char *input, unsigned int size)
 {
 	unichar_t chr;
-
-	if (uni_utf8_get_char_n(input, size, &chr) <= 0)
-		return 0;
-	return uni_utf8_char_bytes(input[0]);
+	int len = uni_utf8_get_char_n(input, size, &chr);
+	return len <= 0 ? 0 : len;
 }
 
 static int uni_utf8_find_invalid_pos(const unsigned char *input, size_t size,
