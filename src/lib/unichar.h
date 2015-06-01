@@ -48,7 +48,7 @@ int uni_utf8_to_ucs4_n(const unsigned char *input, size_t size,
 void uni_ucs4_to_utf8(const unichar_t *input, size_t len, buffer_t *output);
 void uni_ucs4_to_utf8_c(unichar_t chr, buffer_t *output);
 
-/* Returns 1 if *chr_r is set, 0 for incomplete trailing character,
+/* Returns char_bytes (>0) if *chr_r is set, 0 for incomplete trailing character,
    -1 for invalid input. */
 int uni_utf8_get_char(const char *input, unichar_t *chr_r);
 int uni_utf8_get_char_n(const void *input, size_t max_len, unichar_t *chr_r);

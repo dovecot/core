@@ -79,7 +79,7 @@ int uni_utf8_get_char_n(const void *_input, size_t max_len, unichar_t *chr_r)
 
 	if (len <= max_len) {
 		lowest_valid_chr = lowest_valid_chr_table[len];
-		ret = 1;
+		ret = len;
 	} else {
 		/* check first if the input is invalid before returning 0 */
 		lowest_valid_chr = 0;
