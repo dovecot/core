@@ -220,8 +220,7 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 		apostrophe = IS_APOSTROPHE(c);
 		if (fts_simple_is_word_break(tok, c, apostrophe)) {
 			tok_append_truncated(tok, data + start, i - start);
-			if (tok->token->used > 0 &&
-			    fts_tokenizer_generic_simple_current_token(tok, token_r)) {
+			if (fts_tokenizer_generic_simple_current_token(tok, token_r)) {
 				*skip_r = i + char_size;
 				return 1;
 			}
@@ -241,7 +240,7 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 	*skip_r = i;
 
 	/* return the last token */
-	if (size == 0 && tok->token->used > 0) {
+	if (size == 0) {
 		if (fts_tokenizer_generic_simple_current_token(tok, token_r))
 			return 1;
 	}
