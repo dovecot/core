@@ -58,7 +58,7 @@ void test_unichar(void)
 		str_truncate(str, 0);
 		uni_ucs4_to_utf8_c(chr, str);
 		test_assert(uni_utf8_str_is_valid(str_c(str)));
-		test_assert(uni_utf8_get_char(str_c(str), &chr2) > 0);
+		test_assert(uni_utf8_get_char(str_c(str), &chr2) == (int)uni_utf8_char_bytes(*str_data(str)));
 		test_assert(chr2 == chr);
 
 		if ((chr & 0x63) == 0) {
