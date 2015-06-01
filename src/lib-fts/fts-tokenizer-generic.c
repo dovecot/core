@@ -268,6 +268,8 @@ static enum letter_type letter_type(unichar_t c)
 {
 	unsigned int idx;
 
+	if (IS_APOSTROPHE(c))
+		return LETTER_TYPE_APOSTROPHE;
 	if (uint32_find(CR, N_ELEMENTS(CR), c, &idx))
 		return LETTER_TYPE_CR;
 	if (uint32_find(LF, N_ELEMENTS(LF), c, &idx))
@@ -349,10 +351,10 @@ static bool letter_hebrew(struct generic_fts_tokenizer *tok)
 	if (tok->prev_letter == LETTER_TYPE_HEBREW_LETTER)
 		return FALSE;
 
-	/* WB7 WB7c */
+	/* WB7 WB7c, except MidNumLet */
 	if (tok->prev_prev_letter == LETTER_TYPE_HEBREW_LETTER &&
 	    (tok->prev_letter == LETTER_TYPE_SINGLE_QUOTE ||
-	     tok->prev_letter == LETTER_TYPE_MIDNUMLET ||
+	     tok->prev_letter == LETTER_TYPE_APOSTROPHE ||
 	     tok->prev_letter == LETTER_TYPE_MIDLETTER ||
 	     tok->prev_letter == LETTER_TYPE_DOUBLE_QUOTE))
 		return FALSE;
@@ -374,10 +376,10 @@ static bool letter_aletter(struct generic_fts_tokenizer *tok)
 	if (tok->prev_letter == LETTER_TYPE_ALETTER)
 		return FALSE;
 
-	/* WB7 */
+	/* WB7, except MidNumLet */
 	if (tok->prev_prev_letter == LETTER_TYPE_ALETTER &&
 	    (tok->prev_letter == LETTER_TYPE_SINGLE_QUOTE ||
-	     tok->prev_letter == LETTER_TYPE_MIDNUMLET ||
+	     tok->prev_letter == LETTER_TYPE_APOSTROPHE ||
 	     tok->prev_letter == LETTER_TYPE_MIDLETTER))
 		return FALSE;
 
@@ -416,18 +418,11 @@ static bool letter_double_quote(struct generic_fts_tokenizer *tok)
 	return TRUE; /* Any / Any */
 }
 
-static bool letter_midnumlet(struct generic_fts_tokenizer *tok)
+static bool letter_midnumlet(struct generic_fts_tokenizer *tok ATTR_UNUSED)
 {
-	/* WB6 */
-	if (tok->prev_letter == LETTER_TYPE_ALETTER ||
-	    tok->prev_letter == LETTER_TYPE_HEBREW_LETTER)
-		return FALSE;
 
-	/* WB12 */
-	if (tok->prev_letter == LETTER_TYPE_NUMERIC)
-		return FALSE;
-
-	return TRUE; /* Any / Any */
+	/* Break at MidNumLet, non-conformant with WB6/WB7 */
+	return TRUE;
 }
 
 static bool letter_midletter(struct generic_fts_tokenizer *tok)
@@ -488,6 +483,15 @@ static bool letter_extendnumlet(struct generic_fts_tokenizer *tok)
 	return TRUE; /* Any / Any */
 }
 
+static bool letter_apostrophe(struct generic_fts_tokenizer *tok)
+{
+
+       if (tok->prev_letter == LETTER_TYPE_ALETTER ||
+           tok->prev_letter == LETTER_TYPE_HEBREW_LETTER)
+               return FALSE;
+
+       return TRUE; /* Any / Any */
+}
 static bool letter_other(struct generic_fts_tokenizer *tok ATTR_UNUSED)
 
 {
@@ -536,12 +540,14 @@ static bool is_one_past_end(struct generic_fts_tokenizer *tok)
 	/* WB6/7 false positive detected at one past end. */
 	if (tok->prev_letter == LETTER_TYPE_MIDLETTER ||
 	    tok->prev_letter == LETTER_TYPE_MIDNUMLET ||
+	    tok->prev_letter == LETTER_TYPE_APOSTROPHE ||
 	    tok->prev_letter == LETTER_TYPE_SINGLE_QUOTE )
 		return TRUE;
 
 	/* WB12/12 false positive detected at one past end. */
 	if (tok->prev_letter == LETTER_TYPE_MIDNUM ||
 	    tok->prev_letter == LETTER_TYPE_MIDNUMLET ||
+	    tok->prev_letter == LETTER_TYPE_APOSTROPHE ||
 	    tok->prev_letter == LETTER_TYPE_SINGLE_QUOTE)
 		return TRUE;
 
@@ -577,7 +583,7 @@ static struct letter_fn letter_fns[] = {
 	{letter_single_quote}, {letter_double_quote},
 	{letter_midnumlet}, {letter_midletter}, {letter_midnum},
 	{letter_numeric}, {letter_extendnumlet}, {letter_panic},
-	{letter_panic}, {letter_other}
+	{letter_panic}, {letter_apostrophe}, {letter_other}
 };
 
 /*
@@ -585,19 +591,12 @@ static struct letter_fn letter_fns[] = {
   #29, but tailored for FTS purposes.
   http://www.unicode.org/reports/tr29/
 
-  Adaptions: No word boundary at Start-Of-Text or End-of-Text (Wb1 and
-  WB2). Break just once, not before and after.  Other things also
-  (e.g. is_nonword(), not really pure tr29. Meant to assist in finding
-  individual words.
-
-  TODO: If this letter_fns based approach is too kludgy, do a FSM with function
-  pointers and transition tables.
-
-  TODO: Alternative idea: Replace everything with a super simplistic
-  "lt != ALETTER, HEBREW, NUMERIC, ... --> word break"
-
-  TODO: Rules get split up over several functions. Is it too
-  confusing?
+  Adaptions:
+  * No word boundary at Start-Of-Text or End-of-Text (Wb1 and WB2).
+  * Break just once, not before and after.
+  * Break at MidNumLet, except apostrophes (diverging from WB6/WB7).
+  * Other things also (e.g. is_nonword(), not really pure tr29. Meant
+  to assist in finding individual words.
 */
 static bool
 uni_found_word_boundary(struct generic_fts_tokenizer *tok, enum letter_type lt)

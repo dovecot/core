@@ -25,6 +25,7 @@ enum letter_type {
 	LETTER_TYPE_EXTENDNUMLET,
 	LETTER_TYPE_SOT,
 	LETTER_TYPE_EOT,
+	LETTER_TYPE_APOSTROPHE, /* Own modification to TR29 */
 	LETTER_TYPE_OTHER /* WB14 "any" */
 };
 
