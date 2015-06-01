@@ -129,20 +129,9 @@ static bool uint32_find(const uint32_t *data, unsigned int count,
 	BINARY_NUMBER_SEARCH(data, count, value, idx_r);
 }
 
-static bool fts_ascii_word_break(unsigned char c)
-{
-	if (c < 0x80)
-		return fts_ascii_word_breaks[c] != 0;
-	return FALSE;
-}
-
 static bool fts_uni_word_break(unichar_t c)
 {
 	unsigned int idx;
-
-	/* Override some apostrophes, which get special treatment. */
-	if (IS_APOSTROPHE(c))
-		return FALSE;
 
 	/* Unicode General Punctuation, including deprecated characters. */
 	if (c >= 0x2000 && c <= 0x206f)
@@ -169,8 +158,10 @@ fts_simple_is_word_break(struct generic_fts_tokenizer *tok,
 {
 	if (apostrophe)
 		return tok->prev_letter == LETTER_TYPE_SINGLE_QUOTE;
+	else if (c < 0x80)
+		return fts_ascii_word_breaks[c] != 0;
 	else
-		return fts_ascii_word_break(c) || fts_uni_word_break(c);
+		return fts_uni_word_break(c);
 }
 
 static void fts_tokenizer_generic_reset(struct fts_tokenizer *_tok)
