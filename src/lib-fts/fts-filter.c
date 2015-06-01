@@ -5,6 +5,9 @@
 #include "fts-language.h"
 #include "fts-filter.h"
 #include "fts-filter-private.h"
+#ifdef HAVE_LIBICU
+#  include <unicode/uclean.h>
+#endif
 
 static ARRAY(const struct fts_filter *) fts_filter_classes;
 
@@ -20,6 +23,9 @@ void fts_filters_init(void)
 
 void fts_filters_deinit(void)
 {
+#ifdef HAVE_LIBICU
+	u_cleanup();
+#endif
 	array_free(&fts_filter_classes);
 }
 
