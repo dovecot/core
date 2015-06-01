@@ -41,6 +41,11 @@ static const char *test_inputs[] = {
 	"123456789012345678901234567890x',"
 	"123456789012345678901234567890x'',"
 
+	/* \xe28099 = U+2019 is a smart quote, sometimes used as an apostrophe */
+	"\xE2\x80\x99 \xE2\x80\x99 \xE2\x80\x99\xE2\x80\x99 \xE2\x80\x99\xE2\x80\x99\xE2\x80\x99 \xE2\x80\x99quoted text\xE2\x80\x99\xE2\x80\x99word\xE2\x80\x99 \xE2\x80\x99hlo words\xE2\x80\x99 you\xE2\x80\x99re78901234567890123456789012 bad\xE2\x80\x99\xE2\x80\x99\xE2\x80\x99word\xE2\x80\x99\xE2\x80\x99\xE2\x80\x99pre post\xE2\x80\x99\xE2\x80\x99\xE2\x80\x99",
+
+	"you\xE2\x80\x99re\xE2\x80\x99xyz",
+
 	/* whitespace: with Unicode(utf8) U+FF01(ef bc 81)(U+2000(e2 80 80) and
 	   U+205A(e2 81 9a) and U+205F(e2 81 9f) */
 	"hello\xEF\xBC\x81world\r\nAnd\xE2\x80\x80there\twas: text "
@@ -156,6 +161,11 @@ static void test_fts_tokenizer_generic_only(void)
 		"123456789012345678901234567890",
 		"123456789012345678901234567890",
 
+		"quoted", "text", "word", "hlo", "words", "you're789012345678901234567890", "bad",
+		"word", "pre", "post", NULL,
+
+		"you're'xyz", NULL,
+
 		"hello", "world", "And",
 		"there", "was", "text", "galore",
 		"and", "more", NULL,
@@ -207,6 +217,11 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 		"12345678901234567890123456789x",
 		"123456789012345678901234567890",
 		"123456789012345678901234567890",
+
+		"quoted", "text", "word", "hlo", "words", "you're789012345678901234567890", "bad",
+		"word", "pre", "post", NULL,
+
+		"you're'xyz", NULL,
 
 		"hello", "world", "And",
 		"there", "was", "text", "galore",
