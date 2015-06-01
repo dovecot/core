@@ -597,17 +597,16 @@ uni_found_word_boundary(struct generic_fts_tokenizer *tok, enum letter_type lt)
 {
 	/* No rule knows what to do with just one char, except the linebreaks
 	   we eat away (above) anyway. */
-	if (tok->prev_letter == LETTER_TYPE_NONE)
-		goto false_out;
+	if (tok->prev_letter != LETTER_TYPE_NONE) {
+		if (letter_fns[lt].fn(tok))
+			return TRUE;
+	}
 
-	if (letter_fns[lt].fn(tok))
-		return TRUE;
-
- false_out:
-	/* Extend and format types are ignored. */
-	if (lt == LETTER_TYPE_EXTEND || lt == LETTER_TYPE_FORMAT)
-		return FALSE;
-	add_prev_letter(tok,lt);
+	if (lt == LETTER_TYPE_EXTEND || lt == LETTER_TYPE_FORMAT) {
+		/* These types are completely ignored. */
+	} else {
+		add_prev_letter(tok,lt);
+	}
 	return FALSE;
 }
 
