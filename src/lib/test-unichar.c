@@ -60,6 +60,23 @@ void test_unichar(void)
 		test_assert(uni_utf8_str_is_valid(str_c(str)));
 		test_assert(uni_utf8_get_char(str_c(str), &chr2) > 0);
 		test_assert(chr2 == chr);
+
+		if ((chr & 0x63) == 0) {
+			unsigned int utf8len = uni_utf8_char_bytes(*str_c(str));
+
+			/* virtually truncate the byte string */
+			while (--utf8len > 0)
+				test_assert(uni_utf8_get_char_n(str_c(str), utf8len, &chr2) == 0);
+
+			utf8len = uni_utf8_char_bytes(*str_c(str));
+
+			/* actually truncate the byte stream */
+			while (--utf8len > 0) {
+				str_truncate(str, utf8len);
+				test_assert(!uni_utf8_str_is_valid(str_c(str)));
+				test_assert(uni_utf8_get_char(str_c(str), &chr2) == 0);
+			}
+		}
 	}
 	test_end();
 
