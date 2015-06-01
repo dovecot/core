@@ -513,9 +513,8 @@ add_prev_letter(struct generic_fts_tokenizer *tok, enum letter_type lt)
    TODO: Does this "reverse approach" include too much in "whitespace"?
    TODO: Possibly use is_word_break()?
  */
-static bool is_nonword(enum letter_type lt)
+static bool is_nontoken(enum letter_type lt)
 {
-
 	if (lt == LETTER_TYPE_REGIONAL_INDICATOR || lt == LETTER_TYPE_KATAKANA ||
 	    lt == LETTER_TYPE_HEBREW_LETTER || lt == LETTER_TYPE_ALETTER ||
 	    lt == LETTER_TYPE_NUMERIC)
@@ -561,7 +560,7 @@ fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
 		i_assert(len > 0);
 		len--;
 	}
-	/* we're skipping all non-text at the beginning of the word,
+	/* we're skipping all non-token chars at the beginning of the word,
 	   so by this point we must have something here - even if we just
 	   deleted the last character */
 	i_assert(len > 0);
@@ -596,7 +595,7 @@ static struct letter_fn letter_fns[] = {
   * No word boundary at Start-Of-Text or End-of-Text (Wb1 and WB2).
   * Break just once, not before and after.
   * Break at MidNumLet, except apostrophes (diverging from WB6/WB7).
-  * Other things also (e.g. is_nonword(), not really pure tr29. Meant
+  * Other things also (e.g. is_nontoken(), not really pure tr29. Meant
   to assist in finding individual words.
 */
 static bool
@@ -637,9 +636,10 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 			i_unreached();
 		i += uni_utf8_char_bytes(data[i]);
 		lt = letter_type(c);
-		if (tok->prev_letter == LETTER_TYPE_NONE && is_nonword(lt)) {
-			/* TODO: test that start_skip works with multibyte utf8 chars */
-			start_skip = i; /* Skip non-token chars at start of data */
+		if (tok->prev_letter == LETTER_TYPE_NONE && is_nontoken(lt)) {
+			/* Skip non-token chars at the beginning of token */
+			i_assert(tok->token->used == 0);
+			start_skip = i;
 			continue;
 		}
 		if (uni_found_word_boundary(tok, lt)) {
