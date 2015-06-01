@@ -631,7 +631,7 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 	struct generic_fts_tokenizer *tok =
 		(struct generic_fts_tokenizer *)_tok;
 	unichar_t c;
-	size_t i, char_start_i, start_skip = 0;
+	size_t i, char_start_i, start_pos = 0;
 	enum letter_type lt;
 
 	/* TODO: Process 8bit chars separately, to speed things up. */
@@ -644,20 +644,20 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 		if (tok->prev_letter == LETTER_TYPE_NONE && is_nontoken(lt)) {
 			/* Skip non-token chars at the beginning of token */
 			i_assert(tok->token->used == 0);
-			start_skip = i;
+			start_pos = i;
 			continue;
 		}
 		if (uni_found_word_boundary(tok, lt)) {
-			i_assert(char_start_i >= start_skip && size >= start_skip);
-			tok_append_truncated(tok, data + start_skip,
-					     char_start_i - start_skip);
+			i_assert(char_start_i >= start_pos && size >= start_pos);
+			tok_append_truncated(tok, data + start_pos,
+					     char_start_i - start_pos);
 			*skip_r = i;
 			fts_tokenizer_generic_tr29_current_token(tok, token_r);
 			return 1;
 		}
 	}
-	i_assert(i >= start_skip && size >= start_skip);
-	tok_append_truncated(tok, data + start_skip, i - start_skip);
+	i_assert(i >= start_pos && size >= start_pos);
+	tok_append_truncated(tok, data + start_pos, i - start_pos);
 	*skip_r = i;
 
 	if (size == 0 && tok->token->used > 0) {
