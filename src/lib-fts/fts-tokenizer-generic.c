@@ -184,7 +184,6 @@ static void fts_tokenizer_generic_reset(struct fts_tokenizer *_tok)
 
 	tok->prev_letter = LETTER_TYPE_NONE;
 	tok->prev_prev_letter = LETTER_TYPE_NONE;
-	tok->last_size = 0;
 	buffer_set_used_size(tok->token, 0);
 }
 
@@ -552,17 +551,21 @@ static bool
 fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
                                          const char **token_r)
 {
-	size_t end_skip = 0;
-	ssize_t len;
+	const unsigned char *data = tok->token->data;
+	ssize_t len = tok->token->used;
 
-	if (is_one_past_end(tok))
-		end_skip = tok->last_size;
+	if (is_one_past_end(tok)) {
+		/* delete the last character */
+		while ((data[len-1] & 0x80) != 0)
+			len--;
+		i_assert(len > 0);
+		len--;
+	}
 
 	tok->prev_prev_letter = LETTER_TYPE_NONE;
 	tok->prev_letter = LETTER_TYPE_NONE;
 
-	len = tok->token->used - end_skip;
-	*token_r = len == 0 ? "" : fts_uni_strndup(tok->token->data, len);
+	*token_r = len == 0 ? "" : fts_uni_strndup(data, len);
 	buffer_set_used_size(tok->token, 0);
 	return len > 0;
 }
@@ -629,8 +632,7 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 		char_start_i = i;
 		if (uni_utf8_get_char_n(data + i, size - i, &c) <= 0)
 			i_unreached();
-		tok->last_size = uni_utf8_char_bytes(data[i]);
-		i += tok->last_size - 1; /* Utf8 bytes > 1, for() handles the 1 byte increment. */
+		i += uni_utf8_char_bytes(data[i]) - 1; /* Utf8 bytes > 1, for() handles the 1 byte increment. */
 		lt = letter_type(c);
 		if (tok->prev_letter == LETTER_TYPE_NONE && is_nonword(lt)) {
 			/* TODO: test that start_skip works with multibyte utf8 chars */
