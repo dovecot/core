@@ -532,11 +532,6 @@ static bool is_nonword(enum letter_type lt)
 */
 static bool is_one_past_end(struct generic_fts_tokenizer *tok)
 {
-
-	/* Short circuit for simple algorithm. */
-	if (tok->prev_letter == LETTER_TYPE_NONE)
-		return FALSE;
-
 	/* WB6/7 false positive detected at one past end. */
 	if (tok->prev_letter == LETTER_TYPE_MIDLETTER ||
 	    tok->prev_letter == LETTER_TYPE_MIDNUMLET ||
@@ -544,7 +539,7 @@ static bool is_one_past_end(struct generic_fts_tokenizer *tok)
 	    tok->prev_letter == LETTER_TYPE_SINGLE_QUOTE )
 		return TRUE;
 
-	/* WB12/12 false positive detected at one past end. */
+	/* WB11/12 false positive detected at one past end. */
 	if (tok->prev_letter == LETTER_TYPE_MIDNUM ||
 	    tok->prev_letter == LETTER_TYPE_MIDNUMLET ||
 	    tok->prev_letter == LETTER_TYPE_APOSTROPHE ||
