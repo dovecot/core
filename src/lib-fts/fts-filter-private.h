@@ -4,11 +4,10 @@
 #define FTS_FILTER_CLASSES_NR 3
 
 /*
- API that stemming providers (classes) must provide: The register()
- function is called when the class is registered via
- fts_filter_register() The create() function is called to get an
- instance of a registered filter class.  The destroy function is
- called to destroy an instance of a filter.
+ API that stemming providers (classes) must provide: The create()
+ function is called to get an instance of a registered filter class.
+ The filter() function is called with tokens for the specific filter.
+ The destroy function is called to destroy an instance of a filter.
 
 */
 struct fts_filter_vfuncs {
