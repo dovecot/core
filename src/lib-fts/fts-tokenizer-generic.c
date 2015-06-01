@@ -105,21 +105,26 @@ fts_tokenizer_generic_simple_current_token(struct generic_fts_tokenizer *tok,
                                            const char **token_r)
 {
 	const unsigned char *data;
-	size_t start = 0, len;
+	size_t len = tok->token->used;
 
-	/* clean trailing and starting apostrophes. they were all made
-	   into U+0027 earlier. */
-	data = tok->token->data;
-	len = tok->token->used;
-	while (len > 0 && data[len - 1] == '\'')
-		len--;
-	while (start < len && data[start] == '\'')
-		start++;
+	if (len > 0) {
+		/* Remove the trailing apostrophe - it was made
+		   into U+0027 earlier. There can be only a single such
+		   apostrophe, because otherwise the token would have already
+		   been split. We also want to remove the trailing apostrophe
+		   only if it's the the last character in the nontruncated
+		   token - a truncated token may end with apostrophe. */
+		data = tok->token->data;
+		if (data[len-1] == '\'') {
+			len--;
+			i_assert(len > 0 && data[len-1] != '\'');
+		}
+	}
 
-	*token_r = len - start == 0 ? "" :
-		fts_uni_strndup(CONST_PTR_OFFSET(tok->token->data, start),
-				len - start);
+	*token_r = len == 0 ? "" :
+		fts_uni_strndup(tok->token->data, len);
 	buffer_set_used_size(tok->token, 0);
+	tok->prev_letter = LETTER_TYPE_NONE;
 	return (*token_r)[0] != '\0';
 }
 
@@ -177,39 +182,8 @@ static void fts_tokenizer_generic_reset(struct fts_tokenizer *_tok)
 static void tok_append_truncated(struct generic_fts_tokenizer *tok,
 				 const unsigned char *data, size_t size)
 {
-	size_t append_len, pos = 0, appended = 0;
-	unichar_t c;
-
-	if (size == 0)
-		return;
-	if (data[0] == '\'' && tok->token->used == 0) {
-		/* Skip apostrophes in the beginning of the token.
-		   We need to do it here so that we don't truncate the
-		   token too early. */
-		data++;
-		size--;
-		if (size == 0)
-			return;
-		i_assert(data[0] != '\'');
-	}
-
-	i_assert(tok->max_length >= tok->token->used);
-	append_len = I_MIN(size, tok->max_length - tok->token->used);
-
-	/* Append only one kind of apostrophes. Simplifies things when returning
-	   token. */
-	while (pos < append_len) {
-		if (uni_utf8_get_char_n(data + pos, size - pos, &c) <= 0)
-			i_unreached();
-		if (IS_NONASCII_APOSTROPHE(c)) {
-			buffer_append(tok->token, data, pos);
-			buffer_append_c(tok->token, '\'');
-			appended = pos + 1;
-		}
-		pos += uni_utf8_char_bytes(data[pos]);
-	}
-	if (appended < append_len)
-		buffer_append(tok->token, data + appended, append_len - appended);
+	buffer_append(tok->token, data,
+		      I_MIN(size, tok->max_length - tok->token->used));
 }
 
 static int
@@ -243,9 +217,17 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 			   skipping or by ignoring empty tokens - they will be
 			   dropped in any case. */
 			tok->prev_letter = LETTER_TYPE_NONE;
+		} else if (apostrophe) {
+			/* all apostrophes require special handling */
+			const unsigned char apostrophe_char = '\'';
+
+			tok_append_truncated(tok, data + start, i - start);
+			if (tok->token->used > 0)
+				tok_append_truncated(tok, &apostrophe_char, 1);
+			start = i + char_size;
+			tok->prev_letter = LETTER_TYPE_SINGLE_QUOTE;
 		} else {
-			tok->prev_letter = apostrophe ?
-				LETTER_TYPE_SINGLE_QUOTE : LETTER_TYPE_NONE;
+			tok->prev_letter = LETTER_TYPE_NONE;
 		}
 	}
 	/* word boundary not found yet */
@@ -641,6 +623,7 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 			i_unreached();
 		i += uni_utf8_char_bytes(data[i]);
 		lt = letter_type(c);
+
 		if (tok->prev_letter == LETTER_TYPE_NONE && is_nontoken(lt)) {
 			/* Skip non-token chars at the beginning of token */
 			i_assert(tok->token->used == 0);
@@ -654,6 +637,14 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 			*skip_r = i;
 			fts_tokenizer_generic_tr29_current_token(tok, token_r);
 			return 1;
+		} else if (lt == LETTER_TYPE_APOSTROPHE ||
+			   lt == LETTER_TYPE_SINGLE_QUOTE) {
+			/* all apostrophes require special handling */
+			const unsigned char apostrophe_char = '\'';
+			tok_append_truncated(tok, data + start_pos,
+					     char_start_i - start_pos);
+			tok_append_truncated(tok, &apostrophe_char, 1);
+			start_pos = i;
 		}
 	}
 	i_assert(i >= start_pos && size >= start_pos);
