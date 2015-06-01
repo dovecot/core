@@ -4,6 +4,7 @@
 #include "str.h"
 #include "buffer.h"
 #include "unichar.h"
+#include <stdlib.h>
 
 static void test_unichar_uni_utf8_strlen(void)
 {
@@ -45,15 +46,24 @@ void test_unichar(void)
 	unichar_t chr, chr2;
 	string_t *str = t_str_new(16);
 
-	test_begin("unichars");
+	test_begin("unichars encode/decode");
 	for (chr = 0; chr <= 0x10ffff; chr++) {
+		/* The bottom 6 bits should be irrelevant to code coverage,
+		   only test 000000, 111111, and something in between. */
+		if ((chr & 63) == 1)
+			chr += rand() % 62; /* After 0, somewhere between 1 and 62 */
+		else if ((chr & 63) > 0 && (chr & 63) < 63)
+			chr |= 63; /* After random, straight to 63 */
+
 		str_truncate(str, 0);
 		uni_ucs4_to_utf8_c(chr, str);
 		test_assert(uni_utf8_str_is_valid(str_c(str)));
 		test_assert(uni_utf8_get_char(str_c(str), &chr2) > 0);
 		test_assert(chr2 == chr);
 	}
+	test_end();
 
+	test_begin("unichar collation");
 	collate_out = buffer_create_dynamic(default_pool, 32);
 	uni_utf8_to_decomposed_titlecase(collate_in, sizeof(collate_in),
 					 collate_out);
