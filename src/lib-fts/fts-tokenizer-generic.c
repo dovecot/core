@@ -198,14 +198,13 @@ fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
 	struct generic_fts_tokenizer *tok =
 		(struct generic_fts_tokenizer *)_tok;
 	size_t i, start = 0;
-	unsigned int char_size;
+	int char_size;
 	unichar_t c;
 	bool apostrophe;
 
 	for (i = 0; i < size; i += char_size) {
-		if (uni_utf8_get_char_n(data + i, size - i, &c) <= 0)
-			i_unreached();
-		char_size = uni_utf8_char_bytes(data[i]);
+		char_size = uni_utf8_get_char_n(data + i, size - i, &c);
+		i_assert(char_size > 0);
 
 		apostrophe = IS_APOSTROPHE(c);
 		if (fts_simple_is_word_break(tok, c, apostrophe)) {
@@ -620,13 +619,14 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 	unichar_t c;
 	size_t i, char_start_i, start_pos = 0;
 	enum letter_type lt;
+	int char_size;
 
 	/* TODO: Process 8bit chars separately, to speed things up. */
 	for (i = 0; i < size; ) {
 		char_start_i = i;
-		if (uni_utf8_get_char_n(data + i, size - i, &c) <= 0)
-			i_unreached();
-		i += uni_utf8_char_bytes(data[i]);
+		char_size = uni_utf8_get_char_n(data + i, size - i, &c);
+		i_assert(char_size > 0);
+		i += char_size;
 		lt = letter_type(c);
 
 		if (tok->prev_letter == LETTER_TYPE_NONE && is_nontoken(lt)) {
