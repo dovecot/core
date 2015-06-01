@@ -31,6 +31,8 @@ static const char *test_inputs[] = {
 
 	"' ' '' ''' 'quoted text' 'word' 'hlo words' you're bad'''word '''pre post'''",
 
+	"'1234567890123456789012345678ä,"
+
 	/* whitespace: with Unicode(utf8) U+FF01(ef bc 81)(U+2000(e2 80 80) and
 	   U+205A(e2 81 9a) and U+205F(e2 81 9f) */
 	"hello\xEF\xBC\x81world\r\nAnd\xE2\x80\x80there\twas: text "
@@ -136,6 +138,8 @@ static void test_fts_tokenizer_generic_only(void)
 		"quoted", "text", "word", "hlo", "words", "you're", "bad",
 		"word", "pre", "post", NULL,
 
+		"1234567890123456789012345678ä",
+
 		"hello", "world", "And",
 		"there", "was", "text", "galore",
 		"and", "more", NULL,
@@ -177,6 +181,8 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 
 		"quoted", "text", "word", "hlo", "words", "you're", "bad",
 		"word", "pre", "post", NULL,
+
+		"1234567890123456789012345678ä",
 
 		"hello", "world", "And",
 		"there", "was", "text", "galore",

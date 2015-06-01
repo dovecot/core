@@ -180,6 +180,19 @@ static void tok_append_truncated(struct generic_fts_tokenizer *tok,
 	size_t append_len, pos = 0, appended = 0;
 	unichar_t c;
 
+	if (size == 0)
+		return;
+	if (data[0] == '\'' && tok->token->used == 0) {
+		/* Skip apostrophes in the beginning of the token.
+		   We need to do it here so that we don't truncate the
+		   token too early. */
+		data++;
+		size--;
+		if (size == 0)
+			return;
+		i_assert(data[0] != '\'');
+	}
+
 	i_assert(tok->max_length >= tok->token->used);
 	append_len = I_MIN(size, tok->max_length - tok->token->used);
 
