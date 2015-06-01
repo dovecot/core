@@ -96,7 +96,8 @@ static void fts_lucene_mail_user_deinit(struct mail_user *user)
 {
 	struct fts_lucene_user *fuser = FTS_LUCENE_USER_CONTEXT(user);
 
-	fts_mail_user_deinit(user);
+	if (fuser->set.use_libfts)
+		fts_mail_user_deinit(user);
 	fuser->module_ctx.super.deinit(user);
 }
 

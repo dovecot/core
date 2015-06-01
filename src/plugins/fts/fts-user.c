@@ -16,6 +16,7 @@
 
 struct fts_user {
 	union mail_user_module_context module_ctx;
+	int refcount;
 
 	struct fts_language_list *lang_list;
 	struct fts_tokenizer *index_tokenizer, *search_tokenizer;
@@ -335,9 +336,16 @@ static void fts_user_free(struct fts_user *fuser)
 
 int fts_mail_user_init(struct mail_user *user, const char **error_r)
 {
-	struct fts_user *fuser;
+	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+
+	if (fuser != NULL) {
+		/* multiple fts plugins are loaded */
+		fuser->refcount++;
+		return 0;
+	}
 
 	fuser = p_new(user->pool, struct fts_user, 1);
+	fuser->refcount = 1;
 	p_array_init(&fuser->languages, user->pool, 4);
 
 	if (fts_user_init_languages(user, fuser, error_r) < 0) {
@@ -358,6 +366,9 @@ void fts_mail_user_deinit(struct mail_user *user)
 {
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 
-	if (fuser != NULL)
-		fts_user_free(fuser);
+	if (fuser != NULL) {
+		i_assert(fuser->refcount > 0);
+		if (--fuser->refcount == 0)
+			fts_user_free(fuser);
+	}
 }
