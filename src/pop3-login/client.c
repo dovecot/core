@@ -99,6 +99,10 @@ static bool client_command_execute(struct pop3_client *client, const char *cmd,
 		return cmd_quit(client);
 	if (strcmp(cmd, "XCLIENT") == 0)
 		return cmd_xclient(client, args);
+	if (strcmp(cmd, "XOIP") == 0) {
+		/* Compatibility with Zimbra's patched nginx */
+		return cmd_xclient(client, t_strconcat("ADDR=", args, NULL));
+	}
 
 	client_send_reply(&client->common, POP3_CMD_REPLY_ERROR,
 			  "Unknown command.");
