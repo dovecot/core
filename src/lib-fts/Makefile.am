@@ -73,6 +73,7 @@ libfts_la_SOURCES = \
 	$(ICU_SOURCES)
 
 noinst_HEADERS = \
+	fts-common.h \
 	fts-filter.h \
 	fts-filter-private.h \
 	fts-icu.h \

@@ -4,17 +4,13 @@
 #include "buffer.h"
 #include "unichar.h"
 #include "bsearch-insert-pos.h"
+#include "fts-common.h"
 #include "fts-tokenizer-private.h"
 #include "fts-tokenizer-generic-private.h"
 #include "word-boundary-data.c"
 #include "word-break-data.c"
 
 #define FTS_DEFAULT_TOKEN_MAX_LENGTH 30
-
-#define IS_NONASCII_APOSTROPHE(c) \
-	((c) == 0x2019 || (c) == 0xFF07)
-#define IS_APOSTROPHE(c) \
-	((c) == 0x0027 || IS_NONASCII_APOSTROPHE(c))
 
 static unsigned char fts_ascii_word_breaks[128] = {
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 0-15 */
