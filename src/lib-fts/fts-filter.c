@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "fts-language.h"
 #include "fts-filter-private.h"
 
@@ -62,9 +63,19 @@ int fts_filter_create(const struct fts_filter *filter_class,
 	if (settings == NULL)
 		settings = &empty_settings;
 
-	if (filter_class->v->create(lang, settings, &fp, error_r) < 0) {
-		*filter_r = NULL;
-		return -1;
+	if (filter_class->v->create != NULL) {
+		if (filter_class->v->create(lang, settings, &fp, error_r) < 0) {
+			*filter_r = NULL;
+			return -1;
+		}
+	} else {
+		/* default implementation */
+		if (settings[0] != NULL) {
+			*error_r = t_strdup_printf("Unknown setting: %s", settings[0]);
+			return -1;
+		}
+		fp = i_new(struct fts_filter, 1);
+		*fp = *filter_class;
 	}
 	fp->refcount = 1;
 	fp->parent = parent;
@@ -93,7 +104,14 @@ void fts_filter_unref(struct fts_filter **_fpp)
 
 	if (fp->parent != NULL)
 		fts_filter_unref(&fp->parent);
-	fp->v->destroy(fp);
+	if (fp->v->destroy != NULL)
+		fp->v->destroy(fp);
+	else {
+		/* default destroy implementation */
+		if (fp->token != NULL)
+			str_free(&fp->token);
+		i_free(fp);
+	}
 }
 
 int fts_filter_filter(struct fts_filter *filter, const char **token,
