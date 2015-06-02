@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "array.h"
 #include "fts-language.h"
-#include "fts-filter.h"
 #include "fts-filter-private.h"
 #ifdef HAVE_LIBICU
 #  include <unicode/uclean.h>

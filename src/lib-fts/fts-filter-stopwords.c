@@ -7,7 +7,6 @@
 #include "hash.h"
 #include "unichar.h"
 #include "fts-language.h"
-#include "fts-filter.h"
 #include "fts-filter-private.h"
 
 #define STOPWORDS_FILE_FORMAT "%s/stopwords_%s.txt"

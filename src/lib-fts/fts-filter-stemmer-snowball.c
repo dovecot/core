@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "fts-language.h"
-#include "fts-filter.h"
 #include "fts-filter-private.h"
 
 #ifdef HAVE_FTS_STEMMER

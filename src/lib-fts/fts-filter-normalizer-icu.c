@@ -4,7 +4,6 @@
 #include "buffer.h"
 #include "str.h"
 #include "unichar.h" /* unicode replacement char */
-#include "fts-filter.h"
 #include "fts-filter-private.h"
 #include "fts-language.h"
 

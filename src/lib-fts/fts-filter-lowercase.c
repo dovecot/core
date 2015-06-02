@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "str.h"
-#include "fts-filter.h"
 #include "fts-filter-private.h"
 #include "fts-language.h"
 
