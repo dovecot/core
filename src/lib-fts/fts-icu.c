@@ -5,6 +5,8 @@
 #include "unichar.h"
 #include "fts-icu.h"
 
+#include <unicode/uclean.h>
+
 void fts_icu_utf8_to_utf16(buffer_t *dest_utf16, const char *src_utf8)
 {
 	UErrorCode err = U_ZERO_ERROR;
@@ -107,4 +109,9 @@ int fts_icu_translate(buffer_t *dest_utf16, const UChar *src_utf16,
 	}
 	buffer_set_used_size(dest_utf16, utf16_len * sizeof(UChar));
 	return 0;
+}
+
+void fts_icu_deinit(void)
+{
+	u_cleanup();
 }

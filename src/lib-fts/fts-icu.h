@@ -14,4 +14,7 @@ int fts_icu_translate(buffer_t *dest_utf16, const UChar *src_utf16,
 		      unsigned int src_len, UTransliterator *transliterator,
 		      const char **error_r);
 
+/* Free all the memory used by ICU functions. */
+void fts_icu_deinit(void);
+
 #endif
