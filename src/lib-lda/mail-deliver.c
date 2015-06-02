@@ -67,6 +67,7 @@ mail_deliver_get_log_var_expand_table_full(struct mail_deliver_context *ctx,
 		{ 'w', NULL, "vsize" },
 		{ '\0', NULL, "delivery_time" },
 		{ '\0', NULL, "session_time" },
+		{ '\0', NULL, "to_envelope" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -97,6 +98,7 @@ mail_deliver_get_log_var_expand_table_full(struct mail_deliver_context *ctx,
 		mail_deliver_log_var_expand_table_update_times(ctx, tab);
 		tab[8].value = dec2str(ctx->session_time_msecs);
 	}
+	tab[9].value = ctx->dest_addr;
 	return tab;
 }
 
