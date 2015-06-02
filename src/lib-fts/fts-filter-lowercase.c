@@ -2,9 +2,12 @@
 
 #include "lib.h"
 #include "str.h"
-#include "fts-icu.h"
 #include "fts-language.h"
 #include "fts-filter-private.h"
+
+#ifdef HAVE_LIBICU
+#  include "fts-icu.h"
+#endif
 
 static void
 fts_filter_lowercase_destroy(struct fts_filter *filter)
