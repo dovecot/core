@@ -141,6 +141,35 @@ static void test_fts_icu_translate_resize(void)
 	test_end();
 }
 
+static void test_fts_icu_lcase(void)
+{
+	const char *src = "aBcD\xC3\x84\xC3\xA4";
+	string_t *dest = t_str_new(64);
+
+	test_begin("fts_icu_lcase");
+	fts_icu_lcase(dest, src);
+	test_assert(strcmp(str_c(dest), "abcd\xC3\xA4\xC3\xA4") == 0);
+	test_end();
+}
+
+static void test_fts_icu_lcase_resize(void)
+{
+	const char *src = "a\xC3\x84";
+	string_t *dest;
+	unsigned int i;
+
+	test_begin("fts_icu_lcase resize");
+	for (i = 2; i <= 4; i++) {
+		dest = t_str_new(i);
+		test_assert(buffer_get_size(dest) == i);
+		fts_icu_lcase(dest, src);
+		test_assert(strcmp(str_c(dest), "a\xC3\xA4") == 0);
+		test_assert(buffer_get_size(dest) == 4);
+	}
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
@@ -150,9 +179,11 @@ int main(void)
 		test_fts_icu_utf16_to_utf8_resize,
 		test_fts_icu_translate,
 		test_fts_icu_translate_resize,
+		test_fts_icu_lcase,
+		test_fts_icu_lcase_resize,
 		NULL
 	};
 	int ret = test_run(test_functions);
-	u_cleanup();
+	fts_icu_deinit();
 	return ret;
 }
