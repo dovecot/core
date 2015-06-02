@@ -20,6 +20,7 @@ void fts_filters_init(void)
 	fts_filter_register(fts_filter_stemmer_snowball);
 	fts_filter_register(fts_filter_normalizer_icu);
 	fts_filter_register(fts_filter_lowercase);
+	fts_filter_register(fts_filter_english_possessive);
 }
 
 void fts_filters_deinit(void)

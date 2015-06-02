@@ -32,6 +32,9 @@ extern const struct fts_filter *fts_filter_normalizer_icu;
 /* Lowecases the input. Currently only ASCII data is lowercased. */
 extern const struct fts_filter *fts_filter_lowercase;
 
+/* Removes <'s> suffix from words. */
+extern const struct fts_filter *fts_filter_english_possessive;
+
 /* Register all built-in filters. */
 void fts_filters_init(void);
 void fts_filters_deinit(void);

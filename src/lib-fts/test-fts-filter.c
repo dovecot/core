@@ -572,6 +572,62 @@ static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 #endif
 #endif
 
+static void test_fts_filter_english_possessive(void)
+{
+	struct fts_filter *norm = NULL;
+	const char *input[] = {
+		"foo'",
+
+		"foo's",
+		"fooä's",
+		"foo'S",
+		"foos'S",
+		"foo's's",
+		"foo'ss",
+
+		"foo\xE2\x80\x99s",
+		"fooä\xE2\x80\x99s",
+		"foo\xE2\x80\x99S",
+		"foos\xE2\x80\x99S",
+		"foo\xE2\x80\x99s\xE2\x80\x99s",
+		"foo\xE2\x80\x99ss"
+	};
+	const char *expected_output[] = {
+		"foo'",
+
+		"foo",
+		"fooä",
+		"foo",
+		"foos",
+		"foo's",
+		"foo'ss",
+
+		"foo",
+		"fooä",
+		"foo",
+		"foos",
+		"foo\xE2\x80\x99s",
+		"foo\xE2\x80\x99ss"
+	};
+	const char *error = NULL;
+	const char *token = NULL;
+	unsigned int i;
+
+	test_begin("fts filter english possessive");
+
+	T_BEGIN {
+		test_assert(fts_filter_create(fts_filter_english_possessive, NULL, NULL, NULL, &norm, &error) == 0);
+		for (i = 0; i < N_ELEMENTS(input); i++) {
+			token = input[i];
+			test_assert_idx(fts_filter_filter(norm, &token, &error) == 1, i);
+			test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
+		}
+		fts_filter_unref(&norm);
+	} T_END;
+	test_assert(norm == NULL);
+	test_end();
+}
+
 /* TODO: Functions to test 1. ref-unref pairs 2. multiple registers +
   an unregister + find */
 
@@ -600,6 +656,7 @@ int main(void)
 		test_fts_filter_normalizer_stopwords_stemmer_eng,
 #endif
 #endif
+		test_fts_filter_english_possessive,
 		NULL
 	};
 	int ret;
