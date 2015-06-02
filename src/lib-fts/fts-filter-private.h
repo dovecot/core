@@ -28,6 +28,7 @@ struct fts_filter {
 	const struct fts_filter_vfuncs *v;
 	int refcount;
 	struct fts_filter *parent;
+	string_t *token;
 };
 
 #endif
