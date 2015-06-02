@@ -17,7 +17,7 @@
 
 static const char *test_inputs[] = {
 	/* generic things and word truncation: */
-	"hello world\r\n\nAnd there\twas: text galore, "
+	"hello world\r\n\nAnd there\twas: text galor\xC3\xA9\xE2\x80\xA7 "
 	"abc@example.com, "
 	"Bar Baz <bar@example.org>, "
 	"foo@domain "
@@ -137,7 +137,7 @@ static void test_fts_tokenizer_generic_only(void)
 {
 	static const char *const expected_output[] = {
 		"hello", "world", "And",
-		"there", "was", "text", "galore",
+		"there", "was", "text", "galor\xC3\xA9",
 		"abc", "example", "com", "Bar", "Baz",
 		"bar", "example", "org", "foo", "domain",
 		"1234567890123456789012345678ä",
@@ -194,7 +194,7 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 {
 	static const char *const expected_output[] = {
 		"hello", "world", "And",
-		"there", "was", "text", "galore",
+		"there", "was", "text", "galor\xC3\xA9",
 		"abc", "example", "com", "Bar", "Baz",
 		"bar", "example", "org", "foo", "domain",
 		"1234567890123456789012345678ä",

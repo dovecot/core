@@ -546,7 +546,8 @@ fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
 	if (is_one_past_end(tok) &&
 	    tok->untruncated_length <= tok->max_length) {
 		/* delete the last character */
-		while ((data[len-1] & 0x80) != 0)
+		while ((data[len-1] & 0x80) != 0 &&
+		       ((data[len-1] & (0x80|0x40)) != (0x80|0x40)))
 			len--;
 		i_assert(len > 0);
 		len--;
