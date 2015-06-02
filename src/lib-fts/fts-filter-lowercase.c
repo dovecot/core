@@ -40,7 +40,7 @@ fts_filter_lowercase_filter(struct fts_filter *_filter ATTR_UNUSED,
 	return 1;
 }
 
-static const struct fts_filter_vfuncs normalizer_filter_vfuncs = {
+static const struct fts_filter_vfuncs lowercase_filter_vfuncs = {
 	fts_filter_lowercase_create,
 	fts_filter_lowercase_filter,
 	fts_filter_lowercase_destroy
@@ -48,7 +48,7 @@ static const struct fts_filter_vfuncs normalizer_filter_vfuncs = {
 
 static const struct fts_filter fts_filter_lowercase_real = {
 	.class_name = "lowercase",
-	.v = &normalizer_filter_vfuncs
+	.v = &lowercase_filter_vfuncs
 };
 
 const struct fts_filter *fts_filter_lowercase = &fts_filter_lowercase_real;
