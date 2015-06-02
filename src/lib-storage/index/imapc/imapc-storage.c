@@ -212,12 +212,20 @@ imapc_storage_client_login(const struct imapc_command_reply *reply,
 	client->auth_failed = TRUE;
 
 	if (client->_storage != NULL) {
-		mail_storage_set_error(&client->_storage->storage,
-				       MAIL_ERROR_PERM, reply->text_full);
+		if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED)
+			mail_storage_set_internal_error(&client->_storage->storage);
+		else {
+			mail_storage_set_error(&client->_storage->storage,
+					       MAIL_ERROR_PERM, reply->text_full);
+		}
 	}
 	if (client->_list != NULL) {
-		mailbox_list_set_error(&client->_list->list,
-				       MAIL_ERROR_PERM, reply->text_full);
+		if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED)
+			mailbox_list_set_internal_error(&client->_list->list);
+		else {
+			mailbox_list_set_error(&client->_list->list,
+					       MAIL_ERROR_PERM, reply->text_full);
+		}
 	}
 }
 
