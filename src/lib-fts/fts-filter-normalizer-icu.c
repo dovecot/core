@@ -156,15 +156,13 @@ fts_filter_normalizer_icu_destroy(struct fts_filter *normalizer ATTR_UNUSED)
 
 #endif
 
-static const struct fts_filter_vfuncs normalizer_filter_vfuncs = {
-	fts_filter_normalizer_icu_create,
-	fts_filter_normalizer_icu_filter,
-	fts_filter_normalizer_icu_destroy
-};
-
 static const struct fts_filter fts_filter_normalizer_icu_real = {
 	.class_name = "normalizer-icu",
-	.v = &normalizer_filter_vfuncs
+	.v = {
+		fts_filter_normalizer_icu_create,
+		fts_filter_normalizer_icu_filter,
+		fts_filter_normalizer_icu_destroy
+	}
 };
 
 const struct fts_filter *fts_filter_normalizer_icu =

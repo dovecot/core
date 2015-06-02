@@ -63,8 +63,8 @@ int fts_filter_create(const struct fts_filter *filter_class,
 	if (settings == NULL)
 		settings = &empty_settings;
 
-	if (filter_class->v->create != NULL) {
-		if (filter_class->v->create(lang, settings, &fp, error_r) < 0) {
+	if (filter_class->v.create != NULL) {
+		if (filter_class->v.create(lang, settings, &fp, error_r) < 0) {
 			*filter_r = NULL;
 			return -1;
 		}
@@ -104,8 +104,8 @@ void fts_filter_unref(struct fts_filter **_fpp)
 
 	if (fp->parent != NULL)
 		fts_filter_unref(&fp->parent);
-	if (fp->v->destroy != NULL)
-		fp->v->destroy(fp);
+	if (fp->v.destroy != NULL)
+		fp->v.destroy(fp);
 	else {
 		/* default destroy implementation */
 		if (fp->token != NULL)
@@ -127,7 +127,7 @@ int fts_filter_filter(struct fts_filter *filter, const char **token,
 
 	/* Parent returned token or no parent. */
 	if (ret > 0 || filter->parent == NULL)
-		ret = filter->v->filter(filter, token, error_r);
+		ret = filter->v.filter(filter, token, error_r);
 
 	if (ret <= 0)
 		*token = NULL;

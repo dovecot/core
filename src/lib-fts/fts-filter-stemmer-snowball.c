@@ -116,15 +116,14 @@ fts_filter_stemmer_snowball_filter(struct fts_filter *filter ATTR_UNUSED,
 }
 
 #endif
-static const struct fts_filter_vfuncs snowball_stemmer_filter_vfuncs = {
-	fts_filter_stemmer_snowball_create,
-	fts_filter_stemmer_snowball_filter,
-	fts_filter_stemmer_snowball_destroy
-};
 
 static const struct fts_filter fts_filter_stemmer_snowball_real = {
 	.class_name = "snowball",
-	.v = &snowball_stemmer_filter_vfuncs
+	.v = {
+		fts_filter_stemmer_snowball_create,
+		fts_filter_stemmer_snowball_filter,
+		fts_filter_stemmer_snowball_destroy
+	}
 };
 
 const struct fts_filter *fts_filter_stemmer_snowball = &fts_filter_stemmer_snowball_real;

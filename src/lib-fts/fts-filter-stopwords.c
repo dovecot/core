@@ -113,14 +113,12 @@ fts_filter_stopwords_filter(struct fts_filter *filter, const char **token,
 	return hash_table_lookup(sp->stopwords, *token) == NULL ? 1 : 0;
 }
 
-const struct fts_filter_vfuncs stopwords_filter_vfuncs = {
-	fts_filter_stopwords_create,
-	fts_filter_stopwords_filter,
-	fts_filter_stopwords_destroy
-};
-
 const struct fts_filter fts_filter_stopwords_real = {
 	.class_name = "stopwords",
-	.v = &stopwords_filter_vfuncs
+	.v = {
+		fts_filter_stopwords_create,
+		fts_filter_stopwords_filter,
+		fts_filter_stopwords_destroy
+	}
 };
 const struct fts_filter *fts_filter_stopwords = &fts_filter_stopwords_real;
