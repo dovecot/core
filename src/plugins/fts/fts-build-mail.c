@@ -273,6 +273,8 @@ fts_build_add_tokens_with_filter(struct fts_mail_build_context *ctx,
 		ret = ret2 = fts_tokenizer_next(tokenizer, data, size, &token, &error);
 		if (ret2 > 0 && filter != NULL)
 			ret2 = fts_filter_filter(filter, &token, &error);
+		if (ret2 < 0)
+			i_error("fts: Couldn't create indexable tokens: %s", error);
 		if (ret2 > 0) {
 			if (fts_backend_update_build_more(ctx->update_ctx,
 							  (const void *)token,
@@ -280,8 +282,6 @@ fts_build_add_tokens_with_filter(struct fts_mail_build_context *ctx,
 				ret = -1;
 		}
 	} T_END;
-	if (ret < 0)
-		i_error("fts: Couldn't create indexable tokens: %s", error);
 	return ret;
 }
 
