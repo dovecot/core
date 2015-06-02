@@ -90,43 +90,56 @@ fts_tokenizer_generic_destroy(struct fts_tokenizer *_tok)
 	i_free(tok);
 }
 
-static const char *fts_uni_strndup(const unsigned char *data, size_t size)
+static void
+fts_tokenizer_delete_trailing_partial_char(const unsigned char *data,
+					   size_t *len)
 {
 	size_t pos;
+	unsigned int char_bytes;
 
-	/* if input is truncated with a partial UTF-8 character, drop it */
-	(void)uni_utf8_partial_strlen_n(data, size, &pos);
-	i_assert(pos > 0);
-	return t_strndup(data, pos);
+	/* the token is truncated - make sure the last character
+	   exists entirely in the token */
+	for (pos = *len-1; pos > 0; pos--) {
+		if ((data[pos] & 0x80) == 0 ||
+		    ((data[pos] & (0x80|0x40)) == (0x80|0x40)))
+			break;
+	}
+	char_bytes = uni_utf8_char_bytes(data[pos]);
+	if (char_bytes != *len-pos) {
+		i_assert(char_bytes > *len-pos);
+		*len = pos;
+	}
 }
 
 static bool
 fts_tokenizer_generic_simple_current_token(struct generic_fts_tokenizer *tok,
                                            const char **token_r)
 {
-	const unsigned char *data;
+	const unsigned char *data = tok->token->data;
 	size_t len = tok->token->used;
 
-	if (len > 0 && tok->untruncated_length <= tok->max_length) {
+	if (tok->untruncated_length <= tok->max_length) {
 		/* Remove the trailing apostrophe - it was made
 		   into U+0027 earlier. There can be only a single such
 		   apostrophe, because otherwise the token would have already
 		   been split. We also want to remove the trailing apostrophe
 		   only if it's the the last character in the nontruncated
 		   token - a truncated token may end with apostrophe. */
-		data = tok->token->data;
-		if (data[len-1] == '\'') {
+		if (len > 0 && data[len-1] == '\'') {
 			len--;
 			i_assert(len > 0 && data[len-1] != '\'');
 		}
+	} else {
+		fts_tokenizer_delete_trailing_partial_char(data, &len);
 	}
+	i_assert(len <= tok->max_length);
 
 	*token_r = len == 0 ? "" :
-		fts_uni_strndup(tok->token->data, len);
+		t_strndup(tok->token->data, len);
 	buffer_set_used_size(tok->token, 0);
 	tok->untruncated_length = 0;
 	tok->prev_letter = LETTER_TYPE_NONE;
-	return (*token_r)[0] != '\0';
+	return len > 0;
 }
 
 static bool uint32_find(const uint32_t *data, unsigned int count,
@@ -541,7 +554,7 @@ fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
                                          const char **token_r)
 {
 	const unsigned char *data = tok->token->data;
-	ssize_t len = tok->token->used;
+	size_t len = tok->token->used;
 
 	if (is_one_past_end(tok) &&
 	    tok->untruncated_length <= tok->max_length) {
@@ -551,16 +564,19 @@ fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
 			len--;
 		i_assert(len > 0);
 		len--;
+	} else if (tok->untruncated_length > tok->max_length) {
+		fts_tokenizer_delete_trailing_partial_char(data, &len);
 	}
 	/* we're skipping all non-token chars at the beginning of the word,
 	   so by this point we must have something here - even if we just
 	   deleted the last character */
 	i_assert(len > 0);
+	i_assert(len <= tok->max_length);
 
 	tok->prev_prev_letter = LETTER_TYPE_NONE;
 	tok->prev_letter = LETTER_TYPE_NONE;
 
-	*token_r = fts_uni_strndup(data, len);
+	*token_r = t_strndup(data, len);
 	buffer_set_used_size(tok->token, 0);
 	tok->untruncated_length = 0;
 }
