@@ -30,10 +30,17 @@ struct fts_language_list {
 };
 
 const struct fts_language fts_languages[] = {
+	{ "da" },
+	{ "de" },
 	{ "en" },
+	{ "es" },
 	{ "fi" },
 	{ "fr" },
-	{ "de" }
+	{ "it" },
+	{ "nl" },
+	{ "pt" },
+	{ "ro" },
+	{ "ru" },
 };
 
 const struct fts_language fts_language_data = {
