@@ -3,8 +3,11 @@
 #include "lib.h"
 #include "array.h"
 #include "fts-language.h"
-#include "fts-icu.h"
 #include "fts-filter-private.h"
+
+#ifdef HAVE_LIBICU
+#  include "fts-icu.h"
+#endif
 
 static ARRAY(const struct fts_filter *) fts_filter_classes;
 
