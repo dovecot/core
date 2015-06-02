@@ -37,7 +37,7 @@ fts_filter_lowercase_create(const struct fts_language *lang ATTR_UNUSED,
 }
 
 static int
-fts_filter_lowercase_filter(struct fts_filter *filter,
+fts_filter_lowercase_filter(struct fts_filter *filter ATTR_UNUSED,
 			    const char **token,
 			    const char **error_r ATTR_UNUSED)
 {
