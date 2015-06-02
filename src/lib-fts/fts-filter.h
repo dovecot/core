@@ -1,6 +1,5 @@
 #ifndef FTS_FILTER_H
 #define FTS_FILTER_H
-#include "array.h"
 
 struct fts_language;
 struct fts_filter;

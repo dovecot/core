@@ -1,6 +1,7 @@
 /* Copyright (c) 2014-2015 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "str.h"
 #include "unichar.h" /* unicode replacement char */
 #include "fts-filter.h"
