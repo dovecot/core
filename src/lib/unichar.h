@@ -23,6 +23,11 @@
 	(UTF16_SURROGATE_LOW_FIRST + \
 	 (((chr) - UTF16_SURROGATE_BASE) & UTF16_SURROGATE_MASK))
 
+/* Returns TRUE if given byte is ASCII character or the beginning of a
+   multibyte UTF-8 sequence */
+#define UTF8_IS_START_SEQ(b) \
+	(((b) & 0x80) == 0 || ((b) & 0xC0) == 0xC0)
+
 #define UTF8_REPLACEMENT_CHAR_LEN 3
 
 typedef uint32_t unichar_t;
