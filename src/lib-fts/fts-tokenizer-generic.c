@@ -96,8 +96,7 @@ fts_tokenizer_delete_trailing_partial_char(const unsigned char *data,
 	/* the token is truncated - make sure the last character
 	   exists entirely in the token */
 	for (pos = *len-1; pos > 0; pos--) {
-		if ((data[pos] & 0x80) == 0 ||
-		    ((data[pos] & (0x80|0x40)) == (0x80|0x40)))
+		if (UTF8_IS_START_SEQ(data[pos]))
 			break;
 	}
 	char_bytes = uni_utf8_char_bytes(data[pos]);
@@ -555,8 +554,7 @@ fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
 	if (is_one_past_end(tok) &&
 	    tok->untruncated_length <= tok->max_length) {
 		/* delete the last character */
-		while ((data[len-1] & 0x80) != 0 &&
-		       ((data[len-1] & (0x80|0x40)) != (0x80|0x40)))
+		while (!UTF8_IS_START_SEQ(data[len-1]))
 			len--;
 		i_assert(len > 0);
 		len--;
