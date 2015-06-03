@@ -1,6 +1,7 @@
 /* Copyright (c) 2011-2015 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "llist.h"
 #include "hash.h"
 #include "indexer-queue.h"
@@ -70,22 +71,12 @@ indexer_queue_lookup(struct indexer_queue *queue,
 
 static void request_add_context(struct indexer_request *request, void *context)
 {
-	unsigned int count = 0;
-
 	if (context == NULL)
 		return;
 
-	if (request->contexts == NULL) {
-		request->contexts = i_new(void *, 2);
-	} else {
-		for (; request->contexts[count] != NULL; count++) ;
-
-		request->contexts =
-			i_realloc(request->contexts,
-				  sizeof(*request->contexts) * (count + 1),
-				  sizeof(*request->contexts) * (count + 2));
-	}
-	request->contexts[count] = context;
+	if (!array_is_created(&request->contexts))
+		i_array_init(&request->contexts, 2);
+	array_append(&request->contexts, &context, 1);
 }
 
 static struct indexer_request *
@@ -173,11 +164,12 @@ static void indexer_queue_request_status_int(struct indexer_queue *queue,
 					     struct indexer_request *request,
 					     int percentage)
 {
+	void *const *contextp;
 	unsigned int i;
 
-	if (request->contexts != NULL) {
-		for (i = 0; request->contexts[i] != NULL; i++)
-			queue->callback(percentage, request->contexts[i]);
+	for (i = 0; i < array_count(&request->contexts); i++) {
+		contextp = array_idx(&request->contexts, i);
+		queue->callback(percentage, *contextp);
 	}
 }
 
@@ -199,7 +191,8 @@ void indexer_queue_request_finish(struct indexer_queue *queue,
 	*_request = NULL;
 
 	indexer_queue_request_status_int(queue, request, success ? 100 : -1);
-	i_free(request->contexts);
+	if (array_is_created(&request->contexts))
+		array_free(&request->contexts);
 	i_free(request->username);
 	i_free(request->mailbox);
 	i_free(request);

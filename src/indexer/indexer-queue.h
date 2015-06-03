@@ -15,7 +15,7 @@ struct indexer_request {
 	/* optimize this mailbox */
 	unsigned int optimize:1;
 
-	void **contexts;
+	ARRAY(void *) contexts;
 };
 
 struct indexer_queue *indexer_queue_init(indexer_status_callback_t *callback);
