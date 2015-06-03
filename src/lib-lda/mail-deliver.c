@@ -97,8 +97,8 @@ mail_deliver_get_log_var_expand_table_full(struct mail_deliver_context *ctx,
 	if (ctx != NULL) {
 		mail_deliver_log_var_expand_table_update_times(ctx, tab);
 		tab[8].value = dec2str(ctx->session_time_msecs);
+		tab[9].value = ctx->dest_addr;
 	}
-	tab[9].value = ctx->dest_addr;
 	return tab;
 }
 
