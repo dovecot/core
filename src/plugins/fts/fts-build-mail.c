@@ -503,6 +503,11 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		if (ret < 0) {
 			if (input->stream_errno == 0)
 				ret = 0;
+			else {
+				i_error("read(%s) failed: %s",
+					i_stream_get_name(input),
+					i_stream_get_error(input));
+			}
 			break;
 		}
 
