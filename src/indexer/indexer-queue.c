@@ -98,6 +98,14 @@ indexer_queue_append_request(struct indexer_queue *queue, bool append,
 		if (request->max_recent_msgs > max_recent_msgs)
 			request->max_recent_msgs = max_recent_msgs;
 		request_add_context(request, context);
+		if (request->working) {
+			/* we're already indexing this mailbox. */
+			if (append)
+				request->reindex_tail = TRUE;
+			else
+				request->reindex_head = TRUE;
+			return request;
+		}
 		if (append) {
 			/* keep the request in its old position */
 			return request;
@@ -156,8 +164,6 @@ void indexer_queue_request_remove(struct indexer_queue *queue)
 	i_assert(request != NULL);
 
 	DLLIST2_REMOVE(&queue->head, &queue->tail, request);
-	hash_table_remove(queue->requests, request);
-	indexer_refresh_proctitle();
 }
 
 static void indexer_queue_request_status_int(struct indexer_queue *queue,
@@ -167,7 +173,7 @@ static void indexer_queue_request_status_int(struct indexer_queue *queue,
 	void *const *contextp;
 	unsigned int i;
 
-	for (i = 0; i < array_count(&request->contexts); i++) {
+	for (i = 0; i < request->working_context_idx; i++) {
 		contextp = array_idx(&request->contexts, i);
 		queue->callback(percentage, *contextp);
 	}
@@ -182,6 +188,14 @@ void indexer_queue_request_status(struct indexer_queue *queue,
 	indexer_queue_request_status_int(queue, request, percentage);
 }
 
+void indexer_queue_request_work(struct indexer_request *request)
+{
+	request->working = TRUE;
+	request->working_context_idx =
+		!array_is_created(&request->contexts) ? 0 :
+		array_count(&request->contexts);
+}
+
 void indexer_queue_request_finish(struct indexer_queue *queue,
 				  struct indexer_request **_request,
 				  bool success)
@@ -191,11 +205,31 @@ void indexer_queue_request_finish(struct indexer_queue *queue,
 	*_request = NULL;
 
 	indexer_queue_request_status_int(queue, request, success ? 100 : -1);
+
+	if (request->reindex_head || request->reindex_tail) {
+		i_assert(request->working);
+		request->working = FALSE;
+		request->reindex_head = FALSE;
+		request->reindex_tail = FALSE;
+		if (request->working_context_idx > 0) {
+			array_delete(&request->contexts, 0,
+				     request->working_context_idx);
+		}
+		if (request->reindex_head)
+			DLLIST2_PREPEND(&queue->head, &queue->tail, request);
+		else
+			DLLIST2_APPEND(&queue->head, &queue->tail, request);
+		return;
+	}
+
+	hash_table_remove(queue->requests, request);
 	if (array_is_created(&request->contexts))
 		array_free(&request->contexts);
 	i_free(request->username);
 	i_free(request->mailbox);
 	i_free(request);
+
+	indexer_refresh_proctitle();
 }
 
 void indexer_queue_cancel_all(struct indexer_queue *queue)

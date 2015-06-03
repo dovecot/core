@@ -50,6 +50,7 @@ static void worker_send_request(struct worker_connection *conn,
 	wrequest->conn = conn;
 	wrequest->request = request;
 
+	indexer_queue_request_work(request);
 	worker_connection_request(conn, request, wrequest);
 }
 
