@@ -448,6 +448,7 @@ fts_mail_precache_range(struct mailbox_transaction_context *trans,
 
 	while (mailbox_search_next(ctx, &mail)) {
 		if (fts_build_mail(update_ctx, mail) < 0) {
+			mail_storage_set_internal_error(trans->box->storage);
 			ret = -1;
 			break;
 		}
@@ -504,8 +505,10 @@ static void fts_mail_index(struct mail *_mail)
 
 	if (ft->next_index_seq == _mail->seq) {
 		fts_backend_update_set_mailbox(flist->update_ctx, _mail->box);
-		if (fts_build_mail(flist->update_ctx, _mail) < 0)
+		if (fts_build_mail(flist->update_ctx, _mail) < 0) {
+			mail_storage_set_internal_error(_mail->box->storage);
 			ft->failed = TRUE;
+		}
 		ft->next_index_seq = _mail->seq + 1;
 	}
 }
