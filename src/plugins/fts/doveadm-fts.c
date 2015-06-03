@@ -7,6 +7,7 @@
 #include "mail-search.h"
 #include "mailbox-list-iter.h"
 #include "fts-storage.h"
+#include "fts-search-args.h"
 #include "doveadm-mail.h"
 #include "doveadm-mailbox-list-iter.h"
 #include "doveadm-fts.h"
@@ -102,6 +103,53 @@ cmd_fts_lookup_alloc(void)
 	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
 	ctx->v.run = cmd_fts_lookup_run;
 	ctx->v.init = cmd_fts_lookup_init;
+	return ctx;
+}
+
+static int
+cmd_fts_expand_run(struct doveadm_mail_cmd_context *ctx,
+		   struct mail_user *user)
+{
+	struct mail_namespace *ns = mail_namespace_find_inbox(user->namespaces);
+	struct mailbox *box;
+	struct fts_backend *backend;
+	string_t *str = t_str_new(128);
+
+	backend = fts_list_backend(ns->list);
+	if (backend == NULL) {
+		i_error("fts not enabled for INBOX");
+		return -1;
+	}
+
+	box = mailbox_alloc(ns->list, "INBOX", 0);
+	mail_search_args_init(ctx->search_args, box, FALSE, NULL);
+
+	if (fts_search_args_expand(backend, ctx->search_args) < 0)
+		i_fatal("Couldn't expand search args");
+	mail_search_args_to_cmdline(str, ctx->search_args->args);
+	printf("%s\n", str_c(str));
+	mailbox_free(&box);
+	return 0;
+}
+
+static void
+cmd_fts_expand_init(struct doveadm_mail_cmd_context *ctx,
+		    const char *const args[])
+{
+	if (args[0] == NULL)
+		doveadm_mail_help_name("fts expand");
+
+	ctx->search_args = doveadm_mail_build_search_args(args);
+}
+
+static struct doveadm_mail_cmd_context *
+cmd_fts_expand_alloc(void)
+{
+	struct doveadm_mail_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
+	ctx->v.run = cmd_fts_expand_run;
+	ctx->v.init = cmd_fts_expand_init;
 	return ctx;
 }
 
@@ -211,6 +259,7 @@ cmd_fts_rescan_alloc(void)
 
 static struct doveadm_mail_cmd fts_commands[] = {
 	{ cmd_fts_lookup_alloc, "fts lookup", "<search query>" },
+	{ cmd_fts_expand_alloc, "fts expand", "<search query>" },
 	{ cmd_fts_optimize_alloc, "fts optimize", "[<namespace>]" },
 	{ cmd_fts_rescan_alloc, "fts rescan", "[<namespace>]" }
 };
