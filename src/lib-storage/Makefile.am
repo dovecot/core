@@ -28,6 +28,7 @@ libstorage_la_SOURCES = \
 	mail-error.c \
 	mail-namespace.c \
 	mail-search.c \
+	mail-search-args-cmdline.c \
 	mail-search-args-imap.c \
 	mail-search-args-simplify.c \
 	mail-search-build.c \
