@@ -7,6 +7,7 @@
 #include "mail-search.h"
 #include "../virtual/virtual-storage.h"
 #include "fts-api-private.h"
+#include "fts-search-args.h"
 #include "fts-search-serialize.h"
 #include "fts-storage.h"
 
@@ -353,6 +354,10 @@ void fts_search_lookup(struct fts_search_context *fctx)
 			      &seq1, &seq2);
 	fctx->first_unindexed_seq = seq1 != 0 ? seq1 : (uint32_t)-1;
 
+	if ((fctx->backend->flags & FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0) {
+		if (fts_search_args_expand(fctx->backend, fctx->args) < 0)
+			return;
+	}
 	fts_search_serialize(fctx->orig_matches, fctx->args->args);
 
 	if (fts_search_lookup_level(fctx, fctx->args->args, TRUE) == 0) {

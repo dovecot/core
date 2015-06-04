@@ -14,7 +14,6 @@
 #include "fts-tokenizer.h"
 #include "fts-indexer.h"
 #include "fts-build-mail.h"
-#include "fts-search-args.h"
 #include "fts-search-serialize.h"
 #include "fts-plugin.h"
 #include "fts-storage.h"
@@ -132,11 +131,6 @@ static void fts_try_build_init(struct mail_search_context *ctx,
 			       &fctx->indexer_ctx);
 	if (ret < 0)
 		return;
-
-	if ((fctx->backend->flags & FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0) {
-		if (fts_search_args_expand(fctx->backend, fctx->args) < 0)
-			return;
-	}
 
 	if (ret == 0) {
 		/* the index was up to date */
