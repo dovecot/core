@@ -118,7 +118,7 @@ Test if the given password
 matches a given plain text password.
 You should enclose the password
 .I hash
-in single quotes, if it contains one ore more dollar signs
+in single quotes, if it contains one or more dollar signs
 .RB ( $ ).
 The plain text password may be passed using the
 .BR \-p " option."
