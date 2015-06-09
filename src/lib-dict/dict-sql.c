@@ -28,7 +28,6 @@ struct sql_dict {
 	struct sql_db *db;
 	const char *username;
 	const struct dict_sql_settings *set;
-	unsigned int prev_map_match_idx;
 
 	unsigned int has_on_duplicate_key:1;
 };
@@ -190,18 +189,14 @@ sql_dict_find_map(struct sql_dict *dict, const char *path,
 		  ARRAY_TYPE(const_string) *values)
 {
 	const struct dict_sql_map *maps;
-	unsigned int i, idx, count, len;
+	unsigned int i, count, len;
 
 	t_array_init(values, dict->set->max_field_count);
 	maps = array_get(&dict->set->maps, &count);
 	for (i = 0; i < count; i++) {
-		/* start matching from the previously successful match */
-		idx = (dict->prev_map_match_idx + i) % count;
-		if (dict_sql_map_match(&maps[idx], path, values,
-				       &len, &len, FALSE, FALSE)) {
-			dict->prev_map_match_idx = idx;
-			return &maps[idx];
-		}
+		if (dict_sql_map_match(&maps[i], path, values,
+				       &len, &len, FALSE, FALSE))
+			return &maps[i];
 	}
 	return NULL;
 }
