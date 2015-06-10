@@ -329,7 +329,7 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 			goto retry;
 		}
 	} T_END;
-	while (doveadm_exit_code == 0 && cmd_fs_delete_ctx_run(&ctx) != 0) {
+	while (doveadm_exit_code == 0 && cmd_fs_delete_ctx_run(&ctx) > 0) {
 		if (fs_wait_async(fs) < 0) {
 			i_error("fs_wait_async() failed: %s", fs_last_error(fs));
 			doveadm_exit_code = EX_TEMPFAIL;
