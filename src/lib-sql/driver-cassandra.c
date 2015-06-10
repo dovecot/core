@@ -461,6 +461,11 @@ static void result_finish(struct cassandra_result *result)
 
 	result->finished = TRUE;
 
+	if (db->log_level >= CASS_LOG_DEBUG) {
+		i_debug("cassandra: Finished query '%s': %s", result->query,
+			result->error != NULL ? result->error : "success");
+	}
+
 	i_assert((result->error != NULL) == (result->iterator == NULL));
 
 	result->api.callback = TRUE;
