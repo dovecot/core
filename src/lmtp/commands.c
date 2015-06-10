@@ -693,10 +693,9 @@ int cmd_rcpt(struct client *client, const char *args)
 			master_service_get_name(master_service),
 			"/", str_tabescape(username), NULL);
 		lmtp_anvil_init();
+		client->state.anvil_queries++;
 		rcpt->anvil_query = anvil_client_query(anvil, query,
 					rcpt_anvil_lookup_callback, rcpt);
-		if (rcpt->anvil_query != NULL)
-			client->state.anvil_queries++;
 	}
 	return 0;
 }
