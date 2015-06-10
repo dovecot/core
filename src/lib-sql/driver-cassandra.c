@@ -301,8 +301,11 @@ static void driver_cassandra_disconnect(struct sql_db *_db)
 {
 	struct cassandra_db *db = (struct cassandra_db *)_db;
 
-	if (db->cur_result != NULL && !db->cur_result->finished)
-                result_finish(db->cur_result);
+	if (db->cur_result != NULL && !db->cur_result->finished) {
+		if (db->cur_result->error == NULL)
+			db->cur_result->error = i_strdup("disconnecting");
+		result_finish(db->cur_result);
+	}
 	driver_cassandra_close(db);
 }
 
@@ -394,8 +397,11 @@ static void driver_cassandra_deinit_v(struct sql_db *_db)
 {
 	struct cassandra_db *db = (struct cassandra_db *)_db;
 
-	if (db->cur_result != NULL && !db->cur_result->finished)
-                result_finish(db->cur_result);
+	if (db->cur_result != NULL && !db->cur_result->finished) {
+		if (db->cur_result->error == NULL)
+			db->cur_result->error = i_strdup("deinitializing");
+		result_finish(db->cur_result);
+	}
         driver_cassandra_close(db);
 
 	i_assert(array_count(&db->callbacks) == 0);
@@ -454,6 +460,8 @@ static void result_finish(struct cassandra_result *result)
 	bool free_result = TRUE;
 
 	result->finished = TRUE;
+
+	i_assert((result->error != NULL) == (result->iterator == NULL));
 
 	result->api.callback = TRUE;
 	T_BEGIN {
@@ -846,17 +854,19 @@ commit_multi_fail(struct cassandra_transaction_context *ctx,
 	sql_result_unref(result);
 }
 
-static struct sql_result *
-driver_cassandra_transaction_commit_multi(struct cassandra_transaction_context *ctx)
+static int
+driver_cassandra_transaction_commit_multi(struct cassandra_transaction_context *ctx,
+					  struct sql_result **result_r)
 {
 	struct cassandra_db *db = (struct cassandra_db *)ctx->ctx.db;
 	struct sql_result *result;
 	struct sql_transaction_query *query;
+	int ret = 0;
 
 	result = driver_cassandra_sync_query(db, "BEGIN");
 	if (sql_result_next_row(result) < 0) {
 		commit_multi_fail(ctx, result, "BEGIN");
-		return NULL;
+		return -1;
 	}
 	sql_result_unref(result);
 
@@ -865,13 +875,15 @@ driver_cassandra_transaction_commit_multi(struct cassandra_transaction_context *
 		result = driver_cassandra_sync_query(db, query->query);
 		if (sql_result_next_row(result) < 0) {
 			commit_multi_fail(ctx, result, query->query);
+			ret = -1;
 			break;
 		}
 		sql_result_unref(result);
 	}
 
-	return driver_cassandra_sync_query(db, ctx->failed ?
-				       "ROLLBACK" : "COMMIT");
+	*result_r = driver_cassandra_sync_query(db, ctx->failed ?
+						"ROLLBACK" : "COMMIT");
+	return ret;
 }
 
 static void
@@ -881,7 +893,8 @@ driver_cassandra_try_commit_s(struct cassandra_transaction_context *ctx,
 	struct sql_transaction_context *_ctx = &ctx->ctx;
 	struct cassandra_db *db = (struct cassandra_db *)_ctx->db;
 	struct sql_transaction_query *single_query = NULL;
-	struct sql_result *result;
+	struct sql_result *result = NULL;
+	int ret = 0;
 
 	if (_ctx->head->next == NULL) {
 		/* just a single query, send it */
@@ -890,16 +903,20 @@ driver_cassandra_try_commit_s(struct cassandra_transaction_context *ctx,
 	} else {
 		/* multiple queries, use a transaction */
 		driver_cassandra_sync_init(db);
-		result = driver_cassandra_transaction_commit_multi(ctx);
+		ret = driver_cassandra_transaction_commit_multi(ctx, &result);
+		i_assert(ret == 0 || ctx->failed);
 		driver_cassandra_sync_deinit(db);
 	}
 
 	if (ctx->failed) {
 		i_assert(ctx->error != NULL);
 		*error_r = ctx->error;
-	} else if (result != NULL) {
-		if (sql_result_next_row(result) < 0)
+	} else {
+		if (sql_result_next_row(result) < 0) {
+			ctx->failed = TRUE;
 			*error_r = sql_result_get_error(result);
+			i_assert(*error_r != NULL);
+		}
 	}
 	*error_r = t_strdup(*error_r);
 	if (result != NULL)
@@ -920,6 +937,7 @@ driver_cassandra_transaction_commit_s(struct sql_transaction_context *_ctx,
 
 	i_assert(ctx->refcount == 1);
 	driver_cassandra_transaction_unref(ctx);
+	i_assert((*error_r != NULL) == ctx->failed);
 	return *error_r == NULL ? 0 : -1;
 }
 
