@@ -769,8 +769,11 @@ driver_cassandra_transaction_begin(struct sql_db *db)
 }
 
 static void
-driver_cassandra_transaction_unref(struct cassandra_transaction_context *ctx)
+driver_cassandra_transaction_unref(struct cassandra_transaction_context **_ctx)
 {
+	struct cassandra_transaction_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	i_assert(ctx->refcount > 0);
 	if (--ctx->refcount > 0)
 		return;
@@ -790,7 +793,7 @@ transaction_begin_callback(struct sql_result *result,
 	} else {
 		ctx->begin_succeeded = TRUE;
 	}
-	driver_cassandra_transaction_unref(ctx);
+	driver_cassandra_transaction_unref(&ctx);
 }
 
 static void
@@ -801,7 +804,7 @@ transaction_commit_callback(struct sql_result *result,
 		ctx->callback(sql_result_get_error(result), ctx->context);
 	else
 		ctx->callback(NULL, ctx->context);
-	driver_cassandra_transaction_unref(ctx);
+	driver_cassandra_transaction_unref(&ctx);
 }
 
 static void
@@ -815,7 +818,7 @@ transaction_update_callback(struct sql_result *result,
 		ctx->failed = TRUE;
 		ctx->error = sql_result_get_error(result);
 	}
-	driver_cassandra_transaction_unref(ctx);
+	driver_cassandra_transaction_unref(&ctx);
 }
 
 static void
@@ -830,7 +833,7 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 
 	if (ctx->failed || _ctx->head == NULL) {
 		callback(ctx->failed ? ctx->error : NULL, context);
-		driver_cassandra_transaction_unref(ctx);
+		driver_cassandra_transaction_unref(&ctx);
 	} else if (_ctx->head->next == NULL) {
 		/* just a single query, send it */
 		sql_query(_ctx->db, _ctx->head->query,
@@ -942,7 +945,7 @@ driver_cassandra_transaction_commit_s(struct sql_transaction_context *_ctx,
 
 	i_assert(ctx->refcount == 1);
 	i_assert((*error_r != NULL) == ctx->failed);
-	driver_cassandra_transaction_unref(ctx);
+	driver_cassandra_transaction_unref(&ctx);
 	return *error_r == NULL ? 0 : -1;
 }
 
@@ -953,7 +956,7 @@ driver_cassandra_transaction_rollback(struct sql_transaction_context *_ctx)
 		(struct cassandra_transaction_context *)_ctx;
 
 	i_assert(ctx->refcount == 1);
-	driver_cassandra_transaction_unref(ctx);
+	driver_cassandra_transaction_unref(&ctx);
 }
 
 static void
