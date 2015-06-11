@@ -26,6 +26,7 @@ struct mail_index_sync_ctx {
 	uint32_t last_tail_seq, last_tail_offset;
 
 	unsigned int no_warning:1;
+	unsigned int seen_nonexternal_transactions:1;
 };
 
 static void mail_index_sync_add_expunge(struct mail_index_sync_ctx *ctx)
@@ -173,6 +174,7 @@ mail_index_sync_update_mailbox_pos(struct mail_index_sync_ctx *ctx)
 	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
 					       &seq, &offset);
 
+	ctx->seen_nonexternal_transactions = TRUE;
 	ctx->last_tail_seq = seq;
 	ctx->last_tail_offset = offset + ctx->hdr->size + sizeof(*ctx->hdr);
 }
@@ -763,9 +765,15 @@ mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 	mail_transaction_log_set_mailbox_sync_pos(ctx->index->log, seq, offset);
 
 	/* If tail offset has changed, make sure it gets written to
-	   transaction log. do this only if we're required to changes. */
-	if (ctx->last_tail_seq != seq ||
-	    ctx->last_tail_offset < offset) {
+	   transaction log. do this only if we're required to make changes.
+
+	   avoid writing a new tail offset if all the transactions were
+	   external, because that wouldn't change effective the tail offset.
+	   except e.g. mdbox map requires this to happen, so do it
+	   optionally. */
+	if ((ctx->last_tail_seq != seq || ctx->last_tail_offset < offset) &&
+	    (ctx->seen_nonexternal_transactions ||
+	     (ctx->flags & MAIL_INDEX_SYNC_FLAG_UPDATE_TAIL_OFFSET) != 0)) {
 		ctx->ext_trans->log_updates = TRUE;
 		ctx->ext_trans->tail_offset_changed = TRUE;
 	}

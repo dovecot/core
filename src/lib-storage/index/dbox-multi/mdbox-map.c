@@ -497,7 +497,8 @@ int mdbox_map_atomic_lock(struct mdbox_map_atomic_context *atomic)
 	/* use syncing to lock the transaction log, so that we always see
 	   log's head_offset = tail_offset */
 	ret = mail_index_sync_begin(atomic->map->index, &atomic->sync_ctx,
-				    &atomic->sync_view, &atomic->sync_trans, 0);
+				    &atomic->sync_view, &atomic->sync_trans,
+				    MAIL_INDEX_SYNC_FLAG_UPDATE_TAIL_OFFSET);
 	if (mail_index_reset_fscked(atomic->map->index))
 		mdbox_storage_set_corrupted(atomic->map->storage);
 	if (ret <= 0) {

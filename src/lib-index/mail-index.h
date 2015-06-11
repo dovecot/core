@@ -167,7 +167,10 @@ enum mail_index_sync_flags {
 	/* Same as MAIL_INDEX_SYNC_FLAG_DELETING_INDEX, but finish index
 	   deletion only once and fail the rest (= avoid race conditions when
 	   multiple processes try to mark the index deleted) */
-	MAIL_INDEX_SYNC_FLAG_TRY_DELETING_INDEX	= 0x40
+	MAIL_INDEX_SYNC_FLAG_TRY_DELETING_INDEX	= 0x40,
+	/* Update header's tail_offset to head_offset, even if it's the only
+	   thing we do and there's no strict need for it. */
+	MAIL_INDEX_SYNC_FLAG_UPDATE_TAIL_OFFSET	= 0x80
 };
 
 enum mail_index_view_sync_flags {
