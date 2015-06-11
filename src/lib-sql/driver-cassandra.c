@@ -941,8 +941,8 @@ driver_cassandra_transaction_commit_s(struct sql_transaction_context *_ctx,
 		driver_cassandra_try_commit_s(ctx, error_r);
 
 	i_assert(ctx->refcount == 1);
-	driver_cassandra_transaction_unref(ctx);
 	i_assert((*error_r != NULL) == ctx->failed);
+	driver_cassandra_transaction_unref(ctx);
 	return *error_r == NULL ? 0 : -1;
 }
 
