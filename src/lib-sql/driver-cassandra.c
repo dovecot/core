@@ -74,7 +74,7 @@ struct cassandra_transaction_context {
 	void *context;
 
 	pool_t query_pool;
-	const char *error;
+	char *error;
 
 	unsigned int begin_succeeded:1;
 	unsigned int begin_failed:1;
@@ -779,7 +779,21 @@ driver_cassandra_transaction_unref(struct cassandra_transaction_context **_ctx)
 		return;
 
 	pool_unref(&ctx->query_pool);
+	i_free(ctx->error);
 	i_free(ctx);
+}
+
+static void
+transaction_set_failed(struct cassandra_transaction_context *ctx,
+		       const char *error)
+{
+	if (ctx->failed) {
+		i_assert(ctx->error != NULL);
+	} else {
+		i_assert(ctx->error == NULL);
+		ctx->failed = TRUE;
+		ctx->error = i_strdup(error);
+	}
 }
 
 static void
@@ -788,8 +802,7 @@ transaction_begin_callback(struct sql_result *result,
 {
 	if (sql_result_next_row(result) < 0) {
 		ctx->begin_failed = TRUE;
-		ctx->failed = TRUE;
-		ctx->error = sql_result_get_error(result);
+		transaction_set_failed(ctx, sql_result_get_error(result));
 	} else {
 		ctx->begin_succeeded = TRUE;
 	}
@@ -814,10 +827,8 @@ transaction_update_callback(struct sql_result *result,
 	struct cassandra_transaction_context *ctx =
 		(struct cassandra_transaction_context *)query->trans;
 
-	if (sql_result_next_row(result) < 0) {
-		ctx->failed = TRUE;
-		ctx->error = sql_result_get_error(result);
-	}
+	if (sql_result_next_row(result) < 0)
+		transaction_set_failed(ctx, sql_result_get_error(result));
 	driver_cassandra_transaction_unref(&ctx);
 }
 
@@ -856,9 +867,8 @@ static void
 commit_multi_fail(struct cassandra_transaction_context *ctx,
 		  struct sql_result *result, const char *query)
 {
-	ctx->failed = TRUE;
-	ctx->error = t_strdup_printf("%s (query: %s)",
-				     sql_result_get_error(result), query);
+	transaction_set_failed(ctx, t_strdup_printf(
+		"%s (query: %s)", sql_result_get_error(result), query));
 	sql_result_unref(result);
 }
 
@@ -895,8 +905,7 @@ driver_cassandra_transaction_commit_multi(struct cassandra_transaction_context *
 }
 
 static void
-driver_cassandra_try_commit_s(struct cassandra_transaction_context *ctx,
-			      const char **error_r)
+driver_cassandra_try_commit_s(struct cassandra_transaction_context *ctx)
 {
 	struct sql_transaction_context *_ctx = &ctx->ctx;
 	struct cassandra_db *db = (struct cassandra_db *)_ctx->db;
@@ -916,17 +925,10 @@ driver_cassandra_try_commit_s(struct cassandra_transaction_context *ctx,
 		driver_cassandra_sync_deinit(db);
 	}
 
-	if (ctx->failed) {
-		i_assert(ctx->error != NULL);
-		*error_r = ctx->error;
-	} else {
-		if (sql_result_next_row(result) < 0) {
-			ctx->failed = TRUE;
-			*error_r = sql_result_get_error(result);
-			i_assert(*error_r != NULL);
-		}
+	if (!ctx->failed) {
+		if (sql_result_next_row(result) < 0)
+			transaction_set_failed(ctx, sql_result_get_error(result));
 	}
-	*error_r = t_strdup(*error_r);
 	if (result != NULL)
 		sql_result_unref(result);
 }
@@ -938,10 +940,9 @@ driver_cassandra_transaction_commit_s(struct sql_transaction_context *_ctx,
 	struct cassandra_transaction_context *ctx =
 		(struct cassandra_transaction_context *)_ctx;
 
-	*error_r = NULL;
-
 	if (_ctx->head != NULL)
-		driver_cassandra_try_commit_s(ctx, error_r);
+		driver_cassandra_try_commit_s(ctx);
+	*error_r = ctx->error;
 
 	i_assert(ctx->refcount == 1);
 	i_assert((*error_r != NULL) == ctx->failed);
