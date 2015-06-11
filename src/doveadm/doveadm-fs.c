@@ -222,6 +222,9 @@ static void cmd_fs_metadata(int argc, char *argv[])
 }
 
 struct fs_delete_ctx {
+	struct fs *fs;
+	const char *path_prefix;
+
 	unsigned int files_count;
 	struct fs_file **files;
 };
@@ -250,6 +253,36 @@ static int cmd_fs_delete_ctx_run(struct fs_delete_ctx *ctx)
 	return ret;
 }
 
+static int doveadm_fs_delete_recursive_fname(struct fs_delete_ctx *ctx,
+					     const char *fname)
+{
+	unsigned int i;
+	int ret;
+
+	for (i = 0; i < ctx->files_count; i++) {
+		if (ctx->files[i] != NULL)
+			continue;
+
+		ctx->files[i] = fs_file_init(ctx->fs,
+				t_strdup_printf("%s%s", ctx->path_prefix, fname),
+				FS_OPEN_MODE_READONLY | FS_OPEN_FLAG_ASYNC |
+				FS_OPEN_FLAG_ASYNC_NOQUEUE);
+		fname = NULL;
+		break;
+	}
+	if ((ret = cmd_fs_delete_ctx_run(ctx)) < 0)
+		return -1;
+	if (fname != NULL) {
+		if (ret > 0 && fs_wait_async(ctx->fs) < 0) {
+			i_error("fs_wait_async() failed: %s", fs_last_error(ctx->fs));
+			doveadm_exit_code = EX_TEMPFAIL;
+			return -1;;
+		}
+		return doveadm_fs_delete_recursive_fname(ctx, fname);
+	}
+	return 0;
+}
+
 static void
 cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 			    const char *path_prefix)
@@ -262,6 +295,8 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 	int ret;
 
 	memset(&ctx, 0, sizeof(ctx));
+	ctx.fs = fs;
+	ctx.path_prefix = path_prefix;
 	ctx.files_count = I_MAX(async_count, 1);
 	ctx.files = t_new(struct fs_file *, ctx.files_count);
 
@@ -304,31 +339,13 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 
-	array_foreach(&fnames, fnamep) T_BEGIN {
-		fname = *fnamep;
-	retry:
-		for (i = 0; i < ctx.files_count; i++) {
-			if (ctx.files[i] != NULL)
-				continue;
-
-			ctx.files[i] = fs_file_init(fs,
-				t_strdup_printf("%s%s", path_prefix, fname),
-				FS_OPEN_MODE_READONLY | FS_OPEN_FLAG_ASYNC |
-				FS_OPEN_FLAG_ASYNC_NOQUEUE);
-			fname = NULL;
+	array_foreach(&fnames, fnamep) {
+		T_BEGIN {
+			ret = doveadm_fs_delete_recursive_fname(&ctx, *fnamep);
+		} T_END;
+		if (ret < 0)
 			break;
-		}
-		if ((ret = cmd_fs_delete_ctx_run(&ctx)) < 0)
-			break;
-		if (fname != NULL) {
-			if (ret > 0 && fs_wait_async(fs) < 0) {
-				i_error("fs_wait_async() failed: %s", fs_last_error(fs));
-				doveadm_exit_code = EX_TEMPFAIL;
-				break;
-			}
-			goto retry;
-		}
-	} T_END;
+	}
 	while (doveadm_exit_code == 0 && cmd_fs_delete_ctx_run(&ctx) > 0) {
 		if (fs_wait_async(fs) < 0) {
 			i_error("fs_wait_async() failed: %s", fs_last_error(fs));
