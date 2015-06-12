@@ -158,7 +158,9 @@ void fts_icu_lcase(string_t *dest_utf8, const char *src_utf8)
 
 void fts_icu_deinit(void)
 {
-	if (icu_csm != NULL)
+	if (icu_csm != NULL) {
 		ucasemap_close(icu_csm);
+		icu_csm = NULL;
+	}
 	u_cleanup();
 }
