@@ -345,15 +345,13 @@ static void test_fts_filter_normalizer_swedish_short(void)
 
 	test_begin("fts filter normalizer Swedish short text");
 
-	T_BEGIN {
-		test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
-		for (i = 0; i < N_ELEMENTS(input); i++) {
-			token = input[i];
-			test_assert_idx(fts_filter_filter(norm, &token, &error) == 1, i);
-			test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
-		}
-		fts_filter_unref(&norm);
-	} T_END;
+	test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
+	for (i = 0; i < N_ELEMENTS(input); i++) {
+		token = input[i];
+		test_assert_idx(fts_filter_filter(norm, &token, &error) == 1, i);
+		test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
+	}
+	fts_filter_unref(&norm);
 	test_assert(norm == NULL);
 	test_end();
 }
@@ -380,15 +378,13 @@ static void test_fts_filter_normalizer_swedish_short_default_id(void)
 
 	test_begin("fts filter normalizer Swedish short text using default ID");
 
-	T_BEGIN {
-		test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL, NULL, &norm, &error) == 0);
-		for (i = 0; i < N_ELEMENTS(input); i++) {
-			token = input[i];
-			test_assert_idx(fts_filter_filter(norm, &token, &error) == 1, i);
-			test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
-		}
-		fts_filter_unref(&norm);
-	} T_END;
+	test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL, NULL, &norm, &error) == 0);
+	for (i = 0; i < N_ELEMENTS(input); i++) {
+		token = input[i];
+		test_assert_idx(fts_filter_filter(norm, &token, &error) == 1, i);
+		test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
+	}
+	fts_filter_unref(&norm);
 	test_assert(norm == NULL);
 	test_end();
 }
@@ -419,25 +415,23 @@ static void test_fts_filter_normalizer_french(void)
 
 	test_begin("fts filter normalizer French UDHR");
 
-	T_BEGIN {
-		udhr_path = t_strconcat(UDHRDIR, UDHR_FRA_NAME, NULL);
-		test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
-		input = fopen(udhr_path, "r");
-		test_assert(input != NULL);
-		sha512_init(&ctx);
-		while (NULL != fgets(buf, sizeof(buf), input)) {
-			tokens = buf;
-			if (fts_filter_filter(norm, &tokens, &error) != 1){
-				break;
-			}
-			sha512_loop(&ctx, tokens, strlen(tokens));
+	udhr_path = t_strconcat(UDHRDIR, UDHR_FRA_NAME, NULL);
+	test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
+	input = fopen(udhr_path, "r");
+	test_assert(input != NULL);
+	sha512_init(&ctx);
+	while (NULL != fgets(buf, sizeof(buf), input)) {
+		tokens = buf;
+		if (fts_filter_filter(norm, &tokens, &error) != 1){
+			break;
 		}
-		fclose(input);
-		sha512_result(&ctx, sha512_digest);
-		test_assert(memcmp(sha512_digest, correct_digest,
-		                   sizeof(sha512_digest)) == 0);
-		fts_filter_unref(&norm);
-	} T_END;
+		sha512_loop(&ctx, tokens, strlen(tokens));
+	}
+	fclose(input);
+	sha512_result(&ctx, sha512_digest);
+	test_assert(memcmp(sha512_digest, correct_digest,
+			   sizeof(sha512_digest)) == 0);
+	fts_filter_unref(&norm);
 	test_assert(norm == NULL);
 	test_end();
 }
@@ -615,15 +609,13 @@ static void test_fts_filter_english_possessive(void)
 
 	test_begin("fts filter english possessive");
 
-	T_BEGIN {
-		test_assert(fts_filter_create(fts_filter_english_possessive, NULL, NULL, NULL, &norm, &error) == 0);
-		for (i = 0; i < N_ELEMENTS(input); i++) {
-			token = input[i];
-			test_assert_idx(fts_filter_filter(norm, &token, &error) == 1, i);
-			test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
-		}
-		fts_filter_unref(&norm);
-	} T_END;
+	test_assert(fts_filter_create(fts_filter_english_possessive, NULL, NULL, NULL, &norm, &error) == 0);
+	for (i = 0; i < N_ELEMENTS(input); i++) {
+		token = input[i];
+		test_assert_idx(fts_filter_filter(norm, &token, &error) == 1, i);
+		test_assert_idx(null_strcmp(token, expected_output[i]) == 0, i);
+	}
+	fts_filter_unref(&norm);
 	test_assert(norm == NULL);
 	test_end();
 }
