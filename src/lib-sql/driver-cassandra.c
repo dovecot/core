@@ -942,7 +942,7 @@ driver_cassandra_transaction_commit_s(struct sql_transaction_context *_ctx,
 
 	if (_ctx->head != NULL)
 		driver_cassandra_try_commit_s(ctx);
-	*error_r = ctx->error;
+	*error_r = t_strdup(ctx->error);
 
 	i_assert(ctx->refcount == 1);
 	i_assert((*error_r != NULL) == ctx->failed);
