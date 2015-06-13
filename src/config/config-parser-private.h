@@ -59,6 +59,8 @@ struct config_parser_context {
 };
 
 extern void (*hook_config_parser_begin)(struct config_parser_context *ctx);
+extern int (*hook_config_parser_end)(struct config_parser_context *ctx,
+				     const char **error_r);
 
 int config_apply_line(struct config_parser_context *ctx, const char *key,
 		      const char *line, const char *section_name) ATTR_NULL(4);

@@ -40,6 +40,8 @@ struct config_module_parser *config_module_parsers;
 struct config_filter_context *config_filter;
 struct module *modules;
 void (*hook_config_parser_begin)(struct config_parser_context *ctx);
+int (*hook_config_parser_end)(struct config_parser_context *ctx,
+			      const char **error_r);
 
 static const char *info_type_name_find(const struct setting_parser_info *info)
 {
@@ -697,13 +699,18 @@ static int config_parse_finish(struct config_parser_context *ctx, const char **e
 {
 	struct config_filter_context *new_filter;
 	const char *error;
-	int ret;
+	int ret = 0;
+
+	if (hook_config_parser_end != NULL)
+		ret = hook_config_parser_end(ctx, error_r);
 
 	new_filter = config_filter_init(ctx->pool);
 	array_append_zero(&ctx->all_parsers);
 	config_filter_add_all(new_filter, array_idx(&ctx->all_parsers, 0));
 
-	if (ctx->hide_errors)
+	if (ret < 0)
+		;
+	else if (ctx->hide_errors)
 		ret = 0;
 	else if ((ret = config_all_parsers_check(ctx, new_filter, &error)) < 0) {
 		*error_r = t_strdup_printf("Error in configuration file %s: %s",
