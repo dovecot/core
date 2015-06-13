@@ -159,6 +159,20 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	return rext.index_idx;
 }
 
+void mail_index_ext_register_resize_defaults(struct mail_index *index,
+					     uint32_t ext_id,
+					     uint32_t default_hdr_size,
+					     uint16_t default_record_size,
+					     uint16_t default_record_align)
+{
+	struct mail_index_registered_ext *rext;
+
+	rext = array_idx_modifiable(&index->extensions, ext_id);
+	rext->hdr_size = default_hdr_size;
+	rext->record_size = default_record_size;
+	rext->record_align = default_record_align;
+}
+
 bool mail_index_ext_lookup(struct mail_index *index, const char *name,
 			   uint32_t *ext_id_r)
 {

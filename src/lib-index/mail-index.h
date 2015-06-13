@@ -562,6 +562,12 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 				 uint32_t default_hdr_size,
 				 uint16_t default_record_size,
 				 uint16_t default_record_align);
+/* Change an already registered extension's default sizes. */
+void mail_index_ext_register_resize_defaults(struct mail_index *index,
+					     uint32_t ext_id,
+					     uint32_t default_hdr_size,
+					     uint16_t default_record_size,
+					     uint16_t default_record_align);
 /* Returns TRUE and sets ext_id_r if extension with given name is registered. */
 bool mail_index_ext_lookup(struct mail_index *index, const char *name,
 			   uint32_t *ext_id_r);
