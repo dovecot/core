@@ -624,28 +624,29 @@ static int fs_posix_stat(struct fs_file *_file, struct stat *st_r)
 
 static int fs_posix_copy(struct fs_file *_src, struct fs_file *_dest)
 {
+	struct posix_fs_file *src = (struct posix_fs_file *)_src;
 	struct posix_fs_file *dest = (struct posix_fs_file *)_dest;
 	struct posix_fs *fs = (struct posix_fs *)_src->fs;
 	unsigned int try_count = 0;
 	int ret;
 
-	ret = link(_src->path, _dest->path);
+	ret = link(src->full_path, dest->full_path);
 	if (errno == EEXIST && dest->open_mode == FS_OPEN_MODE_REPLACE) {
 		/* destination file already exists - replace it */
-		if (unlink(_dest->path) < 0 && errno != ENOENT)
-			i_error("unlink(%s) failed: %m", _dest->path);
-		ret = link(_src->path, _dest->path);
+		if (unlink(dest->full_path) < 0 && errno != ENOENT)
+			i_error("unlink(%s) failed: %m", dest->full_path);
+		ret = link(src->full_path, dest->full_path);
 	}
 	while (ret < 0 && errno == ENOENT &&
 	       try_count <= MAX_MKDIR_RETRY_COUNT) {
-		if (fs_posix_mkdir_parents(fs, _dest->path) < 0)
+		if (fs_posix_mkdir_parents(fs, dest->full_path) < 0)
 			return -1;
-		ret = link(_src->path, _dest->path);
+		ret = link(src->full_path, dest->full_path);
 		try_count++;
 	}
 	if (ret < 0) {
 		fs_set_error(_src->fs, "link(%s, %s) failed: %m",
-			     _src->path, _dest->path);
+			     src->full_path, dest->full_path);
 		return -1;
 	}
 	return 0;
