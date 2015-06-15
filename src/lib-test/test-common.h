@@ -22,6 +22,7 @@ void test_assert_failed_idx(const char *code, const char *file, unsigned int lin
 bool test_has_failed(void);
 /* If you're testing nasty cases which you want to warn, surround the noisy op with these */
 void test_expect_errors(unsigned int expected);
+void test_expect_error_string(const char *substr); /* expect just 1 message matching the printf format */
 void test_expect_no_more_errors(void);
 void test_end(void);
 
