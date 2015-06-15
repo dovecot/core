@@ -165,12 +165,14 @@ bool test_has_failed(void)
 void test_assert_failed(const char *code, const char *file, unsigned int line)
 {
 	printf("%s:%u: Assert failed: %s\n", file, line, code);
+	fflush(stdout);
 	test_success = FALSE;
 }
 
 void test_assert_failed_idx(const char *code, const char *file, unsigned int line, long long i)
 {
 	printf("%s:%u: Assert(#%lld) failed: %s\n", file, line, i, code);
+	fflush(stdout);
 	test_success = FALSE;
 }
 
@@ -250,6 +252,7 @@ void test_out_reason(const char *name, bool success, const char *reason)
 	if (reason != NULL && *reason != '\0')
 		printf(": %s", reason);
 	putchar('\n');
+	fflush(stdout);
 	total_count++;
 }
 
