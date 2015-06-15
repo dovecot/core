@@ -19,6 +19,7 @@ static char *test_prefix;
 static bool test_success;
 static unsigned int failure_count;
 static unsigned int total_count;
+static unsigned int expected_errors;
 
 struct test_istream {
 	struct istream_private istream;
@@ -256,6 +257,19 @@ void test_out_reason(const char *name, bool success, const char *reason)
 	total_count++;
 }
 
+void
+test_expect_errors(unsigned int expected)
+{
+	i_assert(expected_errors == 0);
+	expected_errors = expected;
+}
+void
+test_expect_no_more_errors(void)
+{
+	test_assert(expected_errors == 0);
+	expected_errors = 0;
+}
+
 static void ATTR_FORMAT(2, 0)
 test_error_handler(const struct failure_context *ctx,
 		   const char *format, va_list args)
@@ -270,6 +284,10 @@ test_error_handler(const struct failure_context *ctx,
 		return;
 	}
 #endif
+	if (expected_errors > 0) {
+		expected_errors--;
+		return;
+	}
 	test_success = FALSE;
 }
 

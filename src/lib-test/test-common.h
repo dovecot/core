@@ -20,6 +20,9 @@ void test_begin(const char *name);
 void test_assert_failed(const char *code, const char *file, unsigned int line);
 void test_assert_failed_idx(const char *code, const char *file, unsigned int line, long long i);
 bool test_has_failed(void);
+/* If you're testing nasty cases which you want to warn, surround the noisy op with these */
+void test_expect_errors(unsigned int expected);
+void test_expect_no_more_errors(void);
 void test_end(void);
 
 void test_out(const char *name, bool success);
