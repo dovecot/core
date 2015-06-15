@@ -185,6 +185,13 @@ int fts_search_args_expand(struct fts_backend *backend,
 {
 	struct mail_search_arg *args_dup, *orig_args = args->args;
 
+	/* don't keep re-expanding every time the search args are used.
+	   this is especially important to avoid an assert-crash in
+	   index_search_result_update_flags(). */
+	if (args->fts_expanded)
+		return 0;
+	args->fts_expanded = TRUE;
+
 	/* duplicate the args, so if expansion fails we haven't changed
 	   anything */
 	args_dup = mail_search_arg_dup(args->pool, args->args);

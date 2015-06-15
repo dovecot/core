@@ -115,6 +115,9 @@ struct mail_search_args {
 	/* Stop mail_search_next() when finding a non-matching mail.
 	   (Could be useful when wanting to find only the oldest mails.) */
 	unsigned int stop_on_nonmatch:1;
+	/* fts plugin has already expanded the search args - no need to do
+	   it again. */
+	unsigned int fts_expanded:1;
 };
 
 #define ARG_SET_RESULT(arg, res) \
