@@ -1868,8 +1868,8 @@ void director_connection_deinit(struct director_connection **_conn,
 	}
 }
 
-void director_connection_disconnected(struct director_connection **_conn,
-				      const char *reason)
+static void director_connection_disconnected(struct director_connection **_conn,
+					     const char *reason)
 {
 	struct director_connection *conn = *_conn;
 	struct director *dir = conn->dir;
