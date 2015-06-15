@@ -103,10 +103,10 @@ static bool client_is_trusted(struct client *client)
 
 struct client *
 client_create(int fd, bool ssl, pool_t pool,
+	      const struct master_service_connection *conn,
 	      const struct login_settings *set,
 	      const struct master_service_ssl_settings *ssl_set,
-	      void **other_sets,
-	      const struct ip_addr *local_ip, const struct ip_addr *remote_ip)
+	      void **other_sets)
 {
 	struct client *client;
 
@@ -125,13 +125,22 @@ client_create(int fd, bool ssl, pool_t pool,
 	client->pool = pool;
 	client->set = set;
 	client->ssl_set = ssl_set;
-	client->real_local_ip = client->local_ip = *local_ip;
-	client->real_remote_ip = client->ip = *remote_ip;
+
 	client->fd = fd;
 	client->tls = ssl;
+
+	client->local_ip = conn->local_ip;
+	client->local_port = conn->local_port;
+	client->ip = conn->remote_ip;
+	client->remote_port = conn->remote_port;
+	client->real_local_ip = conn->real_local_ip;
+	client->real_local_port = conn->real_local_port;
+	client->real_remote_ip = conn->real_remote_ip;
+	client->real_remote_port = conn->real_remote_port; 
+
 	client->trusted = client_is_trusted(client);
 	client->secured = ssl || client->trusted ||
-		net_ip_compare(remote_ip, local_ip);
+		net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip);
 	client->proxy_ttl = LOGIN_PROXY_TTL;
 
 	if (last_client == NULL)

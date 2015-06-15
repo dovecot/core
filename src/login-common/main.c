@@ -112,27 +112,19 @@ client_connected_finish(const struct master_service_connection *conn)
 {
 	struct client *client;
 	struct ssl_proxy *proxy;
-	struct ip_addr local_ip;
 	const struct login_settings *set;
 	const struct master_service_ssl_settings *ssl_set;
-	unsigned int local_port;
 	pool_t pool;
 	int fd_ssl;
 	void **other_sets;
 
-	if (net_getsockname(conn->fd, &local_ip, &local_port) < 0) {
-		memset(&local_ip, 0, sizeof(local_ip));
-		local_port = 0;
-	}
-
 	pool = pool_alloconly_create("login client", 8*1024);
-	set = login_settings_read(pool, &local_ip,
+	set = login_settings_read(pool, &conn->local_ip,
 				  &conn->remote_ip, NULL, &ssl_set, &other_sets);
 
 	if (!ssl_connections && !conn->ssl) {
-		client = client_create(conn->fd, FALSE, pool,
-				       set, ssl_set, other_sets,
-				       &local_ip, &conn->remote_ip);
+		client = client_create(conn->fd, FALSE, pool, conn,
+				       set, ssl_set, other_sets);
 	} else {
 		fd_ssl = ssl_proxy_alloc(conn->fd, &conn->remote_ip, pool,
 					 set, ssl_set, &proxy);
@@ -143,16 +135,12 @@ client_connected_finish(const struct master_service_connection *conn)
 			return;
 		}
 
-		client = client_create(fd_ssl, TRUE, pool,
-				       set, ssl_set, other_sets,
-				       &local_ip, &conn->remote_ip);
+		client = client_create(fd_ssl, TRUE, pool, conn,
+				       set, ssl_set, other_sets);
 		client->ssl_proxy = proxy;
 		ssl_proxy_set_client(proxy, client);
 		ssl_proxy_start(proxy);
 	}
-
-	client->real_remote_port = client->remote_port = conn->remote_port;
-	client->real_local_port = client->local_port = local_port;
 
 	if (auth_client_to != NULL)
 		timeout_remove(&auth_client_to);

@@ -249,7 +249,8 @@ struct client *client_create(int fd_in, int fd_out,
 	client->fd_out = fd_out;
 	client->remote_ip = conn->remote_ip;
 	client->remote_port = conn->remote_port;
-	(void)net_getsockname(conn->fd, &client->local_ip, &client->local_port);
+	client->local_ip = conn->local_ip;
+	client->local_port = conn->local_port;
 
 	client->input = i_stream_create_fd(fd_in, CLIENT_MAX_INPUT_SIZE, FALSE);
 	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);

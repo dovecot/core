@@ -34,6 +34,8 @@
 #define AUTH_MASTER_WAITING_MSG \
 	"Waiting for authentication master process to respond.."
 
+struct master_service_connection;
+
 enum client_disconnect_reason {
 	CLIENT_DISCONNECT_TIMEOUT,
 	CLIENT_DISCONNECT_SYSTEM_SHUTDOWN,
@@ -173,10 +175,10 @@ extern struct client *clients;
 
 struct client *
 client_create(int fd, bool ssl, pool_t pool,
+	      const struct master_service_connection *conn,
 	      const struct login_settings *set,
 	      const struct master_service_ssl_settings *ssl_set,
-	      void **other_sets,
-	      const struct ip_addr *local_ip, const struct ip_addr *remote_ip);
+	      void **other_sets);
 void client_destroy(struct client *client, const char *reason);
 void client_destroy_success(struct client *client, const char *reason);
 void client_destroy_internal_failure(struct client *client);
