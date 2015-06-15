@@ -457,7 +457,14 @@ static int fs_metawrap_stat(struct fs_file *_file, struct stat *st_r)
 		/* fs_stat() after a write. we can do this quickly. */
 		if (fs_stat(file->super, st_r) < 0)
 			return -1;
-		i_assert((uoff_t)st_r->st_size >= file->metadata_write_size);
+		if ((uoff_t)st_r->st_size < file->metadata_write_size) {
+			fs_set_error(_file->fs,
+				"Just-written %s shrank unexpectedly "
+				"(%"PRIuUOFF_T" < %"PRIuUOFF_T")",
+				fs_file_path(_file), st_r->st_size,
+				file->metadata_write_size);
+			return -1;
+		}
 		st_r->st_size -= file->metadata_write_size;
 		return 0;
 	}
