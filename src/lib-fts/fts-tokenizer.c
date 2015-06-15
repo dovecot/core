@@ -89,7 +89,7 @@ int fts_tokenizer_create(const struct fts_tokenizer *tok_class,
 		settings = &empty_settings;
 
 	if (tok_class->v->create(settings, &tok, error_r) < 0) {
-		*tokenizer_r = 0;
+		*tokenizer_r = NULL;
 		return -1;
 	}
 	tok->refcount = 1;
