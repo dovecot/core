@@ -195,12 +195,12 @@ bool stats_import(const unsigned char *data, size_t size,
 		p = memchr(data, '\0', size);
 		if (p == NULL) {
 			*error_r = "Expected name, but NUL is missing";
-			return -1;
+			return FALSE;
 		}
 		item = stats_item_find_by_name(next_name);
 		if (item == NULL) {
 			*error_r = t_strdup_printf("Unknown stats name: '%s'", next_name);
-			return -1;
+			return FALSE;
 		}
 		size -= (p+1) - data;
 		data = p+1;
