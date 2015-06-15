@@ -899,6 +899,13 @@ static void master_service_listen(struct master_service_listener *l)
 	}
 	conn.ssl = l->ssl;
 	conn.name = l->name;
+
+	(void)net_getsockname(conn.fd, &conn.local_ip, &conn.local_port);
+	conn.real_remote_ip = conn.remote_ip;
+	conn.real_remote_port = conn.remote_port;
+	conn.real_local_ip = conn.local_ip;
+	conn.real_local_port = conn.local_port;
+
 	net_set_nonblock(conn.fd, TRUE);
 
 	master_service_client_connection_created(service);
