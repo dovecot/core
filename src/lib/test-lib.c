@@ -14,6 +14,7 @@ int main(void)
 		test_buffer,
 		test_crc32,
 		test_data_stack,
+		test_failures,
 		test_guid,
 		test_hash,
 		test_hash_format,

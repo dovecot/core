@@ -15,6 +15,7 @@ void test_buffer(void);
 void test_crc32(void);
 void test_data_stack(void);
 enum fatal_test_state fatal_data_stack(int);
+void test_failures(void);
 void test_guid(void);
 void test_hash(void);
 void test_hash_format(void);
