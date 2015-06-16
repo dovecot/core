@@ -64,6 +64,7 @@ static void fs_classes_init(void)
 {
 	i_array_init(&fs_classes, 8);
 	fs_class_register(&fs_class_posix);
+	fs_class_register(&fs_class_randomfail);
 	fs_class_register(&fs_class_metawrap);
 	fs_class_register(&fs_class_sis);
 	fs_class_register(&fs_class_sis_queue);

@@ -8,6 +8,7 @@ AM_CPPFLAGS = \
 libfs_la_SOURCES = \
 	fs-api.c \
 	fs-metawrap.c \
+	fs-randomfail.c \
 	fs-posix.c \
 	fs-sis.c \
 	fs-sis-common.c \

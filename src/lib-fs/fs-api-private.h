@@ -135,6 +135,7 @@ struct fs_iter {
 };
 
 extern const struct fs fs_class_posix;
+extern const struct fs fs_class_randomfail;
 extern const struct fs fs_class_metawrap;
 extern const struct fs fs_class_sis;
 extern const struct fs fs_class_sis_queue;
