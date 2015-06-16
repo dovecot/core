@@ -65,6 +65,7 @@ liblib_la_SOURCES = \
 	istream-concat.c \
 	istream-crlf.c \
 	istream-data.c \
+	istream-failure-at.c \
 	istream-file.c \
 	istream-hash.c \
 	istream-jsonstr.c \
@@ -203,6 +204,7 @@ headers = \
 	istream-chain.h \
 	istream-concat.h \
 	istream-crlf.h \
+	istream-failure-at.h \
 	istream-file-private.h \
 	istream-hash.h \
 	istream-jsonstr.h \
@@ -306,6 +308,7 @@ test_lib_SOURCES = \
 	test-istream-base64-encoder.c \
 	test-istream-concat.c \
 	test-istream-crlf.c \
+	test-istream-failure-at.c \
 	test-istream-seekable.c \
 	test-istream-tee.c \
 	test-istream-unix.c \

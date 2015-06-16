@@ -26,6 +26,7 @@ int main(void)
 		test_istream_base64_encoder,
 		test_istream_concat,
 		test_istream_crlf,
+		test_istream_failure_at,
 		test_istream_seekable,
 		test_istream_tee,
 		test_istream_unix,

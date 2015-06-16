@@ -27,6 +27,7 @@ void test_istream_base64_decoder(void);
 void test_istream_base64_encoder(void);
 void test_istream_concat(void);
 void test_istream_crlf(void);
+void test_istream_failure_at(void);
 void test_istream_seekable(void);
 void test_istream_tee(void);
 void test_istream_unix(void);
