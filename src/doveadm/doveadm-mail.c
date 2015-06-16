@@ -45,6 +45,11 @@ bool doveadm_is_killed(void)
 	return killed_signo != 0;
 }
 
+int doveadm_killed_signo(void)
+{
+	return killed_signo;
+}
+
 void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
 			       enum mail_error error)
 {
