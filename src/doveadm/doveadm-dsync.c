@@ -383,9 +383,12 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	changed1 = changed2 = TRUE;
 	while (brain1_running || brain2_running) {
 		if (dsync_brain_has_failed(brain) ||
-		    dsync_brain_has_failed(brain2) ||
-		    doveadm_is_killed())
+		    dsync_brain_has_failed(brain2))
 			break;
+		if (doveadm_is_killed()) {
+			i_warning("Killed with signal %d", doveadm_killed_signo());
+			break;
+		}
 
 		i_assert(changed1 || changed2);
 		brain1_running = dsync_brain_run(brain, &changed1);
