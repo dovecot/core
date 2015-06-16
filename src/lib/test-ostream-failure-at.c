@@ -22,7 +22,7 @@ void test_ostream_failure_at(void)
 		buf_output = o_stream_create_buffer(buf);
 		output = o_stream_create_failure_at(buf_output, i, TEST_ERRMSG);
 		if (i > 0)
-			test_assert(o_stream_send(output, test_data, sizeof(test_data)) == i);
+			test_assert(o_stream_send(output, test_data, sizeof(test_data)) == (int)i);
 		test_assert_idx(o_stream_send(output, test_data, sizeof(test_data)) == -1 &&
 				output->offset == i &&
 				output->stream_errno == EIO &&
