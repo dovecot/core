@@ -36,6 +36,7 @@ int main(void)
 		test_mempool_alloconly,
 		test_net,
 		test_numpack,
+		test_ostream_failure_at,
 		test_ostream_file,
 		test_primes,
 		test_printf_format_fix,

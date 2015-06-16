@@ -38,6 +38,7 @@ void test_mempool_alloconly(void);
 enum fatal_test_state fatal_mempool(int);
 void test_net(void);
 void test_numpack(void);
+void test_ostream_failure_at(void);
 void test_ostream_file(void);
 void test_primes(void);
 void test_printf_format_fix(void);

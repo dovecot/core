@@ -109,6 +109,7 @@ liblib_la_SOURCES = \
 	numpack.c \
 	ostream.c \
 	ostream-buffer.c \
+	ostream-failure-at.c \
 	ostream-file.c \
 	ostream-hash.c \
 	ostream-rawlog.c \
@@ -237,6 +238,7 @@ headers = \
 	nfs-workarounds.h \
 	numpack.h \
 	ostream.h \
+	ostream-failure-at.h \
 	ostream-hash.h \
 	ostream-private.h \
 	ostream-rawlog.h \
@@ -318,6 +320,7 @@ test_lib_SOURCES = \
 	test-mempool-alloconly.c \
 	test-net.c \
 	test-numpack.c \
+	test-ostream-failure-at.c \
 	test-ostream-file.c \
 	test-primes.c \
 	test-printf-format-fix.c \
