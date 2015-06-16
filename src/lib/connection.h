@@ -63,6 +63,9 @@ struct connection_settings {
 	   to make the functionality identical with inet sockets, which may
 	   simplify the calling code. */
 	bool delayed_unix_client_connected_callback;
+	/* If connect() to UNIX socket fails with EAGAIN, retry for this many
+	   milliseconds before giving up (0 = try once) */
+	unsigned int unix_client_connect_msecs;
 };
 
 struct connection {

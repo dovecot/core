@@ -266,8 +266,10 @@ int connection_client_connect(struct connection *conn)
 
 	if (conn->port != 0)
 		fd = net_connect_ip(&conn->ip, conn->port, NULL);
-	else
+	else if (conn->list->set.unix_client_connect_msecs == 0)
 		fd = net_connect_unix(conn->name);
+	else
+		fd = net_connect_unix_with_retries(conn->name, conn->list->set.unix_client_connect_msecs);
 	if (fd == -1)
 		return -1;
 	conn->fd_in = conn->fd_out = fd;
