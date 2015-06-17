@@ -628,6 +628,7 @@ virtual_get_virtual_uids(struct mailbox *box,
 	while (seq_range_array_iter_nth(&iter, n++, &uid)) {
 		while (i < count && uids[i].real_uid < uid) i++;
 		if (i < count && uids[i].real_uid == uid) {
+			i_assert(uids[i].virtual_uid > 0);
 			seq_range_array_add(virtual_uids_r, 
 					    uids[i].virtual_uid);
 			i++;
@@ -667,6 +668,7 @@ virtual_get_virtual_uid_map(struct mailbox *box,
 
 			array_append(virtual_uids_r, &zero, 1);
 		} else {
+			i_assert(uids[i].virtual_uid > 0);
 			array_append(virtual_uids_r, &uids[i].virtual_uid, 1);
 			i++;
 		}
