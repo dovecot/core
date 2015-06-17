@@ -409,8 +409,6 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	const char *url;
 	int parse_ret;
 
-	i_assert(!conn->posting);
-
 	memset(&solr_lookup_context, 0, sizeof(solr_lookup_context));
 	solr_lookup_context.result_pool = pool;
 	hash_table_create(&solr_lookup_context.mailboxes, default_pool, 0,
