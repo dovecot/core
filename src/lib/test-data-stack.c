@@ -158,13 +158,13 @@ enum fatal_test_state fatal_data_stack(int stage)
 		/* Presume that we need to clean up from the prior test:
 		   undo the evil write, then we will be able to t_pop cleanly,
 		   and finally we can end the test stanza. */
-		if (things_are_messed_up || undo_ptr == NULL || t_id == 999999999)
+		if (things_are_messed_up || undo_ptr == NULL)
 			return FATAL_TEST_ABORT; /* abort, things are messed up with t_pop */
 		*undo_ptr = undo_data;
 		undo_ptr = NULL;
 		/* t_pop musn't abort, that would cause recursion */
 		things_are_messed_up = TRUE;
-		if (t_pop() != t_id)
+		if (t_id != 999999999 && t_pop() != t_id)
 			return FATAL_TEST_ABORT; /* abort, things are messed up with us */
 		things_are_messed_up = FALSE;
 		t_id = 999999999;
@@ -206,6 +206,7 @@ enum fatal_test_state fatal_data_stack(int stage)
 		*undo_ptr = '*';
 		/* t_pop will now fail */
 		(void)t_pop();
+		t_id = 999999999; /* We're FUBAR, mustn't pop next entry */
 		return FATAL_TEST_FAILURE;
 	}
 
@@ -218,6 +219,7 @@ enum fatal_test_state fatal_data_stack(int stage)
 		*undo_ptr = '*';
 		/* t_pop will now fail */
 		(void)t_pop();
+		t_id = 999999999; /* We're FUBAR, mustn't pop next entry */
 		return FATAL_TEST_FAILURE;
 	}
 
