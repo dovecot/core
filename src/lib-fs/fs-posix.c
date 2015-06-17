@@ -32,6 +32,7 @@ enum fs_posix_lock_method {
 struct posix_fs {
 	struct fs fs;
 	char *temp_file_prefix, *root_path, *path_prefix;
+	unsigned int temp_file_prefix_len;
 	enum fs_posix_lock_method lock_method;
 	mode_t mode, dir_mode;
 };
@@ -79,6 +80,7 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 
 	fs->temp_file_prefix = set->temp_file_prefix != NULL ?
 		i_strdup(set->temp_file_prefix) : i_strdup("temp.dovecot.");
+	fs->temp_file_prefix_len = strlen(fs->temp_file_prefix);
 	fs->root_path = i_strdup(set->root_path);
 	fs->fs.set.temp_file_prefix = fs->temp_file_prefix;
 	fs->fs.set.root_path = fs->root_path;
@@ -731,6 +733,7 @@ static bool fs_posix_iter_want(struct posix_fs_iter *iter, const char *fname)
 static const char *fs_posix_iter_next(struct fs_iter *_iter)
 {
 	struct posix_fs_iter *iter = (struct posix_fs_iter *)_iter;
+	struct posix_fs *fs = (struct posix_fs *)_iter->fs;
 	struct dirent *d;
 
 	if (iter->dir == NULL)
@@ -740,6 +743,9 @@ static const char *fs_posix_iter_next(struct fs_iter *_iter)
 	for (; (d = readdir(iter->dir)) != NULL; errno = 0) {
 		if (strcmp(d->d_name, ".") == 0 ||
 		    strcmp(d->d_name, "..") == 0)
+			continue;
+		if (strncmp(d->d_name, fs->temp_file_prefix,
+			    fs->temp_file_prefix_len) == 0)
 			continue;
 #ifdef HAVE_DIRENT_D_TYPE
 		switch (d->d_type) {
