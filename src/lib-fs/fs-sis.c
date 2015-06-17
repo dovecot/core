@@ -375,8 +375,6 @@ static int fs_sis_write_stream_finish(struct fs_file *_file, bool success)
 {
 	struct sis_fs_file *file = (struct sis_fs_file *)_file;
 
-	if (o_stream_nfinish(_file->output) < 0)
-		success = FALSE;
 	if (!success) {
 		if (file->super != NULL) {
 			fs_write_stream_abort(file->super, &file->fs_output);

@@ -382,12 +382,6 @@ static int fs_randomfail_write_stream_finish(struct fs_file *_file, bool success
 	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
 
 	if (_file->output != NULL) {
-		if (o_stream_nfinish(_file->output) < 0) {
-			fs_set_error(_file->fs, "write(%s) failed: %s",
-				     o_stream_get_name(_file->output),
-				     o_stream_get_error(_file->output));
-			success = FALSE;
-		}
 		if (_file->output == file->super_output)
 			_file->output = NULL;
 		else

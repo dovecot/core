@@ -47,7 +47,6 @@ struct posix_fs_file {
 
 	bool seek_to_beginning;
 	bool success;
-	bool open_failed;
 };
 
 struct posix_fs_lock {
@@ -475,7 +474,6 @@ static void fs_posix_write_stream(struct fs_file *_file)
 	} else if (file->fd == -1 && fs_posix_open(file) < 0) {
 		_file->output = o_stream_create_error_str(errno, "%s",
 			fs_file_last_error(_file));
-		file->open_failed = TRUE;
 	} else {
 		_file->output = o_stream_create_fd_file(file->fd,
 							(uoff_t)-1, FALSE);
@@ -488,14 +486,6 @@ static int fs_posix_write_stream_finish(struct fs_file *_file, bool success)
 	struct posix_fs_file *file = (struct posix_fs_file *)_file;
 	int ret = success ? 0 : -1;
 
-	if (file->open_failed)
-		ret = -1;
-	else if (o_stream_nfinish(_file->output) < 0) {
-		fs_set_error(_file->fs, "write(%s) failed: %s",
-			     o_stream_get_name(_file->output),
-			     o_stream_get_error(_file->output));
-		ret = -1;
-	}
 	o_stream_destroy(&_file->output);
 
 	switch (file->open_mode) {
