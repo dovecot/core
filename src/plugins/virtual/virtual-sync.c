@@ -1583,6 +1583,14 @@ static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
 		virtual_sync_new_backend_boxes(ctx);
 	}
 	ret = virtual_sync_backend_add_new(ctx);
+#ifdef DEBUG
+	for (i = 0; i < count; i++) {
+		const struct virtual_backend_uidmap *uidmap;
+
+		array_foreach(&bboxes[i]->uids, uidmap)
+			i_assert(uidmap->virtual_uid > 0);
+	}
+#endif
 	array_free(&ctx->all_adds);
 	if (array_is_created(&ctx->all_mails))
 		array_free(&ctx->all_mails);
