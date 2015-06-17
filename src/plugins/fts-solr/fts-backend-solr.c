@@ -26,6 +26,8 @@
    header fields as long as they're smaller than this */
 #define SOLR_HEADER_LINE_MAX_TRUNC_SIZE 1024
 
+#define SOLR_QUERY_MAX_MAILBOX_COUNT 10
+
 struct solr_fts_backend {
 	struct fts_backend backend;
 	struct solr_connection *solr_conn;
@@ -831,6 +833,7 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 	struct mailbox *box;
 	const char *box_guid;
 	unsigned int i, len;
+	bool search_all_mailboxes;
 
 	/* use a separate filter query for selecting the mailbox. it shouldn't
 	   affect the score and there could be some caching benefits too. */
@@ -841,19 +844,26 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 		str_append(str, "%22%22");
 
 	hash_table_create(&mailboxes, default_pool, 0, str_hash, strcmp);
-	str_append(str, "%2B(");
+	for (i = 0; boxes[i] != NULL; i++) ;
+	search_all_mailboxes = i > SOLR_QUERY_MAX_MAILBOX_COUNT;
+	if (!search_all_mailboxes)
+		str_append(str, "%2B(");
 	len = str_len(str);
+
 	for (i = 0; boxes[i] != NULL; i++) {
 		if (fts_mailbox_get_guid(boxes[i], &box_guid) < 0)
 			continue;
 
-		if (str_len(str) != len)
-			str_append(str, "+OR+");
-		str_printfa(str, "box:%s", box_guid);
+		if (!search_all_mailboxes) {
+			if (str_len(str) != len)
+				str_append(str, "+OR+");
+			str_printfa(str, "box:%s", box_guid);
+		}
 		hash_table_insert(mailboxes, t_strdup_noconst(box_guid),
 				  boxes[i]);
 	}
-	str_append_c(str, ')');
+	if (!search_all_mailboxes)
+		str_append_c(str, ')');
 
 	if (solr_connection_select(backend->solr_conn, str_c(str),
 				   result->pool, &solr_results) < 0) {
@@ -865,8 +875,10 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 	for (i = 0; solr_results[i] != NULL; i++) {
 		box = hash_table_lookup(mailboxes, solr_results[i]->box_id);
 		if (box == NULL) {
-			i_warning("fts_solr: Lookup returned unexpected mailbox "
-				  "with guid=%s", solr_results[i]->box_id);
+			if (!search_all_mailboxes) {
+				i_warning("fts_solr: Lookup returned unexpected mailbox "
+					  "with guid=%s", solr_results[i]->box_id);
+			}
 			continue;
 		}
 		fts_result = array_append_space(&fts_results);
