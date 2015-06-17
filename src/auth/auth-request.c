@@ -1305,8 +1305,10 @@ bool auth_request_set_login_username(struct auth_request *request,
 	return TRUE;
 }
 
-static void auth_request_validate_networks(struct auth_request *request,
-					   const char *networks)
+static void
+auth_request_validate_networks(struct auth_request *request,
+			       const char *name, const char *networks,
+			       const struct ip_addr *remote_ip)
 {
 	const char *const *net;
 	struct ip_addr net_ip;
@@ -1315,20 +1317,20 @@ static void auth_request_validate_networks(struct auth_request *request,
 
 	for (net = t_strsplit_spaces(networks, ", "); *net != NULL; net++) {
 		auth_request_log_debug(request, AUTH_SUBSYS_DB,
-			"allow_nets: Matching for network %s", *net);
+			"%s: Matching for network %s", name, *net);
 
-		if (strcmp(*net, "local") == 0 && request->remote_ip.family == 0) {
+		if (strcmp(*net, "local") == 0 && remote_ip->family == 0) {
 			found = TRUE;
 			break;
 		}
 
 		if (net_parse_range(*net, &net_ip, &bits) < 0) {
 			auth_request_log_info(request, AUTH_SUBSYS_DB,
-				"allow_nets: Invalid network '%s'", *net);
+				"%s: Invalid network '%s'", name, *net);
 		}
 
-		if (request->remote_ip.family != 0 &&
-		    net_is_in_network(&request->remote_ip, &net_ip, bits)) {
+		if (remote_ip->family != 0 &&
+		    net_is_in_network(remote_ip, &net_ip, bits)) {
 			found = TRUE;
 			break;
 		}
@@ -1336,12 +1338,13 @@ static void auth_request_validate_networks(struct auth_request *request,
 
 	if (found)
 		;
-	else if (request->remote_ip.family == 0) {
+	else if (remote_ip->family == 0) {
 		auth_request_log_info(request, AUTH_SUBSYS_DB,
-			"allow_nets check failed: Remote IP not known and 'local' missing");
+			"%s check failed: Remote IP not known and 'local' missing", name);
 	} else if (!found) {
 		auth_request_log_info(request, AUTH_SUBSYS_DB,
-			"allow_nets check failed: IP not in allowed networks");
+			"%s check failed: IP %s not in allowed networks",
+			name, net_ip2addr(remote_ip));
 	}
 	request->failed = !found;
 }
@@ -1465,7 +1468,9 @@ void auth_request_set_field(struct auth_request *request,
 	} else if (strcmp(name, "login_user") == 0) {
 		request->requested_login_user = p_strdup(request->pool, value);
 	} else if (strcmp(name, "allow_nets") == 0) {
-		auth_request_validate_networks(request, value);
+		auth_request_validate_networks(request, name, value, &request->remote_ip);
+	} else if (strcmp(name, "allow_real_nets") == 0) {
+		auth_request_validate_networks(request, name, value, &request->real_remote_ip);
 	} else if (strncmp(name, "userdb_", 7) == 0) {
 		/* for prefetch userdb */
 		request->userdb_prefetch_set = TRUE;
