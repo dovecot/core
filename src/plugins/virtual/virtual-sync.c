@@ -1228,8 +1228,6 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 
 		if (bbox == NULL || bbox->mailbox_id != vrec->mailbox_id) {
 			/* add the rest of the newly seen messages */
-			i_assert(j == uidmap_count ||
-				 bbox->search_result != NULL);
 			for (; j < uidmap_count; j++) {
 				add_rec.rec.real_uid = uidmap[j].real_uid;
 				array_append(&ctx->all_adds, &add_rec, 1);
@@ -1247,11 +1245,6 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 			add_rec.rec.mailbox_id = bbox->mailbox_id;
 			bbox->sync_seen = TRUE;
 		}
-		if (bbox->search_result == NULL) {
-			/* mailbox is completely unchanged since last sync */
-			j = uidmap_count;
-			continue;
-		}
 		mail_index_lookup_uid(ctx->sync_view, vseq, &vuid);
 
 		/* if virtual record doesn't exist in uidmap, it's expunged */
@@ -1268,8 +1261,13 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 		else {
 			/* exists - update uidmap and flags */
 			uidmap[j++].virtual_uid = vuid;
-			virtual_sync_external_flags(ctx, bbox, vseq,
-						    vrec->real_uid);
+			if (bbox->search_result == NULL) {
+				/* mailbox is completely unchanged since last
+				   sync - no need to sync flags */
+			} else {
+				virtual_sync_external_flags(ctx, bbox, vseq,
+							    vrec->real_uid);
+			}
 		}
 	}
 	i_free(vmails);
