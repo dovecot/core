@@ -148,6 +148,7 @@ static void fts_parser_tika_more(struct fts_parser *_parser,
 				 struct message_block *block)
 {
 	struct tika_fts_parser *parser = (struct tika_fts_parser *)_parser;
+	struct ioloop *prev_ioloop = current_ioloop;
 	const unsigned char *data;
 	size_t size;
 	ssize_t ret;
@@ -174,10 +175,11 @@ static void fts_parser_tika_more(struct fts_parser *_parser,
 			return;
 		i_assert(parser->payload != NULL);
 	}
-	/* continue returning data from Tika */
+	/* continue returning data from Tika. we'll create a new ioloop just
+	   for reading this one payload. */
 	while ((ret = i_stream_read_data(parser->payload, &data, &size, 0)) == 0) {
 		if (parser->failed)
-			return;
+			break;
 		/* wait for more input from Tika */
 		if (parser->ioloop == NULL) {
 			parser->ioloop = io_loop_create();
@@ -188,7 +190,12 @@ static void fts_parser_tika_more(struct fts_parser *_parser,
 		}
 		io_loop_run(current_ioloop);
 	}
-	if (size > 0) {
+	/* switch back to original ioloop. */
+	io_loop_set_current(prev_ioloop);
+
+	if (parser->failed)
+		;
+	else if (size > 0) {
 		i_assert(ret > 0);
 		block->data = data;
 		block->size = size;
@@ -210,16 +217,18 @@ static int fts_parser_tika_deinit(struct fts_parser *_parser)
 	struct tika_fts_parser *parser = (struct tika_fts_parser *)_parser;
 	int ret = parser->failed ? -1 : 0;
 
-	if (parser->ioloop != NULL) {
-		io_remove(&parser->io);
-		io_loop_destroy(&parser->ioloop);
-	}
+	/* remove io before unrefing payload - otherwise lib-http adds another
+	   timeout to ioloop unnecessarily */
 	if (parser->payload != NULL)
 		i_stream_unref(&parser->payload);
-	/* FIXME: kludgy, http_req should be NULL here if we don't want to
-	   free it. requires lib-http changes. */
+	if (parser->io != NULL)
+		io_remove(&parser->io);
 	if (parser->http_req != NULL)
 		http_client_request_abort(&parser->http_req);
+	if (parser->ioloop != NULL) {
+		io_loop_set_current(parser->ioloop);
+		io_loop_destroy(&parser->ioloop);
+	}
 	i_free(parser);
 	return ret;
 }
