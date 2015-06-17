@@ -557,14 +557,23 @@ struct ostream *fs_write_stream(struct fs_file *file)
 int fs_write_stream_finish(struct fs_file *file, struct ostream **output)
 {
 	int ret;
+	bool success = TRUE;
 
 	i_assert(*output == file->output || *output == NULL);
 
 	*output = NULL;
 	if (file->output != NULL)
 		o_stream_uncork(file->output);
+	if (file->output != NULL) {
+		if (o_stream_nfinish(file->output) < 0) {
+			fs_set_error(file->fs, "write(%s) failed: %s",
+				     o_stream_get_name(file->output),
+				     o_stream_get_error(file->output));
+			success = FALSE;
+		}
+	}
 	T_BEGIN {
-		ret = file->fs->v.write_stream_finish(file, TRUE);
+		ret = file->fs->v.write_stream_finish(file, success);
 	} T_END;
 	if (ret != 0)
 		file->metadata_changed = FALSE;
