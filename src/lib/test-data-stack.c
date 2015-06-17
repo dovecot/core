@@ -148,6 +148,7 @@ void test_data_stack(void)
 
 enum fatal_test_state fatal_data_stack(int stage)
 {
+#ifdef DEBUG
 	/* If we abort, then we'll be left with a dangling t_push()
 	   keep a record of our temporary stack id, so we can clean up. */
 	static unsigned int t_id = 999999999;
@@ -172,7 +173,6 @@ enum fatal_test_state fatal_data_stack(int stage)
 	}
 
 	switch(stage) {
-#ifdef DEBUG
 	case 0: {
 		unsigned char *p;
 		test_begin("fatal data-stack underrun");
@@ -223,9 +223,11 @@ enum fatal_test_state fatal_data_stack(int stage)
 		return FATAL_TEST_FAILURE;
 	}
 
-#endif
 	default:
 		things_are_messed_up = TRUE;
 		return FATAL_TEST_FINISHED;
 	}
+#else
+	return stage == 0 ? FATAL_TEST_FINISHED : FATAL_TEST_ABORT;
+#endif
 }
