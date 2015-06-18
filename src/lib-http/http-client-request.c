@@ -832,11 +832,16 @@ static int http_client_request_send_real(struct http_client_request *req,
 int http_client_request_send(struct http_client_request *req,
 			     const char **error_r)
 {
+	char *errstr = NULL;
 	int ret;
 
 	T_BEGIN {
 		ret = http_client_request_send_real(req, error_r);
+		if (ret < 0)
+			errstr = i_strdup(*error_r);
 	} T_END;
+	*error_r = t_strdup(errstr);
+	i_free(errstr);
 	return ret;
 }
 
