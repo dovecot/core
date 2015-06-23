@@ -292,8 +292,10 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	client->client = imapc_client_init(&set);
 	imapc_client_register_untagged(client->client,
 				       imapc_storage_client_untagged_cb, client);
-	/* start logging in immediately */
-	imapc_client_login(client->client, imapc_storage_client_login, client);
+	if ((ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0) {
+		/* start logging in immediately */
+		imapc_client_login(client->client, imapc_storage_client_login, client);
+	}
 
 	*client_r = client;
 	return 0;
