@@ -501,8 +501,7 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 		}
 	}
 
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0 &&
-	    (ctx->ns_info.flags & MAILBOX_SELECT) == 0) {
+	if ((ctx->ns_info.flags & MAILBOX_SELECT) == 0) {
 		/* see if namespace prefix is selectable */
 		box = mailbox_alloc(ns->list, ctx->ns_info.vname, 0);
 		if (mailbox_exists(box, TRUE, &existence) == 0 &&
