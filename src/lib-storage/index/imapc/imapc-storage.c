@@ -207,6 +207,12 @@ imapc_storage_client_login(const struct imapc_command_reply *reply,
 
 	if (reply->state == IMAPC_COMMAND_STATE_OK)
 		return;
+	if (client->destroying &&
+	    reply->state == IMAPC_COMMAND_STATE_DISCONNECTED) {
+		/* user's work was finished before imapc login finished -
+		   it's not an error */
+		return;
+	}
 
 	i_error("imapc: Authentication failed: %s", reply->text_full);
 	client->auth_failed = TRUE;
@@ -349,6 +355,8 @@ imapc_storage_create(struct mail_storage *_storage,
 static void imapc_storage_destroy(struct mail_storage *_storage)
 {
 	struct imapc_storage *storage = (struct imapc_storage *)_storage;
+
+	storage->client->destroying = TRUE;
 
 	/* make sure all pending commands are aborted before anything is
 	   deinitialized */

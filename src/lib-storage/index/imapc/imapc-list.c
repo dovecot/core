@@ -87,6 +87,8 @@ static void imapc_list_deinit(struct mailbox_list *_list)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 
+	list->client->destroying = TRUE;
+
 	/* make sure all pending commands are aborted before anything is
 	   deinitialized */
 	if (list->client != NULL) {

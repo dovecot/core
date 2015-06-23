@@ -52,6 +52,7 @@ struct imapc_storage_client {
 	ARRAY(struct imapc_storage_event_callback) untagged_callbacks;
 
 	unsigned int auth_failed:1;
+	unsigned int destroying:1;
 };
 
 struct imapc_storage {
