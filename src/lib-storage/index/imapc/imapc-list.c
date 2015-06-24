@@ -696,7 +696,7 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 			return NULL;
 	} while ((node->flags & MAILBOX_MATCHED) == 0);
 
-	if (ctx->info.ns->prefix > 0 &&
+	if (ctx->info.ns->prefix_len > 0 &&
 	    strncmp(vname, ctx->info.ns->prefix, ctx->info.ns->prefix_len-1) == 0 &&
 	    vname[ctx->info.ns->prefix_len] == '\0' &&
 	    list->set->imapc_list_prefix[0] == '\0') {
