@@ -56,7 +56,7 @@ static void test_net_ip2addr(void)
 	test_begin("net_ip2addr()");
 	test_assert(net_addr2ip("127.0.0.1", &ip) == 0 &&
 		    ip.family == AF_INET &&
-		    ip.u.ip4.s_addr == (127 | (1 << 24)));
+		    ntohl(ip.u.ip4.s_addr) == (0x7f000001));
 #ifdef HAVE_IPV6
 	test_assert(net_addr2ip("::5", &ip) == 0 &&
 		    ip.family == AF_INET6 &&
