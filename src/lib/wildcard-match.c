@@ -35,10 +35,10 @@ static int wildcard_match_int(const char *data, const char *mask, int icase)
 	  return ma[0] == '\0' ? MATCH : NOMATCH;
   }
   /* find the end of each string */
-  while (*(++mask));
-  mask--;
-  while (*(++data));
-  data--;
+  while (*(mask++));
+  mask-=2;
+  while (*(data++));
+  data-=2;
 
   while (data >= na) {
     /* If the mask runs out of chars before the string, fall back on
