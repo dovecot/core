@@ -235,6 +235,15 @@ void indexer_queue_request_finish(struct indexer_queue *queue,
 void indexer_queue_cancel_all(struct indexer_queue *queue)
 {
 	struct indexer_request *request;
+	struct hash_iterate_context *iter;
+
+	/* remove all reindex-markers so when the current requests finish
+	   (or are cancelled) we don't try to retry them (especially during
+	   deinit where it crashes) */
+	iter = hash_table_iterate_init(queue->requests);
+	while (hash_table_iterate(iter, queue->requests, &request, &request))
+		request->reindex_head = request->reindex_tail = FALSE;
+	hash_table_iterate_deinit(&iter);
 
 	while ((request = indexer_queue_request_peek(queue)) != NULL) {
 		indexer_queue_request_remove(queue);
