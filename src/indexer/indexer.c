@@ -59,11 +59,6 @@ static void queue_try_send_more(struct indexer_queue *queue)
 	struct worker_connection *conn;
 	struct indexer_request *request;
 
-	if (worker_pool == NULL) {
-		/* deinitializing */
-		return;
-	}
-
 	while ((request = indexer_queue_request_peek(queue)) != NULL) {
 		conn = worker_pool_find_username_connection(worker_pool,
 							    request->username);
