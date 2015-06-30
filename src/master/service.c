@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-#define SERVICE_DIE_TIMEOUT_MSECS (1000*60)
+#define SERVICE_DIE_TIMEOUT_MSECS (1000*6)
 #define SERVICE_LOGIN_NOTIFY_MIN_INTERVAL_SECS 2
 
 HASH_TABLE_TYPE(pid_process) service_pids;
@@ -508,6 +508,7 @@ int services_create(const struct master_settings *set,
 void service_signal(struct service *service, int signo)
 {
 	struct service_process *process = service->processes;
+	unsigned int count = 0;
 
 	for (; process != NULL; process = process->next) {
 		i_assert(process->service == service);
@@ -518,10 +519,17 @@ void service_signal(struct service *service, int signo)
 			continue;
 		}
 		    
-		if (kill(process->pid, signo) < 0 && errno != ESRCH) {
+		if (kill(process->pid, signo) == 0)
+			count++;
+		else if (errno != ESRCH) {
 			service_error(service, "kill(%s, %d) failed: %m",
 				      dec2str(process->pid), signo);
 		}
+	}
+	if (count > 0) {
+		i_warning("Sent %s to %u %s processes",
+			  signo == SIGTERM ? "SIGTERM" : "SIGKILL",
+			  count, service->set->name);
 	}
 }
 
