@@ -505,8 +505,10 @@ i_stream_header_filter_stat(struct istream_private *stream, bool exact)
 	const struct stat *st;
 	uoff_t old_offset;
 
-	if (i_stream_stat(stream->parent, exact, &st) < 0)
+	if (i_stream_stat(stream->parent, exact, &st) < 0) {
+		stream->istream.stream_errno = stream->parent->stream_errno;
 		return -1;
+	}
 	stream->statbuf = *st;
 	if (stream->statbuf.st_size == -1 || !exact)
 		return 0;

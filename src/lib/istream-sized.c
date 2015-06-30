@@ -98,8 +98,10 @@ i_stream_sized_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 	/* parent stream may be base64-decoder. don't waste time decoding the
 	   entire stream, since we already know what the size is supposed
 	   to be. */
-	if (i_stream_stat(stream->parent, FALSE, &st) < 0)
+	if (i_stream_stat(stream->parent, FALSE, &st) < 0) {
+		stream->istream.stream_errno = stream->parent->stream_errno;
 		return -1;
+	}
 
 	stream->statbuf = *st;
 	stream->statbuf.st_size = sstream->size;

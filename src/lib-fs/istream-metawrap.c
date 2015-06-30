@@ -92,8 +92,10 @@ static int i_stream_metawrap_stat(struct istream_private *stream, bool exact)
 	const struct stat *st;
 	int ret;
 
-	if (i_stream_stat(stream->parent, exact, &st) < 0)
+	if (i_stream_stat(stream->parent, exact, &st) < 0) {
+		stream->istream.stream_errno = stream->parent->stream_errno;
 		return -1;
+	}
 	stream->statbuf = *st;
 
 	if (mstream->in_metadata) {

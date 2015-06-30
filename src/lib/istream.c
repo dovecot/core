@@ -767,8 +767,10 @@ i_stream_default_stat(struct istream_private *stream, bool exact)
 	if (stream->parent == NULL)
 		return stream->istream.stream_errno == 0 ? 0 : -1;
 
-	if (i_stream_stat(stream->parent, exact, &st) < 0)
+	if (i_stream_stat(stream->parent, exact, &st) < 0) {
+		stream->istream.stream_errno = stream->parent->stream_errno;
 		return -1;
+	}
 	stream->statbuf = *st;
 	if (exact && !stream->stream_size_passthrough) {
 		/* exact size is not known, even if parent returned something */
@@ -781,8 +783,10 @@ static int
 i_stream_default_get_size(struct istream_private *stream,
 			  bool exact, uoff_t *size_r)
 {
-	if (stream->stat(stream, exact) < 0)
+	if (stream->stat(stream, exact) < 0) {
+		stream->istream.stream_errno = stream->parent->stream_errno;
 		return -1;
+	}
 	if (stream->statbuf.st_size == -1)
 		return 0;
 

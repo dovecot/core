@@ -77,8 +77,10 @@ i_stream_limit_stat(struct istream_private *stream, bool exact)
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 	const struct stat *st;
 
-	if (i_stream_stat(stream->parent, exact, &st) < 0)
+	if (i_stream_stat(stream->parent, exact, &st) < 0) {
+		stream->istream.stream_errno = stream->parent->stream_errno;
 		return -1;
+	}
 
 	stream->statbuf = *st;
 	if (lstream->v_size != (uoff_t)-1)
