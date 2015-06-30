@@ -75,7 +75,8 @@ static int i_stream_zlib_read_header(struct istream_private *stream)
 	ret = i_stream_read_data(stream->parent, &data, &size,
 				 zstream->prev_size);
 	if (size == zstream->prev_size) {
-		if (ret == -1) {
+		stream->istream.stream_errno = stream->parent->stream_errno;
+		if (ret == -1 && stream->istream.stream_errno == 0) {
 			zlib_read_error(zstream, "missing gz header");
 			stream->istream.stream_errno = EINVAL;
 		}
@@ -141,7 +142,8 @@ static int i_stream_zlib_read_trailer(struct zlib_istream *zstream)
 	ret = i_stream_read_data(stream->parent, &data, &size,
 				 GZ_TRAILER_SIZE-1);
 	if (size == zstream->prev_size) {
-		if (ret == -1) {
+		stream->istream.stream_errno = stream->parent->stream_errno;
+		if (ret == -1 && stream->istream.stream_errno == 0) {
 			zlib_read_error(zstream, "missing gz trailer");
 			stream->istream.stream_errno = EINVAL;
 		}
