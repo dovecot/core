@@ -161,12 +161,18 @@ i_stream_file_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 		/* return defaults */
 	} else if (stream->fd != -1) {
 		if (fstat(stream->fd, &stream->statbuf) < 0) {
-			i_error("file_istream.fstat(%s) failed: %m", name);
+			stream->istream.stream_errno = errno;
+			io_stream_set_error(&stream->iostream,
+				"file_istream.fstat(%s) failed: %m", name);
+			i_error("%s", i_stream_get_error(&stream->istream));
 			return -1;
 		}
 	} else {
 		if (stat(name, &stream->statbuf) < 0) {
-			i_error("file_istream.stat(%s) failed: %m", name);
+			stream->istream.stream_errno = errno;
+			io_stream_set_error(&stream->iostream,
+				"file_istream.stat(%s) failed: %m", name);
+			i_error("%s", i_stream_get_error(&stream->istream));
 			return -1;
 		}
 	}
