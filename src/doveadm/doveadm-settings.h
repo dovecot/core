@@ -10,6 +10,7 @@ struct doveadm_settings {
 	const char *doveadm_socket_path;
 	unsigned int doveadm_worker_count;
 	unsigned int doveadm_port;
+	const char *doveadm_username;
 	const char *doveadm_password;
 	const char *doveadm_allowed_commands;
 	const char *dsync_alt_char;

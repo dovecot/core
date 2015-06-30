@@ -243,7 +243,7 @@ server_connection_authenticate(struct server_connection *conn)
 	}
 
 	str_append_c(plain, '\0');
-	str_append(plain, "doveadm");
+	str_append(plain, conn->set->doveadm_username);
 	str_append_c(plain, '\0');
 	str_append(plain, conn->set->doveadm_password);
 
