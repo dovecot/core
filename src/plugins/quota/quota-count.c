@@ -19,6 +19,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	struct mail *mail;
 	struct mail_search_args *search_args;
 	enum mail_error error;
+	const char *errstr;
 	uoff_t size;
 	int ret = 0;
 
@@ -30,10 +31,13 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		error = mailbox_get_last_mail_error(box);
+		errstr = mailbox_get_last_error(box, &error);
 		mailbox_free(&box);
-		if (error == MAIL_ERROR_TEMP)
+		if (error == MAIL_ERROR_TEMP) {
+			i_error("quota: Couldn't sync mailbox %s: %s",
+				vname, errstr);
 			return -1;
+		}
 		/* non-temporary error, e.g. ACLs denied access. */
 		return 0;
 	}
@@ -49,10 +53,22 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	while (mailbox_search_next(ctx, &mail)) {
 		if (mail_get_physical_size(mail, &size) == 0)
 			*bytes_r += size;
+		else {
+			errstr = mailbox_get_last_error(box, &error);
+			if (error != MAIL_ERROR_EXPUNGED) {
+				i_error("quota: Couldn't get size of mail UID %u in %s: %s",
+					mail->uid, vname, mailbox_get_last_error(box, NULL));
+				ret = -1;
+				break;
+			}
+		}
 		*count_r += 1;
 	}
-	if (mailbox_search_deinit(&ctx) < 0)
+	if (mailbox_search_deinit(&ctx) < 0) {
+		i_error("quota: Listing mails in %s failed: %s",
+			vname, mailbox_get_last_error(box, NULL));
 		ret = -1;
+	}
 
 	if (ret < 0)
 		mailbox_transaction_rollback(&trans);
@@ -83,8 +99,11 @@ quota_count_namespace(struct quota_root *root, struct mail_namespace *ns,
 				break;
 		}
 	}
-	if (mailbox_list_iter_deinit(&ctx) < 0)
+	if (mailbox_list_iter_deinit(&ctx) < 0) {
+		i_error("quota: Listing namespace '%s' failed: %s",
+			ns->prefix, mailbox_list_get_last_error(ns->list, NULL));
 		ret = -1;
+	}
 	if (ns->prefix_len > 0 && ret == 0 &&
 	    (ns->prefix_len != 6 || strncasecmp(ns->prefix, "INBOX", 5) != 0)) {
 		/* if the namespace prefix itself exists, count it also */
