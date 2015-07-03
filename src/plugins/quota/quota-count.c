@@ -69,11 +69,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 			vname, mailbox_get_last_error(box, NULL));
 		ret = -1;
 	}
-
-	if (ret < 0)
-		mailbox_transaction_rollback(&trans);
-	else
-		(void)mailbox_transaction_commit(&trans);
+	(void)mailbox_transaction_commit(&trans);
 
 	mailbox_free(&box);
 	return ret;
