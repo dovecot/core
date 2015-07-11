@@ -36,6 +36,7 @@
 	MODULE_CONTEXT(obj, mailbox_list_index_module)
 
 struct mail_index_view;
+struct mailbox_index_vsize;
 
 /* stored in mail_index_record.flags: */
 enum mailbox_list_index_flags {
@@ -88,6 +89,7 @@ struct mailbox_list_index {
 	const char *path;
 	struct mail_index *index;
 	uint32_t ext_id, msgs_ext_id, hmodseq_ext_id, subs_hdr_ext_id;
+	uint32_t vsize_ext_id;
 	struct timeval last_refresh_timeval;
 
 	pool_t mailbox_pool;
@@ -170,7 +172,8 @@ bool mailbox_list_index_status(struct mailbox_list *list,
 			       struct mail_index_view *view,
 			       uint32_t seq, enum mailbox_status_items items,
 			       struct mailbox_status *status_r,
-			       uint8_t *mailbox_guid);
+			       uint8_t *mailbox_guid,
+			       struct mailbox_index_vsize *vsize_r);
 void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 					      enum mailbox_info_flags *flags);
 void mailbox_list_index_update_mailbox_index(struct mailbox *box,

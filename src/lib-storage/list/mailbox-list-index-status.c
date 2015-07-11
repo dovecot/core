@@ -14,10 +14,12 @@ struct index_list_changes {
 	struct mailbox_status status;
 	guid_128_t guid;
 	uint32_t seq;
+	struct mailbox_index_vsize vsize;
 
 	bool rec_changed;
 	bool msgs_changed;
 	bool hmodseq_changed;
+	bool vsize_changed;
 };
 
 struct index_list_storage_module index_list_storage_module =
@@ -108,7 +110,8 @@ bool mailbox_list_index_status(struct mailbox_list *list,
 			       struct mail_index_view *view,
 			       uint32_t seq, enum mailbox_status_items items,
 			       struct mailbox_status *status_r,
-			       uint8_t *mailbox_guid)
+			       uint8_t *mailbox_guid,
+			       struct mailbox_index_vsize *vsize_r)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 	const void *data;
@@ -161,6 +164,14 @@ bool mailbox_list_index_status(struct mailbox_list *list,
 		else
 			status_r->highest_modseq = *rec;
 	}
+	if (vsize_r != NULL) {
+		mail_index_lookup_ext(view, seq, ilist->vsize_ext_id,
+				      &data, &expunged);
+		if (data == NULL)
+			ret = FALSE;
+		else
+			memcpy(vsize_r, data, sizeof(*vsize_r));
+	}
 	return ret;
 }
 
@@ -184,7 +195,7 @@ index_list_get_cached_status(struct mailbox *box,
 		return ret;
 
 	ret = mailbox_list_index_status(box->list, view, seq, items,
-					status_r, NULL) ? 1 : 0;
+					status_r, NULL, NULL) ? 1 : 0;
 	mail_index_view_close(&view);
 	return ret;
 }
@@ -221,11 +232,79 @@ index_list_get_cached_guid(struct mailbox *box, guid_128_t guid_r)
 		return ret;
 
 	ret = mailbox_list_index_status(box->list, view, seq, 0,
-					&status, guid_r) ? 1 : 0;
+					&status, guid_r, NULL) ? 1 : 0;
 	if (ret > 0 && guid_128_is_empty(guid_r))
 		ret = 0;
 	mail_index_view_close(&view);
 	return ret;
+}
+
+static int index_list_get_cached_vsize(struct mailbox *box, uoff_t *vsize_r)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_status status;
+	struct mailbox_index_vsize vsize;
+	struct mail_index_view *view;
+	uint32_t seq;
+	int ret;
+
+	i_assert(!ilist->syncing);
+
+	if ((ret = index_list_open_view(box, &view, &seq)) <= 0)
+		return ret;
+
+	ret = mailbox_list_index_status(box->list, view, seq,
+					STATUS_MESSAGES | STATUS_UIDNEXT,
+					&status, NULL, &vsize) ? 1 : 0;
+	if (ret > 0 && (vsize.highest_uid + 1 != status.uidnext ||
+			vsize.message_count != status.messages)) {
+		/* out of date vsize info */
+		ret = 0;
+	}
+	if (ret > 0)
+		*vsize_r = vsize.vsize;
+	mail_index_view_close(&view);
+	return ret;
+}
+
+static int
+index_list_try_get_metadata(struct mailbox *box,
+			    enum mailbox_metadata_items items,
+			    struct mailbox_metadata *metadata_r)
+{
+	enum mailbox_metadata_items noncached_items;
+	int ret;
+
+	if (box->opened) {
+		/* if mailbox is already opened, don't bother using the values
+		   in mailbox list index. they have a higher chance of being
+		   wrong. */
+		return 0;
+	}
+	/* see if we have a chance of fulfilling this without opening
+	   the mailbox. */
+	noncached_items = items & ~(MAILBOX_METADATA_GUID |
+				    MAILBOX_METADATA_VIRTUAL_SIZE);
+	if ((noncached_items & MAILBOX_METADATA_PHYSICAL_SIZE) != 0 &&
+	    box->mail_vfuncs->get_physical_size ==
+	    box->mail_vfuncs->get_virtual_size)
+		noncached_items = items & ~MAILBOX_METADATA_PHYSICAL_SIZE;
+
+	if (noncached_items != 0)
+		return 0;
+
+	if ((items & MAILBOX_METADATA_GUID) != 0) {
+		if ((ret = index_list_get_cached_guid(box, metadata_r->guid)) <= 0)
+			return ret;
+	}
+	if ((items & (MAILBOX_METADATA_VIRTUAL_SIZE |
+		      MAILBOX_METADATA_PHYSICAL_SIZE)) != 0) {
+		if ((ret = index_list_get_cached_vsize(box, &metadata_r->virtual_size)) <= 0)
+			return ret;
+		if ((items & MAILBOX_METADATA_PHYSICAL_SIZE) != 0)
+			metadata_r->physical_size = metadata_r->virtual_size;
+	}
+	return 1;
 }
 
 static int
@@ -235,12 +314,23 @@ index_list_get_metadata(struct mailbox *box,
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 
-	if (items == MAILBOX_METADATA_GUID && !box->opened) {
-		if (index_list_get_cached_guid(box, metadata_r->guid) > 0)
-			return 0;
-		/* nonsynced / error, fallback to doing it the slow way */
-	}
+	if (index_list_try_get_metadata(box, items, metadata_r) != 0)
+		return 0;
 	return ibox->module_ctx.super.get_metadata(box, items, metadata_r);
+}
+
+static void
+index_list_update_fill_vsize(struct mailbox *box,
+			     struct mail_index_view *view,
+			     struct index_list_changes *changes_r)
+{
+	const void *data;
+	size_t size;
+
+	mail_index_get_header_ext(view, box->vsize_hdr_ext_id,
+				  &data, &size);
+	if (size == sizeof(changes_r->vsize))
+		memcpy(&changes_r->vsize, data, sizeof(changes_r->vsize));
 }
 
 static bool
@@ -286,6 +376,7 @@ index_list_update_fill_changes(struct mailbox *box,
 		/* modseqs not enabled yet, but we can't return 0 */
 		changes_r->status.highest_modseq = 1;
 	}
+	index_list_update_fill_vsize(box, view, changes_r);
 	mail_index_view_close(&view); hdr = NULL;
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) == 0)
@@ -299,13 +390,15 @@ index_list_has_changed(struct mailbox *box, struct mail_index_view *list_view,
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct mailbox_status old_status;
+	struct mailbox_index_vsize old_vsize;
 	guid_128_t old_guid;
 
 	memset(&old_status, 0, sizeof(old_status));
+	memset(&old_vsize, 0, sizeof(old_vsize));
 	memset(old_guid, 0, sizeof(old_guid));
 	(void)mailbox_list_index_status(box->list, list_view, changes->seq,
 					CACHED_STATUS_ITEMS,
-					&old_status, old_guid);
+					&old_status, old_guid, &old_vsize);
 
 	changes->rec_changed =
 		old_status.uidvalidity != changes->status.uidvalidity &&
@@ -331,13 +424,11 @@ index_list_has_changed(struct mailbox *box, struct mail_index_view *list_view,
 				      ilist->hmodseq_ext_id, &data, &expunged);
 		changes->hmodseq_changed = data != NULL;
 	}
-
-	if (changes->hmodseq_changed &&
-	    old_status.highest_modseq != changes->status.highest_modseq)
-		changes->hmodseq_changed = TRUE;
+	if (memcmp(&old_vsize, &changes->vsize, sizeof(old_vsize)) != 0)
+		changes->vsize_changed = TRUE;
 
 	return changes->rec_changed || changes->msgs_changed ||
-		changes->hmodseq_changed;
+		changes->hmodseq_changed || changes->vsize_changed;
 }
 
 static void
@@ -381,6 +472,11 @@ index_list_update(struct mailbox *box, struct mail_index_view *list_view,
 		mail_index_update_ext(list_trans, changes->seq,
 				      ilist->hmodseq_ext_id,
 				      &changes->status.highest_modseq, NULL);
+	}
+	if (changes->vsize_changed) {
+		mail_index_update_ext(list_trans, changes->seq,
+				      ilist->vsize_ext_id,
+				      &changes->vsize, NULL);
 	}
 }
 
@@ -482,7 +578,7 @@ void mailbox_list_index_update_mailbox_index(struct mailbox *box,
 
 	(void)mailbox_list_index_status(box->list, list_view, changes.seq,
 					CACHED_STATUS_ITEMS, &status,
-					mailbox_guid);
+					mailbox_guid, NULL);
 	if (update->uid_validity != 0) {
 		changes.rec_changed = TRUE;
 		changes.status.uidvalidity = update->uid_validity;
@@ -575,7 +671,7 @@ void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 
 	status.recent = 0;
 	(void)mailbox_list_index_status(box->list, view, seq, STATUS_RECENT,
-					&status, NULL);
+					&status, NULL, NULL);
 	mail_index_view_close(&view);
 
 	if (status.recent != 0)
@@ -604,4 +700,7 @@ void mailbox_list_index_status_init_finish(struct mailbox_list *list)
 	ilist->hmodseq_ext_id =
 		mail_index_ext_register(ilist->index, "hmodseq", 0,
 					sizeof(uint64_t), sizeof(uint64_t));
+	ilist->vsize_ext_id =
+		mail_index_ext_register(ilist->index, "vsize", 0,
+			sizeof(struct mailbox_index_vsize), sizeof(uint64_t));
 }

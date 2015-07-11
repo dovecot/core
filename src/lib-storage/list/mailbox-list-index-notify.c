@@ -160,7 +160,7 @@ notify_lookup_guid(struct mailbox_list_notify_index *inotify,
 	memset(status_r, 0, sizeof(*status_r));
 	memset(guid_r, 0, GUID_128_SIZE);
 	(void)mailbox_list_index_status(inotify->notify.list, view, seq,
-					items, status_r, guid_r);
+					items, status_r, guid_r, NULL);
 	return index_node;
 }
 
