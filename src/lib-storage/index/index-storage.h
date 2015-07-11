@@ -33,7 +33,6 @@ struct index_mailbox_context {
 	ARRAY_TYPE(seq_range) recent_flags;
 	uint32_t recent_flags_prev_uid, recent_flags_last_check_nextuid;
 	uint32_t recent_flags_count;
-	uint32_t vsize_hdr_ext_id;
 
 	time_t sync_last_check;
 	uint32_t list_index_sync_ext_id;

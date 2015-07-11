@@ -8,7 +8,6 @@ static int
 virtual_size_add_new(struct mailbox *box,
 		     struct mailbox_index_vsize *vsize_hdr)
 {
-	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 	const struct mail_index_header *hdr;
 	struct mailbox_transaction_context *trans;
 	struct mail_search_context *search_ctx;
@@ -66,7 +65,7 @@ virtual_size_add_new(struct mailbox *box,
 	} else {
 		/* search failed, cache only up to highest seen uid */
 	}
-	mail_index_update_header_ext(trans->itrans, ibox->vsize_hdr_ext_id,
+	mail_index_update_header_ext(trans->itrans, box->vsize_hdr_ext_id,
 				     0, vsize_hdr, sizeof(*vsize_hdr));
 	(void)mailbox_transaction_commit(&trans);
 	return ret;
@@ -75,7 +74,6 @@ virtual_size_add_new(struct mailbox *box,
 int index_mailbox_get_virtual_size(struct mailbox *box,
 				   struct mailbox_metadata *metadata_r)
 {
-	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 	struct mailbox_index_vsize vsize_hdr;
 	struct mailbox_status status;
 	const void *data;
@@ -83,7 +81,7 @@ int index_mailbox_get_virtual_size(struct mailbox *box,
 	int ret;
 
 	mailbox_get_open_status(box, STATUS_MESSAGES | STATUS_UIDNEXT, &status);
-	mail_index_get_header_ext(box->view, ibox->vsize_hdr_ext_id,
+	mail_index_get_header_ext(box->view, box->vsize_hdr_ext_id,
 				  &data, &size);
 	if (size == sizeof(vsize_hdr))
 		memcpy(&vsize_hdr, data, sizeof(vsize_hdr));

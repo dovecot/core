@@ -317,6 +317,7 @@ struct mailbox {
 	unsigned int transaction_count;
 	enum mailbox_feature enabled_features;
 	struct mail_msgpart_partial_cache partial_cache;
+	uint32_t vsize_hdr_ext_id;
 
 	struct mail_index_view *tmp_sync_view;
 
