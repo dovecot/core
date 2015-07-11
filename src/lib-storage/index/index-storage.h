@@ -117,6 +117,8 @@ void index_storage_get_open_status(struct mailbox *box,
 int index_mailbox_get_metadata(struct mailbox *box,
 			       enum mailbox_metadata_items items,
 			       struct mailbox_metadata *metadata_r);
+int index_mailbox_get_virtual_size(struct mailbox *box,
+				   struct mailbox_metadata *metadata_r);
 
 int index_storage_attribute_set(struct mailbox_transaction_context *t,
 				enum mail_attribute_type type, const char *key,
