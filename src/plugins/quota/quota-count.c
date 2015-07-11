@@ -1,12 +1,10 @@
 /* Copyright (c) 2006-2015 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "array.h"
-#include "mail-search-build.h"
-#include "mail-storage.h"
-#include "mail-namespace.h"
 #include "mailbox-list-iter.h"
 #include "quota-private.h"
+
+extern struct quota_backend quota_backend_count;
 
 static int
 quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
@@ -14,14 +12,11 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 {
 	struct quota_rule *rule;
 	struct mailbox *box;
-	struct mailbox_transaction_context *trans;
-	struct mail_search_context *ctx;
-	struct mail *mail;
-	struct mail_search_args *search_args;
+	struct mailbox_metadata metadata;
+	struct mailbox_status status;
 	enum mail_error error;
 	const char *errstr;
-	uoff_t size;
-	int ret = 0;
+	int ret;
 
 	rule = quota_root_rule_find(root->set, vname);
 	if (rule != NULL && rule->ignore) {
@@ -30,47 +25,23 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	}
 
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_PHYSICAL_SIZE,
+				 &metadata) < 0 ||
+	    mailbox_get_status(box, STATUS_MESSAGES, &status) < 0) {
 		errstr = mailbox_get_last_error(box, &error);
-		mailbox_free(&box);
 		if (error == MAIL_ERROR_TEMP) {
-			i_error("quota: Couldn't sync mailbox %s: %s",
+			i_error("quota: Couldn't get physical size of mailbox %s: %s",
 				vname, errstr);
-			return -1;
+			ret = -1;
+		} else {
+			/* non-temporary error, e.g. ACLs denied access. */
+			ret = 0;
 		}
-		/* non-temporary error, e.g. ACLs denied access. */
-		return 0;
+	} else {
+		ret = 1;
+		*bytes_r = metadata.physical_size;
+		*count_r = status.messages;
 	}
-
-	trans = mailbox_transaction_begin(box, 0);
-
-	search_args = mail_search_build_init();
-	mail_search_build_add_all(search_args);
-	ctx = mailbox_search_init(trans, search_args, NULL,
-				  MAIL_FETCH_PHYSICAL_SIZE, NULL);
-	mail_search_args_unref(&search_args);
-
-	while (mailbox_search_next(ctx, &mail)) {
-		if (mail_get_physical_size(mail, &size) == 0)
-			*bytes_r += size;
-		else {
-			errstr = mailbox_get_last_error(box, &error);
-			if (error != MAIL_ERROR_EXPUNGED) {
-				i_error("quota: Couldn't get size of mail UID %u in %s: %s",
-					mail->uid, vname, mailbox_get_last_error(box, NULL));
-				ret = -1;
-				break;
-			}
-		}
-		*count_r += 1;
-	}
-	if (mailbox_search_deinit(&ctx) < 0) {
-		i_error("quota: Listing mails in %s failed: %s",
-			vname, mailbox_get_last_error(box, NULL));
-		ret = -1;
-	}
-	(void)mailbox_transaction_commit(&trans);
-
 	mailbox_free(&box);
 	return ret;
 }
