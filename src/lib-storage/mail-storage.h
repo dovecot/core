@@ -90,10 +90,11 @@ enum mailbox_metadata_items {
 	MAILBOX_METADATA_VIRTUAL_SIZE		= 0x02,
 	MAILBOX_METADATA_CACHE_FIELDS		= 0x04,
 	MAILBOX_METADATA_PRECACHE_FIELDS	= 0x08,
-	MAILBOX_METADATA_BACKEND_NAMESPACE	= 0x10
+	MAILBOX_METADATA_BACKEND_NAMESPACE	= 0x10,
+	MAILBOX_METADATA_PHYSICAL_SIZE		= 0x20
 	/* metadata items that require mailbox to be synced at least once. */
 #define MAILBOX_METADATA_SYNC_ITEMS \
-	(MAILBOX_METADATA_VIRTUAL_SIZE)
+	(MAILBOX_METADATA_VIRTUAL_SIZE | MAILBOX_METADATA_PHYSICAL_SIZE)
 };
 
 enum mailbox_search_result_flags {
@@ -267,6 +268,8 @@ struct mailbox_metadata {
 	guid_128_t guid;
 	/* sum of virtual size of all messages in mailbox */
 	uint64_t virtual_size;
+	/* sum of physical size of all messages in mailbox */
+	uint64_t physical_size;
 	/* Fields that have "temp" or "yes" caching decision. */
 	const ARRAY_TYPE(mailbox_cache_field) *cache_fields;
 	/* Fields that should be precached */

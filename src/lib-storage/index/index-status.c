@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "array.h"
 #include "mail-cache.h"
-#include "mail-search-build.h"
 #include "mail-index-modseq.h"
 #include "index-storage.h"
 
@@ -287,6 +286,10 @@ int index_mailbox_get_metadata(struct mailbox *box,
 
 	if ((items & MAILBOX_METADATA_VIRTUAL_SIZE) != 0) {
 		if (index_mailbox_get_virtual_size(box, metadata_r) < 0)
+			return -1;
+	}
+	if ((items & MAILBOX_METADATA_PHYSICAL_SIZE) != 0) {
+		if (index_mailbox_get_physical_size(box, metadata_r) < 0)
 			return -1;
 	}
 	if ((items & MAILBOX_METADATA_CACHE_FIELDS) != 0)

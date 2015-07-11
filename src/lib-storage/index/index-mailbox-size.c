@@ -110,3 +110,61 @@ int index_mailbox_get_virtual_size(struct mailbox *box,
 	metadata_r->virtual_size = vsize_hdr.vsize;
 	return ret;
 }
+
+int index_mailbox_get_physical_size(struct mailbox *box,
+				    struct mailbox_metadata *metadata_r)
+{
+	struct mailbox_transaction_context *trans;
+	struct mail_search_context *ctx;
+	struct mail *mail;
+	struct mail_search_args *search_args;
+	uoff_t size;
+	int ret = 0;
+
+	/* if physical size = virtual size always for the storage, we can
+	   use the optimized vsize code for this */
+	if (box->mail_vfuncs->get_physical_size ==
+	    box->mail_vfuncs->get_virtual_size) {
+		if (index_mailbox_get_virtual_size(box, metadata_r) < 0)
+			return -1;
+		metadata_r->physical_size = metadata_r->virtual_size;
+		return 0;
+	}
+	/* do it the slow way (we could implement similar logic as for vsize,
+	   but for now it's not really needed) */
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
+		return -1;
+
+	trans = mailbox_transaction_begin(box, 0);
+
+	search_args = mail_search_build_init();
+	mail_search_build_add_all(search_args);
+	ctx = mailbox_search_init(trans, search_args, NULL,
+				  MAIL_FETCH_PHYSICAL_SIZE, NULL);
+	mail_search_args_unref(&search_args);
+
+	metadata_r->physical_size = 0;
+	while (mailbox_search_next(ctx, &mail)) {
+		if (mail_get_physical_size(mail, &size) == 0)
+			metadata_r->physical_size += size;
+		else {
+			const char *errstr;
+			enum mail_error error;
+
+			errstr = mailbox_get_last_error(box, &error);
+			if (error != MAIL_ERROR_EXPUNGED) {
+				i_error("Couldn't get size of mail UID %u in %s: %s",
+					mail->uid, box->vname, errstr);
+				ret = -1;
+				break;
+			}
+		}
+	}
+	if (mailbox_search_deinit(&ctx) < 0) {
+		i_error("Listing mails in %s failed: %s",
+			box->vname, mailbox_get_last_error(box, NULL));
+		ret = -1;
+	}
+	(void)mailbox_transaction_commit(&trans);
+	return ret;
+}
