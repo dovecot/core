@@ -6,7 +6,7 @@
 
 static int
 virtual_size_add_new(struct mailbox *box,
-		     struct index_vsize_header *vsize_hdr)
+		     struct mailbox_index_vsize *vsize_hdr)
 {
 	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 	const struct mail_index_header *hdr;
@@ -76,7 +76,7 @@ int index_mailbox_get_virtual_size(struct mailbox *box,
 				   struct mailbox_metadata *metadata_r)
 {
 	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
-	struct index_vsize_header vsize_hdr;
+	struct mailbox_index_vsize vsize_hdr;
 	struct mailbox_status status;
 	const void *data;
 	size_t size;

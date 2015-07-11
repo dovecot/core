@@ -16,12 +16,6 @@ enum mailbox_lock_notify_type {
 	MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE
 };
 
-struct index_vsize_header {
-	uint64_t vsize;
-	uint32_t highest_uid;
-	uint32_t message_count;
-};
-
 struct index_mailbox_context {
 	union mailbox_module_context module_ctx;
 	enum mail_index_open_flags index_flags;

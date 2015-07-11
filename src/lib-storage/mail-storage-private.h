@@ -265,6 +265,12 @@ struct mail_msgpart_partial_cache {
 	uoff_t physical_pos, virtual_pos;
 };
 
+struct mailbox_index_vsize {
+	uint64_t vsize;
+	uint32_t highest_uid;
+	uint32_t message_count;
+};
+
 struct mailbox {
 	const char *name;
 	/* mailbox's virtual name (from mail_namespace_get_vname()) */

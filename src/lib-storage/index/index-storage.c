@@ -291,7 +291,7 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	ibox->keyword_names = mail_index_get_keywords(box->index);
 	ibox->vsize_hdr_ext_id =
 		mail_index_ext_register(box->index, "hdr-vsize",
-					sizeof(struct index_vsize_header), 0,
+					sizeof(struct mailbox_index_vsize), 0,
 					sizeof(uint64_t));
 
 	box->opened = TRUE;
