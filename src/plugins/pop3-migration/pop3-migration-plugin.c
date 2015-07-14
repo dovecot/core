@@ -470,6 +470,7 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 	struct imap_msg_map *imap_map;
 	unsigned int pop3_idx, imap_idx, pop3_count, imap_count;
 	unsigned int first_seq, missing_uids_count;
+	uint32_t first_missing_idx = (uint32_t)-1;
 	int ret;
 
 	first_seq = mbox->first_unfound_idx+1;
@@ -512,8 +513,11 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 	}
 	missing_uids_count = 0;
 	for (pop3_idx = 0; pop3_idx < pop3_count; pop3_idx++) {
-		if (pop3_map[pop3_idx].imap_uid == 0)
+		if (pop3_map[pop3_idx].imap_uid == 0) {
+			if (first_missing_idx == (uint32_t)-1)
+				first_missing_idx = pop3_map[pop3_idx].pop3_seq;
 			missing_uids_count++;
+		}
 	}
 	if (missing_uids_count > 0 && !mstorage->all_mailboxes) {
 		if (!mstorage->ignore_missing_uidls) {
@@ -524,7 +528,10 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 			return -1;
 		}
 		i_warning("pop3_migration: %u POP3 messages have no "
-			  "matching IMAP messages", missing_uids_count);
+			  "matching IMAP messages (first POP3 msg %u UIDL %s)",
+			  missing_uids_count,
+			  pop3_map[first_missing_idx].pop3_seq,
+			  pop3_map[first_missing_idx].pop3_uidl);
 	} else if (box->storage->user->mail_debug) {
 		i_debug("pop3_migration: %u mails matched by headers", pop3_count);
 	}
