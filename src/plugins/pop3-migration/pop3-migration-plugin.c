@@ -290,6 +290,9 @@ static int pop3_map_read(struct mail_storage *storage, struct mailbox *pop3_box)
 	mail_search_args_unref(&search_args);
 
 	while (mailbox_search_next(ctx, &mail)) {
+		/* get the size with LIST instead of RETR */
+		mail->lookup_abort = MAIL_LOOKUP_ABORT_READ_MAIL;
+
 		if (mail_get_virtual_size(mail, &size) < 0) {
 			i_error("pop3_migration: Failed to get size for msg %u: %s",
 				mail->seq,
