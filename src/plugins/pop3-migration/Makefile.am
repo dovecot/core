@@ -23,10 +23,12 @@ test_programs = \
 	test-pop3-migration-plugin
 
 test_libs = \
-	../../lib-storage/libstorage.la \
-	../../lib-test/libtest.la \
-	../../lib/liblib.la
-test_deps = $(module_LTLIBRARIES) $(test_libs)
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT)
+test_deps = \
+	$(module_LTLIBRARIES) \
+	$(LIBDOVECOT_STORAGE_DEPS) \
+	$(LIBDOVECOT_DEPS)
 
 test_pop3_migration_plugin_SOURCES = test-pop3-migration-plugin.c
 test_pop3_migration_plugin_LDADD = pop3-migration-plugin.lo $(test_libs)
