@@ -170,6 +170,12 @@ index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
 	}
 	i_assert(dtransp != NULL);
 
+	if (*dtransp != NULL) {
+		/* transaction already created */
+		*dtrans_r = *dtransp;
+		return 0;
+	}
+
 	if (index_storage_get_dict(t->box, type, &dict, mailbox_prefix_r) < 0)
 		return -1;
 	*dtransp = *dtrans_r = dict_transaction_begin(dict);
