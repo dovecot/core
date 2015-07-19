@@ -3,18 +3,39 @@
 #include "lib.h"
 #include "message-part.h"
 
-unsigned int message_part_to_idx(const struct message_part *part)
+static const struct message_part *
+message_part_root(const struct message_part *part)
+{
+	while (part->parent != NULL)
+		part = part->parent;
+	return part;
+}
+
+static bool message_part_find(const struct message_part *siblings,
+			      const struct message_part *part,
+			      unsigned int *n)
 {
 	const struct message_part *p;
-	unsigned int n;
 
-	if (part->parent == NULL) {
-		/* root */
-		return 0;
+	for (p = siblings; p != NULL; p = p->next) {
+		if (p == part)
+			return TRUE;
+		*n += 1;
+		if (message_part_find(p->children, part, n))
+			return TRUE;
 	}
-	for (n = 0, p = part->parent->children; p != part; p = p->next, n++)
-		;
-	return n + 1 + message_part_to_idx(part->parent);
+	return FALSE;
+}
+
+unsigned int message_part_to_idx(const struct message_part *part)
+{
+	const struct message_part *root;
+	unsigned int n = 0;
+
+	root = message_part_root(part);
+	if (!message_part_find(root, part, &n))
+		i_unreached();
+	return n;
 }
 
 static struct message_part *

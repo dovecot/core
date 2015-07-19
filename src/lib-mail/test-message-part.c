@@ -34,13 +34,30 @@ static const char test_msg[] =
 "<p>Hello world</p>\n"
 "\n"
 "--sub1\n"
-"Content-Type: text/plain\n"
+"Content-Type: multipart/alternative; boundary=\"sub2\"\n"
 "\n"
-"Hello another world\n"
+"--sub2\n"
+"Content-Type: multipart/alternative; boundary=\"sub3\"\n"
 "\n"
+"--sub3\n"
+"\n"
+"sub3 text\n"
+"--sub3\n"
+"\n"
+"sub3 text2\n"
+"--sub3--\n"
+"\n"
+"sub2 text\n"
+"--sub2\n"
+"\n"
+"sub2 text2\n"
 "--sub1--\n"
 "Sub MIME epilogue\n"
 "\n"
+"--foo bar\n"
+"Content-Type: text/plain\n"
+"\n"
+"Another part\n"
 "--foo bar--\n"
 "Root MIME epilogue\n"
 "\n";
@@ -52,7 +69,7 @@ static void test_message_part_idx(void)
 	struct istream *input;
 	struct message_part *parts, *part, *prev_part;
 	struct message_block block;
-	unsigned int i;
+	unsigned int i, prev_idx = 0, part_idx;
 	pool_t pool;
 	int ret;
 
@@ -61,7 +78,11 @@ static void test_message_part_idx(void)
 	input = i_stream_create_from_data(test_msg, TEST_MSG_LEN);
 
 	parser = message_parser_init(pool, input, 0, 0);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
+	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) {
+		part_idx = message_part_to_idx(block.part);
+		test_assert(part_idx >= prev_idx);
+		prev_idx = part_idx;
+	}
 	test_assert(ret < 0);
 	test_assert(message_parser_deinit(&parser, &parts) == 0);
 
@@ -69,7 +90,7 @@ static void test_message_part_idx(void)
 	test_assert(part == parts);
 	test_assert(message_part_by_idx(parts, 1) == parts->children);
 
-	for (i = 1; i < 6; i++) {
+	for (i = 1; i < 11; i++) {
 		prev_part = part;
 		part = message_part_by_idx(parts, i);
 		test_assert(part != NULL);
