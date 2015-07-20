@@ -159,6 +159,7 @@ index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
 {
 	struct dict_transaction_context **dtransp = NULL;
 	struct dict *dict;
+	struct mailbox_metadata metadata;
 
 	switch (type) {
 	case MAIL_ATTRIBUTE_TYPE_PRIVATE:
@@ -172,6 +173,10 @@ index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
 
 	if (*dtransp != NULL) {
 		/* transaction already created */
+		if (mailbox_get_metadata(t->box, MAILBOX_METADATA_GUID,
+					 &metadata) < 0)
+			return -1;
+		*mailbox_prefix_r = guid_128_to_string(metadata.guid);
 		*dtrans_r = *dtransp;
 		return 0;
 	}
