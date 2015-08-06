@@ -1761,6 +1761,7 @@ bool mailbox_search_next_nonblock(struct mail_search_context *ctx,
 	struct mailbox *box = ctx->transaction->box;
 
 	*mail_r = NULL;
+	*tryagain_r = FALSE;
 
 	if (!box->v.search_next_nonblock(ctx, mail_r, tryagain_r))
 		return FALSE;
