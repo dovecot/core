@@ -440,6 +440,11 @@ static void stats_user_created(struct mail_user *user)
 	suser->to_stats_timeout =
 		timeout_add(suser->refresh_secs*1000,
 			    session_stats_refresh_timeout, user);
+	/* fill the initial values. this is necessary for the process-global
+	   values (e.g. getrusage()) if the process is reused for multiple
+	   users. otherwise the next user will start with the previous one's
+	   last values. */
+	mail_user_stats_fill(user, suser->pre_io_stats);
 }
 
 static struct mail_storage_hooks stats_mail_storage_hooks = {
