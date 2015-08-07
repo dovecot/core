@@ -28,7 +28,7 @@ static const char *mail_export_level_names[] = {
 };
 
 struct mail_export_filter {
-	const char *user, *domain;
+	const char *user, *domain, *session;
 	struct ip_addr ip;
 	unsigned int ip_bits;
 	time_t since;
@@ -65,7 +65,7 @@ mail_export_parse_filter(const char *const *args, pool_t pool,
 	unsigned long l;
 
 	/* filters:
-	   user=<wildcard> | domain=<wildcard>
+	   user=<wildcard> | domain=<wildcard> | session=<str>
 	   ip=<ip>[/<mask>]
 	   since=<timestamp>
 	   connected
@@ -76,6 +76,8 @@ mail_export_parse_filter(const char *const *args, pool_t pool,
 			filter_r->user = p_strdup(pool, *args + 5);
 		else if (strncmp(*args, "domain=", 7) == 0)
 			filter_r->domain = p_strdup(pool, *args + 7);
+		else if (strncmp(*args, "session=", 8) == 0)
+			filter_r->session = p_strdup(pool, *args + 8);
 		else if (strncmp(*args, "ip=", 3) == 0) {
 			if (net_parse_range(*args + 3, &filter_r->ip,
 					    &filter_r->ip_bits) < 0) {
@@ -133,6 +135,9 @@ mail_export_filter_match_session(const struct mail_export_filter *filter,
 	if (filter->connected && session->disconnected)
 		return FALSE;
 	if (filter->since > session->last_update.tv_sec)
+		return FALSE;
+	if (filter->session != NULL &&
+	    strcmp(session->id, filter->session) != 0)
 		return FALSE;
 	if (filter->user != NULL &&
 	    !wildcard_match(session->user->name, filter->user))
