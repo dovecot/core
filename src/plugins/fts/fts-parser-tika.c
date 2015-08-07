@@ -103,6 +103,21 @@ fts_tika_parser_response(const struct http_response *response,
 		}
 		parser->payload = i_stream_create_from_data("", 0);
 		break;
+	case 500:
+		/* Server Error - the problem could be anything (in Tika or
+		   HTTP server or proxy) and might be retriable, but Tika has
+		   trouble processing some documents and throws up this error
+		   every time for those documents. So we try retrying this a
+		   couple of times, but if that doesn't work we'll just ignore
+		   it. */
+		if (http_client_request_try_retry(parser->http_req))
+			return;
+		i_info("fts_tika: PUT %s failed: %u %s - ignoring",
+		       mail_user_plugin_getenv(parser->user, "fts_tika"),
+		       response->status, response->reason);
+		parser->payload = i_stream_create_from_data("", 0);
+		break;
+
 	default:
 		i_error("fts_tika: PUT %s failed: %u %s",
 			mail_user_plugin_getenv(parser->user, "fts_tika"),
