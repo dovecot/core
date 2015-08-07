@@ -63,6 +63,9 @@ master_service_init(const char *name, enum master_service_flags flags,
 /* Call getopt() and handle internal parameters. Return values are the same as
    getopt()'s. */
 int master_getopt(struct master_service *service);
+/* Returns TRUE if str is a valid getopt_str. Currently this only checks for
+   duplicate args so they aren't accidentally added. */
+bool master_getopt_str_is_valid(const char *str);
 /* Parser command line option. Returns TRUE if processed. */
 bool master_service_parse_option(struct master_service *service,
 				 int opt, const char *arg);

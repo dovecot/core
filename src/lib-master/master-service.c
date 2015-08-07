@@ -251,12 +251,31 @@ int master_getopt(struct master_service *service)
 {
 	int c;
 
+	i_assert(master_getopt_str_is_valid(service->getopt_str));
+
 	while ((c = getopt(service->argc, service->argv,
 			   service->getopt_str)) > 0) {
 		if (!master_service_parse_option(service, c, optarg))
 			break;
 	}
 	return c;
+}
+
+bool master_getopt_str_is_valid(const char *str)
+{
+	unsigned int i, j;
+
+	/* make sure there are no duplicates. there are few enough characters
+	   that this should be fast enough. */
+	for (i = 0; str[i] != '\0'; i++) {
+		if (str[i] == ':' || str[i] == '+' || str[i] == '-')
+			continue;
+		for (j = i+1; str[j] != '\0'; j++) {
+			if (str[i] == str[j])
+				return FALSE;
+		}
+	}
+	return TRUE;
 }
 
 void master_service_init_log(struct master_service *service,
