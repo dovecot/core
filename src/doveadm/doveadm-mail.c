@@ -549,6 +549,8 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	/* keep context's getopt_args first in case it contains '+' */
 	if (ctx->getopt_args != NULL)
 		getopt_args = t_strconcat(ctx->getopt_args, getopt_args, NULL);
+	i_assert(master_getopt_str_is_valid(getopt_args));
+
 	ctx->cur_username = getenv("USER");
 	wildcard_user = NULL;
 	while ((c = getopt(argc, argv, getopt_args)) > 0) {
