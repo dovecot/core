@@ -38,7 +38,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+1a:dEfF:g:l:m:n:NPr:Rs:t:Ux:"
+#define DSYNC_COMMON_GETOPT_ARGS "+1a:dEfg:l:m:n:NO:Pr:Rs:t:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 /* The broken_char is mainly set to get a proper error message when trying to
    convert a mailbox with a name that can't be used properly translated between
@@ -941,15 +941,15 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 'f':
 		ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_FULL;
 		break;
-	case 'F': {
+	case 'O': {
 		const char *str = optarg;
 
 		if (strchr(str, ' ') != NULL)
-			i_fatal("-F parameter doesn't support multiple flags currently");
+			i_fatal("-O parameter doesn't support multiple flags currently");
 		if (str[0] == '-')
 			str++;
 		if (str[0] == '\\' && imap_parse_system_flag(str) == 0)
-			i_fatal("Invalid system flag given for -F parameter: '%s'", str);
+			i_fatal("Invalid system flag given for -O parameter: '%s'", str);
 		ctx->sync_flags = optarg;
 		break;
 	}
