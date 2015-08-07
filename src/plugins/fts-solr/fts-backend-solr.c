@@ -202,7 +202,7 @@ get_last_uid_fallback(struct fts_backend *_backend, struct mailbox *box,
 	if (fts_mailbox_get_guid(box, &box_guid) < 0)
 		return -1;
 
-	str_printfa(str, "box:%s+user:", box_guid);
+	str_printfa(str, "box:%s+AND+user:", box_guid);
 	if (_backend->ns->owner != NULL)
 		solr_quote_http(str, _backend->ns->owner->username);
 	else

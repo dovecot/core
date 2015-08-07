@@ -306,10 +306,10 @@ fts_backend_solr_get_last_uid_fallback(struct solr_fts_backend *backend,
 	box_name = fts_box_get_root(box, &ns);
 
 	mailbox_get_open_status(box, STATUS_UIDVALIDITY, &status);
-	str_printfa(str, "uidv:%u+box:", status.uidvalidity);
+	str_printfa(str, "uidv:%u+AND+box:", status.uidvalidity);
 	solr_quote_http(str, box_name);
 	solr_add_ns_query_http(str, backend, ns);
-	str_append(str, "+user:");
+	str_append(str, "+AND+user:");
 	solr_quote_http(str, ns->user->username);
 
 	pool = pool_alloconly_create("solr last uid lookup", 1024);
