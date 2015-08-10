@@ -310,7 +310,7 @@ int main(int argc, char *argv[])
 	master_service = master_service_init("lda",
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
-		&argc, &argv, "a:d:ef:km:p:r:");
+		&argc, &argv, "a:d:ef:m:p:r:");
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.session = mail_deliver_session_init();
