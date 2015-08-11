@@ -73,7 +73,7 @@ libfts_la_SOURCES = \
 	fts-tokenizer-generic.c \
 	$(ICU_SOURCES)
 
-noinst_HEADERS = \
+headers = \
 	fts-common.h \
 	fts-filter.h \
 	fts-filter-private.h \
@@ -82,6 +82,9 @@ noinst_HEADERS = \
 	fts-tokenizer.h \
 	fts-tokenizer-private.h \
 	fts-tokenizer-generic-private.h
+
+pkginc_libdir=$(pkgincludedir)
+pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	$(ICU_TESTS) \
