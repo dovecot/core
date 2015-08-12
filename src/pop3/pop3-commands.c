@@ -219,10 +219,15 @@ static int client_verify_ordering(struct client *client,
 
 static void client_expunge(struct client *client, struct mail *mail)
 {
-	if (client->deleted_kw != NULL)
-		mail_update_keywords(mail, MODIFY_ADD, client->deleted_kw);
-	else
+	switch (client->set->parsed_delete_type) {
+	case POP3_DELETE_TYPE_EXPUNGE:
 		mail_expunge(mail);
+		break;
+	case POP3_DELETE_TYPE_FLAG:
+		i_assert(client->deleted_kw != NULL);
+		mail_update_keywords(mail, MODIFY_ADD, client->deleted_kw);
+		break;
+	}
 	client->expunged_count++;
 }
 

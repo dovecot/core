@@ -72,6 +72,7 @@ static const struct setting_define pop3_setting_defines[] = {
 	DEF(SET_STR, pop3_logout_format),
 	DEF(SET_ENUM, pop3_uidl_duplicates),
 	DEF(SET_STR, pop3_deleted_flag),
+	DEF(SET_ENUM, pop3_delete_type),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -88,7 +89,8 @@ static const struct pop3_settings pop3_default_settings = {
 	.pop3_client_workarounds = "",
 	.pop3_logout_format = "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s",
 	.pop3_uidl_duplicates = "allow:rename",
-	.pop3_deleted_flag = ""
+	.pop3_deleted_flag = "",
+	.pop3_delete_type = "default:expunge:flag"
 };
 
 static const struct setting_parser_info *pop3_setting_dependencies[] = {
@@ -156,6 +158,24 @@ pop3_settings_verify(void *_set, pool_t pool ATTR_UNUSED, const char **error_r)
 
 	if (pop3_settings_parse_workarounds(set, error_r) < 0)
 		return FALSE;
+	if (strcmp(set->pop3_delete_type, "default") == 0) {
+		if (set->pop3_deleted_flag[0] == '\0')
+			set->parsed_delete_type = POP3_DELETE_TYPE_EXPUNGE;
+		else
+			set->parsed_delete_type = POP3_DELETE_TYPE_FLAG;
+	} else if (strcmp(set->pop3_delete_type, "expunge") == 0) {
+		set->parsed_delete_type = POP3_DELETE_TYPE_EXPUNGE;
+	} else if (strcmp(set->pop3_delete_type, "flag") == 0) {
+		if (set->pop3_deleted_flag[0] == '\0') {
+			*error_r = "pop3_delete_type=flag, but pop3_deleted_flag not set";
+			return FALSE;
+		}
+		set->parsed_delete_type = POP3_DELETE_TYPE_FLAG;
+	} else {
+		*error_r = t_strdup_printf("pop3_delete_type: Unknown value '%s'",
+					   set->pop3_delete_type);
+		return FALSE;
+	}
 	return TRUE;
 }
 /* </settings checks> */
