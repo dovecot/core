@@ -164,7 +164,8 @@ sync_delete_mailbox_node(struct dsync_mailbox_tree_sync_ctx *ctx,
 			guid_128_to_string(node->mailbox_guid), reason);
 	}
 
-	if (tree == ctx->local_tree) {
+	if (tree == ctx->local_tree &&
+	    node->existence != DSYNC_MAILBOX_NODE_DELETED) {
 		/* delete this mailbox locally */
 		i_assert(ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL);
 		change = array_append_space(&ctx->changes);
