@@ -1289,19 +1289,19 @@ static void sync_mailbox_child_dirs(struct dsync_mailbox_tree_sync_ctx *ctx,
 			sync_subscription(ctx, local_node, remote_node);
 
 		if (local_node->existence == DSYNC_MAILBOX_NODE_DELETED &&
-		    local_node->first_child == NULL &&
+		    !node_has_existent_children(local_node, TRUE) &&
 		    remote_node->existence == DSYNC_MAILBOX_NODE_EXISTS &&
 		    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE) {
 			/* delete from remote */
-			i_assert(remote_node->first_child == NULL);
+			i_assert(!node_has_existent_children(remote_node, TRUE));
 			remote_node->existence = DSYNC_MAILBOX_NODE_NONEXISTENT;
 		}
 		if (remote_node->existence == DSYNC_MAILBOX_NODE_DELETED &&
-		    remote_node->first_child == NULL &&
+		    !node_has_existent_children(remote_node, TRUE) &&
 		    local_node->existence == DSYNC_MAILBOX_NODE_EXISTS &&
 		    ctx->sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_LOCAL) {
 			/* delete from local */
-			i_assert(local_node->first_child == NULL);
+			i_assert(!node_has_existent_children(local_node, TRUE));
 			local_node->existence = DSYNC_MAILBOX_NODE_NONEXISTENT;
 			sync_add_dir_change(ctx, local_node,
 				DSYNC_MAILBOX_TREE_SYNC_TYPE_DELETE_DIR);
