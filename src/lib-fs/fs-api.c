@@ -562,7 +562,7 @@ static int fs_write_stream_finish_int(struct fs_file *file, bool success)
 	T_BEGIN {
 		ret = file->fs->v.write_stream_finish(file, success);
 	} T_END;
-	if (ret == 0) {
+	if (ret != 0) {
 		file->metadata_changed = FALSE;
 	} else {
 		/* write didn't finish yet. this shouldn't happen if we
