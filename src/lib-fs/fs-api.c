@@ -761,7 +761,7 @@ int fs_copy(struct fs_file *src, struct fs_file *dest)
 	T_BEGIN {
 		ret = src->fs->v.copy(src, dest);
 	} T_END;
-	if (ret < 0 || errno != EAGAIN)
+	if (!(ret < 0 && errno == EAGAIN))
 		dest->metadata_changed = FALSE;
 	return ret;
 }
@@ -773,7 +773,7 @@ int fs_copy_finish_async(struct fs_file *dest)
 	T_BEGIN {
 		ret = dest->fs->v.copy(NULL, dest);
 	} T_END;
-	if (ret < 0 || errno != EAGAIN)
+	if (!(ret < 0 && errno == EAGAIN))
 		dest->metadata_changed = FALSE;
 	return ret;
 }
