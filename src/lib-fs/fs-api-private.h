@@ -4,6 +4,23 @@
 #include "fs-api.h"
 #include "module-context.h"
 
+enum fs_op {
+	FS_OP_WAIT,
+	FS_OP_METADATA,
+	FS_OP_PREFETCH,
+	FS_OP_READ,
+	FS_OP_WRITE,
+	FS_OP_LOCK,
+	FS_OP_EXISTS,
+	FS_OP_STAT,
+	FS_OP_COPY,
+	FS_OP_RENAME,
+	FS_OP_DELETE,
+	FS_OP_ITER,
+
+	FS_OP_COUNT
+};
+
 struct fs_api_module_register {
 	unsigned int id;
 };
