@@ -555,9 +555,25 @@ struct ostream *fs_write_stream(struct fs_file *file)
 	return file->output;
 }
 
-int fs_write_stream_finish(struct fs_file *file, struct ostream **output)
+static int fs_write_stream_finish_int(struct fs_file *file, bool success)
 {
 	int ret;
+
+	T_BEGIN {
+		ret = file->fs->v.write_stream_finish(file, success);
+	} T_END;
+	if (ret == 0) {
+		file->metadata_changed = FALSE;
+	} else {
+		/* write didn't finish yet. this shouldn't happen if we
+		   indicated a failure. */
+		i_assert(success);
+	}
+	return ret;
+}
+
+int fs_write_stream_finish(struct fs_file *file, struct ostream **output)
+{
 	bool success = TRUE;
 
 	i_assert(*output == file->output || *output == NULL);
@@ -573,24 +589,12 @@ int fs_write_stream_finish(struct fs_file *file, struct ostream **output)
 			success = FALSE;
 		}
 	}
-	T_BEGIN {
-		ret = file->fs->v.write_stream_finish(file, success);
-	} T_END;
-	if (ret != 0)
-		file->metadata_changed = FALSE;
-	return ret;
+	return fs_write_stream_finish_int(file, success);
 }
 
 int fs_write_stream_finish_async(struct fs_file *file)
 {
-	int ret;
-
-	T_BEGIN {
-		ret = file->fs->v.write_stream_finish(file, TRUE);
-	} T_END;
-	if (ret != 0)
-		file->metadata_changed = FALSE;
-	return ret;
+	return fs_write_stream_finish_int(file, TRUE);
 }
 
 void fs_write_stream_abort(struct fs_file *file, struct ostream **output)
@@ -600,10 +604,7 @@ void fs_write_stream_abort(struct fs_file *file, struct ostream **output)
 	*output = NULL;
 	if (file->output != NULL)
 		o_stream_ignore_last_errors(file->output);
-	T_BEGIN {
-		(void)file->fs->v.write_stream_finish(file, FALSE);
-	} T_END;
-	file->metadata_changed = FALSE;
+	(void)fs_write_stream_finish_int(file, FALSE);
 }
 
 void fs_write_set_hash(struct fs_file *file, const struct hash_method *method,
