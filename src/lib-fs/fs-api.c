@@ -530,11 +530,12 @@ int fs_write(struct fs_file *file, const void *data, size_t size)
 {
 	int ret;
 
-	file->fs->stats.write_count++;
 	if (file->fs->v.write != NULL) {
 		T_BEGIN {
 			ret = file->fs->v.write(file, data, size);
 		} T_END;
+		if (!(ret < 0 && errno == EAGAIN))
+			file->fs->stats.write_count++;
 		return ret;
 	}
 
