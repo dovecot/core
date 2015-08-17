@@ -45,6 +45,8 @@ struct master_service *master_service;
 
 static void master_service_io_listeners_close(struct master_service *service);
 static void master_service_refresh_login_state(struct master_service *service);
+static void
+master_status_send(struct master_service *service, bool important_update);
 
 const char *master_service_getopt_string(void)
 {
@@ -73,8 +75,12 @@ static void sig_die(const siginfo_t *si, void *context)
 			return;
 
 		if (service->idle_die_callback != NULL &&
-		    !service->idle_die_callback())
+		    !service->idle_die_callback()) {
+			/* we don't want to die - send a notification to master
+			   so it doesn't think we're ignoring it completely. */
+			master_status_send(service, FALSE);
 			return;
+		}
 	}
 
 	service->killed = TRUE;
