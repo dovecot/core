@@ -52,8 +52,10 @@ static const char *test_inputs[] = {
 	"galore\xE2\x81\x9F""and\xE2\x81\x9Amore.\n\n",
 
 	/* TR29 MinNumLet U+FF0E at end: u+FF0E is EF BC 8E  */
-	"hello world\xEF\xBC\x8E"
+	"hello world\xEF\xBC\x8E",
 
+	/* TR29 WB5a */
+	"l\xE2\x80\x99homme l\xE2\x80\x99humanit\xC3\xA9 d\xE2\x80\x99immixtions qu\xE2\x80\x99il aujourd'hui que'euq"
 };
 
 static void test_fts_tokenizer_find(void)
@@ -172,6 +174,8 @@ static void test_fts_tokenizer_generic_only(void)
 
 		"hello", "world", NULL,
 
+		"l'homme", "l'humanit\xC3\xA9", "d'immixtions", "qu'il", "aujourd'hui", "que'euq", NULL,
+
 		NULL
 	};
 	struct fts_tokenizer *tok;
@@ -229,6 +233,7 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 
 		"hello", "world", NULL,
 
+		"l'homme", "l'humanit\xC3\xA9", "d'immixtions", "qu'il", "aujourd'hui", "que'euq", NULL,
 		NULL
 	};
 	struct fts_tokenizer *tok;
@@ -236,6 +241,63 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 
 	test_begin("fts tokenizer generic TR29");
 	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
+	test_tokenizer_inputs(tok, expected_output);
+	fts_tokenizer_unref(&tok);
+	test_end();
+}
+
+const char *const tr29_settings_wb5a[] = {"algorithm", "tr29", "wb5a", "yes", NULL};
+
+/* TODO: U+206F is in "Format" and therefore currently not word break.
+   This definitely needs to be remapped. */
+static void test_fts_tokenizer_generic_tr29_wb5a(void)
+{
+	static const char *const expected_output[] = {
+		"hello", "world", "And",
+		"there", "was", "text", "galor\xC3\xA9",
+		"abc", "example", "com", "Bar", "Baz",
+		"bar", "example", "org", "foo", "domain",
+		"1234567890123456789012345678ä",
+		"12345678901234567890123456789",
+		"123456789012345678901234567890",
+		"and", "longlonglongabcdefghijklmnopqr",
+		"more", "Hello", "world", "3", "14", "3,14", "last", NULL,
+
+		"1", NULL,
+
+		"quoted", "text", "word", "hlo", "words", "you're", "bad",
+		"word", "pre", "post", NULL,
+
+		"1234567890123456789012345678ä",
+		"123456789012345678901234567x'",
+		"1234567890123456789012345678x'",
+		"1234567890123456789012345678x",
+		"1234567890123456789012345678x",
+		"12345678901234567890123456789x",
+		"12345678901234567890123456789x",
+		"123456789012345678901234567890",
+		"123456789012345678901234567890",
+
+		"quoted", "text", "word", "hlo", "words", "you're789012345678901234567890", "bad",
+		"word", "pre", "post", NULL,
+
+		"you're'xyz", NULL,
+
+		"hello", "world", "And",
+		"there", "was", "text", "galore",
+		"and", "more", NULL,
+
+		"hello", "world", NULL,
+
+		"l", "homme", "l", "humanit\xC3\xA9", "d", "immixtions", "qu", "il", "aujourd'hui", "que'euq", NULL,
+
+		NULL
+	};
+	struct fts_tokenizer *tok;
+	const char *error;
+
+	test_begin("fts tokenizer generic TR29 with WB5a");
+	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings_wb5a, &tok, &error) == 0);
 	test_tokenizer_inputs(tok, expected_output);
 	fts_tokenizer_unref(&tok);
 	test_end();
@@ -343,6 +405,7 @@ int main(void)
 		test_fts_tokenizer_find,
 		test_fts_tokenizer_generic_only,
 		test_fts_tokenizer_generic_tr29_only,
+		test_fts_tokenizer_generic_tr29_wb5a,
 		test_fts_tokenizer_address_only,
 		test_fts_tokenizer_address_parent_simple,
 		test_fts_tokenizer_address_parent_tr29,

@@ -40,6 +40,11 @@ enum boundary_algorithm {
 struct generic_fts_tokenizer {
 	struct fts_tokenizer tokenizer;
 	unsigned int max_length;
+	bool wb5a; /* TR29 rule for prefix separation
+	              in e.g. French or Italian. */
+	bool seen_wb5a;
+	unichar_t prev_letter_c;
+	unichar_t letter_c;
 	enum boundary_algorithm algorithm;
 	enum letter_type prev_letter;
 	enum letter_type prev_prev_letter;

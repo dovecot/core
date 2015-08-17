@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "str.h"
 #include "unichar.h"
 #include "bsearch-insert-pos.h"
 #include "fts-common.h"
@@ -11,6 +12,7 @@
 #include "word-break-data.c"
 
 #define FTS_DEFAULT_TOKEN_MAX_LENGTH 30
+#define FTS_WB5A_PREFIX_MAX_LENGTH 3 /* Including apostrophe */
 
 static unsigned char fts_ascii_word_breaks[128] = {
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 0-15 */
@@ -32,6 +34,7 @@ fts_tokenizer_generic_create(const char *const *settings,
 	struct generic_fts_tokenizer *tok;
 	unsigned int max_length = FTS_DEFAULT_TOKEN_MAX_LENGTH;
 	enum boundary_algorithm algo = BOUNDARY_ALGORITHM_SIMPLE;
+	bool wb5a = FALSE;
 	unsigned int i;
 
 	for (i = 0; settings[i] != NULL; i += 2) {
@@ -57,10 +60,20 @@ fts_tokenizer_generic_create(const char *const *settings,
 		} else if (strcmp(key, "search") == 0) {
 			/* tokenizing a search string -
 			   makes no difference to us */
+		} else if (strcasecmp(key, "wb5a") == 0) {
+			if (strcasecmp(value, "no") == 0)
+				wb5a = FALSE;
+			else
+				wb5a = TRUE;
 		} else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
 		}
+	}
+
+	if (wb5a && algo != BOUNDARY_ALGORITHM_TR29) {
+		*error_r = "Can not use WB5a for algorithms other than TR29.";
+		return -1;
 	}
 
 	tok = i_new(struct generic_fts_tokenizer, 1);
@@ -70,6 +83,7 @@ fts_tokenizer_generic_create(const char *const *settings,
 		tok->tokenizer.v = &generic_tokenizer_vfuncs_simple;
 	tok->max_length = max_length;
 	tok->algorithm = algo;
+	tok->wb5a = wb5a;
 	tok->token = buffer_create_dynamic(default_pool, 64);
 
 	*tokenizer_r = &tok->tokenizer;
@@ -369,6 +383,14 @@ static bool letter_hebrew(struct generic_fts_tokenizer *tok)
 
 static bool letter_aletter(struct generic_fts_tokenizer *tok)
 {
+
+	/* WB5a */
+	if (tok->wb5a && tok->token->used <= FTS_WB5A_PREFIX_MAX_LENGTH)
+		if (IS_WB5A_APOSTROPHE(tok->prev_letter_c) && IS_VOWEL(tok->letter_c)) {
+			tok->seen_wb5a = TRUE;
+			return TRUE;
+		}
+
 	/* WB5 */
 	if (tok->prev_letter == LETTER_TYPE_ALETTER)
 		return FALSE;
@@ -489,8 +511,8 @@ static bool letter_apostrophe(struct generic_fts_tokenizer *tok)
 
        return TRUE; /* Any / Any */
 }
-static bool letter_other(struct generic_fts_tokenizer *tok ATTR_UNUSED)
 
+static bool letter_other(struct generic_fts_tokenizer *tok ATTR_UNUSED)
 {
 	return TRUE; /* Any / Any */
 }
@@ -498,11 +520,17 @@ static bool letter_other(struct generic_fts_tokenizer *tok ATTR_UNUSED)
 static void
 add_prev_letter(struct generic_fts_tokenizer *tok, enum letter_type lt)
 {
-	if(tok->prev_letter != LETTER_TYPE_NONE) {
+	if(tok->prev_letter != LETTER_TYPE_NONE)
 		tok->prev_prev_letter = tok->prev_letter;
-		tok->prev_letter = lt;
-	} else
-		tok->prev_letter = lt;
+	tok->prev_letter = lt;
+}
+
+static void
+add_letter_c(struct generic_fts_tokenizer *tok, unichar_t c)
+{
+	if(tok->letter_c != 0)
+		tok->prev_letter_c = tok->letter_c;
+	tok->letter_c = c;
 }
 
 /*
@@ -544,6 +572,7 @@ static bool is_one_past_end(struct generic_fts_tokenizer *tok)
 
 	return FALSE;
 }
+
 static void
 fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
                                          const char **token_r)
@@ -569,10 +598,21 @@ fts_tokenizer_generic_tr29_current_token(struct generic_fts_tokenizer *tok,
 
 	tok->prev_prev_letter = LETTER_TYPE_NONE;
 	tok->prev_letter = LETTER_TYPE_NONE;
-
 	*token_r = t_strndup(data, len);
 	buffer_set_used_size(tok->token, 0);
 	tok->untruncated_length = 0;
+}
+
+static void wb5a_reinsert(struct generic_fts_tokenizer *tok)
+{
+	string_t *utf8_str = t_str_new(6);
+
+	uni_ucs4_to_utf8_c(tok->letter_c, utf8_str);
+	buffer_insert(tok->token, 0, str_data(utf8_str), str_len(utf8_str));
+	tok->prev_letter = letter_type(tok->letter_c);
+	tok->letter_c = 0;
+	tok->prev_letter_c = 0;
+	tok->seen_wb5a = FALSE;
 }
 
 struct letter_fn {
@@ -599,6 +639,8 @@ static struct letter_fn letter_fns[] = {
   (ALetter | Hebrew_Letter) and MidNumLetQ (MidNumLet | Single_Quote).
 
   Adaptions:
+  * Added optional WB5a as a configurable option. The cut of prefix is
+   max FTS_WB5A_PREFIX chars.
   * No word boundary at Start-Of-Text or End-of-Text (Wb1 and WB2).
   * Break just once, not before and after.
   * Break at MidNumLet, except apostrophes (diverging from WB6/WB7).
@@ -644,12 +686,22 @@ fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
 		i += char_size;
 		lt = letter_type(c);
 
+		/* The WB5a break is detected only when the "after
+		   break" char is inspected. That char needs to be
+		   reinserted as the "previous char". */
+		if (tok->seen_wb5a)
+			wb5a_reinsert(tok);
+
 		if (tok->prev_letter == LETTER_TYPE_NONE && is_nontoken(lt)) {
 			/* Skip non-token chars at the beginning of token */
 			i_assert(tok->token->used == 0);
 			start_pos = i;
 			continue;
 		}
+
+		if (tok->wb5a &&  tok->token->used <= FTS_WB5A_PREFIX_MAX_LENGTH)
+			add_letter_c(tok, c);
+
 		if (uni_found_word_boundary(tok, lt)) {
 			i_assert(char_start_i >= start_pos && size >= start_pos);
 			tok_append_truncated(tok, data + start_pos,
