@@ -594,6 +594,10 @@ static struct letter_fn letter_fns[] = {
   #29, but tailored for FTS purposes.
   http://www.unicode.org/reports/tr29/
 
+  Note: The text of tr29 is a living standard, so it keeps
+  changing. In newer specs some characters are combined, like AHLetter
+  (ALetter | Hebrew_Letter) and MidNumLetQ (MidNumLet | Single_Quote).
+
   Adaptions:
   * No word boundary at Start-Of-Text or End-of-Text (Wb1 and WB2).
   * Break just once, not before and after.
