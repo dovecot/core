@@ -135,7 +135,7 @@ void fts_icu_lcase(string_t *dest_utf8, const char *src_utf8)
 	size_t avail_bytes, dest_pos = dest_utf8->used;
 	char *dest_data;
 	int dest_full_len;
-	UErrorCode err = 0;
+	UErrorCode err = U_ZERO_ERROR;
 
 	avail_bytes = buffer_get_writable_size(dest_utf8) - dest_pos;
 	dest_data = buffer_get_space_unsafe(dest_utf8, dest_pos, avail_bytes);
