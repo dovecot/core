@@ -991,9 +991,48 @@ static bool master_status_update_is_important(struct master_service *service)
 	return FALSE;
 }
 
-void master_status_update(struct master_service *service)
+static void
+master_status_send(struct master_service *service, bool important_update)
 {
 	ssize_t ret;
+
+	if (service->to_status != NULL)
+		timeout_remove(&service->to_status);
+
+	ret = write(MASTER_STATUS_FD, &service->master_status,
+		    sizeof(service->master_status));
+	if (ret == sizeof(service->master_status)) {
+		/* success */
+		if (service->io_status_write != NULL) {
+			/* delayed important update sent successfully */
+			io_remove(&service->io_status_write);
+		}
+		service->last_sent_status_time = ioloop_time;
+		service->last_sent_status_avail_count =
+			service->master_status.available_count;
+		service->initial_status_sent = TRUE;
+	} else if (ret >= 0) {
+		/* shouldn't happen? */
+		i_error("write(master_status_fd) returned %d", (int)ret);
+		service->master_status.pid = 0;
+	} else if (errno != EAGAIN) {
+		/* failure */
+		if (errno != EPIPE)
+			i_error("write(master_status_fd) failed: %m");
+		service->master_status.pid = 0;
+	} else if (important_update) {
+		/* reader is busy, but it's important to get this notification
+		   through. send it when possible. */
+		if (service->io_status_write == NULL) {
+			service->io_status_write =
+				io_add(MASTER_STATUS_FD, IO_WRITE,
+				       master_status_update, service);
+		}
+	}
+}
+
+void master_status_update(struct master_service *service)
+{
 	bool important_update;
 
 	if ((service->flags & MASTER_SERVICE_FLAG_UPDATE_PROCTITLE) != 0 &&
@@ -1030,40 +1069,7 @@ void master_status_update(struct master_service *service)
 			io_remove(&service->io_status_write);
 		return;
 	}
-
-	if (service->to_status != NULL)
-		timeout_remove(&service->to_status);
-
-	ret = write(MASTER_STATUS_FD, &service->master_status,
-		    sizeof(service->master_status));
-	if (ret == sizeof(service->master_status)) {
-		/* success */
-		if (service->io_status_write != NULL) {
-			/* delayed important update sent successfully */
-			io_remove(&service->io_status_write);
-		}
-		service->last_sent_status_time = ioloop_time;
-		service->last_sent_status_avail_count =
-			service->master_status.available_count;
-		service->initial_status_sent = TRUE;
-	} else if (ret >= 0) {
-		/* shouldn't happen? */
-		i_error("write(master_status_fd) returned %d", (int)ret);
-		service->master_status.pid = 0;
-	} else if (errno != EAGAIN) {
-		/* failure */
-		if (errno != EPIPE)
-			i_error("write(master_status_fd) failed: %m");
-		service->master_status.pid = 0;
-	} else if (important_update) {
-		/* reader is busy, but it's important to get this notification
-		   through. send it when possible. */
-		if (service->io_status_write == NULL) {
-			service->io_status_write =
-				io_add(MASTER_STATUS_FD, IO_WRITE,
-				       master_status_update, service);
-		}
-	}
+	master_status_send(service, important_update);
 }
 
 bool version_string_verify(const char *line, const char *service_name,
