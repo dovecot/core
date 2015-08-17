@@ -155,7 +155,8 @@ static int lazy_expunge_mail_is_last_instace(struct mail *_mail)
 
 	if (mail_get_special(_mail, MAIL_FETCH_REFCOUNT, &value) < 0) {
 		mail_storage_set_critical(_mail->box->storage,
-			"lazy_expunge: Couldn't lookup message's refcount");
+			"lazy_expunge: Couldn't lookup message's refcount: %s",
+			mailbox_get_last_error(_mail->box, NULL));
 		return -1;
 	}
 	if (*value == '\0') {
