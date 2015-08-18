@@ -139,7 +139,6 @@ test_http_client_LDADD = \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \
 	../lib-settings/libsettings.la \
-	../lib/safe-memset.lo \
 	$(test_libs)
 test_http_client_DEPENDENCIES = \
 	libhttp.la \
