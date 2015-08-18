@@ -21,6 +21,7 @@ libmaster_la_SOURCES = \
 	master-login.c \
 	master-login-auth.c \
 	master-service.c \
+	master-service-haproxy.c \
 	master-service-settings.c \
 	master-service-settings-cache.c \
 	master-service-ssl.c \

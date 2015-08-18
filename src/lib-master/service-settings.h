@@ -32,6 +32,7 @@ struct inet_listener_settings {
 	unsigned int port;
 	bool ssl;
 	bool reuse_port;
+	bool haproxy;
 };
 ARRAY_DEFINE_TYPE(inet_listener_settings, struct inet_listener_settings *);
 

@@ -137,6 +137,8 @@ static void master_service_init_socket_listeners(struct master_service *service)
 				if (strcmp(*settings, "ssl") == 0) {
 					l->ssl = TRUE;
 					have_ssl_sockets = TRUE;
+				} else if (strcmp(*settings, "haproxy") == 0) {
+					l->haproxy = TRUE;
 				}
 				settings++;
 			}
@@ -845,6 +847,8 @@ void master_service_deinit(struct master_service **_service)
 
 	*_service = NULL;
 
+	master_service_haproxy_abort(service);
+
 	master_service_io_listeners_remove(service);
 	master_service_ssl_ctx_deinit(service);
 
@@ -944,7 +948,10 @@ static void master_service_listen(struct master_service_listener *l)
 	net_set_nonblock(conn.fd, TRUE);
 
 	master_service_client_connection_created(service);
-	master_service_client_connection_callback(service, &conn);
+	if (l->haproxy)
+		master_service_haproxy_new(service, &conn);
+	else
+		master_service_client_connection_callback(service, &conn);
 }
 
 void master_service_io_listeners_add(struct master_service *service)

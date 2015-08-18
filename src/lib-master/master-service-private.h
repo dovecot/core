@@ -4,12 +4,15 @@
 #include "master-interface.h"
 #include "master-service.h"
 
+struct master_service_haproxy_conn;
+
 struct master_service_listener {
 	struct master_service *service;
 	char *name;
 
 	/* settings */
 	bool ssl;
+	bool haproxy;
 
 	/* state */
 	int fd;	
@@ -65,6 +68,8 @@ struct master_service {
 	struct ssl_iostream_context *ssl_ctx;
 	time_t ssl_params_last_refresh;
 
+	struct master_service_haproxy_conn *haproxy_conns;
+
 	unsigned int killed:1;
 	unsigned int stopping:1;
 	unsigned int keep_environment:1;
@@ -89,5 +94,9 @@ void master_service_client_connection_handled(struct master_service *service,
 					      struct master_service_connection *conn);
 void master_service_client_connection_callback(struct master_service *service,
 					       struct master_service_connection *conn);
+
+void master_service_haproxy_new(struct master_service *service,
+				struct master_service_connection *conn);
+void master_service_haproxy_abort(struct master_service *service);
 
 #endif

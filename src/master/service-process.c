@@ -103,6 +103,8 @@ service_dup_fds(struct service *service)
 			if (listeners[i]->type == SERVICE_LISTENER_INET) {
 				if (listeners[i]->set.inetset.set->ssl)
 					str_append(listener_settings, "\tssl");
+				if (listeners[i]->set.inetset.set->haproxy)
+					str_append(listener_settings, "\thaproxy");
 			}
 			
 			dup2_append(&dups, listeners[i]->fd, fd++);

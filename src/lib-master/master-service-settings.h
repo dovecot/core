@@ -19,6 +19,9 @@ struct master_service_settings {
 	bool version_ignore;
 	bool shutdown_clients;
 	bool verbose_proctitle;
+
+	const char *haproxy_trusted_networks;
+	unsigned int haproxy_timeout;
 };
 
 struct master_service_settings_input {
