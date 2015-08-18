@@ -266,6 +266,35 @@ http_client_connection_request_timeout(struct http_client_connection *conn)
 		msecs/1000, msecs%1000));
 }
 
+void http_client_connection_start_request_timeout(
+	struct http_client_connection *conn)
+{
+	unsigned int timeout_msecs = conn->client->set.request_timeout_msecs;
+
+	if (timeout_msecs == 0)
+		;
+	else if (conn->to_requests != NULL)
+		timeout_reset(conn->to_requests);
+	else {
+		conn->to_requests = timeout_add(timeout_msecs,
+						http_client_connection_request_timeout, conn);
+	}
+}
+
+void http_client_connection_reset_request_timeout(
+	struct http_client_connection *conn)
+{
+	if (conn->to_requests != NULL)
+		timeout_reset(conn->to_requests);
+}
+
+void http_client_connection_stop_request_timeout(
+	struct http_client_connection *conn)
+{
+	if (conn->to_requests != NULL)
+		timeout_remove(&conn->to_requests);
+}
+
 static void
 http_client_connection_continue_timeout(struct http_client_connection *conn)
 {
@@ -316,14 +345,6 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 	if (conn->to_idle != NULL)
 		timeout_remove(&conn->to_idle);
 
-	if (conn->client->set.request_timeout_msecs == 0)
-		;
-	else if (conn->to_requests != NULL)
-		timeout_reset(conn->to_requests);
-	else {
-		conn->to_requests = timeout_add(conn->client->set.request_timeout_msecs,
-						http_client_connection_request_timeout, conn);
-	}
 	req->conn = conn;
 	conn->payload_continue = FALSE;
 	if (conn->peer->no_payload_sync)
@@ -489,8 +510,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		io_remove(&conn->conn.io);
 		/* we've received the request itself, and we can't reset the
 		   timeout during the payload reading. */
-		if (conn->to_requests != NULL)
-			timeout_remove(&conn->to_requests);
+		http_client_connection_stop_request_timeout(conn);
 	}
 	
 	conn->in_req_callback = TRUE;
@@ -607,8 +627,9 @@ static void http_client_connection_input(struct connection *_conn)
 		http_client_payload_finished(conn);
 		finished++;
 	}
-	if (conn->to_requests != NULL)
-		timeout_reset(conn->to_requests);
+
+	/* we've seen activity from the server; reset request timeout */
+	http_client_connection_reset_request_timeout(conn);
 
 	/* get first waiting request */
 	reqs = array_get(&conn->request_wait_list, &count);
@@ -786,8 +807,7 @@ static void http_client_connection_input(struct connection *_conn)
 			payload_type = http_client_request_get_payload_type(req);
 		} else {
 			/* no more requests waiting for the connection */
-			if (conn->to_requests != NULL)
-				timeout_remove(&conn->to_requests);
+			http_client_connection_stop_request_timeout(conn);
 			req = NULL;
 			payload_type = HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED;
 		}
@@ -839,8 +859,8 @@ int http_client_connection_output(struct http_client_connection *conn)
 	const char *error;
 	int ret;
 
-	if (conn->to_requests != NULL)
-		timeout_reset(conn->to_requests);
+	/* we've seen activity from the server; reset request timeout */
+	http_client_connection_reset_request_timeout(conn);
 
 	if ((ret = o_stream_flush(output)) <= 0) {
 		if (ret < 0) {

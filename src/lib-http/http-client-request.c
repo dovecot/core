@@ -536,7 +536,10 @@ http_client_request_finish_payload_out(struct http_client_request *req)
 	/* advance state only when request didn't get aborted in the mean time */
 	if (req->state != HTTP_REQUEST_STATE_ABORTED) {
 		i_assert(req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT);
+
+		/* we're now waiting for a response from the server */
 		req->state = HTTP_REQUEST_STATE_WAITING;
+		http_client_connection_start_request_timeout(req->conn);
 	}
 
 	/* release connection */
@@ -703,6 +706,7 @@ int http_client_request_send_more(struct http_client_request *req,
 	i_assert(ret >= 0);
 
 	if (i_stream_is_eof(req->payload_input)) {
+		/* finished sending */
 		if (!req->payload_chunked &&
 		    req->payload_input->v_offset - req->payload_offset != req->payload_size) {
 			*error_r = t_strdup_printf("BUG: stream '%s' input size changed: "
@@ -714,20 +718,26 @@ int http_client_request_send_more(struct http_client_request *req,
 		}
 
 		if (req->payload_wait) {
+			/* this chunk of input is finished
+			   (client needs to act; disable timeout) */
 			conn->output_locked = TRUE;
+			http_client_connection_stop_request_timeout(conn);
 			if (req->client->ioloop != NULL)
 				io_loop_stop(req->client->ioloop);
 		} else {
+			/* finished sending payload */
 			http_client_request_finish_payload_out(req);
 		}
 	} else if (i_stream_get_data_size(req->payload_input) > 0) {
-		/* output is blocking */
+		/* output is blocking (server needs to act; enable timeout) */
 		conn->output_locked = TRUE;
+		http_client_connection_start_request_timeout(conn);
 		o_stream_set_flush_pending(output, TRUE);
 		http_client_request_debug(req, "Partially sent payload");
 	} else {
-		/* input is blocking */
+		/* input is blocking (client needs to act; disable timeout) */
 		conn->output_locked = TRUE;	
+		http_client_connection_stop_request_timeout(conn);
 		conn->io_req_payload = io_add_istream(req->payload_input,
 			http_client_request_payload_input, req);
 	}

@@ -291,6 +291,12 @@ void http_client_connection_ref(struct http_client_connection *conn);
 void http_client_connection_unref(struct http_client_connection **_conn);
 void http_client_connection_close(struct http_client_connection **_conn);
 int http_client_connection_output(struct http_client_connection *conn);
+void http_client_connection_start_request_timeout(
+	struct http_client_connection *conn);
+void http_client_connection_reset_request_timeout(
+	struct http_client_connection *conn);
+void http_client_connection_stop_request_timeout(
+	struct http_client_connection *conn);
 unsigned int
 http_client_connection_count_pending(struct http_client_connection *conn);
 bool http_client_connection_is_ready(struct http_client_connection *conn);
@@ -300,6 +306,7 @@ void http_client_connection_check_idle(struct http_client_connection *conn);
 void http_client_connection_switch_ioloop(struct http_client_connection *conn);
 void http_client_connection_start_tunnel(struct http_client_connection **_conn,
 	struct http_client_tunnel *tunnel);
+
 
 unsigned int http_client_peer_addr_hash
 	(const struct http_client_peer_addr *peer) ATTR_PURE;
