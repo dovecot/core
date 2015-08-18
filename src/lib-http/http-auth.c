@@ -313,7 +313,7 @@ void http_auth_create_challenge(string_t *out,
 }
 
 void http_auth_create_challenges(string_t *out,
-	ARRAY_TYPE(http_auth_challenge) *chlngs)
+	const ARRAY_TYPE(http_auth_challenge) *chlngs)
 {
 	const struct http_auth_challenge *chlgs;
 	unsigned int count, i;

@@ -43,7 +43,7 @@ int http_auth_parse_credentials(const unsigned char *data, size_t size,
 void http_auth_create_challenge(string_t *out,
 	const struct http_auth_challenge *chlng);
 void http_auth_create_challenges(string_t *out,
-	ARRAY_TYPE(http_auth_challenge) *chlngs);
+	const ARRAY_TYPE(http_auth_challenge) *chlngs);
 
 void http_auth_create_credentials(string_t *out,
 	const struct http_auth_credentials *crdts);
