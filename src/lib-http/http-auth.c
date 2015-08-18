@@ -370,6 +370,9 @@ http_auth_params_clone(pool_t pool,
 {
 	const struct http_auth_param *sparam;
 
+	if (!array_is_created(src))
+		return;
+
 	p_array_init(dst, pool, 4);
 	array_foreach(src, sparam) {
 		struct http_auth_param nparam;
