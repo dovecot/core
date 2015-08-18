@@ -106,13 +106,53 @@ static void master_service_verify_version_string(struct master_service *service)
 	}
 }
 
+static void master_service_init_socket_listeners(struct master_service *service)
+{
+	unsigned int i;
+	const char *value;
+	bool have_ssl_sockets = FALSE;
+
+	if (service->socket_count == 0)
+		return;
+
+	service->listeners =
+		i_new(struct master_service_listener, service->socket_count);
+
+	for (i = 0; i < service->socket_count; i++) {
+		struct master_service_listener *l = &service->listeners[i];
+
+		l->service = service;
+		l->fd = MASTER_LISTEN_FD_FIRST + i;
+
+		value = getenv(t_strdup_printf("SOCKET%u_SETTINGS", i));
+		if (value != NULL) {
+			const char *const *settings =
+				t_strsplit_tabescaped(value);
+
+			if (*settings != NULL) {
+				l->name = i_strdup_empty(*settings);
+				settings++;
+			}
+			while (*settings != NULL) {
+				if (strcmp(*settings, "ssl") == 0) {
+					l->ssl = TRUE;
+					have_ssl_sockets = TRUE;
+				}
+				settings++;
+			}
+		}
+	}
+	service->want_ssl_settings = have_ssl_sockets ||
+		(service->flags & MASTER_SERVICE_FLAG_USE_SSL_SETTINGS) != 0;
+}
+
 struct master_service *
 master_service_init(const char *name, enum master_service_flags flags,
 		    int *argc, char **argv[], const char *getopt_str)
 {
 	struct master_service *service;
-	const char *value;
 	unsigned int count;
+	const char *value;
 
 	i_assert(name != NULL);
 
@@ -177,21 +217,14 @@ master_service_init(const char *name, enum master_service_flags flags,
 	} else {
 		service->version_string = PACKAGE_VERSION;
 	}
+
+	/* listener configuration */
 	value = getenv("SOCKET_COUNT");
 	if (value != NULL)
 		service->socket_count = atoi(value);
-	value = getenv("SSL_SOCKET_COUNT");
-	if (value != NULL)
-		service->ssl_socket_count = atoi(value);
-	value = getenv("SOCKET_NAMES");
-	if (value != NULL) {
-		service->listener_names =
-			p_strsplit_tabescaped(default_pool, value);
-		service->listener_names_count =
-			str_array_length((void *)service->listener_names);
-	}
-	service->want_ssl_settings = service->ssl_socket_count > 0 ||
-		(flags & MASTER_SERVICE_FLAG_USE_SSL_SETTINGS) != 0;
+	T_BEGIN {
+		master_service_init_socket_listeners(service);
+	} T_END;
 
 	/* set up some kind of logging until we know exactly how and where
 	   we want to log */
@@ -574,8 +607,9 @@ const char *master_service_get_socket_name(struct master_service *service,
 	i_assert(listen_fd >= MASTER_LISTEN_FD_FIRST);
 
 	i = listen_fd - MASTER_LISTEN_FD_FIRST;
-	return i < service->listener_names_count ?
-		service->listener_names[i] : "";
+	i_assert(i < service->socket_count);
+	return service->listeners[i].name != NULL ?
+		service->listeners[i].name : "";
 }
 
 void master_service_set_avail_overflow_callback(struct master_service *service,
@@ -807,6 +841,7 @@ void master_service_close_config_fd(struct master_service *service)
 void master_service_deinit(struct master_service **_service)
 {
 	struct master_service *service = *_service;
+	unsigned int i;
 
 	*_service = NULL;
 
@@ -836,8 +871,8 @@ void master_service_deinit(struct master_service **_service)
 	lib_atexit_run();
 	io_loop_destroy(&service->ioloop);
 
-	if (service->listener_names != NULL)
-		p_strsplit_free(default_pool, service->listener_names);
+	for (i = 0; i < service->socket_count; i++)
+		i_free(service->listeners[i].name);
 	i_free(service->listeners);
 	i_free(service->getopt_str);
 	i_free(service->name);
@@ -912,38 +947,12 @@ static void master_service_listen(struct master_service_listener *l)
 	master_service_client_connection_callback(service, &conn);
 }
 
-static void io_listeners_init(struct master_service *service)
-{
-	unsigned int i;
-
-	if (service->socket_count == 0)
-		return;
-
-	service->listeners =
-		i_new(struct master_service_listener, service->socket_count);
-
-	for (i = 0; i < service->socket_count; i++) {
-		struct master_service_listener *l = &service->listeners[i];
-
-		l->service = service;
-		l->fd = MASTER_LISTEN_FD_FIRST + i;
-		l->name = i < service->listener_names_count ?
-			service->listener_names[i] : "";
-
-		if (i >= service->socket_count - service->ssl_socket_count)
-			l->ssl = TRUE;
-	}
-}
-
 void master_service_io_listeners_add(struct master_service *service)
 {
 	unsigned int i;
 
 	if (service->stopping)
 		return;
-
-	if (service->listeners == NULL)
-		io_listeners_init(service);
 
 	for (i = 0; i < service->socket_count; i++) {
 		struct master_service_listener *l = &service->listeners[i];
@@ -959,11 +968,9 @@ void master_service_io_listeners_remove(struct master_service *service)
 {
 	unsigned int i;
 
-	if (service->listeners != NULL) {
-		for (i = 0; i < service->socket_count; i++) {
-			if (service->listeners[i].io != NULL)
-				io_remove(&service->listeners[i].io);
-		}
+	for (i = 0; i < service->socket_count; i++) {
+		if (service->listeners[i].io != NULL)
+			io_remove(&service->listeners[i].io);
 	}
 }
 
@@ -971,12 +978,10 @@ void master_service_ssl_io_listeners_remove(struct master_service *service)
 {
 	unsigned int i;
 
-	if (service->listeners != NULL) {
-		for (i = 0; i < service->socket_count; i++) {
-			if (service->listeners[i].io != NULL &&
-			    service->listeners[i].ssl)
-				io_remove(&service->listeners[i].io);
-		}
+	for (i = 0; i < service->socket_count; i++) {
+		if (service->listeners[i].io != NULL &&
+		    service->listeners[i].ssl)
+			io_remove(&service->listeners[i].io);
 	}
 }
 
@@ -984,24 +989,15 @@ static void master_service_io_listeners_close(struct master_service *service)
 {
 	unsigned int i;
 
-	if (service->listeners != NULL) {
-		/* close via listeners. some fds might be pipes that are
-		   currently handled as clients. we don't want to close them. */
-		for (i = 0; i < service->socket_count; i++) {
-			if (service->listeners[i].fd != -1) {
-				if (close(service->listeners[i].fd) < 0) {
-					i_error("close(listener %d) failed: %m",
-						service->listeners[i].fd);
-				}
-				service->listeners[i].fd = -1;
+	/* close via listeners. some fds might be pipes that are
+	   currently handled as clients. we don't want to close them. */
+	for (i = 0; i < service->socket_count; i++) {
+		if (service->listeners[i].fd != -1) {
+			if (close(service->listeners[i].fd) < 0) {
+				i_error("close(listener %d) failed: %m",
+					service->listeners[i].fd);
 			}
-		}
-	} else {
-		for (i = 0; i < service->socket_count; i++) {
-			int fd = MASTER_LISTEN_FD_FIRST + i;
-
-			if (close(fd) < 0)
-				i_error("close(listener %d) failed: %m", fd);
+			service->listeners[i].fd = -1;
 		}
 	}
 }

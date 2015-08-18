@@ -6,10 +6,14 @@
 
 struct master_service_listener {
 	struct master_service *service;
-	int fd;
+	char *name;
+
+	/* settings */
 	bool ssl;
+
+	/* state */
+	int fd;	
 	struct io *io;
-	const char *name;
 };
 
 struct master_service {
@@ -28,10 +32,8 @@ struct master_service {
 	int config_fd;
 	int syslog_facility;
 
-	unsigned int socket_count, ssl_socket_count;
 	struct master_service_listener *listeners;
-	char **listener_names;
-	unsigned int listener_names_count;
+	unsigned int socket_count;
 
 	struct io *io_status_write, *io_status_error;
 	unsigned int service_count_left;
