@@ -54,7 +54,7 @@ struct http_client_settings {
 	/* configuration for using a proxy */
 	const char *proxy_socket_path; /* FIXME: implement */
 	const struct http_url *proxy_url;
-	const char *proxy_username; /* FIXME: implement */
+	const char *proxy_username;
 	const char *proxy_password;
 
 	const char *rawlog_dir;

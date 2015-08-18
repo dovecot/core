@@ -254,6 +254,9 @@ void http_client_request_add_header(struct http_client_request *req,
 		if (strcasecmp(key, "Host") == 0)
 			req->have_hdr_host = TRUE;
 		break;
+	case 'p': case 'P':
+		i_assert(strcasecmp(key, "Proxy-Authorization") != 0);
+		break;
 	case 't': case 'T':
 		if (strcasecmp(key, "Transfer-Encoding") == 0)
 			req->have_hdr_body_spec = TRUE;
@@ -734,6 +737,7 @@ int http_client_request_send_more(struct http_client_request *req,
 static int http_client_request_send_real(struct http_client_request *req,
 					 const char **error_r)
 {
+	const struct http_client_settings *set = &req->client->set;
 	struct http_client_connection *conn = req->conn;
 	struct ostream *output = conn->conn.output;
 	string_t *rtext = t_str_new(256);
@@ -769,6 +773,17 @@ static int http_client_request_send_real(struct http_client_request *req,
 			req->username, req->password);
 
 		str_append(rtext, "Authorization: ");
+		http_auth_create_credentials(rtext, &auth_creds);
+		str_append(rtext, "\r\n");
+	}
+	if (http_client_request_to_proxy(req) &&
+		set->proxy_username != NULL && set->proxy_password != NULL) {
+		struct http_auth_credentials auth_creds;
+
+		http_auth_basic_credentials_init(&auth_creds,
+			set->proxy_username, set->proxy_password);
+
+		str_append(rtext, "Proxy-Authorization: ");
 		http_auth_create_credentials(rtext, &auth_creds);
 		str_append(rtext, "\r\n");
 	}
