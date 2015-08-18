@@ -1022,10 +1022,6 @@ void http_client_request_redirect(struct http_client_request *req,
 
 	http_url_copy(req->pool, &req->origin_url, url);
 	req->target = p_strdup(req->pool, target);
-	if (req->host_url == &req->origin_url) {
-		req->authority =
-			p_strdup(req->pool, http_url_create_authority(req->host_url));
-	}
 	
 	req->host = NULL;
 	req->conn = NULL;
