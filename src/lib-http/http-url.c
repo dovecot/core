@@ -441,6 +441,17 @@ void http_url_copy_authority(pool_t pool, struct http_url *dest,
 	dest->have_ssl = src->have_ssl;
 }
 
+struct http_url *http_url_clone_authority(pool_t pool,
+	const struct http_url *src)
+{
+	struct http_url *new_url;
+
+	new_url = p_new(pool, struct http_url, 1);
+	http_url_copy_authority(pool, new_url, src);
+
+	return new_url;
+}
+
 void http_url_copy(pool_t pool, struct http_url *dest,
 	const struct http_url *src)
 {

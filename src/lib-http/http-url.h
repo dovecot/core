@@ -57,6 +57,9 @@ int http_url_request_target_parse(const char *request_target,
 
 void http_url_copy_authority(pool_t pool, struct http_url *dest,
 	const struct http_url *src);
+struct http_url *http_url_clone_authority(pool_t pool,
+	const struct http_url *src);
+
 void http_url_copy(pool_t pool, struct http_url *dest,
 	const struct http_url *src);
 void http_url_copy_with_userinfo(pool_t pool, struct http_url *dest,
