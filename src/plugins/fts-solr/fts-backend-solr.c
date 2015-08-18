@@ -468,7 +468,8 @@ fts_backend_solr_uid_changed(struct solr_fts_backend_update_context *ctx,
 	if (ctx->post == NULL) {
 		i_assert(ctx->prev_uid == 0);
 
-		ctx->cmd = str_new(default_pool, SOLR_CMDBUF_SIZE);
+		if (ctx->cmd == NULL)
+			ctx->cmd = str_new(default_pool, SOLR_CMDBUF_SIZE);
 		ctx->post = solr_connection_post_begin(backend->solr_conn);
 		str_append(ctx->cmd, "<add>");
 	} else {
