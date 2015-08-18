@@ -65,6 +65,8 @@ http_auth_challenge_clone(pool_t pool,
 
 void http_auth_basic_challenge_init(struct http_auth_challenge *chlng,
 	const char *realm);
+void http_auth_basic_credentials_init(struct http_auth_credentials *crdts,
+	const char *username, const char *password);
 
 #endif
 

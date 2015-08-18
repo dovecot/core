@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "base64.h"
 #include "array.h"
 #include "http-parser.h"
 
@@ -420,7 +421,7 @@ void http_auth_basic_challenge_init(struct http_auth_challenge *chlng,
 	const char *realm)
 {
 	memset(chlng, 0, sizeof(*chlng));
-	chlng->scheme = "basic";
+	chlng->scheme = "Basic";
 	if (realm != NULL) {
 		struct http_auth_param param;
 
@@ -431,4 +432,22 @@ void http_auth_basic_challenge_init(struct http_auth_challenge *chlng,
 		t_array_init(&chlng->params, 1);
 		array_append(&chlng->params, &param, 1);
 	}
+}
+
+void http_auth_basic_credentials_init(struct http_auth_credentials *crdts,
+	const char *username, const char *password)
+{
+	const char *auth;
+	string_t *data;
+
+	i_assert(username != NULL && *username != '\0');
+	i_assert(strchr(username, ':') == NULL);
+ 
+	data = t_str_new(64);
+	auth = t_strconcat(username, ":", password, NULL);
+	base64_encode(auth, strlen(auth), data);
+
+	memset(crdts, 0, sizeof(*crdts));
+	crdts->scheme = "Basic";
+	crdts->data = str_c(data);
 }
