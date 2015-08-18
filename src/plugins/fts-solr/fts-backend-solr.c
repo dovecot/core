@@ -340,6 +340,7 @@ fts_backed_solr_build_commit(struct solr_fts_backend_update_context *ctx)
 
 	solr_connection_post_more(ctx->post, str_data(ctx->cmd),
 				  str_len(ctx->cmd));
+	str_truncate(ctx->cmd, 0);
 	return solr_connection_post_end(&ctx->post);
 }
 
