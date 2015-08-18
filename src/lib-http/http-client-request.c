@@ -797,7 +797,8 @@ static int http_client_request_send_real(struct http_client_request *req,
 			o_stream_ref(output);
 		}
 	}
-	if (!req->have_hdr_connection && req->host_url == &req->origin_url) {
+	if (!req->have_hdr_connection &&
+		!http_client_request_to_proxy(req)) {
 		/* https://tools.ietf.org/html/rfc2068
 		     Section 19.7.1:
 

@@ -412,6 +412,12 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 	}
 }
 
+static inline bool
+http_client_request_to_proxy(const struct http_client_request *req)
+{
+	return (req->host_url != &req->origin_url);
+}
+
 static inline const char *
 http_client_connection_label(struct http_client_connection *conn)
 {
