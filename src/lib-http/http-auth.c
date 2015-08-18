@@ -413,6 +413,29 @@ http_auth_challenge_clone(pool_t pool,
 	return new;
 }
 
+void http_auth_credentials_copy(pool_t pool,
+	struct http_auth_credentials *dst,
+	const struct http_auth_credentials *src)
+{
+	dst->scheme = p_strdup(pool, src->scheme);
+	if (src->data != NULL)
+		dst->data = p_strdup(pool, src->data);
+	else
+		http_auth_params_clone(pool, &dst->params, &src->params);
+}
+
+struct http_auth_credentials *
+http_auth_credentials_clone(pool_t pool,
+	const struct http_auth_credentials *src)
+{
+	struct http_auth_credentials *new;
+
+	new = p_new(pool, struct http_auth_credentials, 1);
+	http_auth_credentials_copy(pool, new, src);
+
+	return new;
+}
+
 /*
  * Simple schemes
  */

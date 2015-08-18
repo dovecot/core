@@ -59,6 +59,13 @@ struct http_auth_challenge *
 http_auth_challenge_clone(pool_t pool,
 	const struct http_auth_challenge *src);
 
+void http_auth_credentials_copy(pool_t pool,
+	struct http_auth_credentials *dst,
+	const struct http_auth_credentials *src);
+struct http_auth_credentials *
+http_auth_credentials_clone(pool_t pool,
+	const struct http_auth_credentials *src);
+
 /*
  * Simple schemes
  */
