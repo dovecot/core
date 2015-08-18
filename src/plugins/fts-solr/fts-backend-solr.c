@@ -27,6 +27,8 @@
 #define SOLR_HEADER_LINE_MAX_TRUNC_SIZE 1024
 
 #define SOLR_QUERY_MAX_MAILBOX_COUNT 10
+/* How often to flush indexing request to Solr before beginning a new one. */
+#define SOLR_MAIL_FLUSH_INTERVAL 1000
 
 struct solr_fts_backend {
 	struct fts_backend backend;
@@ -51,6 +53,7 @@ struct solr_fts_backend_update_context {
 	ARRAY(struct solr_fts_field) fields;
 
 	uint32_t last_indexed_uid;
+	unsigned int mails_since_flush;
 
 	unsigned int tokenized_input:1;
 	unsigned int last_indexed_uid_set:1;
@@ -330,13 +333,14 @@ fts_backend_solr_doc_close(struct solr_fts_backend_update_context *ctx)
 }
 
 static int
-fts_backed_solr_build_commit(struct solr_fts_backend_update_context *ctx)
+fts_backed_solr_build_flush(struct solr_fts_backend_update_context *ctx)
 {
 	if (ctx->post == NULL)
 		return 0;
 
 	fts_backend_solr_doc_close(ctx);
 	str_append(ctx->cmd, "</add>");
+	ctx->mails_since_flush = 0;
 
 	solr_connection_post_more(ctx->post, str_data(ctx->cmd),
 				  str_len(ctx->cmd));
@@ -367,7 +371,7 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 	const char *str;
 	int ret = _ctx->failed ? -1 : 0;
 
-	if (fts_backed_solr_build_commit(ctx) < 0)
+	if (fts_backed_solr_build_flush(ctx) < 0)
 		ret = -1;
 
 	if (ctx->documents_added || ctx->expunges) {
@@ -405,7 +409,7 @@ fts_backend_solr_update_set_mailbox(struct fts_backend_update_context *_ctx,
 	if (ctx->prev_uid != 0) {
 		/* flush solr between mailboxes, so we don't wrongly update
 		   last_uid before we know it has succeeded */
-		if (fts_backed_solr_build_commit(ctx) < 0)
+		if (fts_backed_solr_build_flush(ctx) < 0)
 			_ctx->failed = TRUE;
 		else if (!_ctx->failed)
 			fts_index_set_last_uid(ctx->cur_box, ctx->prev_uid);
@@ -466,9 +470,11 @@ fts_backend_solr_uid_changed(struct solr_fts_backend_update_context *ctx,
 	struct solr_fts_backend *backend =
 		(struct solr_fts_backend *)ctx->ctx.backend;
 
+	if (ctx->mails_since_flush++ >= SOLR_MAIL_FLUSH_INTERVAL) {
+		if (fts_backed_solr_build_flush(ctx) < 0)
+			ctx->ctx.failed = TRUE;
+	}
 	if (ctx->post == NULL) {
-		i_assert(ctx->prev_uid == 0);
-
 		if (ctx->cmd == NULL)
 			ctx->cmd = str_new(default_pool, SOLR_CMDBUF_SIZE);
 		ctx->post = solr_connection_post_begin(backend->solr_conn);
