@@ -285,6 +285,18 @@ http_auth_create_params(string_t *out,
 	}
 }
 
+static void http_auth_check_token68(const char *data)
+{
+	const char *p = data;
+
+	/* Make sure we're not working with nonsense. */
+	i_assert(http_char_is_token68(*p));
+	for (p++; *p != '\0' && *p != '='; p++)
+		i_assert(http_char_is_token68(*p));
+	for (; *p != '\0'; p++)
+		i_assert(*p == '=');
+}
+
 void http_auth_create_challenge(string_t *out,
 	const struct http_auth_challenge *chlng)
 {
@@ -296,12 +308,8 @@ void http_auth_create_challenge(string_t *out,
 	str_append(out, chlng->scheme);
 
 	if (chlng->data != NULL) {
-		const char *p;
-
 		/* SP token68 */
-		for (p = chlng->data; *p != '\0'; p++)
-			i_assert(http_char_is_token68(*p));
-
+		http_auth_check_token68(chlng->data);
 		str_append_c(out, ' ');
 		str_append(out, chlng->data);
 
@@ -343,12 +351,8 @@ void http_auth_create_credentials(string_t *out,
 	str_append(out, crdts->scheme);
 
 	if (crdts->data != NULL) {
-		const char *p;
-
 		/* SP token68 */
-		for (p = crdts->data; *p != '\0'; p++)
-			i_assert(http_char_is_token68(*p));
-
+		http_auth_check_token68(crdts->data);
 		str_append_c(out, ' ');
 		str_append(out, crdts->data);
 
