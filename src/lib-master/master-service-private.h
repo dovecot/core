@@ -83,4 +83,9 @@ void master_service_close_config_fd(struct master_service *service);
 void master_service_io_listeners_remove(struct master_service *service);
 void master_service_ssl_io_listeners_remove(struct master_service *service);
 
+void master_service_client_connection_handled(struct master_service *service,
+					      struct master_service_connection *conn);
+void master_service_client_connection_callback(struct master_service *service,
+					       struct master_service_connection *conn);
+
 #endif

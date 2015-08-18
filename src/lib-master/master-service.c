@@ -680,6 +680,38 @@ void master_service_client_connection_created(struct master_service *service)
 	master_status_update(service);
 }
 
+void master_service_client_connection_handled(struct master_service *service,
+					      struct master_service_connection *conn)
+{
+	if (!conn->accepted) {
+		if (close(conn->fd) < 0)
+			i_error("close(service connection) failed: %m");
+		master_service_client_connection_destroyed(service);
+	} else if (conn->fifo) {
+		/* reading FIFOs stays open forever, don't count them
+		   as real clients */
+		master_service_client_connection_destroyed(service);
+	}
+	if (service->master_status.available_count == 0 &&
+	    service->service_count_left == 1) {
+		/* we're not going to accept any more connections after this.
+		   go ahead and close the connection early. don't do this
+		   before calling callback, because it may want to access
+		   the listen_fd (e.g. to check socket permissions). */
+		i_assert(service->listeners != NULL);
+		master_service_io_listeners_remove(service);
+		master_service_io_listeners_close(service);
+	}
+}
+
+void master_service_client_connection_callback(struct master_service *service,
+					       struct master_service_connection *conn)
+{
+	service->callback(conn);
+
+	master_service_client_connection_handled(service, conn);
+}
+
 void master_service_client_connection_accept(struct master_service_connection *conn)
 {
 	conn->accepted = TRUE;
@@ -870,28 +902,7 @@ static void master_service_listen(struct master_service_listener *l)
 	net_set_nonblock(conn.fd, TRUE);
 
 	master_service_client_connection_created(service);
-
-	service->callback(&conn);
-
-	if (!conn.accepted) {
-		if (close(conn.fd) < 0)
-			i_error("close(service connection) failed: %m");
-		master_service_client_connection_destroyed(service);
-	} else if (conn.fifo) {
-		/* reading FIFOs stays open forever, don't count them
-		   as real clients */
-		master_service_client_connection_destroyed(service);
-	}
-	if (service->master_status.available_count == 0 &&
-	    service->service_count_left == 1) {
-		/* we're not going to accept any more connections after this.
-		   go ahead and close the connection early. don't do this
-		   before calling callback, because it may want to access
-		   the listen_fd (e.g. to check socket permissions). */
-		i_assert(service->listeners != NULL);
-		master_service_io_listeners_remove(service);
-		master_service_io_listeners_close(service);
-	}
+	master_service_client_connection_callback(service, &conn);
 }
 
 static void io_listeners_init(struct master_service *service)
