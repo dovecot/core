@@ -12,6 +12,7 @@
 #include "dns-lookup.h"
 #include "http-url.h"
 #include "http-date.h"
+#include "http-auth.h"
 #include "http-response-parser.h"
 #include "http-transfer.h"
 
@@ -104,6 +105,11 @@ http_client_request_url(struct http_client *client,
 	req = http_client_request_new(client, method, callback, context);
 	http_url_copy_authority(req->pool, &req->origin_url, target_url);
 	req->target = p_strdup(req->pool, http_url_create_target(target_url));
+	if (target_url->user != NULL && *target_url->user != '\0' &&
+		target_url->password != NULL) {
+		req->username = p_strdup(req->pool, target_url->user);
+		req->password = p_strdup(req->pool, target_url->password);
+	}
 	return req;
 }
 
@@ -226,6 +232,10 @@ void http_client_request_add_header(struct http_client_request *req,
 
 	/* mark presence of special headers */
 	switch (key[0]) {
+	case 'a': case 'A':
+		if (strcasecmp(key, "Authorization") == 0)
+			req->have_hdr_authorization = TRUE;
+		break;
 	case 'c': case 'C':
 		if (strcasecmp(key, "Connection") == 0)
 			req->have_hdr_connection = TRUE;
@@ -336,6 +346,13 @@ void http_client_request_set_timeout(struct http_client_request *req,
 
 	req->timeout_time = *time;
 	req->timeout_msecs = 0;
+}
+
+void http_client_request_set_auth_simple(struct http_client_request *req,
+	const char *username, const char *password)
+{
+	req->username = p_strdup(req->pool, username);
+	req->password = p_strdup(req->pool, password);
 }
 
 void http_client_request_delay_until(struct http_client_request *req,
@@ -742,6 +759,17 @@ static int http_client_request_send_real(struct http_client_request *req,
 	if (!req->have_hdr_date) {
 		str_append(rtext, "Date: ");
 		str_append(rtext, http_date_create(req->date));
+		str_append(rtext, "\r\n");
+	}
+	if (!req->have_hdr_authorization &&
+		req->username != NULL && req->password != NULL) {
+		struct http_auth_credentials auth_creds;
+
+		http_auth_basic_credentials_init(&auth_creds,
+			req->username, req->password);
+
+		str_append(rtext, "Authorization: ");
+		http_auth_create_credentials(rtext, &auth_creds);
 		str_append(rtext, "\r\n");
 	}
 	if (!req->have_hdr_user_agent && req->client->set.user_agent != NULL) {

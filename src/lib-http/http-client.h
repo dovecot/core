@@ -208,6 +208,9 @@ void http_client_request_set_timeout_msecs(struct http_client_request *req,
 void http_client_request_set_timeout(struct http_client_request *req,
 	const struct timeval *time);
 
+void http_client_request_set_auth_simple(struct http_client_request *req,
+	const char *username, const char *password);
+
 void http_client_request_delay_until(struct http_client_request *req,
 	time_t time);
 void http_client_request_delay(struct http_client_request *req,

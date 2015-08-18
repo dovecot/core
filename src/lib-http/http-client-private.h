@@ -57,6 +57,7 @@ struct http_client_request {
 
 	const char *method, *target;
 	struct http_url origin_url;
+	const char *username, *password;
 
 	const struct http_url *host_url;
 	const char *authority;
@@ -95,6 +96,7 @@ struct http_client_request {
 
 	enum http_request_state state;
 
+	unsigned int have_hdr_authorization:1;
 	unsigned int have_hdr_body_spec:1;
 	unsigned int have_hdr_connection:1;
 	unsigned int have_hdr_date:1;

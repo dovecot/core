@@ -260,6 +260,14 @@ static void run_tests(struct http_client *http_client)
 
 	test_req = i_new(struct http_test_request, 1);
 	http_req = http_client_request(http_client,
+		"GET", "jigsaw.w3.org", "/HTTP/Basic/",
+		got_request_response, test_req);
+	http_client_request_set_auth_simple
+		(http_req, "guest", "guest");
+	http_client_request_submit(http_req);
+
+	test_req = i_new(struct http_test_request, 1);
+	http_req = http_client_request(http_client,
 		"PUT", "test.dovecot.org", "/http/put/put.php",
 		got_request_response, test_req);
 	post_payload = i_stream_create_file("Makefile.am", 10);
