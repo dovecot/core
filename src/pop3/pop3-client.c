@@ -523,6 +523,7 @@ static const char *client_stats(struct client *client)
 		{ 'o', NULL, "output" },
 		{ 'u', NULL, "uidl_change" },
 		{ '\0', NULL, "session" },
+		{ 'd', NULL, "deleted_bytes" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -547,6 +548,8 @@ static const char *client_stats(struct client *client)
 	else
 		tab[9].value = "";
 	tab[10].value = client->session_id;
+	tab[11].value = client->delete_success ?
+		dec2str(client->deleted_size) : 0;
 
 	str = t_str_new(128);
 	var_expand(str, client->set->pop3_logout_format, tab);
