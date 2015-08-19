@@ -126,7 +126,7 @@ void index_storage_get_open_status(struct mailbox *box,
 			   synced yet */
 			index_sync_update_recent_count(box);
 		}
-		status_r->recent = index_mailbox_get_recent_count(box);
+		status_r->recent = mailbox_recent_flags_count(box);
 		i_assert(status_r->recent <= status_r->messages);
 	}
 	if ((items & STATUS_UNSEEN) != 0) {

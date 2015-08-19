@@ -1231,6 +1231,11 @@ void mailbox_close(struct mailbox *box)
 	box->opened = FALSE;
 	box->mailbox_deleted = FALSE;
 	array_clear(&box->search_results);
+
+	if (array_is_created(&box->recent_flags))
+		array_free(&box->recent_flags);
+	box->recent_flags_prev_uid = 0;
+	box->recent_flags_count = 0;
 }
 
 void mailbox_free(struct mailbox **_box)

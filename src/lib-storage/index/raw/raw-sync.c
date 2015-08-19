@@ -35,7 +35,7 @@ static int raw_sync(struct raw_mailbox *mbox)
 
 	/* add our one and only message */
 	mail_index_append(trans, 1, &seq);
-	index_mailbox_set_recent_uid(&mbox->box, 1);
+	mailbox_recent_flags_set_uid(&mbox->box, 1);
 
 	if (mail_index_sync_commit(&index_sync_ctx) < 0) {
 		mailbox_set_index_error(&mbox->box);

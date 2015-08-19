@@ -444,8 +444,8 @@ static void virtual_sync_index_finish(struct virtual_sync_context *ctx)
 	/* mark the newly seen messages as recent */
 	if (mail_index_lookup_seq_range(ctx->sync_view, hdr->first_recent_uid,
 					hdr->next_uid, &seq1, &seq2)) {
-		index_mailbox_set_recent_seq(&ctx->mbox->box, ctx->sync_view,
-					     seq1, seq2);
+		mailbox_recent_flags_set_seqs(&ctx->mbox->box, ctx->sync_view,
+					      seq1, seq2);
 	}
 	if (ctx->ext_header_rewrite) {
 		/* entire mailbox list needs to be rewritten */

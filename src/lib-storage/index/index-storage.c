@@ -369,11 +369,6 @@ void index_storage_mailbox_close(struct mailbox *box)
 	ibox->keyword_names = NULL;
 	i_free_and_null(ibox->cache_fields);
 
-	if (array_is_created(&ibox->recent_flags))
-		array_free(&ibox->recent_flags);
-	ibox->recent_flags_prev_uid = 0;
-	ibox->recent_flags_count = 0;
-
 	ibox->sync_last_check = 0;
 }
 

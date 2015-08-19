@@ -71,8 +71,8 @@ static void cydir_sync_index(struct cydir_sync_context *ctx)
 	/* mark the newly seen messages as recent */
 	if (mail_index_lookup_seq_range(ctx->sync_view, hdr->first_recent_uid,
 					hdr->next_uid, &seq1, &seq2)) {
-		index_mailbox_set_recent_seq(&ctx->mbox->box, ctx->sync_view,
-					     seq1, seq2);
+		mailbox_recent_flags_set_seqs(&ctx->mbox->box, ctx->sync_view,
+					      seq1, seq2);
 	}
 
 	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) {

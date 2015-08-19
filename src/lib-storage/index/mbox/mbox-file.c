@@ -98,11 +98,10 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 
 static void mbox_file_fix_atime(struct mbox_mailbox *mbox)
 {
-	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
 	struct utimbuf buf;
 	struct stat st;
 
-	if (ibox->recent_flags_count > 0 &&
+	if (mbox->box.recent_flags_count > 0 &&
 	    (mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) == 0 &&
 	    mbox->mbox_fd != -1 && !mbox_is_backend_readonly(mbox)) {
 		/* we've seen recent messages which we want to keep recent.

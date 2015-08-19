@@ -154,8 +154,8 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 	/* mark the newly seen messages as recent */
 	if (mail_index_lookup_seq_range(ctx->sync_view, hdr->first_recent_uid,
 					hdr->next_uid, &seq1, &seq2)) {
-		index_mailbox_set_recent_seq(&ctx->mbox->box, ctx->sync_view,
-					     seq1, seq2);
+		mailbox_recent_flags_set_seqs(&ctx->mbox->box, ctx->sync_view,
+					      seq1, seq2);
 	}
 
 	/* handle syncing records without map being locked. */
@@ -242,7 +242,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 	if (rebuild && (flags & MDBOX_SYNC_FLAG_NO_REBUILD) == 0) {
 		if (mdbox_storage_rebuild_in_context(mbox->storage, atomic) < 0)
 			return -1;
-		index_mailbox_reset_uidvalidity(&mbox->box);
+		mailbox_recent_flags_reset(&mbox->box);
 		storage_rebuilt = TRUE;
 	}
 

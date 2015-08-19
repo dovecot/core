@@ -319,6 +319,11 @@ struct mailbox {
 	struct mail_msgpart_partial_cache partial_cache;
 	uint32_t vsize_hdr_ext_id;
 
+	/* MAIL_RECENT flags handling */
+	ARRAY_TYPE(seq_range) recent_flags;
+	uint32_t recent_flags_prev_uid;
+	uint32_t recent_flags_count;
+
 	struct mail_index_view *tmp_sync_view;
 
 	/* Mailbox notification settings: */

@@ -4,6 +4,7 @@
 #include "file-dotlock.h"
 #include "mail-storage-private.h"
 #include "mail-index-private.h"
+#include "mailbox-recent-flags.h" /* FIXME: remove in v2.3 */
 
 #define MAILBOX_FULL_SYNC_INTERVAL 5
 
@@ -30,9 +31,7 @@ struct index_mailbox_context {
 	const ARRAY_TYPE(keywords) *keyword_names;
 	struct mail_cache_field *cache_fields;
 
-	ARRAY_TYPE(seq_range) recent_flags;
-	uint32_t recent_flags_prev_uid, recent_flags_last_check_nextuid;
-	uint32_t recent_flags_count;
+	uint32_t recent_flags_last_check_nextuid;
 
 	time_t sync_last_check;
 	uint32_t list_index_sync_ext_id;
@@ -76,13 +75,9 @@ int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest);
 bool index_storage_is_readonly(struct mailbox *box);
 bool index_storage_is_inconsistent(struct mailbox *box);
 
-void index_mailbox_set_recent_uid(struct mailbox *box, uint32_t uid);
-void index_mailbox_set_recent_seq(struct mailbox *box,
-				  struct mail_index_view *view,
-				  uint32_t seq1, uint32_t seq2);
-bool index_mailbox_is_recent(struct mailbox *box, uint32_t uid);
-unsigned int index_mailbox_get_recent_count(struct mailbox *box);
-void index_mailbox_reset_uidvalidity(struct mailbox *box);
+/* FIXME: for backwards compatibility - remove in v2.3 */
+#define index_mailbox_set_recent_seq(box, view, seq1, seq2) \
+	mailbox_recent_flags_set_seqs(box, view, seq1, seq2)
 
 void index_mailbox_check_add(struct mailbox *box, const char *path);
 void index_mailbox_check_remove_all(struct mailbox *box);

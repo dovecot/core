@@ -186,7 +186,7 @@ pop3c_sync_messages(struct pop3c_mailbox *mbox,
 	/* mark the newly seen messages as recent */
 	if (mail_index_lookup_seq_range(sync_view, hdr->first_recent_uid,
 					hdr->next_uid, &seq1, &seq2))
-		index_mailbox_set_recent_seq(&mbox->box, sync_view, seq1, seq2);
+		mailbox_recent_flags_set_seqs(&mbox->box, sync_view, seq1, seq2);
 }
 
 static int uint32_cmp(const uint32_t *u1, const uint32_t *u2)

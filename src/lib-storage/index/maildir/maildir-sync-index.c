@@ -484,7 +484,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			  mailbox_get_path(&ctx->mbox->box),
 			  hdr->uid_validity, uid_validity);
 		mail_index_reset(trans);
-		index_mailbox_reset_uidvalidity(&mbox->box);
+		mailbox_recent_flags_reset(&mbox->box);
 
 		first_uid = hdr->messages_count + 1;
 		memset(&empty_hdr, 0, sizeof(empty_hdr));
@@ -637,7 +637,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			/* UIDVALIDITY changed, skip over the old messages */
 			seq = first_uid;
 		}
-		index_mailbox_set_recent_seq(&mbox->box, view2, seq, seq2);
+		mailbox_recent_flags_set_seqs(&mbox->box, view2, seq, seq2);
 	}
 	mail_index_view_close(&view2);
 

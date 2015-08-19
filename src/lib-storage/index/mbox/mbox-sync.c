@@ -1544,8 +1544,8 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 	view = mail_index_transaction_open_updated_view(sync_ctx->t);
 	if (mail_index_lookup_seq_range(view, sync_ctx->last_nonrecent_uid + 1,
 					(uint32_t)-1, &seq, &seq2)) {
-		index_mailbox_set_recent_seq(&sync_ctx->mbox->box,
-					     view, seq, seq2);
+		mailbox_recent_flags_set_seqs(&sync_ctx->mbox->box,
+					      view, seq, seq2);
 	}
 	mail_index_view_close(&view);
 
@@ -1576,7 +1576,7 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 		mail_index_reset(sync_ctx->t);
 		sync_ctx->reset_hdr.next_uid = 1;
 		sync_ctx->hdr = &sync_ctx->reset_hdr;
-		index_mailbox_reset_uidvalidity(&sync_ctx->mbox->box);
+		mailbox_recent_flags_reset(&sync_ctx->mbox->box);
 	}
 
 	sync_ctx->prev_msg_uid = 0;

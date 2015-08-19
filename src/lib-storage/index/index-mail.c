@@ -195,7 +195,7 @@ enum mail_flags index_mail_get_flags(struct mail *_mail)
 	flags = rec->flags & (MAIL_FLAGS_NONRECENT |
 			      MAIL_INDEX_MAIL_FLAG_BACKEND);
 
-	if (index_mailbox_is_recent(_mail->box, _mail->uid))
+	if (mailbox_recent_flags_have_uid(_mail->box, _mail->uid))
 		flags |= MAIL_RECENT;
 
 	if (index_mail_get_pvt(_mail)) {
@@ -1980,7 +1980,7 @@ void index_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 	bool update_modseq = FALSE;
 
 	if ((flags & MAIL_RECENT) == 0 &&
-	    index_mailbox_is_recent(_mail->box, _mail->uid))
+	    mailbox_recent_flags_have_uid(_mail->box, _mail->uid))
 		index_mail_drop_recent_flag(_mail);
 	flags &= MAIL_FLAGS_NONRECENT | MAIL_INDEX_MAIL_FLAG_BACKEND;
 

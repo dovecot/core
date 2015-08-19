@@ -732,7 +732,7 @@ maildir_save_set_recent_flags(struct maildir_save_context *ctx)
 	uids = array_get(&saved_sorted_uids, &count);
 	for (i = 0; i < count; i++) {
 		for (uid = uids[i].seq1; uid <= uids[i].seq2; uid++)
-			index_mailbox_set_recent_uid(&mbox->box, uid);
+			mailbox_recent_flags_set_uid(&mbox->box, uid);
 	}
 	return uids[count-1].seq2 + 1;
 }

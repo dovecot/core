@@ -178,7 +178,7 @@ static int search_arg_match_index(struct index_search_context *ctx,
 		   may contain it. */
 		flags = rec->flags & ~MAIL_RECENT;
 		if ((arg->value.flags & MAIL_RECENT) != 0 &&
-		    index_mailbox_is_recent(ctx->box, rec->uid))
+		    mailbox_recent_flags_have_uid(ctx->box, rec->uid))
 			flags |= MAIL_RECENT;
 		if (ctx->box->view_pvt == NULL) {
 			/* no private view (set by view syncing) ->

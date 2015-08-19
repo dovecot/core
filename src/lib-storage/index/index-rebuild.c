@@ -157,7 +157,7 @@ index_index_rebuild_init(struct mailbox *box, struct mail_index_view *view,
 	ctx->view = view;
 	ctx->trans = trans;
 	mail_index_reset(ctx->trans);
-	index_mailbox_reset_uidvalidity(box);
+	mailbox_recent_flags_reset(box);
 	(void)mail_index_ext_lookup(box->index, "cache", &ctx->cache_ext_id);
 
 	/* open cache and read the caching decisions. */
