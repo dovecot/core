@@ -104,8 +104,9 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 }
 
 #undef io_add_notify
-enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
-				    void *context, struct io **io_r)
+enum io_notify_result
+io_add_notify(const char *path, unsigned int source_linenum,
+	      io_callback_t *callback, void *context, struct io **io_r)
 {
 	struct ioloop_notify_handler_context *ctx =
 		current_ioloop->notify_handler_context;
@@ -128,6 +129,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 
 	io = i_new(struct io_notify, 1);
 	io->io.condition = IO_NOTIFY;
+	io->io.source_linenum = source_linenum;
 	io->io.callback = callback;
 	io->io.context = context;
 	io->io.ioloop = current_ioloop;

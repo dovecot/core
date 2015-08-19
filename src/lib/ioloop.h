@@ -55,10 +55,11 @@ struct io *io_add(int fd, enum io_condition condition,
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(io_callback_t *)callback, context)
 enum io_notify_result
-io_add_notify(const char *path, io_callback_t *callback,
-	      void *context, struct io **io_r) ATTR_NULL(3);
+io_add_notify(const char *path, unsigned int source_linenum,
+	      io_callback_t *callback, void *context,
+	      struct io **io_r) ATTR_NULL(3);
 #define io_add_notify(path, callback, context, io_r) \
-	io_add_notify(path + \
+	io_add_notify(path, __LINE__ + \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(io_callback_t *)callback, context, io_r)
 struct io *io_add_istream(struct istream *input, unsigned int source_linenum,

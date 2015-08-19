@@ -85,8 +85,9 @@ static void inotify_input(struct ioloop *ioloop)
 }
 
 #undef io_add_notify
-enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
-				    void *context, struct io **io_r)
+enum io_notify_result
+io_add_notify(const char *path, unsigned int source_linenum,
+	      io_callback_t *callback, void *context, struct io **io_r)
 {
 	struct ioloop_notify_handler_context *ctx =
 		current_ioloop->notify_handler_context;
@@ -125,6 +126,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 	}
 
 	*io_r = io_notify_fd_add(&ctx->fd_ctx, wd, callback, context);
+	(*io_r)->source_linenum = source_linenum;
 	return IO_NOTIFY_ADDED;
 }
 
