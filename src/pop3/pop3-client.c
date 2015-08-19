@@ -535,7 +535,8 @@ static const char *client_stats(struct client *client)
 	tab[1].value = dec2str(client->top_count);
 	tab[2].value = dec2str(client->retr_bytes);
 	tab[3].value = dec2str(client->retr_count);
-	tab[4].value = dec2str(client->expunged_count);
+	tab[4].value = client->delete_success ?
+		dec2str(client->deleted_count) : 0;
 	tab[5].value = dec2str(client->messages_count);
 	tab[6].value = dec2str(client->total_size);
 	tab[7].value = dec2str(client->input->v_offset);

@@ -62,7 +62,7 @@ struct client {
 
 	unsigned int uid_validity;
 	unsigned int messages_count;
-	unsigned int deleted_count, expunged_count, seen_change_count;
+	unsigned int deleted_count, seen_change_count;
 	uoff_t total_size;
 	uoff_t deleted_size;
 	uint32_t last_seen_pop3_msn, lowest_retr_pop3_msn;
@@ -100,6 +100,7 @@ struct client {
 	unsigned int waiting_input:1;
 	unsigned int anvil_sent:1;
 	unsigned int message_uidls_save:1;
+	unsigned int delete_success:1;
 };
 
 struct pop3_module_register {

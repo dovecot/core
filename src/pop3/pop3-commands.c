@@ -228,7 +228,6 @@ static void client_expunge(struct client *client, struct mail *mail)
 		mail_update_keywords(mail, MODIFY_ADD, client->deleted_kw);
 		break;
 	}
-	client->expunged_count++;
 }
 
 bool client_update_mails(struct client *client)
@@ -297,6 +296,8 @@ static int cmd_quit(struct client *client, const char *args ATTR_UNUSED)
 		client_send_storage_error(client);
 		client_disconnect(client, "Storage error during logout.");
 		return 1;
+	} else {
+		client->delete_success = TRUE;
 	}
 
 	if (!client->deleted)
