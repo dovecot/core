@@ -138,7 +138,8 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 	   event state transitions and not the current state.  With this flag,
 	   the same event is only returned once. */
 	MY_EV_SET(&ev, fd, EVFILT_VNODE, EV_ADD | EV_CLEAR,
-		  NOTE_DELETE | NOTE_WRITE | NOTE_EXTEND | NOTE_REVOKE, 0, io);
+		  NOTE_DELETE | NOTE_RENAME | NOTE_WRITE | NOTE_EXTEND |
+		  NOTE_REVOKE, 0, io);
 	if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0) {
 		i_error("kevent(%d, %s) for notify failed: %m", fd, path);
 		i_close_fd(&fd);
