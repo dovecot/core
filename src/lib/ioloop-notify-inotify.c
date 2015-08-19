@@ -101,7 +101,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 
 	wd = inotify_add_watch(ctx->inotify_fd, path,
 			       IN_CREATE | IN_DELETE | IN_DELETE_SELF |
-			       IN_MOVE | IN_CLOSE | IN_MODIFY);
+			       IN_MOVE | IN_MODIFY);
 	if (wd < 0) {
 		/* ESTALE could happen with NFS. Don't bother giving an error
 		   message then. */
