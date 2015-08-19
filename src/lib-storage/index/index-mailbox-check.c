@@ -16,11 +16,7 @@ struct index_notify_file {
 
 	char *path;
 	time_t last_stamp;
-};
-
-struct index_notify_io {
-	struct index_notify_io *next;
-	struct io *io;
+	struct io *io_notify;
 };
 
 static void notify_delay_callback(struct mailbox *box)
@@ -71,21 +67,15 @@ void index_mailbox_check_add(struct mailbox *box, const char *path)
 	struct index_notify_file *file;
 	struct stat st;
 	struct io *io = NULL;
-	struct index_notify_io *aio;
 
 	i_assert(set->mailbox_idle_check_interval > 0);
 
 	(void)io_add_notify(path, notify_callback, box, &io);
-	if (io != NULL) {
-		aio = i_new(struct index_notify_io, 1);
-		aio->io = io;
-		aio->next = ibox->notify_ios;
-		ibox->notify_ios = aio;
-	}
 
 	file = i_new(struct index_notify_file, 1);
 	file->path = i_strdup(path);
 	file->last_stamp = stat(path, &st) < 0 ? 0 : st.st_mtime;
+	file->io_notify = io;
 
 	file->next = ibox->notify_files;
 	ibox->notify_files = file;
@@ -104,22 +94,15 @@ void index_mailbox_check_remove_all(struct mailbox *box)
 {
 	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 	struct index_notify_file *file;
-	struct index_notify_io *aio;
 
 	while (ibox->notify_files != NULL) {
 		file = ibox->notify_files;
 		ibox->notify_files = file->next;
 
+		if (file->io_notify != NULL)
+			io_remove(&file->io_notify);
                 i_free(file->path);
 		i_free(file);
-	}
-
-	while (ibox->notify_ios != NULL) {
-		aio = ibox->notify_ios;
-		ibox->notify_ios = aio->next;
-
-		io_remove(&aio->io);
-		i_free(aio);
 	}
 
 	if (ibox->notify_delay_to != NULL)
