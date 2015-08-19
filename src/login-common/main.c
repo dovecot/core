@@ -123,8 +123,8 @@ client_connected_finish(const struct master_service_connection *conn)
 				  &conn->remote_ip, NULL, &ssl_set, &other_sets);
 
 	if (!ssl_connections && !conn->ssl) {
-		client = client_create(conn->fd, FALSE, pool, conn,
-				       set, ssl_set, other_sets);
+		(void)client_create(conn->fd, FALSE, pool, conn,
+				    set, ssl_set, other_sets);
 	} else {
 		fd_ssl = ssl_proxy_alloc(conn->fd, &conn->remote_ip, pool,
 					 set, ssl_set, &proxy);
