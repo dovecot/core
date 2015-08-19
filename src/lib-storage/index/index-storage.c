@@ -354,7 +354,7 @@ void index_storage_mailbox_close(struct mailbox *box)
 {
 	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 
-	index_mailbox_check_remove_all(box);
+	mailbox_watch_remove_all(box);
 	if (box->input != NULL)
 		i_stream_unref(&box->input);
 

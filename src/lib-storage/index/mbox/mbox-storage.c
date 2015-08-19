@@ -680,9 +680,9 @@ static void mbox_notify_changes(struct mailbox *box)
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 
 	if (box->notify_callback == NULL)
-		index_mailbox_check_remove_all(box);
+		mailbox_watch_remove_all(box);
 	else if (!mbox->no_mbox_file)
-		index_mailbox_check_add(box, mailbox_get_path(box));
+		mailbox_watch_add(box, mailbox_get_path(box));
 }
 
 static bool

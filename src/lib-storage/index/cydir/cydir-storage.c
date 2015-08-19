@@ -103,9 +103,9 @@ cydir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 static void cydir_notify_changes(struct mailbox *box)
 {
 	if (box->notify_callback == NULL)
-		index_mailbox_check_remove_all(box);
+		mailbox_watch_remove_all(box);
 	else
-		index_mailbox_check_add(box, mailbox_get_path(box));
+		mailbox_watch_add(box, mailbox_get_path(box));
 }
 
 struct mail_storage cydir_storage = {

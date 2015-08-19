@@ -329,6 +329,8 @@ struct mailbox {
 	/* Mailbox notification settings: */
 	mailbox_notify_callback_t *notify_callback;
 	void *notify_context;
+	struct timeout *to_notify, *to_notify_delay;
+	struct mailbox_notify_file *notify_files;
 
 	/* Increased by one for each new struct mailbox. */
 	unsigned int generation_sequence;

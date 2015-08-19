@@ -5,6 +5,7 @@
 #include "mail-storage-private.h"
 #include "mail-index-private.h"
 #include "mailbox-recent-flags.h" /* FIXME: remove in v2.3 */
+#include "mailbox-watch.h"
 
 #define MAILBOX_FULL_SYNC_INTERVAL 5
 
@@ -20,9 +21,6 @@ enum mailbox_lock_notify_type {
 struct index_mailbox_context {
 	union mailbox_module_context module_ctx;
 	enum mail_index_open_flags index_flags;
-
-	struct timeout *notify_to, *notify_delay_to;
-	struct index_notify_file *notify_files;
 
 	time_t next_lock_notify; /* temporary */
 	enum mailbox_lock_notify_type last_notify_type;
@@ -77,9 +75,8 @@ bool index_storage_is_inconsistent(struct mailbox *box);
 /* FIXME: for backwards compatibility - remove in v2.3 */
 #define index_mailbox_set_recent_seq(box, view, seq1, seq2) \
 	mailbox_recent_flags_set_seqs(box, view, seq1, seq2)
-
-void index_mailbox_check_add(struct mailbox *box, const char *path);
-void index_mailbox_check_remove_all(struct mailbox *box);
+#define index_mailbox_check_add(box, path) mailbox_watch_add(box, path)
+#define index_mailbox_check_remove_all(box) mailbox_watch_remove_all(box)
 
 enum mail_index_sync_flags index_storage_get_sync_flags(struct mailbox *box);
 bool index_mailbox_want_full_sync(struct mailbox *box,

@@ -45,8 +45,8 @@ bool index_mailbox_want_full_sync(struct mailbox *box,
 		return FALSE;
 	}
 
-	if (ibox->notify_to != NULL)
-		timeout_reset(ibox->notify_to);
+	if (box->to_notify != NULL)
+		timeout_reset(box->to_notify);
 	ibox->sync_last_check = ioloop_time;
 	return TRUE;
 }

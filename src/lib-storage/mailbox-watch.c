@@ -2,7 +2,8 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "index-storage.h"
+#include "mail-storage-private.h"
+#include "mailbox-watch.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -11,8 +12,8 @@
 
 #define NOTIFY_DELAY_MSECS 500
 
-struct index_notify_file {
-	struct index_notify_file *next;
+struct mailbox_notify_file {
+	struct mailbox_notify_file *next;
 
 	char *path;
 	time_t last_stamp;
@@ -21,21 +22,18 @@ struct index_notify_file {
 
 static void notify_delay_callback(struct mailbox *box)
 {
-	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
-
-	if (ibox->notify_delay_to != NULL)
-		timeout_remove(&ibox->notify_delay_to);
+	if (box->to_notify_delay != NULL)
+		timeout_remove(&box->to_notify_delay);
 	box->notify_callback(box, box->notify_context);
 }
 
-static void check_timeout(struct mailbox *box)
+static void notify_timeout(struct mailbox *box)
 {
-	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
-	struct index_notify_file *file;
+	struct mailbox_notify_file *file;
 	struct stat st;
 	bool notify = FALSE;
 
-	for (file = ibox->notify_files; file != NULL; file = file->next) {
+	for (file = box->notify_files; file != NULL; file = file->next) {
 		if (stat(file->path, &st) == 0 &&
 		    file->last_stamp != st.st_mtime) {
 			file->last_stamp = st.st_mtime;
@@ -49,22 +47,19 @@ static void check_timeout(struct mailbox *box)
 
 static void notify_callback(struct mailbox *box)
 {
-	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
+	timeout_reset(box->to_notify);
 
-	timeout_reset(ibox->notify_to);
-
-	if (ibox->notify_delay_to == NULL) {
-		ibox->notify_delay_to =
+	if (box->to_notify_delay == NULL) {
+		box->to_notify_delay =
 			timeout_add_short(NOTIFY_DELAY_MSECS,
 					  notify_delay_callback, box);
 	}
 }
 
-void index_mailbox_check_add(struct mailbox *box, const char *path)
+void mailbox_watch_add(struct mailbox *box, const char *path)
 {
-	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 	const struct mail_storage_settings *set = box->storage->set;
-	struct index_notify_file *file;
+	struct mailbox_notify_file *file;
 	struct stat st;
 	struct io *io = NULL;
 
@@ -72,32 +67,31 @@ void index_mailbox_check_add(struct mailbox *box, const char *path)
 
 	(void)io_add_notify(path, notify_callback, box, &io);
 
-	file = i_new(struct index_notify_file, 1);
+	file = i_new(struct mailbox_notify_file, 1);
 	file->path = i_strdup(path);
 	file->last_stamp = stat(path, &st) < 0 ? 0 : st.st_mtime;
 	file->io_notify = io;
 
-	file->next = ibox->notify_files;
-	ibox->notify_files = file;
+	file->next = box->notify_files;
+	box->notify_files = file;
 
 	/* we still add a timeout if we don't have one already,
 	 * because we don't know what happens with [di]notify
 	 * when the filesystem is remote (NFS, ...) */
-	if (ibox->notify_to == NULL) {
-		ibox->notify_to =
+	if (box->to_notify == NULL) {
+		box->to_notify =
 			timeout_add(set->mailbox_idle_check_interval * 1000,
-				    check_timeout, box);
+				    notify_timeout, box);
 	}
 }
 
-void index_mailbox_check_remove_all(struct mailbox *box)
+void mailbox_watch_remove_all(struct mailbox *box)
 {
-	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
-	struct index_notify_file *file;
+	struct mailbox_notify_file *file;
 
-	while (ibox->notify_files != NULL) {
-		file = ibox->notify_files;
-		ibox->notify_files = file->next;
+	while (box->notify_files != NULL) {
+		file = box->notify_files;
+		box->notify_files = file->next;
 
 		if (file->io_notify != NULL)
 			io_remove(&file->io_notify);
@@ -105,8 +99,8 @@ void index_mailbox_check_remove_all(struct mailbox *box)
 		i_free(file);
 	}
 
-	if (ibox->notify_delay_to != NULL)
-		timeout_remove(&ibox->notify_delay_to);
-	if (ibox->notify_to != NULL)
-		timeout_remove(&ibox->notify_to);
+	if (box->to_notify_delay != NULL)
+		timeout_remove(&box->to_notify_delay);
+	if (box->to_notify != NULL)
+		timeout_remove(&box->to_notify);
 }

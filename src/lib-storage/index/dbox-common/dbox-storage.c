@@ -155,13 +155,13 @@ void dbox_notify_changes(struct mailbox *box)
 	const char *dir, *path;
 
 	if (box->notify_callback == NULL)
-		index_mailbox_check_remove_all(box);
+		mailbox_watch_remove_all(box);
 	else {
 		if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX,
 					&dir) <= 0)
 			return;
 		path = t_strdup_printf("%s/"MAIL_INDEX_PREFIX".log", dir);
-		index_mailbox_check_add(box, path);
+		mailbox_watch_add(box, path);
 	}
 }
 

@@ -54,7 +54,8 @@ libstorage_la_SOURCES = \
 	mailbox-recent-flags.c \
 	mailbox-search-result.c \
 	mailbox-tree.c \
-	mailbox-uidvalidity.c
+	mailbox-uidvalidity.c \
+	mailbox-watch.c
 
 headers = \
 	fail-mail-storage.h \
@@ -83,7 +84,8 @@ headers = \
 	mailbox-recent-flags.h \
 	mailbox-search-result-private.h \
 	mailbox-tree.h \
-	mailbox-uidvalidity.h
+	mailbox-uidvalidity.h \
+	mailbox-watch.h
 
 shlibs = \
 	@LINKED_STORAGE_LIBS@ \

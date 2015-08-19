@@ -19,7 +19,6 @@ libstorage_index_la_SOURCES = \
 	index-mail.c \
 	index-mail-binary.c \
 	index-mail-headers.c \
-	index-mailbox-check.c \
 	index-mailbox-size.c \
 	index-rebuild.c \
 	index-search.c \

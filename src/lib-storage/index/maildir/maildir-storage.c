@@ -579,11 +579,11 @@ static void maildir_notify_changes(struct mailbox *box)
 	const char *box_path = mailbox_get_path(box);
 
 	if (box->notify_callback == NULL)
-		index_mailbox_check_remove_all(&mbox->box);
+		mailbox_watch_remove_all(&mbox->box);
 	else {
-		index_mailbox_check_add(&mbox->box,
+		mailbox_watch_add(&mbox->box,
 			t_strconcat(box_path, "/new", NULL));
-		index_mailbox_check_add(&mbox->box,
+		mailbox_watch_add(&mbox->box,
 			t_strconcat(box_path, "/cur", NULL));
 	}
 }
