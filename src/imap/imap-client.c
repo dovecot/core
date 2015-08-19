@@ -699,11 +699,13 @@ void client_command_free(struct client_command_context **_cmd)
 	if (client->mailbox_change_lock == cmd)
 		client->mailbox_change_lock = NULL;
 
-	if (client->free_parser == NULL) {
-		imap_parser_reset(cmd->parser);
-		client->free_parser = cmd->parser;
-	} else if (cmd->parser != NULL) {
-		imap_parser_unref(&cmd->parser);
+	if (cmd->parser != NULL) {
+		if (client->free_parser == NULL) {
+			imap_parser_reset(cmd->parser);
+			client->free_parser = cmd->parser;
+		} else {
+			imap_parser_unref(&cmd->parser);
+		}
 	}
 
 	client->command_queue_size--;
