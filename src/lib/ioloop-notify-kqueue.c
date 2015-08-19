@@ -10,6 +10,7 @@
 #ifdef IOLOOP_NOTIFY_KQUEUE
 
 #include "ioloop-private.h"
+#include "llist.h"
 #include "fd-close-on-exec.h"
 #include <unistd.h>
 #include <fcntl.h>
@@ -32,12 +33,22 @@ struct io_notify {
 	struct io io;
 	int refcount;
 	int fd;
+	struct io_notify *prev, *next;
 };
 
 struct ioloop_notify_handler_context {
 	int kq;
 	struct io *event_io;
+	struct io_notify *notifies;
 };
+
+static void
+io_loop_notify_free(struct ioloop_notify_handler_context *ctx,
+		    struct io_notify *io)
+{
+	DLLIST_REMOVE(&ctx->notifies, io);
+	i_free(io);
+}
 
 static void event_callback(struct ioloop_notify_handler_context *ctx)
 {
@@ -74,7 +85,7 @@ static void event_callback(struct ioloop_notify_handler_context *ctx)
 			io_loop_call_io(&io->io);
 
 		if (--io->refcount == 0)
-			i_free(io);
+			io_loop_notify_free(ctx, io);
 	}
 }
 
@@ -95,6 +106,16 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
+
+	while (ctx->notifies != NULL) {
+		struct io_notify *io = ctx->notifies;
+		struct io *_io = &io->io;
+
+		i_warning("I/O notify leak: %p (line %u, fd %d)",
+			  (void *)_io->callback,
+			  _io->source_linenum, io->fd);
+		io_remove(&_io);
+	}
 
 	if (ctx->event_io)
 		io_remove(&ctx->event_io);
@@ -153,6 +174,7 @@ io_add_notify(const char *path, unsigned int source_linenum,
 		ctx->event_io = io_add(ctx->kq, IO_READ, event_callback,
 				       io->io.ioloop->notify_handler_context);
 	}
+	DLLIST_PREPEND(&ctx->notifies, io);
 	*io_r = &io->io;
 	return IO_NOTIFY_ADDED;
 }
@@ -172,7 +194,7 @@ void io_loop_notify_remove(struct io *_io)
 	io->fd = -1;
 
 	if (--io->refcount == 0)
-		i_free(io);
+		io_loop_notify_free(ctx, io);
 }
 
 #endif

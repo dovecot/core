@@ -193,6 +193,16 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
 
+	while (ctx->fd_ctx.notifies != NULL) {
+		struct io_notify *io = ctx->fd_ctx.notifies;
+		struct io *_io = &io->io;
+
+		i_warning("I/O notify leak: %p (line %u, fd %d)",
+			  (void *)_io->callback,
+			  _io->source_linenum, io->fd);
+		io_remove(&_io);
+	}
+
 	if (ctx->inotify_fd != -1) {
 		if (close(ctx->inotify_fd) < 0)
 			i_error("close(inotify) failed: %m");
