@@ -64,7 +64,7 @@ AS_HELP_STRING([--with-ioloop=IOLOOP], [Specify the I/O loop method to use (epol
 	ioloop=best)
 
 AC_ARG_WITH(notify,
-AS_HELP_STRING([--with-notify=NOTIFY], [Specify the file system notification method to use (inotify, kqueue, dnotify, none; default is detected in the above order)]),
+AS_HELP_STRING([--with-notify=NOTIFY], [Specify the file system notification method to use (inotify, kqueue, none; default is detected in the above order)]),
 	notify=$withval,
 	notify=)
 
@@ -598,34 +598,6 @@ if (test "$notify" = "" && test "$ioloop" = kqueue) || test "$notify" = "kqueue"
     if test "$notify" = "kqueue" ; then
       AC_MSG_ERROR([kqueue notify requested but kqueue() is not available])
       notify=""
-    fi
-  fi
-fi
-
-if test "$notify" = "" || test "$notify" = "dnotify"; then
-  dnl * dnotify?
-  AC_CACHE_CHECK([whether we can use dnotify],i_cv_have_dnotify,[
-    AC_TRY_COMPILE([
-      #define _GNU_SOURCE
-      #include <fcntl.h>
-      #include <signal.h>
-      #include <unistd.h>
-    ], [
-      fcntl(0, F_SETSIG, SIGRTMIN);
-      fcntl(0, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME | DN_MULTISHOT);
-    ], [
-      i_cv_have_dnotify=yes
-    ], [
-      i_cv_have_dnotify=no
-    ])
-  ])
-  if test $i_cv_have_dnotify = yes; then
-    AC_DEFINE(IOLOOP_NOTIFY_DNOTIFY,, [Use Linux dnotify])
-    have_notify=dnotify
-    notify=dnotify
-  else
-    if test "$notify" = "dnotify"; then
-      AC_MSG_ERROR([dnotify requested but not available])
     fi
   fi
 fi

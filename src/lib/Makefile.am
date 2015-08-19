@@ -81,7 +81,6 @@ liblib_la_SOURCES = \
 	ioloop-iolist.c \
 	ioloop-notify-none.c \
 	ioloop-notify-fd.c \
-	ioloop-notify-dn.c \
 	ioloop-notify-inotify.c \
 	ioloop-notify-kqueue.c \
 	ioloop-poll.c \
