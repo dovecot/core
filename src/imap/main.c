@@ -159,13 +159,15 @@ client_parse_input(const unsigned char *data, unsigned int len,
 	}
 }
 
-static void client_add_input(struct client *client, const buffer_t *buf)
+static void
+client_add_input(struct client *client, const unsigned char *client_input,
+		 size_t client_input_size)
 {
 	struct ostream *output;
 	struct client_input input;
 
-	if (buf != NULL && buf->used > 0) {
-		client_parse_input(buf->data, buf->used, &input);
+	if (client_input_size > 0) {
+		client_parse_input(client_input, client_input_size, &input);
 		if (input.input_size > 0 &&
 		    !i_stream_add_data(client->input, input.input,
 				       input.input_size))
@@ -203,16 +205,14 @@ static void client_add_input(struct client *client, const buffer_t *buf)
 
 static int
 client_create_from_input(const struct mail_storage_service_input *input,
-			 const struct master_login_client *login_client,
-			 int fd_in, int fd_out, const buffer_t *input_buf,
-			 const char **error_r)
+			 int fd_in, int fd_out,
+			 struct client **client_r, const char **error_r)
 {
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
 	struct mail_namespace *ns;
 	struct client *client;
 	struct imap_settings *set;
-	enum mail_auth_request_flags flags;
 	const char *errstr;
 	enum mail_error mail_error;
 
@@ -246,22 +246,15 @@ client_create_from_input(const struct mail_storage_service_input *input,
 
 	client = client_create(fd_in, fd_out, input->session_id,
 			       mail_user, user, set);
-	T_BEGIN {
-		client_add_input(client, input_buf);
-	} T_END;
-
-	flags = login_client->auth_req.flags;
-	if ((flags & MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION) != 0)
-		client->tls_compression = TRUE;
+	*client_r = client;
 	return 0;
 }
 
 static void main_stdio_run(const char *username)
 {
-	struct master_login_client login_client;
+	struct client *client;
 	struct mail_storage_service_input input;
 	const char *value, *error, *input_base64;
-	buffer_t *input_buf;
 
 	memset(&input, 0, sizeof(input));
 	input.module = input.service = "imap";
@@ -275,39 +268,39 @@ static void main_stdio_run(const char *username)
 	if ((value = getenv("LOCAL_IP")) != NULL)
 		(void)net_addr2ip(value, &input.local_ip);
 
-	input_base64 = getenv("CLIENT_INPUT");
-	input_buf = input_base64 == NULL ? NULL :
-		t_base64_decode_str(input_base64);
-
-	memset(&login_client, 0, sizeof(login_client));
-	if (client_create_from_input(&input, &login_client,
-				     STDIN_FILENO, STDOUT_FILENO,
-				     input_buf, &error) < 0)
+	if (client_create_from_input(&input, STDIN_FILENO, STDOUT_FILENO,
+				     &client, &error) < 0)
 		i_fatal("%s", error);
+	input_base64 = getenv("CLIENT_INPUT");
+	if (input_base64 == NULL)
+		client_add_input(client, NULL, 0);
+	else {
+		const buffer_t *input_buf = t_base64_decode_str(input_base64);
+		client_add_input(client, input_buf->data, input_buf->used);
+	}
 }
 
 static void
-login_client_connected(const struct master_login_client *client,
+login_client_connected(const struct master_login_client *login_client,
 		       const char *username, const char *const *extra_fields)
 {
 #define MSG_BYE_INTERNAL_ERROR "* BYE "MAIL_ERRSTR_CRITICAL_MSG"\r\n"
 	struct mail_storage_service_input input;
+	struct client *client;
+	enum mail_auth_request_flags flags;
 	const char *error;
-	buffer_t input_buf;
 
 	memset(&input, 0, sizeof(input));
 	input.module = input.service = "imap";
-	input.local_ip = client->auth_req.local_ip;
-	input.remote_ip = client->auth_req.remote_ip;
+	input.local_ip = login_client->auth_req.local_ip;
+	input.remote_ip = login_client->auth_req.remote_ip;
 	input.username = username;
 	input.userdb_fields = extra_fields;
-	input.session_id = client->session_id;
+	input.session_id = login_client->session_id;
 
-	buffer_create_from_const_data(&input_buf, client->data,
-				      client->auth_req.data_size);
-	if (client_create_from_input(&input, client, client->fd, client->fd,
-				     &input_buf, &error) < 0) {
-		int fd = client->fd;
+	if (client_create_from_input(&input, login_client->fd, login_client->fd,
+				     &client, &error) < 0) {
+		int fd = login_client->fd;
 
 		if (write(fd, MSG_BYE_INTERNAL_ERROR,
 			  strlen(MSG_BYE_INTERNAL_ERROR)) < 0) {
@@ -317,7 +310,14 @@ login_client_connected(const struct master_login_client *client,
 		i_error("%s", error);
 		i_close_fd(&fd);
 		master_service_client_connection_destroyed(master_service);
+		return;
 	}
+	client_add_input(client, login_client->data,
+			 login_client->auth_req.data_size);
+
+	flags = login_client->auth_req.flags;
+	if ((flags & MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION) != 0)
+		client->tls_compression = TRUE;
 }
 
 static void login_client_failed(const struct master_login_client *client,
