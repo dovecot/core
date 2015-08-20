@@ -238,6 +238,7 @@ static int select_qresync(struct imap_select_context *ctx)
 	struct imap_fetch_context *fetch_ctx;
 	struct mail_search_args *search_args;
 	struct imap_fetch_qresync_args qresync_args;
+	int ret;
 
 	search_args = mail_search_build_init();
 	search_args->args = p_new(search_args->pool, struct mail_search_arg, 1);
@@ -273,10 +274,9 @@ static int select_qresync(struct imap_select_context *ctx)
 		ctx->cmd->context = ctx;
 		return 0;
 	}
-	if (imap_fetch_end(fetch_ctx) < 0)
-		return -1;
+	ret = imap_fetch_end(fetch_ctx);
 	imap_fetch_free(&fetch_ctx);
-	return 1;
+	return ret < 0 ? -1 : 1;
 }
 
 static int
