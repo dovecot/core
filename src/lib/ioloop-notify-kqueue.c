@@ -207,15 +207,12 @@ int io_loop_extract_notify_fd(struct ioloop *ioloop)
 	if (ctx->kq == -1)
 		return -1;
 
-	new_kq = inotify_init();
-	if (new_kq == -1) {
-		if (errno != EMFILE)
-			i_error("inotify_init() failed: %m");
-		else
-			ioloop_inotify_user_limit_exceeded();
+	new_kq = kqueue();
+	if (new_kq < 0) {
+		i_error("kqueue(notify) failed: %m");
 		return -1;
 	}
-	for (io = ctx->fd_ctx.notifies; io != NULL; io = io->next)
+	for (io = ctx->notifies; io != NULL; io = io->next)
 		io->fd = -1;
 	if (ctx->event_io != NULL)
 		io_remove(&ctx->event_io);
