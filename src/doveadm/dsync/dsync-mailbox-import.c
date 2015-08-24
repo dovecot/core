@@ -493,7 +493,7 @@ int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 				   const struct dsync_mailbox_attribute *attr)
 {
 	struct dsync_mailbox_attribute *local_attr;
-	const char *result;
+	const char *result = "";
 	int ret;
 
 	if (dsync_mailbox_import_lookup_attr(importer, attr->type,
