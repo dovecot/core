@@ -24,4 +24,9 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop ATTR_UNUSED)
 {
 }
 
+int io_loop_extract_notify_fd(struct ioloop *ioloop ATTR_UNUSED)
+{
+	return -1;
+}
+
 #endif

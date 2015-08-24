@@ -146,7 +146,7 @@ void io_loop_notify_remove(struct io *_io)
 
 	io_notify_fd_free(&ctx->fd_ctx, io);
 
-	if (ctx->fd_ctx.notifies == NULL)
+	if (ctx->fd_ctx.notifies == NULL && ctx->event_io != NULL)
 		io_remove(&ctx->event_io);
 }
 
@@ -209,6 +209,33 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 		ctx->inotify_fd = -1;
 	}
 	i_free(ctx);
+}
+
+int io_loop_extract_notify_fd(struct ioloop *ioloop)
+{
+	struct ioloop_notify_handler_context *ctx =
+		ioloop->notify_handler_context;
+	struct io_notify *io;
+	int fd, new_inotify_fd;
+
+	if (ctx->inotify_fd == -1)
+		return -1;
+
+	new_inotify_fd = inotify_init();
+	if (new_inotify_fd == -1) {
+		if (errno != EMFILE)
+			i_error("inotify_init() failed: %m");
+		else
+			ioloop_inotify_user_limit_exceeded();
+		return -1;
+	}
+	for (io = ctx->fd_ctx.notifies; io != NULL; io = io->next)
+		io->fd = -1;
+	if (ctx->event_io != NULL)
+		io_remove(&ctx->event_io);
+	fd = ctx->inotify_fd;
+	ctx->inotify_fd = new_inotify_fd;
+	return fd;
 }
 
 #endif

@@ -167,6 +167,14 @@ void io_loop_context_remove_callbacks(struct ioloop_context *ctx,
 /* Returns the current context set to ioloop. */
 struct ioloop_context *io_loop_get_current_context(struct ioloop *ioloop);
 
+/* Returns fd, which contains all of the ioloop's current notifications.
+   When it becomes readable, there is a new notification. Calling this function
+   stops the existing notifications in the ioloop from working anymore.
+   This function's main idea is that the fd can be passed to another process,
+   which can use it to find out if an interesting notification happens.
+   Returns fd on success, -1 on error. */
+int io_loop_extract_notify_fd(struct ioloop *ioloop);
+
 /* Move the given I/O into the current I/O loop if it's not already
    there. New I/O is returned, while the old one is freed. */
 struct io *io_loop_move_io(struct io **io);
