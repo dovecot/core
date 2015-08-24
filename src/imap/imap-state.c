@@ -798,7 +798,7 @@ static struct {
 };
 
 static struct {
-	enum imap_state_type_public type;
+	enum imap_state_type_internal type;
 	ssize_t (*import)(struct client *client, const unsigned char *data,
 			  size_t size, const char **error_r);
 } imap_states_internal[] = {
