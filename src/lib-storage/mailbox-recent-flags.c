@@ -16,6 +16,11 @@ void mailbox_recent_flags_set_uid(struct mailbox *box, uint32_t uid)
 		array_clear(&box->recent_flags);
 		box->recent_flags_count = 0;
 	}
+	mailbox_recent_flags_set_uid_forced(box, uid);
+}
+
+void mailbox_recent_flags_set_uid_forced(struct mailbox *box, uint32_t uid)
+{
 	box->recent_flags_prev_uid = uid;
 
 	seq_range_array_add_with_init(&box->recent_flags, 64, uid);
