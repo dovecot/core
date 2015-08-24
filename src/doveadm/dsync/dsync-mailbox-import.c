@@ -402,18 +402,15 @@ dsync_attributes_cmp(const struct dsync_mailbox_attribute *attr,
 static int
 dsync_mailbox_import_attribute_real(struct dsync_mailbox_importer *importer,
 				    const struct dsync_mailbox_attribute *attr,
+				    const struct dsync_mailbox_attribute *local_attr,
 				    const char **result_r)
 {
-	struct dsync_mailbox_attribute *local_attr;
 	struct mail_attribute_value value;
 	int cmp;
 	bool ignore = FALSE;
 
 	i_assert(DSYNC_ATTR_HAS_VALUE(attr) || attr->deleted);
 
-	if (dsync_mailbox_import_lookup_attr(importer, attr->type,
-					     attr->key, &local_attr) < 0)
-		return -1;
 	if (attr->deleted &&
 	    (local_attr == NULL || !DSYNC_ATTR_HAS_VALUE(local_attr))) {
 		/* attribute doesn't exist on either side -> ignore */
@@ -474,11 +471,8 @@ dsync_mailbox_import_attribute_real(struct dsync_mailbox_importer *importer,
 			*result_r = "Value changed, but unknown which is newer - picking remote";
 		}
 	}
-	if (ignore) {
-		if (local_attr->value_stream != NULL)
-			i_stream_unref(&local_attr->value_stream);
+	if (ignore)
 		return 0;
-	}
 
 	memset(&value, 0, sizeof(value));
 	value.value = attr->value;
@@ -492,18 +486,25 @@ dsync_mailbox_import_attribute_real(struct dsync_mailbox_importer *importer,
 		/* the attributes aren't vital, don't fail everything just
 		   because of them. */
 	}
-	if (local_attr != NULL && local_attr->value_stream != NULL)
-		i_stream_unref(&local_attr->value_stream);
 	return 0;
 }
 
 int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 				   const struct dsync_mailbox_attribute *attr)
 {
+	struct dsync_mailbox_attribute *local_attr;
 	const char *result;
 	int ret;
 
-	ret = dsync_mailbox_import_attribute_real(importer, attr, &result);
+	if (dsync_mailbox_import_lookup_attr(importer, attr->type,
+					     attr->key, &local_attr) < 0)
+		ret = -1;
+	else {
+		ret = dsync_mailbox_import_attribute_real(importer, attr,
+							  local_attr, &result);
+		if (local_attr != NULL && local_attr->value_stream != NULL)
+			i_stream_unref(&local_attr->value_stream);
+	}
 	imp_debug(importer, "Import attribute %s: %s", attr->key,
 		  ret < 0 ? "failed" : result);
 	return ret;
