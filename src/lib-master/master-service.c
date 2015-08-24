@@ -937,7 +937,7 @@ static void master_service_listen(struct master_service_listener *l)
 		l->fd = -1;
 	}
 	conn.ssl = l->ssl;
-	conn.name = l->name;
+	conn.name = master_service_get_socket_name(service, conn.listen_fd);
 
 	(void)net_getsockname(conn.fd, &conn.local_ip, &conn.local_port);
 	conn.real_remote_ip = conn.remote_ip;
