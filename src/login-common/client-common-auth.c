@@ -2,6 +2,7 @@
 
 #include "hostpid.h"
 #include "login-common.h"
+#include "iostream.h"
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
@@ -216,13 +217,6 @@ void client_proxy_failed(struct client *client, bool send_line)
 	client_auth_failed(client);
 }
 
-static const char *get_disconnect_reason(struct istream *input)
-{
-	errno = input->stream_errno;
-	return errno == 0 || errno == EPIPE ? "Connection closed" :
-		t_strdup_printf("Connection closed: %m");
-}
-
 static void proxy_input(struct client *client)
 {
 	struct istream *input;
@@ -262,7 +256,7 @@ static void proxy_input(struct client *client)
 			"(state=%u, duration=%us)%s",
 			login_proxy_get_host(client->login_proxy),
 			login_proxy_get_port(client->login_proxy),
-			get_disconnect_reason(input),
+			io_stream_get_disconnect_reason(input, NULL),
 			client->proxy_state, duration,
 			line == NULL ? "" : t_strdup_printf(
 				" - BUG: line not read: %s", line)));

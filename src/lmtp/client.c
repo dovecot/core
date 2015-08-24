@@ -5,6 +5,7 @@
 #include "base64.h"
 #include "str.h"
 #include "llist.h"
+#include "iostream.h"
 #include "istream.h"
 #include "ostream.h"
 #include "hostpid.h"
@@ -323,16 +324,9 @@ static const char *client_get_disconnect_reason(struct client *client)
 					       err);
 		}
 	}
-	errno = client->input->stream_errno != 0 ?
-		client->input->stream_errno :
-		client->output->stream_errno;
-	if (errno == 0 || errno == EPIPE)
-		return "Connection closed";
-	return t_strdup_printf("Connection closed: %s",
-			       client->input->stream_errno != 0 ?
-			       i_stream_get_error(client->input) :
-			       o_stream_get_error(client->output));
+	return io_stream_get_disconnect_reason(client->input, client->output);
 }
+
 void client_disconnect(struct client *client, const char *prefix,
 		       const char *reason)
 {

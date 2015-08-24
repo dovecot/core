@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "iostream.h"
 #include "net.h"
 #include "strescape.h"
 #include "llist.h"
@@ -358,23 +359,7 @@ int connection_input_read(struct connection *conn)
 
 const char *connection_disconnect_reason(struct connection *conn)
 {
-	const char *errstr;
-
-	if (conn->input != NULL && conn->input->stream_errno != 0) {
-		errno = conn->input->stream_errno;
-		errstr = i_stream_get_error(conn->input);
-	} else if (conn->output != NULL && conn->output->stream_errno != 0) {
-		errno = conn->output->stream_errno;
-		errstr = o_stream_get_error(conn->output);
-	} else {
-		errno = 0;
-		errstr = "";
-	}
-
-	if (errno == 0 || errno == EPIPE)
-		return "Connection closed";
-	else
-		return t_strdup_printf("Connection closed: %s", errstr);
+	return io_stream_get_disconnect_reason(conn->input, conn->output);
 }
 
 void connection_switch_ioloop(struct connection *conn)
