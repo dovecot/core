@@ -1036,7 +1036,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_backup_alloc(void)
 	struct dsync_cmd_context *ctx;
 
 	_ctx = cmd_dsync_alloc();
-	_ctx->getopt_args = DSYNC_COMMON_GETOPT_ARGS"R";
+	_ctx->getopt_args = DSYNC_COMMON_GETOPT_ARGS;
 	ctx = (struct dsync_cmd_context *)_ctx;
 	ctx->backup = TRUE;
 	return _ctx;
