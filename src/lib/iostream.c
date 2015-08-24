@@ -2,6 +2,8 @@
 
 #include "lib.h"
 #include "array.h"
+#include "istream.h"
+#include "ostream.h"
 #include "iostream-private.h"
 
 static void
@@ -105,4 +107,26 @@ void io_stream_set_verror(struct iostream_private *stream,
 {
 	i_free(stream->error);
 	stream->error = i_strdup_vprintf(fmt, args);
+}
+
+const char *io_stream_get_disconnect_reason(struct istream *input,
+					    struct ostream *output)
+{
+	const char *errstr;
+
+	if (input != NULL && input->stream_errno != 0) {
+		errno = input->stream_errno;
+		errstr = i_stream_get_error(input);
+	} else if (output != NULL && output->stream_errno != 0) {
+		errno = output->stream_errno;
+		errstr = o_stream_get_error(output);
+	} else {
+		errno = 0;
+		errstr = "";
+	}
+
+	if (errno == 0 || errno == EPIPE)
+		return "Connection closed";
+	else
+		return t_strdup_printf("Connection closed: %s", errstr);
 }

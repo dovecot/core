@@ -1,6 +1,8 @@
 #ifndef IOSTREAM_PRIVATE_H
 #define IOSTREAM_PRIVATE_H
 
+#include "iostream.h"
+
 /* This file is private to input stream and output stream implementations */
 
 struct iostream_destroy_callback {

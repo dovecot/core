@@ -193,6 +193,7 @@ headers = \
 	hostpid.h \
 	imem.h \
 	ipwd.h \
+	iostream.h \
 	iostream-private.h \
 	iostream-rawlog.h \
 	iostream-rawlog-private.h \
