@@ -17,6 +17,7 @@
 #include "master-login.h"
 #include "mail-user.h"
 #include "mail-storage-service.h"
+#include "imap-master-client.h"
 #include "imap-resp-code.h"
 #include "imap-commands.h"
 #include "imap-fetch.h"
@@ -35,6 +36,7 @@ static struct mail_storage_service_ctx *storage_service;
 static struct master_login *master_login = NULL;
 
 imap_client_created_func_t *hook_client_created = NULL;
+bool imap_debug = FALSE;
 
 imap_client_created_func_t *
 imap_client_created_hook_set(imap_client_created_func_t *new_hook)
@@ -203,10 +205,9 @@ client_add_input(struct client *client, const unsigned char *client_input,
 	o_stream_unref(&output);
 }
 
-static int
-client_create_from_input(const struct mail_storage_service_input *input,
-			 int fd_in, int fd_out,
-			 struct client **client_r, const char **error_r)
+int client_create_from_input(const struct mail_storage_service_input *input,
+			     int fd_in, int fd_out,
+			     struct client **client_r, const char **error_r)
 {
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
@@ -246,6 +247,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 
 	client = client_create(fd_in, fd_out, input->session_id,
 			       mail_user, user, set);
+	client->userdb_fields = input->userdb_fields == NULL ? NULL :
+		p_strarray_dup(client->pool, input->userdb_fields);
 	*client_r = client;
 	return 0;
 }
@@ -340,7 +343,12 @@ static void client_connected(struct master_service_connection *conn)
 	i_assert(master_login != NULL);
 
 	master_service_client_connection_accept(conn);
-	master_login_add(master_login, conn->fd);
+	if (strcmp(conn->name, "imap-master") == 0) {
+		/* restoring existing IMAP connection (e.g. from imap-idle) */
+		imap_master_client_create(conn->fd);
+	} else {
+		master_login_add(master_login, conn->fd);
+	}
 }
 
 int main(int argc, char *argv[])
@@ -376,7 +384,7 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("imap", service_flags,
-					     &argc, &argv, "t:u:");
+					     &argc, &argv, "Dt:u:");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 't':
@@ -389,6 +397,9 @@ int main(int argc, char *argv[])
 				MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			username = optarg;
 			break;
+		case 'D':
+			imap_debug = TRUE;
+			break;
 		default:
 			return FATAL_DEFAULT;
 		}
@@ -399,6 +410,7 @@ int main(int argc, char *argv[])
 	/* plugins may want to add commands, so this needs to be called early */
 	commands_init();
 	imap_fetch_handlers_init();
+	imap_master_clients_init();
 
 	random_init();
 	storage_service =
@@ -437,6 +449,7 @@ int main(int argc, char *argv[])
 
 	imap_fetch_handlers_deinit();
 	commands_deinit();
+	imap_master_clients_deinit();
 
 	random_deinit();
 	master_service_deinit(&master_service);

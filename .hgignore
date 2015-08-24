@@ -68,6 +68,7 @@ src/director/director-test
 src/dns/dns-client
 src/doveadm/doveadm
 src/doveadm/doveadm-server
+src/imap-hibernate/imap-hibernate
 src/imap-login/imap-login
 src/imap-urlauth/imap-urlauth
 src/imap-urlauth/imap-urlauth-login

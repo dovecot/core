@@ -23,6 +23,7 @@ struct imap_settings {
 	const char *imap_id_send;
 	const char *imap_id_log;
 	bool imap_metadata;
+	unsigned int imap_hibernate_timeout;
 
 	/* imap urlauth: */
 	const char *imap_urlauth_host;

@@ -17,9 +17,12 @@
 #include "imap-client.h"
 #include "imap-settings.h"
 
+struct mail_storage_service_input;
+
 typedef void imap_client_created_func_t(struct client **client);
 
 extern imap_client_created_func_t *hook_client_created;
+extern bool imap_debug;
 
 /* Sets the hook_client_created and returns the previous hook,
    which the new_hook should call if it's non-NULL. */
@@ -27,5 +30,9 @@ imap_client_created_func_t * ATTR_NOWARN_UNUSED_RESULT
 imap_client_created_hook_set(imap_client_created_func_t *new_hook);
 
 void imap_refresh_proctitle(void);
+
+int client_create_from_input(const struct mail_storage_service_input *input,
+			     int fd_in, int fd_out, struct client **client_r,
+			     const char **error_r);
 
 #endif

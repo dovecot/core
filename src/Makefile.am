@@ -37,6 +37,7 @@ SUBDIRS = \
 	ipc \
 	master \
 	login-common \
+	imap-hibernate \
 	imap-login \
 	imap \
 	imap-urlauth \

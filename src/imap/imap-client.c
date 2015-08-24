@@ -18,6 +18,7 @@
 #include "mail-error.h"
 #include "mail-namespace.h"
 #include "mail-storage-service.h"
+#include "imap-state.h"
 #include "imap-search.h"
 #include "imap-notify.h"
 #include "imap-commands.h"
@@ -212,7 +213,7 @@ void client_command_cancel(struct client_command_context **_cmd)
 	}
 }
 
-static const char *client_stats(struct client *client)
+const char *client_stats(struct client *client)
 {
 	static struct var_expand_table static_tab[] = {
 		{ 'i', NULL, "input" },
@@ -655,7 +656,7 @@ client_command_new(struct client *client)
 	return cmd;
 }
 
-static void client_add_missing_io(struct client *client)
+void client_add_missing_io(struct client *client)
 {
 	if (client->io == NULL && !client->disconnected)
 		client->io = io_add_istream(client->input, client_input, client);
@@ -1163,5 +1164,7 @@ void clients_destroy_all(struct mail_storage_service_ctx *storage_service)
 }
 
 struct imap_client_vfuncs imap_client_vfuncs = {
+	imap_state_export_base,
+	imap_state_import_base,
 	client_default_destroy
 };
