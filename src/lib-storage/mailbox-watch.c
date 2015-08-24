@@ -104,3 +104,52 @@ void mailbox_watch_remove_all(struct mailbox *box)
 	if (box->to_notify != NULL)
 		timeout_remove(&box->to_notify);
 }
+
+static void notify_extract_callback(struct mailbox *box ATTR_UNUSED)
+{
+	i_unreached();
+}
+
+int mailbox_watch_extract_notify_fd(struct mailbox *box, const char **reason_r)
+{
+	struct ioloop *ioloop;
+	struct mailbox_notify_file *file;
+	struct io *io, *const *iop;
+	ARRAY(struct io *) temp_ios;
+	int ret;
+	bool failed = FALSE;
+
+	/* add all the notify IOs to a new ioloop. */
+	ioloop = io_loop_create();
+
+	t_array_init(&temp_ios, 8);
+	for (file = box->notify_files; file != NULL && !failed; file = file->next) {
+		switch (io_add_notify(file->path, notify_extract_callback, box, &io)) {
+		case IO_NOTIFY_ADDED:
+			array_append(&temp_ios, &io, 1);
+			break;
+		case IO_NOTIFY_NOTFOUND:
+			*reason_r = t_strdup_printf(
+				"%s not found - can't watch it", file->path);
+			failed = TRUE;
+			break;
+		case IO_NOTIFY_NOSUPPORT:
+			*reason_r = "Filesystem notifications not supported";
+			failed = TRUE;
+			break;
+		}
+	}
+	if (failed)
+		ret = -1;
+	else {
+		ret = io_loop_extract_notify_fd(ioloop);
+		if (ret == -1)
+			*reason_r = "Couldn't extra notify fd";
+	}
+	array_foreach(&temp_ios, iop) {
+		struct io *io = *iop;
+		io_remove(&io);
+	}
+	io_loop_destroy(&ioloop);
+	return ret;
+}
