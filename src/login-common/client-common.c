@@ -136,7 +136,8 @@ client_create(int fd, bool ssl, pool_t pool,
 	client->real_local_ip = conn->real_local_ip;
 	client->real_local_port = conn->real_local_port;
 	client->real_remote_ip = conn->real_remote_ip;
-	client->real_remote_port = conn->real_remote_port; 
+	client->real_remote_port = conn->real_remote_port;
+	client->listener_name = p_strdup(client->pool, conn->name);
 
 	client->trusted = client_is_trusted(client);
 	client->secured = ssl || client->trusted ||
@@ -492,6 +493,7 @@ static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ '\0', NULL, "auth_user" },
 	{ '\0', NULL, "auth_username" },
 	{ '\0', NULL, "auth_domain" },
+	{ '\0', NULL, "listener" },
 	{ '\0', NULL, NULL }
 };
 
@@ -565,6 +567,7 @@ get_var_expand_table(struct client *client)
 		tab[23].value = tab[20].value;
 		tab[24].value = tab[21].value;
 	}
+	tab[25].value = client->listener_name;
 	return tab;
 }
 
