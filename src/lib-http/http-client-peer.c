@@ -220,6 +220,9 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 	/* disconnect if we're not linked to any queue anymore */
 	if (array_count(&peer->queues) == 0) {
 		i_assert(peer->to_backoff != NULL);
+		http_client_peer_debug(peer,
+			"Peer no longer used; will now disconnect "
+			"(%u connections exist)", array_count(&peer->conns));
 		http_client_peer_disconnect(peer);
 		return;
 	}
@@ -227,6 +230,9 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 	/* don't do anything unless we have pending requests */
 	num_pending = http_client_peer_requests_pending(peer, &num_urgent);
 	if (num_pending == 0) {
+		http_client_peer_debug(peer,
+			"No requests to service for this peer "
+			"(%u connections exist)", array_count(&peer->conns));
 		http_client_peer_check_idle(peer);
 		return;
 	}
@@ -296,10 +302,13 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 				}
 			}
 		}
-	
+
 		/* don't continue unless we have more pending requests */
 		num_pending = http_client_peer_requests_pending(peer, &num_urgent);
 		if (num_pending == 0) {
+			http_client_peer_debug(peer,
+				"No more requests to service for this peer "
+				"(%u connections exist)", array_count(&peer->conns));
 			http_client_peer_check_idle(peer);
 			return;
 		}
