@@ -191,10 +191,14 @@ bool imap_client_hibernate(struct client **_client)
 	ret = imap_state_export_internal(client, state, &error);
 	if (ret < 0) {
 		i_error("Couldn't hibernate imap client: "
-			"Couldn't export state: %s", error);
+			"Couldn't export state: %s (mailbox=%s)", error,
+			client->mailbox == NULL ? "" :
+			mailbox_get_vname(client->mailbox));
 	} else if (ret == 0 && client->user->mail_debug) {
 		i_debug("Couldn't hibernate imap client: "
-			"Couldn't export state: %s", error);
+			"Couldn't export state: %s (mailbox=%s)", error,
+			client->mailbox == NULL ? "" :
+			mailbox_get_vname(client->mailbox));
 	}
 	if (ret > 0 && client->mailbox != NULL) {
 		fd_notify = mailbox_watch_extract_notify_fd(client->mailbox,
