@@ -2059,7 +2059,6 @@ void imapc_command_set_mailbox(struct imapc_command *cmd,
 			       struct imapc_client_mailbox *box)
 {
 	cmd->box = box;
-	box->pending_box_command_count++;
 }
 
 bool imapc_command_connection_is_selected(struct imapc_command *cmd)
