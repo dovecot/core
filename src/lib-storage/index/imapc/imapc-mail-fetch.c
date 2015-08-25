@@ -28,6 +28,9 @@ imapc_mail_fetch_callback(const struct imapc_command_reply *reply,
 		struct imapc_mail *mail = *mailp;
 
 		i_assert(mail->fetch_count > 0);
+		if (reply->state != IMAPC_COMMAND_STATE_OK &&
+		    reply->state != IMAPC_COMMAND_STATE_NO)
+			mail->fetch_failed = TRUE;
 		if (--mail->fetch_count == 0)
 			mail->fetching_fields = 0;
 		pool_unref(&mail->imail.mail.pool);
@@ -252,6 +255,7 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	mail->fetching_fields |= fields;
 	mail->fetch_count++;
 	mail->fetch_sent = FALSE;
+	mail->fetch_failed = FALSE;
 
 	imapc_mail_delayed_send_or_merge(mail, str);
 	return 1;
@@ -394,8 +398,11 @@ int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields,
 		imapc_mail_fetch_flush(mbox);
 	while (imail->fetch_count > 0 &&
 	       (!imapc_mail_have_fields(imail, fields) ||
-		!imail->header_list_fetched))
+		!imail->header_list_fetched)) {
 		imapc_mailbox_run_nofetch(mbox);
+	}
+	if (imail->fetch_failed)
+		return -1;
 	return 0;
 }
 
