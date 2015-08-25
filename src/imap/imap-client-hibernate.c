@@ -49,7 +49,8 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 	str_append_tabescaped(cmd, client->user->set->mail_log_prefix);
 	str_printfa(cmd, "\tidle_notify_interval=%u",
 		    client->set->imap_idle_notify_interval);
-	if (net_getpeername(client->fd_in, &peer_ip, &peer_port) == 0) {
+	if (net_getpeername(client->fd_in, &peer_ip, &peer_port) == 0 &&
+	    peer_port != 0) {
 		str_printfa(cmd, "\tpeer_ip=%s\tpeer_port=%u",
 			    net_ip2addr(&peer_ip), peer_port);
 	}
