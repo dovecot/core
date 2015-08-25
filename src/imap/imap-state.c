@@ -213,6 +213,7 @@ imap_state_export_mailbox(buffer_t *dest, struct client *client,
         struct mailbox_status status;
 	struct mailbox_metadata metadata;
 	const char *vname = mailbox_get_vname(box);
+	enum mail_error mail_error;
 
 	mailbox_get_open_status(box, STATUS_UIDVALIDITY | STATUS_UIDNEXT |
 				STATUS_MESSAGES | STATUS_HIGHESTMODSEQ |
@@ -224,8 +225,9 @@ imap_state_export_mailbox(buffer_t *dest, struct client *client,
 	}
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
-		*error_r = mailbox_get_last_error(box, NULL);
-		return -1;
+		*error_r = mailbox_get_last_error(box, &mail_error);
+		/* if the selected mailbox can't have a GUID, fail silently */
+		return mail_error == MAIL_ERROR_NOTPOSSIBLE ? 0 : -1;
 	}
 
 	buffer_append_c(dest, IMAP_STATE_TYPE_MAILBOX);
