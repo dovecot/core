@@ -299,6 +299,7 @@ imapc_client_reconnect_cb(const struct imapc_command_reply *reply,
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
 		/* reopen the mailbox */
 		box->reopen_callback(box->reopen_context);
+		imapc_connection_set_reconnected(box->conn);
 	} else {
 		imapc_connection_abort_commands(box->conn, NULL, FALSE);
 	}
@@ -306,6 +307,9 @@ imapc_client_reconnect_cb(const struct imapc_command_reply *reply,
 
 bool imapc_client_mailbox_can_reconnect(struct imapc_client_mailbox *box)
 {
+	/* the reconnect_ok flag attempts to avoid infinite reconnection loops
+	   to a server that keeps disconnecting us (e.g. some of the commands
+	   we send keeps crashing it always) */
 	return box->reopen_callback != NULL && box->reconnect_ok;
 }
 
@@ -322,6 +326,9 @@ void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box)
 		imapc_connection_connect(box->conn,
 					 imapc_client_reconnect_cb, box);
 	}
+	/* if we fail again, avoid reconnecting immediately. if the server is
+	   broken we could just get into an infinitely failing reconnection
+	   loop. */
 	box->reconnect_ok = FALSE;
 }
 
@@ -393,6 +400,7 @@ void imapc_client_mailbox_idle(struct imapc_client_mailbox *box)
 			timeout_add_short(IMAPC_CLIENT_IDLE_SEND_DELAY_MSECS,
 					  imapc_client_mailbox_idle_send, box);
 	}
+	/* we're done with all work at this point. */
 	box->reconnect_ok = TRUE;
 }
 

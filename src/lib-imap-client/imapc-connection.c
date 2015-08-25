@@ -110,6 +110,7 @@ struct imapc_connection {
 	ARRAY_TYPE(imapc_command) cmd_send_queue;
 	/* commands that have been sent, waiting for their tagged reply */
 	ARRAY_TYPE(imapc_command) cmd_wait_list;
+	unsigned int reconnect_command_count;
 
 	unsigned int ips_count, prev_connect_idx;
 	struct ip_addr *ips;
@@ -1303,6 +1304,16 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 		imapc_connection_unselect(conn->selected_box);
 	}
 
+	if (conn->reconnect_command_count > 0) {
+		if (--conn->reconnect_command_count == 0) {
+			/* we've received replies for all the commands started
+			   before reconnection. if we get disconnected now, we
+			   can safely reconnect without worrying about infinite
+			   reconnect loops. */
+			if (conn->selected_box != NULL)
+				conn->selected_box->reconnect_ok = TRUE;
+		}
+	}
 	imapc_connection_input_reset(conn);
 	imapc_command_reply_free(cmd, &reply);
 	imapc_command_send_more(conn);
@@ -2215,4 +2226,10 @@ void imapc_connection_idle(struct imapc_connection *conn)
 	cmd = imapc_connection_cmd(conn, imapc_connection_idle_callback, conn);
 	cmd->idle = TRUE;
 	imapc_command_send(cmd, "IDLE");
+}
+
+void imapc_connection_set_reconnected(struct imapc_connection *conn)
+{
+	conn->reconnect_command_count = array_count(&conn->cmd_wait_list) +
+		array_count(&conn->cmd_send_queue);
 }
