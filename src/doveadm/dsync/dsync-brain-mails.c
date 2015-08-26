@@ -90,6 +90,13 @@ static bool dsync_brain_recv_mailbox_attribute(struct dsync_brain *brain)
 	return TRUE;
 }
 
+static void dsync_brain_send_end_of_list(struct dsync_brain *brain,
+					 enum dsync_ibc_eol_type type)
+{
+	i_assert(!brain->failed);
+	dsync_ibc_send_end_of_list(brain->ibc, type);
+}
+
 static void dsync_brain_send_mailbox_attribute(struct dsync_brain *brain)
 {
 	const struct dsync_mailbox_attribute *attr;
@@ -98,7 +105,7 @@ static void dsync_brain_send_mailbox_attribute(struct dsync_brain *brain)
 		if (dsync_ibc_send_mailbox_attribute(brain->ibc, attr) == 0)
 			return;
 	}
-	dsync_ibc_send_end_of_list(brain->ibc, DSYNC_IBC_EOL_MAILBOX_ATTRIBUTE);
+	dsync_brain_send_end_of_list(brain, DSYNC_IBC_EOL_MAILBOX_ATTRIBUTE);
 	brain->box_send_state = DSYNC_BOX_STATE_CHANGES;
 }
 
@@ -130,7 +137,7 @@ static void dsync_brain_send_mail_change(struct dsync_brain *brain)
 		if (dsync_ibc_send_change(brain->ibc, change) == 0)
 			return;
 	}
-	dsync_ibc_send_end_of_list(brain->ibc, DSYNC_IBC_EOL_MAIL_CHANGES);
+	dsync_brain_send_end_of_list(brain, DSYNC_IBC_EOL_MAIL_CHANGES);
 	if (brain->mail_requests && brain->box_importer != NULL)
 		brain->box_send_state = DSYNC_BOX_STATE_MAIL_REQUESTS;
 	else
@@ -170,7 +177,7 @@ static bool dsync_brain_send_mail_request(struct dsync_brain *brain)
 	if (brain->box_recv_state < DSYNC_BOX_STATE_MAIL_REQUESTS)
 		return FALSE;
 
-	dsync_ibc_send_end_of_list(brain->ibc, DSYNC_IBC_EOL_MAIL_REQUESTS);
+	dsync_brain_send_end_of_list(brain, DSYNC_IBC_EOL_MAIL_REQUESTS);
 	if (brain->box_exporter != NULL)
 		brain->box_send_state = DSYNC_BOX_STATE_MAILS;
 	else {
@@ -274,7 +281,7 @@ static bool dsync_brain_send_mail(struct dsync_brain *brain)
 	}
 
 	brain->box_send_state = DSYNC_BOX_STATE_DONE;
-	dsync_ibc_send_end_of_list(brain->ibc, DSYNC_IBC_EOL_MAILS);
+	dsync_brain_send_end_of_list(brain, DSYNC_IBC_EOL_MAILS);
 
 	dsync_brain_sync_half_finished(brain);
 	return TRUE;
