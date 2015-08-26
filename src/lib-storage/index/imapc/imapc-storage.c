@@ -471,10 +471,13 @@ static void imapc_mailbox_reopen(void *context)
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
 				       imapc_mailbox_reopen_callback, mbox);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
-	if (imapc_mailbox_want_examine(mbox))
-		imapc_command_sendf(cmd, "EXAMINE %s", mbox->box.name);
-	else
-		imapc_command_sendf(cmd, "SELECT %s", mbox->box.name);
+	if (imapc_mailbox_want_examine(mbox)) {
+		imapc_command_sendf(cmd, "EXAMINE %s",
+			mailbox_list_unescape_name(mbox->box.list, mbox->box.name));
+	} else {
+		imapc_command_sendf(cmd, "SELECT %s",
+			mailbox_list_unescape_name(mbox->box.list, mbox->box.name));
+	}
 	mbox->storage->reopen_count++;
 
 	if (mbox->syncing)
@@ -546,10 +549,13 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
 				       imapc_mailbox_open_callback, &ctx);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
-	if (imapc_mailbox_want_examine(mbox))
-		imapc_command_sendf(cmd, "EXAMINE %s", mbox->box.name);
-	else
-		imapc_command_sendf(cmd, "SELECT %s", mbox->box.name);
+	if (imapc_mailbox_want_examine(mbox)) {
+		imapc_command_sendf(cmd, "EXAMINE %s",
+			mailbox_list_unescape_name(mbox->box.list, mbox->box.name));
+	} else {
+		imapc_command_sendf(cmd, "SELECT %s",
+			mailbox_list_unescape_name(mbox->box.list, mbox->box.name));
+	}
 
 	while (ctx.ret == -2)
 		imapc_mailbox_run(mbox);

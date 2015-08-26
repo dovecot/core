@@ -176,6 +176,7 @@ imapc_list_update_tree(struct imapc_mailbox_list *list,
 		flags++;
 	}
 
+	name = mailbox_list_escape_name(&list->list, name);
 	T_BEGIN {
 		const char *vname =
 			mailbox_list_get_vname(&list->list, name);
