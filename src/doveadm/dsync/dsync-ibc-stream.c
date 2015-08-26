@@ -24,7 +24,6 @@
 
 #include <stdlib.h>
 
-#define DSYNC_IBC_STREAM_TIMEOUT_MSECS (60*10*1000)
 #define DSYNC_IBC_STREAM_OUTBUF_THROTTLE_SIZE (1024*128)
 
 #define DSYNC_PROTOCOL_VERSION_MAJOR 3
@@ -142,6 +141,7 @@ struct dsync_ibc_stream {
 	struct dsync_ibc ibc;
 
 	char *name, *temp_path_prefix;
+	unsigned int timeout_secs;
 	struct istream *input;
 	struct ostream *output;
 	struct io *io;
@@ -291,7 +291,7 @@ static int dsync_ibc_stream_output(struct dsync_ibc_stream *ibc)
 static void dsync_ibc_stream_timeout(struct dsync_ibc_stream *ibc)
 {
 	i_error("dsync(%s): I/O has stalled, no activity for %u seconds",
-		ibc->name, DSYNC_IBC_STREAM_TIMEOUT_MSECS/1000);
+		ibc->name, ibc->timeout_secs);
 	ibc->ibc.timeout = TRUE;
 	dsync_ibc_stream_stop(ibc);
 }
@@ -303,7 +303,7 @@ static void dsync_ibc_stream_init(struct dsync_ibc_stream *ibc)
 	ibc->io = io_add_istream(ibc->input, dsync_ibc_stream_input, ibc);
 	o_stream_set_no_error_handling(ibc->output, TRUE);
 	o_stream_set_flush_callback(ibc->output, dsync_ibc_stream_output, ibc);
-	ibc->to = timeout_add(DSYNC_IBC_STREAM_TIMEOUT_MSECS,
+	ibc->to = timeout_add(ibc->timeout_secs * 1000,
 			      dsync_ibc_stream_timeout, ibc);
 	o_stream_cork(ibc->output);
 	o_stream_nsend_str(ibc->output, DSYNC_HANDSHAKE_VERSION);
@@ -1943,7 +1943,8 @@ static const struct dsync_ibc_vfuncs dsync_ibc_stream_vfuncs = {
 
 struct dsync_ibc *
 dsync_ibc_init_stream(struct istream *input, struct ostream *output,
-		      const char *name, const char *temp_path_prefix)
+		      const char *name, const char *temp_path_prefix,
+		      unsigned int timeout_secs)
 {
 	struct dsync_ibc_stream *ibc;
 
@@ -1953,6 +1954,7 @@ dsync_ibc_init_stream(struct istream *input, struct ostream *output,
 	ibc->output = output;
 	ibc->name = i_strdup(name);
 	ibc->temp_path_prefix = i_strdup(temp_path_prefix);
+	ibc->timeout_secs = timeout_secs;
 	ibc->ret_pool = pool_alloconly_create("ibc stream data", 2048);
 	dsync_ibc_stream_init(ibc);
 	return &ibc->ibc;

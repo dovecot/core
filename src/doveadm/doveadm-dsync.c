@@ -38,7 +38,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+1a:dEfg:l:m:n:NO:Pr:Rs:t:Ux:"
+#define DSYNC_COMMON_GETOPT_ARGS "+1a:dEfg:l:m:n:NO:Pr:Rs:t:T:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 /* The broken_char is mainly set to get a proper error message when trying to
    convert a mailbox with a name that can't be used properly translated between
@@ -46,6 +46,8 @@
    doesn't exist" error message. This could be any control character, since
    none of them are allowed to be created in regular mailbox names. */
 #define DSYNC_LIST_BROKEN_CHAR '\003'
+
+#define DSYNC_DEFAULT_IO_STREAM_TIMEOUT_SECS (60*10)
 
 enum dsync_run_type {
 	DSYNC_RUN_TYPE_LOCAL,
@@ -64,6 +66,7 @@ struct dsync_cmd_context {
 	ARRAY_TYPE(const_string) exclude_mailboxes;
 	ARRAY_TYPE(const_string) namespace_prefixes;
 	time_t sync_since_timestamp;
+	unsigned int io_timeout_secs;
 
 	const char *remote_name;
 	const char *local_location;
@@ -485,7 +488,7 @@ cmd_dsync_icb_stream_init(struct dsync_cmd_context *ctx,
 	i_stream_ref(ctx->input);
 	o_stream_ref(ctx->output);
 	return dsync_ibc_init_stream(ctx->input, ctx->output,
-				     name, temp_prefix);
+				     name, temp_prefix, ctx->io_timeout_secs);
 }
 
 static void
@@ -1001,6 +1004,10 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		if (mail_parse_human_timestamp(optarg, &ctx->sync_since_timestamp) < 0)
 			i_fatal("Invalid -t parameter: %s", optarg);
 		break;
+	case 'T':
+		if (str_to_uint(optarg, &ctx->io_timeout_secs) < 0)
+			i_fatal("Invalid -T parameter: %s", optarg);
+		break;
 	case 'U':
 		ctx->replicator_notify = TRUE;
 		break;
@@ -1015,6 +1022,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 	struct dsync_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
+	ctx->io_timeout_secs = DSYNC_DEFAULT_IO_STREAM_TIMEOUT_SECS;
 	ctx->ctx.getopt_args = DSYNC_COMMON_GETOPT_ARGS;
 	ctx->ctx.v.parse_arg = cmd_mailbox_dsync_parse_arg;
 	ctx->ctx.v.preinit = cmd_dsync_preinit;
@@ -1036,7 +1044,6 @@ static struct doveadm_mail_cmd_context *cmd_dsync_backup_alloc(void)
 	struct dsync_cmd_context *ctx;
 
 	_ctx = cmd_dsync_alloc();
-	_ctx->getopt_args = DSYNC_COMMON_GETOPT_ARGS;
 	ctx = (struct dsync_cmd_context *)_ctx;
 	ctx->backup = TRUE;
 	return _ctx;
@@ -1120,6 +1127,10 @@ cmd_mailbox_dsync_server_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 'r':
 		ctx->rawlog_path = optarg;
 		break;
+	case 'T':
+		if (str_to_uint(optarg, &ctx->io_timeout_secs) < 0)
+			i_fatal("Invalid -T parameter: %s", optarg);
+		break;
 	case 'U':
 		ctx->replicator_notify = TRUE;
 		break;
@@ -1134,7 +1145,8 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 	struct dsync_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
-	ctx->ctx.getopt_args = "Er:U";
+	ctx->io_timeout_secs = DSYNC_DEFAULT_IO_STREAM_TIMEOUT_SECS;
+	ctx->ctx.getopt_args = "Er:T:U";
 	ctx->ctx.v.parse_arg = cmd_mailbox_dsync_server_parse_arg;
 	ctx->ctx.v.run = cmd_dsync_server_run;
 	ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_CHANGED;

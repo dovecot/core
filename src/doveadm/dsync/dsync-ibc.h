@@ -70,7 +70,8 @@ void dsync_ibc_init_pipe(struct dsync_ibc **ibc1_r,
 			 struct dsync_ibc **ibc2_r);
 struct dsync_ibc *
 dsync_ibc_init_stream(struct istream *input, struct ostream *output,
-		      const char *name, const char *temp_path_prefix);
+		      const char *name, const char *temp_path_prefix,
+		      unsigned int timeout_secs);
 void dsync_ibc_deinit(struct dsync_ibc **ibc);
 
 /* I/O callback is called whenever new data is available. It's also called on
