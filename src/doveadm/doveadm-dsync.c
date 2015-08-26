@@ -118,6 +118,10 @@ static void remote_error_input(struct dsync_cmd_context *ctx)
 	case -1:
 		if (ctx->io_err != NULL)
 			io_remove(&ctx->io_err);
+		if (ctx->fd_in == -1) {
+			/* we're shutting down. */
+			io_loop_stop(current_ioloop);
+		}
 		break;
 	default:
 		while ((line = i_stream_next_line(ctx->err_stream)) != NULL)
@@ -406,9 +410,18 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx,
 				  int *status_r)
 {
-	/* wait for the remote command to finish to see any final errors.
-	   don't wait very long though. */
-	alarm(DSYNC_REMOTE_CMD_EXIT_WAIT_SECS);
+	struct timeout *to;
+
+	/* wait for stderr to close. this indicates that the remote process
+	   has died. while we're running we're also reading and printing all
+	   errors that still coming from it. */
+	to = timeout_add(DSYNC_REMOTE_CMD_EXIT_WAIT_SECS*1000,
+			 io_loop_stop, current_ioloop);
+	io_loop_run(current_ioloop);
+	timeout_remove(&to);
+
+	/* unless we timed out, the process should be dead now or very soon. */
+	alarm(1);
 	if (waitpid(ctx->remote_pid, status_r, 0) == -1) {
 		if (errno != EINTR) {
 			i_error("waitpid(%ld) failed: %m",
@@ -664,21 +677,18 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 			i_close_fd(&ctx->fd_out);
 		i_close_fd(&ctx->fd_in);
 	}
-	if (ctx->run_type == DSYNC_RUN_TYPE_CMD)
-		cmd_dsync_wait_remote(ctx, &status);
-
 	/* print any final errors after the process has died. not closing
 	   stdin/stdout before wait() may cause the process to hang, but stderr
 	   shouldn't (at least with ssh) and we need stderr to be open to be
 	   able to print the final errors */
-	if (ctx->err_stream != NULL) {
-		remote_error_input(ctx);
+	if (ctx->run_type == DSYNC_RUN_TYPE_CMD) {
+		cmd_dsync_wait_remote(ctx, &status);
 		remote_errors_logged = ctx->err_stream->v_offset > 0;
 		i_stream_destroy(&ctx->err_stream);
-	}
-	if (ctx->run_type == DSYNC_RUN_TYPE_CMD) {
 		cmd_dsync_log_remote_status(status, remote_errors_logged,
 					    ctx->remote_cmd_args);
+	} else {
+		i_assert(ctx->err_stream == NULL);
 	}
 	if (ctx->io_err != NULL)
 		io_remove(&ctx->io_err);
