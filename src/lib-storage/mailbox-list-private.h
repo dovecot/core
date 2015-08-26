@@ -175,6 +175,10 @@ void mailbox_lists_deinit(void);
 int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 				struct mailbox_list_settings *set_r,
 				const char **error_r);
+const char *
+mailbox_list_escape_name(struct mailbox_list *list, const char *vname);
+const char *
+mailbox_list_unescape_name(struct mailbox_list *list, const char *src);
 const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 						  const char *vname);
 const char *mailbox_list_default_get_vname(struct mailbox_list *list,
