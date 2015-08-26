@@ -187,6 +187,22 @@ static bool dsync_brain_send_mail_request(struct dsync_brain *brain)
 	return TRUE;
 }
 
+static int dsync_brain_export_deinit(struct dsync_brain *brain)
+{
+	const char *errstr;
+	enum mail_error error;
+
+	if (dsync_mailbox_export_deinit(&brain->box_exporter,
+					&errstr, &error) < 0) {
+		i_error("Exporting mailbox %s failed: %s",
+			mailbox_get_vname(brain->box), errstr);
+		brain->mail_error = error;
+		brain->failed = TRUE;
+		return -1;
+	}
+	return 0;
+}
+
 static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 {
 	struct dsync_mailbox_state state;
@@ -236,7 +252,10 @@ static bool dsync_brain_recv_mail(struct dsync_brain *brain)
 		return FALSE;
 	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
 		brain->box_recv_state = DSYNC_BOX_STATE_RECV_LAST_COMMON;
-		i_assert(brain->box_exporter == NULL);
+		if (brain->box_exporter != NULL) {
+			if (dsync_brain_export_deinit(brain) < 0)
+				return TRUE;
+		}
 		dsync_brain_sync_half_finished(brain);
 		return TRUE;
 	}
@@ -253,8 +272,6 @@ static bool dsync_brain_recv_mail(struct dsync_brain *brain)
 static bool dsync_brain_send_mail(struct dsync_brain *brain)
 {
 	const struct dsync_mail *mail;
-	const char *errstr;
-	enum mail_error error;
 
 	if (brain->mail_requests &&
 	    brain->box_recv_state < DSYNC_BOX_STATE_MAILS) {
@@ -270,14 +287,8 @@ static bool dsync_brain_send_mail(struct dsync_brain *brain)
 			return TRUE;
 	}
 
-	if (dsync_mailbox_export_deinit(&brain->box_exporter,
-					&errstr, &error) < 0) {
-		i_error("Exporting mailbox %s failed: %s",
-			mailbox_get_vname(brain->box), errstr);
-		brain->mail_error = error;
-		brain->failed = TRUE;
+	if (dsync_brain_export_deinit(brain) < 0)
 		return TRUE;
-	}
 
 	brain->box_send_state = DSYNC_BOX_STATE_DONE;
 	dsync_brain_send_end_of_list(brain, DSYNC_IBC_EOL_MAILS);
