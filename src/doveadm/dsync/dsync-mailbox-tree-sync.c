@@ -1071,6 +1071,26 @@ sync_rename_temp_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 	return FALSE;
 }
 
+static void
+dsync_mailbox_tree_handle_renames(struct dsync_mailbox_tree_sync_ctx *ctx)
+{
+	bool changed;
+
+	do {
+		T_BEGIN {
+			changed = sync_rename_mailboxes(ctx, &ctx->local_tree->root,
+							&ctx->remote_tree->root);
+		} T_END;
+		if ((ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG) != 0 &&
+		    changed) {
+			i_debug("brain %c: -- Mailbox renamed, restart sync --",
+				(ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_MASTER_BRAIN) != 0 ? 'M' : 'S');
+		}
+	} while (changed);
+	while (sync_rename_temp_mailboxes(ctx, ctx->local_tree, &ctx->local_tree->root)) ;
+	while (sync_rename_temp_mailboxes(ctx, ctx->remote_tree, &ctx->remote_tree->root)) ;
+}
+
 static bool sync_is_wrong_mailbox(struct dsync_mailbox_node *node,
 				  const struct dsync_mailbox_node *wanted_node,
 				  const char **reason_r)
@@ -1348,7 +1368,6 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 {
 	struct dsync_mailbox_tree_sync_ctx *ctx;
 	pool_t pool;
-	bool changed;
 
 	i_assert(hash_table_is_created(local_tree->guid_hash));
 	i_assert(hash_table_is_created(remote_tree->guid_hash));
@@ -1370,19 +1389,8 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 
 	dsync_mailbox_tree_update_child_timestamps(&local_tree->root, 0);
 	dsync_mailbox_tree_update_child_timestamps(&remote_tree->root, 0);
-	do {
-		T_BEGIN {
-			changed = sync_rename_mailboxes(ctx, &local_tree->root,
-							&remote_tree->root);
-		} T_END;
-		if ((ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG) != 0 &&
-		    changed) {
-			i_debug("brain %c: -- Mailbox renamed, restart sync --",
-				(ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_MASTER_BRAIN) != 0 ? 'M' : 'S');
-		}
-	} while (changed);
-	while (sync_rename_temp_mailboxes(ctx, local_tree, &local_tree->root)) ;
-	while (sync_rename_temp_mailboxes(ctx, remote_tree, &remote_tree->root)) ;
+	if ((sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_NO_RENAMES) == 0)
+		dsync_mailbox_tree_handle_renames(ctx);
 
 	/* if we're not doing a two-way sync, delete now any mailboxes, which
 	   a) shouldn't exist, b) doesn't have a matching GUID/UIDVALIDITY,

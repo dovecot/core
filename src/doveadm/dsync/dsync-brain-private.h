@@ -107,6 +107,7 @@ struct dsync_brain {
 	unsigned int no_mail_sync:1;
 	unsigned int no_backup_overwrite:1;
 	unsigned int no_mail_prefetch:1;
+	unsigned int no_mailbox_renames:1;
 	unsigned int changes_during_sync:1;
 	unsigned int require_full_resync:1;
 	unsigned int verbose_proctitle:1;

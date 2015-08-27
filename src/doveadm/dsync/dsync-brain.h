@@ -27,7 +27,10 @@ enum dsync_brain_flags {
 	/* Don't prefetch mail bodies until they're actually needed. This works
 	   only with pipe ibc. It's useful if most of the mails can be copied
 	   directly within filesystem without having to read them. */
-	DSYNC_BRAIN_FLAG_NO_MAIL_PREFETCH	= 0x100
+	DSYNC_BRAIN_FLAG_NO_MAIL_PREFETCH	= 0x100,
+	/* Disable mailbox renaming logic. This is just a kludge that should
+	   be removed once the renaming logic has no more bugs.. */
+	DSYNC_BRAIN_FLAG_NO_MAILBOX_RENAMES	= 0x200
 };
 
 enum dsync_brain_sync_type {

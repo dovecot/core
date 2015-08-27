@@ -39,7 +39,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+1a:dEfg:l:m:n:NO:Pr:Rs:t:T:Ux:"
+#define DSYNC_COMMON_GETOPT_ARGS "+1a:dDEfg:l:m:n:NO:Pr:Rs:t:T:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 /* The broken_char is mainly set to get a proper error message when trying to
    convert a mailbox with a name that can't be used properly translated between
@@ -100,6 +100,7 @@ struct dsync_cmd_context {
 	unsigned int reverse_backup:1;
 	unsigned int remote_user_prefix:1;
 	unsigned int no_mail_sync:1;
+	unsigned int no_mailbox_renames:1;
 	unsigned int local_location_from_arg:1;
 	unsigned int replicator_notify:1;
 	unsigned int exited:1;
@@ -606,6 +607,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		brain_flags |= DSYNC_BRAIN_FLAG_SYNC_VISIBLE_NAMESPACES;
 	if (ctx->purge_remote)
 		brain_flags |= DSYNC_BRAIN_FLAG_PURGE_REMOTE;
+	if (ctx->no_mailbox_renames)
+		brain_flags |= DSYNC_BRAIN_FLAG_NO_MAILBOX_RENAMES;
 
 	if (ctx->reverse_backup)
 		brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_RECV;
@@ -951,6 +954,9 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		break;
 	case 'd':
 		ctx->default_replica_location = TRUE;
+		break;
+	case 'D':
+		ctx->no_mailbox_renames = TRUE;
 		break;
 	case 'E':
 		/* dsync wrapper detection flag */
