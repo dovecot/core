@@ -5,6 +5,7 @@
 #include "array.h"
 #include "execv-const.h"
 #include "fd-set-nonblock.h"
+#include "child-wait.h"
 #include "istream.h"
 #include "ostream.h"
 #include "iostream-ssl.h"
@@ -72,6 +73,8 @@ struct dsync_cmd_context {
 	const char *local_location;
 	pid_t remote_pid;
 	const char *const *remote_cmd_args;
+	struct child_wait *child_wait;
+	int exit_status;
 
 	int fd_in, fd_out, fd_err;
 	struct io *io_err;
@@ -99,6 +102,7 @@ struct dsync_cmd_context {
 	unsigned int no_mail_sync:1;
 	unsigned int local_location_from_arg:1;
 	unsigned int replicator_notify:1;
+	unsigned int exited:1;
 };
 
 static bool legacy_dsync = FALSE;
@@ -118,10 +122,6 @@ static void remote_error_input(struct dsync_cmd_context *ctx)
 	case -1:
 		if (ctx->io_err != NULL)
 			io_remove(&ctx->io_err);
-		if (ctx->fd_in == -1) {
-			/* we're shutting down. */
-			io_loop_stop(current_ioloop);
-		}
 		break;
 	default:
 		while ((line = i_stream_next_line(ctx->err_stream)) != NULL)
@@ -407,35 +407,33 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	return doveadm_is_killed() ? -1 : 0;
 }
 
-static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx,
-				  int *status_r)
+static void cmd_dsync_remote_exited(const struct child_wait_status *status,
+				    struct dsync_cmd_context *ctx)
+{
+	ctx->exited = TRUE;
+	ctx->exit_status = status->status;
+	io_loop_stop(current_ioloop);
+}
+
+static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx)
 {
 	struct timeout *to;
 
-	/* wait for stderr to close. this indicates that the remote process
-	   has died. while we're running we're also reading and printing all
-	   errors that still coming from it. */
+	/* wait in ioloop for the remote process to die. while we're running
+	   we're also reading and printing all errors that still coming from
+	   it. */
 	to = timeout_add(DSYNC_REMOTE_CMD_EXIT_WAIT_SECS*1000,
 			 io_loop_stop, current_ioloop);
 	io_loop_run(current_ioloop);
 	timeout_remove(&to);
 
-	/* unless we timed out, the process should be dead now or very soon. */
-	alarm(1);
-	if (waitpid(ctx->remote_pid, status_r, 0) == -1) {
-		if (errno != EINTR) {
-			i_error("waitpid(%ld) failed: %m",
+	if (!ctx->exited) {
+		i_error("Remote command process isn't dying, killing it");
+		if (kill(ctx->remote_pid, SIGKILL) < 0 && errno != ESRCH) {
+			i_error("kill(%ld, SIGKILL) failed: %m",
 				(long)ctx->remote_pid);
-		} else {
-			i_error("Remote command process isn't dying, killing it");
-			if (kill(ctx->remote_pid, SIGKILL) < 0 && errno != ESRCH) {
-				i_error("kill(%ld, SIGKILL) failed: %m",
-					(long)ctx->remote_pid);
-			}
 		}
-		*status_r = -1;
 	}
-	alarm(0);
 }
 
 static void cmd_dsync_log_remote_status(int status, bool remote_errors_logged,
@@ -557,7 +555,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	enum mail_error mail_error = 0, mail_error2;
 	bool remote_errors_logged = FALSE;
 	bool changes_during_sync = FALSE;
-	int status = 0, ret = 0;
+	int ret = 0;
 
 	memset(&set, 0, sizeof(set));
 	if (_ctx->cur_client_ip.family != 0) {
@@ -621,6 +619,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (doveadm_debug)
 		brain_flags |= DSYNC_BRAIN_FLAG_DEBUG;
 
+	child_wait_init();
 	brain = dsync_brain_master_init(user, ibc, ctx->sync_type,
 					brain_flags, &set);
 
@@ -629,6 +628,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 					&changes_during_sync, &mail_error) < 0)
 			ret = -1;
 	} else {
+		ctx->child_wait = child_wait_new_with_pid(ctx->remote_pid,
+			cmd_dsync_remote_exited, ctx);
 		cmd_dsync_run_remote(user);
 	}
 
@@ -682,10 +683,11 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	   shouldn't (at least with ssh) and we need stderr to be open to be
 	   able to print the final errors */
 	if (ctx->run_type == DSYNC_RUN_TYPE_CMD) {
-		cmd_dsync_wait_remote(ctx, &status);
+		cmd_dsync_wait_remote(ctx);
+		remote_error_input(ctx);
 		remote_errors_logged = ctx->err_stream->v_offset > 0;
 		i_stream_destroy(&ctx->err_stream);
-		cmd_dsync_log_remote_status(status, remote_errors_logged,
+		cmd_dsync_log_remote_status(ctx->exit_status, remote_errors_logged,
 					    ctx->remote_cmd_args);
 	} else {
 		i_assert(ctx->err_stream == NULL);
@@ -695,6 +697,9 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (ctx->fd_err != -1)
 		i_close_fd(&ctx->fd_err);
 
+	if (ctx->child_wait != NULL)
+		child_wait_free(&ctx->child_wait);
+	child_wait_deinit();
 	return ret;
 }
 
