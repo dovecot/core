@@ -138,13 +138,19 @@ const char *dsync_mailbox_node_get_full_name(const struct dsync_mailbox_tree *tr
 					     const struct dsync_mailbox_node *node)
 {
 	string_t *str = t_str_new(128);
+	dsync_mailbox_node_append_full_name(str, tree, node);
+	return str_c(str);
+}
 
+void dsync_mailbox_node_append_full_name(string_t *str,
+					 const struct dsync_mailbox_tree *tree,
+					 const struct dsync_mailbox_node *node)
+{
 	i_assert(node->parent != NULL);
 
 	node_get_full_name_recurse(tree, node, str);
 	/* remove the trailing separator */
 	str_truncate(str, str_len(str)-1);
-	return str_c(str);
 }
 
 void dsync_mailbox_node_copy_data(struct dsync_mailbox_node *dest,
