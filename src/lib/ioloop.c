@@ -204,7 +204,8 @@ timeout_add_common(unsigned int source_linenum,
 	struct timeout *timeout;
 
 	timeout = i_new(struct timeout, 1);
-        timeout->source_linenum = source_linenum;
+	timeout->item.idx = UINT_MAX;
+	timeout->source_linenum = source_linenum;
 	timeout->ioloop = current_ioloop;
 
 	timeout->callback = callback;
@@ -227,9 +228,15 @@ struct timeout *timeout_add(unsigned int msecs, unsigned int source_linenum,
 	timeout = timeout_add_common(source_linenum, callback, context);
 	timeout->msecs = msecs;
 
-	timeout_update_next(timeout, timeout->ioloop->running ?
+	if (msecs > 0) {
+		/* start this timeout in the next run cycle */
+		array_append(&timeout->ioloop->timeouts_new, &timeout, 1);
+	} else {
+		/* trigger zero timeouts as soon as possible */
+		timeout_update_next(timeout, timeout->ioloop->running ?
 			    NULL : &ioloop_timeval);
-	priorityq_add(timeout->ioloop->timeouts, &timeout->item);
+		priorityq_add(timeout->ioloop->timeouts, &timeout->item);
+	}
 	return timeout;
 }
 
@@ -267,7 +274,13 @@ timeout_copy(const struct timeout *old_to)
 	new_to->one_shot = old_to->one_shot;
 	new_to->msecs = old_to->msecs;
 	new_to->next_run = old_to->next_run;
-	priorityq_add(new_to->ioloop->timeouts, &new_to->item);
+
+	if (old_to->item.idx != UINT_MAX)
+		priorityq_add(new_to->ioloop->timeouts, &new_to->item);
+	else if (!new_to->one_shot) {
+		i_assert(new_to->msecs > 0);
+		array_append(&new_to->ioloop->timeouts_new, &new_to, 1);
+	}
 
 	return new_to;
 }
@@ -282,16 +295,30 @@ static void timeout_free(struct timeout *timeout)
 void timeout_remove(struct timeout **_timeout)
 {
 	struct timeout *timeout = *_timeout;
+	struct ioloop *ioloop = timeout->ioloop;
 
 	*_timeout = NULL;
 	if (timeout->item.idx != UINT_MAX)
 		priorityq_remove(timeout->ioloop->timeouts, &timeout->item);
+	else if (!timeout->one_shot && timeout->msecs > 0) {
+		struct timeout *const *to_idx;
+		array_foreach(&ioloop->timeouts_new, to_idx) {
+			if (*to_idx == timeout) {
+				array_delete(&ioloop->timeouts_new,
+					array_foreach_idx(&ioloop->timeouts_new, to_idx), 1);
+				break;
+			}
+		}
+	}
 	timeout_free(timeout);
 }
 
 static void ATTR_NULL(2)
 timeout_reset_timeval(struct timeout *timeout, struct timeval *tv_now)
 {
+	if (timeout->item.idx == UINT_MAX)
+		return;
+
 	timeout_update_next(timeout, tv_now);
 	if (timeout->msecs <= 1) {
 		/* if we came here from io_loop_handle_timeouts(),
@@ -391,6 +418,27 @@ static void io_loop_default_time_moved(time_t old_time, time_t new_time)
 		i_warning("Time moved backwards by %ld seconds.",
 			  (long)(old_time - new_time));
 	}
+}
+
+static void io_loop_timeouts_start_new(struct ioloop *ioloop)
+{
+	struct timeout *const *to_idx;
+
+	if (array_count(&ioloop->timeouts_new) == 0)
+		return;
+	
+	io_loop_time_refresh();
+
+	array_foreach(&ioloop->timeouts_new, to_idx) {
+		struct timeout *timeout= *to_idx;
+		i_assert(timeout->next_run.tv_sec == 0 &&
+			timeout->next_run.tv_usec == 0);
+		i_assert(!timeout->one_shot);
+		i_assert(timeout->msecs > 0);
+		timeout_update_next(timeout, &ioloop_timeval);
+		priorityq_add(ioloop->timeouts, &timeout->item);
+	}
+	array_clear(&ioloop->timeouts_new);
 }
 
 static void io_loop_timeouts_update(struct ioloop *ioloop, long diff_secs)
@@ -545,6 +593,7 @@ static void io_loop_call_pending(struct ioloop *ioloop)
 
 void io_loop_handler_run(struct ioloop *ioloop)
 {
+	io_loop_timeouts_start_new(ioloop);
 	io_loop_handler_run_internal(ioloop);
 	io_loop_call_pending(ioloop);
 }
@@ -587,6 +636,7 @@ struct ioloop *io_loop_create(void)
 
         ioloop = i_new(struct ioloop, 1);
 	ioloop->timeouts = priorityq_init(timeout_cmp, 32);
+	i_array_init(&ioloop->timeouts_new, 8);
 
 	ioloop->time_moved_callback = current_ioloop != NULL ?
 		current_ioloop->time_moved_callback :
@@ -600,6 +650,7 @@ struct ioloop *io_loop_create(void)
 void io_loop_destroy(struct ioloop **_ioloop)
 {
 	struct ioloop *ioloop = *_ioloop;
+	struct timeout *const *to_idx;
 	struct priorityq_item *item;
 
 	*_ioloop = NULL;
@@ -621,6 +672,15 @@ void io_loop_destroy(struct ioloop **_ioloop)
 		io_remove(&_io);
 	}
 	i_assert(ioloop->io_pending_count == 0);
+
+	array_foreach(&ioloop->timeouts_new, to_idx) {
+		struct timeout *to = *to_idx;
+
+		i_warning("Timeout leak: %p (line %u)", (void *)to->callback,
+			  to->source_linenum);
+		timeout_free(to);
+	}
+	array_free(&ioloop->timeouts_new);
 
 	while ((item = priorityq_pop(ioloop->timeouts)) != NULL) {
 		struct timeout *to = (struct timeout *)item;
