@@ -3,6 +3,7 @@
 
 #include "priorityq.h"
 #include "ioloop.h"
+#include "array-decl.h"
 
 #ifndef IOLOOP_INITIAL_FD_COUNT
 #  define IOLOOP_INITIAL_FD_COUNT 128
@@ -16,6 +17,7 @@ struct ioloop {
 	struct io_file *io_files;
 	struct io_file *next_io_file;
 	struct priorityq *timeouts;
+	ARRAY(struct timeout *) timeouts_new;
 
         struct ioloop_handler_context *handler_context;
         struct ioloop_notify_handler_context *notify_handler_context;
