@@ -626,14 +626,19 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	brain = dsync_brain_master_init(user, ibc, ctx->sync_type,
 					brain_flags, &set);
 
-	if (ctx->run_type == DSYNC_RUN_TYPE_LOCAL) {
+	switch (ctx->run_type) {
+	case DSYNC_RUN_TYPE_LOCAL:
 		if (cmd_dsync_run_local(ctx, user, brain, ibc2,
 					&changes_during_sync, &mail_error) < 0)
 			ret = -1;
-	} else {
+		break;
+	case DSYNC_RUN_TYPE_CMD:
 		ctx->child_wait = child_wait_new_with_pid(ctx->remote_pid,
 			cmd_dsync_remote_exited, ctx);
+		/* fall through */
+	case DSYNC_RUN_TYPE_STREAM:
 		cmd_dsync_run_remote(user);
+		break;
 	}
 
 	if (ctx->state_input != NULL) {
