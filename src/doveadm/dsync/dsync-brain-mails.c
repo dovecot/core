@@ -252,7 +252,8 @@ static bool dsync_brain_recv_mail(struct dsync_brain *brain)
 		return FALSE;
 	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
 		brain->box_recv_state = DSYNC_BOX_STATE_RECV_LAST_COMMON;
-		if (brain->box_exporter != NULL) {
+		if (brain->box_exporter != NULL &&
+		    brain->box_send_state >= DSYNC_BOX_STATE_RECV_LAST_COMMON) {
 			if (dsync_brain_export_deinit(brain) < 0)
 				return TRUE;
 		}
