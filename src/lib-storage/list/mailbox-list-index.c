@@ -12,6 +12,8 @@
 
 #define MAILBOX_LIST_INDEX_REFRESH_DELAY_MSECS 1000
 
+static void mailbox_list_index_init_finish(struct mailbox_list *list);
+
 struct mailbox_list_index_module mailbox_list_index_module =
 	MODULE_CONTEXT_INIT(&mailbox_list_module_register);
 
@@ -656,6 +658,12 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 	v->notify_wait = mailbox_list_index_notify_wait;
 
 	MODULE_CONTEXT_SET(list, mailbox_list_index_module, ilist);
+
+	if ((list->flags & MAILBOX_LIST_FLAG_SECONDARY) != 0) {
+		/* secondary lists aren't accessible via namespaces, so we
+		   need to finish them now. */
+		mailbox_list_index_init_finish(list);
+	}
 }
 
 static void mailbox_list_index_init_finish(struct mailbox_list *list)
