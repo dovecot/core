@@ -2,6 +2,7 @@
 #define SETTINGS_PARSER_H
 
 struct var_expand_table;
+struct var_expand_func_table;
 
 #define SETTINGS_SEPARATOR '/'
 #define SETTINGS_SEPARATOR_S "/"
@@ -178,6 +179,11 @@ void settings_parse_var_skip(struct setting_parser_context *ctx);
 void settings_var_expand(const struct setting_parser_info *info,
 			 void *set, pool_t pool,
 			 const struct var_expand_table *table);
+void settings_var_expand_with_funcs(const struct setting_parser_info *info,
+				    void *set, pool_t pool,
+				    const struct var_expand_table *table,
+				    const struct var_expand_func_table *func_table,
+				    void *func_context);
 /* Go through all the settings and return the first one that has an unexpanded
    setting containing the given %key. */
 bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
