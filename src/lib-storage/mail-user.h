@@ -34,6 +34,7 @@ struct mail_user {
 	const char *session_id;
 	struct ip_addr *local_ip, *remote_ip;
 	const char *auth_token, *auth_user;
+	const char *const *userdb_fields;
 
 	const struct var_expand_table *var_expand_table;
 	/* If non-NULL, fail the user initialization with this error.
@@ -92,6 +93,7 @@ union mail_user_module_context {
 };
 extern struct mail_user_module_register mail_user_module_register;
 extern struct auth_master_connection *mail_user_auth_master_conn;
+extern const struct var_expand_func_table *mail_user_var_expand_func_table;
 
 struct mail_user *mail_user_alloc(const char *username,
 				  const struct setting_parser_info *set_info,

@@ -99,7 +99,9 @@ mail_user_expand_plugins_envs(struct mail_user *user)
 			return;
 		}
 		str_truncate(str, 0);
-		var_expand(str, envs[i+1], mail_user_var_expand_table(user));
+		var_expand_with_funcs(str, envs[i+1],
+				      mail_user_var_expand_table(user),
+				      mail_user_var_expand_func_table, user);
 		envs[i+1] = p_strdup(user->pool, str_c(str));
 	}
 }
@@ -115,8 +117,9 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 				       'h', "home", &key, &value);
 
 	/* expand mail_home setting before calling mail_user_get_home() */
-	settings_var_expand(user->set_info, user->set,
-			    user->pool, mail_user_var_expand_table(user));
+	settings_var_expand_with_funcs(user->set_info, user->set,
+				       user->pool, mail_user_var_expand_table(user),
+				       mail_user_var_expand_func_table, user);
 
 	if (need_home_dir && mail_user_get_home(user, &home) <= 0) {
 		user->error = p_strdup_printf(user->pool,
@@ -256,6 +259,26 @@ mail_user_var_expand_table(struct mail_user *user)
 
 	user->var_expand_table = tab;
 	return user->var_expand_table;
+}
+
+static const char *
+mail_user_var_expand_func_userdb(const char *data, void *context)
+{
+	struct mail_user *user = context;
+	const char *field_name = data;
+	unsigned int i, field_name_len;
+
+	if (user->userdb_fields == NULL)
+		return NULL;
+
+	field_name_len = strlen(field_name);
+	for (i = 0; user->userdb_fields[i] != NULL; i++) {
+		if (strncmp(user->userdb_fields[i], field_name,
+			    field_name_len) == 0 &&
+		    user->userdb_fields[i][field_name_len] == '=')
+			return user->userdb_fields[i] + field_name_len+1;
+	}
+	return NULL;
 }
 
 void mail_user_set_home(struct mail_user *user, const char *home)
@@ -534,3 +557,10 @@ void mail_user_stats_fill(struct mail_user *user, struct stats *stats)
 {
 	user->v.stats_fill(user, stats);
 }
+
+static const struct var_expand_func_table mail_user_var_expand_func_table_arr[] = {
+	{ "userdb", mail_user_var_expand_func_userdb },
+	{ NULL, NULL }
+};
+const struct var_expand_func_table *mail_user_var_expand_func_table =
+	mail_user_var_expand_func_table_arr;
