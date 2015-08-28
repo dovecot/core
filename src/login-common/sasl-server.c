@@ -234,6 +234,7 @@ authenticate_callback(struct auth_client_request *request,
 	case AUTH_REQUEST_STATUS_OK:
 		client->auth_request = NULL;
 		client->auth_successes++;
+		client->auth_passdb_args = p_strarray_dup(client->pool, args);
 
 		nologin = FALSE;
 		for (i = 0; args[i] != NULL; i++) {

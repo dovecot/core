@@ -587,12 +587,36 @@ static bool have_username_key(const char *str)
 }
 
 static const char *
+client_var_expand_func_passdb(const char *data, void *context)
+{
+	struct client *client = context;
+	const char *field_name = data;
+	unsigned int i, field_name_len;
+
+	if (client->auth_passdb_args == NULL)
+		return NULL;
+
+	field_name_len = strlen(field_name);
+	for (i = 0; client->auth_passdb_args[i] != NULL; i++) {
+		if (strncmp(client->auth_passdb_args[i], field_name,
+			    field_name_len) == 0 &&
+		    client->auth_passdb_args[i][field_name_len] == '=')
+			return client->auth_passdb_args[i] + field_name_len+1;
+	}
+	return NULL;
+}
+
+static const char *
 client_get_log_str(struct client *client, const char *msg)
 {
-	static struct var_expand_table static_tab[3] = {
+	static const struct var_expand_table static_tab[3] = {
 		{ 's', NULL, NULL },
 		{ '$', NULL, NULL },
 		{ '\0', NULL, NULL }
+	};
+	static const struct var_expand_func_table func_table[] = {
+		{ "passdb", client_var_expand_func_passdb },
+		{ NULL, NULL }
 	};
 	const struct var_expand_table *var_expand_table;
 	struct var_expand_table *tab;
@@ -609,7 +633,8 @@ client_get_log_str(struct client *client, const char *msg)
 	str2 = t_str_new(128);
 	for (e = client->set->log_format_elements_split; *e != NULL; e++) {
 		pos = str_len(str);
-		var_expand(str, *e, var_expand_table);
+		var_expand_with_funcs(str, *e, var_expand_table,
+				      func_table, client);
 		if (have_username_key(*e)) {
 			/* username is added even if it's empty */
 		} else {
