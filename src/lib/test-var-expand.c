@@ -100,9 +100,58 @@ static void test_var_get_key_range(void)
 	test_end();
 }
 
+static const char *test_var_expand_func1(const char *data, void *context)
+{
+	test_assert(*(int *)context == 0xabcdef);
+	return t_strdup_printf("<%s>", data);
+}
+
+static const char *test_var_expand_func2(const char *data ATTR_UNUSED,
+					 void *context ATTR_UNUSED)
+{
+	return "";
+}
+
+static const char *test_var_expand_func3(const char *data ATTR_UNUSED,
+					 void *context ATTR_UNUSED)
+{
+	return NULL;
+}
+
+static void test_var_expand_with_funcs(void)
+{
+	static struct var_expand_test tests[] = {
+		{ "%{func1}", "<>" },
+		{ "%{func1:foo}", "<foo>" },
+		{ "%{func2}", "" },
+		{ "%{func3}", "" }
+	};
+	static struct var_expand_table table[] = {
+		{ '\0', NULL, NULL }
+	};
+	static const struct var_expand_func_table func_table[] = {
+		{ "func1", test_var_expand_func1 },
+		{ "func2", test_var_expand_func2 },
+		{ "func3", test_var_expand_func3 },
+		{ NULL, NULL }
+	};
+	string_t *str = t_str_new(128);
+	unsigned int i;
+	int ctx = 0xabcdef;
+
+	test_begin("var_expand_with_funcs");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		str_truncate(str, 0);
+		var_expand_with_funcs(str, tests[i].in, table, func_table, &ctx);
+		test_assert_idx(strcmp(tests[i].out, str_c(str)) == 0, i);
+	}
+	test_end();
+}
+
 void test_var_expand(void)
 {
 	test_var_expand_ranges();
 	test_var_expand_builtin();
 	test_var_get_key_range();
+	test_var_expand_with_funcs();
 }

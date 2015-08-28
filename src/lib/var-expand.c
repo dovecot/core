@@ -170,14 +170,20 @@ static const char *
 var_expand_func(const struct var_expand_func_table *func_table,
 		const char *key, const char *data, void *context)
 {
-	if (strcmp(key, "env") == 0)
-		return getenv(data);
+	const char *value;
+
+	if (strcmp(key, "env") == 0) {
+		value = getenv(data);
+		return value != NULL ? value : "";
+	}
 	if (func_table == NULL)
 		return NULL;
 
 	for (; func_table->key != NULL; func_table++) {
-		if (strcmp(func_table->key, key) == 0)
-			return func_table->func(data, context);
+		if (strcmp(func_table->key, key) == 0) {
+			value = func_table->func(data, context);
+			return value != NULL ? value : "";
+		}
 	}
 	return NULL;
 }
