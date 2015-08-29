@@ -143,11 +143,14 @@ master_fatal_callback(const struct failure_context *ctx,
 {
 	const char *path, *str;
 	va_list args2;
+	pid_t pid;
 	int fd;
-
+	
 	/* if we already forked a child process, this isn't fatal for the
 	   main process and there's no need to write the fatal file. */
-	if (getpid() == strtol(my_pid, NULL, 10)) {
+	if (str_to_pid(my_pid, &pid) < 0)
+		i_unreached();
+	if (getpid() == pid) {
 		/* write the error message to a file (we're chdired to
 		   base dir) */
 		path = t_strconcat(FATAL_FILENAME, NULL);

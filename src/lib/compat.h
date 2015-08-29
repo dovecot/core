@@ -184,15 +184,6 @@ int i_my_setegid(gid_t egid);
 char *i_my_basename(char *path);
 #endif
 
-#ifndef HAVE_STRTOULL
-#  define strtoull i_my_strtoull
-unsigned long long int i_my_strtoull(const char *nptr, char **endptr, int base);
-#endif
-#ifndef HAVE_STRTOLL
-#  define strtoll i_my_strtoll
-unsigned long long int i_my_strtoll(const char *nptr, char **endptr, int base);
-#endif
-
 #ifdef HAVE_OLD_VSNPRINTF
 #  include <stdio.h>
 #  define vsnprintf i_my_vsnprintf

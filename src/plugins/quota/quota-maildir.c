@@ -417,7 +417,7 @@ maildir_parse_limit(const char *str, uint64_t *bytes_r, uint64_t *count_r)
 {
 	const char *const *limit;
 	unsigned long long value;
-	char *pos;
+	const char *pos;
 	bool ret = TRUE;
 
 	*bytes_r = 0;
@@ -425,7 +425,10 @@ maildir_parse_limit(const char *str, uint64_t *bytes_r, uint64_t *count_r)
 
 	/* 0 values mean unlimited */
 	for (limit = t_strsplit(str, ","); *limit != NULL; limit++) {
-		value = strtoull(*limit, &pos, 10);
+		if (str_parse_ullong(*limit, &value, &pos) < 0) {
+			ret = FALSE;
+			continue;
+		}
 		if (pos[0] != '\0' && pos[1] == '\0') {
 			switch (pos[0]) {
 			case 'C':

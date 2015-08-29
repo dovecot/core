@@ -145,8 +145,7 @@ quota_rule_parse_limits(struct quota_root_settings *root_set,
 			const char *full_rule_def,
 			bool relative_rule, const char **error_r)
 {
-	const char **args, *key, *value, *error;
-	char *p;
+	const char **args, *key, *value, *error, *p;
 	uint64_t multiply;
 	int64_t *limit;
 
@@ -179,13 +178,25 @@ quota_rule_parse_limits(struct quota_root_settings *root_set,
 		if (strcmp(key, "storage") == 0) {
 			multiply = 1024;
 			limit = &rule->bytes_limit;
-			*limit = strtoll(value, &p, 10);
+			if (str_parse_int64(value, limit, &p) < 0) {
+				*error_r = p_strdup_printf(root_set->set->pool,
+						"Invalid storage limit: %s", value);
+				return -1;
+			}
 		} else if (strcmp(key, "bytes") == 0) {
 			limit = &rule->bytes_limit;
-			*limit = strtoll(value, &p, 10);
+			if (str_parse_int64(value, limit, &p) < 0) {
+				*error_r = p_strdup_printf(root_set->set->pool,
+						"Invalid bytes limit: %s", value);
+				return -1;
+			}
 		} else if (strcmp(key, "messages") == 0) {
 			limit = &rule->count_limit;
-			*limit = strtoll(value, &p, 10);
+			if (str_parse_int64(value, limit, &p) < 0) {
+				*error_r = p_strdup_printf(root_set->set->pool,
+						"Invalid bytes messages: %s", value);
+				return -1;
+			}
 		} else {
 			*error_r = p_strdup_printf(root_set->set->pool,
 					"Unknown rule limit name: %s", key);
@@ -348,15 +359,15 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 int quota_root_parse_grace(struct quota_root_settings *root_set,
 			   const char *value, const char **error_r)
 {
-	char *p;
+	const char *p;
 
 	if (value == NULL) {
 		/* default */
 		value = QUOTA_DEFAULT_GRACE;
 	}
 
-	root_set->grace_rule.bytes_limit = strtoll(value, &p, 10);
-
+	if (str_parse_int64(value, &root_set->grace_rule.bytes_limit, &p) < 0)
+		return -1;
 	if (quota_limit_parse(root_set, &root_set->grace_rule, p, 1,
 			      &root_set->grace_rule.bytes_limit, error_r) < 0)
 		return -1;

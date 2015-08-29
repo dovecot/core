@@ -19,9 +19,6 @@
 #include <syslog.h>
 #include <time.h>
 #include <sys/time.h>
-#ifdef HAVE_INTTYPES_H
-#  include <inttypes.h> /* for strtoimax() and strtoumax() */
-#endif
 
 #ifndef INADDR_NONE
 #  define INADDR_NONE INADDR_BROADCAST
@@ -203,44 +200,6 @@ char *i_my_basename(char *path)
 	   too much trouble without any gain. */
 	p = strrchr(path, '/');
 	return p == NULL ? path : p + 1;
-}
-#endif
-
-#ifndef HAVE_STRTOULL
-unsigned long long int i_my_strtoull(const char *nptr, char **endptr, int base)
-{
-#ifdef HAVE_STRTOUMAX
-	return strtoumax(nptr, endptr, base);
-#elif defined(HAVE_STRTOUQ)
-	return strtouq(nptr, endptr, base);
-#else
-	unsigned long ret = 0;
-
-	/* we support only base-10 in our fallback implementation.. */
-	i_assert(base == 10);
-
-	for (; *nptr != '\0'; nptr++) {
-		if (*nptr < '0' || *nptr > '9')
-			break;
-		ret = ret * 10 + (*nptr - '0');
-	}
-	if (endptr != NULL)
-		*endptr = (char *)nptr;
-	return ret;
-#endif
-}
-#endif
-
-#ifndef HAVE_STRTOLL
-unsigned long long int i_my_strtoll(const char *nptr, char **endptr, int base)
-{
-#ifdef HAVE_STRTOIMAX 
-	return strtoimax(nptr, endptr, base);
-#elif defined (HAVE_STRTOQ)
-	return strtoq(nptr, endptr, base);
-#else
-	i_panic("strtoll() not implemented");
-#endif
 }
 #endif
 

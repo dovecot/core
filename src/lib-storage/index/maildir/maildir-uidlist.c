@@ -591,10 +591,18 @@ maildir_uidlist_read_v3_header(struct maildir_uidlist *uidlist,
 
 		switch (key) {
 		case MAILDIR_UIDLIST_HDR_EXT_UID_VALIDITY:
-			*uid_validity_r = strtoul(value, NULL, 10);
+			if (str_to_uint(value, uid_validity_r) < 0) {
+				maildir_uidlist_set_corrupted(uidlist,
+					"Invalid mailbox UID_VALIDITY: %s", value);
+				return -1;
+			}
 			break;
 		case MAILDIR_UIDLIST_HDR_EXT_NEXT_UID:
-			*next_uid_r = strtoul(value, NULL, 10);
+			if (str_to_uint(value, next_uid_r) < 0) {
+				maildir_uidlist_set_corrupted(uidlist,
+					"Invalid mailbox NEXT_UID: %s", value);
+				return -1;
+			}
 			break;
 		case MAILDIR_UIDLIST_HDR_EXT_GUID:
 			if (guid_128_from_string(value,

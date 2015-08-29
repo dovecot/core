@@ -11,14 +11,18 @@
 int main(void)
 {
 	string_t *str;
-	const char *user, *home, *authorized, *orig_uid;
+	const char *user, *home, *authorized, *orig_uid_env;
 	const char *extra_env, *key, *value, *const *tmp;
 	bool uid_found = FALSE, gid_found = FALSE;
+	uid_t orig_uid;
 
 	lib_init();
 	str = t_str_new(1024);
 
-	orig_uid = getenv("ORIG_UID");
+	orig_uid_env = getenv("ORIG_UID");
+	if (orig_uid_env == NULL || str_to_uid(orig_uid_env, &orig_uid) < 0)
+		orig_uid = (uid_t)-1;
+
 	/* ORIG_UID should have the auth process's UID that forked us.
 	   if the checkpassword changed the UID, this could be a security hole
 	   because the UID's other processes can ptrace this process and write
@@ -30,9 +34,9 @@ int main(void)
 	      userdb_uid instead)
 	   */
 	if (getenv("INSECURE_SETUID") == NULL &&
-	    (orig_uid == NULL || strtoul(orig_uid, NULL, 10) != getuid()) &&
+	    (orig_uid == (uid_t)-1 || orig_uid != getuid()) &&
 	    getuid() == geteuid() && getgid() == getegid()) {
-		if (orig_uid == NULL) {
+		if (orig_uid_env == NULL) {
 			i_error("checkpassword: ORIG_UID environment was dropped by checkpassword. "
 				"Can't verify if we're safe to run. See "
 				"http://wiki2.dovecot.org/AuthDatabase/CheckPassword#Security");

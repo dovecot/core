@@ -104,7 +104,12 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 			else
 				fs->path_prefix = i_strdup(arg + 7);
 		} else if (strncmp(arg, "mode=", 5) == 0) {
-			fs->mode = strtoul(arg+5, NULL, 8) & 0666;
+			unsigned int mode;
+			if (str_to_uint_oct(arg+5, &mode) < 0) {
+				fs_set_error(_fs, "Invalid mode value: %s", arg+5);
+				return -1;
+			}
+			fs->mode = mode & 0666;
 			if (fs->mode == 0) {
 				fs_set_error(_fs, "Invalid mode: %s", arg+5);
 				return -1;

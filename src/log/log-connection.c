@@ -180,7 +180,7 @@ log_parse_master_line(const char *line, const struct timeval *log_time,
 {
 	struct log_connection *const *logs, *log;
 	struct log_client *client;
-	const char *p, *p2, *cmd;
+	const char *p, *p2, *cmd, *pidstr;
 	unsigned int count;
 	unsigned int service_fd;
 	pid_t pid;
@@ -191,7 +191,11 @@ log_parse_master_line(const char *line, const struct timeval *log_time,
 		i_error("Received invalid input from master: %s", line);
 		return;
 	}
-	pid = strtol(t_strcut(p, ' '), NULL, 10);
+	pidstr = t_strcut(p, ' ');
+	if (str_to_pid(pidstr, &pid) < 0) {
+		i_error("Received invalid pid from master: %s", pidstr);
+		return;
+	}
 	cmd = p2 + 1;
 
 	logs = array_get(&logs_by_fd, &count);

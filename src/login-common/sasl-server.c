@@ -163,9 +163,13 @@ anvil_lookup_callback(const char *reply, void *context)
 	struct client *client = req->client;
 	const struct login_settings *set = client->set;
 	const char *errmsg;
+	unsigned int conn_count;
 
-	if (reply == NULL ||
-	    strtoul(reply, NULL, 10) < set->mail_max_userip_connections)
+	conn_count = 0;
+	if (reply != NULL && str_to_uint(reply, &conn_count) < 0)
+		i_fatal("Received invalid reply from anvil: %s", reply);
+
+	if (conn_count < set->mail_max_userip_connections)
 		master_send_request(req);
 	else {
 		client->authenticating = FALSE;

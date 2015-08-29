@@ -1593,6 +1593,7 @@ dsync_ibc_stream_recv_change(struct dsync_ibc *_ibc,
 	struct dsync_deserializer_decoder *decoder;
 	struct dsync_mail_change *change;
 	const char *value;
+	unsigned int uintval;
 	enum dsync_ibc_recv_ret ret;
 
 	p_clear(pool);
@@ -1639,12 +1640,33 @@ dsync_ibc_stream_recv_change(struct dsync_ibc *_ibc,
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
 
-	if (dsync_deserializer_decode_try(decoder, "add_flags", &value))
-		change->add_flags = strtoul(value, NULL, 16);
-	if (dsync_deserializer_decode_try(decoder, "remove_flags", &value))
-		change->remove_flags = strtoul(value, NULL, 16);
-	if (dsync_deserializer_decode_try(decoder, "final_flags", &value))
-		change->final_flags = strtoul(value, NULL, 16);
+	if (dsync_deserializer_decode_try(decoder, "add_flags", &value)) {
+		if (str_to_uint_hex(value, &uintval) < 0 ||
+		    uintval > (uint8_t)-1) {
+			dsync_ibc_input_error(ibc, decoder,
+				"Invalid add_flags: %s", value);
+			return DSYNC_IBC_RECV_RET_TRYAGAIN;
+		}
+		change->add_flags = uintval;
+	}
+	if (dsync_deserializer_decode_try(decoder, "remove_flags", &value)) {
+		if (str_to_uint_hex(value, &uintval) < 0 ||
+		    uintval > (uint8_t)-1) {
+			dsync_ibc_input_error(ibc, decoder,
+				"Invalid remove_flags: %s", value);
+			return DSYNC_IBC_RECV_RET_TRYAGAIN;
+		}
+		change->remove_flags = uintval;
+	}
+	if (dsync_deserializer_decode_try(decoder, "final_flags", &value)) {
+		if (str_to_uint_hex(value, &uintval) < 0 ||
+		    uintval > (uint8_t)-1) {
+			dsync_ibc_input_error(ibc, decoder,
+				"Invalid final_flags: %s", value);
+			return DSYNC_IBC_RECV_RET_TRYAGAIN;
+		}
+		change->final_flags = uintval;
+	}
 	if (dsync_deserializer_decode_try(decoder, "keywords_reset", &value))
 		change->keywords_reset = TRUE;
 

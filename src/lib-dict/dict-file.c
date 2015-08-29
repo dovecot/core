@@ -329,8 +329,9 @@ static void file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
 				*atomic_inc_not_found_r = TRUE;
 				break;
 			}
-			diff = strtoll(old_value, NULL, 10) +
-				change->value.diff;
+			if (str_to_llong(old_value, &diff) < 0)
+				i_unreached();
+			diff +=	change->value.diff;
 			tmp = t_strdup_printf("%lld", diff);
 			new_len = strlen(tmp);
 			if (old_value == NULL || new_len > strlen(old_value))

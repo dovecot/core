@@ -453,10 +453,10 @@ dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsyslog writev pread uname unsetenv \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
-	       strtoull strtoll strtouq strtoq getmntinfo \
-	       setpriority quotactl getmntent kqueue kevent backtrace_symbols \
-	       walkcontext dirfd clearenv malloc_usable_size glob fallocate \
-	       posix_fadvise getpeereid getpeerucred inotify_init)
+	       getmntinfo setpriority quotactl getmntent kqueue kevent \
+	       backtrace_symbols walkcontext dirfd clearenv \
+	       malloc_usable_size glob fallocate posix_fadvise \
+	       getpeereid getpeerucred inotify_init)
 
 AC_CHECK_TYPES([struct sockpeercred],,,[
 #include <sys/types.h>
@@ -480,38 +480,6 @@ AC_CACHE_CHECK([for typeof],i_cv_have_typeof,[
 ])
 if test $i_cv_have_typeof = yes; then
   AC_DEFINE(HAVE_TYPEOF,, [Define if you have typeof()])
-fi
-
-dnl strtoimax and strtoumax are macros in HP-UX, so inttypes.h must be included
-dnl Link instead of just compiling since there's something wrong with Tru64
-AC_CACHE_CHECK([for strtoimax],i_cv_have_strtoimax,[
-  AC_TRY_LINK([
-    #include <inttypes.h>
-  ], [
-    strtoimax(0, 0, 0);
-  ], [
-    i_cv_have_strtoimax=yes
-  ], [
-    i_cv_have_strtoimax=no
-  ])
-])
-if test $i_cv_have_strtoimax = yes; then
-  AC_DEFINE(HAVE_STRTOIMAX,, [Define if you have strtoimax function])
-fi
-
-AC_CACHE_CHECK([for strtoumax],i_cv_have_strtoumax,[
-  AC_TRY_LINK([
-    #include <inttypes.h>
-  ], [
-    strtoumax(0, 0, 0);
-  ], [
-    i_cv_have_strtoumax=yes
-  ], [
-    i_cv_have_strtoumax=no
-  ])
-])
-if test $i_cv_have_strtoumax = yes; then
-  AC_DEFINE(HAVE_STRTOUMAX,, [Define if you have strtoumax function])
 fi
 
 dnl * I/O loop function

@@ -58,14 +58,20 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "CONNECT: Not enough parameters";
 			return -1;
 		}
-		pid = strtol(args[0], NULL, 10);
+		if (str_to_pid(args[0], &pid) < 0) {
+			*error_r = "CONNECT: Invalid pid";
+			return -1;
+		}
 		connect_limit_connect(connect_limit, pid, args[1]);
 	} else if (strcmp(cmd, "DISCONNECT") == 0) {
 		if (args[0] == NULL || args[1] == NULL) {
 			*error_r = "DISCONNECT: Not enough parameters";
 			return -1;
 		}
-		pid = strtol(args[0], NULL, 10);
+		if (str_to_pid(args[0], &pid) < 0) {
+			*error_r = "DISCONNECT: Invalid pid";
+			return -1;
+		}
 		connect_limit_disconnect(connect_limit, pid, args[1]);
 	} else if (strcmp(cmd, "CONNECT-DUMP") == 0) {
 		connect_limit_dump(connect_limit, conn->output);
@@ -78,7 +84,10 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "KILL sent by a non-master connection";
 			return -1;
 		}
-		pid = strtol(args[0], NULL, 10);
+		if (str_to_pid(args[0], &pid) < 0) {
+			*error_r = "KILL: Invalid pid";
+			return -1;
+		}
 		connect_limit_disconnect_pid(connect_limit, pid);
 	} else if (strcmp(cmd, "LOOKUP") == 0) {
 		if (args[0] == NULL) {

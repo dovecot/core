@@ -51,7 +51,8 @@ m_str_hex(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 {
 	unsigned long long l;
 
-	l = strtoull(str, NULL, 10);
+	if (str_to_ullong(str, &l) < 0)
+		l = 0;
 	return t_strdup_printf("%llx", l);
 }
 

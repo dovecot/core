@@ -338,13 +338,11 @@ get_octal(struct setting_parser_context *ctx, const char *value,
 	  unsigned int *result_r)
 {
 	unsigned long long octal;
-	char *p;
 
 	if (*value != '0')
 		return get_uint(ctx, value, result_r);
 
-	octal = strtoull(value + 1, &p, 8);
-	if (*p != '\0' || octal > UINT_MAX) {
+	if (str_to_ullong_oct(value+1, &octal) < 0) {
 		ctx->error = p_strconcat(ctx->parser_pool, "Invalid number: ",
 					 value, NULL);
 	}
@@ -355,10 +353,13 @@ get_octal(struct setting_parser_context *ctx, const char *value,
 int settings_get_time(const char *str, unsigned int *secs_r,
 		      const char **error_r)
 {
-	unsigned int num, multiply = 1;
-	char *p;
+	uintmax_t num, multiply = 1;
+	const char *p;
 
-	num = strtoull(str, &p, 10);
+	if (str_parse_uintmax(str, &num, &p) < 0) {
+		*error_r = t_strconcat("Invalid time interval: ", str, NULL);
+		return -1;
+	}
 	while (*p == ' ') p++;
 	switch (i_toupper(*p)) {
 	case 'S':
@@ -406,10 +407,13 @@ int settings_get_time(const char *str, unsigned int *secs_r,
 int settings_get_size(const char *str, uoff_t *bytes_r,
 		      const char **error_r)
 {
-	unsigned long long num, multiply = 1;
-	char *p;
+	uintmax_t num, multiply = 1;
+	const char *p;
 
-	num = strtoull(str, &p, 10);
+	if (str_parse_uintmax(str, &num, &p) < 0) {
+		*error_r = t_strconcat("Invalid size: ", str, NULL);
+		return -1;
+	}
 	while (*p == ' ') p++;
 	switch (i_toupper(*p)) {
 	case 'B':
@@ -445,7 +449,7 @@ int settings_get_size(const char *str, uoff_t *bytes_r,
 		*error_r = t_strconcat("Invalid size: ", str, NULL);
 		return -1;
 	}
-	if (num > ULLONG_MAX / multiply) {
+	if (num > ((uoff_t)-1) / multiply) {
 		*error_r = t_strconcat("Size is too large: ", str, NULL);
 		return -1;
 	}

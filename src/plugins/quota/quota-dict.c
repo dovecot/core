@@ -159,11 +159,12 @@ dict_quota_get_resource(struct quota_root *_root,
 		if (ret < 0)
 			*value_r = 0;
 		else {
-			long long tmp;
+			intmax_t tmp;
 
 			/* recalculate quota if it's negative or if it
 			   wasn't found */
-			tmp = ret == 0 ? -1 : strtoll(value, NULL, 10);
+			if (ret == 0 || str_to_intmax(value, &tmp) < 0)
+				tmp = -1;
 			if (tmp >= 0)
 				*value_r = tmp;
 			else {
