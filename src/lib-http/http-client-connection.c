@@ -657,7 +657,15 @@ static void http_client_connection_input(struct connection *_conn)
 
 		if (req == NULL) {
 			/* server sent response without any requests in the wait list */
-			http_client_connection_debug(conn, "Got unexpected input from server");
+			if (response.status == 408) {
+				http_client_connection_debug(conn,
+					"Server explicitly closed connection: 408 %s",
+					response.reason);
+			} else {
+				http_client_connection_debug(conn,
+					"Got unexpected input from server: %u %s",
+					response.status, response.reason);
+			}
 			http_client_connection_close(&conn);
 			return;
 		}
@@ -780,6 +788,14 @@ static void http_client_connection_input(struct connection *_conn)
 						http_client_request_delay_from_response(req, &response) > 0 &&
 						http_client_request_try_retry(req))
 						handled = TRUE;
+				/* request timeout (by server) */
+				} else if (response.status == 408) {
+					/* automatically retry */
+					if (http_client_request_try_retry(req))
+						handled = TRUE;
+					/* connection close is implicit, although server should indicate
+					   that explicitly */
+					conn->close_indicated = TRUE;
 				}
 			}
 
