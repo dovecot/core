@@ -38,20 +38,25 @@ auth_worker_reply_parse(struct auth_request *request, const char *reply)
 	}
 
 	if (strcmp(*args, "FAIL") == 0 && args[1] != NULL) {
+		int result;
 		/* FAIL \t result [\t user \t password [\t extra]] */
-		ret = atoi(args[1]);
-		if (ret == PASSDB_RESULT_OK) {
+		if (str_to_int(args[1], &result) < 0) {
 			/* shouldn't happen */
-		} else if (args[2] == NULL) {
-			/* internal failure most likely */
-			return ret;
-		} else if (args[3] != NULL) {
-			if (*args[2] != '\0') {
-				auth_request_set_field(request, "user",
-						       args[2], NULL);
+		} else {
+			ret = (enum passdb_result)result;
+			if (ret == PASSDB_RESULT_OK) {
+				/* shouldn't happen */
+			} else if (args[2] == NULL) {
+				/* internal failure most likely */
+				return ret;
+			} else if (args[3] != NULL) {
+				if (*args[2] != '\0') {
+					auth_request_set_field(request, "user",
+							       args[2], NULL);
+				}
+				auth_worker_reply_parse_args(request, args + 3);
+				return ret;
 			}
-			auth_worker_reply_parse_args(request, args + 3);
-			return ret;
 		}
 	}
 

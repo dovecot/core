@@ -668,8 +668,10 @@ static void cmd_dump_index(int argc ATTR_UNUSED, char *argv[])
 	if (index == NULL ||
 	    mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY) <= 0)
 		i_fatal("Couldn't open index %s", argv[1]);
-	if (argv[2] != NULL)
-		uid = atoi(argv[2]);
+	if (argv[2] != NULL) {
+		if (str_to_uint(argv[2], &uid) < 0)
+			i_fatal("Invalid uid number %s", argv[2]);
+	}
 
 	view = mail_index_view_open(index);
 	cache_view = mail_cache_view_open(index->cache, view);

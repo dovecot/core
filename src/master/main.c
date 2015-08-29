@@ -245,10 +245,13 @@ static bool pid_file_read(const char *path, pid_t *pid_r)
 		if (buf[ret-1] == '\n')
 			ret--;
 		buf[ret] = '\0';
-		*pid_r = atoi(buf);
-
-		found = !(*pid_r == getpid() ||
-			  (kill(*pid_r, 0) < 0 && errno == ESRCH));
+		if (str_to_pid(buf, pid_r) < 0) {
+			i_error("PID file contains invalid PID value");
+			found = FALSE;
+		} else {
+			found = !(*pid_r == getpid() ||
+				  (kill(*pid_r, 0) < 0 && errno == ESRCH));
+		}
 	}
 	i_close_fd(&fd);
 	return found;

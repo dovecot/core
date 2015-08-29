@@ -164,7 +164,8 @@ master_service_init(const char *name, enum master_service_flags flags,
 		int count;
 
 		value = getenv("SOCKET_COUNT");
-		count = value == NULL ? 0 : atoi(value);
+		if (value == NULL || str_to_uint(value, &count) < 0)
+			count = 0;
 		fd_debug_verify_leaks(MASTER_LISTEN_FD_FIRST + count, 1024);
 	}
 #endif
@@ -222,8 +223,8 @@ master_service_init(const char *name, enum master_service_flags flags,
 
 	/* listener configuration */
 	value = getenv("SOCKET_COUNT");
-	if (value != NULL)
-		service->socket_count = atoi(value);
+	if (value != NULL && str_to_uint(value, &service->socket_count) < 0)
+		i_fatal("Invalid SOCKET_COUNT environment");
 	T_BEGIN {
 		master_service_init_socket_listeners(service);
 	} T_END;

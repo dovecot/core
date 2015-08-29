@@ -34,8 +34,6 @@
 #include "commands.h"
 #include "lmtp-proxy.h"
 
-#include <stdlib.h>
-
 #define ERRSTR_TEMP_MAILBOX_FAIL "451 4.3.0 <%s> Temporary internal error"
 #define ERRSTR_TEMP_USERDB_FAIL_PREFIX "451 4.3.0 <%s> "
 #define ERRSTR_TEMP_USERDB_FAIL \
@@ -245,9 +243,13 @@ client_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 				return FALSE;
 			}
 			port_set = TRUE;
-		} else if (strcmp(key, "proxy_timeout") == 0)
-			set->timeout_msecs = atoi(value)*1000;
-		else if (strcmp(key, "protocol") == 0) {
+		} else if (strcmp(key, "proxy_timeout") == 0) {
+			if (str_to_uint(value, &set->timeout_msecs) < 0) {
+				i_error("proxy: Invalid proxy_timeout value %s", value);
+				return FALSE;
+			}
+			set->timeout_msecs *= 1000;
+		} else if (strcmp(key, "protocol") == 0) {
 			if (strcmp(value, "lmtp") == 0)
 				set->protocol = LMTP_CLIENT_PROTOCOL_LMTP;
 			else if (strcmp(value, "smtp") == 0) {

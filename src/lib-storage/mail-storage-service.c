@@ -270,9 +270,11 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 				p_strdup(user->pool, line + 19);
 		} else if (strncmp(line, "nice=", 5) == 0) {
 #ifdef HAVE_SETPRIORITY
-			int n = atoi(line + 5);
-
-			if (n != 0) {
+			int n;
+			if (str_to_int(line + 5, &n) < 0) {
+				i_error("userdb returned invalid nice value %s",
+					line + 5);
+			} else if (n != 0) {
 				if (setpriority(PRIO_PROCESS, 0, n) < 0)
 					i_error("setpriority(%d) failed: %m", n);
 			}

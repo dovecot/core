@@ -21,6 +21,7 @@ static int dict_connection_parse_handshake(struct dict_connection *conn,
 					   const char *line)
 {
 	const char *username, *name, *value_type;
+	unsigned int value_type_num;
 
 	if (*line++ != DICT_PROTOCOL_CMD_HELLO)
 		return -1;
@@ -42,7 +43,11 @@ static int dict_connection_parse_handshake(struct dict_connection *conn,
 
 	if (*line++ != '\t')
 		return -1;
-	conn->value_type = atoi(t_strdup_until(value_type, line - 1));
+	if (str_to_uint(t_strdup_until(value_type, line - 1), &value_type_num) < 0)
+		return -1;
+	if (value_type_num >= DICT_DATA_TYPE_LAST)
+		return -1;
+	conn->value_type = (enum dict_data_type)value_type_num;
 
 	/* get username */
 	username = line;

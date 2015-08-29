@@ -14,8 +14,6 @@
 #include "master-service-ssl-settings.h"
 #include "client-common.h"
 
-#include <stdlib.h>
-
 #define PROXY_FAILURE_MSG "Account is temporarily unavailable."
 #define PROXY_DEFAULT_TIMEOUT_MSECS (1000*30)
 
@@ -107,11 +105,18 @@ static void client_auth_parse_args(struct client *client,
 			reply_r->destuser = value;
 		else if (strcmp(key, "pass") == 0)
 			reply_r->password = value;
-		else if (strcmp(key, "proxy_timeout") == 0)
-			reply_r->proxy_timeout_msecs = 1000*atoi(value);
-		else if (strcmp(key, "proxy_refresh") == 0)
-			reply_r->proxy_refresh_secs = atoi(value);
-		else if (strcmp(key, "proxy_mech") == 0)
+		else if (strcmp(key, "proxy_timeout") == 0) {
+			if (str_to_uint(value, &reply_r->proxy_timeout_msecs) < 0) {
+				i_error("BUG: Auth service returned invalid "
+					"proxy_timeout value: %s", value);
+			}
+			reply_r->proxy_timeout_msecs *= 1000;
+		} else if (strcmp(key, "proxy_refresh") == 0) {
+			if (str_to_uint(value, &reply_r->proxy_refresh_secs) < 0) {
+				i_error("BUG: Auth service returned invalid "
+					"proxy_refresh value: %s", value);
+			}
+		} else if (strcmp(key, "proxy_mech") == 0)
 			reply_r->proxy_mech = value;
 		else if (strcmp(key, "proxy_nopipelining") == 0)
 			reply_r->proxy_nopipelining = TRUE;

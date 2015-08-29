@@ -21,8 +21,6 @@
 #include "imap-proxy.h"
 #include "imap-login-settings.h"
 
-#include <stdlib.h>
-
 #if LOGIN_MAX_INBUF_SIZE < 1024+2
 #  error LOGIN_MAX_INBUF_SIZE too short to fit all ID command parameters
 #endif
@@ -158,7 +156,9 @@ client_update_info(struct imap_client *client,
 	} else if (strcasecmp(key, "x-connected-port") == 0) {
 		(void)net_str2port(value, &client->common.local_port);
 	}	else if (strcasecmp(key, "x-proxy-ttl") == 0) {
-		client->common.proxy_ttl = atoi(value);
+		if (str_to_uint(value, &client->common.proxy_ttl) < 0) {
+			/* nothing */
+		}
 	} else if (strcasecmp(key, "x-session-id") == 0 ||
 		 strcasecmp(key, "x-session-ext-id") == 0) {
 		if (strlen(value) <= LOGIN_MAX_SESSION_ID_LEN) {

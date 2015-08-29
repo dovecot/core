@@ -334,12 +334,19 @@ static bool auth_handle_response(struct digest_auth_request *request,
 	}
 
 	if (strcmp(key, "nc") == 0) {
+		unsigned int nc;
+
 		if (request->nonce_count != NULL) {
 			*error = "nonce-count must not exist more than once";
 			return FALSE;
 		}
 
-		if (atoi(value) != 1) {
+		if (str_to_uint(value, &nc) < 0) {
+			*error = "nonce-count value invalid";
+			return FALSE;
+		}
+
+		if (nc != 1) {
 			*error = "re-auth not supported currently";
 			return FALSE;
 		}

@@ -898,7 +898,9 @@ transaction_update_callback(struct sql_result *result,
 	} else if (query->affected_rows != NULL) {
 		struct pgsql_result *pg_result = (struct pgsql_result *)result;
 
-		*query->affected_rows = atoi(PQcmdTuples(pg_result->pgres));
+		if (str_to_uint(PQcmdTuples(pg_result->pgres),
+				query->affected_rows) < 0)
+			i_unreached();
 	}
 	driver_pgsql_transaction_unref(ctx);
 }
@@ -969,8 +971,9 @@ driver_pgsql_transaction_commit_multi(struct pgsql_transaction_context *ctx)
 			struct pgsql_result *pg_result =
 				(struct pgsql_result *)result;
 
-			*query->affected_rows =
-				atoi(PQcmdTuples(pg_result->pgres));
+			if (str_to_uint(PQcmdTuples(pg_result->pgres),
+					query->affected_rows) < 0)
+				i_unreached();
 		}
 		sql_result_unref(result);
 	}
@@ -1010,8 +1013,9 @@ driver_pgsql_try_commit_s(struct pgsql_transaction_context *ctx,
 			struct pgsql_result *pg_result =
 				(struct pgsql_result *)result;
 
-			*single_query->affected_rows =
-				atoi(PQcmdTuples(pg_result->pgres));
+			if (str_to_uint(PQcmdTuples(pg_result->pgres),
+					single_query->affected_rows) < 0)
+				i_unreached();
 		}
 	}
 	if (result != NULL)

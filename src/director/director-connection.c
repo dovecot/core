@@ -44,7 +44,6 @@
 #include "user-directory.h"
 #include "director-connection.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 #define MAX_INBUF_SIZE 1024
@@ -1145,6 +1144,8 @@ static int
 director_connection_handle_handshake(struct director_connection *conn,
 				     const char *cmd, const char *const *args)
 {
+	unsigned int major_version;
+
 	/* both incoming and outgoing connections get VERSION and ME */
 	if (strcmp(cmd, "VERSION") == 0 && str_array_length(args) >= 3) {
 		if (strcmp(args[0], DIRECTOR_VERSION_NAME) != 0) {
@@ -1152,13 +1153,17 @@ director_connection_handle_handshake(struct director_connection *conn,
 				"(%s vs %s)",
 				conn->name, args[0], DIRECTOR_VERSION_NAME);
 			return -1;
-		} else if (atoi(args[1]) != DIRECTOR_VERSION_MAJOR) {
+		} else if (str_to_uint(args[1], &major_version) < 0 ||
+			str_to_uint(args[2], &conn->minor_version) < 0) {
+			i_error("director(%s): Invalid protocol version: "
+				"%s.%s", conn->name, args[1], args[2]);
+			return -1;
+		} else if (major_version != DIRECTOR_VERSION_MAJOR) {
 			i_error("director(%s): Incompatible protocol version: "
-				"%u vs %u", conn->name, atoi(args[1]),
+				"%u vs %u", conn->name, major_version,
 				DIRECTOR_VERSION_MAJOR);
 			return -1;
 		}
-		conn->minor_version = atoi(args[2]);
 		conn->version_received = TRUE;
 		if (conn->done_pending) {
 			if (director_connection_send_done(conn) < 0)
@@ -1306,7 +1311,10 @@ static bool director_connection_sync(struct director_connection *conn,
 		return FALSE;
 	}
 	if (args[3] != NULL) {
-		minor_version = atoi(args[3]);
+		if (str_to_uint(args[3], &minor_version) < 0) {
+			director_cmd_error(conn, "Invalid parameters");
+			return FALSE;
+		}
 		if (args[4] != NULL && str_to_uint(args[4], &timestamp) < 0) {
 			director_cmd_error(conn, "Invalid parameters");
 			return FALSE;

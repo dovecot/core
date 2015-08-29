@@ -68,7 +68,8 @@ static int who_parse_line(const char *line, struct who_line *line_r)
 	line_r->username = strchr(p, '/');
 	if (line_r->username == NULL)
 		return -1;
-	line_r->refcount = atoi(refcount_str);
+	if (str_to_uint(refcount_str, &line_r->refcount) < 0)
+		return -1;
 	ip_str = t_strdup_until(p, line_r->username++);
 	(void)net_addr2ip(ip_str, &line_r->ip);
 	return 0;

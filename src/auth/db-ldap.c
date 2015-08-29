@@ -1103,8 +1103,7 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 	db_ldap_set_opt(conn, conn->ld, LDAP_OPT_DEREF, &conn->set.ldap_deref,
 			"deref", conn->set.deref);
 #ifdef LDAP_OPT_DEBUG_LEVEL
-	value = atoi(conn->set.debug_level);
-	if (value != 0) {
+	if (str_to_int(conn->set.debug_level, &value) >= 0 && value != 0) {
 		db_ldap_set_opt(conn, NULL, LDAP_OPT_DEBUG_LEVEL, &value,
 				"debug_level", conn->set.debug_level);
 	}
@@ -1143,9 +1142,14 @@ static void db_ldap_init_ld(struct ldap_connection *conn)
 
 int db_ldap_connect(struct ldap_connection *conn)
 {
-	bool debug = atoi(conn->set.debug_level) > 0;
+	int debug_level;
+	bool debug;
 	struct timeval start, end;
 	int ret;
+
+	debug = FALSE;
+	if (str_to_int(conn->set.debug_level, &debug_level) >= 0)
+		debug = debug_level > 0;
 
 	if (conn->conn_state != LDAP_CONN_STATE_DISCONNECTED)
 		return 0;
