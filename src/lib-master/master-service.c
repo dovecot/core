@@ -161,8 +161,6 @@ master_service_init(const char *name, enum master_service_flags flags,
 #ifdef DEBUG
 	if (getenv("GDB") == NULL &&
 	    (flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
-		int count;
-
 		value = getenv("SOCKET_COUNT");
 		if (value == NULL || str_to_uint(value, &count) < 0)
 			count = 0;
