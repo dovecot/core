@@ -150,6 +150,8 @@ const char *net_ip2addr(const struct ip_addr *ip);
 int net_addr2ip(const char *addr, struct ip_addr *ip);
 /* char* -> net_port_t translation */
 int net_str2port(const char *str, in_port_t *port_r);
+/* char* -> net_port_t translation (allows port zero) */
+int net_str2port_zero(const char *str, in_port_t *port_r);
 
 /* Convert IPv6 mapped IPv4 address to an actual IPv4 address. Returns 0 if
    successful, -1 if the source address isn't IPv6 mapped IPv4 address. */

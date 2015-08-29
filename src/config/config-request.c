@@ -116,7 +116,8 @@ bool config_export_type(string_t *str, const void *value,
 		}
 		break;
 	}
-	case SET_IN_PORT: {
+	case SET_IN_PORT:
+	case SET_IN_PORT_ZERO: {
 		const in_port_t *val = value, *dval = default_value;
 
 		if (dump_default || dval == NULL || *val != *dval)
@@ -253,6 +254,7 @@ settings_export(struct config_export_context *ctx,
 		case SET_UINT_OCT:
 		case SET_TIME:
 		case SET_IN_PORT:
+		case SET_IN_PORT_ZERO:
 		case SET_STR_VARS:
 		case SET_STR:
 		case SET_ENUM:

@@ -957,6 +957,19 @@ int net_str2port(const char *str, in_port_t *port_r)
 	return 0;
 }
 
+int net_str2port_zero(const char *str, in_port_t *port_r)
+{
+	uintmax_t l;
+
+	if (str_to_uintmax(str, &l) < 0)
+		return -1;
+
+	if (l > (in_port_t)-1)
+		return -1;
+	*port_r = (in_port_t)l;
+	return 0;
+}
+
 int net_ipv6_mapped_ipv4_convert(const struct ip_addr *src,
 				 struct ip_addr *dest)
 {
