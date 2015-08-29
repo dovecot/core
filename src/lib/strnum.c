@@ -17,72 +17,44 @@ bool str_is_numeric(const char *str, char end_char)
 	return TRUE;
 }
 
-int str_to_uint(const char *str, unsigned int *num_r)
-{
-	uintmax_t l;
+/* 
+ * Unsigned decimal
+ */
 
-	if (str_to_uintmax(str, &l) < 0)
-		return -1;
-
-	if (l > UINT_MAX)
-		return -1;
-	*num_r = (unsigned int)l;
-	return 0;
+#define STR_PARSE_U__TEMPLATE(name, type)                     \
+int name(const char *str, type *num_r, const char **endp_r)   \
+{                                                             \
+	uintmax_t l;                                                \
+	if (str_parse_uintmax(str, &l, endp_r) < 0 || l > (type)-1) \
+		return -1;                                                \
+	*num_r = (type)l;                                           \
+	return 0;                                                   \
 }
 
-int str_to_ulong(const char *str, unsigned long *num_r)
-{
-	uintmax_t l;
+STR_PARSE_U__TEMPLATE(str_parse_uint, unsigned int)
+STR_PARSE_U__TEMPLATE(str_parse_ulong, unsigned long)
+STR_PARSE_U__TEMPLATE(str_parse_ullong, unsigned long long)
+STR_PARSE_U__TEMPLATE(str_parse_uint32, uint32_t)
+STR_PARSE_U__TEMPLATE(str_parse_uint64, uint64_t)
 
-	if (str_to_uintmax(str, &l) < 0)
-		return -1;
-
-	if (l > (unsigned long)-1)
-		return -1;
-	*num_r = (unsigned long)l;
-	return 0;
+#define STR_TO_U__TEMPLATE(name, type)                        \
+int name(const char *str, type *num_r)                        \
+{                                                             \
+	uintmax_t l;                                                \
+	if (str_to_uintmax(str, &l) < 0 || l > (type)-1)            \
+		return -1;                                                \
+	*num_r = (type)l;                                           \
+	return 0;                                                   \
 }
 
-int str_to_ullong(const char *str, unsigned long long *num_r)
-{
-	uintmax_t l;
+STR_TO_U__TEMPLATE(str_to_uint, unsigned int)
+STR_TO_U__TEMPLATE(str_to_ulong, unsigned long)
+STR_TO_U__TEMPLATE(str_to_ullong, unsigned long long)
+STR_TO_U__TEMPLATE(str_to_uint32, uint32_t)
+STR_TO_U__TEMPLATE(str_to_uint64, uint64_t)
 
-	if (str_to_uintmax(str, &l) < 0)
-		return -1;
-
-	if (l > (unsigned long long)-1)
-		return -1;
-	*num_r = (unsigned long long)l;
-	return 0;
-}
-
-int str_to_uint32(const char *str, uint32_t *num_r)
-{
-	uintmax_t l;
-
-	if (str_to_uintmax(str, &l) < 0)
-		return -1;
-
-	if (l > (uint32_t)-1)
-		return -1;
-	*num_r = (uint32_t)l;
-	return 0;
-}
-
-int str_to_uint64(const char *str, uint64_t *num_r)
-{
-	uintmax_t l;
-
-	if (str_to_uintmax(str, &l) < 0)
-		return -1;
-
-	if (l > (uint64_t)-1)
-		return -1;
-	*num_r = (uint64_t)l;
-	return 0;
-}
-
-int str_parse_uintmax(const char *str, uintmax_t *num_r, const char **endp_r)
+int str_parse_uintmax(const char *str, uintmax_t *num_r,
+	const char **endp_r)
 {
 	uintmax_t n = 0;
 
@@ -114,58 +86,216 @@ int str_to_uintmax(const char *str, uintmax_t *num_r)
 	return 0;
 }
 
-#define STR_TO_U__TEMPLATE(name, type)				\
-int name(const char *str, type *num_r, const char **endp_r)	\
-{								\
-	uintmax_t l;						\
-	if (str_parse_uintmax(str, &l, endp_r) < 0 || l > (type)-1)\
-		return -1;					\
-	*num_r = l;						\
-	return 0;						\
-}
-STR_TO_U__TEMPLATE(str_parse_uoff, uoff_t)
-STR_TO_U__TEMPLATE(str_parse_uint, unsigned int)
-
-int str_to_int(const char *str, int *num_r)
+bool str_uint_equals(const char *str, uintmax_t num)
 {
-	intmax_t l;
+	uintmax_t l;
 
-	if (str_to_intmax(str, &l) < 0)
+	if (str_to_uintmax(str, &l) < 0)
+		return FALSE;
+	return l == num;
+}
+
+/* 
+ * Unsigned hexadecimal
+ */
+
+#define STR_PARSE_UHEX__TEMPLATE(name, type)                       \
+int name(const char *str, type *num_r, const char **endp_r)        \
+{                                                                  \
+	uintmax_t l;                                                     \
+	if (str_parse_uintmax_hex(str, &l, endp_r) < 0 || l > (type)-1)  \
+		return -1;                                                     \
+	*num_r = (type)l;                                                \
+	return 0;                                                        \
+}
+
+STR_PARSE_UHEX__TEMPLATE(str_parse_uint_hex, unsigned int)
+STR_PARSE_UHEX__TEMPLATE(str_parse_ulong_hex, unsigned long)
+STR_PARSE_UHEX__TEMPLATE(str_parse_ullong_hex, unsigned long long)
+STR_PARSE_UHEX__TEMPLATE(str_parse_uint32_hex, uint32_t)
+STR_PARSE_UHEX__TEMPLATE(str_parse_uint64_hex, uint64_t)
+
+#define STR_TO_UHEX__TEMPLATE(name, type)                          \
+int name(const char *str, type *num_r)                             \
+{                                                                  \
+	uintmax_t l;                                                     \
+	if (str_to_uintmax_hex(str, &l) < 0 || l > (type)-1)             \
+		return -1;                                                     \
+	*num_r = (type)l;                                                \
+	return 0;                                                        \
+}
+
+STR_TO_UHEX__TEMPLATE(str_to_uint_hex, unsigned int)
+STR_TO_UHEX__TEMPLATE(str_to_ulong_hex, unsigned long)
+STR_TO_UHEX__TEMPLATE(str_to_ullong_hex, unsigned long long)
+STR_TO_UHEX__TEMPLATE(str_to_uint32_hex, uint32_t)
+STR_TO_UHEX__TEMPLATE(str_to_uint64_hex, uint64_t)
+
+static inline int _str_parse_hex(const char ch,
+	unsigned int *hex_r)
+{
+	switch (ch) {
+	case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
+		*hex_r = (unsigned int)(ch - 'a' + 10);
+		return 0;
+	case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+		*hex_r = (unsigned int)(ch - 'A' + 10);
+		return 0;
+	case '0': case '1': case '2': case '3': case '4':
+	case '5': case '6': case '7': case '8': case '9':
+		*hex_r = (unsigned int)(ch - '0');
+		return 0;
+	default:
+		break;
+	}
+	return -1;
+}
+int str_parse_uintmax_hex(const char *str, uintmax_t *num_r,
+	const char **endp_r)
+{
+	unsigned int hex;
+	uintmax_t n = 0;
+
+	if (_str_parse_hex(*str, &hex) < 0)
 		return -1;
 
-	if (l < INT_MIN || l > INT_MAX)
+	do {
+		if (n >= ((uintmax_t)-1 >> 4)) {
+			if (n > (uintmax_t)-1 >> 4)
+				return -1;
+			if ((uintmax_t)hex > ((uintmax_t)-1 & 0x0f))
+				return -1;
+		}
+		n = (n << 4) + hex;
+		str++;
+	} while (_str_parse_hex(*str, &hex) >= 0);
+	if (endp_r != NULL)
+		*endp_r = str;
+	*num_r = n;
+	return 0;
+}
+int str_to_uintmax_hex(const char *str, uintmax_t *num_r)
+{
+	const char *endp;
+	uintmax_t n;
+	int ret = str_parse_uintmax_hex(str, &n, &endp);
+	if ((ret != 0) || (*endp != '\0'))
 		return -1;
-	*num_r = (int)l;
+	*num_r = n;
 	return 0;
 }
 
-int str_to_long(const char *str, long *num_r)
+/* 
+ * Unsigned octal
+ */
+
+#define STR_PARSE_UOCT__TEMPLATE(name, type)                       \
+int name(const char *str, type *num_r, const char **endp_r)        \
+{                                                                  \
+	uintmax_t l;                                                     \
+	if (str_parse_uintmax_oct(str, &l, endp_r) < 0 || l > (type)-1)  \
+		return -1;                                                     \
+	*num_r = (type)l;                                                \
+	return 0;                                                        \
+}
+
+STR_PARSE_UOCT__TEMPLATE(str_parse_uint_oct, unsigned int)
+STR_PARSE_UOCT__TEMPLATE(str_parse_ulong_oct, unsigned long)
+STR_PARSE_UOCT__TEMPLATE(str_parse_ullong_oct, unsigned long long)
+STR_PARSE_UOCT__TEMPLATE(str_parse_uint32_oct, uint32_t)
+STR_PARSE_UOCT__TEMPLATE(str_parse_uint64_oct, uint64_t)
+
+#define STR_TO_UOCT__TEMPLATE(name, type)                          \
+int name(const char *str, type *num_r)                             \
+{                                                                  \
+	uintmax_t l;                                                     \
+	if (str_to_uintmax_oct(str, &l) < 0 || l > (type)-1)             \
+		return -1;                                                     \
+	*num_r = (type)l;                                                \
+	return 0;                                                        \
+}
+
+STR_TO_UOCT__TEMPLATE(str_to_uint_oct, unsigned int)
+STR_TO_UOCT__TEMPLATE(str_to_ulong_oct, unsigned long)
+STR_TO_UOCT__TEMPLATE(str_to_ullong_oct, unsigned long long)
+STR_TO_UOCT__TEMPLATE(str_to_uint32_oct, uint32_t)
+STR_TO_UOCT__TEMPLATE(str_to_uint64_oct, uint64_t)
+
+int str_parse_uintmax_oct(const char *str, uintmax_t *num_r,
+	const char **endp_r)
 {
-	intmax_t l;
+	uintmax_t n = 0;
 
-	if (str_to_intmax(str, &l) < 0)
+	if (*str < '0' || *str > '7')
 		return -1;
 
-	if (l < LONG_MIN || l > LONG_MAX)
+	for (; *str >= '0' && *str <= '7'; str++) {
+		if (n >= ((uintmax_t)-1 >> 3)) {
+			if (n > (uintmax_t)-1 >> 3)
+				return -1;
+			if ((uintmax_t)(*str - '0') > ((uintmax_t)-1 & 0x03))
+				return -1;
+		}
+		n = (n << 3) + (*str - '0');
+	}
+	if (endp_r != NULL)
+		*endp_r = str;
+	*num_r = n;
+	return 0;
+}
+int str_to_uintmax_oct(const char *str, uintmax_t *num_r)
+{
+	const char *endp;
+	uintmax_t n;
+	int ret = str_parse_uintmax_oct(str, &n, &endp);
+	if ((ret != 0) || (*endp != '\0'))
 		return -1;
-	*num_r = (long)l;
+	*num_r = n;
 	return 0;
 }
 
-int str_to_llong(const char *str, long long *num_r)
-{
-	intmax_t l;
+/* 
+ * Signed
+ */
 
-	if (str_to_intmax(str, &l) < 0)
-		return -1;
-
-	if (l < LLONG_MIN || l > LLONG_MAX)
-		return -1;
-	*num_r = (long long)l;
-	return 0;
+#define STR_PARSE_S__TEMPLATE(name, type, int_min, int_max)   \
+int name(const char *str, type *num_r, const char **endp_r)	  \
+{                                                             \
+	intmax_t l;                                                 \
+	if (str_parse_intmax(str, &l, endp_r) < 0)                  \
+		return -1;                                                \
+	if (l < int_min || l > int_max)                             \
+		return -1;                                                \
+	*num_r = (type)l;                                           \
+	return 0;                                                   \
 }
 
-int str_to_intmax(const char *str, intmax_t *num_r)
+STR_PARSE_S__TEMPLATE(str_parse_int, int, INT_MIN, INT_MAX)
+STR_PARSE_S__TEMPLATE(str_parse_long, long, LONG_MIN, LONG_MAX)
+STR_PARSE_S__TEMPLATE(str_parse_llong, long long, LLONG_MIN, LLONG_MAX)
+STR_PARSE_S__TEMPLATE(str_parse_int32, int32_t, INT32_MIN, INT32_MAX)
+STR_PARSE_S__TEMPLATE(str_parse_int64, int64_t, INT64_MIN, INT64_MAX)
+
+#define STR_TO_S__TEMPLATE(name, type, int_min, int_max)      \
+int name(const char *str, type *num_r)                        \
+{                                                             \
+	intmax_t l;                                                 \
+	if (str_to_intmax(str, &l) < 0)                             \
+		return -1;                                                \
+	if (l < int_min || l > int_max)                             \
+		return -1;                                                \
+	*num_r = (type)l;                                           \
+	return 0;                                                   \
+}
+
+STR_TO_S__TEMPLATE(str_to_int, int, INT_MIN, INT_MAX)
+STR_TO_S__TEMPLATE(str_to_long, long, LONG_MIN, LONG_MAX)
+STR_TO_S__TEMPLATE(str_to_llong, long long, LLONG_MIN, LLONG_MAX)
+STR_TO_S__TEMPLATE(str_to_int32, int32_t, INT32_MIN, INT32_MAX)
+STR_TO_S__TEMPLATE(str_to_int64, int64_t, INT64_MIN, INT64_MAX)
+
+int str_parse_intmax(const char *str, intmax_t *num_r,
+	const char **endp_r)
 {
 	bool neg = FALSE;
 	uintmax_t l;
@@ -174,7 +304,7 @@ int str_to_intmax(const char *str, intmax_t *num_r)
 		neg = TRUE;
 		str++;
 	}
-	if (str_to_uintmax(str, &l) < 0)
+	if (str_parse_uintmax(str, &l, endp_r) < 0)
 		return -1;
 
 	if (!neg) {
@@ -188,6 +318,20 @@ int str_to_intmax(const char *str, intmax_t *num_r)
 	}
 	return 0;
 }
+int str_to_intmax(const char *str, intmax_t *num_r)
+{
+	const char *endp;
+	intmax_t n;
+	int ret = str_parse_intmax(str, &n, &endp);
+	if ((ret != 0) || (*endp != '\0'))
+		return -1;
+	*num_r = n;
+	return 0;
+}
+
+/* 
+ * Special numeric types
+ */
 
 static int verify_xid(uintmax_t l, unsigned int result_size)
 {
@@ -267,14 +411,11 @@ int str_to_time(const char *str, time_t *num_r)
 	return 0;
 }
 
-bool str_uint_equals(const char *str, uintmax_t num)
-{
-	uintmax_t l;
+STR_PARSE_U__TEMPLATE(str_parse_uoff, uoff_t)
 
-	if (str_to_uintmax(str, &l) < 0)
-		return FALSE;
-	return l == num;
-}
+/*
+ * Error handling
+ */
 
 const char *str_num_error(const char *str)
 {
