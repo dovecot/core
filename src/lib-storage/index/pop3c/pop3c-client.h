@@ -1,6 +1,8 @@
 #ifndef POP3C_CLIENT_H
 #define POP3C_CLIENT_H
 
+#include "net.h"
+
 enum pop3c_capability {
 	POP3C_CAPABILITY_PIPELINING	= 0x01,
 	POP3C_CAPABILITY_TOP		= 0x02,
@@ -21,7 +23,7 @@ enum pop3c_client_ssl_mode {
 
 struct pop3c_client_settings {
 	const char *host;
-	unsigned int port;
+	in_port_t port;
 
 	const char *master_user;
 	const char *username;

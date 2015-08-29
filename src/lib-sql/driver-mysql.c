@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "net.h"
 #include "sql-api-private.h"
 
 #ifdef BUILD_MYSQL
@@ -30,7 +31,8 @@ struct mysql_db {
 	const char *ssl_cert, *ssl_key, *ssl_ca, *ssl_ca_path, *ssl_cipher;
 	int ssl_verify_server_cert;
 	const char *option_file, *option_group;
-	unsigned int port, client_flags;
+	in_port_t port;
+	unsigned int client_flags;
 	time_t last_success;
 
 	MYSQL *mysql;
@@ -179,9 +181,10 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 			field = &db->password;
 		else if (strcmp(name, "dbname") == 0)
 			field = &db->dbname;
-		else if (strcmp(name, "port") == 0)
-			db->port = atoi(value);
-		else if (strcmp(name, "client_flags") == 0)
+		else if (strcmp(name, "port") == 0) {
+			if (net_str2port(value, &db->port) < 0)
+				i_fatal("mysql: Invalid port number: %s", value);
+		} else if (strcmp(name, "client_flags") == 0)
 			db->client_flags = atoi(value);
 		else if (strcmp(name, "ssl_cert") == 0)
 			field = &db->ssl_cert;

@@ -10,7 +10,7 @@ struct director_host {
 	int refcount;
 
 	struct ip_addr ip;
-	unsigned int port;
+	in_port_t port;
 
 	/* name contains "ip:port" */
 	char *name;
@@ -33,7 +33,7 @@ struct director_host {
 
 struct director_host *
 director_host_add(struct director *dir, const struct ip_addr *ip,
-		  unsigned int port);
+		  in_port_t port);
 void director_host_free(struct director_host **host);
 
 void director_host_ref(struct director_host *host);
@@ -43,10 +43,10 @@ void director_host_restarted(struct director_host *host);
 
 struct director_host *
 director_host_get(struct director *dir, const struct ip_addr *ip,
-		  unsigned int port);
+		  in_port_t port);
 struct director_host *
 director_host_lookup(struct director *dir, const struct ip_addr *ip,
-		     unsigned int port);
+		     in_port_t port);
 struct director_host *
 director_host_lookup_ip(struct director *dir, const struct ip_addr *ip);
 

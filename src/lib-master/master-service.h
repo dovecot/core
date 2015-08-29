@@ -41,10 +41,10 @@ struct master_service_connection {
 	const char *name;
 
 	struct ip_addr remote_ip, local_ip;
-	unsigned int remote_port, local_port;
+	in_port_t remote_port, local_port;
 
 	struct ip_addr real_remote_ip, real_local_ip;
-	unsigned int real_remote_port, real_local_port;
+	in_port_t real_remote_port, real_local_port;
 
 	unsigned int fifo:1;
 	unsigned int ssl:1;

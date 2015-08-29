@@ -84,9 +84,9 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 				return -1;
 			}
 		} else if (strcmp(key, "peer_port") == 0) {
-			if (str_to_uint(value, &state_r->peer_port) < 0) {
+			if (net_str2port(value, &state_r->peer_port) < 0) {
 				*error_r = t_strdup_printf(
-					"Invalid peer_ip value: %s", value);
+					"Invalid peer_port value: %s", value);
 				return -1;
 			}
 		} else if (strcmp(key, "uid") == 0) {

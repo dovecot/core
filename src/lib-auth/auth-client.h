@@ -42,7 +42,7 @@ struct auth_request_info {
 	enum auth_request_flags flags;
 
 	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;
-	unsigned int local_port, remote_port, real_local_port, real_remote_port;
+	in_port_t local_port, remote_port, real_local_port, real_remote_port;
 
 	const char *initial_resp_base64;
 };

@@ -73,7 +73,7 @@ struct auth_request {
 
 	const char *service, *mech_name, *session_id;
 	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;
-	unsigned int local_port, remote_port, real_local_port, real_remote_port;
+	in_port_t local_port, remote_port, real_local_port, real_remote_port;
 
 	struct timeout *to_abort, *to_penalty;
 	unsigned int last_penalty;

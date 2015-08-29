@@ -1205,7 +1205,7 @@ http_client_connection_tunnel_response(const struct http_response *response,
 
 static void
 http_client_connection_connect_tunnel(struct http_client_connection *conn,
-	const struct ip_addr *ip, unsigned int port)
+	const struct ip_addr *ip, in_port_t port)
 {
 	unsigned int msecs;
 

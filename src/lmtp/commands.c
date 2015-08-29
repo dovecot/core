@@ -240,7 +240,10 @@ client_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 		else if (strcmp(key, "host") == 0)
 			set->host = value;
 		else if (strcmp(key, "port") == 0) {
-			set->port = atoi(value);
+			if (net_str2port(value, &set->port) < 0) {
+				i_error("proxy: Invalid port number %s", value);
+				return FALSE;
+			}
 			port_set = TRUE;
 		} else if (strcmp(key, "proxy_timeout") == 0)
 			set->timeout_msecs = atoi(value)*1000;
@@ -1269,7 +1272,8 @@ int cmd_xclient(struct client *client, const char *args)
 {
 	const char *const *tmp;
 	struct ip_addr remote_ip;
-	unsigned int remote_port = 0, ttl = UINT_MAX, timeout_secs = 0;
+	in_port_t remote_port = 0;
+	unsigned int ttl = UINT_MAX, timeout_secs = 0;
 	bool args_ok = TRUE;
 
 	if (!client_is_trusted(client)) {
@@ -1282,8 +1286,7 @@ int cmd_xclient(struct client *client, const char *args)
 			if (net_addr2ip(*tmp + 5, &remote_ip) < 0)
 				args_ok = FALSE;
 		} else if (strncasecmp(*tmp, "PORT=", 5) == 0) {
-			if (str_to_uint(*tmp + 5, &remote_port) < 0 ||
-			    remote_port == 0 || remote_port > 65535)
+			if (net_str2port(*tmp + 5, &remote_port) < 0)
 				args_ok = FALSE;
 		} else if (strncasecmp(*tmp, "TTL=", 4) == 0) {
 			if (str_to_uint(*tmp + 4, &ttl) < 0)

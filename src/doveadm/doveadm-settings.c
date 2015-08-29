@@ -59,7 +59,7 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(SET_STR, auth_socket_path),
 	DEF(SET_STR, doveadm_socket_path),
 	DEF(SET_UINT, doveadm_worker_count),
-	DEF(SET_UINT, doveadm_port),
+	DEF(SET_IN_PORT, doveadm_port),
 	{ SET_ALIAS, "doveadm_proxy_port", 0, NULL },
 	DEF(SET_STR, doveadm_username),
 	DEF(SET_STR, doveadm_password),

@@ -98,9 +98,12 @@ static void client_auth_parse_args(struct client *client,
 			reply_r->hostip = value;
 		else if (strcmp(key, "source_ip") == 0)
 			reply_r->source_ip = value;
-		else if (strcmp(key, "port") == 0)
-			reply_r->port = atoi(value);
-		else if (strcmp(key, "destuser") == 0)
+		else if (strcmp(key, "port") == 0) {
+			if (net_str2port(value, &reply_r->port) < 0) {
+				i_error("Auth service returned invalid "
+					"port number: %s", value);
+			}
+		} else if (strcmp(key, "destuser") == 0)
 			reply_r->destuser = value;
 		else if (strcmp(key, "pass") == 0)
 			reply_r->password = value;

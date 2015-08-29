@@ -720,13 +720,13 @@ static void cmd_director_ring_add(int argc, char *argv[])
 {
 	struct director_context *ctx;
 	struct ip_addr ip;
+	in_port_t port = 0;
 	string_t *str = t_str_new(64);
-	unsigned int port = 0;
 
 	ctx = cmd_director_init(argc, argv, "a:", cmd_director_ring_add);
 	if (argv[optind] == NULL ||
 	    net_addr2ip(argv[optind], &ip) < 0 ||
-	    (argv[optind+1] != NULL && str_to_uint(argv[optind+1], &port) < 0))
+	    (argv[optind+1] != NULL && net_str2port(argv[optind+1], &port) < 0))
 		director_cmd_help(cmd_director_ring_add);
 
 	str_printfa(str, "DIRECTOR-ADD\t%s", net_ip2addr(&ip));
@@ -743,12 +743,12 @@ static void cmd_director_ring_remove(int argc, char *argv[])
 	struct director_context *ctx;
 	struct ip_addr ip;
 	string_t *str = t_str_new(64);
-	unsigned int port = 0;
+	in_port_t port = 0;
 
 	ctx = cmd_director_init(argc, argv, "a:", cmd_director_ring_remove);
 	if (argv[optind] == NULL ||
 	    net_addr2ip(argv[optind], &ip) < 0 ||
-	    (argv[optind+1] != NULL && str_to_uint(argv[optind+1], &port) < 0))
+	    (argv[optind+1] != NULL && net_str2port(argv[optind+1], &port) < 0))
 		director_cmd_help(cmd_director_ring_remove);
 
 	str_printfa(str, "DIRECTOR-REMOVE\t%s", net_ip2addr(&ip));

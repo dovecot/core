@@ -38,9 +38,9 @@ struct director {
 
 	/* IP and port of this director. self_host->ip/port must equal these. */
 	struct ip_addr self_ip;
-	unsigned int self_port;
+	in_port_t self_port;
 
-	unsigned int test_port;
+	in_port_t test_port;
 
 	struct director_host *self_host;
 	/* left and right connections are set only after they have finished
@@ -101,7 +101,7 @@ extern bool director_debug;
    without specified port. */
 struct director *
 director_init(const struct director_settings *set,
-	      const struct ip_addr *listen_ip, unsigned int listen_port,
+	      const struct ip_addr *listen_ip, in_port_t listen_port,
 	      director_state_change_callback_t *callback);
 void director_deinit(struct director **dir);
 void director_find_self(struct director *dir);

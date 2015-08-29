@@ -130,17 +130,17 @@ sin_get_ip(const union sockaddr_union *so, struct ip_addr *ip)
 		memset(&ip->u, 0, sizeof(ip->u));
 }
 
-static inline void sin_set_port(union sockaddr_union *so, unsigned int port)
+static inline void sin_set_port(union sockaddr_union *so, in_port_t port)
 {
 #ifdef HAVE_IPV6
 	if (so->sin.sin_family == AF_INET6)
-                so->sin6.sin6_port = htons((unsigned short) port);
+                so->sin6.sin6_port = htons(port);
 	else
 #endif
-		so->sin.sin_port = htons((unsigned short) port);
+		so->sin.sin_port = htons(port);
 }
 
-static inline unsigned int sin_get_port(union sockaddr_union *so)
+static inline in_port_t sin_get_port(union sockaddr_union *so)
 {
 #ifdef HAVE_IPV6
 	if (so->sin.sin_family == AF_INET6)
@@ -154,11 +154,11 @@ static inline unsigned int sin_get_port(union sockaddr_union *so)
 
 #ifdef __FreeBSD__
 static int
-net_connect_ip_full_freebsd(const struct ip_addr *ip, unsigned int port,
+net_connect_ip_full_freebsd(const struct ip_addr *ip, in_port_t port,
 			    const struct ip_addr *my_ip, int sock_type,
 			    bool blocking);
 
-static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
+static int net_connect_ip_full(const struct ip_addr *ip, in_port_t port,
 			       const struct ip_addr *my_ip, int sock_type,
 			       bool blocking)
 {
@@ -183,7 +183,7 @@ static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
 #define net_connect_ip_full net_connect_ip_full_freebsd
 #endif
 
-static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
+static int net_connect_ip_full(const struct ip_addr *ip, in_port_t port,
 			       const struct ip_addr *my_ip, int sock_type, bool blocking)
 {
 	union sockaddr_union so;
@@ -242,19 +242,19 @@ static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
 #  undef net_connect_ip_full
 #endif
 
-int net_connect_ip(const struct ip_addr *ip, unsigned int port,
+int net_connect_ip(const struct ip_addr *ip, in_port_t port,
 		   const struct ip_addr *my_ip)
 {
 	return net_connect_ip_full(ip, port, my_ip, SOCK_STREAM, FALSE);
 }
 
-int net_connect_ip_blocking(const struct ip_addr *ip, unsigned int port,
+int net_connect_ip_blocking(const struct ip_addr *ip, in_port_t port,
 			    const struct ip_addr *my_ip)
 {
 	return net_connect_ip_full(ip, port, my_ip, SOCK_STREAM, TRUE);
 }
 
-int net_connect_udp(const struct ip_addr *ip, unsigned int port,
+int net_connect_udp(const struct ip_addr *ip, in_port_t port,
 			       const struct ip_addr *my_ip)
 {
 	return net_connect_ip_full(ip, port, my_ip, SOCK_DGRAM, FALSE);
@@ -391,14 +391,14 @@ void net_get_ip_any6(struct ip_addr *ip)
 #endif
 }
 
-int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
+int net_listen(const struct ip_addr *my_ip, in_port_t *port, int backlog)
 {
 	enum net_listen_flags flags = 0;
 
 	return net_listen_full(my_ip, port, &flags, backlog);
 }
 
-int net_listen_full(const struct ip_addr *my_ip, unsigned int *port,
+int net_listen_full(const struct ip_addr *my_ip, in_port_t *port,
 		    enum net_listen_flags *flags, int backlog)
 {
 	union sockaddr_union so;
@@ -551,7 +551,7 @@ int net_listen_unix_unlink_stale(const char *path, int backlog)
 	return fd;
 }
 
-int net_accept(int fd, struct ip_addr *addr_r, unsigned int *port_r)
+int net_accept(int fd, struct ip_addr *addr_r, in_port_t *port_r)
 {
 	union sockaddr_union so;
 	int ret;
@@ -706,7 +706,7 @@ int net_gethostbyaddr(const struct ip_addr *ip, const char **name_r)
 	return 0;
 }
 
-int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port)
+int net_getsockname(int fd, struct ip_addr *addr, in_port_t *port)
 {
 	union sockaddr_union so;
 	socklen_t addrlen;
@@ -727,7 +727,7 @@ int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port)
 	return 0;
 }
 
-int net_getpeername(int fd, struct ip_addr *addr, unsigned int *port)
+int net_getpeername(int fd, struct ip_addr *addr, in_port_t *port)
 {
 	union sockaddr_union so;
 	socklen_t addrlen;
@@ -944,6 +944,19 @@ int net_addr2ip(const char *addr, struct ip_addr *ip)
 	return 0;
 }
 
+int net_str2port(const char *str, in_port_t *port_r)
+{
+	uintmax_t l;
+
+	if (str_to_uintmax(str, &l) < 0)
+		return -1;
+
+	if (l == 0 || l > (in_port_t)-1)
+		return -1;
+	*port_r = (in_port_t)l;
+	return 0;
+}
+
 int net_ipv6_mapped_ipv4_convert(const struct ip_addr *src,
 				 struct ip_addr *dest)
 {
@@ -1014,7 +1027,7 @@ int net_hosterror_notfound(int error)
 #endif
 }
 
-const char *net_getservbyport(unsigned short port)
+const char *net_getservbyport(in_port_t port)
 {
 	struct servent *entry;
 

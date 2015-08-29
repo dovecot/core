@@ -183,7 +183,7 @@ void connection_init_server(struct connection_list *list,
 
 void connection_init_client_ip(struct connection_list *list,
 			       struct connection *conn,
-			       const struct ip_addr *ip, unsigned int port)
+			       const struct ip_addr *ip, in_port_t port)
 {
 	i_assert(list->set.client);
 

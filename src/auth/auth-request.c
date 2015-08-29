@@ -276,11 +276,11 @@ bool auth_request_import_info(struct auth_request *request,
 		if (request->real_remote_ip.family == 0)
 			request->real_remote_ip = request->remote_ip;
 	} else if (strcmp(key, "lport") == 0) {
-		request->local_port = atoi(value);
+		(void)net_str2port(value, &request->local_port);
 		if (request->real_local_port == 0)
 			request->real_local_port = request->local_port;
 	} else if (strcmp(key, "rport") == 0) {
-		request->remote_port = atoi(value);
+		(void)net_str2port(value, &request->remote_port);
 		if (request->real_remote_port == 0)
 			request->real_remote_port = request->remote_port;
 	}
@@ -289,9 +289,9 @@ bool auth_request_import_info(struct auth_request *request,
 	else if (strcmp(key, "real_rip") == 0)
 		(void)net_addr2ip(value, &request->real_remote_ip);
 	else if (strcmp(key, "real_lport") == 0)
-		request->real_local_port = atoi(value);
+		(void)net_str2port(value, &request->real_local_port);
 	else if (strcmp(key, "real_rport") == 0)
-		request->real_remote_port = atoi(value);
+		(void)net_str2port(value, &request->real_remote_port);
 	else if (strcmp(key, "session") == 0)
 		request->session_id = p_strdup(request->pool, value);
 	else

@@ -124,7 +124,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	struct ip_addr *real_remote_ip = &hpconn->conn.remote_ip;
 	int fd = hpconn->conn.fd;
 	struct ip_addr local_ip, remote_ip;
-	unsigned int local_port, remote_port;
+	in_port_t local_port, remote_port;
 	size_t size;
 	ssize_t ret;
 
@@ -331,8 +331,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 					"(rip=%s)", net_ip2addr(real_remote_ip));
 				return -1;
 			}
-			if (str_to_uint(*fields, &remote_port) < 0 ||
-				remote_port > 65535) {
+			if (net_str2port(*fields, &remote_port) < 0) {
 				i_error("haproxy(v1): Client disconnected: "
 					"Proxied remote port is invalid "
 					"(port=`%s', rip=%s)", str_sanitize(*fields, 64),
@@ -348,8 +347,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 					"(rip=%s)", net_ip2addr(real_remote_ip));
 				return -1;
 			}
-			if (str_to_uint(*fields, &local_port) < 0 ||
-				local_port > 65535) {
+			if (net_str2port(*fields, &local_port) < 0) {
 				i_error("haproxy(v1): Client disconnected: "
 					"Proxied local port is invalid "
 					"(port=`%s', rip=%s)", str_sanitize(*fields, 64),

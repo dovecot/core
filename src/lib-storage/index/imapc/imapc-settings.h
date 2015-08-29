@@ -1,6 +1,8 @@
 #ifndef IMAPC_SETTINGS_H
 #define IMAPC_SETTINGS_H
 
+#include "net.h"
+
 /* <settings checks> */
 enum imapc_features {
 	IMAPC_FEATURE_RFC822_SIZE		= 0x01,
@@ -14,7 +16,7 @@ enum imapc_features {
 
 struct imapc_settings {
 	const char *imapc_host;
-	unsigned int imapc_port;
+	in_port_t imapc_port;
 
 	const char *imapc_user;
 	const char *imapc_master_user;

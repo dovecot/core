@@ -28,7 +28,7 @@ struct imap_master_input {
 	buffer_t *state;
 
 	struct ip_addr peer_ip;
-	unsigned int peer_port;
+	in_port_t peer_port;
 
 	bool state_import_bad_idle_done;
 	bool state_import_idle_continue;
@@ -98,8 +98,7 @@ imap_master_client_parse_input(const char *const *args, pool_t pool,
 				return -1;
 			}
 		} else if (strcmp(key, "peer_port") == 0) {
-			if (str_to_uint32(value, &master_input_r->peer_port) < 0 ||
-			    master_input_r->peer_port == 0) {
+			if (net_str2port(value, &master_input_r->peer_port) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid peer_port value: %s", value);
 				return -1;
@@ -143,7 +142,7 @@ static int imap_master_client_verify(const struct imap_master_input *master_inpu
 				     int fd_client, const char **error_r)
 {
 	struct ip_addr peer_ip;
-	unsigned int peer_port;
+	in_port_t peer_port;
 
 	if (master_input->peer_port == 0)
 		return 0;

@@ -579,6 +579,18 @@ get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
 }
 
 static int
+get_in_port(struct setting_parser_context *ctx, const char *value,
+	 in_port_t *result_r)
+{
+	if (net_str2port(value, result_r) < 0) {
+		ctx->error = p_strdup_printf(ctx->parser_pool,
+			"Invalid port number %s", value);
+		return -1;
+	}
+	return 0;
+}
+
+static int
 settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 	       const struct setting_define *def,
 	       const char *key, const char *value)
@@ -625,6 +637,10 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 			ctx->error = p_strdup(ctx->parser_pool, error);
 			return -1;
 		}
+		break;
+	case SET_IN_PORT:
+		if (get_in_port(ctx, value, (in_port_t *)ptr) < 0)
+			return -1;
 		break;
 	case SET_STR:
 		*((char **)ptr) = p_strdup(ctx->set_pool, value);
@@ -1227,6 +1243,7 @@ settings_var_expand_info(const struct setting_parser_info *info, void *set,
 		case SET_UINT_OCT:
 		case SET_TIME:
 		case SET_SIZE:
+		case SET_IN_PORT:
 		case SET_STR:
 		case SET_ENUM:
 		case SET_STRLIST:
@@ -1322,6 +1339,7 @@ bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
 		case SET_UINT_OCT:
 		case SET_TIME:
 		case SET_SIZE:
+		case SET_IN_PORT:
 		case SET_STR:
 		case SET_ENUM:
 		case SET_STRLIST:
@@ -1402,6 +1420,13 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
 	case SET_SIZE: {
 		const uoff_t *src_size = src;
 		uoff_t *dest_size = dest;
+
+		*dest_size = *src_size;
+		break;
+	}
+	case SET_IN_PORT: {
+		const in_port_t *src_size = src;
+		in_port_t *dest_size = dest;
 
 		*dest_size = *src_size;
 		break;
@@ -1519,6 +1544,7 @@ settings_changes_dup(const struct setting_parser_info *info,
 		case SET_UINT_OCT:
 		case SET_TIME:
 		case SET_SIZE:
+		case SET_IN_PORT:
 		case SET_STR_VARS:
 		case SET_STR:
 		case SET_ENUM:

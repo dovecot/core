@@ -133,8 +133,7 @@ passdb_imap_preinit(pool_t pool, const char *args)
 		if (strcmp(key, "host") == 0)
 			module->set.host = value;
 		else if (strcmp(key, "port") == 0) {
-			if (str_to_uint(value, &module->set.port) < 0 ||
-			    module->set.port == 0 || module->set.port > 65535)
+			if (net_str2port(value, &module->set.port) < 0)
 				i_fatal("passdb imap: Invalid port: %s", value);
 			port_set = TRUE;
 		} else if (strcmp(key, "username") == 0)

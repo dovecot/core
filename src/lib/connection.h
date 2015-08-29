@@ -83,7 +83,7 @@ struct connection {
 
 	/* for IP client: */
 	struct ip_addr ip;
-	unsigned int port;
+	in_port_t port;
 
 	/* received minor version */
 	unsigned int minor_version;
@@ -106,7 +106,7 @@ void connection_init_server(struct connection_list *list,
 			    int fd_in, int fd_out);
 void connection_init_client_ip(struct connection_list *list,
 			       struct connection *conn,
-			       const struct ip_addr *ip, unsigned int port);
+			       const struct ip_addr *ip, in_port_t port);
 void connection_init_client_unix(struct connection_list *list,
 				 struct connection *conn, const char *path);
 void connection_init_from_streams(struct connection_list *list,

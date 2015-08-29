@@ -1,6 +1,8 @@
 #ifndef IMAP_SETTINGS_H
 #define IMAP_SETTINGS_H
 
+#include "net.h"
+
 struct mail_user_settings;
 
 /* <settings checks> */
@@ -27,7 +29,7 @@ struct imap_settings {
 
 	/* imap urlauth: */
 	const char *imap_urlauth_host;
-	unsigned int imap_urlauth_port;
+	in_port_t imap_urlauth_port;
 
 	enum imap_client_workarounds parsed_workarounds;
 };

@@ -345,7 +345,7 @@ static bool director_connection_assign_right(struct director_connection *conn)
 static bool
 director_args_parse_ip_port(struct director_connection *conn,
 			    const char *const *args,
-			    struct ip_addr *ip_r, unsigned int *port_r)
+			    struct ip_addr *ip_r, in_port_t *port_r)
 {
 	if (args[0] == NULL || args[1] == NULL) {
 		director_cmd_error(conn, "Missing IP+port parameters");
@@ -355,7 +355,7 @@ director_args_parse_ip_port(struct director_connection *conn,
 		director_cmd_error(conn, "Invalid IP address: %s", args[0]);
 		return FALSE;
 	}
-	if (str_to_uint(args[1], port_r) < 0) {
+	if (net_str2port(args[1], port_r) < 0) {
 		director_cmd_error(conn, "Invalid port: %s", args[1]);
 		return FALSE;
 	}
@@ -368,7 +368,7 @@ static bool director_cmd_me(struct director_connection *conn,
 	struct director *dir = conn->dir;
 	const char *connect_str;
 	struct ip_addr ip;
-	unsigned int port;
+	in_port_t port;
 	time_t next_comm_attempt;
 
 	if (!director_args_parse_ip_port(conn, args, &ip, &port))
@@ -650,7 +650,7 @@ static bool director_cmd_director(struct director_connection *conn,
 {
 	struct director_host *host;
 	struct ip_addr ip;
-	unsigned int port;
+	in_port_t port;
 
 	if (!director_args_parse_ip_port(conn, args, &ip, &port))
 		return FALSE;
@@ -699,7 +699,7 @@ static bool director_cmd_director_remove(struct director_connection *conn,
 {
 	struct director_host *host;
 	struct ip_addr ip;
-	unsigned int port;
+	in_port_t port;
 
 	if (!director_args_parse_ip_port(conn, args, &ip, &port))
 		return FALSE;
@@ -746,12 +746,13 @@ director_cmd_is_seen(struct director_connection *conn,
 {
 	const char *const *args = *_args;
 	struct ip_addr ip;
-	unsigned int port, seq;
+	in_port_t port;
+	unsigned int seq;
 	struct director_host *host;
 
 	if (str_array_length(args) < 3 ||
 	    net_addr2ip(args[0], &ip) < 0 ||
-	    str_to_uint(args[1], &port) < 0 ||
+	    net_str2port(args[1], &port) < 0 ||
 	    str_to_uint(args[2], &seq) < 0) {
 		director_cmd_error(conn, "Invalid parameters");
 		return -1;
@@ -1295,7 +1296,8 @@ static bool director_connection_sync(struct director_connection *conn,
 	struct director *dir = conn->dir;
 	struct director_host *host;
 	struct ip_addr ip;
-	unsigned int port, seq, minor_version = 0, timestamp = ioloop_time;
+	in_port_t port;
+	unsigned int seq, minor_version = 0, timestamp = ioloop_time;
 
 	if (str_array_length(args) < 3 ||
 	    !director_args_parse_ip_port(conn, args, &ip, &port) ||
@@ -1332,7 +1334,7 @@ static bool director_cmd_connect(struct director_connection *conn,
 	struct director *dir = conn->dir;
 	struct director_host *host;
 	struct ip_addr ip;
-	unsigned int port;
+	in_port_t port;
 
 	if (str_array_length(args) != 2 ||
 	    !director_args_parse_ip_port(conn, args, &ip, &port)) {

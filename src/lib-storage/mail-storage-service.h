@@ -42,7 +42,7 @@ struct mail_storage_service_input {
 	const char *username;
 	const char *session_id;
 	struct ip_addr local_ip, remote_ip;
-	unsigned int local_port, remote_port;
+	in_port_t local_port, remote_port;
 
 	const char *const *userdb_fields;
 

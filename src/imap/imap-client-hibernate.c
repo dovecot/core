@@ -42,7 +42,7 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 				     const buffer_t *state, int fd_notify)
 {
 	struct ip_addr peer_ip;
-	unsigned int peer_port;
+	in_port_t peer_port;
 
 	str_append_tabescaped(cmd, client->user->username);
 	str_append_c(cmd, '\t');

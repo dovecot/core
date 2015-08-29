@@ -141,11 +141,12 @@ static void cmd_zlibconnect(int argc ATTR_UNUSED, char *argv[])
 {
 	struct client client;
 	struct ip_addr *ips;
-	unsigned int ips_count, port = 143;
+	unsigned int ips_count;
+	in_port_t port = 143;
 	int fd, ret;
 
 	if (argv[1] == NULL ||
-	    (argv[2] != NULL && str_to_uint(argv[2], &port) < 0))
+	    (argv[2] != NULL && net_str2port(argv[2], &port) < 0))
 		help(&doveadm_cmd_zlibconnect);
 
 	ret = net_gethostbyname(argv[1], &ips, &ips_count);

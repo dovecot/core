@@ -60,7 +60,7 @@ struct client_auth_reply {
 	/* for proxying */
 	const char *host, *hostip, *source_ip;
 	const char *destuser, *password, *proxy_mech;
-	unsigned int port;
+	in_port_t port;
 	unsigned int proxy_timeout_msecs;
 	unsigned int proxy_refresh_secs;
 	enum login_proxy_ssl_flags ssl_flags;
@@ -108,8 +108,8 @@ struct client {
 	struct ip_addr local_ip;
 	struct ip_addr ip;
 	struct ip_addr real_remote_ip, real_local_ip;
-	unsigned int local_port, remote_port;
-	unsigned int real_local_port, real_remote_port;
+	in_port_t local_port, remote_port;
+	in_port_t real_local_port, real_remote_port;
 	struct ssl_proxy *ssl_proxy;
 	const struct login_settings *set;
 	const struct master_service_ssl_settings *ssl_set;

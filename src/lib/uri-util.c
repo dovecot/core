@@ -482,32 +482,30 @@ static int
 uri_parse_port(struct uri_parser *parser,
 	struct uri_authority *auth) ATTR_NULL(2)
 {
-	unsigned long port = 0;
-	int count = 0;
+	const unsigned char *first;
+	in_port_t port;
 
 	/* RFC 3986:
 	 *
 	 * port        = *DIGIT
 	 */
 
-	while (parser->cur < parser->end && i_isdigit(*parser->cur)) {
-		port = port * 10 + (parser->cur[0] - '0');
-		if (port > (in_port_t)-1) {
-			parser->error = "Port number is too high";
-			return -1;
-		}
+	first = parser->cur;
+	while (parser->cur < parser->end && i_isdigit(*parser->cur))
 		parser->cur++;
-		count++;
+
+	if (parser->cur == first)
+		return 0;
+	if (net_str2port(t_strdup_until(first, parser->cur), &port) < 0) {
+		parser->error = "Invalid port number";
+		return -1;
 	}
 
-	if (count > 0) {
-		if (auth != NULL) {
-			auth->port = port;
-			auth->have_port = TRUE;
-		}
-		return 1;
+	if (auth != NULL) {
+		auth->port = port;
+		auth->have_port = TRUE;
 	}
-	return 0;
+	return 1;
 }
 
 int uri_parse_authority(struct uri_parser *parser,

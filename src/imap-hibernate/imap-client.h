@@ -14,7 +14,7 @@ struct imap_client_state {
 	gid_t gid;
 
 	struct ip_addr peer_ip;
-	unsigned int peer_port;
+	in_port_t peer_port;
 
 	const unsigned char *state;
 	size_t state_size;

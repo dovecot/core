@@ -44,7 +44,7 @@ struct lmtp_client {
 	struct lmtp_client_settings set;
 	const char *host;
 	struct ip_addr ip;
-	unsigned int port;
+	in_port_t port;
 	enum lmtp_client_protocol protocol;
 	enum lmtp_input_state input_state;
 	const char *global_fail_string;
@@ -713,7 +713,7 @@ static void lmtp_client_dns_done(const struct dns_lookup_result *result,
 
 int lmtp_client_connect_tcp(struct lmtp_client *client,
 			    enum lmtp_client_protocol protocol,
-			    const char *host, unsigned int port)
+			    const char *host, in_port_t port)
 {
 	struct dns_lookup_settings dns_lookup_set;
 	struct ip_addr *ips;

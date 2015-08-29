@@ -13,13 +13,13 @@ struct lmtp_proxy_settings {
 
 	/* the original client's IP/port that connected to the proxy */
 	struct ip_addr source_ip;
-	unsigned int source_port;
+	in_port_t source_port;
 	unsigned int proxy_ttl;
 };
 
 struct lmtp_proxy_rcpt_settings {
 	const char *host;
-	unsigned int port;
+	in_port_t port;
 	unsigned int timeout_msecs;
 	enum lmtp_client_protocol protocol;
 	struct lmtp_recipient_params params;

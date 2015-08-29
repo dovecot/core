@@ -190,9 +190,11 @@ static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 		if (net_addr2ip(arg + 4, &info->remote_ip) < 0)
 			i_fatal("rip: Invalid ip");
 	} else if (strncmp(arg, "lport=", 6) == 0) {
-		info->local_port = atoi(arg + 6);
+		if (net_str2port(arg + 6, &info->local_port) < 0)
+			i_fatal("lport: Invalid port number");
 	} else if (strncmp(arg, "rport=", 6) == 0) {
-		info->remote_port = atoi(arg + 6);
+		if (net_str2port(arg + 6, &info->remote_port) < 0)
+			i_fatal("rport: Invalid port number");
 	} else {
 		i_fatal("Unknown -x argument: %s", arg);
 	}

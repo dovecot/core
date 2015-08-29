@@ -6,6 +6,7 @@
 #include "aqueue.h"
 #include "hash.h"
 #include "str.h"
+#include "net.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "service.h"
@@ -114,8 +115,7 @@ resolve_ip(const char *address, const struct ip_addr **ips_r,
 static struct service_listener *
 service_create_one_inet_listener(struct service *service,
 				 const struct inet_listener_settings *set,
-				 const char *address, const struct ip_addr *ip,
-				 const char **error_r)
+				 const char *address, const struct ip_addr *ip)
 {
 	struct service_listener *l;
 
@@ -129,11 +129,6 @@ service_create_one_inet_listener(struct service *service,
 	l->set.inetset.ip = *ip;
 	l->inet_address = p_strdup(service->list->pool, address);
 	l->name = set->name;
-
-	if (set->port > 65535) {
-		*error_r = t_strdup_printf("Invalid port: %u", set->port);
-		return NULL;
-	}
 
 	return l;
 }
@@ -173,10 +168,7 @@ service_create_inet_listeners(struct service *service,
 
 		for (i = 0; i < ips_count; i++) {
 			l = service_create_one_inet_listener(service, set,
-							     address, &ips[i],
-							     error_r);
-			if (l == NULL)
-				return -1;
+							     address, &ips[i]);
 			array_append(&service->listeners, &l, 1);
 		}
 		service->have_inet_listeners = TRUE;

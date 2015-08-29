@@ -39,8 +39,8 @@ struct login_host_request {
 	char *line, *username;
 
 	struct ip_addr local_ip;
-	unsigned int local_port;
-	unsigned int dest_port;
+	in_port_t local_port;
+	in_port_t dest_port;
 	bool director_proxy_maybe;
 };
 
@@ -202,10 +202,10 @@ static void auth_input_line(const char *line, void *context)
 			if (net_addr2ip((*args) + 4, &temp_request.local_ip) < 0)
 				i_error("auth sent invalid lip field: %s", (*args) + 6);
 		} else if (strncmp(*args, "lport=", 6) == 0) {
-			if (str_to_uint((*args) + 6, &temp_request.local_port) < 0)
+			if (net_str2port((*args) + 6, &temp_request.local_port) < 0)
 				i_error("auth sent invalid lport field: %s", (*args) + 6);
 		} else if (strncmp(*args, "port=", 5) == 0) {
-			if (str_to_uint((*args) + 5, &temp_request.dest_port) < 0)
+			if (net_str2port((*args) + 5, &temp_request.dest_port) < 0)
 				i_error("auth sent invalid port field: %s", (*args) + 6);
 		} else if (strncmp(*args, "destuser=", 9) == 0)
 			username = *args + 9;

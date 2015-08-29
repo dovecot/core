@@ -61,7 +61,7 @@ struct service_settings aggregator_service_settings = {
 
 static const struct setting_define aggregator_setting_defines[] = {
 	DEF(SET_STR, replicator_host),
-	DEF(SET_UINT, replicator_port),
+	DEF(SET_IN_PORT, replicator_port),
 
 	SETTING_DEFINE_LIST_END
 };

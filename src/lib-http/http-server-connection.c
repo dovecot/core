@@ -785,7 +785,7 @@ http_server_connection_create(struct http_server *server,
 	struct http_server_connection *conn;
 	static unsigned int id = 0;
 	struct ip_addr addr;
-	unsigned int port;
+	in_port_t port;
 	const char *name;
 
 	conn = i_new(struct http_server_connection, 1);

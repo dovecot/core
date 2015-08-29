@@ -332,7 +332,8 @@ redis_dict_init(struct dict *driver, const char *uri,
 {
 	struct redis_dict *dict;
 	struct ip_addr ip;
-	unsigned int secs, port = REDIS_DEFAULT_PORT;
+	unsigned int secs;
+	in_port_t port = REDIS_DEFAULT_PORT;
 	const char *const *args, *unix_path = NULL;
 	int ret = 0;
 
@@ -359,7 +360,7 @@ redis_dict_init(struct dict *driver, const char *uri,
 				ret = -1;
 			}
 		} else if (strncmp(*args, "port=", 5) == 0) {
-			if (str_to_uint(*args+5, &port) < 0) {
+			if (net_str2port(*args+5, &port) < 0) {
 				*error_r = t_strdup_printf("Invalid port: %s",
 							   *args+5);
 				ret = -1;

@@ -75,7 +75,7 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(SET_TIME, imap_hibernate_timeout),
 
 	DEF(SET_STR, imap_urlauth_host),
-	DEF(SET_UINT, imap_urlauth_port),
+	DEF(SET_IN_PORT, imap_urlauth_port),
 
 	SETTING_DEFINE_LIST_END
 };

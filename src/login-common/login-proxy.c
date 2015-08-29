@@ -42,7 +42,7 @@ struct login_proxy {
 
 	struct ip_addr ip, source_ip;
 	char *host;
-	unsigned int port;
+	in_port_t port;
 	unsigned int connect_timeout_msecs;
 	unsigned int notify_refresh_secs;
 	unsigned int reconnect_count;
@@ -215,7 +215,7 @@ proxy_log_connect_error(struct login_proxy *proxy)
 {
 	string_t *str = t_str_new(128);
 	struct ip_addr local_ip;
-	unsigned int local_port;
+	in_port_t local_port;
 
 	str_printfa(str, "proxy(%s): ", proxy->client->virtual_user);
 	if (!proxy->connected) {
@@ -472,7 +472,7 @@ void login_proxy_free(struct login_proxy **_proxy)
 }
 
 bool login_proxy_is_ourself(const struct client *client, const char *host,
-			    unsigned int port, const char *destuser)
+			    in_port_t port, const char *destuser)
 {
 	struct ip_addr ip;
 
@@ -502,7 +502,7 @@ const char *login_proxy_get_host(const struct login_proxy *proxy)
 	return proxy->host;
 }
 
-unsigned int login_proxy_get_port(const struct login_proxy *proxy)
+in_port_t login_proxy_get_port(const struct login_proxy *proxy)
 {
 	return proxy->port;
 }

@@ -5,7 +5,7 @@
 
 struct login_proxy_record {
 	struct ip_addr ip;
-	unsigned int port;
+	in_port_t port;
 
 	/* these are tracking connect()s, not necessarily logins: */
 	unsigned int num_waiting_connections;
@@ -18,7 +18,7 @@ void login_proxy_state_deinit(struct login_proxy_state **state);
 
 struct login_proxy_record *
 login_proxy_state_get(struct login_proxy_state *state,
-		      const struct ip_addr *ip, unsigned int port);
+		      const struct ip_addr *ip, in_port_t port);
 
 void login_proxy_state_notify(struct login_proxy_state *state,
 			      const char *user);

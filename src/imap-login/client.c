@@ -149,17 +149,17 @@ static void
 client_update_info(struct imap_client *client,
 		   const char *key, const char *value)
 {
-	if (strcasecmp(key, "x-originating-ip") == 0)
+	if (strcasecmp(key, "x-originating-ip") == 0) {
 		(void)net_addr2ip(value, &client->common.ip);
-	else if (strcasecmp(key, "x-originating-port") == 0)
-		client->common.remote_port = atoi(value);
-	else if (strcasecmp(key, "x-connected-ip") == 0)
+	} else if (strcasecmp(key, "x-originating-port") == 0) {
+		(void)net_str2port(value, &client->common.remote_port);
+	} else if (strcasecmp(key, "x-connected-ip") == 0) {
 		(void)net_addr2ip(value, &client->common.local_ip);
-	else if (strcasecmp(key, "x-connected-port") == 0)
-		client->common.local_port = atoi(value);
-	else if (strcasecmp(key, "x-proxy-ttl") == 0)
+	} else if (strcasecmp(key, "x-connected-port") == 0) {
+		(void)net_str2port(value, &client->common.local_port);
+	}	else if (strcasecmp(key, "x-proxy-ttl") == 0) {
 		client->common.proxy_ttl = atoi(value);
-	else if (strcasecmp(key, "x-session-id") == 0 ||
+	} else if (strcasecmp(key, "x-session-id") == 0 ||
 		 strcasecmp(key, "x-session-ext-id") == 0) {
 		if (strlen(value) <= LOGIN_MAX_SESSION_ID_LEN) {
 			client->common.session_id =

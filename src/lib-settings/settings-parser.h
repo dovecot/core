@@ -23,6 +23,7 @@ enum setting_type {
 	SET_UINT_OCT,
 	SET_TIME,
 	SET_SIZE,
+	SET_IN_PORT, /* internet port */
 	SET_STR,
 	SET_STR_VARS, /* string with %variables */
 	SET_ENUM,
@@ -63,6 +64,10 @@ struct setting_define {
 #define SETTING_DEFINE_STRUCT_STR(name, struct_name) \
 	{ SET_STR + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
 		((struct struct_name *)0)->name, const char *), \
+	  #name, offsetof(struct struct_name, name), NULL }
+#define SETTING_DEFINE_STRUCT_IN_PORT(name, struct_name) \
+	{ SET_IN_PORT + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
+		((struct struct_name *)0)->name, in_port_t), \
 	  #name, offsetof(struct struct_name, name), NULL }
 
 struct setting_parser_info {

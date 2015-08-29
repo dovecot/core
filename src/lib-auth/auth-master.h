@@ -13,7 +13,7 @@ enum auth_master_flags {
 struct auth_user_info {
 	const char *service;
 	struct ip_addr local_ip, remote_ip;
-	unsigned int local_port, remote_port;
+	in_port_t local_port, remote_port;
 };
 
 struct auth_user_reply {

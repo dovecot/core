@@ -8,7 +8,7 @@ struct imap_urlauth_worker_settings {
 
 	/* imap_urlauth: */
 	const char *imap_urlauth_host;
-	unsigned int imap_urlauth_port;
+	in_port_t imap_urlauth_port;
 };
 
 extern const struct imap_urlauth_worker_settings imap_urlauth_worker_default_settings;

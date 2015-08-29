@@ -103,7 +103,7 @@ director_has_outgoing_connection(struct director *dir,
 
 int director_connect_host(struct director *dir, struct director_host *host)
 {
-	unsigned int port;
+	in_port_t port;
 	int fd;
 
 	if (director_has_outgoing_connection(dir, host))
@@ -928,7 +928,7 @@ void director_update_send_version(struct director *dir,
 
 struct director *
 director_init(const struct director_settings *set,
-	      const struct ip_addr *listen_ip, unsigned int listen_port,
+	      const struct ip_addr *listen_ip, in_port_t listen_port,
 	      director_state_change_callback_t *callback)
 {
 	struct director *dir;

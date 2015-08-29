@@ -2,6 +2,7 @@
 #define LOGIN_COMMON_H
 
 #include "lib.h"
+#include "net.h"
 #include "login-settings.h"
 
 /* Used only for string sanitization */
@@ -22,9 +23,9 @@ struct login_binary {
 	const char *process_name;
 
 	/* e.g. 143, 110 */
-	unsigned int default_port;
+	in_port_t default_port;
 	/* e.g. 993, 995. if there is no ssl port, use 0. */
-	unsigned int default_ssl_port;
+	in_port_t default_ssl_port;
 
 	/* if value is NULL, LOGIN_DEFAULT_SOCKET is used as the default */
 	const char *default_login_socket;

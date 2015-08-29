@@ -10,7 +10,7 @@ replicator_connection_create_unix(const char *path,
 				  replicator_sync_callback_t *callback);
 struct replicator_connection *
 replicator_connection_create_inet(const struct ip_addr *ips,
-				  unsigned int ips_count, unsigned int port,
+				  unsigned int ips_count, in_port_t port,
 				  replicator_sync_callback_t *callback);
 void replicator_connection_destroy(struct replicator_connection **conn);
 

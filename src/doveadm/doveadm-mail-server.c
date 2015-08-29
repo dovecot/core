@@ -180,7 +180,8 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	struct auth_user_info info;
 	pool_t pool;
 	const char *auth_socket_path, *proxy_host, *const *fields;
-	unsigned int i, proxy_port;
+	unsigned int i;
+	in_port_t proxy_port;
 	bool proxying;
 	int ret;
 
@@ -228,7 +229,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 			else if (strncmp(fields[i], "destuser=", 9) == 0)
 				*user_r = t_strdup(fields[i]+9);
 			else if (strncmp(fields[i], "port=", 5) == 0) {
-				if (str_to_uint(fields[i]+5, &proxy_port) < 0)
+				if (net_str2port(fields[i]+5, &proxy_port) < 0)
 					proxy_port = 0;
 			}
 		}

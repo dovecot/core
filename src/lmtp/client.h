@@ -66,7 +66,7 @@ struct client {
 	time_t last_input;
 
 	struct ip_addr remote_ip, local_ip;
-	unsigned int remote_port, local_port;
+	in_port_t remote_port, local_port;
 
 	struct mail_user *raw_mail_user;
 	const char *my_domain;

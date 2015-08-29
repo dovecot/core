@@ -8,7 +8,7 @@ struct imap_urlauth_context {
 	struct imap_urlauth_connection *conn;
 
 	char *url_host;
-	unsigned int url_port;
+	in_port_t url_port;
 
 	char *access_user;
 	const char **access_applications;

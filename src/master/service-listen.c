@@ -159,7 +159,7 @@ static int service_fifo_listener_listen(struct service_listener *l)
 
 #ifdef HAVE_SYSTEMD
 static int
-systemd_listen_fd(const struct ip_addr *ip, unsigned int port, int *fd_r)
+systemd_listen_fd(const struct ip_addr *ip, in_port_t port, int *fd_r)
 {
 	static int sd_fds = -1;
 	int fd, fd_max;
@@ -191,7 +191,7 @@ static int service_inet_listener_listen(struct service_listener *l)
         struct service *service = l->service;
 	enum net_listen_flags flags = 0;
 	const struct inet_listener_settings *set = l->set.inetset.set;
-	unsigned int port = set->port;
+	in_port_t port = set->port;
 	int fd;
 
 #ifdef HAVE_SYSTEMD
@@ -251,7 +251,7 @@ static int service_listen(struct service *service)
 }
 
 #ifdef HAVE_SYSTEMD
-static int get_socket_info(int fd, unsigned int *family, unsigned int *port)
+static int get_socket_info(int fd, unsigned int *family, in_port_t *port)
 {
 	union sockaddr_union {
 		struct sockaddr sa;
@@ -260,6 +260,7 @@ static int get_socket_info(int fd, unsigned int *family, unsigned int *port)
 	} sockaddr;
 	socklen_t l;
 
+	// FIXME(Stephan): why -1?
 	if (port) *port = -1;
 	if (family) *family = -1;
 
@@ -304,7 +305,8 @@ static int services_verify_systemd(struct service_list *service_list)
 	for (fd = SD_LISTEN_FDS_START; fd <= fd_max; fd++) {
 		if (sd_is_socket_inet(fd, 0, SOCK_STREAM, 1, 0) > 0) {
 			int found = FALSE;
-			unsigned int port, family;
+			in_port_t port;
+			unsigned int family;
 			get_socket_info(fd, &family, &port);
 			
 			array_foreach(&service_list->services, services) {

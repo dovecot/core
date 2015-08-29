@@ -79,7 +79,7 @@ void login_proxy_state_deinit(struct login_proxy_state **_state)
 
 struct login_proxy_record *
 login_proxy_state_get(struct login_proxy_state *state,
-		      const struct ip_addr *ip, unsigned int port)
+		      const struct ip_addr *ip, in_port_t port)
 {
 	struct login_proxy_record *rec, key;
 

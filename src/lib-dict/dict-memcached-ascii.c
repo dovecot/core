@@ -53,7 +53,7 @@ struct memcached_ascii_dict {
 	struct dict dict;
 	struct ip_addr ip;
 	char *username, *key_prefix;
-	unsigned int port;
+	in_port_t port;
 	unsigned int timeout_msecs;
 
 	struct ioloop *ioloop, *prev_ioloop;
@@ -377,7 +377,7 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 				ret = -1;
 			}
 		} else if (strncmp(*args, "port=", 5) == 0) {
-			if (str_to_uint(*args+5, &dict->port) < 0) {
+			if (net_str2port(*args+5, &dict->port) < 0) {
 				*error_r = t_strdup_printf("Invalid port: %s",
 							   *args+5);
 				ret = -1;

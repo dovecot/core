@@ -3,7 +3,7 @@
 
 struct aggregator_settings {
 	const char *replicator_host;
-	unsigned int replicator_port;
+	in_port_t replicator_port;
 };
 
 extern const struct setting_parser_info aggregator_setting_parser_info;

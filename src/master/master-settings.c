@@ -62,7 +62,7 @@ static const struct setting_parser_info file_listener_setting_parser_info = {
 static const struct setting_define inet_listener_setting_defines[] = {
 	DEF(SET_STR, name),
 	DEF(SET_STR, address),
-	DEF(SET_UINT, port),
+	DEF(SET_IN_PORT, port),
 	DEF(SET_BOOL, ssl),
 	DEF(SET_BOOL, reuse_port),
 	DEF(SET_BOOL, haproxy),
@@ -320,7 +320,7 @@ static void add_inet_listeners(ARRAY_TYPE(inet_listener_settings) *l,
 		struct inet_listener_settings *set = *sets;
 
 		if (set->port != 0) {
-			str = t_strdup_printf("%d:%s", set->port, set->address);
+			str = t_strdup_printf("%u:%s", set->port, set->address);
 			array_append(all_listeners, &str, 1);
 		}
 	}

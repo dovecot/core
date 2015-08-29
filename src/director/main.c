@@ -97,7 +97,7 @@ static enum director_socket_type
 listener_get_socket_type_fallback(const struct director_settings *set,
 				  int listen_fd)
 {
-	unsigned int local_port;
+	in_port_t local_port;
 
 	if (net_getsockname(listen_fd, NULL, &local_port) == 0 &&
 	    local_port != 0) {
@@ -112,11 +112,12 @@ listener_get_socket_type_fallback(const struct director_settings *set,
 
 static void listener_sockets_init(const struct director_settings *set,
 				  struct ip_addr *listen_ip_r,
-				  unsigned int *listen_port_r)
+				  in_port_t *listen_port_r)
 {
 	const char *name;
-	unsigned int i, socket_count, port;
+	unsigned int i, socket_count;
 	struct ip_addr ip;
+	in_port_t port;
 	enum director_socket_type type;
 
 	*listen_port_r = 0;
@@ -242,7 +243,7 @@ static void main_preinit(void)
 {
 	const struct director_settings *set;
 	struct ip_addr listen_ip;
-	unsigned int listen_port;
+	in_port_t listen_port;
 
 	if (master_service_settings_get(master_service)->verbose_proctitle) {
 		to_proctitle_refresh =
@@ -291,7 +292,7 @@ int main(int argc, char *argv[])
 	};
 	const enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_NO_IDLE_DIE;
-	unsigned int test_port = 0;
+	in_port_t test_port = 0;
 	const char *error;
 	bool debug = FALSE;
 	int c;
@@ -304,8 +305,8 @@ int main(int argc, char *argv[])
 			debug = TRUE;
 			break;
 		case 't':
-			if (str_to_uint(optarg, &test_port) < 0)
-				i_fatal("-t: Not a number: %s", optarg);
+			if (net_str2port(optarg, &test_port) < 0)
+				i_fatal("-t: Not a port number: %s", optarg);
 			break;
 		default:
 			return FATAL_DEFAULT;

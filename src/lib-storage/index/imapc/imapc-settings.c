@@ -15,7 +15,7 @@ static bool imapc_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define imapc_setting_defines[] = {
 	DEF(SET_STR, imapc_host),
-	DEF(SET_UINT, imapc_port),
+	DEF(SET_IN_PORT, imapc_port),
 
 	DEF(SET_STR_VARS, imapc_user),
 	DEF(SET_STR_VARS, imapc_master_user),
@@ -144,10 +144,6 @@ static bool imapc_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct imapc_settings *set = _set;
 
-	if (set->imapc_port == 0 || set->imapc_port > 65535) {
-		*error_r = "invalid imapc_port";
-		return FALSE;
-	}
 	if (set->imapc_max_idle_time == 0) {
 		*error_r = "imapc_max_idle_time must not be 0";
 		return FALSE;

@@ -1,6 +1,8 @@
 #ifndef IMAP_URLAUTH_H
 #define IMAP_URLAUTH_H
 
+#include "net.h"
+
 #define IMAP_URLAUTH_SOCKET_NAME "imap-urlauth"
 
 struct imap_url;
@@ -9,7 +11,7 @@ struct imap_urlauth_context;
 
 struct imap_urlauth_config {
 	const char *url_host;
-	unsigned int url_port;
+	in_port_t url_port;
 
 	const char *socket_path;
 	const char *session_id;

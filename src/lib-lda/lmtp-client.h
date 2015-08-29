@@ -42,7 +42,7 @@ struct lmtp_client_settings {
 	/* if remote server supports XCLIENT capability,
 	   send the these as ADDR/PORT/TTL/TIMEOUT */
 	struct ip_addr source_ip;
-	unsigned int source_port;
+	in_port_t source_port;
 	/* send TTL as this (default 0 means "don't send it") */
 	unsigned int proxy_ttl;
 	/* remote is notified that the connection is going to be closed after
@@ -69,7 +69,7 @@ void lmtp_client_deinit(struct lmtp_client **client);
 
 int lmtp_client_connect_tcp(struct lmtp_client *client,
 			    enum lmtp_client_protocol protocol,
-			    const char *host, unsigned int port);
+			    const char *host, in_port_t port);
 void lmtp_client_close(struct lmtp_client *client);
 
 /* Add headers from given string before the rest of the data. The string must

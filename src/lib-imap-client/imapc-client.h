@@ -1,6 +1,8 @@
 #ifndef IMAPC_CLIENT_H
 #define IMAPC_CLIENT_H
 
+#include "net.h"
+
 /* IMAP RFC defines this to be at least 30 minutes. */
 #define IMAPC_DEFAULT_MAX_IDLE_TIME (60*29)
 
@@ -63,7 +65,7 @@ struct imapc_throttling_settings {
 
 struct imapc_client_settings {
 	const char *host;
-	unsigned int port;
+	in_port_t port;
 
 	const char *master_user;
 	const char *username;

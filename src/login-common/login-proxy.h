@@ -25,7 +25,7 @@ enum login_proxy_ssl_flags {
 struct login_proxy_settings {
 	const char *host;
 	struct ip_addr ip, source_ip;
-	unsigned int port;
+	in_port_t port;
 	unsigned int connect_timeout_msecs;
 	/* send a notification about proxy connection to proxy-notify pipe
 	   every n seconds */
@@ -47,7 +47,7 @@ void login_proxy_free(struct login_proxy **proxy);
 /* Return TRUE if host/port/destuser combination points to same as current
    connection. */
 bool login_proxy_is_ourself(const struct client *client, const char *host,
-			    unsigned int port, const char *destuser);
+			    in_port_t port, const char *destuser);
 
 /* Detach proxy from client. This is done after the authentication is
    successful and all that is left is the dummy proxying. */
@@ -60,7 +60,7 @@ struct istream *login_proxy_get_istream(struct login_proxy *proxy);
 struct ostream *login_proxy_get_ostream(struct login_proxy *proxy);
 
 const char *login_proxy_get_host(const struct login_proxy *proxy) ATTR_PURE;
-unsigned int login_proxy_get_port(const struct login_proxy *proxy) ATTR_PURE;
+in_port_t login_proxy_get_port(const struct login_proxy *proxy) ATTR_PURE;
 enum login_proxy_ssl_flags
 login_proxy_get_ssl_flags(const struct login_proxy *proxy) ATTR_PURE;
 

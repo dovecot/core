@@ -109,10 +109,10 @@ int main(int argc, char *argv[])
 {
 	struct ip_addr my_ip;
 	struct ioloop *ioloop;
-	unsigned int port;
+	in_port_t port;
 
 	lib_init();
-	if (argc < 2 || str_to_uint(argv[1], &port) < 0)
+	if (argc < 2 || net_str2port(argv[1], &port) < 0)
 		i_fatal("Port parameter missing");
 	if (argc < 3)
 		net_get_ip_any4(&my_ip);

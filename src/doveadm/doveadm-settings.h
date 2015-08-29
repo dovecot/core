@@ -1,6 +1,8 @@
 #ifndef DOVEADM_SETTINGS_H
 #define DOVEADM_SETTINGS_H
 
+#include "net.h"
+
 struct doveadm_settings {
 	const char *base_dir;
 	const char *libexec_dir;
@@ -9,7 +11,7 @@ struct doveadm_settings {
 	const char *auth_socket_path;
 	const char *doveadm_socket_path;
 	unsigned int doveadm_worker_count;
-	unsigned int doveadm_port;
+	in_port_t doveadm_port;
 	const char *doveadm_username;
 	const char *doveadm_password;
 	const char *doveadm_allowed_commands;

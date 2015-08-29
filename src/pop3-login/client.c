@@ -38,7 +38,7 @@ static bool cmd_quit(struct pop3_client *client)
 static bool cmd_xclient(struct pop3_client *client, const char *args)
 {
 	const char *const *tmp;
-	unsigned int remote_port;
+	in_port_t remote_port;
 	bool args_ok = TRUE;
 
 	if (!client->common.trusted) {
@@ -51,8 +51,7 @@ static bool cmd_xclient(struct pop3_client *client, const char *args)
 			if (net_addr2ip(*tmp + 5, &client->common.ip) < 0)
 				args_ok = FALSE;
 		} else if (strncasecmp(*tmp, "PORT=", 5) == 0) {
-			if (str_to_uint(*tmp + 5, &remote_port) < 0 ||
-			    remote_port == 0 || remote_port > 65535)
+			if (net_str2port(*tmp + 5, &remote_port) < 0)
 				args_ok = FALSE;
 			else
 				client->common.remote_port = remote_port;

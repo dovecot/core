@@ -1,6 +1,8 @@
 #ifndef SERVICE_SETTINGS_H
 #define SERVICE_SETTINGS_H
 
+#include "net.h"
+
 /* <settings checks> */
 enum service_user_default {
 	SERVICE_USER_DEFAULT_NONE = 0,
@@ -29,7 +31,7 @@ ARRAY_DEFINE_TYPE(file_listener_settings, struct file_listener_settings *);
 struct inet_listener_settings {
 	const char *name;
 	const char *address;
-	unsigned int port;
+	in_port_t port;
 	bool ssl;
 	bool reuse_port;
 	bool haproxy;

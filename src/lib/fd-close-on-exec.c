@@ -25,7 +25,7 @@ void fd_close_on_exec(int fd, bool set)
 void fd_debug_verify_leaks(int first_fd, int last_fd)
 {
 	struct ip_addr addr, raddr;
-	unsigned int port, rport;
+	in_port_t port, rport;
 	struct stat st;
 	int old_errno;
 

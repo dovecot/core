@@ -97,8 +97,8 @@ const char *doveadm_plugin_getenv(const char *name)
 }
 
 static bool
-parse_hostport(const char *str, unsigned int default_port,
-	       const char **host_r, unsigned int *port_r)
+parse_hostport(const char *str, in_port_t default_port,
+	       const char **host_r, in_port_t *port_r)
 {
 	const char *p;
 
@@ -108,7 +108,7 @@ parse_hostport(const char *str, unsigned int default_port,
 		*host_r = str;
 		*port_r = default_port;
 	} else {
-		if (p == NULL || str_to_uint(p+1, port_r) < 0)
+		if (p == NULL || net_str2port(p+1, port_r) < 0)
 			return FALSE;
 		*host_r = t_strdup_until(str, p);
 	}
@@ -116,7 +116,7 @@ parse_hostport(const char *str, unsigned int default_port,
 }
 
 static int
-doveadm_tcp_connect_port(const char *host, unsigned int port)
+doveadm_tcp_connect_port(const char *host, in_port_t port)
 {
 	struct ip_addr *ips;
 	unsigned int ips_count;
@@ -135,10 +135,10 @@ doveadm_tcp_connect_port(const char *host, unsigned int port)
 	return fd;
 }
 
-int doveadm_tcp_connect(const char *target, unsigned int default_port)
+int doveadm_tcp_connect(const char *target, in_port_t default_port)
 {
 	const char *host;
-	unsigned int port;
+	in_port_t port;
 
 	if (!parse_hostport(target, default_port, &host, &port)) {
 		i_fatal("Port not known for %s. Either set proxy_port "
@@ -148,7 +148,7 @@ int doveadm_tcp_connect(const char *target, unsigned int default_port)
 }
 
 int doveadm_connect_with_default_port(const char *path,
-				      unsigned int default_port)
+				      in_port_t default_port)
 {
 	int fd;
 

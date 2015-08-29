@@ -19,7 +19,8 @@
 struct replicator_connection {
 	char *path;
 	struct ip_addr *ips;
-	unsigned int ips_count, ip_idx, port;
+	unsigned int ips_count, ip_idx;
+	in_port_t port;
 
 	int fd;
 	struct io *io;
@@ -229,7 +230,7 @@ replicator_connection_create_unix(const char *path,
 
 struct replicator_connection *
 replicator_connection_create_inet(const struct ip_addr *ips,
-				  unsigned int ips_count, unsigned int port,
+				  unsigned int ips_count, in_port_t port,
 				  replicator_sync_callback_t *callback)
 {
 	struct replicator_connection *conn;
