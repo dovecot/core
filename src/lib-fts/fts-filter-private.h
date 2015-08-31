@@ -3,7 +3,7 @@
 
 #include "fts-filter.h"
 
-#define FTS_FILTER_CLASSES_NR 3
+#define FTS_FILTER_CLASSES_NR 6
 
 /*
  API that stemming providers (classes) must provide: The create()

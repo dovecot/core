@@ -12,6 +12,7 @@
 
 static const char *const stopword_settings[] = {"stopwords_dir", TEST_STOPWORDS_DIR, NULL};
 static struct fts_language english_language = { .name = "en" };
+static struct fts_language french_language = { .name = "fr" };
 
 static void test_fts_filter_find(void)
 {
@@ -20,6 +21,65 @@ static void test_fts_filter_find(void)
 	test_assert(fts_filter_find("snowball") == fts_filter_stemmer_snowball);
 	test_assert(fts_filter_find("normalizer-icu") == fts_filter_normalizer_icu);
 	test_assert(fts_filter_find("lowercase") == fts_filter_lowercase);
+	test_assert(fts_filter_find("contractions") == fts_filter_contractions);
+	test_end();
+}
+
+
+static void test_fts_filter_contractions_fail(void)
+{
+
+	struct fts_filter *filter;
+	const char *error;
+
+	test_begin("fts filter contractions, unsupported language");
+	test_assert(fts_filter_create(fts_filter_contractions, NULL, &english_language, NULL, &filter, &error) != 0);
+	test_assert(error != NULL);
+	test_end();
+}
+
+static void test_fts_filter_contractions_fr(void)
+{
+	struct {
+		const char *input;
+		const char *output;
+	} tests[] = {
+		{ "foo", "foo" },
+		{ "you're", "you're" },
+		{ "l'homme", "homme" },
+		{ "l\xE2\x80\x99homme", "homme" },
+		{ "aujourd'hui", "aujourd'hui" },
+		{ "qu\xE2\x80\x99il", "il" },
+		{ "qu'il", "il" },
+		{ "du'il", "du'il" },
+		{ "que", "que" },
+		{ "'foobar'", "'foobar'" },
+		{ "foo'bar", "foo'bar" },
+		{ "a'foo", "a'foo" },
+		{ "cu'", "cu'" },
+		{ "qu", "qu" },
+		{ "d", "d" },
+		{ "qu'", NULL }
+	};
+	struct fts_filter *filter;
+	const char *error;
+	const char *token;
+	unsigned int i;
+	int ret;
+
+	test_begin("fts filter contractions, French");
+	test_assert(fts_filter_create(fts_filter_contractions, NULL, &french_language, NULL, &filter, &error) == 0);
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		token = tests[i].input;
+		ret = fts_filter_filter(filter, &token, &error);
+		test_assert(ret >= 0);
+		if (ret > 0)
+			test_assert_idx(strcmp(token, tests[i].output) == 0, i);
+		else if (ret == 0)
+			test_assert_idx(token == NULL && tests[i].output == NULL, i);
+	}
+	fts_filter_unref(&filter);
 	test_end();
 }
 
@@ -151,7 +211,6 @@ static void test_fts_filter_stopwords_fin(void)
 
 static void test_fts_filter_stopwords_fra(void)
 {
-	const struct fts_language french = { .name = "fr" };
 	struct fts_filter *filter;
 	const char *error;
 	int ret;
@@ -167,7 +226,7 @@ static void test_fts_filter_stopwords_fra(void)
 	const char *token;
 
 	test_begin("fts filter stopwords, French");
-	test_assert(fts_filter_create(fts_filter_stopwords, NULL, &french, stopword_settings, &filter, &error) == 0);
+	test_assert(fts_filter_create(fts_filter_stopwords, NULL, &french_language, stopword_settings, &filter, &error) == 0);
 
 	ip = input;
 	op = output;
@@ -245,7 +304,6 @@ static void test_fts_filter_stemmer_snowball_stem_french(void)
 {
 	struct fts_filter *stemmer;
 	const char *error;
-	struct fts_language language = { .name = "fr" };
 	const char *token = NULL;
 	const char * const tokens[] = {
 		"Tous", "les", "\xC3\xAAtres", "humains", "naissent",
@@ -258,7 +316,7 @@ static void test_fts_filter_stemmer_snowball_stem_french(void)
 	const char * const *bpp;
 
 	test_begin("fts filter stem French");
-	test_assert(fts_filter_create(fts_filter_stemmer_snowball, NULL, &language, NULL, &stemmer, &error) == 0);
+	test_assert(fts_filter_create(fts_filter_stemmer_snowball, NULL, &french_language, NULL, &stemmer, &error) == 0);
 	bpp = bases;
 	for (tpp=tokens; *tpp != NULL; tpp++) {
 		token = *tpp;
@@ -627,6 +685,8 @@ int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_fts_filter_find,
+		test_fts_filter_contractions_fail,
+		test_fts_filter_contractions_fr,
 		test_fts_filter_lowercase,
 		test_fts_filter_stopwords_eng,
 		test_fts_filter_stopwords_fin,
