@@ -169,7 +169,9 @@ anvil_lookup_callback(const char *reply, void *context)
 	if (reply != NULL && str_to_uint(reply, &conn_count) < 0)
 		i_fatal("Received invalid reply from anvil: %s", reply);
 
-	if (conn_count < set->mail_max_userip_connections)
+	/* reply=NULL if we didn't need to do anvil lookup,
+	   or if the anvil lookup failed. allow failed anvil lookups in. */
+	if (reply == NULL || conn_count < set->mail_max_userip_connections)
 		master_send_request(req);
 	else {
 		client->authenticating = FALSE;
