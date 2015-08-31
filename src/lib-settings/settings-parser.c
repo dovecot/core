@@ -598,7 +598,7 @@ static int
 get_in_port_zero(struct setting_parser_context *ctx, const char *value,
 	 in_port_t *result_r)
 {
-	if (net_str2port(value, result_r) < 0) {
+	if (net_str2port_zero(value, result_r) < 0) {
 		ctx->error = p_strdup_printf(ctx->parser_pool,
 			"Invalid port number %s", value);
 		return -1;
