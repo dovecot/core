@@ -44,6 +44,7 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 				  const char **error_r)
 {
 	const char *key, *value;
+	unsigned int peer_dev_major = 0, peer_dev_minor = 0;
 
 	memset(state_r, 0, sizeof(*state_r));
 	if (args[0] == NULL) {
@@ -77,16 +78,22 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 					"Invalid rip value: %s", value);
 				return -1;
 			}
-		} else if (strcmp(key, "peer_ip") == 0) {
-			if (net_addr2ip(value, &state_r->peer_ip) < 0) {
+		} else if (strcmp(key, "peer_dev_major") == 0) {
+			if (str_to_uint(value, &peer_dev_major) < 0) {
 				*error_r = t_strdup_printf(
-					"Invalid peer_ip value: %s", value);
+					"Invalid peer_dev_major value: %s", value);
 				return -1;
 			}
-		} else if (strcmp(key, "peer_port") == 0) {
-			if (net_str2port(value, &state_r->peer_port) < 0) {
+		} else if (strcmp(key, "peer_dev_minor") == 0) {
+			if (str_to_uint(value, &peer_dev_minor) < 0) {
 				*error_r = t_strdup_printf(
-					"Invalid peer_port value: %s", value);
+					"Invalid peer_dev_minor value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "peer_ino") == 0) {
+			if (str_to_ino(value, &state_r->peer_ino) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid peer_ino value: %s", value);
 				return -1;
 			}
 		} else if (strcmp(key, "uid") == 0) {
@@ -131,6 +138,8 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 			state_r->state_size = state_buf->used;
 		}
 	}
+	if (peer_dev_major != 0 || peer_dev_minor != 0)
+		state_r->peer_dev = makedev(peer_dev_major, peer_dev_minor);
 	return 0;
 }
 

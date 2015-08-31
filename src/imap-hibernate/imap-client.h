@@ -13,8 +13,8 @@ struct imap_client_state {
 	uid_t uid;
 	gid_t gid;
 
-	struct ip_addr peer_ip;
-	in_port_t peer_port;
+	dev_t peer_dev;
+	ino_t peer_ino;
 
 	const unsigned char *state;
 	size_t state_size;

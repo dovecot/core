@@ -27,8 +27,8 @@ struct imap_master_input {
 	/* IMAP connection state */
 	buffer_t *state;
 
-	struct ip_addr peer_ip;
-	in_port_t peer_port;
+	dev_t peer_dev;
+	ino_t peer_ino;
 
 	bool state_import_bad_idle_done;
 	bool state_import_idle_continue;
@@ -53,6 +53,7 @@ imap_master_client_parse_input(const char *const *args, pool_t pool,
 			       const char **error_r)
 {
 	const char *key, *value;
+	unsigned int peer_dev_major = 0, peer_dev_minor = 0;
 
 	memset(input_r, 0, sizeof(*input_r));
 	memset(master_input_r, 0, sizeof(*master_input_r));
@@ -91,16 +92,22 @@ imap_master_client_parse_input(const char *const *args, pool_t pool,
 					"Invalid rip value: %s", value);
 				return -1;
 			}
-		} else if (strcmp(key, "peer_ip") == 0) {
-			if (net_addr2ip(value, &master_input_r->peer_ip) < 0) {
+		} else if (strcmp(key, "peer_dev_major") == 0) {
+			if (str_to_uint(value, &peer_dev_major) < 0) {
 				*error_r = t_strdup_printf(
-					"Invalid peer_ip value: %s", value);
+					"Invalid peer_dev_major value: %s", value);
 				return -1;
 			}
-		} else if (strcmp(key, "peer_port") == 0) {
-			if (net_str2port(value, &master_input_r->peer_port) < 0) {
+		} else if (strcmp(key, "peer_dev_minor") == 0) {
+			if (str_to_uint(value, &peer_dev_minor) < 0) {
 				*error_r = t_strdup_printf(
-					"Invalid peer_port value: %s", value);
+					"Invalid peer_dev_minor value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "peer_ino") == 0) {
+			if (str_to_ino(value, &master_input_r->peer_ino) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid peer_ino value: %s", value);
 				return -1;
 			}
 		} else if (strcmp(key, "session") == 0) {
@@ -135,31 +142,35 @@ imap_master_client_parse_input(const char *const *args, pool_t pool,
 			master_input_r->state_import_idle_continue = TRUE;
 		}
 	}
+	if (peer_dev_major != 0 || peer_dev_minor != 0) {
+		master_input_r->peer_dev =
+			makedev(peer_dev_major, peer_dev_minor);
+	}
 	return 0;
 }
 
 static int imap_master_client_verify(const struct imap_master_input *master_input,
 				     int fd_client, const char **error_r)
 {
-	struct ip_addr peer_ip;
-	in_port_t peer_port;
+	struct stat peer_st;
 
-	if (master_input->peer_port == 0)
+	if (master_input->peer_ino == 0)
 		return 0;
 
 	/* make sure we have the right fd */
-	if (net_getpeername(fd_client, &peer_ip, &peer_port) < 0) {
-		*error_r = t_strdup_printf("net_getpeername() failed: %m");
+	if (fstat(fd_client, &peer_st) < 0) {
+		*error_r = t_strdup_printf("fstat(peer) failed: %m");
 		return -1;
 	}
-	if (!net_ip_compare(&peer_ip, &master_input->peer_ip) ||
-	    peer_port != master_input->peer_port) {
+	if (peer_st.st_ino != master_input->peer_ino ||
+	    !CMP_DEV_T(peer_st.st_dev, master_input->peer_dev)) {
 		*error_r = t_strdup_printf(
-			"BUG: Expected peer_ip=%s peer_port=%u doesn't match "
-			"client fd's actual ip=%s port=%u",
-			net_ip2addr(&master_input->peer_ip),
-			master_input->peer_port,
-			net_ip2addr(&peer_ip), peer_port);
+			"BUG: Expected peer device=%u,%u inode=%s doesn't match "
+			"client fd's actual device=%u,%u inode=%s",
+			major(peer_st.st_dev), minor(peer_st.st_dev), dec2str(peer_st.st_ino),
+			major(master_input->peer_dev),
+			minor(master_input->peer_dev),
+			dec2str(master_input->peer_ino));
 		return -1;
 	}
 	return 0;

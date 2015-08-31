@@ -117,10 +117,12 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 		str_append(str, "\tuserdb_fields=");
 		str_append_tabescaped(str, state->userdb_fields);
 	}
-	if (state->peer_ip.family != 0)
-		str_printfa(str, "\tpeer_ip=%s", net_ip2addr(&state->peer_ip));
-	if (state->peer_port != 0)
-		str_printfa(str, "\tpeer_port=%u", state->peer_port);
+	if (major(state->peer_dev) != 0 || minor(state->peer_dev) != 0) {
+		str_printfa(str, "\tpeer_dev_major=%u\tpeer_dev_minor=%u",
+			    major(state->peer_dev), minor(state->peer_dev));
+	}
+	if (state->peer_ino != 0)
+		str_printfa(str, "\tpeer_ino=%llu", (unsigned long long)state->peer_ino);
 	if (state->state_size > 0) {
 		str_append(str, "\tstate=");
 		base64_encode(state->state, state->state_size, str);
@@ -411,15 +413,11 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	client->fd = fd;
 	client->input = i_stream_create_fd(fd, IMAP_MAX_INBUF, FALSE);
 
+	client->state = *state;
 	client->state.username = p_strdup(pool, state->username);
 	client->state.session_id = p_strdup(pool, state->session_id);
 	client->state.userdb_fields = p_strdup(pool, state->userdb_fields);
 	client->state.stats = p_strdup(pool, state->stats);
-	client->state.local_ip = state->local_ip;
-	client->state.remote_ip = state->remote_ip;
-	client->state.imap_idle_notify_interval =
-		state->imap_idle_notify_interval;
-	client->state.idle_cmd = state->idle_cmd;
 
 	if (state->state_size > 0) {
 		client->state.state = statebuf = p_malloc(pool, state->state_size);

@@ -13,6 +13,8 @@
 #include "imap-state.h"
 #include "imap-client.h"
 
+#include <sys/stat.h>
+
 #define IMAP_HIBERNATE_SOCKET_NAME "imap-hibernate"
 #define IMAP_HIBERNATE_SEND_TIMEOUT_SECS 10
 #define IMAP_HIBERNATE_HANDSHAKE "VERSION\timap-hibernate\t1\t0\n"
@@ -41,18 +43,17 @@ static int imap_hibernate_handshake(int fd, const char *path)
 static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 				     const buffer_t *state, int fd_notify)
 {
-	struct ip_addr peer_ip;
-	in_port_t peer_port;
+	struct stat peer_st;
 
 	str_append_tabescaped(cmd, client->user->username);
 	str_append_c(cmd, '\t');
 	str_append_tabescaped(cmd, client->user->set->mail_log_prefix);
 	str_printfa(cmd, "\tidle_notify_interval=%u",
 		    client->set->imap_idle_notify_interval);
-	if (net_getpeername(client->fd_in, &peer_ip, &peer_port) == 0 &&
-	    peer_port != 0) {
-		str_printfa(cmd, "\tpeer_ip=%s\tpeer_port=%u",
-			    net_ip2addr(&peer_ip), peer_port);
+	if (fstat(client->fd_in, &peer_st) == 0) {
+		str_printfa(cmd, "\tpeer_dev_major=%u\tpeer_dev_minor=%u\tpeer_ino=%llu",
+			    major(peer_st.st_dev), minor(peer_st.st_dev),
+			    (unsigned long long)peer_st.st_ino);
 	}
 
 	if (client->session_id != NULL) {
