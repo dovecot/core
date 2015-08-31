@@ -45,9 +45,6 @@ struct cassandra_db {
 	struct sql_result *sync_result;
 
 	char *error;
-
-	unsigned int set_read_consistency:1;
-	unsigned int set_write_consistency:1;
 };
 
 struct cassandra_result {
@@ -336,6 +333,8 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 	string_t *hosts = t_str_new(64);
 
 	db->log_level = CASS_LOG_WARN;
+	db->read_consistency = CASS_CONSISTENCY_LOCAL_QUORUM;
+	db->write_consistency = CASS_CONSISTENCY_LOCAL_QUORUM;
 
 	args = t_strsplit_spaces(connect_string, " ");
 	for (; *args != NULL; args++) {
@@ -357,11 +356,9 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 		} else if (strcmp(key, "read_consistency") == 0) {
 			if (consistency_parse(value, &db->read_consistency) < 0)
 				i_fatal("cassandra: Unknown read_consistency: %s", value);
-			db->set_read_consistency = TRUE;
 		} else if (strcmp(key, "write_consistency") == 0) {
 			if (consistency_parse(value, &db->write_consistency) < 0)
 				i_fatal("cassandra: Unknown write_consistency: %s", value);
-			db->set_write_consistency = TRUE;
 		} else if (strcmp(key, "log_level") == 0) {
 			if (log_level_parse(value, &db->log_level) < 0)
 				i_fatal("cassandra: Unknown log_level: %s", value);
@@ -524,13 +521,10 @@ static void do_query(struct cassandra_result *result, const char *query)
 	result->query = i_strdup(query);
 	result->row_pool = pool_alloconly_create("cassandra result", 512);
 	result->statement = cass_statement_new(query, 0);
-	if (result->write_query) {
-		if (db->set_write_consistency)
-			cass_statement_set_consistency(result->statement, db->write_consistency);
-	} else {
-		if (db->set_read_consistency)
-			cass_statement_set_consistency(result->statement, db->read_consistency);
-	}
+	if (result->write_query)
+		cass_statement_set_consistency(result->statement, db->write_consistency);
+	else
+		cass_statement_set_consistency(result->statement, db->read_consistency);
 	future = cass_session_execute(db->session, result->statement);
 	driver_cassandra_set_callback(future, db, query_callback, result);
 }
