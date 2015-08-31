@@ -151,6 +151,7 @@ struct fs_iter {
 	void *async_context;
 };
 
+extern const struct fs fs_class_dict;
 extern const struct fs fs_class_posix;
 extern const struct fs fs_class_randomfail;
 extern const struct fs fs_class_metawrap;

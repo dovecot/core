@@ -2,11 +2,13 @@ noinst_LTLIBRARIES = libfs.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-DMODULE_DIR=\""$(moduledir)"\"
 
 libfs_la_SOURCES = \
 	fs-api.c \
+	fs-dict.c \
 	fs-metawrap.c \
 	fs-randomfail.c \
 	fs-posix.c \
