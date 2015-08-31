@@ -391,6 +391,9 @@ imap_notify_box_send_status(struct client_command_context *cmd,
 
 	items.status = STATUS_UIDVALIDITY | STATUS_UIDNEXT |
 		STATUS_MESSAGES | STATUS_UNSEEN;
+	if ((ctx->global_used_events & (IMAP_NOTIFY_EVENT_FLAG_CHANGE |
+					IMAP_NOTIFY_EVENT_ANNOTATION_CHANGE)) != 0)
+		items.status |= STATUS_HIGHESTMODSEQ;
 
 	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_READONLY);
 	if (ctx->client->enabled_features != 0)
