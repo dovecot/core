@@ -110,6 +110,35 @@ static void test_fts_filter_lowercase(void)
 	test_end();
 }
 
+#ifdef HAVE_LIBICU
+static void test_fts_filter_lowercase_utf8(void)
+{
+	struct {
+		const char *input;
+		const char *output;
+	} tests[] = {
+		{ "f\xC3\x85\xC3\x85", "f\xC3\xA5\xC3\xA5" },
+		{ "F\xC3\x85\xC3\x85", "f\xC3\xA5\xC3\xA5" },
+		{ "F\xC3\x85\xC3\xA5", "f\xC3\xA5\xC3\xA5" }
+	};
+	struct fts_filter *filter;
+	const char *error;
+	const char *token;
+	unsigned int i;
+
+	test_begin("fts filter lowercase, UTF8");
+	test_assert(fts_filter_create(fts_filter_lowercase, NULL, &english_language, NULL, &filter, &error) == 0);
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		token = tests[i].input;
+		test_assert_idx(fts_filter_filter(filter, &token, &error) > 0 &&
+				strcmp(token, tests[i].output) == 0, 0);
+	}
+	fts_filter_unref(&filter);
+	test_end();
+}
+#endif
+
 static void test_fts_filter_stopwords_eng(void)
 {
 	struct fts_filter *filter;
@@ -688,6 +717,9 @@ int main(void)
 		test_fts_filter_contractions_fail,
 		test_fts_filter_contractions_fr,
 		test_fts_filter_lowercase,
+#ifdef HAVE_LIBICU
+		test_fts_filter_lowercase_utf8,
+#endif
 		test_fts_filter_stopwords_eng,
 		test_fts_filter_stopwords_fin,
 		test_fts_filter_stopwords_fra,
