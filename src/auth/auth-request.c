@@ -1447,10 +1447,19 @@ void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme)
 {
+	unsigned int name_len = strlen(name);
+
 	i_assert(*name != '\0');
 	i_assert(value != NULL);
 
 	i_assert(request->passdb != NULL);
+
+	if (name_len > 10 && strcmp(name+name_len-10, ":protected") == 0) {
+		/* set this field only if it hasn't been set before */
+		name = t_strndup(name, name_len-10);
+		if (auth_fields_exists(request->extra_fields, name))
+			return;
+	}
 
 	if (strcmp(name, "password") == 0) {
 		auth_request_set_password(request, value,
@@ -1510,14 +1519,12 @@ void auth_request_set_field(struct auth_request *request,
 		return;
 	}
 
-	if ((passdb_cache != NULL &&
-	     request->passdb->passdb->cache_key != NULL) || worker) {
-		/* we'll need to get this field stored into cache,
-		   or we're a worker and we'll need to send this to the main
-		   auth process that can store it in the cache. */
-		auth_fields_add(request->extra_fields, name, value,
-				AUTH_FIELD_FLAG_HIDDEN);
-	}
+	/* add the field unconditionally to extra_fields. this is required if
+	   a) auth cache is used, b) if we're a worker and we'll need to send
+	   this to the main auth process that can store it in the cache,
+	   c) for easily checking :protected fields' existence. */
+	auth_fields_add(request->extra_fields, name, value,
+			AUTH_FIELD_FLAG_HIDDEN);
 }
 
 void auth_request_set_null_field(struct auth_request *request, const char *name)
@@ -1605,10 +1612,18 @@ auth_request_userdb_import(struct auth_request *request, const char *args)
 void auth_request_set_userdb_field(struct auth_request *request,
 				   const char *name, const char *value)
 {
+	unsigned int name_len = strlen(name);
 	uid_t uid;
 	gid_t gid;
 
 	i_assert(value != NULL);
+
+	if (name_len > 10 && strcmp(name+name_len-10, ":protected") == 0) {
+		/* set this field only if it hasn't been set before */
+		name = t_strndup(name, name_len-10);
+		if (auth_fields_exists(request->userdb_reply, name))
+			return;
+	}
 
 	if (strcmp(name, "uid") == 0) {
 		uid = userdb_parse_uid(request, value);
