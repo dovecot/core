@@ -1,5 +1,5 @@
 .\" Copyright (c) 2014-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-SYNC 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-SYNC 1 "2015-08-31" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-sync \- Dovecot\(aqs two\-way mailbox synchronization utility
 .br
@@ -17,6 +17,7 @@ doveadm\-backup \- Dovecot\(aqs one\-way mailbox synchronization utility
 [\fB\-n\fP \fInamespace\fP|\fB\-N\fP]
 [\fB\-x\fP \fIexclude\fP]
 [\fB\-s\fP \fIstate\fP]
+[\fB\-T\fP \fIsecs\fP]
 \fB\-d\fP|\fIdestination\fP
 .\"-------------------------------------
 .PP
@@ -31,6 +32,7 @@ doveadm\-backup \- Dovecot\(aqs one\-way mailbox synchronization utility
 [\fB\-n\fP \fInamespace\fP|\fB\-N\fP]
 [\fB\-x\fP \fIexclude\fP]
 [\fB\-s\fP \fIstate\fP]
+[\fB\-T\fP \fIsecs\fP]
 \fB\-d\fP|\fIdestination\fP
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
@@ -165,6 +167,13 @@ Run a
 for the destination (remote) storage after synchronization.
 .\"-------------------------------------
 @INCLUDE:option-S-socket@
+.\"-------------------------------------
+.TP
+.BI \-T \ secs
+Specify the time in seconds, how long
+.BR doveadm (1)
+should wait for stalled I/O operations.
+The default timeout is 600 seconds.
 .\"-------------------------------------
 .TP
 .B \-U
