@@ -48,6 +48,7 @@ fts_filter_contractions_filter(struct fts_filter *filter ATTR_UNUSED,
 		/* otherwise fall through */
 	case 'c':
 	case 'd':
+	case 'j':
 	case 'l':
 	case 'm':
 	case 'n':
