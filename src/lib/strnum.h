@@ -161,6 +161,9 @@ int str_to_gid(const char *str, gid_t *num_r)
 int str_to_pid(const char *str, pid_t *num_r)
 	ATTR_WARN_UNUSED_RESULT;
 
+int str_to_ino(const char *str, ino_t *num_r)
+	ATTR_WARN_UNUSED_RESULT;
+
 int str_to_uoff(const char *str, uoff_t *num_r)
 	ATTR_WARN_UNUSED_RESULT;
 int str_parse_uoff(const char *str, uoff_t *num_r,

@@ -387,6 +387,19 @@ int str_to_pid(const char *str, pid_t *num_r)
 	return 0;
 }
 
+int str_to_ino(const char *str, ino_t *num_r)
+{
+	uintmax_t l;
+
+	if (str_to_uintmax(str, &l) < 0)
+		return -1;
+
+	if (verify_xid(l, sizeof(*num_r)) < 0)
+		return -1;
+	*num_r = (ino_t)l;
+	return 0;
+}
+
 int str_to_uoff(const char *str, uoff_t *num_r)
 {
 	uintmax_t l;
