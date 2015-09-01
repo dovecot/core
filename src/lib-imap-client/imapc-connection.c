@@ -1564,16 +1564,27 @@ static void imapc_connection_reset_idle(struct imapc_connection *conn)
 static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 {
 	const struct ip_addr *ip;
+	unsigned int i;
 	int fd;
 
 	i_assert(conn->client->set.max_idle_time > 0);
 
-	conn->prev_connect_idx = (conn->prev_connect_idx+1) % conn->ips_count;
-	ip = &conn->ips[conn->prev_connect_idx];
-	fd = net_connect_ip(ip, conn->client->set.port, NULL);
-	if (fd == -1) {
-		imapc_connection_set_disconnected(conn);
-		return;
+	for (i = 0;;) {
+		conn->prev_connect_idx = (conn->prev_connect_idx+1) % conn->ips_count;
+		ip = &conn->ips[conn->prev_connect_idx];
+		fd = net_connect_ip(ip, conn->client->set.port, NULL);
+		if (fd != -1)
+			break;
+
+		/* failed to connect to one of the IPs immediately
+		   (e.g. IPv6 address without connectivity). try all IPs
+		   before failing completely. */
+		i_error("net_connect_ip(%s:%u) failed: %m",
+			net_ip2addr(ip), conn->client->set.port);
+		if (++i == conn->ips_count) {
+			imapc_connection_set_disconnected(conn);
+			return;
+		}
 	}
 	conn->fd = fd;
 	conn->input = conn->raw_input = i_stream_create_fd(fd, (size_t)-1, FALSE);
