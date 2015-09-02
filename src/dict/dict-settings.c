@@ -16,6 +16,16 @@ static struct file_listener_settings *dict_unix_listeners[] = {
 static buffer_t dict_unix_listeners_buf = {
 	dict_unix_listeners, sizeof(dict_unix_listeners), { NULL, }
 };
+
+static struct file_listener_settings dict_async_unix_listeners_array[] = {
+	{ "dict-async", 0600, "", "" }
+};
+static struct file_listener_settings *dict_async_unix_listeners[] = {
+	&dict_async_unix_listeners_array[0]
+};
+static buffer_t dict_async_unix_listeners_buf = {
+	dict_async_unix_listeners, sizeof(dict_async_unix_listeners), { NULL, }
+};
 /* </settings checks> */
 
 struct service_settings dict_service_settings = {
@@ -40,6 +50,32 @@ struct service_settings dict_service_settings = {
 
 	.unix_listeners = { { &dict_unix_listeners_buf,
 			      sizeof(dict_unix_listeners[0]) } },
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT
+};
+
+struct service_settings dict_async_service_settings = {
+	.name = "dict-async",
+	.protocol = "",
+	.type = "",
+	.executable = "dict",
+	.user = "$default_internal_user",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = "",
+	.chroot = "",
+
+	.drop_priv_before_exec = FALSE,
+
+	.process_min_avail = 0,
+	.process_limit = 0,
+	.client_limit = 0,
+	.service_count = 0,
+	.idle_kill = 0,
+	.vsz_limit = (uoff_t)-1,
+
+	.unix_listeners = { { &dict_async_unix_listeners_buf,
+			      sizeof(dict_async_unix_listeners[0]) } },
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT
 };
