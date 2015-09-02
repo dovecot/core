@@ -470,12 +470,13 @@ static void result_finish(struct cassandra_result *result)
 		result->callback(&result->api, result->context);
 	} T_END;
 	result->api.callback = FALSE;
-	result->callback = NULL;
 
 	free_result = db->sync_result != &result->api;
 	if (db->ioloop != NULL)
 		io_loop_stop(db->ioloop);
 
+	i_assert(!free_result || result->api.refcount > 0);
+	result->callback = NULL;
 	if (free_result)
 		sql_result_unref(&result->api);
 }
