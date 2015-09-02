@@ -44,7 +44,7 @@ struct sql_dict_iterate_context {
 	string_t *key;
 	const struct dict_sql_map *map;
 	unsigned int key_prefix_len, pattern_prefix_len, next_map_idx;
-	unsigned int path_idx;
+	unsigned int path_idx, sql_fields_start_idx;
 	bool failed;
 };
 
@@ -358,11 +358,11 @@ sql_dict_result_unescape_value(const struct dict_sql_map *map, pool_t pool,
 static const char *
 sql_dict_result_unescape_field(const struct dict_sql_map *map, pool_t pool,
 			       struct sql_result *result, unsigned int result_idx,
-			       unsigned int field_idx)
+			       unsigned int sql_field_idx)
 {
 	const struct dict_sql_field *sql_field;
 
-	sql_field = array_idx(&map->sql_fields, field_idx);
+	sql_field = array_idx(&map->sql_fields, sql_field_idx);
 	return sql_dict_result_unescape(sql_field->value_is_hexblob, pool,
 					result, result_idx);
 }
@@ -516,6 +516,7 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 		i_assert(i > 0);
 		i--;
 	}
+	ctx->sql_fields_start_idx = i;
 	for (; i < count; i++)
 		str_printfa(query, "%s,", sql_fields[i].name);
 	str_truncate(query, str_len(query)-1);
@@ -613,7 +614,7 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 	struct sql_dict_iterate_context *ctx =
 		(struct sql_dict_iterate_context *)_ctx;
 	const char *p, *value;
-	unsigned int i, field_i, count;
+	unsigned int i, sql_field_i, count;
 	int ret;
 
 	_ctx->has_more = FALSE;
@@ -653,17 +654,17 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 
 	count = sql_result_get_fields_count(ctx->result);
 	i = (ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0 ? 0 : 1;
-	field_i = 0;
+	sql_field_i = ctx->sql_fields_start_idx;
 	for (p = ctx->map->pattern + ctx->pattern_prefix_len; *p != '\0'; p++) {
 		if (*p != '$')
 			str_append_c(ctx->key, *p);
 		else {
 			i_assert(i < count);
 			value = sql_dict_result_unescape_field(ctx->map,
-					pool_datastack_create(), ctx->result, i, field_i);
+					pool_datastack_create(), ctx->result, i, sql_field_i);
 			if (value != NULL)
 				str_append(ctx->key, value);
-			i++; field_i++;
+			i++; sql_field_i++;
 		}
 	}
 
