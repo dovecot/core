@@ -546,7 +546,10 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx,
 	if (ctx->failed) {
 		sql_transaction_rollback(&ctx->sql_ctx);
 		ret = -1;
-	} else if (_ctx->changed) {
+	} else if (!_ctx->changed) {
+		/* nothing changed, no need to commit */
+		sql_transaction_rollback(&ctx->sql_ctx);
+	} else {
 		if (sql_transaction_commit_s(&ctx->sql_ctx, &error) < 0) {
 			i_error("sql dict: commit failed: %s", error);
 			ret = -1;
@@ -576,8 +579,7 @@ static void sql_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 	struct sql_dict_transaction_context *ctx =
 		(struct sql_dict_transaction_context *)_ctx;
 
-	if (_ctx->changed)
-		sql_transaction_rollback(&ctx->sql_ctx);
+	sql_transaction_rollback(&ctx->sql_ctx);
 
 	if (ctx->inc_row_pool != NULL)
 		pool_unref(&ctx->inc_row_pool);
