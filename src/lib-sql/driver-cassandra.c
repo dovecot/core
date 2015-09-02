@@ -431,13 +431,7 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 	struct cassandra_db *db = (struct cassandra_db *)_result->db;
         struct cassandra_result *result = (struct cassandra_result *)_result;
 
-	if (result->api.callback) {
-		/* we're coming here from a user's sql_result_free() that's
-		   being called from a callback. we'll do this later,
-		   so ignore. */
-		return;
-	}
-
+	i_assert(!result->api.callback);
 	i_assert(db->cur_result == result);
 	i_assert(result->callback == NULL);
 

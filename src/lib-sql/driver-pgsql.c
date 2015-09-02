@@ -328,13 +328,7 @@ static void driver_pgsql_result_free(struct sql_result *_result)
         struct pgsql_result *result = (struct pgsql_result *)_result;
 	bool success;
 
-	if (result->api.callback) {
-		/* we're coming here from a user's sql_result_free() that's
-		   being called from a callback. we'll do this later,
-		   so ignore. */
-		return;
-	}
-
+	i_assert(!result->api.callback);
 	i_assert(db->cur_result == result);
 	i_assert(result->callback == NULL);
 
