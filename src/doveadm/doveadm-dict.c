@@ -14,7 +14,7 @@ static struct dict *
 cmd_dict_init_full(int *argc, char **argv[], int own_arg_count, int key_arg_idx,
 		   doveadm_command_t *cmd, enum dict_iterate_flags *iter_flags)
 {
-	const char *getopt_args = iter_flags == NULL ? "u:" : "1Ru:";
+	const char *getopt_args = iter_flags == NULL ? "u:" : "1Ru:V";
 	struct dict *dict;
 	const char *error, *username = "";
 	int c;
@@ -28,6 +28,10 @@ cmd_dict_init_full(int *argc, char **argv[], int own_arg_count, int key_arg_idx,
 		case 'R':
 			i_assert(iter_flags != NULL);
 			*iter_flags |= DICT_ITERATE_FLAG_RECURSE;
+			break;
+		case 'V':
+			i_assert(iter_flags != NULL);
+			*iter_flags |= DICT_ITERATE_FLAG_NO_VALUE;
 			break;
 		case 'u':
 			username = optarg;
@@ -163,12 +167,14 @@ static void cmd_dict_iter(int argc, char *argv[])
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
 	doveadm_print_header_simple("key");
-	doveadm_print_header_simple("value");
+	if ((iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
+		doveadm_print_header_simple("value");
 
 	iter = dict_iterate_init(dict, argv[0], iter_flags);
 	while (dict_iterate(iter, &key, &value)) {
 		doveadm_print(key);
-		doveadm_print(value);
+		if ((iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
+			doveadm_print(value);
 	}
 	if (dict_iterate_deinit(&iter) < 0) {
 		i_error("dict_iterate_deinit(%s) failed", argv[0]);
@@ -182,7 +188,7 @@ struct doveadm_cmd doveadm_cmd_dict[] = {
 	{ cmd_dict_set, "dict set", "[-u <user>] <dict uri> <key> <value>" },
 	{ cmd_dict_unset, "dict unset", "[-u <user>] <dict uri> <key>" },
 	{ cmd_dict_inc, "dict inc", "[-u <user>] <dict uri> <key> <diff>" },
-	{ cmd_dict_iter, "dict iter", "[-u <user>] [-R] <dict uri> <prefix>" }
+	{ cmd_dict_iter, "dict iter", "[-u <user>] [-1RV] <dict uri> <prefix>" }
 };
 
 static void dict_cmd_help(doveadm_command_t *cmd)
