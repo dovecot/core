@@ -57,6 +57,7 @@ struct cassandra_result {
 
 	pool_t row_pool;
 	ARRAY_TYPE(const_string) fields;
+	ARRAY(size_t) field_sizes;
 
 	sql_query_callback_t *callback;
 	void *context;
@@ -640,9 +641,11 @@ driver_cassandra_query_s(struct sql_db *_db, const char *query)
 
 static int
 driver_cassandra_get_value(struct cassandra_result *result,
-			   const CassValue *value, const char **str_r)
+			   const CassValue *value, const char **str_r,
+			   size_t *len_r)
 {
-	const char *output;
+	const unsigned char *output;
+	void *output_dup;
 	size_t output_size;
 	CassError rc;
 
@@ -651,13 +654,16 @@ driver_cassandra_get_value(struct cassandra_result *result,
 		return 0;
 	}
 
-	rc = cass_value_get_string(value, &output, &output_size);
+	rc = cass_value_get_bytes(value, &output, &output_size);
 	if (rc != CASS_OK) {
 		i_free(result->error);
 		result->error = i_strdup_printf("Couldn't get value as string (code=%d)", rc);
 		return -1;
 	}
-	*str_r = p_strndup(result->row_pool, output, output_size);
+	output_dup = p_malloc(result->row_pool, output_size + 1);
+	memcpy(output_dup, output, output_size);
+	*str_r = output_dup;
+	*len_r = output_size;
 	return 0;
 }
 
@@ -667,6 +673,7 @@ static int driver_cassandra_result_next_row(struct sql_result *_result)
 	const CassRow *row;
 	const CassValue *value;
 	const char *str;
+	size_t size;
 	unsigned int i;
 	int ret = 1;
 
@@ -678,14 +685,16 @@ static int driver_cassandra_result_next_row(struct sql_result *_result)
 
 	p_clear(result->row_pool);
 	p_array_init(&result->fields, result->row_pool, 8);
+	p_array_init(&result->field_sizes, result->row_pool, 8);
 
 	row = cass_iterator_get_row(result->iterator);
 	for (i = 0; (value = cass_row_get_column(row, i)) != NULL; i++) {
-		if (driver_cassandra_get_value(result, value, &str) < 0) {
+		if (driver_cassandra_get_value(result, value, &str, &size) < 0) {
 			ret = -1;
 			break;
 		}
 		array_append(&result->fields, &str, 1);
+		array_append(&result->field_sizes, &size, 1);
 	}
 	return ret;
 }
@@ -728,7 +737,14 @@ driver_cassandra_result_get_field_value_binary(struct sql_result *_result ATTR_U
 					       unsigned int idx ATTR_UNUSED,
 					       size_t *size_r ATTR_UNUSED)
 {
-	i_unreached();
+	struct cassandra_result *result = (struct cassandra_result *)_result;
+	const char *const *strp;
+	const size_t *sizep;
+
+	strp = array_idx(&result->fields, idx);
+	sizep = array_idx(&result->field_sizes, idx);
+	*size_r = *sizep;
+	return (const void *)*strp;
 }
 
 static const char *
