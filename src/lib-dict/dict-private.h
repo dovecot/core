@@ -35,6 +35,9 @@ struct dict_vfuncs {
 		       const char *key, const char *value);
 	void (*atomic_inc)(struct dict_transaction_context *ctx,
 			   const char *key, long long diff);
+
+	void (*lookup_async)(struct dict *dict, const char *key,
+			     dict_lookup_callback_t *callback, void *context);
 };
 
 struct dict {
@@ -45,6 +48,11 @@ struct dict {
 
 struct dict_iterate_context {
 	struct dict *dict;
+
+	dict_iterate_callback_t *async_callback;
+	void *async_context;
+
+	unsigned int has_more:1;
 };
 
 struct dict_transaction_context {

@@ -284,6 +284,7 @@ struct dict dict_driver_fs = {
 		dict_transaction_memory_set,
 		dict_transaction_memory_unset,
 		NULL,
+		NULL,
 		NULL
 	}
 };

@@ -5,6 +5,7 @@
 #define DICT_PATH_SHARED "shared/"
 
 struct dict;
+struct dict_iterate_context;
 
 enum dict_iterate_flags {
 	/* Recurse to all the sub-hierarchies (e.g. iterating "foo/" will
@@ -18,7 +19,9 @@ enum dict_iterate_flags {
 	DICT_ITERATE_FLAG_NO_VALUE            = 0x08,
 	/* Don't recurse at all. This is basically the same as dict_lookup(),
 	   but it'll return all the rows instead of only the first one. */
-	DICT_ITERATE_FLAG_EXACT_KEY           = 0x10
+	DICT_ITERATE_FLAG_EXACT_KEY           = 0x10,
+	/* Perform iteration asynchronously. */
+	DICT_ITERATE_FLAG_ASYNC               = 0x20
 };
 
 enum dict_data_type {
@@ -35,6 +38,15 @@ struct dict_settings {
 	const char *home_dir;
 };
 
+struct dict_lookup_result {
+	int ret;
+	const char *value;
+	const char *error;
+};
+
+typedef void dict_lookup_callback_t(const struct dict_lookup_result *result,
+				    void *context);
+typedef void dict_iterate_callback_t(void *context);
 typedef void dict_transaction_commit_callback_t(int ret, void *context);
 
 void dict_driver_register(struct dict *driver);
@@ -55,7 +67,7 @@ int dict_init_full(const char *uri, const struct dict_settings *set,
 		   struct dict **dict_r, const char **error_r);
 /* Close dictionary. */
 void dict_deinit(struct dict **dict);
-/* Wait for all pending asynchronous transaction commits to finish.
+/* Wait for all pending asynchronous operations to finish.
    Returns 0 if ok, -1 if error. */
 int dict_wait(struct dict *dict);
 
@@ -63,6 +75,8 @@ int dict_wait(struct dict *dict);
    Returns 1 if found, 0 if not found and -1 if lookup failed. */
 int dict_lookup(struct dict *dict, pool_t pool,
 		const char *key, const char **value_r);
+void dict_lookup_async(struct dict *dict, const char *key,
+		       dict_lookup_callback_t *callback, void *context);
 
 /* Iterate through all values in a path. flag indicates how iteration
    is carried out */
@@ -72,6 +86,17 @@ dict_iterate_init(struct dict *dict, const char *path,
 struct dict_iterate_context *
 dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
 			   enum dict_iterate_flags flags);
+/* Set async callback. Note that if dict_iterate_init() already did all the
+   work, this callback may never be called. So after dict_iterate_init() you
+   should call dict_iterate() in any case to see if all the results are
+   already available. */
+void dict_iterate_set_async_callback(struct dict_iterate_context *ctx,
+				     dict_iterate_callback_t *callback,
+				     void *context);
+/* If dict_iterate() returns FALSE, the iteration may be finished or if this
+   is an async iteration it may be waiting for more data. If this function
+   returns TRUE, the dict callback is called again with more data. */
+bool dict_iterate_has_more(struct dict_iterate_context *ctx);
 bool dict_iterate(struct dict_iterate_context *ctx,
 		  const char **key_r, const char **value_r);
 /* Returns 0 = ok, -1 = iteration failed */

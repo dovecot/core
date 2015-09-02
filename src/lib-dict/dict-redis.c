@@ -801,6 +801,7 @@ struct dict dict_driver_redis = {
 		redis_set,
 		redis_unset,
 		redis_append,
-		redis_atomic_inc
+		redis_atomic_inc,
+		NULL
 	}
 };

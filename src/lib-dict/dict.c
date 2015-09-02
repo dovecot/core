@@ -119,6 +119,23 @@ int dict_lookup(struct dict *dict, pool_t pool, const char *key,
 	return dict->v.lookup(dict, pool, key, value_r);
 }
 
+void dict_lookup_async(struct dict *dict, const char *key,
+		       dict_lookup_callback_t *callback, void *context)
+{
+	if (dict->v.lookup_async == NULL) {
+		struct dict_lookup_result result;
+
+		memset(&result, 0, sizeof(result));
+		result.ret = dict_lookup(dict, pool_datastack_create(),
+					 key, &result.value);
+		if (result.ret < 0)
+			result.error = "Lookup failed";
+		callback(&result, context);
+		return;
+	}
+	return dict->v.lookup_async(dict, key, callback, context);
+}
+
 struct dict_iterate_context *
 dict_iterate_init(struct dict *dict, const char *path, 
 		  enum dict_iterate_flags flags)
@@ -152,6 +169,19 @@ bool dict_iterate(struct dict_iterate_context *ctx,
 {
 	return ctx == &dict_iter_unsupported ? FALSE :
 		ctx->dict->v.iterate(ctx, key_r, value_r);
+}
+
+void dict_iterate_set_async_callback(struct dict_iterate_context *ctx,
+				     dict_iterate_callback_t *callback,
+				     void *context)
+{
+	ctx->async_callback = callback;
+	ctx->async_context = context;
+}
+
+bool dict_iterate_has_more(struct dict_iterate_context *ctx)
+{
+	return ctx->has_more;
 }
 
 int dict_iterate_deinit(struct dict_iterate_context **_ctx)

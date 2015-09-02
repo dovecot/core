@@ -852,6 +852,7 @@ struct dict dict_driver_client = {
 		client_dict_set,
 		client_dict_unset,
 		client_dict_append,
-		client_dict_atomic_inc
+		client_dict_atomic_inc,
+		NULL
 	}
 };

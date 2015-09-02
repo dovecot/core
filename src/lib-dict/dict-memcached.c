@@ -390,6 +390,7 @@ struct dict dict_driver_memcached = {
 		NULL,
 		NULL,
 		NULL,
+		NULL,
 		NULL
 	}
 };
