@@ -502,12 +502,17 @@ client_dict_init(struct dict *driver, const char *uri,
 
 	dict->fd = -1;
 
-	if (*uri != ':') {
-		/* path given */
-		dict->path = p_strdup_until(pool, uri, dest_uri);
-	} else {
+	if (uri[0] == ':') {
+		/* default path */
 		dict->path = p_strconcat(pool, set->base_dir,
 				"/"DEFAULT_DICT_SERVER_SOCKET_FNAME, NULL);
+	} else if (uri[0] == '/') {
+		/* absolute path */
+		dict->path = p_strdup_until(pool, uri, dest_uri);
+	} else {
+		/* relative path to base_dir */
+		dict->path = p_strconcat(pool, set->base_dir, "/",
+				p_strdup_until(pool, uri, dest_uri), NULL);
 	}
 	dict->uri = p_strdup(pool, dest_uri + 1);
 	*dict_r = &dict->dict;
