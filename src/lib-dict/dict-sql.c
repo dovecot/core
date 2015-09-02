@@ -341,7 +341,9 @@ sql_dict_iterate_find_next_map(struct sql_dict_iterate_context *ctx,
 	return NULL;
 }
 
-static bool sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
+static bool
+sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
+				  string_t *query)
 {
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
 	const struct dict_sql_map *map;
@@ -357,53 +359,67 @@ static bool sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 	if (ctx->result != NULL)
 		sql_result_unref(ctx->result);
 
-	T_BEGIN {
-		string_t *query = t_str_new(256);
+	str_append(query, "SELECT ");
+	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
+		str_printfa(query, "%s,", map->value_field);
 
-		str_append(query, "SELECT ");
-		if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
-			str_printfa(query, "%s,", map->value_field);
+	/* get all missing fields */
+	sql_fields = array_get(&map->sql_fields, &count);
+	i = array_count(&values);
+	if (i == count) {
+		/* we always want to know the last field since we're
+		   iterating its children */
+		i_assert(i > 0);
+		i--;
+	}
+	for (; i < count; i++)
+		str_printfa(query, "%s,", sql_fields[i]);
+	str_truncate(query, str_len(query)-1);
 
-		/* get all missing fields */
-		sql_fields = array_get(&map->sql_fields, &count);
-		i = array_count(&values);
-		if (i == count) {
-			/* we always want to know the last field since we're
-			   iterating its children */
-			i_assert(i > 0);
-			i--;
+	str_printfa(query, " FROM %s", map->table);
+
+	if ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0)
+		recurse_type = SQL_DICT_RECURSE_FULL;
+	else if ((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0)
+		recurse_type = SQL_DICT_RECURSE_NONE;
+	else
+		recurse_type = SQL_DICT_RECURSE_ONE;
+	sql_dict_where_build(dict, map, &values,
+			     ctx->paths[ctx->path_idx][0],
+			     recurse_type, query);
+
+	if ((ctx->flags & DICT_ITERATE_FLAG_SORT_BY_KEY) != 0) {
+		str_append(query, " ORDER BY ");
+		for (i = 0; i < count; i++) {
+			str_printfa(query, "%s", sql_fields[i]);
+			if (i < count-1)
+				str_append_c(query, ',');
 		}
-		for (; i < count; i++)
-			str_printfa(query, "%s,", sql_fields[i]);
-		str_truncate(query, str_len(query)-1);
-
-		str_printfa(query, " FROM %s", map->table);
-
-		if ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0)
-			recurse_type = SQL_DICT_RECURSE_FULL;
-		else if ((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0)
-			recurse_type = SQL_DICT_RECURSE_NONE;
-		else
-			recurse_type = SQL_DICT_RECURSE_ONE;
-		sql_dict_where_build(dict, map, &values,
-				     ctx->paths[ctx->path_idx][0],
-				     recurse_type, query);
-
-		if ((ctx->flags & DICT_ITERATE_FLAG_SORT_BY_KEY) != 0) {
-			str_append(query, " ORDER BY ");
-			for (i = 0; i < count; i++) {
-				str_printfa(query, "%s", sql_fields[i]);
-				if (i < count-1)
-					str_append_c(query, ',');
-			}
-		} else if ((ctx->flags & DICT_ITERATE_FLAG_SORT_BY_VALUE) != 0)
-			str_printfa(query, " ORDER BY %s", map->value_field);
-		ctx->result = sql_query_s(dict->db, str_c(query));
-	} T_END;
+	} else if ((ctx->flags & DICT_ITERATE_FLAG_SORT_BY_VALUE) != 0)
+		str_printfa(query, " ORDER BY %s", map->value_field);
 
 	ctx->map = map;
 	return TRUE;
 }
+
+static bool sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
+{
+	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
+	bool ret;
+
+	T_BEGIN {
+		string_t *query = t_str_new(256);
+
+		ret = sql_dict_iterate_build_next_query(ctx, query);
+		if (!ret) {
+			/* failed */
+		} else {
+			ctx->result = sql_query_s(dict->db, str_c(query));
+		}
+	} T_END;
+	return ret;
+}
+
 
 static struct dict_iterate_context *
 sql_dict_iterate_init(struct dict *_dict, const char *const *paths,
