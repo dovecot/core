@@ -529,6 +529,14 @@ sql_dict_transaction_init(struct dict *_dict)
 	return &ctx->ctx;
 }
 
+static void sql_dict_transaction_free(struct sql_dict_transaction_context *ctx)
+{
+	if (ctx->inc_row_pool != NULL)
+		pool_unref(&ctx->inc_row_pool);
+	i_free(ctx->prev_inc_key);
+	i_free(ctx);
+}
+
 static int
 sql_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			    bool async ATTR_UNUSED,
@@ -564,10 +572,7 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			}
 		}
 	}
-	if (ctx->inc_row_pool != NULL)
-		pool_unref(&ctx->inc_row_pool);
-	i_free(ctx->prev_inc_key);
-	i_free(ctx);
+	sql_dict_transaction_free(ctx);
 
 	if (callback != NULL)
 		callback(ret, context);
@@ -580,11 +585,7 @@ static void sql_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 		(struct sql_dict_transaction_context *)_ctx;
 
 	sql_transaction_rollback(&ctx->sql_ctx);
-
-	if (ctx->inc_row_pool != NULL)
-		pool_unref(&ctx->inc_row_pool);
-	i_free(ctx->prev_inc_key);
-	i_free(ctx);
+	sql_dict_transaction_free(ctx);
 }
 
 struct dict_sql_build_query_field {
