@@ -537,6 +537,19 @@ static void sql_dict_transaction_free(struct sql_dict_transaction_context *ctx)
 	i_free(ctx);
 }
 
+static bool
+sql_dict_transaction_has_nonexistent(struct sql_dict_transaction_context *ctx)
+{
+	struct sql_dict_inc_row *inc_row;
+
+	for (inc_row = ctx->inc_row; inc_row != NULL; inc_row = inc_row->prev) {
+		i_assert(inc_row->rows != UINT_MAX);
+		if (inc_row->rows == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static int
 sql_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			    bool async ATTR_UNUSED,
@@ -562,14 +575,8 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			i_error("sql dict: commit failed: %s", error);
 			ret = -1;
 		} else {
-			while (ctx->inc_row != NULL) {
-				i_assert(ctx->inc_row->rows != UINT_MAX);
-				if (ctx->inc_row->rows == 0) {
-					ret = 0;
-					break;
-				}
-				ctx->inc_row = ctx->inc_row->prev;
-			}
+			if (sql_dict_transaction_has_nonexistent(ctx))
+				ret = 0;
 		}
 	}
 	sql_dict_transaction_free(ctx);
