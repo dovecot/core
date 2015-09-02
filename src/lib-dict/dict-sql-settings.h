@@ -1,6 +1,11 @@
 #ifndef DICT_SQL_SETTINGS_H
 #define DICT_SQL_SETTINGS_H
 
+struct dict_sql_field {
+	const char *name;
+	bool value_is_hexblob;
+};
+
 struct dict_sql_map {
 	/* pattern is in simplified form: all variables are stored as simple
 	   '$' character. fields array is sorted by the variable index. */
@@ -8,8 +13,9 @@ struct dict_sql_map {
 	const char *table;
 	const char *username_field;
 	const char *value_field;
+	bool value_hexblob;
 
-	ARRAY_TYPE(const_string) sql_fields;
+	ARRAY(struct dict_sql_field) sql_fields;
 };
 
 struct dict_sql_settings {

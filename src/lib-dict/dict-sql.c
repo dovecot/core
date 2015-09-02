@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
+#include "hex-binary.h"
 #include "str.h"
 #include "sql-api-private.h"
 #include "sql-db-cache.h"
@@ -211,12 +212,46 @@ sql_dict_find_map(struct sql_dict *dict, const char *path,
 }
 
 static void
+sql_dict_value_escape(string_t *str, struct sql_dict *dict,
+		      bool value_is_hexblob, const char *field_name,
+		      const char *value, const char *value_suffix)
+{
+	buffer_t *buf;
+
+	if (!value_is_hexblob) {
+		str_printfa(str, "'%s%s'", sql_escape_string(dict->db, value),
+			    value_suffix);
+		return;
+	}
+
+	buf = buffer_create_dynamic(pool_datastack_create(), strlen(value)/2);
+	if (hex_to_binary(value, buf) < 0) {
+		/* we shouldn't get untrusted input here. it's also a bit
+		   annoying to handle this error. */
+		i_fatal("dict-sql: field %s value isn't hexblob: %s",
+			field_name, value);
+	}
+	str_append(buf, value_suffix);
+	str_append(str, sql_escape_blob(dict->db, buf->data, buf->used));
+}
+
+static void
+sql_dict_field_escape_value(string_t *str, struct sql_dict *dict,
+			    const struct dict_sql_field *field,
+			    const char *value, const char *value_suffix)
+{
+	sql_dict_value_escape(str, dict, field->value_is_hexblob,
+			      field->name, value, value_suffix);
+}
+
+static void
 sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 		     const ARRAY_TYPE(const_string) *values_arr,
 		     char key1, enum sql_recurse_type recurse_type,
 		     string_t *query)
 {
-	const char *const *sql_fields, *const *values;
+	const struct dict_sql_field *sql_fields;
+	const char *const *values;
 	unsigned int i, count, count2, exact_count;
 	bool priv = key1 == DICT_PATH_PRIVATE[0];
 
@@ -236,8 +271,8 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 	for (i = 0; i < exact_count; i++) {
 		if (i > 0)
 			str_append(query, " AND");
-		str_printfa(query, " %s = '%s'", sql_fields[i],
-			    sql_escape_string(dict->db, values[i]));
+		str_printfa(query, " %s = ", sql_fields[i].name);
+		sql_dict_field_escape_value(query, dict, &sql_fields[i], values[i], "");
 	}
 	switch (recurse_type) {
 	case SQL_DICT_RECURSE_NONE:
@@ -246,24 +281,26 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 		if (i > 0)
 			str_append(query, " AND");
 		if (i < count2) {
-			str_printfa(query, " %s LIKE '%s/%%' AND "
-				    "%s NOT LIKE '%s/%%/%%'",
-				    sql_fields[i],
-				    sql_escape_string(dict->db, values[i]),
-				    sql_fields[i],
-				    sql_escape_string(dict->db, values[i]));
+			str_printfa(query, " %s LIKE ", sql_fields[i].name);
+			sql_dict_field_escape_value(query, dict, &sql_fields[i],
+						    values[i], "/%");
+			str_printfa(query, " AND %s NOT LIKE ", sql_fields[i].name);
+			sql_dict_field_escape_value(query, dict, &sql_fields[i],
+						    values[i], "/%/%");
 		} else {
 			str_printfa(query, " %s LIKE '%%' AND "
 				    "%s NOT LIKE '%%/%%'",
-				    sql_fields[i], sql_fields[i]);
+				    sql_fields[i].name, sql_fields[i].name);
 		}
 		break;
 	case SQL_DICT_RECURSE_FULL:
 		if (i < count2) {
 			if (i > 0)
 				str_append(query, " AND");
-			str_printfa(query, " %s LIKE '%s/%%'", sql_fields[i],
-				    sql_escape_string(dict->db, values[i]));
+			str_printfa(query, " %s LIKE ",
+				    sql_fields[i].name);
+			sql_dict_field_escape_value(query, dict, &sql_fields[i],
+						    values[i], "/%");
 		}
 		break;
 	}
@@ -275,13 +312,14 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 	}
 }
 
-static int sql_lookup_get_query(struct sql_dict *dict, const char *key,
-				string_t *query)
+static int
+sql_lookup_get_query(struct sql_dict *dict, const char *key,
+		     string_t *query, const struct dict_sql_map **map_r)
 {
 	const struct dict_sql_map *map;
 	ARRAY_TYPE(const_string) values;
 
-	map = sql_dict_find_map(dict, key, &values);
+	map = *map_r = sql_dict_find_map(dict, key, &values);
 	if (map == NULL) {
 		i_error("sql dict lookup: Invalid/unmapped key: %s", key);
 		return -1;
@@ -293,17 +331,54 @@ static int sql_lookup_get_query(struct sql_dict *dict, const char *key,
 	return 0;
 }
 
+static const char *
+sql_dict_result_unescape(bool hexblob, pool_t pool, struct sql_result *result,
+			 unsigned int result_idx)
+{
+	const unsigned char *data;
+	size_t size;
+	string_t *str;
+
+	if (!hexblob)
+		return p_strdup(pool, sql_result_get_field_value(result, result_idx));
+
+	data = sql_result_get_field_value_binary(result, result_idx, &size);
+	str = str_new(pool, size*2 + 1);
+	binary_to_hex_append(str, data, size);
+	return str_c(str);
+}
+
+static const char *
+sql_dict_result_unescape_value(const struct dict_sql_map *map, pool_t pool,
+			       struct sql_result *result)
+{
+	return sql_dict_result_unescape(map->value_hexblob, pool, result, 0);
+}
+
+static const char *
+sql_dict_result_unescape_field(const struct dict_sql_map *map, pool_t pool,
+			       struct sql_result *result, unsigned int result_idx,
+			       unsigned int field_idx)
+{
+	const struct dict_sql_field *sql_field;
+
+	sql_field = array_idx(&map->sql_fields, field_idx);
+	return sql_dict_result_unescape(sql_field->value_is_hexblob, pool,
+					result, result_idx);
+}
+
 static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 			   const char *key, const char **value_r)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
+	const struct dict_sql_map *map;
 	struct sql_result *result = NULL;
 	int ret;
 
 	T_BEGIN {
 		string_t *query = t_str_new(256);
 
-		ret = sql_lookup_get_query(dict, key, query);
+		ret = sql_lookup_get_query(dict, key, query, &map);
 		if (ret == 0)
 			result = sql_query_s(dict->db, str_c(query));
 	} T_END;
@@ -321,8 +396,7 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 		}
 		*value_r = NULL;
 	} else {
-		*value_r =
-			p_strdup(pool, sql_result_get_field_value(result, 0));
+		*value_r = sql_dict_result_unescape_value(map, pool, result);
 	}
 
 	sql_result_unref(result);
@@ -330,6 +404,7 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 }
 
 struct sql_dict_lookup_context {
+	const struct dict_sql_map *map;
 	dict_lookup_callback_t *callback;
 	void *context;
 };
@@ -344,8 +419,10 @@ sql_dict_lookup_async_callback(struct sql_result *sql_result,
 	result.ret = sql_result_next_row(sql_result);
 	if (result.ret < 0)
 		result.error = sql_result_get_error(sql_result);
-	else if (result.ret > 0)
-		result.value = sql_result_get_field_value(sql_result, 0);
+	else if (result.ret > 0) {
+		result.value = sql_dict_result_unescape_value(ctx->map,
+			pool_datastack_create(), sql_result);
+	}
 	ctx->callback(&result, ctx->context);
 
 	i_free(ctx);
@@ -356,15 +433,17 @@ sql_dict_lookup_async(struct dict *_dict, const char *key,
 		      dict_lookup_callback_t *callback, void *context)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
+	const struct dict_sql_map *map;
 	struct sql_dict_lookup_context *ctx;
 
 	T_BEGIN {
 		string_t *query = t_str_new(256);
 
-		if (sql_lookup_get_query(dict, key, query) == 0) {
+		if (sql_lookup_get_query(dict, key, query, &map) == 0) {
 			ctx = i_new(struct sql_dict_lookup_context, 1);
 			ctx->callback = callback;
 			ctx->context = context;
+			ctx->map = map;
 			sql_query(dict->db, str_c(query),
 				  sql_dict_lookup_async_callback, ctx);
 		}
@@ -411,7 +490,7 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
 	const struct dict_sql_map *map;
 	ARRAY_TYPE(const_string) values;
-	const char *const *sql_fields;
+	const struct dict_sql_field *sql_fields;
 	enum sql_recurse_type recurse_type;
 	unsigned int i, count;
 
@@ -438,7 +517,7 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 		i--;
 	}
 	for (; i < count; i++)
-		str_printfa(query, "%s,", sql_fields[i]);
+		str_printfa(query, "%s,", sql_fields[i].name);
 	str_truncate(query, str_len(query)-1);
 
 	str_printfa(query, " FROM %s", map->table);
@@ -456,7 +535,7 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 	if ((ctx->flags & DICT_ITERATE_FLAG_SORT_BY_KEY) != 0) {
 		str_append(query, " ORDER BY ");
 		for (i = 0; i < count; i++) {
-			str_printfa(query, "%s", sql_fields[i]);
+			str_printfa(query, "%s", sql_fields[i].name);
 			if (i < count-1)
 				str_append_c(query, ',');
 		}
@@ -534,7 +613,7 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 	struct sql_dict_iterate_context *ctx =
 		(struct sql_dict_iterate_context *)_ctx;
 	const char *p, *value;
-	unsigned int i, count;
+	unsigned int i, field_i, count;
 	int ret;
 
 	_ctx->has_more = FALSE;
@@ -574,23 +653,27 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 
 	count = sql_result_get_fields_count(ctx->result);
 	i = (ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0 ? 0 : 1;
+	field_i = 0;
 	for (p = ctx->map->pattern + ctx->pattern_prefix_len; *p != '\0'; p++) {
 		if (*p != '$')
 			str_append_c(ctx->key, *p);
 		else {
 			i_assert(i < count);
-			value = sql_result_get_field_value(ctx->result, i);
+			value = sql_dict_result_unescape_field(ctx->map,
+					pool_datastack_create(), ctx->result, i, field_i);
 			if (value != NULL)
 				str_append(ctx->key, value);
-			i++;
+			i++; field_i++;
 		}
 	}
 
 	*key_r = str_c(ctx->key);
 	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0)
 		*value_r = "";
-	else
-		*value_r = sql_result_get_field_value(ctx->result, 0);
+	else {
+		*value_r = sql_dict_result_unescape_value(ctx->map,
+					pool_datastack_create(), ctx->result);
+	}
 	return TRUE;
 }
 
@@ -726,7 +809,8 @@ static const char *sql_dict_set_query(const struct dict_sql_build_query *build)
 {
 	struct sql_dict *dict = build->dict;
 	const struct dict_sql_build_query_field *fields;
-	const char *const *sql_fields, *const *extra_values;
+	const struct dict_sql_field *sql_fields;
+	const char *const *extra_values;
 	unsigned int i, field_count, count, count2;
 	string_t *prefix, *suffix;
 
@@ -746,8 +830,9 @@ static const char *sql_dict_set_query(const struct dict_sql_build_query *build)
 		if (build->inc)
 			str_append(suffix, fields[i].value);
 		else {
-			str_printfa(suffix, "'%s'",
-				sql_escape_string(dict->db, fields[i].value));
+			sql_dict_value_escape(suffix, dict,
+				fields[i].map->value_hexblob,
+				"value", fields[i].value, "");
 		}
 	}
 	if (build->key1 == DICT_PATH_PRIVATE[0]) {
@@ -761,9 +846,10 @@ static const char *sql_dict_set_query(const struct dict_sql_build_query *build)
 	extra_values = array_get(build->extra_values, &count2);
 	i_assert(count == count2);
 	for (i = 0; i < count; i++) {
-		str_printfa(prefix, ",%s", sql_fields[i]);
-		str_printfa(suffix, ",'%s'",
-			    sql_escape_string(dict->db, extra_values[i]));
+		str_printfa(prefix, ",%s", sql_fields[i].name);
+		str_append_c(suffix, ',');
+		sql_dict_field_escape_value(suffix, dict, &sql_fields[i],
+					    extra_values[i], "");
 	}
 
 	str_append_str(prefix, suffix);
@@ -782,8 +868,9 @@ static const char *sql_dict_set_query(const struct dict_sql_build_query *build)
 				    fields[i].map->value_field,
 				    fields[i].value);
 		} else {
-			str_printfa(prefix, "'%s'",
-				sql_escape_string(dict->db, fields[i].value));
+			sql_dict_value_escape(prefix, dict,
+				fields[i].map->value_hexblob,
+				"value", fields[i].value, "");
 		}
 	}
 	return str_c(prefix);

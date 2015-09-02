@@ -15,7 +15,8 @@ enum section_type {
 };
 
 struct dict_sql_map_field {
-	const char *sql_field, *variable;
+	struct dict_sql_field sql_field;
+	const char *variable;
 };
 
 struct setting_parser_ctx {
@@ -28,12 +29,14 @@ struct setting_parser_ctx {
 };
 
 #define DEF_STR(name) DEF_STRUCT_STR(name, dict_sql_map)
+#define DEF_BOOL(name) DEF_STRUCT_BOOL(name, dict_sql_map)
 
 static const struct setting_def dict_sql_map_setting_defs[] = {
 	DEF_STR(pattern),
 	DEF_STR(table),
 	DEF_STR(username_field),
 	DEF_STR(value_field),
+	DEF_BOOL(value_hexblob),
 
 	{ 0, NULL, 0 }
 };
@@ -148,6 +151,7 @@ parse_setting(const char *key, const char *value,
 	      struct setting_parser_ctx *ctx)
 {
 	struct dict_sql_map_field *field;
+	unsigned int value_len;
 
 	switch (ctx->type) {
 	case SECTION_ROOT:
@@ -166,8 +170,16 @@ parse_setting(const char *key, const char *value,
 					   key, NULL);
 		}
 		field = array_append_space(&ctx->cur_fields);
-		field->sql_field = p_strdup(ctx->pool, key);
-		field->variable = p_strdup(ctx->pool, value + 1);
+		field->sql_field.name = p_strdup(ctx->pool, key);
+		value_len = strlen(value);
+		if (strncmp(value, "${hexblob:", 10) == 0 &&
+		    value[value_len-1] == '}') {
+			field->variable = p_strndup(ctx->pool, value + 10,
+						    value_len-10-1);
+			field->sql_field.value_is_hexblob = TRUE;
+		} else {
+			field->variable = p_strdup(ctx->pool, value + 1);
+		}
 		return NULL;
 	}
 	return t_strconcat("Unknown setting: ", key, NULL);
