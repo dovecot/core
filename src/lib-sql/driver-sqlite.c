@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "hex-binary.h"
 #include "sql-api-private.h"
 
 #ifdef BUILD_SQLITE
@@ -392,6 +393,18 @@ driver_sqlite_update(struct sql_transaction_context *_ctx, const char *query,
 		*affected_rows = sqlite3_changes(db->sqlite);
 }
 
+static const char *
+driver_sqlite_escape_blob(struct sql_db *_db ATTR_UNUSED,
+			  const unsigned char *data, size_t size)
+{
+	string_t *str = t_str_new(128);
+
+	str_append(str, "x'");
+	binary_to_hex_append(str, data, size);
+	str_append_c(str, '\'');
+	return str_c(str);
+}
+
 const struct sql_db driver_sqlite_db = {
 	.name = "sqlite",
 	.flags = SQL_DB_FLAG_BLOCKING,
@@ -410,7 +423,9 @@ const struct sql_db driver_sqlite_db = {
 		driver_sqlite_transaction_commit,
 		driver_sqlite_transaction_commit_s,
 		driver_sqlite_transaction_rollback,
-		driver_sqlite_update
+		driver_sqlite_update,
+
+		driver_sqlite_escape_blob
 	}
 };
 

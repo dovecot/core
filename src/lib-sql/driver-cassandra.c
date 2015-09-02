@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hex-binary.h"
 #include "str.h"
 #include "ioloop.h"
 #include "write-full.h"
@@ -957,6 +958,17 @@ driver_cassandra_update(struct sql_transaction_context *_ctx, const char *query,
 	sql_transaction_add_query(_ctx, ctx->query_pool, query, affected_rows);
 }
 
+static const char *
+driver_cassandra_escape_blob(struct sql_db *_db ATTR_UNUSED,
+			     const unsigned char *data, size_t size)
+{
+	string_t *str = t_str_new(128);
+
+	str_append(str, "0x");
+	binary_to_hex_append(str, data, size);
+	return str_c(str);
+}
+
 const struct sql_db driver_cassandra_db = {
 	.name = "cassandra",
 	.flags = SQL_DB_FLAG_POOLED,
@@ -976,7 +988,9 @@ const struct sql_db driver_cassandra_db = {
 		driver_cassandra_transaction_commit_s,
 		driver_cassandra_transaction_rollback,
 
-		driver_cassandra_update
+		driver_cassandra_update,
+
+		driver_cassandra_escape_blob
 	}
 };
 

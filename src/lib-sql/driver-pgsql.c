@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
+#include "hex-binary.h"
+#include "str.h"
 #include "time-util.h"
 #include "sql-api-private.h"
 
@@ -1066,6 +1068,18 @@ driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query,
 	sql_transaction_add_query(_ctx, ctx->query_pool, query, affected_rows);
 }
 
+static const char *
+driver_pgsql_escape_blob(struct sql_db *_db ATTR_UNUSED,
+			 const unsigned char *data, size_t size)
+{
+	string_t *str = t_str_new(128);
+
+	str_append(str, "E'\\x");
+	binary_to_hex_append(str, data, size);
+	str_append_c(str, '\'');
+	return str_c(str);
+}
+
 const struct sql_db driver_pgsql_db = {
 	.name = "pgsql",
 	.flags = SQL_DB_FLAG_POOLED,
@@ -1085,7 +1099,9 @@ const struct sql_db driver_pgsql_db = {
 		driver_pgsql_transaction_commit_s,
 		driver_pgsql_transaction_rollback,
 
-		driver_pgsql_update
+		driver_pgsql_update,
+
+		driver_pgsql_escape_blob
 	}
 };
 

@@ -76,6 +76,8 @@ struct sql_db_vfuncs {
 
 	void (*update)(struct sql_transaction_context *ctx, const char *query,
 		       unsigned int *affected_rows);
+	const char *(*escape_blob)(struct sql_db *db,
+				   const unsigned char *data, size_t size);
 };
 
 struct sql_db {
