@@ -943,7 +943,7 @@ driver_cassandra_update(struct sql_transaction_context *_ctx, const char *query,
 
 const struct sql_db driver_cassandra_db = {
 	.name = "cassandra",
-	.flags = 0,
+	.flags = SQL_DB_FLAG_POOLED,
 
 	.v = {
 		driver_cassandra_init_v,
