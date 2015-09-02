@@ -573,7 +573,7 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 		str_append_c(ctx->key, '/');
 
 	count = sql_result_get_fields_count(ctx->result);
-	i = 1;
+	i = (ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0 ? 0 : 1;
 	for (p = ctx->map->pattern + ctx->pattern_prefix_len; *p != '\0'; p++) {
 		if (*p != '$')
 			str_append_c(ctx->key, *p);
@@ -587,7 +587,10 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 	}
 
 	*key_r = str_c(ctx->key);
-	*value_r = sql_result_get_field_value(ctx->result, 0);
+	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0)
+		*value_r = "";
+	else
+		*value_r = sql_result_get_field_value(ctx->result, 0);
 	return TRUE;
 }
 
