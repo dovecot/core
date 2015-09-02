@@ -15,6 +15,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#define DICT_CONN_MAX_PENDING_COMMANDS 5
+
 static struct dict_connection *dict_connections;
 
 static int dict_connection_parse_handshake(struct dict_connection *conn,
@@ -103,6 +105,9 @@ static void dict_connection_input(struct dict_connection *conn)
 	const char *line;
 	int ret;
 
+	if (conn->to_input != NULL)
+		timeout_remove(&conn->to_input);
+
 	switch (i_stream_read(conn->input)) {
 	case 0:
 		return;
@@ -142,7 +147,35 @@ static void dict_connection_input(struct dict_connection *conn)
 			dict_connection_destroy(conn);
 			break;
 		}
+		if (array_count(&conn->cmds) >= DICT_CONN_MAX_PENDING_COMMANDS) {
+			io_remove(&conn->io);
+			if (conn->to_input != NULL)
+				timeout_remove(&conn->to_input);
+		}
 	}
+}
+
+void dict_connection_continue_input(struct dict_connection *conn)
+{
+	if (conn->io != NULL)
+		return;
+
+	conn->io = io_add(conn->fd, IO_READ, dict_connection_input, conn);
+	if (conn->to_input == NULL)
+		conn->to_input = timeout_add_short(0, dict_connection_input, conn);
+}
+
+static int dict_connection_output(struct dict_connection *conn)
+{
+	int ret;
+
+	if ((ret = o_stream_flush(conn->output)) < 0) {
+		dict_connection_destroy(conn);
+		return 1;
+	}
+	if (ret > 0)
+		dict_connection_cmds_output_more(conn);
+	return ret;
 }
 
 struct dict_connection *dict_connection_create(int fd)
@@ -155,7 +188,9 @@ struct dict_connection *dict_connection_create(int fd)
 					 FALSE);
 	conn->output = o_stream_create_fd(fd, 128*1024, FALSE);
 	o_stream_set_no_error_handling(conn->output, TRUE);
+	o_stream_set_flush_callback(conn->output, dict_connection_output, conn);
 	conn->io = io_add(fd, IO_READ, dict_connection_input, conn);
+	i_array_init(&conn->cmds, DICT_CONN_MAX_PENDING_COMMANDS);
 	DLLIST_PREPEND(&dict_connections, conn);
 	return conn;
 }
@@ -166,23 +201,30 @@ void dict_connection_destroy(struct dict_connection *conn)
 
 	DLLIST_REMOVE(&dict_connections, conn);
 
+	/* deinit dict before anything else, so any pending dict operations
+	   are aborted and their callbacks called. */
+	if (conn->dict != NULL)
+		dict_deinit(&conn->dict);
+
 	if (array_is_created(&conn->transactions)) {
 		array_foreach_modifiable(&conn->transactions, transaction)
 			dict_transaction_rollback(&transaction->ctx);
 		array_free(&conn->transactions);
 	}
 
-	if (conn->iter_ctx != NULL)
-		(void)dict_iterate_deinit(&conn->iter_ctx);
+	/* this may end up adding conn->io back, so keep this early */
+	dict_connection_cmds_free(conn);
+	array_free(&conn->cmds);
 
-	io_remove(&conn->io);
+	if (conn->to_input != NULL)
+		timeout_remove(&conn->to_input);
+	if (conn->io != NULL)
+		io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(dict client) failed: %m");
 
-	if (conn->dict != NULL)
-		dict_deinit(&conn->dict);
 	i_free(conn->name);
 	i_free(conn->username);
 	i_free(conn);
