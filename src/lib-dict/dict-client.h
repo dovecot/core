@@ -10,7 +10,7 @@
 
 #define DICT_CLIENT_MAX_LINE_LENGTH (64*1024)
 
-enum {
+enum dict_protocol_cmd {
         /* <major-version> <minor-version> <value type> <user> <dict name> */
 	DICT_PROTOCOL_CMD_HELLO = 'H',
 
@@ -28,7 +28,7 @@ enum {
 	DICT_PROTOCOL_CMD_ATOMIC_INC = 'A' /* <id> <key> <diff> */
 };
 
-enum {
+enum dict_protocol_reply {
 	DICT_PROTOCOL_REPLY_OK = 'O', /* <value> */
 	DICT_PROTOCOL_REPLY_NOTFOUND = 'N',
 	DICT_PROTOCOL_REPLY_FAIL = 'F',
