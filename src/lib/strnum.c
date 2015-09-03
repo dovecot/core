@@ -160,12 +160,8 @@ int str_parse_uintmax_hex(const char *str, uintmax_t *num_r,
 		return -1;
 
 	do {
-		if (n >= ((uintmax_t)-1 >> 4)) {
-			if (n > (uintmax_t)-1 >> 4)
-				return -1;
-			if ((uintmax_t)hex > ((uintmax_t)-1 & 0x0f))
-				return -1;
-		}
+		if (n > (uintmax_t)-1 >> 4)
+			return -1;
 		n = (n << 4) + hex;
 		str++;
 	} while (_str_parse_hex(*str, &hex) >= 0);
@@ -230,12 +226,8 @@ int str_parse_uintmax_oct(const char *str, uintmax_t *num_r,
 		return -1;
 
 	for (; *str >= '0' && *str <= '7'; str++) {
-		if (n >= ((uintmax_t)-1 >> 3)) {
-			if (n > (uintmax_t)-1 >> 3)
-				return -1;
-			if ((uintmax_t)(*str - '0') > ((uintmax_t)-1 & 0x03))
-				return -1;
-		}
+		if (n > (uintmax_t)-1 >> 3)
+			return -1;
 		n = (n << 3) + (*str - '0');
 	}
 	if (endp_r != NULL)
