@@ -407,7 +407,9 @@ deinit:
 	pool_unref(&pool);
 }
 
-static void cmd_director_add(int argc, char *argv[])
+static void
+cmd_director_add_or_update(int argc, char *argv[], doveadm_command_t *cmd_func,
+			   const char *director_cmd)
 {
 	struct director_context *ctx;
 	struct ip_addr *ips;
@@ -415,18 +417,20 @@ static void cmd_director_add(int argc, char *argv[])
 	const char *host, *line;
 	string_t *cmd;
 
-	ctx = cmd_director_init(argc, argv, "a:t:", cmd_director_add);
+	ctx = cmd_director_init(argc, argv, "a:t:", cmd_func);
 	if (ctx->tag != NULL && ctx->tag[0] == '\0')
 		ctx->tag = NULL;
 	host = argv[optind++];
 	if (host == NULL)
-		director_cmd_help(cmd_director_add);
+		director_cmd_help(cmd_func);
 	if (argv[optind] != NULL) {
 		if (str_to_uint(argv[optind++], &vhost_count) < 0)
-			director_cmd_help(cmd_director_add);
-	}
+			director_cmd_help(cmd_func);
+	} else if (strcmp(director_cmd, "HOST-UPDATE") == 0)
+		director_cmd_help(cmd_func);
+
 	if (argv[optind] != NULL)
-		director_cmd_help(cmd_director_add);
+		director_cmd_help(cmd_func);
 
 	if (ctx->tag == NULL) {
 		ctx->tag = strchr(host, '@');
@@ -437,7 +441,7 @@ static void cmd_director_add(int argc, char *argv[])
 	cmd = t_str_new(128);
 	for (i = 0; i < ips_count; i++) {
 		str_truncate(cmd, 0);
-		str_printfa(cmd, "HOST-SET\t%s", net_ip2addr(&ips[i]));
+		str_printfa(cmd, "%s\t%s", director_cmd, net_ip2addr(&ips[i]));
 		if (ctx->tag != NULL)
 			str_printfa(cmd, "@%s", ctx->tag);
 		if (vhost_count != UINT_MAX)
@@ -449,13 +453,25 @@ static void cmd_director_add(int argc, char *argv[])
 		line = i_stream_read_next_line(ctx->input);
 		if (line == NULL || strcmp(line, "OK") != 0) {
 			fprintf(stderr, "%s: %s\n", net_ip2addr(&ips[i]),
-				line == NULL ? "failed" : line);
+				line == NULL ? "failed" :
+				strcmp(line, "NOTFOUND") == 0 ?
+				"doesn't exist" : line);
 			doveadm_exit_code = EX_TEMPFAIL;
 		} else if (doveadm_verbose) {
 			printf("%s: OK\n", net_ip2addr(&ips[i]));
 		}
 	}
 	director_disconnect(ctx);
+}
+
+static void cmd_director_add(int argc, char *argv[])
+{
+	cmd_director_add_or_update(argc, argv, cmd_director_add, "HOST-SET");
+}
+
+static void cmd_director_update(int argc, char *argv[])
+{
+	cmd_director_add_or_update(argc, argv, cmd_director_update, "HOST-UPDATE");
 }
 
 static void
@@ -808,6 +824,8 @@ struct doveadm_cmd doveadm_cmd_director[] = {
 	  "[-a <director socket path>] [-f <users file>] [-h | -u] [<host>]" },
 	{ cmd_director_add, "director add",
 	  "[-a <director socket path>] [-t <tag>] <host> [<vhost count>]" },
+	{ cmd_director_update, "director update",
+	  "[-a <director socket path>] [-t <tag>] <host> <vhost count>" },
 	{ cmd_director_up, "director up",
 	  "[-a <director socket path>] <host>" },
 	{ cmd_director_down, "director down",
