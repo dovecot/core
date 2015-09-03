@@ -362,9 +362,10 @@ void index_storage_mailbox_close(struct mailbox *box)
 		mail_index_view_close(&box->view_pvt);
 	if (box->index_pvt != NULL)
 		mail_index_close(box->index_pvt);
-	if (box->view != NULL)
+	if (box->view != NULL) {
 		mail_index_view_close(&box->view);
-	mail_index_close(box->index);
+		mail_index_close(box->index);
+	}
 	box->cache = NULL;
 
 	ibox->keyword_names = NULL;
