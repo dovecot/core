@@ -2271,6 +2271,7 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 	if (!remote_mail) {
 		/* the mail isn't remote yet. we were just trying to copy a
 		   local mail to avoid downloading the remote mail. */
+		mailbox_save_cancel(&save_ctx);
 		return FALSE;
 	}
 	if (mail->minimal_fields) {
