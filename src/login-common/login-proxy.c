@@ -69,9 +69,9 @@ login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
 	ATTR_NULL(2);
 
 static void login_proxy_free_errno(struct login_proxy **proxy,
-				   int err, const char *who)
+				   int err, bool server)
 {
-	const char *reason;
+	const char *reason, *who = server ? "server" : "client";
 
 	reason = err == 0 || err == EPIPE ?
 		t_strdup_printf("Disconnected by %s", who) :
@@ -95,7 +95,7 @@ static void server_input(struct login_proxy *proxy)
 
 	ret = net_receive(proxy->server_fd, buf, sizeof(buf));
 	if (ret < 0) {
-		login_proxy_free_errno(&proxy, errno, "server");
+		login_proxy_free_errno(&proxy, errno, TRUE);
 		return;
 	}
 	o_stream_cork(proxy->client_output);
@@ -103,8 +103,7 @@ static void server_input(struct login_proxy *proxy)
 	o_stream_uncork(proxy->client_output);
 	if (ret2 != ret) {
 		login_proxy_free_errno(&proxy,
-				       proxy->client_output->stream_errno,
-				       "client");
+			proxy->client_output->stream_errno, FALSE);
 	}
 }
 
@@ -124,7 +123,7 @@ static void proxy_client_input(struct login_proxy *proxy)
 
 	ret = net_receive(proxy->client_fd, buf, sizeof(buf));
 	if (ret < 0) {
-		login_proxy_free_errno(&proxy, errno, "client");
+		login_proxy_free_errno(&proxy, errno, FALSE);
 		return;
 	}
 	o_stream_cork(proxy->server_output);
@@ -132,8 +131,7 @@ static void proxy_client_input(struct login_proxy *proxy)
 	o_stream_uncork(proxy->server_output);
 	if (ret2 != ret) {
 		login_proxy_free_errno(&proxy,
-				       proxy->server_output->stream_errno,
-				       "server");
+			proxy->server_output->stream_errno, TRUE);
 	}
 }
 
@@ -142,8 +140,7 @@ static int server_output(struct login_proxy *proxy)
 	proxy->last_io = ioloop_time;
 	if (o_stream_flush(proxy->server_output) < 0) {
 		login_proxy_free_errno(&proxy,
-				       proxy->server_output->stream_errno,
-				       "server");
+			proxy->server_output->stream_errno, TRUE);
 		return 1;
 	}
 
@@ -163,8 +160,7 @@ static int proxy_client_output(struct login_proxy *proxy)
 	proxy->last_io = ioloop_time;
 	if (o_stream_flush(proxy->client_output) < 0) {
 		login_proxy_free_errno(&proxy,
-				       proxy->client_output->stream_errno,
-				       "client");
+			proxy->client_output->stream_errno, FALSE);
 		return 1;
 	}
 
