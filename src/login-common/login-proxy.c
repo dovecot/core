@@ -419,6 +419,18 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 		net_disconnect(proxy->server_fd);
 }
 
+static void login_proxy_free_final(struct login_proxy *proxy)
+{
+	if (proxy->client_output != NULL)
+		o_stream_destroy(&proxy->client_output);
+	if (proxy->client_fd != -1)
+		net_disconnect(proxy->client_fd);
+	if (proxy->ssl_server_proxy != NULL)
+		ssl_proxy_free(&proxy->ssl_server_proxy);
+	i_free(proxy->host);
+	i_free(proxy);
+}
+
 static void ATTR_NULL(2)
 login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
 {
@@ -447,23 +459,17 @@ login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
 
 		if (proxy->client_io != NULL)
 			io_remove(&proxy->client_io);
-		if (proxy->client_output != NULL)
-			o_stream_destroy(&proxy->client_output);
-		net_disconnect(proxy->client_fd);
 	} else {
 		i_assert(proxy->client_io == NULL);
 		i_assert(proxy->client_output == NULL);
+		i_assert(proxy->client_fd == -1);
 
 		DLLIST_REMOVE(&login_proxies_pending, proxy);
 
 		if (proxy->callback != NULL)
 			proxy->callback(proxy->client);
 	}
-
-	if (proxy->ssl_server_proxy != NULL)
-		ssl_proxy_free(&proxy->ssl_server_proxy);
-	i_free(proxy->host);
-	i_free(proxy);
+	login_proxy_free_final(proxy);
 
 	client->login_proxy = NULL;
 	client_unref(&client);
