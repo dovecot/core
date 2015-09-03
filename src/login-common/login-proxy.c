@@ -202,6 +202,7 @@ static void proxy_fail_connect(struct login_proxy *proxy)
 	} else {
 		proxy->state_rec->last_failure = ioloop_timeval;
 	}
+	i_assert(proxy->state_rec->num_waiting_connections > 0);
 	proxy->state_rec->num_waiting_connections--;
 	proxy->state_rec = NULL;
 }
@@ -278,6 +279,7 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 	}
 	proxy->connected = TRUE;
 	proxy->state_rec->last_success = ioloop_timeval;
+	i_assert(proxy->state_rec->num_waiting_connections > 0);
 	proxy->state_rec->num_waiting_connections--;
 	proxy->state_rec = NULL;
 
@@ -399,8 +401,10 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 	if (proxy->to_notify != NULL)
 		timeout_remove(&proxy->to_notify);
 
-	if (proxy->state_rec != NULL)
+	if (proxy->state_rec != NULL) {
+		i_assert(proxy->state_rec->num_waiting_connections > 0);
 		proxy->state_rec->num_waiting_connections--;
+	}
 
 	if (proxy->server_io != NULL)
 		io_remove(&proxy->server_io);

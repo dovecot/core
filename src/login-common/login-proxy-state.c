@@ -66,8 +66,16 @@ static void login_proxy_state_close(struct login_proxy_state *state)
 void login_proxy_state_deinit(struct login_proxy_state **_state)
 {
 	struct login_proxy_state *state = *_state;
+	struct hash_iterate_context *iter;
+	struct login_proxy_record *rec;
 
 	*_state = NULL;
+
+	/* sanity check: */
+	iter = hash_table_iterate_init(state->hash);
+	while (hash_table_iterate(iter, state->hash, &rec, &rec))
+		i_assert(rec->num_waiting_connections == 0);
+	hash_table_iterate_deinit(&iter);
 
 	if (state->to_reopen != NULL)
 		timeout_remove(&state->to_reopen);
