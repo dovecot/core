@@ -157,7 +157,7 @@ static void dict_connection_input(struct dict_connection *conn)
 
 void dict_connection_continue_input(struct dict_connection *conn)
 {
-	if (conn->io != NULL)
+	if (conn->io != NULL || conn->destroyed)
 		return;
 
 	conn->io = io_add(conn->fd, IO_READ, dict_connection_input, conn);
@@ -183,6 +183,7 @@ struct dict_connection *dict_connection_create(int fd)
 	struct dict_connection *conn;
 
 	conn = i_new(struct dict_connection, 1);
+	conn->refcount = 1;
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, DICT_CLIENT_MAX_LINE_LENGTH,
 					 FALSE);
@@ -195,41 +196,73 @@ struct dict_connection *dict_connection_create(int fd)
 	return conn;
 }
 
-void dict_connection_destroy(struct dict_connection *conn)
+void dict_connection_ref(struct dict_connection *conn)
+{
+	i_assert(conn->refcount > 0);
+	conn->refcount++;
+}
+
+bool dict_connection_unref(struct dict_connection *conn)
 {
 	struct dict_connection_transaction *transaction;
 
-	DLLIST_REMOVE(&dict_connections, conn);
+	i_assert(conn->refcount > 0);
+	if (--conn->refcount > 0)
+		return TRUE;
 
-	/* deinit dict before anything else, so any pending dict operations
-	   are aborted and their callbacks called. */
+	i_assert(array_count(&conn->cmds) == 0);
+
+	/* we should have only transactions that haven't been committed or
+	   rollbacked yet. close those before dict is deinitialized. */
+	if (array_is_created(&conn->transactions)) {
+		array_foreach_modifiable(&conn->transactions, transaction) {
+			if (transaction->ctx != NULL)
+				dict_transaction_rollback(&transaction->ctx);
+		}
+	}
+
 	if (conn->dict != NULL)
 		dict_deinit(&conn->dict);
 
-	if (array_is_created(&conn->transactions)) {
-		array_foreach_modifiable(&conn->transactions, transaction)
-			dict_transaction_rollback(&transaction->ctx);
+	if (array_is_created(&conn->transactions))
 		array_free(&conn->transactions);
-	}
 
-	/* this may end up adding conn->io back, so keep this early */
-	dict_connection_cmds_free(conn);
-	array_free(&conn->cmds);
-
-	if (conn->to_input != NULL)
-		timeout_remove(&conn->to_input);
-	if (conn->io != NULL)
-		io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
-	if (close(conn->fd) < 0)
-		i_error("close(dict client) failed: %m");
 
+	array_free(&conn->cmds);
 	i_free(conn->name);
 	i_free(conn->username);
 	i_free(conn);
 
 	master_service_client_connection_destroyed(master_service);
+	return FALSE;
+}
+
+void dict_connection_destroy(struct dict_connection *conn)
+{
+	conn->destroyed = TRUE;
+	DLLIST_REMOVE(&dict_connections, conn);
+
+	if (conn->to_input != NULL)
+		timeout_remove(&conn->to_input);
+	if (conn->io != NULL)
+		io_remove(&conn->io);
+	i_stream_close(conn->input);
+	o_stream_close(conn->output);
+	if (close(conn->fd) < 0)
+		i_error("close(dict client) failed: %m");
+	conn->fd = -1;
+
+	/* the connection is closed, but there may still be commands left
+	   running. finish them, even if the calling client can't be notified
+	   about whether they succeeded (clients may not even care).
+
+	   flush the command output here in case we were waiting on iteration
+	   output. */
+	dict_connection_cmds_output_more(conn);
+
+	dict_connection_unref(conn);
 }
 
 void dict_connections_destroy_all(void)

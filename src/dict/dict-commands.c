@@ -27,7 +27,7 @@ struct dict_connection_cmd {
 	struct dict_iterate_context *iter;
 	enum dict_iterate_flags iter_flags;
 
-	struct dict_connection_transaction *trans;
+	unsigned int trans_id;
 };
 
 static void dict_connection_cmd_output_more(struct dict_connection_cmd *cmd);
@@ -36,10 +36,10 @@ static void dict_connection_cmd_free(struct dict_connection_cmd *cmd)
 {
 	if (cmd->iter != NULL)
 		(void)dict_iterate_deinit(&cmd->iter);
-	array_delete(&cmd->conn->cmds, 0, 1);
 	i_free(cmd->reply);
 
-	dict_connection_continue_input(cmd->conn);
+	if (dict_connection_unref(cmd->conn))
+		dict_connection_continue_input(cmd->conn);
 	i_free(cmd);
 }
 
@@ -51,6 +51,7 @@ static void dict_connection_cmd_remove(struct dict_connection_cmd *cmd)
 	cmds = array_get(&cmd->conn->cmds, &count);
 	for (i = 0; i < count; i++) {
 		if (cmds[i] == cmd) {
+			array_delete(&cmd->conn->cmds, i, 1);
 			dict_connection_cmd_free(cmd);
 			return;
 		}
@@ -62,6 +63,7 @@ static void dict_connection_cmds_flush(struct dict_connection *conn)
 {
 	struct dict_connection_cmd *cmd, *const *first_cmdp;
 
+	dict_connection_ref(conn);
 	while (array_count(&conn->cmds) > 0) {
 		first_cmdp = array_idx(&conn->cmds, 0);
 		cmd = *first_cmdp;
@@ -74,16 +76,7 @@ static void dict_connection_cmds_flush(struct dict_connection *conn)
 		o_stream_nsend_str(conn->output, cmd->reply);
 		dict_connection_cmd_remove(cmd);
 	}
-}
-
-void dict_connection_cmds_free(struct dict_connection *conn)
-{
-	struct dict_connection_cmd *const *first_cmdp;
-
-	while (array_count(&conn->cmds) > 0) {
-		first_cmdp = array_idx(&conn->cmds, 0);
-		dict_connection_cmd_remove(*first_cmdp);
-	}
+	dict_connection_unref(conn);
 }
 
 static void
@@ -201,20 +194,20 @@ dict_connection_transaction_lookup(struct dict_connection *conn,
 
 static void
 dict_connection_transaction_array_remove(struct dict_connection *conn,
-					 struct dict_connection_transaction *trans)
+					 unsigned int id)
 {
 	const struct dict_connection_transaction *transactions;
 	unsigned int i, count;
 
-	i_assert(trans->ctx == NULL);
-
 	transactions = array_get(&conn->transactions, &count);
 	for (i = 0; i < count; i++) {
-		if (&transactions[i] == trans) {
+		if (transactions[i].id == id) {
+			i_assert(transactions[i].ctx == NULL);
 			array_delete(&conn->transactions, i, 1);
-			break;
+			return;
 		}
 	}
+	i_unreached();
 }
 
 static int cmd_begin(struct dict_connection_cmd *cmd, const char *line)
@@ -279,11 +272,11 @@ cmd_commit_finish(struct dict_connection_cmd *cmd, int ret, bool async)
 	}
 	if (async) {
 		cmd->reply = i_strdup_printf("%c%c%u\n",
-			DICT_PROTOCOL_REPLY_ASYNC_COMMIT, chr, cmd->trans->id);
+			DICT_PROTOCOL_REPLY_ASYNC_COMMIT, chr, cmd->trans_id);
 	} else {
-		cmd->reply = i_strdup_printf("%c%u\n", chr, cmd->trans->id);
+		cmd->reply = i_strdup_printf("%c%u\n", chr, cmd->trans_id);
 	}
-	dict_connection_transaction_array_remove(cmd->conn, cmd->trans);
+	dict_connection_transaction_array_remove(cmd->conn, cmd->trans_id);
 	dict_connection_cmds_flush(cmd->conn);
 }
 
@@ -304,20 +297,26 @@ static void cmd_commit_callback_async(int ret, void *context)
 static int
 cmd_commit(struct dict_connection_cmd *cmd, const char *line)
 {
-	if (dict_connection_transaction_lookup_parse(cmd->conn, line, &cmd->trans) < 0)
-		return -1;
+	struct dict_connection_transaction *trans;
 
-	dict_transaction_commit_async(&cmd->trans->ctx, cmd_commit_callback, cmd);
+	if (dict_connection_transaction_lookup_parse(cmd->conn, line, &trans) < 0)
+		return -1;
+	cmd->trans_id = trans->id;
+
+	dict_transaction_commit_async(&trans->ctx, cmd_commit_callback, cmd);
 	return 1;
 }
 
 static int
 cmd_commit_async(struct dict_connection_cmd *cmd, const char *line)
 {
-	if (dict_connection_transaction_lookup_parse(cmd->conn, line, &cmd->trans) < 0)
-		return -1;
+	struct dict_connection_transaction *trans;
 
-	dict_transaction_commit_async(&cmd->trans->ctx, cmd_commit_callback_async, cmd);
+	if (dict_connection_transaction_lookup_parse(cmd->conn, line, &trans) < 0)
+		return -1;
+	cmd->trans_id = trans->id;
+
+	dict_transaction_commit_async(&trans->ctx, cmd_commit_callback_async, cmd);
 	return 1;
 }
 
@@ -329,7 +328,7 @@ static int cmd_rollback(struct dict_connection_cmd *cmd, const char *line)
 		return -1;
 
 	dict_transaction_rollback(&trans->ctx);
-	dict_connection_transaction_array_remove(cmd->conn, trans);
+	dict_connection_transaction_array_remove(cmd->conn, trans->id);
 	return 0;
 }
 
@@ -451,6 +450,7 @@ int dict_command_input(struct dict_connection *conn, const char *line)
 	cmd->conn = conn;
 	cmd->cmd = cmd_func;
 	array_append(&conn->cmds, &cmd, 1);
+	dict_connection_ref(conn);
 	if ((ret = cmd_func->func(cmd, line + 1)) <= 0) {
 		dict_connection_cmd_remove(cmd);
 		return ret;

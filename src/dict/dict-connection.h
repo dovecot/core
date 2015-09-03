@@ -12,6 +12,7 @@ struct dict_connection_transaction {
 struct dict_connection {
 	struct dict_connection *prev, *next;
 	struct dict_server *server;
+	int refcount;
 
 	char *username;
 	char *name;
@@ -28,10 +29,15 @@ struct dict_connection {
 	   array is fast enough */
 	ARRAY(struct dict_connection_transaction) transactions;
 	ARRAY(struct dict_connection_cmd *) cmds;
+
+	unsigned int destroyed:1;
 };
 
 struct dict_connection *dict_connection_create(int fd);
 void dict_connection_destroy(struct dict_connection *conn);
+
+void dict_connection_ref(struct dict_connection *conn);
+bool dict_connection_unref(struct dict_connection *conn);
 
 void dict_connection_continue_input(struct dict_connection *conn);
 
