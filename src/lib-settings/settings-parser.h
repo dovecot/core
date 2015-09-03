@@ -24,7 +24,6 @@ enum setting_type {
 	SET_TIME,
 	SET_SIZE,
 	SET_IN_PORT, /* internet port */
-	SET_IN_PORT_ZERO, /* internet port */
 	SET_STR,
 	SET_STR_VARS, /* string with %variables */
 	SET_ENUM,
