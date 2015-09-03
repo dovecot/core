@@ -53,6 +53,7 @@ struct login_proxy {
 	unsigned int connected:1;
 	unsigned int destroying:1;
 	unsigned int disconnecting:1;
+	unsigned int num_waiting_connections_updated:1;
 };
 
 static struct login_proxy_state *proxy_state;
@@ -204,7 +205,7 @@ static void proxy_fail_connect(struct login_proxy *proxy)
 	}
 	i_assert(proxy->state_rec->num_waiting_connections > 0);
 	proxy->state_rec->num_waiting_connections--;
-	proxy->state_rec = NULL;
+	proxy->num_waiting_connections_updated = TRUE;
 }
 
 static void
@@ -278,10 +279,10 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 		return;
 	}
 	proxy->connected = TRUE;
+	proxy->num_waiting_connections_updated = TRUE;
 	proxy->state_rec->last_success = ioloop_timeval;
 	i_assert(proxy->state_rec->num_waiting_connections > 0);
 	proxy->state_rec->num_waiting_connections--;
-	proxy->state_rec = NULL;
 
 	if ((proxy->ssl_flags & PROXY_SSL_FLAG_YES) != 0 &&
 	    (proxy->ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0) {
@@ -306,9 +307,8 @@ static void proxy_connect_timeout(struct login_proxy *proxy)
 
 static int login_proxy_connect(struct login_proxy *proxy)
 {
-	struct login_proxy_record *rec;
+	struct login_proxy_record *rec = proxy->state_rec;
 
-	rec = login_proxy_state_get(proxy_state, &proxy->ip, proxy->port);
 	if (rec->last_success.tv_sec == 0) {
 		/* first connect to this IP. don't start immediately failing
 		   the check below. */
@@ -339,6 +339,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 					proxy_connect_timeout, proxy);
 	}
 
+	proxy->num_waiting_connections_updated = FALSE;
 	proxy->state_rec = rec;
 	proxy->state_rec->num_waiting_connections++;
 	return 0;
@@ -375,6 +376,8 @@ int login_proxy_new(struct client *client,
 	proxy->connect_timeout_msecs = set->connect_timeout_msecs;
 	proxy->notify_refresh_secs = set->notify_refresh_secs;
 	proxy->ssl_flags = set->ssl_flags;
+	proxy->state_rec = login_proxy_state_get(proxy_state, &proxy->ip,
+						 proxy->port);
 	client_ref(client);
 
 	if (set->ip.family == 0 &&
@@ -401,7 +404,7 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 	if (proxy->to_notify != NULL)
 		timeout_remove(&proxy->to_notify);
 
-	if (proxy->state_rec != NULL) {
+	if (!proxy->num_waiting_connections_updated) {
 		i_assert(proxy->state_rec->num_waiting_connections > 0);
 		proxy->state_rec->num_waiting_connections--;
 	}
