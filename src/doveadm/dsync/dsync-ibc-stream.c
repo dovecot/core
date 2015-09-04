@@ -169,6 +169,20 @@ struct dsync_ibc_stream {
 	unsigned int stopped:1;
 };
 
+static const char *dsync_ibc_stream_get_state(struct dsync_ibc_stream *ibc)
+{
+	if (!ibc->version_received)
+		return "version not received";
+	else if (!ibc->handshake_received)
+		return "handshake not received";
+
+	return t_strdup_printf("last sent=%s%s, last recv=%s%s",
+			       items[ibc->last_sent_item].name,
+			       ibc->last_sent_item_eol ? " (EOL)" : "",
+			       items[ibc->last_recv_item].name,
+			       ibc->last_recv_item_eol ? " (EOL)" : "");
+}
+
 static void dsync_ibc_stream_stop(struct dsync_ibc_stream *ibc)
 {
 	ibc->stopped = TRUE;
@@ -185,8 +199,10 @@ static int dsync_ibc_stream_read_mail_stream(struct dsync_ibc_stream *ibc)
 	} while (i_stream_read(ibc->value_input) > 0);
 	if (ibc->value_input->eof) {
 		if (ibc->value_input->stream_errno != 0) {
-			i_error("dsync(%s): read() failed: %s", ibc->name,
-				i_stream_get_error(ibc->value_input));
+			i_error("dsync(%s): read(%s) failed: %s (%s)", ibc->name,
+				i_stream_get_name(ibc->value_input),
+				i_stream_get_error(ibc->value_input),
+				dsync_ibc_stream_get_state(ibc));
 			dsync_ibc_stream_stop(ibc);
 			return -1;
 		}
@@ -258,9 +274,10 @@ static int dsync_ibc_stream_send_value_stream(struct dsync_ibc_stream *ibc)
 	i_assert(ret == -1);
 
 	if (ibc->value_output->stream_errno != 0) {
-		i_error("dsync(%s): read(%s) failed: %s",
+		i_error("dsync(%s): read(%s) failed: %s (%s)",
 			ibc->name, i_stream_get_name(ibc->value_output),
-			i_stream_get_error(ibc->value_output));
+			i_stream_get_error(ibc->value_output),
+			dsync_ibc_stream_get_state(ibc));
 		dsync_ibc_stream_stop(ibc);
 		return -1;
 	}
@@ -294,13 +311,8 @@ static int dsync_ibc_stream_output(struct dsync_ibc_stream *ibc)
 
 static void dsync_ibc_stream_timeout(struct dsync_ibc_stream *ibc)
 {
-	i_error("dsync(%s): I/O has stalled, no activity for %u seconds "
-		"(last sent=%s%s, last recv=%s%s)",
-		ibc->name, ibc->timeout_secs,
-		items[ibc->last_sent_item].name,
-		ibc->last_sent_item_eol ? " (EOL)" : "",
-		items[ibc->last_recv_item].name,
-		ibc->last_recv_item_eol ? " (EOL)" : "");
+	i_error("dsync(%s): I/O has stalled, no activity for %u seconds (%s)",
+		ibc->name, ibc->timeout_secs, dsync_ibc_stream_get_state(ibc));
 	ibc->ibc.timeout = TRUE;
 	dsync_ibc_stream_stop(ibc);
 }
@@ -396,10 +408,7 @@ static int dsync_ibc_stream_next_line(struct dsync_ibc_stream *ibc,
 			i_assert(ibc->input->eof);
 			str_printfa(error, "read(%s) failed: EOF", ibc->name);
 		}
-		if (!ibc->version_received)
-			str_append(error, " (version not received)");
-		else if (!ibc->handshake_received)
-			str_append(error, " (handshake not received)");
+		str_printfa(error, " (%s)", dsync_ibc_stream_get_state(ibc));
 		i_error("%s", str_c(error));
 		dsync_ibc_stream_stop(ibc);
 		return -1;
