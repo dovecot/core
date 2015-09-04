@@ -159,6 +159,10 @@ struct dsync_ibc_stream {
 	struct dsync_mailbox_attribute *cur_attr;
 	char value_output_last;
 
+	enum item_type last_recv_item, last_sent_item;
+	unsigned int last_recv_item_eol:1;
+	unsigned int last_sent_item_eol:1;
+
 	unsigned int version_received:1;
 	unsigned int handshake_received:1;
 	unsigned int has_pending_data:1;
@@ -290,8 +294,13 @@ static int dsync_ibc_stream_output(struct dsync_ibc_stream *ibc)
 
 static void dsync_ibc_stream_timeout(struct dsync_ibc_stream *ibc)
 {
-	i_error("dsync(%s): I/O has stalled, no activity for %u seconds",
-		ibc->name, ibc->timeout_secs);
+	i_error("dsync(%s): I/O has stalled, no activity for %u seconds "
+		"(last sent=%s%s, last recv=%s%s)",
+		ibc->name, ibc->timeout_secs,
+		items[ibc->last_sent_item].name,
+		ibc->last_sent_item_eol ? " (EOL)" : "",
+		items[ibc->last_recv_item].name,
+		ibc->last_recv_item_eol ? " (EOL)" : "");
 	ibc->ibc.timeout = TRUE;
 	dsync_ibc_stream_stop(ibc);
 }
@@ -521,6 +530,7 @@ dsync_ibc_stream_handshake(struct dsync_ibc_stream *ibc, const char *line)
 		if (dsync_ibc_check_missing_deserializers(ibc) < 0)
 			return FALSE;
 		ibc->handshake_received = TRUE;
+		ibc->last_recv_item = ITEM_HANDSHAKE;
 		return FALSE;
 	}
 
@@ -564,8 +574,12 @@ dsync_ibc_stream_input_next(struct dsync_ibc_stream *ibc, enum item_type item,
 			return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	} while (!dsync_ibc_stream_handshake(ibc, line));
 
+	ibc->last_recv_item = item;
+	ibc->last_recv_item_eol = FALSE;
+
 	if (strcmp(line, END_OF_LIST_LINE) == 0) {
 		/* end of this list */
+		ibc->last_recv_item_eol = TRUE;
 		return DSYNC_IBC_RECV_RET_FINISHED;
 	}
 	if (line[0] == items[ITEM_DONE].chr) {
@@ -602,6 +616,14 @@ dsync_ibc_stream_input_next(struct dsync_ibc_stream *ibc, enum item_type item,
 	return DSYNC_IBC_RECV_RET_OK;
 }
 
+static struct dsync_serializer_encoder *
+dsync_ibc_send_encode_begin(struct dsync_ibc_stream *ibc, enum item_type item)
+{
+	ibc->last_sent_item = item;
+	ibc->last_sent_item_eol = FALSE;
+	return dsync_serializer_encode_begin(ibc->serializers[item]);
+}
+
 static void
 dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 				const struct dsync_ibc_settings *set)
@@ -612,7 +634,7 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 	char sync_type[2];
 
 	str_append_c(str, items[ITEM_HANDSHAKE].chr);
-	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_HANDSHAKE]);
+	encoder = dsync_ibc_send_encode_begin(ibc, ITEM_HANDSHAKE);
 	dsync_serializer_encode_add(encoder, "hostname", set->hostname);
 	if (set->sync_ns_prefixes != NULL) {
 		dsync_serializer_encode_add(encoder, "sync_ns_prefix",
@@ -815,6 +837,7 @@ dsync_ibc_stream_send_end_of_list(struct dsync_ibc *_ibc,
 		break;
 	}
 
+	ibc->last_sent_item_eol = TRUE;
 	o_stream_nsend_str(ibc->output, END_OF_LIST_LINE"\n");
 }
 
@@ -827,7 +850,7 @@ dsync_ibc_stream_send_mailbox_state(struct dsync_ibc *_ibc,
 	string_t *str = t_str_new(128);
 
 	str_append_c(str, items[ITEM_MAILBOX_STATE].chr);
-	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_MAILBOX_STATE]);
+	encoder = dsync_ibc_send_encode_begin(ibc, ITEM_MAILBOX_STATE);
 	dsync_serializer_encode_add(encoder, "mailbox_guid",
 				    guid_128_to_string(state->mailbox_guid));
 	dsync_serializer_encode_add(encoder, "last_uidvalidity",
@@ -921,7 +944,7 @@ dsync_ibc_stream_send_mailbox_tree_node(struct dsync_ibc *_ibc,
 	}
 	str_truncate(namestr, str_len(namestr)-1);
 
-	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_MAILBOX_TREE_NODE]);
+	encoder = dsync_ibc_send_encode_begin(ibc, ITEM_MAILBOX_TREE_NODE);
 	dsync_serializer_encode_add(encoder, "name", str_c(namestr));
 	switch (node->existence) {
 	case DSYNC_MAILBOX_NODE_NONEXISTENT:
@@ -1066,7 +1089,7 @@ dsync_ibc_stream_send_mailbox_deletes(struct dsync_ibc *_ibc,
 	str = t_str_new(128);
 	str_append_c(str, items[ITEM_MAILBOX_DELETE].chr);
 
-	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_MAILBOX_DELETE]);
+	encoder = dsync_ibc_send_encode_begin(ibc, ITEM_MAILBOX_DELETE);
 	sep[0] = hierarchy_sep; sep[1] = '\0';
 	dsync_serializer_encode_add(encoder, "hierarchy_sep", sep);
 
@@ -1213,7 +1236,7 @@ dsync_ibc_stream_send_mailbox(struct dsync_ibc *_ibc,
 	const char *value;
 
 	str_append_c(str, items[ITEM_MAILBOX].chr);
-	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_MAILBOX]);
+	encoder = dsync_ibc_send_encode_begin(ibc, ITEM_MAILBOX);
 	dsync_serializer_encode_add(encoder, "mailbox_guid",
 				    guid_128_to_string(dsync_box->mailbox_guid));
 
@@ -1387,7 +1410,7 @@ dsync_ibc_stream_send_mailbox_attribute(struct dsync_ibc *_ibc,
 		return;
 
 	str_append_c(str, items[ITEM_MAILBOX_ATTRIBUTE].chr);
-	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_MAILBOX_ATTRIBUTE]);
+	encoder = dsync_ibc_send_encode_begin(ibc, ITEM_MAILBOX_ATTRIBUTE);
 
 	type[0] = type[1] = '\0';
 	switch (attr->type) {
@@ -1514,7 +1537,7 @@ dsync_ibc_stream_send_change(struct dsync_ibc *_ibc,
 	char type[2];
 
 	str_append_c(str, items[ITEM_MAIL_CHANGE].chr);
-	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_MAIL_CHANGE]);
+	encoder = dsync_ibc_send_encode_begin(ibc, ITEM_MAIL_CHANGE);
 
 	type[0] = type[1] = '\0';
 	switch (change->type) {
@@ -1700,7 +1723,7 @@ dsync_ibc_stream_send_mail_request(struct dsync_ibc *_ibc,
 	string_t *str = t_str_new(128);
 
 	str_append_c(str, items[ITEM_MAIL_REQUEST].chr);
-	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_MAIL_REQUEST]);
+	encoder = dsync_ibc_send_encode_begin(ibc, ITEM_MAIL_REQUEST);
 	if (request->guid != NULL)
 		dsync_serializer_encode_add(encoder, "guid", request->guid);
 	if (request->uid != 0) {
@@ -1752,7 +1775,7 @@ dsync_ibc_stream_send_mail(struct dsync_ibc *_ibc,
 	i_assert(ibc->value_output == NULL);
 
 	str_append_c(str, items[ITEM_MAIL].chr);
-	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_MAIL]);
+	encoder = dsync_ibc_send_encode_begin(ibc, ITEM_MAIL);
 	if (mail->guid != NULL)
 		dsync_serializer_encode_add(encoder, "guid", mail->guid);
 	if (mail->uid != 0)
@@ -1862,7 +1885,7 @@ dsync_ibc_stream_send_finish(struct dsync_ibc *_ibc, const char *error,
 	string_t *str = t_str_new(128);
 
 	str_append_c(str, items[ITEM_FINISH].chr);
-	encoder = dsync_serializer_encode_begin(ibc->serializers[ITEM_FINISH]);
+	encoder = dsync_ibc_send_encode_begin(ibc, ITEM_FINISH);
 	if (error != NULL)
 		dsync_serializer_encode_add(encoder, "error", error);
 	if (mail_error != 0) {
