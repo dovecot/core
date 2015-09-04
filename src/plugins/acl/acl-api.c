@@ -210,6 +210,9 @@ int acl_default_object_list_next(struct acl_object_list_iter *iter,
 {
 	const struct acl_rights *rights;
 
+	if (iter->failed)
+		return -1;
+
 	if (iter->idx == array_count(&iter->aclobj->rights))
 		return 0;
 
