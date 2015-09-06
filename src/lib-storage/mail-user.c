@@ -521,6 +521,7 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 
 	user2 = mail_user_alloc(user->username, user->set_info,
 				user->unexpanded_set);
+	user2->_service_user = user->_service_user;
 	if (user->_home != NULL)
 		mail_user_set_home(user2, user->_home);
 	mail_user_set_vars(user2, user->service,
