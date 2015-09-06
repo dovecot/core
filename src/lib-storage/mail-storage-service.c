@@ -1547,6 +1547,12 @@ mail_storage_service_user_get_settings_parser(struct mail_storage_service_user *
 	return user->set_parser;
 }
 
+struct mail_storage_service_ctx *
+mail_storage_service_user_get_service_ctx(struct mail_storage_service_user *user)
+{
+	return user->service_ctx;
+}
+
 void *mail_storage_service_get_settings(struct master_service *service)
 {
 	void **sets, *set;
