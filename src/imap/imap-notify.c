@@ -57,27 +57,17 @@ static int imap_notify_status(struct imap_notify_namespace *notify_ns,
 		items.status |= STATUS_HIGHESTMODSEQ;
 
 	box = mailbox_alloc(notify_ns->ns->list, rec->vname, 0);
-	switch (rec->event) {
-	case MAILBOX_LIST_NOTIFY_UIDVALIDITY:
+	if ((rec->events & MAILBOX_LIST_NOTIFY_UIDVALIDITY) != 0) {
 		items.status |= STATUS_UIDVALIDITY | STATUS_UIDNEXT |
 			STATUS_MESSAGES | STATUS_UNSEEN;
-		break;
-	case MAILBOX_LIST_NOTIFY_APPENDS:
-	case MAILBOX_LIST_NOTIFY_EXPUNGES:
+	}
+	if ((rec->events & (MAILBOX_LIST_NOTIFY_APPENDS |
+			    MAILBOX_LIST_NOTIFY_EXPUNGES)) != 0)
 		items.status |= STATUS_UIDNEXT | STATUS_MESSAGES | STATUS_UNSEEN;
-		break;
-	case MAILBOX_LIST_NOTIFY_SEEN_CHANGES:
+	if ((rec->events & MAILBOX_LIST_NOTIFY_SEEN_CHANGES) != 0)
 		items.status |= STATUS_UNSEEN;
-		break;
-	case MAILBOX_LIST_NOTIFY_MODSEQ_CHANGES:
+	if ((rec->events & MAILBOX_LIST_NOTIFY_MODSEQ_CHANGES) != 0) {
 		/* if HIGHESTMODSEQ isn't being sent, don't send anything */
-		break;
-	case MAILBOX_LIST_NOTIFY_CREATE:
-	case MAILBOX_LIST_NOTIFY_DELETE:
-	case MAILBOX_LIST_NOTIFY_RENAME:
-	case MAILBOX_LIST_NOTIFY_SUBSCRIBE:
-	case MAILBOX_LIST_NOTIFY_UNSUBSCRIBE:
-		i_unreached();
 	}
 	if (items.status == 0) {
 		/* don't send anything */
@@ -100,46 +90,50 @@ imap_notify_next(struct imap_notify_namespace *notify_ns,
 		 const struct mailbox_list_notify_rec *rec)
 {
 	enum mailbox_info_flags mailbox_flags;
-	int ret = 1;
+	int ret;
 
-	switch (rec->event) {
-	case MAILBOX_LIST_NOTIFY_CREATE:
+	if ((rec->events & MAILBOX_LIST_NOTIFY_CREATE) != 0) {
 		if (mailbox_list_mailbox(notify_ns->ns->list, rec->storage_name,
 					 &mailbox_flags) < 0)
 			mailbox_flags = 0;
-		ret = imap_notify_list(notify_ns, rec, mailbox_flags);
-		break;
-	case MAILBOX_LIST_NOTIFY_DELETE:
-		ret = imap_notify_list(notify_ns, rec, MAILBOX_NONEXISTENT);
-		break;
-	case MAILBOX_LIST_NOTIFY_RENAME:
-		if (mailbox_list_mailbox(notify_ns->ns->list, rec->storage_name,
-					 &mailbox_flags) < 0)
-			mailbox_flags = 0;
-		ret = imap_notify_list(notify_ns, rec, mailbox_flags);
-		break;
-	case MAILBOX_LIST_NOTIFY_SUBSCRIBE:
-		if (mailbox_list_mailbox(notify_ns->ns->list, rec->storage_name,
-					 &mailbox_flags) < 0)
-			mailbox_flags = 0;
-		ret = imap_notify_list(notify_ns, rec,
-				       mailbox_flags | MAILBOX_SUBSCRIBED);
-		break;
-	case MAILBOX_LIST_NOTIFY_UNSUBSCRIBE:
-		if (mailbox_list_mailbox(notify_ns->ns->list, rec->storage_name,
-					 &mailbox_flags) < 0)
-			mailbox_flags = 0;
-		ret = imap_notify_list(notify_ns, rec, mailbox_flags);
-		break;
-	case MAILBOX_LIST_NOTIFY_UIDVALIDITY:
-	case MAILBOX_LIST_NOTIFY_APPENDS:
-	case MAILBOX_LIST_NOTIFY_EXPUNGES:
-	case MAILBOX_LIST_NOTIFY_SEEN_CHANGES:
-	case MAILBOX_LIST_NOTIFY_MODSEQ_CHANGES:
-		ret = imap_notify_status(notify_ns, rec);
-		break;
+		if ((ret = imap_notify_list(notify_ns, rec, mailbox_flags)) <= 0)
+			return ret;
 	}
-	return ret;
+	if ((rec->events & MAILBOX_LIST_NOTIFY_DELETE) != 0) {
+		if ((ret = imap_notify_list(notify_ns, rec, MAILBOX_NONEXISTENT)) < 0)
+			return ret;
+	}
+	if ((rec->events & MAILBOX_LIST_NOTIFY_RENAME) != 0) {
+		if (mailbox_list_mailbox(notify_ns->ns->list, rec->storage_name,
+					 &mailbox_flags) < 0)
+			mailbox_flags = 0;
+		if ((ret = imap_notify_list(notify_ns, rec, mailbox_flags)) < 0)
+			return ret;
+	}
+	if ((rec->events & MAILBOX_LIST_NOTIFY_SUBSCRIBE) != 0) {
+		if (mailbox_list_mailbox(notify_ns->ns->list, rec->storage_name,
+					 &mailbox_flags) < 0)
+			mailbox_flags = 0;
+		if ((ret = imap_notify_list(notify_ns, rec,
+				     mailbox_flags | MAILBOX_SUBSCRIBED)) < 0)
+			return ret;
+	}
+	if ((rec->events & MAILBOX_LIST_NOTIFY_UNSUBSCRIBE) != 0) {
+		if (mailbox_list_mailbox(notify_ns->ns->list, rec->storage_name,
+					 &mailbox_flags) < 0)
+			mailbox_flags = 0;
+		if ((ret = imap_notify_list(notify_ns, rec, mailbox_flags)) < 0)
+			return ret;
+	}
+	if ((rec->events & (MAILBOX_LIST_NOTIFY_UIDVALIDITY |
+			    MAILBOX_LIST_NOTIFY_APPENDS |
+			    MAILBOX_LIST_NOTIFY_EXPUNGES |
+			    MAILBOX_LIST_NOTIFY_SEEN_CHANGES |
+			    MAILBOX_LIST_NOTIFY_MODSEQ_CHANGES)) != 0) {
+		if ((ret = imap_notify_status(notify_ns, rec)) < 0)
+			return ret;
+	}
+	return 1;
 }
 
 static bool
@@ -149,53 +143,45 @@ imap_notify_match_event(struct imap_notify_namespace *notify_ns,
 {
 	enum imap_notify_event wanted_events = notify_boxes->events;
 	struct mailbox *box;
-	bool mailbox_event = FALSE;
 
-	switch (rec->event) {
-	case MAILBOX_LIST_NOTIFY_CREATE:
-	case MAILBOX_LIST_NOTIFY_DELETE:
-	case MAILBOX_LIST_NOTIFY_RENAME:
-		if ((wanted_events & IMAP_NOTIFY_EVENT_MAILBOX_NAME) == 0)
-			return FALSE;
-		break;
-	case MAILBOX_LIST_NOTIFY_SUBSCRIBE:
-	case MAILBOX_LIST_NOTIFY_UNSUBSCRIBE:
-		if ((wanted_events & IMAP_NOTIFY_EVENT_SUBSCRIPTION_CHANGE) == 0)
-			return FALSE;
-		break;
-	case MAILBOX_LIST_NOTIFY_UIDVALIDITY:
-		if ((wanted_events & (IMAP_NOTIFY_EVENT_MESSAGE_NEW |
-				      IMAP_NOTIFY_EVENT_MESSAGE_EXPUNGE |
-				      IMAP_NOTIFY_EVENT_FLAG_CHANGE)) == 0)
-			return FALSE;
-		mailbox_event = TRUE;
-		break;
-	case MAILBOX_LIST_NOTIFY_APPENDS:
-		if ((wanted_events & IMAP_NOTIFY_EVENT_MESSAGE_NEW) == 0)
-			return FALSE;
-		mailbox_event = TRUE;
-		break;
-	case MAILBOX_LIST_NOTIFY_EXPUNGES:
-		if ((wanted_events & IMAP_NOTIFY_EVENT_MESSAGE_EXPUNGE) == 0)
-			return FALSE;
-		mailbox_event = TRUE;
-		break;
-	case MAILBOX_LIST_NOTIFY_SEEN_CHANGES:
-	case MAILBOX_LIST_NOTIFY_MODSEQ_CHANGES:
-		if ((wanted_events & IMAP_NOTIFY_EVENT_FLAG_CHANGE) == 0)
-			return FALSE;
-		mailbox_event = TRUE;
-		break;
+	/* check for mailbox list events first */
+	if ((wanted_events & IMAP_NOTIFY_EVENT_MAILBOX_NAME) != 0) {
+		if ((rec->events & (MAILBOX_LIST_NOTIFY_CREATE |
+				    MAILBOX_LIST_NOTIFY_DELETE |
+				    MAILBOX_LIST_NOTIFY_RENAME)) != 0)
+			return TRUE;
+	}
+	if ((wanted_events & IMAP_NOTIFY_EVENT_SUBSCRIPTION_CHANGE) != 0) {
+		if ((rec->events & (MAILBOX_LIST_NOTIFY_SUBSCRIBE |
+				    MAILBOX_LIST_NOTIFY_UNSUBSCRIBE)) != 0)
+			return TRUE;
 	}
 
-	if (mailbox_event) {
-		/* if this is an even for selected mailbox, ignore it */
-		box = notify_ns->ctx->client->mailbox;
-		if (box != NULL &&
-		    mailbox_equals(box, notify_ns->ns, rec->vname))
-			return FALSE;
+	/* if this is an event for the selected mailbox, ignore it */
+	box = notify_ns->ctx->client->mailbox;
+	if (box != NULL && mailbox_equals(box, notify_ns->ns, rec->vname))
+		return FALSE;
+
+	if ((wanted_events & (IMAP_NOTIFY_EVENT_MESSAGE_NEW |
+			      IMAP_NOTIFY_EVENT_MESSAGE_EXPUNGE |
+			      IMAP_NOTIFY_EVENT_FLAG_CHANGE)) != 0) {
+		if ((rec->events & MAILBOX_LIST_NOTIFY_UIDVALIDITY) != 0)
+			return TRUE;
 	}
-	return TRUE;
+	if ((wanted_events & IMAP_NOTIFY_EVENT_MESSAGE_NEW) != 0) {
+		if ((rec->events & MAILBOX_LIST_NOTIFY_APPENDS) != 0)
+			return TRUE;
+	}
+	if ((wanted_events & IMAP_NOTIFY_EVENT_MESSAGE_EXPUNGE) != 0) {
+		if ((rec->events & MAILBOX_LIST_NOTIFY_EXPUNGES) != 0)
+			return TRUE;
+	}
+	if ((wanted_events & IMAP_NOTIFY_EVENT_FLAG_CHANGE) != 0) {
+		if ((rec->events & (MAILBOX_LIST_NOTIFY_SEEN_CHANGES |
+				    MAILBOX_LIST_NOTIFY_MODSEQ_CHANGES)) != 0)
+			return TRUE;
+	}
+	return FALSE;
 }
 
 bool imap_notify_match_mailbox(struct imap_notify_namespace *notify_ns,

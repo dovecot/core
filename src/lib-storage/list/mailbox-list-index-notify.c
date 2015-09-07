@@ -591,7 +591,7 @@ mailbox_list_index_notify_rename(struct mailbox_list_notify_index *inotify,
 		return FALSE;
 
 	rec->old_vname = old_vname;
-	rec->event = MAILBOX_LIST_NOTIFY_RENAME;
+	rec->events = MAILBOX_LIST_NOTIFY_RENAME;
 	return TRUE;
 }
 
@@ -607,7 +607,7 @@ mailbox_list_index_notify_subscribe(struct mailbox_list_notify_index *inotify,
 	rec->vname = *vnamep;
 	rec->storage_name = mailbox_list_get_storage_name(inotify->notify.list,
 							  rec->vname);
-	rec->event = MAILBOX_LIST_NOTIFY_SUBSCRIBE;
+	rec->events = MAILBOX_LIST_NOTIFY_SUBSCRIBE;
 	return TRUE;
 }
 
@@ -623,7 +623,7 @@ mailbox_list_index_notify_unsubscribe(struct mailbox_list_notify_index *inotify,
 	rec->vname = *vnamep;
 	rec->storage_name = mailbox_list_get_storage_name(inotify->notify.list,
 							  rec->vname);
-	rec->event = MAILBOX_LIST_NOTIFY_UNSUBSCRIBE;
+	rec->events = MAILBOX_LIST_NOTIFY_UNSUBSCRIBE;
 	return TRUE;
 }
 
@@ -637,7 +637,7 @@ mailbox_list_index_notify_expunge(struct mailbox_list_notify_index *inotify,
 	if (!mailbox_list_index_notify_lookup(inotify, inotify->old_view,
 					      uid, 0, &status, &rec))
 		return FALSE;
-	rec->event = MAILBOX_LIST_NOTIFY_DELETE;
+	rec->events = MAILBOX_LIST_NOTIFY_DELETE;
 	return TRUE;
 }
 
@@ -651,7 +651,7 @@ mailbox_list_index_notify_new(struct mailbox_list_notify_index *inotify,
 	if (!mailbox_list_index_notify_lookup(inotify, inotify->view,
 					      uid, 0, &status, &rec))
 		i_unreached();
-	rec->event = MAILBOX_LIST_NOTIFY_CREATE;
+	rec->events = MAILBOX_LIST_NOTIFY_CREATE;
 	return TRUE;
 }
 
@@ -674,15 +674,20 @@ mailbox_list_index_notify_change(struct mailbox_list_notify_index *inotify,
 	nnode = mailbox_list_notify_tree_lookup(inotify->tree,
 						rec->storage_name);
 	if (nnode == NULL || nnode->uidvalidity != status.uidvalidity)
-		rec->event = MAILBOX_LIST_NOTIFY_UIDVALIDITY;
-	else if (nnode->uidnext != status.uidnext)
-		rec->event = MAILBOX_LIST_NOTIFY_APPENDS;
-	else if (nnode->messages > status.messages)
-		rec->event = MAILBOX_LIST_NOTIFY_EXPUNGES;
-	else if (nnode->unseen != status.unseen)
-		rec->event = MAILBOX_LIST_NOTIFY_SEEN_CHANGES;
-	else if (nnode->highest_modseq < status.highest_modseq)
-		rec->event = MAILBOX_LIST_NOTIFY_MODSEQ_CHANGES;
+		rec->events |= MAILBOX_LIST_NOTIFY_UIDVALIDITY;
+	if (nnode->uidnext != status.uidnext)
+		rec->events |= MAILBOX_LIST_NOTIFY_APPENDS;
+	if (nnode->messages > status.messages) {
+		/* NOTE: not entirely reliable, since there could be both
+		   expunges and appends.. but it shouldn't make any difference
+		   in practise, since anybody interested in expunges is most
+		   likely also interested in appends. */
+		rec->events |= MAILBOX_LIST_NOTIFY_EXPUNGES;
+	}
+	if (nnode->unseen != status.unseen)
+		rec->events |= MAILBOX_LIST_NOTIFY_SEEN_CHANGES;
+	if (nnode->highest_modseq < status.highest_modseq)
+		rec->events |= MAILBOX_LIST_NOTIFY_MODSEQ_CHANGES;
 	else {
 		/* nothing changed */
 		return FALSE;
@@ -748,7 +753,7 @@ int mailbox_list_index_notify_next(struct mailbox_list_notify *notify,
 	if (!inotify->initialized)
 		mailbox_list_index_notify_read_init(inotify);
 	while (mailbox_list_index_notify_try_next(inotify)) {
-		if ((inotify->notify_rec.event & inotify->notify.mask) != 0) {
+		if ((inotify->notify_rec.events & inotify->notify.mask) != 0) {
 			*rec_r = &inotify->notify_rec;
 			return 1;
 		} else {

@@ -30,7 +30,8 @@ struct mailbox_list_notify {
 };
 
 struct mailbox_list_notify_rec {
-	enum mailbox_list_notify_event event;
+	/* Each record can contain multiple events */
+	enum mailbox_list_notify_event events;
 
 	/* For all events: */
 	const char *storage_name, *vname;
