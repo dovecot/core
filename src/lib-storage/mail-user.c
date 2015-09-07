@@ -115,17 +115,17 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	need_home_dir = user->_home == NULL &&
 		settings_vars_have_key(user->set_info, user->set,
 				       'h', "home", &key, &value);
-
-	/* expand mail_home setting before calling mail_user_get_home() */
-	settings_var_expand_with_funcs(user->set_info, user->set,
-				       user->pool, mail_user_var_expand_table(user),
-				       mail_user_var_expand_func_table, user);
-
 	if (need_home_dir && mail_user_get_home(user, &home) <= 0) {
 		user->error = p_strdup_printf(user->pool,
 			"userdb didn't return a home directory, "
 			"but %s used it (%%h): %s", key, value);
 	}
+
+	/* expand settings after we can expand %h */
+	settings_var_expand_with_funcs(user->set_info, user->set,
+				       user->pool, mail_user_var_expand_table(user),
+				       mail_user_var_expand_func_table, user);
+	user->settings_expanded = TRUE;
 	mail_user_expand_plugins_envs(user);
 
 	/* autocreated users for shared mailboxes need to be fully initialized
@@ -362,6 +362,26 @@ static int mail_user_userdb_lookup_home(struct mail_user *user)
 	return ret;
 }
 
+static void mail_user_get_mail_home(struct mail_user *user)
+{
+	const char *home = user->set->mail_home;
+	string_t *str;
+
+	if (user->settings_expanded) {
+		user->_home = home[0] != '\0' ? home : NULL;
+		return;
+	}
+	/* we're still initializing user. need to do the expansion ourself. */
+	i_assert(home[0] == SETTING_STRVAR_UNEXPANDED[0]);
+	home++;
+	if (home[0] == '\0')
+		return;
+
+	str = t_str_new(128);
+	var_expand(str, home, mail_user_var_expand_table(user));
+	user->_home = p_strdup(user->pool, str_c(str));
+}
+
 int mail_user_get_home(struct mail_user *user, const char **home_r)
 {
 	int ret;
@@ -373,17 +393,17 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 
 	if (mail_user_auth_master_conn == NULL) {
 		/* no userdb connection. we can only use mail_home setting. */
-		user->_home = user->set->mail_home;
+		mail_user_get_mail_home(user);
 	} else if ((ret = mail_user_userdb_lookup_home(user)) < 0) {
 		/* userdb lookup failed */
 		return -1;
 	} else if (ret == 0) {
 		/* user doesn't exist */
 		user->nonexistent = TRUE;
-	} else if (user->_home == NULL && *user->set->mail_home != '\0') {
-		/* no home returned by userdb lookup, fallback to mail_home
-		   setting. */
-		user->_home = user->set->mail_home;
+	} else if (user->_home == NULL) {
+		/* no home returned by userdb lookup, fallback to
+		   mail_home setting. */
+		mail_user_get_mail_home(user);
 	}
 	user->home_looked_up = TRUE;
 
