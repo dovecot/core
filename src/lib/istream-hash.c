@@ -74,6 +74,7 @@ i_stream_create_hash(struct istream *input, const struct hash_method *method,
 	hstream->istream.read = i_stream_hash_read;
 	hstream->istream.seek = i_stream_hash_seek;
 
+	hstream->istream.istream.readable_fd = input->readable_fd;
 	hstream->istream.istream.blocking = input->blocking;
 	hstream->istream.istream.seekable = input->seekable;
 

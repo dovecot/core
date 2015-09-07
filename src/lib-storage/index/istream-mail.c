@@ -146,6 +146,7 @@ struct istream *i_stream_create_mail(struct mail *mail, struct istream *input,
 
 	mstream->istream.read = i_stream_mail_read;
 
+	mstream->istream.istream.readable_fd = input->readable_fd;
 	mstream->istream.istream.blocking = input->blocking;
 	mstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&mstream->istream, input,

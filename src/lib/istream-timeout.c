@@ -135,6 +135,7 @@ i_stream_create_timeout(struct istream *input, unsigned int timeout_msecs)
 	tstream->istream.switch_ioloop = i_stream_timeout_switch_ioloop;
 	tstream->istream.iostream.close = i_stream_timeout_close;
 
+	tstream->istream.istream.readable_fd = input->readable_fd;
 	tstream->istream.istream.blocking = input->blocking;
 	tstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&tstream->istream, input,
