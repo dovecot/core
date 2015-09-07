@@ -593,21 +593,23 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		break;
 	case AUTH_DB_RULE_CONTINUE:
 		passdb_continue = TRUE;
+		if (*result == PASSDB_RESULT_OK) {
+			/* password was successfully verified. don't bother
+			   checking it again. */
+			request->skip_password_check = TRUE;
+		}
 		break;
 	case AUTH_DB_RULE_CONTINUE_OK:
 		passdb_continue = TRUE;
 		request->passdb_success = TRUE;
+		/* password was successfully verified. don't bother
+		   checking it again. */
+		request->skip_password_check = TRUE;
 		break;
 	case AUTH_DB_RULE_CONTINUE_FAIL:
 		passdb_continue = TRUE;
 		request->passdb_success = FALSE;
 		break;
-	}
-
-	if (*result == PASSDB_RESULT_OK && passdb_continue) {
-		/* password was successfully verified. don't bother
-		   checking it again. */
-		request->skip_password_check = TRUE;
 	}
 
 	if (request->requested_login_user != NULL &&
