@@ -25,7 +25,7 @@ static void test_charset_utf8_common(const char *input_charset)
 		{ "p\xC3\xA4\xC3", "p\xC3\xA4", CHARSET_RET_INCOMPLETE_INPUT },
 		{ "p\xC3\xA4\xC3""a", "p\xC3\xA4"UNICODE_REPLACEMENT_CHAR_UTF8"a", CHARSET_RET_INVALID_INPUT }
 	};
-	string_t *str = t_str_new(128);
+	string_t *src, *str = t_str_new(256);
 	enum charset_result result;
 	unsigned int i;
 
@@ -36,6 +36,18 @@ static void test_charset_utf8_common(const char *input_charset)
 		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
 		test_assert_idx(result == tests[i].result, i);
 	}
+	/* check that E2BIG handling works. We assume that iconv() is called
+	   with 8192 byte buffer (tmpbuf[8192]) */
+	src = str_new(default_pool, 16384);
+	for (i = 0; i < 8190; i++)
+		str_append_c(src, 'a' + i % ('z'-'a'+1));
+	for (i = 0; i < 256; i++) {
+		str_truncate(str, 0);
+		str_append_c(src, 'A' + i % ('Z'-'A'+1));
+		test_assert_idx(charset_to_utf8_str(input_charset, NULL,
+						    str_c(src), str, &result) == 0, i);
+	}
+	str_free(&src);
 }
 
 static void test_charset_utf8(void)
