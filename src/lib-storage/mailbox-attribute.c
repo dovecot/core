@@ -138,7 +138,8 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 			     const struct mail_attribute_value *value)
 {
 	const struct mailbox_attribute_internal *iattr;
-	
+	int ret;
+
 	iattr = mailbox_internal_attribute_get(type, key);
 
 	/* allow internal server attribute only for inbox */
@@ -170,7 +171,13 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 		}
 	}
 	
-	return t->box->v.attribute_set(t, type, key, value);
+	/* FIXME: v2.3 should move the internal_attribute to attribute_set()
+	   parameter (as flag). not done yet for API backwards compatibility */
+	t->internal_attribute = iattr != NULL &&
+		iattr->rank != MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY;
+	ret = t->box->v.attribute_set(t, type, key, value);
+	t->internal_attribute = FALSE;
+	return ret;
 }
 
 int mailbox_attribute_set(struct mailbox_transaction_context *t,
@@ -261,8 +268,14 @@ mailbox_attribute_get_common(struct mailbox_transaction_context *t,
 		}
 	}
 
-	/* user entries */
-	if ((ret = t->box->v.attribute_get(t, type, key, value_r)) != 0)
+	/* user entries - FIXME: v2.3 should move the internal_attribute to
+	   attribute_get() parameter (as flag). not done yet for API backwards
+	   compatibility */
+	t->internal_attribute = iattr != NULL &&
+		iattr->rank != MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY;
+	ret = t->box->v.attribute_get(t, type, key, value_r);
+	t->internal_attribute = FALSE;
+	if (ret != 0)
 		return ret;
 
 	/* default entries */

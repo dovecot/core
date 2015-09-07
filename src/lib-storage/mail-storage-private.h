@@ -529,6 +529,8 @@ struct mailbox_transaction_context {
 	unsigned int stats_track:1;
 	/* We've done some non-transactional (e.g. dovecot-uidlist updates) */
 	unsigned int nontransactional_changes:1;
+	/* FIXME: v2.3: this should be in attribute_get/set() parameters */
+	unsigned int internal_attribute:1;
 };
 
 union mail_search_module_context {
