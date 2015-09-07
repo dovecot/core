@@ -346,6 +346,7 @@ mail_search_args_simplify_sub(struct mailbox *box,
 			break;
 		}
 		if (merged) {
+			i_assert(prev_arg != NULL);
 			prev_arg->next = args->next;
 			args = args->next;
 			ctx.removals = TRUE;

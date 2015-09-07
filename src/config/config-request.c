@@ -206,7 +206,7 @@ settings_export(struct config_export_context *ctx,
 {
 	const struct setting_define *def;
 	const void *value, *default_value, *change_value;
-	void *const *children = NULL, *const *change_children = NULL;
+	void *const *children, *const *change_children = NULL;
 	unsigned int i, count, count2, prefix_len;
 	const char *str;
 	char *key;
@@ -244,7 +244,7 @@ settings_export(struct config_export_context *ctx,
 		}
 
 		dump = FALSE;
-		count = 0;
+		count = 0; children = NULL;
 		str_truncate(ctx->value, 0);
 		switch (def->type) {
 		case SET_BOOL:
@@ -333,6 +333,7 @@ settings_export(struct config_export_context *ctx,
 			}
 		}
 
+		i_assert(count == 0 || children != NULL);
 		prefix_len = str_len(ctx->prefix);
 		for (i = 0; i < count; i++) {
 			str_append(ctx->prefix, def->key);
