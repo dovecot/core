@@ -51,6 +51,15 @@ void mailbox_attribute_register_internal(
 	array_insert(&mailbox_internal_attributes, insert_idx, &ireg, 1);
 }
 
+void mailbox_attribute_register_internals(
+	const struct mailbox_attribute_internal *iattrs, unsigned int count)
+{
+	unsigned int i;
+
+	for (i = 0; i < count; i++)
+		mailbox_attribute_register_internal(&iattrs[i]);
+}
+
 static const struct mailbox_attribute_internal *
 mailbox_internal_attribute_get(enum mail_attribute_type type,
 			       const char *key)
