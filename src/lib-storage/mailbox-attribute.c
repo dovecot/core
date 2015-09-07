@@ -282,8 +282,12 @@ mailbox_attribute_get_common(struct mailbox_transaction_context *t,
 	if (iattr != NULL) {
 		switch (iattr->rank) {
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT:		
-			if ((ret = iattr->get(t, key, value_r)) < 0)
-				return ret;
+			if (iattr->get == NULL)
+				ret = 0;
+			else {
+				if ((ret = iattr->get(t, key, value_r)) < 0)
+					return ret;
+			}
 			if (ret > 0) {
 				value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_READONLY;
 				return 1;
