@@ -127,6 +127,7 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 		}
 	}
 	*offset = (uoff_t)s_offset;
+	i_assert(ret < 0 || (size_t)ret <= count);
 	return ret;
 }
 
