@@ -1834,6 +1834,7 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 	ctx = p_new(request->pool, struct auth_request_proxy_dns_lookup_ctx, 1);
 	ctx->request = request;
 	auth_request_ref(request);
+	request->dns_lookup_ctx = ctx;
 
 	if (dns_lookup(host, &dns_set, auth_request_proxy_dns_callback, ctx,
 		       &ctx->dns_lookup) < 0) {
