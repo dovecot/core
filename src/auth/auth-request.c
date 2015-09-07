@@ -1148,6 +1148,12 @@ void auth_request_lookup_user(struct auth_request *request,
 	request->userdb_lookup = TRUE;
 	if (request->userdb_reply == NULL)
 		auth_request_init_userdb_reply(request);
+	else {
+		/* we still want to set default_fields. these override any
+		   existing fields set by previous userdbs (because if that is
+		   unwanted, ":protected" can be used). */
+		userdb_template_export(userdb->default_fields_tmpl, request);
+	}
 
 	/* (for now) auth_cache is shared between passdb and userdb */
 	cache_key = passdb_cache == NULL ? NULL : userdb->cache_key;
