@@ -74,15 +74,17 @@ charset_to_utf8_try(struct charset_translation *t,
 	ic_srcbuf = (ICONV_CONST char *) src;
 
 	if (iconv(t->cd, &ic_srcbuf, &srcleft,
-		  &ic_destbuf, &destleft) != (size_t)-1)
+		  &ic_destbuf, &destleft) != (size_t)-1) {
+		i_assert(srcleft == 0);
 		*result = CHARSET_RET_OK;
-	else if (errno == E2BIG) {
+	} else if (errno == E2BIG) {
 		/* set result just to avoid compiler warning */
 		*result = CHARSET_RET_INCOMPLETE_INPUT;
 		ret = FALSE;
-	} else if (errno == EINVAL)
+	} else if (errno == EINVAL) {
+		i_assert(srcleft <= CHARSET_MAX_PENDING_BUF_SIZE);
 		*result = CHARSET_RET_INCOMPLETE_INPUT;
-	else {
+	} else {
 		/* should be EILSEQ */
 		*result = CHARSET_RET_INVALID_INPUT;
 		ret = FALSE;
