@@ -26,10 +26,12 @@ static void doveadm_print_tab_flush_header(void)
 static void
 doveadm_print_tab_header(const struct doveadm_print_header *hdr)
 {
-	if (ctx.header_count++ > 0)
-		printf("\t");
-	if (!doveadm_print_hide_titles)
+	ctx.header_count++;
+	if (!doveadm_print_hide_titles) {
+		if (ctx.header_count > 1)
+			printf("\t");
 		printf("%s", hdr->title);
+	}
 }
 
 static void doveadm_print_tab_print(const char *value)
