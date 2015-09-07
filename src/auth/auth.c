@@ -227,6 +227,13 @@ auth_preinit(const struct auth_settings *set, const char *service, pool_t pool,
 		if (passdbs[i]->master)
 			continue;
 
+		/* passdb { skip=unauthenticated } as the first passdb doesn't
+		   make sense, since user is never authenticated at that point.
+		   skip over them silently. */
+		if (auth->passdbs == NULL &&
+		    auth_passdb_skip_parse(passdbs[i]->skip) == AUTH_PASSDB_SKIP_UNAUTHENTICATED)
+			continue;
+
 		auth_passdb_preinit(auth, passdbs[i], &auth->passdbs);
 		passdb_count++;
 		last_passdb = i;
@@ -236,6 +243,11 @@ auth_preinit(const struct auth_settings *set, const char *service, pool_t pool,
 
 	for (i = 0; i < db_count; i++) {
 		if (!passdbs[i]->master)
+			continue;
+
+		/* skip skip=unauthenticated, as explained above */
+		if (auth->masterdbs == NULL &&
+		    auth_passdb_skip_parse(passdbs[i]->skip) == AUTH_PASSDB_SKIP_UNAUTHENTICATED)
 			continue;
 
 		if (passdbs[i]->deny)
