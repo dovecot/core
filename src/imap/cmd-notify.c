@@ -206,11 +206,34 @@ static void cmd_notify_add_personal(struct imap_notify_context *ctx,
 	}
 }
 
+static int
+imap_notify_refresh_subscriptions(struct client_command_context *cmd,
+				  struct imap_notify_context *ctx)
+{
+	struct mailbox_list_iterate_context *iter;
+	struct mail_namespace *ns;
+
+	if (!ctx->have_subscriptions)
+		return 0;
+
+	/* make sure subscriptions are refreshed at least once */
+	for (ns = ctx->client->user->namespaces; ns != NULL; ns = ns->next) {
+		iter = mailbox_list_iter_init(ns->list, "*", MAILBOX_LIST_ITER_SELECT_SUBSCRIBED);
+		(void)mailbox_list_iter_next(iter);
+		if (mailbox_list_iter_deinit(&iter) < 0) {
+			client_send_list_error(cmd, ns->list);
+			return -1;
+		}
+	}
+	return 0;
+}
+
 static void cmd_notify_add_subscribed(struct imap_notify_context *ctx,
 				      enum imap_notify_event events)
 {
 	struct mail_namespace *ns;
 
+	ctx->have_subscriptions = TRUE;
 	for (ns = ctx->client->user->namespaces; ns != NULL; ns = ns->next) {
 		cmd_notify_add_mailbox(ctx, ns, "",
 				       IMAP_NOTIFY_TYPE_SUBSCRIBED, events);
@@ -521,6 +544,10 @@ bool cmd_notify(struct client_command_context *cmd)
 	} else if (ctx->global_max_mailbox_names > IMAP_NOTIFY_MAX_NAMES_PER_NS) {
 		client_send_tagline(cmd,
 			"NO [NOTIFICATIONOVERFLOW] Too many mailbox names");
+		pool_unref(&pool);
+		return TRUE;
+	} else if (imap_notify_refresh_subscriptions(cmd, ctx) < 0) {
+		/* tagline already sent */
 		pool_unref(&pool);
 		return TRUE;
 	} else if (imap_notify_begin(ctx) < 0) {

@@ -49,6 +49,7 @@ struct imap_notify_context {
 	struct imap_fetch_context *fetch_ctx;
 	struct timeout *to_watch;
 
+	unsigned int have_subscriptions:1;
 	unsigned int selected_set:1;
 	unsigned int selected_immediate_expunges:1;
 	unsigned int send_immediate_status:1;
