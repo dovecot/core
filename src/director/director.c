@@ -17,7 +17,6 @@
 #define DIRECTOR_RECONNECT_RETRY_SECS 60
 #define DIRECTOR_RECONNECT_TIMEOUT_MSECS (30*1000)
 #define DIRECTOR_USER_MOVE_TIMEOUT_MSECS (30*1000)
-#define DIRECTOR_USER_MOVE_FINISH_DELAY_MSECS (2*1000)
 #define DIRECTOR_SYNC_TIMEOUT_MSECS (5*1000)
 #define DIRECTOR_RING_MIN_WAIT_SECS 20
 #define DIRECTOR_QUICK_RECONNECT_TIMEOUT_MSECS 1000
@@ -667,7 +666,10 @@ director_user_kill_finish_delayed(struct director *dir, struct user *user)
 	user->kill_state = USER_KILL_STATE_DELAY;
 	timeout_remove(&user->to_move);
 
-	user->to_move = timeout_add(DIRECTOR_USER_MOVE_FINISH_DELAY_MSECS,
+	/* wait for a while for the kills to finish in the backend server,
+	   so there are no longer any processes running for the user before we
+	   start letting new in connections to the new server. */
+	user->to_move = timeout_add(dir->set->director_user_kick_delay * 1000,
 				    director_user_kill_finish_delayed_to, ctx);
 }
 
