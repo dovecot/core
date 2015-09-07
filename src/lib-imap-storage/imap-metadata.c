@@ -100,14 +100,17 @@ imap_metadata_entry2key(struct imap_metadata_transaction *imtrans,
 		i_assert((*key_r)[0] == '/');
 		*key_r += 1;
 	}
+	if (strncmp(*key_r, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT,
+		    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT)) == 0) {
+		/* Dovecot's internal attribute (mailbox or server).
+		   don't allow accessing this. */
+		return FALSE;
+	}
+	/* Add the server-prefix (after checking for the above internal
+	   attribute). */
 	if (key_prefix != NULL)
 		*key_r = t_strconcat(key_prefix, *key_r, NULL);
-
-	/* skip over dovecot's internal attributes. (server metadata is handled
-	   inside the private metadata.) */
-	return (imtrans->server ||
-		strncmp(*key_r, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT,
-		    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT)) != 0);
+	return TRUE;
 }
 
 static int
