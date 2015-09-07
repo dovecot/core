@@ -55,6 +55,7 @@ static const struct mailbox_attribute_internal *
 mailbox_internal_attribute_get(enum mail_attribute_type type,
 			       const char *key)
 {
+	const struct mailbox_attribute_internal *iattr;
 	struct mailbox_attribute_internal dreg;
 	unsigned int insert_idx;
 
@@ -62,12 +63,26 @@ mailbox_internal_attribute_get(enum mail_attribute_type type,
 	dreg.type = type;	
 	dreg.key = key;
 
-	if (!array_bsearch_insert_pos(&mailbox_internal_attributes,
-				      &dreg, mailbox_attribute_internal_cmp,
-				      &insert_idx))
+	if (array_bsearch_insert_pos(&mailbox_internal_attributes,
+				     &dreg, mailbox_attribute_internal_cmp,
+				     &insert_idx)) {
+		/* exact match */
+		return array_idx(&mailbox_internal_attributes, insert_idx);
+	}
+	if (insert_idx == 0) {
+		/* not found at all */
 		return NULL;
-
-	return array_idx(&mailbox_internal_attributes, insert_idx);
+	}
+	iattr = array_idx(&mailbox_internal_attributes, insert_idx-1);
+	if (strncmp(iattr->key, key, strlen(iattr->key)) != 0) {
+		/* iattr isn't a prefix of key */
+		return NULL;
+	} else if ((iattr->flags & MAIL_ATTRIBUTE_INTERNAL_FLAG_CHILDREN) != 0) {
+		/* iattr is a prefix of key and it wants to handle the key */
+		return iattr;
+	} else {
+		return NULL;
+	}
 }
 
 static void
@@ -138,7 +153,7 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT:
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE:
 			/* notify about assignment */
-			if (iattr->set != NULL && iattr->set(t, value) < 0)
+			if (iattr->set != NULL && iattr->set(t, key, value) < 0)
 				return -1;
 			break;
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY:
@@ -149,7 +164,7 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 				return -1;
 			}
 			/* assign internal attribute */
-			return iattr->set(t, value);
+			return iattr->set(t, key, value);
 		default:
 			i_unreached();
 		}
@@ -228,7 +243,7 @@ mailbox_attribute_get_common(struct mailbox_transaction_context *t,
 	if (iattr != NULL) {
 		switch (iattr->rank) {
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE:
-			if ((ret = iattr->get(t, value_r)) != 0) {
+			if ((ret = iattr->get(t, key, value_r)) != 0) {
 				if (ret < 0)
 					return -1;
 				value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_READONLY;
@@ -237,7 +252,7 @@ mailbox_attribute_get_common(struct mailbox_transaction_context *t,
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT:
 			break;
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY:
-			if ((ret = iattr->get(t, value_r)) <= 0)
+			if ((ret = iattr->get(t, key, value_r)) <= 0)
 				return ret;
 			value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_READONLY;
 			return 1;
@@ -254,7 +269,7 @@ mailbox_attribute_get_common(struct mailbox_transaction_context *t,
 	if (iattr != NULL) {
 		switch (iattr->rank) {
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT:		
-			if ((ret = iattr->get(t, value_r)) < 0)
+			if ((ret = iattr->get(t, key, value_r)) < 0)
 				return ret;
 			if (ret > 0) {
 				value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_READONLY;

@@ -82,16 +82,22 @@ enum mail_attribute_internal_rank {
 	MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY
 };
 
+enum mail_attribute_internal_flags {
+	/* Apply this attribute to the given key and its children. */
+	MAIL_ATTRIBUTE_INTERNAL_FLAG_CHILDREN	= 0x01
+};
+
 struct mailbox_attribute_internal {
 	enum mail_attribute_type type;
 	const char *key;
 	enum mail_attribute_internal_rank rank;
+	enum mail_attribute_internal_flags flags;
 
 	/* Get the value of this internal attribute */
-	int (*get)(struct mailbox_transaction_context *t,
+	int (*get)(struct mailbox_transaction_context *t, const char *key,
 		   struct mail_attribute_value *value_r);
 	/* Set the value of this internal attribute */ 
-	int (*set)(struct mailbox_transaction_context *t,
+	int (*set)(struct mailbox_transaction_context *t, const char *key,
 		   const struct mail_attribute_value *value);
 };
 
