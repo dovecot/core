@@ -225,11 +225,8 @@ cmd_notify_add_mailbox_namespaces(struct imap_notify_context *ctx,
 {
 	struct mail_namespace *ns;
 
-	/* add to all matching namespaces */
-	for (ns = ctx->client->user->namespaces; ns != NULL; ns = ns->next) {
-		if (mail_namespace_find(ns, name) == ns)
-			cmd_notify_add_mailbox(ctx, ns, name, type, events);
-	}
+	ns = mail_namespace_find(ctx->client->user->namespaces, name);
+	cmd_notify_add_mailbox(ctx, ns, name, type, events);
 }
 
 static int
