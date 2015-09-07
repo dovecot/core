@@ -345,6 +345,7 @@ blocks_count_lines(struct binary_ctx *ctx, struct istream *full_input)
 			/* go to the next block */
 			if (++block_idx == block_count) {
 				i_assert(i_stream_is_eof(full_input));
+				ret = -1;
 				break;
 			}
 			cur_block++;
