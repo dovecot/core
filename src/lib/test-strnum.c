@@ -10,15 +10,16 @@
 /* always pads with leading zeros to a size of 9 digits */
 static int crappy_uintmax_to_str(char *into, uintmax_t val)
 {
-#define BIGBASE 1000000000u
+#define BIGBASE 1000000000ull
 #define STRINGIFY(s) #s
 #define STRINGIFY2(s) STRINGIFY(s)
 	int len = 0;
 	if(val >= BIGBASE) {
 		len = crappy_uintmax_to_str(into, val/BIGBASE);
 	}
-	i_snprintf(into + len, 10, "%09lu", (unsigned long)(val % BIGBASE));
-	return len + strlen(STRINGIFY2(BIGBASE))-2;
+	i_snprintf(into + len, 10, "%09llu",
+		(unsigned long long)(val % BIGBASE));
+	return len + strlen(STRINGIFY2(BIGBASE))-4;
 #undef STRINGIFY2
 #undef STRINGIFY
 #undef BIGBASE
@@ -82,15 +83,16 @@ static void test_str_to_uintmax(void)
 /* always pads with leading zeros to a size of 9 digits */
 static int crappy_uintmax_to_str_hex(char *into, uintmax_t val)
 {
-#define BIGBASE 0x1000000000
+#define BIGBASE 0x1000000000ull
 #define STRINGIFY(s) #s
 #define STRINGIFY2(s) STRINGIFY(s)
 	int len = 0;
 	if(val >= BIGBASE) {
 		len = crappy_uintmax_to_str_hex(into, val/BIGBASE);
 	}
-	i_snprintf(into + len, 10, "%09lx", (unsigned long)(val % BIGBASE));
-	return len + strlen(STRINGIFY2(BIGBASE))-3;
+	i_snprintf(into + len, 10, "%09llx",
+		(unsigned long long)(val % BIGBASE));
+	return len + strlen(STRINGIFY2(BIGBASE))-6;
 #undef STRINGIFY2
 #undef STRINGIFY
 #undef BIGBASE
@@ -156,15 +158,16 @@ static void test_str_to_uintmax_hex(void)
 /* always pads with leading zeros to a size of 9 digits */
 static int crappy_uintmax_to_str_oct(char *into, uintmax_t val)
 {
-#define BIGBASE 01000000000
+#define BIGBASE 01000000000ull
 #define STRINGIFY(s) #s
 #define STRINGIFY2(s) STRINGIFY(s)
 	int len = 0;
 	if(val >= BIGBASE) {
 		len = crappy_uintmax_to_str_oct(into, val/BIGBASE);
 	}
-	i_snprintf(into + len, 10, "%09lo", (unsigned long)(val % BIGBASE));
-	return len + strlen(STRINGIFY2(BIGBASE))-2;
+	i_snprintf(into + len, 10, "%09llo",
+		(unsigned long long)(val % BIGBASE));
+	return len + strlen(STRINGIFY2(BIGBASE))-5;
 #undef STRINGIFY2
 #undef STRINGIFY
 #undef BIGBASE
