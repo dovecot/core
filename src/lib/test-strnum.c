@@ -28,7 +28,7 @@ static void test_str_to_uintmax(void)
 {
 	unsigned int i=0;
 	int randrange = rand()%15+1; /* when 1, will max out on 1s */
-	uintmax_t value = 0;
+	uintmax_t value = 0, valbase = rand() * 1000ull;
 	int len, ret;
 	char buff[50]; /* totally assumes < 159 bits */
 
@@ -73,9 +73,9 @@ static void test_str_to_uintmax(void)
 		while (buff[--j] == '9')
 			buff[j] = '0';
 		buff[j]++;
-
+		value = valbase + i;
 		ret = str_to_uintmax(buff, &value);
-		test_assert_idx(ret < 0 && value == UINTMAX_MAX/9-1, i);
+		test_assert_idx(ret < 0 && value == valbase + i, i);
 	}
 	test_end();
 }
@@ -101,7 +101,7 @@ static void test_str_to_uintmax_hex(void)
 {
 	unsigned int i=0;
 	int randrange = rand()%15+1; /* when 1, will max out on 1s */
-	uintmax_t value = 0;
+	uintmax_t value = 0, valbase = rand() * 1000ull;
 	int len, ret;
 	char buff[52]; /* totally assumes < 200 bits */
 
@@ -149,8 +149,9 @@ static void test_str_to_uintmax_hex(void)
 			buff[j] = 'a';
 		else
 			buff[j]++;
+		value = valbase + i;
 		ret = str_to_uintmax_hex(buff, &value);
-		test_assert_idx(ret < 0 && value == UINTMAX_MAX/0x0f-1, i);
+		test_assert_idx(ret < 0 && value == valbase + i, i);
 	}
 	test_end();
 }
@@ -176,7 +177,7 @@ static void test_str_to_uintmax_oct(void)
 {
 	unsigned int i=0;
 	int randrange = rand()%15+1; /* when 1, will max out on 1s */
-	uintmax_t value = 0;
+	uintmax_t value = 0, valbase = rand() * 1000ull;
 	int len, ret;
 	char buff[69]; /* totally assumes < 200 bits */
 
@@ -221,8 +222,9 @@ static void test_str_to_uintmax_oct(void)
 		while (buff[--j] == '7')
 			buff[j] = '0';
 		buff[j]++;
+		value = valbase + i;
 		ret = str_to_uintmax_oct(buff, &value);
-		test_assert_idx(ret < 0 && value == UINTMAX_MAX/007-1, i);
+		test_assert_idx(ret < 0 && value == valbase + i, i);
 	}
 	test_end();
 }
