@@ -172,7 +172,7 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 			break;
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY:
 			if (iattr->set == NULL) {
-				mail_storage_set_error(t->box->storage, MAIL_ERROR_PARAMS, t_strdup_printf(
+				mail_storage_set_error(t->box->storage, MAIL_ERROR_NOTPOSSIBLE, t_strdup_printf(
 					"The /%s/%s attribute cannot be changed",
 					(type == MAIL_ATTRIBUTE_TYPE_SHARED ? "shared" : "private"), key));
 				return -1;
