@@ -218,12 +218,8 @@ int cydir_save_finish(struct mail_save_context *_ctx)
 
 	if (!ctx->failed)
 		ctx->mail_count++;
-	else {
-		if (unlink(path) < 0) {
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
-				"unlink(%s) failed: %m", path);
-		}
-	}
+	else
+		i_unlink(path);
 
 	index_mail_cache_parse_deinit(_ctx->dest_mail,
 				      _ctx->data.received_date, !ctx->failed);

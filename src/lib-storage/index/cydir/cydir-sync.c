@@ -41,16 +41,14 @@ cydir_sync_expunge(struct cydir_sync_context *ctx, uint32_t seq1, uint32_t seq2)
 
 		str_truncate(ctx->path, ctx->path_dir_prefix_len);
 		str_printfa(ctx->path, "%u.", uid);
-		if (unlink(str_c(ctx->path)) == 0) {
+		if (i_unlink_if_exists(str_c(ctx->path)) < 0) {
+			/* continue anyway */
+		} else {
 			if (box->v.sync_notify != NULL) {
 				box->v.sync_notify(box, uid,
 						   MAILBOX_SYNC_TYPE_EXPUNGE);
 			}
 			mail_index_expunge(ctx->trans, seq1);
-		} else if (errno != ENOENT) {
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
-				"unlink(%s) failed: %m", str_c(ctx->path));
-			/* continue anyway */
 		}
 	}
 }

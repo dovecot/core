@@ -1453,12 +1453,9 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		}
 	}
 
-	if (ret < 0) {
-		if (unlink(temp_path) < 0) {
-			mail_storage_set_critical(box->storage,
-				"unlink(%s) failed: %m", temp_path);
-		}
-	} else if (fstat(fd, &st) < 0) {
+	if (ret < 0)
+		i_unlink(temp_path);
+	else if (fstat(fd, &st) < 0) {
 		mail_storage_set_critical(box->storage,
 			"fstat(%s) failed: %m", temp_path);
 		ret = -1;

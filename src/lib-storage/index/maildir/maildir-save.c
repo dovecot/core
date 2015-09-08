@@ -624,10 +624,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 
 	if (ctx->failed) {
 		/* delete the tmp file */
-		if (unlink(path) < 0 && errno != ENOENT) {
-			mail_storage_set_critical(storage,
-				"unlink(%s) failed: %m", path);
-		}
+		i_unlink_if_exists(path);
 
 		errno = output_errno;
 		if (ENOQUOTA(errno)) {

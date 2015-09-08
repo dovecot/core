@@ -325,13 +325,8 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 			   and hope that another process didn't just decide to
 			   unlink() the other (uidlist lock prevents this from
 			   happening) */
-			if (unlink(path2) == 0)
+			if (i_unlink(path2) == 0)
 				i_warning("Unlinked a duplicate: %s", path2);
-			else {
-				mail_storage_set_critical(
-					&ctx->mbox->storage->storage,
-					"unlink(%s) failed: %m", path2);
-			}
 		}
 		return 0;
 	}
