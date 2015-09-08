@@ -111,6 +111,7 @@ charset_to_utf8(struct charset_translation *t,
 	bool ret;
 
 	for (pos = 0;;) {
+		i_assert(pos <= *src_size);
 		size = *src_size - pos;
 		ret = charset_to_utf8_try(t, src + pos, &size, dest, &result);
 		pos += size;
@@ -124,7 +125,8 @@ charset_to_utf8(struct charset_translation *t,
 					      strlen(UNICODE_REPLACEMENT_CHAR_UTF8));
 				prev_invalid_pos = dest->used;
 			}
-			pos++;
+			if (pos < *src_size)
+				pos++;
 		}
 	}
 

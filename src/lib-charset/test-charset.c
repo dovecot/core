@@ -85,6 +85,28 @@ static void test_charset_iconv(void)
 	test_charset_utf8_common("UTF-8//IGNORE");
 	test_end();
 }
+static void test_charset_iconv_crashes(void)
+{
+	struct {
+		const char *charset;
+		const char *input;
+	} tests[] = {
+		{ "CP932", "\203\334" }
+	};
+	string_t *str = t_str_new(128);
+	enum charset_result result;
+	unsigned int i;
+
+	test_begin("charset iconv crashes");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		str_truncate(str, 0);
+		/* we don't care about checking the result. we only want to
+		   verify that there's no crash. */
+		(void)charset_to_utf8_str(tests[i].charset, NULL,
+					  tests[i].input, str, &result);
+	}
+	test_end();
+}
 #endif
 
 int main(void)
@@ -94,6 +116,7 @@ int main(void)
 		test_charset_utf8,
 #ifdef HAVE_ICONV
 		test_charset_iconv,
+		test_charset_iconv_crashes,
 #endif
 		NULL
 	};
