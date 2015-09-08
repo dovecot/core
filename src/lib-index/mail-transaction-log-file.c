@@ -794,9 +794,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 		   file_dotlock_replace(). during that time the log file
 		   doesn't exist, which could cause problems. */
 		path2 = t_strconcat(file->filepath, ".2", NULL);
-		if (unlink(path2) < 0 && errno != ENOENT) {
-                        mail_index_set_error(index, "unlink(%s) failed: %m",
-					     path2);
+		if (i_unlink_if_exists(path2) < 0) {
 			/* try to link() anyway */
 		}
 		if (nfs_safe_link(file->filepath, path2, FALSE) < 0 &&
@@ -916,11 +914,8 @@ int mail_transaction_log_file_open(struct mail_transaction_log_file *file)
 			/* corrupted */
 			if (index->readonly) {
 				/* don't delete */
-			} else if (unlink(file->filepath) < 0 &&
-				   errno != ENOENT) {
-				mail_index_set_error(index,
-						     "unlink(%s) failed: %m",
-						     file->filepath);
+			} else {
+				i_unlink_if_exists(file->filepath);
 			}
 			return 0;
 		}

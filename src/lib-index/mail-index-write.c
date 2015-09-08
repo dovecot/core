@@ -110,12 +110,8 @@ static int mail_index_recreate(struct mail_index *index)
 		ret = -1;
 	}
 
-	if (ret < 0) {
-		if (unlink(path) < 0) {
-			mail_index_set_error(index, "unlink(%s) failed: %m",
-					     path);
-		}
-	}
+	if (ret < 0)
+		i_unlink(path);
 	return ret;
 }
 

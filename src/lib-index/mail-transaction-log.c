@@ -52,12 +52,8 @@ static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
 	}
 
 	if (st.st_mtime + MAIL_TRANSACTION_LOG2_STALE_SECS <= ioloop_time &&
-	    !log->index->readonly) {
-		if (unlink(log->filepath2) < 0 && errno != ENOENT) {
-			mail_index_set_error(log->index,
-				"unlink(%s) failed: %m", log->filepath2);
-		}
-	}
+	    !log->index->readonly)
+		i_unlink_if_exists(log->filepath2);
 }
 
 int mail_transaction_log_open(struct mail_transaction_log *log)
