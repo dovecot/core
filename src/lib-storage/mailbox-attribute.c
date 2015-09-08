@@ -100,7 +100,7 @@ mailbox_internal_attribute_get(enum mail_attribute_type type,
 
 static void
 mailbox_internal_attributes_get(enum mail_attribute_type type,
-	const char *prefix, ARRAY_TYPE(const_string) *attrs)
+	const char *prefix, bool have_dict, ARRAY_TYPE(const_string) *attrs)
 {
 	const struct mailbox_attribute_internal *regs;
 	struct mailbox_attribute_internal dreg;
@@ -136,8 +136,8 @@ mailbox_internal_attributes_get(enum mail_attribute_type type,
 			/* remove prefix */
 			key += plen + 1;
 		}
-
-		array_append(attrs, &key, 1);
+		if (have_dict || regs[i].rank == MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY)
+			array_append(attrs, &key, 1);
 	}
 }
 
@@ -357,13 +357,15 @@ mailbox_attribute_iter_init(struct mailbox *box,
 	struct mailbox_attribute_iter *iter;
 	ARRAY_TYPE(const_string) extra_attrs;
 	const char *const *attr;
-	
+	bool have_dict;
+
 	iter = box->v.attribute_iter_init(box, type, prefix);
 	i_assert(iter->box != NULL);
 
 	/* check which internal attributes may apply */
 	t_array_init(&extra_attrs, 4);
-	mailbox_internal_attributes_get(type, prefix, &extra_attrs);
+	have_dict = box->storage->set->mail_attribute_dict[0] != '\0';
+	mailbox_internal_attributes_get(type, prefix, have_dict, &extra_attrs);
 
 	/* any extra internal attributes to add? */
 	if (array_count(&extra_attrs) == 0) {
