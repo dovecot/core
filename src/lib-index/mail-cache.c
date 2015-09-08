@@ -25,7 +25,7 @@ void mail_cache_set_syscall_error(struct mail_cache *cache,
 static void mail_cache_unlink(struct mail_cache *cache)
 {
 	if (!cache->index->readonly)
-		(void)unlink(cache->filepath);
+		i_unlink(cache->filepath);
 }
 
 void mail_cache_reset(struct mail_cache *cache)

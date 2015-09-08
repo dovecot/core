@@ -25,10 +25,8 @@ static int file_copy_to_tmp(const char *srcpath, const char *tmppath,
 		if (link(srcpath, tmppath) == 0)
 			return 1;
 		if (errno == EEXIST) {
-			if (unlink(tmppath) < 0 && errno != ENOENT) {
-				i_error("unlink(%s) failed: %m", tmppath);
+			if (i_unlink_if_exists(tmppath) < 0)
 				return -1;
-			}
 			if (link(srcpath, tmppath) == 0)
 				return 1;
 		}
@@ -109,7 +107,7 @@ int file_copy(const char *srcpath, const char *destpath, bool try_hardlink)
 			}
 		}
 		if (ret < 0)
-			(void)unlink(tmppath);
+			i_unlink(tmppath);
 	} T_END;
 	return ret;
 }

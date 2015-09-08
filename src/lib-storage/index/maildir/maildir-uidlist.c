@@ -817,7 +817,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 
         if (ret == 0) {
                 /* file is broken */
-                (void)unlink(uidlist->path);
+                i_unlink(uidlist->path);
         } else if (ret > 0) {
                 /* success */
 		if (readonly)

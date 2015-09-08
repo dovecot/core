@@ -64,7 +64,7 @@ safe_mkstemp_full(string_t *prefix, mode_t mode, uid_t uid, gid_t gid,
 				gid == (gid_t)-1 ? -1L : (long)gid);
 		}
 		i_close_fd(&fd);
-		(void)unlink(str_c(prefix));
+		i_unlink(str_c(prefix));
 		return -1;
 	}
 	return fd;

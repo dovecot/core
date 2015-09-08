@@ -53,8 +53,8 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	double cputime;
 
 	lib_init();
-	(void)unlink(trie_path);
-	(void)unlink(uidlist_path);
+	i_unlink_if_exists(trie_path);
+	i_unlink_if_exists(uidlist_path);
 	trie = squat_trie_init(trie_path, time(NULL),
 			       FILE_LOCK_METHOD_FCNTL, FALSE, 0600, (gid_t)-1);
 

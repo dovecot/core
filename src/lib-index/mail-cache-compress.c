@@ -458,8 +458,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		return -1;
 	if (mail_cache_compress_write(cache, trans, fd, temp_path, unlock) < 0) {
 		i_close_fd(&fd);
-		if (unlink(temp_path) < 0)
-			i_error("unlink(%s) failed: %m", temp_path);
+		i_unlink(temp_path);
 		return -1;
 	}
 	if (cache->file_cache != NULL)

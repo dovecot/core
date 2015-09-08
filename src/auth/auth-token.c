@@ -57,8 +57,7 @@ auth_token_read_secret(const char *path,
 	if (st.st_size != AUTH_TOKEN_SECRET_LEN || !S_ISREG(st.st_mode)) {
 		i_error("Corrupted token secret file: %s", path);
 		i_close_fd(&fd);
-		if (unlink(path) < 0)
-			i_error("unlink(%s) failed: %m", path);
+		i_unlink(path);
 		return -1;
 	}
 
@@ -76,8 +75,7 @@ auth_token_read_secret(const char *path,
 	    !CMP_DEV_T(st.st_dev, lst.st_dev)) {
 		i_error("Compromised token secret file: %s", path);
 		i_close_fd(&fd);
-		if (unlink(path) < 0)
-			i_error("unlink(%s) failed: %m", path);
+		i_unlink(path);
 		return -1;
 	}
 
@@ -126,15 +124,13 @@ auth_token_write_secret(const char *path,
 	}
 
 	if (ret < 0) {
-		if (unlink(temp_path) < 0)
-			i_error("unlink(%s) failed: %m", temp_path);
+		i_unlink(temp_path);
 		return -1;
 	}
 
 	if (rename(temp_path, path) < 0) {
 		i_error("rename(%s, %s) failed: %m", temp_path, path);
-		if (unlink(temp_path) < 0)
-			i_error("unlink(%s) failed: %m", temp_path);
+		i_unlink(temp_path);
 		return -1;
 	}
 

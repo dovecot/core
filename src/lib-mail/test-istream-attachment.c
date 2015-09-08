@@ -132,7 +132,7 @@ static int test_open_temp_fd(void *context ATTR_UNUSED)
 	fd = safe_mkstemp(str, 0600, (uid_t)-1, (gid_t)-1);
 	if (fd == -1)
 		i_fatal("safe_mkstemp(%s) failed: %m", str_c(str));
-	(void)unlink(str_c(str));
+	i_unlink(str_c(str));
 	return fd;
 }
 

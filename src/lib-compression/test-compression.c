@@ -80,8 +80,7 @@ static void test_compression_handler(const struct compression_handler *handler)
 	sha1_result(&sha1, input_sha1);
 
 	test_assert(memcmp(input_sha1, output_sha1, sizeof(input_sha1)) == 0);
-	if (unlink(path) < 0)
-		i_error("unlink(%s) failed: %m", path);
+	i_unlink(path);
 
 	test_end();
 }

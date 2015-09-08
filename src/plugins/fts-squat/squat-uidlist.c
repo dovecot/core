@@ -92,8 +92,7 @@ static void squat_uidlist_close(struct squat_uidlist *uidlist);
 
 void squat_uidlist_delete(struct squat_uidlist *uidlist)
 {
-	if (unlink(uidlist->path) < 0 && errno != ENOENT)
-		i_error("unlink(%s) failed: %m", uidlist->path);
+	i_unlink_if_exists(uidlist->path);
 }
 
 static void squat_uidlist_set_corrupted(struct squat_uidlist *uidlist,
@@ -1084,10 +1083,8 @@ int squat_uidlist_rebuild_finish(struct squat_uidlist_rebuild_context *ctx,
 	if (close(ctx->fd) < 0)
 		i_error("close(%s) failed: %m", temp_path);
 
-	if (ret <= 0) {
-		if (unlink(temp_path) < 0)
-			i_error("unlink(%s) failed: %m", temp_path);
-	}
+	if (ret <= 0)
+		i_unlink(temp_path);
 	array_free(&ctx->new_block_offsets);
 	array_free(&ctx->new_block_end_indexes);
 	i_free(ctx);

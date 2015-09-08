@@ -365,7 +365,7 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 		return 0;
 
 	lock_path = t_strconcat(mk->path, ".lock", NULL);
-	(void)unlink(lock_path);
+	i_unlink_if_exists(lock_path);
 
 	perm = mailbox_get_permissions(&mk->mbox->box);
 	for (i = 0;; i++) {

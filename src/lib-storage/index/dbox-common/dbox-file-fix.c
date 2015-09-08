@@ -498,10 +498,8 @@ int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 	if (!have_messages) {
 		/* the resulting file has no messages. just delete the file. */
 		dbox_file_close(file);
-		if (unlink(temp_path) < 0)
-			i_error("unlink(%s) failed: %m", temp_path);
-		if (unlink(file->cur_path) < 0)
-			i_error("unlink(%s) failed: %m", file->cur_path);
+		i_unlink(temp_path);
+		i_unlink(file->cur_path);
 		return 0;
 	}
 	if (rename(temp_path, file->cur_path) < 0) {

@@ -243,7 +243,7 @@ void mail_index_strmap_view_set_corrupted(struct mail_index_strmap_view *view)
 	mail_index_set_error(view->strmap->index,
 			     "Corrupted strmap index file: %s",
 			     view->strmap->path);
-	(void)unlink(view->strmap->path);
+	i_unlink(view->strmap->path);
 	mail_index_strmap_close(view->strmap);
 	mail_index_strmap_view_reset(view);
 }
@@ -285,7 +285,7 @@ static int mail_index_strmap_open(struct mail_index_strmap_view *view)
 	    hdr.uid_validity != idx_hdr->uid_validity) {
 		/* need to rebuild. if we already had something in the strmap,
 		   we can keep it. */
-		(void)unlink(strmap->path);
+		i_unlink(strmap->path);
 		mail_index_strmap_close(strmap);
 		return 0;
 	}
@@ -1034,7 +1034,7 @@ static int mail_index_strmap_recreate(struct mail_index_strmap_view *view)
 		ret = -1;
 	}
 	if (ret < 0)
-		(void)unlink(temp_path);
+		i_unlink(temp_path);
 	return ret;
 }
 

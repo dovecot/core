@@ -17,7 +17,7 @@ static int fd_callback(const char **path_r, void *context ATTR_UNUSED)
 	if (fd == -1)
 		i_error("creat(%s) failed: %m", *path_r);
 	else
-		unlink(*path_r);
+		i_unlink(*path_r);
 	return fd;
 }
 

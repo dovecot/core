@@ -54,8 +54,7 @@ unlink_old_files_real(const char *dir, const char *prefix, time_t min_time)
 			if (errno != ENOENT)
 				i_error("stat(%s) failed: %m", str_c(path));
 		} else if (!S_ISDIR(st.st_mode) && st.st_ctime < min_time) {
-			if (unlink(str_c(path)) < 0 && errno != ENOENT)
-				i_error("unlink(%s) failed: %m", str_c(path));
+			i_unlink_if_exists(str_c(path));
 		}
 	}
 

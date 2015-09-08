@@ -217,8 +217,7 @@ static void fatal_log_check(const struct master_settings *set)
 	}
 
 	i_close_fd(&fd);
-	if (unlink(path) < 0)
-		i_error("unlink(%s) failed: %m", path);
+	i_unlink(path);
 }
 
 static bool pid_file_read(const char *path, pid_t *pid_r)
@@ -291,8 +290,7 @@ static void create_config_symlink(const struct master_settings *set)
 	const char *base_config_path;
 
 	base_config_path = t_strconcat(set->base_dir, "/"PACKAGE".conf", NULL);
-	if (unlink(base_config_path) < 0 && errno != ENOENT)
-		i_error("unlink(%s) failed: %m", base_config_path);
+	i_unlink_if_exists(base_config_path);
 
 	if (symlink(services->config->config_file_path, base_config_path) < 0) {
 		i_error("symlink(%s, %s) failed: %m",
@@ -553,8 +551,7 @@ static void main_deinit(void)
 	global_dead_pipe_close();
 	services_destroy(services, TRUE);
 
-	if (unlink(pidfile_path) < 0)
-		i_error("unlink(%s) failed: %m", pidfile_path);
+	i_unlink(pidfile_path);
 	i_free(pidfile_path);
 
 	service_anvil_global_deinit();

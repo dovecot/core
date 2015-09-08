@@ -630,8 +630,7 @@ static int fs_posix_copy(struct fs_file *_src, struct fs_file *_dest)
 	ret = link(src->full_path, dest->full_path);
 	if (errno == EEXIST && dest->open_mode == FS_OPEN_MODE_REPLACE) {
 		/* destination file already exists - replace it */
-		if (unlink(dest->full_path) < 0 && errno != ENOENT)
-			i_error("unlink(%s) failed: %m", dest->full_path);
+		i_unlink_if_exists(dest->full_path);
 		ret = link(src->full_path, dest->full_path);
 	}
 	while (ret < 0 && errno == ENOENT &&

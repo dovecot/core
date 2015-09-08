@@ -58,8 +58,7 @@ static int o_stream_temp_move_to_fd(struct temp_ostream *tstream)
 		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
 		return -1;
 	}
-	if (unlink(str_c(path)) < 0) {
-		i_error("unlink(%s) failed: %m", str_c(path));
+	if (i_unlink(str_c(path)) < 0) {
 		i_close_fd(&tstream->fd);
 		return -1;
 	}

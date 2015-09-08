@@ -60,8 +60,7 @@ static int squat_trie_map(struct squat_trie *trie, bool building);
 
 void squat_trie_delete(struct squat_trie *trie)
 {
-	if (unlink(trie->path) < 0 && errno != ENOENT)
-		i_error("unlink(%s) failed: %m", trie->path);
+	i_unlink_if_exists(trie->path);
 	squat_uidlist_delete(trie->uidlist);
 }
 
@@ -1704,8 +1703,7 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 	}
 
 	if (ret < 0) {
-		if (unlink(path) < 0 && errno != ENOENT)
-			i_error("unlink(%s) failed: %m", path);
+		i_unlink_if_exists(path);
 		if (file_lock != NULL)
 			file_lock_free(&file_lock);
 	} else {

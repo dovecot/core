@@ -249,8 +249,7 @@ rebuild_rename_file(struct mdbox_storage_rebuild_context *ctx,
 		/* use link()+unlink() instead of rename() to make sure we
 		   don't overwrite any files. */
 		if (link(old_path, new_path) == 0) {
-			if (unlink(old_path) < 0)
-				i_error("unlink(%s) failed: %m", old_path);
+			i_unlink(old_path);
 			*fname_p = strrchr(new_path, '/') + 1;
 			*file_id_r = ctx->highest_file_id;
 			return 0;

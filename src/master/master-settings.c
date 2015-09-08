@@ -711,8 +711,7 @@ static void unlink_sockets(const char *path, const char *prefix)
 			}
 		}
 
-		if (unlink(str_c(str)) < 0 && errno != ENOENT)
-			i_error("unlink(%s) failed: %m", str_c(str));
+		i_unlink_if_exists(str_c(str));
 	}
 	(void)closedir(dirp);
 }

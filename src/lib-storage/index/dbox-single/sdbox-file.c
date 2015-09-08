@@ -352,7 +352,7 @@ int sdbox_file_move(struct dbox_file *file, bool alt_path)
 		ret = -1;
 	}
 	if (ret < 0) {
-		(void)unlink(temp_path);
+		i_unlink(temp_path);
 		return -1;
 	}
 	/* preserve the original atime/mtime. this isn't necessary for Dovecot,
@@ -370,14 +370,14 @@ int sdbox_file_move(struct dbox_file *file, bool alt_path)
 	if (rename(temp_path, dest_path) < 0) {
 		mail_storage_set_critical(storage,
 			"rename(%s, %s) failed: %m", temp_path, dest_path);
-		(void)unlink(temp_path);
+		i_unlink_if_exists(temp_path);
 		return -1;
 	}
 	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
 		if (fdatasync_path(dest_dir) < 0) {
 			mail_storage_set_critical(storage,
 				"fdatasync(%s) failed: %m", dest_dir);
-			(void)unlink(dest_path);
+			i_unlink(dest_path);
 			return -1;
 		}
 	}
@@ -385,7 +385,7 @@ int sdbox_file_move(struct dbox_file *file, bool alt_path)
 		dbox_file_set_syscall_error(file, "unlink()");
 		if (errno == EACCES) {
 			/* configuration problem? revert the write */
-			(void)unlink(dest_path);
+			i_unlink(dest_path);
 		}
 		/* who knows what happened to the file. keep both just to be
 		   sure both won't get deleted. */

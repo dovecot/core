@@ -242,7 +242,7 @@ int iostream_rawlog_create_prefix(const char *prefix, struct istream **input,
 	if (out_fd == -1) {
 		i_error("creat(%s) failed: %m", out_path);
 		i_close_fd(&in_fd);
-		(void)unlink(in_path);
+		i_unlink(in_path);
 		return -1;
 	}
 

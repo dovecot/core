@@ -671,7 +671,7 @@ maildir_save_unlink_files(struct maildir_save_context *ctx)
 	struct maildir_filename *mf;
 
 	for (mf = ctx->files; mf != NULL; mf = mf->next) T_BEGIN {
-		(void)unlink(maildir_mf_get_path(ctx, mf));
+		i_unlink(maildir_mf_get_path(ctx, mf));
 	} T_END;
 	ctx->files = NULL;
 }

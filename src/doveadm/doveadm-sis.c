@@ -118,14 +118,12 @@ hardlink_replace(const char *src, const char *dest, ino_t src_inode)
 		return -1;
 	}
 	if (st.st_ino != src_inode) {
-		if (unlink(tmppath) < 0)
-			i_error("unlink(%s) failed: %m", tmppath);
+		i_unlink(tmppath);
 		return 0;
 	}
 	if (rename(tmppath, dest) < 0) {
 		i_error("rename(%s, %s) failed: %m", src, tmppath);
-		if (unlink(tmppath) < 0)
-			i_error("unlink(%s) failed: %m", tmppath);
+		i_unlink(tmppath);
 		return -1;
 	}
 	return 1;
@@ -258,10 +256,8 @@ static void cmd_sis_deduplicate(int argc, char *argv[])
 		T_BEGIN {
 			ret = sis_try_deduplicate(rootdir, d->d_name);
 		} T_END;
-		if (ret == 0) {
-			if (unlink(str_c(path)) < 0)
-				i_error("unlink(%s) failed: %m", str_c(path));
-		}
+		if (ret == 0)
+			i_unlink(str_c(path));
 	}
 	if (closedir(dir) < 0)
 		i_error("closedir(%s) failed: %m", queuedir);

@@ -468,10 +468,8 @@ int mail_index_create_tmp_file(struct mail_index *index,
 	if (fd == -1 && errno == EEXIST) {
 		/* stale temp file. unlink and recreate rather than overwriting,
 		   just to make sure locking problems won't cause corruption */
-		if (unlink(path) < 0) {
-			i_error("unlink(%s) failed: %m", path);
+		if (i_unlink(path) < 0)
 			return -1;
-		}
 		old_mask = umask(0);
 		fd = open(path, O_RDWR|O_CREAT|O_EXCL, index->mode);
 		umask(old_mask);

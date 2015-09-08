@@ -276,8 +276,7 @@ mailbox_log_iter_next(struct mailbox_log_iter *iter)
 			(iter->count - iter->idx) * sizeof(iter->buf[0]);
 		i_error("Corrupted mailbox log %s at offset %"PRIuUOFF_T": "
 			"type=%d", iter->filepath, offset, rec->type);
-		if (unlink(iter->filepath) < 0)
-			i_error("unlink(%s) failed: %m", iter->filepath);
+		i_unlink(iter->filepath);
 		return NULL;
 	}
 	return rec;

@@ -442,9 +442,8 @@ fts_expunge_log_read_next(struct fts_expunge_log_read_ctx *ctx)
 	(void)i_stream_read_data(ctx->input, &data, &size, IO_BLOCK_SIZE);
 	if (size == 0 && ctx->input->stream_errno == 0) {
 		/* expected EOF - mark the file as read by unlinking it */
-		if (ctx->unlink &&
-		    unlink(ctx->log->path) < 0 && errno != ENOENT)
-			i_error("unlink(%s) failed: %m", ctx->log->path);
+		if (ctx->unlink)
+			i_unlink_if_exists(ctx->log->path);
 
 		/* try reading again, in case something new was written */
 		i_stream_sync(ctx->input);
@@ -510,9 +509,8 @@ int fts_expunge_log_read_end(struct fts_expunge_log_read_ctx **_ctx)
 	*_ctx = NULL;
 
 	if (ctx->corrupted) {
-		if (ctx->unlink &&
-		    unlink(ctx->log->path) < 0 && errno != ENOENT)
-			i_error("unlink(%s) failed: %m", ctx->log->path);
+		if (ctx->unlink)
+			i_unlink_if_exists(ctx->log->path);
 	}
 
 	if (ctx->input != NULL)

@@ -542,8 +542,7 @@ int net_listen_unix_unlink_stale(const char *path, int backlog)
 		}
 
 		/* delete and try again */
-		if (unlink(path) < 0 && errno != ENOENT) {
-			i_error("unlink(%s) failed: %m", path);
+		if (i_unlink_if_exists(path) < 0) {
 			errno = EADDRINUSE;
 			return -1;
 		}

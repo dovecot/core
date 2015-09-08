@@ -223,7 +223,7 @@ mountpoint_list_save_to(struct mountpoint_list *list, const char *path)
 	} else {
 		return 0;
 	}
-	(void)unlink(str_c(temp_path));
+	i_unlink(str_c(temp_path));
 	return -1;
 }
 

@@ -77,8 +77,7 @@ static void dbox_verify_alt_path(struct mailbox_list *list)
 		return;
 
 	/* unlink/create the current alt path symlink */
-	if (unlink(alt_symlink_path) < 0 && errno != ENOENT)
-		i_error("unlink(%s) failed: %m", alt_symlink_path);
+	i_unlink_if_exists(alt_symlink_path);
 	if (alt_path != NULL) {
 		if (symlink(alt_path, alt_symlink_path) < 0 &&
 		    errno != EEXIST) {

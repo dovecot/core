@@ -446,10 +446,7 @@ int services_listen_using(struct service_list *new_service_list,
 		switch (old_listeners[j]->type) {
 		case SERVICE_LISTENER_UNIX:
 		case SERVICE_LISTENER_FIFO: {
-			const char *path =
-				old_listeners[j]->set.fileset.set->path;
-			if (unlink(path) < 0)
-				i_error("unlink(%s) failed: %m", path);
+			i_unlink(old_listeners[j]->set.fileset.set->path);
 			break;
 		}
 		case SERVICE_LISTENER_INET:

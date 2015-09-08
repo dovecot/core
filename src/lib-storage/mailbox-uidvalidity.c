@@ -181,8 +181,7 @@ mailbox_uidvalidity_next_rescan(struct mailbox_list *list, const char *path)
 	if (min_value != max_value) {
 		/* duplicate uidvalidity files, delete the oldest */
 		tmp = t_strdup_printf("%s.%08x", path, min_value);
-		if (unlink(tmp) < 0 && errno != ENOENT)
-			i_error("unlink(%s) failed: %m", tmp);
+		i_unlink_if_exists(tmp);
 	}
 
 	cur_value = max_value;

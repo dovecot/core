@@ -304,16 +304,14 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	if (write_full(fd, str_data(str), str_len(str)) < 0) {
 		i_error("write_full(%s) failed: %m", str_c(temp_path));
 		i_close_fd(&fd);
-		if (unlink(str_c(temp_path)) < 0)
-			i_error("unlink(%s) failed: %m", str_c(temp_path));
+		i_unlink(str_c(temp_path));
 		return -1;
 	}
 	i_close_fd(&fd);
 
 	if (rename(str_c(temp_path), path) < 0) {
 		i_error("rename(%s, %s) failed: %m", str_c(temp_path), path);
-		if (unlink(str_c(temp_path)) < 0 && errno != ENOENT)
-			i_error("unlink(%s) failed: %m", str_c(temp_path));
+		i_unlink_if_exists(str_c(temp_path));
 		return -1;
 	}
 	return 0;
