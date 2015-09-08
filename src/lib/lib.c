@@ -30,6 +30,33 @@ int close_keep_errno(int *fd)
 	return ret;
 }
 
+#undef i_unlink
+int i_unlink(const char *path, const char *source_fname,
+	     unsigned int source_linenum)
+{
+	if (unlink(path) < 0) {
+		i_error("unlink(%s) failed: %m (in %s:%u)",
+			path, source_fname, source_linenum);
+		return -1;
+	}
+	return 0;
+}
+
+#undef i_unlink_if_exists
+int i_unlink_if_exists(const char *path, const char *source_fname,
+		       unsigned int source_linenum)
+{
+	if (unlink(path) == 0)
+		return 1;
+	else if (errno == ENOENT)
+		return 0;
+	else {
+		i_error("unlink(%s) failed: %m (in %s:%u)",
+			path, source_fname, source_linenum);
+		return -1;
+	}
+}
+
 void lib_atexit(lib_atexit_callback_t *callback)
 {
 	lib_atexit_priority(callback, 0);

@@ -49,6 +49,16 @@ typedef void lib_atexit_callback_t(void);
 #define LIB_ATEXIT_PRIORITY_LOW 10
 
 int close_keep_errno(int *fd);
+/* Call unlink(). If it fails, log an error including the source filename
+   and line number. */
+int i_unlink(const char *path, const char *source_fname,
+	     unsigned int source_linenum);
+#define i_unlink(path) i_unlink(path, __FILE__, __LINE__)
+/* Same as i_unlink(), but don't log an error if errno=ENOENT. Returns 1 on
+   unlink() success, 0 if errno=ENOENT, -1 on other errors. */
+int i_unlink_if_exists(const char *path, const char *source_fname,
+		       unsigned int source_linenum);
+#define i_unlink_if_exists(path) i_unlink_if_exists(path, __FILE__, __LINE__)
 
 /* Call the given callback at the beginning of lib_deinit(). The main
    difference to atexit() is that liblib's memory allocation and logging
