@@ -632,8 +632,12 @@ mailbox_delete_all_attributes(struct mailbox_transaction_context *t,
 			    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER)) == 0)
 			continue;
 
-		if (mailbox_attribute_unset(t, type, key) < 0)
-			ret = -1;
+		if (mailbox_attribute_unset(t, type, key) < 0) {
+			if (mailbox_get_last_mail_error(t->box) != MAIL_ERROR_NOTPOSSIBLE) {
+				ret = -1;
+				break;
+			}
+		}
 	}
 	if (mailbox_attribute_iter_deinit(&iter) < 0)
 		ret = -1;
