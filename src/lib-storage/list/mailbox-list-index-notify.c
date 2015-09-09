@@ -686,7 +686,7 @@ mailbox_list_index_notify_change(struct mailbox_list_notify_index *inotify,
 		STATUS_UIDVALIDITY | STATUS_UIDNEXT | STATUS_MESSAGES |
 		STATUS_UNSEEN | STATUS_HIGHESTMODSEQ;
 	struct mailbox_list_notify_rec *rec;
-	struct mailbox_notify_node *nnode;
+	struct mailbox_notify_node *nnode, empty_node;
 	struct mailbox_status status;
 
 	if (!mailbox_list_index_notify_lookup(inotify, inotify->view,
@@ -696,7 +696,12 @@ mailbox_list_index_notify_change(struct mailbox_list_notify_index *inotify,
 	/* get the old status */
 	nnode = mailbox_list_notify_tree_lookup(inotify->tree,
 						rec->storage_name);
-	if (nnode == NULL || nnode->uidvalidity != status.uidvalidity)
+	if (nnode == NULL) {
+		/* mailbox didn't exist earlier - report all events as new */
+		memset(&empty_node, 0, sizeof(empty_node));
+		nnode = &empty_node;
+	}
+	if (nnode->uidvalidity != status.uidvalidity)
 		rec->events |= MAILBOX_LIST_NOTIFY_UIDVALIDITY;
 	if (nnode->uidnext != status.uidnext)
 		rec->events |= MAILBOX_LIST_NOTIFY_APPENDS;
