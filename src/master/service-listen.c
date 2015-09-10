@@ -166,8 +166,8 @@ systemd_listen_fd(const struct ip_addr *ip, in_port_t port, int *fd_r)
 
 	if (sd_fds < 0) {
 		sd_fds = sd_listen_fds(0);
-		if (sd_fds == -1) {
-			i_error("sd_listen_fds() failed: %m");
+		if (sd_fds < 0) {
+			i_error("sd_listen_fds() failed: %s", strerror(-sd_fds));
 			return -1;
 		}
 	}
