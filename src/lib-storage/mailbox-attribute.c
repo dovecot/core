@@ -131,10 +131,17 @@ mailbox_internal_attributes_get(enum mail_attribute_type type,
 		if (plen > 0) {
 			if (strncmp(key, bare_prefix, plen) != 0)
 				return;
-			if (key[plen] != '/' && strlen(key) != plen)
+			if (key[plen] == '/') {
+				/* remove prefix */
+				key += plen + 1;
+			} else if (key[plen] == '\0') {
+				/* list the key itself, so this becomes an
+				   empty key string. it's the same as how the
+				   dict backend works too. */
+				key += plen;
+			} else {
 				return;
-			/* remove prefix */
-			key += plen + 1;
+			}
 		}
 		if (have_dict || regs[i].rank == MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY)
 			array_append(attrs, &key, 1);
