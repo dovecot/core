@@ -263,7 +263,7 @@ cmd_mailbox_metadata_list_init(struct doveadm_mail_cmd_context *_ctx,
 			       const char *const args[])
 {
 	struct metadata_cmd_context *ctx = (struct metadata_cmd_context *)_ctx;
-	const char *key;
+	const char *key = NULL;
 
 	if (args[0] == NULL)
 		doveadm_mail_help_name("mailbox metadata list");
