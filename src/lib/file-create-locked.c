@@ -76,6 +76,7 @@ try_create_new(const char *path, const struct file_create_settings *set,
 			*error_r = t_strdup_printf("link(%s, %s) failed: %m",
 						   str_c(temp_path), path);
 		}
+		file_lock_free(lock_r);
 	} else {
 		i_unlink_if_exists(str_c(temp_path));
 		*fd_r = fd;
