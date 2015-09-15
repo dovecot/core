@@ -51,6 +51,7 @@ int main(void)
 		test_str_sanitize,
 		test_str_table,
 		test_time_util,
+		test_timing,
 		test_unichar,
 		test_utc_mktime,
 		test_var_expand,

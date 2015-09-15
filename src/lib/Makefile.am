@@ -136,6 +136,7 @@ liblib_la_SOURCES = \
 	strfuncs.c \
 	strnum.c \
 	time-util.c \
+	timing.c \
 	unix-socket-create.c \
 	unlink-directory.c \
 	unlink-old-files.c \
@@ -266,6 +267,7 @@ headers = \
 	strfuncs.h \
 	strnum.h \
 	time-util.h \
+	timing.h \
 	unix-socket-create.h \
 	unlink-directory.h \
 	unlink-old-files.h \
@@ -335,6 +337,7 @@ test_lib_SOURCES = \
 	test-str-sanitize.c \
 	test-str-table.c \
 	test-time-util.c \
+	test-timing.c \
 	test-unichar.c \
 	test-utc-mktime.c \
 	test-var-expand.c \
