@@ -4,23 +4,6 @@
 #include "fs-api.h"
 #include "module-context.h"
 
-enum fs_op {
-	FS_OP_WAIT,
-	FS_OP_METADATA,
-	FS_OP_PREFETCH,
-	FS_OP_READ,
-	FS_OP_WRITE,
-	FS_OP_LOCK,
-	FS_OP_EXISTS,
-	FS_OP_STAT,
-	FS_OP_COPY,
-	FS_OP_RENAME,
-	FS_OP_DELETE,
-	FS_OP_ITER,
-
-	FS_OP_COUNT
-};
-
 struct fs_api_module_register {
 	unsigned int id;
 };
@@ -127,6 +110,8 @@ struct fs_file {
 	struct istream *copy_input;
 	struct ostream *copy_output;
 
+	struct timeval timing_start[FS_OP_COUNT];
+
 	unsigned int write_pending:1;
 	unsigned int metadata_changed:1;
 
@@ -145,6 +130,7 @@ struct fs_iter {
 
 	struct fs *fs;
 	enum fs_iter_flags flags;
+	struct timeval start_time;
 
 	bool async_have_more;
 	fs_file_async_callback_t *async_callback;
@@ -171,5 +157,7 @@ void fs_metadata_init(struct fs_file *file);
 void fs_default_set_metadata(struct fs_file *file,
 			     const char *key, const char *value);
 int fs_default_copy(struct fs_file *src, struct fs_file *dest);
+
+void fs_file_timing_end(struct fs_file *file, enum fs_op op);
 
 #endif

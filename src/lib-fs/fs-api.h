@@ -93,6 +93,23 @@ enum fs_iter_flags {
 	FS_ITER_FLAG_NOCACHE	= 0x08
 };
 
+enum fs_op {
+	FS_OP_WAIT,
+	FS_OP_METADATA,
+	FS_OP_PREFETCH,
+	FS_OP_READ,
+	FS_OP_WRITE,
+	FS_OP_LOCK,
+	FS_OP_EXISTS,
+	FS_OP_STAT,
+	FS_OP_COPY,
+	FS_OP_RENAME,
+	FS_OP_DELETE,
+	FS_OP_ITER,
+
+	FS_OP_COUNT
+};
+
 struct fs_settings {
 	/* Username and session ID are mainly used for debugging/logging,
 	   but may also be useful for other purposes if they exist (they
@@ -120,6 +137,8 @@ struct fs_settings {
 
 	/* Enable debugging */
 	bool debug;
+	/* Enable timing statistics */
+	bool enable_timing;
 };
 
 struct fs_stats {
@@ -153,6 +172,10 @@ struct fs_stats {
 	unsigned int rename_count;
 	/* Number of fs_iter_init() calls. */
 	unsigned int iter_count;
+
+	/* Cumulative sum of usecs spent on calls - set only if
+	   fs_settings.enable_timing=TRUE */
+	struct timing *timings[FS_OP_COUNT];
 };
 
 struct fs_metadata {
