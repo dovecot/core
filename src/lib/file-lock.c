@@ -292,8 +292,10 @@ int file_wait_lock_error(int fd, const char *path, int lock_type,
 	int ret;
 
 	ret = file_lock_do(fd, path, lock_type, lock_method, timeout_secs, error_r);
-	if (ret <= 0)
+	if (ret <= 0) {
+		i_assert(errno != EDEADLOCK);
 		return ret;
+	}
 
 	lock = i_new(struct file_lock, 1);
 	lock->fd = fd;
