@@ -4,6 +4,8 @@
 #include "fs-api.h"
 #include "module-context.h"
 
+#include <sys/time.h>
+
 struct fs_api_module_register {
 	unsigned int id;
 };
