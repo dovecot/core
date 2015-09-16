@@ -65,6 +65,7 @@ struct cassandra_result {
 	char *error;
 	enum cassandra_query_type query_type;
 	struct timeval start_time, finish_time;
+	unsigned int row_count;
 
 	pool_t row_pool;
 	ARRAY_TYPE(const_string) fields;
@@ -468,7 +469,8 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 	if (db->log_level >= CASS_LOG_DEBUG) {
 		if (gettimeofday(&now, NULL) < 0)
 			i_fatal("gettimeofday() failed: %m");
-		i_debug("cassandra: Finished query '%s' (%lld+%lld us): %s", result->query,
+		i_debug("cassandra: Finished query '%s' (%u rows, %lld+%lld us): %s", result->query,
+			result->row_count,
 			timeval_diff_usecs(&result->finish_time, &result->start_time),
 			timeval_diff_usecs(&now, &result->finish_time),
 			result->error != NULL ? result->error : "success");
@@ -745,6 +747,7 @@ static int driver_cassandra_result_next_row(struct sql_result *_result)
 
 	if (!cass_iterator_next(result->iterator))
 		return 0;
+	result->row_count++;
 
 	p_clear(result->row_pool);
 	p_array_init(&result->fields, result->row_pool, 8);
