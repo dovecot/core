@@ -6,6 +6,7 @@
 #include "str.h"
 #include "ioloop.h"
 #include "write-full.h"
+#include "time-util.h"
 #include "sql-api-private.h"
 
 #ifdef BUILD_CASSANDRA
@@ -63,6 +64,7 @@ struct cassandra_result {
 	char *query;
 	char *error;
 	enum cassandra_query_type query_type;
+	struct timeval start_time;
 
 	pool_t row_pool;
 	ARRAY_TYPE(const_string) fields;
@@ -476,13 +478,17 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 static void result_finish(struct cassandra_result *result)
 {
 	struct cassandra_db *db = (struct cassandra_db *)result->api.db;
+	struct timeval now;
 	bool free_result = TRUE;
 
 	result->finished = TRUE;
 	driver_cassandra_result_unlink(db, result);
 
 	if (db->log_level >= CASS_LOG_DEBUG) {
-		i_debug("cassandra: Finished query '%s': %s", result->query,
+		if (gettimeofday(&now, NULL) < 0)
+			i_fatal("gettimeofday() failed: %m");
+		i_debug("cassandra: Finished query '%s' (%lld us): %s", result->query,
+			timeval_diff_usecs(&now, &result->start_time),
 			result->error != NULL ? result->error : "success");
 	}
 
@@ -539,6 +545,7 @@ static int driver_cassandra_send_query(struct cassandra_result *result)
 		}
 	}
 
+	result->start_time = ioloop_timeval;
 	result->row_pool = pool_alloconly_create("cassandra result", 512);
 	result->statement = cass_statement_new(result->query, 0);
 	switch (result->query_type) {
