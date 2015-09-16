@@ -64,7 +64,7 @@ struct cassandra_result {
 	char *query;
 	char *error;
 	enum cassandra_query_type query_type;
-	struct timeval start_time;
+	struct timeval start_time, finish_time;
 
 	pool_t row_pool;
 	ARRAY_TYPE(const_string) fields;
@@ -457,12 +457,22 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 {
 	struct cassandra_db *db = (struct cassandra_db *)_result->db;
         struct cassandra_result *result = (struct cassandra_result *)_result;
+	struct timeval now;
 
 	i_assert(!result->api.callback);
 	i_assert(result->callback == NULL);
 
 	if (_result == db->sync_result)
 		db->sync_result = NULL;
+
+	if (db->log_level >= CASS_LOG_DEBUG) {
+		if (gettimeofday(&now, NULL) < 0)
+			i_fatal("gettimeofday() failed: %m");
+		i_debug("cassandra: Finished query '%s' (%lld+%lld us): %s", result->query,
+			timeval_diff_usecs(&result->finish_time, &result->start_time),
+			timeval_diff_usecs(&now, &result->finish_time),
+			result->error != NULL ? result->error : "success");
+	}
 
 	if (result->result != NULL)
 		cass_result_free(result->result);
@@ -480,19 +490,11 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 static void result_finish(struct cassandra_result *result)
 {
 	struct cassandra_db *db = (struct cassandra_db *)result->api.db;
-	struct timeval now;
 	bool free_result = TRUE;
 
 	result->finished = TRUE;
+	result->finish_time = ioloop_timeval;
 	driver_cassandra_result_unlink(db, result);
-
-	if (db->log_level >= CASS_LOG_DEBUG) {
-		if (gettimeofday(&now, NULL) < 0)
-			i_fatal("gettimeofday() failed: %m");
-		i_debug("cassandra: Finished query '%s' (%lld us): %s", result->query,
-			timeval_diff_usecs(&now, &result->start_time),
-			result->error != NULL ? result->error : "success");
-	}
 
 	i_assert((result->error != NULL) == (result->iterator == NULL));
 
