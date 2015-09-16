@@ -192,11 +192,11 @@ void fs_unref(struct fs **_fs)
 	i_free(fs->username);
 	i_free(fs->session_id);
 	i_free(fs->temp_path_prefix);
+	for (i = 0; i < FS_OP_COUNT; i++)
+		timing_deinit(&fs->stats.timings[i]);
 	T_BEGIN {
 		fs->v.deinit(fs);
 	} T_END;
-	for (i = 0; i < FS_OP_COUNT; i++)
-		timing_deinit(&fs->stats.timings[i]);
 	array_free_i(&module_contexts_arr);
 	str_free(&last_error);
 }
