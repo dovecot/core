@@ -468,8 +468,10 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 		cass_result_free(result->result);
 	if (result->iterator != NULL)
 		cass_iterator_free(result->iterator);
-	cass_statement_free(result->statement);
-	pool_unref(&result->row_pool);
+	if (result->statement != NULL)
+		cass_statement_free(result->statement);
+	if (result->row_pool != NULL)
+		pool_unref(&result->row_pool);
 	i_free(result->query);
 	i_free(result->error);
 	i_free(result);
