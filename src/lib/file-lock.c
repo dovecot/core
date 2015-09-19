@@ -211,6 +211,8 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		}
 		*error_r = t_strdup_printf("fcntl(%s, %s, %s) locking failed: %m",
 			path, lock_type_str, timeout_secs == 0 ? "F_SETLK" : "F_SETLKW");
+		if (errno == EDEADLOCK)
+			i_panic("%s%s", *error_r, file_lock_find(fd, lock_method, lock_type));
 		return -1;
 #endif
 	}
@@ -257,6 +259,8 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		}
 		*error_r = t_strdup_printf("flock(%s, %s) failed: %m",
 					   path, lock_type_str);
+		if (errno == EDEADLOCK)
+			i_panic("%s%s", *error_r, file_lock_find(fd, lock_method, lock_type));
 		return -1;
 #endif
 	}
@@ -292,10 +296,8 @@ int file_wait_lock_error(int fd, const char *path, int lock_type,
 	int ret;
 
 	ret = file_lock_do(fd, path, lock_type, lock_method, timeout_secs, error_r);
-	if (ret <= 0) {
-		i_assert(errno != EDEADLOCK);
+	if (ret <= 0)
 		return ret;
-	}
 
 	lock = i_new(struct file_lock, 1);
 	lock->fd = fd;
