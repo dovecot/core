@@ -68,6 +68,8 @@ void mech_generic_auth_free(struct auth_request *request);
 struct mechanisms_register *
 mech_register_init(const struct auth_settings *set);
 void mech_register_deinit(struct mechanisms_register **reg);
+const struct mech_module *
+mech_register_find(const struct mechanisms_register *reg, const char *name);
 
 void mech_init(const struct auth_settings *set);
 void mech_deinit(const struct auth_settings *set);
