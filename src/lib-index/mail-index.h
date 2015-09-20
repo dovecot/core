@@ -363,6 +363,8 @@ int mail_index_sync_begin_to(struct mail_index *index,
 /* Returns TRUE if it currently looks like syncing would return changes. */
 bool mail_index_sync_have_any(struct mail_index *index,
 			      enum mail_index_sync_flags flags);
+/* Returns TRUE if it currently looks like syncing would return expunges. */
+bool mail_index_sync_have_any_expunges(struct mail_index *index);
 /* Returns the log file seq+offsets for the area which this sync is handling. */
 void mail_index_sync_get_offsets(struct mail_index_sync_ctx *ctx,
 				 uint32_t *seq1_r, uoff_t *offset1_r,

@@ -526,7 +526,8 @@ bool mail_index_sync_has_expunges(struct mail_index_sync_ctx *ctx)
 }
 
 static bool mail_index_sync_view_have_any(struct mail_index_view *view,
-					  enum mail_index_sync_flags flags)
+					  enum mail_index_sync_flags flags,
+					  bool expunges_only)
 {
 	const struct mail_transaction_header *hdr;
 	const void *data;
@@ -560,19 +561,22 @@ static bool mail_index_sync_view_have_any(struct mail_index_view *view,
 			continue;
 
 		switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
+		case MAIL_TRANSACTION_EXPUNGE:
+		case MAIL_TRANSACTION_EXPUNGE_GUID:
+			return TRUE;
 		case MAIL_TRANSACTION_EXT_REC_UPDATE:
 		case MAIL_TRANSACTION_EXT_ATOMIC_INC:
 			/* extension record updates aren't exactly needed
 			   to be synced, but cache syncing relies on tail
 			   offsets being updated. */
-		case MAIL_TRANSACTION_EXPUNGE:
-		case MAIL_TRANSACTION_EXPUNGE_GUID:
 		case MAIL_TRANSACTION_FLAG_UPDATE:
 		case MAIL_TRANSACTION_KEYWORD_UPDATE:
 		case MAIL_TRANSACTION_KEYWORD_RESET:
 		case MAIL_TRANSACTION_INDEX_DELETED:
 		case MAIL_TRANSACTION_INDEX_UNDELETED:
-			return TRUE;
+			if (!expunges_only)
+				return TRUE;
+			break;
 		default:
 			break;
 		}
@@ -587,7 +591,18 @@ bool mail_index_sync_have_any(struct mail_index *index,
 	bool ret;
 
 	view = mail_index_view_open(index);
-	ret = mail_index_sync_view_have_any(view, flags);
+	ret = mail_index_sync_view_have_any(view, flags, FALSE);
+	mail_index_view_close(&view);
+	return ret;
+}
+
+bool mail_index_sync_have_any_expunges(struct mail_index *index)
+{
+	struct mail_index_view *view;
+	bool ret;
+
+	view = mail_index_view_open(index);
+	ret = mail_index_sync_view_have_any(view, 0, TRUE);
 	mail_index_view_close(&view);
 	return ret;
 }
