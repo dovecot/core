@@ -94,11 +94,9 @@ bool str_array_icase_find(const char *const *arr, const char *value);
 const char **p_strarray_dup(pool_t pool, const char *const *arr)
 	ATTR_MALLOC ATTR_RETURNS_NONNULL;
 
-#define i_qsort(base, nmemb, size, cmp) \
-	qsort(base, nmemb, size + \
-		CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*base) *), \
-						typeof(const typeof(*base) *))), \
-		(int (*)(const void *, const void *))cmp)
+/* FIXME: v2.3 - sort and search APIs belong into their own header, not here */
+#include "sort.h"
+
 #define i_bsearch(key, base, nmemb, size, cmp) \
 	bsearch(key, base, nmemb, size + \
 		CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \

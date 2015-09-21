@@ -143,12 +143,6 @@ get_existing_name_ids(ARRAY_TYPE(uint32_t) *ids,
 	}
 }
 
-static int uint32_cmp(const uint32_t *p1, const uint32_t *p2)
-{
-	return *p1 < *p2 ? -1 :
-		(*p1 > *p2 ? 1 : 0);
-}
-
 static void
 mailbox_list_index_sync_names(struct mailbox_list_index_sync_context *ctx)
 {

@@ -47,12 +47,6 @@ uint32_t imapc_msgmap_rseq_to_uid(struct imapc_msgmap *msgmap, uint32_t rseq)
 	return *uidp;
 }
 
-static int uint32_cmp(const uint32_t *p1, const uint32_t *p2)
-{
-	return *p1 < *p2 ? -1 :
-		(*p1 > *p2 ? 1 : 0);
-}
-
 bool imapc_msgmap_uid_to_rseq(struct imapc_msgmap *msgmap,
 			      uint32_t uid, uint32_t *rseq_r)
 {

@@ -189,12 +189,6 @@ pop3c_sync_messages(struct pop3c_mailbox *mbox,
 		mailbox_recent_flags_set_seqs(&mbox->box, sync_view, seq1, seq2);
 }
 
-static int uint32_cmp(const uint32_t *u1, const uint32_t *u2)
-{
-	return *u1 < *u2 ? -1 :
-		(*u1 > *u2 ? 1 : 0);
-}
-
 int pop3c_sync(struct pop3c_mailbox *mbox)
 {
         struct mail_index_sync_ctx *index_sync_ctx;

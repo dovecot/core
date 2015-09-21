@@ -5,16 +5,6 @@
 
 #include <stdlib.h>
 
-static int uint64_cmp(const uint64_t *i1, const uint64_t *i2)
-{
-	if (*i1 < *i2)
-		return -1;
-	else if (*i1 > *i2)
-		return 1;
-	else
-		return 0;
-}
-
 static void
 test_timing_verify(const struct timing *t, const int64_t *input,
 		   unsigned int input_size)
