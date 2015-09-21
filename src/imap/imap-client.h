@@ -77,11 +77,10 @@ struct client_command_context {
 	/* time when command handling was started - typically this is after
 	   reading all the parameters. */
 	struct timeval start_time;
-	/* time when an unfinished command handling entered back to ioloop.
-	   used for calculating usecs_in_ioloop */
-	struct timeval last_ioloop_time;
-	/* how much time was spent waiting for the client in ioloop */
-	uint64_t usecs_in_ioloop;
+	/* io_loop_get_wait_usecs()'s value when the command was started */
+	uint64_t start_ioloop_wait_usecs;
+	/* how many usecs this command itself has spent running */
+	uint64_t running_usecs;
 
 	struct client_sync_context *sync;
 

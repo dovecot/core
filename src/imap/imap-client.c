@@ -396,11 +396,32 @@ int client_send_line_next(struct client *client, const char *data)
 	return 1;
 }
 
+static void
+client_cmd_append_timing_stats(struct client_command_context *cmd,
+			       string_t *str)
+{
+	unsigned int msecs_in_cmd, msecs_in_ioloop;
+	uint64_t ioloop_wait_usecs;
+
+	if (cmd->start_time.tv_sec == 0)
+		return;
+
+	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
+	msecs_in_cmd = (cmd->running_usecs + 999) / 1000;
+	msecs_in_ioloop = (ioloop_wait_usecs -
+			   cmd->start_ioloop_wait_usecs + 999) / 1000;
+
+	if (str_data(str)[str_len(str)-1] == '.')
+		str_truncate(str, str_len(str)-1);
+	str_printfa(str, " (%d.%03d + %d.%03d secs).",
+		    msecs_in_cmd / 1000, msecs_in_cmd % 1000,
+		    msecs_in_ioloop / 1000, msecs_in_ioloop % 1000);
+}
+
 void client_send_tagline(struct client_command_context *cmd, const char *data)
 {
 	struct client *client = cmd->client;
 	const char *tag = cmd->tag;
-	int time_msecs;
 
 	if (client->output->closed || cmd->cancel)
 		return;
@@ -414,18 +435,7 @@ void client_send_tagline(struct client_command_context *cmd, const char *data)
 	T_BEGIN {
 		string_t *str = t_str_new(256);
 		str_printfa(str, "%s %s", tag, data);
-		if (cmd->start_time.tv_sec != 0) {
-			if (str_data(str)[str_len(str)-1] == '.')
-				str_truncate(str, str_len(str)-1);
-			io_loop_time_refresh();
-			time_msecs = timeval_diff_msecs(&ioloop_timeval,
-							&cmd->start_time);
-			time_msecs -= cmd->usecs_in_ioloop/1000;
-			if (time_msecs >= 0) {
-				str_printfa(str, " (%d.%03d secs).",
-					    time_msecs/1000, time_msecs%1000);
-			}
-		}
+		client_cmd_append_timing_stats(cmd, str);
 		str_append(str, "\r\n");
 		o_stream_nsend(client->output, str_data(str), str_len(str));
 	} T_END;
@@ -496,6 +506,8 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
 		imap_write_args(str, *args_r);
 		cmd->args = p_strdup(cmd->pool, str_c(str));
 		cmd->start_time = ioloop_timeval;
+		cmd->start_ioloop_wait_usecs =
+			io_loop_get_wait_usecs(current_ioloop);
 
 		cmd->client->input_lock = NULL;
 		return TRUE;

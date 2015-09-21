@@ -156,12 +156,10 @@ bool command_exec(struct client_command_context *cmd)
 	const struct command_hook *hook;
 	long long diff;
 	bool finished;
+	struct timeval cmd_start_timeval;
 
-	if (cmd->last_ioloop_time.tv_sec != 0) {
-		diff = timeval_diff_usecs(&ioloop_timeval, &cmd->last_ioloop_time);
-		if (diff > 0)
-			cmd->usecs_in_ioloop += diff;
-	}
+	io_loop_time_refresh();
+	cmd_start_timeval = ioloop_timeval;
 
 	array_foreach(&command_hooks, hook)
 		hook->pre(cmd);
@@ -170,10 +168,10 @@ bool command_exec(struct client_command_context *cmd)
 		hook->post(cmd);
 	if (cmd->state == CLIENT_COMMAND_STATE_DONE)
 		finished = TRUE;
-	if (!finished) {
-		io_loop_time_refresh();
-		cmd->last_ioloop_time = ioloop_timeval;
-	}
+
+	io_loop_time_refresh();
+	cmd->running_usecs +=
+		timeval_diff_usecs(&ioloop_timeval, &cmd_start_timeval);
 	return finished;
 }
 
