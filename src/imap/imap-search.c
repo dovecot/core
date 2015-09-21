@@ -516,7 +516,7 @@ static void cmd_search_more_callback(struct client_command_context *cmd)
 	bool finished;
 
 	o_stream_cork(client->output);
-	finished = cmd_search_more(cmd);
+	finished = command_exec(cmd);
 	o_stream_uncork(client->output);
 
 	if (!finished)
