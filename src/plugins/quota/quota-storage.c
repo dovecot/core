@@ -7,6 +7,7 @@
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
 #include "maildir-storage.h"
+#include "index-mailbox-size.h"
 #include "quota-private.h"
 #include "quota-plugin.h"
 
@@ -316,6 +317,7 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 				      enum mailbox_sync_type sync_type)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 	struct quota_user *quser = QUOTA_USER_CONTEXT(box->storage->user);
 	const uint32_t *uids;
 	const uoff_t *sizep;
@@ -358,6 +360,11 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 		/* we already know the size */
 		sizep = array_idx(&qbox->expunge_sizes, i);
 		quota_free_bytes(qbox->expunge_qt, *sizep);
+		/* FIXME: it's not ideal that we do the vsize update here, but
+		   this is the easiest place for it for now.. maybe the mail
+		   size checking code could be moved to lib-storage */
+		if (ibox->vsize_update != NULL && quser->quota->set->vsizes)
+			index_mailbox_vsize_hdr_expunge(ibox->vsize_update, uid, *sizep);
 		return;
 	}
 
@@ -385,6 +392,8 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 		}
 	} else if (mail_get_virtual_size(qbox->expunge_qt->tmp_mail, &size) == 0) {
 		quota_free_bytes(qbox->expunge_qt, size);
+		if (ibox->vsize_update != NULL)
+			index_mailbox_vsize_hdr_expunge(ibox->vsize_update, uid, size);
 	} else {
 		/* there's no way to get the size. recalculate the quota. */
 		quota_recalculate(qbox->expunge_qt);

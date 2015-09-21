@@ -4,6 +4,7 @@
 #include "seq-range-array.h"
 #include "ioloop.h"
 #include "array.h"
+#include "index-mailbox-size.h"
 #include "index-sync-private.h"
 
 struct index_storage_list_index_record {
@@ -334,6 +335,8 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	if (array_is_created(&ctx->all_flag_update_uids))
 		array_free(&ctx->all_flag_update_uids);
 
+	/* update vsize header if wanted */
+	index_mailbox_vsize_update_appends(_ctx->box);
 	i_free(ctx);
 	return ret;
 }

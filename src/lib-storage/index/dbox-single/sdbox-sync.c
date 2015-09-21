@@ -216,15 +216,12 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 	sync_flags |= MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES;
 
 	for (i = 0;; i++) {
-		ret = mail_index_sync_begin(mbox->box.index,
-					    &ctx->index_sync_ctx,
-					    &ctx->sync_view, &ctx->trans,
-					    sync_flags);
+		ret = index_storage_expunged_sync_begin(&mbox->box,
+				&ctx->index_sync_ctx, &ctx->sync_view,
+				&ctx->trans, sync_flags);
 		if (mail_index_reset_fscked(mbox->box.index))
 			sdbox_set_mailbox_corrupted(&mbox->box);
 		if (ret <= 0) {
-			if (ret < 0)
-				mailbox_set_index_error(&mbox->box);
 			array_free(&ctx->expunged_uids);
 			i_free(ctx);
 			*ctx_r = NULL;
@@ -255,6 +252,7 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 		}
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 		if (ret < 0) {
+			index_storage_expunging_deinit(&ctx->mbox->box);
 			array_free(&ctx->expunged_uids);
 			i_free(ctx);
 			return -1;
@@ -274,6 +272,7 @@ int sdbox_sync_finish(struct sdbox_sync_context **_ctx, bool success)
 
 	if (success) {
 		mail_index_view_ref(ctx->sync_view);
+
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
 			mailbox_set_index_error(&ctx->mbox->box);
 			ret = -1;
@@ -285,6 +284,7 @@ int sdbox_sync_finish(struct sdbox_sync_context **_ctx, bool success)
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
 
+	index_storage_expunging_deinit(&ctx->mbox->box);
 	array_free(&ctx->expunged_uids);
 	i_free(ctx);
 	return ret;

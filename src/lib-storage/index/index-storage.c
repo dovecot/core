@@ -17,6 +17,7 @@
 #include "index-mail.h"
 #include "index-attachment.h"
 #include "index-thread-private.h"
+#include "index-mailbox-size.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -946,4 +947,72 @@ void index_storage_destroy(struct mail_storage *storage)
 		(void)dict_wait(storage->_shared_attr_dict);
 		dict_deinit(&storage->_shared_attr_dict);
 	}
+}
+
+static void index_storage_expunging_init(struct mailbox *box)
+{
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
+
+	if (ibox->vsize_update != NULL)
+		return;
+
+	ibox->vsize_update = index_mailbox_vsize_update_init(box);
+	if (!index_mailbox_vsize_want_updates(ibox->vsize_update) ||
+	    !index_mailbox_vsize_update_wait_lock(ibox->vsize_update))
+		index_mailbox_vsize_update_deinit(&ibox->vsize_update);
+}
+
+void index_storage_expunging_deinit(struct mailbox *box)
+{
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
+
+	if (ibox->vsize_update != NULL)
+		index_mailbox_vsize_update_deinit(&ibox->vsize_update);
+}
+
+static bool index_storage_expunging_want_updates(struct mailbox *box)
+{
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
+	bool ret;
+
+	i_assert(ibox->vsize_update == NULL);
+
+	ibox->vsize_update = index_mailbox_vsize_update_init(box);
+	ret = index_mailbox_vsize_want_updates(ibox->vsize_update);
+	index_mailbox_vsize_update_deinit(&ibox->vsize_update);
+	return ret;
+}
+
+int index_storage_expunged_sync_begin(struct mailbox *box,
+				      struct mail_index_sync_ctx **ctx_r,
+				      struct mail_index_view **view_r,
+				      struct mail_index_transaction **trans_r,
+				      enum mail_index_sync_flags flags)
+{
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
+	int ret;
+
+	/* try to avoid locking vsize updates by checking if we see any
+	   expunges */
+	if (mail_index_sync_have_any_expunges(box->index))
+		index_storage_expunging_init(box);
+
+	ret = mail_index_sync_begin(box->index, ctx_r, view_r,
+				    trans_r, flags);
+	if (ret <= 0) {
+		mailbox_set_index_error(box);
+		index_storage_expunging_deinit(box);
+		return ret;
+	}
+	if (ibox->vsize_update == NULL &&
+	    mail_index_sync_has_expunges(*ctx_r) &&
+	    index_storage_expunging_want_updates(box)) {
+		/* race condition - need to abort the sync and retry with
+		   the vsize locked */
+		mail_index_sync_rollback(ctx_r);
+		index_storage_expunging_init(box);
+		return index_storage_expunged_sync_begin(box, ctx_r, view_r,
+							 trans_r, flags);
+	}
+	return 1;
 }

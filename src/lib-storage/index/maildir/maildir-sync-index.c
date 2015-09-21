@@ -228,11 +228,9 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 	if (maildir_sync_ctx == NULL)
 		sync_flags &= ~MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
-	if (mail_index_sync_begin(_box->index, &sync_ctx, &view,
-				  &trans, sync_flags) < 0) {
-		mailbox_set_index_error(_box);
+	if (index_storage_expunged_sync_begin(_box, &sync_ctx, &view,
+					      &trans, sync_flags) < 0)
 		return -1;
-	}
 
 	ctx = i_new(struct maildir_index_sync_context, 1);
 	ctx->mbox = mbox;
@@ -336,6 +334,7 @@ static int maildir_sync_index_finish(struct maildir_index_sync_context *ctx,
 		mbox->syncing_commit = FALSE;
 	}
 
+	index_storage_expunging_deinit(&mbox->box);
 	maildir_keywords_sync_deinit(&ctx->keywords_sync_ctx);
 	index_sync_changes_deinit(&ctx->sync_changes);
 	i_free(ctx);

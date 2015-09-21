@@ -112,18 +112,18 @@ int cydir_sync_begin(struct cydir_mailbox *mbox,
 	if (!force)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 
-	ret = mail_index_sync_begin(mbox->box.index, &ctx->index_sync_ctx,
-				    &ctx->sync_view, &ctx->trans,
-				    sync_flags);
+	ret = index_storage_expunged_sync_begin(&mbox->box, &ctx->index_sync_ctx,
+						&ctx->sync_view, &ctx->trans,
+						sync_flags);
 	if (ret <= 0) {
-		if (ret < 0)
-			mailbox_set_index_error(&mbox->box);
 		i_free(ctx);
 		*ctx_r = NULL;
 		return ret;
 	}
 
 	cydir_sync_index(ctx);
+	index_storage_expunging_deinit(&mbox->box);
+
 	*ctx_r = ctx;
 	return 0;
 }

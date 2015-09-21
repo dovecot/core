@@ -28,6 +28,8 @@ struct index_mailbox_context {
 	const ARRAY_TYPE(keywords) *keyword_names;
 	struct mail_cache_field *cache_fields;
 
+	struct mailbox_vsize_update *vsize_update;
+
 	uint32_t recent_flags_last_check_nextuid;
 
 	time_t sync_last_check;
@@ -156,5 +158,12 @@ int index_storage_list_index_has_changed(struct mailbox *box,
 void index_storage_list_index_update_sync(struct mailbox *box,
 					  struct mail_index_transaction *trans,
 					  uint32_t seq);
+
+int index_storage_expunged_sync_begin(struct mailbox *box,
+				      struct mail_index_sync_ctx **ctx_r,
+				      struct mail_index_view **view_r,
+				      struct mail_index_transaction **trans_r,
+				      enum mail_index_sync_flags flags);
+void index_storage_expunging_deinit(struct mailbox *box);
 
 #endif

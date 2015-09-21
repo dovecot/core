@@ -198,24 +198,20 @@ static int mdbox_sync_try_begin(struct mdbox_sync_context *ctx,
 	struct mdbox_mailbox *mbox = ctx->mbox;
 	int ret;
 
-	ret = mail_index_sync_begin(mbox->box.index, &ctx->index_sync_ctx,
-				    &ctx->sync_view, &ctx->trans, sync_flags);
+	ret = index_storage_expunged_sync_begin(&mbox->box, &ctx->index_sync_ctx,
+						&ctx->sync_view, &ctx->trans, sync_flags);
 	if (mail_index_reset_fscked(mbox->box.index))
 		mdbox_storage_set_corrupted(mbox->storage);
-	if (ret < 0) {
-		mailbox_set_index_error(&mbox->box);
-		return -1;
-	}
-	if (ret == 0) {
-		/* nothing to do */
-		return 0;
-	}
+	if (ret <= 0)
+		return ret; /* error / nothing to do */
 
 	if (!mdbox_map_atomic_is_locked(ctx->atomic) &&
 	    mail_index_sync_has_expunges(ctx->index_sync_ctx)) {
 		/* we have expunges, so we need to write to map.
 		   it needs to be locked before mailbox index. */
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
+		index_storage_expunging_deinit(&ctx->mbox->box);
+
 		if (mdbox_map_atomic_lock(ctx->atomic) < 0)
 			return -1;
 		return mdbox_sync_try_begin(ctx, sync_flags);
@@ -262,12 +258,14 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 	ret = mdbox_sync_try_begin(ctx, sync_flags);
 	if (ret <= 0) {
 		/* failed / nothing to do */
+		index_storage_expunging_deinit(&mbox->box);
 		i_free(ctx);
 		return ret;
 	}
 
 	if ((ret = mdbox_sync_index(ctx)) <= 0) {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
+		index_storage_expunging_deinit(&mbox->box);
 		i_free_and_null(ctx);
 
 		if (ret < 0)
@@ -292,6 +290,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 		}
 		return mdbox_sync_begin(mbox, flags, atomic, ctx_r);
 	}
+	index_storage_expunging_deinit(&mbox->box);
 
 	*ctx_r = ctx;
 	return 0;
