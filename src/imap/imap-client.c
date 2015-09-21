@@ -255,9 +255,43 @@ void client_destroy(struct client *client, const char *reason)
 	client->v.destroy(client, reason);
 }
 
+static const char *client_get_commands_status(struct client *client)
+{
+	struct client_command_context *cmd;
+	unsigned int msecs_in_ioloop;
+	uint64_t running_usecs = 0, ioloop_wait_usecs;
+	string_t *str;
+
+	if (client->command_queue == NULL)
+		return "";
+
+	str = t_str_new(128);
+	str_append(str, " (");
+	for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {
+		str_append(str, cmd->name);
+		if (cmd->next != NULL)
+			str_append_c(str, ',');
+		running_usecs += cmd->running_usecs;
+	}
+
+	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
+	msecs_in_ioloop = (ioloop_wait_usecs -
+		client->command_queue->start_ioloop_wait_usecs + 999) / 1000;
+	str_printfa(str, " running for %d.%03d + waiting for %d.%03d secs",
+		    (int)((running_usecs+999)/1000 / 1000),
+		    (int)((running_usecs+999)/1000 % 1000),
+		    msecs_in_ioloop / 1000, msecs_in_ioloop % 1000);
+	if (o_stream_get_buffer_used_size(client->output) > 0)
+		str_printfa(str, ", %"PRIuSIZE_T" B output buffered",
+			    o_stream_get_buffer_used_size(client->output));
+	str_append_c(str, ')');
+	return str_c(str);
+}
+
 static void client_default_destroy(struct client *client, const char *reason)
 {
 	struct client_command_context *cmd;
+	const char *cmd_status = "";
 
 	i_assert(!client->destroyed);
 	client->destroyed = TRUE;
@@ -267,8 +301,9 @@ static void client_default_destroy(struct client *client, const char *reason)
 		if (reason == NULL) {
 			reason = io_stream_get_disconnect_reason(client->input,
 								 client->output);
+			cmd_status = client_get_commands_status(client);
 		}
-		i_info("%s %s", reason, client_stats(client));
+		i_info("%s%s %s", reason, cmd_status, client_stats(client));
 	}
 
 	i_stream_close(client->input);
