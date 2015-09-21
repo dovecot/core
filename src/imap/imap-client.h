@@ -81,6 +81,8 @@ struct client_command_context {
 	uint64_t start_ioloop_wait_usecs;
 	/* how many usecs this command itself has spent running */
 	uint64_t running_usecs;
+	/* how many bytes of client input/output command has used */
+	uint64_t bytes_in, bytes_out;
 
 	struct client_sync_context *sync;
 

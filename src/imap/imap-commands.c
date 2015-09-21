@@ -4,6 +4,8 @@
 #include "array.h"
 #include "buffer.h"
 #include "ioloop.h"
+#include "istream.h"
+#include "ostream.h"
 #include "time-util.h"
 #include "imap-commands.h"
 
@@ -156,9 +158,12 @@ bool command_exec(struct client_command_context *cmd)
 	const struct command_hook *hook;
 	bool finished;
 	struct timeval cmd_start_timeval;
+	uint64_t cmd_start_bytes_in, cmd_start_bytes_out;
 
 	io_loop_time_refresh();
 	cmd_start_timeval = ioloop_timeval;
+	cmd_start_bytes_in = i_stream_get_absolute_offset(cmd->client->input);
+	cmd_start_bytes_out = cmd->client->output->offset;
 
 	array_foreach(&command_hooks, hook)
 		hook->pre(cmd);
@@ -171,6 +176,9 @@ bool command_exec(struct client_command_context *cmd)
 	io_loop_time_refresh();
 	cmd->running_usecs +=
 		timeval_diff_usecs(&ioloop_timeval, &cmd_start_timeval);
+	cmd->bytes_in += i_stream_get_absolute_offset(cmd->client->input) -
+		cmd_start_bytes_in;
+	cmd->bytes_out += cmd->client->output->offset - cmd_start_bytes_out;
 	return finished;
 }
 

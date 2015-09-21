@@ -260,6 +260,7 @@ static const char *client_get_commands_status(struct client *client)
 	struct client_command_context *cmd;
 	unsigned int msecs_in_ioloop;
 	uint64_t running_usecs = 0, ioloop_wait_usecs;
+	unsigned long long bytes_in = 0, bytes_out = 0;
 	string_t *str;
 
 	if (client->command_queue == NULL)
@@ -272,6 +273,8 @@ static const char *client_get_commands_status(struct client *client)
 		if (cmd->next != NULL)
 			str_append_c(str, ',');
 		running_usecs += cmd->running_usecs;
+		bytes_in += cmd->bytes_in;
+		bytes_out += cmd->bytes_out;
 	}
 
 	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
@@ -281,10 +284,9 @@ static const char *client_get_commands_status(struct client *client)
 		    (int)((running_usecs+999)/1000 / 1000),
 		    (int)((running_usecs+999)/1000 % 1000),
 		    msecs_in_ioloop / 1000, msecs_in_ioloop % 1000);
-	if (o_stream_get_buffer_used_size(client->output) > 0)
-		str_printfa(str, ", %"PRIuSIZE_T" B output buffered",
-			    o_stream_get_buffer_used_size(client->output));
-	str_append_c(str, ')');
+	str_printfa(str, ", %llu B in + %llu+%"PRIuSIZE_T" B out)",
+		    bytes_in, bytes_out,
+		    o_stream_get_buffer_used_size(client->output));
 	return str_c(str);
 }
 
