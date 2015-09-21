@@ -28,6 +28,7 @@ struct quota_settings {
 	const char *quota_exceeded_msg;
 	unsigned int debug:1;
 	unsigned int initialized:1;
+	unsigned int vsizes:1;
 };
 
 struct quota_rule {

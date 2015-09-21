@@ -48,14 +48,20 @@ static void quota_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(_mail->box);
+	struct quota_user *quser = QUOTA_USER_CONTEXT(_mail->box->storage->user);
 	union mail_module_context *qmail = QUOTA_MAIL_CONTEXT(mail);
 	uoff_t size;
+	int ret;
 
 	/* We need to handle the situation where multiple transactions expunged
 	   the mail at the same time. In here we'll just save the message's
 	   physical size and do the quota freeing later when the message was
 	   known to be expunged. */
-	if (mail_get_physical_size(_mail, &size) == 0) {
+	if (quser->quota->set->vsizes)
+		ret = mail_get_virtual_size(_mail, &size);
+	else
+		ret = mail_get_physical_size(_mail, &size);
+	if (ret == 0) {
 		if (!array_is_created(&qbox->expunge_uids)) {
 			i_array_init(&qbox->expunge_uids, 64);
 			i_array_init(&qbox->expunge_sizes, 64);
@@ -310,6 +316,7 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 				      enum mailbox_sync_type sync_type)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
+	struct quota_user *quser = QUOTA_USER_CONTEXT(box->storage->user);
 	const uint32_t *uids;
 	const uoff_t *sizep;
 	unsigned int i, count;
@@ -369,10 +376,16 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 			mail_alloc(qbox->expunge_trans,
 				   MAIL_FETCH_PHYSICAL_SIZE, NULL);
 	}
-	if (mail_set_uid(qbox->expunge_qt->tmp_mail, uid) &&
-	    mail_get_physical_size(qbox->expunge_qt->tmp_mail, &size) == 0)
+	if (!mail_set_uid(qbox->expunge_qt->tmp_mail, uid))
+		;
+	else if (!quser->quota->set->vsizes) {
+		if (mail_get_physical_size(qbox->expunge_qt->tmp_mail, &size) == 0) {
+			quota_free_bytes(qbox->expunge_qt, size);
+			return;
+		}
+	} else if (mail_get_virtual_size(qbox->expunge_qt->tmp_mail, &size) == 0) {
 		quota_free_bytes(qbox->expunge_qt, size);
-	else {
+	} else {
 		/* there's no way to get the size. recalculate the quota. */
 		quota_recalculate(qbox->expunge_qt);
 		qbox->recalculate = TRUE;

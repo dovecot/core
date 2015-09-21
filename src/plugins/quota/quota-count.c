@@ -25,12 +25,14 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	}
 
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
-	if (mailbox_get_metadata(box, MAILBOX_METADATA_PHYSICAL_SIZE,
+	if (mailbox_get_metadata(box, root->quota->set->vsizes ?
+				 MAILBOX_METADATA_VIRTUAL_SIZE :
+				 MAILBOX_METADATA_PHYSICAL_SIZE,
 				 &metadata) < 0 ||
 	    mailbox_get_status(box, STATUS_MESSAGES, &status) < 0) {
 		errstr = mailbox_get_last_error(box, &error);
 		if (error == MAIL_ERROR_TEMP) {
-			i_error("quota: Couldn't get physical size of mailbox %s: %s",
+			i_error("quota: Couldn't get size of mailbox %s: %s",
 				vname, errstr);
 			ret = -1;
 		} else {
@@ -39,7 +41,8 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 		}
 	} else {
 		ret = 1;
-		*bytes_r = metadata.physical_size;
+		*bytes_r = root->quota->set->vsizes ?
+			metadata.virtual_size : metadata.physical_size;
 		*count_r = status.messages;
 	}
 	mailbox_free(&box);
