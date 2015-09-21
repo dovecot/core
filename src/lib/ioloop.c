@@ -402,6 +402,12 @@ int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 	tv_now.tv_sec = 0;
 	msecs = timeout_get_wait_time(timeout, tv_r, &tv_now);
 	ioloop->next_max_time = (tv_now.tv_sec + msecs/1000) + 1;
+
+	/* update ioloop_timeval - this is meant for io_loop_handle_timeouts()'s
+	   ioloop_wait_usecs calculation. normally after this we go to the
+	   ioloop and after that we update ioloop_timeval immediately again. */
+	ioloop_timeval = tv_now;
+	ioloop_time = tv_now.tv_sec;
 	return msecs;
 }
 
@@ -466,7 +472,7 @@ static void io_loops_timeouts_update(long diff_secs)
 static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 {
 	struct priorityq_item *item;
-	struct timeval tv, tv_call;
+	struct timeval tv, tv_call, prev_ioloop_timeval = ioloop_timeval;
 	unsigned int t_id;
 
 	if (gettimeofday(&ioloop_timeval, NULL) < 0)
@@ -482,13 +488,17 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 		/* the callback may have slept, so check the time again. */
 		if (gettimeofday(&ioloop_timeval, NULL) < 0)
 			i_fatal("gettimeofday(): %m");
-	} else if (unlikely(ioloop_timeval.tv_sec >
-			    ioloop->next_max_time)) {
-		io_loops_timeouts_update(ioloop_timeval.tv_sec -
-					ioloop->next_max_time);
-		/* time moved forwards */
-		ioloop->time_moved_callback(ioloop->next_max_time,
-					    ioloop_timeval.tv_sec);
+	} else {
+		if (unlikely(ioloop_timeval.tv_sec >
+			     ioloop->next_max_time)) {
+			io_loops_timeouts_update(ioloop_timeval.tv_sec -
+						 ioloop->next_max_time);
+			/* time moved forwards */
+			ioloop->time_moved_callback(ioloop->next_max_time,
+						    ioloop_timeval.tv_sec);
+		}
+		ioloop->ioloop_wait_usecs +=
+			timeval_diff_usecs(&ioloop_timeval, &prev_ioloop_timeval);
 	}
 
 	ioloop_time = ioloop_timeval.tv_sec;
@@ -932,4 +942,9 @@ bool io_loop_have_immediate_timeouts(struct ioloop *ioloop)
 	struct timeval tv;
 
 	return io_loop_get_wait_time(ioloop, &tv) == 0;
+}
+
+uint64_t io_loop_get_wait_usecs(struct ioloop *ioloop)
+{
+	return ioloop->ioloop_wait_usecs;
 }
