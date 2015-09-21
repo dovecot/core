@@ -172,6 +172,8 @@ struct quota_transaction_context {
 void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns);
 void quota_remove_user_namespace(struct mail_namespace *ns);
 
+int quota_root_default_init(struct quota_root *root, const char *args,
+			    const char **error_r);
 struct quota *quota_get_mail_user_quota(struct mail_user *user);
 
 bool quota_root_is_namespace_visible(struct quota_root *root,

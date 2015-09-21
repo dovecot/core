@@ -277,12 +277,39 @@ static void quota_root_deinit(struct quota_root *root)
 	pool_unref(&pool);
 }
 
+int quota_root_default_init(struct quota_root *root, const char *args,
+			    const char **error_r)
+{
+	const char *const *tmp;
+
+	if (args == NULL)
+		return 0;
+
+	tmp = t_strsplit_spaces(args, " ");
+	for (; *tmp != NULL; tmp++) {
+		if (strcmp(*tmp, "noenforcing") == 0)
+			root->no_enforcing = TRUE;
+		else if (strcmp(*tmp, "hidden") == 0)
+			root->hidden = TRUE;
+		else if (strcmp(*tmp, "ignoreunlimited") == 0)
+			root->disable_unlimited_tracking = TRUE;
+		else
+			break;
+	}
+	if (*tmp != NULL) {
+		*error_r = t_strdup_printf(
+			"Unknown parameter for backend %s: %s",
+			root->backend.name, *tmp);
+		return -1;
+	}
+	return 0;
+}
+
 static int
 quota_root_init(struct quota_root_settings *root_set, struct quota *quota,
 		struct quota_root **root_r, const char **error_r)
 {
 	struct quota_root *root;
-	const char *const *tmp;
 
 	root = root_set->backend->v.alloc();
 	root->resource_ret = -1;
@@ -302,24 +329,9 @@ quota_root_init(struct quota_root_settings *root_set, struct quota *quota,
 					root->backend.name, *error_r);
 			return -1;
 		}
-	} else if (root_set->args != NULL) {
-		tmp = t_strsplit_spaces(root_set->args, " ");
-		for (; *tmp != NULL; tmp++) {
-			if (strcmp(*tmp, "noenforcing") == 0)
-				root->no_enforcing = TRUE;
-			else if (strcmp(*tmp, "hidden") == 0)
-				root->hidden = TRUE;
-			else if (strcmp(*tmp, "ignoreunlimited") == 0)
-				root->disable_unlimited_tracking = TRUE;
-			else
-				break;
-		}
-		if (*tmp != NULL) {
-			*error_r = t_strdup_printf(
-				"Unknown parameter for backend %s: %s",
-				root->backend.name, *tmp);
+	} else {
+		if (quota_root_default_init(root, root_set->args, error_r) < 0)
 			return -1;
-		}
 	}
 	if (root_set->default_rule.bytes_limit == 0 &&
 	    root_set->default_rule.count_limit == 0 &&
