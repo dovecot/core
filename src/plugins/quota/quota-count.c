@@ -107,3 +107,78 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 	root->recounting = FALSE;
 	return ret;
 }
+
+static struct quota_root *count_quota_alloc(void)
+{
+	return i_new(struct quota_root, 1);
+}
+
+static int count_quota_init(struct quota_root *root, const char *args,
+			    const char **error_r)
+{
+	if (!root->quota->set->vsizes) {
+		*error_r = "quota count backend requires quota_vsizes=yes";
+		return -1;
+	}
+	return quota_root_default_init(root, args, error_r);
+}
+
+static void count_quota_deinit(struct quota_root *_root)
+{
+	i_free(_root);
+}
+
+static const char *const *
+count_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
+{
+	static const char *resources[] = {
+		QUOTA_NAME_STORAGE_KILOBYTES, QUOTA_NAME_MESSAGES, NULL
+	};
+	return resources;
+}
+
+static int
+count_quota_get_resource(struct quota_root *root,
+			 const char *name, uint64_t *value_r)
+{
+	uint64_t bytes, count;
+
+	if (quota_count(root, &bytes, &count) < 0)
+		return -1;
+
+	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
+		*value_r = bytes;
+	else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0)
+		*value_r = count;
+	else
+		return 0;
+	return 1;
+}
+
+static int
+count_quota_update(struct quota_root *root ATTR_UNUSED,
+		   struct quota_transaction_context *ctx ATTR_UNUSED)
+{
+	if (ctx->recalculate) {
+		//FIXME: remove cached values from index
+	}
+	return 0;
+}
+
+struct quota_backend quota_backend_count = {
+	"count",
+
+	{
+		count_quota_alloc,
+		count_quota_init,
+		count_quota_deinit,
+		NULL,
+		NULL,
+		NULL,
+		count_quota_root_get_resources,
+		count_quota_get_resource,
+		count_quota_update,
+		NULL,
+		NULL
+	}
+};

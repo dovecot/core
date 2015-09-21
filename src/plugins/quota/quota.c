@@ -29,6 +29,7 @@ struct quota_root_iter {
 
 unsigned int quota_module_id = 0;
 
+extern struct quota_backend quota_backend_count;
 extern struct quota_backend quota_backend_dict;
 extern struct quota_backend quota_backend_dirsize;
 extern struct quota_backend quota_backend_fs;
@@ -38,6 +39,7 @@ static const struct quota_backend *quota_backends[] = {
 #ifdef HAVE_FS_QUOTA
 	&quota_backend_fs,
 #endif
+	&quota_backend_count,
 	&quota_backend_dict,
 	&quota_backend_dirsize,
 	&quota_backend_maildir
