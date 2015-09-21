@@ -82,6 +82,7 @@ static void request_add_context(struct indexer_request *request, void *context)
 static struct indexer_request *
 indexer_queue_append_request(struct indexer_queue *queue, bool append,
 			     const char *username, const char *mailbox,
+			     const char *session_id,
 			     unsigned int max_recent_msgs, void *context)
 {
 	struct indexer_request *request;
@@ -91,6 +92,7 @@ indexer_queue_append_request(struct indexer_queue *queue, bool append,
 		request = i_new(struct indexer_request, 1);
 		request->username = i_strdup(username);
 		request->mailbox = i_strdup(mailbox);
+		request->session_id = i_strdup(session_id);
 		request->max_recent_msgs = max_recent_msgs;
 		request_add_context(request, context);
 		hash_table_insert(queue->requests, request, request);
@@ -130,12 +132,14 @@ static void indexer_queue_append_finish(struct indexer_queue *queue)
 
 void indexer_queue_append(struct indexer_queue *queue, bool append,
 			  const char *username, const char *mailbox,
-			  unsigned int max_recent_msgs, void *context)
+			  const char *session_id, unsigned int max_recent_msgs,
+			  void *context)
 {
 	struct indexer_request *request;
 
 	request = indexer_queue_append_request(queue, append, username, mailbox,
-					       max_recent_msgs, context);
+					       session_id, max_recent_msgs,
+					       context);
 	request->index = TRUE;
 	indexer_queue_append_finish(queue);
 }
@@ -147,7 +151,7 @@ void indexer_queue_append_optimize(struct indexer_queue *queue,
 	struct indexer_request *request;
 
 	request = indexer_queue_append_request(queue, TRUE, username, mailbox,
-					       0, context);
+					       NULL, 0, context);
 	request->optimize = TRUE;
 	indexer_queue_append_finish(queue);
 }

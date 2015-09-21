@@ -67,9 +67,10 @@ indexer_client_request_queue(struct indexer_client *client, bool append,
 			     const char *const *args, const char **error_r)
 {
 	struct indexer_client_request *ctx = NULL;
+	const char *session_id = NULL;
 	unsigned int tag, max_recent_msgs;
 
-	/* <tag> <user> <mailbox> [<max_recent_msgs>] */
+	/* <tag> <user> <mailbox> [<max_recent_msgs> [<session ID>]] */
 	if (str_array_length(args) < 3) {
 		*error_r = "Wrong parameter count";
 		return -1;
@@ -83,6 +84,8 @@ indexer_client_request_queue(struct indexer_client *client, bool append,
 	else if (str_to_uint(args[3], &max_recent_msgs) < 0) {
 		*error_r = "Invalid max_recent_msgs";
 		return -1;
+	} else {
+		session_id = args[4];
 	}
 
 	if (tag != 0) {
@@ -93,7 +96,7 @@ indexer_client_request_queue(struct indexer_client *client, bool append,
 	}
 
 	indexer_queue_append(client->queue, append, args[1], args[2],
-			     max_recent_msgs, ctx);
+			     session_id, max_recent_msgs, ctx);
 	o_stream_nsend_str(client->output, t_strdup_printf("%u\tOK\n", tag));
 	return 0;
 }

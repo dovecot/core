@@ -612,7 +612,10 @@ static void fts_queue_index(struct mailbox *box)
 	str_append_tabescaped(str, user->username);
 	str_append_c(str, '\t');
 	str_append_tabescaped(str, box->vname);
-	str_printfa(str, "\t%u\n", max_recent_msgs);
+	str_printfa(str, "\t%u", max_recent_msgs);
+	str_append_c(str, '\t');
+	str_append_tabescaped(str, box->storage->user->session_id);
+	str_append_c(str, '\n');
 	if (write_full(fd, str_data(str), str_len(str)) < 0)
 		i_error("write(%s) failed: %m", path);
 	i_close_fd(&fd);

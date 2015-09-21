@@ -113,9 +113,10 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 		return 0;
 	}
 
-	cmd = t_strdup_printf("PREPEND\t1\t%s\t%s\n",
+	cmd = t_strdup_printf("PREPEND\t1\t%s\t%s\t0\t%s\n",
 			      str_tabescape(box->storage->user->username),
-			      str_tabescape(box->vname));
+			      str_tabescape(box->vname),
+			      str_tabescape(box->storage->user->session_id));
 	fd = fts_indexer_cmd(box->storage->user, cmd, &path);
 	if (fd == -1)
 		return -1;
