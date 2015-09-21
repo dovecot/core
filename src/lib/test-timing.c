@@ -2,7 +2,7 @@
 
 #include "test-lib.h"
 #include "timing.h"
-
+#include "sort.h"
 #include <stdlib.h>
 
 static void
@@ -29,7 +29,15 @@ test_timing_verify(const struct timing *t, const int64_t *input,
 	test_assert_idx(timing_get_count(t) == input_size, input_size);
 	test_assert_idx(timing_get_min(t)  == min, input_size);
 	test_assert_idx(timing_get_max(t) == max, input_size);
-	test_assert_idx(timing_get_avg(t) == sum/input_size, input_size);
+	test_assert_idx(timing_get_avg(t) == (sum + input_size/2)/input_size, input_size);
+
+	/* these aren't always fully accurate: */
+	test_assert_idx(timing_get_median(t) >= copy[(input_size-1)/2] &&
+			timing_get_median(t) <= copy[input_size/2],
+			input_size);
+	/* when we have 20 elements, [19] is the max, not the 95th %ile, so subtract 1 */
+	test_assert_idx(timing_get_95th(t) == copy[input_size*95/100 - !(input_size%20)],
+			input_size);
 
 	i_free(copy);
 }

@@ -16,5 +16,9 @@ uint64_t timing_get_min(const struct timing *timing);
 uint64_t timing_get_max(const struct timing *timing);
 /* Returns events' average. */
 uint64_t timing_get_avg(const struct timing *timing);
+/* Returns events' approximate (through random subsampling) median. */
+uint64_t timing_get_median(const struct timing *timing);
+/* Returns events' approximate (through random subsampling) 95th percentile. */
+uint64_t timing_get_95th(const struct timing *timing);
 
 #endif
