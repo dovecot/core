@@ -259,6 +259,7 @@ headers = \
 	seq-range-array.h \
 	sha1.h \
 	sha2.h \
+	sort.h \
 	str.h \
 	str-find.h \
 	str-sanitize.h \
