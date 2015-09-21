@@ -293,7 +293,7 @@ static void quota_mailbox_sync_cleanup(struct quota_mailbox *qbox)
 
 	if (qbox->expunge_qt != NULL && qbox->expunge_qt->tmp_mail != NULL) {
 		mail_free(&qbox->expunge_qt->tmp_mail);
-		mailbox_transaction_rollback(&qbox->expunge_trans);
+		(void)mailbox_transaction_commit(&qbox->expunge_trans);
 	}
 	qbox->sync_transaction_expunge = FALSE;
 }
