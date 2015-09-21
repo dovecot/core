@@ -981,6 +981,8 @@ http_client_request_send_error(struct http_client_request *req,
 		if (!sending && req->payload_input != NULL)
 			i_stream_unref(&req->payload_input);
 	}
+	if (req->client->ioloop != NULL)
+		io_loop_stop(req->client->ioloop);
 }
 
 void http_client_request_error_delayed(struct http_client_request **_req)
@@ -1039,6 +1041,8 @@ void http_client_request_abort(struct http_client_request **_req)
 
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
+	if (req->client->ioloop != NULL)
+		io_loop_stop(req->client->ioloop);
 	http_client_request_unref(_req);
 }
 
