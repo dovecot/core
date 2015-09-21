@@ -154,7 +154,6 @@ void command_hook_unregister(command_hook_callback_t *pre,
 bool command_exec(struct client_command_context *cmd)
 {
 	const struct command_hook *hook;
-	long long diff;
 	bool finished;
 	struct timeval cmd_start_timeval;
 
