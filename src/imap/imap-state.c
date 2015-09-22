@@ -264,7 +264,7 @@ int imap_state_export_base(struct client *client, bool internal,
 	if (array_is_created(&client->search_updates) &&
 	    array_count(&client->search_updates) > 0) {
 		/* these could be tricky */
-		*error_r = "SEARCH=CONTEXT updates not supported currently";
+		*error_r = "CONTEXT=SEARCH updates not supported currently";
 		return 0;
 	}
 	if (client->notify_ctx != NULL) {
