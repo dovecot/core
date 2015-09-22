@@ -1355,7 +1355,7 @@ auth_request_validate_networks(struct auth_request *request,
 	else if (remote_ip->family == 0) {
 		auth_request_log_info(request, AUTH_SUBSYS_DB,
 			"%s check failed: Remote IP not known and 'local' missing", name);
-	} else if (!found) {
+	} else {
 		auth_request_log_info(request, AUTH_SUBSYS_DB,
 			"%s check failed: IP %s not in allowed networks",
 			name, net_ip2addr(remote_ip));
