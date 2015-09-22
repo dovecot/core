@@ -701,6 +701,24 @@ static bool virtual_is_inconsistent(struct mailbox *box)
 	return index_storage_is_inconsistent(box);
 }
 
+static int
+virtual_list_index_has_changed(struct mailbox *box ATTR_UNUSED,
+			       struct mail_index_view *list_view ATTR_UNUSED,
+			       uint32_t seq ATTR_UNUSED)
+{
+	/* we don't have any quick and easy optimizations for tracking
+	   virtual folders. ideally we'd completely disable mailbox list
+	   indexes for them, but this is the easiest way to do it for now. */
+	return 1;
+}
+
+static void
+virtual_list_index_update_sync(struct mailbox *box ATTR_UNUSED,
+			       struct mail_index_transaction *trans ATTR_UNUSED,
+			       uint32_t seq ATTR_UNUSED)
+{
+}
+
 struct mail_storage virtual_storage = {
 	.name = VIRTUAL_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_NOQUOTA,
@@ -738,8 +756,8 @@ struct mailbox virtual_mailbox = {
 		index_storage_attribute_iter_init,
 		index_storage_attribute_iter_next,
 		index_storage_attribute_iter_deinit,
-		NULL,
-		NULL,
+		virtual_list_index_has_changed,
+		virtual_list_index_update_sync,
 		virtual_storage_sync_init,
 		index_mailbox_sync_next,
 		index_mailbox_sync_deinit,
