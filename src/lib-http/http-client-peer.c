@@ -88,7 +88,8 @@ int http_client_peer_addr_cmp
 			return ret;
 		if (peer1->a.tcp.port != peer2->a.tcp.port)
 			return (peer1->a.tcp.port > peer2->a.tcp.port ? 1 : -1);
-		if (peer1->type != HTTP_CLIENT_PEER_ADDR_HTTPS)
+		if (peer1->type != HTTP_CLIENT_PEER_ADDR_HTTPS &&
+			peer1->type != HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL)
 			return 0;
 		return null_strcmp
 			(peer1->a.tcp.https_name, peer2->a.tcp.https_name);
