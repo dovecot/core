@@ -110,7 +110,7 @@ static void master_auth_connection_input(struct master_auth_connection *conn)
 	if (ret <= 0) {
 		if (ret == 0 || errno == ECONNRESET) {
 			i_error("read(%s) failed: Remote closed connection "
-				"(service's process_limit reached?)",
+				"(destination service { process_limit } reached?)",
 				conn->auth->path);
 		} else {
 			if (errno == EAGAIN)
