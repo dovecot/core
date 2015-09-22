@@ -29,6 +29,7 @@ test_timing_verify(const struct timing *t, const int64_t *input,
 	i_qsort(copy, input_size, sizeof(*copy), uint64_cmp);
 
 	test_assert_idx(timing_get_count(t) == input_size, input_size);
+	test_assert_idx(timing_get_sum(t) == sum, input_size);
 	test_assert_idx(timing_get_min(t)  == min, input_size);
 	test_assert_idx(timing_get_max(t) == max, input_size);
 	test_assert_idx(timing_get_avg(t) == (sum + input_size/2)/input_size, input_size);

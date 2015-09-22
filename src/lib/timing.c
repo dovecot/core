@@ -59,6 +59,11 @@ unsigned int timing_get_count(const struct timing *timing)
 	return timing->count;
 }
 
+uint64_t timing_get_sum(const struct timing *timing)
+{
+	return timing->sum;
+}
+
 uint64_t timing_get_min(const struct timing *timing)
 {
 	return timing->min;

@@ -9,6 +9,8 @@ void timing_add_usecs(struct timing *timing, uint64_t usecs);
 
 /* Returns number of events added. */
 unsigned int timing_get_count(const struct timing *timing);
+/* Returns the sum of all usecs added. */
+uint64_t timing_get_sum(const struct timing *timing);
 
 /* Returns events' minimum. */
 uint64_t timing_get_min(const struct timing *timing);
