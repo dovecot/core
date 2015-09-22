@@ -666,6 +666,8 @@ int quota_get_resource(struct quota_root *root, const char *mailbox_name,
 	bool kilobytes = FALSE;
 	int ret;
 
+	*value_r = *limit_r = 0;
+
 	if (strcmp(name, QUOTA_NAME_STORAGE_KILOBYTES) == 0) {
 		name = QUOTA_NAME_STORAGE_BYTES;
 		kilobytes = TRUE;
