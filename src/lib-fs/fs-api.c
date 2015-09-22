@@ -31,6 +31,8 @@ fs_alloc(const struct fs *fs_class, const char *args,
 	fs = fs_class->v.alloc();
 	fs->refcount = 1;
 	fs->last_error = str_new(default_pool, 64);
+	fs->set.debug = set->debug;
+	fs->set.enable_timing = set->enable_timing;
 	i_array_init(&fs->module_contexts, 5);
 
 	T_BEGIN {
