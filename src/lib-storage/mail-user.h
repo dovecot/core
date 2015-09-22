@@ -87,6 +87,8 @@ struct mail_user {
 	unsigned int deinitializing:1;
 	/* Enable administrator user commands for the user */
 	unsigned int admin:1;
+	/* Enable all statistics gathering */
+	unsigned int stats_enabled:1;
 };
 
 struct mail_user_module_register {

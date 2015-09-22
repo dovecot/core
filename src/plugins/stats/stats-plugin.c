@@ -425,6 +425,7 @@ static void stats_user_created(struct mail_user *user)
 			p_strdup(user->pool, guid_128_to_string(guid));
 	}
 	suser->last_session_update = time(NULL);
+	user->stats_enabled = TRUE;
 
 	suser->ioloop_ctx = ioloop_ctx;
 	io_loop_context_add_callbacks(ioloop_ctx,

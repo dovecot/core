@@ -568,6 +568,7 @@ void mail_user_init_fs_settings(struct mail_user *user,
 	fs_set->base_dir = user->set->base_dir;
 	fs_set->temp_dir = user->set->mail_temp_dir;
 	fs_set->debug = user->mail_debug;
+	fs_set->enable_timing = user->stats_enabled;
 
 	fs_set->ssl_client_set = ssl_set;
 	ssl_set->ca_dir = mail_set->ssl_client_ca_dir;
