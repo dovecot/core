@@ -43,21 +43,25 @@ http_client_peer_debug(struct http_client_peer *peer,
 unsigned int http_client_peer_addr_hash
 (const struct http_client_peer_addr *peer)
 {
+	unsigned int hash = (unsigned int)peer->type;
+
 	switch (peer->type) {
-	case HTTP_CLIENT_PEER_ADDR_RAW:
-		return net_ip_hash(&peer->a.tcp.ip) + peer->a.tcp.port + 1;
-	case HTTP_CLIENT_PEER_ADDR_HTTP:
-		return net_ip_hash(&peer->a.tcp.ip) + peer->a.tcp.port;
 	case HTTP_CLIENT_PEER_ADDR_HTTPS:
 	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
-		return net_ip_hash(&peer->a.tcp.ip) + peer->a.tcp.port +
-			(peer->a.tcp.https_name == NULL ?
-				0 : str_hash(peer->a.tcp.https_name));
+		if (peer->a.tcp.https_name != NULL)
+			hash += str_hash(peer->a.tcp.https_name);
+		/* fall through */
+	case HTTP_CLIENT_PEER_ADDR_RAW:
+	case HTTP_CLIENT_PEER_ADDR_HTTP:
+		hash += net_ip_hash(&peer->a.tcp.ip);
+		hash += peer->a.tcp.port;
+		break;
 	case HTTP_CLIENT_PEER_ADDR_UNIX:
-		return str_hash(peer->a.un.path);
+		hash += str_hash(peer->a.un.path);
+		break;
 	}
-	i_unreached();
-	return 0;
+
+	return hash;
 }
 
 int http_client_peer_addr_cmp
