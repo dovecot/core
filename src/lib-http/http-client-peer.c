@@ -53,7 +53,8 @@ unsigned int http_client_peer_addr_hash
 		/* fall through */
 	case HTTP_CLIENT_PEER_ADDR_RAW:
 	case HTTP_CLIENT_PEER_ADDR_HTTP:
-		hash += net_ip_hash(&peer->a.tcp.ip);
+		if (peer->a.tcp.ip.family != 0)
+			hash += net_ip_hash(&peer->a.tcp.ip);
 		hash += peer->a.tcp.port;
 		break;
 	case HTTP_CLIENT_PEER_ADDR_UNIX:
@@ -77,7 +78,13 @@ int http_client_peer_addr_cmp
 	case HTTP_CLIENT_PEER_ADDR_HTTP:
 	case HTTP_CLIENT_PEER_ADDR_HTTPS:
 	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
-		if ((ret=net_ip_cmp(&peer1->a.tcp.ip, &peer2->a.tcp.ip)) != 0)
+		/* Queues are created with peer addresses that have an uninitialized
+		   IP value, because that is assigned later when the host lookup completes.
+		   In all other other contexts, the IP is always initialized, so we do not
+		   compare IPs when one of them is unassigned. */
+		if (peer1->a.tcp.ip.family != 0 &&
+			peer2->a.tcp.ip.family != 0 &&
+			(ret=net_ip_cmp(&peer1->a.tcp.ip, &peer2->a.tcp.ip)) != 0)
 			return ret;
 		if (peer1->a.tcp.port != peer2->a.tcp.port)
 			return (peer1->a.tcp.port > peer2->a.tcp.port ? 1 : -1);
@@ -461,8 +468,13 @@ http_client_peer_create(struct http_client *client,
 	peer->addr = *addr;
 
 	switch (addr->type) {
+	case HTTP_CLIENT_PEER_ADDR_RAW:
+	case HTTP_CLIENT_PEER_ADDR_HTTP:
+		i_assert(peer->addr.a.tcp.ip.family != 0);
+		break;
 	case HTTP_CLIENT_PEER_ADDR_HTTPS:
 	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
+		i_assert(peer->addr.a.tcp.ip.family != 0);
 		i_assert(client->ssl_ctx != NULL);
 		peer->addr_name = i_strdup(addr->a.tcp.https_name);
 		peer->addr.a.tcp.https_name = peer->addr_name;

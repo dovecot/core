@@ -535,12 +535,17 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 	const char *host_socket = req->host_socket;
 	const struct http_url *host_url = req->host_url;
 	
+	/* the IP address may be unassigned in the returned peer address, since
+	   that is only available at this stage when the target URL has an
+	   explicit IP address. */
 	memset(addr, 0, sizeof(*addr));
 	if (host_socket != NULL) {
 		addr->type = HTTP_CLIENT_PEER_ADDR_UNIX;
 		addr->a.un.path = host_socket;		
 	} else if (req->connect_direct) {
 		addr->type = HTTP_CLIENT_PEER_ADDR_RAW;
+		if (host_url->have_host_ip)
+			addr->a.tcp.ip = host_url->host_ip;
 		addr->a.tcp.port =
 			(host_url->have_port ? host_url->port : HTTPS_DEFAULT_PORT);
 	} else if (host_url->have_ssl) {
@@ -548,11 +553,15 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 			addr->type = HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL;
 		else
 			addr->type = HTTP_CLIENT_PEER_ADDR_HTTPS;
+		if (host_url->have_host_ip)
+			addr->a.tcp.ip = host_url->host_ip;
 		addr->a.tcp.https_name = host_url->host_name;
  		addr->a.tcp.port =
 			(host_url->have_port ? host_url->port : HTTPS_DEFAULT_PORT);
 	} else {
 		addr->type = HTTP_CLIENT_PEER_ADDR_HTTP;
+		if (host_url->have_host_ip)
+			addr->a.tcp.ip = host_url->host_ip;
 		addr->a.tcp.port =
 			(host_url->have_port ? host_url->port : HTTP_DEFAULT_PORT);
 	}
