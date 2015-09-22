@@ -13,6 +13,8 @@ test_timing_verify(const struct timing *t, const int64_t *input,
 	uint64_t *copy;
 	unsigned int i;
 
+	i_assert(input_size > 0);
+
 	copy = i_new(uint64_t, input_size);
 	for (i = 0; i < input_size; i++) {
 		uint64_t value = input[i];
