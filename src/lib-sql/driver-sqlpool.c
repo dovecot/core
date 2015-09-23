@@ -126,12 +126,15 @@ driver_sqlpool_new_conn_trans(struct sqlpool_transaction_context *trans,
 			      struct sql_db *conndb)
 {
 	struct sql_transaction_context *conn_trans;
+	struct sql_transaction_query *query;
 
 	conn_trans = sql_transaction_begin(conndb);
 	/* backend will use our queries list (we might still append more
 	   queries to the list) */
 	conn_trans->head = trans->ctx.head;
 	conn_trans->tail = trans->ctx.tail;
+	for (query = conn_trans->head; query != NULL; query = query->next)
+		query->trans = conn_trans;
 	return conn_trans;
 }
 
