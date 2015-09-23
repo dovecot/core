@@ -1,3 +1,51 @@
+v2.2.19 2015-09-xx  Timo Sirainen <tss@iki.fi>
+
+	* "doveadm director flush" command has a changed meaning now:
+	  It safely moves users to their wanted backends, instead of simply
+	  forgetting the mapping entirely and leaving the existing connections
+	  untouched. Use -F parameter to get the original unsafe behavior.
+
+	+ Added imap-hibernate processes (see imap_hibernate_timeout setting).
+	  IDLEing IMAP connections can be hibernated, which saves memory.
+	+ Optimized tracking mailboxes' vsizes (= sum of all messages' sizes).
+	  If mailbox_list_index=yes, it's also stored in there. This makes it
+	  very efficient to look up vsizes for all mailboxes.
+	+ Added a quota "count" backend, which uses the mailbox vsizes to get
+	  the current quota usage. It requires using the new quota_vsizes=yes
+	  setting, which tracks the messages' "virtual sizes" rather than
+	  "physical sizes". Their distiction is minor and mostly irrelevant
+	  nowadays (if mail sizes should be counted with LF or CRLF newlines).
+	+ "doveadm director up/down" commands added. The monitoring script
+	  should be using these commands instead of changing the vhost count.
+	  This allows admin to manually disable a server by changing the vhost 
+	  count to 0 without the monitoring script changing it back.
+	+ Added support for HAProxy protocol: http://wiki2.dovecot.org/HAProxy
+	+ Added push-notification plugin framework, which can be used to
+	  easily implement push notifications to various backends. Implemented
+	  "ox" backend for notifying Open-Xchange via HTTP/json.
+	+ imap_logout_format supports more variables now, e.g. number of
+	  deleted messages.
+	+ pop3: Added pop3_delete_type setting (related to pop3_deleted_flag).
+	+ plugin { fts_enforced=yes } setting now fails body searches unless
+	  it can be done via the full text search engine.
+	+ Added %{passdb:*} and %{userdb:*} variables to various places
+	+ auth: Added ":protected" suffix for passdb and userdb fields. If
+	  used, the field doesn't overwrite an existing field.
+	+ IMAP/POP3 proxy: If a backend server dies, avoid client reconnection
+	  spikes by slowly disconnecting clients over time. This is enabled by
+	  setting login_proxy_max_disconnect_delay=secs passdb extra field.
+	+ imap: Added new read-only METADATA entries: /private/specialuse,
+	  /shared/comment, /shared/admin
+	+ imap: If client disconnects in the middle of a command, log how long
+	  the command had been running.
+	- mdbox: Rebuilding could have caused message's reference count to
+	  overflow the 16bit number in some situations, causing problems when
+	  trying to expunge the duplicates.
+	- Various search fixes (fts, solr, tika, lib-charset, indexer)
+	- Various virtual plugin fixes
+	- Various fixes and optimizations to dsync, imapc and pop3-migration
+	- imap: Various RFC compliancy and crash fixes to NOTIFY
+
 v2.2.18 2015-05-15  Timo Sirainen <tss@iki.fi>
 
 	- director: Login UNIX sockets were normally detected as doveadm or
