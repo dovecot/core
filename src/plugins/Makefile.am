@@ -21,6 +21,7 @@ SUBDIRS = \
 	lazy-expunge \
 	listescape \
 	notify \
+	push-notification \
 	mail-filter \
 	mail-log \
 	mailbox-alias \
