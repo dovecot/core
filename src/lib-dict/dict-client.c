@@ -46,6 +46,7 @@ struct client_dict {
 	unsigned int connect_counter;
 	unsigned int transaction_id_counter;
 	unsigned int async_commits;
+	unsigned int iter_replies_skip;
 
 	unsigned int in_iteration:1;
 	unsigned int handshaked:1;
@@ -56,6 +57,7 @@ struct client_dict_iterate_context {
 
 	pool_t pool;
 	bool failed;
+	bool finished;
 };
 
 struct client_dict_transaction_context {
@@ -366,6 +368,19 @@ client_dict_read_one_line_real(struct client_dict *dict, char **line_r)
 		client_dict_finish_transaction(dict, id, ret);
 		return 0;
 	}
+	if (dict->iter_replies_skip > 0) {
+		/* called aborted the iteration before finishing it.
+		   skip over the iteration reply */
+		if (*line == DICT_PROTOCOL_REPLY_OK)
+			return 0;
+		if (*line != '\0' && *line != DICT_PROTOCOL_REPLY_FAIL) {
+			i_error("dict-client: Invalid iteration reply line: %s",
+				line);
+			return -1;
+		}
+		dict->iter_replies_skip--;
+		return 0;
+	}
 	*line_r = line;
 	return 1;
 }
@@ -463,6 +478,7 @@ static void client_dict_disconnect(struct client_dict *dict)
 
 	dict->connect_counter++;
 	dict->handshaked = FALSE;
+	dict->iter_replies_skip = 0;
 
 	/* abort all pending async commits */
 	for (ctx = dict->transactions; ctx != NULL; ctx = next) {
@@ -649,6 +665,7 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 
 	if (*line == '\0') {
 		/* end of iteration */
+		ctx->finished = TRUE;
 		return FALSE;
 	}
 
@@ -685,6 +702,9 @@ static int client_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 	struct client_dict_iterate_context *ctx =
 		(struct client_dict_iterate_context *)_ctx;
 	int ret = ctx->failed ? -1 : 0;
+
+	if (!ctx->finished)
+		dict->iter_replies_skip++;
 
 	pool_unref(&ctx->pool);
 	i_free(ctx);
