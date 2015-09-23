@@ -10,7 +10,6 @@
 #include "quota-plugin.h"
 #include "imap-quota-plugin.h"
 
-#include <stdlib.h>
 
 #define QUOTA_USER_SEPARATOR ':'
 

@@ -9,7 +9,6 @@
 #include "sdbox-storage.h"
 #include "sdbox-file.h"
 
-#include <stdlib.h>
 #include <sys/stat.h>
 
 static void sdbox_mail_set_expunged(struct dbox_mail *mail)

@@ -14,7 +14,6 @@
 #include "str.h"
 #include "eacces-error.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>

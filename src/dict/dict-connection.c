@@ -12,7 +12,6 @@
 #include "dict-commands.h"
 #include "dict-connection.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 #define DICT_CONN_MAX_PENDING_COMMANDS 5

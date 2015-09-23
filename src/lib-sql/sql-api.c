@@ -5,7 +5,6 @@
 #include "ioloop.h"
 #include "sql-api-private.h"
 
-#include <stdlib.h>
 #include <time.h>
 
 struct sql_db_module_register sql_db_module_register = { 0 };

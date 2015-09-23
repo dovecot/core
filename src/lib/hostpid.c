@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "hostpid.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <netdb.h>
 

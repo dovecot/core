@@ -10,7 +10,6 @@
 #include "imap-fetch.h"
 #include "imap-sync.h"
 
-#include <stdlib.h>
 
 struct imap_select_context {
 	struct client_command_context *cmd;

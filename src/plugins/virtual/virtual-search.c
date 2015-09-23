@@ -6,7 +6,6 @@
 #include "index-search-private.h"
 #include "virtual-storage.h"
 
-#include <stdlib.h>
 
 enum virtual_search_state {
 	VIRTUAL_SEARCH_STATE_BUILD,

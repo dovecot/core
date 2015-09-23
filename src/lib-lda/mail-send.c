@@ -18,7 +18,6 @@
 #include "smtp-client.h"
 #include "mail-send.h"
 
-#include <stdlib.h>
 #include <sys/wait.h>
 
 static const struct var_expand_table *

@@ -6,7 +6,6 @@
 #include "randgen.h"
 #include "ostream.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 #define MAX_BUFSIZE 256

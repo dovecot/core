@@ -13,7 +13,6 @@
 #include "db-ldap.h"
 
 #include <ldap.h>
-#include <stdlib.h>
 
 struct ldap_passdb_module {
 	struct passdb_module module;

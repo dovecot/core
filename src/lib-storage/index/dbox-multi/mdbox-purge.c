@@ -13,7 +13,6 @@
 #include "mdbox-map.h"
 #include "mdbox-sync.h"
 
-#include <stdlib.h>
 #include <dirent.h>
 
 /*

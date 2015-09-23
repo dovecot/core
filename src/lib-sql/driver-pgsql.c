@@ -9,7 +9,6 @@
 #include "sql-api-private.h"
 
 #ifdef BUILD_PGSQL
-#include <stdlib.h>
 #include <libpq-fe.h>
 
 #define PGSQL_DNS_WARN_MSECS 500

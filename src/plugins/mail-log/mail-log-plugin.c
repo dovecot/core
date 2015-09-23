@@ -11,7 +11,6 @@
 #include "notify-plugin.h"
 #include "mail-log-plugin.h"
 
-#include <stdlib.h>
 
 #define MAILBOX_NAME_LOG_LEN 64
 #define HEADER_LOG_LEN 80

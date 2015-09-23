@@ -5,7 +5,6 @@
 #include "safe-memset.h"
 #include "mempool.h"
 
-#include <stdlib.h>
 
 #ifdef HAVE_GC_GC_H
 #  include <gc/gc.h>

@@ -10,7 +10,6 @@
 #include "mailbox-uidvalidity.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <fcntl.h>

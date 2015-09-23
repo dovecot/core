@@ -11,7 +11,6 @@
 #include "squat-trie.h"
 #include "fts-squat-plugin.h"
 
-#include <stdlib.h>
 
 #define SQUAT_FILE_PREFIX "dovecot.index.search"
 

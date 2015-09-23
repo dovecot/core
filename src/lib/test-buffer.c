@@ -3,7 +3,6 @@
 #include "test-lib.h"
 #include "buffer.h"
 
-#include <stdlib.h>
 
 void test_buffer(void)
 {

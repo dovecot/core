@@ -11,7 +11,6 @@
 #include "env-util.h"
 #include "ipwd.h"
 
-#include <stdlib.h>
 #include <time.h>
 #ifdef HAVE_PR_SET_DUMPABLE
 #  include <sys/prctl.h>

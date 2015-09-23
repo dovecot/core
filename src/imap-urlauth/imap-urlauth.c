@@ -61,7 +61,6 @@ The imap-urlauth service thus consists of three separate stages:
 #include "var-expand.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #define IS_STANDALONE() \

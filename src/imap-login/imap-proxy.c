@@ -16,7 +16,6 @@
 #include "imap-quote.h"
 #include "imap-proxy.h"
 
-#include <stdlib.h>
 
 enum imap_proxy_state {
 	IMAP_PROXY_STATE_NONE,

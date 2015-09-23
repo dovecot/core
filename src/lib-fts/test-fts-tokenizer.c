@@ -7,7 +7,6 @@
 #include "fts-tokenizer-private.h"
 #include "fts-tokenizer-generic-private.h"
 
-#include <stdlib.h>
 
 #define TEST_INPUT_ADDRESS \
 	"@invalid invalid@ Abc Dfg <abc.dfg@example.com>, " \

@@ -12,7 +12,6 @@
 #include "index-search-result.h"
 #include "virtual-storage.h"
 
-#include <stdlib.h>
 
 struct virtual_add_record {
 	struct virtual_mail_index_record rec;

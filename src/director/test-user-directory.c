@@ -7,7 +7,6 @@
 #include "user-directory.h"
 #include "test-common.h"
 
-#include <stdlib.h>
 
 #define USER_DIR_TIMEOUT 1000000
 

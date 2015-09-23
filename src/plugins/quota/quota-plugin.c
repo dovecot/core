@@ -5,7 +5,6 @@
 #include "mail-storage-hooks.h"
 #include "quota-plugin.h"
 
-#include <stdlib.h>
 
 const char *quota_plugin_version = DOVECOT_ABI_VERSION;
 

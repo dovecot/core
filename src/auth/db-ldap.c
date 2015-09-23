@@ -18,7 +18,6 @@
 #include "db-ldap.h"
 
 #include <stddef.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #define HAVE_LDAP_SASL

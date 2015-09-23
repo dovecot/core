@@ -17,7 +17,6 @@
 #include "child-wait.h"
 #include "db-checkpassword.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
 

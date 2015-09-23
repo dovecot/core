@@ -13,7 +13,6 @@
 #include "mech.h"
 #include "passdb.h"
 
-#include <stdlib.h>
 
 #define MAX_REALM_LEN 64
 

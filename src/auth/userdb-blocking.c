@@ -6,7 +6,6 @@
 #include "userdb.h"
 #include "userdb-blocking.h"
 
-#include <stdlib.h>
 
 struct blocking_userdb_iterate_context {
 	struct userdb_iterate_context ctx;

@@ -8,7 +8,6 @@
 #include "imap-search-args.h"
 #include "mail-search.h"
 
-#include <stdlib.h>
 
 static const char *all_macro[] = {
 	"FLAGS", "INTERNALDATE", "RFC822.SIZE", "ENVELOPE", NULL

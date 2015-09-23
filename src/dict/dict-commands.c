@@ -10,7 +10,6 @@
 #include "dict-connection.h"
 #include "dict-commands.h"
 
-#include <stdlib.h>
 
 #define DICT_OUTPUT_OPTIMAL_SIZE 1024
 

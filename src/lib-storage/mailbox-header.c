@@ -4,7 +4,6 @@
 #include "mail-cache.h"
 #include "mail-storage-private.h"
 
-#include <stdlib.h>
 
 static struct mailbox_header_lookup_ctx *
 mailbox_header_lookup_init_real(struct mailbox *box,

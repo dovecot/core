@@ -3,7 +3,6 @@
 /* Wrap srand() so that we can reproduce fuzzed tests */
 
 #include "lib.h"
-#include <stdlib.h>
 
 static int seeded = 0;
 static unsigned int seed;

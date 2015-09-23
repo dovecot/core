@@ -8,7 +8,6 @@
 #include "master-service-private.h"
 #include "master-auth.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
 

@@ -10,7 +10,6 @@
 #include "penalty.h"
 #include "anvil-connection.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 #define MAX_INBUF_SIZE 1024

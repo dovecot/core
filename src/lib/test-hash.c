@@ -3,7 +3,6 @@
 #include "test-lib.h"
 #include "hash.h"
 
-#include <stdlib.h>
 
 static void test_hash_random_pool(pool_t pool)
 {

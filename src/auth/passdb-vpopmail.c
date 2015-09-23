@@ -13,7 +13,6 @@
 
 #include "userdb-vpopmail.h"
 
-#include <stdlib.h>
 
 #define VPOPMAIL_DEFAULT_PASS_SCHEME "CRYPT"
 

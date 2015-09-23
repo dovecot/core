@@ -13,7 +13,6 @@
 #include "index-storage.h"
 #include "index-thread-private.h"
 
-#include <stdlib.h>
 
 #define MAIL_THREAD_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mail_thread_storage_module)

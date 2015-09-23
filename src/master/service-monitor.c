@@ -14,7 +14,6 @@
 #include "service-log.h"
 #include "service-monitor.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <syslog.h>

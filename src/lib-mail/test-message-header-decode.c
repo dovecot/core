@@ -8,7 +8,6 @@
 #include "message-header-decode.h"
 #include "test-common.h"
 
-#include <stdlib.h>
 
 bool charset_is_utf8(const char *charset ATTR_UNUSED) { return TRUE; }
 

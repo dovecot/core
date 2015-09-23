@@ -10,7 +10,6 @@
 #include "dbox-file.h"
 #include "dbox-mail.h"
 
-#include <stdlib.h>
 
 struct mail *
 dbox_mail_alloc(struct mailbox_transaction_context *t,

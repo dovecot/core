@@ -7,7 +7,6 @@
 #include "mail-namespace.h"
 #include "quota-private.h"
 
-#include <stdlib.h>
 
 #define DICT_QUOTA_CURRENT_PATH DICT_PATH_PRIVATE"quota/"
 #define DICT_QUOTA_CURRENT_BYTES_PATH DICT_QUOTA_CURRENT_PATH"storage"

@@ -10,7 +10,6 @@
 #include "index-storage.h"
 #include "index-sort-private.h"
 
-#include <stdlib.h>
 
 struct mail_sort_node_date {
 	uint32_t seq;

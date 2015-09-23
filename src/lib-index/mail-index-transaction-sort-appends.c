@@ -6,7 +6,6 @@
 #include "mail-index-private.h"
 #include "mail-index-transaction-private.h"
 
-#include <stdlib.h>
 
 struct uid_map {
 	uint32_t idx;

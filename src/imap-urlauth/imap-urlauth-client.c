@@ -19,7 +19,6 @@
 #include "master-service.h"
 #include "master-interface.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
 

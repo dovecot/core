@@ -13,7 +13,6 @@
 #include "doveadm-dump.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
 
 struct index_vsize_header {

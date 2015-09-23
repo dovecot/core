@@ -10,7 +10,6 @@
 #include "db-dict.h"
 
 #include <dict.h>
-#include <stdlib.h>
 
 struct dict_userdb_module {
 	struct userdb_module module;

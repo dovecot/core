@@ -7,7 +7,6 @@
 
 #ifdef HAVE_MODULES
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>

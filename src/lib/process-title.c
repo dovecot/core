@@ -4,7 +4,6 @@
 #include "env-util.h"
 #include "process-title.h"
 
-#include <stdlib.h> /* NetBSD, OpenBSD */
 #include <unistd.h> /* FreeBSD */
 
 static char *process_name = NULL;

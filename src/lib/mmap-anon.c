@@ -19,7 +19,6 @@
 
 #include "fd-close-on-exec.h"
 
-#include <stdlib.h>
 #include <sys/mman.h>
 
 #define MMAP_SIGNATURE 0xdeadbeef

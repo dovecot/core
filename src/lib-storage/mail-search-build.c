@@ -8,7 +8,6 @@
 #include "mail-search-parser.h"
 #include "mail-search-build.h"
 
-#include <stdlib.h>
 
 static int mail_search_build_list(struct mail_search_build_context *ctx,
 				  struct mail_search_arg **arg_r);

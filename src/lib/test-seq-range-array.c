@@ -4,7 +4,6 @@
 #include "array.h"
 #include "seq-range-array.h"
 
-#include <stdlib.h>
 
 static void
 boundaries_permute(uint32_t *input, unsigned int i, unsigned int count)

@@ -6,7 +6,6 @@
 #include "istream-private.h"
 #include "istream-header-filter.h"
 
-#include <stdlib.h>
 
 struct header_filter_istream {
 	struct istream_private istream;

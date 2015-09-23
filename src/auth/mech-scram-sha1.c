@@ -6,7 +6,6 @@
  * This software is released under the MIT license.
  */
 
-#include <stdlib.h>
 #include <limits.h>
 
 #include "auth-common.h"

@@ -10,7 +10,6 @@
 #include "mail-storage-settings.h"
 #include "mail-namespace.h"
 
-#include <stdlib.h>
 
 static struct mail_namespace_settings prefixless_ns_unexpanded_set = {
 	.name = "",

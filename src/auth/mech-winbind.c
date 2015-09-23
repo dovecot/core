@@ -17,7 +17,6 @@
 #include "istream.h"
 #include "ostream.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
 

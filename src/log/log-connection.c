@@ -14,7 +14,6 @@
 #include "log-connection.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #define FATAL_QUEUE_TIMEOUT_MSECS 500

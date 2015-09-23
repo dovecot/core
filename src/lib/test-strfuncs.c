@@ -2,7 +2,6 @@
 
 #include "test-lib.h"
 
-#include <stdlib.h>
 
 static void test_p_strarray_dup(void)
 {

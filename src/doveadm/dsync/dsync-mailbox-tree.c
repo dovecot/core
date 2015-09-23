@@ -7,7 +7,6 @@
 #include "mailbox-list-private.h"
 #include "dsync-mailbox-tree-private.h"
 
-#include <stdlib.h>
 
 struct dsync_mailbox_tree_iter {
 	struct dsync_mailbox_tree *tree;

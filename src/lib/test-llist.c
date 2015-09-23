@@ -3,7 +3,6 @@
 #include "test-lib.h"
 #include "llist.h"
 
-#include <stdlib.h>
 
 struct dllist {
 	struct dllist *prev, *next;

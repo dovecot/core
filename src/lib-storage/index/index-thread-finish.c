@@ -7,7 +7,6 @@
 #include "mail-storage-private.h"
 #include "index-thread-private.h"
 
-#include <stdlib.h>
 
 struct mail_thread_shadow_node {
 	uint32_t first_child_idx, next_sibling_idx;

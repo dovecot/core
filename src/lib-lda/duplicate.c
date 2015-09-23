@@ -11,7 +11,6 @@
 #include "mail-storage-settings.h"
 #include "duplicate.h"
 
-#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 

@@ -11,7 +11,6 @@
 #include "auth-cache.h"
 #include "db-dict.h"
 
-#include <stdlib.h>
 #include <string.h>
 
 struct dict_passdb_module {

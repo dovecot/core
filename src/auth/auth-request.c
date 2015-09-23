@@ -25,7 +25,6 @@
 #include "userdb-template.h"
 #include "password-scheme.h"
 
-#include <stdlib.h>
 #include <sys/stat.h>
 
 #define AUTH_SUBSYS_PROXY "proxy"

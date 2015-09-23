@@ -13,7 +13,6 @@
 #include "penalty.h"
 #include "anvil-connection.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 struct connect_limit *connect_limit;

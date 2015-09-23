@@ -20,7 +20,6 @@
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 
-#include <stdlib.h>
 
 #define OUTBUF_THROTTLE_SIZE (1024*50)
 

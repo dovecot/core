@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "randgen.h"
 
-#include <stdlib.h>
 
 #ifdef DEV_URANDOM_PATH
 

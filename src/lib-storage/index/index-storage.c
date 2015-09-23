@@ -19,7 +19,6 @@
 #include "index-thread-private.h"
 #include "index-mailbox-size.h"
 
-#include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>

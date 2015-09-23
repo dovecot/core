@@ -6,7 +6,6 @@
 #include "safe-memset.h"
 #include "mempool.h"
 
-#include <stdlib.h>
 #ifndef HAVE_MALLOC_USABLE_SIZE
 /* no extra includes needed */
 #elif defined (HAVE_MALLOC_NP_H)

@@ -16,7 +16,6 @@
 #include "mbox-md5.h"
 #include "mbox-sync-private.h"
 
-#include <stdlib.h>
 
 #define IS_LWSP_LF(c) (IS_LWSP(c) || (c) == '\n')
 

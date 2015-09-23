@@ -16,7 +16,6 @@
 #include "doveadm-dsync.h"
 #include "doveadm.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {

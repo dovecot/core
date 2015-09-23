@@ -21,7 +21,6 @@
 #include "mailbox-search-result-private.h"
 #include "index-search-private.h"
 
-#include <stdlib.h>
 #include <ctype.h>
 
 #define SEARCH_NOTIFY_INTERVAL_SECS 10

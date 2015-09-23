@@ -4,7 +4,6 @@
 #include "buffer.h"
 #include "numpack.h"
 
-#include <stdlib.h>
 
 static struct test {
 	uint64_t input;

@@ -12,7 +12,6 @@
 #include "db-ldap.h"
 
 #include <ldap.h>
-#include <stdlib.h>
 
 struct ldap_userdb_module {
 	struct userdb_module module;

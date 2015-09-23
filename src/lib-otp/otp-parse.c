@@ -14,7 +14,6 @@
 
 #include "otp.h"
 
-#include <stdlib.h>
 #include <ctype.h>
 
 #define IS_LWS(c) ((c) == ' ' || (c) == '\t')

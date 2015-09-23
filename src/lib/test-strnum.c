@@ -2,7 +2,6 @@
 
 #include "test-lib.h"
 
-#include <stdlib.h>
 
 #define INVALID(n) { #n, -1, 0 }
 #define VALID(n) { #n, 0, n }

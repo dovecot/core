@@ -10,7 +10,6 @@
 #include "dict-private.h"
 #include "dict-client.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 

@@ -24,7 +24,6 @@
 #include "auth-master-connection.h"
 
 #include <unistd.h>
-#include <stdlib.h>
 
 #define MAX_INBUF_SIZE 1024
 #define MAX_OUTBUF_SIZE (1024*50)

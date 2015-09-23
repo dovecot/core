@@ -9,7 +9,6 @@
 #include "sql-api-private.h"
 
 #ifdef BUILD_MYSQL
-#include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
 #ifdef HAVE_ATTR_NULL

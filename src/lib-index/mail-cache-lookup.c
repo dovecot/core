@@ -6,7 +6,6 @@
 #include "str.h"
 #include "mail-cache-private.h"
 
-#include <stdlib.h>
 
 #define CACHE_PREFETCH IO_BLOCK_SIZE
 

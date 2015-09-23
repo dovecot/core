@@ -8,7 +8,6 @@
 #include "str.h"
 #include "var-expand.h"
 
-#include <stdlib.h>
 
 static void prefetch_lookup(struct auth_request *auth_request,
 			    userdb_callback_t *callback)

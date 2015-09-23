@@ -17,7 +17,6 @@
 #include "expire-set.h"
 #include "expire-plugin.h"
 
-#include <stdlib.h>
 
 #define EXPIRE_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, expire_storage_module)

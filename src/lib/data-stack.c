@@ -5,7 +5,6 @@
 #include "lib.h"
 #include "data-stack.h"
 
-#include <stdlib.h>
 
 #ifdef HAVE_GC_GC_H
 #  include <gc/gc.h>

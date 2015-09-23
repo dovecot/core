@@ -18,7 +18,6 @@
 #include "fts-plugin.h"
 #include "fts-storage.h"
 
-#include <stdlib.h>
 
 #define FTS_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, fts_storage_module)

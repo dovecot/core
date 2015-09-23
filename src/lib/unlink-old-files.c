@@ -5,7 +5,6 @@
 #include "str.h"
 #include "unlink-old-files.h"
 
-#include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
 #include <dirent.h>

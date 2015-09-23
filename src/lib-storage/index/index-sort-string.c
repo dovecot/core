@@ -14,7 +14,6 @@
 #include "index-storage.h"
 #include "index-sort-private.h"
 
-#include <stdlib.h>
 
 struct mail_sort_node {
 	uint32_t seq:29;

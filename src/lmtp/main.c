@@ -17,7 +17,6 @@
 #include "client.h"
 #include "main.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 #define DNS_CLIENT_SOCKET_PATH "dns-client"

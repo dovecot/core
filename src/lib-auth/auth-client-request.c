@@ -8,7 +8,6 @@
 #include "auth-server-connection.h"
 #include "auth-client-request.h"
 
-#include <stdlib.h>
 
 struct auth_client_request {
 	pool_t pool;

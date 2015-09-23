@@ -4,7 +4,6 @@
 #include "array.h"
 #include "env-util.h"
 
-#include <stdlib.h>
 #ifdef __APPLE__
 #  include <crt_externs.h>
 #endif

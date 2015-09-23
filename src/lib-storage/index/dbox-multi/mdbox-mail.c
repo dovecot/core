@@ -11,7 +11,6 @@
 #include "mdbox-map.h"
 #include "mdbox-file.h"
 
-#include <stdlib.h>
 #include <sys/stat.h>
 
 int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,

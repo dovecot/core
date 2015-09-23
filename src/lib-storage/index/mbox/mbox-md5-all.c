@@ -5,7 +5,6 @@
 #include "message-parser.h"
 #include "mbox-md5.h"
 
-#include <stdlib.h>
 
 struct mbox_md5_context {
 	struct md5_context hdr_md5_ctx;

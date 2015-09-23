@@ -14,7 +14,6 @@
 #include "auth-worker-client.h"
 #include "auth-worker-server.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 /* Initial lookup timeout */

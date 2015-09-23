@@ -4,7 +4,6 @@
 #include "module-dir.h"
 #include "iostream-ssl-private.h"
 
-#include <stdlib.h>
 
 static bool ssl_module_loaded = FALSE;
 #ifdef HAVE_SSL

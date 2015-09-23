@@ -21,7 +21,6 @@
 #include "mech.h"
 #include "passdb.h"
 
-#include <stdlib.h>
 
 #if defined(BUILTIN_GSSAPI) || defined(PLUGIN_BUILD)
 

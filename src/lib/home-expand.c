@@ -4,7 +4,6 @@
 #include "ipwd.h"
 #include "home-expand.h"
 
-#include <stdlib.h>
 
 int home_try_expand(const char **_path)
 {

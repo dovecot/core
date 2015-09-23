@@ -4,7 +4,6 @@
 #include "istream-private.h"
 #include "istream-seekable.h"
 
-#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 

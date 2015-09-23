@@ -6,7 +6,6 @@
 #include "mail-index-private.h"
 #include "mail-index-transaction-private.h"
 
-#include <stdlib.h>
 
 static struct mail_index_header hdr;
 static struct mail_index_record rec;

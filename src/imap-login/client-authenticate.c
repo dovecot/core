@@ -18,7 +18,6 @@
 #include "client-authenticate.h"
 #include "imap-proxy.h"
 
-#include <stdlib.h>
 
 void client_authenticate_get_capabilities(struct client *client, string_t *str)
 {

@@ -4,7 +4,6 @@
 #include "str.h"
 #include "buffer.h"
 #include "unichar.h"
-#include <stdlib.h>
 
 static void test_unichar_uni_utf8_strlen(void)
 {

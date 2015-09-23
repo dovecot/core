@@ -9,7 +9,6 @@
 #include "acl-lookup-dict.h"
 #include "acl-plugin.h"
 
-#include <stdlib.h>
 
 struct acl_storage_module acl_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);

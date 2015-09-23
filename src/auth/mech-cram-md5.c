@@ -15,7 +15,6 @@
 #include "passdb.h"
 #include "hostpid.h"
 
-#include <stdlib.h>
 #include <time.h>
 
 struct cram_auth_request {

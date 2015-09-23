@@ -8,7 +8,6 @@
 #include "imap-parser.h"
 #include "imap-seqset.h"
 
-#include <stdlib.h>
 
 struct search_build_data {
 	pool_t pool;

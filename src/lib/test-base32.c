@@ -4,7 +4,6 @@
 #include "str.h"
 #include "base32.h"
 
-#include <stdlib.h>
 
 static void test_base32_encode(void)
 {

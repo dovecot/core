@@ -38,7 +38,6 @@
 #include "maildir-uidlist.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 
 /* NFS: How many times to retry reading dovecot-uidlist file if ESTALE

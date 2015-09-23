@@ -5,7 +5,6 @@
 #include "quota-private.h"
 
 #include <ctype.h>
-#include <stdlib.h>
 
 #define QUOTA_DEFAULT_GRACE "10%"
 

@@ -7,7 +7,6 @@
 #include "userdb-template.h"
 #include "userdb.h"
 
-#include <stdlib.h>
 
 static ARRAY(struct userdb_module_interface *) userdb_interfaces;
 static ARRAY(struct userdb_module *) userdb_modules;

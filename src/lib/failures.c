@@ -11,7 +11,6 @@
 #include "write-full.h"
 #include "fd-close-on-exec.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <syslog.h>

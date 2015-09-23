@@ -9,7 +9,6 @@
 #include "fts-user.h"
 #include "fts-plugin.h"
 
-#include <stdlib.h>
 
 const char *fts_plugin_version = DOVECOT_ABI_VERSION;
 

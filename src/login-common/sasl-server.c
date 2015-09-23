@@ -18,7 +18,6 @@
 #include "master-auth.h"
 #include "client-common.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 #define ERR_TOO_MANY_USERIP_CONNECTIONS \

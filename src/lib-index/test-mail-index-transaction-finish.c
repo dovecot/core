@@ -7,7 +7,6 @@
 #include "mail-index-modseq.h"
 #include "mail-index-transaction-private.h"
 
-#include <stdlib.h>
 
 static struct mail_index_record recs[20];
 static uint64_t modseqs[N_ELEMENTS(recs)];

@@ -28,7 +28,6 @@
 #include "doveadm-mail.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 
 #define DOVEADM_MAIL_CMD_INPUT_TIMEOUT_MSECS (5*60*1000)
 

@@ -9,7 +9,6 @@
 #include "time-util.h"
 #include "imap-commands.h"
 
-#include <stdlib.h>
 
 struct command_hook {
 	command_hook_callback_t *pre;

@@ -11,7 +11,6 @@
 #include "acl-plugin.h"
 #include "acl-lookup-dict.h"
 
-#include <stdlib.h>
 
 #define DICT_SHARED_BOXES_PATH "shared-boxes/"
 

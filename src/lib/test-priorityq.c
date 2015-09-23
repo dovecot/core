@@ -3,7 +3,6 @@
 #include "test-lib.h"
 #include "priorityq.h"
 
-#include <stdlib.h>
 
 struct pq_test_item {
 	struct priorityq_item item;

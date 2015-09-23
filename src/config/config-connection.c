@@ -12,7 +12,6 @@
 #include "config-parser.h"
 #include "config-connection.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 #define MAX_INBUF_SIZE 1024

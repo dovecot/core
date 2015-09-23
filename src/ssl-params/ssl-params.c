@@ -14,7 +14,6 @@
 #include "ssl-params.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #ifdef HAVE_SYS_TIME_H

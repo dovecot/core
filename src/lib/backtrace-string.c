@@ -10,7 +10,6 @@
 #if defined(HAVE_BACKTRACE_SYMBOLS) && defined(HAVE_EXECINFO_H)
 /* Linux */
 #include <execinfo.h>
-#include <stdlib.h>
 
 int backtrace_append(string_t *str)
 {

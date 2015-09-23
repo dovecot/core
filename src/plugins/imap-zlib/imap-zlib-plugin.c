@@ -9,7 +9,6 @@
 #include "compression.h"
 #include "imap-zlib-plugin.h"
 
-#include <stdlib.h>
 
 #define IMAP_COMPRESS_DEFAULT_LEVEL 6
 

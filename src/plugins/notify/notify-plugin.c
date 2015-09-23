@@ -5,7 +5,6 @@
 #include "mail-storage.h"
 #include "notify-plugin-private.h"
 
-#include <stdlib.h>
 
 struct notify_mail_txn {
 	struct notify_mail_txn *prev, *next;

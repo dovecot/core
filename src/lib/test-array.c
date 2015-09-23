@@ -3,7 +3,6 @@
 #include "test-lib.h"
 #include "array.h"
 
-#include <stdlib.h> /* rand() */
 
 struct foo {
 	unsigned int a, b, c;

@@ -12,7 +12,6 @@
 #include "acl-plugin.h"
 #include "imap-acl-plugin.h"
 
-#include <stdlib.h>
 
 #define ERROR_NOT_ADMIN "["IMAP_RESP_CODE_NOPERM"] " \
 	"You lack administrator privileges on this mailbox."

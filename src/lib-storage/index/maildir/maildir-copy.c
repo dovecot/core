@@ -12,7 +12,6 @@
 #include "index-mail.h"
 #include "mail-copy.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
 

@@ -15,7 +15,6 @@
 #include "imap-search-args.h"
 #include "imap-search.h"
 
-#include <stdlib.h>
 
 static int imap_search_deinit(struct imap_search_context *ctx);
 

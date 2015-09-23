@@ -17,7 +17,6 @@
 #include "config-request.h"
 #include "config-parser-private.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>

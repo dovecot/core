@@ -7,7 +7,6 @@
 #include "passdb-template.h"
 #include "passdb.h"
 
-#include <stdlib.h>
 
 static ARRAY(struct passdb_module_interface *) passdb_interfaces;
 static ARRAY(struct passdb_module *) passdb_modules;

@@ -8,7 +8,6 @@
 #include "mail-index-modseq.h"
 #include "mail-transaction-log.h"
 
-#include <stdlib.h>
 
 void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 {

@@ -16,7 +16,6 @@
 #include "login-proxy-state.h"
 #include "login-proxy.h"
 
-#include <stdlib.h>
 
 #define MAX_PROXY_INPUT_SIZE 4096
 #define OUTBUF_THRESHOLD 1024

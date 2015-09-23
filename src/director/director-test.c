@@ -27,7 +27,6 @@
 #include "master-service-settings.h"
 #include "director-settings.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 #define IMAP_PORT 14300

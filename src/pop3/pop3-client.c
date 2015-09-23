@@ -20,7 +20,6 @@
 #include "mail-search-build.h"
 #include "mail-namespace.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 /* max. length of input command line (spec says 512) */

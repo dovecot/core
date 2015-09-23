@@ -20,7 +20,6 @@
 #include "auth-settings.h"
 #include "auth-token.h"
 
-#include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>

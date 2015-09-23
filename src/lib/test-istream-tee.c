@@ -5,7 +5,6 @@
 #include "istream-private.h"
 #include "istream-tee.h"
 
-#include <stdlib.h>
 
 #define TEST_BUF_SIZE I_STREAM_MIN_SIZE
 #define TEST_STR_LEN (TEST_BUF_SIZE*3)

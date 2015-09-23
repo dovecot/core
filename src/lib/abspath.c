@@ -4,7 +4,6 @@
 #include "str.h"
 #include "abspath.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 const char *t_abspath(const char *path)

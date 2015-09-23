@@ -7,7 +7,6 @@
 #include "master-service-settings.h"
 #include "master-service-settings-cache.h"
 
-#include <stdlib.h>
 
 struct master_service *master_service;
 

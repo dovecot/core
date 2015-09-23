@@ -5,7 +5,6 @@
 #include "mail-storage-private.h"
 #include "mailbox-watch.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>

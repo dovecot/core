@@ -27,7 +27,6 @@
 #include "mailbox-search-result-private.h"
 #include "mailbox-guid-cache.h"
 
-#include <stdlib.h>
 #include <ctype.h>
 
 #define MAILBOX_DELETE_RETRY_SECS 30

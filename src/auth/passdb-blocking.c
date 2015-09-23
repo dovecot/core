@@ -8,7 +8,6 @@
 #include "passdb.h"
 #include "passdb-blocking.h"
 
-#include <stdlib.h>
 
 static void
 auth_worker_reply_parse_args(struct auth_request *request,

@@ -29,7 +29,6 @@
 #include "lda-settings.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <sysexits.h>
 
 #define DEFAULT_ENVELOPE_SENDER "MAILER-DAEMON"

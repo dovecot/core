@@ -13,7 +13,6 @@
 #include "quota-private.h"
 #include "quota-fs.h"
 
-#include <stdlib.h>
 #include <sys/wait.h>
 
 #define DEFAULT_QUOTA_EXCEEDED_MSG \

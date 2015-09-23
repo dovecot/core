@@ -12,7 +12,6 @@
 #include "compression.h"
 #include "zlib-plugin.h"
 
-#include <stdlib.h>
 #include <fcntl.h>
 
 #define ZLIB_PLUGIN_DEFAULT_LEVEL 6

@@ -9,7 +9,6 @@
 #include "fts-user.h"
 #include "fts-solr-plugin.h"
 
-#include <stdlib.h>
 
 const char *fts_solr_plugin_version = DOVECOT_ABI_VERSION;
 struct http_client *solr_http_client = NULL;

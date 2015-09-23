@@ -7,7 +7,6 @@
 #include "imap-search-args.h"
 #include "imap-util.h"
 
-#include <stdlib.h>
 
 struct imap_store_context {
 	struct client_command_context *cmd;

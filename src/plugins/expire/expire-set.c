@@ -5,7 +5,6 @@
 #include "imap-match.h"
 #include "expire-set.h"
 
-#include <stdlib.h>
 
 struct expire_set {
 	pool_t pool;

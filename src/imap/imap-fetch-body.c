@@ -14,7 +14,6 @@
 #include "imap-msgpart.h"
 #include "imap-fetch.h"
 
-#include <stdlib.h>
 #include <ctype.h>
 #include <unistd.h>
 

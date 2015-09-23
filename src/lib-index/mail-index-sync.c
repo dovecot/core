@@ -9,7 +9,6 @@
 #include "mail-cache-private.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 
 struct mail_index_sync_ctx {
 	struct mail_index *index;

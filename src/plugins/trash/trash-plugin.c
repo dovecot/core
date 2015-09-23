@@ -10,7 +10,6 @@
 #include "quota-plugin.h"
 #include "trash-plugin.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 

@@ -7,7 +7,6 @@
 #include "restrict-access.h"
 #include "master-service.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <syslog.h>
 #include <tcpd.h>

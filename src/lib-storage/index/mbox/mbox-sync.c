@@ -52,7 +52,6 @@
 #include "mbox-sync-private.h"
 
 #include <stddef.h>
-#include <stdlib.h>
 #include <utime.h>
 #include <sys/stat.h>
 

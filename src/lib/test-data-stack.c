@@ -2,7 +2,6 @@
 
 #include "test-lib.h"
 #include "data-stack.h"
-#include <stdlib.h>
 
 static void test_ds_buffers(void)
 {

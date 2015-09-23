@@ -6,7 +6,6 @@
 #include "dict-private.h"
 
 #ifdef BUILD_DB
-#include <stdlib.h>
 #include <db.h>
 
 struct db_dict {

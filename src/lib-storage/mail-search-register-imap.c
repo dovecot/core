@@ -12,7 +12,6 @@
 #include "mail-search-parser.h"
 #include "mail-search-build.h"
 
-#include <stdlib.h>
 
 struct mail_search_register *mail_search_register_imap;
 

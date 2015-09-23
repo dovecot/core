@@ -18,7 +18,6 @@
 #include "mdbox-file.h"
 #include "mdbox-sync.h"
 
-#include <stdlib.h>
 
 struct dbox_save_mail {
 	struct dbox_file_append_context *file_append;

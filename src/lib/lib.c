@@ -7,7 +7,6 @@
 #include "ipwd.h"
 #include "process-title.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
 

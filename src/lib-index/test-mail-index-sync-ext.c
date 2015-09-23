@@ -6,7 +6,6 @@
 #include "mail-index-sync-private.h"
 #include "mail-index-modseq.h"
 
-#include <stdlib.h>
 
 void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx ATTR_UNUSED,
 				   const char *fmt ATTR_UNUSED, ...) {}

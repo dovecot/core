@@ -5,7 +5,6 @@
 #include "strescape.h"
 #include "write-full.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 int main(void)

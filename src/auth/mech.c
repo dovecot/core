@@ -6,7 +6,6 @@
 #include "str.h"
 #include "passdb.h"
 
-#include <stdlib.h>
 #include <ctype.h>
 
 static struct mech_module_list *mech_modules;

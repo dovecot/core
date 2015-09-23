@@ -15,7 +15,6 @@
 #include "master-auth.h"
 #include "master-login-auth.h"
 
-#include <stdlib.h>
 
 #define AUTH_MAX_INBUF_SIZE 8192
 

@@ -22,7 +22,6 @@
 #include "mdbox-file.h"
 #include "mdbox-sync.h"
 
-#include <stdlib.h>
 
 static int
 dbox_sync_verify_expunge_guid(struct mdbox_sync_context *ctx, uint32_t seq,

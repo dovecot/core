@@ -10,7 +10,6 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #define DEFAULT_SCHEME "CRAM-MD5"

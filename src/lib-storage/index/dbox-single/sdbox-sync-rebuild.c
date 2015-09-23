@@ -8,7 +8,6 @@
 #include "sdbox-file.h"
 #include "sdbox-sync.h"
 
-#include <stdlib.h>
 #include <dirent.h>
 
 static void sdbox_sync_set_uidvalidity(struct index_rebuild_context *ctx)

@@ -18,7 +18,6 @@
 #include "safe-memset.h"
 #include "auth-cache.h"
 
-#include <stdlib.h>
 #include <sys/stat.h>
 
 #ifdef HAVE_SECURITY_PAM_APPL_H

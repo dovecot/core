@@ -9,7 +9,6 @@
 #include "ostream.h"
 #include "fs-api-private.h"
 
-#include <stdlib.h>
 
 #define RANDOMFAIL_ERROR "Random failure injection"
 

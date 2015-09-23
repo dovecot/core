@@ -14,7 +14,6 @@
 #include "auth-server-connection.h"
 
 #include <unistd.h>
-#include <stdlib.h>
 
 #define AUTH_SERVER_CONN_MAX_LINE_LENGTH AUTH_CLIENT_MAX_LINE_LENGTH
 #define AUTH_HANDSHAKE_TIMEOUT (30*1000)

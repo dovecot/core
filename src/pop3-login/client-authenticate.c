@@ -17,7 +17,6 @@
 #include "client-authenticate.h"
 #include "pop3-proxy.h"
 
-#include <stdlib.h>
 
 static const char *capability_string = POP3_CAPABILITY_REPLY;
 

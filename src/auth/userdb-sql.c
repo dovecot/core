@@ -8,7 +8,6 @@
 #include "auth-cache.h"
 #include "db-sql.h"
 
-#include <stdlib.h>
 #include <string.h>
 
 struct sql_userdb_module {

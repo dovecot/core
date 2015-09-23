@@ -28,7 +28,6 @@
 #include "imap-urlauth-fetch.h"
 #include "imap-urlauth-worker-settings.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <sysexits.h>
 

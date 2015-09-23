@@ -7,7 +7,6 @@
 #include "imap-urlauth-settings.h"
 
 #include <stddef.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 /* <settings checks> */

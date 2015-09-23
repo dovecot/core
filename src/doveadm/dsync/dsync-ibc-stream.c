@@ -22,7 +22,6 @@
 #include "dsync-mailbox-tree.h"
 #include "dsync-ibc-private.h"
 
-#include <stdlib.h>
 
 #define DSYNC_IBC_STREAM_OUTBUF_THROTTLE_SIZE (1024*128)
 

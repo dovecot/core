@@ -8,7 +8,6 @@
 #include "mail-index-modseq.h"
 #include "mail-transaction-log.h"
 
-#include <stdlib.h>
 
 struct mail_index_view_sync_ctx {
 	struct mail_index_view *view;

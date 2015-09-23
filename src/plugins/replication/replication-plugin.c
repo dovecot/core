@@ -15,7 +15,6 @@
 #include "replication-common.h"
 #include "replication-plugin.h"
 
-#include <stdlib.h>
 
 #define REPLICATION_SOCKET_NAME "replication-notify"
 #define REPLICATION_FIFO_NAME "replication-notify-fifo"

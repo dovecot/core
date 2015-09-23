@@ -15,7 +15,6 @@
 #include "imap-fetch.h"
 #include "imap-util.h"
 
-#include <stdlib.h>
 #include <ctype.h>
 
 #define BODY_NIL_REPLY \

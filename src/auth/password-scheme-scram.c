@@ -6,7 +6,6 @@
  * This software is released under the MIT license.
  */
 
-#include <stdlib.h>
 
 #include "lib.h"
 #include "safe-memset.h"

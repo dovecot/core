@@ -8,7 +8,6 @@
 #include "userdb.h"
 #include "userdb-template.h"
 
-#include <stdlib.h>
 
 struct static_context {
 	userdb_callback_t *callback, *old_callback;

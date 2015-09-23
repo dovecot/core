@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "array.h"
 
-#include <stdlib.h>
 
 void *array_idx_modifiable_i(struct array *array, unsigned int idx)
 {

@@ -14,7 +14,6 @@
 #include "lazy-expunge-plugin.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <time.h>

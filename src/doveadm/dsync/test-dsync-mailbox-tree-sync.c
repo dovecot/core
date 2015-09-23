@@ -8,7 +8,6 @@
 #include "test-common.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 
 #define MAX_DEPTH 4
 #define TEST_NAMESPACE_NAME "INBOX"

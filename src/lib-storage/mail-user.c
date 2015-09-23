@@ -23,7 +23,6 @@
 #include "mail-storage.h"
 #include "mail-user.h"
 
-#include <stdlib.h>
 
 struct mail_user_module_register mail_user_module_register = { 0 };
 struct auth_master_connection *mail_user_auth_master_conn;

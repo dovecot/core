@@ -10,7 +10,6 @@
 #include "fail-mail-storage.h"
 #include "shared-storage.h"
 
-#include <stdlib.h>
 #include <ctype.h>
 
 extern struct mail_storage shared_storage;

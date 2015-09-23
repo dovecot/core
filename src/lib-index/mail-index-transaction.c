@@ -9,7 +9,6 @@
 #include "mail-transaction-log-private.h"
 #include "mail-index-transaction-private.h"
 
-#include <stdlib.h>
 
 void (*hook_mail_index_transaction_created)
 		(struct mail_index_transaction *t) = NULL;

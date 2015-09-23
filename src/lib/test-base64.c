@@ -4,7 +4,6 @@
 #include "str.h"
 #include "base64.h"
 
-#include <stdlib.h>
 
 static void test_base64_encode(void)
 {

@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "mempool.h"
 
-#include <stdlib.h>
 
 static const char *pool_data_stack_get_name(pool_t pool);
 static void pool_data_stack_ref(pool_t pool);

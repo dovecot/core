@@ -14,7 +14,6 @@
 #include "auth-request.h"
 #include "auth-worker-client.h"
 
-#include <stdlib.h>
 
 #define AUTH_WORKER_WARN_DISCONNECTED_LONG_CMD_SECS 30
 #define OUTBUF_THROTTLE_SIZE (1024*10)

@@ -22,7 +22,6 @@
 #include "mail-storage.h"
 #include "mail-storage-service.h"
 
-#include <stdlib.h>
 #include <sys/stat.h>
 
 #ifdef HAVE_SYS_TIME_H

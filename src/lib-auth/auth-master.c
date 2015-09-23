@@ -13,7 +13,6 @@
 #include "master-interface.h"
 #include "auth-master.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 #define AUTH_PROTOCOL_MAJOR 1

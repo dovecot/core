@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "timing.h"
 #include "sort.h"
-#include <stdlib.h>
 
 /* In order to have a vaguely accurate 95th percentile, you need way
    more than 20 in your subsample. */

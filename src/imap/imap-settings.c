@@ -8,7 +8,6 @@
 #include "imap-settings.h"
 
 #include <stddef.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 static bool imap_settings_verify(void *_set, pool_t pool,

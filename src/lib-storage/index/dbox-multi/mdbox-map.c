@@ -11,7 +11,6 @@
 #include "mdbox-file.h"
 #include "mdbox-map-private.h"
 
-#include <stdlib.h>
 #include <dirent.h>
 
 #define MAX_BACKWARDS_LOOKUPS 10

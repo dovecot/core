@@ -23,7 +23,6 @@
 #include "ssl-proxy.h"
 #include "client-common.h"
 
-#include <stdlib.h>
 
 struct client *clients = NULL;
 static struct client *last_client = NULL;

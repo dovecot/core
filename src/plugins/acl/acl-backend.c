@@ -9,7 +9,6 @@
 #include "acl-cache.h"
 #include "acl-api-private.h"
 
-#include <stdlib.h>
 
 extern struct acl_backend_vfuncs acl_backend_vfile;
 

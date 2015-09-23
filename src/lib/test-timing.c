@@ -3,7 +3,6 @@
 #include "test-lib.h"
 #include "timing.h"
 #include "sort.h"
-#include <stdlib.h>
 
 static void
 test_timing_verify(const struct timing *t, const int64_t *input,

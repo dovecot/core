@@ -18,7 +18,6 @@
 #include "sdbox-file.h"
 #include "sdbox-sync.h"
 
-#include <stdlib.h>
 
 struct sdbox_save_context {
 	struct dbox_save_context ctx;

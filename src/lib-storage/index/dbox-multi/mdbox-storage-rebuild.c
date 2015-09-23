@@ -16,7 +16,6 @@
 #include "mdbox-sync.h"
 #include "mdbox-storage-rebuild.h"
 
-#include <stdlib.h>
 #include <dirent.h>
 #include <unistd.h>
 

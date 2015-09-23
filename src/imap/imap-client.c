@@ -23,7 +23,6 @@
 #include "imap-notify.h"
 #include "imap-commands.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 extern struct mail_storage_callbacks mail_storage_callbacks;

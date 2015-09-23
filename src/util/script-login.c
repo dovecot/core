@@ -13,7 +13,6 @@
 #include "master-service.h"
 #include "master-service-settings.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 #define SCRIPT_LOGIN_PROTOCOL_VERSION_MAJOR 1

@@ -6,7 +6,6 @@
 #include "passdb.h"
 #include "passdb-cache.h"
 
-#include <stdlib.h>
 
 struct auth_cache *passdb_cache = NULL;
 

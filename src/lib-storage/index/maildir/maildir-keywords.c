@@ -18,7 +18,6 @@
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
 
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <utime.h>
 

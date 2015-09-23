@@ -5,7 +5,6 @@
 #include "acl-api.h"
 #include "acl-plugin.h"
 
-#include <stdlib.h>
 
 const char *acl_plugin_version = DOVECOT_ABI_VERSION;
 
