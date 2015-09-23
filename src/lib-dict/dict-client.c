@@ -180,6 +180,7 @@ static int client_dict_send_query(struct client_dict *dict, const char *query)
 		if (o_stream_send_str(dict->output, query) < 0 ||
 		    o_stream_flush(dict->output) < 0) {
 			i_error("write(%s) failed: %m", dict->path);
+			client_dict_disconnect(dict);
 			return -1;
 		}
 	}
@@ -311,7 +312,8 @@ static ssize_t client_dict_read_timeout(struct client_dict *dict)
 	return ret;
 }
 
-static int client_dict_read_one_line(struct client_dict *dict, char **line_r)
+static int
+client_dict_read_one_line_real(struct client_dict *dict, char **line_r)
 {
 	unsigned int id;
 	char *line;
@@ -355,17 +357,26 @@ static int client_dict_read_one_line(struct client_dict *dict, char **line_r)
 		default:
 			i_error("dict-client: Invalid async commit line: %s",
 				line);
-			return 0;
+			return -1;
 		}
 		if (str_to_uint(line+2, &id) < 0) {
 			i_error("dict-client: Invalid ID");
-			return 0;
+			return -1;
 		}
 		client_dict_finish_transaction(dict, id, ret);
 		return 0;
 	}
 	*line_r = line;
 	return 1;
+}
+
+static int client_dict_read_one_line(struct client_dict *dict, char **line_r)
+{
+	int ret;
+
+	if ((ret = client_dict_read_one_line_real(dict, line_r)) < 0)
+		client_dict_disconnect(dict);
+	return ret;
 }
 
 static bool client_dict_is_finished(struct client_dict *dict)
