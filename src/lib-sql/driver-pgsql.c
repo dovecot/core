@@ -29,6 +29,9 @@ struct pgsql_db {
 	struct ioloop *ioloop, *orig_ioloop;
 	struct sql_result *sync_result;
 
+	bool (*next_callback)(void *);
+	void *next_context;
+
 	char *error;
 	const char *connect_state;
 
@@ -68,8 +71,6 @@ struct pgsql_transaction_context {
 	pool_t query_pool;
 	const char *error;
 
-	unsigned int begin_succeeded:1;
-	unsigned int begin_failed:1;
 	unsigned int failed:1;
 };
 
@@ -77,6 +78,9 @@ extern const struct sql_db driver_pgsql_db;
 extern const struct sql_result driver_pgsql_result;
 
 static void result_finish(struct pgsql_result *result);
+static void
+transaction_update_callback(struct sql_result *result,
+			    struct sql_transaction_query *query);
 
 static const char *pgsql_prefix(struct pgsql_db *db)
 {
@@ -95,6 +99,19 @@ static void driver_pgsql_set_state(struct pgsql_db *db, enum sql_db_state state)
 	sql_db_set_state(&db->api, state);
 	if (db->ioloop != NULL)
 		io_loop_set_current(db->ioloop);
+}
+
+static bool driver_pgsql_next_callback(struct pgsql_db *db)
+{
+	bool (*next_callback)(void *) = db->next_callback;
+	void *next_context = db->next_context;
+
+	if (next_callback == NULL)
+		return FALSE;
+
+	db->next_callback = NULL;
+	db->next_context = NULL;
+	return next_callback(next_context);
 }
 
 static void driver_pgsql_stop_io(struct pgsql_db *db)
@@ -124,6 +141,7 @@ static void driver_pgsql_close(struct pgsql_db *db)
 		/* running a sync query, stop it */
 		io_loop_stop(db->ioloop);
 	}
+	driver_pgsql_next_callback(db);
 }
 
 static const char *last_error(struct pgsql_db *db)
@@ -293,7 +311,7 @@ static void driver_pgsql_set_idle(struct pgsql_db *db)
 
 	if (db->fatal_error)
 		driver_pgsql_close(db);
-	else
+	else if (!driver_pgsql_next_callback(db))
 		driver_pgsql_set_state(db, SQL_DB_STATE_IDLE);
 }
 
@@ -838,7 +856,6 @@ driver_pgsql_transaction_begin(struct sql_db *db)
 
 	ctx = i_new(struct pgsql_transaction_context, 1);
 	ctx->ctx.db = db;
-	ctx->refcount = 1;
 	/* we need to be able to handle multiple open transactions, so at least
 	   for now just keep them in memory until commit time. */
 	ctx->query_pool = pool_alloconly_create("pgsql transaction", 1024);
@@ -846,28 +863,10 @@ driver_pgsql_transaction_begin(struct sql_db *db)
 }
 
 static void
-driver_pgsql_transaction_unref(struct pgsql_transaction_context *ctx)
+driver_pgsql_transaction_free(struct pgsql_transaction_context *ctx)
 {
-	i_assert(ctx->refcount > 0);
-	if (--ctx->refcount > 0)
-		return;
-
 	pool_unref(&ctx->query_pool);
 	i_free(ctx);
-}
-
-static void
-transaction_begin_callback(struct sql_result *result,
-			   struct pgsql_transaction_context *ctx)
-{
-	if (sql_result_next_row(result) < 0) {
-		ctx->begin_failed = TRUE;
-		ctx->failed = TRUE;
-		ctx->error = sql_result_get_error(result);
-	} else {
-		ctx->begin_succeeded = TRUE;
-	}
-	driver_pgsql_transaction_unref(ctx);
 }
 
 static void
@@ -878,7 +877,50 @@ transaction_commit_callback(struct sql_result *result,
 		ctx->callback(sql_result_get_error(result), ctx->context);
 	else
 		ctx->callback(NULL, ctx->context);
-	driver_pgsql_transaction_unref(ctx);
+	driver_pgsql_transaction_free(ctx);
+}
+
+static bool transaction_send_next(void *context)
+{
+	struct pgsql_transaction_context *ctx = context;
+
+	i_assert(!ctx->failed);
+
+	if (ctx->ctx.db->state == SQL_DB_STATE_BUSY) {
+		/* kludgy.. */
+		ctx->ctx.db->state = SQL_DB_STATE_IDLE;
+	} else if (!SQL_DB_IS_READY(ctx->ctx.db)) {
+		ctx->callback("Not connected", ctx->context);
+		return FALSE;
+	}
+
+	if (ctx->ctx.head != NULL) {
+		sql_query(ctx->ctx.db, ctx->ctx.head->query,
+			  transaction_update_callback, ctx->ctx.head);
+		ctx->ctx.head = ctx->ctx.head->next;
+	} else {
+		sql_query(ctx->ctx.db, "COMMIT",
+			  transaction_commit_callback, ctx);
+	}
+	return TRUE;
+}
+
+static void
+transaction_begin_callback(struct sql_result *result,
+			   struct pgsql_transaction_context *ctx)
+{
+	struct pgsql_db *db = (struct pgsql_db *)result->db;
+
+	i_assert(result->db == ctx->ctx.db);
+
+	if (sql_result_next_row(result) < 0) {
+		ctx->callback(sql_result_get_error(result), ctx->context);
+		driver_pgsql_transaction_free(ctx);
+		return;
+	}
+	i_assert(db->next_callback == NULL);
+	db->next_callback = transaction_send_next;
+	db->next_context = ctx;
 }
 
 static void
@@ -887,18 +929,24 @@ transaction_update_callback(struct sql_result *result,
 {
 	struct pgsql_transaction_context *ctx =
 		(struct pgsql_transaction_context *)query->trans;
+	struct pgsql_db *db = (struct pgsql_db *)result->db;
 
 	if (sql_result_next_row(result) < 0) {
-		ctx->failed = TRUE;
-		ctx->error = sql_result_get_error(result);
-	} else if (query->affected_rows != NULL) {
+		ctx->callback(sql_result_get_error(result), ctx->context);
+		driver_pgsql_transaction_free(ctx);
+		return;
+	}
+
+	if (query->affected_rows != NULL) {
 		struct pgsql_result *pg_result = (struct pgsql_result *)result;
 
 		if (str_to_uint(PQcmdTuples(pg_result->pgres),
 				query->affected_rows) < 0)
 			i_unreached();
 	}
-	driver_pgsql_transaction_unref(ctx);
+	i_assert(db->next_callback == NULL);
+	db->next_callback = transaction_send_next;
+	db->next_context = ctx;
 }
 
 static void
@@ -913,22 +961,15 @@ driver_pgsql_transaction_commit(struct sql_transaction_context *_ctx,
 
 	if (ctx->failed || _ctx->head == NULL) {
 		callback(ctx->failed ? ctx->error : NULL, context);
-		driver_pgsql_transaction_unref(ctx);
+		driver_pgsql_transaction_free(ctx);
 	} else if (_ctx->head->next == NULL) {
 		/* just a single query, send it */
 		sql_query(_ctx->db, _ctx->head->query,
 			  transaction_commit_callback, ctx);
 	} else {
 		/* multiple queries, use a transaction */
-		ctx->refcount++;
+		i_assert(_ctx->db->v.query == driver_pgsql_query);
 		sql_query(_ctx->db, "BEGIN", transaction_begin_callback, ctx);
-		while (_ctx->head != NULL) {
-			ctx->refcount++;
-			sql_query(_ctx->db, _ctx->head->query,
-				  transaction_update_callback, _ctx->head);
-			_ctx->head = _ctx->head->next;
-		}
-		sql_query(_ctx->db, "COMMIT", transaction_commit_callback, ctx);
 	}
 }
 
@@ -1042,8 +1083,7 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 		}
 	}
 
-	i_assert(ctx->refcount == 1);
-	driver_pgsql_transaction_unref(ctx);
+	driver_pgsql_transaction_free(ctx);
 	return *error_r == NULL ? 0 : -1;
 }
 
@@ -1053,8 +1093,7 @@ driver_pgsql_transaction_rollback(struct sql_transaction_context *_ctx)
 	struct pgsql_transaction_context *ctx =
 		(struct pgsql_transaction_context *)_ctx;
 
-	i_assert(ctx->refcount == 1);
-	driver_pgsql_transaction_unref(ctx);
+	driver_pgsql_transaction_free(ctx);
 }
 
 static void
