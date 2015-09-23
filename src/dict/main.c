@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "restrict-access.h"
 #include "randgen.h"
+#include "hostpid.h"
 #include "env-util.h"
 #include "module-dir.h"
 #include "master-service.h"
@@ -96,7 +97,7 @@ int main(int argc, char *argv[])
 						&error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	master_service_init_log(master_service, "dict: ");
+	master_service_init_log(master_service, t_strdup_printf("dict(%s): ", my_pid));
 	main_preinit();
 	master_service_set_die_callback(master_service, dict_die);
 
