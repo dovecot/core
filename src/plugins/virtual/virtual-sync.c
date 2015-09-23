@@ -155,6 +155,8 @@ int virtual_mailbox_ext_header_read(struct virtual_mailbox *mbox,
 	uint32_t prev_mailbox_id;
 	int ret = 1;
 
+	*broken_r = FALSE;
+
 	hdr = mail_index_get_header(view);
 	mail_index_get_header_ext(view, mbox->virtual_ext_id,
 				  &ext_data, &ext_size);
