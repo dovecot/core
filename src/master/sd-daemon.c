@@ -34,6 +34,7 @@
 #include <sys/un.h>
 #include <sys/fcntl.h>
 #include <netinet/in.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
