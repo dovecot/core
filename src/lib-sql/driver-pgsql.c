@@ -950,6 +950,30 @@ transaction_update_callback(struct sql_result *result,
 }
 
 static void
+transaction_trans_query_callback(struct sql_result *result,
+				 struct sql_transaction_query *query)
+{
+	struct pgsql_transaction_context *ctx =
+		(struct pgsql_transaction_context *)query->trans;
+
+	if (sql_result_next_row(result) < 0) {
+		ctx->callback(sql_result_get_error(result), ctx->context);
+		driver_pgsql_transaction_free(ctx);
+		return;
+	}
+
+	if (query->affected_rows != NULL) {
+		struct pgsql_result *pg_result = (struct pgsql_result *)result;
+
+		if (str_to_uint(PQcmdTuples(pg_result->pgres),
+				query->affected_rows) < 0)
+			i_unreached();
+	}
+	ctx->callback(NULL, ctx->context);
+	driver_pgsql_transaction_free(ctx);
+}
+
+static void
 driver_pgsql_transaction_commit(struct sql_transaction_context *_ctx,
 				sql_commit_callback_t *callback, void *context)
 {
@@ -965,7 +989,7 @@ driver_pgsql_transaction_commit(struct sql_transaction_context *_ctx,
 	} else if (_ctx->head->next == NULL) {
 		/* just a single query, send it */
 		sql_query(_ctx->db, _ctx->head->query,
-			  transaction_commit_callback, ctx);
+			  transaction_trans_query_callback, _ctx->head);
 	} else {
 		/* multiple queries, use a transaction */
 		i_assert(_ctx->db->v.query == driver_pgsql_query);
