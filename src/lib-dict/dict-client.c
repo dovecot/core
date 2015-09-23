@@ -651,7 +651,7 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 	struct client_dict_iterate_context *ctx =
 		(struct client_dict_iterate_context *)_ctx;
 	struct client_dict *dict = (struct client_dict *)_ctx->dict;
-	char *line, *value;
+	char *line, *key, *value;
 
 	if (ctx->failed)
 		return FALSE;
@@ -674,24 +674,26 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 
 	switch (*line) {
 	case DICT_PROTOCOL_REPLY_OK:
-		value = strchr(++line, '\t');
+		key = line+1;
+		value = strchr(key, '\t');
 		break;
 	case DICT_PROTOCOL_REPLY_FAIL:
 		ctx->failed = TRUE;
 		return FALSE;
 	default:
+		key = NULL;
 		value = NULL;
 		break;
 	}
 	if (value == NULL) {
 		/* broken protocol */
-		i_error("dict client (%s) sent broken reply", dict->path);
+		i_error("dict client (%s) sent broken iterate reply: %s", dict->path, line);
 		ctx->failed = TRUE;
 		return FALSE;
 	}
 	*value++ = '\0';
 
-	*key_r = p_strdup(ctx->pool, dict_client_unescape(line));
+	*key_r = p_strdup(ctx->pool, dict_client_unescape(key));
 	*value_r = p_strdup(ctx->pool, dict_client_unescape(value));
 	return TRUE;
 }
