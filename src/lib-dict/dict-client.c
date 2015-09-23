@@ -542,18 +542,22 @@ static int client_dict_wait(struct dict *_dict)
 {
 	struct client_dict *dict = (struct client_dict *)_dict;
 	char *line;
-	int ret = 0;
+	int ret;
 
 	if (!dict->handshaked)
 		return -1;
 
 	while (dict->async_commits > 0) {
-		if (client_dict_read_one_line(dict, &line) < 0) {
-			ret = -1;
-			break;
+		if ((ret = client_dict_read_one_line(dict, &line)) < 0)
+			return -1;
+
+		if (ret > 0) {
+			i_error("dict-client: Unexpected reply waiting waiting for async commits: %s", line);
+			client_dict_disconnect(dict);
+			return -1;
 		}
 	}
-	return ret;
+	return 0;
 }
 
 static int client_dict_lookup(struct dict *_dict, pool_t pool,
@@ -578,12 +582,19 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool,
 	if (line == NULL)
 		return -1;
 
-	if (*line == DICT_PROTOCOL_REPLY_OK) {
+	switch (*line) {
+	case DICT_PROTOCOL_REPLY_OK:
 		*value_r = p_strdup(pool, dict_client_unescape(line + 1));
 		return 1;
-	} else {
+	case DICT_PROTOCOL_REPLY_NOTFOUND:
 		*value_r = NULL;
-		return *line == DICT_PROTOCOL_REPLY_NOTFOUND ? 0 : -1;
+		return 0;
+	case DICT_PROTOCOL_REPLY_FAIL:
+		return -1;
+	default:
+		i_error("dict-client: Invalid lookup '%s' reply: %s", key, line);
+		client_dict_disconnect(dict);
+		return -1;
 	}
 }
 
@@ -710,6 +721,10 @@ static void dict_async_input(struct client_dict *dict)
 
 	if (ret < 0)
 		io_remove(&dict->io);
+	else if (ret > 0) {
+		i_error("dict-client: Unexpected reply waiting waiting for async commits: %s", line);
+		client_dict_disconnect(dict);
+	}
 }
 
 static int
@@ -746,12 +761,22 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			line = client_dict_read_line(dict);
 			if (line == NULL)
 				ret = -1;
-			else if (*line == DICT_PROTOCOL_REPLY_OK)
+			else switch (*line) {
+			case DICT_PROTOCOL_REPLY_OK:
 				ret = 1;
-			else if (*line == DICT_PROTOCOL_REPLY_NOTFOUND)
+				break;
+			case DICT_PROTOCOL_REPLY_NOTFOUND:
 				ret = 0;
-			else
+				break;
+			case DICT_PROTOCOL_REPLY_FAIL:
 				ret = -1;
+				break;
+			default:
+				i_error("dict-client: Invalid commit reply: %s", line);
+				client_dict_disconnect(dict);
+				ret = -1;
+				break;
+			}
 		}
 	} T_END;
 
