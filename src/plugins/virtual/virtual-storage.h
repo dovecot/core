@@ -97,6 +97,7 @@ struct virtual_backend_box {
 	struct imap_match_glob *glob;
 	struct mail_namespace *ns;
 
+	unsigned int open_tracked:1;
 	unsigned int open_failed:1;
 	unsigned int sync_seen:1;
 	unsigned int wildcard:1;
