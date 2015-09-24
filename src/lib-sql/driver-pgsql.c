@@ -895,9 +895,11 @@ static bool transaction_send_next(void *context)
 	}
 
 	if (ctx->ctx.head != NULL) {
-		sql_query(ctx->ctx.db, ctx->ctx.head->query,
-			  transaction_update_callback, ctx->ctx.head);
+		struct sql_transaction_query *query = ctx->ctx.head;
+
 		ctx->ctx.head = ctx->ctx.head->next;
+		sql_query(ctx->ctx.db, query->query,
+			  transaction_update_callback, query);
 	} else {
 		sql_query(ctx->ctx.db, "COMMIT",
 			  transaction_commit_callback, ctx);
