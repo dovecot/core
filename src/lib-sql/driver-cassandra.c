@@ -39,6 +39,7 @@ struct cassandra_db {
 	char *hosts, *keyspace;
 	CassConsistency read_consistency, write_consistency, delete_consistency;
 	CassLogLevel log_level;
+	unsigned int protocol_version;
 
 	CassCluster *cluster;
 	CassSession *session;
@@ -384,6 +385,9 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 		} else if (strcmp(key, "log_level") == 0) {
 			if (log_level_parse(value, &db->log_level) < 0)
 				i_fatal("cassandra: Unknown log_level: %s", value);
+		} else if (strcmp(key, "version") == 0) {
+			if (str_to_uint(value, &db->protocol_version) < 0)
+				i_fatal("cassandra: Invalid version: %s", value);
 		} else {
 			i_fatal("cassandra: Unknown connect string: %s", key);
 		}
@@ -415,6 +419,8 @@ static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 	cass_cluster_set_connect_timeout(db->cluster, SQL_CONNECT_TIMEOUT_SECS * 1000);
 	cass_cluster_set_request_timeout(db->cluster, SQL_QUERY_TIMEOUT_SECS * 1000);
 	cass_cluster_set_contact_points(db->cluster, db->hosts);
+	if (db->protocol_version != 0)
+		cass_cluster_set_protocol_version(db->cluster, db->protocol_version);
 	db->session = cass_session_new();
 	i_array_init(&db->results, 16);
 	i_array_init(&db->callbacks, 16);
