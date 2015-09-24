@@ -138,6 +138,7 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 
 	/* new mailbox. the search args are added to it later. */
 	bbox = p_new(ctx->pool, struct virtual_backend_box, 1);
+	bbox->virtual_mbox = ctx->mbox;
 	if (strcasecmp(line, "INBOX") == 0)
 		line = "INBOX";
 	bbox->name = p_strdup(ctx->pool, line);

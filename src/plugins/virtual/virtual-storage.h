@@ -62,6 +62,9 @@ struct virtual_backend_uidmap {
 };
 
 struct virtual_backend_box {
+	union mailbox_module_context module_ctx;
+	struct virtual_mailbox *virtual_mbox;
+
 	/* linked list for virtual_mailbox->open_backend_boxes_{head,tail} */
 	struct virtual_backend_box *prev_open, *next_open;
 
@@ -188,8 +191,6 @@ void virtual_backend_box_close(struct virtual_mailbox *mbox,
 			       struct virtual_backend_box *bbox);
 void virtual_backend_box_accessed(struct virtual_mailbox *mbox,
 				  struct virtual_backend_box *bbox);
-void virtual_backend_box_opened(struct virtual_mailbox *mbox,
-				struct virtual_backend_box *bbox);
 void virtual_backend_box_sync_mail_unset(struct virtual_backend_box *bbox);
 
 struct mail_search_context *
@@ -223,5 +224,7 @@ void virtual_save_cancel(struct mail_save_context *ctx);
 void virtual_save_free(struct mail_save_context *ctx);
 
 void virtual_box_copy_error(struct mailbox *dest, struct mailbox *src);
+
+void virtual_mailbox_opened_hook(struct mailbox *box);
 
 #endif

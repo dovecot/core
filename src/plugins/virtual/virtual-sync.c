@@ -1131,12 +1131,9 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 			bbox->open_failed = FALSE;
 		}
 
-		ret = mailbox_get_status(bbox->box, STATUS_UIDVALIDITY |
-					 STATUS_UIDNEXT | STATUS_HIGHESTMODSEQ,
-					 &status);
-		if (!bbox_index_opened && bbox->box->opened)
-			virtual_backend_box_opened(ctx->mbox, bbox);
-		if (ret < 0) {
+		if (mailbox_get_status(bbox->box, STATUS_UIDVALIDITY |
+				       STATUS_UIDNEXT | STATUS_HIGHESTMODSEQ,
+				       &status) < 0) {
 			if (mailbox_get_last_mail_error(bbox->box) != MAIL_ERROR_NOTFOUND)
 				return -1;
 			/* mailbox was deleted */

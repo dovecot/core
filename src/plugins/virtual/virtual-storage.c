@@ -182,6 +182,7 @@ static int virtual_backend_box_alloc(struct virtual_mailbox *mbox,
 	mailbox = bbox->name;
 	ns = mail_namespace_find(user->namespaces, mailbox);
 	bbox->box = mailbox_alloc(ns->list, mailbox, flags);
+	MODULE_CONTEXT_SET(bbox->box, virtual_storage_module, bbox);
 
 	if (mailbox_exists(bbox->box, TRUE, &existence) < 0)
 		return virtual_backend_box_open_failed(mbox, bbox);
@@ -322,10 +323,17 @@ virtual_backend_box_close_any_except(struct virtual_mailbox *mbox,
 	return FALSE;
 }
 
-void virtual_backend_box_opened(struct virtual_mailbox *mbox,
-				struct virtual_backend_box *bbox)
+void virtual_mailbox_opened_hook(struct mailbox *box)
 {
+	struct virtual_backend_box *bbox = VIRTUAL_CONTEXT(box);
+	struct virtual_mailbox *mbox;
+
+	if (bbox == NULL) {
+		/* not a backend for a virtual mailbox */
+		return;
+	}
 	i_assert(!bbox->open_tracked);
+	mbox = bbox->virtual_mbox;
 
 	/* the backend mailbox was already opened. if we didn't get here
 	   from virtual_backend_box_open() we may need to close a mailbox */
@@ -351,16 +359,14 @@ int virtual_backend_box_open(struct virtual_mailbox *mbox,
 	       virtual_backend_box_close_any_except(mbox, bbox))
 		;
 
-	if (mailbox_open(bbox->box) < 0)
-		return -1;
-	virtual_backend_box_opened(mbox, bbox);
-	return 0;
+	return mailbox_open(bbox->box);
 }
 
 void virtual_backend_box_close(struct virtual_mailbox *mbox,
 			       struct virtual_backend_box *bbox)
 {
 	i_assert(bbox->box->opened);
+	i_assert(bbox->open_tracked);
 
 	if (bbox->search_result != NULL)
 		mailbox_search_result_free(&bbox->search_result);
@@ -370,21 +376,13 @@ void virtual_backend_box_close(struct virtual_mailbox *mbox,
 		mail_search_args_deinit(bbox->search_args);
 		bbox->search_args_initialized = FALSE;
 	}
-	if (bbox->open_tracked) {
-		i_assert(mbox->backends_open_count > 0);
-		mbox->backends_open_count--;
-		bbox->open_tracked = FALSE;
+	i_assert(mbox->backends_open_count > 0);
+	mbox->backends_open_count--;
+	bbox->open_tracked = FALSE;
 
-		DLLIST2_REMOVE_FULL(&mbox->open_backend_boxes_head,
-				    &mbox->open_backend_boxes_tail, bbox,
-				    prev_open, next_open);
-	} else {
-		/* mailbox can be leaked outside our code via
-		   virtual_get_virtual_backend_boxes() and it could have
-		   been opened there. FIXME: maybe we could hook into the
-		   backend open/close functions to do the tracking and
-		   auto-closing. */
-	}
+	DLLIST2_REMOVE_FULL(&mbox->open_backend_boxes_head,
+			    &mbox->open_backend_boxes_tail, bbox,
+			    prev_open, next_open);
 	mailbox_close(bbox->box);
 }
 
