@@ -1296,7 +1296,7 @@ void settings_var_expand(const struct setting_parser_info *info,
 			 void *set, pool_t pool,
 			 const struct var_expand_table *table)
 {
-	return settings_var_expand_with_funcs(info, set, pool, table, NULL, NULL);
+	settings_var_expand_with_funcs(info, set, pool, table, NULL, NULL);
 }
 
 void settings_var_expand_with_funcs(const struct setting_parser_info *info,

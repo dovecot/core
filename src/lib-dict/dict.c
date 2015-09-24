@@ -133,7 +133,7 @@ void dict_lookup_async(struct dict *dict, const char *key,
 		callback(&result, context);
 		return;
 	}
-	return dict->v.lookup_async(dict, key, callback, context);
+	dict->v.lookup_async(dict, key, callback, context);
 }
 
 struct dict_iterate_context *
