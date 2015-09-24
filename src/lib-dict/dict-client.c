@@ -758,6 +758,7 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 	struct client_dict_transaction_context *ctx =
 		(struct client_dict_transaction_context *)_ctx;
 	struct client_dict *dict = (struct client_dict *)_ctx->dict;
+	unsigned int id;
 	int ret = ctx->failed ? -1 : 1;
 
 	ctx->committed = TRUE;
@@ -798,6 +799,12 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 				client_dict_disconnect(dict);
 				ret = -1;
 				break;
+			}
+			if (str_to_uint(line+1, &id) < 0 || ctx->id != id) {
+				i_error("dict-client: Invalid commit reply, "
+					"expected id=%u: %s", ctx->id, line);
+				client_dict_disconnect(dict);
+				ret = -1;
 			}
 		}
 	} T_END;
