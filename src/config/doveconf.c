@@ -169,7 +169,7 @@ static bool value_need_quote(const char *value)
 static int ATTR_NULL(4)
 config_dump_human_output(struct config_dump_human_context *ctx,
 			 struct ostream *output, unsigned int indent,
-			 const char *setting_name_filter)
+			 const char *setting_name_filter, bool hide_passwords)
 {
 	ARRAY_TYPE(const_string) prefixes_arr;
 	ARRAY_TYPE(prefix_stack) prefix_stack;
@@ -302,7 +302,10 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		value = strchr(key, '=');
 		o_stream_nsend(output, key, value-key);
 		o_stream_nsend_str(output, " = ");
-		if (!value_need_quote(value+1))
+		if (hide_passwords &&
+		    value-key > 9 && strncmp(value-9, "_password", 9) == 0) {
+			o_stream_nsend_str(output, " # hidden, use -P to show it");
+		} else if (!value_need_quote(value+1))
 			o_stream_nsend_str(output, value+1);
 		else {
 			o_stream_nsend(output, "\"", 1);
@@ -393,7 +396,7 @@ config_dump_filter_end(struct ostream *output, unsigned int indent)
 static int
 config_dump_human_sections(struct ostream *output,
 			   const struct config_filter *filter,
-			   const char *const *modules)
+			   const char *const *modules, bool hide_passwords)
 {
 	struct config_filter_parser *const *filters;
 	static struct config_dump_human_context *ctx;
@@ -412,7 +415,7 @@ config_dump_human_sections(struct ostream *output,
 		indent = config_dump_filter_begin(ctx->list_prefix,
 						  &(*filters)->filter);
 		config_export_parsers(ctx->export_ctx, (*filters)->parsers);
-		if (config_dump_human_output(ctx, output, indent, NULL) < 0)
+		if (config_dump_human_output(ctx, output, indent, NULL, hide_passwords) < 0)
 			ret = -1;
 		if (ctx->list_prefix_sent)
 			config_dump_filter_end(output, indent);
@@ -423,7 +426,8 @@ config_dump_human_sections(struct ostream *output,
 
 static int ATTR_NULL(4)
 config_dump_human(const struct config_filter *filter, const char *const *modules,
-		  enum config_dump_scope scope, const char *setting_name_filter)
+		  enum config_dump_scope scope, const char *setting_name_filter,
+		  bool hide_passwords)
 {
 	static struct config_dump_human_context *ctx;
 	struct ostream *output;
@@ -435,11 +439,11 @@ config_dump_human(const struct config_filter *filter, const char *const *modules
 
 	ctx = config_dump_human_init(modules, scope, TRUE);
 	config_export_by_filter(ctx->export_ctx, filter);
-	ret = config_dump_human_output(ctx, output, 0, setting_name_filter);
+	ret = config_dump_human_output(ctx, output, 0, setting_name_filter, hide_passwords);
 	config_dump_human_deinit(ctx);
 
 	if (setting_name_filter == NULL)
-		ret = config_dump_human_sections(output, filter, modules);
+		ret = config_dump_human_sections(output, filter, modules, hide_passwords);
 
 	o_stream_uncork(output);
 	o_stream_destroy(&output);
@@ -448,7 +452,8 @@ config_dump_human(const struct config_filter *filter, const char *const *modules
 
 static int
 config_dump_one(const struct config_filter *filter, bool hide_key,
-		enum config_dump_scope scope, const char *setting_name_filter)
+		enum config_dump_scope scope, const char *setting_name_filter,
+		bool hide_passwords)
 {
 	static struct config_dump_human_context *ctx;
 	const char *const *str;
@@ -481,7 +486,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 	config_dump_human_deinit(ctx);
 
 	if (dump_section)
-		(void)config_dump_human(filter, NULL, scope, setting_name_filter);
+		(void)config_dump_human(filter, NULL, scope, setting_name_filter, hide_passwords);
 	return 0;
 }
 
@@ -706,7 +711,7 @@ int main(int argc, char *argv[])
 	bool config_path_specified, expand_vars = FALSE, hide_key = FALSE;
 	bool parse_full_config = FALSE, simple_output = FALSE;
 	bool dump_defaults = FALSE, host_verify = FALSE;
-	bool print_plugin_banner = FALSE;
+	bool print_plugin_banner = FALSE, hide_passwords = TRUE;
 
 	if (getenv("USE_SYSEXITS") != NULL) {
 		/* we're coming from (e.g.) LDA */
@@ -716,7 +721,7 @@ int main(int argc, char *argv[])
 	memset(&filter, 0, sizeof(filter));
 	master_service = master_service_init("config",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     &argc, &argv, "adf:hHm:nNpexS");
+					     &argc, &argv, "adf:hHm:nNpPexS");
 	orig_config_path = master_service_get_config_path(master_service);
 
 	i_set_failure_prefix("doveconf: ");
@@ -753,6 +758,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'p':
 			parse_full_config = TRUE;
+			break;
+		case 'P':
+			hide_passwords = FALSE;
 			break;
 		case 'S':
 			simple_output = TRUE;
@@ -834,7 +842,7 @@ int main(int argc, char *argv[])
 		ret = 0;
 		for (i = 0; setting_name_filters[i] != NULL; i++) {
 			if (config_dump_one(&filter, hide_key, scope,
-					    setting_name_filters[i]) < 0)
+					    setting_name_filters[i], hide_passwords) < 0)
 				ret2 = -1;
 		}
 	} else if (exec_args == NULL) {
@@ -848,7 +856,7 @@ int main(int argc, char *argv[])
 		if (scope == CONFIG_DUMP_SCOPE_ALL)
 			printf("# NOTE: Send doveconf -n output instead when asking for help.\n");
 		fflush(stdout);
-		ret2 = config_dump_human(&filter, wanted_modules, scope, NULL);
+		ret2 = config_dump_human(&filter, wanted_modules, scope, NULL, hide_passwords);
 	} else {
 		struct config_export_context *ctx;
 
