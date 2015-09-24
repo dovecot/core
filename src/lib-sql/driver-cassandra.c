@@ -413,7 +413,7 @@ static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 	} T_END;
 	cass_log_set_level(db->log_level);
 
-	db->timestamp_gen = cass_timestamp_gen_server_side_new();
+	db->timestamp_gen = cass_timestamp_gen_monotonic_new();
 	db->cluster = cass_cluster_new();
 	cass_cluster_set_timestamp_gen(db->cluster, db->timestamp_gen);
 	cass_cluster_set_connect_timeout(db->cluster, SQL_CONNECT_TIMEOUT_SECS * 1000);
