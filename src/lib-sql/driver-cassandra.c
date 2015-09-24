@@ -42,6 +42,7 @@ struct cassandra_db {
 
 	CassCluster *cluster;
 	CassSession *session;
+	CassTimestampGen *timestamp_gen;
 
 	int fd_pipe[2];
 	struct io *io_pipe;
@@ -408,7 +409,9 @@ static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 	} T_END;
 	cass_log_set_level(db->log_level);
 
+	db->timestamp_gen = cass_timestamp_gen_server_side_new();
 	db->cluster = cass_cluster_new();
+	cass_cluster_set_timestamp_gen(db->cluster, db->timestamp_gen);
 	cass_cluster_set_connect_timeout(db->cluster, SQL_CONNECT_TIMEOUT_SECS * 1000);
 	cass_cluster_set_request_timeout(db->cluster, SQL_QUERY_TIMEOUT_SECS * 1000);
 	cass_cluster_set_contact_points(db->cluster, db->hosts);
@@ -431,6 +434,7 @@ static void driver_cassandra_deinit_v(struct sql_db *_db)
 
 	cass_session_free(db->session);
 	cass_cluster_free(db->cluster);
+	cass_timestamp_gen_free(db->timestamp_gen);
 	i_free(db->hosts);
 	i_free(db->error);
 	i_free(db->keyspace);
