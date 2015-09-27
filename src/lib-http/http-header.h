@@ -40,6 +40,6 @@ const char *
 http_header_field_get(const struct http_header *header, const char *name)
 	ATTR_PURE;
 int http_header_field_find_unique(const struct http_header *header,
-	const char *name, const struct http_header_field **hfield_r) ATTR_PURE;
+	const char *name, const struct http_header_field **hfield_r);
 
 #endif
