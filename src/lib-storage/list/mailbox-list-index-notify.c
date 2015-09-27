@@ -722,13 +722,11 @@ mailbox_list_index_notify_change(struct mailbox_list_notify_index *inotify,
 	}
 
 	/* update internal state */
-	if (nnode != NULL) {
-		nnode->uidvalidity = status.uidvalidity;
-		nnode->uidnext = status.uidnext;
-		nnode->messages = status.messages;
-		nnode->unseen = status.unseen;
-		nnode->highest_modseq = status.highest_modseq;
-	}
+	nnode->uidvalidity = status.uidvalidity;
+	nnode->uidnext = status.uidnext;
+	nnode->messages = status.messages;
+	nnode->unseen = status.unseen;
+	nnode->highest_modseq = status.highest_modseq;
 	return TRUE;
 }
 
