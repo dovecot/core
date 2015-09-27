@@ -797,10 +797,12 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			default:
 				i_error("dict-client: Invalid commit reply: %s", line);
 				client_dict_disconnect(dict);
+				line = NULL;
 				ret = -1;
 				break;
 			}
-			if (str_to_uint(line+1, &id) < 0 || ctx->id != id) {
+			if (line != NULL &&
+			    (str_to_uint(line+1, &id) < 0 || ctx->id != id)) {
 				i_error("dict-client: Invalid commit reply, "
 					"expected id=%u: %s", ctx->id, line);
 				client_dict_disconnect(dict);
