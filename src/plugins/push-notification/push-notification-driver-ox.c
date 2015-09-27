@@ -128,7 +128,11 @@ static const char *push_notification_driver_ox_get_metadata
             success = TRUE;
         }
 
-        mailbox_transaction_commit(&mctx);
+        if (mailbox_transaction_commit(&mctx) < 0) {
+            i_error(OX_LOG_LABEL "Transaction commit failed: %s",
+                    mailbox_get_last_error(inbox, NULL));
+            /* the commit doesn't matter though. */
+        }
     }
 
     mailbox_free(&inbox);

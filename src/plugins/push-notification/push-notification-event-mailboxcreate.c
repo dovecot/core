@@ -26,7 +26,12 @@ static void push_notification_event_mailboxcreate_event(
     struct push_notification_event_mailboxcreate_data *data;
     struct mailbox_status status;
 
-    mailbox_get_status(ptxn->mbox, STATUS_UIDVALIDITY, &status);
+    if (mailbox_get_status(ptxn->mbox, STATUS_UIDVALIDITY, &status) < 0) {
+        i_error(EVENT_NAME "Failed to get created mailbox '%s' uidvalidity: %s",
+                mailbox_get_vname(ptxn->mbox),
+                mailbox_get_last_error(ptxn->mbox, NULL));
+        status.uidvalidity = 0;
+    }
 
     data = p_new(ptxn->pool,
                  struct push_notification_event_mailboxcreate_data, 1);
