@@ -275,6 +275,8 @@ index_list_try_get_metadata(struct mailbox *box,
 	enum mailbox_metadata_items noncached_items;
 	int ret;
 
+	i_assert(metadata_r != NULL);
+
 	if (box->opened) {
 		/* if mailbox is already opened, don't bother using the values
 		   in mailbox list index. they have a higher chance of being

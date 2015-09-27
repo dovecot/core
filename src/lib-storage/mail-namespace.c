@@ -321,6 +321,8 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 	struct mail_namespace *ns;
 	bool prefixless_found = FALSE;
 
+	i_assert(namespaces != NULL);
+
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
 		if (ns->prefix_len == 0)
 			prefixless_found = TRUE;

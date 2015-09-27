@@ -27,7 +27,8 @@ static void test_message_id_get_next(void)
 		while ((next_msgid = message_id_get_next(&msgid)) != NULL) {
 			if (output[j] == NULL)
 				break;
-			test_assert(strcmp(output[j++], next_msgid) == 0);
+			test_assert(strcmp(output[j], next_msgid) == 0);
+			j++;
 		}
 		test_assert(output[j++] == NULL && next_msgid == NULL);
 	}
