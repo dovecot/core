@@ -453,7 +453,7 @@ const char *client_get_session_id(struct client *client)
 		buffer_append_c(buf, (timestamp >> i) & 0xff);
 
 	buffer_append_c(buf, client->remote_port & 0xff);
-	buffer_append_c(buf, (client->remote_port >> 16) & 0xff);
+	buffer_append_c(buf, (client->remote_port >> 8) & 0xff);
 #ifdef HAVE_IPV6
 	if (IPADDR_IS_V6(&client->ip))
 		buffer_append(buf, &client->ip.u.ip6, sizeof(client->ip.u.ip6));
