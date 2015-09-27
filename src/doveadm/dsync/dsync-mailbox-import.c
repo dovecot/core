@@ -1628,13 +1628,8 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 	} else {
 		(void)dsync_mailbox_find_common_expunged_uid(importer, change, result_r);
 	}
-	if (importer->cur_mail != NULL) {
-		*result_r = t_strdup_printf("%s (next local mail UID=%u)",
-					    *result_r, importer->cur_mail->uid);
-	} else {
-		*result_r = t_strdup_printf("%s (no more local mails)",
-					    *result_r);
-	}
+	*result_r = t_strdup_printf("%s (next local mail UID=%u)",
+				    *result_r, importer->cur_mail->uid);
 }
 
 int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
