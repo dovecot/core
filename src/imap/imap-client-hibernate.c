@@ -51,8 +51,9 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 	str_printfa(cmd, "\tidle_notify_interval=%u",
 		    client->set->imap_idle_notify_interval);
 	if (fstat(client->fd_in, &peer_st) == 0) {
-		str_printfa(cmd, "\tpeer_dev_major=%u\tpeer_dev_minor=%u\tpeer_ino=%llu",
-			    major(peer_st.st_dev), minor(peer_st.st_dev),
+		str_printfa(cmd, "\tpeer_dev_major=%lu\tpeer_dev_minor=%lu\tpeer_ino=%llu",
+			    (unsigned long)major(peer_st.st_dev),
+			    (unsigned long)minor(peer_st.st_dev),
 			    (unsigned long long)peer_st.st_ino);
 	}
 

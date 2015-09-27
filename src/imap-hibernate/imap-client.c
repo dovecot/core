@@ -118,8 +118,9 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 		str_append_tabescaped(str, state->userdb_fields);
 	}
 	if (major(state->peer_dev) != 0 || minor(state->peer_dev) != 0) {
-		str_printfa(str, "\tpeer_dev_major=%u\tpeer_dev_minor=%u",
-			    major(state->peer_dev), minor(state->peer_dev));
+		str_printfa(str, "\tpeer_dev_major=%lu\tpeer_dev_minor=%lu",
+			    (unsigned long)major(state->peer_dev),
+			    (unsigned long)minor(state->peer_dev));
 	}
 	if (state->peer_ino != 0)
 		str_printfa(str, "\tpeer_ino=%llu", (unsigned long long)state->peer_ino);

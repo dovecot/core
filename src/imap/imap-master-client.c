@@ -165,11 +165,12 @@ static int imap_master_client_verify(const struct imap_master_input *master_inpu
 	if (peer_st.st_ino != master_input->peer_ino ||
 	    !CMP_DEV_T(peer_st.st_dev, master_input->peer_dev)) {
 		*error_r = t_strdup_printf(
-			"BUG: Expected peer device=%u,%u inode=%s doesn't match "
-			"client fd's actual device=%u,%u inode=%s",
-			major(peer_st.st_dev), minor(peer_st.st_dev), dec2str(peer_st.st_ino),
-			major(master_input->peer_dev),
-			minor(master_input->peer_dev),
+			"BUG: Expected peer device=%lu,%lu inode=%s doesn't match "
+			"client fd's actual device=%lu,%lu inode=%s",
+			(unsigned long)major(peer_st.st_dev),
+			(unsigned long)minor(peer_st.st_dev), dec2str(peer_st.st_ino),
+			(unsigned long)major(master_input->peer_dev),
+			(unsigned long)minor(master_input->peer_dev),
 			dec2str(master_input->peer_ino));
 		return -1;
 	}
