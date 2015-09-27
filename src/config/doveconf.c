@@ -300,6 +300,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		key = strings[i] + skip_len;
 		if (unique_key) key++;
 		value = strchr(key, '=');
+		i_assert(value != NULL);
 		o_stream_nsend(output, key, value-key);
 		o_stream_nsend_str(output, " = ");
 		if (hide_passwords && value[1] != '\0' &&

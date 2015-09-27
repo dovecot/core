@@ -265,6 +265,7 @@ static void push_notification_driver_ox_process_msg
     push_notification_driver_ox_init_global(user);
 
     messagenew = push_notification_txn_msg_get_eventdata(msg, "MessageNew");
+    i_assert(messagenew != NULL);
 
     http_req = http_client_request_url(ox_global->http_client, "PUT",
                                        dconfig->http_url,
