@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2015 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "istream.h"
 #include "http-parser.h"
 #include "http-date.h"
@@ -92,15 +93,37 @@ static int http_response_parse_reason(struct http_response_parser *parser)
 	return 1;
 }
 
-static inline const char *_chr_sanitize(unsigned char c)
+static const char *_reply_sanitize(struct http_message_parser *parser)
 {
-	if (c >= 0x20 && c < 0x7F)
-		return t_strdup_printf("`%c'", c);
-	if (c == 0x0a)
-		return "<LF>";
-	if (c == 0x0d)
-		return "<CR>";
-	return t_strdup_printf("<0x%02x>", c);
+	string_t *str = t_str_new(32);
+	const unsigned char *p;
+	unsigned int i;
+	bool quote_open = FALSE;
+
+	i_assert(parser->cur < parser->end);
+	for (p = parser->cur, i = 0; p < parser->end && i < 20; p++, i++) {
+		if (*p >= 0x20 && *p < 0x7F) {
+			if (!quote_open) {
+				str_append_c(str, '`');
+				quote_open = TRUE;
+			}
+			str_append_c(str, *p);
+		} else {
+			if (quote_open) {
+				str_append_c(str, '\'');
+				quote_open = FALSE;
+			}
+			if (*p == 0x0a)
+				str_append(str, "<LF>");
+			else if (*p == 0x0d)
+				str_append(str, "<CR>");
+			else
+				str_printfa(str, "<0x%02x>", *p);
+		}
+	}
+	if (quote_open)
+		str_append_c(str, '\'');
+	return str_c(str);
 }
 
 static int http_response_parse(struct http_response_parser *parser)
@@ -122,7 +145,9 @@ static int http_response_parse(struct http_response_parser *parser)
 	case HTTP_RESPONSE_PARSE_STATE_VERSION:
 		if ((ret=http_message_parse_version(_parser)) <= 0) {
 			if (ret < 0)
-				_parser->error = "Invalid HTTP version in response";
+				_parser->error = t_strdup_printf(
+					"Invalid HTTP version in response: %s",
+					_reply_sanitize(_parser));
 			return ret;
 		}
 		parser->state = HTTP_RESPONSE_PARSE_STATE_SP1;
@@ -133,7 +158,7 @@ static int http_response_parse(struct http_response_parser *parser)
 		if (*_parser->cur != ' ') {
 			_parser->error = t_strdup_printf
 				("Expected ' ' after response version, but found %s",
-					_chr_sanitize(*_parser->cur));
+					_reply_sanitize(_parser));
 			return -1;
 		}
 		_parser->cur++;
@@ -155,7 +180,7 @@ static int http_response_parse(struct http_response_parser *parser)
 		if (*_parser->cur != ' ') {
 			_parser->error = t_strdup_printf
 				("Expected ' ' after response status code, but found %s",
-					_chr_sanitize(*_parser->cur));
+					_reply_sanitize(_parser));
 			return -1;
 		}
 		_parser->cur++;
@@ -183,7 +208,7 @@ static int http_response_parse(struct http_response_parser *parser)
 		if (*_parser->cur != '\n') {
 			_parser->error = t_strdup_printf
 				("Expected line end after response, but found %s",
-					_chr_sanitize(*_parser->cur));
+					_reply_sanitize(_parser));
 			return -1;
 		}
 		_parser->cur++;
