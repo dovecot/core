@@ -45,12 +45,12 @@ static void quota_clone_flush(struct mailbox *box)
 	/* we'll clone the first quota root */
 	iter = quota_root_iter_init(box);
 	root = quota_root_iter_next(iter);
+	quota_root_iter_deinit(&iter);
 	if (root == NULL) {
 		/* no quota roots defined for this mailbox - ignore */
 		qbox->quota_changed = FALSE;
 		return;
 	}
-	quota_root_iter_deinit(&iter);
 
 	trans = dict_transaction_begin(quser->dict);
 	/* update bytes */
