@@ -551,7 +551,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		/* request is dereferenced in payload destroy callback */
 		i_stream_unref(&payload);
 
-		if (conn->to_input != NULL) {
+		if (conn->to_input != NULL && conn->conn.input != NULL) {
 			/* already finished reading the payload */
 			http_client_payload_finished(conn);
 		}
@@ -561,7 +561,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		http_client_request_unref(&req);
 	}
 
-	if (conn->incoming_payload == NULL) {
+	if (conn->incoming_payload == NULL && conn->conn.input != NULL) {
 		i_assert(conn->conn.io != NULL ||
 			conn->peer->addr.type == HTTP_CLIENT_PEER_ADDR_RAW);
 		ret = TRUE;
