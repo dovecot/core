@@ -11,6 +11,21 @@ struct sized_istream {
 	bool failed;
 };
 
+static void i_stream_sized_destroy(struct iostream_private *stream)
+{
+	struct sized_istream *sstream = (struct sized_istream *)stream;
+	uoff_t v_offset;
+
+	v_offset = sstream->istream.parent_start_offset +
+		sstream->istream.istream.v_offset;
+	if (sstream->istream.parent->seekable ||
+	    v_offset > sstream->istream.parent->v_offset) {
+		/* get to same position in parent stream */
+		i_stream_seek(sstream->istream.parent, v_offset);
+	}
+	i_stream_unref(&sstream->istream.parent);
+}
+
 static ssize_t i_stream_sized_read(struct istream_private *stream)
 {
 	struct sized_istream *sstream =
@@ -116,6 +131,7 @@ struct istream *i_stream_create_sized(struct istream *input, uoff_t size)
 	sstream->size = size;
 	sstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
+	sstream->istream.iostream.destroy = i_stream_sized_destroy;
 	sstream->istream.read = i_stream_sized_read;
 	sstream->istream.stat = i_stream_sized_stat;
 
