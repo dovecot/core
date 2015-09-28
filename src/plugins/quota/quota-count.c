@@ -197,12 +197,73 @@ count_quota_get_resource(struct quota_root *root,
 	return 1;
 }
 
+static int quota_count_recalculate_box(struct mailbox *box)
+{
+	struct mail_index_transaction *trans;
+	struct mailbox_metadata metadata;
+	struct mailbox_index_vsize vsize_hdr;
+	const char *errstr;
+	enum mail_error error;
+
+	if (mailbox_open(box) < 0) {
+		errstr = mailbox_get_last_error(box, &error);
+		if (error != MAIL_ERROR_TEMP) {
+			/* non-temporary error, e.g. ACLs denied access. */
+			return 0;
+		}
+		i_error("Couldn't open mailbox %s: %s", box->vname, errstr);
+		return -1;
+	}
+
+	/* reset the vsize header first */
+	trans = mail_index_transaction_begin(box->view,
+				MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	memset(&vsize_hdr, 0, sizeof(vsize_hdr));
+	mail_index_update_header_ext(trans, box->vsize_hdr_ext_id,
+				     0, &vsize_hdr, sizeof(vsize_hdr));
+	if (mail_index_transaction_commit(&trans) < 0)
+		return -1;
+	/* getting the vsize now forces its recalculation */
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_VIRTUAL_SIZE,
+				 &metadata) < 0) {
+		i_error("Couldn't get mailbox %s vsize: %s", box->vname,
+			mailbox_get_last_error(box, NULL));
+		return -1;
+	}
+	/* call sync to write the change to mailbox list index */
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0) {
+		i_error("Couldn't sync mailbox %s: %s", box->vname,
+			mailbox_get_last_error(box, NULL));
+		return -1;
+	}
+	return 0;
+}
+
+static int quota_count_recalculate(struct quota_root *root)
+{
+	struct quota_mailbox_iter *iter;
+	const struct mailbox_info *info;
+	struct mailbox *box;
+	int ret = 0;
+
+	iter = quota_mailbox_iter_begin(root);
+	while ((info = quota_mailbox_iter_next(iter)) != NULL) {
+		box = mailbox_alloc(info->ns->list, info->vname, 0);
+		if (quota_count_recalculate_box(box) < 0)
+			ret = -1;
+		mailbox_free(&box);
+	}
+	quota_mailbox_iter_deinit(&iter);
+	return ret;
+}
+
 static int
-count_quota_update(struct quota_root *root ATTR_UNUSED,
-		   struct quota_transaction_context *ctx ATTR_UNUSED)
+count_quota_update(struct quota_root *root,
+		   struct quota_transaction_context *ctx)
 {
 	if (ctx->recalculate) {
-		//FIXME: remove cached values from index
+		if (quota_count_recalculate(root) < 0)
+			return -1;
 	}
 	return 0;
 }
