@@ -590,6 +590,9 @@ struct quota_root *quota_root_iter_next(struct quota_root_iter *iter)
 	uint64_t value, limit;
 	int ret;
 
+	if (iter->quota == NULL)
+		return NULL;
+
 	roots = array_get(&iter->quota->roots, &count);
 	if (iter->i >= count)
 		return NULL;
@@ -635,6 +638,8 @@ struct quota_root *quota_root_lookup(struct mail_user *user, const char *name)
 	unsigned int i, count;
 
 	quota = quota_get_mail_user_quota(user);
+	if (quota == NULL)
+		return NULL;
 	roots = array_get(&quota->roots, &count);
 	for (i = 0; i < count; i++) {
 		if (strcmp(roots[i]->set->name, name) == 0)
