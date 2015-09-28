@@ -336,7 +336,8 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 		array_free(&ctx->all_flag_update_uids);
 
 	/* update vsize header if wanted */
-	index_mailbox_vsize_update_appends(_ctx->box);
+	if (ret == 0)
+		index_mailbox_vsize_update_appends(_ctx->box);
 	i_free(ctx);
 	return ret;
 }
