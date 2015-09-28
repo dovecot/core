@@ -101,13 +101,12 @@ i_stream_timeout_read(struct istream_private *stream)
 				"%s (opened %d secs ago)",
 				i_stream_get_error(stream->parent), diff);
 		}
-	} else if (tstream->to == NULL) {
+	} else if (tstream->to == NULL && tstream->timeout_msecs > 0) {
 		/* first read. add the timeout here instead of in init
 		   in case the stream is created long before it's actually
 		   read from. */
-		tstream->to = tstream->timeout_msecs == 0 ? NULL :
-			timeout_add(tstream->timeout_msecs,
-				    i_stream_timeout, tstream);
+		tstream->to = timeout_add(tstream->timeout_msecs,
+					  i_stream_timeout, tstream);
 		i_stream_timeout_set_pending(tstream);
 	} else if (ret > 0 && tstream->to != NULL) {
 		/* we read something, reset the timeout */
