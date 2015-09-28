@@ -34,10 +34,12 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	}
 
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
-	if (mailbox_get_metadata(box, root->quota->set->vsizes ?
-				 MAILBOX_METADATA_VIRTUAL_SIZE :
-				 MAILBOX_METADATA_PHYSICAL_SIZE,
-				 &metadata) < 0 ||
+	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0) {
+		/* quota doesn't exist for this mailbox/storage */
+	} else if (mailbox_get_metadata(box, root->quota->set->vsizes ?
+					MAILBOX_METADATA_VIRTUAL_SIZE :
+					MAILBOX_METADATA_PHYSICAL_SIZE,
+					&metadata) < 0 ||
 	    mailbox_get_status(box, STATUS_MESSAGES, &status) < 0) {
 		errstr = mailbox_get_last_error(box, &error);
 		if (error == MAIL_ERROR_TEMP) {
