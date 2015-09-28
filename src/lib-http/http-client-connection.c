@@ -1294,6 +1294,7 @@ http_client_connection_create(struct http_client_peer *peer)
 
 void http_client_connection_ref(struct http_client_connection *conn)
 {
+	i_assert(conn->refcount > 0);
 	conn->refcount++;
 }
 

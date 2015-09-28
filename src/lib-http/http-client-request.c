@@ -150,6 +150,7 @@ http_client_request_connect_ip(struct http_client *client,
 
 void http_client_request_ref(struct http_client_request *req)
 {
+	i_assert(req->refcount > 0);
 	req->refcount++;
 }
 

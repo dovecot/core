@@ -831,6 +831,7 @@ http_server_connection_create(struct http_server *server,
 
 void http_server_connection_ref(struct http_server_connection *conn)
 {
+	i_assert(conn->refcount > 0);
 	conn->refcount++;
 }
 

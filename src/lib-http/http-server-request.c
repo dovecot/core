@@ -23,6 +23,7 @@ http_server_request_new(struct http_server_connection *conn)
 
 void http_server_request_ref(struct http_server_request *req)
 {
+	i_assert(req->refcount > 0);
 	req->refcount++;
 }
 
