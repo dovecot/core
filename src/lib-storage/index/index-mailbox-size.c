@@ -102,6 +102,8 @@ index_mailbox_vsize_update_init(struct mailbox *box)
 {
 	struct mailbox_vsize_update *update;
 
+	i_assert(box->opened);
+
 	update = i_new(struct mailbox_vsize_update, 1);
 	update->box = box;
 	update->lock_fd = -1;
