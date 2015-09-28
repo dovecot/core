@@ -506,7 +506,6 @@ static int virtual_storage_set_have_guid_flags(struct virtual_mailbox *mbox)
 	struct virtual_backend_box *const *bboxes;
 	unsigned int i, count;
 	struct mailbox_status status;
-	bool opened;
 
 	if (!mbox->box.opened) {
 		if (mailbox_open(&mbox->box) < 0)
@@ -518,12 +517,10 @@ static int virtual_storage_set_have_guid_flags(struct virtual_mailbox *mbox)
 
 	bboxes = array_get(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; i++) {
-		opened = bboxes[i]->box->opened;
 		if (mailbox_get_status(bboxes[i]->box, 0, &status) < 0) {
 			virtual_box_copy_error(&mbox->box, bboxes[i]->box);
 			return -1;
 		}
-		i_assert(bboxes[i]->box->opened == opened);
 		if (!status.have_guids)
 			mbox->have_guids = FALSE;
 		if (!status.have_save_guids)
