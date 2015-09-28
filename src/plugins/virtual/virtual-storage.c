@@ -508,6 +508,11 @@ static int virtual_storage_set_have_guid_flags(struct virtual_mailbox *mbox)
 	struct mailbox_status status;
 	bool opened;
 
+	if (!mbox->box.opened) {
+		if (mailbox_open(&mbox->box) < 0)
+			return -1;
+	}
+
 	mbox->have_guids = TRUE;
 	mbox->have_save_guids = TRUE;
 
