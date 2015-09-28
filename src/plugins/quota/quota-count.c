@@ -36,6 +36,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
 	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0) {
 		/* quota doesn't exist for this mailbox/storage */
+		ret = 0;
 	} else if (mailbox_get_metadata(box, root->quota->set->vsizes ?
 					MAILBOX_METADATA_VIRTUAL_SIZE :
 					MAILBOX_METADATA_PHYSICAL_SIZE,
