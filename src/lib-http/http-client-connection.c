@@ -487,7 +487,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 	struct http_client_request *req, struct http_response *response)
 {
 	struct istream *payload;
-	bool retrying;
+	bool retrying, ret;
 
 	i_assert(!conn->in_req_callback);
 	i_assert(conn->incoming_payload == NULL);
@@ -541,6 +541,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 		return TRUE;
 	}
 
+	http_client_connection_ref(conn);
 	if (response->payload != NULL) {
 		req->state = HTTP_REQUEST_STATE_PAYLOAD_IN;
 		payload = response->payload;
@@ -563,10 +564,12 @@ http_client_connection_return_response(struct http_client_connection *conn,
 	if (conn->incoming_payload == NULL) {
 		i_assert(conn->conn.io != NULL ||
 			conn->peer->addr.type == HTTP_CLIENT_PEER_ADDR_RAW);
-		return TRUE;
+		ret = TRUE;
+	} else {
+		ret = FALSE;
 	}
-
-	return FALSE;
+	http_client_connection_unref(&conn);
+	return ret;
 }
 
 static void http_client_connection_input(struct connection *_conn)
