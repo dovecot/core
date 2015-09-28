@@ -211,7 +211,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		}
 		*error_r = t_strdup_printf("fcntl(%s, %s, %s) locking failed: %m",
 			path, lock_type_str, timeout_secs == 0 ? "F_SETLK" : "F_SETLKW");
-		if (errno == EDEADLOCK)
+		if (errno == EDEADLK)
 			i_panic("%s%s", *error_r, file_lock_find(fd, lock_method, lock_type));
 		return -1;
 #endif
@@ -259,7 +259,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		}
 		*error_r = t_strdup_printf("flock(%s, %s) failed: %m",
 					   path, lock_type_str);
-		if (errno == EDEADLOCK)
+		if (errno == EDEADLK)
 			i_panic("%s%s", *error_r, file_lock_find(fd, lock_method, lock_type));
 		return -1;
 #endif
