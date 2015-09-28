@@ -17,7 +17,7 @@ extern struct quota_backend quota_backend_count;
 
 static int
 quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
-		    const char *vname, uint64_t *bytes_r, uint64_t *count_r)
+		    const char *vname, uint64_t *bytes, uint64_t *count)
 {
 	struct quota_rule *rule;
 	struct mailbox *box;
@@ -50,9 +50,9 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 		}
 	} else {
 		ret = 1;
-		*bytes_r = root->quota->set->vsizes ?
+		*bytes += root->quota->set->vsizes ?
 			metadata.virtual_size : metadata.physical_size;
-		*count_r = status.messages;
+		*count += status.messages;
 	}
 	mailbox_free(&box);
 	return ret;
