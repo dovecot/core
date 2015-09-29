@@ -431,7 +431,6 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 				       solr_connection_select_response, conn);
 	http_client_request_set_port(http_req, conn->http_port);
 	http_client_request_set_ssl(http_req, conn->http_ssl);
-	http_client_request_add_header(http_req, "Content-Type", "text/xml");
 	http_client_request_submit(http_req);
 
 	conn->request_status = 0;
