@@ -266,10 +266,12 @@ static void push_notification_driver_ox_process_msg
         (struct push_notification_driver_ox_txn *)dtxn->context;
     struct mail_user *user = dtxn->ptxn->muser;
 
-    push_notification_driver_ox_init_global(user);
-
     messagenew = push_notification_txn_msg_get_eventdata(msg, "MessageNew");
-    i_assert(messagenew != NULL);
+    if (messagenew == NULL) {
+        return;
+    }
+
+    push_notification_driver_ox_init_global(user);
 
     http_req = http_client_request_url(ox_global->http_client, "PUT",
                                        dconfig->http_url,
