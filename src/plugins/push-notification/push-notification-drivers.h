@@ -85,6 +85,7 @@ struct push_notification_txn {
     struct mailbox *mbox;
     struct mail_user *muser;
     struct push_notification_user *puser;
+    bool initialized;
 
     enum push_notification_event_trigger trigger;
     struct push_notification_trigger_ctx *trigger_ctx;

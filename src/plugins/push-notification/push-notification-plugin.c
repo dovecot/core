@@ -29,12 +29,42 @@ static MODULE_CONTEXT_DEFINE_INIT(push_notification_user_module,
 static struct push_notification_user *puser = NULL;
 
 
+static void
+push_notification_transaction_init(struct push_notification_txn *ptxn)
+{
+    struct push_notification_driver_txn *dtxn;
+    struct push_notification_driver_user **duser;
+    struct mail_storage *storage;
+
+    if (ptxn->initialized) {
+        return;
+    }
+
+    ptxn->initialized = TRUE;
+
+    storage = mailbox_get_storage(ptxn->mbox);
+    if (storage->user->autocreated &&
+        (strcmp(storage->name, "raw") == 0)) {
+        /* no notifications for autocreated raw users */
+        return;
+    }
+
+    array_foreach_modifiable(&ptxn->puser->drivers, duser) {
+        dtxn = p_new(ptxn->pool, struct push_notification_driver_txn, 1);
+        dtxn->duser = *duser;
+        dtxn->ptxn = ptxn;
+
+        if ((dtxn->duser->driver->v.begin_txn == NULL) ||
+            dtxn->duser->driver->v.begin_txn(dtxn)) {
+            array_append(&ptxn->drivers, &dtxn, 1);
+        }
+    }
+}
+
 static struct push_notification_txn *
 push_notification_transaction_create(struct mailbox *box,
                                      struct mailbox_transaction_context *t)
 {
-    struct push_notification_driver_txn *dtxn;
-    struct push_notification_driver_user **duser;
     pool_t pool;
     struct push_notification_txn *ptxn;
     struct mail_storage *storage;
@@ -52,23 +82,6 @@ push_notification_transaction_create(struct mailbox *box,
 
     p_array_init(&ptxn->drivers, pool, 4);
 
-    if (storage->user->autocreated &&
-        (strcmp(storage->name, "raw") == 0)) {
-        /* no notifications for autocreated raw users */
-        return ptxn;
-    }
-
-    array_foreach_modifiable(&ptxn->puser->drivers, duser) {
-        dtxn = p_new(pool, struct push_notification_driver_txn, 1);
-        dtxn->duser = *duser;
-        dtxn->ptxn = ptxn;
-
-        if ((dtxn->duser->driver->v.begin_txn == NULL) ||
-            dtxn->duser->driver->v.begin_txn(dtxn)) {
-            array_append(&ptxn->drivers, &dtxn, 1);
-        }
-    }
-
     return ptxn;
 }
 
@@ -77,9 +90,11 @@ static void push_notification_transaction_end
 {
     struct push_notification_driver_txn **dtxn;
 
-    array_foreach_modifiable(&ptxn->drivers, dtxn) {
-        if ((*dtxn)->duser->driver->v.end_txn != NULL) {
-            (*dtxn)->duser->driver->v.end_txn(*dtxn, success);
+    if (ptxn->initialized) {
+        array_foreach_modifiable(&ptxn->drivers, dtxn) {
+            if ((*dtxn)->duser->driver->v.end_txn != NULL) {
+                (*dtxn)->duser->driver->v.end_txn(*dtxn, success);
+            }
         }
     }
 
@@ -143,6 +158,8 @@ static void push_notification_mail_save(void *txn, struct mail *mail)
 {
     struct push_notification_txn *ptxn = txn;
 
+    push_notification_transaction_init(ptxn);
+
     /* POST_SESSION means MTA delivery. */
     if (mail->box->flags & MAILBOX_FLAG_POST_SESSION) {
         push_notification_trigger_msg_save_new(ptxn, mail, NULL);
@@ -160,24 +177,30 @@ static void push_notification_mail_copy(void *txn,
 
 static void push_notification_mail_expunge(void *txn, struct mail *mail)
 {
-    push_notification_trigger_msg_save_expunge(
-            (struct push_notification_txn *)txn, mail, NULL);
+    struct push_notification_txn *ptxn = txn;
+
+    push_notification_transaction_init(ptxn);
+    push_notification_trigger_msg_save_expunge(txn, mail, NULL);
 }
 
 static void
 push_notification_mail_update_flags(void *txn, struct mail *mail,
                                     enum mail_flags old_flags)
 {
-    push_notification_trigger_msg_flag_change(
-            (struct push_notification_txn *) txn, mail, NULL, old_flags);
+    struct push_notification_txn *ptxn = txn;
+
+    push_notification_transaction_init(ptxn);
+    push_notification_trigger_msg_flag_change(txn, mail, NULL, old_flags);
 }
 
 static void
 push_notification_mail_update_keywords(void *txn, struct mail *mail,
                                        const char *const *old_keywords)
 {
-    push_notification_trigger_msg_keyword_change(
-            (struct push_notification_txn *) txn, mail, NULL, old_keywords);
+    struct push_notification_txn *ptxn = txn;
+
+    push_notification_transaction_init(ptxn);
+    push_notification_trigger_msg_keyword_change(txn, mail, NULL, old_keywords);
 }
 
 static void *
@@ -188,7 +211,7 @@ push_notification_transaction_begin(struct mailbox_transaction_context *t)
 
 static void push_notification_transaction_rollback(void *txn)
 {
-    struct push_notification_txn *ptxn = (struct push_notification_txn *)txn;
+    struct push_notification_txn *ptxn = txn;
 
     push_notification_transaction_end(ptxn, FALSE);
 }
