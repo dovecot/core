@@ -177,6 +177,11 @@ parse_setting(const char *key, const char *value,
 			field->variable = p_strndup(ctx->pool, value + 10,
 						    value_len-10-1);
 			field->sql_field.value_type = DICT_SQL_TYPE_HEXBLOB;
+		} else if (strncmp(value, "${uint:", 7) == 0 &&
+			   value[value_len-1] == '}') {
+			field->variable = p_strndup(ctx->pool, value + 7,
+						    value_len-7-1);
+			field->sql_field.value_type = DICT_SQL_TYPE_UINT;
 		} else {
 			field->variable = p_strdup(ctx->pool, value + 1);
 		}
