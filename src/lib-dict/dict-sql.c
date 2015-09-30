@@ -213,13 +213,13 @@ sql_dict_find_map(struct sql_dict *dict, const char *path,
 
 static int
 sql_dict_value_escape(string_t *str, struct sql_dict *dict,
-		      bool value_is_hexblob, const char *field_name,
+		      enum dict_sql_type value_type, const char *field_name,
 		      const char *value, const char *value_suffix,
 		      const char **error_r)
 {
 	buffer_t *buf;
 
-	if (!value_is_hexblob) {
+	if (value_type == DICT_SQL_TYPE_STRING) {
 		str_printfa(str, "'%s%s'", sql_escape_string(dict->db, value),
 			    value_suffix);
 		return 0;
@@ -244,7 +244,7 @@ sql_dict_field_escape_value(string_t *str, struct sql_dict *dict,
 			    const char *value, const char *value_suffix,
 			    const char **error_r)
 {
-	return sql_dict_value_escape(str, dict, field->value_is_hexblob,
+	return sql_dict_value_escape(str, dict, field->value_type,
 				     field->name, value, value_suffix, error_r);
 }
 
@@ -346,14 +346,14 @@ sql_lookup_get_query(struct sql_dict *dict, const char *key,
 }
 
 static const char *
-sql_dict_result_unescape(bool hexblob, pool_t pool, struct sql_result *result,
-			 unsigned int result_idx)
+sql_dict_result_unescape(enum dict_sql_type type, pool_t pool,
+			 struct sql_result *result, unsigned int result_idx)
 {
 	const unsigned char *data;
 	size_t size;
 	string_t *str;
 
-	if (!hexblob)
+	if (type == DICT_SQL_TYPE_STRING)
 		return p_strdup(pool, sql_result_get_field_value(result, result_idx));
 
 	data = sql_result_get_field_value_binary(result, result_idx, &size);
@@ -366,7 +366,9 @@ static const char *
 sql_dict_result_unescape_value(const struct dict_sql_map *map, pool_t pool,
 			       struct sql_result *result)
 {
-	return sql_dict_result_unescape(map->value_hexblob, pool, result, 0);
+	enum dict_sql_type value_type = map->value_hexblob ?
+		DICT_SQL_TYPE_HEXBLOB : DICT_SQL_TYPE_STRING;
+	return sql_dict_result_unescape(value_type, pool, result, 0);
 }
 
 static const char *
@@ -377,7 +379,7 @@ sql_dict_result_unescape_field(const struct dict_sql_map *map, pool_t pool,
 	const struct dict_sql_field *sql_field;
 
 	sql_field = array_idx(&map->sql_fields, sql_field_idx);
-	return sql_dict_result_unescape(sql_field->value_is_hexblob, pool,
+	return sql_dict_result_unescape(sql_field->value_type, pool,
 					result, result_idx);
 }
 
@@ -856,8 +858,9 @@ static int sql_dict_set_query(const struct dict_sql_build_query *build,
 		if (build->inc)
 			str_append(suffix, fields[i].value);
 		else {
-			if (sql_dict_value_escape(suffix, dict,
-				fields[i].map->value_hexblob,
+			enum dict_sql_type value_type = fields[i].map->value_hexblob ?
+				DICT_SQL_TYPE_HEXBLOB : DICT_SQL_TYPE_STRING;
+			if (sql_dict_value_escape(suffix, dict, value_type,
 				"value", fields[i].value, "", error_r) < 0)
 				return -1;
 		}
@@ -898,8 +901,9 @@ static int sql_dict_set_query(const struct dict_sql_build_query *build,
 				    fields[i].map->value_field,
 				    fields[i].value);
 		} else {
-			if (sql_dict_value_escape(prefix, dict,
-				fields[i].map->value_hexblob,
+			enum dict_sql_type value_type = fields[i].map->value_hexblob ?
+				DICT_SQL_TYPE_HEXBLOB : DICT_SQL_TYPE_STRING;
+			if (sql_dict_value_escape(prefix, dict, value_type,
 				"value", fields[i].value, "", error_r) < 0)
 				return -1;
 		}

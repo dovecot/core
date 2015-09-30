@@ -176,7 +176,7 @@ parse_setting(const char *key, const char *value,
 		    value[value_len-1] == '}') {
 			field->variable = p_strndup(ctx->pool, value + 10,
 						    value_len-10-1);
-			field->sql_field.value_is_hexblob = TRUE;
+			field->sql_field.value_type = DICT_SQL_TYPE_HEXBLOB;
 		} else {
 			field->variable = p_strdup(ctx->pool, value + 1);
 		}

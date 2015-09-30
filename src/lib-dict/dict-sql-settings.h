@@ -1,9 +1,14 @@
 #ifndef DICT_SQL_SETTINGS_H
 #define DICT_SQL_SETTINGS_H
 
+enum dict_sql_type {
+	DICT_SQL_TYPE_STRING = 0,
+	DICT_SQL_TYPE_HEXBLOB
+};
+
 struct dict_sql_field {
 	const char *name;
-	bool value_is_hexblob;
+	enum dict_sql_type value_type;
 };
 
 struct dict_sql_map {
