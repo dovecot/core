@@ -620,7 +620,7 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 		}
 	}
 	if ((client->uidl_keymask & UIDL_FILE_NAME) != 0) {
-		if (mail_get_special(mail, MAIL_FETCH_UIDL_FILE_NAME,
+		if (mail_get_special(mail, MAIL_FETCH_STORAGE_ID,
 				     &tab[3].value) < 0) {
 			i_error("UIDL: File name lookup failed: %s",
 				mailbox_get_last_error(mail->box, NULL));

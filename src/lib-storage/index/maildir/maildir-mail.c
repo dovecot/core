@@ -232,7 +232,7 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 	/* if this mail itself has non-pop3 fields we know we're not
 	   pop3-only */
 	allowed_pop3_fields = MAIL_FETCH_FLAGS | MAIL_FETCH_STREAM_HEADER |
-		MAIL_FETCH_STREAM_BODY | MAIL_FETCH_UIDL_FILE_NAME |
+		MAIL_FETCH_STREAM_BODY | MAIL_FETCH_STORAGE_ID |
 		MAIL_FETCH_VIRTUAL_SIZE;
 
 	if (mail->data.wanted_headers != NULL ||
@@ -524,12 +524,12 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		}
 
 		/* default to base filename: */
-		if (maildir_mail_get_special(_mail, MAIL_FETCH_UIDL_FILE_NAME,
+		if (maildir_mail_get_special(_mail, MAIL_FETCH_STORAGE_ID,
 					     value_r) < 0)
 			return -1;
 		mail->data.guid = mail->data.filename;
 		return 0;
-	case MAIL_FETCH_UIDL_FILE_NAME:
+	case MAIL_FETCH_STORAGE_ID:
 		if (mail->data.filename != NULL) {
 			*value_r = mail->data.filename;
 			return 0;
@@ -561,7 +561,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		} else if (*uidl == '\0') {
 			/* special optimization case: use the base file name */
 			return maildir_mail_get_special(_mail,
-					MAIL_FETCH_UIDL_FILE_NAME, value_r);
+					MAIL_FETCH_STORAGE_ID, value_r);
 		} else {
 			*value_r = p_strdup(mail->mail.data_pool, uidl);
 		}
@@ -621,7 +621,7 @@ static void maildir_update_pop3_uidl(struct mail *_mail, const char *uidl)
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
 	const char *fname;
 
-	if (maildir_mail_get_special(_mail, MAIL_FETCH_UIDL_FILE_NAME,
+	if (maildir_mail_get_special(_mail, MAIL_FETCH_STORAGE_ID,
 				     &fname) == 0 &&
 	    strcmp(uidl, fname) == 0) {
 		/* special case optimization: empty UIDL means the same

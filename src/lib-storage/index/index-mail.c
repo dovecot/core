@@ -1397,7 +1397,7 @@ int index_mail_get_special(struct mail *_mail,
 		return 0;
 	case MAIL_FETCH_BODY_SNIPPET:
 		return index_mail_fetch_body_snippet(mail, value_r);
-	case MAIL_FETCH_UIDL_FILE_NAME:
+	case MAIL_FETCH_STORAGE_ID:
 	case MAIL_FETCH_UIDL_BACKEND:
 	case MAIL_FETCH_SEARCH_RELEVANCY:
 	case MAIL_FETCH_GUID:

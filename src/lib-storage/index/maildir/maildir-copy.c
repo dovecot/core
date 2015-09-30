@@ -91,7 +91,7 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 			return -1;
 	} else {
 		/* raw / lda */
-		if (mail_get_special(mail, MAIL_FETCH_UIDL_FILE_NAME,
+		if (mail_get_special(mail, MAIL_FETCH_STORAGE_ID,
 				     &path) < 0 || *path == '\0')
 			return 0;
 		if (do_hardlink(dest_mbox, path, &do_ctx) < 0)
