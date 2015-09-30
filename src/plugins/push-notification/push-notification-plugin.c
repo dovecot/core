@@ -141,13 +141,13 @@ static void push_notification_mailbox_subscribe(struct mailbox *box,
 
 static void push_notification_mail_save(void *txn, struct mail *mail)
 {
-    struct push_notification_txn *ptxn = (struct push_notification_txn *)txn;
+    struct push_notification_txn *ptxn = txn;
 
-    /* External means a COPY or APPEND IMAP action. */
-    if (ptxn->t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) {
-        push_notification_trigger_msg_save_append(ptxn, mail, NULL);
-    } else {
+    /* POST_SESSION means MTA delivery. */
+    if (mail->box->flags & MAILBOX_FLAG_POST_SESSION) {
         push_notification_trigger_msg_save_new(ptxn, mail, NULL);
+    } else {
+        push_notification_trigger_msg_save_append(ptxn, mail, NULL);
     }
 }
 
@@ -155,8 +155,7 @@ static void push_notification_mail_copy(void *txn,
                                         struct mail *src ATTR_UNUSED,
                                         struct mail *dest)
 {
-    push_notification_trigger_msg_save_append(
-            (struct push_notification_txn *)txn, dest, NULL);
+    push_notification_mail_save(txn, dest);
 }
 
 static void push_notification_mail_expunge(void *txn, struct mail *mail)
