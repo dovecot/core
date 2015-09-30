@@ -101,18 +101,25 @@ static const char *push_notification_driver_ox_get_metadata
     struct mailbox *inbox;
     struct mailbox_transaction_context *mctx = NULL;
     struct mail_namespace *ns;
-    bool success = FALSE;
+    bool success = FALSE, use_existing_txn = FALSE;
     int ret;
 
     /* Get canonical INBOX, where private server-level metadata is stored.
      * See imap/cmd-getmetadata.c */
-    ns = mail_namespace_find_inbox(dtxn->ptxn->muser->namespaces);
-    inbox = mailbox_alloc(ns->list, "INBOX", MAILBOX_FLAG_READONLY);
-    if (mailbox_open(inbox) < 0) {
-        i_error(OX_LOG_LABEL "Skipped because unable to open INBOX: %s",
-                mailbox_get_last_error(inbox, NULL));
+    if ((dtxn->ptxn->t != NULL) && dtxn->ptxn->mbox->inbox_user) {
+        /* Use the currently open transaction. */
+        inbox = dtxn->ptxn->mbox;
+        mctx = dtxn->ptxn->t;
+        use_existing_txn = TRUE;
     } else {
-        mctx = mailbox_transaction_begin(inbox, 0);
+        ns = mail_namespace_find_inbox(dtxn->ptxn->muser->namespaces);
+        inbox = mailbox_alloc(ns->list, "INBOX", MAILBOX_FLAG_READONLY);
+        if (mailbox_open(inbox) < 0) {
+            i_error(OX_LOG_LABEL "Skipped because unable to open INBOX: %s",
+                    mailbox_get_last_error(inbox, NULL));
+        } else {
+            mctx = mailbox_transaction_begin(inbox, 0);
+        }
     }
 
     if (mctx != NULL) {
@@ -128,14 +135,16 @@ static const char *push_notification_driver_ox_get_metadata
             success = TRUE;
         }
 
-        if (mailbox_transaction_commit(&mctx) < 0) {
+        if (!use_existing_txn && (mailbox_transaction_commit(&mctx) < 0)) {
             i_error(OX_LOG_LABEL "Transaction commit failed: %s",
                     mailbox_get_last_error(inbox, NULL));
             /* the commit doesn't matter though. */
         }
     }
 
-    mailbox_free(&inbox);
+    if (!use_existing_txn) {
+        mailbox_free(&inbox);
+    }
 
     return (success == TRUE) ? attr.value : NULL;
 }
