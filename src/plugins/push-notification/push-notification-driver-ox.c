@@ -37,6 +37,7 @@ static struct push_notification_driver_ox_global *ox_global = NULL;
 /* This is data specific to an OX driver. */
 struct push_notification_driver_ox_config {
     struct http_url *http_url;
+    const char *cached_ox_metadata;
 };
 
 /* This is data specific to an OX driver transaction. */
@@ -97,12 +98,16 @@ push_notification_driver_ox_init(struct push_notification_driver_config *config,
 static const char *push_notification_driver_ox_get_metadata
 (struct push_notification_driver_txn *dtxn)
 {
+    struct push_notification_driver_ox_config *dconfig = dtxn->duser->context;
     struct mail_attribute_value attr;
     struct mailbox *inbox;
     struct mailbox_transaction_context *mctx = NULL;
     struct mail_namespace *ns;
     bool success = FALSE, use_existing_txn = FALSE;
     int ret;
+
+    if (dconfig->cached_ox_metadata != NULL)
+        return dconfig->cached_ox_metadata;
 
     /* Get canonical INBOX, where private server-level metadata is stored.
      * See imap/cmd-getmetadata.c */
@@ -146,6 +151,8 @@ static const char *push_notification_driver_ox_get_metadata
         mailbox_free(&inbox);
     }
 
+    dconfig->cached_ox_metadata =
+        p_strdup(dtxn->ptxn->puser->driverlist->pool, attr.value);
     return (success == TRUE) ? attr.value : NULL;
 }
 
