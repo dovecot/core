@@ -26,7 +26,7 @@ static MODULE_CONTEXT_DEFINE_INIT(push_notification_user_module,
                                   &mail_user_module_register);
 
 
-static struct push_notification_user *puser = NULL;
+static struct push_notification_driver_list *dlist = NULL;
 
 
 static void
@@ -49,7 +49,7 @@ push_notification_transaction_init(struct push_notification_txn *ptxn)
         return;
     }
 
-    array_foreach_modifiable(&ptxn->puser->drivers, duser) {
+    array_foreach_modifiable(&ptxn->puser->driverlist->drivers, duser) {
         dtxn = p_new(ptxn->pool, struct push_notification_driver_txn, 1);
         dtxn->duser = *duser;
         dtxn->ptxn = ptxn;
@@ -217,9 +217,9 @@ static void push_notification_transaction_rollback(void *txn)
 }
 
 static void
-push_notification_user_created_init_config(const char *config_name,
+push_notification_config_init(const char *config_name,
                                            struct mail_user *user,
-                                           struct push_notification_user *puser)
+                                           struct push_notification_driver_list *dlist)
 {
     struct push_notification_driver_user *duser;
     const char *env;
@@ -235,45 +235,49 @@ push_notification_user_created_init_config(const char *config_name,
             break;
         }
 
-        if (push_notification_driver_init(user, env, puser->pool, &duser) < 0) {
+        if (push_notification_driver_init(user, env, dlist->pool, &duser) < 0) {
             break;
         }
 
         // Add driver.
-        array_append(&puser->drivers, &duser, 1);
+        array_append(&dlist->drivers, &duser, 1);
 
         str_truncate(root_name, strlen(config_name));
         str_printfa(root_name, "%d", i);
     }
 }
 
-static void push_notification_user_created_init(struct mail_user *user)
+static void push_notification_driver_list_init(struct mail_user *user)
 {
     pool_t pool;
 
     pool = pool_alloconly_create("push notification plugin", 1024);
 
-    puser = p_new(pool, struct push_notification_user, 1);
-    puser->pool = pool;
+    dlist = p_new(pool, struct push_notification_driver_list, 1);
+    dlist->pool = pool;
 
-    p_array_init(&puser->drivers, pool, 4);
+    p_array_init(&dlist->drivers, pool, 4);
 
-    push_notification_user_created_init_config(PUSH_NOTIFICATION_CONFIG, user,
-                                               puser);
+    push_notification_config_init(PUSH_NOTIFICATION_CONFIG, user, dlist);
 
-    if (array_is_empty(&puser->drivers)) {
+    if (array_is_empty(&dlist->drivers)) {
         /* Support old configuration (it was available at time initial OX
-         * driver was first released. */
-        push_notification_user_created_init_config(PUSH_NOTIFICATION_CONFIG_OLD,
-                                                   user, puser);
+         * driver was first released). */
+        push_notification_config_init(PUSH_NOTIFICATION_CONFIG_OLD, user,
+                                      dlist);
     }
 }
 
 static void push_notification_user_created(struct mail_user *user)
 {
-    if (puser == NULL) {
-        push_notification_user_created_init(user);
+    struct push_notification_user *puser;
+
+    if (dlist == NULL) {
+        push_notification_driver_list_init(user);
     }
+
+    puser = p_new(user->pool, struct push_notification_user, 1);
+    puser->driverlist = dlist;
 
     MODULE_CONTEXT_SET(user, push_notification_user_module, puser);
 }
@@ -326,8 +330,8 @@ void push_notification_plugin_deinit(void)
 {
     struct push_notification_driver_user **duser;
 
-    if (puser != NULL) {
-        array_foreach_modifiable(&puser->drivers, duser) {
+    if (dlist != NULL) {
+        array_foreach_modifiable(&dlist->drivers, duser) {
             if ((*duser)->driver->v.deinit != NULL) {
                 (*duser)->driver->v.deinit(*duser);
             }
@@ -337,8 +341,8 @@ void push_notification_plugin_deinit(void)
             }
         }
 
-        array_free(&puser->drivers);
-        pool_unref(&puser->pool);
+        array_free(&dlist->drivers);
+        pool_unref(&dlist->pool);
     }
 
     push_notification_driver_unregister(&push_notification_driver_dlog);

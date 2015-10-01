@@ -68,10 +68,14 @@ struct push_notification_driver_txn {
     void *context;
 };
 
-struct push_notification_user {
-    union mail_user_module_context module_ctx;
+struct push_notification_driver_list {
     ARRAY(struct push_notification_driver_user *) drivers;
     pool_t pool;
+};
+
+struct push_notification_user {
+    union mail_user_module_context module_ctx;
+    struct push_notification_driver_list *driverlist;
 };
 
 struct push_notification_trigger_ctx {
