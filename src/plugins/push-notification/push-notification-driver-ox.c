@@ -38,11 +38,12 @@ static struct push_notification_driver_ox_global *ox_global = NULL;
 struct push_notification_driver_ox_config {
     struct http_url *http_url;
     const char *cached_ox_metadata;
+    bool use_unsafe_username;
 };
 
 /* This is data specific to an OX driver transaction. */
 struct push_notification_driver_ox_txn {
-    const char *user;
+    const char *unsafe_user;
 };
 
 static void
@@ -81,6 +82,8 @@ push_notification_driver_ox_init(struct push_notification_driver_config *config,
                                    url, error);
         return -1;
     }
+    dconfig->use_unsafe_username =
+        hash_table_lookup(config->config, (const char *)"user_from_metadata") != NULL;
 
     push_notification_driver_debug(OX_LOG_LABEL, user, "Using URL %s", url);
 
@@ -210,17 +213,17 @@ static bool push_notification_driver_ox_begin_txn
         if (value != NULL) {
             key = t_strdup_until(key, value++);
             if (strcmp(key, "user") == 0) {
-                txn->user = p_strdup(dtxn->ptxn->pool, value);
+                txn->unsafe_user = p_strdup(dtxn->ptxn->pool, value);
             }
         }
     }
 
-    if (txn->user == NULL) {
+    if (txn->unsafe_user == NULL) {
         i_error(OX_LOG_LABEL "No user provided in config");
         return FALSE;
     }
 
-    push_notification_driver_debug(OX_LOG_LABEL, user, "User (%s)", txn->user);
+    push_notification_driver_debug(OX_LOG_LABEL, user, "User (%s)", txn->unsafe_user);
 
     for (; *events != NULL; events++) {
         if (strcmp(*events, "MessageNew") == 0) {
@@ -299,7 +302,8 @@ static void push_notification_driver_ox_process_msg
 
     str = str_new(default_pool, 256);
     str_append(str, "{\"user\":\"");
-    json_append_escaped(str, txn->user);
+    json_append_escaped(str, dconfig->use_unsafe_username ?
+                        txn->unsafe_user : user->username);
     str_append(str, "\",\"event\":\"messageNew\",\"folder\":\"");
     json_append_escaped(str, msg->mailbox);
     str_printfa(str, "\",\"imap-uidvalidity\":%u,\"imap-uid\":%u",
