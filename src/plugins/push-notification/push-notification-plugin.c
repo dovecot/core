@@ -348,6 +348,7 @@ void push_notification_plugin_deinit(void)
     push_notification_driver_unregister(&push_notification_driver_dlog);
     push_notification_driver_unregister(&push_notification_driver_ox);
 
+    push_notification_event_unregister_rfc5423_events();
     mail_storage_hooks_remove(&push_notification_storage_hooks);
     notify_unregister(push_notification_ctx);
 }

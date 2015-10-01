@@ -28,19 +28,31 @@ extern struct push_notification_event push_notification_event_messagenew;
 extern struct push_notification_event push_notification_event_messageread;
 extern struct push_notification_event push_notification_event_messagetrash;
 
+static struct push_notification_event *rfc5423_events[] = {
+    &push_notification_event_flagsclear,
+    &push_notification_event_flagsset,
+    &push_notification_event_mailboxcreate,
+    &push_notification_event_mailboxdelete,
+    &push_notification_event_mailboxrename,
+    &push_notification_event_mailboxsubscribe,
+    &push_notification_event_mailboxunsubscribe,
+    &push_notification_event_messageappend,
+    &push_notification_event_messageexpunge,
+    &push_notification_event_messagenew,
+    &push_notification_event_messageread,
+    &push_notification_event_messagetrash
+};
 
 void push_notification_event_register_rfc5423_events(void)
 {
-    push_notification_event_register(&push_notification_event_flagsclear);
-    push_notification_event_register(&push_notification_event_flagsset);
-    push_notification_event_register(&push_notification_event_mailboxcreate);
-    push_notification_event_register(&push_notification_event_mailboxdelete);
-    push_notification_event_register(&push_notification_event_mailboxrename);
-    push_notification_event_register(&push_notification_event_mailboxsubscribe);
-    push_notification_event_register(&push_notification_event_mailboxunsubscribe);
-    push_notification_event_register(&push_notification_event_messageappend);
-    push_notification_event_register(&push_notification_event_messageexpunge);
-    push_notification_event_register(&push_notification_event_messagenew);
-    push_notification_event_register(&push_notification_event_messageread);
-    push_notification_event_register(&push_notification_event_messagetrash);
+    unsigned int i;
+    for (i = 0; i < N_ELEMENTS(rfc5423_events); i++)
+	push_notification_event_register(rfc5423_events[i]);
+}
+
+void push_notification_event_unregister_rfc5423_events(void)
+{
+    unsigned int i;
+    for (i = 0; i < N_ELEMENTS(rfc5423_events); i++)
+	push_notification_event_unregister(rfc5423_events[i]);
 }
