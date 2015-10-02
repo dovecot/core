@@ -796,7 +796,7 @@ static void client_uidls_save(struct client *client)
 	client->uidl_pool = pool_alloconly_create("message uidls", 1024);
 
 	/* first read all the UIDLs into a temporary [seq] array */
-	seq_uidls = i_new(const char *, client->messages_count);
+	seq_uidls = i_new(const char *, client->highest_seq);
 	str = t_str_new(128);
 	while (mailbox_search_next(search_ctx, &mail)) {
 		str_truncate(str, 0);
@@ -811,6 +811,7 @@ static void client_uidls_save(struct client *client)
 		if (client->set->pop3_save_uidl && !permanent_uidl)
 			mail_update_pop3_uidl(mail, uidl);
 
+		i_assert(mail->seq <= client->highest_seq);
 		seq_uidls[mail->seq-1] = uidl;
 		if (uidl_duplicates_rename)
 			hash_table_insert(prev_uidls, uidl, POINTER_CAST(1));

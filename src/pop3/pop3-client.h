@@ -69,6 +69,7 @@ struct client {
 
 	/* All sequences currently visible in the mailbox. */
 	ARRAY_TYPE(seq_range) all_seqs;
+	uint32_t highest_seq;
 
 	/* [msgnum] contains mail seq. anything after it has seq = msgnum+1 */
 	uint32_t *msgnum_to_seq_map;

@@ -193,6 +193,8 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 		if ((mail_get_flags(mail) & MAIL_SEEN) != 0)
 			client->last_seen_pop3_msn = msgnum + 1;
 		client->total_size += size;
+		if (client->highest_seq < mail->seq)
+			client->highest_seq = mail->seq;
 
 		array_append(&message_sizes, &size, 1);
 		msgnum++;
