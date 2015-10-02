@@ -25,6 +25,7 @@
 /* Default values. */
 static const char *const default_events[] = { "MessageNew", NULL };
 static const char *const default_mboxes[] = { "INBOX", NULL };
+#define DEFAULT_CACHE_LIFETIME 60
 
 
 /* This is data that is shared by all plugin users. */
@@ -38,6 +39,8 @@ static struct push_notification_driver_ox_global *ox_global = NULL;
 struct push_notification_driver_ox_config {
     struct http_url *http_url;
     const char *cached_ox_metadata;
+    unsigned int cached_ox_metadata_lifetime;
+    time_t cached_ox_metadata_timestamp;
     bool use_unsafe_username;
 };
 
@@ -65,27 +68,37 @@ push_notification_driver_ox_init(struct push_notification_driver_config *config,
                                  void **context, const char **error_r)
 {
     struct push_notification_driver_ox_config *dconfig;
-    const char *error, *url;
+    const char *error, *tmp;
 
-    /* Valid config keys: url */
-    url = hash_table_lookup(config->config, (const char *)"url");
-    if (url == NULL) {
+    /* Valid config keys: cache_lifetime, url */
+    tmp = hash_table_lookup(config->config, (const char *)"url");
+    if (tmp == NULL) {
         *error_r = OX_LOG_LABEL "Driver requires the url parameter";
         return -1;
     }
 
     dconfig = p_new(pool, struct push_notification_driver_ox_config, 1);
 
-    if (http_url_parse(url, NULL, HTTP_URL_ALLOW_USERINFO_PART, pool,
+    if (http_url_parse(tmp, NULL, HTTP_URL_ALLOW_USERINFO_PART, pool,
                        &dconfig->http_url, &error) < 0) {
         *error_r = t_strdup_printf(OX_LOG_LABEL "Failed to parse OX REST URL %s: %s",
-                                   url, error);
+                                   tmp, error);
         return -1;
     }
     dconfig->use_unsafe_username =
         hash_table_lookup(config->config, (const char *)"user_from_metadata") != NULL;
 
-    push_notification_driver_debug(OX_LOG_LABEL, user, "Using URL %s", url);
+    push_notification_driver_debug(OX_LOG_LABEL, user, "Using URL %s", tmp);
+
+    tmp = hash_table_lookup(config->config, (const char *)"cache_lifetime");
+    if ((tmp == NULL) ||
+        (str_to_uint(tmp, &dconfig->cached_ox_metadata_lifetime) < 0)) {
+        dconfig->cached_ox_metadata_lifetime = DEFAULT_CACHE_LIFETIME;
+    }
+
+    push_notification_driver_debug(OX_LOG_LABEL, user,
+                                   "Using cache lifetime: %u",
+                                   dconfig->cached_ox_metadata_lifetime);
 
     if (ox_global == NULL) {
         ox_global = i_new(struct push_notification_driver_ox_global, 1);
@@ -109,8 +122,10 @@ static const char *push_notification_driver_ox_get_metadata
     bool success = FALSE, use_existing_txn = FALSE;
     int ret;
 
-    if (dconfig->cached_ox_metadata != NULL)
+    if ((dconfig->cached_ox_metadata != NULL) &&
+        ((dconfig->cached_ox_metadata_timestamp + dconfig->cached_ox_metadata_lifetime) > ioloop_time)) {
         return dconfig->cached_ox_metadata;
+    }
 
     /* Get canonical INBOX, where private server-level metadata is stored.
      * See imap/cmd-getmetadata.c */
@@ -156,6 +171,8 @@ static const char *push_notification_driver_ox_get_metadata
 
     dconfig->cached_ox_metadata =
         p_strdup(dtxn->ptxn->muser->pool, attr.value);
+    dconfig->cached_ox_metadata_timestamp = ioloop_time;
+
     return (success == TRUE) ? attr.value : NULL;
 }
 
