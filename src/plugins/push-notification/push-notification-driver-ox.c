@@ -168,12 +168,14 @@ static const char *push_notification_driver_ox_get_metadata
     if (!use_existing_txn) {
         mailbox_free(&inbox);
     }
+    if (!success)
+	    return NULL;
 
     dconfig->cached_ox_metadata =
         p_strdup(dtxn->ptxn->muser->pool, attr.value);
     dconfig->cached_ox_metadata_timestamp = ioloop_time;
 
-    return (success == TRUE) ? attr.value : NULL;
+    return dconfig->cached_ox_metadata;
 }
 
 static bool push_notification_driver_ox_begin_txn
