@@ -1,5 +1,10 @@
-v2.2.19 2015-09-xx  Timo Sirainen <tss@iki.fi>
+v2.2.19 2015-10-02  Timo Sirainen <tss@iki.fi>
 
+	* pop3_deleted_flag has been broken since v2.2.10. Using it would
+	  cause buffer overflows, which could be exploitable. However, this
+	  bug would have become visible quite soon after users had deleted
+	  some POP3 mails, because the pop3 processes would have started
+	  crashing all the time even in normal use.
 	* "doveadm director flush" command has a changed meaning now:
 	  It safely moves users to their wanted backends, instead of simply
 	  forgetting the mapping entirely and leaving the existing connections
