@@ -6,6 +6,7 @@
 #include "http-url.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "settings-parser.h"
 #include "json-parser.h"
 #include "mailbox-attribute.h"
 #include "mail-storage-private.h"
@@ -25,7 +26,7 @@
 /* Default values. */
 static const char *const default_events[] = { "MessageNew", NULL };
 static const char *const default_mboxes[] = { "INBOX", NULL };
-#define DEFAULT_CACHE_LIFETIME 60
+#define DEFAULT_CACHE_LIFETIME_SECS 60
 #define DEFAULT_TIMEOUT_MSECS 2000
 #define DEFAULT_RETRY_COUNT 1
 
@@ -39,7 +40,7 @@ static struct push_notification_driver_ox_global *ox_global = NULL;
 /* This is data specific to an OX driver. */
 struct push_notification_driver_ox_config {
     struct http_url *http_url;
-    unsigned int cached_ox_metadata_lifetime;
+    unsigned int cached_ox_metadata_lifetime_secs;
     bool use_unsafe_username;
     unsigned int http_max_retries;
     unsigned int http_timeout_msecs;
@@ -100,9 +101,12 @@ push_notification_driver_ox_init(struct push_notification_driver_config *config,
     push_notification_driver_debug(OX_LOG_LABEL, user, "Using URL %s", tmp);
 
     tmp = hash_table_lookup(config->config, (const char *)"cache_lifetime");
-    if ((tmp == NULL) ||
-        (str_to_uint(tmp, &dconfig->cached_ox_metadata_lifetime) < 0)) {
-        dconfig->cached_ox_metadata_lifetime = DEFAULT_CACHE_LIFETIME;
+    if (tmp == NULL)
+        dconfig->cached_ox_metadata_lifetime_secs = DEFAULT_CACHE_LIFETIME_SECS;
+    else if (settings_get_time(tmp, &dconfig->cached_ox_metadata_lifetime_secs, &error) < 0) {
+        *error_r = t_strdup_printf(OX_LOG_LABEL "Failed to parse OX cache_lifetime %s: %s",
+                                   tmp, error);
+        return -1;
     }
 
     tmp = hash_table_lookup(config->config, (const char *)"max_retries");
@@ -118,7 +122,7 @@ push_notification_driver_ox_init(struct push_notification_driver_config *config,
 
     push_notification_driver_debug(OX_LOG_LABEL, user,
                                    "Using cache lifetime: %u",
-                                   dconfig->cached_ox_metadata_lifetime);
+                                   dconfig->cached_ox_metadata_lifetime_secs);
 
     if (ox_global == NULL) {
         ox_global = i_new(struct push_notification_driver_ox_global, 1);
@@ -143,7 +147,8 @@ static const char *push_notification_driver_ox_get_metadata
     int ret;
 
     if ((dconfig->cached_ox_metadata != NULL) &&
-        ((dconfig->cached_ox_metadata_timestamp + (time_t)dconfig->cached_ox_metadata_lifetime) > ioloop_time)) {
+        ((dconfig->cached_ox_metadata_timestamp +
+          	(time_t)dconfig->cached_ox_metadata_lifetime_secs) > ioloop_time)) {
         return dconfig->cached_ox_metadata;
     }
 
