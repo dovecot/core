@@ -38,7 +38,7 @@ static struct push_notification_driver_ox_global *ox_global = NULL;
 /* This is data specific to an OX driver. */
 struct push_notification_driver_ox_config {
     struct http_url *http_url;
-    const char *cached_ox_metadata;
+    char *cached_ox_metadata;
     unsigned int cached_ox_metadata_lifetime;
     time_t cached_ox_metadata_timestamp;
     bool use_unsafe_username;
@@ -171,8 +171,8 @@ static const char *push_notification_driver_ox_get_metadata
     if (!success)
 	    return NULL;
 
-    dconfig->cached_ox_metadata =
-        p_strdup(dtxn->ptxn->muser->pool, attr.value);
+    i_free(dconfig->cached_ox_metadata);
+    dconfig->cached_ox_metadata = i_strdup(attr.value);
     dconfig->cached_ox_metadata_timestamp = ioloop_time;
 
     return dconfig->cached_ox_metadata;
@@ -355,6 +355,9 @@ static void push_notification_driver_ox_process_msg
 static void push_notification_driver_ox_deinit
 (struct push_notification_driver_user *duser ATTR_UNUSED)
 {
+    struct push_notification_driver_ox_config *dconfig = duser->context;
+
+    i_free(dconfig->cached_ox_metadata);
     if (ox_global != NULL) {
         i_assert(ox_global->refcount > 0);
         --ox_global->refcount;
