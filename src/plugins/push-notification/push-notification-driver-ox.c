@@ -143,7 +143,7 @@ static const char *push_notification_driver_ox_get_metadata
     int ret;
 
     if ((dconfig->cached_ox_metadata != NULL) &&
-        ((dconfig->cached_ox_metadata_timestamp + dconfig->cached_ox_metadata_lifetime) > ioloop_time)) {
+        ((dconfig->cached_ox_metadata_timestamp + (time_t)dconfig->cached_ox_metadata_lifetime) > ioloop_time)) {
         return dconfig->cached_ox_metadata;
     }
 
