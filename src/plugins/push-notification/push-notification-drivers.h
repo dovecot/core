@@ -70,7 +70,6 @@ struct push_notification_driver_txn {
 
 struct push_notification_driver_list {
     ARRAY(struct push_notification_driver_user *) drivers;
-    pool_t pool;
 };
 
 struct push_notification_user {

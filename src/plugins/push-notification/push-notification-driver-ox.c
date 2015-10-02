@@ -155,7 +155,7 @@ static const char *push_notification_driver_ox_get_metadata
     }
 
     dconfig->cached_ox_metadata =
-        p_strdup(dtxn->ptxn->puser->driverlist->pool, attr.value);
+        p_strdup(dtxn->ptxn->muser->pool, attr.value);
     return (success == TRUE) ? attr.value : NULL;
 }
 

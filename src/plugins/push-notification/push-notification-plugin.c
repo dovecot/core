@@ -26,9 +26,6 @@ static MODULE_CONTEXT_DEFINE_INIT(push_notification_user_module,
                                   &mail_user_module_register);
 
 
-static struct push_notification_driver_list *dlist = NULL;
-
-
 static void
 push_notification_transaction_init(struct push_notification_txn *ptxn)
 {
@@ -235,7 +232,7 @@ push_notification_config_init(const char *config_name,
             break;
         }
 
-        if (push_notification_driver_init(user, env, dlist->pool, &duser) < 0) {
+        if (push_notification_driver_init(user, env, user->pool, &duser) < 0) {
             break;
         }
 
@@ -247,16 +244,13 @@ push_notification_config_init(const char *config_name,
     }
 }
 
-static void push_notification_driver_list_init(struct mail_user *user)
+static struct push_notification_driver_list *
+push_notification_driver_list_init(struct mail_user *user)
 {
-    pool_t pool;
+    struct push_notification_driver_list *dlist;
 
-    pool = pool_alloconly_create("push notification plugin", 1024);
-
-    dlist = p_new(pool, struct push_notification_driver_list, 1);
-    dlist->pool = pool;
-
-    p_array_init(&dlist->drivers, pool, 4);
+    dlist = p_new(user->pool, struct push_notification_driver_list, 1);
+    p_array_init(&dlist->drivers, user->pool, 4);
 
     push_notification_config_init(PUSH_NOTIFICATION_CONFIG, user, dlist);
 
@@ -266,18 +260,37 @@ static void push_notification_driver_list_init(struct mail_user *user)
         push_notification_config_init(PUSH_NOTIFICATION_CONFIG_OLD, user,
                                       dlist);
     }
+    return dlist;
+}
+
+static void push_notification_user_deinit(struct mail_user *user)
+{
+    struct push_notification_user *puser = PUSH_NOTIFICATION_USER_CONTEXT(user);
+    struct push_notification_driver_list *dlist = puser->driverlist;
+    struct push_notification_driver_user **duser;
+
+    array_foreach_modifiable(&dlist->drivers, duser) {
+        if ((*duser)->driver->v.deinit != NULL) {
+            (*duser)->driver->v.deinit(*duser);
+        }
+
+        if ((*duser)->driver->v.cleanup != NULL) {
+            (*duser)->driver->v.cleanup();
+        }
+    }
+    puser->module_ctx.super.deinit(user);
 }
 
 static void push_notification_user_created(struct mail_user *user)
 {
+    struct mail_user_vfuncs *v = user->vlast;
     struct push_notification_user *puser;
 
-    if (dlist == NULL) {
-        push_notification_driver_list_init(user);
-    }
-
     puser = p_new(user->pool, struct push_notification_user, 1);
-    puser->driverlist = dlist;
+    puser->module_ctx.super = *v;
+    user->vlast = &puser->module_ctx.super;
+    v->deinit = push_notification_user_deinit;
+    puser->driverlist = push_notification_driver_list_init(user);
 
     MODULE_CONTEXT_SET(user, push_notification_user_module, puser);
 }
@@ -328,23 +341,6 @@ void push_notification_plugin_init(struct module *module)
 
 void push_notification_plugin_deinit(void)
 {
-    struct push_notification_driver_user **duser;
-
-    if (dlist != NULL) {
-        array_foreach_modifiable(&dlist->drivers, duser) {
-            if ((*duser)->driver->v.deinit != NULL) {
-                (*duser)->driver->v.deinit(*duser);
-            }
-
-            if ((*duser)->driver->v.cleanup != NULL) {
-                (*duser)->driver->v.cleanup();
-            }
-        }
-
-        array_free(&dlist->drivers);
-        pool_unref(&dlist->pool);
-    }
-
     push_notification_driver_unregister(&push_notification_driver_dlog);
     push_notification_driver_unregister(&push_notification_driver_ox);
 
