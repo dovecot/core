@@ -66,9 +66,12 @@ push_notification_driver_parse_config(const char *p)
         p2 = strchr(*args, '=');
         if (p2 != NULL) {
             key = t_strdup_until(*args, p2);
-            value = t_strdup(p2 + 1);
-            hash_table_insert(config->config, key, value);
-        }
+	    value = t_strdup(p2 + 1);
+	} else {
+	    key = *args;
+	    value = "";
+	}
+	hash_table_insert(config->config, key, value);
     }
 
     return config;
