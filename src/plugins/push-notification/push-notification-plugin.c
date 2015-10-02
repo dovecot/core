@@ -215,8 +215,8 @@ static void push_notification_transaction_rollback(void *txn)
 
 static void
 push_notification_config_init(const char *config_name,
-                                           struct mail_user *user,
-                                           struct push_notification_driver_list *dlist)
+                              struct mail_user *user,
+                              struct push_notification_driver_list *dlist)
 {
     struct push_notification_driver_user *duser;
     const char *env;
