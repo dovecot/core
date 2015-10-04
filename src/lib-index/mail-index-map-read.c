@@ -385,11 +385,8 @@ static int mail_index_map_latest_file(struct mail_index *index)
 	i_assert(new_map->rec_map->records != NULL);
 
 	index->last_read_log_file_seq = new_map->hdr.log_file_seq;
-	index->last_read_log_file_head_offset =
-		new_map->hdr.log_file_head_offset;
 	index->last_read_log_file_tail_offset =
 		new_map->hdr.log_file_tail_offset;
-	index->last_read_stat = st;
 
 	mail_index_unmap(&index->map);
 	index->map = new_map;

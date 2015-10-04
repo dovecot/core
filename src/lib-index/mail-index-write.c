@@ -149,6 +149,5 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 	}
 
 	index->last_read_log_file_seq = hdr->log_file_seq;
-	index->last_read_log_file_head_offset = hdr->log_file_head_offset;
 	index->last_read_log_file_tail_offset = hdr->log_file_tail_offset;
 }

@@ -188,12 +188,9 @@ struct mail_index {
 
 	/* last_read_log_file_* contains the seq/offsets we last read from
 	   the main index file's headers. these are used to figure out when
-	   the main index file should be updated, and if we can update it
-	   by writing on top of it or if we need to recreate it. */
+	   the main index file should be updated. */
 	uint32_t last_read_log_file_seq;
-	uint32_t last_read_log_file_head_offset;
 	uint32_t last_read_log_file_tail_offset;
-	struct stat last_read_stat;
 
 	/* transaction log head seq/offset when we last fscked */
 	uint32_t fsck_log_head_file_seq;
