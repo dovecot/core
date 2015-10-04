@@ -797,9 +797,12 @@ static bool mail_index_sync_want_index_write(struct mail_index *index)
 {
 	uint32_t log_diff;
 
-	if (index->last_read_log_file_seq != index->map->hdr.log_file_seq) {
-		/* we recently just rotated the log and rewrote index */
-		return FALSE;
+	if (index->last_read_log_file_seq != 0 &&
+	    index->last_read_log_file_seq != index->map->hdr.log_file_seq) {
+		/* dovecot.index points to an old .log file. we were supposed
+		   to rewrite the dovecot.index when rotating the log, so
+		   we shouldn't usually get here. */
+		return TRUE;
 	}
 
 	log_diff = index->map->hdr.log_file_tail_offset -
