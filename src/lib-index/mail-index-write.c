@@ -118,12 +118,28 @@ static int mail_index_recreate(struct mail_index *index)
 void mail_index_write(struct mail_index *index, bool want_rotate)
 {
 	struct mail_index_map *map = index->map;
-	const struct mail_index_header *hdr = &map->hdr;
+	struct mail_index_header *hdr = &map->hdr;
 
 	i_assert(index->log_sync_locked);
 
 	if (index->readonly)
 		return;
+
+	/* rotate the .log before writing index, so the index will point to
+	   the latest log. */
+	if (want_rotate &&
+	    hdr->log_file_seq == index->log->head->hdr.file_seq &&
+	    hdr->log_file_tail_offset == hdr->log_file_head_offset) {
+		if (mail_transaction_log_rotate(index->log, FALSE) == 0) {
+			struct mail_transaction_log_file *file =
+				index->log->head;
+			i_assert(file->hdr.prev_file_seq == hdr->log_file_seq);
+			i_assert(file->hdr.prev_file_offset == hdr->log_file_head_offset);
+			hdr->log_file_seq = file->hdr.file_seq;
+			hdr->log_file_head_offset =
+				hdr->log_file_tail_offset = file->hdr.hdr_size;
+		}
+	}
 
 	if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
 		if (mail_index_recreate(index) < 0) {
@@ -135,9 +151,4 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 	index->last_read_log_file_seq = hdr->log_file_seq;
 	index->last_read_log_file_head_offset = hdr->log_file_head_offset;
 	index->last_read_log_file_tail_offset = hdr->log_file_tail_offset;
-
-	if (want_rotate &&
-	    hdr->log_file_seq == index->log->head->hdr.file_seq &&
-	    hdr->log_file_tail_offset == hdr->log_file_head_offset)
-		(void)mail_transaction_log_rotate(index->log, FALSE);
 }
