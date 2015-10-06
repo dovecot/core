@@ -392,7 +392,7 @@ http_istream_error_callback(const struct istream_sized_error_data *data,
 	i_assert(data->eof);
 	i_assert(data->v_offset + data->new_bytes < data->wanted_size);
 
-	return t_strdup_printf("Disconnected from server at offset %"PRIuUOFF_T
+	return t_strdup_printf("Disconnected while reading response payload at offset %"PRIuUOFF_T
 		" (wanted %"PRIuUOFF_T"): %s", data->v_offset + data->new_bytes,
 		data->wanted_size, io_stream_get_disconnect_reason(input, NULL));
 }
