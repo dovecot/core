@@ -916,6 +916,7 @@ static int http_client_request_send_real(struct http_client_request *req,
 			}
 		} else {
 			req->state = HTTP_REQUEST_STATE_WAITING;
+			http_client_connection_start_request_timeout(req->conn);
 			conn->output_locked = FALSE;
 		}
 		if (ret >= 0 && o_stream_flush(output) < 0) {
