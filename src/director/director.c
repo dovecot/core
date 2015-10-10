@@ -314,6 +314,7 @@ void director_set_ring_synced(struct director *dir)
 		timeout_remove(&dir->to_sync);
 	dir->ring_synced = TRUE;
 	dir->ring_last_sync_time = ioloop_time;
+	mail_hosts_set_synced(dir->mail_hosts);
 	director_set_state_changed(dir);
 }
 
@@ -548,6 +549,8 @@ void director_update_host(struct director *dir, struct director_host *src,
 	}
 	str_append_c(str, '\n');
 	director_update_send(dir, src, str_c(str));
+
+	host->desynced = TRUE;
 	director_sync(dir);
 }
 

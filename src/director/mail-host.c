@@ -388,6 +388,14 @@ mail_host_get_by_hash(struct mail_host_list *list, unsigned int hash,
 		return mail_host_get_by_hash_direct(list, hash, tag);
 }
 
+void mail_hosts_set_synced(struct mail_host_list *list)
+{
+	struct mail_host *const *hostp;
+
+	array_foreach(&list->hosts, hostp)
+		(*hostp)->desynced = FALSE;
+}
+
 bool mail_hosts_have_usable(struct mail_host_list *list)
 {
 	if (list->hosts_unsorted)

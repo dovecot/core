@@ -842,6 +842,7 @@ static bool ATTR_NULL(3)
 director_cmd_host_int(struct director_connection *conn, const char *const *args,
 		      struct director_host *dir_host)
 {
+	struct director_host *src_host = conn->host;
 	struct mail_host *host;
 	struct ip_addr ip;
 	const char *tag = "";
@@ -889,6 +890,23 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 			mail_host_set_tag(host, tag);
 			update = TRUE;
 		}
+		if (update && host->desynced) {
+			vhost_count = I_MIN(vhost_count, host->vhost_count);
+			if (host->down != down) {
+				if (host->last_updown_change <= last_updown_change)
+					down = host->last_updown_change;
+			}
+			last_updown_change = I_MAX(last_updown_change,
+						   host->last_updown_change);
+			i_warning("director(%s): Host %s is being updated before previous update had finished - "
+				  "setting to state=%s vhosts=%u",
+				  conn->name, net_ip2addr(&host->ip),
+				  down ? "down" : "up", vhost_count);
+			/* make the change appear to come from us, so it
+			   reaches the full ring */
+			dir_host = NULL;
+			src_host = conn->dir->self_host;
+		}
 	}
 
 	if (update) {
@@ -896,7 +914,7 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 				   down, last_updown_change);
 		mail_host_set_vhost_count(conn->dir->mail_hosts,
 					  host, vhost_count);
-		director_update_host(conn->dir, conn->host, dir_host, host);
+		director_update_host(conn->dir, src_host, dir_host, host);
 	}
 	return TRUE;
 }
