@@ -1320,23 +1320,22 @@ static bool director_connection_sync(struct director_connection *conn,
 	struct director_host *host;
 	struct ip_addr ip;
 	in_port_t port;
-	unsigned int seq, minor_version = 0, timestamp = ioloop_time;
+	unsigned int arg_count, seq, minor_version = 0, timestamp = ioloop_time;
 
-	if (str_array_length(args) < 3 ||
+	arg_count = str_array_length(args);
+	if (arg_count < 3 ||
 	    !director_args_parse_ip_port(conn, args, &ip, &port) ||
 	    str_to_uint(args[2], &seq) < 0) {
 		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
-	if (args[3] != NULL) {
-		if (str_to_uint(args[3], &minor_version) < 0) {
-			director_cmd_error(conn, "Invalid parameters");
-			return FALSE;
-		}
-		if (args[4] != NULL && str_to_uint(args[4], &timestamp) < 0) {
-			director_cmd_error(conn, "Invalid parameters");
-			return FALSE;
-		}
+	if (arg_count >= 4 && str_to_uint(args[3], &minor_version) < 0) {
+		director_cmd_error(conn, "Invalid parameters");
+		return FALSE;
+	}
+	if (arg_count >= 5 && str_to_uint(args[4], &timestamp) < 0) {
+		director_cmd_error(conn, "Invalid parameters");
+		return FALSE;
 	}
 
 	/* find the originating director. if we don't see it, it was already
