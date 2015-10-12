@@ -219,6 +219,7 @@ director_request_existing(struct director_request *request, struct user *user,
 	if (user->host == host) {
 		/* doesn't matter, other directors would
 		   assign the user the same way regardless */
+		dir_debug("request: %u would be weak, but host doesn't change", request->username_hash);
 		return TRUE;
 	}
 
