@@ -78,6 +78,7 @@
    valid received SYNC timestamp, assume that we lost the director's restart
    notification and reset the last_sync_seq */
 #define DIRECTOR_SYNC_STALE_TIMESTAMP_RESET_SECS (60*2)
+#define DIRECTOR_MAX_CLOCK_DIFF_WARN_SECS 1
 
 #if DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS <= DIRECTOR_CONNECTION_PING_TIMEOUT_MSECS
 #  error DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS is too low
@@ -387,6 +388,22 @@ static bool director_cmd_me(struct director_connection *conn,
 		return FALSE;
 	}
 	conn->me_received = TRUE;
+
+	if (args[2] != NULL) {
+		time_t remote_time;
+		int diff;
+
+		if (str_to_time(args[2], &remote_time) < 0) {
+			director_cmd_error(conn, "Invalid ME timestamp");
+			return FALSE;
+		}
+		diff = ioloop_time - remote_time;
+		if (diff > DIRECTOR_MAX_CLOCK_DIFF_WARN_SECS ||
+		    (diff < 0 && -diff > DIRECTOR_MAX_CLOCK_DIFF_WARN_SECS)) {
+			i_warning("Director %s clock differs from ours by %d secs",
+				  conn->name, diff);
+		}
+	}
 
 	timeout_remove(&conn->to_ping);
 	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS,
@@ -1799,9 +1816,10 @@ static void director_connection_send_handshake(struct director_connection *conn)
 {
 	director_connection_send(conn, t_strdup_printf(
 		"VERSION\t"DIRECTOR_VERSION_NAME"\t%u\t%u\n"
-		"ME\t%s\t%u\n",
+		"ME\t%s\t%u\t%lld\n",
 		DIRECTOR_VERSION_MAJOR, DIRECTOR_VERSION_MINOR,
-		net_ip2addr(&conn->dir->self_ip), conn->dir->self_port));
+		net_ip2addr(&conn->dir->self_ip), conn->dir->self_port,
+		(long long)time(NULL)));
 }
 
 struct director_connection *
