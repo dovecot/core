@@ -308,8 +308,9 @@ bool director_request_continue(struct director_request *request)
 		}
 		user = user_directory_add(dir->users, request->username_hash,
 					  host, ioloop_time);
-		dir_debug("request: %u added timeout to %u",
-			  request->username_hash, user->timestamp);
+		dir_debug("request: %u added timeout to %u (hosts_hash=%u)",
+			  request->username_hash, user->timestamp,
+			  mail_hosts_hash(dir->mail_hosts));
 	}
 
 	i_assert(!user->weak);

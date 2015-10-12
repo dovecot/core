@@ -882,7 +882,7 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 		update = host->vhost_count != vhost_count ||
 			host->down != down ||
 			host->last_updown_change != last_updown_change;
-;
+
 		if (strcmp(tag, host->tag) != 0) {
 			i_error("director(%s): Host %s changed tag from '%s' to '%s'",
 				conn->name, net_ip2addr(&host->ip),
@@ -915,6 +915,12 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 		mail_host_set_vhost_count(conn->dir->mail_hosts,
 					  host, vhost_count);
 		director_update_host(conn->dir, src_host, dir_host, host);
+	} else {
+		dir_debug("Ignoring host %s update vhost_count=%u "
+			  "down=%d last_updown_change=%ld (hosts_hash=%u)",
+			  net_ip2addr(&ip), vhost_count, down,
+			  (long)last_updown_change,
+			  mail_hosts_hash(conn->dir->mail_hosts));
 	}
 	return TRUE;
 }
@@ -1263,8 +1269,9 @@ director_connection_sync_host(struct director_connection *conn,
 			/* duplicate SYNC (which was sent just in case the
 			   previous one got lost) */
 		} else {
-			dir_debug("Ring is synced (%s sent seq=%u)",
-				  conn->name, seq);
+			dir_debug("Ring is synced (%s sent seq=%u, hosts_hash=%u)",
+				  conn->name, seq,
+				  mail_hosts_hash(dir->mail_hosts));
 			director_set_ring_synced(dir);
 		}
 	} else {

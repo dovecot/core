@@ -289,8 +289,9 @@ void director_set_ring_synced(struct director *dir)
 		timeout_remove(&dir->to_handshake_warning);
 	if (dir->ring_handshake_warning_sent) {
 		i_warning("Ring is synced, continuing delayed requests "
-			  "(syncing took %d secs)",
-			  (int)(ioloop_time - dir->ring_last_sync_time));
+			  "(syncing took %d secs, hosts_hash=%u)",
+			  (int)(ioloop_time - dir->ring_last_sync_time),
+			  mail_hosts_hash(dir->mail_hosts));
 		dir->ring_handshake_warning_sent = FALSE;
 	}
 
@@ -522,6 +523,12 @@ void director_update_host(struct director *dir, struct director_host *src,
 
 	/* update state in case this is the first mail host being added */
 	director_set_state_changed(dir);
+
+	dir_debug("Updating host %s vhost_count=%u "
+		  "down=%d last_updown_change=%ld (hosts_hash=%u)",
+		  net_ip2addr(&host->ip), host->vhost_count, host->down,
+		  (long)host->last_updown_change,
+		  mail_hosts_hash(dir->mail_hosts));
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
