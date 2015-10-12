@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "str.h"
 #include "guid.h"
+#include "hex-binary.h"
 #include "base64.h"
 #include "istream.h"
 #include "ostream.h"
@@ -12,6 +13,7 @@
 
 enum fs_dict_value_encoding {
 	FS_DICT_VALUE_ENCODING_RAW,
+	FS_DICT_VALUE_ENCODING_HEX,
 	FS_DICT_VALUE_ENCODING_BASE64
 };
 
@@ -58,6 +60,8 @@ fs_dict_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 	encoding_str = t_strdup_until(args, p++);
 	if (strcmp(encoding_str, "raw") == 0)
 		fs->encoding = FS_DICT_VALUE_ENCODING_RAW;
+	else if (strcmp(encoding_str, "hex") == 0)
+		fs->encoding = FS_DICT_VALUE_ENCODING_HEX;
 	else if (strcmp(encoding_str, "base64") == 0)
 		fs->encoding = FS_DICT_VALUE_ENCODING_BASE64;
 	else {
@@ -196,6 +200,13 @@ static int fs_dict_write_stream_finish(struct fs_file *_file, bool success)
 	case FS_DICT_VALUE_ENCODING_RAW:
 		dict_set(trans, file->key, str_c(file->write_buffer));
 		break;
+	case FS_DICT_VALUE_ENCODING_HEX: {
+		string_t *hex = t_str_new(file->write_buffer->used * 2 + 1);
+		binary_to_hex_append(hex, file->write_buffer->data,
+				     file->write_buffer->used);
+		dict_set(trans, file->key, str_c(hex));
+		break;
+	}
 	case FS_DICT_VALUE_ENCODING_BASE64: {
 		const unsigned int base64_size =
 			MAX_BASE64_ENCODED_SIZE(file->write_buffer->used);
